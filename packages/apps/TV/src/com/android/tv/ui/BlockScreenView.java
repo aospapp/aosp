@@ -22,6 +22,7 @@ import android.animation.AnimatorInflater;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
@@ -180,6 +181,10 @@ public class BlockScreenView extends FrameLayout {
         requestLayout();
     }
 
+    public void setInfoTextOnClickListener(@Nullable OnClickListener onClickListener) {
+        mBlockingInfoTextView.setOnClickListener(onClickListener);
+    }
+
     /** Changes the view layout according to the {@code blockScreenType}. */
     public void onBlockStatusChanged(@BlockScreenType int blockScreenType, boolean withAnimation) {
         if (!withAnimation) {
@@ -251,5 +256,9 @@ public class BlockScreenView extends FrameLayout {
         if (mInfoFadeOut != null && mInfoFadeOut.isRunning()) {
             mInfoFadeOut.end();
         }
+    }
+
+    public void setInfoTextClickable(boolean clickable) {
+        mBlockingInfoTextView.setClickable(clickable);
     }
 }

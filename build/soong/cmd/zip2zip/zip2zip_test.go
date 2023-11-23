@@ -26,13 +26,16 @@ import (
 var testCases = []struct {
 	name string
 
-	inputFiles []string
-	sortGlobs  bool
-	sortJava   bool
-	args       []string
-	excludes   []string
+	inputFiles   []string
+	sortGlobs    bool
+	sortJava     bool
+	args         []string
+	excludes     []string
+	includes     []string
+	uncompresses []string
 
 	outputFiles []string
+	storedFiles []string
 	err         error
 }{
 	{
@@ -226,7 +229,7 @@ var testCases = []struct {
 		},
 	},
 	{
-		name: "excludes with include",
+		name: "excludes with args",
 
 		inputFiles: []string{
 			"a/a",
@@ -240,6 +243,31 @@ var testCases = []struct {
 		},
 	},
 	{
+		name: "excludes over args",
+
+		inputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		args:     []string{"a/a"},
+		excludes: []string{"a/*"},
+
+		outputFiles: nil,
+	},
+	{
+		name: "excludes with includes",
+
+		inputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		args:     nil,
+		excludes: []string{"a/*"},
+		includes: []string{"a/b"},
+
+		outputFiles: []string{"a/b"},
+	},
+	{
 		name: "excludes with glob",
 
 		inputFiles: []string{
@@ -250,6 +278,133 @@ var testCases = []struct {
 		excludes: []string{"a/*"},
 
 		outputFiles: nil,
+	},
+	{
+		name: "uncompress one",
+
+		inputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		uncompresses: []string{"a/a"},
+
+		outputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		storedFiles: []string{
+			"a/a",
+		},
+	},
+	{
+		name: "uncompress two",
+
+		inputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		uncompresses: []string{"a/a", "a/b"},
+
+		outputFiles: []string{
+			"a/a",
+			"a/b",
+		},
+		storedFiles: []string{
+			"a/a",
+			"a/b",
+		},
+	},
+	{
+		name: "uncompress glob",
+
+		inputFiles: []string{
+			"a/a",
+			"a/b",
+			"a/c.so",
+			"a/d.so",
+		},
+		uncompresses: []string{"a/*.so"},
+
+		outputFiles: []string{
+			"a/a",
+			"a/b",
+			"a/c.so",
+			"a/d.so",
+		},
+		storedFiles: []string{
+			"a/c.so",
+			"a/d.so",
+		},
+	},
+	{
+		name: "uncompress rename",
+
+		inputFiles: []string{
+			"a/a",
+		},
+		args:         []string{"a/a:a/b"},
+		uncompresses: []string{"a/b"},
+
+		outputFiles: []string{
+			"a/b",
+		},
+		storedFiles: []string{
+			"a/b",
+		},
+	},
+	{
+		name: "recursive glob",
+
+		inputFiles: []string{
+			"a/a/a",
+			"a/a/b",
+		},
+		args: []string{"a/**/*:b"},
+		outputFiles: []string{
+			"b/a/a",
+			"b/a/b",
+		},
+	},
+	{
+		name: "glob",
+
+		inputFiles: []string{
+			"a/a/a",
+			"a/a/b",
+			"a/b",
+			"a/c",
+		},
+		args: []string{"a/*:b"},
+		outputFiles: []string{
+			"b/b",
+			"b/c",
+		},
+	},
+	{
+		name: "top level glob",
+
+		inputFiles: []string{
+			"a",
+			"b",
+		},
+		args: []string{"*:b"},
+		outputFiles: []string{
+			"b/a",
+			"b/b",
+		},
+	},
+	{
+		name: "multilple glob",
+
+		inputFiles: []string{
+			"a/a/a",
+			"a/a/b",
+		},
+		args: []string{"a/*/*:b"},
+		outputFiles: []string{
+			"b/a/a",
+			"b/a/b",
+		},
 	},
 }
 
@@ -282,7 +437,8 @@ func TestZip2Zip(t *testing.T) {
 			}
 
 			outputWriter := zip.NewWriter(outputBuf)
-			err = zip2zip(inputReader, outputWriter, testCase.sortGlobs, testCase.sortJava, false, testCase.args, testCase.excludes)
+			err = zip2zip(inputReader, outputWriter, testCase.sortGlobs, testCase.sortJava, false,
+				testCase.args, testCase.excludes, testCase.includes, testCase.uncompresses)
 			if errorString(testCase.err) != errorString(err) {
 				t.Fatalf("Unexpected error:\n got: %q\nwant: %q", errorString(err), errorString(testCase.err))
 			}
@@ -294,15 +450,64 @@ func TestZip2Zip(t *testing.T) {
 				t.Fatal(err)
 			}
 			var outputFiles []string
+			var storedFiles []string
 			if len(outputReader.File) > 0 {
 				outputFiles = make([]string, len(outputReader.File))
 				for i, file := range outputReader.File {
 					outputFiles[i] = file.Name
+					if file.Method == zip.Store {
+						storedFiles = append(storedFiles, file.Name)
+					}
 				}
 			}
 
 			if !reflect.DeepEqual(testCase.outputFiles, outputFiles) {
-				t.Fatalf("Output file list does not match:\n got: %v\nwant: %v", outputFiles, testCase.outputFiles)
+				t.Fatalf("Output file list does not match:\nwant: %v\n got: %v", testCase.outputFiles, outputFiles)
+			}
+			if !reflect.DeepEqual(testCase.storedFiles, storedFiles) {
+				t.Fatalf("Stored file list does not match:\nwant: %v\n got: %v", testCase.storedFiles, storedFiles)
+			}
+		})
+	}
+}
+
+func TestConstantPartOfPattern(t *testing.T) {
+	testCases := []struct{ in, out string }{
+		{
+			in:  "",
+			out: "",
+		},
+		{
+			in:  "a",
+			out: "a",
+		},
+		{
+			in:  "*",
+			out: "",
+		},
+		{
+			in:  "a/a",
+			out: "a/a",
+		},
+		{
+			in:  "a/*",
+			out: "a",
+		},
+		{
+			in:  "a/*/a",
+			out: "a",
+		},
+		{
+			in:  "a/**/*",
+			out: "a",
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.in, func(t *testing.T) {
+			got := constantPartOfPattern(test.in)
+			if got != test.out {
+				t.Errorf("want %q, got %q", test.out, got)
 			}
 		})
 	}

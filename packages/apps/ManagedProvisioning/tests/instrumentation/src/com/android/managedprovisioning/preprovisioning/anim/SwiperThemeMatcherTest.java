@@ -16,12 +16,13 @@
 package com.android.managedprovisioning.preprovisioning.anim;
 
 import static android.graphics.Color.parseColor;
-import static android.support.test.InstrumentationRegistry.getTargetContext;
+
+import static androidx.test.InstrumentationRegistry.getTargetContext;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 

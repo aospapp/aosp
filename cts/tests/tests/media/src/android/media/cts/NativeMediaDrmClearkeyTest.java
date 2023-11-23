@@ -46,13 +46,11 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
     private static final int VIDEO_HEIGHT_CENC = 720;
     private static final String ISO_BMFF_VIDEO_MIME_TYPE = "video/avc";
     private static final String ISO_BMFF_AUDIO_MIME_TYPE = "audio/avc";
-    private static final Uri CENC_AUDIO_URL = Uri.parse(
-        "https://storage.googleapis.com/wvmedia/clear/h264/llama/" +
-        "llama_aac_audio.mp4");
+    private static final String CENC_AUDIO_PATH =
+            "/clear/h264/llama/llama_aac_audio.mp4";
 
-    private static final Uri CENC_CLEARKEY_VIDEO_URL = Uri.parse(
-        "https://storage.googleapis.com/wvmedia/clearkey/" +
-        "llama_h264_main_720p_8000.mp4");
+    private static final String CENC_CLEARKEY_VIDEO_PATH =
+            "/clearkey/llama_h264_main_720p_8000.mp4";
 
     private static final int UUID_BYTE_SIZE = 16;
     private static final UUID COMMON_PSSH_SCHEME_UUID =
@@ -144,7 +142,7 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
     public void testPssh() throws Exception {
         // The test uses a canned PSSH that contains the common box UUID.
         assertTrue(testPsshNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID),
-                CENC_CLEARKEY_VIDEO_URL.toString()));
+                Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH).toString()));
     }
 
     public void testQueryKeyStatus() throws Exception {
@@ -175,6 +173,14 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
         value.delete(0, value.length());
         testGetPropertyStringNative(uuidByteArray(CLEARKEY_SCHEME_UUID), "description", value);
         assertEquals("ClearKey CDM", value.toString());
+    }
+
+    public void testPropertyByteArray() throws Exception {
+        if (watchHasNoClearkeySupport()) {
+            return;
+        }
+
+        assertTrue(testPropertyByteArrayNative(uuidByteArray(CLEARKEY_SCHEME_UUID)));
     }
 
     public void testUnknownPropertyString() throws Exception {
@@ -275,6 +281,8 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
     private static native boolean testGetPropertyStringNative(final byte[] uuid,
             final String name, StringBuffer value);
 
+    private static native boolean testPropertyByteArrayNative(final byte[] uuid);
+
     private static native boolean testPsshNative(final byte[] uuid, final String videoUrl);
 
     private static native boolean testQueryKeyStatusNative(final byte[] uuid);
@@ -283,8 +291,8 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
         testClearKeyPlayback(
             COMMON_PSSH_SCHEME_UUID,
             ISO_BMFF_VIDEO_MIME_TYPE,
-            CENC_AUDIO_URL,
-            CENC_CLEARKEY_VIDEO_URL,
+            Uri.parse(Utils.getMediaPath() + CENC_AUDIO_PATH),
+            Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH),
             VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
     }
 
@@ -292,8 +300,9 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerTestBase {
         testClearKeyPlayback(
             CLEARKEY_SCHEME_UUID,
             ISO_BMFF_VIDEO_MIME_TYPE,
-            CENC_AUDIO_URL,
-            CENC_CLEARKEY_VIDEO_URL,
+            Uri.parse(Utils.getMediaPath() + CENC_AUDIO_PATH),
+            Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH),
             VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
     }
 }
+

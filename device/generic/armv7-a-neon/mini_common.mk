@@ -26,6 +26,7 @@ PRODUCT_LOCALES := en_US
 PRODUCT_PACKAGES += \
     Bluetooth \
     FusedLocation \
+    Home \
     InputDevices \
     Keyguard \
     LatinIME \
@@ -34,15 +35,17 @@ PRODUCT_PACKAGES += \
     Provision \
     Settings \
     SystemUI \
+    TelephonyProvider \
     TeleService \
     TestingCamera \
+    UserDictionaryProvider \
     WAPPushManager \
     audio \
     audio.primary.default \
+    cameraserver \
     com.android.future.usb.accessory \
     hostapd \
     wificond \
-    wifilogd \
     librs_jni \
     libvideoeditor_core \
     libvideoeditor_jni \
@@ -56,7 +59,7 @@ PRODUCT_PACKAGES += \
     power.default \
     sdptool \
     vibrator.default \
-    wpa_supplicant.conf
+    wpa_supplicant.conf \
 
 # This is not necessary for mini, but is for mini-emulator as it should
 # be included in platform.zip
@@ -73,10 +76,11 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.carrier=unknown \
+    ro.config.alarm_alert=Alarm_Classic.ogg \
     ro.config.ringtone=Ring_Synth_04.ogg \
-    ro.config.notification_sound=pixiedust.ogg
+    ro.config.notification_sound=pixiedust.ogg \
 
-$(call inherit-product, build/target/product/core_base.mk)
+$(call inherit-product, build/target/product/core_minimal.mk)
 $(call inherit-product-if-exists, frameworks/webview/chromium/chromium.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)

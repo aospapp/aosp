@@ -17,8 +17,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.intent.sender">
 
-    <uses-sdk android:minSdkVersion="19" />
-
     <permission
         android:name="com.android.cts.intent.sender.permission.SAMPLE"
         android:label="Sample Permission" />
@@ -52,7 +50,7 @@
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.intent.sender"
         android:label="Intent Sender CTS Tests" />
 

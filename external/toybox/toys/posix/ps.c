@@ -44,12 +44,12 @@
  * TODO: top: thread support and SMP
  * TODO: pgrep -f only searches the amount of cmdline that fits in toybuf.
 
-USE_PS(NEWTOY(ps, "k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_PS(NEWTOY(ps, "k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO]", TOYFLAG_BIN|TOYFLAG_LOCALE))
 // stayroot because iotop needs root to read other process' proc/$$/io
 // TOP and IOTOP have a large common option block used for common processing,
 // the default values are different but the flags are in the same order.
-USE_TOP(NEWTOY(top, ">0O*" "Hk*o*p*u*s#<1d#=3<1m#n#<1bq[!oO]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
-USE_IOTOP(NEWTOY(iotop, ">0AaKO" "Hk*o*p*u*s#<1=7d#=3<1m#n#<1bq", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_STAYROOT|TOYFLAG_LOCALE))
+USE_TOP(NEWTOY(top, ">0O*" "Hk*o*p*u*s#<1d%<100=3000m#n#<1bq[!oO]", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_IOTOP(NEWTOY(iotop, ">0AaKO" "Hk*o*p*u*s#<1=7d%<100=3000m#n#<1bq", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_STAYROOT|TOYFLAG_LOCALE))
 USE_PGREP(NEWTOY(pgrep, "?cld:u*U*t*s*P*g*G*fnovxL:[-no]", TOYFLAG_USR|TOYFLAG_BIN))
 USE_PKILL(NEWTOY(pkill,    "?Vu*U*t*s*P*g*G*fnovxl:[-no]", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -61,72 +61,28 @@ config PS
 
     List processes.
 
-    Which processes to show (selections may be comma separated lists):
+    Which processes to show (-gGuUpPt selections may be comma separated lists):
 
-    -A	All processes
-    -a	Processes with terminals that aren't session leaders
-    -d	All processes that aren't session leaders
-    -e	Same as -A
-    -g	Belonging to GROUPs
-    -G	Belonging to real GROUPs (before sgid)
-    -p	PIDs (--pid)
-    -P	Parent PIDs (--ppid)
-    -s	In session IDs
-    -t	Attached to selected TTYs
-    -T	Show threads
-    -u	Owned by USERs
-    -U	Owned by real USERs (before suid)
+    -A  All					-a  Has terminal not session leader
+    -d  All but session leaders		-e  Synonym for -A
+    -g  In GROUPs				-G  In real GROUPs (before sgid)
+    -p  PIDs (--pid)			-P  Parent PIDs (--ppid)
+    -s  In session IDs			-t  Attached to selected TTYs
+    -T  Show threads also			-u  Owned by selected USERs
+    -U  Real USERs (before suid)
 
     Output modifiers:
 
-    -k	Sort FIELDs in +increasing or -decreasting order (--sort)
-    -M	Measure field widths (expanding as necessary)
-    -n	Show numeric USER and GROUP
-    -w	Wide output (don't truncate fields)
+    -k  Sort FIELDs (-FIELD to reverse)	-M  Measure/pad future field widths
+    -n  Show numeric USER and GROUP		-w  Wide output (don't truncate fields)
 
-    Which FIELDs to show. (Default = -o PID,TTY,TIME,CMD)
+    Which FIELDs to show. (-o HELP for list, default = -o PID,TTY,TIME,CMD)
 
-    -f	Full listing (-o USER:12=UID,PID,PPID,C,STIME,TTY,TIME,ARGS=CMD)
-    -l	Long listing (-o F,S,UID,PID,PPID,C,PRI,NI,ADDR,SZ,WCHAN,TTY,TIME,CMD)
-    -o	Output FIELDs instead of defaults, each with optional :size and =title
-    -O	Add FIELDS to defaults
-    -Z	Include LABEL
-
-    Command line -o fields:
-
-      ARGS     CMDLINE minus initial path     CMD  Command (thread) name (stat[2])
-      CMDLINE  Command line (argv[])          COMM Command filename (/proc/$PID/exe)
-      COMMAND  Command file (/proc/$PID/exe)  NAME Process name (argv[0] of $PID)
-
-    Process attribute -o FIELDs:
-
-      ADDR  Instruction pointer               BIT   Is this process 32 or 64 bits
-      CPU   Which processor running on        ETIME   Elapsed time since PID start
-      F     Flags (1=FORKNOEXEC 4=SUPERPRIV)  GID     Group id
-      GROUP Group name                        LABEL   Security label
-      MAJFL Major page faults                 MINFL   Minor page faults
-      NI    Niceness (lower is faster)
-      PCPU  Percentage of CPU time used       PCY     Android scheduling policy
-      PGID  Process Group ID
-      PID   Process ID                        PPID    Parent Process ID
-      PRI   Priority (higher is faster)       PSR     Processor last executed on
-      RGID  Real (before sgid) group ID       RGROUP  Real (before sgid) group name
-      RSS   Resident Set Size (pages in use)  RTPRIO  Realtime priority
-      RUID  Real (before suid) user ID        RUSER   Real (before suid) user name
-      S     Process state:
-            R (running) S (sleeping) D (device I/O) T (stopped)  t (traced)
-            Z (zombie)  X (deader)   x (dead)       K (wakekill) W (waking)
-      SCHED Scheduling policy (0=other, 1=fifo, 2=rr, 3=batch, 4=iso, 5=idle)
-      STAT  Process state (S) plus:
-            < high priority          N low priority L locked memory
-            s session leader         + foreground   l multithreaded
-      STIME Start time of process in hh:mm (size :19 shows yyyy-mm-dd hh:mm:ss)
-      SZ    Memory Size (4k pages needed to completely swap out process)
-      TCNT  Thread count                      TID     Thread ID
-      TIME  CPU time consumed                 TTY     Controlling terminal
-      UID   User id                           USER    User name
-      VSZ   Virtual memory size (1k units)    %VSZ    VSZ as % of physical memory
-      WCHAN What are we waiting in kernel for
+    -f  Full listing (-o USER:12=UID,PID,PPID,C,STIME,TTY,TIME,ARGS=CMD)
+    -l  Long listing (-o F,S,UID,PID,PPID,C,PRI,NI,ADDR,SZ,WCHAN,TTY,TIME,CMD)
+    -o  Output FIELDs instead of defaults, each with optional :size and =title
+    -O  Add FIELDS to defaults
+    -Z  Include LABEL
 
 config TOP
   bool "top"
@@ -213,7 +169,7 @@ config PKILL
     usage: pkill [-fnovx] [-SIGNAL|-l SIGNAL] [PATTERN] [-G GID,] [-g PGRP,] [-P PPID,] [-s SID,] [-t TERM,] [-U UID,] [-u EUID,]
 
     -l	Send SIGNAL (default SIGTERM)
-    -V	verbose
+    -V	Verbose
     -f	Check full command line for PATTERN
     -G	Match real Group ID(s)
     -g	Match Process Group(s) (0 is current user)
@@ -234,38 +190,15 @@ config PKILL
 GLOBALS(
   union {
     struct {
-      struct arg_list *G;
-      struct arg_list *g;
-      struct arg_list *U;
-      struct arg_list *u;
-      struct arg_list *t;
-      struct arg_list *s;
-      struct arg_list *p;
-      struct arg_list *O;
-      struct arg_list *o;
-      struct arg_list *P;
-      struct arg_list *k;
+      struct arg_list *G, *g, *U, *u, *t, *s, *p, *O, *o, *P, *k;
     } ps;
     struct {
-      long n;
-      long m;
-      long d;
-      long s;
-      struct arg_list *u;
-      struct arg_list *p;
-      struct arg_list *o;
-      struct arg_list *k;
-      struct arg_list *O;
+      long n, m, d, s;
+      struct arg_list *u, *p, *o, *k, *O;
     } top;
     struct {
       char *L;
-      struct arg_list *G;
-      struct arg_list *g;
-      struct arg_list *P;
-      struct arg_list *s;
-      struct arg_list *t;
-      struct arg_list *U;
-      struct arg_list *u;
+      struct arg_list *G, *g, *P, *s, *t, *U, *u;
       char *d;
 
       void *regexes, *snapshot;
@@ -274,7 +207,6 @@ GLOBALS(
     } pgrep;
   };
 
-  struct sysinfo si;
   struct ptr_len gg, GG, pp, PP, ss, tt, uu, UU;
   struct dirtree *threadparent;
   unsigned width, height;
@@ -302,7 +234,7 @@ struct ofields {
  * struct procpid contains a slot[] array of 64 bit values, with the following
  * data at each position in the array. Most is read from /proc/$PID/stat (see
  * https://kernel.org/doc/Documentation/filesystems/proc.txt table 1-4) but
- * we we replace several fields with don't use with other data. */
+ * we replace several fields with don't use with other data. */
 
 enum {
  SLOT_pid,      /*process id*/            SLOT_ppid,      // parent process id
@@ -327,14 +259,15 @@ enum {
  SLOT_policy,   /*man sched_setscheduler*/SLOT_blkioticks,// IO wait time
  SLOT_gtime,    /*guest jiffies of task*/ SLOT_cgtime,    // gtime+child
  SLOT_startbss, /*data/bss address*/      SLOT_endbss,    // end addr data+bss
+// end of /proc/$PID/stat fields
  SLOT_upticks,  /*uptime-starttime*/      SLOT_argv0len,  // argv[0] length
- SLOT_uptime,   /*si.uptime @read time*/  SLOT_vsz,       // Virtual mem Size
- SLOT_rss2,     /*Resident Set Size*/     SLOT_shr,       // Shared memory
- SLOT_rchar,    /*All bytes read*/        SLOT_wchar,     // All bytes written
- SLOT_rbytes,   /*Disk bytes read*/       SLOT_wbytes,    // Disk bytes written
- SLOT_swap,     /*Swap pages used*/       SLOT_bits,      // 32 or 64
- SLOT_tid,      /*Thread ID*/             SLOT_tcount,    // Thread count
- SLOT_pcy,      /*Android sched policy*/
+ SLOT_uptime,   /*sysinfo.uptime*/        SLOT_totalram,  // sysinfo.totalram
+ SLOT_vsz,      /*Virtual mem Size*/      SLOT_shr,       // Shared memory
+ SLOT_pcy,      /*Android sched pol*/     SLOT_rchar,     // All bytes read
+ SLOT_wchar,    /*All bytes written*/     SLOT_rbytes,    // Disk bytes read
+ SLOT_wbytes,   /*Disk bytes written*/    SLOT_swap,      // Swap pages used
+ SLOT_bits,     /*32 or 64*/              SLOT_tid,       // Thread ID
+ SLOT_tcount,   /*Thread count*/
 
  SLOT_count /* Size of array */
 };
@@ -364,7 +297,7 @@ struct procpid {
  *        get the overflow back).
  *
  * slot: which slot[] out of procpid. Negative means it's a string field.
- *       Setting bit |64 requests extra display/sort processing.
+ *       value|XX requests extra display/sort processing.
  *
  * The TAGGED_ARRAY plumbing produces an enum of indexes, the "tag" is the
  * first string argument and the prefix is the first argument to TAGGED_ARRAY
@@ -375,51 +308,155 @@ struct procpid {
  *   if (TT.bits & _PS_NAME) printf("-o included PS_NAME");
  */
 
+#define XX 64 // force string representation for sorting, etc
+
 // TODO: Android uses -30 for LABEL, but ideally it would auto-size.
-// 64|slot means compare as string when sorting
 struct typography {
-  char *name;
+  char *name, *help;
   signed char width, slot;
 } static const typos[] = TAGGED_ARRAY(PS,
   // Numbers. (What's in slot[] is what's displayed, sorted numerically.)
-  {"PID", 5, SLOT_pid}, {"PPID", 5, SLOT_ppid}, {"PRI", 3, SLOT_priority},
-  {"NI", 3, SLOT_nice}, {"ADDR", 4+sizeof(long), SLOT_eip},
-  {"SZ", 5, SLOT_vsize}, {"RSS", 6, SLOT_rss}, {"PGID", 5, SLOT_pgrp},
-  {"VSZ", 7, SLOT_vsize}, {"MAJFL", 6, SLOT_majflt}, {"MINFL", 6, SLOT_minflt},
-  {"PR", 2, SLOT_priority}, {"PSR", 3, SLOT_taskcpu},
-  {"RTPRIO", 6, SLOT_rtprio}, {"SCH", 3, SLOT_policy}, {"CPU", 3, SLOT_taskcpu},
-  {"TID", 5, SLOT_tid}, {"TCNT", 4, SLOT_tcount}, {"BIT", 3, SLOT_bits},
+  {"PID", "Process ID", 5, SLOT_pid},
+  {"PPID", "Parent Process ID", 5, SLOT_ppid},
+  {"PRI", "Priority (dynamic 0 to 139)", 3, SLOT_priority},
+  {"NI", "Niceness (static 19 to -20)", 3, SLOT_nice},
+  {"ADDR", "Instruction pointer", 4+sizeof(long), SLOT_eip},
+  {"SZ", "4k pages to swap out", 5, SLOT_vsize},
+  {"RSS", "Resident Set Size (DRAM pages)", 6, SLOT_rss},
+  {"PGID", "Process Group ID", 5, SLOT_pgrp},
+  {"VSZ", "Virtual memory size (1k units)", 7, SLOT_vsize},
+  {"MAJFL", "Major page faults", 6, SLOT_majflt},
+  {"MINFL", "Minor page faults", 6, SLOT_minflt},
+  {"PR", "Prio Reversed (dyn 39-0, RT)", 2, SLOT_priority},
+  {"PSR", "Processor last executed on", 3, SLOT_taskcpu},
+  {"RTPRIO", "Realtime priority", 6, SLOT_rtprio},
+  {"SCH", "Scheduling policy (0=other, 1=fifo, 2=rr, 3=batch, 4=iso, 5=idle)",
+   3, SLOT_policy},
+  {"CPU", "Which processor running on", 3, SLOT_taskcpu},
+  {"TID", "Thread ID", 5, SLOT_tid},
+  {"TCNT", "Thread count", 4, SLOT_tcount},
+  {"BIT", "32 or 64", 3, SLOT_bits},
 
   // String fields (-1 is procpid->str, rest are str+offset[1-slot])
-  {"TTY", -8, -2}, {"WCHAN", -6, -3}, {"LABEL", -30, -4}, {"COMM", -27, -5},
-  {"NAME", -27, -7}, {"COMMAND", -27, -5}, {"CMDLINE", -27, -6},
-  {"ARGS", -27, -6}, {"CMD", -15, -1},
+  {"TTY", "Controlling terminal", -8, -2},
+  {"WCHAN", "Wait location in kernel", -6, -3},
+  {"LABEL", "Security label", -30, -4},
+  {"COMM", "EXE filename (/proc/PID/exe)", -27, -5},
+  {"NAME", "Process name (PID's argv[0])", -27, -7},
+  {"COMMAND", "EXE path (/proc/PID/exe)", -27, -5},
+  {"CMDLINE", "Command line (argv[])", -27, -6},
+  {"ARGS", "CMDLINE minus initial path", -27, -6},
+  {"CMD", "Thread name (/proc/TID/stat:2)", -15, -1},
 
   // user/group (may call getpwuid() or similar)
-  {"UID", 5, SLOT_uid}, {"USER", -12, 64|SLOT_uid}, {"RUID", 4, SLOT_ruid},
-  {"RUSER", -8, 64|SLOT_ruid}, {"GID", 8, SLOT_gid}, {"GROUP", -8, 64|SLOT_gid},
-  {"RGID", 4, SLOT_rgid}, {"RGROUP", -8, 64|SLOT_rgid},
+  {"UID", "User id", 5, SLOT_uid},
+  {"USER", "User name", -12, XX|SLOT_uid},
+  {"RUID", "Real (before suid) user ID", 4, SLOT_ruid},
+  {"RUSER", "Real (before suid) user name", -8, XX|SLOT_ruid},
+  {"GID", "Group ID", 8, SLOT_gid},
+  {"GROUP", "Group name", -8, XX|SLOT_gid},
+  {"RGID", "Real (before sgid) Group ID", 4, SLOT_rgid},
+  {"RGROUP", "Real (before sgid) group name", -8, XX|SLOT_rgid},
 
   // clock displays (00:00:00)
-  {"TIME", 8, SLOT_utime}, {"ELAPSED", 11, SLOT_starttime},
-  {"TIME+", 9, SLOT_utime},
+  {"TIME", "CPU time consumed", 8, SLOT_utime},
+  {"ELAPSED", "Elapsed time since PID start", 11, SLOT_starttime},
+  {"TIME+", "CPU time (high precision)", 9, SLOT_utime},
 
   // Percentage displays (fixed point, one decimal digit. 123 -> 12.3)
-  {"C", 1, SLOT_utime2}, {"%VSZ", 5, SLOT_vsize}, {"%MEM", 5, SLOT_rss},
-  {"%CPU", 4, SLOT_utime2},
+  {"C", "Total %CPU used since start", 1, SLOT_utime2},
+  {"%VSZ", "VSZ as % of physical memory", 5, SLOT_vsize},
+  {"%MEM", "RSS as % of physical memory", 5, SLOT_rss},
+  {"%CPU", "Percentage of CPU time used", 4, SLOT_utime2},
 
   // human_readable (function human_readable() in lib, 1.23M, 1.4G, etc)
-  {"VIRT", 4, SLOT_vsz}, {"RES", 4, SLOT_rss2},
-  {"SHR", 4, SLOT_shr}, {"READ", 6, SLOT_rchar}, {"WRITE", 6, SLOT_wchar},
-  {"IO", 6, SLOT_iobytes}, {"DREAD", 6, SLOT_rbytes},
-  {"DWRITE", 6, SLOT_wbytes}, {"SWAP", 6, SLOT_swap}, {"DIO", 6, SLOT_diobytes},
+  {"VIRT", "Virtual memory size", 4, SLOT_vsz},
+  {"RES", "Short RSS", 4, SLOT_rss},
+  {"SHR", "Shared memory", 4, SLOT_shr},
+  {"READ", "Data read", 6, SLOT_rchar},
+  {"WRITE", "Data written", 6, SLOT_wchar},
+  {"IO", "Data I/O", 6, SLOT_iobytes},
+  {"DREAD", "Data read from disk", 6, SLOT_rbytes},
+  {"DWRITE", "Data written to disk", 6, SLOT_wbytes},
+  {"SWAP", "Swap I/O", 6, SLOT_swap},
+  {"DIO", "Disk I/O", 6, SLOT_diobytes},
 
   // Misc (special cases)
-  {"STIME", 5, SLOT_starttime}, {"F", 1, 64|SLOT_flags}, {"S", -1, 64},
-  {"STAT", -5, 64}, {"PCY", 3, 64|SLOT_pcy},
+  {"STIME", "Start time (ISO 8601)", 5, SLOT_starttime},
+  {"F", "Flags 1=FORKNOEXEC 4=SUPERPRIV", 1, XX|SLOT_flags},
+  {"S", "Process state:\n"
+   "\t  R (running) S (sleeping) D (device I/O) T (stopped)  t (trace stop)\n"
+   "\t  X (dead)    Z (zombie)   P (parked)     I (idle)\n"
+   "\t  Also between Linux 2.6.33 and 3.13:\n"
+   "\t  x (dead)    K (wakekill) W (waking)\n",
+   -1, XX},
+  {"STAT", "Process state (S) plus:\n"
+   "\t  < high priority          N low priority L locked memory\n"
+   "\t  s session leader         + foreground   l multithreaded",
+   -5, XX},
+  {"PCY", "Android scheduling policy", 3, XX|SLOT_pcy},
 );
 
-// Return 0 to discard, nonzero to keep
+// Show sorted "-o help" text for fields listed in toybuf[len]
+static void help_fields(int len, int multi)
+{
+  int i, j, k, left = 0;
+  struct typography *t;
+
+  // Quick and dirty sort of toybuf[] entries (see TODO below)
+  for (j = len; j--; ) {
+    k = -1;
+
+    for (i=0; i<j; i++) {
+      if (strcmp(typos[toybuf[i]].name, typos[toybuf[i+1]].name)>0) {
+        k = toybuf[i];
+        toybuf[i] = toybuf[i+1];
+        toybuf[i+1] = k;
+      }
+    }
+    if (k == -1) break;
+  }
+
+  // Display loop
+  for (i = j = 0; i<len; i++, j++) {
+    t = (void *)(typos+toybuf[i]);
+    if (strlen(t->help)>30) {
+      if (multi) printf("  %-8s%s\n", t->name, t->help);
+      else j--;
+    } else if (!multi) {
+      left = !(j&1);
+      printf("  %-8s%*s%c"+2*!left, t->name, -30*left, t->help, 10+22*left);
+    }
+  }
+  if (!multi && left) xputc('\n');
+}
+
+// Print help text for each -o field, with categories.
+static void help_help(void)
+{
+  int i, jump = PS_CMD+1-PS_COMM;
+
+  // TODO: sort the array of -o types so they're already alphabetical and
+  // don't need sorting here. A regex to find everything that currently cares
+  // about symbol order might be: "which *[><]=* *PS"
+
+  // First show the half-dozen variants of command line display.
+
+  printf("Command line field types:\n\n");
+  for (i = 0; i<jump; i++) toybuf[i] = PS_COMM+i;
+  help_fields(jump, 0);
+
+  // Show the rest of the -o types, starting with the ones that don't columnize
+
+  printf("\nProcess attribute field types:\n\n");
+  for (i = 0; i<ARRAY_LEN(typos)-jump; i++) toybuf[i] = i+(i>=PS_COMM)*jump;
+  help_fields(ARRAY_LEN(typos)-jump, 1);
+  help_fields(ARRAY_LEN(typos)-jump, 0);
+
+  xexit();
+}
+
+// process match filter for top/ps/pgrep: Return 0 to discard, nonzero to keep
 static int shared_match_process(long long *slot)
 {
   struct ptr_len match[] = {
@@ -443,8 +480,7 @@ static int shared_match_process(long long *slot)
   return ll ? 0 : -1;
 }
 
-
-// Return 0 to discard, nonzero to keep
+// process match filter for ps: Return 0 to discard, nonzero to keep
 static int ps_match_process(long long *slot)
 {
   int i = shared_match_process(slot);
@@ -454,20 +490,20 @@ static int ps_match_process(long long *slot)
   if (!i) return 0;
 
   // Filter implicit categories for other display types
-  if ((toys.optflags&(FLAG_a|FLAG_d)) && slot[SLOT_sid]==*slot) return 0;
-  if ((toys.optflags&FLAG_a) && !slot[SLOT_ttynr]) return 0;
-  if (!(toys.optflags&(FLAG_a|FLAG_d|FLAG_A|FLAG_e))
-      && TT.tty!=slot[SLOT_ttynr]) return 0;
+  if ((FLAG(a)||FLAG(d)) && slot[SLOT_sid]==*slot) return 0;
+  if (FLAG(a) && !slot[SLOT_ttynr]) return 0;
+  if (!(FLAG(a)||FLAG(d)||FLAG(A)||FLAG(e)) && TT.tty!=slot[SLOT_ttynr])
+    return 0;
 
   return 1;
 }
 
-// Convert field to string representation
+// Generate display string (260 bytes at end of toybuf) from struct ofield
 static char *string_field(struct procpid *tb, struct ofields *field)
 {
   char *buf = toybuf+sizeof(toybuf)-260, *out = buf, *s;
   int which = field->which, sl = typos[which].slot;
-  long long *slot = tb->slot, ll = (sl >= 0) ? slot[sl&63] : 0;
+  long long *slot = tb->slot, ll = (sl >= 0) ? slot[sl&(XX-1)] : 0;
 
   // numbers, mostly from /proc/$PID/stat
   if (which <= PS_BIT) {
@@ -501,7 +537,7 @@ static char *string_field(struct procpid *tb, struct ofields *field)
   // user/group
   } else if (which <= PS_RGROUP) {
     sprintf(out, "%lld", ll);
-    if (sl&64) {
+    if (sl&XX) {
       if (which > PS_RUSER) {
         struct group *gr = bufgetgrgid(ll);
 
@@ -541,9 +577,9 @@ static char *string_field(struct procpid *tb, struct ofields *field)
 
   // Percentage displays
   } else if (which <= PS__CPU) {
-    ll = slot[sl&63]*1000;
+    ll = slot[sl&(XX-1)]*1000;
     if (which==PS__VSZ || which==PS__MEM)
-      ll /= TT.si.totalram/((which==PS__VSZ) ? 1024 : 4096);
+      ll /= slot[SLOT_totalram]/((which==PS__VSZ) ? 1024 : 4096);
     else if (slot[SLOT_upticks]) ll /= slot[SLOT_upticks];
     sl = ll;
     if (which==PS_C) sl += 5;
@@ -589,7 +625,7 @@ static char *string_field(struct procpid *tb, struct ofields *field)
   return out;
 }
 
-// Display process data that get_ps() read from /proc, formatting with TT.fields
+// Display process data that get_ps() read from /proc, formatting via TT.fields
 static void show_ps(void *p)
 {
   struct procpid *tb = p;
@@ -614,7 +650,7 @@ static void show_ps(void *p)
     abslen = abs(field->len);
     sign = field->len<0 ? -1 : 1;
     olen = (TT.tty) ? utf8len(out) : strlen(out);
-    if ((field->which<=PS_BIT || (toys.optflags&FLAG_w)) && olen>abslen) {
+    if ((field->which<=PS_BIT || FLAG(w)) && olen>abslen) {
       // overflow but remember by how much
       extra += olen-abslen;
       abslen = olen;
@@ -649,12 +685,12 @@ static void show_ps(void *p)
     if (!abslen) putchar('+');
     if (!width) break;
   }
-  xputc(TT.time ? '\r' : '\n');
+  putchar(TT.time ? '\r' : '\n');
 }
 
-// dirtree callback: read data about process to display, store, or discard it.
+// dirtree callback: read data about a process, then display or store it.
 // Fills toybuf with struct procpid and either DIRTREE_SAVEs a copy to ->extra
-// (in -k mode) or calls show_ps on toybuf (no malloc/copy/free there).
+// (in -k mode) or calls show_ps directly on toybuf (for low memory systems).
 static int get_ps(struct dirtree *new)
 {
   struct {
@@ -669,6 +705,7 @@ static int get_ps(struct dirtree *new)
   struct procpid *tb = (void *)toybuf;
   long long *slot = tb->slot;
   char *name, *s, *buf = tb->str, *end = 0;
+  struct sysinfo si;
   int i, j, fd;
   off_t len;
 
@@ -677,29 +714,38 @@ static int get_ps(struct dirtree *new)
     return DIRTREE_RECURSE|DIRTREE_SHUTUP|DIRTREE_PROC
       |(DIRTREE_SAVE*(TT.threadparent||!TT.show_process));
 
+  // Grab PID and figure out if we're a thread or a process
   memset(slot, 0, sizeof(tb->slot));
   slot[SLOT_tid] = *slot = atol(new->name);
   if (TT.threadparent && TT.threadparent->extra) {
-    *slot = *(((struct procpid *)TT.threadparent->extra)->slot);
-    // Parent also shows up as a thread, discard duplicate
-    if (*slot == slot[SLOT_tid]) return 0;
+    struct procpid *tb2 = (struct procpid *)TT.threadparent->extra;
+
+    *slot = *tb2->slot;
+    // Parent also shows up as a thread, but we need to reread task/stat fields
+    // to get non-collated info for just parent thread (vs whole process).
+    if (*slot == slot[SLOT_tid]) slot = tb2->slot;
   }
   fd = dirtree_parentfd(new);
 
+  // Read /proc/$PID/stat into half of toybuf.
   len = 2048;
   sprintf(buf, "%lld/stat", slot[SLOT_tid]);
   if (!readfileat(fd, buf, buf, &len)) return 0;
 
-  // parse oddball fields (name and state). Name can have embedded ')' so match
-  // _last_ ')' in stat (although VFS limits filenames to 255 bytes max).
-  // All remaining fields should be numeric.
+  // parse oddball fields: the first field is same as new->name (skip it)
+  // and the second and third (name and state) are the only non-numeric fields.
+  // Name has (parentheses) around it, and can have embedded ')' so match
+  // _last_ ')' (VFS limits filenames to 255 bytes max, sanity check that).
+  // TODO: kernel task struct actually limits name to 16 chars?
   if (!(name = strchr(buf, '('))) return 0;
   for (s = ++name; *s; s++) if (*s == ')') end = s;
   if (!end || end-name>255) return 0;
-
-  // Parse numeric fields (starting at 4th field in slot[SLOT_ppid])
   if (1>sscanf(s = end, ") %c%n", &tb->state, &i)) return 0;
-  for (j = 1; j<SLOT_count; j++)
+
+  // All remaining fields should be numeric, parse them into slot[] array
+  // (skipping first 3 stat fields and first slot[], both were handled above)
+  // yes this means the alignment's off: stat[4] becomes slot[1]
+  for (j = SLOT_ppid; j<SLOT_upticks; j++)
     if (1>sscanf(s += i, " %lld%n", slot+j, &i)) break;
 
   // Now we've read the data, move status and name right after slot[] array,
@@ -711,6 +757,8 @@ static int get_ps(struct dirtree *new)
   *buf++ = 0;
   len = sizeof(toybuf)-(buf-toybuf);
 
+  // Overwrite useless/obsolete stat fields with more interesting data.
+
   // save uid, ruid, gid, gid, and rgid int slots 31-34 (we don't use sigcatch
   // or numeric wchan, and the remaining two are always zero), and vmlck into
   // 18 (which is "obsolete, always 0" from stat)
@@ -721,8 +769,7 @@ static int get_ps(struct dirtree *new)
   slot[SLOT_utime] += slot[SLOT_stime];
   slot[SLOT_utime2] = slot[SLOT_utime];
 
-  // If RGROUP RUSER STAT RUID RGID SWAP happening, or -G or -U, parse "status"
-  // and save ruid, rgid, and vmlck.
+  // Do we need to read "status"?
   if ((TT.bits&(_PS_RGROUP|_PS_RUSER|_PS_STAT|_PS_RUID|_PS_RGID|_PS_SWAP
                |_PS_IO|_PS_DIO)) || TT.GG.len || TT.UU.len)
   {
@@ -752,25 +799,29 @@ static int get_ps(struct dirtree *new)
     slot[SLOT_diobytes] = slot[SLOT_rbytes]+slot[SLOT_wbytes]+slot[SLOT_swap];
   }
 
+  // If we were updating thread parent with its own task info, we're done.
+  if (slot != tb->slot) return 0;
+
   // We now know enough to skip processes we don't care about.
   if (TT.match_process && !TT.match_process(slot)) return 0;
 
   // /proc data is generated as it's read, so for maximum accuracy on slow
   // systems (or ps | more) we re-fetch uptime as we fetch each /proc line.
-  sysinfo(&TT.si);
-  slot[SLOT_uptime] = TT.si.uptime;
+  sysinfo(&si);
+  slot[SLOT_uptime] = si.uptime;
+  slot[SLOT_totalram] = si.totalram;
   slot[SLOT_upticks] = slot[SLOT_uptime]*TT.ticks - slot[SLOT_starttime];
 
   // Do we need to read "statm"?
-  if (TT.bits&(_PS_VIRT|_PS_RES|_PS_SHR)) {
+  if (TT.bits&(_PS_VIRT|_PS_SHR)) {
     off_t temp = len;
 
     sprintf(buf, "%lld/statm", slot[SLOT_tid]);
     if (!readfileat(fd, buf, buf, &temp)) *buf = 0;
-    
-    for (s = buf, i=0; i<3; i++)
-      if (!sscanf(s, " %lld%n", slot+SLOT_vsz+i, &j)) slot[SLOT_vsz+i] = 0;
-      else s += j;
+
+    // Skip redundant RSS field, we got it from stat.
+    slot[SLOT_vsz] = slot[SLOT_shr] = 0;
+    sscanf(buf, "%lld %*d %lld", &slot[SLOT_vsz], &slot[SLOT_shr]);
   }
 
   // Do we need to read "exe"?
@@ -788,10 +839,18 @@ static int get_ps(struct dirtree *new)
   if (TT.bits&_PS_PCY)
     get_sched_policy(slot[SLOT_tid], (void *)&slot[SLOT_pcy]);
 
+  // Done using buf[] (tb->str) as scratch space, now read string data,
+  // saving consective null terminated strings. (Save starting offsets into
+  // str->offset to avoid strlen() loop to find relevant string.)
+
   // Fetch string data while parentfd still available, appending to buf.
   // (There's well over 3k of toybuf left. We could dynamically malloc, but
   // it'd almost never get used, querying length of a proc file is awkward,
   // fixed buffer is nommu friendly... Wait for somebody to complain. :)
+
+  // The fetch[] array at the start of the function says what file to read
+  // and what -o display field outputs it (to skip the ones we don't need).
+
   slot[SLOT_argv0len] = 0;
   for (j = 0; j<ARRAY_LEN(fetch); j++) {
     tb->offset[j] = buf-(tb->str);
@@ -800,12 +859,17 @@ static int get_ps(struct dirtree *new)
       continue;
     }
 
-    // Determine remaining space, reserving minimum of 256 bytes/field and
-    // 260 bytes scratch space at the end (for output conversion later).
-    len = sizeof(toybuf)-(buf-toybuf)-260-256*(ARRAY_LEN(fetch)-j);
+    // Determine available space: reserve 256 bytes (guaranteed minimum) for
+    // each string we haven't checked yet, tb->str starts after the numeric
+    // arrays in struct procpid, and we reserve 260 bytes scratch space at the
+    // end of toybuf for output conversion in string_field(). Other than that,
+    // each use all available space, and future strings that don't use their
+    // guaranteed minimum add to the pool.
+    len = sizeof(toybuf)-256*(ARRAY_LEN(fetch)-j)-(buf-toybuf)-260;
     sprintf(buf, "%lld/%s", slot[SLOT_tid], fetch[j].name);
 
-    // For exe we readlink instead of read contents
+    // For exe (j==3) readlink() instead of reading file's contents
+    // for -o NAME (j==5) copy data from threadparent (PID) into thread (TID).
     if (j==3 || j==5) {
       struct procpid *ptb = 0;
       int k;
@@ -831,8 +895,7 @@ static int get_ps(struct dirtree *new)
         buf[len] = 0;
       }
 
-    // If it's not the TTY field, data we want is in a file.
-    // Last length saved in slot[] is command line (which has embedded NULs)
+    // Turning stat's SLOT_ttynr into a string is an outright heuristic ordeal.
     } else if (!j) {
       int rdev = slot[SLOT_ttynr];
       struct stat st;
@@ -875,8 +938,7 @@ static int get_ps(struct dirtree *new)
         if (strstart(&s, "/dev/")) memmove(buf, s, len -= 4);
       }
 
-    // Data we want is in a file.
-    // Last length saved in slot[] is command line (which has embedded NULs)
+    // For the rest, the data we want is in a file we can just read.
     } else {
       int temp = 0;
 
@@ -888,7 +950,7 @@ static int get_ps(struct dirtree *new)
           if (!buf[len-1] || isspace(buf[len-1])) buf[--len] = 0;
           else break;
 
-        // Turn NUL to space, other low ascii to ? (in non-tty mode)
+        // Turn NUL to space, other low ascii to ? (in non-tty mode), except
         // cmdline has a trailing NUL that we don't want to turn to space.
         for (i=0; i<len-1; i++) {
           char c = buf[i];
@@ -906,10 +968,11 @@ static int get_ps(struct dirtree *new)
       slot[SLOT_argv0len] = temp ? temp : len;  // Position of _first_ NUL
     }
 
-    // Above calculated/retained len, so we don't need to re-strlen.
+    // Each case above calculated/retained len, so we don't need to re-strlen.
     buf += len+1;
   }
 
+  // Record that we saw another process, and display/return now if appropriate
   TT.kcount++;
   if (TT.show_process && !TT.threadparent) {
     TT.show_process(tb);
@@ -917,7 +980,7 @@ static int get_ps(struct dirtree *new)
     return 0;
   }
 
-  // If we need to sort the output, add it to the list and return.
+  // We're retaining data (probably to sort it), save copy in list.
   s = xmalloc(buf-toybuf);
   new->extra = (long)s;
   memcpy(s, toybuf, buf-toybuf);
@@ -925,6 +988,7 @@ static int get_ps(struct dirtree *new)
   return DIRTREE_SAVE;
 }
 
+// wrapper for get_ps() that also collects threads under each processes
 static int get_threads(struct dirtree *new)
 {
   struct dirtree *dt;
@@ -936,6 +1000,7 @@ static int get_threads(struct dirtree *new)
 
   TT.threadparent = new;
   if (!get_ps(new)) {
+    // it exited out from under us
     TT.threadparent = 0;
 
     return 0;
@@ -952,7 +1017,8 @@ static int get_threads(struct dirtree *new)
   tb = (void *)new->extra;
   tb->slot[SLOT_tcount] = kcount;
 
-  // Fill out tid and thread count for each entry in group
+  // Fill out tid and thread count for each entry in group (if it didn't exit
+  // out from under us again; asynchronous reads of unlocked data are fun!)
   if (new->child) for (dt = new->child->child; dt; dt = dt->next) {
     tb = (void *)dt->extra;
     tb->slot[SLOT_pid] = pid;
@@ -976,11 +1042,15 @@ static int get_threads(struct dirtree *new)
   return 0;
 }
 
+// Parse one FIELD argument (with optional =name :width) into struct ofields
 static char *parse_ko(void *data, char *type, int length)
 {
   struct ofields *field;
   char *width, *title, *end, *s;
   int i, j, k;
+
+  // Caller's WOULD_EXIT catches -o help and prints help
+  if (length==4 && !strncasecmp(type, "HELP", length)) xexit();
 
   // Get title, length of title, type, end of type, and display width
 
@@ -1040,6 +1110,8 @@ static char *parse_ko(void *data, char *type, int length)
   return 0;
 }
 
+// Write FIELD list into display header string (truncating at blen),
+// and return bitfield of which FIELDs are used.
 static long long get_headers(struct ofields *field, char *buf, int blen)
 {
   long long bits = 0;
@@ -1054,7 +1126,7 @@ static long long get_headers(struct ofields *field, char *buf, int blen)
   return bits;
 }
 
-// Parse -p -s -t -u -U -g -G
+// Parse command line options -p -s -t -u -U -g -G
 static char *parse_rest(void *data, char *str, int len)
 {
   struct ptr_len *pl = (struct ptr_len *)data;
@@ -1132,7 +1204,7 @@ static char *parse_rest(void *data, char *str, int len)
   return str;
 }
 
-// sort for -k
+// sort processes by FIELD(s) listed in option -k
 static int ksort(void *aa, void *bb)
 {
   struct ofields *field;
@@ -1143,7 +1215,7 @@ static int ksort(void *aa, void *bb)
     slot = typos[field->which].slot;
 
     // Can we do numeric sort?
-    if (!(slot&64)) {
+    if (!(slot&XX)) {
       if (ta->slot[slot]<tb->slot[slot]) ret = -1;
       if (ta->slot[slot]>tb->slot[slot]) ret = 1;
     }
@@ -1160,6 +1232,8 @@ static int ksort(void *aa, void *bb)
   return ret;
 }
 
+// Collect ->extra field from leaf nodes DIRTREE_SAVEd by get_ps() into array
+// (recursion because tree from get_thread() isn't flat list of siblings)
 static struct procpid **collate_leaves(struct procpid **tb, struct dirtree *dt) 
 {
   while (dt) {
@@ -1174,6 +1248,8 @@ static struct procpid **collate_leaves(struct procpid **tb, struct dirtree *dt)
   return tb;
 }
 
+// Allocate struct procpid array of length count and populate it with ->extra
+// fields from dirtree leaf nodes. (top diffs old & new array to show changes)
 static struct procpid **collate(int count, struct dirtree *dt)
 {
   struct procpid **tbsort = xmalloc(count*sizeof(struct procpid *));
@@ -1183,13 +1259,16 @@ static struct procpid **collate(int count, struct dirtree *dt)
   return tbsort;
 } 
 
+// parse command line arguments (ala -k -o) with a comma separated FIELD list
 static void default_ko(char *s, void *fields, char *err, struct arg_list *arg)
 {
   struct arg_list def;
+  int x;
 
   memset(&def, 0, sizeof(struct arg_list));
   def.arg = s;
-  comma_args(arg ? arg : &def, fields, err, parse_ko);
+  WOULD_EXIT(x, comma_args(arg ? arg : &def, fields, err, parse_ko));
+  if (x) help_help();
 }
 
 void ps_main(void)
@@ -1209,9 +1288,8 @@ void ps_main(void)
 
   // If we can't query terminal size pad to 80 but do -w
   TT.width = 80;
-  if (!isatty(1) || !terminal_size(&TT.width, 0))
-    toys.optflags |= FLAG_w;
-  if (toys.optflags&FLAG_w) TT.width = 99999;
+  if (!isatty(1) || !terminal_size(&TT.width, 0)) toys.optflags |= FLAG_w;
+  if (FLAG(w)) TT.width = 99999;
 
   // parse command line options other than -o
   comma_args(TT.ps.P, &TT.PP, "bad -P", parse_rest);
@@ -1227,24 +1305,23 @@ void ps_main(void)
 
   // It's undocumented, but traditionally extra arguments are extra -p args
   for (arg = toys.optargs; *arg; arg++)
-    if (parse_rest(&TT.pp, *arg, strlen(*arg))) error_exit_raw(*arg);
+    if (parse_rest(&TT.pp, *arg, strlen(*arg))) error_exit("bad %s", *arg);
 
   // Figure out which fields to display
   not_o = "%sTTY,TIME,CMD";
-  if (toys.optflags&FLAG_f)
+  if (FLAG(f))
     sprintf(not_o = toybuf+128,
-      "USER:12=UID,%%sPPID,%s,STIME,TTY,TIME,ARGS=CMD",
-      (toys.optflags&FLAG_T) ? "TCNT" : "C");
-  else if (toys.optflags&FLAG_l)
+      "USER:12=UID,%%sPPID,%s,STIME,TTY,TIME,ARGS=CMD", FLAG(T) ? "TCNT" :"C");
+  else if (FLAG(l))
     not_o = "F,S,UID,%sPPID,C,PRI,NI,BIT,SZ,WCHAN,TTY,TIME,CMD";
   else if (CFG_TOYBOX_ON_ANDROID)
     sprintf(not_o = toybuf+128,
             "USER,%%sPPID,VSIZE,RSS,WCHAN:10,ADDR:10,S,%s",
-            (toys.optflags&FLAG_T) ? "CMD" : "NAME");
-  sprintf(toybuf, not_o, (toys.optflags & FLAG_T) ? "PID,TID," : "PID,");
+            FLAG(T) ? "CMD" : "NAME");
+  sprintf(toybuf, not_o, FLAG(T) ? "PID,TID," : "PID,");
 
   // Init TT.fields. This only uses toybuf if TT.ps.o is NULL
-  if (toys.optflags&FLAG_Z) default_ko("LABEL", &TT.fields, 0, 0);
+  if (FLAG(Z)) default_ko("LABEL", &TT.fields, 0, 0);
   default_ko(toybuf, &TT.fields, "bad -o", TT.ps.o);
 
   if (TT.ps.O) {
@@ -1255,12 +1332,12 @@ void ps_main(void)
   dlist_terminate(TT.fields);
 
   // -f and -n change the meaning of some fields
-  if (toys.optflags&(FLAG_f|FLAG_n)) {
+  if (FLAG(f)||FLAG(n)) {
     struct ofields *field;
 
     for (field = TT.fields; field; field = field->next) {
-      if ((toys.optflags&FLAG_n) && field->which>=PS_UID
-        && field->which<=PS_RGROUP && (typos[field->which].slot&64))
+      if (FLAG(n) && field->which>=PS_UID
+        && field->which<=PS_RGROUP && (typos[field->which].slot&XX))
           field->which--;
     }
   }
@@ -1268,17 +1345,17 @@ void ps_main(void)
   // Calculate seen fields bit array, and if we aren't deferring printing
   // print headers now (for low memory/nommu systems).
   TT.bits = get_headers(TT.fields, toybuf, sizeof(toybuf));
-  if (!(toys.optflags&FLAG_M)) printf("%.*s\n", TT.width, toybuf);
-  if (!(toys.optflags&(FLAG_k|FLAG_M))) TT.show_process = show_ps;
+  if (!FLAG(M)) printf("%.*s\n", TT.width, toybuf);
+  if (!(FLAG(k)||FLAG(M))) TT.show_process = show_ps;
   TT.match_process = ps_match_process;
   dt = dirtree_flagread("/proc", DIRTREE_SHUTUP|DIRTREE_PROC,
-    ((toys.optflags&FLAG_T) || (TT.bits&(_PS_TID|_PS_TCNT)))
+    (FLAG(T) || (TT.bits&(_PS_TID|_PS_TCNT)))
       ? get_threads : get_ps);
 
-  if ((dt != DIRTREE_ABORTVAL) && toys.optflags&(FLAG_k|FLAG_M)) {
+  if ((dt != DIRTREE_ABORTVAL) && (FLAG(k)||FLAG(M))) {
     struct procpid **tbsort = collate(TT.kcount, dt);
 
-    if (toys.optflags&FLAG_M) {
+    if (FLAG(M)) {
       for (i = 0; i<TT.kcount; i++) {
         struct ofields *field;
 
@@ -1294,8 +1371,7 @@ void ps_main(void)
       printf("%.*s\n", TT.width, toybuf);
     }
 
-    if (toys.optflags&FLAG_k)
-      qsort(tbsort, TT.kcount, sizeof(struct procpid *), (void *)ksort);
+    if (FLAG(k)) qsort(tbsort, TT.kcount, sizeof(void *), (void *)ksort);
     for (i = 0; i<TT.kcount; i++) {
       show_ps(tbsort[i]);
       free(tbsort[i]);
@@ -1357,13 +1433,18 @@ static int header_line(int line, int rev)
 {
   if (!line) return 0;
 
-  if (toys.optflags&FLAG_b) rev = 0;
-
-  printf("%s%*.*s%s\r\n", rev ? "\033[7m" : "",
-    (toys.optflags&FLAG_b) ? 0 : -TT.width, TT.width, toybuf,
-    rev ? "\033[0m" : "");
+  if (FLAG(b)) puts(toybuf);
+  else {
+    printf("%s%-*.*s%s\r\n", rev?"\033[7m":"", rev?TT.width:0, TT.width, toybuf,
+      rev?"\033[0m":"");
+  }
 
   return line-1;
+}
+
+static void top_cursor_cleanup(void)
+{
+  tty_esc("?25h");
 }
 
 static void top_common(
@@ -1377,9 +1458,18 @@ static void top_common(
   } plist[2], *plold, *plnew, old, new, mix;
   char scratch[16], *pos, *cpufields[] = {"user", "nice", "sys", "idle",
     "iow", "irq", "sirq", "host"};
- 
   unsigned tock = 0;
   int i, lines, topoff = 0, done = 0;
+  char stdout_buf[BUFSIZ];
+
+  if (!TT.fields) perror_exit("no -o");
+
+  // Avoid flicker and hide the cursor in interactive mode.
+  if (!FLAG(b)) {
+    setbuf(stdout, stdout_buf);
+    sigatexit(top_cursor_cleanup);
+    tty_esc("?25l");
+  }
 
   toys.signal = SIGWINCH;
   TT.bits = get_headers(TT.fields, toybuf, sizeof(toybuf));
@@ -1394,8 +1484,7 @@ static void top_common(
     plnew = plist+(tock&1);
     plnew->whence = millitime();
     dt = dirtree_flagread("/proc", DIRTREE_SHUTUP|DIRTREE_PROC,
-      ((toys.optflags&FLAG_H) || (TT.bits&(_PS_TID|_PS_TCNT)))
-        ? get_threads : get_ps);
+      (FLAG(H) || (TT.bits&(_PS_TID|_PS_TCNT))) ? get_threads : get_ps);
     if (dt == DIRTREE_ABORTVAL) error_exit("no /proc");
     plnew->tb = collate(plnew->count = TT.kcount, dt);
     TT.kcount = 0;
@@ -1453,7 +1542,7 @@ static void top_common(
 
       if (recalc) {
         qsort(mix.tb, mix.count, sizeof(struct procpid *), (void *)ksort);
-        if (!(toys.optflags&FLAG_b)) {
+        if (!FLAG(b)) {
           printf("\033[H\033[J");
           if (toys.signal) {
             toys.signal = 0;
@@ -1463,22 +1552,29 @@ static void top_common(
         if (TT.top.m) TT.height = TT.top.m+5;
         lines = TT.height;
       }
-      if (recalc && !(toys.optflags&FLAG_q)) {
+      if (recalc && !FLAG(q)) {
         // Display "top" header.
         if (*toys.which->name == 't') {
           struct ofields field;
+          char *hr0 = toybuf+sizeof(toybuf)-32, *hr1 = hr0-32, *hr2 = hr1-32,
+            *hr3 = hr2-32;
           long long ll, up = 0;
           long run[6];
           int j;
 
           // Count running, sleeping, stopped, zombie processes.
+          // The kernel has more states (and different sets in different
+          // versions), so we need to map them. (R)unning and (Z)ombie are
+          // easy enough, and since "stopped" is rare (just T and t as of
+          // Linux 4.20), we assume everything else is "sleeping".
           field.which = PS_S;
           memset(run, 0, sizeof(run));
           for (i = 0; i<mix.count; i++)
-            run[1+stridx("RSTZ", *string_field(mix.tb[i], &field))]++;
+            run[1+stridx("RTtZ", *string_field(mix.tb[i], &field))]++;
           sprintf(toybuf,
-            "Tasks: %d total,%4ld running,%4ld sleeping,%4ld stopped,"
-            "%4ld zombie", mix.count, run[1], run[2], run[3], run[4]);
+            "%ss: %d total, %3ld running, %3ld sleeping, %3ld stopped, "
+            "%3ld zombie", FLAG(H)?"Thread":"Task", mix.count, run[1], run[0],
+            run[2]+run[3], run[4]);
           lines = header_line(lines, 0);
 
           if (readfile("/proc/meminfo", toybuf, sizeof(toybuf))) {
@@ -1487,13 +1583,21 @@ static void top_common(
                     "\nBuffers:","\nCached:","\nSwapTotal:","\nSwapFree:"}[i]);
               run[i] = pos ? atol(pos) : 0;
             }
-            sprintf(toybuf,
-             "Mem:%10ldk total,%9ldk used,%9ldk free,%9ldk buffers",
-              run[0], run[0]-run[1], run[1], run[2]);
+
+            human_readable(hr0, 1024*run[0], 0);
+            human_readable(hr1, 1024*(run[0]-run[1]), 0);
+            human_readable(hr2, 1024*run[1], 0);
+            human_readable(hr3, 1024*run[2], 0);
+            sprintf(toybuf, "  Mem: %9s total, %9s used, %9s free, %9s buffers",
+              hr0, hr1, hr2, hr3);
             lines = header_line(lines, 0);
-            sprintf(toybuf,
-              "Swap:%9ldk total,%9ldk used,%9ldk free,%9ldk cached",
-              run[4], run[4]-run[5], run[5], run[3]);
+
+            human_readable(hr0, 1024*run[4], 0);
+            human_readable(hr1, 1024*(run[4]-run[5]), 0);
+            human_readable(hr2, 1024*run[5], 0);
+            human_readable(hr3, 1024*run[3], 0);
+            sprintf(toybuf, " Swap: %9s total, %9s used, %9s free, %9s cached",
+              hr0, hr1, hr2, hr3);
             lines = header_line(lines, 0);
           }
 
@@ -1524,7 +1628,7 @@ static void top_common(
           pos = stpcpy(toybuf, "Totals:");
           for (field = TT.fields; field; field = field->next) {
             long long ll, bits = 0;
-            int slot = typos[field->which].slot&63;
+            int slot = typos[field->which].slot&(XX-1);
 
             if (field->which<PS_C || field->which>PS_DIO) continue;
             ll = 1LL<<field->which;
@@ -1548,16 +1652,22 @@ static void top_common(
             pos[-1] = '[';
           if (!isspace(was) && isspace(is) && i==TT.sortpos+1) *pos = ']';
         }
+        if (FLAG(b)) while (isspace(*(pos-1))) --pos;
         *pos = 0;
         lines = header_line(lines, 1);
       }
-      if (!recalc && !(toys.optflags&FLAG_b))
+      if (!recalc && !FLAG(b))
         printf("\033[%dH\033[J", 1+TT.height-lines);
       recalc = 1;
 
       for (i = 0; i<lines && i+topoff<mix.count; i++) {
-        if (!(toys.optflags&FLAG_b) && i) xputc('\n');
+        // Running processes are shown in bold.
+        int bold = !FLAG(b) && mix.tb[i+topoff]->state == 'R';
+
+        if (!FLAG(b) && i) putchar('\n');
+        if (bold) printf("\033[1m");
         show_ps(mix.tb[i+topoff]);
+        if (bold) printf("\033[m");
       }
 
       if (TT.top.n && !--TT.top.n) {
@@ -1570,12 +1680,12 @@ static void top_common(
       if (timeout<=now || timeout>now+TT.top.d) timeout = now+TT.top.d;
 
       // In batch mode, we ignore the keyboard.
-      if (toys.optflags&FLAG_b) {
+      if (FLAG(b)) {
         msleep(timeout-now);
         // Make an obvious gap between datasets.
         xputs("\n\n");
-        continue;
-      }
+        break;
+      } else fflush(stdout);
 
       i = scan_key_getsize(scratch, timeout-now, &TT.width, &TT.height);
       if (i==-1 || i==3 || toupper(i)=='Q') {
@@ -1587,7 +1697,7 @@ static void top_common(
 
       // Flush unknown escape sequences.
       if (i==27) while (0<scan_key_getsize(scratch, 0, &TT.width, &TT.height));
-      else if (i==' ') {
+      else if (i=='\r' || i==' ') {
         timeout = 0;
         break;
       } else if (toupper(i)=='R')
@@ -1616,28 +1726,21 @@ static void top_common(
     free(plold->tb);
   } while (!done);
 
-  if (!(toys.optflags&FLAG_b)) tty_reset();
+  if (!FLAG(b)) tty_reset();
 }
 
 static void top_setup(char *defo, char *defk)
 {
-  TT.top.d *= 1000;
-
   TT.ticks = sysconf(_SC_CLK_TCK); // units for starttime/uptime
   TT.tty = tty_fd() != -1;
 
   // Are we doing "batch" output or interactive?
-  if (toys.optflags&FLAG_b) TT.width = TT.height = 99999;
+  if (FLAG(b)) TT.width = TT.height = 99999;
   else {
     // Grab starting time, make terminal raw, switch off cursor,
     // set signal handler to put terminal/cursor back to normal at exit.
     TT.time = millitime();
-    set_terminal(0, 1, 0);
-    sigatexit(tty_sigreset);
-    xsignal(SIGWINCH, generic_signal);
-    printf("\033[?25l\033[0m");
-    TT.width = 80;
-    TT.height = 25;
+    start_redraw(&TT.width, &TT.height);
   }
 
   comma_args(TT.top.u, &TT.uu, "bad -u", parse_rest);
@@ -1656,9 +1759,9 @@ static void top_setup(char *defo, char *defk)
 
 void top_main(void)
 {
-  sprintf(toybuf, "PID,USER,%s%%CPU,%%MEM,TIME+,%s",
+  sprintf(toybuf, "%cID,USER,%s%%CPU,%%MEM,TIME+,%s", FLAG(H) ? 'T' : 'P',
     TT.top.O ? "" : "PR,NI,VIRT,RES,SHR,S,",
-    toys.optflags&FLAG_H ? "CMD:15=THREAD,NAME=PROCESS" : "ARGS");
+    FLAG(H) ? "CMD:15=THREAD,NAME=PROCESS" : "ARGS");
   if (!TT.top.s) TT.top.s = TT.top.O ? 3 : 9;
   top_setup(toybuf, "-%CPU,-ETIME,-PID");
   if (TT.top.O) {
@@ -1675,19 +1778,21 @@ void top_main(void)
 #define FOR_iotop
 #include "generated/flags.h"
 
+// Compare old and new proces lists to measure changes
 static int iotop_filter(long long *oslot, long long *nslot, int milis)
 {
-  if (!(toys.optflags&FLAG_a)) merge_deltas(oslot, nslot, milis);
+  // Current I/O, or accumulated since process start?
+  if (!FLAG(a)) merge_deltas(oslot, nslot, milis);
   else oslot[SLOT_upticks] = ((millitime()-TT.time)*TT.ticks)/1000;
 
-  return !(toys.optflags&FLAG_o)||oslot[SLOT_iobytes+!(toys.optflags&FLAG_A)];
+  return !FLAG(O)||oslot[SLOT_iobytes+!FLAG(A)];
 }
 
 void iotop_main(void)
 {
-  char *s1 = 0, *s2 = 0, *d = "D"+!!(toys.optflags&FLAG_A);
+  char *s1 = 0, *s2 = 0, *d = "D"+!!FLAG(A);
 
-  if (toys.optflags&FLAG_K) TT.forcek++;
+  if (FLAG(K)) TT.forcek++;
 
   top_setup(s1 = xmprintf("PID,PR,USER,%sREAD,%sWRITE,SWAP,%sIO,COMM",d,d,d),
     s2 = xmprintf("-%sIO,-ETIME,-PID",d));
@@ -1719,10 +1824,10 @@ static void do_pgk(struct procpid *tb)
       perror_msg("%s->%lld", s, *tb->slot);
     }
   }
-  if (!(toys.optflags&FLAG_c) && (!TT.pgrep.signal || TT.tty)) {
+  if (!FLAG(c) && (!TT.pgrep.signal || TT.tty)) {
     printf("%lld", *tb->slot);
-    if (toys.optflags&FLAG_l)
-      printf(" %s", tb->str+tb->offset[4]*!!(toys.optflags&FLAG_f));
+    if (FLAG(l))
+      printf(" %s", tb->str+tb->offset[4]*!!FLAG(f));
     
     printf("%s", TT.pgrep.d ? TT.pgrep.d : "\n");
   }
@@ -1733,7 +1838,7 @@ static void match_pgrep(void *p)
   struct procpid *tb = p;
   regmatch_t match;
   struct regex_list *reg;
-  char *name = tb->str+tb->offset[4]*!!(toys.optflags&FLAG_f);;
+  char *name = tb->str+tb->offset[4]*!!FLAG(f);
 
   // Never match ourselves.
   if (TT.pgrep.self == *tb->slot) return;
@@ -1741,11 +1846,11 @@ static void match_pgrep(void *p)
   if (TT.pgrep.regexes) {
     for (reg = TT.pgrep.regexes; reg; reg = reg->next) {
       if (regexec(&reg->reg, name, 1, &match, 0)) continue;
-      if (toys.optflags&FLAG_x)
+      if (FLAG(x))
         if (match.rm_so || match.rm_eo!=strlen(name)) continue;
       break;
     }
-    if ((toys.optflags&FLAG_v) ? !!reg : !reg) return;
+    if (!FLAG(v) == !reg) return;
   }
 
   // pgrep should return success if there's a match.
@@ -1753,10 +1858,10 @@ static void match_pgrep(void *p)
 
   // Repurpose a field for -c count.
   TT.sortpos++;
-  if (toys.optflags&(FLAG_n|FLAG_o)) {
+  if (FLAG(n)||FLAG(o)) {
     long long ll = tb->slot[SLOT_starttime];
 
-    if (toys.optflags&FLAG_o) ll *= -1;
+    if (FLAG(o)) ll *= -1;
     if (TT.time && TT.time>ll) return;
     TT.time = ll;
     free(TT.pgrep.snapshot);
@@ -1766,9 +1871,7 @@ static void match_pgrep(void *p)
 
 static int pgrep_match_process(long long *slot)
 {
-  int match = shared_match_process(slot);
-
-  return (toys.optflags&FLAG_v) ? !match : match;
+  return !FLAG(v) == !!shared_match_process(slot);
 }
 
 void pgrep_main(void)
@@ -1794,7 +1897,7 @@ void pgrep_main(void)
       !(toys.optflags&(FLAG_G|FLAG_g|FLAG_P|FLAG_s|FLAG_t|FLAG_U|FLAG_u)))
     if (!toys.optc) help_exit("No PATTERN");
 
-  if (toys.optflags&FLAG_f) TT.bits |= _PS_CMDLINE;
+  if (FLAG(f)) TT.bits |= _PS_CMDLINE;
   for (arg = toys.optargs; *arg; arg++) {
     reg = xmalloc(sizeof(struct regex_list));
     xregcomp(&reg->reg, *arg, REG_EXTENDED);
@@ -1808,7 +1911,7 @@ void pgrep_main(void)
   toys.exitval = 1;
 
   dirtree_flagread("/proc", DIRTREE_SHUTUP|DIRTREE_PROC, get_ps);
-  if (toys.optflags&FLAG_c) printf("%d\n", TT.sortpos);
+  if (FLAG(c)) printf("%d\n", TT.sortpos);
   if (TT.pgrep.snapshot) {
     do_pgk(TT.pgrep.snapshot);
     if (CFG_TOYBOX_FREE) free(TT.pgrep.snapshot);
@@ -1824,8 +1927,8 @@ void pkill_main(void)
 {
   char **args = toys.optargs;
 
-  if (!(toys.optflags&FLAG_l) && *args && **args=='-') TT.pgrep.L = *(args++)+1;
+  if (!FLAG(l) && *args && **args=='-') TT.pgrep.L = *(args++)+1;
   if (!TT.pgrep.L) TT.pgrep.signal = SIGTERM;
-  if (toys.optflags & FLAG_V) TT.tty = 1;
+  if (FLAG(V)) TT.tty = 1;
   pgrep_main();
 }

@@ -12,10 +12,12 @@ import common
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.frontend.afe import models
+from autotest_lib.frontend.afe import model_logic
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.scheduler.shard import shard_client
+from django.core.exceptions import MultipleObjectsReturned
 
 
 class ShardClientTest(mox.MoxTestBase,
@@ -42,9 +44,8 @@ class ShardClientTest(mox.MoxTestBase,
     def setup_mocks(self):
         self.mox.StubOutClassWithMocks(frontend_wrappers, 'RetryingAFE')
         self.afe = frontend_wrappers.RetryingAFE(server=mox.IgnoreArg(),
-                                                 delay_sec=5,
-                                                 timeout_min=5)
-
+                                                 delay_sec=mox.IgnoreArg(),
+                                                 timeout_min=mox.IgnoreArg())
 
     def setup_global_config(self):
         global_config.global_config.override_config_value(
@@ -386,6 +387,20 @@ class ShardClientTest(mox.MoxTestBase,
         sut = shard_client.get_shard_client()
         # 36 seconds
         sut.loop(lifetime_hours=0.01)
+        self.mox.VerifyAll()
+
+    def test_remove_incorrect_hosts(self):
+        """Test _remove_incorrect_hosts with MultipleObjectsReturned."""
+        self.setup_mocks()
+        self.setup_global_config()
+        self.mox.StubOutWithMock(model_logic.ModelWithInvalidQuerySet, 'delete')
+        call = models.Host.objects.filter(id__in=[1]).delete()
+        call.AndRaise(MultipleObjectsReturned('e'))
+
+        self.mox.ReplayAll()
+        sut = shard_client.get_shard_client()
+        sut._remove_incorrect_hosts(incorrect_host_ids=[1])
+
         self.mox.VerifyAll()
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -23,7 +23,10 @@ from acts.test_utils.tel.tel_subscription_utils import set_subid_for_data
 from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_NW_SELECTION
 from acts.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
 from acts.test_utils.tel.tel_defines import WAIT_TIME_ANDROID_STATE_SETTLING
+from acts.test_utils.tel.tel_defines import WAIT_TIME_BETWEEN_STATE_CHECK
+from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_FOR_STATE_CHANGE
 from acts.test_utils.tel.tel_subscription_utils import get_default_data_sub_id
+from acts.test_utils.tel.tel_test_utils import start_youtube_video
 from acts.test_utils.tel.tel_test_utils import start_wifi_tethering
 from acts.test_utils.tel.tel_test_utils import stop_wifi_tethering
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation_for_subscription
@@ -41,6 +44,8 @@ from acts.test_utils.tel.tel_test_utils import wait_for_data_attach_for_subscrip
 from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
 from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
 from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+from acts.test_utils.tel.tel_test_utils import get_service_state_by_adb
+from acts.test_utils.tel.tel_test_utils import wait_for_state
 
 
 def wifi_tethering_cleanup(log, provider, client_list):
@@ -133,7 +138,8 @@ def wifi_tethering_setup_teardown(log,
             client.droid.telephonyToggleDataConnection(False)
         log.info("WiFI Tethering: Verify client have no Internet access.")
         for client in client_list:
-            if verify_internet_connection(log, client):
+            if not verify_internet_connection(
+                    log, client, expected_state=False):
                 client.log.error("Turn off Data on client fail")
                 return False
 
@@ -169,8 +175,8 @@ def wifi_tethering_setup_teardown(log,
                     return False
 
             client.log.info("Client check Internet connection.")
-            if (not wait_for_wifi_data_connection(log, client, True) or
-                    not verify_internet_connection(log, client)):
+            if (not wait_for_wifi_data_connection(log, client, True)
+                    or not verify_internet_connection(log, client)):
                 client.log.error("No WiFi Data on client")
                 return False
 
@@ -179,8 +185,8 @@ def wifi_tethering_setup_teardown(log,
             return False
 
     finally:
-        if (do_cleanup and
-            (not wifi_tethering_cleanup(log, provider, client_list))):
+        if (do_cleanup
+                and (not wifi_tethering_cleanup(log, provider, client_list))):
             return False
     return True
 
@@ -247,12 +253,12 @@ def wifi_cell_switching(log, ad, wifi_network_ssid, wifi_network_pass, nw_gen):
     try:
 
         if not ensure_network_generation_for_subscription(
-                log, ad,
-                get_default_data_sub_id(ad), nw_gen,
+                log, ad, get_default_data_sub_id(ad), nw_gen,
                 MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
             ad.log.error("Device failed to register in %s", nw_gen)
             return False
 
+        start_youtube_video(ad)
         # Ensure WiFi can connect to live network
         ad.log.info("Make sure phone can connect to live network by WIFI")
         if not ensure_wifi_connected(log, ad, wifi_network_ssid,
@@ -265,34 +271,35 @@ def wifi_cell_switching(log, ad, wifi_network_ssid, wifi_network_pass, nw_gen):
         toggle_airplane_mode(log, ad, False)
         wifi_toggle_state(log, ad, True)
         ad.droid.telephonyToggleDataConnection(True)
-        if (not wait_for_wifi_data_connection(log, ad, True) or
-                not verify_internet_connection(log, ad)):
+        if (not wait_for_wifi_data_connection(log, ad, True)
+                or not verify_internet_connection(log, ad)):
             ad.log.error("Data is not on WiFi")
             return False
 
         log.info("Step2 WiFi is Off, Data is on Cell.")
         wifi_toggle_state(log, ad, False)
-        if (not wait_for_cell_data_connection(log, ad, True) or
-                not verify_internet_connection(log, ad)):
+        if (not wait_for_cell_data_connection(log, ad, True)
+                or not verify_internet_connection(log, ad)):
             ad.log.error("Data did not return to cell")
             return False
 
         log.info("Step3 WiFi is On, Data is on WiFi.")
         wifi_toggle_state(log, ad, True)
-        if (not wait_for_wifi_data_connection(log, ad, True) or
-                not verify_internet_connection(log, ad)):
+        if (not wait_for_wifi_data_connection(log, ad, True)
+                or not verify_internet_connection(log, ad)):
             ad.log.error("Data did not return to WiFi")
             return False
 
         log.info("Step4 WiFi is Off, Data is on Cell.")
         wifi_toggle_state(log, ad, False)
-        if (not wait_for_cell_data_connection(log, ad, True) or
-                not verify_internet_connection(log, ad)):
+        if (not wait_for_cell_data_connection(log, ad, True)
+                or not verify_internet_connection(log, ad)):
             ad.log.error("Data did not return to cell")
             return False
         return True
 
     finally:
+        ad.force_stop_apk("com.google.android.youtube")
         wifi_toggle_state(log, ad, False)
 
 
@@ -319,20 +326,33 @@ def airplane_mode_test(log, ad, retries=3):
         ad.droid.telephonyToggleDataConnection(True)
         wifi_toggle_state(log, ad, False)
 
-        log.info("Step1: ensure attach")
+        ad.log.info("Step1: disable airplane mode and ensure attach")
         if not toggle_airplane_mode(log, ad, False):
             ad.log.error("Failed initial attach")
             return False
-        for i in range(retries):
-            if verify_internet_connection(log, ad):
-                ad.log.info("Data available on cell.")
-                break
-            elif i == retries - 1:
-                ad.log.error("Data not available on cell.")
-                return False
-            else:
-                ad.log.warning("Attempt %d Data not available on cell" %
-                               (i + 1))
+
+        if not wait_for_state(
+                get_service_state_by_adb,
+                "IN_SERVICE",
+                MAX_WAIT_TIME_FOR_STATE_CHANGE,
+                WAIT_TIME_BETWEEN_STATE_CHECK,
+                log,
+                ad):
+            ad.log.error("Current service state is not 'IN_SERVICE'.")
+            return False
+
+        time.sleep(30)
+        if not ad.droid.connectivityNetworkIsConnected():
+            ad.log.error("Network is NOT connected!")
+            return False
+
+        if not wait_for_cell_data_connection(log, ad, True):
+            ad.log.error("Failed to enable data connection.")
+            return False
+
+        if not verify_internet_connection(log, ad, retries=3):
+            ad.log.error("Data not available on cell.")
+            return False
 
         log.info("Step2: enable airplane mode and ensure detach")
         if not toggle_airplane_mode(log, ad, True):
@@ -341,7 +361,8 @@ def airplane_mode_test(log, ad, retries=3):
         if not wait_for_cell_data_connection(log, ad, False):
             ad.log.error("Failed to disable cell data connection")
             return False
-        if verify_internet_connection(log, ad):
+
+        if not verify_internet_connection(log, ad, expected_state=False):
             ad.log.error("Data available in airplane mode.")
             return False
 
@@ -350,23 +371,27 @@ def airplane_mode_test(log, ad, retries=3):
             ad.log.error("Failed to disable Airplane Mode")
             return False
 
+        if not wait_for_state(
+                get_service_state_by_adb,
+                "IN_SERVICE",
+                MAX_WAIT_TIME_FOR_STATE_CHANGE,
+                WAIT_TIME_BETWEEN_STATE_CHECK,
+                log,
+                ad):
+            ad.log.error("Current service state is not 'IN_SERVICE'.")
+            return False
+
+        time.sleep(30)
+        if not ad.droid.connectivityNetworkIsConnected():
+            ad.log.warning("Network is NOT connected!")
+
         if not wait_for_cell_data_connection(log, ad, True):
             ad.log.error("Failed to enable cell data connection")
             return False
 
-        time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
-
-        log.info("Step4 verify internet")
-        for i in range(retries):
-            if verify_internet_connection(log, ad):
-                ad.log.info("Data available on cell.")
-                break
-            elif i == retries - 1:
-                ad.log.error("Data not available on cell.")
-                return False
-            else:
-                ad.log.warning("Attempt %d Data not available on cell" %
-                               (i + 1))
+        if not verify_internet_connection(log, ad, retries=3):
+            ad.log.warning("Data not available on cell")
+            return False
         return True
     finally:
         toggle_airplane_mode(log, ad, False)
@@ -395,9 +420,8 @@ def data_connectivity_single_bearer(log, ad, nw_gen):
     if getattr(ad, 'roaming', False):
         wait_time = 2 * wait_time
     if not ensure_network_generation_for_subscription(
-            log, ad,
-            get_default_data_sub_id(ad), nw_gen, MAX_WAIT_TIME_NW_SELECTION,
-            NETWORK_SERVICE_DATA):
+            log, ad, get_default_data_sub_id(ad), nw_gen,
+            MAX_WAIT_TIME_NW_SELECTION, NETWORK_SERVICE_DATA):
         ad.log.error("Device failed to connect to %s in %s seconds.", nw_gen,
                      wait_time)
         return False
@@ -406,12 +430,12 @@ def data_connectivity_single_bearer(log, ad, nw_gen):
         log.info("Step1 Airplane Off, Data On.")
         toggle_airplane_mode(log, ad, False)
         ad.droid.telephonyToggleDataConnection(True)
-        if not wait_for_cell_data_connection(log, ad, True):
+        if not wait_for_cell_data_connection(log, ad, True, timeout_value=wait_time):
             ad.log.error("Failed to enable data connection.")
             return False
 
         log.info("Step2 Verify internet")
-        if not verify_internet_connection(log, ad):
+        if not verify_internet_connection(log, ad, retries=3):
             ad.log.error("Data not available on cell.")
             return False
 
@@ -421,29 +445,28 @@ def data_connectivity_single_bearer(log, ad, nw_gen):
             ad.log.error("Step3 Failed to disable data connection.")
             return False
 
-        if verify_internet_connection(log, ad):
+        if not verify_internet_connection(log, ad, expected_state=False):
             ad.log.error("Step3 Data still available when disabled.")
             return False
 
         log.info("Step4 Re-enable data.")
         ad.droid.telephonyToggleDataConnection(True)
-        if not wait_for_cell_data_connection(log, ad, True):
+        if not wait_for_cell_data_connection(log, ad, True, timeout_value=wait_time):
             ad.log.error("Step4 failed to re-enable data.")
             return False
-        if not verify_internet_connection(log, ad):
+        if not verify_internet_connection(log, ad, retries=3):
             ad.log.error("Data not available on cell.")
             return False
 
         if not is_droid_in_network_generation_for_subscription(
-                log, ad,
-                get_default_data_sub_id(ad), nw_gen, NETWORK_SERVICE_DATA):
+                log, ad, get_default_data_sub_id(ad), nw_gen,
+                NETWORK_SERVICE_DATA):
             ad.log.error("Failed: droid is no longer on correct network")
-            ad.log.info(
-                "Expected:%s, Current:%s", nw_gen,
-                rat_generation_from_rat(
-                    get_network_rat_for_subscription(
-                        log, ad,
-                        get_default_data_sub_id(ad), NETWORK_SERVICE_DATA)))
+            ad.log.info("Expected:%s, Current:%s", nw_gen,
+                        rat_generation_from_rat(
+                            get_network_rat_for_subscription(
+                                log, ad, get_default_data_sub_id(ad),
+                                NETWORK_SERVICE_DATA)))
             return False
         return True
     finally:

@@ -67,6 +67,7 @@ public:
     std::unique_lock<std::mutex> lock() { return std::unique_lock<std::mutex>(mMutex); }
 
     void setLocked(K&& k, V&& v) { mMap[std::forward<K>(k)] = std::forward<V>(v); }
+    void setLocked(K&& k, const V& v) { mMap[std::forward<K>(k)] = v; }
 
     const V& getLocked(const K& k, const V& def) const {
         const_iterator iter = mMap.find(k);
@@ -76,10 +77,35 @@ public:
         return iter->second;
     }
 
+    size_type eraseLocked(const K& k) { return mMap.erase(k); }
+
+    // the concurrent map must be locked in order to iterate over it
+    iterator begin() { return mMap.begin(); }
+    iterator end() { return mMap.end(); }
+    const_iterator begin() const { return mMap.begin(); }
+    const_iterator end() const { return mMap.end(); }
+
    private:
     mutable std::mutex mMutex;
     std::map<K, V> mMap;
 };
+
+namespace details {
+
+// TODO(b/69122224): remove this type and usages of it
+// DO NOT ADD USAGES
+template <typename T>
+class DoNotDestruct {
+  public:
+    DoNotDestruct() { new (buffer) T(); }
+    T& get() { return *reinterpret_cast<T*>(buffer); }
+    T* operator->() { return reinterpret_cast<T*>(buffer); }
+
+  private:
+    alignas(T) char buffer[sizeof(T)];
+};
+
+}  // namespace details
 
 }  // namespace hardware
 }  // namespace android

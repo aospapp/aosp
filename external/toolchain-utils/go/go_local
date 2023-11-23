@@ -3,6 +3,6 @@
 # Invoke the Go compiler for localhost.
 
 GOOS="linux" GOARCH="amd64" CGO_ENABLED="1" \
-	CC="gcc" \
-	CXX="g++" \
+	CC="clang" \
+	CXX="clang++" \
 	exec go "$@"

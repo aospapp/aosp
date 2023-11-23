@@ -27,13 +27,14 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.LoginFilter;
 import android.text.LoginFilter.UsernameFilterGeneric;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.SpannedString;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

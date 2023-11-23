@@ -17,6 +17,6 @@
 */
 -->
 <resources>
-    <!-- Padding of exit button in ActivityBlockingActivity. -->
-    <dimen name="exit_button_padding">28dp</dimen>
+    <!-- Padding of button in ActivityBlockingActivity. -->
+    <dimen name="button_padding">28dp</dimen>
 </resources>

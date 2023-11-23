@@ -17,13 +17,14 @@
 package com.google.android.tv.partner.support;
 
 import android.content.ContentValues;
+import com.google.auto.value.AutoValue;
 
 /**
  * Value class representing a TV Input that uses Live TV EPG.
  *
  * @see {@link EpgContract.EpgInputs}
  */
-// TODO(b/72052568): Get autovalue to work in aosp master
+@AutoValue
 public abstract class EpgInput {
 
     public static EpgInput createEpgChannel(long id, String inputId, String lineupId) {

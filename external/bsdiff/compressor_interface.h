@@ -29,7 +29,7 @@ class CompressorInterface {
   virtual const std::vector<uint8_t>& GetCompressedData() = 0;
 
   // Return the type of the current compressor.
-  virtual CompressorType Type() = 0;
+  virtual CompressorType Type() const = 0;
 
  protected:
   CompressorInterface() = default;

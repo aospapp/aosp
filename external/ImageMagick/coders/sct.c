@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -134,6 +134,9 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     height,
     width;
 
+  int
+    c;
+
   Quantum
     pixel;
 
@@ -176,6 +179,8 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Read control block.
   */
+  memset(magick,0,sizeof(magick));
+  memset(buffer,0,sizeof(buffer));
   count=ReadBlob(image,80,buffer);
   (void) count;
   count=ReadBlob(image,2,(unsigned char *) magick);
@@ -214,6 +219,9 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   count=ReadBlob(image,768,buffer);
   if (separations_mask == 0x0f)
     SetImageColorspace(image,CMYKColorspace,exception);
+  if ((image->columns < 1) || (image->rows < 1) ||
+      (width < MagickEpsilon) || (height < MagickEpsilon))
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   image->resolution.x=1.0*image->columns/width;
   image->resolution.y=1.0*image->rows/height;
   if (image_info->ping != MagickFalse)
@@ -227,6 +235,7 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Convert SCT raster image to pixel packets.
   */
+  c=0;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     for (i=0; i < (ssize_t) separations; i++)
@@ -236,7 +245,10 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
         break;
       for (x=0; x < (ssize_t) image->columns; x++)
       {
-        pixel=(Quantum) ScaleCharToQuantum((unsigned char) ReadBlobByte(image));
+        c=ReadBlobByte(image);
+        if (c == EOF)
+          break;
+        pixel=(Quantum) ScaleCharToQuantum((unsigned char) c);
         if (image->colorspace == CMYKColorspace)
           pixel=(Quantum) (QuantumRange-pixel);
         switch (i)
@@ -267,11 +279,15 @@ static Image *ReadSCTImage(const ImageInfo *image_info,ExceptionInfo *exception)
         }
         q+=GetPixelChannels(image);
       }
+      if (x < (ssize_t) image->columns)
+        break;
       if (SyncAuthenticPixels(image,exception) == MagickFalse)
         break;
       if ((image->columns % 2) != 0)
         (void) ReadBlobByte(image);  /* pad */
     }
+    if (i < (ssize_t) separations)
+      break;
     status=SetImageProgress(image,LoadImageTag,(MagickOffsetType) y,
       image->rows);
     if (status == MagickFalse)

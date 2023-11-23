@@ -155,6 +155,13 @@ static void current_operator_cb(const RawAddress* bd_addr, const char* name) {
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
 
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(name)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: name is not a valid UTF string.", __func__);
+    name = null_str;
+  }
+
   ScopedLocalRef<jstring> js_name(sCallbackEnv.get(),
                                   sCallbackEnv->NewStringUTF(name));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCurrentOperator,
@@ -219,6 +226,13 @@ static void clip_cb(const RawAddress* bd_addr, const char* number) {
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
 
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(number)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: number is not a valid UTF string.", __func__);
+    number = null_str;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClip, js_number.get(),
@@ -231,6 +245,14 @@ static void call_waiting_cb(const RawAddress* bd_addr, const char* number) {
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(number)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: number is not a valid UTF string.", __func__);
+    number = null_str;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCallWaiting,
@@ -247,6 +269,14 @@ static void current_calls_cb(const RawAddress* bd_addr, int index,
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(number)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: number is not a valid UTF string.", __func__);
+    number = null_str;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCurrentCalls, index, dir,
@@ -282,6 +312,14 @@ static void subscriber_info_cb(const RawAddress* bd_addr, const char* name,
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(name)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: name is not a valid UTF string.", __func__);
+    name = null_str;
+  }
+
   ScopedLocalRef<jstring> js_name(sCallbackEnv.get(),
                                   sCallbackEnv->NewStringUTF(name));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSubscriberInfo,
@@ -306,6 +344,14 @@ static void last_voice_tag_number_cb(const RawAddress* bd_addr,
 
   ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
   if (!addr.get()) return;
+
+  const char null_str[] = "";
+  if (!sCallbackEnv.isValidUtf(number)) {
+    android_errorWriteLog(0x534e4554, "109838537");
+    ALOGE("%s: number is not a valid UTF string.", __func__);
+    number = null_str;
+  }
+
   ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                     sCallbackEnv->NewStringUTF(number));
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onLastVoiceTagNumber,

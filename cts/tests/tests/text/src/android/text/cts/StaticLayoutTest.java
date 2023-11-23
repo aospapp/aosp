@@ -33,10 +33,6 @@ import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Typeface;
 import android.os.LocaleList;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.filters.Suppress;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.Layout.Alignment;
@@ -52,9 +48,15 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
 import android.text.method.cts.EditorState;
+import android.text.style.LineBackgroundSpan;
+import android.text.style.LineHeightSpan;
 import android.text.style.ReplacementSpan;
 import android.text.style.StyleSpan;
 import android.text.style.TextAppearanceSpan;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -1068,23 +1070,23 @@ public class StaticLayoutTest {
         state.assertEquals("| U+00A9 U+FE0E U+00A9 U+FE0F U+00A9 U+FE0E");
 
         // Keycap + variation selector
-        state.setByString("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        state.setByString("| '1' U+FE0F U+20E3 '1' U+FE0F U+20E3 '1' U+FE0F U+20E3");
         moveCursorToRightCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 | '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        state.assertEquals("'1' U+FE0F U+20E3 | '1' U+FE0F U+20E3 '1' U+FE0F U+20E3");
         moveCursorToRightCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 | '1' U+FE0E U+20E3");
+        state.assertEquals("'1' U+FE0F U+20E3 '1' U+FE0F U+20E3 | '1' U+FE0F U+20E3");
         moveCursorToRightCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 |");
+        state.assertEquals("'1' U+FE0F U+20E3 '1' U+FE0F U+20E3 '1' U+FE0F U+20E3 |");
         moveCursorToRightCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 |");
+        state.assertEquals("'1' U+FE0F U+20E3 '1' U+FE0F U+20E3 '1' U+FE0F U+20E3 |");
         moveCursorToLeftCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 '1' U+FE0E U+20E3 | '1' U+FE0E U+20E3");
+        state.assertEquals("'1' U+FE0F U+20E3 '1' U+FE0F U+20E3 | '1' U+FE0F U+20E3");
         moveCursorToLeftCursorableOffset(state);
-        state.assertEquals("'1' U+FE0E U+20E3 | '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        state.assertEquals("'1' U+FE0F U+20E3 | '1' U+FE0F U+20E3 '1' U+FE0F U+20E3");
         moveCursorToLeftCursorableOffset(state);
-        state.assertEquals("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        state.assertEquals("| '1' U+FE0F U+20E3 '1' U+FE0F U+20E3 '1' U+FE0F U+20E3");
         moveCursorToLeftCursorableOffset(state);
-        state.assertEquals("| '1' U+FE0E U+20E3 '1' U+FE0E U+20E3 '1' U+FE0E U+20E3");
+        state.assertEquals("| '1' U+FE0F U+20E3 '1' U+FE0F U+20E3 '1' U+FE0F U+20E3");
 
         // Flags
         // U+1F1E6 U+1F1E8 is Ascension Island flag.
@@ -1262,10 +1264,8 @@ public class StaticLayoutTest {
             .setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED).build();
     }
 
-    // TODO: Re-enable once http://b/65207701 is fixed.
     @Test
-    @Suppress
-    public void testGetLineWidth() {
+    public void testGetLineMax() {
         final float wholeWidth = mDefaultPaint.measureText(LOREM_IPSUM);
         final int lineWidth = (int) (wholeWidth / 10.0f);  // Make 10 lines per paragraph.
         final String multiParaTestString =
@@ -1274,13 +1274,11 @@ public class StaticLayoutTest {
                 multiParaTestString.length(), mDefaultPaint, lineWidth)
                 .build();
         for (int i = 0; i < layout.getLineCount(); i++) {
-            assertTrue(layout.getLineWidth(i) <= lineWidth);
+            assertTrue(layout.getLineMax(i) <= lineWidth);
         }
     }
 
-    // TODO: Re-enable once http://b/65207701 is fixed.
     @Test
-    @Suppress
     public void testIndent() {
         final float wholeWidth = mDefaultPaint.measureText(LOREM_IPSUM);
         final int lineWidth = (int) (wholeWidth / 10.0f);  // Make 10 lines per paragraph.
@@ -1292,7 +1290,7 @@ public class StaticLayoutTest {
                 .setIndents(new int[] { indentWidth }, null)
                 .build();
         for (int i = 0; i < layout.getLineCount(); i++) {
-            assertTrue(layout.getLineWidth(i) <= lineWidth - indentWidth);
+            assertTrue(layout.getLineMax(i) <= lineWidth - indentWidth);
         }
     }
 
@@ -1535,5 +1533,152 @@ public class StaticLayoutTest {
 
         assertEquals(-200, secondMetrics.ascent);
         assertEquals(40, secondMetrics.descent);
+    }
+
+    @Test
+    public void testChangeFontMetricsLineHeightBySpanTest() {
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(50);
+        final SpannableString spanStr0 = new SpannableString(LOREM_IPSUM);
+        // Make sure the final layout contain multiple lines.
+        final int width = (int) paint.measureText(spanStr0.toString()) / 5;
+        final int expectedHeight0 = 25;
+
+        spanStr0.setSpan(new LineHeightSpan.Standard(expectedHeight0), 0, spanStr0.length(),
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
+        StaticLayout layout0 = StaticLayout.Builder.obtain(spanStr0, 0, spanStr0.length(),
+                paint, width).build();
+
+        // We need at least 3 lines for testing.
+        assertTrue(layout0.getLineCount() > 2);
+        // Omit the first and last line, because their line hight might be different due to padding.
+        for (int i = 1; i < layout0.getLineCount() - 1; ++i) {
+            assertEquals(expectedHeight0, layout0.getLineBottom(i) - layout0.getLineTop(i));
+        }
+
+        final SpannableString spanStr1 = new SpannableString(LOREM_IPSUM);
+        int expectedHeight1 = 100;
+
+        spanStr1.setSpan(new LineHeightSpan.Standard(expectedHeight1), 0, spanStr1.length(),
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
+        StaticLayout layout1 = StaticLayout.Builder.obtain(spanStr1, 0, spanStr1.length(),
+                paint, width).build();
+
+        for (int i = 1; i < layout1.getLineCount() - 1; ++i) {
+            assertEquals(expectedHeight1, layout1.getLineBottom(i) - layout1.getLineTop(i));
+        }
+    }
+
+    @Test
+    public void testChangeFontMetricsLineHeightBySpanMultipleTimesTest() {
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(50);
+        final SpannableString spanStr = new SpannableString(LOREM_IPSUM);
+        final int width = (int) paint.measureText(spanStr.toString()) / 5;
+        final int expectedHeight = 100;
+
+        spanStr.setSpan(new LineHeightSpan.Standard(25), 0, spanStr.length(),
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
+        // Only the last span is effective.
+        spanStr.setSpan(new LineHeightSpan.Standard(expectedHeight), 0, spanStr.length(),
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
+        StaticLayout layout = StaticLayout.Builder.obtain(spanStr, 0, spanStr.length(),
+                paint, width).build();
+
+        assertTrue(layout.getLineCount() > 2);
+        for (int i = 1; i < layout.getLineCount() - 1; ++i) {
+            assertEquals(expectedHeight, layout.getLineBottom(i) - layout.getLineTop(i));
+        }
+    }
+
+    private class FakeLineBackgroundSpan implements LineBackgroundSpan {
+        // Whenever drawBackground() is called, the start and end of
+        // the line will be stored into mHistory as an array in the
+        // format of [start, end].
+        private final List<int[]> mHistory;
+
+        FakeLineBackgroundSpan() {
+            mHistory = new ArrayList<int[]>();
+        }
+
+        @Override
+        public void drawBackground(Canvas c, Paint p,
+                int left, int right,
+                int top, int baseline, int bottom,
+                CharSequence text, int start, int end,
+                int lnum) {
+            mHistory.add(new int[] {start, end});
+        }
+
+        List<int[]> getHistory() {
+            return mHistory;
+        }
+    }
+
+    private void testLineBackgroundSpanInRange(String text, int start, int end) {
+        final SpannableString spanStr = new SpannableString(text);
+        final FakeLineBackgroundSpan span = new FakeLineBackgroundSpan();
+        spanStr.setSpan(span, start, end, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(50);
+        final int width = (int) paint.measureText(spanStr.toString()) / 5;
+        final StaticLayout layout = StaticLayout.Builder.obtain(spanStr, 0, spanStr.length(),
+                paint, width).build();
+
+        // One line is too simple, need more to test.
+        assertTrue(layout.getLineCount() > 1);
+        drawToBitmap(layout);
+        List<int[]> history = span.getHistory();
+
+        if (history.size() == 0) {
+            // drawBackground() of FakeLineBackgroundSpan was never called.
+            // This only happens when the length of the span is zero.
+            assertTrue(start >= end);
+            return;
+        }
+
+        // Check if drawBackground() is corrected called for each affected line.
+        int lastLineEnd = history.get(0)[0];
+        for (int[] lineRange: history) {
+            // The range of line must intersect with the span.
+            assertTrue(lineRange[0] < end && lineRange[1] > start);
+            // Check:
+            // 1. drawBackground() is called in the correct sequence.
+            // 2. drawBackground() is called only once for each affected line.
+            assertEquals(lastLineEnd, lineRange[0]);
+            lastLineEnd = lineRange[1];
+        }
+
+        int[] firstLineRange = history.get(0);
+        int[] lastLineRange = history.get(history.size() - 1);
+
+        // Check if affected lines match the span coverage.
+        assertTrue(firstLineRange[0] <= start && end <= lastLineRange[1]);
+    }
+
+    @Test
+    public void testDrawWithLineBackgroundSpanCoverWholeText() {
+        testLineBackgroundSpanInRange(LOREM_IPSUM, 0, LOREM_IPSUM.length());
+    }
+
+    @Test
+    public void testDrawWithLineBackgroundSpanCoverNothing() {
+        int i = 0;
+        // Zero length Spans.
+        testLineBackgroundSpanInRange(LOREM_IPSUM, i, i);
+        i = LOREM_IPSUM.length() / 2;
+        testLineBackgroundSpanInRange(LOREM_IPSUM, i, i);
+    }
+
+    @Test
+    public void testDrawWithLineBackgroundSpanCoverPart() {
+        int start = 0;
+        int end = LOREM_IPSUM.length() / 2;
+        testLineBackgroundSpanInRange(LOREM_IPSUM, start, end);
+
+        start = LOREM_IPSUM.length() / 2;
+        end = LOREM_IPSUM.length();
+        testLineBackgroundSpanInRange(LOREM_IPSUM, start, end);
     }
 }

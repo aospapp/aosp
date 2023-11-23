@@ -54,8 +54,10 @@ public class NormalClass {
 
     public class InnerClass {
         public class InnerInnerClass {
+            @SuppressWarnings("unused")
             private String innerInnerClassData;
         }
+        @SuppressWarnings("unused")
         private String innerClassData;
     }
 

@@ -56,12 +56,12 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ଅନ୍ କରନ୍ତୁ"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"ବ୍ୟାକଅପ୍‌ ନିଆଯାଇଥିବା ଫଟୋ ଓ ଭିଡିଓ"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"ଆଇଟମ୍‌ ଖୋଜୁଛି…"</string>
-    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"ସବୁ ଆଇଟମ୍‌କୁ ଦେଖନ୍ତୁ"</string>
-    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"ସାମ୍ପ୍ରତିକ ଆଇଟମ୍‌ଗୁଡ଼ିକୁ ଲୁଚାଇ ରଖନ୍ତୁ"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"ସବୁ ଆଇଟମ୍‌କୁ ଦେଖାନ୍ତୁ"</string>
+    <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"ଏବେର ଆଇଟମ୍‌ଗୁଡ଼ିକୁ ଲୁଚାଇ ରଖନ୍ତୁ"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"ଆପଣଙ୍କ ଡିଭାଇସ୍‌ରୁ <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> କଣ୍ଟେଣ୍ଟ ଡିଲିଟ୍‌ କରାହେବ"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"ଆପଣଙ୍କ ଷ୍ଟୋରେଜ୍‌ ଏବେ, ଷ୍ଟୋରେଜ୍‌ ମ୍ୟାନେଜର୍‌ ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"ଡିଲିଟ୍‌ କରିବା ପାଇଁ କିଛି ନାହିଁ"</string>
-    <string name="empty_state_review_items_link" msgid="8411186441239304545">"ସାମ୍ପ୍ରତିକ ଆଇଟମ୍‌ଗୁଡ଼ିକୁ ରିଭ୍ୟୁ କରନ୍ତୁ"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"ଡିଲିଟ୍‌ କରିବା ପାଇଁ କୌଣସି ପୁରୁଣା ଫାଇଲ୍‌ ନାହିଁ। ଜାଗା ତିଆରି କରିବା ପାଇଁ ସାମ୍ପ୍ରତିକ ଫଟୋ, ଭିଡିଓ ଏବଂ ଆପ୍‌ ଡିଲିଟ୍‌ କରନ୍ତୁ।"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"କାଢ଼ିବା ପାଇଁ କିଛି ନାହିଁ"</string>
+    <string name="empty_state_review_items_link" msgid="8411186441239304545">"ଏବେର ଆଇଟମ୍‌ଗୁଡ଼ିକୁ ରିଭ୍ୟୁ କରନ୍ତୁ"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"ଡିଲିଟ୍‌ କରିବା ପାଇଁ କୌଣସି ପୁରୁଣା ଫାଇଲ୍‌ ନାହିଁ। ଜାଗା ତିଆରି କରିବା ପାଇଁ ବର୍ତ୍ତମାନର ଫଟୋ, ଭିଡିଓ ଏବଂ ଆପ୍‌ ଡିଲିଟ୍‌ କରନ୍ତୁ।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>କୁ <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> ଜାଗା ଆବଶ୍ୟକ"</string>
 </resources>

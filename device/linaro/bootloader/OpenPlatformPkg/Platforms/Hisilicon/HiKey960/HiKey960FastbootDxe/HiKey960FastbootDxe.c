@@ -612,15 +612,32 @@ HiKey960FastbootPlatformOemCommand (
 {
   EFI_STATUS   Status;
   CHAR16       UnicodeSN[SERIAL_NUMBER_SIZE];
+  UINTN        Size;
 
+  Size = AsciiStrLen ("serialno");
   if (AsciiStrCmp (Command, "Demonstrate") == 0) {
     DEBUG ((DEBUG_ERROR, "ARM OEM Fastboot command 'Demonstrate' received.\n"));
     return EFI_SUCCESS;
-  } else if (AsciiStrCmp (Command, "serialno") == 0) {
-    Status = GenerateUsbSN (UnicodeSN);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "Failed to generate USB Serial Number.\n"));
-      return Status;
+  } else if (AsciiStrnCmp (Command, "serialno", Size) == 0) {
+    while (*(Command + Size) == ' ') {
+      Size++;
+    }
+    if (AsciiStrnCmp (Command + Size, "set", AsciiStrLen ("set")) == 0) {
+      Size += AsciiStrLen ("set");
+      while (*(Command + Size) == ' ') {
+        Size++;
+      }
+      Status = AssignUsbSN (Command + Size, UnicodeSN);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "Failed to set USB Serial Number.\n"));
+        return Status;
+      }
+    } else {
+      Status = GenerateUsbSN (UnicodeSN);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "Failed to generate USB Serial Number.\n"));
+        return Status;
+      }
     }
     Status = StoreSNToBlock (mFlashHandle, SERIAL_NUMBER_LBA, UnicodeSN);
     return Status;

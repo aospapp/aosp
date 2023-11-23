@@ -27,7 +27,7 @@
 
 namespace android {
 
-struct EmulatedCameraHotplugThread;
+class EmulatedCameraHotplugThread;
 
 /*
  * Contains declaration of a class EmulatedCameraFactory that manages cameras

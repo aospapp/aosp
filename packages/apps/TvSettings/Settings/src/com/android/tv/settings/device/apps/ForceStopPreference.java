@@ -26,8 +26,9 @@ import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist;
+
+import androidx.annotation.NonNull;
+import androidx.leanback.widget.GuidanceStylist;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.applications.ApplicationsState;

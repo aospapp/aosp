@@ -16,18 +16,17 @@
 
 package android.atrace.cts;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.Log;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.ITestDevice;
+import static android.atrace.cts.AtraceDeviceTestList.assertTracingOff;
+import static android.atrace.cts.AtraceDeviceTestList.assertTracingOn;
+import static android.atrace.cts.AtraceDeviceTestList.asyncBeginEndSection;
+import static android.atrace.cts.AtraceDeviceTestList.beginEndSection;
+import static android.atrace.cts.AtraceDeviceTestList.counter;
+import static android.atrace.cts.AtraceDeviceTestList.launchActivity;
+
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.Reader;
-import java.io.StringReader;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -35,12 +34,20 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import kotlin.Unit;
+import trebuchet.model.Counter;
+import trebuchet.model.CounterValue;
+import trebuchet.model.Model;
+import trebuchet.model.ProcessModel;
+import trebuchet.model.ThreadModel;
+import trebuchet.model.base.Slice;
+import trebuchet.model.fragments.AsyncSlice;
+import trebuchet.queries.slices.*;
+
 /**
  * Test to check that atrace is usable, to enable usage of systrace.
  */
-public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
-    private static final String TEST_APK = "CtsAtraceTestApp.apk";
-    private static final String TEST_PKG = "com.android.cts.atracetestapp";
+public class AtraceHostTest extends AtraceHostTestBase {
 
     private interface FtraceEntryCallback {
         void onTraceEntry(String threadName, int pid, int tid, String eventType, String args);
@@ -52,57 +59,22 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
      * Regexs copied from (and should be kept in sync with) ftrace importer in catapult.
      */
     private static class FtraceParser {
-        // Matches the trace record in 3.2 and later with the print-tgid option:
-        //          <idle>-0    0 [001] d...  1.23: sched_switch
-        private static final Pattern sLineWithTgid = Pattern.compile(
-                "^\\s*(.+)-(\\d+)\\s+\\(\\s*(\\d+|-+)\\)\\s\\[(\\d+)\\]"
-                + "\\s+[dX.][N.][Hhs.][0-9a-f.]"
-                + "\\s+(\\d+\\.\\d+):\\s+(\\S+):\\s(.*)");
+        private static final Pattern sFtraceLine = Pattern.compile(
+                "^ *(.{1,16})-(\\d+) +(?:\\( *(\\d+)?-*\\) )?\\[(\\d+)] (?:[dX.]...)? *([\\d.]*): *"
+                + "([^:]*): *(.*) *$");
 
-        // Matches the default trace record in 3.2 and later (includes irq-info):
-        //          <idle>-0     [001] d...  1.23: sched_switch
-        private static final Pattern sLineWithIrqInfo = Pattern.compile(
-                "^\\s*(.+)-(\\d+)\\s+\\[(\\d+)\\]"
-                + "\\s+[dX.][N.][Hhs.][0-9a-f.]"
-                + "\\s+(\\d+\\.\\d+):\\s+(\\S+):\\s(.*)$");
-
-        // Matches the default trace record pre-3.2:
-        //          <idle>-0     [001]  1.23: sched_switch
-        private static final Pattern sLineLegacy = Pattern.compile(
-                "^\\s*(.+)-(\\d+)\\s+\\[(\\d+)\\]\\s*(\\d+\\.\\d+):\\s+(\\S+):\\s(.*)");
         private static void parseLine(String line, FtraceEntryCallback callback) {
-            Matcher m = sLineWithTgid.matcher(line);
+            Matcher m = sFtraceLine.matcher(line);
             if (m.matches()) {
                 callback.onTraceEntry(
                         /*threadname*/ m.group(1),
-                        /*pid*/ m.group(3).startsWith("-") ? -1 : Integer.parseInt(m.group(3)),
+                        /*pid*/ (m.group(3) == null || m.group(3).startsWith("-")) ? -1 : Integer.parseInt(m.group(3)),
                         /*tid*/ Integer.parseInt(m.group(2)),
                         /*eventName*/ m.group(6),
                         /*details*/ m.group(7));
                 return;
             }
 
-            m = sLineWithIrqInfo.matcher(line);
-            if (m.matches()) {
-                callback.onTraceEntry(
-                        /*threadname*/ m.group(1),
-                        /*pid*/ -1,
-                        /*tid*/ Integer.parseInt(m.group(2)),
-                        /*eventName*/ m.group(5),
-                        /*details*/ m.group(6));
-                return;
-            }
-
-            m = sLineLegacy.matcher(line);
-            if (m.matches()) {
-                callback.onTraceEntry(
-                        /*threadname*/ m.group(1),
-                        /*pid*/ -1,
-                        /*tid*/ Integer.parseInt(m.group(2)),
-                        /*eventName*/ m.group(5),
-                        /*details*/ m.group(6));
-                return;
-            }
             CLog.i("line doesn't match: " + line);
         }
 
@@ -119,42 +91,11 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
         }
     }
 
-    private IBuildInfo mCtsBuild;
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
-    // Collection of all userspace tags, and 'sched'
-    private static final List<String> sRequiredCategoriesList = Arrays.asList(
-            "sched",
-            "gfx",
-            "input",
-            "view",
-            "webview",
-            "wm",
-            "am",
-            "sm",
-            "audio",
-            "video",
-            "camera",
-            "hal",
-            "res",
-            "dalvik",
-            "rs",
-            "bionic",
-            "power"
-    );
-
     /**
      * Tests that atrace exists and is runnable with no args
      */
-    public void testSimpleRun() throws Exception {
-        String output = getDevice().executeShellCommand("atrace");
+    public void testSimpleRun() {
+        String output = shell("atrace");
         String[] lines = output.split("\\r?\\n");
 
         // check for expected stdout
@@ -168,11 +109,12 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
     /**
      * Tests the output of "atrace --list_categories" to ensure required categories exist.
      */
-    public void testCategories() throws Exception {
-        String output = getDevice().executeShellCommand("atrace --list_categories");
+    public void testCategories() {
+        String output = shell("atrace --list_categories");
         String[] categories = output.split("\\r?\\n");
 
-        Set<String> requiredCategories = new HashSet<String>(sRequiredCategoriesList);
+        Set<String> requiredCategories = new HashSet<String>(Arrays.asList(
+                AtraceConfig.RequiredCategories));
 
         for (String category : categories) {
             int dashIndex = category.indexOf("-");
@@ -191,110 +133,150 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
         }
     }
 
+    public void testTracingIsEnabled() {
+        runSingleAppTest(assertTracingOff);
+        traceSingleTest(assertTracingOn, true);
+        runSingleAppTest(assertTracingOff);
+    }
+
+    // Verifies that although tracing is active, Trace.isEnabled() is false since the app
+    // category isn't enabled
+    public void testTracingIsDisabled() {
+        runSingleAppTest(assertTracingOff);
+        traceSingleTest(assertTracingOff, false);
+        runSingleAppTest(assertTracingOff);
+    }
+
+    private static ThreadModel findThread(Model model, int id) {
+        for (ProcessModel process : model.getProcesses().values()) {
+            for (ThreadModel thread : process.getThreads()) {
+                if (thread.getId() == id) {
+                    return thread;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static ProcessModel findProcess(Model model, int id) {
+        for (ProcessModel process : model.getProcesses().values()) {
+            if (process.getId() == id) {
+                return process;
+            }
+        }
+        return null;
+    }
+
+    private static Counter findCounter(ProcessModel processModel, String name) {
+        for (Counter counter : processModel.getCounters()) {
+            if (name.equals(counter.getName())) {
+                return counter;
+            }
+        }
+        return null;
+    }
+
+    public void testBeginEndSection() {
+        TraceResult result = traceSingleTest(beginEndSection);
+        assertTrue(result.getPid() > 0);
+        assertTrue(result.getTid() > 0);
+        assertNotNull(result.getModel());
+        ThreadModel thread = findThread(result.getModel(), result.getTid());
+        assertNotNull(thread);
+        assertEquals(2, thread.getSlices().size());
+        Slice sdkSlice = thread.getSlices().get(0);
+        assertEquals("AtraceDeviceTest::beginEndSection", sdkSlice.getName());
+        Slice ndkSlice = thread.getSlices().get(1);
+        assertEquals("ndk::beginEndSection", ndkSlice.getName());
+    }
+
+    public void testAsyncBeginEndSection() {
+        TraceResult result = traceSingleTest(asyncBeginEndSection);
+        assertTrue(result.getPid() > 0);
+        assertTrue(result.getTid() > 0);
+        assertNotNull(result.getModel());
+        ProcessModel process = findProcess(result.getModel(), result.getPid());
+        assertNotNull(process);
+        assertEquals(2, process.getAsyncSlices().size());
+        AsyncSlice sdkSlice = process.getAsyncSlices().get(0);
+        assertEquals("AtraceDeviceTest::asyncBeginEndSection", sdkSlice.getName());
+        assertEquals(42, sdkSlice.getCookie());
+        AsyncSlice ndkSlice = process.getAsyncSlices().get(1);
+        assertEquals("ndk::asyncBeginEndSection", ndkSlice.getName());
+        assertEquals(4770, ndkSlice.getCookie());
+    }
+
+    public void testCounter() {
+        TraceResult result = traceSingleTest(counter);
+        assertTrue(result.getPid() > 0);
+        assertTrue(result.getTid() > 0);
+        assertNotNull(result.getModel());
+        ProcessModel process = findProcess(result.getModel(), result.getPid());
+        assertNotNull(process);
+        assertTrue(process.getCounters().size() > 0);
+        Counter counter = findCounter(process, "AtraceDeviceTest::counter");
+        assertNotNull(counter);
+        List<CounterValue> values = counter.getEvents();
+        assertEquals(4, values.size());
+        assertEquals(10, values.get(0).getCount());
+        assertEquals(20, values.get(1).getCount());
+        assertEquals(30, values.get(2).getCount());
+        assertEquals(9223372000000005807L, values.get(3).getCount());
+    }
+
     /**
      * Tests that atrace captures app launch, including app level tracing
      */
-    public void testTracingContent() throws Exception {
-        String atraceOutput = null;
-        try {
-            // cleanup test apps that might be installed from previous partial test run
-            getDevice().uninstallPackage(TEST_PKG);
+    public void testTracingContent() {
+        turnScreenOn();
+        TraceResult result = traceSingleTest(launchActivity, AtraceConfig.DefaultCategories);
 
-            // install the test app
-            CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
-            File testAppFile = buildHelper.getTestFile(TEST_APK);
-            String installResult = getDevice().installPackage(testAppFile, false);
-            assertNull(
-                    String.format("failed to install atrace test app. Reason: %s", installResult),
-                    installResult);
+        final Set<String> requiredSections = new HashSet<>(Arrays.asList(
+                // From the 'view' category
+                "inflate",
+                "Choreographer#doFrame",
+                "traversal",
+                "measure",
+                "layout",
+                "draw",
+                "Record View#draw()",
 
-            // capture a launch of the app with async tracing
-            // content traced by 'view' tag tested below, 'sched' used to ensure tgid printed
-            String atraceArgs = "-a " + TEST_PKG + " -c -b 16000 view"; // TODO: zipping
-            getDevice().executeShellCommand("atrace --async_stop " + atraceArgs);
-            getDevice().executeShellCommand("atrace --async_start " + atraceArgs);
-            getDevice().executeShellCommand("am start " + TEST_PKG);
-            getDevice().executeShellCommand("sleep 5");
-            atraceOutput = getDevice().executeShellCommand("atrace --async_stop " + atraceArgs);
-        } finally {
-            assertNotNull("unable to capture atrace output", atraceOutput);
-            getDevice().uninstallPackage(TEST_PKG);
+                // From our app code
+                "MyView::onDraw"
+        ));
+
+        ThreadModel thread = findThread(result.getModel(), result.getPid());
+        SliceQueriesKt.iterSlices(thread, (Slice slice) -> {
+            requiredSections.remove(slice.getName());
+            return Unit.INSTANCE;
+        });
+
+        assertEquals("Didn't find all required sections",
+                0, requiredSections.size());
+
+        ProcessModel processModel = findProcess(result.getModel(), result.getPid());
+        Counter drawCounter = findCounter(processModel, "MyView::drawCount");
+        assertNotNull(drawCounter);
+        assertTrue(drawCounter.getEvents().size() > 0);
+        long previousCount = 0;
+        for (CounterValue value : drawCounter.getEvents()) {
+            assertTrue(previousCount < value.getCount());
+            previousCount = value.getCount();
         }
+        assertTrue(previousCount > 0);
 
+        final Set<String> requiredAsyncSections = new HashSet<>(Arrays.asList(
+                "AtraceActivity::created",
+                "AtraceActivity::started",
+                "AtraceActivity::resumed"
+        ));
 
-        // now parse the trace data (see external/chromium-trace/systrace.py)
-        final String MARKER = "TRACE:";
-        int dataStart = atraceOutput.indexOf(MARKER);
-        assertTrue(dataStart >= 0);
-        String traceData = atraceOutput.substring(dataStart + MARKER.length());
-
-        FtraceEntryCallback callback = new FtraceEntryCallback() {
-            private int userSpaceMatches = 0;
-            private int beginMatches = 0;
-            private int nextSectionIndex = -1;
-            private int appTid = -1;
-
-
-            private final String initialSection = "traceable-app-test-section";
-            // list of tags expected to be seen on app launch, in order, after the initial.
-            private final String[] requiredSectionList = {
-                    "inflate",
-                    "Choreographer#doFrame",
-                    "traversal",
-                    "measure",
-                    "layout",
-                    "draw",
-                    "Record View#draw()"
-            };
-
-            @Override
-            public void onTraceEntry(String truncatedThreadName, int pid, int tid,
-                    String eventName, String details) {
-                if (!"tracing_mark_write".equals(eventName)) {
-                    // not userspace trace, ignore
-                    return;
-                }
-
-                assertNotNull(truncatedThreadName);
-                assertTrue(tid > 0);
-                userSpaceMatches++;
-
-                if (details == null || !details.startsWith("B|")) {
-                    // not a begin event
-                    return;
-                }
-                beginMatches++;
-
-                if (details.endsWith("|" + initialSection)) {
-                    // initial section observed, start looking for others in order
-                    assertEquals(nextSectionIndex, -1);
-                    nextSectionIndex = 0;
-                    appTid = tid;
-                    return;
-                }
-
-                if (nextSectionIndex >= 0
-                        && tid == appTid
-                        && nextSectionIndex < requiredSectionList.length
-                        && details.endsWith("|" + requiredSectionList[nextSectionIndex])) {
-                    // found next required section in sequence
-                    nextSectionIndex++;
-                }
+        for (AsyncSlice asyncSlice : processModel.getAsyncSlices()) {
+            if (requiredAsyncSections.remove(asyncSlice.getName())) {
+                assertEquals(1, asyncSlice.getCookie());
             }
-
-            @Override
-            public void onFinished() {
-                assertTrue("Unable to parse any userspace sections from atrace output",
-                        userSpaceMatches != 0);
-                assertTrue("Unable to parse any section begin events from atrace output",
-                        beginMatches != 0);
-                assertTrue("Unable to parse initial userspace sections from test app",
-                        nextSectionIndex >= 0);
-                assertEquals("Didn't see required list of traced sections, in order",
-                        requiredSectionList.length, nextSectionIndex);
-            }
-        };
-
-        FtraceParser.parse(new StringReader(traceData), callback);
+        }
+        assertEquals("Didn't find all async sections",
+                0, requiredAsyncSections.size());
     }
 }

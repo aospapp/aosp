@@ -31,7 +31,7 @@ namespace art {
 
 class DexDumpTest : public CommonRuntimeTest {
  protected:
-  virtual void SetUp() {
+  void SetUp() override {
     CommonRuntimeTest::SetUp();
     // Dogfood our own lib core dex file.
     dex_file_ = GetLibCoreDexFileNames()[0];
@@ -58,7 +58,7 @@ TEST_F(DexDumpTest, NoInputFileGiven) {
 
 TEST_F(DexDumpTest, CantOpenOutput) {
   std::string error_msg;
-  ASSERT_FALSE(Exec({"-o", "/joho", dex_file_}, &error_msg)) << error_msg;
+  ASSERT_FALSE(Exec({"-o", "/non/existent/path", dex_file_}, &error_msg)) << error_msg;
 }
 
 TEST_F(DexDumpTest, BadFlagCombination) {

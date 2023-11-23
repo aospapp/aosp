@@ -34,15 +34,26 @@ import android.os.RemoteException;
 import android.os.StrictMode;
 import android.os.StrictMode.ThreadPolicy.Builder;
 import android.os.StrictMode.ViolationInfo;
+import android.os.strictmode.CleartextNetworkViolation;
 import android.os.strictmode.CustomViolation;
+import android.os.strictmode.DiskReadViolation;
+import android.os.strictmode.DiskWriteViolation;
+import android.os.strictmode.ExplicitGcViolation;
 import android.os.strictmode.FileUriExposedViolation;
+import android.os.strictmode.InstanceCountViolation;
+import android.os.strictmode.LeakedClosableViolation;
+import android.os.strictmode.NetworkViolation;
+import android.os.strictmode.NonSdkApiUsedViolation;
 import android.os.strictmode.UntaggedSocketViolation;
 import android.os.strictmode.Violation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
 import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -105,9 +116,9 @@ public class StrictModeTest {
         final File test = File.createTempFile("foo", "bar");
         inspectViolation(
                 test::exists,
-                violation -> {
-                    assertThat(violation.getViolationDetails()).isNull();
-                    assertThat(violation.getStackTrace()).contains("DiskReadViolation");
+                info -> {
+                    assertThat(info.getViolationDetails()).isNull();
+                    assertThat(info.getStackTrace()).contains("DiskReadViolation");
                 });
     }
 
@@ -125,7 +136,8 @@ public class StrictModeTest {
                     assertThat(info.getStackTrace())
                             .contains("Explicit termination method 'close' not called");
                     assertThat(info.getStackTrace()).contains("leakCloseable");
-                    assertPolicy(info, StrictMode.DETECT_VM_CLOSABLE_LEAKS);
+                    assertThat(info.getViolationClass())
+                            .isAssignableTo(LeakedClosableViolation.class);
                 });
     }
 
@@ -162,12 +174,14 @@ public class StrictModeTest {
         references.add(new LimitedClass());
         inspectViolation(
                 StrictMode::conditionallyCheckInstanceCounts,
-                info -> assertPolicy(info, StrictMode.DETECT_VM_INSTANCE_LEAKS));
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(InstanceCountViolation.class));
     }
 
     private static final class LimitedClass {}
 
     /** Insecure connection should be detected */
+    @AppModeFull
     @Test
     public void testCleartextNetwork() throws Exception {
         if (!hasInternetConnection()) {
@@ -182,13 +196,8 @@ public class StrictModeTest {
                 () ->
                         ((HttpURLConnection) new URL("http://example.com/").openConnection())
                                 .getResponseCode(),
-                info -> {
-                    assertThat(info.getViolationDetails())
-                            .contains("Detected cleartext network traffic from UID");
-                    assertThat(info.getViolationDetails())
-                            .startsWith(StrictMode.CLEARTEXT_DETECTED_MSG);
-                    assertPolicy(info, StrictMode.DETECT_VM_CLEARTEXT_NETWORK);
-                });
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(CleartextNetworkViolation.class));
     }
 
     /** Secure connection should be ignored */
@@ -221,8 +230,8 @@ public class StrictModeTest {
                     intent.setDataAndType(badUri, "image/jpeg");
                     getContext().startActivity(intent);
                 },
-                violation -> {
-                    assertThat(violation.getStackTrace()).contains(badUri + " exposed beyond app");
+                info -> {
+                    assertThat(info.getStackTrace()).contains(badUri + " exposed beyond app");
                 });
 
         final Uri goodUri = Uri.parse("content://com.example/foobar");
@@ -232,6 +241,28 @@ public class StrictModeTest {
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.setDataAndType(goodUri, "image/jpeg");
                     getContext().startActivity(intent);
+                });
+    }
+
+    @Test
+    public void testFileUriExposure_Chooser() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder().detectFileUriExposure().penaltyLog().build());
+
+        final Uri badUri = Uri.fromFile(new File("/sdcard/meow.jpg"));
+        inspectViolation(
+                () -> {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.setType("image/jpeg");
+                    intent.putExtra(Intent.EXTRA_STREAM, badUri);
+
+                    Intent chooser = Intent.createChooser(intent, "CTS");
+                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(chooser);
+                },
+                info -> {
+                    assertThat(info.getStackTrace()).contains(badUri + " exposed beyond app");
                 });
     }
 
@@ -251,8 +282,8 @@ public class StrictModeTest {
                     intent.setDataAndType(uri, "image/jpeg");
                     getContext().startActivity(intent);
                 },
-                violation ->
-                        assertThat(violation.getStackTrace())
+                info ->
+                        assertThat(info.getStackTrace())
                                 .contains(uri + " exposed beyond app"));
 
         assertNoViolation(
@@ -265,6 +296,7 @@ public class StrictModeTest {
                 });
     }
 
+    @AppModeFull
     @Test
     public void testUntaggedSocketsHttp() throws Exception {
         if (!hasInternetConnection()) {
@@ -279,9 +311,8 @@ public class StrictModeTest {
                 () ->
                         ((HttpURLConnection) new URL("http://example.com/").openConnection())
                                 .getResponseCode(),
-                violation ->
-                        assertThat(violation.getStackTrace())
-                                .contains(UntaggedSocketViolation.MESSAGE));
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(UntaggedSocketViolation.class));
 
         assertNoViolation(
                 () -> {
@@ -321,9 +352,8 @@ public class StrictModeTest {
                         socket.getOutputStream().close();
                     }
                 },
-                violation ->
-                        assertThat(violation.getStackTrace())
-                                .contains(UntaggedSocketViolation.MESSAGE));
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(UntaggedSocketViolation.class));
     }
 
     private static final int PERMISSION_USER_ONLY = 0600;
@@ -341,13 +371,13 @@ public class StrictModeTest {
                 new StrictMode.ThreadPolicy.Builder().detectDiskReads().penaltyLog().build());
         inspectViolation(
                 test::exists,
-                violation -> {
-                    assertThat(violation.getViolationDetails()).isNull();
-                    assertThat(violation.getStackTrace()).contains("DiskReadViolation");
+                info -> {
+                    assertThat(info.getViolationDetails()).isNull();
+                    assertThat(info.getStackTrace()).contains("DiskReadViolation");
                 });
 
-        Consumer<ViolationInfo> assertDiskReadPolicy =
-                violation -> assertPolicy(violation, StrictMode.DETECT_DISK_READ);
+        Consumer<ViolationInfo> assertDiskReadPolicy = info -> assertThat(
+                info.getViolationClass()).isAssignableTo(DiskReadViolation.class);
         inspectViolation(test::exists, assertDiskReadPolicy);
         inspectViolation(test::length, assertDiskReadPolicy);
         inspectViolation(dir::list, assertDiskReadPolicy);
@@ -373,13 +403,13 @@ public class StrictModeTest {
 
         inspectViolation(
                 file::createNewFile,
-                violation -> {
-                    assertThat(violation.getViolationDetails()).isNull();
-                    assertThat(violation.getStackTrace()).contains("DiskWriteViolation");
+                info -> {
+                    assertThat(info.getViolationDetails()).isNull();
+                    assertThat(info.getStackTrace()).contains("DiskWriteViolation");
                 });
 
-        Consumer<ViolationInfo> assertDiskWritePolicy =
-                violation -> assertPolicy(violation, StrictMode.DETECT_DISK_WRITE);
+        Consumer<ViolationInfo> assertDiskWritePolicy = info -> assertThat(
+                info.getViolationClass()).isAssignableTo(DiskWriteViolation.class);
 
         inspectViolation(() -> File.createTempFile("foo", "bar"), assertDiskWritePolicy);
         inspectViolation(() -> new FileOutputStream(file), assertDiskWritePolicy);
@@ -396,6 +426,7 @@ public class StrictModeTest {
                 () -> file.renameTo(new File(file.getParent(), "foobar")), assertDiskWritePolicy);
     }
 
+    @AppModeFull
     @Test
     public void testNetwork() throws Exception {
         if (!hasInternetConnection()) {
@@ -412,12 +443,25 @@ public class StrictModeTest {
                         socket.getOutputStream().close();
                     }
                 },
-                violation -> assertPolicy(violation, StrictMode.DETECT_NETWORK));
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(NetworkViolation.class));
         inspectViolation(
                 () ->
                         ((HttpURLConnection) new URL("http://example.com/").openConnection())
                                 .getResponseCode(),
-                violation -> assertPolicy(violation, StrictMode.DETECT_NETWORK));
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(NetworkViolation.class));
+    }
+
+    @Test
+    public void testExplicitGc() throws Exception {
+        StrictMode.setThreadPolicy(
+                new StrictMode.ThreadPolicy.Builder().detectExplicitGc().penaltyLog().build());
+
+        inspectViolation(
+                () -> { Runtime.getRuntime().gc(); },
+                info -> assertThat(info.getViolationClass())
+                        .isAssignableTo(ExplicitGcViolation.class));
     }
 
     @Test
@@ -431,18 +475,19 @@ public class StrictModeTest {
                     try {
                         inspectViolation(
                                 () -> service.performDiskWrite(),
-                                (violation) -> {
-                                    assertPolicy(violation, StrictMode.DETECT_DISK_WRITE);
-                                    assertThat(violation.getViolationDetails())
+                                (info) -> {
+                                    assertThat(info.getViolationClass())
+                                            .isAssignableTo(DiskWriteViolation.class);
+                                    assertThat(info.getViolationDetails())
                                             .isNull(); // Disk write has no message.
-                                    assertThat(violation.getStackTrace())
+                                    assertThat(info.getStackTrace())
                                             .contains("DiskWriteViolation");
-                                    assertThat(violation.getStackTrace())
+                                    assertThat(info.getStackTrace())
                                             .contains(
                                                     "at android.os.StrictMode$AndroidBlockGuardPolicy.onWriteToDisk");
-                                    assertThat(violation.getStackTrace())
+                                    assertThat(info.getStackTrace())
                                             .contains("# via Binder call with stack:");
-                                    assertThat(violation.getStackTrace())
+                                    assertThat(info.getStackTrace())
                                             .contains(
                                                     "at android.os.cts.ISecondary$Stub$Proxy.performDiskWrite");
                                 });
@@ -469,11 +514,12 @@ public class StrictModeTest {
                   }
                 }
             },
-            violation -> {
-                assertThat(violation).isNotNull();
-                assertPolicy(violation, StrictMode.DETECT_VM_NON_SDK_API_USAGE);
-                assertThat(violation.getViolationDetails()).contains(methodName);
-                assertThat(violation.getStackTrace()).contains("checkNonSdkApiUsageViolation");
+            info -> {
+                assertThat(info).isNotNull();
+                assertThat(info.getViolationClass())
+                        .isAssignableTo(NonSdkApiUsedViolation.class);
+                assertThat(info.getViolationDetails()).contains(methodName);
+                assertThat(info.getStackTrace()).contains("checkNonSdkApiUsageViolation");
             }
         );
     }
@@ -540,6 +586,30 @@ public class StrictModeTest {
         assertTrue(v instanceof FileUriExposedViolation);
     }
 
+    @AppModeInstant
+    @Test
+    public void testNoCleartextHttpTrafficAllowed() throws Exception {
+        if (!hasInternetConnection()) {
+            Log.i(TAG, "testNoCleartextHttpTrafficAllowed() ignored on device without Internet");
+            return;
+        }
+
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder().detectCleartextNetwork().penaltyLog().build());
+
+        try {
+            inspectViolation(
+                    () ->
+                            ((HttpURLConnection) new URL("http://example.com/").openConnection())
+                                    .getResponseCode(),
+                    info -> assertThat(info.getViolationClass())
+                            .isAssignableTo(CleartextNetworkViolation.class));
+            fail("Instant app was able to send cleartext http traffic.");
+        } catch (IOException ex) {
+            // Expected
+        }
+    }
+
     private static void runWithRemoteServiceBound(Context context, Consumer<ISecondary> consumer)
             throws ExecutionException, InterruptedException, RemoteException {
         BlockingQueue<IBinder> binderHolder = new ArrayBlockingQueue<>(1);
@@ -570,16 +640,12 @@ public class StrictModeTest {
     }
 
     private static void assertViolation(String expected, ThrowingRunnable r) throws Exception {
-        inspectViolation(r, violation -> assertThat(violation.getStackTrace()).contains(expected));
+        inspectViolation(r, info -> assertThat(info.getStackTrace()).contains(expected));
     }
 
     private static void assertNoViolation(ThrowingRunnable r) throws Exception {
         inspectViolation(
-                r, violation -> assertWithMessage("Unexpected violation").that(violation).isNull());
-    }
-
-    private void assertPolicy(ViolationInfo info, int policy) {
-        assertWithMessage("Policy bit incorrect").that(info.getViolationBit()).isEqualTo(policy);
+                r, info -> assertWithMessage("Unexpected violation").that(info).isNull());
     }
 
     private static void inspectViolation(

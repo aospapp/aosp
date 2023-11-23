@@ -23,13 +23,16 @@ import java.util.Map;
 
 /**
  * Represent listeners for a property grouped by their rate.
- * T is a type of EventListener such as CarPropertyEventListener
+ * T is a type of EventListener such as CarPropertyEventCallback
  * in {@link android.car.hardware.property.CarPropertyManager}
  * @param <T>
  * @hide
  */
 public class CarRatedFloatListeners<T> {
+    private static final float NANOSECOND_PER_SECOND = 1000 * 1000 * 1000;
     private final Map<T, Float> mListenersToRate = new HashMap<>(4);
+
+    private final Map<T, Long> mListenersUpdateTime = new HashMap<>(4);
 
     private float mUpdateRate;
 
@@ -56,6 +59,7 @@ public class CarRatedFloatListeners<T> {
      */
     public boolean remove(T listener) {
         mListenersToRate.remove(listener);
+        mListenersUpdateTime.remove(listener);
         if (mListenersToRate.isEmpty()) {
             return false;
         }
@@ -80,11 +84,39 @@ public class CarRatedFloatListeners<T> {
      */
     public boolean addAndUpdateRate(T listener, float updateRate) {
         Float oldUpdateRate = mListenersToRate.put(listener, updateRate);
+        mListenersUpdateTime.put(listener, 0L);
         if (mUpdateRate < updateRate) {
             mUpdateRate = updateRate;
             return true;
         } else if (oldUpdateRate != null && oldUpdateRate == mUpdateRate) {
-            mUpdateRate = Collections.max(mListenersToRate.values());
+            Float newUpdateRate = Collections.max(mListenersToRate.values());
+            if (newUpdateRate != mUpdateRate) {
+                mUpdateRate = newUpdateRate;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check whether listener should be notified by events.
+     *
+     * @param listener
+     * @param eventTimeStamp
+     * @return true if listener need to be notified.
+     */
+    public boolean needUpdate(T listener, long eventTimeStamp) {
+        Long nextUpdateTime = mListenersUpdateTime.get(listener);
+        Float updateRate = mListenersToRate.get(listener);
+        /** Update ON_CHANGE property. */
+        if (updateRate == 0) {
+            return true;
+        }
+        if (nextUpdateTime <= eventTimeStamp) {
+            Float cycle = NANOSECOND_PER_SECOND / updateRate;
+            nextUpdateTime = eventTimeStamp + cycle.longValue();
+            mListenersUpdateTime.put(listener, nextUpdateTime);
+            return true;
         }
         return false;
     }

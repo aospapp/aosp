@@ -9,9 +9,6 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 // UNSUPPORTED: clang-3, clang-4, clang-5, apple-clang, gcc-4, gcc-5, gcc-6
-//
-// AOSP's clang doesn't have __has_unique_object_representations yet.
-// XFAIL: android
 
 // type_traits
 

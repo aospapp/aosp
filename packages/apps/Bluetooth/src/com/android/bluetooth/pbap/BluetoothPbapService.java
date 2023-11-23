@@ -49,7 +49,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.UserManager;
-import android.support.annotation.VisibleForTesting;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -61,6 +60,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.util.DevicePolicyUtils;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -127,6 +127,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     static final int CONTACTS_LOADED = 5;
     static final int CHECK_SECONDARY_VERSION_COUNTER = 6;
     static final int ROLLOVER_COUNTERS = 7;
+    static final int GET_LOCAL_TELEPHONY_DETAILS = 8;
 
     static final int USER_CONFIRM_TIMEOUT_VALUE = 30000;
     static final int RELEASE_WAKE_LOCK_DELAY = 10000;
@@ -408,6 +409,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                         mPbapStateMachineMap.remove(remoteDevice);
                     }
                     break;
+                case GET_LOCAL_TELEPHONY_DETAILS:
+                    getLocalTelephonyDetails();
                 default:
                     break;
             }
@@ -507,18 +510,12 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.e(TAG, "Illegal state exception, content observer is already registered");
         }
 
-        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        if (tm != null) {
-            sLocalPhoneNum = tm.getLine1Number();
-            sLocalPhoneName = tm.getLine1AlphaTag();
-            if (TextUtils.isEmpty(sLocalPhoneName)) {
-                sLocalPhoneName = this.getString(R.string.localPhoneName);
-            }
-        }
+        setBluetoothPbapService(this);
 
+        mSessionStatusHandler.sendMessage(
+                mSessionStatusHandler.obtainMessage(GET_LOCAL_TELEPHONY_DETAILS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(LOAD_CONTACTS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(START_LISTENER));
-        setBluetoothPbapService(this);
         return true;
     }
 
@@ -686,7 +683,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * Send the result to the state machine.
      * @param stateMachine PbapStateMachine which sends the request
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void checkOrGetPhonebookPermission(PbapStateMachine stateMachine) {
         BluetoothDevice device = stateMachine.getRemoteDevice();
         int permission = device.getPhonebookAccessPermission();
@@ -774,5 +771,19 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             mThreadUpdateSecVersionCounter = new Thread(r);
             mThreadUpdateSecVersionCounter.start();
         }
+    }
+
+    private void getLocalTelephonyDetails() {
+        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        if (tm != null) {
+            sLocalPhoneNum = tm.getLine1Number();
+            sLocalPhoneName = tm.getLine1AlphaTag();
+            if (TextUtils.isEmpty(sLocalPhoneName)) {
+                sLocalPhoneName = this.getString(R.string.localPhoneName);
+            }
+        }
+        if (VERBOSE)
+            Log.v(TAG, "Local Phone Details- Number:" + sLocalPhoneNum
+                    + ", Name:" + sLocalPhoneName);
     }
 }

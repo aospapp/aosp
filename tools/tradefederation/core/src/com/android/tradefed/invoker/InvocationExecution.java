@@ -15,7 +15,10 @@
  */
 package com.android.tradefed.invoker;
 
+import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.BuildInfoKey;
 import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
@@ -26,10 +29,11 @@ import com.android.tradefed.build.IDeviceBuildProvider;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
-import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.device.metric.AutoLogCollector;
+import com.android.tradefed.device.metric.CollectorHelper;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.TestInvocation.Stage;
@@ -58,12 +62,14 @@ import com.android.tradefed.util.SystemUtil.EnvVariable;
 import com.android.tradefed.util.TimeUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.stream.Collectors;
 
 /**
  * Class that describes all the invocation steps: build download, target_prep, run tests, clean up.
@@ -71,6 +77,8 @@ import java.util.ListIterator;
  * {@link TestInvocation}.
  */
 public class InvocationExecution implements IInvocationExecution {
+
+    public static final String ADB_VERSION_KEY = "adb_version";
 
     @Override
     public boolean fetchBuild(
@@ -109,19 +117,27 @@ public class InvocationExecution implements IInvocationExecution {
                             LogLevel.WARN,
                             "No build found to test for device: %s",
                             device.getSerialNumber());
+                    IBuildInfo notFoundStub = new BuildInfo();
+                    updateBuild(notFoundStub, config);
+                    context.addDeviceBuildInfo(currentDeviceName, notFoundStub);
                     return false;
                 }
                 // TODO: remove build update when reporting is done on context
                 updateBuild(info, config);
+                info.setTestResourceBuild(config.isDeviceConfiguredFake(currentDeviceName));
             }
         } catch (BuildRetrievalError e) {
             CLog.e(e);
             if (currentDeviceName != null) {
-                context.addDeviceBuildInfo(currentDeviceName, e.getBuildInfo());
+                IBuildInfo errorBuild = e.getBuildInfo();
+                updateBuild(errorBuild, config);
+                context.addDeviceBuildInfo(currentDeviceName, errorBuild);
                 updateInvocationContext(context, config);
             }
             throw e;
         }
+        createSharedResources(context);
+        setAdbVersion(context);
         return true;
     }
 
@@ -177,9 +193,6 @@ public class InvocationExecution implements IInvocationExecution {
                 if (device instanceof ITestLoggerReceiver) {
                     ((ITestLoggerReceiver) context.getDevice(deviceName)).setTestLogger(listener);
                 }
-                if (!config.getCommandOptions().shouldSkipPreDeviceSetup()) {
-                    device.preInvocationSetup(context.getBuildInfo(deviceName));
-                }
                 for (ITargetPreparer preparer :
                         config.getDeviceConfigByName(deviceName).getTargetPreparers()) {
                     // do not call the preparer if it was disabled
@@ -206,7 +219,6 @@ public class InvocationExecution implements IInvocationExecution {
                     listener,
                     context,
                     "multi target preparer setup");
-
         } finally {
             // Note: These metrics are handled in a try in case of a kernel reset or device issue.
             // Setup timing metric. It does not include flashing time on boot tests.
@@ -216,6 +228,42 @@ public class InvocationExecution implements IInvocationExecution {
             // Upload the setup logcat after setup is complete.
             for (String deviceName : context.getDeviceConfigNames()) {
                 reportLogs(context.getDevice(deviceName), listener, Stage.SETUP);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public final void runDevicePreInvocationSetup(
+            IInvocationContext context, IConfiguration config, ITestLogger logger)
+            throws DeviceNotAvailableException, TargetSetupError {
+        for (String deviceName : context.getDeviceConfigNames()) {
+            ITestDevice device = context.getDevice(deviceName);
+
+            CLog.d("Starting device pre invocation setup for : '%s'", device.getSerialNumber());
+            if (device instanceof ITestLoggerReceiver) {
+                ((ITestLoggerReceiver) context.getDevice(deviceName)).setTestLogger(logger);
+            }
+            if (!config.getCommandOptions().shouldSkipPreDeviceSetup()) {
+                device.preInvocationSetup(
+                        context.getBuildInfo(deviceName),
+                        context.getBuildInfos()
+                                .stream()
+                                .filter(buildInfo -> buildInfo.isTestResourceBuild())
+                                .collect(Collectors.toList()));
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public final void runDevicePostInvocationTearDown(
+            IInvocationContext context, IConfiguration config) {
+        // Extra tear down step for the device
+        for (String deviceName : context.getDeviceConfigNames()) {
+            ITestDevice device = context.getDevice(deviceName);
+            if (!config.getCommandOptions().shouldSkipPreDeviceSetup()) {
+                device.postInvocationTearDown();
             }
         }
     }
@@ -243,34 +291,61 @@ public class InvocationExecution implements IInvocationExecution {
     }
 
     /** Runs the {@link IMultiTargetPreparer} specified tearDown. */
-    private void runMultiTargetPreparersTearDown(
+    private Throwable runMultiTargetPreparersTearDown(
             List<IMultiTargetPreparer> multiPreparers,
             IInvocationContext context,
+            ITestLogger logger,
             Throwable throwable,
             String description)
-            throws DeviceNotAvailableException {
+            throws Throwable {
         ListIterator<IMultiTargetPreparer> iterator =
                 multiPreparers.listIterator(multiPreparers.size());
+        Throwable deferredThrowable = null;
+
         while (iterator.hasPrevious()) {
             IMultiTargetPreparer multipreparer = iterator.previous();
             if (multipreparer.isDisabled() || multipreparer.isTearDownDisabled()) {
                 CLog.d("%s has been disabled. skipping.", multipreparer);
                 continue;
             }
+            if (multipreparer instanceof ITestLoggerReceiver) {
+                ((ITestLoggerReceiver) multipreparer).setTestLogger(logger);
+            }
             CLog.d("Starting %s '%s'", description, multipreparer);
-            multipreparer.tearDown(context, throwable);
+            try {
+                multipreparer.tearDown(context, throwable);
+            } catch (Throwable t) {
+                // We catch it and rethrow later to allow each multi_targetprep to be attempted.
+                // Only the first one will be thrown but all should be logged.
+                CLog.e("Deferring throw for:");
+                CLog.e(t);
+                if (deferredThrowable == null) {
+                    deferredThrowable = t;
+                }
+            }
             CLog.d("Done with %s '%s'", description, multipreparer);
         }
+
+        return deferredThrowable;
     }
 
     @Override
-    public void doTeardown(IInvocationContext context, IConfiguration config, Throwable exception)
+    public void doTeardown(
+            IInvocationContext context,
+            IConfiguration config,
+            ITestLogger logger,
+            Throwable exception)
             throws Throwable {
-        Throwable throwable = null;
+        Throwable deferredThrowable = null;
 
         List<IMultiTargetPreparer> multiPreparers = config.getMultiTargetPreparers();
-        runMultiTargetPreparersTearDown(
-                multiPreparers, context, throwable, "multi target preparer teardown");
+        deferredThrowable =
+                runMultiTargetPreparersTearDown(
+                        multiPreparers,
+                        context,
+                        logger,
+                        exception,
+                        "multi target preparer teardown");
 
         // Clear wifi settings, to prevent wifi errors from interfering with teardown process.
         for (String deviceName : context.getDeviceConfigNames()) {
@@ -288,6 +363,11 @@ public class InvocationExecution implements IInvocationExecution {
                         CLog.d("%s has been disabled. skipping.", cleaner);
                         continue;
                     }
+                    // If setup hit a targetSetupError, the setUp() and setTestLogger might not have
+                    // run, ensure we still have the logger.
+                    if (preparer instanceof ITestLoggerReceiver) {
+                        ((ITestLoggerReceiver) preparer).setTestLogger(logger);
+                    }
                     try {
                         CLog.d(
                                 "starting tearDown '%s' on device: '%s'",
@@ -301,25 +381,32 @@ public class InvocationExecution implements IInvocationExecution {
                         // Only the first one will be thrown but all should be logged.
                         CLog.e("Deferring throw for:");
                         CLog.e(e);
-                        if (throwable == null) {
-                            throwable = e;
+                        if (deferredThrowable == null) {
+                            deferredThrowable = e;
                         }
                     }
                 }
             }
-            // Extra tear down step for the device
-            if (!config.getCommandOptions().shouldSkipPreDeviceSetup()) {
-                device.postInvocationTearDown();
-            }
         }
+
+        // Extra tear down step for the device
+        runDevicePostInvocationTearDown(context, config);
 
         // After all, run the multi_pre_target_preparer tearDown.
         List<IMultiTargetPreparer> multiPrePreparers = config.getMultiPreTargetPreparers();
-        runMultiTargetPreparersTearDown(
-                multiPrePreparers, context, throwable, "multi pre target preparer teardown");
+        Throwable preTargetTearDownException =
+                runMultiTargetPreparersTearDown(
+                        multiPrePreparers,
+                        context,
+                        logger,
+                        exception,
+                        "multi pre target preparer teardown");
+        if (deferredThrowable == null) {
+            deferredThrowable = preTargetTearDownException;
+        }
 
-        if (throwable != null) {
-            throw throwable;
+        if (deferredThrowable != null) {
+            throw deferredThrowable;
         }
     }
 
@@ -346,44 +433,73 @@ public class InvocationExecution implements IInvocationExecution {
     @Override
     public void runTests(
             IInvocationContext context, IConfiguration config, ITestInvocationListener listener)
-            throws DeviceNotAvailableException {
-        for (IRemoteTest test : config.getTests()) {
-            // For compatibility of those receivers, they are assumed to be single device alloc.
-            if (test instanceof IDeviceTest) {
-                ((IDeviceTest) test).setDevice(context.getDevices().get(0));
-            }
-            if (test instanceof IBuildReceiver) {
-                ((IBuildReceiver) test).setBuild(context.getBuildInfo(context.getDevices().get(0)));
-            }
-            if (test instanceof ISystemStatusCheckerReceiver) {
-                ((ISystemStatusCheckerReceiver) test)
-                        .setSystemStatusChecker(config.getSystemStatusCheckers());
-            }
-
-            // TODO: consider adding receivers for only the list of ITestDevice and IBuildInfo.
-            if (test instanceof IMultiDeviceTest) {
-                ((IMultiDeviceTest) test).setDeviceInfos(context.getDeviceBuildMap());
-            }
-            if (test instanceof IInvocationContextReceiver) {
-                ((IInvocationContextReceiver) test).setInvocationContext(context);
-            }
-
-            // We clone the collectors for each IRemoteTest to ensure no state conflicts.
-            List<IMetricCollector> clonedCollectors = cloneCollectors(config.getMetricCollectors());
-            if (test instanceof IMetricCollectorReceiver) {
-                ((IMetricCollectorReceiver) test).setMetricCollectors(clonedCollectors);
-                // If test can receive collectors then let it handle the how to set them up
-                test.run(listener);
-            } else {
-                // Wrap collectors in each other and collection will be sequential, do this in the
-                // loop to ensure they are always initialized against the right context.
-                ITestInvocationListener listenerWithCollectors = listener;
-                for (IMetricCollector collector : clonedCollectors) {
-                    listenerWithCollectors = collector.init(context, listenerWithCollectors);
+            throws Throwable {
+        List<IRemoteTest> remainingTests = new ArrayList<>(config.getTests());
+        UnexecutedTestReporterThread reporterThread =
+                new UnexecutedTestReporterThread(listener, remainingTests);
+        Runtime.getRuntime().addShutdownHook(reporterThread);
+        TestInvocation.printStageDelimiter(Stage.TEST, false);
+        try {
+            for (IRemoteTest test : config.getTests()) {
+                // For compatibility of those receivers, they are assumed to be single device alloc.
+                if (test instanceof IDeviceTest) {
+                    ((IDeviceTest) test).setDevice(context.getDevices().get(0));
                 }
-                test.run(listenerWithCollectors);
+                if (test instanceof IBuildReceiver) {
+                    ((IBuildReceiver) test)
+                            .setBuild(context.getBuildInfo(context.getDevices().get(0)));
+                }
+                if (test instanceof ISystemStatusCheckerReceiver) {
+                    ((ISystemStatusCheckerReceiver) test)
+                            .setSystemStatusChecker(config.getSystemStatusCheckers());
+                }
+
+                // TODO: consider adding receivers for only the list of ITestDevice and IBuildInfo.
+                if (test instanceof IMultiDeviceTest) {
+                    ((IMultiDeviceTest) test).setDeviceInfos(context.getDeviceBuildMap());
+                }
+                if (test instanceof IInvocationContextReceiver) {
+                    ((IInvocationContextReceiver) test).setInvocationContext(context);
+                }
+
+                updateAutoCollectors(config);
+
+                // We clone the collectors for each IRemoteTest to ensure no state conflicts.
+                List<IMetricCollector> clonedCollectors = new ArrayList<>();
+                // Add automated collectors
+                for (AutoLogCollector auto : config.getCommandOptions().getAutoLogCollectors()) {
+                    clonedCollectors.add(auto.getInstanceForValue());
+                }
+
+                // Add the collector from the configuration
+                clonedCollectors.addAll(
+                        CollectorHelper.cloneCollectors(config.getMetricCollectors()));
+                if (test instanceof IMetricCollectorReceiver) {
+                    ((IMetricCollectorReceiver) test).setMetricCollectors(clonedCollectors);
+                    // If test can receive collectors then let it handle the how to set them up
+                    test.run(listener);
+                } else {
+                    // Wrap collectors in each other and collection will be sequential, do this in the
+                    // loop to ensure they are always initialized against the right context.
+                    ITestInvocationListener listenerWithCollectors = listener;
+                    for (IMetricCollector collector : clonedCollectors) {
+                        if (collector.isDisabled()) {
+                            CLog.d("%s has been disabled. Skipping.", collector);
+                        } else {
+                            listenerWithCollectors =
+                                    collector.init(context, listenerWithCollectors);
+                        }
+                    }
+                    test.run(listenerWithCollectors);
+                }
+                remainingTests.remove(test);
             }
+        } finally {
+            TestInvocation.printStageDelimiter(Stage.TEST, true);
+            // TODO: Look if this can be improved to DeviceNotAvailableException too.
+            Runtime.getRuntime().removeShutdownHook(reporterThread);
         }
+
     }
 
     @Override
@@ -403,39 +519,25 @@ public class InvocationExecution implements IInvocationExecution {
         return false;
     }
 
-    /**
-     * Helper to clone {@link IMetricCollector}s in order for each {@link IRemoteTest} to get a
-     * different instance, and avoid internal state and multi-init issues.
-     */
-    private List<IMetricCollector> cloneCollectors(List<IMetricCollector> originalCollectors) {
-        List<IMetricCollector> cloneList = new ArrayList<>();
-        for (IMetricCollector collector : originalCollectors) {
-            try {
-                // TF object should all have a constructore with no args, so this should be safe.
-                IMetricCollector clone = collector.getClass().newInstance();
-                OptionCopier.copyOptionsNoThrow(collector, clone);
-                cloneList.add(clone);
-            } catch (InstantiationException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return cloneList;
-    }
-
-    private void reportLogs(ITestDevice device, ITestInvocationListener listener, Stage stage) {
+    @Override
+    public void reportLogs(ITestDevice device, ITestInvocationListener listener, Stage stage) {
         if (device == null) {
             return;
         }
+        IDevice idevice = device.getIDevice();
         // non stub device
-        if (!(device.getIDevice() instanceof StubDevice)) {
+        if (!(idevice instanceof StubDevice)) {
             try (InputStreamSource logcatSource = device.getLogcat()) {
                 device.clearLogcat();
-                String name = TestInvocation.getDeviceLogName(stage);
+                String name =
+                        String.format(
+                                "%s_%s",
+                                TestInvocation.getDeviceLogName(stage), device.getSerialNumber());
                 listener.testLog(name, LogDataType.LOGCAT, logcatSource);
             }
         }
         // emulator logs
-        if (device.getIDevice() != null && device.getIDevice().isEmulator()) {
+        if (idevice != null && idevice.isEmulator()) {
             try (InputStreamSource emulatorOutput = device.getEmulatorOutput()) {
                 // TODO: Clear the emulator log
                 String name = TestInvocation.getEmulatorLogName(stage);
@@ -450,7 +552,7 @@ public class InvocationExecution implements IInvocationExecution {
      * @param context the {@link IInvocationContext}
      * @param config the {@link IConfiguration}
      */
-    private void updateInvocationContext(IInvocationContext context, IConfiguration config) {
+    void updateInvocationContext(IInvocationContext context, IConfiguration config) {
         // TODO: Once reporting on context is done, only set context attributes
         if (config.getCommandLine() != null) {
             // TODO: obfuscate the password if any.
@@ -478,13 +580,28 @@ public class InvocationExecution implements IInvocationExecution {
         return testTag;
     }
 
+    /** Handle setting the test tag on the build info. */
+    protected void setTestTag(IBuildInfo info, IConfiguration config) {
+        // When CommandOption is set, it overrides any test-tag from build_providers
+        if (!"stub".equals(config.getCommandOptions().getTestTag())) {
+            info.setTestTag(getTestTag(config));
+        } else if (Strings.isNullOrEmpty(info.getTestTag())) {
+            // We ensure that that a default test-tag is always available.
+            info.setTestTag("stub");
+        } else {
+            CLog.w(
+                    "Using the test-tag from the build_provider. Consider updating your config to"
+                            + " have no alias/namespace in front of test-tag.");
+        }
+    }
+
     /**
      * Update the {@link IBuildInfo} with additional info from the {@link IConfiguration}.
      *
      * @param info the {@link IBuildInfo}
      * @param config the {@link IConfiguration}
      */
-    private void updateBuild(IBuildInfo info, IConfiguration config) {
+    void updateBuild(IBuildInfo info, IConfiguration config) {
         if (config.getCommandLine() != null) {
             // TODO: obfuscate the password if any.
             info.addBuildAttribute(TestInvocation.COMMAND_ARGS_KEY, config.getCommandLine());
@@ -497,19 +614,7 @@ public class InvocationExecution implements IInvocationExecution {
             info.addBuildAttribute(
                     "shard_index", config.getCommandOptions().getShardIndex().toString());
         }
-        // TODO: update all the configs to only use test-tag from CommandOption and not build
-        // providers.
-        // When CommandOption is set, it overrides any test-tag from build_providers
-        if (!"stub".equals(config.getCommandOptions().getTestTag())) {
-            info.setTestTag(getTestTag(config));
-        } else if (info.getTestTag() == null || info.getTestTag().isEmpty()) {
-            // We ensure that that a default test-tag is always available.
-            info.setTestTag("stub");
-        } else {
-            CLog.w(
-                    "Using the test-tag from the build_provider. Consider updating your config to"
-                            + " have no alias/namespace in front of test-tag.");
-        }
+        setTestTag(info, config);
 
         if (info.getProperties().contains(BuildInfoProperties.DO_NOT_LINK_TESTS_DIR)) {
             CLog.d("Skip linking external directory as FileProperty was set.");
@@ -537,6 +642,16 @@ public class InvocationExecution implements IInvocationExecution {
             IDeviceBuildInfo info, File testsDir, EnvVariable var, String baseName) {
         File externalDir = getExternalTestCasesDirs(var);
         if (externalDir == null) {
+            String path = SystemUtil.ENV_VARIABLE_PATHS_IN_TESTS_DIR.get(var);
+            File varDir = FileUtil.getFileForPath(testsDir, path);
+            if (varDir.exists()) {
+                // If we found a dir already in the tests dir we keep track of it
+                info.setFile(
+                        baseName,
+                        varDir,
+                        /** version */
+                        "v1");
+            }
             return;
         }
         try {
@@ -558,9 +673,82 @@ public class InvocationExecution implements IInvocationExecution {
         }
     }
 
+    /** Populate the shared resources directory for all non-resource build */
+    private void createSharedResources(IInvocationContext context) {
+        List<IBuildInfo> infos = context.getBuildInfos();
+        if (infos.size() <= 1) {
+            return;
+        }
+        try {
+            File resourcesDir = null;
+            for (IBuildInfo info : infos) {
+                if (info.isTestResourceBuild()) {
+                    if (resourcesDir == null) {
+                        resourcesDir = FileUtil.createTempDir("invocation-resources-dir");
+                    }
+                    // Create a reception sub-folder for each build info resource to avoid mixing
+                    String name =
+                            String.format(
+                                    "%s_%s_%s",
+                                    info.getBuildBranch(),
+                                    info.getBuildId(),
+                                    info.getBuildFlavor());
+                    File buildDir = FileUtil.createTempDir(name, resourcesDir);
+                    for (BuildInfoFileKey key : BuildInfoKey.SHARED_KEY) {
+                        File f = info.getFile(key);
+                        if (f == null) {
+                            continue;
+                        }
+                        File subDir = new File(buildDir, f.getName());
+                        FileUtil.symlinkFile(f, subDir);
+                    }
+                }
+            }
+            if (resourcesDir == null) {
+                return;
+            }
+            // Only set the shared dir on real build if it exists.
+            CLog.d("Creating shared resources directory.");
+            for (IBuildInfo info : infos) {
+                if (!info.isTestResourceBuild()) {
+                    info.setFile(BuildInfoFileKey.SHARED_RESOURCE_DIR, resourcesDir, "v1");
+                }
+            }
+        } catch (IOException e) {
+            CLog.e("Failed to create the shared resources dir.");
+            CLog.e(e);
+        }
+    }
+
+    private void setAdbVersion(IInvocationContext context) {
+        String version = getAdbVersion();
+        if (version != null) {
+            context.addInvocationAttribute(ADB_VERSION_KEY, version);
+        }
+    }
+
+    /** Convert the legacy *-on-failure options to the new auto-collect. */
+    private void updateAutoCollectors(IConfiguration config) {
+        if (config.getCommandOptions().captureScreenshotOnFailure()) {
+            config.getCommandOptions()
+                    .getAutoLogCollectors()
+                    .add(AutoLogCollector.SCREENSHOT_ON_FAILURE);
+        }
+        if (config.getCommandOptions().captureLogcatOnFailure()) {
+            config.getCommandOptions()
+                    .getAutoLogCollectors()
+                    .add(AutoLogCollector.LOGCAT_ON_FAILURE);
+        }
+    }
+
     /** Returns the external directory coming from the environment. */
     @VisibleForTesting
     File getExternalTestCasesDirs(EnvVariable envVar) {
         return SystemUtil.getExternalTestCasesDir(envVar);
+    }
+
+    /** Returns the adb version in use for the invocation. */
+    protected String getAdbVersion() {
+        return GlobalConfiguration.getDeviceManagerInstance().getAdbVersion();
     }
 }

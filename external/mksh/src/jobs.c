@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.125 2018/01/05 20:08:34 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.127 2018/07/15 16:23:10 tg Exp $");
 
 #if HAVE_KILLPG
 #define mksh_killpg		killpg
@@ -169,12 +169,6 @@ static void tty_init_state(void);
 void
 j_init(void)
 {
-#ifndef MKSH_UNEMPLOYED
-	bool mflagset = Flag(FMONITOR) != 127;
-
-	Flag(FMONITOR) = 0;
-#endif
-
 #ifndef MKSH_NOPROSPECTOFWORK
 	(void)sigemptyset(&sm_default);
 	sigprocmask(SIG_SETMASK, &sm_default, NULL);
@@ -190,8 +184,8 @@ j_init(void)
 #endif
 
 #ifndef MKSH_UNEMPLOYED
-	if (!mflagset && Flag(FTALKING))
-		Flag(FMONITOR) = 1;
+	if (Flag(FMONITOR) == 127)
+		Flag(FMONITOR) = Flag(FTALKING);
 
 	/*
 	 * shl_j is used to do asynchronous notification (used in
@@ -1932,7 +1926,7 @@ tty_init_talking(void)
 		break;
 	case 2:
 #ifndef MKSH_DISABLE_TTY_WARNING
-		warningf(false, Tf_sD_s_s, Tcant_find, Ttty_fd,
+		warningf(false, Tf_s_sD_s, Tcant_find, Ttty_fd,
 		    cstrerror(errno));
 #endif
 		break;

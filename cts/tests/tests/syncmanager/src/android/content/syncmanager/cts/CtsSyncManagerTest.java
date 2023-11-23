@@ -41,10 +41,11 @@ import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.Request.SetRe
 import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.Response;
 import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.SyncInvocation;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.BatteryUtils;
@@ -62,9 +63,7 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 
-
 // TODO Don't run if no network is available.
-
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class CtsSyncManagerTest {
@@ -74,6 +73,8 @@ public class CtsSyncManagerTest {
 
     public static final boolean DEBUG = false;
     private static final int TIMEOUT_MS = 10 * 60 * 1000;
+
+    private static final int STANDBY_BUCKET_NEVER = 50;
 
     @Rule
     public final OnFailureRule mDumpOnFailureRule = new OnFailureRule(TAG) {
@@ -231,6 +232,37 @@ public class CtsSyncManagerTest {
             Log.i(TAG, "NumSyncInvocations=" + calls);
             return calls > 4; // Arbitrarily bigger than 4.
         });
+    }
+
+    @Test
+    public void testInitialSyncInNeverBucket() throws Exception {
+        removeAllAccounts();
+
+        AmUtils.setStandbyBucket(APP1_PACKAGE, STANDBY_BUCKET_NEVER);
+
+        mRpc.invoke(APP1_PACKAGE, rb -> rb.setClearSyncInvocations(
+                ClearSyncInvocations.newBuilder()));
+
+        addAccountAndLetInitialSyncRun(ACCOUNT_1_A, APP1_AUTHORITY);
+
+        // App should be brought out of the NEVER bucket to handle the sync
+        assertTrue("Standby bucket should be WORKING_SET or better",
+                AmUtils.getStandbyBucket(APP1_PACKAGE)
+                        <= UsageStatsManager.STANDBY_BUCKET_WORKING_SET);
+
+        // Check the sync request parameters.
+        Response res = mRpc.invoke(APP1_PACKAGE,
+                rb -> rb.setGetSyncInvocations(GetSyncInvocations.newBuilder()));
+        assertEquals(1, res.getSyncInvocations().getSyncInvocationsCount());
+
+        SyncInvocation si = res.getSyncInvocations().getSyncInvocations(0);
+
+        assertEquals(ACCOUNT_1_A.name, si.getAccountName());
+        assertEquals(ACCOUNT_1_A.type, si.getAccountType());
+        assertEquals(APP1_AUTHORITY, si.getAuthority());
+
+        Bundle extras = ParcelUtils.fromBytes(si.getExtras().toByteArray());
+        assertTrue(extras.getBoolean(ContentResolver.SYNC_EXTRAS_INITIALIZE));
     }
 
     // WIP This test doesn't work yet.

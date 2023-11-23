@@ -22,6 +22,7 @@ import junit.framework.TestCase;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -207,6 +208,47 @@ public class RunUtilFuncTest extends TestCase {
             assertFalse(
                     String.format("We found a thread: %s", t.getName()),
                     t.getName().contains(RunUtil.INHERITIO_PREFIX));
+        }
+    }
+
+    /** Test running a command with redirecting input from a file. */
+    public void testRunTimedCmd_WithInputRedirect() throws IOException {
+        File inputRedirect = FileUtil.createTempFile("input_redirect", ".txt");
+
+        try {
+            FileUtil.writeToFile("TEST_INPUT", inputRedirect);
+
+            CommandResult result =
+                    RunUtil.getDefault()
+                            .runTimedCmdWithInputRedirect(SHORT_TIMEOUT_MS, inputRedirect, "cat");
+            assertTrue(CommandStatus.SUCCESS.equals(result.getStatus()));
+            assertEquals("TEST_INPUT", result.getStdout());
+
+        } finally {
+            FileUtil.deleteFile(inputRedirect);
+        }
+    }
+
+    /** Test running a command with redirecting output to a file. */
+    public void testRunTimedCmd_WithOutputRedirect() throws IOException {
+        File outputRedirect = FileUtil.createTempFile("output_redirect", ".txt");
+        FileOutputStream outputStream = new FileOutputStream(outputRedirect);
+        try {
+
+            CommandResult result =
+                    RunUtil.getDefault()
+                            .runTimedCmd(
+                                    SHORT_TIMEOUT_MS,
+                                    outputStream,
+                                    /* stderr= */ null,
+                                    "echo",
+                                    "TEST_OUTPUT");
+            assertTrue(CommandStatus.SUCCESS.equals(result.getStatus()));
+            assertEquals("TEST_OUTPUT\n", FileUtil.readStringFromFile(outputRedirect));
+
+        } finally {
+            FileUtil.deleteFile(outputRedirect);
+            outputStream.close();
         }
     }
 }

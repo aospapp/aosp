@@ -2,14 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import time
+import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
 
 class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
-    """Test effect of ManagedBookmarks policy on Chrome OS behavior.
+    """
+    Test effect of ManagedBookmarks policy on Chrome OS behavior.
 
     This test verifies the behavior of Chrome OS for a range of valid values
     of the ManagedBookmarks user policy, as defined by three test cases:
@@ -26,29 +27,49 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
     version = 1
 
     POLICY_NAME = 'ManagedBookmarks'
-    SINGLE_BOOKMARK = [{'name': 'Google',
-                        'url': 'https://www.google.com/'}]
-
-    MULTI_BOOKMARK = [{'name': 'Google',
-                       'url': 'https://www.google.com/'},
-                      {'name': 'CNN',
-                       'url': 'http://www.cnn.com/'},
-                      {'name': 'IRS',
-                       'url': 'http://www.irs.gov/'}]
-
-    SUPPORTING_POLICIES = {
-        'BookmarkBarEnabled': True
-    }
+    BOOKMARKS = [{'name': 'Google',
+                   'url': 'https://google.com/'},
+                 {'name': 'YouTube',
+                   'url': 'https://youtube.com/'},
+                 {'name': 'Chromium',
+                   'url': 'https://chromium.org/'}]
 
     # Dictionary of test case names and policy values.
     TEST_CASES = {
         'NotSet_NotShown': None,
-        'SingleBookmark_Shown': SINGLE_BOOKMARK,
-        'MultipleBookmarks_Shown': MULTI_BOOKMARK
+        'SingleBookmark_Shown': BOOKMARKS[:1],
+        'MultipleBookmarks_Shown': BOOKMARKS
     }
 
+
+    def _get_managed_bookmarks(self):
+        """
+        Return a list of the managed bookmarks.
+
+        @returns displayed_bookmarks: a list containing dictionaries of the
+            managed bookmarks.
+        """
+        # Open Bookmark Manager.
+        tab = self.navigate_to_url('chrome://bookmarks')
+
+        # Nodes are all bookmarks and directories.
+        nodes = tab.EvaluateJavaScript(
+                    'bookmarks.StoreClient[1].getState().nodes')
+
+        displayed_bookmarks = []
+        for node in nodes.values():
+            # The node with parentId 0 is the managed bookmarks directory.
+            if (node.get('unmodifiable') == 'managed' and
+                    node['parentId'] != '0'):
+                bookmark = {'name': node['title'], 'url': node['url']}
+                displayed_bookmarks.append(bookmark)
+
+        return displayed_bookmarks
+
+
     def _test_managed_bookmarks(self, policy_value):
-        """Verify CrOS enforces ManagedBookmarks policy.
+        """
+        Verify CrOS enforces ManagedBookmarks policy.
 
         When ManagedBookmarks is not set, the UI shall not show the managed
         bookmarks folder nor its contents. When set to one or more bookmarks
@@ -56,91 +77,29 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
 
         @param policy_value: policy value for this case.
 
+        @raises error.TestFail: If displayed managed bookmarks does not match
+            the policy value.
+
         """
-        managed_bookmarks_are_shown = self._are_bookmarks_shown(policy_value)
+        managed = self._get_managed_bookmarks()
+
         if policy_value is None:
-            if managed_bookmarks_are_shown:
-                raise error.TestFail('Managed Bookmarks should be hidden.')
+            if managed:
+                raise error.TestFail('Managed bookmarks should not be set.')
         else:
-            if not managed_bookmarks_are_shown:
-                raise error.TestFail('Managed Bookmarks should be shown.')
+            if sorted(managed) != sorted(policy_value):
+                raise error.TestFail('Managed bookmarks (%s) '
+                                     'do not match policy value (%s).'
+                                     % (sorted(managed), sorted(policy_value)))
 
-    def _are_bookmarks_shown(self, policy_bookmarks):
-        """Check whether managed bookmarks are shown in the UI.
-
-        @param policy_bookmarks: bookmarks expected.
-        @returns: True if the managed bookmarks are shown.
-
-        """
-        # Extract dictionary of folders shown in bookmark tree.
-        tab = self._open_boomark_manager_to_folder(0)
-        cmd = 'document.getElementsByClassName("tree-item");'
-        tree_items = self.get_elements_from_page(tab, cmd)
-
-        # Scan bookmark tree for a folder with the domain-name in title.
-        domain_name = self.username.split('@')[1]
-        folder_title = domain_name + ' bookmarks'
-        for bookmark_element in tree_items.itervalues():
-            bookmark_node = bookmark_element['bookmarkNode']
-            bookmark_title = bookmark_node['title']
-            if bookmark_title == folder_title:
-                folder_id = bookmark_node['id'].encode('ascii', 'ignore')
-                break
-        else:
-            tab.Close()
-            return False
-        tab.Close()
-
-        # Extract list of bookmarks shown in bookmark list-pane.
-        tab = self._open_boomark_manager_to_folder(folder_id)
-        cmd = '''
-            var bookmarks = [];
-            var listPane = document.getElementById("list-pane");
-            var labels = listPane.getElementsByClassName("label");
-            for (var i = 0; i < labels.length; i++) {
-               bookmarks.push(labels[i].textContent);
-            }
-            bookmarks;
-        '''
-        bookmark_items = self.get_elements_from_page(tab, cmd)
-        tab.Close()
-
-        # Get list of expected bookmarks as set by policy.
-        bookmarks_expected = None
-        if policy_bookmarks:
-            bookmarks_expected = [bmk['name'] for bmk in policy_bookmarks]
-
-        # Compare bookmarks shown vs expected.
-        if bookmark_items != bookmarks_expected:
-            raise error.TestFail('Bookmarks shown are not correct: %s '
-                                 '(expected: %s)' %
-                                 (bookmark_items, bookmarks_expected))
-        return True
-
-    def _open_boomark_manager_to_folder(self, folder_number):
-        """Open bookmark manager page and select specified folder.
-
-        @param folder_number: folder to select when opening page.
-        @returns: tab loaded with bookmark manager page.
-
-        """
-        # Open Bookmark Manager with specified folder selected.
-        bmp_url = ('chrome://bookmarks/#%s' % folder_number)
-        tab = self.navigate_to_url(bmp_url)
-
-        # Wait until list.reload() is defined on page.
-        tab.WaitForJavaScriptCondition(
-            "typeof bmm.list.reload == 'function'", timeout=60)
-        time.sleep(1)  # Allow JS to run after function is defined.
-        return tab
 
     def run_once(self, case):
-        """Setup and run the test configured for the specified test case.
+        """
+        Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
 
         """
         case_value = self.TEST_CASES[case]
-        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
-        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
+        self.setup_case(user_policies={self.POLICY_NAME: case_value})
         self._test_managed_bookmarks(case_value)

@@ -13,9 +13,8 @@ DOC = '''
 Verify effects of policy_ProxySettings policy on client behavior.
 
 This test verifies the effect of the ProxySettings user policy on Chrome OS
-client behavior. It exercises a variety of policy values using four unique
-test cases: FixedProxy_UseFixedProxy, DirectProxy_UseNoProxy,
-PacProxy_UsePacFile and NotSet_UseNoProxy.
+client behavior. It also tests setting proxies through the
+OpenNetworkConfiguration policy.
 
 In general, the test case shall pass if Chrome OS uses the correct proxy,
 as specified by the policy value. It fails if the wrong proxy is used.

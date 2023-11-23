@@ -93,11 +93,11 @@ keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_descript
 
     UniquePtr<EC_KEY, EC_KEY_Delete> ec_key(EC_KEY_new());
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (ec_key.get() == NULL || pkey.get() == NULL)
+    if (ec_key.get() == nullptr || pkey.get() == nullptr)
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     UniquePtr<EC_GROUP, EC_GROUP_Delete> group(ChooseGroup(ec_curve));
-    if (group.get() == NULL) {
+    if (group.get() == nullptr) {
         LOG_E("Unable to get EC group for curve %d", ec_curve);
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }
@@ -213,7 +213,7 @@ EC_GROUP* EcKeyFactory::ChooseGroup(size_t key_size_bits) {
         return EC_GROUP_new_by_curve_name(NID_secp521r1);
         break;
     default:
-        return NULL;
+        return nullptr;
         break;
     }
 }

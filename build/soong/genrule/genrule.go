@@ -16,6 +16,7 @@ package genrule
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/google/blueprint"
@@ -28,6 +29,8 @@ import (
 )
 
 func init() {
+	android.RegisterModuleType("genrule_defaults", defaultsFactory)
+
 	android.RegisterModuleType("gensrcs", GenSrcsFactory)
 	android.RegisterModuleType("genrule", GenRuleFactory)
 }
@@ -46,15 +49,16 @@ type SourceFileGenerator interface {
 	GeneratedDeps() android.Paths
 }
 
+// Alias for android.HostToolProvider
+// Deprecated: use android.HostToolProvider instead.
 type HostToolProvider interface {
-	HostToolPath() android.OptionalPath
+	android.HostToolProvider
 }
 
 type hostToolDependencyTag struct {
 	blueprint.BaseDependencyTag
+	label string
 }
-
-var hostToolDepTag hostToolDependencyTag
 
 type generatorProperties struct {
 	// The command to run on one or more input files. Cmd supports substitution of a few variables
@@ -63,7 +67,7 @@ type generatorProperties struct {
 	// Available variables for substitution:
 	//
 	//  $(location): the path to the first entry in tools or tool_files
-	//  $(location <label>): the path to the tool or tool_file with name <label>
+	//  $(location <label>): the path to the tool, tool_file, input or output with name <label>
 	//  $(in): one or more input files
 	//  $(out): a single output file
 	//  $(depfile): a file to which dependencies will be written, if the depfile property is set to true
@@ -82,17 +86,21 @@ type generatorProperties struct {
 	Tools []string
 
 	// Local file that is used as the tool
-	Tool_files []string
+	Tool_files []string `android:"path"`
 
 	// List of directories to export generated headers from
 	Export_include_dirs []string
 
 	// list of input files
-	Srcs []string
+	Srcs []string `android:"path,arch_variant"`
+
+	// input files to exclude
+	Exclude_srcs []string `android:"path,arch_variant"`
 }
 
 type Module struct {
 	android.ModuleBase
+	android.DefaultableModuleBase
 
 	// For other packages to make their own genrules with extra
 	// properties
@@ -102,13 +110,16 @@ type Module struct {
 
 	taskGenerator taskFunc
 
-	deps android.Paths
-	rule blueprint.Rule
+	deps       android.Paths
+	rule       blueprint.Rule
+	rawCommand string
 
 	exportedIncludeDirs android.Paths
 
 	outputFiles android.Paths
 	outputDeps  android.Paths
+
+	subName string
 }
 
 type taskFunc func(ctx android.ModuleContext, rawCommand string, srcFiles android.Paths) generateTask
@@ -137,18 +148,22 @@ func (g *Module) GeneratedDeps() android.Paths {
 }
 
 func (g *Module) DepsMutator(ctx android.BottomUpMutatorContext) {
-	android.ExtractSourcesDeps(ctx, g.properties.Srcs)
-	android.ExtractSourcesDeps(ctx, g.properties.Tool_files)
 	if g, ok := ctx.Module().(*Module); ok {
-		if len(g.properties.Tools) > 0 {
+		for _, tool := range g.properties.Tools {
+			tag := hostToolDependencyTag{label: tool}
+			if m := android.SrcIsModule(tool); m != "" {
+				tool = m
+			}
 			ctx.AddFarVariationDependencies([]blueprint.Variation{
-				{"arch", ctx.Config().BuildOsVariant},
-			}, hostToolDepTag, g.properties.Tools...)
+				{Mutator: "arch", Variation: ctx.Config().BuildOsVariant},
+			}, tag, tool)
 		}
 	}
 }
 
 func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
+	g.subName = ctx.ModuleSubDir()
+
 	if len(g.properties.Export_include_dirs) > 0 {
 		for _, dir := range g.properties.Export_include_dirs {
 			g.exportedIncludeDirs = append(g.exportedIncludeDirs,
@@ -158,18 +173,31 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		g.exportedIncludeDirs = append(g.exportedIncludeDirs, android.PathForModuleGen(ctx, ""))
 	}
 
-	tools := map[string]android.Path{}
+	locationLabels := map[string][]string{}
+	firstLabel := ""
+
+	addLocationLabel := func(label string, paths []string) {
+		if firstLabel == "" {
+			firstLabel = label
+		}
+		if _, exists := locationLabels[label]; !exists {
+			locationLabels[label] = paths
+		} else {
+			ctx.ModuleErrorf("multiple labels for %q, %q and %q",
+				label, strings.Join(locationLabels[label], " "), strings.Join(paths, " "))
+		}
+	}
 
 	if len(g.properties.Tools) > 0 {
+		seenTools := make(map[string]bool)
+
 		ctx.VisitDirectDepsBlueprint(func(module blueprint.Module) {
-			switch ctx.OtherModuleDependencyTag(module) {
-			case android.SourceDepTag:
-				// Nothing to do
-			case hostToolDepTag:
+			switch tag := ctx.OtherModuleDependencyTag(module).(type) {
+			case hostToolDependencyTag:
 				tool := ctx.OtherModuleName(module)
 				var path android.OptionalPath
 
-				if t, ok := module.(HostToolProvider); ok {
+				if t, ok := module.(android.HostToolProvider); ok {
 					if !t.(android.Module).Enabled() {
 						if ctx.Config().AllowMissingDependencies() {
 							ctx.AddMissingDependencies([]string{tool})
@@ -193,51 +221,89 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 
 				if path.Valid() {
 					g.deps = append(g.deps, path.Path())
-					if _, exists := tools[tool]; !exists {
-						tools[tool] = path.Path()
-					} else {
-						ctx.ModuleErrorf("multiple tools for %q, %q and %q", tool, tools[tool], path.Path().String())
-					}
+					addLocationLabel(tag.label, []string{path.Path().String()})
+					seenTools[tag.label] = true
 				} else {
 					ctx.ModuleErrorf("host tool %q missing output file", tool)
 				}
-			default:
-				ctx.ModuleErrorf("unknown dependency on %q", ctx.OtherModuleName(module))
 			}
 		})
+
+		// If AllowMissingDependencies is enabled, the build will not have stopped when
+		// AddFarVariationDependencies was called on a missing tool, which will result in nonsensical
+		// "cmd: unknown location label ..." errors later.  Add a dummy file to the local label.  The
+		// command that uses this dummy file will never be executed because the rule will be replaced with
+		// an android.Error rule reporting the missing dependencies.
+		if ctx.Config().AllowMissingDependencies() {
+			for _, tool := range g.properties.Tools {
+				if !seenTools[tool] {
+					addLocationLabel(tool, []string{"***missing tool " + tool + "***"})
+				}
+			}
+		}
 	}
 
 	if ctx.Failed() {
 		return
 	}
 
-	toolFiles := ctx.ExpandSources(g.properties.Tool_files, nil)
-	for _, tool := range toolFiles {
-		g.deps = append(g.deps, tool)
-		if _, exists := tools[tool.Rel()]; !exists {
-			tools[tool.Rel()] = tool
+	for _, toolFile := range g.properties.Tool_files {
+		paths := android.PathsForModuleSrc(ctx, []string{toolFile})
+		g.deps = append(g.deps, paths...)
+		addLocationLabel(toolFile, paths.Strings())
+	}
+
+	var srcFiles android.Paths
+	for _, in := range g.properties.Srcs {
+		paths, missingDeps := android.PathsAndMissingDepsForModuleSrcExcludes(ctx, []string{in}, g.properties.Exclude_srcs)
+		if len(missingDeps) > 0 {
+			if !ctx.Config().AllowMissingDependencies() {
+				panic(fmt.Errorf("should never get here, the missing dependencies %q should have been reported in DepsMutator",
+					missingDeps))
+			}
+
+			// If AllowMissingDependencies is enabled, the build will not have stopped when
+			// the dependency was added on a missing SourceFileProducer module, which will result in nonsensical
+			// "cmd: label ":..." has no files" errors later.  Add a dummy file to the local label.  The
+			// command that uses this dummy file will never be executed because the rule will be replaced with
+			// an android.Error rule reporting the missing dependencies.
+			ctx.AddMissingDependencies(missingDeps)
+			addLocationLabel(in, []string{"***missing srcs " + in + "***"})
 		} else {
-			ctx.ModuleErrorf("multiple tools for %q, %q and %q", tool, tools[tool.Rel()], tool.Rel())
+			srcFiles = append(srcFiles, paths...)
+			addLocationLabel(in, paths.Strings())
 		}
+	}
+
+	task := g.taskGenerator(ctx, String(g.properties.Cmd), srcFiles)
+
+	for _, out := range task.out {
+		addLocationLabel(out.Rel(), []string{filepath.Join("__SBOX_OUT_DIR__", out.Rel())})
 	}
 
 	referencedDepfile := false
 
-	srcFiles := ctx.ExpandSources(g.properties.Srcs, nil)
-	task := g.taskGenerator(ctx, String(g.properties.Cmd), srcFiles)
-
 	rawCommand, err := android.Expand(task.cmd, func(name string) (string, error) {
+		// report the error directly without returning an error to android.Expand to catch multiple errors in a
+		// single run
+		reportError := func(fmt string, args ...interface{}) (string, error) {
+			ctx.PropertyErrorf("cmd", fmt, args...)
+			return "SOONG_ERROR", nil
+		}
+
 		switch name {
 		case "location":
-			if len(g.properties.Tools) == 0 && len(toolFiles) == 0 {
-				return "", fmt.Errorf("at least one `tools` or `tool_files` is required if $(location) is used")
+			if len(g.properties.Tools) == 0 && len(g.properties.Tool_files) == 0 {
+				return reportError("at least one `tools` or `tool_files` is required if $(location) is used")
 			}
-
-			if len(g.properties.Tools) > 0 {
-				return tools[g.properties.Tools[0]].String(), nil
-			} else {
-				return tools[toolFiles[0].Rel()].String(), nil
+			paths := locationLabels[firstLabel]
+			if len(paths) == 0 {
+				return reportError("default label %q has no files", firstLabel)
+			} else if len(paths) > 1 {
+				return reportError("default label %q has multiple files, use $(locations %s) to reference it",
+					firstLabel, firstLabel)
 			}
+			return locationLabels[firstLabel][0], nil
 		case "in":
 			return "${in}", nil
 		case "out":
@@ -245,7 +311,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		case "depfile":
 			referencedDepfile = true
 			if !Bool(g.properties.Depfile) {
-				return "", fmt.Errorf("$(depfile) used without depfile property")
+				return reportError("$(depfile) used without depfile property")
 			}
 			return "__SBOX_DEPFILE__", nil
 		case "genDir":
@@ -253,23 +319,40 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		default:
 			if strings.HasPrefix(name, "location ") {
 				label := strings.TrimSpace(strings.TrimPrefix(name, "location "))
-				if tool, ok := tools[label]; ok {
-					return tool.String(), nil
+				if paths, ok := locationLabels[label]; ok {
+					if len(paths) == 0 {
+						return reportError("label %q has no files", label)
+					} else if len(paths) > 1 {
+						return reportError("label %q has multiple files, use $(locations %s) to reference it",
+							label, label)
+					}
+					return paths[0], nil
 				} else {
-					return "", fmt.Errorf("unknown location label %q", label)
+					return reportError("unknown location label %q", label)
 				}
+			} else if strings.HasPrefix(name, "locations ") {
+				label := strings.TrimSpace(strings.TrimPrefix(name, "locations "))
+				if paths, ok := locationLabels[label]; ok {
+					if len(paths) == 0 {
+						return reportError("label %q has no files", label)
+					}
+					return strings.Join(paths, " "), nil
+				} else {
+					return reportError("unknown locations label %q", label)
+				}
+			} else {
+				return reportError("unknown variable '$(%s)'", name)
 			}
-			return "", fmt.Errorf("unknown variable '$(%s)'", name)
 		}
 	})
-
-	if Bool(g.properties.Depfile) && !referencedDepfile {
-		ctx.PropertyErrorf("cmd", "specified depfile=true but did not include a reference to '${depfile}' in cmd")
-	}
 
 	if err != nil {
 		ctx.PropertyErrorf("cmd", "%s", err.Error())
 		return
+	}
+
+	if Bool(g.properties.Depfile) && !referencedDepfile {
+		ctx.PropertyErrorf("cmd", "specified depfile=true but did not include a reference to '${depfile}' in cmd")
 	}
 
 	// tell the sbox command which directory to use as its sandbox root
@@ -286,6 +369,7 @@ func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	genDir := android.PathForModuleGen(ctx)
 	// Escape the command for the shell
 	rawCommand = "'" + strings.Replace(rawCommand, "'", `'\''`, -1) + "'"
+	g.rawCommand = rawCommand
 	sandboxCommand := fmt.Sprintf("$sboxCmd --sandbox-path %s --output-root %s -c %s %s $allouts",
 		sandboxPath, genDir, rawCommand, depfilePlaceholder)
 
@@ -343,6 +427,38 @@ func (g *Module) generateSourceFile(ctx android.ModuleContext, task generateTask
 	g.outputDeps = append(g.outputDeps, task.out[0])
 }
 
+// Collect information for opening IDE project files in java/jdeps.go.
+func (g *Module) IDEInfo(dpInfo *android.IdeInfo) {
+	dpInfo.Srcs = append(dpInfo.Srcs, g.Srcs().Strings()...)
+	for _, src := range g.properties.Srcs {
+		if strings.HasPrefix(src, ":") {
+			src = strings.Trim(src, ":")
+			dpInfo.Deps = append(dpInfo.Deps, src)
+		}
+	}
+}
+
+func (g *Module) AndroidMk() android.AndroidMkData {
+	return android.AndroidMkData{
+		Include:    "$(BUILD_PHONY_PACKAGE)",
+		Class:      "FAKE",
+		OutputFile: android.OptionalPathForPath(g.outputFiles[0]),
+		SubName:    g.subName,
+		Extra: []android.AndroidMkExtraFunc{
+			func(w io.Writer, outputFile android.Path) {
+				fmt.Fprintln(w, "LOCAL_ADDITIONAL_DEPENDENCIES :=", strings.Join(g.outputFiles.Strings(), " "))
+			},
+		},
+		Custom: func(w io.Writer, name, prefix, moduleDir string, data android.AndroidMkData) {
+			android.WriteAndroidMkData(w, data)
+			if data.SubName != "" {
+				fmt.Fprintln(w, ".PHONY:", name)
+				fmt.Fprintln(w, name, ":", name+g.subName)
+			}
+		},
+	}
+}
+
 func generatorFactory(taskGenerator taskFunc, props ...interface{}) *Module {
 	module := &Module{
 		taskGenerator: taskGenerator,
@@ -394,7 +510,7 @@ func NewGenSrcs() *Module {
 			}
 
 			// escape the command in case for example it contains '#', an odd number of '"', etc
-			command = fmt.Sprintf("bash -c %v", proptools.ShellEscape([]string{command})[0])
+			command = fmt.Sprintf("bash -c %v", proptools.ShellEscape(command))
 			commands = append(commands, command)
 		}
 		fullCommand := strings.Join(commands, " && ")
@@ -446,13 +562,43 @@ func NewGenRule() *Module {
 func GenRuleFactory() android.Module {
 	m := NewGenRule()
 	android.InitAndroidModule(m)
+	android.InitDefaultableModule(m)
 	return m
 }
 
 type genRuleProperties struct {
 	// names of the output files that will be generated
-	Out []string
+	Out []string `android:"arch_variant"`
 }
 
 var Bool = proptools.Bool
 var String = proptools.String
+
+//
+// Defaults
+//
+type Defaults struct {
+	android.ModuleBase
+	android.DefaultsModuleBase
+}
+
+func (*Defaults) GenerateAndroidBuildActions(ctx android.ModuleContext) {
+}
+
+func defaultsFactory() android.Module {
+	return DefaultsFactory()
+}
+
+func DefaultsFactory(props ...interface{}) android.Module {
+	module := &Defaults{}
+
+	module.AddProperties(props...)
+	module.AddProperties(
+		&generatorProperties{},
+		&genRuleProperties{},
+	)
+
+	android.InitDefaultsModule(module)
+
+	return module
+}

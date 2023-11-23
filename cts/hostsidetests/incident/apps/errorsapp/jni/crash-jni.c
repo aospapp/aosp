@@ -20,5 +20,8 @@ JNIEXPORT void JNICALL
 Java_com_android_server_cts_errors_NativeActivity_crash( JNIEnv* env,
                                                   jobject thisObj)
 {
-    *((char*)0xdeadbeef) = 10;
+    char* pointerToExecuteOnlyArea =
+            (char*)&Java_com_android_server_cts_errors_NativeActivity_crash;
+    // Expecting SIGSEGV due to illegal memory access.
+    *pointerToExecuteOnlyArea = 10;
 }

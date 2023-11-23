@@ -25,7 +25,8 @@ HMN1Rq41Bab2XD0h7lbwyYIiLXpUq3DDfSJlgnCW
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 14014712776195784473 (0xc27e43044e473f19)
+        Serial Number:
+            c2:7e:43:04:4e:47:3f:19
     Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=HU, L=Budapest, O=Microsec Ltd., CN=Microsec e-Szigno Root CA 2009/emailAddress=info@e-szigno.hu
         Validity

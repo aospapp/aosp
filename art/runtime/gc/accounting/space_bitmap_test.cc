@@ -21,7 +21,7 @@
 
 #include "base/mutex.h"
 #include "common_runtime_test.h"
-#include "globals.h"
+#include "runtime_globals.h"
 #include "space_bitmap-inl.h"
 
 namespace art {

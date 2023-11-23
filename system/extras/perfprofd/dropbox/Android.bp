@@ -36,10 +36,10 @@ cc_library_static {
                 "dropbox.cc",
             ],
             static_libs: [
-                "libbinder",
                 "libutils",
             ],
             shared_libs: [
+                "libbinder",
                 "libservices",
             ],
         },

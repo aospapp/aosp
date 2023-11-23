@@ -16,7 +16,11 @@
 #ifndef _FIXED_BUFFER_H
 #define _FIXED_BUFFER_H
 
+#if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
+#else
+#include <log/log.h>
+#endif
 
 class FixedBuffer {
 public:

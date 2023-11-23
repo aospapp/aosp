@@ -19,22 +19,18 @@ package com.android.documentsui.files;
 import static com.android.documentsui.OperationDialogFragment.DIALOG_TYPE_UNKNOWN;
 
 import android.app.ActivityManager.TaskDescription;
-import android.app.FragmentManager;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.drawable.AdaptiveIconDrawable;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.CallSuper;
 import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+
+import androidx.annotation.CallSuper;
+import androidx.fragment.app.FragmentManager;
 
 import com.android.documentsui.ActionModeController;
 import com.android.documentsui.BaseActivity;
@@ -55,6 +51,7 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.dirlist.AnimationView.AnimationType;
+import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.services.FileOperationService;
@@ -104,14 +101,14 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
         super.onCreate(icicle);
 
         DocumentClipper clipper = DocumentsApplication.getDocumentClipper(this);
-        mInjector.selectionMgr = DocsSelectionHelper.createMultiSelect();
+        mInjector.selectionMgr = DocsSelectionHelper.create();
 
         mInjector.focusManager = new FocusManager(
                 mInjector.features,
                 mInjector.selectionMgr,
                 mDrawer,
                 this::focusSidebar,
-                getColor(R.color.accent_dark));
+                getColor(R.color.primary));
 
         mInjector.menuManager = new MenuManager(
                 mInjector.features,
@@ -149,6 +146,9 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
 
         mInjector.searchManager = mSearchManager;
 
+        mAppsRowManager = new AppsRowManager(mInjector.actions);
+        mInjector.appsRowManager = mAppsRowManager;
+
         mActivityInputHandler =
                 new ActivityInputHandler(mInjector.actions::deleteSelectedDocuments);
         mSharedInputHandler =
@@ -157,9 +157,10 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
                         mInjector.selectionMgr,
                         mInjector.searchManager::cancelSearch,
                         this::popDir,
-                        mInjector.features);
+                        mInjector.features,
+                        mDrawer);
 
-        RootsFragment.show(getFragmentManager(), null);
+        RootsFragment.show(getSupportFragmentManager(), null);
 
         final Intent intent = getIntent();
 
@@ -171,6 +172,10 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
                 && intent.hasExtra(LauncherActivity.TASK_ICON_RES)) {
             updateTaskDescription(intent);
         }
+
+        // Set save container background to transparent for edge to edge nav bar.
+        View saveContainer = findViewById(R.id.container_save);
+        saveContainer.setBackgroundColor(Color.TRANSPARENT);
 
         presentFileErrors(icicle, intent);
     }
@@ -194,60 +199,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
         int iconRes = intent.getIntExtra(LauncherActivity.TASK_ICON_RES, -1);
         assert(iconRes > -1);
 
-        Drawable drawable = getResources().getDrawable(
-                iconRes,
-                null  // we don't care about theme, since the supplier should have handled that.
-                );
-
-        setTaskDescription(new TaskDescription(label, flattenDrawableToBitmap(drawable)));
-    }
-
-    // AdaptiveIconDrawable assumes that the consumer of the icon applies the shadow and
-    // recents assume that the provider of the task description handles these. Hence,
-    // we apply the shadow treatment same as Launcher3 implementation.
-    private Bitmap flattenDrawableToBitmap(Drawable d) {
-        // Percent of actual icon size
-        float ICON_SIZE_BLUR_FACTOR = 0.5f/48;
-        // Percent of actual icon size
-        float ICON_SIZE_KEY_SHADOW_DELTA_FACTOR = 1f/48;
-        int KEY_SHADOW_ALPHA = 61;
-        int AMBIENT_SHADOW_ALPHA = 30;
-        if (d instanceof BitmapDrawable) {
-            return ((BitmapDrawable) d).getBitmap();
-        } else if (d instanceof AdaptiveIconDrawable) {
-            AdaptiveIconDrawable aid = (AdaptiveIconDrawable) d;
-            int iconSize = getResources().getDimensionPixelSize(android.R.dimen.app_icon_size);
-            int shadowSize = Math.max(iconSize, aid.getIntrinsicHeight());
-            aid.setBounds(0, 0, shadowSize, shadowSize);
-
-            float blur = ICON_SIZE_BLUR_FACTOR * shadowSize;
-            float keyShadowDistance = ICON_SIZE_KEY_SHADOW_DELTA_FACTOR * shadowSize;
-
-            int bitmapSize = (int) (shadowSize + 2 * blur + keyShadowDistance);
-            Bitmap shadow = Bitmap.createBitmap(bitmapSize, bitmapSize, Bitmap.Config.ARGB_8888);
-
-            Canvas canvas = new Canvas(shadow);
-            canvas.translate(blur + keyShadowDistance / 2, blur);
-
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            paint.setColor(Color.TRANSPARENT);
-
-            // Draw ambient shadow
-            paint.setShadowLayer(blur, 0, 0, AMBIENT_SHADOW_ALPHA << 24);
-            canvas.drawPath(aid.getIconMask(), paint);
-
-            // Draw key shadow
-            canvas.translate(0, keyShadowDistance);
-            paint.setShadowLayer(blur, 0, 0, KEY_SHADOW_ALPHA << 24);
-            canvas.drawPath(aid.getIconMask(), paint);
-
-            // Draw original drawable
-            aid.draw(canvas);
-
-            canvas.setBitmap(null);
-            return shadow;
-        }
-        return null;
+        setTaskDescription(new TaskDescription(label, iconRes));
     }
 
     private void presentFileErrors(Bundle icicle, final Intent intent) {
@@ -264,7 +216,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
             final ArrayList<Uri> uriList =
                     intent.getParcelableArrayListExtra(FileOperationService.EXTRA_FAILED_URIS);
             OperationDialogFragment.show(
-                    getFragmentManager(),
+                    getSupportFragmentManager(),
                     dialogType,
                     docList,
                     uriList,
@@ -368,7 +320,7 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
 
     @Override
     public void refreshDirectory(@AnimationType int anim) {
-        final FragmentManager fm = getFragmentManager();
+        final FragmentManager fm = getSupportFragmentManager();
         final RootInfo root = getCurrentRoot();
         final DocumentInfo cwd = getCurrentDirectory();
 
@@ -396,6 +348,11 @@ public class FilesActivity extends BaseActivity implements ActionHandler.Addons 
     public void onDirectoryCreated(DocumentInfo doc) {
         assert(doc.isDirectory());
         mInjector.focusManager.focusDocument(doc.documentId);
+    }
+
+    @Override
+    protected boolean canInspectDirectory() {
+        return getCurrentDirectory() != null && mInjector.getModel().doc != null;
     }
 
     @CallSuper

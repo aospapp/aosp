@@ -17,15 +17,17 @@
 #ifndef ART_RUNTIME_MIRROR_STRING_H_
 #define ART_RUNTIME_MIRROR_STRING_H_
 
+#include "base/bit_utils.h"
 #include "gc/allocator_type.h"
-#include "gc_root.h"
+#include "class.h"
 #include "object.h"
+#include "runtime_globals.h"
 
 namespace art {
 
 template<class T> class Handle;
+template<class MirrorType> class ObjPtr;
 struct StringOffsets;
-class StringPiece;
 class StubTest_ReadBarrierForRoot_Test;
 
 namespace mirror {
@@ -38,7 +40,7 @@ enum class StringCompressionFlag : uint32_t {
 };
 
 // C++ mirror of java.lang.String
-class MANAGED String FINAL : public Object {
+class MANAGED String final : public Object {
  public:
   // Size of java.lang.String.class.
   static uint32_t ClassSize(PointerSize pointer_size);
@@ -48,11 +50,11 @@ class MANAGED String FINAL : public Object {
     return sizeof(String);
   }
 
-  static MemberOffset CountOffset() {
+  static constexpr MemberOffset CountOffset() {
     return OFFSET_OF_OBJECT_MEMBER(String, count_);
   }
 
-  static MemberOffset ValueOffset() {
+  static constexpr MemberOffset ValueOffset() {
     return OFFSET_OF_OBJECT_MEMBER(String, value_);
   }
 
@@ -65,7 +67,19 @@ class MANAGED String FINAL : public Object {
   }
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
-  size_t SizeOf() REQUIRES_SHARED(Locks::mutator_lock_);
+  size_t SizeOf() REQUIRES_SHARED(Locks::mutator_lock_) {
+    size_t size = sizeof(String);
+    if (IsCompressed()) {
+      size += (sizeof(uint8_t) * GetLength<kVerifyFlags>());
+    } else {
+      size += (sizeof(uint16_t) * GetLength<kVerifyFlags>());
+    }
+    // String.equals() intrinsics assume zero-padding up to kObjectAlignment,
+    // so make sure the zero-padding is actually copied around if GC compaction
+    // chooses to copy only SizeOf() bytes.
+    // http://b/23528461
+    return RoundUp(size, kObjectAlignment);
+  }
 
   // Taking out the first/uppermost bit because it is not part of actual length value
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
@@ -101,65 +115,62 @@ class MANAGED String FINAL : public Object {
   ObjPtr<String> Intern() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <bool kIsInstrumented>
-  ALWAYS_INLINE static String* AllocFromByteArray(Thread* self, int32_t byte_length,
-                                                  Handle<ByteArray> array, int32_t offset,
-                                                  int32_t high_byte,
-                                                  gc::AllocatorType allocator_type)
+  ALWAYS_INLINE static ObjPtr<String> AllocFromByteArray(Thread* self,
+                                                         int32_t byte_length,
+                                                         Handle<ByteArray> array,
+                                                         int32_t offset,
+                                                         int32_t high_byte,
+                                                         gc::AllocatorType allocator_type)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   template <bool kIsInstrumented>
-  ALWAYS_INLINE static String* AllocFromCharArray(Thread* self, int32_t count,
-                                                  Handle<CharArray> array, int32_t offset,
-                                                  gc::AllocatorType allocator_type)
+  ALWAYS_INLINE static ObjPtr<String> AllocFromCharArray(Thread* self,
+                                                         int32_t count,
+                                                         Handle<CharArray> array,
+                                                         int32_t offset,
+                                                         gc::AllocatorType allocator_type)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   template <bool kIsInstrumented>
-  ALWAYS_INLINE static String* AllocFromString(Thread* self, int32_t string_length,
-                                               Handle<String> string, int32_t offset,
-                                               gc::AllocatorType allocator_type)
+  ALWAYS_INLINE static ObjPtr<String> AllocFromString(Thread* self,
+                                                      int32_t string_length,
+                                                      Handle<String> string,
+                                                      int32_t offset,
+                                                      gc::AllocatorType allocator_type)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   template <bool kIsInstrumented>
-  ALWAYS_INLINE static String* AllocEmptyString(Thread* self,
-                                                gc::AllocatorType allocator_type)
+  ALWAYS_INLINE static ObjPtr<String> AllocEmptyString(Thread* self,
+                                                       gc::AllocatorType allocator_type)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static String* AllocFromStrings(Thread* self, Handle<String> string, Handle<String> string2)
+  static ObjPtr<String> AllocFromStrings(Thread* self,
+                                         Handle<String> string,
+                                         Handle<String> string2)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static String* AllocFromUtf16(Thread* self, int32_t utf16_length, const uint16_t* utf16_data_in)
+  static ObjPtr<String> AllocFromUtf16(Thread* self,
+                                       int32_t utf16_length,
+                                       const uint16_t* utf16_data_in)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static String* AllocFromModifiedUtf8(Thread* self, const char* utf)
+  static ObjPtr<String> AllocFromModifiedUtf8(Thread* self, const char* utf)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static String* AllocFromModifiedUtf8(Thread* self, int32_t utf16_length,
-                                       const char* utf8_data_in, int32_t utf8_length)
+  static ObjPtr<String> AllocFromModifiedUtf8(Thread* self,
+                                              int32_t utf16_length,
+                                              const char* utf8_data_in,
+                                              int32_t utf8_length)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static String* AllocFromModifiedUtf8(Thread* self, int32_t utf16_length, const char* utf8_data_in)
+  static ObjPtr<String> AllocFromModifiedUtf8(Thread* self,
+                                              int32_t utf16_length,
+                                              const char* utf8_data_in)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  // TODO: This is only used in the interpreter to compare against
-  // entries from a dex files constant pool (ArtField names). Should
-  // we unify this with Equals(const StringPiece&); ?
   bool Equals(const char* modified_utf8) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // TODO: This is only used to compare DexCache.location with
-  // a dex_file's location (which is an std::string). Do we really
-  // need this in mirror::String just for that one usage ?
-  bool Equals(const StringPiece& modified_utf8)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
   bool Equals(ObjPtr<String> that) REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Compare UTF-16 code point values not in a locale-sensitive manner
-  int Compare(int32_t utf16_length, const char* utf8_data_in);
-
-  // TODO: do we need this overload? give it a more intention-revealing name.
-  bool Equals(const uint16_t* that_chars, int32_t that_offset,
-              int32_t that_length)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a modified UTF-8 encoded std::string from a java/lang/String object.
   std::string ToModifiedUtf8() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -172,7 +183,7 @@ class MANAGED String FINAL : public Object {
 
   int32_t CompareTo(ObjPtr<String> other) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  CharArray* ToCharArray(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_)
+  ObjPtr<CharArray> ToCharArray(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
   void GetChars(int32_t start, int32_t end, Handle<CharArray> array, int32_t index)
@@ -213,15 +224,6 @@ class MANAGED String FINAL : public Object {
         : length;
   }
 
-  static Class* GetJavaLangString() REQUIRES_SHARED(Locks::mutator_lock_) {
-    DCHECK(!java_lang_String_.IsNull());
-    return java_lang_String_.Read();
-  }
-
-  static void SetClass(ObjPtr<Class> java_lang_String) REQUIRES_SHARED(Locks::mutator_lock_);
-  static void ResetClass() REQUIRES_SHARED(Locks::mutator_lock_);
-  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
-
   // Returns a human-readable equivalent of 'descriptor'. So "I" would be "int",
   // "[[I" would be "int[][]", "[Ljava/lang/String;" would be
   // "java.lang.String[]", and so forth.
@@ -247,9 +249,10 @@ class MANAGED String FINAL : public Object {
   }
 
   template <bool kIsInstrumented, typename PreFenceVisitor>
-  ALWAYS_INLINE static String* Alloc(Thread* self, int32_t utf16_length_with_flag,
-                                     gc::AllocatorType allocator_type,
-                                     const PreFenceVisitor& pre_fence_visitor)
+  ALWAYS_INLINE static ObjPtr<String> Alloc(Thread* self,
+                                            int32_t utf16_length_with_flag,
+                                            gc::AllocatorType allocator_type,
+                                            const PreFenceVisitor& pre_fence_visitor)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
@@ -266,10 +269,7 @@ class MANAGED String FINAL : public Object {
     uint8_t value_compressed_[0];
   };
 
-  static GcRoot<Class> java_lang_String_;
-
   friend struct art::StringOffsets;  // for verifying offset information
-  ART_FRIEND_TEST(art::StubTest, ReadBarrierForRoot);  // For java_lang_String_.
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(String);
 };

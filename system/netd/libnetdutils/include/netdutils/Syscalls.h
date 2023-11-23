@@ -19,13 +19,15 @@
 
 #include <memory>
 
+#include <net/if.h>
 #include <poll.h>
-#include <unistd.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
+#include "netdutils/Fd.h"
 #include "netdutils/Slice.h"
 #include "netdutils/Socket.h"
 #include "netdutils/Status.h"
@@ -56,6 +58,8 @@ class Syscalls {
     virtual Status bind(Fd sock, const sockaddr* addr, socklen_t addrlen) const = 0;
 
     virtual Status connect(Fd sock, const sockaddr* addr, socklen_t addrlen) const = 0;
+
+    virtual StatusOr<ifreq> ioctl(Fd sock, unsigned long request, ifreq* ifr) const = 0;
 
     virtual StatusOr<UniqueFd> eventfd(unsigned int initval, int flags) const = 0;
 

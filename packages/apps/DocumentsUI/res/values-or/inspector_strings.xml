@@ -43,7 +43,5 @@
     <string name="metadata_artist" msgid="8972421485694988540">"କଳାକାର"</string>
     <string name="metadata_composer" msgid="4696926808308256056">"କମ୍ପୋଜର୍‍"</string>
     <string name="metadata_album" msgid="1661699531214720236">"ଆଲବମ୍"</string>
-    <string name="metadata_address" msgid="1849921023707744640">"ଲୋକେଶନ୍‌"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"ଷ୍ଟ୍ରୀମ୍‍ର ପ୍ରକାର"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"ମୂଳ ଆକାର (ବାଇଟ୍ସ)"</string>
+    <string name="metadata_address" msgid="1849921023707744640">"ଲୋକେସନ୍‌"</string>
 </resources>

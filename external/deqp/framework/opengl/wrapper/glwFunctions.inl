@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 glActiveShaderProgramFunc								activeShaderProgram;
 glActiveTextureFunc										activeTexture;
@@ -220,6 +220,7 @@ glFramebufferRenderbufferFunc							framebufferRenderbuffer;
 glFramebufferTextureFunc								framebufferTexture;
 glFramebufferTexture1DFunc								framebufferTexture1D;
 glFramebufferTexture2DFunc								framebufferTexture2D;
+glFramebufferTexture2DMultisampleEXTFunc				framebufferTexture2DMultisampleEXT;
 glFramebufferTexture3DFunc								framebufferTexture3D;
 glFramebufferTexture3DOESFunc							framebufferTexture3DOES;
 glFramebufferTextureLayerFunc							framebufferTextureLayer;
@@ -496,6 +497,17 @@ glMultiTexRenderbufferEXTFunc							multiTexRenderbufferEXT;
 glMultiTexSubImage1DEXTFunc								multiTexSubImage1DEXT;
 glMultiTexSubImage2DEXTFunc								multiTexSubImage2DEXT;
 glMultiTexSubImage3DEXTFunc								multiTexSubImage3DEXT;
+glMulticastBarrierNVFunc								multicastBarrierNV;
+glMulticastBlitFramebufferNVFunc						multicastBlitFramebufferNV;
+glMulticastBufferSubDataNVFunc							multicastBufferSubDataNV;
+glMulticastCopyBufferSubDataNVFunc						multicastCopyBufferSubDataNV;
+glMulticastCopyImageSubDataNVFunc						multicastCopyImageSubDataNV;
+glMulticastFramebufferSampleLocationsfvNVFunc			multicastFramebufferSampleLocationsfvNV;
+glMulticastGetQueryObjecti64vNVFunc						multicastGetQueryObjecti64vNV;
+glMulticastGetQueryObjectivNVFunc						multicastGetQueryObjectivNV;
+glMulticastGetQueryObjectui64vNVFunc					multicastGetQueryObjectui64vNV;
+glMulticastGetQueryObjectuivNVFunc						multicastGetQueryObjectuivNV;
+glMulticastWaitSyncNVFunc								multicastWaitSyncNV;
 glNamedBufferDataFunc									namedBufferData;
 glNamedBufferDataEXTFunc								namedBufferDataEXT;
 glNamedBufferPageCommitmentARBFunc						namedBufferPageCommitmentARB;
@@ -632,8 +644,10 @@ glReadBufferFunc										readBuffer;
 glReadPixelsFunc										readPixels;
 glReadnPixelsFunc										readnPixels;
 glReleaseShaderCompilerFunc								releaseShaderCompiler;
+glRenderGpuMaskNVFunc									renderGpuMaskNV;
 glRenderbufferStorageFunc								renderbufferStorage;
 glRenderbufferStorageMultisampleFunc					renderbufferStorageMultisample;
+glRenderbufferStorageMultisampleEXTFunc					renderbufferStorageMultisampleEXT;
 glResumeTransformFeedbackFunc							resumeTransformFeedback;
 glSampleCoverageFunc									sampleCoverage;
 glSampleMaskiFunc										sampleMaski;

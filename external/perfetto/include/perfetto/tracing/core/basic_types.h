@@ -17,9 +17,15 @@
 #ifndef INCLUDE_PERFETTO_TRACING_CORE_BASIC_TYPES_H_
 #define INCLUDE_PERFETTO_TRACING_CORE_BASIC_TYPES_H_
 
+#include "perfetto/base/build_config.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+using uid_t = unsigned int;
+#endif
 
 namespace perfetto {
 
@@ -56,11 +62,21 @@ using BufferID = uint16_t;
 // Keep this in sync with SharedMemoryABI::PageHeader::target_buffer.
 static constexpr BufferID kMaxTraceBufferID = static_cast<BufferID>(-1);
 
+// Unique within the scope of a tracing session.
+using PacketSequenceID = uint32_t;
+// Used for extra packets emitted by the service, such as statistics.
+static constexpr PacketSequenceID kInvalidPacketSequenceID = 0;
+static constexpr PacketSequenceID kServicePacketSequenceID = 1;
+static constexpr PacketSequenceID kMaxPacketSequenceID =
+    static_cast<PacketSequenceID>(-1);
+
 // TODO(primiano): temporary. The buffer page size should be configurable by
 // consumers.
 static constexpr size_t kBufferPageSize = 8192;
 
 constexpr uid_t kInvalidUid = static_cast<uid_t>(-1);
+
+constexpr uint32_t kDefaultFlushTimeoutMs = 5000;
 
 }  // namespace perfetto
 

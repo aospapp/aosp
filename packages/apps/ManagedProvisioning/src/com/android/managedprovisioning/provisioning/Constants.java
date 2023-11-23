@@ -16,6 +16,10 @@
 
 package com.android.managedprovisioning.provisioning;
 
+import android.content.Context;
+
+import java.io.File;
+
 /**
  * Constants used for communication between service and activity.
  */
@@ -27,6 +31,10 @@ public final class Constants {
      */
     public static final String ACTION_START_PROVISIONING =
             "com.android.managedprovisioning.START_PROVISIONING";
+
+    public static File getDeferredMetricsFile(Context context) {
+        return new File(context.getFilesDir(), "deferred_metrics");
+    }
 
     private Constants() {
         // Do not instantiate

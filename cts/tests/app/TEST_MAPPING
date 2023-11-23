@@ -1,0 +1,15 @@
+{
+  "presubmit": [
+    {
+      "name": "CtsAppTestCases",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.LargeTest"
+        },
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
+    }
+  ]
+}

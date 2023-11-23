@@ -60,6 +60,9 @@ def connect_bluetooth_module_full_flow(bt_adapter, target_mac_address,
 
     # Searches for bluetooth module with given MAC address.
     found_device = utils.wait_for_value(_find_device, True, timeout_sec=timeout)
+    if not bt_adapter.stop_discovery():
+        raise ChameleonBluetoothAudioError(
+            'Failed to stop discovery on bluetooth adapter on Cros host')
 
     if not found_device:
         raise ChameleonBluetoothAudioError(
@@ -141,3 +144,49 @@ def pair_legacy_bluetooth_module(bt_adapter, target_mac_address, pin=_PIN,
                     target_mac_address)
 
         logging.debug('Retry for pairing...')
+
+
+class BluetoothRefController(object):
+    """
+    An abstraction of bluetooth module on Fizz.
+    Analogous to BluetoothController defined in audio_board.py for
+    Chameleon hardware.
+
+    """
+    def __init__(self, chameleon_connection):
+        """Constructs a BluetoothController.
+
+        @param chameleon_connection: A ChameleonConnection object.
+
+        """
+        self._chameleond_proxy = chameleon_connection.chameleond_proxy
+
+
+    def reset(self):
+        """Resets the bluetooth Ref."""
+        self._chameleond_proxy.ResetBluetoothRef()
+        logging.info('Resets bluetooth Ref.')
+
+
+    def enable(self):
+        """Disables the bluetooth Ref."""
+        self._chameleond_proxy.EnableBluetoothRef()
+        logging.info('Disables bluetooth Ref.')
+
+    def disable(self):
+        """Disables the bluetooth Ref."""
+        self._chameleond_proxy.DisableBluetoothRef()
+        logging.info('Disables bluetooth Ref.')
+
+
+    def is_enabled(self):
+        """Checks if the bluetooth Ref is enabled.
+
+        @returns: True if bluetooth module is enabled. False otherwise.
+
+        """
+        """
+        TODO (npoojary):
+        return self._chameleond_proxy.IsBluetoothRefEnabled()
+        """
+        return True

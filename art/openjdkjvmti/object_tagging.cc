@@ -36,20 +36,50 @@
 #include "art_jvmti.h"
 #include "events-inl.h"
 #include "jvmti_weak_table-inl.h"
+#include "mirror/object-inl.h"
 
 namespace openjdkjvmti {
 
 // Instantiate for jlong = JVMTI tags.
 template class JvmtiWeakTable<jlong>;
 
-bool ObjectTagTable::Set(art::mirror::Object* obj, jlong new_tag) {
+void ObjectTagTable::Allow() {
+  JvmtiWeakTable<jlong>::Allow();
+  SendDelayedFreeEvents();
+}
+
+void ObjectTagTable::Broadcast(bool broadcast_for_checkpoint) {
+  JvmtiWeakTable<jlong>::Broadcast(broadcast_for_checkpoint);
+  if (!broadcast_for_checkpoint) {
+    SendDelayedFreeEvents();
+  }
+}
+
+void ObjectTagTable::SendDelayedFreeEvents() {
+  std::vector<jlong> to_send;
+  {
+    art::MutexLock mu(art::Thread::Current(), lock_);
+    to_send.swap(null_tags_);
+  }
+  for (jlong t : to_send) {
+    SendSingleFreeEvent(t);
+  }
+}
+
+void ObjectTagTable::SendSingleFreeEvent(jlong tag) {
+  event_handler_->DispatchEventOnEnv<ArtJvmtiEvent::kObjectFree>(
+      jvmti_env_, art::Thread::Current(), tag);
+}
+
+bool ObjectTagTable::Set(art::ObjPtr<art::mirror::Object> obj, jlong new_tag) {
   if (new_tag == 0) {
     jlong tmp;
     return Remove(obj, &tmp);
   }
   return JvmtiWeakTable<jlong>::Set(obj, new_tag);
 }
-bool ObjectTagTable::SetLocked(art::mirror::Object* obj, jlong new_tag) {
+
+bool ObjectTagTable::SetLocked(art::ObjPtr<art::mirror::Object> obj, jlong new_tag) {
   if (new_tag == 0) {
     jlong tmp;
     return RemoveLocked(obj, &tmp);
@@ -60,9 +90,10 @@ bool ObjectTagTable::SetLocked(art::mirror::Object* obj, jlong new_tag) {
 bool ObjectTagTable::DoesHandleNullOnSweep() {
   return event_handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kObjectFree);
 }
+
 void ObjectTagTable::HandleNullSweep(jlong tag) {
-  event_handler_->DispatchEventOnEnv<ArtJvmtiEvent::kObjectFree>(
-      jvmti_env_, art::Thread::Current(), tag);
+  art::MutexLock mu(art::Thread::Current(), lock_);
+  null_tags_.push_back(tag);
 }
 
 }  // namespace openjdkjvmti

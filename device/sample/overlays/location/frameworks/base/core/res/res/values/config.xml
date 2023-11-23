@@ -32,4 +32,9 @@
         <item>com.google.android.gms</item>
         <item>com.android.location.fused</item>
     </string-array>
+
+    <!-- Sets the package name for location extra packages -->
+    <string-array name="config_locationExtraPackageNames" translatable="false">
+         <item>com.google.android.gms.location.history</item>
+    </string-array>
 </resources>

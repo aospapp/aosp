@@ -49,14 +49,18 @@ import android.os.Message;
 import android.os.Process;
 import android.os.WorkSource;
 import android.preference.PreferenceManager;
-import android.support.test.filters.FlakyTest;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.CarrierConfigManager;
 import android.telephony.CellLocation;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaCellLocation;
 import android.telephony.gsm.GsmCellLocation;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telephony.test.SimulatedCommands;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus;
@@ -143,6 +147,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         mPhoneUT.removeCallbacksAndMessages(null);
         mPhoneUT = null;
         mGsmCdmaPhoneTestHandler.quit();
+        mGsmCdmaPhoneTestHandler.join();
         super.tearDown();
     }
 
@@ -152,24 +157,6 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         assertTrue(mPhoneUT.isPhoneTypeGsm());
         switchToCdma();
         assertTrue(mPhoneUT.isPhoneTypeCdmaLte());
-    }
-
-    @Test
-    @SmallTest
-    public void testHandleActionCarrierConfigChanged() {
-        Intent intent = new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
-        mContext.sendBroadcast(intent);
-        waitForMs(50);
-        verify(mSST, times(1)).pollState();
-
-        // set voice radio tech in RIL to 1xRTT. ACTION_CARRIER_CONFIG_CHANGED should trigger a
-        // query and change phone type
-        mSimulatedCommands.setVoiceRadioTech(ServiceState.RIL_RADIO_TECHNOLOGY_1xRTT);
-        assertTrue(mPhoneUT.isPhoneTypeGsm());
-        mContext.sendBroadcast(intent);
-        waitForMs(50);
-        assertTrue(mPhoneUT.isPhoneTypeCdmaLte());
-        verify(mSST, times(2)).pollState();
     }
 
     @Test
@@ -238,40 +225,19 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         CellLocation cellLocation = new GsmCellLocation();
         WorkSource workSource = new WorkSource(Process.myUid(),
             mContext.getPackageName());
-        doReturn(cellLocation).when(mSST).getCellLocation(workSource);
-        assertEquals(cellLocation, mPhoneUT.getCellLocation(workSource));
+        doReturn(cellLocation).when(mSST).getCellLocation();
+        assertEquals(cellLocation, mPhoneUT.getCellLocation());
 
         // Switch to CDMA
         switchToCdma();
 
         CdmaCellLocation cdmaCellLocation = new CdmaCellLocation();
-        cdmaCellLocation.setCellLocationData(0, 0, 0, 0, 0);
-        mSST.mCellLoc = cdmaCellLocation;
-
-        /*
-        LOCATION_MODE is a special case in SettingsProvider. Adding the special handling in mock
-        content provider is probably not worth the effort; it will also tightly couple tests with
-        SettingsProvider implementation.
-        // LOCATION_MODE_ON
-        Settings.Secure.putInt(mContext.getContentResolver(),
-                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_HIGH_ACCURACY);
-        waitForMs(50);
-        CdmaCellLocation actualCellLocation = (CdmaCellLocation) mPhoneUT.getCellLocation();
-        assertEquals(0, actualCellLocation.getBaseStationLatitude());
-        assertEquals(0, actualCellLocation.getBaseStationLongitude());
-
-        // LOCATION_MODE_OFF
-        Settings.Secure.putInt(TestApplication.getAppContext().getContentResolver(),
-                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
-        waitForMs(50);
-        */
+        doReturn(cdmaCellLocation).when(mSST).getCellLocation();
 
         CdmaCellLocation actualCellLocation =
-                (CdmaCellLocation) mPhoneUT.getCellLocation(workSource);
-        assertEquals(CdmaCellLocation.INVALID_LAT_LONG,
-                actualCellLocation.getBaseStationLatitude());
-        assertEquals(CdmaCellLocation.INVALID_LAT_LONG,
-                actualCellLocation.getBaseStationLongitude());
+                (CdmaCellLocation) mPhoneUT.getCellLocation();
+
+        assertEquals(actualCellLocation, cdmaCellLocation);
     }
 
     @Test
@@ -364,7 +330,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
             Connection connection = mPhoneUT.dial("1234567890",
                     new PhoneInternalInterface.DialArgs.Builder().build());
-            verify(mCT).dial("1234567890", null, null);
+            verify(mCT).dialGsm("1234567890", null, null);
         } catch (CallStateException e) {
             fail();
         }
@@ -374,6 +340,33 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
     @SmallTest
     public void testHandlePinMmi() {
         assertFalse(mPhoneUT.handlePinMmi("1234567890"));
+    }
+
+    @Test
+    @SmallTest
+    public void testEmergencySmsMode() {
+        String emergencyNumber = "111";
+        String nonEmergencyNumber = "222";
+        mContextFixture.getCarrierConfigBundle().putInt(
+                CarrierConfigManager.KEY_EMERGENCY_SMS_MODE_TIMER_MS_INT, 200);
+        doReturn(true).when(mTelephonyManager).isEmergencyNumber(emergencyNumber);
+
+        mPhoneUT.notifySmsSent(nonEmergencyNumber);
+        waitForMs(50);
+        assertFalse(mPhoneUT.isInEmergencySmsMode());
+
+        mPhoneUT.notifySmsSent(emergencyNumber);
+        waitForMs(50);
+        assertTrue(mPhoneUT.isInEmergencySmsMode());
+        waitForMs(200);
+        assertFalse(mPhoneUT.isInEmergencySmsMode());
+
+        // Feature not supported
+        mContextFixture.getCarrierConfigBundle().putInt(
+                CarrierConfigManager.KEY_EMERGENCY_SMS_MODE_TIMER_MS_INT, 0);
+        mPhoneUT.notifySmsSent(emergencyNumber);
+        waitForMs(50);
+        assertFalse(mPhoneUT.isInEmergencySmsMode());
     }
 
     @Test
@@ -417,6 +410,13 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         // no resource or sharedPreference set -- should be null
         assertEquals(null, mPhoneUT.getVoiceMailNumber());
 
+        // config_telephony_use_own_number_for_voicemail
+        mContextFixture.getCarrierConfigBundle()
+                .putBoolean(CarrierConfigManager
+                        .KEY_CONFIG_TELEPHONY_USE_OWN_NUMBER_FOR_VOICEMAIL_BOOL, true);
+        doReturn(voiceMailNumber).when(mSimRecords).getMsisdnNumber();
+        assertEquals(voiceMailNumber, mPhoneUT.getVoiceMailNumber());
+
         // voicemail number from config
         mContextFixture.getCarrierConfigBundle().
                 putString(CarrierConfigManager.KEY_DEFAULT_VM_NUMBER_STRING, voiceMailNumber);
@@ -453,9 +453,6 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         switchToCdma();
         String voiceMailNumber = "1234567890";
 
-        // no resource or sharedPreference set -- should be *86
-        assertEquals("*86", mPhoneUT.getVoiceMailNumber());
-
         // config_telephony_use_own_number_for_voicemail
         mContextFixture.getCarrierConfigBundle()
                 .putBoolean(CarrierConfigManager
@@ -487,7 +484,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         // voicemail number from sharedPreference
         mPhoneUT.setVoiceMailNumber("alphaTag", voiceMailNumber, null);
         ArgumentCaptor<Message> messageArgumentCaptor = ArgumentCaptor.forClass(Message.class);
-        verify(mRuimRecords).setVoiceMailNumber(eq("alphaTag"), eq(voiceMailNumber),
+        verify(mSimRecords).setVoiceMailNumber(eq("alphaTag"), eq(voiceMailNumber),
                 messageArgumentCaptor.capture());
 
         Message msg = messageArgumentCaptor.getValue();
@@ -744,7 +741,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         assertEquals(EVENT_EMERGENCY_CALL_TOGGLE, msgList.get(1).what);
 
         // verify setInternalDataEnabled
-        verify(mDcTracker).setInternalDataEnabled(true);
+        verify(mDataEnabledSettings).setInternalDataEnabled(true);
 
         // verify wakeLock released
         assertEquals(false, mPhoneUT.getWakeLock().isHeld());
@@ -832,7 +829,7 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         assertEquals(EVENT_EMERGENCY_CALL_TOGGLE, msgList.get(1).what);
 
         // verify setInternalDataEnabled
-        verify(mDcTracker).setInternalDataEnabled(true);
+        verify(mDataEnabledSettings).setInternalDataEnabled(true);
 
         // verify wakeLock released
         assertEquals(false, mPhoneUT.getWakeLock().isHeld());
@@ -894,16 +891,6 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
 
     @Test
     @SmallTest
-    public void testEriLoading() {
-        mPhoneUT.mEriManager = mEriManager;
-        mPhoneUT.sendMessage(mPhoneUT.obtainMessage(GsmCdmaPhone.EVENT_CARRIER_CONFIG_CHANGED,
-                null));
-        waitForMs(100);
-        verify(mEriManager, times(1)).loadEriFile();
-    }
-
-    @Test
-    @SmallTest
     public void testGetIccCardUnknownAndAbsent() {
         // If UiccSlot.isStateUnknown is true, we should return a dummy IccCard with the state
         // set to UNKNOWN
@@ -956,5 +943,62 @@ public class GsmCdmaPhoneTest extends TelephonyTest {
         AsyncResult ret = (AsyncResult) message.obj;
         assertEquals(EVENT_SET_ICC_LOCK_ENABLED, message.what);
         assertTrue(ret.exception != null);
+    }
+
+    @Test
+    @SmallTest
+    public void testGetCsCallRadioTech() {
+        ServiceState ss = new ServiceState();
+        mSST.mSS = ss;
+
+        // vrs in-service, vrat umts, expected umts
+        ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
+        NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_UMTS)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+        assertEquals(mPhoneUT.getCsCallRadioTech(), ServiceState.RIL_RADIO_TECHNOLOGY_UMTS);
+
+        // vrs oos, vrat umts, expected unknown
+        ss.setVoiceRegState(ServiceState.STATE_OUT_OF_SERVICE);
+        assertEquals(mPhoneUT.getCsCallRadioTech(), ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN);
+
+        // vrs in-service, vrat lte, expected unknown
+        ss.setVoiceRegState(ServiceState.STATE_IN_SERVICE);
+        nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_CS)
+                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_LTE)
+                .build();
+        ss.addNetworkRegistrationInfo(nri);
+        assertEquals(mPhoneUT.getCsCallRadioTech(), ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN);
+    }
+
+    @Test
+    @SmallTest
+    public void testGetLine1NumberForGsmPhone() {
+        final String msisdn = "+1234567890";
+        doReturn(msisdn).when(mSimRecords).getMsisdnNumber();
+
+        switchToGsm();
+        assertEquals(msisdn, mPhoneUT.getLine1Number());
+    }
+
+    @Test
+    @SmallTest
+    public void testGetLine1NumberForCdmaPhone() {
+        final String mdn = "1234567890";
+        final String msisdn = "+1234567890";
+        doReturn(mdn).when(mSST).getMdnNumber();
+        doReturn(msisdn).when(mSimRecords).getMsisdnNumber();
+
+        switchToCdma();
+        assertEquals(mdn, mPhoneUT.getLine1Number());
+
+        mContextFixture.getCarrierConfigBundle().putBoolean(
+                CarrierConfigManager.KEY_USE_USIM_BOOL, true);
+        assertEquals(msisdn, mPhoneUT.getLine1Number());
     }
 }

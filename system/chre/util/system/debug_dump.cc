@@ -15,13 +15,15 @@
  */
 
 #include "chre/util/system/debug_dump.h"
+
 #include <cstdio>
+
+#include "chre/platform/log.h"
 
 namespace chre {
 
-bool debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
+void debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
                     const char *formatStr, ...) {
-  bool success = false;
   if (*bufferPos < bufferSize) {
     va_list argList;
     va_start(argList, formatStr);
@@ -35,14 +37,14 @@ bool debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
           *bufferPos >= (bufferSize - strLenBytes)) {
         *bufferPos = bufferSize;
         buffer[bufferSize - 1] = '\0';
+        LOG_OOM();
       } else {
         *bufferPos += strLenBytes;
-        success = true;
       }
+    } else {
+      LOGE("Error formatting dump state");
     }
   }
-
-  return success;
 }
 
 }  // namespace chre

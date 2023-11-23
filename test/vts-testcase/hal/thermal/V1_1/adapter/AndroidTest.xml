@@ -15,13 +15,16 @@
 -->
 <configuration description="Config for VTS VtsHalThermalV1_1Adapter test cases">
     <option key="plan" name="config-descriptor:metadata" value="vts-hal-adapter"/>
+    <object class="com.android.tradefed.module.VtsHalAdapterModuleController" type="module_controller">
+        <option name="hal-package-name" value="android.hardware.thermal@1.1"/>
+    </object>
     <target_preparer class="com.android.tradefed.targetprep.VtsHalAdapterPreparer">
         <option name="adapter-binary-name" value="android.hardware.thermal@1.0-adapter"/>
         <option name="hal-package-name" value="android.hardware.thermal@1.1"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="com.android.devicehealth.tests"/>
-        <option name="runner" value="android.support.test.runner.AndroidJUnitRunner"/>
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner"/>
     </test>
     <include name="CtsJniTestCases.config"/>
 </configuration>

@@ -31,12 +31,13 @@ import android.net.Uri;
 import android.os.HandlerThread;
 import android.os.UserHandle;
 import android.provider.CallLog;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.PhoneStateListener;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
@@ -938,6 +939,87 @@ public class HeadsetStateMachineTest {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_KEY_PRESSED, mTestDevice));
         verify(mNativeInterface, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).disconnectAudio(mTestDevice);
+    }
+
+    /**
+     * A test to verfiy that we correctly handles AT+BIND event with driver safety case from HF
+     */
+    @Test
+    public void testAtBindWithDriverSafetyEventWhenConnecting() {
+        setUpConnectingState();
+
+        String atString = "1";
+        mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
+                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
+                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+        Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
+                BluetoothDevice.EXTRA_DEVICE, null));
+        Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_ENHANCED_DRIVER_SAFETY,
+                intentArgument.getValue().getIntExtra(
+                        BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, -1));
+        Assert.assertEquals(-1, intentArgument.getValue().getIntExtra(
+                BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, -2));
+    }
+
+    /**
+     * A test to verfiy that we correctly handles AT+BIND event with battery level case from HF
+     */
+    @Test
+    public void testAtBindEventWithBatteryLevelEventWhenConnecting() {
+        setUpConnectingState();
+
+        String atString = "2";
+        mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
+                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
+                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+        Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
+                BluetoothDevice.EXTRA_DEVICE, null));
+        Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_BATTERY_LEVEL_STATUS,
+                intentArgument.getValue().getIntExtra(
+                        BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, -1));
+        Assert.assertEquals(-1, intentArgument.getValue().getIntExtra(
+                BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, -2));
+    }
+
+    /**
+     * A test to verfiy that we correctly handles AT+BIND event with error case from HF
+     */
+    @Test
+    public void testAtBindEventWithErrorEventWhenConnecting() {
+        setUpConnectingState();
+
+        String atString = "err,A,123,,1";
+        mHeadsetStateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT,
+                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
+        ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
+        verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
+                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+        Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
+                BluetoothDevice.EXTRA_DEVICE, null));
+        Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_ENHANCED_DRIVER_SAFETY,
+                intentArgument.getValue().getIntExtra(
+                        BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, -1));
+        Assert.assertEquals(-1, intentArgument.getValue().getIntExtra(
+                BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, -2));
+    }
+
+    /**
+     * A test to verify that we correctly set AG indicator mask when enter/exit silence mode
+     */
+    @Test
+    public void testSetSilenceDevice() {
+        doNothing().when(mPhoneState).listenForPhoneState(any(BluetoothDevice.class), anyInt());
+        mHeadsetStateMachine.setSilenceDevice(true);
+        mHeadsetStateMachine.setSilenceDevice(false);
+        verify(mPhoneState, times(2)).listenForPhoneState(mTestDevice,
+                PhoneStateListener.LISTEN_NONE);
     }
 
     /**

@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"工作設定檔設定"</string>
+    <string name="app_label" msgid="1527793174155125990">"工作設定"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"糟糕！"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"設定工作設定檔"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"貴機構可控制這個設定檔並確保其安全；裝置上的其他所有內容則由您自行管理。"</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"下列應用程式將管理您的裝置："</string>
     <string name="next" msgid="1004321437324424398">"下一步"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定工作設定檔…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"您的管理員可監察和管理與此設定檔相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>請聯絡您的管理員瞭解詳情 (包括貴機構的私隱權政策)。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"您的管理員可監察和管理與此裝置相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>請聯絡您的管理員瞭解詳情 (包括貴機構的私隱權政策)。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"您的 IT 管理員可監察和管理與此設定檔相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>請聯絡您的 IT 管理員以瞭解詳情 (包括貴機構的私隱權政策)。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"您的 IT 管理員可監察和管理與此裝置相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>請聯絡您的 IT 管理員以瞭解詳情 (包括貴機構的私隱權政策)。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"如要使用防盜功能，您必須在裝置上啟用密碼螢幕鎖定。"</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"請與您的管理員聯絡，以獲取詳細資訊，包括您機構的私隱權政策。"</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"請聯絡您的 IT 管理員以瞭解詳情 (包括貴機構的私隱權政策)。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"瞭解詳情"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"取消"</string>
     <string name="ok_setup" msgid="4593707675416137504">"確認"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"無法設定您的公司檔案，請與您的 IT 部門聯絡或稍後再試。"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"無法加入工作設定檔"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"無法取代或移除工作設定檔"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"無法在此裝置上新增工作設定檔。如有任何問題，請聯絡您的管理員。"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"無法在此裝置上新增工作設定檔。如有任何問題，請聯絡您的 IT 管理員。"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"變更裝置啟動器"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"您的工作設定檔無法使用這個啟動器應用程式"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"取消"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"正在完成設定…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"正在設定裝置擁有者…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"正在初始化裝置…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"此裝置不允許加密，裝置需要加密方可設定。如需協助，請聯絡您的管理員。"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"此裝置不允許加密，而裝置需要加密方可設定。如需協助，請聯絡您的 IT 管理員。"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"要停止設定和重設裝置嗎？"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"您的裝置將會重設，螢幕將會轉至起始畫面"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"停止設定並清除您的裝置資料？"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"重設"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"無法設定設定檔"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"無法設定裝置"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"無法設定裝置。如需協助，請聯絡您的管理員。"</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"請聯絡您的管理員以取得協助"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"無法設定裝置。如需協助，請聯絡您的 IT 管理員。"</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"請向您的 IT 管理員尋求協助"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"裝置已設定"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"無法連線至 Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"您的裝置已開啟重設保護功能。如需協助，請聯絡您的管理員。"</string>
+    <string name="error_wifi" msgid="1850288843966836571">"無法連線至 Wi-Fi"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"您的裝置已開啟重設保護功能。如需協助，請聯絡您的 IT 管理員。"</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"正在清除"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"請稍候…"</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"管理員應用程式因校驗錯誤而無法使用。如需協助，請聯絡您的管理員。"</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"無法下載管理員應用程式"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"管理員應用程式因缺少元件或損毀而無法使用。如需協助，請聯絡您的管理員。"</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"無法安裝管理員應用程式"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"管理員應用程式因校驗和錯誤而無法使用。如需協助，請聯絡您的 IT 管理員。"</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"無法下載管理員應用程式"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"管理員應用程式因缺少組件或損毀而無法使用。如需協助，請聯絡您的 IT 管理員。"</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"無法安裝管理員應用程式"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"要停止設定嗎？"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"否"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"是"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守條款。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>條款。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"此連結不安全。裝置完成設定前，連結將無法開啟：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"如有問題，請聯絡您的<xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>。"</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"如有問題，請聯絡您的機構管理員"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"尚未完成設定。如需協助，請聯絡您的管理員。"</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"如需協助，請聯絡您的管理員"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"機構管理員"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"如要瞭解詳情，請聯絡您的 <xliff:g id="IT_ADMIN">%1$s</xliff:g>。"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"如有任何問題，請與 IT 管理員聯絡"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"您尚未完成設定。如需協助，請聯絡您的 IT 管理員。"</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"如需協助，請聯絡您的 IT 管理員"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT 管理員"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>會使用以下應用程式管理和監控此裝置："</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"您的機構"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"您的機構"</string>
     <string name="view_terms" msgid="7230493092383341605">"查看條款"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"接受並繼續"</string>
-    <string name="close" msgid="7208600934846389439">"關閉"</string>
+    <string name="back" msgid="6455622465896147127">"返回"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"設定您的裝置"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"改變您的工作方式"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"分開工作和個人資料"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"此程序可能需時幾分鐘"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"您的工作應用程式會儲存在此設定檔中，並由您的機構管理"</string>
     <string name="device_owner_description" msgid="168013145812679664">"此裝置將由您的機構負責管理，並確保其安全。"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"正在準備設定工作裝置…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"正在設定管理員應用程式"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"完成其他設定"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"現在就完成所有設定"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"此裝置屬於您的機構"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"下列應用程式將用於管理和監控這部手機"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"準備進行工作設定…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"首先，現在開始設定您的工作設定檔"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"現在開始設定您的工作設定檔"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"工作應用程式均儲存在工作設定檔中"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"完成當日工作後停用工作應用程式"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"IT 管理員只能看到工作設定檔中的資料"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"正在設定您的工作設定檔…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"工作應用程式會儲存喺工作設定檔入面。您可以喺完成當日工作之後停用工作應用程式。IT 管理員只會睇到工作設定檔入面嘅資料。"</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"現在開始設定您的工作裝置"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"讓您的工作應用程式觸手可及"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"此裝置並非私人裝置"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"您的 IT 管理員或可查看您在此裝置上的資料和活動。"</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"正在設定您的裝置…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"用呢部裝置可以幫您輕鬆存取工作應用程式。呢部裝置唔係私人裝置，所以您嘅 IT 管理員可能會睇到您嘅資料同活動。如果需要瞭解詳情，請聯絡您嘅 IT 管理員。"</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"私隱提醒"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"您的 IT 管理員或可查看您在此裝置上的資料和活動"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"您的裝置已完成設定！"</string>
+    <string name="done" msgid="7755227776955952318">"完成"</string>
 </resources>

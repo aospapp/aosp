@@ -46,12 +46,18 @@ public class DeviceUtilStatsMonitorLoadTest extends TestCase {
                 return mMockDeviceManager;
             }
         };
-        mDeviceUtilMonitor.setDeviceLister(new DeviceLister() {
-            @Override
-            public List<DeviceDescriptor> listDevices() {
-                return mMockDeviceManager.listAllDevices();
-            }
-        });
+        mDeviceUtilMonitor.setDeviceLister(
+                new DeviceLister() {
+                    @Override
+                    public List<DeviceDescriptor> listDevices() {
+                        return mMockDeviceManager.listAllDevices();
+                    }
+
+                    @Override
+                    public DeviceDescriptor getDeviceDescriptor(String serial) {
+                        return mMockDeviceManager.getDeviceDescriptor(serial);
+                    }
+                });
         mDeviceUtilMonitor.calculateMaxSamples();
     }
 

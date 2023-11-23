@@ -26,6 +26,7 @@ import com.android.tradefed.util.StringEscapeUtils;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -36,7 +37,7 @@ import java.util.Map;
  * tests continuously.
  */
 public class VersionedTfLauncher extends SubprocessTfLauncher
-        implements IMultiDeviceTest, IStrictShardableTest {
+        implements IMultiDeviceTest, IShardableTest {
 
     @Option(name = "tf-command-line", description = "The list string of original command line "
             + "arguments.")
@@ -113,9 +114,19 @@ public class VersionedTfLauncher extends SubprocessTfLauncher
         mDeviceInfos = deviceInfos;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
+    public Collection<IRemoteTest> split(int shardCountHint) {
+        if (shardCountHint <= 1) {
+            return null;
+        }
+        Collection<IRemoteTest> tests = new ArrayList<>();
+        for (int i = 0; i < shardCountHint; i++) {
+            tests.add(getTestShard(shardCountHint, i));
+        }
+        return tests;
+    }
+
+    private IRemoteTest getTestShard(int shardCount, int shardIndex) {
         IRemoteTest shard = new VersionedTfLauncher(shardCount, shardIndex);
         try {
             OptionCopier.copyOptions(this, shard);
@@ -125,4 +136,5 @@ public class VersionedTfLauncher extends SubprocessTfLauncher
         }
         return shard;
     }
+
 }

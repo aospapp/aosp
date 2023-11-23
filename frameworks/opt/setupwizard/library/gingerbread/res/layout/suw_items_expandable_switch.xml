@@ -97,7 +97,7 @@
         android:layout_marginTop="@dimen/suw_switch_divider_padding_top"
         android:background="?android:attr/listDivider" />
 
-    <android.support.v7.widget.SwitchCompat
+    <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/suw_items_switch"
         style="@style/SuwSwitchStyle.Divided"
         android:layout_width="wrap_content"

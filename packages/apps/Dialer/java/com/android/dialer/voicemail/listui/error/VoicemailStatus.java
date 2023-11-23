@@ -34,6 +34,8 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.voicemailstatus.VoicemailStatusQuery;
+import com.android.voicemail.VoicemailClient;
+import com.android.voicemail.VoicemailComponent;
 
 /** Structured data from {@link android.provider.VoicemailContract.Status} */
 public class VoicemailStatus {
@@ -107,16 +109,10 @@ public class VoicemailStatus {
     }
     isAirplaneMode =
         Settings.System.getInt(context.getContentResolver(), Global.AIRPLANE_MODE_ON, 0) != 0;
-
-    if (VERSION.SDK_INT >= VERSION_CODES.N) {
-      quotaOccupied =
-          getInt(statusCursor, VoicemailStatusQuery.QUOTA_OCCUPIED_INDEX, Status.QUOTA_UNAVAILABLE);
-      quotaTotal =
-          getInt(statusCursor, VoicemailStatusQuery.QUOTA_TOTAL_INDEX, Status.QUOTA_UNAVAILABLE);
-    } else {
-      quotaOccupied = Status.QUOTA_UNAVAILABLE;
-      quotaTotal = Status.QUOTA_UNAVAILABLE;
-    }
+    quotaOccupied =
+        getInt(statusCursor, VoicemailStatusQuery.QUOTA_OCCUPIED_INDEX, Status.QUOTA_UNAVAILABLE);
+    quotaTotal =
+        getInt(statusCursor, VoicemailStatusQuery.QUOTA_TOTAL_INDEX, Status.QUOTA_UNAVAILABLE);
   }
 
   private VoicemailStatus(Builder builder) {
@@ -238,7 +234,22 @@ public class VoicemailStatus {
     }
   }
 
-  public boolean isActive() {
+  public boolean isActive(Context context) {
+    VoicemailClient voicemailClient = VoicemailComponent.get(context).getVoicemailClient();
+    if (context.getPackageName().equals(sourcePackage)) {
+      if (!voicemailClient.isVoicemailModuleEnabled()) {
+        LogUtil.i("VoicemailStatus.isActive", "module disabled");
+        return false;
+      }
+      if (!voicemailClient.hasCarrierSupport(context, getPhoneAccountHandle())) {
+        LogUtil.i("VoicemailStatus.isActive", "carrier not supported");
+        return false;
+      }
+      if (!voicemailClient.isVoicemailEnabled(context, getPhoneAccountHandle())) {
+        LogUtil.i("VoicemailStatus.isActive", "VVM disabled");
+        return false;
+      }
+    }
     switch (configurationState) {
       case Status.CONFIGURATION_STATE_NOT_CONFIGURED:
       case Status.CONFIGURATION_STATE_DISABLED:

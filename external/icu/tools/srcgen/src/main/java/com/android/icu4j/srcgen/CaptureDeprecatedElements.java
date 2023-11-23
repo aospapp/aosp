@@ -18,7 +18,7 @@ package com.android.icu4j.srcgen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.currysrc.Main;
-import com.google.currysrc.api.Rules;
+import com.google.currysrc.api.RuleSet;
 import com.google.currysrc.api.input.InputFileGenerator;
 import com.google.currysrc.api.output.NullOutputSourceFileGenerator;
 import com.google.currysrc.api.output.OutputSourceFileGenerator;
@@ -40,6 +40,8 @@ import java.io.File;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.List;
+
+import static com.google.currysrc.api.process.Rules.createOptionalRule;
 
 /**
  * Generates text that can be injected into Icu4JTransform for describing source elements that
@@ -75,7 +77,7 @@ public class CaptureDeprecatedElements {
     }
   }
 
-  private static class CaptureDeprecatedMethodsRules implements Rules {
+  private static class CaptureDeprecatedMethodsRules implements RuleSet {
 
     private final InputFileGenerator inputFileGenerator;
 
@@ -98,8 +100,7 @@ public class CaptureDeprecatedElements {
 
     @Override
     public List<Rule> getRuleList(File file) {
-      return Lists.<Rule>newArrayList(
-          Icu4jTransformRules.createOptionalRule(captureTransformer));
+      return Lists.<Rule>newArrayList(createOptionalRule(captureTransformer));
     }
 
     @Override

@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.TaggedObject;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -45,7 +46,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee";
+        return InvokeMethodDebuggee.class.getName();
     }
 
     /**
@@ -67,7 +68,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         CommandPacket packet = new CommandPacket(
                 JDWPCommands.VirtualMachineCommandSet.CommandSetID,
                 JDWPCommands.VirtualMachineCommandSet.ClassesBySignatureCommand);
-        String classSig = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/InvokeMethodDebuggee;";
+        String classSig = getDebuggeeClassSignature();
         packet.setNextValueAsString(classSig);
         ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
         checkReplyPacket(reply, "VirtualMachine::ClassesBySignature command");
@@ -223,7 +224,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         logWriter.println("\n==> Getting debuggeeRefTypeID... ");
-        String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/InvokeMethodDebuggee;";
+        String debuggeeSignature = getDebuggeeClassSignature();
         logWriter.println("==> debuggeeSignature = |" + debuggeeSignature + "|+");
         long debuggeeRefTypeID = debuggeeWrapper.vmMirror.getClassID(debuggeeSignature);
         if ( debuggeeRefTypeID == -1 ) {
@@ -295,7 +296,8 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         checkReplyPacket(reply, "EventRequest::Clear command");
 
         logWriter.println("\n==> Getting invalidClassRefTypeID... ");
-        String invalidClassSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/testClass2;";
+        String invalidClassSignature = getDebuggeeClassSignature().replace("InvokeMethodDebuggee",
+                "testClass2");
         logWriter.println("==> invalidClassSignature = |" + invalidClassSignature + "|+");
         long invalidClassRefTypeID = debuggeeWrapper.vmMirror.getClassID(invalidClassSignature);
         if ( invalidClassRefTypeID == -1 ) {
@@ -360,7 +362,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         logWriter.println("\n==> Getting debuggeeRefTypeID... ");
-        String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/InvokeMethodDebuggee;";
+        String debuggeeSignature = getDebuggeeClassSignature();
         logWriter.println("==> debuggeeSignature = |" + debuggeeSignature + "|+");
         long debuggeeRefTypeID = debuggeeWrapper.vmMirror.getClassID(debuggeeSignature);
         if ( debuggeeRefTypeID == -1 ) {

@@ -16,10 +16,12 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeAllMask"
     android:accessibilityFeedbackType="feedbackSpoken"
-    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRequestTouchExplorationMode|flagReportViewIds|flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagRequestTouchExplorationMode|flagReportViewIds|flagRequestFilterKeyEvents|flagRequestShortcutWarningDialogSpokenFeedback"
     android:canRetrieveWindowContent="true"
     android:canRequestTouchExplorationMode="true"
     android:canRequestFilterKeyEvents="true"
     android:settingsActivity="foo.bar.Activity"
     android:description="@string/some_description"
-    android:summary="@string/some_summary" />
+    android:summary="@string/some_summary"
+    android:nonInteractiveUiTimeout="1000"
+    android:interactiveUiTimeout="6000"/>

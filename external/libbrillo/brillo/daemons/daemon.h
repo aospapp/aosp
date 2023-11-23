@@ -8,8 +8,10 @@
 #include <string>
 
 #include <base/at_exit.h>
+#include <base/files/file_path.h>
 #include <base/macros.h>
 #include <base/message_loop/message_loop.h>
+#include <base/time/time.h>
 #include <brillo/asynchronous_signal_handler.h>
 #include <brillo/brillo_export.h>
 #include <brillo/message_loops/base_message_loop.h>
@@ -66,6 +68,10 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
   // is aborted and Daemon::Run() exits early.
   // When overloading, make sure you call the base implementation of OnInit().
   virtual int OnInit();
+  // Overload to provide initialization code that should be the first code to
+  // run on the message loop. Returning something other than EX_OK will cause
+  // the daemon to exit with that error code.
+  virtual int OnEventLoopStarted();
   // Called when the message loops exits and before Daemon::Run() returns.
   // Overload to clean up the data that was set up during OnInit().
   // |return_code| contains the current error code that will be returned from
@@ -95,6 +101,9 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
   // Called when SIGHUP signal is received.
   bool Restart(const signalfd_siginfo& info);
 
+  // Actual task posted first to the message loop.
+  void OnEventLoopStartedTask();
+
   // |at_exit_manager_| must be first to make sure it is initialized before
   // other members, especially the |message_loop_|.
   base::AtExitManager at_exit_manager_;
@@ -108,6 +117,17 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
 
   DISALLOW_COPY_AND_ASSIGN(Daemon);
 };
+
+// Moves |latest_log_symlink| to |previous_log_symlink| and creates a relative
+// symlink at |latest_log_symlink| pointing to |log_file|.
+// |latest_log_symlink| does not need to exist.
+BRILLO_EXPORT void UpdateLogSymlinks(const base::FilePath& latest_log_symlink,
+                                     const base::FilePath& previous_log_symlink,
+                                     const base::FilePath& log_file);
+
+// Formats the current time with "%Y%m%d-%H%M%S".
+// Commonly used for naming log files.
+BRILLO_EXPORT std::string GetTimeAsLogString(const base::Time& time);
 
 }  // namespace brillo
 

@@ -76,6 +76,7 @@
         https://goo.gl/dxcw0d\n\n\n
         adb parameters:  all parameters are optional. If not specified, defaults will be used.\n
         -ei SF \t\t\t\t\t\t\t\t\t\t\t\t ####\t\t sampling frequency \n
+        -ei BS \t\t\t\t\t\t\t\t\t\t\t\t ####\t\t down sample block size \n
         -es Filename \t\t\t\t\t\t\t ssss\t\t\t output filename \n
         -ei MicSource \t\t\t\t\t\t\t ####\t\t microphone source\n
         \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 0: DEFAULT\n
@@ -85,7 +86,8 @@
         \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 4: VOICE_COMMUNICATION\n
         -ei AudioThread \t\t\t\t\t ####\t\t Audio Thread Type\n
         \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 0: Java\n
-        \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 1: Native (JNI)\n
+        \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 1: Native (SLES)\n
+        \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 2: Native (AAudio)\n
         -ei AudioLevel \t\t\t\t\t\t ####\t\t Audio Level [0:15]\n
         -ei RecorderBuffer \t\t\t\t ####\t\t Recorder Buffer Frames\n
         -ei PlayerBuffer \t\t\t\t\t\t ####\t\t Player Buffer Frames\n
@@ -120,7 +122,8 @@
     <!-- spinnerAudioThreadType Options -->
     <string-array name="audioThreadType_array">
         <item>Java</item>
-        <item>native (JNI)</item>
+        <item>native (SLES)</item>
+        <item>native (AAudio)</item>
     </string-array>
 
     <string name="labelChannelIndex">Channel Index</string>
@@ -190,4 +193,6 @@
         that it thinks is optimal. It has only been tested with the loopback plug and may fail
         completely in open air.
     </string>
+
+    <string name="notificationText">Please disregard me.</string>
 </resources>

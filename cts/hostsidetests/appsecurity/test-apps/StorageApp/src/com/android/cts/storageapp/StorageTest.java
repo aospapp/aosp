@@ -30,20 +30,30 @@ import static com.android.cts.storageapp.Utils.getSizeManual;
 import static com.android.cts.storageapp.Utils.makeUniqueFile;
 import static com.android.cts.storageapp.Utils.useSpace;
 
+import android.app.Activity;
 import android.app.usage.StorageStats;
 import android.app.usage.StorageStatsManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
+import android.provider.Settings;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiSelector;
 import android.test.InstrumentationTestCase;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -73,6 +83,32 @@ public class StorageTest extends InstrumentationTestCase {
         getContext().getPackageManager().setComponentEnabledSetting(
                 new ComponentName(getContext().getPackageName(), UtilsReceiver.class.getName()),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+    }
+
+    public void testClearSpace() throws Exception {
+        // First, disk better be full!
+        assertTrue(getContext().getDataDir().getUsableSpace() < 256_000_000);
+
+        final Activity activity = launchActivity("com.android.cts.storageapp_a",
+                UtilsActivity.class, null);
+
+        final Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.fromParts("package", "com.android.cts.storageapp_b", null));
+        activity.startActivity(intent);
+
+        final UiDevice device = UiDevice.getInstance(getInstrumentation());
+        device.waitForIdle();
+
+        // Hunt around to clear storage of other app
+        device.findObject(new UiSelector().textContains("internal storage")).click();
+        device.waitForIdle();
+        device.findObject(new UiSelector().textContains("Clear")).click();
+        device.waitForIdle();
+        device.findObject(new UiSelector().text("OK")).click();
+        device.waitForIdle();
+
+        // Now, disk better be less-full!
+        assertTrue(getContext().getDataDir().getUsableSpace() > 256_000_000);
     }
 
     /**
@@ -213,5 +249,70 @@ public class StorageTest extends InstrumentationTestCase {
         ext.mkdir();
         try { sm.setCacheBehaviorTombstone(ext, true); fail(); } catch (IOException expected) { }
         try { sm.setCacheBehaviorTombstone(ext, false); fail(); } catch (IOException expected) { }
+    }
+
+    /**
+     * Create "cts" probe files in every possible common storage location that
+     * we can think of.
+     */
+    public void testExternalStorageIsolatedWrite() throws Exception {
+        final Context context = getContext();
+        final List<File> paths = new ArrayList<File>();
+        Collections.addAll(paths, Environment.getExternalStorageDirectory());
+        Collections.addAll(paths,
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES));
+        Collections.addAll(paths, context.getExternalCacheDirs());
+        Collections.addAll(paths, context.getExternalFilesDirs(null));
+        Collections.addAll(paths, context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES));
+        Collections.addAll(paths, context.getExternalMediaDirs());
+        Collections.addAll(paths, context.getObbDirs());
+
+        final String name = "cts_" + System.nanoTime();
+        for (File path : paths) {
+            final File otherPath = new File(path.getAbsolutePath()
+                    .replace("com.android.cts.storageapp_a", "com.android.cts.storageapp_b"));
+
+            path.mkdirs();
+            otherPath.mkdirs();
+
+            final File file = new File(path, name);
+            final File otherFile = new File(otherPath, name);
+
+            file.createNewFile();
+            otherFile.createNewFile();
+
+            assertTrue(file.exists());
+            assertTrue(otherFile.exists());
+        }
+    }
+
+    /**
+     * Verify that we can't see any of the "cts" probe files created above,
+     * since our storage should be fully isolated.
+     */
+    public void testExternalStorageIsolatedRead() throws Exception {
+        final LinkedList<File> traverse = new LinkedList<>();
+        traverse.push(Environment.getStorageDirectory());
+        traverse.push(Environment.getExternalStorageDirectory());
+
+        while (!traverse.isEmpty()) {
+            final File dir = traverse.poll();
+            for (File f : dir.listFiles()) {
+                if (f.getName().startsWith("cts_")) {
+                    fail("Found leaked file " + f.getAbsolutePath());
+                }
+                if (f.isDirectory()) {
+                    traverse.push(f);
+                }
+            }
+        }
+    }
+
+    public void testExternalStorageIsolatedLegacy() throws Exception {
+        assertTrue(new File("/sdcard/cts_top").exists());
+    }
+
+    public void testExternalStorageIsolatedNonLegacy() throws Exception {
+        assertFalse(new File("/sdcard/cts_top").exists());
     }
 }

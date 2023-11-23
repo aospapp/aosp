@@ -25,8 +25,7 @@
 namespace chre {
 
 bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
-                     const struct chreNslNanoappInfo *appInfo,
-                     bool skipVersionValidation) {
+                     const struct chreNslNanoappInfo *appInfo) {
   uint32_t ourApiMajorVersion = CHRE_EXTRACT_MAJOR_VERSION(chreGetApiVersion());
   uint32_t targetApiMajorVersion = CHRE_EXTRACT_MAJOR_VERSION(
       appInfo->targetApiVersion);
@@ -40,8 +39,7 @@ bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
   } else if (expectedAppId != 0 && expectedAppId != appInfo->appId) {
     LOGE("Expected app ID (0x%016" PRIx64 ") doesn't match internal one (0x%016"
          PRIx64 ")", expectedAppId, appInfo->appId);
-  } else if (!skipVersionValidation
-      && expectedAppVersion != appInfo->appVersion) {
+  } else if (expectedAppVersion != appInfo->appVersion) {
     LOGE("Expected app version (0x%" PRIx32 ") doesn't match internal one (0x%"
          PRIx32 ")", expectedAppVersion, appInfo->appVersion);
   } else if (targetApiMajorVersion != ourApiMajorVersion) {

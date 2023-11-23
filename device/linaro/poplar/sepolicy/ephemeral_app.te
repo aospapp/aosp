@@ -1,0 +1,5 @@
+allow ephemeral_app mali_device:chr_file { ioctl getattr open read write };
+allow ephemeral_app self:process { ptrace };
+allow ephemeral_app hi_vfmw_device:chr_file { read write };
+allow ephemeral_app shell_data_file:dir { search };
+

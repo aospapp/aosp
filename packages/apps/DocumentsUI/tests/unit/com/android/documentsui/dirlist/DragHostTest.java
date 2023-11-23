@@ -20,18 +20,18 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import android.content.ClipData;
-import android.database.Cursor;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.DragEvent;
 import android.view.View;
 
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.documentsui.SelectionHelpers;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.files.TestActivity;
-import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.testing.ClipDatas;
 import com.android.documentsui.testing.DragEvents;
-import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestActionHandler;
 import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEnv;
@@ -55,7 +55,7 @@ public class DragHostTest {
     private TestDialogController mDialogs;
     private DragHost<?> dragHost;
     private TestDragAndDropManager mDragAndDropManager;
-    private SelectionHelper mSelectionMgr;
+    private SelectionTracker<String> mSelectionMgr;
     private boolean mIsDocumentView;
     private DocumentHolder mNextDocumentHolder;
     private DocumentInfo mNextDocumentInfo;

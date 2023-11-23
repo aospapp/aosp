@@ -58,6 +58,9 @@ def _parse_args(args):
     parser.add_argument(
             '-v', '--verbose', dest='verbose', action='store_true',
             help='Verbose mode')
+    parser.add_argument(
+            '--specify_bot_id', action='store_true',
+            help='Specify bot id in retrieving bot codes & staring bots')
 
     return parser.parse_args(args)
 
@@ -104,10 +107,11 @@ def is_server_in_prod(server_name, afe):
 def tick(afe, bot_manager):
     """One tick for swarming bot manager.
 
-    @param afe: the afe to check server role.
+    @param afe: the afe to check server role. If afe is empty, skip checking.
     @param bot_manager: a swarming_bots.BotManager instance.
     """
-    if is_server_in_prod(socket.getfqdn(), afe):
+    if ((afe and is_server_in_prod(socket.getfqdn(), afe)) or
+        (not afe)):
         bot_manager.check()
 
 
@@ -139,7 +143,8 @@ def main(args):
     bot_manager = swarming_bots.BotManager(
             swarming_bots.parse_range(args.id_range),
             args.working_dir,
-            args.swarming_proxy)
+            args.swarming_proxy,
+            specify_bot_id=args.specify_bot_id)
     is_prod = False
     retryable = True
     with ts_mon_config.SetupTsMonGlobalState('swarming_bots', indirect=True):

@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "tensorflow/core/distributed_runtime/recent_request_ids.h"
 
+#include <utility>
+
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/logging.h"
@@ -26,22 +28,20 @@ RecentRequestIds::RecentRequestIds(int num_tracked_request_ids)
   set_.reserve(num_tracked_request_ids);
 }
 
-Status RecentRequestIds::TrackUnique(int64 request_id,
-                                     const string& method_name,
-                                     const protobuf::Message& request) {
-  mutex_lock l(mu_);
+bool RecentRequestIds::Insert(int64 request_id) {
   if (request_id == 0) {
     // For backwards compatibility, allow all requests with request_id 0.
-    return Status::OK();
+    return true;
   }
-  if (set_.count(request_id) > 0) {
+
+  mutex_lock l(mu_);
+  const bool inserted = set_.insert(request_id).second;
+  if (!inserted) {
     // Note: RecentRequestIds is not strict LRU because we don't update
     // request_id's age in the circular_buffer_ if it's tracked again. Strict
     // LRU is not useful here because returning this error will close the
     // current Session.
-    return errors::Aborted("The same ", method_name,
-                           " request was received twice. ",
-                           request.ShortDebugString());
+    return false;
   }
 
   // Remove the oldest request_id from the set_. circular_buffer_ is
@@ -49,9 +49,31 @@ Status RecentRequestIds::TrackUnique(int64 request_id,
   // when the buffer is not yet full.
   set_.erase(circular_buffer_[next_index_]);
   circular_buffer_[next_index_] = request_id;
-  set_.insert(request_id);
   next_index_ = (next_index_ + 1) % circular_buffer_.size();
-  return Status::OK();
+  return true;
+}
+
+Status RecentRequestIds::TrackUnique(int64 request_id,
+                                     const string& method_name,
+                                     const protobuf::Message& request) {
+  if (Insert(request_id)) {
+    return Status::OK();
+  } else {
+    return errors::Aborted("The same ", method_name,
+                           " request was received twice. ",
+                           request.ShortDebugString());
+  }
+}
+Status RecentRequestIds::TrackUnique(int64 request_id,
+                                     const string& method_name,
+                                     const RunStepRequestWrapper* wrapper) {
+  if (Insert(request_id)) {
+    return Status::OK();
+  } else {
+    return errors::Aborted("The same ", method_name,
+                           " request was received twice. ",
+                           wrapper->ToProto().ShortDebugString());
+  }
 }
 
 }  // namespace tensorflow

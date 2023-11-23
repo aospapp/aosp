@@ -32,7 +32,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import com.ibm.icu.dev.test.TestFmwk;
-import com.ibm.icu.dev.test.TestUtil;  // Android patch (ticket #13483).
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.SimpleDateFormat;
 import com.ibm.icu.util.Calendar;
@@ -436,13 +435,11 @@ public class DateFormatRegressionTest extends TestFmwk {
      */
     @Test
     public void Test4089106() {
-        // Android patch (ticket #13483) begin.
-        if (TestUtil.getJavaVendor() == TestUtil.JavaVendor.Android) return;
-        // Android patch (ticket #13483) end.
-
         TimeZone def = TimeZone.getDefault();
         try {
-            TimeZone z = new SimpleTimeZone((int) (1.25 * 3600000), "FAKEZONE");
+            // It's necessary to use a real existing time zone here, some systems (Android) will not
+            // accept any arbitrary TimeZone object to be used as the default.
+            TimeZone z = new SimpleTimeZone(-12 * 60 * 60 * 1000, "GMT-12:00");
             TimeZone.setDefault(z);
             SimpleDateFormat f = new SimpleDateFormat();
             if (!f.getTimeZone().equals(z))

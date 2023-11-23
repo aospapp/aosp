@@ -7,8 +7,7 @@ NAME = "cfm_AutotestSmokeTest"
 PURPOSE = ("Smoke test used for tracking the stability of the Autotest "
         "framework.")
 CRITERIA = "Fails if the Autotest framework doesn't work as expected."
-ATTRIBUTES = ("suite:hotrod, suite:bluestreak, suite:bluestreak-release, "
-        "suite:bluestreak-perbuild, suite:bluestreak-pre-cq")
+ATTRIBUTES = "suite:hotrod, suite:bluestreak-pre-cq"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

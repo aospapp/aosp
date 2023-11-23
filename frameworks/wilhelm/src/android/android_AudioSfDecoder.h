@@ -19,7 +19,6 @@
 
 #include <media/DataSource.h>
 #include <media/MediaSource.h>
-#include <media/MediaExtractor.h>
 #include <media/stagefright/FileSource.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MetaData.h>

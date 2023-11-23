@@ -17,13 +17,13 @@
 %                                 March 2012                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -71,6 +71,11 @@
 #include <pango/pangocairo.h>
 #include <pango/pango-features.h>
 #endif
+
+/*
+  Define declarations.
+*/
+#define DefaultSVGDensity  96.0
 
 #if defined(MAGICKCORE_PANGOCAIRO_DELEGATE)
 /*
@@ -202,7 +207,7 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   */
   fontmap=pango_cairo_font_map_new();
   pango_cairo_font_map_set_resolution(PANGO_CAIRO_FONT_MAP(fontmap),
-    image->resolution.x == 0.0 ? 90.0 : image->resolution.x);
+    image->resolution.x == 0.0 ? DefaultSVGDensity : image->resolution.x);
   font_options=cairo_font_options_create();
   option=GetImageOption(image_info,"pango:hinting");
   if (option != (const char *) NULL)
@@ -302,8 +307,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   option=GetImageOption(image_info,"pango:indent");
   if (option != (const char *) NULL)
     pango_layout_set_indent(layout,(int) ((StringToLong(option)*
-      (image->resolution.x == 0.0 ? 90.0 : image->resolution.x)*PANGO_SCALE+36)/
-      90.0+0.5));
+      (image->resolution.x == 0.0 ? DefaultSVGDensity : image->resolution.x)*
+      PANGO_SCALE+DefaultSVGDensity/2)/DefaultSVGDensity+0.5));
   switch (draw_info->align)
   {
     case CenterAlign: align=PANGO_ALIGN_CENTER; break;
@@ -323,6 +328,16 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
   if ((align != PANGO_ALIGN_CENTER) &&
       (draw_info->direction == RightToLeftDirection))
     align=(PangoAlignment) (PANGO_ALIGN_LEFT+PANGO_ALIGN_RIGHT-align);
+  option=GetImageOption(image_info,"pango:align");
+  if (option != (const char *) NULL)
+    {
+      if (LocaleCompare(option,"center") == 0)
+        align=PANGO_ALIGN_CENTER;
+      if (LocaleCompare(option,"left") == 0)
+        align=PANGO_ALIGN_LEFT;
+      if (LocaleCompare(option,"right") == 0)
+        align=PANGO_ALIGN_RIGHT;
+    }
   pango_layout_set_alignment(layout,align);
   if (draw_info->font == (char *) NULL)
     description=pango_font_description_new();
@@ -360,8 +375,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
     {
       image->columns-=2*page.x;
       pango_layout_set_width(layout,(int) ((PANGO_SCALE*image->columns*
-        (image->resolution.x == 0.0 ? 90.0 : image->resolution.x)+45.0)/90.0+
-        0.5));
+        (image->resolution.x == 0.0 ? DefaultSVGDensity : image->resolution.x)+
+        DefaultSVGDensity/2)/DefaultSVGDensity+0.5));
     }
   if (image->rows == 0)
     {
@@ -372,8 +387,8 @@ static Image *ReadPANGOImage(const ImageInfo *image_info,
     {
       image->rows-=2*page.y;
       pango_layout_set_height(layout,(int) ((PANGO_SCALE*image->rows*
-        (image->resolution.y == 0.0 ? 90.0 : image->resolution.y)+45.0)/90.0+
-        0.5));
+        (image->resolution.y == 0.0 ? DefaultSVGDensity : image->resolution.y)+
+        DefaultSVGDensity/2)/DefaultSVGDensity+0.5));
     }
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
@@ -507,6 +522,7 @@ ModuleExport size_t RegisterPANGOImage(void)
   if (*version != '\0')
     entry->version=ConstantString(version);
   entry->flags^=CoderAdjoinFlag;
+  entry->flags^=CoderDecoderThreadSupportFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

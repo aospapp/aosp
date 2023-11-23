@@ -16,6 +16,7 @@ from autotest_lib.client.common_lib import error, file_utils
 from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.video import constants
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 from autotest_lib.client.cros.video import histogram_verifier
 
@@ -120,6 +121,8 @@ class video_MediaRecorderPerf(test.test):
            logging.warning('Could not get cold machine post login.')
 
     def get_record_performance(self, cr, codec, is_hw_encode):
+        histogram_differ = histogram_verifier.HistogramDiffer(
+            cr, constants.MEDIA_RECORDER_VEA_USED_HISTOGRAM)
         self.wait_for_idle_cpu()
         cr.browser.platform.SetHTTPServerDirectories(self.bindir)
         self.tab = cr.browser.tabs.New()
@@ -131,11 +134,12 @@ class video_MediaRecorderPerf(test.test):
         if not self.video_record_completed():
             raise error.TestFail('Video record did not complete')
 
-        histogram_verifier.verify(
-                cr,
-                constants.MEDIA_RECORDER_VEA_USED_HISTOGRAM,
-                constants.MEDIA_RECORDER_VEA_USED_BUCKET if is_hw_encode
-                        else constants.MEDIA_RECORDER_VEA_NOT_USED_BUCKET)
+        histogram_verifier.expect_sole_bucket(
+            histogram_differ,
+            constants.MEDIA_RECORDER_VEA_USED_BUCKET if is_hw_encode else
+            constants.MEDIA_RECORDER_VEA_NOT_USED_BUCKET,
+            'VEA used (1)' if is_hw_encode else 'VEA not used (0)')
+
         video_buffer = self.tab.EvaluateJavaScript(JS_VIDEO_BUFFER)
         elapsed_time = self.tab.EvaluateJavaScript(ELAPSED_TIME)
         video_buffer_size = self.tab.EvaluateJavaScript(JS_VIDEO_BUFFER_SIZE)
@@ -158,7 +162,7 @@ class video_MediaRecorderPerf(test.test):
         return (elapsed_time / mkv_listener.get_num_frames(), cpu_usage)
 
     @helper_logger.video_log_wrapper
-    def run_once(self, codec, fps, video_file):
+    def run_once(self, codec, fps, video_file, capability):
         """ Report cpu usage and frame processing time with HW and SW encode.
 
         Use MediaRecorder to record a videos with HW encode and SW encode, and
@@ -169,7 +173,10 @@ class video_MediaRecorderPerf(test.test):
         @param fps: an integer specifying FPS of the fake input video stream.
         @param video_file: a string specifying the name of the video file to be
                 used as fake input video stream.
+        @param capability: The capability required for running this test.
         """
+        device_capability.DeviceCapability().ensure_capability(capability)
+
         # Download test video.
         url = DOWNLOAD_BASE + video_file
         local_path = os.path.join(self.bindir, video_file)
@@ -212,4 +219,3 @@ class video_MediaRecorderPerf(test.test):
                 processing_time_hw,
                 cpu_usage_hw)
         logging.info(log)
-

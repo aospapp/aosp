@@ -61,6 +61,7 @@ public class DescriptiveMessagesOnMisuseTest extends TestBase {
 //        when(mock.differentMethod()).thenReturn("");
     }
 
+    @SuppressWarnings({"MockitoUsage", "CheckReturnValue"})
     @Test(expected=NotAMockException.class)
     public void shouldScreamWhenWholeMethodPassedToVerify() {
         verify(mock.booleanReturningMethod());
@@ -71,16 +72,19 @@ public class DescriptiveMessagesOnMisuseTest extends TestBase {
         verifyNoMoreInteractions(mock.byteReturningMethod());
     }
 
+    @SuppressWarnings({"CheckReturnValue", "MockitoUsage"})
     @Test(expected=NotAMockException.class)
     public void shouldScreamWhenInOrderCreatedWithDodgyMock() {
         inOrder("not a mock");
     }
 
+    @SuppressWarnings({"CheckReturnValue", "MockitoUsage"})
     @Test(expected=NullInsteadOfMockException.class)
     public void shouldScreamWhenInOrderCreatedWithNulls() {
         inOrder(mock, null);
     }
 
+    @SuppressWarnings({"MockitoUsage", "CheckReturnValue"})
     @Test(expected=NullInsteadOfMockException.class)
     public void shouldScreamNullPassedToVerify() {
         verify(null);

@@ -17,10 +17,10 @@
 package com.google.turbine.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,13 +38,7 @@ public class TurbineOptionsTest {
   @Rule public final TemporaryFolder tmpFolder = new TemporaryFolder();
 
   static final ImmutableList<String> BASE_ARGS =
-      ImmutableList.of(
-          "--output",
-          "out.jar",
-          "--target_label",
-          "//java/com/google/test",
-          "--rule_kind",
-          "java_library");
+      ImmutableList.of("--output", "out.jar", "--target_label", "//java/com/google/test");
 
   @Test
   public void exhaustiveArgs() throws Exception {
@@ -58,16 +52,20 @@ public class TurbineOptionsTest {
       "com.foo.MyProcessor",
       "com.foo.OtherProcessor",
       "--processorpath",
-      "libproc1.jar:libproc2.jar",
+      "libproc1.jar",
+      "libproc2.jar",
       "--classpath",
-      "lib1.jar:lib2.jar",
+      "lib1.jar",
+      "lib2.jar",
       "--bootclasspath",
-      "rt.jar:zipfs.jar",
+      "rt.jar",
+      "zipfs.jar",
       "--javacopts",
       "-source",
       "8",
       "-target",
       "8",
+      "--",
       "--sources",
       "Source1.java",
       "Source2.java",
@@ -75,14 +73,14 @@ public class TurbineOptionsTest {
       "out.jdeps",
       "--target_label",
       "//java/com/google/test",
-      "--rule_kind",
-      "java_library",
+      "--injecting_rule_kind",
+      "foo_library",
     };
 
     TurbineOptions options =
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
-    assertThat(options.outputFile()).isEqualTo("out.jar");
+    assertThat(options.output()).hasValue("out.jar");
     assertThat(options.sourceJars())
         .containsExactly("sources1.srcjar", "sources2.srcjar")
         .inOrder();
@@ -96,23 +94,20 @@ public class TurbineOptionsTest {
     assertThat(options.sources()).containsExactly("Source1.java", "Source2.java");
     assertThat(options.outputDeps()).hasValue("out.jdeps");
     assertThat(options.targetLabel()).hasValue("//java/com/google/test");
-    assertThat(options.ruleKind()).hasValue("java_library");
+    assertThat(options.injectingRuleKind()).hasValue("foo_library");
+    assertThat(options.shouldReduceClassPath()).isTrue();
   }
 
   @Test
   public void strictJavaDepsArgs() throws Exception {
     String[] lines = {
-      "--strict_java_deps",
-      "OFF",
-      "--direct_dependency",
+      "--classpath",
       "blaze-out/foo/libbar.jar",
-      "//foo/bar",
-      "--indirect_dependency",
       "blaze-out/foo/libbaz1.jar",
-      "//foo/baz1",
-      "--indirect_dependency",
       "blaze-out/foo/libbaz2.jar",
-      "//foo/baz2",
+      "blaze-out/proto/libproto.jar",
+      "--direct_dependencies",
+      "blaze-out/foo/libbar.jar",
       "--deps_artifacts",
       "foo.jdeps",
       "bar.jdeps",
@@ -123,15 +118,7 @@ public class TurbineOptionsTest {
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
     assertThat(options.targetLabel()).hasValue("//java/com/google/test");
-    // TODO(cushon): containsExactlyEntriesIn once it makes a truth release
-    assertThat(options.directJarsToTargets())
-        .isEqualTo(ImmutableMap.of("blaze-out/foo/libbar.jar", "//foo/bar"));
-    // TODO(cushon): containsExactlyEntriesIn once it makes a truth release
-    assertThat(options.indirectJarsToTargets())
-        .isEqualTo(
-            ImmutableMap.of(
-                "blaze-out/foo/libbaz1.jar", "//foo/baz1",
-                "blaze-out/foo/libbaz2.jar", "//foo/baz2"));
+    assertThat(options.directJars()).containsExactly("blaze-out/foo/libbar.jar");
     assertThat(options.depsArtifacts()).containsExactly("foo.jdeps", "bar.jdeps");
   }
 
@@ -139,26 +126,9 @@ public class TurbineOptionsTest {
   public void classpathArgs() throws Exception {
     String[] lines = {
       "--classpath",
-      "liba.jar:libb.jar:libc.jar",
-      "--processorpath",
-      "libpa.jar:libpb.jar:libpc.jar",
-    };
-
-    TurbineOptions options =
-        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
-
-    assertThat(options.classPath()).containsExactly("liba.jar", "libb.jar", "libc.jar").inOrder();
-    assertThat(options.processorPath())
-        .containsExactly("libpa.jar", "libpb.jar", "libpc.jar")
-        .inOrder();
-  }
-
-  @Test
-  public void repeatedClasspath() throws Exception {
-    String[] lines = {
-      "--classpath",
       "liba.jar",
-      "libb.jar:libc.jar",
+      "libb.jar",
+      "libc.jar",
       "--processorpath",
       "libpa.jar",
       "libpb.jar",
@@ -175,26 +145,53 @@ public class TurbineOptionsTest {
   }
 
   @Test
-  public void optionalTargetLabelAndRuleKind() throws Exception {
+  public void repeatedClasspath() throws Exception {
+    String[] lines = {
+      "--classpath",
+      "liba.jar",
+      "libb.jar",
+      "libc.jar",
+      "--processorpath",
+      "libpa.jar",
+      "libpb.jar",
+      "libpc.jar",
+    };
+
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+
+    assertThat(options.classPath()).containsExactly("liba.jar", "libb.jar", "libc.jar").inOrder();
+    assertThat(options.processorPath())
+        .containsExactly("libpa.jar", "libpb.jar", "libpc.jar")
+        .inOrder();
+  }
+
+  @Test
+  public void optionalTargetLabel() throws Exception {
     String[] lines = {
       "--output",
       "out.jar",
       "--classpath",
-      "liba.jar:libb.jar:libc.jar",
+      "liba.jar",
+      "libb.jar",
+      "libc.jar",
       "--processorpath",
-      "libpa.jar:libpb.jar:libpc.jar",
+      "libpa.jar",
+      "libpb.jar",
+      "libpc.jar",
     };
 
     TurbineOptions options = TurbineOptionsParser.parse(Arrays.asList(lines));
 
-    assertThat(options.ruleKind()).isAbsent();
-    assertThat(options.targetLabel()).isAbsent();
+    assertThat(options.targetLabel()).isEmpty();
+    assertThat(options.injectingRuleKind()).isEmpty();
   }
 
   @Test
   public void paramsFile() throws Exception {
     Iterable<String> paramsArgs =
-        Iterables.concat(BASE_ARGS, Arrays.asList("--javacopts", "-source", "8", "-target", "8"));
+        Iterables.concat(
+            BASE_ARGS, Arrays.asList("--javacopts", "-source", "8", "-target", "8", "--"));
     Path params = tmpFolder.newFile("params.txt").toPath();
     Files.write(params, paramsArgs, StandardCharsets.UTF_8);
 
@@ -227,12 +224,130 @@ public class TurbineOptionsTest {
   }
 
   @Test
-  public void failIfMissingExpectedArgs() throws Exception {
+  public void tolerateMissingOutput() throws Exception {
+    TurbineOptions options = TurbineOptions.builder().build();
+    assertThat(options.output()).isEmpty();
+  }
+
+  @Test
+  public void paramsFileExists() throws Exception {
+    String[] lines = {
+      "@/NOSUCH", "--javacopts", "-source", "7", "--",
+    };
+    AssertionError expected = null;
     try {
-      TurbineOptions.builder().build();
+      TurbineOptionsParser.parse(Arrays.asList(lines));
+    } catch (AssertionError e) {
+      expected = e;
+    }
+    if (expected == null) {
       fail();
-    } catch (NullPointerException e) {
-      assertThat(e).hasMessage("output must not be null");
+    }
+    assertThat(expected).hasMessageThat().contains("params file does not exist");
+  }
+
+  @Test
+  public void emptyParamsFiles() throws Exception {
+    Path params = tmpFolder.newFile("params.txt").toPath();
+    Files.write(params, new byte[0]);
+    String[] lines = {
+      "--sources", "A.java", "@" + params.toAbsolutePath(), "B.java",
+    };
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+    assertThat(options.sources()).containsExactly("A.java", "B.java").inOrder();
+  }
+
+  @Test
+  public void javacopts() throws Exception {
+    String[] lines = {
+      "--javacopts", "--release", "9", "--", "--sources", "Test.java",
+    };
+
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+
+    assertThat(options.javacOpts()).containsExactly("--release", "9").inOrder();
+    assertThat(options.sources()).containsExactly("Test.java");
+  }
+
+  @Test
+  public void unknownOption() throws Exception {
+    try {
+      TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList("--nosuch")));
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().contains("unknown option");
+    }
+  }
+
+  @Test
+  public void unterminatedJavacopts() throws Exception {
+    try {
+      TurbineOptionsParser.parse(
+          Iterables.concat(BASE_ARGS, Arrays.asList("--javacopts", "--release", "8")));
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().contains("javacopts should be terminated by `--`");
+    }
+  }
+
+  @Test
+  public void releaseJavacopts() throws Exception {
+    TurbineOptions options =
+        TurbineOptionsParser.parse(
+            Iterables.concat(
+                BASE_ARGS,
+                Arrays.asList(
+                    "--release",
+                    "9",
+                    "--javacopts",
+                    "--release",
+                    "8",
+                    "--release",
+                    "7",
+                    "--release",
+                    "--")));
+    assertThat(options.release()).hasValue("7");
+    assertThat(options.javacOpts())
+        .containsExactly("--release", "8", "--release", "7", "--release")
+        .inOrder();
+  }
+
+  @Test
+  public void shouldReduceClasspath() throws Exception {
+    {
+      TurbineOptions options =
+          TurbineOptionsParser.parse(
+              Iterables.concat(BASE_ARGS, ImmutableList.of("--reduce_classpath")));
+      assertThat(options.shouldReduceClassPath()).isTrue();
+    }
+
+    {
+      TurbineOptions options =
+          TurbineOptionsParser.parse(
+              Iterables.concat(BASE_ARGS, ImmutableList.of("--noreduce_classpath")));
+      assertThat(options.shouldReduceClassPath()).isFalse();
+    }
+  }
+
+  @Test
+  public void unescape() throws Exception {
+    String[] lines = {
+      "--sources", "Test.java", "'Foo$Bar.java'",
+    };
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+    assertThat(options.sources()).containsExactly("Test.java", "Foo$Bar.java").inOrder();
+  }
+
+  @Test
+  public void invalidUnescape() throws Exception {
+    String[] lines = {"--sources", "'Foo$Bar.java"};
+    try {
+      TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+      fail();
+    } catch (IllegalArgumentException expected) {
     }
   }
 }

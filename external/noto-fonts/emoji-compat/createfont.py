@@ -58,11 +58,11 @@ from fontTools import ttLib
 
 ########### UPDATE OR CHECK WHEN A NEW FONT IS BEING GENERATED ###########
 # Last Android SDK Version
-SDK_VERSION = 26
+SDK_VERSION = 28
 # metadata version that will be embedded into font. If there are updates to the font that would
 # cause data/emoji_metadata.txt to change, this integer number should be incremented. This number
 # defines in which EmojiCompat metadata version the emoji is added to the font.
-METADATA_VERSION = 2
+METADATA_VERSION = 3
 
 ####### main directories where output files are created #######
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -111,7 +111,9 @@ FLATBUFFER_JAVA_TARGET = os.path.join(JAVA_SRC_DIR, FLATBUFFER_PACKAGE_PATH)
 # MetadataListReader.java in order to locate the metadata location.
 EMOJI_META_TAG_NAME = 'Emji'
 
+EMOJI_STR = 'EMOJI'
 EMOJI_PRESENTATION_STR = 'EMOJI_PRESENTATION'
+ACCEPTED_EMOJI_PROPERTIES = [EMOJI_PRESENTATION_STR, EMOJI_STR]
 STD_VARIANTS_EMOJI_STYLE = 'EMOJI STYLE'
 
 DEFAULT_EMOJI_ID = 0xF0001
@@ -177,6 +179,8 @@ def create_test_data(unicode_path):
     emoji_data_lines = read_emoji_lines(os.path.join(unicode_path, EMOJI_DATA_FILE))
     for line in emoji_data_lines:
         codepoints_range, emoji_property = codepoints_and_emoji_prop(line)
+        if not emoji_property in ACCEPTED_EMOJI_PROPERTIES:
+            continue
         is_emoji_style = emoji_property == EMOJI_PRESENTATION_STR
         if is_emoji_style:
             codepoints = [to_hex_str(x) for x in
@@ -288,7 +292,8 @@ def codepoints_for_emojirange(codepoints_range):
 
 def codepoints_and_emoji_prop(line):
     """For a given emoji file line, return codepoints and emoji property in the line.
-    1F93C..1F93E ; [Emoji|Emoji_Presentation|Emoji_Modifier_Base] # [...]"""
+    1F93C..1F93E ; [Emoji|Emoji_Presentation|Emoji_Modifier_Base|Emoji_Component
+    |Extended_Pictographic] # [...]"""
     line = line.strip()
     if '#' in line:
         line = line[:line.index('#')]
@@ -304,11 +309,14 @@ def read_emoji_intervals(emoji_data_map, file_path, emoji_style_exceptions):
     """Read unicode lines of unicode emoji file in which each line describes a set of codepoint
     intervals. Expands the interval on a line and inserts related EmojiDatas into emoji_data_map.
     A line format that is expected is as follows:
-    1F93C..1F93E ; [Emoji|Emoji_Presentation|Emoji_Modifier_Base] # [...]"""
+    1F93C..1F93E ; [Emoji|Emoji_Presentation|Emoji_Modifier_Base|Emoji_Component
+    |Extended_Pictographic] # [...]"""
     lines = read_emoji_lines(file_path)
 
     for line in lines:
         codepoints_range, emoji_property = codepoints_and_emoji_prop(line)
+        if not emoji_property in ACCEPTED_EMOJI_PROPERTIES:
+            continue
         is_emoji_style = emoji_property == EMOJI_PRESENTATION_STR
         codepoints = codepoints_for_emojirange(codepoints_range)
 

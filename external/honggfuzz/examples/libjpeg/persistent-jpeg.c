@@ -26,19 +26,17 @@ struct jpegErrorManager {
 
 struct jpegErrorManager jerr;
 
-void jpegErrorExit(j_common_ptr cinfo)
-{
+void jpegErrorExit(j_common_ptr cinfo) {
     struct jpegErrorManager* myerr = (struct jpegErrorManager*)cinfo->err;
     longjmp(myerr->setjmp_buffer, 1);
 }
 
 static const char* const cdjpeg_message_table[] = {
 #include "cderror.h"
-    NULL
-};
+    NULL};
 
-int LLVMFuzzerInitialize(int* argc, char*** argv)
-{
+static uint64_t max_total_pixels = 1000000000ULL; /* 1G */
+int LLVMFuzzerInitialize(int* argc, char*** argv) {
     null_fd = open("/dev/null", O_WRONLY);
 
     cinfo.err = jpeg_std_error(&jerr.pub);
@@ -49,32 +47,36 @@ int LLVMFuzzerInitialize(int* argc, char*** argv)
     jerr.pub.last_addon_message = JMSG_LASTADDONCODE;
 
     jpeg_create_decompress(&cinfo);
+
+    /* If there are any arguments provided, limit width*height to this value */
+    if (*argc > 1) {
+        max_total_pixels = strtoull((*argv)[1], NULL, 0);
+    }
     return 0;
 }
 
-int LLVMFuzzerTestOneInput(const uint8_t* buf, size_t len)
-{
+int LLVMFuzzerTestOneInput(const uint8_t* buf, size_t len) {
     if (setjmp(jerr.setjmp_buffer)) {
         goto out;
     }
 
     jpeg_mem_src(&cinfo, buf, len);
+    jpeg_read_header(&cinfo, TRUE);
 
-    if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK) {
+    /* Limit total number of pixels to decode to 50M */
+    uint64_t total_pix = (uint64_t)cinfo.output_height * (uint64_t)cinfo.output_width;
+    if (total_pix > max_total_pixels) {
         goto out;
     }
 
-    if (cinfo.output_height > 10000 || cinfo.output_width > 10000) {
-        goto out;
-    }
-
-    cinfo.mem->max_memory_to_use = (1024 * 1024 * 1024);
-    cinfo.mem->max_alloc_chunk = (1024 * 128 * 256);
+    cinfo.mem->max_memory_to_use = (1024ULL * 1024ULL * 1024ULL);
+    cinfo.mem->max_alloc_chunk = (1024ULL * 1024ULL * 1024ULL);
 
     jpeg_start_decompress(&cinfo);
 
     int row_stride = cinfo.output_width * cinfo.output_components;
-    JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
+    JSAMPARRAY buffer =
+        (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
     while (cinfo.output_scanline < cinfo.output_height) {
 #if defined(__clang__)
 #if __has_feature(memory_sanitizer)

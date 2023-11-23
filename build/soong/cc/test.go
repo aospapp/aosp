@@ -16,15 +16,24 @@ package cc
 
 import (
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"android/soong/android"
+	"android/soong/tradefed"
 )
 
 type TestProperties struct {
 	// if set, build against the gtest library. Defaults to true.
 	Gtest *bool
+
+	// if set, use the isolated gtest runner. Defaults to false.
+	Isolated *bool
+}
+
+// Test option struct.
+type TestOptions struct {
+	// The UID that you want to run the test as on a device.
+	Run_test_as *string
 }
 
 type TestBinaryProperties struct {
@@ -39,11 +48,22 @@ type TestBinaryProperties struct {
 
 	// list of files or filegroup modules that provide data that should be installed alongside
 	// the test
-	Data []string
+	Data []string `android:"path"`
 
 	// list of compatibility suites (for example "cts", "vts") that the module should be
 	// installed into.
 	Test_suites []string `android:"arch_variant"`
+
+	// the name of the test configuration (for example "AndroidTest.xml") that should be
+	// installed with the module.
+	Test_config *string `android:"path,arch_variant"`
+
+	// the name of the test configuration template (for example "AndroidTestTemplate.xml") that
+	// should be installed with the module.
+	Test_config_template *string `android:"path,arch_variant"`
+
+	// Test options.
+	Test_options TestOptions
 }
 
 func init() {
@@ -54,31 +74,41 @@ func init() {
 	android.RegisterModuleType("cc_benchmark_host", BenchmarkHostFactory)
 }
 
-// Module factory for tests
+// cc_test generates a test config file and an executable binary file to test
+// specific functionality on a device. The executable binary gets an implicit
+// static_libs dependency on libgtests unless the gtest flag is set to false.
 func TestFactory() android.Module {
 	module := NewTest(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
-// Module factory for test libraries
+// cc_test_library creates an archive of files (i.e. .o files) which is later
+// referenced by another module (such as cc_test, cc_defaults or cc_test_library)
+// for archiving or linking.
 func TestLibraryFactory() android.Module {
 	module := NewTestLibrary(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
-// Module factory for benchmarks
+// cc_benchmark compiles an executable binary that performs benchmark testing
+// of a specific component in a device. Additional files such as test suites
+// and test configuration are installed on the side of the compiled executed
+// binary.
 func BenchmarkFactory() android.Module {
 	module := NewBenchmark(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
-// Module factory for host tests
+// cc_test_host compiles a test host binary.
 func TestHostFactory() android.Module {
 	module := NewTest(android.HostSupported)
 	return module.Init()
 }
 
-// Module factory for host benchmarks
+// cc_benchmark_host compiles an executable binary that performs benchmark
+// testing of a specific component in the host. Additional files such as
+// test suites and test configuration are installed on the side of the
+// compiled executed binary.
 func BenchmarkHostFactory() android.Module {
 	module := NewBenchmark(android.HostSupported)
 	return module.Init()
@@ -109,6 +139,10 @@ func testPerSrcMutator(mctx android.BottomUpMutatorContext) {
 	if m, ok := mctx.Module().(*Module); ok {
 		if test, ok := m.linker.(testPerSrc); ok {
 			if test.testPerSrc() && len(test.srcs()) > 0 {
+				if duplicate, found := checkDuplicate(test.srcs()); found {
+					mctx.PropertyErrorf("srcs", "found a duplicate entry %q", duplicate)
+					return
+				}
 				testNames := make([]string, len(test.srcs()))
 				for i, src := range test.srcs() {
 					testNames[i] = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
@@ -122,13 +156,24 @@ func testPerSrcMutator(mctx android.BottomUpMutatorContext) {
 	}
 }
 
+func checkDuplicate(values []string) (duplicate string, found bool) {
+	seen := make(map[string]string)
+	for _, v := range values {
+		if duplicate, found = seen[v]; found {
+			return
+		}
+		seen[v] = v
+	}
+	return
+}
+
 type testDecorator struct {
 	Properties TestProperties
 	linker     *baseLinker
 }
 
 func (test *testDecorator) gtest() bool {
-	return test.Properties.Gtest == nil || *test.Properties.Gtest == true
+	return BoolDefault(test.Properties.Gtest, true)
 }
 
 func (test *testDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
@@ -159,6 +204,8 @@ func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	if test.gtest() {
 		if ctx.useSdk() && ctx.Device() {
 			deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk_c++", "libgtest_ndk_c++")
+		} else if BoolDefault(test.Properties.Isolated, false) {
+			deps.StaticLibs = append(deps.StaticLibs, "libgtest_isolated_main")
 		} else {
 			deps.StaticLibs = append(deps.StaticLibs, "libgtest_main", "libgtest")
 		}
@@ -168,13 +215,17 @@ func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 }
 
 func (test *testDecorator) linkerInit(ctx BaseModuleContext, linker *baseLinker) {
-	// add ../../lib[64] to rpath so that out/host/linux-x86/nativetest/<test dir>/<test> can
+	// 1. Add ../../lib[64] to rpath so that out/host/linux-x86/nativetest/<test dir>/<test> can
 	// find out/host/linux-x86/lib[64]/library.so
-	runpath := "../../lib"
-	if ctx.toolchain().Is64Bit() {
-		runpath += "64"
+	// 2. Add ../../../lib[64] to rpath so that out/host/linux-x86/testcases/<test dir>/<CPU>/<test> can
+	// also find out/host/linux-x86/lib[64]/library.so
+	runpaths := []string{"../../lib", "../../../lib"}
+	for _, runpath := range runpaths {
+		if ctx.toolchain().Is64Bit() {
+			runpath += "64"
+		}
+		linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, runpath)
 	}
-	linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, runpath)
 
 	// add "" to rpath so that test binaries can find libraries in their own test directory
 	linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, "")
@@ -194,6 +245,7 @@ type testBinary struct {
 	*baseCompiler
 	Properties TestBinaryProperties
 	data       android.Paths
+	testConfig android.Path
 }
 
 func (test *testBinary) linkerProps() []interface{} {
@@ -208,8 +260,6 @@ func (test *testBinary) linkerInit(ctx BaseModuleContext) {
 }
 
 func (test *testBinary) linkerDeps(ctx DepsContext, deps Deps) Deps {
-	android.ExtractSourcesDeps(ctx, test.Properties.Data)
-
 	deps = test.testDecorator.linkerDeps(ctx, deps)
 	deps = test.binaryDecorator.linkerDeps(ctx, deps)
 	return deps
@@ -222,7 +272,19 @@ func (test *testBinary) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 }
 
 func (test *testBinary) install(ctx ModuleContext, file android.Path) {
-	test.data = ctx.ExpandSources(test.Properties.Data, nil)
+	test.data = android.PathsForModuleSrc(ctx, test.Properties.Data)
+	optionsMap := map[string]string{}
+	if Bool(test.testDecorator.Properties.Isolated) {
+		optionsMap["not-shardable"] = "true"
+	}
+
+	if test.Properties.Test_options.Run_test_as != nil {
+		optionsMap["run-test-as"] = String(test.Properties.Test_options.Run_test_as)
+	}
+
+	test.testConfig = tradefed.AutoGenNativeTestConfig(ctx, test.Properties.Test_config,
+		test.Properties.Test_config_template,
+		test.Properties.Test_suites, optionsMap)
 
 	test.binaryDecorator.baseInstaller.dir = "nativetest"
 	test.binaryDecorator.baseInstaller.dir64 = "nativetest64"
@@ -296,17 +358,26 @@ func NewTestLibrary(hod android.HostOrDeviceSupported) *Module {
 type BenchmarkProperties struct {
 	// list of files or filegroup modules that provide data that should be installed alongside
 	// the test
-	Data []string
+	Data []string `android:"path"`
 
 	// list of compatibility suites (for example "cts", "vts") that the module should be
 	// installed into.
-	Test_suites []string
+	Test_suites []string `android:"arch_variant"`
+
+	// the name of the test configuration (for example "AndroidTest.xml") that should be
+	// installed with the module.
+	Test_config *string `android:"path,arch_variant"`
+
+	// the name of the test configuration template (for example "AndroidTestTemplate.xml") that
+	// should be installed with the module.
+	Test_config_template *string `android:"path,arch_variant"`
 }
 
 type benchmarkDecorator struct {
 	*binaryDecorator
 	Properties BenchmarkProperties
 	data       android.Paths
+	testConfig android.Path
 }
 
 func (benchmark *benchmarkDecorator) linkerInit(ctx BaseModuleContext) {
@@ -325,30 +396,22 @@ func (benchmark *benchmarkDecorator) linkerProps() []interface{} {
 }
 
 func (benchmark *benchmarkDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
-	android.ExtractSourcesDeps(ctx, benchmark.Properties.Data)
 	deps = benchmark.binaryDecorator.linkerDeps(ctx, deps)
 	deps.StaticLibs = append(deps.StaticLibs, "libgoogle-benchmark")
 	return deps
 }
 
 func (benchmark *benchmarkDecorator) install(ctx ModuleContext, file android.Path) {
-	benchmark.data = ctx.ExpandSources(benchmark.Properties.Data, nil)
+	benchmark.data = android.PathsForModuleSrc(ctx, benchmark.Properties.Data)
+	benchmark.testConfig = tradefed.AutoGenNativeBenchmarkTestConfig(ctx, benchmark.Properties.Test_config,
+		benchmark.Properties.Test_config_template, benchmark.Properties.Test_suites)
+
 	benchmark.binaryDecorator.baseInstaller.dir = filepath.Join("benchmarktest", ctx.ModuleName())
 	benchmark.binaryDecorator.baseInstaller.dir64 = filepath.Join("benchmarktest64", ctx.ModuleName())
 	benchmark.binaryDecorator.baseInstaller.install(ctx, file)
 }
 
 func NewBenchmark(hod android.HostOrDeviceSupported) *Module {
-	// Benchmarks aren't supported on Darwin
-	if runtime.GOOS == "darwin" {
-		switch hod {
-		case android.HostAndDeviceSupported:
-			hod = android.DeviceSupported
-		case android.HostSupported:
-			hod = android.NeitherHostNorDeviceSupported
-		}
-	}
-
 	module, binary := NewBinary(hod)
 	module.multilib = android.MultilibBoth
 	binary.baseInstaller = NewBaseInstaller("benchmarktest", "benchmarktest64", InstallInData)

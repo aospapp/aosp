@@ -41,8 +41,7 @@ class AudioLoopbackTest(base_test.BaseTestClass):
     ITERATION = 100
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
+        self.dut = self.android_devices[0]
         self.dut.adb.shell("mkdir -p %s" % self.FULL_DATA_DIR_PATH)
         # install Loopback.apk
         self.dut.adb.shell("pm install -r -g /data/local/tmp/Loopback.apk")
@@ -96,23 +95,23 @@ class AudioLoopbackTest(base_test.BaseTestClass):
         latencies = []
         confidences = []
         for i in range(0, self.ITERATION):
-            self.dut.shell.one.Execute(
+            self.dut.shell.Execute(
                 ["rm -f %s/*" % self.FULL_DATA_DIR_PATH])
-            self.dut.shell.one.Execute([
+            self.dut.shell.Execute([
                 "am start -n org.drrickorang.loopback/.LoopbackActivity "
                 "--es FileName %s/%s --ei AudioLevel 11 --ei TestType 222;" %
                 (self.TEST_DATA_DIR, self.TEST_FILE_PREFIX)
             ])
             # wait until the test finished.
-            results = self.dut.shell.one.Execute(
+            results = self.dut.shell.Execute(
                 ["ls %s" % self.TEST_FILE_NAME])
             while results[const.EXIT_CODE][0]:
                 logging.info("Test is running...")
                 sleep(1)
-                results = self.dut.shell.one.Execute(
+                results = self.dut.shell.Execute(
                     ["ls %s" % self.TEST_FILE_NAME])
 
-            results = self.dut.shell.one.Execute(
+            results = self.dut.shell.Execute(
                 ["cat %s" % self.TEST_FILE_NAME])
             asserts.assertFalse(results[const.EXIT_CODE][0],
                                 "Fail to get the test output")

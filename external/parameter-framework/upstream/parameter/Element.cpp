@@ -31,6 +31,7 @@
 #include "XmlElementSerializingContext.h"
 #include "ElementLibrary.h"
 #include "ErrorContext.hpp"
+#include "PfError.hpp"
 #include <algorithm>
 #include <assert.h>
 #include <stdio.h>
@@ -140,8 +141,8 @@ string CElement::logValue(utility::ErrorContext & /*ctx*/) const
 }
 
 // From IXmlSink
-bool CElement::fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext)
-{
+bool CElement::fromXml(const CXmlElement &xmlElement,
+                       CXmlSerializingContext &serializingContext) try {
     xmlElement.getAttribute(gDescriptionPropertyName, _strDescription);
 
     // Propagate through children
@@ -183,6 +184,9 @@ bool CElement::fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &se
     }
 
     return true;
+} catch (const PfError &e) {
+    serializingContext.appendLineToError(e.what());
+    return false;
 }
 
 void CElement::childrenToXml(CXmlElement &xmlElement,
@@ -308,7 +312,7 @@ CElement *CElement::createChild(const CXmlElement &childElement,
         elementSerializingContext.setError("Unable to create XML element " +
                                            childElement.getPath());
 
-        return NULL;
+        return nullptr;
     }
     // Store created child!
     addChild(pChild);
@@ -419,7 +423,7 @@ const CElement *CElement::findDescendant(CPathNavigator &pathNavigator) const
 
     if (!pChild) {
 
-        return NULL;
+        return nullptr;
     }
 
     return pChild->findDescendant(pathNavigator);
@@ -438,7 +442,7 @@ CElement *CElement::findDescendant(CPathNavigator &pathNavigator)
 
     if (!pChild) {
 
-        return NULL;
+        return nullptr;
     }
 
     return pChild->findDescendant(pathNavigator);
@@ -467,7 +471,7 @@ CElement *CElement::findChild(const string &strName)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 const CElement *CElement::findChild(const string &strName) const
@@ -480,7 +484,7 @@ const CElement *CElement::findChild(const string &strName) const
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 CElement *CElement::findChildOfKind(const string &strKind)
@@ -493,7 +497,7 @@ CElement *CElement::findChildOfKind(const string &strKind)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 const CElement *CElement::findChildOfKind(const string &strKind) const
@@ -506,7 +510,7 @@ const CElement *CElement::findChildOfKind(const string &strKind) const
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 string CElement::getPath() const

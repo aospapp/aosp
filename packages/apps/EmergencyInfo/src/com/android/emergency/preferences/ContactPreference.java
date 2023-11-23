@@ -28,16 +28,17 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceViewHolder;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
 import android.telecom.TelecomManager;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.android.emergency.CircleFramedDrawable;
@@ -115,7 +116,7 @@ public class ContactPreference extends Preference {
 
         setPhoneUri(phoneUri);
 
-        setWidgetLayoutResource(R.layout.preference_user_delete_widget);
+        setWidgetLayoutResource(R.layout.preference_user_action_widget);
         setPersistent(false);
     }
 
@@ -189,16 +190,16 @@ public class ContactPreference extends Preference {
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
         View deleteContactIcon = holder.findViewById(R.id.delete_contact);
+        View callContactIcon = holder.findViewById(R.id.call_contact);
         if (mRemoveContactPreferenceListener == null) {
+            // Default icon is delete, change icon to phone when ContactPreference binding
+            // ViewEmergencyContactsFragment.
             deleteContactIcon.setVisibility(View.GONE);
+            callContactIcon.setVisibility(View.VISIBLE);
         } else {
-            deleteContactIcon.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    showRemoveContactDialog(null);
-                }
+            deleteContactIcon.setOnClickListener((View view) -> {
+                showRemoveContactDialog(null);
             });
-
         }
     }
 

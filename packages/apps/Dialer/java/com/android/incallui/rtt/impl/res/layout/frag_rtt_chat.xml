@@ -16,16 +16,18 @@
   -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-  <include layout="@layout/rtt_banner"/>
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
   <android.support.v7.widget.RecyclerView
       android:id="@+id/rtt_recycler_view"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
+      android:paddingTop="56dp"
       android:paddingBottom="70dp"
       android:clipToPadding="false"/>
+
+  <include layout="@layout/rtt_banner"/>
 
   <LinearLayout
       android:layout_width="match_parent"
@@ -47,13 +49,13 @@
         android:paddingEnd="16dp"
         android:background="@drawable/input_bubble_background"
         android:hint="@string/rtt_input_hint"
-        android:imeOptions="actionDone"
-        android:inputType="textMultiLine|text"
-        android:maxLines="4"
+        android:imeOptions="actionSend"
+        android:inputType="text"
         android:minHeight="53dp"
         android:textColor="#DD000000"
         android:textColorHint="#757575"
-        android:textSize="16sp"/>
+        android:textSize="16sp"
+        android:visibility="gone"/>
     <ImageButton
         android:id="@+id/rtt_chat_submit_button"
         android:layout_width="55dp"
@@ -64,7 +66,15 @@
         android:backgroundTintMode="multiply"
         android:contentDescription="@string/content_description_rtt_check_button"
         android:src="@drawable/quantum_ic_done_vd_theme_24"
-        android:tint="@color/submit_button_color"/>
+        android:tint="@color/submit_button_color"
+        android:visibility="gone"/>
   </LinearLayout>
 
+  <FrameLayout
+      android:id="@+id/incall_dialpad_container"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom"
+      android:clipChildren="false"
+      android:clipToPadding="false"/>
 </FrameLayout>

@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-#include "base/unix_file/fd_file.h"
-#include "base/unix_file/random_access_file_test.h"
-#include "common_runtime_test.h"  // For ScratchFile
+#include "base/common_art_test.h"  // For ScratchFile
+#include "base/file_utils.h"
 #include "gtest/gtest.h"
+#include "fd_file.h"
+#include "random_access_file_test.h"
 
 namespace unix_file {
 
 class FdFileTest : public RandomAccessFileTest {
  protected:
-  virtual RandomAccessFile* MakeTestFile() {
-    return new FdFile(fileno(tmpfile()), false);
+  RandomAccessFile* MakeTestFile() override {
+    FILE* tmp = tmpfile();
+    int fd = art::DupCloexec(fileno(tmp));
+    fclose(tmp);
+    return new FdFile(fd, false);
   }
 };
 

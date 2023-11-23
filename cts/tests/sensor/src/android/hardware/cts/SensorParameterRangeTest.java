@@ -21,7 +21,10 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
+import android.os.Build;
 import android.text.TextUtils;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,28 +41,37 @@ import java.util.concurrent.TimeUnit;
  */
 public class SensorParameterRangeTest extends SensorTestCase {
 
-    private static final double ACCELEROMETER_MAX_RANGE = 8 * 9.80; // 8G minus a slop
-    private static final double ACCELEROMETER_MIN_FREQUENCY = 12.50;
-    private static final int ACCELEROMETER_MAX_FREQUENCY = 200;
+    private static final double ACCELEROMETER_MAX_RANGE = 4 * 9.80; // 4g - ε
+    private static final double ACCELEROMETER_MAX_FREQUENCY = 50.0;
+    private static final double ACCELEROMETER_HIFI_MAX_RANGE = 8 * 9.80; // 8g - ε
+    private static final double ACCELEROMETER_HIFI_MIN_FREQUENCY = 12.50;
+    private static final double ACCELEROMETER_HIFI_MAX_FREQUENCY = 400.0;
+    private static final double ACCELEROMETER_HIFI_MAX_FREQUENCY_BEFORE_N = 200.0;
 
-    private static final double GYRO_MAX_RANGE = 1000/57.295 - 1.0; // 1000 degrees per sec minus a slop
-    private static final double GYRO_MIN_FREQUENCY = 12.50;
-    private static final double GYRO_MAX_FREQUENCY = 200.0;
+    private static final double GYRO_MAX_RANGE = 1000 / 57.295 - 1.0; // 1000 degrees/sec - ε
+    private static final double GYRO_MAX_FREQUENCY = 50.0;
+    private static final double GYRO_HIFI_MAX_RANGE = 1000 / 57.295 - 1.0; // 1000 degrees/sec - ε
+    private static final double GYRO_HIFI_MIN_FREQUENCY = 12.50;
+    private static final double GYRO_HIFI_MAX_FREQUENCY = 400.0;
+    private static final double GYRO_HIFI_MAX_FREQUENCY_BEFORE_N = 200.0;
 
-    private static final int MAGNETOMETER_MAX_RANGE = 900;   // micro telsa
-    private static final double MAGNETOMETER_MIN_FREQUENCY = 5.0;
+    private static final double MAGNETOMETER_MAX_RANGE = 900.0;   // micro telsa
     private static final double MAGNETOMETER_MAX_FREQUENCY = 50.0;
+    private static final double MAGNETOMETER_HIFI_MAX_RANGE = 900.0;   // micro telsa
+    private static final double MAGNETOMETER_HIFI_MIN_FREQUENCY = 5.0;
+    private static final double MAGNETOMETER_HIFI_MAX_FREQUENCY = 50.0;
 
-    private static final double PRESSURE_MAX_RANGE = 1100.0;     // hecto-pascal
-    private static final double PRESSURE_MIN_FREQUENCY = 1.0;
-    private static final double PRESSURE_MAX_FREQUENCY = 10.0;
+    private static final double PRESSURE_MAX_RANGE = 0.0;     // hecto-pascal
+    private static final double PRESSURE_MAX_FREQUENCY = 5.0;
+    private static final double PRESSURE_HIFI_MAX_RANGE = 1100.0;     // hecto-pascal
+    private static final double PRESSURE_HIFI_MIN_FREQUENCY = 1.0;
+    private static final double PRESSURE_HIFI_MAX_FREQUENCY = 10.0;
 
     // Note these FIFO minimum constants come from the CCD.  In version
     // 6.0 of the CCD, these are in section 7.3.9.
     private static final int ACCELEROMETER_MIN_FIFO_LENGTH = 3000;
     private static final int UNCAL_MAGNETOMETER_MIN_FIFO_LENGTH = 600;
     private static final int PRESSURE_MIN_FIFO_LENGTH = 300;
-    private static final int GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH = 300;
     private static final int PROXIMITY_SENSOR_MIN_FIFO_LENGTH = 100;
     private static final int STEP_DETECTOR_MIN_FIFO_LENGTH = 100;
 
@@ -76,57 +88,95 @@ public class SensorParameterRangeTest extends SensorTestCase {
     }
 
     public void testAccelerometerRange() {
-        checkSensorRangeAndFrequency(
-                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                ACCELEROMETER_MAX_RANGE,
-                ACCELEROMETER_MIN_FREQUENCY,
-                ACCELEROMETER_MAX_FREQUENCY);
-  }
+        double hifiMaxFrequency = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.N) ?
+                ACCELEROMETER_HIFI_MAX_FREQUENCY :
+                ACCELEROMETER_HIFI_MAX_FREQUENCY_BEFORE_N;
 
-  public void testGyroscopeRange() {
         checkSensorRangeAndFrequency(
-                mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                Sensor.TYPE_ACCELEROMETER,
+                ACCELEROMETER_MAX_RANGE,
+                ACCELEROMETER_MAX_FREQUENCY,
+                ACCELEROMETER_HIFI_MAX_RANGE,
+                ACCELEROMETER_HIFI_MIN_FREQUENCY,
+                hifiMaxFrequency);
+    }
+
+    public void testGyroscopeRange() {
+        double hifiMaxFrequency = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.N) ?
+                GYRO_HIFI_MAX_FREQUENCY :
+                GYRO_HIFI_MAX_FREQUENCY_BEFORE_N;
+
+        checkSensorRangeAndFrequency(
+                Sensor.TYPE_GYROSCOPE,
                 GYRO_MAX_RANGE,
-                GYRO_MIN_FREQUENCY,
-                GYRO_MAX_FREQUENCY);
-  }
+                GYRO_MAX_FREQUENCY,
+                GYRO_HIFI_MAX_RANGE,
+                GYRO_HIFI_MIN_FREQUENCY,
+                hifiMaxFrequency);
+    }
 
     public void testMagnetometerRange() {
         checkSensorRangeAndFrequency(
-                mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                Sensor.TYPE_MAGNETIC_FIELD,
                 MAGNETOMETER_MAX_RANGE,
-                MAGNETOMETER_MIN_FREQUENCY,
-                MAGNETOMETER_MAX_FREQUENCY);
+                MAGNETOMETER_MAX_FREQUENCY,
+                MAGNETOMETER_HIFI_MAX_RANGE,
+                MAGNETOMETER_HIFI_MIN_FREQUENCY,
+                MAGNETOMETER_HIFI_MAX_FREQUENCY);
     }
 
     public void testPressureRange() {
-        if (mHasHifiSensors) {
-            checkSensorRangeAndFrequency(
-                    mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE),
-                    PRESSURE_MAX_RANGE,
-                    PRESSURE_MIN_FREQUENCY,
-                    PRESSURE_MAX_FREQUENCY);
-        }
+        checkSensorRangeAndFrequency(
+                Sensor.TYPE_PRESSURE,
+                PRESSURE_MAX_RANGE,
+                PRESSURE_MAX_FREQUENCY,
+                PRESSURE_HIFI_MAX_RANGE,
+                PRESSURE_HIFI_MIN_FREQUENCY,
+                PRESSURE_HIFI_MAX_FREQUENCY);
     }
 
     private void checkSensorRangeAndFrequency(
-          Sensor sensor, double maxRange, double minFrequency, double maxFrequency) {
-        if (!mHasHifiSensors && !mVrModeHighPerformance) return;
+            int sensorType, double maxRange, double maxFrequency, double hifiMaxRange,
+            double hifiMinFrequency, double hifiMaxFrequency) {
+        boolean mustMeetHiFi = mHasHifiSensors;
+
+        // CDD 7.9.2/C-1-21: High Performance VR must meet accel, gyro, and mag HiFi requirements
+        if (mVrModeHighPerformance && (sensorType == Sensor.TYPE_ACCELEROMETER ||
+                sensorType == Sensor.TYPE_GYROSCOPE || sensorType == Sensor.TYPE_MAGNETIC_FIELD)) {
+            mustMeetHiFi = true;
+        }
+
+        Sensor sensor = mSensorManager.getDefaultSensor(sensorType);
+        if (sensor == null) {
+            if (mustMeetHiFi) {
+                fail(String.format("Must support sensor type %d", sensorType));
+            } else {
+                // Sensor is not required
+                return;
+            }
+        }
+
+        double range = mustMeetHiFi ? hifiMaxRange : maxRange;
+        double frequency = mustMeetHiFi ? hifiMaxFrequency : maxFrequency;
+
         assertTrue(String.format("%s Range actual=%.2f expected=%.2f %s",
-                    sensor.getName(), sensor.getMaximumRange(), maxRange,
+                    sensor.getName(), sensor.getMaximumRange(), range,
                     SensorCtsHelper.getUnitsForSensor(sensor)),
-                sensor.getMaximumRange() >= maxRange);
-        double actualMinFrequency = SensorCtsHelper.getFrequency(sensor.getMaxDelay(),
-                TimeUnit.MICROSECONDS);
-        assertTrue(String.format("%s Min Frequency actual=%.2f expected=%.2fHz",
-                    sensor.getName(), actualMinFrequency, minFrequency), actualMinFrequency <=
-                minFrequency + 0.1);
+                sensor.getMaximumRange() >= range);
 
         double actualMaxFrequency = SensorCtsHelper.getFrequency(sensor.getMinDelay(),
                 TimeUnit.MICROSECONDS);
         assertTrue(String.format("%s Max Frequency actual=%.2f expected=%.2fHz",
-                    sensor.getName(), actualMaxFrequency, maxFrequency), actualMaxFrequency >=
-                maxFrequency - 0.1);
+                    sensor.getName(), actualMaxFrequency, frequency), actualMaxFrequency >=
+                frequency - 0.1);
+
+        if (mustMeetHiFi) {
+            double actualMinFrequency = SensorCtsHelper.getFrequency(sensor.getMaxDelay(),
+                    TimeUnit.MICROSECONDS);
+            assertTrue(String.format("%s Min Frequency actual=%.2f expected=%.2fHz",
+                        sensor.getName(), actualMinFrequency, hifiMinFrequency),
+                    actualMinFrequency <=  hifiMinFrequency + 0.1);
+        }
     }
 
     public void testAccelerometerFifoLength() throws Throwable {
@@ -144,11 +194,6 @@ public class SensorParameterRangeTest extends SensorTestCase {
     public void testPressureFifoLength() throws Throwable {
         if (!mHasHifiSensors) return;
         checkMinFifoLength(Sensor.TYPE_PRESSURE, PRESSURE_MIN_FIFO_LENGTH);
-    }
-
-    public void testGameRotationVectorFifoLength() throws Throwable {
-        if (!mHasHifiSensors) return;
-        checkMinFifoLength(Sensor.TYPE_GAME_ROTATION_VECTOR, GAME_ROTATION_VECTOR_MIN_FIFO_LENGTH);
     }
 
     public void testProximityFifoLength() throws Throwable {

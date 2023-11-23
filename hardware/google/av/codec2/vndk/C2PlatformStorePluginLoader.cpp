@@ -37,6 +37,10 @@ C2PlatformStorePluginLoader::C2PlatformStorePluginLoader(const char *libPath)
     if (mCreateBlockPool == nullptr) {
         ALOGD("Failed to find symbol: CreateBlockPool (%s)", dlerror());
     }
+    mCreateAllocator = (CreateAllocatorFunc)dlsym(mLibHandle, "CreateAllocator");
+    if (mCreateAllocator == nullptr) {
+        ALOGD("Failed to find symbol: CreateAllocator (%s)", dlerror());
+    }
 }
 
 C2PlatformStorePluginLoader::~C2PlatformStorePluginLoader() {
@@ -61,6 +65,23 @@ c2_status_t C2PlatformStorePluginLoader::createBlockPool(
     }
     ALOGD("Failed to CreateBlockPool by allocator id: %u", allocatorId);
     return C2_BAD_INDEX;
+}
+
+c2_status_t C2PlatformStorePluginLoader::createAllocator(
+        ::C2Allocator::id_t allocatorId, std::shared_ptr<C2Allocator>* const allocator) {
+    if (mCreateAllocator == nullptr) {
+        ALOGD("Handle or CreateAllocator symbol is null");
+        return C2_NOT_FOUND;
+    }
+
+    c2_status_t res = C2_CORRUPTED;
+    allocator->reset(mCreateAllocator(allocatorId, &res));
+    if (res != C2_OK) {
+        ALOGD("Failed to CreateAllocator by id: %u, res: %d", allocatorId, res);
+        allocator->reset();
+        return res;
+    }
+    return C2_OK;
 }
 
 // static

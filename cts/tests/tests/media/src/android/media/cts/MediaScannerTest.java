@@ -16,44 +16,46 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.ContentResolver;
-import android.content.ContentUris;
-import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
-import android.mtp.MtpConstants;
 import android.net.Uri;
-import android.platform.test.annotations.AppModeFull;
-import android.support.test.filters.SmallTest;
-import android.platform.test.annotations.RequiresDevice;
-import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.RequiresDevice;
 import android.provider.MediaStore;
+import android.provider.MediaStore.MediaColumns;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.FileCopyHelper;
 import com.android.compatibility.common.util.PollingCheck;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerTest extends AndroidTestCase {
-
     private static final String MEDIA_TYPE = "audio/mpeg";
     private File mMediaFile;
     private static final int TIME_OUT = 10000;
@@ -66,7 +68,8 @@ public class MediaScannerTest extends AndroidTestCase {
         super.setUp();
         // prepare the media file.
 
-        mFileDir = Environment.getExternalStorageDirectory() + "/" + getClass().getCanonicalName();
+        mFileDir = mContext.getExternalMediaDirs()[0].getAbsolutePath();
+
         cleanup();
         String fileName = mFileDir + "/test" + System.currentTimeMillis() + ".mp3";
         writeFile(R.raw.testmp3, fileName);
@@ -154,30 +157,6 @@ public class MediaScannerTest extends AndroidTestCase {
         c.moveToFirst();
         assertEquals(localizedTitle, c.getString(0));
 
-        // Update localizable audio file to have unlocalizable title
-        final ContentValues values = new ContentValues();
-        final String newTitle = "New Title";
-        values.put("title", newTitle);
-        res.update(media2Uri, values, null, null);
-
-        // Ensure title comes back correctly
-        c = res.query(media2Uri, new String[] { "title" }, null, null, null);
-        assertEquals(1, c.getCount());
-        c.moveToFirst();
-        assertEquals(newTitle, c.getString(0));
-
-        // Update audio file to have localizable title once again
-        final String newLocalizableTitle =
-            "android.resource://android.media.cts/string/test_localizable_title";
-        values.put("title", newLocalizableTitle);
-        res.update(media2Uri, values, null, null);
-
-        // Ensure title comes back localized
-        c = res.query(media2Uri, new String[] { "title" }, null, null, null);
-        assertEquals(1, c.getCount());
-        c.moveToFirst();
-        assertEquals(localizedTitle, c.getString(0));
-
         mMediaScannerConnection.disconnect();
         c.close();
     }
@@ -202,34 +181,32 @@ public class MediaScannerTest extends AndroidTestCase {
         ContentResolver res = mContext.getContentResolver();
 
         // check that the file ended up in the audio view
-        Uri audiouri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
-        Cursor c = res.query(audiouri, null, null, null, null);
+        Cursor c = res.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null,
+                MediaColumns.DATA + "=?", new String[] { mMediaFile.getAbsolutePath() }, null);
         assertEquals(1, c.getCount());
         c.close();
 
         // add nomedia file and insert into database, file should no longer be in audio view
         File nomedia = new File(mMediaFile.getParent() + "/.nomedia");
         nomedia.createNewFile();
-        ContentValues values = new ContentValues();
-        values.put(MediaStore.MediaColumns.DATA, nomedia.getAbsolutePath());
-        values.put(MediaStore.Files.FileColumns.FORMAT, MtpConstants.FORMAT_UNDEFINED);
-        Uri nomediauri = res.insert(MediaStore.Files.getContentUri("external"), values);
-        // clean up nomedia file
-        nomedia.delete();
+        startMediaScanAndWait();
 
         // entry should not be in audio view anymore
-        c = res.query(audiouri, null, null, null, null);
+        c = res.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null,
+                MediaColumns.DATA + "=?", new String[] { mMediaFile.getAbsolutePath() }, null);
         assertEquals(0, c.getCount());
         c.close();
 
         // with nomedia file removed, do media scan and check that entry is in audio table again
+        nomedia.delete();
         startMediaScanAndWait();
 
         // Give the 2nd stage scan that makes the unhidden files visible again
         // a little more time
         SystemClock.sleep(10000);
         // entry should be in audio view again
-        c = res.query(audiouri, null, null, null, null);
+        c = res.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, null,
+                MediaColumns.DATA + "=?", new String[] { mMediaFile.getAbsolutePath() }, null);
         assertEquals(1, c.getCount());
         c.close();
 
@@ -302,7 +279,7 @@ public class MediaScannerTest extends AndroidTestCase {
         checkConnectionState(false);
     }
 
-    public void testWildcardPaths() throws InterruptedException, IOException {
+    public void testWildcardPaths() throws Exception {
         mMediaScannerConnectionClient = new MockMediaScannerConnectionClient();
         mMediaScannerConnection = new MockMediaScannerConnection(getContext(),
                                     mMediaScannerConnectionClient);
@@ -355,17 +332,11 @@ public class MediaScannerTest extends AndroidTestCase {
         assertTrue("same parent", parent1id != parent2id);
 
         // check the parent paths are correct
-        c = res.query(MediaStore.Files.getContentUri("external", parent1id),
-                new String[] { "_data" }, null, null, null);
-        c.moveToFirst();
-        assertEquals(dir1, c.getString(0));
-        c.close();
 
-        c = res.query(MediaStore.Files.getContentUri("external", parent2id),
-                new String[] { "_data" }, null, null, null);
-        c.moveToFirst();
-        assertEquals(dir2, c.getString(0));
-        c.close();
+        assertEquals(dir1, getRawFile(MediaStore.Files.getContentUri("external", parent1id))
+                .getAbsolutePath());
+        assertEquals(dir2, getRawFile(MediaStore.Files.getContentUri("external", parent2id))
+                .getAbsolutePath());
 
         // clean up
         new File(file1).delete();
@@ -403,9 +374,12 @@ public class MediaScannerTest extends AndroidTestCase {
     }
 
     private void canonicalizeTest(int resId) throws Exception {
+        // erase all audio files that might confuse us below
+        mContext.getContentResolver().delete(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                null, null);
+
         // write file and scan to insert into database
-        String fileDir = Environment.getExternalStorageDirectory() + "/"
-                + getClass().getCanonicalName() + "/canonicaltest-" + System.currentTimeMillis();
+        String fileDir = mFileDir + "/canonicaltest-" + System.currentTimeMillis();
         String fileName = fileDir + "/test.mp3";
         writeFile(resId, fileName);
         mMediaScannerConnection.scanFile(fileName, MEDIA_TYPE);
@@ -427,7 +401,6 @@ public class MediaScannerTest extends AndroidTestCase {
 
         // remove the entry from the database
         assertEquals(1, res.delete(uri, null, null));
-        assertTrue(new File(path).delete());
 
         // write same file again and scan to insert into database
         mMediaScannerConnectionClient.reset();
@@ -456,7 +429,6 @@ public class MediaScannerTest extends AndroidTestCase {
         assertEquals(uri2, uncanonicalizedUri3);
 
         assertEquals(1, res.delete(uri2, null, null));
-        assertTrue(new File(path2).delete());
     }
 
     static class MediaScanEntry {
@@ -643,22 +615,16 @@ public class MediaScannerTest extends AndroidTestCase {
         }
     }
 
-    private void startMediaScanAndWait() throws InterruptedException {
-        ScannerNotificationReceiver finishedReceiver = new ScannerNotificationReceiver(
-                Intent.ACTION_MEDIA_SCANNER_FINISHED);
-        IntentFilter finishedIntentFilter = new IntentFilter(Intent.ACTION_MEDIA_SCANNER_FINISHED);
-        finishedIntentFilter.addDataScheme("file");
-        mContext.registerReceiver(finishedReceiver, finishedIntentFilter);
+    public static void startMediaScan() {
+        new Thread(() -> {
+            MediaStore.scanVolume(InstrumentationRegistry.getTargetContext(),
+                    Environment.getExternalStorageDirectory());
+        }).start();
+    }
 
-        Bundle args = new Bundle();
-        args.putString("volume", "external");
-        Intent i = new Intent("android.media.IMediaScannerService").putExtras(args);
-        i.setClassName("com.android.providers.media",
-                "com.android.providers.media.MediaScannerService");
-        mContext.startService(i);
-
-        finishedReceiver.waitForBroadcast();
-        mContext.unregisterReceiver(finishedReceiver);
+    public static void startMediaScanAndWait() {
+        MediaStore.scanVolume(InstrumentationRegistry.getTargetContext(),
+                Environment.getExternalStorageDirectory());
     }
 
     private void checkMediaScannerConnection() {
@@ -714,6 +680,7 @@ public class MediaScannerTest extends AndroidTestCase {
         }
 
         public void onScanCompleted(String path, Uri uri) {
+            Log.v("MediaScannerTest", "onScanCompleted for " + path + " to " + uri);
             mediaPath = path;
             if (uri != null) {
                 mediaUri = uri;
@@ -726,4 +693,44 @@ public class MediaScannerTest extends AndroidTestCase {
         }
     }
 
+    static File getRawFile(Uri uri) throws Exception {
+        final String res = executeShellCommand(
+                "content query --uri " + uri
+                        + " --user " + getCurrentUser() + " --projection _data",
+                InstrumentationRegistry.getInstrumentation().getUiAutomation());
+        final int i = res.indexOf("_data=");
+        if (i >= 0) {
+            return new File(res.substring(i + 6));
+        } else {
+            throw new FileNotFoundException("Failed to find _data for " + uri + "; found " + res);
+        }
+    }
+
+    static String executeShellCommand(String command) throws IOException {
+        return executeShellCommand(command,
+                InstrumentationRegistry.getInstrumentation().getUiAutomation());
+    }
+
+    static String executeShellCommand(String command, UiAutomation uiAutomation)
+            throws IOException {
+        ParcelFileDescriptor pfd = uiAutomation.executeShellCommand(command.toString());
+        BufferedReader br = null;
+        try (InputStream in = new FileInputStream(pfd.getFileDescriptor());) {
+            br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String str = null;
+            StringBuilder out = new StringBuilder();
+            while ((str = br.readLine()) != null) {
+                out.append(str);
+            }
+            return out.toString();
+        } finally {
+            if (br != null) {
+                br.close();
+            }
+        }
+    }
+
+    private static int getCurrentUser() {
+        return android.os.Process.myUserHandle().getIdentifier();
+    }
 }

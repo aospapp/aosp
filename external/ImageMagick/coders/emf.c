@@ -18,13 +18,13 @@
 %                               Dirk Lemstra                                  %
 %                               January 2014                                  %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -73,6 +73,7 @@
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
+#include "coders/emf.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -408,6 +409,11 @@ static HENHMETAFILE ReadEnhMetaFile(const char *path,ssize_t *width,
     return(NULL);
   dwSize=GetFileSize(hFile,NULL);
   pBits=(LPBYTE) AcquireQuantumMemory(dwSize,sizeof(*pBits));
+  if (pBits == (LPBYTE) NULL)
+    {
+      CloseHandle(hFile);
+      return((HENHMETAFILE) NULL);
+    }
   ReadFile(hFile,pBits,dwSize,&dwSize,NULL);
   CloseHandle(hFile);
   if (((PAPMHEADER) pBits)->dwKey != 0x9ac6cdd7l)
@@ -562,7 +568,7 @@ static Image *ReadEMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Initialize the bitmap header info.
   */
-  (void) ResetMagickMemory(&DIBinfo,0,sizeof(BITMAPINFO));
+  (void) memset(&DIBinfo,0,sizeof(BITMAPINFO));
   DIBinfo.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
   DIBinfo.bmiHeader.biWidth=(LONG) image->columns;
   DIBinfo.bmiHeader.biHeight=(-1)*(LONG) image->rows;

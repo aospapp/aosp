@@ -29,11 +29,12 @@ import android.content.res.Configuration;
 import android.os.LocaleList;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
-import androidx.annotation.NonNull;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.format.DateFormat;
+
+import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 

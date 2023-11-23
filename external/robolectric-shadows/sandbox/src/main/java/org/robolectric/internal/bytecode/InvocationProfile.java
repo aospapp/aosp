@@ -38,10 +38,24 @@ public class InvocationProfile {
     }
   }
 
+  public boolean isDeclaredOnObject() {
+    return isDeclaredOnObject;
+  }
+
+  boolean isAndroidSupport() {
+    return clazz.getName().startsWith("android.support") || clazz.getName().startsWith("androidx.");
+  }
+
+  boolean strict() {
+    return isAndroidSupport() || isDeclaredOnObject();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof InvocationProfile)) {
+      return false;
+    }
 
     InvocationProfile that = (InvocationProfile) o;
 
@@ -62,9 +76,5 @@ public class InvocationProfile {
     result = 31 * result + (paramTypes != null ? Arrays.hashCode(paramTypes) : 0);
     result = 31 * result + (isDeclaredOnObject ? 1 : 0);
     return result;
-  }
-
-  public boolean isDeclaredOnObject() {
-    return isDeclaredOnObject;
   }
 }

@@ -19,13 +19,9 @@ package com.android.services.telephony;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
-import android.telecom.PhoneAccount;
-import android.telecom.PhoneAccountHandle;
-import android.telecom.TelecomManager;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.util.Preconditions;
-import com.android.phone.PhoneUtils;
 
 /**
  * Listens to phone's capabilities changed event and notifies Telecomm. One instance of these exists

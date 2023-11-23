@@ -62,6 +62,12 @@ extern "C" {
     ((moduleVersion) & UINT32_C(0xFFFF0000))
 
 /**
+ * Extracts only the major API version component of a module version
+ */
+#define CHRE_PAL_GET_API_MAJOR_VERSION(moduleVersion) \
+    (((moduleVersion) & UINT32_C(0xFF000000)) >> 24)
+
+/**
  * Extracts only the module patch version of a module version
  */
 #define CHRE_PAL_GET_PATCH_VERSION(moduleVersion) \
@@ -83,6 +89,14 @@ extern "C" {
 #define CHRE_PAL_CREATE_MODULE_VERSION(apiVersion, patchVersion) \
     ((uint32_t) (CHRE_PAL_GET_API_VERSION(apiVersion) | \
                  CHRE_PAL_GET_PATCH_VERSION(patchVersion)))
+
+/**
+ * Determines if a requested CHRE API version is compatible with the supplied
+ * API version
+ */
+#define CHRE_PAL_VERSIONS_ARE_COMPATIBLE(apiVersion, requestedApiVersion) \
+    (CHRE_PAL_GET_API_MAJOR_VERSION(apiVersion) == \
+        CHRE_PAL_GET_API_MAJOR_VERSION(requestedApiVersion))
 
 #ifdef __cplusplus
 }

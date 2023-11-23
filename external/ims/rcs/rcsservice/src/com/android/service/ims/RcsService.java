@@ -379,9 +379,6 @@ public class RcsService extends Service{
             @Override
             public void onImsConnected(int imsRadioTech) {
                 logger.debug("onImsConnected imsRadioTech=" + imsRadioTech);
-                if(mRcsStackAdaptor != null) {
-                    mRcsStackAdaptor.checkSubService();
-                }
 
                 if(mPublication != null) {
                     mPublication.onImsConnected();

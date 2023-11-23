@@ -25,9 +25,9 @@
     <string name="action_text" msgid="577417996159152923">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> ला एसएमएस पाठवा"</string>
     <string name="action_call" msgid="6226253647953184035">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> ला कॉल करा"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"हा टॅग रिक्त आहे."</string>
-    <string name="import_vcard" msgid="5104299047930666528">"^1 आयात करा"</string>
+    <string name="import_vcard" msgid="5104299047930666528">"^1 इंपोर्ट करा"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"NFC टॅग वरील डेटा"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 ची संपर्क माहिती"</string>
-    <string name="call_phone_permission_denied" msgid="8515177111984654599">"कॉल करण्यासाठी या अॅप्लिकेशनला टेलीफोन परवानगी अॅक्सेस करणे आवश्यक आहे. तुम्ही सेटिंग्जमध्ये टॅग परवानगी व्यवस्थापित करू शकता"</string>
-    <string name="external_storage_permission_denied" msgid="7665146019168376837">"फायली अॅक्सेस करण्यासाठी या अॅप्लिकेशनला स्टोरेज परवानगी अॅक्‍सेस करणे आवश्यकआहे. तुम्ही सेटिंग्जमध्ये टॅग परवानगी व्यवस्थापित करू शकता"</string>
+    <string name="call_phone_permission_denied" msgid="8515177111984654599">"कॉल करण्यासाठी या अॅप्लिकेशनला टेलीफोन परवानगी अ‍ॅक्सेस करणे आवश्यक आहे. तुम्ही सेटिंग्जमध्ये टॅग परवानगी व्यवस्थापित करू शकता"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"फायली अ‍ॅक्सेस करण्यासाठी या अॅप्लिकेशनला स्टोरेज परवानगी अॅक्‍सेस करणे आवश्यकआहे. तुम्ही सेटिंग्जमध्ये टॅग परवानगी व्यवस्थापित करू शकता"</string>
 </resources>

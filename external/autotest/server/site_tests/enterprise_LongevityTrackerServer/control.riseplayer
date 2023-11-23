@@ -9,7 +9,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "performance"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:longevity, suite:longevity_two"
+ATTRIBUTES = "suite:kiosk_longevity"
 DEPENDENCIES = "riseplayer"
 
 DOC = """

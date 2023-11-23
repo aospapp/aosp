@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‎‏‎‏‏‏‎‏‎‏‏‎‏‎‎‎‏‏‏‏‎‏‎‏‏‏‎‎‏‏‎‏‏‏‏‏‏‏‏‎‎‏‏‏‎‏‏‎‎‏‏‏‏‎‏‎‎‎‏‎‏‎When the shortcut is on, pressing both the back and down buttons for 3 seconds will start an accessibility feature.‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ Current accessibility feature:‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ ‎‏‎‎‏‏‎<xliff:g id="SERVICE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ You can change the feature in Settings &gt; Accessibility.‎‏‎‎‏‎"</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‎‏‎‏‏‏‎‏‎‏‏‎‏‎‎‎‏‏‏‏‎‏‎‏‏‏‎‎‏‏‎‏‏‏‏‏‏‏‏‎‎‏‏‏‎‏‏‎‎‏‏‏‏‎‏‎‎‎‏‎‏‎When the shortcut is on, pressing both the back and down buttons for 3 seconds will start an accessibility feature.‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ Current accessibility feature:‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ ‎‏‎‎‏‏‎<xliff:g id="SERVICE_NAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎‎‏‎‎‏‏‎\n‎‏‎‎‏‏‏‎ You can change the feature in Settings &gt; Accessibility.‎‏‎‎‏‎"</string>
 </resources>

@@ -16,25 +16,31 @@
 
 package com.android.dialer.calllog;
 
+import com.android.dialer.calllog.database.CallLogDatabaseModule;
 import com.android.dialer.calllog.datasources.CallLogDataSource;
 import com.android.dialer.calllog.datasources.DataSources;
 import com.android.dialer.calllog.datasources.phonelookup.PhoneLookupDataSource;
 import com.android.dialer.calllog.datasources.systemcalllog.SystemCallLogDataSource;
+import com.android.dialer.calllog.datasources.voicemail.VoicemailDataSource;
+import com.android.dialer.inject.DialerVariant;
+import com.android.dialer.inject.InstallIn;
 import com.google.common.collect.ImmutableList;
 import dagger.Module;
 import dagger.Provides;
 
 /** Dagger module which satisfies call log dependencies. */
-@Module
+@InstallIn(variants = {DialerVariant.DIALER_TEST})
+@Module(includes = CallLogDatabaseModule.class)
 public abstract class CallLogModule {
 
   @Provides
   static DataSources provideCallLogDataSources(
       SystemCallLogDataSource systemCallLogDataSource,
-      PhoneLookupDataSource phoneLookupDataSource) {
+      PhoneLookupDataSource phoneLookupDataSource,
+      VoicemailDataSource voicemailDataSource) {
     // System call log must be first, see getDataSourcesExcludingSystemCallLog below.
     ImmutableList<CallLogDataSource> allDataSources =
-        ImmutableList.of(systemCallLogDataSource, phoneLookupDataSource);
+        ImmutableList.of(systemCallLogDataSource, phoneLookupDataSource, voicemailDataSource);
     return new DataSources() {
       @Override
       public SystemCallLogDataSource getSystemCallLogDataSource() {

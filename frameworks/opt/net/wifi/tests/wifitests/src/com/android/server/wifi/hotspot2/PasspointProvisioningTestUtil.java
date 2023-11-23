@@ -34,7 +34,9 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Helper for creating and populating WifiConfigurations in unit tests.
@@ -56,15 +58,32 @@ public class PasspointProvisioningTestUtil {
 
     /**
      * Construct a {@link android.net.wifi.hotspot2.OsuProvider}.
+     *
      * @param openOsuAP indicates if the OSU AP belongs to an open or OSEN network
      * @return the constructed {@link android.net.wifi.hotspot2.OsuProvider}
      */
     public static OsuProvider generateOsuProvider(boolean openOsuAP) {
+        Map<String, String> friendlyNames = new HashMap<>();
+        friendlyNames.put("en", TEST_FRIENDLY_NAME);
+        return generateOsuProviderWithFriendlyName(openOsuAP, friendlyNames);
+    }
+
+    /**
+     * Construct a {@link android.net.wifi.hotspot2.OsuProvider} with given friendlyName.
+     *
+     * @param openOsuAP     indicates if the OSU AP belongs to an open or OSEN network
+     * @param friendlyNames map of friendly names with language and friendly name in the language
+     * @return the constructed {@link android.net.wifi.hotspot2.OsuProvider}
+     */
+    public static OsuProvider generateOsuProviderWithFriendlyName(boolean openOsuAP,
+            Map<String, String> friendlyNames) {
         if (openOsuAP) {
-            return new OsuProvider(TEST_SSID, TEST_FRIENDLY_NAME, TEST_SERVICE_DESCRIPTION,
+            return new OsuProvider(TEST_SSID, friendlyNames,
+                    TEST_SERVICE_DESCRIPTION,
                     TEST_SERVER_URI, null, TEST_METHOD_LIST, TEST_ICON);
         } else {
-            return new OsuProvider(TEST_SSID, TEST_FRIENDLY_NAME, TEST_SERVICE_DESCRIPTION,
+            return new OsuProvider(TEST_SSID, friendlyNames,
+                    TEST_SERVICE_DESCRIPTION,
                     TEST_SERVER_URI, TEST_NAI, TEST_METHOD_LIST, TEST_ICON);
         }
     }
@@ -74,8 +93,10 @@ public class PasspointProvisioningTestUtil {
      * @return the constructed {@link android.net.wifi.hotspot2.OsuProvider}
      */
     public static OsuProvider generateInvalidServerUrlOsuProvider() {
-        return new OsuProvider(TEST_SSID, TEST_FRIENDLY_NAME, TEST_SERVICE_DESCRIPTION,
-                INVALID_SERVER_URI, null, TEST_METHOD_LIST, TEST_ICON);
+        HashMap<String, String> friendlyNameMap = new HashMap<>();
+        friendlyNameMap.put("en", TEST_FRIENDLY_NAME);
+        return new OsuProvider(TEST_SSID, friendlyNameMap,
+                TEST_SERVICE_DESCRIPTION, INVALID_SERVER_URI, null, TEST_METHOD_LIST, TEST_ICON);
     }
 
     /**
@@ -105,7 +126,7 @@ public class PasspointProvisioningTestUtil {
      * Return a set of OSU server certs to test with
      * @return List<X509Certificate> an array of OSU certs
      */
-    private static List<X509Certificate> getOsuCertsForTest() {
+    /* package */ static List<X509Certificate> getOsuCertsForTest() {
         List<X509Certificate> osuCerts = new ArrayList<X509Certificate>();
         try {
             CertificateFactory certFactory = CertificateFactory.getInstance("X.509");

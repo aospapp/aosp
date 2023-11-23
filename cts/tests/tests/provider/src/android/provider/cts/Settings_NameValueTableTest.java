@@ -16,32 +16,60 @@
 
 package android.provider.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.provider.Settings.NameValueTable;
-import android.test.AndroidTestCase;
 
-public class Settings_NameValueTableTest extends AndroidTestCase {
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(AndroidJUnit4.class)
+public class Settings_NameValueTableTest {
+    @BeforeClass
+    public static void setUp() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings allow");
+
+        // Wait a beat to persist the change
+        SystemClock.sleep(500);
+    }
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings default");
+    }
+
+    @Test
     public void testPutString() {
-        ContentResolver cr = mContext.getContentResolver();
+        final ContentResolver cr = InstrumentationRegistry.getTargetContext().getContentResolver();
+
         Uri uri = Settings.System.CONTENT_URI;
-        String name = "name1";
+        String name = Settings.System.NEXT_ALARM_FORMATTED;
         String value = "value1";
 
         // before putString
         Cursor c = cr.query(uri, null, null, null, null);
         try {
             assertNotNull(c);
-            int origCount = c.getCount();
             c.close();
 
             MyNameValueTable.putString(cr, uri, name, value);
             c = cr.query(uri, null, null, null, null);
             assertNotNull(c);
-            assertEquals(origCount + 1, c.getCount());
             c.close();
 
             // query this row
@@ -50,21 +78,16 @@ public class Settings_NameValueTableTest extends AndroidTestCase {
             assertNotNull(c);
             assertEquals(1, c.getCount());
             c.moveToFirst();
-            assertEquals("name1", c.getString(c.getColumnIndexOrThrow(NameValueTable.NAME)));
-            assertEquals("value1", c.getString(c.getColumnIndexOrThrow(NameValueTable.VALUE)));
+            assertEquals(name, c.getString(c.getColumnIndexOrThrow(NameValueTable.NAME)));
+            assertEquals(value, c.getString(c.getColumnIndexOrThrow(NameValueTable.VALUE)));
             c.close();
-
-            // delete this row
-            cr.delete(uri, selection, null);
-            c = cr.query(uri, null, null, null, null);
-            assertNotNull(c);
-            assertEquals(origCount, c.getCount());
         } finally {
             // TODO should clean up more better
             c.close();
         }
     }
 
+    @Test
     public void testGetUriFor() {
         Uri uri = Uri.parse("content://authority/path");
         String name = "table";

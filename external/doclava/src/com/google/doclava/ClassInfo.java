@@ -39,7 +39,6 @@ import java.util.TreeMap;
 import java.util.function.Predicate;
 
 public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Scoped, Resolvable {
-
   /**
    * Contains a ClassInfo and a TypeInfo.
    * <p>

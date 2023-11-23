@@ -36,7 +36,7 @@ class HalHidlHostTest(param_test.ParamTestClass):
     # @Override
     def initParams(self):
         """Get the service combination according to the registered test HAL."""
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
         self.shell = self.dut.shell
         service_instance_combinations = self._GetServiceInstanceCombinations()
         self.params = service_instance_combinations

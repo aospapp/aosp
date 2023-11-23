@@ -16,17 +16,22 @@
 
 package android.text.style.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.cts.R;
 import android.text.style.DynamicDrawableSpan;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,6 +39,8 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class DynamicDrawableSpanTest {
+    private static final int DRAWABLE_SIZE = 50;
+
     @Test
     public void testConstructor() {
         DynamicDrawableSpan d = new MyDynamicDrawableSpan();
@@ -44,6 +51,9 @@ public class DynamicDrawableSpanTest {
 
         d = new MyDynamicDrawableSpan(DynamicDrawableSpan.ALIGN_BOTTOM);
         assertEquals(DynamicDrawableSpan.ALIGN_BOTTOM, d.getVerticalAlignment());
+
+        d = new MyDynamicDrawableSpan(DynamicDrawableSpan.ALIGN_CENTER);
+        assertEquals(DynamicDrawableSpan.ALIGN_CENTER, d.getVerticalAlignment());
     }
 
     @Test
@@ -73,28 +83,63 @@ public class DynamicDrawableSpanTest {
     public void testDraw() {
         DynamicDrawableSpan dynamicDrawableSpan = new MyDynamicDrawableSpan();
         Canvas canvas = new Canvas();
-        dynamicDrawableSpan.draw(canvas, null, 0, 0, 1.0f, 0, 0, 1, null);
+        dynamicDrawableSpan.draw(canvas, null /* text */, 0 /* start */, 0 /* end */, 1.0f /* x */,
+                0 /* top */, 0 /* y */, 1 /* bottom */, null /* paint */);
     }
 
     @Test(expected=NullPointerException.class)
     public void testDrawNullCanvas() {
         DynamicDrawableSpan dynamicDrawableSpan = new MyDynamicDrawableSpan();
 
-        dynamicDrawableSpan.draw(null, null, 0, 0, 1.0f, 0, 0, 1, null);
+        dynamicDrawableSpan.draw(null /* canvas */, null /* text */, 0 /* start */, 0 /* end */,
+                1.0f /* x */, 0 /* top */, 0 /* y */, 1 /* bottom */, null /* paint */);
+    }
+
+    @Test
+    public void testCenterAligned() {
+        final DynamicDrawableSpan dynamicDrawableSpan =
+                new MyDynamicDrawableSpan(DynamicDrawableSpan.ALIGN_CENTER);
+        final int padding = 10;
+        final int bottom = DRAWABLE_SIZE + padding;
+
+        final Bitmap bitmap = Bitmap.createBitmap(DRAWABLE_SIZE, bottom, Bitmap.Config.ARGB_8888);
+        final Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(Color.RED);
+        dynamicDrawableSpan.draw(canvas, null /* text */, 0 /* start */, 0 /* end */, 0f /* x */,
+                0 /* top */, 0 /* y */, bottom, null /* paint */);
+
+        // Top should be completely red.
+        for (int i = 0; i < padding / 2; i++) {
+            assertThat(bitmap.getColor(0, i).toArgb()).isEqualTo(Color.RED);
+        }
+        // Center should have been filled with drawable.
+        for (int i = 0; i < DRAWABLE_SIZE; i++) {
+            assertThat(bitmap.getColor(0, i + padding / 2).toArgb()).isNotEqualTo(Color.RED);
+        }
+        // Bottom should be also red.
+        for (int i = 0; i < padding / 2; i++) {
+            assertThat(bitmap.getColor(0, i + DRAWABLE_SIZE + padding / 2).toArgb())
+                    .isEqualTo(Color.RED);
+        }
+        bitmap.recycle();
     }
 
     private class MyDynamicDrawableSpan extends DynamicDrawableSpan {
+        private final Drawable mDrawable;
+
         public MyDynamicDrawableSpan() {
-            super();
+            this(ALIGN_BOTTOM);
         }
 
         protected MyDynamicDrawableSpan(int verticalAlignment) {
             super(verticalAlignment);
+            mDrawable = InstrumentationRegistry.getTargetContext().getDrawable(R.drawable.scenery);
+            mDrawable.setBounds(0, 0, DRAWABLE_SIZE, DRAWABLE_SIZE);
         }
 
         @Override
         public Drawable getDrawable() {
-            return InstrumentationRegistry.getTargetContext().getDrawable(R.drawable.scenery);
+            return mDrawable;
         }
     }
 }

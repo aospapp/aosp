@@ -65,11 +65,11 @@ ${buildReturnRows()}
                 ?.let { formatTextasHTML(it.description, useParagraphs = false) }
                 ?: run {
             val msg = "Missing @${tag.value} doc annotation for '${arg.type} ${arg.name}'"
-            if (config.errorOnly) {
-                throw ParseException(msg, 0)
-            } else {
+            if (config.warnOnly) {
                 warn(msg)
                 "" //return empty string if it can't find it
+            } else {
+                throw ParseException(msg, 0)
             }
         }
     }

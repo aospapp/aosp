@@ -1,10 +1,10 @@
 filegroup {
     name: "libopenjdk_native_srcs",
     srcs: [
-        "java_util_zip_ZipFile.c",
-        "java_util_zip_Inflater.c",
-        "java_util_zip_Deflater.c",
-        "java_util_zip_CRC32.c",
+        "ZipFile.c",
+        "Inflater.c",
+        "Deflater.c",
+        "CRC32.c",
         "Adler32.c",
         "zip_util.c",
         "jni_util.c",
@@ -57,9 +57,9 @@ filegroup {
         "System.c",
         "Runtime.c",
         "UNIXProcess_md.c",
-        "Bits.c",
         "Character.cpp",
-        "Register.cpp",
         "socket_tagger_util.cpp",
+        "OnLoad.cpp",
+        "JniConstants.cpp",
     ],
 }

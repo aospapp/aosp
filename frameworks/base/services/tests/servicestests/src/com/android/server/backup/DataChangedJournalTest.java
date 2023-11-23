@@ -19,8 +19,9 @@ package com.android.server.backup;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.platform.test.annotations.Presubmit;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -36,6 +37,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 
 @SmallTest
 @Presubmit
@@ -47,7 +49,7 @@ public class DataChangedJournalTest {
 
     @Rule public TemporaryFolder mTemporaryFolder = new TemporaryFolder();
 
-    @Mock private DataChangedJournal.Consumer mConsumer;
+    @Mock private Consumer<String> mConsumer;
 
     private File mFile;
     private DataChangedJournal mJournal;

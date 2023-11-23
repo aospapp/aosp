@@ -16,6 +16,7 @@
 
 package com.android.tv.dvr.ui.playback;
 
+import android.content.Context;
 import android.media.PlaybackParams;
 import android.media.session.PlaybackState;
 import android.media.tv.TvContentRating;
@@ -24,12 +25,16 @@ import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.text.TextUtils;
 import android.util.Log;
+import com.android.tv.common.compat.TvViewCompat.TvInputCallbackCompat;
+import com.android.tv.dvr.DvrTvView;
 import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.ui.AppLayerTvView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-class DvrPlayer {
+/** Player for recorded programs. */
+public class DvrPlayer {
     private static final String TAG = "DvrPlayer";
     private static final boolean DEBUG = false;
 
@@ -40,10 +45,11 @@ class DvrPlayer {
 
     private static final long SEEK_POSITION_MARGIN_MS = TimeUnit.SECONDS.toMillis(2);
     private static final long REWIND_POSITION_MARGIN_MS = 32; // Workaround value. b/29994826
+    private static final long FORWARD_POSITION_MARGIN_MS = TimeUnit.SECONDS.toMillis(5);
 
     private RecordedProgram mProgram;
     private long mInitialSeekPositionMs;
-    private final TvView mTvView;
+    private final DvrTvView mTvView;
     private DvrPlayerCallback mCallback;
     private OnAspectRatioChangedListener mOnAspectRatioChangedListener;
     private OnContentBlockedListener mOnContentBlockedListener;
@@ -63,6 +69,7 @@ class DvrPlayer {
     private long mStartPositionMs = TvInputManager.TIME_SHIFT_INVALID_TIME;
     private boolean mTimeShiftPlayAvailable;
 
+    /** Callback of DVR player. */
     public static class DvrPlayerCallback {
         /**
          * Called when the playback position is changed. The normal updating frequency is around 1
@@ -74,8 +81,11 @@ class DvrPlayer {
         public void onPlaybackStateChanged(int playbackState, int playbackSpeed) {}
         /** Called when the playback toward the end. */
         public void onPlaybackEnded() {}
+        /** Called when the playback is resumed to live position. */
+        public void onPlaybackResume() {}
     }
 
+    /** Listener for aspect ratio changed events. */
     public interface OnAspectRatioChangedListener {
         /**
          * Called when the Video's aspect ratio is changed.
@@ -86,27 +96,32 @@ class DvrPlayer {
         void onAspectRatioChanged(float videoAspectRatio);
     }
 
+    /** Listener for content blocked events. */
     public interface OnContentBlockedListener {
         /** Called when the Video's aspect ratio is changed. */
         void onContentBlocked(TvContentRating rating);
     }
 
+    /** Listener for tracks availability changed events */
     public interface OnTracksAvailabilityChangedListener {
         /** Called when the Video's subtitle or audio tracks are changed. */
         void onTracksAvailabilityChanged(boolean hasClosedCaption, boolean hasMultiAudio);
     }
 
+    /** Listener for track selected events */
     public interface OnTrackSelectedListener {
         /** Called when certain subtitle or audio track is selected. */
         void onTrackSelected(String selectedTrackId);
     }
 
-    public DvrPlayer(TvView tvView) {
-        mTvView = tvView;
+    /** Constructor of DvrPlayer. */
+    public DvrPlayer(AppLayerTvView tvView, Context context) {
+        mTvView = new DvrTvView(context, tvView, this);
         mTvView.setCaptionEnabled(true);
         mPlaybackParams.setSpeed(1.0f);
         setTvViewCallbacks();
         setCallback(null);
+        mTvView.init();
     }
 
     /**
@@ -333,7 +348,8 @@ class DvrPlayer {
 
     /** Returns the audio tracks of the current playback. */
     public ArrayList<TvTrackInfo> getAudioTracks() {
-        return new ArrayList<>(mTvView.getTracks(TvTrackInfo.TYPE_AUDIO));
+        List<TvTrackInfo> tracks = mTvView.getTracks(TvTrackInfo.TYPE_AUDIO);
+        return tracks == null ? new ArrayList<>() : new ArrayList<>(tracks);
     }
 
     /** Returns the ID of the selected track of the given type. */
@@ -350,6 +366,10 @@ class DvrPlayer {
     public boolean isPlaybackPrepared() {
         return mPlaybackState != PlaybackState.STATE_NONE
                 && mPlaybackState != PlaybackState.STATE_CONNECTING;
+    }
+
+    public void release() {
+        mTvView.release();
     }
 
     /**
@@ -426,9 +446,16 @@ class DvrPlayer {
                             resumeToWatchedPositionIfNeeded();
                         }
                         timeMs -= mStartPositionMs;
-                        if (mPlaybackState == PlaybackState.STATE_REWINDING
-                                && timeMs <= REWIND_POSITION_MARGIN_MS) {
+                        long bufferedTimeMs =
+                                System.currentTimeMillis()
+                                        - mProgram.getStartTimeUtcMillis()
+                                        - FORWARD_POSITION_MARGIN_MS;
+                        if ((mPlaybackState == PlaybackState.STATE_REWINDING
+                                        && timeMs <= REWIND_POSITION_MARGIN_MS)
+                                || (mPlaybackState == PlaybackState.STATE_FAST_FORWARDING
+                                        && timeMs > bufferedTimeMs)) {
                             play();
+                            mCallback.onPlaybackResume();
                         } else {
                             mTimeShiftCurrentPositionMs = getRealSeekPosition(timeMs, 0);
                             mCallback.onPlaybackPositionChanged(mTimeShiftCurrentPositionMs);
@@ -440,7 +467,7 @@ class DvrPlayer {
                     }
                 });
         mTvView.setCallback(
-                new TvView.TvInputCallback() {
+                new TvInputCallbackCompat() {
                     @Override
                     public void onTimeShiftStatusChanged(String inputId, int status) {
                         if (DEBUG) Log.d(TAG, "onTimeShiftStatusChanged:" + status);

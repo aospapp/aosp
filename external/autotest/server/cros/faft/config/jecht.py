@@ -11,4 +11,4 @@ class Values(object):
     has_keyboard = False
     rec_button_dev_switch = True
     spi_voltage = 'pp3300'
-    wp_voltage = 'pp3300'
+    smm_store = False

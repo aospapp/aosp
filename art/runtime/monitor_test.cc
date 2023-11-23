@@ -16,6 +16,7 @@
 
 #include "monitor.h"
 
+#include <memory>
 #include <string>
 
 #include "base/atomic.h"
@@ -34,7 +35,7 @@ namespace art {
 
 class MonitorTest : public CommonRuntimeTest {
  protected:
-  void SetUpRuntimeOptions(RuntimeOptions *options) OVERRIDE {
+  void SetUpRuntimeOptions(RuntimeOptions *options) override {
     // Use a smaller heap
     SetUpRuntimeOptionsForFillHeap(options);
 
@@ -62,7 +63,7 @@ class CreateTask : public Task {
       monitor_test_(monitor_test), initial_sleep_(initial_sleep), millis_(millis),
       expected_(expected) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     {
       ScopedObjectAccess soa(self);
 
@@ -118,7 +119,7 @@ class CreateTask : public Task {
     }
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -136,7 +137,7 @@ class UseTask : public Task {
       monitor_test_(monitor_test), initial_sleep_(initial_sleep), millis_(millis),
       expected_(expected) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     monitor_test_->barrier_->Wait(self);  // Wait for the other thread to set up the monitor.
 
     {
@@ -158,7 +159,7 @@ class UseTask : public Task {
     monitor_test_->complete_barrier_->Wait(self);  // Wait for test completion.
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -174,7 +175,7 @@ class InterruptTask : public Task {
   InterruptTask(MonitorTest* monitor_test, uint64_t initial_sleep, uint64_t millis) :
       monitor_test_(monitor_test), initial_sleep_(initial_sleep), millis_(millis) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     monitor_test_->barrier_->Wait(self);  // Wait for the other thread to set up the monitor.
 
     {
@@ -202,7 +203,7 @@ class InterruptTask : public Task {
     monitor_test_->complete_barrier_->Wait(self);  // Wait for test completion.
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -216,7 +217,7 @@ class WatchdogTask : public Task {
  public:
   explicit WatchdogTask(MonitorTest* monitor_test) : monitor_test_(monitor_test) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     ScopedObjectAccess soa(self);
 
     monitor_test_->watchdog_object_.Get()->MonitorEnter(self);        // Lock the object.
@@ -231,7 +232,7 @@ class WatchdogTask : public Task {
     }
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -251,8 +252,8 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
                                                                               "hello, world!"));
 
   // Create the barrier used to synchronize.
-  test->barrier_ = std::unique_ptr<Barrier>(new Barrier(2));
-  test->complete_barrier_ = std::unique_ptr<Barrier>(new Barrier(3));
+  test->barrier_ = std::make_unique<Barrier>(2);
+  test->complete_barrier_ = std::make_unique<Barrier>(3);
   test->completed_ = false;
 
   // Our job: Fill the heap, then try Wait.
@@ -326,14 +327,14 @@ class TryLockTask : public Task {
  public:
   explicit TryLockTask(Handle<mirror::Object> obj) : obj_(obj) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     ScopedObjectAccess soa(self);
     // Lock is held by other thread, try lock should fail.
     ObjectTryLock<mirror::Object> lock(self, obj_);
     EXPECT_FALSE(lock.Acquired());
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -361,7 +362,7 @@ TEST_F(MonitorTest, TestTryLock) {
     thread_pool.AddTask(self, new TryLockTask(obj1));
     thread_pool.StartWorkers(self);
     ScopedThreadSuspension sts(self, kSuspended);
-    thread_pool.Wait(Thread::Current(), /*do_work*/false, /*may_hold_locks*/false);
+    thread_pool.Wait(Thread::Current(), /*do_work=*/false, /*may_hold_locks=*/false);
   }
   // Test that the trylock actually locks the object.
   {

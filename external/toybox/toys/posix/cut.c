@@ -25,22 +25,21 @@ config CUT
     from start). By default selection ranges are sorted and collated, use -D
     to prevent that.
 
-    -b	select bytes
-    -c	select UTF-8 characters
-    -C	select unicode columns
-    -d	use DELIM (default is TAB for -f, run of whitespace for -F)
-    -D	Don't sort/collate selections
-    -f	select fields (words) separated by single DELIM character
-    -F	select fields separated by DELIM regex
-    -O	output delimiter (default one space for -F, input delim for -f)
-    -s	skip lines without delimiters
+    -b	Select bytes
+    -c	Select UTF-8 characters
+    -C	Select unicode columns
+    -d	Use DELIM (default is TAB for -f, run of whitespace for -F)
+    -D	Don't sort/collate selections or match -fF lines without delimiter
+    -f	Select fields (words) separated by single DELIM character
+    -F	Select fields separated by DELIM regex
+    -O	Output delimiter (default one space for -F, input delim for -f)
+    -s	Skip lines without delimiters
 */
 #define FOR_cut
 #include "toys.h"
 
 GLOBALS(
-  char *d;
-  char *O;
+  char *d, *O;
   struct arg_list *select[5]; // we treat them the same, so loop through
 
   int pairs;
@@ -70,14 +69,15 @@ int unicolumns(char *start, unsigned columns)
   return ss-start;
 }
 
-
 // Apply selections to an input line, producing output
 static void cut_line(char **pline, long len)
 {
   unsigned *pairs = (void *)toybuf;
-  char *line = *pline;
+  char *line;
   int i, j;
 
+  if (!pline) return;
+  line = *pline;
   if (len && line[len-1]=='\n') line[--len] = 0;
 
   // Loop through selections
@@ -154,6 +154,7 @@ static void cut_line(char **pline, long len)
 
       // If we never encountered even one separator, print whole line (posix!)
       if (!j && end == start) {
+        if (toys.optflags&FLAG_D) break;
         if (toys.optflags&FLAG_s) return;
         fwrite(line, len, 1, stdout);
         break;

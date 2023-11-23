@@ -37,7 +37,7 @@ bool RequestGroup::RemoveRequest(const std::string& hint_type) {
     return request_map_.erase(hint_type);
 }
 
-std::string RequestGroup::GetRequestValue() const {
+const std::string& RequestGroup::GetRequestValue() const {
     return request_value_;
 }
 

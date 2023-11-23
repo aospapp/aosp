@@ -94,8 +94,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Калибрација"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Изаберите формате"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Звучни систем"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -331,13 +331,13 @@
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Ово може мало да потраје. Не уклањајте диск."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"Изаберите меморијски простор за пренос података"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Пренесите податке на уређај <xliff:g id="NAME">%1$s</xliff:g>"</string>
-    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Пренесите слике, датотеке и податке апликација на уређај <xliff:g id="NAME">%1$s</xliff:g>. То може да потраје неколико минута. Неке апликације неће функционисати исправно током преноса."</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Пренесите слике, датотеке и податке апликација на уређај <xliff:g id="NAME">%1$s</xliff:g>. То може да потраје неколико минута. Неке апликације неће радити исправно током преноса."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Пренеси одмах"</string>
     <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Пренеси касније"</string>
     <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Подаци су пренети на уређај <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Није успео пренос података на уређај <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Преносе се подаци на уређај <xliff:g id="NAME">%1$s</xliff:g>..."</string>
-    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Ово може мало да потраје. Не уклањајте диск.\nНеке апликације неће функционисати исправно током преноса."</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Ово може мало да потраје. Не уклањајте диск.\nНеке апликације неће радити исправно током преноса."</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"Изгледа да је диск спор."</string>
     <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Можете да наставите, али апликације које преместите на ту локацију ће се можда прекидати и трансфери података могу дуго да трају. Размислите о коришћењу бржег диска за бољи учинак."</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"Формат"</string>
@@ -363,7 +363,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Неке апликације неће бити доступне или неће функционисати како треба док се диск не повеже поново."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Нема довољно меморијског простора."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Апликација не постоји."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Апликација је заштићена од копирања."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Локација за инсталирање није важећа."</string>
     <string name="system_package" msgid="9200255718634512790">"Није могуће инсталирати ажурирања система на спољашњим медијима."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Администратор уређаја не може да се инсталира на спољним медијумима."</string>
@@ -515,7 +514,7 @@
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"Хардверски слојеви трепере зелено кад се ажурирају"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Најбоље ка најгорем: плаво, зелено, светлоцрвено, црвено"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Осветли све површине прозора када се ажурирају"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Екран трепери код дугих операција аплик. на глав. нити"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Екран трепери код дугих операција апл. на глав. нити"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Мери време приказивања у adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Укључи"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Искључи"</string>
@@ -736,6 +735,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Приступ обавештењима"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Ниједна инсталирана апликација није захтевала приступ обавештењима."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Ове апликације ће моћи да читају сва обавештења, укључујући личне податке, попут имена контаката и текста порука које примате. Моћи ће и да одбацују обавештења или да користе дугмад за радње која садрже."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Приступ директоријумима"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Ове апликације имају дозволу за приступ одређеним директоријумима."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Приказ преко других апликација"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Дозволи приказ преко других апликација"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Омогућите апликацији да се приказује преко других апликација које користите. То може да омета коришћење тих апликација или да промени њихов изглед или понашање."</string>

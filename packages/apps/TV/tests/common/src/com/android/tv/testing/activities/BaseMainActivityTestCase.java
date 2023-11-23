@@ -15,12 +15,12 @@
  */
 package com.android.tv.testing.activities;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import android.content.Context;
 import android.os.SystemClock;
-import android.support.test.rule.ActivityTestRule;
 import android.text.TextUtils;
+import androidx.test.rule.ActivityTestRule;
 import com.android.tv.MainActivity;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.api.Channel;

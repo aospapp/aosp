@@ -78,6 +78,69 @@ Only the three quirks included above are recognized at this point:
 <MediaCodecs>
     <Include href="media_codecs_google_audio.xml" />
     <Decoders>
+        <MediaCodec name="OMX.hisi.video.decoder.avc" type="video/avc" >
+            <Quirk name="needs-flush-on-all-ports" />
+            <Limit name="size" min="128x128" max="4096x2304" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" min="1" max="972000" />
+            <Limit name="bitrate" range="1-100000000" />
+            <Feature name="adaptive-playback" />
+            <Quirk name="requires-allocate-on-input-ports" />
+            <Quirk name="requires-allocate-on-output-ports" />
+            <Limit name="concurrent-instances" max="16" />
+        </MediaCodec>
+        <MediaCodec name="OMX.hisi.video.decoder.hevc" type="video/hevc" >
+            <Quirk name="needs-flush-on-all-ports" />
+            <Limit name="size" min="128x128" max="4096x2304" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="block-count" range="64-36896" />
+            <Limit name="blocks-per-second" range="99-1106880" />
+            <Limit name="bitrate" range="1-52428800" />
+            <Feature name="adaptive-playback" />
+            <Quirk name="requires-allocate-on-input-ports" />
+            <Quirk name="requires-allocate-on-output-ports" />
+            <Limit name="concurrent-instances" max="16" />
+        </MediaCodec>
+        <MediaCodec name="OMX.hisi.video.decoder.mpeg4" type="video/mp4v-es" >
+             <Quirk name="needs-flush-on-all-ports" />
+            <Limit name="size" min="128x128" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="99-244800" />
+            <Limit name="bitrate" range="1-60000000" />
+            <Feature name="adaptive-playback" />
+            <Quirk name="requires-allocate-on-input-ports" />
+            <Quirk name="requires-allocate-on-output-ports" />
+            <Limit name="concurrent-instances" max="16" />
+        </MediaCodec>
+        <MediaCodec name="OMX.hisi.video.decoder.mpeg2" >
+            <Quirk name="needs-flush-on-all-ports" />
+            <Limit name="size" min="128x128" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="99-244800" />
+            <Limit name="bitrate" range="1-60000000" />
+            <Feature name="adaptive-playback" />
+            <Quirk name="requires-allocate-on-input-ports" />
+            <Quirk name="requires-allocate-on-output-ports" />
+            <Limit name="concurrent-instances" max="16" />
+            <Type name="video/mpeg2">
+            <Limit name="concurrent-instances" max="16" />
+            </Type>
+            <Type name="video/mpeg">
+            <Limit name="concurrent-instances" max="16" />
+            </Type>
+        </MediaCodec>
+        <MediaCodec name="OMX.hisi.video.decoder.vp8" type="video/x-vnd.on2.vp8" >
+            <Limit name="size" min="128x128" max="1920x1088" />
+            <Quirk name="needs-flush-on-all-ports" />
+            <Quirk name="requires-allocate-on-input-ports" />
+            <Quirk name="requires-allocate-on-output-ports" />
+            <Feature name="adaptive-playback" />
+            <Limit name="concurrent-instances" max="16" />
+        </MediaCodec>
         <MediaCodec name="OMX.google.mpeg4.decoder" type="video/mp4v-es" />
         <MediaCodec name="OMX.google.h263.decoder" type="video/3gpp" />
         <MediaCodec name="OMX.google.h264.decoder" type="video/avc" />

@@ -27,6 +27,7 @@
 #include "utils/arm/jni_macro_assembler_arm_vixl.h"
 
 #include "base/hex_dump.h"
+#include "base/malloc_arena_pool.h"
 #include "common_runtime_test.h"
 
 namespace art {
@@ -124,7 +125,7 @@ void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* 
   // Assemble the .S
   snprintf(cmd, sizeof(cmd), "%sas %s -o %s.o", toolsdir.c_str(), filename, filename);
   int cmd_result = system(cmd);
-  ASSERT_EQ(cmd_result, 0) << strerror(errno);
+  ASSERT_EQ(cmd_result, 0) << cmd << strerror(errno);
 
   // Disassemble.
   snprintf(cmd, sizeof(cmd), "%sobjdump -D -M force-thumb --section=.text %s.o  | grep '^  *[0-9a-f][0-9a-f]*:'",
@@ -169,7 +170,7 @@ class ArmVIXLAssemblerTest : public ::testing::Test {
  public:
   ArmVIXLAssemblerTest() : pool(), allocator(&pool), assembler(&allocator) { }
 
-  ArenaPool pool;
+  MallocArenaPool pool;
   ArenaAllocator allocator;
   ArmVIXLJNIMacroAssembler assembler;
 };
@@ -238,7 +239,7 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
   __ Load(scratch_register, FrameOffset(4092), 4);
   __ Load(scratch_register, FrameOffset(4096), 4);
   __ LoadRawPtrFromThread(scratch_register, ThreadOffset32(512));
-  __ LoadRef(method_register, scratch_register, MemberOffset(128), /* unpoison_reference */ false);
+  __ LoadRef(method_register, scratch_register, MemberOffset(128), /* unpoison_reference= */ false);
 
   // Stores
   __ Store(FrameOffset(32), method_register, 4);
@@ -283,7 +284,7 @@ TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
 
   __ DecreaseFrameSize(4096);
   __ DecreaseFrameSize(32);
-  __ RemoveFrame(frame_size, callee_save_regs, /* may_suspend */ true);
+  __ RemoveFrame(frame_size, callee_save_regs, /* may_suspend= */ true);
 
   EmitAndCheck(&assembler, "VixlJniHelpers");
 }

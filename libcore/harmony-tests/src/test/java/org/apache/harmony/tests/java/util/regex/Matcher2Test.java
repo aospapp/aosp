@@ -4,9 +4,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -216,9 +216,6 @@ public class Matcher2Test extends TestCase {
         }
     }
 
-    /*
-     * Regression test for HARMONY-997
-     */
     public void testReplacementBackSlash() {
         String str = "replace me";
         String replacedString = "me";
@@ -227,8 +224,29 @@ public class Matcher2Test extends TestCase {
         Matcher mat = pat.matcher(str);
         try {
             mat.replaceAll(substitutionString);
-            fail("IndexOutOfBoundsException should be thrown");
-        } catch (IndexOutOfBoundsException e) {
+            fail("IllegalArgumentException should be thrown");
+        } catch (IllegalArgumentException e) {
         }
     }
+
+    public void testAppendReplacement_replacementEndsWithBackslash() {
+        Matcher matcher = Pattern.compile("Hello").matcher("Hello, world!");
+        matcher.find();
+        try {
+            matcher.appendReplacement(new StringBuffer(), "replacement\\");
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testAppendReplacement_replacementEndsWithDollar() {
+        Matcher matcher = Pattern.compile("Hello").matcher("Hello, world!");
+        matcher.find();
+        try {
+            matcher.appendReplacement(new StringBuffer(), "replacement$");
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
 }

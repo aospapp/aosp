@@ -19,6 +19,7 @@ package android.keystore.cts;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
+import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
 import com.google.common.collect.ObjectArrays;
@@ -45,7 +46,8 @@ import java.util.TreeMap;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
-public class KeyGeneratorTest extends TestCase {
+
+public class KeyGeneratorTest extends AndroidTestCase {
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_PROVIDER_NAME;
 
     static String[] EXPECTED_ALGORITHMS = {
@@ -55,6 +57,11 @@ public class KeyGeneratorTest extends TestCase {
         "HmacSHA256",
         "HmacSHA384",
         "HmacSHA512",
+    };
+
+    static String[] EXPECTED_STRONGBOX_ALGORITHMS = {
+        "AES",
+        "HmacSHA256",
     };
 
     {
@@ -76,6 +83,7 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     static final int[] AES_SUPPORTED_KEY_SIZES = new int[] {128, 192, 256};
+    static final int[] DES_SUPPORTED_KEY_SIZES = new int[] {168};
 
     public void testAlgorithmList() {
         // Assert that Android Keystore Provider exposes exactly the expected KeyGenerator
@@ -179,10 +187,22 @@ public class KeyGeneratorTest extends TestCase {
 
     public void testInitWithAlgParamsAndNullSecureRandom()
             throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithAlgParamsAndNullSecureRandomHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithAlgParamsAndNullSecureRandomHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testInitWithAlgParamsAndNullSecureRandomHelper(boolean useStrongbox)
+            throws Exception {
+        for (String algorithm :
+            (useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS)) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
-                keyGenerator.init(getWorkingSpec().build(), (SecureRandom) null);
+                keyGenerator.init(getWorkingSpec()
+                    .setIsStrongBoxBacked(useStrongbox)
+                    .build(),
+                    (SecureRandom) null);
                 // Check that generateKey doesn't fail either, just in case null SecureRandom
                 // causes trouble there.
                 keyGenerator.generateKey();
@@ -208,7 +228,15 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testDefaultKeySize() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testDefaultKeySize(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testDefaultKeySize(true /* useStrongbox */);
+        }
+    }
+
+    private void testDefaultKeySize(boolean useStrongbox) throws Exception {
+        for (String algorithm :
+            (useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS)) {
             try {
                 int expectedSizeBits = DEFAULT_KEY_SIZES.get(algorithm);
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
@@ -222,6 +250,13 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testAesKeySupportedSizes() throws Exception {
+        testAesKeySupportedSizesHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testAesKeySupportedSizesHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testAesKeySupportedSizesHelper(boolean useStrongbox) throws Exception {
         KeyGenerator keyGenerator = getKeyGenerator("AES");
         KeyGenParameterSpec.Builder goodSpec = getWorkingSpec();
         CountingSecureRandom rng = new CountingSecureRandom();
@@ -230,10 +265,12 @@ public class KeyGeneratorTest extends TestCase {
                 rng.resetCounters();
                 KeyGenParameterSpec spec;
                 if (i >= 0) {
-                    spec = TestUtils.buildUpon(goodSpec.setKeySize(i)).build();
+                    spec = TestUtils.buildUpon(
+                        goodSpec.setKeySize(i)).setIsStrongBoxBacked(useStrongbox).build();
                 } else {
                     try {
-                        spec = TestUtils.buildUpon(goodSpec.setKeySize(i)).build();
+                        spec = TestUtils.buildUpon(
+                            goodSpec.setKeySize(i)).setIsStrongBoxBacked(useStrongbox).build();
                         fail();
                     } catch (IllegalArgumentException expected) {
                         continue;
@@ -258,9 +295,58 @@ public class KeyGeneratorTest extends TestCase {
         }
     }
 
-    public void testHmacKeySupportedSizes() throws Exception {
+    // TODO: This test will fail until b/117509689 is resolved.
+    public void testDESKeySupportedSizes() throws Exception {
+        if (!TestUtils.supports3DES()) {
+            return;
+        }
+        KeyGenerator keyGenerator = getKeyGenerator("DESede");
+        KeyGenParameterSpec.Builder goodSpec = getWorkingSpec();
         CountingSecureRandom rng = new CountingSecureRandom();
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (int i = -16; i <= 168; i++) {
+            try {
+                rng.resetCounters();
+                KeyGenParameterSpec spec;
+                if (i >= 0) {
+                    spec = TestUtils.buildUpon(goodSpec.setKeySize(i)).build();
+                } else {
+                    try {
+                        spec = TestUtils.buildUpon(goodSpec.setKeySize(i)).build();
+                        fail();
+                    } catch (IllegalArgumentException expected) {
+                        continue;
+                    }
+                }
+                rng.resetCounters();
+                if (TestUtils.contains(DES_SUPPORTED_KEY_SIZES, i)) {
+                    keyGenerator.init(spec, rng);
+                    SecretKey key = keyGenerator.generateKey();
+                    assertEquals(i, TestUtils.getKeyInfo(key).getKeySize());
+                } else {
+                    try {
+                        keyGenerator.init(spec, rng);
+                        fail();
+                    } catch (InvalidAlgorithmParameterException expected) {}
+                    assertEquals(0, rng.getOutputSizeBytes());
+                }
+            } catch (Throwable e) {
+                throw new RuntimeException("Failed for key size " + i +
+                    "\n***This test will continue to fail until b/117509689 is resolved***", e);
+            }
+        }
+    }
+
+    public void testHmacKeySupportedSizes() throws Exception {
+        testHmacKeySupportedSizesHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testHmacKeySupportedSizesHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testHmacKeySupportedSizesHelper(boolean useStrongbox) throws Exception {
+        CountingSecureRandom rng = new CountingSecureRandom();
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             if (!TestUtils.isHmacAlgorithm(algorithm)) {
                 continue;
             }
@@ -271,16 +357,31 @@ public class KeyGeneratorTest extends TestCase {
                     KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                     KeyGenParameterSpec spec;
                     if (i >= 0) {
-                        spec = getWorkingSpec().setKeySize(i).build();
+                        spec = getWorkingSpec()
+                            .setKeySize(i)
+                            .setIsStrongBoxBacked(useStrongbox)
+                            .build();
                     } else {
                         try {
-                            spec = getWorkingSpec().setKeySize(i).build();
+                            spec = getWorkingSpec()
+                                .setKeySize(i)
+                                .setIsStrongBoxBacked(useStrongbox)
+                                .build();
                             fail();
                         } catch (IllegalArgumentException expected) {
                             continue;
                         }
                     }
-                    if ((i >= 64) && ((i % 8 ) == 0)) {
+                    // Strongbox must not support keys larger than 512 bits
+                    // TODO: This test currently fails, will be fixed on resolution of b/113525261
+                    if (useStrongbox && i > 512) {
+                        try {
+                            keyGenerator.init(spec, rng);
+                            fail();
+                        } catch (InvalidAlgorithmParameterException expected) {
+                            assertEquals(0, rng.getOutputSizeBytes());
+                        }
+                    } else if ((i >= 64) && ((i % 8 ) == 0)) {
                         keyGenerator.init(spec, rng);
                         SecretKey key = keyGenerator.generateKey();
                         assertEquals(i, TestUtils.getKeyInfo(key).getKeySize());
@@ -294,14 +395,24 @@ public class KeyGeneratorTest extends TestCase {
                     }
                 } catch (Throwable e) {
                     throw new RuntimeException(
-                            "Failed for " + algorithm + " with key size " + i, e);
+                            "Failed for " + algorithm + " with key size " + i
+                            + ". Use Strongbox: " + useStrongbox, e);
                 }
             }
         }
     }
 
     public void testHmacKeyOnlyOneDigestCanBeAuthorized() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testHmacKeyOnlyOneDigestCanBeAuthorizedHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testHmacKeyOnlyOneDigestCanBeAuthorizedHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testHmacKeyOnlyOneDigestCanBeAuthorizedHelper(boolean useStrongbox)
+        throws Exception {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             if (!TestUtils.isHmacAlgorithm(algorithm)) {
                 continue;
             }
@@ -316,21 +427,30 @@ public class KeyGeneratorTest extends TestCase {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
 
                 // Digests authorization not specified in algorithm parameters
-                assertFalse(goodSpec.build().isDigestsSpecified());
-                keyGenerator.init(goodSpec.build());
+                assertFalse(goodSpec
+                    .setIsStrongBoxBacked(useStrongbox)
+                    .build()
+                    .isDigestsSpecified());
+                keyGenerator.init(goodSpec.setIsStrongBoxBacked(useStrongbox).build());
                 SecretKey key = keyGenerator.generateKey();
                 TestUtils.assertContentsInAnyOrder(
                         Arrays.asList(TestUtils.getKeyInfo(key).getDigests()), digest);
 
                 // The same digest is specified in algorithm parameters
-                keyGenerator.init(TestUtils.buildUpon(goodSpec).setDigests(digest).build());
+                keyGenerator.init(TestUtils.buildUpon(goodSpec)
+                    .setDigests(digest)
+                    .setIsStrongBoxBacked(useStrongbox)
+                    .build());
                 key = keyGenerator.generateKey();
                 TestUtils.assertContentsInAnyOrder(
                         Arrays.asList(TestUtils.getKeyInfo(key).getDigests()), digest);
 
                 // No digests specified in algorithm parameters
                 try {
-                    keyGenerator.init(TestUtils.buildUpon(goodSpec).setDigests().build());
+                    keyGenerator.init(TestUtils.buildUpon(goodSpec)
+                        .setDigests()
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
 
@@ -339,12 +459,14 @@ public class KeyGeneratorTest extends TestCase {
                 try {
                     keyGenerator.init(TestUtils.buildUpon(goodSpec)
                             .setDigests(anotherDigest)
+                            .setIsStrongBoxBacked(useStrongbox)
                             .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
                 try {
                     keyGenerator.init(TestUtils.buildUpon(goodSpec)
                             .setDigests(digest, anotherDigest)
+                            .setIsStrongBoxBacked(useStrongbox)
                             .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
@@ -355,11 +477,23 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitWithUnknownBlockModeFails() {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithUnknownBlockModeFailsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithUnknownBlockModeFailsHelper(true /* useStrongbox */);
+        }
+    }
+
+    public void testInitWithUnknownBlockModeFailsHelper(boolean useStrongbox) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                 try {
-                    keyGenerator.init(getWorkingSpec().setBlockModes("weird").build());
+                    keyGenerator.init(
+                        getWorkingSpec()
+                        .setBlockModes("weird")
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
             } catch (Throwable e) {
@@ -369,11 +503,23 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitWithUnknownEncryptionPaddingFails() {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithUnknownEncryptionPaddingFailsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithUnknownEncryptionPaddingFailsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testInitWithUnknownEncryptionPaddingFailsHelper(boolean useStrongbox) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                 try {
-                    keyGenerator.init(getWorkingSpec().setEncryptionPaddings("weird").build());
+                    keyGenerator.init(
+                        getWorkingSpec()
+                        .setEncryptionPaddings("weird")
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
             } catch (Throwable e) {
@@ -383,12 +529,21 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitWithSignaturePaddingFails() {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithSignaturePaddingFailsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithSignaturePaddingFailsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testInitWithSignaturePaddingFailsHelper(boolean useStrongbox) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                 try {
                     keyGenerator.init(getWorkingSpec()
                             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                            .setIsStrongBoxBacked(useStrongbox)
                             .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
@@ -399,7 +554,15 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitWithUnknownDigestFails() {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithUnknownDigestFailsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithUnknownDigestFailsHelper(true /* useStrongbox */);
+        }
+    }
+
+    public void testInitWithUnknownDigestFailsHelper(boolean useStrongbox) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                 try {
@@ -411,7 +574,11 @@ public class KeyGeneratorTest extends TestCase {
                     } else {
                         digests = new String[] {"weird"};
                     }
-                    keyGenerator.init(getWorkingSpec().setDigests(digests).build());
+                    keyGenerator.init(
+                        getWorkingSpec()
+                        .setDigests(digests)
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
             } catch (Throwable e) {
@@ -421,7 +588,17 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFails() {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFailsHelper(
+            false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFailsHelper(
+                true /* useStrongbox */);
+        }
+    }
+
+    private void testInitWithKeyAlgorithmDigestMissingFromAuthorizedDigestFailsHelper(boolean useStrongbox) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             if (!TestUtils.isHmacAlgorithm(algorithm)) {
                 continue;
             }
@@ -433,13 +610,21 @@ public class KeyGeneratorTest extends TestCase {
                     String digest = TestUtils.getHmacAlgorithmDigest(algorithm);
                     String anotherDigest = KeyProperties.DIGEST_SHA256.equalsIgnoreCase(digest)
                             ? KeyProperties.DIGEST_SHA512 : KeyProperties.DIGEST_SHA256;
-                    keyGenerator.init(getWorkingSpec().setDigests(anotherDigest).build());
+                    keyGenerator.init(
+                        getWorkingSpec()
+                        .setDigests(anotherDigest)
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
 
                 // Authorized for empty set of digests
                 try {
-                    keyGenerator.init(getWorkingSpec().setDigests().build());
+                    keyGenerator.init(
+                        getWorkingSpec()
+                        .setDigests()
+                        .setIsStrongBoxBacked(useStrongbox)
+                        .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
             } catch (Throwable e) {
@@ -449,13 +634,23 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testInitRandomizedEncryptionRequiredButViolatedFails() throws Exception {
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        testInitRandomizedEncryptionRequiredButViolatedFailsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testInitRandomizedEncryptionRequiredButViolatedFailsHelper(true /* useStrongbox */);
+        }
+    }
+
+    public void testInitRandomizedEncryptionRequiredButViolatedFailsHelper(boolean useStrongbox)
+        throws Exception {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 KeyGenerator keyGenerator = getKeyGenerator(algorithm);
                 try {
                     keyGenerator.init(getWorkingSpec(
                             KeyProperties.PURPOSE_ENCRYPT)
                             .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
+                            .setIsStrongBoxBacked(useStrongbox)
                             .build());
                     fail();
                 } catch (InvalidAlgorithmParameterException expected) {}
@@ -466,12 +661,21 @@ public class KeyGeneratorTest extends TestCase {
     }
 
     public void testGenerateHonorsRequestedAuthorizations() throws Exception {
+        testGenerateHonorsRequestedAuthorizationsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerateHonorsRequestedAuthorizationsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerateHonorsRequestedAuthorizationsHelper(boolean useStrongbox)
+        throws Exception {
         Date keyValidityStart = new Date(System.currentTimeMillis() - TestUtils.DAY_IN_MILLIS);
         Date keyValidityForOriginationEnd =
                 new Date(System.currentTimeMillis() + TestUtils.DAY_IN_MILLIS);
         Date keyValidityForConsumptionEnd =
                 new Date(System.currentTimeMillis() + 3 * TestUtils.DAY_IN_MILLIS);
-        for (String algorithm : EXPECTED_ALGORITHMS) {
+        for (String algorithm :
+            useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS) {
             try {
                 String[] blockModes =
                         new String[] {KeyProperties.BLOCK_MODE_GCM, KeyProperties.BLOCK_MODE_CBC};
@@ -497,6 +701,7 @@ public class KeyGeneratorTest extends TestCase {
                         .setKeyValidityStart(keyValidityStart)
                         .setKeyValidityForOriginationEnd(keyValidityForOriginationEnd)
                         .setKeyValidityForConsumptionEnd(keyValidityForConsumptionEnd)
+                        .setIsStrongBoxBacked(useStrongbox)
                         .build());
                 SecretKey key = keyGenerator.generateKey();
                 assertEquals(algorithm, key.getAlgorithm());

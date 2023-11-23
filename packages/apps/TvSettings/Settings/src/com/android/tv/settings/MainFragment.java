@@ -31,12 +31,17 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.service.settings.suggestions.Suggestion;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
 import android.telephony.SignalStrength;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+
+import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.suggestions.SuggestionControllerMixin;
@@ -54,6 +59,7 @@ import java.util.Set;
 /**
  * The fragment where all good things begin. Evil is handled elsewhere.
  */
+@Keep
 public class MainFragment extends PreferenceControllerFragment implements
         SuggestionControllerMixin.SuggestionControllerHost, SuggestionPreference.Callback,
         HotwordStateListener {
@@ -148,6 +154,13 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        showOrHideQuickSettings();
+        return super.onCreateView(inflater, container, savedInstanceState);
+    }
+
     /** Creates the quick settings category and its children. */
     private void showQuickSettings() {
         if (mQuickSettingsList != null) {
@@ -217,6 +230,12 @@ public class MainFragment extends PreferenceControllerFragment implements
             Preference accountsPref = findPreference(KEY_ACCOUNTS_AND_SIGN_IN);
             if (accountsPref != null) {
                 accountsPref.setVisible(false);
+            }
+        }
+        if (!supportBluetooth()) {
+            Preference accessoryPreference = findPreference(KEY_ACCESSORIES);
+            if (accessoryPreference != null) {
+                accessoryPreference.setVisible(false);
             }
         }
         mHotwordSwitchController.init(this);
@@ -472,5 +491,11 @@ public class MainFragment extends PreferenceControllerFragment implements
         } else {
             mSuggestionsList.removePreference(preference);
         }
+    }
+
+    private boolean supportBluetooth() {
+        return getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+                ? true
+                : false;
     }
 }

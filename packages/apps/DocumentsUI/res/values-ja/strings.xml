@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"共有"</string>
     <string name="menu_delete" msgid="1022254131543256626">"削除"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"すべて選択"</string>
+    <string name="menu_select" msgid="1366061076507142387">"選択"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"並べ替え..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"コピー…"</string>
     <string name="menu_move" msgid="2310760789561129882">"移動…"</string>
     <string name="menu_compress" msgid="37539111904724188">"圧縮"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"タイプ"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"サイズ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"最終変更"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ファイル名（昇順）"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"形式（昇順）"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"サイズ（小さい順）"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"変更日（古い順）"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ファイル名（降順）"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"形式（降順）"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"サイズ（大きい順）"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"変更日（新しい順）"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"並べ替え"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g>で並べ替え"</string>
     <string name="directory_items" msgid="6645621978998614003">"アイテム数"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"昇順"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"降順"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g>を開く"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ルートを表示する"</string>
     <string name="drawer_close" msgid="4263880768630848848">"ルートを非表示にする"</string>
     <string name="save_error" msgid="8631128801982095782">"ドキュメントを保存できませんでした"</string>
@@ -77,7 +90,7 @@
     <string name="root_available_bytes" msgid="8269870862691408864">"空き容量: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="root_type_service" msgid="6521366147466512289">"ストレージ サービス"</string>
     <string name="root_type_shortcut" msgid="6059343175525442279">"ショートカット"</string>
-    <string name="root_type_device" msgid="1713604128005476585">"端末"</string>
+    <string name="root_type_device" msgid="1713604128005476585">"デバイス"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"その他のアプリ"</string>
     <string name="empty" msgid="5300254272613103004">"項目はありません"</string>
     <string name="no_results" msgid="2371026325236359209">"該当するものは %1$s にありません"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>アプリに <xliff:g id="STORAGE"><i>^3</i></xliff:g>の <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ディレクトリへのアクセスを許可しますか？"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>アプリに <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ディレクトリへのアクセスを許可しますか？"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g>の写真や動画などのデータへのアクセスを<xliff:g id="APPNAME"><b>^1</b></xliff:g>アプリに許可しますか？"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"今後表示しない"</string>
     <string name="allow" msgid="1275746941353040309">"許可"</string>
     <string name="deny" msgid="5127201668078153379">"許可しない"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> を上書きしますか？"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"バックグラウンドで続行"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> 個を選択中</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> 個を選択中</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"スマートフォンで最近使用したファイル"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"スマートフォンにあるファイル"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"スマートフォンにある<xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> にあるファイル"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>のファイル"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> のファイル"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"スマートフォンに最近保存された画像"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"スマートフォンに保存されている画像"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> に保存されている画像"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g> の画像"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g>（<xliff:g id="SUMMARY">%2$s</xliff:g>）の画像"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"画像"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"音声"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"動画"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ドキュメント"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"フォルダ名"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"新しい名前"</string>
+    <string name="preview_file" msgid="4056622696305432343">"ファイル <xliff:g id="FILENAME">%1$s</xliff:g> をプレビューする"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"他のアプリでファイルを探す"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"匿名"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"「<xliff:g id="DIRECTORY">%1$s</xliff:g>」へのアクセスを許可"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"「<xliff:g id="ROOT">%2$s</xliff:g>」の「<xliff:g id="DIRECTORY">%1$s</xliff:g>」へのアクセスを許可しますか？"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"現在この場所に保存されているすべてのファイル、および今後ここに保存されるすべてのコンテンツへのフルアクセスを「<xliff:g id="APPNAME">%1$s</xliff:g>」に許可します。"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"このスマートフォンを検索する"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"検索履歴「<xliff:g id="TEXT">%1$s</xliff:g>」を削除します"</string>
 </resources>

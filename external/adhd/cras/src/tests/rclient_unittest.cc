@@ -35,6 +35,7 @@ static size_t cras_system_set_capture_mute_value;
 static int cras_system_set_capture_mute_called;
 static size_t cras_system_set_capture_mute_locked_value;
 static int cras_system_set_capture_mute_locked_called;
+static int cras_system_state_dump_snapshots_called;
 static size_t cras_make_fd_nonblocking_called;
 static audio_thread* iodev_get_thread_return;
 static int stream_list_add_stream_return;
@@ -42,6 +43,7 @@ static unsigned int stream_list_add_stream_called;
 static unsigned int stream_list_disconnect_stream_called;
 static unsigned int cras_iodev_list_rm_input_called;
 static unsigned int cras_iodev_list_rm_output_called;
+static unsigned int cras_server_metrics_stream_config_called;
 static struct cras_rstream dummy_rstream;
 static size_t cras_observer_num_ops_registered;
 static size_t cras_observer_register_notify_called;
@@ -59,6 +61,7 @@ void ResetStubData() {
   cras_rstream_create_return = 0;
   cras_rstream_create_stream_out = (struct cras_rstream *)NULL;
   cras_iodev_attach_stream_retval = 0;
+  cras_server_metrics_stream_config_called = 0;
   cras_system_set_volume_value = 0;
   cras_system_set_volume_called = 0;
   cras_system_set_capture_gain_value = 0;
@@ -73,6 +76,7 @@ void ResetStubData() {
   cras_system_set_capture_mute_called = 0;
   cras_system_set_capture_mute_locked_value = 0;
   cras_system_set_capture_mute_locked_called = 0;
+  cras_system_state_dump_snapshots_called = 0;
   cras_make_fd_nonblocking_called = 0;
   iodev_get_thread_return = reinterpret_cast<audio_thread*>(0xad);
   stream_list_add_stream_return = 0;
@@ -139,6 +143,7 @@ class RClientMessagesSuite : public testing::Test {
       stream_id_ = 0x10002;
       connect_msg_.header.id = CRAS_SERVER_CONNECT_STREAM;
       connect_msg_.header.length = sizeof(connect_msg_);
+      connect_msg_.proto_version = CRAS_PROTO_VER;
       connect_msg_.stream_type = CRAS_STREAM_TYPE_DEFAULT;
       connect_msg_.direction = CRAS_STREAM_OUTPUT;
       connect_msg_.stream_id = stream_id_;
@@ -187,6 +192,7 @@ TEST_F(RClientMessagesSuite, AudThreadAttachFail) {
   EXPECT_EQ(0, cras_iodev_list_rm_output_called);
   EXPECT_EQ(1, stream_list_add_stream_called);
   EXPECT_EQ(0, stream_list_disconnect_stream_called);
+  EXPECT_EQ(0, cras_server_metrics_stream_config_called);
 }
 
 TEST_F(RClientMessagesSuite, ConnectMsgWithBadFd) {
@@ -202,6 +208,30 @@ TEST_F(RClientMessagesSuite, ConnectMsgWithBadFd) {
   EXPECT_NE(0, out_msg.err);
   EXPECT_EQ(stream_list_add_stream_called,
             stream_list_disconnect_stream_called);
+  EXPECT_EQ(0, cras_server_metrics_stream_config_called);
+}
+
+TEST_F(RClientMessagesSuite, ConnectMsgFromOldClient) {
+  struct cras_client_stream_connected_old out_msg;
+  int rc;
+
+  cras_rstream_create_stream_out = rstream_;
+  cras_iodev_attach_stream_retval = 0;
+
+  connect_msg_.header.length = sizeof(struct cras_connect_message_old);
+  connect_msg_.proto_version = CRAS_PROTO_VER - 1;
+
+  rc = cras_rclient_message_from_client(rclient_, &connect_msg_.header, 100);
+  EXPECT_EQ(0, rc);
+  EXPECT_EQ(1, cras_make_fd_nonblocking_called);
+
+  rc = read(pipe_fds_[0], &out_msg, sizeof(out_msg));
+  EXPECT_EQ(sizeof(out_msg), rc);
+  EXPECT_EQ(stream_id_, out_msg.stream_id);
+  EXPECT_EQ(0, out_msg.err);
+  EXPECT_EQ(1, stream_list_add_stream_called);
+  EXPECT_EQ(0, stream_list_disconnect_stream_called);
+  EXPECT_EQ(1, cras_server_metrics_stream_config_called);
 }
 
 TEST_F(RClientMessagesSuite, SuccessReply) {
@@ -221,6 +251,7 @@ TEST_F(RClientMessagesSuite, SuccessReply) {
   EXPECT_EQ(0, out_msg.err);
   EXPECT_EQ(1, stream_list_add_stream_called);
   EXPECT_EQ(0, stream_list_disconnect_stream_called);
+  EXPECT_EQ(1, cras_server_metrics_stream_config_called);
 }
 
 TEST_F(RClientMessagesSuite, SuccessCreateThreadReply) {
@@ -240,6 +271,7 @@ TEST_F(RClientMessagesSuite, SuccessCreateThreadReply) {
   EXPECT_EQ(0, out_msg.err);
   EXPECT_EQ(1, stream_list_add_stream_called);
   EXPECT_EQ(0, stream_list_disconnect_stream_called);
+  EXPECT_EQ(1, cras_server_metrics_stream_config_called);
 }
 
 TEST_F(RClientMessagesSuite, SetVolume) {
@@ -324,6 +356,15 @@ TEST_F(RClientMessagesSuite, SetCaptureMute) {
   EXPECT_EQ(1, cras_system_set_capture_mute_locked_value);
 }
 
+TEST_F(RClientMessagesSuite, DumpSnapshots) {
+  struct cras_dump_snapshots msg;
+  int rc;
+  cras_fill_dump_snapshots(&msg);
+  rc = cras_rclient_message_from_client(rclient_, &msg.header, -1);
+  EXPECT_EQ(0, rc);
+  EXPECT_EQ(1, cras_system_state_dump_snapshots_called);
+}
+
 void RClientMessagesSuite::RegisterNotification(
     enum CRAS_CLIENT_MESSAGE_ID msg_id,
     void *callback, void **ops_address) {
@@ -361,8 +402,9 @@ void RClientMessagesSuite::RegisterNotification(
   }
   if (!msg.do_register)
     cras_observer_num_ops_registered--;
-  if (cras_observer_num_ops_registered)
+  if (cras_observer_num_ops_registered) {
     EXPECT_EQ(callback, *ops_address);
+  }
 }
 
 TEST_F(RClientMessagesSuite, RegisterStatusNotification) {
@@ -548,7 +590,7 @@ TEST_F(RClientMessagesSuite, SendActiveNodeChanged) {
   ASSERT_EQ(rc, (ssize_t)sizeof(*msg));
   EXPECT_EQ(msg->header.id, CRAS_CLIENT_ACTIVE_NODE_CHANGED);
   EXPECT_EQ(msg->direction, (int32_t)dir);
-  EXPECT_EQ(msg->node_id, node_id);
+  EXPECT_EQ((uint64_t)msg->node_id, node_id);
 }
 
 TEST_F(RClientMessagesSuite, SendOutputNodeVolumeChanged) {
@@ -676,6 +718,20 @@ int audio_thread_config_global_remix(struct audio_thread *thread,
   return 0;
 }
 
+int audio_thread_set_aec_dump(struct audio_thread *thread,
+			      cras_stream_id_t stream_id,
+			      unsigned int start,
+			      int fd)
+{
+  return 0;
+}
+
+#ifdef HAVE_WEBRTC_APM
+void cras_apm_list_reload_aec_config()
+{
+}
+#endif
+
 const char *cras_config_get_socket_file_dir()
 {
   return CRAS_UT_TMPDIR;
@@ -686,6 +742,11 @@ int cras_rstream_create(struct cras_rstream_config *stream_config,
 {
   *stream_out = cras_rstream_create_stream_out;
   return cras_rstream_create_return;
+}
+
+unsigned int cras_rstream_get_effects(const struct cras_rstream *stream)
+{
+  return 0;
 }
 
 int cras_iodev_move_stream_type(uint32_t type, uint32_t index)
@@ -711,6 +772,11 @@ int cras_make_fd_nonblocking(int fd)
 {
   cras_make_fd_nonblocking_called++;
   return 0;
+}
+
+void cras_system_state_dump_snapshots()
+{
+  cras_system_state_dump_snapshots_called ++;
 }
 
 void cras_system_set_volume(size_t volume)
@@ -892,6 +958,12 @@ int cras_observer_ops_are_empty(const struct cras_observer_ops *ops)
 void cras_observer_remove(struct cras_observer_client *client)
 {
   cras_observer_remove_called++;
+}
+
+int cras_server_metrics_stream_config(struct cras_rstream_config *config)
+{
+  cras_server_metrics_stream_config_called++;
+  return 0;
 }
 
 }  // extern "C"

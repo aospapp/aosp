@@ -34,7 +34,7 @@
     <string name="sip_menu_save" msgid="7882219814563869225">"Speichern"</string>
     <string name="sip_menu_discard" msgid="2350421645423888438">"Verwerfen"</string>
     <string name="alert_dialog_close" msgid="1326011828713435134">"Profil schließen"</string>
-    <string name="alert_dialog_ok" msgid="4752048404605388940">"OK"</string>
+    <string name="alert_dialog_ok" msgid="4752048404605388940">"Ok"</string>
     <string name="close_profile" msgid="3122414058856309881">"Schließen"</string>
     <string name="registration_status_checking_status" msgid="6136793741862200337">"Status wird überprüft…"</string>
     <string name="registration_status_registering" msgid="2677183977796278749">"Registrierung läuft…"</string>

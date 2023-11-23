@@ -4,7 +4,7 @@
 
 #include "puffin/src/bit_reader.h"
 
-#include "puffin/src/set_errors.h"
+#include "puffin/src/logging.h"
 
 namespace puffin {
 
@@ -66,6 +66,10 @@ size_t BufferBitReader::Offset() const {
 
 uint64_t BufferBitReader::OffsetInBits() const {
   return (index_ * 8) - in_cache_bits_;
+}
+
+uint64_t BufferBitReader::BitsRemaining() const {
+  return ((in_size_ - index_) * 8) + in_cache_bits_;
 }
 
 }  // namespace puffin

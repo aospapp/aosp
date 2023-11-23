@@ -16,10 +16,15 @@
 
 package android.app.cts;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import android.app.KeyguardManager;
 import android.app.stubs.KeyguardManagerActivity;
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.CountDownLatch;
 
 public class KeyguardManagerTest
         extends ActivityInstrumentationTestCase2<KeyguardManagerActivity> {
@@ -36,5 +41,23 @@ public class KeyguardManagerTest
                 Context.KEYGUARD_SERVICE);
         final KeyguardManager.KeyguardLock keyLock = keyguardManager.newKeyguardLock(TAG);
         assertNotNull(keyLock);
+    }
+
+    public void testPrivateNotificationsAllowed() throws Exception {
+        Context c = getInstrumentation().getContext();
+        KeyguardManager keyguardManager = (KeyguardManager) c.getSystemService(
+                Context.KEYGUARD_SERVICE);
+        Method set = KeyguardManager.class.getMethod(
+                "setPrivateNotificationsAllowed", boolean.class);
+        Method get = KeyguardManager.class.getMethod("getPrivateNotificationsAllowed");
+        CountDownLatch signal = new CountDownLatch(1);
+        runWithShellPermissionIdentity(() -> {
+                set.invoke(keyguardManager, false);
+                assertFalse((boolean) get.invoke(keyguardManager));
+                set.invoke(keyguardManager, true);
+                assertTrue((boolean) get.invoke(keyguardManager));
+                signal.countDown();
+        }, "android.permission.CONTROL_KEYGUARD_SECURE_NOTIFICATIONS");
+        signal.await();
     }
 }

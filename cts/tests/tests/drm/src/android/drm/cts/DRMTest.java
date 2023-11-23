@@ -52,8 +52,10 @@ import android.drm.DrmUtils;
 import android.media.MediaExtractor;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 
 public class DRMTest extends AndroidTestCase {
     private static String TAG = "CtsDRMTest";
@@ -129,6 +131,11 @@ public class DRMTest extends AndroidTestCase {
             assertNotNull("Failed on plugin: " + config.getPluginName(), constraints);
             deregister(config);
         }
+    }
+
+    public void testSupportsHttps() throws Exception {
+        mDrmManagerClient.getConstraints(Uri.parse("https://www.foo.com"),
+                                         DrmStore.Action.DEFAULT);
     }
 
     public void testCanHandle() throws Exception {
@@ -216,6 +223,7 @@ public class DRMTest extends AndroidTestCase {
         }
     }
 
+    @AppModeFull(reason = "Instant apps cannot hold READ/WRITE_EXTERNAL_STORAGE")
     public void testForwardLockAccess()  throws Exception {
         DrmManagerClient drmManager= new DrmManagerClient(mContext);
         String[] engines = drmManager.getAvailableDrmEngines();

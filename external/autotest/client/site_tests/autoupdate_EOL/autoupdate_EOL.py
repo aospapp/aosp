@@ -1,15 +1,16 @@
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import logging
-import shutil
 
-from autotest_lib.client.bin import test, utils
+import logging
+
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.update_engine import nano_omaha_devserver
+from autotest_lib.client.cros.update_engine import update_engine_test
 
-class autoupdate_EOL(test.test):
+class autoupdate_EOL(update_engine_test.UpdateEngineTest):
     """Tests end of life (EOL) behaviour."""
     version = 1
 
@@ -17,8 +18,8 @@ class autoupdate_EOL(test.test):
     _EOL_NOTIFICATION_TITLE = 'This device is no longer supported'
 
     def cleanup(self):
-        shutil.copy('/var/log/update_engine.log', self.resultsdir)
-        self._omaha.stop()
+        self._save_extra_update_engine_logs()
+        super(autoupdate_EOL, self).cleanup()
 
 
     def _check_eol_status(self):
@@ -49,16 +50,13 @@ class autoupdate_EOL(test.test):
 
 
     def run_once(self):
-        utils.run('restart update-engine')
-
         # Start a devserver to return a response with eol entry.
         self._omaha = nano_omaha_devserver.NanoOmahaDevserver(eol=True)
         self._omaha.start()
 
         # Try to update using the omaha server. It will fail with noupdate.
-        utils.run('update_engine_client -update -omaha_url=' +
-                  'http://127.0.0.1:%d/update ' % self._omaha.get_port(),
-                  ignore_status=True)
+        self._check_for_update(port=self._omaha.get_port(), ignore_status=True,
+                               wait_for_completion=True)
 
         self._check_eol_status()
         self._check_eol_notification()

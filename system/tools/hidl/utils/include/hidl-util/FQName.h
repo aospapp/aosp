@@ -28,19 +28,18 @@ struct FQName {
 
     explicit FQName();
 
-    // TODO(b/73774955): delete
-    explicit FQName(const std::string &s);
-
     FQName(const std::string& package, const std::string& version, const std::string& name = "",
            const std::string& valueName = "");
 
     FQName(const FQName& other);
 
-    bool isValid() const;
     bool isIdentifier() const;
 
     // Returns false if string isn't a valid FQName object.
     __attribute__((warn_unused_result)) bool setTo(const std::string& s);
+    __attribute__((warn_unused_result)) bool setTo(const std::string& package, size_t majorVer,
+                                                   size_t minorVer, const std::string& name = "",
+                                                   const std::string& valueName = "");
 
     void applyDefaults(
             const std::string &defaultPackage,
@@ -55,6 +54,8 @@ struct FQName {
     std::string sanitizedVersion() const;
     // Return true only if version is present.
     bool hasVersion() const;
+    // Return pair of (major, minor) version. Defaults to 0, 0.
+    std::pair<size_t, size_t> getVersion() const;
 
     FQName withVersion(size_t major, size_t minor) const;
 
@@ -225,9 +226,6 @@ struct FQName {
     FQName downRev() const;
 
    private:
-    // TODO(b/73774955): remove
-    bool mValid;
-
     bool mIsIdentifier;
     std::string mPackage;
     // mMajor == 0 means empty.
@@ -241,6 +239,15 @@ struct FQName {
     __attribute__((warn_unused_result)) bool setVersion(const std::string& v);
     __attribute__((warn_unused_result)) bool parseVersion(const std::string& majorStr,
                                                           const std::string& minorStr);
+    __attribute__((warn_unused_result)) static bool parseVersion(const std::string& majorStr,
+                                                                 const std::string& minorStr,
+                                                                 size_t* majorVer,
+                                                                 size_t* minorVer);
+    __attribute__((warn_unused_result)) static bool parseVersion(const std::string& v,
+                                                                 size_t* majorVer,
+                                                                 size_t* minorVer);
+    static void clearVersion(size_t* majorVer, size_t* minorVer);
+
     void clearVersion();
 };
 

@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Aplikacija %s zatražila je certifikat. Izborom certifikata aplikacija će sad i ubuduće dobiti dopuštenje za upotrebu ovog identiteta na poslužiteljima."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Aplikacija je poslužitelj sa zahtjevom identificirala kao %s, ali aplikaciji biste trebali dati pristup do certifikata samo ako je smatrate pouzdanom."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Možete instalirati certifikate iz datoteke PKCS#12 s proširenjem %1$s ili %2$s locirane u vanjskom spremištu."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Instaliraj certifikat"</string>
     <string name="allow_button" msgid="3030990695030371561">"Odaberi"</string>
     <string name="deny_button" msgid="3766539809121892584">"Odbij"</string>
 </resources>

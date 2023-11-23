@@ -38,7 +38,7 @@ import com.android.dialer.assisteddialing.ConcreteCreator;
 import com.android.dialer.blocking.FilteredNumberCompat;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.compat.telephony.TelephonyManagerCompat;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.proguard.UsedByReflection;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.dialer.voicemail.settings.VoicemailSettingsFragment;
@@ -116,9 +116,7 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
         (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 
     // "Call Settings" (full settings) is shown if the current user is primary user and there
-    // is only one SIM. Before N, "Calling accounts" setting is shown if the current user is
-    // primary user and there are multiple SIMs. In N+, "Calling accounts" is shown whenever
-    // "Call Settings" is not shown.
+    // is only one SIM. Otherwise, "Calling accounts" is shown.
     boolean isPrimaryUser = isPrimaryUser();
     if (isPrimaryUser && TelephonyManagerCompat.getPhoneCount(telephonyManager) <= 1) {
       Header callSettingsHeader = new Header();
@@ -128,7 +126,7 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
       callSettingsHeader.titleRes = R.string.call_settings_label;
       callSettingsHeader.intent = callSettingsIntent;
       target.add(callSettingsHeader);
-    } else if ((VERSION.SDK_INT >= VERSION_CODES.N) || isPrimaryUser) {
+    } else {
       Header phoneAccountSettingsHeader = new Header();
       Intent phoneAccountSettingsIntent = new Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS);
       phoneAccountSettingsIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -160,7 +158,7 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
 
     boolean isAssistedDialingEnabled =
         ConcreteCreator.isAssistedDialingEnabled(
-            ConfigProviderBindings.get(getApplicationContext()));
+            ConfigProviderComponent.get(getApplicationContext()).getConfigProvider());
     LogUtil.i(
         "DialerSettingsActivity.onBuildHeaders",
         "showing assisted dialing header: " + isAssistedDialingEnabled);
@@ -241,6 +239,9 @@ public class DialerSettingsActivity extends AppCompatPreferenceActivity {
     PhoneAccountHandle result = null;
     for (PhoneAccountHandle phoneAccountHandle : telecomManager.getCallCapablePhoneAccounts()) {
       PhoneAccount phoneAccount = telecomManager.getPhoneAccount(phoneAccountHandle);
+      if (phoneAccount == null) {
+        continue;
+      }
       if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
         LogUtil.i(
             "DialerSettingsActivity.getSoleSimAccount", phoneAccountHandle + " is a SIM account");

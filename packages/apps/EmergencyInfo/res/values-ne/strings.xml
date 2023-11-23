@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"आपतकालीन सूचना"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"चिकित्सकीय जानकारी"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"जानकारी सम्पादन गर्नुहोस्"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"जानकारी थप्नुहोस्"</string>
     <string name="edit_info" msgid="5973929805855224805">"आपतकालीन जानकारीलाई सम्पादन गर्नुहोस्"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"जानकारी"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"सम्पर्कहरू"</string>
@@ -77,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"उपचारहरू"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"अज्ञात"</string>
     <string name="medications_hint" msgid="3221620025945593723">"उदाहरणका लागि एस्पिरिन"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"चिकित्सा सम्बन्धी टिप्पणीहरू"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"चिकित्सासम्बन्धी टिप्पणीहरू"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"अज्ञात"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"उदाहरणका लागि दम"</string>
     <string name="organ_donor" msgid="5953509460007124827">"अंग दाता"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"चिकित्सकीय जानकारी तथा आपतकालीन सम्पर्क नम्बरहरू थप्नुले कुनै आपतकालीन अवस्थामा पहिलो प्रतिक्रिया दिने व्यक्तिहरूलाई मद्दत गर्नसक्छ।\n\nतपाईंको लक स्क्रिनबाट जोसुकैले पनि यो जानकारी पढ्न र तपाईंको फोन अनलक नगरिकनै तपाईंको सम्पर्क सूचीमा रहेका व्यक्तिहरूलाई उनीहरूको नाममा ट्याप गरेर कल गर्नसक्छ।"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"आपतकालीन जानकारी थप्नुहोस्‌"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"तपाईंको जानकारी आपतकालीन अवस्थामा सहयोग पुर्‍याउने पहिला मान्छेहरूलाई हेर्न दिनुहोस्‌"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"तस्बिर खिच्नुहोस्"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"कुनै तस्बिर छनौट गर्नुहोस्"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"तस्बिर चयन गर्नुहोस्‌"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"उपनाम"</string>
 </resources>

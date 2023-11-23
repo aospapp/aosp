@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Kapı açık"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Kağıt sıkıştı"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Çevrimdışı"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Bozuk sertifika"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Şifrelenmedi"</string>
     <string name="printer_check" msgid="6428369671197132828">"Yazıcıyı kontrol et"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Gönderilmeyi bekliyor"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Doküman okunamadı"</string>
@@ -38,7 +40,7 @@
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 inç"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s - %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Yazıcı ekle"</string>
-    <string name="add_printer_by_ip" msgid="562864787592910327">"IP adresine göre yazıcı ekle"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP adresiyle yazıcı ekle"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Ana makine adı veya IP adresi"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Ekle"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Yazıcı desteklenmiyor"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Kablosuz Doğrudan Bağlantı"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Kablosuz Doğrudan Bağlantı yazıcılarını bul"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Kablosuz Doğrudan Bağlantı ile yazdırma"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Kablosuz Doğrudan Bağlantı yazıcıları"</string>
     <string name="searching" msgid="2114018057619514587">"Aranıyor…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Bu bağlantıyı yazıcınızın ön panelinden onaylamanız gerekebilir"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Unut"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Kablosuz Doğrudan Bağlantı ile bağlanıyor"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Geçerli ağ ile <xliff:g id="IP_ADDRESS">%1$s</xliff:g> adresinden bağlanıyor"</string>
+    <string name="security" msgid="2279008326210305401">"Güvenlik"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Bu yazıcı yeni bir güvenlik sertifikası sağladı veya başka bir cihaz bu yazıcının kimliğine bürünüyor. Yeni sertifikayı kabul ediyor musunuz?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Bu yazıcı artık şifrelenmiş işleri kabul etmiyor. Yazdırmaya devam etmek istiyor musunuz?"</string>
+    <string name="accept" msgid="4426153292469698134">"Kabul et"</string>
+    <string name="reject" msgid="24751635160440693">"Reddet"</string>
+    <string name="connections" msgid="8895413761760117180">"Bağlantılar"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Varsayılan Yazdırma Hizmeti\'nin yakındaki cihazları bulabilmesi için konum iznine ihtiyacı var."</string>
+    <string name="fix" msgid="7784394272611365393">"İzni incele"</string>
 </resources>

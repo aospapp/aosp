@@ -45,13 +45,16 @@ import pprint
 from test_generator import Configuration
 from test_generator import Example
 from test_generator import Float32Scalar
+from test_generator import Float32Vector
+from test_generator import IgnoredOutput
 from test_generator import Input
 from test_generator import Int32Scalar
+from test_generator import Int32Vector
 from test_generator import Internal
 from test_generator import Model
 from test_generator import Output
 from test_generator import Parameter
-from test_generator import smart_open
+from test_generator import SmartOpen
 
 
 # Take a model from command line
@@ -69,7 +72,7 @@ def import_source():
   args = parser.parse_args()
 
   if os.path.exists(args.spec):
-    test_generator.FileNames.SpecFile = os.path.basename(args.spec)
+    test_generator.FileNames.specFile = os.path.basename(args.spec)
     exec (open(args.spec).read())
   else:
     print("cannot find file %s" % args.spec)
@@ -90,10 +93,7 @@ class slicing:
     self.__referenced_operands = set()
 
   def format_as_py_op(self, op):
-    try:
-      fmt = op.PyDefinition()
-    except AttributeError:  # not an op, but things like weights
-      return True
+    fmt = op.PyDefinition()
     if fmt is not None:
       self.__nr_op_seen += 1
       if self.__nr_op_seen > self.__threshold:
@@ -114,30 +114,29 @@ class slicing:
     override = {}
     # Make alias for the output variable
     for lo in self.__last_outs:
-      override[lo.get_name()] = lo.type.get_nr_elements()
+      override[str(lo)] = lo.type.GetNumberOfElements()
       alias_def = """\
 # Alias for the output variable {operand_name}
 aliased_output{number} = {operand_name}
 """
       op = {
-          'operand_name': lo.get_name(),
+          'operand_name': str(lo),
           'number': 0 # only support one output as of now
       }
       print (alias_def.format(**op), file=example_file)
     Example.py_dump(example_file, override, self.__referenced_operands)
 
-  def format_operands(self):
+  def format_operands(self, model):
     # Dump operand definitions
     op_definitions = []
-    for o in test_generator.Operand.operands.objects():
+    for o in model.operands:
       if o not in self.__referenced_operands:
         continue
       ty = o.type
-      raw_shape = ty.get_raw_shape()
       op_def = """{op_name} = {operand}("{op_name}", "{element_type}", "{shape}" """
       if isinstance(o, test_generator.Parameter):
         op_def += """, {initializer})"""
-        init = o.initializer
+        init = o.value
         py_operand_name = "Parameter"
       else:
         op_def += ")"
@@ -146,9 +145,9 @@ aliased_output{number} = {operand_name}
             self.__last_outs) else o.__class__.__name__
 
       op = {
-          "element_type": ty.get_element_type(),
-          "shape": ty.get_raw_shape(),
-          "op_name": o.get_name(),
+          "element_type": ty.type,
+          "shape": ty.GetRawShape(),
+          "op_name": str(o),
           "operand": py_operand_name,
           "initializer": init
       }
@@ -160,12 +159,15 @@ if __name__ == "__main__":
   (model, example, number) = import_source()
   s = slicing(int(number))
 
-  with smart_open(model) as model_file:
-    spec_file = " (from: %s)" % (test_generator.FileNames.SpecFile)
+  with SmartOpen(model) as model_file:
+    spec_file = " (from: %s)" % (test_generator.FileNames.specFile)
     print("# Generated file%s. Do not edit" % (spec_file), file=model_file)
     print("model = Model()", file=model_file)
-    test_generator.TopologicalSort(lambda x: s.format_as_py_op(x))
-    print(s.format_operands(), file=model_file)
+    # slicing tool only support one single model per spec file
+    model = Model.models[0].Compile()
+    for op in model.operations:
+        s.format_as_py_op(op)
+    print(s.format_operands(model), file=model_file)
     s.dump(model_file)
-  with smart_open(example) as example_file:
+  with SmartOpen(example) as example_file:
     s.dump_example(example_file)

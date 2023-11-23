@@ -125,6 +125,14 @@ def main():
     parser.add_argument("--console", action="store_true",
                         help="Whether to start a console after processing "
                              "a script.")
+    parser.add_argument("--password",
+                        default=None,
+                        help="Password string to pass to the prompt "
+                             "when running certain command as root previlege.")
+    parser.add_argument("--flash",
+                        default=None,
+                        help="GCS URL to an img package. Fetches and flashes "
+                             "the device(s) given as the '--serial' flag.")
     args = parser.parse_args()
     if args.config_file:
         config_json = json.load(args.config_file)
@@ -158,8 +166,8 @@ def main():
                     api_version=config_json["tfc_api_version"],
                     scopes=config_json["tfc_scopes"])
         else:
-            print("WARN: If --use_tfc is set, --config_file argument value "
-                  "must be provided. Starting without TFC.")
+            logging.warning("WARN: If --use_tfc is set, --config_file argument "
+                            "value must be provided. Starting without TFC.")
 
     pab = build_provider_pab.BuildProviderPAB()
 
@@ -186,8 +194,14 @@ def main():
             sys.stdin.readline()
     else:
         main_console = console.Console(vti_endpoint, tfc, pab, hosts,
-                                       vti_address=args.vti)
-        main_console.StartJobThreadAndProcessPool()
+                                       vti_address=args.vti,
+                                       password=args.password)
+        if args.vti:
+            main_console.StartJobThreadAndProcessPool()
+        else:
+            logging.warning("vti address is not set. example : "
+                            "$ run --vti=<url>")
+
         try:
             if args.serial:
                 main_console.SetSerials(args.serial.split(","))
@@ -199,6 +213,8 @@ def main():
 
                 if args.console:
                     main_console.cmdloop()
+            elif args.flash:
+                main_console.FlashImgPackage(args.flash)
             else:  # if not script, the default is console mode.
                 main_console.cmdloop()
         finally:

@@ -13,6 +13,7 @@
 #include <syslog.h>
 
 #include "cras_alsa_card.h"
+#include "cras_board_config.h"
 #include "cras_config.h"
 #include "cras_device_blacklist.h"
 #include "cras_observer.h"
@@ -34,6 +35,7 @@ struct card_list {
  *    shm_name - Name of posix shm region for exported state.
  *    shm_fd - fd for shm area of system_state struct.
  *    shm_fd_ro - fd for shm area of system_state struct, opened read-only.
+ *        This copy is to dup and pass to clients.
  *    shm_size - Size of the shm area.
  *    device_config_dir - Directory of device configs where volume curves live.
  *    internal_ucm_suffix - The suffix to append to internal card name to
@@ -43,6 +45,8 @@ struct card_list {
  *    update_lock - Protects the update_count, as audio threads can update the
  *      stream count.
  *    tm - The system-wide timer manager.
+ *    add_task - Function to handle adding a task for main thread to execute.
+ *    task_data - Data to be passed to add_task handler function.
  */
 static struct {
 	struct cras_server_state *exp_state;
@@ -61,35 +65,38 @@ static struct {
 		      void *cb_data, void *select_data);
 	void (*fd_rm)(int fd, void *select_data);
 	void *select_data;
+	int (*add_task)(void (*callback)(void *data),
+					 void *callback_data,
+					 void *task_data);
+	void *task_data;
+	struct cras_audio_thread_snapshot_buffer snapshot_buffer;
 } state;
 
 /*
  * Exported Interface.
  */
 
-void cras_system_state_init(const char *device_config_dir)
+void cras_system_state_init(const char *device_config_dir,
+                            const char *shm_name,
+                            int rw_shm_fd,
+                            int ro_shm_fd,
+                            struct cras_server_state *exp_state,
+                            size_t exp_state_size)
 {
-	struct cras_server_state *exp_state;
+	struct cras_board_config board_config;
 	int rc;
 
+        assert(sizeof(*exp_state) == exp_state_size);
 	state.shm_size = sizeof(*exp_state);
 
-	snprintf(state.shm_name, sizeof(state.shm_name), "/cras-%d", getpid());
-	state.shm_fd = cras_shm_open_rw(state.shm_name, state.shm_size);
-	if (state.shm_fd < 0)
-		exit(state.shm_fd);
+        strncpy(state.shm_name, shm_name, sizeof(state.shm_name));
+        state.shm_name[sizeof(state.shm_name) - 1] = '\0';
+	state.shm_fd = rw_shm_fd;
+	state.shm_fd_ro = ro_shm_fd;
 
-	/* mmap shm. */
-	exp_state = mmap(NULL, state.shm_size,
-			 PROT_READ | PROT_WRITE, MAP_SHARED,
-			 state.shm_fd, 0);
-	if (exp_state == (struct cras_server_state *)-1)
-		exit(-ENOMEM);
-
-	/* Open a read-only copy to dup and pass to clients. */
-	state.shm_fd_ro = cras_shm_reopen_ro(state.shm_name, state.shm_fd);
-	if (state.shm_fd_ro < 0)
-		exit(state.shm_fd_ro);
+	/* Read board config. */
+	memset(&board_config, 0, sizeof(board_config));
+	cras_board_config_get(device_config_dir, &board_config);
 
 	/* Initial system state. */
 	exp_state->state_version = CRAS_SERVER_STATE_VERSION;
@@ -106,6 +113,10 @@ void cras_system_state_init(const char *device_config_dir)
 	exp_state->min_capture_gain = DEFAULT_MIN_CAPTURE_GAIN;
 	exp_state->max_capture_gain = DEFAULT_MAX_CAPTURE_GAIN;
 	exp_state->num_streams_attached = 0;
+	exp_state->default_output_buffer_size =
+		board_config.default_output_buffer_size;
+	exp_state->aec_supported =
+		board_config.aec_supported;
 
 	if ((rc = pthread_mutex_init(&state.update_lock, 0) != 0)) {
 		syslog(LOG_ERR, "Fatal: system state mutex init");
@@ -130,6 +141,10 @@ void cras_system_state_init(const char *device_config_dir)
 	/* Read config file for blacklisted devices. */
 	state.device_blacklist =
 		cras_device_blacklist_create(CRAS_CONFIG_FILE_DIR);
+
+	/* Initialize snapshot buffer memory */
+	memset(&state.snapshot_buffer, 0,
+	       sizeof(struct cras_audio_thread_snapshot_buffer));
 }
 
 void cras_system_state_set_internal_ucm_suffix(const char *internal_ucm_suffix)
@@ -193,15 +208,23 @@ void cras_system_notify_mute(void)
 
 void cras_system_set_user_mute(int mute)
 {
+	int current_mute = cras_system_get_mute();
+
 	if (state.exp_state->user_mute == !!mute)
 		return;
 
 	state.exp_state->user_mute = !!mute;
+
+	if (current_mute == (mute || state.exp_state->mute))
+		return;
+
 	cras_system_notify_mute();
 }
 
 void cras_system_set_mute(int mute)
 {
+	int current_mute = cras_system_get_mute();
+
 	if (state.exp_state->mute_locked)
 		return;
 
@@ -209,6 +232,10 @@ void cras_system_set_mute(int mute)
 		return;
 
 	state.exp_state->mute = !!mute;
+
+	if (current_mute == (mute || state.exp_state->user_mute))
+		return;
+
 	cras_system_notify_mute();
 }
 
@@ -218,7 +245,6 @@ void cras_system_set_mute_locked(int locked)
 		return;
 
 	state.exp_state->mute_locked = !!locked;
-	cras_system_notify_mute();
 }
 
 int cras_system_get_mute()
@@ -317,6 +343,16 @@ long cras_system_get_max_capture_gain()
 	return state.exp_state->max_capture_gain;
 }
 
+int cras_system_get_default_output_buffer_size()
+{
+	return state.exp_state->default_output_buffer_size;
+}
+
+int cras_system_get_aec_supported()
+{
+	return state.exp_state->aec_supported;
+}
+
 int cras_system_add_alsa_card(struct cras_alsa_card_info *alsa_card_info)
 {
 	struct card_list *card;
@@ -330,7 +366,7 @@ int cras_system_add_alsa_card(struct cras_alsa_card_info *alsa_card_info)
 
 	DL_FOREACH(state.cards, card) {
 		if (card_index == cras_alsa_card_get_index(card->card))
-			return -EINVAL;
+			return -EEXIST;
 	}
 	alsa_card = cras_alsa_card_create(
 			alsa_card_info,
@@ -398,6 +434,27 @@ int cras_system_add_select_fd(int fd,
 		return -EINVAL;
 	return state.fd_add(fd, callback, callback_data,
 			    state.select_data);
+}
+
+int cras_system_set_add_task_handler(int (*add_task)(void (*cb)(void *data),
+						     void *callback_data,
+						     void *task_data),
+				     void *task_data)
+{
+	if (state.add_task != NULL)
+		return -EEXIST;
+
+	state.add_task = add_task;
+	state.task_data = task_data;
+	return 0;
+}
+
+int cras_system_add_task(void (*callback)(void *data), void *callback_data)
+{
+	if (state.add_task == NULL)
+		return -EINVAL;
+
+	return state.add_task(callback, callback_data, state.task_data);
 }
 
 void cras_system_rm_select_fd(int fd)
@@ -491,6 +548,16 @@ int cras_system_state_get_input_nodes(const struct cras_ionode_info **nodes)
 	return state.exp_state->num_input_nodes;
 }
 
+void cras_system_state_set_non_empty_status(int non_empty)
+{
+	state.exp_state->non_empty_status = non_empty;
+}
+
+int cras_system_state_get_non_empty_status()
+{
+	return state.exp_state->non_empty_status;
+}
+
 struct cras_server_state *cras_system_state_update_begin()
 {
 	if (pthread_mutex_lock(&state.update_lock)) {
@@ -521,4 +588,20 @@ key_t cras_sys_state_shm_fd()
 struct cras_tm *cras_system_state_get_tm()
 {
 	return state.tm;
+}
+
+
+void cras_system_state_dump_snapshots()
+{
+	memcpy(&state.exp_state->snapshot_buffer, &state.snapshot_buffer,
+			sizeof(struct cras_audio_thread_snapshot_buffer));
+}
+
+void cras_system_state_add_snapshot(
+	struct cras_audio_thread_snapshot *snapshot)
+{
+	state.snapshot_buffer.snapshots[state.snapshot_buffer.pos++] =
+			(*snapshot);
+	state.snapshot_buffer.pos %=
+		CRAS_MAX_AUDIO_THREAD_SNAPSHOTS;
 }

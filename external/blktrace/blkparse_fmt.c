@@ -54,11 +54,15 @@ static inline void fill_rwbs(char *rwbs, struct blk_io_trace *t)
 {
 	int w = t->action & BLK_TC_ACT(BLK_TC_WRITE);
 	int a = t->action & BLK_TC_ACT(BLK_TC_AHEAD);
-	int b = t->action & BLK_TC_ACT(BLK_TC_BARRIER);
 	int s = t->action & BLK_TC_ACT(BLK_TC_SYNC);
 	int m = t->action & BLK_TC_ACT(BLK_TC_META);
 	int d = t->action & BLK_TC_ACT(BLK_TC_DISCARD);
+	int f = t->action & BLK_TC_ACT(BLK_TC_FLUSH);
+	int u = t->action & BLK_TC_ACT(BLK_TC_FUA);
 	int i = 0;
+
+	if (f)
+		rwbs[i++] = 'F'; /* flush */
 
 	if (d)
 		rwbs[i++] = 'D';
@@ -68,10 +72,11 @@ static inline void fill_rwbs(char *rwbs, struct blk_io_trace *t)
 		rwbs[i++] = 'R';
 	else
 		rwbs[i++] = 'N';
+
+	if (u)
+		rwbs[i++] = 'F'; /* fua */
 	if (a)
 		rwbs[i++] = 'A';
-	if (b)
-		rwbs[i++] = 'B';
 	if (s)
 		rwbs[i++] = 'S';
 	if (m)
@@ -188,7 +193,7 @@ static void print_field(char *act, struct per_cpu_info *pci,
 		break;
 	}
 	case 'd': {
-		char rwbs[6];
+		char rwbs[8];
 
 		fill_rwbs(rwbs, t);
 		fprintf(ofp, strcat(format, "s"), rwbs);
@@ -285,7 +290,7 @@ static void process_default(char *act, struct per_cpu_info *pci,
 			    int pdu_len, unsigned char *pdu_buf)
 {
 	struct blk_io_trace_remap r = { .device_from = 0, };
-	char rwbs[6];
+	char rwbs[8];
 	char *name;
 
 	fill_rwbs(rwbs, t);
@@ -445,7 +450,7 @@ void process_fmt(char *act, struct per_cpu_info *pci, struct blk_io_trace *t,
 			case 'r': fprintf(ofp, "\r"); break;
 			case 't': fprintf(ofp, "\t"); break;
 			default:
-				fprintf(stderr,	
+				fprintf(stderr,
 					"Invalid escape char in format %c\n",
 					p[1]);
 				exit(1);

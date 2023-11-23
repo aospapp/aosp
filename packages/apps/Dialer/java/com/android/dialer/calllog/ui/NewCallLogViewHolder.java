@@ -15,28 +15,36 @@
  */
 package com.android.dialer.calllog.ui;
 
-import android.content.Context;
-import android.content.Intent;
+import android.app.Activity;
 import android.content.res.ColorStateList;
-import android.database.Cursor;
 import android.provider.CallLog.Calls;
+import android.support.annotation.ColorInt;
 import android.support.annotation.DrawableRes;
 import android.support.v7.widget.RecyclerView;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.text.TextUtils;
 import android.view.View;
+import android.view.View.AccessibilityDelegate;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ImageView;
-import android.widget.QuickContactBadge;
 import android.widget.TextView;
 import com.android.dialer.calllog.model.CoalescedRow;
+import com.android.dialer.calllog.ui.NewCallLogAdapter.PopCounts;
 import com.android.dialer.calllog.ui.menu.NewCallLogMenu;
+import com.android.dialer.calllogutils.CallLogEntryDescriptions;
 import com.android.dialer.calllogutils.CallLogEntryText;
-import com.android.dialer.calllogutils.CallLogIntents;
-import com.android.dialer.calllogutils.NumberAttributesConverter;
+import com.android.dialer.calllogutils.CallLogRowActions;
+import com.android.dialer.calllogutils.PhoneAccountUtils;
+import com.android.dialer.calllogutils.PhotoInfoBuilder;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
-import com.android.dialer.compat.AppCompatConstants;
 import com.android.dialer.compat.telephony.TelephonyManagerCompat;
-import com.android.dialer.glidephotomanager.GlidePhotoManager;
 import com.android.dialer.oem.MotorolaUtils;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.telecom.TelecomUtil;
 import com.android.dialer.time.Clock;
+import com.android.dialer.widget.ContactPhotoView;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import java.util.Locale;
@@ -45,78 +53,80 @@ import java.util.concurrent.ExecutorService;
 /** {@link RecyclerView.ViewHolder} for the new call log. */
 final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
 
-  private final Context context;
+  private final Activity activity;
+  private final ContactPhotoView contactPhotoView;
   private final TextView primaryTextView;
   private final TextView callCountTextView;
   private final TextView secondaryTextView;
-  private final QuickContactBadge quickContactBadge;
   private final ImageView callTypeIcon;
   private final ImageView hdIcon;
   private final ImageView wifiIcon;
   private final ImageView assistedDialIcon;
   private final TextView phoneAccountView;
-  private final ImageView menuButton;
+  private final ImageView callButton;
+  private final View callLogEntryRootView;
 
   private final Clock clock;
   private final RealtimeRowProcessor realtimeRowProcessor;
   private final ExecutorService uiExecutorService;
+  private final PopCounts popCounts;
 
-  private final GlidePhotoManager glidePhotoManager;
-
-  private int currentRowId;
+  private long currentRowId;
 
   NewCallLogViewHolder(
+      Activity activity,
       View view,
       Clock clock,
       RealtimeRowProcessor realtimeRowProcessor,
-      GlidePhotoManager glidePhotoManager) {
+      PopCounts popCounts) {
     super(view);
-    this.context = view.getContext();
+    this.activity = activity;
+    callLogEntryRootView = view;
+    contactPhotoView = view.findViewById(R.id.contact_photo_view);
     primaryTextView = view.findViewById(R.id.primary_text);
     callCountTextView = view.findViewById(R.id.call_count);
     secondaryTextView = view.findViewById(R.id.secondary_text);
-    quickContactBadge = view.findViewById(R.id.quick_contact_photo);
     callTypeIcon = view.findViewById(R.id.call_type_icon);
     hdIcon = view.findViewById(R.id.hd_icon);
     wifiIcon = view.findViewById(R.id.wifi_icon);
     assistedDialIcon = view.findViewById(R.id.assisted_dial_icon);
     phoneAccountView = view.findViewById(R.id.phone_account);
-    menuButton = view.findViewById(R.id.menu_button);
+    callButton = view.findViewById(R.id.call_button);
 
     this.clock = clock;
     this.realtimeRowProcessor = realtimeRowProcessor;
-    this.glidePhotoManager = glidePhotoManager;
-    uiExecutorService = DialerExecutorComponent.get(context).uiExecutor();
+    this.popCounts = popCounts;
+    uiExecutorService = DialerExecutorComponent.get(activity).uiExecutor();
   }
 
-  /** @param cursor a cursor from {@link CoalescedAnnotatedCallLogCursorLoader}. */
-  void bind(Cursor cursor) {
-    CoalescedRow row = CoalescedAnnotatedCallLogCursorLoader.toRow(cursor);
-    currentRowId = row.id(); // Used to make sure async updates are applied to the correct views
+  void bind(CoalescedRow coalescedRow) {
+    // The row ID is used to make sure async updates are applied to the correct views.
+    currentRowId = coalescedRow.getId();
 
     // Even if there is additional real time processing necessary, we still want to immediately show
     // what information we have, rather than an empty card. For example, if CP2 information needs to
     // be queried on the fly, we can still show the phone number until the contact name loads.
-    displayRow(row);
+    displayRow(coalescedRow);
+    configA11yForRow(coalescedRow);
 
     // Note: This leaks the view holder via the callback (which is an inner class), but this is OK
     // because we only create ~10 of them (and they'll be collected assuming all jobs finish).
     Futures.addCallback(
-        realtimeRowProcessor.applyRealtimeProcessing(row),
-        new RealtimeRowFutureCallback(row),
+        realtimeRowProcessor.applyRealtimeProcessing(coalescedRow),
+        new RealtimeRowFutureCallback(coalescedRow),
         uiExecutorService);
   }
 
   private void displayRow(CoalescedRow row) {
     // TODO(zachh): Handle RTL properly.
-    primaryTextView.setText(CallLogEntryText.buildPrimaryText(context, row));
-    secondaryTextView.setText(CallLogEntryText.buildSecondaryTextForEntries(context, clock, row));
+    primaryTextView.setText(CallLogEntryText.buildPrimaryText(activity, row));
+    secondaryTextView.setText(CallLogEntryText.buildSecondaryTextForEntries(activity, clock, row));
 
-    if (isNewMissedCall(row)) {
-      primaryTextView.setTextAppearance(R.style.primary_textview_new_call);
-      callCountTextView.setTextAppearance(R.style.primary_textview_new_call);
-      secondaryTextView.setTextAppearance(R.style.secondary_textview_new_call);
-      phoneAccountView.setTextAppearance(R.style.phoneaccount_textview_new_call);
+    if (isUnreadMissedCall(row)) {
+      primaryTextView.setTextAppearance(R.style.primary_textview_unread_call);
+      callCountTextView.setTextAppearance(R.style.primary_textview_unread_call);
+      secondaryTextView.setTextAppearance(R.style.secondary_textview_unread_call);
+      phoneAccountView.setTextAppearance(R.style.phoneaccount_textview_unread_call);
     } else {
       primaryTextView.setTextAppearance(R.style.primary_textview);
       callCountTextView.setTextAppearance(R.style.primary_textview);
@@ -129,12 +139,35 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     setFeatureIcons(row);
     setCallTypeIcon(row);
     setPhoneAccounts(row);
-    setOnClickListenerForRow(row);
-    setOnClickListenerForMenuButon(row);
+    setCallButon(row);
+
+    itemView.setOnClickListener(NewCallLogMenu.createOnClickListener(activity, row));
+  }
+
+  private void configA11yForRow(CoalescedRow row) {
+    callLogEntryRootView.setContentDescription(
+        CallLogEntryDescriptions.buildDescriptionForEntry(activity, clock, row));
+
+    // Inform a11y users that double tapping an entry now makes a call.
+    // This will instruct TalkBack to say "double tap to call" instead of
+    // "double tap to activate".
+    callLogEntryRootView.setAccessibilityDelegate(
+        new AccessibilityDelegate() {
+          @Override
+          public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+            super.onInitializeAccessibilityNodeInfo(host, info);
+            info.addAction(
+                new AccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_CLICK,
+                    activity
+                        .getResources()
+                        .getString(R.string.a11y_new_call_log_entry_tap_action)));
+          }
+        });
   }
 
   private void setNumberCalls(CoalescedRow row) {
-    int numberCalls = row.coalescedIds().getCoalescedIdCount();
+    int numberCalls = row.getCoalescedIds().getCoalescedIdCount();
     if (numberCalls > 1) {
       callCountTextView.setText(String.format(Locale.getDefault(), "(%d)", numberCalls));
       callCountTextView.setVisibility(View.VISIBLE);
@@ -143,30 +176,27 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     }
   }
 
-  private boolean isNewMissedCall(CoalescedRow row) {
+  private boolean isUnreadMissedCall(CoalescedRow row) {
     // Show missed call styling if the most recent call in the group was missed and it is still
-    // marked as NEW. It is not clear what IS_READ should be used for and it is currently not used.
-    return row.callType() == Calls.MISSED_TYPE && row.isNew();
+    // marked as not read. The "NEW" column is presumably used for notifications and voicemails
+    // only.
+    return row.getCallType() == Calls.MISSED_TYPE && !row.getIsRead();
   }
 
   private void setPhoto(CoalescedRow row) {
-    glidePhotoManager.loadQuickContactBadge(
-        quickContactBadge,
-        NumberAttributesConverter.toPhotoInfoBuilder(row.numberAttributes())
-            .setFormattedNumber(row.formattedNumber())
-            .build());
+    contactPhotoView.setPhoto(PhotoInfoBuilder.fromCoalescedRow(activity, row).build());
   }
 
   private void setFeatureIcons(CoalescedRow row) {
     ColorStateList colorStateList =
         ColorStateList.valueOf(
-            context.getColor(
-                isNewMissedCall(row)
+            activity.getColor(
+                isUnreadMissedCall(row)
                     ? R.color.feature_icon_unread_color
                     : R.color.feature_icon_read_color));
 
     // Handle HD Icon
-    if ((row.features() & Calls.FEATURES_HD_CALL) == Calls.FEATURES_HD_CALL) {
+    if ((row.getFeatures() & Calls.FEATURES_HD_CALL) == Calls.FEATURES_HD_CALL) {
       hdIcon.setVisibility(View.VISIBLE);
       hdIcon.setImageTintList(colorStateList);
     } else {
@@ -174,7 +204,7 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     }
 
     // Handle Wifi Icon
-    if (MotorolaUtils.shouldShowWifiIconInCallLog(context, row.features())) {
+    if (MotorolaUtils.shouldShowWifiIconInCallLog(activity, row.getFeatures())) {
       wifiIcon.setVisibility(View.VISIBLE);
       wifiIcon.setImageTintList(colorStateList);
     } else {
@@ -182,7 +212,7 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     }
 
     // Handle Assisted Dialing Icon
-    if ((row.features() & TelephonyManagerCompat.FEATURES_ASSISTED_DIALING)
+    if ((row.getFeatures() & TelephonyManagerCompat.FEATURES_ASSISTED_DIALING)
         == TelephonyManagerCompat.FEATURES_ASSISTED_DIALING) {
       assistedDialIcon.setVisibility(View.VISIBLE);
       assistedDialIcon.setImageTintList(colorStateList);
@@ -193,20 +223,20 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
 
   private void setCallTypeIcon(CoalescedRow row) {
     @DrawableRes int resId;
-    switch (row.callType()) {
-      case AppCompatConstants.CALLS_INCOMING_TYPE:
-      case AppCompatConstants.CALLS_ANSWERED_EXTERNALLY_TYPE:
+    switch (row.getCallType()) {
+      case Calls.INCOMING_TYPE:
+      case Calls.ANSWERED_EXTERNALLY_TYPE:
         resId = R.drawable.quantum_ic_call_received_vd_theme_24;
         break;
-      case AppCompatConstants.CALLS_OUTGOING_TYPE:
+      case Calls.OUTGOING_TYPE:
         resId = R.drawable.quantum_ic_call_made_vd_theme_24;
         break;
-      case AppCompatConstants.CALLS_MISSED_TYPE:
+      case Calls.MISSED_TYPE:
         resId = R.drawable.quantum_ic_call_missed_vd_theme_24;
         break;
-      case AppCompatConstants.CALLS_VOICEMAIL_TYPE:
+      case Calls.VOICEMAIL_TYPE:
         throw new IllegalStateException("Voicemails not expected in call log");
-      case AppCompatConstants.CALLS_BLOCKED_TYPE:
+      case Calls.BLOCKED_TYPE:
         resId = R.drawable.quantum_ic_block_vd_theme_24;
         break;
       default:
@@ -219,38 +249,67 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     }
     callTypeIcon.setImageResource(resId);
 
-    if (isNewMissedCall(row)) {
+    if (isUnreadMissedCall(row)) {
       callTypeIcon.setImageTintList(
-          ColorStateList.valueOf(context.getColor(R.color.call_type_icon_unread_color)));
+          ColorStateList.valueOf(activity.getColor(R.color.call_type_icon_unread_color)));
     } else {
       callTypeIcon.setImageTintList(
-          ColorStateList.valueOf(context.getColor(R.color.call_type_icon_read_color)));
+          ColorStateList.valueOf(activity.getColor(R.color.call_type_icon_read_color)));
     }
   }
 
   private void setPhoneAccounts(CoalescedRow row) {
-    if (row.phoneAccountLabel() != null) {
-      phoneAccountView.setText(row.phoneAccountLabel());
-      phoneAccountView.setTextColor(row.phoneAccountColor());
-      phoneAccountView.setVisibility(View.VISIBLE);
-    } else {
+    PhoneAccountHandle phoneAccountHandle =
+        TelecomUtil.composePhoneAccountHandle(
+            row.getPhoneAccountComponentName(), row.getPhoneAccountId());
+    if (phoneAccountHandle == null) {
       phoneAccountView.setVisibility(View.GONE);
+      return;
     }
+
+    String phoneAccountLabel = PhoneAccountUtils.getAccountLabel(activity, phoneAccountHandle);
+    if (TextUtils.isEmpty(phoneAccountLabel)) {
+      phoneAccountView.setVisibility(View.GONE);
+      return;
+    }
+
+    @ColorInt
+    int phoneAccountColor = PhoneAccountUtils.getAccountColor(activity, phoneAccountHandle);
+    if (phoneAccountColor == PhoneAccount.NO_HIGHLIGHT_COLOR) {
+      phoneAccountColor =
+          activity
+              .getResources()
+              .getColor(R.color.dialer_secondary_text_color, activity.getTheme());
+    }
+
+    phoneAccountView.setText(phoneAccountLabel);
+    phoneAccountView.setTextColor(phoneAccountColor);
+    phoneAccountView.setVisibility(View.VISIBLE);
   }
 
-  private void setOnClickListenerForRow(CoalescedRow row) {
-    itemView.setOnClickListener(
-        (view) -> {
-          Intent callbackIntent = CallLogIntents.getCallBackIntent(context, row);
-          if (callbackIntent != null) {
-            context.startActivity(callbackIntent);
-          }
-        });
-  }
+  private void setCallButon(CoalescedRow row) {
+    if (!PhoneNumberHelper.canPlaceCallsTo(
+        row.getNumber().getNormalizedNumber(), row.getNumberPresentation())) {
+      callButton.setVisibility(View.GONE);
+      return;
+    }
 
-  private void setOnClickListenerForMenuButon(CoalescedRow row) {
-    menuButton.setOnClickListener(
-        NewCallLogMenu.createOnClickListener(context, row, glidePhotoManager));
+    callButton.setVisibility(View.VISIBLE);
+    if ((row.getFeatures() & Calls.FEATURES_VIDEO) == Calls.FEATURES_VIDEO) {
+      callButton.setImageResource(R.drawable.quantum_ic_videocam_vd_theme_24);
+      callButton.setContentDescription(
+          TextUtils.expandTemplate(
+              activity.getResources().getText(R.string.a11y_new_call_log_entry_video_call),
+              CallLogEntryText.buildPrimaryText(activity, row)));
+    } else {
+      callButton.setImageResource(R.drawable.quantum_ic_call_vd_theme_24);
+      callButton.setContentDescription(
+          TextUtils.expandTemplate(
+              activity.getResources().getText(R.string.a11y_new_call_log_entry_voice_call),
+              CallLogEntryText.buildPrimaryText(activity, row)));
+    }
+
+    callButton.setOnClickListener(view -> CallLogRowActions.startCallForRow(activity, row));
   }
 
   private class RealtimeRowFutureCallback implements FutureCallback<CoalescedRow> {
@@ -264,14 +323,18 @@ final class NewCallLogViewHolder extends RecyclerView.ViewHolder {
     public void onSuccess(CoalescedRow updatedRow) {
       // If the user scrolled then this ViewHolder may not correspond to the completed task and
       // there's nothing to do.
-      if (originalRow.id() != currentRowId) {
+      if (originalRow.getId() != currentRowId) {
+        popCounts.didNotPop++;
         return;
       }
       // Only update the UI if the updated row differs from the original row (which has already
       // been displayed).
       if (!updatedRow.equals(originalRow)) {
         displayRow(updatedRow);
+        popCounts.popped++;
+        return;
       }
+      popCounts.didNotPop++;
     }
 
     @Override

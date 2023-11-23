@@ -21,10 +21,10 @@
     android:paddingTop="@dimen/snsr_view_padding_top">
 
     <Button
-        android:id="@+id/next_button"
+        android:id="@+id/retry_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/next_button_text" />
+        android:text="@string/retry_button_text" />
 
     <Button
         android:id="@+id/pass_button"
@@ -39,5 +39,11 @@
         android:layout_height="wrap_content"
         android:drawableTop="@drawable/fs_error"
         android:visibility="gone" />
+
+    <Button
+        android:id="@+id/next_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/next_button_text" />
 
 </GridLayout>

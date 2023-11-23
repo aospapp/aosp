@@ -46,6 +46,7 @@ class ModuleInfo(object):
         self.module_info_target = module_info_target
         self.path_to_module_info = self._get_path_to_module_info(
             self.name_to_module_info)
+        self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
 
     @staticmethod
     def _discover_mod_file_and_target(force_build):
@@ -60,23 +61,24 @@ class ModuleInfo(object):
         """
         module_info_target = None
         root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, '/')
-        out_dir = os.environ.get(constants.ANDROID_OUT, root_dir)
+        out_dir = os.environ.get(constants.ANDROID_PRODUCT_OUT, root_dir)
         module_file_path = os.path.join(out_dir, _MODULE_INFO)
 
-        # Check for custom out dir.
-        out_dir_base = os.environ.get(constants.ANDROID_OUT_DIR)
-        if out_dir_base is None or not os.path.isabs(out_dir_base):
+        # Check if the user set a custom out directory by comparing the out_dir
+        # to the root_dir.
+        if out_dir.find(root_dir) == 0:
             # Make target is simply file path relative to root
             module_info_target = os.path.relpath(module_file_path, root_dir)
         else:
-            # Chances are a custom absolute out dir is used, use
-            # ANDROID_PRODUCT_OUT instead.
+            # If the user has set a custom out directory, generate an absolute
+            # path for module info targets.
+            logging.debug('User customized out dir!')
             module_file_path = os.path.join(
-                os.environ.get('ANDROID_PRODUCT_OUT'), _MODULE_INFO)
+                os.environ.get(constants.ANDROID_PRODUCT_OUT), _MODULE_INFO)
             module_info_target = module_file_path
         if not os.path.isfile(module_file_path) or force_build:
-            logging.info('Generating %s - this is required for '
-                         'initial runs.', _MODULE_INFO)
+            logging.debug('Generating %s - this is required for '
+                          'initial runs.', _MODULE_INFO)
             atest_utils.build([module_info_target],
                               logging.getLogger().isEnabledFor(logging.DEBUG))
         return module_info_target, module_file_path
@@ -114,7 +116,11 @@ class ModuleInfo(object):
             Dict of module path to module info dict.
         """
         path_to_module_info = {}
-        for mod_name, mod_info in name_to_module_info.iteritems():
+        for mod_name, mod_info in name_to_module_info.items():
+            # Cross-compiled and multi-arch modules actually all belong to
+            # a single target so filter out these extra modules.
+            if mod_name != mod_info.get(constants.MODULE_NAME, ''):
+                continue
             for path in mod_info.get(constants.MODULE_PATH, []):
                 mod_info[constants.MODULE_NAME] = mod_name
                 # There could be multiple modules in a path.
@@ -150,3 +156,170 @@ class ModuleInfo(object):
     def get_module_info(self, mod_name):
         """Return dict of info for given module name, None if non-existent."""
         return self.name_to_module_info.get(mod_name)
+
+    def is_suite_in_compatibility_suites(self, suite, mod_info):
+        """Check if suite exists in the compatibility_suites of module-info.
+
+        Args:
+            suite: A string of suite name.
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if it exists in mod_info, False otherwise.
+        """
+        return suite in mod_info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
+
+    def get_testable_modules(self, suite=None):
+        """Return the testable modules of the given suite name.
+
+        Args:
+            suite: A string of suite name. Set to None to return all testable
+            modules.
+
+        Returns:
+            List of testable modules. Empty list if non-existent.
+            If suite is None, return all the testable modules in module-info.
+        """
+        modules = set()
+        for _, info in self.name_to_module_info.items():
+            if self.is_testable_module(info):
+                if suite:
+                    if self.is_suite_in_compatibility_suites(suite, info):
+                        modules.add(info.get(constants.MODULE_NAME))
+                else:
+                    modules.add(info.get(constants.MODULE_NAME))
+        return modules
+
+    def is_testable_module(self, mod_info):
+        """Check if module is something we can test.
+
+        A module is testable if:
+          - it's installed, or
+          - it's a robolectric module (or shares path with one).
+
+        Args:
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if we can test this module, False otherwise.
+        """
+        if not mod_info:
+            return False
+        if mod_info.get(constants.MODULE_INSTALLED) and self.has_test_config(mod_info):
+            return True
+        if self.is_robolectric_test(mod_info.get(constants.MODULE_NAME)):
+            return True
+        return False
+
+    def has_test_config(self, mod_info):
+        """Validate if this module has a test config.
+
+        A module can have a test config in the following manner:
+          - AndroidTest.xml at the module path.
+          - test_config be set in module-info.json.
+          - Auto-generated config via the auto_test_config key in module-info.json.
+
+        Args:
+            mod_info: Dict of module info to check.
+
+        Returns:
+            True if this module has a test config, False otherwise.
+        """
+        # Check if test_config in module-info is set.
+        for test_config in mod_info.get(constants.MODULE_TEST_CONFIG, []):
+            if os.path.isfile(os.path.join(self.root_dir, test_config)):
+                return True
+        # Check for AndroidTest.xml at the module path.
+        for path in mod_info.get(constants.MODULE_PATH, []):
+            if os.path.isfile(os.path.join(self.root_dir, path,
+                                           constants.MODULE_CONFIG)):
+                return True
+        # Check if the module has an auto-generated config.
+        return self.is_auto_gen_test_config(mod_info.get(constants.MODULE_NAME))
+
+    def get_robolectric_test_name(self, module_name):
+        """Returns runnable robolectric module name.
+
+        There are at least 2 modules in every robolectric module path, return
+        the module that we can run as a build target.
+
+        Arg:
+            module_name: String of module.
+
+        Returns:
+            String of module that is the runnable robolectric module, None if
+            none could be found.
+        """
+        module_name_info = self.name_to_module_info.get(module_name)
+        if not module_name_info:
+            return None
+        module_paths = module_name_info.get(constants.MODULE_PATH, [])
+        if module_paths:
+            for mod in self.get_module_names(module_paths[0]):
+                mod_info = self.get_module_info(mod)
+                if self.is_robolectric_module(mod_info):
+                    return mod
+        return None
+
+    def is_robolectric_test(self, module_name):
+        """Check if module is a robolectric test.
+
+        A module can be a robolectric test if the specified module has their
+        class set as ROBOLECTRIC (or shares their path with a module that does).
+
+        Args:
+            module_name: String of module to check.
+
+        Returns:
+            True if the module is a robolectric module, else False.
+        """
+        # Check 1, module class is ROBOLECTRIC
+        mod_info = self.get_module_info(module_name)
+        if self.is_robolectric_module(mod_info):
+            return True
+        # Check 2, shared modules in the path have class ROBOLECTRIC_CLASS.
+        if self.get_robolectric_test_name(module_name):
+            return True
+        return False
+
+    def is_auto_gen_test_config(self, module_name):
+        """Check if the test config file will be generated automatically.
+
+        Args:
+            module_name: A string of the module name.
+
+        Returns:
+            True if the test config file will be generated automatically.
+        """
+        if self.is_module(module_name):
+            mod_info = self.name_to_module_info.get(module_name)
+            auto_test_config = mod_info.get('auto_test_config', [])
+            return auto_test_config and auto_test_config[0]
+        return False
+
+    def is_robolectric_module(self, mod_info):
+        """Check if a module is a robolectric module.
+
+        Args:
+            mod_info: ModuleInfo to check.
+
+        Returns:
+            True if module is a robolectric module, False otherwise.
+        """
+        if mod_info:
+            return (mod_info.get(constants.MODULE_CLASS, [None])[0] ==
+                    constants.MODULE_CLASS_ROBOLECTRIC)
+        return False
+
+    def is_native_test(self, module_name):
+        """Check if the input module is a native test.
+
+        Args:
+            module_name: A string of the module name.
+
+        Returns:
+            True if the test is a native test, False otherwise.
+        """
+        mod_info = self.get_module_info(module_name)
+        return constants.MODULE_CLASS_NATIVE_TESTS in mod_info.get(
+            constants.MODULE_CLASS, [])

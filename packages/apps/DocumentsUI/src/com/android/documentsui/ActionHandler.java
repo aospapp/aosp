@@ -16,7 +16,7 @@
 
 package com.android.documentsui;
 
-import android.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.app.PendingIntent;
 import android.content.ContentProvider;
 import android.content.Intent;
@@ -24,12 +24,12 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.view.DragEvent;
 
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+
 import com.android.documentsui.base.BooleanConsumer;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
-import com.android.documentsui.selection.ContentLock;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -37,6 +37,9 @@ import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+/**
+ * Interface to handle action for document.
+ */
 public interface ActionHandler {
 
     @IntDef({
@@ -92,6 +95,8 @@ public interface ActionHandler {
 
     void loadRoot(Uri uri);
 
+    void loadFirstRoot(Uri uri);
+
     void openSelectedInNewWindow();
 
     void openInNewWindow(DocumentStack path);
@@ -110,7 +115,7 @@ public interface ActionHandler {
      * If container, then opens the container, otherwise views using the specified type of view.
      * If the primary view type is unavailable, then fallback to the alternative type of view.
      */
-    boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback);
+    boolean openItem(ItemDetails<String> doc, @ViewType int type, @ViewType int fallback);
 
     /**
      * This is called when user hovers over a doc for enough time during a drag n' drop, to open a
@@ -124,6 +129,8 @@ public interface ActionHandler {
     void openRootDocument(@Nullable DocumentInfo rootDoc);
 
     void openContainerDocument(DocumentInfo doc);
+
+    boolean previewItem(ItemDetails<String> doc);
 
     void cutToClipboard();
 
@@ -152,6 +159,8 @@ public interface ActionHandler {
 
     void setDebugMode(boolean enabled);
     void showDebugMessage();
+
+    void showSortDialog();
 
     /**
      * Allow action handler to be initialized in a new scope.

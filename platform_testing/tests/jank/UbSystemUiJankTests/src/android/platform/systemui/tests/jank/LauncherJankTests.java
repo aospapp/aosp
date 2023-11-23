@@ -16,9 +16,6 @@
 
 package android.platform.systemui.tests.jank;
 
-import android.content.pm.PackageManager;
-import android.graphics.Point;
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
@@ -28,14 +25,15 @@ import android.support.test.jank.JankTestBase;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.timeresulthelper.TimeResultLogger;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.Until;
 import android.system.helpers.OverviewHelper;
+
+import com.android.launcher3.tapl.AllApps;
+import com.android.launcher3.tapl.LauncherInstrumentation;
+import com.android.launcher3.tapl.Overview;
+import com.android.launcher3.tapl.Widgets;
+import com.android.launcher3.tapl.Workspace;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,14 +44,11 @@ import java.io.IOException;
  */
 public class LauncherJankTests extends JankTestBase {
 
-    private static final int TIMEOUT = 5000;
     // short transitions should be repeated within the test function, otherwise frame stats
     // captured are not really meaningful in a statistical sense
     private static final int INNER_LOOP = 3;
-    private static final int FLING_SPEED = 12000;
-    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
     private UiDevice mDevice;
-    private PackageManager pm;
+    private LauncherInstrumentation mLauncher;
     private ILauncherStrategy mLauncherStrategy = null;
     private static final File TIMESTAMP_FILE = new File(Environment.getExternalStorageDirectory()
             .getAbsolutePath(),"autotester.log");
@@ -61,15 +56,18 @@ public class LauncherJankTests extends JankTestBase {
             .getAbsolutePath(),"results.log");
 
     @Override
-    public void setUp() {
+    public void setUp() throws Exception {
+        androidx.test.InstrumentationRegistry.registerInstance(getInstrumentation(), new Bundle());
         mDevice = UiDevice.getInstance(getInstrumentation());
-        pm = getInstrumentation().getContext().getPackageManager();
         try {
             mDevice.setOrientationNatural();
         } catch (RemoteException e) {
             throw new RuntimeException("failed to freeze device orientaion", e);
         }
         mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
+        mLauncher = new LauncherInstrumentation(getInstrumentation());
+        mDevice.executeShellCommand("pm disable com.google.android.music");
+        mDevice.pressHome();
     }
 
     public String getLauncherPackage() {
@@ -78,6 +76,7 @@ public class LauncherJankTests extends JankTestBase {
 
     @Override
     protected void tearDown() throws Exception {
+        mDevice.executeShellCommand("pm enable com.google.android.music");
         mDevice.unfreezeRotation();
         super.tearDown();
     }
@@ -86,49 +85,8 @@ public class LauncherJankTests extends JankTestBase {
         mLauncherStrategy.open();
     }
 
-    private BySelector getAppListViewSelector() {
-        return By.res(getLauncherPackage(), "apps_list_view");
-    }
-
-    /** Swipes from Recents to All Apps. */
-    private void fromRecentsToAllApps() {
-        assertTrue(mDevice.hasObject(SystemUiJankTests.getLauncherOverviewSelector(mDevice)));
-        assertTrue(!mDevice.hasObject(getAppListViewSelector()));
-
-        // Swipe from the hotseat to near the top, e.g. 10% of the screen.
-        UiObject2 predictionRow = mDevice.wait(
-                Until.findObject(By.res(getLauncherPackage(), "prediction_row")),
-                2500);
-        Point start = predictionRow.getVisibleCenter();
-        int endY = (int) (mDevice.getDisplayHeight() * 0.1f);
-        mDevice.swipe(start.x, start.y, start.x, endY, (start.y - endY) / 100); // 100 px/step
-
-        UiObject2 allAppsContainer = mDevice.wait(Until.findObject(getAppListViewSelector()), 2500);
-        assertNotNull("openAllApps: did not find all apps container", allAppsContainer);
-        assertTrue(!mDevice.hasObject(SystemUiJankTests.getLauncherOverviewSelector(mDevice)));
-    }
-
-    /** Swipes from All Apps to Recents. */
-    private void fromAllAppsToRecents() { // add state assertions
-        assertTrue(!mDevice.hasObject(SystemUiJankTests.getLauncherOverviewSelector(mDevice)));
-        assertTrue(mDevice.hasObject(getAppListViewSelector()));
-
-        // Swipe from the search box to the bottom.
-        UiObject2 qsb = mDevice.wait(
-                Until.findObject(By.res(getLauncherPackage(), "search_container_all_apps")), 2500);
-        Point start = qsb.getVisibleCenter();
-        int endY = (int) (mDevice.getDisplayHeight() * 0.6);
-        mDevice.swipe(start.x, start.y, start.x, endY, (endY - start.y) / 100); // 100 px/step
-
-        UiObject2 recentsView = mDevice.wait(
-                Until.findObject(SystemUiJankTests.getLauncherOverviewSelector(mDevice)), 2500);
-        assertNotNull(recentsView);
-        assertTrue(!mDevice.hasObject(getAppListViewSelector()));
-    }
-
     public void resetAndOpenRecents() throws UiObjectNotFoundException, RemoteException {
-        goHome();
-        mDevice.pressRecentApps();
+        mLauncher.pressHome().switchToOverview();
     }
 
     public void prepareOpenAllAppsContainer() throws IOException {
@@ -150,16 +108,14 @@ public class LauncherJankTests extends JankTestBase {
             beforeLoop="resetAndOpenRecents", afterTest="afterTestOpenAllAppsContainer")
     @GfxMonitor(processName="#getLauncherPackage")
     public void testOpenAllAppsContainer() throws UiObjectNotFoundException {
+        Overview overview = mLauncher.getOverview();
         for (int i = 0; i < INNER_LOOP * 2; i++) {
-            fromRecentsToAllApps();
-            mDevice.waitForIdle();
-            fromAllAppsToRecents();
-            mDevice.waitForIdle();
+            overview = overview.switchToAllApps().switchBackToOverview();
         }
     }
 
     public void openAllApps() throws UiObjectNotFoundException, IOException {
-        mLauncherStrategy.openAllApps(false);
+        mLauncher.pressHome().switchToAllApps();
         TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
@@ -177,41 +133,15 @@ public class LauncherJankTests extends JankTestBase {
             expectedFrames=100)
     @GfxMonitor(processName="#getLauncherPackage")
     public void testAllAppsContainerSwipe() {
-        UiObject2 allApps = mDevice.findObject(mLauncherStrategy.getAllAppsSelector());
-        final int allAppsHeight = allApps.getVisibleBounds().height();
-        Direction dir = mLauncherStrategy.getAllAppsScrollDirection();
+        final AllApps allApps = mLauncher.getAllApps();
         for (int i = 0; i < INNER_LOOP * 2; i++) {
-            if (dir == Direction.DOWN) {
-                // Start the gesture in the center to avoid starting at elements near the top.
-                allApps.setGestureMargins(0, 0, 0, allAppsHeight / 2);
-            }
-            allApps.fling(dir, FLING_SPEED);
-            if (dir == Direction.DOWN) {
-                // Start the gesture in the center, for symmetry.
-                allApps.setGestureMargins(0, allAppsHeight / 2, 0, 0);
-            }
-            allApps.fling(Direction.reverse(dir), FLING_SPEED);
+            allApps.flingForward();
+            allApps.flingBackward();
         }
     }
 
     public void makeHomeScrollable() throws UiObjectNotFoundException, IOException {
-        goHome();
-        UiObject2 homeScreen = mDevice.findObject(mLauncherStrategy.getWorkspaceSelector());
-        Rect r = homeScreen.getVisibleBounds();
-        if (!homeScreen.isScrollable()) {
-            // Add the Chrome icon to the first launcher screen.
-            // This is specifically for Bullhead, where you can't add an icon
-            // to the second launcher screen without one on the first.
-            UiObject2 chrome = mDevice.findObject(By.text("Chrome"));
-            Point dest = new Point(mDevice.getDisplayWidth()/2, r.centerY());
-            chrome.drag(dest, 2000);
-            // Drag Camera icon to next screen
-            UiObject2 camera = mDevice.findObject(By.text("Camera"));
-            dest = new Point(mDevice.getDisplayWidth(), r.centerY());
-            camera.drag(dest, 2000);
-        }
-        mDevice.waitForIdle();
-        assertTrue("home screen workspace still not scrollable", homeScreen.isScrollable());
+        mLauncher.pressHome().ensureWorkspaceIsScrollable();
         TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
@@ -229,16 +159,15 @@ public class LauncherJankTests extends JankTestBase {
               expectedFrames=100)
     @GfxMonitor(processName="#getLauncherPackage")
     public void testHomeScreenSwipe() {
-        UiObject2 workspace = mDevice.findObject(mLauncherStrategy.getWorkspaceSelector());
-        Direction dir = mLauncherStrategy.getWorkspaceScrollDirection();
+        final Workspace workspace = mLauncher.getWorkspace();
         for (int i = 0; i < INNER_LOOP * 2; i++) {
-            workspace.fling(dir);
-            workspace.fling(Direction.reverse(dir));
+            workspace.flingForward();
+            workspace.flingBackward();
         }
     }
 
     public void openAllWidgets() throws UiObjectNotFoundException, IOException {
-        mLauncherStrategy.openAllWidgets(true);
+        mLauncher.pressHome().openAllWidgets();
         TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
@@ -256,11 +185,10 @@ public class LauncherJankTests extends JankTestBase {
               expectedFrames=100)
     @GfxMonitor(processName="#getLauncherPackage")
     public void testWidgetsContainerFling() {
-        UiObject2 allWidgets = mDevice.findObject(mLauncherStrategy.getAllWidgetsSelector());
-        Direction dir = mLauncherStrategy.getAllWidgetsScrollDirection();
+        final Widgets widgets = mLauncher.getAllWidgets();
         for (int i = 0; i < INNER_LOOP; i++) {
-            allWidgets.fling(dir, FLING_SPEED);
-            allWidgets.fling(Direction.reverse(dir), FLING_SPEED);
+            widgets.flingForward();
+            widgets.flingBackward();
         }
     }
 
@@ -277,11 +205,6 @@ public class LauncherJankTests extends JankTestBase {
         super.afterTest(metrics);
     }
 
-    private void pressUiHome() throws RemoteException {
-        mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "home")).click();
-        mDevice.waitForIdle();
-    }
-
     /**
      * Opens and closes the Messages app repeatedly, measuring jank for synchronized app
      * transitions.
@@ -292,36 +215,7 @@ public class LauncherJankTests extends JankTestBase {
     public void testOpenCloseMessagesApp() throws Exception {
         for (int i = 0; i < INNER_LOOP; i++) {
             mLauncherStrategy.launch("Messages", "com.google.android.apps.messaging");
-            pressUiHome();
-        }
-    }
-
-    public void beforeOpenMessagesAppFromRecents() throws UiObjectNotFoundException, IOException {
-        goHome();
-        mLauncherStrategy.launch("Messages", "com.google.android.apps.messaging");
-        TimeResultLogger.writeTimeStampLogStart(String.format("%s-%s",
-                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
-    }
-
-    public void afterOpenMessagesAppFromRecents(Bundle metrics) throws IOException {
-        TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
-                getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
-        TimeResultLogger.writeResultToFile(String.format("%s-%s",
-                getClass().getSimpleName(), getName()), RESULTS_FILE, metrics);
-        super.afterTest(metrics);
-    }
-
-    /**
-     * Opens the Messages app repeatedly from recents, measuring jank for synchronized app
-     * transitions.
-     */
-    @JankTest(beforeTest="beforeOpenMessagesAppFromRecents",
-            afterTest="afterOpenMessagesAppFromRecents", expectedFrames=80)
-    @GfxMonitor(processName="#getLauncherPackage")
-    public void testOpenMessagesAppFromRecents() throws Exception {
-        for (int i = 0; i < INNER_LOOP; i++) {
-            SystemUiJankTests.openRecents(getInstrumentation().getTargetContext(), mDevice);
-            mLauncherStrategy.launch("Messages", "com.google.android.apps.messaging");
+            mLauncher.pressHome();
         }
     }
 }

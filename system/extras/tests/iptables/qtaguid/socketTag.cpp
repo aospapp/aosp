@@ -194,15 +194,15 @@ protected:
         fake_uid2 = testRand();
         valid_tag1 = ((uint64_t)my_pid << 48) | ((uint64_t)testRand() << 32);
         valid_tag2 = ((uint64_t)my_pid << 48) | ((uint64_t)testRand() << 32);
-        valid_tag2 &= 0xffffff00ffffffffllu;  // Leave some room to make counts visible.
+        valid_tag2 &= 0xffffff00ffffffffLLU;  // Leave some room to make counts visible.
         testPrintI("* start: pid=%lu uid=%lu uid1=0x%lx/%lu uid2=0x%lx/%lu"
                    " tag1=0x%" PRIx64 "/%" PRIu64 " tag2=0x%" PRIx64 "/% " PRIu64,
                    (unsigned long)my_pid, (unsigned long)my_uid,
                    (unsigned long)fake_uid, (unsigned long)fake_uid,
                    (unsigned long)fake_uid2, (unsigned long)fake_uid2,
                    valid_tag1, valid_tag1, valid_tag2, valid_tag2);
-        max_uint_tag = 0xffffffff00000000llu;
-        max_uint_tag = 1llu << 63 | (((uint64_t)my_pid << 48) ^ max_uint_tag);
+        max_uint_tag = 0xffffffff00000000LLU;
+        max_uint_tag = 1LLU << 63 | (((uint64_t)my_pid << 48) ^ max_uint_tag);
 
         testPrintI("kernel has qtaguid");
         ctrl_fd = openCtrl();
@@ -243,12 +243,12 @@ protected:
    uint64_t valid_tag1;
    uint64_t valid_tag2;
    uint64_t max_uint_tag;
-   static const uint64_t invalid_tag1 = 0x0000000100000001llu;
+   static const uint64_t invalid_tag1 = 0x0000000100000001LLU;
    static const int max_tags = 5;
 };
 
 TEST_F(SocketTaggingTest, TagData) {
-    max_uint_tag = 0xffffffff00000000llu;
+    max_uint_tag = 0xffffffff00000000LLU;
     char *max_tags_str;
 
     testPrintI("setup tag limit");

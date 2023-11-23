@@ -23,10 +23,14 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.PropertyUtil;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -36,7 +40,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.UnsupportedEncodingException;
-import com.android.compatibility.common.util.CddTest;
 
 /**
  * Test that the Vulkan loader is present, supports the required extensions, and that system
@@ -63,6 +66,9 @@ public class VulkanFeaturesTest {
     private static final int VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION = 2;
     private static final int VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT = 0x8;
     private static final int VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT = 0x10;
+    private static final int VK_PHYSICAL_DEVICE_TYPE_CPU = 4;
+
+    private static final int API_LEVEL_BEFORE_ANDROID_HARDWARE_BUFFER_REQ = 28;
 
     private PackageManager mPm;
     private FeatureInfo mVulkanHardwareLevel = null;
@@ -99,7 +105,7 @@ public class VulkanFeaturesTest {
         mVulkanDevices = getVulkanDevices();
         mBestDevice = getBestDevice();
     }
-    @CddTest(requirement="7.1.4.2/C-1-1,C-2-1")
+    @CddTest(requirement = "7.1.4.2/C-1-1,C-2-1")
     @Test
     public void testVulkanHardwareFeatures() throws JSONException {
         if (DEBUG) {
@@ -117,6 +123,11 @@ public class VulkanFeaturesTest {
                        mVulkanHardwareCompute);
             return;
         }
+
+        if (hasOnlyCpuDevice()) {
+            return;
+        }
+
         assertNotNull("Vulkan physical devices are available, but system feature " +
                       PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL + " is not supported",
                       mVulkanHardwareLevel);
@@ -168,11 +179,28 @@ public class VulkanFeaturesTest {
         }
     }
 
-    @CddTest(requirement="7.9.2/C-1-5")
+    @CddTest(requirement = "7.1.4.2/C-3-1")
     @Test
     public void testVulkan1_1Requirements() throws JSONException {
-        if (mVulkanHardwareVersion == null || mVulkanHardwareVersion.version < VULKAN_1_1)
+        if (mVulkanHardwareVersion == null || mVulkanHardwareVersion.version < VULKAN_1_1
+                || !PropertyUtil.isVendorApiLevelNewerThan(
+                        API_LEVEL_BEFORE_ANDROID_HARDWARE_BUFFER_REQ)) {
             return;
+        }
+        assertTrue("Devices with Vulkan 1.1 must support sampler YCbCr conversion",
+                mBestDevice.getJSONObject("samplerYcbcrConversionFeatures")
+                           .getInt("samplerYcbcrConversion") != 0);
+
+        if (hasOnlyCpuDevice()) {
+            return;
+        }
+        assertTrue("Devices with Vulkan 1.1 must support " +
+                VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME +
+                " (version >= " + VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION +
+                ")",
+                hasExtension(mBestDevice,
+                    VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME,
+                    VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_SPEC_VERSION));
         assertTrue("Devices with Vulkan 1.1 must support SYNC_FD external semaphores",
                 hasHandleType(mBestDevice.getJSONArray("externalSemaphoreProperties"),
                     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
@@ -181,11 +209,9 @@ public class VulkanFeaturesTest {
                 hasHandleType(mBestDevice.getJSONArray("externalFenceProperties"),
                     VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
                     "externalFenceFeatures", 0x3 /* importable + exportable */));
-        assertTrue("Devices with Vulkan 1.1 must support sampler YCbCr conversion",
-                mBestDevice.getJSONObject("samplerYcbcrConversionFeatures")
-                           .getInt("samplerYcbcrConversion") != 0);
     }
 
+    @CddTest(requirement = "7.9.2/C-1-5")
     @Test
     public void testVulkanVersionForVrHighPerformance() {
         if (!mPm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE))
@@ -222,6 +248,16 @@ public class VulkanFeaturesTest {
         return bestDevice;
     }
 
+    private boolean hasOnlyCpuDevice() throws JSONException {
+        for (JSONObject device : mVulkanDevices) {
+            if (device.getJSONObject("properties").getInt("deviceType")
+                    != VK_PHYSICAL_DEVICE_TYPE_CPU) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private int determineHardwareLevel(JSONObject device) throws JSONException {
         JSONObject features = device.getJSONObject("features");
         boolean textureCompressionETC2 = features.getInt("textureCompressionETC2") != 0;
@@ -256,9 +292,19 @@ public class VulkanFeaturesTest {
     }
 
     private int determineHardwareCompute(JSONObject device) throws JSONException {
-        boolean variablePointers = device.getJSONObject("VK_KHR_variable_pointers")
-                                         .getJSONObject("variablePointerFeaturesKHR")
-                                         .getInt("variablePointers") != 0;
+        boolean variablePointers = false;
+        try {
+            variablePointers = device.getJSONObject("variablePointerFeatures")
+                                             .getInt("variablePointers") != 0;
+        } catch (JSONException exp) {
+            try {
+                variablePointers = device.getJSONObject("VK_KHR_variable_pointers")
+                                                 .getJSONObject("variablePointerFeaturesKHR")
+                                                 .getInt("variablePointers") != 0;
+            }  catch (JSONException exp2) {
+                variablePointers = false;
+            }
+        }
         JSONObject limits = device.getJSONObject("properties").getJSONObject("limits");
         int maxPerStageDescriptorStorageBuffers = limits.getInt("maxPerStageDescriptorStorageBuffers");
         if (DEBUG) {

@@ -1,0 +1,19 @@
+name: "archive-patcher"
+description: "Archive-patcher is an open-source project that allows space-efficient patching of zip archives."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://github.com/andrewhayden/archive-patcher"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://github.com/andrewhayden/archive-patcher/archive/v1.1.zip"
+  }
+  version: "v1.1"
+  license_type: RECIPROCAL
+  last_upgrade_date {
+    year: 2019
+    month: 3
+    day: 25
+  }
+}

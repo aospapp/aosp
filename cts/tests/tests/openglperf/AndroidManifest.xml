@@ -27,13 +27,13 @@
     <!-- Two activities are used -->
     <instrumentation
         android:targetPackage="com.replica.replicaisland"
-        android:name="android.support.test.runner.AndroidJUnitRunner" >
+        android:name="androidx.test.runner.AndroidJUnitRunner" >
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
     <instrumentation
         android:targetPackage="android.openglperf.cts"
-        android:name="android.support.test.runner.AndroidJUnitRunner">
+        android:name="androidx.test.runner.AndroidJUnitRunner">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>

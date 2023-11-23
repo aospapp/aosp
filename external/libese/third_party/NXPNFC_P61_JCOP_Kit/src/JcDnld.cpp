@@ -16,7 +16,7 @@
 #include "JcDnld.h"
 #include "JcopOsDownload.h"
 #include <data_types.h>
-#include <cutils/log.h>
+#include <log/log.h>
 
 JcopOsDwnld *jd;
 IChannel_t *channel;

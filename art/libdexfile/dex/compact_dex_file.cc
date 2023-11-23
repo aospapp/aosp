@@ -55,7 +55,7 @@ bool CompactDexFile::SupportsDefaultMethods() const {
       static_cast<uint32_t>(FeatureFlags::kDefaultMethods)) != 0;
 }
 
-uint32_t CompactDexFile::GetCodeItemSize(const DexFile::CodeItem& item) const {
+uint32_t CompactDexFile::GetCodeItemSize(const dex::CodeItem& item) const {
   DCHECK(IsInDataSection(&item));
   return reinterpret_cast<uintptr_t>(CodeItemDataAccessor(*this, &item).CodeItemDataEnd()) -
       reinterpret_cast<uintptr_t>(&item);
@@ -100,7 +100,7 @@ CompactDexFile::CompactDexFile(const uint8_t* base,
               location_checksum,
               oat_dex_file,
               std::move(container),
-              /*is_compact_dex*/ true),
+              /*is_compact_dex=*/ true),
       debug_info_offsets_(DataBegin() + GetHeader().debug_info_offsets_pos_,
                           GetHeader().debug_info_base_,
                           GetHeader().debug_info_offsets_table_offset_) {}

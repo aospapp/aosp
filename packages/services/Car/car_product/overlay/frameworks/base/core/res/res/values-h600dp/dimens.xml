@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
+    <!-- Application Bar -->
+    <dimen name="car_app_bar_height">96dp</dimen>
+
     <!-- Size of notification text titles (see TextAppearance.StatusBar.EventContent.Title) -->
     <dimen name="notification_title_text_size">40sp</dimen>
 
@@ -36,4 +39,7 @@ limitations under the License.
 
     <!-- The size of the media actions in the media notification. -->
     <dimen name="media_notification_action_button_size">56dp</dimen>
+
+    <!-- Minimum height of list items. -->
+    <dimen name="car_single_line_list_item_height">116dp</dimen>
 </resources>

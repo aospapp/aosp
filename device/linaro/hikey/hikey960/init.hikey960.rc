@@ -1,0 +1,6 @@
+import init.common.rc
+
+on post-fs
+    # Set supported opengles version
+    setprop ro.hardware.hwcomposer drm_hikey960
+

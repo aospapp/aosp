@@ -16,7 +16,6 @@
 package com.google.android.car.kitchensink.volume;
 
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.media.CarAudioManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -26,8 +25,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.util.SparseIntArray;
 import android.view.LayoutInflater;
@@ -35,6 +32,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.SeekBar;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.R;
 
@@ -117,12 +117,8 @@ public class VolumeTestFragment extends Fragment {
                 @Override
                 public void onServiceConnected(ComponentName name, IBinder binder) {
                     Log.d(TAG, "Connected to Car Service");
-                    try {
-                        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-                        initVolumeInfo();
-                    } catch (CarNotConnectedException e) {
-                        Log.e(TAG, "Car is not connected!", e);
-                    }
+                    mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+                    initVolumeInfo();
                 }
 
                 @Override
@@ -147,14 +143,10 @@ public class VolumeTestFragment extends Fragment {
         final SeekBar.OnSeekBarChangeListener seekListener = new SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 final float percent = (progress - 100) / 100.0f;
-                try {
-                    if (seekBar.getId() == R.id.fade_bar) {
-                        mCarAudioManager.setFadeTowardFront(percent);
-                    } else {
-                        mCarAudioManager.setBalanceTowardRight(percent);
-                    }
-                } catch (CarNotConnectedException e) {
-                    Log.e(TAG, "Can't adjust fade or balance when car not connected", e);
+                if (seekBar.getId() == R.id.fade_bar) {
+                    mCarAudioManager.setFadeTowardFront(percent);
+                } else {
+                    mCarAudioManager.setBalanceTowardRight(percent);
                 }
             }
 
@@ -179,16 +171,11 @@ public class VolumeTestFragment extends Fragment {
             Log.e(TAG, "CarAudioManager is null");
             return;
         }
-        int current = 0;
-        try {
-            current = mCarAudioManager.getGroupVolume(groupId);
-            int volume = current + (up ? 1 : -1);
-            mCarAudioManager.setGroupVolume(groupId, volume,
-                    AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_PLAY_SOUND);
-            Log.d(TAG, "Set group " + groupId + " volume " + volume);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "car not connected", e);
-        }
+        int current = mCarAudioManager.getGroupVolume(groupId);
+        int volume = current + (up ? 1 : -1);
+        mCarAudioManager.setGroupVolume(groupId, volume,
+                AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_PLAY_SOUND);
+        Log.d(TAG, "Set group " + groupId + " volume " + volume);
     }
 
     public void requestFocus(int groupId) {
@@ -196,36 +183,32 @@ public class VolumeTestFragment extends Fragment {
     }
 
     private void initVolumeInfo() {
-        try {
-            int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
-            mVolumeInfos = new VolumeInfo[volumeGroupCount + 1];
-            mGroupIdIndexMap.clear();
-            mVolumeInfos[0] = new VolumeInfo();
-            mVolumeInfos[0].mId = "Group id";
-            mVolumeInfos[0].mCurrent = "Current";
-            mVolumeInfos[0].mMax = "Max";
+        int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
+        mVolumeInfos = new VolumeInfo[volumeGroupCount + 1];
+        mGroupIdIndexMap.clear();
+        mVolumeInfos[0] = new VolumeInfo();
+        mVolumeInfos[0].mId = "Group id";
+        mVolumeInfos[0].mCurrent = "Current";
+        mVolumeInfos[0].mMax = "Max";
 
-            int i = 1;
-            for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
-                mVolumeInfos[i] = new VolumeInfo();
-                mVolumeInfos[i].mGroupId = groupId;
-                mGroupIdIndexMap.put(groupId, i);
-                mVolumeInfos[i].mId = String.valueOf(groupId);
+        int i = 1;
+        for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
+            mVolumeInfos[i] = new VolumeInfo();
+            mVolumeInfos[i].mGroupId = groupId;
+            mGroupIdIndexMap.put(groupId, i);
+            mVolumeInfos[i].mId = String.valueOf(groupId);
 
 
-                int current = mCarAudioManager.getGroupVolume(groupId);
-                int max = mCarAudioManager.getGroupMaxVolume(groupId);
-                mVolumeInfos[i].mCurrent = String.valueOf(current);
-                mVolumeInfos[i].mMax = String.valueOf(max);
+            int current = mCarAudioManager.getGroupVolume(groupId);
+            int max = mCarAudioManager.getGroupMaxVolume(groupId);
+            mVolumeInfos[i].mCurrent = String.valueOf(current);
+            mVolumeInfos[i].mMax = String.valueOf(max);
 
-                Log.d(TAG, groupId + " max: " + mVolumeInfos[i].mMax + " current: "
-                        + mVolumeInfos[i].mCurrent);
-                i++;
-            }
-            mAdapter.refreshVolumes(mVolumeInfos);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "car not connected", e);
+            Log.d(TAG, groupId + " max: " + mVolumeInfos[i].mMax + " current: "
+                    + mVolumeInfos[i].mCurrent);
+            i++;
         }
+        mAdapter.refreshVolumes(mVolumeInfos);
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.LogAnnotation;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.MetricAnnotation;
 import com.android.tradefed.testtype.MetricTestCase.LogHolder;
+import com.android.tradefed.testtype.junit4.CarryDnaeError;
 import com.android.tradefed.util.StreamUtil;
 
 import org.junit.AssumptionViolatedException;
@@ -51,6 +52,10 @@ public class JUnit4ResultForwarder extends RunListener {
         if (description.getMethodName() == null) {
             // In case of exception in @BeforeClass, the method name will be null
             mListener.testRunFailed(String.format("Failed with trace: %s", failure.getTrace()));
+            // If the exception is ours thrown from before, rethrow it
+            if (failure.getException() instanceof CarryDnaeError) {
+                throw ((CarryDnaeError) failure.getException()).getDeviceNotAvailableException();
+            }
             return;
         }
         mTestCaseFailures.add(failure.getException());
@@ -62,7 +67,7 @@ public class JUnit4ResultForwarder extends RunListener {
     }
 
     @Override
-    public void testStarted(Description description) {
+    public void testStarted(Description description) throws Exception {
         mTestCaseFailures.clear();
         TestDescription testid =
                 new TestDescription(
@@ -73,32 +78,35 @@ public class JUnit4ResultForwarder extends RunListener {
     }
 
     @Override
-    public void testFinished(Description description) {
+    public void testFinished(Description description) throws Exception {
         TestDescription testid =
                 new TestDescription(
                         description.getClassName(),
                         description.getMethodName(),
                         description.getAnnotations());
-        handleFailures(testid);
-        // Explore the Description to see if we find any Annotation metrics carrier
-        HashMap<String, Metric> metrics = new HashMap<>();
-        for (Description child : description.getChildren()) {
-            for (Annotation a : child.getAnnotations()) {
-                if (a instanceof MetricAnnotation) {
-                    metrics.putAll(((MetricAnnotation) a).mMetrics);
-                }
-                if (a instanceof LogAnnotation) {
-                    // Log all the logs found.
-                    for (LogHolder log : ((LogAnnotation) a).mLogs) {
-                        mListener.testLog(log.mDataName, log.mDataType, log.mDataStream);
-                        StreamUtil.cancel(log.mDataStream);
+        try {
+            handleFailures(testid);
+        } finally {
+            // Explore the Description to see if we find any Annotation metrics carrier
+            HashMap<String, Metric> metrics = new HashMap<>();
+            for (Description child : description.getChildren()) {
+                for (Annotation a : child.getAnnotations()) {
+                    if (a instanceof MetricAnnotation) {
+                        metrics.putAll(((MetricAnnotation) a).mMetrics);
                     }
-                    ((LogAnnotation) a).mLogs.clear();
+                    if (a instanceof LogAnnotation) {
+                        // Log all the logs found.
+                        for (LogHolder log : ((LogAnnotation) a).mLogs) {
+                            mListener.testLog(log.mDataName, log.mDataType, log.mDataStream);
+                            StreamUtil.cancel(log.mDataStream);
+                        }
+                        ((LogAnnotation) a).mLogs.clear();
+                    }
                 }
             }
+            //description.
+            mListener.testEnded(testid, metrics);
         }
-        //description.
-        mListener.testEnded(testid, metrics);
     }
 
     @Override

@@ -20,7 +20,7 @@
 
 namespace chre {
 
-void PlatformPal::prePalApiCall() {
+void PlatformPal::prePalApiCall() const {
   slpiForceBigImage();
 }
 

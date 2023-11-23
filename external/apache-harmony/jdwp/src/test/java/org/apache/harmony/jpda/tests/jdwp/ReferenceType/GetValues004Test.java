@@ -39,12 +39,11 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class GetValues004Test extends JDWPSyncTestCase {
 
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/GetValues004Debuggee;";
-    static final String anotherClassSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/RFGetValues004AnotherClass;";
+    static final String anotherClassSignature = getClassSignature(RFGetValues004AnotherClass.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues004Debuggee";
+        return GetValues004Debuggee.class.getName();
     }
 
     /**
@@ -95,7 +94,7 @@ public class GetValues004Test extends JDWPSyncTestCase {
         ("\n=> Get debuggeeRefTypeID for debuggee class = " + getDebuggeeClassName() + "...");
         long debuggeeRefTypeID = 0;
         try {
-            debuggeeRefTypeID = debuggeeWrapper.vmMirror.getClassID(debuggeeSignature);
+            debuggeeRefTypeID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
         } catch ( Throwable thrown) {
             logWriter.println("## FAILURE: Can not get debuggeeRefTypeID:");
             logWriter.println("## Exception: " + thrown);
@@ -103,8 +102,8 @@ public class GetValues004Test extends JDWPSyncTestCase {
         }
         if ( debuggeeRefTypeID == -1 ) {
             logWriter.println("## FAILURE: Can not get debuggeeRefTypeID for given signature!");
-            logWriter.println("## Signature = |" + debuggeeSignature + "|");
-            fail("Can not get debuggeeRefTypeID for given signature:<" + debuggeeSignature + ">");
+            logWriter.println("## Signature = |" + getDebuggeeClassSignature() + "|");
+            fail("Can not get debuggeeRefTypeID for given signature:<" + getDebuggeeClassSignature() + ">");
         }
         logWriter.println("=> debuggeeRefTypeID = " + debuggeeRefTypeID);
 

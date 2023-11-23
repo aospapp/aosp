@@ -31,6 +31,7 @@ lv{
         151{"Austrumeiropa"}
         154{"Ziemeļeiropa"}
         155{"Rietumeiropa"}
+        202{"Subsahāras Āfrika"}
         419{"Latīņamerika"}
         AC{"Debesbraukšanas sala"}
         AD{"Andora"}
@@ -114,7 +115,7 @@ lv{
         FO{"Fēru salas"}
         FR{"Francija"}
         GA{"Gabona"}
-        GB{"Lielbritānija"}
+        GB{"Apvienotā Karaliste"}
         GD{"Grenāda"}
         GE{"Gruzija"}
         GF{"Francijas Gviāna"}
@@ -295,7 +296,7 @@ lv{
         ZZ{"nezināms reģions"}
     }
     Countries%short{
-        GB{"Lielbritānija"}
+        GB{"Apvienotā Karaliste"}
         UN{"ANO"}
         US{"ASV"}
     }
@@ -305,5 +306,5 @@ lv{
         CI{"Ziloņkaula krasts"}
         CZ{"Čehijas Republika"}
     }
-    Version{"2.1.37.5"}
+    Version{"2.1.44.91"}
 }

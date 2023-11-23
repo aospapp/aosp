@@ -21,8 +21,13 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 import android.content.Context;
 import android.content.pm.PackageManager;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
@@ -37,13 +42,31 @@ public class InstallExistingPackageTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams params,
             Callback callback) {
-        super(context, params, callback);
+        this(packageName, context, params, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
+    }
+
+    @VisibleForTesting
+    public InstallExistingPackageTask(
+            String packageName,
+            Context context,
+            ProvisioningParams params,
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, params, callback, provisioningAnalyticsTracker);
 
         mPackageName = checkNotNull(packageName);
     }
 
     public int getStatusMsgId() {
         return R.string.progress_install;
+    }
+
+    @VisibleForTesting
+    public String getPackageName() {
+        return mPackageName;
     }
 
     @Override

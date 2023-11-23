@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput_boolean.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static boolean value = 5 / 0 > 0 ? true : false; 
 }
 

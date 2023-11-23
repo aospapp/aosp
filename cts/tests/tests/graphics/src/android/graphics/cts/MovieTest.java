@@ -27,9 +27,10 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Movie;
 import android.graphics.Paint;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 

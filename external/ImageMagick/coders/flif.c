@@ -17,13 +17,13 @@
 %                                April 2016                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -164,10 +164,13 @@ static Image *ReadFLIFImage(const ImageInfo *image_info,
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   count=ReadBlob(image,length,stream);
   if (count != length)
-    ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+    {
+      stream=(unsigned char *) RelinquishMagickMemory(stream);
+      ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+    }
   flifdec=flif_create_decoder();
   if (image_info->quality != UndefinedCompressionQuality)
-    flif_decoder_set_quality(flifdec,image_info->quality);
+    flif_decoder_set_quality(flifdec,(int32_t) image_info->quality);
   if (!flif_decoder_decode_memory(flifdec,stream,length))
     {
       flif_destroy_decoder(flifdec);
@@ -193,10 +196,8 @@ static Image *ReadFLIFImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            flif_destroy_decoder(flifdec);
-            pixels=(unsigned short *) RelinquishMagickMemory(pixels);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
       }
@@ -235,6 +236,8 @@ static Image *ReadFLIFImage(const ImageInfo *image_info,
   }
   flif_destroy_decoder(flifdec);
   pixels=(unsigned short *) RelinquishMagickMemory(pixels);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(image);
 }
 #endif
@@ -406,6 +409,7 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
 
   size_t
     columns,
+    imageListLength,
     length,
     rows;
 
@@ -431,7 +435,7 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
     return(status);
   flifenc=flif_create_encoder();
   if (image_info->quality != UndefinedCompressionQuality)
-    flif_encoder_set_lossy(flifenc,3*(100-image_info->quality));
+    flif_encoder_set_lossy(flifenc,3*(100-(int32_t) image_info->quality));
 
   /* relatively fast encoding */
   flif_encoder_set_learn_repeat(flifenc,1);
@@ -443,12 +447,14 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
   /* Convert image to FLIFIMAGE */
   if (image->depth > 8)
     {
-      flifimage=flif_create_image_HDR(image->columns,image->rows);
+      flifimage=flif_create_image_HDR((uint32_t) image->columns,
+        (uint32_t) image->rows);
       length=sizeof(unsigned short)*4*image->columns;
     }
   else
     {
-      flifimage=flif_create_image(image->columns,image->rows);
+      flifimage=flif_create_image((uint32_t) image->columns,
+        (uint32_t) image->rows);
       length=sizeof(unsigned char)*4*image->columns;
     }
   if (flifimage == (FLIF_IMAGE *) NULL)
@@ -464,7 +470,7 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
       ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
     }
   scene=0;
-
+  imageListLength=GetImageListLength(image);
   do
   {
     for (y=0; y < (ssize_t) image->rows; y++)
@@ -506,7 +512,7 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
           flif_image_write_row_RGBA8(flifimage,y,pixels,length);
         }
     }
-    flif_image_set_frame_delay(flifimage,image->delay*100/
+    flif_image_set_frame_delay(flifimage,(uint32_t) image->delay*100/
       image->ticks_per_second);
     flif_encoder_add_image(flifenc,flifimage);
     if (GetNextImageInList(image) == (Image *) NULL)
@@ -520,12 +526,10 @@ static MagickBooleanType WriteFLIFImage(const ImageInfo *image_info,
         ThrowWriterException(ImageError,"FramesNotSameDimensions");
       }
     scene++;
-    status=SetImageProgress(image,SaveImagesTag,scene,GetImageListLength(
-      image));
+    status=SetImageProgress(image,SaveImagesTag,scene,imageListLength);
     if (status == MagickFalse)
        break;
   } while (image_info->adjoin != MagickFalse);
-
   flif_destroy_image(flifimage);
   pixels=RelinquishMagickMemory(pixels);
   flif_status=flif_encoder_encode_memory(flifenc,&buffer,&length);

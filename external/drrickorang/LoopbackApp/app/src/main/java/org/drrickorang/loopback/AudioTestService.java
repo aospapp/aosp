@@ -17,7 +17,10 @@
 package org.drrickorang.loopback;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
@@ -33,9 +36,11 @@ import android.util.Log;
 
 public class AudioTestService extends Service {
     private static final String TAG = "AudioTestService";
+    private static final String CHANNEL_ID = "AudioTestChannel";
+    private static final int NOTIFICATION_ID = 1400;
 
     private final IBinder mBinder = new AudioTestBinder();
-
+    private NotificationChannel mNotificationChannel;
 
     @Override
     public void onCreate() {
@@ -57,18 +62,30 @@ public class AudioTestService extends Service {
      * and restarted after a while.
      */
     private void runAsForegroundService() {
-        int notificationId = 1400;
-        Notification.Builder builder = new Notification.Builder(this)
-                .setSmallIcon(R.drawable.ic_launcher).setContentTitle("Loopback App")
-                .setContentText("Please disregard me.");
-        Notification notification;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
-            notification = builder.getNotification();
-        } else {
-            notification = builder.build();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mNotificationChannel = new NotificationChannel(
+                    CHANNEL_ID,
+                    getString(R.string.notificationText),
+                    NotificationManager.IMPORTANCE_LOW);
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.createNotificationChannel(mNotificationChannel);
         }
 
-        startForeground(notificationId, notification);
+        Notification.Builder builder = new Notification.Builder(this)
+                .setSmallIcon(R.drawable.ic_launcher).setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notificationText));
+        if (mNotificationChannel != null) {
+            builder.setChannelId(CHANNEL_ID);
+        }
+        Notification notification;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            notification = builder.build();
+        } else {
+            notification = builder.getNotification();
+        }
+
+        startForeground(NOTIFICATION_ID, notification);
     }
 
 
@@ -82,6 +99,11 @@ public class AudioTestService extends Service {
     @Override
     public void onDestroy() {
         log("Service onDestroy");
+        if (mNotificationChannel != null) {
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.deleteNotificationChannel(CHANNEL_ID);
+        }
     }
 
 

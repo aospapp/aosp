@@ -346,6 +346,11 @@ ssize_t ASensorEventQueue_getEvents(
     return queue->getEvents(events, count);
 }
 
+int ASensorEventQueue_requestAdditionalInfoEvents(ASensorEventQueue* queue, bool enable) {
+    RETURN_IF_QUEUE_IS_NULL(BAD_VALUE);
+    return queue->requestAdditionalInfoEvents(enable);
+}
+
 const char *ASensor_getName(ASensor const* sensor) {
     RETURN_IF_SENSOR_IS_NULL(NULL);
     return reinterpret_cast<const SensorInfo *>(sensor)->name.c_str();
@@ -390,6 +395,11 @@ const char* ASensor_getStringType(ASensor const* sensor) {
 extern "C" float ASensor_getMaxRange(ASensor const* sensor) {
     RETURN_IF_SENSOR_IS_NULL(nanf(""));
     return reinterpret_cast<const SensorInfo *>(sensor)->maxRange;
+}
+
+int ASensor_getHandle(ASensor const* sensor) {
+    RETURN_IF_SENSOR_IS_NULL(ASENSOR_INVALID);
+    return reinterpret_cast<const SensorInfo*>(sensor)->sensorHandle;
 }
 
 #if 0

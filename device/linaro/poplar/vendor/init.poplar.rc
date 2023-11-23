@@ -1,0 +1,13 @@
+import init.${ro.hardware}.usb.rc
+
+on init
+    mount debugfs /sys/kernel/debug /sys/kernel/debug
+    # switch USB to peripheral
+    write /sys/kernel/debug/hisi_inno_phy/role "peripheral"
+
+on fs
+    mount_all /vendor/etc/fstab.${ro.hardware}
+    swapon_all /vendor/etc/fstab.${ro.hardware}
+
+on boot
+    setprop service.adb.tcp.port 5555

@@ -16,18 +16,17 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.shadow.api.Shadow.extract;
 
-import android.arch.lifecycle.ViewModelProviders;
 import android.net.IpConfiguration;
 import android.net.wifi.WifiConfiguration;
 
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
+import androidx.lifecycle.ViewModelProviders;
+
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
 import com.android.tv.settings.testutils.ShadowStateMachine;
@@ -40,13 +39,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
-@Config(shadows = {
-                ShadowStateMachine.class,
-                TvShadowWifiManager.class
-        })
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {ShadowStateMachine.class, TvShadowWifiManager.class})
 public class ConnectStateTest {
     private WifiSetupActivity mActivity;
     private ConnectState mState;
@@ -63,7 +60,7 @@ public class ConnectStateTest {
         doNothing().when(mActivity).onFragmentChange(any(), anyBoolean());
         mUserChoiceInfo = ViewModelProviders.of(mActivity).get(UserChoiceInfo.class);
         StateMachine stateMachine = ViewModelProviders.of(mActivity).get(StateMachine.class);
-        ShadowStateMachine sm = (ShadowStateMachine) extract(stateMachine);
+        ShadowStateMachine sm = extract(stateMachine);
         sm.setListener(mStateCompleteListener);
         mUserChoiceInfo.init();
         mState = new ConnectState(mActivity);

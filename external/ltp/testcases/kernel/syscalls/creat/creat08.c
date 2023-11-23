@@ -70,6 +70,7 @@ int local_flag;
 #define ROOT_SETGID	"root_setgid"
 #define	MSGSIZE		150
 
+static void tst_cleanup(void);
 static void cleanup(void);
 static void setup(void);
 
@@ -360,13 +361,12 @@ int main(int ac, char **av)
 			local_flag = FAILED;
 		}
 
-		/* Verify modes */
-		if (!(buf.st_mode & S_ISGID)) {
-			tst_resm(TFAIL,
-				 "%s: Incorrect modes, setgid bit should be set",
-				 setgid_B);
-			local_flag = FAILED;
-		}
+		/*
+		 * Skip S_ISGID check
+		 * 0fa3ecd87848 ("Fix up non-directory creation in SGID directories")
+		 * clears S_ISGID for files created by non-group members
+		 */
+
 		close(fd);
 
 		if (local_flag == PASSED) {
@@ -423,8 +423,9 @@ int main(int ac, char **av)
 		} else {
 			tst_resm(TFAIL, "Test failed in block3");
 		}
-		cleanup();
+		tst_cleanup();
 	}
+	cleanup();
 	tst_exit();
 }
 
@@ -434,7 +435,7 @@ static void setup(void)
 	tst_tmpdir();
 }
 
-static void cleanup(void)
+static void tst_cleanup(void)
 {
 	if (unlink(setgid_A) == -1) {
 		tst_resm(TBROK, "%s failed", setgid_A);
@@ -447,6 +448,9 @@ static void cleanup(void)
 	SAFE_UNLINK(NULL, root_setgid_B);
 	SAFE_UNLINK(NULL, nosetgid_B);
 	SAFE_RMDIR(NULL, DIR_B);
+}
 
+static void cleanup(void)
+{
 	tst_rmdir();
 }

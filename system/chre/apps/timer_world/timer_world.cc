@@ -17,6 +17,7 @@
 #include <chre.h>
 #include <cinttypes>
 
+#include "chre/util/nanoapp/audio.h"
 #include "chre/util/nanoapp/log.h"
 
 #define LOG_TAG "[TimerWorld]"

@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Uppsetning vinnusniðs"</string>
+    <string name="app_label" msgid="1527793174155125990">"Vinnuuppsetning"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Úbbs!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Setja upp vinnusnið"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Fyrirtækið þitt stjórnar þessu sniði og heldur því öruggu. Þú hefur stjórn yfir öllu öðru í tækinu."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Eftirfarandi forrit mun stjórna tækinu:"</string>
     <string name="next" msgid="1004321437324424398">"Áfram"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Setur upp vinnusnið…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessum prófíl, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessu tæki, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessum prófíl, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessu tæki, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Til að nota þjófavarnareiginleikana þarftu að vera með skjálás með aðgangsorði á tækinu."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Hafðu samband við kerfisstjórann til að fá frekari upplýsingar, þar á meðal um persónuverndarstefnu fyrirtækisins."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Hafðu samband við kerfisstjórann til að fá frekari upplýsingar, þar á meðal um persónuverndarstefnu fyrirtækisins."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Frekari upplýsingar"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Hætta við"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Í lagi"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Ekki var hægt að setja upp vinnusniðið þitt. Hafðu samband við upplýsingatæknisvið eða reyndu aftur síðar."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ekki er hægt að bæta við vinnusniði"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ekki hægt að skipta út eða fjarlægja vinnusnið"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Ekki er hægt að bæta vinnusniði við þetta tæki. Ef þú ert með spurningar skaltu hafa samband við kerfisstjóra."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Ekki er hægt að bæta vinnusniði við þetta tæki. Ef þú ert með spurningar skaltu hafa samband við kerfisstjóra."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Skipta um ræsiforrit tækis"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Ekki er hægt að nota þetta ræsiforrit á vinnusniðinu þínu."</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Hætta við"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Lýkur við frágang…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Stillir eiganda tækisins…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Frumstillir tæki…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Þetta tæki leyfir ekki dulkóðun, sem krafist er við uppsetningu. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Þetta tæki leyfir ekki dulkóðun, sem krafist er við uppsetningu. Leitaðu aðstoðar hjá kerfisstjóra."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Viltu stöðva uppsetningu og endurstilla tækið?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Þetta endurstillir tækið þitt og flytur þig aftur á fyrsta skjáinn"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Viltu hætta uppsetningu og eyða gögnum tækisins?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"Endurstilla"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Ekki er hægt að setja upp snið"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Ekki er hægt að setja tæki upp"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Ekki var hægt að setja upp tækið. Leitaðu aðstoðar hjá kerfisstjóra."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Kerfisstjóri getur veitt aðstoð"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Ekki var hægt að setja upp tækið. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Hafðu samband við kerfisstjóra til að fá hjálp"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Tæki er nú þegar sett upp"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Ekki var hægt að tengjast Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Kveikt er á endurstillingarvörn tækisins. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Ekki var hægt að tengjast Wi-Fi"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Kveikt er á endurstillingarvörn tækisins. Leitaðu aðstoðar hjá kerfisstjóra."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Þurrkað út"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Augnablik..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Ekki var hægt að nota stjórnunarforritið vegna villu í þversummu. Leitaðu aðstoðar hjá kerfisstjóra."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Ekki tókst að sækja stjórnunarforritið"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Ekki er hægt að nota stjórnunarforritið. Eitthvað vantar í það eða það er bilað. Leitaðu aðstoðar hjá kerfisstjóra."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Ekki tókst að setja stjórnunarforritið upp"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Ekki var hægt að nota stjórnunarforritið vegna villu í þversummu. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Ekki tókst að sækja stjórnunarforritið"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Ekki er hægt að nota stjórnunarforritið. Eitthvað vantar í það eða það er bilað. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Ekki var hægt að setja upp stjórnunarforritið"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Hætta uppsetningu?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nei"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Já"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Þetta tæki verður í umsjón <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, sem mun einnig hafa eftirlit með því og tryggja öryggi þess. Skilmálar eiga við. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Þetta tæki verður í umsjón <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>, sem mun einnig hafa eftirlit með því og tryggja öryggi þess. Skilmálar af <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> eiga við. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Þessi tengill er ekki öruggur og ekki er hægt að opna hann fyrir uppsetningu tækisins er lokið: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Ef spurningar vakna skaltu hafa samband við <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Ef spurningar vakna skaltu hafa samband við kerfisstjóra fyrirtækisins"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"Uppsetningu er ekki lokið. Leitaðu aðstoðar hjá kerfisstjóra."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Leitaðu aðstoðar hjá kerfisstjóra"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"kerfisstjóri fyrirtækis"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Hafðu samband við <xliff:g id="IT_ADMIN">%1$s</xliff:g> til að fá frekari upplýsingar."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Hafðu samband við kerfisstjórann þinn ef spurningar vakna"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Uppsetningu er ekki lokið. Leitaðu aðstoðar hjá kerfisstjóra."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Leitaðu aðstoðar hjá kerfisstjóra"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"Kerfisstjóri"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> mun stjórna og hafa eftirlit með þessu tæki í gegnum eftirfarandi forrit:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Fyrirtækið þitt"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"fyrirtækið þitt"</string>
     <string name="view_terms" msgid="7230493092383341605">"Lesa skilmálana"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Samþykkja og áfram"</string>
-    <string name="close" msgid="7208600934846389439">"Loka"</string>
+    <string name="back" msgid="6455622465896147127">"Til baka"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Settu upp tækið"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Breyttu því hvernig þú vinnur"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Aðgreindu vinnu frá persónulegu"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Þetta gæti tekið nokkrar mínútur"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"Vinnuforritin þín verða geymd á þessu sniði og þeim er stjórnað af fyrirtækinu þínu"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Fyrirtækið þitt mun stjórna þessu tæki og halda því öruggu"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Undirbýr uppsetningu vinnutækis…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Setur upp stjórnunarforritið"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Setja upp allt annað"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Nú skulum við setja upp allt annað"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Þetta tæki tilheyrir fyrirtækinu þínu"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"Eftirfarandi forrit verður notað til að hafa umsjón með þessum síma og fylgjast með honum"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Undirbýr uppsetningu fyrir vinnu…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Fyrst skulum við setja upp vinnusniðið þitt"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Setjum upp vinnusniðið þitt"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Vinnuforrit eru geymd á vinnusniðinu"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Gerðu hlé á vinnuforritum í lok vinnudags"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Kerfisstjórinn þinn getur aðeins séð gögn sem eru á vinnusniðinu"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Setur upp vinnusniðið…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Vinnuforrit eru geymd á vinnusniðinu. Þú getur gert hlé á vinnuforritum þegar þú hættir að nota þau í lok vinnudags. Kerfisstjórinn þinn getur aðeins séð gögn sem eru á vinnusniðinu."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Setjum upp vinnutækið þitt"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Hafðu vinnuforritin innan handar"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Þetta er ekki einkatæki"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Kerfisstjórinn þinn kann að geta séð gögn og virkni í þessu tæki."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Setur tækið upp…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Notaðu þetta tæki til að hafa greiðan aðgang að vinnuforritunum þínum. Þetta tæki er ekki einkatæki og því gæti kerfisstjóri séð gögn og virkni þína. Hafðu samband við kerfisstjórann til að fá frekari upplýsingar."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Áminning um persónuvernd"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Kerfisstjórinn þinn kann að geta séð gögn og virkni í þessu tæki"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Tækið þitt er tilbúið!"</string>
+    <string name="done" msgid="7755227776955952318">"Lokið"</string>
 </resources>

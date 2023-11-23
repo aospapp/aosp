@@ -16,9 +16,10 @@
 
 package android.view.inputmethod.cts.util;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
 import static android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND;
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
+
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import android.app.AlertDialog;
 import android.app.Instrumentation;
@@ -26,15 +27,16 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.Rect;
-import androidx.annotation.ColorInt;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
 import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.TextView;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -135,7 +137,7 @@ public class NavigationBarInfo {
                 (color, lightNavigationBar) -> getBottomNavigationBarBitmapForActivity(
                         color, lightNavigationBar, actualBottomInset,
                         true /* showDimmingDialog */)).getResult()
-                == LightNavigationBarVerifier.ResultType.NOT_SUPPORTED;
+                == LightNavigationBarVerifier.ResultType.SUPPORTED;
 
         sInstance = new NavigationBarInfo(
                 true, actualBottomInset, colorSupported, lightModeSupported, dimmingSupported);

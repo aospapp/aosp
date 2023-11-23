@@ -17,8 +17,6 @@ package com.android.tradefed.testtype;
 
 import com.android.tradefed.log.LogUtil.CLog;
 
-import junit.framework.TestCase;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -26,11 +24,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Vector;
 
-
-/**
- * Base test class for various GTest parsers
- */
-public abstract class GTestParserTestBase extends TestCase {
+/** Base test class for various GTest parsers */
+public abstract class GTestParserTestBase {
     protected static final String TEST_TYPE_DIR = "testtype";
     protected static final String TEST_MODULE_NAME = "module";
     protected static final String GTEST_OUTPUT_FILE_1 = "gtest_output1.txt";
@@ -42,10 +37,13 @@ public abstract class GTestParserTestBase extends TestCase {
     protected static final String GTEST_OUTPUT_FILE_7 = "gtest_output7.txt";
     protected static final String GTEST_OUTPUT_FILE_8 = "gtest_output8.txt";
     protected static final String GTEST_OUTPUT_FILE_9 = "gtest_output9.txt";
+    protected static final String GTEST_OUTPUT_FILE_10 = "gtest_output10.txt";
+    protected static final String GTEST_OUTPUT_FILE_11 = "gtest_output11.txt";
     protected static final String GTEST_LIST_FILE_1 = "gtest_list1.txt";
     protected static final String GTEST_LIST_FILE_2 = "gtest_list2.txt";
     protected static final String GTEST_LIST_FILE_3 = "gtest_list3.txt";
     protected static final String GTEST_LIST_FILE_4 = "gtest_list4.txt";
+    protected static final String GTEST_LIST_FILE_5 = "gtest_list5.txt";
 
     /**
      * Helper to read a file from the res/testtype directory and return its contents as a String[]

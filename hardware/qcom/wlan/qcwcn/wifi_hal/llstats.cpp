@@ -24,7 +24,6 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "llstatscommand.h"
-#include "vendor_definitions.h"
 
 //Singleton Static Instance
 LLStatsCommand* LLStatsCommand::mLLStatsCommandInstance  = NULL;

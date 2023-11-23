@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009,  Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2012, Oracle and/or its affiliates. All rights reserved.
  *
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -57,7 +57,7 @@ class SocketOptionRegistry {
         static final Map<RegistryKey,OptionKey> options = options();           
         private static Map<RegistryKey,OptionKey> options() {                  
             Map<RegistryKey,OptionKey> map =                                   
-                new HashMap<RegistryKey,OptionKey>();
+                new HashMap<RegistryKey,OptionKey>();                          
             map.put(new RegistryKey(StandardSocketOptions.SO_BROADCAST, Net.UNSPEC), new OptionKey(1, 6));
             map.put(new RegistryKey(StandardSocketOptions.SO_KEEPALIVE, Net.UNSPEC), new OptionKey(1, 9));
             map.put(new RegistryKey(StandardSocketOptions.SO_LINGER, Net.UNSPEC), new OptionKey(1, 13));
@@ -74,7 +74,7 @@ class SocketOptionRegistry {
             map.put(new RegistryKey(StandardSocketOptions.IP_MULTICAST_TTL, StandardProtocolFamily.INET6), new OptionKey(41, 18));
             map.put(new RegistryKey(StandardSocketOptions.IP_MULTICAST_LOOP, StandardProtocolFamily.INET6), new OptionKey(41, 19));
             map.put(new RegistryKey(ExtendedSocketOption.SO_OOBINLINE, Net.UNSPEC), new OptionKey(1, 10));
-            return map;
+            return map;                                                        
         }                                                                      
     }                                                                          
     public static OptionKey findOption(SocketOption<?> name, ProtocolFamily family) { 

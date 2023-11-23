@@ -61,7 +61,7 @@
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> tartalom lesz eltávolítva eszközéről"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Tárhelyét mostantól a tárhelykezelő kezeli"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Nincs eltávolítható elem"</string>
-    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Mostanában használt elemek áttekintése"</string>
+    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Legutóbbi elemek áttekintése"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Nincsenek régebbi eltávolítható fájlok. A meglévő fotók, videók és alkalmazások eltávolításával szabadíthat fel helyet."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"A(z) <xliff:g id="APP">%1$s</xliff:g> alkalmazásnak <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> helyre van szüksége"</string>
 </resources>

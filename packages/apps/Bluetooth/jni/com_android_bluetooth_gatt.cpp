@@ -24,6 +24,7 @@
 #include "utils/Log.h"
 
 #include <base/bind.h>
+#include <base/callback.h>
 #include <string.h>
 #include <array>
 #include <memory>

@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"लाई फाइल पठाउँदै"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> फाइल \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\"लाई पठाउँदै"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g> \"लाई फाइल पठाउन बन्द भयो"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल बचत गर्न USB भण्डारणमा पर्याप्त ठाउँ छैन।"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल बचत गर्न SD कार्डमा पर्याप्त ठाउँ छैन"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल सुरक्षित गर्न USB भण्डारणमा पर्याप्त खाली ठाउँ छैन।"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल सुरक्षित गर्न SD कार्डमा पर्याप्त खाली ठाउँ छैन"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ठाउँ चाहियो: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"निकै धेरै अनुरोधहरू प्रसोधिन भइरहेका छन्। पछि फेरि प्रयास गर्नुहोस्।"</string>
     <string name="status_pending" msgid="2503691772030877944">"फाइल स्थानान्तरण अहिलेसम्म सुरु भएको छैन।"</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"स्थानान्तरण लक्षित उपकरणद्वारा निषेध गरिएको छ।"</string>
     <string name="status_canceled" msgid="6664490318773098285">"स्थानान्तरण प्रयोगकर्ताद्वारा रद्द गरियो।"</string>
     <string name="status_file_error" msgid="3671917770630165299">"भण्डारण सवाल।"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"कुनै USB भण्डारण छैन।"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"कुनै SD कार्ड छैन। स्थानान्तरण गरिएका फाइलहरूलाई बचत गर्न  एउटा SD कार्ड छिराउनुहोस्।"</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"कुनै पनि USB भण्डारण छैन।"</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"कुनै पनि SD कार्ड छैन। स्थानान्तरण गरिएका फाइलहरू सुरक्षित गर्न SD कार्ड छिराउनुहोस्।"</string>
     <string name="status_connection_error" msgid="947681831523219891">"जडान असफल।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"अनुरोधलाई सही रूपमा सम्हाल्न सकिँदैन।"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"अज्ञात त्रुटि।"</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"खोल्नुहोस्"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"सूचीबाट हटाउनुहोस्"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"हटाउनुहोस्"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सुरक्षित गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"रद्द गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेका खाताहरू चयन गर्नुहोस्। तपाईंले अझै पनि खाताहरूमा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>

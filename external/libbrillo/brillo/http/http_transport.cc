@@ -10,9 +10,20 @@ namespace brillo {
 namespace http {
 
 const char kErrorDomain[] = "http_transport";
+const char kDirectProxy[] = "direct://";
 
 std::shared_ptr<Transport> Transport::CreateDefault() {
   return std::make_shared<http::curl::Transport>(std::make_shared<CurlApi>());
+}
+
+std::shared_ptr<Transport> Transport::CreateDefaultWithProxy(
+    const std::string& proxy) {
+  if (proxy.empty() || proxy == kDirectProxy) {
+    return CreateDefault();
+  } else {
+    return std::make_shared<http::curl::Transport>(std::make_shared<CurlApi>(),
+                                                   proxy);
+  }
 }
 
 }  // namespace http

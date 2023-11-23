@@ -16,6 +16,7 @@
 
 #include "elf_writer_quick.h"
 
+#include <memory>
 #include <openssl/sha.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -23,32 +24,22 @@
 #include <android-base/logging.h>
 
 #include "base/casts.h"
+#include "base/globals.h"
 #include "base/leb128.h"
 #include "base/utils.h"
 #include "compiled_method.h"
 #include "debug/elf_debug_writer.h"
 #include "debug/method_debug_info.h"
 #include "driver/compiler_options.h"
-#include "elf.h"
-#include "elf_utils.h"
-#include "globals.h"
-#include "linker/buffered_output_stream.h"
-#include "linker/elf_builder.h"
-#include "linker/file_output_stream.h"
+#include "elf/elf_builder.h"
+#include "elf/elf_utils.h"
+#include "stream/buffered_output_stream.h"
+#include "stream/file_output_stream.h"
 #include "thread-current-inl.h"
 #include "thread_pool.h"
 
 namespace art {
 namespace linker {
-
-// .eh_frame and .debug_frame are almost identical.
-// Except for some minor formatting differences, the main difference
-// is that .eh_frame is allocated within the running program because
-// it is used by C++ exception handling (which we do not use so we
-// can choose either).  C++ compilers generally tend to use .eh_frame
-// because if they need it sometimes, they might as well always use it.
-// Let's use .debug_frame because it is easier to strip or compress.
-constexpr dwarf::CFIFormat kCFIFormat = dwarf::DW_DEBUG_FRAME_FORMAT;
 
 class DebugInfoTask : public Task {
  public:
@@ -68,7 +59,7 @@ class DebugInfoTask : public Task {
         debug_info_(debug_info) {
   }
 
-  void Run(Thread*) {
+  void Run(Thread*) override {
     result_ = debug::MakeMiniDebugInfo(isa_,
                                        instruction_set_features_,
                                        text_section_address_,
@@ -94,43 +85,45 @@ class DebugInfoTask : public Task {
 };
 
 template <typename ElfTypes>
-class ElfWriterQuick FINAL : public ElfWriter {
+class ElfWriterQuick final : public ElfWriter {
  public:
-  ElfWriterQuick(InstructionSet instruction_set,
-                 const InstructionSetFeatures* features,
-                 const CompilerOptions* compiler_options,
+  ElfWriterQuick(const CompilerOptions& compiler_options,
                  File* elf_file);
   ~ElfWriterQuick();
 
-  void Start() OVERRIDE;
+  void Start() override;
   void PrepareDynamicSection(size_t rodata_size,
                              size_t text_size,
+                             size_t data_bimg_rel_ro_size,
                              size_t bss_size,
                              size_t bss_methods_offset,
                              size_t bss_roots_offset,
-                             size_t dex_section_size) OVERRIDE;
-  void PrepareDebugInfo(const debug::DebugInfo& debug_info) OVERRIDE;
-  OutputStream* StartRoData() OVERRIDE;
-  void EndRoData(OutputStream* rodata) OVERRIDE;
-  OutputStream* StartText() OVERRIDE;
-  void EndText(OutputStream* text) OVERRIDE;
-  void WriteDynamicSection() OVERRIDE;
-  void WriteDebugInfo(const debug::DebugInfo& debug_info) OVERRIDE;
-  bool End() OVERRIDE;
+                             size_t dex_section_size) override;
+  void PrepareDebugInfo(const debug::DebugInfo& debug_info) override;
+  OutputStream* StartRoData() override;
+  void EndRoData(OutputStream* rodata) override;
+  OutputStream* StartText() override;
+  void EndText(OutputStream* text) override;
+  OutputStream* StartDataBimgRelRo() override;
+  void EndDataBimgRelRo(OutputStream* data_bimg_rel_ro) override;
+  void WriteDynamicSection() override;
+  void WriteDebugInfo(const debug::DebugInfo& debug_info) override;
+  bool StripDebugInfo() override;
+  bool End() override;
 
-  virtual OutputStream* GetStream() OVERRIDE;
+  OutputStream* GetStream() override;
 
-  size_t GetLoadedSize() OVERRIDE;
+  size_t GetLoadedSize() override;
 
   static void EncodeOatPatches(const std::vector<uintptr_t>& locations,
                                std::vector<uint8_t>* buffer);
 
  private:
-  const InstructionSetFeatures* instruction_set_features_;
-  const CompilerOptions* const compiler_options_;
+  const CompilerOptions& compiler_options_;
   File* const elf_file_;
   size_t rodata_size_;
   size_t text_size_;
+  size_t data_bimg_rel_ro_size_;
   size_t bss_size_;
   size_t dex_section_size_;
   std::unique_ptr<BufferedOutputStream> output_stream_;
@@ -143,39 +136,29 @@ class ElfWriterQuick FINAL : public ElfWriter {
   DISALLOW_IMPLICIT_CONSTRUCTORS(ElfWriterQuick);
 };
 
-std::unique_ptr<ElfWriter> CreateElfWriterQuick(InstructionSet instruction_set,
-                                                const InstructionSetFeatures* features,
-                                                const CompilerOptions* compiler_options,
+std::unique_ptr<ElfWriter> CreateElfWriterQuick(const CompilerOptions& compiler_options,
                                                 File* elf_file) {
-  if (Is64BitInstructionSet(instruction_set)) {
-    return std::make_unique<ElfWriterQuick<ElfTypes64>>(instruction_set,
-                                                        features,
-                                                        compiler_options,
-                                                        elf_file);
+  if (Is64BitInstructionSet(compiler_options.GetInstructionSet())) {
+    return std::make_unique<ElfWriterQuick<ElfTypes64>>(compiler_options, elf_file);
   } else {
-    return std::make_unique<ElfWriterQuick<ElfTypes32>>(instruction_set,
-                                                        features,
-                                                        compiler_options,
-                                                        elf_file);
+    return std::make_unique<ElfWriterQuick<ElfTypes32>>(compiler_options, elf_file);
   }
 }
 
 template <typename ElfTypes>
-ElfWriterQuick<ElfTypes>::ElfWriterQuick(InstructionSet instruction_set,
-                                         const InstructionSetFeatures* features,
-                                         const CompilerOptions* compiler_options,
-                                         File* elf_file)
+ElfWriterQuick<ElfTypes>::ElfWriterQuick(const CompilerOptions& compiler_options, File* elf_file)
     : ElfWriter(),
-      instruction_set_features_(features),
       compiler_options_(compiler_options),
       elf_file_(elf_file),
       rodata_size_(0u),
       text_size_(0u),
+      data_bimg_rel_ro_size_(0u),
       bss_size_(0u),
       dex_section_size_(0u),
       output_stream_(
           std::make_unique<BufferedOutputStream>(std::make_unique<FileOutputStream>(elf_file))),
-      builder_(new ElfBuilder<ElfTypes>(instruction_set, features, output_stream_.get())) {}
+      builder_(new ElfBuilder<ElfTypes>(compiler_options_.GetInstructionSet(),
+                                        output_stream_.get())) {}
 
 template <typename ElfTypes>
 ElfWriterQuick<ElfTypes>::~ElfWriterQuick() {}
@@ -183,7 +166,7 @@ ElfWriterQuick<ElfTypes>::~ElfWriterQuick() {}
 template <typename ElfTypes>
 void ElfWriterQuick<ElfTypes>::Start() {
   builder_->Start();
-  if (compiler_options_->GetGenerateBuildId()) {
+  if (compiler_options_.GetGenerateBuildId()) {
     builder_->GetBuildId()->AllocateVirtualMemory(builder_->GetBuildId()->GetSize());
     builder_->WriteBuildIdSection();
   }
@@ -192,6 +175,7 @@ void ElfWriterQuick<ElfTypes>::Start() {
 template <typename ElfTypes>
 void ElfWriterQuick<ElfTypes>::PrepareDynamicSection(size_t rodata_size,
                                                      size_t text_size,
+                                                     size_t data_bimg_rel_ro_size,
                                                      size_t bss_size,
                                                      size_t bss_methods_offset,
                                                      size_t bss_roots_offset,
@@ -200,6 +184,8 @@ void ElfWriterQuick<ElfTypes>::PrepareDynamicSection(size_t rodata_size,
   rodata_size_ = rodata_size;
   DCHECK_EQ(text_size_, 0u);
   text_size_ = text_size;
+  DCHECK_EQ(data_bimg_rel_ro_size_, 0u);
+  data_bimg_rel_ro_size_ = data_bimg_rel_ro_size;
   DCHECK_EQ(bss_size_, 0u);
   bss_size_ = bss_size;
   DCHECK_EQ(dex_section_size_, 0u);
@@ -207,6 +193,7 @@ void ElfWriterQuick<ElfTypes>::PrepareDynamicSection(size_t rodata_size,
   builder_->PrepareDynamicSection(elf_file_->GetPath(),
                                   rodata_size_,
                                   text_size_,
+                                  data_bimg_rel_ro_size_,
                                   bss_size_,
                                   bss_methods_offset,
                                   bss_roots_offset,
@@ -240,29 +227,37 @@ void ElfWriterQuick<ElfTypes>::EndText(OutputStream* text) {
 }
 
 template <typename ElfTypes>
+OutputStream* ElfWriterQuick<ElfTypes>::StartDataBimgRelRo() {
+  auto* data_bimg_rel_ro = builder_->GetDataBimgRelRo();
+  data_bimg_rel_ro->Start();
+  return data_bimg_rel_ro;
+}
+
+template <typename ElfTypes>
+void ElfWriterQuick<ElfTypes>::EndDataBimgRelRo(OutputStream* data_bimg_rel_ro) {
+  CHECK_EQ(builder_->GetDataBimgRelRo(), data_bimg_rel_ro);
+  builder_->GetDataBimgRelRo()->End();
+}
+
+template <typename ElfTypes>
 void ElfWriterQuick<ElfTypes>::WriteDynamicSection() {
-  if (builder_->GetIsa() == InstructionSet::kMips ||
-      builder_->GetIsa() == InstructionSet::kMips64) {
-    builder_->WriteMIPSabiflagsSection();
-  }
   builder_->WriteDynamicSection();
 }
 
 template <typename ElfTypes>
 void ElfWriterQuick<ElfTypes>::PrepareDebugInfo(const debug::DebugInfo& debug_info) {
-  if (!debug_info.Empty() && compiler_options_->GetGenerateMiniDebugInfo()) {
+  if (compiler_options_.GetGenerateMiniDebugInfo()) {
     // Prepare the mini-debug-info in background while we do other I/O.
     Thread* self = Thread::Current();
-    debug_info_task_ = std::unique_ptr<DebugInfoTask>(
-        new DebugInfoTask(builder_->GetIsa(),
-                          instruction_set_features_,
-                          builder_->GetText()->GetAddress(),
-                          text_size_,
-                          builder_->GetDex()->Exists() ? builder_->GetDex()->GetAddress() : 0,
-                          dex_section_size_,
-                          debug_info));
-    debug_info_thread_pool_ = std::unique_ptr<ThreadPool>(
-        new ThreadPool("Mini-debug-info writer", 1));
+    debug_info_task_ = std::make_unique<DebugInfoTask>(
+        builder_->GetIsa(),
+        compiler_options_.GetInstructionSetFeatures(),
+        builder_->GetText()->GetAddress(),
+        text_size_,
+        builder_->GetDex()->Exists() ? builder_->GetDex()->GetAddress() : 0,
+        dex_section_size_,
+        debug_info);
+    debug_info_thread_pool_ = std::make_unique<ThreadPool>("Mini-debug-info writer", 1);
     debug_info_thread_pool_->AddTask(self, debug_info_task_.get());
     debug_info_thread_pool_->StartWorkers(self);
   }
@@ -270,25 +265,30 @@ void ElfWriterQuick<ElfTypes>::PrepareDebugInfo(const debug::DebugInfo& debug_in
 
 template <typename ElfTypes>
 void ElfWriterQuick<ElfTypes>::WriteDebugInfo(const debug::DebugInfo& debug_info) {
-  if (!debug_info.Empty()) {
-    if (compiler_options_->GetGenerateDebugInfo()) {
-      // Generate all the debug information we can.
-      debug::WriteDebugInfo(builder_.get(), debug_info, kCFIFormat, true /* write_oat_patches */);
-    }
-    if (compiler_options_->GetGenerateMiniDebugInfo()) {
-      // Wait for the mini-debug-info generation to finish and write it to disk.
-      Thread* self = Thread::Current();
-      DCHECK(debug_info_thread_pool_ != nullptr);
-      debug_info_thread_pool_->Wait(self, true, false);
-      builder_->WriteSection(".gnu_debugdata", debug_info_task_->GetResult());
-    }
+  if (compiler_options_.GetGenerateMiniDebugInfo()) {
+    // Wait for the mini-debug-info generation to finish and write it to disk.
+    Thread* self = Thread::Current();
+    DCHECK(debug_info_thread_pool_ != nullptr);
+    debug_info_thread_pool_->Wait(self, true, false);
+    builder_->WriteSection(".gnu_debugdata", debug_info_task_->GetResult());
   }
+  // The Strip method expects debug info to be last (mini-debug-info is not stripped).
+  if (!debug_info.Empty() && compiler_options_.GetGenerateDebugInfo()) {
+    // Generate all the debug information we can.
+    debug::WriteDebugInfo(builder_.get(), debug_info);
+  }
+}
+
+template <typename ElfTypes>
+bool ElfWriterQuick<ElfTypes>::StripDebugInfo() {
+  off_t file_size = builder_->Strip();
+  return elf_file_->SetLength(file_size) == 0;
 }
 
 template <typename ElfTypes>
 bool ElfWriterQuick<ElfTypes>::End() {
   builder_->End();
-  if (compiler_options_->GetGenerateBuildId()) {
+  if (compiler_options_.GetGenerateBuildId()) {
     uint8_t build_id[ElfBuilder<ElfTypes>::kBuildIdLen];
     ComputeFileBuildId(&build_id);
     builder_->WriteBuildId(build_id);

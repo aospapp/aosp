@@ -22,7 +22,7 @@
 
     <uses-sdk android:minSdkVersion="22" android:targetSdkVersion="27"/>
 
-    <application/>
+    <application android:extractNativeLibs="true" android:largeHeap="true"/>
 
     <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
                      android:targetPackage="android.signature.cts.api.apache_http_legacy_27"

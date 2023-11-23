@@ -56,39 +56,22 @@ public final class ScheduledRecording implements Parcelable {
 
     /** Compares the start time in ascending order. */
     public static final Comparator<ScheduledRecording> START_TIME_COMPARATOR =
-            new Comparator<ScheduledRecording>() {
-                @Override
-                public int compare(ScheduledRecording lhs, ScheduledRecording rhs) {
-                    return Long.compare(lhs.mStartTimeMs, rhs.mStartTimeMs);
-                }
-            };
+            (ScheduledRecording lhs, ScheduledRecording rhs) ->
+                    Long.compare(lhs.mStartTimeMs, rhs.mStartTimeMs);
 
     /** Compares the end time in ascending order. */
     public static final Comparator<ScheduledRecording> END_TIME_COMPARATOR =
-            new Comparator<ScheduledRecording>() {
-                @Override
-                public int compare(ScheduledRecording lhs, ScheduledRecording rhs) {
-                    return Long.compare(lhs.mEndTimeMs, rhs.mEndTimeMs);
-                }
-            };
+            (ScheduledRecording lhs, ScheduledRecording rhs) ->
+                    Long.compare(lhs.mEndTimeMs, rhs.mEndTimeMs);
 
     /** Compares ID in ascending order. The schedule with the larger ID was created later. */
     public static final Comparator<ScheduledRecording> ID_COMPARATOR =
-            new Comparator<ScheduledRecording>() {
-                @Override
-                public int compare(ScheduledRecording lhs, ScheduledRecording rhs) {
-                    return Long.compare(lhs.mId, rhs.mId);
-                }
-            };
+            (ScheduledRecording lhs, ScheduledRecording rhs) -> Long.compare(lhs.mId, rhs.mId);
 
     /** Compares the priority in ascending order. */
     public static final Comparator<ScheduledRecording> PRIORITY_COMPARATOR =
-            new Comparator<ScheduledRecording>() {
-                @Override
-                public int compare(ScheduledRecording lhs, ScheduledRecording rhs) {
-                    return Long.compare(lhs.mPriority, rhs.mPriority);
-                }
-            };
+            (ScheduledRecording lhs, ScheduledRecording rhs) ->
+                    Long.compare(lhs.mPriority, rhs.mPriority);
 
     /**
      * Compares start time in ascending order and then priority in descending order and then ID in
@@ -359,15 +342,22 @@ public final class ScheduledRecording implements Parcelable {
     })
     public @interface RecordingFailedReason {}
 
+    // next number for failed reason: 11
     public static final int FAILED_REASON_OTHER = 0;
-    public static final int FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED = 1;
     public static final int FAILED_REASON_NOT_FINISHED = 2;
     public static final int FAILED_REASON_SCHEDULER_STOPPED = 3;
     public static final int FAILED_REASON_INVALID_CHANNEL = 4;
     public static final int FAILED_REASON_MESSAGE_NOT_SENT = 5;
     public static final int FAILED_REASON_CONNECTION_FAILED = 6;
+
+    // for the following reasons, show advice to users
+    // TODO(b/72638597): add failure condition of "weak signal"
+
+    // failed reason is FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED when tuner or external
+    // storage is disconnected
+    public static final int FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED = 1;
+    // failed reason is FAILED_REASON_RESOURCE_BUSY when antenna is disconnected or signal is weak
     public static final int FAILED_REASON_RESOURCE_BUSY = 7;
-    // For the following reasons, show advice to users
     public static final int FAILED_REASON_INPUT_UNAVAILABLE = 8;
     public static final int FAILED_REASON_INPUT_DVR_UNSUPPORTED = 9;
     public static final int FAILED_REASON_INSUFFICIENT_SPACE = 10;
@@ -679,7 +669,8 @@ public final class ScheduledRecording implements Parcelable {
     }
 
     /** Returns the failed reason of the {@link ScheduledRecording}. */
-    @Nullable @RecordingFailedReason
+    @Nullable
+    @RecordingFailedReason
     public Integer getFailedReason() {
         return mFailedReason;
     }
@@ -812,10 +803,7 @@ public final class ScheduledRecording implements Parcelable {
         }
     }
 
-    /**
-     * Converts a string to a failed reason integer, defaulting to {@link
-     * #FAILED_REASON_OTHER}.
-     */
+    /** Converts a string to a failed reason integer, defaulting to {@link #FAILED_REASON_OTHER}. */
     private static Integer recordingFailedReason(String reason) {
         if (TextUtils.isEmpty(reason)) {
             return null;
@@ -983,6 +971,11 @@ public final class ScheduledRecording implements Parcelable {
     /** Returns {@code true} if the recording is finished, otherwise @{code false}. */
     public boolean isFinished() {
         return mState == STATE_RECORDING_FINISHED;
+    }
+
+    /** Returns {@code true} if the recording is failed, otherwise @{code false}. */
+    public boolean isFailed() {
+        return mState == STATE_RECORDING_FAILED;
     }
 
     @Override

@@ -31,8 +31,8 @@ bool PointerType::isElidableType() const {
     return true;
 }
 
-std::string PointerType::getCppType(StorageMode /* mode */,
-                                   bool /* specifyNamespaces */) const {
+std::string PointerType::getCppType(StorageMode /*mode*/,
+                                    bool /*specifyNamespaces*/) const {
     return "void*";
 }
 
@@ -47,16 +47,36 @@ std::string PointerType::getVtsType() const {
 void PointerType::emitReaderWriter(
         Formatter& out,
         const std::string& name,
-        const std::string& /* parcelObj */,
-        bool /* parcelObjIsPointer */,
-        bool /* isReader */,
-        ErrorMode /* mode */) const {
+        const std::string& /*parcelObj*/,
+        bool /*parcelObjIsPointer*/,
+        bool /*isReader*/,
+        ErrorMode /*mode*/) const {
     out << "(void)" << name << ";\n";
-    out << "LOG_ALWAYS_FATAL(\"Pointer is only supported in passthrough mode\");\n";
+    out << "LOG_ALWAYS_FATAL(\"Pointer is only supported in passthrough mode\");\n\n";
+}
+
+void PointerType::emitReaderWriterEmbedded(
+        Formatter& out,
+        size_t /*depth*/,
+        const std::string& name,
+        const std::string& /*sanitizedName*/,
+        bool /*nameIsPointer*/,
+        const std::string& parcelObj,
+        bool parcelObjIsPointer,
+        bool isReader,
+        ErrorMode mode,
+        const std::string& parentName,
+        const std::string& offsetText) const {
+    out << "(void) " << parcelObj << ";\n";
+    out << "(void) " << parentName << ";\n";
+    out << "(void) (" << offsetText << ");\n";
+
+    // same exact code
+    emitReaderWriter(out, name, parcelObj, parcelObjIsPointer, isReader, mode);
 }
 
 bool PointerType::needsEmbeddedReadWrite() const {
-    return false;
+    return true;
 }
 
 bool PointerType::resultNeedsDeref() const {

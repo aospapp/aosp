@@ -370,7 +370,7 @@ class cellular_ModemControl(test.test):
             # that we ensure the autoconnect property is set on the cellular
             # service that may be in the user profile.
             autoconnect_context = shill_context.ServiceAutoConnectContext(
-                    self.test_env.shill.find_cellular_service_object,
+                    self.test_env.shill.wait_for_cellular_service_object,
                     self.autoconnect)
 
             with contextlib.nested(chrome_context, autoconnect_context):

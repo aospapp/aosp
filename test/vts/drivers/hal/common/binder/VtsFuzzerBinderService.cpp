@@ -19,9 +19,9 @@
 #include <iostream>
 #include <string>
 
-#include <utils/RefBase.h>
 #define LOG_TAG "VtsFuzzerBinderService"
-#include <utils/Log.h>
+#include <log/log.h>
+#include <utils/RefBase.h>
 
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
@@ -31,6 +31,7 @@
 #include <binder/TextOutput.h>
 
 #include "binder/VtsFuzzerBinderService.h"
+#include "utils/InterfaceSpecUtil.h"
 
 using namespace std;
 
@@ -48,18 +49,22 @@ void BpVtsFuzzer::Exit() {
 }
 
 int32_t BpVtsFuzzer::LoadHal(const string& path, int target_class,
-                             int target_type, float target_version,
+                             int target_type, int target_version_major,
+                             int target_version_minor,
                              const string& module_name) {
   Parcel data;
   Parcel reply;
 
-  printf("agent->driver: LoadHal(%s, %d, %d, %f, %s)\n", path.c_str(),
-         target_class, target_type, target_version, module_name.c_str());
+  printf("agent->driver: LoadHal(%s, %d, %d, %s, %s)\n", path.c_str(),
+         target_class, target_type,
+         GetVersionString(target_version_major, target_version_minor).c_str(),
+         module_name.c_str());
   data.writeInterfaceToken(IVtsFuzzer::getInterfaceDescriptor());
   data.writeCString(path.c_str());
   data.writeInt32(target_class);
   data.writeInt32(target_type);
-  data.writeFloat(target_version);
+  data.writeInt32(target_version_major);
+  data.writeInt32(target_version_minor);
   data.writeCString(module_name.c_str());
 
 #ifdef VTS_FUZZER_BINDER_DEBUG

@@ -24,10 +24,10 @@ class firmware_Cr50GetName(Cr50Test):
     MAX_VAL = 0xffffffff
 
 
-    def initialize(self, host, cmdline_args, dev_path=''):
+    def initialize(self, host, cmdline_args, dev_path='', full_args={}):
         # Restore the original image, rlz code, and board id during cleanup.
         super(firmware_Cr50GetName, self).initialize(host, cmdline_args,
-            restore_cr50_state=True, cr50_dev_path=dev_path)
+            full_args, restore_cr50_state=True, cr50_dev_path=dev_path)
 
         if not self.host.path_exists(self.GET_NAME_SCRIPT):
             raise error.TestNAError('Device does not have "cr50-get-name"')

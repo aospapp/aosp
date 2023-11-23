@@ -17,6 +17,7 @@
 package android.admin.cts;
 
 import static org.junit.Assert.assertNotEquals;
+import static org.testng.Assert.assertThrows;
 
 import android.app.NotificationManager;
 import android.app.NotificationManager.Policy;
@@ -45,6 +46,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -65,6 +67,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     private boolean mManagedProfiles;
     private PackageManager mPackageManager;
     private NotificationManager mNotificationManager;
+    private boolean mHasSecureLockScreen;
 
     private static final String TEST_CA_STRING1 =
             "-----BEGIN CERTIFICATE-----\n" +
@@ -97,6 +100,8 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         mDeviceAdmin = mPackageManager.hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
         mManagedProfiles = mDeviceAdmin
                 && mPackageManager.hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS);
+        mHasSecureLockScreen =
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN);
     }
 
     public void testGetActiveAdmins() {
@@ -117,8 +122,9 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
         int originalValue = mDevicePolicyManager.getKeyguardDisabledFeatures(mComponent);
         try {
+            // Test all possible combinations which mathematically ends at 2 * LAST - 1
             for (int which = DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NONE;
-                    which < 2 * DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT; ++which) {
+                    which < 2 * DevicePolicyManager.KEYGUARD_DISABLE_IRIS; ++which) {
                 mDevicePolicyManager.setKeyguardDisabledFeatures(mComponent, which);
                 assertEquals(which, mDevicePolicyManager.getKeyguardDisabledFeatures(mComponent));
             }
@@ -838,7 +844,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             mDevicePolicyManager.setBackupServiceEnabled(mComponent, false);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertProfileOwnerMessage(e.getMessage());
         }
     }
 
@@ -849,6 +855,19 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
         try {
             mDevicePolicyManager.isBackupServiceEnabled(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testSetDefaultSmsApplication_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetDefaultSmsApplication_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setDefaultSmsApplication(mComponent, "android.admin.cts");
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertDeviceOwnerMessage(e.getMessage());
@@ -868,7 +887,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     public void testSetResetPasswordToken_failIfNotDeviceOrProfileOwner() {
-        if (!mDeviceAdmin) {
+        if (!mDeviceAdmin || !mHasSecureLockScreen) {
             Log.w(TAG, "Skipping testSetResetPasswordToken_failIfNotDeviceOwner");
             return;
         }
@@ -881,7 +900,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     public void testClearResetPasswordToken_failIfNotDeviceOrProfileOwner() {
-        if (!mDeviceAdmin) {
+        if (!mDeviceAdmin || !mHasSecureLockScreen) {
             Log.w(TAG, "Skipping testClearResetPasswordToken_failIfNotDeviceOwner");
             return;
         }
@@ -894,7 +913,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     public void testIsResetPasswordTokenActive_failIfNotDeviceOrProfileOwner() {
-        if (!mDeviceAdmin) {
+        if (!mDeviceAdmin || !mHasSecureLockScreen) {
             Log.w(TAG, "Skipping testIsResetPasswordTokenActive_failIfNotDeviceOwner");
             return;
         }
@@ -907,7 +926,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     public void testResetPasswordWithToken_failIfNotDeviceOrProfileOwner() {
-        if (!mDeviceAdmin) {
+        if (!mDeviceAdmin || !mHasSecureLockScreen) {
             Log.w(TAG, "Skipping testResetPasswordWithToken_failIfNotDeviceOwner");
             return;
         }
@@ -920,7 +939,7 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     public void testIsUsingUnifiedPassword_failIfNotProfileOwner() {
-        if (!mDeviceAdmin) {
+        if (!mDeviceAdmin || !mHasSecureLockScreen) {
             Log.w(TAG, "Skipping testIsUsingUnifiedPassword_failIfNotProfileOwner");
             return;
         }
@@ -1034,6 +1053,39 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
         } catch (Exception tolerated) {
             assertProfileOwnerMessage(tolerated.getMessage());
+        }
+    }
+
+    public void testSetStorageEncryption_noAdmin() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetStorageEncryption_noAdmin");
+            return;
+        }
+        final ComponentName notAdmin = new ComponentName("com.test.foo", ".bar");
+        assertThrows(SecurityException.class,
+            () -> mDevicePolicyManager.setStorageEncryption(notAdmin, true));
+        assertThrows(SecurityException.class,
+            () -> mDevicePolicyManager.setStorageEncryption(notAdmin, false));
+    }
+
+    public void testCrossProfileCalendar_failIfNotProfileOwner() {
+        final String TEST_PACKAGE_NAME = "test.package.name";
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testCrossProfileCalendar_failIfNotProfileOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setCrossProfileCalendarPackages(mComponent,
+                    Collections.singleton(TEST_PACKAGE_NAME));
+            fail("setCrossProfileCalendarPackages did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+        try {
+            mDevicePolicyManager.getCrossProfileCalendarPackages(mComponent);
+            fail("getCrossProfileCalendarPackages did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
         }
     }
 }

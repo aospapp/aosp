@@ -1,0 +1,47 @@
+/dts-v1/;
+
+/ {
+	description = "beagle-x15";
+	#address-cells = <1>;
+
+	images {
+		kernel@1 {
+			description = "TI kernel";
+			data = /incbin/("zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x82000000>;
+			entry = <0x82000000>;
+		};
+		ramdisk@1 {
+			description = "Android Ramdisk Image";
+			data = /incbin/("ramdisk.img");
+			type = "ramdisk";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x88080000>;
+			entry = <0x88080000>;
+		};
+		fdt@1 {
+			description = "AM57xx-beagle-x15-revc";
+			data = /incbin/("am57xx-beagle-x15-revc.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			load = <0x83000000>;
+		};
+	};
+
+	configurations {
+		default = "am57xx-beagle-x15-revc.dtb";
+		am57xx-beagle-x15-revc.dtb {
+			description = "AM57xx beagle-x15 C";
+			kernel = "kernel@1";
+			ramdisk = "ramdisk@1";
+			fdt = "fdt@1";
+		};
+	};
+};

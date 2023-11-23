@@ -16,28 +16,23 @@
 
 package com.android.services.telephony;
 
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
-
 import android.net.Uri;
-import android.telecom.Connection;
 import android.telecom.ConferenceParticipant;
+import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionInfo;
 import android.text.TextUtils;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
+
 /**
  * Represents a participant in a conference call.
  */
 public class ConferenceParticipantConnection extends Connection {
-    /**
-     * RFC5767 states that a SIP URI with an unknown number should use an address of
-     * {@code anonymous@anonymous.invalid}.  E.g. the host name is anonymous.invalid.
-     */
-    private static final String ANONYMOUS_INVALID_HOST = "anonymous.invalid";
 
     /**
      * The user entity URI For the conference participant.
@@ -58,28 +53,33 @@ public class ConferenceParticipantConnection extends Connection {
      * Creates a new instance.
      *
      * @param participant The conference participant to create the instance for.
+     * @param isRemotelyHosted {@code true} if this participant is part of a conference remotely
+     *                         hosted on another device, {@code false} otherwise.
      */
     public ConferenceParticipantConnection(
             com.android.internal.telephony.Connection parentConnection,
-            ConferenceParticipant participant) {
+            ConferenceParticipant participant,
+            boolean isRemotelyHosted) {
 
         mParentConnection = parentConnection;
 
-        int presentation = getParticipantPresentation(participant);
+        int presentation = participant.getParticipantPresentation();
         Uri address;
         if (presentation != PhoneConstants.PRESENTATION_ALLOWED) {
             address = null;
         } else {
             String countryIso = getCountryIso(parentConnection.getCall().getPhone());
-            address = getParticipantAddress(participant.getHandle(), countryIso);
+            address = ConferenceParticipant.getParticipantAddress(participant.getHandle(),
+                    countryIso);
         }
         setAddress(address, presentation);
+        setVideoState(parentConnection.getVideoState());
         setCallerDisplayName(participant.getDisplayName(), presentation);
 
         mUserEntity = participant.getHandle();
         mEndpoint = participant.getEndpoint();
 
-        setCapabilities();
+        setCapabilitiesAndProperties(isRemotelyHosted);
     }
 
     /**
@@ -151,117 +151,19 @@ public class ConferenceParticipantConnection extends Connection {
     }
 
     /**
-     * Configures the capabilities applicable to this connection.  A
+     * Configures the capabilities and properties applicable to this connection.  A
      * conference participant can only be disconnected from a conference since there is not
      * actual connection to the participant which could be split from the conference.
+     * @param isRemotelyHosted {@code true} if this participant is part of a conference hosted
+     *                         hosted on a remote device, {@code false} otherwise.
      */
-    private void setCapabilities() {
+    private void setCapabilitiesAndProperties(boolean isRemotelyHosted) {
         int capabilities = CAPABILITY_DISCONNECT_FROM_CONFERENCE;
         setConnectionCapabilities(capabilities);
-    }
 
-    /**
-     * Determines the number presentation for a conference participant.  Per RFC5767, if the host
-     * name contains {@code anonymous.invalid} we can assume that there is no valid caller ID
-     * information for the caller, otherwise we'll assume that the URI can be shown.
-     *
-     * @param participant The conference participant.
-     * @return The number presentation.
-     */
-    private int getParticipantPresentation(ConferenceParticipant participant) {
-        Uri address = participant.getHandle();
-        if (address == null) {
-            return PhoneConstants.PRESENTATION_RESTRICTED;
+        if (isRemotelyHosted) {
+            setConnectionProperties(PROPERTY_REMOTELY_HOSTED);
         }
-
-        String number = address.getSchemeSpecificPart();
-        // If no number, bail early and set restricted presentation.
-        if (TextUtils.isEmpty(number)) {
-            return PhoneConstants.PRESENTATION_RESTRICTED;
-        }
-        // Per RFC3261, the host name portion can also potentially include extra information:
-        // E.g. sip:anonymous1@anonymous.invalid;legid=1
-        // In this case, hostName will be anonymous.invalid and there is an extra parameter for
-        // legid=1.
-        // Parameters are optional, and the address (e.g. test@test.com) will always be the first
-        // part, with any parameters coming afterwards.
-        String hostParts[] = number.split("[;]");
-        String addressPart = hostParts[0];
-
-        // Get the number portion from the address part.
-        // This will typically be formatted similar to: 6505551212@test.com
-        String numberParts[] = addressPart.split("[@]");
-
-        // If we can't parse the host name out of the URI, then there is probably other data
-        // present, and is likely a valid SIP URI.
-        if (numberParts.length != 2) {
-            return PhoneConstants.PRESENTATION_ALLOWED;
-        }
-        String hostName = numberParts[1];
-
-        // If the hostname portion of the SIP URI is the invalid host string, presentation is
-        // restricted.
-        if (hostName.equals(ANONYMOUS_INVALID_HOST)) {
-            return PhoneConstants.PRESENTATION_RESTRICTED;
-        }
-
-        return PhoneConstants.PRESENTATION_ALLOWED;
-    }
-
-    /**
-     * Attempts to build a tel: style URI from a conference participant.
-     * Conference event package data contains SIP URIs, so we try to extract the phone number and
-     * format into a typical tel: style URI.
-     *
-     * @param address The conference participant's address.
-     * @param countryIso The country ISO of the current subscription; used when formatting the
-     *                   participant phone number to E.164 format.
-     * @return The participant's address URI.
-     */
-    @VisibleForTesting
-    public static Uri getParticipantAddress(Uri address, String countryIso) {
-        if (address == null) {
-            return address;
-        }
-        // Even if address is already in tel: format, still parse it and rebuild.
-        // This is to recognize tel URIs such as:
-        // tel:6505551212;phone-context=ims.mnc012.mcc034.3gppnetwork.org
-
-        // Conference event package participants are identified using SIP URIs (see RFC3261).
-        // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers
-        // Per RFC3261, the "user" can be a telephone number.
-        // For example: sip:1650555121;phone-context=blah.com@host.com
-        // In this case, the phone number is in the user field of the URI, and the parameters can be
-        // ignored.
-        //
-        // A SIP URI can also specify a phone number in a format similar to:
-        // sip:+1-212-555-1212@something.com;user=phone
-        // In this case, the phone number is again in user field and the parameters can be ignored.
-        // We can get the user field in these instances by splitting the string on the @, ;, or :
-        // and looking at the first found item.
-        String number = address.getSchemeSpecificPart();
-        if (TextUtils.isEmpty(number)) {
-            return address;
-        }
-
-        String numberParts[] = number.split("[@;:]");
-        if (numberParts.length == 0) {
-            return address;
-        }
-        number = numberParts[0];
-
-        // Attempt to format the number in E.164 format and use that as part of the TEL URI.
-        // RFC2806 recommends to format telephone numbers using E.164 since it is independent of
-        // how the dialing of said numbers takes place.
-        // If conversion to E.164 fails, the returned value is null.  In that case, fallback to the
-        // number which was in the CEP data.
-        String formattedNumber = null;
-        if (!TextUtils.isEmpty(countryIso)) {
-            formattedNumber = PhoneNumberUtils.formatNumberToE164(number, countryIso);
-        }
-
-        return Uri.fromParts(PhoneAccount.SCHEME_TEL,
-                formattedNumber != null ? formattedNumber : number, null);
     }
 
     /**
@@ -310,6 +212,10 @@ public class ConferenceParticipantConnection extends Connection {
         sb.append(Log.pii(mParentConnection.getAddress()));
         sb.append(" state:");
         sb.append(Connection.stateToString(getState()));
+        sb.append(" connectTime:");
+        sb.append(getConnectTimeMillis());
+        sb.append(" connectElapsedTime:");
+        sb.append(getConnectElapsedTimeMillis());
         sb.append("]");
 
         return sb.toString();

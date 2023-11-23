@@ -27,7 +27,7 @@ import com.android.apksig.internal.apk.ContentDigestAlgorithm;
 import com.android.apksig.internal.apk.SignatureAlgorithm;
 import com.android.apksig.internal.util.Pair;
 import com.android.apksig.util.DataSource;
-
+import com.android.apksig.util.RunnablesExecutor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -139,6 +139,7 @@ public abstract class V2SchemeSigner {
     }
 
     public static Pair<byte[], Integer> generateApkSignatureSchemeV2Block(
+            RunnablesExecutor executor,
             DataSource beforeCentralDir,
             DataSource centralDir,
             DataSource eocd,
@@ -148,8 +149,8 @@ public abstract class V2SchemeSigner {
                             SignatureException {
         Pair<List<SignerConfig>,
                 Map<ContentDigestAlgorithm, byte[]>> digestInfo =
-                ApkSigningBlockUtils.computeContentDigests(beforeCentralDir, centralDir, eocd,
-                        signerConfigs);
+                ApkSigningBlockUtils.computeContentDigests(
+                        executor, beforeCentralDir, centralDir, eocd, signerConfigs);
         return generateApkSignatureSchemeV2Block(
                 digestInfo.getFirst(), digestInfo.getSecond(),v3SigningEnabled);
     }
@@ -232,7 +233,7 @@ public abstract class V2SchemeSigner {
         signer.signedData = encodeAsSequenceOfLengthPrefixedElements(new byte[][] {
             encodeAsSequenceOfLengthPrefixedPairsOfIntAndLengthPrefixedBytes(signedData.digests),
             encodeAsSequenceOfLengthPrefixedElements(signedData.certificates),
-            // additional attributes
+            signedData.additionalAttributes,
             new byte[0],
         });
         signer.publicKey = encodedPublicKey;
@@ -267,7 +268,7 @@ public abstract class V2SchemeSigner {
             int payloadSize = 4 + 4 + 4;
             ByteBuffer result = ByteBuffer.allocate(payloadSize);
             result.order(ByteOrder.LITTLE_ENDIAN);
-            result.putInt(payloadSize);
+            result.putInt(payloadSize - 4);
             result.putInt(STRIPPING_PROTECTION_ATTR_ID);
             result.putInt(ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V3);
             return result.array();

@@ -41,7 +41,7 @@ static uint8_t* serialize_key_blob(const keymaster_key_blob_t& key_blob, uint8_t
 static bool deserialize_key_blob(keymaster_key_blob_t* key_blob, const uint8_t** buf_ptr,
                                  const uint8_t* end) {
     delete[] key_blob->key_material;
-    key_blob->key_material = 0;
+    key_blob->key_material = nullptr;
     UniquePtr<uint8_t[]> deserialized_key_material;
     if (!copy_size_and_data_from_buf(buf_ptr, end, &key_blob->key_material_size,
                                      &deserialized_key_material))
@@ -215,10 +215,10 @@ size_t UpdateOperationResponse::NonErrorSerializedSize() const {
     case 3:
     case 2:
         size += output_params.SerializedSize();
-        ; /* falls through */
+        FALLTHROUGH;
     case 1:
         size += sizeof(uint32_t);
-        ; /* falls through */
+        FALLTHROUGH;
     case 0:
         size += output.SerializedSize();
         break;
@@ -253,11 +253,11 @@ size_t FinishOperationRequest::SerializedSize() const {
     switch (message_version) {
     case 3:
         size += input.SerializedSize();
-        ; /* falls through */
+        FALLTHROUGH;
     case 2:
     case 1:
         size += additional_params.SerializedSize();
-        ; /* falls through */
+        FALLTHROUGH;
     case 0:
         size += sizeof(op_handle) + signature.SerializedSize();
         break;
@@ -341,7 +341,7 @@ uint8_t* ImportKeyRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
 
 bool ImportKeyRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     delete[] key_data;
-    key_data = NULL;
+    key_data = nullptr;
     UniquePtr<uint8_t[]> deserialized_key_material;
     if (!key_description.Deserialize(buf_ptr, end) ||
         !copy_uint32_from_buf(buf_ptr, end, &key_format) ||
@@ -407,7 +407,7 @@ uint8_t* ExportKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) 
 
 bool ExportKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     delete[] key_data;
-    key_data = NULL;
+    key_data = nullptr;
     UniquePtr<uint8_t[]> deserialized_key_material;
     if (!copy_size_and_data_from_buf(buf_ptr, end, &key_data_length, &deserialized_key_material))
         return false;
@@ -635,13 +635,14 @@ size_t ImportWrappedKeyRequest::SerializedSize() const {
     return sizeof(uint32_t) /* wrapped_key_data_length */ + wrapped_key.key_material_size +
            sizeof(uint32_t) /* wrapping_key_data_length */ + wrapping_key.key_material_size +
            sizeof(uint32_t) /* masking_key_data_length */ + masking_key.key_material_size +
-           additional_params.SerializedSize();
+           additional_params.SerializedSize() + sizeof(uint64_t) /* password_sid */ +
+           sizeof(uint64_t) /* biometric_sid */;
 }
 
 uint8_t* ImportWrappedKeyRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
-    serialize_key_blob(wrapped_key, buf, end);
-    serialize_key_blob(wrapping_key, buf, end);
-    serialize_key_blob(masking_key, buf, end);
+    buf = serialize_key_blob(wrapped_key, buf, end);
+    buf = serialize_key_blob(wrapping_key, buf, end);
+    buf = serialize_key_blob(masking_key, buf, end);
     buf = additional_params.Serialize(buf, end);
     buf = append_uint64_to_buf(buf, end, password_sid);
     return append_uint64_to_buf(buf, end, biometric_sid);

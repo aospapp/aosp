@@ -30,7 +30,7 @@ Certificate:
         Subject Public Key Info:
             Public Key Algorithm: id-ecPublicKey
                 Public-Key: (384 bit)
-                pub: 
+                pub:
                     04:84:13:c9:d0:ba:6d:41:7b:e2:6c:d0:eb:55:5f:
                     66:02:1a:24:f4:5b:89:69:47:e3:b8:c2:7d:f1:f2:
                     02:c5:9f:a0:f6:5b:d5:8b:06:19:86:4f:53:10:6d:
@@ -39,6 +39,7 @@ Certificate:
                     77:ae:c9:9d:7c:55:44:3a:a2:63:51:1f:f5:e3:62:
                     d4:a9:47:07:3e:cc:20
                 ASN1 OID: secp384r1
+                NIST CURVE: P-384
         X509v3 extensions:
             X509v3 Key Usage: critical
                 Certificate Sign, CRL Sign

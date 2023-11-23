@@ -20,13 +20,14 @@
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "base/mutex.h"
+#include "base/sdk_version.h"
 #include "class_linker-inl.h"
 #include "dex/dex_file-inl.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "entrypoints/quick/callee_save_frame.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "gc/accounting/card_table-inl.h"
-#include "java_vm_ext.h"
+#include "jni/java_vm_ext.h"
 #include "mirror/class-inl.h"
 #include "mirror/method.h"
 #include "mirror/object-inl.h"
@@ -55,8 +56,10 @@ void CheckReferenceResult(Handle<mirror::Object> o, Thread* self) {
   }
 }
 
-JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, const char* shorty,
-                                    jobject rcvr_jobj, jobject interface_method_jobj,
+JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa,
+                                    const char* shorty,
+                                    jobject rcvr_jobj,
+                                    jobject interface_method_jobj,
                                     std::vector<jvalue>& args) {
   DCHECK(soa.Env()->IsInstanceOf(rcvr_jobj, WellKnownClasses::java_lang_reflect_Proxy));
 
@@ -64,9 +67,9 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
   soa.Self()->AssertThreadSuspensionIsAllowable();
   jobjectArray args_jobj = nullptr;
   const JValue zero;
-  int32_t target_sdk_version = Runtime::Current()->GetTargetSdkVersion();
+  uint32_t target_sdk_version = Runtime::Current()->GetTargetSdkVersion();
   // Do not create empty arrays unless needed to maintain Dalvik bug compatibility.
-  if (args.size() > 0 || (target_sdk_version > 0 && target_sdk_version <= 21)) {
+  if (args.size() > 0 || IsSdkVersionSetAndAtMost(target_sdk_version, SdkVersion::kL)) {
     args_jobj = soa.Env()->NewObjectArray(args.size(), WellKnownClasses::java_lang_Object, nullptr);
     if (args_jobj == nullptr) {
       CHECK(soa.Self()->IsExceptionPending());
@@ -74,12 +77,12 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
     }
     for (size_t i = 0; i < args.size(); ++i) {
       if (shorty[i + 1] == 'L') {
-        jobject val = args.at(i).l;
+        jobject val = args[i].l;
         soa.Env()->SetObjectArrayElement(args_jobj, i, val);
       } else {
         JValue jv;
-        jv.SetJ(args.at(i).j);
-        mirror::Object* val = BoxPrimitive(Primitive::GetType(shorty[i + 1]), jv).Ptr();
+        jv.SetJ(args[i].j);
+        ObjPtr<mirror::Object> val = BoxPrimitive(Primitive::GetType(shorty[i + 1]), jv);
         if (val == nullptr) {
           CHECK(soa.Self()->IsExceptionPending());
           return zero;
@@ -111,7 +114,7 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
       ObjPtr<mirror::Class> result_type = interface_method->ResolveReturnType();
       ObjPtr<mirror::Object> result_ref = soa.Decode<mirror::Object>(result);
       JValue result_unboxed;
-      if (!UnboxPrimitiveForResult(result_ref.Ptr(), result_type, &result_unboxed)) {
+      if (!UnboxPrimitiveForResult(result_ref, result_type, &result_unboxed)) {
         DCHECK(soa.Self()->IsExceptionPending());
         return zero;
       }
@@ -120,13 +123,13 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
   } else {
     // In the case of checked exceptions that aren't declared, the exception must be wrapped by
     // a UndeclaredThrowableException.
-    mirror::Throwable* exception = soa.Self()->GetException();
+    ObjPtr<mirror::Throwable> exception = soa.Self()->GetException();
     if (exception->IsCheckedException()) {
       bool declares_exception = false;
       {
         ScopedAssertNoThreadSuspension ants(__FUNCTION__);
         ObjPtr<mirror::Object> rcvr = soa.Decode<mirror::Object>(rcvr_jobj);
-        mirror::Class* proxy_class = rcvr->GetClass();
+        ObjPtr<mirror::Class> proxy_class = rcvr->GetClass();
         ObjPtr<mirror::Method> interface_method = soa.Decode<mirror::Method>(interface_method_jobj);
         ArtMethod* proxy_method = rcvr->GetClass()->FindVirtualMethodForInterface(
             interface_method->GetArtMethod(), kRuntimePointerSize);
@@ -138,11 +141,11 @@ JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, cons
         int throws_index = (reinterpret_cast<uintptr_t>(proxy_method) -
             reinterpret_cast<uintptr_t>(&virtual_methods[0])) / method_size;
         CHECK_LT(throws_index, static_cast<int>(num_virtuals));
-        mirror::ObjectArray<mirror::Class>* declared_exceptions =
+        ObjPtr<mirror::ObjectArray<mirror::Class>> declared_exceptions =
             proxy_class->GetProxyThrows()->Get(throws_index);
-        mirror::Class* exception_class = exception->GetClass();
+        ObjPtr<mirror::Class> exception_class = exception->GetClass();
         for (int32_t i = 0; i < declared_exceptions->GetLength() && !declares_exception; i++) {
-          mirror::Class* declared_exception = declared_exceptions->Get(i);
+          ObjPtr<mirror::Class> declared_exception = declared_exceptions->Get(i);
           declares_exception = declared_exception->IsAssignableFrom(exception_class);
         }
       }
@@ -161,7 +164,7 @@ bool FillArrayData(ObjPtr<mirror::Object> obj, const Instruction::ArrayDataPaylo
     ThrowNullPointerException("null array in FILL_ARRAY_DATA");
     return false;
   }
-  mirror::Array* array = obj->AsArray();
+  ObjPtr<mirror::Array> array = obj->AsArray();
   DCHECK(!array->IsObjectArray());
   if (UNLIKELY(static_cast<int32_t>(payload->element_count) > array->GetLength())) {
     Thread* self = Thread::Current();
@@ -180,10 +183,10 @@ static inline std::pair<ArtMethod*, uintptr_t> DoGetCalleeSaveMethodOuterCallerA
     ArtMethod** sp, CalleeSaveType type) REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK_EQ(*sp, Runtime::Current()->GetCalleeSaveMethod(type));
 
-  const size_t callee_frame_size = GetCalleeSaveFrameSize(kRuntimeISA, type);
+  const size_t callee_frame_size = RuntimeCalleeSaveFrame::GetFrameSize(type);
   auto** caller_sp = reinterpret_cast<ArtMethod**>(
       reinterpret_cast<uintptr_t>(sp) + callee_frame_size);
-  const size_t callee_return_pc_offset = GetCalleeSaveReturnPcOffset(kRuntimeISA, type);
+  const size_t callee_return_pc_offset = RuntimeCalleeSaveFrame::GetReturnPcOffset(type);
   uintptr_t caller_pc = *reinterpret_cast<uintptr_t*>(
       (reinterpret_cast<uint8_t*>(sp) + callee_return_pc_offset));
   ArtMethod* outer_method = *caller_sp;
@@ -201,18 +204,12 @@ static inline ArtMethod* DoGetCalleeSaveMethodCaller(ArtMethod* outer_method,
       DCHECK(current_code != nullptr);
       DCHECK(current_code->IsOptimized());
       uintptr_t native_pc_offset = current_code->NativeQuickPcOffset(caller_pc);
-      CodeInfo code_info = current_code->GetOptimizedCodeInfo();
-      MethodInfo method_info = current_code->GetOptimizedMethodInfo();
-      CodeInfoEncoding encoding = code_info.ExtractEncoding();
-      StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset, encoding);
+      CodeInfo code_info(current_code, CodeInfo::DecodeFlags::InlineInfoOnly);
+      StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset);
       DCHECK(stack_map.IsValid());
-      if (stack_map.HasInlineInfo(encoding.stack_map.encoding)) {
-        InlineInfo inline_info = code_info.GetInlineInfoOf(stack_map, encoding);
-        caller = GetResolvedMethod(outer_method,
-                                   method_info,
-                                   inline_info,
-                                   encoding.inline_info.encoding,
-                                   inline_info.GetDepth(encoding.inline_info.encoding) - 1);
+      BitTableRange<InlineInfo> inline_infos = code_info.GetInlineInfosOf(stack_map);
+      if (!inline_infos.empty()) {
+        caller = GetResolvedMethod(outer_method, code_info, inline_infos);
       }
     }
     if (kIsDebugBuild && do_caller_check) {
@@ -250,7 +247,7 @@ CallerAndOuterMethod GetCalleeSaveMethodCallerAndOuterMethod(Thread* self, Calle
   result.outer_method = outer_caller_and_pc.first;
   uintptr_t caller_pc = outer_caller_and_pc.second;
   result.caller =
-      DoGetCalleeSaveMethodCaller(result.outer_method, caller_pc, /* do_caller_check */ true);
+      DoGetCalleeSaveMethodCaller(result.outer_method, caller_pc, /* do_caller_check= */ true);
   return result;
 }
 
@@ -258,6 +255,28 @@ ArtMethod* GetCalleeSaveOuterMethod(Thread* self, CalleeSaveType type) {
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
   ArtMethod** sp = self->GetManagedStack()->GetTopQuickFrameKnownNotTagged();
   return DoGetCalleeSaveMethodOuterCallerAndPc(sp, type).first;
+}
+
+ObjPtr<mirror::MethodHandle> ResolveMethodHandleFromCode(ArtMethod* referrer,
+                                                         uint32_t method_handle_idx) {
+  Thread::PoisonObjectPointersIfDebug();
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  return class_linker->ResolveMethodHandle(Thread::Current(), method_handle_idx, referrer);
+}
+
+ObjPtr<mirror::MethodType> ResolveMethodTypeFromCode(ArtMethod* referrer,
+                                                     dex::ProtoIndex proto_idx) {
+  Thread::PoisonObjectPointersIfDebug();
+  ObjPtr<mirror::MethodType> method_type =
+      referrer->GetDexCache()->GetResolvedMethodType(proto_idx);
+  if (UNLIKELY(method_type == nullptr)) {
+    StackHandleScope<2> hs(Thread::Current());
+    Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
+    Handle<mirror::ClassLoader> class_loader(hs.NewHandle(referrer->GetClassLoader()));
+    ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+    method_type = class_linker->ResolveMethodType(hs.Self(), proto_idx, dex_cache, class_loader);
+  }
+  return method_type;
 }
 
 }  // namespace art

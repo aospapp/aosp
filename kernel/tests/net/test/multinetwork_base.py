@@ -470,7 +470,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
   def GetRemoteAddress(self, version):
     return {4: self.IPV4_ADDR,
-            5: self.IPV4_ADDR,
+            5: self.IPV4_ADDR,  # see GetRemoteSocketAddress()
             6: self.IPV6_ADDR}[version]
 
   def GetRemoteSocketAddress(self, version):

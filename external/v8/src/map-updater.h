@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef V8_MAP_RECONFIGURER_H_
-#define V8_MAP_RECONFIGURER_H_
+#ifndef V8_MAP_UPDATER_H_
+#define V8_MAP_UPDATER_H_
 
 #include "src/elements-kind.h"
+#include "src/field-type.h"
 #include "src/globals.h"
 #include "src/handles.h"
-#include "src/objects.h"
+#include "src/objects/map.h"
 #include "src/property-details.h"
 
 namespace v8 {
@@ -43,12 +44,7 @@ namespace internal {
 //   replace its transition tree with a new branch for the updated descriptors.
 class MapUpdater {
  public:
-  MapUpdater(Isolate* isolate, Handle<Map> old_map)
-      : isolate_(isolate),
-        old_map_(old_map),
-        old_descriptors_(old_map->instance_descriptors(), isolate_),
-        old_nof_(old_map_->NumberOfOwnDescriptors()),
-        new_elements_kind_(old_map_->elements_kind()) {}
+  MapUpdater(Isolate* isolate, Handle<Map> old_map);
 
   // Prepares for reconfiguring of a property at |descriptor| to data field
   // with given |attributes| and |representation|/|field_type| and
@@ -157,13 +153,14 @@ class MapUpdater {
 
   State state_ = kInitialized;
   ElementsKind new_elements_kind_;
+  bool is_transitionable_fast_elements_kind_;
 
-  // If |modified_descriptor_| is not equal to -1 them the fields below form
+  // If |modified_descriptor_| is not equal to -1 then the fields below form
   // an "update" of the |old_map_|'s descriptors.
   int modified_descriptor_ = -1;
   PropertyKind new_kind_ = kData;
   PropertyAttributes new_attributes_ = NONE;
-  PropertyConstness new_constness_ = kMutable;
+  PropertyConstness new_constness_ = PropertyConstness::kMutable;
   PropertyLocation new_location_ = kField;
   Representation new_representation_ = Representation::None();
 
@@ -177,4 +174,4 @@ class MapUpdater {
 }  // namespace internal
 }  // namespace v8
 
-#endif  // V8_MAP_RECONFIGURER_H_
+#endif  // V8_MAP_UPDATER_H_

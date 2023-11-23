@@ -18,7 +18,6 @@ package com.android.cellbroadcastreceiver;
 
 import android.content.Context;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.telephony.CellBroadcastMessage;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -64,13 +63,6 @@ public class CellBroadcastListItem extends RelativeLayout {
      */
     public void bind(CellBroadcastMessage message) {
         mCbMessage = message;
-
-        Drawable background = message.isRead() ?
-                getResources().getDrawable(R.drawable.list_item_background_read) :
-                getResources().getDrawable(R.drawable.list_item_background_unread);
-
-        setBackground(background);
-
         mChannelView.setText(CellBroadcastResources.getDialogTitleResource(mContext, message));
         mDateView.setText(message.getDateString(getContext()));
         mMessageView.setText(formatMessage(message));

@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_vp9"
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -24,4 +23,5 @@ This test verifies VP9 non-resolution-changing video can seek on machines with V
 """
 
 video = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/Shaka-Dash/720.webm'
-job.run_test('video_VideoSeek', codec='vp9', is_switchres=False, video=video)
+job.run_test('video_VideoSeek', codec='vp9', is_switchres=False, video=video,
+             capability='hw_dec_vp9_1080_30')

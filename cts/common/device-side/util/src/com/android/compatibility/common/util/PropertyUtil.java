@@ -16,8 +16,6 @@
 
 package com.android.compatibility.common.util;
 
-import com.android.compatibility.common.util.SystemUtil;
-
 import android.os.Build;
 import android.support.test.InstrumentationRegistry;
 
@@ -42,6 +40,7 @@ public class PropertyUtil {
     private static final String BUILD_TYPE_PROPERTY = "ro.build.type";
     private static final String MANUFACTURER_PROPERTY = "ro.product.manufacturer";
     private static final String TAG_DEV_KEYS = "dev-keys";
+    private static final String VNDK_VERSION = "ro.vndk.version";
 
     public static final String GOOGLE_SETTINGS_QUERY =
             "content query --uri content://com.google.settings/partner";
@@ -52,12 +51,6 @@ public class PropertyUtil {
     /** Returns whether the device build is a user build */
     public static boolean isUserBuild() {
         return propertyEquals(BUILD_TYPE_PROPERTY, "user");
-    }
-
-    /** Returns whether the device build is the factory ROM */
-    public static boolean isFactoryROM() {
-        // property should be undefined if and only if the product is factory ROM.
-        return getPropertyInt(FIRST_API_LEVEL) == INT_VALUE_IF_UNSET;
     }
 
     /** Returns whether this build is built with dev-keys */
@@ -78,6 +71,19 @@ public class PropertyUtil {
     public static int getFirstApiLevel() {
         int firstApiLevel = getPropertyInt(FIRST_API_LEVEL);
         return (firstApiLevel == INT_VALUE_IF_UNSET) ? Build.VERSION.SDK_INT : firstApiLevel;
+    }
+
+    /**
+     * Return whether the SDK version of the vendor partiton is newer than the given API level.
+     * If the property is set to non-integer value, this means the vendor partition is using
+     * current API level and true is returned.
+     */
+    public static boolean isVendorApiLevelNewerThan(int apiLevel) {
+        int vendorApiLevel = getPropertyInt(VNDK_VERSION);
+        if (vendorApiLevel == INT_VALUE_IF_UNSET) {
+            return true;
+        }
+        return vendorApiLevel > apiLevel;
     }
 
     /**

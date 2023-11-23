@@ -923,12 +923,8 @@ public class DvrScheduleManager {
         List<ConflictInfo> result = new ArrayList<>(conflicts.values());
         Collections.sort(
                 result,
-                new Comparator<ConflictInfo>() {
-                    @Override
-                    public int compare(ConflictInfo lhs, ConflictInfo rhs) {
-                        return RESULT_COMPARATOR.compare(lhs.schedule, rhs.schedule);
-                    }
-                });
+                (ConflictInfo lhs, ConflictInfo rhs) ->
+                        RESULT_COMPARATOR.compare(lhs.schedule, rhs.schedule));
         return result;
     }
 

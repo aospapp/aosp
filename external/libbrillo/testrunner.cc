@@ -4,7 +4,6 @@
 
 // based on pam_google_testrunner.cc
 
-#include <glib-object.h>
 #include <gtest/gtest.h>
 
 #include <base/at_exit.h>
@@ -12,7 +11,6 @@
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  ::g_type_init();
   SetUpTests(&argc, argv, true);
   return RUN_ALL_TESTS();
 }

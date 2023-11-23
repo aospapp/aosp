@@ -19,9 +19,8 @@ package android.security.net.config.cts;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import javax.net.ssl.X509TrustManager;
-import junit.framework.TestCase;
 
-public class CleartextPermittedTest extends TestCase {
+public class CleartextPermittedTest extends BaseTestCase {
     public void testDefaultAllowed() throws Exception {
         TestUtils.assertCleartextConnectionSucceeds("example.com", 80);
         TestUtils.assertTlsConnectionSucceeds("example.com", 443);

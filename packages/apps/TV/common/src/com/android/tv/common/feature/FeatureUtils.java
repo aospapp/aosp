@@ -17,6 +17,7 @@
 package com.android.tv.common.feature;
 
 import android.content.Context;
+import com.android.tv.common.BuildConfig;
 import com.android.tv.common.util.CommonUtils;
 import java.util.Arrays;
 
@@ -28,7 +29,7 @@ public class FeatureUtils {
      *
      * @param features the features to or
      */
-    public static Feature OR(final Feature... features) {
+    public static Feature or(final Feature... features) {
         return new Feature() {
             @Override
             public boolean isEnabled(Context context) {
@@ -52,7 +53,7 @@ public class FeatureUtils {
      *
      * @param features the features to and
      */
-    public static Feature AND(final Feature... features) {
+    public static Feature and(final Feature... features) {
         return new Feature() {
             @Override
             public boolean isEnabled(Context context) {
@@ -67,6 +68,42 @@ public class FeatureUtils {
             @Override
             public String toString() {
                 return "and(" + Arrays.asList(features) + ")";
+            }
+        };
+    }
+    /**
+     * A feature available in AOSP.
+     *
+     * @param googleFeature the feature used in non AOSP builds
+     * @param aospFeature the feature used in AOSP builds
+     */
+    public static Feature aospFeature(
+// AOSP_Comment_Out             final Feature googleFeature,
+            final Feature aospFeature) {
+        /* Begin_AOSP_Comment_Out
+        if (!BuildConfig.AOSP) {
+            return googleFeature;
+        } else {
+            End_AOSP_Comment_Out */
+            return aospFeature;
+// AOSP_Comment_Out         }
+    }
+
+    /**
+     * Returns a feature that is opposite of the given {@code feature}.
+     *
+     * @param feature the feature to invert
+     */
+    public static Feature not(final Feature feature) {
+        return new Feature() {
+            @Override
+            public boolean isEnabled(Context context) {
+                return !feature.isEnabled(context);
+            }
+
+            @Override
+            public String toString() {
+                return "not(" + feature + ")";
             }
         };
     }

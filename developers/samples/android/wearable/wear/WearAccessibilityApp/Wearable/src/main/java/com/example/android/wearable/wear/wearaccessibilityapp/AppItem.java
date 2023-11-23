@@ -52,6 +52,9 @@ public class AppItem {
     }
 
     public void launchActivity(Context context) {
-        context.startActivity(new Intent(context, mClass));
+        Intent intent = new Intent(context, mClass);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        context.startActivity(intent);
     }
 }

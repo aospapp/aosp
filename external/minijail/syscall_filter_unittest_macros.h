@@ -3,12 +3,6 @@
  * found in the LICENSE file.
  */
 
-#define USE_RET_KILL 0
-#define USE_RET_TRAP 1
-
-#define NO_LOGGING  0
-#define USE_LOGGING 1
-
 /* BPF testing macros. */
 #define EXPECT_EQ_BLOCK(_block, _code, _k, _jt, _jf)	\
 do {	\
@@ -24,6 +18,18 @@ do {	\
 #define EXPECT_COMP(_block) \
 do {	\
 	EXPECT_EQ((_block)->len, BPF_ARG_COMP_LEN + 1);			\
+	EXPECT_EQ((_block)->instrs->code, BPF_LD+BPF_W+BPF_ABS);	\
+} while (0)
+
+#define EXPECT_GT_GE_COMP(_block) \
+do {	\
+	EXPECT_EQ((_block)->len, BPF_ARG_GT_GE_COMP_LEN + 1);		\
+	EXPECT_EQ((_block)->instrs->code, BPF_LD+BPF_W+BPF_ABS);	\
+} while (0)
+
+#define EXPECT_SHORT_GT_GE_COMP(_block) \
+do {	\
+	EXPECT_EQ((_block)->len, BPF_ARG_SHORT_GT_GE_COMP_LEN + 1);	\
 	EXPECT_EQ((_block)->instrs->code, BPF_LD+BPF_W+BPF_ABS);	\
 } while (0)
 

@@ -28,8 +28,16 @@ constexpr uint64_t Seconds::toRawNanoseconds() const {
   // Perform the simple unit conversion. Warning: overflow is caught and
   // handled by returning UINT64_MAX. A ternary expression is used because
   // constexpr requires it.
-  return mSeconds > (UINT64_MAX / kOneSecondInNanoseconds) ? UINT64_MAX
+  return (mSeconds > (UINT64_MAX / kOneSecondInNanoseconds)) ? UINT64_MAX
       : mSeconds * kOneSecondInNanoseconds;
+}
+
+constexpr uint64_t Seconds::getMilliseconds() const {
+  // Perform the simple unit conversion. Warning: overflow is caught and
+  // handled by returning UINT64_MAX. A ternary expression is used because
+  // constexpr requires it.
+  return (mSeconds > (UINT64_MAX / kOneSecondInMilliseconds)) ? UINT64_MAX
+      : mSeconds * kOneSecondInMilliseconds;
 }
 
 constexpr Milliseconds::Milliseconds()
@@ -51,7 +59,11 @@ constexpr uint64_t Milliseconds::toRawNanoseconds() const {
 }
 
 constexpr uint64_t Milliseconds::getMicroseconds() const {
-  return mMilliseconds * kOneMillisecondInMicroseconds;
+  // Perform the simple unit conversion. Warning: overflow is caught and
+  // handled by returning UINT64_MAX. A ternary expression is used because
+  // constexpr requires it.
+  return (mMilliseconds > (UINT64_MAX / kOneMillisecondInMicroseconds))
+      ? UINT64_MAX : mMilliseconds * kOneMillisecondInMicroseconds ;
 }
 
 constexpr uint64_t Milliseconds::getMilliseconds() const {

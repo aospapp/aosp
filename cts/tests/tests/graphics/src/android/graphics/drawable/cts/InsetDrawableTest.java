@@ -26,24 +26,23 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
-import android.graphics.Bitmap;
-import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
+import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.InsetDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.StateSet;
 import android.util.Xml;
 import android.view.InflateException;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -457,6 +456,12 @@ public class InsetDrawableTest {
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
+    }
+
+    @Test
+    public void testOpticalInsets() {
+        InsetDrawable drawable = new InsetDrawable(mPassDrawable, 1, 2, 3, 4);
+        assertEquals(Insets.of(1, 2, 3, 4), drawable.getOpticalInsets());
     }
 
     private void verifyPreloadDensityInner(Resources res, int densityDpi)

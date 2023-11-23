@@ -309,7 +309,10 @@ public class BluetoothOppTransferActivity extends AlertActivity
         } else if (mWhichDialog == DIALOG_RECEIVE_COMPLETE_FAIL) {
             if (mTransInfo.mStatus == BluetoothShare.STATUS_ERROR_SDCARD_FULL) {
                 mLine1View = (TextView) mView.findViewById(R.id.line1_view);
-                tmp = getString(R.string.bt_sm_2_1, mTransInfo.mDeviceName);
+                int id = BluetoothOppUtility.deviceHasNoSdCard()
+                        ? R.string.bt_sm_2_1_nosdcard
+                        : R.string.bt_sm_2_1_default;
+                tmp = getString(id);
                 mLine1View.setText(tmp);
                 mLine2View = (TextView) mView.findViewById(R.id.line2_view);
                 tmp = getString(R.string.download_fail_line2, mTransInfo.mFileName);

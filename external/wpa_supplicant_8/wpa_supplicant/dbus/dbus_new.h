@@ -22,15 +22,20 @@ struct wps_credential;
 
 enum wpas_dbus_prop {
 	WPAS_DBUS_PROP_AP_SCAN,
-	WPAS_DBUS_PROP_PMF,
 	WPAS_DBUS_PROP_SCANNING,
 	WPAS_DBUS_PROP_STATE,
 	WPAS_DBUS_PROP_CURRENT_BSS,
 	WPAS_DBUS_PROP_CURRENT_NETWORK,
 	WPAS_DBUS_PROP_CURRENT_AUTH_MODE,
 	WPAS_DBUS_PROP_BSSS,
+	WPAS_DBUS_PROP_STATIONS,
 	WPAS_DBUS_PROP_DISCONNECT_REASON,
+	WPAS_DBUS_PROP_AUTH_STATUS_CODE,
 	WPAS_DBUS_PROP_ASSOC_STATUS_CODE,
+	WPAS_DBUS_PROP_ROAM_TIME,
+	WPAS_DBUS_PROP_ROAM_COMPLETE,
+	WPAS_DBUS_PROP_SESSION_LENGTH,
+	WPAS_DBUS_PROP_BSS_TM_STATUS,
 };
 
 enum wpas_dbus_bss_prop {
@@ -44,6 +49,10 @@ enum wpas_dbus_bss_prop {
 	WPAS_DBUS_BSS_PROP_WPS,
 	WPAS_DBUS_BSS_PROP_IES,
 	WPAS_DBUS_BSS_PROP_AGE,
+};
+
+enum wpas_dbus_sta_prop {
+	WPAS_DBUS_STA_PROP_ADDRESS,
 };
 
 #define WPAS_DBUS_OBJECT_PATH_MAX 150
@@ -61,6 +70,9 @@ enum wpas_dbus_bss_prop {
 
 #define WPAS_DBUS_NEW_BSSIDS_PART "BSSs"
 #define WPAS_DBUS_NEW_IFACE_BSS	WPAS_DBUS_NEW_INTERFACE ".BSS"
+
+#define WPAS_DBUS_NEW_STAS_PART "Stations"
+#define WPAS_DBUS_NEW_IFACE_STA	WPAS_DBUS_NEW_INTERFACE ".Station"
 
 #define WPAS_DBUS_NEW_IFACE_P2PDEVICE	\
 		WPAS_DBUS_NEW_IFACE_INTERFACE ".P2PDevice"
@@ -164,6 +176,8 @@ int wpas_dbus_unregister_bss(struct wpa_supplicant *wpa_s,
 			     u8 bssid[ETH_ALEN], unsigned int id);
 int wpas_dbus_register_bss(struct wpa_supplicant *wpa_s,
 			   u8 bssid[ETH_ALEN], unsigned int id);
+int wpas_dbus_unregister_sta(struct wpa_supplicant *wpa_s, const u8 *sta);
+int wpas_dbus_register_sta(struct wpa_supplicant *wpa_s, const u8 *sta);
 void wpas_dbus_signal_blob_added(struct wpa_supplicant *wpa_s,
 				 const char *name);
 void wpas_dbus_signal_blob_removed(struct wpa_supplicant *wpa_s,
@@ -342,6 +356,18 @@ static inline int wpas_dbus_unregister_bss(struct wpa_supplicant *wpa_s,
 
 static inline int wpas_dbus_register_bss(struct wpa_supplicant *wpa_s,
 					 u8 bssid[ETH_ALEN], unsigned int id)
+{
+	return 0;
+}
+
+static inline int wpas_dbus_unregister_sta(struct wpa_supplicant *wpa_s,
+					   const u8 *sta)
+{
+	return 0;
+}
+
+static inline int wpas_dbus_register_sta(struct wpa_supplicant *wpa_s,
+					 const u8 *sta)
 {
 	return 0;
 }

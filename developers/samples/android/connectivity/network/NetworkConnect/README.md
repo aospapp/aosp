@@ -3,22 +3,36 @@ Android NetworkConnect Sample
 ===================================
 
 This sample demonstrates how to connect to the network and fetch raw HTML using
-HttpURLConnection. AsyncTask is used to perform the fetch on a background thread.
+HttpsURLConnection. AsyncTask is used to perform the fetch on a background thread.
 
 Introduction
 ------------
 
-This sample application demonstrates how to connect to the network and fetch raw
-HTML. It uses AsyncTask, a background task manager, to perform the network fetch
-on a background thread. By using AsyncTask, the app can avoid hanging on the UI
-thread, and instead update the UI when the response is ready. To establish the
-network connection, the sample uses HttpURLConnection.
+This sample demonstrates how to connect to the network and fetch raw HTML using
+[`HttpsURLConnection`][4]. Since API 11, it is required by default that all network
+operations run on a background thread in order to avoid hanging on the UI thread. Only
+when the network response is ready should the work return to the main thread to update
+the UI. An [`AsyncTask`][3] is a viable background task manager that is used to perform
+the network operation and return to the UI thread upon completion.
+
+The sample also utilizes the [`ConnectivityManager`][1] to determine if you have
+a network connection, and if so, what type of connection it is.
+
+Using an [`AsyncTaskLoader`][6] or an [`IntentService`][5] are two common alternatives
+for managing longer running background work.
+
+[1]: https://developer.android.com/reference/android/net/ConnectivityManager.html
+[2]: https://developer.android.com/reference/android/net/NetworkInfo.html
+[3]: https://developer.android.com/reference/android/os/AsyncTask.html
+[4]: https://developer.android.com/reference/javax/net/ssl/HttpsURLConnection.html
+[5]: https://developer.android.com/reference/android/app/IntentService.html
+[6]: https://developer.android.com/reference/android/content/AsyncTaskLoader.html
 
 Pre-requisites
 --------------
 
-- Android SDK 24
-- Android Build Tools v24.0.2
+- Android SDK 28
+- Android Build Tools v28.0.3
 - Android Support Repository
 
 Screenshots
@@ -47,7 +61,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2016 The Android Open Source Project, Inc.
+Copyright 2019 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

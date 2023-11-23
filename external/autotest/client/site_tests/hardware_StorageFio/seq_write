@@ -13,7 +13,6 @@ time_based
 runtime=5m
 
 ioengine=libaio
-; iodepth=4
 iodepth=1
 direct=1
 

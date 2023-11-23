@@ -18,10 +18,11 @@ package com.example.android.wearable.runtimepermissions;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
 /**
  * This is a simple splash screen (activity) for giving more details on why the user should approve

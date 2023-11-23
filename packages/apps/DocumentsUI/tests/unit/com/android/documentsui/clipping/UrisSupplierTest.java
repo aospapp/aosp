@@ -23,9 +23,10 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.DocumentsContract;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.testing.TestScheduledExecutorService;
@@ -62,7 +63,8 @@ public class UrisSupplierTest {
         mExecutor = new TestScheduledExecutorService();
         AsyncTask.setDefaultExecutor(mExecutor);
 
-        mPref = InstrumentationRegistry.getContext().getSharedPreferences(PREF_NAME, 0);
+        mPref = InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getSharedPreferences(PREF_NAME, 0);
         mStorage = new ClipStorage(folder.getRoot(), mPref);
     }
 

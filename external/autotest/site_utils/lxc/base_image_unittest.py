@@ -28,7 +28,7 @@ reference_container = None
 cleanup_ref_container = False
 
 
-class BaseImageTests(unittest.TestCase):
+class BaseImageTests(lxc_utils.LXCTests):
     """Unit tests to verify the BaseImage class."""
 
     def testCreate_existing(self):
@@ -112,7 +112,7 @@ class BaseImageTests(unittest.TestCase):
 
 
 
-class BaseImageSetupTests(unittest.TestCase):
+class BaseImageSetupTests(lxc_utils.LXCTests):
     """Unit tests to verify the setup of specific images.
 
     Some images differ in layout from others.  These tests test specific images
@@ -206,5 +206,4 @@ def tearDownModule():
 
 
 if __name__ == '__main__':
-    unittest_setup.setup()
     unittest.main()

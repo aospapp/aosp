@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS VtsVndkHidlBufferpoolV1_0Target test cases">
-    <option name="config-descriptor:metadata" key="plan" value="vts-vndk" />
+    <option name="config-descriptor:metadata" key="plan" value="vts-library" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HostDrivenTest.push"/>

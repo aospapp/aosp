@@ -40,6 +40,11 @@ JNIEXPORT jboolean JNICALL
 Java_java_nio_MappedByteBuffer_isLoaded0(JNIEnv *env, jobject obj, jlong address,
                                          jlong len, jint numPages)
 {
+// BEGIN Android-added: Fuchsia holds all pages in memory. http://b/119503290
+#if defined(__Fuchsia__)
+    return JNI_TRUE;
+#else
+// END Android-added: Fuchsia holds all pages in memory. http://b/119503290
     jboolean loaded = JNI_TRUE;
     int result = 0;
     int i = 0;
@@ -70,6 +75,8 @@ Java_java_nio_MappedByteBuffer_isLoaded0(JNIEnv *env, jobject obj, jlong address
     }
     free(vec);
     return loaded;
+// Android-added: Fuchsia holds all pages in memory. http://b/119503290
+#endif
 }
 
 

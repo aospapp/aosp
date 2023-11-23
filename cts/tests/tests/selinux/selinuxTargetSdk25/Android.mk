@@ -20,8 +20,8 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctstestrunner \
-    compatibility-device-util \
+    ctstestrunner-axt \
+    compatibility-device-util-axt \
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs android.test.runner.stubs
 
@@ -40,6 +40,9 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src common)
 LOCAL_PACKAGE_NAME := CtsSelinuxTargetSdk25TestCases
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+
+LOCAL_MIN_SDK_VERSION := 21
+
 include $(BUILD_CTS_PACKAGE)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

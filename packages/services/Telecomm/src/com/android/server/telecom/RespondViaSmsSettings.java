@@ -54,6 +54,7 @@ public class RespondViaSmsSettings extends PreferenceActivity
 
         getPreferenceManager().setSharedPreferencesName(QuickResponseUtils.SHARED_PREFERENCES_NAME);
         mPrefs = getPreferenceManager().getSharedPreferences();
+        QuickResponseUtils.maybeResetQuickResponses(this, mPrefs);
     }
 
     @Override
@@ -107,6 +108,9 @@ public class RespondViaSmsSettings extends PreferenceActivity
         // Save the new preference value.
         SharedPreferences.Editor editor = mPrefs.edit();
         editor.putString(pref.getKey(), (String) newValue).commit();
+
+        // If the user just reset the quick response to its original text, clear the pref.
+        QuickResponseUtils.maybeResetQuickResponses(this, mPrefs);
 
         return true;  // means it's OK to update the state of the Preference with the new value
     }

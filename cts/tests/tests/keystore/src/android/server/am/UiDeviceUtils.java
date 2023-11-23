@@ -17,22 +17,23 @@
 package android.server.am;
 
 import static android.server.am.StateLogger.logE;
-import static android.support.test.InstrumentationRegistry.getContext;
 import static android.view.KeyEvent.KEYCODE_APP_SWITCH;
 import static android.view.KeyEvent.KEYCODE_MENU;
 import static android.view.KeyEvent.KEYCODE_SLEEP;
 import static android.view.KeyEvent.KEYCODE_WAKEUP;
-import static android.view.KeyEvent.KEYCODE_WINDOW;
+
+import static androidx.test.InstrumentationRegistry.getContext;
 
 import android.app.KeyguardManager;
 import android.graphics.Point;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 import android.view.KeyEvent;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.util.function.BooleanSupplier;
 

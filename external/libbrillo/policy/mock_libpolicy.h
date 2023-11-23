@@ -23,6 +23,7 @@ class MockPolicyProvider : public PolicyProvider {
   MOCK_METHOD0(Reload, bool(void));
   MOCK_CONST_METHOD0(device_policy_is_loaded, bool(void));
   MOCK_CONST_METHOD0(GetDevicePolicy, const DevicePolicy&(void));
+  MOCK_CONST_METHOD0(IsConsumerDevice, bool(void));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockPolicyProvider);

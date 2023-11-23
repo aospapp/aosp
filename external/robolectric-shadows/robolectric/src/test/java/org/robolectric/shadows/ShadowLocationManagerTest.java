@@ -2,7 +2,7 @@ package org.robolectric.shadows;
 
 import static android.location.LocationManager.GPS_PROVIDER;
 import static android.location.LocationManager.NETWORK_PROVIDER;
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -10,6 +10,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.app.Application;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -18,7 +19,11 @@ import android.location.GpsStatus.Listener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.Process;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,18 +34,32 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowLocationManagerTest {
   private LocationManager locationManager;
   private ShadowLocationManager shadowLocationManager;
+  private Application context;
 
   @Before
   public void setUp() {
-    locationManager = (LocationManager) RuntimeEnvironment.application.getSystemService(Context.LOCATION_SERVICE);
+    context = ApplicationProvider.getApplicationContext();
+    locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
     shadowLocationManager = shadowOf(locationManager);
+  }
+
+  @Test
+  @Config(sdk = VERSION_CODES.P)
+  public void shouldReturnLocationDisabledByDefault() {
+    assertFalse(locationManager.isLocationEnabled());
+  }
+
+  @Test
+  @Config(sdk = VERSION_CODES.P)
+  public void shouldReturnLocationEnabledOnceSet() {
+    locationManager.setLocationEnabledForUser(true, Process.myUserHandle());
+    assertTrue(locationManager.isLocationEnabled());
   }
 
   @Test
@@ -174,12 +193,11 @@ public class ShadowLocationManagerTest {
   @Test
   public void shouldRemovePendingIntentsWhenRequestingLocationUpdatesUsingCriteria() throws Exception {
     Intent someIntent = new Intent("some_action");
-    PendingIntent someLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(), 0, someIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     Intent someOtherIntent = new Intent("some_other_action");
-    PendingIntent someOtherLocationListenerPendingIntent = PendingIntent.getBroadcast(
-        ShadowApplication.getInstance().getApplicationContext(), 0, someOtherIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someOtherLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someOtherIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
     shadowLocationManager.setProviderEnabled(GPS_PROVIDER, true);
     shadowLocationManager.setBestProvider(LocationManager.GPS_PROVIDER, true);
@@ -211,11 +229,11 @@ public class ShadowLocationManagerTest {
   @Test
   public void shouldRemovePendingIntentsWhenRequestingLocationUpdatesUsingLocationListeners() throws Exception {
     Intent someIntent = new Intent("some_action");
-    PendingIntent someLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(), 0,
-        someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     Intent someOtherIntent = new Intent("some_other_action");
-    PendingIntent someOtherLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(),
-        0, someOtherIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someOtherLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someOtherIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
     shadowLocationManager.setProviderEnabled(GPS_PROVIDER, true);
     shadowLocationManager.setBestProvider(LocationManager.GPS_PROVIDER, true);
@@ -262,8 +280,8 @@ public class ShadowLocationManagerTest {
   @Test
   public void shouldThrowExceptionWhenRequestingLocationUpdatesAndNoProviderIsFound() throws Exception {
     Intent someIntent = new Intent("some_action");
-    PendingIntent someLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(), 0,
-        someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     Criteria criteria = new Criteria();
     criteria.setAccuracy(Criteria.ACCURACY_FINE);
     try {
@@ -299,10 +317,14 @@ public class ShadowLocationManagerTest {
     assertTrue(shadowLocationManager.setBestProvider("BEST_ENABLED_PROVIDER_WITH_CRITERIA", true));
     criteria.setAccuracy(Criteria.ACCURACY_COARSE);
     criteria.setPowerRequirement(Criteria.NO_REQUIREMENT);
-    assertThat("BEST_ENABLED_PROVIDER_WITH_CRITERIA").isEqualTo(locationManager.getBestProvider(criteria, true));
-    assertTrue(shadowLocationManager.setBestProvider("BEST_ENABLED_PROVIDER_WITH_CRITERIA", true));
-    assertThat("BEST_ENABLED_PROVIDER_WITH_CRITERIA").isEqualTo(locationManager.getBestProvider(criteria, false));
-    assertThat("BEST_ENABLED_PROVIDER_WITH_CRITERIA").isEqualTo(locationManager.getBestProvider(criteria, true));
+    assertThat(locationManager.getBestProvider(criteria, true))
+        .isEqualTo("BEST_ENABLED_PROVIDER_WITH_CRITERIA");
+    assertThat(shadowLocationManager.setBestProvider("BEST_ENABLED_PROVIDER_WITH_CRITERIA", true))
+        .isTrue();
+    assertThat(locationManager.getBestProvider(criteria, false))
+        .isEqualTo("BEST_ENABLED_PROVIDER_WITH_CRITERIA");
+    assertThat(locationManager.getBestProvider(criteria, true))
+        .isEqualTo("BEST_ENABLED_PROVIDER_WITH_CRITERIA");
   }
 
   @Test
@@ -311,15 +333,18 @@ public class ShadowLocationManagerTest {
 
     shadowLocationManager.setProviderEnabled(LocationManager.GPS_PROVIDER, false);
     criteria.setAccuracy(Criteria.ACCURACY_FINE);
-    assertThat(LocationManager.GPS_PROVIDER).isEqualTo(locationManager.getBestProvider(criteria, false));
+    assertThat(locationManager.getBestProvider(criteria, false))
+        .isEqualTo(LocationManager.GPS_PROVIDER);
 
     shadowLocationManager.setProviderEnabled(LocationManager.NETWORK_PROVIDER, false);
     criteria.setAccuracy(Criteria.ACCURACY_COARSE);
-    assertThat(LocationManager.NETWORK_PROVIDER).isEqualTo(locationManager.getBestProvider(criteria, false));
+    assertThat(locationManager.getBestProvider(criteria, false))
+        .isEqualTo(LocationManager.NETWORK_PROVIDER);
 
     criteria.setPowerRequirement(Criteria.POWER_LOW);
     criteria.setAccuracy(Criteria.ACCURACY_FINE);
-    assertThat(LocationManager.NETWORK_PROVIDER).isEqualTo(locationManager.getBestProvider(criteria, false));
+    assertThat(locationManager.getBestProvider(criteria, false))
+        .isEqualTo(LocationManager.NETWORK_PROVIDER);
   }
 
   @Test
@@ -330,8 +355,8 @@ public class ShadowLocationManagerTest {
     shadowLocationManager.setBestProvider("BEST_ENABLED_PROVIDER", true);
 
     assertTrue(shadowLocationManager.setBestProvider("BEST_DISABLED_PROVIDER", false));
-    assertThat("BEST_DISABLED_PROVIDER").isEqualTo(locationManager.getBestProvider(null, false));
-    assertThat("BEST_ENABLED_PROVIDER").isEqualTo(locationManager.getBestProvider(null, true));
+    assertThat(locationManager.getBestProvider(null, false)).isEqualTo("BEST_DISABLED_PROVIDER");
+    assertThat(locationManager.getBestProvider(null, true)).isEqualTo("BEST_ENABLED_PROVIDER");
   }
 
   @Test
@@ -360,8 +385,8 @@ public class ShadowLocationManagerTest {
     shadowLocationManager.setBestProvider(LocationManager.GPS_PROVIDER, true);
 
     Intent someIntent = new Intent("some_action");
-    PendingIntent someLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(), 0,
-        someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     locationManager.requestLocationUpdates(GPS_PROVIDER, 0, 0, someLocationListenerPendingIntent);
 
     assertThat(shadowLocationManager.getRequestLocationUdpateProviderPendingIntents().get(someLocationListenerPendingIntent)).isEqualTo(GPS_PROVIDER);
@@ -375,8 +400,8 @@ public class ShadowLocationManagerTest {
     criteria.setAccuracy(Criteria.ACCURACY_COARSE);
 
     Intent someIntent = new Intent("some_action");
-    PendingIntent someLocationListenerPendingIntent = PendingIntent.getBroadcast(ShadowApplication.getInstance().getApplicationContext(), 0,
-        someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent someLocationListenerPendingIntent =
+        PendingIntent.getBroadcast(context, 0, someIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     Criteria someCriteria = new Criteria();
     someCriteria.setAccuracy(Criteria.ACCURACY_COARSE);
     locationManager.requestLocationUpdates(0, 0, someCriteria, someLocationListenerPendingIntent);
@@ -419,8 +444,8 @@ public class ShadowLocationManagerTest {
     shadowLocationManager.simulateLocation(location1);
     shadowLocationManager.simulateLocation(location2);
 
-    assertThat(listener.location.getLatitude()).isEqualTo(1);
-    assertThat(listener.location.getLongitude()).isEqualTo(2);
+    assertThat(listener.location.getLatitude()).isEqualTo(1.0d);
+    assertThat(listener.location.getLongitude()).isEqualTo(2.0d);
   }
 
   @Test

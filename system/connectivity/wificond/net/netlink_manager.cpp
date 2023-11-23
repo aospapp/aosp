@@ -33,6 +33,7 @@
 #include "net/nl80211_packet.h"
 
 using android::base::unique_fd;
+using std::array;
 using std::placeholders::_1;
 using std::string;
 using std::unique_ptr;
@@ -306,7 +307,7 @@ bool NetlinkManager::SendMessageAndGetResponses(
       message_handlers_.erase(sequence);
       return false;
     } else if (poll_return == -1) {
-      LOG(ERROR) << "Failed to poll netlink fd: " << strerror(errno);
+      PLOG(ERROR) << "Failed to poll netlink fd";
       message_handlers_.erase(sequence);
       return false;
     }
@@ -390,7 +391,7 @@ bool NetlinkManager::SendMessageInternal(const NL80211Packet& packet, int fd) {
   ssize_t bytes_sent =
       TEMP_FAILURE_RETRY(send(fd, data.data(), data.size(), 0));
   if (bytes_sent == -1) {
-    LOG(ERROR) << "Failed to send netlink message: " << strerror(errno);
+    PLOG(ERROR) << "Failed to send netlink message";
     return false;
   }
   return true;
@@ -405,7 +406,7 @@ bool NetlinkManager::SetupSocket(unique_fd* netlink_fd) {
   netlink_fd->reset(
       socket(PF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_GENERIC));
   if (netlink_fd->get() < 0) {
-    LOG(ERROR) << "Failed to create netlink socket: " << strerror(errno);
+    PLOG(ERROR) << "Failed to create netlink socket";
     return false;
   }
   // Set maximum receive buffer size.
@@ -415,13 +416,13 @@ bool NetlinkManager::SetupSocket(unique_fd* netlink_fd) {
                  SO_RCVBUFFORCE,
                  &kReceiveBufferSize,
                  sizeof(kReceiveBufferSize)) < 0) {
-    LOG(ERROR) << "Failed to set uevent socket SO_RCVBUFFORCE option: " << strerror(errno);
+    PLOG(ERROR) << "Failed to set uevent socket SO_RCVBUFFORCE option";
     return false;
   }
   if (bind(netlink_fd->get(),
            reinterpret_cast<struct sockaddr*>(&nladdr),
            sizeof(nladdr)) < 0) {
-    LOG(ERROR) << "Failed to bind netlink socket: " << strerror(errno);
+    PLOG(ERROR) << "Failed to bind netlink socket";
     return false;
   }
   return true;
@@ -477,7 +478,7 @@ bool NetlinkManager::SubscribeToEvents(const string& group) {
                        &group_id,
                        sizeof(group_id));
   if (err < 0) {
-    LOG(ERROR) << "Failed to setsockopt: " << strerror(errno);
+    PLOG(ERROR) << "Failed to setsockopt";
     return false;
   }
   return true;
@@ -534,7 +535,7 @@ void NetlinkManager::BroadcastHandler(unique_ptr<const NL80211Packet> packet) {
     }
     const auto handler = on_station_event_handler_.find(if_index);
     if (handler != on_station_event_handler_.end()) {
-      vector<uint8_t> mac_address;
+      array<uint8_t, ETH_ALEN> mac_address;
       if (!packet->GetAttributeValue(NL80211_ATTR_MAC, &mac_address)) {
         LOG(WARNING) << "Failed to get mac address from station event";
         return;
@@ -549,6 +550,10 @@ void NetlinkManager::BroadcastHandler(unique_ptr<const NL80211Packet> packet) {
   }
   if (command == NL80211_CMD_CH_SWITCH_NOTIFY) {
     OnChannelSwitchEvent(std::move(packet));
+    return;
+  }
+  if (command == NL80211_CMD_FRAME_TX_STATUS) {
+    OnFrameTxStatusEvent(std::move(packet));
     return;
   }
 }
@@ -727,6 +732,31 @@ void NetlinkManager::OnChannelSwitchEvent(unique_ptr<const NL80211Packet> packet
     }
 }
 
+void NetlinkManager::OnFrameTxStatusEvent(
+    unique_ptr<const NL80211Packet> packet) {
+
+  uint32_t if_index;
+  if (!packet->GetAttributeValue(NL80211_ATTR_IFINDEX, &if_index)) {
+    LOG(WARNING) << "Failed to get NL80211_ATTR_IFINDEX"
+                 << "from NL80211_CMD_FRAME_TX_STATUS event";
+    return;
+  }
+
+  uint64_t cookie;
+  if (!packet->GetAttributeValue(NL80211_ATTR_COOKIE, &cookie)) {
+    LOG(WARNING) << "Failed to get NL80211_ATTR_COOKIE"
+                 << "from NL80211_CMD_FRAME_TX_STATUS event";
+    return;
+  }
+
+  bool was_acked = packet->HasAttribute(NL80211_ATTR_ACK);
+
+  const auto handler = on_frame_tx_status_event_handler_.find(if_index);
+  if (handler != on_frame_tx_status_event_handler_.end()) {
+    handler->second(cookie, was_acked);
+  }
+}
+
 void NetlinkManager::SubscribeStationEvent(
     uint32_t interface_index,
     OnStationEventHandler handler) {
@@ -787,6 +817,15 @@ void NetlinkManager::SubscribeSchedScanResultNotification(
 void NetlinkManager::UnsubscribeSchedScanResultNotification(
     uint32_t interface_index) {
   on_sched_scan_result_ready_handler_.erase(interface_index);
+}
+
+void NetlinkManager::SubscribeFrameTxStatusEvent(
+    uint32_t interface_index, OnFrameTxStatusEventHandler handler) {
+  on_frame_tx_status_event_handler_[interface_index] = handler;
+}
+
+void NetlinkManager::UnsubscribeFrameTxStatusEvent(uint32_t interface_index) {
+  on_frame_tx_status_event_handler_.erase(interface_index);
 }
 
 }  // namespace wificond

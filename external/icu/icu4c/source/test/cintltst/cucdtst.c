@@ -60,8 +60,9 @@ static void TestNumericProperties(void);
 static void TestPropertyNames(void);
 static void TestPropertyValues(void);
 static void TestConsistency(void);
-static void TestUBiDiProps(void);
 static void TestCaseFolding(void);
+static void TestBinaryCharacterPropertiesAPI(void);
+static void TestIntCharacterPropertiesAPI(void);
 
 /* internal methods used */
 static int32_t MakeProp(char* str);
@@ -196,8 +197,11 @@ void addUnicodeTest(TestNode** root)
     addTest(root, &TestPropertyNames, "tsutil/cucdtst/TestPropertyNames");
     addTest(root, &TestPropertyValues, "tsutil/cucdtst/TestPropertyValues");
     addTest(root, &TestConsistency, "tsutil/cucdtst/TestConsistency");
-    addTest(root, &TestUBiDiProps, "tsutil/cucdtst/TestUBiDiProps");
     addTest(root, &TestCaseFolding, "tsutil/cucdtst/TestCaseFolding");
+    addTest(root, &TestBinaryCharacterPropertiesAPI,
+            "tsutil/cucdtst/TestBinaryCharacterPropertiesAPI");
+    addTest(root, &TestIntCharacterPropertiesAPI,
+            "tsutil/cucdtst/TestIntCharacterPropertiesAPI");
 }
 
 /*==================================================== */
@@ -1229,9 +1233,17 @@ enumDefaultsRange(const void *context, UChar32 start, UChar32 limit, UCharCatego
         { 0xFE00, U_RIGHT_TO_LEFT_ARABIC },
         { 0xFE70, U_LEFT_TO_RIGHT },
         { 0xFF00, U_RIGHT_TO_LEFT_ARABIC },
+
         { 0x10800, U_LEFT_TO_RIGHT },
+        { 0x10D00, U_RIGHT_TO_LEFT },  // Unicode 11 changes U+10D00..U+10D3F from R to AL.
+        { 0x10D40, U_RIGHT_TO_LEFT_ARABIC },
+        { 0x10F30, U_RIGHT_TO_LEFT },  // Unicode 11 changes U+10F30..U+10F6F from R to AL.
+        { 0x10F70, U_RIGHT_TO_LEFT_ARABIC },
         { 0x11000, U_RIGHT_TO_LEFT },
+
         { 0x1E800, U_LEFT_TO_RIGHT },  /* new default-R range in Unicode 5.2: U+1E800 - U+1EFFF */
+        { 0x1EC70, U_RIGHT_TO_LEFT },  // Unicode 11 changes U+1EC70..U+1ECBF from R to AL.
+        { 0x1ECC0, U_RIGHT_TO_LEFT_ARABIC },
         { 0x1EE00, U_RIGHT_TO_LEFT },
         { 0x1EF00, U_RIGHT_TO_LEFT_ARABIC },  /* Unicode 6.1 changes U+1EE00..U+1EEFF from R to AL */
         { 0x1F000, U_RIGHT_TO_LEFT },
@@ -2517,7 +2529,7 @@ TestAdditionalProperties() {
         { 0x155A, UCHAR_BLOCK, UBLOCK_UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS },
         { 0x1717, UCHAR_BLOCK, UBLOCK_TAGALOG },
         { 0x1900, UCHAR_BLOCK, UBLOCK_LIMBU },
-        { 0x1CBF, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
+        { 0x0870, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
         { 0x3040, UCHAR_BLOCK, UBLOCK_HIRAGANA },
         { 0x1D0FF, UCHAR_BLOCK, UBLOCK_BYZANTINE_MUSICAL_SYMBOLS },
         { 0x50000, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
@@ -2593,7 +2605,7 @@ TestAdditionalProperties() {
 
         /* UCHAR_NUMERIC_TYPE tested in TestNumericProperties() */
 
-        /* UCHAR_SCRIPT tested in TestUScriptCodeAPI() */
+        /* UCHAR_SCRIPT tested in cucdapi.c TestUScriptCodeAPI() */
 
         { 0x10ff, UCHAR_HANGUL_SYLLABLE_TYPE, 0 },
         { 0x1100, UCHAR_HANGUL_SYLLABLE_TYPE, U_HST_LEADING_JAMO },
@@ -3302,59 +3314,6 @@ TestConsistency() {
     uset_close(set2);
 }
 
-/*
- * Starting with ICU4C 3.4, the core Unicode properties files
- * (uprops.icu, ucase.icu, ubidi.icu, unorm.icu)
- * are hardcoded in the common DLL and therefore not included
- * in the data package any more.
- * Test requiring these files are disabled so that
- * we need not jump through hoops (like adding snapshots of these files
- * to testdata).
- * See Jitterbug 4497.
- */
-#define HARDCODED_DATA_4497 1
-
-/* API coverage for ubidi_props.c */
-static void TestUBiDiProps() {
-#if !HARDCODED_DATA_4497
-    UDataMemory *pData;
-    UBiDiProps *bdp;
-    const UBiDiProps *cbdp;
-    UErrorCode errorCode;
-
-    /* coverage for ubidi_openBinary() */
-    errorCode=U_ZERO_ERROR;
-    pData=udata_open(NULL, UBIDI_DATA_TYPE, UBIDI_DATA_NAME, &errorCode);
-    if(U_FAILURE(errorCode)) {
-        log_data_err("unable to open " UBIDI_DATA_NAME "." UBIDI_DATA_TYPE ": %s\n",
-                    u_errorName(errorCode));
-        return;
-    }
-
-    bdp=ubidi_openBinary((const uint8_t *)pData->pHeader, -1, &errorCode);
-    if(U_FAILURE(errorCode)) {
-        log_err("ubidi_openBinary() fails for the contents of " UBIDI_DATA_NAME "." UBIDI_DATA_TYPE ": %s\n",
-                u_errorName(errorCode));
-        udata_close(pData);
-        return;
-    }
-
-    if(0x2215!=ubidi_getMirror(bdp, 0x29F5)) { /* verify some data */
-        log_err("ubidi_openBinary() does not seem to return working UBiDiProps\n");
-    }
-
-    ubidi_closeProps(bdp);
-    udata_close(pData);
-
-    /* coverage for ubidi_getDummy() */
-    errorCode=U_ZERO_ERROR;
-    cbdp=ubidi_getDummy(&errorCode);
-    if(ubidi_getClass(cbdp, 0x20)!=0) {
-        log_err("ubidi_getClass(dummy, space)!=0\n");
-    }
-#endif
-}
-
 /* test case folding, compare return values with CaseFolding.txt ------------ */
 
 /* bit set for which case foldings for a character have been tested already */
@@ -3568,4 +3527,42 @@ TestCaseFolding() {
     }
 
     uset_close(data.notSeen);
+}
+
+static void TestBinaryCharacterPropertiesAPI() {
+    // API test only. See intltest/ucdtest.cpp for functional test.
+    UErrorCode errorCode = U_ZERO_ERROR;
+    const USet *set = u_getBinaryPropertySet(-1, &errorCode);
+    if (U_SUCCESS(errorCode)) {
+        log_err("u_getBinaryPropertySet(-1) did not fail\n");
+    }
+    errorCode = U_ZERO_ERROR;
+    set = u_getBinaryPropertySet(UCHAR_BINARY_LIMIT, &errorCode);
+    if (U_SUCCESS(errorCode)) {
+        log_err("u_getBinaryPropertySet(UCHAR_BINARY_LIMIT) did not fail\n");
+    }
+    errorCode = U_ZERO_ERROR;
+    set = u_getBinaryPropertySet(UCHAR_WHITE_SPACE, &errorCode);
+    if (!uset_contains(set, 0x20) || uset_contains(set, 0x61)) {
+        log_err("u_getBinaryPropertySet(UCHAR_WHITE_SPACE) wrong contents\n");
+    }
+}
+
+static void TestIntCharacterPropertiesAPI() {
+    // API test only. See intltest/ucdtest.cpp for functional test.
+    UErrorCode errorCode = U_ZERO_ERROR;
+    const UCPMap *map = u_getIntPropertyMap(UCHAR_INT_START - 1, &errorCode);
+    if (U_SUCCESS(errorCode)) {
+        log_err("u_getIntPropertyMap(UCHAR_INT_START - 1) did not fail\n");
+    }
+    errorCode = U_ZERO_ERROR;
+    map = u_getIntPropertyMap(UCHAR_INT_LIMIT, &errorCode);
+    if (U_SUCCESS(errorCode)) {
+        log_err("u_getIntPropertyMap(UCHAR_INT_LIMIT) did not fail\n");
+    }
+    errorCode = U_ZERO_ERROR;
+    map = u_getIntPropertyMap(UCHAR_GENERAL_CATEGORY, &errorCode);
+    if (ucpmap_get(map, 0x20) != U_SPACE_SEPARATOR || ucpmap_get(map, 0x23456) != U_OTHER_LETTER) {
+        log_err("u_getIntPropertyMap(UCHAR_GENERAL_CATEGORY) wrong contents\n");
+    }
 }

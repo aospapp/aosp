@@ -2591,7 +2591,7 @@ eay_bn2v(var, bn)
 	BIGNUM *bn;
 {
 #if defined(ANDROID_CHANGES)
-	*var = vmalloc(bn->top * sizeof(BN_ULONG));
+	*var = vmalloc(BN_num_bytes(bn));
 #else
 	*var = vmalloc(bn->top * BN_BYTES);
 #endif

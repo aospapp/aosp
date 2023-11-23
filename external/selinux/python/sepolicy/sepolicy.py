@@ -1,4 +1,4 @@
-#! /usr/bin/python -Es
+#!/usr/bin/python3 -Es
 # Copyright (C) 2012 Red Hat
 # AUTHOR: Dan Walsh <dwalsh@redhat.com>
 # see file 'COPYING' for use and warranty information
@@ -60,8 +60,6 @@ class CheckPath(argparse.Action):
 class CheckType(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
-        domains = sepolicy.get_all_domains()
-
         if isinstance(values, str):
             setattr(namespace, self.dest, values)
         else:
@@ -103,6 +101,7 @@ class CheckDomain(argparse.Action):
         domains = sepolicy.get_all_domains()
 
         if isinstance(values, str):
+            values = sepolicy.get_real_type_name(values)
             if values not in domains:
                 raise ValueError("%s must be an SELinux process domain:\nValid domains: %s" % (values, ", ".join(domains)))
             setattr(namespace, self.dest, values)
@@ -112,6 +111,7 @@ class CheckDomain(argparse.Action):
                 newval = []
 
             for v in values:
+                v = sepolicy.get_real_type_name(v)
                 if v not in domains:
                     raise ValueError("%s must be an SELinux process domain:\nValid domains: %s" % (v, ", ".join(domains)))
                 newval.append(v)
@@ -167,10 +167,11 @@ class CheckPortType(argparse.Action):
         if not newval:
             newval = []
         for v in values:
+            v = sepolicy.get_real_type_name(v)
             if v not in port_types:
                 raise ValueError("%s must be an SELinux port type:\nValid port types: %s" % (v, ", ".join(port_types)))
             newval.append(v)
-        setattr(namespace, self.dest, values)
+        setattr(namespace, self.dest, newval)
 
 
 class LoadPolicy(argparse.Action):
@@ -178,16 +179,6 @@ class LoadPolicy(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         import sepolicy
         sepolicy.policy(values)
-        setattr(namespace, self.dest, values)
-
-
-class CheckPolicyType(argparse.Action):
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        from sepolicy.generate import get_poltype_desc, poltype
-        if values not in poltype.keys():
-            raise ValueError("%s invalid SELinux policy type\n%s" % (values, get_poltype_desc()))
-            newval.append(v)
         setattr(namespace, self.dest, values)
 
 
@@ -589,7 +580,7 @@ def gen_interface_args(parser):
 
 
 def gen_generate_args(parser):
-    from sepolicy.generate import DAEMON, get_poltype_desc, poltype, DAEMON, DBUS, INETD, CGI, SANDBOX, USER, EUSER, TUSER, XUSER, LUSER, AUSER, RUSER, NEWTYPE
+    from sepolicy.generate import get_poltype_desc, poltype, DAEMON, DBUS, INETD, CGI, SANDBOX, USER, EUSER, TUSER, XUSER, LUSER, AUSER, RUSER, NEWTYPE
 
     generate_usage = generate_custom_usage(usage, usage_dict)
 

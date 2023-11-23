@@ -16,9 +16,7 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.InstrumentedAutoFillService.SERVICE_NAME;
 import static android.autofillservice.cts.UiBot.PORTRAIT;
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
 import static android.provider.Settings.Secure.AUTOFILL_SERVICE;
 import static android.provider.Settings.Secure.USER_SETUP_COMPLETE;
 import static android.service.autofill.FillEventHistory.Event.TYPE_AUTHENTICATION_SELECTED;
@@ -27,6 +25,8 @@ import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_AUTHE
 import static android.service.autofill.FillEventHistory.Event.TYPE_DATASET_SELECTED;
 import static android.service.autofill.FillEventHistory.Event.TYPE_SAVE_SHOWN;
 
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -34,10 +34,10 @@ import android.app.Activity;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
 import android.app.assist.AssistStructure.WindowNode;
-import android.autofillservice.cts.common.SettingsHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.icu.util.Calendar;
 import android.os.Bundle;
@@ -46,7 +46,6 @@ import android.service.autofill.FieldClassification;
 import android.service.autofill.FieldClassification.Match;
 import android.service.autofill.FillContext;
 import android.service.autofill.FillEventHistory;
-import android.support.test.InstrumentationRegistry;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
@@ -54,43 +53,58 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStructure.HtmlInfo;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillManager.AutofillCallback;
 import android.view.autofill.AutofillValue;
 import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.BitmapUtils;
-import com.android.compatibility.common.util.RequiredFeatureRule;
+import com.android.compatibility.common.util.OneTimeSettingsListener;
+import com.android.compatibility.common.util.SettingsUtils;
+import com.android.compatibility.common.util.ShellUtils;
+import com.android.compatibility.common.util.TestNameUtils;
+import com.android.compatibility.common.util.Timeout;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
  * Helper for common funcionalities.
  */
-final class Helper {
+public final class Helper {
 
-    static final String TAG = "AutoFillCtsHelper";
+    public static final String TAG = "AutoFillCtsHelper";
 
-    static final boolean VERBOSE = false;
+    public static final boolean VERBOSE = false;
 
-    static final String MY_PACKAGE = "android.autofillservice.cts";
+    public static final String MY_PACKAGE = "android.autofillservice.cts";
 
-    static final String ID_USERNAME_LABEL = "username_label";
-    static final String ID_USERNAME = "username";
-    static final String ID_PASSWORD_LABEL = "password_label";
-    static final String ID_PASSWORD = "password";
-    static final String ID_LOGIN = "login";
-    static final String ID_OUTPUT = "output";
-    static final String ID_STATIC_TEXT = "static_text";
+    public static final String ID_USERNAME_LABEL = "username_label";
+    public static final String ID_USERNAME = "username";
+    public static final String ID_PASSWORD_LABEL = "password_label";
+    public static final String ID_PASSWORD = "password";
+    public static final String ID_LOGIN = "login";
+    public static final String ID_OUTPUT = "output";
+    public static final String ID_STATIC_TEXT = "static_text";
+    public static final String ID_EMPTY = "empty";
 
     public static final String NULL_DATASET_ID = null;
+
+    public static final char LARGE_STRING_CHAR = '6';
+    // NOTE: cannot be much large as it could ANR and fail the test.
+    public static final int LARGE_STRING_SIZE = 100_000;
+    public static final String LARGE_STRING = com.android.compatibility.common.util.TextUtils
+            .repeat(LARGE_STRING_CHAR, LARGE_STRING_SIZE);
 
     /**
      * Can be used in cases where the autofill values is required by irrelevant (like adding a
@@ -98,14 +112,16 @@ final class Helper {
      */
     public static final String UNUSED_AUTOFILL_VALUE = null;
 
-    private static final String CMD_LIST_SESSIONS = "cmd autofill list sessions";
-
     private static final String ACCELLEROMETER_CHANGE =
             "content insert --uri content://settings/system --bind name:s:accelerometer_rotation "
                     + "--bind value:i:%d";
 
     private static final String LOCAL_DIRECTORY = Environment.getExternalStorageDirectory()
             + "/CtsAutoFillServiceTestCases";
+
+    private static final Timeout SETTINGS_BASED_SHELL_CMD_TIMEOUT = new Timeout(
+            "SETTINGS_SHELL_CMD_TIMEOUT", OneTimeSettingsListener.DEFAULT_TIMEOUT_MS / 2, 2,
+            OneTimeSettingsListener.DEFAULT_TIMEOUT_MS);
 
     /**
      * Helper interface used to filter nodes.
@@ -121,10 +137,6 @@ final class Helper {
 
     private static final NodeFilter<ViewNode> RESOURCE_ID_FILTER = (node, id) -> {
         return id.equals(node.getIdEntry());
-    };
-
-    private static final NodeFilter<ViewNode> AUTOFILL_ID_FILTER = (node, id) -> {
-        return id.equals(node.getAutofillId());
     };
 
     private static final NodeFilter<ViewNode> HTML_NAME_FILTER = (node, id) -> {
@@ -156,25 +168,43 @@ final class Helper {
         return hasHint(view.getAutofillHints(), id);
     };
 
-    /**
-     * Dump the assist structure on logcat.
-     */
-    static void dumpStructure(String message, AssistStructure structure) {
-        final StringBuffer buffer = new StringBuffer(message)
-                .append(": component=")
-                .append(structure.getActivityComponent());
+    private static String toString(AssistStructure structure, StringBuilder builder) {
+        builder.append("[component=").append(structure.getActivityComponent());
         final int nodes = structure.getWindowNodeCount();
         for (int i = 0; i < nodes; i++) {
             final WindowNode windowNode = structure.getWindowNodeAt(i);
-            dump(buffer, windowNode.getRootViewNode(), " ", 0);
+            dump(builder, windowNode.getRootViewNode(), " ", 0);
         }
-        Log.i(TAG, buffer.toString());
+        return builder.append(']').toString();
+    }
+
+    @NonNull
+    public static String toString(@NonNull AssistStructure structure) {
+        return toString(structure, new StringBuilder());
+    }
+
+    @Nullable
+    public static String toString(@Nullable AutofillValue value) {
+        if (value == null) return null;
+        if (value.isText()) {
+            // We don't care about PII...
+            final CharSequence text = value.getTextValue();
+            return text == null ? null : text.toString();
+        }
+        return value.toString();
+    }
+
+    /**
+     * Dump the assist structure on logcat.
+     */
+    public static void dumpStructure(String message, AssistStructure structure) {
+        Log.i(TAG, toString(structure, new StringBuilder(message)));
     }
 
     /**
      * Dump the contexts on logcat.
      */
-    static void dumpStructure(String message, List<FillContext> contexts) {
+    public static void dumpStructure(String message, List<FillContext> contexts) {
         for (FillContext context : contexts) {
             dumpStructure(message, context.getStructure());
         }
@@ -183,53 +213,87 @@ final class Helper {
     /**
      * Dumps the state of the autofill service on logcat.
      */
-    static void dumpAutofillService() {
-        Log.i(TAG, "dumpsys autofill\n\n" + runShellCommand("dumpsys autofill"));
+    public static void dumpAutofillService(@NonNull String tag) {
+        final String autofillDump = runShellCommand("dumpsys autofill");
+        Log.i(tag, "dumpsys autofill\n\n" + autofillDump);
+        final String myServiceDump = runShellCommand("dumpsys activity service %s",
+                InstrumentedAutoFillService.SERVICE_NAME);
+        Log.i(tag, "my service dump: \n" + myServiceDump);
     }
 
     /**
      * Sets whether the user completed the initial setup.
      */
-    static void setUserComplete(Context context, boolean complete) {
-        SettingsHelper.syncSet(context, USER_SETUP_COMPLETE, complete ? "1" : null);
+    public static void setUserComplete(Context context, boolean complete) {
+        SettingsUtils.syncSet(context, USER_SETUP_COMPLETE, complete ? "1" : null);
     }
 
-    private static void dump(StringBuffer buffer, ViewNode node, String prefix, int childId) {
+    private static void dump(@NonNull StringBuilder builder, @NonNull ViewNode node,
+            @NonNull String prefix, int childId) {
         final int childrenSize = node.getChildCount();
-        buffer.append("\n").append(prefix)
-            .append('#').append(childId).append(':')
-            .append("resId=").append(node.getIdEntry())
-            .append(" class=").append(node.getClassName())
-            .append(" text=").append(node.getText())
-            .append(" class=").append(node.getClassName())
-            .append(" webDomain=").append(node.getWebDomain())
-            .append(" #children=").append(childrenSize);
-
-        buffer.append("\n").append(prefix)
-            .append("   afId=").append(node.getAutofillId())
-            .append(" afType=").append(node.getAutofillType())
-            .append(" afValue=").append(node.getAutofillValue())
-            .append(" checked=").append(node.isChecked())
-            .append(" focused=").append(node.isFocused());
-
+        builder.append("\n").append(prefix)
+            .append("child #").append(childId).append(':');
+        append(builder, "afId", node.getAutofillId());
+        append(builder, "afType", node.getAutofillType());
+        append(builder, "afValue", toString(node.getAutofillValue()));
+        append(builder, "resId", node.getIdEntry());
+        append(builder, "class", node.getClassName());
+        append(builder, "text", node.getText());
+        append(builder, "webDomain", node.getWebDomain());
+        append(builder, "checked", node.isChecked());
+        append(builder, "focused", node.isFocused());
         final HtmlInfo htmlInfo = node.getHtmlInfo();
         if (htmlInfo != null) {
-            buffer.append("\nHtmlInfo: tag=").append(htmlInfo.getTag())
-                .append(", attrs: ").append(htmlInfo.getAttributes());
+            builder.append(", HtmlInfo[tag=").append(htmlInfo.getTag())
+                .append(", attrs: ").append(htmlInfo.getAttributes()).append(']');
         }
-
-        prefix += " ";
         if (childrenSize > 0) {
-            for (int i = 0; i < childrenSize; i++) {
-                dump(buffer, node.getChildAt(i), prefix, i);
+            append(builder, "#children", childrenSize).append("\n").append(prefix);
+            prefix += " ";
+            if (childrenSize > 0) {
+                for (int i = 0; i < childrenSize; i++) {
+                    dump(builder, node.getChildAt(i), prefix, i);
+                }
             }
         }
     }
 
     /**
+     * Appends a field value to a {@link StringBuilder} when it's not {@code null}.
+     */
+    @NonNull
+    public static StringBuilder append(@NonNull StringBuilder builder, @NonNull String field,
+            @Nullable Object value) {
+        if (value == null) return builder;
+
+        if ((value instanceof Boolean) && ((Boolean) value)) {
+            return builder.append(", ").append(field);
+        }
+
+        if (value instanceof Integer && ((Integer) value) == 0
+                || value instanceof CharSequence && TextUtils.isEmpty((CharSequence) value)) {
+            return builder;
+        }
+
+        return builder.append(", ").append(field).append('=').append(value);
+    }
+
+    /**
+     * Appends a field value to a {@link StringBuilder} when it's {@code true}.
+     */
+    @NonNull
+    public static StringBuilder append(@NonNull StringBuilder builder, @NonNull String field,
+            boolean value) {
+        if (value) {
+            builder.append(", ").append(field);
+        }
+        return builder;
+    }
+
+    /**
      * Gets a node if it matches the filter criteria for the given id.
      */
-    static ViewNode findNodeByFilter(@NonNull AssistStructure structure, @NonNull Object id,
+    public static ViewNode findNodeByFilter(@NonNull AssistStructure structure, @NonNull Object id,
             @NonNull NodeFilter<ViewNode> filter) {
         Log.v(TAG, "Parsing request for activity " + structure.getActivityComponent());
         final int nodes = structure.getWindowNodeCount();
@@ -247,7 +311,7 @@ final class Helper {
     /**
      * Gets a node if it matches the filter criteria for the given id.
      */
-    static ViewNode findNodeByFilter(@NonNull List<FillContext> contexts, @NonNull Object id,
+    public static ViewNode findNodeByFilter(@NonNull List<FillContext> contexts, @NonNull Object id,
             @NonNull NodeFilter<ViewNode> filter) {
         for (FillContext context : contexts) {
             ViewNode node = findNodeByFilter(context.getStructure(), id, filter);
@@ -261,7 +325,7 @@ final class Helper {
     /**
      * Gets a node if it matches the filter criteria for the given id.
      */
-    static ViewNode findNodeByFilter(@NonNull ViewNode node, @NonNull Object id,
+    public static ViewNode findNodeByFilter(@NonNull ViewNode node, @NonNull Object id,
             @NonNull NodeFilter<ViewNode> filter) {
         if (filter.matches(node, id)) {
             return node;
@@ -281,42 +345,42 @@ final class Helper {
     /**
      * Gets a node given its Android resource id, or {@code null} if not found.
      */
-    static ViewNode findNodeByResourceId(AssistStructure structure, String resourceId) {
+    public static ViewNode findNodeByResourceId(AssistStructure structure, String resourceId) {
         return findNodeByFilter(structure, resourceId, RESOURCE_ID_FILTER);
     }
 
     /**
      * Gets a node given its Android resource id, or {@code null} if not found.
      */
-    static ViewNode findNodeByResourceId(List<FillContext> contexts, String resourceId) {
+    public static ViewNode findNodeByResourceId(List<FillContext> contexts, String resourceId) {
         return findNodeByFilter(contexts, resourceId, RESOURCE_ID_FILTER);
     }
 
     /**
      * Gets a node given its Android resource id, or {@code null} if not found.
      */
-    static ViewNode findNodeByResourceId(ViewNode node, String resourceId) {
+    public static ViewNode findNodeByResourceId(ViewNode node, String resourceId) {
         return findNodeByFilter(node, resourceId, RESOURCE_ID_FILTER);
     }
 
     /**
      * Gets a node given the name of its HTML INPUT tag, or {@code null} if not found.
      */
-    static ViewNode findNodeByHtmlName(AssistStructure structure, String htmlName) {
+    public static ViewNode findNodeByHtmlName(AssistStructure structure, String htmlName) {
         return findNodeByFilter(structure, htmlName, HTML_NAME_FILTER);
     }
 
     /**
      * Gets a node given the name of its HTML INPUT tag, or {@code null} if not found.
      */
-    static ViewNode findNodeByHtmlName(List<FillContext> contexts, String htmlName) {
+    public static ViewNode findNodeByHtmlName(List<FillContext> contexts, String htmlName) {
         return findNodeByFilter(contexts, htmlName, HTML_NAME_FILTER);
     }
 
     /**
      * Gets a node given the name of its HTML INPUT tag, or {@code null} if not found.
      */
-    static ViewNode findNodeByHtmlName(ViewNode node, String htmlName) {
+    public static ViewNode findNodeByHtmlName(ViewNode node, String htmlName) {
         return findNodeByFilter(node, htmlName, HTML_NAME_FILTER);
     }
 
@@ -324,7 +388,7 @@ final class Helper {
      * Gets a node given the value of its (single) autofill hint property, or {@code null} if not
      * found.
      */
-    static ViewNode findNodeByAutofillHint(ViewNode node, String hint) {
+    public static ViewNode findNodeByAutofillHint(ViewNode node, String hint) {
         return findNodeByFilter(node, hint, AUTOFILL_HINT_FILTER);
     }
 
@@ -332,15 +396,27 @@ final class Helper {
      * Gets a node given the name of its HTML INPUT tag or Android resoirce id, or {@code null} if
      * not found.
      */
-    static ViewNode findNodeByHtmlNameOrResourceId(List<FillContext> contexts, String id) {
+    public static ViewNode findNodeByHtmlNameOrResourceId(List<FillContext> contexts, String id) {
         return findNodeByFilter(contexts, id, HTML_NAME_OR_RESOURCE_ID_FILTER);
+    }
+
+    /**
+     * Gets a node given its Android resource id.
+     */
+    @NonNull
+    public static AutofillId findAutofillIdByResourceId(@NonNull FillContext context,
+            @NonNull String resourceId) {
+        final ViewNode node = findNodeByFilter(context.getStructure(), resourceId,
+                RESOURCE_ID_FILTER);
+        assertWithMessage("No node for resourceId %s", resourceId).that(node).isNotNull();
+        return node.getAutofillId();
     }
 
     /**
      * Gets the {@code name} attribute of a node representing an HTML input tag.
      */
     @Nullable
-    static String getHtmlName(@NonNull ViewNode node) {
+    public static String getHtmlName(@NonNull ViewNode node) {
         final HtmlInfo htmlInfo = node.getHtmlInfo();
         if (htmlInfo == null) {
             return null;
@@ -362,21 +438,21 @@ final class Helper {
     /**
      * Gets a node given its expected text, or {@code null} if not found.
      */
-    static ViewNode findNodeByText(AssistStructure structure, String text) {
+    public static ViewNode findNodeByText(AssistStructure structure, String text) {
         return findNodeByFilter(structure, text, TEXT_FILTER);
     }
 
     /**
      * Gets a node given its expected text, or {@code null} if not found.
      */
-    static ViewNode findNodeByText(ViewNode node, String text) {
+    public static ViewNode findNodeByText(ViewNode node, String text) {
         return findNodeByFilter(node, text, TEXT_FILTER);
     }
 
     /**
      * Gets a view that contains the an autofill hint, or {@code null} if not found.
      */
-    static View findViewByAutofillHint(Activity activity, String hint) {
+    public static View findViewByAutofillHint(Activity activity, String hint) {
         final View rootView = activity.getWindow().getDecorView().getRootView();
         return findViewByAutofillHint(rootView, hint);
     }
@@ -385,7 +461,7 @@ final class Helper {
      * Gets a view (or a descendant of it) that contains the an autofill hint, or {@code null} if
      * not found.
      */
-    static View findViewByAutofillHint(View view, String hint) {
+    public static View findViewByAutofillHint(View view, String hint) {
         if (AUTOFILL_HINT_VIEW_FILTER.matches(view, hint)) return view;
         if ((view instanceof ViewGroup)) {
             final ViewGroup group = (ViewGroup) view;
@@ -398,17 +474,9 @@ final class Helper {
     }
 
     /**
-     * Gets a view (or a descendant of it) that has the given {@code id}, or {@code null} if
-     * not found.
-     */
-    static ViewNode findNodeByAutofillId(AssistStructure structure, AutofillId id) {
-        return findNodeByFilter(structure, id, AUTOFILL_ID_FILTER);
-    }
-
-    /**
      * Asserts a text-based node is sanitized.
      */
-    static void assertTextIsSanitized(ViewNode node) {
+    public static void assertTextIsSanitized(ViewNode node) {
         final CharSequence text = node.getText();
         final String resourceId = node.getIdEntry();
         if (!TextUtils.isEmpty(text)) {
@@ -423,7 +491,7 @@ final class Helper {
         assertThat(node.getTextIdEntry()).isNull();
     }
 
-    static void assertNodeHasNoAutofillValue(ViewNode node) {
+    public static void assertNodeHasNoAutofillValue(ViewNode node) {
         final AutofillValue value = node.getAutofillValue();
         if (value != null) {
             final String text = value.isText() ? value.getTextValue().toString() : "N/A";
@@ -434,7 +502,7 @@ final class Helper {
     /**
      * Asserts the contents of a text-based node that is also auto-fillable.
      */
-    static void assertTextOnly(ViewNode node, String expectedValue) {
+    public static void assertTextOnly(ViewNode node, String expectedValue) {
         assertText(node, expectedValue, false);
         assertNotFromResources(node);
     }
@@ -442,7 +510,8 @@ final class Helper {
     /**
      * Asserts the contents of a text-based node that is also auto-fillable.
      */
-    static void assertTextOnly(AssistStructure structure, String resourceId, String expectedValue) {
+    public static void assertTextOnly(AssistStructure structure, String resourceId,
+            String expectedValue) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertText(node, expectedValue, false);
         assertNotFromResources(node);
@@ -451,7 +520,7 @@ final class Helper {
     /**
      * Asserts the contents of a text-based node that is also auto-fillable.
      */
-    static void assertTextAndValue(ViewNode node, String expectedValue) {
+    public static void assertTextAndValue(ViewNode node, String expectedValue) {
         assertText(node, expectedValue, true);
         assertNotFromResources(node);
     }
@@ -459,7 +528,7 @@ final class Helper {
     /**
      * Asserts a text-based node exists and verify its values.
      */
-    static ViewNode assertTextAndValue(AssistStructure structure, String resourceId,
+    public static ViewNode assertTextAndValue(AssistStructure structure, String resourceId,
             String expectedValue) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertTextAndValue(node, expectedValue);
@@ -469,7 +538,7 @@ final class Helper {
     /**
      * Asserts a text-based node exists and is sanitized.
      */
-    static ViewNode assertValue(AssistStructure structure, String resourceId,
+    public static ViewNode assertValue(AssistStructure structure, String resourceId,
             String expectedValue) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertTextValue(node, expectedValue);
@@ -479,7 +548,7 @@ final class Helper {
     /**
      * Asserts the values of a text-based node whose string come from resoruces.
      */
-    static ViewNode assertTextFromResouces(AssistStructure structure, String resourceId,
+    public static ViewNode assertTextFromResouces(AssistStructure structure, String resourceId,
             String expectedValue, boolean isAutofillable, String expectedTextIdEntry) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertText(node, expectedValue, isAutofillable);
@@ -504,7 +573,7 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a text-based node.
      */
-    static ViewNode assertTextValue(ViewNode node, String expectedText) {
+    public static ViewNode assertTextValue(ViewNode node, String expectedText) {
         final AutofillValue value = node.getAutofillValue();
         final AutofillId id = node.getAutofillId();
         assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
@@ -517,7 +586,7 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a list-based node.
      */
-    static ViewNode assertListValue(ViewNode node, int expectedIndex) {
+    public static ViewNode assertListValue(ViewNode node, int expectedIndex) {
         final AutofillValue value = node.getAutofillValue();
         final AutofillId id = node.getAutofillId();
         assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
@@ -530,7 +599,7 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a toggle-based node.
      */
-    static void assertToggleValue(ViewNode node, boolean expectedToggle) {
+    public static void assertToggleValue(ViewNode node, boolean expectedToggle) {
         final AutofillValue value = node.getAutofillValue();
         final AutofillId id = node.getAutofillId();
         assertWithMessage("null autofill value on %s", id).that(value).isNotNull();
@@ -542,7 +611,8 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a date-based node.
      */
-    static void assertDateValue(Object object, AutofillValue value, int year, int month, int day) {
+    public static void assertDateValue(Object object, AutofillValue value, int year, int month,
+            int day) {
         assertWithMessage("null autofill value on %s", object).that(value).isNotNull();
         assertWithMessage("wrong autofill type on %s", object).that(value.isDate()).isTrue();
 
@@ -560,14 +630,14 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a date-based node.
      */
-    static void assertDateValue(ViewNode node, int year, int month, int day) {
+    public static void assertDateValue(ViewNode node, int year, int month, int day) {
         assertDateValue(node, node.getAutofillValue(), year, month, day);
     }
 
     /**
      * Asserts the auto-fill value of a date-based view.
      */
-    static void assertDateValue(View view, int year, int month, int day) {
+    public static void assertDateValue(View view, int year, int month, int day) {
         assertDateValue(view, view.getAutofillValue(), year, month, day);
     }
 
@@ -590,21 +660,21 @@ final class Helper {
     /**
      * Asserts the auto-fill value of a time-based node.
      */
-    static void assertTimeValue(ViewNode node, int hour, int minute) {
+    public static void assertTimeValue(ViewNode node, int hour, int minute) {
         assertTimeValue(node, node.getAutofillValue(), hour, minute);
     }
 
     /**
      * Asserts the auto-fill value of a time-based view.
      */
-    static void assertTimeValue(View view, int hour, int minute) {
+    public static void assertTimeValue(View view, int hour, int minute) {
         assertTimeValue(view, view.getAutofillValue(), hour, minute);
     }
 
     /**
      * Asserts a text-based node exists and is sanitized.
      */
-    static ViewNode assertTextIsSanitized(AssistStructure structure, String resourceId) {
+    public static ViewNode assertTextIsSanitized(AssistStructure structure, String resourceId) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertWithMessage("no ViewNode with id %s", resourceId).that(node).isNotNull();
         assertTextIsSanitized(node);
@@ -614,7 +684,7 @@ final class Helper {
     /**
      * Asserts a list-based node exists and is sanitized.
      */
-    static void assertListValueIsSanitized(AssistStructure structure, String resourceId) {
+    public static void assertListValueIsSanitized(AssistStructure structure, String resourceId) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertWithMessage("no ViewNode with id %s", resourceId).that(node).isNotNull();
         assertTextIsSanitized(node);
@@ -623,7 +693,7 @@ final class Helper {
     /**
      * Asserts a toggle node exists and is sanitized.
      */
-    static void assertToggleIsSanitized(AssistStructure structure, String resourceId) {
+    public static void assertToggleIsSanitized(AssistStructure structure, String resourceId) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         assertNodeHasNoAutofillValue(node);
         assertWithMessage("ViewNode %s should not be checked", resourceId).that(node.isChecked())
@@ -633,7 +703,8 @@ final class Helper {
     /**
      * Asserts a node exists and has the {@code expected} number of children.
      */
-    static void assertNumberOfChildren(AssistStructure structure, String resourceId, int expected) {
+    public static void assertNumberOfChildren(AssistStructure structure, String resourceId,
+            int expected) {
         final ViewNode node = findNodeByResourceId(structure, resourceId);
         final int actual = node.getChildCount();
         if (actual != expected) {
@@ -646,7 +717,7 @@ final class Helper {
     /**
      * Asserts the number of children in the Assist structure.
      */
-    static void assertNumberOfChildren(AssistStructure structure, int expected) {
+    public static void assertNumberOfChildren(AssistStructure structure, int expected) {
         assertWithMessage("wrong number of nodes").that(structure.getWindowNodeCount())
                 .isEqualTo(1);
         final int actual = getNumberNodes(structure);
@@ -660,7 +731,7 @@ final class Helper {
     /**
      * Gets the total number of nodes in an structure.
      */
-    static int getNumberNodes(AssistStructure structure) {
+    public static int getNumberNodes(AssistStructure structure) {
         int count = 0;
         final int nodes = structure.getWindowNodeCount();
         for (int i = 0; i < nodes; i++) {
@@ -674,7 +745,7 @@ final class Helper {
     /**
      * Gets the total number of nodes in an node, including all descendants and the node itself.
      */
-    static int getNumberNodes(ViewNode node) {
+    public static int getNumberNodes(ViewNode node) {
         int count = 1;
         final int childrenSize = node.getChildCount();
         if (childrenSize > 0) {
@@ -689,7 +760,7 @@ final class Helper {
      * Creates an array of {@link AutofillId} mapped from the {@code structure} nodes with the given
      * {@code resourceIds}.
      */
-    static AutofillId[] getAutofillIds(Function<String, ViewNode> nodeResolver,
+    public static AutofillId[] getAutofillIds(Function<String, ViewNode> nodeResolver,
             String[] resourceIds) {
         if (resourceIds == null) return null;
 
@@ -698,12 +769,27 @@ final class Helper {
             final String resourceId = resourceIds[i];
             final ViewNode node = nodeResolver.apply(resourceId);
             if (node == null) {
-                throw new AssertionError("No node with savable resourceId " + resourceId);
+                throw new AssertionError("No node with resourceId " + resourceId);
             }
             requiredIds[i] = node.getAutofillId();
 
         }
         return requiredIds;
+    }
+
+    /**
+     * Get an {@link AutofillId} mapped from the {@code structure} node with the given
+     * {@code resourceId}.
+     */
+    public static AutofillId getAutofillId(Function<String, ViewNode> nodeResolver,
+            String resourceId) {
+        if (resourceId == null) return null;
+
+        final ViewNode node = nodeResolver.apply(resourceId);
+        if (node == null) {
+            throw new AssertionError("No node with resourceId " + resourceId);
+        }
+        return node.getAutofillId();
     }
 
     /**
@@ -731,16 +817,28 @@ final class Helper {
     /**
      * Sets the maximum number of partitions per session.
      */
-    public static void setMaxPartitions(int value) {
+    public static void setMaxPartitions(int value) throws Exception {
         runShellCommand("cmd autofill set max_partitions %d", value);
-        assertThat(getMaxPartitions()).isEqualTo(value);
+        SETTINGS_BASED_SHELL_CMD_TIMEOUT.run("get max_partitions", () -> {
+            return getMaxPartitions() == value ? Boolean.TRUE : null;
+        });
     }
 
     /**
-     * Checks if device supports the Autofill feature.
+     * Gets the maximum number of visible datasets.
      */
-    public static boolean hasAutofillFeature() {
-        return RequiredFeatureRule.hasFeature(PackageManager.FEATURE_AUTOFILL);
+    public static int getMaxVisibleDatasets() {
+        return Integer.parseInt(runShellCommand("cmd autofill get max_visible_datasets"));
+    }
+
+    /**
+     * Sets the maximum number of visible datasets.
+     */
+    public static void setMaxVisibleDatasets(int value) throws Exception {
+        runShellCommand("cmd autofill set max_visible_datasets %d", value);
+        SETTINGS_BASED_SHELL_CMD_TIMEOUT.run("get max_visible_datasets", () -> {
+            return getMaxVisibleDatasets() == value ? Boolean.TRUE : null;
+        });
     }
 
     /**
@@ -754,7 +852,26 @@ final class Helper {
      * Checks if screen orientation can be changed.
      */
     public static boolean isRotationSupported(Context context) {
-        return !context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        final PackageManager packageManager = context.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            Log.v(TAG, "isRotationSupported(): is auto");
+            return false;
+        }
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            Log.v(TAG, "isRotationSupported(): has leanback feature");
+            return false;
+        }
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_PC)) {
+            Log.v(TAG, "isRotationSupported(): is PC");
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean getBoolean(Context context, String id) {
+        final Resources resources = context.getResources();
+        final int booleanId = resources.getIdentifier(id, "bool", "android");
+        return resources.getBoolean(booleanId);
     }
 
     /**
@@ -779,44 +896,55 @@ final class Helper {
             @NonNull String serviceName) {
         if (isAutofillServiceEnabled(serviceName)) return;
 
-        SettingsHelper.syncSet(context, AUTOFILL_SERVICE, serviceName);
+        SettingsUtils.syncSet(context, AUTOFILL_SERVICE, serviceName);
     }
 
     /**
-     * Uses Settings to disable the given autofill service for the default user, and checks the
-     * value was properly check, throwing an exception if it was not.
+     * Uses Settings to disable the given autofill service for the default user, and waits until
+     * the setting is deleted.
      */
-    public static void disableAutofillService(@NonNull Context context,
-            @NonNull String serviceName) {
-        if (!isAutofillServiceEnabled(serviceName)) return;
-
-        SettingsHelper.syncDelete(context, AUTOFILL_SERVICE);
+    public static void disableAutofillService(@NonNull Context context) {
+        final String currentService = SettingsUtils.get(AUTOFILL_SERVICE);
+        if (currentService == null) {
+            Log.v(TAG, "disableAutofillService(): already disabled");
+            return;
+        }
+        Log.v(TAG, "Disabling " + currentService);
+        SettingsUtils.syncDelete(context, AUTOFILL_SERVICE);
     }
 
     /**
      * Checks whether the given service is set as the autofill service for the default user.
      */
-    private static boolean isAutofillServiceEnabled(@NonNull String serviceName) {
-        final String actualName = SettingsHelper.get(AUTOFILL_SERVICE);
+    public static boolean isAutofillServiceEnabled(@NonNull String serviceName) {
+        final String actualName = getAutofillServiceName();
         return serviceName.equals(actualName);
+    }
+
+    /**
+     * Gets then name of the autofill service for the default user.
+     */
+    public static String getAutofillServiceName() {
+        return SettingsUtils.get(AUTOFILL_SERVICE);
     }
 
     /**
      * Asserts whether the given service is enabled as the autofill service for the default user.
      */
     public static void assertAutofillServiceStatus(@NonNull String serviceName, boolean enabled) {
-        final String actual = SettingsHelper.get(AUTOFILL_SERVICE);
-        final String expected = enabled ? serviceName : "null";
+        final String actual = SettingsUtils.get(AUTOFILL_SERVICE);
+        final String expected = enabled ? serviceName : null;
         assertWithMessage("Invalid value for secure setting %s", AUTOFILL_SERVICE)
                 .that(actual).isEqualTo(expected);
     }
 
     /**
-     * Asserts that there is a pending session for the given package.
+     * Enables / disables the default augmented autofill service.
      */
-    public static void assertHasSessions(String packageName) {
-        final String result = runShellCommand(CMD_LIST_SESSIONS);
-        assertThat(result).contains(packageName);
+    public static void setDefaultAugmentedAutofillServiceEnabled(boolean enabled) {
+        Log.d(TAG, "setDefaultAugmentedAutofillServiceEnabled(): " + enabled);
+        runShellCommand("cmd autofill set default-augmented-service-enabled 0 %s",
+                Boolean.toString(enabled));
     }
 
     /**
@@ -824,21 +952,6 @@ final class Helper {
      */
     public static Context getContext() {
         return InstrumentationRegistry.getInstrumentation().getContext();
-    }
-
-    /**
-     * Cleans up the autofill state; should be called before pretty much any test.
-     */
-    public static void preTestCleanup() {
-        if (!hasAutofillFeature()) return;
-
-        Log.d(TAG, "preTestCleanup()");
-
-        disableAutofillService(getContext(), SERVICE_NAME);
-        InstrumentedAutoFillService.setIgnoreUnexpectedRequests(true);
-
-        InstrumentedAutoFillService.resetStaticState();
-        AuthenticationActivity.resetStaticState();
     }
 
     /**
@@ -980,11 +1093,11 @@ final class Helper {
                 .isEqualTo(expectedResult.id);
         final List<Match> matches = actualResult.getValue().getMatches();
         assertWithMessage("Wrong number of matches: " + matches).that(matches.size())
-                .isEqualTo(expectedResult.remoteIds.length);
+                .isEqualTo(expectedResult.categoryIds.length);
         for (int j = 0; j < matches.size(); j++) {
             final Match match = matches.get(j);
             assertWithMessage("Wrong categoryId at (%s, %s): %s", i, j, match)
-                .that(match.getCategoryId()).isEqualTo(expectedResult.remoteIds[j]);
+                .that(match.getCategoryId()).isEqualTo(expectedResult.categoryIds[j]);
             assertWithMessage("Wrong score at (%s, %s): %s", i, j, match)
                 .that(match.getScore()).isWithin(0.01f).of(expectedResult.scores[j]);
         }
@@ -1074,10 +1187,10 @@ final class Helper {
     }
 
     public static void assertFillEventForFieldsClassification(@NonNull FillEventHistory.Event event,
-            @NonNull AutofillId fieldId, @NonNull String remoteId, float score) {
+            @NonNull AutofillId fieldId, @NonNull String categoryId, float score) {
         assertFillEvent(event, TYPE_CONTEXT_COMMITTED, null, null, null,
                 new FieldClassificationResult[] {
-                        new FieldClassificationResult(fieldId, remoteId, score)
+                        new FieldClassificationResult(fieldId, categoryId, score)
                 });
     }
 
@@ -1160,6 +1273,7 @@ final class Helper {
      * @param bitmap1 first bitmap to be compared
      * @param bitmap2 second bitmap to be compared
      */
+    // TODO: move to common code
     public static void assertBitmapsAreSame(@NonNull String filename, @Nullable Bitmap bitmap1,
             @Nullable Bitmap bitmap2) throws IOException {
         assertWithMessage("1st bitmap is null").that(bitmap1).isNotNull();
@@ -1170,10 +1284,8 @@ final class Helper {
             return;
         }
 
-        final File dir = new File(LOCAL_DIRECTORY);
-        dir.mkdirs();
-        if (!dir.exists()) {
-            Log.e(TAG, "Could not create directory " + dir);
+        final File dir = getLocalDirectory();
+        if (dir == null) {
             throw new AssertionError("bitmap comparison failed for " + filename
                     + ", and bitmaps could not be dumped on " + dir);
         }
@@ -1184,19 +1296,155 @@ final class Helper {
     }
 
     @Nullable
-    private static File dumpBitmap(@NonNull Bitmap bitmap, @NonNull File dir,
-            @NonNull String filename) throws IOException {
+    private static File getLocalDirectory() {
+        final File dir = new File(LOCAL_DIRECTORY);
+        dir.mkdirs();
+        if (!dir.exists()) {
+            Log.e(TAG, "Could not create directory " + dir);
+            return null;
+        }
+        return dir;
+    }
+
+    @Nullable
+    private static File createFile(@NonNull File dir, @NonNull String filename) throws IOException {
         final File file = new File(dir, filename);
         if (file.exists()) {
+            Log.v(TAG, "Deleting file " + file);
             file.delete();
         }
         if (!file.createNewFile()) {
             Log.e(TAG, "Could not create file " + file);
             return null;
         }
-        Log.d(TAG, "Dumping bitmap at " + file);
+        return file;
+    }
+
+    @Nullable
+    private static File dumpBitmap(@NonNull Bitmap bitmap, @NonNull File dir,
+            @NonNull String filename) throws IOException {
+        final File file = createFile(dir, filename);
+        if (file != null) {
+            dumpBitmap(bitmap, file);
+
+        }
+        return file;
+    }
+
+    @Nullable
+    public static File dumpBitmap(@NonNull Bitmap bitmap, @NonNull File file) {
+        Log.i(TAG, "Dumping bitmap at " + file);
         BitmapUtils.saveBitmap(bitmap, file.getParent(), file.getName());
         return file;
+    }
+
+    /**
+     * Creates a file in the device, using the name of the current test as a prefix.
+     */
+    @Nullable
+    public static File createTestFile(@NonNull String name) throws IOException {
+        final File dir = getLocalDirectory();
+        if (dir == null) return null;
+
+        final String prefix = TestNameUtils.getCurrentTestName().replaceAll("\\.|\\(|\\/", "_")
+                .replaceAll("\\)", "");
+        final String filename = prefix + "-" + name;
+
+        return createFile(dir, filename);
+    }
+
+    /**
+     * Offers an object to a queue or times out.
+     *
+     * @return {@code true} if the offer was accepted, {$code false} if it timed out or was
+     * interrupted.
+     */
+    public static <T> boolean offer(BlockingQueue<T> queue, T obj, long timeoutMs) {
+        boolean offered = false;
+        try {
+            offered = queue.offer(obj, timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Log.w(TAG, "interrupted offering", e);
+            Thread.currentThread().interrupt();
+        }
+        if (!offered) {
+            Log.e(TAG, "could not offer " + obj + " in " + timeoutMs + "ms");
+        }
+        return offered;
+    }
+
+    /**
+     * Calls this method to assert given {@code string} is equal to {@link #LARGE_STRING}, as
+     * comparing its value using standard assertions might ANR.
+     */
+    public static void assertEqualsToLargeString(@NonNull String string) {
+        assertThat(string).isNotNull();
+        assertThat(string).hasLength(LARGE_STRING_SIZE);
+        assertThat(string.charAt(0)).isEqualTo(LARGE_STRING_CHAR);
+        assertThat(string.charAt(LARGE_STRING_SIZE - 1)).isEqualTo(LARGE_STRING_CHAR);
+    }
+
+    /**
+     * Asserts that autofill is enabled in the context, retrying if necessariy.
+     */
+    public static void assertAutofillEnabled(@NonNull Context context, boolean expected)
+            throws Exception {
+        assertAutofillEnabled(context.getSystemService(AutofillManager.class), expected);
+    }
+
+    /**
+     * Asserts that autofill is enabled in the manager, retrying if necessariy.
+     */
+    public static void assertAutofillEnabled(@NonNull AutofillManager afm, boolean expected)
+            throws Exception {
+        Timeouts.IDLE_UNBIND_TIMEOUT.run("assertEnabled(" + expected + ")", () -> {
+            final boolean actual = afm.isEnabled();
+            Log.v(TAG, "assertEnabled(): expected=" + expected + ", actual=" + actual);
+            return actual == expected ? "not_used" : null;
+        });
+    }
+
+    /**
+     * Asserts these autofill ids are the same, except for the session.
+     */
+    public static void assertEqualsIgnoreSession(@NonNull AutofillId id1, @NonNull AutofillId id2) {
+        assertWithMessage("id1 is null").that(id1).isNotNull();
+        assertWithMessage("id2 is null").that(id2).isNotNull();
+        assertWithMessage("%s is not equal to %s", id1, id2).that(id1.equalsIgnoreSession(id2))
+                .isTrue();
+    }
+
+    /**
+     * Asserts {@link View#isAutofilled()} state of the given view, waiting if necessarity to avoid
+     * race conditions.
+     */
+    public static void assertViewAutofillState(@NonNull View view, boolean expected)
+            throws Exception {
+        Timeouts.FILL_TIMEOUT.run("assertViewAutofillState(" + view + ", " + expected + ")",
+                () -> {
+                    final boolean actual = view.isAutofilled();
+                    Log.v(TAG, "assertViewAutofillState(): expected=" + expected + ", actual="
+                            + actual);
+                    return actual == expected ? "not_used" : null;
+                });
+    }
+
+    /**
+     * Allows the test to draw overlaid windows.
+     *
+     * <p>Should call {@link #disallowOverlays()} afterwards.
+     */
+    public static void allowOverlays() {
+        ShellUtils.setOverlayPermissions(MY_PACKAGE, true);
+    }
+
+    /**
+     * Disallow the test to draw overlaid windows.
+     *
+     * <p>Should call {@link #disallowOverlays()} afterwards.
+     */
+    public static void disallowOverlays() {
+        ShellUtils.setOverlayPermissions(MY_PACKAGE, false);
     }
 
     private Helper() {
@@ -1205,17 +1453,17 @@ final class Helper {
 
     static class FieldClassificationResult {
         public final AutofillId id;
-        public final String[] remoteIds;
+        public final String[] categoryIds;
         public final float[] scores;
 
-        FieldClassificationResult(@NonNull AutofillId id, @NonNull String remoteId, float score) {
-            this(id, new String[] { remoteId }, new float[] { score });
+        FieldClassificationResult(@NonNull AutofillId id, @NonNull String categoryId, float score) {
+            this(id, new String[] { categoryId }, new float[] { score });
         }
 
-        FieldClassificationResult(@NonNull AutofillId id, @NonNull String[] remoteIds,
+        FieldClassificationResult(@NonNull AutofillId id, @NonNull String[] categoryIds,
                 float[] scores) {
             this.id = id;
-            this.remoteIds = remoteIds;
+            this.categoryIds = categoryIds;
             this.scores = scores;
         }
     }

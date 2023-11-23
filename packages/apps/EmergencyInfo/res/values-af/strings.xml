@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Noodinligting"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Mediese inligting"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Wysig inligting"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Voeg inligting by"</string>
     <string name="edit_info" msgid="5973929805855224805">"Wysig noodinligting"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Inligting"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakte"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"As jy mediese inligting en noodkontakte byvoeg, kan dit dié help wat in \'n noodgeval eerste reageer.\n\nEnigiemand kan hierdie inligting op jou sluitskerm lees en jou kontakte bel deur op hul name te tik sonder om jou foon te ontsluit."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Voeg noodinligting by"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Laat diegene wat eerste reageer jou inligting sien"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Neem \'n foto"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Kies \'n prent"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Kies foto"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Bynaam"</string>
 </resources>

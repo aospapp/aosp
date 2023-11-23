@@ -74,3 +74,12 @@ def EnterpriseFakeEnrollment(browser, user_id, password, gaia_id,
         browser.oobe.NavigateFakeLogin(user_id, password, gaia_id)
         # TODO(achuith): Replace with WaitForLogin.
         utils.poll_for_condition(lambda: not browser.oobe_exists, timeout=30)
+
+
+def OnlineDemoMode(browser):
+  """Switch to online demo mode.
+
+    @param browser: telemetry browser object.
+  """
+  _ExecuteOobeCmd(browser, 'Oobe.setUpOnlineDemoModeForTesting();')
+  utils.poll_for_condition(lambda: not browser.oobe_exists, timeout=90)

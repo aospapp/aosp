@@ -16,10 +16,22 @@
 <configuration description="Config for AutoFill Framework CTS tests.">
   <option name="test-suite-tag" value="cts" />
   <option name="config-descriptor:metadata" key="component" value="autofill" />
+  <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+  <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
     <option name="cleanup-apks" value="true" />
     <option name="test-file-name" value="CtsAutoFillServiceTestCases.apk" />
+  </target_preparer>
+
+  <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+    <option name="cleanup-apks" value="true" />
+      <!--
+          MockIME always needs to be installed as a full package, even when CTS is running
+          for instant apps.
+      -->
+    <option name="force-install-mode" value="FULL"/>
+    <option name="test-file-name" value="CtsMockInputMethod.apk" />
   </target_preparer>
 
   <!--  TODO: preparer below should be enabled only when running as cts-instant -->
@@ -32,6 +44,19 @@
     <option name="package" value="android.autofillservice.cts" />
     <!-- 20x default timeout of 600sec -->
     <option name="shell-timeout" value="12000000"/>
+    <option name="isolated-storage" value="false" />
   </test>
 
+  <!-- Collect the files generated on error -->
+  <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+    <option name="directory-keys" value="/sdcard/CtsAutoFillServiceTestCases" />
+    <option name="collect-on-run-ended-only" value="true" />
+    <option name="clean-up" value="false" />
+  </metrics_collector>
+  <!-- Automotive tests run on user 10 -->
+  <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+    <option name="directory-keys" value="/storage/emulated/10/CtsAutoFillServiceTestCases" />
+    <option name="collect-on-run-ended-only" value="true" />
+    <option name="clean-up" value="false" />
+  </metrics_collector>
 </configuration>

@@ -9,10 +9,12 @@ the state of the graphics driver.
 
 import collections
 import contextlib
+import fcntl
 import glob
 import logging
 import os
 import re
+import struct
 import sys
 import time
 #import traceback
@@ -25,7 +27,6 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import test as test_utils
-from autotest_lib.client.cros.graphics import gbm
 from autotest_lib.client.cros.input_playback import input_playback
 from autotest_lib.client.cros.power import power_utils
 from functools import wraps
@@ -60,7 +61,7 @@ class GraphicsTest(test.test):
     def __init__(self, *args, **kwargs):
         """Initialize flag setting."""
         super(GraphicsTest, self).__init__(*args, **kwargs)
-        self._failures = []
+        self._failures_by_description = {}
         self._player = None
 
     def initialize(self, raise_error_on_hang=False, *args, **kwargs):
@@ -92,7 +93,8 @@ class GraphicsTest(test.test):
             self._GSC.finalize()
 
         self._output_perf()
-        self._player.close()
+        if self._player:
+            self._player.close()
 
         if hasattr(super(GraphicsTest, self), "cleanup"):
             test_utils._cherry_pick_call(super(GraphicsTest, self).cleanup,
@@ -100,12 +102,12 @@ class GraphicsTest(test.test):
 
     @contextlib.contextmanager
     def failure_report(self, name, subtest=None):
-        """Record the failure of an operation to the self._failures.
+        """Record the failure of an operation to self._failures_by_description.
 
         Records if the operation taken inside executed normally or not.
         If the operation taken inside raise unexpected failure, failure named
-        |name|, will be added to the self._failures list and reported to the
-        chrome perf dashboard in the cleanup stage.
+        |name|, will be added to the self._failures_by_description dictionary
+        and reported to the chrome perf dashboard in the cleanup stage.
 
         Usage:
             # Record failure of doSomething
@@ -184,7 +186,7 @@ class GraphicsTest(test.test):
                 'graph': self._get_failure_graph_name(),
                 'names': [name],
             }
-            self._failures.append(target)
+            self._failures_by_description[target['description']] = target
         return target
 
     def remove_failures(self, name, subtest=None):
@@ -199,6 +201,7 @@ class GraphicsTest(test.test):
         target = self._get_failure(name, subtest=subtest)
         if name in target['names']:
             target['names'].remove(name)
+
 
     def _output_perf(self):
         """Report recorded failures back to chrome perf."""
@@ -215,9 +218,10 @@ class GraphicsTest(test.test):
 
         total_failures = 0
         # Report subtests failures
-        for failure in self._failures:
-            logging.debug('GraphicsTest failure: %s' % failure['names'])
-            total_failures += len(failure['names'])
+        for failure in self._failures_by_description.values():
+            if len(failure['names']) > 0:
+                logging.debug('GraphicsTest failure: %s' % failure['names'])
+                total_failures += len(failure['names'])
 
             if not self._test_failure_report_subtest:
                 continue
@@ -247,16 +251,13 @@ class GraphicsTest(test.test):
     def _get_failure(self, name, subtest):
         """Get specific failures."""
         description = self._get_failure_description(name, subtest=subtest)
-        for failure in self._failures:
-            if failure['description'] == description:
-                return failure
-        return None
+        return self._failures_by_description.get(description, None)
 
     def get_failures(self):
         """
         Get currently recorded failures list.
         """
-        return [name for failure in self._failures
+        return [name for failure in self._failures_by_description.values()
                 for name in failure['names']]
 
     def open_vt1(self):
@@ -354,6 +355,7 @@ UINPUT_DEVICE_EVENTS_KEYBOARD = [
     uinput.KEY_LEFTALT,
     uinput.KEY_A,
     uinput.KEY_M,
+    uinput.KEY_Q,
     uinput.KEY_V
 ]
 # TODO(ihf): Find an ABS sequence that actually works.
@@ -491,12 +493,11 @@ def activate_focus_at(rel_x, rel_y):
     _uinput_emit(device, 'BTN_TOUCH', 0, syn=True)
 
 
-def take_screenshot(resultsdir, fname_prefix, extension='png'):
+def take_screenshot(resultsdir, fname_prefix):
     """Take screenshot and save to a new file in the results dir.
     Args:
       @param resultsdir:   Directory to store the output in.
       @param fname_prefix: Prefix for the output fname.
-      @param extension:    String indicating file format ('png', 'jpg', etc).
     Returns:
       the path of the saved screenshot file
     """
@@ -504,14 +505,13 @@ def take_screenshot(resultsdir, fname_prefix, extension='png'):
     old_exc_type = sys.exc_info()[0]
 
     next_index = len(glob.glob(
-        os.path.join(resultsdir, '%s-*.%s' % (fname_prefix, extension))))
+        os.path.join(resultsdir, '%s-*.png' % fname_prefix)))
     screenshot_file = os.path.join(
-        resultsdir, '%s-%d.%s' % (fname_prefix, next_index, extension))
+        resultsdir, '%s-%d.png' % (fname_prefix, next_index))
     logging.info('Saving screenshot to %s.', screenshot_file)
 
     try:
-        image = gbm.crtcScreenshot()
-        image.save(screenshot_file)
+        utils.run('screenshot "%s"' % screenshot_file)
     except Exception as err:
         # Do not raise an exception if the screenshot fails while processing
         # another exception.
@@ -522,69 +522,25 @@ def take_screenshot(resultsdir, fname_prefix, extension='png'):
     return screenshot_file
 
 
-def take_screenshot_crop_by_height(fullpath, final_height, x_offset_pixels,
-                                   y_offset_pixels):
-    """
-    Take a screenshot, crop to final height starting at given (x, y) coordinate.
-    Image width will be adjusted to maintain original aspect ratio).
-
-    @param fullpath: path, fullpath of the file that will become the image file.
-    @param final_height: integer, height in pixels of resulting image.
-    @param x_offset_pixels: integer, number of pixels from left margin
-                            to begin cropping.
-    @param y_offset_pixels: integer, number of pixels from top margin
-                            to begin cropping.
-    """
-    image = gbm.crtcScreenshot()
-    image.crop()
-    width, height = image.size
-    # Preserve aspect ratio: Wf / Wi == Hf / Hi
-    final_width = int(width * (float(final_height) / height))
-    box = (x_offset_pixels, y_offset_pixels,
-           x_offset_pixels + final_width, y_offset_pixels + final_height)
-    cropped = image.crop(box)
-    cropped.save(fullpath)
-    return fullpath
-
-
-def take_screenshot_crop_x(fullpath, box=None):
-    """
-    Take a screenshot using import tool, crop according to dim given by the box.
-    @param fullpath: path, full path to save the image to.
-    @param box: 4-tuple giving the upper left and lower right pixel coordinates.
-    """
-
-    if box:
-        img_w, img_h, upperx, uppery = box
-        cmd = ('/usr/local/bin/import -window root -depth 8 -crop '
-                      '%dx%d+%d+%d' % (img_w, img_h, upperx, uppery))
-    else:
-        cmd = ('/usr/local/bin/import -window root -depth 8')
-
-    old_exc_type = sys.exc_info()[0]
-    try:
-        utils.system('%s %s' % (cmd, fullpath))
-    except Exception as err:
-        # Do not raise an exception if the screenshot fails while processing
-        # another exception.
-        if old_exc_type is None:
-            raise
-        logging.error(err)
-
-
 def take_screenshot_crop(fullpath, box=None, crtc_id=None):
     """
     Take a screenshot using import tool, crop according to dim given by the box.
     @param fullpath: path, full path to save the image to.
     @param box: 4-tuple giving the upper left and lower right pixel coordinates.
+    @param crtc_id: if set, take a screen shot of the specified CRTC.
     """
+    cmd = 'screenshot'
     if crtc_id is not None:
-        image = gbm.crtcScreenshot(crtc_id)
+        cmd += ' --crtc-id=%d' % crtc_id
     else:
-        image = gbm.crtcScreenshot(get_internal_crtc())
+        cmd += ' --internal'
     if box:
-        image = image.crop(box)
-    image.save(fullpath)
+        x, y, r, b = box
+        w = r - x
+        h = b - y
+        cmd += ' --crop=%dx%d+%d+%d' % (w, h, x, y)
+    cmd += ' "%s"' % fullpath
+    utils.run(cmd)
     return fullpath
 
 
@@ -599,6 +555,12 @@ _MODETEST_CRTCS_START_PATTERN = re.compile(r'^id\s+fb\s+pos\s+size')
 
 _MODETEST_CRTC_PATTERN = re.compile(
     r'^(\d+)\s+(\d+)\s+\((\d+),(\d+)\)\s+\((\d+)x(\d+)\)')
+
+_MODETEST_PLANES_START_PATTERN = re.compile(
+    r'^id\s+crtc\s+fb\s+CRTC\s+x,y\s+x,y\s+gamma\s+size\s+possible\s+crtcs')
+
+_MODETEST_PLANE_PATTERN = re.compile(
+    r'^(\d+)\s+(\d+)\s+(\d+)\s+(\d+),(\d+)\s+(\d+),(\d+)\s+(\d+)\s+(0x)(\d+)')
 
 Connector = collections.namedtuple(
     'Connector', [
@@ -619,6 +581,11 @@ CRTC = collections.namedtuple(
         'size',  # size, e.g. (1366,768)
     ])
 
+Plane = collections.namedtuple(
+    'Plane', [
+        'id',  # plane id
+        'possible_crtcs',  # possible associated CRTC indexes.
+    ])
 
 def get_display_resolution():
     """
@@ -722,6 +689,32 @@ def get_modetest_crtcs():
         if re.match(_MODETEST_CRTCS_START_PATTERN, line) is not None:
             found = True
     return crtcs
+
+
+def get_modetest_planes():
+    """
+    Returns a list of planes information.
+
+    Sample:
+        [Plane(id=26, possible_crtcs=1),
+         Plane(id=29, possible_crtcs=1)]
+    """
+    planes = []
+    modetest_output = utils.system_output('modetest -p')
+    found = False
+    for line in modetest_output.splitlines():
+        if found:
+            plane_match = re.match(_MODETEST_PLANE_PATTERN, line)
+            if plane_match is not None:
+                plane_id = int(plane_match.group(1))
+                possible_crtcs = int(plane_match.group(10))
+                if not (plane_id == 0 or possible_crtcs == 0):
+                    planes.append(Plane(plane_id, possible_crtcs))
+            elif line and not line[0].isspace():
+                return planes
+        if re.match(_MODETEST_PLANES_START_PATTERN, line) is not None:
+            found = True
+    return planes
 
 
 def get_modetest_output_state():
@@ -951,8 +944,10 @@ class GraphicsKernelMemory(object):
         'memory': ['/sys/class/misc/mali0/device/memory',
                    '/sys/class/misc/mali0/device/gpu_memory'],
     }
-    mediatek_fields = {}  # TODO(crosbug.com/p/58189) add nodes
-    # TODO Add memory nodes once the GPU patches landed.
+    mediatek_fields = {}
+    # TODO(crosbug.com/p/58189) Add mediatek GPU memory nodes
+    qualcomm_fields = {}
+    # TODO(b/119269602) Add qualcomm GPU memory nodes once GPU patches land
     rockchip_fields = {}
     tegra_fields = {
         'memory': ['/sys/kernel/debug/memblock/memory'],
@@ -971,6 +966,7 @@ class GraphicsKernelMemory(object):
         'exynos5': exynos_fields,
         'i915': i915_fields,
         'mediatek': mediatek_fields,
+        'qualcomm': qualcomm_fields,
         'rockchip': rockchip_fields,
         'tegra': tegra_fields,
         'virtio': virtio_fields,
@@ -1100,7 +1096,8 @@ class GraphicsStateChecker(object):
 
     _BROWSER_VERSION_COMMAND = '/opt/google/chrome/chrome --version'
     _HANGCHECK = ['drm:i915_hangcheck_elapsed', 'drm:i915_hangcheck_hung',
-                  'Hangcheck timer elapsed...']
+                  'Hangcheck timer elapsed...',
+                  'drm/i915: Resetting chip after gpu hang']
     _HANGCHECK_WARNING = ['render ring idle']
     _MESSAGES_FILE = '/var/log/messages'
 
@@ -1244,3 +1241,119 @@ class GraphicsApiHelper(object):
             self.DEQP_EXECUTABLE[api]
         )
         return executable
+
+# Possible paths of the kernel DRI debug text file.
+_DRI_DEBUG_FILE_PATH_0 = "/sys/kernel/debug/dri/0/state"
+_DRI_DEBUG_FILE_PATH_1 = "/sys/kernel/debug/dri/1/state"
+
+# The DRI debug file will have a lot of information, including the position and
+# sizes of each plane. Some planes might be disabled but have some lingering
+# crtc-pos information, those are skipped.
+_CRTC_PLANE_START_PATTERN = re.compile(r'plane\[')
+_CRTC_DISABLED_PLANE = re.compile(r'crtc=\(null\)')
+_CRTC_POS_AND_SIZE_PATTERN = re.compile(r'crtc-pos=(?!0x0\+0\+0)')
+
+def get_num_hardware_overlays():
+    """
+    Counts the amount of hardware overlay planes in use.  There's always at
+    least 2 overlays active: the whole screen and the cursor -- unless the
+    cursor has never moved (e.g. in autotests), and it's not present.
+
+    Raises: RuntimeError if the DRI debug file is not present.
+            OSError/IOError if the file cannot be open()ed or read().
+    """
+    file_path = _DRI_DEBUG_FILE_PATH_0;
+    if os.path.exists(_DRI_DEBUG_FILE_PATH_0):
+        file_path = _DRI_DEBUG_FILE_PATH_0;
+    elif os.path.exists(_DRI_DEBUG_FILE_PATH_1):
+        file_path = _DRI_DEBUG_FILE_PATH_1;
+    else:
+        raise RuntimeError('No DRI debug file exists (%s, %s)' %
+            (_DRI_DEBUG_FILE_PATH_0, _DRI_DEBUG_FILE_PATH_1))
+
+    filetext = open(file_path).read()
+    logging.debug(filetext)
+
+    matches = []
+    # Split the debug output by planes, skip the disabled ones and extract those
+    # with correct position and size information.
+    planes = re.split(_CRTC_PLANE_START_PATTERN, filetext)
+    for plane in planes:
+        if len(plane) == 0:
+            continue;
+        if len(re.findall(_CRTC_DISABLED_PLANE, plane)) > 0:
+            continue;
+
+        matches.append(re.findall(_CRTC_POS_AND_SIZE_PATTERN, plane))
+
+    # TODO(crbug.com/865112): return also the sizes/locations.
+    return len(matches)
+
+def is_drm_debug_supported():
+    """
+    @returns true if either of the DRI debug files are present.
+    """
+    return (os.path.exists(_DRI_DEBUG_FILE_PATH_0) or
+            os.path.exists(_DRI_DEBUG_FILE_PATH_1))
+
+# Path and file name regex defining the filesystem location for DRI devices.
+_DEV_DRI_FOLDER_PATH = '/dev/dri'
+_DEV_DRI_CARD_PATH = '/dev/dri/card?'
+
+# IOCTL code and associated parameter to set the atomic cap. Defined originally
+# in the kernel's include/uapi/drm/drm.h file.
+_DRM_IOCTL_SET_CLIENT_CAP = 0x4010640d
+_DRM_CLIENT_CAP_ATOMIC = 3
+
+def is_drm_atomic_supported():
+    """
+    @returns true if there is at least a /dev/dri/card? file that seems to
+    support drm_atomic mode (accepts a _DRM_IOCTL_SET_CLIENT_CAP ioctl).
+    """
+    if not os.path.isdir(_DEV_DRI_FOLDER_PATH):
+        # This should never ever happen.
+        raise error.TestError('path %s inexistent', _DEV_DRI_FOLDER_PATH);
+
+    for dev_path in glob.glob(_DEV_DRI_CARD_PATH):
+        try:
+            logging.debug('trying device %s', dev_path);
+            with open(dev_path, 'rw') as dev:
+                # Pack a struct drm_set_client_cap: two u64.
+                drm_pack = struct.pack("QQ", _DRM_CLIENT_CAP_ATOMIC, 1)
+                result = fcntl.ioctl(dev, _DRM_IOCTL_SET_CLIENT_CAP, drm_pack)
+
+                if result is None or len(result) != len(drm_pack):
+                    # This should never ever happen.
+                    raise error.TestError('ioctl failure')
+
+                logging.debug('%s supports atomic', dev_path);
+
+                if not is_drm_debug_supported():
+                    raise error.TestError('platform supports DRM but there '
+                                          ' are no debug files for it')
+                return True
+        except IOError as err:
+            logging.warning('ioctl failed on %s: %s', dev_path, str(err));
+
+    logging.debug('No dev files seems to support atomic');
+    return False
+
+def get_max_num_available_drm_planes():
+    """
+    @returns The maximum number of DRM planes available in the system
+    (associated to the same CRTC), or 0 if something went wrong (e.g. modetest
+    failed, etc).
+    """
+
+    planes = get_modetest_planes()
+    if len(planes) == 0:
+        return 0;
+    packed_possible_crtcs = [plane.possible_crtcs for plane in planes]
+    # |packed_possible_crtcs| is actually a bit field of possible CRTCs, e.g.
+    # 0x6 (b1001) means the plane can be associated with CRTCs index 0 and 3 but
+    # not with index 1 nor 2. Unpack those into |possible_crtcs|, an array of
+    # binary arrays.
+    possible_crtcs = [[int(bit) for bit in bin(crtc)[2:].zfill(16)]
+                         for crtc in packed_possible_crtcs]
+    # Accumulate the CRTCs indexes and return the maximum number of 'votes'.
+    return max(map(sum, zip(*possible_crtcs)))

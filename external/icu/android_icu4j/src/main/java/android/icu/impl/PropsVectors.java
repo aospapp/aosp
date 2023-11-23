@@ -557,6 +557,9 @@ public class PropsVectors {
         }
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static interface CompactHandler {
         public void setRowIndexForRange(int start, int end, int rowIndex);
         public void setRowIndexForInitialValue(int rowIndex);

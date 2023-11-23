@@ -19,7 +19,12 @@
 #include <grp.h>
 #include <pwd.h>
 
+#include <android-base/parseint.h>
+
 #include "keyword_map.h"
+#include "parser.h"
+
+using android::base::ParseByteCount;
 
 namespace android {
 namespace init {
@@ -72,6 +77,66 @@ Result<Success> ParsePermissionsLine(std::vector<std::string>&& args,
     return Success();
 }
 
+Result<Success> ParseFirmwareDirectoriesLine(std::vector<std::string>&& args,
+                                             std::vector<std::string>* firmware_directories) {
+    if (args.size() < 2) {
+        return Error() << "firmware_directories must have at least 1 entry";
+    }
+
+    std::move(std::next(args.begin()), args.end(), std::back_inserter(*firmware_directories));
+
+    return Success();
+}
+
+Result<Success> ParseModaliasHandlingLine(std::vector<std::string>&& args,
+                                          bool* enable_modalias_handling) {
+    if (args.size() != 2) {
+        return Error() << "modalias_handling lines take exactly one parameter";
+    }
+
+    if (args[1] == "enabled") {
+        *enable_modalias_handling = true;
+    } else if (args[1] == "disabled") {
+        *enable_modalias_handling = false;
+    } else {
+        return Error() << "modalias_handling takes either 'enabled' or 'disabled' as a parameter";
+    }
+
+    return Success();
+}
+
+Result<Success> ParseUeventSocketRcvbufSizeLine(std::vector<std::string>&& args,
+                                                size_t* uevent_socket_rcvbuf_size) {
+    if (args.size() != 2) {
+        return Error() << "uevent_socket_rcvbuf_size lines take exactly one parameter";
+    }
+
+    size_t parsed_size;
+    if (!ParseByteCount(args[1], &parsed_size)) {
+        return Error() << "could not parse size '" << args[1] << "' for uevent_socket_rcvbuf_line";
+    }
+
+    *uevent_socket_rcvbuf_size = parsed_size;
+
+    return Success();
+}
+
+class SubsystemParser : public SectionParser {
+  public:
+    SubsystemParser(std::vector<Subsystem>* subsystems) : subsystems_(subsystems) {}
+    Result<Success> ParseSection(std::vector<std::string>&& args, const std::string& filename,
+                                 int line) override;
+    Result<Success> ParseLineSection(std::vector<std::string>&& args, int line) override;
+    Result<Success> EndSection() override;
+
+  private:
+    Result<Success> ParseDevName(std::vector<std::string>&& args);
+    Result<Success> ParseDirName(std::vector<std::string>&& args);
+
+    Subsystem subsystem_;
+    std::vector<Subsystem>* subsystems_;
+};
+
 Result<Success> SubsystemParser::ParseSection(std::vector<std::string>&& args,
                                               const std::string& filename, int line) {
     if (args.size() != 2) {
@@ -89,11 +154,11 @@ Result<Success> SubsystemParser::ParseSection(std::vector<std::string>&& args,
 
 Result<Success> SubsystemParser::ParseDevName(std::vector<std::string>&& args) {
     if (args[1] == "uevent_devname") {
-        subsystem_.devname_source_ = Subsystem::DevnameSource::DEVNAME_UEVENT_DEVNAME;
+        subsystem_.devname_source_ = Subsystem::DEVNAME_UEVENT_DEVNAME;
         return Success();
     }
     if (args[1] == "uevent_devpath") {
-        subsystem_.devname_source_ = Subsystem::DevnameSource::DEVNAME_UEVENT_DEVPATH;
+        subsystem_.devname_source_ = Subsystem::DEVNAME_UEVENT_DEVPATH;
         return Success();
     }
 
@@ -136,6 +201,36 @@ Result<Success> SubsystemParser::EndSection() {
     subsystems_->emplace_back(std::move(subsystem_));
 
     return Success();
+}
+
+UeventdConfiguration ParseConfig(const std::vector<std::string>& configs) {
+    Parser parser;
+    UeventdConfiguration ueventd_configuration;
+
+    parser.AddSectionParser("subsystem",
+                            std::make_unique<SubsystemParser>(&ueventd_configuration.subsystems));
+
+    using namespace std::placeholders;
+    parser.AddSingleLineParser(
+            "/sys/",
+            std::bind(ParsePermissionsLine, _1, &ueventd_configuration.sysfs_permissions, nullptr));
+    parser.AddSingleLineParser("/dev/", std::bind(ParsePermissionsLine, _1, nullptr,
+                                                  &ueventd_configuration.dev_permissions));
+    parser.AddSingleLineParser("firmware_directories",
+                               std::bind(ParseFirmwareDirectoriesLine, _1,
+                                         &ueventd_configuration.firmware_directories));
+    parser.AddSingleLineParser("modalias_handling",
+                               std::bind(ParseModaliasHandlingLine, _1,
+                                         &ueventd_configuration.enable_modalias_handling));
+    parser.AddSingleLineParser("uevent_socket_rcvbuf_size",
+                               std::bind(ParseUeventSocketRcvbufSizeLine, _1,
+                                         &ueventd_configuration.uevent_socket_rcvbuf_size));
+
+    for (const auto& config : configs) {
+        parser.ParseConfig(config);
+    }
+
+    return ueventd_configuration;
 }
 
 }  // namespace init

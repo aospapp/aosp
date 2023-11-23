@@ -8,6 +8,8 @@ Convenience functions for use by tests or whomever.
 
 # pylint: disable=missing-docstring
 
+import base64
+import collections
 import commands
 import fnmatch
 import glob
@@ -21,6 +23,7 @@ import platform
 import re
 import shutil
 import signal
+import string
 import tempfile
 import time
 import uuid
@@ -241,29 +244,23 @@ def get_cpuinfo():
 
 def get_cpu_arch():
     """Work out which CPU architecture we're running on"""
-    f = open('/proc/cpuinfo', 'r')
-    cpuinfo = f.readlines()
-    f.close()
-    if list_grep(cpuinfo, '^cpu.*(RS64|POWER3|Broadband Engine)'):
-        return 'power'
-    elif list_grep(cpuinfo, '^cpu.*POWER4'):
-        return 'power4'
-    elif list_grep(cpuinfo, '^cpu.*POWER5'):
-        return 'power5'
-    elif list_grep(cpuinfo, '^cpu.*POWER6'):
-        return 'power6'
-    elif list_grep(cpuinfo, '^cpu.*POWER7'):
-        return 'power7'
-    elif list_grep(cpuinfo, '^cpu.*PPC970'):
-        return 'power970'
-    elif list_grep(cpuinfo, 'ARM'):
+
+    # Using 'uname -m' should be a very portable way to do this since the
+    # format is pretty standard.
+    machine_name = utils.system_output('uname -m').strip()
+
+    # Apparently ARM64 and ARM have both historically returned the string 'arm'
+    # here so continue the tradition.  Use startswith() because:
+    # - On most of our arm devices we'll actually see the string armv7l.
+    # - In theory the machine name could include a suffix for endianness.
+    if machine_name.startswith('aarch64') or machine_name.startswith('arm'):
         return 'arm'
-    elif list_grep(cpuinfo, '^flags.*:.* lm .*'):
-        return 'x86_64'
-    elif list_grep(cpuinfo, 'CPU.*implementer.*0x41'):
-        return 'arm'
-    else:
-        return 'i386'
+
+    # Historically we _have_ treated x86_64 and i386 separately.
+    if machine_name in ('x86_64', 'i386'):
+        return machine_name
+
+    raise error.TestError('unsupported machine type %s' % machine_name)
 
 
 def get_arm_soc_family_from_devicetree():
@@ -275,12 +272,14 @@ def get_arm_soc_family_from_devicetree():
     if not os.path.isfile(devicetree_compatible):
         return None
     f = open(devicetree_compatible, 'r')
-    compatible = f.readlines()
+    compatible = f.read().split(chr(0))
     f.close()
-    if list_grep(compatible, 'rk3399'):
+    if list_grep(compatible, '^rockchip,'):
         return 'rockchip'
-    elif list_grep(compatible, 'mt8173'):
+    elif list_grep(compatible, '^mediatek,'):
         return 'mediatek'
+    elif list_grep(compatible, '^qcom,'):
+        return 'qualcomm'
     return None
 
 
@@ -328,6 +327,7 @@ INTEL_UARCH_TABLE = {
     '06_56': 'Broadwell',
     '06_0D': 'Dothan',
     '06_5C': 'Goldmont',
+    '06_7A': 'Goldmont',
     '06_3C': 'Haswell',
     '06_45': 'Haswell',
     '06_46': 'Haswell',
@@ -380,6 +380,22 @@ def get_intel_cpu_uarch(numeric=False):
     if numeric:
         return family_model
     return INTEL_UARCH_TABLE.get(family_model, family_model)
+
+
+INTEL_SILVERMONT_BCLK_TABLE = [83333, 100000, 133333, 116667, 80000];
+
+
+def get_intel_bclk_khz():
+    """Return Intel CPU base clock.
+
+    This only worked with SandyBridge (released in 2011) or newer. Older CPU has
+    133 MHz bclk. See turbostat code for implementation that also works with
+    older CPU. https://git.io/vpyKT
+    """
+    if get_intel_cpu_uarch() == 'Silvermont':
+        MSR_FSB_FREQ = 0xcd
+        return INTEL_SILVERMONT_BCLK_TABLE[utils.rdmsr(MSR_FSB_FREQ) & 0xf]
+    return 100000
 
 
 def get_current_kernel_arch():
@@ -490,6 +506,32 @@ def rounded_memtotal():
     phys_kbytes = min_kbytes + mod2n - 1
     phys_kbytes = phys_kbytes - (phys_kbytes % mod2n)  # clear low bits
     return phys_kbytes
+
+
+_MEMINFO_RE = re.compile('^(\w+)(\(\w+\))?:\s+(\d+)')
+
+
+def get_meminfo():
+    """Returns a namedtuple of pairs from /proc/meminfo.
+
+    Example /proc/meminfo snippets:
+        MemTotal:        2048000 kB
+        Active(anon):     409600 kB
+    Example usage:
+        meminfo = utils.get_meminfo()
+        print meminfo.Active_anon
+    """
+    info = {}
+    with _open_file('/proc/meminfo') as f:
+        for line in f:
+            m = _MEMINFO_RE.match(line)
+            if m:
+                if m.group(2):
+                    name = m.group(1) + '_' + m.group(2)[1:-1]
+                else:
+                    name = m.group(1)
+                info[name] = int(m.group(3))
+    return collections.namedtuple('MemInfo', info.keys())(**info)
 
 
 def sysctl(key, value=None):
@@ -846,6 +888,15 @@ def get_disk_firmware_version(disk_name):
     return utils.system_output(cmd)
 
 
+def is_disk_nvme(disk_name):
+    """
+    Return true if disk is a nvme device, return false otherwise
+
+    @param disk_name: disk name to check
+    """
+    return re.match('/dev/nvme[0-9]+n[0-9]+', disk_name)
+
+
 def is_disk_scsi(disk_name):
     """
     Return true if disk is a scsi device, return false otherwise
@@ -904,6 +955,20 @@ def verify_hdparm_feature(disk_name, feature):
     else:
         raise error.TestFail('Error running command %s' % cmd)
 
+def get_nvme_id_ns_feature(disk_name, feature):
+    """
+    Return feature value for NVMe disk using nvme id-ns
+
+    @param disk_name: target disk
+    @param feature: output string of the feature
+    """
+    cmd = "nvme id-ns -n 1 %s | grep %s" % (disk_name, feature)
+    feat = utils.system_output(cmd, ignore_status=True)
+    if not feat:
+        return 'None'
+    start = feat.find(':')
+    value = feat[start+2:]
+    return value
 
 def get_storage_error_msg(disk_name, reason):
     """
@@ -924,6 +989,34 @@ def get_storage_error_msg(disk_name, reason):
         msg += ' firmware: %s' % fw
 
     return msg
+
+
+_IOSTAT_FIELDS = ('transfers_per_s', 'read_kb_per_s', 'written_kb_per_s',
+                  'read_kb', 'written_kb')
+_IOSTAT_RE = re.compile('ALL' + len(_IOSTAT_FIELDS) * r'\s+([\d\.]+)')
+
+def get_storage_statistics(device=None):
+    """
+    Fetches statistics for a storage device.
+
+    Using iostat(1) it retrieves statistics for a device since last boot.  See
+    the man page for iostat(1) for details on the different fields.
+
+    @param device: Path to a block device. Defaults to the device where root
+            is mounted.
+
+    @returns a dict mapping each field to its statistic.
+
+    @raises ValueError: If the output from iostat(1) can not be parsed.
+    """
+    if device is None:
+        device = get_root_device()
+    cmd = 'iostat -d -k -g ALL -H %s' % device
+    output = utils.system_output(cmd, ignore_status=True)
+    match = _IOSTAT_RE.search(output)
+    if not match:
+        raise ValueError('Unable to get iostat for %s' % device)
+    return dict(zip(_IOSTAT_FIELDS, map(float, match.groups())))
 
 
 def load_module(module_name, params=None):
@@ -1273,7 +1366,17 @@ def ensure_processes_are_dead_by_name(name, timeout_sec=10):
 
 
 def is_virtual_machine():
-    return 'QEMU' in platform.processor()
+    if 'QEMU' in platform.processor():
+        return True
+
+    try:
+        with open('/sys/devices/virtual/dmi/id/sys_vendor') as f:
+            if 'QEMU' in f.read():
+                return True
+    except IOError:
+        pass
+
+    return False
 
 
 def save_vm_state(checkpoint):
@@ -1744,12 +1847,17 @@ def get_temperature_critical():
     paths = _get_hwmon_paths('temp*_crit')
     for path in paths:
         temperature = _get_float_from_file(path, 0, None, None) * 0.001
-        # Today typical for Intel is 98'C to 105'C while ARM is 85'C. Clamp to
-        # the lowest known value.
+        # Today typical for Intel is 98'C to 105'C while ARM is 85'C. Clamp to 98
+        # if Intel device or the lowest known value otherwise.
+        result = utils.system_output('crossystem arch', retain_output=True,
+                                     ignore_status=True)
         if (min_temperature < 60.0) or min_temperature > 150.0:
-            logging.warning('Critical temperature of %.1fC was reset to 85.0C.',
+            if 'x86' in result:
+                min_temperature = 98.0
+            else:
+                min_temperature = 85.0
+            logging.warning('Critical temperature was reset to %.1fC.',
                             min_temperature)
-            min_temperature = 85.0
 
         min_temperature = min(temperature, min_temperature)
     return min_temperature
@@ -1849,28 +1957,21 @@ def get_cpu_max_frequency():
     Returns the largest of the max CPU core frequencies. The unit is Hz.
     """
     max_frequency = -1
-    paths = _get_cpufreq_paths('cpuinfo_max_freq')
+    paths = utils._get_cpufreq_paths('cpuinfo_max_freq')
+    if not paths:
+        raise ValueError('Could not find max freq; is cpufreq supported?')
     for path in paths:
-        # Convert from kHz to Hz.
-        frequency = 1000 * _get_float_from_file(path, 0, None, None)
+        try:
+            # Convert from kHz to Hz.
+            frequency = 1000 * _get_float_from_file(path, 0, None, None)
+        # CPUs may come and go. A missing entry or two aren't critical.
+        except IOError:
+            continue
         max_frequency = max(frequency, max_frequency)
     # Sanity check.
-    assert max_frequency > 1e8, 'Unreasonably low CPU frequency.'
+    assert max_frequency > 1e8, ('Unreasonably low CPU frequency: %.1f' %
+            max_frequency)
     return max_frequency
-
-
-def get_cpu_min_frequency():
-    """
-    Returns the smallest of the minimum CPU core frequencies.
-    """
-    min_frequency = 1e20
-    paths = _get_cpufreq_paths('cpuinfo_min_freq')
-    for path in paths:
-        frequency = _get_float_from_file(path, 0, None, None)
-        min_frequency = min(frequency, min_frequency)
-    # Sanity check.
-    assert min_frequency > 1e8, 'Unreasonably low CPU frequency.'
-    return min_frequency
 
 
 def get_cpu_model():
@@ -1882,7 +1983,7 @@ def get_cpu_model():
     return cpu_model
 
 
-def get_cpu_family():
+def get_cpu_family_intel():
     """
     Returns the CPU family.
     Only works on Intel.
@@ -1921,6 +2022,28 @@ def get_board_type():
     @return device type.
     """
     return get_board_property('DEVICETYPE')
+
+
+def get_platform():
+    """
+    Get the ChromeOS platform name.
+
+    For unibuild this should be equal to model name.  For non-unibuild
+    it will either be board name or empty string.  In the case of
+    empty string return board name to match equivalent logic in
+    server/hosts/cros_host.py
+
+    @returns platform name
+    """
+    platform = ''
+    command = 'mosys platform model'
+    result = utils.run(command, ignore_status=True)
+    if result.exit_status == 0:
+        platform = result.stdout.strip()
+
+    if platform == '':
+        platform = get_board()
+    return platform
 
 
 def get_ec_version():
@@ -2078,60 +2201,6 @@ def get_kernel_max():
     return kernel_max
 
 
-def set_high_performance_mode():
-    """
-    Sets the kernel governor mode to the highest setting.
-    Returns previous governor state.
-    """
-    original_governors = get_scaling_governor_states()
-    set_scaling_governors('performance')
-    return original_governors
-
-
-def set_scaling_governors(value):
-    """
-    Sets all scaling governor to string value.
-    Sample values: 'performance', 'interactive', 'ondemand', 'powersave'.
-    """
-    paths = _get_cpufreq_paths('scaling_governor')
-    for path in paths:
-        cmd = 'echo %s > %s' % (value, path)
-        logging.info('Writing scaling governor mode \'%s\' -> %s', value, path)
-        # On Tegra CPUs can be dynamically enabled/disabled. Ignore failures.
-        utils.system(cmd, ignore_status=True)
-
-
-def _get_cpufreq_paths(filename):
-    """
-    Returns a list of paths to the governors.
-    """
-    cmd = 'ls /sys/devices/system/cpu/cpu*/cpufreq/' + filename
-    paths = utils.run(cmd, verbose=False).stdout.splitlines()
-    return paths
-
-
-def get_scaling_governor_states():
-    """
-    Returns a list of (performance governor path, current state) tuples.
-    """
-    paths = _get_cpufreq_paths('scaling_governor')
-    path_value_list = []
-    for path in paths:
-        value = _get_line_from_file(path, 0)
-        path_value_list.append((path, value))
-    return path_value_list
-
-
-def restore_scaling_governor_states(path_value_list):
-    """
-    Restores governor states. Inverse operation to get_scaling_governor_states.
-    """
-    for (path, value) in path_value_list:
-        cmd = 'echo %s > %s' % (value.rstrip('\n'), path)
-        # On Tegra CPUs can be dynamically enabled/disabled. Ignore failures.
-        utils.system(cmd, ignore_status=True)
-
-
 def get_dirty_writeback_centisecs():
     """
     Reads /proc/sys/vm/dirty_writeback_centisecs.
@@ -2185,6 +2254,8 @@ def get_gpu_family():
         return 'mali-unrecognized'
     if socfamily == 'tegra':
         return 'tegra'
+    if socfamily == 'qualcomm':
+        return 'qualcomm'
     if os.path.exists('/sys/kernel/debug/pvr'):
         return 'rogue'
 
@@ -2333,22 +2404,6 @@ def graphics_api():
     return 'gl'
 
 
-def is_vm():
-    """Check if the process is running in a virtual machine.
-
-    @return: True if the process is running in a virtual machine, otherwise
-             return False.
-    """
-    try:
-        virt = utils.run('sudo -n virt-what').stdout.strip()
-        logging.debug('virt-what output: %s', virt)
-        return bool(virt)
-    except error.CmdError:
-        logging.warn('Package virt-what is not installed, default to assume '
-                     'it is not a virtual machine.')
-        return False
-
-
 def is_package_installed(package):
     """Check if a package is installed already.
 
@@ -2392,3 +2447,153 @@ def run_sql_cmd(server, user, password, command, database=''):
     # Set verbose to False so the command line won't be logged, as it includes
     # database credential.
     return utils.run(cmd, verbose=False).stdout
+
+
+def strip_non_printable(s):
+    """Strip non printable characters from string.
+
+    @param s: Input string
+
+    @return: The input string with only printable characters.
+    """
+    return ''.join(x for x in s if x in string.printable)
+
+
+def recursive_func(obj, func, types, sequence_types=(list, tuple, set),
+                   dict_types=(dict,), fix_num_key=False):
+    """Apply func to obj recursively.
+
+    This function traverses recursively through any sequence-like and
+    dict-like elements in obj.
+
+    @param obj: the object to apply the function func recursively.
+    @param func: the function to invoke.
+    @param types: the target types in the object to apply func.
+    @param sequence_types: the sequence types in python.
+    @param dict_types: the dict types in python.
+    @param fix_num_key: to indicate if the key of a dict should be
+            converted from str type to a number, int or float, type.
+            It is a culprit of json that it always treats the key of
+            a dict as string.
+            Refer to https://docs.python.org/2/library/json.html
+            for more information.
+
+    @return: the result object after applying the func recursively.
+    """
+    def ancestors(obj, types):
+        """Any ancestor of the object class is a subclass of the types?
+
+        @param obj: the object to apply the function func.
+        @param types: the target types of the object.
+
+        @return: True if any ancestor class of the obj is found in types;
+                 False otherwise.
+        """
+        return any([issubclass(anc, types) for anc in type(obj).__mro__])
+
+    if isinstance(obj, sequence_types) or ancestors(obj, sequence_types):
+        result_lst = [recursive_func(elm, func, types, fix_num_key=fix_num_key)
+                      for elm in obj]
+        # Convert the result list to the object's original sequence type.
+        return type(obj)(result_lst)
+    elif isinstance(obj, dict_types) or ancestors(obj, dict_types):
+        result_lst = [
+                (recursive_func(key, func, types, fix_num_key=fix_num_key),
+                 recursive_func(value, func, types, fix_num_key=fix_num_key))
+                for (key, value) in obj.items()]
+        # Convert the result list to the object's original dict type.
+        return type(obj)(result_lst)
+    # Here are the basic types.
+    elif isinstance(obj, types) or ancestors(obj, types):
+        if fix_num_key:
+            # Check if this is a int or float
+            try:
+                result_obj = int(obj)
+                return result_obj
+            except ValueError:
+                try:
+                    result_obj = float(obj)
+                    return result_obj
+                except ValueError:
+                    pass
+
+        result_obj = func(obj)
+        return result_obj
+    else:
+        return obj
+
+
+def base64_recursive_encode(obj):
+    """Apply base64 encode recursively into the obj structure.
+
+    Most of the string-like types could be traced to basestring and bytearray
+    as follows:
+        str: basestring
+        bytes: basestring
+        dbus.String: basestring
+        dbus.Signature: basestring
+        dbus.ByteArray: basestring
+
+    Note that all the above types except dbus.String could be traced back to
+    str. In order to cover dbus.String, basestring is used as the ancestor
+    class for string-like types.
+
+    The other type that needs encoding with base64 in a structure includes
+        bytearray: bytearray
+
+    The sequence types include (list, tuple, set). The dbus.Array is also
+    covered as
+        dbus.Array: list
+
+    The base dictionary type is dict. The dbus.Dictionary is also covered as
+        dbus.Dictionary: dict
+
+    An example code and output look like
+        obj = {'a': 10, 'b': 'hello',
+               'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
+               'd': {784: bytearray(b'@\x14\x01P'),
+                     78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')}}
+        encode_obj = base64_recursive_encode(obj)
+        decode_obj = base64_recursive_decode(encode_obj)
+
+        print 'obj: ', obj
+        print 'encode_obj: ', encode_obj
+        print 'decode_obj: ', decode_obj
+        print 'Equal?', obj == decode_obj
+
+        Output:
+        obj:  {'a': 10,
+               'c': [100, 200, bytearray(b'\xf0\xf1\xf2\xf3\xf4')],
+               'b': 'hello',
+               'd': {784: bytearray(b'@\x14\x01P'),
+                     78.0: bytearray(b'\x10\x05\x0b\x10\xb2\x1b\x00')}}
+
+        encode_obj:  {'YQ==': 10,
+                      'Yw==': [100, 200, '8PHy8/Q='],
+                      'Yg==': 'aGVsbG8='
+                      'ZA==': {784: 'QBQBUA==', 78.0: 'EAULELIbAA=='}}
+        decode_obj:  {'a': 10,
+                      'c': [100, 200, '\xf0\xf1\xf2\xf3\xf4'],
+                      'b': 'hello',
+                      'd': {784: '@\x14\x01P',
+                            78.0: '\x10\x05\x0b\x10\xb2\x1b\x00'}}
+        Equal? True
+
+    @param obj: the object to apply base64 encoding recursively.
+
+    @return: the base64 encoded object.
+    """
+    encode_types = (basestring, bytearray)
+    return recursive_func(obj, base64.standard_b64encode, encode_types)
+
+
+def base64_recursive_decode(obj):
+    """Apply base64 decode recursively into the obj structure.
+
+    @param obj: the object to apply base64 decoding recursively.
+
+    @return: the base64 decoded object.
+    """
+    decode_types = (basestring,)
+    return recursive_func(obj, base64.standard_b64decode, decode_types,
+                          fix_num_key=True)

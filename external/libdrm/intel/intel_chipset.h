@@ -202,7 +202,7 @@
 #define PCI_CHIP_KABYLAKE_ULX_GT1	0x590E
 #define PCI_CHIP_KABYLAKE_ULX_GT2	0x591E
 #define PCI_CHIP_KABYLAKE_DT_GT2	0x5912
-#define PCI_CHIP_KABYLAKE_DT_GT1_5	0x5917
+#define PCI_CHIP_KABYLAKE_M_GT2		0x5917
 #define PCI_CHIP_KABYLAKE_DT_GT1	0x5902
 #define PCI_CHIP_KABYLAKE_HALO_GT2	0x591B
 #define PCI_CHIP_KABYLAKE_HALO_GT4	0x593B
@@ -220,6 +220,41 @@
 
 #define PCI_CHIP_GLK			0x3184
 #define PCI_CHIP_GLK_2X6		0x3185
+
+#define PCI_CHIP_COFFEELAKE_S_GT1_1     0x3E90
+#define PCI_CHIP_COFFEELAKE_S_GT1_2     0x3E93
+#define PCI_CHIP_COFFEELAKE_S_GT1_3     0x3E99
+#define PCI_CHIP_COFFEELAKE_S_GT2_1     0x3E91
+#define PCI_CHIP_COFFEELAKE_S_GT2_2     0x3E92
+#define PCI_CHIP_COFFEELAKE_S_GT2_3     0x3E96
+#define PCI_CHIP_COFFEELAKE_S_GT2_4     0x3E9A
+#define PCI_CHIP_COFFEELAKE_H_GT2_1     0x3E9B
+#define PCI_CHIP_COFFEELAKE_H_GT2_2     0x3E94
+#define PCI_CHIP_COFFEELAKE_U_GT1_1     0x3EA1
+#define PCI_CHIP_COFFEELAKE_U_GT1_2     0x3EA4
+#define PCI_CHIP_COFFEELAKE_U_GT2_1     0x3EA0
+#define PCI_CHIP_COFFEELAKE_U_GT2_2     0x3EA3
+#define PCI_CHIP_COFFEELAKE_U_GT2_3     0x3EA9
+#define PCI_CHIP_COFFEELAKE_U_GT3_1     0x3EA2
+#define PCI_CHIP_COFFEELAKE_U_GT3_2     0x3EA5
+#define PCI_CHIP_COFFEELAKE_U_GT3_3     0x3EA6
+#define PCI_CHIP_COFFEELAKE_U_GT3_4     0x3EA7
+#define PCI_CHIP_COFFEELAKE_U_GT3_5     0x3EA8
+
+#define PCI_CHIP_CANNONLAKE_0		0x5A51
+#define PCI_CHIP_CANNONLAKE_1		0x5A59
+#define PCI_CHIP_CANNONLAKE_2		0x5A41
+#define PCI_CHIP_CANNONLAKE_3		0x5A49
+#define PCI_CHIP_CANNONLAKE_4		0x5A52
+#define PCI_CHIP_CANNONLAKE_5		0x5A5A
+#define PCI_CHIP_CANNONLAKE_6		0x5A42
+#define PCI_CHIP_CANNONLAKE_7		0x5A4A
+#define PCI_CHIP_CANNONLAKE_8		0x5A50
+#define PCI_CHIP_CANNONLAKE_9		0x5A40
+#define PCI_CHIP_CANNONLAKE_10		0x5A54
+#define PCI_CHIP_CANNONLAKE_11		0x5A5C
+#define PCI_CHIP_CANNONLAKE_12		0x5A44
+#define PCI_CHIP_CANNONLAKE_13		0x5A4C
 
 #define IS_MOBILE(devid)	((devid) == PCI_CHIP_I855_GM || \
 				 (devid) == PCI_CHIP_I915_GM || \
@@ -411,7 +446,6 @@
 
 #define IS_KBL_GT1(devid)	((devid) == PCI_CHIP_KABYLAKE_ULT_GT1_5	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_ULX_GT1_5	|| \
-				 (devid) == PCI_CHIP_KABYLAKE_DT_GT1_5	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_ULT_GT1	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_ULX_GT1	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_DT_GT1	|| \
@@ -423,6 +457,7 @@
 				 (devid) == PCI_CHIP_KABYLAKE_ULT_GT2F	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_ULX_GT2	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_DT_GT2	|| \
+				 (devid) == PCI_CHIP_KABYLAKE_M_GT2	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_HALO_GT2	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_SRV_GT2	|| \
 				 (devid) == PCI_CHIP_KABYLAKE_WKS_GT2)
@@ -452,10 +487,54 @@
 #define IS_GEMINILAKE(devid)	((devid) == PCI_CHIP_GLK || \
 				 (devid) == PCI_CHIP_GLK_2X6)
 
+#define IS_CFL_S(devid)         ((devid) == PCI_CHIP_COFFEELAKE_S_GT1_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT1_2 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT1_3 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT2_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT2_2 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT2_3 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_S_GT2_4)
+
+#define IS_CFL_H(devid)         ((devid) == PCI_CHIP_COFFEELAKE_H_GT2_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_H_GT2_2)
+
+#define IS_CFL_U(devid)         ((devid) == PCI_CHIP_COFFEELAKE_U_GT1_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT1_2 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT2_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT2_2 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT2_3 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT3_1 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT3_2 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT3_3 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT3_4 || \
+                                 (devid) == PCI_CHIP_COFFEELAKE_U_GT3_5)
+
+#define IS_COFFEELAKE(devid)   (IS_CFL_S(devid) || \
+				IS_CFL_H(devid) || \
+				IS_CFL_U(devid))
+
 #define IS_GEN9(devid)		(IS_SKYLAKE(devid)  || \
 				 IS_BROXTON(devid)  || \
 				 IS_KABYLAKE(devid) || \
-				 IS_GEMINILAKE(devid))
+				 IS_GEMINILAKE(devid) || \
+				 IS_COFFEELAKE(devid))
+
+#define IS_CANNONLAKE(devid)	((devid) == PCI_CHIP_CANNONLAKE_0 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_1 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_2 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_3 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_4 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_5 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_6 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_7 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_8 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_9 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_10 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_11 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_12 || \
+				 (devid) == PCI_CHIP_CANNONLAKE_13)
+
+#define IS_GEN10(devid)		(IS_CANNONLAKE(devid))
 
 #define IS_9XX(dev)		(IS_GEN3(dev) || \
 				 IS_GEN4(dev) || \
@@ -463,7 +542,7 @@
 				 IS_GEN6(dev) || \
 				 IS_GEN7(dev) || \
 				 IS_GEN8(dev) || \
-				 IS_GEN9(dev))
-
+				 IS_GEN9(dev) || \
+				 IS_GEN10(dev))
 
 #endif /* _INTEL_CHIPSET_H */

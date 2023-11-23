@@ -19,7 +19,7 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 import java.util.Random;
 
 public class UT_struct_field extends UnitTest {

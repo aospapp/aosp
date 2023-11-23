@@ -26,8 +26,8 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"গত বছরে ব্যবহার করা হয়নি"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"শেষ কবে ব্যবহার হয়েছে বলা যাচ্ছে না"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> খালি করুন"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ব্যাকআপ নেওয়া ফটো এবং ভিডিওগুলি"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"৩০ দিনের বেশি পুরানো"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ব্যাক-আপ নেওয়া ফটো এবং ভিডিও"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"৩০ দিনের বেশি পুরনো"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"ডাউনলোডগুলি"</string>
@@ -36,7 +36,7 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"জায়গা খালি করুন"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"আপনার ডিভাইস থেকে <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> কন্টেন্টটি সরিয়ে দেওয়া হবে"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"আপনার ডিভাইস থেকে <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> কন্টেন্ট সরিয়ে দেওয়া হবে"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"জায়গা খালি করুন"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"স্টোরেজ স্বয়ংক্রিয়ভাবে পরিচালনা করবেন?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> এখন খালি হয়েছে। স্টোরেজ ম্যানেজারকে আপনার ডিভাইস থেকে নিজে থেকে ব্যাক-আপ নেওয়া সামগ্রীকে সরানোর দ্বারা স্টোরেজ খালি করার অনুমতি দেবেন?"</string>
@@ -58,10 +58,10 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"আইটেমগুলি খোঁজা হচ্ছে…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"সমস্ত আইটেম দেখুন"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"সাম্প্রতিক আইটেম লুকান"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"আপনার ডিভাইস থেকে <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> কন্টেন্টটি সরিয়ে দেওয়া হবে"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"আপনার ডিভাইস থেকে <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> কন্টেন্ট সরিয়ে দেওয়া হবে"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"আপনার স্টোরেজ এখন স্টোরেজ ম্যানেজারের দ্বারা পরিচালিত হচ্ছে"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"সরানোর জন্য কিছু নেই"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"সাম্প্রতিক আইটেমগুলি দেখুন"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"মুছে ফেলার জন্য কোনো পুরনো ফাইল নেই। জায়গা তৈরি করতে সাম্প্রতিক ফটো, ভিডিও এবং অ্যাপগুলি মুছুন।"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"মুছে ফেলার জন্য কোনও পুরনো ফাইল নেই। জায়গা খালি করতে সাম্প্রতিক ফটো, ভিডিও এবং অ্যাপগুলি মুছুন।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> অ্যাপটির জন্য <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> জায়গা লাগবে"</string>
 </resources>

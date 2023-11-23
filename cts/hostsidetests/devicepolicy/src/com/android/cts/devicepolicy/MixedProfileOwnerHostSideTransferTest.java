@@ -24,10 +24,6 @@ package com.android.cts.devicepolicy;
  */
 public class MixedProfileOwnerHostSideTransferTest extends
         DeviceAndProfileOwnerHostSideTransferTest {
-    private static final String TRANSFER_PROFILE_OWNER_OUTGOING_TEST =
-            "com.android.cts.transferowner.TransferProfileOwnerOutgoingTest";
-    private static final String TRANSFER_PROFILE_OWNER_INCOMING_TEST =
-            "com.android.cts.transferowner.TransferProfileOwnerIncomingTest";
 
     @Override
     protected void setUp() throws Exception {

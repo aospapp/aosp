@@ -14,12 +14,12 @@
      limitations under the License.
 -->
 <resources>
-  <string-array name="scan_delay_entries">
+  <string-array name="scan_delay_entries" translatable="false">
     <item>2 seconds</item>
     <item>5 seconds</item>
     <item>10 seconds</item>
   </string-array>
-  <string-array name="scan_delay_entryValues">
+  <string-array name="scan_delay_entryValues" translatable="false">
     <item>2</item>
     <item>5</item>
     <item>10</item>

@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"啟用這組快速鍵後，只要同時按下返回和向下按鈕達 3 秒，就能開啟協助工具功能。\n\n 目前設定的協助工具功能為：\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n 如要變更設定的功能，請依序輕觸 [設定] &gt; [協助工具]。"</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"啟用這組快速鍵後，只要同時按下返回和向下按鈕達 3 秒，就能開啟無障礙功能。\n\n 目前設定的無障礙功能為：\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n 如要變更設定的功能，請依序輕觸 [設定] &gt; [無障礙設定]。"</string>
 </resources>

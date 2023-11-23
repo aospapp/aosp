@@ -131,6 +131,10 @@ public class ProcessTest extends junit.framework.TestCase {
       process.exitValue();
       fail();
     } catch(IllegalThreadStateException expected) {
+    } finally {
+      // Destroy process, otherwise it will run until 3000 seconds
+      // have elapsed but we don't need it again for this test.
+      process.destroy();
     }
   }
 

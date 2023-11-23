@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #include "private/bionic_constants.h"
-#include "ScopedSignalHandler.h"
+#include "SignalUtils.h"
 
 TEST(semaphore, sem_init) {
   sem_t s;
@@ -78,9 +78,9 @@ TEST(semaphore, sem_wait__sem_post) {
   ASSERT_EQ(0, sem_init(&s, 0, 0));
 
   pthread_t t1, t2, t3;
-  ASSERT_EQ(0, pthread_create(&t1, NULL, SemWaitThreadFn, &s));
-  ASSERT_EQ(0, pthread_create(&t2, NULL, SemWaitThreadFn, &s));
-  ASSERT_EQ(0, pthread_create(&t3, NULL, SemWaitThreadFn, &s));
+  ASSERT_EQ(0, pthread_create(&t1, nullptr, SemWaitThreadFn, &s));
+  ASSERT_EQ(0, pthread_create(&t2, nullptr, SemWaitThreadFn, &s));
+  ASSERT_EQ(0, pthread_create(&t3, nullptr, SemWaitThreadFn, &s));
 
   ASSERT_EQ(0, sem_post(&s));
   ASSERT_EQ(0, sem_post(&s));
@@ -141,8 +141,7 @@ TEST(semaphore, sem_timedwait_monotonic_np) {
 #if defined(__BIONIC__)
   sem_timedwait_helper(CLOCK_MONOTONIC, sem_timedwait_monotonic_np);
 #else   // __BIONIC__
-  GTEST_LOG_(INFO)
-      << "This test does nothing since sem_timedwait_monotonic_np is only supported on bionic";
+  GTEST_SKIP() << "sem_timedwait_monotonic_np is only supported on bionic";
 #endif  // __BIONIC__
 }
 
@@ -174,7 +173,7 @@ TEST(semaphore, sem_getvalue) {
   ASSERT_EQ(1, i);
 }
 
-extern "C" void android_set_application_target_sdk_version(uint32_t target);
+extern "C" void android_set_application_target_sdk_version(int target);
 
 static void sem_wait_test_signal_handler(int) {
 }
@@ -218,7 +217,7 @@ TEST(semaphore, sem_wait_no_EINTR_in_sdk_less_equal_than_23) {
   ASSERT_EQ(0, pthread_join(thread, &result));
   ASSERT_EQ(0U, reinterpret_cast<uintptr_t>(result));
 #else
-  GTEST_LOG_(INFO) << "This test tests sem_wait's compatibility for old sdk versions";
+  GTEST_SKIP() << "This test tests sem_wait's compatibility for old sdk versions";
 #endif
 }
 

@@ -66,7 +66,7 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 #define BTTRC_ID_STK_SPP 39
 #define BTTRC_ID_STK_TCS 40
 #define BTTRC_ID_STK_VDP 41
-#define BTTRC_ID_STK_MCAP 42
+#define BTTRC_ID_STK_MCAP 42 /* OBSOLETE */
 #define BTTRC_ID_STK_GATT 43
 #define BTTRC_ID_STK_SMP 44
 #define BTTRC_ID_STK_NFC 45
@@ -180,10 +180,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
 
 #ifndef AVRC_INITIAL_TRACE_LEVEL
 #define AVRC_INITIAL_TRACE_LEVEL BT_TRACE_LEVEL_WARNING
-#endif
-
-#ifndef MCA_INITIAL_TRACE_LEVEL
-#define MCA_INITIAL_TRACE_LEVEL BT_TRACE_LEVEL_WARNING
 #endif
 
 #ifndef HID_INITIAL_TRACE_LEVEL
@@ -556,33 +552,6 @@ static const char BTE_LOGMSG_MODULE[] = "bte_logmsg_module";
       BT_TRACE(TRACE_LAYER_AVP, TRACE_TYPE_API, ##__VA_ARGS__); \
   }
 
-/* MCAP */
-#define MCA_TRACE_ERROR(...)                                      \
-  {                                                               \
-    if (mca_cb.trace_level >= BT_TRACE_LEVEL_ERROR)               \
-      BT_TRACE(TRACE_LAYER_MCA, TRACE_TYPE_ERROR, ##__VA_ARGS__); \
-  }
-#define MCA_TRACE_WARNING(...)                                      \
-  {                                                                 \
-    if (mca_cb.trace_level >= BT_TRACE_LEVEL_WARNING)               \
-      BT_TRACE(TRACE_LAYER_MCA, TRACE_TYPE_WARNING, ##__VA_ARGS__); \
-  }
-#define MCA_TRACE_EVENT(...)                                      \
-  {                                                               \
-    if (mca_cb.trace_level >= BT_TRACE_LEVEL_EVENT)               \
-      BT_TRACE(TRACE_LAYER_MCA, TRACE_TYPE_EVENT, ##__VA_ARGS__); \
-  }
-#define MCA_TRACE_DEBUG(...)                                      \
-  {                                                               \
-    if (mca_cb.trace_level >= BT_TRACE_LEVEL_DEBUG)               \
-      BT_TRACE(TRACE_LAYER_MCA, TRACE_TYPE_DEBUG, ##__VA_ARGS__); \
-  }
-#define MCA_TRACE_API(...)                                      \
-  {                                                             \
-    if (mca_cb.trace_level >= BT_TRACE_LEVEL_API)               \
-      BT_TRACE(TRACE_LAYER_MCA, TRACE_TYPE_API, ##__VA_ARGS__); \
-  }
-
 /* Define tracing for the SMP unit */
 #define SMP_TRACE_ERROR(...)                                      \
   {                                                               \
@@ -729,7 +698,7 @@ void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...);
 
 #include <base/logging.h>
 
-/* Prints intergral parameter x as hex string, with '0' fill */
+/* Prints integral parameter x as hex string, with '0' fill */
 template <typename T>
 std::string loghex(T x) {
   static_assert(std::is_integral<T>::value,
@@ -737,6 +706,19 @@ std::string loghex(T x) {
   std::stringstream tmp;
   tmp << std::showbase << std::internal << std::hex << std::setfill('0')
       << std::setw((sizeof(T) * 2) + 2) << +x;
+  return tmp.str();
+}
+
+/* Prints integral array as hex string, with '0' fill */
+template <typename T, size_t N>
+std::string loghex(std::array<T, N> array) {
+  static_assert(std::is_integral<T>::value,
+                "type stored in array must be integral.");
+  std::stringstream tmp;
+  for (const auto& x : array) {
+    tmp << std::internal << std::hex << std::setfill('0')
+        << std::setw((sizeof(uint8_t) * 2) + 2) << +x;
+  }
   return tmp.str();
 }
 
@@ -770,5 +752,54 @@ inline std::string& AppendField(std::string* p_result, bool append,
   *p_result += name;
   return *p_result;
 }
+
+// This object puts the stream in a state where every time that a new line
+// occurs, the next line is indented a certain number of spaces. The stream is
+// reset to its previous state when the object is destroyed.
+class ScopedIndent {
+ public:
+  ScopedIndent(std::ostream& stream, int indent_size = DEFAULT_TAB)
+      : indented_buf_(stream, indent_size) {
+    old_stream_ = &stream;
+    old_stream_buf_ = stream.rdbuf();
+    stream.rdbuf(&indented_buf_);
+  }
+
+  ~ScopedIndent() { old_stream_->rdbuf(old_stream_buf_); }
+
+  static const size_t DEFAULT_TAB = 2;
+
+ private:
+  class IndentedStreamBuf : public std::streambuf {
+   public:
+    IndentedStreamBuf(std::ostream& stream, int indent_size)
+        : wrapped_buf_(stream.rdbuf()),
+          indent_size_(indent_size),
+          indent_next_line_(true){};
+
+   protected:
+    virtual int overflow(int character) override {
+      if (indent_next_line_ && character != '\n') {
+        for (int i = 0; i < indent_size_; i++) wrapped_buf_->sputc(' ');
+      }
+
+      indent_next_line_ = false;
+      if (character == '\n') {
+        indent_next_line_ = true;
+      }
+
+      return wrapped_buf_->sputc(character);
+    }
+
+   private:
+    std::streambuf* wrapped_buf_;
+    int indent_size_;
+    bool indent_next_line_;
+  };
+
+  std::ostream* old_stream_;
+  std::streambuf* old_stream_buf_;
+  IndentedStreamBuf indented_buf_;
+};
 
 #endif

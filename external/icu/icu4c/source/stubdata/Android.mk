@@ -18,23 +18,33 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-# Derive a string like 'icudt 48l.dat' from a path like 'external/icu/icu4c/source/stubdata/icudt 48l.dat'
+# Derive a string like 'icudt 48l.dat' from a path like
+# 'external/icu/icu4c/source/stubdata/icudt 48l.dat'
 stubdata_path:= $(call my-dir)
 dat_file := $(notdir $(wildcard $(stubdata_path)/*.dat))
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := icu-data
+LOCAL_MODULE := icu-data_host_runtime_apex
 LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(TARGET_OUT)/usr/icu
-LOCAL_MODULE_STEM := $(dat_file)
-LOCAL_SRC_FILES := $(dat_file)
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := icu-data
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(HOST_OUT)/usr/icu
+LOCAL_MODULE_PATH := $(HOST_OUT)/com.android.runtime/etc/icu
 LOCAL_MODULE_STEM := $(dat_file)
 LOCAL_SRC_FILES := $(dat_file)
 LOCAL_IS_HOST_MODULE := true
+include $(BUILD_PREBUILT)
+
+# Module definition producing ICU .dat prebuilt files in
+# /system/etc/icu for standalone ART testing purposes. This is a
+# temporary change needed until the ART Buildbot and Golem both fully
+# support the Runtime APEX (see b/121117762). This module should never
+# be shipped by default (i.e. should never be part of
+# `PRODUCT_PACKAGE`.)
+#
+# TODO(b/121117762): Remove this module definition when the ART
+# Buildbot and Golem have full support for the Runtime APEX.
+include $(CLEAR_VARS)
+LOCAL_MODULE := icu-data-art-test
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/icu
+LOCAL_MODULE_STEM := $(dat_file)
+LOCAL_SRC_FILES := $(dat_file)
 include $(BUILD_PREBUILT)

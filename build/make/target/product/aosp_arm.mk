@@ -14,24 +14,29 @@
 # limitations under the License.
 #
 
-PRODUCT_PROPERTY_OVERRIDES += \
-	vendor.rild.libpath=/vendor/lib/libreference-ril.so
+PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
-# Note: the following lines need to stay at the beginning so that it can
-# take priority  and override the rules it inherit from other mk files
-# see copy file rules in core/Makefile
-PRODUCT_COPY_FILES += \
-    development/sys-img/advancedFeatures.ini.arm:advancedFeatures.ini \
-    prebuilts/qemu-kernel/arm64/3.18/kernel-qemu2:kernel-ranchu-64 \
-    device/generic/goldfish/fstab.ranchu.arm:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.ranchu
+# The system image of aosp_arm-userdebug is a GSI for the devices with:
+# - ARM 32 bits user space
+# - 64 bits binder interface
+# - system-as-root
+# - VNDK enforcement
+# - compatible property override enabled
 
-# TODO(b/78308559): includes vr_hwc into GSI before vr_hwc move to vendor
-PRODUCT_PACKAGES += \
-    vr_hwc
+# GSI for system/product
+$(call inherit-product, $(SRC_TARGET_DIR)/product/gsi_common.mk)
 
-include $(SRC_TARGET_DIR)/product/full.mk
+# Enable mainline checking for excat this product name
+ifeq (aosp_arm,$(TARGET_PRODUCT))
+PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := relaxed
+endif
 
-# Needed by Pi newly launched device to pass VtsTrebleSysProp on GSI
-PRODUCT_COMPATIBLE_PROPERTY_OVERRIDE := true
+# Emulator for vendor
+$(call inherit-product-if-exists, device/generic/goldfish/arm32-vendor.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/emulator_vendor.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/board/generic_x86/device.mk)
 
 PRODUCT_NAME := aosp_arm
+PRODUCT_DEVICE := generic
+PRODUCT_BRAND := Android
+PRODUCT_MODEL := AOSP on ARM32

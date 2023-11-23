@@ -18,8 +18,6 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-static char build_date[] = __DATE__ " at "__TIME__;
-
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -275,7 +273,7 @@ static inline int is_send_done(struct thr_info *tip)
  */
 static inline int is_reap_done(struct thr_info *tip)
 {
-	return tip->send_done && tip->naios_out == 0;
+	return signal_done || (tip->send_done && tip->naios_out == 0);
 }
 
 /**
@@ -502,19 +500,34 @@ static inline void start_iter(void)
  */
 static void get_ncpus(void)
 {
-	cpu_set_t cpus;
+#ifdef _SC_NPROCESSORS_ONLN
+	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+#else
+	int nrcpus = 4096;
+	cpu_set_t * cpus;
+	
+realloc:
+	cpus = CPU_ALLOC(nrcpus);
+	size = CPU_ALLOC_SIZE(nrcpus);
+	CPU_ZERO_S(size, cpus);
 
-	if (sched_getaffinity(getpid(), sizeof(cpus), &cpus)) {
+	if (sched_getaffinity(0, size, cpus)) {
+		if( errno == EINVAL && nrcpus < (4096<<4) ) {
+			CPU_FREE(cpus);
+			nrcpus <<= 1;
+			goto realloc;
+		}
 		fatal("sched_getaffinity", ERR_SYSCALL, "Can't get CPU info\n");
 		/*NOTREACHED*/
 	}
 
-	/*
-	 * XXX This assumes (perhaps wrongly) that there are no /holes/ 
-	 * XXX in the mask.
-	 */
-	for (ncpus = 0; ncpus < CPU_SETSIZE && CPU_ISSET(ncpus, &cpus); ncpus++)
-		;
+	ncpus = -1;
+	for (last_cpu = 0; last_cpu < CPU_SETSIZE && CPU_ISSET(last_cpu, &cpus); last_cpu++)
+		if (CPU_ISSET( last_cpu, &cpus) ) 
+			ncpus = last_cpu;
+	ncpus++;
+	CPU_FREE(cpus);
+#endif
 	if (ncpus == 0) {
 		fatal(NULL, ERR_SYSCALL, "Insufficient number of CPUs\n");
 		/*NOTREACHED*/
@@ -527,25 +540,30 @@ static void get_ncpus(void)
  */
 static void pin_to_cpu(struct thr_info *tip)
 {
-	cpu_set_t cpus;
+	cpu_set_t *cpus;
+	size_t size;
+
+	cpus = CPU_ALLOC(ncpus);
+	size = CPU_ALLOC_SIZE(ncpus);	
 
 	assert(0 <= tip->cpu && tip->cpu < ncpus);
 
-	CPU_ZERO(&cpus);
-	CPU_SET(tip->cpu, &cpus);
-	if (sched_setaffinity(getpid(), sizeof(cpus), &cpus)) {
+	CPU_ZERO_S(size, cpus);
+	CPU_SET_S(tip->cpu, size, cpus);
+	if (sched_setaffinity(0, size, cpus)) {
 		fatal("sched_setaffinity", ERR_SYSCALL, "Failed to pin CPU\n");
 		/*NOTREACHED*/
 	}
+	assert(tip->cpu == sched_getcpu());
 
 	if (verbose > 1) {
 		int i;
-		cpu_set_t now;
+		cpu_set_t *now = CPU_ALLOC(ncpus);
 
-		(void)sched_getaffinity(getpid(), sizeof(now), &now);
+		(void)sched_getaffinity(0, size, now);
 		fprintf(tip->vfp, "Pinned to CPU %02d ", tip->cpu);
 		for (i = 0; i < ncpus; i++)
-			fprintf(tip->vfp, "%1d", CPU_ISSET(i, &now));
+			fprintf(tip->vfp, "%1d", CPU_ISSET_S(i, size, now));
 		fprintf(tip->vfp, "\n");
 	}
 }
@@ -596,7 +614,7 @@ static void find_input_devs(char *idir)
 	}
 
 	while ((ent = readdir(dir)) != NULL) {
-		char *p, *dsf = malloc(256);
+		char *p, *dsf;
 
 		if (strstr(ent->d_name, ".replay.") == NULL)
 			continue;
@@ -627,7 +645,7 @@ static void find_input_devs(char *idir)
 static void read_map_devs(char *file_name)
 {
 	FILE *fp;
-	char *from_dev, *to_dev;
+	char from_dev[256], to_dev[256];
 
 	fp = fopen(file_name, "r");
 	if (!fp) {
@@ -635,7 +653,7 @@ static void read_map_devs(char *file_name)
 		/*NOTREACHED*/
 	}
 
-	while (fscanf(fp, "%as %as", &from_dev, &to_dev) == 2) {
+	while (fscanf(fp, "%s %s", from_dev, to_dev) == 2) {
 		struct map_dev *mdp = malloc(sizeof(*mdp));
 
 		mdp->from_dev = from_dev;
@@ -1314,6 +1332,8 @@ static void reset_input_file(struct thr_info *tip)
  */
 static void *replay_sub(void *arg)
 {
+        unsigned int i;
+	char *mdev;
 	char path[MAXPATHLEN];
 	struct io_bunch bunch;
 	struct thr_info *tip = arg;
@@ -1321,8 +1341,15 @@ static void *replay_sub(void *arg)
 
 	pin_to_cpu(tip);
 
-	sprintf(path, "/dev/%s", map_dev(tip->devnm));
-
+	mdev = map_dev(tip->devnm);
+	sprintf(path, "/dev/%s", mdev);
+	/*
+	 * convert underscores to slashes to
+	 * restore device names that have larger paths
+	 */
+	for (i = 0; i < strlen(mdev); i++)
+	        if (path[strlen("/dev/") + i] == '_')
+		        path[strlen("/dev/") + i] = '/';
 #ifdef O_NOATIME
 	oflags = O_NOATIME;
 #else
@@ -1530,8 +1557,6 @@ static void handle_args(int argc, char *argv[])
 		case 'V':
 			fprintf(stderr, "btreplay -- version %s\n", 
 				my_btversion);
-			fprintf(stderr, "            Built on %s\n", 
-				build_date);
 			exit(0);
 			/*NOTREACHED*/
 

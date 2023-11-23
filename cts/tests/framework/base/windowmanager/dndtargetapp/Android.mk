@@ -27,6 +27,8 @@ LOCAL_SDK_VERSION := current
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
+LOCAL_STATIC_JAVA_LIBRARIES := cts-wm-app-base
+
 LOCAL_PACKAGE_NAME := CtsDragAndDropTargetApp
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

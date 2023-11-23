@@ -24,12 +24,14 @@ from acts import asserts
 from acts import base_test
 from acts import utils
 from acts.controllers import monsoon
+from acts.metrics.loggers.blackbox import BlackboxMetricLogger
 from acts.test_utils.wifi import wifi_test_utils as wutils
 from acts.test_utils.wifi import wifi_power_test_utils as wputils
 
 SETTINGS_PAGE = 'am start -n com.android.settings/.Settings'
 SCROLL_BOTTOM = 'input swipe 0 2000 0 0'
 UNLOCK_SCREEN = 'input keyevent 82'
+SET_BATTERY_LEVEL = 'dumpsys battery set level 100'
 SCREENON_USB_DISABLE = 'dumpsys battery unplug'
 RESET_BATTERY_STATS = 'dumpsys batterystats --reset'
 AOD_OFF = 'settings put secure doze_always_on 0'
@@ -93,6 +95,9 @@ class PowerBaseTest(base_test.BaseTestClass):
     def __init__(self, controllers):
 
         base_test.BaseTestClass.__init__(self, controllers)
+        BlackboxMetricLogger.for_test_case(
+            metric_name='avg_power', result_attr='power_consumption')
+        self.start_meas_time = 0
 
     def setup_class(self):
 
@@ -104,7 +109,7 @@ class PowerBaseTest(base_test.BaseTestClass):
         self.mon_data_path = os.path.join(self.log_path, 'Monsoon')
         self.mon = self.monsoons[0]
         self.mon.set_max_current(8.0)
-        self.mon.set_voltage(4.2)
+        self.mon.set_voltage(PHONE_BATTERY_VOLTAGE)
         self.mon.attach_device(self.dut)
 
         # Unpack the test/device specific parameters
@@ -125,7 +130,7 @@ class PowerBaseTest(base_test.BaseTestClass):
         if hasattr(self, 'attenuators'):
             self.num_atten = self.attenuators[0].instrument.num_atten
             self.atten_level = self.unpack_custom_file(self.attenuation_file)
-        self.set_attenuation(INITIAL_ATTEN)
+            self.set_attenuation(INITIAL_ATTEN)
         self.threshold = self.unpack_custom_file(self.threshold_file)
         self.mon_info = self.create_monsoon_info()
 
@@ -139,6 +144,8 @@ class PowerBaseTest(base_test.BaseTestClass):
         """Set up test specific parameters or configs.
 
         """
+        # Reset the power consumption to 0 before each tests
+        self.power_consumption = 0
         # Set the device into rockbottom state
         self.dut_rockbottom()
         # Wait for extra time if needed for the first test
@@ -252,6 +259,7 @@ class PowerBaseTest(base_test.BaseTestClass):
         self.dut.adb.shell(ASSIST_GESTURE)
         self.dut.adb.shell(ASSIST_GESTURE_ALERT)
         self.dut.adb.shell(ASSIST_GESTURE_WAKE)
+        self.dut.adb.shell(SET_BATTERY_LEVEL)
         self.dut.adb.shell(SCREENON_USB_DISABLE)
         self.dut.adb.shell(UNLOCK_SCREEN)
         self.dut.adb.shell(SETTINGS_PAGE)
@@ -281,6 +289,7 @@ class PowerBaseTest(base_test.BaseTestClass):
         # Collecting current measurement data and plot
         begin_time = utils.get_current_epoch_time()
         self.file_path, self.test_result = self.monsoon_data_collect_save()
+        self.power_consumption = self.test_result * PHONE_BATTERY_VOLTAGE
         wputils.monsoon_data_plot(self.mon_info, self.file_path, tag=tag)
         # Take Bugreport
         if self.bug_report:
@@ -292,6 +301,12 @@ class PowerBaseTest(base_test.BaseTestClass):
         The threshold is provided in the config file. In this class, result is
         current in mA.
         """
+
+        if not self.threshold or self.test_name not in self.threshold:
+            self.log.error("No threshold is provided for the test '{}' in "
+                           "the configuration file.".format(self.test_name))
+            return
+
         current_threshold = self.threshold[self.test_name]
         if self.test_result:
             asserts.assert_true(
@@ -406,7 +421,7 @@ class PowerBaseTest(base_test.BaseTestClass):
                 # Retry loop to recover monsoon from error
                 retry_monsoon = 1
                 while retry_monsoon <= RECOVER_MONSOON_RETRY_COUNT:
-                    mon_status = self.monsoon_recover(self.mon_info.dut)
+                    mon_status = self.monsoon_recover()
                     if mon_status:
                         break
                     else:
@@ -440,22 +455,30 @@ class PowerBaseTest(base_test.BaseTestClass):
         if retry_measure > MEASUREMENT_RETRY_COUNT:
             self.log.error('Test failed after maximum measurement retry')
 
-    def setup_ap_connection(self, network, bandwidth=80, connect=True):
+    def setup_ap_connection(self, network, bandwidth=80, connect=True,
+                            ap=None):
         """Setup AP and connect DUT to it.
 
         Args:
             network: the network config for the AP to be setup
             bandwidth: bandwidth of the WiFi network to be setup
             connect: indicator of if connect dut to the network after setup
+            ap: access point object, default is None to find the main AP
         Returns:
             self.brconfigs: dict for bridge interface configs
         """
         wutils.wifi_toggle_state(self.dut, True)
-        self.brconfigs = wputils.ap_setup(
-            self.access_point, network, bandwidth=bandwidth)
+        if not ap:
+            if hasattr(self, 'access_points'):
+                self.brconfigs = wputils.ap_setup(
+                    self.access_point, network, bandwidth=bandwidth)
+        else:
+            self.brconfigs = wputils.ap_setup(ap, network, bandwidth=bandwidth)
         if connect:
-            wutils.wifi_connect(self.dut, network)
-        return self.brconfigs
+            wutils.wifi_connect(self.dut, network, num_of_tries=3)
+
+        if ap or (not ap and hasattr(self, 'access_points')):
+            return self.brconfigs
 
     def process_iperf_results(self):
         """Get the iperf results and process.
@@ -476,8 +499,13 @@ class PowerBaseTest(base_test.BaseTestClass):
             iperf_file = self.iperf_server.log_files[-1]
         try:
             iperf_result = ipf.IPerfResult(iperf_file)
-            throughput = (math.fsum(iperf_result.instantaneous_rates[:-1]) /
-                          len(iperf_result.instantaneous_rates[:-1])) * 8
+
+            # Compute the throughput in Mbit/s
+            throughput = (math.fsum(
+                iperf_result.instantaneous_rates[self.start_meas_time:-1]
+            ) / len(iperf_result.instantaneous_rates[self.start_meas_time:-1])
+                          ) * 8 * (1.024**2)
+
             self.log.info('The average throughput is {}'.format(throughput))
         except ValueError:
             self.log.warning('Cannot get iperf result. Setting to 0')
@@ -494,3 +522,4 @@ class PowerBaseTest(base_test.BaseTestClass):
             self.dut.reboot()
             self.dut.adb.root()
             self.dut.adb.remount()
+            self.dut.adb.shell(SET_BATTERY_LEVEL)

@@ -90,8 +90,12 @@ message CpuInfo {
 // The numbers are in dpi and should match android.util.DisplayMetrics.DENSITY_*
 enum LogicalDensity {
   LDPI = 120;
+  DENSITY_140 = 140;
   MDPI = 160;
+  DENSITY_180 = 180;
+  DENSITY_200 = 200;
   TVDPI = 213;
+  DENSITY_220 = 220;
   HDPI = 240;
   DENSITY_260 = 260;
   DENSITY_280 = 280;
@@ -103,10 +107,12 @@ enum LogicalDensity {
   // DENSITY_XXHIGH (480 dpi).
   DENSITY_400 = 400;
   DENSITY_420 = 420;
+  DENSITY_440 = 440;
   XXHDPI = 480;
   // Intermediate density for screens that sit somewhere between DENSITY_XXHIGH (480 dpi) and
   // DENSITY_XXXHIGH (640 dpi).
   DENSITY_560 = 560;
+  DENSITY_600 = 600;
   XXXHDPI = 640;
 }
 

@@ -4,7 +4,11 @@
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
-
+# Disable warnings from the following packages
+-dontwarn okio.**
+-dontwarn retrofit2.Platform$Java8
+-dontwarn com.google.common.**
+-dontwarn com.google.errorprone.annotations.**
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
 # class:
@@ -19,3 +23,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+-keep class com.google.common.base.Preconditions { *; }
+-keep class android.arch.** { *; }
+-keep class com.example.android.autofill.service.** { *; }
+

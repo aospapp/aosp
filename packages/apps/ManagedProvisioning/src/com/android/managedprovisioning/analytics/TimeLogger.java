@@ -26,11 +26,14 @@ import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVIS
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_START_PROFILE_TASK_MS;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_WEB_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
+import static com.android.managedprovisioning.analytics.AnalyticsUtils.CATEGORY_VIEW_UNKNOWN;
 
 import android.annotation.IntDef;
+import android.app.admin.DevicePolicyEventLogger;
 import android.content.Context;
-
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 
 /**
  * Utility class to log time.
@@ -41,6 +44,7 @@ public class TimeLogger {
     private final Context mContext;
     private final MetricsLoggerWrapper mMetricsLoggerWrapper;
     private final AnalyticsUtils mAnalyticsUtils;
+    private final ProvisioningAnalyticsTracker mProvisioningTracker;
     private Long mStartTime;
 
     @IntDef({
@@ -56,19 +60,24 @@ public class TimeLogger {
     public @interface TimeCategory {}
 
     public TimeLogger(Context context, @TimeCategory int category) {
-        this(context, category, new MetricsLoggerWrapper(), new AnalyticsUtils());
+        this(context, category, new MetricsLoggerWrapper(), new AnalyticsUtils(),
+                new ProvisioningAnalyticsTracker(
+                    MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                    new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
-    TimeLogger(
+    public TimeLogger(
             Context context,
             int category,
             MetricsLoggerWrapper metricsLoggerWrapper,
-            AnalyticsUtils analyticsUtils) {
+            AnalyticsUtils analyticsUtils,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
         mContext = checkNotNull(context);
         mCategory = checkNotNull(category);
         mMetricsLoggerWrapper = checkNotNull(metricsLoggerWrapper);
         mAnalyticsUtils = checkNotNull(analyticsUtils);
+        mProvisioningTracker = checkNotNull(provisioningAnalyticsTracker);
     }
 
     /**
@@ -89,6 +98,11 @@ public class TimeLogger {
             // Clear stored start time, we shouldn't log total time twice for same start time.
             mStartTime = null;
             mMetricsLoggerWrapper.logAction(mContext, mCategory, time);
+            final int devicePolicyEvent =
+                    AnalyticsUtils.getDevicePolicyEventForCategory(mCategory);
+            if (devicePolicyEvent != CATEGORY_VIEW_UNKNOWN) {
+                mProvisioningTracker.logTimeLoggerEvent(devicePolicyEvent, time);
+            }
         }
     }
 }

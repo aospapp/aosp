@@ -47,25 +47,6 @@
 #include "etnaviv_drmif.h"
 #include "etnaviv_drm.h"
 
-#define VIV_FEATURES_WORD_COUNT 7
-
-struct etna_specs {
-	uint32_t model;
-	uint32_t revision;
-	uint32_t features[VIV_FEATURES_WORD_COUNT];
-	uint32_t stream_count;
-	uint32_t register_max;
-	uint32_t thread_count;
-	uint32_t shader_core_count;
-	uint32_t vertex_cache_size;
-	uint32_t vertex_output_buffer_size;
-	uint32_t pixel_pipes;
-	uint32_t instruction_count;
-	uint32_t num_constants;
-	uint32_t num_varyings;
-	uint32_t buffer_size;
-};
-
 struct etna_bo_bucket {
 	uint32_t size;
 	struct list_head list;
@@ -134,8 +115,9 @@ struct etna_bo {
 
 struct etna_gpu {
 	struct etna_device *dev;
-	struct etna_specs specs;
 	uint32_t core;
+	uint32_t model;
+	uint32_t revision;
 };
 
 struct etna_pipe {
@@ -158,6 +140,10 @@ struct etna_cmd_stream_priv {
 		/* reloc's table: */
 		struct drm_etnaviv_gem_submit_reloc *relocs;
 		uint32_t nr_relocs, max_relocs;
+
+		/* perf's table: */
+		struct drm_etnaviv_gem_submit_pmr *pmrs;
+		uint32_t nr_pmrs, max_pmrs;
 	} submit;
 
 	/* should have matching entries in submit.bos: */
@@ -167,6 +153,27 @@ struct etna_cmd_stream_priv {
 	/* notify callback if buffer reset happend */
 	void (*reset_notify)(struct etna_cmd_stream *stream, void *priv);
 	void *reset_notify_priv;
+};
+
+struct etna_perfmon {
+	struct list_head domains;
+	struct etna_pipe *pipe;
+};
+
+struct etna_perfmon_domain
+{
+	struct list_head head;
+	struct list_head signals;
+	uint8_t id;
+	char name[64];
+};
+
+struct etna_perfmon_signal
+{
+	struct list_head head;
+	struct etna_perfmon_domain *domain;
+	uint8_t signal;
+	char name[64];
 };
 
 #define ALIGN(v,a) (((v) + (a) - 1) & ~((a) - 1))

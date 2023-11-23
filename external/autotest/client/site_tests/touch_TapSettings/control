@@ -9,7 +9,7 @@ CRITERIA = """
 This test will fail if, after playback of touch events, tap-to-click or tap
 dragging does not work when supposed to or works when not supposed to.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

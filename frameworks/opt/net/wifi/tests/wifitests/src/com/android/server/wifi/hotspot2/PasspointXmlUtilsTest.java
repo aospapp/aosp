@@ -24,8 +24,9 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
 import android.net.wifi.hotspot2.pps.Policy;
 import android.net.wifi.hotspot2.pps.UpdateParameter;
-import android.support.test.filters.SmallTest;
 import android.util.Xml;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 

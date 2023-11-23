@@ -16,19 +16,21 @@
 
 package android.net;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-
-import java.util.Arrays;
-import java.util.Random;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.net.Inet6Address;
+import java.util.Arrays;
+import java.util.Random;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -250,6 +252,52 @@ public class MacAddressTest {
             fail("MacAddress.fromBytes(null) should have failed, but returned " + mac);
         } catch (NullPointerException excepted) {
         }
+    }
+
+    @Test
+    public void testMatches() {
+        // match 4 bytes prefix
+        assertTrue(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("aa:bb:cc:dd:00:00"),
+                MacAddress.fromString("ff:ff:ff:ff:00:00")));
+
+        // match bytes 0,1,2 and 5
+        assertTrue(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("aa:bb:cc:00:00:11"),
+                MacAddress.fromString("ff:ff:ff:00:00:ff")));
+
+        // match 34 bit prefix
+        assertTrue(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("aa:bb:cc:dd:c0:00"),
+                MacAddress.fromString("ff:ff:ff:ff:c0:00")));
+
+        // fail to match 36 bit prefix
+        assertFalse(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("aa:bb:cc:dd:40:00"),
+                MacAddress.fromString("ff:ff:ff:ff:f0:00")));
+
+        // match all 6 bytes
+        assertTrue(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("aa:bb:cc:dd:ee:11"),
+                MacAddress.fromString("ff:ff:ff:ff:ff:ff")));
+
+        // match none of 6 bytes
+        assertTrue(MacAddress.fromString("aa:bb:cc:dd:ee:11").matches(
+                MacAddress.fromString("00:00:00:00:00:00"),
+                MacAddress.fromString("00:00:00:00:00:00")));
+    }
+
+    /**
+     * Tests that link-local address generation from MAC is valid.
+     */
+    @Test
+    public void testLinkLocalFromMacGeneration() {
+        MacAddress mac = MacAddress.fromString("52:74:f2:b1:a8:7f");
+        byte[] inet6ll = {(byte) 0xfe, (byte) 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x74,
+            (byte) 0xf2, (byte) 0xff, (byte) 0xfe, (byte) 0xb1, (byte) 0xa8, 0x7f};
+        Inet6Address llv6 = mac.getLinkLocalIpv6FromEui48Mac();
+        assertTrue(llv6.isLinkLocalAddress());
+        assertArrayEquals(inet6ll, llv6.getAddress());
     }
 
     static byte[] toByteArray(int... in) {

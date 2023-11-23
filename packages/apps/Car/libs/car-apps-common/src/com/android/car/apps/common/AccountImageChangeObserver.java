@@ -15,9 +15,11 @@
  */
 package com.android.car.apps.common;
 
-import android.annotation.RequiresPermission;
+import static android.Manifest.permission.GET_ACCOUNTS;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.annotation.RequiresPermission;
 import android.content.ContentUris;
 import android.content.Context;
 import android.database.ContentObserver;
@@ -29,8 +31,6 @@ import android.text.TextUtils;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-
-import static android.Manifest.permission.GET_ACCOUNTS;
 
 /**
  * @hide

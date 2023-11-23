@@ -35,8 +35,9 @@ public interface IFormatterGenerator {
      * directory and create the {@link SuiteResultHolder} out of it.
      *
      * @param resultDir The directory where to find the results.
+     * @param shallow only load the top level information of {@link SuiteResultHolder}.
      * @return A {@link SuiteResultHolder} containing the results representation. Or null if
      *     anything goes wrong.
      */
-    public SuiteResultHolder parseResults(File resultDir) throws IOException;
+    public SuiteResultHolder parseResults(File resultDir, boolean shallow) throws IOException;
 }

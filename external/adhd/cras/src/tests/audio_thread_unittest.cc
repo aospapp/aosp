@@ -14,6 +14,7 @@ extern "C" {
 #define BUFFER_SIZE 8192
 #define FIRST_CB_LEVEL 480
 
+static int cras_audio_thread_busyloop_called;
 static unsigned int cras_rstream_dev_offset_called;
 static unsigned int cras_rstream_dev_offset_ret[MAX_CALLS];
 static const struct cras_rstream *cras_rstream_dev_offset_rstream_val[MAX_CALLS];
@@ -31,6 +32,7 @@ static int dev_stream_playback_frames_ret;
 static unsigned int cras_iodev_prepare_output_before_write_samples_called;
 static enum CRAS_IODEV_STATE cras_iodev_prepare_output_before_write_samples_state;
 static unsigned int cras_iodev_get_output_buffer_called;
+static unsigned int cras_iodev_frames_to_play_in_sleep_called;
 static int cras_iodev_prepare_output_before_write_samples_ret;
 static int cras_iodev_reset_request_called;
 static struct cras_iodev *cras_iodev_reset_request_iodev;
@@ -54,12 +56,14 @@ void ResetGlobalStubData() {
   }
   cras_iodev_all_streams_written_ret = 0;
   if (cras_iodev_get_output_buffer_area) {
+    free(cras_iodev_get_output_buffer_area->channels[0].buf);
     free(cras_iodev_get_output_buffer_area);
     cras_iodev_get_output_buffer_area = NULL;
   }
   cras_iodev_put_output_buffer_called = 0;
   cras_iodev_put_output_buffer_nframes = 0;
   cras_iodev_fill_odev_zeros_frames = 0;
+  cras_iodev_frames_to_play_in_sleep_called = 0;
   dev_stream_playback_frames_ret = 0;
   cras_iodev_prepare_output_before_write_samples_called = 0;
   cras_iodev_prepare_output_before_write_samples_state = CRAS_IODEV_STATE_OPEN;
@@ -84,6 +88,8 @@ class StreamDeviceSuite : public testing::Test {
     }
 
     virtual void TearDown() {
+      audio_thread_destroy(thread_);
+      ResetGlobalStubData();
     }
 
     virtual void SetupDevice(cras_iodev *iodev,
@@ -91,7 +97,7 @@ class StreamDeviceSuite : public testing::Test {
       memset(iodev, 0, sizeof(*iodev));
       iodev->info.idx = ++device_id_;
       iodev->direction = direction;
-      iodev->open_dev = open_dev;
+      iodev->configure_dev = configure_dev;
       iodev->close_dev = close_dev;
       iodev->frames_queued = frames_queued;
       iodev->delay_frames = delay_frames;
@@ -118,7 +124,7 @@ class StreamDeviceSuite : public testing::Test {
       rstream->direction = direction;
       rstream->cb_threshold = 480;
       rstream->shm.area = static_cast<cras_audio_shm_area*>(
-          calloc(1, sizeof(rstream->shm.area)));
+          calloc(1, sizeof(*rstream->shm.area)));
     }
 
     void TearDownRstream(struct cras_rstream *rstream) {
@@ -133,7 +139,7 @@ class StreamDeviceSuite : public testing::Test {
       rstream->pinned_dev_idx = pin_to_dev->info.idx;
     }
 
-    static int open_dev(cras_iodev* iodev) {
+    static int configure_dev(cras_iodev* iodev) {
       open_dev_called_++;
       return 0;
     }
@@ -251,6 +257,7 @@ TEST_F(StreamDeviceSuite, StartRamp) {
   EXPECT_EQ(0, rc);
   EXPECT_EQ(&iodev, cras_iodev_start_ramp_odev);
   EXPECT_EQ(req, cras_iodev_start_ramp_request);
+  thread_rm_open_dev(thread_, &iodev);
 }
 
 TEST_F(StreamDeviceSuite, AddRemoveOpenInputDevice) {
@@ -320,6 +327,9 @@ TEST_F(StreamDeviceSuite, AddRemoveMultipleOpenDevices) {
   thread_rm_open_dev(thread_, &idev3);
   adev = thread_->open_devs[CRAS_STREAM_INPUT];
   EXPECT_EQ(adev->dev, &idev2);
+  thread_rm_open_dev(thread_, &idev2);
+  thread_rm_open_dev(thread_, &odev2);
+  thread_rm_open_dev(thread_, &odev3);
 }
 
 TEST_F(StreamDeviceSuite, MultipleInputStreamsCopyFirstStreamOffset) {
@@ -363,6 +373,8 @@ TEST_F(StreamDeviceSuite, MultipleInputStreamsCopyFirstStreamOffset) {
   EXPECT_EQ(&rstream2, cras_rstream_dev_offset_update_rstream_val[1]);
   EXPECT_EQ(0, cras_rstream_dev_offset_update_frames_val[1]);
 
+  thread_rm_open_dev(thread_, &iodev);
+  thread_rm_open_dev(thread_, &iodev2);
   TearDownRstream(&rstream);
   TearDownRstream(&rstream2);
   TearDownRstream(&rstream3);
@@ -395,7 +407,7 @@ TEST_F(StreamDeviceSuite, InputStreamsSetInputDeviceWakeTime) {
   // Send captured samples to client.
   // This will also update wake time for this device based on
   // dev_stream_wake_time of each stream of this device.
-  send_captured_samples(thread_);
+  dev_io_send_captured_samples(thread_->open_devs[CRAS_STREAM_INPUT]);
 
   // wake_ts is maintained in open_dev.
   adev = thread_->open_devs[CRAS_STREAM_INPUT];
@@ -405,6 +417,7 @@ TEST_F(StreamDeviceSuite, InputStreamsSetInputDeviceWakeTime) {
   EXPECT_EQ(ts_wake_1.tv_sec, adev->wake_ts.tv_sec);
   EXPECT_EQ(ts_wake_1.tv_nsec, adev->wake_ts.tv_nsec);
 
+  thread_rm_open_dev(thread_, &iodev);
   TearDownRstream(&rstream1);
   TearDownRstream(&rstream2);
 }
@@ -458,8 +471,10 @@ TEST_F(StreamDeviceSuite, AddRemoveMultipleStreamsOnMultipleDevices) {
   EXPECT_EQ(NULL, dev_stream->next);
 
   // Remove 2 streams, check the streams are removed from both open devices.
-  thread_remove_stream(thread_, &rstream, &iodev);
-  thread_remove_stream(thread_, &rstream3, &iodev2);
+  dev_io_remove_stream(&thread_->open_devs[rstream.direction],
+		       &rstream, &iodev);
+  dev_io_remove_stream(&thread_->open_devs[rstream3.direction],
+		       &rstream3, &iodev2);
   dev_stream = iodev2.streams;
   EXPECT_EQ(NULL, dev_stream);
 
@@ -471,6 +486,7 @@ TEST_F(StreamDeviceSuite, AddRemoveMultipleStreamsOnMultipleDevices) {
   dev_stream = iodev.streams;
   EXPECT_EQ(NULL, dev_stream);
 
+  thread_rm_open_dev(thread_, &iodev);
   TearDownRstream(&rstream);
   TearDownRstream(&rstream2);
   TearDownRstream(&rstream3);
@@ -498,7 +514,9 @@ TEST_F(StreamDeviceSuite, WriteOutputSamplesPrepareOutputFailed) {
   cras_iodev_prepare_output_before_write_samples_ret = -EINVAL;
 
   // cras_iodev should handle no stream playback.
-  EXPECT_EQ(-EINVAL, write_output_samples(thread_, adev));
+  EXPECT_EQ(-EINVAL,
+	    write_output_samples(&thread_->open_devs[CRAS_STREAM_OUTPUT],
+				 adev, nullptr));
 
   // cras_iodev_get_output_buffer in audio_thread write_output_samples is not
   // called.
@@ -526,7 +544,7 @@ TEST_F(StreamDeviceSuite, WriteOutputSamplesNoStream) {
       CRAS_IODEV_STATE_NO_STREAM_RUN;
 
   // cras_iodev should handle no stream playback.
-  write_output_samples(thread_, adev);
+  write_output_samples(&thread_->open_devs[CRAS_STREAM_OUTPUT], adev, nullptr);
   EXPECT_EQ(1, cras_iodev_prepare_output_before_write_samples_called);
   // cras_iodev_get_output_buffer in audio_thread write_output_samples is not
   // called.
@@ -558,7 +576,7 @@ TEST_F(StreamDeviceSuite, WriteOutputSamplesLeaveNoStream) {
       CRAS_IODEV_STATE_NO_STREAM_RUN;
 
   // cras_iodev should NOT leave no stream state;
-  write_output_samples(thread_, adev);
+  write_output_samples(&thread_->open_devs[CRAS_STREAM_OUTPUT], adev, nullptr);
   EXPECT_EQ(1, cras_iodev_prepare_output_before_write_samples_called);
   // cras_iodev_get_output_buffer in audio_thread write_output_samples is not
   // called.
@@ -569,16 +587,48 @@ TEST_F(StreamDeviceSuite, WriteOutputSamplesLeaveNoStream) {
       CRAS_IODEV_STATE_NORMAL_RUN;
 
   // cras_iodev should write samples from streams.
-  write_output_samples(thread_, adev);
+  write_output_samples(&thread_->open_devs[CRAS_STREAM_OUTPUT], adev, nullptr);
   EXPECT_EQ(2, cras_iodev_prepare_output_before_write_samples_called);
   EXPECT_EQ(1, cras_iodev_get_output_buffer_called);
 
   thread_rm_open_dev(thread_, &iodev);
 }
 
-TEST_F(StreamDeviceSuite, WriteOutputSamplesUnderrun) {
+TEST_F(StreamDeviceSuite, DoPlaybackNoStream) {
+  struct cras_iodev iodev;
+
+  ResetGlobalStubData();
+
+  SetupDevice(&iodev, CRAS_STREAM_OUTPUT);
+
+  // Add the device.
+  thread_add_open_dev(thread_, &iodev);
+
+  // Assume device is started.
+  iodev.state = CRAS_IODEV_STATE_NO_STREAM_RUN;
+  // Assume device remains in no stream state;
+  cras_iodev_prepare_output_before_write_samples_state = \
+      CRAS_IODEV_STATE_NO_STREAM_RUN;
+  // Add 10 frames in queue to prevent underrun
+  frames_queued_ = 10;
+
+  // cras_iodev should handle no stream playback.
+  dev_io_playback_write(&thread_->open_devs[CRAS_STREAM_OUTPUT], nullptr);
+  EXPECT_EQ(1, cras_iodev_prepare_output_before_write_samples_called);
+  // cras_iodev_get_output_buffer in audio_thread write_output_samples is not
+  // called.
+  EXPECT_EQ(0, cras_iodev_get_output_buffer_called);
+
+  EXPECT_EQ(0, cras_iodev_output_underrun_called);
+  // cras_iodev_frames_to_play_in_sleep should be called from
+  // update_dev_wakeup_time.
+  EXPECT_EQ(1, cras_iodev_frames_to_play_in_sleep_called);
+
+  thread_rm_open_dev(thread_, &iodev);
+}
+
+TEST_F(StreamDeviceSuite, DoPlaybackUnderrun) {
   struct cras_iodev iodev, *piodev = &iodev;
-  struct open_dev *adev;
   struct cras_rstream rstream;
 
   ResetGlobalStubData();
@@ -591,28 +641,29 @@ TEST_F(StreamDeviceSuite, WriteOutputSamplesUnderrun) {
 
   // Add the device and add the stream.
   thread_add_open_dev(thread_, &iodev);
-  adev = thread_->open_devs[CRAS_STREAM_OUTPUT];
   thread_add_stream(thread_, &rstream, &piodev, 1);
 
-  // Assume device is running and there is an underrun. There is no frame
-  // queued and there is no sample written in this cycle.
+  // Assume device is running and there is an underrun.
+  // It wrote 11 frames into device but new hw_level is only 10.
+  // It means underrun may happened because 10 - 11 < 0.
   // Audio thread should ask iodev to handle output underrun.
   iodev.state = CRAS_IODEV_STATE_NORMAL_RUN;
-  frames_queued_ = 0;
-  cras_iodev_all_streams_written_ret = 0;
+  frames_queued_ = 10;
+  cras_iodev_all_streams_written_ret = 11;
 
   // Assume device in normal run stream state;
   cras_iodev_prepare_output_before_write_samples_state = \
       CRAS_IODEV_STATE_NORMAL_RUN;
 
-  write_output_samples(thread_, adev);
+  EXPECT_EQ(0, cras_iodev_output_underrun_called);
+  dev_io_playback_write(&thread_->open_devs[CRAS_STREAM_OUTPUT], nullptr);
   EXPECT_EQ(1, cras_iodev_output_underrun_called);
 
   thread_rm_open_dev(thread_, &iodev);
   TearDownRstream(&rstream);
 }
 
-TEST_F(StreamDeviceSuite, DoPlaybackUnderrun) {
+TEST_F(StreamDeviceSuite, DoPlaybackSevereUnderrun) {
   struct cras_iodev iodev, *piodev = &iodev;
   struct cras_rstream rstream;
 
@@ -636,7 +687,7 @@ TEST_F(StreamDeviceSuite, DoPlaybackUnderrun) {
   cras_iodev_prepare_output_before_write_samples_state = \
       CRAS_IODEV_STATE_NORMAL_RUN;
 
-  do_playback(thread_);
+  dev_io_playback_write(&thread_->open_devs[CRAS_STREAM_OUTPUT], nullptr);
 
   // Audio thread should ask main thread to reset device.
   EXPECT_EQ(1, cras_iodev_reset_request_called);
@@ -675,6 +726,28 @@ TEST(AUdioThreadStreams, DrainStream) {
   EXPECT_EQ(0, thread_drain_stream_ms_remaining(&thread, &rstream));
 }
 
+TEST(BusyloopDetectSuite, CheckerTest) {
+  continuous_zero_sleep_count = 0;
+  cras_audio_thread_busyloop_called = 0;
+  timespec wait_ts;
+  wait_ts.tv_sec = 0;
+  wait_ts.tv_nsec = 0;
+
+  check_busyloop(&wait_ts);
+  EXPECT_EQ(continuous_zero_sleep_count, 1);
+  EXPECT_EQ(cras_audio_thread_busyloop_called, 0);
+  check_busyloop(&wait_ts);
+  EXPECT_EQ(continuous_zero_sleep_count, 2);
+  EXPECT_EQ(cras_audio_thread_busyloop_called, 1);
+  check_busyloop(&wait_ts);
+  EXPECT_EQ(continuous_zero_sleep_count, 3);
+  EXPECT_EQ(cras_audio_thread_busyloop_called, 1);
+
+  wait_ts.tv_sec = 1;
+  check_busyloop(&wait_ts);
+  EXPECT_EQ(continuous_zero_sleep_count, 0);
+  EXPECT_EQ(cras_audio_thread_busyloop_called, 1);
+}
 
 extern "C" {
 
@@ -709,7 +782,8 @@ unsigned int cras_iodev_max_stream_offset(const struct cras_iodev *iodev)
   return 0;
 }
 
-int cras_iodev_open(struct cras_iodev *iodev, unsigned int cb_level)
+int cras_iodev_open(struct cras_iodev *iodev, unsigned int cb_level,
+                    const struct cras_audio_format *fmt)
 {
   return 0;
 }
@@ -761,21 +835,20 @@ int cras_iodev_update_rate(struct cras_iodev *iodev, unsigned int level,
   return 0;
 }
 
-int cras_iodev_put_input_buffer(struct cras_iodev *iodev, unsigned int nframes)
+int cras_iodev_put_input_buffer(struct cras_iodev *iodev)
 {
   return 0;
 }
 
 int cras_iodev_put_output_buffer(struct cras_iodev *iodev, uint8_t *frames,
-				 unsigned int nframes)
-{
+                                 unsigned int nframes, int* non_empty,
+                                 struct cras_fmt_conv *output_converter) {
   cras_iodev_put_output_buffer_called++;
   cras_iodev_put_output_buffer_nframes = nframes;
   return 0;
 }
 
 int cras_iodev_get_input_buffer(struct cras_iodev *iodev,
-				struct cras_audio_area **area,
 				unsigned *frames)
 {
   return 0;
@@ -795,7 +868,7 @@ int cras_iodev_get_dsp_delay(const struct cras_iodev *iodev)
   return 0;
 }
 
-void cras_fmt_conv_destroy(struct cras_fmt_conv *conv)
+void cras_fmt_conv_destroy(struct cras_fmt_conv **conv)
 {
 }
 
@@ -957,6 +1030,8 @@ void dev_stream_update_frames(const struct dev_stream *dev_stream)
 int dev_stream_wake_time(struct dev_stream *dev_stream,
                          unsigned int curr_level,
                          struct timespec *level_tstamp,
+                         unsigned int cap_limit,
+                         int is_cap_limit_stream,
                          struct timespec *wake_time)
 {
   if (dev_stream_wake_time_val.find(dev_stream) !=
@@ -964,6 +1039,16 @@ int dev_stream_wake_time(struct dev_stream *dev_stream,
     wake_time->tv_sec = dev_stream_wake_time_val[dev_stream].tv_sec;
     wake_time->tv_nsec = dev_stream_wake_time_val[dev_stream].tv_nsec;
   }
+  return 0;
+}
+
+int dev_stream_is_pending_reply(const struct dev_stream *dev_stream)
+{
+  return 0;
+}
+
+int dev_stream_flush_old_audio_messages(struct dev_stream *dev_stream)
+{
   return 0;
 }
 
@@ -997,7 +1082,18 @@ int cras_iodev_prepare_output_before_write_samples(struct cras_iodev *odev)
   return cras_iodev_prepare_output_before_write_samples_ret;
 }
 
+int cras_server_metrics_highest_hw_level(unsigned hw_level,
+		enum CRAS_STREAM_DIRECTION direction)
+{
+  return 0;
+}
+
 int cras_server_metrics_longest_fetch_delay(int delay_msec)
+{
+  return 0;
+}
+
+int cras_server_metrics_num_underruns(unsigned num_underruns)
 {
   return 0;
 }
@@ -1011,8 +1107,8 @@ unsigned int cras_iodev_frames_to_play_in_sleep(struct cras_iodev *odev,
                                                 unsigned int *hw_level,
                                                 struct timespec *hw_tstamp)
 {
-  clock_gettime(CLOCK_MONOTONIC_RAW, hw_tstamp);
-  *hw_level = 0;
+  *hw_level = cras_iodev_frames_queued(odev, hw_tstamp);
+  cras_iodev_frames_to_play_in_sleep_called++;
   return 0;
 }
 
@@ -1056,11 +1152,60 @@ unsigned int cras_iodev_get_num_severe_underruns(const struct cras_iodev *iodev)
   return 0;
 }
 
+void cras_iodev_update_highest_hw_level(struct cras_iodev *iodev,
+		unsigned int hw_level)
+{
+}
+
 int cras_iodev_start_ramp(struct cras_iodev *odev,
                           enum CRAS_IODEV_RAMP_REQUEST request)
 {
   cras_iodev_start_ramp_odev = odev;
   cras_iodev_start_ramp_request = request;
+  return 0;
+}
+
+int input_data_get_for_stream(
+		struct input_data *data,
+		struct cras_rstream *stream,
+		struct buffer_share *offsets,
+		struct cras_audio_area **area,
+		unsigned int *offset)
+{
+  return 0;
+}
+
+int input_data_put_for_stream(struct input_data *data,
+			   struct cras_rstream *stream,
+			   struct buffer_share *offsets,
+			   unsigned int frames)
+{
+  return 0;
+}
+
+#ifdef HAVE_WEBRTC_APM
+
+uint64_t cras_apm_list_get_effects(struct cras_apm_list *list)
+{
+  return 0;
+}
+
+void cras_apm_list_set_debug_recording(struct cras_apm *apm,
+    unsigned int stream_id, int start, const char *file_name_base)
+{
+}
+void cras_apm_list_set_aec_dump(struct cras_apm_list *list,
+				void *dev_ptr,
+			        int start,
+			        int fd)
+{
+}
+
+#endif
+
+int cras_audio_thread_busyloop()
+{
+  cras_audio_thread_busyloop_called ++;
   return 0;
 }
 

@@ -20,6 +20,8 @@ import static org.hamcrest.core.IsEqual.equalTo;
 
 import android.util.SparseIntArray;
 
+import androidx.test.filters.SmallTest;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -29,6 +31,7 @@ import org.mockito.MockitoAnnotations;
 /**
  * Unit test harness for MetricsUtils.
  */
+@SmallTest
 public class MetricsUtilsTest {
     @Rule
     public ErrorCollector collector = new ErrorCollector();

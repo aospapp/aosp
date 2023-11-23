@@ -743,6 +743,16 @@ getMethodClass(jvmtiEnv *jvmti_env, jmethodID method)
     return clazz;
 }
 
+/* ANDROID-CHANGED: Android keeps track of object unloads by watching this event instead of looking
+ * through jweaks since there are a limited number of those. This does not cause any corresponding
+ * jdwp event and is merely passed on to the commonRef system.
+ */
+static void JNICALL
+cbObjectFree(jvmtiEnv* jvmti_env, jlong tag)
+{
+  commonRef_handleFreedObject(tag);
+}
+
 /* Event callback for JVMTI_EVENT_SINGLE_STEP */
 static void JNICALL
 cbSingleStep(jvmtiEnv *jvmti_env, JNIEnv *env,
@@ -883,6 +893,13 @@ static void JNICALL
 cbClassPrepare(jvmtiEnv *jvmti_env, JNIEnv *env,
                         jthread thread, jclass klass)
 {
+    /* ANDROID-CHANGED: b/111394423 Android sends ClassPrepare events for arrays too. We don't
+     * really care about these though and they can cause deadlocks since they may be sent on jit
+     * threads so just ignore them.
+     */
+    if (isArrayClass(klass)) {
+      return;
+    }
     EventInfo info;
 
     LOG_CB(("cbClassPrepare: thread=%p", thread));
@@ -912,6 +929,13 @@ static void JNICALL
 cbClassLoad(jvmtiEnv *jvmti_env, JNIEnv *env,
                         jthread thread, jclass klass)
 {
+    /* ANDROID-CHANGED: b/111394423 Android sends ClassLoad events for arrays too. We don't really
+     * care about these though and they can cause deadlocks since they may be sent on jit threads so
+     * just ignore them.
+     */
+    if (isArrayClass(klass)) {
+      return;
+    }
     EventInfo info;
 
     LOG_CB(("cbClassLoad: thread=%p", thread));
@@ -1485,8 +1509,16 @@ eventHandler_initialize(jbyte sessionID)
     if (error != JVMTI_ERROR_NONE) {
         EXIT_ERROR(error,"Can't enable garbage collection finish events");
     }
+    /* ANDROID-CHANGED: Permanently enable object free for common-ref tracking */
+    error = JVMTI_FUNC_PTR(gdata->jvmti,SetEventNotificationMode)
+                (gdata->jvmti, JVMTI_ENABLE, JVMTI_EVENT_OBJECT_FREE, NULL);
+    if (error != JVMTI_ERROR_NONE) {
+        EXIT_ERROR(error,"Can't enable object free events");
+    }
 
     (void)memset(&(gdata->callbacks),0,sizeof(gdata->callbacks));
+    /* ANDROID-CHANGED: Event callback for common-ref tracking */
+    gdata->callbacks.ObjectFree                 = &cbObjectFree;
     /* Event callback for JVMTI_EVENT_SINGLE_STEP */
     gdata->callbacks.SingleStep                 = &cbSingleStep;
     /* Event callback for JVMTI_EVENT_BREAKPOINT */

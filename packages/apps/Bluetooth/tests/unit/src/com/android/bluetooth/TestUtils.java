@@ -23,8 +23,9 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ServiceTestRule;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ServiceTestRule;
 
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
@@ -33,9 +34,13 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.internal.util.MockUtil;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -268,6 +273,42 @@ public class TestUtils {
             handler.post(sr);
             sr.waitForComplete();
         }
+    }
+
+    /**
+     * Read Bluetooth adapter configuration from the filesystem
+     *
+     * @return A {@link HashMap} of Bluetooth configs in the format:
+     *  section -> key1 -> value1
+     *          -> key2 -> value2
+     *  Assume no empty section name, no duplicate keys in the same section
+     */
+    public static HashMap<String, HashMap<String, String>> readAdapterConfig() {
+        HashMap<String, HashMap<String, String>> adapterConfig = new HashMap<>();
+        try (BufferedReader reader =
+                new BufferedReader(new FileReader("/data/misc/bluedroid/bt_config.conf"))) {
+            String section = "";
+            for (String line; (line = reader.readLine()) != null;) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                if (line.startsWith("[")) {
+                    if (line.charAt(line.length() - 1) != ']') {
+                        return null;
+                    }
+                    section = line.substring(1, line.length() - 1);
+                    adapterConfig.put(section, new HashMap<>());
+                } else {
+                    String[] keyValue = line.split("=");
+                    adapterConfig.get(section).put(keyValue[0].trim(),
+                            keyValue.length == 1 ? "" : keyValue[1].trim());
+                }
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return adapterConfig;
     }
 
     /**

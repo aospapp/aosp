@@ -1,4 +1,8 @@
 #!/usr/bin/env python2
+
+# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 """The binary search wrapper."""
 
 from __future__ import print_function
@@ -9,6 +13,7 @@ import errno
 import math
 import os
 import pickle
+import re
 import sys
 import tempfile
 import time
@@ -21,6 +26,7 @@ from cros_utils import command_executer
 from cros_utils import logger
 
 import binary_search_perforce
+import pass_mapping
 
 GOOD_SET_VAR = 'BISECT_GOOD_SET'
 BAD_SET_VAR = 'BISECT_BAD_SET'
@@ -63,8 +69,8 @@ class BinarySearchState(object):
   """The binary search state class."""
 
   def __init__(self, get_initial_items, switch_to_good, switch_to_bad,
-               test_setup_script, test_script, incremental, prune, iterations,
-               prune_iterations, verify, file_args, verbose):
+               test_setup_script, test_script, incremental, prune, pass_bisect,
+               iterations, prune_iterations, verify, file_args, verbose):
     """BinarySearchState constructor, see Run for full args documentation."""
     self.get_initial_items = get_initial_items
     self.switch_to_good = switch_to_good
@@ -73,6 +79,7 @@ class BinarySearchState(object):
     self.test_script = test_script
     self.incremental = incremental
     self.prune = prune
+    self.pass_bisect = pass_bisect
     self.iterations = iterations
     self.prune_iterations = prune_iterations
     self.verify = verify
@@ -87,6 +94,8 @@ class BinarySearchState(object):
     self.search_cycles = 0
     self.binary_search = None
     self.all_items = None
+    self.cmd_script = None
+    self.mode = None
     self.PopulateItemsUsingCommand(self.get_initial_items)
     self.currently_good_items = set([])
     self.currently_bad_items = set([])
@@ -182,6 +191,17 @@ class BinarySearchState(object):
     ret, _, _ = self.ce.RunCommandWExceptionCleanup(command)
     return ret
 
+  def GenerateBadCommandScript(self, bad_items):
+    """Generate command line script for building bad item."""
+    assert not self.prune, 'Prune must be false if pass_bisect is set.'
+    assert len(bad_items) == 1, 'Pruning is off, but number of bad ' \
+                                       'items found was not 1.'
+    item = list(bad_items)[0]
+    command = '%s %s' % (self.pass_bisect, item)
+    ret, _, _ = self.ce.RunCommandWExceptionCleanup(
+        command, print_to_console=self.verbose)
+    return ret
+
   def DoVerify(self):
     """Verify correctness of test environment.
 
@@ -216,14 +236,14 @@ class BinarySearchState(object):
         status = self.TestScript()
       assert status == 1, 'When reset_to_bad, status should be 1.'
 
-  def DoSearch(self):
+  def DoSearchBadItems(self):
     """Perform full search for bad items.
 
     Perform full search until prune_iterations number of bad items are found.
     """
     while (True and len(self.all_items) > 1 and
            self.prune_cycles < self.prune_iterations):
-      terminated = self.DoBinarySearch()
+      terminated = self.DoBinarySearchBadItems()
       self.prune_cycles += 1
       if not terminated:
         break
@@ -234,6 +254,7 @@ class BinarySearchState(object):
       if prune_index == len(self.all_items) - 1:
         self.l.LogOutput('First bad item is the last item. Breaking.')
         self.l.LogOutput('Bad items are: %s' % self.all_items[-1])
+        self.found_items.add(self.all_items[-1])
         break
 
       # If already seen item we have no new bad items to find, finish up
@@ -270,7 +291,18 @@ class BinarySearchState(object):
       # FIXME: Do we need to Convert the currently good items to bad
       self.PopulateItemsUsingList(new_all_items)
 
-  def DoBinarySearch(self):
+    # If pass level bisecting is set, generate a script which contains command
+    # line options to rebuild bad item.
+    if self.pass_bisect:
+      status = self.GenerateBadCommandScript(self.found_items)
+      if status == 0:
+        self.cmd_script = os.path.join(
+            os.path.dirname(self.pass_bisect), 'cmd_script.sh')
+        self.l.LogOutput('Command script generated at %s.' % self.cmd_script)
+      else:
+        raise RuntimeError('Error while generating command script.')
+
+  def DoBinarySearchBadItems(self):
     """Perform single iteration of binary search."""
     # If in resume mode don't reset search_cycles
     if not self.resumed:
@@ -281,7 +313,7 @@ class BinarySearchState(object):
     terminated = False
     while self.search_cycles < self.iterations and not terminated:
       self.SaveState()
-      self.OutputIterationProgress()
+      self.OutputIterationProgressBadItem()
 
       self.search_cycles += 1
       [bad_items, good_items] = self.GetNextItems()
@@ -301,6 +333,199 @@ class BinarySearchState(object):
       self.l.LogOutput('Ran out of iterations searching...')
     self.l.LogOutput(str(self), print_to_console=self.verbose)
     return terminated
+
+  def CollectPassName(self, pass_info):
+    """Mapping opt-bisect output of pass info to debugcounter name."""
+    self.l.LogOutput('Pass info: %s' % pass_info, print_to_console=self.verbose)
+
+    for desc in pass_mapping.pass_name:
+      if desc in pass_info:
+        return pass_mapping.pass_name[desc]
+
+    # If pass not found, return None
+    return None
+
+  def BuildWithPassLimit(self, limit):
+    """ Rebuild bad item with pass level bisect limit
+
+    Run command line script generated by GenerateBadCommandScript(), with
+    pass level limit flags.
+
+    Return:
+      pass_num: current number of the pass, or total number of passes if
+                limit set to -1.
+      pass_name: The debugcounter name of current limit pass.
+    """
+    os.environ['LIMIT_FLAGS'] = '-mllvm -opt-bisect-limit=' + str(limit)
+    self.l.LogOutput(
+        'Limit flags: %s' % os.environ['LIMIT_FLAGS'],
+        print_to_console=self.verbose)
+    command = self.cmd_script
+    _, _, msg = self.ce.RunCommandWOutput(command, print_to_console=False)
+
+    # Massages we get will be like this:
+    #   BISECT: running pass (9) <Pass Description> on <function> (<file>)
+    #   BISECT: running pass (10) <Pass Description> on <module> (<file>)
+    #   BISECT: NOT running pass (11) <Pass Description> on <SCG> (<file>)
+    #   BISECT: NOT running pass (12) <Pass Description> on <SCG> (<file>)
+    # We want to get the pass description of last running pass, to have
+    # transformation level bisect on it.
+    if 'BISECT: ' not in msg:
+      raise RuntimeError('No bisect info printed, OptBisect may not be '
+                         'supported by the compiler.')
+
+    lines = msg.split('\n')
+    pass_num = 0
+    last_pass = ''
+    for l in lines:
+      if 'running pass' in l:
+        # For situation of limit==-1, we want the total number of passes
+        if limit != -1 and 'BISECT: NOT ' in l:
+          break
+        pass_num += 1
+        last_pass = l
+    if limit != -1 and pass_num != limit:
+      raise ValueError('[Error] While building, limit number does not match.')
+    return pass_num, self.CollectPassName(last_pass)
+
+  def BuildWithTransformLimit(self, limit, pass_name=None, pass_limit=-1):
+    """ Rebuild bad item with transformation level bisect limit
+
+    Run command line script generated by GenerateBadCommandScript(), with
+    pass level limit flags and transformation level limit flags.
+
+    Args:
+      limit: transformation level limit for bad item
+      pass_name: name of bad pass debugcounter from pass level bisect result
+      pass_limit: pass level limit from pass level bisect result
+    Return: Total number of transformations if limit set to -1, else return 0.
+    """
+    counter_name = pass_name
+
+    os.environ['LIMIT_FLAGS'] = '-mllvm -opt-bisect-limit=' + \
+                                str(pass_limit) + \
+                                ' -mllvm -debug-counter=' + counter_name + \
+                                '-count=' + str(limit) + \
+                                ' -mllvm -print-debug-counter'
+    self.l.LogOutput(
+        'Limit flags: %s' % os.environ['LIMIT_FLAGS'],
+        print_to_console=self.verbose)
+    command = self.cmd_script
+    _, _, msg = self.ce.RunCommandWOutput(command, print_to_console=False)
+
+    if 'Counters and values:' not in msg:
+      raise RuntimeError('No bisect info printed, DebugCounter may not be '
+                         'supported by the compiler.')
+
+    # With debugcounter enabled, there will be DebugCounter counting info in
+    # the output.
+    lines = msg.split('\n')
+    for l in lines:
+      if pass_name in l:
+        # Output of debugcounter will be like:
+        #   instcombine-visit: {10, 0, 20}
+        #   dce-transform: {1, 0, -1}
+        # which indicates {Count, Skip, StopAfter}.
+        # The last number should be the limit we set.
+        # We want the first number as the total transformation count.
+        # Split each line by ,|{|} and we can get l_list as:
+        #   ['instcombine: ', '10', '0', '20', '']
+        # and we will need the second item in it.
+        l_list = re.split(',|{|}', l)
+        count = int(l_list[1])
+        if limit == -1:
+          return count
+    # The returned value is only useful when limit == -1, which shows total
+    # transformation count.
+    return 0
+
+  def DoSearchBadPass(self):
+    """Perform full search for bad pass of bad item."""
+    logger.GetLogger().LogOutput('Starting to bisect bad pass for bad item.')
+
+    # Pass level bisection
+    self.mode = 'pass'
+    self.binary_search = binary_search_perforce.BinarySearcherForPass(
+        logger_to_set=self.l)
+    self.binary_search.total, _ = self.BuildWithPassLimit(-1)
+    logger.GetLogger().LogOutput(
+        'Total %s number: %d' % (self.mode, self.binary_search.total))
+
+    pass_index, pass_name = self.DoBinarySearchBadPass()
+
+    if (not pass_name and pass_index == 0):
+      raise ValueError('Bisecting passes cannot reproduce good result.')
+    logger.GetLogger().LogOutput('Bad pass found: %s.' % pass_name)
+
+    # Transformation level bisection.
+    logger.GetLogger().LogOutput('Starting to bisect at transformation level.')
+
+    self.mode = 'transform'
+    self.binary_search = binary_search_perforce.BinarySearcherForPass(
+        logger_to_set=self.l)
+    self.binary_search.total = self.BuildWithTransformLimit(
+        -1, pass_name, pass_index)
+    logger.GetLogger().LogOutput(
+        'Total %s number: %d' % (self.mode, self.binary_search.total))
+
+    trans_index, _ = self.DoBinarySearchBadPass(pass_index, pass_name)
+    if (trans_index == 0):
+      raise ValueError('Bisecting %s cannot reproduce good result.' % pass_name)
+    logger.GetLogger().LogOutput(
+        'Bisection result for bad item %s:\n'
+        'Bad pass: %s at number %d\n'
+        'Bad transformation number: %d' % (self.found_items, pass_name,
+                                           pass_index, trans_index))
+
+  def DoBinarySearchBadPass(self, pass_index=-1, pass_name=None):
+    """Perform single iteration of binary search at pass level
+
+    Args:
+      pass_index: Works for transformation level bisection, indicates the limit
+        number of pass from pass level bisecting result.
+      pass_name: Works for transformation level bisection, indicates
+        DebugCounter name of the bad pass from pass level bisecting result.
+    Return:
+      index: Index of problematic pass/transformation.
+      pass_name: Works for pass level bisection, returns DebugCounter name for
+        bad pass.
+    """
+    # If in resume mode don't reset search_cycles
+    if not self.resumed:
+      self.search_cycles = 0
+    else:
+      self.resumed = False
+
+    terminated = False
+    index = 0
+    while self.search_cycles < self.iterations and not terminated:
+      self.SaveState()
+      self.OutputIterationProgressBadPass()
+
+      self.search_cycles += 1
+      current = self.binary_search.GetNext()
+
+      if self.mode == 'pass':
+        index, pass_name = self.BuildWithPassLimit(current)
+      else:
+        self.BuildWithTransformLimit(current, pass_name, pass_index)
+        index = current
+
+      # TODO: Newly generated object should not directly replace original
+      # one, need to put it somewhere and symbol link original one to it.
+      # Will update cmd_script to do it.
+
+      status = self.TestSetupScript()
+      assert status == 0, 'Test setup should succeed.'
+      status = self.TestScript()
+      terminated = self.binary_search.SetStatus(status)
+
+      if terminated:
+        self.l.LogOutput('Terminated!', print_to_console=self.verbose)
+    if not terminated:
+      self.l.LogOutput('Ran out of iterations searching...')
+    self.l.LogOutput(str(self), print_to_console=self.verbose)
+    return index, pass_name
 
   def PopulateItemsUsingCommand(self, command):
     """Update all_items and binary search logic from executable.
@@ -434,15 +659,21 @@ class BinarySearchState(object):
     progress = progress % (self.ElapsedTimeString(), progress_text)
     self.l.LogOutput(progress)
 
-  def OutputIterationProgress(self):
+  def OutputIterationProgressBadItem(self):
     out = ('Search %d of estimated %d.\n'
            'Prune %d of max %d.\n'
            'Current bad items found:\n'
            '%s\n')
     out = out % (self.search_cycles + 1,
-                 math.ceil(math.log(len(self.all_items), 2)),
-                 self.prune_cycles + 1, self.prune_iterations,
-                 ', '.join(self.found_items))
+                 math.ceil(math.log(len(self.all_items), 2)), self.prune_cycles
+                 + 1, self.prune_iterations, ', '.join(self.found_items))
+    self._OutputProgress(out)
+
+  def OutputIterationProgressBadPass(self):
+    out = ('Search %d of estimated %d.\n' 'Current limit: %s\n')
+    out = out % (self.search_cycles + 1,
+                 math.ceil(math.log(self.binary_search.total, 2)),
+                 self.binary_search.current)
     self._OutputProgress(out)
 
   def __str__(self):
@@ -467,6 +698,7 @@ class MockBinarySearchState(BinarySearchState):
         'test_script': None,
         'incremental': True,
         'prune': False,
+        'pass_bisect': None,
         'iterations': 50,
         'prune_iterations': 100,
         'verify': True,
@@ -498,33 +730,41 @@ def Run(get_initial_items,
         test_setup_script=None,
         iterations=50,
         prune=False,
+        pass_bisect=None,
         noincremental=False,
         file_args=False,
         verify=True,
         prune_iterations=100,
         verbose=False,
         resume=False):
-  """Run binary search tool. Equivalent to running through terminal.
+  """Run binary search tool.
+
+  Equivalent to running through terminal.
 
   Args:
     get_initial_items: Script to enumerate all items being binary searched
     switch_to_good: Script that will take items as input and switch them to good
-                    set
+      set
     switch_to_bad: Script that will take items as input and switch them to bad
-                   set
+      set
     test_script: Script that will determine if the current combination of good
-                 and bad items make a "good" or "bad" result.
+      and bad items make a "good" or "bad" result.
     test_setup_script: Script to do necessary setup (building, compilation,
-                       etc.) for test_script.
+      etc.) for test_script.
     iterations: How many binary search iterations to run before exiting.
     prune: If False the binary search tool will stop when the first bad item is
-           found. Otherwise then binary search tool will continue searching
-           until all bad items are found (or prune_iterations is reached).
+      found. Otherwise then binary search tool will continue searching until all
+      bad items are found (or prune_iterations is reached).
+    pass_bisect: Script that takes single bad item from POPULATE_BAD and returns
+      the compiler command used to generate the bad item. This will turn on
+      pass/ transformation level bisection for the bad item. Requires that
+      'prune' be set to False, and needs support of `-opt-bisect-limit`(pass)
+      and `-print-debug-counter`(transformation) from LLVM.
     noincremental: Whether to send "diffs" of good/bad items to switch scripts.
     file_args: If True then arguments to switch scripts will be a file name
-               containing a newline separated list of the items to switch.
-    verify: If True, run tests to ensure initial good/bad sets actually
-            produce a good/bad result.
+      containing a newline separated list of the items to switch.
+    verify: If True, run tests to ensure initial good/bad sets actually produce
+      a good/bad result.
     prune_iterations: Max number of bad items to search for.
     verbose: If True will print extra debug information to user.
     resume: If True will resume using STATE_FILE.
@@ -532,18 +772,36 @@ def Run(get_initial_items,
   Returns:
     0 for success, error otherwise
   """
+  # Notice that all the argument checks are in the Run() function rather than
+  # in the Main() function. It is not common to do so but some wrappers are
+  # going to call Run() directly and bypass checks in Main() function.
   if resume:
+    logger.GetLogger().LogOutput('Resuming from %s' % STATE_FILE)
     bss = BinarySearchState.LoadState()
     if not bss:
       logger.GetLogger().LogOutput(
           '%s is not a valid binary_search_tool state file, cannot resume!' %
           STATE_FILE)
       return 1
+    logger.GetLogger().LogOutput('Note: resuming from previous state, '
+                                 'ignoring given options and loading saved '
+                                 'options instead.')
   else:
+    if not (get_initial_items and switch_to_good and switch_to_bad and
+            test_script):
+      logger.GetLogger().LogOutput('The following options are required: '
+                                   '[-i, -g, -b, -t] | [-r]')
+      return 1
+    if pass_bisect and prune:
+      logger.GetLogger().LogOutput('"--pass_bisect" only works when '
+                                   '"--prune" is set to be False.')
+      return 1
     switch_to_good = _CanonicalizeScript(switch_to_good)
     switch_to_bad = _CanonicalizeScript(switch_to_bad)
     if test_setup_script:
       test_setup_script = _CanonicalizeScript(test_setup_script)
+    if pass_bisect:
+      pass_bisect = _CanonicalizeScript(pass_bisect)
     test_script = _CanonicalizeScript(test_script)
     get_initial_items = _CanonicalizeScript(get_initial_items)
     incremental = not noincremental
@@ -552,12 +810,14 @@ def Run(get_initial_items,
 
     bss = BinarySearchState(get_initial_items, switch_to_good, switch_to_bad,
                             test_setup_script, test_script, incremental, prune,
-                            iterations, prune_iterations, verify, file_args,
-                            verbose)
+                            pass_bisect, iterations, prune_iterations, verify,
+                            file_args, verbose)
     bss.DoVerify()
 
   try:
-    bss.DoSearch()
+    bss.DoSearchBadItems()
+    if pass_bisect:
+      bss.DoSearchBadPass()
     bss.RemoveState()
     logger.GetLogger().LogOutput(
         'Total execution time: %s' % bss.ElapsedTimeString())
@@ -576,18 +836,6 @@ def Main(argv):
   common.BuildArgParser(parser)
   logger.GetLogger().LogOutput(' '.join(argv))
   options = parser.parse_args(argv)
-
-  if not (options.get_initial_items and options.switch_to_good and
-          options.switch_to_bad and options.test_script) and not options.resume:
-    parser.print_help()
-    return 1
-
-  if options.resume:
-    logger.GetLogger().LogOutput('Resuming from %s' % STATE_FILE)
-    if len(argv) > 1:
-      logger.GetLogger().LogOutput(('Note: resuming from previous state, '
-                                    'ignoring given options and loading saved '
-                                    'options instead.'))
 
   # Get dictionary of all options
   args = vars(options)

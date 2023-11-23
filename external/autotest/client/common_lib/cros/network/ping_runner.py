@@ -212,7 +212,8 @@ class LinuxPingDelegate(object):
                             ping_output.splitlines()) or [''])[0]
         sent = _regex_int_from_string('([0-9]+) packets transmitted', loss_line)
         received = _regex_int_from_string('([0-9]+) received', loss_line)
-        loss = _regex_int_from_string('([0-9]+)% packet loss', loss_line)
+        loss = _regex_float_from_string('([0-9]+(\.[0-9]+)?)% packet loss',
+                                        loss_line)
         if None in (sent, received, loss):
             raise error.TestFail('Failed to parse transmission statistics.')
 

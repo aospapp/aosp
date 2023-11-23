@@ -20,7 +20,6 @@
 #include "GLES/gl.h"
 #include "GLES/glext.h"
 #include "ErrorLog.h"
-#include "gralloc_cb.h"
 #include "ThreadInfo.h"
 #include "EGLImage.h"
 
@@ -45,6 +44,11 @@ static EGLClient_glesInterface * s_gl = NULL;
     renderControl_encoder_context_t *rcEnc = hostCon->rcEncoder(); \
     if (!rcEnc) { \
         ALOGE("egl: Failed to get renderControl encoder context\n"); \
+        return ret; \
+    } \
+    Gralloc *grallocHelper = hostCon->grallocHelper(); \
+    if (!grallocHelper) { \
+        ALOGE("egl: Failed to get grallocHelper\n"); \
         return ret; \
     }
 
@@ -76,14 +80,15 @@ void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES img)
 
         ctx->override2DTextureTarget(target);
         ctx->associateEGLImage(target, hostImage);
-        rcEnc->rcBindTexture(rcEnc, ((cb_handle_t *)(native_buffer->handle))->hostHandle);
+        rcEnc->rcBindTexture(rcEnc,
+                grallocHelper->getHostHandle(native_buffer->handle));
         ctx->restore2DTextureTarget(target);
     }
     else if (image->target == EGL_GL_TEXTURE_2D_KHR) {
         GET_CONTEXT;
         ctx->override2DTextureTarget(target);
         ctx->associateEGLImage(target, hostImage);
-        ctx->m_glEGLImageTargetTexture2DOES_enc(self, target, hostImage);
+        ctx->m_glEGLImageTargetTexture2DOES_enc(self, GL_TEXTURE_2D, hostImage);
         ctx->restore2DTextureTarget(target);
     }
 }
@@ -109,7 +114,8 @@ void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImag
         }
 
         DEFINE_AND_VALIDATE_HOST_CONNECTION();
-        rcEnc->rcBindRenderbuffer(rcEnc, ((cb_handle_t *)(native_buffer->handle))->hostHandle);
+        rcEnc->rcBindRenderbuffer(rcEnc,
+                grallocHelper->getHostHandle(native_buffer->handle));
     } else {
         //TODO
     }

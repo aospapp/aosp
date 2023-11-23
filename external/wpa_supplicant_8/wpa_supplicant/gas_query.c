@@ -42,6 +42,7 @@ struct gas_query_pending {
 	unsigned int wait_comeback:1;
 	unsigned int offchannel_tx_started:1;
 	unsigned int retry:1;
+	unsigned int wildcard_bssid:1;
 	int freq;
 	u16 status_code;
 	struct wpabuf *req;
@@ -121,6 +122,8 @@ static const char * gas_result_txt(enum gas_query_result result)
 		return "PEER_ERROR";
 	case GAS_QUERY_INTERNAL_ERROR:
 		return "INTERNAL_ERROR";
+	case GAS_QUERY_STOPPED:
+		return "STOPPED";
 	case GAS_QUERY_DELETED_AT_DEINIT:
 		return "DELETED_AT_DEINIT";
 	}
@@ -269,7 +272,7 @@ static void gas_query_tx_status(struct wpa_supplicant *wpa_s,
 }
 
 
-static int pmf_in_use(struct wpa_supplicant *wpa_s, const u8 *addr)
+int pmf_in_use(struct wpa_supplicant *wpa_s, const u8 *addr)
 {
 	if (wpa_s->current_ssid == NULL ||
 	    wpa_s->wpa_state < WPA_4WAY_HANDSHAKE ||
@@ -300,10 +303,11 @@ static int gas_query_tx(struct gas_query *gas, struct gas_query_pending *query,
 	if (gas->wpa_s->max_remain_on_chan &&
 	    wait_time > gas->wpa_s->max_remain_on_chan)
 		wait_time = gas->wpa_s->max_remain_on_chan;
-	if (!gas->wpa_s->conf->gas_address3 ||
-	    (gas->wpa_s->current_ssid &&
-	     gas->wpa_s->wpa_state >= WPA_ASSOCIATED &&
-	     os_memcmp(query->addr, gas->wpa_s->bssid, ETH_ALEN) == 0))
+	if (!query->wildcard_bssid &&
+	    (!gas->wpa_s->conf->gas_address3 ||
+	     (gas->wpa_s->current_ssid &&
+	      gas->wpa_s->wpa_state >= WPA_ASSOCIATED &&
+	      os_memcmp(query->addr, gas->wpa_s->bssid, ETH_ALEN) == 0)))
 		bssid = query->addr;
 	else
 		bssid = wildcard_bssid;
@@ -803,7 +807,7 @@ static int gas_query_set_sa(struct gas_query *gas,
  * Returns: dialog token (>= 0) on success or -1 on failure
  */
 int gas_query_req(struct gas_query *gas, const u8 *dst, int freq,
-		  struct wpabuf *req,
+		  int wildcard_bssid, struct wpabuf *req,
 		  void (*cb)(void *ctx, const u8 *dst, u8 dialog_token,
 			     enum gas_query_result result,
 			     const struct wpabuf *adv_proto,
@@ -831,6 +835,7 @@ int gas_query_req(struct gas_query *gas, const u8 *dst, int freq,
 	}
 	os_memcpy(query->addr, dst, ETH_ALEN);
 	query->dialog_token = dialog_token;
+	query->wildcard_bssid = !!wildcard_bssid;
 	query->freq = freq;
 	query->cb = cb;
 	query->ctx = ctx;
@@ -851,4 +856,28 @@ int gas_query_req(struct gas_query *gas, const u8 *dst, int freq,
 	}
 
 	return dialog_token;
+}
+
+
+int gas_query_stop(struct gas_query *gas, u8 dialog_token)
+{
+	struct gas_query_pending *query;
+
+	dl_list_for_each(query, &gas->pending, struct gas_query_pending, list) {
+		if (query->dialog_token == dialog_token) {
+			if (!gas->work) {
+				/* The pending radio work has not yet been
+				 * started, but the pending entry has a
+				 * reference to the soon to be freed query.
+				 * Need to remove that radio work now to avoid
+				 * leaving behind a reference to freed memory.
+				 */
+				radio_remove_pending_work(gas->wpa_s, query);
+			}
+			gas_query_done(gas, query, GAS_QUERY_STOPPED);
+			return 0;
+		}
+	}
+
+	return -1;
 }

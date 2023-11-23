@@ -81,12 +81,6 @@ struct ConstexprStringView {
     X_ASSERT(ptr != nullptr);
   }
 
-  // Implicit conversion from nullptr, creates empty view.
-  //   ConstexprStringView str = nullptr;
-  explicit constexpr ConstexprStringView(const decltype(nullptr)&)
-      : _array(""), _size(0u) {
-  }
-
   // No-arg constructor: Create empty view.
   constexpr ConstexprStringView() : _array(""), _size(0u) {}
 
@@ -106,7 +100,7 @@ struct ConstexprStringView {
   // Create substring from this[start..start+len).
   constexpr ConstexprStringView substr(size_t start, size_t len) const {
     X_ASSERT(start <= size());
-    X_ASSERT(start + len <= size());
+    X_ASSERT(len <= size() - start);
 
     return ConstexprStringView(&_array[start], len);
   }
@@ -157,11 +151,11 @@ inline std::ostream& operator<<(std::ostream& os, const ConstexprStringView& str
   return os;
 }
 
-constexpr bool IsValidJniDescriptorShorty(char shorty) {
-  constexpr char kValidJniTypes[] =
+constexpr bool IsValidJniDescriptorStart(char shorty) {
+  constexpr char kValidJniStarts[] =
       {'V', 'Z', 'B', 'C', 'S', 'I', 'J', 'F', 'D', 'L', '[', '(', ')'};
 
-  for (char c : kValidJniTypes) {
+  for (char c : kValidJniStarts) {
     if (c == shorty) {
       return true;
     }
@@ -199,12 +193,13 @@ struct ConstexprVector {
       return tmp;
     }
 
-    constexpr auto& operator*() {
+    constexpr /*T&*/ auto& operator*() {
       // Use 'auto' here since using 'T' is incorrect with const_iterator.
       return ptr->_value;
     }
 
-    constexpr const T& operator*() const {
+    constexpr const /*T&*/ auto& operator*() const {
+      // Use 'auto' here for consistency with above.
       return ptr->_value;
     }
 
@@ -277,8 +272,7 @@ struct ConstexprVector {
 struct JniDescriptorNode {
   ConstexprStringView longy;
 
-  constexpr JniDescriptorNode(ConstexprStringView longy)
-      : longy(longy) {  // NOLINT: explicit.
+  constexpr JniDescriptorNode(ConstexprStringView longy) : longy(longy) {  // NOLINT(google-explicit-constructor)
     X_ASSERT(!longy.empty());
   }
   constexpr JniDescriptorNode() : longy() {}
@@ -310,7 +304,7 @@ struct ConstexprOptional {
   }
 
   // Create an optional with a value.
-  constexpr ConstexprOptional(const T& value)
+  constexpr ConstexprOptional(const T& value)  // NOLINT(google-explicit-constructor)
       : _has_value(true), _value(value) {
   }
 
@@ -329,6 +323,10 @@ struct ConstexprOptional {
 
   constexpr const T* operator->() const {
     return &(value());
+  }
+
+  constexpr const T& operator*() const {
+    return value();
   }
 
  private:
@@ -369,7 +367,7 @@ inline std::ostream& operator<<(std::ostream& os, const ConstexprOptional<T>& va
 // Mostly useful for macros that need to return an empty constexpr optional.
 struct NullConstexprOptional {
   template<typename T>
-  constexpr operator ConstexprOptional<T>() const {
+  constexpr operator ConstexprOptional<T>() const {  // NOLINT(google-explicit-constructor)
     return ConstexprOptional<T>();
   }
 };
@@ -379,9 +377,11 @@ inline std::ostream& operator<<(std::ostream& os, NullConstexprOptional) {
 }
 
 #if !defined(PARSE_FAILURES_NONFATAL)
-// Unfortunately we cannot have custom messages here, as it just prints a stack trace with the macros expanded.
-// This is at least more flexible than static_assert which requires a string literal.
-// NOTE: The message string literal must be on same line as the macro to be seen during a compilation error.
+// Unfortunately we cannot have custom messages here, as it just prints a stack trace with the
+// macros expanded. This is at least more flexible than static_assert which requires a string
+// literal.
+// NOTE: The message string literal must be on same line as the macro to be seen during a
+// compilation error.
 #define PARSE_FAILURE(msg) X_ASSERT(! #msg)
 #define PARSE_ASSERT_MSG(cond, msg) X_ASSERT(#msg && (cond))
 #define PARSE_ASSERT(cond) X_ASSERT(cond)
@@ -437,7 +437,7 @@ ParseSingleTypeDescriptor(ConstexprStringView single_type,
   ConstexprStringView remainder = single_type.substr(/*start*/1u);
 
   char c = single_type[0];
-  PARSE_ASSERT(IsValidJniDescriptorShorty(c));
+  PARSE_ASSERT(IsValidJniDescriptorStart(c));
 
   enum State {
     kSingleCharacter,
@@ -496,8 +496,7 @@ ParseSingleTypeDescriptor(ConstexprStringView single_type,
       ParseTypeDescriptorResult res = maybe_res.value();
 
       // Reject illegal array type descriptors such as "]".
-      PARSE_ASSERT_MSG(res.has_token(),
-                       "All array types must follow by their component type (e.g. ']I', ']]Z', etc. ");
+      PARSE_ASSERT_MSG(res.has_token(), "All array types must follow by their component type (e.g. ']I', ']]Z', etc. ");
 
       token = single_type.substr(/*start*/0u, res.token.size() + 1u);
 
@@ -511,6 +510,13 @@ ParseSingleTypeDescriptor(ConstexprStringView single_type,
       bool found_semicolon = false;
       size_t semicolon_len = 0;
       for (size_t i = 0; i < single_type.size(); ++i) {
+        switch (single_type[i]) {
+          case ')':
+          case '(':
+          case '[':
+            PARSE_FAILURE("Object identifiers cannot have ()[ in them.");
+            break;
+        }
         if (single_type[i] == ';') {
           semicolon_len = i + 1;
           found_semicolon = true;
@@ -547,9 +553,9 @@ struct FunctionSignatureDescriptor {
 
 
 template<typename T, size_t kMaxSize>
-inline std::ostream& operator<<(std::ostream& os,
-                                const FunctionSignatureDescriptor<T,
-                                                                  kMaxSize>& signature) {
+inline std::ostream& operator<<(
+    std::ostream& os,
+    const FunctionSignatureDescriptor<T, kMaxSize>& signature) {
   size_t count = 0;
   os << "args={";
   for (auto& arg : signature.args) {
@@ -579,7 +585,7 @@ using JniSignatureDescriptor = FunctionSignatureDescriptor<JniDescriptorNode,
 template<size_t kMaxSize>
 constexpr ConstexprOptional<JniSignatureDescriptor<kMaxSize>>
 ParseSignatureAsList(ConstexprStringView signature) {
-  // The list of JNI descritors cannot possibly exceed the number of characters
+  // The list of JNI descriptors cannot possibly exceed the number of characters
   // in the JNI string literal. We leverage this to give an upper bound of the strlen.
   // This is a bit wasteful but in constexpr there *must* be a fixed upper size for data structures.
   ConstexprVector<JniDescriptorNode, kMaxSize> jni_desc_node_list;
@@ -747,9 +753,9 @@ operator==(const ReifiedJniTypeTrait& lhs, const ReifiedJniTypeTrait& rhs) {
       lhs.type_name == rhs.type_name;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const ReifiedJniTypeTrait& rjft) {
+inline std::ostream& operator<<(std::ostream& os, const ReifiedJniTypeTrait& rjtt) {
   // os << "ReifiedJniTypeTrait<" << rjft.type_name << ">";
-  os << rjft.type_name;
+  os << rjtt.type_name;
   return os;
 }
 
@@ -795,9 +801,9 @@ DEFINE_JNI_TYPE_TRAIT(JNI_TYPE_TRAIT)
 // See ReifiedJniTypeTrait for documentation.
 constexpr ConstexprOptional<ReifiedJniTypeTrait>
 ReifiedJniTypeTrait::MostSimilarTypeDescriptor(ConstexprStringView type_descriptor) {
-#define MATCH_EXACT_TYPE_DESCRIPTOR_FN(type, type_desc, native_kind, ...) \
+#define MATCH_EXACT_TYPE_DESCRIPTOR_FN(type, type_desc, native_kind, ...)                      \
     if (type_descriptor == type_desc && native_kind >= kNormalNative) {                        \
-      return { Reify<type>() };                                \
+      return { Reify<type>() };                                                                \
     }
 
   // Attempt to look up by the precise type match first.
@@ -821,6 +827,44 @@ ReifiedJniTypeTrait::MostSimilarTypeDescriptor(ConstexprStringView type_descript
   return NullConstexprOptional{};
 }
 
+// Is this actual JNI position consistent with the expected position?
+constexpr bool IsValidJniParameterPosition(NativeKind native_kind,
+                                           NativePositionAllowed position,
+                                           NativePositionAllowed expected_position) {
+  X_ASSERT(expected_position != kNotAnyPosition);
+
+  if (native_kind == kCriticalNative) {
+    // CriticalNatives ignore positions since the first 2 special
+    // parameters are stripped.
+    return true;
+  }
+
+  // Is this a return-only position?
+  if (expected_position == kReturnPosition) {
+    if (position != kReturnPosition) {
+      // void can only be in the return position.
+      return false;
+    }
+    // Don't do the other non-return position checks for a return-only position.
+    return true;
+  }
+
+  // JNIEnv* can only be in the first spot.
+  if (position == kZerothPosition && expected_position != kZerothPosition) {
+    return false;
+    // jobject, jclass can be 1st or anywhere afterwards.
+  } else if (position == kFirstOrLaterPosition && expected_position != kFirstOrLaterPosition) {
+    return false;
+    // All other parameters must be in 2nd+ spot, or in the return type.
+  } else if (position == kSecondOrLaterPosition || position == kReturnPosition) {
+    if (expected_position != kFirstOrLaterPosition && expected_position != kSecondOrLaterPosition) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Check if a jni parameter type is valid given its position and native_kind.
 template <typename T>
 constexpr bool IsValidJniParameter(NativeKind native_kind, NativePositionAllowed position) {
@@ -836,38 +880,10 @@ constexpr bool IsValidJniParameter(NativeKind native_kind, NativePositionAllowed
   // The rest of the types might be valid, but it depends on the context (native_kind)
   // and also on their position within the parameters.
 
-  // Position-check first. CriticalNatives ignore positions since the first 2 special parameters are stripped.
-  while (native_kind != kCriticalNative) {
-    NativePositionAllowed expected_position = expected_trait::position_allowed;
-    X_ASSERT(expected_position != kNotAnyPosition);
-
-    // Is this a return-only position?
-    if (expected_position == kReturnPosition) {
-      if (position != kReturnPosition) {
-        // void can only be in the return position.
-        return false;
-      }
-      // Don't do the other non-return position checks for a return-only position.
-      break;
-    }
-
-    // JNIEnv* can only be in the first spot.
-    if (position == kZerothPosition && expected_position != kZerothPosition) {
-      return false;
-      // jobject, jclass can be 1st or anywhere afterwards.
-    } else if (position == kFirstOrLaterPosition
-        && expected_position != kFirstOrLaterPosition) {
-      return false;
-      // All other parameters must be in 2nd+ spot, or in the return type.
-    } else if (position == kSecondOrLaterPosition
-        || position == kReturnPosition) {
-      if (expected_position != kFirstOrLaterPosition
-          && expected_position != kSecondOrLaterPosition) {
-        return false;
-      }
-    }
-
-    break;
+  // Position-check first.
+  NativePositionAllowed expected_position = expected_trait::position_allowed;
+  if (!IsValidJniParameterPosition(native_kind, position, expected_position)) {
+    return false;
   }
 
   // Ensure the type appropriate is for the native kind.
@@ -1334,8 +1350,6 @@ struct InferJniDescriptor {
   using ConstexprStringDescriptorType = ConstexprArray<char,
                                                        kMaxStringSize + 1>;
 
-  static constexpr bool kAllowPartialStrings = false;
-
   // Convert the JniSignatureDescriptor we get in FromFunctionType()
   // into a flat constexpr char array.
   //
@@ -1363,29 +1377,19 @@ struct InferJniDescriptor {
       const JniDescriptorNode& arg_descriptor = signature_descriptor.args[j];
       ConstexprStringView longy = arg_descriptor.longy;
       for (size_t i = 0; i < longy.size(); ++i) {
-        if (kAllowPartialStrings && pos >= kMaxStringSize) {
-          break;
-        }
         c_str[pos++] = longy[i];
       }
     }
 
-    if (!kAllowPartialStrings || pos < kMaxStringSize) {
-      c_str[pos++] = ')';
-    }
+    c_str[pos++] = ')';
 
     // Copy return descriptor.
     ConstexprStringView longy = signature_descriptor.ret.longy;
     for (size_t i = 0; i < longy.size(); ++i) {
-      if (kAllowPartialStrings && pos >= kMaxStringSize) {
-        break;
-      }
       c_str[pos++] = longy[i];
     }
 
-    if (!kAllowPartialStrings) {
-      X_ASSERT(pos == kMaxStringSize);
-    }
+    X_ASSERT(pos == kMaxStringSize);
 
     c_str[pos] = '\0';
 
@@ -1404,7 +1408,7 @@ struct InferJniDescriptor {
 // Expression to return JNINativeMethod, performs checking on signature+fn.
 #define MAKE_CHECKED_JNI_NATIVE_METHOD(native_kind, name_, signature_, fn) \
   ([]() {                                                                \
-    using namespace nativehelper::detail;                                \
+    using namespace nativehelper::detail;  /* NOLINT(google-build-using-namespace) */ \
     static_assert(                                                       \
         MatchJniDescriptorWithFunctionType<native_kind,                  \
                                            decltype(fn),                 \
@@ -1415,13 +1419,13 @@ struct InferJniDescriptor {
     return JNINativeMethod {                                             \
         const_cast<decltype(JNINativeMethod::name)>(name_),              \
         const_cast<decltype(JNINativeMethod::signature)>(signature_),    \
-        reinterpret_cast<void*>(&fn)};                                   \
+        reinterpret_cast<void*>(&(fn))};                                 \
   })()
 
 // Expression to return JNINativeMethod, infers signature from fn.
 #define MAKE_INFERRED_JNI_NATIVE_METHOD(native_kind, name_, fn)          \
   ([]() {                                                                \
-    using namespace nativehelper::detail;                                \
+    using namespace nativehelper::detail;  /* NOLINT(google-build-using-namespace) */ \
     /* Suppress implicit cast warnings by explicitly casting. */         \
     return JNINativeMethod {                                             \
         const_cast<decltype(JNINativeMethod::name)>(name_),              \
@@ -1429,7 +1433,7 @@ struct InferJniDescriptor {
             InferJniDescriptor<native_kind,                              \
                                decltype(fn),                             \
                                fn>::GetStringAtRuntime()),               \
-        reinterpret_cast<void*>(&fn)};                                   \
+        reinterpret_cast<void*>(&(fn))};                                 \
   })()
 
 }  // namespace detail

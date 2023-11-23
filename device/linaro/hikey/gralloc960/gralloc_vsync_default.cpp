@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2017 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -16,13 +16,25 @@
  * limitations under the License.
  */
 
-#include "gralloc_priv.h"
-#include "gralloc_vsync.h"
-#include "gralloc_vsync_report.h"
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#define FBIO_WAITFORVSYNC       _IOW('F', 0x20, __u32)
+#include <hardware/hardware.h>
+#include <hardware/fb.h>
+
+#if GRALLOC_USE_GRALLOC1_API == 1
+#include <hardware/gralloc1.h>
+#else
+#include <hardware/gralloc.h>
+#endif
+
+#include "mali_gralloc_module.h"
+#include "mali_gralloc_private_interface_types.h"
+#include "mali_gralloc_buffer.h"
+#include "gralloc_vsync.h"
+#include "gralloc_vsync_report.h"
+
+#define FBIO_WAITFORVSYNC _IOW('F', 0x20, __u32)
 
 int gralloc_vsync_enable(framebuffer_device_t *dev)
 {
@@ -38,23 +50,27 @@ int gralloc_vsync_disable(framebuffer_device_t *dev)
 
 int gralloc_wait_for_vsync(framebuffer_device_t *dev)
 {
-	private_module_t* m = reinterpret_cast<private_module_t*>(dev->common.module);
+	private_module_t *m = reinterpret_cast<private_module_t *>(dev->common.module);
+
 	if (MALI_DPY_TYPE_CLCD == m->dpy_type || MALI_DPY_TYPE_HDLCD == m->dpy_type)
 	{
 		/* Silently ignore wait for vsync as neither PL111 nor HDLCD implement this IOCTL. */
 		return 0;
 	}
 
-	if ( m->swapInterval )
+	if (m->swapInterval)
 	{
 		int crtc = 0;
 		gralloc_mali_vsync_report(MALI_VSYNC_EVENT_BEGIN_WAIT);
-		if(ioctl(m->framebuffer->shallow_fbdev_fd, FBIO_WAITFORVSYNC, &crtc) < 0) 
+
+		if (ioctl(m->framebuffer->fd, FBIO_WAITFORVSYNC, &crtc) < 0)
 		{
 			gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 			return -errno;
 		}
+
 		gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 	}
+
 	return 0;
 }

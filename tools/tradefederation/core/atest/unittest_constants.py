@@ -31,6 +31,7 @@ ROOT = '/'
 MODULE_DIR = 'foo/bar/jank'
 MODULE2_DIR = 'foo/bar/hello'
 MODULE_NAME = 'CtsJankDeviceTestCases'
+TYPO_MODULE_NAME = 'CtsJankDeviceTestCase'
 MODULE2_NAME = 'HelloWorldTests'
 CLASS_NAME = 'CtsDeviceJankUi'
 FULL_CLASS_NAME = 'android.jank.cts.ui.CtsDeviceJankUi'
@@ -41,7 +42,7 @@ FIND_PKG = ROOT + 'foo/bar/jank/src/android/jank/cts/ui\n'
 INT_NAME = 'example/reboot'
 GTF_INT_NAME = 'some/gtf_int_test'
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'unittest_data')
-RELATIVE_TEST_DATA_DIR = 'relative_test_data_dir'
+TEST_CONFIG_DATA_DIR = os.path.join(TEST_DATA_DIR, 'test_config')
 
 INT_DIR = 'tf/contrib/res/config'
 GTF_INT_DIR = 'gtf/core/res/config'
@@ -118,7 +119,7 @@ GTF_INT_INFO = test_info.TestInfo(
           constants.TI_REL_CONFIG: GTF_INT_CONFIG})
 
 # Sample test configurations in TEST_MAPPING file.
-TEST_MAPPING_TEST = {'name': MODULE_NAME}
+TEST_MAPPING_TEST = {'name': MODULE_NAME, 'host': True}
 TEST_MAPPING_TEST_WITH_OPTION = {
     'name': CLASS_NAME,
     'options': [
@@ -140,3 +141,80 @@ TEST_MAPPING_TEST_WITH_BAD_OPTION = {
         }
     ]
 }
+TEST_MAPPING_TEST_WITH_BAD_HOST_VALUE = {
+    'name': CLASS_NAME,
+    'host': 'true'
+}
+# Constrants of cc test unittest
+FIND_CC_ONE = ROOT + 'foo/bt/hci/test/pf_test.cc\n'
+CC_MODULE_NAME = 'net_test_hci'
+CC_CLASS_NAME = 'PFTest'
+CC_MODULE_DIR = 'system/bt/hci'
+CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME+".*", frozenset())
+CC_CONFIG_FILE = os.path.join(CC_MODULE_DIR, constants.MODULE_CONFIG)
+CC_MODULE_CLASS_DATA = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+                        constants.TI_FILTER: frozenset([CC_CLASS_FILTER])}
+CC_MODULE_CLASS_INFO = test_info.TestInfo(CC_MODULE_NAME,
+                                          atf_tr.AtestTradefedTestRunner.NAME,
+                                          CLASS_BUILD_TARGETS, CC_MODULE_CLASS_DATA)
+CC_MODULE2_DIR = 'foo/bar/hello'
+CC_MODULE2_NAME = 'hello_world_test'
+CC_PATH = 'pf_test.cc'
+CC_FIND_ONE = ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test1) {\n' +\
+    ROOT + 'system/bt/hci/test/pf_test.cc:TEST_F(PFTest, test2) {\n'
+CC_FIND_TWO = ROOT + 'other/dir/test.cpp:TEST(PFTest, test_f) {\n' +\
+                        ROOT + 'other/dir/test.cpp:TEST(PFTest, test_p) {\n'
+CC_CONFIG2_FILE = os.path.join(CC_MODULE2_DIR, constants.MODULE_CONFIG)
+CC_CLASS_FILTER = test_info.TestFilter(CC_CLASS_NAME+".*", frozenset())
+CC_CLASS_DATA = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+                 constants.TI_FILTER: frozenset([CC_CLASS_FILTER])}
+CC_CLASS_INFO = test_info.TestInfo(CC_MODULE_NAME,
+                                   atf_tr.AtestTradefedTestRunner.NAME,
+                                   CLASS_BUILD_TARGETS, CC_CLASS_DATA)
+CC_METHOD_NAME = 'test1'
+CC_METHOD2_NAME = 'test2'
+CC_METHOD_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME,
+                                        frozenset())
+CC_METHOD2_FILTER = test_info.TestFilter(CC_CLASS_NAME+"."+CC_METHOD_NAME+\
+                                         ":"+CC_CLASS_NAME+"."+CC_METHOD2_NAME,
+                                         frozenset())
+CC_METHOD_INFO = test_info.TestInfo(
+    CC_MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+          constants.TI_FILTER: frozenset([CC_METHOD_FILTER])})
+CC_METHOD2_INFO = test_info.TestInfo(
+    CC_MODULE_NAME,
+    atf_tr.AtestTradefedTestRunner.NAME,
+    MODULE_BUILD_TARGETS,
+    data={constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+          constants.TI_FILTER: frozenset([CC_METHOD2_FILTER])})
+CC_PATH_DATA = {
+    constants.TI_REL_CONFIG: TEST_DATA_CONFIG,
+    constants.TI_FILTER: frozenset()}
+CC_PATH_INFO = test_info.TestInfo(CC_MODULE_NAME,
+                                  atf_tr.AtestTradefedTestRunner.NAME,
+                                  MODULE_BUILD_TARGETS,
+                                  CC_PATH_DATA)
+CC_PATH_DATA2 = {constants.TI_REL_CONFIG: CC_CONFIG_FILE,
+                 constants.TI_FILTER: frozenset()}
+CC_PATH_INFO2 = test_info.TestInfo(CC_MODULE_NAME,
+                                   atf_tr.AtestTradefedTestRunner.NAME,
+                                   CLASS_BUILD_TARGETS, CC_PATH_DATA2)
+CTS_INT_DIR = 'test/suite_harness/tools/cts-tradefed/res/config'
+# Constrants of java, kt, cc, cpp test_find_class_file() unittest
+FIND_PATH_TESTCASE_JAVA = 'hello_world_test'
+FIND_PATH_FILENAME_CC = 'hello_world_test'
+FIND_PATH_TESTCASE_CC = 'HelloWorldTest'
+FIND_PATH_FOLDER = 'class_file_path_testing'
+FIND_PATH = os.path.join(TEST_DATA_DIR, FIND_PATH_FOLDER)
+
+DEFAULT_INSTALL_PATH = ['/path/to/install']
+# Module names
+MOD1 = 'mod1'
+MOD2 = 'mod2'
+MOD3 = 'mod3'
+FUZZY_MOD1 = 'Mod1'
+FUZZY_MOD2 = 'nod2'
+FUZZY_MOD3 = 'mod3mod3'

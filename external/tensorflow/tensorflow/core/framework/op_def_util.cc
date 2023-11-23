@@ -26,7 +26,9 @@ limitations under the License.
 #include "tensorflow/core/lib/core/stringpiece.h"
 #include "tensorflow/core/lib/gtl/map_util.h"
 #include "tensorflow/core/lib/hash/hash.h"
+#include "tensorflow/core/lib/strings/proto_serialization.h"
 #include "tensorflow/core/lib/strings/scanner.h"
+#include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/mutex.h"
 #include "tensorflow/core/platform/protobuf.h"
@@ -112,6 +114,8 @@ Status ValidateAttrValue(const AttrValue& attr_value,
         length = attr_value.list().shape_size();
       } else if (attr.type() == "list(tensor)") {
         length = attr_value.list().tensor_size();
+      } else if (attr.type() == "list(func)") {
+        length = attr_value.list().func_size();
       }
       if (length < attr.minimum()) {
         return errors::InvalidArgument(
@@ -165,6 +169,15 @@ const OpDef::ArgDef* FindInputArg(StringPiece name, const OpDef& op_def) {
   for (int i = 0; i < op_def.input_arg_size(); ++i) {
     if (op_def.input_arg(i).name() == name) {
       return &op_def.input_arg(i);
+    }
+  }
+  return nullptr;
+}
+
+const ApiDef::Arg* FindInputArg(StringPiece name, const ApiDef& api_def) {
+  for (int i = 0; i < api_def.in_arg_size(); ++i) {
+    if (api_def.in_arg(i).name() == name) {
+      return &api_def.in_arg(i);
     }
   }
   return nullptr;
@@ -238,7 +251,7 @@ static Status ValidateArg(const OpDef::ArgDef& arg, const OpDef& op_def,
 Status ValidateOpDef(const OpDef& op_def) {
   using ::tensorflow::strings::Scanner;
 
-  if (!StringPiece(op_def.name()).starts_with("_")) {
+  if (!str_util::StartsWith(op_def.name(), "_")) {
     VALIDATE(Scanner(op_def.name())
                  .One(Scanner::UPPERLETTER)
                  .Any(Scanner::LETTER_DIGIT)
@@ -258,11 +271,11 @@ Status ValidateOpDef(const OpDef& op_def) {
 
     // Validate type
     StringPiece type(attr.type());
-    bool is_list = type.Consume("list(");
+    bool is_list = str_util::ConsumePrefix(&type, "list(");
     bool found = false;
     for (StringPiece valid : {"string", "int", "float", "bool", "type", "shape",
                               "tensor", "func"}) {
-      if (type.Consume(valid)) {
+      if (str_util::ConsumePrefix(&type, valid)) {
         found = true;
         break;
       }
@@ -270,8 +283,9 @@ Status ValidateOpDef(const OpDef& op_def) {
     VALIDATE(found, "Unrecognized type '", type, "' in attr '", attr.name(),
              "'");
     if (is_list) {
-      VALIDATE(type.Consume(")"), "'list(' is missing ')' in attr ",
-               attr.name(), "'s type ", attr.type());
+      VALIDATE(str_util::ConsumePrefix(&type, ")"),
+               "'list(' is missing ')' in attr ", attr.name(), "'s type ",
+               attr.type());
     }
     VALIDATE(type.empty(), "Extra '", type, "' at the end of attr ",
              attr.name(), "'s type ", attr.type());
@@ -821,25 +835,37 @@ bool OpDefEqual(const OpDef& o1, const OpDef& o2) {
   // Compare it separately here instead of serializing below.
   if (!RepeatedAttrDefEqual(o1.attr(), o2.attr())) return false;
 
-  // Clear attr field, serialize, and compare serialized strings
+  // `control_output` order doesn't matter.
+  std::set<string> control_output1(o1.control_output().begin(),
+                                   o1.control_output().end());
+  std::set<string> control_output2(o2.control_output().begin(),
+                                   o2.control_output().end());
+  if (control_output1 != control_output2) return false;
+
+  // Clear `attr` and `control_output` fields, serialize, and compare serialized
+  // strings.
   OpDef o1_copy = o1;
   OpDef o2_copy = o2;
   o1_copy.clear_attr();
+  o1_copy.clear_control_output();
   o2_copy.clear_attr();
-  string s1, s2;
-  SerializeToStringDeterministic(o1_copy, &s1);
-  SerializeToStringDeterministic(o2_copy, &s2);
-  if (s1 != s2) return false;
-  return true;
+  o2_copy.clear_control_output();
+
+  return AreSerializedProtosEqual(o1_copy, o2_copy);
 }
 
 uint64 OpDefHash(const OpDef& o) {
   uint64 h = RepeatedAttrDefHash(o.attr());
+
+  // Compute deterministic order-independent control outputs hash.
+  std::set<string> control_output(o.control_output().begin(),
+                                  o.control_output().end());
+  for (const auto& co : control_output) h = Hash64Combine(h, Hash64(co));
+
   OpDef o_copy = o;
   o_copy.clear_attr();
-  string s;
-  SerializeToStringDeterministic(o_copy, &s);
-  return Hash64(s.data(), s.size(), h);
+  o_copy.clear_control_output();
+  return DeterministicProtoHash64(o_copy, h);
 }
 
 }  // namespace tensorflow

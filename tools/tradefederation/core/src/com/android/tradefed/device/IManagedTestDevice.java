@@ -81,6 +81,12 @@ public interface IManagedTestDevice extends ITestDevice {
     public String getFastbootPath();
 
     /**
+     * Returns the version string of the fastboot binary being used. Or null if something goes
+     * wrong.
+     */
+    public String getFastbootVersion();
+
+    /**
      * Invoke recovery on the device.
      *
      * @throws DeviceNotAvailableException if recovery was not successful

@@ -18,23 +18,17 @@ package com.android.car;
 import android.content.Context;
 import android.content.res.Resources;
 
-import com.android.car.CarPowerManagementService.PowerEventProcessingHandler;
-import com.android.car.CarPowerManagementService.PowerServiceEventListener;
+import com.android.car.audio.CarAudioService;
 
 import java.io.PrintWriter;
 
-public class SystemStateControllerService implements CarServiceBase,
-    PowerServiceEventListener, PowerEventProcessingHandler {
-
-    private final CarPowerManagementService mCarPowerManagementService;
+public class SystemStateControllerService implements CarServiceBase {
     private final CarAudioService mCarAudioService;
     private final ICarImpl mICarImpl;
     private final boolean mLockWhenMuting;
 
-    public SystemStateControllerService(Context context,
-            CarPowerManagementService carPowerManagementService,
-            CarAudioService carAudioService, ICarImpl carImpl) {
-        mCarPowerManagementService = carPowerManagementService;
+    public SystemStateControllerService(
+            Context context, CarAudioService carAudioService, ICarImpl carImpl) {
         mCarAudioService = carAudioService;
         mICarImpl = carImpl;
         Resources res = context.getResources();
@@ -42,40 +36,7 @@ public class SystemStateControllerService implements CarServiceBase,
     }
 
     @Override
-    public long onPrepareShutdown(boolean shuttingDown) {
-        //TODO add state saving here for things to restore on power on. bug: 32096079
-        return 0;
-    }
-
-    @Override
-    public void onPowerOn(boolean displayOn) {
-        // TODO may consider mute / unmute the system based on displayOn
-    }
-
-    @Override
-    public int getWakeupTime() {
-        return 0;
-    }
-
-    @Override
-    public void onShutdown() {
-        // TODO bug: 32096079
-    }
-
-    @Override
-    public void onSleepEntry() {
-        // TODO bug: 32096079
-    }
-
-    @Override
-    public void onSleepExit() {
-        // TODO bug: 32096079
-    }
-
-    @Override
     public void init() {
-        mCarPowerManagementService.registerPowerEventListener(this);
-        mCarPowerManagementService.registerPowerEventProcessingHandler(this);
     }
 
     @Override

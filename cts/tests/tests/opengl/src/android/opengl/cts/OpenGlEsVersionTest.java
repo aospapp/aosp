@@ -26,13 +26,16 @@ import android.content.Intent;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
-import android.support.test.filters.LargeTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
+import android.content.res.Configuration;
 import android.util.Log;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CddTest;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -78,6 +81,8 @@ public class OpenGlEsVersionTest {
     @CddTest(requirement="7.1.4.1/C-0-1")
     @Test
     public void testOpenGlEsVersion() throws InterruptedException {
+        Assume.assumeFalse(isRunningANGLE());
+
         int detectedMajorVersion = getDetectedMajorVersion();
         int reportedVersion = getVersionFromActivityManager(mActivity);
 
@@ -97,15 +102,30 @@ public class OpenGlEsVersionTest {
     @CddTest(requirement="7.1.4.1/C-2-2")
     @Test
     public void testRequiredExtensions() throws InterruptedException {
+        Assume.assumeFalse(isRunningANGLE());
+
         int reportedVersion = getVersionFromActivityManager(mActivity);
-        // We only have required extensions on ES3.1+
-        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) < 1)
+
+        if (getMajorVersion(reportedVersion) < 3)
             return;
 
         restartActivityWithClientVersion(3);
 
         String extensions = mActivity.getExtensionsString();
-        final String requiredList[] = {
+
+        final String es30RequiredList[] = {
+            "OES_EGL_image_external_essl3"
+        };
+
+        for (int i = 0; i < es30RequiredList.length; ++i) {
+            assertTrue("OpenGL ES version 3.0+ is missing extension " + es30RequiredList[i],
+                    hasExtension(extensions, es30RequiredList[i]));
+        }
+
+        if (getMajorVersion(reportedVersion) != 3 || getMinorVersion(reportedVersion) < 1)
+            return;
+
+        final String es31RequiredList[] = {
             "EXT_texture_sRGB_decode",
             "KHR_blend_equation_advanced",
             "KHR_debug",
@@ -114,15 +134,17 @@ public class OpenGlEsVersionTest {
             "OES_texture_storage_multisample_2d_array"
         };
 
-        for (int i = 0; i < requiredList.length; ++i) {
-            assertTrue("OpenGL ES version 3.1+ is missing extension " + requiredList[i],
-                    hasExtension(extensions, requiredList[i]));
+        for (int i = 0; i < es31RequiredList.length; ++i) {
+            assertTrue("OpenGL ES version 3.1+ is missing extension " + es31RequiredList[i],
+                    hasExtension(extensions, es31RequiredList[i]));
         }
     }
 
     @CddTest(requirement="7.1.4.1/C-2-1,C-5-1,C-4-1")
     @Test
     public void testExtensionPack() throws InterruptedException {
+        Assume.assumeFalse(isRunningANGLE());
+
         // Requirements:
         // 1. If the device claims support for the system feature, the extension must be available.
         // 2. If the extension is available, the device must claim support for it.
@@ -152,6 +174,8 @@ public class OpenGlEsVersionTest {
     @CddTest(requirement="7.9.2/C-1-4")
     @Test
     public void testOpenGlEsVersionForVrHighPerformance() throws InterruptedException {
+        Assume.assumeFalse(isRunningANGLE());
+
         if (!supportsVrHighPerformance())
             return;
         restartActivityWithClientVersion(3);
@@ -168,24 +192,37 @@ public class OpenGlEsVersionTest {
     @CddTest(requirement="7.9.2/C-1-6,C-1-8")
     @Test
     public void testRequiredExtensionsForVrHighPerformance() throws InterruptedException {
+        Assume.assumeFalse(isRunningANGLE());
+
         if (!supportsVrHighPerformance())
             return;
         restartActivityWithClientVersion(3);
+        final boolean isVrHeadset = (mActivity.getResources().getConfiguration().uiMode
+            & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_VR_HEADSET;
 
         String extensions = mActivity.getExtensionsString();
         final String requiredList[] = {
-            "GL_EXT_EGL_image_array",
-            "GL_EXT_external_buffer",
-            "GL_EXT_multisampled_render_to_texture2",
+            "GL_EXT_multisampled_render_to_texture",
             "GL_EXT_protected_textures",
             "GL_OVR_multiview",
             "GL_OVR_multiview2",
             "GL_OVR_multiview_multisampled_render_to_texture",
         };
+        final String vrHeadsetRequiredList[] = {
+            "GL_EXT_EGL_image_array",
+            "GL_EXT_external_buffer",
+            "GL_EXT_multisampled_render_to_texture2",
+        };
 
-        for (int i = 0; i < requiredList.length; ++i) {
-            assertTrue("Required extension for VR high-performance is missing: " + requiredList[i],
-                    hasExtension(extensions, requiredList[i]));
+        for (String requiredExtension : requiredList) {
+            assertTrue("Required extension for VR high-performance is missing: " + requiredExtension,
+                    hasExtension(extensions, requiredExtension));
+        }
+        if (isVrHeadset) {
+            for (String requiredExtension : vrHeadsetRequiredList) {
+                assertTrue("Required extension for VR high-performance is missing: " + requiredExtension,
+                        hasExtension(extensions, requiredExtension));
+            }
         }
 
         EGL10 egl = (EGL10) EGLContext.getEGL();
@@ -194,17 +231,25 @@ public class OpenGlEsVersionTest {
         final String requiredEglList[] = {
             "EGL_ANDROID_front_buffer_auto_refresh",
             "EGL_ANDROID_get_native_client_buffer",
-            "EGL_EXT_image_gl_colorspace",
             "EGL_EXT_protected_content",
             "EGL_IMG_context_priority",
             "EGL_KHR_fence_sync",
             "EGL_KHR_mutable_render_buffer",
             "EGL_KHR_wait_sync",
         };
+        final String vrHeadsetRequiredEglList[] = {
+            "EGL_EXT_image_gl_colorspace",
+        };
 
-        for (int i = 0; i < requiredEglList.length; ++i) {
-            assertTrue("Required EGL extension for VR high-performance is missing: " +
-                requiredEglList[i], hasExtension(extensions, requiredEglList[i]));
+        for (String requiredExtension : requiredEglList) {
+            assertTrue("Required EGL extension for VR high-performance is missing: " + requiredExtension,
+                    hasExtension(extensions, requiredExtension));
+        }
+        if (isVrHeadset) {
+            for (String requiredExtension : vrHeadsetRequiredEglList) {
+                assertTrue("Required EGL extension for VR high-performance is missing: " + requiredExtension,
+                        hasExtension(extensions, requiredExtension));
+            }
         }
     }
     @CddTest(requirement="7.1.4.1/C-6-1")
@@ -241,6 +286,111 @@ public class OpenGlEsVersionTest {
         } else {
             Log.e(TAG, "Couldn't initialize EGL.");
         }
+    }
+
+    @CddTest(requirement="7.1.4.5/H-1-1")
+    @Test
+    public void testRequiredEglExtensionsForHdrCapableDisplay() {
+        // See CDD section 7.1.4
+        // This test covers the EGL portion of the CDD requirement. The VK portion of the
+        // requirement is covered elsewhere.
+        final String requiredEglList[] = {
+            "EGL_EXT_gl_colorspace_bt2020_pq",
+            "EGL_EXT_surface_SMPTE2086_metadata",
+            "EGL_EXT_surface_CTA861_3_metadata",
+        };
+
+        Assume.assumeFalse(isRunningANGLE());
+
+        // This requirement only applies if device is handheld and claims to be HDR capable.
+        boolean isHdrCapable = mActivity.getResources().getConfiguration().isScreenHdr();
+        if (!isHdrCapable || !isHandheld())
+            return;
+
+        EGL10 egl = (EGL10) EGLContext.getEGL();
+        EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+
+        if (egl.eglInitialize(display, null)) {
+            try {
+                String eglExtensions = egl.eglQueryString(display, EGL10.EGL_EXTENSIONS);
+                for (int i = 0; i < requiredEglList.length; ++i) {
+                    assertTrue("EGL extension required by CDD section 7.1.4.5 missing: " +
+                        requiredEglList[i], hasExtension(eglExtensions, requiredEglList[i]));
+                }
+            } finally {
+                egl.eglTerminate(display);
+            }
+        } else {
+            Log.e(TAG, "Couldn't initialize EGL.");
+        }
+    }
+
+    @CddTest(requirement="7.1.4.5/C-1-4")
+    @Test
+    public void testRequiredGLESVersion() {
+        // This requirement only applies if device claims to be wide color capable.
+        boolean isWideColorCapable =
+            mActivity.getResources().getConfiguration().isScreenWideColorGamut();
+        if (!isWideColorCapable)
+            return;
+
+        int reportedVersion = getVersionFromActivityManager(mActivity);
+        assertEquals("Reported OpenGL ES major version doesn't meet the requirement of" +
+            " CDD 7.1.4.5/C-1-4", 3, getMajorVersion(reportedVersion));
+        assertTrue("Reported OpenGL ES minor version doesn't meet the requirement of" +
+            " CDD 7.1.4.5/C-1-4", 1 == getMinorVersion(reportedVersion) ||
+                                  2 == getMinorVersion(reportedVersion));
+    }
+
+    @CddTest(requirement="7.1.4.5/C-1-5")
+    @Test
+    public void testRequiredEglExtensionsForWideColorDisplay() {
+        Assume.assumeFalse(isRunningANGLE());
+
+        // See CDD section 7.1.4.5
+        // This test covers the EGL portion of the CDD requirement. The VK portion of the
+        // requirement is covered elsewhere.
+        final String requiredEglList[] = {
+            "EGL_KHR_no_config_context",
+            "EGL_EXT_pixel_format_float",
+            "EGL_KHR_gl_colorspace",
+            "EGL_EXT_gl_colorspace_scrgb",
+            "EGL_EXT_gl_colorspace_scrgb_linear",
+            "EGL_EXT_gl_colorspace_display_p3",
+            "EGL_EXT_gl_colorspace_display_p3_linear",
+            "EGL_EXT_gl_colorspace_display_p3_passthrough",
+        };
+
+        // This requirement only applies if device claims to be wide color capable.
+        boolean isWideColorCapable = mActivity.getResources().getConfiguration().isScreenWideColorGamut();
+        if (!isWideColorCapable)
+            return;
+
+        EGL10 egl = (EGL10) EGLContext.getEGL();
+        EGLDisplay display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
+
+        if (egl.eglInitialize(display, null)) {
+            try {
+                String eglExtensions = egl.eglQueryString(display, EGL10.EGL_EXTENSIONS);
+                for (int i = 0; i < requiredEglList.length; ++i) {
+                    assertTrue("EGL extension required by CDD section 7.1.4.5 missing: " +
+                        requiredEglList[i], hasExtension(eglExtensions, requiredEglList[i]));
+                }
+            } finally {
+                egl.eglTerminate(display);
+            }
+        } else {
+            Log.e(TAG, "Couldn't initialize EGL.");
+        }
+    }
+
+    private boolean isHandheld() {
+        // handheld nature is not exposed to package manager, for now
+        // we check for touchscreen and NOT watch and NOT tv
+        PackageManager pm = mActivity.getPackageManager();
+        return pm.hasSystemFeature(pm.FEATURE_TOUCHSCREEN)
+                && !pm.hasSystemFeature(pm.FEATURE_WATCH)
+                && !pm.hasSystemFeature(pm.FEATURE_TELEVISION);
     }
 
     private static boolean hasExtension(String extensions, String name) {
@@ -381,5 +531,15 @@ public class OpenGlEsVersionTest {
     private boolean supportsVrHighPerformance() {
         PackageManager pm = mActivity.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
+    }
+
+    private boolean isRunningANGLE() {
+        try {
+            // We expect to find something like: OpenGL ES 1.0 (ANGLE 2.1.0.310294adacdd)
+            return mActivity.getVersionString().contains("ANGLE");
+        } catch (Exception e) {
+            Log.e(TAG, "Caught exception: " + e);
+        }
+        return false;
     }
 }

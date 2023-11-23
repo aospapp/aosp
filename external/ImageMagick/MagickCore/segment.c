@@ -17,13 +17,13 @@
 %                                April 1993                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -93,6 +93,7 @@
 #include "MagickCore/image.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/pixel-accessor.h"
@@ -197,6 +198,7 @@ static ssize_t
   DefineRegion(const short *,ExtentPacket *);
 
 static void
+  FreeNodes(IntervalTree *),
   InitializeHistogram(const Image *,ssize_t **,ExceptionInfo *),
   ScaleSpace(const ssize_t *,const double,double *),
   ZeroCrossHistogram(double *,const double,short *);
@@ -291,9 +293,9 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   */
   cluster=(Cluster *) NULL;
   head=(Cluster *) NULL;
-  (void) ResetMagickMemory(&red,0,sizeof(red));
-  (void) ResetMagickMemory(&green,0,sizeof(green));
-  (void) ResetMagickMemory(&blue,0,sizeof(blue));
+  (void) memset(&red,0,sizeof(red));
+  (void) memset(&green,0,sizeof(green));
+  (void) memset(&blue,0,sizeof(blue));
   while (DefineRegion(extrema[Red],&red) != 0)
   {
     green.index=0;
@@ -404,10 +406,10 @@ static MagickBooleanType Classify(Image *image,short **extrema,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_Classify)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,SegmentImageTag,progress++,2*
-          image->rows);
+        progress++;
+        proceed=SetImageProgress(image,SegmentImageTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -533,13 +535,13 @@ static MagickBooleanType Classify(Image *image,short **extrema,
   */
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
     Cluster
-      *cluster;
+      *clust;
 
     register const PixelInfo
       *magick_restrict p;
@@ -561,29 +563,29 @@ static MagickBooleanType Classify(Image *image,short **extrema,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       SetPixelIndex(image,0,q);
-      for (cluster=head; cluster != (Cluster *) NULL; cluster=cluster->next)
+      for (clust=head; clust != (Cluster *) NULL; clust=clust->next)
       {
         if (((ssize_t) ScaleQuantumToChar(GetPixelRed(image,q)) >=
-             (cluster->red.left-SafeMargin)) &&
+             (clust->red.left-SafeMargin)) &&
             ((ssize_t) ScaleQuantumToChar(GetPixelRed(image,q)) <=
-             (cluster->red.right+SafeMargin)) &&
+             (clust->red.right+SafeMargin)) &&
             ((ssize_t) ScaleQuantumToChar(GetPixelGreen(image,q)) >=
-             (cluster->green.left-SafeMargin)) &&
+             (clust->green.left-SafeMargin)) &&
             ((ssize_t) ScaleQuantumToChar(GetPixelGreen(image,q)) <=
-             (cluster->green.right+SafeMargin)) &&
+             (clust->green.right+SafeMargin)) &&
             ((ssize_t) ScaleQuantumToChar(GetPixelBlue(image,q)) >=
-             (cluster->blue.left-SafeMargin)) &&
+             (clust->blue.left-SafeMargin)) &&
             ((ssize_t) ScaleQuantumToChar(GetPixelBlue(image,q)) <=
-             (cluster->blue.right+SafeMargin)))
+             (clust->blue.right+SafeMargin)))
           {
             /*
               Classify this pixel.
             */
-            SetPixelIndex(image,(Quantum) cluster->id,q);
+            SetPixelIndex(image,(Quantum) clust->id,q);
             break;
           }
       }
-      if (cluster == (Cluster *) NULL)
+      if (clust == (Cluster *) NULL)
         {
           double
             distance_squared,
@@ -645,10 +647,10 @@ static MagickBooleanType Classify(Image *image,short **extrema,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_Classify)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,SegmentImageTag,progress++,
-          2*image->rows);
+        progress++;
+        proceed=SetImageProgress(image,SegmentImageTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -1003,9 +1005,9 @@ MagickExport MagickBooleanType GetImageDynamicThreshold(const Image *image,
   */
   cluster=(Cluster *) NULL;
   head=(Cluster *) NULL;
-  (void) ResetMagickMemory(&red,0,sizeof(red));
-  (void) ResetMagickMemory(&green,0,sizeof(green));
-  (void) ResetMagickMemory(&blue,0,sizeof(blue));
+  (void) memset(&red,0,sizeof(red));
+  (void) memset(&green,0,sizeof(green));
+  (void) memset(&blue,0,sizeof(blue));
   while (DefineRegion(extrema[Red],&red) != 0)
   {
     green.index=0;
@@ -1364,12 +1366,15 @@ static IntervalTree *InitializeIntervalTree(const ZeroCrossing *zero_crossing,
   /*
     The root is the entire histogram.
   */
-  root=(IntervalTree *) AcquireMagickMemory(sizeof(*root));
+  root=(IntervalTree *) AcquireCriticalMemory(sizeof(*root));
   root->child=(IntervalTree *) NULL;
   root->sibling=(IntervalTree *) NULL;
   root->tau=0.0;
   root->left=0;
   root->right=255;
+  root->mean_stability=0.0;
+  root->stability=0.0;
+  (void) memset(list,0,TreeLength*sizeof(*list));
   for (i=(-1); i < (ssize_t) number_crossings; i++)
   {
     /*
@@ -1401,6 +1406,12 @@ static IntervalTree *InitializeIntervalTree(const ZeroCrossing *zero_crossing,
                   sizeof(*node->sibling));
                 node=node->sibling;
               }
+            if (node == (IntervalTree *) NULL)
+              {
+                list=(IntervalTree **) RelinquishMagickMemory(list);
+                FreeNodes(root);
+                return((IntervalTree *) NULL);
+              }
             node->tau=zero_crossing[i+1].tau;
             node->child=(IntervalTree *) NULL;
             node->sibling=(IntervalTree *) NULL;
@@ -1414,6 +1425,12 @@ static IntervalTree *InitializeIntervalTree(const ZeroCrossing *zero_crossing,
           node->sibling=(IntervalTree *) AcquireMagickMemory(
             sizeof(*node->sibling));
           node=node->sibling;
+          if (node == (IntervalTree *) NULL)
+            {
+              list=(IntervalTree **) RelinquishMagickMemory(list);
+              FreeNodes(root);
+              return((IntervalTree *) NULL);
+            }
           node->tau=zero_crossing[i+1].tau;
           node->child=(IntervalTree *) NULL;
           node->sibling=(IntervalTree *) NULL;
@@ -1537,19 +1554,18 @@ static double OptimalTau(const ssize_t *histogram,const double max_tau,
   zero_crossing=(ZeroCrossing *) AcquireQuantumMemory((size_t) count,
     sizeof(*zero_crossing));
   if (zero_crossing == (ZeroCrossing *) NULL)
-    return(0.0);
+    {
+      list=(IntervalTree **) RelinquishMagickMemory(list);
+      return(0.0);
+    }
   for (i=0; i < (ssize_t) count; i++)
     zero_crossing[i].tau=(-1.0);
   /*
     Initialize zero crossing list.
   */
-  derivative=(double *) AcquireQuantumMemory(256,sizeof(*derivative));
-  second_derivative=(double *) AcquireQuantumMemory(256,
+  derivative=(double *) AcquireCriticalMemory(256*sizeof(*derivative));
+  second_derivative=(double *) AcquireCriticalMemory(256*
     sizeof(*second_derivative));
-  if ((derivative == (double *) NULL) ||
-      (second_derivative == (double *) NULL))
-    ThrowFatalException(ResourceLimitFatalError,
-      "UnableToAllocateDerivatives");
   i=0;
   for (tau=max_tau; tau >= min_tau; tau-=delta_tau)
   {
@@ -1573,8 +1589,7 @@ static double OptimalTau(const ssize_t *histogram,const double max_tau,
     zero_crossing[i].crossings);
   number_crossings=(size_t) i;
   derivative=(double *) RelinquishMagickMemory(derivative);
-  second_derivative=(double *)
-    RelinquishMagickMemory(second_derivative);
+  second_derivative=(double *) RelinquishMagickMemory(second_derivative);
   /*
     Ensure the scale-space fingerprints form lines in scale-space, not loops.
   */
@@ -1598,7 +1613,11 @@ static double OptimalTau(const ssize_t *histogram,const double max_tau,
   */
   root=InitializeIntervalTree(zero_crossing,number_crossings);
   if (root == (IntervalTree *) NULL)
-    return(0.0);
+    {
+      zero_crossing=(ZeroCrossing *) RelinquishMagickMemory(zero_crossing);
+      list=(IntervalTree **) RelinquishMagickMemory(list);
+      return(0.0);
+    }
   /*
     Find active nodes:  stability is greater (or equal) to the mean stability of
     its children.

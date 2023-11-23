@@ -39,19 +39,14 @@
 #include <sys/shm.h>
 #include <sys/syscall.h>
 #include <inttypes.h>
-#if HAVE_NUMA_H
-#include <numa.h>
-#endif
-#if HAVE_NUMAIF_H
-#include <numaif.h>
-#endif
 
 #include "test.h"
 
 char *TCID = "cpuset_syscall_test";
 int TST_TOTAL = 1;
 
-#if defined(HAVE_NUMA_V2) && defined(HAVE_LINUX_MEMPOLICY_H)
+#ifdef HAVE_NUMA_V2
+#include <numaif.h>
 
 #include "../cpuset_lib/cpuset.h"
 #include "../cpuset_lib/bitmask.h"
@@ -184,13 +179,8 @@ void test_get_mempolicy(void)
 		ret = 1;
 		return;
 	}
-#if HAVE_DECL_MPOL_F_MEMS_ALLOWED
 	ret = get_mempolicy(NULL, bitmask_mask(nmask), bitmask_nbits(nmask), 0,
 			    MPOL_F_MEMS_ALLOWED);
-#else
-	tst_resm(TCONF, "don't have MPOL_F_MEMS_ALLOWED");
-	ret = TCONF;
-#endif
 
 	bitmask_displaylist(str, 256, nmask);
 	puts(str);
@@ -242,6 +232,6 @@ int main(int argc, char *argv[])
 #else
 int main(void)
 {
-	tst_brkm(TCONF, NULL, "test requires libnuma >= 2 and it's development packages");
+	tst_brkm(TCONF, NULL, NUMA_ERROR_MSG);
 }
 #endif

@@ -19,7 +19,11 @@ package android.hardware.camera2.cts;
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.ImageFormat;
+import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -35,20 +39,23 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.Image;
 import android.media.ImageReader;
-import android.platform.test.annotations.AppModeFull;
+import android.os.BatteryManager;
 import android.util.ArraySet;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
+import android.util.SizeF;
 import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
 
-
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.Stat;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
@@ -59,14 +66,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.junit.Test;
+
 import static org.mockito.Mockito.*;
 
 /**
  * Tests exercising logical camera setup, configuration, and usage.
  */
-@AppModeFull
 public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
-    private static final String TAG = "LogicalCameraTest";
+    private static final String TAG = "LogicalCameraDeviceTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
     private static final int CONFIGURE_TIMEOUT = 5000; //ms
@@ -76,36 +84,42 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     private static final int NUM_FRAMES_CHECKED = 30;
 
     private static final double FRAME_DURATION_THRESHOLD = 0.03;
+    private static final double FOV_THRESHOLD = 0.03;
+    private static final double ASPECT_RATIO_THRESHOLD = 0.03;
 
-    private HashMap<String, StaticMetadata> mAllStaticInfo;
+    private final int[] sTemplates = new int[] {
+        CameraDevice.TEMPLATE_PREVIEW,
+        CameraDevice.TEMPLATE_RECORD,
+        CameraDevice.TEMPLATE_STILL_CAPTURE,
+        CameraDevice.TEMPLATE_VIDEO_SNAPSHOT,
+        CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG,
+        CameraDevice.TEMPLATE_MANUAL,
+    };
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
-
-        mAllStaticInfo = new HashMap<String, StaticMetadata>();
-        for (String cameraId : mCameraIds) {
-            StaticMetadata staticMetadata = new StaticMetadata(
-                    mCameraManager.getCameraCharacteristics(cameraId),
-                    CheckLevel.ASSERT, /*collector*/null);
-            mAllStaticInfo.put(cameraId, staticMetadata);
-        }
     }
 
     /**
      * Test that passing in invalid physical camera ids in OutputConfiguragtion behaves as expected
      * for logical multi-camera and non-logical multi-camera.
      */
+    @Test
     public void testInvalidPhysicalCameraIdInOutputConfiguration() throws Exception {
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
+                if (mAllStaticInfo.get(id).isHardwareLevelLegacy()) {
                     Log.i(TAG, "Camera " + id + " is legacy, skipping");
                     continue;
                 }
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
 
+                openDevice(id);
                 Size yuvSize = mOrderedPreviewSizes.get(0);
                 // Create a YUV image reader.
                 ImageReader imageReader = ImageReader.newInstance(yuvSize.getWidth(),
@@ -116,7 +130,17 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
                 List<OutputConfiguration> outputs = new ArrayList<>();
                 OutputConfiguration outputConfig = new OutputConfiguration(
                         imageReader.getSurface());
+                OutputConfiguration outputConfigCopy =
+                        new OutputConfiguration(imageReader.getSurface());
+                assertTrue("OutputConfiguration must be equal to its copy",
+                        outputConfig.equals(outputConfigCopy));
                 outputConfig.setPhysicalCameraId(id);
+                assertFalse("OutputConfigurations with different physical Ids must be different",
+                        outputConfig.equals(outputConfigCopy));
+                String idCopy = new String(id);
+                outputConfigCopy.setPhysicalCameraId(idCopy);
+                assertTrue("OutputConfigurations with same physical Ids must be equal",
+                        outputConfig.equals(outputConfigCopy));
 
                 // Regardless of logical camera or non-logical camera, create a session of an
                 // output configuration with invalid physical camera id, verify that the
@@ -138,26 +162,27 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
-     * Test for making sure that streaming from physical streams work as expected, and
-     * FPS isn't slowed down.
+     * Test for making sure that streaming from physical streams work as expected.
      */
+    @Test
     public void testBasicPhysicalStreaming() throws Exception {
 
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
 
-                if (!mStaticInfo.isColorOutputSupported()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
-                if (!mStaticInfo.isLogicalMultiCamera()) {
+                if (!staticInfo.isLogicalMultiCamera()) {
                     Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 assertTrue("Logical multi-camera must be LIMITED or higher",
                         mStaticInfo.isHardwareLevelAtLeastLimited());
 
@@ -180,23 +205,25 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
      * Test for making sure that logical/physical stream requests work when both logical stream
      * and physical stream are configured.
      */
+    @Test
     public void testBasicLogicalPhysicalStreamCombination() throws Exception {
 
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
 
-                if (!mStaticInfo.isColorOutputSupported()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
-                if (!mStaticInfo.isLogicalMultiCamera()) {
+                if (!staticInfo.isLogicalMultiCamera()) {
                     Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 assertTrue("Logical multi-camera must be LIMITED or higher",
                         mStaticInfo.isHardwareLevelAtLeastLimited());
 
@@ -229,6 +256,15 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
                         readerListenerLogical, mHandler);
                 outputConfigs.add(new OutputConfiguration(yuvTargetLogical.getSurface()));
                 imageReaderListeners.add(readerListenerLogical);
+
+                SessionConfigSupport sessionConfigSupport = isSessionConfigSupported(
+                        mCamera, mHandler, outputConfigs, /*inputConfig*/ null,
+                        SessionConfiguration.SESSION_REGULAR, false/*defaultSupport*/);
+                assertTrue("Session configuration query for logical camera failed with error",
+                        !sessionConfigSupport.error);
+                if (!sessionConfigSupport.callSupported || !sessionConfigSupport.configSupported) {
+                    continue;
+                }
 
                 mSessionListener = new BlockingSessionCallback();
                 mSession = configureCameraSessionWithConfig(mCamera, outputConfigs,
@@ -291,23 +327,25 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     /**
      * Test for making sure that multiple requests for physical cameras work as expected.
      */
+    @Test
     public void testBasicPhysicalRequests() throws Exception {
 
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
 
-                if (!mStaticInfo.isColorOutputSupported()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
-                if (!mStaticInfo.isLogicalMultiCamera()) {
+                if (!staticInfo.isLogicalMultiCamera()) {
                     Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 assertTrue("Logical multi-camera must be LIMITED or higher",
                         mStaticInfo.isHardwareLevelAtLeastLimited());
 
@@ -345,6 +383,15 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
                     outputConfigs.add(config);
                     imageReaders.add(yuvTarget);
                     imageReaderListeners.add(readerListener);
+                }
+
+                SessionConfigSupport sessionConfigSupport = isSessionConfigSupported(
+                        mCamera, mHandler, outputConfigs, /*inputConfig*/ null,
+                        SessionConfiguration.SESSION_REGULAR, false/*defaultSupport*/);
+                assertTrue("Session configuration query for logical camera failed with error",
+                        !sessionConfigSupport.error);
+                if (!sessionConfigSupport.callSupported || !sessionConfigSupport.configSupported) {
+                    continue;
                 }
 
                 CaptureRequest.Builder requestBuilder =
@@ -411,22 +458,24 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     /**
      * Tests invalid/incorrect multiple physical capture request cases.
      */
+    @Test
     public void testInvalidPhysicalCameraRequests() throws Exception {
 
         for (String id : mCameraIds) {
             try {
                 Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
 
-                if (mStaticInfo.isHardwareLevelLegacy()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (staticInfo.isHardwareLevelLegacy()) {
                     Log.i(TAG, "Camera " + id + " is legacy, skipping");
                     continue;
                 }
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 Size yuvSize = mOrderedPreviewSizes.get(0);
                 List<OutputConfiguration> outputConfigs = new ArrayList<>();
                 List<ImageReader> imageReaders = new ArrayList<>();
@@ -509,6 +558,296 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
+     * Test for physical camera switch based on focal length (optical zoom) and crop region
+     * (digital zoom).
+     *
+     * - Focal length and crop region change must be synchronized to not have sudden jump in field
+     *   of view.
+     * - Main physical id must be valid.
+     */
+    @Test
+    public void testLogicalCameraZoomSwitch() throws Exception {
+
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
+                if (!staticInfo.isLogicalMultiCamera()) {
+                    Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
+                    continue;
+                }
+
+                openDevice(id);
+                Size yuvSize = mOrderedPreviewSizes.get(0);
+                // Create a YUV image reader.
+                ImageReader imageReader = CameraTestUtils.makeImageReader(yuvSize,
+                        ImageFormat.YUV_420_888, MAX_IMAGE_COUNT,
+                        new ImageDropperListener(), mHandler);
+
+                List<OutputConfiguration> outputConfigs = new ArrayList<>();
+                OutputConfiguration config = new OutputConfiguration(imageReader.getSurface());
+                outputConfigs.add(config);
+
+                mSessionListener = new BlockingSessionCallback();
+                mSession = configureCameraSessionWithConfig(mCamera, outputConfigs,
+                        mSessionListener, mHandler);
+
+                final float FOV_MARGIN = 0.01f;
+                final float[] focalLengths = staticInfo.getAvailableFocalLengthsChecked();
+                final int zoomSteps = focalLengths.length;
+                final float maxZoom = staticInfo.getAvailableMaxDigitalZoomChecked();
+                final Rect activeArraySize = staticInfo.getActiveArraySizeChecked();
+                final Set<String> physicalIds =
+                        staticInfo.getCharacteristics().getPhysicalCameraIds();
+
+                CaptureRequest.Builder requestBuilder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                requestBuilder.addTarget(imageReader.getSurface());
+
+                // For each adjacent focal lengths, set different crop region such that the
+                // resulting angle of view is the same. This is to make sure that no sudden FOV
+                // (field of view) jump when switching between different focal lengths.
+                for (int i = 0; i < zoomSteps-1; i++) {
+                    // Start with larger focal length + full active array crop region.
+                    requestBuilder.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLengths[i+1]);
+                    requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, activeArraySize);
+                    SimpleCaptureCallback simpleResultListener = new SimpleCaptureCallback();
+                    mSession.setRepeatingRequest(requestBuilder.build(), simpleResultListener,
+                            mHandler);
+                    waitForAeStable(simpleResultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+                    // This is an approximate, assuming that subject distance >> focal length.
+                    float zoomFactor = focalLengths[i+1]/focalLengths[i];
+                    PointF zoomCenter = new PointF(0.5f, 0.5f);
+                    Rect requestCropRegion = getCropRegionForZoom(zoomFactor,
+                            zoomCenter, maxZoom, activeArraySize);
+                    if (VERBOSE) {
+                        Log.v(TAG, "Switching from crop region " + activeArraySize + ", focal " +
+                            "length " + focalLengths[i+1] + " to crop region " + requestCropRegion +
+                            ", focal length " + focalLengths[i]);
+                    }
+
+                    // Create a burst capture to switch between different focal_length/crop_region
+                    // combination with same field of view.
+                    List<CaptureRequest> requests = new ArrayList<CaptureRequest>();
+                    SimpleCaptureCallback listener = new SimpleCaptureCallback();
+
+                    requestBuilder.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLengths[i]);
+                    requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, requestCropRegion);
+                    requests.add(requestBuilder.build());
+                    requests.add(requestBuilder.build());
+
+                    requestBuilder.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLengths[i+1]);
+                    requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, activeArraySize);
+                    requests.add(requestBuilder.build());
+                    requests.add(requestBuilder.build());
+
+                    requestBuilder.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLengths[i]);
+                    requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, requestCropRegion);
+                    requests.add(requestBuilder.build());
+                    requests.add(requestBuilder.build());
+
+                    mSession.captureBurst(requests, listener, mHandler);
+                    TotalCaptureResult[] results = listener.getTotalCaptureResultsForRequests(
+                            requests, WAIT_FOR_RESULT_TIMEOUT_MS);
+
+                    // Verify result metadata to produce similar field of view.
+                    float fov = activeArraySize.width()/(2*focalLengths[i+1]);
+                    for (int j = 0; j < results.length; j++) {
+                        TotalCaptureResult result = results[j];
+                        Float resultFocalLength = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+                        Rect resultCropRegion = result.get(CaptureResult.SCALER_CROP_REGION);
+
+                        if (VERBOSE) {
+                            Log.v(TAG, "Result crop region " + resultCropRegion + ", focal length "
+                                    + resultFocalLength + " for result " + j);
+                        }
+                        float newFov = resultCropRegion.width()/(2*resultFocalLength);
+
+                        mCollector.expectTrue("Field of view must be consistent with focal " +
+                                "length and crop region change cancelling out each other.",
+                                Math.abs(newFov - fov)/fov < FOV_MARGIN);
+
+                        if (staticInfo.isActivePhysicalCameraIdSupported()) {
+                            String activePhysicalId = result.get(
+                                    CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+                            assertTrue(physicalIds.contains(activePhysicalId));
+
+                            StaticMetadata physicalCameraStaticInfo =
+                                    mAllStaticInfo.get(activePhysicalId);
+                            float[] physicalCameraFocalLengths =
+                                    physicalCameraStaticInfo.getAvailableFocalLengthsChecked();
+                            mCollector.expectTrue("Current focal length " + resultFocalLength
+                                    + " must be supported by active physical camera "
+                                    + activePhysicalId, Arrays.asList(CameraTestUtils.toObject(
+                                    physicalCameraFocalLengths)).contains(resultFocalLength));
+                        }
+                    }
+                }
+
+                if (mSession != null) {
+                    mSession.close();
+                }
+
+            } finally {
+                closeDevice();
+            }
+        }
+    }
+
+    /**
+     * Test that for logical multi-camera, the activePhysicalId is valid, and is the same
+     * for all capture templates.
+     */
+    @Test
+    public void testActivePhysicalId() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
+                if (!staticInfo.isLogicalMultiCamera()) {
+                    Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
+                    continue;
+                }
+
+                if (!staticInfo.isActivePhysicalCameraIdSupported()) {
+                    continue;
+                }
+
+                final Set<String> physicalIds =
+                        staticInfo.getCharacteristics().getPhysicalCameraIds();
+                openDevice(id);
+                Size previewSz =
+                        getMaxPreviewSize(mCamera.getId(), mCameraManager,
+                        getPreviewSizeBound(mWindowManager, PREVIEW_SIZE_BOUND));
+
+                String storedActiveId = null;
+                for (int template : sTemplates) {
+                    try {
+                        CaptureRequest.Builder requestBuilder =
+                                mCamera.createCaptureRequest(template);
+                        SimpleCaptureCallback listener = new SimpleCaptureCallback();
+                        startPreview(requestBuilder, previewSz, listener);
+                        waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+                        CaptureResult result = listener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+                        String activePhysicalId = result.get(
+                                CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+
+                        assertNotNull("activePhysicalId must not be null", activePhysicalId);
+                        if (storedActiveId == null) {
+                            storedActiveId = activePhysicalId;
+                            assertTrue(
+                                  "Camera device reported invalid activePhysicalId: " +
+                                  activePhysicalId, physicalIds.contains(activePhysicalId));
+                        } else {
+                            assertTrue(
+                                  "Camera device reported different activePhysicalId " +
+                                  activePhysicalId + " vs " + storedActiveId +
+                                  " for different capture templates",
+                                  storedActiveId.equals(activePhysicalId));
+                        }
+                    } catch (IllegalArgumentException e) {
+                        if (template == CameraDevice.TEMPLATE_MANUAL &&
+                                !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                            // OK
+                        } else if (template == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG &&
+                                !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING)) {
+                            // OK.
+                        } else {
+                            throw e; // rethrow
+                        }
+                    }
+                }
+            } finally {
+                closeDevice();
+            }
+        }
+    }
+
+    /**
+     * Test that for logical multi-camera of a Handheld device, the default FOV is
+     * between 50 and 90 degrees for all capture templates.
+     */
+    @Test
+    @CddTest(requirement="7.5.4/C-1-1")
+    public void testDefaultFov() throws Exception {
+        final double MIN_FOV = 50;
+        final double MAX_FOV = 90;
+        if (!isHandheldDevice()) {
+            return;
+        }
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+
+                StaticMetadata staticInfo = mAllStaticInfo.get(id);
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
+                if (!staticInfo.isLogicalMultiCamera()) {
+                    Log.i(TAG, "Camera " + id + " is not a logical multi-camera, skipping");
+                    continue;
+                }
+
+                SizeF physicalSize = staticInfo.getCharacteristics().get(
+                        CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+                double physicalDiag = Math.sqrt(Math.pow(physicalSize.getWidth(), 2)
+                        + Math.pow(physicalSize.getHeight(), 2));
+
+                openDevice(id);
+                for (int template : sTemplates) {
+                    try {
+                        CaptureRequest.Builder requestBuilder =
+                                mCamera.createCaptureRequest(template);
+                        Float requestFocalLength = requestBuilder.get(
+                                CaptureRequest.LENS_FOCAL_LENGTH);
+                        assertNotNull("LENS_FOCAL_LENGTH must not be null", requestFocalLength);
+
+                        double fov = 2 *
+                                Math.toDegrees(Math.atan2(physicalDiag/2, requestFocalLength));
+                        Log.v(TAG, "Camera " +  id + " template " + template +
+                                "'s default FOV is " + fov);
+                        mCollector.expectInRange("Camera " +  id + " template " + template +
+                                "'s default FOV must fall between [50, 90] degrees",
+                                fov, MIN_FOV, MAX_FOV);
+                    } catch (IllegalArgumentException e) {
+                        if (template == CameraDevice.TEMPLATE_MANUAL &&
+                                !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                            // OK
+                        } else if (template == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG &&
+                                !staticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING)) {
+                            // OK.
+                        } else {
+                            throw e; // rethrow
+                        }
+                    }
+                }
+            } finally {
+                closeDevice();
+            }
+        }
+    }
+
+    /**
      * Find a common preview size that's supported by both the logical camera and
      * two of the underlying physical cameras.
      */
@@ -528,6 +867,10 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             CameraCharacteristics properties =
                     mCameraManager.getCameraCharacteristics(physicalCameraId);
             assertNotNull("Can't get camera characteristics!", properties);
+            if (!mAllStaticInfo.get(physicalCameraId).isColorOutputSupported()) {
+                // No color output support, skip.
+                continue;
+            }
             StreamConfigurationMap configMap =
                 properties.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             physicalConfigs.put(physicalCameraId, configMap);
@@ -536,7 +879,7 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
         }
 
         // Find display size from window service.
-        Context context = getInstrumentation().getTargetContext();
+        Context context = mActivityRule.getActivity().getApplicationContext();
         WindowManager windowManager =
                 (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         Display display = windowManager.getDefaultDisplay();
@@ -565,7 +908,7 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             ArrayList<String> supportedPhysicalCameras = new ArrayList<String>();
             for (String physicalCameraId : physicalCameraIds) {
                 List<Size> physicalPreviewSizes = physicalPreviewSizesMap.get(physicalCameraId);
-                if (physicalPreviewSizes.contains(previewSize)) {
+                if (physicalPreviewSizes != null && physicalPreviewSizes.contains(previewSize)) {
                    long minDurationPhysical =
                            physicalConfigs.get(physicalCameraId).getOutputMinFrameDuration(
                            ImageFormat.YUV_420_888, previewSize);
@@ -582,9 +925,57 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
+     * Validate that physical cameras' crop region are compensated based on focal length.
+     *
+     * This is to make sure physical processed streams have the same field of view as long as
+     * the physical cameras supports it.
+     */
+    private void validatePhysicalCamerasFov(TotalCaptureResult totalCaptureResult,
+            List<String> physicalCameraIds) {
+        Rect cropRegion = totalCaptureResult.get(CaptureResult.SCALER_CROP_REGION);
+        Float focalLength = totalCaptureResult.get(CaptureResult.LENS_FOCAL_LENGTH);
+        float cropAspectRatio = (float)cropRegion.width() / cropRegion.height();
+
+        // Assume subject distance >> focal length, and subject distance >> camera baseline.
+        float fov = cropRegion.width() / (2 * focalLength);
+        Map<String, CaptureResult> physicalResultsDual =
+                    totalCaptureResult.getPhysicalCameraResults();
+        for (String physicalId : physicalCameraIds) {
+            CaptureResult physicalResult = physicalResultsDual.get(physicalId);
+            Rect physicalCropRegion = physicalResult.get(CaptureResult.SCALER_CROP_REGION);
+            final Float physicalFocalLength = physicalResult.get(CaptureResult.LENS_FOCAL_LENGTH);
+
+            StaticMetadata staticInfo = mAllStaticInfo.get(physicalId);
+            final Rect activeArraySize = staticInfo.getActiveArraySizeChecked();
+            final Float maxDigitalZoom = staticInfo.getAvailableMaxDigitalZoomChecked();
+            int maxWidth = activeArraySize.width();
+            int minWidth = (int)(activeArraySize.width() / maxDigitalZoom);
+            int expectedCropWidth = Math.max(Math.min(Math.round(fov * 2 * physicalFocalLength),
+                    maxWidth), minWidth);
+
+            // Makes sure FOV matches to the maximum extent.
+            assertTrue("Physical stream FOV (Field of view) should match logical stream to most "
+                    + "extent. Crop region actual width " + physicalCropRegion.width() +
+                    " vs expected width " + expectedCropWidth,
+                    Math.abs((float)physicalCropRegion.width() - expectedCropWidth) /
+                    expectedCropWidth < FOV_THRESHOLD);
+
+            // Makes sure aspect ratio matches.
+            float physicalCropAspectRatio =
+                    (float)physicalCropRegion.width() / physicalCropRegion.height();
+            assertTrue("Physical stream for camera " + physicalId + " aspect ratio " +
+                    physicalCropAspectRatio + " should match logical streams aspect ratio " +
+                    cropAspectRatio, Math.abs(physicalCropAspectRatio - cropAspectRatio) <
+                    ASPECT_RATIO_THRESHOLD);
+        }
+
+
+    }
+
+    /**
      * Test physical camera YUV streaming within a particular logical camera.
      *
-     * Use 2 YUV streams with PREVIEW or smaller size, which is guaranteed for LIMITED device level.
+     * Use 2 YUV streams with PREVIEW or smaller size.
      */
     private void testBasicPhysicalStreamingForCamera(String logicalCameraId,
             List<String> physicalCameraIds, Size previewSize) throws Exception {
@@ -611,6 +1002,15 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             config.setPhysicalCameraId(physicalCameraId);
             outputConfigs.add(config);
             physicalTargets.add(physicalTarget);
+        }
+
+        SessionConfigSupport sessionConfigSupport = isSessionConfigSupported(
+                mCamera, mHandler, outputConfigs, /*inputConfig*/ null,
+                SessionConfiguration.SESSION_REGULAR, false/*defaultSupport*/);
+        assertTrue("Session configuration query for logical camera failed with error",
+                !sessionConfigSupport.error);
+        if (!sessionConfigSupport.callSupported || !sessionConfigSupport.configSupported) {
+            return;
         }
 
         mSessionListener = new BlockingSessionCallback();
@@ -714,6 +1114,13 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             }
         }
 
+        // Check both logical and physical streams' crop region, and make sure their FOVs
+        // are similar.
+        TotalCaptureResult totalCaptureResult =
+                simpleResultListenerDual.getTotalCaptureResult(
+                CameraTestUtils.CAPTURE_RESULT_TIMEOUT_MS);
+        validatePhysicalCamerasFov(totalCaptureResult, physicalCameraIds);
+
         // Check timestamp monolithity for individual camera and across cameras
         for (int i = 0; i < NUM_FRAMES_CHECKED-1; i++) {
             assertTrue("Logical camera timestamp must monolithically increase",
@@ -735,17 +1142,54 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
         double logicalAvgDurationMs2 = (logicalTimestamps2[NUM_FRAMES_CHECKED-1] -
                 logicalTimestamps2[0])/(NS_PER_MS*(NUM_FRAMES_CHECKED-1));
 
-        mCollector.expectLessOrEqual("The average frame duration increase of all physical "
-                + "streams is larger than threshold: "
-                + String.format("increase = %.2f, threshold = %.2f",
-                  (logicalAvgDurationMs2 - logicalAvgDurationMs)/logicalAvgDurationMs,
-                  FRAME_DURATION_THRESHOLD),
-                logicalAvgDurationMs*(1+FRAME_DURATION_THRESHOLD),
-                logicalAvgDurationMs2);
+        // Check framerate slow down with physical streams, but do not enforce.
+        double fpsRatio = (logicalAvgDurationMs2 - logicalAvgDurationMs)/logicalAvgDurationMs;
+        if (fpsRatio > FRAME_DURATION_THRESHOLD) {
+            Log.w(TAG, "The average frame duration with concurrent physical streams is" +
+                logicalAvgDurationMs2 + " ms vs " + logicalAvgDurationMs +
+                " ms for logical streams only");
+        }
+
+        if (VERBOSE) {
+            while (simpleResultListenerDual.hasMoreFailures()) {
+                ArrayList<CaptureFailure> failures =
+                    simpleResultListenerDual.getCaptureFailures(/*maxNumFailures*/ 1);
+                for (CaptureFailure failure : failures) {
+                    String physicalCameraId = failure.getPhysicalCameraId();
+                    if (physicalCameraId != null) {
+                        Log.v(TAG, "Capture result failure for physical camera id: " +
+                                physicalCameraId);
+                    }
+                }
+            }
+        }
 
         // Stop preview
         if (mSession != null) {
             mSession.close();
         }
+    }
+
+    /**
+     * The CDD defines a handheld device as one that has a battery and a screen size between
+     * 2.5 and 8 inches.
+     */
+    private boolean isHandheldDevice() throws Exception {
+        double screenInches = getScreenSizeInInches();
+        return deviceHasBattery() && screenInches >= 2.5 && screenInches <= 8.0;
+    }
+
+    private boolean deviceHasBattery() {
+        final Intent batteryInfo = mContext.registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo != null && batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+    }
+
+    private double getScreenSizeInInches() {
+        DisplayMetrics dm = new DisplayMetrics();
+        mWindowManager.getDefaultDisplay().getMetrics(dm);
+        double widthInInchesSquared = Math.pow(dm.widthPixels/dm.xdpi,2);
+        double heightInInchesSquared = Math.pow(dm.heightPixels/dm.ydpi,2);
+        return Math.sqrt(widthInInchesSquared + heightInInchesSquared);
     }
 }

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -178,7 +178,7 @@ static MagickBooleanType WriteMATTEImage(const ImageInfo *image_info,
 
   if (image->alpha_trait == UndefinedPixelTrait)
     ThrowWriterException(CoderError,"ImageDoesNotHaveAnAlphaChannel");
-  matte_image=CloneImage(image,image->columns,image->rows,MagickTrue,exception);
+  matte_image=CloneImage(image,0,0,MagickTrue,exception);
   if (matte_image == (Image *) NULL)
     return(MagickFalse);
   (void) SetImageType(matte_image,TrueColorAlphaType,exception);

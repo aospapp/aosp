@@ -16,6 +16,9 @@
 
 import mock
 import unittest
+
+import os
+
 from acts.controllers import android_device
 from acts.libs.ota.ota_runners import ota_runner
 from acts.libs.ota.ota_tools import update_device_ota_tool
@@ -44,13 +47,16 @@ class UpdateDeviceOtaToolTest(unittest.TestCase):
         ota_runner.SL4A_SERVICE_SETUP_TIME = self.sl4a_service_setup_time
 
     def test_update(self):
+        ota_package_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'dummy_ota_package.zip')
         with mock.patch('tempfile.mkdtemp') as mkdtemp, (
                 mock.patch('shutil.rmtree')) as rmtree, (
                     mock.patch('acts.utils.unzip_maintain_permissions')):
             mkdtemp.return_value = ''
             rmtree.return_value = ''
             device = get_mock_android_device()
-            tool = update_device_ota_tool.UpdateDeviceOtaTool('')
+            tool = update_device_ota_tool.UpdateDeviceOtaTool(ota_package_path)
             runner = mock.Mock(
                 ota_runner.SingleUseOtaRunner(tool, device, '', ''))
             runner.return_value.android_device = device
@@ -59,12 +65,15 @@ class UpdateDeviceOtaToolTest(unittest.TestCase):
             del tool
 
     def test_del(self):
+        ota_package_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'dummy_ota_package.zip')
         with mock.patch('tempfile.mkdtemp') as mkdtemp, (
                 mock.patch('shutil.rmtree')) as rmtree, (
                     mock.patch('acts.utils.unzip_maintain_permissions')):
             mkdtemp.return_value = ''
             rmtree.return_value = ''
-            tool = update_device_ota_tool.UpdateDeviceOtaTool('')
+            tool = update_device_ota_tool.UpdateDeviceOtaTool(ota_package_path)
             del tool
             self.assertTrue(mkdtemp.called)
             self.assertTrue(rmtree.called)

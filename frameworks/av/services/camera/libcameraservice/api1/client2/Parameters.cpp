@@ -41,29 +41,35 @@ Parameters::Parameters(int cameraId,
         int cameraFacing) :
         cameraId(cameraId),
         cameraFacing(cameraFacing),
-        info(NULL) {
+        info(NULL),
+        mDefaultSceneMode(ANDROID_CONTROL_SCENE_MODE_DISABLED) {
 }
 
 Parameters::~Parameters() {
 }
 
-status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
+status_t Parameters::initialize(CameraDeviceBase *device, int deviceVersion) {
     status_t res;
+    if (device == nullptr) {
+        ALOGE("%s: device is null!", __FUNCTION__);
+        return BAD_VALUE;
+    }
 
-    if (info->entryCount() == 0) {
+    const CameraMetadata& info = device->info();
+    if (info.entryCount() == 0) {
         ALOGE("%s: No static information provided!", __FUNCTION__);
         return BAD_VALUE;
     }
-    Parameters::info = info;
+    Parameters::info = &info;
     mDeviceVersion = deviceVersion;
 
-    res = buildFastInfo();
+    res = buildFastInfo(device);
     if (res != OK) return res;
 
     res = buildQuirks();
     if (res != OK) return res;
 
-    const Size MAX_PREVIEW_SIZE = { MAX_PREVIEW_WIDTH, MAX_PREVIEW_HEIGHT };
+    Size maxPreviewSize = { MAX_PREVIEW_WIDTH, MAX_PREVIEW_HEIGHT };
     // Treat the H.264 max size as the max supported video size.
     MediaProfiles *videoEncoderProfiles = MediaProfiles::getInstance();
     Vector<video_encoder> encoders = videoEncoderProfiles->getVideoEncoders();
@@ -84,11 +90,16 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
         }
     }
     // This is just an upper bound and may not be an actually valid video size
-    const Size VIDEO_SIZE_UPPER_BOUND = {maxVideoWidth, maxVideoHeight};
+    Size videoSizeUpperBound = {maxVideoWidth, maxVideoHeight};
 
-    res = getFilteredSizes(MAX_PREVIEW_SIZE, &availablePreviewSizes);
+    if (fastInfo.supportsPreferredConfigs) {
+        maxPreviewSize = getMaxSize(getPreferredPreviewSizes());
+        videoSizeUpperBound = getMaxSize(getPreferredVideoSizes());
+    }
+
+    res = getFilteredSizes(maxPreviewSize, &availablePreviewSizes);
     if (res != OK) return res;
-    res = getFilteredSizes(VIDEO_SIZE_UPPER_BOUND, &availableVideoSizes);
+    res = getFilteredSizes(videoSizeUpperBound, &availableVideoSizes);
     if (res != OK) return res;
 
     // Select initial preview and video size that's under the initial bound and
@@ -290,9 +301,13 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     Vector<Size> availableJpegSizes = getAvailableJpegSizes();
     if (!availableJpegSizes.size()) return NO_INIT;
 
-    // TODO: Pick maximum
     pictureWidth = availableJpegSizes[0].width;
     pictureHeight = availableJpegSizes[0].height;
+    if (fastInfo.supportsPreferredConfigs) {
+        Size suggestedJpegSize = getMaxSize(getPreferredJpegSizes());
+        pictureWidth = suggestedJpegSize.width;
+        pictureHeight = suggestedJpegSize.height;
+    }
     pictureWidthLastSet = pictureWidth;
     pictureHeightLastSet = pictureHeight;
     pictureSizeOverriden = false;
@@ -557,6 +572,10 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
                     noSceneModes = true;
                     break;
                 case ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY:
+                    // Face priority can be used as alternate default if supported.
+                    // Per API contract it shouldn't override the user set flash,
+                    // white balance and focus modes.
+                    mDefaultSceneMode = availableSceneModes.data.u8[i];
                     // Not in old API
                     addComma = false;
                     break;
@@ -747,6 +766,7 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     focusState = ANDROID_CONTROL_AF_STATE_INACTIVE;
     shadowFocusMode = FOCUS_MODE_INVALID;
 
+    aeState = ANDROID_CONTROL_AE_STATE_INACTIVE;
     camera_metadata_ro_entry_t max3aRegions = staticInfo(ANDROID_CONTROL_MAX_REGIONS,
             Parameters::NUM_REGION, Parameters::NUM_REGION);
     if (max3aRegions.count != Parameters::NUM_REGION) return NO_INIT;
@@ -761,17 +781,7 @@ status_t Parameters::initialize(const CameraMetadata *info, int deviceVersion) {
     focusingAreas.clear();
     focusingAreas.add(Parameters::Area(0,0,0,0,0));
 
-    if (fastInfo.isExternalCamera) {
-        params.setFloat(CameraParameters::KEY_FOCAL_LENGTH, -1.0);
-    } else {
-        camera_metadata_ro_entry_t availableFocalLengths =
-            staticInfo(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, 0, 0, false);
-        if (!availableFocalLengths.count) return NO_INIT;
-
-        float minFocalLength = availableFocalLengths.data.f[0];
-        params.setFloat(CameraParameters::KEY_FOCAL_LENGTH, minFocalLength);
-    }
-
+    params.setFloat(CameraParameters::KEY_FOCAL_LENGTH, fastInfo.defaultFocalLength);
 
     float horizFov, vertFov;
     res = calculatePictureFovs(&horizFov, &vertFov);
@@ -993,7 +1003,7 @@ String8 Parameters::get() const {
     return paramsFlattened;
 }
 
-status_t Parameters::buildFastInfo() {
+status_t Parameters::buildFastInfo(CameraDeviceBase *device) {
 
     camera_metadata_ro_entry_t activeArraySize =
         staticInfo(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, 2, 4);
@@ -1010,6 +1020,9 @@ status_t Parameters::buildFastInfo() {
         arrayHeight = activeArraySize.data.i32[3];
     } else return NO_INIT;
 
+    fastInfo.supportsPreferredConfigs =
+        info->exists(ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS);
+
     // We'll set the target FPS range for still captures to be as wide
     // as possible to give the HAL maximum latitude for exposure selection
     camera_metadata_ro_entry_t availableFpsRanges =
@@ -1021,8 +1034,11 @@ status_t Parameters::buildFastInfo() {
     // Get supported preview fps ranges, up to default maximum.
     Vector<Size> supportedPreviewSizes;
     Vector<FpsRange> supportedPreviewFpsRanges;
-    const Size PREVIEW_SIZE_BOUND = { MAX_PREVIEW_WIDTH, MAX_PREVIEW_HEIGHT };
-    status_t res = getFilteredSizes(PREVIEW_SIZE_BOUND, &supportedPreviewSizes);
+    Size previewSizeBound = { MAX_PREVIEW_WIDTH, MAX_PREVIEW_HEIGHT };
+    if (fastInfo.supportsPreferredConfigs) {
+        previewSizeBound = getMaxSize(getPreferredPreviewSizes());
+    }
+    status_t res = getFilteredSizes(previewSizeBound, &supportedPreviewSizes);
     if (res != OK) return res;
     for (size_t i=0; i < availableFpsRanges.count; i += 2) {
         if (!isFpsSupported(supportedPreviewSizes,
@@ -1109,19 +1125,11 @@ status_t Parameters::buildFastInfo() {
             focusDistanceCalibration.data.u8[0] !=
             ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED);
 
-
-    camera_metadata_ro_entry_t hwLevel = staticInfo(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL);
-    if (!hwLevel.count) return NO_INIT;
-    fastInfo.isExternalCamera =
-            hwLevel.data.u8[0] == ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
-
-    camera_metadata_ro_entry_t availableFocalLengths =
-        staticInfo(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, 0, 0, /*required*/false);
-    if (!availableFocalLengths.count && !fastInfo.isExternalCamera) return NO_INIT;
+    res = getDefaultFocalLength(device);
+    if (res != OK) return res;
 
     SortedVector<int32_t> availableFormats = getAvailableOutputFormats();
     if (!availableFormats.size()) return NO_INIT;
-
 
     if (sceneModeOverrides.count > 0) {
         // sceneModeOverrides is defined to have 3 entries for each scene mode,
@@ -1199,19 +1207,6 @@ status_t Parameters::buildFastInfo() {
     fastInfo.bestStillCaptureFpsRange[1] = bestStillCaptureFpsRange[1];
     fastInfo.bestFaceDetectMode = bestFaceDetectMode;
     fastInfo.maxFaces = maxFaces;
-
-    // Find smallest (widest-angle) focal length to use as basis of still
-    // picture FOV reporting.
-    if (fastInfo.isExternalCamera) {
-        fastInfo.minFocalLength = -1.0;
-    } else {
-        fastInfo.minFocalLength = availableFocalLengths.data.f[0];
-        for (size_t i = 1; i < availableFocalLengths.count; i++) {
-            if (fastInfo.minFocalLength > availableFocalLengths.data.f[i]) {
-                fastInfo.minFocalLength = availableFocalLengths.data.f[i];
-            }
-        }
-    }
 
     // Check if the HAL supports HAL_PIXEL_FORMAT_YCbCr_420_888
     fastInfo.useFlexibleYuv = false;
@@ -1760,7 +1755,7 @@ status_t Parameters::set(const String8& paramString) {
 
     // SCENE_MODE
     validatedParams.sceneMode = sceneModeStringToEnum(
-        newParams.get(CameraParameters::KEY_SCENE_MODE) );
+        newParams.get(CameraParameters::KEY_SCENE_MODE), mDefaultSceneMode);
     if (validatedParams.sceneMode != sceneMode &&
             validatedParams.sceneMode !=
             ANDROID_CONTROL_SCENE_MODE_DISABLED) {
@@ -1778,7 +1773,7 @@ status_t Parameters::set(const String8& paramString) {
         }
     }
     bool sceneModeSet =
-            validatedParams.sceneMode != ANDROID_CONTROL_SCENE_MODE_DISABLED;
+            validatedParams.sceneMode != mDefaultSceneMode;
 
     // FLASH_MODE
     if (sceneModeSet) {
@@ -2157,7 +2152,7 @@ status_t Parameters::updateRequest(CameraMetadata *request) const {
     uint8_t reqSceneMode =
             sceneModeActive ? sceneMode :
             enableFaceDetect ? (uint8_t)ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY :
-            (uint8_t)ANDROID_CONTROL_SCENE_MODE_DISABLED;
+            mDefaultSceneMode;
     res = request->update(ANDROID_CONTROL_SCENE_MODE,
             &reqSceneMode, 1);
     if (res != OK) return res;
@@ -2446,6 +2441,50 @@ bool Parameters::useZeroShutterLag() const {
     return true;
 }
 
+status_t Parameters::getDefaultFocalLength(CameraDeviceBase *device) {
+    if (device == nullptr) {
+        ALOGE("%s: Camera device is nullptr", __FUNCTION__);
+        return BAD_VALUE;
+    }
+
+    camera_metadata_ro_entry_t hwLevel = staticInfo(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL);
+    if (!hwLevel.count) return NO_INIT;
+    fastInfo.isExternalCamera =
+            hwLevel.data.u8[0] == ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL;
+
+    camera_metadata_ro_entry_t availableFocalLengths =
+        staticInfo(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, 0, 0, /*required*/false);
+    if (!availableFocalLengths.count && !fastInfo.isExternalCamera) return NO_INIT;
+
+    // Find focal length in PREVIEW template to use as default focal length.
+    if (fastInfo.isExternalCamera) {
+        fastInfo.defaultFocalLength = -1.0;
+    } else {
+        // Find smallest (widest-angle) focal length to use as basis of still
+        // picture FOV reporting.
+        fastInfo.defaultFocalLength = availableFocalLengths.data.f[0];
+        for (size_t i = 1; i < availableFocalLengths.count; i++) {
+            if (fastInfo.defaultFocalLength > availableFocalLengths.data.f[i]) {
+                fastInfo.defaultFocalLength = availableFocalLengths.data.f[i];
+            }
+        }
+
+        // Use focal length in preview template if it exists
+        CameraMetadata previewTemplate;
+        status_t res = device->createDefaultRequest(CAMERA3_TEMPLATE_PREVIEW, &previewTemplate);
+        if (res != OK) {
+            ALOGE("%s: Failed to create default PREVIEW request: %s (%d)",
+                    __FUNCTION__, strerror(-res), res);
+            return res;
+        }
+        camera_metadata_entry entry = previewTemplate.find(ANDROID_LENS_FOCAL_LENGTH);
+        if (entry.count != 0) {
+            fastInfo.defaultFocalLength = entry.data.f[0];
+        }
+    }
+    return OK;
+}
+
 const char* Parameters::getStateName(State state) {
 #define CASE_ENUM_TO_CHAR(x) case x: return(#x); break;
     switch(state) {
@@ -2589,12 +2628,12 @@ int Parameters::abModeStringToEnum(const char *abMode) {
         -1;
 }
 
-int Parameters::sceneModeStringToEnum(const char *sceneMode) {
+int Parameters::sceneModeStringToEnum(const char *sceneMode, uint8_t defaultSceneMode) {
     return
         !sceneMode ?
-            ANDROID_CONTROL_SCENE_MODE_DISABLED :
+            defaultSceneMode :
         !strcmp(sceneMode, CameraParameters::SCENE_MODE_AUTO) ?
-            ANDROID_CONTROL_SCENE_MODE_DISABLED :
+            defaultSceneMode :
         !strcmp(sceneMode, CameraParameters::SCENE_MODE_ACTION) ?
             ANDROID_CONTROL_SCENE_MODE_ACTION :
         !strcmp(sceneMode, CameraParameters::SCENE_MODE_PORTRAIT) ?
@@ -3083,6 +3122,67 @@ Vector<Parameters::Size> Parameters::getAvailableJpegSizes() {
     return jpegSizes;
 }
 
+Vector<Parameters::StreamConfiguration> Parameters::getPreferredStreamConfigurations(
+        int32_t usecaseId) const {
+    const size_t STREAM_CONFIGURATION_SIZE = 5;
+    const size_t STREAM_WIDTH_OFFSET = 0;
+    const size_t STREAM_HEIGHT_OFFSET = 1;
+    const size_t STREAM_FORMAT_OFFSET = 2;
+    const size_t STREAM_IS_INPUT_OFFSET = 3;
+    const size_t STREAM_USECASE_BITMAP_OFFSET = 4;
+    Vector<StreamConfiguration> scs;
+
+    if (fastInfo.supportsPreferredConfigs) {
+        camera_metadata_ro_entry_t availableStreamConfigs = staticInfo(
+                ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS);
+        for (size_t i = 0; i < availableStreamConfigs.count; i+= STREAM_CONFIGURATION_SIZE) {
+            int32_t width = availableStreamConfigs.data.i32[i + STREAM_WIDTH_OFFSET];
+            int32_t height = availableStreamConfigs.data.i32[i + STREAM_HEIGHT_OFFSET];
+            int32_t format = availableStreamConfigs.data.i32[i + STREAM_FORMAT_OFFSET];
+            int32_t isInput = availableStreamConfigs.data.i32[i + STREAM_IS_INPUT_OFFSET];
+            int32_t supportedUsecases =
+                    availableStreamConfigs.data.i32[i + STREAM_USECASE_BITMAP_OFFSET];
+            if (supportedUsecases & (1 << usecaseId)) {
+                StreamConfiguration sc = {format, width, height, isInput};
+                scs.add(sc);
+            }
+        }
+    }
+
+    return scs;
+}
+
+Vector<Parameters::Size> Parameters::getPreferredFilteredSizes(int32_t usecaseId,
+        int32_t format) const {
+    Vector<Parameters::Size> sizes;
+    Vector<StreamConfiguration> scs = getPreferredStreamConfigurations(usecaseId);
+    for (const auto &it : scs) {
+        if (it.format == format) {
+            sizes.add({it.width, it.height});
+        }
+    }
+
+    return sizes;
+}
+
+Vector<Parameters::Size> Parameters::getPreferredJpegSizes() const {
+    return getPreferredFilteredSizes(
+            ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_SNAPSHOT,
+            HAL_PIXEL_FORMAT_BLOB);
+}
+
+Vector<Parameters::Size> Parameters::getPreferredPreviewSizes() const {
+    return getPreferredFilteredSizes(
+            ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PREVIEW,
+            HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+}
+
+Vector<Parameters::Size> Parameters::getPreferredVideoSizes() const {
+    return getPreferredFilteredSizes(
+            ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_RECORD,
+            HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+}
+
 Parameters::CropRegion Parameters::calculateCropRegion(bool previewOnly) const {
 
     float zoomLeft, zoomTop, zoomWidth, zoomHeight;
@@ -3241,12 +3341,12 @@ status_t Parameters::calculatePictureFovs(float *horizFov, float *vertFov)
     if (horizFov != NULL) {
         *horizFov = 180 / M_PI * 2 *
                 atanf(horizCropFactor * sensorSize.data.f[0] /
-                        (2 * fastInfo.minFocalLength));
+                        (2 * fastInfo.defaultFocalLength));
     }
     if (vertFov != NULL) {
         *vertFov = 180 / M_PI * 2 *
                 atanf(vertCropFactor * sensorSize.data.f[1] /
-                        (2 * fastInfo.minFocalLength));
+                        (2 * fastInfo.defaultFocalLength));
     }
     return OK;
 }

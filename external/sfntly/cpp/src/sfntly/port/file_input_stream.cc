@@ -70,7 +70,7 @@ int32_t FileInputStream::Read() {
 #endif
     return 0;
   }
-  byte_t value;
+  byte_t value = 0;
   size_t length = fread(&value, 1, 1, file_);
   position_ += length;
   return value;

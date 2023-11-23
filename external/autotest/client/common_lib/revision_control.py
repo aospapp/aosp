@@ -38,6 +38,10 @@ class GitCommitError(GitError):
     """Exception raised for git commit errors."""
 
 
+class GitPushError(GitError):
+    """Exception raised for git push errors."""
+
+
 class GitRepo(object):
     """
     This class represents a git repo.
@@ -154,7 +158,7 @@ class GitRepo(object):
         return rv
 
 
-    def clone(self, remote_branch=None):
+    def clone(self, remote_branch=None, shallow=False):
         """
         Clones a repo using giturl and repodir.
 
@@ -164,6 +168,7 @@ class GitRepo(object):
 
         @param remote_branch: Specify the remote branch to clone. None if to
                               clone master branch.
+        @param shallow: If True, do a shallow clone.
 
         @raises GitCloneError: if cloning the master repo fails.
         """
@@ -171,6 +176,8 @@ class GitRepo(object):
         cmd = 'clone %s %s ' % (self.giturl, self.repodir)
         if remote_branch:
             cmd += '-b %s' % remote_branch
+        if shallow:
+            cmd += '--depth 1'
         abs_work_tree = self.work_tree
         self.work_tree = None
         try:
@@ -211,10 +218,54 @@ class GitRepo(object):
 
         @param msg: A message that goes with the commit.
         """
-        rv = self.gitcmd('commit -a -m %s' % msg)
+        rv = self.gitcmd('commit -a -m \'%s\'' % msg)
         if rv.exit_status != 0:
             logging.error(rv.stderr)
             raise GitCommitError('Unable to commit', rv)
+
+
+    def upload_cl(self, remote, remote_branch, local_ref='HEAD', draft=False,
+                  dryrun=False):
+        """
+        Upload the change.
+
+        @param remote: The git remote to upload the CL.
+        @param remote_branch: The remote branch to upload the CL.
+        @param local_ref: The local ref to upload.
+        @param draft: Whether to upload the CL as a draft.
+        @param dryrun: Whether the upload operation is a dryrun.
+
+        @return: Git command result stderr.
+        """
+        remote_refspec = (('refs/drafts/%s' if draft else 'refs/for/%s') %
+                          remote_branch)
+        return self.push(remote, local_ref, remote_refspec, dryrun=dryrun)
+
+
+    def push(self, remote, local_refspec, remote_refspec, dryrun=False):
+        """
+        Push the change.
+
+        @param remote: The git remote to push the CL.
+        @param local_ref: The local ref to push.
+        @param remote_refspec: The remote ref to push to.
+        @param dryrun: Whether the upload operation is a dryrun.
+
+        @return: Git command result stderr.
+        """
+        cmd = 'push %s %s:%s' % (remote, local_refspec, remote_refspec)
+
+        if dryrun:
+            logging.info('Would run push command: %s.', cmd)
+            return
+
+        rv = self.gitcmd(cmd)
+        if rv.exit_status != 0:
+            logging.error(rv.stderr)
+            raise GitPushError('Unable to push', rv)
+
+        # The CL url is in the result stderr (not stdout)
+        return rv.stderr
 
 
     def reset(self, branch_or_sha):
@@ -486,3 +537,51 @@ class GitRepo(object):
             branch = [b[2:] for b in gitlog.stdout.split('\n')
                       if b.startswith('*')][0]
             return branch
+
+
+    def status(self, short=True):
+        """
+        Return the current status of the git repo.
+
+        @param short: Whether to give the output in the short-format.
+        """
+        cmd = 'status'
+
+        if short:
+            cmd += ' -s'
+
+        gitlog = self.gitcmd(cmd, True)
+        if gitlog.exit_status != 0:
+            logging.error(gitlog.stderr)
+            raise error.CmdError('Failed to get git status', gitlog)
+        else:
+            return gitlog.stdout.strip('\n')
+
+
+    def config(self, option_name):
+        """
+        Return the git config value for the given option name.
+
+        @option_name: The name of the git option to get.
+        """
+        cmd = 'config ' + option_name
+        gitlog = self.gitcmd(cmd)
+
+        if gitlog.exit_status != 0:
+            logging.error(gitlog.stderr)
+            raise error.CmdError('Failed to get git config %', option_name)
+        else:
+            return gitlog.stdout.strip('\n')
+
+
+    def remote(self):
+        """
+        Return repository git remote name.
+        """
+        gitlog = self.gitcmd('remote')
+
+        if gitlog.exit_status != 0:
+            logging.error(gitlog.stderr)
+            raise error.CmdError('Failed to run git remote.')
+        else:
+            return gitlog.stdout.strip('\n')

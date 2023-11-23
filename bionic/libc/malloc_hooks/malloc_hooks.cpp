@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <malloc.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
 #include <unistd.h>
@@ -47,7 +48,7 @@ const MallocDispatch* g_dispatch;
 // ------------------------------------------------------------------------
 __BEGIN_DECLS
 
-bool hooks_initialize(const MallocDispatch* malloc_dispatch, int* malloc_zygote_child,
+bool hooks_initialize(const MallocDispatch* malloc_dispatch, bool* zygote_child,
     const char* options);
 void hooks_finalize();
 void hooks_get_malloc_leak_info(
@@ -57,6 +58,7 @@ ssize_t hooks_malloc_backtrace(void* pointer, uintptr_t* frames, size_t frame_co
 void hooks_free_malloc_leak_info(uint8_t* info);
 size_t hooks_malloc_usable_size(void* pointer);
 void* hooks_malloc(size_t size);
+int hooks_malloc_info(int options, FILE* fp);
 void hooks_free(void* pointer);
 void* hooks_memalign(size_t alignment, size_t bytes);
 void* hooks_aligned_alloc(size_t alignment, size_t bytes);
@@ -69,6 +71,7 @@ int hooks_iterate(uintptr_t base, size_t size,
     void (*callback)(uintptr_t base, size_t size, void* arg), void* arg);
 void hooks_malloc_disable();
 void hooks_malloc_enable();
+bool hooks_write_malloc_leak_info(FILE*);
 
 #if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
 void* hooks_pvalloc(size_t bytes);
@@ -94,7 +97,7 @@ static void* default_memalign_hook(size_t alignment, size_t bytes, const void*) 
 __END_DECLS
 // ------------------------------------------------------------------------
 
-bool hooks_initialize(const MallocDispatch* malloc_dispatch, int*, const char*) {
+bool hooks_initialize(const MallocDispatch* malloc_dispatch, bool*, const char*) {
   g_dispatch = malloc_dispatch;
   __malloc_hook = default_malloc_hook;
   __realloc_hook = default_realloc_hook;
@@ -173,9 +176,13 @@ int hooks_mallopt(int param, int value) {
   return g_dispatch->mallopt(param, value);
 }
 
+int hooks_malloc_info(int options, FILE* fp) {
+  return g_dispatch->malloc_info(options, fp);
+}
+
 void* hooks_aligned_alloc(size_t alignment, size_t size) {
   if (__memalign_hook != nullptr && __memalign_hook != default_memalign_hook) {
-    if (!powerof2(alignment)) {
+    if (!powerof2(alignment) || (size % alignment) != 0) {
       errno = EINVAL;
       return nullptr;
     }
@@ -190,7 +197,7 @@ void* hooks_aligned_alloc(size_t alignment, size_t size) {
 
 int hooks_posix_memalign(void** memptr, size_t alignment, size_t size) {
   if (__memalign_hook != nullptr && __memalign_hook != default_memalign_hook) {
-    if (!powerof2(alignment)) {
+    if (alignment < sizeof(void*) || !powerof2(alignment)) {
       return EINVAL;
     }
     *memptr = __memalign_hook(alignment, size, __builtin_return_address(0));
@@ -214,6 +221,10 @@ void hooks_malloc_enable() {
 
 ssize_t hooks_malloc_backtrace(void*, uintptr_t*, size_t) {
   return 0;
+}
+
+bool hooks_write_malloc_leak_info(FILE*) {
+  return true;
 }
 
 #if defined(HAVE_DEPRECATED_MALLOC_FUNCS)

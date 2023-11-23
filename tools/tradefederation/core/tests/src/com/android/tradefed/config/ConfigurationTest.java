@@ -24,6 +24,7 @@ import com.android.tradefed.config.ConfigurationDef.OptionDef;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.IDeviceRecovery;
 import com.android.tradefed.device.IDeviceSelection;
+import com.android.tradefed.device.TestDeviceOptions;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -72,7 +73,7 @@ public class ConfigurationTest extends TestCase {
 
     private static class TestConfigObject implements TestConfig {
 
-        @Option(name = OPTION_NAME, description = OPTION_DESCRIPTION)
+        @Option(name = OPTION_NAME, description = OPTION_DESCRIPTION, requiredForRerun = true)
         private boolean mBool;
 
         @Option(name = ALT_OPTION_NAME, description = OPTION_DESCRIPTION)
@@ -315,6 +316,9 @@ public class ConfigurationTest extends TestCase {
         mConfig.setConfigurationObject(CONFIG_OBJECT_TYPE_NAME, testConfigObject);
         mConfig.injectOptionValue(OPTION_NAME, Boolean.toString(true));
         assertTrue(testConfigObject.getBool());
+        assertEquals(1, mConfig.getConfigurationDescription().getRerunOptions().size());
+        OptionDef optionDef = mConfig.getConfigurationDescription().getRerunOptions().get(0);
+        assertEquals(OPTION_NAME, optionDef.name);
     }
 
     /**
@@ -403,6 +407,9 @@ public class ConfigurationTest extends TestCase {
         assertEquals(1, map.size());
         assertNotNull(map.get(key));
         assertTrue(map.get(key).booleanValue());
+        assertEquals(1, mConfig.getConfigurationDescription().getRerunOptions().size());
+        OptionDef optionDef = mConfig.getConfigurationDescription().getRerunOptions().get(0);
+        assertEquals(OPTION_NAME, optionDef.name);
     }
 
     /**
@@ -431,7 +438,6 @@ public class ConfigurationTest extends TestCase {
         // ensure help prints out options from default config types
         assertTrue("Usage text does not contain --serial option name",
                 usageString.contains("serial"));
-
     }
 
     /**
@@ -626,6 +632,27 @@ public class ConfigurationTest extends TestCase {
     }
 
     /**
+     * Ensure that dynamic file download is not triggered in the parent invocation of local
+     * sharding. If that was the case, the downloaded files would be cleaned up right after the
+     * shards are kicked-off in new invocations.
+     */
+    public void testValidateOptions_localSharding_skipDownload() throws ConfigurationException {
+        CommandOptions options = new CommandOptions();
+        options.setShardCount(5);
+        options.setShardIndex(null);
+        mConfig.setCommandOptions(options);
+        TestDeviceOptions deviceOptions = new TestDeviceOptions();
+        File fakeConfigFile = new File("gs://bucket/remote/file/path");
+        deviceOptions.setAvdConfigFile(fakeConfigFile);
+        mConfig.setDeviceOptions(deviceOptions);
+
+        // No exception for download is thrown because no download occurred.
+        mConfig.validateOptions(true);
+        // Dynamic file is not resolved.
+        assertEquals(fakeConfigFile, deviceOptions.getAvdConfigFile());
+    }
+
+    /**
      * Test that {@link Configuration#dumpXml(PrintWriter)} produce the xml output.
      */
     public void testDumpXml() throws IOException {
@@ -681,6 +708,29 @@ public class ConfigurationTest extends TestCase {
             String content = FileUtil.readStringFromFile(test);
             assertTrue(content.length() > 100);
             assertTrue(content.contains("<device name=\"device1\">"));
+            assertTrue(content.contains("<device name=\"device2\">"));
+        } finally {
+            FileUtil.deleteFile(test);
+        }
+    }
+
+    /**
+     * Test that {@link Configuration#dumpXml(PrintWriter)} produce the xml output even for a multi
+     * device situation when one of the device is fake.
+     */
+    public void testDumpXml_multi_device_fake() throws Exception {
+        List<IDeviceConfiguration> deviceObjectList = new ArrayList<IDeviceConfiguration>();
+        deviceObjectList.add(new DeviceConfigurationHolder("device1", true));
+        deviceObjectList.add(new DeviceConfigurationHolder("device2"));
+        mConfig.setConfigurationObjectList(Configuration.DEVICE_NAME, deviceObjectList);
+        File test = FileUtil.createTempFile("dumpxml", "xml");
+        try {
+            PrintWriter out = new PrintWriter(test);
+            mConfig.dumpXml(out);
+            out.flush();
+            String content = FileUtil.readStringFromFile(test);
+            assertTrue(content.length() > 100);
+            assertTrue(content.contains("<device name=\"device1\" isFake=\"true\">"));
             assertTrue(content.contains("<device name=\"device2\">"));
         } finally {
             FileUtil.deleteFile(test);

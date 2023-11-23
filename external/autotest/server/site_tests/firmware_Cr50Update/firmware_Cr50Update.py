@@ -24,7 +24,7 @@ class firmware_Cr50Update(Cr50Test):
     """
     version = 1
     UPDATE_TIMEOUT = 20
-    ERASE_NVMEM = "erase_nvmem"
+    POST_INSTALL = "post_install"
 
     DEV_NAME = "dev_image"
     OLD_RELEASE_NAME = "old_release_image"
@@ -35,14 +35,17 @@ class firmware_Cr50Update(Cr50Test):
 
     def initialize(self, host, cmdline_args, release_path="", release_ver="",
                    old_release_path="", old_release_ver="", dev_path="",
-                   test=""):
+                   test="", full_args={}):
         """Initialize servo and process the given images"""
         super(firmware_Cr50Update, self).initialize(host, cmdline_args,
+                                                    full_args,
                                                     restore_cr50_state=True,
                                                     cr50_dev_path=dev_path)
+        self.test_post_install = test.lower() == self.POST_INSTALL
 
         if not release_ver and not os.path.isfile(release_path):
-            raise error.TestError('Need to specify a release version or path')
+            release_path = self.get_saved_cr50_original_path()
+            logging.info('Using device image as release')
 
         self.devid = self.servo.get('cr50_devid')
 
@@ -52,7 +55,6 @@ class firmware_Cr50Update(Cr50Test):
         self.rootfs_verification_disable()
 
         self.host = host
-        self.erase_nvmem = test.lower() == self.ERASE_NVMEM
 
         # A dict used to store relevant information for each image
         self.images = {}
@@ -60,7 +62,7 @@ class firmware_Cr50Update(Cr50Test):
         # Process the given images in order of oldest to newest. Get the version
         # info and add them to the update order
         self.update_order = []
-        if not self.erase_nvmem and (old_release_path or old_release_ver):
+        if old_release_path or old_release_ver:
             self.add_image_to_update_order(self.OLD_RELEASE_NAME,
                                            old_release_path, old_release_ver)
         self.add_image_to_update_order(self.RELEASE_NAME, release_path,
@@ -84,20 +86,6 @@ class firmware_Cr50Update(Cr50Test):
         self.device_update_path = cr50_utils.GetActiveCr50ImagePath(self.host)
         # Update to the dev image
         self.run_update(self.DEV_NAME)
-
-    def cleanup(self):
-        """Update Cr50 to the image it was running at the start of the test"""
-        super(firmware_Cr50Update, self).cleanup()
-
-        logging.warning('rootfs verification is disabled')
-
-        # Make sure keepalive is disabled
-        self.cr50.ccd_enable()
-        self.cr50.send_command("ccd keepalive disable")
-
-        # Running usb_update commands stops trunksd. Reboot the device to reset
-        # it
-        self.host.run('reboot')
 
 
     def run_update(self, image_name, use_usb_update=False):
@@ -136,8 +124,7 @@ class firmware_Cr50Update(Cr50Test):
         # on or use usb_update to update to the new image if it is requested.
         if use_usb_update or rollback:
             self.cr50_update(image_path, rollback=rollback,
-                chip_bid=self.chip_bid, chip_flags=self.chip_flags,
-                erase_nvmem=self.erase_nvmem)
+                chip_bid=self.chip_bid, chip_flags=self.chip_flags)
             self.check_state((self.checkers.crossystem_checker,
                               {'mainfw_type': 'normal'}))
 
@@ -151,8 +138,10 @@ class firmware_Cr50Update(Cr50Test):
         # Get the last cr50 update related message from /var/log/messages
         last_message = cr50_utils.CheckForFailures(self.host, '')
 
-        # Clear the update state and reboot, so cr50-update will run again.
-        cr50_utils.ClearUpdateStateAndReboot(self.host)
+        if self.test_post_install:
+            self.post_install()
+        else:
+            self.startup_install()
 
         # The cr50 updates happen over /dev/tpm0. It takes a while. After
         # cr50-update has finished, cr50 should reboot. Wait until this happens
@@ -169,6 +158,17 @@ class firmware_Cr50Update(Cr50Test):
 
         logging.info("Successfully updated from %s to %s %s", running_ver_str,
                      image_name, image_ver_str)
+
+    def post_install(self):
+        """Run the update using the post-install script"""
+        logging.info(self.host.run('/usr/share/cros/cr50-update.sh'))
+        self.host.reboot()
+
+
+    def startup_install(self):
+        """Run the update using the startup script"""
+        # Clear the update state and reboot, so cr50-update will run again.
+        cr50_utils.ClearUpdateStateAndReboot(self.host)
 
 
     def fetch_image(self, ver=None):

@@ -18,13 +18,18 @@ package com.android.dialer.preferredsim.suggestion;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 import android.telecom.PhoneAccountHandle;
 import com.android.dialer.common.Assert;
+import com.android.dialer.common.LogUtil;
 import com.google.common.base.Optional;
 
 /** Provides hints to the user when selecting a SIM to make a call. */
+@SuppressWarnings("Guava")
 public interface SuggestionProvider {
+
+  String EXTRA_SIM_SUGGESTION_REASON = "sim_suggestion_reason";
 
   /** The reason the suggestion is made. */
   enum Reason {
@@ -72,4 +77,27 @@ public interface SuggestionProvider {
   @WorkerThread
   void reportIncorrectSuggestion(
       @NonNull Context context, @NonNull String number, @NonNull PhoneAccountHandle newAccount);
+
+  /**
+   * Return the hint for {@code phoneAccountHandle}. Absent if no hint is available for the account.
+   */
+  static Optional<String> getHint(
+      Context context, PhoneAccountHandle phoneAccountHandle, @Nullable Suggestion suggestion) {
+    if (suggestion == null) {
+      return Optional.absent();
+    }
+    if (!phoneAccountHandle.equals(suggestion.phoneAccountHandle)) {
+      return Optional.absent();
+    }
+    switch (suggestion.reason) {
+      case INTRA_CARRIER:
+        return Optional.of(
+            context.getString(R.string.pre_call_select_phone_account_hint_intra_carrier));
+      case FREQUENT:
+        return Optional.of(context.getString(R.string.pre_call_select_phone_account_hint_frequent));
+      default:
+        LogUtil.w("CallingAccountSelector.getHint", "unhandled reason " + suggestion.reason);
+        return Optional.absent();
+    }
+  }
 }

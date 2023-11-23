@@ -1,5 +1,3 @@
-#!/usr/bin/python -Es
-#
 # Copyright (C) 2012 Red Hat
 # see file 'COPYING' for use and warranty information
 #
@@ -193,9 +191,9 @@ def get_xml_file(if_file):
     """ Returns xml format of interfaces for given .if policy file"""
     import os
     try:
-            from commands import getstatusoutput
+        from commands import getstatusoutput
     except ImportError:
-            from subprocess import getstatusoutput
+        from subprocess import getstatusoutput
     basedir = os.path.dirname(if_file) + "/"
     filename = os.path.basename(if_file).split(".")[0]
     rc, output = getstatusoutput("python /usr/share/selinux/devel/include/support/segenxml.py -w -m %s" % basedir + filename)
@@ -212,15 +210,15 @@ def interface_compile_test(interface, path="/usr/share/selinux/devel/policy.xml"
     exclude_interface_type = ["template"]
 
     try:
-            from commands import getstatusoutput
+        from commands import getstatusoutput
     except ImportError:
-            from subprocess import getstatusoutput
+        from subprocess import getstatusoutput
     import os
     policy_files = {'pp': "compiletest.pp", 'te': "compiletest.te", 'fc': "compiletest.fc", 'if': "compiletest.if"}
     idict = get_interface_dict(path)
 
     if not (interface.split("_")[0] in exclude_interfaces or idict[interface][2] in exclude_interface_type):
-        print(_("Compiling %s interface" % interface))
+        print(_("Compiling %s interface") % interface)
         try:
             fd = open(policy_files['te'], "w")
             fd.write(generate_compile_te(interface, idict))
@@ -237,4 +235,4 @@ def interface_compile_test(interface, path="/usr/share/selinux/devel/policy.xml"
                 os.remove(v)
 
     else:
-        sys.stderr.write(_("\nCompiling of %s interface is not supported." % interface))
+        sys.stderr.write(_("\nCompiling of %s interface is not supported.") % interface)

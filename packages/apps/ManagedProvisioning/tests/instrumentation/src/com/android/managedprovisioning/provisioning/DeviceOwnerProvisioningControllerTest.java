@@ -17,12 +17,14 @@
 package com.android.managedprovisioning.provisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
+
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
 
 import android.content.ComponentName;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.finalization.FinalizationController;
@@ -31,6 +33,7 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
+import com.android.managedprovisioning.task.ConnectMobileNetworkTask;
 import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
 import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
@@ -64,12 +67,11 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
 
     @Mock private ProvisioningControllerCallback mCallback;
     @Mock private FinalizationController mFinalizationController;
-    private ProvisioningParams mParams;
 
     @SmallTest
     public void testRunAllTasks() throws Exception {
         // GIVEN device owner provisioning was invoked with a wifi and download info
-        createController(TEST_WIFI_INFO, TEST_DOWNLOAD_INFO);
+        createController(createProvisioningParamsBuilder().build());
 
         // WHEN starting the test run
         mController.start(mHandler);
@@ -105,7 +107,7 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
     @SmallTest
     public void testNoWifiInfo() throws Exception {
         // GIVEN device owner provisioning was invoked with a wifi and download info
-        createController(null, TEST_DOWNLOAD_INFO);
+        createController(createProvisioningParamsBuilder().setWifiInfo(null).build());
 
         // WHEN starting the test run
         mController.start(mHandler);
@@ -138,7 +140,8 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
     @SmallTest
     public void testNoDownloadInfo() throws Exception {
         // GIVEN device owner provisioning was invoked with a wifi and download info
-        createController(TEST_WIFI_INFO, null);
+        createController(
+                createProvisioningParamsBuilder().setDeviceAdminDownloadInfo(null).build());
 
         // WHEN starting the test run
         mController.start(mHandler);
@@ -165,7 +168,7 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
     @SmallTest
     public void testErrorAddWifiTask() throws Exception {
         // GIVEN device owner provisioning was invoked with a wifi and download info
-        createController(TEST_WIFI_INFO, TEST_DOWNLOAD_INFO);
+        createController(createProvisioningParamsBuilder().build());
 
         // WHEN starting the test run
         mController.start(mHandler);
@@ -186,7 +189,7 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
     @SmallTest
     public void testErrorDownloadAppTask() throws Exception {
         // GIVEN device owner provisioning was invoked with a wifi and download info
-        createController(TEST_WIFI_INFO, TEST_DOWNLOAD_INFO);
+        createController(createProvisioningParamsBuilder().build());
 
         // WHEN starting the test run
         mController.start(mHandler);
@@ -207,19 +210,43 @@ public class DeviceOwnerProvisioningControllerTest extends ProvisioningControlle
         verify(mCallback).error(anyInt(), anyInt(), eq(true));
     }
 
-    private void createController(WifiInfo wifiInfo, PackageDownloadInfo downloadInfo) {
-        mParams = new ProvisioningParams.Builder()
-                .setDeviceAdminComponentName(TEST_ADMIN)
-                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
-                .setWifiInfo(wifiInfo)
-                .setDeviceAdminDownloadInfo(downloadInfo)
-                .build();
+    @SmallTest
+    public void testStart_useMobileDataTrueAndNoWifiInfo_runsConnectMobileNetworkTask()
+            throws Exception {
+        createController(
+                createProvisioningParamsBuilder().setWifiInfo(null).setUseMobileData(true).build());
+        mController.start(mHandler);
+        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
+        taskSucceeded(ConnectMobileNetworkTask.class);
+    }
 
+    @SmallTest
+    public void testStart_useMobileDataTrueAndWifiInfo_runsAddWifiNetworkTask()
+            throws Exception {
+        createController(
+                createProvisioningParamsBuilder()
+                        .setWifiInfo(TEST_WIFI_INFO)
+                        .setUseMobileData(true)
+                        .build());
+        mController.start(mHandler);
+        taskSucceeded(DeviceOwnerInitializeProvisioningTask.class);
+        taskSucceeded(AddWifiNetworkTask.class);
+    }
+
+    private void createController(ProvisioningParams params) {
         mController = new DeviceOwnerProvisioningController(
                 getContext(),
-                mParams,
+                params,
                 TEST_USER_ID,
                 mCallback,
                 mFinalizationController);
+    }
+
+    private ProvisioningParams.Builder createProvisioningParamsBuilder() {
+        return new ProvisioningParams.Builder()
+                .setDeviceAdminComponentName(TEST_ADMIN)
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setWifiInfo(TEST_WIFI_INFO)
+                .setDeviceAdminDownloadInfo(TEST_DOWNLOAD_INFO);
     }
 }

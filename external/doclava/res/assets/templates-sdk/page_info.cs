@@ -27,13 +27,6 @@ elif:subcount(class)
   <?cs if:class.artifact ?>
     <br><?cs call:artifact_tags(class) ?>
   <?cs /if ?>
-  <?cs if:class.deprecatedsince ?><?cs
-    if:class.artifact ?><br>Deprecated since version <?cs var:class.deprecatedsince ?><?cs
-    else ?><br>Deprecated since
-    <a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level
-      <?cs var:class.deprecatedsince ?></a><?cs
-    /if ?>
-  <?cs /if ?>
   <?cs call:federated_refs(class) ?>
 </div>
 

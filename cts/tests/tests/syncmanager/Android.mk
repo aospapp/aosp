@@ -22,11 +22,11 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     CtsSyncManagerCommon \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs

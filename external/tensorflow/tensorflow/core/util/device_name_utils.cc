@@ -184,16 +184,65 @@ bool DeviceNameUtils::ParseFullName(StringPiece fullname, ParsedName* p) {
   return true;
 }
 
+namespace {
+
+void CompleteName(const DeviceNameUtils::ParsedName& parsed_basename,
+                  DeviceNameUtils::ParsedName* parsed_name) {
+  if (!parsed_name->has_job) {
+    parsed_name->job = parsed_basename.job;
+    parsed_name->has_job = true;
+  }
+  if (!parsed_name->has_replica) {
+    parsed_name->replica = parsed_basename.replica;
+    parsed_name->has_replica = true;
+  }
+  if (!parsed_name->has_task) {
+    parsed_name->task = parsed_basename.task;
+    parsed_name->has_task = true;
+  }
+  if (!parsed_name->has_type) {
+    parsed_name->type = parsed_basename.type;
+    parsed_name->has_type = true;
+  }
+  if (!parsed_name->has_id) {
+    parsed_name->id = parsed_basename.id;
+    parsed_name->has_id = true;
+  }
+}
+
+}  // namespace
+
 /* static */
-string DeviceNameUtils::CanonicalizeDeviceName(StringPiece fullname) {
+Status DeviceNameUtils::CanonicalizeDeviceName(StringPiece fullname,
+                                               StringPiece basename,
+                                               string* canonical_name) {
+  *canonical_name = "";
+  ParsedName parsed_basename;
+  if (!ParseFullName(basename, &parsed_basename)) {
+    return errors::InvalidArgument("Could not parse basename: ", basename,
+                                   " into a device specification.");
+  }
+  if (!(parsed_basename.has_job && parsed_basename.has_replica &&
+        parsed_basename.has_task && parsed_basename.has_type &&
+        parsed_basename.has_id)) {
+    return errors::InvalidArgument("Basename: ", basename,
+                                   " should be fully "
+                                   "specified.");
+  }
   ParsedName parsed_name;
   if (ParseLocalName(fullname, &parsed_name)) {
-    return ParsedNameToString(parsed_name);
+    CompleteName(parsed_basename, &parsed_name);
+    *canonical_name = ParsedNameToString(parsed_name);
+    return Status::OK();
   }
   if (ParseFullName(fullname, &parsed_name)) {
-    return ParsedNameToString(parsed_name);
+    CompleteName(parsed_basename, &parsed_name);
+    *canonical_name = ParsedNameToString(parsed_name);
+    return Status::OK();
   }
-  return "";
+  return errors::InvalidArgument("Could not parse ", fullname,
+                                 " into a device "
+                                 "specification.");
 }
 
 /* static */
@@ -238,6 +287,30 @@ bool DeviceNameUtils::IsSpecification(const ParsedName& less_specific,
     return false;
   }
   return true;
+}
+
+void DeviceNameUtils::EnsureSpecification(ParsedName* more_specific,
+                                          const ParsedName& less_specific) {
+  if (less_specific.has_job) {
+    more_specific->has_job = true;
+    more_specific->job = less_specific.job;
+  }
+  if (less_specific.has_replica) {
+    more_specific->has_replica = true;
+    more_specific->replica = less_specific.replica;
+  }
+  if (less_specific.has_task) {
+    more_specific->has_task = true;
+    more_specific->task = less_specific.task;
+  }
+  if (less_specific.has_type) {
+    more_specific->has_type = true;
+    more_specific->type = less_specific.type;
+  }
+  if (less_specific.has_id) {
+    more_specific->has_id = true;
+    more_specific->id = less_specific.id;
+  }
 }
 
 /* static */
@@ -429,6 +502,18 @@ std::vector<string> DeviceNameUtils::GetLocalNamesForDeviceMappings(
   } else {
     return {};
   }
+}
+
+/*static*/ Status DeviceNameUtils::DeviceNameToCpuDeviceName(
+    const string& device_name, string* host_device_name) {
+  DeviceNameUtils::ParsedName device;
+  if (!DeviceNameUtils::ParseFullName(device_name, &device)) {
+    return errors::Internal("Could not parse device name ", device_name);
+  }
+  device.type = "CPU";
+  device.id = 0;
+  *host_device_name = DeviceNameUtils::ParsedNameToString(device);
+  return Status::OK();
 }
 
 }  // namespace tensorflow

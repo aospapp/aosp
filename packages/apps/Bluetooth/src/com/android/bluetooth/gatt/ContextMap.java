@@ -20,6 +20,7 @@ import android.os.IBinder;
 import android.os.IInterface;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.os.WorkSource;
 import android.util.Log;
 
@@ -86,10 +87,22 @@ import java.util.UUID;
         public Boolean isCongested = false;
 
         /** Whether the calling app has location permission */
-        boolean hasLocationPermisson;
+        boolean hasLocationPermission;
 
-        /** Whether the calling app has peers mac address permission */
-        boolean hasPeersMacAddressPermission;
+        /** Whether the calling app has bluetooth privileged permission */
+        boolean hasBluetoothPrivilegedPermission;
+
+        /** The user handle of the app that started the scan */
+        UserHandle mUserHandle;
+
+        /** Whether the calling app is targeting Q or better */
+        boolean mIsQApp;
+
+        /** Whether the calling app has the network settings permission */
+        boolean mHasNetworkSettingsPermission;
+
+        /** Whether the calling app has the network setup wizard permission */
+        boolean mHasNetworkSetupWizardPermission;
 
         /** Internal callback info queue, waiting to be send on congestion clear */
         private List<CallbackInfo> mCongestionQueue = new ArrayList<CallbackInfo>();

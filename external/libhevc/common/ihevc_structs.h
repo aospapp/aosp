@@ -447,6 +447,24 @@ typedef struct
 
 }time_code_t;
 
+/**
+ *  @brief    Structure for Content Light Level Info
+ *
+ */
+typedef struct
+{
+    /**
+     * 16bit unsigned number which indicates the maximum pixel intensity of all samples in bit-stream in units of 1 candela per square metre
+     */
+    UWORD16 u2_sei_max_cll;
+
+    /**
+     * 16bit unsigned number which indicates the average pixel intensity of all samples in bit-stream in units of 1 candela per square metre
+     */
+    UWORD16 u2_sei_avg_cll;
+
+}content_light_level_info_sei_params_t;
+
 
 /**
  * Structure to hold SEI parameters Info
@@ -467,6 +485,8 @@ typedef struct
     WORD8 i1_active_parameter_set;
 
     WORD8 i4_sei_mastering_disp_colour_vol_params_present_flags;
+
+    WORD8 i1_sei_cll_enable;
 
     /* Enable/Disable SEI Hash on the Decoded picture & Hash type */
     /* < 3 : Checksum, 2 : CRC, 1 : MD5, 0 : disable >            */
@@ -489,6 +509,8 @@ typedef struct
     active_parameter_set_sei_param_t s_active_parameter_set_sei_params;
 
     hash_sei_param_t    s_hash_sei_params;
+
+    content_light_level_info_sei_params_t s_cll_info_sei_params;
 
     mastering_dis_col_vol_sei_params_t s_mastering_dis_col_vol_sei_params;
 
@@ -653,7 +675,7 @@ typedef struct
      * element units that specify HRD output times of consecutive pictures in output order is constrained
      * refer to Table E-6
      */
-    UWORD8 au1_elemental_duration_in_tc_minus1[VPS_MAX_SUB_LAYERS];
+    UWORD16 au2_elemental_duration_in_tc_minus1[VPS_MAX_SUB_LAYERS];
 
     /**
      * specifies the HRD operational mode
@@ -834,7 +856,7 @@ typedef struct
      * num_ticks_poc_diff_one_minus1 plus 1 specifies the number of clock ticks
      * corresponding to a difference of poc values equal to 1
      */
-    UWORD8 u1_num_ticks_poc_diff_one_minus1;
+    UWORD32 u4_num_ticks_poc_diff_one_minus1;
 
     /**
      * 1, specifies that the following cvs bitstream restriction parameters are present
@@ -915,6 +937,9 @@ typedef struct
     /** Used to store display Timestamp for current buffer */
     WORD32 u4_ts;
     UWORD8 u1_used_as_ref;
+
+    /** Used to idicate if this buffer needed for output */
+    UWORD8 u1_pic_output_flag;
 
     UWORD8 u1_free_delay_cnt;
 
@@ -1347,12 +1372,18 @@ typedef struct
      */
     UWORD32      b1_cb_cbf           : 1;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+    UWORD32      b1_cb_cbf_subtu1          : 1;
+#endif
 
     /**
      *  Cr CBF
      */
     UWORD32     b1_cr_cbf           : 1;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+    UWORD32     b1_cr_cbf_subtu1          : 1;
+#endif
 
     /**
      *  Flag to indicate if it is the first TU in a CU
@@ -2038,6 +2069,19 @@ typedef struct
     /** delta_chroma_log2_weight_denom */
     WORD8 i1_chroma_log2_weight_denom;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+    /** WpOffsetBdShiftY */
+    WORD8 i1_wp_ofst_bd_shift_luma;
+
+    /** WpOffsetBdShiftC */
+    WORD8 i1_wp_ofst_bd_shift_chroma;
+
+    /** WpOffsetHalfRangeY */
+    WORD32 i4_wp_ofst_half_rng_luma;
+
+    /** WpOffsetHalfRangeC */
+    WORD32 i4_wp_ofst_half_rng_chroma;
+#endif
 
     /** luma_weight_l0_flag[ i ] */
     WORD8 i1_luma_weight_l0_flag[MAX_DPB_SIZE];
@@ -2500,6 +2544,53 @@ typedef struct
     /*************************************************************************/
     WORD16 *pi2_scaling_mat;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+
+    /**
+     * transform_skip_rotation_enabled_flag
+     */
+    WORD8 i1_transform_skip_rotation_enabled_flag;
+
+    /**
+     * transform_skip_context_enabled_flag
+     */
+    WORD8 i1_transform_skip_context_enabled_flag;
+
+    /**
+     * implicit_rdpcm_enabled_flag
+     */
+    WORD8 i1_implicit_rdpcm_enabled_flag;
+
+    /**
+     * explicit_rdpcm_enabled_flag
+     */
+    WORD8 i1_explicit_rdpcm_enabled_flag;
+
+    /**
+     * extended_precision_processing_flag
+     */
+    WORD8 i1_extended_precision_processing_flag;
+
+    /**
+     * intra_smoothing_disabled_flag
+     */
+    WORD8   i1_intra_smoothing_disabled_flag;
+
+    /**
+     * high_precision_offsets_enabled_flag
+     */
+    WORD8   i1_use_high_precision_pred_wt;
+
+    /**
+     * fast_rice_adaptation_enabled_flag
+     */
+    WORD8   i1_fast_rice_adaptation_enabled_flag;
+
+    /**
+     * cabac_bypass_alignment_enabled_flag
+     */
+    WORD8   i1_align_cabac_before_bypass;
+#endif
 
     /*
      * Flag indicating if the SPS is parsed
@@ -2743,6 +2834,53 @@ typedef struct
      */
     WORD8 i1_log2_min_cu_qp_delta_size;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+    /**
+     * log2_max_transform_skip_block_size_minus2
+     */
+    WORD32 i4_log2_max_transform_skip_block_size_minus2;
+
+    /**
+     * cross_component_prediction_enabled_flag
+     */
+    WORD8 i1_cross_component_prediction_enabled_flag;
+
+    /**
+     * chroma_qp_offset_list_enabled_flag
+     */
+    WORD8 i1_chroma_qp_offset_list_enabled_flag;
+
+    /**
+     * diff_cu_chroma_qp_offset_depth
+     */
+    WORD32 i4_diff_cu_chroma_qp_offset_depth;
+
+    /**
+     * chroma_qp_offset_list_len_minus1
+     */
+    WORD32 i4_chroma_qp_offset_list_len_minus1;
+
+    /**
+     * cb_qp_offset_list[]
+     */
+    WORD32 i4_cb_qp_offset_list[6];
+
+    /**
+     * cr_qp_offset_list[]
+     */
+    WORD32 i4_cr_qp_offset_list[6];
+
+    /**
+     * log2_sao_offset_scale_luma
+     */
+    WORD8 i1_log2_sao_ofst_scale_luma;
+
+    /**
+     * log2_sao_offset_scale_chroma
+     */
+    WORD8 i1_log2_sao_ofst_scale_chroma;
+
+#endif
 
     /*
      * Flag indicating if the PPS is parsed
@@ -3026,6 +3164,12 @@ typedef struct
      */
     WORD16 i2_independent_ctb_y;
 
+#ifdef ENABLE_MAIN_REXT_PROFILE
+    /**
+     * cu_chroma_qp_offset_enabled_flag
+     */
+    WORD8 i1_cu_chroma_qp_offset_enabled_flag;
+#endif
 
     UWORD8 u1_parse_data_init_done;
 

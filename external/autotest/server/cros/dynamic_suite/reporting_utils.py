@@ -1,4 +1,5 @@
 import copy
+import datetime
 import re
 
 import common
@@ -294,12 +295,18 @@ def link_test_history(test_name):
 
     @return: A link to the test history page for this test.
     """
-    if STAINLESS_TEST_HISTORY_URL:
-        args_dict = {
-            'test_name_re': '^%s$' % re.escape(test_name),
-        }
-        return STAINLESS_TEST_HISTORY_URL % args_dict
-    return WMATRIX_TEST_HISTORY_URL % test_name
+    date_format = '%Y-%m-%d'
+    now = datetime.datetime.utcnow()
+    last_date = now.strftime(date_format)
+    first_date = (now - datetime.timedelta(days=28)).strftime(date_format)
+    # Please note that stainless url doesn't work for tests whose test name is
+    # different from its job name. E.g. for moblab_RunSuite/control.dummyServer
+    #     Its job name (NAME in control file) is moblab_DummyServerSuite.
+    #     Its test name is moblab_RunSuite.
+    # Stainless use 'moblab_DummyServerSuite' as the test name, however,
+    # TKO uses 'moblab_RunSuite' as the test name.
+    return STAINLESS_TEST_HISTORY_URL % (
+        '^%s$' % re.escape(test_name), first_date, last_date)
 
 
 def link_crbug(bug_id):

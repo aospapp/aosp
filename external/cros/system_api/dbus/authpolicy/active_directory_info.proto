@@ -95,8 +95,12 @@ enum ErrorType {
   // the Samba configuration, e.g. if 'kerberos encryption types' is set to
   // 'strong' to enforce AES encryption, but KDC does not support AES.
   ERROR_KDC_DOES_NOT_SUPPORT_ENCRYPTION_TYPE = 36;
+  // Kpasswd exited with unspecified error.
+  ERROR_KPASSWD_FAILED = 37;
+  // Setting computer organizational unit failed with constraint violation.
+  ERROR_OU_CONSTRAINT_VIOLATION = 38;
   // Should be the last.
-  ERROR_COUNT = 37;
+  ERROR_COUNT = 39;
 }
 
 // Message sent to Chrome by authpolicyd as a response of a successful
@@ -156,8 +160,7 @@ message ActiveDirectoryUserStatus {
   optional TgtStatus tgt_status = 2;
   // Status of the user's password.
   optional PasswordStatus password_status = 3;
-  // Last error returned from AuthenticateUser D-Bus call.
-  optional ErrorType last_auth_error = 4;
+  reserved 4;
   // Next ID to use: 5
 }
 

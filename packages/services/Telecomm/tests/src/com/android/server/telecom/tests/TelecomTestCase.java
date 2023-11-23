@@ -16,12 +16,13 @@
 
 package com.android.server.telecom.tests;
 
-import org.mockito.MockitoAnnotations;
-
 import android.content.Context;
 import android.os.Handler;
-import android.support.test.InstrumentationRegistry;
 import android.telecom.Log;
+
+import androidx.test.InstrumentationRegistry;
+
+import org.mockito.MockitoAnnotations;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;

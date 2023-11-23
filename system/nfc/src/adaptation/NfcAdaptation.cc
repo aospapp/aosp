@@ -17,13 +17,13 @@
  ******************************************************************************/
 #include <android-base/stringprintf.h>
 #include <android/hardware/nfc/1.1/INfc.h>
+#include <android/hardware/nfc/1.2/INfc.h>
 #include <base/command_line.h>
 #include <base/logging.h>
 #include <cutils/properties.h>
 #include <hwbinder/ProcessState.h>
 
 #include "NfcAdaptation.h"
-#include "android_logmsg.h"
 #include "debug_nfcsnoop.h"
 #include "nfa_api.h"
 #include "nfa_rw_api.h"
@@ -41,7 +41,9 @@ using android::hardware::Void;
 using android::hardware::nfc::V1_0::INfc;
 using android::hardware::nfc::V1_1::PresenceCheckAlgorithm;
 using INfcV1_1 = android::hardware::nfc::V1_1::INfc;
-using NfcVendorConfig = android::hardware::nfc::V1_1::NfcConfig;
+using INfcV1_2 = android::hardware::nfc::V1_2::INfc;
+using NfcVendorConfigV1_1 = android::hardware::nfc::V1_1::NfcConfig;
+using NfcVendorConfigV1_2 = android::hardware::nfc::V1_2::NfcConfig;
 using android::hardware::nfc::V1_1::INfcClientCallback;
 using android::hardware::hidl_vec;
 
@@ -51,19 +53,21 @@ extern void GKI_shutdown();
 extern void verify_stack_non_volatile_store();
 extern void delete_stack_non_volatile_store(bool forceDelete);
 
-NfcAdaptation* NfcAdaptation::mpInstance = NULL;
+NfcAdaptation* NfcAdaptation::mpInstance = nullptr;
 ThreadMutex NfcAdaptation::sLock;
-tHAL_NFC_CBACK* NfcAdaptation::mHalCallback = NULL;
-tHAL_NFC_DATA_CBACK* NfcAdaptation::mHalDataCallback = NULL;
+tHAL_NFC_CBACK* NfcAdaptation::mHalCallback = nullptr;
+tHAL_NFC_DATA_CBACK* NfcAdaptation::mHalDataCallback = nullptr;
 ThreadCondVar NfcAdaptation::mHalOpenCompletedEvent;
 ThreadCondVar NfcAdaptation::mHalCloseCompletedEvent;
 sp<INfc> NfcAdaptation::mHal;
 sp<INfcV1_1> NfcAdaptation::mHal_1_1;
+sp<INfcV1_2> NfcAdaptation::mHal_1_2;
 INfcClientCallback* NfcAdaptation::mCallback;
 
 bool nfc_debug_enabled = false;
 std::string nfc_storage_path;
 uint8_t appl_dta_mode_flag = 0x00;
+bool isDownloadFirmwareCompleted = false;
 
 extern tNFA_DM_CFG nfa_dm_cfg;
 extern tNFA_PROPRIETARY_CFG nfa_proprietary_cfg;
@@ -149,7 +153,7 @@ NfcAdaptation::NfcAdaptation() {
 ** Returns:     none
 **
 *******************************************************************************/
-NfcAdaptation::~NfcAdaptation() { mpInstance = NULL; }
+NfcAdaptation::~NfcAdaptation() { mpInstance = nullptr; }
 
 /*******************************************************************************
 **
@@ -172,50 +176,72 @@ NfcAdaptation& NfcAdaptation::GetInstance() {
 
 void NfcAdaptation::GetVendorConfigs(
     std::map<std::string, ConfigValue>& configMap) {
-  if (mHal_1_1) {
-    mHal_1_1->getConfig([&configMap](NfcVendorConfig config) {
-      std::vector<uint8_t> nfaPropCfg = {
-          config.nfaProprietaryCfg.protocol18092Active,
-          config.nfaProprietaryCfg.protocolBPrime,
-          config.nfaProprietaryCfg.protocolDual,
-          config.nfaProprietaryCfg.protocol15693,
-          config.nfaProprietaryCfg.protocolKovio,
-          config.nfaProprietaryCfg.protocolMifare,
-          config.nfaProprietaryCfg.discoveryPollKovio,
-          config.nfaProprietaryCfg.discoveryPollBPrime,
-          config.nfaProprietaryCfg.discoveryListenBPrime};
-      configMap.emplace(NAME_NFA_PROPRIETARY_CFG, ConfigValue(nfaPropCfg));
-      configMap.emplace(NAME_NFA_POLL_BAIL_OUT_MODE,
-                        ConfigValue(config.nfaPollBailOutMode ? 1 : 0));
-      configMap.emplace(NAME_DEFAULT_OFFHOST_ROUTE,
-                        ConfigValue(config.defaultOffHostRoute));
-      configMap.emplace(NAME_DEFAULT_ROUTE, ConfigValue(config.defaultRoute));
-      configMap.emplace(NAME_DEFAULT_NFCF_ROUTE,
-                        ConfigValue(config.defaultOffHostRouteFelica));
-      configMap.emplace(NAME_DEFAULT_SYS_CODE_ROUTE,
-                        ConfigValue(config.defaultSystemCodeRoute));
-      configMap.emplace(NAME_DEFAULT_SYS_CODE_PWR_STATE,
-                        ConfigValue(config.defaultSystemCodePowerState));
-      configMap.emplace(NAME_OFF_HOST_SIM_PIPE_ID,
-                        ConfigValue(config.offHostSIMPipeId));
-      configMap.emplace(NAME_OFF_HOST_ESE_PIPE_ID,
-                        ConfigValue(config.offHostESEPipeId));
-      configMap.emplace(NAME_ISO_DEP_MAX_TRANSCEIVE,
-                        ConfigValue(config.maxIsoDepTransceiveLength));
-      if (config.hostWhitelist.size() != 0) {
-        configMap.emplace(NAME_DEVICE_HOST_WHITE_LIST,
-                          ConfigValue(config.hostWhitelist));
-      }
-      /* For Backwards compatibility */
-      if (config.presenceCheckAlgorithm ==
-          PresenceCheckAlgorithm::ISO_DEP_NAK) {
-        configMap.emplace(NAME_PRESENCE_CHECK_ALGORITHM,
-                          ConfigValue((uint32_t)NFA_RW_PRES_CHK_ISO_DEP_NAK));
-      } else {
-        configMap.emplace(NAME_PRESENCE_CHECK_ALGORITHM,
-                          ConfigValue((uint32_t)config.presenceCheckAlgorithm));
-      }
+  NfcVendorConfigV1_2 configValue;
+  if (mHal_1_2) {
+    mHal_1_2->getConfig_1_2(
+        [&configValue](NfcVendorConfigV1_2 config) { configValue = config; });
+  } else if (mHal_1_1) {
+    mHal_1_1->getConfig([&configValue](NfcVendorConfigV1_1 config) {
+      configValue.v1_1 = config;
+      configValue.defaultIsoDepRoute = 0x00;
     });
+  }
+
+  if (mHal_1_1 || mHal_1_2) {
+    std::vector<uint8_t> nfaPropCfg = {
+        configValue.v1_1.nfaProprietaryCfg.protocol18092Active,
+        configValue.v1_1.nfaProprietaryCfg.protocolBPrime,
+        configValue.v1_1.nfaProprietaryCfg.protocolDual,
+        configValue.v1_1.nfaProprietaryCfg.protocol15693,
+        configValue.v1_1.nfaProprietaryCfg.protocolKovio,
+        configValue.v1_1.nfaProprietaryCfg.protocolMifare,
+        configValue.v1_1.nfaProprietaryCfg.discoveryPollKovio,
+        configValue.v1_1.nfaProprietaryCfg.discoveryPollBPrime,
+        configValue.v1_1.nfaProprietaryCfg.discoveryListenBPrime};
+    configMap.emplace(NAME_NFA_PROPRIETARY_CFG, ConfigValue(nfaPropCfg));
+    configMap.emplace(NAME_NFA_POLL_BAIL_OUT_MODE,
+                      ConfigValue(configValue.v1_1.nfaPollBailOutMode ? 1 : 0));
+    configMap.emplace(NAME_DEFAULT_OFFHOST_ROUTE,
+                      ConfigValue(configValue.v1_1.defaultOffHostRoute));
+    if (configValue.offHostRouteUicc.size() != 0) {
+      configMap.emplace(NAME_OFFHOST_ROUTE_UICC,
+                        ConfigValue(configValue.offHostRouteUicc));
+    }
+    if (configValue.offHostRouteEse.size() != 0) {
+      configMap.emplace(NAME_OFFHOST_ROUTE_ESE,
+                        ConfigValue(configValue.offHostRouteEse));
+    }
+    configMap.emplace(NAME_DEFAULT_ROUTE,
+                      ConfigValue(configValue.v1_1.defaultRoute));
+    configMap.emplace(NAME_DEFAULT_NFCF_ROUTE,
+                      ConfigValue(configValue.v1_1.defaultOffHostRouteFelica));
+    configMap.emplace(NAME_DEFAULT_ISODEP_ROUTE,
+                      ConfigValue(configValue.defaultIsoDepRoute));
+    configMap.emplace(NAME_DEFAULT_SYS_CODE_ROUTE,
+                      ConfigValue(configValue.v1_1.defaultSystemCodeRoute));
+    configMap.emplace(
+        NAME_DEFAULT_SYS_CODE_PWR_STATE,
+        ConfigValue(configValue.v1_1.defaultSystemCodePowerState));
+    configMap.emplace(NAME_OFF_HOST_SIM_PIPE_ID,
+                      ConfigValue(configValue.v1_1.offHostSIMPipeId));
+    configMap.emplace(NAME_OFF_HOST_ESE_PIPE_ID,
+                      ConfigValue(configValue.v1_1.offHostESEPipeId));
+    configMap.emplace(NAME_ISO_DEP_MAX_TRANSCEIVE,
+                      ConfigValue(configValue.v1_1.maxIsoDepTransceiveLength));
+    if (configValue.v1_1.hostWhitelist.size() != 0) {
+      configMap.emplace(NAME_DEVICE_HOST_WHITE_LIST,
+                        ConfigValue(configValue.v1_1.hostWhitelist));
+    }
+    /* For Backwards compatibility */
+    if (configValue.v1_1.presenceCheckAlgorithm ==
+        PresenceCheckAlgorithm::ISO_DEP_NAK) {
+      configMap.emplace(NAME_PRESENCE_CHECK_ALGORITHM,
+                        ConfigValue((uint32_t)NFA_RW_PRES_CHK_ISO_DEP_NAK));
+    } else {
+      configMap.emplace(
+          NAME_PRESENCE_CHECK_ALGORITHM,
+          ConfigValue((uint32_t)configValue.v1_1.presenceCheckAlgorithm));
+    }
   }
 }
 /*******************************************************************************
@@ -235,6 +261,8 @@ void NfcAdaptation::Initialize() {
 
   // Android already logs thread_id, proc_id, timestamp, so disable those.
   logging::SetLogItems(false, false, false, false);
+
+  initializeGlobalDebugEnabledFlag();
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: enter", func);
 
@@ -297,8 +325,6 @@ void NfcAdaptation::Initialize() {
     nfa_hci_cfg.p_whitelist = &host_whitelist[0];
   }
 
-  initializeGlobalDebugEnabledFlag();
-
   verify_stack_non_volatile_store();
   if (NfcConfig::hasKey(NAME_PRESERVE_STORAGE) &&
       NfcConfig::getUnsigned(NAME_PRESERVE_STORAGE) == 1) {
@@ -310,12 +336,12 @@ void NfcAdaptation::Initialize() {
 
   GKI_init();
   GKI_enable();
-  GKI_create_task((TASKPTR)NFCA_TASK, BTU_TASK, (int8_t*)"NFCA_TASK", 0, 0,
-                  (pthread_cond_t*)NULL, NULL);
+  GKI_create_task((TASKPTR)NFCA_TASK, BTU_TASK, (int8_t*)"NFCA_TASK", nullptr, 0,
+                  (pthread_cond_t*)nullptr, nullptr);
   {
     AutoThreadMutex guard(mCondVar);
-    GKI_create_task((TASKPTR)Thread, MMI_TASK, (int8_t*)"NFCA_THREAD", 0, 0,
-                    (pthread_cond_t*)NULL, NULL);
+    GKI_create_task((TASKPTR)Thread, MMI_TASK, (int8_t*)"NFCA_THREAD", nullptr, 0,
+                    (pthread_cond_t*)nullptr, nullptr);
     mCondVar.wait();
   }
 
@@ -346,13 +372,17 @@ void NfcAdaptation::Finalize() {
 }
 
 void NfcAdaptation::FactoryReset() {
-  if (mHal_1_1 != nullptr) {
+  if (mHal_1_2 != nullptr) {
+    mHal_1_2->factoryReset();
+  } else if (mHal_1_1 != nullptr) {
     mHal_1_1->factoryReset();
   }
 }
 
 void NfcAdaptation::DeviceShutdown() {
-  if (mHal_1_1 != nullptr) {
+  if (mHal_1_2 != nullptr) {
+    mHal_1_2->closeForPowerOffCase();
+  } else if (mHal_1_1 != nullptr) {
     mHal_1_1->closeForPowerOffCase();
   }
 }
@@ -391,7 +421,7 @@ void NfcAdaptation::signal() { mCondVar.signal(); }
 uint32_t NfcAdaptation::NFCA_TASK(__attribute__((unused)) uint32_t arg) {
   const char* func = "NfcAdaptation::NFCA_TASK";
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: enter", func);
-  GKI_run(0);
+  GKI_run(nullptr);
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", func);
   return 0;
 }
@@ -412,7 +442,7 @@ uint32_t NfcAdaptation::Thread(__attribute__((unused)) uint32_t arg) {
   {
     ThreadCondVar CondVar;
     AutoThreadMutex guard(CondVar);
-    GKI_create_task((TASKPTR)nfc_task, NFC_TASK, (int8_t*)"NFC_TASK", 0, 0,
+    GKI_create_task((TASKPTR)nfc_task, NFC_TASK, (int8_t*)"NFC_TASK", nullptr, 0,
                     (pthread_cond_t*)CondVar, (pthread_mutex_t*)CondVar);
     CondVar.wait();
   }
@@ -458,9 +488,12 @@ void NfcAdaptation::InitializeHalDeviceContext() {
   mHalEntryFuncs.power_cycle = HalPowerCycle;
   mHalEntryFuncs.get_max_ee = HalGetMaxNfcee;
   LOG(INFO) << StringPrintf("%s: INfc::getService()", func);
-  mHal = mHal_1_1 = INfcV1_1::getService();
-  if (mHal_1_1 == nullptr) {
-    mHal = INfc::getService();
+  mHal = mHal_1_1 = mHal_1_2 = INfcV1_2::getService();
+  if (mHal_1_2 == nullptr) {
+    mHal = mHal_1_1 = INfcV1_1::getService();
+    if (mHal_1_1 == nullptr) {
+      mHal = INfc::getService();
+    }
   }
   LOG_FATAL_IF(mHal == nullptr, "Failed to retrieve the NFC HAL!");
   LOG(INFO) << StringPrintf("%s: INfc::getService() returned %p (%s)", func,
@@ -686,8 +719,9 @@ uint8_t NfcAdaptation::HalGetMaxNfcee() {
 ** Returns:     None.
 **
 *******************************************************************************/
-void NfcAdaptation::DownloadFirmware() {
+bool NfcAdaptation::DownloadFirmware() {
   const char* func = "NfcAdaptation::DownloadFirmware";
+  isDownloadFirmwareCompleted = false;
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: enter", func);
   HalInitialize();
 
@@ -696,13 +730,13 @@ void NfcAdaptation::DownloadFirmware() {
   HalOpen(HalDownloadFirmwareCallback, HalDownloadFirmwareDataCallback);
   mHalOpenCompletedEvent.wait();
 
-  mHalCloseCompletedEvent.lock();
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: try close HAL", func);
   HalClose();
-  mHalCloseCompletedEvent.wait();
 
   HalTerminate();
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("%s: exit", func);
+
+  return isDownloadFirmwareCompleted;
 }
 
 /*******************************************************************************
@@ -724,13 +758,13 @@ void NfcAdaptation::HalDownloadFirmwareCallback(nfc_event_t event,
     case HAL_NFC_OPEN_CPLT_EVT: {
       DLOG_IF(INFO, nfc_debug_enabled)
           << StringPrintf("%s: HAL_NFC_OPEN_CPLT_EVT", func);
+      if (event_status == HAL_NFC_STATUS_OK) isDownloadFirmwareCompleted = true;
       mHalOpenCompletedEvent.signal();
       break;
     }
     case HAL_NFC_CLOSE_CPLT_EVT: {
       DLOG_IF(INFO, nfc_debug_enabled)
           << StringPrintf("%s: HAL_NFC_CLOSE_CPLT_EVT", func);
-      mHalCloseCompletedEvent.signal();
       break;
     }
   }

@@ -23,6 +23,9 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.diag.SourceFile;
+import com.google.turbine.diag.TurbineError;
+import com.google.turbine.diag.TurbineError.ErrorKind;
+import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.ImportDecl;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -52,24 +55,31 @@ public class MemberImportIndex {
                 new Supplier<ClassSymbol>() {
                   @Override
                   public ClassSymbol get() {
-                    LookupResult result = tli.lookup(new LookupKey(i.type()));
-                    return result != null ? resolve.resolve(source, i.position(), result) : null;
+                    LookupResult result = tli.scope().lookup(new LookupKey(i.type()));
+                    if (result == null) {
+                      return null;
+                    }
+                    ClassSymbol sym = (ClassSymbol) result.sym();
+                    for (Tree.Ident bit : result.remaining()) {
+                      sym = resolveNext(resolve, source, i.position(), sym, bit);
+                    }
+                    return sym;
                   }
                 }));
       } else {
         cache.put(
-            getLast(i.type()),
+            getLast(i.type()).value(),
             Suppliers.memoize(
                 new Supplier<ClassSymbol>() {
                   @Override
                   public ClassSymbol get() {
-                    LookupResult result1 = tli.lookup(new LookupKey(i.type()));
-                    if (result1 == null) {
+                    LookupResult result = tli.scope().lookup(new LookupKey(i.type()));
+                    if (result == null) {
                       return null;
                     }
-                    ClassSymbol sym = (ClassSymbol) result1.sym();
-                    for (int i = 0; i < result1.remaining().size() - 1; i++) {
-                      sym = resolve.resolveOne(sym, result1.remaining().get(i));
+                    ClassSymbol sym = (ClassSymbol) result.sym();
+                    for (int i = 0; i < result.remaining().size() - 1; i++) {
+                      sym = resolve.resolveOne(sym, result.remaining().get(i));
                     }
                     return sym;
                   }
@@ -77,6 +87,23 @@ public class MemberImportIndex {
       }
     }
     this.classes = packageScopes.build();
+  }
+
+  private static ClassSymbol resolveNext(
+      CanonicalSymbolResolver resolve,
+      SourceFile source,
+      int position,
+      ClassSymbol sym,
+      Tree.Ident bit) {
+    ClassSymbol next = resolve.resolveOne(sym, bit);
+    if (next == null) {
+      throw TurbineError.format(
+          source,
+          position,
+          ErrorKind.SYMBOL_NOT_FOUND,
+          new ClassSymbol(sym.binaryName() + '$' + bit));
+    }
+    return next;
   }
 
   /** Resolves the owner of a single-member static import of the given simple name. */

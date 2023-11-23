@@ -16,6 +16,11 @@
 <configuration description="Config for the CTS Device Policy host tests">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- Instant apps can never be device admin / profile owner / device owner so positive tests
+         here are not applicable -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <!-- Not testing features backed by native code, so only need to run against one ABI -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
     <!-- Push the list of public APIs to device -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">

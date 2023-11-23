@@ -18,7 +18,10 @@
 #define ANDROID_LIBPERFMGR_HINTMANAGER_H_
 
 #include <cstddef>
+#include <map>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "perfmgr/NodeLooperThread.h"

@@ -44,20 +44,23 @@ std::unique_ptr<Client> Client::CreateInstance(const char* socket_name,
 ClientImpl::ClientImpl(const char* socket_name, base::TaskRunner* task_runner)
     : task_runner_(task_runner), weak_ptr_factory_(this) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
-  sock_ = UnixSocket::Connect(socket_name, this, task_runner);
+  sock_ = base::UnixSocket::Connect(socket_name, this, task_runner);
 }
 
 ClientImpl::~ClientImpl() {
   // Ensure we are not destroyed in the middle of invoking a reply.
   PERFETTO_DCHECK(!invoking_method_reply_);
-  OnDisconnect(nullptr);  // The UnixSocket* ptr is not used in OnDisconnect().
+  OnDisconnect(
+      nullptr);  // The base::UnixSocket* ptr is not used in OnDisconnect().
 }
 
 void ClientImpl::BindService(base::WeakPtr<ServiceProxy> service_proxy) {
   if (!service_proxy)
     return;
-  if (!sock_->is_connected())
-    return queued_bindings_.emplace_back(service_proxy);
+  if (!sock_->is_connected()) {
+    queued_bindings_.emplace_back(service_proxy);
+    return;
+  }
   RequestID request_id = ++last_request_id_;
   Frame frame;
   frame.set_request_id(request_id);
@@ -120,12 +123,12 @@ bool ClientImpl::SendFrame(const Frame& frame, int fd) {
   // the send and PostTask the reply later? Right now we are making Send()
   // blocking as a workaround. Propagate bakpressure to the caller instead.
   bool res = sock_->Send(buf.data(), buf.size(), fd,
-                         UnixSocket::BlockingMode::kBlocking);
+                         base::UnixSocket::BlockingMode::kBlocking);
   PERFETTO_CHECK(res || !sock_->is_connected());
   return res;
 }
 
-void ClientImpl::OnConnect(UnixSocket*, bool connected) {
+void ClientImpl::OnConnect(base::UnixSocket*, bool connected) {
   // Drain the BindService() calls that were queued before establishig the
   // connection with the host.
   for (base::WeakPtr<ServiceProxy>& service_proxy : queued_bindings_) {
@@ -138,7 +141,7 @@ void ClientImpl::OnConnect(UnixSocket*, bool connected) {
   queued_bindings_.clear();
 }
 
-void ClientImpl::OnDisconnect(UnixSocket*) {
+void ClientImpl::OnDisconnect(base::UnixSocket*) {
   for (auto it : service_bindings_) {
     base::WeakPtr<ServiceProxy>& service_proxy = it.second;
     task_runner_->PostTask([service_proxy] {
@@ -150,7 +153,7 @@ void ClientImpl::OnDisconnect(UnixSocket*) {
   queued_bindings_.clear();
 }
 
-void ClientImpl::OnDataAvailable(UnixSocket*) {
+void ClientImpl::OnDataAvailable(base::UnixSocket*) {
   size_t rsize;
   do {
     auto buf = frame_deserializer_.BeginReceive();
@@ -245,8 +248,7 @@ void ClientImpl::OnInvokeMethodReply(QueuedRequest req,
     return;
   std::unique_ptr<ProtoMessage> decoded_reply;
   if (reply.success()) {
-    // TODO(fmayer): this could be optimized, stop doing method name string
-    // lookups.
+    // If this becomes a hotspot, optimize by maintaining a dedicated hashtable.
     for (const auto& method : service_proxy->GetDescriptor().methods) {
       if (req.method_name == method.name) {
         decoded_reply = method.reply_proto_decoder(reply.reply_proto());

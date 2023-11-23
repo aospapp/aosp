@@ -22,15 +22,20 @@ import static com.android.documentsui.base.State.ACTION_OPEN;
 import static com.android.documentsui.base.State.ACTION_OPEN_TREE;
 import static com.android.documentsui.base.State.ACTION_PICK_COPY_DESTINATION;
 
-import android.app.Fragment;
-import android.app.FragmentManager;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.DocumentsContract;
-import android.support.annotation.CallSuper;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+
+import androidx.annotation.CallSuper;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.android.documentsui.ActionModeController;
 import com.android.documentsui.BaseActivity;
@@ -39,6 +44,7 @@ import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.FocusManager;
 import com.android.documentsui.Injector;
 import com.android.documentsui.MenuManager.DirectoryDetails;
+import com.android.documentsui.Metrics;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.SharedInputHandler;
@@ -48,6 +54,7 @@ import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.services.FileOperationService;
@@ -66,8 +73,6 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
 
     private Injector<ActionHandler<PickActivity>> mInjector;
     private SharedInputHandler mSharedInputHandler;
-
-    private LastAccessedStorage mLastAccessed;
 
     public PickActivity() {
         super(R.layout.documents_activity, TAG);
@@ -94,16 +99,14 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
 
         super.onCreate(icicle);
 
-        mInjector.selectionMgr = mState.allowMultiple
-                ? DocsSelectionHelper.createMultiSelect()
-                : DocsSelectionHelper.createSingleSelect();
+        mInjector.selectionMgr = DocsSelectionHelper.create();
 
         mInjector.focusManager = new FocusManager(
                 mInjector.features,
                 mInjector.selectionMgr,
                 mDrawer,
                 this::focusSidebar,
-                getColor(R.color.accent_dark));
+                getColor(R.color.primary));
 
         mInjector.menuManager = new MenuManager(mSearchManager, mState, new DirectoryDetails(this));
 
@@ -113,7 +116,7 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                 mInjector.menuManager,
                 mInjector.messages);
 
-        mLastAccessed = LastAccessedStorage.create();
+        mInjector.pickResult = getPickResult(icicle);
         mInjector.actions = new ActionHandler<>(
                 this,
                 mState,
@@ -122,11 +125,14 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                 mSearchManager,
                 ProviderExecutor::forAuthority,
                 mInjector,
-                mLastAccessed);
+                LastAccessedStorage.create());
 
         mInjector.searchManager = mSearchManager;
 
         Intent intent = getIntent();
+
+        mAppsRowManager = new AppsRowManager(mInjector.actions);
+        mInjector.appsRowManager = mAppsRowManager;
 
         mSharedInputHandler =
                 new SharedInputHandler(
@@ -134,31 +140,72 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                         mInjector.selectionMgr,
                         mInjector.searchManager::cancelSearch,
                         this::popDir,
-                        mInjector.features);
+                        mInjector.features,
+                        mDrawer);
         setupLayout(intent);
         mInjector.actions.initLocation(intent);
+        Metrics.logPickerLaunchedFrom(Shared.getCallingPackageName(this));
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        // log the case of user picking nothing.
+        mInjector.actions.getUpdatePickResultTask().execute();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putParcelable(Shared.EXTRA_PICK_RESULT, mInjector.pickResult);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mInjector.pickResult.setPickStartTime(SystemClock.uptimeMillis());
+    }
+
+    @Override
+    protected void onPause() {
+        mInjector.pickResult.increaseDuration(SystemClock.uptimeMillis());
+        super.onPause();
+    }
+
+    private static PickResult getPickResult(Bundle icicle) {
+        if (icicle != null) {
+            PickResult result = icicle.getParcelable(Shared.EXTRA_PICK_RESULT);
+            return result;
+        }
+
+        return new PickResult();
     }
 
     private void setupLayout(Intent intent) {
         if (mState.action == ACTION_CREATE) {
             final String mimeType = intent.getType();
             final String title = intent.getStringExtra(Intent.EXTRA_TITLE);
-            SaveFragment.show(getFragmentManager(), mimeType, title);
+            SaveFragment.show(getSupportFragmentManager(), mimeType, title);
         } else if (mState.action == ACTION_OPEN_TREE ||
                    mState.action == ACTION_PICK_COPY_DESTINATION) {
-            PickFragment.show(getFragmentManager());
+            PickFragment.show(getSupportFragmentManager());
+        } else {
+            // If PickFragment or SaveFragment does not show,
+            // Set save container background to transparent for edge to edge nav bar.
+            View saveContainer = findViewById(R.id.container_save);
+            saveContainer.setBackgroundColor(Color.TRANSPARENT);
         }
 
         if (mState.action == ACTION_GET_CONTENT) {
             final Intent moreApps = new Intent(intent);
             moreApps.setComponent(null);
             moreApps.setPackage(null);
-            RootsFragment.show(getFragmentManager(), moreApps);
+            RootsFragment.show(getSupportFragmentManager(), moreApps);
         } else if (mState.action == ACTION_OPEN ||
                    mState.action == ACTION_CREATE ||
                    mState.action == ACTION_OPEN_TREE ||
                    mState.action == ACTION_PICK_COPY_DESTINATION) {
-            RootsFragment.show(getFragmentManager(), (Intent) null);
+            RootsFragment.show(getSupportFragmentManager(), (Intent) null);
         }
     }
 
@@ -239,7 +286,7 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
         final DocumentInfo cwd = getCurrentDirectory();
 
         if (mState.action == ACTION_CREATE) {
-            final FragmentManager fm = getFragmentManager();
+            final FragmentManager fm = getSupportFragmentManager();
             SaveFragment.get(fm).prepareForDirectory(cwd);
         }
 
@@ -247,8 +294,14 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
     }
 
     @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        mInjector.pickResult.increaseActionCount();
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     protected void refreshDirectory(int anim) {
-        final FragmentManager fm = getFragmentManager();
+        final FragmentManager fm = getSupportFragmentManager();
         final RootInfo root = getCurrentRoot();
         final DocumentInfo cwd = getCurrentDirectory();
 
@@ -292,14 +345,16 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
 
     @Override
     public void onDocumentPicked(DocumentInfo doc) {
-        final FragmentManager fm = getFragmentManager();
+        final FragmentManager fm = getSupportFragmentManager();
         // Do not inline-open archives, as otherwise it would be impossible to pick
         // archive files. Note, that picking files inside archives is not supported.
         if (doc.isDirectory()) {
             mInjector.actions.openContainerDocument(doc);
+            mSearchManager.recordHistory();
         } else if (mState.action == ACTION_OPEN || mState.action == ACTION_GET_CONTENT) {
             // Explicit file picked, return
             mInjector.actions.finishPicking(doc.derivedUri);
+            mSearchManager.recordHistory();
         } else if (mState.action == ACTION_CREATE) {
             // Replace selected file
             SaveFragment.get(fm).setReplaceTarget(doc);
@@ -315,6 +370,7 @@ public class PickActivity extends BaseActivity implements ActionHandler.Addons {
                 uris[i] = docs.get(i).derivedUri;
             }
             mInjector.actions.finishPicking(uris);
+            mSearchManager.recordHistory();
         }
     }
 

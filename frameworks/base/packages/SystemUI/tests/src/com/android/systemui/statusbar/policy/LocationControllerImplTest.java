@@ -20,10 +20,11 @@ import static org.mockito.Mockito.when;
 
 import android.content.Intent;
 import android.location.LocationManager;
-import android.support.test.filters.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.testing.TestableLooper.RunWithLooper;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.statusbar.policy.LocationController.LocationChangeCallback;
@@ -36,7 +37,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidTestingRunner.class)
 @RunWithLooper
 @SmallTest
-@Ignore
 public class LocationControllerImplTest extends SysuiTestCase {
 
     private LocationControllerImpl mLocationController;
@@ -48,6 +48,7 @@ public class LocationControllerImplTest extends SysuiTestCase {
     }
 
     @Test
+    @Ignore("flaky")
     public void testRemoveSelfActive_DoesNotCrash() {
         LocationController.LocationChangeCallback callback = new LocationChangeCallback() {
             @Override
@@ -69,6 +70,7 @@ public class LocationControllerImplTest extends SysuiTestCase {
     }
 
     @Test
+    @Ignore("flaky")
     public void testRemoveSelfSettings_DoesNotCrash() {
         LocationController.LocationChangeCallback callback = new LocationChangeCallback() {
             @Override

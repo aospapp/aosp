@@ -18,17 +18,22 @@
 // This is distinct from time_zone_distro_unbundled. It should be used
 // for platform code as it avoids circular dependencies when stubs targets
 // need to build framework (as appears to be the case in aosp/master).
-// Also used for host-side tests.
-java_library_static {
+// Also used from host-side tests and tools.
+java_library {
     name: "time_zone_distro",
     host_supported: true,
 
     srcs: ["src/main/**/*.java"],
+    target: {
+        host: {
+            static_libs: ["timezone-host"],
+        },
+    },
 }
 
 // Library of classes for handling time zone distros. Used in unbundled
 // cases. Same as above, except dependent on system_current stubs.
-java_library_static {
+java_library {
     name: "time_zone_distro_unbundled",
 
     srcs: ["src/main/**/*.java"],
@@ -36,12 +41,13 @@ java_library_static {
 }
 
 // Tests for time_zone_distro code.
-java_library_static {
+java_library {
     name: "time_zone_distro-tests",
 
     srcs: ["src/test/**/*.java"],
     static_libs: [
         "time_zone_distro",
+        "core-tests-support",
         "junit",
     ],
 }

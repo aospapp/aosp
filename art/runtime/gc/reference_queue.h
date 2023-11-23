@@ -22,15 +22,18 @@
 #include <vector>
 
 #include "base/atomic.h"
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "base/timing_logger.h"
-#include "globals.h"
 #include "jni.h"
 #include "obj_ptr.h"
 #include "offsets.h"
+#include "runtime_globals.h"
 #include "thread_pool.h"
 
 namespace art {
+
+class Mutex;
+
 namespace mirror {
 class Reference;
 }  // namespace mirror

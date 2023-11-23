@@ -108,7 +108,7 @@ void VtsTraceProcessor::ParseTrace(const string& trace_file) {
     cerr << __func__ << ": Failed to parse trace file: " << trace_file << endl;
     return;
   }
-  for (auto record : profiling_msg.records()) {
+  for (const auto& record : profiling_msg.records()) {
     cout << record.DebugString() << endl;
   }
 }
@@ -156,12 +156,14 @@ void VtsTraceProcessor::CleanupTraceFile(const string& trace_file) {
   bool first_record = true;
   enum TRACE_TYPE { server_trace, client_trace, passthrough_trace };
   string package;
-  float version;
+  int version_major;
+  int version_minor;
   TRACE_TYPE trace_type;
   for (const auto& record : profiling_msg.records()) {
     if (first_record) {
       package = record.package();
-      version = record.version();
+      version_major = record.version_major();
+      version_minor = record.version_minor();
       // determine trace type based on the event of the first record.
       switch (record.event()) {
         case InstrumentationEventType::SERVER_API_ENTRY:
@@ -180,7 +182,9 @@ void VtsTraceProcessor::CleanupTraceFile(const string& trace_file) {
       first_record = false;
     }
     // If trace contains records for a different hal, remove it.
-    if (record.package() != package || record.version() != version) {
+    if (record.package() != package ||
+        record.version_major() != version_major ||
+        record.version_minor() != version_minor) {
       cerr << "Unexpected record: " << record.DebugString() << endl;
       continue;
     }
@@ -266,7 +270,7 @@ void VtsTraceProcessor::ProcessTraceForLatencyProfiling(
   vector<VtsProfilingRecord> seen_records;
   // stack to store temp records that not processed.
   vector<VtsProfilingRecord> pending_records;
-  for (auto record : profiling_msg.records()) {
+  for (const auto& record : profiling_msg.records()) {
     if (isEntryEvent(record.event())) {
       seen_records.emplace_back(record);
     } else {
@@ -283,16 +287,17 @@ void VtsTraceProcessor::ProcessTraceForLatencyProfiling(
         // Found the paired entry record, calculate the latency.
         VtsProfilingRecord entry_record = seen_records.back();
         seen_records.pop_back();
-        string api = record.func_msg().name();
+        string full_api_name = GetFullApiStr(record);
         int64_t start_timestamp = entry_record.timestamp();
         int64_t end_timestamp = record.timestamp();
         int64_t latency = end_timestamp - start_timestamp;
         // sanity check.
         if (latency < 0) {
-          cerr << __func__ << ": got negative latency for " << api << endl;
+          cerr << __func__ << ": got negative latency for " << full_api_name
+               << endl;
           exit(-1);
         }
-        cout << api << ":" << latency << endl;
+        cout << full_api_name << ":" << latency << endl;
         while (!pending_records.empty()) {
           seen_records.emplace_back(pending_records.back());
           pending_records.pop_back();
@@ -428,7 +433,7 @@ void VtsTraceProcessor::SelectTraces(const string& coverage_file_dir,
     for (auto it = original_coverages.begin(); it != original_coverages.end();
          ++it) {
       TestReportMessage cur_coverage_msg = it->second.coverage_msg;
-      for (const auto ref_coverage : selected_coverage_msg.coverage()) {
+      for (const auto& ref_coverage : selected_coverage_msg.coverage()) {
         for (int i = 0; i < cur_coverage_msg.coverage_size(); i++) {
           CoverageReportMessage* coverage_to_be_updated =
               cur_coverage_msg.mutable_coverage(i);
@@ -502,7 +507,8 @@ bool VtsTraceProcessor::isEntryEvent(const InstrumentationEventType& event) {
 bool VtsTraceProcessor::isPairedRecord(const VtsProfilingRecord& entry_record,
                                        const VtsProfilingRecord& exit_record) {
   if (entry_record.package() != exit_record.package() ||
-      entry_record.version() != exit_record.version() ||
+      entry_record.version_major() != exit_record.version_major() ||
+      entry_record.version_minor() != exit_record.version_minor() ||
       entry_record.interface() != exit_record.interface() ||
       entry_record.func_msg().name() != exit_record.func_msg().name()) {
     return false;
@@ -544,7 +550,7 @@ void VtsTraceProcessor::GetTestListForHal(const string& test_trace_dir,
     test_list[it->first] = set<string>();
     vector<TraceSummary> trace_summaries = it->second;
     vector<string> covered_apis;
-    for (auto summary : trace_summaries) {
+    for (const auto& summary : trace_summaries) {
       for (auto const& api_stat_it : summary.api_stats) {
         if (std::find(covered_apis.begin(), covered_apis.end(),
                       api_stat_it.first) == covered_apis.end()) {
@@ -553,7 +559,7 @@ void VtsTraceProcessor::GetTestListForHal(const string& test_trace_dir,
         }
       }
     }
-    for (auto api : covered_apis) {
+    for (const auto& api : covered_apis) {
       cout << "covered api: " << api << endl;
     }
   }
@@ -628,7 +634,7 @@ void VtsTraceProcessor::GetHalTraceMapping(
   for (const TraceSummary& trace_summary : trace_summaries) {
     string test_name = trace_summary.test_name;
     stringstream stream;
-    stream << fixed << setprecision(1) << trace_summary.version;
+    stream << trace_summary.version_major << "." << trace_summary.version_minor;
     string hal_name = trace_summary.package + "@" + stream.str();
     if (hal_trace_mapping->find(hal_name) != hal_trace_mapping->end()) {
       (*hal_trace_mapping)[hal_name].push_back(trace_summary);
@@ -659,14 +665,17 @@ void VtsTraceProcessor::GetHalTraceSummary(
   }
   for (const auto& record : profiling_msg.records()) {
     string package = record.package();
-    float version = record.version();
+    int version_major = record.version_major();
+    int version_minor = record.version_minor();
     string func_name = record.func_msg().name();
-    auto found = find_if(trace_summaries->begin(), trace_summaries->end(),
-                         [&](const TraceSummary& trace_summary) {
-                           return (test_name == trace_summary.test_name &&
-                                   package == trace_summary.package &&
-                                   version == trace_summary.version);
-                         });
+    auto found =
+        find_if(trace_summaries->begin(), trace_summaries->end(),
+                [&](const TraceSummary& trace_summary) {
+                  return (test_name == trace_summary.test_name &&
+                          package == trace_summary.package &&
+                          version_major == trace_summary.version_major &&
+                          version_minor == trace_summary.version_minor);
+                });
     if (found != trace_summaries->end()) {
       found->total_api_count++;
       if (found->api_stats.find(func_name) != found->api_stats.end()) {
@@ -678,10 +687,17 @@ void VtsTraceProcessor::GetHalTraceSummary(
     } else {
       map<string, long> api_stats;
       api_stats[func_name] = 1;
-      TraceSummary trace_summary(test_name, package, version, 1, 1, api_stats);
+      TraceSummary trace_summary(test_name, package, version_major,
+                                 version_minor, 1, 1, api_stats);
       trace_summaries->push_back(trace_summary);
     }
   }
+}
+
+string VtsTraceProcessor::GetFullApiStr(const VtsProfilingRecord& record) {
+  return record.package() + '@' + std::to_string(record.version_major()) + '.' +
+         std::to_string(record.version_minor()) + "::" + record.interface() +
+         "::" + record.func_msg().name();
 }
 
 }  // namespace vts

@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"பதிவிறக்க நிர்வாகியை அணுகவும்."</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShare நிர்வாகியை அணுகுவதற்குப் பயன்பாட்டை அனுமதித்து,  கோப்புகளைப் பரிமாற்ற அதைப் பயன்படுத்துகிறது."</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShare நிர்வாகியை அணுகுவதற்குப் ஆப்ஸை அனுமதித்து,  கோப்புகளைப் பரிமாற்ற அதைப் பயன்படுத்துகிறது."</string>
     <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ஏற்புபட்டியல் புளூடூத் சாதன அணுகல்."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"புளூடூத் சாதனத்தைத் தற்காலிகமாக ஏற்புபட்டியலில் சேர்க்க பயன்பாட்டை அனுமதிக்கிறது, பயனரின் உறுதிபடுத்தலின்றி கோப்புகளை இந்தச் சாதனத்திற்கு அனுப்ப அதை அனுமதிக்கிறது."</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"புளூடூத் சாதனத்தைத் தற்காலிகமாக ஏற்புபட்டியலில் சேர்க்க ஆப்ஸை அனுமதிக்கிறது, பயனரின் உறுதிபடுத்தலின்றி கோப்புகளை இந்தச் சாதனத்திற்கு அனுப்ப அதை அனுமதிக்கிறது."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"புளூடூத்"</string>
     <string name="unknown_device" msgid="9221903979877041009">"அறியப்படாத சாதனம்"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"அறியப்படாதது"</string>
@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" க்கு கோப்பு அனுப்பப்படுகிறது"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> கோப்புகள் \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" க்கு அனுப்பப்படுகின்றன"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" க்கு கோப்பு அனுப்புவது நிறுத்தப்பட்டது"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" இடமிருந்து வரும் கோப்பைச் சேமிக்க USB சேமிப்பிடத்தில் போதுமான இடம் இல்லை"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" இடமிருந்து வரும் கோப்பைச் சேமிக்க SD கார்டில் போதுமான இடம் இல்லை"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" அனுப்பும் ஃபைலைச் சேமிக்க USB சேமிப்பிடத்தில் போதுமான இடம் இல்லை"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" அனுப்பும் ஃபைலைச் சேமிக்க SD கார்டில் போதுமான இடம் இல்லை"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"தேவைப்படும் இடம்: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"மிக அதிகமான கோரிக்கைகள் செயல்படுத்தப்படுகின்றன. பிறகு முயற்சிக்கவும்."</string>
     <string name="status_pending" msgid="2503691772030877944">"கோப்பு பரிமாற்றம் இன்னும் தொடங்கவில்லை."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"இலக்குச் சாதனம் பரிமாற்றத்தைத் தடைசெய்தது."</string>
     <string name="status_canceled" msgid="6664490318773098285">"பயனர் இடமாற்றத்தை ரத்துசெய்தார்."</string>
     <string name="status_file_error" msgid="3671917770630165299">"சேமிப்பிடத்தில் சிக்கல்."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USB சேமிப்பிடம் இல்லை."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD கார்டு இல்லை. பரிமாற்றப்பட்ட கோப்புகளைச் சேமிக்க SD கார்டைச் செருகவும்."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB சேமிப்பிடம் இல்லை."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD கார்டு இல்லை. அனுப்பப்பட்ட ஃபைல்களைச் சேமிக்க SD கார்டைச் செருகவும்."</string>
     <string name="status_connection_error" msgid="947681831523219891">"இணைப்பு தோல்வி."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"கோரிக்கை சரியாக கையாளப்படவில்லை."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"தெரியாத பிழை."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"திற"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"பட்டியலிலிருந்து அழி"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"அழி"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"பாடல் விவரம்"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"சேமி"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ரத்துசெய்"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"புளூடூத் வழியாகப் பகிர விரும்பும் கணக்குகளைத் தேர்ந்தெடுக்கவும். இணைக்கும் போது கணக்குகளுக்கான அணுகலை மீண்டும் ஏற்க வேண்டும்."</string>

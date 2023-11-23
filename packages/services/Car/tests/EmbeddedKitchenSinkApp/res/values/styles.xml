@@ -30,13 +30,10 @@
         <item name="android:layout_width">@dimen/overview_icon_size</item>
         <item name="android:layout_height">@dimen/overview_icon_size</item>
         <item name="android:padding">6dp</item>
-        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
-        <item name="android:tint">@color/car_button_tint</item>
         <item name="android:scaleType">fitCenter</item>
         <item name="android:clickable">true</item>
     </style>
 
-    <style name="KitchenSinkActivityTheme" parent="Theme.Car.Light.NoActionBar.Drawer">
-        <item name="android:colorPrimary">@android:color/transparent</item>
+    <style name="KitchenSinkActivityTheme" parent="android:Theme.DeviceDefault.NoActionBar">
     </style>
 </resources>

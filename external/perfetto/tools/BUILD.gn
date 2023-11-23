@@ -31,3 +31,16 @@ group("protoc_helper") {
     "../buildtools:protoc($host_toolchain)",
   ]
 }
+
+if (is_linux) {
+  executable("profiling_sample_distribution") {
+    sources = [
+      "profiling_sample_distribution.cc",
+    ]
+    deps = [
+      "../gn:default_deps",
+      "../src/base",
+      "../src/profiling/memory:client",
+    ]
+  }
+}

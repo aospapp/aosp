@@ -27,15 +27,16 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import com.ibm.icu.dev.test.format.MeasureUnitTest;
 import com.ibm.icu.dev.test.format.PluralRulesTest;
+import com.ibm.icu.dev.test.number.NumberFormatterApiTest;
 import com.ibm.icu.dev.test.number.PropertiesTest;
 import com.ibm.icu.impl.JavaTimeZone;
 import com.ibm.icu.impl.OlsonTimeZone;
 import com.ibm.icu.impl.TimeZoneAdapter;
 import com.ibm.icu.impl.URLHandler;
-import com.ibm.icu.impl.Utility;
 import com.ibm.icu.math.BigDecimal;
 import com.ibm.icu.math.MathContext;
 import com.ibm.icu.util.AnnualTimeZoneRule;
@@ -707,7 +708,7 @@ public class SerializableTestUtility {
             return a == null ? b == null :
                     b == null ? false :
                             a.getClass().equals(b.getClass()) &&
-                            Utility.objectEquals(a.getMessage(), b.getMessage()) &&
+                            Objects.equals(a.getMessage(), b.getMessage()) &&
                             sameThrowable(a.getCause(), b.getCause());
         }
     }
@@ -832,6 +833,8 @@ public class SerializableTestUtility {
         map.put("com.ibm.icu.impl.number.Properties", new PropertiesTest.ICU59PropertiesHandler());
         map.put("com.ibm.icu.impl.number.DecimalFormatProperties", new PropertiesTest.PropertiesHandler());
         map.put("com.ibm.icu.impl.number.CustomSymbolCurrency", new CurrencyHandler());
+        map.put("com.ibm.icu.number.SkeletonSyntaxException", new ExceptionHandler.SkeletonSyntaxExceptionHandler());
+        map.put("com.ibm.icu.impl.number.LocalizedNumberFormatterAsFormat", new NumberFormatterApiTest.FormatHandler());
 
         map.put("com.ibm.icu.util.ICUException", new ICUExceptionHandler());
         map.put("com.ibm.icu.util.ICUUncheckedIOException", new ICUUncheckedIOExceptionHandler());

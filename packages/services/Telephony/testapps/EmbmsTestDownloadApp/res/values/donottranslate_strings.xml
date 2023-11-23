@@ -19,7 +19,8 @@
     <string name="bind_button">Bind</string>
     <string name="request_dl_button">Request DL</string>
     <string name="get_file_services_button">Fetch file services</string>
-    <string name="set_temp_root_button">Set temp file root</string>
+    <string name="set_temp_root_button_internal">Set tmp root (int)</string>
+    <string name="set_temp_root_button_external">Set tmp root (ext)</string>
     <string name="request_cleanup_button">Cleanup</string>
     <string name="request_spurious_temp_files_button">Request more temp files</string>
     <string name="delay_download_button">Delay download</string>

@@ -4,11 +4,12 @@
 
 #include "src/runtime/runtime-utils.h"
 
-#include "src/arguments.h"
+#include "src/arguments-inl.h"
 #include "src/base/platform/time.h"
 #include "src/conversions-inl.h"
 #include "src/futex-emulation.h"
 #include "src/globals.h"
+#include "src/objects/js-array-buffer-inl.h"
 
 // Implement Futex API for SharedArrayBuffers as defined in the
 // SharedArrayBuffer draft spec, found here:
@@ -16,45 +17,6 @@
 
 namespace v8 {
 namespace internal {
-
-RUNTIME_FUNCTION(Runtime_AtomicsWait) {
-  HandleScope scope(isolate);
-  DCHECK_EQ(4, args.length());
-  CONVERT_ARG_HANDLE_CHECKED(JSTypedArray, sta, 0);
-  CONVERT_SIZE_ARG_CHECKED(index, 1);
-  CONVERT_INT32_ARG_CHECKED(value, 2);
-  CONVERT_DOUBLE_ARG_CHECKED(timeout, 3);
-  CHECK(sta->GetBuffer()->is_shared());
-  CHECK_LT(index, NumberToSize(sta->length()));
-  CHECK_EQ(sta->type(), kExternalInt32Array);
-  CHECK(timeout == V8_INFINITY || !std::isnan(timeout));
-
-  if (!isolate->allow_atomics_wait()) {
-    THROW_NEW_ERROR_RETURN_FAILURE(
-        isolate, NewTypeError(MessageTemplate::kAtomicsWaitNotAllowed));
-  }
-
-  Handle<JSArrayBuffer> array_buffer = sta->GetBuffer();
-  size_t addr = (index << 2) + NumberToSize(sta->byte_offset());
-
-  return FutexEmulation::Wait(isolate, array_buffer, addr, value, timeout);
-}
-
-RUNTIME_FUNCTION(Runtime_AtomicsWake) {
-  HandleScope scope(isolate);
-  DCHECK_EQ(3, args.length());
-  CONVERT_ARG_HANDLE_CHECKED(JSTypedArray, sta, 0);
-  CONVERT_SIZE_ARG_CHECKED(index, 1);
-  CONVERT_UINT32_ARG_CHECKED(count, 2);
-  CHECK(sta->GetBuffer()->is_shared());
-  CHECK_LT(index, NumberToSize(sta->length()));
-  CHECK_EQ(sta->type(), kExternalInt32Array);
-
-  Handle<JSArrayBuffer> array_buffer = sta->GetBuffer();
-  size_t addr = (index << 2) + NumberToSize(sta->byte_offset());
-
-  return FutexEmulation::Wake(isolate, array_buffer, addr, count);
-}
 
 RUNTIME_FUNCTION(Runtime_AtomicsNumWaitersForTesting) {
   HandleScope scope(isolate);
@@ -68,7 +30,7 @@ RUNTIME_FUNCTION(Runtime_AtomicsNumWaitersForTesting) {
   Handle<JSArrayBuffer> array_buffer = sta->GetBuffer();
   size_t addr = (index << 2) + NumberToSize(sta->byte_offset());
 
-  return FutexEmulation::NumWaitersForTesting(isolate, array_buffer, addr);
+  return FutexEmulation::NumWaitersForTesting(array_buffer, addr);
 }
 
 RUNTIME_FUNCTION(Runtime_SetAllowAtomicsWait) {
@@ -77,7 +39,8 @@ RUNTIME_FUNCTION(Runtime_SetAllowAtomicsWait) {
   CONVERT_BOOLEAN_ARG_CHECKED(set, 0);
 
   isolate->set_allow_atomics_wait(set);
-  return isolate->heap()->undefined_value();
+  return ReadOnlyRoots(isolate).undefined_value();
 }
+
 }  // namespace internal
 }  // namespace v8

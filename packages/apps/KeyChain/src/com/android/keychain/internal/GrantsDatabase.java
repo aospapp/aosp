@@ -58,8 +58,11 @@ public class GrantsDatabase {
     public DatabaseHelper mDatabaseHelper;
 
     private class DatabaseHelper extends SQLiteOpenHelper {
-        public DatabaseHelper(Context context) {
+        private final ExistingKeysProvider mKeysProvider;
+
+        public DatabaseHelper(Context context, ExistingKeysProvider keysProvider) {
             super(context, DATABASE_NAME, null /* CursorFactory */, DATABASE_VERSION);
+            mKeysProvider = keysProvider;
         }
 
         void createSelectableTable(final SQLiteDatabase db) {
@@ -80,6 +83,7 @@ public class GrantsDatabase {
 
         @Override
         public void onCreate(final SQLiteDatabase db) {
+            Log.w(TAG, "Creating new DB.");
             db.execSQL(
                     "CREATE TABLE "
                             + TABLE_GRANTS
@@ -95,6 +99,25 @@ public class GrantsDatabase {
                             + "))");
 
             createSelectableTable(db);
+            markExistingKeysAsSelectable(db);
+        }
+
+        private void markExistingKeysAsSelectable(final SQLiteDatabase db) {
+            for (String alias: mKeysProvider.getExistingKeyAliases()) {
+                Log.w(TAG, "Existing alias: " + alias);
+                if (!hasEntryInUserSelectableTable(db, alias)) {
+                    Log.w(TAG, "Marking as selectable: " + alias);
+                    markKeyAsSelectable(db, alias);
+                }
+            }
+
+        }
+
+        private void markKeyAsSelectable(final SQLiteDatabase db, final String alias) {
+            final ContentValues values = new ContentValues();
+            values.put(GRANTS_ALIAS, alias);
+            values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(true));
+            db.replace(TABLE_SELECTABLE, null, values);
         }
 
         private boolean hasEntryInUserSelectableTable(final SQLiteDatabase db, final String alias) {
@@ -117,33 +140,13 @@ public class GrantsDatabase {
                 // table and adding all existing keys as user-selectable ones into that table.
                 oldVersion++;
                 createSelectableTable(db);
-
-                try (Cursor cursor =
-                        db.query(
-                                TABLE_GRANTS,
-                                new String[] {GRANTS_ALIAS},
-                                null,
-                                null,
-                                GRANTS_ALIAS,
-                                null,
-                                null)) {
-
-                    while ((cursor != null) && (cursor.moveToNext())) {
-                        final String alias = cursor.getString(0);
-                        if (!hasEntryInUserSelectableTable(db, alias)) {
-                            final ContentValues values = new ContentValues();
-                            values.put(GRANTS_ALIAS, alias);
-                            values.put(SELECTABLE_IS_SELECTABLE, Boolean.toString(true));
-                            db.replace(TABLE_SELECTABLE, null, values);
-                        }
-                    }
-                }
+                markExistingKeysAsSelectable(db);
             }
         }
     }
 
-    public GrantsDatabase(Context context) {
-        mDatabaseHelper = new DatabaseHelper(context);
+    public GrantsDatabase(Context context, ExistingKeysProvider keysProvider) {
+        mDatabaseHelper = new DatabaseHelper(context, keysProvider);
     }
 
     public void destroy() {

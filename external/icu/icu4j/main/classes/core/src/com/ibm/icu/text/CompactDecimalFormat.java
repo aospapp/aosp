@@ -13,10 +13,19 @@ import java.text.ParsePosition;
 import java.util.Locale;
 
 import com.ibm.icu.impl.number.DecimalFormatProperties;
+import com.ibm.icu.number.NumberFormatter;
 import com.ibm.icu.util.CurrencyAmount;
 import com.ibm.icu.util.ULocale;
 
 /**
+ * Formats numbers in compact (abbreviated) notation, like "1.2K" instead of "1200".
+ *
+ * <p>
+ * <strong>IMPORTANT:</strong> New users are strongly encouraged to see if
+ * {@link NumberFormatter} fits their use case.  Although not deprecated, this
+ * class, CompactDecimalFormat, is provided for backwards compatibility only.
+ * <hr>
+ *
  * The CompactDecimalFormat produces abbreviated numbers, suitable for display in environments will
  * limited real estate. For example, 'Hits: 1.2B' instead of 'Hits: 1,200,000,000'. The format will
  * be appropriate for the given language, such as "1,2 Mrd." for German.
@@ -70,6 +79,9 @@ public class CompactDecimalFormat extends DecimalFormat {
   }
 
   /**
+   * <strong>NOTE:</strong> New users are strongly encouraged to use
+   * {@link NumberFormatter} instead of NumberFormat.
+   * <hr>
    * Creates a CompactDecimalFormat appropriate for a locale. The result may be affected by the
    * number system in the locale, such as ar-u-nu-latn.
    *
@@ -82,6 +94,9 @@ public class CompactDecimalFormat extends DecimalFormat {
   }
 
   /**
+   * <strong>NOTE:</strong> New users are strongly encouraged to use
+   * {@link NumberFormatter} instead of NumberFormat.
+   * <hr>
    * Creates a CompactDecimalFormat appropriate for a locale. The result may be affected by the
    * number system in the locale, such as ar-u-nu-latn.
    *

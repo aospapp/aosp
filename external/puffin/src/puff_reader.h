@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "puffin/src/include/puffin/common.h"
-#include "puffin/src/include/puffin/errors.h"
 #include "puffin/src/puff_data.h"
 
 namespace puffin {
@@ -26,8 +25,7 @@ class PuffReaderInterface {
   // data.
   //
   // |data|  OUT  The next data available in the puffed buffer.
-  // |error| OUT  The error code.
-  virtual bool GetNext(PuffData* data, Error* error) = 0;
+  virtual bool GetNext(PuffData* data) = 0;
 
   // Returns the number of bytes left in the puff buffer.
   virtual size_t BytesLeft() const = 0;
@@ -48,7 +46,7 @@ class BufferPuffReader : public PuffReaderInterface {
 
   ~BufferPuffReader() override = default;
 
-  bool GetNext(PuffData* pd, Error* error) override;
+  bool GetNext(PuffData* pd) override;
   size_t BytesLeft() const override;
 
  private:

@@ -99,7 +99,7 @@ public class GnssCtsTestActivity extends BaseGnssTestActivity {
 
     /**
      * For reference on the implementation of this test executor see:
-     *      android.support.test.runner.AndroidJUnitRunner
+     *      androidx.test.runner.AndroidJUnitRunner
      */
     @Override
     protected GnssTestDetails executeTests() {

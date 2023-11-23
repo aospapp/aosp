@@ -96,7 +96,9 @@ Java_sun_nio_ch_DatagramChannelImpl_disconnect0(JNIEnv *env, jobject this,
     rv = connect(fd, 0, 0);
 #endif
 
-#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(_AIX)
+// Android-changed: Fuchsia: Pass linux-style args to connect.
+// #if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(_AIX)
+#if defined(__linux__) || defined(_ALLBSD_SOURCE) || defined(_AIX) || defined(__Fuchsia__)
     {
         int len;
         SOCKADDR sa;

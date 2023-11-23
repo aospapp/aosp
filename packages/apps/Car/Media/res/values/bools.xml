@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Copyright 2018, The Android Open Source Project
+  Copyright 2019, The Android Open Source Project
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
   limitations under the License.
 -->
 <resources>
-    <!-- Whether forward content browse is enabled -->
-    <bool name="forward_content_browse_enabled">false</bool>
+    <bool name="queue_fading_edge_length_enabled">true</bool>
+    <bool name="use_media_source_color_for_progress_bar">true</bool>
+    <bool name="show_time_for_now_playing_queue_list_item">true</bool>
+    <bool name="show_icon_for_now_playing_queue_list_item">false</bool>
+    <bool name="switch_to_playback_view_when_playable_item_is_clicked">true</bool>
+    <bool name="show_thumbnail_for_queue_list_item">true</bool>
 </resources>

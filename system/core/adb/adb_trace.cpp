@@ -32,7 +32,9 @@
 
 #if !ADB_HOST
 const char* adb_device_banner = "device";
+#if defined(__ANDROID__)
 static android::base::LogdLogger gLogdLogger;
+#endif
 #else
 const char* adb_device_banner = "host";
 #endif
@@ -41,7 +43,12 @@ void AdbLogger(android::base::LogId id, android::base::LogSeverity severity,
                const char* tag, const char* file, unsigned int line,
                const char* message) {
     android::base::StderrLogger(id, severity, tag, file, line, message);
-#if !ADB_HOST
+#if defined(_WIN32)
+    // stderr can be buffered on Windows (and setvbuf doesn't seem to work), so explicitly flush.
+    fflush(stderr);
+#endif
+
+#if !ADB_HOST && defined(__ANDROID__)
     // Only print logs of INFO or higher to logcat, so that `adb logcat` with adbd tracing on
     // doesn't result in exponential logging.
     if (severity >= android::base::INFO) {
@@ -67,8 +74,7 @@ static std::string get_log_file_name() {
 }
 
 void start_device_log(void) {
-    int fd = unix_open(get_log_file_name().c_str(),
-                       O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0640);
+    int fd = unix_open(get_log_file_name(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0640);
     if (fd == -1) {
         return;
     }

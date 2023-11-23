@@ -15,6 +15,7 @@
  */
 package com.android.car;
 
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
 import android.util.Log;
 
 import com.android.car.hal.PowerHalService;
@@ -28,10 +29,15 @@ public class MockedPowerHalService extends PowerHalService {
     private final boolean mIsPowerStateSupported;
     private final boolean mIsDeepSleepAllowed;
     private final boolean mIsTimedWakeupAllowed;
-    private PowerState mCurrentPowerState = new PowerState(PowerHalService.STATE_ON_FULL, 0);
+    private PowerState mCurrentPowerState = new PowerState(VehicleApPowerStateReq.ON, 0);
     private PowerEventListener mListener;
+    private SignalListener mSignalListener;
 
     private final LinkedList<int[]> mSentStates = new LinkedList<>();
+
+    interface SignalListener {
+        void sendingSignal(int signal);
+    }
 
     public MockedPowerHalService(boolean isPowerStateSupported, boolean isDeepSleepAllowed,
             boolean isTimedWakeupAllowed) {
@@ -46,16 +52,21 @@ public class MockedPowerHalService extends PowerHalService {
         mListener = listener;
     }
 
-    @Override
-    public void sendBootComplete() {
-        Log.i(TAG, "sendBootComplete");
-        doSendState(SET_BOOT_COMPLETE, 0);
+    // For testing purposes only
+    public synchronized void setSignalListener(SignalListener listener) {
+        mSignalListener =  listener;
     }
 
     @Override
-    public void sendSleepEntry() {
+    public void sendWaitForVhal() {
+        Log.i(TAG, "sendBootComplete");
+        doSendState(SET_WAIT_FOR_VHAL, 0);
+    }
+
+    @Override
+    public void sendSleepEntry(int wakeupTimeSec) {
         Log.i(TAG, "sendSleepEntry");
-        doSendState(SET_DEEP_SLEEP_ENTRY, 0);
+        doSendState(SET_DEEP_SLEEP_ENTRY, wakeupTimeSec);
     }
 
     @Override
@@ -76,18 +87,6 @@ public class MockedPowerHalService extends PowerHalService {
         doSendState(SET_SHUTDOWN_START, wakeupTimeSec);
     }
 
-    @Override
-    public void sendDisplayOn() {
-        Log.i(TAG, "sendDisplayOn");
-        doSendState(SET_DISPLAY_ON, 0);
-    }
-
-    @Override
-    public void sendDisplayOff() {
-        Log.i(TAG, "sendDisplayOff");
-        doSendState(SET_DISPLAY_OFF, 0);
-    }
-
     public synchronized int[] waitForSend(long timeoutMs) throws Exception {
         if (mSentStates.size() == 0) {
             wait(timeoutMs);
@@ -96,6 +95,13 @@ public class MockedPowerHalService extends PowerHalService {
     }
 
     private synchronized void doSendState(int state, int param) {
+        SignalListener listener;
+        synchronized (this) {
+            listener = mSignalListener;
+        }
+        if (listener != null) {
+            listener.sendingSignal(state);
+        }
         int[] toSend = new int[] {state, param};
         mSentStates.addLast(toSend);
         notifyAll();

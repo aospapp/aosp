@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.suite.checker;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -27,6 +28,7 @@ import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
 public class SystemServerStatusChecker implements ISystemStatusChecker {
 
     private String mSystemServerPid = null;
+    private Long mModuleStartTime = null;
 
     /** {@inheritDoc} */
     @Override
@@ -39,7 +41,9 @@ public class SystemServerStatusChecker implements ISystemStatusChecker {
             String message = "Failed to get system_server pid.";
             CLog.w(message);
             result.setStatus(CheckStatus.FAILED);
+            result.setBugreportNeeded(true);
             result.setErrorMessage(message);
+            mModuleStartTime = null;
             return result;
         }
         mSystemServerPid = mSystemServerPid.trim();
@@ -49,6 +53,7 @@ public class SystemServerStatusChecker implements ISystemStatusChecker {
                     mSystemServerPid);
             mSystemServerPid = null;
         }
+        mModuleStartTime = getCurrentTime();
         return result;
     }
 
@@ -73,8 +78,25 @@ public class SystemServerStatusChecker implements ISystemStatusChecker {
                         mSystemServerPid, tmpSystemServerPid);
         CLog.w(message);
         StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
+        // TODO: evaluate if we still need to fail the checker if it was a TF reboot
+        long lastExpectedReboot = device.getLastExpectedRebootTimeMillis();
+        if (mModuleStartTime != null && lastExpectedReboot < mModuleStartTime) {
+            // In case no Tradefed reboot was triggered, we capture a bugreport to figure this out.
+            CLog.w(
+                    "System_server pid changed and Tradefed didn't trigger a reboot: "
+                            + "last expected reboot: %s, module start time: %s, "
+                            + "something went wrong.",
+                    lastExpectedReboot, mModuleStartTime);
+            result.setBugreportNeeded(true);
+        }
         result.setErrorMessage(message);
         return result;
+    }
+
+    /** Returns the current time. */
+    @VisibleForTesting
+    protected long getCurrentTime() {
+        return System.currentTimeMillis();
     }
 
     /** Validate that pid is an integer and not empty. */

@@ -115,7 +115,7 @@ static_assert(IExpression::UInt64LiteralTypeGuessing::noSuffixDec9 == ~(-1), "")
 static_assert(IExpression::UInt64LiteralTypeGuessing::noSuffixHex1 == 0x7fffffff, "");
 static_assert(IExpression::UInt64LiteralTypeGuessing::noSuffixHex2 == 0x80000000, "");
 static_assert(IExpression::UInt64LiteralTypeGuessing::noSuffixHex3 == 0xffffffff, "");
-static_assert(IExpression::UInt64LiteralTypeGuessing::longHex1 == 0xffffffffl, "");
+static_assert(IExpression::UInt64LiteralTypeGuessing::longHex1 == 0xffffffffL, "");
 static_assert(IExpression::UInt64LiteralTypeGuessing::longHex2 == 0Xfffffffff, "");
 static_assert(IExpression::UInt64LiteralTypeGuessing::longHex3 == 0x7fffffffffffffff, "");
 static_assert(IExpression::UInt64LiteralTypeGuessing::longHex4 == 0x8000000000000000, "");
@@ -151,7 +151,7 @@ static_assert(IExpression::Precedence::literal == (4), "");
 static_assert(IExpression::Precedence::neg == (-4), "");
 static_assert(IExpression::Precedence::literalL == (-4L), "");
 static_assert(IExpression::Precedence::hex == (0xffffffff), "");
-static_assert(IExpression::Precedence::hexLong == (0xffffffffl), "");
+static_assert(IExpression::Precedence::hexLong == (0xffffffffL), "");
 static_assert(IExpression::Precedence::hexLong2 == (0xfffffffff), "");
 static_assert(IExpression::Precedence::simpleArithmetic == (4 + 1), "");
 static_assert(IExpression::Precedence::simpleArithmetic2 == (2 + 3 - 4), "");

@@ -80,6 +80,6 @@ import java.lang.annotation.Target;
  * @hide
  */
 @Retention(RetentionPolicy.RUNTIME)  // Let the GC or interpreter ask, if they need to.
-                                     // TODO: Reconsider later. b/72332040 .
+                                     // TODO(b/72332040): Reconsider retention later.
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface ReachabilitySensitive {}

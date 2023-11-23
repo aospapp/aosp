@@ -17,7 +17,7 @@
     <option name="config-descriptor:metadata" key="plan" value="vts-misc" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
-        <option name="push-group" value="HalHidlHostTest.push"/>
+        <option name="push-group" value="VtsHalReplayTest.push"/>
         <option name="cleanup" value="true"/>
         <option name="push" value="spec/hardware/interfaces/audio/common/2.0/vts/types.vts->/data/local/tmp/spec/android/hardware/audio/common/2.0/types.vts"/>
         <option name="push" value="DATA/lib/android.hardware.audio.common@2.0-vts.driver.so->/data/local/tmp/32/android.hardware.audio.common@2.0-vts.driver.so"/>

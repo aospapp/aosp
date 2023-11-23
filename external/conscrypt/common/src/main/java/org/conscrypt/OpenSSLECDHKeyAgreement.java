@@ -30,8 +30,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Elliptic Curve Diffie-Hellman key agreement backed by the OpenSSL engine.
- *
- * @hide
  */
 @Internal
 public final class OpenSSLECDHKeyAgreement extends KeyAgreementSpi {
@@ -47,6 +45,8 @@ public final class OpenSSLECDHKeyAgreement extends KeyAgreementSpi {
 
     /** Agreed key. Only available after {@link #engineDoPhase(Key, boolean)} completes. */
     private byte[] mResult;
+
+    public OpenSSLECDHKeyAgreement() {}
 
     @Override
     public Key engineDoPhase(Key key, boolean lastPhase) throws InvalidKeyException {

@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"ক্রমাঙ্কন"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ফরম্যাট বেছে নিন"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"চারিপাশের সাউন্ড"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (ডলবি ডিজিটাল)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (ডলবি ডিজিটাল প্লাস/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"ডলবি ডিজিটাল"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"ডলবি ডিজিটাল প্লাস"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -258,7 +258,7 @@
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"স্থির"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"স্থিতি তথ্য"</string>
-    <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"উন্নত সেটিংগুলি"</string>
+    <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"উন্নত বিকল্প"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"একটি বৈধ IP ঠিকানা লিখুন"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"একটি বৈধ গেটওয়ে ঠিকানা লিখুন"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"একটি বৈধ DNS ঠিকানা লিখুন"</string>
@@ -353,14 +353,13 @@
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"ভুলে যান"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB ড্রাইভ সংযুক্ত হয়েছে"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"ব্রাউজ করুন"</string>
-    <string name="storage_new_action_adopt" msgid="880224317112988974">"ডিভাইস সঞ্চয়স্থান হিসাবে সেট আপ করুন"</string>
-    <string name="storage_new_action_format_public" msgid="5604328981214071670">"অপসারণযোগ্য সঞ্চয়স্থান হিসাবে সেট আপ করুন"</string>
+    <string name="storage_new_action_adopt" msgid="880224317112988974">"ডিভাইস সঞ্চয়স্থান হিসাবে সেট-আপ করুন"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"অপসারণযোগ্য সঞ্চয়স্থান হিসাবে সেট-আপ করুন"</string>
     <string name="storage_new_action_eject" msgid="4069294152676217949">"সরিয়ে দিন"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> সরানো হয়েছে"</string>
     <string name="storage_missing_description" msgid="8400374014342069781">"আপনি ড্রাইভটিতে পুনঃসংযোগ না করা পর্যন্ত কিছু অ্যাপ্লিকেশান উপলব্ধ থাকবে না বা সঠিকভাবে কাজ করবে না৷"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"পর্যাপ্ত সঞ্চয়স্থান নেই।"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"অ্যাপ্লিকেশানটি বিদ্যমান নেই।"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"অ্যাপ্লিকেশানটি প্রতিলিপি-সুরক্ষিত৷"</string>
     <string name="invalid_location" msgid="5269044848535157307">"ইনস্টল করা লোকেশন বৈধ নয়।"</string>
     <string name="system_package" msgid="9200255718634512790">"সিস্টেম আপডেটগুলি বহিরাগত মিডিয়াতে ইনস্টল করা যাবে না।"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"বাহ্যিক মিডিয়াতে ডিভাইস প্রশাসক ইনস্টল করা যাবে না৷"</string>
@@ -498,7 +497,7 @@
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"কঠোর মোড সক্ষম"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"প্রোফাইল GPU রেন্ডারিং"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"ট্রেস সক্ষম করুন"</string>
-    <string name="system_dont_keep_activities" msgid="7906911077198718958">"কার্যকলাপ রাখবেন না"</string>
+    <string name="system_dont_keep_activities" msgid="7906911077198718958">"অ্যাক্টিভিটি রাখবেন না"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"পশ্চাদপট প্রক্রিয়ার সীমা"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"সব ANR দেখান"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"ঘুম অক্ষম করুন"</string>
@@ -512,7 +511,7 @@
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"যখন হার্ডওয়্যার স্তরগুলি আপডেট হয় তখন সেগুলিকে সবুজ রঙে ফ্ল্যাশ করুন"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"শ্রেষ্ঠ থেকে খারাপ: নীল, সবুজ, হালকা লাল, লাল"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"উইন্ডোর সারফেসগুলি আপডেট হওয়ার সময়ে সম্পূর্ণটিকে ফ্ল্যাশ করুন"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"মুখ্য থ্রেডে অ্যাপ্লিকেশানগুলির দীর্ঘ কার্যকলাপের সময় স্ক্রিন ফ্ল্যাশ করুন"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"মুখ্য থ্রেডে অ্যাপ্লিকেশানগুলির দীর্ঘ অ্যাক্টিভিটির সময় স্ক্রিন ফ্ল্যাশ করুন"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"adb shell dumpsys gfxinfo এ রেন্ডারিং সময় পরিমাপ করুন"</string>
     <string name="action_on_title" msgid="6852389884236870765">"চালু করুন"</string>
     <string name="action_off_title" msgid="3157728958166559966">"বন্ধ করুন"</string>
@@ -574,7 +573,7 @@
     <string name="whichApplication" msgid="8382179653567099571">"এটি ব্যবহার করে ক্রিয়াকলাপ সম্পূর্ণ করুন"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"এই ক্রিয়ার জন্য সবসময় এই বিকল্পটি ব্যবহার করবেন?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"সবসময় ব্যবহার করুন"</string>
-    <string name="justOnceOption" msgid="6051458702672920102">"শুধুমাত্র একবার"</string>
+    <string name="justOnceOption" msgid="6051458702672920102">"শুধু একবার"</string>
     <string name="noApplications" msgid="4197983402774959346">"কোনো অ্যাপ্লিকেশানই এই ক্রিয়া সঞ্চালন করতে পারবে না৷"</string>
     <string name="noAppsGoBack" msgid="5663180241276177314">"ফিরুন"</string>
     <string name="inputs_inputs" msgid="4249080110281833521">"ইনপুট"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"বিজ্ঞপ্তি অ্যাক্সেস"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ইনস্টল করা কোনও অ্যাপের অনুরোধ করা বিজ্ঞপ্তি অ্যাক্সেস নেই৷"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"আপনার ব্যক্তিগত তথ্য যেমন পরিচিতির নাম এবং আপনার গ্রহণ করা মেসেজগুলির টেক্সট সহ সমস্ত বিজ্ঞপ্তিগুলি এই অ্যাপগুলি পড়তে সক্ষম হবে। এর মধ্যে থাকা বিজ্ঞপ্তিগুলি খারিজ করতে অথবা অ্যাকশন বোতাম ট্রিগার করতে পারবে।"</string>
+    <string name="directory_access" msgid="7439168599298598101">"ডিরেক্টরি অ্যাক্সেস"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"এই অ্যাপগুলির কিছু নির্দিষ্ট ডিরেক্টরি অ্যাক্সেস করার অনুমতি আছে।"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"অন্য অ্যাপের উপরে দেখুন"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"অন্য অ্যাপের উপরে ডিসপ্লে হওয়ার অনুমতি দিন"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"আপনি অন্য যে সমস্ত অ্যাপ ব্যবহার করছেন, স্ক্রিনে সেগুলিকে ঢেকে দিয়ে নির্দিষ্ট কোনও অ্যাপকে ডিসপ্লে হওয়ার অনুমতি দিন। এর ফলে বাকি অ্যাপগুলি ব্যবহার করার ক্ষেত্রে ব্যাঘাত ঘটতে পারে অথবা স্ক্রিনে সেগুলির উপস্থিতি বা আচরণে পরিবর্তন হতে পারে।"</string>

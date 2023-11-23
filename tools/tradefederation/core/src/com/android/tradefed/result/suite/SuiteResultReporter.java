@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.result.suite;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.invoker.IInvocationContext;
@@ -46,19 +47,26 @@ public class SuiteResultReporter extends CollectingTestListener {
 
     public static final String SUITE_REPORTER_SOURCE = SuiteResultReporter.class.getName();
 
-    private long mStartTime = 0l;
-    private long mElapsedTime = 0l;
+    private long mStartTime = 0L;
+    private long mEndTime = 0L;
 
     private int mTotalModules = 0;
     private int mCompleteModules = 0;
 
-    private long mTotalTests = 0l;
-    private long mPassedTests = 0l;
-    private long mFailedTests = 0l;
-    private long mSkippedTests = 0l;
-    private long mAssumeFailureTests = 0l;
+    private long mTotalTests = 0L;
+    private long mPassedTests = 0L;
+    private long mFailedTests = 0L;
+    private long mSkippedTests = 0L;
+    private long mAssumeFailureTests = 0L;
 
-    private Map<String, Integer> mModuleExpectedTests = new HashMap<>();
+    // Retry information
+    private long mTotalRetrySuccess = 0L;
+    private Map<String, Long> mModuleRetrySuccess = new LinkedHashMap<>();
+    private long mTotalRetryFail = 0L;
+    private Map<String, Long> mModuleRetryFail = new LinkedHashMap<>();
+    private long mTotalRetryTime = 0L;
+    private Map<String, Long> mModuleRetryTime = new LinkedHashMap<>();
+
     private Map<String, String> mFailedModule = new HashMap<>();
     // Map holding the preparation time for each Module.
     private Map<String, ModulePrepTimes> mPreparationMap = new HashMap<>();
@@ -77,7 +85,7 @@ public class SuiteResultReporter extends CollectingTestListener {
     @Override
     public void invocationStarted(IInvocationContext context) {
         super.invocationStarted(context);
-        mStartTime = System.currentTimeMillis();
+        mStartTime = getCurrentTime();
     }
 
     @Override
@@ -89,16 +97,6 @@ public class SuiteResultReporter extends CollectingTestListener {
             IAbi abi = new Abi(abiName.get(0), AbiUtils.getBitness(abiName.get(0)));
             mModuleAbi.put(
                     moduleContext.getAttributes().get(ModuleDefinition.MODULE_ID).get(0), abi);
-        }
-    }
-
-    @Override
-    public void testRunStarted(String name, int numTests) {
-        super.testRunStarted(name, numTests);
-        if (mModuleExpectedTests.get(name) == null) {
-            mModuleExpectedTests.put(name, numTests);
-        } else {
-            mModuleExpectedTests.put(name, mModuleExpectedTests.get(name) + numTests);
         }
     }
 
@@ -117,11 +115,11 @@ public class SuiteResultReporter extends CollectingTestListener {
 
     @Override
     public void invocationEnded(long elapsedTime) {
+        mEndTime = getCurrentTime();
         super.invocationEnded(elapsedTime);
-        mElapsedTime = elapsedTime;
 
         // finalize and print results - general
-        Collection<TestRunResult> results = getRunResults();
+        Collection<TestRunResult> results = getMergedTestRunResults();
         List<TestRunResult> moduleCheckers = extractModuleCheckers(results);
 
         mTotalModules = results.size();
@@ -132,7 +130,7 @@ public class SuiteResultReporter extends CollectingTestListener {
             } else {
                 mFailedModule.put(moduleResult.getName(), moduleResult.getRunFailureMessage());
             }
-            mTotalTests += mModuleExpectedTests.get(moduleResult.getName());
+            mTotalTests += moduleResult.getExpectedTestCount();
             mPassedTests += moduleResult.getNumTestsInState(TestStatus.PASSED);
             mFailedTests += moduleResult.getNumAllFailedTests();
             mSkippedTests += moduleResult.getNumTestsInState(TestStatus.IGNORED);
@@ -146,6 +144,25 @@ public class SuiteResultReporter extends CollectingTestListener {
                         moduleResult.getName(),
                         new ModulePrepTimes(Long.parseLong(prepTime), Long.parseLong(tearTime)));
             }
+
+            // If they exists, get all the retry information
+            String retrySuccess =
+                    moduleResult.getRunMetrics().get(ModuleDefinition.RETRY_SUCCESS_COUNT);
+            if (retrySuccess != null) {
+                mTotalRetrySuccess += Long.parseLong(retrySuccess);
+                mModuleRetrySuccess.put(moduleResult.getName(), Long.parseLong(retrySuccess));
+            }
+            String retryFailure =
+                    moduleResult.getRunMetrics().get(ModuleDefinition.RETRY_FAIL_COUNT);
+            if (retryFailure != null) {
+                mTotalRetryFail += Long.parseLong(retryFailure);
+                mModuleRetryFail.put(moduleResult.getName(), Long.parseLong(retryFailure));
+            }
+            String retryTime = moduleResult.getRunMetrics().get(ModuleDefinition.RETRY_TIME);
+            if (retryTime != null) {
+                mTotalRetryTime += Long.parseLong(retryTime);
+                mModuleRetryTime.put(moduleResult.getName(), Long.parseLong(retryTime));
+            }
         }
         // print a short report summary
         mSummary.append("\n============================================\n");
@@ -154,9 +171,12 @@ public class SuiteResultReporter extends CollectingTestListener {
         printTopSlowModules(results);
         printPreparationMetrics(mPreparationMap);
         printModuleCheckersMetric(moduleCheckers);
+        printModuleRetriesInformation();
         mSummary.append("=============== Summary ===============\n");
+        // Print the time from invocation start to end
         mSummary.append(
-                String.format("Total Run time: %s\n", TimeUtil.formatElapsedTime(mElapsedTime)));
+                String.format(
+                        "Total Run time: %s\n", TimeUtil.formatElapsedTime(mEndTime - mStartTime)));
         mSummary.append(
                 String.format("%s/%s modules completed\n", mCompleteModules, mTotalModules));
         if (!mFailedModule.isEmpty()) {
@@ -305,6 +325,34 @@ public class SuiteResultReporter extends CollectingTestListener {
         mSummary.append("====================================================\n");
     }
 
+    private void printModuleRetriesInformation() {
+        if (mModuleRetrySuccess.isEmpty() || mTotalRetrySuccess == 0L) {
+            return;
+        }
+        mSummary.append("============== Modules Retries Information ==============\n");
+        for (String t : mModuleRetrySuccess.keySet()) {
+            mSummary.append(
+                    String.format(
+                            "    %s: Retry Success (Failed test became Pass) = %s\n"
+                                    + "        Retry Failure (Fail test stayed Fail)   = %s\n"
+                                    + "        Retry Time                              = %s\n",
+                            t,
+                            mModuleRetrySuccess.get(t),
+                            mModuleRetryFail.get(t),
+                            TimeUtil.formatElapsedTime(mModuleRetryTime.get(t))));
+        }
+        mSummary.append("Summary:\n");
+        mSummary.append(
+                String.format(
+                        "Total Retry Success (Failed test became Pass) = %s\n"
+                                + "Total Retry Failure (Fail test stayed Fail)   = %s\n"
+                                + "Total Retry Time                              = %s\n",
+                        mTotalRetrySuccess,
+                        mTotalRetryFail,
+                        TimeUtil.formatElapsedTime(mTotalRetryTime)));
+        mSummary.append("====================================================\n");
+    }
+
     /** Returns a map of modules abi: <module id, abi>. */
     public Map<String, IAbi> getModulesAbi() {
         return mModuleAbi;
@@ -354,13 +402,18 @@ public class SuiteResultReporter extends CollectingTestListener {
         return summary;
     }
 
-    /** Returns the start time of the run. */
+    /** Returns the start time of the invocation. */
     protected long getStartTime() {
         return mStartTime;
     }
 
-    /** Returns the elapsed time of the full run. */
-    protected long getElapsedTime() {
-        return mElapsedTime;
+    /** Returns the end time of the invocation. */
+    protected long getEndTime() {
+        return mEndTime;
+    }
+
+    @VisibleForTesting
+    protected long getCurrentTime() {
+        return System.currentTimeMillis();
     }
 }

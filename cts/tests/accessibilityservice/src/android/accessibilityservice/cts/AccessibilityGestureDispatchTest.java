@@ -16,6 +16,7 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AsyncUtils.await;
 import static android.accessibilityservice.cts.utils.AsyncUtils.awaitCancellation;
+import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
 import static android.accessibilityservice.cts.utils.GestureUtils.add;
 import static android.accessibilityservice.cts.utils.GestureUtils.ceil;
 import static android.accessibilityservice.cts.utils.GestureUtils.click;
@@ -93,6 +94,7 @@ public class AccessibilityGestureDispatchTest extends
     MyTouchListener mMyTouchListener = new MyTouchListener();
     TextView mFullScreenTextView;
     int[] mViewLocation = new int[2];
+    PointF mStartPoint = new PointF();
     boolean mGotUpEvent;
     // Without a touch screen, there's no point in testing this feature
     boolean mHasTouchScreen;
@@ -112,14 +114,19 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
+        getActivity().waitForEnterAnimationComplete();
+
         mHasMultiTouch = pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN_MULTITOUCH)
                 || pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH_MULTITOUCH_DISTINCT);
 
         mFullScreenTextView =
                 (TextView) getActivity().findViewById(R.id.full_screen_text_view);
         getInstrumentation().runOnMainSync(() -> {
+            final int midX = mFullScreenTextView.getWidth() / 2;
+            final int midY = mFullScreenTextView.getHeight() / 2;
             mFullScreenTextView.getLocationOnScreen(mViewLocation);
             mFullScreenTextView.setOnTouchListener(mMyTouchListener);
+            mStartPoint.set(mViewLocation[0] + midX, mViewLocation[1] + midY);
         });
 
         mService = StubGestureAccessibilityService.enableSelf(getInstrumentation());
@@ -134,7 +141,7 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        mService.runOnServiceSync(() -> mService.disableSelf());
+        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelf));
         super.tearDown();
     }
 
@@ -143,7 +150,7 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF clickPoint = new PointF(10, 20);
+        PointF clickPoint = new PointF(mStartPoint.x, mStartPoint.y);
         dispatch(clickWithinView(clickPoint), GESTURE_COMPLETION_TIMEOUT);
         waitForMotionEvents(any(MotionEvent.class), 2);
 
@@ -176,7 +183,7 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF clickPoint = new PointF(10, 20);
+        PointF clickPoint = new PointF(mStartPoint.x, mStartPoint.y);
         dispatch(longClickWithinView(clickPoint),
                 ViewConfiguration.getLongPressTimeout() + GESTURE_COMPLETION_TIMEOUT);
 
@@ -196,8 +203,8 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF startPoint = new PointF(10, 20);
-        PointF endPoint = new PointF(20, 40);
+        PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF endPoint = new PointF(mStartPoint.x + 10, mStartPoint.y + 20);
         int gestureTime = 500;
 
         dispatch(swipeWithinView(startPoint, endPoint, gestureTime),
@@ -234,11 +241,11 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF startPoint = new PointF(10, 20);
-        PointF intermediatePoint1 = new PointF(10, 21);
-        PointF intermediatePoint2 = new PointF(11, 21);
-        PointF intermediatePoint3 = new PointF(11, 22);
-        PointF endPoint = new PointF(11, 22);
+        PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF intermediatePoint1 = new PointF(mStartPoint.x, mStartPoint.y + 1);
+        PointF intermediatePoint2 = new PointF(mStartPoint.x + 1, mStartPoint.y + 1);
+        PointF intermediatePoint3 = new PointF(mStartPoint.x + 1, mStartPoint.y + 2);
+        PointF endPoint = new PointF(mStartPoint.x + 1, mStartPoint.y + 2);
         int gestureTime = 1000;
 
         dispatch(swipeWithinView(startPoint, endPoint, gestureTime),
@@ -258,7 +265,7 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF centerPoint = new PointF(50, 60);
+        PointF centerPoint = new PointF(mStartPoint.x, mStartPoint.y);
         int startSpacing = 100;
         int endSpacing = 50;
         int gestureTime = 500;
@@ -390,10 +397,10 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF start = new PointF(10, 20);
-        PointF mid1 = new PointF(20, 20);
-        PointF mid2 = new PointF(20, 25);
-        PointF end = new PointF(20, 30);
+        PointF start = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF mid1 = new PointF(mStartPoint.x + 10, mStartPoint.y);
+        PointF mid2 = new PointF(mStartPoint.x + 10, mStartPoint.y + 5);
+        PointF end = new PointF(mStartPoint.x + 10, mStartPoint.y + 10);
         int gestureTime = 500;
 
         StrokeDescription s1 = new StrokeDescription(
@@ -424,9 +431,9 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF startPoint = new PointF(10, 20);
-        PointF midPoint = new PointF(20, 20);
-        PointF endPoint = new PointF(20, 30);
+        PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF midPoint = new PointF(mStartPoint.x + 10, mStartPoint.y);
+        PointF endPoint = new PointF(mStartPoint.x + 10, mStartPoint.y + 10);
         int gestureTime = 500;
 
         StrokeDescription stroke1 =
@@ -452,9 +459,9 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF startPoint = new PointF(10, 20);
-        PointF midPoint = new PointF(20, 20);
-        PointF endPoint = new PointF(20, 30);
+        PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF midPoint = new PointF(mStartPoint.x + 10, mStartPoint.y);
+        PointF endPoint = new PointF(mStartPoint.x + 10, mStartPoint.y + 10);
         int gestureTime = 500;
 
         StrokeDescription stroke1 =
@@ -484,9 +491,9 @@ public class AccessibilityGestureDispatchTest extends
             return;
         }
 
-        PointF startPoint = new PointF(10, 20);
-        PointF midPoint = new PointF(20, 20);
-        PointF endPoint = new PointF(20, 30);
+        PointF startPoint = new PointF(mStartPoint.x, mStartPoint.y);
+        PointF midPoint = new PointF(mStartPoint.x + 10, mStartPoint.y);
+        PointF endPoint = new PointF(mStartPoint.x + 10, mStartPoint.y + 10);
         int gestureTime = 500;
 
         StrokeDescription stroke1 =

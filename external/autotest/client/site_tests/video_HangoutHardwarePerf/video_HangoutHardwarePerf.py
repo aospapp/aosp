@@ -11,6 +11,7 @@ from autotest_lib.client.cros import chrome_binary_test
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.audio import cmd_utils
 from autotest_lib.client.cros.power import power_status, power_utils
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 # The download base for test assets.
@@ -42,19 +43,11 @@ WAIT_FOR_IDLE_CPU_TIMEOUT = 60
 # Maximum percent of cpu usage considered as idle.
 CPU_IDLE_USAGE = 0.1
 
-# List of thermal throttling services that should be disabled.
-# - temp_metrics for link.
-# - thermal for daisy, snow, pit etc.
-THERMAL_SERVICES = ['temp_metrics', 'thermal']
-
 # Measurement duration in seconds.
 MEASUREMENT_DURATION = 30
 
 # Time to exclude from calculation after playing a video [seconds].
 STABILIZATION_DURATION = 10
-
-# The number of frames used to warm up the rendering.
-RENDERING_WARM_UP = 15
 
 # A big number, used to keep the [vda|vea]_unittest running during the
 # measurement.
@@ -73,7 +66,7 @@ class CpuUsageMeasurer(object):
 
     def __enter__(self):
         # Stop the thermal service that may change the cpu frequency.
-        self._service_stopper = service_stopper.ServiceStopper(THERMAL_SERVICES)
+        self._service_stopper = service_stopper.get_thermal_service_stopper()
         self._service_stopper.stop_services()
 
         if not utils.wait_for_idle_cpu(
@@ -111,6 +104,19 @@ class PowerMeasurer(object):
         self._service_stopper = None
 
     def __enter__(self):
+        status = power_status.get_status()
+
+        # We expect the DUT is powered by battery now. But this is not always
+        # true due to other bugs. Disable this test temporarily as workaround.
+        # TODO(johnylin): remove this workaround after AC control is stable
+        #                 crbug.com/914211
+        if status.on_ac():
+            logging.warning('Still powered by AC. Skip this test')
+            raise error.TestNAError('Unable to disable AC.')
+        # Verify that we are running on battery and the battery is sufficiently
+        # charged.
+        status.assert_battery_state(BATTERY_INITIAL_CHARGED_MIN)
+
         self._backlight = power_utils.Backlight()
         self._backlight.set_default()
 
@@ -118,11 +124,6 @@ class PowerMeasurer(object):
                 service_stopper.ServiceStopper.POWER_DRAW_SERVICES)
         self._service_stopper.stop_services()
 
-        status = power_status.get_status()
-
-        # Verify that we are running on battery and the battery is sufficiently
-        # charged.
-        status.assert_battery_state(BATTERY_INITIAL_CHARGED_MIN)
         self._system_power = power_status.SystemPower(status.battery_path)
         self._power_logger = power_status.PowerLogger([self._system_power])
         return self
@@ -134,7 +135,7 @@ class PowerMeasurer(object):
         self._power_logger.checkpoint('result')
         keyval = self._power_logger.calc()
         logging.info(keyval)
-        return keyval['result_' + self._system_power.domain + '_pwr']
+        return keyval['result_' + self._system_power.domain + '_pwr_avg']
 
     def __exit__(self, type, value, tb):
         if self._backlight:
@@ -207,7 +208,6 @@ class video_HangoutHardwarePerf(chrome_binary_test.ChromeBinaryTest):
             self.get_chrome_binary_path(VDA_BINARY),
             '--gtest_filter=DecodeVariations/*/0',
             '--test_video_data=%s' % ';'.join(test_video_data),
-            '--rendering_warm_up=%d' % RENDERING_WARM_UP,
             '--rendering_fps=%f' % RENDERING_FPS,
             '--num_play_throughs=%d' % MAX_INT,
             helper_logger.chrome_vmodule_flag(),
@@ -246,10 +246,13 @@ class video_HangoutHardwarePerf(chrome_binary_test.ChromeBinaryTest):
         env['TMPDIR'] = self.tmpdir
         return map(lambda c: cmd_utils.popen(c, env=env), commands)
 
-    def simulate_hangout(self, decode_videos, encode_videos, measurer):
-        popens = self.run_in_parallel(
-            self.get_vda_unittest_cmd_line(decode_videos),
-            self.get_vea_unittest_cmd_line(encode_videos))
+    def simulate_hangout(self, decode_videos, encode_videos, measurer,
+                         decode_threads, encode_threads):
+        decode_cmds = [self.get_vda_unittest_cmd_line(decode_videos)
+                       for i in range(decode_threads)]
+        encode_cmds = [self.get_vea_unittest_cmd_line(encode_videos)
+                       for i in range(encode_threads)]
+        popens = self.run_in_parallel(*(decode_cmds + encode_cmds))
         try:
             time.sleep(STABILIZATION_DURATION)
             measurer.start()
@@ -266,21 +269,28 @@ class video_HangoutHardwarePerf(chrome_binary_test.ChromeBinaryTest):
 
     @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, resources, decode_videos, encode_videos, measurement):
+    def run_once(self, resources, decode_videos, encode_videos, measurement,
+                 capabilities, decode_threads=1, encode_threads=1):
+        dc = device_capability.DeviceCapability()
+        for cap in capabilities:
+            dc.ensure_capability(cap)
+
         self._downloads = DownloadManager(tmpdir = self.tmpdir)
         try:
             self._downloads.download_all(resources)
             if measurement == 'cpu':
                 with CpuUsageMeasurer() as measurer:
                     value = self.simulate_hangout(
-                            decode_videos, encode_videos, measurer)
+                            decode_videos, encode_videos, measurer,
+                            decode_threads, encode_threads)
                     self.output_perf_value(
                             description='cpu_usage', value=value * 100,
                             units=UNIT_PERCENT, higher_is_better=False)
             elif measurement == 'power':
                 with PowerMeasurer() as measurer:
                     value = self.simulate_hangout(
-                            decode_videos, encode_videos, measurer)
+                            decode_videos, encode_videos, measurer,
+                            decode_threads, encode_threads)
                     self.output_perf_value(
                             description='power_usage', value=value,
                             units=UNIT_WATT, higher_is_better=False)

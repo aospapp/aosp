@@ -31,16 +31,17 @@
 #include <regex>
 
 extern "C" __attribute__((weak)) void __sanitizer_cov_dump();
-const char* kGcovPrefixEnvVar = "GCOV_PREFIX";
-const char* kGcovPrefixOverrideEnvVar = "GCOV_PREFIX_OVERRIDE";
-const char* kGcovPrefixPath = "/data/misc/trace/";
-const char* kSysPropHalCoverage = "hal.coverage.enable";
+
+const char kGcovPrefixEnvVar[] = "GCOV_PREFIX";
+const char kGcovPrefixOverrideEnvVar[] = "GCOV_PREFIX_OVERRIDE";
+const char kGcovPrefixPath[] = "/data/misc/trace/";
+const char kSysPropHalCoverage[] = "hal.coverage.enable";
 #if defined(__LP64__)
-const char* kSysPropInstrumentationPath = "hal.instrumentation.lib.path.64";
+const char kSysPropInstrumentationPath[] = "hal.instrumentation.lib.path.64";
 #else
-const char* kSysPropInstrumentationPath = "hal.instrumentation.lib.path.32";
+const char kSysPropInstrumentationPath[] = "hal.instrumentation.lib.path.32";
 #endif
-#endif
+#endif  // LIBHIDL_TARGET_DEBUGGABLE
 
 namespace android {
 namespace hardware {
@@ -145,7 +146,9 @@ void HidlInstrumentor::registerInstrumentationCallbacks(
     } else {
         static std::string halLibPathVndkSp = android::base::StringPrintf(
             HAL_LIBRARY_PATH_VNDK_SP_FOR_VERSION, getVndkVersionStr().c_str());
+#ifndef __ANDROID_VNDK__
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_SYSTEM);
+#endif
         instrumentationLibPaths.push_back(halLibPathVndkSp);
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_VENDOR);
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_ODM);
@@ -153,7 +156,7 @@ void HidlInstrumentor::registerInstrumentationCallbacks(
 
     for (const auto& path : instrumentationLibPaths) {
         DIR *dir = opendir(path.c_str());
-        if (dir == 0) {
+        if (dir == nullptr) {
             LOG(WARNING) << path << " does not exist. ";
             return;
         }

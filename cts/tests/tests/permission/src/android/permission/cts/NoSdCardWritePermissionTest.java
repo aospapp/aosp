@@ -16,24 +16,30 @@
 
 package android.permission.cts;
 
+import static org.junit.Assert.fail;
+
+import android.os.Environment;
+import android.os.storage.StorageManager;
+
+import org.junit.Assume;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import android.os.Environment;
-import android.test.AndroidTestCase;
+import androidx.test.runner.AndroidJUnit4;
 
 /**
  * Test writing to SD card requires permissions
  */
-public class NoSdCardWritePermissionTest extends AndroidTestCase {
-
-    /**
-     * Verify that writing to the external storage device requires {@link
-     * android.permission.WRITE_EXTERNAL_STORAGE}.
-     * @since 4
-     */
+@RunWith(AndroidJUnit4.class)
+public class NoSdCardWritePermissionTest {
+    @Test
     public void testWriteExternalStorage() throws FileNotFoundException, IOException {
+        Assume.assumeFalse(StorageManager.hasIsolatedStorage());
+
         try {
             String fl = Environment.getExternalStorageDirectory().toString() +
                          "/this-should-not-exist.txt";

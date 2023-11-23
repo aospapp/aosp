@@ -129,6 +129,12 @@ class VtsHalHidlTargetTestEnvBase : public ::testing::Environment {
    */
   void addHalServiceInstance(const string& halServiceInstance);
 
+  /*
+   * Helper method to check whether the given halServiceInstance is well
+   * formatted.
+   */
+  bool isValidInstance(const string& halServiceInstance);
+
   // Map of hal instances with their correpoding service names.
   map<string, string> halServiceInstances_;
   // Set of all hal services used in the test.

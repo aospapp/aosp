@@ -44,12 +44,15 @@
 #define SIGN(x)     ((x) >= 0 ? ((x)>0 ? 1: 0) : -1)
 #define ABS(x)      ((((WORD32)(x)) > 0)           ? (x) : -(x))
 
+#define ALIGN1024(x) ((((x) + 1023) >> 10) << 10)
+#define ALIGN256(x) ((((x) + 255) >> 8) << 8)
 #define ALIGN128(x) ((((x) + 127) >> 7) << 7)
 #define ALIGN64(x)  ((((x) + 63) >> 6) << 6)
 #define ALIGN32(x)  ((((x) + 31) >> 5) << 5)
 #define ALIGN16(x)  ((((x) + 15) >> 4) << 4)
 #define ALIGN8(x)   ((((x) + 7) >> 3) << 3)
 #define ALIGN4(x)   ((((x) + 3) >> 2) << 2)
+#define ALIGN2(x)   ((((x) + 1) >> 1) << 1)
 
 #define ALIGN_POW2(ptr,align) ((((WORD32)ptr)+align-1)&(~(align-1)))
 

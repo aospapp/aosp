@@ -61,7 +61,7 @@ TEST(STRING_TEST, strerror) {
 
   // Invalid.
   ASSERT_STREQ("Unknown error -1", strerror(-1));
-  ASSERT_STREQ("Unknown error 1234", strerror(1234));
+  ASSERT_STREQ("Unknown error 134", strerror(EHWPOISON + 1));
 }
 
 #if defined(__BIONIC__)
@@ -78,14 +78,14 @@ TEST(STRING_TEST, strerror_concurrent) {
   ASSERT_STREQ("Unknown error 1001", strerror1001);
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ConcurrentStrErrorFn, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ConcurrentStrErrorFn, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
   ASSERT_TRUE(static_cast<bool>(result));
 
   ASSERT_STREQ("Unknown error 1001", strerror1001);
 #else // __BIONIC__
-  GTEST_LOG_(INFO) << "Skipping test, requires a thread safe strerror.";
+  GTEST_SKIP() << "thread-safe strerror not available";
 #endif // __BIONIC__
 }
 
@@ -144,7 +144,7 @@ TEST(STRING_TEST, strsignal_concurrent) {
   ASSERT_STREQ("Unknown signal 1001", strsignal1001);
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ConcurrentStrSignalFn, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ConcurrentStrSignalFn, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
   ASSERT_TRUE(static_cast<bool>(result));
@@ -451,7 +451,7 @@ TEST(STRING_TEST, strchr) {
         if (seek_char == 0) {
           expected = state.ptr1 + state.len[i] - 1;
         } else {
-          expected = NULL;
+          expected = nullptr;
         }
       } else {
         state.ptr1[pos] = seek_char;
@@ -578,7 +578,7 @@ TEST(STRING_TEST, strlcat) {
     }
   }
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcat not supported on this platform.";
+  GTEST_SKIP() << "strlcat not available";
 #endif
 }
 
@@ -610,7 +610,7 @@ TEST(STRING_TEST, strlcpy) {
                  (memcmp(state.ptr2, state.ptr + state.MAX_LEN, state.MAX_LEN) != 0));
   }
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcpy not supported on this platform.";
+  GTEST_SKIP() << "strlcpy not available";
 #endif
 }
 
@@ -763,7 +763,7 @@ TEST(STRING_TEST, strrchr) {
         if (seek_char == 0) {
           expected = state.ptr1 + state.len[i] - 1;
         } else {
-          expected = NULL;
+          expected = nullptr;
         }
       } else {
         state.ptr1[pos] = seek_char;
@@ -785,7 +785,7 @@ TEST(STRING_TEST, memchr) {
       size_t pos = random() % state.MAX_LEN;
       char* expected;
       if (pos >= state.len[i]) {
-        expected = NULL;
+        expected = nullptr;
       } else {
         state.ptr1[pos] = seek_char;
         expected = state.ptr1 + pos;
@@ -800,8 +800,8 @@ TEST(STRING_TEST, memchr_zero) {
   uint8_t* buffer;
   ASSERT_EQ(0, posix_memalign(reinterpret_cast<void**>(&buffer), 64, 64));
   memset(buffer, 10, 64);
-  ASSERT_TRUE(NULL == memchr(buffer, 5, 0));
-  ASSERT_TRUE(NULL == memchr(buffer, 10, 0));
+  ASSERT_TRUE(nullptr == memchr(buffer, 5, 0));
+  ASSERT_TRUE(nullptr == memchr(buffer, 10, 0));
 }
 
 TEST(STRING_TEST, memrchr) {
@@ -814,7 +814,7 @@ TEST(STRING_TEST, memrchr) {
       size_t pos = random() % state.MAX_LEN;
       char* expected;
       if (pos >= state.len[i]) {
-        expected = NULL;
+        expected = nullptr;
       } else {
         state.ptr1[pos] = seek_char;
         expected = state.ptr1 + pos;
@@ -935,9 +935,9 @@ TEST(STRING_TEST, memmove_cache_size) {
   char* glob_ptr2 = reinterpret_cast<char*>(malloc(2 * sizeof(char) * len + max_alignment));
   size_t pos = 64;
 
-  ASSERT_TRUE(ptr != NULL);
-  ASSERT_TRUE(ptr1 != NULL);
-  ASSERT_TRUE(glob_ptr2 != NULL);
+  ASSERT_TRUE(ptr != nullptr);
+  ASSERT_TRUE(ptr1 != nullptr);
+  ASSERT_TRUE(glob_ptr2 != nullptr);
 
   for (int i = 0; i < 5; i++) {
     char* ptr2 = glob_ptr2 + alignments[i];
@@ -966,10 +966,10 @@ static void verify_memmove(char* src_copy, char* dst, char* src, size_t size) {
 
 TEST(STRING_TEST, memmove_check) {
   char* buffer = reinterpret_cast<char*>(malloc(MEMMOVE_DATA_SIZE));
-  ASSERT_TRUE(buffer != NULL);
+  ASSERT_TRUE(buffer != nullptr);
 
   char* src_data = reinterpret_cast<char*>(malloc(MEMMOVE_DATA_SIZE));
-  ASSERT_TRUE(src_data != NULL);
+  ASSERT_TRUE(src_data != nullptr);
   // Initialize to a known pattern to copy into src for each test and
   // to compare dst against.
   for (size_t i = 0; i < MEMMOVE_DATA_SIZE; i++) {
@@ -1139,7 +1139,7 @@ TEST(STRING_TEST, strlcpy_align) {
 #if defined(STRLCPY_SUPPORTED)
   RunSrcDstBufferAlignTest(LARGE, DoStrlcpyTest);
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcpy not supported on this platform.";
+  GTEST_SKIP() << "strlcpy not available";
 #endif
 }
 
@@ -1147,7 +1147,7 @@ TEST(STRING_TEST, strlcpy_overread) {
 #if defined(STRLCPY_SUPPORTED)
   RunSrcDstBufferOverreadTest(DoStrlcpyTest);
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcpy not supported on this platform.";
+  GTEST_SKIP() << "strlcpy not available";
 #endif
 }
 
@@ -1275,7 +1275,7 @@ TEST(STRING_TEST, strlcat_align) {
 #if defined(STRLCAT_SUPPORTED)
   RunSrcDstBufferAlignTest(MEDIUM, DoStrlcatTest, LargeSetIncrement);
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcat not supported on this platform.";
+  GTEST_SKIP() << "strlcat not available";
 #endif
 }
 
@@ -1283,7 +1283,7 @@ TEST(STRING_TEST, strlcat_overread) {
 #if defined(STRLCAT_SUPPORTED)
   RunSrcDstBufferOverreadTest(DoStrlcatTest);
 #else
-  GTEST_LOG_(INFO) << "Skipping test, strlcat not supported on this platform.";
+  GTEST_SKIP() << "strlcat not available";
 #endif
 }
 
@@ -1553,4 +1553,41 @@ TEST(STRING_TEST, strstr_smoke) {
   ASSERT_EQ(haystack + 0, strstr(haystack, "b"));
   ASSERT_EQ(haystack + 1, strstr(haystack, "i"));
   ASSERT_EQ(haystack + 4, strstr(haystack, "da"));
+}
+
+TEST(STRING_TEST, strcasestr_smoke) {
+  const char* haystack = "bIg dAdDy/gIaNt hAyStAcKs";
+  ASSERT_EQ(haystack, strcasestr(haystack, ""));
+  ASSERT_EQ(haystack + 0, strcasestr(haystack, "B"));
+  ASSERT_EQ(haystack + 1, strcasestr(haystack, "i"));
+  ASSERT_EQ(haystack + 4, strcasestr(haystack, "Da"));
+}
+
+TEST(STRING_TEST, strcoll_smoke) {
+  ASSERT_TRUE(strcoll("aab", "aac") < 0);
+  ASSERT_TRUE(strcoll("aab", "aab") == 0);
+  ASSERT_TRUE(strcoll("aac", "aab") > 0);
+}
+
+TEST(STRING_TEST, strxfrm_smoke) {
+  const char* src1 = "aab";
+  char dst1[16] = {};
+  ASSERT_GT(strxfrm(dst1, src1, sizeof(dst1)), 0U);
+  const char* src2 = "aac";
+  char dst2[16] = {};
+  ASSERT_GT(strxfrm(dst2, src2, sizeof(dst2)), 0U);
+  ASSERT_TRUE(strcmp(dst1, dst2) < 0);
+}
+
+TEST(STRING_TEST, memccpy_smoke) {
+  char dst[32];
+
+  memset(dst, 0, sizeof(dst));
+  char* p = static_cast<char*>(memccpy(dst, "hello world", ' ', 32));
+  ASSERT_STREQ("hello ", dst);
+  ASSERT_EQ(ptrdiff_t(6), p - dst);
+
+  memset(dst, 0, sizeof(dst));
+  ASSERT_EQ(nullptr, memccpy(dst, "hello world", ' ', 4));
+  ASSERT_STREQ("hell", dst);
 }

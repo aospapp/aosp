@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BASE_MACROS_H
-#define ANDROID_BASE_MACROS_H
+#pragma once
 
 #include <stddef.h>  // for size_t
 #include <unistd.h>  // for TEMP_FAILURE_RETRY
+
+#include <utility>
 
 // bionic and glibc both have TEMP_FAILURE_RETRY, but eg Mac OS' libc doesn't.
 #ifndef TEMP_FAILURE_RETRY
@@ -74,45 +75,7 @@ char(&ArraySizeHelper(T(&array)[N]))[N];  // NOLINT(readability/casting)
 
 #define arraysize(array) (sizeof(ArraySizeHelper(array)))
 
-// ARRAYSIZE_UNSAFE performs essentially the same calculation as arraysize,
-// but can be used on anonymous types or types defined inside
-// functions.  It's less safe than arraysize as it accepts some
-// (although not all) pointers.  Therefore, you should use arraysize
-// whenever possible.
-//
-// The expression ARRAYSIZE_UNSAFE(a) is a compile-time constant of type
-// size_t.
-//
-// ARRAYSIZE_UNSAFE catches a few type errors.  If you see a compiler error
-//
-//   "warning: division by zero in ..."
-//
-// when using ARRAYSIZE_UNSAFE, you are (wrongfully) giving it a pointer.
-// You should only use ARRAYSIZE_UNSAFE on statically allocated arrays.
-//
-// The following comments are on the implementation details, and can
-// be ignored by the users.
-//
-// ARRAYSIZE_UNSAFE(arr) works by inspecting sizeof(arr) (the # of bytes in
-// the array) and sizeof(*(arr)) (the # of bytes in one array
-// element).  If the former is divisible by the latter, perhaps arr is
-// indeed an array, in which case the division result is the # of
-// elements in the array.  Otherwise, arr cannot possibly be an array,
-// and we generate a compiler error to prevent the code from
-// compiling.
-//
-// Since the size of bool is implementation-defined, we need to cast
-// !(sizeof(a) & sizeof(*(a))) to size_t in order to ensure the final
-// result has type size_t.
-//
-// This macro is not perfect as it wrongfully accepts certain
-// pointers, namely where the pointer size is divisible by the pointee
-// size.  Since all our code has to go through a 32-bit compiler,
-// where a pointer is 4 bytes, this means all pointers to a type whose
-// size is 3 or greater than 4 will be (righteously) rejected.
-#define ARRAYSIZE_UNSAFE(a)     \
-  ((sizeof(a) / sizeof(*(a))) / \
-    static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
+#define SIZEOF_MEMBER(t, f) sizeof(std::declval<t>().f)
 
 // Changing this definition will cause you a lot of pain.  A majority of
 // vendor code defines LIKELY and UNLIKELY this way, and includes
@@ -150,33 +113,25 @@ void UNUSED(const T&...) {
 //    case 42:
 //      ...
 //
-//  As shown in the example above, the FALLTHROUGH_INTENDED macro should be
-//  followed by a semicolon. It is designed to mimic control-flow statements
-//  like 'break;', so it can be placed in most places where 'break;' can, but
-//  only if there are no statements on the execution path between it and the
-//  next switch label.
+// As shown in the example above, the FALLTHROUGH_INTENDED macro should be
+// followed by a semicolon. It is designed to mimic control-flow statements
+// like 'break;', so it can be placed in most places where 'break;' can, but
+// only if there are no statements on the execution path between it and the
+// next switch label.
 //
-//  When compiled with clang, the FALLTHROUGH_INTENDED macro is expanded to
-//  [[clang::fallthrough]] attribute, which is analysed when performing switch
-//  labels fall-through diagnostic ('-Wimplicit-fallthrough'). See clang
-//  documentation on language extensions for details:
-//  http://clang.llvm.org/docs/LanguageExtensions.html#clang__fallthrough
+// When compiled with clang, the FALLTHROUGH_INTENDED macro is expanded to
+// [[clang::fallthrough]] attribute, which is analysed when performing switch
+// labels fall-through diagnostic ('-Wimplicit-fallthrough'). See clang
+// documentation on language extensions for details:
+// http://clang.llvm.org/docs/LanguageExtensions.html#clang__fallthrough
 //
-//  When used with unsupported compilers, the FALLTHROUGH_INTENDED macro has no
-//  effect on diagnostics.
+// When used with unsupported compilers, the FALLTHROUGH_INTENDED macro has no
+// effect on diagnostics.
 //
-//  In either case this macro has no effect on runtime behavior and performance
-//  of code.
-#if defined(__clang__) && defined(__has_warning)
-#if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
-#define FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
-#endif
-#endif
-
+// In either case this macro has no effect on runtime behavior and performance
+// of code.
 #ifndef FALLTHROUGH_INTENDED
-#define FALLTHROUGH_INTENDED \
-  do {                       \
-  } while (0)
+#define FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
 #endif
 
 // Current ABI string
@@ -193,5 +148,3 @@ void UNUSED(const T&...) {
 #elif defined(__mips__) && defined(__LP64__)
 #define ABI_STRING "mips64"
 #endif
-
-#endif  // ANDROID_BASE_MACROS_H

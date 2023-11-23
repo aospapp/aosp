@@ -20,7 +20,7 @@
     <string name="copy_email" msgid="7869435992461603532">"ইমেইল ঠিকনা প্ৰতিলিপি কৰক"</string>
     <string name="copy_number" msgid="530057841276106843">"ফ\'ন নম্বৰ প্ৰতিলিপি কৰক"</string>
     <string name="action_label" msgid="1318401633653605424">"উভতি যাওক"</string>
-    <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"সম্পৰ্কসূচীৰ পৰামৰ্শবোৰ খোলা হ\'ল"</string>
+    <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"সম্পৰ্কসূচীৰ পৰামৰ্শবোৰ খোলা হ’ল"</string>
     <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"কোনো পৰামর্শ নাই"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"<xliff:g id="CONTACT">%s</xliff:g>ক প্ৰাপকসকলৰপৰা আঁতৰাওক"</string>
     <string name="chips_action_copy" msgid="1929144660075507103">"প্ৰতিলিপি কৰক"</string>

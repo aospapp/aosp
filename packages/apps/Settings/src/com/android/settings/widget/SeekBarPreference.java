@@ -20,8 +20,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.content.res.TypedArrayUtils;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
@@ -30,7 +28,9 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
-import com.android.settings.widget.DefaultIndicatorSeekBar;
+import androidx.core.content.res.TypedArrayUtils;
+import androidx.preference.PreferenceViewHolder;
+
 import com.android.settingslib.RestrictedPreference;
 
 /**
@@ -69,6 +69,13 @@ public class SeekBarPreference extends RestrictedPreference
                 com.android.internal.R.layout.preference_widget_seekbar);
         a.recycle();
 
+        a = context.obtainStyledAttributes(
+                attrs, com.android.internal.R.styleable.Preference, defStyleAttr, defStyleRes);
+        final boolean isSelectable = a.getBoolean(
+                com.android.settings.R.styleable.Preference_android_selectable, false);
+        setSelectable(isSelectable);
+        a.recycle();
+
         setLayoutResource(layoutResId);
     }
 
@@ -78,7 +85,7 @@ public class SeekBarPreference extends RestrictedPreference
 
     public SeekBarPreference(Context context, AttributeSet attrs) {
         this(context, attrs, TypedArrayUtils.getAttr(context,
-                        android.support.v7.preference.R.attr.seekBarPreferenceStyle,
+                        androidx.preference.R.attr.seekBarPreferenceStyle,
                         com.android.internal.R.attr.seekBarPreferenceStyle));
     }
 
@@ -89,6 +96,15 @@ public class SeekBarPreference extends RestrictedPreference
     public void setShouldBlink(boolean shouldBlink) {
         mShouldBlink = shouldBlink;
         notifyChanged();
+    }
+
+    @Override
+    public boolean isSelectable() {
+        if(isDisabledByAdmin()) {
+            return true;
+        } else {
+            return super.isSelectable();
+        }
     }
 
     @Override

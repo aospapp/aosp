@@ -202,6 +202,8 @@ int main(int argc, char **argv)
     double      opt_double      = 3053.0f;
     SubMessage  opt_submsg      = {"3056", 3056};
     
+    SubMessage  oneof_msg1      = {"4059", 4059};
+
     /* Bind callbacks for required fields */
     AllTypes alltypes = {{{0}}};
     
@@ -261,6 +263,9 @@ int main(int argc, char **argv)
     
     alltypes.req_emptymsg.funcs.encode = &write_emptymsg;
     
+    alltypes.req_fbytes.funcs.encode = &write_string;
+    alltypes.req_fbytes.arg = "1019";
+    
     /* Bind callbacks for repeated fields */
     alltypes.rep_int32.funcs.encode = &write_repeated_varint;
     alltypes.rep_int32.arg = (void*)-2001;
@@ -314,6 +319,9 @@ int main(int argc, char **argv)
     alltypes.rep_enum.arg = (void*)MyEnum_Truth;
     
     alltypes.rep_emptymsg.funcs.encode = &write_repeated_emptymsg;
+    
+    alltypes.rep_fbytes.funcs.encode = &write_repeated_string;
+    alltypes.rep_fbytes.arg = "2019";
     
     alltypes.req_limits.funcs.encode = &write_limits;
     
@@ -372,6 +380,12 @@ int main(int argc, char **argv)
         alltypes.opt_enum.arg = (void*)MyEnum_Truth;
         
         alltypes.opt_emptymsg.funcs.encode = &write_emptymsg;
+
+        alltypes.opt_fbytes.funcs.encode = &write_string;
+        alltypes.opt_fbytes.arg = "3059";
+
+        alltypes.oneof_msg1.funcs.encode = &write_submsg;
+        alltypes.oneof_msg1.arg = &oneof_msg1;
     }
     
     alltypes.end.funcs.encode = &write_varint;

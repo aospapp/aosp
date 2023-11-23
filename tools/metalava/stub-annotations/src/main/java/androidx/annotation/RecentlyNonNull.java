@@ -26,5 +26,5 @@ import java.lang.annotation.Target;
 
 /** Stub only annotation. Do not use directly. */
 @Retention(CLASS)
-@Target({METHOD, PARAMETER, FIELD, TYPE_USE})
+@Target({METHOD, PARAMETER, FIELD})
 public @interface RecentlyNonNull {}

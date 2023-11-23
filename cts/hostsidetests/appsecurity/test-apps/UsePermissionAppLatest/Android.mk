@@ -20,18 +20,21 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
-    ctstestrunner \
+    androidx.test.rules \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator
 
 LOCAL_SRC_FILES := $(call all-java-files-under, ../UsePermissionApp26/src)  \
+    $(call all-java-files-under, ../UsePermissionApp29/src)  \
     ../UsePermissionApp23/src/com/android/cts/usepermission/BasePermissionActivity.java \
     ../UsePermissionApp23/src/com/android/cts/usepermission/BasePermissionsTest.java
 LOCAL_RESOURCE_DIR := cts/hostsidetests/appsecurity/test-apps/UsePermissionApp23/res
-LOCAL_SDK_VERSION := test_current
 
 LOCAL_PACKAGE_NAME := CtsUsePermissionAppLatest
+
+# For ACCESS_BACKGROUND_LOCATION
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

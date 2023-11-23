@@ -4,8 +4,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import datetime
 import unittest
 
+import mock
 import mox
 
 import common
@@ -118,6 +120,43 @@ class TestMergeBugTemplate(mox.MoxTestBase):
                          'owner should be removed from the merged template.')
         self.assertFalse('cc' in merged_bug_template,
                          'cc should be removed from the merged template.')
+
+
+class NewDatetime(datetime.datetime):
+    """Fake datetime.datetime class.
+
+    datetime.datetime cannot be patched directly since it's a built-in
+    type that is immutable. NewDatetime is created here for patching
+    datetime.datetime.now.
+    """
+    @classmethod
+    def utcnow(cls):
+        """Fake datetime.datetime.utcnow()."""
+        pass
+
+
+class TestLinks(unittest.TestCase):
+    """Test links of test can be properly generated."""
+
+    def setUp(self):
+        old_datetime = datetime.datetime
+        datetime.datetime = NewDatetime
+        mock_now = mock.patch('datetime.datetime.utcnow')
+        self._mock_now = mock_now.start()
+        self.addCleanup(mock_now.stop)
+        self.addCleanup(setattr, datetime, 'datetime', old_datetime)
+
+
+    def test_generate_test_history_link(self):
+        """Test a link of test history can be generated."""
+        self._mock_now.return_value = datetime.datetime(2018, 3, 29)
+        link = reporting_utils.link_test_history('jetstream_PrioritizedDevice')
+        expected_link = ('https://stainless.corp.google.com/search?'
+                         'test=^jetstream\_PrioritizedDevice$&'
+                         'first_date=2018-03-01&'
+                         'last_date=2018-03-29&'
+                         'row=model&col=build&view=matrix')
+        self.assertEqual(link, expected_link)
 
 
 if __name__ == '__main__':

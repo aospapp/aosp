@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"क्यालिब्रेसन"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ढाँचाहरू चयन गर्नुहोस्"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"सराउन्ड साउन्ड"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -115,7 +115,7 @@
     <string name="accessory_unpairing" msgid="7568241162181184667">"उपकरण पेयर विच्छेद गर्दै..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"जोडिएको"</string>
     <string name="accessory_change_name" msgid="8958916008739792785">"नाम परिवर्तन गर्नुहोस्"</string>
-    <string name="accessory_change_name_title" msgid="4630819456923061184">"यस सहायक उपकरणको कुनै नयाँ नाम प्रविष्ट गर्नुहोस्"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"यस सहायक उपकरणको कुनै नयाँ नाम प्रविष्टि गर्नुहोस्"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"चीजहरूको लागि खोजी कार्य गर्दै..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"तपाईँको ब्लुटुथ उपकरण जोडी गर्नु अघि, तिनीहरूलाई पेयरीङ मोडमा बनाउन निश्चित गर्नुहोस्"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"उपकरण फेला परेको थिएन र स्वचालित रूपमा <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकेन्डमा पेयर हुने छ"</string>
@@ -123,7 +123,7 @@
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"ब्लुटुथ जोडा बाँध्ने अनुरोध"</string>
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"यससँग जोडी गर्न: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;,यसले देखाइरहेको पास की निश्चित गर्नुहोस्: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"प्रेषक; <xliff:g id="DEVICE_NAME">%1$s</xliff:g> यो उपकरणसँग पेयर गर्नुहुन्छ?"</string>
-    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> सँग पेयर गर्न <xliff:g id="PASSKEY">%2$s</xliff:g> मा टाइप गर्नुहोस्;, त्यसपछि फर्कनुहोस् वा प्रविष्ट गर्नुहोस् थिच्नुहोस्"</string>
+    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> सँग पेयर गर्न <xliff:g id="PASSKEY">%2$s</xliff:g> मा टाइप गर्नुहोस्;, त्यसपछि फर्कनुहोस् वा प्रविष्टि गर्नुहोस् थिच्नुहोस्"</string>
     <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> सँग पेयर गर्न उपकरणको आवश्यक PIN टाइप गर्नुहोस्:"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&amp;gtसँग पेयर गर्न;, &lt;br&gt;उपकरणको आवश्यक पासवर्ड कुञ्जी टाईप गर्नुहोस्:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"सामान्यत ०००० वा १२३४"</string>
@@ -203,7 +203,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"म्याक ठेगाना"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"सिङ्केत क्षमता"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"IP ठेगाना"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Wi-Fi नेटवर्कको नाम प्रविष्ट गर्नुहोस्"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Wi-Fi नेटवर्कको नाम प्रविष्टि गर्नुहोस्"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"इन्टरनेट जडान"</string>
     <string name="connected" msgid="7563100162902079938">"जोडिएको"</string>
     <string name="not_connected" msgid="6858480380326923017">"जडित छैन"</string>
@@ -263,24 +263,24 @@
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"मान्य गेटवे ठेगाना प्रविष्टि गर्नुहोस्।"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"मान्य DNS ठेगाना प्रविष्टि गर्नुहोस्।"</string>
     <string name="wifi_ip_settings_invalid_network_prefix_length" msgid="6209978918929182270">"० र ३२ बीचको नेटवर्क प्रिफिक्स लम्बाइ प्रविष्टि गर्नुहोस्।"</string>
-    <string name="wifi_ip_address_description" msgid="6548838784556001283">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
-    <string name="wifi_dns1_description" msgid="2463500547232077393">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
-    <string name="wifi_dns2_description" msgid="8005473174044015359">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
-    <string name="wifi_gateway_description" msgid="4773751224452216231">"एउटा मान्य IP ठेगाना प्रविष्ट गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
-    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"नेटवर्क प्रिफिक्सको मान्य लम्बाइ प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">24</xliff:g>"</string>
+    <string name="wifi_ip_address_description" msgid="6548838784556001283">"एउटा मान्य IP ठेगाना प्रविष्टि गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.128</xliff:g>"</string>
+    <string name="wifi_dns1_description" msgid="2463500547232077393">"एउटा मान्य IP ठेगाना प्रविष्टि गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.8.8</xliff:g>"</string>
+    <string name="wifi_dns2_description" msgid="8005473174044015359">"एउटा मान्य IP ठेगाना प्रविष्टि गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8.8.4.4</xliff:g>"</string>
+    <string name="wifi_gateway_description" msgid="4773751224452216231">"एउटा मान्य IP ठेगाना प्रविष्टि गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">192.168.1.1</xliff:g>"</string>
+    <string name="wifi_network_prefix_length_description" msgid="4849589333293194414">"नेटवर्क प्रिफिक्सको मान्य लम्बाइ प्रविष्टि गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">24</xliff:g>"</string>
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"होस्टनाम मान्य छैन"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"यो बहिष्करण सूची मान्य छैन। बहिष्कृत डोमेनको अल्पविराम-अलग सूची प्रविष्टि गर्नुहोस्।"</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"पोर्ट फिल्ड खाली हुन सक्दैन"</string>
     <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"यदि होस्ट फिल्ड खाली छ भने पोर्ट फिल्ड छोड्नुहोस्"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"पोर्ट मान्य छैन"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP प्रोक्सी ब्राउजरद्वारा प्रयोग गरिएको छ तर अन्य अनुप्रयोगहरूद्वारा प्रयोग हुन सक्दैन"</string>
-    <string name="proxy_port_description" msgid="6791098212244367568">"एउटा मान्य पोर्ट प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8080</xliff:g>"</string>
+    <string name="proxy_port_description" msgid="6791098212244367568">"एउटा मान्य पोर्ट प्रविष्टि गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"समावेश नगरिएका डोमेनहरूको अल्पविरामले छुट्ट्याइएको सूची टाइप गर्नुहोस् वा खाली छोड्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
-    <string name="proxy_hostname_description" msgid="5824391500254472447">"एउटा मान्य होस्टनाम प्रविष्ट गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="proxy_hostname_description" msgid="5824391500254472447">"एउटा मान्य होस्टनाम प्रविष्टि गर्नुहोस्।\nउदाहरण: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
     <string name="title_wifi_eap_method" msgid="3723583936041145157">"<xliff:g id="SSID">%1$s</xliff:g> को EAP विधि छनौट गर्नुहोस्"</string>
     <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"<xliff:g id="SSID">%1$s</xliff:g> को चरण २ को प्रमाणीकरण छनौट गर्नुहोस्"</string>
-    <string name="title_wifi_identity" msgid="6154397685951091638">"<xliff:g id="SSID">%1$s</xliff:g> को पहिचान प्रविष्ट गर्नुहोस्"</string>
-    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"<xliff:g id="SSID">%1$s</xliff:g> को अज्ञात पहिचान प्रविष्ट गर्नुहोस्"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"<xliff:g id="SSID">%1$s</xliff:g> को पहिचान प्रविष्टि गर्नुहोस्"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"<xliff:g id="SSID">%1$s</xliff:g> को अज्ञात पहिचान प्रविष्टि गर्नुहोस्"</string>
     <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"तपाईं <xliff:g id="SSID">%1$s</xliff:g> मा जडान हुनुहुन्छ"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"नेटवर्क जडान भयो"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"नेटवर्क जडान भएको छैन"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"ड्राइभ पुनः जडान नभएसम्म केही अनुप्रयोगहरू अनुपलब्ध हुने वा सही ढङ्गले काम नगर्न सक्छन्।"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"पर्याप्त भण्डारण ठाउँ छैन।"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"अनुप्रयोग अवस्थित छैन"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"अनुप्रयोग प्रतिलिपि-सुरक्षित छ।"</string>
     <string name="invalid_location" msgid="5269044848535157307">"स्थापना स्थान मान्य छैन।"</string>
     <string name="system_package" msgid="9200255718634512790">"प्रणाली अद्यावधिकहरू बाह्य मिडियामा स्थापित गर्न सकिँदैन।"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"बाह्य मिडियामा यन्त्र प्रशासकलाई स्थापना गर्न सकिँदैन"</string>
@@ -399,11 +398,11 @@
     <string name="google_location_services_title" msgid="3382840371861269146">"Google स्थान सेवाहरू"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"तेस्रो पक्ष स्थान सेवाहरू"</string>
     <string name="location_reporting" msgid="3054236612250063073">"स्थान रिपोर्ट गर्दै"</string>
-    <string name="location_history" msgid="2946680949724247804">"स्थान इतिहास"</string>
+    <string name="location_history" msgid="2946680949724247804">"स्थानसम्बन्धी इतिहास"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google ले उत्पादनहरूमा यो सुविधा प्रयोग गर्दछ जस्तै Google Now र Google Maps । स्थान रिपोर्टिङ खोल्दै यो सुविधा स्टोर प्रयोग गर्ने तपाईंको  Google  खाता सन्दर्भमा आफ्नो उपकरणको सबै भन्दा भर्खरैको स्थान डेटाको प्रयोग गर्ने कुनै पनि Google उत्पादनले दिन्छ।"</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"स्थान इतिहास यो खाताको लागि बन्द हुँदा Google ले तपाईंको अनुप्रयोगहरूद्वारा प्रयोगको लागि तपाईंको उपकरणको स्थान डेटा भण्डारण गर्न सक्छ। \n\n उदाहरणका लागि, Google Maps ले तपाईंलाई निर्देशन दिन सक्छ, र Google Now ले तपाईंलाई कम्युट ट्राफिकको बारेमा सूचित गर्न सक्छ। \n\n तपाईं कुनै पनि समयमा स्थान इतिहास बन्द गर्न सक्नुहुन्छ, तर यसले कार्य गर्दछ त्यसैले यसलाई मेट्नु हुँदैन।आफ्नो स्थान इतिहास हेर्न र  व्यवस्थित गर्न, maps.google.com/locationhistory को भ्रमण गर्नुहोस्।"</string>
-    <string name="delete_location_history_title" msgid="5804802702252280549">"स्थान इतिहास मेटाउनुहोस्"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"यसले यो Google खाताको लागि स्टोर भएको सबै स्थान इतिहास यो उपकरणबाट मेटाउने छ। तपाईं यो मेटाउने प्रकृया पूर्ववत गर्न सक्नुहुन्न। Google Now सहित केही अनुप्रयोगहरूले, कार्य गर्न बन्द गर्ने छ।"</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"स्थानसम्बन्धी इतिहास यो खाताको लागि बन्द हुँदा Google ले तपाईंको अनुप्रयोगहरूद्वारा प्रयोगको लागि तपाईंको उपकरणको स्थान डेटा भण्डारण गर्न सक्छ। \n\n उदाहरणका लागि, Google Maps ले तपाईंलाई निर्देशन दिन सक्छ, र Google Now ले तपाईंलाई कम्युट ट्राफिकको बारेमा सूचित गर्न सक्छ। \n\n तपाईं कुनै पनि समयमा स्थानसम्बन्धी इतिहास बन्द गर्न सक्नुहुन्छ, तर यसले कार्य गर्दछ त्यसैले यसलाई मेट्नु हुँदैन।आफ्नो स्थानसम्बन्धी इतिहास हेर्न र  व्यवस्थित गर्न, maps.google.com/locationhistory को भ्रमण गर्नुहोस्।"</string>
+    <string name="delete_location_history_title" msgid="5804802702252280549">"स्थानसम्बन्धी इतिहास मेटाउनुहोस्"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"यसले यो Google खाताको लागि स्टोर भएको सबै स्थानसम्बन्धी इतिहास यो उपकरणबाट मेटाउने छ। तपाईं यो मेटाउने प्रकृया पूर्ववत गर्न सक्नुहुन्न। Google Now सहित केही अनुप्रयोगहरूले, कार्य गर्न बन्द गर्ने छ।"</string>
     <string name="system_services" msgid="7230571820151215779">"सेवाहरू"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिङहरू"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च कन्ट्रास्ट पाठ"</string>
@@ -586,7 +585,7 @@
     <string name="inputs_game" msgid="1114086481110094757">"खेल कन्सोल"</string>
     <string name="inputs_aux" msgid="5704676433978730340">"Aux"</string>
     <string name="inputs_custom_name" msgid="5584925321693432362">"अनुकूल नाम"</string>
-    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"<xliff:g id="INPUT">%1$s</xliff:g> इनपुटका लागि नाम प्रविष्ट गर्नुहोस् ।"</string>
+    <string name="inputs_custom_name_description_fmt" msgid="7123031859468901866">"<xliff:g id="INPUT">%1$s</xliff:g> इनपुटका लागि नाम प्रविष्टि गर्नुहोस् ।"</string>
     <string name="inputs_hide" msgid="1575971556150395486">"लुकेको"</string>
     <string name="inputs_show" msgid="5069718540369447778">"यो इनपुट देखाउनुहोस्"</string>
     <string name="input_header_names" msgid="6958427658951236078">"नाम"</string>
@@ -615,7 +614,7 @@
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"यो अनुप्रयोगले तपाईंको खाताहरू पहुँच गर्न सक्दैन।"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"स्थान"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"अनुप्रयोगहरुलाई तपाईँको स्थान जानकारी प्रयोग गर्न दिनुहोस्"</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"प्रतिबन्धित प्रोफाइल प्रविष्ट गर्नुहोस्"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"प्रतिबन्धित प्रोफाइल प्रविष्टि गर्नुहोस्"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"प्रतिबन्धित प्रोफाइलबाट निस्कनुहोस्"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"प्रतिबन्धित प्रोफाइल मेट्नुहोस्"</string>
     <string name="restricted_profile_create_title" msgid="1392190365829029390">"सीमित प्रोफाइल सिर्जना गर्नुहोस्"</string>
@@ -632,16 +631,16 @@
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PIN परिवर्तन गर्नुहोस्"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="app_sees_restricted_accounts_and_controlled_by" msgid="6677671440081319908">"यस अनुप्रयोगले तपाईंको खाताहरूमा पहुँच गर्न सक्छ। <xliff:g id="APP">%1$s</xliff:g> द्वारा नियन्त्रित।"</string>
-    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"यो च्यानल हेर्ने पिन प्रविष्ट गर्नुहोस्"</string>
-    <string name="pin_enter_unlock_program" msgid="52453773316071511">"यो कार्यक्रम हेर्न पिन प्रविष्ट गर्नुहोस्"</string>
+    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"यो च्यानल हेर्ने पिन प्रविष्टि गर्नुहोस्"</string>
+    <string name="pin_enter_unlock_program" msgid="52453773316071511">"यो कार्यक्रम हेर्न पिन प्रविष्टि गर्नुहोस्"</string>
     <string name="pin_enter_pin" msgid="821552376577935497">"PIN प्रविष्टि गर्नुहोस्"</string>
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"नयाँ PIN सेट गर्नुहोस्"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"नयाँ PIN पुन: प्रविष्ट गर्नुहोस्"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"पुरानो PIN प्रविष्ट गर्नुहोस्"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"नयाँ PIN पुन: प्रविष्टि गर्नुहोस्"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"पुरानो PIN प्रविष्टि गर्नुहोस्"</string>
     <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"तपाईँले गलत PIN ५ पटक प्रविष्टि गर्नुभयो।\n <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> सेकेन्डमा पुनः प्रयास गर्नुहोस्।"</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"गलत पिन, पुनः प्रयास गर्नुहोस्"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"पुनः प्रयास गर्नुहोस्, PIN मेल खाँदैन"</string>
-    <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> को लागि पासवर्ड प्रविष्ट गर्नुहोस्"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> को लागि पासवर्ड प्रविष्टि गर्नुहोस्"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"सफलतापूर्वक जडान गरियो"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"सफलतापूर्वक सुरक्षित गरियो"</string>
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"संस्करण <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
@@ -650,7 +649,7 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"तपाईंले अनुप्रयोग बन्द गर्न बल गर्नुभयो भने, यसले चाहेअनुसार काम नगर्न सक्छ।"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"स्थापना हटाउनुहोस्"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"अद्यावधिकहरूको स्थापना रद्द गर्नुहोस्"</string>
-    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"यस Android प्रणाली अनुप्रयोगमा भएका सम्पूर्ण अद्यावधिकहरूको स्थापना हटाइनेछ।"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"यस Android प्रणाली अनुप्रयोगमा भएका सम्पूर्ण अद्यावधिकहरूको स्थापना हटाइने छ।"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"अक्षम गर्नुहोस्"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"तपाईं यो अनुप्रयोग अक्षम गर्न चाहनुहुन्छ?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"सक्षम गर्नुहोस्"</string>
@@ -696,7 +695,7 @@
     <item msgid="8122798759665439456">"पारिवारिक कोठाको TV"</item>
     <item msgid="1389347662738182100">"सुत्ने कोठाको TV"</item>
   </string-array>
-    <string name="custom_room" msgid="8655516733933892458">"आफू अनुकूल नाम प्रविष्ट गर्नुहोस्…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"आफू अनुकूल नाम प्रविष्टि गर्नुहोस्…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"यस <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को पुनः नामाकरण गर्नुहोस्"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"यो <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को हालको नाम \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" छ"</string>
     <string name="device_name_suggestion_title" msgid="2312205155408810120">"आफ्नो यन्त्रको नाम सेट गर्नुहोस्"</string>
@@ -712,7 +711,7 @@
     <string name="experimental_preference" msgid="1137673985823581797">"(प्रयोगात्मक)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोडमा पुनःबुट गर्नुहोस्"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"तपाईं सुरक्षित मोडमा पुनःबुट गर्न चाहनुहुन्छ?"</string>
-    <string name="reboot_safemode_desc" msgid="5031024337104679492">"यसले तपाईँले स्थापना गरेका सबै तेस्रो पक्षीय अनुप्रयोगहरूलाई असक्षम गर्नेछ। तपाईँले पुनःबुट गरेप‍छि तिनीहरूलाई पुनर्स्थापित गरिनेछ।"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"यसले तपाईँले स्थापना गरेका सबै तेस्रो पक्षीय अनुप्रयोगहरूलाई असक्षम गर्ने छ। तपाईँले पुनःबुट गरेप‍छि तिनीहरूलाई पुनर्स्थापित गरिनेछ।"</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"बग रिपोर्ट समावेश गर्दै"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध भर्चुअल किबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"किबोर्डहरूको व्यवस्थापन गर्नुहोस्"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"सूचनामाथिको पहुँच"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"कुनै स्थापना गरिएको अनुप्रयोगले सूचनामाथिको पहुँचको लागि अनुरोध गरेका छैन।"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"यी अनुप्रयोगहरूले सम्पर्कको नाम र तपाईंले प्राप्त गर्नुहुने पाठ सन्देशहरूलगायत सबै सूचनाहरू पढ्न सक्नेछन्। तिनीहरू सूचनाहरू खारेज गर्न वा तिनीहरूमा समावेश कारबाही बटनहरू ट्रिगर गर्न पनि सक्नेछन्।"</string>
+    <string name="directory_access" msgid="7439168599298598101">"निर्देशिकामाथिको पहुँच"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"यी अनुप्रयोगहरूसँग केही निर्देशिकाहरूमाथि पहुँच राख्ने अनुमति छ।"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"अन्य अनुप्रयोगहरूको माथिपट्टि देखाउनुहोस्"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"अन्य अनुप्रयोगको माथिपट्टि देखिने अनुमति दिनु…"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"कुनै अनुप्रयोगलाई आफूले प्रयोग गरिरहेका अन्य अनुप्रयोगहरूको माथिपट्टि देखिन अनुमति दिनुहोस्। यस कार्यले तपाईंले गर्ने ती अनुप्रयोगहरूको प्रयोगमा हस्तक्षेप गर्न वा तिनीहरू देखा पर्ने वा तिनीहरूले काम गर्ने तरिकालाई परिवर्तन गर्न सक्छ।"</string>

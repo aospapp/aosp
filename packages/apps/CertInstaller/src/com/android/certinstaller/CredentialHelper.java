@@ -16,10 +16,10 @@
 
 package com.android.certinstaller;
 
+import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.UserHandle;
@@ -62,6 +62,7 @@ import java.util.List;
 class CredentialHelper {
     private static final String DATA_KEY = "data";
     private static final String CERTS_KEY = "crts";
+    private static final String USER_KEY_ALGORITHM = "user_key_algorithm";
 
     private static final String TAG = "CredentialHelper";
 
@@ -107,6 +108,8 @@ class CredentialHelper {
             outStates.putString(KeyChain.EXTRA_NAME, mName);
             outStates.putInt(Credentials.EXTRA_INSTALL_AS_UID, mUid);
             if (mUserKey != null) {
+                Log.d(TAG, "Key algorithm: " + mUserKey.getAlgorithm());
+                outStates.putString(USER_KEY_ALGORITHM, mUserKey.getAlgorithm());
                 outStates.putByteArray(Credentials.USER_PRIVATE_KEY,
                         mUserKey.getEncoded());
             }
@@ -127,9 +130,11 @@ class CredentialHelper {
         mBundle = (HashMap) savedStates.getSerializable(DATA_KEY);
         mName = savedStates.getString(KeyChain.EXTRA_NAME);
         mUid = savedStates.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
-        byte[] bytes = savedStates.getByteArray(Credentials.USER_PRIVATE_KEY);
-        if (bytes != null) {
-            setPrivateKey(bytes);
+        String userKeyAlgorithm = savedStates.getString(USER_KEY_ALGORITHM);
+        byte[] userKeyBytes = savedStates.getByteArray(Credentials.USER_PRIVATE_KEY);
+        Log.d(TAG, "Loaded key algorithm: " + userKeyAlgorithm);
+        if (userKeyAlgorithm != null && userKeyBytes != null) {
+            setPrivateKey(userKeyAlgorithm, userKeyBytes);
         }
 
         ArrayList<byte[]> certs = Util.fromBytes(savedStates.getByteArray(CERTS_KEY));
@@ -186,9 +191,8 @@ class CredentialHelper {
         return mBundle.containsKey(KeyChain.EXTRA_PKCS12);
     }
 
-    boolean hasKeyPair() {
-        return mBundle.containsKey(Credentials.EXTRA_PUBLIC_KEY)
-                && mBundle.containsKey(Credentials.EXTRA_PRIVATE_KEY);
+    boolean hasPrivateKey() {
+        return mBundle.containsKey(Credentials.EXTRA_PRIVATE_KEY);
     }
 
     boolean hasUserCertificate() {
@@ -203,9 +207,9 @@ class CredentialHelper {
         return (mUserKey != null) || hasUserCertificate() || hasCaCerts();
     }
 
-    void setPrivateKey(byte[] bytes) {
+    void setPrivateKey(String algorithm, byte[] bytes) {
         try {
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
             mUserKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(bytes));
         } catch (NoSuchAlgorithmException e) {
             throw new AssertionError(e);
@@ -232,6 +236,8 @@ class CredentialHelper {
         String newline = "<br>";
         if (mUserKey != null) {
             sb.append(context.getString(R.string.one_userkey)).append(newline);
+            sb.append(context.getString(R.string.userkey_type)).append(mUserKey.getAlgorithm())
+                    .append(newline);
         }
         if (mUserCert != null) {
             sb.append(context.getString(R.string.one_usercrt)).append(newline);
@@ -271,12 +277,8 @@ class CredentialHelper {
         Intent intent = new Intent("com.android.credentials.INSTALL");
         // To prevent the private key from being sniffed, we explicitly spell
         // out the intent receiver class.
-        if (!isWear(context)) {
-            intent.setClassName(Util.SETTINGS_PACKAGE, "com.android.settings.CredentialStorage");
-        } else {
-            intent.setClassName("com.google.android.apps.wearable.settings",
-                    "com.google.android.clockwork.settings.CredentialStorage");
-        }
+        intent.setClassName(
+                Util.SETTINGS_PACKAGE, "com.android.settings.security.CredentialStorage");
         intent.putExtra(Credentials.EXTRA_INSTALL_AS_UID, mUid);
         try {
             if (mUserKey != null) {
@@ -309,7 +311,6 @@ class CredentialHelper {
 
     boolean installVpnAndAppsTrustAnchors(Context context, IKeyChainService keyChainService) {
         final TrustedCertificateStore trustedCertificateStore = new TrustedCertificateStore();
-        final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
         for (X509Certificate caCert : mCaCerts) {
             byte[] bytes = null;
             try {
@@ -331,16 +332,23 @@ class CredentialHelper {
                     return false;
                 }
 
-                // Some CTS verifier test asks testers to reset auto approved CA cert by removing
-                // lock sreen, but it's not possible if we don't have Android lock screen. (e.g.
-                // Android is running in the container).  In this case, disable auto cert approval.
-                if (context.getResources().getBoolean(R.bool.config_auto_cert_approval)) {
-                    // Since the cert is installed by real user, the cert is approved by the user
-                    dpm.approveCaCert(alias, UserHandle.myUserId(), true);
-                }
+                maybeApproveCaCert(context, alias);
             }
         }
         return true;
+    }
+
+    private void maybeApproveCaCert(Context context, String alias) {
+        // Some CTS verifier test asks testers to reset auto approved CA cert by removing
+        // lock sreen, but it's not possible if we don't have Android lock screen. (e.g.
+        // Android is running in the container).  In this case, disable auto cert approval.
+        final KeyguardManager keyguardManager = context.getSystemService(KeyguardManager.class);
+        if (keyguardManager.isDeviceSecure(UserHandle.myUserId())
+                && context.getResources().getBoolean(R.bool.config_auto_cert_approval)) {
+            // Since the cert is installed by real user, the cert is approved by the user
+            final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
+            dpm.approveCaCert(alias, UserHandle.myUserId(), true);
+        }
     }
 
     boolean hasPassword() {
@@ -420,10 +428,6 @@ class CredentialHelper {
         Log.d(TAG, "# ca certs extracted = " + mCaCerts.size());
 
         return true;
-    }
-
-    private static boolean isWear(final Context context) {
-        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
     /**

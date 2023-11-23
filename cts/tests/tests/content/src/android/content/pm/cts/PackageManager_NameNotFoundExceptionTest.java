@@ -19,8 +19,10 @@ package android.content.pm.cts;
 
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PackageManager_NameNotFoundExceptionTest extends AndroidTestCase {
 
     public void testNameNotFoundException() {

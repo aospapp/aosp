@@ -26,12 +26,10 @@ groups Tendo related tests for this purpose.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
 args_dict['add_experimental'] = False
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['name'] = NAME
 args_dict['job'] = job
 

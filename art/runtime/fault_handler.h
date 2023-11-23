@@ -18,13 +18,13 @@
 #ifndef ART_RUNTIME_FAULT_HANDLER_H_
 #define ART_RUNTIME_FAULT_HANDLER_H_
 
-#include <setjmp.h>
 #include <signal.h>
 #include <stdint.h>
 
 #include <vector>
 
-#include "base/mutex.h"  // For annotalysis.
+#include "base/locks.h"  // For annotalysis.
+#include "runtime_globals.h"  // For CanDoImplicitNullCheckOn.
 
 namespace art {
 
@@ -90,11 +90,11 @@ class FaultHandler {
   DISALLOW_COPY_AND_ASSIGN(FaultHandler);
 };
 
-class NullPointerHandler FINAL : public FaultHandler {
+class NullPointerHandler final : public FaultHandler {
  public:
   explicit NullPointerHandler(FaultManager* manager);
 
-  bool Action(int sig, siginfo_t* siginfo, void* context) OVERRIDE;
+  bool Action(int sig, siginfo_t* siginfo, void* context) override;
 
   static bool IsValidImplicitCheck(siginfo_t* siginfo) {
     // Our implicit NPE checks always limit the range to a page.
@@ -108,31 +108,31 @@ class NullPointerHandler FINAL : public FaultHandler {
   DISALLOW_COPY_AND_ASSIGN(NullPointerHandler);
 };
 
-class SuspensionHandler FINAL : public FaultHandler {
+class SuspensionHandler final : public FaultHandler {
  public:
   explicit SuspensionHandler(FaultManager* manager);
 
-  bool Action(int sig, siginfo_t* siginfo, void* context) OVERRIDE;
+  bool Action(int sig, siginfo_t* siginfo, void* context) override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SuspensionHandler);
 };
 
-class StackOverflowHandler FINAL : public FaultHandler {
+class StackOverflowHandler final : public FaultHandler {
  public:
   explicit StackOverflowHandler(FaultManager* manager);
 
-  bool Action(int sig, siginfo_t* siginfo, void* context) OVERRIDE;
+  bool Action(int sig, siginfo_t* siginfo, void* context) override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackOverflowHandler);
 };
 
-class JavaStackTraceHandler FINAL : public FaultHandler {
+class JavaStackTraceHandler final : public FaultHandler {
  public:
   explicit JavaStackTraceHandler(FaultManager* manager);
 
-  bool Action(int sig, siginfo_t* siginfo, void* context) OVERRIDE NO_THREAD_SAFETY_ANALYSIS;
+  bool Action(int sig, siginfo_t* siginfo, void* context) override NO_THREAD_SAFETY_ANALYSIS;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(JavaStackTraceHandler);

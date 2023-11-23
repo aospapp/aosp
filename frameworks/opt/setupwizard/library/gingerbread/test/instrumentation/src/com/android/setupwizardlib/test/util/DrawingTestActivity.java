@@ -16,7 +16,7 @@
 
 package com.android.setupwizardlib.test.util;
 
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 
 /**
  * Activity to test view and drawable drawing behaviors. This is used to make sure that the drawing
@@ -26,5 +26,4 @@ import android.support.v7.app.AppCompatActivity;
  *
  * @see DrawingTestHelper
  */
-public class DrawingTestActivity extends AppCompatActivity {
-}
+public class DrawingTestActivity extends AppCompatActivity {}

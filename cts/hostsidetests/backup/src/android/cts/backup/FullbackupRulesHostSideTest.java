@@ -16,6 +16,11 @@
 
 package android.cts.backup;
 
+import static com.android.compatibility.common.util.BackupUtils.LOCAL_TRANSPORT_TOKEN;
+
+import android.platform.test.annotations.AppModeFull;
+
+import com.android.compatibility.common.util.BackupUtils;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -33,6 +38,7 @@ import org.junit.runner.RunWith;
  * android.cts.backup.includeexcludeapp.IncludeExcludeTest.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull
 public class FullbackupRulesHostSideTest extends BaseBackupHostSideTest {
 
     private static final String FULLBACKUP_TESTS_APP_NAME = "android.cts.backup.fullbackupapp";
@@ -61,18 +67,14 @@ public class FullbackupRulesHostSideTest extends BaseBackupHostSideTest {
                 "createFiles");
 
         // Do a backup
-        String backupnowOutput = backupNow(FULLBACKUP_TESTS_APP_NAME);
-
-        assertBackupIsSuccessful(FULLBACKUP_TESTS_APP_NAME, backupnowOutput);
+        getBackupUtils().backupNowAndAssertSuccess(FULLBACKUP_TESTS_APP_NAME);
 
         // Delete the files
         checkDeviceTest(FULLBACKUP_TESTS_APP_NAME, FULLBACKUP_DEVICE_TEST_CLASS_NAME,
                 "deleteFilesAfterBackup");
 
         // Do a restore
-        String restoreOutput = restore(FULLBACKUP_TESTS_APP_NAME);
-
-        assertRestoreIsSuccessful(restoreOutput);
+        getBackupUtils().restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, FULLBACKUP_TESTS_APP_NAME);
 
         // Check that the right files were restored
         checkDeviceTest(FULLBACKUP_TESTS_APP_NAME, FULLBACKUP_DEVICE_TEST_CLASS_NAME,
@@ -91,16 +93,15 @@ public class FullbackupRulesHostSideTest extends BaseBackupHostSideTest {
                 "createFiles");
 
         // Do a backup
-        String backupNowOutput = backupNow(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertBackupIsSuccessful(INCLUDE_EXCLUDE_TESTS_APP_NAME, backupNowOutput);
+        getBackupUtils().backupNowAndAssertSuccess(INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Delete the files
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,
                 "deleteFilesAfterBackup");
 
         // Do a restore
-        String restoreOutput = restore(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertRestoreIsSuccessful(restoreOutput);
+        getBackupUtils()
+                .restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Check that the right files were restored
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,
@@ -122,16 +123,15 @@ public class FullbackupRulesHostSideTest extends BaseBackupHostSideTest {
                 "createFiles");
 
         // Do a backup
-        String backupNowOutput = backupNow(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertBackupIsSuccessful(INCLUDE_EXCLUDE_TESTS_APP_NAME, backupNowOutput);
+        getBackupUtils().backupNowAndAssertSuccess(INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Delete the files
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,
                 "deleteFilesAfterBackup");
 
         // Do a restore
-        String restoreOutput = restore(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertRestoreIsSuccessful(restoreOutput);
+        getBackupUtils()
+                .restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Check that the client-side encryption files were restored
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,
@@ -153,16 +153,15 @@ public class FullbackupRulesHostSideTest extends BaseBackupHostSideTest {
                 "createFiles");
 
         // Do a backup
-        String backupNowOutput = backupNow(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertBackupIsSuccessful(INCLUDE_EXCLUDE_TESTS_APP_NAME, backupNowOutput);
+        getBackupUtils().backupNowAndAssertSuccess(INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Delete the files
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,
                 "deleteFilesAfterBackup");
 
         // Do a restore
-        String restoreOutput = restore(INCLUDE_EXCLUDE_TESTS_APP_NAME);
-        assertRestoreIsSuccessful(restoreOutput);
+        getBackupUtils()
+                .restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, INCLUDE_EXCLUDE_TESTS_APP_NAME);
 
         // Check that the client-side encryption files were not restored
         checkDeviceTest(INCLUDE_EXCLUDE_TESTS_APP_NAME, INCLUDE_EXCLUDE_DEVICE_TEST_CLASS_NAME,

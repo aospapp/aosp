@@ -418,7 +418,7 @@ int SystemComm::AppMgmtSession::setup(const hub_message_t *appMsg, uint32_t tran
 
 int SystemComm::AppMgmtSession::setupMgmt(const hub_message_t *appMsg, uint32_t transactionId, uint32_t cmd, AppManager &appManager)
 {
-    int32_t result = 0;
+    int32_t result = -1; // results are only directly returned on failure
     const hub_app_name_t &appName = *static_cast<const hub_app_name_t*>(appMsg->message);
     if (appMsg->message_len != sizeof(appName)) {
         return -EINVAL;

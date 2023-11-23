@@ -15,11 +15,19 @@
  */
 package android.graphics.cts;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraCharacteristics;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.PropertyUtil;
+
+import java.util.ArrayList;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,6 +46,32 @@ public class CameraVulkanGpuTest {
         if (!pm.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
             // Test requires a camera.
             return;
+        }
+
+        if(PropertyUtil.getFirstApiLevel() < 28){
+            // HAL3 is not required for P upgrade devices.
+            return;
+        }
+
+        CameraManager camMgr =
+                (CameraManager) InstrumentationRegistry.getContext().
+                        getSystemService(Context.CAMERA_SERVICE);
+        try {
+            String[] cameraIds = camMgr.getCameraIdList();
+            ArrayList<String> mToBeTestedCameraIds = new ArrayList<String>();
+            for (String id : cameraIds) {
+                CameraCharacteristics characteristics = camMgr.getCameraCharacteristics(id);
+                int hwLevel =
+                        characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+                if (hwLevel != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY) {
+                    mToBeTestedCameraIds.add(id);
+                }
+            }
+
+            // skip the test if all camera devices are legacy
+            if (mToBeTestedCameraIds.size() == 0) return;
+        } catch (IllegalArgumentException e) {
+            // This is the exception that should be thrown in this case.
         }
 
         loadCameraAndVerifyFrameImport(InstrumentationRegistry.getContext().getAssets());

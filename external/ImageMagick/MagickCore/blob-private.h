@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -52,11 +52,9 @@ typedef enum
   ZipStream,
   BZipStream,
   FifoStream,
-  BlobStream
+  BlobStream,
+  CustomStream
 } StreamType;
-
-typedef int
-  *(*BlobFifo)(const Image *,const void *,const size_t);
 
 extern MagickExport BlobInfo
   *CloneBlobInfo(const BlobInfo *),
@@ -79,6 +77,7 @@ extern MagickExport float
 
 extern MagickExport int
   EOFBlob(const Image *),
+  ErrorBlob(const Image *),
   ReadBlobByte(Image *);
 
 extern MagickExport MagickBooleanType
@@ -112,15 +111,15 @@ extern MagickExport ssize_t
   WriteBlobByte(Image *,const unsigned char),
   WriteBlobFloat(Image *,const float),
   WriteBlobLong(Image *,const unsigned int),
+  WriteBlobLongLong(Image *,const MagickSizeType),
   WriteBlobShort(Image *,const unsigned short),
+  WriteBlobSignedLong(Image *,const signed int),
   WriteBlobLSBLong(Image *,const unsigned int),
   WriteBlobLSBShort(Image *,const unsigned short),
   WriteBlobLSBSignedLong(Image *,const signed int),
   WriteBlobLSBSignedShort(Image *,const signed short),
   WriteBlobMSBLong(Image *,const unsigned int),
-  WriteBlobMSBLongLong(Image *,const MagickSizeType),
   WriteBlobMSBShort(Image *,const unsigned short),
-  WriteBlobMSBSignedLong(Image *,const signed int),
   WriteBlobMSBSignedShort(Image *,const signed short),
   WriteBlobString(Image *,const char *);
 
@@ -136,6 +135,7 @@ extern MagickExport unsigned short
 
 extern MagickExport void
   AttachBlob(BlobInfo *,const void *,const size_t),
+  AttachCustomStream(BlobInfo *,CustomStreamInfo *),
   *DetachBlob(BlobInfo *),
   DisassociateBlob(Image *),
   GetBlobInfo(BlobInfo *),

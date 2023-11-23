@@ -15,6 +15,7 @@ import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 // Android-removed: Unsupported algorithms
 // import org.bouncycastle.asn1.pkcs.RC2CBCParameter;
 // import org.bouncycastle.crypto.CipherKeyGenerator;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.crypto.engines.RC2Engine;
 // Android-removed: Unsupported algorithms
 // import org.bouncycastle.crypto.engines.RC2WrapEngine;
@@ -241,7 +242,7 @@ public final class RC2
 
                 if (random == null)
                 {
-                    random = new SecureRandom();
+                    random = CryptoServicesRegistrar.getSecureRandom();
                 }
 
                 random.nextBytes(iv);

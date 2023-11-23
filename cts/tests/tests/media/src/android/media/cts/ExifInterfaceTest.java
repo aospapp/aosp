@@ -18,16 +18,17 @@ package android.media.cts;
 
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
 import android.os.Environment;
 import android.os.FileUtils;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
-import android.util.Log;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
+import android.test.AndroidTestCase;
+import android.util.Log;
+
+import libcore.io.IoUtils;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -35,13 +36,10 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.io.IOException;
-import java.lang.reflect.Type;
-
-import libcore.io.IoUtils;
-import libcore.io.Streams;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 @AppModeFull(reason = "Instant apps cannot access the SD card")
 public class ExifInterfaceTest extends AndroidTestCase {
@@ -58,6 +56,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
     private static final String EXIF_BYTE_ORDER_II_JPEG = "image_exif_byte_order_ii.jpg";
     private static final String EXIF_BYTE_ORDER_MM_JPEG = "image_exif_byte_order_mm.jpg";
     private static final String LG_G4_ISO_800_DNG = "lg_g4_iso_800.dng";
+    private static final String LG_G4_ISO_800_JPG = "lg_g4_iso_800.jpg";
     private static final String SONY_RX_100_ARW = "sony_rx_100.arw";
     private static final String CANON_G7X_CR2 = "canon_g7x.cr2";
     private static final String FUJI_X20_RAF = "fuji_x20.raf";
@@ -99,10 +98,14 @@ public class ExifInterfaceTest extends AndroidTestCase {
         public final int thumbnailWidth;
         public final int thumbnailHeight;
         public final boolean isThumbnailCompressed;
+        public final int thumbnailOffset;
+        public final int thumbnailLength;
 
         // GPS information.
         public final boolean hasLatLong;
         public final float latitude;
+        public final int latitudeOffset;
+        public final int latitudeLength;
         public final float longitude;
         public final float altitude;
 
@@ -129,6 +132,11 @@ public class ExifInterfaceTest extends AndroidTestCase {
         public final int orientation;
         public final int whiteBalance;
 
+        // XMP information.
+        public final boolean hasXmp;
+        public final int xmpOffset;
+        public final int xmpLength;
+
         private static String getString(TypedArray typedArray, int index) {
             String stringValue = typedArray.getString(index);
             if (stringValue == null || stringValue.equals("")) {
@@ -142,12 +150,16 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
             // Reads thumbnail information.
             hasThumbnail = typedArray.getBoolean(index++, false);
+            thumbnailOffset = typedArray.getInt(index++, -1);
+            thumbnailLength = typedArray.getInt(index++, -1);
             thumbnailWidth = typedArray.getInt(index++, 0);
             thumbnailHeight = typedArray.getInt(index++, 0);
             isThumbnailCompressed = typedArray.getBoolean(index++, false);
 
             // Reads GPS information.
             hasLatLong = typedArray.getBoolean(index++, false);
+            latitudeOffset = typedArray.getInt(index++, -1);
+            latitudeLength = typedArray.getInt(index++, -1);
             latitude = typedArray.getFloat(index++, 0f);
             longitude = typedArray.getFloat(index++, 0f);
             altitude = typedArray.getFloat(index++, 0f);
@@ -174,6 +186,11 @@ public class ExifInterfaceTest extends AndroidTestCase {
             iso = getString(typedArray, index++);
             orientation = typedArray.getInt(index++, 0);
             whiteBalance = typedArray.getInt(index++, 0);
+
+            // Reads XMP information.
+            hasXmp = typedArray.getBoolean(index++, false);
+            xmpOffset = typedArray.getInt(index++, 0);
+            xmpLength = typedArray.getInt(index++, 0);
 
             typedArray.recycle();
         }
@@ -244,13 +261,19 @@ public class ExifInterfaceTest extends AndroidTestCase {
     }
 
     private void compareWithExpectedValue(ExifInterface exifInterface,
-            ExpectedValue expectedValue, String verboseTag) {
+            ExpectedValue expectedValue, String verboseTag, boolean assertRanges) {
         if (VERBOSE) {
             printExifTagsAndValues(verboseTag, exifInterface);
         }
         // Checks a thumbnail image.
         assertEquals(expectedValue.hasThumbnail, exifInterface.hasThumbnail());
         if (expectedValue.hasThumbnail) {
+            assertNotNull(exifInterface.getThumbnailRange());
+            if (assertRanges) {
+                final long[] thumbnailRange = exifInterface.getThumbnailRange();
+                assertEquals(expectedValue.thumbnailOffset, thumbnailRange[0]);
+                assertEquals(expectedValue.thumbnailLength, thumbnailRange[1]);
+            }
             byte[] thumbnailBytes = exifInterface.getThumbnailBytes();
             assertNotNull(thumbnailBytes);
             Bitmap thumbnailBitmap = exifInterface.getThumbnailBitmap();
@@ -260,6 +283,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
             assertEquals(expectedValue.isThumbnailCompressed,
                     exifInterface.isThumbnailCompressed());
         } else {
+            assertNull(exifInterface.getThumbnailRange());
             assertNull(exifInterface.getThumbnail());
         }
 
@@ -267,8 +291,21 @@ public class ExifInterfaceTest extends AndroidTestCase {
         float[] latLong = new float[2];
         assertEquals(expectedValue.hasLatLong, exifInterface.getLatLong(latLong));
         if (expectedValue.hasLatLong) {
+            assertNotNull(exifInterface.getAttributeRange(ExifInterface.TAG_GPS_LATITUDE));
+            if (assertRanges) {
+                final long[] latitudeRange = exifInterface
+                        .getAttributeRange(ExifInterface.TAG_GPS_LATITUDE);
+                assertEquals(expectedValue.latitudeOffset, latitudeRange[0]);
+                assertEquals(expectedValue.latitudeLength, latitudeRange[1]);
+            }
             assertEquals(expectedValue.latitude, latLong[0], DIFFERENCE_TOLERANCE);
             assertEquals(expectedValue.longitude, latLong[1], DIFFERENCE_TOLERANCE);
+            assertTrue(exifInterface.hasAttribute(ExifInterface.TAG_GPS_LATITUDE));
+            assertTrue(exifInterface.hasAttribute(ExifInterface.TAG_GPS_LONGITUDE));
+        } else {
+            assertNull(exifInterface.getAttributeRange(ExifInterface.TAG_GPS_LATITUDE));
+            assertFalse(exifInterface.hasAttribute(ExifInterface.TAG_GPS_LATITUDE));
+            assertFalse(exifInterface.hasAttribute(ExifInterface.TAG_GPS_LONGITUDE));
         }
         assertEquals(expectedValue.altitude, exifInterface.getAltitude(.0), DIFFERENCE_TOLERANCE);
 
@@ -299,6 +336,26 @@ public class ExifInterfaceTest extends AndroidTestCase {
         assertStringTag(exifInterface, ExifInterface.TAG_ISO_SPEED_RATINGS, expectedValue.iso);
         assertIntTag(exifInterface, ExifInterface.TAG_ORIENTATION, expectedValue.orientation);
         assertIntTag(exifInterface, ExifInterface.TAG_WHITE_BALANCE, expectedValue.whiteBalance);
+
+        if (expectedValue.hasXmp) {
+            assertNotNull(exifInterface.getAttributeRange(ExifInterface.TAG_XMP));
+            if (assertRanges) {
+                final long[] xmpRange = exifInterface.getAttributeRange(ExifInterface.TAG_XMP);
+                assertEquals(expectedValue.xmpOffset, xmpRange[0]);
+                assertEquals(expectedValue.xmpLength, xmpRange[1]);
+            }
+            final String xmp = new String(exifInterface.getAttributeBytes(ExifInterface.TAG_XMP),
+                    StandardCharsets.UTF_8);
+            // We're only interested in confirming that we were able to extract
+            // valid XMP data, which must always include this XML tag; a full
+            // XMP parser is beyond the scope of ExifInterface. See XMP
+            // Specification Part 1, Section C.2.2 for additional details.
+            if (!xmp.contains("<rdf:RDF")) {
+                fail("Invalid XMP: " + xmp);
+            }
+        } else {
+            assertNull(exifInterface.getAttributeRange(ExifInterface.TAG_XMP));
+        }
     }
 
     private void testExifInterfaceCommon(String fileName, ExpectedValue expectedValue)
@@ -309,14 +366,18 @@ public class ExifInterfaceTest extends AndroidTestCase {
         // Creates via path.
         ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         assertNotNull(exifInterface);
-        compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+        compareWithExpectedValue(exifInterface, expectedValue, verboseTag, true);
+
+        // Creates via file.
+        exifInterface = new ExifInterface(imageFile);
+        compareWithExpectedValue(exifInterface, expectedValue, verboseTag, true);
 
         InputStream in = null;
         // Creates via InputStream.
         try {
             in = new BufferedInputStream(new FileInputStream(imageFile.getAbsolutePath()));
             exifInterface = new ExifInterface(in);
-            compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+            compareWithExpectedValue(exifInterface, expectedValue, verboseTag, true);
         } finally {
             IoUtils.closeQuietly(in);
         }
@@ -326,7 +387,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
         try {
             fd = Os.open(imageFile.getAbsolutePath(), OsConstants.O_RDONLY, 0600);
             exifInterface = new ExifInterface(fd);
-            compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+            compareWithExpectedValue(exifInterface, expectedValue, verboseTag, true);
         } catch (ErrnoException e) {
             throw e.rethrowAsIOException();
         } finally {
@@ -336,13 +397,14 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     private void testSaveAttributes_withFileName(String fileName, ExpectedValue expectedValue)
             throws IOException {
-        File imageFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        File srcFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        File imageFile = clone(srcFile);
         String verboseTag = imageFile.getName();
 
         ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         exifInterface.saveAttributes();
         exifInterface = new ExifInterface(imageFile.getAbsolutePath());
-        compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+        compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
 
         // Test for modifying one attribute.
         String backupValue = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
@@ -354,12 +416,13 @@ public class ExifInterfaceTest extends AndroidTestCase {
         exifInterface.setAttribute(ExifInterface.TAG_MAKE, backupValue);
         exifInterface.saveAttributes();
         exifInterface = new ExifInterface(imageFile.getAbsolutePath());
-        compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+        compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
     }
 
     private void testSaveAttributes_withFileDescriptor(String fileName, ExpectedValue expectedValue)
             throws IOException {
-        File imageFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        File srcFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        File imageFile = clone(srcFile);
         String verboseTag = imageFile.getName();
 
         FileDescriptor fd = null;
@@ -369,7 +432,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
             exifInterface.saveAttributes();
             Os.lseek(fd, 0, OsConstants.SEEK_SET);
             exifInterface = new ExifInterface(fd);
-            compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+            compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
 
             // Test for modifying one attribute.
             String backupValue = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
@@ -383,7 +446,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
             exifInterface.saveAttributes();
             Os.lseek(fd, 0, OsConstants.SEEK_SET);
             exifInterface = new ExifInterface(fd);
-            compareWithExpectedValue(exifInterface, expectedValue, verboseTag);
+            compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
         } catch (ErrnoException e) {
             throw e.rethrowAsIOException();
         } finally {
@@ -428,6 +491,12 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     public void testReadExifDataFromLgG4Iso800Dng() throws Throwable {
         testExifInterfaceForRaw(LG_G4_ISO_800_DNG, R.array.lg_g4_iso_800_dng);
+    }
+
+    public void testReadExifDataFromLgG4Iso800Jpg() throws Throwable {
+        stageFile(R.raw.lg_g4_iso_800, new File(Environment.getExternalStorageDirectory(),
+                EXTERNAL_BASE_DIRECTORY + LG_G4_ISO_800_JPG));
+        testExifInterfaceForJpeg(LG_G4_ISO_800_JPG, R.array.lg_g4_iso_800_jpg);
     }
 
     public void testDoNotFailOnCorruptedImage() throws Throwable {
@@ -489,8 +558,7 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
         File srcFile = new File(Environment.getExternalStorageDirectory(),
                 EXTERNAL_BASE_DIRECTORY + EXIF_BYTE_ORDER_II_JPEG);
-        File imageFile = new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + EXIF_BYTE_ORDER_II_JPEG + "_copied");
+        File imageFile = clone(srcFile);
 
         FileUtils.copyFileOrThrow(srcFile, imageFile);
         ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
@@ -511,5 +579,19 @@ public class ExifInterfaceTest extends AndroidTestCase {
         exif = new ExifInterface(imageFile.getAbsolutePath());
         assertEquals(dateTimeOriginalValue, exif.getAttribute(ExifInterface.TAG_DATETIME));
         imageFile.delete();
+    }
+
+    private void stageFile(int resId, File file) throws IOException {
+        try (InputStream source = getContext().getResources().openRawResource(resId);
+                OutputStream target = new FileOutputStream(file)) {
+            FileUtils.copy(source, target);
+        }
+    }
+
+    private static File clone(File original) throws IOException {
+        final File cloned = new File(original.getParentFile(),
+                "cts_" + System.nanoTime() + "_" + original.getName());
+        FileUtils.copyFileOrThrow(original, cloned);
+        return cloned;
     }
 }

@@ -20,7 +20,6 @@
 #include <base/logging.h>
 #include <binder/IPCThreadState.h>
 
-using ::android::OK;
 using ::android::String8;
 using ::android::binder::Status;
 using ::android::os::ParcelFileDescriptor;
@@ -57,8 +56,8 @@ Status BluetoothSocketManagerBinderServer::connectSocket(
     return Status::ok();
   }
 
-  _aidl_return->reset(new ParcelFileDescriptor());
-  (*_aidl_return)->setFileDescriptor(socket_fd, true);
+  _aidl_return->reset(
+      new ParcelFileDescriptor(android::base::unique_fd(socket_fd)));
   return Status::ok();
 }
 
@@ -97,8 +96,8 @@ Status BluetoothSocketManagerBinderServer::createSocketChannel(
     return Status::ok();
   }
 
-  _aidl_return->reset(new ParcelFileDescriptor());
-  (*_aidl_return)->setFileDescriptor(socket_fd, true);
+  _aidl_return->reset(
+      new ParcelFileDescriptor(android::base::unique_fd(socket_fd)));
   return Status::ok();
 }
 

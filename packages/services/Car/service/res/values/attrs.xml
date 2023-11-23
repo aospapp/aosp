@@ -18,11 +18,11 @@
 -->
 
 <resources>
-    <!-- Defines the attributes and values used in res/xml/car_volume_group.xml -->
-    <declare-styleable name="volumeGroups" />
-
+    <!-- Defines the attributes and values used in res/xml/car_volume_groups.xml -->
+    <declare-styleable name="volumeGroups">
+        <attr name="isDeprecated" format="boolean"/>
+    </declare-styleable>
     <declare-styleable name="volumeGroups_group"/>
-
     <declare-styleable name="volumeGroups_context">
         <!-- Align with hardware/interfaces/automotive/audiocontrol/1.0/types.hal:ContextNumber -->
         <attr name="context">
@@ -37,10 +37,29 @@
         </attr>
     </declare-styleable>
 
+    <!--
+      Defines the attributes and values used in car_audio_configuration.xml
+      This is a superset of car_volume_groups.xml
+    -->
+    <declare-styleable name="carAudioConfiguration">
+        <attr name="version" format="integer"/>
+        <attr name="isPrimary" format="boolean"/>
+        <attr name="name" format="string"/>
+        <attr name="address" format="string"/>
+        <attr name="display" format="string"/>
+    </declare-styleable>
+
     <!-- Defines the UX restrictions to be imposed for different driving states of a vehicle -->
     <declare-styleable name="UxRestrictions"/>
     <!-- 1. UX restriction Mapping from a driving state of the vehicle-->
-    <declare-styleable name="UxRestrictions_RestrictionMapping"/>
+    <declare-styleable name="UxRestrictions_RestrictionMapping">
+        <!-- Physical port that connects to a display. Restrictions defined will apply to the
+             display that connects to this port.
+             Only the lowest byte in the integer value is used. The value should be represented
+             as an signed int, namely the supported range is [-128, 127].
+             Optional field. Defaults to primary display. -->
+        <attr name="physicalPort" format="integer"/>
+    </declare-styleable>
 
     <!-- 1.a. Driving states supported -->
     <declare-styleable name="UxRestrictions_DrivingState">
@@ -79,6 +98,14 @@
             <flag name="no_text_message" value="128"/>
             <flag name="no_voice_transcription" value="256"/>
             <flag name="fully_restricted" value="511"/>
+        </attr>
+        <!-- UX restrictions service supports returning different sets of UX restrictions for
+        the same driving state, through configurations for each "mode". -->
+        <attr name="mode">
+            <!-- Default mode. -->
+            <flag name="baseline" value="0"/>
+            <!-- Mode for passenger to interact with system. -->
+            <flag name="passenger" value="1"/>
         </attr>
     </declare-styleable>
 

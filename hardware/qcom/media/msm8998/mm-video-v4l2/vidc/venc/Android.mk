@@ -132,6 +132,9 @@ LOCAL_SRC_FILES   := src/omx_video_base.cpp
 LOCAL_SRC_FILES   += src/omx_video_encoder.cpp
 LOCAL_SRC_FILES   += src/video_encoder_device_v4l2.cpp
 
+# Allow implicit fallthrough in omx_video_encoder.cpp:2322 until it is fixed.
+LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
+
 include $(BUILD_SHARED_LIBRARY)
 
 ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VENC_MPEG4)),true)

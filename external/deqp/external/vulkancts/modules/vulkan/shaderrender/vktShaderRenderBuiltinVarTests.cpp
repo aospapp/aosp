@@ -38,6 +38,7 @@
 #include "vkImageUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkMemUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "deMath.h"
 #include "deRandom.hpp"
@@ -317,6 +318,9 @@ BuiltinFragDepthCaseInstance::BuiltinFragDepthCaseInstance (Context& context, Vk
 
 		if (m_largeDepthEnable && !de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_EXT_depth_range_unrestricted"))
 			throw tcu::NotSupportedError("large_depth test variants require the VK_EXT_depth_range_unrestricted extension");
+
+		if (m_context.getDeviceFeatures().depthClamp == VK_FALSE && m_depthClampEnable)
+			throw tcu::NotSupportedError("Depthclamp is not supported.");
 	}
 	catch (const vk::Error& e)
 	{
@@ -357,7 +361,6 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 	MovePtr<Allocation>				depthInitAllocation;
 	Move<VkCommandPool>				cmdPool;
 	Move<VkCommandBuffer>			transferCmdBuffer;
-	Move<VkFence>					fence;
 	Move<VkSampler>					depthSampler;
 
 	// Create Buffer/Image for validation
@@ -615,18 +618,6 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 		transferCmdBuffer = allocateCommandBuffer(vk, device, &cmdBufferAllocInfo);
 	}
 
-	// Fence for data transfer
-	{
-		const VkFenceCreateInfo fenceCreateInfo =
-		{
-			VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,	// VkStructureType		sType
-			DE_NULL,								// const void*			pNext
-			(VkFenceCreateFlags)0					// VkFenceCreateFlags	flags
-		};
-
-		fence = createFence(vk, device, &fenceCreateInfo);
-	}
-
 	// Initialize Marker Buffer
 	{
 		VkImageAspectFlags	depthImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -677,15 +668,7 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 			},
 		};
 
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType
-			DE_NULL,										// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL	// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *transferCmdBuffer);
 		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				(VkDependencyFlags)0,
 				0, (const VkMemoryBarrier*)DE_NULL,
@@ -703,24 +686,9 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 				0, (const VkBufferMemoryBarrier*)DE_NULL,
 				DE_LENGTH_OF_ARRAY(imagePostBarrier), imagePostBarrier);
 
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		VK_CHECK(vk.resetFences(device, 1, &fence.get()));
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull)));
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 	}
 
 
@@ -857,38 +825,15 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 			}
 		};
 
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType
-			DE_NULL,										// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL	// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		beginCommandBuffer(vk, *transferCmdBuffer);
+		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_HOST_BIT,
 				(VkDependencyFlags)0,
 				0, (const VkMemoryBarrier*)DE_NULL,
 				0, (const VkBufferMemoryBarrier*)DE_NULL,
 				DE_LENGTH_OF_ARRAY(imageBarrier), imageBarrier);
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		VK_CHECK(vk.resetFences(device, 1, &fence.get()));
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull)));
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 	}
 
 	// Resolve Depth Buffer
@@ -964,193 +909,22 @@ TestStatus BuiltinFragDepthCaseInstance::iterate (void)
 
 	// Transfer marker buffer
 	{
-		const UVec2 copySize		= UVec2(m_renderSize.x() * m_samples, m_renderSize.y());
-		const VkImageMemoryBarrier imageBarrier =
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType		sType
-			DE_NULL,										// const void*			pNext
-			VK_ACCESS_SHADER_WRITE_BIT,						// VkAccessFlags		srcAccessMask
-			VK_ACCESS_TRANSFER_READ_BIT,					// VkAccessMask			dstAccessMask
-			VK_IMAGE_LAYOUT_GENERAL,						// VkImageLayout		oldLayout
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,			// VkImageLayout		newLayout
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				dstQueueFamilyIndex
-			*markerImage,									// VkImage				image
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
-				0u,										// uint32_t				baseMipLevel
-				1u,										// uint32_t				mipLevels
-				0u,										// uint32_t				baseArray
-				1u										// uint32_t				arraySize
-			}
-		};
+		beginCommandBuffer(vk, *transferCmdBuffer);
+		copyImageToBuffer(vk, *transferCmdBuffer, *markerImage, *markerBuffer, tcu::IVec2(m_renderSize.x() * m_samples, m_renderSize.y()), VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkBufferMemoryBarrier bufferBarrier =
-		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,		// VkStructureType		sType
-			DE_NULL,										// const void*			pNext
-			VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags		srcAccessMask
-			VK_ACCESS_HOST_READ_BIT,						// VkAccessFlags		dstAccessMask
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				dstQueueFamilyIndex
-			*markerBuffer,									// VkBufer				buffer
-			0u,												// VkDeviceSize			offset
-			VK_WHOLE_SIZE									// VkDeviceSize			size
-		};
-
-		const VkBufferImageCopy bufferImageCopy =
-		{
-			0u,									// VkDeviceSize		bufferOffset
-			copySize.x(),						// uint32_t			bufferRowLength
-			copySize.y(),						// uint32_t			bufferImageHeight
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,	// VkImageAspectFlags	aspect
-				0u,							// uint32_t				mipLevel
-				0u,							// uint32_t				baseArrayLayer
-				1u							// uint32_t				layerCount
-			},
-			{ 0, 0, 0 },						// VkOffset3D		imageOffset
-			{
-				copySize.x(),				// uint32_t				width
-				copySize.y(),				// uint32_t				height,
-				1u							// uint32_t				depth
-			}
-		};
-
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType
-			DE_NULL,										// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL	// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				0, (const VkBufferMemoryBarrier*)DE_NULL,
-				1, &imageBarrier);
-		vk.cmdCopyImageToBuffer(*transferCmdBuffer, *markerImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *markerBuffer, 1u, &bufferImageCopy);
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				1, &bufferBarrier,
-				0, (const VkImageMemoryBarrier*)DE_NULL);
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
-
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		VK_CHECK(vk.resetFences(device, 1, &fence.get()));
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull)));
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 	}
 
 	// Verify depth buffer
 	{
 		bool status;
 
-		const VkBufferMemoryBarrier bufferBarrier =
-		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,			// VkStructureType		sType
-			DE_NULL,											// const void*			pNext
-			VK_ACCESS_TRANSFER_WRITE_BIT,						// VkAccessFlags		srcAccessMask
-			VK_ACCESS_HOST_READ_BIT,							// VkAccessFlags		dstAccessMask
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				dstQueueFamilyIndex
-			*validationBuffer,									// VkBuffer				buffer
-			0u,													// VkDeviceSize			offset
-			VK_WHOLE_SIZE										// VkDeviceSize			size
-		};
+		beginCommandBuffer(vk, *transferCmdBuffer, 0u);
+		copyImageToBuffer(vk, *transferCmdBuffer, *depthResolveImage, *validationBuffer, tcu::IVec2(m_renderSize.x() * m_samples, m_renderSize.y()), VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkImageMemoryBarrier imageBarrier =
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,				// VkStructureType		sType
-			DE_NULL,											// const void*			pNext
-			VK_ACCESS_SHADER_WRITE_BIT,							// VkAccessFlags		srcAccessMask
-			VK_ACCESS_TRANSFER_READ_BIT,						// VkAccessFlags		dstAccessMask
-			VK_IMAGE_LAYOUT_GENERAL,							// VkImageLayout		oldLayout
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,				// VkImageLayout		newLayout
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,							// uint32_t				dstQueueFamilyIndex
-			*depthResolveImage,									// VkImage				image
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
-				0u,										// uint32_t				baseMipLevel
-				1u,										// uint32_t				mipLevels,
-				0u,										// uint32_t				baseArray
-				1u,										// uint32_t				arraySize
-			}
-		};
-
-		const VkBufferImageCopy bufferImageCopy =
-		{
-			0u,													// VkDeviceSize			bufferOffset
-			m_samples * m_renderSize.x(),						// uint32_t				bufferRowLength
-			m_renderSize.y(),									// uint32_t				bufferImageHeight
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspect
-				0u,										// uint32_t				mipLevel
-				0u,										// uint32_t				baseArrayLayer
-				1u										// uint32_t				layerCount
-			},
-			{ 0, 0, 0 },										// VkOffset3D			imageOffset
-			{
-				m_samples * m_renderSize.x(),			// uint32_t				width
-				m_renderSize.y(),						// uint32_t				height
-				1u										// uint32_t				depth
-			}
-		};
-
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType
-			DE_NULL,										// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL	// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				0, (const VkBufferMemoryBarrier*)DE_NULL,
-				1, &imageBarrier);
-		vk.cmdCopyImageToBuffer(*transferCmdBuffer, *depthResolveImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *validationBuffer, 1u, &bufferImageCopy);
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				1, &bufferBarrier,
-				0, (const VkImageMemoryBarrier*)DE_NULL);
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
-
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		VK_CHECK(vk.resetFences(device, 1, &fence.get()));
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull)));
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 
 		invalidateMappedMemoryRange(vk, device, validationAlloc->getMemory(), validationAlloc->getOffset(), VK_WHOLE_SIZE);
 		invalidateMappedMemoryRange(vk, device, markerBufferAllocation->getMemory(), markerBufferAllocation->getOffset(), VK_WHOLE_SIZE);
@@ -1287,7 +1061,6 @@ TestStatus BuiltinFragCoordMsaaCaseInstance::iterate (void)
 	MovePtr<Allocation>				sampleLocationBufferAllocation;
 	Move<VkCommandPool>				cmdPool;
 	Move<VkCommandBuffer>			transferCmdBuffer;
-	Move<VkFence>					fence;
 
 	// Coordinate result image
 	{
@@ -1410,18 +1183,6 @@ TestStatus BuiltinFragCoordMsaaCaseInstance::iterate (void)
 		transferCmdBuffer = allocateCommandBuffer(vk, device, &cmdBufferAllocInfo);
 	}
 
-	// Fence for data transfer
-	{
-		const VkFenceCreateInfo fenceCreateInfo =
-		{
-			VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,	// VkStructureType		sType
-			DE_NULL,								// const void*			pNext
-			(VkFenceCreateFlags)0					// VkFenceCreateFlags	flags
-		};
-
-		fence = createFence(vk, device, &fenceCreateInfo);
-	}
-
 	// Transition the output image to LAYOUT_GENERAL
 	{
 		const VkImageMemoryBarrier barrier =
@@ -1444,39 +1205,16 @@ TestStatus BuiltinFragCoordMsaaCaseInstance::iterate (void)
 			}
 		};
 
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,		// VkStructureType					sType
-			DE_NULL,											// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,		// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL		// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		beginCommandBuffer(vk, *transferCmdBuffer);
+		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				(VkDependencyFlags)0,
 				0, (const VkMemoryBarrier*)DE_NULL,
 				0, (const VkBufferMemoryBarrier*)DE_NULL,
 				1, &barrier);
 
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		vk.resetFences(device, 1, &fence.get());
-		vk.queueSubmit(queue, 1, &submitInfo, *fence);
-		vk.waitForFences(device, 1, &fence.get(), true, ~(0ull));
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 	}
 
 	// Perform draw
@@ -1516,98 +1254,13 @@ TestStatus BuiltinFragCoordMsaaCaseInstance::iterate (void)
 
 	// Transfer location image to buffer
 	{
-		const VkImageMemoryBarrier imageBarrier =
-		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType		sType
-			DE_NULL,										// const void*			pNext
-			VK_ACCESS_SHADER_WRITE_BIT,						// VkAccessFlags		srcAccessMask
-			VK_ACCESS_TRANSFER_READ_BIT,					// VkAccessMask			dstAccessMask
-			VK_IMAGE_LAYOUT_GENERAL,						// VkImageLayout		oldLayout
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,			// VkImageLayout		newLayout
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				dstQueueFamilyIndex
-			*outputImage,									// VkImage				image
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
-				0u,										// uint32_t				baseMipLevel
-				1u,										// uint32_t				mipLevels
-				0u,										// uint32_t				baseArray
-				1u										// uint32_t				arraySize
-			}
-		};
+		beginCommandBuffer(vk, *transferCmdBuffer);
+		copyImageToBuffer(vk, *transferCmdBuffer, *outputImage, *sampleLocationBuffer, tcu::IVec2(m_renderSize.x() * m_sampleCount, m_renderSize.y()), VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+		endCommandBuffer(vk, *transferCmdBuffer);
 
-		const VkBufferMemoryBarrier bufferBarrier =
-		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,		// VkStructureType		sType
-			DE_NULL,										// const void*			pNext
-			VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags		srcAccessMask
-			VK_ACCESS_HOST_READ_BIT,						// VkAccessFlags		dstAccessMask
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				srcQueueFamilyIndex
-			VK_QUEUE_FAMILY_IGNORED,						// uint32_t				dstQueueFamilyIndex
-			*sampleLocationBuffer,							// VkBufer				buffer
-			0u,												// VkDeviceSize			offset
-			VK_WHOLE_SIZE									// VkDeviceSize			size
-		};
+		submitCommandsAndWait(vk, device, queue, transferCmdBuffer.get());
 
-		const VkBufferImageCopy bufferImageCopy =
-		{
-			0u,									// VkDeviceSize		bufferOffset
-			m_sampleCount * m_renderSize.x(),	// uint32_t			bufferRowLength
-			m_renderSize.y(),					// uint32_t			bufferImageHeight
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT,	// VkImageAspectFlags	aspect
-				0u,							// uint32_t				mipLevel
-				0u,							// uint32_t				baseArrayLayer
-				1u							// uint32_t				layerCount
-			},
-			{ 0, 0, 0 },						// VkOffset3D		imageOffset
-			{
-				m_sampleCount * m_renderSize.x(),	// uint32_t				width
-				m_renderSize.y(),			// uint32_t				height,
-				1u							// uint32_t				depth
-			}
-		};
-
-		const VkCommandBufferBeginInfo	cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType
-			DE_NULL,										// const void*						pNext
-			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// VkCommandBufferUsageFlags		flags
-			(const VkCommandBufferInheritanceInfo*)DE_NULL	// VkCommandBufferInheritanceInfo	pInheritanceInfo
-		};
-
-		VK_CHECK(vk.beginCommandBuffer(*transferCmdBuffer, &cmdBufferBeginInfo));
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				0, (const VkBufferMemoryBarrier*)DE_NULL,
-				1, &imageBarrier);
-		vk.cmdCopyImageToBuffer(*transferCmdBuffer, *outputImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *sampleLocationBuffer, 1u, &bufferImageCopy);
-		vk.cmdPipelineBarrier(*transferCmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-				(VkDependencyFlags)0,
-				0, (const VkMemoryBarrier*)DE_NULL,
-				1, &bufferBarrier,
-				0, (const VkImageMemoryBarrier*)DE_NULL);
-		VK_CHECK(vk.endCommandBuffer(*transferCmdBuffer));
-
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType
-			DE_NULL,								// const void*				pNext
-			0u,										// uint32_t					waitSemaphoreCount
-			DE_NULL,								// const VkSemaphore*		pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,	// const VkPipelineStageFlags*	pWaitDstStageMask
-			1u,										// uint32_t					commandBufferCount
-			&transferCmdBuffer.get(),				// const VkCommandBuffer*	pCommandBuffers
-			0u,										// uint32_t					signalSemaphoreCount
-			DE_NULL									// const VkSemaphore*		pSignalSemaphores
-		};
-
-		vk.resetFences(device, 1, &fence.get());
-		vk.queueSubmit(queue, 1, &submitInfo, *fence);
-		vk.waitForFences(device, 1, &fence.get(), true, ~(0ull));
-
-		invalidateMappedMemoryRange(vk, device, sampleLocationBufferAllocation->getMemory(), sampleLocationBufferAllocation->getOffset(), VK_WHOLE_SIZE);
+		invalidateAlloc(vk, device, *sampleLocationBufferAllocation);
 	}
 
 	// Validate result

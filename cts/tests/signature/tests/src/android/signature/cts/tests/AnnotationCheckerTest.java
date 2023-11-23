@@ -24,10 +24,14 @@ import android.signature.cts.ResultObserver;
 import android.signature.cts.tests.data.ApiAnnotation;
 import java.lang.reflect.Modifier;
 
+import org.junit.Test;
+import org.junit.runners.JUnit4;
+import org.junit.runner.RunWith;
+
 /**
  * Test class for {@link android.signature.cts.AnnotationChecker}.
  */
-@SuppressWarnings("deprecation")
+@RunWith(JUnit4.class)
 public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChecker> {
 
     @Override
@@ -60,6 +64,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * Documented API and runtime classes are exactly matched.
      */
+    @Test
     public void testExactApiMatch() {
         JDiffClassDescription clz = createClass("SystemApiClass");
         addConstructor(clz);
@@ -83,6 +88,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * A constructor is found in the runtime class, but not in the documented API
      */
+    @Test
     public void testDetectUnauthorizedConstructorApi() {
         ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_METHOD);
 
@@ -112,6 +118,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * A method is found in the runtime class, but not in the documented API
      */
+    @Test
     public void testDetectUnauthorizedMethodApi() {
         ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_METHOD);
 
@@ -141,6 +148,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * A field is found in the runtime class, but not in the documented API
      */
+    @Test
     public void testDetectUnauthorizedFieldApi() {
         ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_FIELD);
 
@@ -170,6 +178,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * A class is found in the runtime classes, but not in the documented API
      */
+    @Test
     public void testDetectUnauthorizedClassApi() {
         ExpectFailure observer = new ExpectFailure(FailureType.EXTRA_CLASS);
         JDiffClassDescription clz = createClass("SystemApiClass");
@@ -198,6 +207,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
     /**
      * A member which is declared in an annotated class is currently recognized as an API.
      */
+    @Test
     public void testB71630695() {
         // TODO(b/71630695): currently, some API members are not annotated, because
         // a member is automatically added to the API set if it is in a class with
@@ -238,6 +248,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
      * An API is documented, but isn't annotated in the runtime class. But, due to b/71630695, this
      * test can only be done for public API classes.
      */
+    @Test
     public void testDetectMissingAnnotation() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISSING_ANNOTATION);
 
@@ -283,6 +294,7 @@ public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChec
      * A <code>@hide</code> method should be recognized as API though it is not annotated, if it is
      * overriding a method which is already an API.
      */
+    @Test
     public void testOverriddenHidenMethodIsApi() {
         JDiffClassDescription clz = createClass("PublicApiClass");
         addConstructor(clz);

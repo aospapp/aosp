@@ -20,7 +20,6 @@ The script uses latest gandof stable build as test build by default.
 
 import argparse
 import ast
-from contextlib import contextmanager
 import datetime
 import getpass
 import multiprocessing
@@ -49,13 +48,7 @@ from autotest_lib.server import site_utils
 from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-
-try:
-    from chromite.lib import metrics
-    from chromite.lib import ts_mon_config
-except ImportError:
-    metrics = site_utils.metrics_mock
-    ts_mon_config = site_utils.metrics_mock
+from autotest_lib.site_utils import test_push_common
 
 AUTOTEST_DIR=common.autotest_dir
 CONFIG = global_config.global_config
@@ -68,76 +61,36 @@ BUILD_REGEX = 'R[\d]+-[\d]+\.[\d]+\.[\d]+'
 RUN_SUITE_COMMAND = 'run_suite.py'
 PUSH_TO_PROD_SUITE = 'push_to_prod'
 DUMMY_SUITE = 'dummy'
-TESTBED_SUITE = 'testbed_push'
-# TODO(shuqianz): Dynamically get android build after crbug.com/646068 fixed
 DEFAULT_TIMEOUT_MIN_FOR_SUITE_JOB = 30
 IMAGE_BUCKET = CONFIG.get_config_value('CROS', 'image_storage_server')
-# TODO(crbug.com/767302): Bump up tesbed requirement back to 1 when we
-# re-enable testbed tests.
 DEFAULT_NUM_DUTS = (
         ('gandof', 4),
         ('quawks', 2),
-        ('testbed', 0),
 )
 
 SUITE_JOB_START_INFO_REGEX = ('^.*Created suite job:.*'
                               'tab_id=view_job&object_id=(\d+)$')
 
-# Dictionary of test results keyed by test name regular expression.
-EXPECTED_TEST_RESULTS = {'^SERVER_JOB$':                 'GOOD',
-                         # This is related to dummy_Fail/control.dependency.
-                         'dummy_Fail.dependency$':       'TEST_NA',
-                         'login_LoginSuccess.*':         'GOOD',
-                         'provision_AutoUpdate.double':  'GOOD',
-                         'dummy_Pass.*':                 'GOOD',
-                         'dummy_Fail.Fail$':             'FAIL',
-                         'dummy_Fail.RetryFail$':        'FAIL',
-                         'dummy_Fail.RetrySuccess':      'GOOD',
-                         'dummy_Fail.Error$':            'ERROR',
-                         'dummy_Fail.Warn$':             'WARN',
-                         'dummy_Fail.NAError$':          'TEST_NA',
-                         'dummy_Fail.Crash$':            'GOOD',
-                         'autotest_SyncCount$':          'GOOD',
-                         }
-
-EXPECTED_TEST_RESULTS_DUMMY = {'^SERVER_JOB$':       'GOOD',
-                               'dummy_Pass.*':       'GOOD',
-                               'dummy_Fail.Fail':    'FAIL',
-                               'dummy_Fail.Warn':    'WARN',
-                               'dummy_Fail.Crash':   'GOOD',
-                               'dummy_Fail.Error':   'ERROR',
-                               'dummy_Fail.NAError': 'TEST_NA',}
-
-EXPECTED_TEST_RESULTS_TESTBED = {'^SERVER_JOB$':      'GOOD',
-                                 'testbed_DummyTest': 'GOOD',}
-
-EXPECTED_TEST_RESULTS_POWERWASH = {'platform_Powerwash': 'GOOD',
-                                   'SERVER_JOB':         'GOOD'}
-
 URL_HOST = CONFIG.get_config_value('SERVER', 'hostname', type=str)
 URL_PATTERN = CONFIG.get_config_value('CROS', 'log_url_pattern', type=str)
 
-# Some test could be missing from the test results for various reasons. Add
-# such test in this list and explain the reason.
-IGNORE_MISSING_TESTS = [
-    # For latest build, npo_test_delta does not exist.
-    'autoupdate_EndToEndTest.npo_test_delta.*',
-    # For trybot build, nmo_test_delta does not exist.
-    'autoupdate_EndToEndTest.nmo_test_delta.*',
-    # Older build does not have login_LoginSuccess test in push_to_prod suite.
-    # TODO(dshi): Remove following lines after R41 is stable.
-    'login_LoginSuccess']
+# Some test could be extra / missing or have mismatched results for various
+# reasons. Add such test in this list and explain the reason.
+_IGNORED_TESTS = [
+    # test_push uses a stable image build to test, which is quite behind ToT.
+    # The following expectations are correct at ToT, but need to be ignored
+    # until stable image is recent enough.
+
+    # TODO(pprabhu): Remove once R70 is stable.
+    'dummy_Fail.RetrySuccess',
+    'dummy_Fail.RetryFail',
+]
 
 # Multiprocessing proxy objects that are used to share data between background
 # suite-running processes and main process. The multiprocessing-compatible
 # versions are initialized in _main.
 _run_suite_output = []
 _all_suite_ids = []
-
-# A dict maps the name of the updated repos and the path of them.
-UPDATED_REPOS = {'autotest': AUTOTEST_DIR,
-                 'chromite': '%s/site-packages/chromite/' % AUTOTEST_DIR}
-PUSH_USER = 'chromeos-test-lab'
 
 DEFAULT_SERVICE_RESPAWN_LIMIT = 2
 
@@ -180,7 +133,7 @@ def powerwash_dut_to_test_repair(hostname, timeout):
     @raise TestPushException: if DUT fail to run the test.
     """
     t = models.Test.objects.get(name='platform_Powerwash')
-    c = utils.read_file(os.path.join(common.autotest_dir, t.path))
+    c = utils.read_file(os.path.join(AUTOTEST_DIR, t.path))
     job_id = rpc_utils.create_job_common(
              'powerwash', priority=priorities.Priority.SUPER,
              control_type='Server', control_file=c, hosts=[hostname])
@@ -193,7 +146,8 @@ def powerwash_dut_to_test_repair(hostname, timeout):
                 'Powerwash test on %s timeout after %ds, abort it.' %
                 (hostname, timeout))
         time.sleep(10)
-    verify_test_results(job_id, EXPECTED_TEST_RESULTS_POWERWASH)
+    verify_test_results(job_id,
+                        test_push_common.EXPECTED_TEST_RESULTS_POWERWASH)
     # Kick off verify, verify will fail and a repair should be triggered.
     AFE.reverify_hosts(hostnames=[hostname])
 
@@ -205,31 +159,15 @@ def reverify_all_push_duts():
     AFE.reverify_hosts(hostnames=hosts)
 
 
-def get_default_build(board='gandof', server='chromeos-staging-master2.hot'):
-    """Get the default build to be used for test.
-
-    @param board: Name of board to be tested, default is gandof.
-    @return: Build to be tested, e.g., gandof-release/R36-5881.0.0
-    """
-    build = None
-    cmd = ('%s/cli/atest stable_version list --board=%s -w %s' %
-           (AUTOTEST_DIR, board, server))
-    result = subprocess.check_output(cmd, shell=True).strip()
-    build = re.search(BUILD_REGEX, result)
-    if build:
-        return '%s-release/%s' % (board, build.group(0))
-
-    # If fail to get stable version from cautotest, use that defined in config
-    build = CONFIG.get_config_value('CROS', 'stable_cros_version')
-    return '%s-release/%s' % (board, build)
-
-def parse_arguments():
+def parse_arguments(argv):
     """Parse arguments for test_push tool.
 
+    @param argv   Argument vector, as for `sys.argv`, including the
+                  command name in `argv[0]`.
     @return: Parsed arguments.
 
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog=argv[0])
     parser.add_argument('-b', '--board', dest='board', default='gandof',
                         help='Default is gandof.')
     parser.add_argument('-sb', '--shard_board', dest='shard_board',
@@ -243,12 +181,6 @@ def parse_arguments():
                         help='Default is the latest stable build of given '
                              'board. Must be a stable build, otherwise AU test '
                              'will fail.')
-    parser.add_argument('-w', '--web', default='chromeos-staging-master2.hot',
-                        help='Specify web server to grab stable version from.')
-    parser.add_argument('-ab', '--android_board', dest='android_board',
-                        default='shamu-2', help='Android board to test.')
-    parser.add_argument('-ai', '--android_build', dest='android_build',
-                        help='Android build to test.')
     parser.add_argument('-p', '--pool', dest='pool', default='bvt')
     parser.add_argument('-t', '--timeout_min', dest='timeout_min', type=int,
                         default=DEFAULT_TIMEOUT_MIN_FOR_SUITE_JOB,
@@ -268,20 +200,20 @@ def parse_arguments():
                         help='If a service crashes more than this, the test '
                              'push is considered failed.')
 
-    arguments = parser.parse_args(sys.argv[1:])
+    arguments = parser.parse_args(argv[1:])
 
     # Get latest stable build as default build.
+    version_map = AFE.get_stable_version_map(AFE.CROS_IMAGE_TYPE)
     if not arguments.build:
-        arguments.build = get_default_build(arguments.board, arguments.web)
+        arguments.build = version_map.get_image_name(arguments.board)
     if not arguments.shard_build:
-        arguments.shard_build = get_default_build(arguments.shard_board,
-                                                  arguments.web)
-
+        arguments.shard_build = version_map.get_image_name(
+            arguments.shard_board)
     return arguments
 
 
 def do_run_suite(suite_name, arguments, use_shard=False,
-                 create_and_return=False, testbed_test=False):
+                 create_and_return=False):
     """Call run_suite to run a suite job, and return the suite job id.
 
     The script waits the suite job to finish before returning the suite job id.
@@ -292,17 +224,13 @@ def do_run_suite(suite_name, arguments, use_shard=False,
     @param use_shard: If true, suite is scheduled for shard board.
     @param create_and_return: If True, run_suite just creates the suite, print
                               the job id, then finish immediately.
-    @param testbed_test: True to run testbed test. Default is False.
 
     @return: Suite job ID.
 
     """
-    if use_shard and not testbed_test:
+    if use_shard:
         board = arguments.shard_board
         build = arguments.shard_build
-    elif testbed_test:
-        board = arguments.android_board
-        build = arguments.android_build
     else:
         board = arguments.board
         build = arguments.build
@@ -313,8 +241,7 @@ def do_run_suite(suite_name, arguments, use_shard=False,
     for host in hosts:
         labels_to_remove = [
                 l for l in host.labels
-                if (l.startswith(provision.CROS_VERSION_PREFIX) or
-                    l.startswith(provision.TESTBED_BUILD_VERSION_PREFIX))]
+                if l.startswith(provision.CROS_VERSION_PREFIX)]
         if labels_to_remove:
             AFE.run('host_remove_labels', id=host.id, labels=labels_to_remove)
 
@@ -331,8 +258,6 @@ def do_run_suite(suite_name, arguments, use_shard=False,
            '--minimum_duts', str(arguments.num_duts[board])]
     if create_and_return:
         cmd += ['-c']
-    if testbed_test:
-        cmd += ['--run_prod_code']
 
     suite_job_id = None
 
@@ -396,7 +321,7 @@ def check_dut_image(build, suite_job_id):
 
 
 def test_suite(suite_name, expected_results, arguments, use_shard=False,
-               create_and_return=False, testbed_test=False):
+               create_and_return=False):
     """Call run_suite to start a suite job and verify results.
 
     @param suite_name: Name of a suite, e.g., dummy
@@ -405,17 +330,15 @@ def test_suite(suite_name, expected_results, arguments, use_shard=False,
     @param use_shard: If true, suite is scheduled for shard board.
     @param create_and_return: If True, run_suite just creates the suite, print
                               the job id, then finish immediately.
-    @param testbed_test: True to run testbed test. Default is False.
     """
     suite_job_id = do_run_suite(suite_name, arguments, use_shard,
-                                create_and_return, testbed_test)
+                                create_and_return)
 
     # Confirm all DUTs used for the suite are imaged to expected build.
     # hqe.host_id for jobs running in shard is not synced back to master db,
     # therefore, skip verifying dut build for jobs running in shard.
-    build_expected = (arguments.android_build if testbed_test
-                      else arguments.build)
-    if not use_shard and not testbed_test:
+    build_expected = arguments.build
+    if not use_shard:
         check_dut_image(build_expected, suite_job_id)
 
     # Verify test results are the expected results.
@@ -431,53 +354,8 @@ def verify_test_results(job_id, expected_results):
     """
     print 'Comparing test results...'
     test_views = site_utils.get_test_views_from_tko(job_id, TKO)
-
-    mismatch_errors = []
-    extra_test_errors = []
-
-    found_keys = set()
-    for test_name, test_status in test_views.items():
-        print "%s%s" % (test_name.ljust(30), test_status)
-        # platform_InstallTestImage test may exist in old builds.
-        if re.search('platform_InstallTestImage_SERVER_JOB$', test_name):
-            continue
-        test_found = False
-        for key,val in expected_results.items():
-            if re.search(key, test_name):
-                test_found = True
-                found_keys.add(key)
-                if val != test_status:
-                    error = ('%s Expected: [%s], Actual: [%s]' %
-                             (test_name, val, test_status))
-                    mismatch_errors.append(error)
-        if not test_found:
-            extra_test_errors.append(test_name)
-
-    missing_test_errors = set(expected_results.keys()) - found_keys
-    for exception in IGNORE_MISSING_TESTS:
-        try:
-            missing_test_errors.remove(exception)
-        except KeyError:
-            pass
-
-    summary = []
-    if mismatch_errors:
-        summary.append(('Results of %d test(s) do not match expected '
-                        'values:') % len(mismatch_errors))
-        summary.extend(mismatch_errors)
-        summary.append('\n')
-
-    if extra_test_errors:
-        summary.append('%d test(s) are not expected to be run:' %
-                       len(extra_test_errors))
-        summary.extend(extra_test_errors)
-        summary.append('\n')
-
-    if missing_test_errors:
-        summary.append('%d test(s) are missing from the results:' %
-                       len(missing_test_errors))
-        summary.extend(missing_test_errors)
-        summary.append('\n')
+    summary = test_push_common.summarize_push(test_views, expected_results,
+                                              _IGNORED_TESTS)
 
     # Test link to log can be loaded.
     job_name = '%s-%s' % (job_id, getpass.getuser())
@@ -490,10 +368,8 @@ def verify_test_results(job_id, expected_results):
     if summary:
         raise TestPushException('\n'.join(summary))
 
-
 def test_suite_wrapper(queue, suite_name, expected_results, arguments,
-                       use_shard=False, create_and_return=False,
-                       testbed_test=False):
+                       use_shard=False, create_and_return=False):
     """Wrapper to call test_suite. Handle exception and pipe it to parent
     process.
 
@@ -504,11 +380,10 @@ def test_suite_wrapper(queue, suite_name, expected_results, arguments,
     @param use_shard: If true, suite is scheduled for shard board.
     @param create_and_return: If True, run_suite just creates the suite, print
                               the job id, then finish immediately.
-    @param testbed_test: True to run testbed test. Default is False.
     """
     try:
         test_suite(suite_name, expected_results, arguments, use_shard,
-                   create_and_return, testbed_test)
+                   create_and_return)
     except Exception:
         # Store the whole exc_info leads to a PicklingError.
         except_type, except_value, tb = sys.exc_info()
@@ -529,55 +404,6 @@ def check_queue(queue):
     raise exc_info[0](exc_info[1])
 
 
-def get_head_of_repos(repos):
-    """Get HEAD of updated repos, currently are autotest and chromite repos
-
-    @param repos: a map of repo name to the path of the repo. E.g.
-                  {'autotest': '/usr/local/autotest'}
-    @return: a map of repo names to the current HEAD of that repo.
-    """
-    @contextmanager
-    def cd(new_wd):
-        """Helper function to change working directory.
-
-        @param new_wd: new working directory that switch to.
-        """
-        prev_wd = os.getcwd()
-        os.chdir(os.path.expanduser(new_wd))
-        try:
-            yield
-        finally:
-            os.chdir(prev_wd)
-
-    updated_repo_heads = {}
-    for repo_name, path_to_repo in repos.iteritems():
-        with cd(path_to_repo):
-            head = subprocess.check_output('git rev-parse HEAD',
-                                           shell=True).strip()
-        updated_repo_heads[repo_name] = head
-    return updated_repo_heads
-
-
-def push_prod_next_branch(updated_repo_heads):
-    """push prod-next branch to the tested HEAD after all tests pass.
-
-    The push command must be ran as PUSH_USER, since only PUSH_USER has the
-    right to push branches.
-
-    @param updated_repo_heads: a map of repo names to tested HEAD of that repo.
-    """
-    # prod-next branch for every repo is downloaded under PUSH_USER home dir.
-    cmd = ('cd ~/{repo}; git pull; git rebase {hash} prod-next;'
-           'git push origin prod-next')
-    run_push_as_push_user = "sudo su - %s -c '%s'" % (PUSH_USER, cmd)
-
-    for repo_name, test_hash in updated_repo_heads.iteritems():
-         push_cmd = run_push_as_push_user.format(hash=test_hash, repo=repo_name)
-         print 'Pushing %s prod-next branch to %s' % (repo_name, test_hash)
-         print subprocess.check_output(push_cmd, stderr=subprocess.STDOUT,
-                                       shell=True)
-
-
 def _run_test_suites(arguments):
     """Run the actual tests that comprise the test_push."""
     # Use daemon flag will kill child processes when parent process fails.
@@ -586,16 +412,17 @@ def _run_test_suites(arguments):
 
     push_to_prod_suite = multiprocessing.Process(
             target=test_suite_wrapper,
-            args=(queue, PUSH_TO_PROD_SUITE, EXPECTED_TEST_RESULTS,
-                    arguments))
+            args=(queue, PUSH_TO_PROD_SUITE,
+                  test_push_common.EXPECTED_TEST_RESULTS, arguments))
     push_to_prod_suite.daemon = use_daemon
     push_to_prod_suite.start()
 
     # suite test with --create_and_return flag
     asynchronous_suite = multiprocessing.Process(
             target=test_suite_wrapper,
-            args=(queue, DUMMY_SUITE, EXPECTED_TEST_RESULTS_DUMMY,
-                    arguments, True, True))
+            args=(queue, DUMMY_SUITE,
+                  test_push_common.EXPECTED_TEST_RESULTS_DUMMY,
+                  arguments, True, True))
     asynchronous_suite.daemon = True
     asynchronous_suite.start()
 
@@ -646,18 +473,8 @@ def check_service_crash(respawn_limit, start_time):
     raise TestPushException(error_msg)
 
 
-def _promote_prod_next_refs():
-    """Updates prod-next branch on relevant repos."""
-    updated_repo_heads = get_head_of_repos(UPDATED_REPOS)
-    push_prod_next_branch(updated_repo_heads)
-    return updated_repo_heads
-
-
 _SUCCESS_MSG = """
-All tests completed successfully, the prod branch of the following repos is
-ready to be pushed to the hash list below.
-
-%(updated_repos_msg)s
+All staging tests completed successfully.
 
 Instructions for pushing to prod are available at
 https://goto.google.com/autotest-to-prod
@@ -687,34 +504,20 @@ def _main(arguments):
         check_dut_inventory(arguments.num_duts, arguments.pool)
         _run_test_suites(arguments)
         check_service_crash(arguments.service_respawn_limit, start_time)
-        updated_repo_heads = _promote_prod_next_refs()
-        updated_repos_msg = '\n'.join(
-                ['%s: %s' % (k, v) for k, v in updated_repo_heads.iteritems()])
-        print _SUCCESS_MSG % {'updated_repos_msg': updated_repos_msg}
+        print _SUCCESS_MSG
     except Exception:
-        # Abort running jobs when choose not to continue when there is failure.
+        # Abort running jobs unless flagged to continue when there is a failure.
         if not arguments.continue_on_failure:
             for suite_id in _all_suite_ids:
                 if AFE.get_jobs(id=suite_id, finished=False):
                     AFE.run('abort_host_queue_entries', job=suite_id)
         raise
-    finally:
-        # Reverify all the hosts
-        reverify_all_push_duts()
 
 
 def main():
     """Entry point."""
-    arguments = parse_arguments()
-    with ts_mon_config.SetupTsMonGlobalState(service_name='test_push',
-                                             indirect=True):
-        test_push_success = False
-        try:
-            _main(arguments)
-            test_push_success = True
-        finally:
-            metrics.Counter('chromeos/autotest/test_push/completed').increment(
-                    fields={'success': test_push_success})
+    arguments = parse_arguments(sys.argv)
+    _main(arguments)
 
 
 if __name__ == '__main__':

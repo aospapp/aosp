@@ -65,8 +65,9 @@ CpuInfoParser::Parse(const int in, const int out) const
         if (line.empty()) continue;
 
         nline++;
-
-        if (stripPrefix(&line, "Tasks:")) {
+        // The format changes from time to time in toybox/toys/posix/ps.c
+        // With -H, it prints Threads instead of Tasks (FLAG(H)?"Thread":"Task")
+        if (stripPrefix(&line, "Threads:")) {
             writeSuffixLine(&proto, CpuInfoProto::TASK_STATS, line, COMMA_DELIMITER,
                 CpuInfoProto::TaskStats::_FIELD_COUNT,
                 CpuInfoProto::TaskStats::_FIELD_NAMES,
@@ -109,7 +110,7 @@ CpuInfoParser::Parse(const int in, const int out) const
             nextToUsage = false;
 
             // NAME is not in the list since we need to modify the end of the CMD index.
-            const char* headerNames[] = { "PID", "TID", "USER", "PR", "NI", "CPU", "S", "VIRT", "RES", "PCY", "CMD", NULL };
+            const char* headerNames[] = { "PID", "TID", "USER", "PR", "NI", "CPU", "S", "VIRT", "RES", "PCY", "CMD", nullptr };
             if (!getColumnIndices(columnIndices, headerNames, line)) {
                 return -1;
             }

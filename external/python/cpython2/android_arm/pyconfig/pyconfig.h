@@ -92,6 +92,12 @@
 /* Define if poll() sets errno on invalid file descriptors. */
 /* #undef HAVE_BROKEN_POLL */
 
+/* Define to 1 if you have the <sys/random.h> header file. */
+#define HAVE_SYS_RANDOM_H 1
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#define HAVE_SYS_SYSMACROS_H 1
+
 /* Define if the Posix semaphores do not work on your system */
 /* #undef HAVE_BROKEN_POSIX_SEMAPHORES */
 
@@ -468,7 +474,7 @@
 #define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the `mkfifo' function. */
-/* #undef HAVE_MKFIFO */
+#define HAVE_MKFIFO  1
 
 /* Define to 1 if you have the `mknod' function. */
 #define HAVE_MKNOD 1

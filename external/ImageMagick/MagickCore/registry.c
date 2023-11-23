@@ -17,13 +17,13 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -46,6 +46,7 @@
 #include "MagickCore/image.h"
 #include "MagickCore/list.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/registry.h"
 #include "MagickCore/registry-private.h"
 #include "MagickCore/splay-tree.h"
@@ -198,11 +199,7 @@ MagickExport void *GetImageRegistry(const RegistryType type,const char *key,
     return((void *) NULL);
   registry_info=(RegistryInfo *) GetValueFromSplayTree(registry,key);
   if (registry_info == (void *) NULL)
-    {
-      (void) ThrowMagickException(exception,GetMagickModule(),RegistryError,
-        "UnableToGetRegistryID","`%s'",key);
-      return((void *) NULL);
-    }
+    return((void *) NULL);
   value=(void *) NULL;
   switch (type)
   {
@@ -514,10 +511,8 @@ MagickExport MagickBooleanType SetImageRegistry(const RegistryType type,
   }
   if (clone_value == (void *) NULL)
     return(MagickFalse);
-  registry_info=(RegistryInfo *) AcquireMagickMemory(sizeof(*registry_info));
-  if (registry_info == (RegistryInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(registry_info,0,sizeof(*registry_info));
+  registry_info=(RegistryInfo *) AcquireCriticalMemory(sizeof(*registry_info));
+  (void) memset(registry_info,0,sizeof(*registry_info));
   registry_info->type=type;
   registry_info->value=clone_value;
   registry_info->signature=MagickCoreSignature;

@@ -23,7 +23,8 @@ WyH8EZE0vkHve52Xdf+XlcCWWC/qu0bXu+TZLg==
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 18364802974209362175 (0xfedce3010fc948ff)
+        Serial Number:
+            fe:dc:e3:01:0f:c9:48:ff
     Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=FR, O=Dhimyotis, CN=Certigna
         Validity

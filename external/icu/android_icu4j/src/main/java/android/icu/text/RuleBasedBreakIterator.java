@@ -13,7 +13,6 @@ package android.icu.text;
 import static android.icu.impl.CharacterIteration.DONE32;
 import static android.icu.impl.CharacterIteration.next32;
 import static android.icu.impl.CharacterIteration.nextTrail32;
-import static android.icu.impl.CharacterIteration.previous32;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -27,6 +26,7 @@ import java.util.List;
 import android.icu.impl.CharacterIteration;
 import android.icu.impl.ICUBinary;
 import android.icu.impl.ICUDebug;
+import android.icu.impl.RBBIDataWrapper;
 import android.icu.impl.Trie2;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UProperty;
@@ -49,7 +49,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
     private RuleBasedBreakIterator() {
         fDictionaryCharCount  = 0;
         synchronized(gAllBreakEngines) {
-            fBreakEngines = new ArrayList<LanguageBreakEngine>(gAllBreakEngines);
+            fBreakEngines = new ArrayList<>(gAllBreakEngines);
         }
     }
 
@@ -134,7 +134,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
             result.fText = (CharacterIterator)(fText.clone());
         }
         synchronized (gAllBreakEngines)  {
-            result.fBreakEngines = new ArrayList<LanguageBreakEngine>(gAllBreakEngines);
+            result.fBreakEngines = new ArrayList<>(gAllBreakEngines);
         }
         result.fLookAheadMatches = new LookAheadResults();
         result.fBreakCache = result.new BreakCache(fBreakCache);
@@ -211,15 +211,19 @@ public class RuleBasedBreakIterator extends BreakIterator {
     private static final int  RBBI_RUN    = 1;
     private static final int  RBBI_END    = 2;
 
-    /*
+    /**
      * The character iterator through which this BreakIterator accesses the text.
      */
     private CharacterIterator   fText = new java.text.StringCharacterIterator("");
 
     /**
-     * The rule data for this BreakIterator instance. Package private.
+     * The rule data for this BreakIterator instance.
+     * Not intended for public use. Declared public for testing purposes only.
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
      */
-    RBBIDataWrapper             fRData;
+    @Deprecated
+    public RBBIDataWrapper    fRData;
 
     /**
      *  The iteration state - current position, rule status for the current position,
@@ -259,7 +263,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
 
     private DictionaryCache     fDictionaryCache = new DictionaryCache();
 
-    /*
+    /**
      * ICU debug argument name for RBBI
      */
     private static final String RBBI_DEBUG_ARG = "rbbi";
@@ -269,13 +273,6 @@ public class RuleBasedBreakIterator extends BreakIterator {
      */
     private static final boolean TRACE = ICUDebug.enabled(RBBI_DEBUG_ARG)
             && ICUDebug.value(RBBI_DEBUG_ARG).indexOf("trace") >= 0;
-
-    /**
-     * What kind of break iterator this is.
-     * Defaulting BreakType to word gives reasonable dictionary behavior for
-     * Break Iterators that are built from rules.
-     */
-    private int fBreakType = KIND_WORD;
 
     /**
      * The "default" break engine - just skips over ranges of dictionary words,
@@ -298,7 +295,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
 
     static {
         gUnhandledBreakEngine = new UnhandledBreakEngine();
-        gAllBreakEngines = new ArrayList<LanguageBreakEngine>();
+        gAllBreakEngines = new ArrayList<>();
         gAllBreakEngines.add(gUnhandledBreakEngine);
     }
 
@@ -443,7 +440,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
             return first();
         }
 
-        // Move requested offset to a code point start. It might be on a trail surrogate.
+        // Move requested offset to a code point start. It might be between a lead and trail surrogate.
         // Or it may be beyond the end of the text.
         startPos = CISetIndex32(fText, startPos);
         fBreakCache.following(startPos);
@@ -465,7 +462,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
             return first();
         }
 
-        // Move requested offset to a code point start. It might be on a trail surrogate.
+        // Move requested offset to a code point start. It might be between a lead and trail surrogate.
         // int adjustedOffset = CISetIndex32(fText, offset);    // TODO: restore to match ICU4C behavior.
         int adjustedOffset = offset;
         fBreakCache.preceding(adjustedOffset);
@@ -498,7 +495,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
         checkOffset(offset, fText);
 
         // Adjust offset to be on a code point boundary and not beyond the end of the text.
-        // Note that isBoundary() is always be false for offsets that are not on code point boundaries.
+        // Note that isBoundary() is always false for offsets that are not on code point boundaries.
         // But we still need the side effect of leaving iteration at the following boundary.
         int adjustedOffset = CISetIndex32(fText, offset);
 
@@ -517,7 +514,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
     }
 
     /**
-     * Returns the current iteration position.  Note that UBRK_DONE is never
+     * Returns the current iteration position.  Note that DONE is never
      * returned from this function; if iteration has run to the end of a
      * string, current() will return the length of the string while
      * next() will return BreakIterator.DONE).
@@ -530,8 +527,8 @@ public class RuleBasedBreakIterator extends BreakIterator {
 
 
     /**
-     * Return the status tag from the break rule that determined the most recently
-     * returned break position.  The values appear in the rule source
+     * Return the status tag from the break rule that determined the boundary at
+     * the current iteration position.  The values appear in the rule source
      * within brackets, {123}, for example.  For rules that do not specify a
      * status, a default value of 0 is returned.  If more than one rule applies,
      * the numerically largest of the possible status values is returned.
@@ -545,8 +542,12 @@ public class RuleBasedBreakIterator extends BreakIterator {
      * position from <code>next()</code>, <code>previous()</code>, or
      * any other break iterator functions that returns a boundary position.
      * <p>
-     * @return the status from the break rule that determined the most recently
-     * returned break position.
+     * Note that <code>getRuleStatus()</code> returns the value corresponding to
+     * <code>current()</code> index even after <code>next()</code> has returned DONE.
+     * <p>
+
+     * @return the status from the break rule that determined the boundary
+     * at the current iteration position.
      */
 
     @Override
@@ -565,8 +566,8 @@ public class RuleBasedBreakIterator extends BreakIterator {
     }
 
     /**
-     * Get the status (tag) values from the break rule(s) that determined the most
-     * recently returned break position.  The values appear in the rule source
+     * Get the status (tag) values from the break rule(s) that determined the boundary
+     * at the current iteration position.  The values appear in the rule source
      * within brackets, {123}, for example.  The default status value for rules
      * that do not explicitly provide one is zero.
      * <p>
@@ -578,8 +579,8 @@ public class RuleBasedBreakIterator extends BreakIterator {
      *  will be thrown.
      *
      * @param fillInArray an array to be filled in with the status values.
-     * @return          The number of rule status values from rules that determined
-     *                  the most recent boundary returned by the break iterator.
+     * @return          The number of rule status values from the rules that determined
+     *                  the boundary at the current iteration position.
      *                  In the event that the array is too small, the return value
      *                  is the total number of status values that were available,
      *                  not the reduced number that were actually returned.
@@ -597,10 +598,19 @@ public class RuleBasedBreakIterator extends BreakIterator {
     }
 
     /**
-     * Return a CharacterIterator over the text being analyzed.  This version
-     * of this method returns the actual CharacterIterator we're using internally.
-     * Changing the state of this iterator can have undefined consequences.  If
-     * you need to change it, clone it first.
+     * Returns a CharacterIterator over the text being analyzed.
+     * <p>
+     * <b><i>Caution:</i></b>The state of the returned CharacterIterator
+     * must not be modified in any way while the BreakIterator is still in use.
+     * Doing so will lead to undefined behavior of the BreakIterator.
+     * Clone the returned CharacterIterator first and work with that.
+     * <p>
+     * The returned CharacterIterator is a reference
+     * to the <b>actual iterator being used</b> by the BreakIterator.
+     * No guarantees are made about the current position
+     * of this iterator when it is returned; it may differ from the
+     * BreakIterators current position.  If you need to move that
+     * position to examine the text, clone this function's return value first.
      * @return An iterator over the text being analyzed.
      */
     @Override
@@ -611,6 +621,13 @@ public class RuleBasedBreakIterator extends BreakIterator {
     /**
      * Set the iterator to analyze a new piece of text.  This function resets
      * the current iteration position to the beginning of the text.
+     * (The old iterator is dropped.)
+     * <p>
+     * <b><i>Caution:</i></b> The supplied CharacterIterator is used
+     * directly by the BreakIterator, and must not be altered in any
+     * way by code outside of the BreakIterator.
+     * Doing so will lead to undefined behavior of the BreakIterator.
+     *
      * @param newText An iterator over the text to analyze.
      */
     @Override
@@ -625,26 +642,14 @@ public class RuleBasedBreakIterator extends BreakIterator {
         this.first();
     }
 
-    /**
-     * package private
-     */
-    void setBreakType(int type) {
-        fBreakType = type;
-    }
-
-    /**
-     * package private
-     */
-    int getBreakType() {
-        return fBreakType;
-    }
-
-    /**
+     /**
      * Control debug, trace and dump options.
+     * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
-    static final String fDebugEnv = ICUDebug.enabled(RBBI_DEBUG_ARG) ?
-                                        ICUDebug.value(RBBI_DEBUG_ARG) : null;
+    @Deprecated
+    public static final String fDebugEnv = ICUDebug.enabled(RBBI_DEBUG_ARG) ?
+                                           ICUDebug.value(RBBI_DEBUG_ARG) : null;
 
 
     private LanguageBreakEngine getLanguageBreakEngine(int c) {
@@ -652,7 +657,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
         // We have a dictionary character.
         // Does an already instantiated break engine handle it?
         for (LanguageBreakEngine candidate : fBreakEngines) {
-            if (candidate.handles(c, fBreakType)) {
+            if (candidate.handles(c)) {
                 return candidate;
             }
         }
@@ -662,7 +667,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
             // Check the global list, another break iterator may have instantiated the
             // desired engine.
             for (LanguageBreakEngine candidate : gAllBreakEngines) {
-                if (candidate.handles(c, fBreakType)) {
+                if (candidate.handles(c)) {
                     fBreakEngines.add(candidate);
                     return candidate;
                 }
@@ -692,24 +697,13 @@ public class RuleBasedBreakIterator extends BreakIterator {
                     eng = new KhmerBreakEngine();
                     break;
                 case UScript.HAN:
-                    if (getBreakType() == KIND_WORD) {
-                        eng = new CjkBreakEngine(false);
-                    }
-                    else {
-                        gUnhandledBreakEngine.handleChar(c, getBreakType());
-                        eng = gUnhandledBreakEngine;
-                    }
-                    break;
+                    eng = new CjkBreakEngine(false);
+                     break;
                 case UScript.HANGUL:
-                    if (getBreakType() == KIND_WORD) {
-                        eng = new CjkBreakEngine(true);
-                    } else {
-                        gUnhandledBreakEngine.handleChar(c, getBreakType());
-                        eng = gUnhandledBreakEngine;
-                    }
+                    eng = new CjkBreakEngine(true);
                     break;
                 default:
-                    gUnhandledBreakEngine.handleChar(c, getBreakType());
+                    gUnhandledBreakEngine.handleChar(c);
                     eng = gUnhandledBreakEngine;
                     break;
                 }
@@ -808,7 +802,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
         CharacterIterator text = fText;
         Trie2 trie = fRData.fTrie;
 
-        short[] stateTable  = fRData.fFTable;
+        short[] stateTable  = fRData.fFTable.fTable;
         int initialPosition = fPosition;
         text.setIndex(initialPosition);
         int result          = initialPosition;
@@ -827,7 +821,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
         int state           = START_STATE;
         int row             = fRData.getRowIndex(state);
         short category      = 3;
-        int flagsState      = fRData.getStateTableFlags(stateTable);
+        int flagsState      = fRData.fFTable.fFlags;
         int mode            = RBBI_RUN;
         if ((flagsState & RBBIDataWrapper.RBBI_BOF_REQUIRED) != 0) {
             category = 2;
@@ -969,142 +963,71 @@ public class RuleBasedBreakIterator extends BreakIterator {
      * This locates a "Safe Position" from which the forward break rules
      * will operate correctly. A Safe Position is not necessarily a boundary itself.
      *
-     * The logic of this function is very similar to handleNext(), above.
+     * The logic of this function is very similar to handleNext(), above, but simpler
+     * because the safe table does not require as many options.
      *
      * @param fromPosition the position in the input text to begin the iteration.
      * @hide draft / provisional / internal are hidden on Android
      */
-    private int handlePrevious(int fromPosition) {
-        if (fText == null) {
-            return 0;
+    private int handleSafePrevious(int fromPosition) {
+        int             state;
+        short           category = 0;
+        int             result = 0;
+
+        // caches for quicker access
+        CharacterIterator text = fText;
+        Trie2 trie = fRData.fTrie;
+        short[] stateTable  = fRData.fRTable.fTable;
+
+        CISetIndex32(text, fromPosition);
+        if (TRACE) {
+            System.out.print("Handle Previous   pos   char  state category");
         }
 
-        int            state;
-        int            category           = 0;
-        int            mode;
-        int            row;
-        int            c;
-        int            result             = 0;
-        int            initialPosition    = fromPosition;
-        fLookAheadMatches.reset();
-        short[] stateTable = fRData.fSRTable;
-        CISetIndex32(fText, fromPosition);
-        if (fromPosition == fText.getBeginIndex()) {
+        // if we're already at the start of the text, return DONE.
+        if (text.getIndex() == text.getBeginIndex()) {
             return BreakIterator.DONE;
         }
 
-        // set up the starting char
-        result          = initialPosition;
-        c               = previous32(fText);
-
-        // Set up the initial state for the state machine
+        //  Set the initial state for the state machine
+        int c = CharacterIteration.previous32(text);
         state = START_STATE;
-        row = fRData.getRowIndex(state);
-        category = 3;   // TODO:  obsolete?  from the old start/run mode scheme?
-        mode     = RBBI_RUN;
-        if ((fRData.getStateTableFlags(stateTable) & RBBIDataWrapper.RBBI_BOF_REQUIRED) != 0) {
-            category = 2;
-            mode     = RBBI_START;
-        }
+        int row = fRData.getRowIndex(state);
 
-        if (TRACE) {
-            System.out.println("Handle Prev   pos   char  state category ");
-        }
-
-        // loop until we reach the beginning of the text or transition to state 0
+        // loop until we reach the start of the text or transition to state 0
         //
-        mainLoop: for (;;) {
-            if (c == DONE32) {
-                // Reached end of input string.
-                if (mode == RBBI_END) {
-                    // We have already done the {eof} iteration.  Now is the time
-                    // to unconditionally bail out.
-                    break mainLoop;
-                }
-                mode = RBBI_END;
-                category = 1;
-            }
+        for (; c != DONE32; c = CharacterIteration.previous32(text)) {
 
-            if (mode == RBBI_RUN) {
-                // look up the current character's category, which tells us
-                // which column in the state table to look at.
-                //
-                //  And off the dictionary flag bit. For reverse iteration it is not used.
-                category = (short) fRData.fTrie.get(c);
-                category &= ~0x4000;
-            }
-
+            // look up the current character's character category, which tells us
+            // which column in the state table to look at.
+            //
+            //  And off the dictionary flag bit. For reverse iteration it is not used.
+            category = (short) trie.get(c);
+            category &= ~0x4000;
             if (TRACE) {
-                System.out.print("             " + fText.getIndex() + "   ");
-                if (0x20 <= c && c < 0x7f) {
-                    System.out.print("  " + c + "  ");
-                } else {
-                    System.out.print(" " + Integer.toHexString(c) + " ");
-                }
-                System.out.println(" " + state + "  " + category + " ");
+                System.out.print("            " +  RBBIDataWrapper.intToString(text.getIndex(), 5));
+                System.out.print(RBBIDataWrapper.intToHexString(c, 10));
+                System.out.println(RBBIDataWrapper.intToString(state,7) + RBBIDataWrapper.intToString(category,6));
             }
 
             // State Transition - move machine to its next state
             //
+            assert(category < fRData.fHeader.fCatCount);
             state = stateTable[row + RBBIDataWrapper.NEXTSTATES + category];
-            row = fRData.getRowIndex(state);
-
-            if (stateTable[row + RBBIDataWrapper.ACCEPTING] == -1) {
-                // Match found, common case, could have lookahead so we move
-                // on to check it
-                result = fText.getIndex();
-            }
-
-
-            int completedRule = stateTable[row + RBBIDataWrapper.ACCEPTING];
-            if (completedRule > 0) {
-                // Lookahead match is completed.
-                int lookaheadResult = fLookAheadMatches.getPosition(completedRule);
-                if (lookaheadResult >= 0) {
-                    result = lookaheadResult;
-                    break mainLoop;
-                }
-            }
-            int rule = stateTable[row + RBBIDataWrapper.LOOKAHEAD];
-            if (rule != 0) {
-                // At the position of a '/' in a look-ahead match. Record it.
-                int pos = fText.getIndex();
-                fLookAheadMatches.setPosition(rule, pos);
-            }
+            row   = fRData.getRowIndex(state);
 
             if (state == STOP_STATE) {
-                // Normal loop exit is here
-                break mainLoop;
+                // This is the normal exit from the lookup state machine.
+                // Transition to state zero means we have found a safe point.
+                break;
             }
-
-            // then move iterator position backwards one character
-            //
-            if (mode == RBBI_RUN) {
-                c = previous32(fText);
-            } else {
-                if (mode == RBBI_START) {
-                    mode = RBBI_RUN;
-                }
-            }
-
-
-        }   // End of the main loop.
-
-        // The state machine is done.  Check whether it found a match...
-        //
-        // If the iterator failed to move in the match engine, force it back by one code point.
-        //   (This really indicates a defect in the break rules.  They should always match
-        //    at least one character.)
-        if (result == initialPosition) {
-            CISetIndex32(fText, initialPosition);
-            previous32(fText);
-            result = fText.getIndex();
         }
 
+        // The state machine is done.
+        result = text.getIndex();
         if (TRACE) {
-            System.out.println("Result = " + result);
+            System.out.println("result = " + result);
         }
-
         return result;
     }
 
@@ -1131,7 +1054,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
         return ci.getIndex();
     }
 
-    /* DictionaryCache  stores the boundaries obtained from a run of dictionary characters.
+    /** DictionaryCache  stores the boundaries obtained from a run of dictionary characters.
      *                 Dictionary boundaries are moved first to this cache, then from here
      *                 to the main BreakCache, where they may inter-leave with non-dictionary
      *                 boundaries. The public BreakIterator API always fetches directly
@@ -1285,7 +1208,7 @@ public class RuleBasedBreakIterator extends BreakIterator {
                 // Ask the language object if there are any breaks. It will add them to the cache and
                 // leave the text pointer on the other side of its range, ready to search for the next one.
                 if (lbe != null) {
-                    foundBreakCount += lbe.findBreaks(fText, rangeStart, rangeEnd, fBreakType, fBreaks);
+                    foundBreakCount += lbe.findBreaks(fText, rangeStart, rangeEnd, fBreaks);
                 }
 
                 // Reload the loop variables for the next go-round
@@ -1456,7 +1379,7 @@ class BreakCache {
         return;
     };
 
-    /*
+    /**
      * Update the state of the public BreakIterator (fBI) to reflect the
      * current state of the break iterator cache (this).
      */
@@ -1496,11 +1419,26 @@ class BreakCache {
         if ((position < fBoundaries[fStartBufIdx] - 15) || position > (fBoundaries[fEndBufIdx] + 15)) {
             int aBoundary = fText.getBeginIndex();
             int ruleStatusIndex = 0;
-            // TODO: check for position == length of text. Although may still need to back up to get rule status.
             if (position > aBoundary + 20) {
-                int backupPos = handlePrevious(position);
-                fPosition = backupPos;
-                aBoundary = handleNext();                // Ignore dictionary, just finding a rule based boundary.
+                int backupPos = handleSafePrevious(position);
+                if (backupPos > aBoundary) {
+                    // Advance to the boundary following the backup position.
+                    // There is a complication: the safe reverse rules identify pairs of code points
+                    // that are safe. If advancing from the safe point moves forwards by less than
+                    // two code points, we need to advance one more time to ensure that the boundary
+                    // is good, including a correct rules status value.
+                    //
+                    fPosition = backupPos;
+                    aBoundary = handleNext();
+                    if (aBoundary == backupPos + 1 ||
+                            (aBoundary == backupPos + 2 &&
+                            Character.isHighSurrogate(fText.setIndex(backupPos)) &&
+                            Character.isLowSurrogate(fText.next()))) {
+                        // The initial handleNext() only advanced by a single code point. Go again.
+                        // Safe rules identify safe pairs.
+                        aBoundary = handleNext();
+                    }
+                }
                 ruleStatusIndex = fRuleStatusIndex;
             }
             reset(aBoundary, ruleStatusIndex);               // Reset cache to hold aBoundary as a single starting point.
@@ -1631,21 +1569,34 @@ class BreakCache {
             if (backupPosition <= textBegin) {
                 backupPosition = textBegin;
             } else {
-                backupPosition = handlePrevious(backupPosition);
+                backupPosition = handleSafePrevious(backupPosition);
             }
             if (backupPosition == BreakIterator.DONE || backupPosition == textBegin) {
                 position = textBegin;
                 positionStatusIdx = 0;
             } else {
+                // Advance to the boundary following the backup position.
+                // There is a complication: the safe reverse rules identify pairs of code points
+                // that are safe. If advancing from the safe point moves forwards by less than
+                // two code points, we need to advance one more time to ensure that the boundary
+                // is good, including a correct rules status value.
+                //
                 fPosition = backupPosition;  // TODO: pass starting position in a clearer way.
                 position = handleNext();
+                if (position == backupPosition + 1 ||
+                        (position == backupPosition + 2 &&
+                        Character.isHighSurrogate(fText.setIndex(backupPosition)) &&
+                        Character.isLowSurrogate(fText.next()))) {
+                    // The initial handleNext() only advanced by a single code point. Go again.
+                    // Safe rules identify safe pairs.
+                    position = handleNext();
+                }
                 positionStatusIdx = fRuleStatusIndex;
-
             }
         } while (position >= fromPosition);
 
         // Find boundaries between the one we just located and the first already-cached boundary
-        // Put them in a side buffer, because we don't yet know where they will fall in the circular cache buffer..
+        // Put them in a side buffer, because we don't yet know where they will fall in the circular cache buffer.
 
         fSideBuffer.removeAllElements();
         fSideBuffer.push(position);
@@ -1714,7 +1665,7 @@ class BreakCache {
     static final boolean RetainCachePosition = false;
     static final boolean UpdateCachePosition = true;
 
-    /*
+    /**
      * Add the boundary following the current position.
      * The current position can be left as it was, or changed to the newly added boundary,
      * as specified by the update parameter.
@@ -1743,7 +1694,7 @@ class BreakCache {
     };
 
 
-    /*
+    /**
      * Add the boundary preceding the current position.
      * The current position can be left as it was, or changed to the newly added boundary,
      * as specified by the update parameter.

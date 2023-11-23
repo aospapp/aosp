@@ -1,6 +1,6 @@
 /*
  * BSS table
- * Copyright (c) 2009-2015, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2009-2019, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -102,6 +102,8 @@ static struct wpa_bss_anqp * wpa_bss_anqp_clone(struct wpa_bss_anqp *anqp)
 	ANQP_DUP(hs20_connection_capability);
 	ANQP_DUP(hs20_operating_class);
 	ANQP_DUP(hs20_osu_providers_list);
+	ANQP_DUP(hs20_operator_icon_metadata);
+	ANQP_DUP(hs20_osu_providers_nai_list);
 #endif /* CONFIG_HS20 */
 #undef ANQP_DUP
 
@@ -185,6 +187,8 @@ static void wpa_bss_anqp_free(struct wpa_bss_anqp *anqp)
 	wpabuf_free(anqp->hs20_connection_capability);
 	wpabuf_free(anqp->hs20_operating_class);
 	wpabuf_free(anqp->hs20_osu_providers_list);
+	wpabuf_free(anqp->hs20_operator_icon_metadata);
+	wpabuf_free(anqp->hs20_osu_providers_nai_list);
 #endif /* CONFIG_HS20 */
 
 	os_free(anqp);
@@ -1333,3 +1337,10 @@ const u8 * wpa_bss_get_fils_cache_id(struct wpa_bss *bss)
 	return NULL;
 }
 #endif /* CONFIG_FILS */
+
+
+int wpa_bss_ext_capab(const struct wpa_bss *bss, unsigned int capab)
+{
+	return ieee802_11_ext_capab(wpa_bss_get_ie(bss, WLAN_EID_EXT_CAPAB),
+				    capab);
+}

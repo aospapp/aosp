@@ -21,8 +21,6 @@
         <option name="cleanup" value="true" />
         <option name="push" value="DATA/nativetest/libhwbinder_latency/libhwbinder_latency->/data/local/tmp/32/libhwbinder_latency32" />
         <option name="push" value="DATA/nativetest64/libhwbinder_latency/libhwbinder_latency->/data/local/tmp/64/libhwbinder_latency64" />
-        <option name="push" value="DATA/lib/hw/android.hardware.tests.libhwbinder@1.0-impl.so->/data/local/tmp/system/lib/hw/android.hardware.tests.libhwbinder@1.0-impl.so" />
-        <option name="push" value="DATA/lib64/hw/android.hardware.tests.libhwbinder@1.0-impl.so->/data/local/tmp/system/lib64/hw/android.hardware.tests.libhwbinder@1.0-impl.so" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="HwBinderPassthroughLatencyTest" />

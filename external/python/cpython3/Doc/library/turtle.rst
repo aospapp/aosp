@@ -936,10 +936,9 @@ Color control
        >>> turtle.fillcolor("violet")
        >>> turtle.fillcolor()
        'violet'
-       >>> col = turtle.pencolor()
-       >>> col
+       >>> turtle.pencolor()
        (50.0, 193.0, 143.0)
-       >>> turtle.fillcolor(col)
+       >>> turtle.fillcolor((50, 193, 143))  # Integers, not floats
        >>> turtle.fillcolor()
        (50.0, 193.0, 143.0)
        >>> turtle.fillcolor('#ffffff')
@@ -1310,7 +1309,7 @@ Using events
 
    :param fun: a function with two arguments which will be called with the
                coordinates of the clicked point on the canvas
-   :param num: number of the mouse-button, defaults to 1 (left mouse button)
+   :param btn: number of the mouse-button, defaults to 1 (left mouse button)
    :param add: ``True`` or ``False`` -- if ``True``, a new binding will be
                added, otherwise it will replace a former binding
 
@@ -1331,7 +1330,7 @@ Using events
 
    :param fun: a function with two arguments which will be called with the
                coordinates of the clicked point on the canvas
-   :param num: number of the mouse-button, defaults to 1 (left mouse button)
+   :param btn: number of the mouse-button, defaults to 1 (left mouse button)
    :param add: ``True`` or ``False`` -- if ``True``, a new binding will be
                added, otherwise it will replace a former binding
 
@@ -1355,7 +1354,7 @@ Using events
 
    :param fun: a function with two arguments which will be called with the
                coordinates of the clicked point on the canvas
-   :param num: number of the mouse-button, defaults to 1 (left mouse button)
+   :param btn: number of the mouse-button, defaults to 1 (left mouse button)
    :param add: ``True`` or ``False`` -- if ``True``, a new binding will be
                added, otherwise it will replace a former binding
 
@@ -1736,7 +1735,7 @@ Using screen events
 
    :param fun: a function with two arguments which will be called with the
                coordinates of the clicked point on the canvas
-   :param num: number of the mouse-button, defaults to 1 (left mouse button)
+   :param btn: number of the mouse-button, defaults to 1 (left mouse button)
    :param add: ``True`` or ``False`` -- if ``True``, a new binding will be
                added, otherwise it will replace a former binding
 
@@ -1797,7 +1796,7 @@ Input methods
    :param prompt: string
 
    Pop up a dialog window for input of a string. Parameter title is
-   the title of the dialog window, propmt is a text mostly describing
+   the title of the dialog window, prompt is a text mostly describing
    what information to input.
    Return the string input. If the dialog is canceled, return ``None``. ::
 
@@ -2368,7 +2367,7 @@ The demo scripts are:
 | wikipedia      | a pattern from the wikipedia | :func:`clone`,        |
 |                | article on turtle graphics   | :func:`undo`          |
 +----------------+------------------------------+-----------------------+
-| yingyang       | another elementary example   | :func:`circle`        |
+| yinyang        | another elementary example   | :func:`circle`        |
 +----------------+------------------------------+-----------------------+
 
 Have fun!

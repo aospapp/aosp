@@ -33,6 +33,7 @@ import android.text.TextDirectionHeuristics;
 import android.widget.Toast;
 
 import com.android.server.telecom.R;
+import com.android.server.telecom.SystemSettingsUtil;
 import com.android.server.telecom.ui.NotificationChannelManager;
 
 import java.util.Locale;
@@ -134,7 +135,8 @@ public final class BlockedNumbersUtil {
             carrierConfig = configManager.getDefaultConfig();
         }
         return carrierConfig.getBoolean(
-                CarrierConfigManager.KEY_SUPPORT_ENHANCED_CALL_BLOCKING_BOOL);
+                CarrierConfigManager.KEY_SUPPORT_ENHANCED_CALL_BLOCKING_BOOL)
+                || new SystemSettingsUtil().isEnhancedCallBlockingEnabled(context);
     }
 
     /**

@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <glob.h>
 #include <linux/loop.h>
 #include <linux/module.h>
 #include <mntent.h>
@@ -50,9 +51,10 @@
 #include <android-base/unique_fd.h>
 #include <bootloader_message/bootloader_message.h>
 #include <cutils/android_reboot.h>
-#include <ext4_utils/ext4_crypt.h>
-#include <ext4_utils/ext4_crypt_init_extensions.h>
 #include <fs_mgr.h>
+#include <fscrypt/fscrypt.h>
+#include <fscrypt/fscrypt_init_extensions.h>
+#include <libgsi/libgsi.h>
 #include <selinux/android.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
@@ -61,6 +63,7 @@
 #include "action_manager.h"
 #include "bootchart.h"
 #include "init.h"
+#include "mount_namespace.h"
 #include "parser.h"
 #include "property_service.h"
 #include "reboot.h"
@@ -72,7 +75,10 @@
 
 using namespace std::literals::string_literals;
 
+using android::base::Basename;
 using android::base::unique_fd;
+using android::fs_mgr::Fstab;
+using android::fs_mgr::ReadFstabFromFile;
 
 #define chmod DO_NOT_USE_CHMOD_USE_FCHMODAT_SYMLINK_NOFOLLOW
 
@@ -99,11 +105,29 @@ static void ForEachServiceInClass(const std::string& classname, F function) {
 }
 
 static Result<Success> do_class_start(const BuiltinArguments& args) {
+    // Do not start a class if it has a property persist.dont_start_class.CLASS set to 1.
+    if (android::base::GetBoolProperty("persist.init.dont_start_class." + args[1], false))
+        return Success();
     // Starting a class does not start services which are explicitly disabled.
     // They must  be started individually.
     for (const auto& service : ServiceList::GetInstance()) {
         if (service->classnames().count(args[1])) {
             if (auto result = service->StartIfNotDisabled(); !result) {
+                LOG(ERROR) << "Could not start service '" << service->name()
+                           << "' as part of class '" << args[1] << "': " << result.error();
+            }
+        }
+    }
+    return Success();
+}
+
+static Result<Success> do_class_start_post_data(const BuiltinArguments& args) {
+    if (args.context != kInitContext) {
+        return Error() << "command 'class_start_post_data' only available in init context";
+    }
+    for (const auto& service : ServiceList::GetInstance()) {
+        if (service->classnames().count(args[1])) {
+            if (auto result = service->StartIfPostData(); !result) {
                 LOG(ERROR) << "Could not start service '" << service->name()
                            << "' as part of class '" << args[1] << "': " << result.error();
             }
@@ -122,7 +146,18 @@ static Result<Success> do_class_reset(const BuiltinArguments& args) {
     return Success();
 }
 
+static Result<Success> do_class_reset_post_data(const BuiltinArguments& args) {
+    if (args.context != kInitContext) {
+        return Error() << "command 'class_reset_post_data' only available in init context";
+    }
+    ForEachServiceInClass(args[1], &Service::ResetIfPostData);
+    return Success();
+}
+
 static Result<Success> do_class_restart(const BuiltinArguments& args) {
+    // Do not restart a class if it has a property persist.dont_start_class.CLASS set to 1.
+    if (android::base::GetBoolProperty("persist.init.dont_start_class." + args[1], false))
+        return Success();
     ForEachServiceInClass(args[1], &Service::Restart);
     return Success();
 }
@@ -240,6 +275,29 @@ static Result<Success> do_insmod(const BuiltinArguments& args) {
     return Success();
 }
 
+static Result<Success> do_interface_restart(const BuiltinArguments& args) {
+    Service* svc = ServiceList::GetInstance().FindInterface(args[1]);
+    if (!svc) return Error() << "interface " << args[1] << " not found";
+    svc->Restart();
+    return Success();
+}
+
+static Result<Success> do_interface_start(const BuiltinArguments& args) {
+    Service* svc = ServiceList::GetInstance().FindInterface(args[1]);
+    if (!svc) return Error() << "interface " << args[1] << " not found";
+    if (auto result = svc->Start(); !result) {
+        return Error() << "Could not start interface: " << result.error();
+    }
+    return Success();
+}
+
+static Result<Success> do_interface_stop(const BuiltinArguments& args) {
+    Service* svc = ServiceList::GetInstance().FindInterface(args[1]);
+    if (!svc) return Error() << "interface " << args[1] << " not found";
+    svc->Stop();
+    return Success();
+}
+
 // mkdir <path> [mode] [owner] [group]
 static Result<Success> do_mkdir(const BuiltinArguments& args) {
     mode_t mode = 0755;
@@ -284,8 +342,8 @@ static Result<Success> do_mkdir(const BuiltinArguments& args) {
         }
     }
 
-    if (e4crypt_is_native()) {
-        if (e4crypt_set_directory_policy(args[1].c_str())) {
+    if (fscrypt_is_native()) {
+        if (fscrypt_set_directory_policy(args[1].c_str())) {
             return reboot_into_recovery(
                 {"--prompt_and_wipe_data", "--reason=set_policy_failed:"s + args[1]});
         }
@@ -416,13 +474,13 @@ static void import_late(const std::vector<std::string>& args, size_t start_index
     if (false) DumpState();
 }
 
-/* mount_fstab
+/* handle_fstab
  *
- *  Call fs_mgr_mount_all() to mount the given fstab
+ *  Read the given fstab file and execute func on it.
  */
-static Result<int> mount_fstab(const char* fstabfile, int mount_mode) {
+static Result<int> handle_fstab(const std::string& fstabfile, std::function<int(Fstab*)> func) {
     /*
-     * Call fs_mgr_mount_all() to mount all filesystems.  We fork(2) and
+     * Call fs_mgr_[u]mount_all() to [u]mount all filesystems.  We fork(2) and
      * do the call in the child to provide protection to the main init
      * process if anything goes wrong (crash or memory leak), and wait for
      * the child to finish in the parent.
@@ -443,22 +501,49 @@ static Result<int> mount_fstab(const char* fstabfile, int mount_mode) {
             return Error() << "child aborted";
         }
     } else if (pid == 0) {
-        /* child, call fs_mgr_mount_all() */
+        /* child, call fs_mgr_[u]mount_all() */
 
-        // So we can always see what fs_mgr_mount_all() does.
+        // So we can always see what fs_mgr_[u]mount_all() does.
         // Only needed if someone explicitly changes the default log level in their init.rc.
         android::base::ScopedLogSeverity info(android::base::INFO);
 
-        struct fstab* fstab = fs_mgr_read_fstab(fstabfile);
-        int child_ret = fs_mgr_mount_all(fstab, mount_mode);
-        fs_mgr_free_fstab(fstab);
-        if (child_ret == -1) {
-            PLOG(ERROR) << "fs_mgr_mount_all returned an error";
-        }
+        Fstab fstab;
+        ReadFstabFromFile(fstabfile, &fstab);
+
+        int child_ret = func(&fstab);
+
         _exit(child_ret);
     } else {
         return Error() << "fork() failed";
     }
+}
+
+/* mount_fstab
+ *
+ *  Call fs_mgr_mount_all() to mount the given fstab
+ */
+static Result<int> mount_fstab(const std::string& fstabfile, int mount_mode) {
+    return handle_fstab(fstabfile, [mount_mode](Fstab* fstab) {
+        int ret = fs_mgr_mount_all(fstab, mount_mode);
+        if (ret == -1) {
+            PLOG(ERROR) << "fs_mgr_mount_all returned an error";
+        }
+        return ret;
+    });
+}
+
+/* umount_fstab
+ *
+ *  Call fs_mgr_umount_all() to umount the given fstab
+ */
+static Result<int> umount_fstab(const std::string& fstabfile) {
+    return handle_fstab(fstabfile, [](Fstab* fstab) {
+        int ret = fs_mgr_umount_all(fstab);
+        if (ret != 0) {
+            PLOG(ERROR) << "fs_mgr_umount_all returned " << ret;
+        }
+        return ret;
+    });
 }
 
 /* Queue event based on fs_mgr return code.
@@ -489,13 +574,16 @@ static Result<Success> queue_fs_event(int code) {
         return Success();
     } else if (code == FS_MGR_MNTALL_DEV_NEEDS_RECOVERY) {
         /* Setup a wipe via recovery, and reboot into recovery */
+        if (android::gsi::IsGsiRunning()) {
+            return Error() << "cannot wipe within GSI";
+        }
         PLOG(ERROR) << "fs_mgr_mount_all suggested recovery, so wiping data via recovery.";
         const std::vector<std::string> options = {"--wipe_data", "--reason=fs_mgr_mount_all" };
         return reboot_into_recovery(options);
         /* If reboot worked, there is no return. */
     } else if (code == FS_MGR_MNTALL_DEV_FILE_ENCRYPTED) {
-        if (e4crypt_install_keyring()) {
-            return Error() << "e4crypt_install_keyring() failed";
+        if (fscrypt_install_keyring()) {
+            return Error() << "fscrypt_install_keyring() failed";
         }
         property_set("ro.crypto.state", "encrypted");
         property_set("ro.crypto.type", "file");
@@ -505,8 +593,8 @@ static Result<Success> queue_fs_event(int code) {
         ActionManager::GetInstance().QueueEventTrigger("nonencrypted");
         return Success();
     } else if (code == FS_MGR_MNTALL_DEV_IS_METADATA_ENCRYPTED) {
-        if (e4crypt_install_keyring()) {
-            return Error() << "e4crypt_install_keyring() failed";
+        if (fscrypt_install_keyring()) {
+            return Error() << "fscrypt_install_keyring() failed";
         }
         property_set("ro.crypto.state", "encrypted");
         property_set("ro.crypto.type", "file");
@@ -516,8 +604,8 @@ static Result<Success> queue_fs_event(int code) {
         ActionManager::GetInstance().QueueEventTrigger("nonencrypted");
         return Success();
     } else if (code == FS_MGR_MNTALL_DEV_NEEDS_METADATA_ENCRYPTION) {
-        if (e4crypt_install_keyring()) {
-            return Error() << "e4crypt_install_keyring() failed";
+        if (fscrypt_install_keyring()) {
+            return Error() << "fscrypt_install_keyring() failed";
         }
         property_set("ro.crypto.state", "encrypted");
         property_set("ro.crypto.type", "file");
@@ -544,7 +632,7 @@ static Result<Success> do_mount_all(const BuiltinArguments& args) {
     bool import_rc = true;
     bool queue_event = true;
     int mount_mode = MOUNT_MODE_DEFAULT;
-    const char* fstabfile = args[1].c_str();
+    const auto& fstabfile = args[1];
     std::size_t path_arg_end = args.size();
     const char* prop_post_fix = "default";
 
@@ -587,15 +675,25 @@ static Result<Success> do_mount_all(const BuiltinArguments& args) {
     return Success();
 }
 
+/* umount_all <fstab> */
+static Result<Success> do_umount_all(const BuiltinArguments& args) {
+    auto umount_fstab_return_code = umount_fstab(args[1]);
+    if (!umount_fstab_return_code) {
+        return Error() << "umount_fstab() failed " << umount_fstab_return_code.error();
+    }
+    return Success();
+}
+
 static Result<Success> do_swapon_all(const BuiltinArguments& args) {
-    struct fstab *fstab;
-    int ret;
+    Fstab fstab;
+    if (!ReadFstabFromFile(args[1], &fstab)) {
+        return Error() << "Could not read fstab '" << args[1] << "'";
+    }
 
-    fstab = fs_mgr_read_fstab(args[1].c_str());
-    ret = fs_mgr_swapon_all(fstab);
-    fs_mgr_free_fstab(fstab);
+    if (!fs_mgr_swapon_all(fstab)) {
+        return Error() << "fs_mgr_swapon_all() failed";
+    }
 
-    if (ret != 0) return Error() << "fs_mgr_swapon_all() failed";
     return Success();
 }
 
@@ -709,15 +807,28 @@ static Result<Success> do_verity_load_state(const BuiltinArguments& args) {
     return Success();
 }
 
-static void verity_update_property(fstab_rec *fstab, const char *mount_point,
-                                   int mode, int status) {
-    property_set("partition."s + mount_point + ".verified", std::to_string(mode));
-}
-
 static Result<Success> do_verity_update_state(const BuiltinArguments& args) {
-    if (!fs_mgr_update_verity_state(verity_update_property)) {
-        return Error() << "fs_mgr_update_verity_state() failed";
+    int mode;
+    if (!fs_mgr_load_verity_state(&mode)) {
+        return Error() << "fs_mgr_load_verity_state() failed";
     }
+
+    Fstab fstab;
+    if (!ReadDefaultFstab(&fstab)) {
+        return Error() << "Failed to read default fstab";
+    }
+
+    for (const auto& entry : fstab) {
+        if (!fs_mgr_is_verity_enabled(entry)) {
+            continue;
+        }
+
+        // To be consistent in vboot 1.0 and vboot 2.0 (AVB), use "system" for the partition even
+        // for system as root, so it has property [partition.system.verified].
+        std::string partition = entry.mount_point == "/" ? "system" : Basename(entry.mount_point);
+        property_set("partition." + partition + ".verified", std::to_string(mode));
+    }
+
     return Success();
 }
 
@@ -943,7 +1054,7 @@ static Result<Success> do_load_persist_props(const BuiltinArguments& args) {
 }
 
 static Result<Success> do_load_system_props(const BuiltinArguments& args) {
-    load_system_props();
+    LOG(INFO) << "deprecated action `load_system_props` called.";
     return Success();
 }
 
@@ -993,9 +1104,14 @@ static Result<Success> ExecWithRebootOnFailure(const std::string& reboot_reason,
     }
     service->AddReapCallback([reboot_reason](const siginfo_t& siginfo) {
         if (siginfo.si_code != CLD_EXITED || siginfo.si_status != 0) {
-            if (e4crypt_is_native()) {
+            // TODO (b/122850122): support this in gsi
+            if (fscrypt_is_native() && !android::gsi::IsGsiRunning()) {
                 LOG(ERROR) << "Rebooting into recovery, reason: " << reboot_reason;
-                reboot_into_recovery({"--prompt_and_wipe_data", "--reason="s + reboot_reason});
+                if (auto result = reboot_into_recovery(
+                            {"--prompt_and_wipe_data", "--reason="s + reboot_reason});
+                    !result) {
+                    LOG(FATAL) << "Could not reboot into recovery: " << result.error();
+                }
             } else {
                 LOG(ERROR) << "Failure (reboot suppressed): " << reboot_reason;
             }
@@ -1011,7 +1127,7 @@ static Result<Success> ExecWithRebootOnFailure(const std::string& reboot_reason,
 static Result<Success> do_installkey(const BuiltinArguments& args) {
     if (!is_file_crypto()) return Success();
 
-    auto unencrypted_dir = args[1] + e4crypt_unencrypted_folder;
+    auto unencrypted_dir = args[1] + fscrypt_unencrypted_folder;
     if (!make_dir(unencrypted_dir, 0700) && errno != EEXIST) {
         return ErrnoError() << "Failed to create " << unencrypted_dir;
     }
@@ -1026,6 +1142,54 @@ static Result<Success> do_init_user0(const BuiltinArguments& args) {
         {{"exec", "/system/bin/vdc", "--wait", "cryptfs", "init_user0"}, args.context});
 }
 
+static Result<Success> do_mark_post_data(const BuiltinArguments& args) {
+    ServiceList::GetInstance().MarkPostData();
+
+    return Success();
+}
+
+static Result<Success> do_parse_apex_configs(const BuiltinArguments& args) {
+    glob_t glob_result;
+    // @ is added to filter out the later paths, which are bind mounts of the places
+    // where the APEXes are really mounted at. Otherwise, we will parse the
+    // same file twice.
+    static constexpr char glob_pattern[] = "/apex/*@*/etc/*.rc";
+    const int ret = glob(glob_pattern, GLOB_MARK, nullptr, &glob_result);
+    if (ret != 0 && ret != GLOB_NOMATCH) {
+        globfree(&glob_result);
+        return Error() << "glob pattern '" << glob_pattern << "' failed";
+    }
+    std::vector<std::string> configs;
+    Parser parser = CreateServiceOnlyParser(ServiceList::GetInstance());
+    for (size_t i = 0; i < glob_result.gl_pathc; i++) {
+        configs.emplace_back(glob_result.gl_pathv[i]);
+    }
+    globfree(&glob_result);
+
+    bool success = true;
+    for (const auto& c : configs) {
+        if (c.back() == '/') {
+            // skip if directory
+            continue;
+        }
+        success &= parser.ParseConfigFile(c);
+    }
+    ServiceList::GetInstance().MarkServicesUpdate();
+    if (success) {
+        return Success();
+    } else {
+        return Error() << "Could not parse apex configs";
+    }
+}
+
+static Result<Success> do_enter_default_mount_ns(const BuiltinArguments& args) {
+    if (SwitchToDefaultMountNamespace()) {
+        return Success();
+    } else {
+        return Error() << "Failed to enter into default mount namespace";
+    }
+}
+
 // Builtin-function-map start
 const BuiltinFunctionMap::Map& BuiltinFunctionMap::map() const {
     constexpr std::size_t kMax = std::numeric_limits<std::size_t>::max();
@@ -1035,8 +1199,10 @@ const BuiltinFunctionMap::Map& BuiltinFunctionMap::map() const {
         {"chmod",                   {2,     2,    {true,   do_chmod}}},
         {"chown",                   {2,     3,    {true,   do_chown}}},
         {"class_reset",             {1,     1,    {false,  do_class_reset}}},
+        {"class_reset_post_data",   {1,     1,    {false,  do_class_reset_post_data}}},
         {"class_restart",           {1,     1,    {false,  do_class_restart}}},
         {"class_start",             {1,     1,    {false,  do_class_start}}},
+        {"class_start_post_data",   {1,     1,    {false,  do_class_start_post_data}}},
         {"class_stop",              {1,     1,    {false,  do_class_stop}}},
         {"copy",                    {2,     2,    {true,   do_copy}}},
         {"domainname",              {1,     1,    {true,   do_domainname}}},
@@ -1050,9 +1216,13 @@ const BuiltinFunctionMap::Map& BuiltinFunctionMap::map() const {
         {"init_user0",              {0,     0,    {false,  do_init_user0}}},
         {"insmod",                  {1,     kMax, {true,   do_insmod}}},
         {"installkey",              {1,     1,    {false,  do_installkey}}},
+        {"interface_restart",       {1,     1,    {false,  do_interface_restart}}},
+        {"interface_start",         {1,     1,    {false,  do_interface_start}}},
+        {"interface_stop",          {1,     1,    {false,  do_interface_stop}}},
         {"load_persist_props",      {0,     0,    {false,  do_load_persist_props}}},
         {"load_system_props",       {0,     0,    {false,  do_load_system_props}}},
         {"loglevel",                {1,     1,    {false,  do_loglevel}}},
+        {"mark_post_data",          {0,     0,    {false,  do_mark_post_data}}},
         {"mkdir",                   {1,     4,    {true,   do_mkdir}}},
         // TODO: Do mount operations in vendor_init.
         // mount_all is currently too complex to run in vendor_init as it queues action triggers,
@@ -1060,7 +1230,9 @@ const BuiltinFunctionMap::Map& BuiltinFunctionMap::map() const {
         // mount and umount are run in the same context as mount_all for symmetry.
         {"mount_all",               {1,     kMax, {false,  do_mount_all}}},
         {"mount",                   {3,     kMax, {false,  do_mount}}},
+        {"parse_apex_configs",      {0,     0,    {false,  do_parse_apex_configs}}},
         {"umount",                  {1,     1,    {false,  do_umount}}},
+        {"umount_all",              {1,     1,    {false,  do_umount_all}}},
         {"readahead",               {1,     2,    {true,   do_readahead}}},
         {"restart",                 {1,     1,    {false,  do_restart}}},
         {"restorecon",              {1,     kMax, {true,   do_restorecon}}},
@@ -1072,6 +1244,7 @@ const BuiltinFunctionMap::Map& BuiltinFunctionMap::map() const {
         {"start",                   {1,     1,    {false,  do_start}}},
         {"stop",                    {1,     1,    {false,  do_stop}}},
         {"swapon_all",              {1,     1,    {false,  do_swapon_all}}},
+        {"enter_default_mount_ns",  {0,     0,    {false,  do_enter_default_mount_ns}}},
         {"symlink",                 {2,     2,    {true,   do_symlink}}},
         {"sysclktz",                {1,     1,    {false,  do_sysclktz}}},
         {"trigger",                 {1,     1,    {false,  do_trigger}}},

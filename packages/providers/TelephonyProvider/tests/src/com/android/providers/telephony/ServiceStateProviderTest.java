@@ -16,24 +16,6 @@
 
 package com.android.providers.telephony;
 
-import android.content.Context;
-import android.content.pm.ProviderInfo;
-import android.database.ContentObserver;
-import android.database.Cursor;
-import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
-import android.telephony.ServiceState;
-import android.telephony.SubscriptionManager;
-import android.test.mock.MockContentResolver;
-import android.test.suitebuilder.annotation.SmallTest;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
-
 import static android.provider.Telephony.ServiceStateTable;
 import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionId;
 
@@ -41,12 +23,22 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+
+import android.content.Context;
+import android.content.pm.ProviderInfo;
+import android.database.ContentObserver;
+import android.database.Cursor;
+import android.net.Uri;
+import android.telephony.ServiceState;
+import android.telephony.SubscriptionManager;
+import android.test.mock.MockContentResolver;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
 
 /**
  * Tests for simple queries of ServiceStateProvider.
@@ -87,8 +79,9 @@ public class ServiceStateProviderTest {
         ServiceStateTable.CDMA_ERI_ICON_INDEX,
         ServiceStateTable.CDMA_ERI_ICON_MODE,
         ServiceStateTable.IS_EMERGENCY_ONLY,
-        ServiceStateTable.IS_DATA_ROAMING_FROM_REGISTRATION,
         ServiceStateTable.IS_USING_CARRIER_AGGREGATION,
+        ServiceStateTable.OPERATOR_ALPHA_LONG_RAW,
+        ServiceStateTable.OPERATOR_ALPHA_SHORT_RAW,
     };
 
     @Before
@@ -188,8 +181,9 @@ public class ServiceStateProviderTest {
         final int cdmaEriIconIndex = ss.getCdmaEriIconIndex();
         final int cdmaEriIconMode = ss.getCdmaEriIconMode();
         final int isEmergencyOnly = (ss.isEmergencyOnly()) ? 1 : 0;
-        final int isDataRoamingFromRegistration = (ss.getDataRoamingFromRegistration()) ? 1 : 0;
         final int isUsingCarrierAggregation = (ss.isUsingCarrierAggregation()) ? 1 : 0;
+        final String operatorAlphaLongRaw = ss.getOperatorAlphaLongRaw();
+        final String operatorAlphaShortRaw = ss.getOperatorAlphaShortRaw();
 
         assertEquals(voiceRegState, cursor.getInt(0));
         assertEquals(dataRegState, cursor.getInt(1));
@@ -210,8 +204,9 @@ public class ServiceStateProviderTest {
         assertEquals(cdmaEriIconIndex, cursor.getInt(16));
         assertEquals(cdmaEriIconMode, cursor.getInt(17));
         assertEquals(isEmergencyOnly, cursor.getInt(18));
-        assertEquals(isDataRoamingFromRegistration, cursor.getInt(19));
-        assertEquals(isUsingCarrierAggregation, cursor.getInt(20));
+        assertEquals(isUsingCarrierAggregation, cursor.getInt(19));
+        assertEquals(operatorAlphaLongRaw, cursor.getString(20));
+        assertEquals(operatorAlphaShortRaw, cursor.getString(21));
     }
 
     /**

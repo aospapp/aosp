@@ -97,7 +97,7 @@ static EVP_PKEY* GetEvpKey(const EcdsaKeymaster1Key& key, keymaster_error_t* err
 
 OperationPtr EcdsaKeymaster1OperationFactory::CreateOperation(Key&& key,
                                                               const AuthorizationSet& begin_params,
-                                                              keymaster_error_t* error) {
+                                                              keymaster_error_t* error) const {
     keymaster_digest_t digest;
     if (!GetAndValidateDigest(begin_params, key, &digest, error)) return nullptr;
 

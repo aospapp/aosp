@@ -19,7 +19,7 @@ package android.car.hardware.property;
 import android.car.hardware.property.CarPropertyEvent;
 
 /**
- * Binder callback for CarPropertyEventListener.
+ * Binder callback for CarPropertyEventCallback.
  * This is generated per each CarClient.
  * @hide
  */

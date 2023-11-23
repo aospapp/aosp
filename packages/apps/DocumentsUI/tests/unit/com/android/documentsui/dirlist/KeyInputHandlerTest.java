@@ -18,17 +18,15 @@ package com.android.documentsui.dirlist;
 
 import static org.junit.Assert.assertEquals;
 
-import android.support.annotation.Nullable;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
-import com.android.documentsui.selection.testing.SelectionPredicates;
-import com.android.documentsui.selection.testing.SelectionProbe;
-import com.android.documentsui.selection.testing.TestData;
-import com.android.documentsui.testing.SelectionHelpers;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.selection.Selection;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.documentsui.SelectionHelpers;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -43,21 +41,19 @@ public final class KeyInputHandlerTest {
     private static final List<String> ITEMS = TestData.create(100);
 
     private KeyInputHandler mInputHandler;
-    private SelectionHelper mSelectionHelper;
+    private SelectionTracker<String> mSelectionHelper;
     private TestFocusHandler mFocusHandler;
-    private SelectionProbe mSelection;
     private TestCallbacks mCallbacks;
 
     @Before
     public void setUp() {
         mSelectionHelper = SelectionHelpers.createTestInstance(ITEMS);
-        mSelection = new SelectionProbe(mSelectionHelper);
         mFocusHandler = new TestFocusHandler();
         mCallbacks = new TestCallbacks();
 
         mInputHandler = new KeyInputHandler(
                 mSelectionHelper,
-                SelectionPredicates.CAN_SET_ANYTHING,
+                SelectionHelpers.CAN_SET_ANYTHING,
                 mCallbacks);
     }
 
@@ -69,30 +65,33 @@ public final class KeyInputHandlerTest {
         KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP);
         mInputHandler.onKey(null, event.getKeyCode(), event);
 
-        mSelection.assertNoSelection();
+        Selection<String> selection = mSelectionHelper.getSelection();
+        assertEquals(selection.toString(), 0, selection.size());
     }
 
-    private static final class TestCallbacks extends KeyInputHandler.Callbacks {
+    private static final class TestCallbacks
+            extends KeyInputHandler.Callbacks<DocumentItemDetails> {
 
-        private @Nullable ItemDetails mActivated;
+        private @Nullable DocumentItemDetails mActivated;
 
         @Override
-        public boolean isInteractiveItem(ItemDetails item, KeyEvent e) {
+        public boolean isInteractiveItem(DocumentItemDetails item, KeyEvent e) {
             return true;
         }
 
         @Override
-        public boolean onItemActivated(ItemDetails item, KeyEvent e) {
+        public boolean onItemActivated(DocumentItemDetails item, KeyEvent e) {
             mActivated = item;
             return false;
         }
 
-        private void assertActivated(ItemDetails expected) {
+        private void assertActivated(DocumentItemDetails expected) {
             assertEquals(expected, mActivated);
         }
 
         @Override
-        public void onPerformHapticFeedback() {
+        public boolean onFocusItem(DocumentItemDetails details, int keyCode, KeyEvent event) {
+            return true;
         }
     }
 }

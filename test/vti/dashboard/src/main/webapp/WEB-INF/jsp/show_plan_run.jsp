@@ -32,7 +32,72 @@
       $(document).ready(function() {
           $('#test-results-container').showTests(${testRuns}, true);
           drawSummary();
+
+        $('#apiCoverageModal').modal({
+              width: '75%',
+              dismissible: true, // Modal can be dismissed by clicking outside of the modal
+              opacity: .5, // Opacity of modal background
+              inDuration: 300, // Transition in duration
+              outDuration: 200, // Transition out duration
+              startingTop: '4%', // Starting top style attribute
+              endingTop: '10%', // Ending top style attribute
+              ready: function(modal, trigger) { // Callback for Modal open. Modal and trigger parameters available.
+                var urlSafeKeyList = modal.data('urlSafeKeyList');
+                var halApiInfoList = [];
+                var getAjaxList = $.map( urlSafeKeyList, function( urlSafeKey ) {
+                  return $.get( "/api/coverage/api/data?key=" + urlSafeKey, function(data) {
+                    halApiInfoList.push(data);
+                  })
+                  .fail(function() {
+                    alert( "Error : can't bring API coverage data from the server" );
+                  });
+                });
+
+                $.when.apply($, getAjaxList).then(function() {
+                  $.each(halApiInfoList, function( index, data ) {
+                    $("#halApiList").append(halApiListTemplate());
+                    var version = data.halMajorVersion + '.' + data.halMinorVersion;
+                    var defaultInfo = data.halPackageName + '@' + version + '::' + data.halInterfaceName;
+                    $("#halApiList > li:last > div.collapsible-header").html(
+                        '<i class="material-icons">report</i> HAL API Information : ' + defaultInfo
+                    );
+                    /*
+                    $("#halApiList > li:last > div.collapsible-body > ul.collection.with-header").append(
+                        '<li class="collection-header">' +
+                        '</li>'
+                    );
+                    */
+
+                    $("#halApiList > li:last > div.collapsible-body > ul.collection.with-header").append(
+                        $.map( data.halApi, function( apiName, idx ) {
+                          var colorClass = data.coveredHalApi.indexOf(apiName) > -1 ? "green" : "red"
+                          return '<li class="collection-item ' + colorClass + ' lighten-1">' + apiName + '</li>';
+                        }).join("")
+                    );
+                    $("#halApiList").collapsible('open', index);
+                  });
+                  $('#dataTableLoading').hide("slow");
+                });
+              },
+              complete: function() {
+                $("#halApiList").empty();
+                $('#dataTableLoading').show("slow");
+              } // Callback for Modal close
+            }
+        );
       });
+
+      function halApiListTemplate() {
+         return '<li>' +
+            '<div class="collapsible-header">' +
+            '<i class="material-icons">report</i> API Information' +
+            '</div>' +
+            '<div class="collapsible-body">' +
+            '<ul class="collection with-header">' +
+            '</ul>' +
+            '</div>' +
+            '</li>';
+      }
 
       // to draw pie chart
       function drawPieChart() {
@@ -86,6 +151,12 @@
           details.append('<b>Modules: </b>' + moduleCount + '<br>');
           details.append('<b>Passing Test Cases: </b>' + passingTestCaseCount + '<br>');
           details.append('<b>Non-Passing Test Cases: </b>' + failingTestCaseCount + '<br>');
+
+          <c:if test="${totalApiCount > 0 && totalCoveredApiCount >= 0}">
+          details.append('<b>Total API : </b><c:out value="${totalApiCount}"/><br>');
+          details.append('<b>Total Covered API : </b><c:out value="${totalCoveredApiCount}"/><br>');
+          </c:if>
+
           div.appendTo($('#summary-container'));
       }
   </script>
@@ -120,9 +191,46 @@
         </div>
       </div>
 
-      <div class='col s12' id='test-results-container'>
+      <div class='col s12' id='test-results-container'></div>
+    </div>
+
+    <!-- Modal Structure -->
+    <div id="apiCoverageModal" class="modal modal-fixed-footer" style="width: 75%;">
+      <div class="modal-content">
+        <h4 id="coverageModalTitle">API Coverage</h4>
+
+        <div class="preloader-wrapper big active loaders">
+          <div id="dataTableLoading" class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col s12">
+            <ul class="collection with-header">
+              <li class="collection-header">
+                <h4>Total HAL API List</h4>
+                <ul id="halApiList" class="collapsible popout" data-collapsible="expandable">
+
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat ">Close</a>
       </div>
     </div>
+
     <%@ include file="footer.jsp" %>
   </body>
 </html>

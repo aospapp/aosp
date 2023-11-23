@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7454398782183407432">"TV Storage"</string>
     <string name="permlab_readTvListings" msgid="5272001606068276291">"すべてのテレビ番組表の読み取り"</string>
-    <string name="permdesc_readTvListings" msgid="1165157606059567535">"端末で利用できるすべてのテレビ番組表の読み取り"</string>
+    <string name="permdesc_readTvListings" msgid="1165157606059567535">"デバイスで利用できるすべてのテレビ番組表の読み取り"</string>
 </resources>

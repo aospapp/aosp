@@ -7,6 +7,7 @@ import os
 import time
 
 from autotest_lib.server import test
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import tpm_utils
 from autotest_lib.server.cros.multimedia import remote_facade_factory
 
@@ -59,8 +60,11 @@ class CfmBaseTest(test.test):
             # running in test_only mode.
             self.cfm_facade.restart_chrome_for_cfm()
         else:
+            logging.info('Clearing TPM')
             tpm_utils.ClearTPMOwnerRequest(self._host)
+            logging.info('Enrolling device')
             self.cfm_facade.enroll_device()
+            logging.info('Skipping OOBE')
             self.cfm_facade.skip_oobe_after_enrollment()
 
     def _setup_servo(self):
@@ -68,11 +72,22 @@ class CfmBaseTest(test.test):
         Enables the USB port such that any peripheral connected to it is visible
         to the DUT.
         """
-        self._host.servo.switch_usbkey('dut')
-        self._host.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-        time.sleep(SHORT_TIMEOUT)
-        self._host.servo.set('dut_hub1_rst1', 'off')
-        time.sleep(SHORT_TIMEOUT)
+        try:
+            # Servos have a USB key connected for recovery. The following code
+            # sets up the servo so that the DUT (and not the servo) sees this
+            # USB key as a device.
+            # We do not generally need this in tests, why we ignore any
+            # errors here. This also seems to fail on Servo V4 but we
+            # don't need it in any tests with that setup.
+            self._host.servo.switch_usbkey('dut')
+            self._host.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
+            time.sleep(SHORT_TIMEOUT)
+            self._host.servo.set('dut_hub1_rst1', 'off')
+            time.sleep(SHORT_TIMEOUT)
+        except error.TestFail:
+            logging.warn('Failed to configure servo. This is not fatal unless '
+                         'your test is explicitly using the servo.',
+                         exc_info=True)
 
     def cleanup(self, run_test_only=False):
         """Takes a screenshot, saves log files and clears the TPM."""
@@ -127,6 +142,20 @@ class CfmBaseTest(test.test):
                 os.path.join(self.debugdir, 'packaged_app_logs.txt'))
         else:
             logging.warning('No packaged app logs found on DUT.')
+
+    def save_all_packaged_app_logs(self):
+        """
+        Copies the packaged app logs from the client to test's debug directory.
+        """
+        pa_log_paths = self.cfm_facade.get_all_pa_logs_file_path()
+        if not  pa_log_paths:
+            logging.warning('No packaged app logs found on DUT.')
+            return
+        for log_file in pa_log_paths:
+            log_filename = (
+                'packaged_app_log_%s.txt' % os.path.basename(log_file))
+            self._safe_copy_file(
+                log_file, os.path.join(self.debugdir, log_filename))
 
     def _safe_copy_file(self, remote_path, local_path):
         """

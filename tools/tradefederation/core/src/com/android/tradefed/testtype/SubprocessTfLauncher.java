@@ -17,6 +17,7 @@ package com.android.tradefed.testtype;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IFolderBuildInfo;
+import com.android.tradefed.command.CommandOptions;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationReceiver;
@@ -57,6 +58,13 @@ import java.util.List;
 public abstract class SubprocessTfLauncher
         implements IBuildReceiver, IInvocationContextReceiver, IRemoteTest, IConfigurationReceiver {
 
+    /** The tag that will be passed to the TF subprocess to differentiate it */
+    public static final String SUBPROCESS_TAG_NAME = "subprocess";
+
+    public static final String PARENT_PROC_TAG_NAME = "parentprocess";
+    /** Env. variable that affects adb selection. */
+    public static final String ANDROID_SERIAL_VAR = "ANDROID_SERIAL";
+
     @Option(name = "max-run-time", description =
             "The maximum time to allow for a TF test run.", isTimeVal = true)
     private long mMaxTfRunTime = 20 * 60 * 1000;
@@ -78,18 +86,15 @@ public abstract class SubprocessTfLauncher
     private String mGlobalConfig = null;
 
     @Option(
-        name = "inject-invocation-data",
-        description = "Pass the invocation-data to the subprocess if enabled."
-    )
-    private boolean mInjectInvocationData = false;
+            name = "inject-invocation-data",
+            description = "Pass the invocation-data to the subprocess if enabled.")
+    private boolean mInjectInvocationData = true;
 
     // Temp global configuration filtered from the parent process.
     private String mFilteredGlobalConfig = null;
 
     /** Timeout to wait for the events received from subprocess to finish being processed.*/
     private static final long EVENT_THREAD_JOIN_TIMEOUT_MS = 30 * 1000;
-
-    protected static final String TF_GLOBAL_CONFIG = "TF_GLOBAL_CONFIG";
 
     protected IRunUtil mRunUtil =  new RunUtil();
 
@@ -171,20 +176,16 @@ public abstract class SubprocessTfLauncher
         mCmdArgs.add(mConfigName);
 
         // clear the TF_GLOBAL_CONFIG env, so another tradefed will not reuse the global config file
-        mRunUtil.unsetEnvVariable(TF_GLOBAL_CONFIG);
+        mRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mRunUtil.unsetEnvVariable(ANDROID_SERIAL_VAR);
+
         if (mGlobalConfig == null) {
             // If the global configuration is not set in option, create a filtered global
             // configuration for subprocess to use.
             try {
-                String[] configs =
-                        new String[] {
-                            GlobalConfiguration.DEVICE_MANAGER_TYPE_NAME,
-                            GlobalConfiguration.KEY_STORE_TYPE_NAME
-                        };
                 File filteredGlobalConfig =
-                        FileUtil.createTempFile("filtered_global_config", ".config");
-                GlobalConfiguration.getInstance()
-                        .cloneConfigWithFilter(filteredGlobalConfig, configs);
+                        GlobalConfiguration.getInstance().cloneConfigWithFilter();
                 mFilteredGlobalConfig = filteredGlobalConfig.getAbsolutePath();
                 mGlobalConfig = mFilteredGlobalConfig;
             } catch (IOException e) {
@@ -195,7 +196,7 @@ public abstract class SubprocessTfLauncher
         if (mGlobalConfig != null) {
             // We allow overriding this global config and then set it for the subprocess.
             mRunUtil.setEnvVariablePriority(EnvPriority.SET);
-            mRunUtil.setEnvVariable(TF_GLOBAL_CONFIG, mGlobalConfig);
+            mRunUtil.setEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE, mGlobalConfig);
         }
     }
 
@@ -223,11 +224,17 @@ public abstract class SubprocessTfLauncher
         UniqueMultiMap<String, String> data = mConfig.getCommandOptions().getInvocationData();
         for (String key : data.keySet()) {
             for (String value : data.get(key)) {
-                mCmdArgs.add("--invocation-data");
+                mCmdArgs.add("--" + CommandOptions.INVOCATION_DATA);
                 mCmdArgs.add(key);
                 mCmdArgs.add(value);
             }
         }
+        // Finally add one last more to tag the subprocess
+        mCmdArgs.add("--" + CommandOptions.INVOCATION_DATA);
+        mCmdArgs.add(SUBPROCESS_TAG_NAME);
+        mCmdArgs.add("true");
+        // Tag the parent invocation
+        mBuildInfo.addBuildAttribute(PARENT_PROC_TAG_NAME, "true");
     }
 
     /** {@inheritDoc} */

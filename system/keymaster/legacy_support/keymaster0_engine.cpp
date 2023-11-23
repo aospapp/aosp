@@ -22,7 +22,7 @@
 #include <memory>
 
 #define LOG_TAG "Keymaster0Engine"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/km_openssl/openssl_utils.h>
@@ -44,9 +44,9 @@ Keymaster0Engine::Keymaster0Engine(const keymaster0_device_t* keymaster0_device)
     assert(!instance_);
     instance_ = this;
 
-    rsa_index_ = RSA_get_ex_new_index(0 /* argl */, NULL /* argp */, NULL /* new_func */,
+    rsa_index_ = RSA_get_ex_new_index(0 /* argl */, nullptr /* argp */, nullptr /* new_func */,
                                       keyblob_dup, keyblob_free);
-    ec_key_index_ = EC_KEY_get_ex_new_index(0 /* argl */, NULL /* argp */, NULL /* new_func */,
+    ec_key_index_ = EC_KEY_get_ex_new_index(0 /* argl */, nullptr /* argp */, nullptr /* new_func */,
                                             keyblob_dup, keyblob_free);
 
     memset(&rsa_method_, 0, sizeof(rsa_method_));
@@ -83,7 +83,7 @@ bool Keymaster0Engine::GenerateRsaKey(uint64_t public_exponent, uint32_t public_
     params.public_exponent = public_exponent;
     params.modulus_size = public_modulus;
 
-    uint8_t* key_blob = 0;
+    uint8_t* key_blob = nullptr;
     if (keymaster0_device_->generate_keypair(keymaster0_device_, TYPE_RSA, &params, &key_blob,
                                              &key_material->key_material_size) < 0) {
         ALOGE("Error generating RSA key pair with keymaster0 device");
@@ -99,7 +99,7 @@ bool Keymaster0Engine::GenerateEcKey(uint32_t key_size, KeymasterKeyBlob* key_ma
     keymaster_ec_keygen_params_t params;
     params.field_size = key_size;
 
-    uint8_t* key_blob = 0;
+    uint8_t* key_blob = nullptr;
     if (keymaster0_device_->generate_keypair(keymaster0_device_, TYPE_EC, &params, &key_blob,
                                              &key_material->key_material_size) < 0) {
         ALOGE("Error generating EC key pair with keymaster0 device");
@@ -117,7 +117,7 @@ bool Keymaster0Engine::ImportKey(keymaster_key_format_t key_format,
     if (key_format != KM_KEY_FORMAT_PKCS8)
         return false;
 
-    uint8_t* key_blob = 0;
+    uint8_t* key_blob = nullptr;
     if (keymaster0_device_->import_keypair(keymaster0_device_, to_import.key_material,
                                            to_import.key_material_size, &key_blob,
                                            &imported_key->key_material_size) < 0) {
@@ -299,7 +299,7 @@ static bool data_too_large_for_public_modulus(const uint8_t* data, size_t len, c
 int Keymaster0Engine::RsaPrivateTransform(RSA* rsa, uint8_t* out, const uint8_t* in,
                                           size_t len) const {
     const keymaster_key_blob_t* key_blob = RsaKeyToBlob(rsa);
-    if (key_blob == NULL) {
+    if (key_blob == nullptr) {
         ALOGE("key had no key_blob!");
         return 0;
     }
@@ -343,7 +343,7 @@ int Keymaster0Engine::RsaPrivateTransform(RSA* rsa, uint8_t* out, const uint8_t*
 int Keymaster0Engine::EcdsaSign(const uint8_t* digest, size_t digest_len, uint8_t* sig,
                                 unsigned int* sig_len, EC_KEY* ec_key) const {
     const keymaster_key_blob_t* key_blob = EcKeyToBlob(ec_key);
-    if (key_blob == NULL) {
+    if (key_blob == nullptr) {
         ALOGE("key had no key_blob!");
         return 0;
     }

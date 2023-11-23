@@ -19,32 +19,44 @@ package android.platform.helpers;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Instrumentation;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Environment;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.platform.helpers.exceptions.AccountException;
 import android.platform.helpers.exceptions.UnknownUiException;
+import android.platform.helpers.watchers.AppIsNotRespondingWatcher;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiWatcher;
 import android.support.test.uiautomator.Until;
+import androidx.test.InstrumentationRegistry;
 import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public abstract class AbstractStandardAppHelper implements IAppHelper {
     private static final String LOG_TAG = AbstractStandardAppHelper.class.getSimpleName();
     private static final String SCREENSHOT_DIR = "apphelper-screenshots";
+    private static final String FAVOR_CMD = "favor-shell-commands";
+    private static final String USE_HOME_CMD = "press-home-to-exit";
+    private static final String LAUNCH_TIMEOUT_OPTION = "app-launch-timeout_ms";
     private static final String ERROR_NOT_FOUND =
         "Element %s %s is not found in the application %s";
+
+    private static final long EXIT_WAIT_TIMEOUT = TimeUnit.SECONDS.toMillis(5);
 
     private static File sScreenshotDirectory;
 
@@ -53,11 +65,26 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
     public ILauncherStrategy mLauncherStrategy;
     private final KeyCharacterMap mKeyCharacterMap =
             KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
+    private final boolean mFavorShellCommands;
+    private final boolean mPressHomeToExit;
+    private final long mLaunchTimeout;
 
     public AbstractStandardAppHelper(Instrumentation instr) {
         mInstrumentation = instr;
         mDevice = UiDevice.getInstance(instr);
-        mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
+        mFavorShellCommands =
+                Boolean.valueOf(
+                        InstrumentationRegistry.getArguments().getString(FAVOR_CMD, "false"));
+        mPressHomeToExit =
+                Boolean.valueOf(
+                        InstrumentationRegistry.getArguments().getString(USE_HOME_CMD, "false"));
+        //TODO(b/127356533): Choose a sensible default for app launch timeout after b/125356281.
+        mLaunchTimeout =
+                Long.valueOf(
+                        InstrumentationRegistry.getArguments()
+                                .getString(
+                                        LAUNCH_TIMEOUT_OPTION,
+                                        String.valueOf(TimeUnit.SECONDS.toMillis(30))));
     }
 
     /**
@@ -65,12 +92,56 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
      */
     @Override
     public void open() {
-        String pkg = getPackage();
-        String id = getLauncherName();
-        if (!mDevice.hasObject(By.pkg(pkg).depth(0))) {
-            mLauncherStrategy.launch(id, pkg);
-            Log.i(LOG_TAG, "Launched package: id=" + id + ", pkg=" + pkg);
+        // Turn on the screen if necessary.
+        try {
+            if (!mDevice.isScreenOn()) {
+                mDevice.wakeUp();
+            }
+        } catch (RemoteException e) {
+            throw new RuntimeException("Could not unlock the device.", e);
         }
+        // Unlock the screen if necessary.
+        if (mDevice.hasObject(By.res("com.android.systemui", "keyguard_bottom_area"))) {
+            mDevice.pressMenu();
+            mDevice.waitForIdle();
+        }
+        // Launch the application as normal.
+        String pkg = getPackage();
+        long launchInitiationTimeMs = System.currentTimeMillis();
+
+        registerDialogWatchers();
+        if (mFavorShellCommands) {
+            String output = null;
+            try {
+                Log.i(LOG_TAG, String.format("Sending command to launch: %s", pkg));
+                Intent intent =
+                        mInstrumentation
+                                .getContext()
+                                .getPackageManager()
+                                .getLaunchIntentForPackage(pkg);
+                mInstrumentation.getContext().startActivity(intent);
+            } catch (ActivityNotFoundException e) {
+                removeDialogWatchers();
+                throw new RuntimeException(String.format("Failed to find package: %s", pkg), e);
+            }
+        } else {
+            // Launch using the UI and launcher strategy.
+            String id = getLauncherName();
+            if (!mDevice.hasObject(By.pkg(pkg).depth(0))) {
+                getLauncherStrategy().launch(id, pkg);
+                Log.i(LOG_TAG, "Launched package: id=" + id + ", pkg=" + pkg);
+            }
+        }
+
+        // Ensure the package is in the foreground for success.
+        if (!mDevice.wait(Until.hasObject(By.pkg(pkg).depth(0)), mLaunchTimeout)) {
+            removeDialogWatchers();
+            throw new IllegalStateException(
+                    String.format(
+                            "Did not find package, %s, in foreground after %d ms.",
+                            pkg, System.currentTimeMillis() - launchInitiationTimeMs));
+        }
+        removeDialogWatchers();
     }
 
     /**
@@ -78,15 +149,26 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
      */
     @Override
     public void exit() {
-        int maxBacks = 4;
-        while (!mDevice.hasObject(mLauncherStrategy.getWorkspaceSelector()) && maxBacks > 0) {
-            mDevice.pressBack();
-            mDevice.waitForIdle();
-            maxBacks--;
-        }
-
-        if (maxBacks == 0) {
+        Log.i(LOG_TAG, "Exiting the current application.");
+        if (mPressHomeToExit) {
             mDevice.pressHome();
+            mDevice.waitForIdle();
+        } else {
+            int maxBacks = 4;
+            while (!mDevice.hasObject(getLauncherStrategy().getWorkspaceSelector())
+                    && maxBacks > 0) {
+                mDevice.pressBack();
+                mDevice.waitForIdle();
+                maxBacks--;
+            }
+
+            if (maxBacks == 0) {
+                mDevice.pressHome();
+            }
+        }
+        if (!mDevice.wait(
+                Until.hasObject(mLauncherStrategy.getWorkspaceSelector()), EXIT_WAIT_TIMEOUT)) {
+            throw new IllegalStateException("Failed to exit the app to launcher.");
         }
     }
 
@@ -259,5 +341,38 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
       if (!element.isChecked()) {
         throw new UnknownUiException("Element " + element + " is not checked");
       }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void registerWatcher(String name, UiWatcher watcher) {
+        mDevice.registerWatcher(name, watcher);
+    }
+
+    /**
+    * {@inheritDoc}
+    */
+    @Override
+    public void removeWatcher(String name) {
+      mDevice.removeWatcher(name);
+    }
+
+    private void registerDialogWatchers() {
+        registerWatcher(
+                AppIsNotRespondingWatcher.class.getSimpleName(),
+                new AppIsNotRespondingWatcher(InstrumentationRegistry.getInstrumentation()));
+    }
+
+    private void removeDialogWatchers() {
+        removeWatcher(AppIsNotRespondingWatcher.class.getSimpleName());
+    }
+
+    private ILauncherStrategy getLauncherStrategy() {
+        if (mLauncherStrategy == null) {
+            mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
+        }
+        return mLauncherStrategy;
     }
 }

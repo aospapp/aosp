@@ -16,6 +16,7 @@
 
 #include "test_macros.h"
 #include "hexfloat.h"
+#include "truncate_fp.h"
 
 // convertible to int/float/double/etc
 template <class T, int N=0>
@@ -661,11 +662,12 @@ void test_isinf()
     static_assert((std::is_same<decltype(std::isinf((float)0)), bool>::value), "");
 
     typedef decltype(std::isinf((double)0)) DoubleRetType;
-#ifndef __linux__
+#if !defined(__linux__) || defined(__clang__)
     static_assert((std::is_same<DoubleRetType, bool>::value), "");
 #else
-    // GLIBC < 2.26 defines 'isinf(double)' with a return type of 'int' in
-    // all C++ dialects. The test should tolerate this.
+    // GLIBC < 2.23 defines 'isinf(double)' with a return type of 'int' in
+    // all C++ dialects. The test should tolerate this when libc++ can't work
+    // around it.
     // See: https://sourceware.org/bugzilla/show_bug.cgi?id=19439
     static_assert((std::is_same<DoubleRetType, bool>::value
                 || std::is_same<DoubleRetType, int>::value), "");
@@ -746,11 +748,12 @@ void test_isnan()
     static_assert((std::is_same<decltype(std::isnan((float)0)), bool>::value), "");
 
     typedef decltype(std::isnan((double)0)) DoubleRetType;
-#ifndef __linux__
+#if !defined(__linux__) || defined(__clang__)
     static_assert((std::is_same<DoubleRetType, bool>::value), "");
 #else
-    // GLIBC < 2.26 defines 'isnan(double)' with a return type of 'int' in
-    // all C++ dialects. The test should tolerate this.
+    // GLIBC < 2.23 defines 'isinf(double)' with a return type of 'int' in
+    // all C++ dialects. The test should tolerate this when libc++ can't work
+    // around it.
     // See: https://sourceware.org/bugzilla/show_bug.cgi?id=19439
     static_assert((std::is_same<DoubleRetType, bool>::value
                 || std::is_same<DoubleRetType, int>::value), "");
@@ -858,7 +861,7 @@ void test_cbrt()
     static_assert((std::is_same<decltype(std::cbrtf(0)), float>::value), "");
     static_assert((std::is_same<decltype(std::cbrtl(0)), long double>::value), "");
     static_assert((std::is_same<decltype(cbrt(Ambiguous())), Ambiguous>::value), "");
-    assert(std::cbrt(1) == 1);
+    assert(truncate_fp(std::cbrt(1)) == 1);
 }
 
 void test_copysign()

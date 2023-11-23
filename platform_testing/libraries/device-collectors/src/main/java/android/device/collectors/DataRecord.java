@@ -16,7 +16,7 @@
 package android.device.collectors;
 
 import android.os.Bundle;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import java.io.File;
 import java.util.LinkedHashMap;

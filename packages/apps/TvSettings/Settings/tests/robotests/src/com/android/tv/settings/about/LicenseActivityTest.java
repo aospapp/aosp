@@ -27,22 +27,21 @@ import static org.robolectric.Shadows.shadowOf;
 import android.app.Application;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.SystemProperties;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 
 import java.io.File;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class LicenseActivityTest {
     private ActivityController<LicenseActivity> mActivityController;
     private LicenseActivity mActivity;
@@ -68,8 +67,6 @@ public class LicenseActivityTest {
 
     @Test
     public void testOnCreateWithValidHtmlFile() {
-        SystemProperties.set("ro.config.license_path", "/system/etc/NOTICE.html.gz");
-
         doReturn(true).when(mActivity).isFileValid(any());
         mActivity.onCreate(null);
 

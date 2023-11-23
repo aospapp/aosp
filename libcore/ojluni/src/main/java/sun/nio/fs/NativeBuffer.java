@@ -59,10 +59,16 @@ class NativeBuffer {
         this.cleaner = Cleaner.create(this, new Deallocator(address));
     }
 
+    // Android-note: releaseNativeBuffer() ensures that its argument is strongly reachable.
     void release() {
         NativeBuffers.releaseNativeBuffer(this);
     }
 
+    // BEGIN Android-note: Lifecycle contract of NativeBuffer.address() relative to release().
+    // We require that:
+    // 1) NativeBuffer is ALWAYS explicitly release()ed before being dropped, and
+    // 2) The result of address() is only used before release() is called.
+    // END Android-note: Lifecycle contract of NativeBuffer.address() relative to release().
     long address() {
         return address;
     }

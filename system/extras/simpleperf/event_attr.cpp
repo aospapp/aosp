@@ -81,8 +81,6 @@ perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type) {
   attr.size = sizeof(perf_event_attr);
   attr.type = event_type.type;
   attr.config = event_type.config;
-  attr.mmap = 1;
-  attr.comm = 1;
   attr.disabled = 0;
   // Changing read_format affects the layout of the data read from perf_event_file, namely
   // PerfCounter in event_fd.h.
@@ -124,8 +122,8 @@ void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
   PrintIndented(indent + 1, "exclude_user %u, exclude_kernel %u, exclude_hv %u\n",
                 attr.exclude_user, attr.exclude_kernel, attr.exclude_hv);
 
-  PrintIndented(indent + 1, "exclude_idle %u, mmap %u, comm %u, freq %u\n", attr.exclude_idle,
-                attr.mmap, attr.comm, attr.freq);
+  PrintIndented(indent + 1, "exclude_idle %u, mmap %u, mmap2 %u, comm %u, freq %u\n",
+                attr.exclude_idle, attr.mmap, attr.mmap2, attr.comm, attr.freq);
 
   PrintIndented(indent + 1, "inherit_stat %u, enable_on_exec %u, task %u\n", attr.inherit_stat,
                 attr.enable_on_exec, attr.task);

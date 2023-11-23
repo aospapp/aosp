@@ -3,6 +3,7 @@
 
 import logging
 import os
+import re
 import shutil
 import StringIO
 import sys
@@ -563,6 +564,28 @@ class test_base_job(unittest.TestCase):
         # run and check
         self.job.run_test(testname, timeout=timeout)
         self.god.check_playback()
+
+
+class test_name_pattern(unittest.TestCase):
+    """Tests for _NAME_PATTERN."""
+
+    def _one_name_pattern_test(self, line, want):
+        """Parametrized test."""
+        match = re.match(job._NAME_PATTERN, line)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), want)
+
+    def test_name_pattern_nospace_single(self):
+        self._one_name_pattern_test("NAME='some_Test'", 'some_Test')
+
+    def test_name_pattern_nospace_double(self):
+        self._one_name_pattern_test('NAME="some_Test"', 'some_Test')
+
+    def test_name_pattern_space_single(self):
+        self._one_name_pattern_test("NAME  =  'some_Test'", 'some_Test')
+
+    def test_name_pattern_space_double(self):
+        self._one_name_pattern_test('NAME  =  "some_Test"', 'some_Test')
 
 
 if __name__ == "__main__":

@@ -22,6 +22,8 @@ import android.telecom.Log;
 import android.telecom.ParcelableConnection;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
@@ -29,6 +31,8 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -86,6 +90,28 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
         }
     }
 
+    @VisibleForTesting
+    public interface ITelephonyManagerAdapter {
+        int getSubIdForPhoneAccount(Context context, PhoneAccount account);
+        int getSlotIndex(int subId);
+    }
+
+    private ITelephonyManagerAdapter mTelephonyAdapter = new ITelephonyManagerAdapter() {
+        @Override
+        public int getSubIdForPhoneAccount(Context context, PhoneAccount account) {
+            TelephonyManager manager = context.getSystemService(TelephonyManager.class);
+            if (manager == null) {
+                return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            }
+            return manager.getSubIdForPhoneAccount(account);
+        }
+
+        @Override
+        public int getSlotIndex(int subId) {
+            return SubscriptionManager.getSlotIndex(subId);
+        }
+    };
+
     private final Call mCall;
     private final ConnectionServiceRepository mRepository;
     private List<CallAttemptRecord> mAttemptRecords;
@@ -121,6 +147,11 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
 
     public int getConnectionAttempt() {
         return mConnectionAttempt;
+    }
+
+    @VisibleForTesting
+    public void setTelephonyManagerAdapter(ITelephonyManagerAdapter adapter) {
+        mTelephonyAdapter = adapter;
     }
 
     @VisibleForTesting
@@ -311,6 +342,26 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
         }
     }
 
+    // This function is used after previous attempts to find emergency PSTN connections
+    // do not find any SIM phone accounts with emergency capability.
+    // It attempts to add any accounts with CAPABILITY_PLACE_EMERGENCY_CALLS even if
+    // accounts are not SIM accounts.
+    private void adjustAttemptsForEmergencyNoSimRequired(List<PhoneAccount> allAccounts) {
+        // Add all phone accounts which can place emergency calls.
+        if (mAttemptRecords.isEmpty()) {
+            for (PhoneAccount phoneAccount : allAccounts) {
+                if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)) {
+                    PhoneAccountHandle phoneAccountHandle = phoneAccount.getAccountHandle();
+                    Log.i(this, "Will try account %s for emergency", phoneAccountHandle);
+                    mAttemptRecords.add(
+                            new CallAttemptRecord(phoneAccountHandle, phoneAccountHandle));
+                    // Add only one emergency PhoneAccount to the attempt list.
+                    break;
+                }
+            }
+        }
+    }
+
     // If we are possibly attempting to call a local emergency number, ensure that the
     // plain PSTN connection services are listed, and nothing else.
     private void adjustAttemptsForEmergency(PhoneAccountHandle preferredPAH) {
@@ -332,34 +383,22 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
                 allAccounts.add(TelephonyUtil.getDefaultEmergencyPhoneAccount());
             }
 
-            // First, possibly add the SIM phone account that the user prefers
+            // Get user preferred PA if it exists.
             PhoneAccount preferredPA = mPhoneAccountRegistrar.getPhoneAccountUnchecked(
                     preferredPAH);
-            if (preferredPA != null &&
-                    preferredPA.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS) &&
-                    preferredPA.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
-                Log.i(this, "Will try PSTN account %s for emergency",
-                        preferredPA.getAccountHandle());
-                mAttemptRecords.add(new CallAttemptRecord(preferredPAH, preferredPAH));
-            }
-
             // Next, add all SIM phone accounts which can place emergency calls.
-            TelephonyUtil.sortSimPhoneAccounts(mContext, allAccounts);
-
-            // If preferredPA already has an emergency PhoneAccount, do not add others since the
-            // emergency call be redialed in Telephony.
-            if (mAttemptRecords.isEmpty()) {
-                for (PhoneAccount phoneAccount : allAccounts) {
-                    if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)
-                            && phoneAccount.hasCapabilities(
-                            PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
-                        PhoneAccountHandle phoneAccountHandle = phoneAccount.getAccountHandle();
-                        Log.i(this, "Will try PSTN account %s for emergency", phoneAccountHandle);
-                        mAttemptRecords.add(new CallAttemptRecord(phoneAccountHandle,
-                                phoneAccountHandle));
-                        // Add only one emergency SIM PhoneAccount to the attempt list.
-                        break;
-                    }
+            sortSimPhoneAccountsForEmergency(allAccounts, preferredPA);
+            // and pick the fist one that can place emergency calls.
+            for (PhoneAccount phoneAccount : allAccounts) {
+                if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)
+                        && phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+                    PhoneAccountHandle phoneAccountHandle = phoneAccount.getAccountHandle();
+                    Log.i(this, "Will try PSTN account %s for emergency", phoneAccountHandle);
+                    mAttemptRecords.add(new CallAttemptRecord(phoneAccountHandle,
+                            phoneAccountHandle));
+                    // Add only one emergency SIM PhoneAccount to the attempt list, telephony will
+                    // perform retries if the call fails.
+                    break;
                 }
             }
 
@@ -382,6 +421,12 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
                         mAttemptRecords.add(callAttemptRecord);
                     }
                 }
+            }
+
+            if (mAttemptRecords.isEmpty()) {
+                // Last best-effort attempt: choose any account with emergency capability even
+                // without SIM capability.
+                adjustAttemptsForEmergencyNoSimRequired(allAccounts);
             }
         }
     }
@@ -469,5 +514,90 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
         }
         mLastErrorDisconnectCause = errorDisconnectCause;
         attemptNextPhoneAccount();
+    }
+
+    public void sortSimPhoneAccountsForEmergency(List<PhoneAccount> accounts,
+            PhoneAccount userPreferredAccount) {
+        // Sort the accounts according to how we want to display them (ascending order).
+        accounts.sort((account1, account2) -> {
+            int retval = 0;
+
+            // SIM accounts go first
+            boolean isSim1 = account1.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
+            boolean isSim2 = account2.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
+            if (isSim1 ^ isSim2) {
+                return isSim1 ? -1 : 1;
+            }
+
+            // Start with the account that Telephony considers as the "emergency preferred"
+            // account, which overrides the user's choice.
+            boolean isSim1Preferred = account1.hasCapabilities(
+                    PhoneAccount.CAPABILITY_EMERGENCY_PREFERRED);
+            boolean isSim2Preferred = account2.hasCapabilities(
+                    PhoneAccount.CAPABILITY_EMERGENCY_PREFERRED);
+            // Perform XOR, we only sort if one is considered emergency preferred (should
+            // always be the case).
+            if (isSim1Preferred ^ isSim2Preferred) {
+                return isSim1Preferred ? -1 : 1;
+            }
+
+            // Return the PhoneAccount associated with a valid logical slot.
+            int subId1 = mTelephonyAdapter.getSubIdForPhoneAccount(mContext, account1);
+            int subId2 = mTelephonyAdapter.getSubIdForPhoneAccount(mContext, account2);
+            int slotId1 = (subId1 != SubscriptionManager.INVALID_SUBSCRIPTION_ID)
+                    ? mTelephonyAdapter.getSlotIndex(subId1)
+                    : SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+            int slotId2 = (subId2 != SubscriptionManager.INVALID_SUBSCRIPTION_ID)
+                    ? mTelephonyAdapter.getSlotIndex(subId2)
+                    : SubscriptionManager.INVALID_SIM_SLOT_INDEX;
+            // Make sure both slots are valid, if one is not, prefer the one that is valid.
+            if ((slotId1 == SubscriptionManager.INVALID_SIM_SLOT_INDEX) ^
+                    (slotId2 == SubscriptionManager.INVALID_SIM_SLOT_INDEX)) {
+                retval = (slotId1 != SubscriptionManager.INVALID_SIM_SLOT_INDEX) ? -1 : 1;
+            }
+            if (retval != 0) {
+                return retval;
+            }
+
+            // Prefer the user's choice if all PhoneAccounts are associated with valid logical
+            // slots.
+            if (userPreferredAccount != null) {
+                if (account1.equals(userPreferredAccount)) {
+                    return -1;
+                } else if (account2.equals(userPreferredAccount)) {
+                    return 1;
+                }
+            }
+
+            // because of the xor above, slotId1 and slotId2 are either both invalid or valid at
+            // this point. If valid, prefer the lower slot index.
+            if (slotId1 != SubscriptionManager.INVALID_SIM_SLOT_INDEX) {
+                // Assuming the slots are different, we should not have slotId1 == slotId2.
+                return (slotId1 < slotId2) ? -1 : 1;
+            }
+
+            // Then order by package
+            String pkg1 = account1.getAccountHandle().getComponentName().getPackageName();
+            String pkg2 = account2.getAccountHandle().getComponentName().getPackageName();
+            retval = pkg1.compareTo(pkg2);
+            if (retval != 0) {
+                return retval;
+            }
+
+            // then order by label
+            String label1 = nullToEmpty(account1.getLabel().toString());
+            String label2 = nullToEmpty(account2.getLabel().toString());
+            retval = label1.compareTo(label2);
+            if (retval != 0) {
+                return retval;
+            }
+
+            // then by hashcode
+            return account1.hashCode() - account2.hashCode();
+        });
+    }
+
+    private static String nullToEmpty(String str) {
+        return str == null ? "" : str;
     }
 }

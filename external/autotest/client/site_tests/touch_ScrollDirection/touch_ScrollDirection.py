@@ -90,6 +90,9 @@ class touch_ScrollDirection(touch_playback_test_base.touch_playback_test_base):
             # Setup.
             self._set_autotest_ext(cr.autotest_ext)
             self._open_events_page(cr)
+            self._events.expand_page()
+            self._events.set_prevent_defaults(False)
+
             self._emulate_mouse()
             self._center_cursor()
 

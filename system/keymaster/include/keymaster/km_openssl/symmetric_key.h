@@ -61,7 +61,7 @@ class SymmetricKeyFactory : public KeyFactory, public SoftKeyFactoryMixin {
 
     const keymaster_key_format_t* NoFormats(size_t* format_count) const {
         *format_count = 0;
-        return NULL;
+        return nullptr;
     }
     const RandomSource& random_source_;
 };

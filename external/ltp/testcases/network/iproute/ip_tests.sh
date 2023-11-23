@@ -24,7 +24,8 @@ TST_CLEANUP=cleanup
 TST_TOTAL=6
 TCID="ip_tests"
 
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 rm_dummy=
 
@@ -33,7 +34,7 @@ init()
 	tst_resm TINFO "inititalizing tests"
 	tst_require_root
 	tst_tmpdir
-	tst_check_cmds cat awk ip diff
+	tst_test_cmds cat awk diff
 
 	iface=ltp_dummy
 	lsmod | grep -q dummy || rm_dummy=1
@@ -139,20 +140,20 @@ test03()
 
 test04()
 {
+	local taddr="$(tst_ipaddr_un)"
+	local tdev="$(tst_iface)"
 	tst_resm TINFO "test 'ip neigh' command"
 	tst_resm TINFO "add a new neighbor (or replace existed)"
-	ip neigh replace 127.6.6.6 lladdr 00:00:00:00:00:00 dev lo nud reachable
+	ip neigh replace $taddr lladdr 00:00:00:00:00:00 dev $tdev nud reachable
 	if [ $? -ne 0 ]; then
 		tst_resm TFAIL "'ip neigh replace' command failed"
 		return
 	fi
 
 	tst_resm TINFO "show all neighbor entries in arp tables"
-	cat > tst_ip.exp <<-EOF
-127.6.6.6 dev lo lladdr 00:00:00:00:00:00 REACHABLE
-	EOF
+	echo "$taddr dev $tdev lladdr 00:00:00:00:00:00 REACHABLE" > tst_ip.exp
 
-	ip neigh show 127.6.6.6 | head -n1 > tst_ip.out 2>&1
+	ip neigh show $taddr | head -n1 > tst_ip.out 2>&1
 	if [ $? -ne 0 ]; then
 		tst_resm TFAIL "'ip neigh show' command failed"
 		return
@@ -166,15 +167,15 @@ test04()
 
 	tst_resm TINFO "delete neighbor from the arp table"
 
-	ip neigh del 127.6.6.6 dev lo
+	ip neigh del $taddr dev $tdev
 	if [ $? -ne 0 ]; then
 		tst_resm TFAIL "'ip neigh del' command failed"
 		return
 	fi
 
-	ip neigh show | grep 127.6.6.6 | grep -v ' FAILED$' > /dev/null
+	ip neigh show | grep $taddr | grep -v ' FAILED$' > /dev/null
 	if [ $? -eq 0 ]; then
-		tst_resm TFAIL "127.6.6.6 still listed in arp"
+		tst_resm TFAIL "$taddr still listed in arp"
 		return
 	fi
 

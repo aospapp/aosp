@@ -4,91 +4,45 @@
 
 #include "src/builtins/builtins-utils.h"
 #include "src/builtins/builtins.h"
+#include "src/globals.h"
+#include "src/handles-inl.h"
 #include "src/objects-inl.h"
 
 namespace v8 {
 namespace internal {
 
-Handle<Code> Builtins::InterpreterPushArgsAndCall(
-    TailCallMode tail_call_mode, InterpreterPushArgsMode mode) {
+Handle<Code> Builtins::InterpreterPushArgsThenCall(
+    ConvertReceiverMode receiver_mode, InterpreterPushArgsMode mode) {
   switch (mode) {
-    case InterpreterPushArgsMode::kJSFunction:
-      if (tail_call_mode == TailCallMode::kDisallow) {
-        return InterpreterPushArgsAndCallFunction();
-      } else {
-        return InterpreterPushArgsAndTailCallFunction();
-      }
+    case InterpreterPushArgsMode::kArrayFunction:
+      // There is no special-case handling of calls to Array. They will all go
+      // through the kOther case below.
+      UNREACHABLE();
     case InterpreterPushArgsMode::kWithFinalSpread:
-      CHECK(tail_call_mode == TailCallMode::kDisallow);
-      return InterpreterPushArgsAndCallWithFinalSpread();
+      return builtin_handle(kInterpreterPushArgsThenCallWithFinalSpread);
     case InterpreterPushArgsMode::kOther:
-      if (tail_call_mode == TailCallMode::kDisallow) {
-        return InterpreterPushArgsAndCall();
-      } else {
-        return InterpreterPushArgsAndTailCall();
+      switch (receiver_mode) {
+        case ConvertReceiverMode::kNullOrUndefined:
+          return builtin_handle(kInterpreterPushUndefinedAndArgsThenCall);
+        case ConvertReceiverMode::kNotNullOrUndefined:
+        case ConvertReceiverMode::kAny:
+          return builtin_handle(kInterpreterPushArgsThenCall);
       }
   }
   UNREACHABLE();
-  return Handle<Code>::null();
 }
 
-void Builtins::Generate_InterpreterPushArgsAndCall(MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndCallImpl(
-      masm, TailCallMode::kDisallow, InterpreterPushArgsMode::kOther);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndCallFunction(
-    MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndCallImpl(
-      masm, TailCallMode::kDisallow, InterpreterPushArgsMode::kJSFunction);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndCallWithFinalSpread(
-    MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndCallImpl(
-      masm, TailCallMode::kDisallow, InterpreterPushArgsMode::kWithFinalSpread);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndTailCall(MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndCallImpl(
-      masm, TailCallMode::kAllow, InterpreterPushArgsMode::kOther);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndTailCallFunction(
-    MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndCallImpl(
-      masm, TailCallMode::kAllow, InterpreterPushArgsMode::kJSFunction);
-}
-
-Handle<Code> Builtins::InterpreterPushArgsAndConstruct(
+Handle<Code> Builtins::InterpreterPushArgsThenConstruct(
     InterpreterPushArgsMode mode) {
   switch (mode) {
-    case InterpreterPushArgsMode::kJSFunction:
-      return InterpreterPushArgsAndConstructFunction();
+    case InterpreterPushArgsMode::kArrayFunction:
+      return builtin_handle(kInterpreterPushArgsThenConstructArrayFunction);
     case InterpreterPushArgsMode::kWithFinalSpread:
-      return InterpreterPushArgsAndConstructWithFinalSpread();
+      return builtin_handle(kInterpreterPushArgsThenConstructWithFinalSpread);
     case InterpreterPushArgsMode::kOther:
-      return InterpreterPushArgsAndConstruct();
+      return builtin_handle(kInterpreterPushArgsThenConstruct);
   }
   UNREACHABLE();
-  return Handle<Code>::null();
-}
-
-void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndConstructImpl(
-      masm, InterpreterPushArgsMode::kOther);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndConstructWithFinalSpread(
-    MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndConstructImpl(
-      masm, InterpreterPushArgsMode::kWithFinalSpread);
-}
-
-void Builtins::Generate_InterpreterPushArgsAndConstructFunction(
-    MacroAssembler* masm) {
-  return Generate_InterpreterPushArgsAndConstructImpl(
-      masm, InterpreterPushArgsMode::kJSFunction);
 }
 
 }  // namespace internal

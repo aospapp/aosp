@@ -1292,7 +1292,15 @@ public class BleClientService extends Service {
                 int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.BOND_NONE);
                 switch (state) {
                     case BluetoothDevice.BOND_BONDED:
-                        mBluetoothGatt = connectGatt(device, mContext, false, mSecure, mGattCallbacks);
+                        if ((mBluetoothGatt == null) &&
+                            (device.getType() != BluetoothDevice.DEVICE_TYPE_CLASSIC)) {
+                            if (DEBUG) {
+                                Log.d(TAG, "onReceive:BOND_BONDED: calling connectGatt device="
+                                             + device + ", mSecure=" + mSecure);
+                            }
+                            mBluetoothGatt = connectGatt(device, mContext, false, mSecure,
+                                                         mGattCallbacks);
+                        }
                         break;
                     case BluetoothDevice.BOND_NONE:
                         notifyError("Failed to create bond.");

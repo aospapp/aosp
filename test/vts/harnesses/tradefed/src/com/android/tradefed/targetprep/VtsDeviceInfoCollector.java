@@ -29,12 +29,18 @@ import java.util.Map.Entry;
  * Collects device info. This's a fork of DeviceInfoCollector and is forked in order to simplify the
  * change deployment process and reduce the deployment time, which are critical for VTS services.
  */
-public class VtsDeviceInfoCollector implements ITargetPreparer, ITargetCleaner {
+public class VtsDeviceInfoCollector implements ITargetPreparer {
     // TODO(trong): remove "cts:" prefix, will need a custom ResultReporter.
     private static final Map<String, String> BUILD_KEYS = new HashMap<>();
     private static final Map<String, String> BUILD_LEGACY_PROPERTIES = new HashMap<>();
     private static final long REBOOT_TIMEOUT = 1000 * 60 * 2; // 2 minutes.
 
+    // The name of a system property which tells whether to stop properly configured
+    // native servers where properly configured means a server's init.rc is
+    // configured to stop when that property's value is 1.
+    static final String SYSPROP_VTS_NATIVE_SERVER = "vts.native_server.on";
+
+    @Deprecated
     @Option(name = "disable-framework", description = "Initialize device by stopping framework.")
     private boolean mDisableFramework = false;
 
@@ -43,17 +49,25 @@ public class VtsDeviceInfoCollector implements ITargetPreparer, ITargetCleaner {
         BUILD_KEYS.put("cts:build_product", "ro.product.name");
         BUILD_KEYS.put("cts:build_device", "ro.product.device");
         BUILD_KEYS.put("cts:build_board", "ro.product.board");
-        BUILD_KEYS.put("cts:build_manufacturer", "ro.product.manufacturer");
+        BUILD_KEYS.put("cts:build_manufacturer", "ro.product.vendor.manufacturer");
         BUILD_KEYS.put("cts:build_brand", "ro.product.brand");
-        BUILD_KEYS.put("cts:build_model", "ro.product.model");
+        BUILD_KEYS.put("cts:build_model", "ro.product.vendor.model");
         BUILD_KEYS.put("cts:build_type", "ro.build.type");
         BUILD_KEYS.put("cts:build_tags", "ro.build.tags");
-        BUILD_KEYS.put("cts:build_fingerprint", "ro.vendor.build.fingerprint");
+        /**
+         * build_fingerprint is used for certification
+         */
+        BUILD_KEYS.put("cts:build_fingerprint", "ro.odm.build.fingerprint");
+        /**
+         * Unaltered is for retry.
+         */
+        BUILD_KEYS.put("cts:build_fingerprint_unaltered", "ro.build.fingerprint");
         BUILD_KEYS.put("cts:build_abi", "ro.product.cpu.abi");
         BUILD_KEYS.put("cts:build_abi2", "ro.product.cpu.abi2");
         BUILD_KEYS.put("cts:build_abis", "ro.product.cpu.abilist");
         BUILD_KEYS.put("cts:build_abis_32", "ro.product.cpu.abilist32");
         BUILD_KEYS.put("cts:build_abis_64", "ro.product.cpu.abilist64");
+        BUILD_KEYS.put("cts:build_first_api_level", "ro.product.first_api_level");
         BUILD_KEYS.put("cts:build_serial", "ro.serialno");
         BUILD_KEYS.put("cts:build_version_release", "ro.build.version.release");
         BUILD_KEYS.put("cts:build_version_sdk", "ro.build.version.sdk");
@@ -68,6 +82,7 @@ public class VtsDeviceInfoCollector implements ITargetPreparer, ITargetCleaner {
         BUILD_LEGACY_PROPERTIES.put(
                 "ro.product.vendor.manufacturer", "ro.vendor.product.manufacturer");
         BUILD_LEGACY_PROPERTIES.put("ro.product.vendor.model", "ro.vendor.product.model");
+        BUILD_LEGACY_PROPERTIES.put("ro.odm.build.fingerprint", "ro.vendor.build.fingerprint");
     }
 
     @Override
@@ -80,28 +95,6 @@ public class VtsDeviceInfoCollector implements ITargetPreparer, ITargetCleaner {
                 propertyValue = device.getProperty(BUILD_LEGACY_PROPERTIES.get(entry.getValue()));
             }
             buildInfo.addBuildAttribute(entry.getKey(), ArrayUtil.join(",", propertyValue));
-        }
-
-        if (mDisableFramework) {
-            // Set the default device runtime state to stopped.
-            device.executeShellCommand("stop");
-            device.executeShellCommand("setprop sys.boot_completed 0");
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
-            throws DeviceNotAvailableException {
-        if (mDisableFramework) {
-            // Restore the framework at test run completion.
-            long startTime = System.currentTimeMillis();
-            device.waitForDeviceOnline(REBOOT_TIMEOUT);
-            device.executeShellCommand("start");
-            if (!device.waitForBootComplete(
-                        REBOOT_TIMEOUT + startTime - System.currentTimeMillis())) {
-                throw new DeviceNotAvailableException("Framework irrecoverable after testing.");
-            }
         }
     }
 }

@@ -53,7 +53,7 @@ def run(machine):
     if image_url is None:
         try:
             # This fails if the board type can't be determined.
-            image_name = host._get_cros_repair_image_name()
+            image_name = host.get_cros_repair_image_name()
         except error.AutoservError as e:
             # Failed, so assume this is test_that.
             logging.info("Can't find build to stage: %s.", e)

@@ -4,9 +4,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-  
+
           http://www.apache.org/licenses/LICENSE-2.0
-  
+
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,6 +27,7 @@
     <string name="credential_info" msgid="2436768402308470397">"Das Paket enthält Folgendes:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Zertifikate im PKCS12-Keystore"</string>
     <string name="one_userkey" msgid="3500697912370644881">"ein Nutzerschlüssel"</string>
+    <string name="userkey_type" msgid="6214833257030657106">"Algorithmus:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"ein Nutzerzertifikat"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"ein CA-Zertifikat"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA-Zertifikate"</string>
@@ -38,14 +39,12 @@
     <string name="cert_not_saved" msgid="4037698479662830270">"Das Zertifikat ist nicht installiert."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Kein zu installierendes Zertifikat"</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Das Zertifikat ist ungültig."</string>
+    <string name="action_missing_private_key" msgid="7543470057312920042">"Für die Installation von Zertifikaten ist ein privater Schlüssel erforderlich"</string>
+    <string name="action_missing_user_cert" msgid="3727411730202316771">"Für die Installation von privaten Schlüsseln ist ein Zertifikat erforderlich"</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> ist installiert."</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Installation nicht möglich, weil das Zertifikat zu groß ist"</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Installation nicht möglich, weil die Zertifikatdatei nicht gefunden wurde"</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Installation nicht möglich, weil die Zertifikatdatei nicht gelesen werden konnte"</string>
-    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"Keine Zertifikatdatei auf USB-Speicher gefunden."</string>
-    <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"Auf der SD-Karte wurde keine Zertifikats-Datei gefunden."</string>
-    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"Kein USB-Speicher verfügbar"</string>
-    <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD-Karte ist nicht vorhanden."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Nur der Eigentümer dieses Geräts kann Zertifikate installieren."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Verwendung der Anmeldedaten:"</string>
   <string-array name="credential_usage">
@@ -74,5 +73,5 @@
     <string name="wifi_installer_fail" msgid="894483173306576331">"Die WLAN-Anmeldedaten können nicht installiert werden. Lade die Datei erneut herunter."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installation abgebrochen"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Installation nicht möglich"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktiviere WLAN und versuche es erneut."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktiviere WLAN und versuche es noch einmal."</string>
 </resources>

@@ -16,7 +16,9 @@ cc_defaults {
     name: "libhidl-defaults",
     cflags: [
         "-Wall",
+        "-Wdocumentation", // since some users use this
         "-Werror",
+        "-Wextra-semi",
     ],
 }
 
@@ -25,9 +27,10 @@ cc_test {
     defaults: ["libhidl-defaults"],
     gtest: false,
     srcs: ["test_main.cpp"],
+    test_suites: ["device-tests"],
 
     shared_libs: [
-        "android.hardware.tests.inheritance@1.0",
+        "android.hidl.memory@1.0",
         "libbase",
         "libhidlbase",
         "libhidltransport",
@@ -38,12 +41,65 @@ cc_test {
     ],
     static_libs: ["libgtest", "libgmock"],
 
-    required: [
-        "android.hardware.tests.inheritance@1.0-impl",
-    ],
-
     cflags: [
         "-O0",
         "-g",
     ],
+}
+
+cc_defaults {
+    name: "libhidlbase-combined-impl",
+
+    defaults: [
+        "libhwbinder-impl-shared-libs",
+        "libhidlbase-impl-shared-libs",
+        "libhidltransport-impl-shared-libs",
+    ],
+
+    whole_static_libs: [
+        "libhidlbase-impl-internal",
+        "libhidltransport-impl-internal",
+    ],
+}
+
+cc_library {
+    name: "libhidlbase",
+    defaults: ["libhidlbase-combined-impl"],
+    recovery_available: true,
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
+    whole_static_libs: [
+        "libhwbinder-impl-internal",
+    ],
+}
+
+// Only libhwbinder_benchmark needs to have pgo enabled. When all places
+// support having PGO selectively enabled, all places can use libhwbinder.
+//
+// http://b/77320844
+cc_library {
+    name: "libhidlbase_pgo",
+    defaults: [
+        "libhidlbase-combined-impl",
+        "hwbinder_benchmark_pgo",
+    ],
+    whole_static_libs: [
+        "libhwbinder_pgo-impl-internal",
+    ],
+}
+
+// WARNING: deprecated
+// This library is no longer required, and dependencies should be taken
+// on libhidlbase instead.
+cc_library {
+    name: "libhidltransport",
+    recovery_available: true,
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+        support_system_process: true,
+    },
 }

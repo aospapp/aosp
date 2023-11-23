@@ -33,6 +33,7 @@ cc_defaults {
 cc_library_static {
     name: "libbspatch",
     defaults: ["bsdiff_defaults"],
+    recovery_available: true,
 
     srcs: [
         "brotli_decompressor.cc",
@@ -75,8 +76,8 @@ cc_library_static {
     ],
 }
 
-// Host and target Executables.
-cc_binary {
+// Host executables: bsdiff and bspatch are only built for the host.
+cc_binary_host {
     name: "bspatch",
     defaults: ["bsdiff_defaults"],
 
@@ -88,7 +89,6 @@ cc_binary {
     ],
 }
 
-// Host executables, bsdiff is only built for the host.
 cc_binary_host {
     name: "bsdiff",
     defaults: ["bsdiff_defaults"],
@@ -113,10 +113,12 @@ cc_test {
     test_suites: ["device-tests"],
     srcs: [
         "brotli_compressor_unittest.cc",
+        "brotli_decompressor_unittest.cc",
         "bsdiff_arguments.cc",
         "bsdiff_arguments_unittest.cc",
         "bsdiff_unittest.cc",
         "bspatch_unittest.cc",
+        "bz2_decompressor_unittest.cc",
         "diff_encoder_unittest.cc",
         "endsley_patch_writer_unittest.cc",
         "extents_file_unittest.cc",

@@ -64,7 +64,7 @@ static void StoreObjectInBss(ArtMethod* outer_method,
           << oat_file->GetLocation();
     }
     if (class_loader != nullptr) {
-      runtime->GetHeap()->WriteBarrierEveryFieldOf(class_loader);
+      WriteBarrier::ForEveryFieldWrite(class_loader);
     } else {
       runtime->GetClassLinker()->WriteBarrierForBootOatFileBssRoots(oat_file);
     }
@@ -95,7 +95,7 @@ static inline void StoreTypeInBss(ArtMethod* outer_method,
 static inline void StoreStringInBss(ArtMethod* outer_method,
                                     dex::StringIndex string_idx,
                                     ObjPtr<mirror::String> resolved_string)
-    REQUIRES_SHARED(Locks::mutator_lock_) __attribute__((optnone)) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   const DexFile* dex_file = outer_method->GetDexFile();
   DCHECK(dex_file != nullptr);
   const OatDexFile* oat_dex_file = dex_file->GetOatDexFile();
@@ -129,27 +129,25 @@ static ALWAYS_INLINE bool CanReferenceBss(ArtMethod* outer_method, ArtMethod* ca
   return outer_method->GetDexFile() == caller->GetDexFile();
 }
 
-extern "C" mirror::Class* artInitializeStaticStorageFromCode(uint32_t type_idx, Thread* self)
+extern "C" mirror::Class* artInitializeStaticStorageFromCode(mirror::Class* klass, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Called to ensure static storage base is initialized for direct static field reads and writes.
   // A class may be accessing another class' fields when it doesn't have access, as access has been
   // given by inheritance.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(
-      self, CalleeSaveType::kSaveEverythingForClinit);
-  ArtMethod* caller = caller_and_outer.caller;
-  ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
-                                                        caller,
-                                                        self,
-                                                        /* can_run_clinit */ true,
-                                                        /* verify_access */ false);
-  if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
-    StoreTypeInBss(caller_and_outer.outer_method, dex::TypeIndex(type_idx), result);
+  DCHECK(klass != nullptr);
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  StackHandleScope<1> hs(self);
+  Handle<mirror::Class> h_klass = hs.NewHandle(klass);
+  bool success = class_linker->EnsureInitialized(
+      self, h_klass, /* can_init_fields= */ true, /* can_init_parents= */ true);
+  if (UNLIKELY(!success)) {
+    return nullptr;
   }
-  return result.Ptr();
+  return h_klass.Get();
 }
 
-extern "C" mirror::Class* artInitializeTypeFromCode(uint32_t type_idx, Thread* self)
+extern "C" mirror::Class* artResolveTypeFromCode(uint32_t type_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Called when the .bss slot was empty or for main-path runtime call.
   ScopedQuickEntrypointChecks sqec(self);
@@ -159,15 +157,15 @@ extern "C" mirror::Class* artInitializeTypeFromCode(uint32_t type_idx, Thread* s
   ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
                                                         caller,
                                                         self,
-                                                        /* can_run_clinit */ false,
-                                                        /* verify_access */ false);
+                                                        /* can_run_clinit= */ false,
+                                                        /* verify_access= */ false);
   if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
     StoreTypeInBss(caller_and_outer.outer_method, dex::TypeIndex(type_idx), result);
   }
   return result.Ptr();
 }
 
-extern "C" mirror::Class* artInitializeTypeAndVerifyAccessFromCode(uint32_t type_idx, Thread* self)
+extern "C" mirror::Class* artResolveTypeAndVerifyAccessFromCode(uint32_t type_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   // Called when caller isn't guaranteed to have access to a type.
   ScopedQuickEntrypointChecks sqec(self);
@@ -177,9 +175,30 @@ extern "C" mirror::Class* artInitializeTypeAndVerifyAccessFromCode(uint32_t type
   ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
                                                         caller,
                                                         self,
-                                                        /* can_run_clinit */ false,
-                                                        /* verify_access */ true);
+                                                        /* can_run_clinit= */ false,
+                                                        /* verify_access= */ true);
   // Do not StoreTypeInBss(); access check entrypoint is never used together with .bss.
+  return result.Ptr();
+}
+
+extern "C" mirror::MethodHandle* artResolveMethodHandleFromCode(uint32_t method_handle_idx,
+                                                                Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ScopedQuickEntrypointChecks sqec(self);
+  auto caller_and_outer =
+      GetCalleeSaveMethodCallerAndOuterMethod(self, CalleeSaveType::kSaveEverything);
+  ArtMethod* caller = caller_and_outer.caller;
+  ObjPtr<mirror::MethodHandle> result = ResolveMethodHandleFromCode(caller, method_handle_idx);
+  return result.Ptr();
+}
+
+extern "C" mirror::MethodType* artResolveMethodTypeFromCode(uint32_t proto_idx, Thread* self)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ScopedQuickEntrypointChecks sqec(self);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
+                                                                  CalleeSaveType::kSaveEverything);
+  ArtMethod* caller = caller_and_outer.caller;
+  ObjPtr<mirror::MethodType> result = ResolveMethodTypeFromCode(caller, dex::ProtoIndex(proto_idx));
   return result.Ptr();
 }
 
@@ -189,7 +208,8 @@ extern "C" mirror::String* artResolveStringFromCode(int32_t string_idx, Thread* 
   auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
                                                                   CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
-  ObjPtr<mirror::String> result = ResolveStringFromCode(caller, dex::StringIndex(string_idx));
+  ObjPtr<mirror::String> result =
+      Runtime::Current()->GetClassLinker()->ResolveString(dex::StringIndex(string_idx), caller);
   if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
     StoreStringInBss(caller_and_outer.outer_method, dex::StringIndex(string_idx), result);
   }

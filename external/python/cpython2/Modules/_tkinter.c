@@ -2107,7 +2107,7 @@ Tkapp_GetInt(PyObject *self, PyObject *args)
 
     if (PyTuple_Size(args) == 1) {
         PyObject* o = PyTuple_GetItem(args, 0);
-        if (PyInt_Check(o) || PyLong_Check(o)) {
+        if (_PyAnyInt_Check(o)) {
             Py_INCREF(o);
             return o;
         }
@@ -2131,8 +2131,12 @@ Tkapp_GetInt(PyObject *self, PyObject *args)
     result = fromWideIntObj(self, value);
 #endif
     Tcl_DecrRefCount(value);
-    if (result != NULL)
-        return PyNumber_Int(result);
+    if (result != NULL) {
+        PyObject *resint = PyNumber_Int(result);
+        Py_DECREF(result);
+        return resint;
+    }
+
     if (PyErr_Occurred())
         return NULL;
 #else
@@ -2328,7 +2332,11 @@ Tkapp_SplitList(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "et:splitlist", "utf-8", &list))
         return NULL;
 
-    CHECK_STRING_LENGTH(list);
+    if (strlen(list) >= INT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "string is too long");
+        PyMem_Free(list);
+        return NULL;
+    }
     if (Tcl_SplitList(Tkapp_Interp(self), list,
                       &argc, &argv) == TCL_ERROR)  {
         PyMem_Free(list);
@@ -2390,7 +2398,11 @@ Tkapp_Split(PyObject *self, PyObject *args)
 
     if (!PyArg_ParseTuple(args, "et:split", "utf-8", &list))
         return NULL;
-    CHECK_STRING_LENGTH(list);
+    if (strlen(list) >= INT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "string is too long");
+        PyMem_Free(list);
+        return NULL;
+    }
     v = Split(list);
     PyMem_Free(list);
     return v;

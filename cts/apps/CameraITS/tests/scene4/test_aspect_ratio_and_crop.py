@@ -22,7 +22,7 @@ import its.objects
 import numpy as np
 
 FMT_ATOL = 0.01  # Absolute tolerance on format ratio
-AR_CHECKED = ["4:3", "16:9"]  # Aspect ratios checked
+AR_CHECKED = ["4:3", "16:9", "18:9"]  # Aspect ratios checked
 FOV_PERCENT_RTOL = 0.15  # Relative tolerance on circle FoV % to expected
 LARGE_SIZE = 2000   # Define the size of a large image
 NAME = os.path.basename(__file__).split(".")[0]
@@ -56,30 +56,60 @@ def determine_sensor_aspect_ratio(props):
         matched entry in AR_CHECKED
     """
     match_ar = None
-    sensor_size = props["android.sensor.info.activeArraySize"]
+    sensor_size = props["android.sensor.info.preCorrectionActiveArraySize"]
     sensor_ar = (float(abs(sensor_size["right"] - sensor_size["left"])) /
                  abs(sensor_size["bottom"] - sensor_size["top"]))
     for ar_string in AR_CHECKED:
         if np.isclose(sensor_ar, convert_ar_to_float(ar_string), atol=FMT_ATOL):
             match_ar = ar_string
     if not match_ar:
-        print "Error: no aspect ratio match with sensor parameters!"
+        print "Warning! RAW aspect ratio not in:", AR_CHECKED
     return match_ar
 
 
-def aspect_ratio_scale_factors(camera_ar_string):
+def aspect_ratio_scale_factors(ref_ar_string, props):
     """Determine scale factors for each aspect ratio to correct cropping.
 
     Args:
-        camera_ar_string:   camera aspect ratio that is the baseline
+        ref_ar_string:      camera aspect ratio that is the reference
+        props:              camera properties
     Returns:
         dict of correction ratios with AR_CHECKED values as keys
     """
-    ar_scaling = {}
-    camera_ar = convert_ar_to_float(camera_ar_string)
+    ref_ar = convert_ar_to_float(ref_ar_string)
+
+    # find sensor area
+    height_max = 0
+    width_max = 0
     for ar_string in AR_CHECKED:
-        ar = convert_ar_to_float(ar_string)
-        ar_scaling[ar_string] = ar / camera_ar
+        match_ar = [float(x) for x in ar_string.split(":")]
+        try:
+            f = its.objects.get_largest_yuv_format(props, match_ar=match_ar)
+            if f["height"] > height_max:
+                height_max = f["height"]
+            if f["width"] > width_max:
+                width_max = f["width"]
+        except IndexError:
+            continue
+    sensor_ar = float(width_max) / height_max
+
+    # apply scaling
+    ar_scaling = {}
+    for ar_string in AR_CHECKED:
+        target_ar = convert_ar_to_float(ar_string)
+        # scale down to sensor with greater (or equal) dims
+        if ref_ar >= sensor_ar:
+            scaling = sensor_ar / ref_ar
+        else:
+            scaling = ref_ar / sensor_ar
+
+        # scale up due to cropping to other format
+        if target_ar >= sensor_ar:
+            scaling = scaling * target_ar / sensor_ar
+        else:
+            scaling = scaling * sensor_ar / target_ar
+
+        ar_scaling[ar_string] = scaling
     return ar_scaling
 
 
@@ -95,10 +125,22 @@ def find_yuv_fov_reference(cam, req, props):
         ref_fov:    dict with [fmt, % coverage, w, h]
     """
     ref_fov = {}
-    ar = determine_sensor_aspect_ratio(props)
-    match_ar = [float(x) for x in ar.split(":")]
-    fmt = its.objects.get_largest_yuv_format(props, match_ar=match_ar)
-    cap = cam.do_capture(req, fmt)
+    fmt_dict = {}
+
+    # find number of pixels in different formats
+    for ar in AR_CHECKED:
+        match_ar = [float(x) for x in ar.split(":")]
+        try:
+            f = its.objects.get_largest_yuv_format(props, match_ar=match_ar)
+            fmt_dict[f["height"]*f["width"]] = {"fmt": f, "ar": ar}
+        except IndexError:
+            continue
+
+    # use image with largest coverage as reference
+    ar_max_pixels = max(fmt_dict, key=int)
+
+    # capture and determine circle area in image
+    cap = cam.do_capture(req, fmt_dict[ar_max_pixels]["fmt"])
     w = cap["width"]
     h = cap["height"]
     img = its.image.convert_capture_to_rgb_image(cap, props=props)
@@ -106,7 +148,7 @@ def find_yuv_fov_reference(cam, req, props):
     img_name = "%s_%s_w%d_h%d.png" % (NAME, "yuv", w, h)
     _, _, circle_size = measure_aspect_ratio(img, False, img_name, True)
     fov_percent = calc_circle_image_ratio(circle_size[1], circle_size[0], w, h)
-    ref_fov["fmt"] = ar
+    ref_fov["fmt"] = fmt_dict[ar_max_pixels]["ar"]
     ref_fov["percent"] = fov_percent
     ref_fov["w"] = w
     ref_fov["h"] = h
@@ -148,6 +190,7 @@ def main():
     aspect_ratio_gt = 1  # ground truth
     failed_ar = []  # streams failed the aspect ration test
     failed_crop = []  # streams failed the crop test
+    failed_fov = []  # streams that fail FoV test
     format_list = []  # format list for multiple capture objects.
     # Do multi-capture of "iter" and "cmpr". Iterate through all the
     # available sizes of "iter", and only use the size specified for "cmpr"
@@ -165,6 +208,7 @@ def main():
     ref_fov = {}
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
         its.caps.skip_unless(its.caps.read_3a(props))
         full_device = its.caps.full_or_better(props)
         limited_device = its.caps.limited(props)
@@ -204,7 +248,7 @@ def main():
             if its.caps.distortion_correction(props):
                 # The intrinsics and distortion coefficients are meant for full
                 # size RAW. Resize back to full size here.
-                img_raw = cv2.resize(img_raw, (0,0), fx=2.0, fy=2.0)
+                img_raw = cv2.resize(img_raw, (0, 0), fx=2.0, fy=2.0)
                 # Intrinsic cal is of format: [f_x, f_y, c_x, c_y, s]
                 # [f_x, f_y] is the horizontal and vertical focal lengths,
                 # [c_x, c_y] is the position of the optical axis,
@@ -217,7 +261,7 @@ def main():
                 sensor_w = props["android.sensor.info.physicalSize"]["width"]
                 pixel_h = props["android.sensor.info.pixelArraySize"]["height"]
                 pixel_w = props["android.sensor.info.pixelArraySize"]["width"]
-                fd = float(props["android.lens.info.availableFocalLengths"][0])
+                fd = float(cap_raw["metadata"]["android.lens.focalLength"])
                 fd_w_pix = pixel_w * fd / sensor_w
                 fd_h_pix = pixel_h * fd / sensor_h
                 # transformation matrix
@@ -259,16 +303,20 @@ def main():
             factor_cp_thres = (min(size_raw[0:1])/4.0) / max(circle_size_raw)
             thres_l_cp_test = THRESH_L_CP * factor_cp_thres
             thres_xs_cp_test = THRESH_XS_CP * factor_cp_thres
+            # If RAW in AR_CHECKED, use it as reference
             ref_fov["fmt"] = determine_sensor_aspect_ratio(props)
-            ref_fov["percent"] = raw_fov_percent
-            ref_fov["w"] = w_raw
-            ref_fov["h"] = h_raw
-            print "Using RAW reference:", ref_fov
+            if ref_fov["fmt"]:
+                ref_fov["percent"] = raw_fov_percent
+                ref_fov["w"] = w_raw
+                ref_fov["h"] = h_raw
+                print "Using RAW reference:", ref_fov
+            else:
+                ref_fov = find_yuv_fov_reference(cam, req, props)
         else:
             ref_fov = find_yuv_fov_reference(cam, req, props)
 
         # Determine scaling factors for AR calculations
-        ar_scaling = aspect_ratio_scale_factors(ref_fov["fmt"])
+        ar_scaling = aspect_ratio_scale_factors(ref_fov["fmt"], props)
 
         # Take pictures of each settings with all the image sizes available.
         for fmt in format_list:
@@ -288,8 +336,8 @@ def main():
                 h_iter = size_iter[1]
                 # Skip testing same format/size combination
                 # ITS does not handle that properly now
-                if (dual_target and w_iter == size_cmpr[0]
-                            and h_iter == size_cmpr[1]
+                if (dual_target
+                            and w_iter*h_iter == size_cmpr[0]*size_cmpr[1]
                             and fmt_iter == fmt_cmpr):
                     continue
                 out_surface = [{"width": w_iter,
@@ -335,15 +383,15 @@ def main():
                                   atol=FMT_ATOL):
                         # scale check value based on aspect ratio
                         chk_percent = ref_fov["percent"] * ar_scaling[ar_check]
-
-                        msg = "FoV %%: %.2f, Ref FoV %%: %.2f, TOL=%.f%%, " % (
-                                fov_percent, chk_percent,
-                                FOV_PERCENT_RTOL*100)
-                        msg += "img: %dx%d, ref: %dx%d" % (w_iter, h_iter,
-                                                           ref_fov["w"],
-                                                           ref_fov["h"])
-                        assert np.isclose(fov_percent, chk_percent,
-                                          rtol=FOV_PERCENT_RTOL), msg
+                        if not np.isclose(fov_percent, chk_percent,
+                                          rtol=FOV_PERCENT_RTOL):
+                            msg = "FoV %%: %.2f, Ref FoV %%: %.2f, " % (
+                                    fov_percent, chk_percent)
+                            msg += "TOL=%.f%%, img: %dx%d, ref: %dx%d" % (
+                                    FOV_PERCENT_RTOL*100, w_iter, h_iter,
+                                    ref_fov["w"], ref_fov["h"])
+                            failed_fov.append(msg)
+                            its.image.write_image(img/255, img_name, True)
                 # check pass/fail for aspect ratio
                 # image size >= LARGE_SIZE: use THRESH_L_AR
                 # image size == 0 (extreme case): THRESH_XS_AR
@@ -407,11 +455,20 @@ def main():
             print "\nAspect ratio test summary"
             print "Images failed in the aspect ratio test:"
             print "Aspect ratio value: width / height"
-        for fa in failed_ar:
-            print "%s with %s %dx%d: %.3f;" % (fa["fmt_iter"], fa["fmt_cmpr"],
-                                               fa["w"], fa["h"], fa["ar"]),
-            print "valid range: %.3f ~ %.3f" % (fa["valid_range"][0],
-                                                fa["valid_range"][1])
+            for fa in failed_ar:
+                print "%s with %s %dx%d: %.3f;" % (
+                        fa["fmt_iter"], fa["fmt_cmpr"],
+                        fa["w"], fa["h"], fa["ar"]),
+                print "valid range: %.3f ~ %.3f" % (
+                        fa["valid_range"][0], fa["valid_range"][1])
+
+        # Print FoV test results
+        failed_image_number_for_fov_test = len(failed_fov)
+        if failed_image_number_for_fov_test > 0:
+            print "\nFoV test summary"
+            print "Images failed in the FoV test:"
+            for fov in failed_fov:
+                print fov
 
         # Print crop test results
         failed_image_number_for_crop_test = len(failed_crop)
@@ -420,16 +477,17 @@ def main():
             print "Images failed in the crop test:"
             print "Circle center position, (horizontal x vertical), listed",
             print "below is relative to the image center."
-        for fc in failed_crop:
-            print "%s with %s %dx%d: %.3f x %.3f;" % (
-                    fc["fmt_iter"], fc["fmt_cmpr"], fc["w"], fc["h"],
-                    fc["ct_hori"], fc["ct_vert"]),
-            print "valid horizontal range: %.3f ~ %.3f;" % (
-                    fc["valid_range_h"][0], fc["valid_range_h"][1]),
-            print "valid vertical range: %.3f ~ %.3f" % (
-                    fc["valid_range_v"][0], fc["valid_range_v"][1])
+            for fc in failed_crop:
+                print "%s with %s %dx%d: %.3f x %.3f;" % (
+                        fc["fmt_iter"], fc["fmt_cmpr"], fc["w"], fc["h"],
+                        fc["ct_hori"], fc["ct_vert"]),
+                print "valid horizontal range: %.3f ~ %.3f;" % (
+                        fc["valid_range_h"][0], fc["valid_range_h"][1]),
+                print "valid vertical range: %.3f ~ %.3f" % (
+                        fc["valid_range_v"][0], fc["valid_range_v"][1])
 
         assert failed_image_number_for_aspect_ratio_test == 0
+        assert failed_image_number_for_fov_test == 0
         if level3_device:
             assert failed_image_number_for_crop_test == 0
 

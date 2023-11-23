@@ -21,6 +21,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import android.net.wifi.WifiConfiguration;
+
+import androidx.test.filters.SmallTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -34,6 +38,7 @@ import java.util.List;
 /**
  * Unit tests for {@link WakeupLock}.
  */
+@SmallTest
 public class WakeupLockTest {
 
     private static final String SSID_1 = "ssid1";
@@ -58,11 +63,11 @@ public class WakeupLockTest {
 
         mNetwork1 = new ScanResultMatchInfo();
         mNetwork1.networkSsid = SSID_1;
-        mNetwork1.networkType = ScanResultMatchInfo.NETWORK_TYPE_OPEN;
+        mNetwork1.networkType = WifiConfiguration.SECURITY_TYPE_OPEN;
 
         mNetwork2 = new ScanResultMatchInfo();
         mNetwork2.networkSsid = SSID_2;
-        mNetwork2.networkType = ScanResultMatchInfo.NETWORK_TYPE_EAP;
+        mNetwork2.networkType = WifiConfiguration.SECURITY_TYPE_EAP;
 
         mWakeupLock = new WakeupLock(mWifiConfigManager, mWifiWakeMetrics, mClock);
     }
@@ -102,10 +107,10 @@ public class WakeupLockTest {
         mWakeupLock.setLock(networks);
         assertFalse(mWakeupLock.isInitialized());
 
-        mWakeupLock.update(networks);
-        assertFalse(mWakeupLock.isInitialized());
-        mWakeupLock.update(networks);
-        assertFalse(mWakeupLock.isInitialized());
+        for (int i = 0; i < WakeupLock.CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT - 1; i++) {
+            mWakeupLock.update(networks);
+            assertFalse(mWakeupLock.isInitialized());
+        }
         mWakeupLock.update(networks);
         assertTrue(mWakeupLock.isInitialized());
     }
@@ -280,7 +285,8 @@ public class WakeupLockTest {
         for (int i = 0; i < WakeupLock.CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT; i++) {
             mWakeupLock.update(Collections.emptyList());
         }
-        verify(mWifiWakeMetrics).recordUnlockEvent(3 /* numScans */);
+        verify(mWifiWakeMetrics).recordUnlockEvent(
+                WakeupLock.CONSECUTIVE_MISSED_SCANS_REQUIRED_TO_EVICT /* numScans */);
     }
 
     private void setLockAndInitializeByTimeout(Collection<ScanResultMatchInfo> networks) {

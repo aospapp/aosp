@@ -61,14 +61,10 @@ class MediaInfoMetricsExtractor(object):
 
         @returns A list with TimestampedValues. The ValueList is guaranteed to
             not contain any None values.
-
-        @raises KeyError If any datapoint is missing a metric with the
-            specified name.  The KeyError will contain 2 args. The first is the
-            key, the second the entire data_point dictionary.
         """
         metrics = []
         for data_point in self._data_points:
-            value = _get_value(data_point, name)
+            value = data_point.get(name)
             if value is not None:
                 timestamp = data_point['timestamp']
                 metrics.append(TimestampedValues(timestamp, [value]))
@@ -100,10 +96,6 @@ class MediaInfoMetricsExtractor(object):
             called for the list of values in the same datapoint. Example usage
             is to sum the received audio bytes for all streams for one logged
             line.
-        @raises KeyError If any data point matching the direction and
-            media_type filter is missing metrics with the specified name. The
-            KeyError will contain 2 args. The first is the key, the second the
-            media dictionary that is missing the key.
 
         @returns A list with TimestampedValues. The ValueList is guaranteed to
             not contain any None values.
@@ -112,9 +104,9 @@ class MediaInfoMetricsExtractor(object):
         for data_point in self._data_points:
             timestamp = data_point['timestamp']
             values = [
-                    _get_value(media, name)
-                    for media in data_point['media']
-                    if _media_matches(media, direction, media_type)
+                media[name] for media in data_point['media']
+                if name in media
+                    and _media_matches(media, direction, media_type)
             ]
             # Filter None values and only add the metric if there is at least
             # one value left.
@@ -125,29 +117,9 @@ class MediaInfoMetricsExtractor(object):
                 metrics.append(TimestampedValues(timestamp, values))
         return metrics
 
-
-def _get_value(dictionary, key):
-    """
-    Returns the value in the dictionary for the specified key.
-
-    The only difference of using this method over dictionary[key] is that the
-    KeyError raised here contains both the key and the dictionary.
-
-    @param dictionary The dictionary to lookup the key in.
-    @param key The key to lookup.
-
-    @raises KeyError If the key does not exist. The KeyError will contain 2
-            args. The first is the key, the second the entire dictionary.
-    """
-    try:
-        return dictionary[key]
-    except KeyError:
-        raise KeyError(key, dictionary)
-
 def _media_matches(media, direction, media_type):
     direction_match = (True if direction is None
                        else media['direction'] == direction.value)
     type_match = (True if media_type is None
                   else media['mediatype'] == media_type.value)
     return direction_match and type_match
-

@@ -51,6 +51,7 @@
 #include <sepol/policydb/util.h>
 #include <sepol/policydb/flask.h>
 
+#include "kernel_to_common.h"
 #include "private.h"
 #include "debug.h"
 #include "mls.h"
@@ -1573,14 +1574,6 @@ int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 	return 0;
 }
 
-hashtab_destroy_func_t get_symtab_destroy_func(int sym_num)
-{
-	if (sym_num < 0 || sym_num >= SYM_NUM) {
-		return NULL;
-	}
-	return (hashtab_destroy_func_t) destroy_f[sym_num];
-}
-
 /*
  * Load the initial SIDs specified in a policy database
  * structure into a SID table.
@@ -2835,27 +2828,44 @@ static int ocontext_read_selinux(struct policydb_compat_info *info,
 				    (&c->context[1], p, fp))
 					return -1;
 				break;
-			case OCON_IBPKEY:
+			case OCON_IBPKEY: {
+				uint32_t pkey_lo, pkey_hi;
+
 				rc = next_entry(buf, fp, sizeof(uint32_t) * 4);
-				if (rc < 0 || buf[2] > 0xffff || buf[3] > 0xffff)
+				if (rc < 0)
 					return -1;
 
+				pkey_lo = le32_to_cpu(buf[2]);
+				pkey_hi = le32_to_cpu(buf[3]);
+
+				if (pkey_lo > UINT16_MAX || pkey_hi > UINT16_MAX)
+					return -1;
+
+				c->u.ibpkey.low_pkey  = pkey_lo;
+				c->u.ibpkey.high_pkey = pkey_hi;
+
+				/* we want c->u.ibpkey.subnet_prefix in network
+				 * (big-endian) order, just memcpy it */
 				memcpy(&c->u.ibpkey.subnet_prefix, buf,
 				       sizeof(c->u.ibpkey.subnet_prefix));
-
-				c->u.ibpkey.low_pkey = le32_to_cpu(buf[2]);
-				c->u.ibpkey.high_pkey = le32_to_cpu(buf[3]);
 
 				if (context_read_and_validate
 				    (&c->context[0], p, fp))
 					return -1;
 				break;
-			case OCON_IBENDPORT:
+			}
+			case OCON_IBENDPORT: {
+				uint32_t port;
+
 				rc = next_entry(buf, fp, sizeof(uint32_t) * 2);
 				if (rc < 0)
 					return -1;
 				len = le32_to_cpu(buf[0]);
 				if (len == 0 || len > IB_DEVICE_NAME_MAX - 1)
+					return -1;
+
+				port = le32_to_cpu(buf[1]);
+				if (port > UINT8_MAX || port == 0)
 					return -1;
 
 				c->u.ibendport.dev_name = malloc(len + 1);
@@ -2865,11 +2875,12 @@ static int ocontext_read_selinux(struct policydb_compat_info *info,
 				if (rc < 0)
 					return -1;
 				c->u.ibendport.dev_name[len] = 0;
-				c->u.ibendport.port = le32_to_cpu(buf[1]);
+				c->u.ibendport.port = port;
 				if (context_read_and_validate
 				    (&c->context[0], p, fp))
 					return -1;
 				break;
+			}
 			case OCON_PORT:
 				rc = next_entry(buf, fp, sizeof(uint32_t) * 3);
 				if (rc < 0)
@@ -4309,3 +4320,7 @@ int policydb_set_target_platform(policydb_t *p, int platform)
 	return 0;
 }
 
+int policydb_sort_ocontexts(policydb_t *p)
+{
+	return sort_ocontexts(p);
+}

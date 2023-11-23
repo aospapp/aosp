@@ -29,7 +29,7 @@ struct aqd_info {
 	int na;		/* # active */
 };
 
-void *aqd_alloc(char *str)
+void *aqd_alloc(struct d_info *dip)
 {
 	char *oname;
 	struct aqd_info *ap;
@@ -39,10 +39,12 @@ void *aqd_alloc(char *str)
 	ap = malloc(sizeof(*ap));
 	ap->na = 0;
 
-	oname = malloc(strlen(aqd_name) + strlen(str) + 32);
-	sprintf(oname, "%s_%s.dat", aqd_name, str);
+	oname = malloc(strlen(aqd_name) + strlen(dip->dip_name) + 32);
+	sprintf(oname, "%s_%s_aqd.dat", aqd_name, dip->dip_name);
 	if ((ap->fp = my_fopen(oname, "w")) == NULL) {
 		perror(oname);
+		free(oname);
+		free(ap);
 		return NULL;
 	}
 	add_file(ap->fp, oname);

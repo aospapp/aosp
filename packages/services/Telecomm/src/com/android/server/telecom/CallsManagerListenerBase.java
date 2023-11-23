@@ -92,4 +92,12 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     @Override
     public void onDisconnectedTonePlaying(boolean isTonePlaying) {
     }
+
+    @Override
+    public void onConnectionTimeChanged(Call call) {
+    }
+
+    @Override
+    public void onConferenceStateChanged(Call call, boolean isConference) {
+    }
 }

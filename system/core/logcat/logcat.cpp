@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
+#include "logcat.h"
+
+#include <android-base/macros.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <math.h>
 #include <pthread.h>
 #include <sched.h>
@@ -38,19 +42,18 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
-#include <cutils/sched_policy.h>
 #include <cutils/sockets.h>
 #include <log/event_tag_map.h>
-#include <log/getopt.h>
-#include <log/logcat.h>
 #include <log/logprint.h>
 #include <private/android_logger.h>
+#include <processgroup/sched_policy.h>
 #include <system/thread_defs.h>
 
 #include <pcrecpp.h>
@@ -475,10 +478,10 @@ static void show_help(android_logcat_context_internal* context) {
                     "  -G <size>, --buffer-size=<size>\n"
                     "                  Set size of log ring buffer, may suffix with K or M.\n"
                     "  -L, --last      Dump logs from prior to last reboot\n"
-                    // Leave security (Device Owner only installations) and
-                    // kernel (userdebug and eng) buffers undocumented.
                     "  -b <buffer>, --buffer=<buffer>         Request alternate ring buffer, 'main',\n"
                     "                  'system', 'radio', 'events', 'crash', 'default' or 'all'.\n"
+                    "                  Additionally, 'kernel' for userdebug and eng builds, and\n"
+                    "                  'security' for Device Owner installations.\n"
                     "                  Multiple -b parameters or comma separated list of buffers are\n"
                     "                  allowed. Buffers interleaved. Default -b main,system,crash.\n"
                     "  -B, --binary    Output the log in binary.\n"
@@ -564,23 +567,14 @@ static int setLogFormat(android_logcat_context_internal* context,
     return android_log_setPrintFormat(context->logformat, format);
 }
 
-static const char multipliers[][2] = { { "" }, { "K" }, { "M" }, { "G" } };
-
-static unsigned long value_of_size(unsigned long value) {
-    for (unsigned i = 0;
-         (i < sizeof(multipliers) / sizeof(multipliers[0])) && (value >= 1024);
-         value /= 1024, ++i)
-        ;
-    return value;
-}
-
-static const char* multiplier_of_size(unsigned long value) {
-    unsigned i;
+static std::pair<unsigned long, const char*> format_of_size(unsigned long value) {
+    static const char multipliers[][3] = {{""}, {"Ki"}, {"Mi"}, {"Gi"}};
+    size_t i;
     for (i = 0;
          (i < sizeof(multipliers) / sizeof(multipliers[0])) && (value >= 1024);
          value /= 1024, ++i)
         ;
-    return multipliers[i];
+    return std::make_pair(value, multipliers[i]);
 }
 
 // String to unsigned int, returns -1 if it fails
@@ -854,14 +848,8 @@ static int __logcat(android_logcat_context_internal* context) {
     // net for stability dealing with possible mistaken inputs.
     static const char delimiters[] = ",:; \t\n\r\f";
 
-    struct getopt_context optctx;
-    INIT_GETOPT_CONTEXT(optctx);
-    optctx.opterr = !!context->error;
-    optctx.optstderr = context->error;
-
-    for (;;) {
-        int ret;
-
+    optind = 0;
+    while (true) {
         int option_index = 0;
         // list of long-argument only strings for later comparison
         static const char pid_str[] = "pid";
@@ -902,19 +890,18 @@ static int __logcat(android_logcat_context_internal* context) {
         };
         // clang-format on
 
-        ret = getopt_long_r(argc, argv, ":cdDhLt:T:gG:sQf:r:n:v:b:BSpP:m:e:",
-                            long_options, &option_index, &optctx);
-        if (ret < 0) break;
+        int c = getopt_long(argc, argv, ":cdDhLt:T:gG:sQf:r:n:v:b:BSpP:m:e:", long_options,
+                            &option_index);
+        if (c == -1) break;
 
-        switch (ret) {
+        switch (c) {
             case 0:
                 // only long options
                 if (long_options[option_index].name == pid_str) {
                     // ToDo: determine runtime PID_MAX?
-                    if (!getSizeTArg(optctx.optarg, &pid, 1)) {
+                    if (!getSizeTArg(optarg, &pid, 1)) {
                         logcat_panic(context, HELP_TRUE, "%s %s out of range\n",
-                                     long_options[option_index].name,
-                                     optctx.optarg);
+                                     long_options[option_index].name, optarg);
                         goto exit;
                     }
                     break;
@@ -924,11 +911,9 @@ static int __logcat(android_logcat_context_internal* context) {
                             ANDROID_LOG_NONBLOCK;
                     // ToDo: implement API that supports setting a wrap timeout
                     size_t dummy = ANDROID_LOG_WRAP_DEFAULT_TIMEOUT;
-                    if (optctx.optarg &&
-                        !getSizeTArg(optctx.optarg, &dummy, 1)) {
+                    if (optarg && !getSizeTArg(optarg, &dummy, 1)) {
                         logcat_panic(context, HELP_TRUE, "%s %s out of range\n",
-                                     long_options[option_index].name,
-                                     optctx.optarg);
+                                     long_options[option_index].name, optarg);
                         goto exit;
                     }
                     if ((dummy != ANDROID_LOG_WRAP_DEFAULT_TIMEOUT) &&
@@ -949,8 +934,7 @@ static int __logcat(android_logcat_context_internal* context) {
                     break;
                 }
                 if (long_options[option_index].name == id_str) {
-                    setId = (optctx.optarg && optctx.optarg[0]) ? optctx.optarg
-                                                                : nullptr;
+                    setId = (optarg && optarg[0]) ? optarg : nullptr;
                 }
                 break;
 
@@ -976,34 +960,29 @@ static int __logcat(android_logcat_context_internal* context) {
             case 't':
                 got_t = true;
                 mode |= ANDROID_LOG_RDONLY | ANDROID_LOG_NONBLOCK;
-            // FALLTHRU
+                FALLTHROUGH_INTENDED;
             case 'T':
-                if (strspn(optctx.optarg, "0123456789") !=
-                    strlen(optctx.optarg)) {
-                    char* cp = parseTime(tail_time, optctx.optarg);
+                if (strspn(optarg, "0123456789") != strlen(optarg)) {
+                    char* cp = parseTime(tail_time, optarg);
                     if (!cp) {
-                        logcat_panic(context, HELP_FALSE,
-                                     "-%c \"%s\" not in time format\n", ret,
-                                     optctx.optarg);
+                        logcat_panic(context, HELP_FALSE, "-%c \"%s\" not in time format\n", c,
+                                     optarg);
                         goto exit;
                     }
                     if (*cp) {
-                        char c = *cp;
+                        char ch = *cp;
                         *cp = '\0';
                         if (context->error) {
-                            fprintf(
-                                context->error,
-                                "WARNING: -%c \"%s\"\"%c%s\" time truncated\n",
-                                ret, optctx.optarg, c, cp + 1);
+                            fprintf(context->error, "WARNING: -%c \"%s\"\"%c%s\" time truncated\n",
+                                    c, optarg, ch, cp + 1);
                         }
-                        *cp = c;
+                        *cp = ch;
                     }
                 } else {
-                    if (!getSizeTArg(optctx.optarg, &tail_lines, 1)) {
+                    if (!getSizeTArg(optarg, &tail_lines, 1)) {
                         if (context->error) {
-                            fprintf(context->error,
-                                    "WARNING: -%c %s invalid, setting to 1\n",
-                                    ret, optctx.optarg);
+                            fprintf(context->error, "WARNING: -%c %s invalid, setting to 1\n", c,
+                                    optarg);
                         }
                         tail_lines = 1;
                     }
@@ -1015,30 +994,28 @@ static int __logcat(android_logcat_context_internal* context) {
                 break;
 
             case 'e':
-                context->regex = new pcrecpp::RE(optctx.optarg);
+                context->regex = new pcrecpp::RE(optarg);
                 break;
 
             case 'm': {
-                if (!getSizeTArg(optctx.optarg, &context->maxCount)) {
+                if (!getSizeTArg(optarg, &context->maxCount)) {
                     logcat_panic(context, HELP_FALSE,
-                                 "-%c \"%s\" isn't an "
-                                 "integer greater than zero\n",
-                                 ret, optctx.optarg);
+                                 "-%c \"%s\" isn't an integer greater than zero\n", c, optarg);
                     goto exit;
                 }
             } break;
 
             case 'g':
-                if (!optctx.optarg) {
+                if (!optarg) {
                     getLogSize = true;
                     break;
                 }
-            // FALLTHRU
+                FALLTHROUGH_INTENDED;
 
             case 'G': {
                 char* cp;
-                if (strtoll(optctx.optarg, &cp, 0) > 0) {
-                    setLogSize = strtoll(optctx.optarg, &cp, 0);
+                if (strtoll(optarg, &cp, 0) > 0) {
+                    setLogSize = strtoll(optarg, &cp, 0);
                 } else {
                     setLogSize = 0;
                 }
@@ -1047,15 +1024,15 @@ static int __logcat(android_logcat_context_internal* context) {
                     case 'g':
                     case 'G':
                         setLogSize *= 1024;
-                    // FALLTHRU
+                        FALLTHROUGH_INTENDED;
                     case 'm':
                     case 'M':
                         setLogSize *= 1024;
-                    // FALLTHRU
+                        FALLTHROUGH_INTENDED;
                     case 'k':
                     case 'K':
                         setLogSize *= 1024;
-                    // FALLTHRU
+                        FALLTHROUGH_INTENDED;
                     case '\0':
                         break;
 
@@ -1071,19 +1048,18 @@ static int __logcat(android_logcat_context_internal* context) {
             } break;
 
             case 'p':
-                if (!optctx.optarg) {
+                if (!optarg) {
                     getPruneList = true;
                     break;
                 }
-            // FALLTHRU
+                FALLTHROUGH_INTENDED;
 
             case 'P':
-                setPruneList = optctx.optarg;
+                setPruneList = optarg;
                 break;
 
             case 'b': {
-                std::unique_ptr<char, void (*)(void*)> buffers(
-                    strdup(optctx.optarg), free);
+                std::unique_ptr<char, void (*)(void*)> buffers(strdup(optarg), free);
                 char* arg = buffers.get();
                 unsigned idMask = 0;
                 char* sv = nullptr;  // protect against -ENOMEM above
@@ -1147,40 +1123,33 @@ static int __logcat(android_logcat_context_internal* context) {
 
             case 'f':
                 if ((tail_time == log_time::EPOCH) && !tail_lines) {
-                    tail_time = lastLogTime(optctx.optarg);
+                    tail_time = lastLogTime(optarg);
                 }
                 // redirect output to a file
-                context->outputFileName = optctx.optarg;
+                context->outputFileName = optarg;
                 break;
 
             case 'r':
-                if (!getSizeTArg(optctx.optarg, &context->logRotateSizeKBytes,
-                                 1)) {
-                    logcat_panic(context, HELP_TRUE,
-                                 "Invalid parameter \"%s\" to -r\n",
-                                 optctx.optarg);
+                if (!getSizeTArg(optarg, &context->logRotateSizeKBytes, 1)) {
+                    logcat_panic(context, HELP_TRUE, "Invalid parameter \"%s\" to -r\n", optarg);
                     goto exit;
                 }
                 break;
 
             case 'n':
-                if (!getSizeTArg(optctx.optarg, &context->maxRotatedLogs, 1)) {
-                    logcat_panic(context, HELP_TRUE,
-                                 "Invalid parameter \"%s\" to -n\n",
-                                 optctx.optarg);
+                if (!getSizeTArg(optarg, &context->maxRotatedLogs, 1)) {
+                    logcat_panic(context, HELP_TRUE, "Invalid parameter \"%s\" to -n\n", optarg);
                     goto exit;
                 }
                 break;
 
             case 'v': {
-                if (!strcmp(optctx.optarg, "help") ||
-                    !strcmp(optctx.optarg, "--help")) {
+                if (!strcmp(optarg, "help") || !strcmp(optarg, "--help")) {
                     show_format_help(context);
                     context->retval = EXIT_SUCCESS;
                     goto exit;
                 }
-                std::unique_ptr<char, void (*)(void*)> formats(
-                    strdup(optctx.optarg), free);
+                std::unique_ptr<char, void (*)(void*)> formats(strdup(optarg), free);
                 char* arg = formats.get();
                 char* sv = nullptr;  // protect against -ENOMEM above
                 while (!!(arg = strtok_r(arg, delimiters, &sv))) {
@@ -1300,8 +1269,7 @@ static int __logcat(android_logcat_context_internal* context) {
                 break;
 
             case ':':
-                logcat_panic(context, HELP_TRUE,
-                             "Option -%c needs an argument\n", optctx.optopt);
+                logcat_panic(context, HELP_TRUE, "Option -%c needs an argument\n", optopt);
                 goto exit;
 
             case 'h':
@@ -1310,8 +1278,7 @@ static int __logcat(android_logcat_context_internal* context) {
                 goto exit;
 
             default:
-                logcat_panic(context, HELP_TRUE, "Unrecognized Option %c\n",
-                             optctx.optopt);
+                logcat_panic(context, HELP_TRUE, "Unrecognized Option %c\n", optopt);
                 goto exit;
         }
     }
@@ -1400,7 +1367,7 @@ static int __logcat(android_logcat_context_internal* context) {
                          "Invalid filter expression in logcat args\n");
             goto exit;
         }
-    } else if (argc == optctx.optind) {
+    } else if (argc == optind) {
         // Add from environment variable
         const char* env_tags_orig = android::getenv(context, "ANDROID_LOG_TAGS");
 
@@ -1416,7 +1383,7 @@ static int __logcat(android_logcat_context_internal* context) {
         }
     } else {
         // Add from commandline
-        for (int i = optctx.optind ; i < argc ; i++) {
+        for (int i = optind ; i < argc ; i++) {
             // skip stderr redirections of _all_ kinds
             if ((argv[i][0] == '2') && (argv[i][1] == '>')) continue;
             // skip stdout redirections of _all_ kinds
@@ -1498,12 +1465,14 @@ static int __logcat(android_logcat_context_internal* context) {
             if ((size < 0) || (readable < 0)) {
                 reportErrorName(&getSizeFail, dev->device, allSelected);
             } else {
+                auto size_format = format_of_size(size);
+                auto readable_format = format_of_size(readable);
                 std::string str = android::base::StringPrintf(
-                       "%s: ring buffer is %ld%sb (%ld%sb consumed),"
-                         " max entry is %db, max payload is %db\n",
+                       "%s: ring buffer is %lu %sB (%lu %sB consumed),"
+                         " max entry is %d B, max payload is %d B\n",
                        dev->device,
-                       value_of_size(size), multiplier_of_size(size),
-                       value_of_size(readable), multiplier_of_size(readable),
+                       size_format.first, size_format.second,
+                       readable_format.first, readable_format.second,
                        (int)LOGGER_ENTRY_MAX_LEN,
                        (int)LOGGER_ENTRY_MAX_PAYLOAD);
                 TEMP_FAILURE_RETRY(write(context->output_fd,
@@ -1705,105 +1674,6 @@ int android_logcat_run_command(android_logcat_context ctx,
     context->stop = false;
     context->thread_stopped = false;
     return __logcat(context);
-}
-
-// starts a thread, opens a pipe, returns reading end.
-int android_logcat_run_command_thread(android_logcat_context ctx,
-                                      int argc, char* const* argv,
-                                      char* const* envp) {
-    android_logcat_context_internal* context = ctx;
-
-    int save_errno = EBUSY;
-    if ((context->fds[0] >= 0) || (context->fds[1] >= 0)) goto exit;
-
-    if (pipe(context->fds) < 0) {
-        save_errno = errno;
-        goto exit;
-    }
-
-    pthread_attr_t attr;
-    if (pthread_attr_init(&attr)) {
-        save_errno = errno;
-        goto close_exit;
-    }
-
-    struct sched_param param;
-    memset(&param, 0, sizeof(param));
-    pthread_attr_setschedparam(&attr, &param);
-    pthread_attr_setschedpolicy(&attr, SCHED_BATCH);
-    if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
-        save_errno = errno;
-        goto pthread_attr_exit;
-    }
-
-    context->stop = false;
-    context->thread_stopped = false;
-    context->output_fd = context->fds[1];
-    // save off arguments so they remain while thread is active.
-    for (int i = 0; i < argc; ++i) {
-        context->args.push_back(std::string(argv[i]));
-    }
-    // save off environment so they remain while thread is active.
-    if (envp) for (size_t i = 0; envp[i]; ++i) {
-        context->envs.push_back(std::string(envp[i]));
-    }
-
-    for (auto& str : context->args) {
-        context->argv_hold.push_back(str.c_str());
-    }
-    context->argv_hold.push_back(nullptr);
-    for (auto& str : context->envs) {
-        context->envp_hold.push_back(str.c_str());
-    }
-    context->envp_hold.push_back(nullptr);
-
-    context->argc = context->argv_hold.size() - 1;
-    context->argv = (char* const*)&context->argv_hold[0];
-    context->envp = (char* const*)&context->envp_hold[0];
-
-#ifdef DEBUG
-    fprintf(stderr, "argv[%d] = {", context->argc);
-    for (auto str : context->argv_hold) {
-        fprintf(stderr, " \"%s\"", str ?: "nullptr");
-    }
-    fprintf(stderr, " }\n");
-    fflush(stderr);
-#endif
-    context->retval = EXIT_SUCCESS;
-    if (pthread_create(&context->thr, &attr,
-                       (void*(*)(void*))__logcat, context)) {
-        save_errno = errno;
-        goto argv_exit;
-    }
-    pthread_attr_destroy(&attr);
-
-    return context->fds[0];
-
-argv_exit:
-    context->argv_hold.clear();
-    context->args.clear();
-    context->envp_hold.clear();
-    context->envs.clear();
-pthread_attr_exit:
-    pthread_attr_destroy(&attr);
-close_exit:
-    close(context->fds[0]);
-    context->fds[0] = -1;
-    close(context->fds[1]);
-    context->fds[1] = -1;
-exit:
-    errno = save_errno;
-    context->stop = true;
-    context->thread_stopped = true;
-    context->retval = EXIT_FAILURE;
-    return -1;
-}
-
-// test if the thread is still doing 'stuff'
-int android_logcat_run_command_thread_running(android_logcat_context ctx) {
-    android_logcat_context_internal* context = ctx;
-
-    return context->thread_stopped == false;
 }
 
 // Finished with context

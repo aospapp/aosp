@@ -20,6 +20,7 @@
 #include "arch/instruction_set.h"
 #include "base/arena_allocator.h"
 #include "base/enums.h"
+#include "base/malloc_arena_pool.h"
 #include "cfi_test.h"
 #include "gtest/gtest.h"
 #include "jni/quick/calling_convention.h"
@@ -61,7 +62,7 @@ class JNICFITest : public CFITest {
     const bool is_synchronized = false;
     const char* shorty = "IIFII";
 
-    ArenaPool pool;
+    MallocArenaPool pool;
     ArenaAllocator allocator(&pool);
 
     std::unique_ptr<JniCallingConvention> jni_conv(
@@ -85,7 +86,7 @@ class JNICFITest : public CFITest {
                         callee_save_regs, mr_conv->EntrySpills());
     jni_asm->IncreaseFrameSize(32);
     jni_asm->DecreaseFrameSize(32);
-    jni_asm->RemoveFrame(frame_size, callee_save_regs, /* may_suspend */ true);
+    jni_asm->RemoveFrame(frame_size, callee_save_regs, /* may_suspend= */ true);
     jni_asm->FinalizeCode();
     std::vector<uint8_t> actual_asm(jni_asm->CodeSize());
     MemoryRegion code(&actual_asm[0], actual_asm.size());
@@ -94,7 +95,11 @@ class JNICFITest : public CFITest {
     const std::vector<uint8_t>& actual_cfi = *(jni_asm->cfi().data());
 
     if (kGenerateExpected) {
-      GenerateExpected(stdout, isa, isa_str, actual_asm, actual_cfi);
+      GenerateExpected(stdout,
+                       isa,
+                       isa_str,
+                       ArrayRef<const uint8_t>(actual_asm),
+                       ArrayRef<const uint8_t>(actual_cfi));
     } else {
       EXPECT_EQ(expected_asm, actual_asm);
       EXPECT_EQ(expected_cfi, actual_cfi);

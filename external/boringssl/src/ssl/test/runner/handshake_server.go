@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"time"
 
-	"./ed25519"
+	"boringssl.googlesource.com/boringssl/ssl/test/runner/ed25519"
 )
 
 // serverHandshakeState contains details of a server handshake in progress.
@@ -208,6 +208,26 @@ func (hs *serverHandshakeState) readClientHello() error {
 		}
 	}
 
+	if config.Bugs.FailIfCECPQ2Offered {
+		for _, offeredCurve := range hs.clientHello.supportedCurves {
+			if offeredCurve == CurveCECPQ2 {
+				return errors.New("tls: CECPQ2 was offered")
+			}
+		}
+	}
+
+	if expected := config.Bugs.ExpectedKeyShares; expected != nil {
+		if len(expected) != len(hs.clientHello.keyShares) {
+			return fmt.Errorf("tls: expected %d key shares, but found %d", len(expected), len(hs.clientHello.keyShares))
+		}
+
+		for i, group := range expected {
+			if found := hs.clientHello.keyShares[i].group; found != group {
+				return fmt.Errorf("tls: key share #%d is for group %d, not %d", i, found, group)
+			}
+		}
+	}
+
 	c.clientVersion = hs.clientHello.vers
 
 	// Use the versions extension if supplied, otherwise use the legacy ClientHello version.
@@ -337,8 +357,8 @@ func (hs *serverHandshakeState) readClientHello() error {
 		}
 	}
 
-	if expected := hs.clientHello.dummyPQPaddingLen; expected != config.Bugs.ExpectDummyPQPaddingLength {
-		return fmt.Errorf("tls: expected dummy PQ padding extension of length %d, but got one of length %d", expected, config.Bugs.ExpectDummyPQPaddingLength)
+	if err := checkRSAPSSSupport(config.Bugs.ExpectRSAPSSSupport, hs.clientHello.signatureAlgorithms, hs.clientHello.signatureAlgorithmsCert); err != nil {
+		return err
 	}
 
 	applyBugsToClientHello(hs.clientHello, config)
@@ -371,7 +391,8 @@ func (hs *serverHandshakeState) doTLS13Handshake() error {
 		sessionId:             hs.clientHello.sessionId,
 		compressionMethod:     config.Bugs.SendCompressionMethod,
 		versOverride:          config.Bugs.SendServerHelloVersion,
-		supportedVersOverride: config.Bugs.SendServerSupportedExtensionVersion,
+		supportedVersOverride: config.Bugs.SendServerSupportedVersionExtension,
+		omitSupportedVers:     config.Bugs.OmitServerSupportedVersionExtension,
 		customExtension:       config.Bugs.CustomUnencryptedExtension,
 		unencryptedALPN:       config.Bugs.SendUnencryptedALPN,
 	}
@@ -735,7 +756,7 @@ ResendHelloRetryRequest:
 		// Once a curve has been selected and a key share identified,
 		// the server needs to generate a public value and send it in
 		// the ServerHello.
-		curve, ok := curveForCurveID(selectedCurve)
+		curve, ok := curveForCurveID(selectedCurve, config)
 		if !ok {
 			panic("tls: server failed to look up curve ID")
 		}
@@ -745,7 +766,7 @@ ResendHelloRetryRequest:
 		if config.Bugs.SkipHelloRetryRequest {
 			// If skipping HelloRetryRequest, use a random key to
 			// avoid crashing.
-			curve2, _ := curveForCurveID(selectedCurve)
+			curve2, _ := curveForCurveID(selectedCurve, config)
 			var err error
 			peerKey, err = curve2.offer(config.rand())
 			if err != nil {
@@ -829,7 +850,7 @@ ResendHelloRetryRequest:
 		if config.ClientAuth >= RequestClientCert {
 			// Request a client certificate
 			certReq := &certificateRequestMsg{
-				vers: c.wireVersion,
+				vers:                  c.wireVersion,
 				hasSignatureAlgorithm: !config.Bugs.OmitCertificateRequestAlgorithms,
 				hasRequestContext:     true,
 				requestContext:        config.Bugs.SendRequestContext,
@@ -860,10 +881,10 @@ ResendHelloRetryRequest:
 					data: certData,
 				}
 				if i == 0 {
-					if hs.clientHello.ocspStapling {
+					if hs.clientHello.ocspStapling && !c.config.Bugs.NoOCSPStapling {
 						cert.ocspResponse = hs.cert.OCSPStaple
 					}
-					if hs.clientHello.sctListSupported {
+					if hs.clientHello.sctListSupported && !c.config.Bugs.NoSignedCertificateTimestamps {
 						cert.sctList = hs.cert.SignedCertificateTimestampList
 					}
 					cert.duplicateExtensions = config.Bugs.SendDuplicateCertExtensions
@@ -880,8 +901,47 @@ ResendHelloRetryRequest:
 			}
 		}
 		certMsgBytes := certMsg.marshal()
-		hs.writeServerHash(certMsgBytes)
-		c.writeRecord(recordTypeHandshake, certMsgBytes)
+		sentCompressedCertMsg := false
+
+	FindCertCompressionAlg:
+		for candidate, alg := range c.config.CertCompressionAlgs {
+			for _, id := range hs.clientHello.compressedCertAlgs {
+				if id == candidate {
+					if expected := config.Bugs.ExpectedCompressedCert; expected != 0 && expected != id {
+						return fmt.Errorf("expected to send compressed cert with alg %d, but picked %d", expected, id)
+					}
+
+					if override := config.Bugs.SendCertCompressionAlgId; override != 0 {
+						id = override
+					}
+
+					uncompressed := certMsgBytes[4:]
+					uncompressedLen := uint32(len(uncompressed))
+					if override := config.Bugs.SendCertUncompressedLength; override != 0 {
+						uncompressedLen = override
+					}
+
+					compressedCertMsgBytes := (&compressedCertificateMsg{
+						algID:              id,
+						uncompressedLength: uncompressedLen,
+						compressed:         alg.Compress(uncompressed),
+					}).marshal()
+
+					hs.writeServerHash(compressedCertMsgBytes)
+					c.writeRecord(recordTypeHandshake, compressedCertMsgBytes)
+					sentCompressedCertMsg = true
+					break FindCertCompressionAlg
+				}
+			}
+		}
+
+		if !sentCompressedCertMsg {
+			if config.Bugs.ExpectedCompressedCert != 0 {
+				return errors.New("unexpectedly sent uncompressed certificate")
+			}
+			hs.writeServerHash(certMsgBytes)
+			c.writeRecord(recordTypeHandshake, certMsgBytes)
+		}
 
 		certVerify := &certificateVerifyMsg{
 			hasSignatureAlgorithm: true,
@@ -1118,7 +1178,7 @@ func (hs *serverHandshakeState) processClientHello() (isResume bool, err error) 
 		versOverride:      config.Bugs.SendServerHelloVersion,
 		compressionMethod: config.Bugs.SendCompressionMethod,
 		extensions: serverExtensions{
-			supportedVersion: config.Bugs.SendServerSupportedExtensionVersion,
+			supportedVersion: config.Bugs.SendServerSupportedVersionExtension,
 		},
 		omitExtensions:  config.Bugs.OmitExtensions,
 		emptyExtensions: config.Bugs.EmptyExtensions,
@@ -1130,16 +1190,20 @@ func (hs *serverHandshakeState) processClientHello() (isResume bool, err error) 
 		c.sendAlert(alertInternalError)
 		return false, err
 	}
-	// Signal downgrades in the server random, per draft-ietf-tls-tls13-16,
-	// section 4.1.3.
-	if c.vers <= VersionTLS12 && config.maxVersion(c.isDTLS) >= VersionTLS13 {
-		copy(hs.hello.random[len(hs.hello.random)-8:], downgradeTLS13)
+
+	_, supportsTLS13 := c.config.isSupportedVersion(VersionTLS13, false)
+
+	// Signal downgrades in the server random, per RFC 8446, section 4.1.3.
+	if supportsTLS13 || config.Bugs.SendTLS13DowngradeRandom {
+		if c.vers <= VersionTLS12 && config.maxVersion(c.isDTLS) >= VersionTLS13 {
+			copy(hs.hello.random[len(hs.hello.random)-8:], downgradeTLS13)
+		}
+		if c.vers <= VersionTLS11 && config.maxVersion(c.isDTLS) == VersionTLS12 {
+			copy(hs.hello.random[len(hs.hello.random)-8:], downgradeTLS12)
+		}
 	}
-	if c.vers <= VersionTLS11 && config.maxVersion(c.isDTLS) == VersionTLS12 {
-		copy(hs.hello.random[len(hs.hello.random)-8:], downgradeTLS12)
-	}
-	if config.Bugs.SendDraftTLS13DowngradeRandom {
-		copy(hs.hello.random[len(hs.hello.random)-8:], downgradeTLS13Draft)
+	if config.Bugs.SendJDK11DowngradeRandom {
+		copy(hs.hello.random[len(hs.hello.random)-8:], downgradeJDK11)
 	}
 
 	if len(hs.clientHello.sessionId) == 0 && c.config.Bugs.ExpectClientHelloSessionID {
@@ -1168,6 +1232,11 @@ func (hs *serverHandshakeState) processClientHello() (isResume bool, err error) 
 	preferredCurves := config.curvePreferences()
 Curves:
 	for _, curve := range hs.clientHello.supportedCurves {
+		if curve == CurveCECPQ2 && c.vers < VersionTLS13 {
+			// CECPQ2 is TLS 1.3-only.
+			continue
+		}
+
 		for _, supported := range preferredCurves {
 			if supported == curve {
 				supportedCurve = true
@@ -1508,11 +1577,11 @@ func (hs *serverHandshakeState) doFullHandshake() error {
 	c := hs.c
 
 	isPSK := hs.suite.flags&suitePSK != 0
-	if !isPSK && hs.clientHello.ocspStapling && len(hs.cert.OCSPStaple) > 0 {
+	if !isPSK && hs.clientHello.ocspStapling && len(hs.cert.OCSPStaple) > 0 && !c.config.Bugs.NoOCSPStapling {
 		hs.hello.extensions.ocspStapling = true
 	}
 
-	if hs.clientHello.sctListSupported && len(hs.cert.SignedCertificateTimestampList) > 0 {
+	if hs.clientHello.sctListSupported && len(hs.cert.SignedCertificateTimestampList) > 0 && !c.config.Bugs.NoSignedCertificateTimestamps {
 		hs.hello.extensions.sctList = hs.cert.SignedCertificateTimestampList
 	}
 
@@ -1577,7 +1646,7 @@ func (hs *serverHandshakeState) doFullHandshake() error {
 	}
 
 	keyAgreement := hs.suite.ka(c.vers)
-	skx, err := keyAgreement.generateServerKeyExchange(config, hs.cert, hs.clientHello, hs.hello)
+	skx, err := keyAgreement.generateServerKeyExchange(config, hs.cert, hs.clientHello, hs.hello, c.vers)
 	if err != nil {
 		c.sendAlert(alertHandshakeFailure)
 		return err

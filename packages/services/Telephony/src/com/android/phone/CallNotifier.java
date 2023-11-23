@@ -16,14 +16,6 @@
 
 package com.android.phone;
 
-import com.android.internal.telephony.CallManager;
-
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaDisplayInfoRec;
-import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaSignalInfoRec;
-import com.android.internal.telephony.cdma.SignalToneUtil;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -35,7 +27,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.SystemProperties;
 import android.telecom.TelecomManager;
-
 import android.telephony.PhoneStateListener;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -44,14 +35,19 @@ import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.android.internal.telephony.CallManager;
+import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.SubscriptionController;
+import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaDisplayInfoRec;
+import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaSignalInfoRec;
+import com.android.internal.telephony.cdma.SignalToneUtil;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import com.android.internal.telephony.SubscriptionController;
 
 /**
  * Phone app module that listens for phone state changes and various other
@@ -254,23 +250,6 @@ public class CallNotifier extends Handler {
 
         // Instantiate mSignalInfoToneGenerator
         createSignalInfoToneGenerator();
-    }
-
-    /**
-     * Resets the audio mode and speaker state when a call ends.
-     */
-    private void resetAudioStateAfterDisconnect() {
-        if (VDBG) log("resetAudioStateAfterDisconnect()...");
-
-        if (mBluetoothHeadset != null) {
-            mBluetoothHeadset.disconnectAudio();
-        }
-
-        // call turnOnSpeaker() with state=false and store=true even if speaker
-        // is already off to reset user requested speaker state.
-        PhoneUtils.turnOnSpeaker(mApplication, false, true);
-
-        PhoneUtils.setAudioMode(mCM);
     }
 
     /**
@@ -497,23 +476,6 @@ public class CallNotifier extends Handler {
                     mState = TONE_OFF;
                 }
             }
-
-            // Finally, do the same cleanup we otherwise would have done
-            // in onDisconnect().
-            //
-            // (But watch out: do NOT do this if the phone is in use,
-            // since some of our tones get played *during* a call (like
-            // CALL_WAITING) and we definitely *don't*
-            // want to reset the audio mode / speaker / bluetooth after
-            // playing those!
-            // This call is really here for use with tones that get played
-            // *after* a call disconnects, like "busy" or "congestion" or
-            // "call ended", where the phone has already become idle but
-            // we need to defer the resetAudioStateAfterDisconnect() call
-            // till the tone finishes playing.)
-            if (mCM.getState() == PhoneConstants.State.IDLE) {
-                resetAudioStateAfterDisconnect();
-            }
         }
     }
 
@@ -546,9 +508,9 @@ public class CallNotifier extends Handler {
             mergeFailedString = mApplication.getResources().getString(
                     R.string.incall_error_supp_service_conference);
         } else if (r.result == Phone.SuppService.RESUME) {
-            if (DBG) log("onSuppServiceFailed: displaying merge failure message");
+            if (DBG) log("onSuppServiceFailed: displaying resume failure message");
             mergeFailedString = mApplication.getResources().getString(
-                    R.string.incall_error_supp_service_switch);
+                    R.string.incall_error_supp_service_resume);
         } else if (r.result == Phone.SuppService.HOLD) {
             if (DBG) log("onSuppServiceFailed: displaying hold failure message");
             mergeFailedString = mApplication.getResources().getString(
@@ -563,13 +525,16 @@ public class CallNotifier extends Handler {
                     R.string.incall_error_supp_service_separate);
         } else if (r.result == Phone.SuppService.SWITCH) {
             if (DBG) log("onSuppServiceFailed: displaying switch failure message");
-            mApplication.getResources().getString(
+            mergeFailedString = mApplication.getResources().getString(
                     R.string.incall_error_supp_service_switch);
         } else if (r.result == Phone.SuppService.REJECT) {
             if (DBG) log("onSuppServiceFailed: displaying reject failure message");
-            mApplication.getResources().getString(
+            mergeFailedString = mApplication.getResources().getString(
                     R.string.incall_error_supp_service_reject);
-        } else {
+        } else if (r.result == Phone.SuppService.HANGUP) {
+            mergeFailedString = mApplication.getResources().getString(
+                    R.string.incall_error_supp_service_hangup);
+        }  else {
             if (DBG) log("onSuppServiceFailed: unknown failure");
             return;
         }
@@ -587,7 +552,8 @@ public class CallNotifier extends Handler {
     }
 
     public void updatePhoneStateListeners(boolean isRefresh, int updateType, int subIdToUpdate) {
-        List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
+        List<SubscriptionInfo> subInfos = SubscriptionController.getInstance()
+                .getActiveSubscriptionInfoList(mApplication.getOpPackageName());
 
         // Sort sub id list based on slot id, so that CFI/MWI notifications will be updated for
         // slot 0 first then slot 1. This is needed to ensure that when CFI or MWI is enabled for
@@ -644,8 +610,8 @@ public class CallNotifier extends Handler {
         for (int i = 0; i < subInfos.size(); i++) {
             int subId = subInfos.get(i).getSubscriptionId();
             if (!mPhoneStateListeners.containsKey(subId)) {
-                CallNotifierPhoneStateListener listener = new CallNotifierPhoneStateListener(subId);
-                mTelephonyManager.listen(listener,
+                CallNotifierPhoneStateListener listener = new CallNotifierPhoneStateListener();
+                mTelephonyManager.createForSubscriptionId(subId).listen(listener,
                         PhoneStateListener.LISTEN_MESSAGE_WAITING_INDICATOR
                         | PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR);
                 mPhoneStateListeners.put(subId, listener);
@@ -796,8 +762,8 @@ public class CallNotifier extends Handler {
             };
 
     private class CallNotifierPhoneStateListener extends PhoneStateListener {
-        public CallNotifierPhoneStateListener(int subId) {
-            super(subId);
+        public CallNotifierPhoneStateListener() {
+            super();
         }
 
         @Override

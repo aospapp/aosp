@@ -20,11 +20,16 @@ import static org.junit.Assert.*;
 
 import android.content.pm.UserInfo;
 import android.net.IpConfiguration;
+import android.net.MacAddress;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiScanner;
+import android.os.PatternMatcher;
 import android.os.UserHandle;
-import android.support.test.filters.SmallTest;
+import android.util.Pair;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -42,6 +47,8 @@ public class WifiConfigurationUtilTest {
     static final int CURRENT_USER_ID = 0;
     static final int CURRENT_USER_MANAGED_PROFILE_USER_ID = 10;
     static final int OTHER_USER_ID = 11;
+    static final int TEST_UID = 10000;
+    static final String TEST_PACKAGE = "com.test";
     static final String TEST_SSID = "test_ssid";
     static final String TEST_SSID_1 = "test_ssid_1";
     static final String TEST_BSSID = "aa:aa:11:22:cc:dd";
@@ -209,6 +216,15 @@ public class WifiConfigurationUtilTest {
         assertTrue(WifiConfigurationUtil.validate(
                 WifiConfigurationTestUtil.createEapNetwork(),
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(
+                WifiConfigurationTestUtil.createOweNetwork(),
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(
+                WifiConfigurationTestUtil.createSaeNetwork(),
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(
+                WifiConfigurationTestUtil.createEapSuiteBNetwork(),
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -334,12 +350,40 @@ public class WifiConfigurationUtilTest {
     }
 
     /**
+     * Verify that the validate method fails to validate WifiConfiguration with bad sae length.
+     */
+    @Test
+    public void testValidateNegativeCases_BadAsciiSaeLength() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.preSharedKey = "\"abcdffeeretretyetreteteteabe34tetrertertrsraaaaaaaaaaa345eqwrweewq"
+                + "weqe\"";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        config.preSharedKey = "\"\"";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
      * Verify that the validate method fails to validate WifiConfiguration with malformed psk
      * string.
      */
     @Test
     public void testValidateNegativeCases_MalformedAsciiPskString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.preSharedKey = "\"abcdfefeeretrety";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with malformed sae
+     * string.
+     */
+    @Test
+    public void testValidateNegativeCases_MalformedAsciiSaeString() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "\"abcdfefeeretrety";
@@ -367,6 +411,19 @@ public class WifiConfigurationUtilTest {
     @Test
     public void testValidateNegativeCases_MalformedHexPskString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.preSharedKey = "adbdfgretrtyrtyrty";
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with malformed sae
+     * string.
+     */
+    @Test
+    public void testValidateNegativeCases_MalformedHexSaeString() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
         assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "adbdfgretrtyrtyrty";
@@ -487,6 +544,157 @@ public class WifiConfigurationUtilTest {
 
         config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP + 2);
         assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with malformed sae
+     * string.
+     */
+    @Test
+    public void testValidateNegativeCases_SaeMissingPmf() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.requirePMF = false;
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with malformed owe
+     * string.
+     */
+    @Test
+    public void testValidateNegativeCases_OweMissingPmf() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createOweNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.requirePMF = false;
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiConfiguration with malformed suiteb
+     * string.
+     */
+    @Test
+    public void testValidateNegativeCases_SuitebMissingPmf() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createEapSuiteBNetwork();
+        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+
+        config.requirePMF = false;
+        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+    }
+
+    /**
+     * Verify that the validate method successfully validates good WifiNetworkSpecifier with
+     * only ssid pattern set.
+     */
+    @Test
+    public void testValidateNetworkSpecifierPositiveCases_SsidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
+                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method successfully validates good WifiNetworkSpecifier with
+     * only bssid pattern set.
+     */
+    @Test
+    public void testValidateNetworkSpecifierPositiveCases_BssidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(".*", PatternMatcher.PATTERN_SIMPLE_GLOB),
+                Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.BROADCAST_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method successfully validates good WifiNetworkSpecifier with
+     * both ssid & bssid patterns set.
+     */
+    @Test
+    public void testValidateNetworkSpecifierPositiveCases_BothSsidPatternAndBssidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
+                Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.BROADCAST_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertTrue(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiNetworkSpecifier with no
+     * ssid/bssid info.
+     */
+    @Test
+    public void testValidateNetworkSpecifierNegativeCases_NoSsidBssid() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(".*", PatternMatcher.PATTERN_SIMPLE_GLOB),
+                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiNetworkSpecifier with invalid SSID
+     * match pattern.
+     */
+    @Test
+    public void testValidateNetworkSpecifierNegativeCases_MatchNoneSsidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher("", PatternMatcher.PATTERN_LITERAL),
+                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiNetworkSpecifier with illegal
+     * pattern.
+     */
+    @Test
+    public void testValidateNetworkSpecifierNegativeCases_MatchNoneBssidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
+                Pair.create(MacAddress.BROADCAST_ADDRESS, MacAddress.BROADCAST_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiNetworkSpecifier with illegal
+     * pattern.
+     */
+    @Test
+    public void testValidateNetworkSpecifierNegativeCases_InvalidBssidPattern() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_LITERAL),
+                Pair.create(MacAddress.fromString(TEST_BSSID), MacAddress.ALL_ZEROS_ADDRESS),
+                WifiConfigurationTestUtil.createOpenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
+    }
+
+    /**
+     * Verify that the validate method fails to validate WifiNetworkSpecifier with SSID pattern
+     * for hidden network.
+     */
+    @Test
+    public void testValidateNetworkSpecifierNegativeCases_NoSsidPatternForHiddenNetwork() {
+        WifiNetworkSpecifier specifier = new WifiNetworkSpecifier(
+                new PatternMatcher(TEST_SSID, PatternMatcher.PATTERN_PREFIX),
+                Pair.create(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS),
+                WifiConfigurationTestUtil.createOpenHiddenNetwork(),
+                TEST_UID, TEST_PACKAGE);
+        assertFalse(WifiConfigurationUtil.validateNetworkSpecifier(specifier));
     }
 
     /**
@@ -614,6 +822,21 @@ public class WifiConfigurationUtilTest {
     }
 
     /**
+     * Verify that WifiConfigurationUtil.isSameNetwork returns true when two WifiConfiguration
+     * objects have the different EAP anonymous(pseudonym) identity in EAP-SIM.
+     */
+    @Test
+    public void testIsSameNetworkReturnsTrueOnDifferentEapAnonymousIdentityInEapSim() {
+        WifiConfiguration network1 = WifiConfigurationTestUtil.createEapNetwork(TEST_SSID);
+        WifiConfiguration network2 = WifiConfigurationTestUtil.createEapNetwork(TEST_SSID);
+        network1.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
+        network2.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
+        network1.enterpriseConfig.setAnonymousIdentity("Identity1");
+        network2.enterpriseConfig.setAnonymousIdentity("Identity2");
+        assertTrue(WifiConfigurationUtil.isSameNetwork(network1, network2));
+    }
+
+    /**
      * Verify the instance of {@link android.net.wifi.WifiScanner.PnoSettings.PnoNetwork} created
      * for a EAP network using {@link WifiConfigurationUtil#createPnoNetwork(WifiConfiguration)
      * }.
@@ -688,6 +911,54 @@ public class WifiConfigurationUtilTest {
         assertEquals(tempDisabledNetwork1, networks.get(2));
         assertEquals(tempDisabledNetwork2, networks.get(3));
         assertEquals(permDisabledNetwork, networks.get(4));
+    }
+
+    /**
+     * Verifies that when the existing configuration is null and macRandomizationSetting in the
+     * newConfig is the default value, then hasMacRandomizationSettingsChanged returns false.
+     */
+    @Test
+    public void testHasMacRandomizationSettingsChangedNullExistingConfigDefaultNewConfig() {
+        WifiConfiguration newConfig = new WifiConfiguration();
+        assertFalse(WifiConfigurationUtil.hasMacRandomizationSettingsChanged(null, newConfig));
+    }
+
+    /**
+     * Verifies that when the existing configuration is null and macRandomizationSetting in the
+     * newConfig is not the default value, then hasMacRandomizationSettingsChanged returns true.
+     */
+    @Test
+    public void testHasMacRandomizationSettingsChangedNullExistingConfigModifiedNewConfig() {
+        WifiConfiguration newConfig = new WifiConfiguration();
+        newConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
+        assertTrue(WifiConfigurationUtil.hasMacRandomizationSettingsChanged(null, newConfig));
+    }
+
+    /**
+     * Verifies that when macRandomizationSetting in the newConfig is different from existingConfig
+     * hasMacRandomizationSettingsChanged returns true.
+     */
+    @Test
+    public void testHasMacRandomizationSettingsChangedFieldsDifferent() {
+        WifiConfiguration existingConfig = new WifiConfiguration();
+        WifiConfiguration newConfig = new WifiConfiguration();
+        newConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
+        assertTrue(WifiConfigurationUtil.hasMacRandomizationSettingsChanged(
+                existingConfig, newConfig));
+    }
+
+    /**
+     * Verifies that when macRandomizationSetting in the newConfig is the same as existingConfig
+     * hasMacRandomizationSettingsChanged returns false.
+     */
+    @Test
+    public void testHasMacRandomizationSettingsChangedFieldsSame() {
+        WifiConfiguration existingConfig = new WifiConfiguration();
+        existingConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
+        WifiConfiguration newConfig = new WifiConfiguration();
+        newConfig.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
+        assertFalse(WifiConfigurationUtil.hasMacRandomizationSettingsChanged(
+                existingConfig, newConfig));
     }
 
     private static class EnterpriseConfig {

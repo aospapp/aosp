@@ -100,6 +100,8 @@ class FakeSystemState : public SystemState {
     return power_manager_;
   }
 
+  inline DlcServiceInterface* dlcservice() override { return dlcservice_; }
+
   inline bool system_rebooted() override { return fake_system_rebooted_; }
 
   // Setters for the various members, can be used for overriding the default
@@ -116,8 +118,8 @@ class FakeSystemState : public SystemState {
 
   inline void set_connection_manager(
       ConnectionManagerInterface* connection_manager) {
-    connection_manager_ = (connection_manager ? connection_manager :
-                           &mock_connection_manager_);
+    connection_manager_ =
+        (connection_manager ? connection_manager : &mock_connection_manager_);
   }
 
   inline void set_hardware(HardwareInterface* hardware) {
@@ -134,35 +136,39 @@ class FakeSystemState : public SystemState {
   }
 
   inline void set_powerwash_safe_prefs(PrefsInterface* powerwash_safe_prefs) {
-    powerwash_safe_prefs_ = (powerwash_safe_prefs ? powerwash_safe_prefs :
-                             &mock_powerwash_safe_prefs_);
+    powerwash_safe_prefs_ =
+        (powerwash_safe_prefs ? powerwash_safe_prefs
+                              : &mock_powerwash_safe_prefs_);
   }
 
-  inline void set_payload_state(PayloadStateInterface *payload_state) {
+  inline void set_payload_state(PayloadStateInterface* payload_state) {
     payload_state_ = payload_state ? payload_state : &mock_payload_state_;
   }
 
   inline void set_update_attempter(UpdateAttempter* update_attempter) {
-    update_attempter_ = (update_attempter ? update_attempter :
-                         &mock_update_attempter_);
+    update_attempter_ =
+        (update_attempter ? update_attempter : &mock_update_attempter_);
   }
 
   inline void set_request_params(OmahaRequestParams* request_params) {
-    request_params_ = (request_params ? request_params :
-                       &mock_request_params_);
+    request_params_ = (request_params ? request_params : &mock_request_params_);
   }
 
-  inline void set_p2p_manager(P2PManager *p2p_manager) {
+  inline void set_p2p_manager(P2PManager* p2p_manager) {
     p2p_manager_ = p2p_manager ? p2p_manager : &mock_p2p_manager_;
   }
 
   inline void set_update_manager(
-      chromeos_update_manager::UpdateManager *update_manager) {
+      chromeos_update_manager::UpdateManager* update_manager) {
     update_manager_ = update_manager ? update_manager : &fake_update_manager_;
   }
 
   inline void set_system_rebooted(bool system_rebooted) {
     fake_system_rebooted_ = system_rebooted;
+  }
+
+  inline void set_dlcservice(DlcServiceInterface* dlcservice) {
+    dlcservice_ = dlcservice;
   }
 
   // Getters for the built-in default implementations. These return the actual
@@ -195,12 +201,12 @@ class FakeSystemState : public SystemState {
     return &mock_metrics_reporter_;
   }
 
-  inline testing::NiceMock<MockPrefs> *mock_prefs() {
+  inline testing::NiceMock<MockPrefs>* mock_prefs() {
     CHECK(prefs_ == &mock_prefs_);
     return &mock_prefs_;
   }
 
-  inline testing::NiceMock<MockPrefs> *mock_powerwash_safe_prefs() {
+  inline testing::NiceMock<MockPrefs>* mock_powerwash_safe_prefs() {
     CHECK(powerwash_safe_prefs_ == &mock_powerwash_safe_prefs_);
     return &mock_powerwash_safe_prefs_;
   }
@@ -261,6 +267,7 @@ class FakeSystemState : public SystemState {
   P2PManager* p2p_manager_;
   chromeos_update_manager::UpdateManager* update_manager_;
   PowerManagerInterface* power_manager_{&mock_power_manager_};
+  DlcServiceInterface* dlcservice_;
 
   // Other object pointers (not preinitialized).
   const policy::DevicePolicy* device_policy_;

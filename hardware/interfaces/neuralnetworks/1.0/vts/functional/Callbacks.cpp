@@ -1,10 +1,26 @@
+/*
+ * Copyright (C) 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "Callbacks.h"
 #include <android-base/logging.h>
 
 namespace android {
 namespace hardware {
 namespace neuralnetworks {
-namespace V1_0 {
+namespace V1_2 {
 namespace implementation {
 
 CallbackBase::CallbackBase() : mNotified(false) {}
@@ -88,7 +104,15 @@ PreparedModelCallback::PreparedModelCallback() :
 PreparedModelCallback::~PreparedModelCallback() {}
 
 Return<void> PreparedModelCallback::notify(ErrorStatus errorStatus,
-                                           const sp<IPreparedModel>& preparedModel) {
+                                           const sp<V1_0::IPreparedModel>& preparedModel) {
+    mErrorStatus = errorStatus;
+    mPreparedModel = preparedModel;
+    CallbackBase::notify();
+    return Void();
+}
+
+Return<void> PreparedModelCallback::notify_1_2(ErrorStatus errorStatus,
+                                               const sp<V1_2::IPreparedModel>& preparedModel) {
     mErrorStatus = errorStatus;
     mPreparedModel = preparedModel;
     CallbackBase::notify();
@@ -100,7 +124,7 @@ ErrorStatus PreparedModelCallback::getStatus() {
     return mErrorStatus;
 }
 
-sp<IPreparedModel> PreparedModelCallback::getPreparedModel() {
+sp<V1_0::IPreparedModel> PreparedModelCallback::getPreparedModel() {
     wait();
     return mPreparedModel;
 }
@@ -111,6 +135,18 @@ ExecutionCallback::~ExecutionCallback() {}
 
 Return<void> ExecutionCallback::notify(ErrorStatus errorStatus) {
     mErrorStatus = errorStatus;
+    mOutputShapes = {};
+    mTiming = {.timeOnDevice = UINT64_MAX, .timeInDriver = UINT64_MAX};
+    CallbackBase::notify();
+    return Void();
+}
+
+Return<void> ExecutionCallback::notify_1_2(ErrorStatus errorStatus,
+                                           const hidl_vec<OutputShape>& outputShapes,
+                                           const Timing& timing) {
+    mErrorStatus = errorStatus;
+    mOutputShapes = outputShapes;
+    mTiming = timing;
     CallbackBase::notify();
     return Void();
 }
@@ -120,8 +156,18 @@ ErrorStatus ExecutionCallback::getStatus() {
     return mErrorStatus;
 }
 
+const std::vector<OutputShape>& ExecutionCallback::getOutputShapes() {
+    wait();
+    return mOutputShapes;
+}
+
+Timing ExecutionCallback::getTiming() {
+    wait();
+    return mTiming;
+}
+
 }  // namespace implementation
-}  // namespace V1_0
+}  // namespace V1_2
 }  // namespace neuralnetworks
 }  // namespace hardware
 }  // namespace android

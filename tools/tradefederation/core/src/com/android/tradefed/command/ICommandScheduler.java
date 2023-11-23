@@ -16,6 +16,7 @@
 
 package com.android.tradefed.command;
 
+import com.android.tradefed.clearcut.ClearcutClient;
 import com.android.tradefed.command.CommandRunner.ExitCode;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfigurationFactory;
@@ -311,4 +312,7 @@ public interface ICommandScheduler {
 
     /** Returns the number of Commands in ready state in the queue. */
     public int getReadyCommandCount();
+
+    /** Set the client to report harness data */
+    public void setClearcutClient(ClearcutClient client);
 }

@@ -99,6 +99,10 @@ public class CrashCollector extends TestFilePushSetup
         clearTestFileName();
         addTestFileName(mCrashCollectorPath);
         super.setUp(device, buildInfo);
+        if (getFailedToPushFiles().contains(mCrashCollectorPath)) {
+            CLog.w("Failed to push crash collector binary. Skipping the collection.");
+            return;
+        }
         String crashCollectorPath = String.format("/data/%s/%s",
                 mCrashCollectorPath, mCrashCollectorBinary);
         device.executeShellCommand("chmod 755 " + crashCollectorPath);

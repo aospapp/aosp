@@ -8,6 +8,7 @@ import os
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 
@@ -24,7 +25,8 @@ class video_VDASanity(chrome_binary_test.ChromeBinaryTest):
 
     @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, test_cases):
+    def run_once(self, test_cases, capability):
+        device_capability.DeviceCapability().ensure_capability(capability)
         for (path, width, height, frame_num, frag_num, profile) in test_cases:
             video_path = os.path.join(self.bindir, 'video.download')
             test_video_data = '%s:%d:%d:%d:%d:%d:%d:%d' % (

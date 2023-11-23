@@ -23,7 +23,7 @@
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 
-#include "base/unix_file/fd_file.h"
+#include "unix_file/fd_file.h"
 
 namespace art {
 
@@ -31,7 +31,7 @@ using android::base::StringPrintf;
 
 File OpenAndReadMagic(const char* filename, uint32_t* magic, std::string* error_msg) {
   CHECK(magic != nullptr);
-  File fd(filename, O_RDONLY, /* check_usage */ false);
+  File fd(filename, O_RDONLY, /* check_usage= */ false);
   if (fd.Fd() == -1) {
     *error_msg = StringPrintf("Unable to open '%s' : %s", filename, strerror(errno));
     return File();

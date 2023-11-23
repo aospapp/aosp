@@ -13,7 +13,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = '4k_video_vp8'
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome", "VideoTestFailure"],
     "cc": ["chromeos-video-test-failures@google.com"],
@@ -25,7 +24,8 @@ playback for software decode on all devices and hardware decode on those devices
 with hardware acceleration support.
 """
 
-VIDEO_NAME = 'Shaka-Dash/2160_vp8_600frames-26169f5d6bebba305e2c9ea701e84036.vp8.webm'
+VIDEO_NAME = 'Shaka-Dash/2160_vp8_600frames-3d61b1aed4e3f32249c7d324a809ef54.vp8.webm'
 VIDEO_DESCRIPTION = 'vp8_4k'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
-             video_description=VIDEO_DESCRIPTION)
+             video_description=VIDEO_DESCRIPTION,
+             capability='hw_dec_vp8_2160_30')

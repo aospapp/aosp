@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2002
-// Copyright Dirk Lemstra 2013-2016
+// Copyright Dirk Lemstra 2013-2017
 //
 // Implementation of STL classes and functions
 //
@@ -40,13 +40,16 @@ void Magick::adaptiveThresholdImage::operator()( Magick::Image &image_ ) const
 }
 
 // Add noise to image with specified noise type
-Magick::addNoiseImage::addNoiseImage( Magick::NoiseType noiseType_ )
-  : _noiseType( noiseType_ )
+Magick::addNoiseImage::addNoiseImage(const Magick::NoiseType noiseType_,
+  const double attenuate_)
+  : _noiseType(noiseType_),
+    _attenuate(attenuate_)
 {
 }
-void Magick::addNoiseImage::operator()( Magick::Image &image_ ) const
+
+void Magick::addNoiseImage::operator()(Magick::Image &image_) const
 {
-  image_.addNoise( _noiseType );
+  image_.addNoise(_noiseType,_attenuate);
 }
 
 // Transform image by specified affine (or free transform) matrix.
@@ -827,6 +830,26 @@ size_t Magick::ReadOptions::depth(void) const
   return(_imageInfo->depth);
 }
 
+void Magick::ReadOptions::ping(const bool flag_)
+{
+  _imageInfo->ping=(MagickBooleanType) flag_;
+}
+
+bool Magick::ReadOptions::ping(void) const
+{
+   return(static_cast<bool>(_imageInfo->ping));
+}
+
+void Magick::ReadOptions::quiet(const bool quiet_)
+{
+  _quiet=quiet_;
+}
+
+bool Magick::ReadOptions::quiet(void) const
+{
+   return(_quiet);
+}
+
 void Magick::ReadOptions::size(const Geometry &geometry_)
 {
   _imageInfo->size=(char *) RelinquishMagickMemory(_imageInfo->size);
@@ -841,16 +864,6 @@ Magick::Geometry Magick::ReadOptions::size(void) const
     return(Geometry(_imageInfo->size));
 
   return(Geometry());
-}
-
-void Magick::ReadOptions::quiet(const bool quiet_)
-{
-  _quiet=quiet_;
-}
-
-bool Magick::ReadOptions::quiet(void) const
-{
-   return(_quiet);
 }
 
 MagickCore::ImageInfo *Magick::ReadOptions::imageInfo(void)
@@ -1412,13 +1425,13 @@ void Magick::alphaFlagImage::operator()( Magick::Image &image_ ) const
 }
 
 // Transparent color
-Magick::alphaColorImage::alphaColorImage( const Color &alphaColor_ )
-  : _alphaColor( alphaColor_ )
+Magick::matteColorImage::matteColorImage( const Color &matteColor_ )
+  : _matteColor( matteColor_ )
 {
 }
-void Magick::alphaColorImage::operator()( Magick::Image &image_ ) const
+void Magick::matteColorImage::operator()( Magick::Image &image_ ) const
 {
-  image_.alphaColor( _alphaColor );
+  image_.matteColor( _matteColor );
 }
 
 // Indicate that image is black and white

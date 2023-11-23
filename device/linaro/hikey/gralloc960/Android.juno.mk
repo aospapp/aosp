@@ -15,6 +15,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-$(info gralloc for juno)
 GRALLOC_FB_SWAP_RED_BLUE := 1
 GRALLOC_DEPTH := GRALLOC_32_BITS

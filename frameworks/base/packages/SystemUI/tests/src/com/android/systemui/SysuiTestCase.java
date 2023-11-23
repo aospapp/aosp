@@ -23,12 +23,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.MessageQueue;
 import android.os.ParcelFileDescriptor;
-import android.support.test.InstrumentationRegistry;
 import android.testing.DexmakerShareClassLoaderRule;
 import android.testing.LeakCheck;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.systemui.util.Assert;
 
 import org.junit.After;
 import org.junit.Before;
@@ -58,7 +60,6 @@ public abstract class SysuiTestCase {
 
     @Before
     public void SysuiSetup() throws Exception {
-        mContext.setTheme(R.style.Theme_SystemUI);
         SystemUIFactory.createFromConfig(mContext);
 
         mRealInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -79,6 +80,8 @@ public abstract class SysuiTestCase {
     public void SysuiTeardown() {
         InstrumentationRegistry.registerInstance(mRealInstrumentation,
                 InstrumentationRegistry.getArguments());
+        // Reset the assert's main looper.
+        Assert.sMainLooper = Looper.getMainLooper();
     }
 
     protected LeakCheck getLeakCheck() {

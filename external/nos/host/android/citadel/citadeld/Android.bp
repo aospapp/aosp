@@ -28,6 +28,7 @@ cc_defaults {
         "libbinder",
         "libnos",
         "libutils",
+        "//hardware/google/pixel:pixelpowerstats_provider_aidl_interface-cpp",
     ],
 }
 

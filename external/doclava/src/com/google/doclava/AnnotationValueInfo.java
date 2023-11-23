@@ -57,7 +57,7 @@ public class AnnotationValueInfo implements Resolvable {
   public String valueString() {
     Object v = mValue;
     if (v instanceof TypeInfo) {
-      return ((TypeInfo) v).fullName();
+      return ((TypeInfo) v).fullName() + ".class";
     } else if (v instanceof FieldInfo) {
       StringBuilder str = new StringBuilder();
       FieldInfo f = (FieldInfo) v;

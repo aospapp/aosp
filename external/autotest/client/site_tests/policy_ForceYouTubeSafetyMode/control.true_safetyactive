@@ -5,7 +5,7 @@
 AUTHOR = 'scunningham'
 NAME = 'policy_ForceYouTubeSafetyMode.true_safetyactive'
 # TODO(krishnargv): enable this test once crbug.com/712383 is fixed.
-# ATTRIBUTES = 'suite:bvt-perbuild, suite:policy'
+# ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

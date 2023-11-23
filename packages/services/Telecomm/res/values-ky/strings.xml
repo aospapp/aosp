@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Тез жооп"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> номуруна билдирүү жөнөтүлдү."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Билдирүү <xliff:g id="PHONE_NUMBER">%s</xliff:g> номерине жөнөтүлбөй калды."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Чалуу каттоо эсептери"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Шашылыш чалууларга гана уруксат берилген."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Бул колдонмо тийиштүү уруксатсыз чалууларды жасай албайт."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Демейки шартта колдонуу"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Жокко чыгаруу"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> колдонмосу аркылуу чалып, алардын параметрлерин жөндөй аласыз. Демейки чалуулар үчүн ишеничтүү колдонмолорду гана пайдалануу керек."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g> колднмсн демейки чалуулар башкаруу колднмсу кыласызбы?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> колдонмосу кирүүчү чалууларды башкара албай калат."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> колдонмосу байланыштарыңызда болбогон чалуучулардын маалыматтарын көрүп, чалууларды бөгөттөй алат. Демейки кирүүчү чалууларды башкаруу үчүн ишеничтүү колдонмолорду гана пайдалануу керек."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Демейки шартта колдонуу"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Жок"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Бөгөттөлгөн номерлер"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Бөгөттөлгөн номерлерден эч ким чалып же билдирүү жөнөтө албайт."</string>
     <string name="block_number" msgid="1101252256321306179">"Номер кошуу"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Чалууга жооп берсеңиз, учурдагы видео чалууңуз бүтүп калат"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Жооп берүү"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Четке кагуу"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Бул түрдөгү чалуударды колдоого алган чалуу аккаунттары жок болгондуктан, чалуу аткарылбай койду."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Учурда <xliff:g id="OTHER_CALL">%1$s</xliff:g> чалууңуздан улам, башка жерге чала албайсыз."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Учурда <xliff:g id="OTHER_CALL">%1$s</xliff:g> чалууларыңуздан улам, башка жерге чала албайсыз."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Башка колдонмодо чалып жатасыз, ошондуктан чала албайсыз."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Кабыл алынбаган чалуулар"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Чалууну бөгөттөө"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Эгер чалып баштасаңыз, <xliff:g id="OTHER_APP">%1$s</xliff:g> чалууңуз аяктайт."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Чалуу жолун тандаңыз"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"<xliff:g id="OTHER_APP">%1$s</xliff:g> аркылуу чалуу багытын буруу"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Телефон номерим аркылуу чалуу"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"<xliff:g id="OTHER_APP">%1$s</xliff:g>аркылуу чалынбайт. Чалууну башка дарекке багыттоочу колдонмону колдонуп көрүңүз же жардам алуу үчүн иштеп чыгуучу менен байланышыңыз."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Чалууну бөгөттөө"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Номерлер Байланыштар тизмесинде жок"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Байланыштар тизмеңизде болбогон номерлерди бөгөттөңүз"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Чалууну бөгөттөө өчүрүлдү"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Шашылыш чалуу аткарылды"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Өзгөчө кырдаалдардагы кызматчылар сиз менен байланышуусу үчүн чалууну бөгөттөө функциясы өчүрүлгөн."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Telecom иштеп чыгуучусунун менюсу"</string>
 </resources>

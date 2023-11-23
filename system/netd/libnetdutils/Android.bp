@@ -1,7 +1,10 @@
 cc_library {
     name: "libnetdutils",
     srcs: [
+        "DumpWriter.cpp",
         "Fd.cpp",
+        "InternetAddresses.cpp",
+        "Log.cpp",
         "Netfilter.cpp",
         "Netlink.cpp",
         "Slice.cpp",
@@ -12,10 +15,10 @@ cc_library {
         "UniqueFd.cpp",
         "UniqueFile.cpp",
     ],
+    defaults: ["netd_defaults"],
     cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libbase",
-        "libbinder",
         "liblog",
     ],
     export_shared_lib_headers: [
@@ -29,20 +32,22 @@ cc_test {
     srcs: [
         "BackoffSequenceTest.cpp",
         "FdTest.cpp",
+        "InternetAddressesTest.cpp",
+        "LogTest.cpp",
         "MemBlockTest.cpp",
         "OperationLimiterTest.cpp",
         "SliceTest.cpp",
         "StatusTest.cpp",
         "SyscallsTest.cpp",
+        "ThreadUtilTest.cpp",
     ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-error=unused-variable",
+    defaults: ["netd_defaults"],
+    test_suites: ["device-tests"],
+    static_libs: [
+        "libgmock",
+        "libnetdutils",
     ],
-    static_libs: ["libgmock"],
     shared_libs: [
         "libbase",
-        "libnetdutils",
     ],
 }

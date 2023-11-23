@@ -83,13 +83,28 @@ table NanoappListResponse {
 }
 
 /// Represents a request for loading a nanoapp.
-/// The loading may optionally be fragmented into multiple sequential requests,
-/// which will follow the following steps:
+/// The nanaopp can either be requested to be loaded via a file or via a buffer.
+/// For loading via a file, the following steps will be taken:
+/// 1. The loader sends a LoadNanoappRequest message to CHRE. app_binary must
+///    be set for legacy purposes, but should be empty. Additionally,
+///    fragment_id and total_app_size are unused in this request. The loading
+///    that happens as part of this request is serialized, but asynchronous
+///    meaning that load requests will be processed in the order they are sent
+///    but multiple requests can be outstanding at any given time.
+/// 2. CHRE stores the filename and waits until its event loop is able to
+///    process the request.
+/// 3. Once ready, the nanoapp will be loaded from the file specified in the
+///    original request and will send a callback indicating the
+///    completion/failure of the request.
+/// For loading via a buffer, loading may optionally be fragmented into multiple
+/// sequential requests, which will follow the following steps:
 /// 1. The loader sends a LoadNanoappRequest message to CHRE. If the request
 ///    is fragmented, then the fields fragment_id and total_app_size must
-///    be defined. Parallel loading for the different clients is supported.
-///    If there is already a pending request for the client, the pending request
-///    will abort and fail, and the new request will be started.
+///    be defined. Once the first fragment is sent to CHRE, all subsequent
+///    fragments must be delivered before a new LoadNanoappRequest can be
+///    issued. If a new request is received while a current request has
+///    outstanding fragments, the current request will be overridden with the
+///    new one.
 /// 2. CHRE preallocates the required amount of memory, and loads app_binary,
 ///    appending to already loaded fragments as appropriate.
 /// 3. If the request is fragmented, then the requestor must sequentially send
@@ -120,6 +135,10 @@ table LoadNanoappRequest {
   /// default behavior should be to assume one fragment.
   fragment_id:uint = 0;
   total_app_size:uint;
+
+  /// Null-terminated ASCII string containing the file name that contains the
+  /// app binary to be loaded.
+  app_binary_file_name:[byte];
 }
 
 table LoadNanoappResponse {

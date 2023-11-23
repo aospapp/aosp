@@ -17,13 +17,10 @@ from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import packages
-from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib import utils as client_utils
-from autotest_lib.server import autoserv_parser
 from autotest_lib.server import installable_object
 from autotest_lib.server import utils
 from autotest_lib.server import utils as server_utils
-from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite.constants import JOB_REPO_URL
 
 
@@ -35,8 +32,6 @@ except ImportError:
 
 AUTOTEST_SVN = 'svn://test.kernel.org/autotest/trunk/client'
 AUTOTEST_HTTP = 'http://test.kernel.org/svn/autotest/trunk/client'
-
-_PARSER = autoserv_parser.autoserv_parser
 
 _CONFIG = global_config.global_config
 AUTOSERV_PREBUILD = _CONFIG.get_config_value(
@@ -186,10 +181,8 @@ class Autotest(installable_object.InstallableObject):
     def get_fetch_location(self):
         """Generate list of locations where autotest can look for packages.
 
-        Old n' busted: Autotest packages are always stored at a URL that can
-        be derived from the one passed via the voodoo magic --image argument.
-        New hotness: Hosts are tagged with an attribute containing the URL
-        from which to source packages when running a test on that host.
+        Hosts are tagged with an attribute containing the URL from which
+        to source packages when running a test on that host.
 
         @returns the list of candidate locations to check for packages.
         """
@@ -198,38 +191,15 @@ class Autotest(installable_object.InstallableObject):
                                    default=[])
         repos.reverse()
 
-        if _PARSER.options.image:
-            image_opt = _PARSER.options.image
-            if image_opt.startswith('http://'):
-                # A devserver HTTP url was specified, set that as the repo_url.
-                repos.append(image_opt.replace(
-                    'update', 'static').rstrip('/') + '/autotest')
-            else:
-                # An image_name like stumpy-release/R27-3437.0.0 was specified,
-                # set this as the repo_url for the host. If an AFE is not being
-                # run, this will ensure that the installed build uses the
-                # associated artifacts for the test specified when running
-                # autoserv with --image. However, any subsequent tests run on
-                # the host will no longer have the context of the image option
-                # and will revert back to utilizing test code/artifacts that are
-                # currently present in the users source checkout.
-                # devserver selected must be in the same subnet of self.host, if
-                # the host is in restricted subnet. Otherwise, host may not be
-                # able to reach the devserver and download packages from the
-                # repo_url.
-                hostname = self.host.hostname if self.host else None
-                devserver_url = dev_server.ImageServer.resolve(
-                        image_opt, hostname).url()
-                repo_url = tools.get_package_url(devserver_url, image_opt)
-                repos.append(repo_url)
-        elif not server_utils.is_inside_chroot():
-            # Only try to get fetch location from host attribute if the test
-            # is not running inside chroot.
-            # No --image option was specified, look for the repo url via
-            # the host attribute. If we are not running with a full AFE
-            # autoserv will fall back to serving packages itself from whatever
-            # source version it is sync'd to rather than using the proper
-            # artifacts for the build on the host.
+        if not server_utils.is_inside_chroot():
+            # Only try to get fetch location from host attribute if the
+            # test is not running inside chroot.
+            #
+            # Look for the repo url via the host attribute. If we are
+            # not running with a full AFE autoserv will fall back to
+            # serving packages itself from whatever source version it is
+            # sync'd to rather than using the proper artifacts for the
+            # build on the host.
             found_repo = self._get_fetch_location_from_host_attribute()
             if found_repo is not None:
                 # Add our new repo to the end, the package manager will
@@ -303,6 +273,8 @@ class Autotest(installable_object.InstallableObject):
         if not repos:
             raise error.PackageInstallError("No repos to install an "
                                             "autotest client from")
+        # Make sure devserver has the autotest package staged
+        host.verify_job_repo_url()
         pkgmgr = packages.PackageManager(autodir, hostname=host.hostname,
                                          repo_urls=repos,
                                          do_locking=False,
@@ -647,6 +619,7 @@ class Autotest(installable_object.InstallableObject):
             host = self.host
         if not self.installed:
             self.install(host)
+
         opts = ["%s=%s" % (o[0], repr(o[1])) for o in dargs.items()]
         cmd = ", ".join([repr(test_name)] + map(repr, args) + opts)
         control = "job.run_test(%s)\n" % cmd
@@ -834,12 +807,12 @@ class _Run(object):
 
     @staticmethod
     def is_client_job_finished(last_line):
-        return bool(re.match(r'^END .*\t----\t----\t.*$', last_line))
+        return bool(re.match(r'^\t*END .*\t[\w.-]+\t[\w.-]+\t.*$', last_line))
 
 
     @staticmethod
     def is_client_job_rebooting(last_line):
-        return bool(re.match(r'^\t*GOOD\t----\treboot\.start.*$', last_line))
+        return bool(re.match(r'^\t*GOOD\t[\w.-]+\treboot\.start.*$', last_line))
 
 
     def _diagnose_dut(self, old_boot_id=None):

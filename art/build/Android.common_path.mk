@@ -73,19 +73,34 @@ TARGET_CORE_IMG_OUTS :=
 HOST_CORE_IMG_LOCATION := $(HOST_OUT_JAVA_LIBRARIES)/core.art
 TARGET_CORE_IMG_LOCATION := $(ART_TARGET_TEST_OUT)/core.art
 
-# Jar files for core.art.
-HOST_CORE_DEX_LOCATIONS   := $(foreach jar,$(HOST_CORE_JARS),  $(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
+# Modules to compile for core.art.
+CORE_IMG_JARS := core-oj core-libart okhttp bouncycastle apache-xml
+HOST_CORE_IMG_JARS   := $(addsuffix -hostdex,$(CORE_IMG_JARS))
+TARGET_CORE_IMG_JARS := $(addsuffix -testdex,$(CORE_IMG_JARS))
+HOST_CORE_IMG_DEX_LOCATIONS   := $(foreach jar,$(HOST_CORE_IMG_JARS),  $(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
 ifeq ($(ART_TEST_ANDROID_ROOT),)
-TARGET_CORE_DEX_LOCATIONS := $(foreach jar,$(TARGET_CORE_JARS),/$(DEXPREOPT_BOOT_JAR_DIR)/$(jar).jar)
+TARGET_CORE_IMG_DEX_LOCATIONS := $(foreach jar,$(TARGET_CORE_IMG_JARS),/$(ART_DEXPREOPT_BOOT_JAR_DIR)/$(jar).jar)
 else
-TARGET_CORE_DEX_LOCATIONS := $(foreach jar,$(TARGET_CORE_JARS),$(ART_TEST_ANDROID_ROOT)/framework/$(jar).jar)
+TARGET_CORE_IMG_DEX_LOCATIONS := $(foreach jar,$(TARGET_CORE_IMG_JARS),$(ART_TEST_ANDROID_ROOT)/$(jar).jar)
 endif
+HOST_CORE_IMG_DEX_FILES   := $(foreach jar,$(HOST_CORE_IMG_JARS),  $(call intermediates-dir-for,JAVA_LIBRARIES,$(jar),t,COMMON)/javalib.jar)
+TARGET_CORE_IMG_DEX_FILES := $(foreach jar,$(TARGET_CORE_IMG_JARS),$(call intermediates-dir-for,JAVA_LIBRARIES,$(jar), ,COMMON)/javalib.jar)
 
-HOST_CORE_DEX_FILES   := $(foreach jar,$(HOST_CORE_JARS),  $(call intermediates-dir-for,JAVA_LIBRARIES,$(jar),t,COMMON)/javalib.jar)
-TARGET_CORE_DEX_FILES := $(foreach jar,$(TARGET_CORE_JARS),$(call intermediates-dir-for,JAVA_LIBRARIES,$(jar), ,COMMON)/javalib.jar)
+# Jar files for the boot class path for testing. Must start with CORE_IMG_JARS.
+TEST_CORE_JARS := $(CORE_IMG_JARS) conscrypt
+HOST_TEST_CORE_JARS   := $(addsuffix -hostdex,$(TEST_CORE_JARS))
+TARGET_TEST_CORE_JARS := $(addsuffix -testdex,$(TEST_CORE_JARS))
+HOST_CORE_DEX_LOCATIONS   := $(foreach jar,$(HOST_TEST_CORE_JARS),  $(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
+ifeq ($(ART_TEST_ANDROID_ROOT),)
+TARGET_CORE_DEX_LOCATIONS := $(foreach jar,$(TARGET_TEST_CORE_JARS),/$(ART_DEXPREOPT_BOOT_JAR_DIR)/$(jar).jar)
+else
+TARGET_CORE_DEX_LOCATIONS := $(foreach jar,$(TARGET_TEST_CORE_JARS),$(ART_TEST_ANDROID_ROOT)/framework/$(jar).jar)
+endif
+HOST_CORE_DEX_FILES   := $(foreach jar,$(HOST_TEST_CORE_JARS),  $(call intermediates-dir-for,JAVA_LIBRARIES,$(jar),t,COMMON)/javalib.jar)
+TARGET_CORE_DEX_FILES := $(foreach jar,$(TARGET_TEST_CORE_JARS),$(call intermediates-dir-for,JAVA_LIBRARIES,$(jar), ,COMMON)/javalib.jar)
 
-ART_HOST_DEX_DEPENDENCIES := $(foreach jar,$(HOST_CORE_JARS),$(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
-ART_TARGET_DEX_DEPENDENCIES := $(foreach jar,$(TARGET_CORE_JARS),$(TARGET_OUT_JAVA_LIBRARIES)/$(jar).jar)
+ART_HOST_DEX_DEPENDENCIES := $(foreach jar,$(HOST_TEST_CORE_JARS),$(HOST_OUT_JAVA_LIBRARIES)/$(jar).jar)
+ART_TARGET_DEX_DEPENDENCIES := $(foreach jar,$(TARGET_TEST_CORE_JARS),$(TARGET_OUT_JAVA_LIBRARIES)/$(jar).jar)
 
 ART_CORE_SHARED_LIBRARIES := libjavacore libopenjdk libopenjdkjvm libopenjdkjvmti
 ART_CORE_SHARED_DEBUG_LIBRARIES := libopenjdkd libopenjdkjvmd libopenjdkjvmtid
@@ -108,7 +123,6 @@ ART_CORE_DEBUGGABLE_EXECUTABLES := \
     dexoptanalyzer \
     imgdiag \
     oatdump \
-    patchoat \
     profman \
 
 ART_CORE_EXECUTABLES := \

@@ -739,7 +739,18 @@ static bool initSensors()
     }
 
     mOutputQ = simpleQueueAlloc(totalBlocks, sizeof(struct HostIntfDataBuffer), queueDiscard);
+    if (!mOutputQ) {
+        osLog(LOG_ERROR, "initSensors: failed to allocate data buffer queue!\n");
+        return false;
+    }
+
     mActiveSensorTable = heapAlloc(numSensors * sizeof(struct ActiveSensor));
+    if (!mActiveSensorTable) {
+        osLog(LOG_ERROR, "initSensors: failed to allocate active sensor table!\n");
+        simpleQueueDestroy(mOutputQ);
+        return false;
+    }
+
     memset(mActiveSensorTable, 0x00, numSensors * sizeof(struct ActiveSensor));
 
     for (i = SENS_TYPE_INVALID; i < SENS_TYPE_LAST_USER; i++) {

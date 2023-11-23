@@ -23,10 +23,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.storage.StorageManager;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -68,7 +68,7 @@ public class DeletionHelperSettings extends PreferenceFragment
     private List<DeletionType> mDeletableContentList;
     private AppDeletionPreferenceGroup mApps;
     @VisibleForTesting AppDeletionType mAppBackend;
-    private DownloadsDeletionPreferenceGroup mDownloadsPreference;
+    @VisibleForTesting DownloadsDeletionPreferenceGroup mDownloadsPreference;
     private DownloadsDeletionType mDownloadsDeletion;
     private PhotosDeletionPreference mPhotoPreference;
     private Preference mGaugePreference;
@@ -76,6 +76,8 @@ public class DeletionHelperSettings extends PreferenceFragment
     private Button mCancel, mFree;
     private DeletionHelperFeatureProvider mProvider;
     private int mThresholdType;
+    @VisibleForTesting long mBytesToFree = UNSET;
+    private int mResult;
     private LoadingSpinnerController mLoadingController;
 
     public static DeletionHelperSettings newInstance(int thresholdType) {
@@ -121,6 +123,10 @@ public class DeletionHelperSettings extends PreferenceFragment
                         getGaugeString(getContext(), intent, activity.getCallingPackage());
                 if (gaugeTitle != null) {
                     mGaugePreference.setTitle(gaugeTitle);
+
+                    long requestedBytes =
+                            intent.getLongExtra(StorageManager.EXTRA_REQUESTED_BYTES, UNSET);
+                    mBytesToFree = requestedBytes;
                 } else {
                     getPreferenceScreen().removePreference(mGaugePreference);
                 }
@@ -281,17 +287,23 @@ public class DeletionHelperSettings extends PreferenceFragment
 
     /** Clears out the selected apps and data from the device and closes the fragment. */
     protected void clearData() {
+        long bytesFreed = getTotalFreeableSpace(COUNT_CHECKED_ONLY);
+        if (mBytesToFree != UNSET && bytesFreed >= mBytesToFree) {
+            setResultCode(Activity.RESULT_OK);
+        }
+
         // This should be fine as long as there is only one extra deletion feature.
         // In the future, this should be done in an async queue in order to not
         // interfere with the simultaneous PackageDeletionTask.
+        Activity activity = getActivity();
         if (mPhotoPreference != null && mPhotoPreference.isChecked()) {
-            mPhotoVideoDeletion.clearFreeableData(getActivity());
+            mPhotoVideoDeletion.clearFreeableData(activity);
         }
         if (mDownloadsPreference != null) {
-            mDownloadsDeletion.clearFreeableData(getActivity());
+            mDownloadsDeletion.clearFreeableData(activity);
         }
         if (mAppBackend != null) {
-            mAppBackend.clearFreeableData(getActivity());
+            mAppBackend.clearFreeableData(activity);
         }
     }
 
@@ -372,7 +384,9 @@ public class DeletionHelperSettings extends PreferenceFragment
 
     private long getTotalFreeableSpace(boolean countUnchecked) {
         long freeableSpace = 0;
-        freeableSpace += mAppBackend.getTotalAppsFreeableSpace(countUnchecked);
+        if (mAppBackend != null) {
+            freeableSpace += mAppBackend.getTotalAppsFreeableSpace(countUnchecked);
+        }
         if (mPhotoPreference != null) {
             freeableSpace += mPhotoPreference.getFreeableBytes(countUnchecked);
         }
@@ -382,4 +396,16 @@ public class DeletionHelperSettings extends PreferenceFragment
         return freeableSpace;
     }
 
+    private void setResultCode(int result) {
+        mResult = result;
+        Activity activity = getActivity();
+        if (activity != null) {
+            activity.setResult(result);
+        }
+    }
+
+    @VisibleForTesting
+    protected int getResultCode() {
+        return mResult;
+    }
 }

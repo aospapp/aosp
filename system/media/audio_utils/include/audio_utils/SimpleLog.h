@@ -129,15 +129,17 @@ public:
      * \param buffer            contains a null terminated string, which may have
      *                          special characters such as % and \ that are
      *                          not interpreted.
+     *                          This could be a char * or a std::string.
      */
-    void logs(int64_t nowNs, const char *buffer)
+    template <typename U>
+    void logs(int64_t nowNs, U&& buffer)
     {
         // store in circular array
         std::lock_guard<std::mutex> guard(mLock);
         if (nowNs == -1) {
             nowNs = audio_utils_get_real_time_ns();
         }
-        mLog.emplace_back(nowNs, std::string(buffer));
+        mLog.emplace_back(nowNs, std::forward<U>(buffer));
         if (mLog.size() > mMaxLogLines) {
             mLog.pop_front();
         }

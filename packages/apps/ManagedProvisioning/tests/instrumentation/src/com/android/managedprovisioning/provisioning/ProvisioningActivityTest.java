@@ -21,31 +21,36 @@ import static android.app.admin.DevicePolicyManager
         .ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.ACTION_STATE_USER_SETUP_COMPLETE;
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.Espresso.pressBack;
-import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.intent.Intents.intended;
-import static android.support.test.espresso.intent.matcher.IntentMatchers.hasAction;
-import static android.support.test.espresso.intent.matcher.IntentMatchers.hasComponent;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.Espresso.pressBack;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.intent.Intents.intended;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasAction;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasComponent;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.android.managedprovisioning.common.LogoUtils.saveOrganisationLogo;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_STATUS_BAR_COLOR_ID;
 
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import static java.util.Arrays.asList;
 
@@ -60,10 +65,13 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.espresso.intent.rule.IntentsTestRule;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.lifecycle.Stage;
+import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.espresso.intent.rule.IntentsTestRule;
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.lifecycle.Stage;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
@@ -71,6 +79,7 @@ import com.android.managedprovisioning.common.CustomizationVerifier;
 import com.android.managedprovisioning.common.LogoUtils;
 import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.testcommon.ActivityLifecycleWaiter;
 
@@ -83,10 +92,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.hamcrest.MockitoHamcrest;
+import org.mockito.invocation.Invocation;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.lang.reflect.Method;
 
 /**
  * Unit tests for {@link ProvisioningActivity}.
@@ -94,6 +106,7 @@ import java.util.List;
 @SmallTest
 @RunWith(MockitoJUnitRunner.class)
 public class ProvisioningActivityTest {
+
     private static final String ADMIN_PACKAGE = "com.test.admin";
     private static final String TEST_PACKAGE = "com.android.managedprovisioning.tests";
     private static final ComponentName ADMIN = new ComponentName(ADMIN_PACKAGE, ".Receiver");
@@ -108,7 +121,7 @@ public class ProvisioningActivityTest {
             .setDeviceAdminComponentName(ADMIN)
             .build();
     private static final ProvisioningParams NFC_PARAMS = new ProvisioningParams.Builder()
-            .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
+            .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .setDeviceAdminComponentName(ADMIN)
             .setStartedByTrustedSource(true)
             .setIsNfc(true)
@@ -120,6 +133,9 @@ public class ProvisioningActivityTest {
     private static final Intent NFC_INTENT = new Intent()
             .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, NFC_PARAMS);
     private static final int DEFAULT_MAIN_COLOR = Color.rgb(1, 2, 3);
+    private static final int BROADCAST_TIMEOUT = 1000;
+    private static final int WAIT_ACTIVITY_INITIALIZE_MILLIS = 1000;
+    private static final int WAIT_PROVISIONING_COMPLETE_MILLIS = 60_000;
 
     private static class CustomIntentsTestRule extends IntentsTestRule<ProvisioningActivity> {
         private boolean mIsActivityRunning = false;
@@ -149,7 +165,8 @@ public class ProvisioningActivityTest {
 
     @Mock private ProvisioningManager mProvisioningManager;
     @Mock private PackageManager mPackageManager;
-    @Mock private Utils mUtils;
+    @Mock private UserProvisioningStateHelper mUserProvisioningStateHelper;
+    private Utils mUtils;
     private static int mRotationLocked;
 
     @BeforeClass
@@ -165,7 +182,9 @@ public class ProvisioningActivityTest {
 
     @Before
     public void setup() {
-        when(mUtils.getAccentColor(any())).thenReturn(DEFAULT_MAIN_COLOR);
+        mUtils = spy(new Utils());
+        doNothing().when(mUtils).sendFactoryResetBroadcast(any(Context.class), anyString());
+        doReturn(DEFAULT_MAIN_COLOR).when(mUtils).getAccentColor(any());
     }
 
     @AfterClass
@@ -181,7 +200,8 @@ public class ProvisioningActivityTest {
     public void setUp() {
         TestInstrumentationRunner.registerReplacedActivity(ProvisioningActivity.class,
                 (classLoader, className, intent) ->
-                        new ProvisioningActivity(mProvisioningManager, mUtils) {
+                        new ProvisioningActivity(
+                                mProvisioningManager, mUtils, mUserProvisioningStateHelper) {
                             @Override
                             public PackageManager getPackageManager() {
                                 return mPackageManager;
@@ -197,33 +217,42 @@ public class ProvisioningActivityTest {
     }
 
     @Test
-    public void testLaunch() {
+    public void testLaunch() throws NoSuchMethodException {
         // GIVEN the activity was launched with a profile owner intent
         launchActivityAndWait(PROFILE_OWNER_INTENT);
-
         // THEN the provisioning process should be initiated
         verify(mProvisioningManager).maybeStartProvisioning(PROFILE_OWNER_PARAMS);
 
         // THEN the activity should start listening for provisioning updates
-        verify(mProvisioningManager).registerListener(any(ProvisioningManagerCallback.class));
-        verifyNoMoreInteractions(mProvisioningManager);
+        final Method registerListenerMethod = ProvisioningManager.class
+                .getMethod("registerListener", ProvisioningManagerCallback.class);
+        final int registerListenerInvocations = getNumberOfInvocations(registerListenerMethod);
+        final Method unregisterListenerMethod = ProvisioningManager.class
+            .getMethod("unregisterListener", ProvisioningManagerCallback.class);
+        final int unregisterListenerInvocations = getNumberOfInvocations(unregisterListenerMethod);
+        assertThat(registerListenerInvocations - unregisterListenerInvocations).isEqualTo(1);
+    }
+
+    private int getNumberOfInvocations(Method method) {
+        final Collection<Invocation> invocations =
+                mockingDetails(mProvisioningManager).getInvocations();
+        return (int) invocations.stream()
+                .filter(invocation -> invocation.getMethod().equals(method)).count();
     }
 
     @Test
     public void testColors() throws Throwable {
-        Context context = InstrumentationRegistry.getTargetContext();
-
         // default color Managed Profile (MP)
         assertColorsCorrect(
                 PROFILE_OWNER_INTENT,
                 DEFAULT_MAIN_COLOR,
-                context.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
+                Color.TRANSPARENT);
 
         // default color Device Owner (DO)
         assertColorsCorrect(
                 DEVICE_OWNER_INTENT,
                 DEFAULT_MAIN_COLOR,
-                context.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
+                Color.TRANSPARENT);
 
         // custom color for both cases (MP, DO)
         int targetColor = Color.parseColor("#d40000"); // any color (except default) would do
@@ -289,12 +318,12 @@ public class ProvisioningActivityTest {
 
         // WHEN the activity is recreated with a saved instance state
         mActivityRule.runOnUiThread(() -> {
-                    Bundle bundle = new Bundle();
-                    InstrumentationRegistry.getInstrumentation()
-                            .callActivityOnSaveInstanceState(mActivityRule.getActivity(), bundle);
-                    InstrumentationRegistry.getInstrumentation()
-                            .callActivityOnCreate(mActivityRule.getActivity(), bundle);
-                });
+            Bundle bundle = new Bundle();
+            InstrumentationRegistry.getInstrumentation()
+                    .callActivityOnSaveInstanceState(mActivityRule.getActivity(), bundle);
+            InstrumentationRegistry.getInstrumentation()
+                    .callActivityOnCreate(mActivityRule.getActivity(), bundle);
+        });
 
         // THEN provisioning should not be initiated again
         verify(mProvisioningManager).maybeStartProvisioning(PROFILE_OWNER_PARAMS);
@@ -305,6 +334,8 @@ public class ProvisioningActivityTest {
         // GIVEN the activity was launched with a profile owner intent
         launchActivityAndWait(PROFILE_OWNER_INTENT);
 
+        reset(mProvisioningManager);
+
         // WHEN the activity is paused
         mActivityRule.runOnUiThread(() -> {
             InstrumentationRegistry.getInstrumentation()
@@ -312,6 +343,7 @@ public class ProvisioningActivityTest {
         });
 
         // THEN the listener is unregistered
+        // b/130350469 to figure out why onPause/onResume is called one additional time
         verify(mProvisioningManager).unregisterListener(any(ProvisioningManagerCallback.class));
     }
 
@@ -322,20 +354,29 @@ public class ProvisioningActivityTest {
 
         // WHEN an error occurred that does not require factory reset
         final int errorMsgId = R.string.managed_provisioning_error_text;
-        mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().error(R.string.cant_set_up_device, errorMsgId, false));
+        mActivityRule.runOnUiThread(() -> {
+            mActivityRule.getActivity().error(R.string.cant_set_up_device, errorMsgId, false);
+        });
 
         // THEN the UI should show an error dialog
         onView(withText(errorMsgId)).check(matches(isDisplayed()));
 
-        // WHEN clicking ok
-        onView(withId(android.R.id.button1))
-                .check(matches(withText(R.string.device_owner_error_ok)))
-                .perform(click());
+        Thread.sleep(WAIT_ACTIVITY_INITIALIZE_MILLIS);
 
-        // THEN the activity should be finishing
-        assertTrue(mActivityRule.getActivity().isFinishing());
+        // TODO(http://b/122511015): Replace retry with cleaner solution.
+        // Retry as the click action is unreliable
+        assertAndRetry(() -> {
+            // WHEN clicking ok
+            onView(withId(android.R.id.button1))
+                    .check(matches(withText(android.R.string.ok)))
+                    .perform(click());
+            // THEN the activity should be finishing
+            assertTrue(mActivityRule.getActivity().isFinishing());
+        });
+
     }
 
+    @FlakyTest(bugId = 131866915)
     @Test
     public void testErrorFactoryReset() throws Throwable {
         // GIVEN the activity was launched with a device owner intent
@@ -348,13 +389,37 @@ public class ProvisioningActivityTest {
         // THEN the UI should show an error dialog
         onView(withText(errorMsgId)).check(matches(isDisplayed()));
 
-        // WHEN clicking the ok button that says that factory reset is required
-        onView(withId(android.R.id.button1))
-                .check(matches(withText(R.string.reset)))
-                .perform(click());
+        // TODO(http://b/122511015): Replace retry with cleaner solution.
+        // Retry as the click action is unreliable
+        assertAndRetry(() -> {
+            // WHEN clicking the ok button that says that factory reset is required
+            onView(withId(android.R.id.button1))
+                    .check(matches(withText(R.string.reset)))
+                    .perform(click());
+            // THEN factory reset should be invoked
+            verify(mUtils, timeout(BROADCAST_TIMEOUT))
+                    .sendFactoryResetBroadcast(any(Context.class), anyString());
+        });
+    }
 
-        // THEN factory reset should be invoked
-        verify(mUtils).sendFactoryResetBroadcast(any(Context.class), anyString());
+    private void assertAndRetry(int retries, Runnable runnable) throws Exception {
+        Exception exception = new IllegalArgumentException("Retries must be at least 1");
+        while (retries > 0) {
+            try {
+                runnable.run();
+                return;
+            } catch (Exception e) {
+                retries--;
+                Log.i("assertAndRetry",
+                        String.format("Assertion failed. %s retries remaining", retries), e);
+                exception = e;
+            }
+        }
+        throw exception;
+    }
+
+    private void assertAndRetry(Runnable runnable) throws Exception {
+        assertAndRetry(3, runnable);
     }
 
     @Test
@@ -406,10 +471,13 @@ public class ProvisioningActivityTest {
                 .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
         launchActivityAndWait(new Intent(intent));
 
+        reset(mProvisioningManager);
+
         // WHEN the user tries to cancel
         mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().onBackPressed());
 
         // THEN never unregistering ProvisioningManager
+        // b/130350469 to figure out why onPause/onResume is called one additional time
         verify(mProvisioningManager, never()).unregisterListener(
                 any(ProvisioningManagerCallback.class));
     }
@@ -426,11 +494,15 @@ public class ProvisioningActivityTest {
                 .putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
         launchActivityAndWait(new Intent(intent));
 
+        reset(mProvisioningManager);
+
         // WHEN the user tries to cancel
         mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().onBackPressed());
 
         // THEN unregistering ProvisioningManager
-        verify(mProvisioningManager).unregisterListener(any(ProvisioningManagerCallback.class));
+        // b/130350469 to figure out why onPause/onResume is called one additional time
+        verify(mProvisioningManager)
+                .unregisterListener(any(ProvisioningManagerCallback.class));
 
         // THEN the cancel dialog should be shown
         onView(withText(R.string.profile_owner_cancel_message)).check(matches(isDisplayed()));
@@ -469,7 +541,8 @@ public class ProvisioningActivityTest {
                 .perform(click());
 
         // THEN factory reset should be invoked
-        verify(mUtils).sendFactoryResetBroadcast(any(Context.class), anyString());
+        verify(mUtils, timeout(BROADCAST_TIMEOUT))
+                .sendFactoryResetBroadcast(any(Context.class), anyString());
     }
 
     @Test
@@ -479,6 +552,10 @@ public class ProvisioningActivityTest {
 
         // WHEN preFinalization is completed
         mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().preFinalizationCompleted());
+
+        Thread.sleep(WAIT_PROVISIONING_COMPLETE_MILLIS);
+
+        onView(withText(R.string.next)).perform(click());
 
         // THEN the activity should finish
         assertTrue(mActivityRule.getActivity().isFinishing());
@@ -506,8 +583,14 @@ public class ProvisioningActivityTest {
 
         // WHEN preFinalization is completed
         mActivityRule.runOnUiThread(() -> mActivityRule.getActivity().preFinalizationCompleted());
+
+        Thread.sleep(WAIT_PROVISIONING_COMPLETE_MILLIS);
+
+        onView(withText(R.string.next)).perform(click());
+
         // THEN verify starting TEST_ACTIVITY
         intended(allOf(hasComponent(TEST_ACTIVITY), hasAction(ACTION_STATE_USER_SETUP_COMPLETE)));
+
         // THEN the activity should finish
         assertTrue(mActivityRule.getActivity().isFinishing());
     }
@@ -518,8 +601,8 @@ public class ProvisioningActivityTest {
         launchActivityAndWait(PROFILE_OWNER_INTENT);
 
         // THEN the profile owner description should be present
-        onView(withId(R.id.description))
-                .check(matches(withText(R.string.work_profile_description)));
+        onView(withId(R.id.provisioning_progress))
+                .check(matches(withText(R.string.work_profile_provisioning_progress_label)));
 
         // THEN the animation is shown.
         onView(withId(R.id.animation)).check(matches(isDisplayed()));
@@ -531,8 +614,8 @@ public class ProvisioningActivityTest {
         launchActivityAndWait(DEVICE_OWNER_INTENT);
 
         // THEN the description should be empty
-        onView(withId(R.id.description))
-                .check(matches(withText(R.string.device_owner_description)));
+        onView(withId(R.id.provisioning_progress)).check(
+                matches(withText(R.string.fully_managed_device_provisioning_progress_label)));
 
         // THEN the animation is shown.
         onView(withId(R.id.animation)).check(matches(isDisplayed()));

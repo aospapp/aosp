@@ -364,8 +364,6 @@ class SchedulerFunctionalTest(unittest.TestCase,
     def _set_global_config_values(self):
         self.mock_config.set_config_value('SCHEDULER', 'pidfile_timeout_mins',
                                           1)
-        self.mock_config.set_config_value('SCHEDULER', 'gc_stats_interval_mins',
-                                          999999)
         self.mock_config.set_config_value('SCHEDULER', 'enable_archiving', True)
         self.mock_config.set_config_value('SCHEDULER',
                                           'clean_interval_minutes', 60)

@@ -15,20 +15,24 @@
  */
 package android.transition.cts;
 
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 
 import android.animation.Animator;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.ChangeBounds;
+import android.transition.Scene;
 import android.transition.Transition;
+import android.transition.TransitionManager;
 import android.transition.TransitionValues;
 import android.util.TypedValue;
 import android.view.View;
@@ -36,17 +40,22 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 
-import com.android.compatibility.common.util.PollingCheck;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class ChangeBoundsTest extends BaseTransitionTest {
-    private static final int SMALL_SQUARE_SIZE_DP = 10;
-    private static final int LARGE_SQUARE_SIZE_DP = 30;
+    private static final int SMALL_SQUARE_SIZE_DP = 30;
+    private static final int LARGE_SQUARE_SIZE_DP = 50;
     private static final int SMALL_OFFSET_DP = 2;
 
     ChangeBounds mChangeBounds;
@@ -63,7 +72,7 @@ public class ChangeBoundsTest extends BaseTransitionTest {
     private void resetChangeBoundsTransition() {
         mListener = mock(Transition.TransitionListener.class);
         mChangeBounds = new MyChangeBounds();
-        mChangeBounds.setDuration(400);
+        mChangeBounds.setDuration(1000);
         mChangeBounds.addListener(mListener);
         mChangeBounds.setInterpolator(new LinearInterpolator());
         mTransition = mChangeBounds;
@@ -79,7 +88,7 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         startTransition(R.layout.scene6);
         // The update listener will validate that it is changing throughout the animation
-        waitForEnd(800);
+        waitForEnd(5000);
 
         validateInScene6();
     }
@@ -98,7 +107,7 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         startTransition(R.layout.scene6);
 
         // The update listener will validate that it is changing throughout the animation
-        waitForEnd(800);
+        waitForEnd(5000);
 
         validateInScene6();
     }
@@ -114,7 +123,7 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         startTransition(R.layout.scene1);
 
         // The update listener will validate that it is changing throughout the animation
-        waitForEnd(800);
+        waitForEnd(5000);
 
         validateInScene1();
     }
@@ -125,14 +134,15 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         validateInScene1();
 
-        startTransition(R.layout.scene6);
+        List<RedAndGreen> points1 = startTransitionAndWatch(R.layout.scene6);
 
-        waitForMiddleOfTransition();
+        waitForSizeIsMiddle(points1);
         resetChangeBoundsTransition();
-        startTransition(R.layout.scene6);
+        List<RedAndGreen> points2 = startTransitionAndWatch(R.layout.scene6);
 
-        assertFalse(isRestartingAnimation());
-        waitForEnd(1000);
+        waitForEnd(5000);
+
+        assertFalse(isRestartingAnimation(points2, R.layout.scene1));
         validateInScene6();
     }
 
@@ -143,17 +153,17 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         validateInScene1();
 
-        startTransition(R.layout.scene6);
+        List<RedAndGreen> points1 = startTransitionAndWatch(R.layout.scene6);
 
-        waitForMiddleOfTransition();
+        waitForClipIsMiddle(points1);
 
         resetChangeBoundsTransition();
         mChangeBounds.setResizeClip(true);
-        startTransition(R.layout.scene6);
+        List<RedAndGreen> points2 = startTransitionAndWatch(R.layout.scene6);
+        waitForEnd(5000);
 
-        assertFalse(isRestartingAnimation());
-        assertFalse(isRestartingClip());
-        waitForEnd(1000);
+        assertFalse(isRestartingAnimation(points2, R.layout.scene1));
+        assertFalse(isRestartingClip(points2, R.layout.scene1));
         validateInScene6();
     }
 
@@ -163,15 +173,15 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         validateInScene1();
 
-        startTransition(R.layout.scene6);
+        List<RedAndGreen> points1 = startTransitionAndWatch(R.layout.scene6);
 
-        waitForMiddleOfTransition();
+        waitForSizeIsMiddle(points1);
         // reverse the transition back to scene1
         resetChangeBoundsTransition();
-        startTransition(R.layout.scene1);
+        List<RedAndGreen> points2 = startTransitionAndWatch(R.layout.scene1);
+        waitForEnd(5000);
 
-        assertFalse(isRestartingAnimation());
-        waitForEnd(1000);
+        assertFalse(isRestartingAnimation(points2, R.layout.scene1));
         validateInScene1();
     }
 
@@ -182,57 +192,104 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         validateInScene1();
 
-        startTransition(R.layout.scene6);
-        waitForMiddleOfTransition();
+        List<RedAndGreen> points1 = startTransitionAndWatch(R.layout.scene6);
+        waitForClipIsMiddle(points1);
 
         // reverse the transition back to scene1
         resetChangeBoundsTransition();
         mChangeBounds.setResizeClip(true);
-        startTransition(R.layout.scene1);
+        List<RedAndGreen> points2 = startTransitionAndWatch(R.layout.scene1);
+        waitForEnd(5000);
 
-        assertFalse(isRestartingAnimation());
-        assertFalse(isRestartingClip());
-        waitForEnd(1000);
+        assertFalse(isRestartingAnimation(points2, R.layout.scene1));
+        assertFalse(isRestartingAnimation(points2, R.layout.scene6));
+        assertFalse(isRestartingClip(points2, R.layout.scene1));
+        assertFalse(isRestartingClip(points2, R.layout.scene6));
         validateInScene1();
     }
 
-    private void waitForMiddleOfTransition() throws Throwable {
-        Resources resources = mActivity.getResources();
-        float closestDistance = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-                SMALL_SQUARE_SIZE_DP / 2, resources.getDisplayMetrics());
-
-        final View red = mActivity.findViewById(R.id.redSquare);
-        final View green = mActivity.findViewById(R.id.greenSquare);
-
-        PollingCheck.waitFor(
-                () -> red.getTop() > closestDistance && green.getTop() > closestDistance);
-
-        assertTrue(red.getTop() > closestDistance);
-        assertTrue(green.getTop() > closestDistance);
+    private List<RedAndGreen> startTransitionAndWatch(int layoutId) throws Throwable {
+        final Scene scene = loadScene(layoutId);
+        final List<RedAndGreen> points = Mockito.spy(new ArrayList<>());
+        mActivityRule.runOnUiThread(() -> {
+            TransitionManager.go(scene, mTransition);
+            mActivity.getWindow().getDecorView().getViewTreeObserver().addOnDrawListener(() -> {
+                points.add(new RedAndGreen(mActivity));
+            });
+        });
+        return points;
     }
 
-    private boolean isRestartingAnimation() {
-        View red = mActivity.findViewById(R.id.redSquare);
-        View green = mActivity.findViewById(R.id.greenSquare);
+    private void waitForSizeIsMiddle(List<RedAndGreen> points) throws Throwable {
         Resources resources = mActivity.getResources();
-        float closestDistance = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+        float middleSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                (SMALL_SQUARE_SIZE_DP + LARGE_SQUARE_SIZE_DP) / 2, resources.getDisplayMetrics());
+
+        Mockito.verify(points, within(3000)).add(argThat(redAndGreen ->
+                redAndGreen.red.position.width() > middleSize
+                        && redAndGreen.red.position.height() > middleSize
+                        && redAndGreen.green.position.width() > middleSize
+                        && redAndGreen.green.position.height() > middleSize
+        ));
+    }
+
+    private void waitForClipIsMiddle(List<RedAndGreen> points) throws Throwable {
+        Resources resources = mActivity.getResources();
+        float middleSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                (SMALL_SQUARE_SIZE_DP + LARGE_SQUARE_SIZE_DP) / 2, resources.getDisplayMetrics());
+
+        Mockito.verify(points, within(3000)).add(argThat(redAndGreen ->
+                redAndGreen.red.clip != null
+                        && redAndGreen.green.clip != null
+                        && redAndGreen.red.clip.width() > middleSize
+                        && redAndGreen.red.clip.height() > middleSize
+                        && redAndGreen.green.clip.width() > middleSize
+                        && redAndGreen.green.clip.height() > middleSize
+        ));
+    }
+
+    private boolean isRestartingAnimation(List<RedAndGreen> points, int startLayoutId) {
+        Resources resources = mActivity.getResources();
+        float errorPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
                 SMALL_OFFSET_DP, resources.getDisplayMetrics());
-        return red.getTop() < closestDistance || green.getTop() < closestDistance;
+
+        RedAndGreen start = points.get(0);
+        if (startLayoutId == R.layout.scene1) {
+            float smallSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                    SMALL_SQUARE_SIZE_DP, resources.getDisplayMetrics());
+            return start.red.position.top == 0
+                    && Math.abs(smallSize - start.green.position.top) < errorPx;
+        } else if (startLayoutId == R.layout.scene6) {
+            float largeSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                    LARGE_SQUARE_SIZE_DP, resources.getDisplayMetrics());
+            return start.green.position.top == 0
+                    && Math.abs(largeSize - start.red.position.top) < errorPx;
+        } else {
+            fail("Don't know what to do with that layout id");
+            return false;
+        }
     }
 
-    private boolean isRestartingClip() {
+    private boolean isRestartingClip(List<RedAndGreen> points, int startLayoutId) {
         Resources resources = mActivity.getResources();
-        float smallDim = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-                SMALL_SQUARE_SIZE_DP + SMALL_OFFSET_DP, resources.getDisplayMetrics());
-        float largeDim = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-                LARGE_SQUARE_SIZE_DP - SMALL_OFFSET_DP, resources.getDisplayMetrics());
+        float errorPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                SMALL_OFFSET_DP, resources.getDisplayMetrics());
 
-        View red = mActivity.findViewById(R.id.redSquare);
-        Rect redClip = red.getClipBounds();
-        View green = mActivity.findViewById(R.id.greenSquare);
-        Rect greenClip = green.getClipBounds();
-        return redClip == null || redClip.width() < smallDim || redClip.width() > largeDim ||
-                greenClip == null || greenClip.width() < smallDim || greenClip.width() > largeDim;
+        RedAndGreen start = points.get(0);
+        if (startLayoutId == R.layout.scene1) {
+            float smallSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                    SMALL_SQUARE_SIZE_DP, resources.getDisplayMetrics());
+            return start.red.clip.width() < smallSize + errorPx
+                    && start.green.clip.width() < smallSize + errorPx;
+        } else if (startLayoutId == R.layout.scene6) {
+            float largeSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
+                    LARGE_SQUARE_SIZE_DP, resources.getDisplayMetrics());
+            return start.red.clip.width() > largeSize - errorPx
+                    && start.green.clip.width() > largeSize - errorPx;
+        } else {
+            fail("Don't know what to do with that layout id");
+            return false;
+        }
     }
 
     private void validateInScene1() {
@@ -279,13 +336,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
                 + expectedDim + ", but was " + dim, isWithinAPixel(expectedDim, dim));
     }
 
-    private static void assertNotWithinAPixel(float expectedDim, int dim) {
-        assertTrue("Expected dimension to not be within one pixel of "
-                + expectedDim + ", but was " + dim, !isWithinAPixel(expectedDim, dim));
-    }
-
     private class MyChangeBounds extends ChangeBounds {
         private static final String PROPNAME_BOUNDS = "android:changeBounds:bounds";
+
         @Override
         public Animator createAnimator(ViewGroup sceneRoot, TransitionValues startValues,
                 TransitionValues endValues) {
@@ -337,21 +390,27 @@ public class ChangeBoundsTest extends BaseTransitionTest {
                 width = view.getWidth();
                 height = view.getHeight();
             }
-            validateDim(name, "width", dimensions.x, width);
-            validateDim(name, "height", dimensions.y, height);
-            dimensions.set(width, height);
+            int newWidth = validateDim(name, "width", dimensions.x, width);
+            int newHeight = validateDim(name, "height", dimensions.y, height);
+            dimensions.set(newWidth, newHeight);
         }
 
-        private void validateDim(String name, String dimen, int lastDim, int newDim) {
+        private int validateDim(String name, String dimen, int lastDim, int newDim) {
+            int dim = newDim;
             if (lastDim != -1) {
+                // We must give a pixel's buffer because the top-left and
+                // bottom-right may move independently, causing a rounding error
+                // in size change.
                 if (mGrow) {
                     assertTrue(name + " new " + dimen + " " + newDim
                                     + " is less than previous " + lastDim,
-                            newDim >= lastDim);
+                            newDim >= lastDim - 1);
+                    dim = Math.max(lastDim, newDim);
                 } else {
                     assertTrue(name + " new " + dimen + " " + newDim
                                     + " is more than previous " + lastDim,
-                            newDim <= lastDim);
+                            newDim <= lastDim + 1);
+                    dim = Math.min(lastDim, newDim);
                 }
                 if (newDim != lastDim) {
                     mDidChangeSize = true;
@@ -361,6 +420,7 @@ public class ChangeBoundsTest extends BaseTransitionTest {
                     newDim <= mMax);
             assertTrue(name + " " + dimen + " " + newDim + " must be >= " + mMin,
                     newDim >= mMin);
+            return dim;
         }
 
         @Override
@@ -390,6 +450,29 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
         @Override
         public void onAnimationRepeat(Animator animation) {
+        }
+    }
+
+    static class RedAndGreen {
+        public final PositionAndClip red;
+        public final PositionAndClip green;
+
+        RedAndGreen(TransitionActivity activity) {
+            View redView = activity.findViewById(R.id.redSquare);
+            red = new PositionAndClip(redView);
+            View greenView = activity.findViewById(R.id.redSquare);
+            green = new PositionAndClip(greenView);
+        }
+    }
+
+    static class PositionAndClip {
+        public final Rect position;
+        public final Rect clip;
+
+        PositionAndClip(View view) {
+            this.clip = view.getClipBounds();
+            this.position =
+                    new Rect(view.getLeft(), view.getTop(), view.getRight(), view.getBottom());
         }
     }
 }

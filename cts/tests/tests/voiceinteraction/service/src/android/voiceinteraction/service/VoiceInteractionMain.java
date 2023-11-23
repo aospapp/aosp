@@ -17,14 +17,10 @@
 package android.voiceinteraction.service;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.content.ComponentName;
-import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 
 public class VoiceInteractionMain extends Activity {
     static final String TAG = "VoiceInteractionMain";
@@ -34,7 +30,12 @@ public class VoiceInteractionMain extends Activity {
         super.onCreate(savedInstanceState);
         Intent intent = new Intent();
         intent.setComponent(new ComponentName(this, MainInteractionService.class));
+        final Bundle intentExtras = getIntent().getExtras();
+        if (intentExtras != null) {
+            intent.putExtras(intentExtras);
+        }
         ComponentName serviceName = startService(intent);
         Log.i(TAG, "Started service: " + serviceName);
+        finish();
     }
 }

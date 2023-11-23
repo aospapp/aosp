@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1004,17 +1005,16 @@ public class ULocaleTest extends TestFmwk {
     }
 
     @Test
-    public void TestGetAvailable(){
+    public void TestGetAvailable() {
         ULocale[] locales = ULocale.getAvailableLocales();
-        if(locales.length<10){
-            errln("Did not get the correct result from getAvailableLocales");
+        if (locales.length < 1) {
+            errln("Did not get any results from getAvailableLocales");
         }
-        // Android patch (http://b/31841293) start.
-        // Accept locales other than zu_ZA at the end, as some OEMs add locales. Any locale added
-        // after the original zu_ZA has to start with "z", as that's the last acceptable letter.
-        if(!locales[locales.length-1].getName().startsWith("z")){
-        // Android patch (http://b/31841293) end.
-            errln("Did not get the expected result");
+        final Pattern PATTERN = Pattern.compile("^\\p{Lower}{2,3}$");
+        for (ULocale locale : locales) {
+            if (!PATTERN.matcher(locale.getLanguage()).matches()) {
+                errln("Got impossible locale from getAvailableLocales: " + locale.getName());
+            }
         }
     }
 
@@ -1201,14 +1201,15 @@ public class ULocaleTest extends TestFmwk {
     @Test
     public void TestDisplayNameWithDialectCoverage() {
         // Coverage test. Implementation is in class LocaleDisplayNames.
+        // In CLDR 63, de removed the dialect names, use fr instead
         assertFalse("en-GB in system default locale: anything but empty",
                 ULocale.UK.getDisplayNameWithDialect().isEmpty());
-        assertEquals("en-GB in de", "Britisches Englisch",
-                ULocale.UK.getDisplayNameWithDialect(ULocale.GERMAN));
-        assertEquals("en-GB (string) in de", "Britisches Englisch",
-                ULocale.getDisplayNameWithDialect("en-GB", ULocale.GERMAN));
-        assertEquals("en-GB (string) in de (string)", "Britisches Englisch",
-                ULocale.getDisplayNameWithDialect("en-GB", "de"));
+        assertEquals("en-GB in fr", "anglais britannique",
+                ULocale.UK.getDisplayNameWithDialect(ULocale.FRENCH));
+        assertEquals("en-GB (string) in fr", "anglais britannique",
+                ULocale.getDisplayNameWithDialect("en-GB", ULocale.FRENCH));
+        assertEquals("en-GB (string) in fr (string)", "anglais britannique",
+                ULocale.getDisplayNameWithDialect("en-GB", "fr"));
     }
 
     @Test
@@ -4083,6 +4084,19 @@ public class ULocaleTest extends TestFmwk {
     }
 
     @Test
+    public void TestForLanguageTagBug13776() {
+        final Locale backupDefault = Locale.getDefault();
+        try {
+            Locale loc = Locale.forLanguageTag("ar-EG-u-nu-latn");
+            Locale.setDefault(loc);
+            ULocale uloc = ULocale.forLocale(loc);
+            assertEquals("getKeywordValue(\"numbers\")", "latn", uloc.getKeywordValue("numbers"));
+        } finally {
+            Locale.setDefault(backupDefault);
+        }
+    }
+
+    @Test
     public void TestForLanguageTag() {
         final Integer NOERROR = Integer.valueOf(-1);
 
@@ -4141,7 +4155,16 @@ public class ULocaleTest extends TestFmwk {
                 {"en-u-baz-ca-islamic-civil",   "en@attribute=baz;calendar=islamic-civil",  NOERROR},
                 {"en-a-bar-u-ca-islamic-civil-x-u-foo", "en@a=bar;calendar=islamic-civil;x=u-foo",  NOERROR},
                 {"en-a-bar-u-baz-ca-islamic-civil-x-u-foo", "en@a=bar;attribute=baz;calendar=islamic-civil;x=u-foo",    NOERROR},
-
+                /* #20098 */
+                {"hant-cmn-cn", "hant", Integer.valueOf(5)},
+                {"zh-cmn-TW", "cmn_TW", NOERROR},
+                {"zh-x_t-ab", "zh", Integer.valueOf(3)},
+                {"zh-hans-cn-u-ca-x_t-u", "zh_Hans_CN@calendar=yes",  Integer.valueOf(16)},
+                /* #20140 dupe keys in U-extension */
+                {"zh-u-ca-chinese-ca-gregory", "zh@calendar=chinese", NOERROR},
+                {"zh-u-ca-gregory-co-pinyin-ca-chinese", "zh@calendar=gregorian;collation=pinyin", NOERROR},
+                {"de-latn-DE-1901-u-co-phonebk-co-pinyin-ca-gregory", "de_Latn_DE_1901@calendar=gregorian;collation=phonebook", NOERROR},
+                {"th-u-kf-nu-thai-kf-false", "th@colcasefirst=yes;numbers=thai", NOERROR},
         };
 
         for (int i = 0; i < langtag_to_locale.length; i++) {

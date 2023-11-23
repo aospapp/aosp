@@ -32,7 +32,6 @@ cc_defaults {
         "-Wno-deprecated-declarations",
         "-fno-asynchronous-unwind-tables",
         "-fno-strict-aliasing",
-        "-fstack-protector",
         "-fwrapv",
 
         // ...various options we choose
@@ -108,7 +107,7 @@ cc_defaults {
         "-DHAVE_SYS_ERRLIST_DECL=0",
         "-DHAVE_SYS_SIGLIST_DECL=1",
         "-DHAVE_PERSISTENT_HISTORY=0",
-        "-DMKSH_BUILD_R=563",
+        "-DMKSH_BUILD_R=571",
 
         // Additional flags
         "-DMKSH_DEFAULT_PROFILEDIR=\"/system/etc\"",
@@ -121,6 +120,7 @@ cc_defaults {
 cc_binary {
     name: "sh",
     defaults: ["sh-defaults"],
+    recovery_available: true,
 }
 
 cc_binary {
@@ -138,4 +138,18 @@ cc_binary {
         "-DMKSH_DEFAULT_EXECSHELL=\"/vendor/bin/sh\"",
         "-DMKSH_DEFPATH_OVERRIDE=\"/vendor/bin:/vendor/xbin\"",
     ],
+}
+
+// /system/etc/mkshrc
+prebuilt_etc {
+    name: "mkshrc",
+    src: "mkshrc",
+}
+
+// /vendor/etc/mkshrc
+prebuilt_etc {
+    name: "mkshrc_vendor",
+    src: "mkshrc_vendor",
+    filename: "mkshrc",
+    soc_specific: true,
 }

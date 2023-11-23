@@ -75,6 +75,12 @@ public class CallAudioRoutePeripheralAdapter implements WiredHeadsetManager.List
                 CallAudioRouteStateMachine.BT_AUDIO_DISCONNECTED);
     }
 
+    @Override
+    public void onUnexpectedBluetoothStateChange() {
+        mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+    }
+
     /**
       * Updates the audio route when the headset plugged in state changes. For example, if audio is
       * being routed over speakerphone and a headset is plugged in then switch to wired headset.

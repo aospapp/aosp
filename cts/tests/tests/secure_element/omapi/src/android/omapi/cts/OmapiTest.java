@@ -18,8 +18,21 @@
 
 package android.omapi.cts;
 
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.*;
 import static org.junit.Assume.assumeTrue;
+
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.se.omapi.Channel;
+import android.se.omapi.Reader;
+import android.se.omapi.SEService;
+import android.se.omapi.SEService.OnConnectedListener;
+import android.se.omapi.Session;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.PropertyUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -34,16 +47,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
-
-import android.content.pm.PackageManager;
-import android.se.omapi.Channel;
-import android.se.omapi.Reader;
-import android.se.omapi.SEService;
-import android.se.omapi.SEService.OnConnectedListener;
-import android.se.omapi.Session;
-import android.support.test.InstrumentationRegistry;
-
-import com.android.compatibility.common.util.PropertyUtil;
 
 public class OmapiTest {
 
@@ -83,13 +86,16 @@ public class OmapiTest {
             {(byte) 0x80, 0x08, 0x00, 0x00, 0x00},
             {(byte) 0xA0, 0x08, 0x00, 0x00, 0x00},
             {(byte) 0x94, 0x08, 0x00, 0x00, 0x00},
-            {0x00, (byte) 0xC0, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
-            {(byte) 0x80, (byte) 0xC0, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
-            {(byte) 0xA0, (byte) 0xC0, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
-            {(byte) 0x94, (byte) 0xC0, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00}
+            {0x00, (byte) 0x0C, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
+            {(byte) 0x80, (byte) 0x0C, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
+            {(byte) 0xA0, (byte) 0x0C, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00},
+            {(byte) 0x94, (byte) 0x0C, 0x00, 0x00, 0x01, (byte) 0xAA, 0x00}
     };
 
-    private final static byte[] CHECK_SELECT_P2_APDU = new byte[]{0x00, (byte) 0xF4, 0x00, 0x00};
+    /* Case 2 APDU command expects the P2 received in the SELECT command as 1-byte outgoing data */
+    private static final byte[] CHECK_SELECT_P2_APDU = new byte[] {
+            0x00, (byte) 0xF4, 0x00, 0x00, 0x00
+    };
 
     /* OMAPI APDU Test case 1 and 3 */
     private final static byte[][] SW_62xx_NO_DATA_APDU =
@@ -159,6 +165,7 @@ public class OmapiTest {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(PropertyUtil.getFirstApiLevel() > Build.VERSION_CODES.O_MR1);
         assumeTrue(supportsHardware());
         seService = new SEService(InstrumentationRegistry.getContext(), new SynchronousExecutor(), mListener);
         connectionTimer = new Timer();
@@ -254,18 +261,21 @@ public class OmapiTest {
             Reader[] readers = seService.getReaders();
 
             for (Reader reader : readers) {
-                Session session = reader.openSession();
-                assertNotNull("Could not open session", session);
-                Channel channel = session.openBasicChannel(null, (byte)0x00);
+                Session session = null;
+                Channel channel = null;
+                try {
+                    session = reader.openSession();
+                    assertNotNull("Could not open session", session);
+                    channel = session.openBasicChannel(null, (byte) 0x00);
+                } finally {
+                    if (channel != null) channel.close();
+                    if (session != null) session.close();
+                }
                 if (reader.getName().startsWith(UICC_READER_PREFIX)) {
                     assertNull("Basic channel on UICC can be opened", channel);
                 } else {
                     assertNotNull("Basic Channel cannot be opened", channel);
                 }
-                if (channel != null) {
-                    channel.close();
-                }
-                session.close();
             }
         } catch (Exception e) {
             fail("Unexpected Exception " + e);
@@ -280,18 +290,21 @@ public class OmapiTest {
             Reader[] readers = seService.getReaders();
 
             for (Reader reader : readers) {
-                Session session = reader.openSession();
-                assertNotNull("Could not open session", session);
-                Channel channel = session.openBasicChannel(SELECTABLE_AID, (byte)0x00);
+                Session session = null;
+                Channel channel = null;
+                try {
+                    session = reader.openSession();
+                    assertNotNull("Could not open session", session);
+                    channel = session.openBasicChannel(SELECTABLE_AID, (byte) 0x00);
+                } finally {
+                    if (channel != null) channel.close();
+                    if (session != null) session.close();
+                }
                 if (reader.getName().startsWith(UICC_READER_PREFIX)) {
                     assertNull("Basic channel on UICC can be opened", channel);
                 } else {
                     assertNotNull("Basic Channel cannot be opened", channel);
                 }
-                if (channel != null) {
-                    channel.close();
-                }
-                session.close();
             }
         } catch (Exception e) {
             fail("Unexpected Exception " + e);
@@ -301,43 +314,51 @@ public class OmapiTest {
     /** Tests Select API */
     @Test
     public void testSelectableAid() {
-        testSelectableAid(SELECTABLE_AID);
+        try {
+            waitForConnection();
+            Reader[] readers = seService.getReaders();
+            for (Reader reader : readers) {
+                testSelectableAid(reader, SELECTABLE_AID);
+            }
+        } catch (Exception e) {
+            fail("unexpected exception " + e);
+        }
     }
 
     @Test
     public void testLongSelectResponse() {
-        byte[] selectResponse = testSelectableAid(LONG_SELECT_RESPONSE_AID);
-        if (selectResponse == null) {
-            return;
-        }
-        assertTrue("Select Response is not complete", verifyBerTlvData(selectResponse));
-    }
-
-
-    private byte[] testSelectableAid(byte[] aid) {
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
-
             for (Reader reader : readers) {
-                assertTrue(reader.isSecureElementPresent());
-                Session session = reader.openSession();
-                assertNotNull("Null Session", session);
-                Channel channel = session.openLogicalChannel(aid, (byte)0x00);
-                assertNotNull("Null Channel", channel);
-                byte[] selectResponse = channel.getSelectResponse();
-                assertNotNull("Null Select Response", selectResponse);
-                assertGreaterOrEqual(selectResponse.length, 2);
-                assertEquals(selectResponse[selectResponse.length - 1] & 0xFF, 0x00);
-                assertEquals(selectResponse[selectResponse.length - 2] & 0xFF, 0x90);
-                channel.close();
-                session.close();
-                return selectResponse;
+                byte[] selectResponse = testSelectableAid(reader, LONG_SELECT_RESPONSE_AID);
+                assertTrue("Select Response is not complete", verifyBerTlvData(selectResponse));
             }
         } catch (Exception e) {
-            fail("Unexpected Exception " + e);
+            fail("unexpected exception " + e);
         }
-        return null;
+    }
+
+    private byte[] testSelectableAid(Reader reader, byte[] aid) throws IOException {
+        byte[] selectResponse = null;
+        Session session = null;
+        Channel channel = null;
+        try {
+            assertTrue(reader.isSecureElementPresent());
+            session = reader.openSession();
+            assertNotNull("Null Session", session);
+            channel = session.openLogicalChannel(aid, (byte) 0x00);
+            assertNotNull("Null Channel", channel);
+            selectResponse = channel.getSelectResponse();
+        } finally {
+            if (channel != null) channel.close();
+            if (session != null) session.close();
+        }
+        assertNotNull("Null Select Response", selectResponse);
+        assertGreaterOrEqual(selectResponse.length, 2);
+        assertThat(selectResponse[selectResponse.length - 1] & 0xFF, is(0x00));
+        assertThat(selectResponse[selectResponse.length - 2] & 0xFF, is(0x90));
+        return selectResponse;
     }
 
     /** Tests if NoSuchElementException in Select */
@@ -349,86 +370,107 @@ public class OmapiTest {
             for (Reader reader : readers) {
                 testNonSelectableAid(reader, NON_SELECTABLE_AID);
             }
-        } catch (TimeoutException e) {
+        } catch (Exception e) {
             fail("unexpected exception " + e);
         }
     }
 
-    private void testNonSelectableAid(Reader reader, byte[] aid) {
-        boolean exception = false;
+    private void testNonSelectableAid(Reader reader, byte[] aid) throws IOException {
         Session session = null;
+        Channel channel = null;
         try {
             assertTrue(reader.isSecureElementPresent());
             session = reader.openSession();
             assertNotNull("null session", session);
-            Channel channel = session.openLogicalChannel(aid, (byte)0x00);
+            channel = session.openLogicalChannel(aid, (byte) 0x00);
+            fail("Exception expected for this test");
         } catch (NoSuchElementException e) {
-            exception = true;
-            if (session != null) {
-                session.close();
-            }
-        } catch (Exception e) {
-            fail("unexpected exception " + e);
+            // Catch the expected exception here.
+        } finally {
+            if (channel != null) channel.close();
+            if (session != null) session.close();
         }
-        assertTrue(exception);
     }
 
     /** Tests if Security Exception in Transmit */
     @Test
     public void testSecurityExceptionInTransmit() {
-        boolean exception = false;
-        Session session;
-        Channel channel;
         try {
             waitForConnection();
             Reader[] readers = seService.getReaders();
 
             for (Reader reader : readers) {
-                assertTrue(reader.isSecureElementPresent());
-                session = reader.openSession();
-                assertNotNull("null session", session);
-                channel = session.openLogicalChannel(SELECTABLE_AID, (byte)0x00);
-                assertNotNull("Null Channel", channel);
-                byte[] selectResponse = channel.getSelectResponse();
-                assertNotNull("Null Select Response", selectResponse);
-                assertGreaterOrEqual(selectResponse.length, 2);
-                assertEquals(selectResponse[selectResponse.length - 1] & 0xFF, 0x00);
-                assertEquals(selectResponse[selectResponse.length - 2] & 0xFF, 0x90);
-                for (byte[] cmd : ILLEGAL_COMMANDS_TRANSMIT) {
-                    try {
-                        exception = false;
-                        byte[] response = channel.transmit(cmd);
-                    } catch (SecurityException e) {
-                        exception = true;
+                Session session = null;
+                Channel channel = null;
+                try {
+                    assertTrue(reader.isSecureElementPresent());
+                    session = reader.openSession();
+                    assertNotNull("null session", session);
+                    channel = session.openLogicalChannel(SELECTABLE_AID, (byte) 0x00);
+                    assertNotNull("Null Channel", channel);
+                    byte[] selectResponse = channel.getSelectResponse();
+                    assertNotNull("Null Select Response", selectResponse);
+                    assertGreaterOrEqual(selectResponse.length, 2);
+                    assertThat(selectResponse[selectResponse.length - 1] & 0xFF, is(0x00));
+                    assertThat(selectResponse[selectResponse.length - 2] & 0xFF, is(0x90));
+                    for (byte[] cmd : ILLEGAL_COMMANDS_TRANSMIT) {
+                        try {
+                            byte[] response = channel.transmit(cmd);
+                            fail("Exception expected for this test");
+                        } catch (SecurityException e) {
+                            // Catch the expected exception here.
+                        }
                     }
-                    assertTrue(exception);
+                } finally {
+                    if (channel != null) channel.close();
+                    if (session != null) session.close();
                 }
-                channel.close();
-                session.close();
             }
         } catch (Exception e) {
             fail("unexpected exception " + e);
         }
     }
 
-    private byte[] internalTransmitApdu(Reader reader, byte[] apdu) {
+    private byte[] internalTransmitApdu(Reader reader, byte[] apdu) throws IOException {
+        byte[] transmitResponse = null;
+        Session session = null;
+        Channel channel = null;
         try {
             assertTrue(reader.isSecureElementPresent());
-            Session session = reader.openSession();
+            session = reader.openSession();
             assertNotNull("null session", session);
-            Channel channel = session.openLogicalChannel(SELECTABLE_AID, (byte)0x00);
+            channel = session.openLogicalChannel(SELECTABLE_AID, (byte) 0x00);
             assertNotNull("Null Channel", channel);
             byte[] selectResponse = channel.getSelectResponse();
             assertNotNull("Null Select Response", selectResponse);
             assertGreaterOrEqual(selectResponse.length, 2);
-            byte[] transmitResponse = channel.transmit(apdu);
-            channel.close();
-            session.close();
-            return transmitResponse;
-        } catch (Exception e) {
-            fail("unexpected exception " + e);
+            transmitResponse = channel.transmit(apdu);
+        } finally {
+            if (channel != null) channel.close();
+            if (session != null) session.close();
         }
-        return null;
+        return transmitResponse;
+    }
+
+    private byte[] internalTransmitApduWithoutP2(Reader reader, byte[] apdu) throws IOException {
+        byte[] transmitResponse = null;
+        Session session = null;
+        Channel channel = null;
+        try {
+            assertTrue(reader.isSecureElementPresent());
+            session = reader.openSession();
+            assertNotNull("null session", session);
+            channel = session.openLogicalChannel(SELECTABLE_AID);
+            assertNotNull("Null Channel", channel);
+            byte[] selectResponse = channel.getSelectResponse();
+            assertNotNull("Null Select Response", selectResponse);
+            assertGreaterOrEqual(selectResponse.length, 2);
+            transmitResponse = channel.transmit(apdu);
+        } finally {
+            if (channel != null) channel.close();
+            if (session != null) session.close();
+        }
+        return transmitResponse;
     }
 
     /**
@@ -446,17 +488,17 @@ public class OmapiTest {
             for (Reader reader : readers) {
                 for (byte[] apdu : NO_DATA_APDU) {
                     byte[] response = internalTransmitApdu(reader, apdu);
-                    assertEquals(response.length, 2);
-                    assertEquals(response[response.length - 1] & 0xFF, 0x00);
-                    assertEquals(response[response.length - 2] & 0xFF, 0x90);
+                    assertThat(response.length, is(2));
+                    assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                    assertThat(response[response.length - 2] & 0xFF, is(0x90));
                 }
 
                 for (byte[] apdu : DATA_APDU) {
                     byte[] response = internalTransmitApdu(reader, apdu);
                     /* 256 byte data and 2 bytes of status word */
-                    assertEquals(response.length, 258);
-                    assertEquals(response[response.length - 1] & 0xFF, 0x00);
-                    assertEquals(response[response.length - 2] & 0xFF, 0x90);
+                    assertThat(response.length, is(258));
+                    assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                    assertThat(response[response.length - 2] & 0xFF, is(0x90));
                 }
             }
         } catch (Exception e) {
@@ -484,8 +526,8 @@ public class OmapiTest {
                         apdu[2] = (byte)(i+1);
                         byte[] response = internalTransmitApdu(reader, apdu);
                         byte[] SW = SW_62xx[i];
-                        assertEquals(response[response.length - 1], SW[1]);
-                        assertEquals(response[response.length - 2], SW[0]);
+                        assertThat(response[response.length - 1], is(SW[1]));
+                        assertThat(response[response.length - 2], is(SW[0]));
                     }
                 }
 
@@ -495,8 +537,8 @@ public class OmapiTest {
                     byte[] response = internalTransmitApdu(reader, apdu);
                     byte[] SW = SW_62xx[i];
                     assertGreaterOrEqual(response.length, 3);
-                    assertEquals(response[response.length - 1], SW[1]);
-                    assertEquals(response[response.length - 2], SW[0]);
+                    assertThat(response[response.length - 1], is(SW[1]));
+                    assertThat(response[response.length - 2], is(SW[0]));
                 }
 
                 for (byte i = 0x00; i < SW_62xx.length; i++) {
@@ -505,11 +547,12 @@ public class OmapiTest {
                     byte[] response = internalTransmitApdu(reader, apdu);
                     assertGreaterOrEqual(response.length, apdu.length + 2);
                     byte[] responseSubstring = Arrays.copyOfRange(response, 0, apdu.length);
-                    apdu[0] = 0x01;
+                    // We should not care about which channel number is actually assigned.
+                    responseSubstring[0] = apdu[0];
                     assertTrue(Arrays.equals(responseSubstring, apdu));
                     byte[] SW = SW_62xx[i];
-                    assertEquals(response[response.length - 1], SW[1]);
-                    assertEquals(response[response.length - 2], SW[0]);
+                    assertThat(response[response.length - 1], is(SW[1]));
+                    assertThat(response[response.length - 2], is(SW[0]));
                 }
             }
         } catch (Exception e) {
@@ -530,10 +573,10 @@ public class OmapiTest {
                     byte[] b = { 0x00, 0x00, apdu[2], apdu[3] };
                     ByteBuffer wrapped = ByteBuffer.wrap(b);
                     int expectedLength = wrapped.getInt();
-                    assertEquals(response.length, expectedLength + 2);
-                    assertEquals(response[response.length - 1] & 0xFF, 0x00);
-                    assertEquals(response[response.length - 2] & 0xFF, 0x90);
-                    assertEquals(response[response.length - 3] & 0xFF, 0xFF);
+                    assertThat(response.length, is(expectedLength + 2));
+                    assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                    assertThat(response[response.length - 2] & 0xFF, is(0x90));
+                    assertThat(response[response.length - 3] & 0xFF, is(0xFF));
                 }
             }
         } catch (Exception e) {
@@ -541,7 +584,11 @@ public class OmapiTest {
         }
     }
 
-    /** Test the P2 value of the select command sent by the underlying implementation */
+    /**
+     * Tests the P2 value of the select command.
+     *
+     * Verifies that the default P2 value (0x00) is not modified by the underlying implementation.
+     */
     @Test
     public void testP2Value() {
         try {
@@ -549,11 +596,11 @@ public class OmapiTest {
             Reader[] readers = seService.getReaders();
 
             for (Reader reader : readers) {
-                byte[] response = internalTransmitApdu(reader, CHECK_SELECT_P2_APDU);
+                byte[] response = internalTransmitApduWithoutP2(reader, CHECK_SELECT_P2_APDU);
                 assertGreaterOrEqual(response.length, 3);
-                assertEquals(response[response.length - 1] & 0xFF, 0x00);
-                assertEquals(response[response.length - 2] & 0xFF, 0x90);
-                assertEquals(response[response.length - 3] & 0xFF, 0x00);
+                assertThat(response[response.length - 1] & 0xFF, is(0x00));
+                assertThat(response[response.length - 2] & 0xFF, is(0x90));
+                assertThat(response[response.length - 3] & 0xFF, is(0x00));
             }
         } catch (Exception e) {
           fail("unexpected exception " + e);

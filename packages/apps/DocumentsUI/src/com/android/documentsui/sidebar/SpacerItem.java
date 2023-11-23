@@ -33,7 +33,7 @@ class SpacerItem extends Item {
 
     public SpacerItem() {
         // Multiple spacer items can share the same string id as they're identical.
-        super(R.layout.item_root_spacer, STRING_ID);
+        super(R.layout.item_root_spacer, "" /* title */, STRING_ID);
     }
 
     @Override
@@ -48,6 +48,8 @@ class SpacerItem extends Item {
 
     @Override
     void open() {
-        if (DEBUG) Log.d(TAG, "Ignoring click/hover on spacer item.");
+        if (DEBUG) {
+            Log.d(TAG, "Ignoring click/hover on spacer item.");
+        }
     }
 }

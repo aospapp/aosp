@@ -106,7 +106,7 @@ CHROMIUM_PAGE_SETS_TO_PREFIX = {
 
 PAGE_SETS_TO_EXCLUSIONS = {
     # See skbug.com/7348
-    'key_mobile_sites_smooth.py': '"(digg|worldjournal)"',
+    'key_mobile_sites_smooth.py': '"(digg|worldjournal|twitter|espn)"',
     # See skbug.com/7421
     'top_25_smooth.py': '"(mail\.google\.com)"',
 }
@@ -222,7 +222,6 @@ class SkPicturePlayback(object):
           '--extra-browser-args="%s"' % self._browser_args,
           '--browser=exact',
           '--browser-executable=%s' % self._browser_executable,
-          '--use-wpr-go',
           '%s_page_set' % page_set_basename,
           '--page-set-base-dir=%s' % page_set_dir
         )

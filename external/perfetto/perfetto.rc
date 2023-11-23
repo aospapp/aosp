@@ -25,7 +25,9 @@ service traced_probes /system/bin/traced_probes
     class late_start
     disabled
     user nobody
-    group nobody readproc
+    # Despite the "log" group below, traced_probes is whitelisted for log read
+    # access only on userdebug/eng via selinux (see traced_probes.te).
+    group nobody readproc log
     writepid /dev/cpuset/system-background/tasks
     # Clean up procfs configuration even if traced_probes crashes
     # unexpectedly.
@@ -33,10 +35,10 @@ service traced_probes /system/bin/traced_probes
     file /dev/kmsg w
     capabilities DAC_READ_SEARCH
 
-on property:sys.traced.enable_override=1
+on property:persist.device_config.global_settings.sys_traced=1
     setprop persist.traced.enable 1
 
-on property:sys.traced.enable_override=0
+on property:persist.device_config.global_settings.sys_traced=0
     setprop persist.traced.enable 0
 
 on property:debug.atrace.user_initiated=1

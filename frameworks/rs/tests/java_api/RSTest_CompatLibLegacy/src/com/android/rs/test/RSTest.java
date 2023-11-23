@@ -16,7 +16,7 @@
 
 package com.android.rs.test_compatlegacy;
 
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.RenderScript;
 
 import android.app.ListActivity;
 import android.content.res.Configuration;

@@ -25,6 +25,7 @@
 
 #include <private/binder/Static.h>
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -36,7 +37,7 @@ struct BufferedTextOutput::BufferState : public RefBase
 {
     explicit BufferState(int32_t _seq)
         : seq(_seq)
-        , buffer(NULL)
+        , buffer(nullptr)
         , bufferPos(0)
         , bufferSize(0)
         , atFront(true)
@@ -87,7 +88,7 @@ struct BufferedTextOutput::ThreadState
     Vector<sp<BufferedTextOutput::BufferState> > states;
 };
 
-static mutex_t          gMutex;
+static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static thread_store_t   tls;
 
@@ -113,7 +114,7 @@ static int32_t allocBufferIndex()
 {
     int32_t res = -1;
     
-    mutex_lock(&gMutex);
+    pthread_mutex_lock(&gMutex);
     
     if (gFreeBufferIndex >= 0) {
         res = gFreeBufferIndex;
@@ -125,17 +126,17 @@ static int32_t allocBufferIndex()
         gTextBuffers.add(-1);
     }
 
-    mutex_unlock(&gMutex);
+    pthread_mutex_unlock(&gMutex);
     
     return res;
 }
 
 static void freeBufferIndex(int32_t idx)
 {
-    mutex_lock(&gMutex);
+    pthread_mutex_lock(&gMutex);
     gTextBuffers.editItemAt(idx) = gFreeBufferIndex;
     gFreeBufferIndex = idx;
-    mutex_unlock(&gMutex);
+    pthread_mutex_unlock(&gMutex);
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +189,7 @@ status_t BufferedTextOutput::print(const char* txt, size_t len)
                 // them out without going through the buffer.
                 
                 // Slurp up all of the lines.
-                const char* lastLine = txt+1;
+                const char* lastLine = txt;
                 while (txt < end) {
                     if (*txt++ == '\n') lastLine = txt;
                 }
@@ -266,13 +267,13 @@ BufferedTextOutput::BufferState* BufferedTextOutput::getBuffer() const
     if ((mFlags&MULTITHREADED) != 0) {
         ThreadState* ts = getThreadState();
         if (ts) {
-            while (ts->states.size() <= (size_t)mIndex) ts->states.add(NULL);
+            while (ts->states.size() <= (size_t)mIndex) ts->states.add(nullptr);
             BufferState* bs = ts->states[mIndex].get();
-            if (bs != NULL && bs->seq == mSeq) return bs;
+            if (bs != nullptr && bs->seq == mSeq) return bs;
             
             ts->states.editItemAt(mIndex) = new BufferState(mIndex);
             bs = ts->states[mIndex].get();
-            if (bs != NULL) return bs;
+            if (bs != nullptr) return bs;
         }
     }
     

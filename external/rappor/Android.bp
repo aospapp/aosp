@@ -14,13 +14,26 @@
 // limitations under the License.
 //
 
-java_library_static {
+java_library {
     name: "rappor",
-    no_framework_libs: true,
     java_version: "1.7",
     sdk_version: "core_current",
     libs: [
         "jsr305",
     ],
     srcs: ["client/java/**/*.java"],
+}
+
+java_library {
+    name: "rappor-tests",
+    java_version: "1.7",
+    static_libs: [
+        "hamcrest-library",
+        "rappor",
+        "guava",
+        "junit",
+    ],
+    libs: ["jsr305"],
+    sdk_version: "core_current",
+    srcs: ["client/javatest/**/*.java"],
 }

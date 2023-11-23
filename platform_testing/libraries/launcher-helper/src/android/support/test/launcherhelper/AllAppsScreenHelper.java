@@ -40,7 +40,11 @@ public class AllAppsScreenHelper {
     private ActivityHelper mActivityHelper;
 
     public AllAppsScreenHelper() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        try {
+            mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        } catch (IllegalStateException e) {
+            mInstrumentation = androidx.test.InstrumentationRegistry.getInstrumentation();
+        }
         mActivityHelper = ActivityHelper.getInstance();
         mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
     }

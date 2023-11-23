@@ -574,10 +574,16 @@ size_t C2InterfaceHelper::GetBaseOffset(const std::shared_ptr<C2ParamReflector> 
 }
 
 void C2InterfaceHelper::addParameter(std::shared_ptr<ParamHelper> param) {
+    std::lock_guard<std::mutex> lock(mMutex);
     mReflector->addStructDescriptor(param->retrieveStructDescriptor());
     c2_status_t err = param->validate(mReflector);
     if (err != C2_CORRUPTED) {
         _mFactory->addParam(param);
+
+        // run setter to ensure correct values
+        bool changed = false;
+        std::vector<std::unique_ptr<C2SettingResult>> failures;
+        (void)param->trySet(param->value().get(), C2_MAY_BLOCK, &changed, *_mFactory, &failures);
     }
 }
 
@@ -585,6 +591,7 @@ c2_status_t C2InterfaceHelper::config(
        const std::vector<C2Param*> &params, c2_blocking_t mayBlock,
        std::vector<std::unique_ptr<C2SettingResult>>* const failures, bool updateParams,
        std::vector<std::shared_ptr<C2Param>> *changes __unused /* TODO */) {
+    std::lock_guard<std::mutex> lock(mMutex);
     bool paramWasInvalid = false; // TODO is this the same as bad value?
     bool paramNotFound = false;
     bool paramBadValue = false;
@@ -618,7 +625,7 @@ c2_status_t C2InterfaceHelper::config(
             }
 
             paramIx = p->index();
-            paramDepIx = getDependencyIndex(paramIx);
+            paramDepIx = getDependencyIndex_l(paramIx);
             if (paramDepIx == SIZE_MAX) {
                 // unsupported parameter
                 paramNotFound = true;
@@ -694,15 +701,15 @@ c2_status_t C2InterfaceHelper::config(
                 for (const C2Param::Index ix : param->getDownDependencies()) {
                     C2_LOG(VERBOSE) << 1;
                     auto insert_res = dependencies.insert(
-                            { getDependencyIndex(ix), { ix, true /* dirty */ }});
+                            { getDependencyIndex_l(ix), { ix, true /* dirty */ }});
                     if (!insert_res.second) {
                         (*insert_res.first).second.second = true; // mark dirty
                     }
 
-                    auto it = dependencies.find(getDependencyIndex(ix));
+                    auto it = dependencies.find(getDependencyIndex_l(ix));
                     C2_CHECK(it->second.second);
                     C2_LOG(VERBOSE) << "marking down dependencies to update at #"
-                            << getDependencyIndex(ix) << ": " << it->second.first;
+                            << getDependencyIndex_l(ix) << ": " << it->second.first;
                 }
             }
         }
@@ -716,7 +723,7 @@ c2_status_t C2InterfaceHelper::config(
             paramNotFound ? C2_BAD_INDEX : C2_OK);
 }
 
-size_t C2InterfaceHelper::getDependencyIndex(C2Param::Index ix) const {
+size_t C2InterfaceHelper::getDependencyIndex_l(C2Param::Index ix) const {
     return _mFactory->getDependencyIndex(ix);
 }
 
@@ -725,6 +732,7 @@ c2_status_t C2InterfaceHelper::query(
         const std::vector<C2Param::Index> &heapParamIndices,
         c2_blocking_t mayBlock __unused /* TODO */,
         std::vector<std::unique_ptr<C2Param>>* const heapParams) const {
+    std::lock_guard<std::mutex> lock(mMutex);
     bool paramWasInvalid = false;
     bool paramNotFound = false;
     bool paramDidNotFit = false;
@@ -769,12 +777,14 @@ c2_status_t C2InterfaceHelper::query(
 
 c2_status_t C2InterfaceHelper::querySupportedParams(
         std::vector<std::shared_ptr<C2ParamDescriptor>> *const params) const {
+    std::lock_guard<std::mutex> lock(mMutex);
     return _mFactory->querySupportedParams(params);
 }
 
 
 c2_status_t C2InterfaceHelper::querySupportedValues(
         std::vector<C2FieldSupportedValuesQuery> &fields, c2_blocking_t mayBlock __unused) const {
+    std::lock_guard<std::mutex> lock(mMutex);
     for (C2FieldSupportedValuesQuery &query : fields) {
         C2_LOG(VERBOSE) << "querying field " << query.field();
         C2Param::Index ix = _C2ParamInspector::GetIndex(query.field());
@@ -824,4 +834,8 @@ c2_status_t C2InterfaceHelper::querySupportedValues(
         }
     }
     return C2_OK;
+}
+
+std::unique_lock<std::mutex> C2InterfaceHelper::lock() const {
+    return std::unique_lock<std::mutex>(mMutex);
 }

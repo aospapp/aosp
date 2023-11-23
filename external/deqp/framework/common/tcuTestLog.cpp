@@ -459,6 +459,18 @@ void TestLog::terminateCase (qpTestResult result)
 		throw LogWriteFailedError();
 }
 
+void TestLog::startTestsCasesTime (void)
+{
+	if (qpTestLog_startTestsCasesTime(m_log) == DE_FALSE)
+		throw LogWriteFailedError();
+}
+
+void TestLog::endTestsCasesTime (void)
+{
+	if (qpTestLog_endTestsCasesTime(m_log) == DE_FALSE)
+		throw LogWriteFailedError();
+}
+
 void TestLog::startSampleList (const std::string& name, const std::string& description)
 {
 	if (qpTestLog_startSampleList(m_log, name.c_str(), description.c_str()) == DE_FALSE)
@@ -511,6 +523,11 @@ void TestLog::endSampleList (void)
 {
 	if (qpTestLog_endSampleList(m_log) == DE_FALSE)
 		throw LogWriteFailedError();
+}
+
+bool TestLog::isShaderLoggingEnabled (void)
+{
+	return (qpTestLog_getLogFlags(m_log) & QP_TEST_LOG_EXCLUDE_SHADER_SOURCES) == 0;
 }
 
 const TestLog::BeginMessageToken		TestLog::Message			= TestLog::BeginMessageToken();

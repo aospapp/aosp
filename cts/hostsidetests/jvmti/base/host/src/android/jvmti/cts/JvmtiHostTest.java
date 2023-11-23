@@ -45,7 +45,7 @@ import java.util.zip.ZipFile;
  * test run and attaches the agent.
  */
 public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAbiReceiver {
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
     // inject these options from HostTest directly using --set-option <option name>:<option value>
     @Option(name = "package-name",
             description = "The package name of the device test",
@@ -57,8 +57,15 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
             mandatory = true)
     private String mTestApk = null;
 
+    @Option(name = "hidden-api-checks",
+            description = "If we should enable hidden api checks. Default 'true'. Set to 'false' " +
+            "to disable hiddenapi.",
+            mandatory = false)
+    private String mHiddenApiChecksEnabled = null;
+
     private CompatibilityBuildHelper mBuildHelper;
     private IAbi mAbi;
+    private int mCurrentUser;
 
     @Override
     public void setBuild(IBuildInfo arg0) {
@@ -68,6 +75,11 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
     @Override
     public void setAbi(IAbi arg0) {
         mAbi = arg0;
+    }
+
+    @Override
+    protected void setUp() throws Exception {
+        mCurrentUser = getDevice().getCurrentUser();
     }
 
     public void testJvmti() throws Exception {
@@ -90,17 +102,39 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
             throw new IllegalStateException("Incorrect configuration");
         }
 
-        RemoteAndroidTestRunner runner = new RemoteAndroidTestRunner(mTestPackageName, RUNNER,
-                device.getIDevice());
-        // set a max deadline limit to avoid hanging forever
-        runner.setMaxTimeToOutputResponse(2, TimeUnit.MINUTES);
+        if (null != mHiddenApiChecksEnabled &&
+            !"false".equals(mHiddenApiChecksEnabled) &&
+            !"true".equals(mHiddenApiChecksEnabled)) {
+          throw new IllegalStateException(
+              "option hidden-api-checks must be 'true' or 'false' if present.");
+        }
+        boolean disable_hidden_api =
+            mHiddenApiChecksEnabled != null && "false".equals(mHiddenApiChecksEnabled);
+        String old_hiddenapi_setting = null;
+        if (disable_hidden_api) {
+            old_hiddenapi_setting = device.getSetting("global", "hidden_api_policy");
+            device.setSetting("global", "hidden_api_policy", "1");
+        }
 
-        TestResults tr = new TestResults(new AttachAgent(device, mTestPackageName, mTestApk));
+        try {
+            RemoteAndroidTestRunner runner = new RemoteAndroidTestRunner(mTestPackageName, RUNNER,
+                    device.getIDevice());
+            // set a max deadline limit to avoid hanging forever
+            runner.setMaxTimeToOutputResponse(5, TimeUnit.MINUTES);
 
-        device.runInstrumentationTests(runner, tr);
+            AttachAgent aa = new AttachAgent(device, mTestPackageName, mTestApk);
+            aa.prepare();
+            TestResults tr = new TestResults(aa);
 
-        assertTrue(tr.getErrors(), tr.hasStarted());
-        assertFalse(tr.getErrors(), tr.hasFailed());
+            device.runInstrumentationTests(runner, tr);
+
+            assertTrue(tr.getErrors(), tr.hasStarted());
+            assertFalse(tr.getErrors(), tr.hasFailed());
+        } finally {
+            if (disable_hidden_api) {
+                device.setSetting("global", "hidden_api_policy", old_hiddenapi_setting);
+            }
+        }
     }
 
     private String getDeviceBaseArch(ITestDevice device) throws Exception {
@@ -114,16 +148,18 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
         private String mPkg;
         private String mApk;
 
+        private String mAgentInDataData;
+
         public AttachAgent(ITestDevice device, String pkg, String apk) {
             this.mDevice = device;
             this.mPkg = pkg;
             this.mApk = apk;
         }
 
-        @Override
-        public void run() {
+        public void prepare() {
             try {
-                String pwd = mDevice.executeShellCommand("run-as " + mPkg + " pwd");
+                String pwd = mDevice.executeShellCommand(
+                        "run-as " + mPkg + " --user " + mCurrentUser + " pwd");
                 if (pwd == null) {
                     throw new RuntimeException("pwd failed");
                 }
@@ -132,9 +168,19 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
                     throw new RuntimeException("pwd failed");
                 }
 
-                String agentInDataData = installLibToDataData(pwd, "libctsjvmtiagent.so");
+                mAgentInDataData = installLibToDataData(pwd, "libctsjvmtiagent.so");
+            } catch (Exception e) {
+                throw new RuntimeException("Failed installing", e);
+            }
+        }
 
-                String attachCmd = "cmd activity attach-agent " + mPkg + " " + agentInDataData;
+        @Override
+        public void run() {
+            try {
+                if (mAgentInDataData == null) {
+                    throw new IllegalStateException("prepare() has not been called");
+                }
+                String attachCmd = "cmd activity attach-agent " + mPkg + " " + mAgentInDataData;
                 String attachReply = mDevice.executeShellCommand(attachCmd);
                 // Don't try to parse the output. The test will time out anyways if this didn't
                 // work.
@@ -146,7 +192,7 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
             }
         }
 
-        String installLibToDataData(String dataData, String library) throws Exception {
+        private String installLibToDataData(String dataData, String library) throws Exception {
             ZipFile zf = null;
             File tmpFile = null;
             String libInTmp = null;
@@ -165,13 +211,15 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
                 }
 
                 String runAsCp = mDevice.executeShellCommand(
-                        "run-as " + mPkg + " cp " + libInTmp + " " + libInDataData);
+                        "run-as " + mPkg + " --user " + mCurrentUser +
+                                " cp " + libInTmp + " " + libInDataData);
                 if (runAsCp != null && !runAsCp.trim().isEmpty()) {
                     throw new RuntimeException(runAsCp.trim());
                 }
 
-                String runAsChmod = mDevice
-                        .executeShellCommand("run-as " + mPkg + " chmod a+x " + libInDataData);
+                String runAsChmod = mDevice.executeShellCommand(
+                        "run-as " + mPkg + " --user " + mCurrentUser +
+                                " chmod a+x " + libInDataData);
                 if (runAsChmod != null && !runAsChmod.trim().isEmpty()) {
                     throw new RuntimeException(runAsChmod.trim());
                 }

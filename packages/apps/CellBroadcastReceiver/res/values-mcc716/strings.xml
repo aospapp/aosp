@@ -24,4 +24,8 @@
     <string name="enable_public_safety_messages_title">Informative message</string>
     <!-- Preference summary for enable public safety messages checkbox. -->
     <string name="enable_public_safety_messages_summary" translatable="false"></string>
+
+    <string name="cmas_presidential_level_alert" translatable="false">@string/emergency_alert</string>
+    <string name="cmas_required_monthly_test">Emergency alert: Test message</string>
+    <string name="cmas_exercise_alert">Emergency alert: Exercise/Simulation message</string>
 </resources>

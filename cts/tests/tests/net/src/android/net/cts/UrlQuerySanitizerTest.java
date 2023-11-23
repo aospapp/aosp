@@ -170,6 +170,12 @@ public class UrlQuerySanitizerTest extends AndroidTestCase {
         String initialPercentSign = "title=%B5";
         assertEquals(expectedPlus, uqs.unescape(initialPlus));
         assertEquals(expectedPercentSignHex, uqs.unescape(initialPercentSign));
+        String expectedPlusThenPercentSign = "Joe Random, User";
+        String plusThenPercentSign = "Joe+Random%2C%20User";
+        assertEquals(expectedPlusThenPercentSign, uqs.unescape(plusThenPercentSign));
+        String expectedPercentSignThenPlus = "Joe, Random User";
+        String percentSignThenPlus = "Joe%2C+Random+User";
+        assertEquals(expectedPercentSignThenPlus, uqs.unescape(percentSignThenPlus));
 
         assertTrue(uqs.decodeHexDigit('0') >= 0);
         assertTrue(uqs.decodeHexDigit('b') >= 0);

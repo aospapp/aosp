@@ -17,11 +17,8 @@
 #ifndef ART_LIBARTBASE_BASE_LOGGING_H_
 #define ART_LIBARTBASE_BASE_LOGGING_H_
 
-#include <ostream>
-#include <sstream>
-
 #include "android-base/logging.h"
-#include "base/macros.h"
+#include "macros.h"
 
 namespace art {
 
@@ -77,12 +74,12 @@ extern void InitLogging(char* argv[], AbortFunction& default_aborter);
 // performed.
 extern const char* GetCmdLine();
 
-// The command used to start the ART runtime, such as "/system/bin/dalvikvm". If InitLogging hasn't
-// been performed then just returns "art"
+// The command used to start the ART runtime, such as "/apex/com.android.runtime/bin/dalvikvm". If
+// InitLogging hasn't been performed then just returns "art".
 extern const char* ProgramInvocationName();
 
 // A short version of the command used to start the ART runtime, such as "dalvikvm". If InitLogging
-// hasn't been performed then just returns "art"
+// hasn't been performed then just returns "art".
 extern const char* ProgramInvocationShortName();
 
 class LogHelper {
@@ -97,6 +94,9 @@ class LogHelper {
   DISALLOW_ALLOCATION();
   DISALLOW_COPY_AND_ASSIGN(LogHelper);
 };
+
+// Copy the contents of file_name to the log stream for level.
+bool PrintFileToLog(const std::string& file_name, android::base::LogSeverity level);
 
 // Is verbose logging enabled for the given module? Where the module is defined in LogVerbosity.
 #define VLOG_IS_ON(module) UNLIKELY(::art::gLogVerbosity.module)

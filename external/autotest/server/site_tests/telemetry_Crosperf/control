@@ -17,20 +17,8 @@ This runs various Telemetry performance tests under the crosperf script.
 This is part of Chrome OS Toolchain testing platform.
 """
 
-profiler = None
-p_args = []
-
 # Put the args into the args_dict.
 args_dict = utils.args_to_dict(args)
-
-if 'profiler' in args_dict:
-   profiler = args_dict['profiler']
-   if 'profiler_args' in args_dict:
-      p_args   = args_dict['profiler_args']
-
-if profiler:
-   job.default_profile_only = True
-   job.profilers.add(profiler, p_args)
 
 def run_telemetry_Crosperf(machine):
     dut = hosts.create_host(machine)
@@ -42,5 +30,3 @@ def run_telemetry_Crosperf(machine):
 
 job.parallel_simple(run_telemetry_Crosperf, machines)
 
-if profiler:
-   job.profilers.delete (profiler)

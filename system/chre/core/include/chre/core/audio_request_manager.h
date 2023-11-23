@@ -35,14 +35,11 @@ namespace chre {
 class AudioRequestManager : public NonCopyable {
  public:
   /**
-   * Sets up the initial condition for the audio request manager including
-   * initial allocation of requests managers.
-   */
-  AudioRequestManager();
-
-  /**
    * Initializes the platform-specific audio module. Must be called prior to
    * invoking any other methods in this class.
+   *
+   * Sets up the initial condition for the audio request manager including
+   * initial allocation of requests managers.
    */
   void init();
 
@@ -97,6 +94,17 @@ class AudioRequestManager : public NonCopyable {
   void handleAudioAvailability(uint32_t handle, bool available);
 
   /**
+   * Prints state in a string buffer. Must only be called from the context of
+   * the main CHRE thread.
+   *
+   * @param buffer Pointer to the start of the buffer.
+   * @param bufferPos Pointer to buffer position to start the print (in-out).
+   * @param size Size of the buffer in bytes.
+   */
+  void logStateToBuffer(char *buffer, size_t *bufferPos,
+                        size_t bufferSize) const;
+
+  /**
    * A convenience function to convert sample count and sample rate into a time
    * duration. It is illegal to call this function with a rate of zero.
    *
@@ -134,20 +142,27 @@ class AudioRequestManager : public NonCopyable {
         / kOneSecondInNanoseconds);
   }
 
+  /**
+   * @return the instance of platform audio to allow platform-specific
+   * funtionality to call it. Example: handling host awake events.
+   */
+  PlatformAudio& getPlatformAudio() {
+    return mPlatformAudio;
+  }
+
  private:
   /**
    * One instance of an audio request from a nanoapp.
    */
   struct AudioRequest {
-    AudioRequest(uint32_t instanceId, uint32_t numSamples,
-                 Nanoseconds deliveryInterval, Nanoseconds nextEventTimestamp)
-        : instanceId(instanceId),
-          numSamples(numSamples),
+    AudioRequest(uint32_t numSamples, Nanoseconds deliveryInterval,
+                 Nanoseconds nextEventTimestamp)
+        : numSamples(numSamples),
           deliveryInterval(deliveryInterval),
           nextEventTimestamp(nextEventTimestamp) {}
 
-    //! The nanoapp instance ID that owns this request.
-    uint32_t instanceId;
+    //! The nanoapp instance IDs that own this request.
+    DynamicVector<uint32_t> instanceIds;
 
     //! The number of samples requested for this request.
     uint32_t numSamples;
@@ -175,6 +190,49 @@ class AudioRequestManager : public NonCopyable {
     DynamicVector<AudioRequest> requests;
   };
 
+  /**
+   * Keep track of the number of times an audio data event is published to a
+   * nanoapp.
+   *
+   * TODO: Add support for multicast events to the core event loop to avoid this
+   * kind of logic from appearing in the AudioRequestManager.
+   */
+  struct AudioDataEventRefCount {
+    /**
+     * Constructs an AudioDataEventRefCount object with an uninitialized
+     * refCount to allow searching in a list using the equality comparison
+     * below.
+     *
+     * @param event The event that this object tracks.
+     */
+    explicit AudioDataEventRefCount(struct chreAudioDataEvent *event)
+        : event(event) {}
+
+    AudioDataEventRefCount(struct chreAudioDataEvent *event, uint32_t refCount)
+        : event(event), refCount(refCount) {}
+
+    /**
+     * @param audioDataEventRefCount The other object to perform an equality
+     *        comparison against.
+     * @return true if the supplied AudioDataEventRefCount is tracking the same
+     *         published event as current object.
+     */
+    bool operator==(const AudioDataEventRefCount& other) const {
+      return (event == other.event);
+    }
+
+    //! The event that is ref counted here.
+    struct chreAudioDataEvent *event;
+
+    //! The number of outstanding published events.
+    uint32_t refCount;
+  };
+
+  //! Maps published audio data events to a refcount that is used to determine
+  //! when to let the platform audio implementation know that this audio data
+  //! event no longer needed.
+  DynamicVector<AudioDataEventRefCount> mAudioDataEventRefCounts;
+
   //! Maps audio handles to requests from multiple nanoapps for an audio source.
   //! The array index implies the audio handle which is being managed.
   DynamicVector<AudioRequestList> mAudioRequestLists;
@@ -198,6 +256,43 @@ class AudioRequestManager : public NonCopyable {
       uint64_t bufferDuration, uint64_t deliveryInterval, uint32_t *numSamples);
 
   /**
+   * Performs the configuration of an audio source with validated arguments. See
+   * configureSource for more details.
+   *
+   * @param instanceId The instanceId of the nanoapp making the request.
+   * @param handle The audio source that is being configured.
+   * @param enable true if enabling the source, false if disabling.
+   * @param numSamples The number of samples being requested.
+   * @param deliveryInterval When to deliver the samples.
+   * @return true if successful, false otherwise.
+   */
+  bool doConfigureSource(uint32_t instanceId, uint32_t handle, bool enable,
+                         uint32_t numSamples, Nanoseconds deliveryInterval);
+
+  /**
+   * Notify the platform if a given handle has been enabled or disabled.
+   *
+   * @param handle The handle that may have changed enabled state.
+   * @param lastNumRequests The last number of requests for a handle before it
+   *        was reconfigured.
+   */
+  void updatePlatformHandleEnabled(uint32_t handle, size_t lastNumRequests);
+
+  /**
+   * Creates an audio request given a configuration and instance ID for a given
+   * handle.
+   *
+   * @param handle The handle to create a request for.
+   * @param instanceId The instance ID that will own this request.
+   * @param numSamples The number of samples requested.
+   * @param deliveryInterval When to deliver the samples.
+   * @return true if successful, false otherwise.
+   */
+  bool createAudioRequest(
+      uint32_t handle, uint32_t instanceId, uint32_t numSamples,
+      Nanoseconds deliveryInterval);
+
+  /**
    * Finds an audio request for a given audio handle and nanoapp instance ID. If
    * no existing request is available, nullptr is returned.
    *
@@ -206,11 +301,30 @@ class AudioRequestManager : public NonCopyable {
    * @param instanceId The nanoapp instance ID that owns the existing request
    *     for this handle.
    * @param index Populated with the index of the request if it was found.
+   * @param instanceIdIndex Populated with the index of the instance ID within
+   *        the returned audio request if it was found.
    * @return The AudioRequest for this handle and instanceId, nullptr if not
    *     found.
    */
-  AudioRequest *findAudioRequest(uint32_t handle, uint32_t instanceId,
-                                 size_t *index);
+  AudioRequest *findAudioRequestByInstanceId(
+      uint32_t handle, uint32_t instanceId, size_t *index,
+      size_t *instanceIdIndex);
+
+  /**
+   * Finds an audio request for a given handle and configuration. If no existing
+   * request is available, nullptr is returned.
+   *
+   * @param handle The audio handle to query for. This must be guaranteed by the
+   *        caller to be less than the size of the mAudioRequestLists member.
+   * @param numSamples The number of samples to match for.
+   * @param deliveryInterval The delivery interval to match for.
+   * @param index Populated with the index of the request if it was found.
+   * @return The AudioRequest for this handle and configuration, nullptr if not
+   *     found.
+   */
+  AudioRequest *findAudioRequestByConfiguration(
+      uint32_t handle, uint32_t numSamples, Nanoseconds deliveryInterval,
+      size_t *index);
 
   /**
    * Finds the next expiring request for audio data for a given handle.
@@ -246,13 +360,11 @@ class AudioRequestManager : public NonCopyable {
 
   /**
    * Posts CHRE_EVENT_AUDIO_SAMPLING_CHANGE events to all nanoapps subscribed to
-   * the supplied handle.
+   * the supplied handle with the current availability of the source.
    *
    * @param handle The handle for the audio source that is changing.
-   * @param available true if audio is available for the supplied handle, false
-   *        otherwise.
    */
-  void postAudioSamplingChangeEvents(uint32_t handle, bool available);
+  void postAudioSamplingChangeEvents(uint32_t handle);
 
   /**
    * Posts a CHRE_EVENT_AUDIO_SAMPLING_CHANGE event to the specified nanoapp.
@@ -272,10 +384,10 @@ class AudioRequestManager : public NonCopyable {
    * requirements of the API without posting an event.
    *
    * @param audioDataEvent The audio data event to send to a nanoapp.
-   * @param instanceId The nanoapp instance ID to direct the event to.
+   * @param instanceIds The list of nanoapp instance IDs to direct the event to.
    */
   void postAudioDataEventFatal(struct chreAudioDataEvent *event,
-                               uint32_t instanceId);
+                               const DynamicVector<uint32_t>& instanceIds);
 
   /**
    * Invoked by the freeAudioDataEventCallback to decrement the reference count

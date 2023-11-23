@@ -39,10 +39,12 @@
 #include <vector>
 
 #include <private/bionic_macros.h>
+#include <unwindstack/LocalUnwinder.h>
 
 #include "OptionData.h"
+#include "UnwindBacktrace.h"
 
-extern int* g_malloc_zygote_child;
+extern bool* g_zygote_child;
 
 // Forward declarations.
 class Config;
@@ -87,7 +89,9 @@ struct PointerInfoType {
   size_t hash_index;
   size_t RealSize() const { return size & ~(1U << 31); }
   bool ZygoteChildAlloc() const { return size & (1U << 31); }
-  static size_t GetEncodedSize(size_t size) { return GetEncodedSize(*g_malloc_zygote_child, size); }
+  static size_t GetEncodedSize(size_t size) {
+    return GetEncodedSize(*g_zygote_child, size);
+  }
   static size_t GetEncodedSize(bool child_alloc, size_t size) {
     return size | ((child_alloc) ? (1U << 31) : 0);
   }
@@ -105,11 +109,12 @@ struct ListInfoType {
   size_t size;
   bool zygote_child_alloc;
   FrameInfoType* frame_info;
+  std::vector<unwindstack::LocalFrameData>* backtrace_info;
 };
 
 class PointerData : public OptionData {
  public:
-  PointerData(DebugData* debug_data);
+  explicit PointerData(DebugData* debug_data);
   virtual ~PointerData() = default;
 
   bool Initialize(const Config& config);
@@ -129,9 +134,6 @@ class PointerData : public OptionData {
   void PostForkParent();
   void PostForkChild();
 
-  static void GetList(std::vector<ListInfoType>* list, bool only_with_backtrace);
-  static void GetUniqueList(std::vector<ListInfoType>* list, bool only_with_backtrace);
-
   static size_t AddBacktrace(size_t num_frames);
   static void RemoveBacktrace(size_t hash_index);
 
@@ -148,6 +150,7 @@ class PointerData : public OptionData {
   static void VerifyFreedPointer(const FreePointerInfoType& info);
   static void VerifyAllFreed();
 
+  static void GetAllocList(std::vector<ListInfoType>* list);
   static void LogLeaks();
   static void DumpLiveToFile(FILE* fp);
 
@@ -160,6 +163,10 @@ class PointerData : public OptionData {
 
  private:
   static std::string GetHashString(uintptr_t* frames, size_t num_frames);
+  static void LogBacktrace(size_t hash_index);
+
+  static void GetList(std::vector<ListInfoType>* list, bool only_with_backtrace);
+  static void GetUniqueList(std::vector<ListInfoType>* list, bool only_with_backtrace);
 
   size_t alloc_offset_ = 0;
   std::vector<uint8_t> cmp_mem_;
@@ -174,10 +181,11 @@ class PointerData : public OptionData {
   static std::mutex frame_mutex_;
   static std::unordered_map<FrameKeyType, size_t> key_to_index_;
   static std::unordered_map<size_t, FrameInfoType> frames_;
+  static std::unordered_map<size_t, std::vector<unwindstack::LocalFrameData>> backtraces_info_;
   static size_t cur_hash_index_;
 
   static std::mutex free_pointer_mutex_;
   static std::deque<FreePointerInfoType> free_pointers_;
 
-  DISALLOW_COPY_AND_ASSIGN(PointerData);
+  BIONIC_DISALLOW_COPY_AND_ASSIGN(PointerData);
 };

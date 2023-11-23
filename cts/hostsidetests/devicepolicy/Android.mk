@@ -22,7 +22,15 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := tools-common-prebuilt cts-tradefed tradefed compatibility-host-util
+LOCAL_JAVA_RESOURCE_DIRS := res
+
+LOCAL_JAVA_LIBRARIES := \
+    tools-common-prebuilt \
+    cts-tradefed \
+    tradefed \
+    compatibility-host-util \
+    guava \
+    truth-prebuilt
 
 LOCAL_CTS_TEST_PACKAGE := android.adminhostside
 
@@ -30,7 +38,7 @@ LOCAL_CTS_TEST_PACKAGE := android.adminhostside
 LOCAL_COMPATIBILITY_SUITE := cts arcts vts general-tests
 
 # Need the dependency to build/run the module solely by atest.
-LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_TESTCASES)/cts-current-api/current.api
+LOCAL_TARGET_REQUIRED_MODULES := cts-current-api
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

@@ -36,7 +36,7 @@
         </receiver>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcorefileio.cts">
         <meta-data android:name="listener"
                    android:value="com.android.cts.runner.CtsTestRunListener"/>

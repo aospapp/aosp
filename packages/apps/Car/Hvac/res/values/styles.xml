@@ -16,14 +16,6 @@
 */
 -->
 <resources>
-    <!-- A radio button that will have a ripple effect when touched. -->
-    <style name="HvacButton.Ripple" parent="@android:style/Widget.Material.Button.Borderless">
-        <item name="android:background">@drawable/ripple_background</item>
-    </style>
-    <!-- A radio button that has an image with a ripple effect. -->
-    <style name="HvacButton.Ripple.Image">
-        <item name="android:scaleType">fitCenter</item>
-    </style>
     <!-- Font for the temperature text inside the HVAC panel controls-->
     <style name="HvacTemperatureFont">
         <item name="android:textSize">@dimen/temperature_bar_text_size</item>

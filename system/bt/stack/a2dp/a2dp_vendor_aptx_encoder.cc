@@ -26,6 +26,7 @@
 #include "a2dp_vendor.h"
 #include "a2dp_vendor_aptx.h"
 #include "bt_common.h"
+#include "common/time_util.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -174,7 +175,8 @@ void a2dp_vendor_aptx_encoder_init(
     a2dp_source_enqueue_callback_t enqueue_callback) {
   memset(&a2dp_aptx_encoder_cb, 0, sizeof(a2dp_aptx_encoder_cb));
 
-  a2dp_aptx_encoder_cb.stats.session_start_us = time_get_os_boottime_us();
+  a2dp_aptx_encoder_cb.stats.session_start_us =
+      bluetooth::common::time_get_os_boottime_us();
 
   a2dp_aptx_encoder_cb.read_callback = read_callback;
   a2dp_aptx_encoder_cb.enqueue_callback = enqueue_callback;
@@ -369,7 +371,7 @@ void a2dp_vendor_aptx_feeding_flush(void) {
   aptx_init_framing_params(&a2dp_aptx_encoder_cb.framing_params);
 }
 
-period_ms_t a2dp_vendor_aptx_get_encoder_interval_ms(void) {
+uint64_t a2dp_vendor_aptx_get_encoder_interval_ms(void) {
   return a2dp_aptx_encoder_cb.framing_params.sleep_time_ns / (1000 * 1000);
 }
 
@@ -480,7 +482,7 @@ static size_t aptx_encode_16bit(tAPTX_FRAMING_PARAMS* framing_params,
   return pcm_bytes_encoded;
 }
 
-period_ms_t A2dpCodecConfigAptx::encoderIntervalMs() const {
+uint64_t A2dpCodecConfigAptx::encoderIntervalMs() const {
   return a2dp_vendor_aptx_get_encoder_interval_ms();
 }
 

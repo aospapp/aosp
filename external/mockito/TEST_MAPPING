@@ -1,0 +1,16 @@
+{
+    "postsubmit": [
+        {
+            "name": "CtsMockingTestCases"
+        },
+        {
+            "name": "CtsInlineMockingTestCases"
+        },
+        {
+            "name": "CtsMockingDebuggableTestCases"
+        },
+        {
+            "name": "CtsExtendedMockingTestCases"
+        }
+    ]
+}

@@ -88,10 +88,9 @@ public interface IAutoMediaHelper extends IAppHelper {
     void openNowPlayingWith(String trackName);
 
     /**
-     * Setup expectations: Radio app is open.
+     * Setup expectations: Media app is open.
      *
      * @return to get current playing track name.
      */
     String getMediaTrackName();
-
 }

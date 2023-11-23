@@ -44,7 +44,6 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
 
-LOCAL_CPPFLAGS := -std=c++11
 LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
 LOCAL_SHARED_LIBRARIES := libdl liblog

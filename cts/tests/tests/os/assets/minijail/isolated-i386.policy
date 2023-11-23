@@ -11,11 +11,13 @@ epoll_wait: 1
 fchown32: return EPERM
 
 # fnctl64: restrict cmd
-fcntl64: arg1 == F_GETFL || arg1 == F_GETFD || arg1 == F_SETFD || arg1 == F_SETLK || arg1 == F_SETLKW || arg1 == F_GETLK || arg1 == F_DUPFD
+#   F_DUPFD_CLOEXEC=1030
+fcntl64: arg1 == F_GETFL || arg1 == F_GETFD || arg1 == F_SETFD || arg1 == F_SETLK || arg1 == F_SETLKW || arg1 == F_GETLK || arg1 == F_DUPFD || arg1 == 1030
 
 fork: return EPERM
 fstat64: 1
 fstatat64: 1
+fstatfs64: 1
 ftruncate64: 1
 futimesat: return EPERM
 getdents: 1

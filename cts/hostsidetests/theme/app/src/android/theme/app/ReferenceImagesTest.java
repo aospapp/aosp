@@ -16,26 +16,47 @@
 
 package android.theme.app;
 
-import android.test.ActivityInstrumentationTestCase2;
+import static org.junit.Assert.assertTrue;
+
+import android.app.Instrumentation;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 
 /**
- * Activity test case used to instrument generation of reference images.
+ * Test used to instrument generation of reference images.
  */
-public class ReferenceImagesTest extends ActivityInstrumentationTestCase2<GenerateImagesActivity> {
+@RunWith(AndroidJUnit4.class)
+public class ReferenceImagesTest {
+    private Instrumentation mInstrumentation;
+    private GenerateImagesActivity mActivity;
 
-    /** Overall test timeout is 30 minutes. Should only take about 5. */
+    // Overall test timeout is 30 minutes. Should only take about 5.
     private static final int TEST_RESULT_TIMEOUT = 30 * 60 * 1000;
 
-    public ReferenceImagesTest() {
-        super(GenerateImagesActivity.class);
+    @Rule
+    public ActivityTestRule<GenerateImagesActivity> mActivityRule =
+        new ActivityTestRule<>(GenerateImagesActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mInstrumentation.setInTouchMode(true);
+
+        mActivity = mActivityRule.getActivity();
     }
 
+    @Test
     public void testGenerateReferenceImages() throws Exception {
-        setActivityInitialTouchMode(true);
-
-        final GenerateImagesActivity activity = getActivity();
+        final GenerateImagesActivity activity = mActivity;
         assertTrue("Activity failed to complete within " + TEST_RESULT_TIMEOUT + " ms",
                 activity.waitForCompletion(TEST_RESULT_TIMEOUT));
         assertTrue(activity.getFinishReason(), activity.isFinishSuccess());

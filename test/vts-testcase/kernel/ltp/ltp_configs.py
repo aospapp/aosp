@@ -43,7 +43,7 @@ PATH = '/system/bin:%s' % LTPBINPATH
 
 # Default number of threads to run LTP tests. Zero means matching to number
 # of CPU threads
-DEFAULT_NUMBER_OF_THREADS = 0
+DEFAULT_NUMBER_OF_THREADS = 1
 
 # File system type for loop device
 LTP_DEV_FS_TYPE = 'ext4'
@@ -113,14 +113,14 @@ REQUIREMENT_TO_TESTSUITE = {}
 
 # List of LTP test suites to run
 TEST_SUITES = [
-    'admin_tools',
     'can',
     'cap_bounds',
     'commands',
     'connectors',
     'containers',
-#     'controllers',
+    'controllers',
     'cpuhotplug',
+    'cve',
     'dio',
     'fcntl-locktests_android',
     'filecaps',
@@ -137,30 +137,25 @@ TEST_SUITES = [
     'kernel_misc',
     'math',
     'mm',
-    'modules',
     'nptl',
-    'numa',
-    'pipes',
     'power_management_tests',
     'pty',
     'sched',
+    'securebits',
     'syscalls',
     'timers',
-    # The following are not included in default LTP scenario group
-    'securebits',
     'tracing',
 ]
 
 # List of LTP test suites to run
 TEST_SUITES_LOW_MEM = [
-    'admin_tools',
     'can',
     'cap_bounds',
     'commands',
     'connectors',
     'containers',
-#     'controllers',
     'cpuhotplug',
+    'cve',
     'dio',
     'fcntl-locktests_android',
     'filecaps',
@@ -177,17 +172,13 @@ TEST_SUITES_LOW_MEM = [
     'kernel_misc',
     'math',
     'mm',
-    'modules',
     'nptl',
-    'numa',
-    'pipes',
     'power_management_tests',
     'pty',
     'sched_low_mem',
+    'securebits',
     'syscalls',
     'timers',
-    # The following are not included in default LTP scenario group
-    'securebits',
     'tracing',
 ]
 

@@ -25,7 +25,8 @@ public interface IYouTubeHelper extends IAppHelper {
         QUALITY_360p ("360p"),
         QUALITY_480p ("480p"),
         QUALITY_720p ("720p"),
-        QUALITY_1080p("1080p");
+        QUALITY_1080p("1080p"),
+        QUALITY_MAX("max");
 
         private final String text;
 
@@ -117,4 +118,24 @@ public interface IYouTubeHelper extends IAppHelper {
      * This method resumes the video if it is paused.
      */
     public void resumeVideo();
+
+    /**
+     * Setup expectations: Search page is open.
+     * <p>
+     * This method inputs the search keyword and clicks search button.
+     * <p>
+     * @param query The keyword to search.
+     */
+    public default void searchVideo(String query) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: YouTube is on the fullscreen video player page.
+     * <p>
+     * This method changes the video player to non-fullscreen mode.
+     */
+    public default void exitFullScreenMode() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

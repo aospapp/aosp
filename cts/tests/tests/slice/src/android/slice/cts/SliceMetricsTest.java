@@ -19,15 +19,16 @@ import android.content.Context;
 import android.metrics.LogMaker;
 import android.metrics.MetricsReader;
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.metricshelper.MetricsAsserts;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 @RunWith(AndroidJUnit4.class)
 public class SliceMetricsTest {

@@ -51,7 +51,7 @@ public class ScanResults {
     /**
      * Merge the results contained in a number of ScanResults into a single ScanResults
      */
-    public static ScanResults merge(ScanResults... others) {
+    public static ScanResults merge(int bandScanned, ScanResults... others) {
         ArrayList<ScanDetail> scanDetails = new ArrayList<>();
         ArrayList<ScanResult> scanDataResults = new ArrayList<>();
         ArrayList<ScanResult> rawScanResults = new ArrayList<>();
@@ -62,7 +62,7 @@ public class ScanResults {
         }
         Collections.sort(scanDataResults, SCAN_RESULT_RSSI_COMPARATOR);
         int id = others[0].getScanData().getId();
-        return new ScanResults(scanDetails, new ScanData(id, 0, scanDataResults
+        return new ScanResults(scanDetails, new ScanData(id, 0, 0, bandScanned, scanDataResults
                         .toArray(new ScanResult[scanDataResults.size()])),
                 rawScanResults.toArray(new ScanResult[rawScanResults.size()]));
     }
@@ -137,30 +137,13 @@ public class ScanResults {
      * Create a ScanResults with randomly generated results seeded by the id.
      * @see #generateNativeResults for more details on how results are generated
      */
-    public static ScanResults create(int id, int... freqs) {
-        return create(id, generateNativeResults(id, freqs));
-    }
-    public static ScanResults create(int id, boolean allChannelsScanned, int... freqs) {
-        return create(id, allChannelsScanned, generateNativeResults(id, freqs));
+    public static ScanResults create(int id, int bandScanned, int... freqs) {
+        return create(id, bandScanned, generateNativeResults(id, freqs));
     }
 
-    /**
-     * Create a ScanResults with no IE information.
-     */
-    public static ScanResults createWithNoIE(int id, int... freqs) {
-        return create(id, generateNativeResults(false, id, freqs));
-    }
-
-    /**
-     * Create a ScanResults with the given ScanDetails
-     */
-    public static ScanResults create(int id, ScanDetail... nativeResults) {
-        return new ScanResults(id, false, -1, nativeResults);
-    }
-
-    public static ScanResults create(int id, boolean allChannelsScanned,
+    public static ScanResults create(int id, int bandScanned,
             ScanDetail... nativeResults) {
-        return new ScanResults(id, allChannelsScanned, -1, nativeResults);
+        return new ScanResults(id, bandScanned, -1, nativeResults);
     }
 
     /**
@@ -168,13 +151,12 @@ public class ScanResults {
      * full scan results, but limits the number of onResults results after sorting
      * by RSSI
      */
-    public static ScanResults createOverflowing(int id, int maxResults,
+    public static ScanResults createOverflowing(int id, int bandScanned, int maxResults,
             ScanDetail... nativeResults) {
-        return new ScanResults(id, false, maxResults, nativeResults);
+        return new ScanResults(id, bandScanned, maxResults, nativeResults);
     }
 
-    private ScanResults(int id, boolean allChannelsScanned, int maxResults,
-            ScanDetail... nativeResults) {
+    private ScanResults(int id, int bandScanned, int maxResults, ScanDetail... nativeResults) {
         mScanResults = new ScanResult[nativeResults.length];
         for (int i = 0; i < nativeResults.length; ++i) {
             mScanDetails.add(nativeResults[i]);
@@ -182,13 +164,13 @@ public class ScanResults {
         }
         ScanResult[] sortedScanResults = Arrays.copyOf(mScanResults, mScanResults.length);
         Arrays.sort(sortedScanResults, SCAN_RESULT_RSSI_COMPARATOR);
-        mRawScanData = new ScanData(id, 0, 0, allChannelsScanned, sortedScanResults);
+        mRawScanData = new ScanData(id, 0, 0, bandScanned, sortedScanResults);
         if (maxResults == -1) {
             mScanData = mRawScanData;
         } else {
             ScanResult[] reducedScanResults = Arrays.copyOf(sortedScanResults,
                     Math.min(sortedScanResults.length, maxResults));
-            mScanData = new ScanData(id, 0, 0, allChannelsScanned, reducedScanResults);
+            mScanData = new ScanData(id, 0, 0, bandScanned, reducedScanResults);
         }
     }
 

@@ -19,6 +19,31 @@ cc_binary {
     host_supported: true,
     defaults: ["libbcc-defaults"],
 
+    shared_libs: [
+        "libbcc",
+        "libbcinfo",
+        "libLLVM_android",
+    ],
+
+    target: {
+        android: {
+            shared_libs: [
+                "liblog",
+                "libvndksupport",
+            ],
+        },
+    },
+
+    whole_static_libs: ["libbcc_binary"],
+}
+
+// libbcc_binary is used to compile vendor modules - should not be removed
+cc_library {
+    name: "libbcc_binary",
+    host_supported: true,
+    vendor_available: true,
+    defaults: ["libbcc-defaults"],
+
     srcs: ["Main.cpp"],
 
     shared_libs: [

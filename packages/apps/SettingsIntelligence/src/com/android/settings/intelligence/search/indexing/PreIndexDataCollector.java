@@ -49,7 +49,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.SearchIndexableResource;
 import android.provider.SearchIndexablesContract;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
@@ -111,12 +111,14 @@ public class PreIndexDataCollector {
             final Context context = mContext.createPackageContext(packageName, 0);
 
             final Uri uriForResources = buildUriForXmlResources(authority);
-            mIndexData.addDataToUpdate(getIndexablesForXmlResourceUri(context, packageName,
-                    uriForResources, SearchIndexablesContract.INDEXABLES_XML_RES_COLUMNS));
+            mIndexData.addDataToUpdate(authority, getIndexablesForXmlResourceUri(
+                    context, packageName, uriForResources,
+                    SearchIndexablesContract.INDEXABLES_XML_RES_COLUMNS));
 
             final Uri uriForRawData = buildUriForRawData(authority);
-            mIndexData.addDataToUpdate(getIndexablesForRawDataUri(context, packageName,
-                    uriForRawData, SearchIndexablesContract.INDEXABLES_RAW_COLUMNS));
+            mIndexData.addDataToUpdate(authority, getIndexablesForRawDataUri(
+                    context, packageName, uriForRawData,
+                    SearchIndexablesContract.INDEXABLES_RAW_COLUMNS));
 
             final Uri uriForSiteMap = buildUriForSiteMap(authority);
             mIndexData.addSiteMapPairs(getSiteMapFromProvider(context, uriForSiteMap));

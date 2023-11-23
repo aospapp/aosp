@@ -43,7 +43,6 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
         buckets_(allocator->AllocArray<Node*>(num_buckets_, kArenaAllocGvn)),
         buckets_owned_(allocator, num_buckets_, false, kArenaAllocGvn),
         num_entries_(0u) {
-    // ArenaAllocator returns zeroed memory, so no need to set buckets to null.
     DCHECK(IsPowerOfTwo(num_buckets_));
     std::fill_n(buckets_, num_buckets_, nullptr);
     buckets_owned_.SetInitialBits(num_buckets_);
@@ -57,8 +56,6 @@ class ValueSet : public ArenaObject<kArenaAllocGvn> {
         buckets_(allocator->AllocArray<Node*>(num_buckets_, kArenaAllocGvn)),
         buckets_owned_(allocator, num_buckets_, false, kArenaAllocGvn),
         num_entries_(0u) {
-    // ArenaAllocator returns zeroed memory, so entries of buckets_ and
-    // buckets_owned_ are initialized to null and false, respectively.
     DCHECK(IsPowerOfTwo(num_buckets_));
     PopulateFromInternal(other);
   }
@@ -348,11 +345,11 @@ class GlobalValueNumberer : public ValueObject {
         side_effects_(side_effects),
         sets_(graph->GetBlocks().size(), nullptr, allocator_.Adapter(kArenaAllocGvn)),
         visited_blocks_(
-            &allocator_, graph->GetBlocks().size(), /* expandable */ false, kArenaAllocGvn) {
+            &allocator_, graph->GetBlocks().size(), /* expandable= */ false, kArenaAllocGvn) {
     visited_blocks_.ClearAllBits();
   }
 
-  void Run();
+  bool Run();
 
  private:
   // Per-block GVN. Will also update the ValueSet of the dominated and
@@ -397,7 +394,7 @@ class GlobalValueNumberer : public ValueObject {
   DISALLOW_COPY_AND_ASSIGN(GlobalValueNumberer);
 };
 
-void GlobalValueNumberer::Run() {
+bool GlobalValueNumberer::Run() {
   DCHECK(side_effects_.HasRun());
   sets_[graph_->GetEntryBlock()->GetBlockId()] = new (&allocator_) ValueSet(&allocator_);
 
@@ -406,6 +403,7 @@ void GlobalValueNumberer::Run() {
   for (HBasicBlock* block : graph_->GetReversePostOrder()) {
     VisitBasicBlock(block);
   }
+  return true;
 }
 
 void GlobalValueNumberer::VisitBasicBlock(HBasicBlock* block) {
@@ -478,7 +476,10 @@ void GlobalValueNumberer::VisitBasicBlock(HBasicBlock* block) {
     HInstruction* next = current->GetNext();
     // Do not kill the set with the side effects of the instruction just now: if
     // the instruction is GVN'ed, we don't need to kill.
-    if (current->CanBeMoved()) {
+    //
+    // BoundType is a special case example of an instruction which shouldn't be moved but can be
+    // GVN'ed.
+    if (current->CanBeMoved() || current->IsBoundType()) {
       if (current->IsBinaryOperation() && current->AsBinaryOperation()->IsCommutative()) {
         // For commutative ops, (x op y) will be treated the same as (y op x)
         // after fixed ordering.
@@ -542,12 +543,12 @@ HBasicBlock* GlobalValueNumberer::FindVisitedBlockWithRecyclableSet(
     // that is larger, we return it if no perfectly-matching set is found.
     // Note that we defer testing WillBeReferencedAgain until all other criteria
     // have been satisfied because it might be expensive.
-    if (current_set->CanHoldCopyOf(reference_set, /* exact_match */ true)) {
+    if (current_set->CanHoldCopyOf(reference_set, /* exact_match= */ true)) {
       if (!WillBeReferencedAgain(current_block)) {
         return current_block;
       }
     } else if (secondary_match == nullptr &&
-               current_set->CanHoldCopyOf(reference_set, /* exact_match */ false)) {
+               current_set->CanHoldCopyOf(reference_set, /* exact_match= */ false)) {
       if (!WillBeReferencedAgain(current_block)) {
         secondary_match = current_block;
       }
@@ -557,9 +558,9 @@ HBasicBlock* GlobalValueNumberer::FindVisitedBlockWithRecyclableSet(
   return secondary_match;
 }
 
-void GVNOptimization::Run() {
+bool GVNOptimization::Run() {
   GlobalValueNumberer gvn(graph_, side_effects_);
-  gvn.Run();
+  return gvn.Run();
 }
 
 }  // namespace art

@@ -36,7 +36,7 @@
 #include "base/enums.h"
 #include "dex/dex_file_annotations.h"
 #include "dex/modifiers.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/object_array-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
@@ -91,7 +91,7 @@ jvmtiError FieldUtil::GetFieldName(jvmtiEnv* env,
   if (generic_ptr != nullptr) {
     *generic_ptr = nullptr;
     if (!art_field->GetDeclaringClass()->IsProxyClass()) {
-      art::mirror::ObjectArray<art::mirror::String>* str_array =
+      art::ObjPtr<art::mirror::ObjectArray<art::mirror::String>> str_array =
           art::annotations::GetSignatureAnnotationForField(art_field);
       if (str_array != nullptr) {
         std::ostringstream oss;

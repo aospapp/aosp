@@ -30,6 +30,6 @@ LOCAL_PACKAGE_NAME := CtsAssistApp
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

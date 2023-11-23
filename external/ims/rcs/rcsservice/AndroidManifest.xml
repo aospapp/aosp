@@ -57,9 +57,6 @@
 
     <application android:name="RcsServiceApp" android:persistent="true"
         android:process="com.android.ims.rcsservice">
-        <uses-library android:name="com.android.ims.rcsmanager"
-            android:required="true"/>
-
         <service android:name="com.android.service.ims.RcsService"
             android:exported="true"
             android:enabled="true"

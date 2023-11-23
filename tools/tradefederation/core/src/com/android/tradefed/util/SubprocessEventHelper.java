@@ -42,6 +42,7 @@ public class SubprocessEventHelper {
     private static final String CAUSE_KEY = "cause";
     private static final String RUNNAME_KEY = "runName";
     private static final String TESTCOUNT_KEY = "testCount";
+    private static final String ATTEMPT_KEY = "runAttempt";
     private static final String TIME_KEY = "time";
     private static final String REASON_KEY = "reason";
     private static final String START_TIME = "start_time";
@@ -63,15 +64,25 @@ public class SubprocessEventHelper {
     public static class TestRunStartedEventInfo {
         public String mRunName = null;
         public Integer mTestCount = null;
+        public Integer mAttempt = null;
 
+        /** Keep this constructor for legacy compatibility. */
         public TestRunStartedEventInfo(String runName, int testCount) {
             mRunName = runName;
             mTestCount = testCount;
+            mAttempt = 0;
+        }
+
+        public TestRunStartedEventInfo(String runName, int testCount, int attempt) {
+            mRunName = runName;
+            mTestCount = testCount;
+            mAttempt = attempt;
         }
 
         public TestRunStartedEventInfo(JSONObject jsonObject) throws JSONException {
             mRunName = jsonObject.getString(RUNNAME_KEY);
             mTestCount = jsonObject.getInt(TESTCOUNT_KEY);
+            mAttempt = jsonObject.optInt(ATTEMPT_KEY, 0);
         }
 
         @Override
@@ -83,6 +94,9 @@ public class SubprocessEventHelper {
                 }
                 if (mTestCount != null) {
                     tags.put(TESTCOUNT_KEY, mTestCount.intValue());
+                }
+                if (mAttempt != null) {
+                    tags.put(ATTEMPT_KEY, mAttempt.intValue());
                 }
             } catch (JSONException e) {
                 CLog.e(e);
@@ -468,6 +482,30 @@ public class SubprocessEventHelper {
                 CLog.e(e);
             }
             return tags.toString();
+        }
+    }
+
+    /** Helper for invocation ended information. */
+    public static class InvocationEndedEventInfo {
+        public Map<String, String> mBuildAttributes;
+
+        public InvocationEndedEventInfo(Map<String, String> buildAttributes) {
+            mBuildAttributes = new HashMap<String, String>(buildAttributes);
+        }
+
+        public InvocationEndedEventInfo(JSONObject jsonObject) throws JSONException {
+            mBuildAttributes = new HashMap<String, String>();
+            Iterator<?> i = jsonObject.keys();
+            while (i.hasNext()) {
+                String key = (String) i.next();
+                mBuildAttributes.put(key, jsonObject.get(key).toString());
+            }
+        }
+
+        @Override
+        public String toString() {
+            JSONObject jsonObject = new JSONObject(mBuildAttributes);
+            return jsonObject.toString();
         }
     }
 

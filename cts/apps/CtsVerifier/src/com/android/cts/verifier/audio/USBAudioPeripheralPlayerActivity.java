@@ -41,6 +41,10 @@ public abstract class USBAudioPeripheralPlayerActivity extends USBAudioPeriphera
 
     private static final int WAVBUFF_SIZE_IN_SAMPLES = 2048;
 
+    public USBAudioPeripheralPlayerActivity(boolean requiresMandatePeripheral) {
+        super(requiresMandatePeripheral); // Mandated peripheral is NOT required
+    }
+
     protected void setupPlayer() {
         mSystemBufferSize =
             StreamPlayer.calcNumBurstFrames((AudioManager)getSystemService(Context.AUDIO_SERVICE));

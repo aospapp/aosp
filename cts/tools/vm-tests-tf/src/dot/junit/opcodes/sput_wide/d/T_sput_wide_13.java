@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput_wide.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static long value = (long)(5 / 0); 
 }
 

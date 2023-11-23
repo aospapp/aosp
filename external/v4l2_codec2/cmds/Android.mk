@@ -24,7 +24,6 @@ LOCAL_SHARED_LIBRARIES := libbinder \
                           libgui \
                           liblog \
                           libmedia \
-                          libmediaextractor \
                           libstagefright \
                           libstagefright_codec2 \
                           libstagefright_foundation \

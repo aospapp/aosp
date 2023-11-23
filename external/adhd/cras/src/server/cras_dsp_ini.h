@@ -70,6 +70,24 @@ struct ini {
 	flow_array flows;
 };
 
+/*
+ * Creates a dummy ini structure equivalent to:
+ *
+ * [src]
+ * out0={tmp:0}
+ * out1={tmp:1}
+ * ...
+ *
+ * [sink]
+ * in0={tmp:0}
+ * in1={tmp:1}
+ * ...
+ *
+ * The caller of this function is responsible to free the returned
+ * ini by calling cras_dsp_ini_free().
+ */
+struct ini *create_dummy_ini(const char *purpose, unsigned int num_channels);
+
 /* Reads the ini file into the ini structure */
 struct ini *cras_dsp_ini_create(const char *ini_filename);
 /* Frees the dsp structure. */

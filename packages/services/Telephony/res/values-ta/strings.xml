@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD குறியீடு இயங்குகிறது…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI குறியீடு ரத்தானது"</string>
     <string name="cancel" msgid="5044513931633602634">"ரத்துசெய்"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD செய்தி <xliff:g id="MIN_LEN">%d</xliff:g> மற்றும் <xliff:g id="MAX_LEN">%d</xliff:g> எழுத்துக்குறிகளுக்கு இடையே இருக்க வேண்டும். மீண்டும் முயற்சிக்கவும்."</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD செய்தி <xliff:g id="MIN_LEN">%1$d</xliff:g> மற்றும் <xliff:g id="MAX_LEN">%2$d</xliff:g> எழுத்துக்குறிகளுக்கு இடையே இருக்க வேண்டும். மீண்டும் முயற்சிக்கவும்."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"குழு அழைப்பை நிர்வகிக்கவும்"</string>
     <string name="ok" msgid="3811371167865772377">"சரி"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"ஸ்பீக்கர்"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"குரலஞ்சல்"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"குரலஞ்சல் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"அழைப்புகளைச் செய்வது, பெறுவது"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"ஸ்மார்ட்டாக முன்னனுப்புதல்"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"ஓர் எண்ணைத் தொடர்பு கொள்ள முடியாத போது உங்களது மற்றொரு எண்ணிற்கு அழைப்புகளை எப்போதும் முன்னனுப்பும்"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"அறிவிப்புகள்"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"அவசரகால அலைபரப்புகள்"</string>
     <string name="call_settings" msgid="6112441768261754562">"அழைப்பு அமைப்பு"</string>
@@ -96,7 +99,7 @@
     <string name="sum_cw_disabled" msgid="3648693907300104575">"அழைப்பில் இருக்கும்போதும் உள்வரும் அழைப்புகளைப் பற்றி எனக்குத் தெரிவி"</string>
     <string name="call_forwarding_settings" msgid="3378927671091537173">"அழைப்பைத் திருப்பிவிடுதல்"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"அழைப்பைத் திருப்பிவிடுதல் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="labelCF" msgid="2574386948026924737">"அழைப்புப் பகிர்வு"</string>
+    <string name="labelCF" msgid="2574386948026924737">"அழைப்பு திருப்பிவிடுதல்"</string>
     <string name="labelCFU" msgid="8147177368148660600">"எப்போதும் திருப்பிவிடு"</string>
     <string name="messageCFU" msgid="3560082430662923687">"எப்போதும் இதைப் பயன்படுத்து"</string>
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"எல்லா அழைப்புகளையும் பகிர்"</string>
@@ -131,7 +134,7 @@
     <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS கோரிக்கை, USSD கோரிக்கைக்கு மாற்றப்பட்டது"</string>
     <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"புதிய SS கோரிக்கைக்கு மாற்றப்பட்டது"</string>
     <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS கோரிக்கை, வீடியோ அழைப்பிற்கு மாற்றப்பட்டது"</string>
-    <string name="fdn_check_failure" msgid="18200614306525434">"மொபைல் பயன்பாட்டின் நிலையான அழைப்பு எண்களுக்கான அமைப்பு இயக்கப்பட்டது. இதன் விளைவாக, அழைப்பு தொடர்பான சில அம்சங்கள் செயல்படவில்லை."</string>
+    <string name="fdn_check_failure" msgid="18200614306525434">"மொபைல் ஆப்ஸின் நிலையான அழைப்பு எண்களுக்கான அமைப்பு இயக்கப்பட்டது. இதன் விளைவாக, அழைப்பு தொடர்பான சில அம்சங்கள் செயல்படவில்லை."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"அமைப்புகளைப் பார்ப்பதற்கு முன், ரேடியோவை இயக்கவும்."</string>
     <string name="close_dialog" msgid="2365884406356986917">"சரி"</string>
     <string name="enable" msgid="7248657275000173526">"இயக்கு"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"நெட்வொர்க்கில் பதிவுசெய்யப்பட்டது."</string>
     <string name="already_auto" msgid="6067116884321285507">"ஏற்கனவே தன்னியக்க தேர்வில் உள்ளது."</string>
     <string name="select_automatically" msgid="1046727200631770962">"நெட்வொர்க்கைத் தானாகத் தேர்ந்தெடு"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"%1$s இல் இணைக்கப்பட்டிருக்கும் போது கிடைக்காது"</string>
     <string name="network_select_title" msgid="7733107364757544558">"நெட்வொர்க்"</string>
     <string name="register_automatically" msgid="6017849844573519637">"தானியங்கு பதிவு…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"தேர்ந்தெடுத்த நெட்வொர்க் வகை"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"அழைப்பு"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"நெட்வொர்க்"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"மேம்பட்ட 4G LTE பயன்முறை"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"மேம்பட்ட அழைப்பு"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"குரல் மற்றும் பிற தொடர்புமுறைகளை மேம்படுத்த, LTE சேவைகளைப் பயன்படுத்தவும் (பரிந்துரைக்கப்பட்டது)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"குரல் மற்றும் பிற தகவல்தொடர்புகளை மேம்படுத்த, 4G சேவைகளைப் பயன்படுத்தவும் (பரிந்துரைக்கப்பட்டது)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"தரவு இயக்கப்பட்டது"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"டேட்டா உபயோகத்தை அனுமதி"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"கவனம் தேவை"</string>
@@ -248,7 +256,7 @@
     <string name="roaming_warning" msgid="1603164667540144353">"குறிப்பிடத்தக்க பேமெண்ட்கள் இருக்கலாம்."</string>
     <string name="roaming_check_price_warning" msgid="7497570906830902550">"உங்கள் நெட்வொர்க் வழங்குநர் விதிக்கும் கட்டணத்தைப் பார்க்கவும்."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"தரவு ரோமிங்கை அனுமதிக்கவா?"</string>
-    <string name="data_usage_title" msgid="4042209259808900283">"பயன்பாட்டின் டேட்டா உபயோகம்"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"ஆப்ஸ் டேட்டா உபயோகம்"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g>: <xliff:g id="ID_1">%1$s</xliff:g> மொபைல் டேட்டா பயன்படுத்தப்பட்டது"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"மேம்பட்டவை"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"தொலைத்தொடர்பு நிறுவனம்"</string>
@@ -400,7 +408,7 @@
     <string name="disable_fdn_ok" msgid="5727046928930740173">"FDN ஐ இயக்கு"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"நிலையான அழைப்பு எண்களை நிர்வகி"</string>
     <string name="sum_fdn_change_pin" msgid="6666549734792827932">"FDN அணுகலுக்கான பின்னை மாற்று"</string>
-    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"மொபைல் எண் பட்டியலை நிர்வகி"</string>
+    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"ஃபோன் எண் பட்டியலை நிர்வகி"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"குரல் தனிப்பட்ட முறை"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"மேம்பட்ட தனிப்பட்ட முறையை இயக்கு"</string>
     <string name="tty_mode_option_title" msgid="9033098925144434669">"TTY பயன்முறை"</string>
@@ -482,7 +490,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g> ஐ அழை"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"குரலஞ்சல் எண் அறியப்படவில்லை"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"சேவை இல்லை"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"தேர்ந்தெடுத்த நெட்வொர்க் (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) கிடைக்கவில்லை"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"தேர்ந்தெடுத்த நெட்வொர்க் <xliff:g id="OPERATOR_NAME">%s</xliff:g> கிடைக்கவில்லை"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"அழைக்க, மொபைல் நெட்வொர்க்கை இயக்கவும், விமானப் பயன்முறை அல்லது பேட்டரி சேமிப்பான் பயன்முறையை முடக்கவும்."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"அழைக்க, விமானப் பயன்முறையை முடக்கவும்."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"அழைக்க, விமானப் பயன்முறையை முடக்கவும் அல்லது வயர்லெஸ் நெட்வொர்க்குடன் இணைக்கவும்."</string>
@@ -495,21 +503,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"தற்போது அழைக்க முடியவில்லை. செய்தியை அனுப்பி, தொடர்புகொள்ள முயலவும்."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"சேவை ஆதரிக்கப்படவில்லை"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"அழைப்புகளில் மாற முடியாது."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"அழைப்பைத் தொடர முடியவில்லை."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"அழைப்பைப் பிரிக்க முடியாது."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"மாற்ற முடியாது."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"குழு அழைப்புகளை மேற்கொள்ள முடியவில்லை."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"அழைப்புகளை இணைக்க முடியவில்லை."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"அழைப்பை நிராகரிக்க முடியாது."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"அழைப்பை(அழைப்புகளை) விடுவிக்க முடியாது."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"அழைப்புகளை ஹோல்டு செய்ய முடியாது."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"அழைக்க, வயர்லெஸ் நெட்வொர்க்குடன் இணைக்கவும்."</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"அழைக்க, வைஃபை அழைப்பை இயக்கவும்."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"அவசரத் தகவல்"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"உரிமையாளர்"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"தகவலைப் பார்க்க, மீண்டும் தட்டவும்"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"அவசரகால அழைப்பு"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"அவசர எண்"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"அவசர எண்கள்"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"<xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> என்ற எண்ணை அழைக்க, மீண்டும் தட்டவும்"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"ரேடியோவை இயக்குகிறது…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"சேவை இல்லை. மீண்டும் முயற்சிக்கிறது…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"அவசர அழைப்பின் போது, விமானப் பயன்முறையை இயக்க முடியாது."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"<xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> அவசர அழைப்பு எண் இல்லை என்பதால் அழைக்க முடியாது."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"அழைக்க முடியாது. அவசர அழைப்பு எண்ணை அழைக்கவும்."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"அவசர அழைப்பு வசதி இல்லை"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"காவல்"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"ஆம்புலன்ஸ்"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"தீயணைப்பு"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"டயல் செய்வதற்கு விசைப்பலகையைப் பயன்படுத்துக"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"காத்திரு"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"முடி"</string>
@@ -534,7 +553,7 @@
     <string name="rtt_mode_summary" msgid="5146344277246544580">"குரல் அழைப்பிலேயே செய்தியிடலை அனுமதிக்கும்"</string>
     <string name="rtt_mode_more_information" msgid="6080420780730383030">"காது கேளாதோர், கேட்பதற்குச் சிரமப்படுவோர், பேச இயலாதோர் அல்லது குரலைத் தாண்டி மற்ற வழிகளில் தகவல் தேவைப்படுவோருக்கு RTT பயன்முறை உதவுகிறது.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;மேலும் அறிக&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - டிரான்ஸ்கிரிப்ட் செய்யப்பட்ட செய்தியாக RTT அழைப்புகள் சேமிக்கப்படும்\n       &lt;br&gt; - வீடியோ அழைப்புகளுக்கு RTT பயன்முறை இல்லை"</string>
   <string-array name="tty_mode_entries">
-    <item msgid="512950011423868021">"TTY ஐ முடக்கு"</item>
+    <item msgid="512950011423868021">"TTY முடக்கத்தில்"</item>
     <item msgid="3971695875449640648">"TTY ஐ இயக்கு"</item>
     <item msgid="1937509904407445684">"TTY HCO"</item>
     <item msgid="5644925873488772224">"TTY VCO"</item>
@@ -595,6 +614,8 @@
     <string name="selectContact" msgid="781975788478987237">"தொடர்பைத் தேர்ந்தெடுக்கவும்"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"குரல் அழைப்பு ஆதரிக்கப்படவில்லை"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"டயல்"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"டயல்பேடைக் காட்டும் பட்டன்"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"அவசரகால டயல்பேட்"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"விஷூவல் குரலஞ்சல்"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"பின்னை அமை"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"பின்னை மாற்றவும்"</string>
@@ -645,58 +666,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"தரவைச் சேர்"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ரத்துசெய்"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"அழைப்பு முடிந்தது"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"ரேடியோ முடக்கத்தில் உள்ளது"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"சிம் கார்டு இல்லை அல்லது சிம் கார்டு பிழை"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"விமானப் பயன்முறை இயக்கத்தில் உள்ளது"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"SIM கார்டை அணுக முடியவில்லை"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"மொபைல் நெட்வொர்க் இல்லை"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"ஒதுக்கப்படாத எண்"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"டெஸ்டினேஷனுக்கான ரூட் இல்லை"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"சேனல் ஏற்கத்தக்கதாக இல்லை"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"ஆபரேட்டர் தீர்மானத்தின்படி அழைப்பு தடுக்கப்பட்டது"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"நார்மல் கால் கிளியரிங்"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 1."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 3."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 6."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 8."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 16."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"பயனர் பிஸியாக உள்ளார்"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"பயனர் எவரும் பதிலளிக்கவில்லை"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"பயனரை விழிப்பூட்டுகிறது, பதில் இல்லை"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"பயனர் பதிலளிக்கவில்லை"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 19."</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"அழைப்பு நிராகரிக்கப்பட்டது"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"எண் மாற்றப்பட்டது"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"முன்கூட்டியே தடுக்கப்பட்டது"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"நான் செலக்டட் யூசர் கிளியரிங்"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"டெஸ்டினேஷன் செயலில் இல்லை"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 25."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 26."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 27."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"எண்ணின் வடிவம் தவறானது (முழுமையற்ற எண்)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"வசதி நிராகரிக்கப்பட்டது"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"நிலை விசாரணைக்கான பதில்"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"இயல்பானது, குறிப்பிடப்படவில்லை"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"சர்க்கியூட்/சேனல் கிடைக்கவில்லை"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"நெட்வொர்க் செயலில் இல்லை"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"தற்காலிக தோல்வி"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"எக்யூப்மென்ட் கன்ஜஷனை மாற்றுகிறது"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"அணுகல் பற்றிய தகவல் நிராகரிக்கப்பட்டது"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"கோரிய சர்க்கியூட்/சேனல் கிடைக்கவில்லை"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"ஆதாரங்கள் கிடைக்கவில்லை, குறிப்பிடப்படவில்லை"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"சேவையின் தரம் கிடைக்கவில்லை"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"கோரிய வசதி சப்ஸ்கிரைப் செய்யப்படவில்லை"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"உள்வரும் அழைப்புகள் CUGக்குள் தடுக்கப்பட்டன"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"பியரர் கேபபிளிட்டி அங்கீகரிக்கப்படவில்லை"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"பியரர் கேபபிளிட்டி தற்போது கிடைக்கவில்லை"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"சேவை அல்லது விருப்பம் கிடைக்கவில்லை, குறிப்பிடப்படவில்லை"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"பியரர் சர்வீஸ் செயல்படுத்தப்படவில்லை"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACMmaxக்குச் சமமாகவோ அல்லது அதிகமாகவோ, ACM இருக்க வேண்டும்"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"கோரிய வசதி செயல்படுத்தப்படவில்லை"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"வரையறுக்கப்பட்ட டிஜிட்டல் தகவலுக்கான பியரர் கேபபிளிட்டி மட்டுமே உள்ளது"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"சேவை அல்லது விருப்பம் செயல்படுத்தப்படவில்லை, குறிப்பிடப்படவில்லை"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"டிரான்சா‌க்‌ஷன் அடையாளங்காட்டி மதிப்பு தவறானது"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"பயனர் CUG இன் உறுப்பினர் அல்ல"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"டெஸ்டினேஷன் பொருந்தவில்லை"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"டிரான்சிட் நெட்வொர்க் தேர்வு தவறானது"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"சொற்பொருளியல் ரீதியாகத் தவறான செய்தி"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"அவசியம் வழங்க வேண்டிய தகவல் தவறானது"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"செய்தி வகை இல்லை அல்லது செயல்படுத்தப்படவில்லை"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"புரோட்டோகால் நிலைக்கு, செய்தி வகை பொருந்தவில்லை"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"தகவல் உறுப்பு இல்லை அல்லது செயல்படுத்தப்படவில்லை"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"நிபந்தனை IE பிழை"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"புரோட்டோகால் நிலைக்கு, செய்தி பொருந்தவில்லை"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"டைமர் காலாவதி மீட்டெடுப்பு"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"புரோட்டோகால் பிழை, குறிப்பிடப்படவில்லை"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"இண்டர்வொர்க்கிங், குறிப்பிடப்படவில்லை"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 29."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 30."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 31."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 34."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 38."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 41."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 42."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 43."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 44."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 47."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 49."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 50."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 55."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 57."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 58."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 63."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 65."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 68."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 69."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 70."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 79."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 81."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 87."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 88."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 91."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 95."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 96."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 97."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 98."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 99."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 100."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 101."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 102."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 111."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 127."</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"அழைப்புத் தடுப்பு"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"ஆன்"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"ஆஃப்"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"கடவுச்சொல்லை உள்ளிடவும்"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"அழைப்புத் தடுப்பு அமைப்புகள்"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"எல்லா அழைப்புத் தடுப்பு அமைப்புகளையும் முடக்கவா?"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"நெட்வொர்க் பிஸியாக உள்ளது. பிறகு அழைக்கவும்."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"நெட்வொர்க் பிஸியாக உள்ளது. உதவிக்கு உங்கள் மொபைல் ஆபரேட்டரைத் தொடர்பு கொள்ளவும்."</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"அழைப்புத் திருப்பிவிடப்பட்டது."</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"அழைப்புப் பகிரப்பட்டது."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"அழைப்புக் காத்திருப்பில் உள்ளது."</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"பகிரப்பட்ட அழைப்பு."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"குழு அழைப்பில் சேர்கிறீர்கள்."</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"ஹோல்டில் இருந்த அழைப்புத் துண்டிக்கப்பட்டது."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"தற்போது சாதனத்தை அமைத்துக் கொண்டிருப்பதால், அழைப்பை மேற்கொள்ள முடியாது."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"ஏற்கனவே ஒரு அழைப்பு டயல் ஆகிக்கொண்டிருப்பதால், இந்த அழைப்பைச் செய்ய முடியாது."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"உள்வரும் அழைப்பிற்கு இன்னும் பதிலளிக்காததால், இந்த அழைப்பைச் செய்ய முடியாது. புதிதாக ஒரு அழைப்பைச் செய்வதற்கு முன்னர், உள்வரும் அழைப்பிற்குப் பதிலளிக்கவும் அல்லது நிராகரிக்கவும்."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"ro.telephony.disable-call எனும் சிஸ்டம் பிராப்பர்ட்டியைப் பயன்படுத்தி அழைப்பதற்கான வசதி முடக்கப்பட்டுள்ளதால், இந்த அழைப்பைச் செய்ய முடியாது."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"இரண்டு அழைப்புகள் ஏற்கனவே செயலில் இருப்பதால், இந்த அழைப்பைச் செய்ய முடியாது. புதிதாக ஒரு அழைப்பைச் செய்வதற்கு முன்னர், ஏதாவது ஒரு அழைப்பைத் துண்டிக்கவும் அல்லது அவற்றை இணைத்து குழு அழைப்பாக மாற்றவும்."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ஐப் பயன்படுத்த, மொபைல் டேட்டா இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இதை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ஐப் பயன்படுத்த, மொபைல் டேட்டாவும் டேட்டா ரோமிங்கும் இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இவற்றை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>ஐப் பயன்படுத்த, <xliff:g id="SIM_NUMBER">%2$d</xliff:g> சிம்மிற்கான மொபைல் டேட்டா இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இதை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>ஐப் பயன்படுத்த, <xliff:g id="SIM_NUMBER">%2$d</xliff:g> சிம்மிற்கான மொபைல் டேட்டாவும் டேட்டா ரோமிங்கும் இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இவற்றை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"நிராகரி"</string>
 </resources>

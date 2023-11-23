@@ -19,25 +19,22 @@
 #include "flatbuffers/base.h"
 #include "flatbuffers/util.h"
 
+#include <cmath>
+
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable: 4127) // C4127: conditional expression is constant
+#  pragma warning(push)
+#  pragma warning(disable : 4127)  // C4127: conditional expression is constant
 #endif
 
 namespace flatbuffers {
 
 void CodeWriter::operator+=(std::string text) {
-
   while (true) {
     auto begin = text.find("{{");
-    if (begin == std::string::npos) {
-      break;
-    }
+    if (begin == std::string::npos) { break; }
 
     auto end = text.find("}}");
-    if (end == std::string::npos || end < begin) {
-      break;
-    }
+    if (end == std::string::npos || end < begin) { break; }
 
     // Write all the text before the first {{ into the stream.
     stream_.write(text.c_str(), begin);
@@ -52,7 +49,7 @@ void CodeWriter::operator+=(std::string text) {
       const std::string &value = iter->second;
       stream_ << value;
     } else {
-      assert(false && "could not find key");
+      FLATBUFFERS_ASSERT(false && "could not find key");
       stream_ << key;
     }
 
@@ -119,7 +116,6 @@ std::string BaseGenerator::WrapInNameSpace(const Namespace *ns,
   return qualified_name + name;
 }
 
-
 std::string BaseGenerator::WrapInNameSpace(const Definition &def) const {
   return WrapInNameSpace(def.defined_namespace, def.name);
 }
@@ -150,12 +146,12 @@ void GenComment(const std::vector<std::string> &dc, std::string *code_ptr,
   if (config != nullptr && config->first_line != nullptr) {
     code += std::string(prefix) + std::string(config->first_line) + "\n";
   }
-  std::string line_prefix = std::string(prefix) +
-      ((config != nullptr && config->content_line_prefix != nullptr) ?
-       config->content_line_prefix : "///");
-  for (auto it = dc.begin();
-       it != dc.end();
-       ++it) {
+  std::string line_prefix =
+      std::string(prefix) +
+      ((config != nullptr && config->content_line_prefix != nullptr)
+           ? config->content_line_prefix
+           : "///");
+  for (auto it = dc.begin(); it != dc.end(); ++it) {
     code += line_prefix + *it + "\n";
   }
   if (config != nullptr && config->last_line != nullptr) {
@@ -163,8 +159,125 @@ void GenComment(const std::vector<std::string> &dc, std::string *code_ptr,
   }
 }
 
+template<typename T>
+std::string FloatConstantGenerator::GenFloatConstantImpl(
+    const FieldDef &field) const {
+  const auto &constant = field.value.constant;
+  T v;
+  auto done = StringToNumber(constant.c_str(), &v);
+  FLATBUFFERS_ASSERT(done);
+  if (done) {
+#if (!defined(_MSC_VER) || (_MSC_VER >= 1800))
+    if (std::isnan(v)) return NaN(v);
+    if (std::isinf(v)) return Inf(v);
+#endif
+    return Value(v, constant);
+  }
+  return "#";  // compile time error
+}
+
+std::string FloatConstantGenerator::GenFloatConstant(
+    const FieldDef &field) const {
+  switch (field.value.type.base_type) {
+    case BASE_TYPE_FLOAT: return GenFloatConstantImpl<float>(field);
+    case BASE_TYPE_DOUBLE: return GenFloatConstantImpl<double>(field);
+    default: {
+      FLATBUFFERS_ASSERT(false);
+      return "INVALID_BASE_TYPE";
+    }
+  };
+}
+
+TypedFloatConstantGenerator::TypedFloatConstantGenerator(
+    const char *double_prefix, const char *single_prefix,
+    const char *nan_number, const char *pos_inf_number,
+    const char *neg_inf_number)
+    : double_prefix_(double_prefix),
+      single_prefix_(single_prefix),
+      nan_number_(nan_number),
+      pos_inf_number_(pos_inf_number),
+      neg_inf_number_(neg_inf_number) {}
+
+std::string TypedFloatConstantGenerator::MakeNaN(
+    const std::string &prefix) const {
+  return prefix + nan_number_;
+}
+std::string TypedFloatConstantGenerator::MakeInf(
+    bool neg, const std::string &prefix) const {
+  if (neg)
+    return !neg_inf_number_.empty() ? (prefix + neg_inf_number_)
+                                    : ("-" + prefix + pos_inf_number_);
+  else
+    return prefix + pos_inf_number_;
+}
+
+std::string TypedFloatConstantGenerator::Value(double v,
+                                               const std::string &src) const {
+  (void)v;
+  return src;
+}
+
+std::string TypedFloatConstantGenerator::Inf(double v) const {
+  return MakeInf(v < 0, double_prefix_);
+}
+
+std::string TypedFloatConstantGenerator::NaN(double v) const {
+  (void)v;
+  return MakeNaN(double_prefix_);
+}
+
+std::string TypedFloatConstantGenerator::Value(float v,
+                                               const std::string &src) const {
+  (void)v;
+  return src + "f";
+}
+
+std::string TypedFloatConstantGenerator::Inf(float v) const {
+  return MakeInf(v < 0, single_prefix_);
+}
+
+std::string TypedFloatConstantGenerator::NaN(float v) const {
+  (void)v;
+  return MakeNaN(single_prefix_);
+}
+
+SimpleFloatConstantGenerator::SimpleFloatConstantGenerator(
+    const char *nan_number, const char *pos_inf_number,
+    const char *neg_inf_number)
+    : nan_number_(nan_number),
+      pos_inf_number_(pos_inf_number),
+      neg_inf_number_(neg_inf_number) {}
+
+std::string SimpleFloatConstantGenerator::Value(double v,
+                                                const std::string &src) const {
+  (void)v;
+  return src;
+}
+
+std::string SimpleFloatConstantGenerator::Inf(double v) const {
+  return (v < 0) ? neg_inf_number_ : pos_inf_number_;
+}
+
+std::string SimpleFloatConstantGenerator::NaN(double v) const {
+  (void)v;
+  return nan_number_;
+}
+
+std::string SimpleFloatConstantGenerator::Value(float v,
+                                                const std::string &src) const {
+  return this->Value(static_cast<double>(v), src);
+}
+
+std::string SimpleFloatConstantGenerator::Inf(float v) const {
+  return this->Inf(static_cast<double>(v));
+}
+
+std::string SimpleFloatConstantGenerator::NaN(float v) const {
+  return this->NaN(static_cast<double>(v));
+}
+
 }  // namespace flatbuffers
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif

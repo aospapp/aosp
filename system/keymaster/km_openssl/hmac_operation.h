@@ -56,7 +56,7 @@ class HmacOperationFactory : public OperationFactory {
     virtual KeyType registry_key() const { return KeyType(KM_ALGORITHM_HMAC, purpose()); }
 
     virtual OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                         keymaster_error_t* error);
+                                         keymaster_error_t* error) const;
 
     virtual const keymaster_digest_t* SupportedDigests(size_t* digest_count) const;
 

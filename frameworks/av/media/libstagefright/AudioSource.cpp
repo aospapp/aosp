@@ -52,7 +52,9 @@ static void AudioRecordCallbackFunction(int event, void *user, void *info) {
 AudioSource::AudioSource(
         audio_source_t inputSource, const String16 &opPackageName,
         uint32_t sampleRate, uint32_t channelCount, uint32_t outSampleRate,
-        uid_t uid, pid_t pid, audio_port_handle_t selectedDeviceId)
+        uid_t uid, pid_t pid, audio_port_handle_t selectedDeviceId,
+        audio_microphone_direction_t selectedMicDirection,
+        float selectedMicFieldDimension)
     : mStarted(false),
       mSampleRate(sampleRate),
       mOutSampleRate(outSampleRate > 0 ? outSampleRate : sampleRate),
@@ -103,7 +105,9 @@ AudioSource::AudioSource(
                     uid,
                     pid,
                     NULL /*pAttributes*/,
-                    selectedDeviceId);
+                    selectedDeviceId,
+                    selectedMicDirection,
+                    selectedMicFieldDimension);
         mInitCheck = mRecord->initCheck();
         if (mInitCheck != OK) {
             mRecord.clear();
@@ -337,7 +341,7 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
     } else {
         // This should not happen in normal case.
         ALOGW("Failed to get audio timestamp, fallback to use systemclock");
-        timeUs = systemTime() / 1000ll;
+        timeUs = systemTime() / 1000LL;
         // Estimate the real sampling time of the 1st sample in this buffer
         // from AudioRecord's latency. (Apply this adjustment first so that
         // the start time logic is not affected.)
@@ -381,11 +385,11 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
     }
     mLastFrameTimestampUs = timeUs;
 
-    size_t numLostBytes = 0;
+    uint64_t numLostBytes = 0; // AudioRecord::getInputFramesLost() returns uint32_t
     if (mNumFramesReceived > 0) {  // Ignore earlier frame lost
         // getInputFramesLost() returns the number of lost frames.
         // Convert number of frames lost to number of bytes lost.
-        numLostBytes = mRecord->getInputFramesLost() * mRecord->frameSize();
+        numLostBytes = (uint64_t)mRecord->getInputFramesLost() * mRecord->frameSize();
     }
 
     CHECK_EQ(numLostBytes & 1, 0u);
@@ -393,11 +397,11 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
     if (numLostBytes > 0) {
         // Loss of audio frames should happen rarely; thus the LOGW should
         // not cause a logging spam
-        ALOGW("Lost audio record data: %zu bytes", numLostBytes);
+        ALOGW("Lost audio record data: %" PRIu64 " bytes", numLostBytes);
     }
 
     while (numLostBytes > 0) {
-        size_t bufferSize = numLostBytes;
+        uint64_t bufferSize = numLostBytes;
         if (numLostBytes > kMaxBufferSize) {
             numLostBytes -= kMaxBufferSize;
             bufferSize = kMaxBufferSize;
@@ -427,19 +431,17 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
 void AudioSource::queueInputBuffer_l(MediaBuffer *buffer, int64_t timeUs) {
     const size_t bufferSize = buffer->range_length();
     const size_t frameSize = mRecord->frameSize();
-    const int64_t timestampUs =
-                mPrevSampleTimeUs +
-                    ((1000000LL * (bufferSize / frameSize)) +
-                        (mSampleRate >> 1)) / mSampleRate;
-
     if (mNumFramesReceived == 0) {
         buffer->meta_data().setInt64(kKeyAnchorTime, mStartTimeUs);
     }
-
+    mNumFramesReceived += bufferSize / frameSize;
+    const int64_t timestampUs =
+                mStartTimeUs +
+                    ((1000000LL * mNumFramesReceived) +
+                        (mSampleRate >> 1)) / mSampleRate;
     buffer->meta_data().setInt64(kKeyTime, mPrevSampleTimeUs);
     buffer->meta_data().setInt64(kKeyDriftTime, timeUs - mInitialReadTimeUs);
     mPrevSampleTimeUs = timestampUs;
-    mNumFramesReceived += bufferSize / frameSize;
     mBuffersReceived.push_back(buffer);
     mFrameAvailableCondition.signal();
 }
@@ -506,4 +508,27 @@ status_t AudioSource::getActiveMicrophones(
     return NO_INIT;
 }
 
+status_t AudioSource::setPreferredMicrophoneDirection(audio_microphone_direction_t direction) {
+    ALOGV("setPreferredMicrophoneDirection(%d)", direction);
+    if (mRecord != 0) {
+        return mRecord->setPreferredMicrophoneDirection(direction);
+    }
+    return NO_INIT;
+}
+
+status_t AudioSource::setPreferredMicrophoneFieldDimension(float zoom) {
+    ALOGV("setPreferredMicrophoneFieldDimension(%f)", zoom);
+    if (mRecord != 0) {
+        return mRecord->setPreferredMicrophoneFieldDimension(zoom);
+    }
+    return NO_INIT;
+}
+
+status_t AudioSource::getPortId(audio_port_handle_t *portId) const {
+    if (mRecord != 0) {
+        *portId = mRecord->getPortId();
+        return NO_ERROR;
+    }
+    return NO_INIT;
+}
 }  // namespace android

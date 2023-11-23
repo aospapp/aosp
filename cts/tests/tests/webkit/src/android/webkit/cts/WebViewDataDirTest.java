@@ -28,7 +28,7 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
 
     private static final long REMOTE_TIMEOUT_MS = 5000;
     private static final String ALTERNATE_DIR_NAME = "test";
-    private static final String COOKIE_URL = "https://www.example.com/";
+    private static final String COOKIE_URL = "https://www.webviewdatadirtest.com/";
     private static final String COOKIE_VALUE = "foo=main";
     private static final String SET_COOKIE_PARAMS = "; Max-Age=86400";
 

@@ -19,54 +19,9 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-hal-profiling" />
 
-  <option name="compatibility:include-filter" value="VtsHalAudioV2_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalAudioV4_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalAudioEffectV2_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalAudioEffectV4_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalBiometricsFingerprintV2_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalBootV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalBroadcastradioV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalBluetoothV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalCameraProviderV2_4TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalConfigstoreV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalContexthubV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalDrmV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalDrmV1_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalGatekeeperV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalGnssV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsComposerV2_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsMapperV2_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsMapperV2_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalHealthV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalIrV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalKeymasterV3_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalLightV2_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalMemtrackV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalNetNetdV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalNetNetdV1_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalNeuralnetworksV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0HostProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalOemLockV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalRadioV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalRenderscriptV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalSapV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalSensorsV1_0HostProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalSensorsV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalSoundtriggerV2_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalSoundtriggerV2_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalThermalV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalUsbV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0HostProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalVrV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWeaverV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_1TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWifiNanV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_0TargetProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalWifiSupplicantV1_1TargetProfiling" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsTraceCollectPreparer" />
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:enable-profiling:true" />
+
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal" />
 
 </configuration>

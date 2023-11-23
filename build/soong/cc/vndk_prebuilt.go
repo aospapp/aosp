@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	vndkSuffix = ".vndk."
+	vndkSuffix     = ".vndk."
+	binder32Suffix = ".binder32"
 )
 
 // Creates vndk prebuilts that include the VNDK version.
@@ -53,8 +54,16 @@ type vndkPrebuiltProperties struct {
 	// Target arch name of the snapshot (e.g. 'arm64' for variant 'aosp_arm64_ab')
 	Target_arch *string
 
+	// If the prebuilt snapshot lib is built with 32 bit binder, this must be set to true.
+	// The lib with 64 bit binder does not need to set this property.
+	Binder32bit *bool
+
 	// Prebuilt files for each arch.
 	Srcs []string `android:"arch_variant"`
+
+	// Check the prebuilt ELF files (e.g. DT_SONAME, DT_NEEDED, resolution of undefined symbols,
+	// etc).
+	Check_elf_files *bool
 }
 
 type vndkPrebuiltLibraryDecorator struct {
@@ -67,10 +76,14 @@ func (p *vndkPrebuiltLibraryDecorator) Name(name string) string {
 }
 
 func (p *vndkPrebuiltLibraryDecorator) NameSuffix() string {
+	suffix := p.version()
 	if p.arch() != "" {
-		return vndkSuffix + p.version() + "." + p.arch()
+		suffix += "." + p.arch()
 	}
-	return vndkSuffix + p.version()
+	if Bool(p.properties.Binder32bit) {
+		suffix += binder32Suffix
+	}
+	return vndkSuffix + suffix
 }
 
 func (p *vndkPrebuiltLibraryDecorator) version() string {
@@ -79,6 +92,13 @@ func (p *vndkPrebuiltLibraryDecorator) version() string {
 
 func (p *vndkPrebuiltLibraryDecorator) arch() string {
 	return String(p.properties.Target_arch)
+}
+
+func (p *vndkPrebuiltLibraryDecorator) binderBit() string {
+	if Bool(p.properties.Binder32bit) {
+		return "32"
+	}
+	return "64"
 }
 
 func (p *vndkPrebuiltLibraryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
@@ -114,6 +134,9 @@ func (p *vndkPrebuiltLibraryDecorator) install(ctx ModuleContext, file android.P
 	if len(arches) == 0 || arches[0].ArchType.String() != p.arch() {
 		return
 	}
+	if ctx.DeviceConfig().BinderBitness() != p.binderBit() {
+		return
+	}
 	if p.shared() {
 		if ctx.isVndkSp() {
 			p.baseInstaller.subDir = "vndk-sp-" + p.version()
@@ -130,10 +153,13 @@ func vndkPrebuiltSharedLibrary() *Module {
 	module.stl = nil
 	module.sanitize = nil
 	library.StripProperties.Strip.None = BoolPtr(true)
+	module.Properties.UseVndk = true
 
 	prebuilt := &vndkPrebuiltLibraryDecorator{
 		libraryDecorator: library,
 	}
+
+	prebuilt.properties.Check_elf_files = BoolPtr(false)
 
 	module.compiler = nil
 	module.linker = prebuilt

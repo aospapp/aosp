@@ -16,42 +16,20 @@
 
 package android.view.accessibility.cts;
 
-import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
-import android.view.accessibility.AccessibilityEvent;
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import android.app.Instrumentation;
+import android.content.ComponentName;
 
 /**
  * Stub accessibility service that reports itself as providing spoken feedback.
  */
-public class SpeakingAccessibilityService extends AccessibilityService {
-    public static Object sWaitObjectForConnecting = new Object();
+public class SpeakingAccessibilityService extends InstrumentedAccessibilityService {
+    public static final ComponentName COMPONENT_NAME = new ComponentName(
+            "android.view.accessibility.cts",
+            "android.view.accessibility.cts.SpeakingAccessibilityService");
 
-    public static SpeakingAccessibilityService sConnectedInstance;
-
-    @Override
-    public void onDestroy() {
-        sConnectedInstance = null;
-    }
-
-    @Override
-    protected void onServiceConnected() {
-        final AccessibilityServiceInfo info = getServiceInfo();
-        info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE;
-        setServiceInfo(info);
-
-        synchronized (sWaitObjectForConnecting) {
-            sConnectedInstance = this;
-            sWaitObjectForConnecting.notifyAll();
-        }
-    }
-
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) {
-        /* do nothing */
-    }
-
-    @Override
-    public void onInterrupt() {
-        /* do nothing */
+    public static SpeakingAccessibilityService enableSelf(Instrumentation instrumentation) {
+        return InstrumentedAccessibilityService.enableService(
+                instrumentation, SpeakingAccessibilityService.class);
     }
 }

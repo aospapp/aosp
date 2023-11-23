@@ -31,18 +31,25 @@ import java.lang.annotation.RetentionPolicy;
 public class WebViewClient {
 
     /**
-     * Give the host application a chance to take over the control when a new
-     * url is about to be loaded in the current WebView. If WebViewClient is not
-     * provided, by default WebView will ask Activity Manager to choose the
-     * proper handler for the url. If WebViewClient is provided, return {@code true}
-     * means the host application handles the url, while return {@code false} means the
-     * current WebView handles the url.
-     * This method is not called for requests using the POST "method".
+     * Give the host application a chance to take control when a URL is about to be loaded in the
+     * current WebView. If a WebViewClient is not provided, by default WebView will ask Activity
+     * Manager to choose the proper handler for the URL. If a WebViewClient is provided, returning
+     * {@code true} causes the current WebView to abort loading the URL, while returning
+     * {@code false} causes the WebView to continue loading the URL as usual.
+     *
+     * <p class="note"><b>Note:</b> Do not call {@link WebView#loadUrl(String)} with the same
+     * URL and then return {@code true}. This unnecessarily cancels the current load and starts a
+     * new load with the same URL. The correct way to continue loading a given URL is to simply
+     * return {@code false}, without calling {@link WebView#loadUrl(String)}.
+     *
+     * <p class="note"><b>Note:</b> This method is not called for POST requests.
+     *
+     * <p class="note"><b>Note:</b> This method may be called for subframes and with non-HTTP(S)
+     * schemes; calling {@link WebView#loadUrl(String)} with such a URL will fail.
      *
      * @param view The WebView that is initiating the callback.
-     * @param url The url to be loaded.
-     * @return {@code true} if the host application wants to leave the current WebView
-     *         and handle the url itself, otherwise return {@code false}.
+     * @param url The URL to be loaded.
+     * @return {@code true} to cancel the current load, otherwise return {@code false}.
      * @deprecated Use {@link #shouldOverrideUrlLoading(WebView, WebResourceRequest)
      *             shouldOverrideUrlLoading(WebView, WebResourceRequest)} instead.
      */
@@ -52,26 +59,25 @@ public class WebViewClient {
     }
 
     /**
-     * Give the host application a chance to take over the control when a new
-     * url is about to be loaded in the current WebView. If WebViewClient is not
-     * provided, by default WebView will ask Activity Manager to choose the
-     * proper handler for the url. If WebViewClient is provided, return {@code true}
-     * means the host application handles the url, while return {@code false} means the
-     * current WebView handles the url.
+     * Give the host application a chance to take control when a URL is about to be loaded in the
+     * current WebView. If a WebViewClient is not provided, by default WebView will ask Activity
+     * Manager to choose the proper handler for the URL. If a WebViewClient is provided, returning
+     * {@code true} causes the current WebView to abort loading the URL, while returning
+     * {@code false} causes the WebView to continue loading the URL as usual.
      *
-     * <p>Notes:
-     * <ul>
-     * <li>This method is not called for requests using the POST &quot;method&quot;.</li>
-     * <li>This method is also called for subframes with non-http schemes, thus it is
-     * strongly disadvised to unconditionally call {@link WebView#loadUrl(String)}
-     * with the request's url from inside the method and then return {@code true},
-     * as this will make WebView to attempt loading a non-http url, and thus fail.</li>
-     * </ul>
+     * <p class="note"><b>Note:</b> Do not call {@link WebView#loadUrl(String)} with the request's
+     * URL and then return {@code true}. This unnecessarily cancels the current load and starts a
+     * new load with the same URL. The correct way to continue loading a given URL is to simply
+     * return {@code false}, without calling {@link WebView#loadUrl(String)}.
+     *
+     * <p class="note"><b>Note:</b> This method is not called for POST requests.
+     *
+     * <p class="note"><b>Note:</b> This method may be called for subframes and with non-HTTP(S)
+     * schemes; calling {@link WebView#loadUrl(String)} with such a URL will fail.
      *
      * @param view The WebView that is initiating the callback.
      * @param request Object containing the details of the request.
-     * @return {@code true} if the host application wants to leave the current WebView
-     *         and handle the url itself, otherwise return {@code false}.
+     * @return {@code true} to cancel the current load, otherwise return {@code false}.
      */
     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
         return shouldOverrideUrlLoading(view, request.getUrl().toString());
@@ -96,9 +102,11 @@ public class WebViewClient {
 
     /**
      * Notify the host application that a page has finished loading. This method
-     * is called only for main frame. When onPageFinished() is called, the
-     * rendering picture may not be updated yet. To get the notification for the
-     * new Picture, use {@link WebView.PictureListener#onNewPicture}.
+     * is called only for main frame. Receiving an {@code onPageFinished()} callback does not
+     * guarantee that the next frame drawn by WebView will reflect the state of the DOM at this
+     * point. In order to be notified that the current DOM state is ready to be rendered, request a
+     * visual state callback with {@link WebView#postVisualStateCallback} and wait for the supplied
+     * callback to be triggered.
      *
      * @param view The WebView that is initiating the callback.
      * @param url The url of the page.
@@ -276,19 +284,28 @@ public class WebViewClient {
             SAFE_BROWSING_THREAT_UNKNOWN,
             SAFE_BROWSING_THREAT_MALWARE,
             SAFE_BROWSING_THREAT_PHISHING,
-            SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE
+            SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE,
+            SAFE_BROWSING_THREAT_BILLING,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SafeBrowsingThreat {}
 
-    /** The resource was blocked for an unknown reason */
+    /** The resource was blocked for an unknown reason. */
     public static final int SAFE_BROWSING_THREAT_UNKNOWN = 0;
-    /** The resource was blocked because it contains malware */
+    /** The resource was blocked because it contains malware. */
     public static final int SAFE_BROWSING_THREAT_MALWARE = 1;
-    /** The resource was blocked because it contains deceptive content */
+    /** The resource was blocked because it contains deceptive content. */
     public static final int SAFE_BROWSING_THREAT_PHISHING = 2;
-    /** The resource was blocked because it contains unwanted software */
+    /** The resource was blocked because it contains unwanted software. */
     public static final int SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE = 3;
+    /**
+     * The resource was blocked because it may trick the user into a billing agreement.
+     *
+     * <p>This constant is only used when targetSdkVersion is at least {@link
+     * android.os.Build.VERSION_CODES#Q}. Otherwise, {@link #SAFE_BROWSING_THREAT_UNKNOWN} is used
+     * instead.
+     */
+    public static final int SAFE_BROWSING_THREAT_BILLING = 4;
 
     /**
      * Report an error to the host application. These errors are unrecoverable
@@ -364,10 +381,15 @@ public class WebViewClient {
 
     /**
      * Notify the host application that an SSL error occurred while loading a
-     * resource. The host application must call either handler.cancel() or
-     * handler.proceed(). Note that the decision may be retained for use in
+     * resource. The host application must call either {@link SslErrorHandler#cancel} or
+     * {@link SslErrorHandler#proceed}. Note that the decision may be retained for use in
      * response to future SSL errors. The default behavior is to cancel the
      * load.
+     * <p>
+     * This API is only called for recoverable SSL certificate errors. In the case of
+     * non-recoverable errors (such as when the server fails the client), WebView will call {@link
+     * #onReceivedError(WebView, WebResourceRequest, WebResourceError)} with {@link
+     * #ERROR_FAILED_SSL_HANDSHAKE}.
      * <p>
      * Applications are advised not to prompt the user about SSL errors, as
      * the user is unlikely to be able to make an informed security decision
@@ -376,10 +398,10 @@ public class WebViewClient {
      * <p>
      * Application overrides of this method may display custom error pages or
      * silently log issues, but it is strongly recommended to always call
-     * handler.cancel() and never allow proceeding past errors.
+     * {@link SslErrorHandler#cancel} and never allow proceeding past errors.
      *
      * @param view The WebView that is initiating the callback.
-     * @param handler An SslErrorHandler object that will handle the user's
+     * @param handler An {@link SslErrorHandler} that will handle the user's
      *            response.
      * @param error The SSL error object.
      */

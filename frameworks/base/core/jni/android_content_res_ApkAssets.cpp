@@ -72,7 +72,7 @@ static jlong NativeLoadFromFd(JNIEnv* env, jclass /*clazz*/, jobject file_descri
     return 0;
   }
 
-  unique_fd dup_fd(::dup(fd));
+  unique_fd dup_fd(::fcntl(fd, F_DUPFD_CLOEXEC, 0));
   if (dup_fd < 0) {
     jniThrowIOException(env, errno);
     return 0;
@@ -106,8 +106,7 @@ static jlong NativeGetStringBlock(JNIEnv* /*env*/, jclass /*clazz*/, jlong ptr) 
 
 static jboolean NativeIsUpToDate(JNIEnv* /*env*/, jclass /*clazz*/, jlong ptr) {
   const ApkAssets* apk_assets = reinterpret_cast<const ApkAssets*>(ptr);
-  (void)apk_assets;
-  return JNI_TRUE;
+  return apk_assets->IsUpToDate() ? JNI_TRUE : JNI_FALSE;
 }
 
 static jlong NativeOpenXml(JNIEnv* env, jclass /*clazz*/, jlong ptr, jstring file_name) {

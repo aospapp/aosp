@@ -15,3 +15,6 @@ nugget.app.keymaster.GetBootInfoResponse.boot_hash max_size:32
 nugget.app.keymaster.ProvisionPresharedSecretRequest.preshared_secret max_size:32
 nugget.app.keymaster.StartAttestKeyRequest.not_before max_size:13
 nugget.app.keymaster.StartAttestKeyRequest.not_after max_size:13
+nugget.app.keymaster.ProvisionPresharedSecretResponse.digest max_size:32
+nugget.app.keymaster.ProvisionCertificatesRequest.cert_block max_size: 1024
+nugget.app.keymaster.ProvisionCertificatesRequest.digest max_size: 32

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -43,7 +43,7 @@ ACTS_CONTROLLER_REFERENCE_NAME = "monsoons"
 def create(configs):
     objs = []
     for c in configs:
-        objs.append(Monsoon(serial=c))
+        objs.append(Monsoon(serial=int(c)))
     return objs
 
 
@@ -911,8 +911,7 @@ class Monsoon(object):
                 self._wait_for_device(self.dut)
                 # Wait for device to come back online.
                 time.sleep(10)
-                self.dut.start_services(
-                    skip_sl4a=getattr(self.dut, "skip_sl4a", False))
+                self.dut.start_services()
                 # Release wake lock to put device into sleep.
                 self.dut.droid.goToSleepNow()
         return results
@@ -968,8 +967,7 @@ class Monsoon(object):
                 self._wait_for_device(self.dut)
             # Wait for device to come back online.
             time.sleep(2)
-            self.dut.start_services(
-                skip_sl4a=getattr(self.dut, "skip_sl4a", False))
+            self.dut.start_services()
             # Release wake lock to put device into sleep.
             self.dut.droid.goToSleepNow()
             self.log.info("Dut reconnected.")

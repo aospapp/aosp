@@ -15,9 +15,9 @@
 <?cs include:"header.cs" ?>
 <?cs # Includes api-info-block DIV at top of page. Standard Devsite uses right nav. ?>
 <?cs if:dac ?><?cs include:"page_info.cs" ?><?cs /if ?>
-<div class="api apilevel-<?cs var:package.since ?>" id="jd-content"<?cs
-     if:package.since ?>
-     data-version-added="<?cs var:package.since ?>"<?cs
+<div id="jd-content" <?cs
+     if:package.since
+       ?>data-version-added="<?cs var:package.since ?>"<?cs
      /if ?><?cs
      if:package.deprecatedsince
        ?> data-version-deprecated="<?cs var:package.deprecatedsince ?>"<?cs

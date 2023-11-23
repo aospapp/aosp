@@ -23,9 +23,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -35,9 +33,7 @@ import com.android.tradefed.util.FileUtil;
 import com.google.common.truth.Truth;
 import java.io.File;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -67,14 +63,14 @@ public class DumpHeapCollectorTest {
     public void setup() throws Exception {
         MockitoAnnotations.initMocks(this);
 
-        when(mDevice.executeShellCommand(String.format("dumpsys meminfo -c | grep camera")))
-                .thenReturn(new String("proc,native,camera,21348,800,N/A,e\n"));
+        when(mDevice.executeShellCommand("dumpsys meminfo -c | grep camera"))
+                .thenReturn("proc,native,camera,21348,800,N/A,e\n");
 
-        when(mDevice.executeShellCommand(String.format("dumpsys meminfo -c | grep maps")))
-                .thenReturn(new String("proc,native,maps,21349,900,N/A,e\n"));
+        when(mDevice.executeShellCommand("dumpsys meminfo -c | grep maps"))
+                .thenReturn("proc,native,maps,21349,900,N/A,e\n");
 
         when(mDevice.executeShellCommand("am dumpheap camera /data/local/tmp/camera_trigger.hprof"))
-                .thenReturn(new String());
+                .thenReturn("");
 
         doNothing()
                 .when(mListener)
@@ -83,7 +79,6 @@ public class DumpHeapCollectorTest {
 
     @Test
     public void testTakeDumpheap_success() throws Exception {
-
         File mapsDumpheap1 = folder.newFile("maps1");
         File mapsDumpheap2 = folder.newFile("maps2");
 
@@ -111,10 +106,6 @@ public class DumpHeapCollectorTest {
                 .thenReturn(tempFile2);
 
         OptionSetter options = new OptionSetter(mDumpheapCollector);
-
-        Map<String, Long> dumpheapThresholds = new HashMap<>();
-        dumpheapThresholds.put("camera", 700L);
-        dumpheapThresholds.put("maps", 800L);
 
         options.setOptionValue("dumpheap-thresholds", "camera", "700");
         options.setOptionValue("dumpheap-thresholds", "maps", "800");
@@ -168,37 +159,25 @@ public class DumpHeapCollectorTest {
     }
 
     @Test
-    public void testCollectNoError_processNotFound() {
-        try {
-            // Make the meminfo dump not contain the heap info of fake_process.
-            when(mDevice.executeShellCommand(
-                            String.format("dumpsys meminfo -c | grep fake_process")))
-                    .thenReturn("");
+    public void testCollectNoError_processNotFound() throws Exception {
+        // Make the meminfo dump not contain the heap info of fake_process.
+        when(mDevice.executeShellCommand("dumpsys meminfo -c | grep fake_process")).thenReturn("");
 
-            OptionSetter options = new OptionSetter(mDumpheapCollector);
-            options.setOptionValue("dumpheap-thresholds", "fake_process", "7000");
+        OptionSetter options = new OptionSetter(mDumpheapCollector);
+        options.setOptionValue("dumpheap-thresholds", "fake_process", "7000");
 
-            mDumpheapCollector.init(mContext, mListener);
+        mDumpheapCollector.init(mContext, mListener);
 
-            mDumpheapCollector.collect(mDevice, null);
+        mDumpheapCollector.collect(mDevice, null);
 
-            ArgumentCaptor<String> dataNameCaptor = ArgumentCaptor.forClass(String.class);
-            ArgumentCaptor<LogDataType> dataTypeCaptor = ArgumentCaptor.forClass(LogDataType.class);
-            ArgumentCaptor<InputStreamSource> inputCaptor =
-                    ArgumentCaptor.forClass(InputStreamSource.class);
+        ArgumentCaptor<String> dataNameCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<LogDataType> dataTypeCaptor = ArgumentCaptor.forClass(LogDataType.class);
+        ArgumentCaptor<InputStreamSource> inputCaptor =
+                ArgumentCaptor.forClass(InputStreamSource.class);
 
-            // Verify that no testLog calls were made.
-            verify(mListener, times(0))
-                    .testLog(
-                            dataNameCaptor.capture(),
-                            dataTypeCaptor.capture(),
-                            inputCaptor.capture());
-        } catch (DeviceNotAvailableException e) {
-            Truth.THROW_ASSERTION_ERROR.fail(e.getMessage());
-        } catch (ConfigurationException e) {
-            Truth.THROW_ASSERTION_ERROR.fail(e.getMessage());
-        } catch (InterruptedException e) {
-            Truth.THROW_ASSERTION_ERROR.fail(e.getMessage());
-        }
+        // Verify that no testLog calls were made.
+        verify(mListener, times(0))
+                .testLog(dataNameCaptor.capture(), dataTypeCaptor.capture(), inputCaptor.capture());
     }
 }
+

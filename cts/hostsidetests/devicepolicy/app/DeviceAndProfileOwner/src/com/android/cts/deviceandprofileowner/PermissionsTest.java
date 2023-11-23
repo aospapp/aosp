@@ -21,6 +21,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.PermissionChecker;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -46,6 +48,8 @@ public class PermissionsTest extends BaseDeviceAdminTest {
     private static final String SIMPLE_PRE_M_APP_PACKAGE_NAME =
             "com.android.cts.launcherapps.simplepremapp";
     private static final String PERMISSION_NAME = "android.permission.READ_CONTACTS";
+    private static final String CUSTOM_PERM_A_NAME = "com.android.cts.permissionapp.permA";
+    private static final String CUSTOM_PERM_B_NAME = "com.android.cts.permissionapp.permB";
     private static final String DEVELOPMENT_PERMISSION = "android.permission.INTERACT_ACROSS_USERS";
 
     private static final String PERMISSIONS_ACTIVITY_NAME
@@ -157,6 +161,22 @@ public class PermissionsTest extends BaseDeviceAdminTest {
         assertPermissionRequest(PackageManager.PERMISSION_GRANTED);
     }
 
+    public void testPermissionGrantOfDisallowedPermissionWhileOtherPermIsGranted() throws Exception {
+        assertSetPermissionGrantState(DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+                CUSTOM_PERM_A_NAME);
+        assertSetPermissionGrantState(DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED,
+                CUSTOM_PERM_B_NAME);
+
+        /*
+         * CUSTOM_PERM_A_NAME and CUSTOM_PERM_B_NAME are in the same permission group and one is
+         * granted the other one is not.
+         *
+         * It should not be possible to get the permission that was denied via policy granted by
+         * requesting it.
+         */
+        assertPermissionRequest(PackageManager.PERMISSION_DENIED, null, CUSTOM_PERM_B_NAME);
+    }
+
     @Suppress // Flakey.
     public void testPermissionPrompts() throws Exception {
         // register a crash watcher
@@ -220,11 +240,20 @@ public class PermissionsTest extends BaseDeviceAdminTest {
         assertPermissionGrantState(PackageManager.PERMISSION_GRANTED);
     }
 
+    public void testPermissionGrantStateAppPreMDeviceAdminPreQ() throws Exception {
+        // These tests are to make sure that pre-M apps are not granted/denied runtime permissions
+        // by a profile owner that targets pre-Q
+        assertCannotSetPermissionGrantStateAppPreM(
+                DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED);
+        assertCannotSetPermissionGrantStateAppPreM(
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
+    }
+
     public void testPermissionGrantStatePreMApp() throws Exception {
-        // These tests are to make sure that pre-M apps are not granted runtime permissions
-        // by a profile owner
-        assertSetPermissionGrantStatePreMApp(DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED);
-        assertSetPermissionGrantStatePreMApp(DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
+        // These tests are to make sure that pre-M apps can be granted/denied runtime permissions
+        // by a profile owner targets Q or later
+        assertCanSetPermissionGrantStateAppPreM(DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED);
+        assertCanSetPermissionGrantStateAppPreM(DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED);
     }
 
     public void testPermissionGrantState_developmentPermission() throws Exception {
@@ -241,16 +270,21 @@ public class PermissionsTest extends BaseDeviceAdminTest {
     }
 
     private void assertPermissionRequest(int expected, String buttonResource) throws Exception {
+        assertPermissionRequest(expected, buttonResource, PERMISSION_NAME);
+    }
+
+    private void assertPermissionRequest(int expected, String buttonResource, String permission)
+            throws Exception {
         Intent launchIntent = new Intent();
         launchIntent.setComponent(new ComponentName(PERMISSION_APP_PACKAGE_NAME,
                 PERMISSIONS_ACTIVITY_NAME));
-        launchIntent.putExtra(EXTRA_PERMISSION, PERMISSION_NAME);
+        launchIntent.putExtra(EXTRA_PERMISSION, permission);
         launchIntent.setAction(ACTION_REQUEST_PERMISSION);
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
         mContext.startActivity(launchIntent);
         pressPermissionPromptButton(buttonResource);
         assertEquals(expected, mReceiver.waitForBroadcast());
-        assertEquals(expected, mPackageManager.checkPermission(PERMISSION_NAME,
+        assertEquals(expected, mPackageManager.checkPermission(permission,
                 PERMISSION_APP_PACKAGE_NAME));
     }
 
@@ -275,11 +309,14 @@ public class PermissionsTest extends BaseDeviceAdminTest {
     }
 
     private void assertSetPermissionGrantState(int value) throws Exception {
+        assertSetPermissionGrantState(value, PERMISSION_NAME);
+    }
+    private void assertSetPermissionGrantState(int value, String permission) throws Exception {
         mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
-                PERMISSION_APP_PACKAGE_NAME, PERMISSION_NAME,
+                PERMISSION_APP_PACKAGE_NAME, permission,
                 value);
         assertEquals(mDevicePolicyManager.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
-                PERMISSION_APP_PACKAGE_NAME, PERMISSION_NAME),
+                PERMISSION_APP_PACKAGE_NAME, permission),
                 value);
     }
 
@@ -294,18 +331,53 @@ public class PermissionsTest extends BaseDeviceAdminTest {
                 PackageManager.PERMISSION_DENIED);
     }
 
-
-    private void assertSetPermissionGrantStatePreMApp(int value) throws Exception {
+    private void assertCannotSetPermissionGrantStateAppPreM(int value) throws Exception {
         assertFalse(mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
                 SIMPLE_PRE_M_APP_PACKAGE_NAME, PERMISSION_NAME,
                 value));
         assertEquals(mDevicePolicyManager.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
                 SIMPLE_PRE_M_APP_PACKAGE_NAME, PERMISSION_NAME),
                 DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT);
+
+        // Install time permissions should always be granted
+        PackageInfo packageInfo = mContext.getPackageManager().getPackageInfo(
+                SIMPLE_PRE_M_APP_PACKAGE_NAME, 0);
+        assertEquals(PackageManager.PERMISSION_GRANTED,
+                PermissionChecker.checkPermission(mContext, PERMISSION_NAME, -1,
+                        packageInfo.applicationInfo.uid, SIMPLE_PRE_M_APP_PACKAGE_NAME));
+    }
+
+    private void assertCanSetPermissionGrantStateAppPreM(int value) throws Exception {
+        assertTrue(mDevicePolicyManager.setPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
+                SIMPLE_PRE_M_APP_PACKAGE_NAME, PERMISSION_NAME,
+                value));
+        assertEquals(mDevicePolicyManager.getPermissionGrantState(ADMIN_RECEIVER_COMPONENT,
+                SIMPLE_PRE_M_APP_PACKAGE_NAME, PERMISSION_NAME),
+                value);
+
         // Install time permissions should always be granted
         assertEquals(mPackageManager.checkPermission(PERMISSION_NAME,
                 SIMPLE_PRE_M_APP_PACKAGE_NAME),
                 PackageManager.PERMISSION_GRANTED);
+
+        PackageInfo packageInfo = mContext.getPackageManager().getPackageInfo(
+                SIMPLE_PRE_M_APP_PACKAGE_NAME, 0);
+
+        // For pre-M apps the access to the data might be prevented via app-ops. Hence check that
+        // they are correctly set
+        boolean isGranted = (PermissionChecker.checkPermission(mContext, PERMISSION_NAME, -1,
+                packageInfo.applicationInfo.uid, SIMPLE_PRE_M_APP_PACKAGE_NAME)
+                == PackageManager.PERMISSION_GRANTED);
+        switch (value) {
+            case DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED:
+                assertTrue(isGranted);
+                break;
+            case DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED:
+                assertFalse(isGranted);
+                break;
+            default:
+                fail("unsupported policy value");
+        }
     }
 
     private void pressPermissionPromptButton(String resName) throws Exception {

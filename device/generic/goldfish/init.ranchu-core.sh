@@ -11,4 +11,12 @@ case "$bootanim" in
 esac
 
 # take the wake lock
-echo "emulator_wake_lock" > /sys/power/wake_lock
+allowsuspend=`getprop ro.kernel.qemu.allowsuspend`
+case "$allowsuspend" in
+    "") echo "emulator_wake_lock" > /sys/power/wake_lock
+    ;;
+    1) echo "emulator_wake_lock" > /sys/power/wake_unlock
+    ;;
+    *) echo "emulator_wake_lock" > /sys/power/wake_lock
+    ;;
+esac

@@ -3,10 +3,8 @@
 // found in the LICENSE file.
 
 #include "texturetest.h"
-
-#include "base/logging.h"
-#include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
+#include "arraysize.h"
+#include <assert.h>
 
 namespace glbench {
 
@@ -31,17 +29,34 @@ const char* kFragmentShader =
 
 }  // namespace
 
+bool TextureTest::TextureMetaDataInit() {
+  // TODO(djkurtz): Other formats such as GL_BGRA, GL_RGB, GL_BGR, ... ?
+  // , GL_BGRA, GL_RGB, GL_BGR };
+  kTexelFormats.push_back(GL_LUMINANCE);
+  kTexelFormats.push_back(GL_RGBA);
+
+  kTexelFormatNames[GL_LUMINANCE] = "luminance";
+  kTexelFormatNames[GL_RGBA] = "rgba";
+
+  kTexelFormatSizes[GL_LUMINANCE] = 1;
+  kTexelFormatSizes[GL_RGBA] = 4;
+
+  kFlavors[TEX_IMAGE] = "teximage2d";
+  kFlavors[TEX_SUBIMAGE] = "texsubimage2d";
+  return true;
+}
+
 bool TextureTest::Run() {
+  TextureMetaDataInit();
   // Two triangles that form one pixel at 0, 0.
   const GLfloat kVertices[8] = {
-    0.f, 0.f,
-    2.f / g_width, 0.f,
-    0.f, 2.f / g_height,
-    2.f / g_width, 2.f / g_height,
+      0.f,           0.f,
+      2.f / g_width, 0.f,
+      0.f,           2.f / g_height,
+      2.f / g_width, 2.f / g_height,
   };
   const GLfloat kTexCoords[8] = {
-    0.f, 0.f, 0.f, 0.f,
-    0.f, 0.f, 0.f, 0.f,
+      0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
   };
 
   program_ = InitShaderProgram(kVertexShader, kFragmentShader);
@@ -65,32 +80,23 @@ bool TextureTest::Run() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   }
 
-  // Textures formats
-  // TODO(djkurtz): Other formats such as GL_BGRA, GL_RGB, GL_BGR, ... ?
-  const GLenum kTexelFormats[] =
-     { GL_LUMINANCE, GL_RGBA }; // , GL_BGRA, GL_RGB, GL_BGR };
-  const unsigned int kTexelFormatSizes[] = { 1, 4 }; // , 4, 3, 3 };
-  const std::string kTexelFormatNames[] =
-      { "luminance", "rgba" }; // , "bgra", "rgb", "bgr" };
+  for (auto fmt : kTexelFormats) {
+    texel_gl_format_ = fmt;
+    std::string texel_gl_format_name = kTexelFormatNames.at(texel_gl_format_);
+    unsigned int texel_size = kTexelFormatSizes[texel_gl_format_];
+    for (auto flv : kFlavors){
+      flavor_ = flv.first;
+      std::string flavor_name = flv.second;
 
-  // Texture upload commands
-  UpdateFlavor kFlavors[] = { TEX_IMAGE, TEX_SUBIMAGE };
-  const std::string kFlavorNames[] = { "teximage2d", "texsubimage2d" };
-
-  for (unsigned int fmt = 0; fmt < arraysize(kTexelFormats); fmt++) {
-    texel_gl_format_ = kTexelFormats[fmt];
-    unsigned int texel_size = kTexelFormatSizes[fmt];
-    for (unsigned int flavor = 0; flavor < arraysize(kFlavors); flavor++) {
-      flavor_ = kFlavors[flavor];
-      const int sizes[] = { 32, 128, 256, 512, 768, 1024, 1536, 2048 };
+      const int sizes[] = {32, 128, 256, 512, 768, 1024, 1536, 2048};
       for (unsigned int j = 0; j < arraysize(sizes); j++) {
         // In hasty mode only do at most 512x512 sized problems.
         if (g_hasty && sizes[j] > 512)
           continue;
 
-        std::string name = std::string(Name()) + "_" +
-            kTexelFormatNames[fmt] + "_" + kFlavorNames[flavor] + "_" +
-            base::IntToString(sizes[j]);
+        std::string name = std::string(Name()) + "_" + texel_gl_format_name +
+                           "_" + flavor_name + "_" +
+                           IntToString(sizes[j]);
 
         width_ = height_ = sizes[j];
         const unsigned int buffer_size = width_ * height_ * texel_size;
@@ -110,13 +116,34 @@ bool TextureTest::Run() {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
           }
+
+          // Only upload the texture here if the test is not intended to test
+          // the texture upload speed.
+          if (!this->IsTextureUploadTest()) {
+            glBindTexture(GL_TEXTURE_2D, textures_[i]);
+            switch (flavor_) {
+              case TEX_IMAGE:
+                glTexImage2D(GL_TEXTURE_2D, 0, texel_gl_format_,
+                             width_, height_, 0,
+                             texel_gl_format_, GL_UNSIGNED_BYTE,
+                             pixels_[i % kNumberOfTextures].get());
+                break;
+              case TEX_SUBIMAGE:
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_,
+                                texel_gl_format_, GL_UNSIGNED_BYTE,
+                                pixels_[i % kNumberOfTextures].get());
+                break;
+            }
+          }
         }
         RunTest(this, name.c_str(), buffer_size, g_width, g_height, true);
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
-          printf("# GL error code %d after RunTest() with %dx%d %d-byte texture.\n",
-                 error, width_, height_, texel_size);
-       }
+          printf(
+              "# GL error code %d after RunTest() with %dx%d %d-byte "
+              "texture.\n",
+              error, width_, height_, texel_size);
+        }
       }
     }
   }
@@ -128,4 +155,4 @@ bool TextureTest::Run() {
   return true;
 }
 
-} // namespace glbench
+}  // namespace glbench

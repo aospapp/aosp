@@ -31,13 +31,6 @@ public interface ProvisioningManagerCallback {
     void error(int dialogTitleId, int errorMessageId, boolean factoryResetRequired);
 
     /**
-     * Method called to indicate a progress update in the provisioning process.
-     *
-     * @param progressMessageId resource id of the progress message to be displayed to the user.
-     */
-    void progressUpdate(int progressMessageId);
-
-    /**
      * Method called to indicate that pre-finalization has completed.
      */
     void preFinalizationCompleted();

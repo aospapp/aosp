@@ -8,6 +8,7 @@ TARGET_NAME = google_x86_googletest
 TARGET_CFLAGS = -DCHRE_MESSAGE_TO_HOST_MAX_SIZE=2048
 TARGET_VARIANT_SRCS = $(GOOGLE_X86_GOOGLETEST_SRCS)
 TARGET_VARIANT_SRCS += $(GOOGLETEST_SRCS)
+TARGET_PLATFORM_ID = 0x476f6f676c000001
 
 TARGET_CFLAGS += $(SIM_CFLAGS)
 TARGET_VARIANT_SRCS += $(SIM_SRCS)
@@ -18,6 +19,10 @@ TARGET_CFLAGS += -DGTEST
 # Ignore sign comparison warnings triggered by EXPECT/ASSERT macros in tests
 # (typically, unsigned value vs. implicitly signed literal)
 TARGET_CFLAGS += -Wno-sign-compare
+
+# Ignore missing field initializers as googletest will not compile with this
+# warning enabled.
+TARGET_CFLAGS += -Wno-missing-field-initializers
 
 TARGET_SO_LATE_LIBS = $(GOOGLE_X86_GOOGLETEST_LATE_LIBS)
 

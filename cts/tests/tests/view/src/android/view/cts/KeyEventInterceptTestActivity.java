@@ -19,21 +19,14 @@ package android.view.cts;
 import android.app.Activity;
 import android.view.KeyEvent;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class KeyEventInterceptTestActivity extends Activity {
-    final BlockingQueue<KeyEvent> mKeyEvents = new LinkedBlockingDeque<>();
+    final Queue<KeyEvent> mKeyEvents = new LinkedList<>();
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        mKeyEvents.add(event);
-        return true;
-    }
-
-    @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
-        // Check this in case some spurious event with ACTION_UP is received
+    public boolean dispatchKeyEvent(KeyEvent event) {
         mKeyEvents.add(event);
         return true;
     }

@@ -17,6 +17,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.app.usage.cts" android:targetSandboxVersion="2">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <!-- We can't have the test framework turn off the keyguard, because that will
          prevent us from testing interactions with it.
@@ -33,15 +34,27 @@
             android:networkSecurityConfig="@xml/network_security_config">
         <uses-library android:name="android.test.runner"/>
 
-        <activity android:name=".Activities$ActivityOne" />
-        <activity android:name=".Activities$ActivityTwo" />
-        <activity android:name=".Activities$ActivityThree" />
+        <activity android:name=".Activities$ActivityOne"
+                  android:resizeableActivity="true"
+                  android:supportsPictureInPicture="true"
+                  android:exported="true"
+        />
+        <activity android:name=".Activities$ActivityTwo"
+                  android:resizeableActivity="true"
+                  android:supportsPictureInPicture="true"
+                  android:exported="true"
+        />
+        <activity android:name=".Activities$ActivityThree"/>
         <activity android:name=".Activities$ActivityFour" />
         <activity android:name=".ActivityTransitionActivity" />
+        <activity android:name=".ActivityTransitionActivity2"
+            android:taskAffinity="android.app.usage.cts.other_task"/>
         <activity android:name=".FragmentTestActivity" />
+        <activity android:name=".TaskRootActivity" />
+        <service android:name=".TestService" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.app.usage.cts"
                      android:label="CTS tests of android.app.usage">
         <meta-data android:name="listener"

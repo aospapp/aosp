@@ -19,33 +19,27 @@ import org.gradle.internal.os.OperatingSystem
 buildscript {
     repositories {
         maven { url '../../prebuilts/gradle-plugin' }
-        maven { url '../../prebuilts/tools/common/m2/repository' }
-        maven { url '../../prebuilts/tools/common/m2/internal' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.0'
+        classpath 'com.android.tools.build:gradle:3.0.1'
     }
 }
 
 apply from: 'version.gradle'
 
-final String platform = OperatingSystem.current().isMacOsX() ? 'darwin' : 'linux'
-System.setProperty('android.dir', "${rootDir}/../../")
-final String fullSdkPath = "${rootDir}/../../prebuilts/fullsdk-${platform}"
-if (file(fullSdkPath).exists()) {
-    gradle.ext.currentSdk = 26
-    ext.buildToolsVersion = '26.0.0'
-    project.ext.androidJar = files("${fullSdkPath}/platforms/android-${gradle.currentSdk}/android.jar")
-    System.setProperty('android.home', "${rootDir}/../../prebuilts/fullsdk-${platform}")
-    File props = file("local.properties")
-    props.write "sdk.dir=${fullSdkPath}"
-} else {
-    gradle.ext.currentSdk = 'current'
-    ext.buildToolsVersion = '26.0.0'
-    project.ext.androidJar = files("${project.rootDir}/../../prebuilts/sdk/current/android.jar")
-    File props = file("local.properties")
-    props.write "android.dir=../../"
+String platform = OperatingSystem.current().isMacOsX() ? 'darwin' : 'linux'
+File fullSdkPath = file("${rootDir}/../../prebuilts/fullsdk-${platform}")
+if (!fullSdkPath.exists()) {
+    throw GradleException("missing fullsdk")
 }
+
+gradle.ext.currentSdk = 28
+ext.buildToolsVersion = '27.0.3'
+project.ext.fullSdkPath = fullSdkPath
+project.ext.androidJar = files("${fullSdkPath}/platforms/android-${gradle.currentSdk}/android.jar")
+
+File props = file("local.properties")
+props.write "sdk.dir=${fullSdkPath.getAbsolutePath()}"
 
 /*
  * With the build server you are given two env variables.

@@ -21,16 +21,18 @@ import static com.android.cts.mockime.ImeEventStreamTestUtils.expectBindInput;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 
 import android.os.Process;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.InputType;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.SearchView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.cts.mockime.ImeEventStream;
@@ -48,7 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class SearchViewTest extends EndToEndImeTestBase {
     static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
 
-    public SearchView launchTestActivity() {
+    public SearchView launchTestActivity(boolean requestFocus) {
         final AtomicReference<SearchView> searchViewRef = new AtomicReference<>();
         TestActivity.startSync(activity -> {
             final LinearLayout layout = new LinearLayout(activity);
@@ -64,6 +66,9 @@ public class SearchViewTest extends EndToEndImeTestBase {
             searchView.setIconifiedByDefault(false);
             searchView.setInputType(InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
             searchView.setImeOptions(EditorInfo.IME_ACTION_DONE);
+            if (requestFocus) {
+                searchView.requestFocus();
+            }
 
             layout.addView(initialFocusedEditText);
             layout.addView(searchView);
@@ -80,11 +85,11 @@ public class SearchViewTest extends EndToEndImeTestBase {
                 new ImeSettings.Builder())) {
             final ImeEventStream stream = imeSession.openEventStream();
 
-            final SearchView searchView = launchTestActivity();
+            final SearchView searchView = launchTestActivity(false /* requestFocus */);
 
             // Emulate tap event on SearchView
             CtsTouchUtils.emulateTapOnViewCenter(
-                    InstrumentationRegistry.getInstrumentation(), searchView);
+                    InstrumentationRegistry.getInstrumentation(), null, searchView);
 
             // Expect input to bind since EditText is focused.
             expectBindInput(stream, Process.myPid(), TIMEOUT);
@@ -99,6 +104,32 @@ public class SearchViewTest extends EndToEndImeTestBase {
             InstrumentationRegistry.getInstrumentation().runOnMainSync(
                     () -> searchView.setQuery("test", true /* submit */));
             expectEvent(stream, event -> "hideSoftInput".equals(event.getEventName()), TIMEOUT);
+        }
+    }
+
+    @Test
+    public void testShowImeWithSearchViewFocus() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            final SearchView searchView = launchTestActivity(true /* requestFocus */);
+
+            // Expect input to bind since checkInputConnectionProxy() returns true.
+            expectBindInput(stream, Process.myPid(), TIMEOUT);
+
+            InstrumentationRegistry.getInstrumentation()
+                    .getTargetContext().getSystemService(InputMethodManager.class)
+                    .showSoftInput(searchView, 0);
+
+            // Wait until "showSoftInput" gets called on searchView's inner editor
+            // (SearchAutoComplete) with real InputConnection.
+            expectEvent(stream, event ->
+                    "showSoftInput".equals(event.getEventName())
+                            && !event.getExitState().hasDummyInputConnection(),
+                    CHECK_EXIT_EVENT_ONLY, TIMEOUT);
         }
     }
 }

@@ -48,13 +48,14 @@ cc_defaults {
 // Library for the device
 cc_library {
     name: "libdrm",
+    recovery_available: true,
     vendor_available: true,
     defaults: [
         "libdrm_defaults",
         "libdrm_sources",
     ],
 
-    export_include_dirs: ["include/drm"],
+    export_include_dirs: ["include/drm", "android"],
 
     cflags: [
         "-Wno-enum-conversion",

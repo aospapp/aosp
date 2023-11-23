@@ -20,10 +20,11 @@ import android.content.ClipData;
 import android.net.Uri;
 import android.util.Pair;
 
+import androidx.recyclerview.selection.Selection;
+
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.clipping.DocumentClipper;
-import com.android.documentsui.selection.Selection;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperations.Callback;
@@ -49,8 +50,8 @@ public class TestDocumentClipper implements DocumentClipper {
     }
 
     @Override
-    public ClipData getClipDataForDocuments(Function<String, Uri> uriBuilder, Selection selection,
-            int opType) {
+    public ClipData getClipDataForDocuments(
+            Function<String, Uri> uriBuilder, Selection<String> selection, int opType) {
         return nextClip;
     }
 
@@ -67,11 +68,11 @@ public class TestDocumentClipper implements DocumentClipper {
     }
 
     @Override
-    public void clipDocumentsForCopy(Function<String, Uri> uriBuilder, Selection selection) {
+    public void clipDocumentsForCopy(Function<String, Uri> uriBuilder, Selection<String> selection) {
     }
 
     @Override
-    public void clipDocumentsForCut(Function<String, Uri> uriBuilder, Selection selection,
+    public void clipDocumentsForCut(Function<String, Uri> uriBuilder, Selection<String> selection,
             DocumentInfo parent) {
         List<Uri> uris = new ArrayList<>(selection.size());
         for (String id : selection) {

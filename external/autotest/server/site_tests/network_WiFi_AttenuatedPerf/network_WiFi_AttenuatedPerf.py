@@ -61,6 +61,7 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
 
 
     def run_once(self):
+        """Run test."""
         start_time = time.time()
         throughput_data = []
         max_atten = None
@@ -100,20 +101,23 @@ class network_WiFi_AttenuatedPerf(wifi_cell_test_base.WiFiCellTestBase):
             for config in self.NETPERF_CONFIGS:
                 results = session.run(config)
                 if not results:
-                    logging.warning('Unable to take measurement for %s; aborting',
-                                    config.human_readable_tag)
+                    logging.warning('Unable to take measurement for %s; '
+                                    'aborting', config.human_readable_tag)
                     break
                 graph_name = '.'.join(
                         [self._ap_config.perf_loggable_description, config.tag])
                 values = [result.throughput for result in results]
+                # If no signal is detected with client.wifi_signal_level, set
+                # signal_level to -100 to indicate weak signal.
+                signal_level = (self.context.client.wifi_signal_level if
+                        self.context.client.wifi_signal_level else -100)
                 self.output_perf_value(atten_tag, values, units='Mbps',
                                        higher_is_better=True, graph=graph_name)
                 self.output_perf_value('_'.join([atten_tag, 'signal']),
-                                       self.context.client.wifi_signal_level,
+                                       signal_level,
                                        units='dBm', higher_is_better=True,
                                        graph=graph_name)
                 result = netperf_runner.NetperfResult.from_samples(results)
-                signal_level = self.context.client.wifi_signal_level
                 throughput_data.append(self.DataPoint(
                         atten,
                         result.throughput,

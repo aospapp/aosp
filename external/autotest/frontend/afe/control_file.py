@@ -11,7 +11,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.frontend.afe import model_logic
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
-from autotest_lib.server.cros.dynamic_suite import suite as SuiteBase
+from autotest_lib.server.cros.dynamic_suite import suite_common
 import frontend.settings
 
 AUTOTEST_DIR = os.path.abspath(os.path.join(
@@ -216,12 +216,12 @@ def _get_test_control_files_by_build(tests, build, ignore_invalid_tests=False):
         return raw_control_files
 
     cfile_getter = _initialize_control_file_getter(build)
-    if SuiteBase.ENABLE_CONTROLS_IN_BATCH:
+    if suite_common.ENABLE_CONTROLS_IN_BATCH:
         control_file_info_list = cfile_getter.get_suite_info()
 
     for test in tests:
         # Read and parse the control file
-        if SuiteBase.ENABLE_CONTROLS_IN_BATCH:
+        if suite_common.ENABLE_CONTROLS_IN_BATCH:
             control_file = control_file_info_list[test.path]
         else:
             control_file = cfile_getter.get_control_file_contents(

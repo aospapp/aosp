@@ -20,7 +20,7 @@ package com.android.mail.browse;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.support.v7.view.ActionMode;
+import androidx.appcompat.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;

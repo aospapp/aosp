@@ -16,9 +16,9 @@
 
 package com.android.documentsui.bots;
 
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.pressImeActionButton;
-import static android.support.test.espresso.matcher.ViewMatchers.isAssignableFrom;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.pressImeActionButton;
+import static androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom;
 
 import android.content.Context;
 import android.support.test.uiautomator.UiDevice;

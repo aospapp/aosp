@@ -15,23 +15,28 @@
   ~ limitations under the License
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.android.dialer.main.impl">
+    package="com.android.dialer.main.impl">
 
   <application>
 
+    <!-- TODO(a bug): remove activity themes and only have application wide themes -->
+    <!-- The entrance point for Phone UI.
+         stateAlwaysHidden is set to suppress keyboard show up on dialpad screen. -->
     <activity
-      android:clearTaskOnLaunch="true"
-      android:directBootAware="true"
-      android:enabled="false"
-      android:exported="true"
-      android:icon="@drawable/nui_launcher_icon"
-      android:label="@string/main_activity_label"
-      android:launchMode="singleTask"
-      android:name="com.android.dialer.main.impl.MainActivity"
-      android:resizeableActivity="true"
-      android:theme="@style/NuiActivityTheme"
-      android:windowSoftInputMode="stateAlwaysHidden|adjustNothing">
+        android:name="com.android.dialer.main.impl.MainActivity"
+        android:clearTaskOnLaunch="true"
+        android:directBootAware="true"
+        android:exported="true"
+        android:label="@string/main_activity_label"
+        android:launchMode="singleTask"
+        android:resizeableActivity="true"
+        android:theme="@style/MainActivityTheme"
+        android:windowSoftInputMode="stateAlwaysHidden|adjustNothing">
 
+      <intent-filter>
+        <action android:name="com.android.dialer.main.impl.MAIN"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
 
       <intent-filter>
         <action android:name="android.intent.action.DIAL"/>
@@ -84,6 +89,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
       </intent-filter>
+
       <!-- This was never intended to be public, but is here for backward
            compatibility.  Use Intent.ACTION_DIAL instead. -->
       <intent-filter>
@@ -92,19 +98,27 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.TAB"/>
       </intent-filter>
-      <intent-filter android:label="@string/main_call_history_tab_description">
+      <intent-filter>
         <action android:name="com.android.phone.action.RECENT_CALLS"/>
 
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.TAB"/>
       </intent-filter>
 
-
       <meta-data
-        android:name="com.android.keyguard.layout"
-        android:resource="@layout/keyguard_preview"/>
+          android:name="com.android.keyguard.layout"
+          android:resource="@layout/keyguard_preview"/>
+
     </activity>
 
-  </application>
+    <!-- This is the historical name of the "main" activity and is kept as an alias for backwards
+         compatibility in case older apps refer to the activity in this way. -->
 
+    <!--  {@deprecated Use .MainActivity instead.} -->
+    <activity-alias
+        android:name="com.android.dialer.app.DialtactsActivity"
+        android:exported="true"
+        android:targetActivity=".MainActivity"/>
+
+  </application>
 </manifest>

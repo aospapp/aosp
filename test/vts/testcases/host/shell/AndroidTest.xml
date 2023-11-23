@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for VTS HAL shell test cases">
+    <option name="config-descriptor:metadata" key="plan" value="vts-host" />
     <option name="config-descriptor:metadata" key="plan" value="vts-misc" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />

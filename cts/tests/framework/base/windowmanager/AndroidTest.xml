@@ -16,6 +16,8 @@
 <configuration description="Config for CTS WindowManager test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework"/>
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
@@ -24,6 +26,17 @@
         <option name="test-file-name" value="CtsDragAndDropTargetApp.apk"/>
         <option name="test-file-name" value="CtsDeviceAlertWindowTestApp.apk"/>
         <option name="test-file-name" value="CtsAlertWindowService.apk"/>
+        <option name="test-file-name" value="CtsDeviceServicesTestApp.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestApp27.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestSecondApp.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestThirdApp.apk" />
+        <option name="test-file-name" value="CtsDeviceDeprecatedSdkApp.apk" />
+        <option name="test-file-name" value="CtsDeviceDisplaySizeApp.apk" />
+        <option name="test-file-name" value="CtsDevicePrereleaseSdkApp.apk" />
+        <option name="test-file-name" value="CtsDeviceProfileableApp.apk" />
+        <option name="test-file-name" value="CtsDeviceTranslucentTestApp.apk" />
+        <option name="test-file-name" value="CtsDeviceTranslucentTestApp26.apk" />
+        <option name="test-file-name" value="CtsMockInputMethod.apk" />
     </target_preparer>
     <!-- Some older apk cannot be installed as instant, so we force them full mode -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -33,8 +46,14 @@
         <option name="test-file-name" value="CtsDeviceAlertWindowTestAppSdk25.apk"/>
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
-        <option name="package" value="android.server.cts.wm"/>
-        <option name="runtime-hint" value="8m"/>
+        <option name="package" value="android.server.wm.cts"/>
+        <option name="runtime-hint" value="1h"/>
     </test>
+
+    <!-- Collect the files from DumpOnFailure. -->
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/DumpOnFailure" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 
 </configuration>

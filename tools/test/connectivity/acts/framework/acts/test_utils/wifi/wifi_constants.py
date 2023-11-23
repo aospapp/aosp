@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -20,6 +20,13 @@ WIFI_DISCONNECTED = "WifiNetworkDisconnected"
 SUPPLICANT_CON_CHANGED = "SupplicantConnectionChanged"
 WIFI_STATE_CHANGED = "WifiStateChanged"
 WIFI_FORGET_NW_SUCCESS = "WifiManagerForgetNetworkOnSuccess"
+WIFI_NETWORK_REQUEST_MATCH_CB_ON_MATCH = "WifiManagerNetworkRequestMatchCallbackOnMatch"
+WIFI_NETWORK_REQUEST_MATCH_CB_ON_CONNECT_SUCCESS = "WifiManagerNetworkRequestMatchCallbackOnUserSelectionConnectSuccess"
+WIFI_NETWORK_REQUEST_MATCH_CB_ON_CONNECT_FAILURE = "WifiManagerNetworkRequestMatchCallbackOnUserSelectionConnectFailure"
+WIFI_NETWORK_CB_ON_AVAILABLE = "WifiManagerNetworkCallbackOnAvailable"
+WIFI_NETWORK_CB_ON_UNAVAILABLE = "WifiManagerNetworkCallbackOnUnavailable"
+WIFI_NETWORK_CB_ON_LOST = "WifiManagerNetworkCallbackOnLost"
+WIFI_NETWORK_SUGGESTION_POST_CONNECTION = "WifiNetworkSuggestionPostConnection"
 
 # These constants will be used by the ACTS wifi tests.
 CONNECT_BY_CONFIG_SUCCESS = 'WifiManagerConnectByConfigOnSuccess'
@@ -29,3 +36,11 @@ CONNECT_BY_NETID_SUCCESS = 'WifiManagerConnectByNetIdOnSuccess'
 AP_MAIN = "main_AP"
 AP_AUX = "aux_AP"
 SSID = "SSID"
+
+# cnss_diag property related constants
+DEVICES_USING_LEGACY_PROP = ["sailfish", "marlin", "walleye", "taimen", "muskie"]
+CNSS_DIAG_PROP = "persist.vendor.sys.cnss.diag_txt"
+LEGACY_CNSS_DIAG_PROP = "persist.sys.cnss.diag_txt"
+
+# Delay before registering the match callback.
+NETWORK_REQUEST_CB_REGISTER_DELAY_SEC = 2

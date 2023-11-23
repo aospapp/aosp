@@ -24,15 +24,14 @@ import static org.robolectric.shadow.api.Shadow.extract;
 
 import android.os.UserManager;
 import android.provider.Settings;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
 import com.android.tv.settings.testutils.ShadowInputMethodManager;
-import com.android.tv.settings.testutils.ShadowUserManager;
 import com.android.tv.settings.testutils.TvShadowActivityThread;
 import com.android.tv.settings.testutils.Utils;
 
@@ -42,15 +41,13 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowSettings;
+import org.robolectric.shadows.ShadowUserManager;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
-@Config(shadows = {
-        ShadowUserManager.class,
-        TvShadowActivityThread.class,
-        ShadowInputMethodManager.class})
+@RunWith(RobolectricTestRunner.class)
+@Config(shadows = {TvShadowActivityThread.class, ShadowInputMethodManager.class})
 public class KeyboardFragmentTest {
     @Spy
     private KeyboardFragment mKeyboardFragment;
@@ -102,7 +99,6 @@ public class KeyboardFragmentTest {
 
     @Test
     public void testUpdateAutofillSettings_noCandiate() {
-
         mKeyboardFragment.updateUi();
 
         verify(mPreferenceScreen, atLeastOnce()).setTitle(R.string.system_keyboard);
@@ -117,10 +113,9 @@ public class KeyboardFragmentTest {
 
     @Test
     public void testUpdateAutofillSettings_selected() {
-
         Utils.addAutofill("com.test.AutofillPackage", "com.test.AutofillPackage.MyService");
 
-        ShadowSettings.ShadowGlobal.putString(mKeyboardFragment.getContext().getContentResolver(),
+        Settings.Secure.putString(mKeyboardFragment.getContext().getContentResolver(),
                 Settings.Secure.AUTOFILL_SERVICE,
                 "com.test.AutofillPackage/com.test.AutofillPackage.MyService");
 
@@ -141,10 +136,9 @@ public class KeyboardFragmentTest {
 
     @Test
     public void testUpdateAutofillSettings_selectedNone() {
-
         Utils.addAutofill("com.test.AutofillPackage", "com.test.AutofillPackage.MyService");
 
-        ShadowSettings.ShadowGlobal.putString(mKeyboardFragment.getContext().getContentResolver(),
+        Settings.Secure.putString(mKeyboardFragment.getContext().getContentResolver(),
                 Settings.Secure.AUTOFILL_SERVICE, null);
 
         mKeyboardFragment.updateUi();

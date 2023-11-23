@@ -5,14 +5,10 @@ Malloc debug is a method of debugging native memory problems. It can help
 detect memory corruption, memory leaks, and use after free issues.
 
 This documentation describes how to enable this feature on Android N or later
-versions of the Android OS.
+versions of the Android OS. (See the "Examples" section.)
 
 The documentation for malloc debug on older versions of Android is
 [here](README_marshmallow_and_earlier.md).
-
-In order to enable malloc debug, you must be able to set special system
-properties using the setprop command from the shell. This requires the
-ability to run as root on the device.
 
 When malloc debug is enabled, it works by adding a shim layer that replaces
 the normal allocation calls. The replaced calls are:
@@ -154,8 +150,8 @@ The file location can be changed by setting the backtrace\_dump\_prefix
 option.
 
 ### backtrace\_dump\_prefix
-As of P, when the backtrace options has been enabled, this sets the prefix
-used for dumping files when the signal SIGRTMAX - 17 is received or when
+As of P, when one of the backtrace options has been enabled, this sets the
+prefix used for dumping files when the signal SIGRTMAX - 17 is received or when
 the program exits and backtrace\_dump\_on\_exit is set.
 
 The default is /data/local/tmp/backtrace\_heap.
@@ -163,6 +159,11 @@ The default is /data/local/tmp/backtrace\_heap.
 When this value is changed from the default, then the filename chosen
 on the signal will be backtrace\_dump\_prefix.**PID**.txt. The filename chosen
 when the program exits will be backtrace\_dump\_prefix.**PID**.exit.txt.
+
+### backtrace\_full
+As of Q, any time that a backtrace is gathered, a different algorithm is used
+that is extra thorough and can unwind through Java frames. This will run
+slower than the normal backtracing function.
 
 ### fill\_on\_alloc[=MAX\_FILLED\_BYTES]
 Any allocation routine, other than calloc, will result in the allocation being
@@ -393,6 +394,28 @@ malloc\_usable\_size, realloc.
 
 **NOTE**: This option is not available until the P release of Android.
 
+### abort\_on\_error
+When malloc debug detects an error, abort after sending the error
+log message.
+
+**NOTE**: If leak\_track is enabled, no abort occurs if leaks have been
+detected when the process is exiting.
+
+### verbose
+As of Android Q, all info messages will be turned off by default. For example,
+in Android P and older, enabling malloc debug would result in this message
+in the log:
+
+    08-16 15:54:16.060 26947 26947 I libc    : /system/bin/app_process64: malloc debug enabled
+
+In android Q, this message will not be displayed because these info messages
+slow down process start up. However, if you want to re-enable these messages,
+add the verbose option. All of the "Run XXX" messages are also silenced unless
+the verbose option is specified. This is an example of the type
+of messages that are no longer displayed:
+
+    09-10 01:03:50.070   557   557 I malloc_debug: /system/bin/audioserver: Run: 'kill -47 557' to dump the backtrace.
+
 Additional Errors
 -----------------
 There are a few other error messages that might appear in the log.
@@ -494,7 +517,64 @@ The final section is the map data for the process:
 The map data is simply the output of /proc/PID/maps. This data can be used to
 decode the frames in the backtraces.
 
-There is a tool to visualize this data, development/scripts/native\_heapdump\_viewer.py.
+There are now multiple versions of the file:
+
+Android P produces version v1.1 of the heap dump.
+
+    Android Native Heap Dump v1.1
+
+The only difference between v1.0 and v1.1 is that the NUM\_ALLOCATIONS
+value is always accurate in v1.1. A previous version of malloc debug set
+NUM\_ALLOCATIONS to an incorrect value. For heap dump v1.0, the
+NUM\_ALLOCATIONS value should be treated as always 1 no matter what is
+actually present.
+
+Android Q introduces v1.2 of the heap dump. The new header looks like this:
+
+    Android Native Heap Dump v1.2
+
+    Build fingerprint: 'google/taimen/taimen:8.1.0/OPM2.171026.006.C1/4769658:user/release-keys'
+
+The new line fingerprint line is the contents of the ro.build.fingerprint
+property.
+
+The new version no longer 0 pads the backtrace addresses. In v1.0/v1.1:
+
+    z 0  sz      400  num    1  bt 0000a230 0000b500
+
+While v1.2:
+
+    z 0  sz      400  num    1  bt a230 b500
+
+In addition, when the new option backtrace\_full is used, another line will
+be added to every backtrace line. The line will be:
+
+      bt_info {"MAP_NAME" RELATIVE_TO_MAP_PC "FUNCTION_NAME" FUNCTION_OFFSET} ...
+
+For each backtrace pc, there will be one element in braces.
+
+MAP\_NAME is the name of the map in which the backtrace pc exists. If there is
+no valid map name, this will be empty.
+RELATIVE\_TO\_MAP\_PC is the hexadecimal value of the relative pc to the map.
+FUNCTION\_NAME the name of the function for this pc. If there is no valid
+function name, then it will be empty.
+FUNCTION\_OFFSET the hexadecimal offset from the beginning of the function. If
+the FUNCTION\_NAME is empty, then this value will always be zero.
+
+An example of this new format:
+
+    z 0  sz      400  num    1  bt a2a0 b510
+      bt_info {"/system/libc.so" 2a0 "abort" 24} {"/system/libutils.so" 510 "" 0}
+
+In this example, the first backtrace frame has a pc of 0xa2a0 and is in the
+map named /system/libc.so which starts at 0xa000. The relative pc is 0x2a0,
+and it is in the function abort + 0x24.
+The second backtrace frame has a pc of 0xb510 and is in the map named
+/system/libutils.so which starts at 0xb000. The relative pc is 0x510 and
+it is in an unknown function.
+
+There is a tool to visualize this data,
+[native\_heapdump\_viewer.py](https://android.googlesource.com/platform/development/+/master/scripts/native_heapdump_viewer.py).
 
 Examples
 ========
@@ -559,14 +639,38 @@ contain any data.
 
 ### For app developers
 
-Enable malloc debug for a specific program/application (Android O or later):
+App developers should check the NDK documentation about
+[wrap.sh](https://developer.android.com/ndk/guides/wrap-script.html)
+for the best way to use malloc debug in Android O or later on non-rooted
+devices.
+
+If you do have a rooted device, you can enable malloc debug for a specific
+program/application (Android O or later):
 
     adb shell setprop wrap.<APP> '"LIBC_DEBUG_MALLOC_OPTIONS=backtrace logwrapper"'
+
+If you need to enable multiple options using this method, then you can set
+them like so:
+
+    adb shell setprop wrap.<APP> '"LIBC_DEBUG_MALLOC_OPTIONS=backtrace\ leak_track\ fill logwrapper"'
 
 For example, to enable malloc debug for the google search box (Android O or later):
 
     adb shell setprop wrap.com.google.android.googlequicksearchbox '"LIBC_DEBUG_MALLOC_OPTIONS=backtrace logwrapper"'
     adb shell am force-stop com.google.android.googlequicksearchbox
+
+If you are setting multiple options and the app does not appear to start
+properly, check the logcat looking for this message
+(`adb logcat -d | grep "malloc debug"`):
+
+    08-16 15:54:16.060 26947 26947 I libc    : /system/bin/app_process64: malloc debug enabled
+
+If you do not see this message, then the wrap property was not set correctly.
+Run:
+
+    adb shell getprop | grep wrap
+
+And verify that any spaces are properly escaped.
 
 NOTE: On pre-O versions of the Android OS, property names had a length limit
 of 32. This meant that to create a wrap property with the name of the app, it
@@ -591,9 +695,8 @@ something like the <code>ndk-stack</code> tool.
 
 ### Analyzing heap dumps
 
-To analyze the data produced by the dumpheap command, run this script:
-
-    development/scripts/native_heapdump_viewer.py
+To analyze the data produced by the dumpheap command, run
+[development/scripts/native\_heapdump\_viewer.py](https://android.googlesource.com/platform/development/+/master/scripts/native_heapdump_viewer.py)
 
 In order for the script to properly symbolize the stacks in the file,
 make sure the script is executed from the tree that built the image.

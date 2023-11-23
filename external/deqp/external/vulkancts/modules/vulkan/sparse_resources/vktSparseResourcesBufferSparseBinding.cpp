@@ -32,10 +32,12 @@
 #include "vkPlatform.hpp"
 #include "vkPrograms.hpp"
 #include "vkMemUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deStringUtil.hpp"
@@ -168,10 +170,23 @@ tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 		{
 			std::vector<VkSparseMemoryBind>	sparseMemoryBinds;
 			const deUint32					numSparseBinds = static_cast<deUint32>(bufferMemRequirement.size / bufferMemRequirement.alignment);
-			const deUint32					memoryType	   = findMatchingMemoryType(instance, physicalDevice, bufferMemRequirement, MemoryRequirement::Any);
+			const deUint32					memoryType	   = findMatchingMemoryType(instance, getPhysicalDevice(secondDeviceID), bufferMemRequirement, MemoryRequirement::Any);
 
 			if (memoryType == NO_MATCH_FOUND)
 				return tcu::TestStatus::fail("No matching memory type found");
+
+			if (firstDeviceID != secondDeviceID)
+			{
+				VkPeerMemoryFeatureFlags	peerMemoryFeatureFlags = (VkPeerMemoryFeatureFlags)0;
+				const deUint32				heapIndex = getHeapIndexForMemoryType(instance, getPhysicalDevice(secondDeviceID), memoryType);
+				deviceInterface.getDeviceGroupPeerMemoryFeatures(getDevice(), heapIndex, firstDeviceID, secondDeviceID, &peerMemoryFeatureFlags);
+
+				if (((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT) == 0) ||
+					((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_COPY_DST_BIT) == 0))
+				{
+					TCU_THROW(NotSupportedError, "Peer memory does not support COPY_SRC and COPY_DST");
+				}
+			}
 
 			{
 				const VkMemoryAllocateInfo allocateInfo =
@@ -249,7 +264,7 @@ tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 
 		deMemcpy(inputBufferAlloc->getHostPtr(), &referenceData[0], m_bufferSize);
 
-		flushMappedMemoryRange(deviceInterface, getDevice(), inputBufferAlloc->getMemory(), inputBufferAlloc->getOffset(), m_bufferSize);
+		flushAlloc(deviceInterface, getDevice(), *inputBufferAlloc);
 
 		{
 			const VkBufferMemoryBarrier inputBufferBarrier
@@ -311,7 +326,7 @@ tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 			waitStageBits, 0, DE_NULL, m_useDeviceGroups, firstDeviceID);
 
 		// Retrieve data from output buffer to host memory
-		invalidateMappedMemoryRange(deviceInterface, getDevice(), outputBufferAlloc->getMemory(), outputBufferAlloc->getOffset(), m_bufferSize);
+		invalidateAlloc(deviceInterface, getDevice(), *outputBufferAlloc);
 
 		const deUint8* outputData = static_cast<const deUint8*>(outputBufferAlloc->getHostPtr());
 

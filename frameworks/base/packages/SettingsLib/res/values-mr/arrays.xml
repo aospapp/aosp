@@ -58,6 +58,11 @@
     <item msgid="3878793616631049349">"केवळ DRM सामग्रीसाठी HDCP तपासणी वापरा"</item>
     <item msgid="45075631231212732">"नेहमी HDCP तपासणी वापरा"</item>
   </string-array>
+  <string-array name="bt_hci_snoop_log_entries">
+    <item msgid="3966341281672645384">"बंद आहे"</item>
+    <item msgid="1969681323976948639">"फिल्टर केलेले सुरू केले"</item>
+    <item msgid="8719029132154020716">"सुरू केले"</item>
+  </string-array>
   <string-array name="bluetooth_avrcp_versions">
     <item msgid="5347678900838034763">"AVRCP 1.4 (डीफॉल्ट)"</item>
     <item msgid="2809759619990248160">"AVRCP 1.3"</item>
@@ -140,9 +145,9 @@
   </string-array>
   <string-array name="bluetooth_audio_active_device_summaries">
     <item msgid="4862957058729193940"></item>
-    <item msgid="6481691720774549651">", अॅक्टिव्ह"</item>
-    <item msgid="8962366465966010158">", अॅक्टिव्ह (मीडिया)"</item>
-    <item msgid="4046665544396189228">", अॅक्टिव्ह (फोन)"</item>
+    <item msgid="6481691720774549651">", अ‍ॅक्टिव्ह"</item>
+    <item msgid="8962366465966010158">", अ‍ॅक्टिव्ह (मीडिया)"</item>
+    <item msgid="4046665544396189228">", अ‍ॅक्टिव्ह (फोन)"</item>
   </string-array>
   <string-array name="select_logd_size_titles">
     <item msgid="8665206199209698501">"बंद"</item>
@@ -253,7 +258,7 @@
     <item msgid="5220695614993094977">"MTP (मीडिया स्‍थानांतरण प्रोटोकॉल)"</item>
     <item msgid="2086000968159047375">"PTP (चित्र स्‍थानांतरण प्रोटोकॉल)"</item>
     <item msgid="7398830860950841822">"RNDIS (USB इथरनेट)"</item>
-    <item msgid="1718924214939774352">"ऑडिओ स्त्रोत"</item>
+    <item msgid="1718924214939774352">"ऑडिओ स्रोत"</item>
     <item msgid="8126315616613006284">"MIDI"</item>
   </string-array>
 </resources>

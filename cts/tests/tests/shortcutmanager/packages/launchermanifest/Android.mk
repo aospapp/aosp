@@ -27,11 +27,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
         $(call all-java-files-under, ../../common/src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 
@@ -57,11 +57,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
         $(call all-java-files-under, ../../common/src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 
@@ -87,11 +87,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../src) \
         $(call all-java-files-under, ../../common/src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 

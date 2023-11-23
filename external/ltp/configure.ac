@@ -13,6 +13,8 @@ AC_CONFIG_FILES([ \
     execltp \
 ])
 
+AM_MAINTAINER_MODE([enable])
+
 AM_CONDITIONAL(CROSS_COMPILATION, test x$cross_compiling = xyes)
 
 AC_CANONICAL_HOST
@@ -34,6 +36,8 @@ AC_CHECK_HEADERS([ \
     ifaddrs.h \
     keyutils.h \
     linux/can.h \
+    linux/dccp.h \
+    linux/cryptouser.h \
     linux/genetlink.h \
     linux/keyctl.h \
     linux/if_packet.h \
@@ -42,6 +46,7 @@ AC_CHECK_HEADERS([ \
     linux/module.h \
     linux/netlink.h \
     mm.h \
+    netinet/sctp.h \
     pthread.h \
     sys/epoll.h \
     sys/fanotify.h \
@@ -83,6 +88,14 @@ else
     AC_SUBST([WITH_EXPECT],["no"])
 fi
 
+# Numa
+AC_ARG_WITH([numa],
+  AC_HELP_STRING([--without-numa],
+    [without numa support (default=no)]),
+  [with_numa=no],
+  [with_numa=yes]
+)
+
 # Perl
 AC_ARG_WITH([perl],
   [AC_HELP_STRING([--with-perl],
@@ -108,6 +121,14 @@ if test "x$with_python" = xyes; then
 else
     AC_SUBST([WITH_PYTHON],["no"])
 fi
+
+# TI RPC
+AC_ARG_WITH([tirpc],
+  AC_HELP_STRING([--without-tirpc],
+    [without libtirpc support (default=no)]),
+  [with_tirpc=no],
+  [with_tirpc=yes]
+)
 # END tools knobs
 
 # Testsuites knobs
@@ -157,7 +178,6 @@ LTP_CHECK_SELINUX
 LTP_CHECK_SIGNAL
 LTP_CHECK_SYSCALL_EVENTFD
 LTP_CHECK_SYSCALL_MODIFY_LDT
-LTP_CHECK_SYSCALL_NUMA
 LTP_CHECK_SYSCALL_QUOTACTL
 LTP_CHECK_SYSCALL_SIGNALFD
 LTP_CHECK_SYSCALL_UNSHARE
@@ -177,12 +197,16 @@ LTP_CHECK_FSTATAT
 LTP_CHECK_MKNODAT
 LTP_CHECK_READLINKAT
 LTP_CHECK_OPENAT
+LTP_CHECK_EXECVEAT
 LTP_CHECK_RENAMEAT
 LTP_CHECK_RENAMEAT2
+LTP_CHECK_STATX
 LTP_CHECK_FALLOCATE
 LTP_CHECK_SYSCALL_FCNTL
 LTP_CHECK_SYSCALL_PERF_EVENT_OPEN
+if test "x$with_tirpc" = xyes; then
 LTP_CHECK_TIRPC
+fi
 LTP_CHECK_TEE
 LTP_CHECK_SPLICE
 LTP_CHECK_VMSPLICE
@@ -194,6 +218,8 @@ LTP_CHECK_KCMP
 LTP_CHECK_KCMP_TYPE
 LTP_CHECK_PREADV
 LTP_CHECK_PWRITEV
+LTP_CHECK_PREADV2
+LTP_CHECK_PWRITEV2
 LTP_CHECK_EPOLL_PWAIT
 LTP_CHECK_KEYUTILS_SUPPORT
 LTP_CHECK_SYNC_ADD_AND_FETCH
@@ -203,6 +229,17 @@ LTP_CHECK_UNAME_DOMAINNAME
 LTP_CHECK_X_TABLES
 LTP_CHECK_ATOMIC_MEMORY_MODEL
 LTP_CHECK_TPACKET_V3
+LTP_CHECK_RLIMIT64
 LTP_DETECT_HOST_CPU
+LTP_CHECK_PERF_EVENT
+LTP_CHECK_SYNCFS
+
+if test "x$with_numa" = xyes; then
+	LTP_CHECK_SYSCALL_NUMA
+	numa_error_msg="test requires libnuma >= 2 and it's development packages"
+else
+	numa_error_msg="NUMA support was disabled during build"
+fi
+AC_DEFINE_UNQUOTED(NUMA_ERROR_MSG, ["$numa_error_msg"], [Error message when no NUMA support])
 
 AC_OUTPUT

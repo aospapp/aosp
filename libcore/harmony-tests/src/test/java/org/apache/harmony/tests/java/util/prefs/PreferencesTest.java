@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
-import java.net.MalformedURLException;
 import java.nio.charset.StandardCharsets;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
@@ -32,7 +31,8 @@ import java.util.prefs.PreferenceChangeListener;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
+
+import libcore.testing.io.TestIoUtils;
 
 /**
  *
@@ -55,7 +55,7 @@ public class PreferencesTest extends TestCase {
 
     @Override
     protected void setUp() throws Exception {
-        backendDir = IoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
+        backendDir = TestIoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new AbstractPreferencesTest.TestPreferencesFactory(backendDir.getAbsolutePath()));
 

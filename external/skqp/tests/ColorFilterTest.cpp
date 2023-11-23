@@ -6,15 +6,17 @@
  */
 
 #include "SkAutoMalloc.h"
+#include "SkBlendMode.h"
 #include "SkColor.h"
 #include "SkColorFilter.h"
-#include "SkColorPriv.h"
-#include "SkLumaColorFilter.h"
 #include "SkRandom.h"
 #include "SkReadBuffer.h"
+#include "SkRefCnt.h"
 #include "SkWriteBuffer.h"
-#include "SkRandom.h"
+#include "SkTypes.h"
 #include "Test.h"
+
+class SkFlattenable;
 
 static sk_sp<SkColorFilter> reincarnate_colorfilter(SkFlattenable* obj) {
     SkBinaryWriteBuffer wb;
@@ -42,7 +44,7 @@ static void test_composecolorfilter_limit(skiatest::Reporter* reporter) {
     auto parent(make_filter());
     for (int i = 2; i < way_too_many; ++i) {
         auto filter(make_filter());
-        parent = SkColorFilter::MakeComposeFilter(parent, filter);
+        parent = parent->makeComposed(filter);
         if (nullptr == parent) {
             REPORTER_ASSERT(reporter, i > 2); // we need to have succeeded at least once!
             return;

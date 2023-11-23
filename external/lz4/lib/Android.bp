@@ -7,6 +7,14 @@ cc_library {
         enabled: true,
     },
     host_supported: true,
+    target: {
+        windows: {
+            enabled: true,
+            shared: {
+                enabled: false,
+            },
+        },
+    },
     srcs: [
         "lz4.c",
         "lz4hc.c",

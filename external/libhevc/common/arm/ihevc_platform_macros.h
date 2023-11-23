@@ -71,6 +71,18 @@ static __inline WORD32 CLIP_S12(WORD32 x)
     return x;
 }
 
+static __inline WORD32 CLIP_U14(WORD32 x)
+{
+    asm("usat %0, #14, %1" : "=r"(x) : "r"(x));
+    return x;
+}
+
+static __inline WORD32 CLIP_S14(WORD32 x)
+{
+    asm("ssat %0, #14, %1" : "=r"(x) : "r"(x));
+    return x;
+}
+
 static __inline WORD32 CLIP_U16(WORD32 x)
 {
     asm("usat %0, #16, %1" : "=r"(x) : "r"(x));
@@ -99,6 +111,9 @@ static __inline UWORD32 ITT_BIG_ENDIAN(UWORD32 x)
 #define CLIP_U12(x) CLIP3((x), 0,     4095);
 #define CLIP_S12(x) CLIP3((x), -2048,  2047);
 
+#define CLIP_U14(x) CLIP3((x), 0,     16383);
+#define CLIP_S14(x) CLIP3((x), -8192,  8191);
+
 #define CLIP_U16(x) CLIP3((x), 0,        65535)
 #define CLIP_S16(x) CLIP3((x), -32768,   32767)
 
@@ -123,7 +138,7 @@ static INLINE UWORD32 CLZ(UWORD32 u4_word)
     if(u4_word)
         return (__builtin_clz(u4_word));
     else
-        return 32;
+        return 31;
 }
 
 static INLINE UWORD32 CLZNZ(UWORD32 u4_word)
@@ -197,28 +212,27 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
     }                                                  \
 }
 
-#if 0 /*  Equivalent C code for GETRANGE */
-#define GETRANGE(r,word)    \
-{                           \
-    UWORD32 temp;           \
-    r = 0;                  \
-    temp = (UWORD32)word;   \
-    if(0 == word)           \
-        r = 1;              \
-    else                    \
-    {                       \
-        while(temp)         \
-        {                   \
-            temp >>= 1;     \
-            r++;            \
-        }                   \
-    }\
+
+/**
+*****************************************************************************************************
+*  @brief  returns max number of bits required to represent input unsigned long long word (max 64bits)
+*****************************************************************************************************
+*/
+#define GETRANGE64(r,llword)                             \
+{                                                        \
+    if(llword)                                           \
+    {                                                    \
+        r = 64 - __builtin_clzll(llword);                \
+    }                                                    \
+    else                                                 \
+    {                                                    \
+        r = 1;                                           \
+    }                                                    \
 }
-#endif
 
 
 
-#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = (nop_cnt) ; nop_i > 0 ; nop_i--) asm("nop");}
+#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++) asm("nop");}
 
 
 

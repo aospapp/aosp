@@ -37,6 +37,7 @@ import com.android.tv.perf.EventNames;
 import com.android.tv.perf.PerformanceMonitor;
 import com.android.tv.perf.TimerEvent;
 import com.android.tv.util.TvUriMatcher;
+import com.google.auto.value.AutoValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,8 +48,6 @@ public class LocalSearchProvider extends ContentProvider {
 
     /** The authority for LocalSearchProvider. */
     public static final String AUTHORITY = CommonConstants.BASE_PACKAGE + ".search";
-
-    public static final int PROGRESS_PERCENTAGE_HIDE = -1;
 
     // TODO: Remove this once added to the SearchManager.
     private static final String SUGGEST_COLUMN_PROGRESS_BAR_PERCENTAGE = "progress_bar_percentage";
@@ -223,7 +222,7 @@ public class LocalSearchProvider extends ContentProvider {
     }
 
     /** A placeholder to a search result. */
-    // TODO(b/72052568): Get autovalue to work in aosp master
+    @AutoValue
     public abstract static class SearchResult {
         public static Builder builder() {
             // primitive fields cannot be nullable. Set to default;
@@ -236,7 +235,7 @@ public class LocalSearchProvider extends ContentProvider {
                     .setProgressPercentage(0);
         }
 
-        // TODO(b/72052568): Get autovalue to work in aosp master
+        @AutoValue.Builder
         abstract static class Builder {
             abstract Builder setChannelId(long value);
 

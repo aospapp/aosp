@@ -81,7 +81,7 @@ class TestModuleConfigHandler extends DefaultHandler {
             }
             if (null != mTestCase) {
                 mTestCase.addOptions(option);
-                if (GTEST_CLASS_TAG.equalsIgnoreCase(option.getName())) {
+                if (MODULE_NAME_TAG.equalsIgnoreCase(option.getName())) {
                     mModuleName = option.getValue();
                 }
             } else if (null != mTargetPreparer) {

@@ -2,6 +2,7 @@ package org.brotli.wrapper.enc;
 
 import static org.junit.Assert.assertEquals;
 
+import org.brotli.integration.BrotliJniTestBase;
 import org.brotli.integration.BundleHelper;
 import org.brotli.wrapper.dec.BrotliInputStream;
 import java.io.ByteArrayInputStream;
@@ -9,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
@@ -20,17 +22,11 @@ import org.junit.runners.AllTests;
 
 /** Tests for {@link org.brotli.wrapper.enc.BrotliEncoderChannel}. */
 @RunWith(AllTests.class)
-public class BrotliEncoderChannelTest {
+public class BrotliEncoderChannelTest extends BrotliJniTestBase {
 
   private enum TestMode {
     WRITE_ALL,
     WRITE_CHUNKS
-  }
-
-  // TODO: remove when Bazel get JNI support.
-  static {
-    System.load(new java.io.File(new java.io.File(System.getProperty("java.library.path")),
-        "liblibjni.so").getAbsolutePath());
   }
 
   private static final int CHUNK_SIZE = 256;
@@ -100,8 +96,8 @@ public class BrotliEncoderChannelTest {
           while (src.hasRemaining()) {
             int limit = Math.min(CHUNK_SIZE, src.remaining());
             ByteBuffer slice = src.slice();
-            slice.limit(limit);
-            src.position(src.position() + limit);
+            ((Buffer) slice).limit(limit);
+            ((Buffer) src).position(src.position() + limit);
             encoder.write(slice);
           }
           break;

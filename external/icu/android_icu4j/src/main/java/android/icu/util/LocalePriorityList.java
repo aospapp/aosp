@@ -192,6 +192,7 @@ public class LocalePriorityList implements Iterable<ULocale> {
 
     /**
      * Class used for building LanguagePriorityLists
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class Builder {
         /**

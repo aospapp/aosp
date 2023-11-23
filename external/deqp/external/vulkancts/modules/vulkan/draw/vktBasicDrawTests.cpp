@@ -26,6 +26,8 @@
 
 #include "vktDrawBaseClass.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkTypeUtil.hpp"
 #include "vktTestGroupUtil.hpp"
 
 #include "deDefs.h"
@@ -338,7 +340,7 @@ void DrawTestInstanceBase::initialize (const DrawParamsBase& data)
 	const ImageCreateInfo targetImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, targetImageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT,
 		vk::VK_IMAGE_TILING_OPTIMAL, vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator());
+	m_colorTargetImage						= Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 	const ImageViewCreateInfo colorTargetViewInfo(m_colorTargetImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 	m_colorTargetView						= vk::createImageView(m_vk, device, &colorTargetViewInfo);
@@ -414,11 +416,7 @@ void DrawTestInstanceBase::initialize (const DrawParamsBase& data)
 	deUint8* ptr = reinterpret_cast<deUint8*>(m_vertexBuffer->getBoundMemory().getHostPtr());
 	deMemcpy(ptr, &(m_data.vertices[0]), static_cast<size_t>(dataSize));
 
-	vk::flushMappedMemoryRange(m_vk,
-							   device,
-							   m_vertexBuffer->getBoundMemory().getMemory(),
-							   m_vertexBuffer->getBoundMemory().getOffset(),
-							   VK_WHOLE_SIZE);
+	vk::flushAlloc(m_vk, device, m_vertexBuffer->getBoundMemory());
 
 	const CmdPoolCreateInfo cmdPoolCreateInfo(queueFamilyIndex);
 	m_cmdPool	= vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -434,19 +432,8 @@ void DrawTestInstanceBase::initPipeline (const vk::VkDevice device)
 
 	const PipelineCreateInfo::ColorBlendState::Attachment vkCbAttachmentState;
 
-	vk::VkViewport viewport;
-	viewport.x				= 0;
-	viewport.y				= 0;
-	viewport.width			= static_cast<float>(WIDTH);
-	viewport.height			= static_cast<float>(HEIGHT);
-	viewport.minDepth		= 0.0f;
-	viewport.maxDepth		= 1.0f;
-
-	vk::VkRect2D scissor;
-	scissor.offset.x		= 0;
-	scissor.offset.y		= 0;
-	scissor.extent.width	= WIDTH;
-	scissor.extent.height	= HEIGHT;
+	vk::VkViewport viewport	= vk::makeViewport(WIDTH, HEIGHT);
+	vk::VkRect2D scissor	= vk::makeRect2D(WIDTH, HEIGHT);
 
 	PipelineCreateInfo pipelineCreateInfo(*m_pipelineLayout, *m_renderPass, 0, 0);
 	pipelineCreateInfo.addShader(PipelineCreateInfo::PipelineShaderStage(*vs, "main", vk::VK_SHADER_STAGE_VERTEX_BIT));
@@ -465,11 +452,11 @@ void DrawTestInstanceBase::initPipeline (const vk::VkDevice device)
 void DrawTestInstanceBase::beginRenderPass (void)
 {
 	const vk::VkClearColorValue clearColor = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-	const CmdBufferBeginInfo beginInfo;
 
-	m_vk.beginCommandBuffer(*m_cmdBuffer, &beginInfo);
+	beginCommandBuffer(m_vk, *m_cmdBuffer, 0u);
 
-	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL);
+	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+								  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	const ImageSubresourceRange subresourceRange(vk::VK_IMAGE_ASPECT_COLOR_BIT);
 	m_vk.cmdClearColorImage(*m_cmdBuffer, m_colorTargetImage->object(),
@@ -487,10 +474,9 @@ void DrawTestInstanceBase::beginRenderPass (void)
 		vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
-	const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
-	const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
+	const vk::VkRect2D renderArea = vk::makeRect2D(WIDTH, HEIGHT);
 
-	m_vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+	vk::beginRenderPass(m_vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, renderArea, tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 }
 
 void DrawTestInstanceBase::generateRefImage (const tcu::PixelBufferAccess& access, const std::vector<tcu::Vec4>& vertices, const std::vector<tcu::Vec4>& colors) const
@@ -656,6 +642,7 @@ tcu::TestStatus DrawTestInstance<DrawParams>::iterate (void)
 {
 	tcu::TestLog			&log				= m_context.getTestContext().getLog();
 	const vk::VkQueue		queue				= m_context.getUniversalQueue();
+	const vk::VkDevice		device				= m_context.getDevice();
 
 	beginRenderPass();
 
@@ -665,22 +652,10 @@ tcu::TestStatus DrawTestInstance<DrawParams>::iterate (void)
 	m_vk.cmdBindVertexBuffers(*m_cmdBuffer, 0, 1, &vertexBuffer, &vertexBufferOffset);
 	m_vk.cmdBindPipeline(*m_cmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipeline);
 	m_vk.cmdDraw(*m_cmdBuffer, m_data.params.vertexCount, m_data.params.instanceCount, m_data.params.firstVertex, m_data.params.firstInstance);
-	m_vk.cmdEndRenderPass(*m_cmdBuffer);
-	m_vk.endCommandBuffer(*m_cmdBuffer);
+	endRenderPass(m_vk, *m_cmdBuffer);
+	endCommandBuffer(m_vk, *m_cmdBuffer);
 
-	vk::VkSubmitInfo	submitInfo =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0,											// deUint32					waitSemaphoreCount;
-		DE_NULL,									// const VkSemaphore*		pWaitSemaphores;
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1,											// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),							// const VkCommandBuffer*	pCommandBuffers;
-		0,											// deUint32					signalSemaphoreCount;
-		DE_NULL										// const VkSemaphore*		pSignalSemaphores;
-	};
-	VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
+	submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 	// Validation
 	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
@@ -695,8 +670,6 @@ tcu::TestStatus DrawTestInstance<DrawParams>::iterate (void)
 		colors.push_back(vertex->color);
 	}
 	generateRefImage(refImage.getAccess(), vertices, colors);
-
-	VK_CHECK(m_vk.queueWaitIdle(queue));
 
 	const vk::VkOffset3D zeroOffset = { 0, 0, 0 };
 	const tcu::ConstPixelBufferAccess renderedFrame = m_colorTargetImage->readSurface(queue, m_context.getDefaultAllocator(),
@@ -789,26 +762,14 @@ tcu::TestStatus DrawTestInstance<DrawIndexedParams>::iterate (void)
 
 	deMemcpy(indexAlloc->getHostPtr(), &(m_data.indexes[0]), bufferSize);
 
-	vk::flushMappedMemoryRange(m_vk, vkDevice, indexAlloc->getMemory(), indexAlloc->getOffset(), bufferSize);
+	vk::flushAlloc(m_vk, vkDevice, *indexAlloc);
 
 	m_vk.cmdBindIndexBuffer(*m_cmdBuffer, *indexBuffer, 0u, m_data.indexType);
 	m_vk.cmdDrawIndexed(*m_cmdBuffer, m_data.params.indexCount, m_data.params.instanceCount, m_data.params.firstIndex, m_data.params.vertexOffset, m_data.params.firstInstance);
-	m_vk.cmdEndRenderPass(*m_cmdBuffer);
-	m_vk.endCommandBuffer(*m_cmdBuffer);
+	endRenderPass(m_vk, *m_cmdBuffer);
+	endCommandBuffer(m_vk, *m_cmdBuffer);
 
-	vk::VkSubmitInfo	submitInfo =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0,											// deUint32					waitSemaphoreCount;
-		DE_NULL,									// const VkSemaphore*		pWaitSemaphores;
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1,											// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),							// const VkCommandBuffer*	pCommandBuffers;
-		0,											// deUint32					signalSemaphoreCount;
-		DE_NULL										// const VkSemaphore*		pSignalSemaphores;
-	};
-	VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
+	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
 	tcu::TextureLevel	refImage	(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
@@ -824,8 +785,6 @@ tcu::TestStatus DrawTestInstance<DrawIndexedParams>::iterate (void)
 		colors.push_back(m_data.vertices[idx].color);
 	}
 	generateRefImage(refImage.getAccess(), vertices, colors);
-
-	VK_CHECK(m_vk.queueWaitIdle(queue));
 
 	const vk::VkOffset3D zeroOffset = { 0, 0, 0 };
 	const tcu::ConstPixelBufferAccess renderedFrame = m_colorTargetImage->readSurface(queue, m_context.getDefaultAllocator(),
@@ -917,7 +876,7 @@ tcu::TestStatus DrawTestInstance<DrawIndirectParams>::iterate (void)
 
 		deMemcpy(indirectAlloc->getHostPtr(), &(m_data.commands[0]), (size_t)indirectInfoSize);
 
-		vk::flushMappedMemoryRange(m_vk, vkDevice, indirectAlloc->getMemory(), indirectAlloc->getOffset(), indirectInfoSize);
+		vk::flushAlloc(m_vk, vkDevice, *indirectAlloc);
 	}
 
 	// If multiDrawIndirect not supported execute single calls
@@ -934,22 +893,10 @@ tcu::TestStatus DrawTestInstance<DrawIndirectParams>::iterate (void)
 		m_vk.cmdDrawIndirect(*m_cmdBuffer, *indirectBuffer, indirectAlloc->getOffset(), (deUint32)m_data.commands.size(), sizeof(vk::VkDrawIndirectCommand));
 	}
 
-	m_vk.cmdEndRenderPass(*m_cmdBuffer);
-	m_vk.endCommandBuffer(*m_cmdBuffer);
+	endRenderPass(m_vk, *m_cmdBuffer);
+	endCommandBuffer(m_vk, *m_cmdBuffer);
 
-	vk::VkSubmitInfo	submitInfo =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0,											// deUint32					waitSemaphoreCount;
-		DE_NULL,									// const VkSemaphore*		pWaitSemaphores;
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1,											// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),							// const VkCommandBuffer*	pCommandBuffers;
-		0,											// deUint32					signalSemaphoreCount;
-		DE_NULL										// const VkSemaphore*		pSignalSemaphores;
-	};
-	VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
+	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
 	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
@@ -970,8 +917,6 @@ tcu::TestStatus DrawTestInstance<DrawIndirectParams>::iterate (void)
 		}
 		generateRefImage(refImage.getAccess(), vertices, colors);
 	}
-
-	VK_CHECK(m_vk.queueWaitIdle(queue));
 
 	const vk::VkOffset3D zeroOffset = { 0, 0, 0 };
 	const tcu::ConstPixelBufferAccess renderedFrame = m_colorTargetImage->readSurface(queue, m_context.getDefaultAllocator(),
@@ -1082,7 +1027,7 @@ tcu::TestStatus DrawTestInstance<DrawIndexedIndirectParams>::iterate (void)
 
 		deMemcpy(indirectAlloc->getHostPtr(), &(m_data.commands[0]), (size_t)indirectInfoSize);
 
-		vk::flushMappedMemoryRange(m_vk, vkDevice, indirectAlloc->getMemory(), indirectAlloc->getOffset(), indirectInfoSize);
+		vk::flushAlloc(m_vk, vkDevice, *indirectAlloc);
 	}
 
 	const deUint32	bufferSize = (deUint32)(m_data.indexes.size() * sizeof(deUint32));
@@ -1110,7 +1055,7 @@ tcu::TestStatus DrawTestInstance<DrawIndexedIndirectParams>::iterate (void)
 
 	deMemcpy(indexAlloc->getHostPtr(), &(m_data.indexes[0]), bufferSize);
 
-	vk::flushMappedMemoryRange(m_vk, vkDevice, indexAlloc->getMemory(), indexAlloc->getOffset(), bufferSize);
+	vk::flushAlloc(m_vk, vkDevice, *indexAlloc);
 
 	m_vk.cmdBindIndexBuffer(*m_cmdBuffer, *indexBuffer, 0u, m_data.indexType);
 
@@ -1128,22 +1073,10 @@ tcu::TestStatus DrawTestInstance<DrawIndexedIndirectParams>::iterate (void)
 		m_vk.cmdDrawIndexedIndirect(*m_cmdBuffer, *indirectBuffer, indirectAlloc->getOffset(), (deUint32)m_data.commands.size(), sizeof(vk::VkDrawIndexedIndirectCommand));
 	}
 
-	m_vk.cmdEndRenderPass(*m_cmdBuffer);
-	m_vk.endCommandBuffer(*m_cmdBuffer);
+	endRenderPass(m_vk, *m_cmdBuffer);
+	endCommandBuffer(m_vk, *m_cmdBuffer);
 
-	vk::VkSubmitInfo	submitInfo =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0,											// deUint32					waitSemaphoreCount;
-		DE_NULL,									// const VkSemaphore*		pWaitSemaphores;
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1,											// deUint32					commandBufferCount;
-		&m_cmdBuffer.get(),							// const VkCommandBuffer*	pCommandBuffers;
-		0,											// deUint32					signalSemaphoreCount;
-		DE_NULL										// const VkSemaphore*		pSignalSemaphores;
-	};
-	VK_CHECK(m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL));
+	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
 	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
@@ -1162,8 +1095,6 @@ tcu::TestStatus DrawTestInstance<DrawIndexedIndirectParams>::iterate (void)
 		}
 		generateRefImage(refImage.getAccess(), vertices, colors);
 	}
-
-	VK_CHECK(m_vk.queueWaitIdle(queue));
 
 	const vk::VkOffset3D zeroOffset = { 0, 0, 0 };
 	const tcu::ConstPixelBufferAccess renderedFrame = m_colorTargetImage->readSurface(queue, m_context.getDefaultAllocator(),

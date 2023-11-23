@@ -17,6 +17,9 @@ class firmware_ECSharedMem(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECSharedMem, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.ec.send_command("chan 0")
@@ -29,6 +32,8 @@ class firmware_ECSharedMem(FirmwareTest):
         super(firmware_ECSharedMem, self).cleanup()
 
     def shared_mem_checker(self):
+        """Return whether there is still EC shared memory available.
+        """
         match = self.ec.send_command_get_output("shmem",
                                                 ["Size:\s+([0-9-]+)\r"])[0]
         shmem_size = int(match[1])
@@ -40,11 +45,15 @@ class firmware_ECSharedMem(FirmwareTest):
         return True
 
     def jump_checker(self):
+        """Check for available EC shared memory after jumping to RW image.
+        """
         self.ec.send_command("sysjump RW")
         time.sleep(self.faft_config.ec_boot_to_console)
         return self.shared_mem_checker()
 
     def run_once(self):
+        """Execute the main body of the test.
+        """
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
 

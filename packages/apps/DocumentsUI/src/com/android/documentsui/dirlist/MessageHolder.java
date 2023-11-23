@@ -16,10 +16,7 @@
 
 package com.android.documentsui.dirlist;
 
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
-
 import android.content.Context;
-import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.widget.Space;
 
@@ -36,7 +33,7 @@ abstract class MessageHolder extends DocumentHolder {
     }
 
     @Override
-    public ItemDetails getItemDetails() {
+    public DocumentItemDetails getItemDetails() {
         return null;
     }
 }

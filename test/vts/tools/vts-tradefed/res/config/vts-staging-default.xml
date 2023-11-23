@@ -31,7 +31,17 @@
     <option name="compatibility:include-filter" value="VtsHalThermalV1_0TargetReplay" />
 
     <!-- for HAL adapter tests -->
-    <option name="compatibility:include-filter" value="VtsHalVibratorV1_1AdapterCtsOsTestCases" />
-    <option name="compatibility:include-filter" value="VtsHalVibratorV1_1AdapterDeviceHealthTests" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
+        <option name="abort-on-push-failure" value="true"/>
+        <option name="push" value="script/target/vts_adapter.sh->/data/local/tmp/vts_adapter.sh"/>
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+        <option name="test-file-name" value="DeviceHealthTests.apk" />
+        <option name="cleanup-apks" value="true" />
+    </target_preparer>
+
+    <option name="compatibility:include-filter" value="VtsHalThermalV1_1Adapter" />
+    <option name="compatibility:include-filter" value="VtsHalUsbV1_2Adapter" />
 
 </configuration>

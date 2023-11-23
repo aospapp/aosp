@@ -19,6 +19,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := \
         com/android/cts/net/hostside/IMyService.aidl \
+        com/android/cts/net/hostside/INetworkCallback.aidl \
         com/android/cts/net/hostside/INetworkStateObserver.aidl \
         com/android/cts/net/hostside/IRemoteSocketFactory.aidl
 LOCAL_MODULE := CtsHostsideNetworkTestsAidl

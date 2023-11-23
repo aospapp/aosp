@@ -24,14 +24,14 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 /**
  * List of Phone-specific settings screens.
@@ -39,6 +39,7 @@ import com.android.settingslib.RestrictedLockUtils;
 public class CdmaOptions {
     private static final String LOG_TAG = "CdmaOptions";
 
+    private CarrierConfigManager mCarrierConfigManager;
     private CdmaSystemSelectListPreference mButtonCdmaSystemSelect;
     private CdmaSubscriptionListPreference mButtonCdmaSubscription;
     private RestrictedPreference mButtonAPNExpand;
@@ -53,18 +54,13 @@ public class CdmaOptions {
 
     private PreferenceFragment mPrefFragment;
     private PreferenceScreen mPrefScreen;
-    private Phone mPhone;
+    private int mSubId;
 
-    // Constructor for CdmaOptionsTest, since PreferenceScreen is final and cannot be mocked
-    @VisibleForTesting
-    public CdmaOptions(Phone phone) {
-        mPhone = phone;
-    }
-
-    public CdmaOptions(PreferenceFragment prefFragment, PreferenceScreen prefScreen, Phone phone) {
+    public CdmaOptions(PreferenceFragment prefFragment, PreferenceScreen prefScreen, int subId) {
         mPrefFragment = prefFragment;
         mPrefScreen = prefScreen;
         mPrefFragment.addPreferencesFromResource(R.xml.cdma_options);
+        mCarrierConfigManager = new CarrierConfigManager(prefFragment.getContext());
 
         // Initialize preferences.
         mButtonCdmaSystemSelect = (CdmaSystemSelectListPreference) mPrefScreen
@@ -75,19 +71,17 @@ public class CdmaOptions {
         mButtonAPNExpand = (RestrictedPreference) mPrefScreen.findPreference(BUTTON_APN_EXPAND_KEY);
         mCategoryAPNExpand = mPrefScreen.findPreference(CATEGORY_APN_EXPAND_KEY);
 
-        update(phone);
+        updateSubscriptionId(subId);
     }
 
-    // Unlike mPrefFragment or mPrefScreen, mPhone may change during lifecycle of CdmaOptions.
-    // For example, a new sim card is inserted. When that happens, we update CdmaOptions with new
-    // phone.
-    protected void update(Phone phone) {
-        mPhone = phone;
+    protected void updateSubscriptionId(int subId) {
+        mSubId = subId;
+        int phoneType = TelephonyManager.from(mPrefFragment.getContext())
+                .createForSubscriptionId(mSubId).getPhoneType();
 
-        PersistableBundle carrierConfig =
-                PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+        PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(mSubId);
         // Some CDMA carriers want the APN settings.
-        boolean addAPNExpand = shouldAddApnExpandPreference(carrierConfig);
+        boolean addAPNExpand = shouldAddApnExpandPreference(phoneType, carrierConfig);
         boolean addCdmaSubscription =
                 deviceSupportsNvAndRuim();
         // Read platform settings for carrier settings
@@ -104,7 +98,8 @@ public class CdmaOptions {
             log("update: addAPNExpand");
             mButtonAPNExpand.setDisabledByAdmin(
                     MobileNetworkSettings.isDpcApnEnforced(mButtonAPNExpand.getContext())
-                            ? RestrictedLockUtils.getDeviceOwner(mButtonAPNExpand.getContext())
+                            ? RestrictedLockUtilsInternal.getDeviceOwner(
+                                    mButtonAPNExpand.getContext())
                             : null);
             mButtonAPNExpand.setOnPreferenceClickListener(
                     new Preference.OnPreferenceClickListener() {
@@ -118,7 +113,7 @@ public class CdmaOptions {
                             final Intent intent = new Intent(Settings.ACTION_APN_SETTINGS);
                             // This will setup the Home and Search affordance
                             intent.putExtra(":settings:show_fragment_as_subsetting", true);
-                            intent.putExtra("sub_id", mPhone.getSubId());
+                            intent.putExtra("sub_id", mSubId);
                             mPrefFragment.startActivity(intent);
                             return true;
                         }
@@ -149,12 +144,9 @@ public class CdmaOptions {
      * carrier config
      */
     @VisibleForTesting
-    public boolean shouldAddApnExpandPreference(PersistableBundle config) {
-        if (mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA
-                && config.getBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL)) {
-            return true;
-        }
-        return false;
+    public static boolean shouldAddApnExpandPreference(int phoneType, PersistableBundle config) {
+        return phoneType == PhoneConstants.PHONE_TYPE_CDMA
+                && config.getBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL);
     }
 
     private boolean deviceSupportsNvAndRuim() {

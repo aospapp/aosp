@@ -12,7 +12,12 @@ import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
 import com.android.cts.verifier.sensors.helpers.SensorTestScreenManipulator;
 
 import android.app.AlarmManager;
+import android.app.IntentService;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -35,6 +40,7 @@ import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.sensorverification.BatchArrivalVerification;
 import android.hardware.cts.helpers.sensorverification.TimestampClockSourceVerification;
+import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
@@ -75,6 +81,11 @@ public class DeviceSuspendTestActivity
             PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
             mDeviceSuspendLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                                                 "DeviceSuspendTestActivity");
+
+            // Launch a foreground service to ensure that the test remains in the foreground and is
+            // able to be woken-up when sensor data is delivered.
+            startForegroundService(new Intent(this, DeviceSuspendTestService.class));
+
             mDeviceSuspendLock.acquire();
             SensorTestLogger logger = getTestLogger();
             logger.logInstructions(R.string.snsr_device_suspend_test_instr);
@@ -93,6 +104,8 @@ public class DeviceSuspendTestActivity
             if (mDeviceSuspendLock != null && mDeviceSuspendLock.isHeld()) {
                 mDeviceSuspendLock.release();
             }
+
+            stopService(new Intent(this, DeviceSuspendTestService.class));
         }
 
         @Override
@@ -121,6 +134,39 @@ public class DeviceSuspendTestActivity
                 }
             }
         };
+
+        public static class DeviceSuspendTestService extends Service {
+            private static final String NOTIFICATION_CHANNEL_ID =
+                    "com.android.cts.verifier.sensors.DeviceSuspendTestActivity.Notification";
+            private static final String NOTIFICATION_CHANNEL_NAME = "Device Suspend Test";
+
+            @Override
+            public IBinder onBind(Intent intent) {
+                return null;
+            }
+
+            @Override
+            public int onStartCommand(Intent intent, int flags, int startId) {
+                NotificationChannel channel = new NotificationChannel(
+                        NOTIFICATION_CHANNEL_ID,
+                        NOTIFICATION_CHANNEL_NAME,
+                        NotificationManager.IMPORTANCE_DEFAULT);
+                NotificationManager notificationManager =
+                        getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(channel);
+                Notification notification =
+                        new Notification.Builder(getApplicationContext(), NOTIFICATION_CHANNEL_ID)
+                        .setContentTitle(getString(R.string.snsr_device_suspend_service_active))
+                        .setContentText(getString(
+                                R.string.snsr_device_suspend_service_notification))
+                        .setSmallIcon(R.drawable.icon)
+                        .setAutoCancel(true)
+                        .build();
+                startForeground(1, notification);
+
+                return START_NOT_STICKY;
+            }
+        }
 
         public String testAPWakeUpWhenReportLatencyExpiresAccel() throws Throwable {
             Sensor wakeUpSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER, true);
@@ -187,18 +233,9 @@ public class DeviceSuspendTestActivity
         }
 
         /**
-         * Verify that each continuous sensor is using the correct
-         * clock source (CLOCK_BOOTTIME) for timestamps.
+         * Verify that the device is able to suspend
          */
-        public String testTimestampClockSource() throws Throwable {
-            String string = null;
-            boolean error_occurred = false;
-            List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
-            if (sensorList == null) {
-                throw new SensorTestStateNotSupportedException(
-                    "Sensors are not available in the system.");
-            }
-
+        public void verifyDeviceCanSuspend() throws Throwable {
             // Make sure clocks are different (i.e. kernel has suspended at least once)
             // so that we can determine if sensors are using correct clocksource timestamp
             final int MAX_SLEEP_ATTEMPTS = 10;
@@ -238,6 +275,22 @@ public class DeviceSuspendTestActivity
                 mDeviceSuspendLock.acquire();
             }
             mAlarmManager.cancel(mPendingIntent);
+        }
+
+        /**
+         * Verify that each continuous sensor is using the correct
+         * clock source (CLOCK_BOOTTIME) for timestamps.
+         */
+        public String testTimestampClockSource() throws Throwable {
+            String string = null;
+            boolean error_occurred = false;
+            List<Sensor> sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+            if (sensorList == null) {
+                throw new SensorTestStateNotSupportedException(
+                    "Sensors are not available in the system.");
+            }
+
+            boolean needToVerifySuspend = true;
 
             for (Sensor sensor : sensorList) {
                 if (sensor.getReportingMode() != Sensor.REPORTING_MODE_CONTINUOUS) {
@@ -248,6 +301,12 @@ public class DeviceSuspendTestActivity
                     Log.i(TAG, "testTimestampClockSource skipping vendor specific sensor: '" + sensor.getName());
                     continue;
                 }
+
+                if (needToVerifySuspend) {
+                    verifyDeviceCanSuspend();
+                    needToVerifySuspend = false;
+                }
+
                 try {
                     string = runVerifySensorTimestampClockbase(sensor, false);
                     if (string != null) {

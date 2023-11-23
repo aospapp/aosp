@@ -91,6 +91,10 @@ public class TouchDelegateTestActivity extends Activity {
             mButtonEvents.add(MotionEvent.obtain(event));
             return TouchDelegateTestActivity.super.onTouchEvent(event);
         });
+        button.setOnHoverListener((v, event) -> {
+            mButtonEvents.add(MotionEvent.obtain(event));
+            return TouchDelegateTestActivity.super.onGenericMotionEvent(event);
+        });
     }
 
     void resetCounters() {

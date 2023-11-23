@@ -69,6 +69,7 @@ BOARD_HOSTAPD_DRIVER := NL80211
 BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 WIFI_DRIVER_FW_PATH_STA := "sta"
 WIFI_DRIVER_FW_PATH_AP  := "ap"
+WIFI_HIDL_FEATURE_DISABLE_AP_MAC_RANDOMIZATION := true
 
 USE_OPENGL_RENDERER := true
 BOARD_USE_LEGACY_UI := true
@@ -83,6 +84,7 @@ BOARD_USERDATAIMAGE_PARTITION_SIZE := 10737418240
 BOARD_PERSISTIMAGE_PARTITION_SIZE := 33554432
 BOARD_PERSISTIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_FLASH_BLOCK_SIZE := 131072 # (BOARD_KERNEL_PAGESIZE * 64)
+BOARD_EXT4_SHARE_DUP_BLOCKS := true
 
 TARGET_USES_ION := true
 TARGET_USES_NEW_ION_API :=true
@@ -90,7 +92,7 @@ ifneq ($(TARGET_USES_AOSP),true)
 TARGET_USES_QCOM_BSP := true
 endif
 
-BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=sailfish user_debug=31 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff loop.max_part=7
+BOARD_KERNEL_CMDLINE += console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=sailfish user_debug=31 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff loop.max_part=7
 
 BOARD_ROOT_EXTRA_FOLDERS := firmware firmware/radio persist
 BOARD_ROOT_EXTRA_SYMLINKS := /vendor/lib/dsp:/dsp
@@ -99,7 +101,10 @@ BOARD_SEPOLICY_DIRS += device/google/marlin/sepolicy
 ifneq ($(filter sailfish sailfishf, $(TARGET_PRODUCT)),)
 BOARD_SEPOLICY_DIRS += device/google/marlin/sepolicy/verizon
 endif
+BOARD_PLAT_PUBLIC_SEPOLICY_DIR := device/google/marlin/sepolicy/public
 BOARD_PLAT_PRIVATE_SEPOLICY_DIR := device/google/marlin/sepolicy/private
+
+TARGET_FS_CONFIG_GEN := device/google/marlin/config.fs
 
 BOARD_EGL_CFG := device/google/marlin/egl.cfg
 
@@ -162,7 +167,8 @@ PROTOBUF_SUPPORTED := false
 
 #Add NON-HLOS files for ota upgrade
 ADD_RADIO_FILES := true
-TARGET_RECOVERY_UI_LIB := librecovery_ui_nanohub
+
+TARGET_RECOVERY_UI_LIB := librecovery_ui_nanohub libbootloader_message libfstab
 
 #Add support for firmare upgrade on 8996
 HAVE_SYNAPTICS_DSX_FW_UPGRADE := true
@@ -196,3 +202,5 @@ DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := device/google/marlin/device_framew
 
 # Exclude serif fonts for saving system.img size.
 EXCLUDE_SERIF_FONTS := true
+
+TARGET_FLATTEN_APEX := true

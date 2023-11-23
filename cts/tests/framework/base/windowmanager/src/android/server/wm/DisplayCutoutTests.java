@@ -24,6 +24,9 @@ import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_M
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -34,21 +37,23 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Insets;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.DisplayCutout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
+
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -59,7 +64,6 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.List;
@@ -71,9 +75,9 @@ import java.util.stream.Collectors;
  * Build/Install/Run:
  *     atest CtsWindowManagerDeviceTestCases:DisplayCutoutTests
  */
-@RunWith(AndroidJUnit4.class)
 @Presubmit
 public class DisplayCutoutTests {
+    static final Rect ZERO_RECT = new Rect();
 
     @Rule
     public final ErrorCollector mErrorCollector = new ErrorCollector();
@@ -82,6 +86,28 @@ public class DisplayCutoutTests {
     public final ActivityTestRule<TestActivity> mDisplayCutoutActivity =
             new ActivityTestRule<>(TestActivity.class, false /* initialTouchMode */,
                     false /* launchActivity */);
+
+    @Test
+    public void testConstructor() {
+        final Insets safeInsets = Insets.of(1, 2, 3, 4);
+        final Rect boundLeft = new Rect(5, 6, 7, 8);
+        final Rect boundTop = new Rect(9, 0, 10, 1);
+        final Rect boundRight = new Rect(2, 3, 4, 5);
+        final Rect boundBottom = new Rect(6, 7, 8, 9);
+
+        final DisplayCutout displayCutout =
+                new DisplayCutout(safeInsets, boundLeft, boundTop, boundRight, boundBottom);
+
+        assertEquals(safeInsets.left, displayCutout.getSafeInsetLeft());
+        assertEquals(safeInsets.top, displayCutout.getSafeInsetTop());
+        assertEquals(safeInsets.right, displayCutout.getSafeInsetRight());
+        assertEquals(safeInsets.bottom, displayCutout.getSafeInsetBottom());
+
+        assertTrue(boundLeft.equals(displayCutout.getBoundingRectLeft()));
+        assertTrue(boundTop.equals(displayCutout.getBoundingRectTop()));
+        assertTrue(boundRight.equals(displayCutout.getBoundingRectRight()));
+        assertTrue(boundBottom.equals(displayCutout.getBoundingRectBottom()));
+    }
 
     @Test
     public void testDisplayCutout_default_portrait() {
@@ -107,7 +133,10 @@ public class DisplayCutoutTests {
     @Test
     public void testDisplayCutout_shortEdges_portrait() {
         runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES, (a, insets, displayCutout, which) -> {
-            // common assertions in runTest are enough.
+            if (which == ROOT) {
+                assertThat("Display.getCutout() must equal view root cutout",
+                        a.getDisplay().getCutout(), equalTo(displayCutout));
+            }
         });
     }
 
@@ -133,11 +162,13 @@ public class DisplayCutoutTests {
 
         if (displayCutout != null) {
             commonAsserts(activity, insets, displayCutout);
+            assertCutoutsAreConsistentWithInsets(displayCutout);
         }
         test.run(activity, insets, displayCutout, ROOT);
 
         if (dispatchedDisplayCutout != null) {
             commonAsserts(activity, dispatchedInsets, dispatchedDisplayCutout);
+            assertCutoutsAreConsistentWithInsets(dispatchedDisplayCutout);
         }
         test.run(activity, dispatchedInsets, dispatchedDisplayCutout, DISPATCHED);
     }
@@ -148,9 +179,29 @@ public class DisplayCutoutTests {
                         + "cutout safe insets",
                 safeInsets(cutout), insetsLessThanOrEqualTo(systemWindowInsets(insets)));
         assertOnlyShortEdgeHasInsets(activity, cutout);
+        assertOnlyShortEdgeHasBounds(activity, insets, cutout);
         assertCutoutsAreWithinSafeInsets(activity, cutout);
         assertBoundsAreNonEmpty(cutout);
         assertAtMostOneCutoutPerEdge(activity, cutout);
+    }
+
+    private void assertCutoutIsConsistentWithInset(String position, int insetSize, Rect bound) {
+        if (insetSize > 0) {
+            assertThat("cutout must have a bound on the " + position, bound,
+                    not(equalTo(ZERO_RECT)));
+        } else {
+            assertThat("cutout  must have no bound on the " + position, bound,
+                    equalTo(ZERO_RECT));
+        }
+    }
+
+    public void assertCutoutsAreConsistentWithInsets(DisplayCutout cutout) {
+        final Rect safeInsets = safeInsets(cutout);
+        assertCutoutIsConsistentWithInset("top", safeInsets.top, cutout.getBoundingRectTop());
+        assertCutoutIsConsistentWithInset("bottom", safeInsets.bottom,
+                cutout.getBoundingRectBottom());
+        assertCutoutIsConsistentWithInset("left", safeInsets.left, cutout.getBoundingRectLeft());
+        assertCutoutIsConsistentWithInset("right", safeInsets.right, cutout.getBoundingRectRight());
     }
 
     private void assertSafeInsetsValid(DisplayCutout displayCutout) {
@@ -196,17 +247,39 @@ public class DisplayCutoutTests {
             DisplayCutout displayCutout) {
         final Point displaySize = new Point();
         runOnMainSync(() -> activity.getDecorView().getDisplay().getRealSize(displaySize));
-        if (displaySize.y > displaySize.x) {  // Portrait display
+        if (displaySize.y > displaySize.x) {
+            // Portrait display
             assertThat("left edge has a cutout despite being long edge",
                     displayCutout.getSafeInsetLeft(), is(0));
             assertThat("right edge has a cutout despite being long edge",
                     displayCutout.getSafeInsetRight(), is(0));
         }
-        if (displaySize.y < displaySize.x) {  // Landscape display
+        if (displaySize.y < displaySize.x) {
+            // Landscape display
             assertThat("top edge has a cutout despite being long edge",
                     displayCutout.getSafeInsetTop(), is(0));
             assertThat("bottom edge has a cutout despite being long edge",
                     displayCutout.getSafeInsetBottom(), is(0));
+        }
+    }
+
+    private void assertOnlyShortEdgeHasBounds(TestActivity activity, WindowInsets insets,
+                                              DisplayCutout cutout) {
+        final Point displaySize = new Point();
+        runOnMainSync(() -> activity.getDecorView().getDisplay().getRealSize(displaySize));
+        if (displaySize.y > displaySize.x) {
+            // Portrait display
+            assertThat("left edge has a cutout despite being long edge",
+                    cutout.getBoundingRectLeft(), is(ZERO_RECT));
+            assertThat("right edge has a cutout despite being long edge",
+                    cutout.getBoundingRectRight(), is(ZERO_RECT));
+        }
+        if (displaySize.y < displaySize.x) {
+            // Landscape display
+            assertThat("top edge has a cutout despite being long edge",
+                    cutout.getBoundingRectTop(), is(ZERO_RECT));
+            assertThat("bottom edge has a cutout despite being long edge",
+                    cutout.getBoundingRectBottom(), is(ZERO_RECT));
         }
     }
 
@@ -278,7 +351,7 @@ public class DisplayCutoutTests {
     }
 
     private void runOnMainSync(Runnable runnable) {
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(runnable);
+        getInstrumentation().runOnMainSync(runnable);
     }
 
     private <T extends Activity> T launchAndWait(ActivityTestRule<T> rule, int cutoutMode) {
@@ -303,10 +376,16 @@ public class DisplayCutoutTests {
             }
             View view = new View(this);
             view.setLayoutParams(new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
-            view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
             view.setOnApplyWindowInsetsListener((v, insets) -> mDispatchedInsets = insets);
             setContentView(view);
+        }
+
+        @Override
+        public void onWindowFocusChanged(boolean hasFocus) {
+            if (hasFocus) {
+                getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            }
         }
 
         View getDecorView() {

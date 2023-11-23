@@ -56,6 +56,11 @@ class DragHost extends AbstractDragHost {
     }
 
     @Override
+    public boolean canHandleDragEvent(View v) {
+        return v instanceof RootItemView;
+    }
+
+    @Override
     public void setDropTargetHighlight(View v, boolean highlight) {
         // SpacerView doesn't have DragListener so this view is guaranteed to be a RootItemView.
         RootItemView itemView = (RootItemView) v;

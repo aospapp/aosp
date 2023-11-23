@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -96,8 +96,7 @@ ModuleExport size_t RegisterINFOImage(void)
   MagickInfo
     *entry;
 
-  entry=AcquireMagickInfo("INFO","INFO",
-    "The image format and characteristics");
+  entry=AcquireMagickInfo("INFO","INFO","The image format and characteristics");
   entry->encoder=(EncodeImageHandler *) WriteINFOImage;
   entry->flags^=CoderBlobSupportFlag;
   (void) RegisterMagickInfo(entry);
@@ -167,6 +166,9 @@ static MagickBooleanType WriteINFOImage(const ImageInfo *image_info,
   MagickOffsetType
     scene;
 
+  size_t
+    imageListLength;
+
   /*
     Open output image file.
   */
@@ -180,6 +182,7 @@ static MagickBooleanType WriteINFOImage(const ImageInfo *image_info,
   if (status == MagickFalse)
     return(status);
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     format=GetImageOption(image_info,"format");
@@ -208,8 +211,7 @@ static MagickBooleanType WriteINFOImage(const ImageInfo *image_info,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

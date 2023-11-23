@@ -13,10 +13,6 @@
 # Keep classes, annotations and members used by Lifecycle. Remove this once aapt2 is enabled
 -keepattributes *Annotation*
 
--keepclassmembers enum android.arch.lifecycle.Lifecycle$Event {
-    <fields>;
-}
-
 -keep class * implements android.arch.lifecycle.LifecycleObserver {
 }
 

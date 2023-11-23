@@ -2,11 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import tempfile
 from autotest_lib.client.bin import test
 from autotest_lib.client.cros import cryptohome
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
 
 
@@ -15,21 +13,18 @@ class login_GaiaLogin(test.test):
     version = 1
 
 
-    def run_once(self, username=None, password=None):
-        if username is None:
-            username = chrome.CAP_USERNAME
-
-        if password is None:
-            with tempfile.NamedTemporaryFile() as cap:
-                file_utils.download_file(chrome.CAP_URL, cap.name)
-                password = cap.read().rstrip()
-
+    def run_once(self, username, password):
+        """Test body."""
+        if not username:
+          raise error.TestFail('User not set.')
         if not password:
           raise error.TestFail('Password not set.')
 
-        with chrome.Chrome(gaia_login=True, username=username,
-                                            password=password) as cr:
-            if not cryptohome.is_vault_mounted(user=chrome.NormalizeEmail(username)):
+        with chrome.Chrome(gaia_login=True,
+                           username=username,
+                           password=password) as cr:
+            if not cryptohome.is_vault_mounted(
+                    user=chrome.NormalizeEmail(username)):
                 raise error.TestFail('Expected to find a mounted vault for %s'
                                      % username)
             tab = cr.browser.tabs.New()

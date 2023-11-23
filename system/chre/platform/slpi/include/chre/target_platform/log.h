@@ -17,15 +17,30 @@
 #ifndef CHRE_PLATFORM_SLPI_LOG_H_
 #define CHRE_PLATFORM_SLPI_LOG_H_
 
+#ifdef CHRE_USE_FARF_LOGGING
+#include "HAP_farf.h"
+#else  // CHRE_USE_FARF_LOGGING
 #include "ash/debug.h"
+#endif  // CHRE_USE_FARF_LOGGING
 #include "chre/util/toolchain.h"
 
 #ifndef __FILENAME__
 #define __FILENAME__ CHRE_FILENAME
 #endif
 
-// TODO: Replace ashLog with a builtin logging destination that does not wake
-// the AP unless necessary.
+#ifdef CHRE_USE_FARF_LOGGING
+#define CHRE_SLPI_LOG(level, fmt, ...) \
+    do { \
+      CHRE_LOG_PREAMBLE \
+      FARF(level, fmt, ##__VA_ARGS__); \
+      CHRE_LOG_EPILOGUE \
+    } while (0)
+
+#define LOGE(fmt, ...) CHRE_SLPI_LOG(ERROR, fmt, ##__VA_ARGS__)
+#define LOGD(fmt, ...) CHRE_SLPI_LOG(HIGH, fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) CHRE_SLPI_LOG(MEDIUM, fmt, ##__VA_ARGS__)
+#define LOGI(fmt, ...) CHRE_SLPI_LOG(ALWAYS, fmt, ##__VA_ARGS__)
+#else  // CHRE_USE_FARF_LOGGING
 #define CHRE_SLPI_LOG(level, fmt, ...) \
     do { \
       CHRE_LOG_PREAMBLE \
@@ -37,5 +52,6 @@
 #define LOGW(fmt, ...) CHRE_SLPI_LOG(ASH_LOG_WARN, fmt, ##__VA_ARGS__)
 #define LOGI(fmt, ...) CHRE_SLPI_LOG(ASH_LOG_INFO, fmt, ##__VA_ARGS__)
 #define LOGD(fmt, ...) CHRE_SLPI_LOG(ASH_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#endif  //CHRE_USE_FARF_LOGGING
 
 #endif  // CHRE_PLATFORM_SLPI_LOG_H_

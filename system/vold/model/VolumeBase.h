@@ -17,8 +17,8 @@
 #ifndef ANDROID_VOLD_VOLUME_BASE_H
 #define ANDROID_VOLD_VOLUME_BASE_H
 
-#include "android/os/IVoldListener.h"
 #include "Utils.h"
+#include "android/os/IVoldListener.h"
 
 #include <cutils/multiuser.h>
 #include <utils/Errors.h>
@@ -26,6 +26,8 @@
 #include <sys/types.h>
 #include <list>
 #include <string>
+
+static constexpr userid_t USER_UNKNOWN = ((userid_t)-1);
 
 namespace android {
 namespace vold {
@@ -45,7 +47,7 @@ namespace vold {
  * volumes and removes any bind mounts before finally unmounting itself.
  */
 class VolumeBase {
-public:
+  public:
     virtual ~VolumeBase();
 
     enum class Type {
@@ -54,6 +56,7 @@ public:
         kEmulated,
         kAsec,
         kObb,
+        kStub,
     };
 
     enum MountFlags {
@@ -75,15 +78,15 @@ public:
         kBadRemoval,
     };
 
-    const std::string& getId() { return mId; }
-    const std::string& getDiskId() { return mDiskId; }
-    const std::string& getPartGuid() { return mPartGuid; }
-    Type getType() { return mType; }
-    int getMountFlags() { return mMountFlags; }
-    userid_t getMountUserId() { return mMountUserId; }
-    State getState() { return mState; }
-    const std::string& getPath() { return mPath; }
-    const std::string& getInternalPath() { return mInternalPath; }
+    const std::string& getId() const { return mId; }
+    const std::string& getDiskId() const { return mDiskId; }
+    const std::string& getPartGuid() const { return mPartGuid; }
+    Type getType() const { return mType; }
+    int getMountFlags() const { return mMountFlags; }
+    userid_t getMountUserId() const { return mMountUserId; }
+    State getState() const { return mState; }
+    const std::string& getPath() const { return mPath; }
+    const std::string& getInternalPath() const { return mInternalPath; }
 
     status_t setDiskId(const std::string& diskId);
     status_t setPartGuid(const std::string& partGuid);
@@ -96,13 +99,17 @@ public:
 
     std::shared_ptr<VolumeBase> findVolume(const std::string& id);
 
+    bool isEmulated() { return mType == Type::kEmulated; }
+
     status_t create();
     status_t destroy();
     status_t mount();
     status_t unmount();
     status_t format(const std::string& fsType);
 
-protected:
+    std::ostream& operator<<(std::ostream& stream) const;
+
+  protected:
     explicit VolumeBase(Type type);
 
     virtual status_t doCreate();
@@ -115,9 +122,9 @@ protected:
     status_t setPath(const std::string& path);
     status_t setInternalPath(const std::string& internalPath);
 
-    android::sp<android::os::IVoldListener> getListener();
+    android::sp<android::os::IVoldListener> getListener() const;
 
-private:
+  private:
     /* ID that uniquely references volume while alive */
     std::string mId;
     /* ID that uniquely references parent disk while alive */

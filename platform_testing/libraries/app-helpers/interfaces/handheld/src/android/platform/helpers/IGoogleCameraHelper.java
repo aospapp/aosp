@@ -41,35 +41,44 @@ public interface IGoogleCameraHelper extends IAppHelper {
     public static final int NUM_FLASH_MODES = 3;
 
     /**
-     * Setup expectations: GoogleCamera is open and idle in video mode.
+     * Setup expectations: GoogleCamera is open and idle in camera/video mode.
+     *
+     * This method will change to portrait mode and block until the transition is complete.
+     */
+    public default void goToPortraitMode() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: GoogleCamera is open and idle in portrait/video mode.
      *
      * This method will change to camera mode and block until the transition is complete.
      */
     public void goToCameraMode();
 
     /**
-     * Setup expectations: GoogleCamera is open and idle in camera mode.
+     * Setup expectations: GoogleCamera is open and idle in camera/portrait mode.
      *
      * This method will change to video mode and block until the transition is complete.
      */
     public void goToVideoMode();
 
     /**
-     * Setup expectations: GoogleCamera is open and idle in either camera/video mode.
+     * Setup expectations: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will change to back camera and block until the transition is complete.
      */
     public void goToBackCamera();
 
     /**
-     * Setup expectations: GoogleCamera is open and idle in either camera/video mode.
+     * Setup expectations: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will change to front camera and block until the transition is complete.
      */
     public void goToFrontCamera();
 
     /**
-     * Setup expectation: in Camera mode with the capture button present.
+     * Setup expectation: in Camera/Portrait mode with the capture button present.
      *
      * This method will capture a photo and block until the transaction is complete.
      */
@@ -129,7 +138,7 @@ public interface IGoogleCameraHelper extends IAppHelper {
 
     /**
      *
-     * Setup expectations: GoogleCamera is open and idle in either camera/video mode.
+     * Setup expectations: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will set EIS to on(true), or off(false).
      * @param mode the boolean value of the mode denoted above.
@@ -137,7 +146,7 @@ public interface IGoogleCameraHelper extends IAppHelper {
     public void setEIS(boolean mode);
 
     /**
-     * Setup expectation: GoogleCamera is open and idle in either camera/video mode.
+     * Setup expectation: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will set front video capture resolution to one of the following:
      * - SD 480p  (mode == VIDEO_SD_480)
@@ -149,7 +158,7 @@ public interface IGoogleCameraHelper extends IAppHelper {
     public void selectFrontVideoResolution(int mode);
 
     /**
-     * Setup expectation: GoogleCamera is open and idle in either camera/video mode.
+     * Setup expectation: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will set back video capture resolution to one of the following:
      * - SD 480p  (mode == VIDEO_SD_480)
@@ -173,7 +182,7 @@ public interface IGoogleCameraHelper extends IAppHelper {
     public void setFrameRate(int mode);
 
     /**
-     * Setup expectation: GoogleCamera is open and idle in camera or video mode.
+     * Setup expectation: GoogleCamera is open and idle in either camera/portrait/video mode.
      *
      * This method will set flash to one of the following:
      * - on   (mode == FLASH_ON)

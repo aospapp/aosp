@@ -26,20 +26,21 @@ import java.util.logging.Logger;
 public class TimeUtil {
     protected static final Logger logger = Logger.getLogger(TimeUtil.class.getName());
 
-    protected static final String DATE_FORMAT = "yyyy-MM-dd";
-    protected static final String DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss (z)";
+    public static final String DATE_FORMAT = "yyyy-MM-dd";
+    public static final String DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    public static final String DATE_TIME_ZONE_FORMAT = "yyyy-MM-dd HH:mm:ss (z)";
     public static final ZoneId PT_ZONE = ZoneId.of("America/Los_Angeles");
 
     /**
-     * Create a date time string from the provided timestamp.
+     * Create a date time string with zone info from the provided timestamp.
      *
      * @param timeMicroseconds The time in microseconds
      * @return A formatted date time string.
      */
-    public static String getDateTimeString(long timeMicroseconds) {
+    public static String getDateTimeZoneString(long timeMicroseconds) {
         long timeMillis = TimeUnit.MICROSECONDS.toMillis(timeMicroseconds);
         ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timeMillis), PT_ZONE);
-        return DateTimeFormatter.ofPattern(DATE_TIME_FORMAT).format(zdt);
+        return DateTimeFormatter.ofPattern(DATE_TIME_ZONE_FORMAT).format(zdt);
     }
 
     /**
@@ -52,5 +53,28 @@ public class TimeUtil {
         long timeMillis = TimeUnit.MICROSECONDS.toMillis(timeMicroseconds);
         ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timeMillis), PT_ZONE);
         return DateTimeFormatter.ofPattern(DATE_FORMAT).format(zdt);
+    }
+
+    /**
+     * Create a date string from the provided timestamp.
+     *
+     * @param timeMicroseconds The time in microseconds
+     * @return A formatted date string.
+     */
+    public static String getDateTimeString(long timeMicroseconds) {
+        long timeMillis = TimeUnit.MICROSECONDS.toMillis(timeMicroseconds);
+        ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timeMillis), PT_ZONE);
+        return DateTimeFormatter.ofPattern(DATE_TIME_FORMAT).format(zdt);
+    }
+
+    /**
+     * Create a ZonedDateTime object from the provided timestamp.
+     *
+     * @param timeMicroseconds The time in microseconds
+     * @return A ZonedDateTime object.
+     */
+    public static ZonedDateTime getZonedDateTime(long timeMicroseconds) {
+        long timeMillis = TimeUnit.MICROSECONDS.toMillis(timeMicroseconds);
+        return ZonedDateTime.ofInstant(Instant.ofEpochMilli(timeMillis), PT_ZONE);
     }
 }

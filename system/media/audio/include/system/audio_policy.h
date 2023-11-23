@@ -93,19 +93,14 @@ typedef enum {
     AUDIO_POLICY_TONE_MAX                  = AUDIO_POLICY_TONE_CNT - 1,
 } audio_policy_tone_t;
 
-
-static inline bool audio_is_low_visibility(audio_stream_type_t stream)
-{
-    switch (stream) {
-    case AUDIO_STREAM_SYSTEM:
-    case AUDIO_STREAM_NOTIFICATION:
-    case AUDIO_STREAM_RING:
-        return true;
-    default:
-        return false;
-    }
-}
-
+/* AudioRecord client UID state derived from ActivityManager::PROCESS_STATE_XXX
+ * and used for concurrent capture policy.
+ */
+typedef enum {
+    APP_STATE_IDLE = 0,   /* client is idle: cannot capture */
+    APP_STATE_FOREGROUND, /* client has a foreground service: can capture */
+    APP_STATE_TOP, /* client has a visible UI: can capture and select use case */
+} app_state_t;
 
 __END_DECLS
 

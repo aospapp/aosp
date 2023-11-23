@@ -20,10 +20,6 @@ static bool	os_overcommits;
 
 #if defined(__ANDROID__)
 #include <sys/prctl.h>
-
-/* Definitions of prctl arguments to set a vma name in Android kernels. */
-#define ANDROID_PR_SET_VMA            0x53564d41
-#define ANDROID_PR_SET_VMA_ANON_NAME  0
 #endif
 
 /******************************************************************************/
@@ -70,7 +66,7 @@ pages_map(void *addr, size_t size, bool *commit)
 #if defined(__ANDROID__)
 	if (ret != NULL) {
 		/* Name this memory as being used by libc */
-		prctl(ANDROID_PR_SET_VMA, ANDROID_PR_SET_VMA_ANON_NAME, ret,
+		prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, ret,
 		    size, "libc_malloc");
 	}
 #endif

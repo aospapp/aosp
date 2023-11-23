@@ -22,7 +22,7 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_DE
 import static com.android.documentsui.services.FileOperationService.OPERATION_EXTRACT;
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
-import static com.android.internal.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.net.Uri;
@@ -32,7 +32,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;

@@ -151,7 +151,7 @@ errcode_t ext2fs_open_inode_scan(ext2_filsys fs, int buffer_blocks,
 	 */
 	if (fs->badblocks == 0) {
 		/*
-		 * Temporarly save fs->get_blocks and set it to zero,
+		 * Temporarily save fs->get_blocks and set it to zero,
 		 * for compatibility with old e2fsck's.
 		 */
 		save_get_blocks = fs->get_blocks;
@@ -630,7 +630,8 @@ errcode_t ext2fs_get_next_inode_full(ext2_inode_scan scan, ext2_ino_t *ino,
 	 * need to read in more blocks.
 	 */
 	if (scan->bytes_left < scan->inode_size) {
-		memcpy(scan->temp_buffer, scan->ptr, scan->bytes_left);
+		if (scan->bytes_left)
+			memcpy(scan->temp_buffer, scan->ptr, scan->bytes_left);
 		extra_bytes = scan->bytes_left;
 
 		retval = get_next_blocks(scan);
@@ -769,7 +770,7 @@ errcode_t ext2fs_read_inode_full(ext2_filsys fs, ext2_ino_t ino,
 	}
 	if (fs->flags & EXT2_FLAG_IMAGE_FILE) {
 		inodes_per_block = fs->blocksize / EXT2_INODE_SIZE(fs->super);
-		block_nr = fs->image_header->offset_inode / fs->blocksize;
+		block_nr = ext2fs_le32_to_cpu(fs->image_header->offset_inode) / fs->blocksize;
 		block_nr += (ino - 1) / inodes_per_block;
 		offset = ((ino - 1) % inodes_per_block) *
 			EXT2_INODE_SIZE(fs->super);

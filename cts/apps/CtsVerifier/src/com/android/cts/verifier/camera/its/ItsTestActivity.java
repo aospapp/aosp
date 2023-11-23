@@ -21,7 +21,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
@@ -77,9 +76,10 @@ public class ItsTestActivity extends DialogTestListActivity {
     private static final int MAX_SUMMARY_LEN = 200;
 
     private final ResultReceiver mResultsReceiver = new ResultReceiver();
+    private boolean mReceiverRegistered = false;
 
     // Initialized in onCreate
-    ArrayList<String> mToBeTestedCameraIds = null;
+    List<String> mToBeTestedCameraIds = null;
 
     // Scenes
     private static final ArrayList<String> mSceneIds = new ArrayList<String> () { {
@@ -91,6 +91,15 @@ public class ItsTestActivity extends DialogTestListActivity {
             add("scene5");
             add("sensor_fusion");
         } };
+    // This must match scenes of HIDDEN_PHYSICAL_CAMERA_TESTS in run_all_tests.py
+    private static final ArrayList<String> mHiddenPhysicalCameraSceneIds =
+            new ArrayList<String> () { {
+                    add("scene0");
+                    add("scene1");
+                    add("scene2");
+                    add("scene4");
+                    add("sensor_fusion");
+             }};
 
     // TODO: cache the following in saved bundle
     private Set<ResultKey> mAllScenes = null;
@@ -332,32 +341,21 @@ public class ItsTestActivity extends DialogTestListActivity {
         // Hide the test if all camera devices are legacy
         CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
         try {
-            String[] cameraIds = manager.getCameraIdList();
-            mToBeTestedCameraIds = new ArrayList<String>();
-            for (String id : cameraIds) {
-                CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
-                int hwLevel = characteristics.get(
-                        CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
-                if (hwLevel
-                        != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY &&
-                        hwLevel
-                        != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
-                    mToBeTestedCameraIds.add(id);
-                }
-            }
-            if (mToBeTestedCameraIds.size() == 0) {
-                showToast(R.string.all_legacy_devices);
-                ItsTestActivity.this.getReportLog().setSummary(
-                        "PASS: all cameras on this device are LEGACY or EXTERNAL"
-                        , 1.0, ResultType.NEUTRAL, ResultUnit.NONE);
-                setTestResultAndFinish(true);
-            }
-        } catch (CameraAccessException e) {
+            ItsUtils.ItsCameraIdList cameraIdList = ItsUtils.getItsCompatibleCameraIds(manager);
+            mToBeTestedCameraIds = cameraIdList.mCameraIdCombos;
+        } catch (ItsException e) {
             Toast.makeText(ItsTestActivity.this,
                     "Received error from camera service while checking device capabilities: "
                             + e, Toast.LENGTH_SHORT).show();
         }
 
+        if (mToBeTestedCameraIds.size() == 0) {
+            showToast(R.string.all_exempted_devices);
+            ItsTestActivity.this.getReportLog().setSummary(
+                    "PASS: all cameras on this device are exempted from ITS"
+                    , 1.0, ResultType.NEUTRAL, ResultUnit.NONE);
+            setTestResultAndFinish(true);
+        }
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
@@ -378,7 +376,8 @@ public class ItsTestActivity extends DialogTestListActivity {
 
     protected void setupItsTests(ArrayTestListAdapter adapter) {
         for (String cam : mToBeTestedCameraIds) {
-            for (String scene : mSceneIds) {
+            List<String> scenes = cam.contains(":") ? mHiddenPhysicalCameraSceneIds : mSceneIds;
+            for (String scene : scenes) {
                 adapter.add(new DialogTestListItem(this,
                 testTitle(cam, scene),
                 testId(cam, scene)));
@@ -401,13 +400,16 @@ public class ItsTestActivity extends DialogTestListActivity {
             Log.d(TAG, "register ITS result receiver");
             IntentFilter filter = new IntentFilter(ACTION_ITS_RESULT);
             registerReceiver(mResultsReceiver, filter);
+            mReceiverRegistered = true;
         }
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "unregister ITS result receiver");
-        unregisterReceiver(mResultsReceiver);
+        if (mReceiverRegistered) {
+            unregisterReceiver(mResultsReceiver);
+        }
         super.onDestroy();
     }
 

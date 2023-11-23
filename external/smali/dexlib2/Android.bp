@@ -30,3 +30,22 @@ java_library_host {
         "smali-util",
     ],
 }
+
+java_library_host {
+    name: "dexlib2-no-guava",
+
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
+
+    libs: [
+        "guava",
+    ],
+
+    static_libs: [
+        "commons-cli-1.2",
+        "jcommander",
+        "jsr305",
+        "smali-util",
+    ],
+}

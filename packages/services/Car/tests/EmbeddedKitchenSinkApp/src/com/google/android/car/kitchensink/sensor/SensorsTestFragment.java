@@ -21,20 +21,23 @@ import static java.lang.Integer.toHexString;
 import android.Manifest;
 import android.annotation.Nullable;
 import android.car.Car;
-import android.car.CarNotConnectedException;
-import android.car.hardware.CarSensorConfig;
-import android.car.hardware.CarSensorEvent;
-import android.car.hardware.CarSensorManager;
+import android.car.VehiclePropertyIds;
+import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.CarPropertyValue;
+import android.car.hardware.property.CarPropertyManager;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.Fragment;
 import android.text.TextUtils;
+import android.text.method.ScrollingMovementMethod;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
@@ -42,7 +45,6 @@ import com.google.android.car.kitchensink.R;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,30 +66,49 @@ public class SensorsTestFragment extends Fragment {
         Car.PERMISSION_CAR_DYNAMICS_STATE
     };
 
-    private final CarSensorManager.OnSensorChangedListener mOnSensorChangedListener =
-            new CarSensorManager.OnSensorChangedListener() {
+    private final CarPropertyManager.CarPropertyEventCallback mCarPropertyEventCallback =
+            new CarPropertyManager.CarPropertyEventCallback() {
                 @Override
-                public void onSensorChanged(CarSensorEvent event) {
+                public void onChangeEvent(CarPropertyValue value) {
                     if (DBG_VERBOSE) {
-                        Log.v(TAG, "New car sensor event: " + event);
+                        Log.v(TAG, "New car property value: " + value);
                     }
-                    synchronized (SensorsTestFragment.this) {
-                        mEventMap.put(event.sensorType, event);
+                    if (value.getStatus() == CarPropertyValue.STATUS_AVAILABLE) {
+                        mValueMap.put(value.getPropertyId(), value);
+                    } else {
+                        mValueMap.put(value.getPropertyId(), null);
                     }
-                    refreshUi();
+                    refreshSensorInfoText();
+                }
+                @Override
+                public void onErrorEvent(int propId, int zone) {
+                    Log.e(TAG, "propId: " + propId + " zone: " + zone);
                 }
             };
+
     private final Handler mHandler = new Handler();
-    private final Map<Integer, CarSensorEvent> mEventMap = new ConcurrentHashMap<>();
+    private final Map<Integer, CarPropertyValue> mValueMap = new ConcurrentHashMap<>();
+
+
     private final DateFormat mDateFormat = SimpleDateFormat.getDateTimeInstance();
 
     private KitchenSinkActivity mActivity;
-    private TextView mSensorInfo;
     private Car mCar;
-    private CarSensorManager mSensorManager;
+
+    private CarPropertyManager mCarPropertyManager;
+
+    private LocationListeners mLocationListener;
     private String mNaString;
-    private int[] supportedSensors = new int[0];
+
+    private List<CarPropertyConfig> mPropertyList;
+
     private Set<String> mActivePermissions = new HashSet<String>();
+
+    private TextView mSensorInfo;
+    private TextView mLocationInfo;
+    private TextView mAccelInfo;
+    private TextView mGyroInfo;
+    private TextView mMagInfo;
 
     @Nullable
     @Override
@@ -99,40 +120,87 @@ public class SensorsTestFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.sensors, container, false);
         mActivity = (KitchenSinkActivity) getHost();
-
         mSensorInfo = (TextView) view.findViewById(R.id.sensor_info);
-        mNaString = getContext().getString(R.string.sensor_na);
+        mSensorInfo.setMovementMethod(new ScrollingMovementMethod());
+        mLocationInfo = (TextView) view.findViewById(R.id.location_info);
+        mLocationInfo.setMovementMethod(new ScrollingMovementMethod());
+        mAccelInfo = (TextView) view.findViewById(R.id.accel_info);
+        mGyroInfo = (TextView) view.findViewById(R.id.gyro_info);
+        mMagInfo = (TextView) view.findViewById(R.id.mag_info);
 
+        mNaString = getContext().getString(R.string.sensor_na);
         return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        initPermissions();
+        final Runnable r = () -> {
+            initPermissions();
+        };
+        ((KitchenSinkActivity) getActivity()).requestRefreshManager(r,
+                new Handler(getContext().getMainLooper()));
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mSensorManager != null) {
-            mSensorManager.unregisterListener(mOnSensorChangedListener);
+        if (mCarPropertyManager != null) {
+            mCarPropertyManager.unregisterCallback(mCarPropertyEventCallback);
+        }
+        if (mLocationListener != null) {
+            mLocationListener.stopListening();
         }
     }
 
     private void initSensors() {
         try {
-            mSensorManager =
-                (CarSensorManager) ((KitchenSinkActivity) getActivity()).getSensorManager();
-            supportedSensors = mSensorManager.getSupportedSensors();
-            for (Integer sensor : supportedSensors) {
-                mSensorManager.registerListener(mOnSensorChangedListener, sensor,
-                        CarSensorManager.SENSOR_RATE_NORMAL);
+            if (mCarPropertyManager == null) {
+                mCarPropertyManager =
+                    (CarPropertyManager) ((KitchenSinkActivity) getActivity()).getPropertyManager();
             }
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Car not connected or not supported", e);
+            ArraySet<Integer> set = new ArraySet<>();
+            set.add(VehiclePropertyIds.PERF_VEHICLE_SPEED);
+            set.add(VehiclePropertyIds.ENGINE_RPM);
+            set.add(VehiclePropertyIds.PERF_ODOMETER);
+            set.add(VehiclePropertyIds.FUEL_LEVEL);
+            set.add(VehiclePropertyIds.FUEL_DOOR_OPEN);
+            set.add(VehiclePropertyIds.IGNITION_STATE);
+            set.add(VehiclePropertyIds.PARKING_BRAKE_ON);
+            set.add(VehiclePropertyIds.GEAR_SELECTION);
+            set.add(VehiclePropertyIds.NIGHT_MODE);
+            set.add(VehiclePropertyIds.ENV_OUTSIDE_TEMPERATURE);
+            set.add(VehiclePropertyIds.WHEEL_TICK);
+            set.add(VehiclePropertyIds.ABS_ACTIVE);
+            set.add(VehiclePropertyIds.TRACTION_CONTROL_ACTIVE);
+            set.add(VehiclePropertyIds.EV_BATTERY_LEVEL);
+            set.add(VehiclePropertyIds.EV_CHARGE_PORT_OPEN);
+            set.add(VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED);
+            set.add(VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE);
+            set.add(VehiclePropertyIds.ENGINE_OIL_LEVEL);
+
+            mPropertyList = mCarPropertyManager.getPropertyList(set);
+
+            for (CarPropertyConfig property : mPropertyList) {
+                float rate = CarPropertyManager.SENSOR_RATE_NORMAL;
+                if (property.getChangeMode()
+                        == CarPropertyConfig.VEHICLE_PROPERTY_CHANGE_MODE_ONCHANGE) {
+                    rate = CarPropertyManager.SENSOR_RATE_ONCHANGE;
+                }
+                mCarPropertyManager.registerCallback(mCarPropertyEventCallback,
+                              property.getPropertyId(), rate);
+            }
         } catch (Exception e) {
-            Log.e(TAG, "initSensors() exception caught: ", e);
+            Log.e(TAG, "initSensors() exception caught SensorManager: ", e);
+        }
+        try {
+            if (mLocationListener == null) {
+                mLocationListener = new LocationListeners(getContext(),
+                                                          new LocationInfoTextUpdateListener());
+            }
+            mLocationListener.startListening();
+        } catch (Exception e) {
+            Log.e(TAG, "initSensors() exception caught from LocationListeners: ", e);
         }
     }
 
@@ -140,6 +208,7 @@ public class SensorsTestFragment extends Fragment {
         Set<String> missingPermissions = checkExistingPermissions();
         if (!missingPermissions.isEmpty()) {
             requestPermissions(missingPermissions);
+            // The callback with premission results will take care of calling initSensors for us
         } else {
             initSensors();
         }
@@ -179,118 +248,118 @@ public class SensorsTestFragment extends Fragment {
         }
     }
 
-    private void refreshUi() {
+    private void refreshSensorInfoText() {
         String summaryString;
         synchronized (this) {
             List<String> summary = new ArrayList<>();
-            for (Integer i : supportedSensors) {
-                CarSensorEvent event = mEventMap.get(i);
-                switch (i) {
-                    case CarSensorManager.SENSOR_TYPE_CAR_SPEED:
+            for (CarPropertyConfig property : mPropertyList) {
+                int propertyId = property.getPropertyId();
+                CarPropertyValue value = mValueMap.get(propertyId);
+                switch (propertyId) {
+                    case VehiclePropertyIds.PERF_VEHICLE_SPEED: //0x11600207  291504647
                         summary.add(getContext().getString(R.string.sensor_speed,
-                                getTimestamp(event),
-                                event == null ? mNaString : event.getCarSpeedData(null).carSpeed));
+                                getTimestamp(value),
+                                value == null ? mNaString : (float) value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_RPM:
+                    case VehiclePropertyIds.ENGINE_RPM: //0x11600305  291504901
                         summary.add(getContext().getString(R.string.sensor_rpm,
-                                getTimestamp(event),
-                                event == null ? mNaString : event.getRpmData(null).rpm));
+                                getTimestamp(value),
+                                value == null ? mNaString : (float) value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_ODOMETER:
+                    case VehiclePropertyIds.PERF_ODOMETER: //0x11600204 291504644
                         summary.add(getContext().getString(R.string.sensor_odometer,
-                                getTimestamp(event),
-                                event == null ? mNaString : event.getOdometerData(null).kms));
+                                getTimestamp(value),
+                                value == null ? mNaString : (float) value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_FUEL_LEVEL:
-                        summary.add(getFuelLevel(event));
+                    case VehiclePropertyIds.FUEL_LEVEL: //0x11600307 291504903
+                        summary.add(getFuelLevel(value));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_FUEL_DOOR_OPEN:
-                        summary.add(getFuelDoorOpen(event));
+                    case VehiclePropertyIds.FUEL_DOOR_OPEN: //0x11200308 287310600
+                        summary.add(getFuelDoorOpen(value));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_PARKING_BRAKE:
+                    case VehiclePropertyIds.IGNITION_STATE: //0x11400409 289408009
+                        summary.add(getContext().getString(R.string.sensor_ignition_status,
+                                getTimestamp(value),
+                                value == null ? mNaString :
+                                (int) value.getValue()));
+                        break;
+                    case VehiclePropertyIds.PARKING_BRAKE_ON: //0x11200402 287310850
                         summary.add(getContext().getString(R.string.sensor_parking_brake,
-                                getTimestamp(event),
-                                event == null ? mNaString :
-                                event.getParkingBrakeData(null).isEngaged));
+                                getTimestamp(value),
+                                value == null ? mNaString :
+                                value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_GEAR:
+                    case VehiclePropertyIds.GEAR_SELECTION: //0x11400400 289408000
                         summary.add(getContext().getString(R.string.sensor_gear,
-                                getTimestamp(event),
-                                event == null ? mNaString : event.getGearData(null).gear));
+                                getTimestamp(value),
+                                value == null ? mNaString : (int) value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_NIGHT:
+                    case VehiclePropertyIds.NIGHT_MODE: //0x11200407 287310855
                         summary.add(getContext().getString(R.string.sensor_night,
-                                getTimestamp(event),
-                                event == null ? mNaString : event.getNightData(null).isNightMode));
+                                getTimestamp(value),
+                                value == null ? mNaString : value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_ENVIRONMENT:
+                    case VehiclePropertyIds.ENV_OUTSIDE_TEMPERATURE: //0x11600703 291505923
                         String temperature = mNaString;
-                        String pressure = mNaString;
-                        if (event != null) {
-                            CarSensorEvent.EnvironmentData env = event.getEnvironmentData(null);
-                            temperature = Float.isNaN(env.temperature) ? temperature :
-                                    String.valueOf(env.temperature);
-                            pressure = Float.isNaN(env.pressure) ? pressure :
-                                    String.valueOf(env.pressure);
+                        if (value != null) {
+                            temperature = String.valueOf((float) value.getValue());
                         }
                         summary.add(getContext().getString(R.string.sensor_environment,
-                                getTimestamp(event), temperature, pressure));
+                                getTimestamp(value), temperature));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE:
-                        if(event != null) {
-                            CarSensorEvent.CarWheelTickDistanceData d =
-                                    event.getCarWheelTickDistanceData(null);
+                    case VehiclePropertyIds.WHEEL_TICK: //0x11510306 290521862
+                        if (value != null) {
+                            Long[] wheelTickData = (Long[]) value.getValue();
                             summary.add(getContext().getString(R.string.sensor_wheel_ticks,
-                                getTimestamp(event), d.sensorResetCount, d.frontLeftWheelDistanceMm,
-                                d.frontRightWheelDistanceMm, d.rearLeftWheelDistanceMm,
-                                d.rearRightWheelDistanceMm));
+                                    getTimestamp(value),
+                                    wheelTickData[0],
+                                    wheelTickData[1],
+                                    wheelTickData[2],
+                                    wheelTickData[3],
+                                    wheelTickData[4]));
                         } else {
                             summary.add(getContext().getString(R.string.sensor_wheel_ticks,
-                                getTimestamp(event), mNaString, mNaString, mNaString, mNaString,
-                                mNaString));
+                                    getTimestamp(value), mNaString, mNaString, mNaString, mNaString,
+                                    mNaString));
                         }
-                        // Get the config data
-                        try {
-                            CarSensorConfig c = mSensorManager.getSensorConfig(
-                                CarSensorManager.SENSOR_TYPE_WHEEL_TICK_DISTANCE);
-                            summary.add(getContext().getString(R.string.sensor_wheel_ticks_cfg,
-                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS),
-                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK),
-                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_FRONT_RIGHT_UM_PER_TICK),
-                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_REAR_LEFT_UM_PER_TICK),
-                                c.getInt(CarSensorConfig.WHEEL_TICK_DISTANCE_REAR_RIGHT_UM_PER_TICK)));
-                        } catch (CarNotConnectedException e) {
-                            Log.e(TAG, "Car not connected or not supported", e);
-                        }
+                        List<Integer> wheelProperties = property.getConfigArray();
+                        summary.add(getContext().getString(R.string.sensor_wheel_ticks_cfg,
+                                    wheelProperties.get(0),
+                                    wheelProperties.get(1),
+                                    wheelProperties.get(2),
+                                    wheelProperties.get(3),
+                                    wheelProperties.get(4)));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_ABS_ACTIVE:
+                    case VehiclePropertyIds.ABS_ACTIVE: //0x1120040a 287310858
                         summary.add(getContext().getString(R.string.sensor_abs_is_active,
-                            getTimestamp(event), event == null ? mNaString :
-                                    event.getCarAbsActiveData(null).absIsActive));
+                                getTimestamp(value), value == null ? mNaString :
+                                    value.getValue()));
                         break;
 
-                    case CarSensorManager.SENSOR_TYPE_TRACTION_CONTROL_ACTIVE:
+                    case VehiclePropertyIds.TRACTION_CONTROL_ACTIVE: //0x1120040b 287310859
                         summary.add(
                             getContext().getString(R.string.sensor_traction_control_is_active,
-                            getTimestamp(event), event == null ? mNaString :
-                                    event.getCarTractionControlActiveData(null)
-                                    .tractionControlIsActive));
+                                getTimestamp(value), value == null ? mNaString :
+                                    value.getValue()));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_EV_BATTERY_LEVEL:
-                        summary.add(getEvBatteryLevel(event));
+                    case VehiclePropertyIds.EV_BATTERY_LEVEL: //0x11600309 291504905
+                        summary.add(getEvBatteryLevel(value));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_EV_CHARGE_PORT_OPEN:
-                        summary.add(getEvChargePortOpen(event));
+                    case VehiclePropertyIds.EV_CHARGE_PORT_OPEN: //0x1120030a 287310602
+                        summary.add(getEvChargePortOpen(value));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_EV_CHARGE_PORT_CONNECTED:
-                        summary.add(getEvChargePortConnected(event));
+                    case VehiclePropertyIds.EV_CHARGE_PORT_CONNECTED: //0x1120030b 287310603
+                        summary.add(getEvChargePortConnected(value));
                         break;
-                    case CarSensorManager.SENSOR_TYPE_EV_BATTERY_CHARGE_RATE:
-                        summary.add(getEvChargeRate(event));
+                    case VehiclePropertyIds.EV_BATTERY_INSTANTANEOUS_CHARGE_RATE:
+                        summary.add(getEvChargeRate(value));
+                        break;
+                    case VehiclePropertyIds.ENGINE_OIL_LEVEL: //0x11400303 289407747
+                        summary.add(getEngineOilLevel(value));
                         break;
                     default:
                         // Should never happen.
-                        Log.w(TAG, "Unrecognized event type: " + toHexString(i));
+                        Log.w(TAG, "Unrecognized event type: " + toHexString(propertyId));
                 }
             }
             summaryString = TextUtils.join("\n", summary);
@@ -303,65 +372,101 @@ public class SensorsTestFragment extends Fragment {
         });
     }
 
-    private String getTimestamp(CarSensorEvent event) {
-        if (event == null) {
+    private String getTimestamp(CarPropertyValue value) {
+        if (value == null) {
             return mNaString;
         }
-        return mDateFormat.format(new Date(event.timestamp / (1000L * 1000L)));
+        return Double.toString(value.getTimestamp() / (1000L * 1000L * 1000L)) + " seconds";
     }
 
-    private String getFuelLevel(CarSensorEvent event) {
+    private String getTimestampNow() {
+        return Double.toString(System.nanoTime() / (1000L * 1000L * 1000L)) + " seconds";
+    }
+
+    private String getFuelLevel(CarPropertyValue value) {
         String fuelLevel = mNaString;
-        if(event != null) {
-            fuelLevel = String.valueOf(event.getFuelLevelData(null).level);
+        if (value != null) {
+            fuelLevel = String.valueOf((float) value.getValue());
         }
-        return getContext().getString(R.string.sensor_fuel_level, getTimestamp(event), fuelLevel);
+        return getContext().getString(R.string.sensor_fuel_level, getTimestamp(value), fuelLevel);
     }
 
-    private String getFuelDoorOpen(CarSensorEvent event) {
+    private String getFuelDoorOpen(CarPropertyValue value) {
         String fuelDoorOpen = mNaString;
-        if(event != null) {
-            fuelDoorOpen = String.valueOf(event.getCarFuelDoorOpenData(null).fuelDoorIsOpen);
+        if (value != null) {
+            fuelDoorOpen = String.valueOf(value.getValue());
         }
-        return getContext().getString(R.string.sensor_fuel_door_open, getTimestamp(event),
+        return getContext().getString(R.string.sensor_fuel_door_open, getTimestamp(value),
             fuelDoorOpen);
     }
 
-    private String getEvBatteryLevel(CarSensorEvent event) {
+    private String getEvBatteryLevel(CarPropertyValue value) {
         String evBatteryLevel = mNaString;
-        if(event != null) {
-            evBatteryLevel = String.valueOf(event.getCarEvBatteryLevelData(null).evBatteryLevel);
+        if (value != null) {
+            evBatteryLevel = String.valueOf((float) value.getValue());
         }
-        return getContext().getString(R.string.sensor_ev_battery_level, getTimestamp(event),
+        return getContext().getString(R.string.sensor_ev_battery_level, getTimestamp(value),
             evBatteryLevel);
     }
 
-    private String getEvChargePortOpen(CarSensorEvent event) {
+    private String getEvChargePortOpen(CarPropertyValue value) {
         String evChargePortOpen = mNaString;
-        if(event != null) {
-            evChargePortOpen = String.valueOf(
-                event.getCarEvChargePortOpenData(null).evChargePortIsOpen);
+        if (value != null) {
+            evChargePortOpen = String.valueOf((float) value.getValue());
         }
-        return getContext().getString(R.string.sensor_ev_charge_port_is_open, getTimestamp(event),
+        return getContext().getString(R.string.sensor_ev_charge_port_is_open, getTimestamp(value),
             evChargePortOpen);
     }
 
-    private String getEvChargePortConnected(CarSensorEvent event) {
+    private String getEvChargePortConnected(CarPropertyValue value) {
         String evChargePortConnected = mNaString;
-        if(event != null) {
-            evChargePortConnected = String.valueOf(
-                event.getCarEvChargePortConnectedData(null).evChargePortIsConnected);
+        if (value != null) {
+            evChargePortConnected = String.valueOf((float) value.getValue());
         }
         return getContext().getString(R.string.sensor_ev_charge_port_is_connected,
-            getTimestamp(event), evChargePortConnected);
+            getTimestamp(value), evChargePortConnected);
     }
 
-    private String getEvChargeRate(CarSensorEvent event) {
+    private String getEvChargeRate(CarPropertyValue value) {
         String evChargeRate = mNaString;
-        if(event != null) {
-            evChargeRate = String.valueOf(event.getCarEvBatteryChargeRateData(null).evChargeRate);
+        if (value != null) {
+            evChargeRate = String.valueOf((float) value.getValue());
         }
-        return getContext().getString(R.string.sensor_ev_charge_rate, getTimestamp(event),
+        return getContext().getString(R.string.sensor_ev_charge_rate, getTimestamp(value),
             evChargeRate);
+    }
+
+    private String getEngineOilLevel(CarPropertyValue value) {
+        String engineOilLevel = mNaString;
+        if (value != null) {
+            engineOilLevel = String.valueOf((float) value.getValue());
+        }
+        return  getContext().getString(R.string.sensor_oil_level, getTimestamp(value),
+           engineOilLevel);
+    }
+
+    public class LocationInfoTextUpdateListener {
+        public void setLocationField(String value) {
+            setTimestampedTextField(mLocationInfo, value);
+        }
+
+        public void setAccelField(String value) {
+            setTimestampedTextField(mAccelInfo, value);
+        }
+
+        public void setGyroField(String value) {
+            setTimestampedTextField(mGyroInfo, value);
+        }
+
+        public void setMagField(String value) {
+            setTimestampedTextField(mMagInfo, value);
+        }
+
+        private void setTimestampedTextField(TextView text, String value) {
+            synchronized (SensorsTestFragment.this) {
+                text.setText(getTimestampNow() + ": " + value);
+                Log.d(TAG, "setText: " + value);
+            }
+        }
     }
 }

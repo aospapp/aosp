@@ -93,7 +93,10 @@ public final class DeviceFilesystem {
                 .execute();
         List<File> files = new ArrayList<File>();
         for (String fileString : rawResult) {
-            if (fileString.equals(dir.getPath() + ": No such file or directory")) {
+            // Try to match outputs like:
+            //
+            //   ls: <path>: No such file or directory
+            if (fileString.contains(dir.getPath() + ": No such file or directory")) {
                 throw new FileNotFoundException(dir + " not found.");
             }
             if (fileString.equals(dir.getPath())) {

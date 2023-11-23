@@ -222,7 +222,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
         finish();
     }
 
-    private void dismissDialogSafely(int id) {
+    protected void dismissDialogSafely(int id) {
         try {
             dismissDialog(id);
         } catch (IllegalArgumentException e) {

@@ -76,5 +76,9 @@ cc_library_static {
     srcs: [
         "libnos/debug.cpp",
         "libnos_transport/transport.c",
+        "libnos_transport/crc16.c",
+    ],
+    static_libs: [
+        "libbase",
     ],
 }

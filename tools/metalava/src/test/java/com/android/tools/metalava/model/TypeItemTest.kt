@@ -17,14 +17,14 @@
 package com.android.tools.metalava.model
 
 import com.android.tools.metalava.JAVA_LANG_STRING
-import com.android.tools.metalava.options
+import com.android.tools.metalava.compatibility
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class TypeItemTest {
     @Test
     fun test() {
-        options.omitCommonPackages = true
+        compatibility.omitCommonPackages = true
         assertThat(TypeItem.shortenTypes("@android.support.annotation.Nullable")).isEqualTo("@Nullable")
         assertThat(TypeItem.shortenTypes(JAVA_LANG_STRING)).isEqualTo("String")
         assertThat(TypeItem.shortenTypes("java.lang.reflect.Method")).isEqualTo("java.lang.reflect.Method")
@@ -32,5 +32,23 @@ class TypeItemTest {
         assertThat(TypeItem.shortenTypes("java.util.List<@android.support.annotation.NonNull java.lang.String>")).isEqualTo(
             "java.util.List<@NonNull java.lang.String>"
         )
+    }
+
+    @Test
+    fun testEqualsWithoutSpace() {
+        assertThat(TypeItem.equalsWithoutSpace("", "")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace(" ", "")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("", " ")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace(" ", " ")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("true", "tr ue")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("tr ue", "true")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("true", "true ")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("true ", "true")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("true ", "true")).isTrue()
+        assertThat(TypeItem.equalsWithoutSpace("true", " true")).isTrue()
+
+        assertThat(TypeItem.equalsWithoutSpace("true", "false")).isFalse()
+        assertThat(TypeItem.equalsWithoutSpace("true", " true  false")).isFalse()
+        assertThat(TypeItem.equalsWithoutSpace("false ", "falser")).isFalse()
     }
 }

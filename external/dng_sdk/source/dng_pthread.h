@@ -53,18 +53,8 @@
 
 #endif
 
-// Use the standard "timespec" struct as "dng_timespec" for VS2015 and above
-// from <time.h>. Define "dng_timespec" as "timespec" otherwise.
-#if _MSC_VER >= 1900
 #include <time.h>
 #define dng_timespec timespec
-#else
-struct dng_timespec {
-	long tv_sec;
-	long tv_nsec;
-};
-#define timespec dng_timespec
-#endif
 
 #ifdef __cplusplus
 extern "C"

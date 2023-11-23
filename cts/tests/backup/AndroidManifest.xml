@@ -23,7 +23,7 @@
         <uses-library android:name="org.apache.http.legacy" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.backup.cts"
                      android:label="CTS tests of Android Backup/Restore">
         <meta-data android:name="listener"

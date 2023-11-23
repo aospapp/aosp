@@ -18,10 +18,10 @@ package com.google.turbine.binder;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.turbine.binder.bound.AnnotationValue;
 import com.google.turbine.binder.bound.SourceTypeBoundClass;
@@ -34,6 +34,7 @@ import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
 import com.google.turbine.model.Const;
+import com.google.turbine.model.TurbineElementType;
 import com.google.turbine.type.AnnoInfo;
 import com.google.turbine.type.Type;
 import com.google.turbine.type.Type.ArrayTy;
@@ -41,7 +42,6 @@ import com.google.turbine.type.Type.ClassTy;
 import com.google.turbine.type.Type.ClassTy.SimpleClassTy;
 import com.google.turbine.type.Type.PrimTy;
 import com.google.turbine.type.Type.TyVar;
-import java.lang.annotation.ElementType;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -84,7 +84,8 @@ public class DisambiguateTypeAnnotations {
         base.memberImports(),
         base.annotationMetadata(),
         groupRepeated(env, base.annotations()),
-        base.source());
+        base.source(),
+        base.decl());
   }
 
   private static ImmutableList<MethodInfo> bindMethods(
@@ -101,7 +102,9 @@ public class DisambiguateTypeAnnotations {
     Type returnType =
         disambiguate(
             env,
-            base.name().equals("<init>") ? ElementType.CONSTRUCTOR : ElementType.METHOD,
+            base.name().equals("<init>")
+                ? TurbineElementType.CONSTRUCTOR
+                : TurbineElementType.METHOD,
             base.returnType(),
             base.annotations(),
             declarationAnnotations);
@@ -131,7 +134,11 @@ public class DisambiguateTypeAnnotations {
     ImmutableList.Builder<AnnoInfo> declarationAnnotations = ImmutableList.builder();
     Type type =
         disambiguate(
-            env, ElementType.PARAMETER, base.type(), base.annotations(), declarationAnnotations);
+            env,
+            TurbineElementType.PARAMETER,
+            base.type(),
+            base.annotations(),
+            declarationAnnotations);
     return new ParamInfo(type, base.name(), declarationAnnotations.build(), base.access());
   }
 
@@ -141,7 +148,7 @@ public class DisambiguateTypeAnnotations {
    */
   private static Type disambiguate(
       Env<ClassSymbol, TypeBoundClass> env,
-      ElementType declarationTarget,
+      TurbineElementType declarationTarget,
       Type type,
       ImmutableList<AnnoInfo> annotations,
       Builder<AnnoInfo> declarationAnnotations) {
@@ -150,8 +157,8 @@ public class DisambiguateTypeAnnotations {
     annotations = groupRepeated(env, annotations);
     ImmutableList.Builder<AnnoInfo> typeAnnotations = ImmutableList.builder();
     for (AnnoInfo anno : annotations) {
-      Set<ElementType> target = env.get(anno.sym()).annotationMetadata().target();
-      if (target.contains(ElementType.TYPE_USE)) {
+      Set<TurbineElementType> target = env.get(anno.sym()).annotationMetadata().target();
+      if (target.contains(TurbineElementType.TYPE_USE)) {
         typeAnnotations.add(anno);
       }
       if (target.contains(declarationTarget)) {
@@ -174,7 +181,7 @@ public class DisambiguateTypeAnnotations {
     ImmutableList.Builder<AnnoInfo> declarationAnnotations = ImmutableList.builder();
     Type type =
         disambiguate(
-            env, ElementType.FIELD, base.type(), base.annotations(), declarationAnnotations);
+            env, TurbineElementType.FIELD, base.type(), base.annotations(), declarationAnnotations);
     return new FieldInfo(
         base.sym(), type, base.access(), declarationAnnotations.build(), base.decl(), base.value());
   }
@@ -193,23 +200,23 @@ public class DisambiguateTypeAnnotations {
     switch (type.tyKind()) {
       case PRIM_TY:
         PrimTy primTy = (PrimTy) type;
-        return new Type.PrimTy(primTy.primkind(), appendAnnotations(primTy.annos(), extra));
+        return Type.PrimTy.create(primTy.primkind(), appendAnnotations(primTy.annos(), extra));
       case CLASS_TY:
         ClassTy classTy = (ClassTy) type;
-        SimpleClassTy base = classTy.classes.get(0);
+        SimpleClassTy base = classTy.classes().get(0);
         SimpleClassTy simple =
-            new SimpleClassTy(base.sym(), base.targs(), appendAnnotations(base.annos(), extra));
-        return new Type.ClassTy(
+            SimpleClassTy.create(base.sym(), base.targs(), appendAnnotations(base.annos(), extra));
+        return Type.ClassTy.create(
             ImmutableList.<SimpleClassTy>builder()
                 .add(simple)
-                .addAll(classTy.classes.subList(1, classTy.classes.size()))
+                .addAll(classTy.classes().subList(1, classTy.classes().size()))
                 .build());
       case ARRAY_TY:
         ArrayTy arrayTy = (ArrayTy) type;
-        return new ArrayTy(addAnnotationsToType(arrayTy.elementType(), extra), arrayTy.annos());
+        return ArrayTy.create(addAnnotationsToType(arrayTy.elementType(), extra), arrayTy.annos());
       case TY_VAR:
         TyVar tyVar = (TyVar) type;
-        return new Type.TyVar(tyVar.sym(), appendAnnotations(tyVar.annos(), extra));
+        return Type.TyVar.create(tyVar.sym(), appendAnnotations(tyVar.annos(), extra));
       case VOID_TY:
         return type;
       case WILD_TY:
@@ -230,12 +237,12 @@ public class DisambiguateTypeAnnotations {
    * <p>For example, convert {@code @Foo @Foo} to {@code @Foos({@Foo, @Foo})}.
    *
    * <p>This method is used by {@link DisambiguateTypeAnnotations} for declaration annotations, and
-   * by {@link Lower} for type annotations. We could group type annotations here, but it would
-   * require another rewrite pass.
+   * by {@link com.google.turbine.lower.Lower} for type annotations. We could group type annotations
+   * here, but it would require another rewrite pass.
    */
   public static ImmutableList<AnnoInfo> groupRepeated(
       Env<ClassSymbol, TypeBoundClass> env, ImmutableList<AnnoInfo> annotations) {
-    Multimap<ClassSymbol, AnnoInfo> repeated = LinkedHashMultimap.create();
+    Multimap<ClassSymbol, AnnoInfo> repeated = ArrayListMultimap.create();
     for (AnnoInfo anno : annotations) {
       repeated.put(anno.sym(), anno);
     }

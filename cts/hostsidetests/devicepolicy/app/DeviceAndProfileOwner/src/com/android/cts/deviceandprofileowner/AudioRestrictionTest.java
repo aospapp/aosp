@@ -18,7 +18,11 @@ package com.android.cts.deviceandprofileowner;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.provider.Settings;
 import android.os.SystemClock;
 import android.os.UserManager;
 
@@ -29,6 +33,7 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
 
     private AudioManager mAudioManager;
     private PackageManager mPackageManager;
+    private boolean mUseFixedVolume;
     private final Callable<Boolean> mCheckIfMasterVolumeMuted = new Callable<Boolean>() {
         @Override
         public Boolean call() throws Exception {
@@ -41,6 +46,8 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
         super.setUp();
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mPackageManager = mContext.getPackageManager();
+        mUseFixedVolume = mContext.getResources().getBoolean(
+                Resources.getSystem().getIdentifier("config_useFixedVolume", "bool", "android"));
     }
 
     // Here we test that DISALLOW_ADJUST_VOLUME disallows to unmute volume.
@@ -78,9 +85,17 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
     }
 
     public void testDisallowAdjustVolume() throws Exception {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)) {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT) || mUseFixedVolume) {
             return;
         }
+
+        Uri uri = Uri.parse("android.resource://" + mContext.getPackageName() + "/" + R.raw.ringer);
+        MediaPlayer mediaPlayer = new MediaPlayer();
+        mediaPlayer.setDataSource(mContext, uri);
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mediaPlayer.prepare();
+        mediaPlayer.setLooping(true);
+        mediaPlayer.start();
 
         try {
             // Set volume of music to be 1.
@@ -114,6 +129,10 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
                     UserManager.DISALLOW_ADJUST_VOLUME);
             waitUntil(false, mCheckIfMasterVolumeMuted);
         }
+
+        mediaPlayer.stop();
+        mediaPlayer.release();
+        mediaPlayer = null;
     }
 
     public void testDisallowUnmuteMicrophone() throws Exception {

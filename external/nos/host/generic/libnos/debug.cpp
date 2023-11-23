@@ -32,6 +32,9 @@ std::string StatusCodeString(uint32_t code) {
     ErrorString_helper(APP_ERROR_TOO_MUCH)
     ErrorString_helper(APP_ERROR_IO)
     ErrorString_helper(APP_ERROR_RPC)
+    ErrorString_helper(APP_ERROR_CHECKSUM)
+    ErrorString_helper(APP_ERROR_BUSY)
+    ErrorString_helper(APP_ERROR_TIMEOUT)
     default:
       if (code >= APP_LINE_NUMBER_BASE && code < MAX_APP_STATUS) {
         return "APP_LINE_NUMBER " + std::to_string(code - APP_LINE_NUMBER_BASE);

@@ -41,28 +41,38 @@ class AssemblerMIPS64Test : public AssemblerTest<mips64::Mips64Assembler,
                                                  uint32_t,
                                                  mips64::VectorRegister> {
  public:
-  typedef AssemblerTest<mips64::Mips64Assembler,
-                        mips64::Mips64Label,
-                        mips64::GpuRegister,
-                        mips64::FpuRegister,
-                        uint32_t,
-                        mips64::VectorRegister> Base;
+  using Base = AssemblerTest<mips64::Mips64Assembler,
+                             mips64::Mips64Label,
+                             mips64::GpuRegister,
+                             mips64::FpuRegister,
+                             uint32_t,
+                             mips64::VectorRegister>;
+
+  // These tests were taking too long, so we hide the DriverStr() from AssemblerTest<>
+  // and reimplement it without the verification against `assembly_string`. b/73903608
+  void DriverStr(const std::string& assembly_string ATTRIBUTE_UNUSED,
+                 const std::string& test_name ATTRIBUTE_UNUSED) {
+    GetAssembler()->FinalizeCode();
+    std::vector<uint8_t> data(GetAssembler()->CodeSize());
+    MemoryRegion code(data.data(), data.size());
+    GetAssembler()->FinalizeInstructions(code);
+  }
 
   AssemblerMIPS64Test()
       : instruction_set_features_(Mips64InstructionSetFeatures::FromVariant("default", nullptr)) {}
 
  protected:
   // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() OVERRIDE {
+  std::string GetArchitectureString() override {
     return "mips64";
   }
 
-  std::string GetAssemblerCmdName() OVERRIDE {
+  std::string GetAssemblerCmdName() override {
     // We assemble and link for MIPS64R6. See GetAssemblerParameters() for details.
     return "gcc";
   }
 
-  std::string GetAssemblerParameters() OVERRIDE {
+  std::string GetAssemblerParameters() override {
     // We assemble and link for MIPS64R6. The reason is that object files produced for MIPS64R6
     // (and MIPS32R6) with the GNU assembler don't have correct final offsets in PC-relative
     // branches in the .text section and so they require a relocation pass (there's a relocation
@@ -70,7 +80,7 @@ class AssemblerMIPS64Test : public AssemblerTest<mips64::Mips64Assembler,
     return " -march=mips64r6 -mmsa -Wa,--no-warn -Wl,-Ttext=0 -Wl,-e0 -nostdlib";
   }
 
-  void Pad(std::vector<uint8_t>& data) OVERRIDE {
+  void Pad(std::vector<uint8_t>& data) override {
     // The GNU linker unconditionally pads the code segment with NOPs to a size that is a multiple
     // of 16 and there doesn't appear to be a way to suppress this padding. Our assembler doesn't
     // pad, so, in order for two assembler outputs to match, we need to match the padding as well.
@@ -79,15 +89,15 @@ class AssemblerMIPS64Test : public AssemblerTest<mips64::Mips64Assembler,
     data.insert(data.end(), pad_size, 0);
   }
 
-  std::string GetDisassembleParameters() OVERRIDE {
+  std::string GetDisassembleParameters() override {
     return " -D -bbinary -mmips:isa64r6";
   }
 
-  mips64::Mips64Assembler* CreateAssembler(ArenaAllocator* allocator) OVERRIDE {
+  mips64::Mips64Assembler* CreateAssembler(ArenaAllocator* allocator) override {
     return new (allocator) mips64::Mips64Assembler(allocator, instruction_set_features_.get());
   }
 
-  void SetUpHelpers() OVERRIDE {
+  void SetUpHelpers() override {
     if (registers_.size() == 0) {
       registers_.push_back(new mips64::GpuRegister(mips64::ZERO));
       registers_.push_back(new mips64::GpuRegister(mips64::AT));
@@ -223,35 +233,35 @@ class AssemblerMIPS64Test : public AssemblerTest<mips64::Mips64Assembler,
     }
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     AssemblerTest::TearDown();
     STLDeleteElements(&registers_);
     STLDeleteElements(&fp_registers_);
     STLDeleteElements(&vec_registers_);
   }
 
-  std::vector<mips64::Mips64Label> GetAddresses() {
+  std::vector<mips64::Mips64Label> GetAddresses() override {
     UNIMPLEMENTED(FATAL) << "Feature not implemented yet";
     UNREACHABLE();
   }
 
-  std::vector<mips64::GpuRegister*> GetRegisters() OVERRIDE {
+  std::vector<mips64::GpuRegister*> GetRegisters() override {
     return registers_;
   }
 
-  std::vector<mips64::FpuRegister*> GetFPRegisters() OVERRIDE {
+  std::vector<mips64::FpuRegister*> GetFPRegisters() override {
     return fp_registers_;
   }
 
-  std::vector<mips64::VectorRegister*> GetVectorRegisters() OVERRIDE {
+  std::vector<mips64::VectorRegister*> GetVectorRegisters() override {
     return vec_registers_;
   }
 
-  uint32_t CreateImmediate(int64_t imm_value) OVERRIDE {
+  uint32_t CreateImmediate(int64_t imm_value) override {
     return imm_value;
   }
 
-  std::string GetSecondaryRegisterName(const mips64::GpuRegister& reg) OVERRIDE {
+  std::string GetSecondaryRegisterName(const mips64::GpuRegister& reg) override {
     CHECK(secondary_register_names_.find(reg) != secondary_register_names_.end());
     return secondary_register_names_[reg];
   }
@@ -842,99 +852,99 @@ TEST_F(AssemblerMIPS64Test, Bc1nez) {
 }
 
 TEST_F(AssemblerMIPS64Test, BareBc) {
-  BranchHelper(&mips64::Mips64Assembler::Bc, "Bc", /* is_bare */ true);
+  BranchHelper(&mips64::Mips64Assembler::Bc, "Bc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBalc) {
-  BranchHelper(&mips64::Mips64Assembler::Balc, "Balc", /* is_bare */ true);
+  BranchHelper(&mips64::Mips64Assembler::Balc, "Balc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBeqzc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Beqzc, "Beqzc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Beqzc, "Beqzc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBnezc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bnezc, "Bnezc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bnezc, "Bnezc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBltzc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bltzc, "Bltzc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bltzc, "Bltzc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgezc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgezc, "Bgezc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgezc, "Bgezc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBlezc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Blezc, "Blezc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Blezc, "Blezc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgtzc) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgtzc, "Bgtzc", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgtzc, "Bgtzc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBeqc) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Beqc, "Beqc", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Beqc, "Beqc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBnec) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bnec, "Bnec", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bnec, "Bnec", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBltc) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bltc, "Bltc", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bltc, "Bltc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgec) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bgec, "Bgec", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bgec, "Bgec", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBltuc) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bltuc, "Bltuc", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bltuc, "Bltuc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgeuc) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bgeuc, "Bgeuc", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bgeuc, "Bgeuc", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBc1eqz) {
-  BranchFpuCondHelper(&mips64::Mips64Assembler::Bc1eqz, "Bc1eqz", /* is_bare */ true);
+  BranchFpuCondHelper(&mips64::Mips64Assembler::Bc1eqz, "Bc1eqz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBc1nez) {
-  BranchFpuCondHelper(&mips64::Mips64Assembler::Bc1nez, "Bc1nez", /* is_bare */ true);
+  BranchFpuCondHelper(&mips64::Mips64Assembler::Bc1nez, "Bc1nez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBeqz) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Beqz, "Beqz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Beqz, "Beqz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBnez) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bnez, "Bnez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bnez, "Bnez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBltz) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bltz, "Bltz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bltz, "Bltz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgez) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgez, "Bgez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgez, "Bgez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBlez) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Blez, "Blez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Blez, "Blez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBgtz) {
-  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgtz, "Bgtz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips64::Mips64Assembler::Bgtz, "Bgtz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBeq) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Beq, "Beq", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Beq, "Beq", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, BareBne) {
-  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bne, "Bne", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips64::Mips64Assembler::Bne, "Bne", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPS64Test, LongBeqc) {
@@ -1242,7 +1252,7 @@ TEST_F(AssemblerMIPS64Test, Daui) {
   std::vector<mips64::GpuRegister*> reg1_registers = GetRegisters();
   std::vector<mips64::GpuRegister*> reg2_registers = GetRegisters();
   reg2_registers.erase(reg2_registers.begin());  // reg2 can't be ZERO, remove it.
-  std::vector<int64_t> imms = CreateImmediateValuesBits(/* imm_bits */ 16, /* as_uint */ true);
+  std::vector<int64_t> imms = CreateImmediateValuesBits(/* imm_bits= */ 16, /* as_uint= */ true);
   WarnOnCombinations(reg1_registers.size() * reg2_registers.size() * imms.size());
   std::ostringstream expected;
   for (mips64::GpuRegister* reg1 : reg1_registers) {
@@ -3527,6 +3537,22 @@ TEST_F(AssemblerMIPS64Test, FillW) {
 
 TEST_F(AssemblerMIPS64Test, FillD) {
   DriverStr(RepeatVR(&mips64::Mips64Assembler::FillD, "fill.d ${reg1}, ${reg2}"), "fill.d");
+}
+
+TEST_F(AssemblerMIPS64Test, PcntB) {
+  DriverStr(RepeatVV(&mips64::Mips64Assembler::PcntB, "pcnt.b ${reg1}, ${reg2}"), "pcnt.b");
+}
+
+TEST_F(AssemblerMIPS64Test, PcntH) {
+  DriverStr(RepeatVV(&mips64::Mips64Assembler::PcntH, "pcnt.h ${reg1}, ${reg2}"), "pcnt.h");
+}
+
+TEST_F(AssemblerMIPS64Test, PcntW) {
+  DriverStr(RepeatVV(&mips64::Mips64Assembler::PcntW, "pcnt.w ${reg1}, ${reg2}"), "pcnt.w");
+}
+
+TEST_F(AssemblerMIPS64Test, PcntD) {
+  DriverStr(RepeatVV(&mips64::Mips64Assembler::PcntD, "pcnt.d ${reg1}, ${reg2}"), "pcnt.d");
 }
 
 TEST_F(AssemblerMIPS64Test, LdiB) {

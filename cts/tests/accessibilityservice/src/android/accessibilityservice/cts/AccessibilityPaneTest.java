@@ -16,10 +16,10 @@
 
 package android.accessibilityservice.cts;
 
-import static android.accessibilityservice.cts.AccessibilityActivityTestCase.TIMEOUT_ASYNC_PROCESSING;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.AccessibilityEventTypeMatcher;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.ContentChangesMatcher;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
+import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
 import static android.view.accessibility.AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_APPEARED;
 import static android.view.accessibility.AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_DISAPPEARED;
 import static android.view.accessibility.AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_TITLE;
@@ -33,12 +33,13 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.app.UiAutomation.AccessibilityEventFilter;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -92,7 +93,7 @@ public class AccessibilityPaneTest {
             mPaneView.setAccessibilityPaneTitle(newTitle);
             assertEquals(newTitle, mPaneView.getAccessibilityPaneTitle());
         }), (new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_TITLE))::matches,
-                TIMEOUT_ASYNC_PROCESSING);
+                DEFAULT_TIMEOUT_MS);
 
         AccessibilityNodeInfo windowLikeNode = getPaneNode();
         assertEquals(newTitle, windowLikeNode.getPaneTitle());
@@ -107,16 +108,16 @@ public class AccessibilityPaneTest {
                 both(new AccessibilityEventTypeMatcher(TYPE_WINDOW_STATE_CHANGED)).and(
                         new ContentChangesMatcher(CONTENT_CHANGE_TYPE_PANE_DISAPPEARED))::matches;
         sUiAutomation.executeAndWaitForEvent(setPaneViewVisibility(View.GONE),
-                paneDisappearsFilter, TIMEOUT_ASYNC_PROCESSING);
+                paneDisappearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewVisibility(View.VISIBLE),
-                paneAppearsFilter, TIMEOUT_ASYNC_PROCESSING);
+                paneAppearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewParentVisibility(View.GONE),
-                paneDisappearsFilter, TIMEOUT_ASYNC_PROCESSING);
+                paneDisappearsFilter, DEFAULT_TIMEOUT_MS);
 
         sUiAutomation.executeAndWaitForEvent(setPaneViewParentVisibility(View.VISIBLE),
-                paneAppearsFilter, TIMEOUT_ASYNC_PROCESSING);
+                paneAppearsFilter, DEFAULT_TIMEOUT_MS);
     }
 
     private AccessibilityNodeInfo getPaneNode() {

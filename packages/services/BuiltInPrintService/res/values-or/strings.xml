@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"ଡୋର୍‍ ଖୋଲା ଅଛି"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"ଜାମ୍‍ ହୋଇଯାଇଛି"</string>
     <string name="printer_offline" msgid="9196864753298645066">"ଅଫଲାଇନ୍"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"ଖରାପ ସାର୍ଟିଫିକେଟ୍"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"ଏନ୍‌କ୍ରିପ୍ଟ କରାଯାଇନାହିଁ"</string>
     <string name="printer_check" msgid="6428369671197132828">"ପ୍ରିଣ୍ଟର୍‍ ଖୋଜନ୍ତୁ"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"ପଠାଇବାକୁ ଅପେକ୍ଷା କରାଯାଉଛି"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ଡକ୍ୟୁମେଣ୍ଟ ପଢ଼ିପାରିଲା ନାହିଁ"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"ପ୍ରିଣ୍ଟର୍‍ ସପୋର୍ଟ କରୁନାହିଁ"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟର୍‌ ଖୋଜନ୍ତୁ"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟିଂ"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟର୍"</string>
     <string name="searching" msgid="2114018057619514587">"ଖୋଜୁଛି…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"ପ୍ରିଣ୍ଟର୍‌ର ସାମ୍ନା ପ୍ୟାନେଲ୍‌ରୁ ଆପଣ ଏହି କନେକ୍ସନ୍‌କୁ ଅନୁମୋଦନ କରିପାରିବେ"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"ଭୁଲିଯାଆନ୍ତୁ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ମାଧ୍ୟମରେ କନେକ୍ଟ ହେବ"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g>ରେ ବର୍ତ୍ତମାନର ନେଟ୍‌ୱର୍କ ମାଧ୍ୟମରେ କନେକ୍ଟ କରାଯାଇଥାଏ"</string>
+    <string name="security" msgid="2279008326210305401">"ସୁରକ୍ଷା"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"ଏହି ପ୍ରିଣ୍ଟର୍ ଏକ ନୂଆ ସୁରକ୍ଷା ସାର୍ଟିଫିକେଟ୍ ପ୍ରଦାନ କରିଛି କିମ୍ବା ଅନ୍ୟ ଏକ ଡିଭାଇସ୍ ଏହାକୁ ପ୍ରତିରୂପଣ କରୁଛି। ନୂଆ ସାର୍ଟିଫିକେଟ୍ ସ୍ୱୀକାର କରିବେ?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"ଏହି ପ୍ରିଣ୍ଟର୍‌ ଏନ୍‌କ୍ରିପ୍ଟ ହୋ‍ଇଥିବା କାର୍ଯ୍ୟ ଆଉ ଗ୍ରହଣ କରୁନାହିଁ ପ୍ରିଣ୍ଟିଂ ଜାରି ରଖିବେ?"</string>
+    <string name="accept" msgid="4426153292469698134">"କଲ୍ ଉଠାନ୍ତୁ"</string>
+    <string name="reject" msgid="24751635160440693">"ଅଗ୍ରାହ୍ୟ କରନ୍ତୁ"</string>
+    <string name="connections" msgid="8895413761760117180">"ସଂଯୋଗଗୁଡ଼ିକ"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ନିକଟସ୍ଥ ଡିଭାଇସ୍‍ଗୁଡ଼ିକୁ ଖୋଜିବା ପାଇଁ ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ଲୋକେସନ୍‍ ଅନୁମତି ଆବଶ୍ୟକ କରୁଛି।"</string>
+    <string name="fix" msgid="7784394272611365393">"ସମୀକ୍ଷା ଅନୁମତି"</string>
 </resources>

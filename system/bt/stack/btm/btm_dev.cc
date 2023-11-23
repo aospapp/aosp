@@ -60,7 +60,7 @@
  ******************************************************************************/
 bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
                       BD_NAME bd_name, uint8_t* features,
-                      uint32_t trusted_mask[], LINK_KEY link_key,
+                      uint32_t trusted_mask[], LinkKey* p_link_key,
                       uint8_t key_type, tBTM_IO_CAP io_cap,
                       uint8_t pin_length) {
   BTM_TRACE_API("%s: link key type:%x", __func__, key_type);
@@ -120,10 +120,10 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
 
   BTM_SEC_COPY_TRUSTED_DEVICE(trusted_mask, p_dev_rec->trusted_mask);
 
-  if (link_key) {
+  if (p_link_key) {
     VLOG(2) << __func__ << ": BDA: " << bd_addr;
     p_dev_rec->sec_flags |= BTM_SEC_LINK_KEY_KNOWN;
-    memcpy(p_dev_rec->link_key, link_key, LINK_KEY_LEN);
+    p_dev_rec->link_key = *p_link_key;
     p_dev_rec->link_key_type = key_type;
     p_dev_rec->pin_code_length = pin_length;
 
@@ -149,17 +149,22 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
   return true;
 }
 
-/*******************************************************************************
+void wipe_secrets_and_remove(tBTM_SEC_DEV_REC* p_dev_rec) {
+  p_dev_rec->link_key.fill(0);
+  memset(&p_dev_rec->ble.keys, 0, sizeof(tBTM_SEC_BLE_KEYS));
+  list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+}
+
+/** Free resources associated with the device associated with |bd_addr| address.
  *
- * Function         BTM_SecDeleteDevice
+ * *** WARNING ***
+ * tBTM_SEC_DEV_REC associated with bd_addr becomes invalid after this function
+ * is called, also any of it's fields. i.e. if you use p_dev_rec->bd_addr, it is
+ * no longer valid!
+ * *** WARNING ***
  *
- * Description      Free resources associated with the device.
- *
- * Parameters:      bd_addr          - BD address of the peer
- *
- * Returns          true if removed OK, false if not found or ACL link is active
- *
- ******************************************************************************/
+ * Returns true if removed OK, false if not found or ACL link is active.
+ */
 bool BTM_SecDeleteDevice(const RawAddress& bd_addr) {
   if (BTM_IsAclConnectionUp(bd_addr, BT_TRANSPORT_LE) ||
       BTM_IsAclConnectionUp(bd_addr, BT_TRANSPORT_BR_EDR)) {
@@ -170,9 +175,13 @@ bool BTM_SecDeleteDevice(const RawAddress& bd_addr) {
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
   if (p_dev_rec != NULL) {
-    btm_sec_free_dev(p_dev_rec);
+    RawAddress bda = p_dev_rec->bd_addr;
+
+    /* Clear out any saved BLE keys */
+    btm_sec_clear_ble_keys(p_dev_rec);
+    wipe_secrets_and_remove(p_dev_rec);
     /* Tell controller to get rid of the link key, if it has one stored */
-    BTM_DeleteStoredLinkKey(&p_dev_rec->bd_addr, NULL);
+    BTM_DeleteStoredLinkKey(&bda, NULL);
   }
 
   return true;
@@ -257,19 +266,6 @@ tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
 
 /*******************************************************************************
  *
- * Function         btm_sec_free_dev
- *
- * Description      Mark device record as not used
- *
- ******************************************************************************/
-void btm_sec_free_dev(tBTM_SEC_DEV_REC* p_dev_rec) {
-  /* Clear out any saved BLE keys */
-  btm_sec_clear_ble_keys(p_dev_rec);
-  list_remove(btm_cb.sec_dev_rec, p_dev_rec);
-}
-
-/*******************************************************************************
- *
  * Function         btm_dev_support_switch
  *
  * Description      This function is called by the L2CAP to check if remote
@@ -285,10 +281,8 @@ bool btm_dev_support_switch(const RawAddress& bd_addr) {
   uint8_t xx;
   bool feature_empty = true;
 
-#if (BTM_SCO_INCLUDED == TRUE)
   /* Role switch is not allowed if a SCO is up */
   if (btm_is_sco_active_by_bdaddr(bd_addr)) return (false);
-#endif
   p_dev_rec = btm_find_dev(bd_addr);
   if (p_dev_rec &&
       controller_get_interface()->supports_master_slave_role_switch()) {
@@ -413,7 +407,7 @@ void btm_consolidate_dev(tBTM_SEC_DEV_REC* p_target_rec) {
       p_target_rec->bond_type = temp_rec.bond_type;
 
       /* remove the combined record */
-      list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+      wipe_secrets_and_remove(p_dev_rec);
       // p_dev_rec gets freed in list_remove, we should not  access it further
       continue;
     }
@@ -425,7 +419,7 @@ void btm_consolidate_dev(tBTM_SEC_DEV_REC* p_target_rec) {
         p_target_rec->device_type |= p_dev_rec->device_type;
 
         /* remove the combined record */
-        list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+        wipe_secrets_and_remove(p_dev_rec);
       }
     }
   }
@@ -514,7 +508,7 @@ tBTM_SEC_DEV_REC* btm_sec_allocate_dev_rec(void) {
 
   if (list_length(btm_cb.sec_dev_rec) > BTM_SEC_MAX_DEVICE_RECORDS) {
     p_dev_rec = btm_find_oldest_dev_rec();
-    list_remove(btm_cb.sec_dev_rec, p_dev_rec);
+    wipe_secrets_and_remove(p_dev_rec);
   }
 
   p_dev_rec =

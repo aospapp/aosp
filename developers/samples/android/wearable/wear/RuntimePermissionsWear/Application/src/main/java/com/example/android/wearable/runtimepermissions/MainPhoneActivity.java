@@ -20,33 +20,30 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
-import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.example.android.wearable.runtimepermissions.common.Constants;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.wearable.CapabilityApi;
+import com.example.android.wearable.runtimepermissions.common.Constants;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.wearable.CapabilityClient;
 import com.google.android.gms.wearable.CapabilityInfo;
 import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageClient;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 
 import java.io.File;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Displays data that requires runtime permissions both locally (READ_EXTERNAL_STORAGE) and
@@ -60,11 +57,9 @@ import java.util.concurrent.TimeUnit;
  * in app experience.
  */
 public class MainPhoneActivity extends AppCompatActivity implements
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener,
-        CapabilityApi.CapabilityListener,
-        MessageApi.MessageListener,
-        ResultCallback<MessageApi.SendMessageResult> {
+        CapabilityClient.OnCapabilityChangedListener,
+        MessageClient.OnMessageReceivedListener,
+        OnCompleteListener<Integer> {
 
     private static final String TAG = "MainPhoneActivity";
 
@@ -88,8 +83,6 @@ public class MainPhoneActivity extends AppCompatActivity implements
 
     private Set<Node> mWearNodeIds;
 
-    private GoogleApiClient mGoogleApiClient;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate()");
@@ -107,19 +100,11 @@ public class MainPhoneActivity extends AppCompatActivity implements
         mWearRequestingPhoneStoragePermission =
                 getIntent().getBooleanExtra(EXTRA_PROMPT_PERMISSION_FROM_WEAR, false);
 
-        mPhoneStoragePermissionButton =
-                (Button) findViewById(R.id.phoneStoragePermissionButton);
+        mPhoneStoragePermissionButton = findViewById(R.id.phoneStoragePermissionButton);
 
-        mWearBodySensorsPermissionButton =
-                (Button) findViewById(R.id.wearBodySensorsPermissionButton);
+        mWearBodySensorsPermissionButton = findViewById(R.id.wearBodySensorsPermissionButton);
 
-        mOutputTextView = (TextView) findViewById(R.id.output);
-
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
+        mOutputTextView = findViewById(R.id.output);
     }
 
     public void onClickWearBodySensors(View view) {
@@ -147,14 +132,9 @@ public class MainPhoneActivity extends AppCompatActivity implements
     protected void onPause() {
         Log.d(TAG, "onPause()");
         super.onPause();
-        if ((mGoogleApiClient != null) && (mGoogleApiClient.isConnected())) {
-            Wearable.CapabilityApi.removeCapabilityListener(
-                    mGoogleApiClient,
-                    this,
-                    Constants.CAPABILITY_WEAR_APP);
-            Wearable.MessageApi.removeListener(mGoogleApiClient, this);
-            mGoogleApiClient.disconnect();
-        }
+
+        Wearable.getMessageClient(this).removeListener(this);
+        Wearable.getCapabilityClient(this).removeListener(this);
     }
 
     @Override
@@ -174,9 +154,51 @@ public class MainPhoneActivity extends AppCompatActivity implements
                     R.drawable.ic_permission_approved, 0, 0, 0);
         }
 
-        if (mGoogleApiClient != null) {
-            mGoogleApiClient.connect();
-        }
+        // Clients are inexpensive to create, so in this case we aren't creating member variables.
+        // (They are cached and shared between GoogleApi instances.)
+        Wearable.getMessageClient(this).addListener(this);
+        Wearable.getCapabilityClient(this).addListener(
+                this, Constants.CAPABILITY_WEAR_APP);
+
+        // Initial check of capabilities to find the phone.
+        Task<CapabilityInfo> capabilityInfoTask = Wearable.getCapabilityClient(this)
+                .getCapability(Constants.CAPABILITY_WEAR_APP, CapabilityClient.FILTER_REACHABLE);
+
+        capabilityInfoTask.addOnCompleteListener(new OnCompleteListener<CapabilityInfo>() {
+            @Override
+            public void onComplete(Task<CapabilityInfo> task) {
+
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Capability request succeeded.");
+                    CapabilityInfo capabilityInfo = task.getResult();
+                    String capabilityName = capabilityInfo.getName();
+
+                    boolean wearSupportsSampleApp =
+                            capabilityName.equals(Constants.CAPABILITY_WEAR_APP);
+
+                    if (wearSupportsSampleApp) {
+                        mWearNodeIds = capabilityInfo.getNodes();
+
+                        /*
+                         * Upon getting all wear nodes, we now need to check if the original
+                         * request to launch this activity (and PhonePermissionRequestActivity) was
+                         * initiated by a wear device. If it was, we need to send back the
+                         * permission results (data or rejection of permission) to the wear device.
+                         *
+                         * Also, note we set variable to false, this enables the user to continue
+                         * changing permissions without sending updates to the wear every time.
+                         */
+                        if (mWearRequestingPhoneStoragePermission) {
+                            mWearRequestingPhoneStoragePermission = false;
+                            sendWearPermissionResults();
+                        }
+                    }
+
+                } else {
+                    Log.d(TAG, "Capability request failed to return any results.");
+                }
+            }
+        });
     }
 
     @Override
@@ -194,66 +216,6 @@ public class MainPhoneActivity extends AppCompatActivity implements
             }
         }
     }
-
-    @Override
-    public void onConnected(Bundle bundle) {
-        Log.d(TAG, "onConnected()");
-
-        // Set up listeners for capability and message changes.
-        Wearable.CapabilityApi.addCapabilityListener(
-                mGoogleApiClient,
-                this,
-                Constants.CAPABILITY_WEAR_APP);
-        Wearable.MessageApi.addListener(mGoogleApiClient, this);
-
-        // Initial check of capabilities to find the wear nodes.
-        PendingResult<CapabilityApi.GetCapabilityResult> pendingResult =
-                Wearable.CapabilityApi.getCapability(
-                        mGoogleApiClient,
-                        Constants.CAPABILITY_WEAR_APP,
-                        CapabilityApi.FILTER_REACHABLE);
-
-        pendingResult.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
-            @Override
-            public void onResult(CapabilityApi.GetCapabilityResult getCapabilityResult) {
-
-                CapabilityInfo capabilityInfo = getCapabilityResult.getCapability();
-                String capabilityName = capabilityInfo.getName();
-
-                boolean wearSupportsSampleApp =
-                        capabilityName.equals(Constants.CAPABILITY_WEAR_APP);
-
-                if (wearSupportsSampleApp) {
-                    mWearNodeIds = capabilityInfo.getNodes();
-
-                    /*
-                     * Upon getting all wear nodes, we now need to check if the original request to
-                     * launch this activity (and PhonePermissionRequestActivity) was initiated by
-                     * a wear device. If it was, we need to send back the permission results (data
-                     * or rejection of permission) to the wear device.
-                     *
-                     * Also, note we set variable to false, this enables the user to continue
-                     * changing permissions without sending updates to the wear every time.
-                     */
-                    if (mWearRequestingPhoneStoragePermission) {
-                        mWearRequestingPhoneStoragePermission = false;
-                        sendWearPermissionResults();
-                    }
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.d(TAG, "onConnectionSuspended(): connection to location client suspended");
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        Log.e(TAG, "onConnectionFailed(): connection to location client failed");
-    }
-
 
     public void onCapabilityChanged(CapabilityInfo capabilityInfo) {
         Log.d(TAG, "onCapabilityChanged(): " + capabilityInfo);
@@ -310,9 +272,9 @@ public class MainPhoneActivity extends AppCompatActivity implements
     }
 
     @Override
-    public void onResult(MessageApi.SendMessageResult sendMessageResult) {
-        if (!sendMessageResult.getStatus().isSuccess()) {
-            Log.d(TAG, "Sending message failed, onResult: " + sendMessageResult);
+    public void onComplete(Task<Integer> task) {
+        if (!task.isSuccessful()) {
+            Log.d(TAG, "Sending message failed, onComplete.");
             updateWearButtonOnUiThread();
             logToUi("Sending message failed.");
 
@@ -325,19 +287,17 @@ public class MainPhoneActivity extends AppCompatActivity implements
         Log.d(TAG, "sendMessage(): " + mWearNodeIds);
 
         if ((mWearNodeIds != null) && (!mWearNodeIds.isEmpty())) {
-
-            PendingResult<MessageApi.SendMessageResult> pendingResult;
+            
+            Task<Integer> sendMessageTask;
 
             for (Node node : mWearNodeIds) {
 
-                pendingResult = Wearable.MessageApi.sendMessage(
-                        mGoogleApiClient,
+                sendMessageTask = Wearable.getMessageClient(this).sendMessage(
                         node.getId(),
                         Constants.MESSAGE_PATH_WEAR,
                         dataMap.toByteArray());
 
-                pendingResult.setResultCallback(this, Constants.CONNECTION_TIME_OUT_MS,
-                        TimeUnit.SECONDS);
+                sendMessageTask.addOnCompleteListener(this);
             }
         } else {
             // Unable to retrieve node with proper capability

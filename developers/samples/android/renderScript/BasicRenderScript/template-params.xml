@@ -23,9 +23,7 @@
     <package>com.example.android.basicrenderscript</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>8</minSdk>
-
-    <dependency_external>'renderscript-v8.jar'</dependency_external>
+    <minSdk>14</minSdk>
 
     <defaultConfig>
             renderscriptTargetApi 24

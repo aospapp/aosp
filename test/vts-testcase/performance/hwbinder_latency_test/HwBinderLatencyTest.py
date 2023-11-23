@@ -63,8 +63,7 @@ class HwBinderLatencyTest(base_test.BaseTestClass):
     def setUpClass(self):
         required_params = ["hidl_hal_mode"]
         self.getUserParams(required_params)
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
+        self.dut = self.android_devices[0]
         self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(self.dut)
         self._cpu_freq.DisableCpuScaling()
 
@@ -102,7 +101,7 @@ class HwBinderLatencyTest(base_test.BaseTestClass):
         binary = "/data/local/tmp/%s/libhwbinder_latency%s" % (bits, bits)
         min_cpu, max_cpu = self._cpu_freq.GetMinAndMaxCpuNo()
         iterations = 1000 // (max_cpu - min_cpu)
-        results = self.dut.shell.one.Execute([
+        results = self.dut.shell.Execute([
             "chmod 755 %s" % binary,
             "VTS_ROOT_PATH=/data/local/tmp " \
             "LD_LIBRARY_PATH=/system/lib%s:/data/local/tmp/%s/hw:"

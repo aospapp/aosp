@@ -7,7 +7,7 @@
 
     <original-package android:name="com.android.gallery3d" />
 
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="24" />
+    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="28" />
 
     <permission android:name="com.android.gallery3d.permission.GALLERY_PROVIDER"
             android:protectionLevel="signatureOrSystem" />
@@ -324,7 +324,9 @@
                 <data android:scheme="package"/>
             </intent-filter>
         </receiver>
-        <service android:name="com.android.gallery3d.app.PackagesMonitor$AsyncService"/>
+        <service android:name="com.android.gallery3d.app.PackagesMonitor$AsyncService"
+                 android:permission="android.permission.BIND_JOB_SERVICE"
+                 android:exported="true"/>
         <service android:name="com.android.gallery3d.gadget.WidgetService"
                 android:permission="android.permission.BIND_REMOTEVIEWS"/>
         <activity android:name="com.android.gallery3d.gadget.WidgetConfigure"

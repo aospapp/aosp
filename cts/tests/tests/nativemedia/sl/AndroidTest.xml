@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Native Media Open SL ES test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="media" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsNativeMediaSlTestCases->/data/local/tmp/CtsNativeMediaSlTestCases" />

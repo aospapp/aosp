@@ -26,10 +26,45 @@ art_cc_defaults {
         "dex_writer.cc",
     ],
     export_include_dirs: ["."],
-    shared_libs: [
-        "libbase",
-    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libartbase",
+                "libartpalette",
+                "libdexfile",
+                "libprofile",
+                "libbase",
+            ],
+        },
+        not_windows: {
+            shared_libs: [
+                "libartbase",
+                "libartpalette",
+                "libdexfile",
+                "libprofile",
+                "libbase",
+            ],
+        },
+        windows: {
+            cflags: ["-Wno-thread-safety"],
+            static_libs: [
+                "libartbase",
+                "libartpalette",
+                "libdexfile",
+                "libprofile",
+                "libbase",
+            ],
+        },
+    },
     static_libs: ["libz"],
+}
+
+cc_defaults {
+    name: "libart-dexlayout_static_base_defaults",
+    static_libs: [
+        "libbase",
+        "libz",
+    ],
 }
 
 art_cc_library {
@@ -38,18 +73,30 @@ art_cc_library {
         "libart-dexlayout-defaults",
         "dex2oat-pgo-defaults",
     ],
-    shared_libs: [
-        "libart",
-        "libdexfile",
-    ],
-
     target: {
         android: {
             lto: {
                  thin: true,
             },
         },
+        windows: {
+            enabled: true,
+            shared: {
+                enabled: false,
+            },
+        },
     },
+}
+
+cc_defaults {
+    name: "libart-dexlayout_static_defaults",
+    defaults: [
+        "libart-dexlayout_static_base_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+        "libprofile_static_defaults",
+    ],
+    static_libs: ["libart-dexlayout"],
 }
 
 art_cc_library {
@@ -59,16 +106,27 @@ art_cc_library {
       "art_debug_defaults",
     ],
     shared_libs: [
-        "libartd",
         "libdexfiled",
+        "libartbased",
+        "libprofiled",
     ],
+}
+
+cc_defaults {
+    name: "libartd-dexlayout_static_defaults",
+    defaults: [
+        "libart-dexlayout_static_base_defaults",
+        "libartbased_static_defaults",
+        "libdexfiled_static_defaults",
+        "libprofiled_static_defaults",
+    ],
+    static_libs: ["libartd-dexlayout"],
 }
 
 cc_defaults {
     name: "dexlayout-defaults",
     defaults: ["art_defaults"],
     host_supported: true,
-    srcs: ["dexlayout_main.cc"],
     shared_libs: [
         "libbase",
     ],
@@ -77,10 +135,36 @@ cc_defaults {
 art_cc_binary {
     name: "dexlayout",
     defaults: ["dexlayout-defaults"],
+    srcs: ["dexlayout_main.cc"],
     shared_libs: [
-        "libart",
+        "libdexfile",
+        "libprofile",
+        "libartbase",
         "libart-dexlayout",
     ],
+}
+
+art_cc_binary {
+    name: "dexlayouts",
+    defaults: [
+        "dexlayout-defaults",
+        "libart-dexlayout_static_defaults",
+        "libprofile_static_defaults",
+        "libdexfile_static_defaults",
+        "libartbase_static_defaults",
+    ],
+    srcs: ["dexlayout_main.cc"],
+    host_supported: true,
+    device_supported: false,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        windows: {
+            enabled: true,
+            cflags: ["-Wno-thread-safety"],
+        },
+    },
 }
 
 art_cc_binary {
@@ -89,8 +173,11 @@ art_cc_binary {
         "art_debug_defaults",
         "dexlayout-defaults",
     ],
+    srcs: ["dexlayout_main.cc"],
     shared_libs: [
-        "libartd",
+        "libdexfiled",
+        "libprofiled",
+        "libartbased",
         "libartd-dexlayout",
     ],
 }
@@ -98,7 +185,10 @@ art_cc_binary {
 art_cc_test {
     name: "art_dexlayout_tests",
     defaults: ["art_gtest_defaults"],
-    shared_libs: ["libart-dexlayout"],
+    shared_libs: [
+        "libprofiled",
+        "libartd-dexlayout",
+    ],
     srcs: ["dexlayout_test.cc"],
 }
 
@@ -110,13 +200,15 @@ art_cc_binary {
     cflags: ["-Wall"],
     shared_libs: [
         "libart",
+        "libdexfile",
+        "libartbase",
         "libart-dexlayout",
         "libbase",
     ],
     target: {
         android: {
             shared_libs: [
-                "libpagemap",
+                "libmeminfo",
             ],
         },
     },

@@ -236,23 +236,19 @@ TEST_F(FakeStreamTest, WaitForDataRead) {
   EXPECT_CALL(mock_loop_, PostDelayedTask(_, _, zero_delay)).Times(2);
 
   int call_count = 0;
-  auto callback = [](int* call_count, Stream::AccessMode mode) {
+  auto callback = base::Bind([](int* call_count, Stream::AccessMode mode) {
     (*call_count)++;
     EXPECT_EQ(Stream::AccessMode::READ, mode);
-  };
+  }, &call_count);
 
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::READ,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::READ,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(1, call_count);
 
   stream_->AddReadPacketString({}, "foobar");
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::READ,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::READ,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(2, call_count);
 
@@ -261,10 +257,8 @@ TEST_F(FakeStreamTest, WaitForDataRead) {
   auto one_sec_delay = base::TimeDelta::FromSeconds(1);
   stream_->AddReadPacketString(one_sec_delay, "baz");
   EXPECT_CALL(mock_loop_, PostDelayedTask(_, _, one_sec_delay)).Times(1);
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::READ,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::READ,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(3, call_count);
 }
@@ -401,23 +395,19 @@ TEST_F(FakeStreamTest, WaitForDataWrite) {
   EXPECT_CALL(mock_loop_, PostDelayedTask(_, _, zero_delay)).Times(2);
 
   int call_count = 0;
-  auto callback = [](int* call_count, Stream::AccessMode mode) {
+  auto callback = base::Bind([](int* call_count, Stream::AccessMode mode) {
     (*call_count)++;
     EXPECT_EQ(Stream::AccessMode::WRITE, mode);
-  };
+  }, &call_count);
 
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::WRITE,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::WRITE,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(1, call_count);
 
   stream_->ExpectWritePacketString({}, "foobar");
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::WRITE,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::WRITE,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(2, call_count);
 
@@ -426,10 +416,8 @@ TEST_F(FakeStreamTest, WaitForDataWrite) {
   auto one_sec_delay = base::TimeDelta::FromSeconds(1);
   stream_->ExpectWritePacketString(one_sec_delay, "baz");
   EXPECT_CALL(mock_loop_, PostDelayedTask(_, _, one_sec_delay)).Times(1);
-  EXPECT_TRUE(
-      stream_->WaitForData(Stream::AccessMode::WRITE,
-                           base::Bind(callback, base::Unretained(&call_count)),
-                           nullptr));
+  EXPECT_TRUE(stream_->WaitForData(Stream::AccessMode::WRITE,
+                                   callback, nullptr));
   mock_loop_.Run();
   EXPECT_EQ(3, call_count);
 }

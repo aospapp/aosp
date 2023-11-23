@@ -16,22 +16,6 @@
 
 package android.database.cts;
 
-import android.database.CharArrayBuffer;
-import android.database.CursorWindow;
-import android.database.MatrixCursor;
-import android.database.sqlite.SQLiteException;
-import android.os.Parcel;
-import android.support.test.runner.AndroidJUnit4;
-import android.test.suitebuilder.annotation.SmallTest;
-
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Random;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -39,9 +23,27 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.database.CharArrayBuffer;
+import android.database.CursorWindow;
+import android.database.MatrixCursor;
+import android.database.sqlite.SQLiteException;
+import android.os.Parcel;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Random;
+
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class CursorWindowTest {
+    private static final String TAG = "CursorWindowTest";
 
     private static final String TEST_STRING = "Test String";
 
@@ -429,6 +431,38 @@ public class CursorWindowTest {
         assertTrue("Allocation of 1 row should succeed", cursorWindow.putBlob(bytes, 0, 0));
         assertTrue(cursorWindow.allocRow());
         assertFalse("Allocation of 2nd row should fail", cursorWindow.putBlob(bytes, 1, 0));
+    }
+
+    @Test
+    public void testCreateFailure() {
+        Exception actual = null;
+        try {
+            new CursorWindow("test", -1);
+        } catch (RuntimeException caught) {
+            Log.i(TAG, "Received: " + caught);
+            actual = caught;
+            // CursorWindowAllocationException is hidden, so let's just check the message.
+            if (actual.getMessage().contains("Could not allocate CursorWindow")) {
+                return;
+            }
+        }
+        fail("Didn't catch CursorWindowAllocationException: actual=" + actual);
+    }
+
+    @Test
+    public void testCreateFromParcelFailure() {
+        Exception actual = null;
+        try {
+            CursorWindow.CREATOR.createFromParcel(Parcel.obtain());
+        } catch (RuntimeException caught) {
+            Log.i(TAG, "Received: " + caught);
+            actual = caught;
+            // CursorWindowAllocationException is hidden, so let's just check the message.
+            if (actual.getMessage().contains("Could not create CursorWindow")) {
+                return;
+            }
+        }
+        fail("Didn't catch CursorWindowAllocationException: actual=" + actual);
     }
 
     private class MockCursorWindow extends CursorWindow {

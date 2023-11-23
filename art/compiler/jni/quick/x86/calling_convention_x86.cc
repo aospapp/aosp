@@ -18,6 +18,7 @@
 
 #include <android-base/logging.h>
 
+#include "arch/instruction_set.h"
 #include "handle_scope-inl.h"
 #include "utils/x86/managed_register_x86.h"
 
@@ -257,7 +258,7 @@ bool X86JniCallingConvention::IsCurrentParamOnStack() {
 
 ManagedRegister X86JniCallingConvention::CurrentParamRegister() {
   LOG(FATAL) << "Should not reach here";
-  return ManagedRegister::NoRegister();
+  UNREACHABLE();
 }
 
 FrameOffset X86JniCallingConvention::CurrentParamStackOffset() {

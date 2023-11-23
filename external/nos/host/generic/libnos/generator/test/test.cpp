@@ -45,7 +45,7 @@ MATCHER_P(ProtoMessageEq, msg, "") { return MessageDifferencer::Equals(arg, msg)
 // Check the message is the same rather than the encoded bytes as different
 // bytes could decode to the same message.
 MATCHER_P(DecodesToProtoMessage, msg, "Vector does not decode to correct message") {
-    decltype(msg) decoded;
+    typename std::remove_const<decltype(msg)>::type decoded;
     return decoded.ParseFromArray(arg.data(), arg.size())
            && MessageDifferencer::Equals(decoded, msg);
 }

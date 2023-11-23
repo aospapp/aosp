@@ -16,7 +16,6 @@
 
 package com.android.server.telecom.tests;
 
-import android.os.Looper;
 import android.test.suitebuilder.annotation.SmallTest;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallState;
@@ -63,8 +62,7 @@ public class ConnectionServiceFocusManagerTest extends TelecomTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        mFocusManagerUT = new ConnectionServiceFocusManager(
-                mockCallsManagerRequester, Looper.getMainLooper());
+        mFocusManagerUT = new ConnectionServiceFocusManager(mockCallsManagerRequester);
         mNewCall = createFakeCall(mNewConnectionService, CallState.NEW);
         mActiveCall = createFakeCall(mActiveConnectionService, CallState.ACTIVE);
         ArgumentCaptor<CallsManager.CallsManagerListener> captor =

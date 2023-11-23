@@ -19,10 +19,10 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.Type;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.Type;
 
 public class UT_kernel extends UnitTest {
     private Type TA;

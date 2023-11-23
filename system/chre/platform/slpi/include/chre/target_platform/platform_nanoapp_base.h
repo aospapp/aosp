@@ -31,6 +31,18 @@ namespace chre {
 class PlatformNanoappBase {
  public:
   /**
+   * Sets app info that will be used later when the app is loaded into the
+   * system.
+   *
+   * @param appId The unique app identifier associated with this binary
+   * @param appVersion An application-defined version number
+   * @param appFilename The filename of the app that should be loaded from disk
+   *
+   * @return true if the info was successfully stored
+   */
+  bool setAppInfo(uint64_t appId, uint32_t appVersion, const char *appFilename);
+
+  /**
    * Reserves buffer space for a nanoapp's binary. This method should be called
    * before copyNanoappFragment is called.
    *
@@ -56,27 +68,16 @@ class PlatformNanoappBase {
   bool copyNanoappFragment(const void *buffer, size_t bufferSize);
 
   /**
-   * Associate this Nanoapp with a nanoapp included in a .so that is pre-loaded
-   * onto the filesystem. Actually loading the .so into memory is done when
-   * start() is called.
-   *
-   * @param appId The nanoapp's ID
-   * @param filename The name of the .so file in /vendor/lib/dsp that holds this
-   *        nanoapp. This string is not deep-copied, so the memory must remain
-   *        valid for the lifetime of this Nanoapp instance.
-   */
-  void loadFromFile(uint64_t appId, const char *filename);
-
-  /**
    * Associate this Nanoapp instance with a nanoapp that is statically built
    * into the CHRE binary with the given app info structure.
    */
   void loadStatic(const struct chreNslNanoappInfo *appInfo);
 
   /**
-   * @return true if the app's binary data is resident in memory, i.e. all
-   *         binary fragments are loaded through copyNanoappFragment, or
-   *         loadFromFile/loadStatic() was successful
+   * @return true if the app's binary data is resident in memory or if the app's
+   *         filename is saved, i.e. all binary fragments are loaded through
+   *         copyNanoappFragment, loadFromFile/loadStatic() was successful, or
+   *         setAppInfo was successful.
    */
   bool isLoaded() const;
 
@@ -84,6 +85,14 @@ class PlatformNanoappBase {
    * @return true if the app runs in micro-image.
    */
   bool isUimgApp() const;
+
+  /**
+   * Retrieves the nanoapp's version string. This is intended to be a human
+   * readable version string to aid in debugging (ie: commit hash). This must
+   * always return a valid string so if none is available it is recommended to
+   * return "<undefined>" or similar.
+   */
+  const char *getAppVersionString() const;
 
  protected:
   //! The app ID we received in the metadata alongside the nanoapp binary. This
@@ -100,11 +109,12 @@ class PlatformNanoappBase {
   void *mAppBinary = nullptr;
   size_t mAppBinaryLen = 0;
 
-  //! If this is a pre-loaded, but non-static nanoapp (i.e. loaded from
-  //! loadFromFile), this will be set to the filename string to pass to dlopen()
-  const char *mFilename = nullptr;
+  //! Null-terminated ASCII string containing the file name that contains the
+  //! app binary to be loaded. This is used over mAppBinary to load the nanoapp
+  //! if set.
+  char *mAppFilename = nullptr;
 
-  //! The dynamic shared object (DSO) handle returned by dlopen[buf]()
+  //! The dynamic shared object (DSO) handle returned by dlopenbuf()
   void *mDsoHandle = nullptr;
 
   //! Pointer to the app info structure within this nanoapp
@@ -138,14 +148,22 @@ class PlatformNanoappBase {
   bool openNanoappFromBuffer();
 
   /**
-   * Calls dlopen on the app filename, and fetches and validates the app info
-   * pointer. This will result in execution of any on-load handlers (e.g.
-   * static global constructors) in the nanoapp.
+   * Calls dlopen on the app file name, and fetches and validates the app info
+   * pointer. This will result in execution of any on-load handlers (e.g. static
+   * global constructors) in the nanoapp.
    *
-   * @return true if the app was opened successfully and the app info
-   *         structure passed validation
+   * @return true if the app was opened successfully and the app info structure
+   *         passed validation
    */
   bool openNanoappFromFile();
+
+  /**
+   * Loads the nanoapp symbols from the currently loaded binary and verifies
+   * they match the expected information the nanoapp should have.
+   *
+   * @return true if the app info structure passed validation.
+   */
+  bool verifyNanoappInfo();
 
   /**
    * Releases the DSO handle if it was active, by calling dlclose(). This will

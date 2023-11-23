@@ -59,13 +59,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.mail.Message;
 import javax.mail.MessagingException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang.StringUtils;
 
 /** Represents the notifications service which is automatically called on a fixed schedule. */
-public class VtsAlertJobServlet extends HttpServlet {
+public class VtsAlertJobServlet extends BaseJobServlet {
     private static final String ALERT_JOB_URL = "/task/vts_alert_job";
     protected static final Logger logger = Logger.getLogger(VtsAlertJobServlet.class.getName());
     protected static final int MAX_RUN_COUNT = 1000; // maximum number of runs to query for
@@ -77,13 +76,13 @@ public class VtsAlertJobServlet extends HttpServlet {
      * @returns a map from test case name to the test case run ID for which the test case failed.
      */
     private static Map<String, TestCase> getCurrentFailures(TestStatusEntity status) {
-        if (status.failingTestCases == null || status.failingTestCases.size() == 0) {
+        if (status.getFailingTestCases() == null || status.getFailingTestCases().size() == 0) {
             return new HashMap<>();
         }
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         Map<String, TestCase> failingTestcases = new HashMap<>();
         Set<Key> gets = new HashSet<>();
-        for (TestCaseReference testCaseRef : status.failingTestCases) {
+        for (TestCaseReference testCaseRef : status.getFailingTestCases()) {
             gets.add(KeyFactory.createKey(TestCaseRunEntity.KIND, testCaseRef.parentId));
         }
         if (gets.size() == 0) {
@@ -91,7 +90,7 @@ public class VtsAlertJobServlet extends HttpServlet {
         }
         Map<Key, Entity> testCaseMap = datastore.get(gets);
 
-        for (TestCaseReference testCaseRef : status.failingTestCases) {
+        for (TestCaseReference testCaseRef : status.getFailingTestCases()) {
             Key key = KeyFactory.createKey(TestCaseRunEntity.KIND, testCaseRef.parentId);
             if (!testCaseMap.containsKey(key)) {
                 continue;
@@ -119,7 +118,7 @@ public class VtsAlertJobServlet extends HttpServlet {
         List<TestAcknowledgmentEntity> acks = new ArrayList<>();
         Filter testFilter =
                 new Query.FilterPredicate(
-                    TestAcknowledgmentEntity.TEST_KEY, Query.FilterOperator.EQUAL, testKey);
+                        TestAcknowledgmentEntity.TEST_KEY, Query.FilterOperator.EQUAL, testKey);
         Query q = new Query(TestAcknowledgmentEntity.KIND).setFilter(testFilter);
 
         for (Entity ackEntity : datastore.prepare(q).asIterable()) {
@@ -133,7 +132,7 @@ public class VtsAlertJobServlet extends HttpServlet {
     /**
      * Get the test runs for the test in the specified time window.
      *
-     * If the start and end time delta is greater than one day, the query will be truncated.
+     * <p>If the start and end time delta is greater than one day, the query will be truncated.
      *
      * @param testKey The key to the test whose runs to query.
      * @param startTime The start time for the query.
@@ -180,29 +179,30 @@ public class VtsAlertJobServlet extends HttpServlet {
             List<TestAcknowledgmentEntity> acks) {
         Set<String> acknowledged = new HashSet<>();
         for (TestAcknowledgmentEntity ack : acks) {
-            boolean allDevices = ack.devices == null || ack.devices.size() == 0;
-            boolean allBranches = ack.branches == null || ack.branches.size() == 0;
+            boolean allDevices = ack.getDevices() == null || ack.getDevices().size() == 0;
+            boolean allBranches = ack.getBranches() == null || ack.getBranches().size() == 0;
             boolean isRelevant = allDevices && allBranches;
 
             // Determine if the acknowledgment is relevant to the devices.
             if (!isRelevant) {
                 for (DeviceInfoEntity device : devices) {
                     boolean deviceAcknowledged =
-                            allDevices || ack.devices.contains(device.buildFlavor);
+                            allDevices || ack.getDevices().contains(device.getBuildFlavor());
                     boolean branchAcknowledged =
-                            allBranches || ack.branches.contains(device.branch);
+                            allBranches || ack.getBranches().contains(device.getBranch());
                     if (deviceAcknowledged && branchAcknowledged) isRelevant = true;
                 }
             }
 
             if (isRelevant) {
                 // Separate the test cases
-                boolean allTestCases = ack.testCaseNames == null || ack.testCaseNames.size() == 0;
+                boolean allTestCases =
+                        ack.getTestCaseNames() == null || ack.getTestCaseNames().size() == 0;
                 if (allTestCases) {
                     acknowledged.addAll(testCases);
                     testCases.removeAll(acknowledged);
                 } else {
-                    for (String testCase : ack.testCaseNames) {
+                    for (String testCase : ack.getTestCaseNames()) {
                         if (testCases.contains(testCase)) {
                             acknowledged.add(testCase);
                             testCases.remove(testCase);
@@ -253,7 +253,7 @@ public class VtsAlertJobServlet extends HttpServlet {
                 mostRecentRun = testRun;
             }
             List<Key> testCaseKeys = new ArrayList<>();
-            for (long testCaseId : testRun.testCaseIds) {
+            for (long testCaseId : testRun.getTestCaseIds()) {
                 testCaseKeys.add(KeyFactory.createKey(TestCaseRunEntity.KIND, testCaseId));
             }
             Map<Key, Entity> entityMap = datastore.get(testCaseKeys);
@@ -302,13 +302,13 @@ public class VtsAlertJobServlet extends HttpServlet {
 
         Set<String> buildIdList = new HashSet<>();
         List<DeviceInfoEntity> devices = new ArrayList<>();
-        Query deviceQuery = new Query(DeviceInfoEntity.KIND).setAncestor(mostRecentRun.key);
+        Query deviceQuery = new Query(DeviceInfoEntity.KIND).setAncestor(mostRecentRun.getKey());
         for (Entity device : datastore.prepare(deviceQuery).asIterable()) {
             DeviceInfoEntity deviceEntity = DeviceInfoEntity.fromEntity(device);
             if (deviceEntity == null) {
                 continue;
             }
-            buildIdList.add(deviceEntity.buildId);
+            buildIdList.add(deviceEntity.getBuildId());
             devices.add(deviceEntity);
         }
         String footer = EmailHelper.getEmailFooter(mostRecentRun, devices, link);
@@ -411,8 +411,8 @@ public class VtsAlertJobServlet extends HttpServlet {
             }
         }
 
-        String testName = mostRecentRun.key.getParent().getName();
-        String uploadDateString = TimeUtil.getDateString(mostRecentRun.startTimestamp);
+        String testName = mostRecentRun.getKey().getParent().getName();
+        String uploadDateString = TimeUtil.getDateString(mostRecentRun.getStartTimestamp());
         String subject = "VTS Test Alert: " + testName + " @ " + uploadDateString;
         if (newTestcaseFailures.size() > 0) {
             String body =
@@ -474,7 +474,7 @@ public class VtsAlertJobServlet extends HttpServlet {
         }
         return new TestStatusEntity(
                 testName,
-                mostRecentRun.startTimestamp,
+                mostRecentRun.getStartTimestamp(),
                 passingTestcaseCount,
                 failingTestCases.size(),
                 failingTestCases);
@@ -519,7 +519,7 @@ public class VtsAlertJobServlet extends HttpServlet {
         if (status == null) {
             status = new TestStatusEntity(testName);
         }
-        if (status.timestamp >= testRunKey.getId()) {
+        if (status.getUpdatedTimestamp() >= testRunKey.getId()) {
             // Another job has already updated the status first
             return;
         }
@@ -535,7 +535,8 @@ public class VtsAlertJobServlet extends HttpServlet {
         List<TestAcknowledgmentEntity> testAcks =
                 getTestCaseAcknowledgments(testRunKey.getParent());
         List<TestRunEntity> testRuns =
-                getTestRuns(testRunKey.getParent(), status.timestamp, testRunKey.getId());
+                getTestRuns(
+                        testRunKey.getParent(), status.getUpdatedTimestamp(), testRunKey.getId());
         if (testRuns.size() == 0) return;
 
         TestStatusEntity newStatus =
@@ -554,7 +555,8 @@ public class VtsAlertJobServlet extends HttpServlet {
                 } catch (EntityNotFoundException e) {
                     // no status left
                 }
-                if (status == null || status.timestamp >= newStatus.timestamp) {
+                if (status == null
+                        || status.getUpdatedTimestamp() >= newStatus.getUpdatedTimestamp()) {
                     txn.rollback();
                 } else { // This update is most recent.
                     datastore.put(newStatus.toEntity());

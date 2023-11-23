@@ -41,16 +41,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+#include <android/fdsan.h>
 
 #include <async_safe/log.h>
 
 #include "local.h"
 #include "glue.h"
+#include "private/__bionic_get_shell_path.h"
 #include "private/bionic_fortify.h"
 #include "private/ErrnoRestorer.h"
 #include "private/thread_private.h"
+
+extern "C" int ___close(int fd);
 
 #define ALIGNBYTES (sizeof(uintptr_t) - 1)
 #define ALIGN(p) (((uintptr_t)(p) + ALIGNBYTES) &~ ALIGNBYTES)
@@ -64,32 +71,54 @@
     va_end(ap); \
     return result;
 
-#define std(flags, file) \
-    {0,0,0,flags,file,{0,0},0,__sF+file,__sclose,__sread,nullptr,__swrite, \
-    {(unsigned char *)(__sFext+file), 0},nullptr,0,{0},{0},{0,0},0,0}
-
-_THREAD_PRIVATE_MUTEX(__sfp_mutex);
-
-#define SBUF_INIT {}
-#define WCHAR_IO_DATA_INIT {}
+#define MAKE_STD_STREAM(flags, fd)                                          \
+  {                                                                         \
+    ._flags = flags, ._file = fd, ._cookie = __sF + fd, ._close = __sclose, \
+    ._read = __sread, ._write = __swrite, ._ext = {                         \
+      ._base = reinterpret_cast<uint8_t*>(__sFext + fd)                     \
+    }                                                                       \
+  }
 
 static struct __sfileext __sFext[3] = {
-  { SBUF_INIT, WCHAR_IO_DATA_INIT, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP, false, __sseek64 },
-  { SBUF_INIT, WCHAR_IO_DATA_INIT, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP, false, __sseek64 },
-  { SBUF_INIT, WCHAR_IO_DATA_INIT, PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP, false, __sseek64 },
+    {._lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP,
+     ._caller_handles_locking = false,
+     ._seek64 = __sseek64,
+     ._popen_pid = 0},
+    {._lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP,
+     ._caller_handles_locking = false,
+     ._seek64 = __sseek64,
+     ._popen_pid = 0},
+    {._lock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP,
+     ._caller_handles_locking = false,
+     ._seek64 = __sseek64,
+     ._popen_pid = 0},
 };
 
 // __sF is exported for backwards compatibility. Until M, we didn't have symbols
 // for stdin/stdout/stderr; they were macros accessing __sF.
 FILE __sF[3] = {
-  std(__SRD, STDIN_FILENO),
-  std(__SWR, STDOUT_FILENO),
-  std(__SWR|__SNBF, STDERR_FILENO),
+    MAKE_STD_STREAM(__SRD, STDIN_FILENO),
+    MAKE_STD_STREAM(__SWR, STDOUT_FILENO),
+    MAKE_STD_STREAM(__SWR|__SNBF, STDERR_FILENO),
 };
 
 FILE* stdin = &__sF[0];
 FILE* stdout = &__sF[1];
 FILE* stderr = &__sF[2];
+
+static pthread_mutex_t __stdio_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static uint64_t __get_file_tag(FILE* fp) {
+  // Don't use a tag for the standard streams.
+  // They don't really own their file descriptors, because the values are well-known, and you're
+  // allowed to do things like `close(STDIN_FILENO); open("foo", O_RDONLY)` when single-threaded.
+  if (fp == stdin || fp == stderr || fp == stdout) {
+    return 0;
+  }
+
+  return android_fdsan_create_owner_tag(ANDROID_FDSAN_OWNER_TYPE_FILE,
+                                        reinterpret_cast<uint64_t>(fp));
+}
 
 struct glue __sglue = { nullptr, 3, __sF };
 static struct glue* lastglue = &__sglue;
@@ -108,8 +137,6 @@ class ScopedFileLock {
 };
 
 static glue* moreglue(int n) {
-  static FILE empty;
-
   char* data = new char[sizeof(glue) + ALIGNBYTES + n * sizeof(FILE) + n * sizeof(__sfileext)];
   if (data == nullptr) return nullptr;
 
@@ -120,7 +147,7 @@ static glue* moreglue(int n) {
   g->niobs = n;
   g->iobs = p;
   while (--n >= 0) {
-    *p = empty;
+    *p = {};
     _FILEEXT_SETUP(p, pext);
     p++;
     pext++;
@@ -143,7 +170,7 @@ FILE* __sfp(void) {
 	int n;
 	struct glue *g;
 
-	_THREAD_PRIVATE_MUTEX_LOCK(__sfp_mutex);
+	pthread_mutex_lock(&__stdio_mutex);
 	for (g = &__sglue; g != nullptr; g = g->next) {
 		for (fp = g->iobs, n = g->niobs; --n >= 0; fp++)
 			if (fp->_flags == 0)
@@ -151,15 +178,15 @@ FILE* __sfp(void) {
 	}
 
 	/* release lock while mallocing */
-	_THREAD_PRIVATE_MUTEX_UNLOCK(__sfp_mutex);
+	pthread_mutex_unlock(&__stdio_mutex);
 	if ((g = moreglue(NDYNAMIC)) == nullptr) return nullptr;
-	_THREAD_PRIVATE_MUTEX_LOCK(__sfp_mutex);
+	pthread_mutex_lock(&__stdio_mutex);
 	lastglue->next = g;
 	lastglue = g;
 	fp = g->iobs;
 found:
 	fp->_flags = 1;		/* reserve this slot; caller sets real flags */
-	_THREAD_PRIVATE_MUTEX_UNLOCK(__sfp_mutex);
+	pthread_mutex_unlock(&__stdio_mutex);
 	fp->_p = nullptr;		/* no current pointer */
 	fp->_w = 0;		/* nothing to read or write */
 	fp->_r = 0;
@@ -183,6 +210,19 @@ found:
 	return fp;
 }
 
+int _fwalk(int (*callback)(FILE*)) {
+  int result = 0;
+  for (glue* g = &__sglue; g != nullptr; g = g->next) {
+    FILE* fp = g->iobs;
+    for (int n = g->niobs; --n >= 0; ++fp) {
+      if (fp->_flags != 0 && (fp->_flags & __SIGN) == 0) {
+        result |= (*callback)(fp);
+      }
+    }
+  }
+  return result;
+}
+
 extern "C" __LIBC_HIDDEN__ void __libc_stdio_cleanup(void) {
   // Equivalent to fflush(nullptr), but without all the locking since we're shutting down anyway.
   _fwalk(__sflush);
@@ -199,6 +239,7 @@ static FILE* __fopen(int fd, int flags) {
   FILE* fp = __sfp();
   if (fp != nullptr) {
     fp->_file = fd;
+    android_fdsan_exchange_owner_tag(fd, 0, __get_file_tag(fp));
     fp->_flags = flags;
     fp->_cookie = fp;
     fp->_read = __sread;
@@ -252,7 +293,7 @@ FILE* fdopen(int fd, const char* mode) {
     if (fcntl(fd, F_SETFL, fd_flags | O_APPEND) == -1) return nullptr;
   }
 
-  // Make sure O_CLOEXEC is set on the underlying fd if our mode has 'x'.
+  // Make sure O_CLOEXEC is set on the underlying fd if our mode has 'e'.
   if ((mode_flags & O_CLOEXEC) && !((tmp = fcntl(fd, F_GETFD)) & FD_CLOEXEC)) {
     fcntl(fd, F_SETFD, tmp | FD_CLOEXEC);
   }
@@ -353,6 +394,7 @@ FILE* freopen(const char* file, const char* mode, FILE* fp) {
 
   fp->_flags = flags;
   fp->_file = fd;
+  android_fdsan_exchange_owner_tag(fd, 0, __get_file_tag(fp));
   fp->_cookie = fp;
   fp->_read = __sread;
   fp->_write = __swrite;
@@ -365,8 +407,7 @@ FILE* freopen(const char* file, const char* mode, FILE* fp) {
 }
 __strong_alias(freopen64, freopen);
 
-int fclose(FILE* fp) {
-  CHECK_FP(fp);
+static int __FILE_close(FILE* fp) {
   if (fp->_flags == 0) {
     // Already freed!
     errno = EBADF;
@@ -383,6 +424,16 @@ int fclose(FILE* fp) {
   if (HASUB(fp)) FREEUB(fp);
   free_fgetln_buffer(fp);
 
+  // If we were created by popen(3), wait for the child.
+  pid_t pid = _EXT(fp)->_popen_pid;
+  if (pid > 0) {
+    int status;
+    if (TEMP_FAILURE_RETRY(wait4(pid, &status, 0, nullptr)) != -1) {
+      r = status;
+    }
+  }
+  _EXT(fp)->_popen_pid = 0;
+
   // Poison this FILE so accesses after fclose will be obvious.
   fp->_file = -1;
   fp->_r = fp->_w = 0;
@@ -390,6 +441,11 @@ int fclose(FILE* fp) {
   // Release this FILE for reuse.
   fp->_flags = 0;
   return r;
+}
+
+int fclose(FILE* fp) {
+  CHECK_FP(fp);
+  return __FILE_close(fp);
 }
 
 int fileno_unlocked(FILE* fp) {
@@ -409,6 +465,7 @@ int fileno(FILE* fp) {
 }
 
 void clearerr_unlocked(FILE* fp) {
+  CHECK_FP(fp);
   return __sclearerr(fp);
 }
 
@@ -492,7 +549,7 @@ off64_t __sseek64(void* cookie, off64_t offset, int whence) {
 
 int __sclose(void* cookie) {
   FILE* fp = reinterpret_cast<FILE*>(cookie);
-  return close(fp->_file);
+  return android_fdsan_close_with_tag(fp->_file, __get_file_tag(fp));
 }
 
 static off64_t __seek_unlocked(FILE* fp, off64_t offset, int whence) {
@@ -707,18 +764,16 @@ int fgetc_unlocked(FILE* fp) {
   return getc_unlocked(fp);
 }
 
-/*
- * Read at most n-1 characters from the given file.
- * Stop when a newline has been read, or the count runs out.
- * Return first argument, or NULL if no characters were read.
- * Do not return NULL if n == 1.
- */
 char* fgets(char* buf, int n, FILE* fp) {
   CHECK_FP(fp);
   ScopedFileLock sfl(fp);
   return fgets_unlocked(buf, n, fp);
 }
 
+// Reads at most n-1 characters from the given file.
+// Stops when a newline has been read, or the count runs out.
+// Returns first argument, or nullptr if no characters were read.
+// Does not return nullptr if n == 1.
 char* fgets_unlocked(char* buf, int n, FILE* fp) {
   if (n <= 0) {
     errno = EINVAL;
@@ -1120,6 +1175,73 @@ size_t fwrite_unlocked(const void* buf, size_t size, size_t count, FILE* fp) {
   // The usual case is success (__sfvwrite returns 0); skip the divide if this happens,
   // since divides are generally slow.
   return (__sfvwrite(fp, &uio) == 0) ? count : ((n - uio.uio_resid) / size);
+}
+
+static FILE* __popen_fail(int fds[2]) {
+  ErrnoRestorer errno_restorer;
+  close(fds[0]);
+  close(fds[1]);
+  return nullptr;
+}
+
+FILE* popen(const char* cmd, const char* mode) {
+  // Was the request for a socketpair or just a pipe?
+  int fds[2];
+  bool bidirectional = false;
+  if (strchr(mode, '+') != nullptr) {
+    if (socketpair(AF_LOCAL, SOCK_CLOEXEC | SOCK_STREAM, 0, fds) == -1) return nullptr;
+    bidirectional = true;
+    mode = "r+";
+  } else {
+    if (pipe2(fds, O_CLOEXEC) == -1) return nullptr;
+    mode = strrchr(mode, 'r') ? "r" : "w";
+  }
+
+  // If the parent wants to read, the child's fd needs to be stdout.
+  int parent, child, desired_child_fd;
+  if (*mode == 'r') {
+    parent = 0;
+    child = 1;
+    desired_child_fd = STDOUT_FILENO;
+  } else {
+    parent = 1;
+    child = 0;
+    desired_child_fd = STDIN_FILENO;
+  }
+
+  // Ensure that the child fd isn't the desired child fd.
+  if (fds[child] == desired_child_fd) {
+    int new_fd = fcntl(fds[child], F_DUPFD_CLOEXEC, 0);
+    if (new_fd == -1) return __popen_fail(fds);
+    close(fds[child]);
+    fds[child] = new_fd;
+  }
+
+  pid_t pid = vfork();
+  if (pid == -1) return __popen_fail(fds);
+
+  if (pid == 0) {
+    close(fds[parent]);
+    // dup2 so that the child fd isn't closed on exec.
+    if (dup2(fds[child], desired_child_fd) == -1) _exit(127);
+    close(fds[child]);
+    if (bidirectional) dup2(STDOUT_FILENO, STDIN_FILENO);
+    execl(__bionic_get_shell_path(), "sh", "-c", cmd, nullptr);
+    _exit(127);
+  }
+
+  FILE* fp = fdopen(fds[parent], mode);
+  if (fp == nullptr) return __popen_fail(fds);
+
+  close(fds[child]);
+
+  _EXT(fp)->_popen_pid = pid;
+  return fp;
+}
+
+int pclose(FILE* fp) {
+  CHECK_FP(fp);
+  return __FILE_close(fp);
 }
 
 namespace {

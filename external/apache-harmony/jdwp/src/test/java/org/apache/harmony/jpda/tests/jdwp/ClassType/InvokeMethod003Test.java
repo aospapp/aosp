@@ -34,7 +34,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class InvokeMethod003Test extends JDWPSyncTestCase {
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ClassType.InvokeMethod003Debuggee";
+        return InvokeMethod003Debuggee.class.getName();
     }
 
     /**
@@ -50,8 +50,7 @@ public class InvokeMethod003Test extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Get debuggee class ID.
-        String debuggeeClassSig = "Lorg/apache/harmony/jpda/tests/jdwp/ClassType/InvokeMethod003Debuggee;";
-        long debuggeeTypeID = debuggeeWrapper.vmMirror.getClassID(debuggeeClassSig);
+        long debuggeeTypeID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
         assertTrue("Failed to find debuggee class", debuggeeTypeID != 0);
 
         // Set METHOD_ENTRY event request so application is suspended.

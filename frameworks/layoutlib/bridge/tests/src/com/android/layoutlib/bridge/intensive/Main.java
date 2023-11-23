@@ -27,6 +27,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
+import android.app.SystemServiceRegistry_AccessorTest;
+import android.content.res.Resources_DelegateTest;
+import android.graphics.Color_DelegateTest;
 import android.graphics.Matrix_DelegateTest;
 import android.util.BridgeXmlPullAttributesTest;
 
@@ -38,7 +41,9 @@ import android.util.BridgeXmlPullAttributesTest;
         RenderTests.class, LayoutParserWrapperTest.class,
         BridgeXmlBlockParserTest.class, BridgeXmlPullAttributesTest.class,
         Matrix_DelegateTest.class, TestDelegates.class,
-        BridgeRenderSessionTest.class, ResourceHelperTest.class, BridgeContextTest.class
+        BridgeRenderSessionTest.class, ResourceHelperTest.class, BridgeContextTest.class,
+        SystemServiceRegistry_AccessorTest.class, Resources_DelegateTest.class,
+        Color_DelegateTest.class,
 })
 public class Main {
 }

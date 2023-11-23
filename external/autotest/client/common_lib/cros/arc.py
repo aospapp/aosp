@@ -2,15 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import collections
 import glob
 import logging
 import os
 import pipes
 import re
 import shutil
-import subprocess
+import socket
 import sys
 import tempfile
+import time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -24,13 +26,15 @@ _ANDROID_CONTAINER_ROOT_PATH = '/opt/google/containers/android/rootfs'
 _SCREENSHOT_DIR_PATH = '/var/log/arc-screenshots'
 _SCREENSHOT_BASENAME = 'arc-screenshot'
 _MAX_SCREENSHOT_NUM = 10
+# This address should match the one present in
+# https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/master/chromeos-base/arc-sslh-init/files/sslh.conf
+_ADBD_ADDRESS = ('100.115.92.2', 5555)
+_ADBD_PID_PATH = '/run/arc/adbd.pid'
 _SDCARD_PID_PATH = '/run/arc/sdcard.pid'
 _ANDROID_ADB_KEYS_PATH = '/data/misc/adb/adb_keys'
 _PROCESS_CHECK_INTERVAL_SECONDS = 1
 _WAIT_FOR_ADB_READY = 60
 _WAIT_FOR_ANDROID_PROCESS_SECONDS = 60
-_WAIT_FOR_DATA_MOUNTED_SECONDS = 60
-_VAR_LOGCAT_PATH = '/var/log/logcat'
 _PLAY_STORE_PKG = 'com.android.vending'
 _SETTINGS_PKG = 'com.android.settings'
 
@@ -54,13 +58,17 @@ def setup_adb_host():
     os.environ[_ADB_VENDOR_KEYS] = key_path
 
 
-def adb_connect():
+def adb_connect(attempts=1):
     """Attempt to connect ADB to the Android container.
 
     Returns true if successful. Do not call this function directly. Call
-    wait_for_adb_ready() instead."""
-    if not is_android_booted():
-        return False
+    wait_for_adb_ready() instead.
+    """
+    # Kill existing adb server every other invocation to ensure that a full
+    # reconnect is performed.
+    if attempts % 2 == 1:
+        utils.system('adb kill-server', ignore_status=True)
+
     if utils.system('adb connect localhost:22', ignore_status=True) != 0:
         return False
     return is_adb_connected()
@@ -71,15 +79,6 @@ def is_adb_connected():
     output = utils.system_output('adb get-state', ignore_status=True)
     logging.debug('adb get-state: %s', output)
     return output.strip() == 'device'
-
-
-def is_partial_boot_enabled():
-    """Return true if partial boot is enabled.
-
-    When partial boot is enabled, Android is started at login screen without
-    any persistent state (e.g. /data is not mounted).
-    """
-    return _android_shell('getprop ro.boot.partial_boot') == '1'
 
 
 def _is_android_data_mounted():
@@ -102,7 +101,17 @@ def get_product():
     return _android_shell('getprop ro.build.product')
 
 
-def _wait_for_data_mounted(timeout=_WAIT_FOR_DATA_MOUNTED_SECONDS):
+def _is_tcp_port_reachable(address):
+    """Return whether a TCP port described by |address| is reachable."""
+    try:
+        s = socket.create_connection(address)
+        s.close()
+        return True
+    except socket.error:
+        return False
+
+
+def _wait_for_data_mounted(timeout):
     utils.poll_for_condition(
             condition=_is_android_data_mounted,
             desc='Wait for /data mounted',
@@ -115,11 +124,15 @@ def wait_for_adb_ready(timeout=_WAIT_FOR_ADB_READY):
 
     @param timeout: Timeout in seconds.
     """
-    # When partial boot is enabled, although adbd is started at login screen,
-    # we still need /data to be mounted to set up key-based authentication.
-    # /data should be mounted once the user has logged in.
-    if is_partial_boot_enabled():
-        _wait_for_data_mounted()
+    # Although adbd is started at login screen, we still need /data to be
+    # mounted to set up key-based authentication. /data should be mounted
+    # once the user has logged in.
+    start_time = time.time()
+    _wait_for_data_mounted(timeout)
+    timeout -= (time.time() - start_time)
+    start_time = time.time()
+    arc_common.wait_for_android_boot(timeout)
+    timeout -= (time.time() - start_time)
 
     setup_adb_host()
     if is_adb_connected():
@@ -129,18 +142,59 @@ def wait_for_adb_ready(timeout=_WAIT_FOR_ADB_READY):
     pubkey_path = os.environ[_ADB_VENDOR_KEYS] + '.pub'
     with open(pubkey_path, 'r') as f:
         _write_android_file(_ANDROID_ADB_KEYS_PATH, f.read())
+    _android_shell('chown shell ' + pipes.quote(_ANDROID_ADB_KEYS_PATH))
     _android_shell('restorecon ' + pipes.quote(_ANDROID_ADB_KEYS_PATH))
 
-    # This starts adbd.
+    # This starts adbd, restarting it if needed so it can read the updated key.
+    _android_shell('setprop sys.usb.config mtp')
     _android_shell('setprop sys.usb.config mtp,adb')
 
-    # Kill existing adb server to ensure that a full reconnect is performed.
-    utils.system('adb kill-server', ignore_status=True)
+    exception = error.TestFail('Failed to connect to adb in %d seconds.' % timeout)
 
-    exception = error.TestFail('adb is not ready in %d seconds.' % timeout)
-    utils.poll_for_condition(adb_connect,
-                             exception,
-                             timeout)
+    # Keeps track of how many times adb has attempted to establish a
+    # connection.
+    def _adb_connect_wrapper():
+        _adb_connect_wrapper.attempts += 1
+        return adb_connect(_adb_connect_wrapper.attempts)
+    _adb_connect_wrapper.attempts = 0
+    try:
+        utils.poll_for_condition(_adb_connect_wrapper,
+                                 exception,
+                                 timeout)
+    except (utils.TimeoutError, error.TestFail):
+        # The operation has failed, but let's try to clarify the failure to
+        # avoid shifting blame to adb.
+
+        # First, collect some information and log it.
+        arc_alive = is_android_container_alive()
+        arc_booted = _android_shell('getprop sys.boot_completed',
+                                    ignore_status=True)
+        arc_system_events = _android_shell(
+            'logcat -d -b events *:S arc_system_event', ignore_status=True)
+        adbd_pid = _android_shell('pidof -s adbd', ignore_status=True)
+        adbd_port_reachable = _is_tcp_port_reachable(_ADBD_ADDRESS)
+        adb_state = utils.system_output('adb get-state', ignore_status=True)
+        logging.debug('ARC alive: %s', arc_alive)
+        logging.debug('ARC booted: %s', arc_booted)
+        logging.debug('ARC system events: %s', arc_system_events)
+        logging.debug('adbd process: %s', adbd_pid)
+        logging.debug('adbd port reachable: %s', adbd_port_reachable)
+        logging.debug('adb state: %s', adb_state)
+
+        # Now go through the usual suspects and raise nicer errors to make the
+        # actual failure clearer.
+        if not arc_alive:
+            raise error.TestFail('ARC is not alive.')
+        if not adbd_pid:
+            raise error.TestFail('adbd is not running.')
+        if arc_booted != '1':
+            raise error.TestFail('ARC did not finish booting.')
+        if not adbd_port_reachable:
+            raise error.TestFail('adbd TCP port is not reachable.')
+
+        # We exhausted all possibilities. Fall back to printing the generic
+        # error.
+        raise
 
 
 def grant_permissions(package, permissions):
@@ -160,6 +214,7 @@ def adb_cmd(cmd, **kwargs):
 
     @param cmd: Command to run.
     """
+    # TODO(b/79122489) - Assert if cmd == 'root'
     wait_for_adb_ready()
     return utils.system_output('adb %s' % cmd, **kwargs)
 
@@ -176,12 +231,15 @@ def adb_shell(cmd, **kwargs):
     return output
 
 
-def adb_install(apk):
+def adb_install(apk, auto_grant_permissions=True):
     """Install an apk into container. You must connect first.
 
     @param apk: Package to install.
+    @param auto_grant_permissions: Set to false to not automatically grant all
+    permissions. Most tests should not care.
     """
-    return adb_cmd('install -r %s' % apk, timeout=60*5)
+    flags = '-g' if auto_grant_permissions else ''
+    return adb_cmd('install -r -t %s %s' % (flags, apk), timeout=60*5)
 
 
 def adb_uninstall(apk):
@@ -193,13 +251,28 @@ def adb_uninstall(apk):
 
 
 def adb_reboot():
-    """Reboots the container. You must connect first."""
-    adb_root()
-    return adb_cmd('reboot', ignore_status=True)
+    """Reboots the container and block until container pid is gone.
+
+    You must connect first.
+    """
+    old_pid = get_container_pid()
+    logging.info('Trying to reboot PID:%s', old_pid)
+    adb_cmd('reboot', ignore_status=True)
+    # Ensure that the old container is no longer booted
+    utils.poll_for_condition(
+        lambda: not utils.pid_is_alive(int(old_pid)), timeout=10)
 
 
+# This adb_root() function is deceiving in that it works just fine on debug
+# builds of ARC (user-debug, eng). However "adb root" does not work on user
+# builds as run by the autotest machines when testing prerelease images. In fact
+# it will silently fail. You will need to find another way to do do what you
+# need to do as root.
+#
+# TODO(b/79122489) - Remove this function.
 def adb_root():
     """Restart adbd with root permission."""
+
     adb_cmd('root')
 
 
@@ -222,9 +295,9 @@ def get_container_pid_path():
         raise error.TestError('Android container.pid not available')
 
     if len(arc_container_pid_files) > 1:
-        raise error.TestError('Multiple Android container.pid files found: %r. '
-                              'Reboot your DUT to recover.' % (
-                                  arc_container_pid_files))
+        raise error.TestError(
+                'Multiple Android container.pid files found: %r. '
+                'Reboot your DUT to recover.' % (arc_container_pid_files))
 
     return arc_container_pid_files[0]
 
@@ -249,33 +322,48 @@ def get_container_pid():
     return utils.read_one_line(get_container_pid_path())
 
 
+def get_adbd_pid():
+    """Returns the PID of the adbd proxy container."""
+    if not os.path.exists(_ADBD_PID_PATH):
+        # The adbd proxy does not run on all boards.
+        return None
+    return utils.read_one_line(_ADBD_PID_PATH)
+
+
 def get_sdcard_pid():
     """Returns the PID of the sdcard container."""
     return utils.read_one_line(_SDCARD_PID_PATH)
 
 
-def get_removable_media_pid():
-    """Returns the PID of the arc-removable-media FUSE daemon."""
-    job_pid = get_job_pid('arc-removable-media')
-    # |job_pid| is the minijail process, obtain the PID of the process running
-    # inside the mount namespace.
-    # FUSE process is the only process running as chronos in the process group.
-    return utils.system_output('pgrep -u chronos -g %s' % job_pid)
+def _get_mount_passthrough_pid_internal(job_name):
+    """Returns the PID of the mount-passthrough daemon job."""
+    job_pid = get_job_pid(job_name)
+    # |job_pid| is the minijail process, the fuse process should be
+    # the only direct child of the minijail process
+    return utils.system_output('pgrep -P %s' % job_pid)
+
+
+def get_mount_passthrough_pid_list():
+    """Returns PIDs of ARC mount-passthrough daemon jobs."""
+    JOB_NAMES = [ 'arc-myfiles', 'arc-myfiles-default',
+                  'arc-myfiles-read', 'arc-myfiles-write',
+                  'arc-removable-media', 'arc-removable-media-default',
+                  'arc-removable-media-read', 'arc-removable-media-write' ]
+    pid_list = []
+    for job_name in JOB_NAMES:
+        try:
+            pid = _get_mount_passthrough_pid_internal(job_name)
+            pid_list.append(pid)
+        except Exception, e:
+            logging.warning('Failed to find PID for %s : %s', job_name, e)
+            continue
+
+    return pid_list
 
 
 def get_obb_mounter_pid():
     """Returns the PID of the OBB mounter."""
     return utils.system_output('pgrep -f -u root ^/usr/bin/arc-obb-mounter')
-
-
-def is_android_booted():
-    """Return whether Android has completed booting."""
-    # We used to check sys.boot_completed system property to detect Android has
-    # booted in Android M, but in Android N it is set long before
-    # BOOT_COMPLETED intent is broadcast. So we read event logs instead.
-    log = _android_shell(
-        'logcat -d -b events *:S arc_system_event', ignore_status=True)
-    return 'ArcAppLauncher:started' in log
 
 
 def is_android_process_running(process_name):
@@ -333,6 +421,30 @@ def _write_android_file(filename, data):
     android_cmd = 'cat > %s' % pipes.quote(filename)
     cros_cmd = 'android-sh -c %s' % pipes.quote(android_cmd)
     utils.run(cros_cmd, stdin=data)
+
+
+def get_android_file_stats(filename):
+    """Returns an object of file stats for an Android file.
+
+    The returned object supported limited attributes, but can be easily extended
+    if needed. Note that the value are all string.
+
+    This uses _android_shell to run as root, so that it can access to all files
+    inside the container. On non-debuggable build, adb shell is not rootable.
+    """
+    mapping = {
+        '%a': 'mode',
+        '%g': 'gid',
+        '%h': 'nlink',
+        '%u': 'uid',
+    }
+    output = _android_shell(
+        'stat -c "%s" %s' % (' '.join(mapping.keys()), pipes.quote(filename)))
+    stats = output.split(' ')
+    if len(stats) != len(mapping):
+      raise error.TestError('Unexpected output from stat: %s' % output)
+    _Stats = collections.namedtuple('_Stats', mapping.values())
+    return _Stats(*stats)
 
 
 def remove_android_file(filename):
@@ -399,7 +511,12 @@ def _is_in_installed_packages_list(package, option=None):
         command += ' ' + option
     packages = adb_shell(command).splitlines()
     package_entry = 'package:' + package
-    return package_entry in packages
+    ret = package_entry in packages
+
+    if not ret:
+        logging.info('Could not find "%s" in %s',
+                     package_entry, str(packages))
+    return ret
 
 
 def is_package_installed(package):
@@ -416,6 +533,12 @@ def is_package_disabled(package):
     @param package: Package in request.
     """
     return _is_in_installed_packages_list(package, '-d')
+
+
+def get_package_install_path(package):
+    """Returns the apk install location of the given package."""
+    output = adb_shell('pm path {}'.format(pipes.quote(package)))
+    return output.split(':')[1]
 
 
 def _before_iteration_hook(obj):
@@ -450,12 +573,9 @@ def _after_iteration_hook(obj):
         if obj.num_screenshots <= _MAX_SCREENSHOT_NUM:
             logging.warning('Iteration %d failed, taking a screenshot.',
                             obj.iteration)
-            from cros.graphics.gbm import crtcScreenshot
             try:
-                image = crtcScreenshot()
-                image.save('{}/{}_iter{}.png'.format(_SCREENSHOT_DIR_PATH,
-                                                     _SCREENSHOT_BASENAME,
-                                                     obj.iteration))
+                utils.run('screenshot "{}/{}_iter{}.png"'.format(
+                    _SCREENSHOT_DIR_PATH, _SCREENSHOT_BASENAME, obj.iteration))
             except Exception as e:
                 logging.warning('Unable to capture screenshot. %s', e)
         else:
@@ -507,7 +627,38 @@ def set_device_mode(device_mode, use_fake_sensor_with_lifetime_secs=0):
     if use_fake_sensor_with_lifetime_secs > 0:
         args.extend(['--create_dev', '--dev_lifetime=%d' %
                      use_fake_sensor_with_lifetime_secs])
-    utils.run('inject_powerd_input_event', args=args)
+
+    try:
+        utils.run('inject_powerd_input_event', args=args)
+    except error.CmdError as err:
+        # TODO: Fragile code ahead. Correct way to do it is to check
+        # if device is already in desired mode, and do nothing if so.
+        # ATM we don't have a way to check current device mode.
+
+        # Assuming that CmdError means that device does not support
+        # --code=tablet parameter, meaning that device only supports clamshell
+        # mode.
+        if device_mode == 'clamshell' and \
+                use_fake_sensor_with_lifetime_secs == 0:
+                    return
+        raise err
+
+
+def wait_for_userspace_ready():
+    """Waits for userspace apps to be launchable.
+
+    Launches and then closes Android settings as a way to ensure all basic
+    services are ready. This goes a bit beyond waiting for boot-up to complete,
+    as being able to launch an activity requires more of the framework to have
+    started. The boot-complete signal happens fairly early, and the framework
+    system server is still starting services. By waiting for ActivityManager to
+    respond, we automatically wait on more services to be ready.
+    """
+    output = adb_shell('am start -W -a android.settings.SETTINGS')
+    if not output.endswith('Complete'):
+        logging.debug('Output was: %s', output)
+        raise error.TestError('Could not launch SETTINGS')
+    adb_shell('am force-stop com.android.settings')
 
 
 class ArcTest(test.test):
@@ -517,15 +668,14 @@ class ArcTest(test.test):
     redundant codes for container bringup, autotest-dep package(s) including
     uiautomator setup if required, and apks install/remove during
     arc_setup/arc_teardown, respectively. By default arc_setup() is called in
-    initialize() after Android have been brought up. It could also be overridden
-    to perform non-default tasks. For example, a simple ArcHelloWorldTest can be
-    just implemented with print 'HelloWorld' in its run_once() and no other
-    functions are required. We could expect ArcHelloWorldTest would bring up
-    browser and  wait for container up, then print 'Hello World', and shutdown
-    browser after. As a precaution, if you overwrite initialize(), arc_setup(),
-    or cleanup() function(s) in ARC test, remember to call the corresponding
-    function(s) in this base class as well.
-
+    initialize() after Android have been brought up. It could also be
+    overridden to perform non-default tasks. For example, a simple
+    ArcHelloWorldTest can be just implemented with print 'HelloWorld' in its
+    run_once() and no other functions are required. We could expect
+    ArcHelloWorldTest would bring up browser and  wait for container up, then
+    print 'Hello World', and shutdown browser after. As a precaution, if you
+    overwrite initialize(), arc_setup(), or cleanup() function(s) in ARC test,
+    remember to call the corresponding function(s) in this base class as well.
     """
     version = 1
     _PKG_UIAUTOMATOR = 'uiautomator'
@@ -601,7 +751,8 @@ class ArcTest(test.test):
             raise error.TestFail(err)
         finally:
             try:
-                self._stop_logcat()
+                if self.logcat_proc:
+                    self.logcat_proc.close()
             finally:
                 if self._chrome is not None:
                     self._chrome.close()
@@ -617,7 +768,8 @@ class ArcTest(test.test):
         if apks:
             for apk in apks:
                 logging.info('Installing %s', apk)
-                adb_install('%s/%s' % (apk_path, apk))
+                out = adb_install('%s/%s' % (apk_path, apk))
+                logging.info('Install apk output: %s', str(out))
             # Verify if package(s) are installed correctly
             if not full_pkg_names:
                 raise error.TestError('Package names of apks expected')
@@ -685,10 +837,11 @@ class ArcTest(test.test):
             full_pkg_names = self._fix_nested_array_level(
                 'full_pkg_names', 2, full_pkg_names)
             if (len(dep_packages) != len(apks) or
-                len(apks) != len(full_pkg_names)):
+                    len(apks) != len(full_pkg_names)):
                 logging.info('dep_packages length is %d', len(dep_packages))
                 logging.info('apks length is %d', len(apks))
-                logging.info('full_pkg_names length is %d', len(full_pkg_names))
+                logging.info('full_pkg_names length is %d',
+                             len(full_pkg_names))
                 raise error.TestFail(
                     'dep_packages/apks/full_pkg_names format error')
 
@@ -705,13 +858,7 @@ class ArcTest(test.test):
             logging.info('Setting up dependent package(s) %s', packages)
             self.job.setup_dep(packages)
 
-        # TODO(b/29341443): Run logcat on non ArcTest test cases too.
-        with open(_VAR_LOGCAT_PATH, 'w') as f:
-            self.logcat_proc = subprocess.Popen(
-                ['android-sh', '-c', 'logcat -v threadtime'],
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                close_fds=True)
+        self.logcat_proc = arc_common.Logcat()
 
         wait_for_adb_ready()
 
@@ -736,29 +883,6 @@ class ArcTest(test.test):
         if block_outbound:
             self.block_outbound()
 
-    def _stop_logcat(self):
-        """Stop the adb logcat process gracefully."""
-        if not self.logcat_proc:
-            return
-        # Running `adb kill-server` should have killed `adb logcat`
-        # process, but just in case also send termination signal.
-        self.logcat_proc.terminate()
-
-        class TimeoutException(Exception):
-            """Termination timeout timed out."""
-
-        try:
-            utils.poll_for_condition(
-                condition=lambda: self.logcat_proc.poll() is not None,
-                exception=TimeoutException,
-                timeout=10,
-                sleep_interval=0.1,
-                desc='Waiting for adb logcat to terminate')
-        except TimeoutException:
-            logging.info('Killing adb logcat due to timeout')
-            self.logcat_proc.kill()
-            self.logcat_proc.wait()
-
     def arc_teardown(self):
         """ARC test teardown.
 
@@ -782,7 +906,13 @@ class ArcTest(test.test):
         adb_shell('settings put global package_verifier_enable 1')
         adb_shell('settings put secure package_verifier_user_consent 0')
 
-        remove_android_file(_ANDROID_ADB_KEYS_PATH)
+        # Remove the adb keys without going through adb. This is because the
+        # 'rm' tool does not have permissions to remove the keys once they have
+        # been restorecon(8)ed.
+        utils.system_output('rm -f %s' %
+                            pipes.quote(os.path.join(
+                                get_android_data_root(),
+                                os.path.relpath(_ANDROID_ADB_KEYS_PATH, '/'))))
         utils.system_output('adb kill-server')
 
     def block_outbound(self):
@@ -792,10 +922,15 @@ class ArcTest(test.test):
             all local connections, e.g. uiautomator.
         """
         logging.info('Blocking outbound connection')
+        # ipv6
+        _android_shell('ip6tables -I OUTPUT -j REJECT')
+        _android_shell('ip6tables -I OUTPUT -d ip6-localhost -j ACCEPT')
+        # ipv4
         _android_shell('iptables -I OUTPUT -j REJECT')
-        _android_shell('iptables -I OUTPUT -p tcp -s 100.115.92.2 --sport 5555 '
+        _android_shell('iptables -I OUTPUT -p tcp -s 100.115.92.2 '
+                       '--sport 5555 '
                        '-j ACCEPT')
-        _android_shell('iptables -I OUTPUT -p tcp -d localhost -j ACCEPT')
+        _android_shell('iptables -I OUTPUT -d localhost -j ACCEPT')
 
     def unblock_outbound(self):
         """ Unblocks the connection from the container to outer network.
@@ -805,10 +940,15 @@ class ArcTest(test.test):
             unblock the outbound connections during the test if needed.
         """
         logging.info('Unblocking outbound connection')
-        _android_shell('iptables -D OUTPUT -p tcp -d localhost -j ACCEPT')
-        _android_shell('iptables -D OUTPUT -p tcp -s 100.115.92.2 --sport 5555 '
+        # ipv4
+        _android_shell('iptables -D OUTPUT -d localhost -j ACCEPT')
+        _android_shell('iptables -D OUTPUT -p tcp -s 100.115.92.2 '
+                       '--sport 5555 '
                        '-j ACCEPT')
         _android_shell('iptables -D OUTPUT -j REJECT')
+        # ipv6
+        _android_shell('ip6tables -D OUTPUT -d ip6-localhost -j ACCEPT')
+        _android_shell('ip6tables -D OUTPUT -j REJECT')
 
     def _add_ui_object_not_found_handler(self):
         """Logs the device dump upon uiautomator.UiObjectNotFoundException."""
@@ -820,15 +960,19 @@ class ArcTest(test.test):
         """Disables the Google Play Store app."""
         if is_package_disabled(_PLAY_STORE_PKG):
             return
-        from uiautomator import device as d
         adb_shell('am force-stop ' + _PLAY_STORE_PKG)
-        adb_shell('am start -W ' + _SETTINGS_PKG)
-        d(text='Apps', packageName=_SETTINGS_PKG).click.wait()
-        adb_shell('input text Store')
-        d(text='Google Play Store', packageName=_SETTINGS_PKG).click.wait()
-        d(textMatches='(?i)DISABLE').click.wait()
+        adb_shell('am start -a android.settings.APPLICATION_DETAILS_SETTINGS '
+                  '-d package:' + _PLAY_STORE_PKG)
+
+        # Note: the straightforward "pm disable <package>" command would be
+        # better, but that requires root permissions, which aren't available on
+        # a pre-release image being tested. The only other way is through the
+        # Settings UI, but which might change.
+        from uiautomator import device as d
+        d(textMatches='(?i)DISABLE', packageName=_SETTINGS_PKG).wait.exists()
+        d(textMatches='(?i)DISABLE', packageName=_SETTINGS_PKG).click.wait()
         d(textMatches='(?i)DISABLE APP').click.wait()
         ok_button = d(textMatches='(?i)OK')
         if ok_button.exists:
             ok_button.click.wait()
-        d(description='Close', packageName=_SETTINGS_PKG).click.wait()
+        adb_shell('am force-stop ' + _SETTINGS_PKG)

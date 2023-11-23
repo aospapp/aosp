@@ -19,6 +19,7 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -50,7 +51,7 @@ public class LocationCheck extends SettingsPreparer {
             return; // skip this precondition if required location feature is not present
         }
 
-        logInfo("Verifying location setting");
+        CLog.i("Verifying location setting");
         mSettingName = LOCATION_SETTING;
         mSettingType = SettingsPreparer.SettingType.SECURE;
         mExpectedSettingValues.add(NETWORK);

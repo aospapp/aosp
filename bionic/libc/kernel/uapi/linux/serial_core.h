@@ -59,6 +59,7 @@
 #define PORT_21285 37
 #define PORT_SUNZILOG 38
 #define PORT_SUNSAB 39
+#define PORT_NPCM 40
 #define PORT_PCH_8LINE 44
 #define PORT_PCH_2LINE 45
 #define PORT_DZ 46
@@ -133,4 +134,5 @@
 #define PORT_PIC32 115
 #define PORT_MPS2UART 116
 #define PORT_MTK_BTIF 117
+#define PORT_RDA 118
 #endif

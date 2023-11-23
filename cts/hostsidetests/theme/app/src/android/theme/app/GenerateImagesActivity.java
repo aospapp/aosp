@@ -16,16 +16,13 @@
 
 package android.theme.app;
 
-import android.Manifest.permission;
+import static android.theme.app.TestConfiguration.THEMES;
+
 import android.app.Activity;
-import android.app.KeyguardManager;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.util.Log;
 import android.view.WindowManager.LayoutParams;
 
@@ -59,94 +56,63 @@ public class GenerateImagesActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().addFlags(LayoutParams.FLAG_KEEP_SCREEN_ON
-                | LayoutParams.FLAG_TURN_SCREEN_ON
-                | LayoutParams.FLAG_DISMISS_KEYGUARD);
+        // Useful for local testing. Not required for CTS harness.
+        getWindow().addFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        mOutputDir = setupOutputDirectory();
+        if (mOutputDir == null) {
+            finish("Failed to create output directory " + mOutputDir.getAbsolutePath(), false);
+        } else {
+            generateNextImage();
+        }
+    }
+
+    private File setupOutputDirectory() {
         mOutputDir = new File(Environment.getExternalStorageDirectory(), OUT_DIR);
         ThemeTestUtils.deleteDirectory(mOutputDir);
         mOutputDir.mkdirs();
 
-        if (!mOutputDir.exists()) {
-            finish("Failed to create output directory " + mOutputDir.getAbsolutePath(), false);
-            return;
+        if (mOutputDir.exists()) {
+            return mOutputDir;
         }
-
-        final boolean canDisableKeyguard = checkCallingOrSelfPermission(
-                permission.DISABLE_KEYGUARD) == PackageManager.PERMISSION_GRANTED;
-        if (!canDisableKeyguard) {
-            finish("Not granted permission to disable keyguard", false);
-            return;
-        }
-
-        new KeyguardCheck(this) {
-            @Override
-            public void onSuccess() {
-                generateNextImage();
-            }
-
-            @Override
-            public void onFailure() {
-                finish("Device is locked", false);
-            }
-        }.start();
+        return null;
     }
 
+    /**
+     * @return whether the test finished successfully
+     */
     public boolean isFinishSuccess() {
         return mFinishSuccess;
     }
 
+    /**
+     * @return user-visible string explaining why the test finished, may be {@code null} if the test
+     *         finished unexpectedly
+     */
     public String getFinishReason() {
         return mFinishReason;
-    }
-
-    static abstract class KeyguardCheck implements Runnable {
-        private static final int MAX_RETRIES = 3;
-        private static final int RETRY_DELAY = 500;
-
-        private final Handler mHandler;
-        private final KeyguardManager mKeyguard;
-
-        private int mRetries;
-
-        public KeyguardCheck(Context context) {
-            mHandler = new Handler(context.getMainLooper());
-            mKeyguard = (KeyguardManager) context.getSystemService(KEYGUARD_SERVICE);
-        }
-
-        public void start() {
-            mRetries = 0;
-
-            mHandler.removeCallbacks(this);
-            mHandler.post(this);
-        }
-
-        public void cancel() {
-            mHandler.removeCallbacks(this);
-        }
-
-        @Override
-        public void run() {
-            if (!mKeyguard.isKeyguardLocked()) {
-                onSuccess();
-            } else if (mRetries < MAX_RETRIES) {
-                mRetries++;
-                mHandler.postDelayed(this, RETRY_DELAY);
-            } else {
-                onFailure();
-            }
-
-        }
-
-        public abstract void onSuccess();
-        public abstract void onFailure();
     }
 
     /**
      * Starts the activity to generate the next image.
      */
-    private boolean generateNextImage() {
-        final ThemeDeviceActivity.Theme theme = ThemeDeviceActivity.THEMES[mCurrentTheme];
+    private void generateNextImage() {
+        // Keep trying themes until one works.
+        boolean success = false;
+        while (++mCurrentTheme < THEMES.length && !success) {
+            success = launchThemeDeviceActivity();
+        }
+
+        // If we ran out of themes, we're done.
+        if (!success) {
+            compressOutput();
+
+            finish("Image generation complete!", true);
+        }
+    }
+
+    private boolean launchThemeDeviceActivity() {
+        final ThemeInfo theme = THEMES[mCurrentTheme];
         if (theme.apiLevel > VERSION.SDK_INT) {
             Log.v(TAG, "Skipping theme \"" + theme.name
                     + "\" (requires API " + theme.apiLevel + ")");
@@ -171,18 +137,7 @@ public class GenerateImagesActivity extends Activity {
             return;
         }
 
-        // Keep trying themes until one works.
-        boolean success = false;
-        while (++mCurrentTheme < ThemeDeviceActivity.THEMES.length && !success) {
-            success = generateNextImage();
-        }
-
-        // If we ran out of themes, we're done.
-        if (!success) {
-            compressOutput();
-
-            finish("Image generation complete!", true);
-        }
+        generateNextImage();
     }
 
     private void compressOutput() {

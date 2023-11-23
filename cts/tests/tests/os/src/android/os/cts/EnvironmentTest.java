@@ -16,6 +16,7 @@
 package android.os.cts;
 
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
 import android.system.Os;
 import android.system.StructStatVfs;
 
@@ -29,10 +30,14 @@ public class EnvironmentTest extends TestCase {
     public void testEnvironment() {
         new Environment();
         assertNotNull(Environment.getExternalStorageState());
-        assertTrue(Environment.getExternalStorageDirectory().isDirectory());
         assertTrue(Environment.getRootDirectory().isDirectory());
         assertTrue(Environment.getDownloadCacheDirectory().isDirectory());
         assertTrue(Environment.getDataDirectory().isDirectory());
+    }
+
+    @AppModeFull(reason = "External directory not accessible by instant apps")
+    public void testEnvironmentExternal() {
+        assertTrue(Environment.getExternalStorageDirectory().isDirectory());
     }
 
     /**
@@ -68,6 +73,28 @@ public class EnvironmentTest extends TestCase {
     }
 
     /**
+     * verify hidepid=2 on /proc
+     */
+    public void testHidePid2() throws Exception {
+        try (BufferedReader br = new BufferedReader(new FileReader("/proc/mounts"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                final String[] fields = line.split(" ");
+                final String source = fields[0];
+                final String options = fields[3];
+
+                if (source.equals("proc") && !options.contains("hidepid=2")) {
+                    fail("proc filesystem mounted without hidepid=2");
+                }
+            }
+        }
+    }
+
+    public void testHidePid2_direct() throws Exception {
+        assertFalse(new File("/proc/1").exists());
+    }
+
+    /**
      * Verify that all writable block filesystems are mounted with "resgid" to
      * mitigate disk-full trouble.
      */
@@ -81,14 +108,17 @@ public class EnvironmentTest extends TestCase {
         // inodes can result in wasted space.
         final long maxsize = stat.f_blocks * stat.f_frsize;
         final long maxInodes = maxsize / 4096;
-        final long minsize = stat.f_bavail * stat.f_frsize;
-        final long minInodes = minsize / 32768;
+        // Assuming the smallest storage would be 4GB, min # of free inodes
+        // in EXT4/F2FS must be larger than 128k for Android to work properly.
+        final long minInodes = 128 * 1024;
 
-        if (stat.f_ffree >= minInodes && stat.f_ffree <= maxInodes) {
+        if (stat.f_ffree >= minInodes && stat.f_ffree <= maxInodes
+            && stat.f_favail <= stat.f_ffree) {
             // Sweet, sounds great!
         } else {
-            fail("Number of inodes " + stat.f_ffree + " not within sane range for partition of "
-                    + minsize + "," + maxsize + " bytes; expected [" + minInodes + "," + maxInodes + "]");
+            fail("Number of inodes " + stat.f_ffree + "/" + stat.f_favail
+              + " not within sane range for partition of " + maxsize + " bytes; expected ["
+              + minInodes + "," + maxInodes + "]");
         }
     }
 }

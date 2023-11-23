@@ -26,7 +26,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -50,17 +49,17 @@ public class FileDownloadCache {
 
     /**
      * The map of remote file paths to local files, stored in least-recently-used order.
-     * <p/>
-     * Used for performance reasons. Functionally speaking, this data structure is not needed,
+     *
+     * <p>Used for performance reasons. Functionally speaking, this data structure is not needed,
      * since all info could be obtained from inspecting the filesystem.
      */
-    private final Map<String, File> mCacheMap = new LinkedHashMap<String, File>();
+    private final Map<String, File> mCacheMap = new CollapsedKeyMap<>();
 
     /** the lock for <var>mCacheMap</var> */
     private final ReentrantLock mCacheMapLock = new ReentrantLock();
 
     /** A map of remote file paths to locks. */
-    private final Map<String, ReentrantLock> mFileLocks = new HashMap<String, ReentrantLock>();
+    private final Map<String, ReentrantLock> mFileLocks = new CollapsedKeyMap<>();
 
     private long mCurrentCacheSize = 0;
 
@@ -259,8 +258,18 @@ public class FileDownloadCache {
             } finally {
                 mCacheMapLock.unlock();
             }
-
             try {
+                if (!download
+                        && cachedFile.exists()
+                        && !downloader.isFresh(cachedFile, remotePath)) {
+                    Log.d(
+                            LOG_TAG,
+                            String.format(
+                                    "Cached file %s for %s is out of date, re-download.",
+                                    cachedFile, remotePath));
+                    FileUtil.recursiveDelete(cachedFile);
+                    download = true;
+                }
                 if (download || !cachedFile.exists()) {
                     cachedFile.getParentFile().mkdirs();
                     downloadFile(downloader, remotePath, cachedFile);
@@ -302,9 +311,14 @@ public class FileDownloadCache {
         try {
             hardlinkFile = FileUtil.createTempFileForRemote(remotePath, null);
             hardlinkFile.delete();
-            CLog.d("Creating hardlink '%s' to '%s'", hardlinkFile.getAbsolutePath(),
-                    cachedFile.getAbsolutePath());
-            FileUtil.hardlinkFile(cachedFile, hardlinkFile);
+            CLog.d(
+                    "Creating hardlink '%s' to '%s'",
+                    hardlinkFile.getAbsolutePath(), cachedFile.getAbsolutePath());
+            if (cachedFile.isDirectory()) {
+                FileUtil.recursiveHardlink(cachedFile, hardlinkFile);
+            } else {
+                FileUtil.hardlinkFile(cachedFile, hardlinkFile);
+            }
             return hardlinkFile;
         } catch (IOException e) {
             FileUtil.deleteFile(hardlinkFile);
@@ -451,6 +465,33 @@ public class FileDownloadCache {
             }
         } finally {
             unlockFile(remoteFilePath);
+        }
+    }
+
+    /**
+     * Class that ensure the remote file path as the key is always similar to an actual folder
+     * hierarchy.
+     */
+    private static class CollapsedKeyMap<V> extends LinkedHashMap<String, V> {
+        @Override
+        public V put(String key, V value) {
+            return super.put(new File(key).getPath(), value);
+        }
+
+        @Override
+        public V get(Object key) {
+            if (key instanceof String) {
+                return super.get(new File((String) key).getPath());
+            }
+            return super.get(key);
+        }
+
+        @Override
+        public V remove(Object key) {
+            if (key instanceof String) {
+                return super.remove(new File((String) key).getPath());
+            }
+            return super.remove(key);
         }
     }
 }

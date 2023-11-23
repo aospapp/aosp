@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # Author: Dan Walsh <dwalsh@redhat.com>
 # Author: Ryan Hallisey <rhallise@redhat.com>
 # Author: Jason Zaman <perfinion@gentoo.org>
@@ -119,16 +117,34 @@ all_allow_rules = None
 all_transitions = None
 
 
+def policy_sortkey(policy_path):
+    # Parse the extension of a policy path which looks like .../policy/policy.31
+    extension = policy_path.rsplit('/policy.', 1)[1]
+    try:
+        return int(extension), policy_path
+    except ValueError:
+        # Fallback with sorting on the full path
+        return 0, policy_path
+
 def get_installed_policy(root="/"):
     try:
         path = root + selinux.selinux_binary_policy_path()
         policies = glob.glob("%s.*" % path)
-        policies.sort()
+        policies.sort(key=policy_sortkey)
         return policies[-1]
     except:
         pass
     raise ValueError(_("No SELinux Policy installed"))
 
+def get_store_policy(store):
+    """Get the path to the policy file located in the given store name"""
+    policies = glob.glob("%s%s/policy/policy.*" %
+                         (selinux.selinux_path(), store))
+    if not policies:
+        return None
+    # Return the policy with the higher version number
+    policies.sort(key=policy_sortkey)
+    return policies[-1]
 
 def policy(policy_file):
     global all_domains
@@ -156,6 +172,11 @@ def policy(policy_file):
     except:
         raise ValueError(_("Failed to read %s policy file") % policy_file)
 
+def load_store_policy(store):
+    policy_file = get_store_policy(store)
+    if not policy_file:
+        return None
+    policy(policy_file)
 
 try:
     policy_file = get_installed_policy()
@@ -168,15 +189,21 @@ except ValueError as e:
 def info(setype, name=None):
     if setype == TYPE:
         q = setools.TypeQuery(_pol)
-        if name:
-            q.name = name
+        q.name = name
+        results = list(q.results())
+
+        if name and len(results) < 1:
+            # type not found, try alias
+            q.name = None
+            q.alias = name
+            results = list(q.results())
 
         return ({
             'aliases': list(map(str, x.aliases())),
             'name': str(x),
             'permissive': bool(x.ispermissive),
             'attributes': list(map(str, x.attributes()))
-        } for x in q.results())
+        } for x in results)
 
     elif setype == ROLE:
         q = setools.RoleQuery(_pol)
@@ -272,34 +299,38 @@ def _setools_rule_to_dict(rule):
         'class': str(rule.tclass),
     }
 
+    # Evaluate boolean expression associated with given rule (if there is any)
     try:
-        enabled = bool(rule.qpol_symbol.is_enabled(rule.policy))
+        # Get state of all booleans in the conditional expression
+        boolstate = {}
+        for boolean in rule.conditional.booleans:
+            boolstate[str(boolean)] = boolean.state
+        # evaluate if the rule is enabled
+        enabled = rule.conditional.evaluate(**boolstate) == rule.conditional_block
     except AttributeError:
+        # non-conditional rules are always enabled
         enabled = True
 
-    if isinstance(rule, setools.policyrep.terule.AVRule):
-        d['enabled'] = enabled
+    d['enabled'] = enabled
 
     try:
         d['permlist'] = list(map(str, rule.perms))
-    except setools.policyrep.exception.RuleUseError:
+    except AttributeError:
         pass
 
     try:
         d['transtype'] = str(rule.default)
-    except setools.policyrep.exception.RuleUseError:
+    except AttributeError:
         pass
 
     try:
         d['boolean'] = [(str(rule.conditional), enabled)]
-    except (AttributeError, setools.policyrep.exception.RuleNotConditional):
+    except AttributeError:
         pass
 
     try:
         d['filename'] = rule.filename
-    except (AttributeError,
-            setools.policyrep.exception.RuleNotConditional,
-            setools.policyrep.exception.TERuleNoFilename):
+    except AttributeError:
         pass
 
     return d
@@ -334,6 +365,8 @@ def search(types, seinfo=None):
         tertypes.append(NEVERALLOW)
     if AUDITALLOW in types:
         tertypes.append(AUDITALLOW)
+    if DONTAUDIT in types:
+        tertypes.append(DONTAUDIT)
 
     if len(tertypes) > 0:
         q = setools.TERuleQuery(_pol,
@@ -436,6 +469,20 @@ def get_file_types(setype):
             mpaths[f] = []
     return mpaths
 
+
+def get_real_type_name(name):
+    """Return the real name of a type
+
+    * If 'name' refers to a type alias, return the corresponding type name.
+    * Otherwise return the original name (even if the type does not exist).
+    """
+    if not name:
+        return name
+
+    try:
+        return next(info(TYPE, name))["name"]
+    except (RuntimeError, StopIteration):
+        return name
 
 def get_writable_files(setype):
     file_types = get_all_file_types()
@@ -1048,6 +1095,8 @@ def _dict_has_perms(dict, perms):
 def gen_short_name(setype):
     all_domains = get_all_domains()
     if setype.endswith("_t"):
+        # replace aliases with corresponding types
+        setype = get_real_type_name(setype)
         domainname = setype[:-2]
     else:
         domainname = setype

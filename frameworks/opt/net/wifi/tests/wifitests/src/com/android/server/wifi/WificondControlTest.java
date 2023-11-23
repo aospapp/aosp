@@ -16,28 +16,49 @@
 
 package com.android.server.wifi;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Matchers.argThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
-import android.net.MacAddress;
+import android.app.AlarmManager;
 import android.net.wifi.IApInterface;
 import android.net.wifi.IApInterfaceEventCallback;
 import android.net.wifi.IClientInterface;
 import android.net.wifi.IPnoScanEvent;
 import android.net.wifi.IScanEvent;
+import android.net.wifi.ISendMgmtFrameEvent;
 import android.net.wifi.IWifiScannerImpl;
 import android.net.wifi.IWificond;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiScanner;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.support.test.filters.SmallTest;
+import android.os.test.TestLooper;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.server.wifi.WifiNative.SendMgmtFrameCallback;
 import com.android.server.wifi.util.NativeUtil;
 import com.android.server.wifi.wificond.ChannelSettings;
 import com.android.server.wifi.wificond.HiddenNetwork;
@@ -48,6 +69,7 @@ import com.android.server.wifi.wificond.SingleScanSettings;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.AdditionalMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
@@ -56,6 +78,7 @@ import org.mockito.MockitoAnnotations;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
@@ -76,9 +99,14 @@ public class WificondControlTest {
     @Mock private CarrierNetworkConfig mCarrierNetworkConfig;
     @Mock private IApInterface mApInterface;
     @Mock private WifiNative.SoftApListener mSoftApListener;
+    @Mock private AlarmManager mAlarmManager;
+    @Mock private Clock mClock;
+    @Mock private SendMgmtFrameCallback mSendMgmtFrameCallback;
+    private TestLooper mLooper;
     private WificondControl mWificondControl;
     private static final String TEST_INTERFACE_NAME = "test_wlan_if";
     private static final String TEST_INTERFACE_NAME1 = "test_wlan_if1";
+    private static final String TEST_INVALID_INTERFACE_NAME = "asdf";
     private static final byte[] TEST_SSID =
             new byte[] {'G', 'o', 'o', 'g', 'l', 'e', 'G', 'u', 'e', 's', 't'};
     private static final byte[] TEST_PSK =
@@ -142,9 +170,11 @@ public class WificondControlTest {
             }};
     private static final String TEST_QUOTED_SSID_1 = "\"testSsid1\"";
     private static final String TEST_QUOTED_SSID_2 = "\"testSsid2\"";
+    private static final int[] TEST_FREQUENCIES_1 = {};
+    private static final int[] TEST_FREQUENCIES_2 = {2500, 5124};
 
-    private static final Set<String> SCAN_HIDDEN_NETWORK_SSID_SET =
-            new HashSet<String>() {{
+    private static final List<String> SCAN_HIDDEN_NETWORK_SSID_LIST =
+            new ArrayList<String>() {{
                 add(TEST_QUOTED_SSID_1);
                 add(TEST_QUOTED_SSID_2);
             }};
@@ -159,10 +189,20 @@ public class WificondControlTest {
                 networkList[1] = new WifiNative.PnoNetwork();
                 networkList[0].ssid = TEST_QUOTED_SSID_1;
                 networkList[0].flags = WifiScanner.PnoSettings.PnoNetwork.FLAG_DIRECTED_SCAN;
+                networkList[0].frequencies = TEST_FREQUENCIES_1;
                 networkList[1].ssid = TEST_QUOTED_SSID_2;
                 networkList[1].flags = 0;
+                networkList[1].frequencies = TEST_FREQUENCIES_2;
             }};
-    private static final MacAddress TEST_MAC_ADDRESS = MacAddress.fromString("ee:33:a2:94:10:92");
+
+    private static final int TEST_MCS_RATE = 5;
+    private static final int TEST_SEND_MGMT_FRAME_ELAPSED_TIME_MS = 100;
+    private static final byte[] TEST_PROBE_FRAME = {
+            0x40, 0x00, 0x3c, 0x00, (byte) 0xa8, (byte) 0xbd, 0x27, 0x5b,
+            0x33, 0x72, (byte) 0xf4, (byte) 0xf5, (byte) 0xe8, 0x51, (byte) 0x9e, 0x09,
+            (byte) 0xa8, (byte) 0xbd, 0x27, 0x5b, 0x33, 0x72, (byte) 0xb0, 0x66,
+            0x00, 0x00
+    };
 
     @Before
     public void setUp() throws Exception {
@@ -179,7 +219,9 @@ public class WificondControlTest {
         when(mClientInterface.getWifiScannerImpl()).thenReturn(mWifiScannerImpl);
         when(mClientInterface.getInterfaceName()).thenReturn(TEST_INTERFACE_NAME);
         when(mWifiInjector.getWifiMetrics()).thenReturn(mWifiMetrics);
-        mWificondControl = new WificondControl(mWifiInjector, mWifiMonitor, mCarrierNetworkConfig);
+        mLooper = new TestLooper();
+        mWificondControl = new WificondControl(mWifiInjector, mWifiMonitor, mCarrierNetworkConfig,
+                mAlarmManager, mLooper.getLooper(), mClock);
         assertEquals(mClientInterface, mWificondControl.setupInterfaceForClientMode(
                 TEST_INTERFACE_NAME));
         verify(mWifiInjector).makeWificond();
@@ -212,6 +254,7 @@ public class WificondControlTest {
     public void testSetupInterfaceForClientModeErrorWhenWificondIsNotStarted() throws Exception {
         // Invoke wificond death handler to clear the handle.
         mWificondControl.binderDied();
+        mLooper.dispatchAll();
         when(mWifiInjector.makeWificond()).thenReturn(null);
         IClientInterface returnedClientInterface =
                 mWificondControl.setupInterfaceForClientMode(TEST_INTERFACE_NAME);
@@ -298,7 +341,7 @@ public class WificondControlTest {
 
         assertFalse(mWificondControl.scan(
                 TEST_INTERFACE_NAME, WifiNative.SCAN_TYPE_LOW_LATENCY,
-                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_SET));
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST));
         verify(mWifiScannerImpl, never()).scan(any());
     }
 
@@ -325,6 +368,7 @@ public class WificondControlTest {
     public void testSetupInterfaceForSoftApModeErrorWhenWificondIsNotStarted() throws Exception {
         // Invoke wificond death handler to clear the handle.
         mWificondControl.binderDied();
+        mLooper.dispatchAll();
         when(mWifiInjector.makeWificond()).thenReturn(null);
 
         IApInterface returnedApInterface =
@@ -392,9 +436,9 @@ public class WificondControlTest {
     public void testTeardownSoftApInterfaceClearsHandles() throws Exception {
         testTeardownSoftApInterface();
 
-        assertFalse(mWificondControl.startHostapd(
+        assertFalse(mWificondControl.registerApListener(
                 TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface, never()).startHostapd(any());
+        verify(mApInterface, never()).registerCallback(any());
     }
 
     /**
@@ -428,74 +472,6 @@ public class WificondControlTest {
     }
 
     /**
-     * Verifies that enableSupplicant() calls wificond.
-     */
-    @Test
-    public void testEnableSupplicant() throws Exception {
-        when(mWifiInjector.makeWificond()).thenReturn(mWificond);
-        when(mWificond.enableSupplicant()).thenReturn(true);
-
-        assertTrue(mWificondControl.enableSupplicant());
-        verify(mWifiInjector).makeWificond();
-        verify(mWificond).enableSupplicant();
-    }
-
-    /**
-     * Verifies that enableSupplicant() returns false when there is no configured
-     * client interface.
-     */
-    @Test
-    public void testEnableSupplicantErrorWhenNoClientInterfaceConfigured() throws Exception {
-        when(mWifiInjector.makeWificond()).thenReturn(mWificond);
-        when(mWificond.createClientInterface(TEST_INTERFACE_NAME)).thenReturn(mClientInterface);
-
-        // Configure client interface.
-        IClientInterface returnedClientInterface =
-                mWificondControl.setupInterfaceForClientMode(TEST_INTERFACE_NAME);
-        assertEquals(mClientInterface, returnedClientInterface);
-
-        // Tear down interfaces.
-        assertTrue(mWificondControl.tearDownInterfaces());
-
-        // Enabling supplicant should fail.
-        assertFalse(mWificondControl.enableSupplicant());
-    }
-
-    /**
-     * Verifies that disableSupplicant() calls wificond.
-     */
-    @Test
-    public void testDisableSupplicant() throws Exception {
-        when(mWifiInjector.makeWificond()).thenReturn(mWificond);
-        when(mWificond.disableSupplicant()).thenReturn(true);
-
-        assertTrue(mWificondControl.disableSupplicant());
-        verify(mWifiInjector).makeWificond();
-        verify(mWificond).disableSupplicant();
-    }
-
-    /**
-     * Verifies that disableSupplicant() returns false when there is no configured
-     * client interface.
-     */
-    @Test
-    public void testDisableSupplicantErrorWhenNoClientInterfaceConfigured() throws Exception {
-        when(mWifiInjector.makeWificond()).thenReturn(mWificond);
-        when(mWificond.createClientInterface(TEST_INTERFACE_NAME)).thenReturn(mClientInterface);
-
-        // Configure client interface.
-        IClientInterface returnedClientInterface =
-                mWificondControl.setupInterfaceForClientMode(TEST_INTERFACE_NAME);
-        assertEquals(mClientInterface, returnedClientInterface);
-
-        // Tear down interfaces.
-        assertTrue(mWificondControl.tearDownInterfaces());
-
-        // Disabling supplicant should fail.
-        assertFalse(mWificondControl.disableSupplicant());
-    }
-
-    /**
      * Verifies that tearDownInterfaces() calls wificond.
      */
     @Test
@@ -523,6 +499,7 @@ public class WificondControlTest {
     public void testTearDownInterfacesErrorWhenWificondIsNotStarterd() throws Exception {
         // Invoke wificond death handler to clear the handle.
         mWificondControl.binderDied();
+        mLooper.dispatchAll();
         when(mWifiInjector.makeWificond()).thenReturn(null);
         assertFalse(mWificondControl.tearDownInterfaces());
     }
@@ -750,10 +727,31 @@ public class WificondControlTest {
         when(mWifiScannerImpl.scan(any(SingleScanSettings.class))).thenReturn(true);
         assertTrue(mWificondControl.scan(
                 TEST_INTERFACE_NAME, WifiNative.SCAN_TYPE_LOW_POWER,
-                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_SET));
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST));
         verify(mWifiScannerImpl).scan(argThat(new ScanMatcher(
                 IWifiScannerImpl.SCAN_TYPE_LOW_POWER,
-                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_SET)));
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST)));
+    }
+
+    /**
+     * Verifies that Scan() removes duplicates hiddenSsids passed in from input.
+     */
+    @Test
+    public void testScanWithDuplicateHiddenSsids() throws Exception {
+        when(mWifiScannerImpl.scan(any(SingleScanSettings.class))).thenReturn(true);
+        // Create a list of hiddenSsid that has a duplicate element
+        List<String> hiddenSsidWithDup = new ArrayList<>(SCAN_HIDDEN_NETWORK_SSID_LIST);
+        hiddenSsidWithDup.add(SCAN_HIDDEN_NETWORK_SSID_LIST.get(0));
+        assertEquals(hiddenSsidWithDup.get(0),
+                hiddenSsidWithDup.get(hiddenSsidWithDup.size() - 1));
+        // Pass the List with duplicate elements into scan()
+        assertTrue(mWificondControl.scan(
+                TEST_INTERFACE_NAME, WifiNative.SCAN_TYPE_LOW_POWER,
+                SCAN_FREQ_SET, hiddenSsidWithDup));
+        // But the argument passed down should have the duplicate removed.
+        verify(mWifiScannerImpl).scan(argThat(new ScanMatcher(
+                IWifiScannerImpl.SCAN_TYPE_LOW_POWER,
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST)));
     }
 
     /**
@@ -776,7 +774,7 @@ public class WificondControlTest {
         when(mWifiScannerImpl.scan(any(SingleScanSettings.class))).thenReturn(false);
         assertFalse(mWificondControl.scan(
                 TEST_INTERFACE_NAME, WifiNative.SCAN_TYPE_LOW_LATENCY,
-                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_SET));
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST));
         verify(mWifiScannerImpl).scan(any(SingleScanSettings.class));
     }
 
@@ -787,7 +785,7 @@ public class WificondControlTest {
     public void testScanFailureDueToInvalidType() throws Exception {
         assertFalse(mWificondControl.scan(
                 TEST_INTERFACE_NAME, 100,
-                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_SET));
+                SCAN_FREQ_SET, SCAN_HIDDEN_NETWORK_SSID_LIST));
         verify(mWifiScannerImpl, never()).scan(any(SingleScanSettings.class));
     }
 
@@ -911,19 +909,6 @@ public class WificondControlTest {
     }
 
     /**
-     * Verifies successful soft ap start.
-     */
-    @Test
-    public void testStartHostapdWithPskConfig() throws Exception {
-        testSetupInterfaceForSoftApMode();
-        when(mApInterface.startHostapd(any())).thenReturn(true);
-
-        assertTrue(mWificondControl.startHostapd(
-                TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface).startHostapd(any());
-    }
-
-    /**
      * Ensures that the Ap interface callbacks are forwarded to the
      * SoftApListener used for starting soft AP.
      */
@@ -934,14 +919,14 @@ public class WificondControlTest {
         WifiConfiguration config = new WifiConfiguration();
         config.SSID = new String(TEST_SSID, StandardCharsets.UTF_8);
 
-        when(mApInterface.startHostapd(any())).thenReturn(true);
+        when(mApInterface.registerCallback(any())).thenReturn(true);
 
         final ArgumentCaptor<IApInterfaceEventCallback> apInterfaceCallbackCaptor =
                 ArgumentCaptor.forClass(IApInterfaceEventCallback.class);
 
-        assertTrue(mWificondControl.startHostapd(
+        assertTrue(mWificondControl.registerApListener(
                 TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface).startHostapd(apInterfaceCallbackCaptor.capture());
+        verify(mApInterface).registerCallback(apInterfaceCallbackCaptor.capture());
 
         int numStations = 5;
         apInterfaceCallbackCaptor.getValue().onNumAssociatedStationsChanged(numStations);
@@ -955,97 +940,6 @@ public class WificondControlTest {
     }
 
     /**
-     * Ensure that soft ap start fails when the interface is not setup.
-     */
-    @Test
-    public void testStartHostapdWithoutSetupInterface() throws Exception {
-        assertFalse(mWificondControl.startHostapd(
-                TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface, never()).startHostapd(any());
-    }
-
-    /**
-     * Verifies soft ap start failure.
-     */
-    @Test
-    public void testStartHostapdFailDueToStartError() throws Exception {
-        testSetupInterfaceForSoftApMode();
-        WifiConfiguration config = new WifiConfiguration();
-        config.SSID = new String(TEST_SSID, StandardCharsets.UTF_8);
-
-        when(mApInterface.startHostapd(any())).thenReturn(false);
-
-        assertFalse(mWificondControl.startHostapd(
-                TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface).startHostapd(any());
-    }
-
-    /**
-     * Verifies soft ap start failure.
-     */
-    @Test
-    public void testStartHostapdFailDueToExceptionInStart() throws Exception {
-        testSetupInterfaceForSoftApMode();
-        WifiConfiguration config = new WifiConfiguration();
-        config.SSID = new String(TEST_SSID, StandardCharsets.UTF_8);
-
-        doThrow(new RemoteException()).when(mApInterface).startHostapd(any());
-
-        assertFalse(mWificondControl.startHostapd(
-                TEST_INTERFACE_NAME, mSoftApListener));
-        verify(mApInterface).startHostapd(any());
-    }
-
-    /**
-     * Verifies soft ap stop success.
-     */
-    @Test
-    public void testStopSoftAp() throws Exception {
-        testSetupInterfaceForSoftApMode();
-
-        when(mApInterface.stopHostapd()).thenReturn(true);
-
-        assertTrue(mWificondControl.stopHostapd(TEST_INTERFACE_NAME));
-        verify(mApInterface).stopHostapd();
-    }
-
-    /**
-     * Ensure that soft ap stop fails when the interface is not setup.
-     */
-    @Test
-    public void testStopSoftApWithOutSetupInterface() throws Exception {
-        when(mApInterface.stopHostapd()).thenReturn(true);
-        assertFalse(mWificondControl.stopHostapd(TEST_INTERFACE_NAME));
-        verify(mApInterface, never()).stopHostapd();
-    }
-
-    /**
-     * Verifies soft ap stop failure.
-     */
-    @Test
-    public void testStopSoftApFailDueToStopError() throws Exception {
-        testSetupInterfaceForSoftApMode();
-
-        when(mApInterface.stopHostapd()).thenReturn(false);
-
-        assertFalse(mWificondControl.stopHostapd(TEST_INTERFACE_NAME));
-        verify(mApInterface).stopHostapd();
-    }
-
-    /**
-     * Verifies soft ap stop failure.
-     */
-    @Test
-    public void testStopSoftApFailDueToExceptionInStop() throws Exception {
-        testSetupInterfaceForSoftApMode();
-
-        doThrow(new RemoteException()).when(mApInterface).stopHostapd();
-
-        assertFalse(mWificondControl.stopHostapd(TEST_INTERFACE_NAME));
-        verify(mApInterface).stopHostapd();
-    }
-
-    /**
      * Verifies registration and invocation of wificond death handler.
      */
     @Test
@@ -1055,6 +949,7 @@ public class WificondControlTest {
         assertTrue(mWificondControl.initialize(handler));
         verify(mWificond).tearDownInterfaces();
         mWificondControl.binderDied();
+        mLooper.dispatchAll();
         verify(handler).onDeath();
     }
 
@@ -1071,34 +966,288 @@ public class WificondControlTest {
         testSetupInterfaceForClientMode();
 
         mWificondControl.binderDied();
+        mLooper.dispatchAll();
         verify(handler).onDeath();
 
-        // The handles should be cleared after death, so these should retrieve new handles.
-        when(mWificond.enableSupplicant()).thenReturn(true);
-        assertTrue(mWificondControl.enableSupplicant());
-        verify(mWifiInjector, times(2)).makeWificond();
-        verify(mWificond).enableSupplicant();
+        // The handles should be cleared after death.
+        assertNull(mWificondControl.getChannelsForBand(WifiScanner.WIFI_BAND_5_GHZ));
+        verify(mWificond, never()).getAvailable5gNonDFSChannels();
     }
 
     /**
-     * Verifies setMacAddress() success.
+     * sendMgmtFrame() should fail if a null callback is passed in.
      */
     @Test
-    public void testSetMacAddressSuccess() throws Exception {
-        byte[] macByteArray = TEST_MAC_ADDRESS.toByteArray();
-        assertTrue(mWificondControl.setMacAddress(TEST_INTERFACE_NAME, TEST_MAC_ADDRESS));
-        verify(mClientInterface).setMacAddress(macByteArray);
+    public void testSendMgmtFrameNullCallback() throws Exception {
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, null, TEST_MCS_RATE);
+
+        verify(mClientInterface, never()).SendMgmtFrame(any(), any(), anyInt());
     }
 
     /**
-     * Verifies setMacAddress() can handle failure.
+     * sendMgmtFrame() should fail if a null frame is passed in.
      */
     @Test
-    public void testSetMacAddressFailDueToExceptionInInterface() throws Exception {
-        byte[] macByteArray = TEST_MAC_ADDRESS.toByteArray();
-        doThrow(new RemoteException()).when(mClientInterface).setMacAddress(macByteArray);
-        assertFalse(mWificondControl.setMacAddress(TEST_INTERFACE_NAME, TEST_MAC_ADDRESS));
-        verify(mClientInterface).setMacAddress(macByteArray);
+    public void testSendMgmtFrameNullFrame() throws Exception {
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, null,
+                mSendMgmtFrameCallback, TEST_MCS_RATE);
+
+        verify(mClientInterface, never()).SendMgmtFrame(any(), any(), anyInt());
+        verify(mSendMgmtFrameCallback).onFailure(anyInt());
+    }
+
+    /**
+     * sendMgmtFrame() should fail if an interface name that does not exist is passed in.
+     */
+    @Test
+    public void testSendMgmtFrameInvalidInterfaceName() throws Exception {
+        mWificondControl.sendMgmtFrame(TEST_INVALID_INTERFACE_NAME, TEST_PROBE_FRAME,
+                mSendMgmtFrameCallback, TEST_MCS_RATE);
+
+        verify(mClientInterface, never()).SendMgmtFrame(any(), any(), anyInt());
+        verify(mSendMgmtFrameCallback).onFailure(anyInt());
+    }
+
+    /**
+     * sendMgmtFrame() should fail if it is called a second time before the first call completed.
+     */
+    @Test
+    public void testSendMgmtFrameCalledTwiceBeforeFinished() throws Exception {
+        SendMgmtFrameCallback cb1 = mock(SendMgmtFrameCallback.class);
+        SendMgmtFrameCallback cb2 = mock(SendMgmtFrameCallback.class);
+
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, cb1, TEST_MCS_RATE);
+        verify(cb1, never()).onFailure(anyInt());
+        verify(mClientInterface, times(1))
+                .SendMgmtFrame(AdditionalMatchers.aryEq(TEST_PROBE_FRAME),
+                        any(), eq(TEST_MCS_RATE));
+
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, cb2, TEST_MCS_RATE);
+        verify(cb2).onFailure(WifiNative.SEND_MGMT_FRAME_ERROR_ALREADY_STARTED);
+        // verify SendMgmtFrame() still was only called once i.e. not called again
+        verify(mClientInterface, times(1))
+                .SendMgmtFrame(any(), any(), anyInt());
+    }
+
+    /**
+     * Tests that when a RemoteException is triggered on AIDL call, onFailure() is called only once.
+     */
+    @Test
+    public void testSendMgmtFrameThrowsException() throws Exception {
+        SendMgmtFrameCallback cb = mock(SendMgmtFrameCallback.class);
+
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+
+        doThrow(new RemoteException()).when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME,
+                cb, TEST_MCS_RATE);
+        mLooper.dispatchAll();
+
+        verify(cb).onFailure(anyInt());
+        verify(mAlarmManager).cancel(eq(alarmListenerCaptor.getValue()));
+
+        sendMgmtFrameEventCaptor.getValue().OnFailure(WifiNative.SEND_MGMT_FRAME_ERROR_UNKNOWN);
+        mLooper.dispatchAll();
+
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        mLooper.dispatchAll();
+
+        verifyNoMoreInteractions(cb);
+    }
+
+    /**
+     * Tests that the onAck() callback is triggered correctly.
+     */
+    @Test
+    public void testSendMgmtFrameSuccess() throws Exception {
+        SendMgmtFrameCallback cb = mock(SendMgmtFrameCallback.class);
+
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+        doNothing().when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, cb, TEST_MCS_RATE);
+
+        sendMgmtFrameEventCaptor.getValue().OnAck(TEST_SEND_MGMT_FRAME_ELAPSED_TIME_MS);
+        mLooper.dispatchAll();
+        verify(cb).onAck(eq(TEST_SEND_MGMT_FRAME_ELAPSED_TIME_MS));
+        verify(cb, never()).onFailure(anyInt());
+        verify(mAlarmManager).cancel(eq(alarmListenerCaptor.getValue()));
+
+        // verify that even if timeout is triggered afterwards, SendMgmtFrameCallback is not
+        // triggered again
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        mLooper.dispatchAll();
+        verify(cb, times(1)).onAck(anyInt());
+        verify(cb, never()).onFailure(anyInt());
+    }
+
+    /**
+     * Tests that the onFailure() callback is triggered correctly.
+     */
+    @Test
+    public void testSendMgmtFrameFailure() throws Exception {
+        SendMgmtFrameCallback cb = mock(SendMgmtFrameCallback.class);
+
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+        doNothing().when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, cb, TEST_MCS_RATE);
+
+        sendMgmtFrameEventCaptor.getValue().OnFailure(WifiNative.SEND_MGMT_FRAME_ERROR_UNKNOWN);
+        mLooper.dispatchAll();
+        verify(cb, never()).onAck(anyInt());
+        verify(cb).onFailure(eq(WifiNative.SEND_MGMT_FRAME_ERROR_UNKNOWN));
+        verify(mAlarmManager).cancel(eq(alarmListenerCaptor.getValue()));
+
+        // verify that even if timeout is triggered afterwards, SendMgmtFrameCallback is not
+        // triggered again
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        mLooper.dispatchAll();
+        verify(cb, never()).onAck(anyInt());
+        verify(cb, times(1)).onFailure(anyInt());
+    }
+
+    /**
+     * Tests that the onTimeout() callback is triggered correctly.
+     */
+    @Test
+    public void testSendMgmtFrameTimeout() throws Exception {
+        SendMgmtFrameCallback cb = mock(SendMgmtFrameCallback.class);
+
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+        doNothing().when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME, cb, TEST_MCS_RATE);
+
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        mLooper.dispatchAll();
+        verify(cb, never()).onAck(anyInt());
+        verify(cb).onFailure(eq(WifiNative.SEND_MGMT_FRAME_ERROR_TIMEOUT));
+
+        // verify that even if onAck() callback is triggered after timeout,
+        // SendMgmtFrameCallback is not triggered again
+        sendMgmtFrameEventCaptor.getValue().OnAck(TEST_SEND_MGMT_FRAME_ELAPSED_TIME_MS);
+        mLooper.dispatchAll();
+        verify(cb, never()).onAck(anyInt());
+        verify(cb, times(1)).onFailure(anyInt());
+    }
+
+    /**
+     * Tests every possible test outcome followed by every other test outcome to ensure that the
+     * internal state is reset correctly between calls.
+     * i.e. (success, success), (success, failure), (success, timeout),
+     * (failure, failure), (failure, success), (failure, timeout),
+     * (timeout, timeout), (timeout, success), (timeout, failure)
+     *
+     * Also tests that internal state is reset correctly after a transient AIDL RemoteException.
+     */
+    @Test
+    public void testSendMgmtFrameMixed() throws Exception {
+        testSendMgmtFrameThrowsException();
+        testSendMgmtFrameSuccess();
+        testSendMgmtFrameSuccess();
+        testSendMgmtFrameFailure();
+        testSendMgmtFrameFailure();
+        testSendMgmtFrameTimeout();
+        testSendMgmtFrameTimeout();
+        testSendMgmtFrameSuccess();
+        testSendMgmtFrameTimeout();
+        testSendMgmtFrameFailure();
+        testSendMgmtFrameSuccess();
+    }
+
+    /**
+     * Tests that OnAck() does not perform any non-thread-safe operations on the binder thread.
+     *
+     * The sequence of instructions are:
+     * 1. post onAlarm() onto main thread
+     * 2. OnAck()
+     * 3. mLooper.dispatchAll()
+     *
+     * The actual order of execution is:
+     * 1. binder thread portion of OnAck()
+     * 2. onAlarm() (which purely executes on the main thread)
+     * 3. main thread portion of OnAck()
+     *
+     * If the binder thread portion of OnAck() is not thread-safe, it can possibly mess up
+     * onAlarm(). Tests that this does not occur.
+     */
+    @Test
+    public void testSendMgmtFrameTimeoutAckThreadSafe() throws Exception {
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+        doNothing().when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME,
+                mSendMgmtFrameCallback, TEST_MCS_RATE);
+
+        // AlarmManager should post the onAlarm() callback onto the handler, but since we are
+        // triggering onAlarm() ourselves during the test, manually post onto handler
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        // OnAck posts to the handler
+        sendMgmtFrameEventCaptor.getValue().OnAck(TEST_SEND_MGMT_FRAME_ELAPSED_TIME_MS);
+        mLooper.dispatchAll();
+        verify(mSendMgmtFrameCallback, never()).onAck(anyInt());
+        verify(mSendMgmtFrameCallback).onFailure(eq(WifiNative.SEND_MGMT_FRAME_ERROR_TIMEOUT));
+    }
+
+    /**
+     * See {@link #testSendMgmtFrameTimeoutAckThreadSafe()}. This test replaces OnAck() with
+     * OnFailure().
+     */
+    @Test
+    public void testSendMgmtFrameTimeoutFailureThreadSafe() throws Exception {
+        final ArgumentCaptor<ISendMgmtFrameEvent> sendMgmtFrameEventCaptor =
+                ArgumentCaptor.forClass(ISendMgmtFrameEvent.class);
+        doNothing().when(mClientInterface)
+                .SendMgmtFrame(any(), sendMgmtFrameEventCaptor.capture(), anyInt());
+        final ArgumentCaptor<AlarmManager.OnAlarmListener> alarmListenerCaptor =
+                ArgumentCaptor.forClass(AlarmManager.OnAlarmListener.class);
+        final ArgumentCaptor<Handler> handlerCaptor = ArgumentCaptor.forClass(Handler.class);
+        doNothing().when(mAlarmManager).set(anyInt(), anyLong(), any(),
+                alarmListenerCaptor.capture(), handlerCaptor.capture());
+        mWificondControl.sendMgmtFrame(TEST_INTERFACE_NAME, TEST_PROBE_FRAME,
+                mSendMgmtFrameCallback, TEST_MCS_RATE);
+
+        // AlarmManager should post the onAlarm() callback onto the handler, but since we are
+        // triggering onAlarm() ourselves during the test, manually post onto handler
+        handlerCaptor.getValue().post(() -> alarmListenerCaptor.getValue().onAlarm());
+        // OnFailure posts to the handler
+        sendMgmtFrameEventCaptor.getValue().OnFailure(WifiNative.SEND_MGMT_FRAME_ERROR_UNKNOWN);
+        mLooper.dispatchAll();
+        verify(mSendMgmtFrameCallback).onFailure(eq(WifiNative.SEND_MGMT_FRAME_ERROR_TIMEOUT));
     }
 
     private void assertRadioChainInfosEqual(
@@ -1116,8 +1265,8 @@ public class WificondControlTest {
     private class ScanMatcher implements ArgumentMatcher<SingleScanSettings> {
         int mExpectedScanType;
         private final Set<Integer> mExpectedFreqs;
-        private final Set<String> mExpectedSsids;
-        ScanMatcher(int expectedScanType, Set<Integer> expectedFreqs, Set<String> expectedSsids) {
+        private final List<String> mExpectedSsids;
+        ScanMatcher(int expectedScanType, Set<Integer> expectedFreqs, List<String> expectedSsids) {
             this.mExpectedScanType = expectedScanType;
             this.mExpectedFreqs = expectedFreqs;
             this.mExpectedSsids = expectedSsids;
@@ -1145,7 +1294,7 @@ public class WificondControlTest {
             }
 
             if (mExpectedSsids != null) {
-                Set<String> ssidSet = new HashSet<String>();
+                List<String> ssidSet = new ArrayList<String>();
                 for (HiddenNetwork network : hiddenNetworks) {
                     ssidSet.add(NativeUtil.encodeSsid(
                             NativeUtil.byteArrayToArrayList(network.ssid)));
@@ -1203,7 +1352,10 @@ public class WificondControlTest {
                 if (isNetworkHidden != settings.pnoNetworks.get(i).isHidden) {
                     return false;
                 }
-
+                if (!Arrays.equals(mExpectedPnoSettings.networkList[i].frequencies,
+                        settings.pnoNetworks.get(i).frequencies)) {
+                    return false;
+                }
             }
             return true;
         }

@@ -80,22 +80,17 @@ class PayloadState : public PayloadStateInterface {
   }
 
   inline std::string GetCurrentUrl() override {
-    return candidate_urls_.size() && candidate_urls_[payload_index_].size()
+    return (payload_index_ < candidate_urls_.size() &&
+            url_index_ < candidate_urls_[payload_index_].size())
                ? candidate_urls_[payload_index_][url_index_]
                : "";
   }
 
-  inline uint32_t GetUrlFailureCount() override {
-    return url_failure_count_;
-  }
+  inline uint32_t GetUrlFailureCount() override { return url_failure_count_; }
 
-  inline uint32_t GetUrlSwitchCount() override {
-    return url_switch_count_;
-  }
+  inline uint32_t GetUrlSwitchCount() override { return url_switch_count_; }
 
-  inline int GetNumResponsesSeen() override {
-    return num_responses_seen_;
-  }
+  inline int GetNumResponsesSeen() override { return num_responses_seen_; }
 
   inline base::Time GetBackoffExpiryTime() override {
     return backoff_expiry_time_;
@@ -113,15 +108,15 @@ class PayloadState : public PayloadStateInterface {
     return source < kNumDownloadSources ? total_bytes_downloaded_[source] : 0;
   }
 
-  inline uint32_t GetNumReboots() override {
-    return num_reboots_;
-  }
+  inline uint32_t GetNumReboots() override { return num_reboots_; }
 
   void UpdateEngineStarted() override;
 
-  inline std::string GetRollbackVersion() override {
-    return rollback_version_;
-  }
+  inline bool GetRollbackHappened() override { return rollback_happened_; }
+
+  void SetRollbackHappened(bool rollback_happened) override;
+
+  inline std::string GetRollbackVersion() override { return rollback_version_; }
 
   int GetP2PNumAttempts() override;
   base::Time GetP2PFirstAttemptTimestamp() override;
@@ -132,9 +127,7 @@ class PayloadState : public PayloadStateInterface {
     return using_p2p_for_downloading_;
   }
 
-  bool GetUsingP2PForSharing() const override {
-    return using_p2p_for_sharing_;
-  }
+  bool GetUsingP2PForSharing() const override { return using_p2p_for_sharing_; }
 
   base::TimeDelta GetScatteringWaitPeriod() override {
     return scattering_wait_period_;
@@ -142,17 +135,11 @@ class PayloadState : public PayloadStateInterface {
 
   void SetScatteringWaitPeriod(base::TimeDelta wait_period) override;
 
-  void SetP2PUrl(const std::string& url) override {
-    p2p_url_ = url;
-  }
+  void SetStagingWaitPeriod(base::TimeDelta wait_period) override;
 
-  std::string GetP2PUrl() const override {
-    return p2p_url_;
-  }
+  void SetP2PUrl(const std::string& url) override { p2p_url_ = url; }
 
-  inline ErrorCode GetAttemptErrorCode() const override {
-    return attempt_error_code_;
-  }
+  std::string GetP2PUrl() const override { return p2p_url_; }
 
   bool NextPayload() override;
 
@@ -166,6 +153,7 @@ class PayloadState : public PayloadStateInterface {
   FRIEND_TEST(PayloadStateTest, RebootAfterUpdateFailedMetric);
   FRIEND_TEST(PayloadStateTest, RebootAfterUpdateSucceed);
   FRIEND_TEST(PayloadStateTest, RebootAfterCanceledUpdate);
+  FRIEND_TEST(PayloadStateTest, RollbackHappened);
   FRIEND_TEST(PayloadStateTest, RollbackVersion);
   FRIEND_TEST(PayloadStateTest, UpdateSuccessWithWipedPrefs);
 
@@ -341,7 +329,7 @@ class PayloadState : public PayloadStateInterface {
 
   // Loads the number of bytes that have been currently downloaded through the
   // previous attempts from the persisted state for the given source. It's
-  // reset to 0 everytime we begin a full update and is continued from previous
+  // reset to 0 every time we begin a full update and is continued from previous
   // attempt if we're resuming the update.
   void LoadCurrentBytesDownloaded(DownloadSource source);
 
@@ -353,7 +341,7 @@ class PayloadState : public PayloadStateInterface {
 
   // Loads the total number of bytes that have been downloaded (since the last
   // successful update) from the persisted state for the given source. It's
-  // reset to 0 everytime we successfully apply an update and counts the bytes
+  // reset to 0 every time we successfully apply an update and counts the bytes
   // downloaded for both successful and failed attempts since then.
   void LoadTotalBytesDownloaded(DownloadSource source);
 
@@ -362,6 +350,10 @@ class PayloadState : public PayloadStateInterface {
   void SetTotalBytesDownloaded(DownloadSource source,
                                uint64_t total_bytes_downloaded,
                                bool log);
+
+  // Loads whether rollback has happened on this device since the last update
+  // check where policy was available. This info is preserved over powerwash.
+  void LoadRollbackHappened();
 
   // Loads the blacklisted version from our prefs file.
   void LoadRollbackVersion();
@@ -374,9 +366,10 @@ class PayloadState : public PayloadStateInterface {
   void ResetRollbackVersion();
 
   inline uint32_t GetUrlIndex() {
-    return url_index_ ? std::min(candidate_urls_[payload_index_].size() - 1,
-                                 url_index_)
-                      : 0;
+    return (url_index_ != 0 && payload_index_ < candidate_urls_.size())
+               ? std::min(candidate_urls_[payload_index_].size() - 1,
+                          url_index_)
+               : 0;
   }
 
   // Computes the list of candidate URLs from the total list of payload URLs in
@@ -401,8 +394,6 @@ class PayloadState : public PayloadStateInterface {
   // increments num_reboots.
   void UpdateNumReboots();
 
-
-
   // Loads the |kPrefsP2PFirstAttemptTimestamp| state variable from disk
   // into |p2p_first_attempt_timestamp_|.
   void LoadP2PFirstAttemptTimestamp();
@@ -418,6 +409,9 @@ class PayloadState : public PayloadStateInterface {
 
   // Loads the persisted scattering wallclock-based wait period.
   void LoadScatteringWaitPeriod();
+
+  // Loads the persisted staging wallclock-based wait period.
+  void LoadStagingWaitPeriod();
 
   // Get the total size of all payloads.
   int64_t GetPayloadSize();
@@ -489,7 +483,7 @@ class PayloadState : public PayloadStateInterface {
   int32_t url_switch_count_;
 
   // The current download source based on the current URL. This value is
-  // not persisted as it can be recomputed everytime we update the URL.
+  // not persisted as it can be recomputed every time we update the URL.
   // We're storing this so as not to recompute this on every few bytes of
   // data we read from the socket.
   DownloadSource current_download_source_;
@@ -550,6 +544,11 @@ class PayloadState : public PayloadStateInterface {
   // allowed as per device policy.
   std::vector<std::vector<std::string>> candidate_urls_;
 
+  // This stores whether rollback has happened since the last time device policy
+  // was available during update check. When this is set, we're preventing
+  // forced updates to avoid update-rollback loops.
+  bool rollback_happened_;
+
   // This stores a blacklisted version set as part of rollback. When we rollback
   // we store the version of the os from which we are rolling back from in order
   // to guarantee that we do not re-update to it on the next au attempt after
@@ -568,14 +567,14 @@ class PayloadState : public PayloadStateInterface {
   // The connection type when the attempt started.
   metrics::ConnectionType attempt_connection_type_;
 
-  // The attempt error code when the attempt finished.
-  ErrorCode attempt_error_code_;
-
   // Whether we're currently rolling back.
   AttemptType attempt_type_;
 
   // The current scattering wallclock-based wait period.
   base::TimeDelta scattering_wait_period_;
+
+  // The current staging wallclock-based wait period.
+  base::TimeDelta staging_wait_period_;
 
   DISALLOW_COPY_AND_ASSIGN(PayloadState);
 };

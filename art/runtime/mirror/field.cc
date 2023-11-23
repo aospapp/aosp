@@ -24,38 +24,8 @@
 namespace art {
 namespace mirror {
 
-GcRoot<Class> Field::static_class_;
-GcRoot<Class> Field::array_class_;
-
-void Field::SetClass(ObjPtr<Class> klass) {
-  CHECK(static_class_.IsNull()) << static_class_.Read() << " " << klass;
-  CHECK(klass != nullptr);
-  static_class_ = GcRoot<Class>(klass);
-}
-
-void Field::ResetClass() {
-  CHECK(!static_class_.IsNull());
-  static_class_ = GcRoot<Class>(nullptr);
-}
-
-void Field::SetArrayClass(ObjPtr<Class> klass) {
-  CHECK(array_class_.IsNull()) << array_class_.Read() << " " << klass;
-  CHECK(klass != nullptr);
-  array_class_ = GcRoot<Class>(klass);
-}
-
-void Field::ResetArrayClass() {
-  CHECK(!array_class_.IsNull());
-  array_class_ = GcRoot<Class>(nullptr);
-}
-
-void Field::VisitRoots(RootVisitor* visitor) {
-  static_class_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
-  array_class_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
-}
-
 ArtField* Field::GetArtField() {
-  mirror::Class* declaring_class = GetDeclaringClass();
+  ObjPtr<mirror::Class> declaring_class = GetDeclaringClass();
   if (UNLIKELY(declaring_class->IsProxyClass())) {
     DCHECK(IsStatic());
     DCHECK_EQ(declaring_class->NumStaticFields(), 2U);
@@ -67,7 +37,7 @@ ArtField* Field::GetArtField() {
       return &declaring_class->GetSFieldsPtr()->At(1);
     }
   }
-  mirror::DexCache* const dex_cache = declaring_class->GetDexCache();
+  const ObjPtr<mirror::DexCache> dex_cache = declaring_class->GetDexCache();
   ArtField* art_field = dex_cache->GetResolvedField(GetDexFieldIndex(), kRuntimePointerSize);
   if (UNLIKELY(art_field == nullptr)) {
     if (IsStatic()) {

@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,7 +29,7 @@ extern "C" {
 #define MaxMultibyteCodes  6
 
 extern MagickPrivate MagickBooleanType
-  IsGlob(const char *);
+  IsGlob(const char *) magick_attribute((__pure__));
 
 typedef struct
 {
@@ -118,19 +118,15 @@ static inline int GetNextUTFCode(const char *text,unsigned int *octets)
       {
         unicode&=utf_info[i].utf_mask;
         if (unicode < utf_info[i].utf_value)
-          {
-            errno=EILSEQ;
-            return(-1);
-          }
+          break;
         *octets=(unsigned int) (i+1);
         return(unicode);
       }
     c=(int) (*text++ ^ 0x80) & 0xff;
     if ((c & 0xc0) != 0)
-      {
-        errno=EILSEQ;
-        return(-1);
-      }
+      break;
+    if (unicode > 0x10FFFF)
+      break;
     unicode=(unicode << 6) | c;
   }
   errno=EILSEQ;

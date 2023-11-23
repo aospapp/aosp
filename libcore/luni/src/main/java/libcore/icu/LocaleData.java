@@ -16,9 +16,15 @@
 
 package libcore.icu;
 
+import android.icu.impl.ICUData;
+import android.icu.impl.ICUResourceBundle;
+import android.icu.text.NumberingSystem;
+import android.icu.util.UResourceBundle;
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.text.DateFormat;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.MissingResourceException;
 import libcore.util.Objects;
 
 /**
@@ -27,7 +33,9 @@ import libcore.util.Objects;
  * Note that you share these; you must not alter any of the fields, nor their array elements
  * in the case of arrays. If you ever expose any of these things to user code, you must give
  * them a clone rather than the original.
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public final class LocaleData {
     // A cache for the locale-specific data.
     private static final HashMap<String, LocaleData> localeDataCache = new HashMap<String, LocaleData>();
@@ -42,30 +50,54 @@ public final class LocaleData {
     }
 
     // Used by Calendar.
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public Integer firstDayOfWeek;
+    @UnsupportedAppUsage
     public Integer minimalDaysInFirstWeek;
 
     // Used by DateFormatSymbols.
+    @libcore.api.CorePlatformApi
     public String[] amPm; // "AM", "PM".
     public String[] eras; // "BC", "AD".
 
+    @libcore.api.CorePlatformApi
     public String[] longMonthNames; // "January", ...
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String[] shortMonthNames; // "Jan", ...
+    @libcore.api.CorePlatformApi
     public String[] tinyMonthNames; // "J", ...
+    @libcore.api.CorePlatformApi
     public String[] longStandAloneMonthNames; // "January", ...
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String[] shortStandAloneMonthNames; // "Jan", ...
+    @libcore.api.CorePlatformApi
     public String[] tinyStandAloneMonthNames; // "J", ...
 
+    @libcore.api.CorePlatformApi
     public String[] longWeekdayNames; // "Sunday", ...
+    @libcore.api.CorePlatformApi
     public String[] shortWeekdayNames; // "Sun", ...
+    @libcore.api.CorePlatformApi
     public String[] tinyWeekdayNames; // "S", ...
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String[] longStandAloneWeekdayNames; // "Sunday", ...
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String[] shortStandAloneWeekdayNames; // "Sun", ...
+    @libcore.api.CorePlatformApi
     public String[] tinyStandAloneWeekdayNames; // "S", ...
 
     // Used by frameworks/base DateSorter and DateUtils.
+    @libcore.api.CorePlatformApi
     public String yesterday; // "Yesterday".
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String today; // "Today".
+    @UnsupportedAppUsage
     public String tomorrow; // "Tomorrow".
 
     public String fullTimeFormat;
@@ -79,17 +111,27 @@ public final class LocaleData {
     public String shortDateFormat;
 
     // Used by TimePicker. Not currently used by UTS#35.
+    @libcore.api.CorePlatformApi
     public String narrowAm; // "a".
+    @libcore.api.CorePlatformApi
     public String narrowPm; // "p".
 
     // Used by DateFormat to implement 12- and 24-hour SHORT and MEDIUM.
-    // The first two are also used directly by frameworks code.
+    // They are also used directly by frameworks code.
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String timeFormat_hm;
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String timeFormat_Hm;
+    @libcore.api.CorePlatformApi
     public String timeFormat_hms;
+    @libcore.api.CorePlatformApi
     public String timeFormat_Hms;
 
     // Used by DecimalFormatSymbols.
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public char zeroDigit;
     public char decimalSeparator;
     public char groupingSeparator;
@@ -114,6 +156,7 @@ public final class LocaleData {
     private LocaleData() {
     }
 
+    @UnsupportedAppUsage
     public static Locale mapInvalidAndNullLocales(Locale locale) {
         if (locale == null) {
             return Locale.getDefault();
@@ -129,6 +172,8 @@ public final class LocaleData {
     /**
      * Returns a shared LocaleData for the given locale.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static LocaleData get(Locale locale) {
         if (locale == null) {
             throw new NullPointerException("locale == null");
@@ -156,6 +201,7 @@ public final class LocaleData {
         return Objects.toString(this);
     }
 
+    @libcore.api.CorePlatformApi
     public String getDateFormat(int style) {
         switch (style) {
         case DateFormat.SHORT:
@@ -200,6 +246,9 @@ public final class LocaleData {
             throw new AssertionError("couldn't initialize LocaleData for locale " + locale);
         }
 
+        // Libcore localizes pattern separator while ICU doesn't. http://b/112080617
+        initializePatternSeparator(localeData, locale);
+
         // Get the SHORT and MEDIUM 12- and 24-hour time format strings.
         localeData.timeFormat_hm = ICU.getBestDateTimePattern("hm", locale);
         localeData.timeFormat_Hm = ICU.getBestDateTimePattern("Hm", locale);
@@ -225,5 +274,46 @@ public final class LocaleData {
             localeData.integerPattern = localeData.numberPattern.replaceAll("\\.[#,]*", "");
         }
         return localeData;
+    }
+
+    // Libcore localizes pattern separator while ICU doesn't. http://b/112080617
+    private static void initializePatternSeparator(LocaleData localeData, Locale locale) {
+        NumberingSystem ns = NumberingSystem.getInstance(locale);
+        // A numbering system could be numeric or algorithmic. DecimalFormat can only use
+        // a numeric and decimal-based (radix == 10) system. Fallback to a Latin, a known numeric
+        // and decimal-based if the default numbering system isn't. All locales should have data
+        // for Latin numbering system after locale data fallback. See Numbering system section
+        // in Unicode Technical Standard #35 for more details.
+        String nsName = ns != null && ns.getRadix() == 10 && !ns.isAlgorithmic()
+            ? ns.getName() : "latn";
+        ICUResourceBundle rb = (ICUResourceBundle) UResourceBundle.getBundleInstance(
+            ICUData.ICU_BASE_NAME, locale);
+        String patternSeparator = null;
+        // The fallback of number format data isn't well-specified in the spec.
+        // But the separator can't be null / empty, and ICU uses Latin numbering system
+        // as fallback.
+        if (!"latn".equals(nsName)) {
+            try {
+                patternSeparator = rb.getStringWithFallback(
+                    "NumberElements/" + nsName +"/symbols/list");
+            } catch (MissingResourceException e) {
+                // Try Latin numbering system later
+            }
+        }
+
+        if (patternSeparator == null) {
+            try {
+                patternSeparator = rb.getStringWithFallback("NumberElements/latn/symbols/list");
+            } catch (MissingResourceException e) {
+                // Fallback to the default separator ';'.
+            }
+        }
+
+        if (patternSeparator == null || patternSeparator.isEmpty()) {
+            patternSeparator = ";";
+        }
+
+        // Pattern separator in libcore supports single java character only.
+        localeData.patternSeparator = patternSeparator.charAt(0);
     }
 }

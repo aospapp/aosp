@@ -16,6 +16,8 @@
 
 package libcore.io;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
+
 /**
  * Iterates over big- or little-endian bytes. See {@link MemoryMappedFile#bigEndianIterator} and
  * {@link MemoryMappedFile#littleEndianIterator}.
@@ -27,11 +29,13 @@ public abstract class BufferIterator {
      * Seeks to the absolute position {@code offset}, measured in bytes from the start of the
      * buffer.
      */
+    @UnsupportedAppUsage
     public abstract void seek(int offset);
 
     /**
      * Skips forwards or backwards {@code byteCount} bytes from the current position.
      */
+    @UnsupportedAppUsage
     public abstract void skip(int byteCount);
 
     /**
@@ -45,6 +49,7 @@ public abstract class BufferIterator {
      *
      * @throws IndexOutOfBoundsException if the read / write would be outside of the buffer / array
      */
+    @UnsupportedAppUsage
     public abstract void readByteArray(byte[] dst, int dstOffset, int byteCount);
 
     /**
@@ -52,6 +57,7 @@ public abstract class BufferIterator {
      *
      * @throws IndexOutOfBoundsException if the read would be outside of the buffer
      */
+    @UnsupportedAppUsage
     public abstract byte readByte();
 
     /**
@@ -59,6 +65,7 @@ public abstract class BufferIterator {
      *
      * @throws IndexOutOfBoundsException if the read would be outside of the buffer
      */
+    @UnsupportedAppUsage
     public abstract int readInt();
 
     /**
@@ -67,6 +74,7 @@ public abstract class BufferIterator {
      *
      * @throws IndexOutOfBoundsException if the read / write would be outside of the buffer / array
      */
+    @UnsupportedAppUsage
     public abstract void readIntArray(int[] dst, int dstOffset, int intCount);
 
     /**

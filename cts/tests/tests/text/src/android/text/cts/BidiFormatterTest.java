@@ -22,13 +22,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.icu.util.ULocale;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.BidiFormatter;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextDirectionHeuristics;
 import android.text.style.RelativeSizeSpan;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

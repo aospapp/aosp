@@ -16,9 +16,10 @@
 
 package com.android.car.radio.platform;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.graphics.Bitmap;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.car.broadcastradio.support.platform.ImageResolver;
 

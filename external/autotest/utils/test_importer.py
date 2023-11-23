@@ -305,8 +305,8 @@ def _set_attributes_clean(test, data):
 
     if not test.test_time and str == type(data.time):
         test.test_time = test_time[data.time.lower()]
-
-    test.test_retry = data.retries
+    # TODO(crbug.com/873716) DEPRECATED. Remove entirely from the models.
+    test.test_retry = 0
 
 
 def add_label_dependencies(test):

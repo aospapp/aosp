@@ -15,6 +15,32 @@
 #ifndef ANDROID_INCLUDE_HARDWARE_GOLDFISH_SYNC_H
 #define ANDROID_INCLUDE_HARDWARE_GOLDFISH_SYNC_H
 
+#define GOLDFISH_SYNC_VULKAN_SEMAPHORE_SYNC 0x00000001
+
+#ifdef HOST_BUILD
+
+static __inline__ int goldfish_sync_open() {
+    return 0;
+}
+
+static __inline__ int goldfish_sync_close(int) {
+    return 0;
+}
+
+static __inline__ int goldfish_sync_queue_work(int,
+                                               uint64_t,
+                                               uint64_t,
+                                               int*) {
+    return 0;
+}
+
+static __inline__ int goldfish_sync_signal(int goldfish_sync_fd) {
+    return 0;
+}
+
+#else
+
+#include <errno.h>
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <sys/cdefs.h>
@@ -38,6 +64,7 @@ struct goldfish_sync_ioctl_info {
 };
 
 #define GOLDFISH_SYNC_IOC_QUEUE_WORK	_IOWR(GOLDFISH_SYNC_IOC_MAGIC, 0, struct goldfish_sync_ioctl_info)
+#define GOLDFISH_SYNC_IOC_SIGNAL	_IOWR(GOLDFISH_SYNC_IOC_MAGIC, 1, struct goldfish_sync_ioctl_info)
 
 static __inline__ int goldfish_sync_open() {
     return open("/dev/goldfish_sync", O_RDWR);
@@ -78,5 +105,11 @@ static __inline__ int goldfish_sync_queue_work(int goldfish_sync_fd,
 
     return err;
 }
+
+static __inline__ int goldfish_sync_signal(int goldfish_sync_fd) {
+    return ioctl(goldfish_sync_fd, GOLDFISH_SYNC_IOC_SIGNAL, 0);
+}
+
+#endif // !HOST_BUILD
 
 #endif

@@ -191,6 +191,10 @@ public class Backend implements JobCallback {
 
             builder.setId(params.jobId);
 
+            if (params.certificate != null) {
+                builder.setCertificate(params.certificate);
+            }
+
             if (!TextUtils.isEmpty(params.printerState)) {
                 updateBlockedReasons(builder, params);
             } else if (!TextUtils.isEmpty(params.jobState)) {

@@ -29,8 +29,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
-import android.support.test.filters.SmallTest;
 import android.testing.AndroidTestingRunner;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.settingslib.SliceBroadcastRelay;
 
@@ -91,6 +92,22 @@ public class SliceBroadcastRelayHandlerTest extends SysuiTestCase {
         intent.putExtra(SliceBroadcastRelay.EXTRA_URI, ContentProvider.maybeAddUserId(testUri, 0));
         relayHandler.handleIntent(intent);
         verify(relayHandler.mContext).unregisterReceiver(eq(relay.getValue()));
+    }
+
+    @Test
+    public void testUnregisterWithoutRegister() {
+        Uri testUri = new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_CONTENT)
+                .authority("something")
+                .path("test")
+                .build();
+        SliceBroadcastRelayHandler relayHandler = new SliceBroadcastRelayHandler();
+        relayHandler.mContext = spy(mContext);
+
+        Intent intent = new Intent(SliceBroadcastRelay.ACTION_UNREGISTER);
+        intent.putExtra(SliceBroadcastRelay.EXTRA_URI, ContentProvider.maybeAddUserId(testUri, 0));
+        relayHandler.handleIntent(intent);
+        // No crash
     }
 
     @Test

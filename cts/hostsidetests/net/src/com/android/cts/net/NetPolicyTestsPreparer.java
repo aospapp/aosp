@@ -48,7 +48,7 @@ public class NetPolicyTestsPreparer implements ITargetPreparer, ITargetCleaner {
     }
 
     private void setAppIdleConstants(String appIdleConstants) throws DeviceNotAvailableException {
-        executeCmd("settings put global app_idle_constants " + appIdleConstants);
+        executeCmd("settings put global app_idle_constants \"" + appIdleConstants + "\"");
     }
 
     private String getAppIdleConstants() throws DeviceNotAvailableException {

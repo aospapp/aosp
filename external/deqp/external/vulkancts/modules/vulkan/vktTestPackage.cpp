@@ -35,6 +35,7 @@
 #include "vkDebugReportUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkApiVersion.hpp"
+#include "vkRenderDocUtil.hpp"
 
 #include "deUniquePtr.hpp"
 
@@ -50,6 +51,7 @@
 #include "vktShaderRenderDerivateTests.hpp"
 #include "vktShaderRenderDiscardTests.hpp"
 #include "vktShaderRenderIndexingTests.hpp"
+#include "vktShaderRenderLimitTests.hpp"
 #include "vktShaderRenderLoopTests.hpp"
 #include "vktShaderRenderMatrixTests.hpp"
 #include "vktShaderRenderOperatorTests.hpp"
@@ -67,6 +69,7 @@
 #include "vktQueryPoolTests.hpp"
 #include "vktDrawTests.hpp"
 #include "vktComputeTests.hpp"
+#include "vktConditionalTests.hpp"
 #include "vktImageTests.hpp"
 #include "vktInfoTests.hpp"
 #include "vktWsiTests.hpp"
@@ -84,6 +87,8 @@
 #include "vktYCbCrTests.hpp"
 #include "vktProtectedMemTests.hpp"
 #include "vktDeviceGroupTests.hpp"
+#include "vktMemoryModelTests.hpp"
+#include "vktVkRunnerExampleTests.hpp"
 
 #include <vector>
 #include <sstream>
@@ -91,19 +96,19 @@
 namespace // compilation
 {
 
-vk::ProgramBinary* compileProgram (const vk::GlslSource& source, glu::ShaderProgramInfo* buildInfo)
+vk::ProgramBinary* compileProgram (const vk::GlslSource& source, glu::ShaderProgramInfo* buildInfo, const tcu::CommandLine& commandLine)
 {
-	return vk::buildProgram(source, buildInfo);
+	return vk::buildProgram(source, buildInfo, commandLine);
 }
 
-vk::ProgramBinary* compileProgram (const vk::HlslSource& source, glu::ShaderProgramInfo* buildInfo)
+vk::ProgramBinary* compileProgram (const vk::HlslSource& source, glu::ShaderProgramInfo* buildInfo, const tcu::CommandLine& commandLine)
 {
-	return vk::buildProgram(source, buildInfo);
+	return vk::buildProgram(source, buildInfo, commandLine);
 }
 
-vk::ProgramBinary* compileProgram (const vk::SpirVAsmSource& source, vk::SpirVProgramInfo* buildInfo)
+vk::ProgramBinary* compileProgram (const vk::SpirVAsmSource& source, vk::SpirVProgramInfo* buildInfo, const tcu::CommandLine& commandLine)
 {
-	return vk::assembleProgram(source, buildInfo);
+	return vk::assembleProgram(source, buildInfo, commandLine);
 }
 
 template <typename InfoType, typename IteratorType>
@@ -111,7 +116,8 @@ vk::ProgramBinary* buildProgram (const std::string&					casePath,
 								 IteratorType						iter,
 								 const vk::BinaryRegistryReader&	prebuiltBinRegistry,
 								 tcu::TestLog&						log,
-								 vk::BinaryCollection*				progCollection)
+								 vk::BinaryCollection*				progCollection,
+								 const tcu::CommandLine&			commandLine)
 {
 	const vk::ProgramIdentifier		progId		(casePath, iter.getName());
 	const tcu::ScopedLogSection		progSection	(log, iter.getName(), "Program: " + iter.getName());
@@ -120,7 +126,7 @@ vk::ProgramBinary* buildProgram (const std::string&					casePath,
 
 	try
 	{
-		binProg	= de::MovePtr<vk::ProgramBinary>(compileProgram(iter.getProgram(), &buildInfo));
+		binProg	= de::MovePtr<vk::ProgramBinary>(compileProgram(iter.getProgram(), &buildInfo, commandLine));
 		log << buildInfo;
 	}
 	catch (const tcu::NotSupportedError& err)
@@ -194,6 +200,7 @@ private:
 	Context										m_context;
 
 	const UniquePtr<vk::DebugReportRecorder>	m_debugReportRecorder;
+	const UniquePtr<vk::RenderDocUtil>			m_renderDoc;
 
 	TestInstance*								m_instance;			//!< Current test case instance
 };
@@ -212,6 +219,9 @@ TestCaseExecutor::TestCaseExecutor (tcu::TestContext& testCtx)
 														 m_context.getInstanceInterface(),
 														 m_context.getInstance())
 							 : MovePtr<vk::DebugReportRecorder>(DE_NULL))
+	, m_renderDoc			(testCtx.getCommandLine().isRenderDocEnabled()
+							 ? MovePtr<vk::RenderDocUtil>(new vk::RenderDocUtil())
+							 : MovePtr<vk::RenderDocUtil>(DE_NULL))
 	, m_instance			(DE_NULL)
 {
 }
@@ -227,15 +237,19 @@ void TestCaseExecutor::init (tcu::TestCase* testCase, const std::string& casePat
 	tcu::TestLog&				log							= m_context.getTestContext().getLog();
 	const deUint32				usedVulkanVersion			= m_context.getUsedApiVersion();
 	const vk::SpirvVersion		baselineSpirvVersion		= vk::getBaselineSpirvVersion(usedVulkanVersion);
-	vk::ShaderBuildOptions		defaultGlslBuildOptions		(baselineSpirvVersion, 0u);
-	vk::ShaderBuildOptions		defaultHlslBuildOptions		(baselineSpirvVersion, 0u);
-	vk::SpirVAsmBuildOptions	defaultSpirvAsmBuildOptions	(baselineSpirvVersion);
+	vk::ShaderBuildOptions		defaultGlslBuildOptions		(usedVulkanVersion, baselineSpirvVersion, 0u);
+	vk::ShaderBuildOptions		defaultHlslBuildOptions		(usedVulkanVersion, baselineSpirvVersion, 0u);
+	vk::SpirVAsmBuildOptions	defaultSpirvAsmBuildOptions	(usedVulkanVersion, baselineSpirvVersion);
 	vk::SourceCollections		sourceProgs					(usedVulkanVersion, defaultGlslBuildOptions, defaultHlslBuildOptions, defaultSpirvAsmBuildOptions);
+	const bool					doShaderLog					= log.isShaderLoggingEnabled();
+	const tcu::CommandLine&		commandLine					= m_context.getTestContext().getCommandLine();
 
 	DE_UNREF(casePath); // \todo [2015-03-13 pyry] Use this to identify ProgramCollection storage path
 
 	if (!vktCase)
 		TCU_THROW(InternalError, "Test node not an instance of vkt::TestCase");
+
+	vktCase->checkSupport(m_context);
 
 	m_progCollection.clear();
 	vktCase->initPrograms(sourceProgs);
@@ -245,19 +259,22 @@ void TestCaseExecutor::init (tcu::TestCase* testCase, const std::string& casePat
 		if (progIter.getProgram().buildOptions.targetVersion > vk::getMaxSpirvVersionForGlsl(m_context.getUsedApiVersion()))
 			TCU_THROW(NotSupportedError, "Shader requires SPIR-V higher than available");
 
-		const vk::ProgramBinary* const binProg = buildProgram<glu::ShaderProgramInfo, vk::GlslSourceCollection::Iterator>(casePath, progIter, m_prebuiltBinRegistry, log, &m_progCollection);
+		const vk::ProgramBinary* const binProg = buildProgram<glu::ShaderProgramInfo, vk::GlslSourceCollection::Iterator>(casePath, progIter, m_prebuiltBinRegistry, log, &m_progCollection, commandLine);
 
-		try
+		if (doShaderLog)
 		{
-			std::ostringstream disasm;
+			try
+			{
+				std::ostringstream disasm;
 
-			vk::disassembleProgram(*binProg, &disasm);
+				vk::disassembleProgram(*binProg, &disasm);
 
-			log << vk::SpirVAsmSource(disasm.str());
-		}
-		catch (const tcu::NotSupportedError& err)
-		{
-			log << err;
+				log << vk::SpirVAsmSource(disasm.str());
+			}
+			catch (const tcu::NotSupportedError& err)
+			{
+				log << err;
+			}
 		}
 	}
 
@@ -266,19 +283,22 @@ void TestCaseExecutor::init (tcu::TestCase* testCase, const std::string& casePat
 		if (progIter.getProgram().buildOptions.targetVersion > vk::getMaxSpirvVersionForGlsl(m_context.getUsedApiVersion()))
 			TCU_THROW(NotSupportedError, "Shader requires SPIR-V higher than available");
 
-		const vk::ProgramBinary* const binProg = buildProgram<glu::ShaderProgramInfo, vk::HlslSourceCollection::Iterator>(casePath, progIter, m_prebuiltBinRegistry, log, &m_progCollection);
+		const vk::ProgramBinary* const binProg = buildProgram<glu::ShaderProgramInfo, vk::HlslSourceCollection::Iterator>(casePath, progIter, m_prebuiltBinRegistry, log, &m_progCollection, commandLine);
 
-		try
+		if (doShaderLog)
 		{
-			std::ostringstream disasm;
+			try
+			{
+				std::ostringstream disasm;
 
-			vk::disassembleProgram(*binProg, &disasm);
+				vk::disassembleProgram(*binProg, &disasm);
 
-			log << vk::SpirVAsmSource(disasm.str());
-		}
-		catch (const tcu::NotSupportedError& err)
-		{
-			log << err;
+				log << vk::SpirVAsmSource(disasm.str());
+			}
+			catch (const tcu::NotSupportedError& err)
+			{
+				log << err;
+			}
 		}
 	}
 
@@ -287,8 +307,10 @@ void TestCaseExecutor::init (tcu::TestCase* testCase, const std::string& casePat
 		if (asmIterator.getProgram().buildOptions.targetVersion > vk::getMaxSpirvVersionForAsm(m_context.getUsedApiVersion()))
 			TCU_THROW(NotSupportedError, "Shader requires SPIR-V higher than available");
 
-		buildProgram<vk::SpirVProgramInfo, vk::SpirVAsmCollection::Iterator>(casePath, asmIterator, m_prebuiltBinRegistry, log, &m_progCollection);
+		buildProgram<vk::SpirVProgramInfo, vk::SpirVAsmCollection::Iterator>(casePath, asmIterator, m_prebuiltBinRegistry, log, &m_progCollection, commandLine);
 	}
+
+	if (m_renderDoc) m_renderDoc->startFrame(m_context.getInstance());
 
 	DE_ASSERT(!m_instance);
 	m_instance = vktCase->createInstance(m_context);
@@ -298,6 +320,8 @@ void TestCaseExecutor::deinit (tcu::TestCase*)
 {
 	delete m_instance;
 	m_instance = DE_NULL;
+
+	if (m_renderDoc) m_renderDoc->endFrame(m_context.getInstance());
 
 	// Collect and report any debug messages
 	if (m_debugReportRecorder)
@@ -382,10 +406,30 @@ void createGlslTests (tcu::TestCaseGroup* glslTests)
 													 s_es310Tests[ndx].description,
 													 std::string("vulkan/glsl/es310/") + s_es310Tests[ndx].name + ".test").release());
 
+	static const struct
+	{
+		const char*		name;
+		const char*		description;
+	} s_440Tests[] =
+	{
+		{ "linkage",					"Linking"					},
+	};
+
+	de::MovePtr<tcu::TestCaseGroup> glsl440Tests = de::MovePtr<tcu::TestCaseGroup>(new tcu::TestCaseGroup(testCtx, "440", ""));
+
+	for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(s_440Tests); ndx++)
+		glsl440Tests->addChild(createShaderLibraryGroup(testCtx,
+													 s_440Tests[ndx].name,
+													 s_440Tests[ndx].description,
+													 std::string("vulkan/glsl/440/") + s_440Tests[ndx].name + ".test").release());
+
+	glslTests->addChild(glsl440Tests.release());
+
 	// ShaderRenderCase-based tests
 	glslTests->addChild(sr::createDerivateTests			(testCtx));
 	glslTests->addChild(sr::createDiscardTests			(testCtx));
 	glslTests->addChild(sr::createIndexingTests			(testCtx));
+	glslTests->addChild(sr::createLimitTests			(testCtx));
 	glslTests->addChild(sr::createLoopTests				(testCtx));
 	glslTests->addChild(sr::createMatrixTests			(testCtx));
 	glslTests->addChild(sr::createOperatorTests			(testCtx));
@@ -428,6 +472,7 @@ void TestPackage::init (void)
 	addChild(SpirVAssembly::createTests		(m_testCtx));
 	addChild(createTestGroup				(m_testCtx, "glsl", "GLSL shader execution tests", createGlslTests));
 	addChild(createRenderPassTests			(m_testCtx));
+	addChild(createRenderPass2Tests			(m_testCtx));
 	addChild(ubo::createTests				(m_testCtx));
 	addChild(DynamicState::createTests		(m_testCtx));
 	addChild(ssbo::createTests				(m_testCtx));
@@ -450,6 +495,9 @@ void TestPackage::init (void)
 	addChild(ycbcr::createTests				(m_testCtx));
 	addChild(ProtectedMem::createTests		(m_testCtx));
 	addChild(DeviceGroup::createTests		(m_testCtx));
+	addChild(MemoryModel::createTests		(m_testCtx));
+	addChild(conditional::createTests		(m_testCtx));
+	addChild(vkrunner::createTests			(m_testCtx));
 }
 
 } // vkt

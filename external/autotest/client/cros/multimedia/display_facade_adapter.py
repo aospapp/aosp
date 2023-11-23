@@ -59,6 +59,28 @@ class DisplayFacadeLocalAdapter(object):
         self._display_component.move_to_display(display_id)
 
 
+    def create_window(self, url='chrome://newtab'):
+        """Creates a new window from chrome.windows.create API.
+
+        @param url: Optional URL for the new window.
+
+        @return Identifier for the new window.
+        """
+        return self._display_component.create_window(url)
+
+
+    def update_window(self, window_id, state=None, bounds=None):
+        """Updates an existing window using the chrome.windows.update API.
+
+        @param window_id: Identifier for the window to update.
+        @param state: Optional string to set the state such as 'normal',
+                      'maximized', or 'fullscreen'.
+        @param bounds: Optional dictionary with keys top, left, width, and
+                       height to reposition the window.
+        """
+        self._display_component.update_window(window_id, state, bounds)
+
+
     def set_fullscreen(self, is_fullscreen):
         """Sets the current window to full screen.
 

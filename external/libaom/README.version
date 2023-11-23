@@ -1,0 +1,6 @@
+URL: https://aomedia.googlesource.com/aom/+archive/250bc3a61c501344523eec07fec35f304767260b.tar.gz
+Version: v1.0.0
+Local Modifications:
+  Rename files to avoid object collisions:
+    aom_dsp/x86/highbd_intrapred_sse2.asm
+    aom_dsp/x86/intrapred_sse2.asm

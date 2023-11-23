@@ -55,8 +55,8 @@ extern const WORD32 ixheaacd_re_weight_Q28[16][8][31];
 extern const WORD32 ixheaacd_beta_Q28[16][8][31];
 extern const WORD32 ixheaacd_weight_Q28[16][8][31];
 extern const WORD32 ixheaacd_c_l_table_Q31[31];
-extern const WORD32 ixheaacd_sin_table_Q31[16][31];
-extern const WORD32 ixheaacd_cos_table_Q31[16][31];
+extern const WORD32 ixheaacd_sin_table_Q31[8][31];
+extern const WORD32 ixheaacd_cos_table_Q31[8][31];
 extern const WORD32 ixheaacd_atan_table_Q28[16][8][31];
 extern WORD32 ixheaacd_ipd_de_quant_table_q28[16];
 
@@ -200,6 +200,8 @@ static VOID ixheaacd_mps_par2umx_ps_core(WORD32 cld[MAX_PARAMETER_BANDS],
   for (band = 0; band < ott_band_count; band++) {
     cld_idx = *cld++ + 15;
     icc_idx = *icc++;
+
+    icc_idx = icc_idx & 7;
 
     c_l_temp = (ixheaacd_c_l_table_Q31[cld_idx]);
     c_r_temp = (ixheaacd_c_l_table_Q31[30 - cld_idx]);
@@ -348,15 +350,17 @@ VOID ixheaacd_mps_par2umx_pred(ia_mps_dec_state_struct *self,
   }
 }
 
-VOID ixheaacd_mps_apply_pre_matrix(ia_mps_dec_state_struct *self) {
+WORD32 ixheaacd_mps_apply_pre_matrix(ia_mps_dec_state_struct *self) {
   WORD32 ts, qs, row, col = 0;
-
-  ixheaacd_mps_upmix_interp(
+  WORD32 err = 0;
+  err = ixheaacd_mps_upmix_interp(
       self->m1_param_re, self->r_out_re_scratch_m1, self->m1_param_re_prev,
       (self->dir_sig_count + self->decor_sig_count), 1, self);
-  ixheaacd_mps_upmix_interp(
+  if (err < 0) return err;
+  err = ixheaacd_mps_upmix_interp(
       self->m1_param_im, self->r_out_im_scratch_m1, self->m1_param_im_prev,
       (self->dir_sig_count + self->decor_sig_count), 1, self);
+  if (err < 0) return err;
 
   ixheaacd_fix_to_float_int(
       (WORD32 *)(self->r_out_re_scratch_m1), (FLOAT32 *)(self->r_out_re_in_m1),
@@ -417,19 +421,22 @@ VOID ixheaacd_mps_apply_pre_matrix(ia_mps_dec_state_struct *self) {
       }
     }
   }
+  return 0;
 }
 
-VOID ixheaacd_mps_apply_mix_matrix(ia_mps_dec_state_struct *self) {
+WORD32 ixheaacd_mps_apply_mix_matrix(ia_mps_dec_state_struct *self) {
   WORD32 ts, qs, row, col;
   WORD32 complex_m2 = ((self->config->bs_phase_coding != 0));
   WORD32 phase_interpolation = (self->config->bs_phase_coding == 1);
-
-  ixheaacd_mps_upmix_interp(
+  WORD32 err = 0;
+  err = ixheaacd_mps_upmix_interp(
       self->m2_decor_re, self->r_diff_out_re_fix_in_m2, self->m2_decor_re_prev,
       self->out_ch_count, (self->dir_sig_count + self->decor_sig_count), self);
-  ixheaacd_mps_upmix_interp(
+  if (err < 0) return err;
+  err = ixheaacd_mps_upmix_interp(
       self->m2_resid_re, self->r_out_re_fix_in_m2, self->m2_resid_re_prev,
       self->out_ch_count, (self->dir_sig_count + self->decor_sig_count), self);
+  if (err < 0) return err;
   ixheaacd_fix_to_float_int(
       (WORD32 *)self->r_out_re_fix_in_m2, (FLOAT32 *)self->r_out_re_in_m2,
       MAX_TIME_SLOTS * MAX_PARAMETER_BANDS * MAX_M_OUTPUT * MAX_M_INPUT,
@@ -441,14 +448,16 @@ VOID ixheaacd_mps_apply_mix_matrix(ia_mps_dec_state_struct *self) {
       268435456);
 
   if (complex_m2 && !phase_interpolation) {
-    ixheaacd_mps_upmix_interp(self->m2_decor_im, self->r_diff_out_im_fix_in_m2,
-                              self->m2_decor_im_prev, self->out_ch_count,
-                              (self->dir_sig_count + self->decor_sig_count),
-                              self);
-    ixheaacd_mps_upmix_interp(self->m2_resid_im, self->r_out_im_fix_in_m2,
-                              self->m2_resid_im_prev, self->out_ch_count,
-                              (self->dir_sig_count + self->decor_sig_count),
-                              self);
+    err = ixheaacd_mps_upmix_interp(
+        self->m2_decor_im, self->r_diff_out_im_fix_in_m2,
+        self->m2_decor_im_prev, self->out_ch_count,
+        (self->dir_sig_count + self->decor_sig_count), self);
+    if (err < 0) return err;
+    err = ixheaacd_mps_upmix_interp(
+        self->m2_resid_im, self->r_out_im_fix_in_m2, self->m2_resid_im_prev,
+        self->out_ch_count, (self->dir_sig_count + self->decor_sig_count),
+        self);
+    if (err < 0) return err;
     ixheaacd_fix_to_float_int(
         (WORD32 *)self->r_diff_out_im_fix_in_m2,
         (FLOAT32 *)self->r_out_diff_im_in_m2,
@@ -569,6 +578,7 @@ VOID ixheaacd_mps_apply_mix_matrix(ia_mps_dec_state_struct *self) {
       }
     }
   }
+  return 0;
 }
 
 static PLATFORM_INLINE WORD32 ixheaacd_mult32_shl2(WORD32 a, WORD32 b) {
@@ -581,7 +591,7 @@ static PLATFORM_INLINE WORD32 ixheaacd_mult32_shl2(WORD32 a, WORD32 b) {
   return (result);
 }
 
-VOID ixheaacd_mps_upmix_interp(
+WORD32 ixheaacd_mps_upmix_interp(
     WORD32 m_matrix[MAX_PARAMETER_SETS_MPS][MAX_PARAMETER_BANDS][MAX_M_OUTPUT]
                    [MAX_M_INPUT],
     WORD32 r_matrix[MAX_TIME_SLOTS][MAX_PARAMETER_BANDS][MAX_M_OUTPUT]
@@ -595,6 +605,7 @@ VOID ixheaacd_mps_upmix_interp(
       for (col = 0; col < num_cols; col++) {
         ps = 0;
         ts = 0;
+        if (MAX_TIME_SLOTS < (self->param_slot_diff[0])) return -1;
         for (i = 1; i <= (WORD32)self->param_slot_diff[0]; i++) {
           WORD32 alpha = i * self->inv_param_slot_diff_Q30[ps];
           WORD32 one_minus_alpha = 1073741824 - alpha;
@@ -606,6 +617,7 @@ VOID ixheaacd_mps_upmix_interp(
         }
 
         for (ps = 1; ps < self->num_parameter_sets; ps++) {
+          if (MAX_TIME_SLOTS < (ts + self->param_slot_diff[ps])) return -1;
           for (i = 1; i <= (WORD32)self->param_slot_diff[ps]; i++) {
             WORD32 alpha = i * self->inv_param_slot_diff_Q30[ps];
             WORD32 one_minus_alpha = 1073741824 - alpha;
@@ -619,6 +631,7 @@ VOID ixheaacd_mps_upmix_interp(
       }
     }
   }
+  return 0;
 }
 
 static FLOAT32 ixheaacd_mps_angle_interpolation(FLOAT32 angle1, FLOAT32 angle2,
@@ -670,6 +683,15 @@ VOID ixheaacd_mps_phase_interpolation(
         r_re[ts][pb][1] = (FLOAT32)cos(t);
         r_im[ts][pb][1] = (FLOAT32)sin(t);
         ts++;
+
+        if (ts > 71) {
+          ts = 0;
+          break;
+        }
+        if (pb > 27) {
+          pb = 0;
+          break;
+        }
       }
     }
   }

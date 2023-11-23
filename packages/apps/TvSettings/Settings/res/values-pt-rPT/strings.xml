@@ -49,7 +49,7 @@
     </plurals>
     <string name="add_account" msgid="4098060223200619258">"Adicionar conta"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Remover conta"</string>
-    <string name="account_sync" msgid="773808124331714965">"Escolher aplic. sincronizadas"</string>
+    <string name="account_sync" msgid="773808124331714965">"Escolher app sincronizadas"</string>
     <string name="sync_now" msgid="8732244492880016471">"Sincronizar agora"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"A sincronizar..."</string>
     <string name="last_synced" msgid="6178494892357077274">"Última sincronização: <xliff:g id="TIME">%1s</xliff:g>"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Calibração"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Selecionar formatos"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Som surround"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -102,7 +102,7 @@
     <string name="surround_sound_none_summary" msgid="4295042972785042496">"Nenhum: nunca utilizar o som surround"</string>
     <string name="surround_sound_manual_summary" msgid="9208540024024014501">"Manual: selecionar os formatos a utilizar"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Pretende limpar os dados em cache?"</string>
-    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Isto limpa os dados em cache de todas as aplic."</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Isto limpa os dados em cache de todas as app"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Adicionar acessório"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"A sincronizar..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"A ligar..."</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Algumas aplicações ficarão indisponíveis ou não funcionarão corretamente até voltar a ligar a unidade."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Não existe espaço de armazenamento suficiente."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"A aplicação não existe."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"A aplicação está protegida contra cópia."</string>
     <string name="invalid_location" msgid="5269044848535157307">"O local de instalação não é válido."</string>
     <string name="system_package" msgid="9200255718634512790">"Não é possível instalar atualizações do sistema em suportes de dados externos."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Não é possível instalar o Administrador de dispositivos em suportes de dados externos."</string>
@@ -512,7 +511,7 @@
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"Destacar camadas de hardware a verde ao atualizar"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Melhor para pior: azul, verde, verm. claro, verm."</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Destacar todas as superf. de janelas ao atualizar"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Piscar qd aplic. fazem oper. prol. tópico princ."</string>
+    <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Piscar qd app fazem oper. prol. tópico princ."</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Medir tempo de conv. em adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Ativar"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Desativar"</string>
@@ -704,7 +703,7 @@
     <string name="change_setting" msgid="2047402388786162246">"Alterar"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Não alterar"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Autorizações"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Autoriz. da aplic."</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Autoriz. da app"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%1$d</xliff:g> de <xliff:g id="COUNT_1">%2$d</xliff:g> aplicações autorizadas"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Pedido de autorização de Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nível do patch de segurança do Android"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Acesso a notificações"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Nenhuma aplicação instalada solicitou acesso a notificações."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Estas aplicações poderão ler todas as notificações, incluindo informações pessoais como nomes de contactos e o texto de mensagens recebidas. Também poderão ignorar notificações ou acionar botões de ação incluídos nas mesmas."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Acesso ao diretório"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Estas aplicações têm autorização de acesso a certos diretórios."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Sobrepor a outras aplicações"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Permitir sobreposição a outras aplicações"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Permitir que uma aplicação se sobreponha a outras aplicações que esteja a utilizar. Esta ação pode interferir com a sua utilização dessas aplicações ou alterar a forma como estas aparecem ou se comportam."</string>

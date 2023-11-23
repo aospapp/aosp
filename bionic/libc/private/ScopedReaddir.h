@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SCOPED_READDIR_H
-#define SCOPED_READDIR_H
+#pragma once
 
 #include <dirent.h>
 
@@ -23,21 +22,21 @@
 
 class ScopedReaddir {
  public:
-  ScopedReaddir(const char* path) : ScopedReaddir(opendir(path)) {
+  explicit ScopedReaddir(const char* path) : ScopedReaddir(opendir(path)) {
   }
 
-  ScopedReaddir(DIR* dir) {
+  explicit ScopedReaddir(DIR* dir) {
     dir_ = dir;
   }
 
   ~ScopedReaddir() {
-    if (dir_ != NULL) {
+    if (dir_ != nullptr) {
       closedir(dir_);
     }
   }
 
   bool IsBad() {
-    return dir_ == NULL;
+    return dir_ == nullptr;
   }
 
   dirent* ReadEntry() {
@@ -47,7 +46,5 @@ class ScopedReaddir {
  private:
   DIR* dir_;
 
-  DISALLOW_COPY_AND_ASSIGN(ScopedReaddir);
+  BIONIC_DISALLOW_COPY_AND_ASSIGN(ScopedReaddir);
 };
-
-#endif // SCOPED_READDIR_H

@@ -25,6 +25,7 @@ def main():
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
         # Only run test if the appropriate caps are claimed.
         its.caps.skip_unless(its.caps.sensor_fusion(props))
 

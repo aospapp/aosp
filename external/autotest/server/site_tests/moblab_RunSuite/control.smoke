@@ -5,7 +5,6 @@
 AUTHOR = "chromeos-moblab@google.com"
 NAME = "moblab_SmokeSuite"
 PURPOSE = "Test that Moblab can run the smoke suite."
-ATTRIBUTES = "suite:moblab"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "moblab"

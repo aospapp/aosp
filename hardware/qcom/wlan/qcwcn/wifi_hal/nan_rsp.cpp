@@ -609,6 +609,8 @@ int NanCommand::getNanResponse(transaction_id *id, NanResponseMsg *pRsp)
                        pFwRsp->max_sdea_service_specific_info_len;
             pRsp->body.nan_capabilities.max_subscribe_address = \
                        pFwRsp->max_subscribe_address;
+            pRsp->body.nan_capabilities.ndpe_attr_supported = \
+                       pFwRsp->ndpe_attr_supported;
             break;
         }
         default:
@@ -760,6 +762,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         dw_stats.validActionFrames = pMacStats->validActionFrames;
         dw_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         dw_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        dw_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         dw_stats.invalidFrames = pMacStats->invalidFrames;
         dw_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         dw_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;
@@ -789,6 +792,7 @@ void NanCommand::handleNanStatsResponse(NanStatsType stats_type,
         mac_stats.validActionFrames = pMacStats->validActionFrames;
         mac_stats.validBeaconFrames = pMacStats->validBeaconFrames;
         mac_stats.ignoredActionFrames = pMacStats->ignoredActionFrames;
+        mac_stats.ignoredBeaconFrames = pMacStats->ignoredBeaconFrames;
         mac_stats.invalidFrames = pMacStats->invalidFrames;
         mac_stats.invalidActionFrames = pMacStats->invalidActionFrames;
         mac_stats.invalidBeaconFrames = pMacStats->invalidBeaconFrames;

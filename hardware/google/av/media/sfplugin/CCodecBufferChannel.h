@@ -20,11 +20,11 @@
 
 #include <map>
 #include <memory>
-#include <mutex>
 #include <vector>
 
 #include <C2Buffer.h>
 #include <C2Component.h>
+#include <Codec2Mapper.h>
 
 #include <codec2/hidl/client.h>
 #include <media/stagefright/bqhelper/GraphicBufferSource.h>
@@ -42,6 +42,8 @@ public:
     virtual ~CCodecCallback() = default;
     virtual void onError(status_t err, enum ActionCode actionCode) = 0;
     virtual void onOutputFramesRendered(int64_t mediaTimeUs, nsecs_t renderTimeNs) = 0;
+    virtual void onWorkQueued(bool eos) = 0;
+    virtual void onOutputBuffersChanged() = 0;
 };
 
 /**
@@ -95,10 +97,20 @@ public:
     status_t signalEndOfInputStream();
 
     /**
+     * Set parameters.
+     */
+    status_t setParameters(std::vector<std::unique_ptr<C2Param>> &params);
+
+    /**
      * Start queueing buffers to the component. This object should never queue
-     * buffers before this call.
+     * buffers before this call has completed.
      */
     status_t start(const sp<AMessage> &inputFormat, const sp<AMessage> &outputFormat);
+
+    /**
+     * Request initial input buffers to be filled by client.
+     */
+    status_t requestInitialInputBuffers();
 
     /**
      * Stop queueing buffers to the component. This object should never queue
@@ -114,10 +126,22 @@ public:
      * @param workItems   finished work item.
      * @param outputFormat new output format if it has changed, otherwise nullptr
      * @param initData    new init data (CSD) if it has changed, otherwise nullptr
+     * @param numDiscardedInputBuffers the number of input buffers that are
+     *                    returned for the first time (not previously returned by
+     *                    onInputBufferDone()).
      */
     void onWorkDone(
             std::unique_ptr<C2Work> work, const sp<AMessage> &outputFormat,
-            const C2StreamInitDataInfo::output *initData);
+            const C2StreamInitDataInfo::output *initData,
+            size_t numDiscardedInputBuffers);
+
+    /**
+     * Make an input buffer available for the client as it is no longer needed
+     * by the codec.
+     *
+     * @param buffer The buffer that becomes unused.
+     */
+    void onInputBufferDone(const std::shared_ptr<C2Buffer>& buffer);
 
     enum MetaMode {
         MODE_NONE,
@@ -148,7 +172,7 @@ private:
         /**
          * At construction the sync object is in STOPPED state.
          */
-        inline QueueSync() : mCount(-1) {}
+        inline QueueSync() {}
         ~QueueSync() = default;
 
         /**
@@ -165,8 +189,14 @@ private:
         void stop();
 
     private:
-        std::mutex mMutex;
-        std::atomic_int32_t mCount;
+        Mutex mGuardLock;
+
+        struct Counter {
+            inline Counter() : value(-1) {}
+            int32_t value;
+            Condition cond;
+        };
+        Mutexed<Counter> mCount;
 
         friend class CCodecBufferChannel::QueueGuard;
     };
@@ -188,6 +218,7 @@ private:
     bool handleWork(
             std::unique_ptr<C2Work> work, const sp<AMessage> &outputFormat,
             const C2StreamInitDataInfo::output *initData);
+    void sendOutputBuffers();
 
     QueueSync mSync;
     sp<MemoryDealer> mDealer;
@@ -195,11 +226,15 @@ private:
     int32_t mHeapSeqNum;
 
     std::shared_ptr<Codec2Client::Component> mComponent;
+    std::string mComponentName; ///< component name for debugging
+    const char *mName; ///< C-string version of component name
     std::shared_ptr<CCodecCallback> mCCodecCallback;
     std::shared_ptr<C2BlockPool> mInputAllocator;
     QueueSync mQueueSync;
+    std::vector<std::unique_ptr<C2Param>> mParamsToBeSet;
 
     Mutexed<std::unique_ptr<InputBuffers>> mInputBuffers;
+    Mutexed<std::list<sp<ABuffer>>> mFlushedConfigs;
     Mutexed<std::unique_ptr<OutputBuffers>> mOutputBuffers;
 
     std::atomic_uint64_t mFrameIndex;
@@ -225,12 +260,157 @@ private:
     std::shared_ptr<InputSurfaceWrapper> mInputSurface;
 
     MetaMode mMetaMode;
-    std::atomic_int32_t mPendingFeed;
+
+    // PipelineCapacity is used in the input buffer gating logic.
+    //
+    // There are three criteria that need to be met before
+    // onInputBufferAvailable() is called:
+    // 1. The number of input buffers that have been received by
+    //    CCodecBufferChannel but not returned via onWorkDone() or
+    //    onInputBufferDone() does not exceed a certain limit. (Let us call this
+    //    number the "input" capacity.)
+    // 2. The number of work items that have been received by
+    //    CCodecBufferChannel whose outputs have not been returned from the
+    //    component (by calling onWorkDone()) does not exceed a certain limit.
+    //    (Let us call this the "component" capacity.)
+    //
+    // These three criteria guarantee that a new input buffer that arrives from
+    // the invocation of onInputBufferAvailable() will not
+    // 1. overload CCodecBufferChannel's input buffers;
+    // 2. overload the component; or
+    //
+    struct PipelineCapacity {
+        // The number of available input capacity.
+        std::atomic_int input;
+        // The number of available component capacity.
+        std::atomic_int component;
+
+        PipelineCapacity();
+        // Set the values of #input and #component.
+        void initialize(int newInput, int newComponent,
+                        const char* newName = "<UNKNOWN COMPONENT>",
+                        const char* callerTag = nullptr);
+
+        // Return true and decrease #input and #component by one if
+        // they are all greater than zero; return false otherwise.
+        //
+        // callerTag is used for logging only.
+        //
+        // allocate() is called by CCodecBufferChannel to check whether it can
+        // receive another input buffer. If the return value is true,
+        // onInputBufferAvailable() and onOutputBufferAvailable() can be called
+        // afterwards.
+        bool allocate(const char* callerTag = nullptr);
+
+        // Increase #input and #component by one.
+        //
+        // callerTag is used for logging only.
+        //
+        // free() is called by CCodecBufferChannel after allocate() returns true
+        // but onInputBufferAvailable() cannot be called for any reasons. It
+        // essentially undoes an allocate() call.
+        void free(const char* callerTag = nullptr);
+
+        // Increase #input by @p numDiscardedInputBuffers.
+        //
+        // callerTag is used for logging only.
+        //
+        // freeInputSlots() is called by CCodecBufferChannel when onWorkDone()
+        // or onInputBufferDone() is called. @p numDiscardedInputBuffers is
+        // provided in onWorkDone(), and is 1 in onInputBufferDone().
+        int freeInputSlots(size_t numDiscardedInputBuffers,
+                           const char* callerTag = nullptr);
+
+        // Increase #component by one and return the updated value.
+        //
+        // callerTag is used for logging only.
+        //
+        // freeComponentSlot() is called by CCodecBufferChannel when
+        // onWorkDone() is called.
+        int freeComponentSlot(const char* callerTag = nullptr);
+
+    private:
+        // Component name. Used for logging.
+        const char* mName;
+    };
+    PipelineCapacity mAvailablePipelineCapacity;
+
+    class ReorderStash {
+    public:
+        struct Entry {
+            inline Entry() : buffer(nullptr), timestamp(0), flags(0), ordinal({0, 0, 0}) {}
+            inline Entry(
+                    const std::shared_ptr<C2Buffer> &b,
+                    int64_t t,
+                    int32_t f,
+                    const C2WorkOrdinalStruct &o)
+                : buffer(b), timestamp(t), flags(f), ordinal(o) {}
+            std::shared_ptr<C2Buffer> buffer;
+            int64_t timestamp;
+            int32_t flags;
+            C2WorkOrdinalStruct ordinal;
+        };
+
+        ReorderStash();
+
+        void clear();
+        void setDepth(uint32_t depth);
+        void setKey(C2Config::ordinal_key_t key);
+        bool pop(Entry *entry);
+        void emplace(
+                const std::shared_ptr<C2Buffer> &buffer,
+                int64_t timestamp,
+                int32_t flags,
+                const C2WorkOrdinalStruct &ordinal);
+        void defer(const Entry &entry);
+        bool hasPending() const;
+
+    private:
+        std::list<Entry> mPending;
+        std::list<Entry> mStash;
+        uint32_t mDepth;
+        C2Config::ordinal_key_t mKey;
+
+        bool less(const C2WorkOrdinalStruct &o1, const C2WorkOrdinalStruct &o2);
+    };
+    Mutexed<ReorderStash> mReorderStash;
+
+    std::atomic_bool mInputMetEos;
 
     inline bool hasCryptoOrDescrambler() {
-        return mCrypto != NULL || mDescrambler != NULL;
+        return mCrypto != nullptr || mDescrambler != nullptr;
     }
 };
+
+// Conversion of a c2_status_t value to a status_t value may depend on the
+// operation that returns the c2_status_t value.
+enum c2_operation_t {
+    C2_OPERATION_NONE,
+    C2_OPERATION_Component_connectToOmxInputSurface,
+    C2_OPERATION_Component_createBlockPool,
+    C2_OPERATION_Component_destroyBlockPool,
+    C2_OPERATION_Component_disconnectFromInputSurface,
+    C2_OPERATION_Component_drain,
+    C2_OPERATION_Component_flush,
+    C2_OPERATION_Component_queue,
+    C2_OPERATION_Component_release,
+    C2_OPERATION_Component_reset,
+    C2_OPERATION_Component_setOutputSurface,
+    C2_OPERATION_Component_start,
+    C2_OPERATION_Component_stop,
+    C2_OPERATION_ComponentStore_copyBuffer,
+    C2_OPERATION_ComponentStore_createComponent,
+    C2_OPERATION_ComponentStore_createInputSurface,
+    C2_OPERATION_ComponentStore_createInterface,
+    C2_OPERATION_Configurable_config,
+    C2_OPERATION_Configurable_query,
+    C2_OPERATION_Configurable_querySupportedParams,
+    C2_OPERATION_Configurable_querySupportedValues,
+    C2_OPERATION_InputSurface_connectToComponent,
+    C2_OPERATION_InputSurfaceConnection_disconnect,
+};
+
+status_t toStatusT(c2_status_t c2s, c2_operation_t c2op = C2_OPERATION_NONE);
 
 }  // namespace android
 

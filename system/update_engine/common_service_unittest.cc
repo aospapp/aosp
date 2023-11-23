@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 #include <string>
+#include <vector>
 
 #include <brillo/errors/error.h>
 #include <policy/libpolicy.h>
@@ -28,6 +29,7 @@
 #include "update_engine/omaha_utils.h"
 
 using std::string;
+using std::vector;
 using testing::_;
 using testing::Return;
 using testing::SetArgPointee;
@@ -41,9 +43,7 @@ class UpdateEngineServiceTest : public ::testing::Test {
       : mock_update_attempter_(fake_system_state_.mock_update_attempter()),
         common_service_(&fake_system_state_) {}
 
-  void SetUp() override {
-    fake_system_state_.set_device_policy(nullptr);
-  }
+  void SetUp() override { fake_system_state_.set_device_policy(nullptr); }
 
   // Fake/mock infrastructure.
   FakeSystemState fake_system_state_;
@@ -85,6 +85,21 @@ TEST_F(UpdateEngineServiceTest, AttemptUpdateReturnsFalse) {
   EXPECT_FALSE(result);
 }
 
+TEST_F(UpdateEngineServiceTest, AttemptInstall) {
+  EXPECT_CALL(*mock_update_attempter_, CheckForInstall(_, _))
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(common_service_.AttemptInstall(&error_, "", {}));
+  EXPECT_EQ(nullptr, error_);
+}
+
+TEST_F(UpdateEngineServiceTest, AttemptInstallReturnsFalse) {
+  EXPECT_CALL(*mock_update_attempter_, CheckForInstall(_, _))
+      .WillOnce(Return(false));
+
+  EXPECT_FALSE(common_service_.AttemptInstall(&error_, "", {}));
+}
+
 // SetChannel is allowed when there's no device policy (the device is not
 // enterprise enrolled).
 TEST_F(UpdateEngineServiceTest, SetChannelWithNoPolicy) {
@@ -116,7 +131,8 @@ TEST_F(UpdateEngineServiceTest, SetChannelWithDelegatedPolicy) {
 TEST_F(UpdateEngineServiceTest, SetChannelWithInvalidChannel) {
   EXPECT_CALL(*mock_update_attempter_, RefreshDevicePolicy());
   EXPECT_CALL(*fake_system_state_.mock_request_params(),
-              SetTargetChannel("foo-channel", true, _)).WillOnce(Return(false));
+              SetTargetChannel("foo-channel", true, _))
+      .WillOnce(Return(false));
 
   EXPECT_FALSE(common_service_.SetChannel(&error_, "foo-channel", true));
   ASSERT_NE(nullptr, error_);

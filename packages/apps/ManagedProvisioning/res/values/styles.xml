@@ -88,11 +88,11 @@
         <item name="android:colorAccent">@color/accent</item>
     </style>
 
-    <style name="Provisioning2Theme" parent="SuwThemeGlifV3.Light">
+    <style name="Provisioning2Theme" parent="SudThemeGlifV3.Light">
         <item name="android:windowBackground">@color/white</item>
         <item name="android:colorBackground">@color/white</item>
         <item name="swiper_color">@color/teal2</item>
-        <item name="suwMarginSides">@dimen/intro_margin</item>
+        <item name="sudMarginSides">@dimen/intro_margin</item>
     </style>
 
     <style name="Provisioning2Theme.Text">
@@ -111,8 +111,8 @@
         <item name="android:textSize">@dimen/info_text_title_size</item>
     </style>
 
-    <style name="InfoAnimationTitle" parent="SuwBaseHeaderTitle">
-        <item name="android:layout_width">@dimen/info_view_width</item>
+    <style name="InfoAnimationTitle" parent="SudBaseHeaderTitle">
+        <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:breakStrategy">balanced</item>
         <item name="android:gravity">center</item>
@@ -132,7 +132,7 @@
         <item name="android:lineSpacingExtra">8sp</item>
     </style>
 
-    <style name="Provisioning2Theme.Button" parent="SuwGlifButton.Primary">
+    <style name="Provisioning2Theme.Button" parent="SudGlifButton.Primary">
         <item name="android:paddingStart">@dimen/spacer_12</item>
         <item name="android:paddingEnd">@dimen/spacer_12</item>
         <item name="android:paddingTop">0dp</item>
@@ -147,7 +147,7 @@
 
     <style name="Provisioning2Theme.Button.Blue">
         <item name="android:textColor">@color/white</item>
-        <item name="android:backgroundTint">@color/blue</item>
+        <item name="android:backgroundTint">@color/blue_background</item>
     </style>
 
     <style name="Provisioning2Theme.Button.Gray">
@@ -156,7 +156,7 @@
     </style>
 
     <style name="Provisioning2Theme.Button.Transparent">
-        <item name="android:textColor">@color/blue</item>
+        <item name="android:textColor">@color/blue_text</item>
         <item name="android:background">@null</item>
         <item name="android:textAllCaps">false</item>
     </style>
@@ -168,15 +168,25 @@
     </style>
 
     <style name="NonGlifTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowAnimationStyle">@style/Animation.SuwWindowAnimation</item>
+        <item name="android:windowAnimationStyle">@style/Animation.SudWindowAnimation</item>
         <item name="actionBarTheme">@style/NonGlifToolbarTheme</item>
     </style>
 
     <style name="NonGlifToolbarTheme" parent="android:style/Theme.Material.Light.DarkActionBar">
-        <item name="android:background">#F8F9FA</item>
+        <item name="android:background">#FFFFFF</item>
         <item name="android:textColorPrimary">@*android:color/accent_device_default_light</item>
         <item name="android:textColorSecondary">@*android:color/accent_device_default_light</item>
         <item name="android:navigationIcon">@drawable/ic_arrow_back_24dp</item>
         <item name="android:navigationContentDescription">@*android:string/action_bar_up_description</item>
     </style>
+
+    <style name="ProvisioningProgressText">
+        <item name="android:textColor">@color/blue_text</item>
+    </style>
+
+    <style name="SetupWizardPartnerResource">
+        <!-- Disable to use partner overlay theme for outside setupwizard flow. -->
+        <item name="sucUsePartnerResource">false</item>
+    </style>
 </resources>
+

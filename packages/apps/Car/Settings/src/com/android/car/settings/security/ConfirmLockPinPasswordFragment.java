@@ -19,7 +19,6 @@ package com.android.car.settings.security;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.support.annotation.VisibleForTesting;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -29,8 +28,15 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.LayoutRes;
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
+import com.android.internal.widget.LockPatternUtils;
+
+import java.util.Arrays;
 
 /**
  * Fragment for confirming existing lock PIN or password.  The containing activity must implement
@@ -50,17 +56,14 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
 
     private int mUserId;
     private boolean mIsPin;
-    private String mEnteredPassword;
+    private byte[] mEnteredPassword;
 
     /**
      * Factory method for creating fragment in PIN mode.
      */
     public static ConfirmLockPinPasswordFragment newPinInstance() {
         ConfirmLockPinPasswordFragment patternFragment = new ConfirmLockPinPasswordFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.security_settings_title);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.confirm_lock_pin_fragment);
+        Bundle bundle = new Bundle();
         bundle.putBoolean(EXTRA_IS_PIN, true);
         patternFragment.setArguments(bundle);
         return patternFragment;
@@ -71,13 +74,28 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
      */
     public static ConfirmLockPinPasswordFragment newPasswordInstance() {
         ConfirmLockPinPasswordFragment patternFragment = new ConfirmLockPinPasswordFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.security_settings_title);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.confirm_lock_password_fragment);
+        Bundle bundle = new Bundle();
         bundle.putBoolean(EXTRA_IS_PIN, false);
         patternFragment.setArguments(bundle);
         return patternFragment;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar_with_button;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getLayoutId() {
+        return mIsPin ? R.layout.confirm_lock_pin : R.layout.confirm_lock_password;
+    }
+
+    @Override
+    @StringRes
+    protected int getTitleId() {
+        return R.string.security_settings_title;
     }
 
     @Override
@@ -104,8 +122,8 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        mPasswordField = (EditText) view.findViewById(R.id.password_entry);
-        mMsgView = (TextView) view.findViewById(R.id.message);
+        mPasswordField = view.findViewById(R.id.password_entry);
+        mMsgView = view.findViewById(R.id.message);
 
         if (mIsPin) {
             initPinView(view);
@@ -148,8 +166,7 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
     }
 
     private void initPinView(View view) {
-        mPinPad = (PinPadView) view.findViewById(R.id.pin_pad);
-        mPinPad.setEnterKeyIcon(R.drawable.ic_done);
+        mPinPad = view.findViewById(R.id.pin_pad);
 
         PinPadView.PinPadClickListener pinPadClickListener = new PinPadView.PinPadClickListener() {
             @Override
@@ -161,16 +178,21 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
             @Override
             public void onBackspaceClick() {
                 clearError();
-                String pin = mPasswordField.getText().toString();
-                if (pin.length() > 0) {
-                    mPasswordField.setText(pin.substring(0, pin.length() - 1));
+                byte[] pin = LockPatternUtils.charSequenceToByteArray(mPasswordField.getText());
+                if (pin != null && pin.length > 0) {
+                    mPasswordField.getText().delete(mPasswordField.getSelectionEnd() - 1,
+                            mPasswordField.getSelectionEnd());
+                }
+                if (pin != null) {
+                    Arrays.fill(pin, (byte) 0);
                 }
             }
 
             @Override
             public void onEnterKeyClick() {
-                mEnteredPassword = mPasswordField.getText().toString();
-                if (!TextUtils.isEmpty(mEnteredPassword)) {
+                mEnteredPassword = LockPatternUtils.charSequenceToByteArray(
+                        mPasswordField.getText());
+                if (mEnteredPassword != null) {
                     initCheckLockWorker();
                     mPinPad.setEnabled(false);
                     mCheckLockWorker.checkPinPassword(mUserId, mEnteredPassword);
@@ -190,7 +212,8 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
 
                 initCheckLockWorker();
                 if (!mCheckLockWorker.isCheckInProgress()) {
-                    mEnteredPassword = mPasswordField.getText().toString();
+                    mEnteredPassword = LockPatternUtils.charSequenceToByteArray(
+                            mPasswordField.getText());
                     mCheckLockWorker.checkPinPassword(mUserId, mEnteredPassword);
                 }
                 return true;
@@ -200,10 +223,12 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
 
         mPasswordField.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
 
             @Override
             public void afterTextChanged(Editable s) {
@@ -233,14 +258,16 @@ public class ConfirmLockPinPasswordFragment extends BaseFragment {
         }
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @VisibleForTesting
     void onCheckCompleted(boolean lockMatched) {
         if (lockMatched) {
             mCheckLockListener.onLockVerified(mEnteredPassword);
         } else {
             mMsgView.setText(
                     mIsPin ? R.string.lockscreen_wrong_pin : R.string.lockscreen_wrong_password);
-            mPinPad.setEnabled(true);
+            if (mIsPin) {
+                mPinPad.setEnabled(true);
+            }
         }
 
         if (!mIsPin) {

@@ -24,19 +24,16 @@ import static org.robolectric.shadow.api.Shadow.extract;
 
 import android.app.ActivityManager;
 
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
-import com.android.tv.settings.testutils.ShadowActivityManager;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowActivityManager;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowActivityManager.class})
+@RunWith(RobolectricTestRunner.class)
 public class SpecialAppAccessTest {
 
     @Spy
@@ -54,20 +51,24 @@ public class SpecialAppAccessTest {
     }
 
     @Test
-    public void testPictureInPicture_isHiddenOnLowRam() {
-        mActivityManager.setLowRamDevice(true);
+    public void testFeaturesDisabledOnLowRam() {
+        mActivityManager.setIsLowRamDevice(true);
 
         mSpecialAppAccess.updatePreferenceStates();
 
         verify(mSpecialAppAccess, times(1)).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
+        verify(mSpecialAppAccess, times(1)).removePreference(
+                SpecialAppAccess.KEY_FEATURE_NOTIFICATION_ACCESS);
     }
 
     @Test
-    public void testPictureInPicture_isShownOnNonLowRam() {
-        mActivityManager.setLowRamDevice(false);
+    public void testFeaturesNotDisabledNonLowRam() {
+        mActivityManager.setIsLowRamDevice(false);
 
         mSpecialAppAccess.updatePreferenceStates();
 
         verify(mSpecialAppAccess, never()).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
+        verify(mSpecialAppAccess, never()).removePreference(
+                SpecialAppAccess.KEY_FEATURE_NOTIFICATION_ACCESS);
     }
 }

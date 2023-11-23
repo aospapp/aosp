@@ -34,52 +34,61 @@ namespace space {
 class DlMallocSpace : public MallocSpace {
  public:
   // Create a DlMallocSpace from an existing mem_map.
-  static DlMallocSpace* CreateFromMemMap(MemMap* mem_map, const std::string& name,
-                                         size_t starting_size, size_t initial_size,
-                                         size_t growth_limit, size_t capacity,
+  static DlMallocSpace* CreateFromMemMap(MemMap&& mem_map,
+                                         const std::string& name,
+                                         size_t starting_size,
+                                         size_t initial_size,
+                                         size_t growth_limit,
+                                         size_t capacity,
                                          bool can_move_objects);
 
   // Create a DlMallocSpace with the requested sizes. The requested
   // base address is not guaranteed to be granted, if it is required,
   // the caller should call Begin on the returned space to confirm the
   // request was granted.
-  static DlMallocSpace* Create(const std::string& name, size_t initial_size, size_t growth_limit,
-                               size_t capacity, uint8_t* requested_begin, bool can_move_objects);
+  static DlMallocSpace* Create(const std::string& name,
+                               size_t initial_size,
+                               size_t growth_limit,
+                               size_t capacity,
+                               bool can_move_objects);
 
   // Virtual to allow MemoryToolMallocSpace to intercept.
-  virtual mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                          size_t* usable_size,
-                                          size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(!lock_);
+  mirror::Object* AllocWithGrowth(Thread* self,
+                                  size_t num_bytes,
+                                  size_t* bytes_allocated,
+                                  size_t* usable_size,
+                                  size_t* bytes_tl_bulk_allocated) override REQUIRES(!lock_);
   // Virtual to allow MemoryToolMallocSpace to intercept.
-  virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                size_t* usable_size, size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(!lock_) {
+  mirror::Object* Alloc(Thread* self,
+                        size_t num_bytes,
+                        size_t* bytes_allocated,
+                        size_t* usable_size,
+                        size_t* bytes_tl_bulk_allocated) override REQUIRES(!lock_) {
     return AllocNonvirtual(self, num_bytes, bytes_allocated, usable_size,
                            bytes_tl_bulk_allocated);
   }
   // Virtual to allow MemoryToolMallocSpace to intercept.
-  virtual size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
+  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) override {
     return AllocationSizeNonvirtual(obj, usable_size);
   }
   // Virtual to allow MemoryToolMallocSpace to intercept.
-  virtual size_t Free(Thread* self, mirror::Object* ptr) OVERRIDE
+  size_t Free(Thread* self, mirror::Object* ptr) override
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
   // Virtual to allow MemoryToolMallocSpace to intercept.
-  virtual size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) OVERRIDE
+  size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) override
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) OVERRIDE {
+  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) override {
     return num_bytes;
   }
 
   // DlMallocSpaces don't have thread local state.
-  size_t RevokeThreadLocalBuffers(art::Thread*) OVERRIDE {
+  size_t RevokeThreadLocalBuffers(art::Thread*) override {
     return 0U;
   }
-  size_t RevokeAllThreadLocalBuffers() OVERRIDE {
+  size_t RevokeAllThreadLocalBuffers() override {
     return 0U;
   }
 
@@ -93,55 +102,67 @@ class DlMallocSpace : public MallocSpace {
 
 #ifndef NDEBUG
   // Override only in the debug build.
-  void CheckMoreCoreForPrecondition();
+  void CheckMoreCoreForPrecondition() override;
 #endif
 
   void* GetMspace() const {
     return mspace_;
   }
 
-  size_t Trim() OVERRIDE;
+  size_t Trim() override;
 
   // Perform a mspace_inspect_all which calls back for each allocation chunk. The chunk may not be
   // in use, indicated by num_bytes equaling zero.
-  void Walk(WalkCallback callback, void* arg) OVERRIDE REQUIRES(!lock_);
+  void Walk(WalkCallback callback, void* arg) override REQUIRES(!lock_);
 
   // Returns the number of bytes that the space has currently obtained from the system. This is
   // greater or equal to the amount of live data in the space.
-  size_t GetFootprint() OVERRIDE;
+  size_t GetFootprint() override;
 
   // Returns the number of bytes that the heap is allowed to obtain from the system via MoreCore.
-  size_t GetFootprintLimit() OVERRIDE;
+  size_t GetFootprintLimit() override;
 
   // Set the maximum number of bytes that the heap is allowed to obtain from the system via
   // MoreCore. Note this is used to stop the mspace growing beyond the limit to Capacity. When
   // allocations fail we GC before increasing the footprint limit and allowing the mspace to grow.
-  void SetFootprintLimit(size_t limit) OVERRIDE;
+  void SetFootprintLimit(size_t limit) override;
 
-  MallocSpace* CreateInstance(MemMap* mem_map, const std::string& name, void* allocator,
-                              uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
-                              bool can_move_objects);
+  MallocSpace* CreateInstance(MemMap&& mem_map,
+                              const std::string& name,
+                              void* allocator,
+                              uint8_t* begin,
+                              uint8_t* end,
+                              uint8_t* limit,
+                              size_t growth_limit,
+                              bool can_move_objects) override;
 
-  uint64_t GetBytesAllocated() OVERRIDE;
-  uint64_t GetObjectsAllocated() OVERRIDE;
+  uint64_t GetBytesAllocated() override;
+  uint64_t GetObjectsAllocated() override;
 
-  virtual void Clear() OVERRIDE;
+  void Clear() override;
 
-  bool IsDlMallocSpace() const OVERRIDE {
+  bool IsDlMallocSpace() const override {
     return true;
   }
 
-  DlMallocSpace* AsDlMallocSpace() OVERRIDE {
+  DlMallocSpace* AsDlMallocSpace() override {
     return this;
   }
 
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) OVERRIDE
+  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:
-  DlMallocSpace(MemMap* mem_map, size_t initial_size, const std::string& name, void* mspace,
-                uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
-                bool can_move_objects, size_t starting_size);
+  DlMallocSpace(MemMap&& mem_map,
+                size_t initial_size,
+                const std::string& name,
+                void* mspace,
+                uint8_t* begin,
+                uint8_t* end,
+                uint8_t* limit,
+                size_t growth_limit,
+                bool can_move_objects,
+                size_t starting_size);
 
  private:
   mirror::Object* AllocWithoutGrowthLocked(Thread* self, size_t num_bytes, size_t* bytes_allocated,
@@ -150,7 +171,7 @@ class DlMallocSpace : public MallocSpace {
       REQUIRES(lock_);
 
   void* CreateAllocator(void* base, size_t morecore_start, size_t initial_size,
-                        size_t /*maximum_size*/, bool /*low_memory_mode*/) OVERRIDE {
+                        size_t /*maximum_size*/, bool /*low_memory_mode*/) override {
     return CreateMspace(base, morecore_start, initial_size);
   }
   static void* CreateMspace(void* base, size_t morecore_start, size_t initial_size);

@@ -17,11 +17,11 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.ScriptGroup;
-import android.support.v8.renderscript.Type;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.ScriptGroup;
+import androidx.renderscript.Type;
 import android.util.Log;
 
 public class UT_script_group2_nochain extends UnitTest {

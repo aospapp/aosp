@@ -50,6 +50,7 @@ class TestCase(object):
         self.requirement_state = ltp_enums.RequirementState.UNCHECKED
         self.note = ""
         self.is_staging = False
+        self.is_mandatory = False
         self.is_filtered = False
 
     @property
@@ -140,6 +141,16 @@ class TestCase(object):
     def is_staging(self, is_staging):
         '''Set whether this test is a staging test.'''
         self._is_staging = is_staging
+
+    @property
+    def is_mandatory(self):
+        '''Whether this test is a mandatory test.'''
+        return self._is_mandatory
+
+    @is_mandatory.setter
+    def is_mandatory(self, is_mandatory):
+        '''Set whether this test is a mandatory test.'''
+        self._is_mandatory = is_mandatory
 
     @property
     def is_filtered(self):

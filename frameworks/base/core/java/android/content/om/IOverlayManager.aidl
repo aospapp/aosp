@@ -37,6 +37,7 @@ interface IOverlayManager {
      *         mapped to lists of overlays; if no overlays exist for the
      *         requested user, an empty map is returned.
      */
+    @UnsupportedAppUsage
     Map getAllOverlays(in int userId);
 
     /**
@@ -60,6 +61,7 @@ interface IOverlayManager {
      * @return The OverlayInfo for the overlay package; or null if no such
      *         overlay package exists.
      */
+    @UnsupportedAppUsage
     OverlayInfo getOverlayInfo(in String packageName, in int userId);
 
     /**
@@ -150,4 +152,9 @@ interface IOverlayManager {
      * @param userId The user for which to change the overlay.
      */
     boolean setLowestPriority(in String packageName, in int userId);
+
+    /**
+     * Returns the list of default overlay packages, or an empty array if there are none.
+     */
+    String[] getDefaultOverlayPackages();
 }

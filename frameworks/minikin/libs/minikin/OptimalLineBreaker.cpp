@@ -221,7 +221,7 @@ OptimizeContext populateCandidates(const U16StringPiece& textBuf, const Measured
 
         // Compute penalty parameters.
         float hyphenPenalty = 0.0f;
-        if (run->canHyphenate()) {
+        if (run->canBreak()) {
             auto penalties = computePenalties(*run, lineWidth, frequency, isJustified);
             hyphenPenalty = penalties.first;
             result.linePenalty = std::max(penalties.second, result.linePenalty);
@@ -231,7 +231,7 @@ OptimizeContext populateCandidates(const U16StringPiece& textBuf, const Measured
 
         for (uint32_t i = range.getStart(); i < range.getEnd(); ++i) {
             MINIKIN_ASSERT(textBuf[i] != CHAR_TAB, "TAB is not supported in optimal line breaker");
-            proc.feedChar(i, textBuf[i], measured.widths[i]);
+            proc.feedChar(i, textBuf[i], measured.widths[i], run->canBreak());
 
             const uint32_t nextCharOffset = i + 1;
             if (nextCharOffset != proc.nextWordBreak) {
@@ -255,7 +255,8 @@ OptimizeContext populateCandidates(const U16StringPiece& textBuf, const Measured
                               proc, hyphenPenalty, isRtl, &result);
 
             // We skip breaks for zero-width characters inside replacement spans.
-            if (nextCharOffset == range.getEnd() || measured.widths[nextCharOffset] > 0) {
+            if (run->getPaint() != nullptr || nextCharOffset == range.getEnd() ||
+                measured.widths[nextCharOffset] > 0) {
                 const float penalty = hyphenPenalty * proc.wordBreakPenalty();
                 result.pushWordBreak(nextCharOffset, proc.sumOfCharWidths, proc.effectiveWidth,
                                      penalty, proc.rawSpaceCount, proc.effectiveSpaceCount, isRtl);
@@ -284,24 +285,7 @@ private:
     LineBreakResult finishBreaksOptimal(const U16StringPiece& textBuf, const MeasuredText& measured,
                                         const std::vector<OptimalBreaksData>& breaksData,
                                         const std::vector<Candidate>& candidates);
-
-    MinikinExtent computeMaxExtent(const U16StringPiece& textBuf, const MeasuredText& measured,
-                                   uint32_t start, uint32_t end) const;
 };
-
-// Find the needed extent between the start and end ranges. start is inclusive and end is exclusive.
-// Both are indices of the source string.
-MinikinExtent LineBreakOptimizer::computeMaxExtent(const U16StringPiece& textBuf,
-                                                   const MeasuredText& measured, uint32_t start,
-                                                   uint32_t end) const {
-    MinikinExtent res = {0.0, 0.0, 0.0};
-    for (uint32_t j = start; j < end; j++) {
-        if (!isLineSpaceExcludeChar(textBuf[j])) {
-            res.extendBy(measured.extents[j]);
-        }
-    }
-    return res;
-}
 
 // Follow "prev" links in candidates array, and copy to result arrays.
 LineBreakResult LineBreakOptimizer::finishBreaksOptimal(
@@ -318,7 +302,7 @@ LineBreakResult LineBreakOptimizer::finishBreaksOptimal(
 
         result.breakPoints.push_back(cand.offset);
         result.widths.push_back(cand.postBreak - prev.preBreak);
-        MinikinExtent extent = computeMaxExtent(textBuf, measured, prev.offset, cand.offset);
+        MinikinExtent extent = measured.getExtent(textBuf, Range(prev.offset, cand.offset));
         result.ascents.push_back(extent.ascent);
         result.descents.push_back(extent.descent);
 

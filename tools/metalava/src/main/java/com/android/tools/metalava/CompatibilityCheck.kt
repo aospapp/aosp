@@ -21,16 +21,21 @@ import com.android.tools.metalava.NullnessMigration.Companion.isNullable
 import com.android.tools.metalava.doclava1.ApiPredicate
 import com.android.tools.metalava.doclava1.Errors
 import com.android.tools.metalava.doclava1.Errors.Error
+import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
+import com.android.tools.metalava.model.Item.Companion.describe
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.TypeItem
+import com.android.tools.metalava.model.configuration
 import com.intellij.psi.PsiField
+import java.io.File
+import java.util.function.Predicate
 
 /**
  * Compares the current API with a previous version and makes sure
@@ -39,17 +44,79 @@ import com.intellij.psi.PsiField
  *
  * TODO: Only allow nullness changes on final classes!
  */
-class CompatibilityCheck : ComparisonVisitor() {
+class CompatibilityCheck(
+    val filterReference: Predicate<Item>,
+    private val oldCodebase: Codebase,
+    private val apiType: ApiType,
+    private val base: Codebase? = null
+) : ComparisonVisitor() {
+
+    /**
+     * Request for compatibility checks.
+     * [file] represents the signature file to be checked. [apiType] represents which
+     * part of the API should be checked, [releaseType] represents what kind of codebase
+     * we are comparing it against. If [codebase] is specified, compare the signature file
+     * against the codebase instead of metalava's current source tree configured via the
+     * normal source path flags.
+     */
+    data class CheckRequest(
+        val file: File,
+        val apiType: ApiType,
+        val releaseType: ReleaseType,
+        val codebase: File? = null
+    ) {
+        override fun toString(): String {
+            return "--check-compatibility:${apiType.flagName}:${releaseType.flagName} $file"
+        }
+    }
+
+    /** In old signature files, methods inherited from hidden super classes
+     * are not included. An example of this is StringBuilder.setLength.
+     * More details about this are listed in Compatibility.skipInheritedMethods.
+     * We may see these in the codebase but not in the (old) signature files,
+     * so in these cases we want to ignore certain changes such as considering
+     * StringBuilder.setLength a newly added method.
+     */
+    private val comparingWithPartialSignatures = oldCodebase is TextCodebase && oldCodebase.format == FileFormat.V1
+
     var foundProblems = false
 
     override fun compare(old: Item, new: Item) {
+        val oldModifiers = old.modifiers
+        val newModifiers = new.modifiers
+        if (oldModifiers.isOperator() && !newModifiers.isOperator()) {
+            report(
+                Errors.OPERATOR_REMOVAL,
+                new,
+                "Cannot remove `operator` modifier from ${describe(new)}: Incompatible change"
+            )
+        }
+
+        if (oldModifiers.isInfix() && !newModifiers.isInfix()) {
+            report(
+                Errors.INFIX_REMOVAL,
+                new,
+                "Cannot remove `infix` modifier from ${describe(new)}: Incompatible change"
+            )
+        }
+
         // Should not remove nullness information
         // Can't change information incompatibly
         val oldNullnessAnnotation = findNullnessAnnotation(old)
         if (oldNullnessAnnotation != null) {
             val newNullnessAnnotation = findNullnessAnnotation(new)
             if (newNullnessAnnotation == null) {
+                val implicitNullness = AnnotationItem.getImplicitNullness(new)
+                if (implicitNullness == true && isNullable(old)) {
+                    return
+                }
+                if (implicitNullness == false && !isNullable(old)) {
+                    return
+                }
                 val name = AnnotationItem.simpleName(oldNullnessAnnotation)
+                if (old.type()?.primitive == true) {
+                    return
+                }
                 report(
                     Errors.INVALID_NULL_CONVERSION, new,
                     "Attempted to remove $name annotation from ${describe(new)}"
@@ -79,24 +146,6 @@ class CompatibilityCheck : ComparisonVisitor() {
                     }
                 }
             }
-        }
-
-        val oldModifiers = old.modifiers
-        val newModifiers = new.modifiers
-        if (oldModifiers.isOperator() && !newModifiers.isOperator()) {
-            report(
-                Errors.OPERATOR_REMOVAL,
-                new,
-                "Cannot remove `operator` modifier from ${describe(new)}: Incompatible change"
-            )
-        }
-
-        if (oldModifiers.isInfix() && !newModifiers.isInfix()) {
-            report(
-                Errors.INFIX_REMOVAL,
-                new,
-                "Cannot remove `infix` modifier from ${describe(new)}: Incompatible change"
-            )
         }
     }
 
@@ -163,7 +212,7 @@ class CompatibilityCheck : ComparisonVisitor() {
             }
         }
 
-        for (iface in new.interfaceTypes()) {
+        for (iface in new.filteredInterfaceTypes(filterReference)) {
             val qualifiedName = iface.asClass()?.qualifiedName() ?: continue
             if (!old.implements(qualifiedName)) {
                 report(
@@ -173,10 +222,10 @@ class CompatibilityCheck : ComparisonVisitor() {
         }
 
         if (!oldModifiers.isSealed() && newModifiers.isSealed()) {
-            report(Errors.ADD_SEALED, new, "Cannot add `sealed` modifier to ${describe(new)}: Incompatible change")
-        } else if (oldModifiers.isAbstract() != newModifiers.isAbstract()) {
+            report(Errors.ADD_SEALED, new, "Cannot add 'sealed' modifier to ${describe(new)}: Incompatible change")
+        } else if (old.isClass() && oldModifiers.isAbstract() != newModifiers.isAbstract()) {
             report(
-                Errors.CHANGED_ABSTRACT, new, "${describe(new, capitalize = true)} changed abstract qualifier"
+                Errors.CHANGED_ABSTRACT, new, "${describe(new, capitalize = true)} changed 'abstract' qualifier"
             )
         }
 
@@ -192,22 +241,22 @@ class CompatibilityCheck : ComparisonVisitor() {
                         "${describe(
                             new,
                             capitalize = true
-                        )} added final qualifier but was previously uninstantiable and therefore could not be subclassed"
+                        )} added 'final' qualifier but was previously uninstantiable and therefore could not be subclassed"
                     )
                 } else {
                     report(
-                        Errors.ADDED_FINAL, new, "${describe(new, capitalize = true)} added final qualifier"
+                        Errors.ADDED_FINAL, new, "${describe(new, capitalize = true)} added 'final' qualifier"
                     )
                 }
             } else if (oldModifiers.isFinal() && !newModifiers.isFinal()) {
                 report(
-                    Errors.REMOVED_FINAL, new, "${describe(new, capitalize = true)} removed final qualifier"
+                    Errors.REMOVED_FINAL, new, "${describe(new, capitalize = true)} removed 'final' qualifier"
                 )
             }
 
             if (oldModifiers.isStatic() != newModifiers.isStatic()) {
                 report(
-                    Errors.CHANGED_STATIC, new, "${describe(new, capitalize = true)} changed static qualifier"
+                    Errors.CHANGED_STATIC, new, "${describe(new, capitalize = true)} changed 'static' qualifier"
                 )
             }
         }
@@ -320,12 +369,50 @@ class CompatibilityCheck : ComparisonVisitor() {
                     "${describe(new, capitalize = true)} has changed return type from $oldTypeString to $newTypeString"
                 report(Errors.CHANGED_TYPE, new, message)
             }
+
+            // Annotation methods?
+            if (!old.hasSameValue(new)) {
+                val prevValue = old.defaultValue()
+                val prevString = if (prevValue.isEmpty()) {
+                    "nothing"
+                } else {
+                    prevValue
+                }
+
+                val newValue = new.defaultValue()
+                val newString = if (newValue.isEmpty()) {
+                    "nothing"
+                } else {
+                    newValue
+                }
+                val message = "${describe(
+                    new,
+                    capitalize = true
+                )} has changed value from $prevString to $newString"
+                report(Errors.CHANGED_VALUE, new, message)
+            }
         }
 
         // Check for changes in abstract, but only for regular classes; older signature files
         // sometimes describe interface methods as abstract
         if (new.containingClass().isClass()) {
-            if (oldModifiers.isAbstract() != newModifiers.isAbstract()) {
+            if (!oldModifiers.isAbstract() && newModifiers.isAbstract() &&
+                // In old signature files, overridden methods of abstract methods declared
+                // in super classes are sometimes omitted by doclava. This means that the method
+                // looks (from the signature file perspective) like it has not been implemented,
+                // whereas in reality it has. For just one example of this, consider
+                // FragmentBreadCrumbs.onLayout: it's a concrete implementation in that class
+                // of the inherited method from ViewGroup. However, in the signature file,
+                // FragmentBreadCrumbs does not list this method; it's only listed (as abstract)
+                // in the super class. In this scenario, the compatibility check would believe
+                // the old method in FragmentBreadCrumbs is abstract and the new method is not,
+                // which is not the case. Therefore, if the old method is coming from a signature
+                // file based codebase with an old format, we omit abstract change warnings.
+                // The reverse situation can also happen: AbstractSequentialList defines listIterator
+                // as abstract, but it's not recorded as abstract in the signature files anywhere,
+                // so we treat this as a nearly abstract method, which it is not.
+                (old.inheritedFrom == null || !comparingWithPartialSignatures)
+            ) {
                 report(
                     Errors.CHANGED_ABSTRACT, new, "${describe(new, capitalize = true)} has changed 'abstract' qualifier"
                 )
@@ -340,8 +427,12 @@ class CompatibilityCheck : ComparisonVisitor() {
 
         // Check changes to final modifier. But skip enums where it varies between signature files and PSI
         // whether the methods are considered final.
-        if (!new.containingClass().isEnum()) {
-            if (!oldModifiers.isStatic()) {
+        if (!new.containingClass().isEnum() && !oldModifiers.isStatic()) {
+            // Skip changes in final; modifier change could come from inherited
+            // implementation from hidden super class. An example of this
+            // is SpannableString.charAt whose implementation comes from
+            // SpannableStringInternal.
+            if (old.inheritedFrom == null || !comparingWithPartialSignatures) {
                 // Compiler-generated methods vary in their 'final' qualifier between versions of
                 // the compiler, so this check needs to be quite narrow. A change in 'final'
                 // status of a method is only relevant if (a) the method is not declared 'static'
@@ -412,11 +503,28 @@ class CompatibilityCheck : ComparisonVisitor() {
             }
         }
 
-        for (exec in new.throwsTypes()) {
+        for (exec in new.filteredThrowsTypes(filterReference)) {
             // exclude 'throws' changes to finalize() overrides with no arguments
             if (!old.throws(exec.qualifiedName())) {
                 if (old.name() != "finalize" || old.parameters().isNotEmpty()) {
                     val message = "${describe(new, capitalize = true)} added thrown exception ${exec.qualifiedName()}"
+                    report(Errors.CHANGED_THROWS, new, message)
+                }
+            }
+        }
+
+        if (new.modifiers.isInline()) {
+            val oldTypes = old.typeParameterList().typeParameters()
+            val newTypes = new.typeParameterList().typeParameters()
+            for (i in 0 until oldTypes.size) {
+                if (i == newTypes.size) {
+                    break
+                }
+                if (newTypes[i].isReified() && !oldTypes[i].isReified()) {
+                    val message = "${describe(
+                        new,
+                        capitalize = true
+                    )} made type variable ${newTypes[i].simpleName()} reified: incompatible change"
                     report(Errors.CHANGED_THROWS, new, message)
                 }
             }
@@ -463,7 +571,14 @@ class CompatibilityCheck : ComparisonVisitor() {
                     new,
                     capitalize = true
                 )} has changed value from $prevString to $newString"
-                report(Errors.CHANGED_VALUE, new, message)
+
+                if (message == "Field android.telephony.data.ApnSetting.TYPE_DEFAULT has changed value from 17 to 1") {
+                    // Temporarily ignore: this value changed incompatibly from 28.txt to current.txt.
+                    // It's not clear yet whether this value change needs to be reverted, or suppressed
+                    // permanently in the source code, but suppressing from metalava so we can unblock
+                    // getting the compatibility checks enabled.
+                } else
+                    report(Errors.CHANGED_VALUE, new, message)
             }
         }
 
@@ -519,11 +634,82 @@ class CompatibilityCheck : ComparisonVisitor() {
     }
 
     private fun handleAdded(error: Error, item: Item) {
-        report(error, item, "Added ${describe(item)}")
+        if (item.originallyHidden) {
+            // This is an element which is hidden but is referenced from
+            // some public API. This is an error, but some existing code
+            // is doing this. This is not an API addition.
+            return
+        }
+
+        var message = "Added ${describe(item)}"
+
+        // Clarify error message for removed API to make it less ambiguous
+        if (apiType == ApiType.REMOVED) {
+            message += " to the removed API"
+        } else if (options.showAnnotations.isNotEmpty()) {
+            if (options.showAnnotations.any { it.endsWith("SystemApi") }) {
+                message += " to the system API"
+            } else if (options.showAnnotations.any { it.endsWith("TestApi") }) {
+                message += " to the test API"
+            }
+        }
+
+        // In some cases we run the comparison on signature files
+        // generated into the temp directory, but in these cases
+        // try to report the item against the real item in the API instead
+        val equivalent = findBaseItem(item)
+        if (equivalent != null) {
+            report(error, equivalent, message)
+            return
+        }
+
+        report(error, item, message)
     }
 
     private fun handleRemoved(error: Error, item: Item) {
+        if (!item.emit) {
+            // It's a stub; this can happen when analyzing partial APIs
+            // such as a signature file for a library referencing types
+            // from the upstream library dependencies.
+            return
+        }
+
+        if (base != null) {
+            // We're diffing "overlay" APIs, such as system or test API files,
+            // where the signature files only list a delta from the full, "base" API.
+            // In that case, if an API is promoted from @SystemApi or @TestApi to be
+            // a full part of the API, it will look like a removal; it appeared in the
+            // previous file and not in the new file, but it's not removed, it's just
+            // not a delta anymore.
+            //
+            // For that reason, we also pass in the "base" API in these cases, and when
+            // an item is removed, we also check the full API to see if it's present
+            // there, and if so, this item is not actually deleted.
+            val baseItem = findBaseItem(item)
+            if (baseItem != null && ApiPredicate(ignoreShown = true).test(baseItem)) {
+                return
+            }
+        }
+
         report(error, item, "Removed ${if (item.deprecated) "deprecated " else ""}${describe(item)}")
+    }
+
+    private fun findBaseItem(
+        item: Item
+    ): Item? {
+        base ?: return null
+
+        return when (item) {
+            is PackageItem -> base.findPackage(item.qualifiedName())
+            is ClassItem -> base.findClass(item.qualifiedName())
+            is MethodItem -> base.findClass(item.containingClass().qualifiedName())?.findMethod(
+                item,
+                true,
+                true
+            )
+            is FieldItem -> base.findClass(item.containingClass().qualifiedName())?.findField(item.name())
+            else -> null
+        }
     }
 
     override fun added(new: PackageItem) {
@@ -540,6 +726,15 @@ class CompatibilityCheck : ComparisonVisitor() {
     }
 
     override fun added(new: MethodItem) {
+        // In old signature files, methods inherited from hidden super classes
+        // are not included. An example of this is StringBuilder.setLength.
+        // More details about this are listed in Compatibility.skipInheritedMethods.
+        // We may see these in the codebase but not in the (old) signature files,
+        // so skip these -- they're not really "added".
+        if (new.inheritedFrom != null && comparingWithPartialSignatures) {
+            return
+        }
+
         // *Overriding* methods from super classes that are outside the
         // API is OK (e.g. overriding toString() from java.lang.Object)
         val superMethods = new.superMethods()
@@ -562,13 +757,30 @@ class CompatibilityCheck : ComparisonVisitor() {
                 includeInterfaces = false
             )
         }
-        if (inherited != null && !inherited.modifiers.isAbstract()) {
+
+        // Builtin annotation methods: just a difference in signature file
+        if ((new.name() == "values" && new.parameters().isEmpty() || new.name() == "valueOf" &&
+                new.parameters().size == 1) && new.containingClass().isEnum()
+        ) {
+            return
+        }
+
+        // In old signature files, annotation methods are missing! This will show up as an added method.
+        if (new.containingClass().isAnnotationType() && oldCodebase is TextCodebase && oldCodebase.format == FileFormat.V1) {
+            return
+        }
+
+        if (inherited == null || inherited == new || !inherited.modifiers.isAbstract()) {
             val error = if (new.modifiers.isAbstract()) Errors.ADDED_ABSTRACT_METHOD else Errors.ADDED_METHOD
             handleAdded(error, new)
         }
     }
 
     override fun added(new: FieldItem) {
+        if (new.inheritedFrom != null && comparingWithPartialSignatures) {
+            return
+        }
+
         handleAdded(Errors.ADDED_FIELD, new)
     }
 
@@ -582,6 +794,7 @@ class CompatibilityCheck : ComparisonVisitor() {
             old.deprecated -> Errors.REMOVED_DEPRECATED_CLASS
             else -> Errors.REMOVED_CLASS
         }
+
         handleRemoved(error, old)
     }
 
@@ -590,13 +803,14 @@ class CompatibilityCheck : ComparisonVisitor() {
         val inherited = if (old.isConstructor()) {
             null
         } else {
+            // This can also return self, specially handled below
             from?.findMethod(
                 old,
                 includeSuperClasses = true,
                 includeInterfaces = from.isInterface()
             )
         }
-        if (inherited == null) {
+        if (inherited == null || inherited != old && inherited.isHiddenOrRemoved()) {
             val error = if (old.deprecated) Errors.REMOVED_DEPRECATED_METHOD else Errors.REMOVED_METHOD
             handleRemoved(error, old)
         }
@@ -614,136 +828,40 @@ class CompatibilityCheck : ComparisonVisitor() {
         }
     }
 
-    private fun describe(item: Item, capitalize: Boolean = false): String {
-        return when (item) {
-            is PackageItem -> describe(item, capitalize = capitalize)
-            is ClassItem -> describe(item, capitalize = capitalize)
-            is FieldItem -> describe(item, capitalize = capitalize)
-            is MethodItem -> describe(
-                item,
-                includeParameterNames = false,
-                includeParameterTypes = true,
-                capitalize = capitalize
-            )
-            is ParameterItem -> describe(
-                item,
-                includeParameterNames = true,
-                includeParameterTypes = true,
-                capitalize = capitalize
-            )
-            else -> item.toString()
-        }
-    }
-
-    private fun describe(
-        item: MethodItem,
-        includeParameterNames: Boolean = false,
-        includeParameterTypes: Boolean = false,
-        includeReturnValue: Boolean = false,
-        capitalize: Boolean = false
-    ): String {
-        val builder = StringBuilder()
-        if (item.isConstructor()) {
-            builder.append(if (capitalize) "Constructor" else "constructor")
-        } else {
-            builder.append(if (capitalize) "Method" else "method")
-        }
-        builder.append(' ')
-        if (includeReturnValue && !item.isConstructor()) {
-            builder.append(item.returnType()?.toSimpleType())
-            builder.append(' ')
-        }
-        appendMethodSignature(builder, item, includeParameterNames, includeParameterTypes)
-        return builder.toString()
-    }
-
-    private fun describe(
-        item: ParameterItem,
-        includeParameterNames: Boolean = false,
-        includeParameterTypes: Boolean = false,
-        capitalize: Boolean = false
-    ): String {
-        val builder = StringBuilder()
-        builder.append(if (capitalize) "Parameter" else "parameter")
-        builder.append(' ')
-        builder.append(item.name())
-        builder.append(" in ")
-        val method = item.containingMethod()
-        appendMethodSignature(builder, method, includeParameterNames, includeParameterTypes)
-        return builder.toString()
-    }
-
-    private fun appendMethodSignature(
-        builder: StringBuilder,
-        item: MethodItem,
-        includeParameterNames: Boolean,
-        includeParameterTypes: Boolean
-    ) {
-        builder.append(item.containingClass().qualifiedName())
-        if (!item.isConstructor()) {
-            builder.append('.')
-            builder.append(item.name())
-        }
-        if (includeParameterNames || includeParameterTypes) {
-            builder.append('(')
-            var first = true
-            for (parameter in item.parameters()) {
-                if (first) {
-                    first = false
-                } else {
-                    builder.append(',')
-                    if (includeParameterNames && includeParameterTypes) {
-                        builder.append(' ')
-                    }
-                }
-                if (includeParameterTypes) {
-                    builder.append(parameter.type().toSimpleType())
-                    if (includeParameterNames) {
-                        builder.append(' ')
-                    }
-                }
-                if (includeParameterNames) {
-                    builder.append(parameter.publicName() ?: parameter.name())
-                }
-            }
-            builder.append(')')
-        }
-    }
-
-    private fun describe(item: FieldItem, capitalize: Boolean = false): String {
-        return if (item.isEnumConstant()) {
-            "${if (capitalize) "Enum" else "enum"} constant ${item.containingClass().qualifiedName()}.${item.name()}"
-        } else {
-            "${if (capitalize) "Field" else "field"} ${item.containingClass().qualifiedName()}.${item.name()}"
-        }
-    }
-
-    private fun describe(item: ClassItem, capitalize: Boolean = false): String {
-        return "${if (capitalize) "Class" else "class"} ${item.qualifiedName()}"
-    }
-
-    private fun describe(item: PackageItem, capitalize: Boolean = false): String {
-        return "${if (capitalize) "Package" else "package"} ${item.qualifiedName()}"
-    }
-
     private fun report(
         error: Error,
         item: Item,
         message: String
     ) {
-        reporter.report(error, item, message)
-        foundProblems = true
+        if (reporter.report(error, item, message) && configuration.getSeverity(error) == Severity.ERROR) {
+            foundProblems = true
+        }
     }
 
     companion object {
-        fun checkCompatibility(codebase: Codebase, previous: Codebase) {
-            val checker = CompatibilityCheck()
-            CodebaseComparator().compare(checker, previous, codebase, ApiPredicate(codebase))
+        fun checkCompatibility(
+            codebase: Codebase,
+            previous: Codebase,
+            releaseType: ReleaseType,
+            apiType: ApiType,
+            base: Codebase? = null
+        ) {
+            val filter = apiType.getEmitFilter()
+            val checker = CompatibilityCheck(filter, previous, apiType, base)
+            val errorConfiguration = releaseType.getErrorConfiguration()
+            val previousConfiguration = configuration
+            try {
+                configuration = errorConfiguration
+                CodebaseComparator().compare(checker, previous, codebase, filter)
+            } finally {
+                configuration = previousConfiguration
+            }
+
+            val message = "Aborting: Found compatibility problems checking " +
+                "the ${apiType.displayName} API against the API in ${previous.location}"
+
             if (checker.foundProblems) {
-                throw DriverException(
-                    exitCode = -1,
-                    stderr = "Aborting: Found compatibility problems with --check-compatibility"
-                )
+                throw DriverException(exitCode = -1, stderr = message)
             }
         }
     }

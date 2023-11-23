@@ -17,7 +17,6 @@ package python
 // This file contains Ninja build actions for building Python program.
 
 import (
-	"fmt"
 	"strings"
 
 	"android/soong/android"
@@ -29,160 +28,116 @@ import (
 var (
 	pctx = android.NewPackageContext("android/soong/python")
 
-	host_par = pctx.AndroidStaticRule("host_par",
+	zip = pctx.AndroidStaticRule("zip",
 		blueprint.RuleParams{
-			Command: `touch $initFile && ` +
-				`sed -e 's/%interpreter%/$interp/g' -e 's/%main%/$main/g' $template > $stub && ` +
-				`$parCmd -o $parFile $parArgs && echo '#!/usr/bin/env python' | cat - $parFile > $out && ` +
-				`chmod +x $out && (rm -f $initFile; rm -f $stub; rm -f $parFile)`,
-			CommandDeps: []string{"$parCmd", "$template"},
-		},
-		"initFile", "interp", "main", "template", "stub", "parCmd", "parFile", "parArgs")
-
-	embedded_par = pctx.AndroidStaticRule("embedded_par",
-		blueprint.RuleParams{
-			Command: `touch $initFile && ` +
-				`echo '$main' > $entry_point && ` +
-				`$parCmd -o $parFile $parArgs && cat $launcher | cat - $parFile > $out && ` +
-				`chmod +x $out && (rm -f $initFile; rm -f $entry_point; rm -f $parFile)`,
+			Command:     `$parCmd -o $out $args`,
 			CommandDeps: []string{"$parCmd"},
 		},
-		"initFile", "main", "entry_point", "parCmd", "parFile", "parArgs", "launcher")
+		"args")
+
+	combineZip = pctx.AndroidStaticRule("combineZip",
+		blueprint.RuleParams{
+			Command:     `$mergeParCmd $out $in`,
+			CommandDeps: []string{"$mergeParCmd"},
+		},
+	)
+
+	hostPar = pctx.AndroidStaticRule("hostPar",
+		blueprint.RuleParams{
+			Command: `sed -e 's/%interpreter%/$interp/g' -e 's/%main%/$main/g' $template > $stub && ` +
+				`echo "#!/usr/bin/env python" >${out}.prefix &&` +
+				`$mergeParCmd -p --prefix ${out}.prefix -pm $stub $out $srcsZips && ` +
+				`chmod +x $out && (rm -f $stub; rm -f ${out}.prefix)`,
+			CommandDeps: []string{"$mergeParCmd"},
+		},
+		"interp", "main", "template", "stub", "srcsZips")
+
+	embeddedPar = pctx.AndroidStaticRule("embeddedPar",
+		blueprint.RuleParams{
+			Command: `rm -f $out.main && ` +
+				`sed 's/ENTRY_POINT/$main/' build/soong/python/scripts/main.py >$out.main &&` +
+				`$mergeParCmd -p -pm $out.main --prefix $launcher $out $srcsZips && ` +
+				`chmod +x $out && rm -rf $out.main`,
+			CommandDeps: []string{"$mergeParCmd", "$parCmd", "build/soong/python/scripts/main.py"},
+		},
+		"main", "srcsZips", "launcher")
+
+	embeddedParNoMain = pctx.AndroidStaticRule("embeddedParNoMain",
+		blueprint.RuleParams{
+			Command: `$mergeParCmd -p --prefix $launcher $out $srcsZips && ` +
+				`chmod +x $out`,
+			CommandDeps: []string{"$mergeParCmd"},
+		},
+		"srcsZips", "launcher")
 )
 
 func init() {
 	pctx.Import("github.com/google/blueprint/bootstrap")
-	pctx.Import("android/soong/common")
+	pctx.Import("android/soong/android")
 
 	pctx.HostBinToolVariable("parCmd", "soong_zip")
+	pctx.HostBinToolVariable("mergeParCmd", "merge_zips")
 }
 
-type fileListSpec struct {
-	fileList     android.Path
-	relativeRoot string
-}
-
-type parSpec struct {
-	rootPrefix string
-
-	fileListSpecs []fileListSpec
-}
-
-func (p parSpec) soongParArgs() string {
-	ret := `-P ` + p.rootPrefix
-
-	for _, spec := range p.fileListSpecs {
-		ret += ` -C ` + spec.relativeRoot + ` -l ` + spec.fileList.String()
-	}
-
-	return ret
-}
-
-func registerBuildActionForModuleFileList(ctx android.ModuleContext,
-	name string, files android.Paths) android.Path {
-	fileList := android.PathForModuleOut(ctx, name+".list")
-
-	content := []string{}
-	for _, file := range files {
-		content = append(content, file.String())
-	}
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        android.WriteFile,
-		Description: "generate " + fileList.Rel(),
-		Output:      fileList,
-		Implicits:   files,
-		Args: map[string]string{
-			"content": strings.Join(content, `\n`),
-		},
-	})
-
-	return fileList
-}
-
-func registerBuildActionForParFile(ctx android.ModuleContext, embedded_launcher bool,
-	launcher_path android.Path, interpreter, main, binName string,
-	newPyPkgs []string, parSpecs []parSpec) android.Path {
-
-	// .intermediate output path for __init__.py
-	initFile := android.PathForModuleOut(ctx, initFileName).String()
-
-	// .intermediate output path for par file.
-	parFile := android.PathForModuleOut(ctx, binName+parFileExt)
+func registerBuildActionForParFile(ctx android.ModuleContext, embeddedLauncher bool,
+	launcherPath android.OptionalPath, interpreter, main, binName string,
+	srcsZips android.Paths) android.Path {
 
 	// .intermediate output path for bin executable.
 	binFile := android.PathForModuleOut(ctx, binName)
 
 	// implicit dependency for parFile build action.
-	implicits := android.Paths{}
-	for _, p := range parSpecs {
-		for _, f := range p.fileListSpecs {
-			implicits = append(implicits, f.fileList)
-		}
-	}
+	implicits := srcsZips
 
-	parArgs := []string{}
-	parArgs = append(parArgs, `-P "" `+`-C `+strings.TrimSuffix(initFile, initFileName)+` -f `+initFile)
-	for _, pkg := range newPyPkgs {
-		parArgs = append(parArgs, `-P `+pkg+` -f `+initFile)
-	}
-	for _, p := range parSpecs {
-		parArgs = append(parArgs, p.soongParArgs())
-	}
-
-	if !embedded_launcher {
+	if !embeddedLauncher {
 		// the path of stub_template_host.txt from source tree.
 		template := android.PathForSource(ctx, stubTemplateHost)
+		implicits = append(implicits, template)
 
 		// intermediate output path for __main__.py
 		stub := android.PathForModuleOut(ctx, mainFileName).String()
 
-		// added stub file to the soong_zip args.
-		parArgs = append(parArgs, `-P "" `+`-C `+strings.TrimSuffix(stub, mainFileName)+` -f `+stub)
-
 		ctx.Build(pctx, android.BuildParams{
-			Rule:        host_par,
+			Rule:        hostPar,
 			Description: "host python archive",
 			Output:      binFile,
 			Implicits:   implicits,
 			Args: map[string]string{
-				"initFile": initFile,
 				"interp":   strings.Replace(interpreter, "/", `\/`, -1),
-				// we need remove "runfiles/" suffix since stub script starts
-				// searching for main file in each sub-dir of "runfiles" directory tree.
-				"main": strings.Replace(strings.TrimPrefix(main, runFiles+"/"),
-					"/", `\/`, -1),
+				"main":     strings.Replace(main, "/", `\/`, -1),
 				"template": template.String(),
 				"stub":     stub,
-				"parFile":  parFile.String(),
-				"parArgs":  strings.Join(parArgs, " "),
+				"srcsZips": strings.Join(srcsZips.Strings(), " "),
 			},
 		})
-	} else {
-		// added launcher_path to the implicits Ninja dependencies.
-		implicits = append(implicits, launcher_path)
+	} else if launcherPath.Valid() {
+		// added launcherPath to the implicits Ninja dependencies.
+		implicits = append(implicits, launcherPath.Path())
 
-		// .intermediate output path for entry_point.txt
-		entryPoint := android.PathForModuleOut(ctx, entryPointFile).String()
-
-		// added entry_point file to the soong_zip args.
-		parArgs = append(parArgs, `-P "" `+`-C `+fmt.Sprintf(
-			"%q", strings.TrimSuffix(entryPoint, entryPointFile))+` -f `+entryPoint)
-
-		ctx.Build(pctx, android.BuildParams{
-			Rule:        embedded_par,
-			Description: "embedded python archive",
-			Output:      binFile,
-			Implicits:   implicits,
-			Args: map[string]string{
-				"initFile":    initFile,
-				"main":        main,
-				"entry_point": entryPoint,
-				"parFile":     parFile.String(),
-				"parArgs":     strings.Join(parArgs, " "),
-				"launcher":    launcher_path.String(),
-			},
-		})
+		if main == "" {
+			ctx.Build(pctx, android.BuildParams{
+				Rule:        embeddedParNoMain,
+				Description: "embedded python archive",
+				Output:      binFile,
+				Implicits:   implicits,
+				Args: map[string]string{
+					"srcsZips": strings.Join(srcsZips.Strings(), " "),
+					"launcher": launcherPath.String(),
+				},
+			})
+		} else {
+			ctx.Build(pctx, android.BuildParams{
+				Rule:        embeddedPar,
+				Description: "embedded python archive",
+				Output:      binFile,
+				Implicits:   implicits,
+				Args: map[string]string{
+					"main":     strings.Replace(strings.TrimSuffix(main, pyExt), "/", ".", -1),
+					"srcsZips": strings.Join(srcsZips.Strings(), " "),
+					"launcher": launcherPath.String(),
+				},
+			})
+		}
 	}
 
 	return binFile

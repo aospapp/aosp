@@ -16,12 +16,13 @@
 
 package com.android.permissionutils;
 
+import static android.os.Process.myUserHandle;
+
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PermissionInfo;
-import android.os.UserHandle;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +39,7 @@ public class GrantPermissionUtil {
             List<String> missingPermissions = getMissingPermissions(context, pkgInfo);
             if (!missingPermissions.isEmpty()) {
                 for (String permission : missingPermissions) {
-                    pm.grantRuntimePermission(pkgInfo.packageName, permission, UserHandle.OWNER);
+                    pm.grantRuntimePermission(pkgInfo.packageName, permission, myUserHandle());
                 }
             }
         }

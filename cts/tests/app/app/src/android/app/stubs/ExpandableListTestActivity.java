@@ -15,24 +15,27 @@
  */
 package android.app.stubs;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import android.app.ExpandableListActivity;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.MessageQueue;
 import android.view.ContextMenu;
-import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.view.View;
 import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.internal.R;
 import com.android.internal.view.menu.ContextMenuBuilder;
+
 import com.google.android.collect.Lists;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ExpandableListTestActivity extends ExpandableListActivity {
     private static final String NAME = "NAME";
@@ -114,23 +117,29 @@ public class ExpandableListTestActivity extends ExpandableListActivity {
         return RESULT_OK;
     }
 
-    private int testSelecte() {
+    private int testSelect() {
         final ExpandableListView v = getExpandableListView();
-        for (int i = 0; i < 20; i++) {
-            v.expandGroup(i);
-            setSelectedGroup(i);
-            for (int k = 0; k < 15; k++) {
-                setSelectedChild(i, k, false);
-                if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
-                    return RESULT_CANCELED;
-            }
+        try {
+            // Make sure the touch mode is disabled since selection doesn't work in touch mode.
+            InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+            for (int i = 0; i < 20; i++) {
+                v.expandGroup(i);
+                setSelectedGroup(i);
+                for (int k = 0; k < 15; k++) {
+                    setSelectedChild(i, k, false);
+                    if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
+                        return RESULT_CANCELED;
+                }
 
-            for (int k = 0; k < 15; k++) {
-                setSelectedChild(i, k, true);
-                if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
-                    return RESULT_CANCELED;
+                for (int k = 0; k < 15; k++) {
+                    setSelectedChild(i, k, true);
+                    if (ExpandableListView.getPackedPositionForChild(i, k) != getSelectedPosition())
+                        return RESULT_CANCELED;
+                }
+                v.collapseGroup(i);
             }
-            v.collapseGroup(i);
+        } finally {
+            InstrumentationRegistry.getInstrumentation().setInTouchMode(true);
         }
         return RESULT_OK;
     }
@@ -140,7 +149,7 @@ public class ExpandableListTestActivity extends ExpandableListActivity {
         super.onResume();
         final String action = getIntent().getAction();
         if (LaunchpadActivity.EXPANDLIST_SELECT.equals(action)) {
-            setResult(testSelecte());
+            setResult(testSelect());
         } else if (LaunchpadActivity.EXPANDLIST_VIEW.equals(action)) {
             setResult(testView());
         } else if (LaunchpadActivity.EXPANDLIST_CALLBACK.equals(action)) {

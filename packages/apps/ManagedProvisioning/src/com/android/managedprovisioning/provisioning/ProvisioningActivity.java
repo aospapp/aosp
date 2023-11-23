@@ -16,40 +16,47 @@
 
 package com.android.managedprovisioning.provisioning;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
 
 import android.Manifest.permission;
-import android.annotation.ColorRes;
+import android.annotation.IntDef;
 import android.app.Activity;
-import android.app.DialogFragment;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.ColorStateList;
-import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.AnimatedVectorDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.support.annotation.VisibleForTesting;
+import android.os.UserHandle;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
-
+import androidx.annotation.VisibleForTesting;
 import com.android.managedprovisioning.R;
-import com.android.managedprovisioning.common.DialogBuilder;
+import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
+import com.android.managedprovisioning.common.ClickableSpanFactory;
 import com.android.managedprovisioning.common.ProvisionLogger;
-import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
-import com.android.managedprovisioning.common.SimpleDialog;
+import com.android.managedprovisioning.common.RepeatingVectorAnimation;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.finalization.FinalizationController;
+import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.setupwizardlib.GlifLayout;
-
+import com.android.managedprovisioning.provisioning.TransitionAnimationHelper.AnimationComponents;
+import com.android.managedprovisioning.provisioning.TransitionAnimationHelper.TransitionAnimationCallback;
+import com.android.managedprovisioning.transition.TransitionActivity;
+import com.google.android.setupdesign.GlifLayout;
+import com.google.android.setupcompat.template.FooterButton;
+import com.google.android.setupcompat.util.WizardManagerHelper;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Progress activity shown whilst provisioning is ongoing.
@@ -58,45 +65,63 @@ import java.util.List;
  * {@link ProvisioningManager}. It shows progress updates as provisioning progresses and handles
  * showing of cancel and error dialogs.</p>
  */
-public class ProvisioningActivity extends SetupGlifLayoutActivity
-        implements SimpleDialog.SimpleDialogListener, ProvisioningManagerCallback {
+public class ProvisioningActivity extends AbstractProvisioningActivity
+        implements TransitionAnimationCallback {
+    private static final int POLICY_COMPLIANCE_REQUEST_CODE = 1;
+    private static final int TRANSITION_ACTIVITY_REQUEST_CODE = 2;
+    private static final int RESULT_CODE_ADD_PERSONAL_ACCOUNT = 120;
 
-    private static final String KEY_PROVISIONING_STARTED = "ProvisioningStarted";
+    static final int PROVISIONING_MODE_WORK_PROFILE = 1;
+    static final int PROVISIONING_MODE_FULLY_MANAGED_DEVICE = 2;
+    static final int PROVISIONING_MODE_WORK_PROFILE_ON_FULLY_MANAGED_DEVICE = 3;
 
-    private static final String ERROR_DIALOG_OK = "ErrorDialogOk";
-    private static final String ERROR_DIALOG_RESET = "ErrorDialogReset";
-    private static final String CANCEL_PROVISIONING_DIALOG_OK = "CancelProvisioningDialogOk";
-    private static final String CANCEL_PROVISIONING_DIALOG_RESET = "CancelProvisioningDialogReset";
+    @IntDef(prefix = { "PROVISIONING_MODE_" }, value = {
+        PROVISIONING_MODE_WORK_PROFILE,
+        PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+        PROVISIONING_MODE_WORK_PROFILE_ON_FULLY_MANAGED_DEVICE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @interface ProvisioningMode {}
 
-    private ProvisioningParams mParams;
-    private ProvisioningManager mProvisioningManager;
-    private AnimatedVectorDrawable mAnimatedVectorDrawable;
+    private static final Map<Integer, Integer> PROVISIONING_MODE_TO_PROGRESS_LABEL =
+            Collections.unmodifiableMap(new HashMap<Integer, Integer>() {{
+                put(PROVISIONING_MODE_WORK_PROFILE,
+                        R.string.work_profile_provisioning_progress_label);
+                put(PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+                        R.string.fully_managed_device_provisioning_progress_label);
+                put(PROVISIONING_MODE_WORK_PROFILE_ON_FULLY_MANAGED_DEVICE,
+                        R.string.fully_managed_device_provisioning_progress_label);
+            }});
 
-    private Handler mUiThreadHandler = new Handler();
-
-    /** Repeats the animation once it is done **/
-    private final Animatable2.AnimationCallback mAnimationCallback =
-            new Animatable2.AnimationCallback() {
-                @Override
-                public void onAnimationEnd(Drawable drawable) {
-                    super.onAnimationEnd(drawable);
-                    mUiThreadHandler.post(mAnimatedVectorDrawable::start);
-                }
-            };
+    private TransitionAnimationHelper mTransitionAnimationHelper;
+    private RepeatingVectorAnimation mRepeatingVectorAnimation;
+    private FooterButton mNextButton;
+    private UserProvisioningStateHelper mUserProvisioningStateHelper;
+    private DevicePolicyManager mDevicePolicyManager;
 
     public ProvisioningActivity() {
-        this(null, new Utils());
+        super(new Utils());
     }
 
     @VisibleForTesting
-    public ProvisioningActivity(ProvisioningManager provisioningManager, Utils utils) {
+    public ProvisioningActivity(ProvisioningManager provisioningManager, Utils utils,
+                UserProvisioningStateHelper userProvisioningStateHelper) {
         super(utils);
         mProvisioningManager = provisioningManager;
+        mUserProvisioningStateHelper = userProvisioningStateHelper;
     }
 
-    // Lazily initialize ProvisioningManager, since we can't call in ProvisioningManager.getInstance
-    // in constructor as base context is not available in constructor
-    private ProvisioningManager getProvisioningManager() {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (mUserProvisioningStateHelper == null) {
+            mUserProvisioningStateHelper = new UserProvisioningStateHelper(this);
+        }
+        mDevicePolicyManager = getSystemService(DevicePolicyManager.class);
+    }
+
+    @Override
+    protected ProvisioningManagerInterface getProvisioningManager() {
         if (mProvisioningManager == null) {
             mProvisioningManager = ProvisioningManager.getInstance(this);
         }
@@ -104,69 +129,110 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mParams = getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS);
-        initializeUi(mParams);
-
-        if (savedInstanceState == null
-                || !savedInstanceState.getBoolean(KEY_PROVISIONING_STARTED)) {
-            getProvisioningManager().maybeStartProvisioning(mParams);
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putBoolean(KEY_PROVISIONING_STARTED, true);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (!isAnyDialogAdded()) {
-            getProvisioningManager().registerListener(this);
-        }
-        if (mAnimatedVectorDrawable != null) {
-            mAnimatedVectorDrawable.registerAnimationCallback(mAnimationCallback);
-            mAnimatedVectorDrawable.reset();
-            mAnimatedVectorDrawable.start();
-        }
-    }
-
-    private boolean isAnyDialogAdded() {
-        return isDialogAdded(ERROR_DIALOG_OK)
-                || isDialogAdded(ERROR_DIALOG_RESET)
-                || isDialogAdded(CANCEL_PROVISIONING_DIALOG_OK)
-                || isDialogAdded(CANCEL_PROVISIONING_DIALOG_RESET);
-    }
-
-    @Override
-    public void onPause() {
-        getProvisioningManager().unregisterListener(this);
-        if (mAnimatedVectorDrawable != null) {
-            mAnimatedVectorDrawable.stop();
-            mAnimatedVectorDrawable.unregisterAnimationCallback(mAnimationCallback);
-        }
-        super.onPause();
-    }
-
-    @Override
-    public void onBackPressed() {
-        // if EXTRA_PROVISIONING_SKIP_USER_CONSENT is specified, don't allow user to cancel
-        if (mParams.skipUserConsent) {
+    public void preFinalizationCompleted() {
+        if (mState == STATE_PROVISIONING_FINALIZED) {
             return;
         }
 
-        showCancelProvisioningDialog();
+        ProvisionLogger.logi("ProvisioningActivity pre-finalization completed");
+
+        // TODO: call this for the new flow after new NFC flow has been added
+        // maybeLaunchNfcUserSetupCompleteIntent();
+
+        if (mParams.skipEducationScreens || mTransitionAnimationHelper.areAllTransitionsShown()) {
+            updateProvisioningFinalizedScreen();
+        }
+        mState = STATE_PROVISIONING_FINALIZED;
     }
 
-    @Override
-    public void preFinalizationCompleted() {
-        ProvisionLogger.logi("ProvisioningActivity pre-finalization completed");
+    private void updateProvisioningFinalizedScreen() {
+        if (!mParams.skipEducationScreens) {
+            final GlifLayout layout = findViewById(R.id.setup_wizard_layout);
+            layout.findViewById(R.id.provisioning_progress).setVisibility(View.GONE);
+            mNextButton.setVisibility(View.VISIBLE);
+        }
+
+        if (mParams.skipEducationScreens || Utils.isSilentProvisioning(this, mParams)) {
+            onNextButtonClicked();
+        }
+    }
+
+    private void onNextButtonClicked() {
+        new FinalizationController(getApplicationContext(), mUserProvisioningStateHelper)
+                .provisioningInitiallyDone(mParams);
+        if (mUtils.isAdminIntegratedFlow(mParams)) {
+            enableGlobalFlags();
+            showPolicyComplianceScreen();
+        } else {
+            finishProvisioning();
+        }
+    }
+
+    private void enableGlobalFlags() {
+        if (mParams.isCloudEnrollment) {
+            mDevicePolicyManager.setDeviceProvisioningConfigApplied();
+        }
+        final SettingsFacade settingsFacade = new SettingsFacade();
+        settingsFacade.setUserSetupCompleted(this, UserHandle.USER_SYSTEM);
+        settingsFacade.setDeviceProvisioned(this);
+    }
+
+    private void finishProvisioning() {
         setResult(Activity.RESULT_OK);
         maybeLaunchNfcUserSetupCompleteIntent();
         finish();
+    }
+
+    private void showPolicyComplianceScreen() {
+        final String adminPackage = mParams.inferDeviceAdminPackageName();
+        UserHandle userHandle;
+        if (mParams.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+          userHandle = mUtils.getManagedProfile(getApplicationContext());
+        } else {
+          userHandle = UserHandle.of(UserHandle.myUserId());
+        }
+
+        final Intent policyComplianceIntent =
+            new Intent(DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE);
+        policyComplianceIntent.putExtra(
+                DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE,
+                mParams.adminExtrasBundle);
+        policyComplianceIntent.setPackage(adminPackage);
+        startActivityForResultAsUser(
+            policyComplianceIntent, POLICY_COMPLIANCE_REQUEST_CODE, userHandle);
+    }
+
+    boolean shouldShowTransitionScreen() {
+        return mParams.isOrganizationOwnedProvisioning
+                && mParams.provisioningMode == ProvisioningParams.PROVISIONING_MODE_MANAGED_PROFILE
+                && mUtils.isConnectedToNetwork(getApplicationContext());
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+            case POLICY_COMPLIANCE_REQUEST_CODE:
+                if (resultCode == RESULT_OK) {
+                    if (shouldShowTransitionScreen()) {
+                        Intent intent = new Intent(this, TransitionActivity.class);
+                        WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
+                        intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, mParams);
+                        startActivityForResult(intent, TRANSITION_ACTIVITY_REQUEST_CODE);
+                    } else {
+                        setResult(Activity.RESULT_OK);
+                        finish();
+                    }
+                } else {
+                    error(/* titleId */ R.string.cant_set_up_device,
+                            /* messageId */ R.string.contact_your_admin_for_help,
+                            /* resetRequired = */ true);
+                }
+                break;
+            case TRANSITION_ACTIVITY_REQUEST_CODE:
+                setResult(RESULT_CODE_ADD_PERSONAL_ACCOUNT);
+                finish();
+                break;
+        }
     }
 
     private void maybeLaunchNfcUserSetupCompleteIntent() {
@@ -209,121 +275,158 @@ public class ProvisioningActivity extends SetupGlifLayoutActivity
     }
 
     @Override
-    public void progressUpdate(int progressMessage) {
-    }
-
-    @Override
-    public void error(int titleId, int messageId, boolean resetRequired) {
-        SimpleDialog.Builder dialogBuilder = new SimpleDialog.Builder()
-                .setTitle(titleId)
-                .setMessage(messageId)
-                .setCancelable(false)
-                .setPositiveButtonMessage(resetRequired
-                        ? R.string.reset : R.string.device_owner_error_ok);
-
-        showDialog(dialogBuilder, resetRequired ? ERROR_DIALOG_RESET : ERROR_DIALOG_OK);
-    }
-
-    @Override
-    protected void showDialog(DialogBuilder builder, String tag) {
-        // Whenever a dialog is shown, stop listening for further updates
-        getProvisioningManager().unregisterListener(this);
-        super.showDialog(builder, tag);
-    }
-
-    @Override
     protected int getMetricsCategory() {
         return PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
     }
 
-    private void showCancelProvisioningDialog() {
-        final boolean isDoProvisioning = getUtils().isDeviceOwnerAction(mParams.provisioningAction);
-        final String dialogTag = isDoProvisioning ? CANCEL_PROVISIONING_DIALOG_RESET
-                : CANCEL_PROVISIONING_DIALOG_OK;
-        final int positiveResId = isDoProvisioning ? R.string.reset
-                : R.string.profile_owner_cancel_ok;
-        final int negativeResId = isDoProvisioning ? R.string.device_owner_cancel_cancel
-                : R.string.profile_owner_cancel_cancel;
-        final int dialogMsgResId = isDoProvisioning
-                ? R.string.this_will_reset_take_back_first_screen
-                : R.string.profile_owner_cancel_message;
-
-        SimpleDialog.Builder dialogBuilder = new SimpleDialog.Builder()
-                .setCancelable(false)
-                .setMessage(dialogMsgResId)
-                .setNegativeButtonMessage(negativeResId)
-                .setPositiveButtonMessage(positiveResId);
-        if (isDoProvisioning) {
-            dialogBuilder.setTitle(R.string.stop_setup_reset_device_question);
+    @Override
+    protected void decideCancelProvisioningDialog() {
+        if (mState == STATE_PROVISIONING_FINALIZED && !mParams.isOrganizationOwnedProvisioning) {
+            return;
         }
 
-        showDialog(dialogBuilder, dialogTag);
-    }
-
-    private void onProvisioningAborted() {
-        setResult(Activity.RESULT_CANCELED);
-        finish();
+        if (getUtils().isDeviceOwnerAction(mParams.provisioningAction)
+                || mParams.isOrganizationOwnedProvisioning) {
+            showCancelProvisioningDialog(/* resetRequired = */true);
+        } else {
+            showCancelProvisioningDialog(/* resetRequired = */false);
+        }
     }
 
     @Override
-    public void onNegativeButtonClick(DialogFragment dialog) {
-        switch (dialog.getTag()) {
-            case CANCEL_PROVISIONING_DIALOG_OK:
-            case CANCEL_PROVISIONING_DIALOG_RESET:
-                dialog.dismiss();
-                break;
-            default:
-                SimpleDialog.throwButtonClickHandlerNotImplemented(dialog);
+    protected void onStart() {
+        super.onStart();
+        if (mParams.skipEducationScreens) {
+            startSpinnerAnimation();
+        } else {
+            startTransitionAnimation();
         }
-        getProvisioningManager().registerListener(this);
     }
 
     @Override
-    public void onPositiveButtonClick(DialogFragment dialog) {
-        switch (dialog.getTag()) {
-            case CANCEL_PROVISIONING_DIALOG_OK:
-                getProvisioningManager().cancelProvisioning();
-                onProvisioningAborted();
-                break;
-            case CANCEL_PROVISIONING_DIALOG_RESET:
-                getUtils().sendFactoryResetBroadcast(this, "DO provisioning cancelled by user");
-                onProvisioningAborted();
-                break;
-            case ERROR_DIALOG_OK:
-                onProvisioningAborted();
-                break;
-            case ERROR_DIALOG_RESET:
-                getUtils().sendFactoryResetBroadcast(this, "Error during DO provisioning");
-                onProvisioningAborted();
-                break;
-            default:
-                SimpleDialog.throwButtonClickHandlerNotImplemented(dialog);
+    protected void onStop() {
+        super.onStop();
+        if (mParams.skipEducationScreens) {
+            endSpinnerAnimation();
+        } else {
+            endTransitionAnimation();
         }
     }
 
-    private void initializeUi(ProvisioningParams params) {
-        final boolean isDoProvisioning = getUtils().isDeviceOwnerAction(params.provisioningAction);
-        final int headerResId = isDoProvisioning ? R.string.setup_work_device
-                : R.string.setting_up_workspace;
-        final int titleResId = isDoProvisioning ? R.string.setup_device_progress
-                : R.string.setup_profile_progress;
+    @Override
+    public void onAllTransitionsShown() {
+        if (mState == STATE_PROVISIONING_FINALIZED) {
+            updateProvisioningFinalizedScreen();
+        }
+    }
+
+    @Override
+    protected void initializeUi(ProvisioningParams params) {
+        final boolean isPoProvisioning = mUtils.isProfileOwnerAction(params.provisioningAction);
+        final int titleResId =
+            isPoProvisioning ? R.string.setup_profile_progress : R.string.setup_device_progress;
 
         CustomizationParams customizationParams =
                 CustomizationParams.createInstance(mParams, this, mUtils);
-        initializeLayoutParams(R.layout.progress, headerResId, customizationParams.mainColor,
-                customizationParams.statusBarColor);
+        initializeLayoutParams(R.layout.provisioning_progress, null, customizationParams);
         setTitle(titleResId);
-        GlifLayout layout = findViewById(R.id.setup_wizard_layout);
 
-        TextView textView = layout.findViewById(R.id.description);
-        ImageView imageView = layout.findViewById(R.id.animation);
-        if (isDoProvisioning) {
-            textView.setText(R.string.device_owner_description);
-            imageView.setImageResource(R.drawable.enterprise_do_animation);
+        final GlifLayout layout = findViewById(R.id.setup_wizard_layout);
+        setupEducationViews(layout);
+
+        mNextButton = Utils.addNextButton(layout, v -> onNextButtonClicked());
+        mNextButton.setVisibility(View.INVISIBLE);
+
+        handleSupportUrl(layout, customizationParams);
+    }
+
+    private void setupEducationViews(GlifLayout layout) {
+        final TextView header = layout.findViewById(R.id.suc_layout_title);
+        header.setTextColor(getColorStateList(R.color.header_text_color));
+
+        final int progressLabelResId =
+                PROVISIONING_MODE_TO_PROGRESS_LABEL.get(getProvisioningMode());
+        final TextView progressLabel = layout.findViewById(R.id.provisioning_progress);
+        if (mParams.skipEducationScreens) {
+            header.setText(progressLabelResId);
+            progressLabel.setVisibility(View.INVISIBLE);
+            layout.findViewById(R.id.subheader).setVisibility(View.INVISIBLE);
+            layout.findViewById(R.id.provider_info).setVisibility(View.INVISIBLE);
         } else {
-            textView.setText(R.string.work_profile_description);
-            imageView.setImageResource(R.drawable.enterprise_wp_animation);
+            progressLabel.setText(progressLabelResId);
+            progressLabel.setVisibility(View.VISIBLE);
         }
-        mAnimatedVectorDrawable = (AnimatedVectorDrawable) imageView.getDrawable();
+    }
+
+    private void setupTransitionAnimationHelper(GlifLayout layout) {
+        final TextView header = layout.findViewById(R.id.suc_layout_title);
+        final TextView subHeader = layout.findViewById(R.id.subheader);
+        final ImageView drawable = layout.findViewById(R.id.animation);
+        final TextView providerInfo = layout.findViewById(R.id.provider_info);
+        final int provisioningMode = getProvisioningMode();
+        final AnimationComponents animationComponents =
+                new AnimationComponents(header, subHeader, drawable, providerInfo);
+        mTransitionAnimationHelper =
+                new TransitionAnimationHelper(provisioningMode, animationComponents, this);
+    }
+
+    private @ProvisioningMode int getProvisioningMode() {
+        int provisioningMode = 0;
+        final boolean isProfileOwnerAction =
+                mUtils.isProfileOwnerAction(mParams.provisioningAction);
+        if (isProfileOwnerAction) {
+            if (getSystemService(DevicePolicyManager.class).isDeviceManaged()) {
+                provisioningMode = PROVISIONING_MODE_WORK_PROFILE_ON_FULLY_MANAGED_DEVICE;
+            } else {
+                provisioningMode = PROVISIONING_MODE_WORK_PROFILE;
+            }
+        } else if (mUtils.isDeviceOwnerAction(mParams.provisioningAction)) {
+            provisioningMode = PROVISIONING_MODE_FULLY_MANAGED_DEVICE;
+        }
+        return provisioningMode;
+    }
+
+    private void handleSupportUrl(GlifLayout layout, CustomizationParams customization) {
+        final TextView info = layout.findViewById(R.id.provider_info);
+        final String deviceProvider = getString(R.string.organization_admin);
+        final String contactDeviceProvider =
+                getString(R.string.contact_device_provider, deviceProvider);
+        final ClickableSpanFactory spanFactory =
+                new ClickableSpanFactory(getColor(R.color.blue_text));
+        mUtils.handleSupportUrl(this, customization, spanFactory,
+                new AccessibilityContextMenuMaker(this), info, deviceProvider,
+                contactDeviceProvider);
+    }
+
+    private void startTransitionAnimation() {
+        final GlifLayout layout = findViewById(R.id.setup_wizard_layout);
+        setupTransitionAnimationHelper(layout);
+        mTransitionAnimationHelper.start();
+    }
+
+    private void endTransitionAnimation() {
+        mTransitionAnimationHelper.clean();
+        mTransitionAnimationHelper = null;
+    }
+
+    private void startSpinnerAnimation() {
+        final GlifLayout layout = findViewById(R.id.setup_wizard_layout);
+        final ImageView animation = layout.findViewById(R.id.animation);
+        if (animation.getVisibility() == View.INVISIBLE) {
+            return;
+        }
+        animation.setImageResource(R.drawable.enterprise_wp_animation);
+        final AnimatedVectorDrawable vectorDrawable =
+            (AnimatedVectorDrawable) animation.getDrawable();
+        mRepeatingVectorAnimation = new RepeatingVectorAnimation(vectorDrawable);
+        mRepeatingVectorAnimation.start();
+    }
+
+    private void endSpinnerAnimation() {
+        if (mRepeatingVectorAnimation ==  null) {
+            return;
+        }
+        mRepeatingVectorAnimation.stop();
+        mRepeatingVectorAnimation = null;
     }
 }

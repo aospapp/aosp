@@ -82,6 +82,49 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         packet = pkt_gen.generate(self.ipv4_dst_fake)
         self.sendPacketAndMeasure(packet)
 
+    @test_tracker_info(uuid='dd3ff80d-97ce-4408-92f8-f2c72ce8d79c')
+    def test_screen_OFF_band_5g_unicast_invalid_ip_arp_request(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
+        packet = pkt_gen.generate(
+            ip_dst='0.0.0.0', eth_dst=self.pkt_gen_config['dst_mac'])
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='5dcb16f1-725c-45de-8103-340104d60a22')
+    def test_screen_OFF_band_5g_unicast_misdirected_arp_request(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
+        packet = pkt_gen.generate(
+            ip_dst=self.ipv4_dst_fake, eth_dst=self.pkt_gen_config['dst_mac'])
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='5ec4800f-a82e-4462-8b65-4fcd0b1940a2')
+    def test_screen_OFF_band_5g_unicast_invalid_src_arp_reply(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
+        packet = pkt_gen.generate(
+            op='is-at',
+            ip_src='0.0.0.0',
+            ip_dst=self.ipv4_dst_fake,
+            hwdst=self.mac_dst_fake,
+            eth_dst=self.pkt_gen_config['dst_mac'])
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='6c5c0e9e-7a00-43d0-a6e8-355141467703')
+    def test_screen_OFF_band_5g_unicast_misdirected_arp_reply(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.ArpGenerator(**self.pkt_gen_config)
+        packet = pkt_gen.generate(
+            op='is-at',
+            ip_dst=self.ipv4_dst_fake,
+            hwdst=self.mac_dst_fake,
+            eth_dst=self.pkt_gen_config['dst_mac'])
+        self.sendPacketAndMeasure(packet)
+
     @test_tracker_info(uuid='8e534d3b-5a25-429a-a1bb-8119d7d28b5a')
     def test_screen_OFF_band_5g_directed_ns(self):
         self.set_connection()
@@ -194,6 +237,30 @@ class PowerWiFimulticastTest(PWBT.PowerWiFiBaseTest):
         self.pkt_gen_config = wputils.create_pkt_config(self)
         pkt_gen = pkt_utils.Mdns4Generator(**self.pkt_gen_config)
         packet = pkt_gen.generate()
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='16dabe69-27a6-470b-a474-4774cd3e4715')
+    def test_screen_OFF_band_5g_dot3(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.Dot3Generator(**self.pkt_gen_config)
+        packet = pkt_gen.generate()
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='55d00670-f34b-4289-95fa-b618e509c15c')
+    def test_screen_OFF_band_5g_dot3_llc(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.Dot3Generator(**self.pkt_gen_config)
+        packet = pkt_gen.generate_llc()
+        self.sendPacketAndMeasure(packet)
+
+    @test_tracker_info(uuid='75ba3435-fe63-4a21-8cbe-2f631043f632')
+    def test_screen_OFF_band_5g_dot3_snap(self):
+        self.set_connection()
+        self.pkt_gen_config = wputils.create_pkt_config(self)
+        pkt_gen = pkt_utils.Dot3Generator(**self.pkt_gen_config)
+        packet = pkt_gen.generate_snap()
         self.sendPacketAndMeasure(packet)
 
     # Test cases: screen ON

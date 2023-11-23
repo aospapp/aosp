@@ -1,6 +1,9 @@
 /* lib/curl_config.h.  Generated from curl_config.h.in by configure.  */
 /* lib/curl_config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* to enable curl debug memory tracking */
+/* #undef CURLDEBUG */
+
 /* Location of default ca bundle */
 /* #undef CURL_CA_BUNDLE */
 
@@ -46,6 +49,9 @@
 /* to disable --libcurl C code generation option */
 /* #undef CURL_DISABLE_LIBCURL_OPTION */
 
+/* if the OpenSSL configuration won't be loaded automatically */
+/* #undef CURL_DISABLE_OPENSSL_AUTO_LOAD_CONFIG */
+
 /* to disable POP3 */
 #define CURL_DISABLE_POP3 1
 
@@ -76,8 +82,14 @@
 /* Definition to make a library symbol externally visible. */
 #define CURL_EXTERN_SYMBOL __attribute__ ((__visibility__ ("default")))
 
+/* IP address type in sockaddr */
+#define CURL_SA_FAMILY_T sa_family_t
+
 /* built with multiple SSL backends */
 /* #undef CURL_WITH_MULTI_SSL */
+
+/* enable debug build options */
+/* #undef DEBUGBUILD */
 
 /* your Entropy Gathering Daemon socket pathname */
 /* #undef EGD_SOCKET */
@@ -86,22 +98,7 @@
 #define ENABLE_IPV6 1
 
 /* Define to the type of arg 2 for gethostname. */
-#define GETHOSTNAME_TYPE_ARG2 unsigned int
-
-/* Define to the type qualifier of arg 1 for getnameinfo. */
-#define GETNAMEINFO_QUAL_ARG1 const
-
-/* Define to the type of arg 1 for getnameinfo. */
-#define GETNAMEINFO_TYPE_ARG1 struct sockaddr *
-
-/* Define to the type of arg 2 for getnameinfo. */
-#define GETNAMEINFO_TYPE_ARG2 socklen_t
-
-/* Define to the type of args 4 and 6 for getnameinfo. */
-#define GETNAMEINFO_TYPE_ARG46 size_t
-
-/* Define to the type of arg 7 for getnameinfo. */
-#define GETNAMEINFO_TYPE_ARG7 int
+#define GETHOSTNAME_TYPE_ARG2 size_t
 
 /* Specifies the number of arguments to getservbyport_r */
 /* #undef GETSERVBYPORT_R_ARGS */
@@ -140,13 +137,10 @@
 /* #undef HAVE_BROTLI_DECODE_H */
 
 /* Define to 1 if you have the __builtin_available function. */
-/* #undef HAVE_BUILTIN_AVAILABLE */
+#define HAVE_BUILTIN_AVAILABLE 1
 
 /* Define to 1 if you have the clock_gettime function and monotonic timer. */
-#if !defined(__APPLE__)
-/* CLOCK_MONOTONIC is not defined in mac when building for the host. */
 #define HAVE_CLOCK_GETTIME_MONOTONIC 1
-#endif
 
 /* Define to 1 if you have the closesocket function. */
 /* #undef HAVE_CLOSESOCKET */
@@ -172,14 +166,15 @@
 /* Define to 1 if you have the <cyassl/options.h> header file. */
 /* #undef HAVE_CYASSL_OPTIONS_H */
 
+/* Define to 1 if you have the declaration of `getpwuid_r', and to 0 if you
+   don't. */
+#define HAVE_DECL_GETPWUID_R 1
+
+/* "Set if getpwuid_r() declaration is missing" */
+/* #undef HAVE_DECL_GETPWUID_R_MISSING */
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
-
-/* Define to 1 if you have the `ENGINE_cleanup' function. */
-/* #undef HAVE_ENGINE_CLEANUP */
-
-/* Define to 1 if you have the `ENGINE_load_builtin_engines' function. */
-/* #undef HAVE_ENGINE_LOAD_BUILTIN_ENGINES */
 
 /* Define to 1 if you have the <errno.h> header file. */
 #define HAVE_ERRNO_H 1
@@ -196,8 +191,8 @@
 /* Define to 1 if you have a working fcntl O_NONBLOCK function. */
 #define HAVE_FCNTL_O_NONBLOCK 1
 
-/* Define to 1 if you have the fdopen function. */
-#define HAVE_FDOPEN 1
+/* Define to 1 if you have the `fnmatch' function. */
+#define HAVE_FNMATCH 1
 
 /* Define to 1 if you have the freeaddrinfo function. */
 #define HAVE_FREEADDRINFO 1
@@ -264,9 +259,6 @@
 
 /* Define to 1 if you have a working getifaddrs function. */
 #define HAVE_GETIFADDRS 1
-
-/* Define to 1 if you have the getnameinfo function. */
-#define HAVE_GETNAMEINFO 1
 
 /* Define to 1 if you have the `getpass_r' function. */
 /* #undef HAVE_GETPASS_R */
@@ -436,9 +428,7 @@
 #define HAVE_LIBZ 1
 
 /* Define to 1 if you have the <linux/tcp.h> header file. */
-#if !defined(__APPLE__)
 #define HAVE_LINUX_TCP_H 1
-#endif
 
 /* if your compiler supports LL */
 #define HAVE_LL 1
@@ -462,14 +452,10 @@
 #define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the memrchr function or macro. */
-#if !defined(__APPLE__)
 #define HAVE_MEMRCHR 1
-#endif
 
 /* Define to 1 if you have the MSG_NOSIGNAL flag. */
-#if !defined(__APPLE__)
 #define HAVE_MSG_NOSIGNAL 1
-#endif
 
 /* Define to 1 if you have the <netdb.h> header file. */
 #define HAVE_NETDB_H 1
@@ -489,18 +475,12 @@
 /* Define to 1 if you have the <nghttp2/nghttp2.h> header file. */
 /* #undef HAVE_NGHTTP2_NGHTTP2_H */
 
-/* Define to 1 if NI_WITHSCOPEID exists and works. */
-/* #undef HAVE_NI_WITHSCOPEID */
-
 /* if you have an old MIT Kerberos version, lacking GSS_C_NT_HOSTBASED_SERVICE
    */
 /* #undef HAVE_OLD_GSSMIT */
 
 /* Define to 1 if you have the <openssl/crypto.h> header file. */
 #define HAVE_OPENSSL_CRYPTO_H 1
-
-/* Define to 1 if you have the <openssl/engine.h> header file. */
-/* #undef HAVE_OPENSSL_ENGINE_H */
 
 /* Define to 1 if you have the <openssl/err.h> header file. */
 #define HAVE_OPENSSL_ERR_H 1
@@ -517,6 +497,9 @@
 /* Define to 1 if you have the <openssl/ssl.h> header file. */
 #define HAVE_OPENSSL_SSL_H 1
 
+/* Define to 1 if you have the `OpenSSL_version' function. */
+#define HAVE_OPENSSL_VERSION 1
+
 /* Define to 1 if you have the <openssl/x509.h> header file. */
 #define HAVE_OPENSSL_X509_H 1
 
@@ -525,6 +508,9 @@
 
 /* Define to 1 if you have the `pipe' function. */
 #define HAVE_PIPE 1
+
+/* if you have the PK11_CreateManagedGenericObject function */
+/* #undef HAVE_PK11_CREATEMANAGEDGENERICOBJECT */
 
 /* Define to 1 if you have a working poll function. */
 #define HAVE_POLL 1
@@ -538,6 +524,9 @@
 /* Define to 1 if you have a working POSIX-style strerror_r function. */
 #define HAVE_POSIX_STRERROR_R 1
 
+/* Define to 1 if you have the <proto/bsdsocket.h> header file. */
+/* #undef HAVE_PROTO_BSDSOCKET_H */
+
 /* if you have <pthread.h> */
 #define HAVE_PTHREAD_H 1
 
@@ -545,7 +534,7 @@
 #define HAVE_PWD_H 1
 
 /* Define to 1 if you have the `RAND_egd' function. */
-#define HAVE_RAND_EGD 1
+/* #undef HAVE_RAND_EGD */
 
 /* Define to 1 if you have the recv function. */
 #define HAVE_RECV 1
@@ -593,7 +582,7 @@
 #define HAVE_SIGNAL_H 1
 
 /* Define to 1 if you have the sigsetjmp function or macro. */
-#define HAVE_SIGSETJMP 1
+/* #undef HAVE_SIGSETJMP */
 
 /* Define to 1 if sig_atomic_t is an available typedef. */
 #define HAVE_SIG_ATOMIC_T 1
@@ -627,9 +616,6 @@
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
-
-/* Define to 1 if you have the <stdio.h> header file. */
-#define HAVE_STDIO_H 1
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
@@ -739,6 +725,9 @@
 /* Define to 1 if you have the <time.h> header file. */
 #define HAVE_TIME_H 1
 
+/* Define this if time_t is unsigned */
+/* #undef HAVE_TIME_T_UNSIGNED */
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
@@ -774,9 +763,6 @@
 
 /* Define to 1 if you have the `wolfSSLv3_client_method' function. */
 /* #undef HAVE_WOLFSSLV3_CLIENT_METHOD */
-
-/* Define to 1 if you have the `wolfSSL_CTX_UseSupportedCurve' function. */
-/* #undef HAVE_WOLFSSL_CTX_USESUPPORTEDCURVE */
 
 /* Define to 1 if you have the `wolfSSL_get_peer_certificate' function. */
 /* #undef HAVE_WOLFSSL_GET_PEER_CERTIFICATE */
@@ -898,13 +884,13 @@
 /* Define to the function return type for send. */
 #define SEND_TYPE_RETV ssize_t
 
-/* The size of `curl_off_t', as computed by sizeof. */
+/* The number of bytes in type curl_off_t */
 #define SIZEOF_CURL_OFF_T 8
 
-/* The size of `int', as computed by sizeof. */
+/* The number of bytes in type int */
 #define SIZEOF_INT 4
 
-/* The size of `short', as computed by sizeof. */
+/* The number of bytes in type short */
 #define SIZEOF_SHORT 2
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -916,17 +902,17 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #define TIME_WITH_SYS_TIME 1
 
+/* to enable alt-svc */
+/* #undef USE_ALTSVC */
+
+/* if AmiSSL is in use */
+/* #undef USE_AMISSL */
+
 /* Define to enable c-ares support */
 /* #undef USE_ARES */
 
-/* if axTLS is enabled */
-/* #undef USE_AXTLS */
-
 /* if CyaSSL/WolfSSL is enabled */
 /* #undef USE_CYASSL */
-
-/* to enable Apple OS native SSL/TLS support */
-/* #undef USE_DARWINSSL */
 
 /* if GnuTLS is enabled */
 /* #undef USE_GNUTLS */
@@ -952,6 +938,9 @@
 /* if mbedTLS is enabled */
 /* #undef USE_MBEDTLS */
 
+/* if MesaLink is enabled */
+/* #undef USE_MESALINK */
+
 /* Define to enable metalink support */
 /* #undef USE_METALINK */
 
@@ -972,6 +961,9 @@
 
 /* to enable Windows native SSL/TLS support */
 /* #undef USE_SCHANNEL */
+
+/* enable Secure Transport */
+/* #undef USE_SECTRANSP */
 
 /* if you want POSIX threaded DNS lookup */
 #define USE_THREADS_POSIX 1

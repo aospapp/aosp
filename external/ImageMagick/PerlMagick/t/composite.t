@@ -5,7 +5,7 @@
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    https://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,7 +49,8 @@ testCompositeCompare('gradient:white-black',q/size=>"70x46"/,
 #
 ++$test;
 testCompositeCompare('gradient:white-black',q/size=>"100x80"/,
-  'input.miff', q//, q/, gravity=>'Center', compose=>'Clear'/,
+  'input.miff', q//,
+  q/, gravity=>'Center', 'clip-to-self'=>True, compose=>'Clear'/,
   'reference/composite/Clear.miff', 0.00001, 0.009);
 
 #

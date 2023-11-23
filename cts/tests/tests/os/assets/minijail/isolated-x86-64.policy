@@ -12,6 +12,7 @@ dup2: 1
 epoll_create: 1
 epoll_wait: 1
 fork: return EPERM
+fstatfs: 1
 futimesat: return EPERM
 getdents64: 1
 getdents: return EPERM

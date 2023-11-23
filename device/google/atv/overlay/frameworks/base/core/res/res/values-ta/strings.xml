@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"குறுக்குவழி அம்சம் இயக்கத்தில் இருக்கும்போது, பின்செல் பொத்தான் மற்றும் ஒலியைக் குறைக்கும் பொத்தான் இரண்டையும் 3 வினாடிகள் அழுத்திப் பிடித்தால், அணுகல்தன்மை அம்சம் இயக்கப்படும்.\n\n தற்போதைய அணுகல்தன்மை அம்சம்:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n அமைப்புகள் &gt; அணுகல்தன்மை என்பதற்குச் சென்று அம்சத்தை மாற்றலாம்."</string>
+    <string name="accessibility_shortcut_toogle_warning" msgid="7758891516165017413">"ஷார்ட்கட் அம்சம் இயக்கத்தில் இருக்கும்போது, பின்செல் பட்டன் மற்றும் ஒலியைக் குறைக்கும் பட்டன் இரண்டையும் 3 வினாடிகள் அழுத்திப் பிடித்தால், அணுகல்தன்மை அம்சம் இயக்கப்படும்.\n\n தற்போதைய அணுகல்தன்மை அம்சம்:\n <xliff:g id="SERVICE_NAME">%1$s</xliff:g>\n\n அமைப்புகள் &gt; அணுகல்தன்மை என்பதற்குச் சென்று அம்சத்தை மாற்றலாம்."</string>
 </resources>

@@ -20,6 +20,7 @@ import android.content.res.AssetFileDescriptor;
 import android.drm.DrmConvertedStatus;
 import android.drm.DrmManagerClient;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.MediaCodec;
@@ -1154,36 +1155,46 @@ public class MediaUtils {
 
         MessageDigest md = MessageDigest.getInstance("MD5");
 
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
+        Rect crop = image.getCropRect();
+        int cropLeft = crop.left;
+        int cropRight = crop.right;
+        int cropTop = crop.top;
+        int cropBottom = crop.bottom;
+
+        int imageWidth = cropRight - cropLeft + 1;
+        int imageHeight = cropBottom - cropTop + 1;
 
         Image.Plane[] planes = image.getPlanes();
         for (int i = 0; i < planes.length; ++i) {
             ByteBuffer buf = planes[i].getBuffer();
 
-            int width, height, rowStride, pixelStride, x, y;
+            int width, height, rowStride, pixelStride, x, y, top, left;
             rowStride = planes[i].getRowStride();
             pixelStride = planes[i].getPixelStride();
             if (i == 0) {
                 width = imageWidth;
                 height = imageHeight;
+                left = cropLeft;
+                top = cropTop;
             } else {
                 width = imageWidth / 2;
                 height = imageHeight /2;
+                left = cropLeft / 2;
+                top = cropTop / 2;
             }
             // local contiguous pixel buffer
             byte[] bb = new byte[width * height];
             if (buf.hasArray()) {
                 byte b[] = buf.array();
-                int offs = buf.arrayOffset();
+                int offs = buf.arrayOffset() + left * pixelStride;
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
-                        System.arraycopy(bb, y * width, b, y * rowStride + offs, width);
+                        System.arraycopy(bb, y * width, b, (top + y) * rowStride + offs, width);
                     }
                 } else {
                     // do it pixel-by-pixel
                     for (y = 0; y < height; ++y) {
-                        int lineOffset = offs + y * rowStride;
+                        int lineOffset = offs + (top + y) * rowStride;
                         for (x = 0; x < width; ++x) {
                             bb[y * width + x] = b[lineOffset + x * pixelStride];
                         }
@@ -1193,7 +1204,7 @@ public class MediaUtils {
                 int pos = buf.position();
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
+                        buf.position(pos + left + (top + y) * rowStride);
                         buf.get(bb, y * width, width);
                     }
                 } else {
@@ -1201,7 +1212,7 @@ public class MediaUtils {
                     byte[] lb = new byte[rowStride];
                     // do it pixel-by-pixel
                     for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
+                        buf.position(pos + left * pixelStride + (top + y) * rowStride);
                         // we're only guaranteed to have pixelStride * (width - 1) + 1 bytes
                         buf.get(lb, 0, pixelStride * (width - 1) + 1);
                         for (x = 0; x < width; ++x) {

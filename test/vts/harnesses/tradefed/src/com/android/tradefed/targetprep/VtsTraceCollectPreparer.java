@@ -154,7 +154,7 @@ public class VtsTraceCollectPreparer implements ITargetPreparer, ITargetCleaner 
             if (f.isFile()
                     && (fileName.endsWith(VTS_PROFILER_SUFFIX)
                                || fileName.startsWith(VTS_LIB_PREFIX))) {
-                CLog.i("Pushing %s", fileName);
+                CLog.d("Pushing %s", fileName);
                 device.pushFile(f, destDirName + fileName);
             }
         }

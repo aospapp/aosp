@@ -33,7 +33,9 @@ minijailCommonLibraries = ["libcap"]
 cc_defaults {
     name: "libminijail_flags",
     cflags: [
-        "-DHAVE_SECUREBITS_H",
+        "-D_FILE_OFFSET_BITS=64",
+        "-DALLOW_DEBUG_LOGGING",
+        "-DDEFAULT_PIVOT_ROOT=\"/var/empty\"",
         "-Wall",
         "-Werror",
     ],
@@ -49,6 +51,7 @@ cc_defaults {
 cc_object {
     name: "libminijail_gen_syscall_obj",
     vendor_available: true,
+    recovery_available: true,
     srcs: ["gen_syscalls.c"],
     cflags: [
         "-dD",
@@ -61,6 +64,7 @@ cc_object {
 cc_genrule {
     name: "libminijail_gen_syscall",
     vendor_available: true,
+    recovery_available: true,
     tool_files: ["gen_syscalls.sh"],
     cmd: "$(location gen_syscalls.sh) $(in) $(out)",
     srcs: [":libminijail_gen_syscall_obj"],
@@ -70,6 +74,7 @@ cc_genrule {
 cc_object {
     name: "libminijail_gen_constants_obj",
     vendor_available: true,
+    recovery_available: true,
     srcs: ["gen_constants.c"],
     cflags: [
         "-dD",
@@ -82,6 +87,7 @@ cc_object {
 cc_genrule {
     name: "libminijail_gen_constants",
     vendor_available: true,
+    recovery_available: true,
     tool_files: ["gen_constants.sh"],
     cmd: "$(location gen_constants.sh) $(in) $(out)",
     srcs: [":libminijail_gen_constants_obj"],
@@ -91,6 +97,7 @@ cc_genrule {
 cc_library_static {
     name: "libminijail_generated",
     vendor_available: true,
+    recovery_available: true,
     defaults: ["libminijail_flags"],
     host_supported: true,
 
@@ -117,6 +124,7 @@ cc_library {
     host_supported: true,
 
     vendor_available: true,
+    recovery_available: true,
     vndk: {
         enabled: true,
     },

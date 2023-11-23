@@ -18,8 +18,8 @@ package com.android.tv.recommendation;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

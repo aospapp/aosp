@@ -18,10 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.tv.tests" >
 
-    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="23" />
+    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23" />
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="Live Channel Unit Tests"
         android:targetPackage="com.android.tv" />
 

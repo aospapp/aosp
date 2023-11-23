@@ -28,7 +28,9 @@
 #include <gtest/gtest.h>
 #include <policy/libpolicy.h>
 #include <policy/mock_device_policy.h>
+#include <policy/mock_libpolicy.h>
 
+#include "update_engine/common/dlcservice_interface.h"
 #include "update_engine/common/fake_clock.h"
 #include "update_engine/common/fake_prefs.h"
 #include "update_engine/common/mock_action.h"
@@ -47,22 +49,28 @@
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
+#include "update_engine/update_boot_flags_action.h"
 
 using base::Time;
 using base::TimeDelta;
 using chromeos_update_manager::EvalStatus;
+using chromeos_update_manager::StagingSchedule;
 using chromeos_update_manager::UpdateCheckParams;
+using policy::DevicePolicy;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 using testing::_;
 using testing::DoAll;
 using testing::Field;
 using testing::InSequence;
 using testing::Ne;
 using testing::NiceMock;
+using testing::Pointee;
 using testing::Property;
 using testing::Return;
 using testing::ReturnPointee;
+using testing::ReturnRef;
 using testing::SaveArg;
 using testing::SetArgPointee;
 using update_engine::UpdateAttemptFlags;
@@ -70,6 +78,17 @@ using update_engine::UpdateEngineStatus;
 using update_engine::UpdateStatus;
 
 namespace chromeos_update_engine {
+
+namespace {
+
+class MockDlcService : public DlcServiceInterface {
+ public:
+  MOCK_METHOD1(GetInstalled, bool(vector<string>*));
+};
+
+}  // namespace
+
+const char kRollbackVersion[] = "10575.39.2";
 
 // Test a subclass rather than the main class directly so that we can mock out
 // methods within the class. There're explicit unit tests for the mocked out
@@ -81,13 +100,14 @@ class UpdateAttempterUnderTest : public UpdateAttempter {
 
   // Wrap the update scheduling method, allowing us to opt out of scheduled
   // updates for testing purposes.
-  void ScheduleUpdates() override {
+  bool ScheduleUpdates() override {
     schedule_updates_called_ = true;
     if (do_schedule_updates_) {
       UpdateAttempter::ScheduleUpdates();
     } else {
       LOG(INFO) << "[TEST] Update scheduling disabled.";
     }
+    return true;
   }
   void EnableScheduleUpdates() { do_schedule_updates_ = true; }
   void DisableScheduleUpdates() { do_schedule_updates_ = false; }
@@ -111,10 +131,13 @@ class UpdateAttempterTest : public ::testing::Test {
     // Override system state members.
     fake_system_state_.set_connection_manager(&mock_connection_manager);
     fake_system_state_.set_update_attempter(&attempter_);
+    fake_system_state_.set_dlcservice(&mock_dlcservice_);
     loop_.SetAsCurrent();
 
     certificate_checker_.Init();
 
+    attempter_.set_forced_update_pending_callback(
+        new base::Callback<void(bool, bool)>(base::Bind([](bool, bool) {})));
     // Finish initializing the attempter.
     attempter_.Init();
   }
@@ -165,13 +188,20 @@ class UpdateAttempterTest : public ::testing::Test {
   void P2PEnabledInteractiveStart();
   void P2PEnabledStartingFailsStart();
   void P2PEnabledHousekeepingFailsStart();
+  void ResetRollbackHappenedStart(bool is_consumer,
+                                  bool is_policy_available,
+                                  bool expected_reset);
+  // Staging related callbacks.
+  void SetUpStagingTest(const StagingSchedule& schedule, FakePrefs* prefs);
+  void CheckStagingOff();
+  void StagingSetsPrefsAndTurnsOffScatteringStart();
+  void StagingOffIfInteractiveStart();
+  void StagingOffIfOobeStart();
 
   bool actual_using_p2p_for_downloading() {
     return actual_using_p2p_for_downloading_;
   }
-  bool actual_using_p2p_for_sharing() {
-    return actual_using_p2p_for_sharing_;
-  }
+  bool actual_using_p2p_for_sharing() { return actual_using_p2p_for_sharing_; }
 
   base::MessageLoopForIO base_loop_;
   brillo::BaseMessageLoop loop_{&base_loop_};
@@ -180,6 +210,7 @@ class UpdateAttempterTest : public ::testing::Test {
   UpdateAttempterUnderTest attempter_{&fake_system_state_};
   OpenSSLWrapper openssl_wrapper_;
   CertificateChecker certificate_checker_;
+  MockDlcService mock_dlcservice_;
 
   NiceMock<MockActionProcessor>* processor_;
   NiceMock<MockPrefs>* prefs_;  // Shortcut to fake_system_state_->mock_prefs().
@@ -204,7 +235,7 @@ TEST_F(UpdateAttempterTest, ActionCompletedDownloadTest) {
                         nullptr,
                         nullptr,
                         fetcher.release(),
-                        false /* is_interactive */);
+                        false /* interactive */);
   EXPECT_CALL(*prefs_, GetInt64(kPrefsDeltaUpdateFailures, _)).Times(0);
   attempter_.ActionCompleted(nullptr, &action, ErrorCode::kSuccess);
   EXPECT_EQ(UpdateStatus::FINALIZING, attempter_.status());
@@ -305,8 +336,8 @@ TEST_F(UpdateAttempterTest, BroadcastCompleteDownloadTest) {
 TEST_F(UpdateAttempterTest, ActionCompletedOmahaRequestTest) {
   unique_ptr<MockHttpFetcher> fetcher(new MockHttpFetcher("", 0, nullptr));
   fetcher->FailTransfer(500);  // Sets the HTTP response code.
-  OmahaRequestAction action(&fake_system_state_, nullptr,
-                            std::move(fetcher), false);
+  OmahaRequestAction action(
+      &fake_system_state_, nullptr, std::move(fetcher), false);
   ObjectCollectorAction<OmahaResponse> collector_action;
   BondActions(&action, &collector_action);
   OmahaResponse response;
@@ -331,29 +362,27 @@ TEST_F(UpdateAttempterTest, ConstructWithUpdatedMarkerTest) {
 }
 
 TEST_F(UpdateAttempterTest, GetErrorCodeForActionTest) {
-  extern ErrorCode GetErrorCodeForAction(AbstractAction* action,
-                                              ErrorCode code);
   EXPECT_EQ(ErrorCode::kSuccess,
             GetErrorCodeForAction(nullptr, ErrorCode::kSuccess));
 
   FakeSystemState fake_system_state;
-  OmahaRequestAction omaha_request_action(&fake_system_state, nullptr,
-                                          nullptr, false);
+  OmahaRequestAction omaha_request_action(
+      &fake_system_state, nullptr, nullptr, false);
   EXPECT_EQ(ErrorCode::kOmahaRequestError,
             GetErrorCodeForAction(&omaha_request_action, ErrorCode::kError));
   OmahaResponseHandlerAction omaha_response_handler_action(&fake_system_state_);
-  EXPECT_EQ(ErrorCode::kOmahaResponseHandlerError,
-            GetErrorCodeForAction(&omaha_response_handler_action,
-                                  ErrorCode::kError));
+  EXPECT_EQ(
+      ErrorCode::kOmahaResponseHandlerError,
+      GetErrorCodeForAction(&omaha_response_handler_action, ErrorCode::kError));
   FilesystemVerifierAction filesystem_verifier_action;
-  EXPECT_EQ(ErrorCode::kFilesystemVerifierError,
-            GetErrorCodeForAction(&filesystem_verifier_action,
-                                  ErrorCode::kError));
+  EXPECT_EQ(
+      ErrorCode::kFilesystemVerifierError,
+      GetErrorCodeForAction(&filesystem_verifier_action, ErrorCode::kError));
   PostinstallRunnerAction postinstall_runner_action(
       fake_system_state.fake_boot_control(), fake_system_state.fake_hardware());
-  EXPECT_EQ(ErrorCode::kPostinstallRunnerError,
-            GetErrorCodeForAction(&postinstall_runner_action,
-                                  ErrorCode::kError));
+  EXPECT_EQ(
+      ErrorCode::kPostinstallRunnerError,
+      GetErrorCodeForAction(&postinstall_runner_action, ErrorCode::kError));
   MockAction action_mock;
   EXPECT_CALL(action_mock, Type()).WillOnce(Return("MockAction"));
   EXPECT_EQ(ErrorCode::kError,
@@ -367,15 +396,15 @@ TEST_F(UpdateAttempterTest, DisableDeltaUpdateIfNeededTest) {
   attempter_.DisableDeltaUpdateIfNeeded();
   EXPECT_TRUE(attempter_.omaha_request_params_->delta_okay());
   EXPECT_CALL(*prefs_, GetInt64(kPrefsDeltaUpdateFailures, _))
-      .WillOnce(DoAll(
-          SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures - 1),
-          Return(true)));
+      .WillOnce(
+          DoAll(SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures - 1),
+                Return(true)));
   attempter_.DisableDeltaUpdateIfNeeded();
   EXPECT_TRUE(attempter_.omaha_request_params_->delta_okay());
   EXPECT_CALL(*prefs_, GetInt64(kPrefsDeltaUpdateFailures, _))
-      .WillOnce(DoAll(
-          SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures),
-          Return(true)));
+      .WillOnce(
+          DoAll(SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures),
+                Return(true)));
   attempter_.DisableDeltaUpdateIfNeeded();
   EXPECT_FALSE(attempter_.omaha_request_params_->delta_okay());
   EXPECT_CALL(*prefs_, GetInt64(_, _)).Times(0);
@@ -388,16 +417,17 @@ TEST_F(UpdateAttempterTest, MarkDeltaUpdateFailureTest) {
       .WillOnce(Return(false))
       .WillOnce(DoAll(SetArgPointee<1>(-1), Return(true)))
       .WillOnce(DoAll(SetArgPointee<1>(1), Return(true)))
-      .WillOnce(DoAll(
-          SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures),
-          Return(true)));
+      .WillOnce(
+          DoAll(SetArgPointee<1>(UpdateAttempter::kMaxDeltaUpdateFailures),
+                Return(true)));
   EXPECT_CALL(*prefs_, SetInt64(Ne(kPrefsDeltaUpdateFailures), _))
       .WillRepeatedly(Return(true));
   EXPECT_CALL(*prefs_, SetInt64(kPrefsDeltaUpdateFailures, 1)).Times(2);
   EXPECT_CALL(*prefs_, SetInt64(kPrefsDeltaUpdateFailures, 2));
-  EXPECT_CALL(*prefs_, SetInt64(kPrefsDeltaUpdateFailures,
-                               UpdateAttempter::kMaxDeltaUpdateFailures + 1));
-  for (int i = 0; i < 4; i ++)
+  EXPECT_CALL(*prefs_,
+              SetInt64(kPrefsDeltaUpdateFailures,
+                       UpdateAttempter::kMaxDeltaUpdateFailures + 1));
+  for (int i = 0; i < 4; i++)
     attempter_.MarkDeltaUpdateFailure();
 }
 
@@ -418,14 +448,13 @@ TEST_F(UpdateAttempterTest, ScheduleErrorEventActionNoEventTest) {
 
 TEST_F(UpdateAttempterTest, ScheduleErrorEventActionTest) {
   EXPECT_CALL(*processor_,
-              EnqueueAction(Property(&AbstractAction::Type,
-                                     OmahaRequestAction::StaticType())));
+              EnqueueAction(Pointee(Property(
+                  &AbstractAction::Type, OmahaRequestAction::StaticType()))));
   EXPECT_CALL(*processor_, StartProcessing());
   ErrorCode err = ErrorCode::kError;
   EXPECT_CALL(*fake_system_state_.mock_payload_state(), UpdateFailed(err));
-  attempter_.error_event_.reset(new OmahaEvent(OmahaEvent::kTypeUpdateComplete,
-                                               OmahaEvent::kResultError,
-                                               err));
+  attempter_.error_event_.reset(new OmahaEvent(
+      OmahaEvent::kTypeUpdateComplete, OmahaEvent::kResultError, err));
   attempter_.ScheduleErrorEventAction();
   EXPECT_EQ(UpdateStatus::REPORTING_ERROR_EVENT, attempter_.status());
 }
@@ -433,21 +462,25 @@ TEST_F(UpdateAttempterTest, ScheduleErrorEventActionTest) {
 namespace {
 // Actions that will be built as part of an update check.
 const string kUpdateActionTypes[] = {  // NOLINT(runtime/string)
-  OmahaRequestAction::StaticType(),
-  OmahaResponseHandlerAction::StaticType(),
-  OmahaRequestAction::StaticType(),
-  DownloadAction::StaticType(),
-  OmahaRequestAction::StaticType(),
-  FilesystemVerifierAction::StaticType(),
-  PostinstallRunnerAction::StaticType(),
-  OmahaRequestAction::StaticType()
-};
+    OmahaRequestAction::StaticType(),
+    OmahaResponseHandlerAction::StaticType(),
+    UpdateBootFlagsAction::StaticType(),
+    OmahaRequestAction::StaticType(),
+    DownloadAction::StaticType(),
+    OmahaRequestAction::StaticType(),
+    FilesystemVerifierAction::StaticType(),
+    PostinstallRunnerAction::StaticType(),
+    OmahaRequestAction::StaticType()};
 
 // Actions that will be built as part of a user-initiated rollback.
-const string kRollbackActionTypes[] = {  // NOLINT(runtime/string)
-  InstallPlanAction::StaticType(),
-  PostinstallRunnerAction::StaticType(),
+const string kRollbackActionTypes[] = {
+    // NOLINT(runtime/string)
+    InstallPlanAction::StaticType(),
+    PostinstallRunnerAction::StaticType(),
 };
+
+const StagingSchedule kValidStagingSchedule = {
+    {4, 10}, {10, 40}, {19, 70}, {26, 100}};
 
 }  // namespace
 
@@ -458,7 +491,8 @@ void UpdateAttempterTest::UpdateTestStart() {
   // point by calling RefreshDevicePolicy.
   auto device_policy = std::make_unique<policy::MockDevicePolicy>();
   EXPECT_CALL(*device_policy, LoadPolicy())
-      .Times(testing::AtLeast(1)).WillRepeatedly(Return(true));
+      .Times(testing::AtLeast(1))
+      .WillRepeatedly(Return(true));
   attempter_.policy_provider_.reset(
       new policy::PolicyProvider(std::move(device_policy)));
 
@@ -466,13 +500,13 @@ void UpdateAttempterTest::UpdateTestStart() {
     InSequence s;
     for (size_t i = 0; i < arraysize(kUpdateActionTypes); ++i) {
       EXPECT_CALL(*processor_,
-                  EnqueueAction(Property(&AbstractAction::Type,
-                                         kUpdateActionTypes[i])));
+                  EnqueueAction(Pointee(
+                      Property(&AbstractAction::Type, kUpdateActionTypes[i]))));
     }
     EXPECT_CALL(*processor_, StartProcessing());
   }
 
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   loop_.PostTask(FROM_HERE,
                  base::Bind(&UpdateAttempterTest::UpdateTestVerify,
                             base::Unretained(this)));
@@ -481,37 +515,25 @@ void UpdateAttempterTest::UpdateTestStart() {
 void UpdateAttempterTest::UpdateTestVerify() {
   EXPECT_EQ(0, attempter_.http_response_code());
   EXPECT_EQ(&attempter_, processor_->delegate());
-  EXPECT_EQ(arraysize(kUpdateActionTypes), attempter_.actions_.size());
-  for (size_t i = 0; i < arraysize(kUpdateActionTypes); ++i) {
-    EXPECT_EQ(kUpdateActionTypes[i], attempter_.actions_[i]->Type());
-  }
-  EXPECT_EQ(attempter_.response_handler_action_.get(),
-            attempter_.actions_[1].get());
-  AbstractAction* action_3 = attempter_.actions_[3].get();
-  ASSERT_NE(nullptr, action_3);
-  ASSERT_EQ(DownloadAction::StaticType(), action_3->Type());
-  DownloadAction* download_action = static_cast<DownloadAction*>(action_3);
-  EXPECT_EQ(&attempter_, download_action->delegate());
   EXPECT_EQ(UpdateStatus::CHECKING_FOR_UPDATE, attempter_.status());
   loop_.BreakLoop();
 }
 
-void UpdateAttempterTest::RollbackTestStart(
-    bool enterprise_rollback, bool valid_slot) {
+void UpdateAttempterTest::RollbackTestStart(bool enterprise_rollback,
+                                            bool valid_slot) {
   // Create a device policy so that we can change settings.
   auto device_policy = std::make_unique<policy::MockDevicePolicy>();
   EXPECT_CALL(*device_policy, LoadPolicy()).WillRepeatedly(Return(true));
   fake_system_state_.set_device_policy(device_policy.get());
   if (enterprise_rollback) {
     // We return an empty owner as this is an enterprise.
-    EXPECT_CALL(*device_policy, GetOwner(_)).WillRepeatedly(
-        DoAll(SetArgPointee<0>(string("")),
-        Return(true)));
+    EXPECT_CALL(*device_policy, GetOwner(_))
+        .WillRepeatedly(DoAll(SetArgPointee<0>(string("")), Return(true)));
   } else {
     // We return a fake owner as this is an owned consumer device.
-    EXPECT_CALL(*device_policy, GetOwner(_)).WillRepeatedly(
-        DoAll(SetArgPointee<0>(string("fake.mail@fake.com")),
-        Return(true)));
+    EXPECT_CALL(*device_policy, GetOwner(_))
+        .WillRepeatedly(DoAll(SetArgPointee<0>(string("fake.mail@fake.com")),
+                              Return(true)));
   }
 
   attempter_.policy_provider_.reset(
@@ -530,15 +552,15 @@ void UpdateAttempterTest::RollbackTestStart(
   // We only allow rollback on devices that are not enterprise enrolled and
   // which have a valid slot to rollback to.
   if (!enterprise_rollback && valid_slot) {
-     is_rollback_allowed = true;
+    is_rollback_allowed = true;
   }
 
   if (is_rollback_allowed) {
     InSequence s;
     for (size_t i = 0; i < arraysize(kRollbackActionTypes); ++i) {
       EXPECT_CALL(*processor_,
-                  EnqueueAction(Property(&AbstractAction::Type,
-                                         kRollbackActionTypes[i])));
+                  EnqueueAction(Pointee(Property(&AbstractAction::Type,
+                                                 kRollbackActionTypes[i]))));
     }
     EXPECT_CALL(*processor_, StartProcessing());
 
@@ -555,19 +577,9 @@ void UpdateAttempterTest::RollbackTestStart(
 void UpdateAttempterTest::RollbackTestVerify() {
   // Verifies the actions that were enqueued.
   EXPECT_EQ(&attempter_, processor_->delegate());
-  EXPECT_EQ(arraysize(kRollbackActionTypes), attempter_.actions_.size());
-  for (size_t i = 0; i < arraysize(kRollbackActionTypes); ++i) {
-    EXPECT_EQ(kRollbackActionTypes[i], attempter_.actions_[i]->Type());
-  }
   EXPECT_EQ(UpdateStatus::ATTEMPTING_ROLLBACK, attempter_.status());
-  AbstractAction* action_0 = attempter_.actions_[0].get();
-  ASSERT_NE(nullptr, action_0);
-  ASSERT_EQ(InstallPlanAction::StaticType(), action_0->Type());
-  InstallPlanAction* install_plan_action =
-      static_cast<InstallPlanAction*>(action_0);
-  InstallPlan* install_plan = install_plan_action->install_plan();
-  EXPECT_EQ(0U, install_plan->partitions.size());
-  EXPECT_EQ(install_plan->powerwash_required, true);
+  EXPECT_EQ(0U, attempter_.install_plan_->partitions.size());
+  EXPECT_EQ(attempter_.install_plan_->powerwash_required, true);
   loop_.BreakLoop();
 }
 
@@ -580,7 +592,8 @@ TEST_F(UpdateAttempterTest, RollbackTest) {
   loop_.PostTask(FROM_HERE,
                  base::Bind(&UpdateAttempterTest::RollbackTestStart,
                             base::Unretained(this),
-                            false, true));
+                            false,
+                            true));
   loop_.Run();
 }
 
@@ -588,7 +601,8 @@ TEST_F(UpdateAttempterTest, InvalidSlotRollbackTest) {
   loop_.PostTask(FROM_HERE,
                  base::Bind(&UpdateAttempterTest::RollbackTestStart,
                             base::Unretained(this),
-                            false, false));
+                            false,
+                            false));
   loop_.Run();
 }
 
@@ -596,14 +610,15 @@ TEST_F(UpdateAttempterTest, EnterpriseRollbackTest) {
   loop_.PostTask(FROM_HERE,
                  base::Bind(&UpdateAttempterTest::RollbackTestStart,
                             base::Unretained(this),
-                            true, true));
+                            true,
+                            true));
   loop_.Run();
 }
 
 void UpdateAttempterTest::PingOmahaTestStart() {
   EXPECT_CALL(*processor_,
-              EnqueueAction(Property(&AbstractAction::Type,
-                                     OmahaRequestAction::StaticType())));
+              EnqueueAction(Pointee(Property(
+                  &AbstractAction::Type, OmahaRequestAction::StaticType()))));
   EXPECT_CALL(*processor_, StartProcessing());
   attempter_.PingOmaha();
   ScheduleQuitMainLoop();
@@ -637,10 +652,8 @@ TEST_F(UpdateAttempterTest, CreatePendingErrorEventTest) {
 }
 
 TEST_F(UpdateAttempterTest, CreatePendingErrorEventResumedTest) {
-  OmahaResponseHandlerAction *response_action =
-      new OmahaResponseHandlerAction(&fake_system_state_);
-  response_action->install_plan_.is_resume = true;
-  attempter_.response_handler_action_.reset(response_action);
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_resume = true;
   MockAction action;
   const ErrorCode kCode = ErrorCode::kInstallDeviceOpenError;
   attempter_.CreatePendingErrorEvent(&action, kCode);
@@ -648,10 +661,9 @@ TEST_F(UpdateAttempterTest, CreatePendingErrorEventResumedTest) {
   EXPECT_EQ(OmahaEvent::kTypeUpdateComplete, attempter_.error_event_->type);
   EXPECT_EQ(OmahaEvent::kResultError, attempter_.error_event_->result);
   EXPECT_EQ(
-      static_cast<ErrorCode>(
-          static_cast<int>(kCode) |
-          static_cast<int>(ErrorCode::kResumedFlag) |
-          static_cast<int>(ErrorCode::kTestOmahaUrlFlag)),
+      static_cast<ErrorCode>(static_cast<int>(kCode) |
+                             static_cast<int>(ErrorCode::kResumedFlag) |
+                             static_cast<int>(ErrorCode::kTestOmahaUrlFlag)),
       attempter_.error_event_->error_code);
 }
 
@@ -694,7 +706,7 @@ void UpdateAttempterTest::P2PNotEnabledStart() {
   fake_system_state_.set_p2p_manager(&mock_p2p_manager);
   mock_p2p_manager.fake().SetP2PEnabled(false);
   EXPECT_CALL(mock_p2p_manager, PerformHousekeeping()).Times(0);
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_FALSE(actual_using_p2p_for_downloading_);
   EXPECT_FALSE(actual_using_p2p_for_sharing());
   ScheduleQuitMainLoop();
@@ -716,7 +728,7 @@ void UpdateAttempterTest::P2PEnabledStartingFailsStart() {
   mock_p2p_manager.fake().SetEnsureP2PRunningResult(false);
   mock_p2p_manager.fake().SetPerformHousekeepingResult(false);
   EXPECT_CALL(mock_p2p_manager, PerformHousekeeping()).Times(0);
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_FALSE(actual_using_p2p_for_downloading());
   EXPECT_FALSE(actual_using_p2p_for_sharing());
   ScheduleQuitMainLoop();
@@ -739,7 +751,7 @@ void UpdateAttempterTest::P2PEnabledHousekeepingFailsStart() {
   mock_p2p_manager.fake().SetEnsureP2PRunningResult(true);
   mock_p2p_manager.fake().SetPerformHousekeepingResult(false);
   EXPECT_CALL(mock_p2p_manager, PerformHousekeeping());
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_FALSE(actual_using_p2p_for_downloading());
   EXPECT_FALSE(actual_using_p2p_for_sharing());
   ScheduleQuitMainLoop();
@@ -761,7 +773,7 @@ void UpdateAttempterTest::P2PEnabledStart() {
   mock_p2p_manager.fake().SetEnsureP2PRunningResult(true);
   mock_p2p_manager.fake().SetPerformHousekeepingResult(true);
   EXPECT_CALL(mock_p2p_manager, PerformHousekeeping());
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_TRUE(actual_using_p2p_for_downloading());
   EXPECT_TRUE(actual_using_p2p_for_sharing());
   ScheduleQuitMainLoop();
@@ -784,7 +796,13 @@ void UpdateAttempterTest::P2PEnabledInteractiveStart() {
   mock_p2p_manager.fake().SetEnsureP2PRunningResult(true);
   mock_p2p_manager.fake().SetPerformHousekeepingResult(true);
   EXPECT_CALL(mock_p2p_manager, PerformHousekeeping());
-  attempter_.Update("", "", "", "", false, true /* interactive */);
+  attempter_.Update("",
+                    "",
+                    "",
+                    "",
+                    false,
+                    false,
+                    /*interactive=*/true);
   EXPECT_FALSE(actual_using_p2p_for_downloading());
   EXPECT_TRUE(actual_using_p2p_for_sharing());
   ScheduleQuitMainLoop();
@@ -808,14 +826,13 @@ void UpdateAttempterTest::ReadScatterFactorFromPolicyTestStart() {
   fake_system_state_.set_device_policy(device_policy.get());
 
   EXPECT_CALL(*device_policy, GetScatterFactorInSeconds(_))
-      .WillRepeatedly(DoAll(
-          SetArgPointee<0>(scatter_factor_in_seconds),
-          Return(true)));
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(scatter_factor_in_seconds), Return(true)));
 
   attempter_.policy_provider_.reset(
       new policy::PolicyProvider(std::move(device_policy)));
 
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_EQ(scatter_factor_in_seconds, attempter_.scatter_factor_.InSeconds());
 
   ScheduleQuitMainLoop();
@@ -847,14 +864,13 @@ void UpdateAttempterTest::DecrementUpdateCheckCountTestStart() {
   fake_system_state_.set_device_policy(device_policy.get());
 
   EXPECT_CALL(*device_policy, GetScatterFactorInSeconds(_))
-      .WillRepeatedly(DoAll(
-          SetArgPointee<0>(scatter_factor_in_seconds),
-          Return(true)));
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(scatter_factor_in_seconds), Return(true)));
 
   attempter_.policy_provider_.reset(
       new policy::PolicyProvider(std::move(device_policy)));
 
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_EQ(scatter_factor_in_seconds, attempter_.scatter_factor_.InSeconds());
 
   // Make sure the file still exists.
@@ -870,7 +886,7 @@ void UpdateAttempterTest::DecrementUpdateCheckCountTestStart() {
   // However, if the count is already 0, it's not decremented. Test that.
   initial_value = 0;
   EXPECT_TRUE(fake_prefs.SetInt64(kPrefsUpdateCheckCount, initial_value));
-  attempter_.Update("", "", "", "", false, false);
+  attempter_.Update("", "", "", "", false, false, false);
   EXPECT_TRUE(fake_prefs.Exists(kPrefsUpdateCheckCount));
   EXPECT_TRUE(fake_prefs.GetInt64(kPrefsUpdateCheckCount, &new_value));
   EXPECT_EQ(initial_value, new_value);
@@ -879,9 +895,11 @@ void UpdateAttempterTest::DecrementUpdateCheckCountTestStart() {
 }
 
 TEST_F(UpdateAttempterTest, NoScatteringDoneDuringManualUpdateTestStart) {
-  loop_.PostTask(FROM_HERE, base::Bind(
-      &UpdateAttempterTest::NoScatteringDoneDuringManualUpdateTestStart,
-      base::Unretained(this)));
+  loop_.PostTask(
+      FROM_HERE,
+      base::Bind(
+          &UpdateAttempterTest::NoScatteringDoneDuringManualUpdateTestStart,
+          base::Unretained(this)));
   loop_.Run();
 }
 
@@ -895,7 +913,8 @@ void UpdateAttempterTest::NoScatteringDoneDuringManualUpdateTestStart() {
   fake_system_state_.fake_hardware()->SetIsOOBEComplete(Time::UnixEpoch());
   fake_system_state_.set_prefs(&fake_prefs);
 
-  EXPECT_TRUE(fake_prefs.SetInt64(kPrefsWallClockWaitPeriod, initial_value));
+  EXPECT_TRUE(
+      fake_prefs.SetInt64(kPrefsWallClockScatteringWaitPeriod, initial_value));
   EXPECT_TRUE(fake_prefs.SetInt64(kPrefsUpdateCheckCount, initial_value));
 
   // make sure scatter_factor is non-zero as scattering is disabled
@@ -907,26 +926,150 @@ void UpdateAttempterTest::NoScatteringDoneDuringManualUpdateTestStart() {
   fake_system_state_.set_device_policy(device_policy.get());
 
   EXPECT_CALL(*device_policy, GetScatterFactorInSeconds(_))
-      .WillRepeatedly(DoAll(
-          SetArgPointee<0>(scatter_factor_in_seconds),
-          Return(true)));
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(scatter_factor_in_seconds), Return(true)));
 
   attempter_.policy_provider_.reset(
       new policy::PolicyProvider(std::move(device_policy)));
 
   // Trigger an interactive check so we can test that scattering is disabled.
-  attempter_.Update("", "", "", "", false, true);
+  attempter_.Update("",
+                    "",
+                    "",
+                    "",
+                    false,
+                    false,
+                    /*interactive=*/true);
   EXPECT_EQ(scatter_factor_in_seconds, attempter_.scatter_factor_.InSeconds());
 
   // Make sure scattering is disabled for manual (i.e. user initiated) update
   // checks and all artifacts are removed.
   EXPECT_FALSE(
       attempter_.omaha_request_params_->wall_clock_based_wait_enabled());
-  EXPECT_FALSE(fake_prefs.Exists(kPrefsWallClockWaitPeriod));
+  EXPECT_FALSE(fake_prefs.Exists(kPrefsWallClockScatteringWaitPeriod));
   EXPECT_EQ(0, attempter_.omaha_request_params_->waiting_period().InSeconds());
   EXPECT_FALSE(
       attempter_.omaha_request_params_->update_check_count_wait_enabled());
   EXPECT_FALSE(fake_prefs.Exists(kPrefsUpdateCheckCount));
+
+  ScheduleQuitMainLoop();
+}
+
+void UpdateAttempterTest::SetUpStagingTest(const StagingSchedule& schedule,
+                                           FakePrefs* prefs) {
+  attempter_.prefs_ = prefs;
+  fake_system_state_.set_prefs(prefs);
+
+  int64_t initial_value = 8;
+  EXPECT_TRUE(
+      prefs->SetInt64(kPrefsWallClockScatteringWaitPeriod, initial_value));
+  EXPECT_TRUE(prefs->SetInt64(kPrefsUpdateCheckCount, initial_value));
+  attempter_.scatter_factor_ = TimeDelta::FromSeconds(20);
+
+  auto device_policy = std::make_unique<policy::MockDevicePolicy>();
+  EXPECT_CALL(*device_policy, LoadPolicy()).WillRepeatedly(Return(true));
+  fake_system_state_.set_device_policy(device_policy.get());
+  EXPECT_CALL(*device_policy, GetDeviceUpdateStagingSchedule(_))
+      .WillRepeatedly(DoAll(SetArgPointee<0>(schedule), Return(true)));
+
+  attempter_.policy_provider_.reset(
+      new policy::PolicyProvider(std::move(device_policy)));
+}
+
+TEST_F(UpdateAttempterTest, StagingSetsPrefsAndTurnsOffScattering) {
+  loop_.PostTask(
+      FROM_HERE,
+      base::Bind(
+          &UpdateAttempterTest::StagingSetsPrefsAndTurnsOffScatteringStart,
+          base::Unretained(this)));
+  loop_.Run();
+}
+
+void UpdateAttempterTest::StagingSetsPrefsAndTurnsOffScatteringStart() {
+  // Tests that staging sets its prefs properly and turns off scattering.
+  fake_system_state_.fake_hardware()->SetIsOOBEComplete(Time::UnixEpoch());
+  FakePrefs fake_prefs;
+  SetUpStagingTest(kValidStagingSchedule, &fake_prefs);
+
+  attempter_.Update("", "", "", "", false, false, false);
+  // Check that prefs have the correct values.
+  int64_t update_count;
+  EXPECT_TRUE(fake_prefs.GetInt64(kPrefsUpdateCheckCount, &update_count));
+  int64_t waiting_time_days;
+  EXPECT_TRUE(fake_prefs.GetInt64(kPrefsWallClockStagingWaitPeriod,
+                                  &waiting_time_days));
+  EXPECT_GT(waiting_time_days, 0);
+  // Update count should have been decremented.
+  EXPECT_EQ(7, update_count);
+  // Check that Omaha parameters were updated correctly.
+  EXPECT_TRUE(
+      attempter_.omaha_request_params_->update_check_count_wait_enabled());
+  EXPECT_TRUE(
+      attempter_.omaha_request_params_->wall_clock_based_wait_enabled());
+  EXPECT_EQ(waiting_time_days,
+            attempter_.omaha_request_params_->waiting_period().InDays());
+  // Check class variables.
+  EXPECT_EQ(waiting_time_days, attempter_.staging_wait_time_.InDays());
+  EXPECT_EQ(kValidStagingSchedule, attempter_.staging_schedule_);
+  // Check that scattering is turned off
+  EXPECT_EQ(0, attempter_.scatter_factor_.InSeconds());
+  EXPECT_FALSE(fake_prefs.Exists(kPrefsWallClockScatteringWaitPeriod));
+
+  ScheduleQuitMainLoop();
+}
+
+void UpdateAttempterTest::CheckStagingOff() {
+  // Check that all prefs were removed.
+  EXPECT_FALSE(attempter_.prefs_->Exists(kPrefsUpdateCheckCount));
+  EXPECT_FALSE(attempter_.prefs_->Exists(kPrefsWallClockScatteringWaitPeriod));
+  EXPECT_FALSE(attempter_.prefs_->Exists(kPrefsWallClockStagingWaitPeriod));
+  // Check that the Omaha parameters have the correct value.
+  EXPECT_EQ(0, attempter_.omaha_request_params_->waiting_period().InDays());
+  EXPECT_EQ(attempter_.omaha_request_params_->waiting_period(),
+            attempter_.staging_wait_time_);
+  EXPECT_FALSE(
+      attempter_.omaha_request_params_->update_check_count_wait_enabled());
+  EXPECT_FALSE(
+      attempter_.omaha_request_params_->wall_clock_based_wait_enabled());
+  // Check that scattering is turned off too.
+  EXPECT_EQ(0, attempter_.scatter_factor_.InSeconds());
+}
+
+TEST_F(UpdateAttempterTest, StagingOffIfInteractive) {
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(&UpdateAttempterTest::StagingOffIfInteractiveStart,
+                            base::Unretained(this)));
+  loop_.Run();
+}
+
+void UpdateAttempterTest::StagingOffIfInteractiveStart() {
+  // Tests that staging is turned off when an interactive update is requested.
+  fake_system_state_.fake_hardware()->SetIsOOBEComplete(Time::UnixEpoch());
+  FakePrefs fake_prefs;
+  SetUpStagingTest(kValidStagingSchedule, &fake_prefs);
+
+  attempter_.Update("", "", "", "", false, false, /* interactive = */ true);
+  CheckStagingOff();
+
+  ScheduleQuitMainLoop();
+}
+
+TEST_F(UpdateAttempterTest, StagingOffIfOobe) {
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(&UpdateAttempterTest::StagingOffIfOobeStart,
+                            base::Unretained(this)));
+  loop_.Run();
+}
+
+void UpdateAttempterTest::StagingOffIfOobeStart() {
+  // Tests that staging is turned off if OOBE hasn't been completed.
+  fake_system_state_.fake_hardware()->SetIsOOBEEnabled(true);
+  fake_system_state_.fake_hardware()->UnsetIsOOBEComplete();
+  FakePrefs fake_prefs;
+  SetUpStagingTest(kValidStagingSchedule, &fake_prefs);
+
+  attempter_.Update("", "", "", "", false, false, /* interactive = */ true);
+  CheckStagingOff();
 
   ScheduleQuitMainLoop();
 }
@@ -1029,6 +1172,21 @@ TEST_F(UpdateAttempterTest, AnyUpdateSourceDisallowedOfficialNormal) {
   EXPECT_FALSE(attempter_.IsAnyUpdateSourceAllowed());
 }
 
+TEST_F(UpdateAttempterTest, CheckForUpdateAUDlcTest) {
+  fake_system_state_.fake_hardware()->SetIsOfficialBuild(true);
+  fake_system_state_.fake_hardware()->SetAreDevFeaturesEnabled(false);
+
+  const string dlc_module_id = "a_dlc_module_id";
+  vector<string> dlc_module_ids = {dlc_module_id};
+  ON_CALL(mock_dlcservice_, GetInstalled(testing::_))
+      .WillByDefault(DoAll(testing::SetArgPointee<0>(dlc_module_ids),
+                           testing::Return(true)));
+
+  attempter_.CheckForUpdate("", "autest", UpdateAttemptFlags::kNone);
+  EXPECT_EQ(attempter_.dlc_module_ids_.size(), 1);
+  EXPECT_EQ(attempter_.dlc_module_ids_[0], dlc_module_id);
+}
+
 TEST_F(UpdateAttempterTest, CheckForUpdateAUTest) {
   fake_system_state_.fake_hardware()->SetIsOfficialBuild(true);
   fake_system_state_.fake_hardware()->SetAreDevFeaturesEnabled(false);
@@ -1043,38 +1201,93 @@ TEST_F(UpdateAttempterTest, CheckForUpdateScheduledAUTest) {
   EXPECT_EQ(constants::kOmahaDefaultAUTestURL, attempter_.forced_omaha_url());
 }
 
+TEST_F(UpdateAttempterTest, CheckForInstallTest) {
+  fake_system_state_.fake_hardware()->SetIsOfficialBuild(true);
+  fake_system_state_.fake_hardware()->SetAreDevFeaturesEnabled(false);
+  attempter_.CheckForInstall({}, "autest");
+  EXPECT_EQ(constants::kOmahaDefaultAUTestURL, attempter_.forced_omaha_url());
+
+  attempter_.CheckForInstall({}, "autest-scheduled");
+  EXPECT_EQ(constants::kOmahaDefaultAUTestURL, attempter_.forced_omaha_url());
+
+  attempter_.CheckForInstall({}, "http://omaha.phishing");
+  EXPECT_EQ("", attempter_.forced_omaha_url());
+}
+
+TEST_F(UpdateAttempterTest, InstallSetsStatusIdle) {
+  attempter_.CheckForInstall({}, "http://foo.bar");
+  attempter_.status_ = UpdateStatus::DOWNLOADING;
+  EXPECT_TRUE(attempter_.is_install_);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+  UpdateEngineStatus status;
+  attempter_.GetStatus(&status);
+  // Should set status to idle after an install operation.
+  EXPECT_EQ(UpdateStatus::IDLE, status.status);
+}
+
+TEST_F(UpdateAttempterTest, RollbackAfterInstall) {
+  attempter_.is_install_ = true;
+  attempter_.Rollback(false);
+  EXPECT_FALSE(attempter_.is_install_);
+}
+
+TEST_F(UpdateAttempterTest, UpdateAfterInstall) {
+  attempter_.is_install_ = true;
+  attempter_.CheckForUpdate("", "", UpdateAttemptFlags::kNone);
+  EXPECT_FALSE(attempter_.is_install_);
+}
+
 TEST_F(UpdateAttempterTest, TargetVersionPrefixSetAndReset) {
-  attempter_.CalculateUpdateParams("", "", "", "1234", false, false);
+  attempter_.CalculateUpdateParams("", "", "", "1234", false, false, false);
   EXPECT_EQ("1234",
             fake_system_state_.request_params()->target_version_prefix());
 
-  attempter_.CalculateUpdateParams("", "", "", "", false, false);
+  attempter_.CalculateUpdateParams("", "", "", "", false, false, false);
   EXPECT_TRUE(
       fake_system_state_.request_params()->target_version_prefix().empty());
+}
+
+TEST_F(UpdateAttempterTest, RollbackAllowedSetAndReset) {
+  attempter_.CalculateUpdateParams("",
+                                   "",
+                                   "",
+                                   "1234",
+                                   /*rollback_allowed=*/true,
+                                   false,
+                                   false);
+  EXPECT_TRUE(fake_system_state_.request_params()->rollback_allowed());
+
+  attempter_.CalculateUpdateParams("",
+                                   "",
+                                   "",
+                                   "1234",
+                                   /*rollback_allowed=*/false,
+                                   false,
+                                   false);
+  EXPECT_FALSE(fake_system_state_.request_params()->rollback_allowed());
 }
 
 TEST_F(UpdateAttempterTest, UpdateDeferredByPolicyTest) {
   // Construct an OmahaResponseHandlerAction that has processed an InstallPlan,
   // but the update is being deferred by the Policy.
-  OmahaResponseHandlerAction* response_action =
-      new OmahaResponseHandlerAction(&fake_system_state_);
-  response_action->install_plan_.version = "a.b.c.d";
-  response_action->install_plan_.system_version = "b.c.d.e";
-  response_action->install_plan_.payloads.push_back(
+  OmahaResponseHandlerAction response_action(&fake_system_state_);
+  response_action.install_plan_.version = "a.b.c.d";
+  response_action.install_plan_.system_version = "b.c.d.e";
+  response_action.install_plan_.payloads.push_back(
       {.size = 1234ULL, .type = InstallPayloadType::kFull});
-  attempter_.response_handler_action_.reset(response_action);
   // Inform the UpdateAttempter that the OmahaResponseHandlerAction has
   // completed, with the deferred-update error code.
   attempter_.ActionCompleted(
-      nullptr, response_action, ErrorCode::kOmahaUpdateDeferredPerPolicy);
+      nullptr, &response_action, ErrorCode::kOmahaUpdateDeferredPerPolicy);
   {
     UpdateEngineStatus status;
     attempter_.GetStatus(&status);
     EXPECT_EQ(UpdateStatus::UPDATE_AVAILABLE, status.status);
-    EXPECT_EQ(response_action->install_plan_.version, status.new_version);
-    EXPECT_EQ(response_action->install_plan_.system_version,
+    EXPECT_TRUE(attempter_.install_plan_);
+    EXPECT_EQ(attempter_.install_plan_->version, status.new_version);
+    EXPECT_EQ(attempter_.install_plan_->system_version,
               status.new_system_version);
-    EXPECT_EQ(response_action->install_plan_.payloads[0].size,
+    EXPECT_EQ(attempter_.install_plan_->payloads[0].size,
               status.new_size_bytes);
   }
   // An "error" event should have been created to tell Omaha that the update is
@@ -1093,10 +1306,10 @@ TEST_F(UpdateAttempterTest, UpdateDeferredByPolicyTest) {
     UpdateEngineStatus status;
     attempter_.GetStatus(&status);
     EXPECT_EQ(UpdateStatus::REPORTING_ERROR_EVENT, status.status);
-    EXPECT_EQ(response_action->install_plan_.version, status.new_version);
-    EXPECT_EQ(response_action->install_plan_.system_version,
+    EXPECT_EQ(response_action.install_plan_.version, status.new_version);
+    EXPECT_EQ(response_action.install_plan_.system_version,
               status.new_system_version);
-    EXPECT_EQ(response_action->install_plan_.payloads[0].size,
+    EXPECT_EQ(response_action.install_plan_.payloads[0].size,
               status.new_size_bytes);
   }
 }
@@ -1118,6 +1331,20 @@ TEST_F(UpdateAttempterTest, UpdateAttemptFlagsCachedAtUpdateStart) {
             attempter_.GetCurrentUpdateAttemptFlags());
 }
 
+TEST_F(UpdateAttempterTest, RollbackNotAllowed) {
+  UpdateCheckParams params = {.updates_enabled = true,
+                              .rollback_allowed = false};
+  attempter_.OnUpdateScheduled(EvalStatus::kSucceeded, params);
+  EXPECT_FALSE(fake_system_state_.request_params()->rollback_allowed());
+}
+
+TEST_F(UpdateAttempterTest, RollbackAllowed) {
+  UpdateCheckParams params = {.updates_enabled = true,
+                              .rollback_allowed = true};
+  attempter_.OnUpdateScheduled(EvalStatus::kSucceeded, params);
+  EXPECT_TRUE(fake_system_state_.request_params()->rollback_allowed());
+}
+
 TEST_F(UpdateAttempterTest, InteractiveUpdateUsesPassedRestrictions) {
   attempter_.SetUpdateAttemptFlags(UpdateAttemptFlags::kFlagRestrictDownload);
 
@@ -1137,6 +1364,206 @@ TEST_F(UpdateAttempterTest, NonInteractiveUpdateUsesSetRestrictions) {
                                 UpdateAttemptFlags::kFlagRestrictDownload);
   EXPECT_EQ(UpdateAttemptFlags::kNone,
             attempter_.GetCurrentUpdateAttemptFlags());
+}
+
+void UpdateAttempterTest::ResetRollbackHappenedStart(bool is_consumer,
+                                                     bool is_policy_loaded,
+                                                     bool expected_reset) {
+  EXPECT_CALL(*fake_system_state_.mock_payload_state(), GetRollbackHappened())
+      .WillRepeatedly(Return(true));
+  auto mock_policy_provider =
+      std::make_unique<NiceMock<policy::MockPolicyProvider>>();
+  EXPECT_CALL(*mock_policy_provider, IsConsumerDevice())
+      .WillRepeatedly(Return(is_consumer));
+  EXPECT_CALL(*mock_policy_provider, device_policy_is_loaded())
+      .WillRepeatedly(Return(is_policy_loaded));
+  const policy::MockDevicePolicy device_policy;
+  EXPECT_CALL(*mock_policy_provider, GetDevicePolicy())
+      .WillRepeatedly(ReturnRef(device_policy));
+  EXPECT_CALL(*fake_system_state_.mock_payload_state(),
+              SetRollbackHappened(false))
+      .Times(expected_reset ? 1 : 0);
+  attempter_.policy_provider_ = std::move(mock_policy_provider);
+  attempter_.Update("", "", "", "", false, false, false);
+  ScheduleQuitMainLoop();
+}
+
+TEST_F(UpdateAttempterTest, ResetRollbackHappenedOobe) {
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(&UpdateAttempterTest::ResetRollbackHappenedStart,
+                            base::Unretained(this),
+                            /*is_consumer=*/false,
+                            /*is_policy_loaded=*/false,
+                            /*expected_reset=*/false));
+  loop_.Run();
+}
+
+TEST_F(UpdateAttempterTest, ResetRollbackHappenedConsumer) {
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(&UpdateAttempterTest::ResetRollbackHappenedStart,
+                            base::Unretained(this),
+                            /*is_consumer=*/true,
+                            /*is_policy_loaded=*/false,
+                            /*expected_reset=*/true));
+  loop_.Run();
+}
+
+TEST_F(UpdateAttempterTest, ResetRollbackHappenedEnterprise) {
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(&UpdateAttempterTest::ResetRollbackHappenedStart,
+                            base::Unretained(this),
+                            /*is_consumer=*/false,
+                            /*is_policy_loaded=*/true,
+                            /*expected_reset=*/true));
+  loop_.Run();
+}
+
+TEST_F(UpdateAttempterTest, SetRollbackHappenedRollback) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = true;
+
+  EXPECT_CALL(*fake_system_state_.mock_payload_state(),
+              SetRollbackHappened(true))
+      .Times(1);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest, SetRollbackHappenedNotRollback) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = false;
+
+  EXPECT_CALL(*fake_system_state_.mock_payload_state(),
+              SetRollbackHappened(true))
+      .Times(0);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest, RollbackMetricsRollbackSuccess) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = true;
+  attempter_.install_plan_->version = kRollbackVersion;
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseRollbackMetrics(true, kRollbackVersion))
+      .Times(1);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest, RollbackMetricsNotRollbackSuccess) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = false;
+  attempter_.install_plan_->version = kRollbackVersion;
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseRollbackMetrics(_, _))
+      .Times(0);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest, RollbackMetricsRollbackFailure) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = true;
+  attempter_.install_plan_->version = kRollbackVersion;
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseRollbackMetrics(false, kRollbackVersion))
+      .Times(1);
+  MockAction action;
+  attempter_.CreatePendingErrorEvent(&action, ErrorCode::kRollbackNotPossible);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kRollbackNotPossible);
+}
+
+TEST_F(UpdateAttempterTest, RollbackMetricsNotRollbackFailure) {
+  attempter_.install_plan_.reset(new InstallPlan);
+  attempter_.install_plan_->is_rollback = false;
+  attempter_.install_plan_->version = kRollbackVersion;
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseRollbackMetrics(_, _))
+      .Times(0);
+  MockAction action;
+  attempter_.CreatePendingErrorEvent(&action, ErrorCode::kRollbackNotPossible);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kRollbackNotPossible);
+}
+
+TEST_F(UpdateAttempterTest, TimeToUpdateAppliedMetricFailure) {
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseUpdateSeenToDownloadDays(_, _))
+      .Times(0);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kOmahaUpdateDeferredPerPolicy);
+}
+
+TEST_F(UpdateAttempterTest, TimeToUpdateAppliedOnNonEnterprise) {
+  auto device_policy = std::make_unique<policy::MockDevicePolicy>();
+  fake_system_state_.set_device_policy(device_policy.get());
+  // Make device policy return that this is not enterprise enrolled
+  EXPECT_CALL(*device_policy, IsEnterpriseEnrolled()).WillOnce(Return(false));
+
+  // Ensure that the metric is not recorded.
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseUpdateSeenToDownloadDays(_, _))
+      .Times(0);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest,
+       TimeToUpdateAppliedWithTimeRestrictionMetricSuccess) {
+  constexpr int kDaysToUpdate = 15;
+  auto device_policy = std::make_unique<policy::MockDevicePolicy>();
+  fake_system_state_.set_device_policy(device_policy.get());
+  // Make device policy return that this is enterprise enrolled
+  EXPECT_CALL(*device_policy, IsEnterpriseEnrolled()).WillOnce(Return(true));
+  // Pretend that there's a time restriction policy in place
+  EXPECT_CALL(*device_policy, GetDisallowedTimeIntervals(_))
+      .WillOnce(Return(true));
+
+  FakePrefs fake_prefs;
+  Time update_first_seen_at = Time::Now();
+  fake_prefs.SetInt64(kPrefsUpdateFirstSeenAt,
+                      update_first_seen_at.ToInternalValue());
+
+  FakeClock fake_clock;
+  Time update_finished_at =
+      update_first_seen_at + TimeDelta::FromDays(kDaysToUpdate);
+  fake_clock.SetWallclockTime(update_finished_at);
+
+  fake_system_state_.set_clock(&fake_clock);
+  fake_system_state_.set_prefs(&fake_prefs);
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseUpdateSeenToDownloadDays(true, kDaysToUpdate))
+      .Times(1);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
+}
+
+TEST_F(UpdateAttempterTest,
+       TimeToUpdateAppliedWithoutTimeRestrictionMetricSuccess) {
+  constexpr int kDaysToUpdate = 15;
+  auto device_policy = std::make_unique<policy::MockDevicePolicy>();
+  fake_system_state_.set_device_policy(device_policy.get());
+  // Make device policy return that this is enterprise enrolled
+  EXPECT_CALL(*device_policy, IsEnterpriseEnrolled()).WillOnce(Return(true));
+  // Pretend that there's no time restriction policy in place
+  EXPECT_CALL(*device_policy, GetDisallowedTimeIntervals(_))
+      .WillOnce(Return(false));
+
+  FakePrefs fake_prefs;
+  Time update_first_seen_at = Time::Now();
+  fake_prefs.SetInt64(kPrefsUpdateFirstSeenAt,
+                      update_first_seen_at.ToInternalValue());
+
+  FakeClock fake_clock;
+  Time update_finished_at =
+      update_first_seen_at + TimeDelta::FromDays(kDaysToUpdate);
+  fake_clock.SetWallclockTime(update_finished_at);
+
+  fake_system_state_.set_clock(&fake_clock);
+  fake_system_state_.set_prefs(&fake_prefs);
+
+  EXPECT_CALL(*fake_system_state_.mock_metrics_reporter(),
+              ReportEnterpriseUpdateSeenToDownloadDays(false, kDaysToUpdate))
+      .Times(1);
+  attempter_.ProcessingDone(nullptr, ErrorCode::kSuccess);
 }
 
 }  // namespace chromeos_update_engine

@@ -1,0 +1,17 @@
+# .coveragerc to control coverage.py
+[run]
+branch = True
+
+# module names must be listed one per line.
+source =
+    aidegen
+
+# omit file patterns must be listed one per line. */.local/* /usr/*
+omit =
+    *_unittest.py
+    *__init__.py
+    *unittest_constants.py
+
+[report]
+show_missing = False
+

@@ -47,8 +47,7 @@
         android:minHeight="40dp"
         android:text="@string/search_location_permission"
         android:lineSpacingMultiplier="1.2"
-        android:textSize="16sp"
-        android:textColor="@color/dialer_secondary_text_color"/>
+        style="@style/Dialer.TextAppearance.Primary"/>
 
     <Button
         android:id="@+id/location_permission_allow"
@@ -72,7 +71,7 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         android:text="@string/nearby_places_dismiss"
-        android:textColor="@color/dialer_theme_color"
+        android:textColor="?android:attr/colorPrimary"
         style="@style/Widget.AppCompat.Button.Borderless"/>
   </RelativeLayout>
 </android.support.v7.widget.CardView>

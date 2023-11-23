@@ -40,7 +40,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewTestAct
         }
         final WebViewTestActivity activity = getActivity();
         mWebView = activity.getWebView();
-        mOnUiThread = new WebViewOnUiThread(this, mWebView);
+        mOnUiThread = new WebViewOnUiThread(mWebView);
     }
 
     @Override

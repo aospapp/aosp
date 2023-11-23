@@ -17,22 +17,20 @@
 
 <sample>
     <name>WearHighBandwidthNetworking</name>
-    <group>Wearable</group>  <!-- This field will be deprecated in the future
-                            and replaced with the "categories" tags below. -->
+    <group>Wearable</group>
     <package>com.example.android.wearable.wear.wearhighbandwidthnetworking</package>
 
     <!-- change minSdk if needed-->
     <minSdk>24</minSdk>
     <minSdkVersionWear>24</minSdkVersionWear>
-    <targetSdkVersion>26</targetSdkVersion>
-    <targetSdkVersionWear>26</targetSdkVersionWear>
-    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersion>28</targetSdkVersion>
+    <targetSdkVersionWear>28</targetSdkVersionWear>
     <multiDexEnabled>true</multiDexEnabled>
 
-    <!-- Include additional dependencies here.-->
-    <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
-    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
+    <androidX>true</androidX>
 
+    <dependency_wearable>androidx.wear:wear:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.legacy:legacy-support-v13:1.0.0</dependency_wearable>
 
     <strings>
         <intro>

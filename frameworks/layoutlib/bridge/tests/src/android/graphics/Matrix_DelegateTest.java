@@ -52,13 +52,15 @@ public class Matrix_DelegateTest extends TestCase {
         Matrix m1 = new Matrix();
         Matrix inverse = new Matrix();
         m1.setValues(new float[]{1, 2, 3, 4, 5, 6, 7, 8, 9});
-        m1.invert(inverse);
+        assertFalse(m1.invert(inverse));
 
+        m1.setValues(new float[]{3, 5, 6, 2, 5, 7, 4, 8, 2});
+        m1.invert(inverse);
         float[] values = new float[9];
         inverse.getValues(values);
 
         assertTrue(Arrays.equals(values,
-                new float[]{-1.6666666f, 0.6666667f, 1.0f, 1.3333334f, -0.33333334f, -2.0f, 0.0f,
-                        0.0f, 1.0f}));
+                new float[]{1.0952381f, -0.9047619f, -0.11904762f, -0.5714286f, 0.42857143f,
+                        0.21428572f, 0.0952381f, 0.0952381f, -0.11904762f}));
     }
 }

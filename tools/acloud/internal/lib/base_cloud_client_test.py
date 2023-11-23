@@ -17,13 +17,15 @@
 """Tests for acloud.internal.lib.base_cloud_client."""
 
 import time
-import apiclient
-import mock
 
 import unittest
+import mock
+
+import apiclient
+
+from acloud import errors
 from acloud.internal.lib import base_cloud_client
 from acloud.internal.lib import driver_test_lib
-from acloud.public import errors
 
 
 class FakeError(Exception):
@@ -33,20 +35,16 @@ class FakeError(Exception):
 class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
     """Test BaseCloudApiClient."""
 
-    def setUp(self):
-        """Set up test."""
-        super(BaseCloudApiClientTest, self).setUp()
-
     def testInitResourceHandle(self):
         """Test InitResourceHandle."""
         # Setup mocks
-        mock_credentials = mock.MagicMock()
         self.Patch(base_cloud_client, "build")
         # Call the method
         base_cloud_client.BaseCloudApiClient(mock.MagicMock())
         base_cloud_client.build.assert_called_once_with(
             serviceName=base_cloud_client.BaseCloudApiClient.API_NAME,
             version=base_cloud_client.BaseCloudApiClient.API_VERSION,
+            cache_discovery=False,
             http=mock.ANY)
 
     def _SetupInitMocks(self):
@@ -113,7 +111,9 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
             "r2": (None, error_1),
             "r3": (None, error_2)
         }
+
         self.assertEqual(results, expected_results)
+        # pylint: disable=no-member
         self.assertEqual(requests["r1"].execute.call_count, 1)
         self.assertEqual(requests["r2"].execute.call_count,
                          client.RETRY_COUNT + 1)
@@ -147,6 +147,7 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
 
         api_mock = mock.MagicMock()
         api_mock.execute.side_effect = FakeError("fake retriable error.")
+        # pylint: disable=no-member
         self.assertRaises(
             FakeError,
             client.Execute,

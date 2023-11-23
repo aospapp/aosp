@@ -41,6 +41,8 @@
 #include <sys/statfs.h>
 #include <sys/vfs.h>
 
+#include "../version.h"
+
 /* A relatively new ioctl interface ... */
 #ifndef EXT4_IOC_MOVE_EXT
 #define EXT4_IOC_MOVE_EXT      _IOWR('f', 15, struct move_extent)
@@ -1014,7 +1016,7 @@ static int get_best_count(ext4_fsblk_t block_count)
 	int ret;
 	unsigned int flex_bg_num;
 
-	/* Calcuate best extents count */
+	/* Calculate best extents count */
 	if (feature_incompat & EXT4_FEATURE_INCOMPAT_FLEX_BG) {
 		flex_bg_num = 1 << log_groups_per_flex;
 		ret = ((block_count - 1) /
@@ -1578,7 +1580,7 @@ static int file_defrag(const char *file, const struct stat64 *buf,
 		goto out;
 	}
 
-	/* Calcuate donor inode's continuous physical region */
+	/* Calculate donor inode's continuous physical region */
 	donor_physical_cnt = get_physical_count(donor_list_physical);
 
 	/* Change donor extent list from physical to logical */
@@ -1673,11 +1675,14 @@ int main(int argc, char *argv[])
 	int	i, j, ret = 0;
 	int	flags = FTW_PHYS | FTW_MOUNT;
 	int	arg_type = -1;
+	int	mount_dir_len = 0;
 	int	success_flag = 0;
 	char	dir_name[PATH_MAX + 1];
 	char	dev_name[PATH_MAX + 1];
 	struct stat64	buf;
 	ext2_filsys fs = NULL;
+
+	printf("e4defrag %s (%s)\n", E2FSPROGS_VERSION, E2FSPROGS_DATE);
 
 	/* Parse arguments */
 	if (argc == 1)
@@ -1814,7 +1819,6 @@ int main(int argc, char *argv[])
 		}
 
 		switch (arg_type) {
-			int mount_dir_len = 0;
 
 		case DIRNAME:
 			if (!(mode_flag & STATISTIC))
@@ -1826,11 +1830,11 @@ int main(int argc, char *argv[])
 			strncat(lost_found_dir, "/lost+found",
 				PATH_MAX - strnlen(lost_found_dir, PATH_MAX));
 
-			/* Not the case("e4defrag  mount_piont_dir") */
+			/* Not the case("e4defrag  mount_point_dir") */
 			if (dir_name[mount_dir_len] != '\0') {
 				/*
-				 * "e4defrag mount_piont_dir/lost+found"
-				 * or "e4defrag mount_piont_dir/lost+found/"
+				 * "e4defrag mount_point_dir/lost+found"
+				 * or "e4defrag mount_point_dir/lost+found/"
 				 */
 				if (strncmp(lost_found_dir, dir_name,
 					    strnlen(lost_found_dir,
@@ -1844,9 +1848,10 @@ int main(int argc, char *argv[])
 					continue;
 				}
 
-				/* "e4defrag mount_piont_dir/else_dir" */
+				/* "e4defrag mount_point_dir/else_dir" */
 				memset(lost_found_dir, 0, PATH_MAX + 1);
 			}
+			/* fall through */
 		case DEVNAME:
 			if (arg_type == DEVNAME) {
 				strncpy(lost_found_dir, dir_name,

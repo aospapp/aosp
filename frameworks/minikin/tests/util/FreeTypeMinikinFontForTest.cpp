@@ -29,7 +29,10 @@
 #include <log/log.h>
 #include FT_OUTLINE_H
 
+#include "minikin/MinikinExtent.h"
 #include "minikin/MinikinFont.h"
+#include "minikin/MinikinPaint.h"
+#include "minikin/MinikinRect.h"
 
 namespace minikin {
 namespace {
@@ -104,13 +107,11 @@ void FreeTypeMinikinFontForTest::GetBounds(MinikinRect* bounds, uint32_t glyphId
     bounds->mBottom = FTPosToFloat(bbox.yMin);
 }
 
-void FreeTypeMinikinFontForTest::GetFontExtent(MinikinExtent* extent,
-                                               const MinikinPaint& /* paint */,
+void FreeTypeMinikinFontForTest::GetFontExtent(MinikinExtent* extent, const MinikinPaint& paint,
                                                const FontFakery& /* fakery */) const {
-    // TODO: Retrieve font metrics from FreeType.
-    extent->ascent = -10.0f;
-    extent->descent = 20.0f;
-    extent->line_gap = 0.0f;
+    float upem = mFtFace->units_per_EM;
+    extent->ascent = -static_cast<float>(mFtFace->ascender) * paint.size / upem;
+    extent->descent = -static_cast<float>(mFtFace->descender) * paint.size / upem;
 }
 
 }  // namespace minikin

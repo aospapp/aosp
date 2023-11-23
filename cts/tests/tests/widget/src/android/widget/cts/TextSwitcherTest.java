@@ -21,14 +21,15 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.TextSwitcher;
 import android.widget.TextView;
+
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;

@@ -27,6 +27,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -40,26 +45,6 @@ import static android.signature.cts.CurrentApi.API_FILE_DIRECTORY;
 /**
  */
 public class AbstractApiTest extends InstrumentationTestCase {
-
-    /**
-     * A set of class names that are inaccessible for some reason.
-     */
-    private static final Set<String> KNOWN_INACCESSIBLE_CLASSES = new HashSet<>();
-
-    static {
-        // TODO(b/63383787) - These classes, which are nested annotations with @Retention(SOURCE)
-        // are removed from framework.dex for an as yet unknown reason.
-        KNOWN_INACCESSIBLE_CLASSES.add("android.content.pm.PackageManager.PermissionFlags");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.ProgramSelector.IdentifierType");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.ProgramSelector.ProgramType");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.RadioManager.Band");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.os.UserManager.UserRestrictionSource");
-        KNOWN_INACCESSIBLE_CLASSES.add(
-                "android.service.persistentdata.PersistentDataBlockManager.FlashLockState");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.ProgramSelector.IdentifierType");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.ProgramSelector.ProgramType");
-        KNOWN_INACCESSIBLE_CLASSES.add("android.hardware.radio.RadioManager.Band");
-    }
 
     private TestResultObserver mResultObserver;
 
@@ -80,20 +65,13 @@ public class AbstractApiTest extends InstrumentationTestCase {
         // not part of API though exist in the runtime.
         classProvider = new ExcludingClassProvider(
                 new BootClassPathClassesProvider(),
-                name -> KNOWN_INACCESSIBLE_CLASSES.contains(name)
-                        || (name != null && name.startsWith("com.android.internal.R.")));
-
+                name -> name != null && name.startsWith("com.android.internal.R."));
 
         initializeFromArgs(instrumentationArgs);
     }
 
     protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
 
-    }
-
-    private static boolean isAccessibleClass(JDiffClassDescription classDescription) {
-        // Ignore classes that are known to be inaccessible.
-        return !KNOWN_INACCESSIBLE_CLASSES.contains(classDescription.getAbsoluteClassName());
     }
 
     protected interface RunnableWithTestResultObserver {
@@ -131,9 +109,37 @@ public class AbstractApiTest extends InstrumentationTestCase {
         return argument.split(",");
     }
 
-    static Stream<InputStream> readFile(File file) {
+    Stream<Object> readFileOptimized(File file) {
         try {
             if (file.getName().endsWith(".zip")) {
+                @SuppressWarnings("resource")
+                ZipFile zip = new ZipFile(file);
+                return zip.stream().map(entry -> {
+                    try {
+                        return zip.getInputStream(entry);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            } else {
+                try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(file.toPath(),
+                        EnumSet.of(StandardOpenOption.READ))) {
+                    ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0,
+                            fileChannel.size());
+                    if (mappedByteBuffer == null) {
+                        throw new IllegalStateException("Could not map " + file);
+                    }
+                    return Stream.of(mappedByteBuffer);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    Stream<InputStream> readFile(File file) {
+        try {
+            if (file.getName().endsWith(".zip")) {
+                @SuppressWarnings("resource")
                 ZipFile zip = new ZipFile(file);
                 return zip.stream().map(entry -> {
                     try {
@@ -149,16 +155,14 @@ public class AbstractApiTest extends InstrumentationTestCase {
         }
     }
 
-    static Stream<JDiffClassDescription> parseApiFilesAsStream(
-            ApiDocumentParser apiDocumentParser, String[] apiFiles)
-            throws XmlPullParserException, IOException {
+    Stream<JDiffClassDescription> parseApiFilesAsStream(
+            ApiDocumentParser apiDocumentParser, String[] apiFiles) {
         return Stream.of(apiFiles)
                 .map(name -> new File(API_FILE_DIRECTORY + "/" + name))
-                .flatMap(file -> readFile(file))
+                .flatMap(this::readFile)
                 .flatMap(stream -> {
                     try {
-                        return apiDocumentParser.parseAsStream(stream)
-                              .filter(AbstractApiTest::isAccessibleClass);
+                        return apiDocumentParser.parseAsStream(stream);
                     } catch (IOException | XmlPullParserException e) {
                         throw new RuntimeException(e);
                     }

@@ -20,7 +20,8 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_RESOURCE_DIR += packages/services/Car/service/res
+LOCAL_RESOURCE_DIR += $(LOCAL_PATH)/res \
+    packages/services/Car/service/res
 
 LOCAL_AAPT_FLAGS += --extra-packages com.android.car --auto-add-overlay
 
@@ -38,16 +39,24 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_STATIC_JAVA_LIBRARIES := junit
-LOCAL_STATIC_JAVA_LIBRARIES += car-service-lib-for-test \
-                               vehicle-hal-support-lib \
-                               car-systemtest \
-                               mockito-target-inline \
-                               android-support-test \
-                               android.hardware.automotive.vehicle-V2.0-java \
-                               com.android.car.test.utils \
-                               truth-prebuilt
+LOCAL_STATIC_JAVA_LIBRARIES += \
+    androidx.test.ext.junit \
+    androidx.test.rules \
+    android.hardware.automotive.vehicle-V2.0-java \
+    car-frameworks-service \
+    car-service-lib-for-test \
+    car-systemtest \
+    com.android.car.test.utils \
+    mockito-target-extended \
+    truth-prebuilt \
+    vehicle-hal-support-lib
 
-LOCAL_JAVA_LIBRARIES := android.car android.test.runner android.test.base
+
+LOCAL_JAVA_LIBRARIES := \
+    android.car \
+    android.car.userlib \
+    android.test.runner \
+    android.test.base
 
 LOCAL_JNI_SHARED_LIBRARIES := libdexmakerjvmtiagent
 

@@ -16,7 +16,6 @@
 
 package com.android.dialer.blocking;
 
-import android.annotation.TargetApi;
 import android.content.AsyncQueryHandler;
 import android.content.ContentValues;
 import android.content.Context;
@@ -24,7 +23,6 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.net.Uri;
-import android.os.Build.VERSION_CODES;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.support.v4.os.UserManagerCompat;
@@ -37,6 +35,8 @@ import com.android.dialer.database.FilteredNumberContract.FilteredNumberTypes;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/** TODO(calderwoodra): documentation */
+@Deprecated
 public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
 
   public static final int INVALID_ID = -1;
@@ -199,7 +199,6 @@ public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
    *
    * @return blocked id.
    */
-  @TargetApi(VERSION_CODES.M)
   @Nullable
   public Integer getBlockedIdSynchronous(@Nullable String number, String countryIso) {
     Assert.isWorkerThread();
@@ -382,6 +381,7 @@ public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
         null);
   }
 
+  /** TODO(calderwoodra): documentation */
   public interface OnCheckBlockedListener {
 
     /**
@@ -392,6 +392,7 @@ public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
     void onCheckComplete(Integer id);
   }
 
+  /** TODO(calderwoodra): documentation */
   public interface OnBlockNumberListener {
 
     /**
@@ -402,6 +403,7 @@ public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
     void onBlockComplete(Uri uri);
   }
 
+  /** TODO(calderwoodra): documentation */
   public interface OnUnblockNumberListener {
 
     /**
@@ -413,6 +415,7 @@ public class FilteredNumberAsyncQueryHandler extends AsyncQueryHandler {
     void onUnblockComplete(int rows, ContentValues values);
   }
 
+  /** TODO(calderwoodra): documentation */
   interface OnHasBlockedNumbersListener {
 
     /**

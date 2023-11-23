@@ -17,6 +17,7 @@
 package com.android.car.systeminterface;
 
 import com.android.car.storagemonitoring.EMmcWearInformationProvider;
+import com.android.car.storagemonitoring.HealthServiceWearInfoProvider;
 import com.android.car.storagemonitoring.LifetimeWriteInfoProvider;
 import com.android.car.storagemonitoring.ProcfsUidIoStatsProvider;
 import com.android.car.storagemonitoring.SysfsLifetimeWriteInfoProvider;
@@ -31,7 +32,8 @@ public interface StorageMonitoringInterface {
     default WearInformationProvider[] getFlashWearInformationProviders() {
         return new WearInformationProvider[] {
             new EMmcWearInformationProvider(),
-            new UfsWearInformationProvider()
+            new UfsWearInformationProvider(),
+            new HealthServiceWearInfoProvider()
         };
     }
 

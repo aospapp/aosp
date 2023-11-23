@@ -18,6 +18,8 @@ LOCAL_WHOLE_STATIC_LIBRARIES = \
 LOCAL_STATIC_LIBRARIES += \
   libbacktrace \
   libunwindstack \
+  libdexfile_support \
+  libdexfile_external \
   libdexfile \
   libziparchive \
   libz \
@@ -36,20 +38,20 @@ LOCAL_STATIC_LIBRARIES += \
   libLLVMSupport \
   libprotobuf-cpp-lite \
   libevent \
-  libc \
 
-LOCAL_POST_LINK_CMD =  \
-  TMP_FILE=`mktemp $(OUT_DIR)/simpleperf-post-link-XXXXXXXXXX` && \
-  (cd $(simpleperf_src_path)/testdata && zip - -0 -r .) > $$TMP_FILE && \
-  $($(LOCAL_2ND_ARCH_VAR_PREFIX)TARGET_OBJCOPY) --add-section .testzipdata=$$TMP_FILE $(linked_module) && \
-  rm -f $$TMP_FILE
+simpleperf_testdata_files := $(shell cd $(simpleperf_src_path); find testdata -type f)
+
+LOCAL_COMPATIBILITY_SUPPORT_FILES := \
+  $(foreach file, $(simpleperf_testdata_files), $(simpleperf_src_path)/$(file):CtsSimpleperfTestCases_$(file))
 
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_CTS_TEST_PACKAGE := android.simpleperf
-LOCAL_FORCE_STATIC_EXECUTABLE := true
 include $(LLVM_DEVICE_BUILD_MK)
 include $(BUILD_CTS_EXECUTABLE)
+
+simpleperf_src_path :=
+simpleperf_testdata_files :=
 
 # Build the test APKs using their own makefiles
 include $(call all-makefiles-under,$(LOCAL_PATH))

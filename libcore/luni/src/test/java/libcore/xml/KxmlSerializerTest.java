@@ -16,11 +16,11 @@
 
 package libcore.xml;
 
+import com.android.org.kxml2.io.KXmlSerializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import junit.framework.TestCase;
-import org.kxml2.io.KXmlSerializer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;

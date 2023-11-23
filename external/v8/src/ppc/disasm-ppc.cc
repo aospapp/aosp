@@ -39,7 +39,7 @@
 namespace v8 {
 namespace internal {
 
-const auto GetRegConfig = RegisterConfiguration::Crankshaft;
+const auto GetRegConfig = RegisterConfiguration::Default;
 
 //------------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ void Decoder::PrintSoftwareInterrupt(SoftwareInterruptCodes svc) {
 // Handle all register based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatRegister(Instruction* instr, const char* format) {
-  DCHECK(format[0] == 'r');
+  DCHECK_EQ(format[0], 'r');
 
   if ((format[1] == 't') || (format[1] == 's')) {  // 'rt & 'rs register
     int reg = instr->RTValue();
@@ -166,14 +166,13 @@ int Decoder::FormatRegister(Instruction* instr, const char* format) {
   }
 
   UNREACHABLE();
-  return -1;
 }
 
 
 // Handle all FP register based formatting in this function to reduce the
 // complexity of FormatOption.
 int Decoder::FormatFPRegister(Instruction* instr, const char* format) {
-  DCHECK(format[0] == 'D');
+  DCHECK_EQ(format[0], 'D');
 
   int retval = 2;
   int reg = -1;
@@ -270,8 +269,9 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
             converter_.NameOfAddress(reinterpret_cast<byte*>(instr) + off));
         return 8;
       }
+      break;
       case 's': {
-        DCHECK(format[1] == 'h');
+        DCHECK_EQ(format[1], 'h');
         int32_t value = 0;
         int32_t opcode = instr->OpcodeValue() << 26;
         int32_t sh = instr->Bits(15, 11);
@@ -325,7 +325,6 @@ int Decoder::FormatOption(Instruction* instr, const char* format) {
   }
 
   UNREACHABLE();
-  return -1;
 }
 
 
@@ -347,7 +346,7 @@ void Decoder::Format(Instruction* instr, const char* format) {
 
 
 // The disassembler may end up decoding data inlined in the code. We do not want
-// it to crash if the data does not ressemble any known instruction.
+// it to crash if the data does not resemble any known instruction.
 #define VERIFY(condition) \
   if (!(condition)) {     \
     Unknown(instr);       \
@@ -562,6 +561,10 @@ void Decoder::DecodeExt2(Instruction* instr) {
       return;
     }
 #endif
+    case SYNC: {
+      Format(instr, "sync");
+      return;
+    }
     case MODSW: {
       Format(instr, "modsw  'rt, 'ra, 'rb");
       return;
@@ -599,19 +602,19 @@ void Decoder::DecodeExt2(Instruction* instr) {
       return;
     }
     case LFSX: {
-      Format(instr, "lfsx    'rt, 'ra, 'rb");
+      Format(instr, "lfsx    'Dt, 'ra, 'rb");
       return;
     }
     case LFSUX: {
-      Format(instr, "lfsux   'rt, 'ra, 'rb");
+      Format(instr, "lfsux   'Dt, 'ra, 'rb");
       return;
     }
     case LFDX: {
-      Format(instr, "lfdx    'rt, 'ra, 'rb");
+      Format(instr, "lfdx    'Dt, 'ra, 'rb");
       return;
     }
     case LFDUX: {
-      Format(instr, "lfdux   'rt, 'ra, 'rb");
+      Format(instr, "lfdux   'Dt, 'ra, 'rb");
       return;
     }
     case STFSX: {
@@ -645,6 +648,21 @@ void Decoder::DecodeExt2(Instruction* instr) {
   switch (EXT2 | (instr->BitField(10, 2))) {
     case SRADIX: {
       Format(instr, "sradi'.  'ra,'rs,'sh");
+      return;
+    }
+  }
+
+  switch (EXT2 | (instr->BitField(10, 0))) {
+    case STBCX: {
+      Format(instr, "stbcx   'rs, 'ra, 'rb");
+      return;
+    }
+    case STHCX: {
+      Format(instr, "sthcx   'rs, 'ra, 'rb");
+      return;
+    }
+    case STWCX: {
+      Format(instr, "stwcx   'rs, 'ra, 'rb");
       return;
     }
   }
@@ -857,6 +875,18 @@ void Decoder::DecodeExt2(Instruction* instr) {
     }
     case LHAX: {
       Format(instr, "lhax    'rt, 'ra, 'rb");
+      return;
+    }
+    case LBARX: {
+      Format(instr, "lbarx   'rt, 'ra, 'rb");
+      return;
+    }
+    case LHARX: {
+      Format(instr, "lharx   'rt, 'ra, 'rb");
+      return;
+    }
+    case LWARX: {
+      Format(instr, "lwarx   'rt, 'ra, 'rb");
       return;
     }
 #if V8_TARGET_ARCH_PPC64
@@ -1127,7 +1157,7 @@ int Decoder::InstructionDecode(byte* instr_ptr) {
     // The first field will be identified as a jump table entry.  We
     // emit the rest of the structure as zero, so just skip past them.
     Format(instr, "constant");
-    return Instruction::kInstrSize;
+    return kInstrSize;
   }
 
   uint32_t opcode = instr->OpcodeValue() << 26;
@@ -1436,7 +1466,7 @@ int Decoder::InstructionDecode(byte* instr_ptr) {
     }
   }
 
-  return Instruction::kInstrSize;
+  return kInstrSize;
 }
 }  // namespace internal
 }  // namespace v8
@@ -1482,13 +1512,6 @@ const char* NameConverter::NameInCode(byte* addr) const {
 
 //------------------------------------------------------------------------------
 
-Disassembler::Disassembler(const NameConverter& converter)
-    : converter_(converter) {}
-
-
-Disassembler::~Disassembler() {}
-
-
 int Disassembler::InstructionDecode(v8::internal::Vector<char> buffer,
                                     byte* instruction) {
   v8::internal::Decoder d(converter_, buffer);
@@ -1499,10 +1522,10 @@ int Disassembler::InstructionDecode(v8::internal::Vector<char> buffer,
 // The PPC assembler does not currently use constant pools.
 int Disassembler::ConstantPoolSizeAt(byte* instruction) { return -1; }
 
-
-void Disassembler::Disassemble(FILE* f, byte* begin, byte* end) {
+void Disassembler::Disassemble(FILE* f, byte* begin, byte* end,
+                               UnimplementedOpcodeAction unimplemented_action) {
   NameConverter converter;
-  Disassembler d(converter);
+  Disassembler d(converter, unimplemented_action);
   for (byte* pc = begin; pc < end;) {
     v8::internal::EmbeddedVector<char, 128> buffer;
     buffer[0] = '\0';

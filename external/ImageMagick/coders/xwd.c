@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -322,6 +322,8 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         color;
 
       length=(size_t) header.ncolors;
+      if (length > ((~0UL)/sizeof(*colors)))
+        ThrowReaderException(CorruptImageError,"ImproperImageHeader");
       colors=(XColor *) AcquireQuantumMemory(length,sizeof(*colors));
       if (colors == (XColor *) NULL)
         {
@@ -333,6 +335,7 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         count=ReadBlob(image,sz_XWDColor,(unsigned char *) &color);
         if (count != sz_XWDColor)
           {
+            colors=(XColor *) RelinquishMagickMemory(colors);
             ximage=(XImage *) RelinquishMagickMemory(ximage);
             ThrowReaderException(CorruptImageError,"UnexpectedEndOfFile");
           }
@@ -363,6 +366,8 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
   length=(size_t) ximage->bytes_per_line*ximage->height;
   if (CheckOverflowException(length,ximage->bytes_per_line,ximage->height))
     {
+      if (header.ncolors != 0)
+        colors=(XColor *) RelinquishMagickMemory(colors);
       ximage=(XImage *) RelinquishMagickMemory(ximage);
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     }
@@ -375,6 +380,8 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
       length*=ximage->depth;
       if (CheckOverflowException(length,extent,ximage->depth))
         {
+          if (header.ncolors != 0)
+            colors=(XColor *) RelinquishMagickMemory(colors);
           ximage=(XImage *) RelinquishMagickMemory(ximage);
           ThrowReaderException(CorruptImageError,"ImproperImageHeader");
         }
@@ -382,12 +389,16 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
   ximage->data=(char *) AcquireQuantumMemory(length,sizeof(*ximage->data));
   if (ximage->data == (char *) NULL)
     {
+      if (header.ncolors != 0)
+        colors=(XColor *) RelinquishMagickMemory(colors);
       ximage=(XImage *) RelinquishMagickMemory(ximage);
       ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
     }
   count=ReadBlob(image,length,(unsigned char *) ximage->data);
   if (count != (ssize_t) length)
     {
+      if (header.ncolors != 0)
+        colors=(XColor *) RelinquishMagickMemory(colors);
       ximage->data=DestroyString(ximage->data);
       ximage=(XImage *) RelinquishMagickMemory(ximage);
       ThrowReaderException(CorruptImageError,"UnableToReadImageData");
@@ -400,7 +411,13 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
   image->depth=8;
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
-    return(DestroyImageList(image));
+    {
+      if (header.ncolors != 0)
+        colors=(XColor *) RelinquishMagickMemory(colors);
+      ximage->data=DestroyString(ximage->data);
+      ximage=(XImage *) RelinquishMagickMemory(ximage);
+      return(DestroyImageList(image));
+    }
   if ((header.ncolors == 0U) || (ximage->red_mask != 0) ||
       (ximage->green_mask != 0) || (ximage->blue_mask != 0))
     image->storage_class=DirectClass;
@@ -521,6 +538,8 @@ static Image *ReadXWDImage(const ImageInfo *image_info,ExceptionInfo *exception)
         */
         if (AcquireImageColormap(image,image->colors,exception) == MagickFalse)
           {
+            if (header.ncolors != 0)
+              colors=(XColor *) RelinquishMagickMemory(colors);
             ximage->data=DestroyString(ximage->data);
             ximage=(XImage *) RelinquishMagickMemory(ximage);
             ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
@@ -718,7 +737,7 @@ static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image,
   /*
     Initialize XWD file header.
   */
-  (void) ResetMagickMemory(&xwd_info,0,sizeof(xwd_info));
+  (void) memset(&xwd_info,0,sizeof(xwd_info));
   xwd_info.header_size=(CARD32) sz_XWDheader;
   value=GetImageProperty(image,"comment",exception);
   if (value != (const char *) NULL)
@@ -781,7 +800,7 @@ static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image,
       /*
         Dump colormap to file.
       */
-      (void) ResetMagickMemory(&color,0,sizeof(color));
+      (void) memset(&color,0,sizeof(color));
       colors=(XColor *) AcquireQuantumMemory((size_t) image->colors,
         sizeof(*colors));
       if (colors == (XColor *) NULL)
@@ -825,7 +844,7 @@ static MagickBooleanType WriteXWDImage(const ImageInfo *image_info,Image *image,
   pixels=(unsigned char *) AcquireQuantumMemory(length,sizeof(*pixels));
   if (pixels == (unsigned char *) NULL)
     ThrowWriterException(ResourceLimitError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(pixels,0,length);
+  (void) memset(pixels,0,length);
   /*
     Convert MIFF to XWD raster pixels.
   */

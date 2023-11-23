@@ -47,13 +47,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -69,11 +62,20 @@ import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.EdgeEffect;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.cts.util.TestUtils;
 import android.widget.cts.util.TestUtilsMatchers;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -197,13 +199,13 @@ public class AbsListViewTest {
     }
 
     private void setAdapter(final ListAdapter adapter) throws Throwable {
-        mActivityRule.runOnUiThread(() -> mListView.setAdapter(adapter));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setAdapter(adapter));
     }
 
     private void setListSelection(int index) throws Throwable {
-        mActivityRule.runOnUiThread(() -> mListView.setSelection(index));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setSelection(index));
     }
 
     @LargeTest
@@ -227,7 +229,7 @@ public class AbsListViewTest {
 
         reset(mockScrollListener);
 
-        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mListView);
+        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
 
         ArgumentCaptor<Integer> firstVisibleItemCaptor = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Integer> visibleItemCountCaptor = ArgumentCaptor.forClass(Integer.class);
@@ -330,13 +332,13 @@ public class AbsListViewTest {
     public void testAccessStackFromBottom() throws Throwable {
         setAdapter();
 
-        mActivityRule.runOnUiThread(() -> mListView.setStackFromBottom(false));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setStackFromBottom(false));
         assertFalse(mListView.isStackFromBottom());
         assertEquals(0, mListView.getSelectedItemPosition());
 
-        mActivityRule.runOnUiThread(() -> mListView.setStackFromBottom(true));
-
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setStackFromBottom(true));
         assertTrue(mListView.isStackFromBottom());
         // ensure last item in list is selected
         assertEquals(COUNTRY_LIST.length-1, mListView.getSelectedItemPosition());
@@ -376,9 +378,8 @@ public class AbsListViewTest {
         assertEquals(0, mListView.getListPaddingBottom());
 
         final Rect r = new Rect(0, 0, 40, 60);
-        mActivityRule.runOnUiThread(
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
                 () -> mListView.setPadding(r.left, r.top, r.right, r.bottom));
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(r.left, mListView.getListPaddingLeft());
         assertEquals(r.top, mListView.getListPaddingTop());
@@ -393,16 +394,14 @@ public class AbsListViewTest {
         final Drawable d = mContext.getDrawable(R.drawable.pass);
         mListView.setSelector(d);
 
-        mActivityRule.runOnUiThread(mListView::requestLayout);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, mListView::requestLayout);
         assertSame(d, mListView.getSelector());
         assertTrue(mListView.verifyDrawable(d));
 
         mListView.setSelector(R.drawable.failed);
         mListView.setDrawSelectorOnTop(true);
 
-        mActivityRule.runOnUiThread(mListView::requestLayout);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, mListView::requestLayout);
 
         Drawable drawable = mListView.getSelector();
         assertNotNull(drawable);
@@ -420,41 +419,39 @@ public class AbsListViewTest {
         // leave touch-mode
         mInstrumentation.setInTouchMode(false);
         setAdapter();
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, null);
         // Entering touch mode hides selector
         if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
             // make sure we've left touchmode (including message sending. instrumentation just sets
             // a variable without any broadcast).
             mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
-            mActivityRule.runOnUiThread(() -> {
+            WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
                 mListView.requestFocus();
                 mListView.setSelectionFromTop(1, 0);
             });
-            mInstrumentation.waitForIdleSync();
             assertEquals(1, mListView.getSelectedItemPosition());
             final int[] pt = new int[2];
             mListView.getLocationOnScreen(pt);
-            CtsTouchUtils.emulateDragGesture(mInstrumentation, pt[0] + 2, pt[1] + 2, 0, 10);
-            mInstrumentation.waitForIdleSync();
+            CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
+                    pt[0] + 2, pt[1] + 2, 0, 10);
             assertEquals(AdapterView.INVALID_POSITION, mListView.getSelectedItemPosition());
             // leave touch-mode
             mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
         }
 
         // Scroll off-screen hides selector, but shows up again when on-screen
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
             mListView.requestFocus();
             mListView.setSelectionFromTop(1, 0);
         });
-        mInstrumentation.waitForIdleSync();
         assertEquals(1, mListView.getSelectedItemPosition());
         int selViewHeight = mListView.getSelectedView().getHeight();
         final int[] pt = new int[2];
         mListView.getLocationOnScreen(pt);
         pt[0] += mListView.getWidth() / 2;
         pt[1] += selViewHeight / 2;
-        mActivityRule.runOnUiThread(() -> mListView.scrollListBy(selViewHeight * 2));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.scrollListBy(selViewHeight * 2));
         assertEquals(1, mListView.getSelectedItemPosition());
         assertFalse(mListView.shouldDrawSelector());
         mActivityRule.runOnUiThread(() -> mListView.scrollListBy(-(selViewHeight * 4) / 3));
@@ -472,8 +469,7 @@ public class AbsListViewTest {
 
         mListView.setScrollIndicators(tv1, tv2);
 
-        mActivityRule.runOnUiThread(mListView::requestLayout);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, mListView::requestLayout);
     }
 
     @Test
@@ -654,20 +650,18 @@ public class AbsListViewTest {
 
         mListView.setScrollIndicators(tv1, tv2);
 
-        mActivityRule.runOnUiThread(mListView::invalidateViews);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, mListView::invalidateViews);
     }
 
     @Test
     public void testGetContextMenuInfo() throws Throwable {
         final MyListView listView = new MyListView(mContext, mAttributeSet);
 
-        mActivityRule.runOnUiThread(() ->  {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, () ->  {
             mActivityRule.getActivity().setContentView(listView);
             listView.setAdapter(mCountriesAdapter);
             listView.setSelection(2);
         });
-        mInstrumentation.waitForIdleSync();
 
         final TextView v = (TextView) listView.getSelectedView();
         assertNull(listView.getContextMenuInfo());
@@ -679,7 +673,7 @@ public class AbsListViewTest {
         verifyZeroInteractions(mockOnItemLongClickListener);
 
         // Now long click our view
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, v, 500);
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, v, 500);
         // and wait until our mock listener is invoked with the expected view
         verify(mockOnItemLongClickListener, within(5000)).onItemLongClick(listView, v, 2,
                 listView.getItemIdAtPosition(2));
@@ -744,10 +738,11 @@ public class AbsListViewTest {
         // Calling setItemChecked with the same value in multiple choice mode should not cause
         // requestLayout
         mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
     }
 
@@ -757,12 +752,14 @@ public class AbsListViewTest {
         // Calling setItemChecked with the same value in single choice mode should not cause
         // requestLayout
         mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
     }
+    private boolean checkResult = false;
 
     @MediumTest
     @Test
@@ -770,11 +767,15 @@ public class AbsListViewTest {
         // Calling setItemChecked with a different value in multiple choice mode should cause
         // requestLayout
         mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, true));
-        assertTrue(mListView.isLayoutRequested());
+        checkResult = false;
+        mActivityRule.runOnUiThread(() -> {
+            mListView.setItemChecked(0, true);
+            checkResult = mListView.isLayoutRequested();
+        });
+        assertTrue(checkResult);
     }
 
     @MediumTest
@@ -783,11 +784,15 @@ public class AbsListViewTest {
         // Calling setItemChecked with a different value in single choice mode should cause
         // requestLayout
         mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, false));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setItemChecked(0, false));
         assertFalse(mListView.isLayoutRequested());
-        mActivityRule.runOnUiThread(() -> mListView.setItemChecked(0, true));
-        assertTrue(mListView.isLayoutRequested());
+        checkResult = false;
+        mActivityRule.runOnUiThread(() -> {
+            mListView.setItemChecked(0, true);
+            checkResult = mListView.isLayoutRequested();
+        });
+        assertTrue(checkResult);
     }
 
     @LargeTest
@@ -852,12 +857,11 @@ public class AbsListViewTest {
         // at least yet.
         final MyListView listView = new MyListView(mContext, mAttributeSet);
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, () -> {
             mActivityRule.getActivity().setContentView(listView);
             listView.setAdapter(mCountriesAdapter);
             listView.setTextFilterEnabled(true);
         });
-        mInstrumentation.waitForIdleSync();
 
         // Set text filter to A - we expect four entries to be left displayed in the list
         mActivityRule.runOnUiThread(() -> listView.setFilterText("A"));
@@ -1075,7 +1079,7 @@ public class AbsListViewTest {
 
         // Emulate long-click on the middle item of the currently visible content
         final int positionForInitialSelection = (firstVisiblePosition + lastVisiblePosition) / 2;
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation,
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule,
                 mListView.getChildAt(positionForInitialSelection));
         // wait until our listener has been notified that the item has been checked
         verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1086,7 +1090,7 @@ public class AbsListViewTest {
 
         if (firstVisiblePosition != positionForInitialSelection) {
             // Tap the first element in our list
-            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation,
+            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
                     mListView.getChildAt(firstVisiblePosition));
             // wait until our listener has been notified that the item has been checked
             verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1097,11 +1101,11 @@ public class AbsListViewTest {
         }
 
         // Scroll down
-        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mListView);
+        CtsTouchUtils.emulateScrollToBottom(mInstrumentation, mActivityRule, mListView);
         final int lastListPosition = COUNTRY_LIST.length - 1;
         if (lastListPosition != positionForInitialSelection) {
             // Tap the last element in our list
-            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation,
+            CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
                     mListView.getChildAt(mListView.getChildCount() - 1));
             // wait until our listener has been notified that the item has been checked
             verify(mMultiChoiceModeListener, within(1000)).onItemCheckedStateChanged(
@@ -1111,6 +1115,27 @@ public class AbsListViewTest {
             verifyCheckedState(new long[] { firstVisiblePosition, positionForInitialSelection,
                     lastListPosition });
         }
+    }
+
+    @SmallTest
+    @UiThreadTest
+    @Test
+    public void testEdgeEffectColors() {
+        int defaultColor = new EdgeEffect(mListView.getContext()).getColor();
+        assertEquals(mListView.getTopEdgeEffectColor(), defaultColor);
+        assertEquals(mListView.getBottomEdgeEffectColor(), defaultColor);
+
+        mListView.setEdgeEffectColor(Color.BLUE);
+        assertEquals(mListView.getTopEdgeEffectColor(), Color.BLUE);
+        assertEquals(mListView.getBottomEdgeEffectColor(), Color.BLUE);
+
+        mListView.setTopEdgeEffectColor(Color.RED);
+        assertEquals(mListView.getTopEdgeEffectColor(), Color.RED);
+        assertEquals(mListView.getBottomEdgeEffectColor(), Color.BLUE);
+
+        mListView.setBottomEdgeEffectColor(Color.GREEN);
+        assertEquals(mListView.getTopEdgeEffectColor(), Color.RED);
+        assertEquals(mListView.getBottomEdgeEffectColor(), Color.GREEN);
     }
 
     // Helper method that emulates fast scroll by dragging along the right edge of our ListView.
@@ -1124,8 +1149,8 @@ public class AbsListViewTest {
             return;
         }
 
-        mActivityRule.runOnUiThread(() -> mListView.setFastScrollAlwaysVisible(true));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setFastScrollAlwaysVisible(true));
         assertTrue(mListView.isFastScrollEnabled());
         assertTrue(mListView.isFastScrollAlwaysVisible());
 
@@ -1138,7 +1163,7 @@ public class AbsListViewTest {
 
         // Emulate a downwards gesture that should bring us all the way to the last element
         // of the list (when fast scroll is enabled)
-        CtsTouchUtils.emulateDragGesture(mInstrumentation,
+        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                 rightEdgeX - 1,              // X start of the drag
                 topEdgeY + 1,                // Y start of the drag
                 0,                           // X amount of the drag (vertical)
@@ -1148,7 +1173,7 @@ public class AbsListViewTest {
 
         // Emulate an upwards gesture that should bring us all the way to the first element
         // of the list (when fast scroll is enabled)
-        CtsTouchUtils.emulateDragGesture(mInstrumentation,
+        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule,
                 rightEdgeX - 1,               // X start of the drag
                 bottomEdgeY - 1,              // Y start of the drag
                 0,                            // X amount of the drag (vertical)

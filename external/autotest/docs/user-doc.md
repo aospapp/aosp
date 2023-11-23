@@ -63,7 +63,7 @@ This leads to the ebuild workflow, which generally allows compositing any
 number of sources in any format into a single monolithic tree, whose contents
 depend on build parameters.
 
-![ebuild workflow](./atest-diagram.png)
+![ebuild workflow](./assets/atest-diagram.png)
 
 This allows using standard autotest workflow without any change, however,
 unlike what upstream does, the tests aren’t run directly from the source
@@ -252,16 +252,15 @@ VM tests are conveniently wrapped into a script `cros_run_vm_tests` that sets up
 the VM using a given image and then calls `test_that`. This is run by builders
 to test using the Smoke suite.
 
-If you want to run your tests on the VM (see
-[here](https://www.chromium.org/chromium-os/how-tos-and-troubleshooting/running-chromeos-image-under-virtual-machines) for basic instructions for
-setting up KVM with cros images) be aware of the following:
+If you want to run your tests in a VM (see
+[here](https://chromium.googlesource.com/chromiumos/docs/+/master/cros_vm.md#Run-an-autotest-in-the-VM)
 
 -   `cros_run_vm_test` starts up a VM and runs autotests using the port
 -   specified (defaults to 9222).  As an example:
 
-        $ ./bin/cros_run_vm_test --test_case=suite_Smoke \
-        --image_path=<my_image_to_start or don't set to use most recent build> \
-        --board=x86-generic
+        $ cros_run_vm_test --autotest=suite:smoke \
+        --image-path=<my_image_to_start or don't set to use most recent build> \
+        --board=amd64-generic
 
 -   The emulator command line redirects localhost port 9222 to the emulated
     machine's port 22 to allow you to ssh into the emulator. For Chromium OS to
@@ -282,7 +281,7 @@ setting up KVM with cros images) be aware of the following:
     [crbug/710629](https://bugs.chromium.org/p/chromium/issues/detail?id=710629),
     'betty' is the only board regularly run through pre-CQ and CQ VMTest and so
     is the most likely to work at ToT. 'betty' is based on 'amd64-generic',
-    though, so 'amd64-generic' is likely to also work for most (non-ARC) tests.
+    so 'amd64-generic' is likely to also work for most (non-ARC) tests.
 
 
 ## Result log layout structure

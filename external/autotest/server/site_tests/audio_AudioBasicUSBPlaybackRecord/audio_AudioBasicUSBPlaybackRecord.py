@@ -66,6 +66,11 @@ class audio_AudioBasicUSBPlaybackRecord(audio_test.AudioTest):
                 audio_test_utils.dump_cros_audio_logs(
                         host, audio_facade, self.resultsdir, 'after_binding')
 
+                audio_test_utils.check_and_set_chrome_active_node_types(
+                        audio_facade, 'USB', 'USB')
+                audio_test_utils.dump_cros_audio_logs(
+                        host, audio_facade, self.resultsdir, 'after_select')
+
                 audio_test_utils.check_audio_nodes(
                         audio_facade, (['USB'], ['USB']))
 
@@ -81,6 +86,18 @@ class audio_AudioBasicUSBPlaybackRecord(audio_test.AudioTest):
                     utils.poll_for_condition(condition=factory.ready,
                                              timeout=self.RPC_RECONNECT_TIMEOUT,
                                              desc='multimedia server reconnect')
+
+                    audio_test_utils.dump_cros_audio_logs(
+                            host, audio_facade, self.resultsdir,
+                            'after_suspend')
+
+                    audio_test_utils.check_and_set_chrome_active_node_types(
+                            audio_facade, 'USB', 'USB')
+
+                    audio_test_utils.dump_cros_audio_logs(
+                            host, audio_facade, self.resultsdir,
+                            'after_resume_select')
+
                     audio_test_utils.check_audio_nodes(audio_facade,
                                                        (['USB'], ['USB']))
 

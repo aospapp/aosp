@@ -16,17 +16,29 @@
 
 package com.android.compatibility.common.util;
 
+import android.content.ContentResolver;
+import android.content.Context;
+import android.net.Uri;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
+
+import android.support.test.InstrumentationRegistry;
 
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.FileNotFoundException;
 
 /**
  * Load dynamic config for device side test cases
  */
 public class DynamicConfigDeviceSide extends DynamicConfig {
+
+    public static final String CONTENT_PROVIDER =
+            String.format("%s://android.tradefed.contentprovider", ContentResolver.SCHEME_CONTENT);
+
     public DynamicConfigDeviceSide(String moduleName) throws XmlPullParserException, IOException {
         this(moduleName, new File(CONFIG_FOLDER_ON_DEVICE));
     }
@@ -36,6 +48,21 @@ public class DynamicConfigDeviceSide extends DynamicConfig {
         if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             throw new IOException("External storage is not mounted");
         }
+        // Use the content provider to get the config:
+        String uriPath = String.format("%s/%s/%s.dynamic", CONTENT_PROVIDER, configFolder.getAbsolutePath(), moduleName);
+        Uri sdcardUri = Uri.parse(uriPath);
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        try {
+            ContentResolver resolver = appContext.getContentResolver();
+            ParcelFileDescriptor descriptor = resolver.openFileDescriptor(sdcardUri,"r");
+
+            initializeConfig(new ParcelFileDescriptor.AutoCloseInputStream(descriptor));
+            return;
+        } catch (FileNotFoundException e) {
+            // Log the error and use the fallback too
+            Log.e("DynamicConfigDeviceSide", "Error while using content provider for config", e);
+        }
+        // Fallback to the direct search
         File configFile = getConfigFile(configFolder, moduleName);
         initializeConfig(configFile);
     }

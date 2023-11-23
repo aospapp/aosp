@@ -30,6 +30,7 @@
 
 #include <android-base/file.h>
 #include <android-base/macros.h>
+#include <android-base/scopeguard.h>
 #include <android-base/stringprintf.h>
 #include <log/log_event_list.h>
 #include <log/log_properties.h>
@@ -37,6 +38,8 @@
 
 #include "LogTags.h"
 #include "LogUtils.h"
+
+using android::base::make_scope_guard;
 
 static LogTags* logtags;
 
@@ -91,7 +94,7 @@ bool LogTags::RebuildFileEventLogTags(const char* filename, bool warn) {
         fd = TEMP_FAILURE_RETRY(open(
             filename, O_WRONLY | O_TRUNC | O_CLOEXEC | O_NOFOLLOW | O_BINARY));
         if (fd >= 0) {
-            time_t now = time(NULL);
+            time_t now = time(nullptr);
             struct tm tm;
             localtime_r(&now, &tm);
             char timebuf[20];
@@ -208,7 +211,7 @@ void LogTags::ReadFileEventLogTags(const char* filename, bool warn) {
             } else if (lineStart) {
                 if (*cp == '#') {
                     /* comment; just scan to end */
-                    lineStart = NULL;
+                    lineStart = nullptr;
                 } else if (isdigit(*cp)) {
                     unsigned long Tag = strtoul(cp, &cp, 10);
                     if (warn && (Tag > emptyTag)) {
@@ -235,7 +238,7 @@ void LogTags::ReadFileEventLogTags(const char* filename, bool warn) {
                     if (hasAlpha &&
                         ((cp >= endp) || (*cp == '#') || isspace(*cp))) {
                         if (Tag > emptyTag) {
-                            if (*cp != '\n') lineStart = NULL;
+                            if (*cp != '\n') lineStart = nullptr;
                             continue;
                         }
                         while ((cp < endp) && (*cp != '\n') && isspace(*cp))
@@ -245,14 +248,14 @@ void LogTags::ReadFileEventLogTags(const char* filename, bool warn) {
                         while ((cp < endp) && (*cp != '\n')) {
                             if (*cp == '#') {
                                 uid = sniffUid(cp, endp);
-                                lineStart = NULL;
+                                lineStart = nullptr;
                                 break;
                             }
                             ++cp;
                         }
                         while ((cp > format) && isspace(cp[-1])) {
                             --cp;
-                            lineStart = NULL;
+                            lineStart = nullptr;
                         }
                         std::string Format(format, cp - format);
 
@@ -263,7 +266,7 @@ void LogTags::ReadFileEventLogTags(const char* filename, bool warn) {
                             android::prdebug("tag name invalid %.*s",
                                              (int)(cp - name + 1), name);
                         }
-                        lineStart = NULL;
+                        lineStart = nullptr;
                     }
                 } else if (!isspace(*cp)) {
                     break;
@@ -316,27 +319,29 @@ void LogTags::ReadPersistEventLogTags() {
         std::string Format;
         android_log_list_element elem;
         {
-            android_log_event_list ctx(log_msg);
-            elem = ctx.read();
+            auto ctx = create_android_log_parser(log_msg.msg() + sizeof(uint32_t),
+                                                 log_msg.entry.len - sizeof(uint32_t));
+            auto guard = make_scope_guard([&ctx]() { android_log_destroy(&ctx); });
+            elem = android_log_read_next(ctx);
             if (elem.type != EVENT_TYPE_LIST) {
                 continue;
             }
-            elem = ctx.read();
+            elem = android_log_read_next(ctx);
             if (elem.type != EVENT_TYPE_INT) {
                 continue;
             }
             Tag = elem.data.int32;
-            elem = ctx.read();
+            elem = android_log_read_next(ctx);
             if (elem.type != EVENT_TYPE_STRING) {
                 continue;
             }
             Name = std::string(elem.data.string, elem.len);
-            elem = ctx.read();
+            elem = android_log_read_next(ctx);
             if (elem.type != EVENT_TYPE_STRING) {
                 continue;
             }
             Format = std::string(elem.data.string, elem.len);
-            elem = ctx.read();
+            elem = android_log_read_next(ctx);
         }
         if ((elem.type != EVENT_TYPE_LIST_STOP) || !elem.complete) continue;
 
@@ -364,7 +369,7 @@ const char* LogTags::tagToName(uint32_t tag) const {
     android::RWLock::AutoRLock readLock(const_cast<android::RWLock&>(rwlock));
 
     it = tag2name.find(tag);
-    if ((it == tag2name.end()) || (it->second.length() == 0)) return NULL;
+    if ((it == tag2name.end()) || (it->second.length() == 0)) return nullptr;
 
     return it->second.c_str();
 }
@@ -383,7 +388,7 @@ const char* LogTags::tagToName(uint32_t tag) const {
 const char* android::tagToName(uint32_t tag) {
     LogTags* me = logtags;
 
-    if (!me) return NULL;
+    if (!me) return nullptr;
     me->WritePmsgEventLogTags(tag);
     return me->tagToName(tag);
 }
@@ -412,7 +417,7 @@ const char* LogTags::tagToFormat(uint32_t tag) const {
     android::RWLock::AutoRLock readLock(const_cast<android::RWLock&>(rwlock));
 
     iform = tag2format.find(tag);
-    if (iform == tag2format.end()) return NULL;
+    if (iform == tag2format.end()) return nullptr;
 
     return iform->second.c_str();
 }
@@ -441,7 +446,7 @@ uint32_t LogTags::nameToTag_locked(const std::string& name, const char* format,
                                    bool& unique) {
     key2tag_const_iterator ik;
 
-    bool write = format != NULL;
+    bool write = format != nullptr;
     unique = write;
 
     if (!write) {
@@ -524,10 +529,22 @@ void LogTags::WritePmsgEventLogTags(uint32_t tag, uid_t uid) {
     tag2format_const_iterator iform = tag2format.find(tag);
     std::string Format = (iform != tag2format.end()) ? iform->second : "";
 
-    __android_log_event_list ctx(TAG_DEF_LOG_TAG);
-    ctx << tag << Name << Format;
-    std::string buffer(ctx);
-    if (buffer.length() <= 0) return;  // unlikely
+    auto ctx = create_android_logger(TAG_DEF_LOG_TAG);
+    auto guard = make_scope_guard([&ctx]() { android_log_destroy(&ctx); });
+    if (android_log_write_int32(ctx, static_cast<int32_t>(tag) < 0) ||
+        android_log_write_string8_len(ctx, Name.c_str(), Name.size()) < 0 ||
+        android_log_write_string8_len(ctx, Format.c_str(), Format.size()) < 0) {
+        return;
+    }
+
+    const char* cp = nullptr;
+    ssize_t len = android_log_write_list_buffer(ctx, &cp);
+
+    if (len <= 0 || cp == nullptr) {
+        return;
+    }
+
+    std::string buffer(cp, len);
 
     /*
      *  struct {
@@ -679,7 +696,7 @@ void LogTags::WritePersistEventLogTags(uint32_t tag, uid_t uid,
 // are in readonly mode.
 uint32_t LogTags::nameToTag(uid_t uid, const char* name, const char* format) {
     std::string Name = std::string(name);
-    bool write = format != NULL;
+    bool write = format != nullptr;
     bool updateUid = uid != AID_ROOT;
     bool updateFormat = format && *format;
     bool unique;
@@ -848,7 +865,7 @@ std::string LogTags::formatGetEventTag(uid_t uid, const char* name,
 
     if (!list) {
         // switch to read entry only if format == "*"
-        if (format && (format[0] == '*') && !format[1]) format = NULL;
+        if (format && (format[0] == '*') && !format[1]) format = nullptr;
 
         // WAI: for null format, only works for a single entry, we can have
         // multiple entries, one for each format, so we find first entry

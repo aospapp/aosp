@@ -91,7 +91,7 @@ class Transport : public http::Transport {
       const std::string& referer,
       brillo::ErrorPtr* error) override;
 
-  void RunCallbackAsync(const tracked_objects::Location& from_here,
+  void RunCallbackAsync(const base::Location& from_here,
                         const base::Closure& callback) override;
 
   RequestID StartAsyncTransfer(http::Connection* connection,
@@ -101,6 +101,8 @@ class Transport : public http::Transport {
   bool CancelRequest(RequestID request_id) override;
 
   void SetDefaultTimeout(base::TimeDelta timeout) override;
+
+  void SetLocalIpAddress(const std::string& /* ip_address */) override {}
 
  private:
   // A list of user-supplied request handlers.

@@ -142,9 +142,10 @@ class OptionsParserImpl {
     return optionValues
         .keySet()
         .stream()
-        .sorted()
         .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
         .flatMap(Collection::stream)
+        // Return the effective (canonical) options in the order they were applied.
+        .sorted(comparing(ParsedOptionDescription::getPriority))
         .collect(ImmutableList.toImmutableList());
   }
 
@@ -204,30 +205,33 @@ class OptionsParserImpl {
    * OptionInstanceOrigin)}
    */
   ImmutableList<ParsedOptionDescription> getExpansionValueDescriptions(
-      OptionDefinition expansionFlag, OptionInstanceOrigin originOfExpansionFlag)
+      OptionDefinition expansionFlagDef, OptionInstanceOrigin originOfExpansionFlag)
       throws OptionsParsingException {
     ImmutableList.Builder<ParsedOptionDescription> builder = ImmutableList.builder();
-    OptionInstanceOrigin originOfSubflags;
+
+    // Values needed to correctly track the origin of the expanded options.
+    OptionPriority nextOptionPriority =
+        OptionPriority.getChildPriority(originOfExpansionFlag.getPriority());
+    String source;
+    ParsedOptionDescription implicitDependent = null;
+    ParsedOptionDescription expandedFrom = null;
+
     ImmutableList<String> options;
-    if (expansionFlag.hasImplicitRequirements()) {
-      options = ImmutableList.copyOf(expansionFlag.getImplicitRequirements());
-      originOfSubflags =
-          new OptionInstanceOrigin(
-              originOfExpansionFlag.getPriority(),
-              String.format(
-                  "implicitly required by %s (source: %s)",
-                  expansionFlag, originOfExpansionFlag.getSource()),
-              expansionFlag,
-              null);
-    } else if (expansionFlag.isExpansionOption()) {
-      options = optionsData.getEvaluatedExpansion(expansionFlag);
-      originOfSubflags =
-          new OptionInstanceOrigin(
-              originOfExpansionFlag.getPriority(),
-              String.format(
-                  "expanded by %s (source: %s)", expansionFlag, originOfExpansionFlag.getSource()),
-              null,
-              expansionFlag);
+    ParsedOptionDescription expansionFlagParsedDummy =
+        ParsedOptionDescription.newDummyInstance(expansionFlagDef, originOfExpansionFlag);
+    if (expansionFlagDef.hasImplicitRequirements()) {
+      options = ImmutableList.copyOf(expansionFlagDef.getImplicitRequirements());
+      source =
+          String.format(
+              "implicitly required by %s (source: %s)",
+              expansionFlagDef, originOfExpansionFlag.getSource());
+      implicitDependent = expansionFlagParsedDummy;
+    } else if (expansionFlagDef.isExpansionOption()) {
+      options = optionsData.getEvaluatedExpansion(expansionFlagDef);
+      source =
+          String.format(
+              "expanded by %s (source: %s)", expansionFlagDef, originOfExpansionFlag.getSource());
+      expandedFrom = expansionFlagParsedDummy;
     } else {
       return ImmutableList.of();
     }
@@ -239,11 +243,12 @@ class OptionsParserImpl {
           identifyOptionAndPossibleArgument(
               unparsedFlagExpression,
               optionsIterator,
-              originOfSubflags.getPriority(),
-              o -> originOfSubflags.getSource(),
-              originOfSubflags.getImplicitDependent(),
-              originOfSubflags.getExpandedFrom());
+              nextOptionPriority,
+              o -> source,
+              implicitDependent,
+              expandedFrom);
       builder.add(parsedOption);
+      nextOptionPriority = OptionPriority.nextOptionPriority(nextOptionPriority);
     }
     return builder.build();
   }
@@ -284,12 +289,19 @@ class OptionsParserImpl {
     }
   }
 
-  /** Parses the args at the fixed priority. */
-  List<String> parseOptionsFixedAtSpecificPriority(
-      OptionPriority priority, Function<OptionDefinition, String> sourceFunction, List<String> args)
+  /** Implements {@link OptionsParser#parseArgsAsExpansionOfOption} */
+  List<String> parseArgsAsExpansionOfOption(
+      ParsedOptionDescription optionToExpand,
+      Function<OptionDefinition, String> sourceFunction,
+      List<String> args)
       throws OptionsParsingException {
     ResidueAndPriority residueAndPriority =
-        parse(OptionPriority.getLockedPriority(priority), sourceFunction, null, null, args);
+        parse(
+            OptionPriority.getChildPriority(optionToExpand.getPriority()),
+            sourceFunction,
+            null,
+            optionToExpand,
+            args);
     return residueAndPriority.residue;
   }
 
@@ -304,8 +316,8 @@ class OptionsParserImpl {
   private ResidueAndPriority parse(
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
-      OptionDefinition implicitDependent,
-      OptionDefinition expandedFrom,
+      ParsedOptionDescription implicitDependent,
+      ParsedOptionDescription expandedFrom,
       List<String> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
@@ -369,7 +381,7 @@ class OptionsParserImpl {
         priorityCategory);
 
     handleNewParsedOption(
-        new ParsedOptionDescription(
+        ParsedOptionDescription.newParsedOptionDescription(
             option,
             String.format("--%s=%s", option.getOptionName(), unconvertedValue),
             unconvertedValue,
@@ -392,16 +404,15 @@ class OptionsParserImpl {
     @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
 
     // There are 3 types of flags that expand to other flag values. Expansion flags are the
-    // accepted way to do this, but two legacy features remain: implicit requirements and wrapper
-    // options. We rely on the OptionProcessor compile-time check's guarantee that no option sets
-    // multiple of these behaviors. (In Bazel, --config is another such flag, but that expansion
+    // accepted way to do this, but implicit requirements also do this. We rely on the
+    // OptionProcessor compile-time check's guarantee that no option sets
+    // both expansion behaviors. (In Bazel, --config is another such flag, but that expansion
     // is not controlled within the options parser, so we ignore it here)
 
     // As much as possible, we want the behaviors of these different types of flags to be
     // identical, as this minimizes the number of edge cases, but we do not yet track these values
-    // in the same way. Wrapper options are replaced by their value and implicit requirements are
-    // hidden from the reported lists of parsed options.
-    if (parsedOption.getImplicitDependent() == null && !optionDefinition.isWrapperOption()) {
+    // in the same way.
+    if (parsedOption.getImplicitDependent() == null) {
       // Log explicit options and expanded options in the order they are parsed (can be sorted
       // later). This information is needed to correctly canonicalize flags.
       parsedOptions.add(parsedOption);
@@ -410,19 +421,13 @@ class OptionsParserImpl {
     if (expansionBundle != null) {
       ResidueAndPriority residueAndPriority =
           parse(
-              OptionPriority.getLockedPriority(parsedOption.getPriority()),
+              OptionPriority.getChildPriority(parsedOption.getPriority()),
               o -> expansionBundle.sourceOfExpansionArgs,
-              optionDefinition.hasImplicitRequirements() ? optionDefinition : null,
-              optionDefinition.isExpansionOption() ? optionDefinition : null,
+              optionDefinition.hasImplicitRequirements() ? parsedOption : null,
+              optionDefinition.isExpansionOption() ? parsedOption : null,
               expansionBundle.expansionArgs);
       if (!residueAndPriority.residue.isEmpty()) {
-        if (optionDefinition.isWrapperOption()) {
-          throw new OptionsParsingException(
-              "Unparsed options remain after unwrapping "
-                  + unconvertedValue
-                  + ": "
-                  + Joiner.on(' ').join(residueAndPriority.residue));
-        } else {
+
           // Throw an assertion here, because this indicates an error in the definition of this
           // option's expansion or requirements, not with the input as provided by the user.
           throw new AssertionError(
@@ -430,7 +435,7 @@ class OptionsParserImpl {
                   + unconvertedValue
                   + ": "
                   + Joiner.on(' ').join(residueAndPriority.residue));
-        }
+
       }
     }
   }
@@ -440,8 +445,8 @@ class OptionsParserImpl {
       Iterator<String> nextArgs,
       OptionPriority priority,
       Function<OptionDefinition, String> sourceFunction,
-      OptionDefinition implicitDependent,
-      OptionDefinition expandedFrom)
+      ParsedOptionDescription implicitDependent,
+      ParsedOptionDescription expandedFrom)
       throws OptionsParsingException {
 
     // Store the way this option was parsed on the command line.
@@ -506,9 +511,8 @@ class OptionsParserImpl {
       // Special-case boolean to supply value based on presence of "no" prefix.
       if (optionDefinition.usesBooleanValueSyntax()) {
         unconvertedValue = booleanValue ? "1" : "0";
-      } else if (optionDefinition.getType().equals(Void.class)
-          && !optionDefinition.isWrapperOption()) {
-        // This is expected, Void type options have no args (unless they're wrapper options).
+      } else if (optionDefinition.getType().equals(Void.class)) {
+        // This is expected, Void type options have no args.
       } else if (nextArgs.hasNext()) {
         // "--flag value" form
         unconvertedValue = nextArgs.next();
@@ -518,7 +522,7 @@ class OptionsParserImpl {
       }
     }
 
-    return new ParsedOptionDescription(
+    return ParsedOptionDescription.newParsedOptionDescription(
         optionDefinition,
         commandLineForm.toString(),
         unconvertedValue,

@@ -109,18 +109,14 @@ public class CameraOps2 extends CameraManager.AvailabilityCallback {
                 return false;
             }
         }
-        if ((mActivity.checkSelfPermission(Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED)
-            || (mActivity.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED)) {
-            TLog.i("Requesting camera/storage permissions");
+        if (mActivity.checkSelfPermission(Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            TLog.i("Requesting camera permissions");
 
             mDelayedOpenId = cameraId;
             mDelayedOpenListener = listener;
 
-            mActivity.requestPermissions(new String[] {
-                        Manifest.permission.CAMERA,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE },
+            mActivity.requestPermissions(new String[] {Manifest.permission.CAMERA},
                     PERMISSIONS_REQUEST_CAMERA);
             return false;
         }

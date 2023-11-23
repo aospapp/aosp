@@ -183,6 +183,11 @@ void sendFatalFailureToHost(const char *message, const uint32_t *value,
   nanoapp_testing::abort(reason);
 }
 
+void sendFatalFailureToHostUint8(const char *message, uint8_t value) {
+  uint32_t val = value;
+  sendFatalFailureToHost(message, &val);
+}
+
 void sendInternalFailureToHost(const char *message, const uint32_t *value,
                                AbortBlame reason) {
   sendStringToHost(MessageType::kInternalFailure, message, value);

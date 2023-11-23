@@ -20,10 +20,10 @@ import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.app.ListFragment;
-import android.support.v7.app.AppCompatActivity;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.fragment.app.ListFragment;
+import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -70,6 +70,7 @@ public class RunLocalBenchmarksActivity extends AppCompatActivity {
             R.id.benchmark_text_low_hitrate,
             R.id.benchmark_edit_text_input,
             R.id.benchmark_overdraw,
+            R.id.benchmark_bitmap_upload,
     };
 
     public static class LocalBenchmarksList extends ListFragment {
@@ -204,6 +205,7 @@ public class RunLocalBenchmarksActivity extends AppCompatActivity {
             case R.id.benchmark_text_low_hitrate:
             case R.id.benchmark_edit_text_input:
             case R.id.benchmark_overdraw:
+            case R.id.benchmark_bitmap_upload:
             case R.id.benchmark_memory_bandwidth:
             case R.id.benchmark_memory_latency:
             case R.id.benchmark_power_management:
@@ -323,6 +325,9 @@ public class RunLocalBenchmarksActivity extends AppCompatActivity {
                 intent = new Intent(getApplicationContext(), EditTextInputActivity.class);
                 break;
             case R.id.benchmark_overdraw:
+                intent = new Intent(getApplicationContext(), FullScreenOverdrawActivity.class);
+                break;
+            case R.id.benchmark_bitmap_upload:
                 intent = new Intent(getApplicationContext(), BitmapUploadActivity.class);
                 break;
             case R.id.benchmark_memory_bandwidth:

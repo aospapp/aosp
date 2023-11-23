@@ -54,6 +54,9 @@ public class LocalPrinterCapabilities {
     /** Bears the underlying native C structure (printer_capabilities_t) or null if not present */
     public byte[] nativeData;
 
+    /** Public key of certificate for this printer, if known */
+    public byte[] certificate;
+
     public void buildCapabilities(BuiltInPrintService service,
             PrinterCapabilitiesInfo.Builder builder) {
         builder.setColorModes(
@@ -122,6 +125,7 @@ public class LocalPrinterCapabilities {
                 + " supportedMediaTypes=" + Arrays.toString(supportedMediaTypes)
                 + " supportedMediaSizes=" + Arrays.toString(supportedMediaSizes)
                 + " inetAddress=" + inetAddress
+                + " certificate=" + (certificate != null)
                 + "}";
     }
 }

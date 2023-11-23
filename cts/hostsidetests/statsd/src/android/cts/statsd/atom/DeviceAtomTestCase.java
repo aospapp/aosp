@@ -30,13 +30,21 @@ import java.util.List;
  */
 public class DeviceAtomTestCase extends AtomTestCase {
 
-    protected static final String DEVICE_SIDE_TEST_APK = "CtsStatsdApp.apk";
-    protected static final String DEVICE_SIDE_TEST_PACKAGE =
+    public static final String DEVICE_SIDE_TEST_APK = "CtsStatsdApp.apk";
+    public static final String DEVICE_SIDE_TEST_PACKAGE =
             "com.android.server.cts.device.statsd";
-    protected static final long DEVICE_SIDE_TEST_PKG_HASH =
+    public static final String DEVICE_SIDE_TEST_FOREGROUND_SERVICE_NAME =
+            "com.android.server.cts.device.statsd.StatsdCtsForegroundService";
+    private static final String DEVICE_SIDE_BG_SERVICE_COMPONENT =
+            "com.android.server.cts.device.statsd/.StatsdCtsBackgroundService";
+    public static final long DEVICE_SIDE_TEST_PKG_HASH =
             Long.parseUnsignedLong("15694052924544098582");
 
-    protected static final String CONFIG_NAME = "cts_config";
+    // Constants from device side tests (not directly accessible here).
+    public static final String KEY_ACTION = "action";
+    public static final String ACTION_LMK = "action.lmk";
+
+    public static final String CONFIG_NAME = "cts_config";
 
     @Override
     protected void setUp() throws Exception {
@@ -72,9 +80,9 @@ public class DeviceAtomTestCase extends AtomTestCase {
         List<EventMetricData> data = doDeviceMethod(methodName, conf);
 
         if (demandExactlyTwo) {
-            assertTrue(data.size() == 2);
+            assertEquals(2, data.size());
         } else {
-            assertTrue(data.size() >= 2);
+            assertTrue("data.size() [" + data.size() + "] should be >= 2", data.size() >= 2);
         }
         assertTimeDiffBetween(data.get(0), data.get(1), minTimeDiffMs, maxTimeDiffMs);
         return data;
@@ -152,8 +160,9 @@ public class DeviceAtomTestCase extends AtomTestCase {
      * Gets the uid of the test app.
      */
     protected int getUid() throws Exception {
-        String uidLine = getDevice().executeShellCommand("cmd package list packages -U "
-                + DEVICE_SIDE_TEST_PACKAGE);
+        int currentUser = getDevice().getCurrentUser();
+        String uidLine = getDevice().executeShellCommand("cmd package list packages -U --user "
+                + currentUser + " " + DEVICE_SIDE_TEST_PACKAGE);
         String[] uidLineParts = uidLine.split(":");
         // 3rd entry is package uid
         assertTrue(uidLineParts.length > 2);
@@ -172,12 +181,32 @@ public class DeviceAtomTestCase extends AtomTestCase {
     }
 
     /**
+     * Uninstalls the test apk.
+     */
+    protected void uninstallPackage() throws Exception{
+        getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
+    }
+
+    /**
      * Required to successfully start a background service from adb in O.
      */
     protected void allowBackgroundServices() throws Exception {
         getDevice().executeShellCommand(String.format(
                 "cmd deviceidle tempwhitelist %s", DEVICE_SIDE_TEST_PACKAGE));
     }
+
+    /**
+     * Runs a (background) service to perform the given action.
+     * @param actionValue the action code constants indicating the desired action to perform.
+     */
+    protected void executeBackgroundService(String actionValue) throws Exception {
+        allowBackgroundServices();
+        getDevice().executeShellCommand(String.format(
+                "am startservice -n '%s' -e %s %s",
+                DEVICE_SIDE_BG_SERVICE_COMPONENT,
+                KEY_ACTION, actionValue));
+    }
+
 
     /** Make the test app standby-active so it can run syncs and jobs immediately. */
     protected void allowImmediateSyncs() throws Exception {
@@ -198,6 +227,24 @@ public class DeviceAtomTestCase extends AtomTestCase {
      */
     protected void runActivity(String activity, String actionKey, String actionValue,
             long waitTime) throws Exception {
+        try (AutoCloseable a = withActivity(activity, actionKey, actionValue)) {
+            Thread.sleep(waitTime);
+        }
+    }
+
+    /**
+     * Starts the specified activity and returns an {@link AutoCloseable} that stops the activity
+     * when closed.
+     *
+     * <p>Example usage:
+     * <pre>
+     *     try (AutoClosable a = withActivity("activity", "action", "action-value")) {
+     *         doStuff();
+     *     }
+     * </pre>
+     */
+    protected AutoCloseable withActivity(String activity, String actionKey, String actionValue)
+            throws Exception {
         String intentString = null;
         if (actionKey != null && actionValue != null) {
             intentString = actionKey + " " + actionValue;
@@ -210,15 +257,53 @@ public class DeviceAtomTestCase extends AtomTestCase {
                     "am start -n " + DEVICE_SIDE_TEST_PACKAGE + "/." + activity + " -e " +
                             intentString);
         }
-
-        Thread.sleep(waitTime);
-        getDevice().executeShellCommand(
-                "am force-stop " + DEVICE_SIDE_TEST_PACKAGE);
-
-        Thread.sleep(WAIT_TIME_SHORT);
+        return () -> {
+            getDevice().executeShellCommand(
+                    "am force-stop " + DEVICE_SIDE_TEST_PACKAGE);
+            Thread.sleep(WAIT_TIME_SHORT);
+        };
     }
 
     protected void resetBatteryStats() throws Exception {
         getDevice().executeShellCommand("dumpsys batterystats --reset");
+    }
+
+    protected void clearProcStats() throws Exception {
+        getDevice().executeShellCommand("dumpsys procstats --clear");
+    }
+
+    protected void startProcStatsTesting() throws Exception {
+        getDevice().executeShellCommand("dumpsys procstats --start-testing");
+    }
+
+    protected void stopProcStatsTesting() throws Exception {
+        getDevice().executeShellCommand("dumpsys procstats --stop-testing");
+    }
+
+    protected void commitProcStatsToDisk() throws Exception {
+        getDevice().executeShellCommand("dumpsys procstats --commit");
+    }
+
+    protected void rebootDeviceAndWaitUntilReady() throws Exception {
+        rebootDevice();
+        // Wait for 2 mins.
+        assertTrue("Device failed to boot", getDevice().waitForBootComplete(120_000));
+        assertTrue("Stats service failed to start", waitForStatsServiceStart(60_000));
+        Thread.sleep(2_000);
+    }
+
+    protected boolean waitForStatsServiceStart(final long waitTime) throws Exception {
+        LogUtil.CLog.i("Waiting %d ms for stats service to start", waitTime);
+        int counter = 1;
+        long startTime = System.currentTimeMillis();
+        while ((System.currentTimeMillis() - startTime) < waitTime) {
+            if ("running".equals(getProperty("init.svc.statsd"))) {
+                return true;
+            }
+            Thread.sleep(Math.min(200 * counter, 2_000));
+            counter++;
+        }
+        LogUtil.CLog.w("Stats service did not start after %d ms", waitTime);
+        return false;
     }
 }

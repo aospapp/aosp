@@ -79,9 +79,6 @@ ErrorCode export_key_der(const ExportKeyResponse& response,
       der->setToExternal(
           const_cast<uint8_t*>(
               data), CBB_len(&cbb), true /* Transfer ownership. */);
-      for (size_t i = 0; i < der->size(); i++) {
-          LOG(ERROR) << "exporting: " << std::hex << (int)der->data()[i];
-      }
       CBB_cleanup(&cbb);
   } else {
       EcCurve ec_curve;
@@ -169,9 +166,6 @@ ErrorCode export_key_der(const ExportKeyResponse& response,
     der->setToExternal(
             const_cast<uint8_t*>(
                 data), CBB_len(&cbb), true /* Transfer ownership. */);
-    for (size_t i = 0; i < der->size(); i++) {
-      LOG(ERROR) << "exporting: " << std::hex << (int)der->data()[i];
-    }
     CBB_cleanup(&cbb);
   }
 

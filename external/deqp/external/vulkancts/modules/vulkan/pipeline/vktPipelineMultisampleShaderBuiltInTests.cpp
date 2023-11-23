@@ -175,6 +175,7 @@ public:
 												 const ImageMSParams&	imageMSParams)
 								: MSCaseBaseResolveAndPerSampleFetch(testCtx, name, imageMSParams) {}
 
+	virtual void				checkSupport	(Context&) const {}
 	void						init			(void);
 	void						initPrograms	(vk::SourceCollections& programCollection) const;
 	TestInstance*				createInstance	(Context&				context) const;
@@ -246,6 +247,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSampleID>::verifyImageData	(cons
 }
 
 class MSCaseSampleID;
+
+template<> void MSCase<MSCaseSampleID>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
 
 template<> void MSCase<MSCaseSampleID>::init (void)
 {
@@ -394,6 +401,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSamplePosDistribution>::verifyIm
 
 class MSCaseSamplePosDistribution;
 
+template<> void MSCase<MSCaseSamplePosDistribution>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
+
 template<> void MSCase<MSCaseSamplePosDistribution>::init (void)
 {
 	m_testCtx.getLog()
@@ -479,6 +492,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSamplePosCorrectness>::verifyIma
 }
 
 class MSCaseSamplePosCorrectness;
+
+template<> void MSCase<MSCaseSamplePosCorrectness>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
 
 template<> void MSCase<MSCaseSamplePosCorrectness>::init (void)
 {
@@ -601,7 +620,7 @@ VkPipelineMultisampleStateCreateInfo MSInstanceSampleMaskPattern::getMSStateCrea
 		DE_NULL,														// const void*								pNext;
 		(VkPipelineMultisampleStateCreateFlags)0u,						// VkPipelineMultisampleStateCreateFlags	flags;
 		imageMSParams.numSamples,										// VkSampleCountFlagBits					rasterizationSamples;
-		VK_TRUE,														// VkBool32									sampleShadingEnable;
+		VK_FALSE,														// VkBool32									sampleShadingEnable;
 		1.0f,															// float									minSampleShading;
 		&m_sampleMask,													// const VkSampleMask*						pSampleMask;
 		VK_FALSE,														// VkBool32									alphaToCoverageEnable;
@@ -648,7 +667,7 @@ const VkDescriptorSet* MSInstanceSampleMaskPattern::createMSPassDescSet (const I
 
 	deMemcpy(m_buffer->getAllocation().getHostPtr(), &m_sampleMask, sizeof(VkSampleMask));
 
-	flushMappedMemoryRange(deviceInterface, device, m_buffer->getAllocation().getMemory(), m_buffer->getAllocation().getOffset(), VK_WHOLE_SIZE);
+	flushAlloc(deviceInterface, device, m_buffer->getAllocation());
 
 	const VkDescriptorBufferInfo descBufferInfo = makeDescriptorBufferInfo(**m_buffer, 0u, sizeof(VkSampleMask));
 
@@ -772,6 +791,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSampleMaskBitCount>::verifyImage
 
 class MSCaseSampleMaskBitCount;
 
+template<> void MSCase<MSCaseSampleMaskBitCount>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
+
 template<> void MSCase<MSCaseSampleMaskBitCount>::init (void)
 {
 	m_testCtx.getLog()
@@ -860,6 +885,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSampleMaskCorrectBit>::verifyIma
 }
 
 class MSCaseSampleMaskCorrectBit;
+
+template<> void MSCase<MSCaseSampleMaskCorrectBit>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
 
 template<> void MSCase<MSCaseSampleMaskCorrectBit>::init (void)
 {
@@ -962,6 +993,12 @@ template<> tcu::TestStatus MSInstance<MSInstanceSampleMaskWrite>::verifyImageDat
 }
 
 class MSCaseSampleMaskWrite;
+
+template<> void MSCase<MSCaseSampleMaskWrite>::checkSupport (Context& context) const
+{
+	if (!context.getDeviceFeatures().sampleRateShading)
+		TCU_THROW(NotSupportedError, "sampleRateShading not supported");
+}
 
 template<> void MSCase<MSCaseSampleMaskWrite>::init (void)
 {

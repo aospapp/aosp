@@ -74,7 +74,6 @@ public class TestDialog extends Dialog {
     public boolean dispatchTouchEventResult;
     public boolean dispatchKeyEventResult;
     public int keyDownCode = -1;
-    public Window window;
     public Bundle saveInstanceState;
     public Bundle savedInstanceState;
     public KeyEvent keyEvent;

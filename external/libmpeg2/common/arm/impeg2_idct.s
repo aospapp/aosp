@@ -108,6 +108,7 @@ gai2_impeg2_idct_first_col_q11_addr2:
     .global impeg2_idct_recon_dc_a9q
 impeg2_idct_recon_dc_a9q:
     stmfd           sp!, {r4, r6, r12, lr}
+    vpush           {d8-d15}
     @//r0: pi2_src
     @//r1: pi2_tmp - not used, used as pred_strd
     @//r2: pu1_pred
@@ -115,8 +116,8 @@ impeg2_idct_recon_dc_a9q:
     @//r4: used as scratch
     @//r5:
 
-    ldr             r1, [sp, #20]       @//pred_strd
-    ldr             r6, [sp, #24]       @//dst_strd
+    ldr             r1, [sp, #84]       @//pred_strd
+    ldr             r6, [sp, #88]       @//dst_strd
 
     ldr             r14, gai2_impeg2_idct_q15_addr1
 q15lbl1:
@@ -188,6 +189,7 @@ q11lbl1:
 
     vst1.8          d7, [r3], r6
 
+    vpop            {d8-d15}
     ldmfd           sp!, {r4, r6, r12, pc}
 
 
@@ -196,9 +198,10 @@ q11lbl1:
     .global impeg2_idct_recon_dc_mismatch_a9q
 impeg2_idct_recon_dc_mismatch_a9q:
     stmfd           sp!, {r4-r12, lr}
+    vpush           {d8-d15}
 
-    ldr             r1, [sp, #44]       @//pred_strd
-    ldr             r6, [sp, #48]       @//dst_strd
+    ldr             r1, [sp, #108]      @//pred_strd
+    ldr             r6, [sp, #112]      @//dst_strd
 
     ldr             r14, gai2_impeg2_idct_q15_addr2
 q15lbl2:
@@ -304,6 +307,7 @@ additive_lbl:
     vst1.8          d30, [r3], r6
 
 
+    vpop            {d8-d15}
     ldmfd           sp!, {r4-r12, pc}
 
 
@@ -406,12 +410,14 @@ impeg2_idct_recon_a9q:
     @// Copy the input pointer to another register
     @// Step 1 : load all constants
     stmfd           sp!, {r4-r12, lr}
+    vpush           {d8-d15}
 
-    ldr             r8, [sp, #44]        @ prediction stride
-    ldr             r7, [sp, #48]        @ destination stride
-    ldr             r6, [sp, #40]            @ src stride
-    ldr             r12, [sp, #52]
-    ldr             r11, [sp, #56]
+    ldr             r8, [sp, #108]        @ prediction stride
+    ldr             r7, [sp, #112]        @ destination stride
+    ldr             r6, [sp, #104]            @ src stride
+    ldr             r12, [sp, #116]
+    ldr             r11, [sp, #120]
+
     mov             r6, r6, lsl #1      @ x sizeof(word16)
     add             r9, r0, r6, lsl #1  @ 2 rows
 
@@ -1198,6 +1204,7 @@ pred_buff_addition:
 
 
 
+    vpop            {d8-d15}
     ldmfd           sp!, {r4-r12, pc}
 
 

@@ -20,7 +20,7 @@
 #include <functional>
 
 #include <C2Buffer.h>
-#include <media/stagefright/bqhelper/WGraphicBufferProducer.h>
+#include <gui/bufferqueue/1.0/WGraphicBufferProducer.h>
 
 class C2BufferQueueBlockPool : public C2BlockPool {
 public:
@@ -50,7 +50,7 @@ public:
      *
      * \param renderCallbak callback to call for all dequeue buffer.
      */
-    void setRenderCallback(const OnRenderCallback &renderCallback = OnRenderCallback());
+    virtual void setRenderCallback(const OnRenderCallback &renderCallback = OnRenderCallback());
 
     /**
      * Configures an IGBP in order to create blocks. A newly created block is

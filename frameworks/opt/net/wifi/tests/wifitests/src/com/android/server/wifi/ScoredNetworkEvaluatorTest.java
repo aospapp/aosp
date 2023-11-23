@@ -35,9 +35,11 @@ import android.net.wifi.WifiNetworkScoreCache;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.support.test.filters.SmallTest;
 import android.util.LocalLog;
 
+import androidx.test.filters.SmallTest;
+
+import com.android.server.wifi.WifiNetworkSelector.NetworkEvaluator.OnConnectableListener;
 import com.android.server.wifi.WifiNetworkSelectorTestUtil.ScanDetailsAndWifiConfigs;
 import com.android.server.wifi.util.WifiPermissionsUtil;
 
@@ -71,8 +73,9 @@ public class ScoredNetworkEvaluatorTest {
     @Mock private NetworkScoreManager mNetworkScoreManager;
     @Mock private WifiConfigManager mWifiConfigManager;
     @Mock private WifiPermissionsUtil mWifiPermissionsUtil;
-
+    @Mock private OnConnectableListener mOnConnectableListener;
     @Captor private ArgumentCaptor<NetworkKey[]> mNetworkKeyArrayCaptor;
+    @Captor private ArgumentCaptor<WifiConfiguration> mWifiConfigCaptor;
 
     private WifiNetworkScoreCache mScoreCache;
     private ScoredNetworkEvaluator mScoredNetworkEvaluator;
@@ -117,7 +120,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3"};
         int[] freqs = {2470};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]"};
         int[] levels = {mThresholdQualifiedRssi2G + 8};
         int[] securities = {SECURITY_PSK};
 
@@ -141,7 +144,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3"};
         int[] freqs = {2470};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]"};
         int[] levels = {mThresholdQualifiedRssi2G + 8};
         int[] securities = {SECURITY_PSK};
 
@@ -159,7 +162,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
 
@@ -184,7 +187,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
 
@@ -217,7 +220,8 @@ public class ScoredNetworkEvaluatorTest {
 
         mContentObserver.onChange(false /* unused */);
 
-        mScoredNetworkEvaluator.evaluateNetworks(null, null, null, false, false, null);
+        mScoredNetworkEvaluator.evaluateNetworks(null, null, null, false, false,
+                mOnConnectableListener);
 
         verifyZeroInteractions(mWifiConfigManager, mNetworkScoreManager);
     }
@@ -227,7 +231,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
 
@@ -250,7 +254,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
 
@@ -269,6 +273,51 @@ public class ScoredNetworkEvaluatorTest {
     }
 
     /**
+     * When we have created a new ephemeral network, make sure that mOnConnectableListener
+     * is called.
+     */
+    @Test
+    public void testEvaluateNetworks_newEphemeralNetworkMustBeReportedAsConnectable() {
+        String[] ssids = {"\"test1\"", "\"test2\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] freqs = {2470, 2437};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
+        int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
+        Integer[] scores = {null, 120};
+        boolean[] meteredHints = {false, false};
+
+        List<ScanDetail> scanDetails = WifiNetworkSelectorTestUtil.buildScanDetails(
+                ssids, bssids, freqs, caps, levels, mClock);
+        WifiNetworkSelectorTestUtil.configureScoreCache(mScoreCache,
+                scanDetails, scores, meteredHints);
+
+        ScanResult scanResult = scanDetails.get(1).getScanResult();
+        WifiConfiguration ephemeralNetworkConfig = WifiNetworkSelectorTestUtil
+                .setupEphemeralNetwork(mWifiConfigManager, 1, scanDetails.get(1), meteredHints[1]);
+
+        // No saved networks.
+        when(mWifiConfigManager.getConfiguredNetworkForScanDetailAndCache(any(ScanDetail.class)))
+                .thenReturn(null);
+
+        // But when we create one, this is should be it.
+        when(mWifiConfigManager.addOrUpdateNetwork(any(), anyInt()))
+                .thenReturn(new NetworkUpdateResult(1));
+
+        // Untrusted networks allowed.
+        WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
+                null, null, false, true, mOnConnectableListener);
+
+        WifiConfigurationTestUtil.assertConfigurationEqual(ephemeralNetworkConfig, candidate);
+        WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
+                scanResult, candidate);
+        assertEquals(meteredHints[1], candidate.meteredHint);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
+    }
+
+    /**
      * When no saved networks available, choose the available ephemeral networks
      * if untrusted networks are allowed.
      */
@@ -277,7 +326,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
         Integer[] scores = {null, 120};
         boolean[] meteredHints = {false, true};
@@ -297,12 +346,16 @@ public class ScoredNetworkEvaluatorTest {
 
         // Untrusted networks allowed.
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(ephemeralNetworkConfig, candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanResult, candidate);
         assertEquals(meteredHints[1], candidate.meteredHint);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -337,12 +390,16 @@ public class ScoredNetworkEvaluatorTest {
         }
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(ephemeralNetworkConfigs[1], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanResults[1], candidate);
         assertEquals(meteredHints[1], candidate.meteredHint);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -354,7 +411,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 10};
         Integer[] scores = {null, 120};
         boolean[] meteredHints = {false, true};
@@ -373,7 +430,7 @@ public class ScoredNetworkEvaluatorTest {
 
         // Untrusted networks not allowed.
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, false, null);
+                null, null, false, false, mOnConnectableListener);
 
         assertEquals("Expect null configuration", null, candidate);
     }
@@ -386,7 +443,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3"};
         int[] freqs = {5200};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]"};
         int[] securities = {SECURITY_PSK};
         int[] levels = {mThresholdQualifiedRssi5G + 8};
         Integer[] scores = {120};
@@ -403,11 +460,15 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(savedConfigs[0], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanDetails.get(0).getScanResult(), candidate);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -418,7 +479,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[WPA2-EAP-CCMP][ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[WPA2-PSK][ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_PSK};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 8};
         Integer[] scores = {100, 120};
@@ -435,11 +496,15 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(savedConfigs[1], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanDetails.get(1).getScanResult(), candidate);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -451,7 +516,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 8};
         Integer[] scores = {120, 120};
@@ -468,11 +533,15 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(savedConfigs[0], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanDetails.get(0).getScanResult(), candidate);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -485,7 +554,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] savedSsids = {"\"test1\""};
         String[] savedBssids = {"6c:f3:7f:ae:8c:f3"};
         int[] savedFreqs = {2470};
-        String[] savedCaps = {"[WPA2-EAP-CCMP][ESS]"};
+        String[] savedCaps = {"[WPA2-PSK][ESS]"};
         int[] savedSecurities = {SECURITY_PSK};
         int[] savedLevels = {mThresholdQualifiedRssi2G + 8};
         // Ephemeral network.
@@ -521,11 +590,15 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(ephemeralNetworkConfig, candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 ephemeralScanResult, candidate);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -537,7 +610,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_NONE};
         int[] levels = {mThresholdQualifiedRssi2G + 8, mThresholdQualifiedRssi2G + 8};
         Integer[] scores = {null, null};
@@ -554,7 +627,7 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, scores, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                null, null, false, true, null);
+                null, null, false, true, mOnConnectableListener);
 
         assertEquals("Expect null configuration", null, candidate);
     }
@@ -592,12 +665,16 @@ public class ScoredNetworkEvaluatorTest {
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(
                 scanDetails, ephemeralNetworkConfigs[1],
-                bssids[1], true, true, null);
+                bssids[1], true, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(ephemeralNetworkConfigs[1], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanResults[1], candidate);
         assertEquals(meteredHints[1], candidate.meteredHint);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
     }
 
     /**
@@ -609,7 +686,7 @@ public class ScoredNetworkEvaluatorTest {
         String[] ssids = {"\"test1\"", "\"test2\""};
         String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
         int[] freqs = {2470, 2437};
-        String[] caps = {"[WPA2-EAP-CCMP][ESS]", "[WPA2-EAP-CCMP][ESS]"};
+        String[] caps = {"[WPA2-PSK][ESS]", "[WPA2-PSK][ESS]"};
         int[] securities = {SECURITY_PSK, SECURITY_PSK};
         int[] levels = {mThresholdQualifiedRssi2G + 28, mThresholdQualifiedRssi2G + 28};
         boolean[] meteredHints = {false, false};
@@ -625,10 +702,15 @@ public class ScoredNetworkEvaluatorTest {
                 scanDetails, null, meteredHints);
 
         WifiConfiguration candidate = mScoredNetworkEvaluator.evaluateNetworks(scanDetails,
-                savedConfigs[1], bssids[1], true, true, null);
+                savedConfigs[1], bssids[1], true, true, mOnConnectableListener);
 
         WifiConfigurationTestUtil.assertConfigurationEqual(savedConfigs[1], candidate);
         WifiNetworkSelectorTestUtil.verifySelectedScanResult(mWifiConfigManager,
                 scanDetails.get(1).getScanResult(), candidate);
+        verify(mOnConnectableListener, atLeastOnce())
+                .onConnectable(any(), mWifiConfigCaptor.capture(), anyInt());
+        assertTrue(mWifiConfigCaptor.getAllValues().stream()
+                .anyMatch(c -> c.networkId == candidate.networkId));
+
     }
 }

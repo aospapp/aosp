@@ -22,7 +22,7 @@
     android:padding="@dimen/preview_pager_padding"
     android:background="@drawable/preview_seek_bar_outline" >
 
-    <android.support.v4.view.ViewPager
+    <androidx.viewpager.widget.ViewPager
         android:id="@+id/preview_pager"
         android:layout_width="match_parent"
         android:layout_height="100dp"
@@ -36,7 +36,7 @@
         android:paddingStart="32dp"
         android:gravity="start|center"
         android:text="@string/screen_zoom_preview_title"
-        android:textAppearance="@android:style/TextAppearance.Material.Widget.ActionBar.Title"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title"
         android:importantForAccessibility="no" />
 </LinearLayout>
 

@@ -18,7 +18,7 @@
           android:versionCode="1">
 
     <uses-sdk
-        android:minSdkVersion="11"
+        android:minSdkVersion="14"
         android:targetSdkVersion="19" />
 
     <application />

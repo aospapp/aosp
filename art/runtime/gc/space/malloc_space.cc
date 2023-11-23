@@ -16,9 +16,12 @@
 
 #include "malloc_space.h"
 
+#include <ostream>
+
 #include "android-base/stringprintf.h"
 
 #include "base/logging.h"  // For VLOG
+#include "base/mutex-inl.h"
 #include "base/utils.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/accounting/space_bitmap-inl.h"
@@ -40,19 +43,26 @@ using android::base::StringPrintf;
 
 size_t MallocSpace::bitmap_index_ = 0;
 
-MallocSpace::MallocSpace(const std::string& name, MemMap* mem_map,
-                         uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
-                         bool create_bitmaps, bool can_move_objects, size_t starting_size,
+MallocSpace::MallocSpace(const std::string& name,
+                         MemMap&& mem_map,
+                         uint8_t* begin,
+                         uint8_t* end,
+                         uint8_t* limit,
+                         size_t growth_limit,
+                         bool create_bitmaps,
+                         bool can_move_objects,
+                         size_t starting_size,
                          size_t initial_size)
-    : ContinuousMemMapAllocSpace(name, mem_map, begin, end, limit, kGcRetentionPolicyAlwaysCollect),
+    : ContinuousMemMapAllocSpace(
+        name, std::move(mem_map), begin, end, limit, kGcRetentionPolicyAlwaysCollect),
       recent_free_pos_(0), lock_("allocation space lock", kAllocSpaceLock),
       growth_limit_(growth_limit), can_move_objects_(can_move_objects),
       starting_size_(starting_size), initial_size_(initial_size) {
   if (create_bitmaps) {
     size_t bitmap_index = bitmap_index_++;
     static const uintptr_t kGcCardSize = static_cast<uintptr_t>(accounting::CardTable::kCardSize);
-    CHECK_ALIGNED(reinterpret_cast<uintptr_t>(mem_map->Begin()), kGcCardSize);
-    CHECK_ALIGNED(reinterpret_cast<uintptr_t>(mem_map->End()), kGcCardSize);
+    CHECK_ALIGNED(reinterpret_cast<uintptr_t>(mem_map_.Begin()), kGcCardSize);
+    CHECK_ALIGNED(reinterpret_cast<uintptr_t>(mem_map_.End()), kGcCardSize);
     live_bitmap_.reset(accounting::ContinuousSpaceBitmap::Create(
         StringPrintf("allocspace %s live-bitmap %d", name.c_str(), static_cast<int>(bitmap_index)),
         Begin(), NonGrowthLimitCapacity()));
@@ -70,8 +80,11 @@ MallocSpace::MallocSpace(const std::string& name, MemMap* mem_map,
   }
 }
 
-MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size, size_t* initial_size,
-                                  size_t* growth_limit, size_t* capacity, uint8_t* requested_begin) {
+MemMap MallocSpace::CreateMemMap(const std::string& name,
+                                 size_t starting_size,
+                                 size_t* initial_size,
+                                 size_t* growth_limit,
+                                 size_t* capacity) {
   // Sanity check arguments
   if (starting_size > *initial_size) {
     *initial_size = starting_size;
@@ -80,13 +93,13 @@ MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size,
     LOG(ERROR) << "Failed to create alloc space (" << name << ") where the initial size ("
         << PrettySize(*initial_size) << ") is larger than its capacity ("
         << PrettySize(*growth_limit) << ")";
-    return nullptr;
+    return MemMap::Invalid();
   }
   if (*growth_limit > *capacity) {
     LOG(ERROR) << "Failed to create alloc space (" << name << ") where the growth limit capacity ("
         << PrettySize(*growth_limit) << ") is larger than the capacity ("
         << PrettySize(*capacity) << ")";
-    return nullptr;
+    return MemMap::Invalid();
   }
 
   // Page align growth limit and capacity which will be used to manage mmapped storage
@@ -94,9 +107,12 @@ MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size,
   *capacity = RoundUp(*capacity, kPageSize);
 
   std::string error_msg;
-  MemMap* mem_map = MemMap::MapAnonymous(name.c_str(), requested_begin, *capacity,
-                                         PROT_READ | PROT_WRITE, true, false, &error_msg);
-  if (mem_map == nullptr) {
+  MemMap mem_map = MemMap::MapAnonymous(name.c_str(),
+                                        *capacity,
+                                        PROT_READ | PROT_WRITE,
+                                        /*low_4gb=*/ true,
+                                        &error_msg);
+  if (!mem_map.IsValid()) {
     LOG(ERROR) << "Failed to allocate pages for alloc space (" << name << ") of size "
                << PrettySize(*capacity) << ": " << error_msg;
   }
@@ -194,18 +210,24 @@ ZygoteSpace* MallocSpace::CreateZygoteSpace(const char* alloc_space_name, bool l
   VLOG(heap) << "Capacity " << PrettySize(capacity);
   // Remap the tail.
   std::string error_msg;
-  std::unique_ptr<MemMap> mem_map(GetMemMap()->RemapAtEnd(End(), alloc_space_name,
-                                                          PROT_READ | PROT_WRITE, &error_msg));
-  CHECK(mem_map.get() != nullptr) << error_msg;
-  void* allocator = CreateAllocator(End(), starting_size_, initial_size_, capacity,
-                                    low_memory_mode);
+  MemMap mem_map = GetMemMap()->RemapAtEnd(
+      End(), alloc_space_name, PROT_READ | PROT_WRITE, &error_msg);
+  CHECK(mem_map.IsValid()) << error_msg;
+  void* allocator =
+      CreateAllocator(End(), starting_size_, initial_size_, capacity, low_memory_mode);
   // Protect memory beyond the initial size.
-  uint8_t* end = mem_map->Begin() + starting_size_;
+  uint8_t* end = mem_map.Begin() + starting_size_;
   if (capacity > initial_size_) {
     CheckedCall(mprotect, alloc_space_name, end, capacity - initial_size_, PROT_NONE);
   }
-  *out_malloc_space = CreateInstance(mem_map.release(), alloc_space_name, allocator, End(), end,
-                                     limit_, growth_limit, CanMoveObjects());
+  *out_malloc_space = CreateInstance(std::move(mem_map),
+                                     alloc_space_name,
+                                     allocator,
+                                     End(),
+                                     end,
+                                     limit_,
+                                     growth_limit,
+                                     CanMoveObjects());
   SetLimit(End());
   live_bitmap_->SetHeapLimit(reinterpret_cast<uintptr_t>(End()));
   CHECK_EQ(live_bitmap_->HeapLimit(), reinterpret_cast<uintptr_t>(End()));
@@ -247,7 +269,7 @@ void MallocSpace::SweepCallback(size_t num_ptrs, mirror::Object** ptrs, void* ar
     }
   }
   // Use a bulk free, that merges consecutive objects before freeing or free per object?
-  // Documentation suggests better free performance with merging, but this may be at the expensive
+  // Documentation suggests better free performance with merging, but this may be at the expense
   // of allocation.
   context->freed.objects += num_ptrs;
   context->freed.bytes += space->FreeList(self, num_ptrs, ptrs);

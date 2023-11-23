@@ -944,12 +944,14 @@ SRC_LEFT_LOOP_WD_16_HT_4:
     BNE         SRC_LEFT_LOOP_WD_16_HT_4
 
     SUBS        x6,x6,#16                   //Decrement the wd loop count by 16
-    BLE         RE_ASSINING_LOOP            //Jump to re-assigning loop
+    CMP         x6,#8                       //Check whether residue remains
+    BLT         RE_ASSINING_LOOP            //Jump to re-assigning loop
     mov         w7, w24                     //Loads wd
     mov         x0, x28                     //Loads *pu1_src
     SUB         x7,x7,x6
     ADD         x0,x0,x7
     BGT         WD_16_HT_4_LOOP             //If not equal jump to width_loop
+    BEQ         WIDTH_RESIDUE               //If residue remains jump to residue loop
 
 WIDTH_RESIDUE:
     mov         w7, w24                     //Loads wd

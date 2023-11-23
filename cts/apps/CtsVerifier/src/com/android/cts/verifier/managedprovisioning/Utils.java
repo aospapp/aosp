@@ -39,6 +39,8 @@ public class Utils {
     private static final String TAG = "CtsVerifierByodUtils";
     static final int BUGREPORT_NOTIFICATION_ID = 12345;
     private static final String CHANNEL_ID = "BugReport";
+    static final String FILE_PROVIDER_AUTHORITY =
+            "com.android.cts.verifier.managedprovisioning.fileprovider";
 
     static TestListItem createInteractiveTestItem(Activity activity, String id, int titleRes,
             int infoRes, ButtonInfo[] buttonInfos) {

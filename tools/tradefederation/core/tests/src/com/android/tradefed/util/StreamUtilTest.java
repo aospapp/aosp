@@ -17,7 +17,6 @@ package com.android.tradefed.util;
 
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.util.StreamUtil;
 
 import junit.framework.TestCase;
 
@@ -29,13 +28,12 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
-/**
- * Unit tests for the {@link StreamUtil} utility class
- */
+/** Unit tests for the {@link com.android.tradefed.util.StreamUtil} utility class */
 public class StreamUtilTest extends TestCase {
 
     /**
-     * Verify that {@link StreamUtil#getByteArrayListFromSource} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getByteArrayListFromSource} works as
+     * expected.
      */
     public void testGetByteArrayListFromSource() throws Exception {
         final String contents = "this is a string";
@@ -53,7 +51,8 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#getByteArrayListFromStream} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getByteArrayListFromStream} works as
+     * expected.
      */
     public void testGetByteArrayListFromStream() throws Exception {
         final String contents = "this is a string";
@@ -69,7 +68,8 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#getStringFromSource} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getStringFromSource} works as
+     * expected.
      */
     public void testGetStringFromSource() throws Exception {
         final String contents = "this is a string";
@@ -81,7 +81,8 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#getBufferedReaderFromStreamSrc} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getBufferedReaderFromStreamSrc} works
+     * as expected.
      */
     public void testGetBufferedReaderFromInputStream() throws Exception {
         final String contents = "this is a string";
@@ -97,7 +98,8 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#countLinesFromSource} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#countLinesFromSource} works as
+     * expected.
      */
     public void testCountLinesFromSource() throws Exception {
         final String contents = "foo\nbar\n\foo\n";
@@ -106,7 +108,8 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#getStringFromStream} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#getStringFromStream} works as
+     * expected.
      */
     public void testGetStringFromStream() throws Exception {
         final String contents = "this is a string";
@@ -116,7 +119,9 @@ public class StreamUtilTest extends TestCase {
     }
 
     /**
-     * Verify that {@link StreamUtil#calculateMd5(InputStream)} works as expected.
+     * Verify that {@link com.android.tradefed.util.StreamUtil#calculateMd5(InputStream)} works as
+     * expected.
+     *
      * @throws IOException
      */
     public void testCalculateMd5() throws IOException {
@@ -125,6 +130,20 @@ public class StreamUtilTest extends TestCase {
         ByteArrayInputStream inputSource = new ByteArrayInputStream(source.getBytes());
         String actualMd5 = StreamUtil.calculateMd5(inputSource);
         assertEquals(md5, actualMd5);
+    }
+
+    /**
+     * Verify that {@link com.android.tradefed.util.StreamUtil#calculateBase64Md5(InputStream)}
+     * works as expected.
+     *
+     * @throws IOException
+     */
+    public void testCalculateBase64Md5() throws IOException {
+        final String source = "testtesttesttesttest";
+        final String base64Md5 = "8xf2gvr+AwnGpCOvC076WQ==";
+        ByteArrayInputStream inputSource = new ByteArrayInputStream(source.getBytes());
+        String actualBase64Md5 = StreamUtil.calculateBase64Md5(inputSource);
+        assertEquals(base64Md5, actualBase64Md5);
     }
 
     public void testCopyStreams() throws Exception {

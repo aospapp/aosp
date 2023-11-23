@@ -26,9 +26,10 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
-    ctstestrunner \
+    androidx.test.rules \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
+    cts-wm-util \
     junit \
     ub-uiautomator
 
@@ -40,3 +41,4 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_PACKAGE)
+include $(call all-makefiles-under,$(LOCAL_PATH))

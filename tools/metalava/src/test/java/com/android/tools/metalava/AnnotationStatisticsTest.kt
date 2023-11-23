@@ -24,12 +24,13 @@ class AnnotationStatisticsTest : DriverTest() {
     @Test
     fun `Test emitting annotation statistics`() {
         check(
-            extraArguments = arrayOf("--annotation-coverage-stats"),
+            extraArguments = arrayOf(ARG_ANNOTATION_COVERAGE_STATS),
             expectedOutput = """
                 Nullness Annotation Coverage Statistics:
-                0 out of 0 methods were annotated (100%)
-                0 out of 1 fields were annotated (0%)
-                0 out of 0 parameters were annotated (100%)
+                0 out of 1 eligible fields (out of 2 total fields) were annotated (0%)
+                0 out of 0 eligible methods (out of 2 total methods) were fully annotated (100%)
+                    0 out of 0 eligible method returns were annotated (100%)
+                    0 out of 0 eligible parameters were annotated (100%)
                 """,
             sourceFiles = *arrayOf(
                 java(
@@ -57,12 +58,13 @@ class AnnotationStatisticsTest : DriverTest() {
     @Test
     fun `Static final initialized fields are not nullable`() {
         check(
-            extraArguments = arrayOf("--annotation-coverage-stats"),
+            extraArguments = arrayOf(ARG_ANNOTATION_COVERAGE_STATS),
             expectedOutput = """
                 Nullness Annotation Coverage Statistics:
-                4 out of 5 methods were annotated (80%)
-                0 out of 0 fields were annotated (100%)
-                4 out of 5 parameters were annotated (80%)
+                0 out of 0 eligible fields (out of 0 total fields) were annotated (100%)
+                4 out of 5 eligible methods (out of 6 total methods) were fully annotated (80%)
+                    4 out of 5 eligible method returns were annotated (80%)
+                    4 out of 5 eligible parameters were annotated (80%)
                 """,
             compatibilityMode = false,
             signatureSource = """
@@ -163,8 +165,8 @@ class AnnotationStatisticsTest : DriverTest() {
                     }
                     """
                 ),
-                supportNonNullSource,
-                supportNullableSource
+                androidxNonNullSource,
+                androidxNullableSource
             ),
             expectedOutput = """
                 6 methods and fields were missing nullness annotations out of 8 total API references.

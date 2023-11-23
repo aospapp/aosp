@@ -58,7 +58,7 @@ static constexpr uint32_t kArm64SIMDTypeConversionInt2FPLatency = 10;
 class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
  public:
   // Default visitor for instructions not handled specifically below.
-  void VisitInstruction(HInstruction* ATTRIBUTE_UNUSED) {
+  void VisitInstruction(HInstruction* ATTRIBUTE_UNUSED) override {
     last_visited_latency_ = kArm64IntegerOpLatency;
   }
 
@@ -68,12 +68,10 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
   M(ArrayGet             , unused)                   \
   M(ArrayLength          , unused)                   \
   M(ArraySet             , unused)                   \
-  M(BinaryOperation      , unused)                   \
   M(BoundsCheck          , unused)                   \
   M(Div                  , unused)                   \
   M(InstanceFieldGet     , unused)                   \
   M(InstanceOf           , unused)                   \
-  M(Invoke               , unused)                   \
   M(LoadString           , unused)                   \
   M(Mul                  , unused)                   \
   M(NewArray             , unused)                   \
@@ -108,6 +106,10 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
   M(VecLoad              , unused)                   \
   M(VecStore             , unused)
 
+#define FOR_EACH_SCHEDULED_ABSTRACT_INSTRUCTION(M)   \
+  M(BinaryOperation      , unused)                   \
+  M(Invoke               , unused)
+
 #define FOR_EACH_SCHEDULED_SHARED_INSTRUCTION(M) \
   M(BitwiseNegatedRight, unused)                 \
   M(MultiplyAccumulate, unused)                  \
@@ -116,9 +118,10 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
   M(DataProcWithShifterOp, unused)
 
 #define DECLARE_VISIT_INSTRUCTION(type, unused)  \
-  void Visit##type(H##type* instruction) OVERRIDE;
+  void Visit##type(H##type* instruction) override;
 
   FOR_EACH_SCHEDULED_COMMON_INSTRUCTION(DECLARE_VISIT_INSTRUCTION)
+  FOR_EACH_SCHEDULED_ABSTRACT_INSTRUCTION(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_SCHEDULED_SHARED_INSTRUCTION(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_ARM64(DECLARE_VISIT_INSTRUCTION)
 
@@ -131,11 +134,11 @@ class SchedulingLatencyVisitorARM64 : public SchedulingLatencyVisitor {
 
 class HSchedulerARM64 : public HScheduler {
  public:
-  HSchedulerARM64(ScopedArenaAllocator* allocator, SchedulingNodeSelector* selector)
-      : HScheduler(allocator, &arm64_latency_visitor_, selector) {}
-  ~HSchedulerARM64() OVERRIDE {}
+  explicit HSchedulerARM64(SchedulingNodeSelector* selector)
+      : HScheduler(&arm64_latency_visitor_, selector) {}
+  ~HSchedulerARM64() override {}
 
-  bool IsSchedulable(const HInstruction* instruction) const OVERRIDE {
+  bool IsSchedulable(const HInstruction* instruction) const override {
 #define CASE_INSTRUCTION_KIND(type, unused) case \
   HInstruction::InstructionKind::k##type:
     switch (instruction->GetKind()) {
@@ -157,7 +160,7 @@ class HSchedulerARM64 : public HScheduler {
   // SIMD&FP registers are callee saved) so don't reorder such vector instructions.
   //
   // TODO: remove this when a proper support of SIMD registers is introduced to the compiler.
-  bool IsSchedulingBarrier(const HInstruction* instr) const OVERRIDE {
+  bool IsSchedulingBarrier(const HInstruction* instr) const override {
     return HScheduler::IsSchedulingBarrier(instr) ||
            instr->IsVecReduce() ||
            instr->IsVecExtractScalar() ||

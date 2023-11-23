@@ -16,14 +16,15 @@
 
 package android.net.cts;
 
+import android.content.pm.PackageManager;
+import android.net.NetworkStats;
 import android.net.TrafficStats;
 import android.os.Process;
+import android.os.SystemProperties;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -81,6 +82,7 @@ public class TrafficStatsTest extends AndroidTestCase {
         return packetCount * (20 + 32 + bytes);
     }
 
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testTrafficStatsForLocalhost() throws IOException {
         final long mobileTxPacketsBefore = TrafficStats.getMobileTxPackets();
         final long mobileRxPacketsBefore = TrafficStats.getMobileRxPackets();
@@ -99,6 +101,7 @@ public class TrafficStatsTest extends AndroidTestCase {
         final int byteCount = 1024;
         final int packetCount = 1024;
 
+        TrafficStats.startDataProfiling(null);
         final ServerSocket server = new ServerSocket(0);
         new Thread("TrafficStatsTest.testTrafficStatsForLocalhost") {
             @Override
@@ -153,6 +156,7 @@ public class TrafficStatsTest extends AndroidTestCase {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
         }
+        NetworkStats testStats = TrafficStats.stopDataProfiling(null);
 
         long mobileTxPacketsAfter = TrafficStats.getMobileTxPackets();
         long mobileRxPacketsAfter = TrafficStats.getMobileRxPackets();
@@ -194,6 +198,24 @@ public class TrafficStatsTest extends AndroidTestCase {
             Log.i(LOG_TAG, "lingering traffic data: " + deltaTxOtherPackets + "/" + deltaRxOtherPackets);
         }
 
+        // Check the per uid stats read from data profiling have the stats expected. The data
+        // profiling snapshot is generated from readNetworkStatsDetail() method in
+        // networkStatsService and in this way we can verify the detail networkStats of a given uid
+        // is correct.
+        NetworkStats.Entry entry = testStats.getTotal(null, Process.myUid());
+        assertTrue("txPackets detail: " + entry.txPackets + " uidTxPackets: " + uidTxDeltaPackets,
+            entry.txPackets >= packetCount + minExpectedExtraPackets
+            && entry.txPackets <= uidTxDeltaPackets);
+        assertTrue("rxPackets detail: " + entry.rxPackets + " uidRxPackets: " + uidRxDeltaPackets,
+            entry.rxPackets >= packetCount + minExpectedExtraPackets
+            && entry.rxPackets <= uidRxDeltaPackets);
+        assertTrue("txBytes detail: " + entry.txBytes + " uidTxDeltaBytes: " + uidTxDeltaBytes,
+            entry.txBytes >= tcpPacketToIpBytes(packetCount, byteCount)
+            + tcpPacketToIpBytes(minExpectedExtraPackets, 0) && entry.txBytes <= uidTxDeltaBytes);
+        assertTrue("rxBytes detail: " + entry.rxBytes + " uidRxDeltaBytes: " + uidRxDeltaBytes,
+            entry.rxBytes >= tcpPacketToIpBytes(packetCount, byteCount)
+            + tcpPacketToIpBytes(minExpectedExtraPackets, 0) && entry.rxBytes <= uidRxDeltaBytes);
+
         assertTrue("uidtxp: " + uidTxPacketsBefore + " -> " + uidTxPacketsAfter + " delta=" + uidTxDeltaPackets +
             " Wanted: " + uidTxDeltaPackets + ">=" + packetCount + "+" + minExpectedExtraPackets + " && " +
             uidTxDeltaPackets + "<=" + packetCount + "+" + packetCount + "+" + maxExpectedExtraPackets + "+" + deltaTxOtherPackets,
@@ -216,19 +238,37 @@ public class TrafficStatsTest extends AndroidTestCase {
             uidRxDeltaBytes <= tcpPacketToIpBytes(packetCount, byteCount) + tcpPacketToIpBytes(packetCount + maxExpectedExtraPackets + deltaRxOtherPackets, 0));
 
         // Localhost traffic *does* count against total stats.
-        // Fudge by 132 packets of 1500 bytes not related to the test.
+        // Check the total stats increased after test data transfer over localhost has been made.
         assertTrue("ttxp: " + totalTxPacketsBefore + " -> " + totalTxPacketsAfter,
-            totalTxPacketsAfter >= totalTxPacketsBefore + uidTxDeltaPackets &&
-            totalTxPacketsAfter <= totalTxPacketsBefore + uidTxDeltaPackets + 132);
+                totalTxPacketsAfter >= totalTxPacketsBefore + uidTxDeltaPackets);
         assertTrue("trxp: " + totalRxPacketsBefore + " -> " + totalRxPacketsAfter,
-            totalRxPacketsAfter >= totalRxPacketsBefore + uidRxDeltaPackets &&
-            totalRxPacketsAfter <= totalRxPacketsBefore + uidRxDeltaPackets + 132);
+                totalRxPacketsAfter >= totalRxPacketsBefore + uidRxDeltaPackets);
         assertTrue("ttxb: " + totalTxBytesBefore + " -> " + totalTxBytesAfter,
-            totalTxBytesAfter >= totalTxBytesBefore + uidTxDeltaBytes &&
-            totalTxBytesAfter <= totalTxBytesBefore + uidTxDeltaBytes + 132 * 1500);
+                totalTxBytesAfter >= totalTxBytesBefore + uidTxDeltaBytes);
         assertTrue("trxb: " + totalRxBytesBefore + " -> " + totalRxBytesAfter,
-            totalRxBytesAfter >= totalRxBytesBefore + uidRxDeltaBytes &&
-            totalRxBytesAfter <= totalRxBytesBefore + uidRxDeltaBytes + 132 * 1500);
+                totalRxBytesAfter >= totalRxBytesBefore + uidRxDeltaBytes);
+
+        // If the adb TCP port is opened, this test may be run by adb over network.
+        // Huge amount of data traffic might go through the network and accounted into total packets
+        // stats. The upper bound check would be meaningless.
+        // TODO: Consider precisely calculate the traffic accounted due to adb over network and
+        //       subtract it when checking upper bound instead of skip checking.
+        final PackageManager pm = mContext.getPackageManager();
+        if (SystemProperties.getInt("persist.adb.tcp.port", -1) > -1
+                || SystemProperties.getInt("service.adb.tcp.port", -1) > -1
+                || !pm.hasSystemFeature(PackageManager.FEATURE_USB_ACCESSORY)) {
+            Log.i(LOG_TAG, "adb is running over the network, skip the upper bound check");
+        } else {
+            // Fudge by 132 packets of 1500 bytes not related to the test.
+            assertTrue("ttxp: " + totalTxPacketsBefore + " -> " + totalTxPacketsAfter,
+                    totalTxPacketsAfter <= totalTxPacketsBefore + uidTxDeltaPackets + 132);
+            assertTrue("trxp: " + totalRxPacketsBefore + " -> " + totalRxPacketsAfter,
+                    totalRxPacketsAfter <= totalRxPacketsBefore + uidRxDeltaPackets + 132);
+            assertTrue("ttxb: " + totalTxBytesBefore + " -> " + totalTxBytesAfter,
+                    totalTxBytesAfter <= totalTxBytesBefore + uidTxDeltaBytes + 132 * 1500);
+            assertTrue("trxb: " + totalRxBytesBefore + " -> " + totalRxBytesAfter,
+                    totalRxBytesAfter <= totalRxBytesBefore + uidRxDeltaBytes + 132 * 1500);
+        }
 
         // Localhost traffic should *not* count against mobile stats,
         // There might be some other traffic, but nowhere near 1MB.
@@ -244,6 +284,5 @@ public class TrafficStatsTest extends AndroidTestCase {
         assertTrue("mrxb: " + mobileRxBytesBefore + " -> " + mobileRxBytesAfter,
             mobileRxBytesAfter >= mobileRxBytesBefore &&
             mobileRxBytesAfter <= mobileRxBytesBefore + 200000);
-
     }
 }

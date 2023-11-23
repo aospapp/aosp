@@ -19,7 +19,7 @@
     <string name="more_string" msgid="8495478259330621990">"+<xliff:g id="COUNT">%1$d</xliff:g>"</string>
     <string name="copy_email" msgid="7869435992461603532">"העתק כתובת אימייל"</string>
     <string name="copy_number" msgid="530057841276106843">"העתק מספר טלפון"</string>
-    <string name="action_label" msgid="1318401633653605424">"חזור"</string>
+    <string name="action_label" msgid="1318401633653605424">"חזרה"</string>
     <string name="accessbility_suggestion_dropdown_opened" msgid="3231589819168382515">"הצעות אנשי קשר פתוחות"</string>
     <string name="accessbility_suggestion_dropdown_closed" msgid="5545766162855459747">"אין הצעות זמינות"</string>
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"הסר את <xliff:g id="CONTACT">%s</xliff:g> מהנמענים"</string>

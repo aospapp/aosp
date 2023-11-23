@@ -24,10 +24,11 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.ArraySet;
 import android.util.Log;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,9 +37,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.function.Predicate;
 
 // As is the case with ArraySet itself, ArraySetTest borrows heavily from ArrayMapTest.
-
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ArraySetTest {
@@ -214,6 +215,18 @@ public class ArraySetTest {
         }
     }
 
+    /** Confirms that all the invalid indices [mSize, internalArray.length) are null. */
+    private static <E> void confirmNullOutOfBounds(ArraySet<E> array) {
+        for (int i = array.size(); ; ++i) {
+            try {
+                assertNull(array.valueAtUnchecked(i));
+            } catch (ArrayIndexOutOfBoundsException e) {
+                // Finally reached the end of the internal array.
+                break;
+            }
+        }
+    }
+
     @Test
     public void testTest() {
         assertEquals("OPS and KEYS must be equal length", OPS.length, KEYS.length);
@@ -359,6 +372,8 @@ public class ArraySetTest {
         assertEquals(indexToDelete * 10, set.removeAt(indexToDelete).intValue());
         assertEquals(9, set.size());
 
+        confirmNullOutOfBounds(set);
+
         for (int i = 0; i < 9; ++i) {
             int expectedValue = ((i >= indexToDelete) ? (i + 1) : i) * 10;
             assertEquals(expectedValue, set.valueAt(i).intValue());
@@ -366,16 +381,33 @@ public class ArraySetTest {
 
         for (int i = 9; i > 0; --i) {
             set.removeAt(0);
+            confirmNullOutOfBounds(set);
             assertEquals(i - 1, set.size());
         }
 
         assertTrue(set.isEmpty());
+        confirmNullOutOfBounds(set);
 
         try {
             set.removeAt(0);
             fail("Expected ArrayIndexOutOfBoundsException");
         } catch (ArrayIndexOutOfBoundsException expected) {
             // expected
+        }
+    }
+
+    @Test
+    public void testValueAt_OutOfBounds() {
+        ArraySet<Integer> set = new ArraySet<>();
+
+        for (int i = 0; i < 10; ++i) {
+            try {
+                set.valueAt(i);
+                fail("Expected ArrayIndexOutOfBoundsException");
+            } catch (ArrayIndexOutOfBoundsException expected) {
+                // expected
+            }
+            set.add(i);
         }
     }
 
@@ -459,6 +491,58 @@ public class ArraySetTest {
         assertEquals(0, arraySet.size());
         assertFalse(arraySet.removeAll(copy));
         assertEquals(0, arraySet.size());
+    }
+
+    @Test
+    public void testRemoveIf() {
+        ArraySet<Integer> set = new ArraySet<>();
+
+        for (int i = 0; i < 10; ++i) {
+            // Array starts with a value it should discard.
+            set.add(i * 10);
+            // Make sure there are alternating keep/discard elements.
+            set.add(i);
+            set.add(i);
+            set.add(i * -10);
+            // Array ends with a value it should keep.
+            set.add(i * 100);
+        }
+
+        Predicate<Integer> predicate = (i) -> {
+            return i < 50;
+        };
+        set.removeIf(predicate);
+
+        // Kept values: 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900
+        assertEquals(14, set.size());
+        for (int i = 0; i < set.size(); ++i) {
+            Integer val = set.valueAt(i);
+            assertTrue("Value " + val + " should have been removed.", val >= 50);
+            assertEquals(i, set.indexOf(val));
+        }
+        confirmNullOutOfBounds(set);
+
+        ArraySet<Integer> setDecreasing = new ArraySet<>();
+        for (int i = 10; i >= 0; --i) {
+            // Array starts with a value it should keep.
+            setDecreasing.add(i * 100);
+            setDecreasing.add(i * 10);
+            setDecreasing.add(i);
+            setDecreasing.add(i);
+            // Array ends with a value it should discard.
+            setDecreasing.add(i * -10);
+        }
+
+        setDecreasing.removeIf(predicate);
+
+        // Kept values: 1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 90, 80, 70, 60, 50
+        assertEquals(15, setDecreasing.size());
+        for (int i = 0; i < setDecreasing.size(); ++i) {
+            Integer val = setDecreasing.valueAt(i);
+            assertTrue("Value " + val + " should have been removed.", val >= 50);
+            assertEquals(i, setDecreasing.indexOf(val));
+        }
+        confirmNullOutOfBounds(set);
     }
 
     @Test

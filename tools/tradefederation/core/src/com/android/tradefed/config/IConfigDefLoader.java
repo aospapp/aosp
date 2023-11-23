@@ -17,6 +17,7 @@
 package com.android.tradefed.config;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Interface for retrieving a ConfigurationDef.
@@ -44,6 +45,7 @@ interface IConfigDefLoader {
      * @param name the name of config to include
      * @param deviceTagObject the name of the current deviceTag or null if not inside a device tag.
      * @param templateMap the current map of template to be loaded.
+     * @param templateSeen Set of name of template placeholder already encountered.
      * @throws ConfigurationException if an error occurred loading the config
      */
     void loadIncludedConfiguration(
@@ -51,6 +53,7 @@ interface IConfigDefLoader {
             String parentName,
             String name,
             String deviceTagObject,
-            Map<String, String> templateMap)
+            Map<String, String> templateMap,
+            Set<String> templateSeen)
             throws ConfigurationException;
 }

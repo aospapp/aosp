@@ -49,7 +49,7 @@
     <item msgid="1805837518286731242">"נמנע זמנית מחיבור חלש"</item>
   </string-array>
   <string-array name="hdcp_checking_titles">
-    <item msgid="441827799230089869">"אל תבדוק לעולם"</item>
+    <item msgid="441827799230089869">"בלי לבדוק לעולם"</item>
     <item msgid="6042769699089883931">"‏בדוק אם יש תוכן DRM בלבד"</item>
     <item msgid="9174900380056846820">"בדוק תמיד"</item>
   </string-array>
@@ -57,6 +57,11 @@
     <item msgid="505558545611516707">"‏לעולם אל תשתמש בבדיקת HDCP"</item>
     <item msgid="3878793616631049349">"‏השתמש בבדיקת HDCP עבור תוכן DRM בלבד"</item>
     <item msgid="45075631231212732">"‏תמיד השתמש בבדיקת HDCP"</item>
+  </string-array>
+  <string-array name="bt_hci_snoop_log_entries">
+    <item msgid="3966341281672645384">"מושבת"</item>
+    <item msgid="1969681323976948639">"המסננים המופעלים"</item>
+    <item msgid="8719029132154020716">"מופעל"</item>
   </string-array>
   <string-array name="bluetooth_avrcp_versions">
     <item msgid="5347678900838034763">"‏AVRCP 1.4 (ברירת המחדל)"</item>

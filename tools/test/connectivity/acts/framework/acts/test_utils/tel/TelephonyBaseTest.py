@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -21,41 +21,65 @@ import logging
 import os
 import re
 import shutil
-import traceback
-
-import acts.controllers.diag_logger
+import time
 
 from acts import asserts
 from acts import logger as acts_logger
+from acts import signals
 from acts.base_test import BaseTestClass
 from acts.controllers.android_device import DEFAULT_QXDM_LOG_PATH
 from acts.keys import Config
-from acts.signals import TestSignal
-from acts.signals import TestAbortClass
-from acts.signals import TestAbortAll
-from acts.signals import TestBlocked
 from acts import records
 from acts import utils
 
 from acts.test_utils.tel.tel_subscription_utils import \
     initial_set_up_for_subid_infomation
-from acts.test_utils.tel.tel_test_utils import abort_all_tests
-from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
-from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
+from acts.test_utils.tel.tel_subscription_utils import \
+    set_default_sub_for_all_services
+from acts.test_utils.tel.tel_test_utils import build_id_override
+from acts.test_utils.tel.tel_test_utils import disable_qxdm_logger
+from acts.test_utils.tel.tel_test_utils import enable_connectivity_metrics
+from acts.test_utils.tel.tel_test_utils import enable_radio_log_on
+from acts.test_utils.tel.tel_test_utils import ensure_phone_default_state
+from acts.test_utils.tel.tel_test_utils import ensure_phone_idle
+from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
+from acts.test_utils.tel.tel_test_utils import force_connectivity_metrics_upload
+from acts.test_utils.tel.tel_test_utils import get_operator_name
+from acts.test_utils.tel.tel_test_utils import get_screen_shot_log
+from acts.test_utils.tel.tel_test_utils import get_sim_state
+from acts.test_utils.tel.tel_test_utils import get_tcpdump_log
+from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import print_radio_info
 from acts.test_utils.tel.tel_test_utils import reboot_device
-from acts.test_utils.tel.tel_test_utils import refresh_sl4a_session
+from acts.test_utils.tel.tel_test_utils import recover_build_id
 from acts.test_utils.tel.tel_test_utils import run_multithread_func
 from acts.test_utils.tel.tel_test_utils import setup_droid_properties
 from acts.test_utils.tel.tel_test_utils import set_phone_screen_on
 from acts.test_utils.tel.tel_test_utils import set_phone_silent_mode
 from acts.test_utils.tel.tel_test_utils import set_qxdm_logger_command
+from acts.test_utils.tel.tel_test_utils import start_qxdm_logger
 from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
-from acts.test_utils.tel.tel_test_utils import stop_qxdm_loggers
+from acts.test_utils.tel.tel_test_utils import start_tcpdumps
+from acts.test_utils.tel.tel_test_utils import stop_qxdm_logger
+from acts.test_utils.tel.tel_test_utils import stop_tcpdumps
+from acts.test_utils.tel.tel_test_utils import synchronize_device_time
 from acts.test_utils.tel.tel_test_utils import unlock_sim
+from acts.test_utils.tel.tel_test_utils import wait_for_sim_ready_by_adb
+from acts.test_utils.tel.tel_test_utils import wait_for_sims_ready_by_adb
+from acts.test_utils.tel.tel_test_utils import activate_wfc_on_device
+from acts.test_utils.tel.tel_test_utils import install_googleaccountutil_apk
+from acts.test_utils.tel.tel_test_utils import add_google_account
+from acts.test_utils.tel.tel_test_utils import install_googlefi_apk
+from acts.test_utils.tel.tel_test_utils import activate_google_fi_account
+from acts.test_utils.tel.tel_test_utils import check_google_fi_activated
+from acts.test_utils.tel.tel_test_utils import check_fi_apk_installed
+from acts.test_utils.tel.tel_test_utils import phone_switch_to_msim_mode
 from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND
+from acts.test_utils.tel.tel_defines import SINGLE_SIM_CONFIG, MULTI_SIM_CONFIG
 from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND
 from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING
+from acts.test_utils.tel.tel_defines import SIM_STATE_ABSENT
+from acts.test_utils.tel.tel_defines import SIM_STATE_UNKNOWN
 from acts.test_utils.tel.tel_defines import WIFI_VERBOSE_LOGGING_ENABLED
 from acts.test_utils.tel.tel_defines import WIFI_VERBOSE_LOGGING_DISABLED
 
@@ -64,50 +88,35 @@ class TelephonyBaseTest(BaseTestClass):
     def __init__(self, controllers):
 
         BaseTestClass.__init__(self, controllers)
-        self.logger_sessions = []
+        self.wifi_network_ssid = self.user_params.get(
+            "wifi_network_ssid") or self.user_params.get(
+                "wifi_network_ssid_2g") or self.user_params.get(
+                    "wifi_network_ssid_5g")
+        self.wifi_network_pass = self.user_params.get(
+            "wifi_network_pass") or self.user_params.get(
+                "wifi_network_pass_2g") or self.user_params.get(
+                    "wifi_network_ssid_5g")
 
         self.log_path = getattr(logging, "log_path", None)
         self.qxdm_log = self.user_params.get("qxdm_log", True)
-        qxdm_log_mask_cfg = self.user_params.get("qxdm_log_mask_cfg", None)
-        if isinstance(qxdm_log_mask_cfg, list):
-            qxdm_log_mask_cfg = qxdm_log_mask_cfg[0]
-        if qxdm_log_mask_cfg and "dev/null" in qxdm_log_mask_cfg:
-            qxdm_log_mask_cfg = None
-        stop_qxdm_loggers(self.log, self.android_devices)
-        for ad in self.android_devices:
-            try:
-                ad.adb.shell("killall -9 tcpdump")
-            except AdbError:
-                ad.log.warn("Killing existing tcpdump processes failed")
-            if not hasattr(ad, "init_log_path"):
-                ad.init_log_path = ad.log_path
-            ad.log_path = self.log_path
-            print_radio_info(ad)
-            if not unlock_sim(ad):
-                abort_all_tests(ad.log, "unable to unlock SIM")
-            ad.wakeup_screen()
-            ad.adb.shell("input keyevent 82")
-            ad.qxdm_log = getattr(ad, "qxdm_log", self.qxdm_log)
-            if ad.qxdm_log:
-                qxdm_log_mask = getattr(ad, "qxdm_log_mask", None)
-                if qxdm_log_mask_cfg:
-                    qxdm_mask_path = DEFAULT_QXDM_LOG_PATH
-                    ad.adb.shell("mkdir %s" % qxdm_mask_path)
-                    ad.log.info("Push %s to %s", qxdm_log_mask_cfg,
-                                qxdm_mask_path)
-                    ad.adb.push("%s %s" % (qxdm_log_mask_cfg, qxdm_mask_path))
-                    mask_file_name = os.path.split(qxdm_log_mask_cfg)[-1]
-                    qxdm_log_mask = os.path.join(qxdm_mask_path,
-                                                 mask_file_name)
-                set_qxdm_logger_command(ad, mask=qxdm_log_mask)
-                ad.adb.pull(
-                    "/firmware/image/qdsp6m.qdb %s" % ad.init_log_path,
-                    ignore_status=True)
-
-        start_qxdm_loggers(self.log, self.android_devices,
-                           utils.get_current_epoch_time())
+        self.enable_radio_log_on = self.user_params.get(
+            "enable_radio_log_on", False)
+        self.cbrs_esim = self.user_params.get("cbrs_esim", False)
+        self.account_util = self.user_params.get("account_util", None)
+        if isinstance(self.account_util, list):
+            self.account_util = self.account_util[0]
+        self.fi_util = self.user_params.get("fi_util", None)
+        if isinstance(self.fi_util, list):
+            self.fi_util = self.fi_util[0]
+        tasks = [(self._init_device, [ad]) for ad in self.android_devices]
+        multithread_func(self.log, tasks)
         self.skip_reset_between_cases = self.user_params.get(
             "skip_reset_between_cases", True)
+        self.log_path = getattr(logging, "log_path", None)
+        self.sim_config = {
+                            "config":SINGLE_SIM_CONFIG,
+                            "number_of_sims":1
+                        }
 
     # Use for logging in the test cases to facilitate
     # faster log lookup and reduce ambiguity in logging.
@@ -118,38 +127,34 @@ class TelephonyBaseTest(BaseTestClass):
                                     self.log_begin_time.replace(' ', '-'))
             self.test_id = test_id
             self.result_detail = ""
-            tries = 2 if self.user_params.get("telephony_auto_rerun") else 1
-            for i in range(tries):
+            tries = int(self.user_params.get("telephony_auto_rerun", 1))
+            for ad in self.android_devices:
+                ad.log_path = self.log_path
+            for i in range(tries + 1):
                 result = True
-                log_string = "[Test ID] %s" % test_id
-                if i > 1:
-                    log_string = "[Rerun]%s" % log_string
-                    self.teardown_test()
-                    self.setup_test()
-                self.log.info(log_string)
-                for ad in self.android_devices:
-                    ad.log_path = self.log_path
-                    try:
-                        ad.droid.logI("Started %s" % log_string)
-                    except Exception as e:
-                        ad.log.warning(e)
-                        refresh_sl4a_session(ad)
+                if i > 0:
+                    log_string = "[Test Case] RERUN %s" % self.test_name
+                    self.log.info(log_string)
+                    self._teardown_test(self.test_name)
+                    self._setup_test(self.test_name)
                 try:
                     result = fn(self, *args, **kwargs)
-                except (TestSignal, TestAbortClass, TestAbortAll) as signal:
+                except signals.TestFailure:
+                    if self.result_detail:
+                        signal.details = self.result_detail
+                    result = False
+                except signals.TestSignal:
                     if self.result_detail:
                         signal.details = self.result_detail
                     raise
                 except Exception as e:
-                    self.log.error(traceback.format_exc())
+                    self.log.exception(e)
                     asserts.fail(self.result_detail)
-                for ad in self.android_devices:
-                    try:
-                        ad.droid.logI("Finished %s" % log_string)
-                    except Exception as e:
-                        ad.log.warning(e)
-                        refresh_sl4a_session(ad)
-                if result: break
+                if result is False:
+                    if i < tries:
+                        continue
+                else:
+                    break
             if self.user_params.get("check_crash", True):
                 new_crash = ad.check_crash_report(self.test_name,
                                                   self.begin_time, True)
@@ -159,7 +164,7 @@ class TelephonyBaseTest(BaseTestClass):
                     self.result_detail = "%s %s %s" % (self.result_detail,
                                                        ad.serial, msg)
                     result = False
-            if result:
+            if result is not False:
                 asserts.explicit_pass(self.result_detail)
             else:
                 asserts.fail(self.result_detail)
@@ -167,6 +172,11 @@ class TelephonyBaseTest(BaseTestClass):
         return _safe_wrap_test_case
 
     def setup_class(self):
+        qxdm_log_mask_cfg = self.user_params.get("qxdm_log_mask_cfg", None)
+        if isinstance(qxdm_log_mask_cfg, list):
+            qxdm_log_mask_cfg = qxdm_log_mask_cfg[0]
+        if qxdm_log_mask_cfg and "dev/null" in qxdm_log_mask_cfg:
+            qxdm_log_mask_cfg = None
         sim_conf_file = self.user_params.get("sim_conf_file")
         if not sim_conf_file:
             self.log.info("\"sim_conf_file\" is not provided test bed config!")
@@ -182,39 +192,120 @@ class TelephonyBaseTest(BaseTestClass):
                     self.log.error("Unable to load user config %s ",
                                    sim_conf_file)
 
-        setattr(self, "diag_logger",
-                self.register_controller(
-                    acts.controllers.diag_logger, required=False))
+        tasks = [(self._setup_device, [ad, sim_conf_file, qxdm_log_mask_cfg])
+                 for ad in self.android_devices]
+        return multithread_func(self.log, tasks)
 
-        if not self.user_params.get("Attenuator"):
-            ensure_phones_default_state(self.log, self.android_devices)
+    def _init_device(self, ad):
+        synchronize_device_time(ad)
+        ad.log_path = self.log_path
+        print_radio_info(ad)
+        unlock_sim(ad)
+        ad.wakeup_screen()
+        ad.adb.shell("input keyevent 82")
+
+    def wait_for_sim_ready(self,ad):
+        wait_for_sim_ready_on_sim_config = {
+              SINGLE_SIM_CONFIG : lambda:wait_for_sim_ready_by_adb(self.log,ad),
+              MULTI_SIM_CONFIG : lambda:wait_for_sims_ready_by_adb(self.log,ad)
+              }
+        if not wait_for_sim_ready_on_sim_config[self.sim_config["config"]]:
+            raise signals.TestAbortClass("unable to load the SIM")
+
+    def _setup_device(self, ad, sim_conf_file, qxdm_log_mask_cfg=None):
+        ad.qxdm_log = getattr(ad, "qxdm_log", self.qxdm_log)
+        if self.user_params.get("enable_connectivity_metrics", False):
+            enable_connectivity_metrics(ad)
+        if self.user_params.get("build_id_override", False):
+            build_postfix = self.user_params.get("build_id_postfix",
+                                                 "LAB_TEST")
+            build_id_override(
+                ad,
+                new_build_id=self.user_params.get("build_id_override_with",
+                                                  None),
+                postfix=build_postfix)
+        if self.enable_radio_log_on:
+            enable_radio_log_on(ad)
+        if "sdm" in ad.model:
+            if ad.adb.getprop("persist.radio.multisim.config") != \
+                              self.sim_config["config"]:
+                ad.adb.shell("setprop persist.radio.multisim.config %s" \
+                             % self.sim_config["config"])
+                reboot_device(ad)
+
+        stop_qxdm_logger(ad)
+        if ad.qxdm_log:
+            qxdm_log_mask = getattr(ad, "qxdm_log_mask", None)
+            if qxdm_log_mask_cfg:
+                qxdm_mask_path = self.user_params.get("qxdm_log_path",
+                                                      DEFAULT_QXDM_LOG_PATH)
+                ad.adb.shell("mkdir %s" % qxdm_mask_path)
+                ad.log.info("Push %s to %s", qxdm_log_mask_cfg, qxdm_mask_path)
+                ad.adb.push("%s %s" % (qxdm_log_mask_cfg, qxdm_mask_path))
+                mask_file_name = os.path.split(qxdm_log_mask_cfg)[-1]
+                qxdm_log_mask = os.path.join(qxdm_mask_path, mask_file_name)
+            set_qxdm_logger_command(ad, mask=qxdm_log_mask)
+            start_qxdm_logger(ad, utils.get_current_epoch_time())
         else:
-            ensure_phones_idle(self.log, self.android_devices)
-        for ad in self.android_devices:
-            setup_droid_properties(self.log, ad, sim_conf_file)
+            disable_qxdm_logger(ad)
+        if not unlock_sim(ad):
+            raise signals.TestAbortClass("unable to unlock the SIM")
 
-            # Setup VoWiFi MDN for Verizon. b/33187374
-            build_id = ad.build_info["build_id"]
-            if "vzw" in [
-                    sub["operator"] for sub in ad.cfg["subscription"].values()
-            ] and ad.is_apk_installed("com.google.android.wfcactivation"):
-                ad.log.info("setup VoWiFi MDN per b/33187374")
-                ad.adb.shell("setprop dbg.vzw.force_wfc_nv_enabled true")
-                ad.adb.shell("am start --ei EXTRA_LAUNCH_CARRIER_APP 0 -n "
-                             "\"com.google.android.wfcactivation/"
-                             ".VzwEmergencyAddressActivity\"")
-            # Sub ID setup
-            initial_set_up_for_subid_infomation(self.log, ad)
-            if "enable_wifi_verbose_logging" in self.user_params:
-                ad.droid.wifiEnableVerboseLogging(WIFI_VERBOSE_LOGGING_ENABLED)
-            # If device is setup already, skip the following setup procedures
-            if getattr(ad, "telephony_test_setup", None):
-                continue
-            # Disable Emergency alerts
-            # Set chrome browser start with no-first-run verification and
-            # disable-fre. Give permission to read from and write to storage.
-            for cmd in (
-                    "pm disable com.android.cellbroadcastreceiver",
+        # eSIM enablement
+        if hasattr(ad, "fi_esim"):
+            if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
+                                         self.wifi_network_pass):
+                ad.log.error("Failed to connect to wifi")
+                return False
+            if check_google_fi_activated(ad):
+                ad.log.info("Google Fi is already Activated")
+            else:
+                install_googleaccountutil_apk(ad, self.account_util)
+                add_google_account(ad)
+                install_googlefi_apk(ad, self.fi_util)
+                if not activate_google_fi_account(ad):
+                    return False
+                check_google_fi_activated(ad)
+            if hasattr(ad, "dsds"):
+                sim_mode = ad.droid.telephonyGetPhoneCount()
+                if sim_mode == 1:
+                    ad.log.info("Phone in Single SIM Mode")
+                    if not phone_switch_to_msim_mode(ad):
+                        ad.log.error("Failed to switch to Dual SIM Mode")
+                        return False
+                elif sim_mode == 2:
+                    ad.log.info("Phone already in Dual SIM Mode")
+                set_default_sub_for_all_services(ad)
+        if get_sim_state(ad) in (SIM_STATE_ABSENT, SIM_STATE_UNKNOWN):
+            ad.log.info("Device has no or unknown SIM in it")
+            ensure_phone_idle(self.log, ad)
+        elif self.user_params.get("Attenuator"):
+            ad.log.info("Device in chamber room")
+            ensure_phone_idle(self.log, ad)
+            setup_droid_properties(self.log, ad, sim_conf_file, self.cbrs_esim)
+        else:
+            self.wait_for_sim_ready(ad)
+            ensure_phone_default_state(self.log, ad)
+            setup_droid_properties(self.log, ad, sim_conf_file, self.cbrs_esim)
+
+        # Activate WFC on Verizon, AT&T and Canada operators as per # b/33187374 &
+        # b/122327716
+        activate_wfc_on_device(self.log, ad)
+
+        # Sub ID setup
+        initial_set_up_for_subid_infomation(self.log, ad)
+
+        # If device is setup already, skip the following setup procedures
+        if getattr(ad, "telephony_test_setup", None):
+            return True
+
+        if "enable_wifi_verbose_logging" in self.user_params:
+            ad.droid.wifiEnableVerboseLogging(WIFI_VERBOSE_LOGGING_ENABLED)
+
+        # Disable Emergency alerts
+        # Set chrome browser start with no-first-run verification and
+        # disable-fre. Give permission to read from and write to storage.
+        for cmd in ("pm disable com.android.cellbroadcastreceiver",
                     "pm grant com.android.chrome "
                     "android.permission.READ_EXTERNAL_STORAGE",
                     "pm grant com.android.chrome "
@@ -223,13 +314,14 @@ class TelephonyBaseTest(BaseTestClass):
                     "am set-debug-app --persistent com.android.chrome",
                     'echo "chrome --no-default-browser-check --no-first-run '
                     '--disable-fre" > /data/local/tmp/chrome-command-line'):
-                ad.adb.shell(cmd)
+            ad.adb.shell(cmd)
 
-            # Curl for 2016/7 devices
+        # Curl for 2016/7 devices
+        if not getattr(ad, "curl_capable", False):
             try:
-                if int(ad.adb.getprop("ro.product.first_api_level")) >= 25:
-                    out = ad.adb.shell("/data/curl --version")
-                    if not out or "not found" in out:
+                out = ad.adb.shell("/data/curl --version")
+                if not out or "not found" in out:
+                    if int(ad.adb.getprop("ro.product.first_api_level")) >= 25:
                         tel_data = self.user_params.get("tel_data", "tel_data")
                         if isinstance(tel_data, list):
                             tel_data = tel_data[0]
@@ -243,93 +335,123 @@ class TelephonyBaseTest(BaseTestClass):
                             ad.adb.push("%s /data" % (curl_file_path))
                             ad.adb.shell(
                                 "chmod 777 /data/curl", ignore_status=True)
+                else:
+                    setattr(ad, "curl_capable", True)
             except Exception:
                 ad.log.info("Failed to push curl on this device")
 
-            # Ensure that a test class starts from a consistent state that
-            # improves chances of valid network selection and facilitates
-            # logging.
-            try:
-                if not set_phone_screen_on(self.log, ad):
-                    self.log.error("Failed to set phone screen-on time.")
-                    return False
-                if not set_phone_silent_mode(self.log, ad):
-                    self.log.error("Failed to set phone silent mode.")
-                    return False
-                ad.droid.telephonyAdjustPreciseCallStateListenLevel(
-                    PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND, True)
-                ad.droid.telephonyAdjustPreciseCallStateListenLevel(
-                    PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING, True)
-                ad.droid.telephonyAdjustPreciseCallStateListenLevel(
-                    PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND, True)
-            except Exception as e:
-                self.log.error("Failure with %s", e)
-            setattr(ad, "telephony_test_setup", True)
-
+        # Ensure that a test class starts from a consistent state that
+        # improves chances of valid network selection and facilitates
+        # logging.
+        try:
+            if not set_phone_screen_on(self.log, ad):
+                self.log.error("Failed to set phone screen-on time.")
+                return False
+            if not set_phone_silent_mode(self.log, ad):
+                self.log.error("Failed to set phone silent mode.")
+                return False
+            ad.droid.telephonyAdjustPreciseCallStateListenLevel(
+                PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND, True)
+            ad.droid.telephonyAdjustPreciseCallStateListenLevel(
+                PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING, True)
+            ad.droid.telephonyAdjustPreciseCallStateListenLevel(
+                PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND, True)
+        except Exception as e:
+            self.log.error("Failure with %s", e)
+        setattr(ad, "telephony_test_setup", True)
         return True
 
-    def teardown_class(self):
-        stop_qxdm_loggers(self.log, self.android_devices)
-        ensure_phones_default_state(self.log, self.android_devices)
+    def _teardown_device(self, ad):
         try:
-            for ad in self.android_devices:
-                ad.droid.disableDevicePassword()
-                if "enable_wifi_verbose_logging" in self.user_params:
-                    ad.droid.wifiEnableVerboseLogging(
-                        WIFI_VERBOSE_LOGGING_DISABLED)
-                if hasattr(ad, "init_log_path"):
-                    ad.log_path = ad.init_log_path
-            return True
+            stop_qxdm_logger(ad)
+        except Exception as e:
+            self.log.error("Failure with %s", e)
+        try:
+            ad.droid.disableDevicePassword()
+        except Exception as e:
+            self.log.error("Failure with %s", e)
+        if self.user_params.get("enable_connectivity_metrics", False):
+            if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
+                                         self.wifi_network_pass):
+                ad.log.error("Failed to connect to wifi")
+            force_connectivity_metrics_upload(ad)
+            time.sleep(30)
+        try:
+            if "enable_wifi_verbose_logging" in self.user_params:
+                ad.droid.wifiEnableVerboseLogging(
+                    WIFI_VERBOSE_LOGGING_DISABLED)
+        except Exception as e:
+            self.log.error("Failure with %s", e)
+        try:
+            if self.user_params.get("build_id_override",
+                                    False) and self.user_params.get(
+                                        "recover_build_id", False):
+                recover_build_id(ad)
         except Exception as e:
             self.log.error("Failure with %s", e)
 
+    def teardown_class(self):
+        tasks = [(self._teardown_device, [ad]) for ad in self.android_devices]
+        multithread_func(self.log, tasks)
+        return True
+
     def setup_test(self):
+        if getattr(self, "qxdm_log", True):
+            if not self.user_params.get("qxdm_log_mask_cfg", None):
+                if "wfc" in self.test_name:
+                    for ad in self.android_devices:
+                        if not getattr(ad, "qxdm_logger_command", None) or (
+                                "IMS_DS_CNE_LnX_Golden.cfg" not in getattr(
+                                    ad, "qxdm_logger_command", "")):
+                            set_qxdm_logger_command(
+                                ad, "IMS_DS_CNE_LnX_Golden.cfg")
+                else:
+                    for ad in self.android_devices:
+                        if not getattr(ad, "qxdm_logger_command", None) or (
+                                "IMS_DS_CNE_LnX_Golden.cfg" in getattr(
+                                    ad, "qxdm_logger_command", "")):
+                            set_qxdm_logger_command(ad, None)
+            start_qxdm_loggers(self.log, self.android_devices, self.begin_time)
+        if getattr(self, "tcpdump_log", False) or "wfc" in self.test_name:
+            mask = getattr(self, "tcpdump_mask", "all")
+            interface = getattr(self, "tcpdump_interface", "wlan0")
+            start_tcpdumps(
+                self.android_devices,
+                begin_time=self.begin_time,
+                interface=interface,
+                mask=mask)
+        else:
+            stop_tcpdumps(self.android_devices)
         for ad in self.android_devices:
-            ad.ed.clear_all_events()
+            if self.skip_reset_between_cases:
+                ensure_phone_idle(self.log, ad)
+            else:
+                ensure_phone_default_state(self.log, ad)
+            for session in ad._sl4a_manager.sessions.values():
+                ed = session.get_event_dispatcher()
+                ed.clear_all_events()
             output = ad.adb.logcat("-t 1")
             match = re.search(r"\d+-\d+\s\d+:\d+:\d+.\d+", output)
             if match:
                 ad.test_log_begin_time = match.group(0)
-        if getattr(self, "qxdm_log", True):
-            start_qxdm_loggers(self.log, self.android_devices, self.begin_time)
-        if getattr(self, "diag_logger", None):
-            for logger in self.diag_logger:
-                self.log.info("Starting a diagnostic session %s", logger)
-                self.logger_sessions.append((logger, logger.start()))
-        if self.skip_reset_between_cases:
-            ensure_phones_idle(self.log, self.android_devices)
-        else:
-            ensure_phones_default_state(self.log, self.android_devices)
 
-    def on_exception(self, test_name, begin_time):
-        self._pull_diag_logs(test_name, begin_time)
-        self._take_bug_report(test_name, begin_time)
-        self._cleanup_logger_sessions()
+    def teardown_test(self):
+        stop_tcpdumps(self.android_devices)
 
     def on_fail(self, test_name, begin_time):
-        self._pull_diag_logs(test_name, begin_time)
         self._take_bug_report(test_name, begin_time)
-        self._cleanup_logger_sessions()
-
-    def on_blocked(self, test_name, begin_time):
-        self.on_fail(test_name, begin_time)
 
     def _ad_take_extra_logs(self, ad, test_name, begin_time):
-        extra_qxdm_logs_in_seconds = self.user_params.get(
-            "extra_qxdm_logs_in_seconds", 60 * 3)
+        ad.adb.wait_for_device()
         result = True
-        if getattr(ad, "qxdm_log", True):
-            # Gather qxdm log modified 3 minutes earlier than test start time
-            if begin_time:
-                qxdm_begin_time = begin_time - 1000 * extra_qxdm_logs_in_seconds
-            else:
-                qxdm_begin_time = None
-            try:
-                ad.get_qxdm_logs(test_name, qxdm_begin_time)
-            except Exception as e:
-                ad.log.error("Failed to get QXDM log for %s with error %s",
-                             test_name, e)
-                result = False
+
+        try:
+            # get tcpdump and screen shot log
+            get_tcpdump_log(ad, test_name, begin_time)
+            get_screen_shot_log(ad, test_name, begin_time)
+        except Exception as e:
+            ad.log.error("Exception error %s", e)
+            result = False
 
         try:
             ad.check_crash_report(test_name, begin_time, log_crash_report=True)
@@ -338,23 +460,29 @@ class TelephonyBaseTest(BaseTestClass):
                          test_name, e)
             result = False
 
-        log_begin_time = getattr(
-            ad, "test_log_begin_time", None
-        ) or acts_logger.epoch_to_log_line_timestamp(begin_time - 1000 * 60)
-        log_path = os.path.join(self.log_path, test_name,
-                                "%s_%s.logcat" % (ad.serial, begin_time))
-        try:
-            ad.adb.logcat(
-                'b all -d -v year -t "%s" > %s' % (log_begin_time, log_path),
-                timeout=120)
-        except Exception as e:
-            ad.log.error("Failed to get logcat with error %s", e)
-            result = False
+        extra_qxdm_logs_in_seconds = self.user_params.get(
+            "extra_qxdm_logs_in_seconds", 60 * 3)
+        if getattr(ad, "qxdm_log", True):
+            # Gather qxdm log modified 3 minutes earlier than test start time
+            if begin_time:
+                qxdm_begin_time = begin_time - 1000 * extra_qxdm_logs_in_seconds
+            else:
+                qxdm_begin_time = None
+            try:
+                time.sleep(10)
+                ad.get_qxdm_logs(test_name, qxdm_begin_time)
+            except Exception as e:
+                ad.log.error("Failed to get QXDM log for %s with error %s",
+                             test_name, e)
+                result = False
+
         return result
 
     def _take_bug_report(self, test_name, begin_time):
         if self._skip_bug_report():
             return
+        test_log_path = os.path.join(self.log_path, test_name)
+        utils.create_dir(test_log_path)
         dev_num = getattr(self, "number_of_devices", None) or len(
             self.android_devices)
         tasks = [(self._ad_take_bugreport, (ad, test_name, begin_time))
@@ -366,6 +494,7 @@ class TelephonyBaseTest(BaseTestClass):
             if getattr(ad, "reboot_to_recover", False):
                 reboot_device(ad)
                 ad.reboot_to_recover = False
+        # Zip log folder
         if not self.user_params.get("zip_log", False): return
         src_dir = os.path.join(self.log_path, test_name)
         file_name = "%s_%s" % (src_dir, begin_time)
@@ -373,10 +502,10 @@ class TelephonyBaseTest(BaseTestClass):
         shutil.make_archive(file_name, "zip", src_dir)
         shutil.rmtree(src_dir)
 
-    def _block_all_test_cases(self, tests):
-        """Over-write _block_all_test_case in BaseTestClass."""
+    def _block_all_test_cases(self, tests, reason='Failed class setup'):
+        """Over-write _block_all_test_cases in BaseTestClass."""
         for (i, (test_name, test_func)) in enumerate(tests):
-            signal = TestBlocked("Failed class setup")
+            signal = signals.TestFailure(reason)
             record = records.TestResultRecord(test_name, self.TAG)
             record.test_begin()
             # mark all test cases as FAIL
@@ -385,9 +514,6 @@ class TelephonyBaseTest(BaseTestClass):
             # only gather bug report for the first test case
             if i == 0:
                 self.on_fail(test_name, record.begin_time)
-
-    def on_pass(self, test_name, begin_time):
-        self._cleanup_logger_sessions()
 
     def get_stress_test_number(self):
         """Gets the stress_test_number param from user params.

@@ -45,14 +45,15 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "VirtualMachine::RedefineClasses command";
-    static final String checkedClassSignature
-        = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/RedefineClass_Debuggee;";
+    static final String checkedClassSignature =
+            getClassSignature(RedefineClassesDebuggee.class).replace("RedefineClassesDebuggee",
+                    "RedefineClass_Debuggee");
     static final String byteCodeToRedefineFile = "RedefineByteCode_Debuggee001";
     private static String thisTestName;
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.VirtualMachine.RedefineClassesDebuggee";
+        return RedefineClassesDebuggee.class.getName();
     }
 
     File findNewClassByteCode() {

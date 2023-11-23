@@ -25,7 +25,7 @@
     <skip />
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Ez da erabili azken urte honetan"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Ez dakigu ziur noiz erabili zen azkenekoz"</string>
-    <string name="deletion_helper_free_button" msgid="1760529213407548661">"Libratu <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_free_button" msgid="1760529213407548661">"Ezabatu <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Babeskopiak dituzten argazki eta bideoak"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 egunetik gorakoak"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->

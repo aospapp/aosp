@@ -24,7 +24,6 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/time.h>
 
 #define TST_NO_DEFAULT_MAIN
 #include "tst_test.h"
@@ -34,6 +33,9 @@
 #include "tst_ansi_color.h"
 #include "tst_safe_stdio.h"
 #include "tst_timer_test.h"
+#include "tst_clocks.h"
+#include "tst_timer.h"
+#include "tst_sys_conf.h"
 
 #include "old_resource.h"
 #include "old_device.h"
@@ -46,6 +48,7 @@ static int iterations = 1;
 static float duration = -1;
 static pid_t main_pid, lib_pid;
 static int mntpoint_mounted;
+static struct timespec tst_start_time; /* valid only for test pid */
 
 struct results {
 	int passed;
@@ -68,6 +71,9 @@ static char ipc_path[1024];
 const char *tst_ipc_path = ipc_path;
 
 static char shm_path[1024];
+
+int TST_ERR;
+long TST_RET;
 
 static void do_cleanup(void);
 static void do_exit(int ret) __attribute__ ((noreturn));
@@ -101,7 +107,7 @@ static void setup_ipc(void)
 	results = SAFE_MMAP(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, ipc_fd, 0);
 
 	/* Checkpoints needs to be accessible from processes started by exec() */
-	if (tst_test->needs_checkpoints) {
+	if (tst_test->needs_checkpoints || tst_test->child_needs_reinit) {
 		sprintf(ipc_path, IPC_ENV_VAR "=%s", shm_path);
 		putenv(ipc_path);
 	} else {
@@ -137,7 +143,6 @@ void tst_reinit(void)
 	const char *path = getenv(IPC_ENV_VAR);
 	size_t size = getpagesize();
 	int fd;
-	void *ptr;
 
 	if (!path)
 		tst_brk(TBROK, IPC_ENV_VAR" is not defined");
@@ -147,8 +152,8 @@ void tst_reinit(void)
 
 	fd = SAFE_OPEN(path, O_RDWR);
 
-	ptr = SAFE_MMAP(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	tst_futexes = (char*)ptr + sizeof(struct results);
+	results = SAFE_MMAP(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	tst_futexes = (char*)results + sizeof(struct results);
 	tst_max_futexes = (size - sizeof(struct results))/sizeof(futex_t);
 
 	SAFE_CLOSE(fd);
@@ -212,7 +217,12 @@ static void print_result(const char *file, const int lineno, int ttype,
 		str_errno = tst_strerrno(errno);
 
 	if (ttype & TTERRNO)
-		str_errno = tst_strerrno(TEST_ERRNO);
+		str_errno = tst_strerrno(TST_ERR);
+
+	if (ttype & TRERRNO) {
+		ret = TST_RET < 0 ? -(int)TST_RET : (int)TST_RET;
+		str_errno = tst_strerrno(ret);
+	}
 
 	ret = snprintf(str, size, "%s:%i: ", file, lineno);
 	str += ret;
@@ -343,6 +353,7 @@ static void check_child_status(pid_t pid, int status)
 	case TBROK:
 	case TCONF:
 		tst_brk(ret, "Reported by child (%i)", pid);
+	break;
 	default:
 		tst_brk(TBROK, "Invalid child (%i) exit value %i", pid, ret);
 	}
@@ -379,7 +390,7 @@ pid_t safe_fork(const char *filename, unsigned int lineno)
 	if (!tst_test->forks_child)
 		tst_brk(TBROK, "test.forks_child must be set!");
 
-	fflush(stdout);
+	tst_flush();
 
 	pid = fork();
 	if (pid < 0)
@@ -484,6 +495,7 @@ static void parse_opts(int argc, char *argv[])
 		case '?':
 			print_help();
 			tst_brk(TBROK, "Invalid option");
+		break;
 		case 'h':
 			print_help();
 			exit(0);
@@ -632,6 +644,7 @@ static int needs_tmpdir(void)
 {
 	return tst_test->needs_tmpdir ||
 	       tst_test->needs_device ||
+	       tst_test->mntpoint ||
 	       tst_test->resource_files ||
 	       tst_test->needs_checkpoints;
 }
@@ -689,11 +702,57 @@ static void assert_test_fn(void)
 		tst_brk(TBROK, "You can define tcnt only for test()");
 }
 
+static int prepare_and_mount_ro_fs(const char *dev,
+                                   const char *mntpoint,
+                                   const char *fs_type)
+{
+	char buf[PATH_MAX];
+
+	if (mount(dev, mntpoint, fs_type, 0, NULL)) {
+		tst_res(TINFO | TERRNO, "Can't mount %s at %s (%s)",
+			dev, mntpoint, fs_type);
+		return 1;
+	}
+
+	mntpoint_mounted = 1;
+
+	snprintf(buf, sizeof(buf), "%s/dir/", mntpoint);
+	SAFE_MKDIR(buf, 0777);
+
+	snprintf(buf, sizeof(buf), "%s/file", mntpoint);
+	SAFE_FILE_PRINTF(buf, "file content");
+	SAFE_CHMOD(buf, 0777);
+
+	SAFE_MOUNT(dev, mntpoint, fs_type, MS_REMOUNT | MS_RDONLY, NULL);
+
+	return 0;
+}
+
+static void prepare_and_mount_dev_fs(const char *mntpoint)
+{
+	const char *flags[] = {"nodev", NULL};
+	int mounted_nodev;
+
+	mounted_nodev = tst_path_has_mnt_flags(NULL, flags);
+	if (mounted_nodev) {
+		tst_res(TINFO, "tmpdir isn't suitable for creating devices, "
+			"mounting tmpfs without nodev on %s", mntpoint);
+		SAFE_MOUNT(NULL, mntpoint, "tmpfs", 0, NULL);
+		mntpoint_mounted = 1;
+	}
+}
+
 static void prepare_device(void)
 {
 	if (tst_test->format_device) {
 		SAFE_MKFS(tdev.dev, tdev.fs_type, tst_test->dev_fs_opts,
-			  tst_test->dev_extra_opt);
+			  tst_test->dev_extra_opts);
+	}
+
+	if (tst_test->needs_rofs) {
+		prepare_and_mount_ro_fs(tdev.dev, tst_test->mntpoint,
+		                        tdev.fs_type);
+		return;
 	}
 
 	if (tst_test->mount_device) {
@@ -726,6 +785,15 @@ static void do_setup(int argc, char *argv[])
 	if (tst_test->min_kver)
 		check_kver();
 
+	if (tst_test->needs_drivers) {
+		const char *name;
+		int i;
+
+		for (i = 0; (name = tst_test->needs_drivers[i]); ++i)
+			if (tst_check_driver(name))
+				tst_brk(TCONF, "%s driver not available", name);
+	}
+
 	if (tst_test->format_device)
 		tst_test->needs_device = 1;
 
@@ -742,28 +810,42 @@ static void do_setup(int argc, char *argv[])
 	if (needs_tmpdir() && !tst_tmpdir_created())
 		tst_tmpdir();
 
+	if (tst_test->save_restore) {
+		const char * const *name = tst_test->save_restore;
+
+		while (*name) {
+			tst_sys_conf_save(*name);
+			name++;
+		}
+	}
+
 	if (tst_test->mntpoint)
 		SAFE_MKDIR(tst_test->mntpoint, 0777);
 
-	if ((tst_test->needs_rofs || tst_test->mount_device ||
-	     tst_test->all_filesystems) && !tst_test->mntpoint) {
+	if ((tst_test->needs_devfs || tst_test->needs_rofs ||
+	     tst_test->mount_device || tst_test->all_filesystems) &&
+	     !tst_test->mntpoint) {
 		tst_brk(TBROK, "tst_test->mntpoint must be set!");
 	}
 
+	if (!!tst_test->needs_rofs + !!tst_test->needs_devfs +
+	    !!tst_test->needs_device > 1) {
+		tst_brk(TBROK,
+			"Two or more of needs_{rofs, devfs, device} are set");
+	}
+
+	if (tst_test->needs_devfs)
+		prepare_and_mount_dev_fs(tst_test->mntpoint);
+
 	if (tst_test->needs_rofs) {
 		/* If we failed to mount read-only tmpfs. Fallback to
-		 * using a device with empty read-only filesystem.
+		 * using a device with read-only filesystem.
 		 */
-		if (mount(NULL, tst_test->mntpoint, "tmpfs", MS_RDONLY, NULL)) {
-			tst_res(TINFO | TERRNO, "Can't mount tmpfs read-only"
-				" at %s, setting up a device instead\n",
-				tst_test->mntpoint);
-			tst_test->mount_device = 1;
+		if (prepare_and_mount_ro_fs(NULL, tst_test->mntpoint, "tmpfs")) {
+			tst_res(TINFO, "Can't mount tmpfs read-only, "
+			        "falling back to block device...");
 			tst_test->needs_device = 1;
 			tst_test->format_device = 1;
-			tst_test->mnt_flags = MS_RDONLY;
-		} else {
-			mntpoint_mounted = 1;
 		}
 	}
 
@@ -813,6 +895,9 @@ static void do_cleanup(void)
 		tst_rmdir();
 	}
 
+	if (tst_test->save_restore)
+		tst_sys_conf_restore(0);
+
 	cleanup_ipc();
 }
 
@@ -853,11 +938,12 @@ static void run_tests(void)
 
 static unsigned long long get_time_ms(void)
 {
-	struct timeval tv;
+	struct timespec ts;
 
-	gettimeofday(&tv, NULL);
+	if (tst_clock_gettime(CLOCK_MONOTONIC, &ts))
+		tst_brk(TBROK | TERRNO, "tst_clock_gettime()");
 
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	return tst_timespec_to_ms(ts);
 }
 
 static void add_paths(void)
@@ -879,6 +965,9 @@ static void add_paths(void)
 
 static void heartbeat(void)
 {
+	if (tst_clock_gettime(CLOCK_MONOTONIC, &tst_start_time))
+		tst_res(TWARN | TERRNO, "tst_clock_gettime() failed");
+
 	kill(getppid(), SIGUSR1);
 }
 
@@ -888,6 +977,7 @@ static void testrun(void)
 	unsigned long long stop_time = 0;
 	int cont = 1;
 
+	heartbeat();
 	add_paths();
 	do_test_setup();
 
@@ -953,6 +1043,21 @@ static void sigint_handler(int sig LTP_ATTRIBUTE_UNUSED)
 		WRITE_MSG("Sending SIGKILL to test process...\n");
 		kill(-test_pid, SIGKILL);
 	}
+}
+
+unsigned int tst_timeout_remaining(void)
+{
+	static struct timespec now;
+	unsigned int elapsed;
+
+	if (tst_clock_gettime(CLOCK_MONOTONIC, &now))
+		tst_res(TWARN | TERRNO, "tst_clock_gettime() failed");
+
+	elapsed = (tst_timespec_diff_ms(now, tst_start_time) + 500) / 1000;
+	if (results->timeout > elapsed)
+		return results->timeout - elapsed;
+
+	return 0;
 }
 
 void tst_set_timeout(int timeout)
@@ -1037,6 +1142,8 @@ static int run_tcases_per_fs(void)
 		tst_brk(TCONF, "There are no supported filesystems");
 
 	for (i = 0; filesystems[i]; i++) {
+
+		tst_res(TINFO, "Testing on %s", filesystems[i]);
 		tdev.fs_type = filesystems[i];
 
 		prepare_device();
@@ -1082,4 +1189,19 @@ void tst_run_tcases(int argc, char *argv[], struct tst_test *self)
 		ret = fork_testrun();
 
 	do_exit(ret);
+}
+
+
+void tst_flush(void)
+{
+	int rval;
+
+	rval = fflush(stderr);
+	if (rval != 0)
+		tst_brk(TBROK | TERRNO, "fflush(stderr) failed");
+
+	rval = fflush(stderr);
+	if (rval != 0)
+		tst_brk(TBROK | TERRNO, "fflush(stdout) failed");
+
 }

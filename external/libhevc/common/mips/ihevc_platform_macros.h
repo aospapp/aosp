@@ -63,7 +63,7 @@ static inline UWORD32 CLZ(UWORD32 u4_word)
     if(u4_word)
         return (__builtin_clz(u4_word));
     else
-        return 32;
+        return 31;
 }
 
 static inline UWORD32 CLZNZ(UWORD32 u4_word)

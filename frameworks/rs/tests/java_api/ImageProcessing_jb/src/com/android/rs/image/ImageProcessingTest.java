@@ -17,16 +17,15 @@
 package com.android.rs.imagejb;
 
 
-import android.os.Bundle;
-import android.util.Log;
 import android.app.Activity;
+import android.os.Bundle;
+import android.os.Environment;
+import android.test.ActivityInstrumentationTestCase2;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.util.Log;
 
 import com.android.rs.imagejb.IPTestListJB.TestName;
 
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
-
-import android.os.Environment;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -36,7 +35,7 @@ import java.io.IOException;
  * ImageProcessing benchmark test.
  * To run the test, please use command
  *
- * adb shell am instrument -w com.android.rs.imagejb/android.support.test.runner.AndroidJUnitRunner
+ * adb shell am instrument -w com.android.rs.imagejb/androidx.test.runner.AndroidJUnitRunner
  *
  */
 public class ImageProcessingTest extends ActivityInstrumentationTestCase2<ImageProcessingActivityJB> {

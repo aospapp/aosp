@@ -137,7 +137,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** {@link Option#expansionFunction()} ()} */
-  Class<? extends ExpansionFunction> getExpansionFunction() {
+  public Class<? extends ExpansionFunction> getExpansionFunction() {
     return optionAnnotation.expansionFunction();
   }
 
@@ -154,11 +154,6 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   /** {@link Option#oldName()} ()} ()} */
   public String getOldOptionName() {
     return optionAnnotation.oldName();
-  }
-
-  /** {@link Option#wrapperOption()} ()} ()} */
-  public boolean isWrapperOption() {
-    return optionAnnotation.wrapperOption();
   }
 
   /** Returns whether an option --foo has a negative equivalent --nofoo. */

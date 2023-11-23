@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"అత్యవసర సమాచారం"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"వైద్య సమాచారం"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"సమాచారాన్ని సవరించండి"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"సమాచారాన్ని జోడించండి"</string>
     <string name="edit_info" msgid="5973929805855224805">"అత్యవసర సమాచారాన్ని సవరిస్తుంది"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"సమాచారం"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"పరిచయాలు"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"వైద్య సమాచారం మరియు అత్యవసర పరిచయాలను జోడిస్తే, అత్యవసర పరిస్థితిలో ముందుగా ప్రతిస్పందించే వారికి సహాయకరంగా ఉంటాయి.\n\nఎవరైనా సరే, మీ ఫోన్‌ని అన్‌లాక్ చేయకుండానే మీ లాక్ స్క్రీన్ నుండి ఈ సమాచారాన్ని చదవగలరు మరియు మీ పరిచయాల పేర్లు నొక్కడం ద్వారా వారికి కాల్ చేయగలరు."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"అత్యవసర సమాచారాన్ని జోడించండి"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"మీ సమాచారాన్ని మొదటగా ప్రతిస్పందించే వారిని చూడనివ్వండి"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ఫోటోను తీయి"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"చిత్రాన్ని ఎంచుకోండి"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"ఫోటోను ఎంచుకోండి"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"మారుపేరు"</string>
 </resources>

@@ -19,6 +19,7 @@ import static android.hardware.automotive.vehicle.V2_0.SubscribeFlags.EVENTS_FRO
 import static android.hardware.automotive.vehicle.V2_0.SubscribeFlags.EVENTS_FROM_CAR;
 import static android.hardware.automotive.vehicle.V2_0.VehicleDisplay.INSTRUMENT_CLUSTER;
 import static android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction.ACTION_DOWN;
+import static android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction.ACTION_UP;
 import static android.hardware.automotive.vehicle.V2_0.VehicleProperty.HW_KEY_INPUT;
 
 import android.annotation.Nullable;
@@ -30,13 +31,13 @@ import android.hardware.automotive.vehicle.V2_0.SubscribeOptions;
 import android.hardware.automotive.vehicle.V2_0.VehicleArea;
 import android.hardware.automotive.vehicle.V2_0.VehicleDisplay;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyStatus;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
-import android.support.v4.app.Fragment;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -48,6 +49,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.fragment.app.Fragment;
+
 import com.android.car.keventreader.EventReaderService;
 import com.android.car.keventreader.IEventCallback;
 import com.android.car.keventreader.KeypressEvent;
@@ -57,8 +60,11 @@ import com.google.android.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.function.Function;
 
 /**
  * Test input event handling to system.
@@ -81,6 +87,74 @@ public class InputTestFragment extends Fragment {
 
     private IVehicle mVehicle;
 
+    // Helper class for counting the number of key down vs. key up events received from a single
+    // source.
+    private class KeyDownCounter {
+        KeyDownCounter(Function<Integer, String> keyCodeToStringFunc) {
+            mKeyCodeToStringFunc = keyCodeToStringFunc;
+        }
+
+        public synchronized void count(int keyCode, boolean keyDown) {
+            Integer count = mKeyCodeToCountMap.get(keyCode);
+            if (count == null) {
+                count = 0;
+            }
+            count += keyDown ? 1 : -1;
+            if (count == 0) {
+                mKeyCodeToCountMap.remove(keyCode);
+            } else {
+                mKeyCodeToCountMap.put(keyCode, count);
+            }
+            mMainHandler.post(mRefreshKeysDownTextViewRunnable);
+        }
+
+        public synchronized String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<Integer, Integer> entry : mKeyCodeToCountMap.entrySet()) {
+                sb.append(" ").append(mKeyCodeToStringFunc.apply(entry.getKey()));
+                if (entry.getValue() != 1) {
+                    sb.append("x").append(entry.getValue());
+                }
+            }
+            return sb.toString();
+        }
+
+        // Function to translate keycodes into strings for this source.
+        private final Function<Integer, String> mKeyCodeToStringFunc;
+
+        // LinkedHashMap used for deterministic iteration order.
+        private final Map<Integer, Integer> mKeyCodeToCountMap = new LinkedHashMap<>();
+    }
+
+    // KeyDownCounters for events from EventReaderService and VHAL. Note that they use different
+    // key code mappings.
+    private final KeyDownCounter mEventReaderServiceKeyDownCounter =
+            new KeyDownCounter(k -> KeypressEvent.keycodeToString(k));
+    private final KeyDownCounter mVhalKeyDownCounter =
+            new KeyDownCounter(k -> KeyEvent.keyCodeToString(k));
+
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+
+    private TextView mKeysDownTextView;
+
+    // Runnable posted to mMainHandler by KeyDownCounter to refresh mKeysDownTextView's text.
+    private final Runnable mRefreshKeysDownTextViewRunnable = new Runnable() {
+        @Override
+        public void run() {
+            StringBuilder sb = new StringBuilder("VHAL keys down:");
+            sb.append(mVhalKeyDownCounter.toString());
+
+            if (mEventReaderService == null) {
+                sb.append("\nCould not connect to EventReaderService. Is keventreader running?");
+            } else {
+                sb.append("\nEventReaderService keys down:");
+                sb.append(mEventReaderServiceKeyDownCounter.toString());
+            }
+
+            mKeysDownTextView.setText(sb.toString());
+        }
+    };
+
     private EventReaderService mEventReaderService;
 
     private final IEventCallback.Stub mKeypressEventHandler = new IEventCallback.Stub() {
@@ -94,9 +168,7 @@ public class InputTestFragment extends Fragment {
         @Override
         public void onEvent(KeypressEvent keypressEvent) throws RemoteException {
             Log.d(TAG, "received event " + keypressEvent);
-            synchronized (mInputEventsList) {
-                mInputEventsList.append(prettyPrint(keypressEvent));
-            }
+            mEventReaderServiceKeyDownCounter.count(keypressEvent.keycode, keypressEvent.isKeydown);
         }
     };
 
@@ -113,8 +185,25 @@ public class InputTestFragment extends Fragment {
 
         @Override
         public void onPropertyEvent(ArrayList<VehiclePropValue> propValues) throws RemoteException {
-            synchronized (mInputEventsList) {
-                propValues.forEach(vpv -> mInputEventsList.append(prettyPrint(vpv)));
+            for (VehiclePropValue vpv : propValues) {
+                Log.d(TAG, "received event " + prettyPrint(vpv));
+                if (vpv.prop != HW_KEY_INPUT || vpv.value == null || vpv.value.int32Values == null
+                        || vpv.value.int32Values.size() < 2) {
+                    continue;
+                }
+                int keycode = vpv.value.int32Values.get(1);
+                switch (vpv.value.int32Values.get(0)) {
+                    case ACTION_DOWN:
+                        mVhalKeyDownCounter.count(keycode, true);
+                        break;
+                    case ACTION_UP:
+                        mVhalKeyDownCounter.count(keycode, false);
+                        break;
+                    default:
+                        Log.e(TAG, "Unrecognized VehicleHwKeyInputAction: "
+                                + vpv.value.int32Values.get(0));
+                        break;
+                }
             }
         }
 
@@ -124,8 +213,6 @@ public class InputTestFragment extends Fragment {
         @Override
         public void onPropertySetError(int errorCode, int propId, int areaId) {}
     };
-
-    private TextView mInputEventsList;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -164,8 +251,9 @@ public class InputTestFragment extends Fragment {
             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.input_test, container, false);
 
-        mInputEventsList = view.findViewById(R.id.events_list);
-        mInputEventsList.setMovementMethod(new ScrollingMovementMethod());
+        mKeysDownTextView = view.findViewById(R.id.events_list);
+        mKeysDownTextView.setMovementMethod(new ScrollingMovementMethod());
+        mRefreshKeysDownTextViewRunnable.run();
 
         TextView steeringWheelLabel = new TextView(getActivity() /*context*/);
         steeringWheelLabel.setText(R.string.steering_wheel);

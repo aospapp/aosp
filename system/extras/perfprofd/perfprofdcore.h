@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 
 #include "perfprofd_record-fwd.h"
 
@@ -30,6 +31,7 @@ struct Symbolizer;
 }
 
 void CommonInit(uint32_t use_fixed_seed, const char* dest_dir);
+void GlobalInit(const std::string& perf_path);
 
 //
 // This enumeration holds the results of what happened when on an

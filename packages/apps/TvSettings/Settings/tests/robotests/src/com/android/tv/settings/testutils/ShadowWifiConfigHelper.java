@@ -24,13 +24,13 @@ import com.android.tv.settings.connectivity.WifiConfigHelper;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
-
-@Implements(value = WifiConfigHelper.class, inheritImplementationMethods = true)
+@Implements(value = WifiConfigHelper.class)
 public class ShadowWifiConfigHelper {
     private static WifiConfiguration sConfigForTest;
 
     @Implementation
-    public static WifiConfiguration getConfiguration(Context context, String ssid, int security) {
+    protected static WifiConfiguration getConfiguration(Context context, String ssid,
+            int security) {
         WifiConfiguration config = new WifiConfiguration();
         WifiConfigHelper.setConfigSsid(config, ssid);
         WifiConfigHelper.setConfigKeyManagementBySecurity(config, security);
@@ -38,13 +38,13 @@ public class ShadowWifiConfigHelper {
     }
 
     @Implementation
-    public static boolean saveConfiguration(Context context, WifiConfiguration config) {
+    protected static boolean saveConfiguration(Context context, WifiConfiguration config) {
         sConfigForTest = config;
         return true;
     }
 
     @Implementation
-    public static boolean isNetworkSaved(WifiConfiguration config) {
+    protected static boolean isNetworkSaved(WifiConfiguration config) {
         return (config != null && sConfigForTest.networkId > -1);
     }
 }

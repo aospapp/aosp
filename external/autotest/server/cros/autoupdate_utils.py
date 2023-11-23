@@ -6,7 +6,8 @@
 
 import common
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import autoupdater, dev_server
+from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.cros.dynamic_suite import tools
 
 

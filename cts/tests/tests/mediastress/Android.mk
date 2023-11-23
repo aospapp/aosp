@@ -26,7 +26,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt compatibility-device-util-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -37,6 +37,8 @@ LOCAL_JNI_SHARED_LIBRARIES := libctsmediastress_jni libnativehelper_compat_libc+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsMediaStressTestCases
+
+LOCAL_HOST_REQUIRED_MODULES := cts-dynamic-config
 
 LOCAL_SDK_VERSION := current
 

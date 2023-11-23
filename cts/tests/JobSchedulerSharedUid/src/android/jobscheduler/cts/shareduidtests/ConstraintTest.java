@@ -184,8 +184,8 @@ public abstract class ConstraintTest extends InstrumentationTestCase {
 
     String getJobState(int jobId) throws Exception {
         return SystemUtil.runShellCommand(getInstrumentation(),
-                "cmd jobscheduler get-job-state " + kJobServiceComponent.getPackageName()
-                        + " " + jobId).trim();
+                "cmd jobscheduler get-job-state --user cur "
+                        + kJobServiceComponent.getPackageName() + " " + jobId).trim();
     }
 
     void assertJobReady(int jobId) throws Exception {

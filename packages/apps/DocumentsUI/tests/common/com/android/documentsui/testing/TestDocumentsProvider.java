@@ -16,6 +16,7 @@
 
 package com.android.documentsui.testing;
 
+import android.annotation.NonNull;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.MatrixCursor;
@@ -90,6 +91,15 @@ public class TestDocumentsProvider extends DocumentsProvider {
     }
 
     @Override
+    public Cursor querySearchDocuments(String rootId, String query, String[] projection) {
+        if (mNextChildDocuments != null) {
+            return filterCursorByString(mNextChildDocuments, query);
+        }
+
+        return mNextChildDocuments;
+    }
+
+    @Override
     public boolean onCreate() {
         return true;
     }
@@ -121,5 +131,40 @@ public class TestDocumentsProvider extends DocumentsProvider {
         }
 
         return cursor;
+    }
+
+    private static Cursor filterCursorByString(@NonNull Cursor cursor, String query) {
+        final int count = cursor.getCount();
+        final String[] columnNames = cursor.getColumnNames();
+
+        final MatrixCursor resultCursor = new MatrixCursor(columnNames, count);
+        cursor.moveToPosition(-1);
+        for (int i = 0; i < count; i++) {
+            cursor.moveToNext();
+            final int index = cursor.getColumnIndex(Document.COLUMN_DISPLAY_NAME);
+            if (!cursor.getString(index).contains(query)) {
+                continue;
+            }
+
+            final MatrixCursor.RowBuilder builder = resultCursor.newRow();
+            final int columnCount = cursor.getColumnCount();
+            for (int j = 0; j < columnCount; j++) {
+                final int type = cursor.getType(j);
+                switch (type) {
+                    case Cursor.FIELD_TYPE_INTEGER:
+                        builder.add(cursor.getLong(j));
+                        break;
+
+                    case Cursor.FIELD_TYPE_STRING:
+                        builder.add(cursor.getString(j));
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+        cursor.moveToPosition(-1);
+        return resultCursor;
     }
 }

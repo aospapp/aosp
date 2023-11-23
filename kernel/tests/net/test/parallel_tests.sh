@@ -15,7 +15,7 @@ function runtests() {
   local test=$3
   local j=0
   while ((j < runs)); do
-    $DIR/run_net_test.sh --readonly --builder --nobuild $test \
+    $DIR/run_net_test.sh --builder --nobuild $test \
         > /dev/null 2> $RESULTSDIR/results.$worker.$j
     j=$((j + 1))
     echo -n "." >&2

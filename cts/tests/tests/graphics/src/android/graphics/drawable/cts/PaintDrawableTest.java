@@ -28,11 +28,12 @@ import android.graphics.Rect;
 import android.graphics.cts.R;
 import android.graphics.drawable.PaintDrawable;
 import android.graphics.drawable.shapes.RoundRectShape;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;

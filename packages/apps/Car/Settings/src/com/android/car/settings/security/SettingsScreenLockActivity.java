@@ -20,79 +20,72 @@ import android.app.admin.DevicePolicyManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
 import com.android.car.settings.R;
-import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.CarSettingActivity;
+import com.android.car.settings.common.BaseCarSettingsActivity;
 import com.android.car.settings.common.Logger;
 import com.android.internal.widget.LockPatternUtils;
 
 /**
  * Activity for setting screen locks
  */
-public class SettingsScreenLockActivity extends CarSettingActivity implements CheckLockListener {
+public class SettingsScreenLockActivity extends BaseCarSettingsActivity implements
+        CheckLockListener {
 
-    public static final String EXTRA_CURRENT_SCREEN_LOCK = "extra_current_screen_lock";
     private static final Logger LOG = new Logger(SettingsScreenLockActivity.class);
 
     private int mPasswordQuality;
-    private LockPatternUtils mLockPatternUtils;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        mLockPatternUtils = new LockPatternUtils(this);
-        mPasswordQuality = mLockPatternUtils.getKeyguardStoredPasswordQuality(
+    @Nullable
+    protected Fragment getInitialFragment() {
+        mPasswordQuality = new LockPatternUtils(this).getKeyguardStoredPasswordQuality(
                 UserHandle.myUserId());
 
-        if (savedInstanceState == null) {
-            BaseFragment fragment;
-            switch (mPasswordQuality) {
-                case DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED:
-                    fragment = ChooseLockTypeFragment.newInstance();
-                    break;
-                case DevicePolicyManager.PASSWORD_QUALITY_SOMETHING:
-                    fragment = ConfirmLockPatternFragment.newInstance();
-                    break;
-                case DevicePolicyManager.PASSWORD_QUALITY_NUMERIC:
-                case DevicePolicyManager.PASSWORD_QUALITY_NUMERIC_COMPLEX:
-                    fragment = ConfirmLockPinPasswordFragment.newPinInstance();
-                    break;
-                case DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC:
-                case DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC:
-                    fragment = ConfirmLockPinPasswordFragment.newPasswordInstance();
-                    break;
-                default:
-                    LOG.e("Unexpected password quality: " + String.valueOf(mPasswordQuality));
-                    fragment = ConfirmLockPinPasswordFragment.newPasswordInstance();
-            }
-
-            Bundle bundle = fragment.getArguments();
-            if (bundle == null) {
-                bundle = new Bundle();
-            }
-            bundle.putInt(ChooseLockTypeFragment.EXTRA_CURRENT_PASSWORD_QUALITY, mPasswordQuality);
-            fragment.setArguments(bundle);
-
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .add(R.id.fragment_container, fragment)
-                    .addToBackStack(null)
-                    .commit();
+        Fragment fragment;
+        switch (mPasswordQuality) {
+            case DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED:
+                fragment = new ChooseLockTypeFragment();
+                break;
+            case DevicePolicyManager.PASSWORD_QUALITY_SOMETHING:
+                fragment = new ConfirmLockPatternFragment();
+                break;
+            case DevicePolicyManager.PASSWORD_QUALITY_NUMERIC:
+            case DevicePolicyManager.PASSWORD_QUALITY_NUMERIC_COMPLEX:
+                fragment = ConfirmLockPinPasswordFragment.newPinInstance();
+                break;
+            case DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC:
+            case DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC:
+                fragment = ConfirmLockPinPasswordFragment.newPasswordInstance();
+                break;
+            default:
+                LOG.e("Unexpected password quality: " + String.valueOf(mPasswordQuality));
+                fragment = ConfirmLockPinPasswordFragment.newPasswordInstance();
         }
-    }
 
-    @Override
-    public void onLockVerified(String lock) {
-        BaseFragment fragment = ChooseLockTypeFragment.newInstance();
         Bundle bundle = fragment.getArguments();
         if (bundle == null) {
             bundle = new Bundle();
         }
-        bundle.putString(EXTRA_CURRENT_SCREEN_LOCK, lock);
+        bundle.putInt(ChooseLockTypeFragment.EXTRA_CURRENT_PASSWORD_QUALITY, mPasswordQuality);
+        fragment.setArguments(bundle);
+        return fragment;
+    }
+
+    @Override
+    public void onLockVerified(byte[] lock) {
+        Fragment fragment = new ChooseLockTypeFragment();
+        Bundle bundle = fragment.getArguments();
+        if (bundle == null) {
+            bundle = new Bundle();
+        }
+        bundle.putByteArray(PasswordHelper.EXTRA_CURRENT_SCREEN_LOCK, lock);
         bundle.putInt(ChooseLockTypeFragment.EXTRA_CURRENT_PASSWORD_QUALITY, mPasswordQuality);
         fragment.setArguments(bundle);
 
+        // Intentionally not using launchFragment(), since we do not want to add to the back stack.
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.fragment_container, fragment)

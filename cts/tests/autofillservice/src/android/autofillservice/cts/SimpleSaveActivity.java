@@ -29,11 +29,11 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
 
     private static final String TAG = "SimpleSaveActivity";
 
-    static final String ID_LABEL = "label";
-    static final String ID_INPUT = "input";
-    static final String ID_PASSWORD = "password";
-    static final String ID_COMMIT = "commit";
-    static final String TEXT_LABEL = "Label:";
+    public static final String ID_LABEL = "label";
+    public static final String ID_INPUT = "input";
+    public static final String ID_PASSWORD = "password";
+    public static final String ID_COMMIT = "commit";
+    public static final String TEXT_LABEL = "Label:";
 
     private static SimpleSaveActivity sInstance;
 
@@ -46,16 +46,8 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
     private boolean mAutoCommit = true;
     private boolean mClearFieldsOnSubmit = false;
 
-    static SimpleSaveActivity getInstance() {
+    public static SimpleSaveActivity getInstance() {
         return sInstance;
-    }
-
-    static void finishIt(UiBot uiBot) {
-        if (sInstance != null) {
-            Log.d(TAG, "So long and thanks for all the fish!");
-            sInstance.finish();
-            uiBot.assertGoneByRelativeId(ID_LABEL, Timeouts.ACTIVITY_RESURRECTION);
-        }
     }
 
     public SimpleSaveActivity() {
@@ -111,20 +103,24 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
         mClearFieldsOnSubmit = flag;
     }
 
-    FillExpectation expectAutoFill(String input) {
+    public FillExpectation expectAutoFill(String input) {
         final FillExpectation expectation = new FillExpectation(input, null);
         mInput.addTextChangedListener(expectation.mInputWatcher);
         return expectation;
     }
 
-    FillExpectation expectAutoFill(String input, String password) {
+    public FillExpectation expectAutoFill(String input, String password) {
         final FillExpectation expectation = new FillExpectation(input, password);
         mInput.addTextChangedListener(expectation.mInputWatcher);
         mPassword.addTextChangedListener(expectation.mPasswordWatcher);
         return expectation;
     }
 
-    final class FillExpectation {
+    public EditText getInput() {
+        return mInput;
+    }
+
+    public final class FillExpectation {
         private final OneTimeTextWatcher mInputWatcher;
         private final OneTimeTextWatcher mPasswordWatcher;
 
@@ -135,7 +131,7 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
                     : new OneTimeTextWatcher("password", mPassword, password);
         }
 
-        void assertAutoFilled() throws Exception {
+        public void assertAutoFilled() throws Exception {
             mInputWatcher.assertAutoFilled();
             if (mPasswordWatcher != null) {
                 mPasswordWatcher.assertAutoFilled();

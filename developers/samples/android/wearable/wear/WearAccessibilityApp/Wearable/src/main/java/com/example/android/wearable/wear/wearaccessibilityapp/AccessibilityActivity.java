@@ -19,11 +19,13 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.wear.ambient.AmbientMode;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.wear.ambient.AmbientMode;
+
 
 public class AccessibilityActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
     @Override

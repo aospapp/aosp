@@ -26,15 +26,15 @@
    the GNU Lesser General Public License along with this program.  If
    not, see <http://www.gnu.org/licenses/>.  */
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include "libdwflP.h"
 #include <fcntl.h>
 #include "system.h"
 
 #include "../libdw/memory-access.h"
-
-#ifndef MIN
-# define MIN(a, b) ((a) < (b) ? (a) : (b))
-#endif
 
 struct core_arg
 {
@@ -129,14 +129,15 @@ core_next_thread (Dwfl *dwfl __attribute__ ((unused)), void *dwfl_arg,
 							  &desc_offset)) > 0)
     {
       /* Do not check NAME for now, help broken Linux kernels.  */
-      const char *name = note_data->d_buf + name_offset;
+      const char *name = (nhdr.n_namesz == 0
+			  ? "" : note_data->d_buf + name_offset);
       const char *desc = note_data->d_buf + desc_offset;
       GElf_Word regs_offset;
       size_t nregloc;
       const Ebl_Register_Location *reglocs;
       size_t nitems;
       const Ebl_Core_Item *items;
-      if (! ebl_core_note (core_arg->ebl, &nhdr, name,
+      if (! ebl_core_note (core_arg->ebl, &nhdr, name, desc,
 			   &regs_offset, &nregloc, &reglocs, &nitems, &items))
 	{
 	  /* This note may be just not recognized, skip it.  */
@@ -182,15 +183,17 @@ core_set_initial_registers (Dwfl_Thread *thread, void *thread_arg_voidp)
   /* __libdwfl_attach_state_for_core already verified the note is there.  */
   assert (getnote_err != 0);
   /* Do not check NAME for now, help broken Linux kernels.  */
-  const char *name = note_data->d_buf + name_offset;
+  const char *name = (nhdr.n_namesz == 0
+		      ? "" : note_data->d_buf + name_offset);
   const char *desc = note_data->d_buf + desc_offset;
   GElf_Word regs_offset;
   size_t nregloc;
   const Ebl_Register_Location *reglocs;
   size_t nitems;
   const Ebl_Core_Item *items;
-  int core_note_err = ebl_core_note (core_arg->ebl, &nhdr, name, &regs_offset,
-				     &nregloc, &reglocs, &nitems, &items);
+  int core_note_err = ebl_core_note (core_arg->ebl, &nhdr, name, desc,
+				     &regs_offset, &nregloc, &reglocs,
+				     &nitems, &items);
   /* __libdwfl_attach_state_for_core already verified the note is there.  */
   assert (core_note_err != 0);
   assert (nhdr.n_type == NT_PRSTATUS);
@@ -353,7 +356,9 @@ dwfl_core_file_attach (Dwfl *dwfl, Elf *core)
       if (phdr != NULL && phdr->p_type == PT_NOTE)
 	{
 	  note_data = elf_getdata_rawchunk (core, phdr->p_offset,
-					    phdr->p_filesz, ELF_T_NHDR);
+					    phdr->p_filesz, (phdr->p_align == 8
+							     ? ELF_T_NHDR8
+							     : ELF_T_NHDR));
 	  break;
 	}
     }
@@ -371,14 +376,15 @@ dwfl_core_file_attach (Dwfl *dwfl, Elf *core)
 				    &nhdr, &name_offset, &desc_offset)) > 0)
     {
       /* Do not check NAME for now, help broken Linux kernels.  */
-      const char *name = note_data->d_buf + name_offset;
+      const char *name = (nhdr.n_namesz == 0
+			  ? "" : note_data->d_buf + name_offset);
       const char *desc = note_data->d_buf + desc_offset;
       GElf_Word regs_offset;
       size_t nregloc;
       const Ebl_Register_Location *reglocs;
       size_t nitems;
       const Ebl_Core_Item *items;
-      if (! ebl_core_note (ebl, &nhdr, name,
+      if (! ebl_core_note (ebl, &nhdr, name, desc,
 			   &regs_offset, &nregloc, &reglocs, &nitems, &items))
 	{
 	  /* This note may be just not recognized, skip it.  */

@@ -35,6 +35,8 @@ public class RemoteInputTest extends AndroidTestCase {
         assertTrue(input.isDataOnly());
         assertFalse(input.getAllowFreeFormInput());
         assertTrue(input.getChoices() == null || input.getChoices().length == 0);
+        assertEquals(RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO,
+                input.getEditChoicesBeforeSending());
         assertEquals(1, input.getAllowedDataTypes().size());
         assertTrue(input.getAllowedDataTypes().contains(MIME_TYPE));
     }
@@ -45,6 +47,8 @@ public class RemoteInputTest extends AndroidTestCase {
         assertFalse(input.isDataOnly());
         assertTrue(input.getAllowFreeFormInput());
         assertTrue(input.getChoices() == null || input.getChoices().length == 0);
+        assertEquals(RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO,
+                input.getEditChoicesBeforeSending());
         assertTrue(input.getAllowedDataTypes() == null || input.getAllowedDataTypes().isEmpty());
     }
 
@@ -54,6 +58,8 @@ public class RemoteInputTest extends AndroidTestCase {
         assertFalse(input.isDataOnly());
         assertFalse(input.getAllowFreeFormInput());
         assertTrue(input.getChoices() != null && input.getChoices().length > 0);
+        assertEquals(RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO,
+                input.getEditChoicesBeforeSending());
         assertTrue(input.getAllowedDataTypes() == null || input.getAllowedDataTypes().isEmpty());
     }
 
@@ -70,8 +76,36 @@ public class RemoteInputTest extends AndroidTestCase {
         assertFalse(input.isDataOnly());
         assertTrue(input.getAllowFreeFormInput());
         assertTrue(input.getChoices() != null && input.getChoices().length > 0);
+        assertEquals(RemoteInput.EDIT_CHOICES_BEFORE_SENDING_AUTO,
+                input.getEditChoicesBeforeSending());
         assertEquals(1, input.getAllowedDataTypes().size());
         assertTrue(input.getAllowedDataTypes().contains(MIME_TYPE));
+    }
+
+    public void testRemoteInputBuilder_setEditChoicesBeforeSending() throws Throwable {
+        RemoteInput input =
+                new RemoteInput.Builder(RESULT_KEY)
+                        .setChoices(new CharSequence[]{"first", "second"})
+                        .setEditChoicesBeforeSending(
+                                RemoteInput.EDIT_CHOICES_BEFORE_SENDING_ENABLED)
+                        .build();
+        assertEquals(RemoteInput.EDIT_CHOICES_BEFORE_SENDING_ENABLED,
+                input.getEditChoicesBeforeSending());
+    }
+
+    public void testRemoteInputBuilder_setEditChoicesBeforeSendingRequiresFreeInput()
+            throws Throwable {
+        RemoteInput.Builder builder =
+                new RemoteInput.Builder(RESULT_KEY)
+                        .setEditChoicesBeforeSending(
+                                RemoteInput.EDIT_CHOICES_BEFORE_SENDING_ENABLED)
+                        .setAllowFreeFormInput(false);
+        try {
+            builder.build();
+            fail();
+        } catch (IllegalArgumentException e) {
+            // expected.
+        }
     }
 
     public void testRemoteInputBuilder_addAndGetDataResultsFromIntent() throws Throwable {

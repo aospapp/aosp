@@ -55,6 +55,13 @@ var (
 		},
 		"ccCmd", "cFlags")
 
+	ccNoDeps = pctx.AndroidGomaStaticRule("ccNoDeps",
+		blueprint.RuleParams{
+			Command:     "$relPwd ${config.CcWrapper}$ccCmd -c $cFlags -o $out $in",
+			CommandDeps: []string{"$ccCmd"},
+		},
+		"ccCmd", "cFlags")
+
 	ld = pctx.AndroidStaticRule("ld",
 		blueprint.RuleParams{
 			Command: "$ldCmd ${crtBegin} @${out}.rsp " +
@@ -62,12 +69,16 @@ var (
 			CommandDeps:    []string{"$ldCmd"},
 			Rspfile:        "${out}.rsp",
 			RspfileContent: "${in}",
+			// clang -Wl,--out-implib doesn't update its output file if it hasn't changed.
+			Restat: true,
 		},
 		"ldCmd", "crtBegin", "libFlags", "crtEnd", "ldFlags")
 
 	partialLd = pctx.AndroidStaticRule("partialLd",
 		blueprint.RuleParams{
-			Command:     "$ldCmd -nostdlib -Wl,-r ${in} -o ${out} ${ldFlags}",
+			// Without -no-pie, clang 7.0 adds -pie to link Android files,
+			// but -r and -pie cannot be used together.
+			Command:     "$ldCmd -nostdlib -no-pie -Wl,-r ${in} -o ${out} ${ldFlags}",
 			CommandDeps: []string{"$ldCmd"},
 		},
 		"ldCmd", "ldFlags")
@@ -109,13 +120,27 @@ var (
 		"objcopyCmd", "prefix")
 
 	_ = pctx.SourcePathVariable("stripPath", "build/soong/scripts/strip.sh")
+	_ = pctx.SourcePathVariable("xzCmd", "prebuilts/build-tools/${config.HostPrebuiltTag}/bin/xz")
+
+	// b/132822437: objcopy uses a file descriptor per .o file when called on .a files, which runs the system out of
+	// file descriptors on darwin.  Limit concurrent calls to 5 on darwin.
+	darwinStripPool = func() blueprint.Pool {
+		if runtime.GOOS == "darwin" {
+			return pctx.StaticPool("darwinStripPool", blueprint.PoolParams{
+				Depth: 5,
+			})
+		} else {
+			return nil
+		}
+	}()
 
 	strip = pctx.AndroidStaticRule("strip",
 		blueprint.RuleParams{
 			Depfile:     "${out}.d",
 			Deps:        blueprint.DepsGCC,
-			Command:     "CROSS_COMPILE=$crossCompile $stripPath ${args} -i ${in} -o ${out} -d ${out}.d",
-			CommandDeps: []string{"$stripPath"},
+			Command:     "CROSS_COMPILE=$crossCompile XZ=$xzCmd CLANG_BIN=${config.ClangBin} $stripPath ${args} -i ${in} -o ${out} -d ${out}.d",
+			CommandDeps: []string{"$stripPath", "$xzCmd"},
+			Pool:        darwinStripPool,
 		},
 		"args", "crossCompile")
 
@@ -124,33 +149,22 @@ var (
 			Command: "rm -f $out && touch $out",
 		})
 
-	_ = pctx.SourcePathVariable("copyGccLibPath", "build/soong/scripts/copygcclib.sh")
-
-	copyGccLib = pctx.AndroidStaticRule("copyGccLib",
-		blueprint.RuleParams{
-			Depfile:     "${out}.d",
-			Deps:        blueprint.DepsGCC,
-			Command:     "$copyGccLibPath $out $ccCmd $cFlags -print-file-name=${libName}",
-			CommandDeps: []string{"$copyGccLibPath", "$ccCmd"},
-		},
-		"ccCmd", "cFlags", "libName")
-
 	_ = pctx.SourcePathVariable("tocPath", "build/soong/scripts/toc.sh")
 
 	toc = pctx.AndroidStaticRule("toc",
 		blueprint.RuleParams{
 			Depfile:     "${out}.d",
 			Deps:        blueprint.DepsGCC,
-			Command:     "CROSS_COMPILE=$crossCompile $tocPath -i ${in} -o ${out} -d ${out}.d",
+			Command:     "CROSS_COMPILE=$crossCompile $tocPath $format -i ${in} -o ${out} -d ${out}.d",
 			CommandDeps: []string{"$tocPath"},
 			Restat:      true,
 		},
-		"crossCompile")
+		"crossCompile", "format")
 
 	clangTidy = pctx.AndroidStaticRule("clangTidy",
 		blueprint.RuleParams{
-			Command:     "rm -f $out && ${config.ClangBin}/clang-tidy $tidyFlags $in -- $cFlags && touch $out",
-			CommandDeps: []string{"${config.ClangBin}/clang-tidy"},
+			Command:     "rm -f $out && CLANG_TIDY=${config.ClangBin}/clang-tidy ${config.ClangTidyShellPath} $tidyFlags $in -- $cFlags && touch $out",
+			CommandDeps: []string{"${config.ClangBin}/clang-tidy", "${config.ClangTidyShellPath}"},
 		},
 		"cFlags", "tidyFlags")
 
@@ -177,7 +191,7 @@ var (
 	// -w has been added since header-abi-dumper does not need to produce any sort of diagnostic information.
 	sAbiDump = pctx.AndroidStaticRule("sAbiDump",
 		blueprint.RuleParams{
-			Command:     "rm -f $out && $sAbiDumper -o ${out} $in $exportDirs -- $cFlags -w -isystem ${config.RSIncludePath}",
+			Command:     "rm -f $out && $sAbiDumper -o ${out} $in $exportDirs -- $cFlags -w -isystem prebuilts/clang-tools/${config.HostPrebuiltTag}/clang-headers",
 			CommandDeps: []string{"$sAbiDumper"},
 		},
 		"cFlags", "exportDirs")
@@ -198,19 +212,16 @@ var (
 	sAbiDiff = pctx.AndroidRuleFunc("sAbiDiff",
 		func(ctx android.PackageRuleContext) blueprint.RuleParams {
 			// TODO(b/78139997): Add -check-all-apis back
-			commandStr := "($sAbiDiffer $allowFlags -lib $libName -arch $arch -o ${out} -new $in -old $referenceDump)"
-			distAbiDiffDir := android.PathForDist(ctx, "abidiffs")
-			commandStr += "|| (echo ' ---- Please update abi references by running platform/development/vndk/tools/header-checker/utils/create_reference_dumps.py -l ${libName} ----'"
-			if distAbiDiffDir.Valid() {
-				commandStr += " && (mkdir -p " + distAbiDiffDir.String() + " && cp ${out} " + distAbiDiffDir.String() + ")"
-			}
+			commandStr := "($sAbiDiffer ${allowFlags} -lib ${libName} -arch ${arch} -o ${out} -new ${in} -old ${referenceDump})"
+			commandStr += "|| (echo 'error: Please update ABI references with: $$ANDROID_BUILD_TOP/development/vndk/tools/header-checker/utils/create_reference_dumps.py ${createReferenceDumpFlags} -l ${libName}'"
+			commandStr += " && (mkdir -p $$DIST_DIR/abidiffs && cp ${out} $$DIST_DIR/abidiffs/)"
 			commandStr += " && exit 1)"
 			return blueprint.RuleParams{
 				Command:     commandStr,
 				CommandDeps: []string{"$sAbiDiffer"},
 			}
 		},
-		"allowFlags", "referenceDump", "libName", "arch")
+		"allowFlags", "referenceDump", "libName", "arch", "createReferenceDumpFlags")
 
 	unzipRefSAbiDump = pctx.AndroidStaticRule("unzipRefSAbiDump",
 		blueprint.RuleParams{
@@ -231,38 +242,40 @@ func init() {
 }
 
 type builderFlags struct {
-	globalFlags    string
-	arFlags        string
-	asFlags        string
-	cFlags         string
-	toolingCFlags  string // A separate set of Cflags for clang LibTooling tools
-	conlyFlags     string
-	cppFlags       string
-	ldFlags        string
-	libFlags       string
-	yaccFlags      string
-	protoFlags     string
-	protoOutParams string
-	tidyFlags      string
-	sAbiFlags      string
-	yasmFlags      string
-	aidlFlags      string
-	rsFlags        string
-	toolchain      config.Toolchain
-	clang          bool
-	tidy           bool
-	coverage       bool
-	sAbiDump       bool
-	protoRoot      bool
+	globalFlags     string
+	arFlags         string
+	asFlags         string
+	cFlags          string
+	toolingCFlags   string // A separate set of cFlags for clang LibTooling tools
+	toolingCppFlags string // A separate set of cppFlags for clang LibTooling tools
+	conlyFlags      string
+	cppFlags        string
+	ldFlags         string
+	libFlags        string
+	yaccFlags       string
+	tidyFlags       string
+	sAbiFlags       string
+	yasmFlags       string
+	aidlFlags       string
+	rsFlags         string
+	toolchain       config.Toolchain
+	tidy            bool
+	coverage        bool
+	sAbiDump        bool
 
 	systemIncludeFlags string
 
 	groupStaticLibs bool
-	arGoldPlugin    bool
 
 	stripKeepSymbols       bool
+	stripKeepSymbolsList   string
 	stripKeepMiniDebugInfo bool
 	stripAddGnuDebuglink   bool
+	stripUseGnuStrip       bool
+
+	proto            android.ProtoFlags
+	protoC           bool
+	protoOptionsFile bool
 }
 
 type Objects struct {
@@ -296,7 +309,7 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 
 	objFiles := make(android.Paths, len(srcFiles))
 	var tidyFiles android.Paths
-	if flags.tidy && flags.clang {
+	if flags.tidy {
 		tidyFiles = make(android.Paths, 0, len(srcFiles))
 	}
 	var coverageFiles android.Paths
@@ -324,7 +337,7 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 	toolingCppflags := strings.Join([]string{
 		commonFlags,
 		flags.toolingCFlags,
-		flags.cppFlags,
+		flags.toolingCppFlags,
 	}, " ")
 
 	cppflags := strings.Join([]string{
@@ -339,19 +352,14 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 	}, " ")
 
 	var sAbiDumpFiles android.Paths
-	if flags.sAbiDump && flags.clang {
+	if flags.sAbiDump {
 		sAbiDumpFiles = make(android.Paths, 0, len(srcFiles))
 	}
 
-	if flags.clang {
-		cflags += " ${config.NoOverrideClangGlobalCflags}"
-		toolingCflags += " ${config.NoOverrideClangGlobalCflags}"
-		cppflags += " ${config.NoOverrideClangGlobalCflags}"
-		toolingCppflags += " ${config.NoOverrideClangGlobalCflags}"
-	} else {
-		cflags += " ${config.NoOverrideGlobalCflags}"
-		cppflags += " ${config.NoOverrideGlobalCflags}"
-	}
+	cflags += " ${config.NoOverrideClangGlobalCflags}"
+	toolingCflags += " ${config.NoOverrideClangGlobalCflags}"
+	cppflags += " ${config.NoOverrideClangGlobalCflags}"
+	toolingCppflags += " ${config.NoOverrideClangGlobalCflags}"
 
 	for i, srcFile := range srcFiles {
 		objFile := android.ObjPathWithExt(ctx, subdir, srcFile, "o")
@@ -391,23 +399,27 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 		var moduleCflags string
 		var moduleToolingCflags string
 		var ccCmd string
-		tidy := flags.tidy && flags.clang
+		tidy := flags.tidy
 		coverage := flags.coverage
-		dump := flags.sAbiDump && flags.clang
+		dump := flags.sAbiDump
+		rule := cc
 
 		switch srcFile.Ext() {
-		case ".S", ".s":
-			ccCmd = "gcc"
+		case ".s":
+			rule = ccNoDeps
+			fallthrough
+		case ".S":
+			ccCmd = "clang"
 			moduleCflags = asflags
 			tidy = false
 			coverage = false
 			dump = false
 		case ".c":
-			ccCmd = "gcc"
+			ccCmd = "clang"
 			moduleCflags = cflags
 			moduleToolingCflags = toolingCflags
 		case ".cpp", ".cc", ".mm":
-			ccCmd = "g++"
+			ccCmd = "clang++"
 			moduleCflags = cppflags
 			moduleToolingCflags = toolingCppflags
 		default:
@@ -415,24 +427,9 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 			continue
 		}
 
-		if flags.clang {
-			switch ccCmd {
-			case "gcc":
-				ccCmd = "clang"
-			case "g++":
-				ccCmd = "clang++"
-			default:
-				panic("unrecoginzied ccCmd")
-			}
-		}
-
 		ccDesc := ccCmd
 
-		if flags.clang {
-			ccCmd = "${config.ClangBin}/" + ccCmd
-		} else {
-			ccCmd = gccCmd(flags.toolchain, ccCmd)
-		}
+		ccCmd = "${config.ClangBin}/" + ccCmd
 
 		var implicitOutputs android.WritablePaths
 		if coverage {
@@ -442,7 +439,7 @@ func TransformSourceToObj(ctx android.ModuleContext, subdir string, srcFiles and
 		}
 
 		ctx.Build(pctx, android.BuildParams{
-			Rule:            cc,
+			Rule:            rule,
 			Description:     ccDesc + " " + srcFile.Rel(),
 			Output:          objFile,
 			ImplicitOutputs: implicitOutputs,
@@ -514,9 +511,6 @@ func TransformObjToStaticLib(ctx android.ModuleContext, objFiles android.Paths,
 	arFlags := "crsD"
 	if !ctx.Darwin() {
 		arFlags += " -format=gnu"
-	}
-	if flags.arGoldPlugin {
-		arFlags += " --plugin ${config.LLVMGoldPlugin}"
 	}
 	if flags.arFlags != "" {
 		arFlags += " " + flags.arFlags
@@ -617,12 +611,7 @@ func TransformObjToDynamicBinary(ctx android.ModuleContext,
 	objFiles, sharedLibs, staticLibs, lateStaticLibs, wholeStaticLibs, deps android.Paths,
 	crtBegin, crtEnd android.OptionalPath, groupLate bool, flags builderFlags, outputFile android.WritablePath) {
 
-	var ldCmd string
-	if flags.clang {
-		ldCmd = "${config.ClangBin}/clang++"
-	} else {
-		ldCmd = gccCmd(flags.toolchain, "g++")
-	}
+	ldCmd := "${config.ClangBin}/clang++"
 
 	var libFlagsList []string
 
@@ -686,18 +675,33 @@ func TransformObjToDynamicBinary(ctx android.ModuleContext,
 // Generate a rule to combine .dump sAbi dump files from multiple source files
 // into a single .ldump sAbi dump file
 func TransformDumpToLinkedDump(ctx android.ModuleContext, sAbiDumps android.Paths, soFile android.Path,
-	baseName, exportedHeaderFlags string) android.OptionalPath {
+	baseName, exportedHeaderFlags string, symbolFile android.OptionalPath,
+	excludedSymbolVersions, excludedSymbolTags []string) android.OptionalPath {
+
 	outputFile := android.PathForModuleOut(ctx, baseName+".lsdump")
 	sabiLock.Lock()
 	lsdumpPaths = append(lsdumpPaths, outputFile.String())
 	sabiLock.Unlock()
+
+	implicits := android.Paths{soFile}
 	symbolFilterStr := "-so " + soFile.String()
+
+	if symbolFile.Valid() {
+		implicits = append(implicits, symbolFile.Path())
+		symbolFilterStr += " -v " + symbolFile.String()
+	}
+	for _, ver := range excludedSymbolVersions {
+		symbolFilterStr += " --exclude-symbol-version " + ver
+	}
+	for _, tag := range excludedSymbolTags {
+		symbolFilterStr += " --exclude-symbol-tag " + tag
+	}
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        sAbiLink,
 		Description: "header-abi-linker " + outputFile.Base(),
 		Output:      outputFile,
 		Inputs:      sAbiDumps,
-		Implicit:    soFile,
+		Implicits:   implicits,
 		Args: map[string]string{
 			"symbolFilter":        symbolFilterStr,
 			"arch":                ctx.Arch().ArchType.Name,
@@ -719,13 +723,19 @@ func UnzipRefDump(ctx android.ModuleContext, zippedRefDump android.Path, baseNam
 }
 
 func SourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceDump android.Path,
-	baseName, exportedHeaderFlags string, isVndkExt bool) android.OptionalPath {
+	baseName, exportedHeaderFlags string, isLlndk, isVndkExt bool) android.OptionalPath {
 
 	outputFile := android.PathForModuleOut(ctx, baseName+".abidiff")
+	libName := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	createReferenceDumpFlags := ""
 
 	localAbiCheckAllowFlags := append([]string(nil), abiCheckAllowFlags...)
 	if exportedHeaderFlags == "" {
 		localAbiCheckAllowFlags = append(localAbiCheckAllowFlags, "-advice-only")
+	}
+	if isLlndk {
+		localAbiCheckAllowFlags = append(localAbiCheckAllowFlags, "-consider-opaque-types-different")
+		createReferenceDumpFlags = "--llndk"
 	}
 	if isVndkExt {
 		localAbiCheckAllowFlags = append(localAbiCheckAllowFlags, "-allow-extensions")
@@ -738,10 +748,11 @@ func SourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceD
 		Input:       inputDump,
 		Implicit:    referenceDump,
 		Args: map[string]string{
-			"referenceDump": referenceDump.String(),
-			"libName":       baseName[0:(len(baseName) - len(filepath.Ext(baseName)))],
-			"arch":          ctx.Arch().ArchType.Name,
-			"allowFlags":    strings.Join(localAbiCheckAllowFlags, " "),
+			"referenceDump":            referenceDump.String(),
+			"libName":                  libName,
+			"arch":                     ctx.Arch().ArchType.Name,
+			"allowFlags":               strings.Join(localAbiCheckAllowFlags, " "),
+			"createReferenceDumpFlags": createReferenceDumpFlags,
 		},
 	})
 	return android.OptionalPathForPath(outputFile)
@@ -751,7 +762,18 @@ func SourceAbiDiff(ctx android.ModuleContext, inputDump android.Path, referenceD
 func TransformSharedObjectToToc(ctx android.ModuleContext, inputFile android.Path,
 	outputFile android.WritablePath, flags builderFlags) {
 
-	crossCompile := gccCmd(flags.toolchain, "")
+	var format string
+	var crossCompile string
+	if ctx.Darwin() {
+		format = "--macho"
+		crossCompile = "${config.MacToolPath}"
+	} else if ctx.Windows() {
+		format = "--pe"
+		crossCompile = gccCmd(flags.toolchain, "")
+	} else {
+		format = "--elf"
+		crossCompile = gccCmd(flags.toolchain, "")
+	}
 
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        toc,
@@ -760,6 +782,7 @@ func TransformSharedObjectToToc(ctx android.ModuleContext, inputFile android.Pat
 		Input:       inputFile,
 		Args: map[string]string{
 			"crossCompile": crossCompile,
+			"format":       format,
 		},
 	})
 }
@@ -768,12 +791,7 @@ func TransformSharedObjectToToc(ctx android.ModuleContext, inputFile android.Pat
 func TransformObjsToObj(ctx android.ModuleContext, objFiles android.Paths,
 	flags builderFlags, outputFile android.WritablePath) {
 
-	var ldCmd string
-	if flags.clang {
-		ldCmd = "${config.ClangBin}/clang++"
-	} else {
-		ldCmd = gccCmd(flags.toolchain, "g++")
-	}
+	ldCmd := "${config.ClangBin}/clang++"
 
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        partialLd,
@@ -819,6 +837,12 @@ func TransformStrip(ctx android.ModuleContext, inputFile android.Path,
 	if flags.stripKeepSymbols {
 		args += " --keep-symbols"
 	}
+	if flags.stripKeepSymbolsList != "" {
+		args += " -k" + flags.stripKeepSymbolsList
+	}
+	if flags.stripUseGnuStrip {
+		args += " --use-gnu-strip"
+	}
 
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        strip,
@@ -855,21 +879,6 @@ func TransformCoverageFilesToLib(ctx android.ModuleContext,
 	}
 
 	return android.OptionalPath{}
-}
-
-func CopyGccLib(ctx android.ModuleContext, libName string,
-	flags builderFlags, outputFile android.WritablePath) {
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        copyGccLib,
-		Description: "copy gcc library " + libName,
-		Output:      outputFile,
-		Args: map[string]string{
-			"ccCmd":   gccCmd(flags.toolchain, "gcc"),
-			"cFlags":  flags.globalFlags,
-			"libName": libName,
-		},
-	})
 }
 
 func gccCmd(toolchain config.Toolchain, cmd string) string {

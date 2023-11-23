@@ -31,6 +31,7 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLO
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ORGANIZATION_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_CONSENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_SETUP;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORT_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
@@ -47,14 +48,16 @@ import static com.android.managedprovisioning.common.StoreUtils.putIntegerIfNotN
 import static com.android.managedprovisioning.common.StoreUtils.putPersistableBundlableIfNotNull;
 
 import android.accounts.Account;
+import android.annotation.IntDef;
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
-import android.support.annotation.Nullable;
 import android.util.AtomicFile;
 import android.util.Xml;
+
+import androidx.annotation.Nullable;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
@@ -71,6 +74,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
@@ -82,14 +87,33 @@ public final class ProvisioningParams extends PersistableBundlable {
     public static final Integer DEFAULT_MAIN_COLOR = null;
     public static final boolean DEFAULT_STARTED_BY_TRUSTED_SOURCE = false;
     public static final boolean DEFAULT_IS_NFC = false;
+    public static final boolean DEFAULT_IS_CLOUD_ENROLLMENT = false;
     public static final boolean DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT = false;
+    public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED = false;
     public static final boolean DEFAULT_SKIP_USER_SETUP = true;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA = false;
     // Intent extra used internally for passing data between activities and service.
     public static final String EXTRA_PROVISIONING_PARAMS = "provisioningParams";
+
+    // Possible provisioning modes for organization owned provisioning.
+    public static final int PROVISIONING_MODE_UNDECIDED = 0;
+    public static final int PROVISIONING_MODE_FULLY_MANAGED_DEVICE = 1;
+    public static final int PROVISIONING_MODE_MANAGED_PROFILE = 2;
+    public static final int PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE = 3;
+    public static final int PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY = 4;
+
+    @IntDef(prefix = { "PROVISIONING_MODE_" }, value = {
+            PROVISIONING_MODE_UNDECIDED,
+            PROVISIONING_MODE_FULLY_MANAGED_DEVICE,
+            PROVISIONING_MODE_MANAGED_PROFILE,
+            PROVISIONING_MODE_MANAGED_PROFILE_ON_FULLY_NAMAGED_DEVICE,
+            PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ProvisioningMode {}
 
     private static final String TAG_PROVISIONING_ID = "provisioning-id";
     private static final String TAG_PROVISIONING_PARAMS = "provisioning-params";
@@ -97,7 +121,11 @@ public final class ProvisioningParams extends PersistableBundlable {
     private static final String TAG_PACKAGE_DOWNLOAD_INFO = "download-info";
     private static final String TAG_STARTED_BY_TRUSTED_SOURCE = "started-by-trusted-source";
     private static final String TAG_IS_NFC = "started-is-nfc";
+    private static final String TAG_IS_CLOUD_ENROLLMENT = "is-cloud-enrollment";
     private static final String TAG_PROVISIONING_ACTION = "provisioning-action";
+    private static final String TAG_IS_ORGANIZATION_OWNED_PROVISIONING =
+            "is-organization-owned-provisioning";
+    private static final String TAG_PROVISIONING_MODE = "provisioning-mode";
 
     public static final Parcelable.Creator<ProvisioningParams> CREATOR
             = new Parcelable.Creator<ProvisioningParams>() {
@@ -200,6 +228,8 @@ public final class ProvisioningParams extends PersistableBundlable {
 
     public final boolean isNfc;
 
+    public final boolean isCloudEnrollment;
+
     /** True if all system apps should be enabled after provisioning. */
     public final boolean leaveAllSystemAppsEnabled;
 
@@ -209,8 +239,19 @@ public final class ProvisioningParams extends PersistableBundlable {
     /** True if user setup can be skipped. */
     public final boolean skipUserSetup;
 
+    public final boolean skipEducationScreens;
+
     /** True if user consent page in pre-provisioning can be skipped. */
     public final boolean skipUserConsent;
+
+    /** True if the provisioning is done on a device owned by the organization. */
+    public final boolean isOrganizationOwnedProvisioning;
+
+    /**
+     * The provisioning mode for organization owned provisioning. This is only used for
+     * admin integrated flow.
+     */
+    public final @ProvisioningMode int provisioningMode;
 
     public static String inferStaticDeviceAdminPackageName(ComponentName deviceAdminComponentName,
             String deviceAdminPackageName) {
@@ -265,6 +306,7 @@ public final class ProvisioningParams extends PersistableBundlable {
 
         startedByTrustedSource = builder.mStartedByTrustedSource;
         isNfc = builder.mIsNfc;
+        isCloudEnrollment = builder.mIsCloudEnrollment;
         leaveAllSystemAppsEnabled = builder.mLeaveAllSystemAppsEnabled;
         skipEncryption = builder.mSkipEncryption;
         accountToMigrate = builder.mAccountToMigrate;
@@ -272,7 +314,11 @@ public final class ProvisioningParams extends PersistableBundlable {
         mainColor = builder.mMainColor;
         skipUserConsent = builder.mSkipUserConsent;
         skipUserSetup = builder.mSkipUserSetup;
+        skipEducationScreens = builder.mSkipEducationScreens;
         keepAccountMigrated = builder.mKeepAccountMigrated;
+
+        isOrganizationOwnedProvisioning = builder.mIsOrganizationOwnedProvisioning;
+        provisioningMode = builder.mProvisioningMode;
 
         validateFields();
     }
@@ -314,12 +360,16 @@ public final class ProvisioningParams extends PersistableBundlable {
         bundle.putPersistableBundle(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, adminExtrasBundle);
         bundle.putBoolean(TAG_STARTED_BY_TRUSTED_SOURCE, startedByTrustedSource);
         bundle.putBoolean(TAG_IS_NFC, isNfc);
+        bundle.putBoolean(TAG_IS_CLOUD_ENROLLMENT, isCloudEnrollment);
         bundle.putBoolean(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
                 leaveAllSystemAppsEnabled);
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION, skipEncryption);
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_USER_SETUP, skipUserSetup);
         bundle.putBoolean(EXTRA_PROVISIONING_SKIP_USER_CONSENT, skipUserConsent);
+        bundle.putBoolean(EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS, skipEducationScreens);
         bundle.putBoolean(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, keepAccountMigrated);
+        bundle.putBoolean(TAG_IS_ORGANIZATION_OWNED_PROVISIONING, isOrganizationOwnedProvisioning);
+        bundle.putInt(TAG_PROVISIONING_MODE, provisioningMode);
         return bundle;
     }
 
@@ -360,14 +410,23 @@ public final class ProvisioningParams extends PersistableBundlable {
                 EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE));
         builder.setStartedByTrustedSource(bundle.getBoolean(TAG_STARTED_BY_TRUSTED_SOURCE));
         builder.setIsNfc(bundle.getBoolean(TAG_IS_NFC));
+        builder.setIsCloudEnrollment(bundle.getBoolean(TAG_IS_CLOUD_ENROLLMENT));
         builder.setSkipEncryption(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION));
         builder.setLeaveAllSystemAppsEnabled(bundle.getBoolean(
                 EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED));
         builder.setSkipUserSetup(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_USER_SETUP));
         builder.setSkipUserConsent(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_USER_CONSENT));
+        builder.setSkipEducationScreens(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS));
         builder.setKeepAccountMigrated(bundle.getBoolean(
                 EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION));
+        builder.setIsOrganizationOwnedProvisioning(bundle.getBoolean(
+                TAG_IS_ORGANIZATION_OWNED_PROVISIONING));
+        builder.setProvisioningMode(bundle.getInt(TAG_PROVISIONING_MODE));
         return builder;
+    }
+
+    public Builder toBuilder() {
+        return createBuilderFromPersistableBundle(toPersistableBundle());
     }
 
     @Override
@@ -470,12 +529,16 @@ public final class ProvisioningParams extends PersistableBundlable {
         private PersistableBundle mAdminExtrasBundle;
         private boolean mStartedByTrustedSource = DEFAULT_STARTED_BY_TRUSTED_SOURCE;
         private boolean mIsNfc = DEFAULT_IS_NFC;
+        private boolean mIsCloudEnrollment = DEFAULT_IS_CLOUD_ENROLLMENT;
         private boolean mLeaveAllSystemAppsEnabled = DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
         private boolean mSkipEncryption = DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
         private boolean mSkipUserConsent = DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT;
+        private boolean mSkipEducationScreens = DEFAULT_EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
         private boolean mSkipUserSetup = DEFAULT_SKIP_USER_SETUP;
         private boolean mKeepAccountMigrated = DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED;
         private boolean mUseMobileData = DEFAULT_EXTRA_PROVISIONING_USE_MOBILE_DATA;
+        private boolean mIsOrganizationOwnedProvisioning = false;
+        private @ProvisioningMode int mProvisioningMode = PROVISIONING_MODE_UNDECIDED;
 
         public Builder setProvisioningId(long provisioningId) {
             mProvisioningId = provisioningId;
@@ -573,6 +636,10 @@ public final class ProvisioningParams extends PersistableBundlable {
             return this;
         }
 
+        public Builder setIsCloudEnrollment(boolean isCloudEnrollment) {
+            mIsCloudEnrollment = isCloudEnrollment;
+            return this;
+        }
 
         public Builder setLeaveAllSystemAppsEnabled(boolean leaveAllSystemAppsEnabled) {
             mLeaveAllSystemAppsEnabled = leaveAllSystemAppsEnabled;
@@ -586,6 +653,11 @@ public final class ProvisioningParams extends PersistableBundlable {
 
         public Builder setSkipUserConsent(boolean skipUserConsent) {
             mSkipUserConsent = skipUserConsent;
+            return this;
+        }
+
+        public Builder setSkipEducationScreens(boolean skipEducationScreens) {
+            mSkipEducationScreens = skipEducationScreens;
             return this;
         }
 
@@ -604,6 +676,21 @@ public final class ProvisioningParams extends PersistableBundlable {
             return this;
         }
 
+        public Builder setIsOrganizationOwnedProvisioning(boolean isOrganizationOwnedProvisioning) {
+            mIsOrganizationOwnedProvisioning = isOrganizationOwnedProvisioning;
+            return this;
+        }
+
+        public Builder setProvisioningMode(@ProvisioningMode int provisioningMode) {
+            mProvisioningMode = provisioningMode;
+            return this;
+        }
+
+        /**
+         * Builds the {@link ProvisioningParams} object. Note that {@link
+         * #setProvisioningAction(String)} and {@link #setDeviceAdminComponentName(ComponentName)}
+         * methods must be called with a non-null parameter before this is called.
+         */
         public ProvisioningParams build() {
             return new ProvisioningParams(this);
         }

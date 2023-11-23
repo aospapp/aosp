@@ -18,7 +18,7 @@ package com.android.settings.intelligence.suggestions.ranking;
 
 import android.content.Context;
 import android.service.settings.suggestions.Suggestion;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.intelligence.overlay.FeatureFactory;
 

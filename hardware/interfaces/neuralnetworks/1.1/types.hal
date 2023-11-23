@@ -26,6 +26,7 @@ import @1.0::PerformanceInfo;
  * The type of an operation in a model.
  */
 enum OperationType : @1.0::OperationType {
+
     /**
      * BatchToSpace for N-dimensional tensors.
      *
@@ -50,6 +51,8 @@ enum OperationType : @1.0::OperationType {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     BATCH_TO_SPACE_ND = 29,
 
@@ -88,6 +91,8 @@ enum OperationType : @1.0::OperationType {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     DIV = 30,
 
@@ -99,9 +104,6 @@ enum OperationType : @1.0::OperationType {
      * in axis. If keep_dims is true, the reduced dimensions are retained with
      * length 1.
      *
-     * If dimensions to reduce have no entries, all dimensions are reduced, and
-     * a tensor with a single element is returned.
-     *
      * Supported tensor {@link OperandType}:
      * * {@link OperandType::TENSOR_FLOAT32}
      * * {@link OperandType::TENSOR_QUANT8_ASYMM}
@@ -111,13 +113,21 @@ enum OperationType : @1.0::OperationType {
      * Inputs:
      * * 0: A tensor, specifying the input.
      * * 1: A 1-D Tensor of {@link OperandType::TENSOR_INT32}. The dimensions
-     *      to reduce. If None (the default), reduces all dimensions. Must be in
-     *      the range [-rank(input_tensor), rank(input_tensor)).
+     *      to reduce. Must be in the range
+     *      [-rank(input_tensor), rank(input_tensor)).
+     *
+     *      NOTE: When the operation was introduced, the documentation
+     *      incorrectly stated that if dimensions were empty, the operation
+     *      would reduce across all dimensions. This behavior was never
+     *      implemented.
+     *
      * * 2: An {@link OperandType::INT32} scalar, keep_dims. If positive,
      *      retains reduced dimensions with length 1.
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     MEAN = 31,
 
@@ -128,7 +138,7 @@ enum OperationType : @1.0::OperationType {
      *
      * Supported tensor {@link OperandType}:
      * * {@link OperandType::TENSOR_FLOAT32}
-     * * {@link OperandType::TENSOR_QUANT8_ASYMM}
+     * * {@link OperandType::TENSOR_QUANT8_ASYMM} (the pad value is undefined)
      *
      * Supported tensor rank: up to 4
      *
@@ -137,13 +147,24 @@ enum OperationType : @1.0::OperationType {
      * * 1: A 2-D Tensor of {@link OperandType::TENSOR_INT32}, the paddings
      *      for each spatial dimension of the input tensor. The shape of the
      *      tensor must be {rank(input0), 2}.
-     *      padding[i, 0] specifies the number of element to be padded in the
+     *      padding[i, 0] specifies the number of elements to be padded in the
      *      front of dimension i.
-     *      padding[i, 1] specifies the number of element to be padded after the
+     *      padding[i, 1] specifies the number of elements to be padded after the
      *      end of dimension i.
      *
      * Outputs:
-     * * 0: A tensor of the same {@link OperandType} as input0.
+     * * 0: A tensor of the same {@link OperandType} as input0. The
+     *      output tensor has the same rank as input0, and each
+     *      dimension of the output tensor has the same size as the
+     *      corresponding dimension of the input tensor plus the size
+     *      of the padding:
+     *          output0.dimension[i] =
+     *              padding[i, 0] + input0.dimension[i] + padding[i, 1]
+     *
+     *      NOTE: The pad value for {@link ANEURALNETWORKS_TENSOR_QUANT8_ASYMM}
+     *      is undefined.
+     *
+     * Available since API level 28.
      */
     PAD = 32,
 
@@ -171,7 +192,8 @@ enum OperationType : @1.0::OperationType {
      *      must be >= 1.
      * * 2: A 2-D Tensor of {@link OperandType::TENSOR_INT32}, the paddings
      *      for each spatial dimension of the input tensor. All values must be
-     *      >= 0. The shape of the tensor must be {rank(input0), 2}.
+     *      >= 0. The shape of the tensor must be {M, 2}, where M is the number
+     *      of spatial dimensions.
      *      padding[i, 0] specifies the number of element to be padded in the
      *      front of dimension i.
      *      padding[i, 1] specifies the number of element to be padded after the
@@ -179,6 +201,8 @@ enum OperationType : @1.0::OperationType {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     SPACE_TO_BATCH_ND = 33,
 
@@ -208,6 +232,8 @@ enum OperationType : @1.0::OperationType {
      * * 0: A tensor of the same {@link OperandType} as input0. Contains the
      *      same data as input, but has one or more dimensions of size 1
      *      removed.
+     *
+     * Available since API level 28.
      */
     SQUEEZE = 34,
 
@@ -228,28 +254,32 @@ enum OperationType : @1.0::OperationType {
      *
      * Inputs:
      * * 0: An n-D tensor, specifying the tensor to be sliced.
-     * * 1: A 1-D Tensor of {@link OperandType::TENSOR_INT32}, the starts of
-     *      the dimensions of the input tensor to be sliced. The length must be
-     *      of rank(input0).
-     * * 2: A 1-D Tensor of {@link OperandType::TENSOR_INT32}, the ends of
-     *      the dimensions of the input tensor to be sliced. The length must be
-     *      of rank(input0).
-     * * 3: A 1-D Tensor of {@link OperandType::TENSOR_INT32}, the strides of
-     *      the dimensions of the input tensor to be sliced. The length must be
-     *      of rank(input0).
-     * * 4: An {@link OperandType::INT32} scalar, begin_mask. If the ith bit
+     * * 1: begin, a 1-D tensor of {@link OperandType::TENSOR_INT32}. The
+     *      starts of the dimensions of the input tensor to be sliced. The
+     *      length must be of rank(input0).
+     * * 2: end, a 1-D tensor of {@link OperandType::TENSOR_INT32}. The
+     *      ends of the dimensions of the input tensor to be sliced. The length
+     *      must be of rank(input0).
+     * * 3: strides, a 1-D tensor of {@link OperandType::TENSOR_INT32}. The
+     *      strides of the dimensions of the input tensor to be sliced. The
+     *      length must be of rank(input0). The entries must be non-zero.
+     * * 4: begin_mask, an {@link OperandType::INT32} scalar. If the ith bit
      *      of begin_mask is set, begin[i] is ignored and the fullest possible
      *      range in that dimension is used instead.
-     * * 5: An {@link OperandType::INT32} scalar, end_mask. If the ith bit of
+     * * 5: end_mask, an {@link OperandType::INT32} scalar. If the ith bit of
      *      end_mask is set, end[i] is ignored and the fullest possible range in
      *      that dimension is used instead.
-     * * 6: An {@link OperandType::INT32} scalar, shrink_axis_mask. An int32
-     *      mask. If the ith bit of shrink_axis_mask is set, it implies that the
-     *      ith specification shrinks the dimensionality by 1. A slice of size 1
-     *      starting from begin[i] in the dimension must be preserved.
+     * * 6: shrink_axis_mask, an {@link OperandType::INT32} scalar. If the
+     *      ith bit of shrink_axis_mask is set, the ith dimension specification
+     *      shrinks the dimensionality by 1, taking on the value at index
+     *      begin[i]. In this case, the ith specification must define a
+     *      slice of size 1, e.g. begin[i] = x, end[i] = x + 1.
      *
      * Outputs:
-     * * 0: A tensor of the same {@link OperandType} as input0.
+     * * 0: A tensor of the same {@link OperandType} as input0 and rank (n - k),
+     *      where k is the number of bits set in shrink_axis_mask.
+     *
+     * Available since API level 28.
      */
     STRIDED_SLICE = 35,
 
@@ -288,6 +318,8 @@ enum OperationType : @1.0::OperationType {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     SUB = 36,
 
@@ -313,8 +345,11 @@ enum OperationType : @1.0::OperationType {
      *
      * Outputs:
      * * 0: A tensor of the same {@link OperandType} as input0.
+     *
+     * Available since API level 28.
      */
     TRANSPOSE = 37,
+
 };
 
 /**
@@ -377,19 +412,21 @@ struct Model {
     /**
      * All operations included in the model.
      *
-     * The operations are sorted into execution order.
+     * The operations are sorted into execution order. Every operand
+     * with lifetime MODEL_OUTPUT or TEMPORARY_VARIABLE must be
+     * written before it is read.
      */
     vec<Operation> operations;
 
     /**
-     * Input indexes of the model.
+     * Input indexes of the model. There must be at least one.
      *
      * Each value corresponds to the index of the operand in "operands".
      */
     vec<uint32_t> inputIndexes;
 
     /**
-     * Output indexes of the model.
+     * Output indexes of the model. There must be at least one.
      *
      * Each value corresponds to the index of the operand in "operands".
      */
@@ -404,8 +441,7 @@ struct Model {
     vec<uint8_t> operandValues;
 
     /**
-     * A collection of shared memory pools containing operand data that were
-     * registered by the model.
+     * A collection of shared memory pools containing operand values.
      *
      * An operand's value must be located here if and only if Operand::lifetime
      * equals OperandLifeTime::CONSTANT_REFERENCE.

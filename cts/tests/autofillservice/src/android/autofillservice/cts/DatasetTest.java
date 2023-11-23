@@ -23,10 +23,11 @@ import static org.testng.Assert.assertThrows;
 
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.Dataset;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +35,7 @@ import org.junit.runner.RunWith;
 import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class DatasetTest {
 
     private final AutofillId mId = new AutofillId(42);

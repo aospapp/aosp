@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Trả lời nhanh"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Đã gửi tin nhắn tới <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Không gửi được tin nhắn đến <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Tài khoản gọi"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Chỉ được phép thực hiện cuộc gọi khẩn cấp."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Ứng dụng này không thể thực hiện cuộc gọi đi mà không có quyền của Điện thoại."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Đặt làm mặc định"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Hủy"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> sẽ có thể đặt và kiểm soát mọi khía cạnh của cuộc gọi. Chỉ nên đặt những ứng dụng mà bạn tin cậy làm ứng dụng Điện thoại mặc định."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Đặt <xliff:g id="NEW_APP">%s</xliff:g> làm ứng dụng sàng lọc cuộc gọi mặc định?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> sẽ không thể sàng lọc cuộc gọi nữa."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> có thể thấy thông tin về người gọi không có trong danh bạ của bạn và chặn những cuộc gọi này. Chỉ nên đặt những ứng dụng mà bạn tin cậy làm ứng dụng sàng lọc cuộc gọi mặc định."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Đặt làm mặc định"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Hủy"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Số bị chặn"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Bạn sẽ không nhận được cuộc gọi hoặc tin nhắn từ các số bị chặn."</string>
     <string name="block_number" msgid="1101252256321306179">"Thêm số điện thoại"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Trả lời sẽ kết thúc cuộc gọi điện video đang diễn ra của bạn"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Trả lời"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Từ chối"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Không thể thực hiện cuộc gọi do không có tài khoản hỗ trợ loại cuộc gọi này."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Không thể thực hiện cuộc gọi do cuộc gọi <xliff:g id="OTHER_CALL">%1$s</xliff:g> của bạn."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Không thể thực hiện cuộc gọi do cuộc gọi <xliff:g id="OTHER_CALL">%1$s</xliff:g> của bạn."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Không thể thực hiện cuộc gọi do có cuộc gọi trong một ứng dụng khác."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Cuộc gọi nhỡ"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Chặn cuộc gọi"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Thực hiện cuộc gọi này sẽ kết thúc cuộc gọi <xliff:g id="OTHER_APP">%1$s</xliff:g> của bạn."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Chọn cách thực hiện cuộc gọi này"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Chuyển hướng cuộc gọi bằng cách sử dụng <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Gọi bằng số điện thoại của bạn"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Không thể thực hiện cuộc gọi bằng <xliff:g id="OTHER_APP">%1$s</xliff:g>. Hãy thử dùng ứng dụng chuyển hướng cuộc gọi khác hoặc liên hệ với nhà phát triển để nhận trợ giúp."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Chặn cuộc gọi"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Các số không có trong Danh bạ"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Chặn các số không có trong Danh bạ của bạn"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Đã tắt tính năng Chặn cuộc gọi"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Đã thực hiện cuộc gọi khẩn cấp"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Đã tắt tính năng Chặn cuộc gọi để cho phép người trả lời khẩn cấp liên hệ với bạn."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Menu nhà phát triển dịch vụ viễn thông"</string>
 </resources>

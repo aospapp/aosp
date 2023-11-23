@@ -1,13 +1,13 @@
 .TH import 1 "Date: 2009/01/10 01:00:00" "ImageMagick"
 .SH NAME
-import \- saves any visible window on an X server and outputs it as an image file. You can capture a single window, the entire screen, or any rectangular portion of the screen.
+import \- saves any visible window on an X server and outputs it as an image file. You can capture a single window, the entire screen, or any rectangular portion of the screen. The window to capture is selected by clicking the desired window or a program option.
 .SH SYNOPSIS
 .TP
 \fBimport\fP [\fIoptions\fP] \fIoutput-file\fP
 .SH OVERVIEW
 The \fBimport\fP program is a member of the ImageMagick(1) suite of tools.  Use it to capture some or all of an X server screen and save the image to a file.
 
-For more information about the import command, point your browser to file://@DOCUMENTATION_PATH@/www/import.html or http://www.imagemagick.org/script/import.php.
+For more information about the import command, point your browser to file://@DOCUMENTATION_PATH@/www/import.html or http://imagemagick.org/script/import.php.
 .SH DESCRIPTION
 Image Settings:
   \-adjoin              join images into a single multi-image file
@@ -43,6 +43,7 @@ Image Settings:
   \-quality value       JPEG/MIFF/PNG compression level
   \-quiet               suppress all warning messages
   \-regard-warnings     pay attention to warning messages
+  \-repage geometry     size and location of an image canvas
   \-respect-parentheses settings remain in effect until parenthesis boundary
   \-sampling-factor geometry
                        horizontal and vertical sampling factor
@@ -62,6 +63,7 @@ Image Settings:
   \-virtual-pixel method
                        Constant, Edge, Mirror, or Tile
   \-window id           select window with this id or name
+                        root selects the whole screen
 
 Image Operators:
   \-annotate geometry text
@@ -73,7 +75,6 @@ Image Operators:
   \-help                print program options
   \-monochrome          transform image to black and white
   \-negate              replace each pixel with its complementary color 
-  \-repage geometry     size and location of an image canvas
   \-quantize colorspace reduce colors in this colorspace
   \-resize geometry     resize the image
   \-rotate degrees      apply Paeth rotation to the image
@@ -96,4 +97,4 @@ ImageMagick(1)
 
 .SH COPYRIGHT
 
-\fBCopyright (C) 1999-2016 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://www.imagemagick.org/script/license.php\fP
+\fBCopyright (C) 1999-2019 ImageMagick Studio LLC. Additional copyrights and licenses apply to this software, see file://@DOCUMENTATION_PATH@/www/license.html or http://imagemagick.org/script/license.php\fP

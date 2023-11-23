@@ -32,14 +32,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
-import android.os.RemoteException;
-import android.support.test.InstrumentationRegistry;
 import android.test.AndroidTestCase;
 import android.test.mock.MockPackageManager;
 import android.view.inputmethod.InputMethodInfo;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.internal.R;
-import com.android.internal.view.IInputMethodManager;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -60,8 +59,8 @@ public class OverlayPackagesProviderTest extends AndroidTestCase {
 
     private @Mock
     Resources mResources;
-    private @Mock
-    IInputMethodManager mIInputMethodManager;
+    @Mock
+    private OverlayPackagesProvider.Injector mInjector;
     private @Mock
     Context mTestContext;
     private Resources mRealResources;
@@ -80,6 +79,7 @@ public class OverlayPackagesProviderTest extends AndroidTestCase {
                 InstrumentationRegistry.getTargetContext().getCacheDir());
 
         setSystemInputMethods();
+        setIsPerProfileModeEnabled(false);
         setRequiredAppsManagedDevice();
         setVendorRequiredAppsManagedDevice();
         setDisallowedAppsManagedDevice();
@@ -94,7 +94,7 @@ public class OverlayPackagesProviderTest extends AndroidTestCase {
         setVendorDisallowedAppsManagedUser();
 
         mRealResources = InstrumentationRegistry.getTargetContext().getResources();
-        mHelper = new OverlayPackagesProvider(mTestContext, mIInputMethodManager);
+        mHelper = new OverlayPackagesProvider(mTestContext, mInjector);
     }
 
     @Test
@@ -161,6 +161,15 @@ public class OverlayPackagesProviderTest extends AndroidTestCase {
         setSystemInputMethods("app.a");
 
         verifyAppsAreNonRequired(ACTION_PROVISION_MANAGED_PROFILE, "app.a", "app.b");
+    }
+
+    @Test
+    public void testProfileOwnerImesAreRequiredForPerProfileImeMode() {
+        setSystemAppsWithLauncher("app.a", "app.b");
+        setSystemInputMethods("app.a");
+        setIsPerProfileModeEnabled(true);
+
+        verifyAppsAreNonRequired(ACTION_PROVISION_MANAGED_PROFILE, "app.b");
     }
 
     @Test
@@ -332,11 +341,11 @@ public class OverlayPackagesProviderTest extends AndroidTestCase {
             InputMethodInfo inputMethodInfo = new InputMethodInfo(ri, false, null, null, 0, false);
             inputMethods.add(inputMethodInfo);
         }
-        try {
-            when(mIInputMethodManager.getInputMethodList()).thenReturn(inputMethods);
-        } catch (RemoteException e) {
-            fail(e.toString());
-        }
+        when(mInjector.getInputMethodListAsUser(eq(TEST_USER_ID))).thenReturn(inputMethods);
+    }
+
+    private void setIsPerProfileModeEnabled(boolean enabled) {
+        when(mInjector.isPerProfileImeEnabled()).thenReturn(enabled);
     }
 
     private void setSystemAppsWithLauncher(String... apps) {

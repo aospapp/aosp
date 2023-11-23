@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"ತ್ವರಿತ ಪ್ರತಿಕ್ರಿಯೆ"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> ಗೆ ಸಂದೇಶ ಕಳುಹಿಸಲಾಗಿದೆ."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> ಫೋನ್ ಸಂಖ್ಯೆಗೆ ಸಂದೇಶವನ್ನು ಕಳುಹಿಸುವಲ್ಲಿ ವಿಫಲವಾಗಿದೆ."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"ಕರೆ ಮಾಡುವ ಖಾತೆಗಳು"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"ತುರ್ತು ಕರೆಗಳನ್ನು ಮಾಡಲು ಮಾತ್ರ ಅವಕಾಶವಿದೆ."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"ಈ ಅಪ್ಲಿಕೇಶನ್ ಫೋನ್ ಅನುಮತಿಯಿಲ್ಲದೆ ಹೊರಹೋಗುವ ಕರೆಗಳನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"ಡಿಫಾಲ್ಟ್ ಹೊಂದಿಸಿ"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"ರದ್ದುಮಾಡಿ"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ಗೆ ನಿಮ್ಮ ಕರೆಗಳ ಎಲ್ಲಾ ಅಂಶಗಳನ್ನು ನಿಯಂತ್ರಿಸಲು ಮತ್ತು ಕರೆಗಳನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ. ನೀವು ವಿಶ್ವಾಸವಿರಿಸಿರುವಂತಹ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಮಾತ್ರ ನಿಮ್ಮ ಡಿಫಾಲ್ಟ್ ಅಪ್ಲಿಕೇಶನ್ ಆಗಿ ಹೊಂದಿಸಬೇಕು."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g> ನಿಮ್ಮ ಡೀಫಾಲ್ಟ್ ಕರೆ ಸ್ಕ್ರೀನಿಂಗ್ ಆ್ಯಪ್‌ ಆಗಿ ಮಾಡಬೇಕೇ?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> ಇನ್ನು ಮುಂದೆ ಕರೆಗಳನ್ನು ಸ್ಕ್ರೀನ್‌ ಮಾಡಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> ಗೆ ನಿಮ್ಮ ಸಂಪರ್ಕಗಳಲ್ಲಿ ಇಲ್ಲದ ಕರೆದಾರರ ಬಗ್ಗೆ ಮಾಹಿತಿಯನ್ನು ನೋಡಲು ಮತ್ತು ಈ ಕರೆಗಳನ್ನು ಬ್ಲಾಕ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ. ನೀವು ವಿಶ್ವಾಸವಿರಿಸಿರುವಂತಹ ಆ್ಯಪ್‌ಗಳನ್ನು ಮಾತ್ರ ನಿಮ್ಮ ಡೀಫಾಲ್ಟ್ ಕರೆ ಸ್ಕ್ರೀನಿಂಗ್ ಆ್ಯಪ್‌ ಆಗಿ ಹೊಂದಿಸಬೇಕು."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"ಡೀಫಾಲ್ಟ್ ಹೊಂದಿಸಿ"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"ರದ್ದುಮಾಡಿ"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ನಿರ್ಬಂಧಿಸಲಾದ ಸಂಖ್ಯೆಗಳು"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ನಿರ್ಬಂಧಿಸಲಾದ ಸಂಖ್ಯೆಗಳಿಂದ ಕರೆಗಳು ಅಥವಾ ಪಠ್ಯ ಸಂದೇಶಗಳನ್ನು ನೀವು ಸ್ವೀಕರಿಸುವುದಿಲ್ಲ."</string>
     <string name="block_number" msgid="1101252256321306179">"ಸಂಖ್ಯೆ ಸೇರಿಸಿ"</string>
@@ -56,7 +62,7 @@
     <string name="unblock_button" msgid="3078048901972674170">"ನಿರ್ಬಂಧ ತೆಗೆಯಿರಿ"</string>
     <string name="add_blocked_dialog_body" msgid="9030243212265516828">"ಇದರಿಂದ ಬರುವ ಕರೆಗಳು ಮತ್ತು ಪಠ್ಯ ಸಂದೇಶಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"ಫೋನ್ ಸಂಖ್ಯೆ"</string>
-    <string name="block_button" msgid="8822290682524373357">"ನಿರ್ಬಂಧಿಸು"</string>
+    <string name="block_button" msgid="8822290682524373357">"ನಿರ್ಬಂಧಿಸಿ"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"ಸಾಧನ ಮಾಲೀಕರು ಮಾತ್ರ ನಿರ್ಬಂಧಿಸಿದ ಸಂಖ್ಯೆಗಳನ್ನು ವೀಕ್ಷಿಸಬಹುದು ಮತ್ತು ನಿರ್ವಹಿಸಬಹುದು."</string>
     <string name="delete_icon_description" msgid="8903995728252556724">"ನಿರ್ಬಂಧ ತೆಗೆಯಿರಿ"</string>
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"ನಿರ್ಬಂಧಿಸುವಿಕೆ ತಾತ್ಕಾಲಿಕವಾಗಿ ಆಫ್ ಮಾಡಲಾಗಿದೆ"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"ಕರೆಗೆ ಉತ್ತರಿಸುವುದರಿಂದ ನಿಮ್ಮ ಚಾಲ್ತಿಯಲ್ಲಿರುವ ವೀಡಿಯೊ ಕರೆಯು ಅಂತ್ಯಗೊಳ್ಳುತ್ತದೆ"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"ಉತ್ತರ"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"ನಿರಾಕರಿಸಿ"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"ಈ ಪ್ರಕಾರದ ಕರೆಗಳನ್ನು ಬೆಂಬಲಿಸುವ ಯಾವುದೇ ಕರೆಮಾಡುವಿಕೆ ಖಾತೆಗಳು ಇಲ್ಲದಿರುವ ಕಾರಣ ಕರೆಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"ನಿಮ್ಮ <xliff:g id="OTHER_CALL">%1$s</xliff:g> ಕರೆ ಇರುವ ಕಾರಣ ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗಿಲ್ಲ."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"ನಿಮ್ಮ <xliff:g id="OTHER_CALL">%1$s</xliff:g> ಕರೆಗಳ ಕಾರಣ ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗಿಲ್ಲ."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"ಬೇರೊಂದು ಅಪ್ಲಿಕೇಶನ್‍ನಲ್ಲಿ ಕರೆಯಲ್ಲಿರುವುದರಿಂದ ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"ಮಿಸ್ಡ್‌ ಕರೆಗಳು"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆ"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"ಈ ಕರೆಯನ್ನು ಮಾಡುವುದರಿಂದ ನಿಮ್ಮ <xliff:g id="OTHER_APP">%1$s</xliff:g> ಕರೆಯು ಅಂತ್ಯಗೊಳ್ಳುತ್ತದೆ."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"ಈ ಕರೆ ಮಾಡುವುದು ಹೇಗೆ ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"<xliff:g id="OTHER_APP">%1$s</xliff:g> ಬಳಸಿಕೊಂಡು ಕರೆಯನ್ನು ಮರುನಿರ್ದೇರ್ಶಿಸಿ"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"ನನ್ನ ಫೋನ್ ಸಂಖ್ಯೆಯನ್ನು ಬಳಸಿಕೊಂಡು ಕರೆ ಮಾಡಿ"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"ಕರೆಯನ್ನು <xliff:g id="OTHER_APP">%1$s</xliff:g> ಮೂಲಕ ನಿಯೋಜಿಸಲಾಗುವುದಿಲ್ಲ. ಕರೆ ಮರುನಿರ್ದೇಶಿಸುವ ಬೇರೆ ಆ್ಯಪ್‌ ಅನ್ನು ಬಳಸುವ ಮೂಲಕ ಅಥವಾ ಸಹಾಯಕ್ಕಾಗಿ ಡೆವಲಪರ್ ಅನ್ನು ಸಂಪರ್ಕಿಸುವ ಮೂಲಕ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆ"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"ಸಂಖ್ಯೆಗಳು ಸಂಪರ್ಕದಲ್ಲಿಲ್ಲ"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"ನಿಮ್ಮ ಸಂಪರ್ಕಗಳಲ್ಲಿ ಪಟ್ಟಿ ಮಾಡಿರದ ಸಂಪರ್ಕಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"ತುರ್ತು ಕರೆ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುವುದಕ್ಕಾಗಿ ತುರ್ತಾಗಿ ಪ್ರತಿಕ್ರಿಯಿಸುವವರ ಸಂಖ್ಯೆಯನ್ನು ನಿರ್ಬಂಧಿಸುವುದನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ."</string>
+    <string name="developer_title" msgid="1816273446906554627">"ಟೆಲಿಕಾಂ ಡೆವಲಪರ್ ಮೆನು"</string>
 </resources>

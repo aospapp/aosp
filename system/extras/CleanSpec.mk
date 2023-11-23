@@ -46,6 +46,34 @@
 
 $(call add-clean-step, rm -f $(PRODUCT_OUT)/system.img $(PRODUCT_OUT)/userdata.img)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/EXECUTABLES/taskstats_intermediates)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/anrd)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/cpustats)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/crypto)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/kexecload)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/ksminfo)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/latencytop)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/memtrack_share)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/memtrack)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/micro_bench)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/micro_bench_static)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/dnschk)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/httpurl)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/dumpcache)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/puncture_fs)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/runconuid)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/sane_schedstat)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/showslab)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/taskstats)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/ioshark_bench)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/cpueater)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/daemonize)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/directiotest)
+$(call add-clean-step, rm -f $(TARGET_OUT_OPTIONAL_EXECUTABLES)/ioshark_bench)
+
+# Remove `no-perfprofd` from the system partition, as its module
+# definition has been removed from the Blueprint file.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/bin/no-perfprofd)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

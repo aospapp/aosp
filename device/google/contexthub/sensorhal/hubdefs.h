@@ -19,8 +19,6 @@
 
 #include <hardware/sensors.h>
 
-#define MAX_SPI_PAYLOAD_SIZE            256
-
 namespace android {
 
 #define CONTEXTHUB_SETTINGS_PATH        "/persist/sensorcal.json"
@@ -63,52 +61,19 @@ enum comms_sensor_t {
     COMMS_SENSOR_DOUBLE_TAP                  = 29,
     COMMS_SENSOR_WINDOW_ORIENTATION          = 30,
     COMMS_SENSOR_WRIST_TILT                  = 31,
-
-    // The order of the activity sensors must be sequential. It is used in
-    // various places to iterate over the list of sensors that are associated
-    // with an activity.
-    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START   = 32,
-    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP    = 33,
-    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START   = 34,
-    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP    = 35,
-    COMMS_SENSOR_ACTIVITY_WALKING_START      = 36,
-    COMMS_SENSOR_ACTIVITY_WALKING_STOP       = 37,
-    COMMS_SENSOR_ACTIVITY_RUNNING_START      = 38,
-    COMMS_SENSOR_ACTIVITY_RUNNING_STOP       = 39,
-    COMMS_SENSOR_ACTIVITY_STILL_START        = 40,
-    COMMS_SENSOR_ACTIVITY_STILL_STOP         = 41,
-    COMMS_SENSOR_ACTIVITY_TILTING            = 42,
-    COMMS_SENSOR_ACCEL_BIAS                  = 43,
-    COMMS_SENSOR_DOUBLE_TOUCH                = 44,
-    COMMS_SENSOR_GAZE                        = 45,
-    COMMS_SENSOR_UNGAZE                      = 46,
-    COMMS_SENSOR_ACCEL_UNCALIBRATED          = 47,
-    COMMS_SENSOR_HUMIDITY                    = 48,
-    COMMS_SENSOR_ACCEL_WRIST_AWARE           = 49,
-    COMMS_SENSOR_GYRO_WRIST_AWARE            = 50,
-    COMMS_SENSOR_AMBIENT_TEMPERATURE         = 51,
+    COMMS_SENSOR_ACCEL_BIAS                  = 32,
+    COMMS_SENSOR_DOUBLE_TOUCH                = 33,
+    COMMS_SENSOR_GAZE                        = 34,
+    COMMS_SENSOR_UNGAZE                      = 35,
+    COMMS_SENSOR_ACCEL_UNCALIBRATED          = 36,
+    COMMS_SENSOR_HUMIDITY                    = 37,
+    COMMS_SENSOR_ACCEL_WRIST_AWARE           = 38,
+    COMMS_SENSOR_GYRO_WRIST_AWARE            = 39,
+    COMMS_SENSOR_AMBIENT_TEMPERATURE         = 40,
 
     NUM_COMMS_SENSORS_PLUS_1,
 
     COMMS_SENSOR_DEBUG                       = 0x99,
-};
-
-#define COMMS_SENSOR_ACTIVITY_FIRST COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START
-#define COMMS_SENSOR_ACTIVITY_LAST COMMS_SENSOR_ACTIVITY_TILTING
-
-enum {
-    SPI_COMMS_CMD_SYNC                  = 0,
-    SPI_COMMS_CMD_SWITCH_SENSOR         = 1,
-    SPI_COMMS_CMD_ABSOLUTE_TIME         = 2,
-    SPI_COMMS_SENSOR_DATA_SCALAR        = 3,
-    SPI_COMMS_SENSOR_DATA_VEC3          = 4,
-    SPI_COMMS_SENSOR_DATA_VEC4          = 5,
-    SPI_COMMS_SENSOR_DATA_FLUSH         = 6,
-    SPI_COMMS_CMD_UPDATE_MAG_BIAS       = 7,
-    SPI_COMMS_CMD_UPDATE_MAG_ACCURACY   = 8,
-    SPI_COMMS_CMD_UPDATE_GYRO_BIAS      = 9,
-    SPI_COMMS_CMD_ACK_SUSPEND_STATE     = 10,
-    SPI_COMMS_DEBUG_OUTPUT              = 0xff,
 };
 
 // Please keep existing values unchanged when adding or removing SENSOR_TYPE

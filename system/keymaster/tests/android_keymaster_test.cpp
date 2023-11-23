@@ -2314,7 +2314,7 @@ TEST_P(EncryptionOperationsTest, RsaOaepTooLarge) {
     begin_params.push_back(TAG_DIGEST, KM_DIGEST_SHA1);
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_ENCRYPT, begin_params));
     EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(KM_ERROR_INVALID_ARGUMENT, FinishOperation(&result));
+    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(&result));
     EXPECT_EQ(0U, result.size());
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
@@ -2429,7 +2429,7 @@ TEST_P(EncryptionOperationsTest, RsaPkcs1TooLarge) {
     begin_params.push_back(TAG_PADDING, KM_PAD_RSA_PKCS1_1_5_ENCRYPT);
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_ENCRYPT, begin_params));
     EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(KM_ERROR_INVALID_ARGUMENT, FinishOperation(&result));
+    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(&result));
     EXPECT_EQ(0U, result.size());
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
@@ -3981,7 +3981,7 @@ static ASN1_OCTET_STRING* get_attestation_record(X509* certificate) {
     return attest_rec;
 }
 
-static bool verify_attestation_record(const string& challenge,
+static bool verify_attestation_record(const string& challenge, const string& attestation_app_id,
                                       AuthorizationSet expected_sw_enforced,
                                       AuthorizationSet expected_tee_enforced,
                                       uint32_t expected_keymaster_version,
@@ -4035,6 +4035,10 @@ static bool verify_attestation_record(const string& challenge,
     if (expected_tee_enforced.GetTagValue(TAG_INCLUDE_UNIQUE_ID))
         att_tee_enforced.push_back(TAG_INCLUDE_UNIQUE_ID);
 
+    // Add TAG_ATTESTATION_APPLICATION_ID to the expected sw-enforced list.
+    expected_sw_enforced.push_back(TAG_ATTESTATION_APPLICATION_ID, attestation_app_id.data(),
+                                   attestation_app_id.size());
+
     att_sw_enforced.Sort();
     expected_sw_enforced.Sort();
     EXPECT_EQ(expected_sw_enforced, att_sw_enforced);
@@ -4073,7 +4077,7 @@ TEST_P(AttestationTest, RsaAttestation) {
     }
 
     EXPECT_TRUE(verify_attestation_record(
-        "challenge", sw_enforced(), hw_enforced(), expected_keymaster_version,
+        "challenge", "attest_app_id", sw_enforced(), hw_enforced(), expected_keymaster_version,
         expected_keymaster_security_level, cert_chain.entries[0]));
 
     keymaster_free_cert_chain(&cert_chain);
@@ -4099,7 +4103,7 @@ TEST_P(AttestationTest, EcAttestation) {
     ASSERT_EQ(3U, cert_chain.entry_count);
     EXPECT_TRUE(verify_chain(cert_chain));
     EXPECT_TRUE(verify_attestation_record(
-        "challenge", sw_enforced(), hw_enforced(), expected_keymaster_version,
+        "challenge", "attest_app_id", sw_enforced(), hw_enforced(), expected_keymaster_version,
         expected_keymaster_security_level, cert_chain.entries[0]));
 
     keymaster_free_cert_chain(&cert_chain);

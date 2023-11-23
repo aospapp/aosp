@@ -90,8 +90,10 @@ class AbstractLogReader(object):
         @param index: reboot to start at, earliest log at 0.  Negative
                 numbers indicate reboots since end of log.
         """
+        # Include a 'kernel' tag to avoid matching boot messages logged by
+        # crosvm: https://crbug.com/817946
         return self.set_start_by_regexp(index,
-                                        r'.*000\] Linux version \d')
+                                        r'kernel:.*000\] Linux version \d')
 
 
     def set_start_by_current(self, relative=0):

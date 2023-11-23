@@ -150,6 +150,11 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
     }
 
     public void testAppIdleNetworkAccess_whenCharging() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
         if (!isSupported()) return;
 
         // Check that app is paroled when charging
@@ -173,6 +178,25 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
         // And when no longer charging, it still has network access, since it's not idle
         turnBatteryOn();
         assertBackgroundNetworkAccess(true);
+    }
+
+    public void testAppIdleNetworkAccess_idleWhitelisted() throws Exception {
+        if (!isSupported()) return;
+
+        setAppIdle(true);
+        assertAppIdle(true);
+        assertBackgroundNetworkAccess(false);
+
+        addAppIdleWhitelist(mUid);
+        assertBackgroundNetworkAccess(true);
+
+        removeAppIdleWhitelist(mUid);
+        assertBackgroundNetworkAccess(false);
+
+        // Make sure whitelisting a random app doesn't affect the tested app.
+        addAppIdleWhitelist(mUid + 1);
+        assertBackgroundNetworkAccess(false);
+        removeAppIdleWhitelist(mUid + 1);
     }
 
     public void testAppIdle_toast() throws Exception {

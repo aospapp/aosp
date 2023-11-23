@@ -22,6 +22,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.webkit.cts.CtsTestServer;
 
@@ -30,6 +31,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+@AppModeFull(reason = "Socket cannot bind in instant app mode")
 public class ApacheHttpClientTest extends AndroidTestCase {
 
     private static final int NUM_DOWNLOADS = 20;

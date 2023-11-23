@@ -20,11 +20,13 @@ import logging
 
 import atest_enum
 from test_finders import test_finder_base
+from test_finders import suite_plan_finder
 from test_finders import tf_integration_finder
 from test_finders import module_finder
 
 # List of default test finder classes.
 _TEST_FINDERS = {
+    suite_plan_finder.SuitePlanFinder,
     tf_integration_finder.TFIntegrationFinder,
     module_finder.ModuleFinder,
 }
@@ -41,11 +43,15 @@ _TEST_FINDERS = {
 # 6. INTEGRATION: xml file name in one of the 4 integration config directories.
 # 7. SUITE: Value of the "run-suite-tag" in xml config file in 4 config dirs.
 #           Same as value of "test-suite-tag" in AndroidTest.xml files.
+# 8. CC_CLASS: Test case in cc file.
+# 9. SUITE_PLAN: Suite name such as cts.
+# 10. SUITE_PLAN_FILE_PATH: File path to config xml in the suite config directories.
 _REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'CLASS', 'QUALIFIED_CLASS',
                                         'MODULE_CLASS', 'PACKAGE',
                                         'MODULE_PACKAGE', 'MODULE_FILE_PATH',
                                         'INTEGRATION_FILE_PATH', 'INTEGRATION',
-                                        'SUITE'])
+                                        'SUITE', 'CC_CLASS', 'SUITE_PLAN',
+                                        'SUITE_PLAN_FILE_PATH'])
 
 _REF_TYPE_TO_FUNC_MAP = {
     _REFERENCE_TYPE.MODULE: module_finder.ModuleFinder.find_test_by_module_name,
@@ -59,6 +65,11 @@ _REF_TYPE_TO_FUNC_MAP = {
         tf_integration_finder.TFIntegrationFinder.find_int_test_by_path,
     _REFERENCE_TYPE.INTEGRATION:
         tf_integration_finder.TFIntegrationFinder.find_test_by_integration_name,
+    _REFERENCE_TYPE.CC_CLASS:
+        module_finder.ModuleFinder.find_test_by_cc_class_name,
+    _REFERENCE_TYPE.SUITE_PLAN:suite_plan_finder.SuitePlanFinder.find_test_by_suite_name,
+    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH:
+        suite_plan_finder.SuitePlanFinder.find_test_by_suite_path,
 }
 
 
@@ -114,14 +125,17 @@ def _get_test_reference_types(ref):
     """
     if ref.startswith('.') or '..' in ref:
         return [_REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                _REFERENCE_TYPE.MODULE_FILE_PATH]
+                _REFERENCE_TYPE.MODULE_FILE_PATH,
+                _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
     if '/' in ref:
         if ref.startswith('/'):
             return [_REFERENCE_TYPE.INTEGRATION_FILE_PATH,
-                    _REFERENCE_TYPE.MODULE_FILE_PATH]
+                    _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         return [_REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
                 _REFERENCE_TYPE.INTEGRATION,
+                _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
                 # TODO: Comment in SUITE when it's supported
                 # _REFERENCE_TYPE.SUITE
                ]
@@ -140,21 +154,29 @@ def _get_test_reference_types(ref):
         return [_REFERENCE_TYPE.INTEGRATION,
                 _REFERENCE_TYPE.MODULE_CLASS]
     if '.' in ref:
-        if ref_end in ('java', 'bp', 'mk'):
+        # The string of ref_end possibly includes specific mathods, e.g.
+        # foo.java#method, so let ref_end be the first part of splitting '#'.
+        if "#" in ref_end:
+            ref_end = ref_end.split('#')[0]
+        if ref_end in ('java', 'kt', 'bp', 'mk', 'cc', 'cpp'):
             return [_REFERENCE_TYPE.MODULE_FILE_PATH]
         if ref_end == 'xml':
-            return [_REFERENCE_TYPE.INTEGRATION_FILE_PATH]
+            return [_REFERENCE_TYPE.INTEGRATION_FILE_PATH,
+                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
         if ref_end_is_upper:
             return [_REFERENCE_TYPE.QUALIFIED_CLASS]
-        return [_REFERENCE_TYPE.PACKAGE]
+        return [_REFERENCE_TYPE.MODULE,
+                _REFERENCE_TYPE.PACKAGE]
     # Note: We assume that if you're referencing a file in your cwd,
     # that file must have a '.' in its name, i.e. foo.java, foo.xml.
     # If this ever becomes not the case, then we need to include path below.
     return [_REFERENCE_TYPE.INTEGRATION,
             # TODO: Comment in SUITE when it's supported
-            # REFERENCE_TYPE.SUITE,
+            # _REFERENCE_TYPE.SUITE,
             _REFERENCE_TYPE.MODULE,
-            _REFERENCE_TYPE.CLASS]
+            _REFERENCE_TYPE.SUITE_PLAN,
+            _REFERENCE_TYPE.CLASS,
+            _REFERENCE_TYPE.CC_CLASS]
 
 
 def _get_registered_find_methods(module_info):
@@ -176,7 +198,7 @@ def _get_registered_find_methods(module_info):
         finder_instance = finder_instance_dict[finder.NAME]
         for find_method_info in finder_instance.get_all_find_methods():
             find_methods.append(test_finder_base.Finder(
-                finder_instance, find_method_info.find_method))
+                finder_instance, find_method_info.find_method, finder.NAME))
     return find_methods
 
 
@@ -199,8 +221,10 @@ def _get_default_find_methods(module_info, test):
     for test_ref_type in test_ref_types:
         find_method = _REF_TYPE_TO_FUNC_MAP[test_ref_type]
         finder_instance = finder_instance_dict[find_method.im_class.NAME]
+        finder_info = _REFERENCE_TYPE[test_ref_type]
         find_methods.append(test_finder_base.Finder(finder_instance,
-                                                    find_method))
+                                                    find_method,
+                                                    finder_info))
     return find_methods
 
 

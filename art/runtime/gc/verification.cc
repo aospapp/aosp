@@ -21,6 +21,7 @@
 
 #include "art_field-inl.h"
 #include "base/file_utils.h"
+#include "base/logging.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-refvisitor-inl.h"
 
@@ -58,8 +59,8 @@ std::string Verification::DumpObjectInfo(const void* addr, const char* tag) cons
     oss << " klass=" << klass;
     if (IsValidClass(klass)) {
       oss << "(" << klass->PrettyClass() << ")";
-      if (klass->IsArrayClass<kVerifyNone, kWithoutReadBarrier>()) {
-        oss << " length=" << obj->AsArray<kVerifyNone, kWithoutReadBarrier>()->GetLength();
+      if (klass->IsArrayClass<kVerifyNone>()) {
+        oss << " length=" << obj->AsArray<kVerifyNone>()->GetLength();
       }
     } else {
       oss << " <invalid address>";
@@ -87,7 +88,8 @@ void Verification::LogHeapCorruption(ObjPtr<mirror::Object> holder,
                                      bool fatal) const {
   // Lowest priority logging first:
   PrintFileToLog("/proc/self/maps", android::base::LogSeverity::FATAL_WITHOUT_ABORT);
-  MemMap::DumpMaps(LOG_STREAM(FATAL_WITHOUT_ABORT), true);
+  MemMap::DumpMaps(LOG_STREAM(FATAL_WITHOUT_ABORT), /* terse= */ true);
+  Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(FATAL_WITHOUT_ABORT));
   // Buffer the output in the string stream since it is more important than the stack traces
   // and we want it to have log priority. The stack traces are printed from Runtime::Abort
   // which is called from LOG(FATAL) but before the abort message.
@@ -198,7 +200,7 @@ class Verification::CollectRootVisitor : public SingleRootVisitor {
   CollectRootVisitor(ObjectSet* visited, WorkQueue* work) : visited_(visited), work_(work) {}
 
   void VisitRoot(mirror::Object* obj, const RootInfo& info)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     if (obj != nullptr && visited_->insert(obj).second) {
       std::ostringstream oss;
       oss << info.ToString() << " = " << obj << "(" << obj->PrettyTypeOf() << ")";

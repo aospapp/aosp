@@ -25,6 +25,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
@@ -36,10 +37,13 @@ import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.Scanner;
 
+@MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     private static final String TAG = "VideoDecoderPerfTest";
@@ -82,6 +86,33 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         super.tearDown();
     }
 
+    // Performance numbers only make sense on real devices, so skip on non-real devices
+    public static boolean frankenDevice() throws IOException {
+        String systemBrand = getProperty("ro.product.system.brand");
+        String systemModel = getProperty("ro.product.system.model");
+        String systemProduct = getProperty("ro.product.system.name");
+        if (("Android".equals(systemBrand) || "generic".equals(systemBrand)) &&
+            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_"))) {
+            return true;
+        }
+        return false;
+    }
+
+    private static String getProperty(String property) throws IOException {
+        Process process = new ProcessBuilder("getprop", property).start();
+        Scanner scanner = null;
+        String line = "";
+        try {
+            scanner = new Scanner(process.getInputStream());
+            line = scanner.nextLine();
+        } finally {
+            if (scanner != null) {
+                scanner.close();
+            }
+        }
+        return line;
+    }
+
     private void decode(String name, int resourceId, MediaFormat format) throws Exception {
         int width = format.getInteger(MediaFormat.KEY_WIDTH);
         int height = format.getInteger(MediaFormat.KEY_HEIGHT);
@@ -90,6 +121,10 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         // Ensure we can finish this test within the test timeout. Allow 25% slack (4/5).
         long maxTimeMs = Math.min(
                 MAX_TEST_TIMEOUT_MS * 4 / 5 / NUMBER_OF_REPEATS, MAX_TIME_MS);
+        // reduce test run on non-real device
+        if (frankenDevice()) {
+            maxTimeMs /= 10;
+        }
         double measuredFps[] = new double[NUMBER_OF_REPEATS];
 
         for (int i = 0; i < NUMBER_OF_REPEATS; ++i) {
@@ -106,7 +141,12 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
         String error =
             MediaPerfUtils.verifyAchievableFrameRates(name, mime, width, height, measuredFps);
-        assertNull(error, error);
+        if (frankenDevice() && error != null) {
+            // ensure there is data, but don't insist that it is correct
+            assertFalse(error, error.startsWith("Failed to get "));
+        } else {
+            assertNull(error, error);
+        }
         mSamplesInMemory.clear();
     }
 

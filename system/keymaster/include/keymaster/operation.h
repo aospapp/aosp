@@ -53,21 +53,21 @@ class OperationFactory {
 
     // Factory methods
     virtual OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                         keymaster_error_t* error) = 0;
+                                         keymaster_error_t* error) const = 0;
 
     // Informational methods.  The returned arrays reference static memory and must not be
     // deallocated or modified.
     virtual const keymaster_padding_t* SupportedPaddingModes(size_t* padding_count) const {
         *padding_count = 0;
-        return NULL;
+        return nullptr;
     }
     virtual const keymaster_block_mode_t* SupportedBlockModes(size_t* block_mode_count) const {
         *block_mode_count = 0;
-        return NULL;
+        return nullptr;
     }
     virtual const keymaster_digest_t* SupportedDigests(size_t* digest_count) const {
         *digest_count = 0;
-        return NULL;
+        return nullptr;
     }
 
     // Convenience methods

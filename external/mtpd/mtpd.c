@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <limits.h>
 
 #ifdef ANDROID_CHANGES
 #include <android/log.h>
@@ -36,6 +37,12 @@
 
 #include "mtpd.h"
 #include "NetdClient.h"
+
+#define ARRAY_SIZE(a)           (sizeof(a) / sizeof(a[0]))
+/* Characters count in string with max value of unsigned type t */
+#define TYPE_STRLEN_U(t)        ((((sizeof(t) * CHAR_BIT) * 1233) >> 12) + 1)
+/* Length of string with max file descriptor value */
+#define FD_MAX_LEN              TYPE_STRLEN_U(int)
 
 int the_socket = -1;
 
@@ -322,9 +329,9 @@ void start_pppd(int pppox)
 
     if (!pppd_pid) {
         char *args[pppd_argc + 5];
-        char number[12];
+        char number[FD_MAX_LEN + 1];
 
-        sprintf(number, "%d", pppox);
+        snprintf(number, FD_MAX_LEN + 1, "%d", pppox);
         args[0] = "pppd";
         args[1] = "nodetach";
         args[2] = "pppox";
@@ -332,29 +339,135 @@ void start_pppd(int pppox)
         memcpy(&args[4], pppd_argv, sizeof(char *) * pppd_argc);
         args[4 + pppd_argc] = NULL;
 
-#ifdef ANDROID_CHANGES
-        {
-            char envargs[65536];
-            char *tail = envargs;
-            int i;
-            /* Hex encode the arguments using [A-P] instead of [0-9A-F]. */
-            for (i = 0; args[i]; ++i) {
-                char *p = args[i];
-                do {
-                    *tail++ = 'A' + ((*p >> 4) & 0x0F);
-                    *tail++ = 'A' + (*p & 0x0F);
-                } while (*p++);
-            }
-            *tail = 0;
-            setenv("envargs", envargs, 1);
-            args[1] = NULL;
-        }
-#endif
         execvp("pppd", args);
         log_print(FATAL, "Exec() %s", strerror(errno));
-        exit(1); /* Pretending a fatal error in pppd. */
+        exit(SYSTEM_ERROR); /* Pretending a fatal error in pppd. */
     }
 
     log_print(INFO, "Pppd started (pid = %d)", pppd_pid);
     close(pppox);
+}
+
+/**
+ * Start pppd daemon with pppol2tp-android plugin.
+ *
+ * @param tunnel_fd Tunnel socket file descriptor
+ * @param session_fd Session socket file descriptor
+ * @param tunnel_id Tunnel ID; must be in host byte order
+ * @param session_id Session ID; must be in host byte order
+ */
+void start_pppd_ol2tp(int tunnel_fd, int session_fd, int tunnel_id,
+                      int session_id)
+{
+    if (pppd_pid) {
+        log_print(WARNING, "Pppd is already started (pid = %d)", pppd_pid);
+        goto ret;
+    }
+
+    log_print(INFO, "Starting pppd (tunnel_fd = %d, session_fd = %d)",
+              tunnel_fd, session_fd);
+
+    pppd_pid = fork();
+    if (pppd_pid < 0) {
+        log_print(FATAL, "Fork() %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    if (!pppd_pid) {
+        char tunnel_fd_str[FD_MAX_LEN + 1];
+        char session_fd_str[FD_MAX_LEN + 1];
+        char tunnel_id_str[FD_MAX_LEN + 1];
+        char session_id_str[FD_MAX_LEN + 1];
+
+        snprintf(tunnel_fd_str, FD_MAX_LEN + 1, "%d", tunnel_fd);
+        snprintf(session_fd_str, FD_MAX_LEN + 1, "%d", session_fd);
+        snprintf(tunnel_id_str, FD_MAX_LEN + 1, "%d", tunnel_id);
+        snprintf(session_id_str, FD_MAX_LEN + 1, "%d", session_id);
+
+        const char *l2tp_args[] = {
+            "pppd",
+            "nodetach",
+            "plugin",
+            "pppol2tp-android.so",
+            "session_fd",
+            session_fd_str,
+            "tunnel_fd",
+            tunnel_fd_str,
+            "session_id",
+            session_id_str,
+            "tunnel_id",
+            tunnel_id_str,
+        };
+        const size_t args_len = ARRAY_SIZE(l2tp_args) + pppd_argc + 1;
+        char *args[args_len];
+
+        /* Populate args[] from l2tp_args[] and pppd_argv[] */
+        memcpy(args, l2tp_args, sizeof(l2tp_args));
+        memcpy(args + ARRAY_SIZE(l2tp_args), pppd_argv,
+                sizeof(char *) * pppd_argc);
+        args[args_len - 1] = NULL;
+
+        execvp("pppd", args);
+        log_print(FATAL, "Exec() %s", strerror(errno));
+        exit(SYSTEM_ERROR); /* Pretending a fatal error in pppd. */
+    }
+
+    log_print(INFO, "Pppd started (pid = %d)", pppd_pid);
+
+ret:
+    close(session_fd);
+    close(tunnel_fd);
+}
+
+/**
+ * Start pppd daemon with pppopptp-android plugin.
+ *
+ * @param pptp_fd PPTP socket file descriptor
+ */
+void start_pppd_pptp(int pptp_fd)
+{
+    if (pppd_pid) {
+        log_print(WARNING, "Pppd is already started (pid = %d)", pppd_pid);
+        goto ret;
+    }
+
+    log_print(INFO, "Starting pppd (pptp_fd = %d)", pptp_fd);
+
+    pppd_pid = fork();
+    if (pppd_pid < 0) {
+        log_print(FATAL, "Fork() %s", strerror(errno));
+        exit(SYSTEM_ERROR);
+    }
+
+    if (!pppd_pid) {
+        char pptp_fd_str[FD_MAX_LEN + 1];
+
+        snprintf(pptp_fd_str, FD_MAX_LEN + 1, "%d", pptp_fd);
+
+        const char *pptp_args[] = {
+            "pppd",
+            "nodetach",
+            "plugin",
+            "pppopptp-android.so",
+            "pptp_socket",
+            pptp_fd_str,
+        };
+        const size_t args_len = ARRAY_SIZE(pptp_args) + pppd_argc + 1;
+        char *args[args_len];
+
+        /* Populate args[] from pptp_args[] and pppd_argv[] */
+        memcpy(args, pptp_args, sizeof(pptp_args));
+        memcpy(args + ARRAY_SIZE(pptp_args), pppd_argv,
+                sizeof(char *) * pppd_argc);
+        args[args_len - 1] = NULL;
+
+        execvp("pppd", args);
+        log_print(FATAL, "Exec() %s", strerror(errno));
+        exit(SYSTEM_ERROR); /* Pretending a fatal error in pppd. */
+    }
+
+    log_print(INFO, "Pppd started (pid = %d)", pppd_pid);
+
+ret:
+    close(pptp_fd);
 }

@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.camera.cts.R;
 import android.media.MediaRecorder;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -42,9 +41,7 @@ public class MediaRecorderCameraActivity extends Activity implements SurfaceHold
     private static final int LAYOUT_WIDTH = VIDEO_WIDTH;
     private static final int LAYOUT_HEIGHT = VIDEO_HEIGHT;
 
-    private final String OUTPUT_PATH = new File(Environment.getExternalStorageDirectory(),
-                "record.out").getAbsolutePath();
-
+    private String mOutputPath;
     private File mOutFile;
     private SurfaceView mSurfaceView;
     private ErrorLoggingService.ErrorServiceConnection mErrorServiceConnection;
@@ -61,6 +58,12 @@ public class MediaRecorderCameraActivity extends Activity implements SurfaceHold
         mErrorServiceConnection.start();
 
         mMediaRecorder = new MediaRecorder();
+
+        File filesDir = getPackageManager().isInstantApp()
+                ? getFilesDir()
+                : getExternalFilesDir(null);
+
+        mOutputPath = new File(filesDir, "record.out").getAbsolutePath();
     }
 
     @Override
@@ -118,13 +121,13 @@ public class MediaRecorderCameraActivity extends Activity implements SurfaceHold
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         try {
-            mOutFile = new File(OUTPUT_PATH);
+            mOutFile = new File(mOutputPath);
             mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
             mMediaRecorder.setPreviewDisplay(mSurfaceView.getHolder().getSurface());
             mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
             mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
-            mMediaRecorder.setOutputFile(OUTPUT_PATH);
+            mMediaRecorder.setOutputFile(mOutputPath);
             mMediaRecorder.prepare();
             mMediaRecorder.start();
 

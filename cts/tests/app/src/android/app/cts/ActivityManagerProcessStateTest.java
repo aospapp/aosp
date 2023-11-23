@@ -16,7 +16,12 @@
 
 package android.app.cts;
 
-import android.Manifest;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE;
+import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+
 import android.accessibilityservice.AccessibilityService;
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -29,19 +34,24 @@ import android.app.cts.android.app.cts.tools.SyncOrderedBroadcast;
 import android.app.cts.android.app.cts.tools.UidImportanceListener;
 import android.app.cts.android.app.cts.tools.WaitForBroadcast;
 import android.app.cts.android.app.cts.tools.WatchUidRunner;
+import android.app.stubs.CommandReceiver;
+import android.app.stubs.LocalForegroundServiceLocation;
+import android.app.stubs.ScreenOnActivity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.server.am.WindowManagerState;
-import android.support.test.InstrumentationRegistry;
+import android.server.wm.WindowManagerState;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiSelector;
@@ -49,13 +59,24 @@ import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.compatibility.common.util.SystemUtil;
 
 public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     private static final String TAG = ActivityManagerProcessStateTest.class.getName();
 
     private static final String STUB_PACKAGE_NAME = "android.app.stubs";
+    private static final String PACKAGE_NAME_APP1 = "com.android.app1";
+    private static final String PACKAGE_NAME_APP2 = "com.android.app2";
+    private static final String PACKAGE_NAME_APP3 = "com.android.app3";
+
+    private static final String[] PACKAGE_NAMES = {
+        PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, PACKAGE_NAME_APP3
+    };
+
     private static final int WAIT_TIME = 2000;
+    private static final int WAITFOR_MSEC = 5000;
     // A secondary test activity from another APK.
     static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
     static final String SIMPLE_SERVICE = ".SimpleService";
@@ -84,6 +105,11 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     private Intent mMainProcess[];
     private Intent mAllProcesses[];
 
+    private int mAppCount;
+    private ApplicationInfo [] mAppInfo;
+    private WatchUidRunner [] mWatchers;
+
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -104,7 +130,34 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         mAllProcesses[1] = mService2Intent;
         mContext.stopService(mServiceIntent);
         mContext.stopService(mService2Intent);
+        turnScreenOn();
         removeTestAppFromWhitelists();
+        mAppCount = 0;
+    }
+
+    /** Set up count app info objects and WatchUidRunners. */
+    private void setupWatchers(int count) throws Exception {
+        mAppCount = count;
+        mAppInfo = new ApplicationInfo[count];
+        mWatchers = new WatchUidRunner[count];
+        for (int i = 0; i < count; i++) {
+            mAppInfo[i] = mContext.getPackageManager().getApplicationInfo(
+                    PACKAGE_NAMES[i], 0);
+            mWatchers[i] = new WatchUidRunner(mInstrumentation, mAppInfo[i].uid,
+                    WAITFOR_MSEC);
+        }
+    }
+
+    /** Finish all started WatchUidRunners. */
+    private void shutdownWatchers() throws Exception {
+        for (int i = 0; i < mAppCount; i++) {
+            mWatchers[i].finish();
+        }
+    }
+
+    private void turnScreenOn() throws Exception {
+        executeShellCmd("input keyevent KEYCODE_WAKEUP");
+        executeShellCmd("wm dismiss-keyguard");
     }
 
     private void removeTestAppFromWhitelists() throws Exception {
@@ -213,7 +266,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         uidForegroundListener.register();
 
         UidImportanceListener uidGoneListener = new UidImportanceListener(mContext,
-                appInfo.uid, ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED, WAIT_TIME);
+                appInfo.uid, IMPORTANCE_CACHED, WAIT_TIME);
         uidGoneListener.register();
 
         WatchUidRunner uidWatcher = new WatchUidRunner(getInstrumentation(), appInfo.uid,
@@ -238,19 +291,16 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             service1 = service2 = null;
 
             // Wait for uid's processes to go away.
-            uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                    am.getPackageImportance(SIMPLE_PACKAGE_NAME));
+            uidGoneListener.waitForValue(IMPORTANCE_GONE, IMPORTANCE_GONE);
+            assertEquals(IMPORTANCE_GONE, am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // And wait for the uid report to be gone.
             uidWatcher.waitFor(WatchUidRunner.CMD_GONE, null);
 
             // Now bind and see if we get told about the uid coming in to the foreground.
             conn.bind();
-            uidForegroundListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            uidForegroundListener.waitForValue(IMPORTANCE_FOREGROUND, IMPORTANCE_VISIBLE);
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // Also make sure the uid state reports are as expected.  Wait for active because
@@ -264,10 +314,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Now unbind and see if we get told about it going to the background.
             conn.unbind();
-            uidForegroundListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    am.getPackageImportance(SIMPLE_PACKAGE_NAME));
+            uidForegroundListener.waitForValue(IMPORTANCE_CACHED, IMPORTANCE_CACHED);
+            assertEquals(IMPORTANCE_CACHED, am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.waitFor(WatchUidRunner.CMD_CACHED, null);
             uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
@@ -279,10 +327,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
                 // It is okay if it is already gone for some reason.
             }
 
-            uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                    am.getPackageImportance(SIMPLE_PACKAGE_NAME));
+            uidGoneListener.waitForValue(IMPORTANCE_GONE, IMPORTANCE_GONE);
+            assertEquals(IMPORTANCE_GONE, am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.expect(WatchUidRunner.CMD_IDLE, null);
             uidWatcher.expect(WatchUidRunner.CMD_GONE, null);
@@ -293,9 +339,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Bring up both services.
             conn.bind();
             conn2.bind();
-            uidForegroundListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            uidForegroundListener.waitForValue(IMPORTANCE_FOREGROUND, IMPORTANCE_VISIBLE);
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // Also make sure the uid state reports are as expected.
@@ -305,15 +350,14 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Bring down one service, app state should remain foreground.
             conn2.unbind();
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // Bring down other service, app state should now be cached.  (If the processes both
             // actually get killed immediately, this is also not a correctly behaving system.)
             conn.unbind();
-            uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
+            uidGoneListener.waitForValue(IMPORTANCE_CACHED, IMPORTANCE_CACHED);
+            assertEquals(IMPORTANCE_CACHED,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.waitFor(WatchUidRunner.CMD_CACHED, null);
@@ -321,9 +365,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Bring up one service, this should be sufficient to become foreground.
             conn2.bind();
-            uidForegroundListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            uidForegroundListener.waitForValue(IMPORTANCE_FOREGROUND, IMPORTANCE_VISIBLE);
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.waitFor(WatchUidRunner.CMD_UNCACHED, null);
@@ -331,19 +374,19 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Bring up other service, should remain foreground.
             conn.bind();
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // Bring down one service, should remain foreground.
             conn.unbind();
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // And bringing down other service should put us back to cached.
             conn2.unbind();
-            uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
+            uidGoneListener.waitForValue(IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED);
+            assertEquals(IMPORTANCE_CACHED,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.waitFor(WatchUidRunner.CMD_CACHED, null);
@@ -404,9 +447,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         service = null;
 
         // Wait for uid's process to go away.
-        uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-        assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
+        uidGoneListener.waitForValue(IMPORTANCE_GONE, IMPORTANCE_GONE);
+        assertEquals(IMPORTANCE_GONE,
                 am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
         // And wait for the uid report to be gone.
@@ -552,7 +594,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
                 appInfo.uid, ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE, WAIT_TIME);
         uidServiceListener.register();
         UidImportanceListener uidGoneListener = new UidImportanceListener(mContext,
-                appInfo.uid, ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED, WAIT_TIME);
+                appInfo.uid, IMPORTANCE_CACHED, WAIT_TIME);
         uidGoneListener.register();
 
         WatchUidRunner uidWatcher = new WatchUidRunner(getInstrumentation(), appInfo.uid,
@@ -578,9 +620,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         service = service2 = null;
 
         // Wait for uid's process to go away.
-        uidGoneListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
-                ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-        assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE,
+        uidGoneListener.waitForValue(IMPORTANCE_GONE,
+                IMPORTANCE_GONE);
+        assertEquals(IMPORTANCE_GONE,
                 am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
         // And wait for the uid report to be gone.
@@ -622,9 +664,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Wait for process state to reflect running service.
             uidServiceListener.waitForValue(
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+                    IMPORTANCE_FOREGROUND_SERVICE,
                     ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE,
+            assertEquals(IMPORTANCE_FOREGROUND_SERVICE,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // Also make sure the uid state reports are as expected.
@@ -635,9 +677,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             conn2.unbind();
 
             // Wait for process to recover back down to being cached.
-            uidServiceListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
+            uidServiceListener.waitForValue(IMPORTANCE_CACHED,
+                    IMPORTANCE_GONE);
+            assertEquals(IMPORTANCE_CACHED,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             uidWatcher.waitFor(WatchUidRunner.CMD_CACHED, null);
@@ -660,9 +702,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
 
             // Wait for services to be stopped by system.
-            uidServiceListener.waitForValue(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
+            uidServiceListener.waitForValue(IMPORTANCE_CACHED,
+                    IMPORTANCE_GONE);
+            assertEquals(IMPORTANCE_CACHED,
                     am.getPackageImportance(SIMPLE_PACKAGE_NAME));
 
             // And service should be stopped by system, so just make sure it is disconnected.
@@ -915,10 +957,12 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Test that the foreground service app op does prevent the foreground state.
      */
     public void testForegroundServiceAppOp() throws Exception {
+        // Use default timeout value 5000
         final ServiceProcessController controller = new ServiceProcessController(mContext,
-                getInstrumentation(), STUB_PACKAGE_NAME, mAllProcesses, WAIT_TIME);
+                getInstrumentation(), STUB_PACKAGE_NAME, mAllProcesses);
+        // Use default timeout value 5000
         final ServiceConnectionHandler conn = new ServiceConnectionHandler(mContext,
-                mServiceIntent, WAIT_TIME);
+                mServiceIntent);
         final WatchUidRunner uidWatcher = controller.getUidWatcher();
 
         try {
@@ -1008,7 +1052,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             uidWatcher.waitFor(WatchUidRunner.CMD_ACTIVE, null);
             uidWatcher.waitFor(WatchUidRunner.CMD_UNCACHED, null);
             uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
-
+            // Remove tempwhitelist avoid temp white list block idle command and app crash occur.
+            executeShellCmd("cmd deviceidle tempwhitelist -r " + SIMPLE_PACKAGE_NAME);
             // Good, now stop the service and wait for it to go away.
             mContext.stopService(mServiceStartForegroundIntent);
             conn.waitForDisconnect();
@@ -1019,7 +1064,6 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // We don't want to wait for the uid to actually go idle, we can force it now.
             controller.makeUidIdle();
-            uidWatcher.expect(WatchUidRunner.CMD_IDLE, null);
 
             // Make sure the process is gone so we start over fresh.
             controller.ensureProcessGone();
@@ -1118,7 +1162,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         // This test is also using UidImportanceListener to make sure the correct
         // heavy-weight state is reported there.
         UidImportanceListener uidForegroundListener = new UidImportanceListener(mContext,
-                appInfo.uid, ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
+                appInfo.uid, IMPORTANCE_FOREGROUND,
                 WAIT_TIME);
         uidForegroundListener.register();
         UidImportanceListener uidBackgroundListener = new UidImportanceListener(mContext,
@@ -1129,15 +1173,19 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         WatchUidRunner uidWatcher = new WatchUidRunner(getInstrumentation(), appInfo.uid,
                 WAIT_TIME);
 
+        UiDevice device = UiDevice.getInstance(getInstrumentation());
+
         try {
             // Start the heavy-weight app, should launch like a normal app.
             mContext.startActivity(activityIntent);
+            waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
+            device.waitForIdle();
 
             // Wait for process state to reflect running activity.
             uidForegroundListener.waitForValue(
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND);
+            assertEquals(IMPORTANCE_FOREGROUND,
                     am.getPackageImportance(CANT_SAVE_STATE_1_PACKAGE_NAME));
 
             // Also make sure the uid state reports are as expected.
@@ -1148,11 +1196,13 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Now go to home, leaving the app.  It should be put in the heavy weight state.
             mContext.startActivity(homeIntent);
 
+            final int expectedImportance =
+                    (mContext.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.O)
+                            ? ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE
+                            : ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE_PRE_26;
             // Wait for process to go down to background heavy-weight.
-            uidBackgroundListener.waitForValue(
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE,
+            uidBackgroundListener.waitForValue(expectedImportance, expectedImportance);
+            assertEquals(expectedImportance,
                     am.getPackageImportance(CANT_SAVE_STATE_1_PACKAGE_NAME));
 
             uidWatcher.expect(WatchUidRunner.CMD_CACHED, null);
@@ -1169,9 +1219,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Wait for process state to reflect running activity.
             uidForegroundListener.waitForValue(
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND);
+            assertEquals(IMPORTANCE_FOREGROUND,
                     am.getPackageImportance(CANT_SAVE_STATE_1_PACKAGE_NAME));
 
             // Also make sure the uid state reports are as expected.
@@ -1180,6 +1230,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_TOP);
 
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
+            device.waitForIdle();
 
             // Exit activity, check to see if we are now cached.
             getInstrumentation().getUiAutomation().performGlobalAction(
@@ -1187,9 +1238,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Wait for process to become cached
             uidBackgroundListener.waitForValue(
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED);
-            assertEquals(ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED);
+            assertEquals(IMPORTANCE_CACHED,
                     am.getPackageImportance(CANT_SAVE_STATE_1_PACKAGE_NAME));
 
             uidWatcher.expect(WatchUidRunner.CMD_CACHED, null);
@@ -1258,6 +1309,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         try {
             // Start the first heavy-weight app, should launch like a normal app.
             mContext.startActivity(activity1Intent);
+            waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
+            device.waitForIdle();
 
             // Make sure the uid state reports are as expected.
             uid1Watcher.waitFor(WatchUidRunner.CMD_ACTIVE, null);
@@ -1276,6 +1329,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // First, let's try returning to the original app.
             maybeClick(device, new UiSelector().resourceId("android:id/switch_old"));
+            waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
             // App should now be back in foreground.
@@ -1292,6 +1346,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Now we'll switch to the new app.
             maybeClick(device, new UiSelector().resourceId("android:id/switch_new"));
+            waitForAppFocus(CANT_SAVE_STATE_2_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
             // The original app should now become cached.
@@ -1315,6 +1370,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Try starting the first heavy weight app, but return to the existing second.
             startActivityAndWaitForShow(activity1Intent);
             maybeClick(device, new UiSelector().resourceId("android:id/switch_old"));
+            waitForAppFocus(CANT_SAVE_STATE_2_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
             uid2Watcher.waitFor(WatchUidRunner.CMD_UNCACHED, null);
             uid2Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_TOP);
@@ -1327,6 +1383,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Again start the first heavy weight app, this time actually switching to it
             startActivityAndWaitForShow(activity1Intent);
             maybeClick(device, new UiSelector().resourceId("android:id/switch_new"));
+            waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
 
             // The second app should now become cached.
@@ -1339,6 +1396,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             // Exit activity, check to see if we are now cached.
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
+            device.waitForIdle();
             getInstrumentation().getUiAutomation().performGlobalAction(
                     AccessibilityService.GLOBAL_ACTION_BACK);
             uid1Watcher.expect(WatchUidRunner.CMD_CACHED, null);
@@ -1353,6 +1411,471 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         } finally {
             uid2Watcher.finish();
             uid1Watcher.finish();
+        }
+    }
+
+    /**
+     * Test a service binding cycle between two apps, with one of them also running a
+     * foreground service. The other app should also get an FGS proc state. On stopping the
+     * foreground service, app should go back to cached state.
+     * @throws Exception
+     */
+    public void testCycleFgs() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        ApplicationInfo app3Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP3, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid3Watcher = new WatchUidRunner(mInstrumentation, app3Info.uid,
+                WAITFOR_MSEC);
+
+        try {
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP3, 0, null);
+
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Create a cycle
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP3, PACKAGE_NAME_APP1, 0, null);
+
+            try {
+                uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+                fail("App3 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            // Stop the foreground service
+            CommandReceiver.sendCommand(mContext, CommandReceiver
+                            .COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+
+            // Check that the app's proc state has fallen
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            uid3Watcher.finish();
+        }
+    }
+
+    /**
+     * Test a service binding cycle between three apps, with one of them also running a
+     * foreground service. The other apps should also get an FGS proc state. On stopping the
+     * foreground service, app should go back to cached state.
+     * @throws Exception
+     */
+    public void testCycleFgsTriangle() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP2, 0);
+        ApplicationInfo app3Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP3, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid3Watcher = new WatchUidRunner(mInstrumentation, app3Info.uid,
+                WAITFOR_MSEC);
+
+        try {
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Bind from 2 to 3
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP2, PACKAGE_NAME_APP3, 0, null);
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Create a cycle
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP3, PACKAGE_NAME_APP1, 0, null);
+
+            try {
+                uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+                fail("App3 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            try {
+                uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+                fail("App2 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            try {
+                uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+                fail("App1 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_UNBIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            uid2Watcher.finish();
+            uid3Watcher.finish();
+        }
+    }
+
+    /**
+     * Test a service binding cycle between three apps, with one of them also running a
+     * foreground service. The other apps should also get an FGS proc state. On stopping the
+     * foreground service, app should go back to cached state.
+     * @throws Exception
+     */
+    public void testCycleFgsTriangleBiDi() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP2, 0);
+        ApplicationInfo app3Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP3, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
+                WAITFOR_MSEC);
+        WatchUidRunner uid3Watcher = new WatchUidRunner(mInstrumentation, app3Info.uid,
+                WAITFOR_MSEC);
+
+        try {
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Bind from 1 to 2, 1 to 3
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP3, 0, null);
+
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Bind from 2 to 3, 3 to 2, 3 to 1
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP2, PACKAGE_NAME_APP3, 0, null);
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP3, PACKAGE_NAME_APP2, 0, null);
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP3, PACKAGE_NAME_APP1, 0, null);
+
+            try {
+                uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY);
+                fail("App3 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            // Stop the foreground service
+            CommandReceiver.sendCommand(mContext, CommandReceiver
+                            .COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+
+            // Check that the apps' proc state has fallen
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+            uid2Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+            uid3Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            uid2Watcher.finish();
+            uid3Watcher.finish();
+        }
+    }
+
+    /**
+     * Test process states for foreground service with and without location type in the manifest.
+     * When running a foreground service with location type, the process should go to
+     * PROCESS_STATE_FOREGROUND_SERVICE_LOCATION.
+     * @throws Exception
+     */
+    public void testFgsLocation() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+            WAITFOR_MSEC);
+
+        try {
+            // First start a foreground service
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Try to elevate to foreground service location
+            Bundle bundle = new Bundle();
+            bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_LOCATION,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, bundle);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_FG_SERVICE_LOCATION);
+
+            // Back down to foreground service
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE_LOCATION,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            try {
+                uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                        WatchUidRunner.STATE_CACHED_EMPTY, WAIT_TIME);
+                fail("App1 should not be demoted to cached");
+            } catch (IllegalStateException ise) {
+            }
+
+            // Remove foreground service as well
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+
+        } finally {
+            uid1Watcher.finish();
+        }
+    }
+
+    /**
+     * Test process states for foreground service binding to another app, with and without
+     * BIND_INCLUDE_CAPABILITIES. Bound app should either go to FGS or FGSL, depending on the
+     * flag.
+     * @throws Exception
+     */
+    public void testFgsLocationBind() throws Exception {
+        setupWatchers(3);
+
+        try {
+            // First start a foreground service
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Try to elevate to foreground service location
+            Bundle bundle = new Bundle();
+            bundle.putInt(LocalForegroundServiceLocation.EXTRA_FOREGROUND_SERVICE_TYPE,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_LOCATION,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, bundle);
+            // Verify moved to FGSL
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_FG_SERVICE_LOCATION);
+
+            // Bind App 0 -> App 1, verify doesn't include capabilities (only FGS, not FGSL)
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[1].packageName, 0, null);
+            mWatchers[1].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Bind App 0 -> App 2, include capabilities (FGSL)
+            bundle = new Bundle();
+            bundle.putInt(CommandReceiver.EXTRA_FLAGS, Context.BIND_INCLUDE_CAPABILITIES);
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[2].packageName, 0, bundle);
+            mWatchers[2].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_FG_SERVICE_LOCATION);
+
+            // Back down to foreground service
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE_LOCATION,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+
+            // Remove foreground service as well
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    mAppInfo[0].packageName, mAppInfo[0].packageName, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+
+        } finally {
+            shutdownWatchers();
+        }
+    }
+
+    /**
+     * Test process states for top app binding with and without BIND_INCLUDE_CAPABILITIES flag.
+     * Bound app should be TOP w/flag and BTOP without flag.
+     * @throws Exception
+     */
+    public void testTopBind() throws Exception {
+        setupWatchers(2);
+
+        Activity activity = null;
+
+        try {
+            // This will start an activity in App0
+            activity = startSubActivity(ScreenOnActivity.class);
+
+            // Bind Stub -> App 0, verify doesn't include capabilities (only BTOP, not TOP)
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    STUB_PACKAGE_NAME, mAppInfo[0].packageName, 0, null);
+            mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_BOUND_TOP);
+
+            // Bind Stub -> App 1, include capabilities (TOP)
+            Bundle bundle = new Bundle();
+            bundle.putInt(CommandReceiver.EXTRA_FLAGS, Context.BIND_INCLUDE_CAPABILITIES);
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    STUB_PACKAGE_NAME, mAppInfo[1].packageName, 0, bundle);
+            mWatchers[1].waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_TOP);
+        } finally {
+            shutdownWatchers();
+            if (activity != null) {
+                activity.finish();
+            }
+        }
+    }
+
+    private final <T extends Activity> Activity startSubActivity(Class<T> activityClass) {
+        final Instrumentation.ActivityResult result = new Instrumentation.ActivityResult(
+                0, new Intent());
+        final Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor(
+                activityClass.getName(), result, false);
+        mInstrumentation.addMonitor(monitor);
+        launchActivity(STUB_PACKAGE_NAME, activityClass, null);
+        return monitor.waitForActivity();
+    }
+
+    public void testCycleTop() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        ApplicationInfo app2Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP2, 0);
+        ApplicationInfo app3Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP3, 0);
+
+        UidImportanceListener uid1Listener = new UidImportanceListener(mContext,
+                app1Info.uid, IMPORTANCE_VISIBLE,
+                WAITFOR_MSEC);
+        uid1Listener.register();
+
+        UidImportanceListener uid1ServiceListener = new UidImportanceListener(mContext,
+                app1Info.uid, IMPORTANCE_CACHED,
+                WAITFOR_MSEC);
+        uid1ServiceListener.register();
+
+        UidImportanceListener uid2Listener = new UidImportanceListener(mContext,
+                app2Info.uid, IMPORTANCE_VISIBLE,
+                WAITFOR_MSEC);
+        uid2Listener.register();
+
+        UidImportanceListener uid2ServiceListener = new UidImportanceListener(mContext,
+                app2Info.uid, IMPORTANCE_CACHED,
+                WAITFOR_MSEC);
+        uid2ServiceListener.register();
+
+        UidImportanceListener uid3Listener = new UidImportanceListener(mContext,
+                app3Info.uid, ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE,
+                WAITFOR_MSEC);
+        uid3Listener.register();
+
+        Activity activity = null;
+
+        try {
+            // Start an activity
+            activity = startSubActivity(ScreenOnActivity.class);
+
+            // Start a FGS in app2
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE, PACKAGE_NAME_APP2,
+                    PACKAGE_NAME_APP2, 0, null);
+
+            uid2Listener.waitForValue(
+                    IMPORTANCE_FOREGROUND_SERVICE,
+                    IMPORTANCE_FOREGROUND_SERVICE);
+
+            // Bind from TOP to the service in app1
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    STUB_PACKAGE_NAME, PACKAGE_NAME_APP1, 0, null);
+
+            uid1Listener.waitForValue(IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND_SERVICE);
+
+            // Bind from app1 to a service in app2
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
+
+            // Bind from app2 to a service in app3
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP2, PACKAGE_NAME_APP3, 0, null);
+
+            uid3Listener.waitForValue(IMPORTANCE_FOREGROUND,
+                    IMPORTANCE_FOREGROUND_SERVICE);
+
+            // Create a cycle
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
+                    PACKAGE_NAME_APP3, PACKAGE_NAME_APP1, 0, null);
+
+            try {
+                uid3Listener.waitForValue(IMPORTANCE_CACHED,
+                        IMPORTANCE_CACHED);
+                fail("App3 should not be demoted to cached, expecting FGS");
+            } catch (IllegalStateException e) {
+                // Didn't go to cached in spite of cycle. Good!
+            }
+
+            // Unbind from the TOP app
+            CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_UNBIND_SERVICE,
+                    STUB_PACKAGE_NAME, PACKAGE_NAME_APP1, 0, null);
+
+            // Check that the apps' proc state is FOREGROUND_SERVICE
+            uid2Listener.waitForValue(
+                    IMPORTANCE_FOREGROUND_SERVICE,
+                    IMPORTANCE_FOREGROUND_SERVICE);
+
+            // Stop the foreground service
+            CommandReceiver.sendCommand(mContext, CommandReceiver
+                            .COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP2, PACKAGE_NAME_APP2, 0, null);
+
+            // Check that the apps fall down to cached state
+            uid1ServiceListener.waitForValue(
+                    IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED);
+
+            uid2ServiceListener.waitForValue(
+                    IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED);
+            uid3Listener.waitForValue(
+                    IMPORTANCE_CACHED,
+                    IMPORTANCE_CACHED);
+        } finally {
+            uid1Listener.unregister();
+            uid1ServiceListener.unregister();
+            uid2Listener.unregister();
+            uid2ServiceListener.unregister();
+            uid3Listener.unregister();
+            if (activity != null) {
+                activity.finish();
+            }
         }
     }
 }

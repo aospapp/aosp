@@ -16,9 +16,17 @@
 <configuration description="Config for CTS Assist test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+
+    <!-- Force service to be installed as non-instant mode, always -->
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true"/>
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsAssistService.apk" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="CtsAssistService.apk" />
         <option name="test-file-name" value="CtsAssistApp.apk" />
         <option name="test-file-name" value="CtsAssistTestCases.apk" />
     </target_preparer>

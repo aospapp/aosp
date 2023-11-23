@@ -20,6 +20,7 @@
 #define _DRM_MODE_H
 #include "drm.h"
 #ifdef __cplusplus
+extern "C" {
 #endif
 #define DRM_DISPLAY_INFO_LEN 32
 #define DRM_CONNECTOR_NAME_LEN 32
@@ -32,6 +33,7 @@
 #define DRM_MODE_TYPE_DEFAULT (1 << 4)
 #define DRM_MODE_TYPE_USERDEF (1 << 5)
 #define DRM_MODE_TYPE_DRIVER (1 << 6)
+#define DRM_MODE_TYPE_ALL (DRM_MODE_TYPE_PREFERRED | DRM_MODE_TYPE_USERDEF | DRM_MODE_TYPE_DRIVER)
 #define DRM_MODE_FLAG_PHSYNC (1 << 0)
 #define DRM_MODE_FLAG_NHSYNC (1 << 1)
 #define DRM_MODE_FLAG_PVSYNC (1 << 2)
@@ -59,10 +61,20 @@
 #define DRM_MODE_PICTURE_ASPECT_NONE 0
 #define DRM_MODE_PICTURE_ASPECT_4_3 1
 #define DRM_MODE_PICTURE_ASPECT_16_9 2
+#define DRM_MODE_PICTURE_ASPECT_64_27 3
+#define DRM_MODE_PICTURE_ASPECT_256_135 4
+#define DRM_MODE_CONTENT_TYPE_NO_DATA 0
+#define DRM_MODE_CONTENT_TYPE_GRAPHICS 1
+#define DRM_MODE_CONTENT_TYPE_PHOTO 2
+#define DRM_MODE_CONTENT_TYPE_CINEMA 3
+#define DRM_MODE_CONTENT_TYPE_GAME 4
 #define DRM_MODE_FLAG_PIC_AR_MASK (0x0F << 19)
 #define DRM_MODE_FLAG_PIC_AR_NONE (DRM_MODE_PICTURE_ASPECT_NONE << 19)
 #define DRM_MODE_FLAG_PIC_AR_4_3 (DRM_MODE_PICTURE_ASPECT_4_3 << 19)
 #define DRM_MODE_FLAG_PIC_AR_16_9 (DRM_MODE_PICTURE_ASPECT_16_9 << 19)
+#define DRM_MODE_FLAG_PIC_AR_64_27 (DRM_MODE_PICTURE_ASPECT_64_27 << 19)
+#define DRM_MODE_FLAG_PIC_AR_256_135 (DRM_MODE_PICTURE_ASPECT_256_135 << 19)
+#define DRM_MODE_FLAG_ALL (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_PVSYNC | DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN | DRM_MODE_FLAG_CSYNC | DRM_MODE_FLAG_PCSYNC | DRM_MODE_FLAG_NCSYNC | DRM_MODE_FLAG_HSKEW | DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_CLKDIV2 | DRM_MODE_FLAG_3D_MASK)
 #define DRM_MODE_DPMS_ON 0
 #define DRM_MODE_DPMS_STANDBY 1
 #define DRM_MODE_DPMS_SUSPEND 2
@@ -87,6 +99,9 @@
 #define DRM_MODE_REFLECT_X (1 << 4)
 #define DRM_MODE_REFLECT_Y (1 << 5)
 #define DRM_MODE_REFLECT_MASK (DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y)
+#define DRM_MODE_CONTENT_PROTECTION_UNDESIRED 0
+#define DRM_MODE_CONTENT_PROTECTION_DESIRED 1
+#define DRM_MODE_CONTENT_PROTECTION_ENABLED 2
 struct drm_mode_modeinfo {
   __u32 clock;
   __u16 hdisplay;
@@ -202,6 +217,7 @@ enum drm_mode_subconnector {
 #define DRM_MODE_CONNECTOR_VIRTUAL 15
 #define DRM_MODE_CONNECTOR_DSI 16
 #define DRM_MODE_CONNECTOR_DPI 17
+#define DRM_MODE_CONNECTOR_WRITEBACK 18
 struct drm_mode_get_connector {
   __u64 encoders_ptr;
   __u64 modes_ptr;
@@ -345,7 +361,7 @@ struct drm_mode_crtc_lut {
   __u64 blue;
 };
 struct drm_color_ctm {
-  __s64 matrix[9];
+  __u64 matrix[9];
 };
 struct drm_color_lut {
   __u16 red;
@@ -447,6 +463,13 @@ struct drm_mode_get_lease {
 struct drm_mode_revoke_lease {
   __u32 lessee_id;
 };
+struct drm_mode_rect {
+  __s32 x1;
+  __s32 y1;
+  __s32 x2;
+  __s32 y2;
+};
 #ifdef __cplusplus
+}
 #endif
 #endif

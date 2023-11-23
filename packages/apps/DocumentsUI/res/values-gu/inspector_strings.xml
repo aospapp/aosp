@@ -44,6 +44,4 @@
     <string name="metadata_composer" msgid="4696926808308256056">"સંગીતકાર"</string>
     <string name="metadata_album" msgid="1661699531214720236">"આલ્બમ"</string>
     <string name="metadata_address" msgid="1849921023707744640">"સ્થાન"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"સ્ટ્રીમના પ્રકારો"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"Rawનું કદ (બાઇટ)"</string>
 </resources>

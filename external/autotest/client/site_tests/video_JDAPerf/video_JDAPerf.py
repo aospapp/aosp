@@ -12,6 +12,7 @@ from autotest_lib.client.cros import chrome_binary_test
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_utils
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 DECODE_WITH_HW_ACCELERATION = 'jpeg_decode_with_hw'
@@ -19,11 +20,6 @@ DECODE_WITHOUT_HW_ACCELERATION = 'jpeg_decode_with_sw'
 
 # Measurement duration in seconds.
 MEASUREMENT_DURATION = 10
-
-# List of thermal throttling services that should be disabled.
-# - temp_metrics for link.
-# - thermal for daisy, snow, pit etc.
-THERMAL_SERVICES = ['temp_metrics', 'thermal']
 
 # Time in seconds to wait for cpu idle until giveup.
 WAIT_FOR_IDLE_CPU_TIMEOUT = 60.0
@@ -57,13 +53,16 @@ class video_JDAPerf(chrome_binary_test.ChromeBinaryTest):
         self._use_ec = False
 
     @chrome_binary_test.nuke_chrome
-    def run_once(self, power_test=False):
+    def run_once(self, capability, power_test=False):
         """
         Runs the video_JDAPerf test.
 
+        @param capability: Capability required for executing this test.
         @param power_test: True for power consumption test.
                            False for cpu usage test.
         """
+        device_capability.DeviceCapability().ensure_capability(capability)
+
         if power_test:
             keyvals = self.test_power()
             self.log_result(keyvals, 'jpeg_decode_energy', 'W')
@@ -93,7 +92,7 @@ class video_JDAPerf(chrome_binary_test.ChromeBinaryTest):
             logging.warning('Could not get cold machine pre login.')
 
         # Stop the thermal service that may change the cpu frequency.
-        self._service_stopper = service_stopper.ServiceStopper(THERMAL_SERVICES)
+        self._service_stopper = service_stopper.get_thermal_service_stopper()
         self._service_stopper.stop_services()
         # Set the scaling governor to performance mode to set the cpu to the
         # highest frequency available.

@@ -22,6 +22,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.media.MediaSession2;
+import android.media.Session2CommandGroup;
+import android.media.Session2Token;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager;
@@ -29,6 +32,7 @@ import android.media.session.PlaybackState;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Process;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 import android.view.KeyEvent;
@@ -37,6 +41,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 @AppModeFull(reason = "TODO: evaluate and port to instant")
@@ -52,6 +57,11 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
         super.setUp();
         mSessionManager = (MediaSessionManager) getInstrumentation().getTargetContext()
                 .getSystemService(Context.MEDIA_SESSION_SERVICE);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
 
     public void testGetActiveSessions() throws Exception {
@@ -114,10 +124,7 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
             // events directly to the audio service to change the system volume.
             return;
         }
-
-        HandlerThread handlerThread = new HandlerThread(TAG);
-        handlerThread.start();
-        Handler handler = new Handler(handlerThread.getLooper());
+        Handler handler = createHandler();
 
         // Ensure that the listener is called for long-press.
         VolumeKeyLongPressListener listener = new VolumeKeyLongPressListener(3, handler);
@@ -144,13 +151,12 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
         injectInputEvent(KeyEvent.KEYCODE_VOLUME_DOWN, true);
         assertFalse(listener.mCountDownLatch.await(WAIT_MS, TimeUnit.MILLISECONDS));
         assertEquals(listener.mKeyEvents.size(), 0);
+
+        removeHandler(handler);
     }
 
     public void testSetOnMediaKeyListener() throws Exception {
-        HandlerThread handlerThread = new HandlerThread(TAG);
-        handlerThread.start();
-        Handler handler = new Handler(handlerThread.getLooper());
-
+        Handler handler = createHandler();
         MediaSession session = null;
         try {
             session = new MediaSession(getInstrumentation().getTargetContext(), TAG);
@@ -210,14 +216,13 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
             if (session != null) {
                 session.release();
             }
+            removeHandler(handler);
         }
     }
 
     public void testRemoteUserInfo() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        HandlerThread handlerThread = new HandlerThread(TAG);
-        handlerThread.start();
-        Handler handler = new Handler(handlerThread.getLooper());
+        Handler handler = createHandler();
 
         MediaSession session = null;
         try {
@@ -226,6 +231,11 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
             session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
                     | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
             session.setCallback(callback, handler);
+            PlaybackState state = new PlaybackState.Builder()
+                    .setState(PlaybackState.STATE_PLAYING, 0, 1.0f).build();
+            // Fake the media session service so this session can take the media key events.
+            session.setPlaybackState(state);
+            session.setActive(true);
 
             // A media playback is also needed to receive media key events.
             Utils.assertMediaPlaybackStarted(context);
@@ -259,7 +269,138 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
             if (session != null) {
                 session.release();
             }
+            removeHandler(handler);
         }
+    }
+
+    public void testGetSession2Tokens() throws Exception {
+        final Context context = getInstrumentation().getTargetContext();
+        Handler handler = createHandler();
+        Executor handlerExecutor = (runnable) -> {
+            if (handler != null) {
+                handler.post(() -> {
+                    runnable.run();
+                });
+            }
+        };
+
+        Session2TokenListener listener = new Session2TokenListener();
+        mSessionManager.addOnSession2TokensChangedListener(listener, handler);
+
+        Session2Callback sessionCallback = new Session2Callback();
+        try (MediaSession2 session = new MediaSession2.Builder(context)
+                .setSessionCallback(handlerExecutor, sessionCallback)
+                .build()) {
+            assertTrue(sessionCallback.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            assertTrue(listener.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+
+            Session2Token currentToken = session.getToken();
+            assertTrue(listContainsToken(listener.mTokens, currentToken));
+            assertTrue(listContainsToken(mSessionManager.getSession2Tokens(), currentToken));
+        }
+    }
+
+    public void testGetSession2TokensWithTwoSessions() throws Exception {
+        final Context context = getInstrumentation().getTargetContext();
+        Handler handler = createHandler();
+        Executor handlerExecutor = (runnable) -> {
+            if (handler != null) {
+                handler.post(() -> {
+                    runnable.run();
+                });
+            }
+        };
+
+        Session2TokenListener listener = new Session2TokenListener();
+        mSessionManager.addOnSession2TokensChangedListener(listener, handler);
+
+        try (MediaSession2 session1 = new MediaSession2.Builder(context)
+                .setSessionCallback(handlerExecutor, new Session2Callback())
+                .setId("testGetSession2TokensWithTwoSessions_session1")
+                .build()) {
+
+            assertTrue(listener.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            Session2Token session1Token = session1.getToken();
+            assertTrue(listContainsToken(mSessionManager.getSession2Tokens(), session1Token));
+
+            // Create another session and check the result of getSession2Token().
+            listener.resetCountDownLatch();
+            Session2Token session2Token = null;
+            try (MediaSession2 session2 = new MediaSession2.Builder(context)
+                    .setSessionCallback(handlerExecutor, new Session2Callback())
+                    .setId("testGetSession2TokensWithTwoSessions_session2")
+                    .build()) {
+
+                assertTrue(listener.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+                session2Token = session2.getToken();
+                assertNotNull(session2Token);
+                assertTrue(listContainsToken(mSessionManager.getSession2Tokens(), session1Token));
+                assertTrue(listContainsToken(mSessionManager.getSession2Tokens(), session2Token));
+
+                listener.resetCountDownLatch();
+            }
+
+            // Since the session2 is closed, getSession2Tokens() shouldn't include session2's token.
+            assertTrue(listener.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            assertTrue(listContainsToken(mSessionManager.getSession2Tokens(), session1Token));
+            assertFalse(listContainsToken(mSessionManager.getSession2Tokens(), session2Token));
+        }
+    }
+
+    public void testAddAndRemoveSession2TokensListener() throws Exception {
+        final Context context = getInstrumentation().getTargetContext();
+        Handler handler = createHandler();
+        Executor handlerExecutor = (runnable) -> {
+            if (handler != null) {
+                handler.post(() -> {
+                    runnable.run();
+                });
+            }
+        };
+
+        Session2TokenListener listener1 = new Session2TokenListener();
+        mSessionManager.addOnSession2TokensChangedListener(listener1, handler);
+
+        Session2Callback sessionCallback = new Session2Callback();
+        try (MediaSession2 session = new MediaSession2.Builder(context)
+                .setSessionCallback(handlerExecutor, sessionCallback)
+                .build()) {
+            assertTrue(listener1.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            Session2Token currentToken = session.getToken();
+            assertTrue(listContainsToken(listener1.mTokens, currentToken));
+
+            // Test removing listener
+            listener1.resetCountDownLatch();
+            Session2TokenListener listener2 = new Session2TokenListener();
+            mSessionManager.addOnSession2TokensChangedListener(listener2, handler);
+            mSessionManager.removeOnSession2TokensChangedListener(listener1);
+
+            session.close();
+            assertFalse(listener1.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+            assertTrue(listener2.mCountDownLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        }
+    }
+
+    private boolean listContainsToken(List<Session2Token> tokens, Session2Token token) {
+        for (int i = 0; i < tokens.size(); i++) {
+            if (tokens.get(i).equals(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Handler createHandler() {
+        HandlerThread handlerThread = new HandlerThread("MediaSessionManagerTest");
+        handlerThread.start();
+        return new Handler(handlerThread.getLooper());
+    }
+
+    private void removeHandler(Handler handler) {
+        if (handler == null) {
+            return;
+        }
+        handler.getLooper().quitSafely();
     }
 
     private class VolumeKeyLongPressListener
@@ -323,6 +464,44 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
             mCallers.add(mSession.getCurrentControllerInfo());
             mCountDownLatch.countDown();
             return true;
+        }
+    }
+
+    private class Session2Callback extends MediaSession2.SessionCallback {
+        private CountDownLatch mCountDownLatch;
+
+        private Session2Callback() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public Session2CommandGroup onConnect(MediaSession2 session,
+                MediaSession2.ControllerInfo controller) {
+            if (controller.getUid() == Process.SYSTEM_UID) {
+                // System server will try to connect here for monitor session.
+                mCountDownLatch.countDown();
+            }
+            return new Session2CommandGroup.Builder().build();
+        }
+    }
+
+    private class Session2TokenListener implements
+            MediaSessionManager.OnSession2TokensChangedListener {
+        private CountDownLatch mCountDownLatch;
+        private List<Session2Token> mTokens;
+
+        private Session2TokenListener() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public void onSession2TokensChanged(List<Session2Token> tokens) {
+            mTokens = tokens;
+            mCountDownLatch.countDown();
+        }
+
+        public void resetCountDownLatch() {
+            mCountDownLatch = new CountDownLatch(1);
         }
     }
 }

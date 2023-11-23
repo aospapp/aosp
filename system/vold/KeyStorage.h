@@ -31,7 +31,7 @@ namespace vold {
 // If only "secret" is nonempty, it is used to decrypt in a non-Keymaster process.
 class KeyAuthentication {
   public:
-    KeyAuthentication(std::string t, std::string s) : token{t}, secret{s} {};
+    KeyAuthentication(const std::string& t, const std::string& s) : token{t}, secret{s} {};
 
     bool usesKeymaster() const { return !token.empty() || secret.empty(); };
 
@@ -61,7 +61,8 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
                         const KeyAuthentication& auth, const KeyBuffer& key);
 
 // Retrieve the key from the named directory.
-bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key);
+bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key,
+                 bool keepOld = false);
 
 // Securely destroy the key stored in the named directory and delete the directory.
 bool destroyKey(const std::string& dir);

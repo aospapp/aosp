@@ -524,6 +524,7 @@ DwMmcHcGetMaxCurrent (
 EFI_STATUS
 DwMmcHcCardDetect (
   IN EFI_PCI_IO_PROTOCOL    *PciIo,
+  IN EFI_HANDLE             Controller,
   IN UINT8                  Slot,
      OUT BOOLEAN            *MediaPresent
   )
@@ -542,7 +543,7 @@ DwMmcHcCardDetect (
   if (EFI_ERROR (Status)) {
     return Status;
   }
-  *MediaPresent = PlatformDwMmc->CardDetect (Slot);
+  *MediaPresent = PlatformDwMmc->CardDetect (Controller, Slot);
   return EFI_SUCCESS;
 }
 
@@ -1521,10 +1522,13 @@ DwEmmcExecTrb (
   UINT32                              IntStatus;
   UINT32                              Argument;
   UINT32                              ErrMask;
+  UINT32                              Timeout;
 
   Packet = Trb->Packet;
   PciIo  = Trb->Private->PciIo;
 
+  ArmDataSynchronizationBarrier ();
+  ArmInstructionSynchronizationBarrier ();
   // Wait until MMC is idle
   do {
     Status = DwMmcHcRwMmio (PciIo, Trb->Slot, DW_MMC_STATUS, TRUE, sizeof (MmcStatus), &MmcStatus);
@@ -1587,16 +1591,23 @@ DwEmmcExecTrb (
   if (EFI_ERROR (Status)) {
     return Status;
   }
+  ArmDataSynchronizationBarrier ();
+  ArmInstructionSynchronizationBarrier ();
   Status = DwMmcHcRwMmio (PciIo, Trb->Slot, DW_MMC_CMD, FALSE, sizeof (Cmd), &Cmd);
   if (EFI_ERROR (Status)) {
     return Status;
   }
+  ArmDataSynchronizationBarrier ();
+  ArmInstructionSynchronizationBarrier ();
 
   ErrMask = DW_MMC_INT_EBE | DW_MMC_INT_HLE | DW_MMC_INT_RTO |
             DW_MMC_INT_RCRC | DW_MMC_INT_RE;
   ErrMask |= DW_MMC_INT_DCRC | DW_MMC_INT_DRT | DW_MMC_INT_SBE;
   do {
-    MicroSecondDelay (500);
+    Timeout = 10000;
+    if (--Timeout == 0) {
+      break;
+    }
     Status = DwMmcHcRwMmio (PciIo, Trb->Slot, DW_MMC_RINTSTS, TRUE, sizeof (IntStatus), &IntStatus);
     if (EFI_ERROR (Status)) {
       return Status;
@@ -1604,9 +1615,12 @@ DwEmmcExecTrb (
     if (IntStatus & ErrMask) {
       return EFI_DEVICE_ERROR;
     }
-    if (IntStatus & DW_MMC_INT_DTO) {  // Transfer Done
-      break;
+    if (Trb->DataLen && ((IntStatus & DW_MMC_INT_DTO) == 0)) {
+      // Transfer Not Done
+      MicroSecondDelay (10);
+      continue;
     }
+    MicroSecondDelay (10);
   } while (!(IntStatus & DW_MMC_INT_CMD_DONE));
   switch (Packet->SdMmcCmdBlk->ResponseType) {
     case SdMmcResponseTypeR1:
@@ -1790,12 +1804,12 @@ DwSdExecTrb (
       if (IntStatus & ErrMask) {
         return EFI_DEVICE_ERROR;
       }
-      if (Trb->DataLen && ((IntStatus & DW_MMC_INT_DTO) == 0)) {  // Transfer Done
+      if (Trb->DataLen && ((IntStatus & DW_MMC_INT_DTO) == 0)) {
+        // Transfer not Done
         MicroSecondDelay (10);
         continue;
-      } else {
-        MicroSecondDelay (10);
       }
+      MicroSecondDelay (10);
     } while (!(IntStatus & DW_MMC_INT_CMD_DONE));
     if (Packet->InTransferLength) {
       do {

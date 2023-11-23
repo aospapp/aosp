@@ -47,7 +47,8 @@ static char *device_name, *io_options;
 static void usage (char *prog)
 {
 	fprintf (stderr, _("Usage: %s [-d debug_flags] [-f] [-F] [-M] [-P] "
-			   "[-p] device [-b|-s|new_size] [-z undo_file]\n\n"),
+			   "[-p] device [-b|-s|new_size] [-S RAID-stride] "
+			   "[-z undo_file]\n\n"),
 		 prog);
 
 	exit (1);
@@ -422,7 +423,7 @@ int main (int argc, char ** argv)
 	 * unless the user is forcing it.
 	 *
 	 * We do ERROR and VALID checks even if we're only printing the
-	 * minimimum size, because traversal of a badly damaged filesystem
+	 * minimum size, because traversal of a badly damaged filesystem
 	 * can cause issues as well.  We don't require it to be fscked after
 	 * the last mount time in this case, though, as this is a bit less
 	 * risky.
@@ -438,6 +439,11 @@ int main (int argc, char ** argv)
 
 		if ((fs->super->s_lastcheck < fs->super->s_mtime) &&
 		    !print_min_size)
+			checkit = 1;
+
+		if ((ext2fs_free_blocks_count(fs->super) >
+		     ext2fs_blocks_count(fs->super)) ||
+		    (fs->super->s_free_inodes_count > fs->super->s_inodes_count))
 			checkit = 1;
 
 		if (checkit) {
@@ -505,7 +511,7 @@ int main (int argc, char ** argv)
 		new_size = max_size;
 		/* Round down to an even multiple of a pagesize */
 		if (sys_page_size > blocksize)
-			new_size &= ~((sys_page_size / blocksize)-1);
+			new_size &= ~((blk64_t)((sys_page_size / blocksize)-1));
 	}
 	/* If changing 64bit, don't change the filesystem size. */
 	if (flags & (RESIZE_DISABLE_64BIT | RESIZE_ENABLE_64BIT)) {
@@ -600,7 +606,6 @@ int main (int argc, char ** argv)
 		exit(0);
 	}
 	if (mount_flags & EXT2_MF_MOUNTED) {
-		bigalloc_check(fs, force);
 		retval = online_resize_fs(fs, mtpt, &new_size, flags);
 	} else {
 		bigalloc_check(fs, force);

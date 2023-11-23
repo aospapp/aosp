@@ -17,12 +17,13 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.IDevice;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.IDeviceMonitor;
+import com.android.tradefed.device.IDeviceStateMonitor;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.device.TestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.IRunUtil;
-
-import com.google.common.util.concurrent.SettableFuture;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -30,38 +31,61 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.concurrent.Future;
-
 /** Unit tests for {@link DeviceBatteryLevelChecker}. */
 @RunWith(JUnit4.class)
 public class DeviceBatteryLevelCheckerTest {
     private DeviceBatteryLevelChecker mChecker = null;
-    ITestDevice mFakeTestDevice = null;
-    IDevice mFakeDevice = null;
+    private ITestDevice mDevice = null;
+    private ITestDevice mFakeTestDevice = null;
     public Integer mBatteryLevel = 10;
+
+    private IDevice mMockIDevice;
+    private IDeviceStateMonitor mMockStateMonitor;
+    private IDeviceMonitor mMockDvcMonitor;
+
+    /** A {@link TestDevice} that is suitable for running tests against */
+    private class TestableTestDevice extends TestDevice {
+        public TestableTestDevice() {
+            super(mMockIDevice, mMockStateMonitor, mMockDvcMonitor);
+        }
+
+        @Override
+        public String getSerialNumber() {
+            return mFakeTestDevice.getSerialNumber();
+        }
+
+        @Override
+        public void stopLogcat() {
+            mFakeTestDevice.stopLogcat();
+        }
+
+        @Override
+        public String executeShellCommand(String command) throws DeviceNotAvailableException {
+            return mFakeTestDevice.executeShellCommand(command);
+        }
+
+        @Override
+        public Integer getBattery() {
+            return mBatteryLevel;
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
+        mMockIDevice = EasyMock.createMock(IDevice.class);
+        mMockStateMonitor = EasyMock.createMock(IDeviceStateMonitor.class);
+        mMockDvcMonitor = EasyMock.createMock(IDeviceMonitor.class);
+        mFakeTestDevice = EasyMock.createMock(ITestDevice.class);
+
+        mDevice = new TestableTestDevice();
         mChecker = new DeviceBatteryLevelChecker() {
             @Override
             IRunUtil getRunUtil() {
                 return EasyMock.createNiceMock(IRunUtil.class);
             }
         };
-        mFakeTestDevice = EasyMock.createStrictMock(ITestDevice.class);
-        mFakeDevice = new StubDevice("serial") {
-            @Override
-            public Future<Integer> getBattery() {
-                SettableFuture<Integer> f = SettableFuture.create();
-                f.set(mBatteryLevel);
-                return f;
-            }
-        };
-
-        mChecker.setDevice(mFakeTestDevice);
-
+        mChecker.setDevice(mDevice);
         EasyMock.expect(mFakeTestDevice.getSerialNumber()).andStubReturn("SERIAL");
-        EasyMock.expect(mFakeTestDevice.getIDevice()).andStubReturn(mFakeDevice);
     }
 
     @Test
@@ -155,7 +179,6 @@ public class DeviceBatteryLevelCheckerTest {
 
     private void expectBattLevel(Integer level) throws Exception {
         mBatteryLevel = level;
-        EasyMock.expect(mFakeDevice.getBattery());
     }
 
     private void replayDevices() {

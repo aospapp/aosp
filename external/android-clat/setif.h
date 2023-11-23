@@ -18,7 +18,8 @@
 #ifndef __SETIF_H__
 #define __SETIF_H__
 
-int add_address(const char *ifname, int family, const void *address, int cidr, const void *broadcast);
+int add_address(const char *ifname, int family, const void *address, int cidr,
+                const void *broadcast);
 int if_up(const char *ifname, int mtu);
 
 int add_anycast_address(int sock, const struct in6_addr *addr, const char *interface);

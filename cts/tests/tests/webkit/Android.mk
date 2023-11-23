@@ -28,10 +28,11 @@ LOCAL_JAVA_LIBRARIES := \
 
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctsdeviceutillegacy \
+    compatibility-device-util-axt \
+    ctsdeviceutillegacy-axt \
     ctstestserver \
-    ctstestrunner
+    ctstestrunner-axt \
+    hamcrest-library
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

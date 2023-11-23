@@ -23,6 +23,11 @@
 #include "chre/core/nanoapp.h"
 #include "chre/util/non_copyable.h"
 
+// This default value can be overridden in the variant-specific makefile.
+#ifndef CHRE_MAX_ALLOCATION_BYTES
+#define CHRE_MAX_ALLOCATION_BYTES 262144  // 256 * 1024
+#endif
+
 namespace chre {
 
 /**
@@ -58,6 +63,13 @@ class MemoryManager : public NonCopyable {
   }
 
   /**
+   * @return peak total allocated memory in bytes.
+   */
+  size_t getPeakAllocatedBytes() const {
+    return mPeakAllocatedBytes;
+  }
+
+  /**
    * @return current count of allocated memory spaces.
    */
   size_t getAllocationCount() const {
@@ -85,10 +97,8 @@ class MemoryManager : public NonCopyable {
    * @param buffer Pointer to the start of the buffer.
    * @param bufferPos Pointer to buffer position to start the print (in-out).
    * @param size Size of the buffer in bytes.
-   *
-   * @return true if entire log printed, false if overflow or error.
    */
-  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+  void logStateToBuffer(char *buffer, size_t *bufferPos,
                         size_t bufferSize) const;
 
  private:
@@ -109,14 +119,17 @@ class MemoryManager : public NonCopyable {
     max_align_t aligner;
   };
 
-  //! Stores total allocated memory in bytes (not including header).
+  //! The total allocated memory in bytes (not including header).
   size_t mTotalAllocatedBytes = 0;
+
+  //! The peak allocated memory in bytes (not including header).
+  size_t mPeakAllocatedBytes = 0;
 
   //! Stores total number of allocated memory spaces.
   size_t mAllocationCount = 0;
 
   //! The maximum allowable total allocated memory in bytes for all nanoapps.
-  static constexpr size_t kMaxAllocationBytes = (128 * 1024);
+  static constexpr size_t kMaxAllocationBytes = CHRE_MAX_ALLOCATION_BYTES;
 
   //! The maximum allowable count of memory allocations for all nanoapps.
   static constexpr size_t kMaxAllocationCount = (8 * 1024);

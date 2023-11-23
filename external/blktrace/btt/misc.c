@@ -76,7 +76,6 @@ static void clean_bufs(void)
 	}
 }
 
-#ifndef _ANDROID_
 /*
  * Due to the N(devs) parts of a lot of the output features provided
  * by btt, it will fail opens on large(ish) systems. Here we try to
@@ -101,16 +100,11 @@ static int increase_limit(int resource, rlim_t increase)
 	errno = save_errno;
 	return 0;
 }
-#endif
 
 static int handle_open_failure(void)
 {
 	if (errno == ENFILE || errno == EMFILE)
-#ifndef _ANDROID_
 		return increase_limit(RLIMIT_NOFILE, 16);
-#else
-		return -ENOSYS;
-#endif
 
 	return 0;
 }
@@ -150,6 +144,11 @@ char *make_dev_hdr(char *pad, size_t len, struct d_info *dip, int add_parens)
 			 MAJOR(dip->device), MINOR(dip->device));
 
 	return pad;
+}
+
+char *mkhandle(struct d_info *dip, char *str, size_t len)
+{
+	return make_dev_hdr(str, len, dip, 0);
 }
 
 FILE *my_fopen(const char *path, const char *mode)

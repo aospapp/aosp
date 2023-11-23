@@ -16,25 +16,23 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import android.arch.lifecycle.ViewModelProviders;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.support.annotation.VisibleForTesting;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.ViewModelProviders;
+
+import com.android.settingslib.wifi.AccessPoint;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.ConnectivityListener;
 import com.android.tv.settings.connectivity.WifiConfigHelper;
@@ -42,6 +40,7 @@ import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
 
 import java.lang.ref.WeakReference;
+import java.util.List;
 
 /**
  * State responsible for showing the connect page.
@@ -90,12 +89,12 @@ public class ConnectState implements State {
      * Connects to the wifi network specified by the given configuration.
      */
     public static class ConnectToWifiFragment extends MessageFragment
-            implements ConnectivityListener.Listener {
+            implements ConnectivityListener.WifiNetworkListener {
 
         @VisibleForTesting
         static final int MSG_TIMEOUT = 1;
         @VisibleForTesting
-        static final int CONNECTION_TIMEOUT = 15000;
+        static final int CONNECTION_TIMEOUT = 60000;
         private static final String TAG = "ConnectToWifiFragment";
         private static final boolean DEBUG = false;
         @VisibleForTesting
@@ -107,11 +106,6 @@ public class ConnectState implements State {
         @VisibleForTesting
         Handler mHandler;
         private ConnectivityListener mConnectivityListener;
-        private BroadcastReceiver mReceiver;
-        private boolean mWasAssociating;
-        private boolean mWasAssociated;
-        private boolean mWasHandshaking;
-        private boolean mConnected;
 
         /**
          * Obtain a new instance of ConnectToWifiFragment.
@@ -132,7 +126,8 @@ public class ConnectState implements State {
         @Override
         public void onCreate(Bundle icicle) {
             super.onCreate(icicle);
-            mConnectivityListener = new ConnectivityListener(getActivity(), this);
+            mConnectivityListener = new ConnectivityListener(getActivity(), null);
+            mConnectivityListener.start();
             UserChoiceInfo userChoiceInfo = ViewModelProviders
                     .of(getActivity()).get(UserChoiceInfo.class);
             mWifiConfiguration = userChoiceInfo.getWifiConfiguration();
@@ -142,107 +137,31 @@ public class ConnectState implements State {
             mWifiManager = ((WifiManager) getActivity().getApplicationContext()
                     .getSystemService(Context.WIFI_SERVICE));
             mHandler = new MessageHandler(this);
-
-            IntentFilter filter = new IntentFilter();
-            filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
-            mReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (WifiManager.SUPPLICANT_STATE_CHANGED_ACTION.equals(intent.getAction())) {
-                        SupplicantState state = intent.getParcelableExtra(
-                                WifiManager.EXTRA_NEW_STATE);
-                        if (DEBUG) {
-                            Log.d(TAG, "Got supplicant state: " + state.name());
-                        }
-                        switch (state) {
-                            case ASSOCIATING:
-                                mWasAssociating = true;
-                                break;
-                            case ASSOCIATED:
-                                mWasAssociated = true;
-                                break;
-                            case COMPLETED:
-                                // this just means the supplicant has connected, now
-                                // we wait for the rest of the framework to catch up
-                                break;
-                            case DISCONNECTED:
-                            case DORMANT:
-                                if (mWasAssociated || mWasHandshaking) {
-                                    notifyListener(mWasHandshaking ? StateMachine.RESULT_BAD_AUTH
-                                            : StateMachine.RESULT_UNKNOWN_ERROR);
-                                }
-                                break;
-                            case INTERFACE_DISABLED:
-                            case UNINITIALIZED:
-                                notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
-                                break;
-                            case FOUR_WAY_HANDSHAKE:
-                            case GROUP_HANDSHAKE:
-                                mWasHandshaking = true;
-                                break;
-                            case INACTIVE:
-                                if (mWasAssociating && !mWasAssociated) {
-                                    // If we go inactive after 'associating' without ever having
-                                    // been 'associated', the AP(s) must have rejected us.
-                                    notifyListener(StateMachine.RESULT_REJECTED_BY_AP);
-                                    break;
-                                }
-                            case INVALID:
-                                break;
-                            case SCANNING:
-                                break;
-                            default:
-                                return;
-                        }
-                        mHandler.removeMessages(MSG_TIMEOUT);
-                        mHandler.sendEmptyMessageDelayed(MSG_TIMEOUT, CONNECTION_TIMEOUT);
-                    }
-                }
-            };
-            getActivity().registerReceiver(mReceiver, filter);
-            mConnectivityListener.start();
+            mConnectivityListener.setWifiListener(this);
         }
 
         @Override
         public void onResume() {
             super.onResume();
+            postTimeout();
             proceedDependOnNetworkState();
         }
 
         @VisibleForTesting
         void proceedDependOnNetworkState() {
             if (isNetworkConnected()) {
-                mConnected = true;
-                notifyListener(StateMachine.RESULT_SUCCESS);
-            } else {
-                int networkId = mWifiManager.addNetwork(mWifiConfiguration);
-                if (networkId == -1) {
-                    if (DEBUG) {
-                        Log.d(TAG, "Failed to add network!");
-                    }
-                    notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
-                } else if (!mWifiManager.enableNetwork(networkId, true)) {
-                    if (DEBUG) {
-                        Log.d(TAG, "Failed to enable network id " + networkId + "!");
-                    }
-                    notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
-                } else if (!mWifiManager.reconnect()) {
-                    if (DEBUG) {
-                        Log.d(TAG, "Failed to reconnect!");
-                    }
-                    notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
-                } else {
-                    mHandler.sendEmptyMessageDelayed(MSG_TIMEOUT, CONNECTION_TIMEOUT);
-                }
+                mWifiManager.disconnect();
             }
+            mWifiManager.addNetwork(mWifiConfiguration);
+            mWifiManager.connect(mWifiConfiguration, null);
         }
 
         @Override
         public void onDestroy() {
-            if (!mConnected) {
+            if (!isNetworkConnected()) {
                 mWifiManager.disconnect();
             }
-            getActivity().unregisterReceiver(mReceiver);
+
             mConnectivityListener.stop();
             mConnectivityListener.destroy();
             mHandler.removeMessages(MSG_TIMEOUT);
@@ -250,14 +169,43 @@ public class ConnectState implements State {
         }
 
         @Override
-        public void onConnectivityChange() {
-            if (DEBUG) Log.d(TAG, "Connectivity changed");
-            if (!isResumed()) {
+        public void onWifiListChanged() {
+            List<AccessPoint> accessPointList = mConnectivityListener.getAvailableNetworks();
+            if (accessPointList != null) {
+                for (AccessPoint accessPoint: accessPointList) {
+                    if (accessPoint != null && AccessPoint.convertToQuotedString(
+                            accessPoint.getSsidStr()).equals(mWifiConfiguration.SSID)) {
+                        inferConnectionStatus(accessPoint);
+                    }
+                }
+            }
+        }
+
+        private void inferConnectionStatus(AccessPoint accessPoint) {
+            WifiConfiguration configuration = accessPoint.getConfig();
+            if (configuration == null) {
                 return;
             }
-            if (isNetworkConnected()) {
-                mConnected = true;
-                notifyListener(StateMachine.RESULT_SUCCESS);
+            if (configuration.getNetworkSelectionStatus().isNetworkEnabled()) {
+                if (isNetworkConnected()) {
+                    notifyListener(StateMachine.RESULT_SUCCESS);
+                }
+            } else {
+                switch (configuration.getNetworkSelectionStatus()
+                            .getNetworkSelectionDisableReason()) {
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_AUTHENTICATION_FAILURE:
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD:
+                        notifyListener(StateMachine.RESULT_BAD_AUTH);
+                        break;
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_DHCP_FAILURE:
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_DNS_FAILURE:
+                        notifyListener(StateMachine.RESULT_UNKNOWN_ERROR);
+                        break;
+                    case WifiConfiguration.NetworkSelectionStatus.DISABLED_ASSOCIATION_REJECTION:
+                        notifyListener(StateMachine.RESULT_REJECTED_BY_AP);
+                        break;
+                }
+                accessPoint.clearConfig();
             }
         }
 
@@ -293,6 +241,11 @@ public class ConnectState implements State {
             return false;
         }
 
+        private void postTimeout() {
+            mHandler.removeMessages(MSG_TIMEOUT);
+            mHandler.sendEmptyMessageDelayed(MSG_TIMEOUT, CONNECTION_TIMEOUT);
+        }
+
         private static class MessageHandler extends Handler {
 
             private final WeakReference<ConnectToWifiFragment> mFragmentRef;
@@ -312,7 +265,6 @@ public class ConnectState implements State {
 
                 if (fragment.isNetworkConnected()) {
                     if (DEBUG) Log.d(TAG, "Fake timeout; we're actually connected");
-                    fragment.mConnected = true;
                     fragment.notifyListener(StateMachine.RESULT_SUCCESS);
                 } else {
                     if (DEBUG) Log.d(TAG, "Timeout is real; telling the listener");

@@ -24,13 +24,14 @@ import com.android.apksig.internal.apk.ContentDigestAlgorithm;
 import com.android.apksig.internal.apk.SignatureAlgorithm;
 import com.android.apksig.internal.apk.SignatureInfo;
 import com.android.apksig.internal.util.ByteBufferUtils;
+import com.android.apksig.internal.util.X509CertificateUtils;
 import com.android.apksig.internal.util.GuaranteedEncodedFormX509Certificate;
 import com.android.apksig.util.DataSource;
-
-import java.io.ByteArrayInputStream;
+import com.android.apksig.util.RunnablesExecutor;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -87,6 +88,7 @@ public abstract class V2SchemeVerifier {
      * @throws IOException if an I/O error occurs when reading the APK
      */
     public static ApkSigningBlockUtils.Result verify(
+            RunnablesExecutor executor,
             DataSource apk,
             ApkUtils.ZipSections zipSections,
             Map<Integer, String> supportedApkSigSchemeNames,
@@ -108,7 +110,8 @@ public abstract class V2SchemeVerifier {
                         signatureInfo.eocdOffset - signatureInfo.centralDirOffset);
         ByteBuffer eocd = signatureInfo.eocd;
 
-        verify(beforeApkSigningBlock,
+        verify(executor,
+                beforeApkSigningBlock,
                 signatureInfo.signatureBlock,
                 centralDir,
                 eocd,
@@ -123,13 +126,14 @@ public abstract class V2SchemeVerifier {
     /**
      * Verifies the provided APK's v2 signatures and outputs the results into the provided
      * {@code result}. APK is considered verified only if there are no errors reported in the
-     * {@code result}. See {@link #verify(DataSource, ApkUtils.ZipSections, Map, Set, int, int)} for
-     * more information about the contract of this method.
+     * {@code result}. See {@link #verify(RunnablesExecutor, DataSource, ApkUtils.ZipSections, Map,
+     * Set, int, int)} for more information about the contract of this method.
      *
      * @param result result populated by this method with interesting information about the APK,
      *        such as information about signers, and verification errors and warnings.
      */
     private static void verify(
+            RunnablesExecutor executor,
             DataSource beforeApkSigningBlock,
             ByteBuffer apkSignatureSchemeV2Block,
             DataSource centralDir,
@@ -153,7 +157,7 @@ public abstract class V2SchemeVerifier {
             return;
         }
         ApkSigningBlockUtils.verifyIntegrity(
-                beforeApkSigningBlock, centralDir, eocd, contentDigestsToVerify, result);
+                executor, beforeApkSigningBlock, centralDir, eocd, contentDigestsToVerify, result);
         if (!result.containsErrors()) {
             result.verified = true;
         }
@@ -344,10 +348,7 @@ public abstract class V2SchemeVerifier {
             byte[] encodedCert = ApkSigningBlockUtils.readLengthPrefixedByteArray(certificates);
             X509Certificate certificate;
             try {
-                certificate =
-                        (X509Certificate)
-                                certFactory.generateCertificate(
-                                        new ByteArrayInputStream(encodedCert));
+                certificate = X509CertificateUtils.generateCertificate(encodedCert, certFactory);
             } catch (CertificateException e) {
                 result.addError(
                         Issue.V2_SIG_MALFORMED_CERTIFICATE,
@@ -428,9 +429,10 @@ public abstract class V2SchemeVerifier {
                 switch (id) {
                     case V2SchemeSigner.STRIPPING_PROTECTION_ATTR_ID:
                         // stripping protection added when signing with a newer scheme
-                        int foundId = attribute.getInt();
+                        int foundId = ByteBuffer.wrap(value).order(
+                                ByteOrder.LITTLE_ENDIAN).getInt();
                         if (supportedApkSigSchemeIds.contains(foundId)) {
-                            supportedExpectedApkSigSchemeIds.add(id);
+                            supportedExpectedApkSigSchemeIds.add(foundId);
                         } else {
                             result.addWarning(
                                     Issue.V2_SIG_UNKNOWN_APK_SIG_SCHEME_ID, result.index, foundId);

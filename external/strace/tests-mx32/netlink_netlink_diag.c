@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2014-2016 Dmitry V. Levin <ldv@altlinux.org>
  * Copyright (c) 2016 Fabien Siron <fabien.siron@epita.fr>
- * Copyright (c) 2016-2017 The strace developers.
+ * Copyright (c) 2016-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,8 +55,7 @@ send_query(const int fd)
 		},
 		.ndr = {
 			.sdiag_family = AF_NETLINK,
-			.sdiag_protocol = NDIAG_PROTO_ALL,
-			.ndiag_show = NDIAG_SHOW_MEMINFO
+			.sdiag_protocol = NDIAG_PROTO_ALL
 		}
 	};
 	struct iovec iov = {
@@ -101,8 +100,8 @@ check_responses(const int fd)
 		perror_msg_and_skip("recvmsg");
 
 	struct nlmsghdr *h = &hdr_buf.hdr;
-	if (!NLMSG_OK(h, ret))
-		error_msg_and_skip("!NLMSG_OK");
+	if (!is_nlmsg_ok(h, ret))
+		error_msg_and_skip("!is_nlmsg_ok");
 	if (h->nlmsg_type == NLMSG_ERROR) {
 		const struct nlmsgerr *err = NLMSG_DATA(h);
 		if (h->nlmsg_len < NLMSG_LENGTH(sizeof(*err)))

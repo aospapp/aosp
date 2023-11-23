@@ -18,8 +18,10 @@
 
 #include "base/memory_tool.h"
 #include "class_linker-inl.h"
+#include "class_root.h"
 #include "handle_scope-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/string.h"
 #include "runtime.h"
@@ -34,12 +36,11 @@ class VerificationTest : public CommonRuntimeTest {
   VerificationTest() {}
 
   template <class T>
-  mirror::ObjectArray<T>* AllocObjectArray(Thread* self, size_t length)
+  ObjPtr<mirror::ObjectArray<T>> AllocObjectArray(Thread* self, size_t length)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
     return mirror::ObjectArray<T>::Alloc(
         self,
-        class_linker->GetClassRoot(ClassLinker::ClassRoot::kObjectArrayClass),
+        GetClassRoot<mirror::ObjectArray<mirror::Object>>(),
         length);
   }
 };
@@ -83,6 +84,11 @@ TEST_F(VerificationTest, IsValidClassOrNotInHeap) {
 }
 
 TEST_F(VerificationTest, IsValidClassInHeap) {
+  // Now that the String class is allocated in the non-moving space when the
+  // runtime is running without a boot image (which is the case in this gtest),
+  // and we run with AddressSanizer, it is possible that the (presumably
+  // invalid) memory location `uint_klass - kObjectAlignment` tested below is
+  // poisoned when running with AddressSanizer. Disable this test in that case.
   TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedObjectAccess soa(Thread::Current());
   VariableSizedHandleScope hs(soa.Self());
@@ -106,6 +112,12 @@ TEST_F(VerificationTest, DumpInvalidObjectInfo) {
 }
 
 TEST_F(VerificationTest, DumpValidObjectInfo) {
+  // Now that the String class is allocated in the non-moving space when the
+  // runtime is running without a boot image (which is the case in this gtest),
+  // and we run with AddressSanizer, it is possible that the calls to
+  // Verification::DumpObjectInfo below involving the String class object
+  // (`string->GetClass()`, `uint_klass`, etc.) access poisoned memory when they
+  // call Verification::DumpRAMAroundAddress. Disable this test in that case.
   TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedLogSeverity sls(LogSeverity::INFO);
   ScopedObjectAccess soa(Thread::Current());
@@ -126,6 +138,12 @@ TEST_F(VerificationTest, DumpValidObjectInfo) {
 }
 
 TEST_F(VerificationTest, LogHeapCorruption) {
+  // Now that the String class is allocated in the non-moving space when the
+  // runtime is running without a boot image (which is the case in this gtest),
+  // and we run with AddressSanizer, it is possible that the call to
+  // Verification::LogHeapCorruption below involving the String class object
+  // (`string->GetClass()`) accesses poisoned memory when it calls
+  // Verification::DumpRAMAroundAddress. Disable this test in that case.
   TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedLogSeverity sls(LogSeverity::INFO);
   ScopedObjectAccess soa(Thread::Current());
@@ -147,7 +165,6 @@ TEST_F(VerificationTest, LogHeapCorruption) {
 }
 
 TEST_F(VerificationTest, FindPathFromRootSet) {
-  TEST_DISABLED_FOR_MEMORY_TOOL();
   ScopedLogSeverity sls(LogSeverity::INFO);
   ScopedObjectAccess soa(Thread::Current());
   Runtime* const runtime = Runtime::Current();

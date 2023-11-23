@@ -21,6 +21,8 @@
 #include <android/hardware/secure_element/1.0/ISecureElement.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
+#include <string>
+
 #include "phNxpEse_Api.h"
 
 namespace android {
@@ -61,6 +63,7 @@ struct SecureElement : public ISecureElement, public hidl_death_recipient {
   Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
   closeChannel(uint8_t channelNumber) override;
   void serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) override;
+  void onStateChange(bool result, std::string reason);
 
  private:
   uint8_t mOpenedchannelCount = 0;

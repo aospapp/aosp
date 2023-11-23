@@ -15,32 +15,23 @@
 #   limitations under the License.
 
 import copy
-import os
-import tempfile
 import shutil
+import tempfile
 import unittest
 
-from acts.controllers.relay_lib import generic_relay_device
-from acts.controllers.relay_lib import relay
-from acts.controllers.relay_lib import relay_board
-from acts.controllers.relay_lib import relay_device
-from acts.controllers.relay_lib import relay_rig
-from acts.controllers.relay_lib import sain_smart_board
-
-import acts.controllers.relay_lib.errors as errors
 import acts.controllers.relay_lib.fugu_remote as fugu_remote
-
-# Shorthand versions of the long class names.
-GenericRelayDevice = generic_relay_device.GenericRelayDevice
-Relay = relay.Relay
-RelayDict = relay.RelayDict
-RelayState = relay.RelayState
-SynchronizeRelays = relay.SynchronizeRelays
-RelayBoard = relay_board.RelayBoard
-RelayDevice = relay_device.RelayDevice
-RelayRig = relay_rig.RelayRig
-SainSmartBoard = sain_smart_board.SainSmartBoard
-RelayDeviceConnectionError = errors.RelayDeviceConnectionError
+from acts.controllers.relay_lib.errors import RelayConfigError
+from acts.controllers.relay_lib.errors import RelayDeviceConnectionError
+from acts.controllers.relay_lib.generic_relay_device import GenericRelayDevice
+from acts.controllers.relay_lib.relay import Relay
+from acts.controllers.relay_lib.relay import RelayDict
+from acts.controllers.relay_lib.relay import RelayState
+from acts.controllers.relay_lib.relay import SynchronizeRelays
+from acts.controllers.relay_lib.relay_board import RelayBoard
+from acts.controllers.relay_lib.relay_device import RelayDevice
+from acts.controllers.relay_lib.relay_rig import RelayRig
+from acts.controllers.relay_lib.sain_smart_board import SainSmartBoard
+from mock import patch
 
 
 class MockBoard(RelayBoard):
@@ -272,7 +263,7 @@ class ActsSainSmartBoardTest(unittest.TestCase):
         self.assertEqual(result, self.RELAY_ON_PAGE_CONTENTS)
 
     def test_load_page_no_connection(self):
-        with self.assertRaises(errors.RelayDeviceConnectionError):
+        with self.assertRaises(RelayDeviceConnectionError):
             self.ss_board._load_page('**')
 
     def _set_status_page(self, status_16_chars):
@@ -316,14 +307,20 @@ class ActsSainSmartBoardTest(unittest.TestCase):
             self.ss_board.get_relay_status(self.r0.position), RelayState.NO)
 
     def test_set_on(self):
-        os.utime(self.test_dir[7:] + '01', (0, 0))
-        self.ss_board.set(self.r0.position, RelayState.NC)
-        self.assertNotEqual(os.stat(self.test_dir[7:] + '01').st_atime, 0)
+        patch_path = 'acts.controllers.relay_lib.sain_smart_board.urlopen'
+        with patch(patch_path) as urlopen:
+            board = SainSmartBoard(self.config)
+            board.status_dict = {}
+            board.set(self.r0.position, RelayState.NC)
+        urlopen.assert_called_once_with('%s%s' % (self.ss_board.base_url, '01'))
 
     def test_set_off(self):
-        os.utime(self.test_dir[7:] + '00', (0, 0))
-        self.ss_board.set(self.r0.position, RelayState.NO)
-        self.assertNotEqual(os.stat(self.test_dir[7:] + '00').st_atime, 0)
+        patch_path = 'acts.controllers.relay_lib.sain_smart_board.urlopen'
+        with patch(patch_path) as urlopen:
+            board = SainSmartBoard(self.config)
+            board.status_dict = {}
+            board.set(self.r0.position, RelayState.NO)
+        urlopen.assert_called_once_with('%s%s' % (self.ss_board.base_url, '00'))
 
     def test_connection_error_no_tux(self):
         default_status_msg = self.STATUS_MSG
@@ -369,19 +366,19 @@ class ActsRelayRigTest(unittest.TestCase):
     def test_init_relay_rig_missing_boards(self):
         flawed_config = copy.deepcopy(self.config)
         del flawed_config['boards']
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayRig(flawed_config)
 
     def test_init_relay_rig_is_not_list(self):
         flawed_config = copy.deepcopy(self.config)
         flawed_config['boards'] = self.config['boards'][0]
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayRig(flawed_config)
 
     def test_init_relay_rig_duplicate_board_names(self):
         flawed_config = copy.deepcopy(self.config)
         flawed_config['boards'][1]['name'] = (self.config['boards'][0]['name'])
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayRigMock(flawed_config)
 
     def test_init_relay_rig_device_gets_relays(self):
@@ -561,43 +558,43 @@ class ActsRelayDeviceTest(unittest.TestCase):
     def test_init_raise_on_name_missing(self):
         flawed_config = copy.deepcopy(self.device_config)
         del flawed_config['name']
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_name_wrong_type(self):
         flawed_config = copy.deepcopy(self.device_config)
         flawed_config['name'] = {}
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_relays_missing(self):
         flawed_config = copy.deepcopy(self.device_config)
         del flawed_config['relays']
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_relays_wrong_type(self):
         flawed_config = copy.deepcopy(self.device_config)
         flawed_config['relays'] = str
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_relays_is_empty(self):
         flawed_config = copy.deepcopy(self.device_config)
         flawed_config['relays'] = []
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_relays_are_dicts_without_names(self):
         flawed_config = copy.deepcopy(self.device_config)
         flawed_config['relays'] = [{'id': 0}, {'id': 1}]
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_raise_on_relays_are_dicts_without_ids(self):
         flawed_config = copy.deepcopy(self.device_config)
         flawed_config['relays'] = [{'name': 'r0'}, {'name': 'r1'}]
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayDevice(flawed_config, self.rig)
 
     def test_init_pass_relays_have_ids_and_names(self):
@@ -627,7 +624,7 @@ class TestRelayRigParser(unittest.TestCase):
         Relay.button_press_time = .25
 
     def test_create_relay_board_raise_on_missing_type(self):
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayRigMock().create_relay_board(self.board_config)
 
     def test_create_relay_board_valid_config(self):
@@ -638,7 +635,7 @@ class TestRelayRigParser(unittest.TestCase):
     def test_create_relay_board_raise_on_type_not_found(self):
         flawed_config = copy.deepcopy(self.board_config)
         flawed_config['type'] = 'NonExistentBoard'
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             RelayRigMock().create_relay_board(flawed_config)
 
     def test_create_relay_device_create_generic_on_missing_type(self):
@@ -685,7 +682,7 @@ class TestRelayRigParser(unittest.TestCase):
                 'pos': 'MockBoard/1'
             }]
         }
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             rig.create_relay_device(config)
 
 
@@ -734,14 +731,14 @@ class TestFuguRemote(unittest.TestCase):
         flawed_config = copy.deepcopy(self.fugu_config)
         del flawed_config['relays']['Power']
         del flawed_config['relays'][fugu_remote.Buttons.BACK.value]
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             fugu_remote.FuguRemote(flawed_config, self.mock_rig)
 
     def test_config_missing_mac_address(self):
         """FuguRemote __init__ should throw an error without a mac address."""
         flawed_config = copy.deepcopy(self.fugu_config)
         del flawed_config['mac_address']
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             fugu_remote.FuguRemote(flawed_config, self.mock_rig)
 
     def test_config_no_issues(self):
@@ -803,7 +800,7 @@ class TestRelayDict(unittest.TestCase):
         mock_device = type('', (object, ), {'name': 'name'})()
         blank_dict = {'key': 'value'}
         relay_dict = RelayDict(mock_device, blank_dict)
-        with self.assertRaises(errors.RelayConfigError):
+        with self.assertRaises(RelayConfigError):
             value = relay_dict['not_key']
 
     def test_iter(self):

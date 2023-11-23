@@ -29,8 +29,9 @@ import android.animation.RectEvaluator;
 import android.graphics.Color;
 import android.graphics.PointF;
 import android.graphics.Rect;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

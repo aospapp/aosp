@@ -29,7 +29,7 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctstestrunner \
+    ctstestrunner-axt \
     xmp_toolkit
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 LOCAL_JNI_SHARED_LIBRARIES := libcoremathtestcpp_jni

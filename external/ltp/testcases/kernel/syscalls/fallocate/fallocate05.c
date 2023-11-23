@@ -30,6 +30,7 @@
 
 #define MNTPOINT "mntpoint"
 #define FALLOCATE_SIZE 8192
+#define TESTED_FLAGS "fallocate(FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE)"
 
 static int fd;
 
@@ -69,14 +70,14 @@ static void run(void)
 
 	tst_res(TPASS | TERRNO, "fallocate() on full FS");
 
-	ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE, 0, FALLOCATE_SIZE);
+	ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, FALLOCATE_SIZE);
 	if (ret == -1) {
 		if (errno == EOPNOTSUPP)
-			tst_brk(TCONF, "fallocate(FALLOC_FL_PUNCH_HOLE)");
+			tst_brk(TCONF, TESTED_FLAGS);
 
-		tst_brk(TBROK | TERRNO, "fallocate(FALLOC_FL_PUNCH_HOLE)");
+		tst_brk(TBROK | TERRNO, TESTED_FLAGS);
 	}
-	tst_res(TPASS, "fallocate(FALLOC_FL_PUNCH_HOLE)");
+	tst_res(TPASS, TESTED_FLAGS);
 
 	ret = write(fd, buf, 10);
 	if (ret == -1)

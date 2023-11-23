@@ -46,8 +46,9 @@ import javax.obex.ResponseCodes;
  * controlling state machine.
  */
 class PbapClientConnectionHandler extends Handler {
-    static final String TAG = "PBAP PCE handler";
-    static final boolean DBG = true;
+    static final String TAG = "PbapClientConnHandler";
+    static final boolean DBG = Utils.DBG;
+    static final boolean VDBG = Utils.VDBG;
     static final int MSG_CONNECT = 1;
     static final int MSG_DISCONNECT = 2;
     static final int MSG_DOWNLOAD = 3;
@@ -91,7 +92,6 @@ class PbapClientConnectionHandler extends Handler {
     private static final long PBAP_REQUESTED_FIELDS =
             PBAP_FILTER_VERSION | PBAP_FILTER_FN | PBAP_FILTER_N | PBAP_FILTER_PHOTO
                     | PBAP_FILTER_ADR | PBAP_FILTER_EMAIL | PBAP_FILTER_TEL | PBAP_FILTER_NICKNAME;
-    private static final int PBAP_V1_2 = 0x0102;
     private static final int L2CAP_INVALID_PSM = -1;
 
     public static final String PB_PATH = "telecom/pb.vcf";
@@ -99,6 +99,7 @@ class PbapClientConnectionHandler extends Handler {
     public static final String ICH_PATH = "telecom/ich.vcf";
     public static final String OCH_PATH = "telecom/och.vcf";
 
+    public static final int PBAP_V1_2 = 0x0102;
     public static final byte VCARD_TYPE_21 = 0;
     public static final byte VCARD_TYPE_30 = 1;
 
@@ -194,17 +195,17 @@ class PbapClientConnectionHandler extends Handler {
                     }
                 } else {
                     Log.w(TAG, "Socket CONNECT Failure ");
-                    mPbapClientStateMachine.obtainMessage(
-                            PbapClientStateMachine.MSG_CONNECTION_FAILED).sendToTarget();
+                    mPbapClientStateMachine.sendMessage(
+                            PbapClientStateMachine.MSG_CONNECTION_FAILED);
                     return;
                 }
 
                 if (connectObexSession()) {
-                    mPbapClientStateMachine.obtainMessage(
-                            PbapClientStateMachine.MSG_CONNECTION_COMPLETE).sendToTarget();
+                    mPbapClientStateMachine.sendMessage(
+                            PbapClientStateMachine.MSG_CONNECTION_COMPLETE);
                 } else {
-                    mPbapClientStateMachine.obtainMessage(
-                            PbapClientStateMachine.MSG_CONNECTION_FAILED).sendToTarget();
+                    mPbapClientStateMachine.sendMessage(
+                            PbapClientStateMachine.MSG_CONNECTION_FAILED);
                 }
                 break;
 
@@ -234,8 +235,7 @@ class PbapClientConnectionHandler extends Handler {
                 removeAccount(mAccount);
                 removeCallLog(mAccount);
 
-                mPbapClientStateMachine.obtainMessage(PbapClientStateMachine.MSG_CONNECTION_CLOSED)
-                    .sendToTarget();
+                mPbapClientStateMachine.sendMessage(PbapClientStateMachine.MSG_CONNECTION_CLOSED);
                 break;
 
             case MSG_DOWNLOAD:
@@ -272,19 +272,19 @@ class PbapClientConnectionHandler extends Handler {
 
     /* Utilize SDP, if available, to create a socket connection over L2CAP, RFCOMM specified
      * channel, or RFCOMM default channel. */
-    private boolean connectSocket() {
+    private synchronized boolean connectSocket() {
         try {
             /* Use BluetoothSocket to connect */
             if (mPseRec == null) {
                 // BackWardCompatability: Fall back to create RFCOMM through UUID.
-                Log.v(TAG, "connectSocket: UUID: " + BluetoothUuid.PBAP_PSE.getUuid());
+                if (VDBG) Log.v(TAG, "connectSocket: UUID: " + BluetoothUuid.PBAP_PSE.getUuid());
                 mSocket =
                         mDevice.createRfcommSocketToServiceRecord(BluetoothUuid.PBAP_PSE.getUuid());
             } else if (mPseRec.getL2capPsm() != L2CAP_INVALID_PSM) {
-                Log.v(TAG, "connectSocket: PSM: " + mPseRec.getL2capPsm());
+                if (VDBG) Log.v(TAG, "connectSocket: PSM: " + mPseRec.getL2capPsm());
                 mSocket = mDevice.createL2capSocket(mPseRec.getL2capPsm());
             } else {
-                Log.v(TAG, "connectSocket: channel: " + mPseRec.getRfcommChannelNumber());
+                if (VDBG) Log.v(TAG, "connectSocket: channel: " + mPseRec.getRfcommChannelNumber());
                 mSocket = mDevice.createRfcommSocket(mPseRec.getRfcommChannelNumber());
             }
 
@@ -306,7 +306,7 @@ class PbapClientConnectionHandler extends Handler {
         boolean connectionSuccessful = false;
 
         try {
-            if (DBG) {
+            if (VDBG) {
                 Log.v(TAG, "Start Obex Client Session");
             }
             BluetoothObexTransport transport = new BluetoothObexTransport(mSocket);
@@ -351,7 +351,7 @@ class PbapClientConnectionHandler extends Handler {
         this.getLooper().getThread().interrupt();
     }
 
-    private void closeSocket() {
+    private synchronized void closeSocket() {
         try {
             if (mSocket != null) {
                 if (DBG) {
@@ -410,8 +410,8 @@ class PbapClientConnectionHandler extends Handler {
                 }
                 return;
             }
-            String where = Calls.PHONE_ACCOUNT_ID + "=" + account.hashCode();
-            mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI, where, null);
+            mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI,
+                    Calls.PHONE_ACCOUNT_ID + "=?", new String[]{mAccount.name});
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Call Logs could not be deleted, they may not exist yet.");
         }

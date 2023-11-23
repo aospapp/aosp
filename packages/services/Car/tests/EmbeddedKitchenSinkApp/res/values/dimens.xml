@@ -17,6 +17,8 @@
     <dimen name="hvacBtnHeight">60dp</dimen>
     <dimen name="hvacBtnMargin">10dp</dimen>
     <dimen name="hvacTextSize">24sp</dimen>
+    <dimen name="inputTypeMarginLeft">50dp</dimen>
+    <dimen name="inputTypeTextSize">24sp</dimen>
     <dimen name="powerBtnHeight">80dp</dimen>
     <dimen name="powerBtnWidth">300dp</dimen>
     <dimen name="powerTextSize">24sp</dimen>
@@ -61,4 +63,10 @@
     <dimen name="car_keyline_2">108dp</dimen>
     <dimen name="car_keyline_3">152dp</dimen>
     <dimen name="car_keyline_4">182dp</dimen>
+
+    <!-- Users -->
+    <dimen name="users_button_padding">10dp</dimen>
+    <dimen name="users_button_text_size">24sp</dimen>
+    <dimen name="users_checkbox_padding">5dp</dimen>
+    <dimen name="users_checkbox_text_size">32sp</dimen>
 </resources>

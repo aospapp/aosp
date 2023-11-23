@@ -44,7 +44,7 @@ var (
 )
 
 type BpfProperties struct {
-	Srcs         []string
+	Srcs         []string `android:"path"`
 	Cflags       []string
 	Include_dirs []string
 }
@@ -66,6 +66,7 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		// The architecture doesn't matter here, but asm/types.h is included by linux/types.h.
 		"-isystem bionic/libc/kernel/uapi/asm-arm64",
 		"-isystem bionic/libc/kernel/android/uapi",
+		"-I       system/bpf/progs/include",
 		"-I " + ctx.ModuleDir(),
 	}
 
@@ -75,7 +76,7 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 
 	cflags = append(cflags, bpf.properties.Cflags...)
 
-	srcs := ctx.ExpandSources(bpf.properties.Srcs, nil)
+	srcs := android.PathsForModuleSrc(ctx, bpf.properties.Srcs)
 
 	for _, src := range srcs {
 		obj := android.ObjPathWithExt(ctx, "", src, "o")
@@ -90,12 +91,8 @@ func (bpf *bpf) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 			},
 		})
 
-		bpf.objs = append(bpf.objs, obj)
+		bpf.objs = append(bpf.objs, obj.WithoutRel())
 	}
-}
-
-func (bpf *bpf) DepsMutator(ctx android.BottomUpMutatorContext) {
-	android.ExtractSourcesDeps(ctx, bpf.properties.Srcs)
 }
 
 func (bpf *bpf) AndroidMk() android.AndroidMkData {
@@ -124,6 +121,14 @@ func (bpf *bpf) AndroidMk() android.AndroidMkData {
 		},
 	}
 }
+
+// Implements SourceFileProducer interface so that the obj output can be used in the data property
+// of other modules.
+func (bpf *bpf) Srcs() android.Paths {
+	return bpf.objs
+}
+
+var _ android.SourceFileProducer = (*bpf)(nil)
 
 func bpfFactory() android.Module {
 	module := &bpf{}

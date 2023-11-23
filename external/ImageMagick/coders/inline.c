@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -123,7 +123,7 @@ static Image *ReadINLINEImage(const ImageInfo *image_info,
       image_info->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  if (LocaleCompare(image_info->magick,"DATA") == 0)
+  if (LocaleNCompare(image_info->filename,"data:",5) == 0)
     {
       char
         *filename;
@@ -209,7 +209,7 @@ ModuleExport size_t RegisterINLINEImage(void)
   MagickInfo
     *entry;
 
-  entry=AcquireMagickInfo("DATA","INLINE","Base64-encoded inline images");
+  entry=AcquireMagickInfo("INLINE","DATA","Base64-encoded inline images");
   entry->decoder=(DecodeImageHandler *) ReadINLINEImage;
   entry->encoder=(EncodeImageHandler *) WriteINLINEImage;
   entry->format_type=ImplicitFormatType;
@@ -316,7 +316,10 @@ static MagickBooleanType WriteINLINEImage(const ImageInfo *image_info,
   magick_info=GetMagickInfo(write_info->magick,exception);
   if ((magick_info == (const MagickInfo *) NULL) ||
       (GetMagickMimeType(magick_info) == (const char *) NULL))
-    ThrowWriterException(CorruptImageError,"ImageTypeNotSupported");
+    {
+      write_info=DestroyImageInfo(write_info);
+      ThrowWriterException(CorruptImageError,"ImageTypeNotSupported");
+    }
   (void) CopyMagickString(image->filename,write_info->filename,
     MagickPathExtent);
   blob_length=2048;

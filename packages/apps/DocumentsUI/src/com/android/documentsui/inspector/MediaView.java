@@ -24,7 +24,7 @@ import android.media.MediaMetadata;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
 import android.util.AttributeSet;
 
@@ -65,7 +65,7 @@ public class MediaView extends TableView implements MediaDisplay {
 
     @Override
     public void accept(DocumentInfo doc, Bundle metadata, @Nullable Runnable geoClickListener) {
-        setTitle(R.string.inspector_metadata_section, true);
+        putTitle("", true);
 
         Bundle exif = metadata.getBundle(DocumentsContract.METADATA_EXIF);
         if (exif != null) {

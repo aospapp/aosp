@@ -17,26 +17,19 @@
 #ifndef _NETD_CONSTANTS_H
 #define _NETD_CONSTANTS_H
 
-#include <string>
-#include <list>
 #include <ifaddrs.h>
 #include <netdb.h>
-#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <chrono>
+#include <mutex>
+#include <string>
 
+#include <netdutils/UidConstants.h>
 #include <private/android_filesystem_config.h>
 
-#include "utils/RWLock.h"
-
-const int PROTECT_MARK = 0x1;
-const int MAX_SYSTEM_UID = AID_APP - 1;
-
-extern const size_t SHA256_SIZE;
-
-extern const char * const OEM_SCRIPT_PATH;
-extern const char * const ADD;
-extern const char * const DEL;
+// Referred from SHA256_DIGEST_LENGTH in boringssl
+constexpr size_t SHA256_SIZE = 32;
 
 enum IptablesTarget { V4, V6, V4V6 };
 
@@ -50,6 +43,7 @@ int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, ui
 void blockSigpipe();
 void setCloseOnExec(const char *sock);
 
+// TODO: use std::size() instead.
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 
 #define __INT_STRLEN(i) sizeof(#i)
@@ -63,6 +57,8 @@ void setCloseOnExec(const char *sock);
 
 const uid_t INVALID_UID = static_cast<uid_t>(-1);
 
+constexpr char TCP_RMEM_PROC_FILE[] = "/proc/sys/net/ipv4/tcp_rmem";
+constexpr char TCP_WMEM_PROC_FILE[] = "/proc/sys/net/ipv4/tcp_wmem";
 
 struct AddrinfoDeleter {
     void operator()(struct addrinfo* p) const {
@@ -94,7 +90,7 @@ namespace net {
  * CommandListener has only one user (NetworkManagementService), which is connected through a
  * FrameworkListener that passes in commands one at a time.
  */
-extern android::RWLock gBigNetdLock;
+extern std::mutex gBigNetdLock;
 
 }  // namespace net
 }  // namespace android

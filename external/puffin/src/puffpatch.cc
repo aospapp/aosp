@@ -19,14 +19,15 @@
 #include "puffin/src/include/puffin/huffer.h"
 #include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/include/puffin/stream.h"
+#include "puffin/src/logging.h"
 #include "puffin/src/puffin.pb.h"
 #include "puffin/src/puffin_stream.h"
-#include "puffin/src/set_errors.h"
-
-namespace puffin {
 
 using std::string;
+using std::unique_ptr;
 using std::vector;
+
+namespace puffin {
 
 const char kMagic[] = "PUF1";
 const size_t kMagicLength = 4;
@@ -43,6 +44,55 @@ void CopyRpfToVector(
     to->emplace_back(ext.offset() / coef, ext.length() / coef);
   }
 }
+
+class BsdiffStream : public bsdiff::FileInterface {
+ public:
+  ~BsdiffStream() override = default;
+
+  static unique_ptr<bsdiff::FileInterface> Create(UniqueStreamPtr stream) {
+    TEST_AND_RETURN_VALUE(stream, nullptr);
+    return unique_ptr<bsdiff::FileInterface>(
+        new BsdiffStream(std::move(stream)));
+  }
+
+  bool Read(void* buf, size_t count, size_t* bytes_read) override {
+    *bytes_read = 0;
+    if (stream_->Read(buf, count)) {
+      *bytes_read = count;
+      return true;
+    }
+    return false;
+  }
+
+  bool Write(const void* buf, size_t count, size_t* bytes_written) override {
+    *bytes_written = 0;
+    if (stream_->Write(buf, count)) {
+      *bytes_written = count;
+      return true;
+    }
+    return false;
+  }
+
+  bool Seek(off_t pos) override { return stream_->Seek(pos); }
+
+  bool Close() override { return stream_->Close(); }
+
+  bool GetSize(uint64_t* size) override {
+    uint64_t my_size;
+    TEST_AND_RETURN_FALSE(stream_->GetSize(&my_size));
+    *size = my_size;
+    return true;
+  }
+
+ private:
+  explicit BsdiffStream(UniqueStreamPtr stream) : stream_(std::move(stream)) {}
+
+  UniqueStreamPtr stream_;
+
+  DISALLOW_COPY_AND_ASSIGN(BsdiffStream);
+};
+
+}  // namespace
 
 bool DecodePatch(const uint8_t* patch,
                  size_t patch_length,
@@ -88,48 +138,6 @@ bool DecodePatch(const uint8_t* patch,
   return true;
 }
 
-class BsdiffStream : public bsdiff::FileInterface {
- public:
-  explicit BsdiffStream(UniqueStreamPtr stream) : stream_(std::move(stream)) {}
-  ~BsdiffStream() override = default;
-
-  bool Read(void* buf, size_t count, size_t* bytes_read) override {
-    *bytes_read = 0;
-    if (stream_->Read(buf, count)) {
-      *bytes_read = count;
-      return true;
-    }
-    return false;
-  }
-
-  bool Write(const void* buf, size_t count, size_t* bytes_written) override {
-    *bytes_written = 0;
-    if (stream_->Write(buf, count)) {
-      *bytes_written = count;
-      return true;
-    }
-    return false;
-  }
-
-  bool Seek(off_t pos) override { return stream_->Seek(pos); }
-
-  bool Close() override { return stream_->Close(); }
-
-  bool GetSize(uint64_t* size) override {
-    uint64_t my_size;
-    TEST_AND_RETURN_FALSE(stream_->GetSize(&my_size));
-    *size = my_size;
-    return true;
-  }
-
- private:
-  UniqueStreamPtr stream_;
-
-  DISALLOW_COPY_AND_ASSIGN(BsdiffStream);
-};
-
-}  // namespace
-
 bool PuffPatch(UniqueStreamPtr src,
                UniqueStreamPtr dst,
                const uint8_t* patch,
@@ -150,19 +158,20 @@ bool PuffPatch(UniqueStreamPtr src,
   auto huffer = std::make_shared<Huffer>();
 
   // For reading from source.
-  std::unique_ptr<bsdiff::FileInterface> reader(new BsdiffStream(
+  auto reader = BsdiffStream::Create(
       PuffinStream::CreateForPuff(std::move(src), puffer, src_puff_size,
-                                  src_deflates, src_puffs, max_cache_size)));
+                                  src_deflates, src_puffs, max_cache_size));
+  TEST_AND_RETURN_FALSE(reader);
 
   // For writing into destination.
-  std::unique_ptr<bsdiff::FileInterface> writer(
-      new BsdiffStream(PuffinStream::CreateForHuff(
-          std::move(dst), huffer, dst_puff_size, dst_deflates, dst_puffs)));
+  auto writer = BsdiffStream::Create(PuffinStream::CreateForHuff(
+      std::move(dst), huffer, dst_puff_size, dst_deflates, dst_puffs));
+  TEST_AND_RETURN_FALSE(writer);
 
   // Running bspatch itself.
-  TEST_AND_RETURN_FALSE(
-      0 ==
-      bspatch(reader, writer, &patch[bsdiff_patch_offset], bsdiff_patch_size));
+  TEST_AND_RETURN_FALSE(0 == bspatch(reader, writer,
+                                     &patch[bsdiff_patch_offset],
+                                     bsdiff_patch_size));
   return true;
 }
 

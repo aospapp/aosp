@@ -14,25 +14,29 @@
 # limitations under the License.
 #
 
-PRODUCT_PROPERTY_OVERRIDES += \
-	vendor.rild.libpath=/vendor/lib/libreference-ril.so
+PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
-# This is a build configuration for a full-featured build of the
-# Open-Source part of the tree. It's geared toward a US-centric
-# build quite specifically for the emulator, and might not be
-# entirely appropriate to inherit from for on-device configurations.
-PRODUCT_COPY_FILES += \
-    development/sys-img/advancedFeatures.ini:advancedFeatures.ini \
-    device/generic/goldfish/data/etc/encryptionkey.img:encryptionkey.img \
-    prebuilts/qemu-kernel/x86_64/4.9/kernel-qemu2:kernel-ranchu-64
+# The system image of aosp_x86-userdebug is a GSI for the devices with:
+# - x86 32 bits user space
+# - 64 bits binder interface
+# - system-as-root
+# - VNDK enforcement
+# - compatible property override enabled
 
-# TODO(b/78308559): includes vr_hwc into GSI before vr_hwc move to vendor
-PRODUCT_PACKAGES += \
-    vr_hwc
+# GSI for system/product
+$(call inherit-product, $(SRC_TARGET_DIR)/product/gsi_common.mk)
 
-include $(SRC_TARGET_DIR)/product/full_x86.mk
+# Emulator for vendor
+$(call inherit-product-if-exists, device/generic/goldfish/x86-vendor.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/emulator_vendor.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/board/generic_x86/device.mk)
 
-# Needed by Pi newly launched device to pass VtsTrebleSysProp on GSI
-PRODUCT_COMPATIBLE_PROPERTY_OVERRIDE := true
+# Enable mainline checking for excat this product name
+ifeq (aosp_x86,$(TARGET_PRODUCT))
+PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := relaxed
+endif
 
 PRODUCT_NAME := aosp_x86
+PRODUCT_DEVICE := generic_x86
+PRODUCT_BRAND := Android
+PRODUCT_MODEL := AOSP on x86

@@ -1,0 +1,19 @@
+allow hal_graphics_composer_default init:unix_stream_socket { connectto };
+allow hal_graphics_composer_default property_socket:sock_file { write };
+
+allow hal_graphics_composer_default hi_vfmw_device:chr_file { read write open ioctl getattr};
+allow hal_graphics_composer_default hi_mem_device:chr_file { open read write};
+allow hal_graphics_composer_default graphics_device:chr_file { read write};
+
+allow hal_graphics_composer_default hi_gfx2d_device:chr_file { read write open ioctl };
+allow hal_graphics_composer_default hi_vo_device:chr_file { read write open ioctl };
+allow hal_graphics_composer_default mmz_userdev_device:chr_file { read write open ioctl };
+allow hal_graphics_composer_default hi_vdec_device:chr_file { read write open ioctl };
+allow hal_graphics_composer_default hi_pq_device:chr_file { read write open ioctl};
+allow hal_graphics_composer_default hi_disp_device:chr_file { read write open ioctl};
+allow hal_graphics_composer_default hi_sys_device:chr_file { read write open ioctl};
+allow hal_graphics_composer_default system_prop:property_service { set };
+allow hal_graphics_composer_default config_prop:property_service { set };
+allow hal_graphics_composer_default vndbinder_device:chr_file { read write open ioctl };
+#allow hal_graphics_composer_default hal_graphics_allocator_hwservice:hwservice_manager { find };
+allow hal_graphics_composer_default hal_graphics_allocator_default:binder { call };

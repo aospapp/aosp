@@ -51,14 +51,4 @@ inline const char *permissionToName(Permission permission) {
     }
 }
 
-inline Permission stringToPermission(const char* arg) {
-    if (!strcmp(arg, "NETWORK")) {
-        return PERMISSION_NETWORK;
-    }
-    if (!strcmp(arg, "SYSTEM")) {
-        return PERMISSION_SYSTEM;
-    }
-    return PERMISSION_NONE;
-}
-
 #endif  // NETD_INCLUDE_PERMISSION_H

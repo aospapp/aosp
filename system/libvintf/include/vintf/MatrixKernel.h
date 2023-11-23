@@ -58,6 +58,7 @@ struct MatrixKernel {
    private:
     friend struct MatrixKernelConverter;
     friend struct MatrixKernelConditionsConverter;
+    friend struct CompatibilityMatrix;
     friend class AssembleVintfImpl;
 
     KernelVersion mMinLts;

@@ -1,4 +1,4 @@
-#include <string.h>
+#include <strings.h>
 #include "blktrace.h"
 
 #define DECLARE_MASK_MAP(mask)          { BLK_TC_##mask, #mask, "BLK_TC_"#mask }
@@ -15,7 +15,7 @@ struct mask_map {
 static struct mask_map mask_maps[] = {
 	DECLARE_MASK_MAP(READ),
 	DECLARE_MASK_MAP(WRITE),
-	DECLARE_MASK_MAP(BARRIER),
+	DECLARE_MASK_MAP(FLUSH),
 	DECLARE_MASK_MAP(SYNC),
 	DECLARE_MASK_MAP(QUEUE),
 	DECLARE_MASK_MAP(REQUEUE),
@@ -28,6 +28,7 @@ static struct mask_map mask_maps[] = {
 	DECLARE_MASK_MAP(META),
 	DECLARE_MASK_MAP(DISCARD),
 	DECLARE_MASK_MAP(DRV_DATA),
+	DECLARE_MASK_MAP(FUA),
 };
 
 int find_mask_map(char *string)

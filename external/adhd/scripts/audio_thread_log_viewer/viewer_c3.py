@@ -18,7 +18,7 @@ page_content = string.Template("""
   <!-- Load c3.css -->
   <link href="https://rawgit.com/masayuki0812/c3/master/c3.css" rel="stylesheet" type="text/css">
   <!-- Load d3.js and c3.js -->
-  <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
   <script src="https://rawgit.com/masayuki0812/c3/master/c3.js" charset="utf-8"></script>
   <style type="text/css">
     .c3-grid text {

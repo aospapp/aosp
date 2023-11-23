@@ -89,6 +89,10 @@ struct private_module_t HAL_MODULE_INFO_SYM = {
         .unregisterBuffer = gralloc_unregister_buffer,
         .lock = gralloc_lock,
         .unlock = gralloc_unlock,
+#if PLATFORM_SDK_VERSION >= 28
+        .validateBufferSize = NULL,
+        .getTransportSize = NULL,
+#endif
     },
     .framebuffer = 0,
     .flags = 0,

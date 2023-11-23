@@ -26,9 +26,11 @@
 #include "base/arena_object.h"
 #include "base/array_ref.h"
 #include "base/iteration_range.h"
+#include "base/mutex.h"
 #include "base/quasi_atomic.h"
 #include "base/stl_util.h"
 #include "base/transform_array_ref.h"
+#include "art_method.h"
 #include "data_type.h"
 #include "deoptimization_kind.h"
 #include "dex/dex_file.h"
@@ -41,6 +43,7 @@
 #include "intrinsics_enum.h"
 #include "locations.h"
 #include "mirror/class.h"
+#include "mirror/method_type.h"
 #include "offsets.h"
 #include "utils/intrusive_forward_list.h"
 
@@ -127,6 +130,7 @@ enum GraphAnalysisResult {
   kAnalysisInvalidBytecode,
   kAnalysisFailThrowCatchLoop,
   kAnalysisFailAmbiguousArrayOp,
+  kAnalysisFailIrreducibleLoopAndStringInit,
   kAnalysisSuccess,
 };
 
@@ -313,6 +317,7 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
          uint32_t method_idx,
          InstructionSet instruction_set,
          InvokeType invoke_type = kInvalidInvokeType,
+         bool dead_reference_safe = false,
          bool debuggable = false,
          bool osr = false,
          int start_instruction_id = 0)
@@ -332,6 +337,7 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
         has_simd_(false),
         has_loops_(false),
         has_irreducible_loops_(false),
+        dead_reference_safe_(dead_reference_safe),
         debuggable_(debuggable),
         current_instruction_id_(start_instruction_id),
         dex_file_(dex_file),
@@ -522,6 +528,12 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
     has_bounds_checks_ = value;
   }
 
+  // Is the code known to be robust against eliminating dead references
+  // and the effects of early finalization?
+  bool IsDeadReferenceSafe() const { return dead_reference_safe_; }
+
+  void MarkDeadReferenceUnsafe() { dead_reference_safe_ = false; }
+
   bool IsDebuggable() const { return debuggable_; }
 
   // Returns a constant of the given type and value. If it does not exist
@@ -699,6 +711,14 @@ class HGraph : public ArenaObject<kArenaAllocGraph> {
   // best effort to keep it up to date in the presence of code elimination
   // so there might be false positives.
   bool has_irreducible_loops_;
+
+  // Is the code known to be robust against eliminating dead references
+  // and the effects of early finalization? If false, dead reference variables
+  // are kept if they might be visible to the garbage collector.
+  // Currently this means that the class was declared to be dead-reference-safe,
+  // the method accesses no reachability-sensitive fields or data, and the same
+  // is true for any methods that were inlined into the current one.
+  bool dead_reference_safe_;
 
   // Indicates whether the graph should be compiled in a way that
   // ensures full debuggability. If false, we can apply more
@@ -891,7 +911,7 @@ class TryCatchInformation : public ArenaObject<kArenaAllocTryCatchInfo> {
   explicit TryCatchInformation(const HTryBoundary& try_entry)
       : try_entry_(&try_entry),
         catch_dex_file_(nullptr),
-        catch_type_index_(DexFile::kDexNoIndex16) {
+        catch_type_index_(dex::TypeIndex::Invalid()) {
     DCHECK(try_entry_ != nullptr);
   }
 
@@ -910,9 +930,9 @@ class TryCatchInformation : public ArenaObject<kArenaAllocTryCatchInfo> {
 
   bool IsCatchBlock() const { return catch_dex_file_ != nullptr; }
 
-  bool IsCatchAllTypeIndex() const {
+  bool IsValidTypeIndex() const {
     DCHECK(IsCatchBlock());
-    return !catch_type_index_.IsValid();
+    return catch_type_index_.IsValid();
   }
 
   dex::TypeIndex GetCatchTypeIndex() const {
@@ -925,6 +945,10 @@ class TryCatchInformation : public ArenaObject<kArenaAllocTryCatchInfo> {
     return *catch_dex_file_;
   }
 
+  void SetInvalidTypeIndex() {
+    catch_type_index_ = dex::TypeIndex::Invalid();
+  }
+
  private:
   // One of possibly several TryBoundary instructions entering the block's try.
   // Only set for try blocks.
@@ -932,7 +956,7 @@ class TryCatchInformation : public ArenaObject<kArenaAllocTryCatchInfo> {
 
   // Exception type information. Only set for catch blocks.
   const DexFile* catch_dex_file_;
-  const dex::TypeIndex catch_type_index_;
+  dex::TypeIndex catch_type_index_;
 };
 
 static constexpr size_t kNoLifetime = -1;
@@ -1284,6 +1308,7 @@ class HBasicBlock : public ArenaObject<kArenaAllocBasicBlock> {
   void SetLifetimeEnd(size_t end) { lifetime_end_ = end; }
 
   bool EndsWithControlFlowInstruction() const;
+  bool EndsWithReturn() const;
   bool EndsWithIf() const;
   bool EndsWithTryBoundary() const;
   bool HasSinglePhi() const;
@@ -1338,6 +1363,7 @@ class HLoopInformationOutwardIterator : public ValueObject {
 #define FOR_EACH_CONCRETE_INSTRUCTION_COMMON(M)                         \
   M(Above, Condition)                                                   \
   M(AboveOrEqual, Condition)                                            \
+  M(Abs, UnaryOperation)                                                \
   M(Add, BinaryOperation)                                               \
   M(And, BinaryOperation)                                               \
   M(ArrayGet, Instruction)                                              \
@@ -1377,13 +1403,18 @@ class HLoopInformationOutwardIterator : public ValueObject {
   M(InvokeStaticOrDirect, Invoke)                                       \
   M(InvokeVirtual, Invoke)                                              \
   M(InvokePolymorphic, Invoke)                                          \
+  M(InvokeCustom, Invoke)                                               \
   M(LessThan, Condition)                                                \
   M(LessThanOrEqual, Condition)                                         \
   M(LoadClass, Instruction)                                             \
   M(LoadException, Instruction)                                         \
+  M(LoadMethodHandle, Instruction)                                      \
+  M(LoadMethodType, Instruction)                                        \
   M(LoadString, Instruction)                                            \
   M(LongConstant, Constant)                                             \
+  M(Max, Instruction)                                                   \
   M(MemoryBarrier, Instruction)                                         \
+  M(Min, BinaryOperation)                                               \
   M(MonitorOperation, Instruction)                                      \
   M(Mul, BinaryOperation)                                               \
   M(NativeDebugInfo, Instruction)                                       \
@@ -1437,12 +1468,15 @@ class HLoopInformationOutwardIterator : public ValueObject {
   M(VecAndNot, VecBinaryOperation)                                      \
   M(VecOr, VecBinaryOperation)                                          \
   M(VecXor, VecBinaryOperation)                                         \
+  M(VecSaturationAdd, VecBinaryOperation)                               \
+  M(VecSaturationSub, VecBinaryOperation)                               \
   M(VecShl, VecBinaryOperation)                                         \
   M(VecShr, VecBinaryOperation)                                         \
   M(VecUShr, VecBinaryOperation)                                        \
   M(VecSetScalars, VecOperation)                                        \
   M(VecMultiplyAccumulate, VecOperation)                                \
   M(VecSADAccumulate, VecOperation)                                     \
+  M(VecDotProd, VecOperation)                                           \
   M(VecLoad, VecMemoryOperation)                                        \
   M(VecStore, VecMemoryOperation)                                       \
 
@@ -1484,6 +1518,14 @@ class HLoopInformationOutwardIterator : public ValueObject {
   M(X86PackedSwitch, Instruction)
 #endif
 
+#if defined(ART_ENABLE_CODEGEN_x86) || defined(ART_ENABLE_CODEGEN_x86_64)
+#define FOR_EACH_CONCRETE_INSTRUCTION_X86_COMMON(M)                     \
+  M(X86AndNot, Instruction)                                                \
+  M(X86MaskOrResetLeastSetBit, Instruction)
+#else
+#define FOR_EACH_CONCRETE_INSTRUCTION_X86_COMMON(M)
+#endif
+
 #define FOR_EACH_CONCRETE_INSTRUCTION_X86_64(M)
 
 #define FOR_EACH_CONCRETE_INSTRUCTION(M)                                \
@@ -1494,7 +1536,8 @@ class HLoopInformationOutwardIterator : public ValueObject {
   FOR_EACH_CONCRETE_INSTRUCTION_MIPS(M)                                 \
   FOR_EACH_CONCRETE_INSTRUCTION_MIPS64(M)                               \
   FOR_EACH_CONCRETE_INSTRUCTION_X86(M)                                  \
-  FOR_EACH_CONCRETE_INSTRUCTION_X86_64(M)
+  FOR_EACH_CONCRETE_INSTRUCTION_X86_64(M)                               \
+  FOR_EACH_CONCRETE_INSTRUCTION_X86_COMMON(M)
 
 #define FOR_EACH_ABSTRACT_INSTRUCTION(M)                                \
   M(Condition, BinaryOperation)                                         \
@@ -1519,23 +1562,17 @@ FOR_EACH_INSTRUCTION(FORWARD_DECLARATION)
   private:                                                                \
   H##type& operator=(const H##type&) = delete;                            \
   public:                                                                 \
-  const char* DebugName() const OVERRIDE { return #type; }                \
-  bool InstructionTypeEquals(const HInstruction* other) const OVERRIDE {  \
-    return other->Is##type();                                             \
-  }                                                                       \
-  HInstruction* Clone(ArenaAllocator* arena) const OVERRIDE {             \
+  const char* DebugName() const override { return #type; }                \
+  HInstruction* Clone(ArenaAllocator* arena) const override {             \
     DCHECK(IsClonable());                                                 \
     return new (arena) H##type(*this->As##type());                        \
   }                                                                       \
-  void Accept(HGraphVisitor* visitor) OVERRIDE
+  void Accept(HGraphVisitor* visitor) override
 
 #define DECLARE_ABSTRACT_INSTRUCTION(type)                              \
   private:                                                              \
   H##type& operator=(const H##type&) = delete;                          \
-  public:                                                               \
-  bool Is##type() const { return As##type() != nullptr; }               \
-  const H##type* As##type() const { return this; }                      \
-  H##type* As##type() { return this; }
+  public:
 
 #define DEFAULT_COPY_CONSTRUCTOR(type)                                  \
   explicit H##type(const H##type& other) = default;
@@ -1622,6 +1659,21 @@ using HConstInputsRef = TransformArrayRef<const HUserRecord<HInstruction*>, HInp
  * the same, and any reference read depends on any reference read without
  * further regard of its type).
  *
+ * kDependsOnGCBit is defined in the following way: instructions with kDependsOnGCBit must not be
+ * alive across the point where garbage collection might happen.
+ *
+ * Note: Instructions with kCanTriggerGCBit do not depend on each other.
+ *
+ * kCanTriggerGCBit must be used for instructions for which GC might happen on the path across
+ * those instructions from the compiler perspective (between this instruction and the next one
+ * in the IR).
+ *
+ * Note: Instructions which can cause GC only on a fatal slow path do not need
+ *       kCanTriggerGCBit as the execution never returns to the instruction next to the exceptional
+ *       one. However the execution may return to compiled code if there is a catch block in the
+ *       current method; for this purpose the TryBoundary exit instruction has kCanTriggerGCBit
+ *       set.
+ *
  * The internal representation uses 38-bit and is described in the table below.
  * The first line indicates the side effect, and for field/array accesses the
  * second line indicates the type of the access (in the order of the
@@ -1694,10 +1746,17 @@ class SideEffects : public ValueObject {
     return SideEffects(TypeFlag(type, kArrayReadOffset));
   }
 
+  // Returns whether GC might happen across this instruction from the compiler perspective so
+  // the next instruction in the IR would see that.
+  //
+  // See the SideEffect class comments.
   static SideEffects CanTriggerGC() {
     return SideEffects(1ULL << kCanTriggerGCBit);
   }
 
+  // Returns whether the instruction must not be alive across a GC point.
+  //
+  // See the SideEffect class comments.
   static SideEffects DependsOnGC() {
     return SideEffects(1ULL << kDependsOnGCBit);
   }
@@ -1906,6 +1965,11 @@ class HEnvironment : public ArenaObject<kArenaAllocEnvironment> {
 
   void RemoveAsUserOfInput(size_t index) const;
 
+  // Replaces the input at the position 'index' with the replacement; the replacement and old
+  // input instructions' env_uses_ lists are adjusted. The function works similar to
+  // HInstruction::ReplaceInput.
+  void ReplaceInput(HInstruction* replacement, size_t index);
+
   size_t Size() const { return vregs_.size(); }
 
   HEnvironment* GetParent() const { return parent_; }
@@ -1954,12 +2018,15 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
  public:
 #define DECLARE_KIND(type, super) k##type,
   enum InstructionKind {
-    FOR_EACH_INSTRUCTION(DECLARE_KIND)
+    FOR_EACH_CONCRETE_INSTRUCTION(DECLARE_KIND)
     kLastInstructionKind
   };
 #undef DECLARE_KIND
 
   HInstruction(InstructionKind kind, SideEffects side_effects, uint32_t dex_pc)
+      : HInstruction(kind, DataType::Type::kVoid, side_effects, dex_pc) {}
+
+  HInstruction(InstructionKind kind, DataType::Type type, SideEffects side_effects, uint32_t dex_pc)
       : previous_(nullptr),
         next_(nullptr),
         block_(nullptr),
@@ -1974,6 +2041,7 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
         side_effects_(side_effects),
         reference_type_handle_(ReferenceTypeInfo::CreateInvalid().GetTypeHandle()) {
     SetPackedField<InstructionKindField>(kind);
+    SetPackedField<TypeField>(type);
     SetPackedFlag<kFlagReferenceTypeIsExact>(ReferenceTypeInfo::CreateInvalid().IsExact());
   }
 
@@ -2031,7 +2099,9 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   virtual void Accept(HGraphVisitor* visitor) = 0;
   virtual const char* DebugName() const = 0;
 
-  virtual DataType::Type GetType() const { return DataType::Type::kVoid; }
+  DataType::Type GetType() const {
+    return TypeField::Decode(GetPackedFields());
+  }
 
   virtual bool NeedsEnvironment() const { return false; }
 
@@ -2062,6 +2132,19 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
 
   virtual bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const {
     return false;
+  }
+
+  // If this instruction will do an implicit null check, return the `HNullCheck` associated
+  // with it. Otherwise return null.
+  HNullCheck* GetImplicitNullCheck() const {
+    // Find the first previous instruction which is not a move.
+    HInstruction* first_prev_not_move = GetPreviousDisregardingMoves();
+    if (first_prev_not_move != nullptr &&
+        first_prev_not_move->IsNullCheck() &&
+        first_prev_not_move->IsEmittedAtUseSite()) {
+      return first_prev_not_move->AsNullCheck();
+    }
+    return nullptr;
   }
 
   virtual bool IsActualObject() const {
@@ -2202,6 +2285,7 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
 
   void ReplaceWith(HInstruction* instruction);
   void ReplaceUsesDominatedBy(HInstruction* dominator, HInstruction* replacement);
+  void ReplaceEnvUsesDominatedBy(HInstruction* dominator, HInstruction* replacement);
   void ReplaceInput(HInstruction* replacement, size_t index);
 
   // This is almost the same as doing `ReplaceWith()`. But in this helper, the
@@ -2223,19 +2307,17 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   void MoveBeforeFirstUserAndOutOfLoops();
 
 #define INSTRUCTION_TYPE_CHECK(type, super)                                    \
-  bool Is##type() const;                                                       \
+  bool Is##type() const;
+
+  FOR_EACH_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
+#undef INSTRUCTION_TYPE_CHECK
+
+#define INSTRUCTION_TYPE_CAST(type, super)                                     \
   const H##type* As##type() const;                                             \
   H##type* As##type();
 
-  FOR_EACH_CONCRETE_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
-#undef INSTRUCTION_TYPE_CHECK
-
-#define INSTRUCTION_TYPE_CHECK(type, super)                                    \
-  bool Is##type() const { return (As##type() != nullptr); }                    \
-  virtual const H##type* As##type() const { return nullptr; }                  \
-  virtual H##type* As##type() { return nullptr; }
-  FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
-#undef INSTRUCTION_TYPE_CHECK
+  FOR_EACH_INSTRUCTION(INSTRUCTION_TYPE_CAST)
+#undef INSTRUCTION_TYPE_CAST
 
   // Return a clone of the instruction if it is clonable (shallow copy by default, custom copy
   // if a custom copy-constructor is provided for a particular type). If IsClonable() is false for
@@ -2261,11 +2343,6 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   //       meanings? split and rename?
   virtual bool CanBeMoved() const { return false; }
 
-  // Returns whether the two instructions are of the same kind.
-  virtual bool InstructionTypeEquals(const HInstruction* other ATTRIBUTE_UNUSED) const {
-    return false;
-  }
-
   // Returns whether any data encoded in the two instructions is equal.
   // This method does not look at the inputs. Both instructions must be
   // of the same type, otherwise the method has undefined behavior.
@@ -2278,10 +2355,6 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   // 2) Their inputs are identical.
   bool Equals(const HInstruction* other) const;
 
-  // TODO: Remove this indirection when the [[pure]] attribute proposal (n3744)
-  // is adopted and implemented by our C++ compiler(s). Fow now, we need to hide
-  // the virtual function because the __attribute__((__pure__)) doesn't really
-  // apply the strong requirement for virtual functions, preventing optimizations.
   InstructionKind GetKind() const { return GetPackedField<InstructionKindField>(); }
 
   virtual size_t ComputeHashCode() const {
@@ -2337,12 +2410,17 @@ class HInstruction : public ArenaObject<kArenaAllocInstruction> {
   static constexpr size_t kFieldInstructionKind = kFlagReferenceTypeIsExact + 1;
   static constexpr size_t kFieldInstructionKindSize =
       MinimumBitsToStore(static_cast<size_t>(InstructionKind::kLastInstructionKind - 1));
-  static constexpr size_t kNumberOfGenericPackedBits =
+  static constexpr size_t kFieldType =
       kFieldInstructionKind + kFieldInstructionKindSize;
+  static constexpr size_t kFieldTypeSize =
+      MinimumBitsToStore(static_cast<size_t>(DataType::Type::kLast));
+  static constexpr size_t kNumberOfGenericPackedBits = kFieldType + kFieldTypeSize;
   static constexpr size_t kMaxNumberOfPackedBits = sizeof(uint32_t) * kBitsPerByte;
 
   static_assert(kNumberOfGenericPackedBits <= kMaxNumberOfPackedBits,
                 "Too many generic packed fields");
+
+  using TypeField = BitField<DataType::Type, kFieldType, kFieldTypeSize>;
 
   const HUserRecord<HInstruction*> InputRecordAt(size_t i) const {
     return GetInputRecords()[i];
@@ -2568,7 +2646,7 @@ class HBackwardInstructionIterator : public ValueObject {
 class HVariableInputSizeInstruction : public HInstruction {
  public:
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() override {
     return ArrayRef<HUserRecord<HInstruction*>>(inputs_);
   }
 
@@ -2590,6 +2668,15 @@ class HVariableInputSizeInstruction : public HInstruction {
                                 ArenaAllocKind kind)
       : HInstruction(inst_kind, side_effects, dex_pc),
         inputs_(number_of_inputs, allocator->Adapter(kind)) {}
+  HVariableInputSizeInstruction(InstructionKind inst_kind,
+                                DataType::Type type,
+                                SideEffects side_effects,
+                                uint32_t dex_pc,
+                                ArenaAllocator* allocator,
+                                size_t number_of_inputs,
+                                ArenaAllocKind kind)
+      : HInstruction(inst_kind, type, side_effects, dex_pc),
+        inputs_(number_of_inputs, allocator->Adapter(kind)) {}
 
   DEFAULT_COPY_CONSTRUCTOR(VariableInputSizeInstruction);
 
@@ -2597,19 +2684,24 @@ class HVariableInputSizeInstruction : public HInstruction {
 };
 
 template<size_t N>
-class HTemplateInstruction: public HInstruction {
+class HExpression : public HInstruction {
  public:
-  HTemplateInstruction<N>(InstructionKind kind, SideEffects side_effects, uint32_t dex_pc)
+  HExpression<N>(InstructionKind kind, SideEffects side_effects, uint32_t dex_pc)
       : HInstruction(kind, side_effects, dex_pc), inputs_() {}
-  virtual ~HTemplateInstruction() {}
+  HExpression<N>(InstructionKind kind,
+                 DataType::Type type,
+                 SideEffects side_effects,
+                 uint32_t dex_pc)
+      : HInstruction(kind, type, side_effects, dex_pc), inputs_() {}
+  virtual ~HExpression() {}
 
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE FINAL {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
     return ArrayRef<HUserRecord<HInstruction*>>(inputs_);
   }
 
  protected:
-  DEFAULT_COPY_CONSTRUCTOR(TemplateInstruction<N>);
+  DEFAULT_COPY_CONSTRUCTOR(Expression<N>);
 
  private:
   std::array<HUserRecord<HInstruction*>, N> inputs_;
@@ -2617,64 +2709,35 @@ class HTemplateInstruction: public HInstruction {
   friend class SsaBuilder;
 };
 
-// HTemplateInstruction specialization for N=0.
+// HExpression specialization for N=0.
 template<>
-class HTemplateInstruction<0>: public HInstruction {
+class HExpression<0> : public HInstruction {
  public:
-  explicit HTemplateInstruction<0>(InstructionKind kind, SideEffects side_effects, uint32_t dex_pc)
-      : HInstruction(kind, side_effects, dex_pc) {}
+  using HInstruction::HInstruction;
 
-  virtual ~HTemplateInstruction() {}
+  virtual ~HExpression() {}
 
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE FINAL {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
     return ArrayRef<HUserRecord<HInstruction*>>();
   }
 
  protected:
-  DEFAULT_COPY_CONSTRUCTOR(TemplateInstruction<0>);
+  DEFAULT_COPY_CONSTRUCTOR(Expression<0>);
 
  private:
   friend class SsaBuilder;
 };
 
-template<intptr_t N>
-class HExpression : public HTemplateInstruction<N> {
- public:
-  using HInstruction::InstructionKind;
-  HExpression<N>(InstructionKind kind,
-                 DataType::Type type,
-                 SideEffects side_effects,
-                 uint32_t dex_pc)
-      : HTemplateInstruction<N>(kind, side_effects, dex_pc) {
-    this->template SetPackedField<TypeField>(type);
-  }
-  virtual ~HExpression() {}
-
-  DataType::Type GetType() const OVERRIDE {
-    return TypeField::Decode(this->GetPackedFields());
-  }
-
- protected:
-  static constexpr size_t kFieldType = HInstruction::kNumberOfGenericPackedBits;
-  static constexpr size_t kFieldTypeSize =
-      MinimumBitsToStore(static_cast<size_t>(DataType::Type::kLast));
-  static constexpr size_t kNumberOfExpressionPackedBits = kFieldType + kFieldTypeSize;
-  static_assert(kNumberOfExpressionPackedBits <= HInstruction::kMaxNumberOfPackedBits,
-                "Too many packed fields.");
-  using TypeField = BitField<DataType::Type, kFieldType, kFieldTypeSize>;
-  DEFAULT_COPY_CONSTRUCTOR(Expression<N>);
-};
-
 // Represents dex's RETURN_VOID opcode. A HReturnVoid is a control flow
 // instruction that branches to the exit block.
-class HReturnVoid FINAL : public HTemplateInstruction<0> {
+class HReturnVoid final : public HExpression<0> {
  public:
   explicit HReturnVoid(uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kReturnVoid, SideEffects::None(), dex_pc) {
+      : HExpression(kReturnVoid, SideEffects::None(), dex_pc) {
   }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
   DECLARE_INSTRUCTION(ReturnVoid);
 
@@ -2684,14 +2747,14 @@ class HReturnVoid FINAL : public HTemplateInstruction<0> {
 
 // Represents dex's RETURN opcodes. A HReturn is a control flow
 // instruction that branches to the exit block.
-class HReturn FINAL : public HTemplateInstruction<1> {
+class HReturn final : public HExpression<1> {
  public:
   explicit HReturn(HInstruction* value, uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kReturn, SideEffects::None(), dex_pc) {
+      : HExpression(kReturn, SideEffects::None(), dex_pc) {
     SetRawInputAt(0, value);
   }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
   DECLARE_INSTRUCTION(Return);
 
@@ -2699,7 +2762,7 @@ class HReturn FINAL : public HTemplateInstruction<1> {
   DEFAULT_COPY_CONSTRUCTOR(Return);
 };
 
-class HPhi FINAL : public HVariableInputSizeInstruction {
+class HPhi final : public HVariableInputSizeInstruction {
  public:
   HPhi(ArenaAllocator* allocator,
        uint32_t reg_number,
@@ -2708,13 +2771,13 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
        uint32_t dex_pc = kNoDexPc)
       : HVariableInputSizeInstruction(
             kPhi,
+            ToPhiType(type),
             SideEffects::None(),
             dex_pc,
             allocator,
             number_of_inputs,
             kArenaAllocPhiInputs),
         reg_number_(reg_number) {
-    SetPackedField<TypeField>(ToPhiType(type));
     DCHECK_NE(GetType(), DataType::Type::kVoid);
     // Phis are constructed live and marked dead if conflicting or unused.
     // Individual steps of SsaBuilder should assume that if a phi has been
@@ -2723,7 +2786,7 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
     SetPackedFlag<kFlagCanBeNull>(true);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   // Returns a type equivalent to the given `type`, but that a `HPhi` can hold.
   static DataType::Type ToPhiType(DataType::Type type) {
@@ -2732,7 +2795,6 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
 
   bool IsCatchPhi() const { return GetBlock()->IsCatchBlock(); }
 
-  DataType::Type GetType() const OVERRIDE { return GetPackedField<TypeField>(); }
   void SetType(DataType::Type new_type) {
     // Make sure that only valid type changes occur. The following are allowed:
     //  (1) int  -> float/ref (primitive type propagation),
@@ -2744,7 +2806,7 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
     SetPackedField<TypeField>(new_type);
   }
 
-  bool CanBeNull() const OVERRIDE { return GetPackedFlag<kFlagCanBeNull>(); }
+  bool CanBeNull() const override { return GetPackedFlag<kFlagCanBeNull>(); }
   void SetCanBeNull(bool can_be_null) { SetPackedFlag<kFlagCanBeNull>(can_be_null); }
 
   uint32_t GetRegNumber() const { return reg_number_; }
@@ -2791,14 +2853,10 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
   DEFAULT_COPY_CONSTRUCTOR(Phi);
 
  private:
-  static constexpr size_t kFieldType = HInstruction::kNumberOfGenericPackedBits;
-  static constexpr size_t kFieldTypeSize =
-      MinimumBitsToStore(static_cast<size_t>(DataType::Type::kLast));
-  static constexpr size_t kFlagIsLive = kFieldType + kFieldTypeSize;
+  static constexpr size_t kFlagIsLive = HInstruction::kNumberOfGenericPackedBits;
   static constexpr size_t kFlagCanBeNull = kFlagIsLive + 1;
   static constexpr size_t kNumberOfPhiPackedBits = kFlagCanBeNull + 1;
   static_assert(kNumberOfPhiPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-  using TypeField = BitField<DataType::Type, kFieldType, kFieldTypeSize>;
 
   const uint32_t reg_number_;
 };
@@ -2806,13 +2864,13 @@ class HPhi FINAL : public HVariableInputSizeInstruction {
 // The exit instruction is the only instruction of the exit block.
 // Instructions aborting the method (HThrow and HReturn) must branch to the
 // exit block.
-class HExit FINAL : public HTemplateInstruction<0> {
+class HExit final : public HExpression<0> {
  public:
   explicit HExit(uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kExit, SideEffects::None(), dex_pc) {
+      : HExpression(kExit, SideEffects::None(), dex_pc) {
   }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
   DECLARE_INSTRUCTION(Exit);
 
@@ -2821,14 +2879,14 @@ class HExit FINAL : public HTemplateInstruction<0> {
 };
 
 // Jumps from one block to another.
-class HGoto FINAL : public HTemplateInstruction<0> {
+class HGoto final : public HExpression<0> {
  public:
   explicit HGoto(uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kGoto, SideEffects::None(), dex_pc) {
+      : HExpression(kGoto, SideEffects::None(), dex_pc) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool IsControlFlow() const override { return true; }
 
   HBasicBlock* GetSuccessor() const {
     return GetBlock()->GetSingleSuccessor();
@@ -2846,7 +2904,7 @@ class HConstant : public HExpression<0> {
       : HExpression(kind, type, SideEffects::None(), dex_pc) {
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
+  bool CanBeMoved() const override { return true; }
 
   // Is this constant -1 in the arithmetic sense?
   virtual bool IsMinusOne() const { return false; }
@@ -2865,18 +2923,18 @@ class HConstant : public HExpression<0> {
   DEFAULT_COPY_CONSTRUCTOR(Constant);
 };
 
-class HNullConstant FINAL : public HConstant {
+class HNullConstant final : public HConstant {
  public:
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  uint64_t GetValueAsUint64() const OVERRIDE { return 0; }
+  uint64_t GetValueAsUint64() const override { return 0; }
 
-  size_t ComputeHashCode() const OVERRIDE { return 0; }
+  size_t ComputeHashCode() const override { return 0; }
 
   // The null constant representation is a 0-bit pattern.
-  virtual bool IsZeroBitPattern() const { return true; }
+  bool IsZeroBitPattern() const override { return true; }
 
   DECLARE_INSTRUCTION(NullConstant);
 
@@ -2893,25 +2951,25 @@ class HNullConstant FINAL : public HConstant {
 
 // Constants of the type int. Those can be from Dex instructions, or
 // synthesized (for example with the if-eqz instruction).
-class HIntConstant FINAL : public HConstant {
+class HIntConstant final : public HConstant {
  public:
   int32_t GetValue() const { return value_; }
 
-  uint64_t GetValueAsUint64() const OVERRIDE {
+  uint64_t GetValueAsUint64() const override {
     return static_cast<uint64_t>(static_cast<uint32_t>(value_));
   }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     DCHECK(other->IsIntConstant()) << other->DebugName();
     return other->AsIntConstant()->value_ == value_;
   }
 
-  size_t ComputeHashCode() const OVERRIDE { return GetValue(); }
+  size_t ComputeHashCode() const override { return GetValue(); }
 
-  bool IsMinusOne() const OVERRIDE { return GetValue() == -1; }
-  bool IsArithmeticZero() const OVERRIDE { return GetValue() == 0; }
-  bool IsZeroBitPattern() const OVERRIDE { return GetValue() == 0; }
-  bool IsOne() const OVERRIDE { return GetValue() == 1; }
+  bool IsMinusOne() const override { return GetValue() == -1; }
+  bool IsArithmeticZero() const override { return GetValue() == 0; }
+  bool IsZeroBitPattern() const override { return GetValue() == 0; }
+  bool IsOne() const override { return GetValue() == 1; }
 
   // Integer constants are used to encode Boolean values as well,
   // where 1 means true and 0 means false.
@@ -2939,23 +2997,23 @@ class HIntConstant FINAL : public HConstant {
   ART_FRIEND_TYPED_TEST(ParallelMoveTest, ConstantLast);
 };
 
-class HLongConstant FINAL : public HConstant {
+class HLongConstant final : public HConstant {
  public:
   int64_t GetValue() const { return value_; }
 
-  uint64_t GetValueAsUint64() const OVERRIDE { return value_; }
+  uint64_t GetValueAsUint64() const override { return value_; }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     DCHECK(other->IsLongConstant()) << other->DebugName();
     return other->AsLongConstant()->value_ == value_;
   }
 
-  size_t ComputeHashCode() const OVERRIDE { return static_cast<size_t>(GetValue()); }
+  size_t ComputeHashCode() const override { return static_cast<size_t>(GetValue()); }
 
-  bool IsMinusOne() const OVERRIDE { return GetValue() == -1; }
-  bool IsArithmeticZero() const OVERRIDE { return GetValue() == 0; }
-  bool IsZeroBitPattern() const OVERRIDE { return GetValue() == 0; }
-  bool IsOne() const OVERRIDE { return GetValue() == 1; }
+  bool IsMinusOne() const override { return GetValue() == -1; }
+  bool IsArithmeticZero() const override { return GetValue() == 0; }
+  bool IsZeroBitPattern() const override { return GetValue() == 0; }
+  bool IsOne() const override { return GetValue() == 1; }
 
   DECLARE_INSTRUCTION(LongConstant);
 
@@ -2973,25 +3031,25 @@ class HLongConstant FINAL : public HConstant {
   friend class HGraph;
 };
 
-class HFloatConstant FINAL : public HConstant {
+class HFloatConstant final : public HConstant {
  public:
   float GetValue() const { return value_; }
 
-  uint64_t GetValueAsUint64() const OVERRIDE {
+  uint64_t GetValueAsUint64() const override {
     return static_cast<uint64_t>(bit_cast<uint32_t, float>(value_));
   }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     DCHECK(other->IsFloatConstant()) << other->DebugName();
     return other->AsFloatConstant()->GetValueAsUint64() == GetValueAsUint64();
   }
 
-  size_t ComputeHashCode() const OVERRIDE { return static_cast<size_t>(GetValue()); }
+  size_t ComputeHashCode() const override { return static_cast<size_t>(GetValue()); }
 
-  bool IsMinusOne() const OVERRIDE {
+  bool IsMinusOne() const override {
     return bit_cast<uint32_t, float>(value_) == bit_cast<uint32_t, float>((-1.0f));
   }
-  bool IsArithmeticZero() const OVERRIDE {
+  bool IsArithmeticZero() const override {
     return std::fpclassify(value_) == FP_ZERO;
   }
   bool IsArithmeticPositiveZero() const {
@@ -3000,10 +3058,10 @@ class HFloatConstant FINAL : public HConstant {
   bool IsArithmeticNegativeZero() const {
     return IsArithmeticZero() && std::signbit(value_);
   }
-  bool IsZeroBitPattern() const OVERRIDE {
+  bool IsZeroBitPattern() const override {
     return bit_cast<uint32_t, float>(value_) == bit_cast<uint32_t, float>(0.0f);
   }
-  bool IsOne() const OVERRIDE {
+  bool IsOne() const override {
     return bit_cast<uint32_t, float>(value_) == bit_cast<uint32_t, float>(1.0f);
   }
   bool IsNaN() const {
@@ -3032,23 +3090,23 @@ class HFloatConstant FINAL : public HConstant {
   friend class HGraph;
 };
 
-class HDoubleConstant FINAL : public HConstant {
+class HDoubleConstant final : public HConstant {
  public:
   double GetValue() const { return value_; }
 
-  uint64_t GetValueAsUint64() const OVERRIDE { return bit_cast<uint64_t, double>(value_); }
+  uint64_t GetValueAsUint64() const override { return bit_cast<uint64_t, double>(value_); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     DCHECK(other->IsDoubleConstant()) << other->DebugName();
     return other->AsDoubleConstant()->GetValueAsUint64() == GetValueAsUint64();
   }
 
-  size_t ComputeHashCode() const OVERRIDE { return static_cast<size_t>(GetValue()); }
+  size_t ComputeHashCode() const override { return static_cast<size_t>(GetValue()); }
 
-  bool IsMinusOne() const OVERRIDE {
+  bool IsMinusOne() const override {
     return bit_cast<uint64_t, double>(value_) == bit_cast<uint64_t, double>((-1.0));
   }
-  bool IsArithmeticZero() const OVERRIDE {
+  bool IsArithmeticZero() const override {
     return std::fpclassify(value_) == FP_ZERO;
   }
   bool IsArithmeticPositiveZero() const {
@@ -3057,10 +3115,10 @@ class HDoubleConstant FINAL : public HConstant {
   bool IsArithmeticNegativeZero() const {
     return IsArithmeticZero() && std::signbit(value_);
   }
-  bool IsZeroBitPattern() const OVERRIDE {
+  bool IsZeroBitPattern() const override {
     return bit_cast<uint64_t, double>(value_) == bit_cast<uint64_t, double>((0.0));
   }
-  bool IsOne() const OVERRIDE {
+  bool IsOne() const override {
     return bit_cast<uint64_t, double>(value_) == bit_cast<uint64_t, double>(1.0);
   }
   bool IsNaN() const {
@@ -3091,15 +3149,15 @@ class HDoubleConstant FINAL : public HConstant {
 
 // Conditional branch. A block ending with an HIf instruction must have
 // two successors.
-class HIf FINAL : public HTemplateInstruction<1> {
+class HIf final : public HExpression<1> {
  public:
   explicit HIf(HInstruction* input, uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kIf, SideEffects::None(), dex_pc) {
+      : HExpression(kIf, SideEffects::None(), dex_pc) {
     SetRawInputAt(0, input);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool IsControlFlow() const override { return true; }
 
   HBasicBlock* IfTrueSuccessor() const {
     return GetBlock()->GetSuccessors()[0];
@@ -3121,7 +3179,7 @@ class HIf FINAL : public HTemplateInstruction<1> {
 // non-exceptional control flow.
 // Normal-flow successor is stored at index zero, exception handlers under
 // higher indices in no particular order.
-class HTryBoundary FINAL : public HTemplateInstruction<0> {
+class HTryBoundary final : public HExpression<0> {
  public:
   enum class BoundaryKind {
     kEntry,
@@ -3129,12 +3187,19 @@ class HTryBoundary FINAL : public HTemplateInstruction<0> {
     kLast = kExit
   };
 
+  // SideEffects::CanTriggerGC prevents instructions with SideEffects::DependOnGC to be alive
+  // across the catch block entering edges as GC might happen during throwing an exception.
+  // TryBoundary with BoundaryKind::kExit is conservatively used for that as there is no
+  // HInstruction which a catch block must start from.
   explicit HTryBoundary(BoundaryKind kind, uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kTryBoundary, SideEffects::None(), dex_pc) {
+      : HExpression(kTryBoundary,
+                    (kind == BoundaryKind::kExit) ? SideEffects::CanTriggerGC()
+                                                  : SideEffects::None(),
+                    dex_pc) {
     SetPackedField<BoundaryKindField>(kind);
   }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
   // Returns the block's non-exceptional successor (index zero).
   HBasicBlock* GetNormalFlowSuccessor() const { return GetBlock()->GetSuccessors()[0]; }
@@ -3180,7 +3245,7 @@ class HTryBoundary FINAL : public HTemplateInstruction<0> {
 };
 
 // Deoptimize to interpreter, upon checking a condition.
-class HDeoptimize FINAL : public HVariableInputSizeInstruction {
+class HDeoptimize final : public HVariableInputSizeInstruction {
  public:
   // Use this constructor when the `HDeoptimize` acts as a barrier, where no code can move
   // across.
@@ -3193,14 +3258,14 @@ class HDeoptimize FINAL : public HVariableInputSizeInstruction {
             SideEffects::All(),
             dex_pc,
             allocator,
-            /* number_of_inputs */ 1,
+            /* number_of_inputs= */ 1,
             kArenaAllocMisc) {
     SetPackedFlag<kFieldCanBeMoved>(false);
     SetPackedField<DeoptimizeKindField>(kind);
     SetRawInputAt(0, cond);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   // Use this constructor when the `HDeoptimize` guards an instruction, and any user
   // that relies on the deoptimization to pass should have its input be the `HDeoptimize`
@@ -3214,10 +3279,11 @@ class HDeoptimize FINAL : public HVariableInputSizeInstruction {
               uint32_t dex_pc)
       : HVariableInputSizeInstruction(
             kDeoptimize,
+            guard->GetType(),
             SideEffects::CanTriggerGC(),
             dex_pc,
             allocator,
-            /* number_of_inputs */ 2,
+            /* number_of_inputs= */ 2,
             kArenaAllocMisc) {
     SetPackedFlag<kFieldCanBeMoved>(true);
     SetPackedField<DeoptimizeKindField>(kind);
@@ -3225,21 +3291,17 @@ class HDeoptimize FINAL : public HVariableInputSizeInstruction {
     SetRawInputAt(1, guard);
   }
 
-  bool CanBeMoved() const OVERRIDE { return GetPackedFlag<kFieldCanBeMoved>(); }
+  bool CanBeMoved() const override { return GetPackedFlag<kFieldCanBeMoved>(); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     return (other->CanBeMoved() == CanBeMoved()) && (other->AsDeoptimize()->GetKind() == GetKind());
   }
 
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
   DeoptimizationKind GetDeoptimizationKind() const { return GetPackedField<DeoptimizeKindField>(); }
-
-  DataType::Type GetType() const OVERRIDE {
-    return GuardsAnInput() ? GuardedInput()->GetType() : DataType::Type::kVoid;
-  }
 
   bool GuardsAnInput() const {
     return InputCount() == 2;
@@ -3277,12 +3339,13 @@ class HDeoptimize FINAL : public HVariableInputSizeInstruction {
 // if it's true, starts to do deoptimization.
 // It has a 4-byte slot on stack.
 // TODO: allocate a register for this flag.
-class HShouldDeoptimizeFlag FINAL : public HVariableInputSizeInstruction {
+class HShouldDeoptimizeFlag final : public HVariableInputSizeInstruction {
  public:
   // CHA guards are only optimized in a separate pass and it has no side effects
   // with regard to other passes.
   HShouldDeoptimizeFlag(ArenaAllocator* allocator, uint32_t dex_pc)
       : HVariableInputSizeInstruction(kShouldDeoptimizeFlag,
+                                      DataType::Type::kInt32,
                                       SideEffects::None(),
                                       dex_pc,
                                       allocator,
@@ -3290,13 +3353,11 @@ class HShouldDeoptimizeFlag FINAL : public HVariableInputSizeInstruction {
                                       kArenaAllocCHA) {
   }
 
-  DataType::Type GetType() const OVERRIDE { return DataType::Type::kInt32; }
-
   // We do all CHA guard elimination/motion in a single pass, after which there is no
   // further guard elimination/motion since a guard might have been used for justification
   // of the elimination of another guard. Therefore, we pretend this guard cannot be moved
   // to avoid other optimizations trying to move it.
-  bool CanBeMoved() const OVERRIDE { return false; }
+  bool CanBeMoved() const override { return false; }
 
   DECLARE_INSTRUCTION(ShouldDeoptimizeFlag);
 
@@ -3307,7 +3368,7 @@ class HShouldDeoptimizeFlag FINAL : public HVariableInputSizeInstruction {
 // Represents the ArtMethod that was passed as a first argument to
 // the method. It is used by instructions that depend on it, like
 // instructions that work with the dex cache.
-class HCurrentMethod FINAL : public HExpression<0> {
+class HCurrentMethod final : public HExpression<0> {
  public:
   explicit HCurrentMethod(DataType::Type type, uint32_t dex_pc = kNoDexPc)
       : HExpression(kCurrentMethod, type, SideEffects::None(), dex_pc) {
@@ -3321,7 +3382,7 @@ class HCurrentMethod FINAL : public HExpression<0> {
 
 // Fetches an ArtMethod from the virtual table or the interface method table
 // of a class.
-class HClassTableGet FINAL : public HExpression<1> {
+class HClassTableGet final : public HExpression<1> {
  public:
   enum class TableKind {
     kVTable,
@@ -3339,9 +3400,9 @@ class HClassTableGet FINAL : public HExpression<1> {
     SetRawInputAt(0, cls);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other) const override {
     return other->AsClassTableGet()->GetIndex() == index_ &&
         other->AsClassTableGet()->GetPackedFields() == GetPackedFields();
   }
@@ -3355,7 +3416,7 @@ class HClassTableGet FINAL : public HExpression<1> {
   DEFAULT_COPY_CONSTRUCTOR(ClassTableGet);
 
  private:
-  static constexpr size_t kFieldTableKind = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFieldTableKind = kNumberOfGenericPackedBits;
   static constexpr size_t kFieldTableKindSize =
       MinimumBitsToStore(static_cast<size_t>(TableKind::kLast));
   static constexpr size_t kNumberOfClassTableGetPackedBits = kFieldTableKind + kFieldTableKindSize;
@@ -3370,21 +3431,21 @@ class HClassTableGet FINAL : public HExpression<1> {
 // PackedSwitch (jump table). A block ending with a PackedSwitch instruction will
 // have one successor for each entry in the switch table, and the final successor
 // will be the block containing the next Dex opcode.
-class HPackedSwitch FINAL : public HTemplateInstruction<1> {
+class HPackedSwitch final : public HExpression<1> {
  public:
   HPackedSwitch(int32_t start_value,
                 uint32_t num_entries,
                 HInstruction* input,
                 uint32_t dex_pc = kNoDexPc)
-    : HTemplateInstruction(kPackedSwitch, SideEffects::None(), dex_pc),
+    : HExpression(kPackedSwitch, SideEffects::None(), dex_pc),
       start_value_(start_value),
       num_entries_(num_entries) {
     SetRawInputAt(0, input);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
   int32_t GetStartValue() const { return start_value_; }
 
@@ -3415,13 +3476,13 @@ class HUnaryOperation : public HExpression<1> {
   }
 
   // All of the UnaryOperation instructions are clonable.
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   HInstruction* GetInput() const { return InputAt(0); }
   DataType::Type GetResultType() const { return GetType(); }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
@@ -3456,7 +3517,7 @@ class HBinaryOperation : public HExpression<2> {
   }
 
   // All of the BinaryOperation instructions are clonable.
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   HInstruction* GetLeft() const { return InputAt(0); }
   HInstruction* GetRight() const { return InputAt(1); }
@@ -3496,8 +3557,8 @@ class HBinaryOperation : public HExpression<2> {
     }
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
@@ -3578,7 +3639,7 @@ class HCondition : public HBinaryOperation {
   ComparisonBias GetBias() const { return GetPackedField<ComparisonBiasField>(); }
   void SetBias(ComparisonBias bias) { SetPackedField<ComparisonBiasField>(bias); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     return GetPackedFields() == other->AsCondition()->GetPackedFields();
   }
 
@@ -3606,7 +3667,7 @@ class HCondition : public HBinaryOperation {
 
  protected:
   // Needed if we merge a HCompare into a HCondition.
-  static constexpr size_t kFieldComparisonBias = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFieldComparisonBias = kNumberOfGenericPackedBits;
   static constexpr size_t kFieldComparisonBiasSize =
       MinimumBitsToStore(static_cast<size_t>(ComparisonBias::kLast));
   static constexpr size_t kNumberOfConditionPackedBits =
@@ -3635,42 +3696,42 @@ class HCondition : public HBinaryOperation {
 };
 
 // Instruction to check if two inputs are equal to each other.
-class HEqual FINAL : public HCondition {
+class HEqual final : public HCondition {
  public:
   HEqual(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kEqual, first, second, dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   HConstant* Evaluate(HNullConstant* x ATTRIBUTE_UNUSED,
-                      HNullConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HNullConstant* y ATTRIBUTE_UNUSED) const override {
     return MakeConstantCondition(true, GetDexPc());
   }
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HEqual instruction; evaluate it as
   // `Compare(x, y) == 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0),
                                  GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(Equal);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondEQ;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondNE;
   }
 
@@ -3681,42 +3742,42 @@ class HEqual FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x == y; }
 };
 
-class HNotEqual FINAL : public HCondition {
+class HNotEqual final : public HCondition {
  public:
   HNotEqual(HInstruction* first, HInstruction* second,
             uint32_t dex_pc = kNoDexPc)
       : HCondition(kNotEqual, first, second, dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   HConstant* Evaluate(HNullConstant* x ATTRIBUTE_UNUSED,
-                      HNullConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HNullConstant* y ATTRIBUTE_UNUSED) const override {
     return MakeConstantCondition(false, GetDexPc());
   }
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HNotEqual instruction; evaluate it as
   // `Compare(x, y) != 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(NotEqual);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondNE;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondEQ;
   }
 
@@ -3727,36 +3788,36 @@ class HNotEqual FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x != y; }
 };
 
-class HLessThan FINAL : public HCondition {
+class HLessThan final : public HCondition {
  public:
   HLessThan(HInstruction* first, HInstruction* second,
             uint32_t dex_pc = kNoDexPc)
       : HCondition(kLessThan, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HLessThan instruction; evaluate it as
   // `Compare(x, y) < 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(LessThan);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondLT;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondGE;
   }
 
@@ -3767,36 +3828,36 @@ class HLessThan FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x < y; }
 };
 
-class HLessThanOrEqual FINAL : public HCondition {
+class HLessThanOrEqual final : public HCondition {
  public:
   HLessThanOrEqual(HInstruction* first, HInstruction* second,
                    uint32_t dex_pc = kNoDexPc)
       : HCondition(kLessThanOrEqual, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HLessThanOrEqual instruction; evaluate it as
   // `Compare(x, y) <= 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(LessThanOrEqual);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondLE;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondGT;
   }
 
@@ -3807,35 +3868,35 @@ class HLessThanOrEqual FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x <= y; }
 };
 
-class HGreaterThan FINAL : public HCondition {
+class HGreaterThan final : public HCondition {
  public:
   HGreaterThan(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kGreaterThan, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HGreaterThan instruction; evaluate it as
   // `Compare(x, y) > 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(GreaterThan);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondGT;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondLE;
   }
 
@@ -3846,35 +3907,35 @@ class HGreaterThan FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x > y; }
 };
 
-class HGreaterThanOrEqual FINAL : public HCondition {
+class HGreaterThanOrEqual final : public HCondition {
  public:
   HGreaterThanOrEqual(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kGreaterThanOrEqual, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   // In the following Evaluate methods, a HCompare instruction has
   // been merged into this HGreaterThanOrEqual instruction; evaluate it as
   // `Compare(x, y) >= 0`.
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(Compare(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantCondition(Compute(CompareFP(x->GetValue(), y->GetValue()), 0), GetDexPc());
   }
 
   DECLARE_INSTRUCTION(GreaterThanOrEqual);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondGE;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondLT;
   }
 
@@ -3885,36 +3946,36 @@ class HGreaterThanOrEqual FINAL : public HCondition {
   template <typename T> static bool Compute(T x, T y) { return x >= y; }
 };
 
-class HBelow FINAL : public HCondition {
+class HBelow final : public HCondition {
  public:
   HBelow(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kBelow, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
 
   DECLARE_INSTRUCTION(Below);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondB;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondAE;
   }
 
@@ -3927,36 +3988,36 @@ class HBelow FINAL : public HCondition {
   }
 };
 
-class HBelowOrEqual FINAL : public HCondition {
+class HBelowOrEqual final : public HCondition {
  public:
   HBelowOrEqual(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kBelowOrEqual, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
 
   DECLARE_INSTRUCTION(BelowOrEqual);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondBE;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondA;
   }
 
@@ -3969,36 +4030,36 @@ class HBelowOrEqual FINAL : public HCondition {
   }
 };
 
-class HAbove FINAL : public HCondition {
+class HAbove final : public HCondition {
  public:
   HAbove(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kAbove, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
 
   DECLARE_INSTRUCTION(Above);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondA;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondBE;
   }
 
@@ -4011,36 +4072,36 @@ class HAbove FINAL : public HCondition {
   }
 };
 
-class HAboveOrEqual FINAL : public HCondition {
+class HAboveOrEqual final : public HCondition {
  public:
   HAboveOrEqual(HInstruction* first, HInstruction* second, uint32_t dex_pc = kNoDexPc)
       : HCondition(kAboveOrEqual, first, second, dex_pc) {
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantCondition(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
 
   DECLARE_INSTRUCTION(AboveOrEqual);
 
-  IfCondition GetCondition() const OVERRIDE {
+  IfCondition GetCondition() const override {
     return kCondAE;
   }
 
-  IfCondition GetOppositeCondition() const OVERRIDE {
+  IfCondition GetOppositeCondition() const override {
     return kCondB;
   }
 
@@ -4055,7 +4116,7 @@ class HAboveOrEqual FINAL : public HCondition {
 
 // Instruction to check how two inputs compare to each other.
 // Result is 0 if input0 == input1, 1 if input0 > input1, or -1 if input0 < input1.
-class HCompare FINAL : public HBinaryOperation {
+class HCompare final : public HBinaryOperation {
  public:
   // Note that `comparison_type` is the type of comparison performed
   // between the comparison's inputs, not the type of the instantiated
@@ -4087,7 +4148,7 @@ class HCompare FINAL : public HBinaryOperation {
     return std::isunordered(x, y) ? (IsGtBias() ? 1 : -1) : Compute(x, y);
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     // Note that there is no "cmp-int" Dex instruction so we shouldn't
     // reach this code path when processing a freshly built HIR
     // graph. However HCompare integer instructions can be synthesized
@@ -4095,17 +4156,17 @@ class HCompare FINAL : public HBinaryOperation {
     // IntegerSignum intrinsics, so we have to handle this case.
     return MakeConstantComparison(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return MakeConstantComparison(Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return MakeConstantComparison(ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return MakeConstantComparison(ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     return GetPackedFields() == other->AsCompare()->GetPackedFields();
   }
 
@@ -4126,7 +4187,7 @@ class HCompare FINAL : public HBinaryOperation {
   DECLARE_INSTRUCTION(Compare);
 
  protected:
-  static constexpr size_t kFieldComparisonBias = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFieldComparisonBias = kNumberOfGenericPackedBits;
   static constexpr size_t kFieldComparisonBiasSize =
       MinimumBitsToStore(static_cast<size_t>(ComparisonBias::kLast));
   static constexpr size_t kNumberOfComparePackedBits =
@@ -4144,7 +4205,7 @@ class HCompare FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Compare);
 };
 
-class HNewInstance FINAL : public HExpression<1> {
+class HNewInstance final : public HExpression<1> {
  public:
   HNewInstance(HInstruction* cls,
                uint32_t dex_pc,
@@ -4163,16 +4224,16 @@ class HNewInstance FINAL : public HExpression<1> {
     SetRawInputAt(0, cls);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   dex::TypeIndex GetTypeIndex() const { return type_index_; }
   const DexFile& GetDexFile() const { return dex_file_; }
 
   // Calls runtime so needs an environment.
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
   // Can throw errors when out-of-memory or if it's not instantiable/accessible.
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
   bool NeedsChecks() const {
     return entrypoint_ == kQuickAllocObjectWithChecks;
@@ -4180,7 +4241,7 @@ class HNewInstance FINAL : public HExpression<1> {
 
   bool IsFinalizable() const { return GetPackedFlag<kFlagFinalizable>(); }
 
-  bool CanBeNull() const OVERRIDE { return false; }
+  bool CanBeNull() const override { return false; }
 
   QuickEntrypointEnum GetEntrypoint() const { return entrypoint_; }
 
@@ -4205,7 +4266,7 @@ class HNewInstance FINAL : public HExpression<1> {
   DEFAULT_COPY_CONSTRUCTOR(NewInstance);
 
  private:
-  static constexpr size_t kFlagFinalizable = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagFinalizable = kNumberOfGenericPackedBits;
   static constexpr size_t kNumberOfNewInstancePackedBits = kFlagFinalizable + 1;
   static_assert(kNumberOfNewInstancePackedBits <= kMaxNumberOfPackedBits,
                 "Too many packed fields.");
@@ -4234,7 +4295,7 @@ enum IntrinsicExceptions {
 
 class HInvoke : public HVariableInputSizeInstruction {
  public:
-  bool NeedsEnvironment() const OVERRIDE;
+  bool NeedsEnvironment() const override;
 
   void SetArgumentAt(size_t index, HInstruction* argument) {
     SetRawInputAt(index, argument);
@@ -4245,8 +4306,6 @@ class HInvoke : public HVariableInputSizeInstruction {
   // instructions (e.g. HInvokeStaticOrDirect) can have non-argument
   // inputs at the end of their list of inputs.
   uint32_t GetNumberOfArguments() const { return number_of_arguments_; }
-
-  DataType::Type GetType() const OVERRIDE { return GetPackedField<ReturnTypeField>(); }
 
   uint32_t GetDexMethodIndex() const { return dex_method_index_; }
 
@@ -4269,15 +4328,15 @@ class HInvoke : public HVariableInputSizeInstruction {
 
   void SetCanThrow(bool can_throw) { SetPackedFlag<kFlagCanThrow>(can_throw); }
 
-  bool CanThrow() const OVERRIDE { return GetPackedFlag<kFlagCanThrow>(); }
+  bool CanThrow() const override { return GetPackedFlag<kFlagCanThrow>(); }
 
   void SetAlwaysThrows(bool always_throws) { SetPackedFlag<kFlagAlwaysThrows>(always_throws); }
 
-  bool AlwaysThrows() const OVERRIDE { return GetPackedFlag<kFlagAlwaysThrows>(); }
+  bool AlwaysThrows() const override { return GetPackedFlag<kFlagAlwaysThrows>(); }
 
-  bool CanBeMoved() const OVERRIDE { return IsIntrinsic() && !DoesAnyWrite(); }
+  bool CanBeMoved() const override { return IsIntrinsic() && !DoesAnyWrite(); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     return intrinsic_ != Intrinsics::kNone && intrinsic_ == other->AsInvoke()->intrinsic_;
   }
 
@@ -4292,7 +4351,7 @@ class HInvoke : public HVariableInputSizeInstruction {
   bool IsIntrinsic() const { return intrinsic_ != Intrinsics::kNone; }
 
   ArtMethod* GetResolvedMethod() const { return resolved_method_; }
-  void SetResolvedMethod(ArtMethod* method) { resolved_method_ = method; }
+  void SetResolvedMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
   DECLARE_ABSTRACT_INSTRUCTION(Invoke);
 
@@ -4300,16 +4359,11 @@ class HInvoke : public HVariableInputSizeInstruction {
   static constexpr size_t kFieldInvokeType = kNumberOfGenericPackedBits;
   static constexpr size_t kFieldInvokeTypeSize =
       MinimumBitsToStore(static_cast<size_t>(kMaxInvokeType));
-  static constexpr size_t kFieldReturnType =
-      kFieldInvokeType + kFieldInvokeTypeSize;
-  static constexpr size_t kFieldReturnTypeSize =
-      MinimumBitsToStore(static_cast<size_t>(DataType::Type::kLast));
-  static constexpr size_t kFlagCanThrow = kFieldReturnType + kFieldReturnTypeSize;
+  static constexpr size_t kFlagCanThrow = kFieldInvokeType + kFieldInvokeTypeSize;
   static constexpr size_t kFlagAlwaysThrows = kFlagCanThrow + 1;
   static constexpr size_t kNumberOfInvokePackedBits = kFlagAlwaysThrows + 1;
   static_assert(kNumberOfInvokePackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
   using InvokeTypeField = BitField<InvokeType, kFieldInvokeType, kFieldInvokeTypeSize>;
-  using ReturnTypeField = BitField<DataType::Type, kFieldReturnType, kFieldReturnTypeSize>;
 
   HInvoke(InstructionKind kind,
           ArenaAllocator* allocator,
@@ -4322,19 +4376,21 @@ class HInvoke : public HVariableInputSizeInstruction {
           InvokeType invoke_type)
     : HVariableInputSizeInstruction(
           kind,
+          return_type,
           SideEffects::AllExceptGCDependency(),  // Assume write/read on all fields/arrays.
           dex_pc,
           allocator,
           number_of_arguments + number_of_other_inputs,
           kArenaAllocInvokeInputs),
       number_of_arguments_(number_of_arguments),
-      resolved_method_(resolved_method),
       dex_method_index_(dex_method_index),
       intrinsic_(Intrinsics::kNone),
       intrinsic_optimizations_(0) {
-    SetPackedField<ReturnTypeField>(return_type);
     SetPackedField<InvokeTypeField>(invoke_type);
     SetPackedFlag<kFlagCanThrow>(true);
+    // Check mutator lock, constructors lack annotalysis support.
+    Locks::mutator_lock_->AssertNotExclusiveHeld(Thread::Current());
+    SetResolvedMethod(resolved_method);
   }
 
   DEFAULT_COPY_CONSTRUCTOR(Invoke);
@@ -4348,7 +4404,7 @@ class HInvoke : public HVariableInputSizeInstruction {
   uint32_t intrinsic_optimizations_;
 };
 
-class HInvokeUnresolved FINAL : public HInvoke {
+class HInvokeUnresolved final : public HInvoke {
  public:
   HInvokeUnresolved(ArenaAllocator* allocator,
                     uint32_t number_of_arguments,
@@ -4359,7 +4415,7 @@ class HInvokeUnresolved FINAL : public HInvoke {
       : HInvoke(kInvokeUnresolved,
                 allocator,
                 number_of_arguments,
-                0u /* number_of_other_inputs */,
+                /* number_of_other_inputs= */ 0u,
                 return_type,
                 dex_pc,
                 dex_method_index,
@@ -4367,7 +4423,7 @@ class HInvokeUnresolved FINAL : public HInvoke {
                 invoke_type) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   DECLARE_INSTRUCTION(InvokeUnresolved);
 
@@ -4375,7 +4431,7 @@ class HInvokeUnresolved FINAL : public HInvoke {
   DEFAULT_COPY_CONSTRUCTOR(InvokeUnresolved);
 };
 
-class HInvokePolymorphic FINAL : public HInvoke {
+class HInvokePolymorphic final : public HInvoke {
  public:
   HInvokePolymorphic(ArenaAllocator* allocator,
                      uint32_t number_of_arguments,
@@ -4385,7 +4441,7 @@ class HInvokePolymorphic FINAL : public HInvoke {
       : HInvoke(kInvokePolymorphic,
                 allocator,
                 number_of_arguments,
-                0u /* number_of_other_inputs */,
+                /* number_of_other_inputs= */ 0u,
                 return_type,
                 dex_pc,
                 dex_method_index,
@@ -4393,7 +4449,7 @@ class HInvokePolymorphic FINAL : public HInvoke {
                 kVirtual) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   DECLARE_INSTRUCTION(InvokePolymorphic);
 
@@ -4401,7 +4457,39 @@ class HInvokePolymorphic FINAL : public HInvoke {
   DEFAULT_COPY_CONSTRUCTOR(InvokePolymorphic);
 };
 
-class HInvokeStaticOrDirect FINAL : public HInvoke {
+class HInvokeCustom final : public HInvoke {
+ public:
+  HInvokeCustom(ArenaAllocator* allocator,
+                uint32_t number_of_arguments,
+                uint32_t call_site_index,
+                DataType::Type return_type,
+                uint32_t dex_pc)
+      : HInvoke(kInvokeCustom,
+                allocator,
+                number_of_arguments,
+                /* number_of_other_inputs= */ 0u,
+                return_type,
+                dex_pc,
+                /* dex_method_index= */ dex::kDexNoIndex,
+                /* resolved_method= */ nullptr,
+                kStatic),
+      call_site_index_(call_site_index) {
+  }
+
+  uint32_t GetCallSiteIndex() const { return call_site_index_; }
+
+  bool IsClonable() const override { return true; }
+
+  DECLARE_INSTRUCTION(InvokeCustom);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(InvokeCustom);
+
+ private:
+  uint32_t call_site_index_;
+};
+
+class HInvokeStaticOrDirect final : public HInvoke {
  public:
   // Requirements of this method call regarding the class
   // initialization (clinit) check of its declaring class.
@@ -4424,13 +4512,17 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
     // Used for boot image methods referenced by boot image code.
     kBootImageLinkTimePcRelative,
 
-    // Use ArtMethod* at a known address, embed the direct address in the code.
-    // Used for app->boot calls with non-relocatable image and for JIT-compiled calls.
-    kDirectAddress,
+    // Load from an entry in the .data.bimg.rel.ro using a PC-relative load.
+    // Used for app->boot calls with relocatable image.
+    kBootImageRelRo,
 
     // Load from an entry in the .bss section using a PC-relative load.
-    // Used for classes outside boot image when .bss is accessible with a PC-relative load.
+    // Used for methods outside boot image referenced by AOT-compiled app and boot image code.
     kBssEntry,
+
+    // Use ArtMethod* at a known address, embed the direct address in the code.
+    // Used for for JIT-compiled calls.
+    kJitDirectAddress,
 
     // Make a runtime call to resolve and call the method. This is the last-resort-kind
     // used when other kinds are unimplemented on a particular architecture.
@@ -4472,8 +4564,7 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
                 allocator,
                 number_of_arguments,
                 // There is potentially one extra argument for the HCurrentMethod node, and
-                // potentially one other if the clinit check is explicit, and potentially
-                // one other if the method is a string factory.
+                // potentially one other if the clinit check is explicit.
                 (NeedsCurrentMethodInput(dispatch_info.method_load_kind) ? 1u : 0u) +
                     (clinit_check_requirement == ClinitCheckRequirement::kExplicit ? 1u : 0u),
                 return_type,
@@ -4486,7 +4577,7 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
     SetPackedField<ClinitCheckRequirementField>(clinit_check_requirement);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   void SetDispatchInfo(const DispatchInfo& dispatch_info) {
     bool had_current_method_input = HasCurrentMethodInput();
@@ -4516,7 +4607,7 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
   }
 
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() override {
     ArrayRef<HUserRecord<HInstruction*>> input_records = HInvoke::GetInputRecords();
     if (kIsDebugBuild && IsStaticWithExplicitClinitCheck()) {
       DCHECK(!input_records.empty());
@@ -4534,14 +4625,14 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
     return input_records;
   }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const override {
     // We access the method via the dex cache so we can't do an implicit null check.
     // TODO: for intrinsics we can generate implicit null checks.
     return false;
   }
 
-  bool CanBeNull() const OVERRIDE {
-    return GetPackedField<ReturnTypeField>() == DataType::Type::kReference && !IsStringInit();
+  bool CanBeNull() const override {
+    return GetType() == DataType::Type::kReference && !IsStringInit();
   }
 
   // Get the index of the special input, if any.
@@ -4555,11 +4646,12 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
   MethodLoadKind GetMethodLoadKind() const { return dispatch_info_.method_load_kind; }
   CodePtrLocation GetCodePtrLocation() const { return dispatch_info_.code_ptr_location; }
   bool IsRecursive() const { return GetMethodLoadKind() == MethodLoadKind::kRecursive; }
-  bool NeedsDexCacheOfDeclaringClass() const OVERRIDE;
+  bool NeedsDexCacheOfDeclaringClass() const override;
   bool IsStringInit() const { return GetMethodLoadKind() == MethodLoadKind::kStringInit; }
-  bool HasMethodAddress() const { return GetMethodLoadKind() == MethodLoadKind::kDirectAddress; }
+  bool HasMethodAddress() const { return GetMethodLoadKind() == MethodLoadKind::kJitDirectAddress; }
   bool HasPcRelativeMethodLoadKind() const {
     return GetMethodLoadKind() == MethodLoadKind::kBootImageLinkTimePcRelative ||
+           GetMethodLoadKind() == MethodLoadKind::kBootImageRelRo ||
            GetMethodLoadKind() == MethodLoadKind::kBssEntry;
   }
   bool HasCurrentMethodInput() const {
@@ -4655,7 +4747,7 @@ class HInvokeStaticOrDirect FINAL : public HInvoke {
 std::ostream& operator<<(std::ostream& os, HInvokeStaticOrDirect::MethodLoadKind rhs);
 std::ostream& operator<<(std::ostream& os, HInvokeStaticOrDirect::ClinitCheckRequirement rhs);
 
-class HInvokeVirtual FINAL : public HInvoke {
+class HInvokeVirtual final : public HInvoke {
  public:
   HInvokeVirtual(ArenaAllocator* allocator,
                  uint32_t number_of_arguments,
@@ -4676,9 +4768,9 @@ class HInvokeVirtual FINAL : public HInvoke {
         vtable_index_(vtable_index) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool CanBeNull() const OVERRIDE {
+  bool CanBeNull() const override {
     switch (GetIntrinsic()) {
       case Intrinsics::kThreadCurrentThread:
       case Intrinsics::kStringBufferAppend:
@@ -4691,9 +4783,9 @@ class HInvokeVirtual FINAL : public HInvoke {
     }
   }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj) const override {
     // TODO: Add implicit null checks in intrinsics.
-    return (obj == InputAt(0)) && !GetLocations()->Intrinsified();
+    return (obj == InputAt(0)) && !IsIntrinsic();
   }
 
   uint32_t GetVTableIndex() const { return vtable_index_; }
@@ -4708,7 +4800,7 @@ class HInvokeVirtual FINAL : public HInvoke {
   const uint32_t vtable_index_;
 };
 
-class HInvokeInterface FINAL : public HInvoke {
+class HInvokeInterface final : public HInvoke {
  public:
   HInvokeInterface(ArenaAllocator* allocator,
                    uint32_t number_of_arguments,
@@ -4729,14 +4821,14 @@ class HInvokeInterface FINAL : public HInvoke {
         imt_index_(imt_index) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj) const override {
     // TODO: Add implicit null checks in intrinsics.
-    return (obj == InputAt(0)) && !GetLocations()->Intrinsified();
+    return (obj == InputAt(0)) && !IsIntrinsic();
   }
 
-  bool NeedsDexCacheOfDeclaringClass() const OVERRIDE {
+  bool NeedsDexCacheOfDeclaringClass() const override {
     // The assembly stub currently needs it.
     return true;
   }
@@ -4753,7 +4845,7 @@ class HInvokeInterface FINAL : public HInvoke {
   const uint32_t imt_index_;
 };
 
-class HNeg FINAL : public HUnaryOperation {
+class HNeg final : public HUnaryOperation {
  public:
   HNeg(DataType::Type result_type, HInstruction* input, uint32_t dex_pc = kNoDexPc)
       : HUnaryOperation(kNeg, result_type, input, dex_pc) {
@@ -4762,16 +4854,16 @@ class HNeg FINAL : public HUnaryOperation {
 
   template <typename T> static T Compute(T x) { return -x; }
 
-  HConstant* Evaluate(HIntConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x) const override {
     return GetBlock()->GetGraph()->GetIntConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x) const override {
     return GetBlock()->GetGraph()->GetLongConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(Compute(x->GetValue()), GetDexPc());
   }
 
@@ -4781,23 +4873,24 @@ class HNeg FINAL : public HUnaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Neg);
 };
 
-class HNewArray FINAL : public HExpression<2> {
+class HNewArray final : public HExpression<2> {
  public:
-  HNewArray(HInstruction* cls, HInstruction* length, uint32_t dex_pc)
+  HNewArray(HInstruction* cls, HInstruction* length, uint32_t dex_pc, size_t component_size_shift)
       : HExpression(kNewArray, DataType::Type::kReference, SideEffects::CanTriggerGC(), dex_pc) {
     SetRawInputAt(0, cls);
     SetRawInputAt(1, length);
+    SetPackedField<ComponentSizeShiftField>(component_size_shift);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   // Calls runtime so needs an environment.
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
   // May throw NegativeArraySizeException, OutOfMemoryError, etc.
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
-  bool CanBeNull() const OVERRIDE { return false; }
+  bool CanBeNull() const override { return false; }
 
   HLoadClass* GetLoadClass() const {
     DCHECK(InputAt(0)->IsLoadClass());
@@ -4808,13 +4901,26 @@ class HNewArray FINAL : public HExpression<2> {
     return InputAt(1);
   }
 
+  size_t GetComponentSizeShift() {
+    return GetPackedField<ComponentSizeShiftField>();
+  }
+
   DECLARE_INSTRUCTION(NewArray);
 
  protected:
   DEFAULT_COPY_CONSTRUCTOR(NewArray);
+
+ private:
+  static constexpr size_t kFieldComponentSizeShift = kNumberOfGenericPackedBits;
+  static constexpr size_t kFieldComponentSizeShiftSize = MinimumBitsToStore(3u);
+  static constexpr size_t kNumberOfNewArrayPackedBits =
+      kFieldComponentSizeShift + kFieldComponentSizeShiftSize;
+  static_assert(kNumberOfNewArrayPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
+  using ComponentSizeShiftField =
+      BitField<size_t, kFieldComponentSizeShift, kFieldComponentSizeShift>;
 };
 
-class HAdd FINAL : public HBinaryOperation {
+class HAdd final : public HBinaryOperation {
  public:
   HAdd(DataType::Type result_type,
        HInstruction* left,
@@ -4823,23 +4929,23 @@ class HAdd FINAL : public HBinaryOperation {
       : HBinaryOperation(kAdd, result_type, left, right, SideEffects::None(), dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   template <typename T> static T Compute(T x, T y) { return x + y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
@@ -4850,7 +4956,7 @@ class HAdd FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Add);
 };
 
-class HSub FINAL : public HBinaryOperation {
+class HSub final : public HBinaryOperation {
  public:
   HSub(DataType::Type result_type,
        HInstruction* left,
@@ -4861,19 +4967,19 @@ class HSub FINAL : public HBinaryOperation {
 
   template <typename T> static T Compute(T x, T y) { return x - y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
@@ -4884,7 +4990,7 @@ class HSub FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Sub);
 };
 
-class HMul FINAL : public HBinaryOperation {
+class HMul final : public HBinaryOperation {
  public:
   HMul(DataType::Type result_type,
        HInstruction* left,
@@ -4893,23 +4999,23 @@ class HMul FINAL : public HBinaryOperation {
       : HBinaryOperation(kMul, result_type, left, right, SideEffects::None(), dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   template <typename T> static T Compute(T x, T y) { return x * y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
@@ -4920,7 +5026,7 @@ class HMul FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Mul);
 };
 
-class HDiv FINAL : public HBinaryOperation {
+class HDiv final : public HBinaryOperation {
  public:
   HDiv(DataType::Type result_type,
        HInstruction* left,
@@ -4945,19 +5051,19 @@ class HDiv FINAL : public HBinaryOperation {
     return x / y;
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(
         ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(
         ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
@@ -4968,7 +5074,7 @@ class HDiv FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Div);
 };
 
-class HRem FINAL : public HBinaryOperation {
+class HRem final : public HBinaryOperation {
  public:
   HRem(DataType::Type result_type,
        HInstruction* left,
@@ -4993,19 +5099,19 @@ class HRem FINAL : public HBinaryOperation {
     return std::fmod(x, y);
   }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x, HFloatConstant* y) const override {
     return GetBlock()->GetGraph()->GetFloatConstant(
         ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x, HDoubleConstant* y) const override {
     return GetBlock()->GetGraph()->GetDoubleConstant(
         ComputeFP(x->GetValue(), y->GetValue()), GetDexPc());
   }
@@ -5016,25 +5122,136 @@ class HRem FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Rem);
 };
 
-class HDivZeroCheck FINAL : public HExpression<1> {
+class HMin final : public HBinaryOperation {
+ public:
+  HMin(DataType::Type result_type,
+       HInstruction* left,
+       HInstruction* right,
+       uint32_t dex_pc)
+      : HBinaryOperation(kMin, result_type, left, right, SideEffects::None(), dex_pc) {}
+
+  bool IsCommutative() const override { return true; }
+
+  // Evaluation for integral values.
+  template <typename T> static T ComputeIntegral(T x, T y) {
+    return (x <= y) ? x : y;
+  }
+
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
+    return GetBlock()->GetGraph()->GetIntConstant(
+        ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
+  }
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
+    return GetBlock()->GetGraph()->GetLongConstant(
+        ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
+  }
+  // TODO: Evaluation for floating-point values.
+  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override { return nullptr; }
+  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override { return nullptr; }
+
+  DECLARE_INSTRUCTION(Min);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(Min);
+};
+
+class HMax final : public HBinaryOperation {
+ public:
+  HMax(DataType::Type result_type,
+       HInstruction* left,
+       HInstruction* right,
+       uint32_t dex_pc)
+      : HBinaryOperation(kMax, result_type, left, right, SideEffects::None(), dex_pc) {}
+
+  bool IsCommutative() const override { return true; }
+
+  // Evaluation for integral values.
+  template <typename T> static T ComputeIntegral(T x, T y) {
+    return (x >= y) ? x : y;
+  }
+
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
+    return GetBlock()->GetGraph()->GetIntConstant(
+        ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
+  }
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
+    return GetBlock()->GetGraph()->GetLongConstant(
+        ComputeIntegral(x->GetValue(), y->GetValue()), GetDexPc());
+  }
+  // TODO: Evaluation for floating-point values.
+  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override { return nullptr; }
+  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override { return nullptr; }
+
+  DECLARE_INSTRUCTION(Max);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(Max);
+};
+
+class HAbs final : public HUnaryOperation {
+ public:
+  HAbs(DataType::Type result_type, HInstruction* input, uint32_t dex_pc = kNoDexPc)
+      : HUnaryOperation(kAbs, result_type, input, dex_pc) {}
+
+  // Evaluation for integral values.
+  template <typename T> static T ComputeIntegral(T x) {
+    return x < 0 ? -x : x;
+  }
+
+  // Evaluation for floating-point values.
+  // Note, as a "quality of implementation", rather than pure "spec compliance",
+  // we require that Math.abs() clears the sign bit (but changes nothing else)
+  // for all floating-point numbers, including NaN (signaling NaN may become quiet though).
+  // http://b/30758343
+  template <typename T, typename S> static T ComputeFP(T x) {
+    S bits = bit_cast<S, T>(x);
+    return bit_cast<T, S>(bits & std::numeric_limits<S>::max());
+  }
+
+  HConstant* Evaluate(HIntConstant* x) const override {
+    return GetBlock()->GetGraph()->GetIntConstant(ComputeIntegral(x->GetValue()), GetDexPc());
+  }
+  HConstant* Evaluate(HLongConstant* x) const override {
+    return GetBlock()->GetGraph()->GetLongConstant(ComputeIntegral(x->GetValue()), GetDexPc());
+  }
+  HConstant* Evaluate(HFloatConstant* x) const override {
+    return GetBlock()->GetGraph()->GetFloatConstant(
+        ComputeFP<float, int32_t>(x->GetValue()), GetDexPc());
+  }
+  HConstant* Evaluate(HDoubleConstant* x) const override {
+    return GetBlock()->GetGraph()->GetDoubleConstant(
+        ComputeFP<double, int64_t>(x->GetValue()), GetDexPc());
+  }
+
+  DECLARE_INSTRUCTION(Abs);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(Abs);
+};
+
+class HDivZeroCheck final : public HExpression<1> {
  public:
   // `HDivZeroCheck` can trigger GC, as it may call the `ArithmeticException`
-  // constructor.
+  // constructor. However it can only do it on a fatal slow path so execution never returns to the
+  // instruction following the current one; thus 'SideEffects::None()' is used.
   HDivZeroCheck(HInstruction* value, uint32_t dex_pc)
-      : HExpression(kDivZeroCheck, value->GetType(), SideEffects::CanTriggerGC(), dex_pc) {
+      : HExpression(kDivZeroCheck, value->GetType(), SideEffects::None(), dex_pc) {
     SetRawInputAt(0, value);
   }
 
-  DataType::Type GetType() const OVERRIDE { return InputAt(0)->GetType(); }
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  bool NeedsEnvironment() const OVERRIDE { return true; }
-  bool CanThrow() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
+  bool CanThrow() const override { return true; }
 
   DECLARE_INSTRUCTION(DivZeroCheck);
 
@@ -5042,7 +5259,7 @@ class HDivZeroCheck FINAL : public HExpression<1> {
   DEFAULT_COPY_CONSTRUCTOR(DivZeroCheck);
 };
 
-class HShl FINAL : public HBinaryOperation {
+class HShl final : public HBinaryOperation {
  public:
   HShl(DataType::Type result_type,
        HInstruction* value,
@@ -5058,26 +5275,26 @@ class HShl FINAL : public HBinaryOperation {
     return value << (distance & max_shift_distance);
   }
 
-  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxIntShiftDistance), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxLongShiftDistance), GetDexPc());
   }
   HConstant* Evaluate(HLongConstant* value ATTRIBUTE_UNUSED,
-                      HLongConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HLongConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for the (long, long) case.";
     UNREACHABLE();
   }
   HConstant* Evaluate(HFloatConstant* value ATTRIBUTE_UNUSED,
-                      HFloatConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* value ATTRIBUTE_UNUSED,
-                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5088,7 +5305,7 @@ class HShl FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Shl);
 };
 
-class HShr FINAL : public HBinaryOperation {
+class HShr final : public HBinaryOperation {
  public:
   HShr(DataType::Type result_type,
        HInstruction* value,
@@ -5104,26 +5321,26 @@ class HShr FINAL : public HBinaryOperation {
     return value >> (distance & max_shift_distance);
   }
 
-  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxIntShiftDistance), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxLongShiftDistance), GetDexPc());
   }
   HConstant* Evaluate(HLongConstant* value ATTRIBUTE_UNUSED,
-                      HLongConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HLongConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for the (long, long) case.";
     UNREACHABLE();
   }
   HConstant* Evaluate(HFloatConstant* value ATTRIBUTE_UNUSED,
-                      HFloatConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* value ATTRIBUTE_UNUSED,
-                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5134,7 +5351,7 @@ class HShr FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Shr);
 };
 
-class HUShr FINAL : public HBinaryOperation {
+class HUShr final : public HBinaryOperation {
  public:
   HUShr(DataType::Type result_type,
         HInstruction* value,
@@ -5152,26 +5369,26 @@ class HUShr FINAL : public HBinaryOperation {
     return static_cast<T>(ux >> (distance & max_shift_distance));
   }
 
-  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxIntShiftDistance), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxLongShiftDistance), GetDexPc());
   }
   HConstant* Evaluate(HLongConstant* value ATTRIBUTE_UNUSED,
-                      HLongConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HLongConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for the (long, long) case.";
     UNREACHABLE();
   }
   HConstant* Evaluate(HFloatConstant* value ATTRIBUTE_UNUSED,
-                      HFloatConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* value ATTRIBUTE_UNUSED,
-                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5182,7 +5399,7 @@ class HUShr FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(UShr);
 };
 
-class HAnd FINAL : public HBinaryOperation {
+class HAnd final : public HBinaryOperation {
  public:
   HAnd(DataType::Type result_type,
        HInstruction* left,
@@ -5191,25 +5408,25 @@ class HAnd FINAL : public HBinaryOperation {
       : HBinaryOperation(kAnd, result_type, left, right, SideEffects::None(), dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   template <typename T> static T Compute(T x, T y) { return x & y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5220,7 +5437,7 @@ class HAnd FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(And);
 };
 
-class HOr FINAL : public HBinaryOperation {
+class HOr final : public HBinaryOperation {
  public:
   HOr(DataType::Type result_type,
       HInstruction* left,
@@ -5229,25 +5446,25 @@ class HOr FINAL : public HBinaryOperation {
       : HBinaryOperation(kOr, result_type, left, right, SideEffects::None(), dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   template <typename T> static T Compute(T x, T y) { return x | y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5258,7 +5475,7 @@ class HOr FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Or);
 };
 
-class HXor FINAL : public HBinaryOperation {
+class HXor final : public HBinaryOperation {
  public:
   HXor(DataType::Type result_type,
        HInstruction* left,
@@ -5267,25 +5484,25 @@ class HXor FINAL : public HBinaryOperation {
       : HBinaryOperation(kXor, result_type, left, right, SideEffects::None(), dex_pc) {
   }
 
-  bool IsCommutative() const OVERRIDE { return true; }
+  bool IsCommutative() const override { return true; }
 
   template <typename T> static T Compute(T x, T y) { return x ^ y; }
 
-  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x, HIntConstant* y) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x, HLongConstant* y) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(x->GetValue(), y->GetValue()), GetDexPc());
   }
   HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED,
-                      HFloatConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED,
-                      HDoubleConstant* y ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* y ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5296,7 +5513,7 @@ class HXor FINAL : public HBinaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Xor);
 };
 
-class HRor FINAL : public HBinaryOperation {
+class HRor final : public HBinaryOperation {
  public:
   HRor(DataType::Type result_type, HInstruction* value, HInstruction* distance)
       : HBinaryOperation(kRor, result_type, value, distance) {
@@ -5317,26 +5534,26 @@ class HRor FINAL : public HBinaryOperation {
     }
   }
 
-  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetIntConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxIntShiftDistance), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* value, HIntConstant* distance) const override {
     return GetBlock()->GetGraph()->GetLongConstant(
         Compute(value->GetValue(), distance->GetValue(), kMaxLongShiftDistance), GetDexPc());
   }
   HConstant* Evaluate(HLongConstant* value ATTRIBUTE_UNUSED,
-                      HLongConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HLongConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for the (long, long) case.";
     UNREACHABLE();
   }
   HConstant* Evaluate(HFloatConstant* value ATTRIBUTE_UNUSED,
-                      HFloatConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HFloatConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
   HConstant* Evaluate(HDoubleConstant* value ATTRIBUTE_UNUSED,
-                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const OVERRIDE {
+                      HDoubleConstant* distance ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5349,7 +5566,7 @@ class HRor FINAL : public HBinaryOperation {
 
 // The value of a parameter in this method. Its location depends on
 // the calling convention.
-class HParameterValue FINAL : public HExpression<0> {
+class HParameterValue final : public HExpression<0> {
  public:
   HParameterValue(const DexFile& dex_file,
                   dex::TypeIndex type_index,
@@ -5369,7 +5586,7 @@ class HParameterValue FINAL : public HExpression<0> {
   uint8_t GetIndex() const { return index_; }
   bool IsThis() const { return GetPackedFlag<kFlagIsThis>(); }
 
-  bool CanBeNull() const OVERRIDE { return GetPackedFlag<kFlagCanBeNull>(); }
+  bool CanBeNull() const override { return GetPackedFlag<kFlagCanBeNull>(); }
   void SetCanBeNull(bool can_be_null) { SetPackedFlag<kFlagCanBeNull>(can_be_null); }
 
   DECLARE_INSTRUCTION(ParameterValue);
@@ -5379,7 +5596,7 @@ class HParameterValue FINAL : public HExpression<0> {
 
  private:
   // Whether or not the parameter value corresponds to 'this' argument.
-  static constexpr size_t kFlagIsThis = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagIsThis = kNumberOfGenericPackedBits;
   static constexpr size_t kFlagCanBeNull = kFlagIsThis + 1;
   static constexpr size_t kNumberOfParameterValuePackedBits = kFlagCanBeNull + 1;
   static_assert(kNumberOfParameterValuePackedBits <= kMaxNumberOfPackedBits,
@@ -5392,30 +5609,30 @@ class HParameterValue FINAL : public HExpression<0> {
   const uint8_t index_;
 };
 
-class HNot FINAL : public HUnaryOperation {
+class HNot final : public HUnaryOperation {
  public:
   HNot(DataType::Type result_type, HInstruction* input, uint32_t dex_pc = kNoDexPc)
       : HUnaryOperation(kNot, result_type, input, dex_pc) {
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
   template <typename T> static T Compute(T x) { return ~x; }
 
-  HConstant* Evaluate(HIntConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x) const override {
     return GetBlock()->GetGraph()->GetIntConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x) const override {
     return GetBlock()->GetGraph()->GetLongConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
-  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5426,14 +5643,14 @@ class HNot FINAL : public HUnaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(Not);
 };
 
-class HBooleanNot FINAL : public HUnaryOperation {
+class HBooleanNot final : public HUnaryOperation {
  public:
   explicit HBooleanNot(HInstruction* input, uint32_t dex_pc = kNoDexPc)
       : HUnaryOperation(kBooleanNot, DataType::Type::kBool, input, dex_pc) {
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
@@ -5442,18 +5659,18 @@ class HBooleanNot FINAL : public HUnaryOperation {
     return !x;
   }
 
-  HConstant* Evaluate(HIntConstant* x) const OVERRIDE {
+  HConstant* Evaluate(HIntConstant* x) const override {
     return GetBlock()->GetGraph()->GetIntConstant(Compute(x->GetValue()), GetDexPc());
   }
-  HConstant* Evaluate(HLongConstant* x ATTRIBUTE_UNUSED) const OVERRIDE {
+  HConstant* Evaluate(HLongConstant* x ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for long values";
     UNREACHABLE();
   }
-  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED) const OVERRIDE {
+  HConstant* Evaluate(HFloatConstant* x ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for float values";
     UNREACHABLE();
   }
-  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED) const OVERRIDE {
+  HConstant* Evaluate(HDoubleConstant* x ATTRIBUTE_UNUSED) const override {
     LOG(FATAL) << DebugName() << " is not defined for double values";
     UNREACHABLE();
   }
@@ -5464,7 +5681,7 @@ class HBooleanNot FINAL : public HUnaryOperation {
   DEFAULT_COPY_CONSTRUCTOR(BooleanNot);
 };
 
-class HTypeConversion FINAL : public HExpression<1> {
+class HTypeConversion final : public HExpression<1> {
  public:
   // Instantiate a type conversion of `input` to `result_type`.
   HTypeConversion(DataType::Type result_type, HInstruction* input, uint32_t dex_pc = kNoDexPc)
@@ -5478,9 +5695,14 @@ class HTypeConversion FINAL : public HExpression<1> {
   DataType::Type GetInputType() const { return GetInput()->GetType(); }
   DataType::Type GetResultType() const { return GetType(); }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
+  }
+  // Return whether the conversion is implicit. This includes conversion to the same type.
+  bool IsImplicitConversion() const {
+    return DataType::IsTypeConversionImplicit(GetInputType(), GetResultType());
   }
 
   // Try to statically evaluate the conversion and return a HConstant
@@ -5495,26 +5717,27 @@ class HTypeConversion FINAL : public HExpression<1> {
 
 static constexpr uint32_t kNoRegNumber = -1;
 
-class HNullCheck FINAL : public HExpression<1> {
+class HNullCheck final : public HExpression<1> {
  public:
   // `HNullCheck` can trigger GC, as it may call the `NullPointerException`
-  // constructor.
+  // constructor. However it can only do it on a fatal slow path so execution never returns to the
+  // instruction following the current one; thus 'SideEffects::None()' is used.
   HNullCheck(HInstruction* value, uint32_t dex_pc)
-      : HExpression(kNullCheck, value->GetType(), SideEffects::CanTriggerGC(), dex_pc) {
+      : HExpression(kNullCheck, value->GetType(), SideEffects::None(), dex_pc) {
     SetRawInputAt(0, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
-  bool CanBeNull() const OVERRIDE { return false; }
+  bool CanBeNull() const override { return false; }
 
   DECLARE_INSTRUCTION(NullCheck);
 
@@ -5559,7 +5782,7 @@ class FieldInfo : public ValueObject {
   const DexFile& dex_file_;
 };
 
-class HInstanceFieldGet FINAL : public HExpression<1> {
+class HInstanceFieldGet final : public HExpression<1> {
  public:
   HInstanceFieldGet(HInstruction* value,
                     ArtField* field,
@@ -5584,19 +5807,19 @@ class HInstanceFieldGet FINAL : public HExpression<1> {
     SetRawInputAt(0, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return !IsVolatile(); }
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return !IsVolatile(); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     const HInstanceFieldGet* other_get = other->AsInstanceFieldGet();
     return GetFieldOffset().SizeValue() == other_get->GetFieldOffset().SizeValue();
   }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj) const override {
     return (obj == InputAt(0)) && art::CanDoImplicitNullCheckOn(GetFieldOffset().Uint32Value());
   }
 
-  size_t ComputeHashCode() const OVERRIDE {
+  size_t ComputeHashCode() const override {
     return (HInstruction::ComputeHashCode() << 7) | GetFieldOffset().SizeValue();
   }
 
@@ -5621,7 +5844,7 @@ class HInstanceFieldGet FINAL : public HExpression<1> {
   const FieldInfo field_info_;
 };
 
-class HInstanceFieldSet FINAL : public HTemplateInstruction<2> {
+class HInstanceFieldSet final : public HExpression<2> {
  public:
   HInstanceFieldSet(HInstruction* object,
                     HInstruction* value,
@@ -5633,9 +5856,9 @@ class HInstanceFieldSet FINAL : public HTemplateInstruction<2> {
                     uint16_t declaring_class_def_index,
                     const DexFile& dex_file,
                     uint32_t dex_pc)
-      : HTemplateInstruction(kInstanceFieldSet,
-                             SideEffects::FieldWriteOfType(field_type, is_volatile),
-                             dex_pc),
+      : HExpression(kInstanceFieldSet,
+                    SideEffects::FieldWriteOfType(field_type, is_volatile),
+                    dex_pc),
         field_info_(field,
                     field_offset,
                     field_type,
@@ -5648,9 +5871,9 @@ class HInstanceFieldSet FINAL : public HTemplateInstruction<2> {
     SetRawInputAt(1, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj) const override {
     return (obj == InputAt(0)) && art::CanDoImplicitNullCheckOn(GetFieldOffset().Uint32Value());
   }
 
@@ -5676,7 +5899,7 @@ class HInstanceFieldSet FINAL : public HTemplateInstruction<2> {
   const FieldInfo field_info_;
 };
 
-class HArrayGet FINAL : public HExpression<2> {
+class HArrayGet final : public HExpression<2> {
  public:
   HArrayGet(HInstruction* array,
             HInstruction* index,
@@ -5687,7 +5910,7 @@ class HArrayGet FINAL : public HExpression<2> {
                  type,
                  SideEffects::ArrayReadOfType(type),
                  dex_pc,
-                 /* is_string_char_at */ false) {
+                 /* is_string_char_at= */ false) {
   }
 
   HArrayGet(HInstruction* array,
@@ -5702,12 +5925,12 @@ class HArrayGet FINAL : public HExpression<2> {
     SetRawInputAt(1, index);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
-  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const override {
     // TODO: We can be smarter here.
     // Currently, unless the array is the result of NewArray, the array access is always
     // preceded by some form of null NullCheck necessary for the bounds check, usually
@@ -5761,13 +5984,13 @@ class HArrayGet FINAL : public HExpression<2> {
   // a particular HArrayGet is actually a String.charAt() by looking at the type
   // of the input but that requires holding the mutator lock, so we prefer to use
   // a flag, so that code generators don't need to do the locking.
-  static constexpr size_t kFlagIsStringCharAt = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagIsStringCharAt = kNumberOfGenericPackedBits;
   static constexpr size_t kNumberOfArrayGetPackedBits = kFlagIsStringCharAt + 1;
   static_assert(kNumberOfArrayGetPackedBits <= HInstruction::kMaxNumberOfPackedBits,
                 "Too many packed fields.");
 };
 
-class HArraySet FINAL : public HTemplateInstruction<3> {
+class HArraySet final : public HExpression<3> {
  public:
   HArraySet(HInstruction* array,
             HInstruction* index,
@@ -5789,7 +6012,7 @@ class HArraySet FINAL : public HTemplateInstruction<3> {
             DataType::Type expected_component_type,
             SideEffects side_effects,
             uint32_t dex_pc)
-      : HTemplateInstruction(kArraySet, side_effects, dex_pc) {
+      : HExpression(kArraySet, side_effects, dex_pc) {
     SetPackedField<ExpectedComponentTypeField>(expected_component_type);
     SetPackedFlag<kFlagNeedsTypeCheck>(value->GetType() == DataType::Type::kReference);
     SetPackedFlag<kFlagValueCanBeNull>(true);
@@ -5799,17 +6022,17 @@ class HArraySet FINAL : public HTemplateInstruction<3> {
     SetRawInputAt(2, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool NeedsEnvironment() const OVERRIDE {
+  bool NeedsEnvironment() const override {
     // We call a runtime method to throw ArrayStoreException.
     return NeedsTypeCheck();
   }
 
   // Can throw ArrayStoreException.
-  bool CanThrow() const OVERRIDE { return NeedsTypeCheck(); }
+  bool CanThrow() const override { return NeedsTypeCheck(); }
 
-  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj ATTRIBUTE_UNUSED) const override {
     // TODO: Same as for ArrayGet.
     return false;
   }
@@ -5886,7 +6109,7 @@ class HArraySet FINAL : public HTemplateInstruction<3> {
       BitField<DataType::Type, kFieldExpectedComponentType, kFieldExpectedComponentTypeSize>;
 };
 
-class HArrayLength FINAL : public HExpression<1> {
+class HArrayLength final : public HExpression<1> {
  public:
   HArrayLength(HInstruction* array, uint32_t dex_pc, bool is_string_length = false)
       : HExpression(kArrayLength, DataType::Type::kInt32, SideEffects::None(), dex_pc) {
@@ -5896,12 +6119,12 @@ class HArrayLength FINAL : public HExpression<1> {
     SetRawInputAt(0, array);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
-  bool CanDoImplicitNullCheckOn(HInstruction* obj) const OVERRIDE {
+  bool CanDoImplicitNullCheckOn(HInstruction* obj) const override {
     return obj == InputAt(0);
   }
 
@@ -5918,36 +6141,37 @@ class HArrayLength FINAL : public HExpression<1> {
   // determine whether a particular HArrayLength is actually a String.length() by
   // looking at the type of the input but that requires holding the mutator lock, so
   // we prefer to use a flag, so that code generators don't need to do the locking.
-  static constexpr size_t kFlagIsStringLength = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagIsStringLength = kNumberOfGenericPackedBits;
   static constexpr size_t kNumberOfArrayLengthPackedBits = kFlagIsStringLength + 1;
   static_assert(kNumberOfArrayLengthPackedBits <= HInstruction::kMaxNumberOfPackedBits,
                 "Too many packed fields.");
 };
 
-class HBoundsCheck FINAL : public HExpression<2> {
+class HBoundsCheck final : public HExpression<2> {
  public:
   // `HBoundsCheck` can trigger GC, as it may call the `IndexOutOfBoundsException`
-  // constructor.
+  // constructor. However it can only do it on a fatal slow path so execution never returns to the
+  // instruction following the current one; thus 'SideEffects::None()' is used.
   HBoundsCheck(HInstruction* index,
                HInstruction* length,
                uint32_t dex_pc,
                bool is_string_char_at = false)
-      : HExpression(kBoundsCheck, index->GetType(), SideEffects::CanTriggerGC(), dex_pc) {
+      : HExpression(kBoundsCheck, index->GetType(), SideEffects::None(), dex_pc) {
     DCHECK_EQ(DataType::Type::kInt32, DataType::Kind(index->GetType()));
     SetPackedFlag<kFlagIsStringCharAt>(is_string_char_at);
     SetRawInputAt(0, index);
     SetRawInputAt(1, length);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
   bool IsStringCharAt() const { return GetPackedFlag<kFlagIsStringCharAt>(); }
 
@@ -5959,19 +6183,22 @@ class HBoundsCheck FINAL : public HExpression<2> {
   DEFAULT_COPY_CONSTRUCTOR(BoundsCheck);
 
  private:
-  static constexpr size_t kFlagIsStringCharAt = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagIsStringCharAt = kNumberOfGenericPackedBits;
+  static constexpr size_t kNumberOfBoundsCheckPackedBits = kFlagIsStringCharAt + 1;
+  static_assert(kNumberOfBoundsCheckPackedBits <= HInstruction::kMaxNumberOfPackedBits,
+                "Too many packed fields.");
 };
 
-class HSuspendCheck FINAL : public HTemplateInstruction<0> {
+class HSuspendCheck final : public HExpression<0> {
  public:
   explicit HSuspendCheck(uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kSuspendCheck, SideEffects::CanTriggerGC(), dex_pc),
+      : HExpression(kSuspendCheck, SideEffects::CanTriggerGC(), dex_pc),
         slow_path_(nullptr) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
-  bool NeedsEnvironment() const OVERRIDE {
+  bool NeedsEnvironment() const override {
     return true;
   }
 
@@ -5991,13 +6218,13 @@ class HSuspendCheck FINAL : public HTemplateInstruction<0> {
 
 // Pseudo-instruction which provides the native debugger with mapping information.
 // It ensures that we can generate line number and local variables at this point.
-class HNativeDebugInfo : public HTemplateInstruction<0> {
+class HNativeDebugInfo : public HExpression<0> {
  public:
   explicit HNativeDebugInfo(uint32_t dex_pc)
-      : HTemplateInstruction<0>(kNativeDebugInfo, SideEffects::None(), dex_pc) {
+      : HExpression<0>(kNativeDebugInfo, SideEffects::None(), dex_pc) {
   }
 
-  bool NeedsEnvironment() const OVERRIDE {
+  bool NeedsEnvironment() const override {
     return true;
   }
 
@@ -6010,7 +6237,7 @@ class HNativeDebugInfo : public HTemplateInstruction<0> {
 /**
  * Instruction to load a Class object.
  */
-class HLoadClass FINAL : public HInstruction {
+class HLoadClass final : public HInstruction {
  public:
   // Determines how to load the Class.
   enum class LoadKind {
@@ -6024,17 +6251,17 @@ class HLoadClass FINAL : public HInstruction {
     // Used for boot image classes referenced by boot image code.
     kBootImageLinkTimePcRelative,
 
-    // Use a known boot image Class* address, embedded in the code by the codegen.
-    // Used for boot image classes referenced by apps in AOT- and JIT-compiled code.
-    kBootImageAddress,
-
-    // Use a PC-relative load from a boot image ClassTable mmapped into the .bss
-    // of the oat file.
-    kBootImageClassTable,
+    // Load from an entry in the .data.bimg.rel.ro using a PC-relative load.
+    // Used for boot image classes referenced by apps in AOT-compiled code.
+    kBootImageRelRo,
 
     // Load from an entry in the .bss section using a PC-relative load.
-    // Used for classes outside boot image when .bss is accessible with a PC-relative load.
+    // Used for classes outside boot image referenced by AOT-compiled app and boot image code.
     kBssEntry,
+
+    // Use a known boot image Class* address, embedded in the code by the codegen.
+    // Used for boot image classes referenced by apps in JIT-compiled code.
+    kJitBootImageAddress,
 
     // Load from the root table associated with the JIT compiled method.
     kJitTableAddress,
@@ -6053,12 +6280,14 @@ class HLoadClass FINAL : public HInstruction {
              bool is_referrers_class,
              uint32_t dex_pc,
              bool needs_access_check)
-      : HInstruction(kLoadClass, SideEffectsForArchRuntimeCalls(), dex_pc),
+      : HInstruction(kLoadClass,
+                     DataType::Type::kReference,
+                     SideEffectsForArchRuntimeCalls(),
+                     dex_pc),
         special_input_(HUserRecord<HInstruction*>(current_method)),
         type_index_(type_index),
         dex_file_(dex_file),
-        klass_(klass),
-        loaded_class_rti_(ReferenceTypeInfo::CreateInvalid()) {
+        klass_(klass) {
     // Referrers class should not need access check. We never inline unverified
     // methods so we can't possibly end up in this situation.
     DCHECK(!is_referrers_class || !needs_access_check);
@@ -6068,9 +6297,10 @@ class HLoadClass FINAL : public HInstruction {
     SetPackedFlag<kFlagNeedsAccessCheck>(needs_access_check);
     SetPackedFlag<kFlagIsInBootImage>(false);
     SetPackedFlag<kFlagGenerateClInitCheck>(false);
+    SetPackedFlag<kFlagValidLoadedClassRTI>(false);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   void SetLoadKind(LoadKind load_kind);
 
@@ -6078,15 +6308,21 @@ class HLoadClass FINAL : public HInstruction {
     return GetPackedField<LoadKindField>();
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
+  bool HasPcRelativeLoadKind() const {
+    return GetLoadKind() == LoadKind::kBootImageLinkTimePcRelative ||
+           GetLoadKind() == LoadKind::kBootImageRelRo ||
+           GetLoadKind() == LoadKind::kBssEntry;
+  }
 
-  bool InstructionDataEquals(const HInstruction* other) const;
+  bool CanBeMoved() const override { return true; }
 
-  size_t ComputeHashCode() const OVERRIDE { return type_index_.index_; }
+  bool InstructionDataEquals(const HInstruction* other) const override;
 
-  bool CanBeNull() const OVERRIDE { return false; }
+  size_t ComputeHashCode() const override { return type_index_.index_; }
 
-  bool NeedsEnvironment() const OVERRIDE {
+  bool CanBeNull() const override { return false; }
+
+  bool NeedsEnvironment() const override {
     return CanCallRuntime();
   }
 
@@ -6104,31 +6340,34 @@ class HLoadClass FINAL : public HInstruction {
            GetLoadKind() == LoadKind::kBssEntry;
   }
 
-  bool CanThrow() const OVERRIDE {
+  bool CanThrow() const override {
     return NeedsAccessCheck() ||
            MustGenerateClinitCheck() ||
            // If the class is in the boot image, the lookup in the runtime call cannot throw.
-           // This keeps CanThrow() consistent between non-PIC (using kBootImageAddress) and
-           // PIC and subsequently avoids a DCE behavior dependency on the PIC option.
            ((GetLoadKind() == LoadKind::kRuntimeCall ||
              GetLoadKind() == LoadKind::kBssEntry) &&
             !IsInBootImage());
   }
 
   ReferenceTypeInfo GetLoadedClassRTI() {
-    return loaded_class_rti_;
+    if (GetPackedFlag<kFlagValidLoadedClassRTI>()) {
+      // Note: The is_exact flag from the return value should not be used.
+      return ReferenceTypeInfo::CreateUnchecked(klass_, /* is_exact= */ true);
+    } else {
+      return ReferenceTypeInfo::CreateInvalid();
+    }
   }
 
-  void SetLoadedClassRTI(ReferenceTypeInfo rti) {
-    // Make sure we only set exact types (the loaded class should never be merged).
-    DCHECK(rti.IsExact());
-    loaded_class_rti_ = rti;
+  // Loaded class RTI is marked as valid by RTP if the klass_ is admissible.
+  void SetValidLoadedClassRTI() REQUIRES_SHARED(Locks::mutator_lock_) {
+    DCHECK(klass_ != nullptr);
+    SetPackedFlag<kFlagValidLoadedClassRTI>(true);
   }
 
   dex::TypeIndex GetTypeIndex() const { return type_index_; }
   const DexFile& GetDexFile() const { return dex_file_; }
 
-  bool NeedsDexCacheOfDeclaringClass() const OVERRIDE {
+  bool NeedsDexCacheOfDeclaringClass() const override {
     return GetLoadKind() == LoadKind::kRuntimeCall;
   }
 
@@ -6141,6 +6380,13 @@ class HLoadClass FINAL : public HInstruction {
   bool IsInBootImage() const { return GetPackedFlag<kFlagIsInBootImage>(); }
   bool MustGenerateClinitCheck() const { return GetPackedFlag<kFlagGenerateClInitCheck>(); }
 
+  bool MustResolveTypeOnSlowPath() const {
+    // Check that this instruction has a slow path.
+    DCHECK(GetLoadKind() != LoadKind::kRuntimeCall);  // kRuntimeCall calls on main path.
+    DCHECK(GetLoadKind() == LoadKind::kBssEntry || MustGenerateClinitCheck());
+    return GetLoadKind() == LoadKind::kBssEntry;
+  }
+
   void MarkInBootImage() {
     SetPackedFlag<kFlagIsInBootImage>(true);
   }
@@ -6148,13 +6394,9 @@ class HLoadClass FINAL : public HInstruction {
   void AddSpecialInput(HInstruction* special_input);
 
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE FINAL {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
     return ArrayRef<HUserRecord<HInstruction*>>(
         &special_input_, (special_input_.GetInstruction() != nullptr) ? 1u : 0u);
-  }
-
-  DataType::Type GetType() const OVERRIDE {
-    return DataType::Type::kReference;
   }
 
   Handle<mirror::Class> GetClass() const {
@@ -6175,14 +6417,14 @@ class HLoadClass FINAL : public HInstruction {
   static constexpr size_t kFieldLoadKind           = kFlagGenerateClInitCheck + 1;
   static constexpr size_t kFieldLoadKindSize =
       MinimumBitsToStore(static_cast<size_t>(LoadKind::kLast));
-  static constexpr size_t kNumberOfLoadClassPackedBits = kFieldLoadKind + kFieldLoadKindSize;
+  static constexpr size_t kFlagValidLoadedClassRTI = kFieldLoadKind + kFieldLoadKindSize;
+  static constexpr size_t kNumberOfLoadClassPackedBits = kFlagValidLoadedClassRTI + 1;
   static_assert(kNumberOfLoadClassPackedBits < kMaxNumberOfPackedBits, "Too many packed fields.");
   using LoadKindField = BitField<LoadKind, kFieldLoadKind, kFieldLoadKindSize>;
 
   static bool HasTypeReference(LoadKind load_kind) {
     return load_kind == LoadKind::kReferrersClass ||
         load_kind == LoadKind::kBootImageLinkTimePcRelative ||
-        load_kind == LoadKind::kBootImageClassTable ||
         load_kind == LoadKind::kBssEntry ||
         load_kind == LoadKind::kRuntimeCall;
   }
@@ -6203,8 +6445,6 @@ class HLoadClass FINAL : public HInstruction {
   const DexFile& dex_file_;
 
   Handle<mirror::Class> klass_;
-
-  ReferenceTypeInfo loaded_class_rti_;
 };
 std::ostream& operator<<(std::ostream& os, HLoadClass::LoadKind rhs);
 
@@ -6227,15 +6467,15 @@ inline void HLoadClass::AddSpecialInput(HInstruction* special_input) {
   // The special input is used for PC-relative loads on some architectures,
   // including literal pool loads, which are PC-relative too.
   DCHECK(GetLoadKind() == LoadKind::kBootImageLinkTimePcRelative ||
-         GetLoadKind() == LoadKind::kBootImageAddress ||
-         GetLoadKind() == LoadKind::kBootImageClassTable ||
-         GetLoadKind() == LoadKind::kBssEntry) << GetLoadKind();
+         GetLoadKind() == LoadKind::kBootImageRelRo ||
+         GetLoadKind() == LoadKind::kBssEntry ||
+         GetLoadKind() == LoadKind::kJitBootImageAddress) << GetLoadKind();
   DCHECK(special_input_.GetInstruction() == nullptr);
   special_input_ = HUserRecord<HInstruction*>(special_input);
   special_input->AddUseAt(this, 0);
 }
 
-class HLoadString FINAL : public HInstruction {
+class HLoadString final : public HInstruction {
  public:
   // Determines how to load the String.
   enum class LoadKind {
@@ -6243,17 +6483,17 @@ class HLoadString FINAL : public HInstruction {
     // Used for boot image strings referenced by boot image code.
     kBootImageLinkTimePcRelative,
 
-    // Use a known boot image String* address, embedded in the code by the codegen.
-    // Used for boot image strings referenced by apps in AOT- and JIT-compiled code.
-    kBootImageAddress,
-
-    // Use a PC-relative load from a boot image InternTable mmapped into the .bss
-    // of the oat file.
-    kBootImageInternTable,
+    // Load from an entry in the .data.bimg.rel.ro using a PC-relative load.
+    // Used for boot image strings referenced by apps in AOT-compiled code.
+    kBootImageRelRo,
 
     // Load from an entry in the .bss section using a PC-relative load.
-    // Used for strings outside boot image when .bss is accessible with a PC-relative load.
+    // Used for strings outside boot image referenced by AOT-compiled app and boot image code.
     kBssEntry,
+
+    // Use a known boot image String* address, embedded in the code by the codegen.
+    // Used for boot image strings referenced by apps in JIT-compiled code.
+    kJitBootImageAddress,
 
     // Load from the root table associated with the JIT compiled method.
     kJitTableAddress,
@@ -6269,19 +6509,28 @@ class HLoadString FINAL : public HInstruction {
               dex::StringIndex string_index,
               const DexFile& dex_file,
               uint32_t dex_pc)
-      : HInstruction(kLoadString, SideEffectsForArchRuntimeCalls(), dex_pc),
+      : HInstruction(kLoadString,
+                     DataType::Type::kReference,
+                     SideEffectsForArchRuntimeCalls(),
+                     dex_pc),
         special_input_(HUserRecord<HInstruction*>(current_method)),
         string_index_(string_index),
         dex_file_(dex_file) {
     SetPackedField<LoadKindField>(LoadKind::kRuntimeCall);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   void SetLoadKind(LoadKind load_kind);
 
   LoadKind GetLoadKind() const {
     return GetPackedField<LoadKindField>();
+  }
+
+  bool HasPcRelativeLoadKind() const {
+    return GetLoadKind() == LoadKind::kBootImageLinkTimePcRelative ||
+           GetLoadKind() == LoadKind::kBootImageRelRo ||
+           GetLoadKind() == LoadKind::kBssEntry;
   }
 
   const DexFile& GetDexFile() const {
@@ -6300,31 +6549,31 @@ class HLoadString FINAL : public HInstruction {
     string_ = str;
   }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
+  bool CanBeMoved() const override { return true; }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE;
+  bool InstructionDataEquals(const HInstruction* other) const override;
 
-  size_t ComputeHashCode() const OVERRIDE { return string_index_.index_; }
+  size_t ComputeHashCode() const override { return string_index_.index_; }
 
   // Will call the runtime if we need to load the string through
   // the dex cache and the string is not guaranteed to be there yet.
-  bool NeedsEnvironment() const OVERRIDE {
+  bool NeedsEnvironment() const override {
     LoadKind load_kind = GetLoadKind();
     if (load_kind == LoadKind::kBootImageLinkTimePcRelative ||
-        load_kind == LoadKind::kBootImageAddress ||
-        load_kind == LoadKind::kBootImageInternTable ||
+        load_kind == LoadKind::kBootImageRelRo ||
+        load_kind == LoadKind::kJitBootImageAddress ||
         load_kind == LoadKind::kJitTableAddress) {
       return false;
     }
     return true;
   }
 
-  bool NeedsDexCacheOfDeclaringClass() const OVERRIDE {
+  bool NeedsDexCacheOfDeclaringClass() const override {
     return GetLoadKind() == LoadKind::kRuntimeCall;
   }
 
-  bool CanBeNull() const OVERRIDE { return false; }
-  bool CanThrow() const OVERRIDE { return NeedsEnvironment(); }
+  bool CanBeNull() const override { return false; }
+  bool CanThrow() const override { return NeedsEnvironment(); }
 
   static SideEffects SideEffectsForArchRuntimeCalls() {
     return SideEffects::CanTriggerGC();
@@ -6333,13 +6582,9 @@ class HLoadString FINAL : public HInstruction {
   void AddSpecialInput(HInstruction* special_input);
 
   using HInstruction::GetInputRecords;  // Keep the const version visible.
-  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() OVERRIDE FINAL {
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
     return ArrayRef<HUserRecord<HInstruction*>>(
         &special_input_, (special_input_.GetInstruction() != nullptr) ? 1u : 0u);
-  }
-
-  DataType::Type GetType() const OVERRIDE {
-    return DataType::Type::kReference;
   }
 
   DECLARE_INSTRUCTION(LoadString);
@@ -6389,9 +6634,9 @@ inline void HLoadString::AddSpecialInput(HInstruction* special_input) {
   // The special input is used for PC-relative loads on some architectures,
   // including literal pool loads, which are PC-relative too.
   DCHECK(GetLoadKind() == LoadKind::kBootImageLinkTimePcRelative ||
-         GetLoadKind() == LoadKind::kBootImageAddress ||
-         GetLoadKind() == LoadKind::kBootImageInternTable ||
-         GetLoadKind() == LoadKind::kBssEntry) << GetLoadKind();
+         GetLoadKind() == LoadKind::kBootImageRelRo ||
+         GetLoadKind() == LoadKind::kBssEntry ||
+         GetLoadKind() == LoadKind::kJitBootImageAddress) << GetLoadKind();
   // HLoadString::GetInputRecords() returns an empty array at this point,
   // so use the GetInputRecords() from the base class to set the input record.
   DCHECK(special_input_.GetInstruction() == nullptr);
@@ -6399,10 +6644,98 @@ inline void HLoadString::AddSpecialInput(HInstruction* special_input) {
   special_input->AddUseAt(this, 0);
 }
 
+class HLoadMethodHandle final : public HInstruction {
+ public:
+  HLoadMethodHandle(HCurrentMethod* current_method,
+                    uint16_t method_handle_idx,
+                    const DexFile& dex_file,
+                    uint32_t dex_pc)
+      : HInstruction(kLoadMethodHandle,
+                     DataType::Type::kReference,
+                     SideEffectsForArchRuntimeCalls(),
+                     dex_pc),
+        special_input_(HUserRecord<HInstruction*>(current_method)),
+        method_handle_idx_(method_handle_idx),
+        dex_file_(dex_file) {
+  }
+
+  using HInstruction::GetInputRecords;  // Keep the const version visible.
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
+    return ArrayRef<HUserRecord<HInstruction*>>(
+        &special_input_, (special_input_.GetInstruction() != nullptr) ? 1u : 0u);
+  }
+
+  bool IsClonable() const override { return true; }
+
+  uint16_t GetMethodHandleIndex() const { return method_handle_idx_; }
+
+  const DexFile& GetDexFile() const { return dex_file_; }
+
+  static SideEffects SideEffectsForArchRuntimeCalls() {
+    return SideEffects::CanTriggerGC();
+  }
+
+  DECLARE_INSTRUCTION(LoadMethodHandle);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(LoadMethodHandle);
+
+ private:
+  // The special input is the HCurrentMethod for kRuntimeCall.
+  HUserRecord<HInstruction*> special_input_;
+
+  const uint16_t method_handle_idx_;
+  const DexFile& dex_file_;
+};
+
+class HLoadMethodType final : public HInstruction {
+ public:
+  HLoadMethodType(HCurrentMethod* current_method,
+                  dex::ProtoIndex proto_index,
+                  const DexFile& dex_file,
+                  uint32_t dex_pc)
+      : HInstruction(kLoadMethodType,
+                     DataType::Type::kReference,
+                     SideEffectsForArchRuntimeCalls(),
+                     dex_pc),
+        special_input_(HUserRecord<HInstruction*>(current_method)),
+        proto_index_(proto_index),
+        dex_file_(dex_file) {
+  }
+
+  using HInstruction::GetInputRecords;  // Keep the const version visible.
+  ArrayRef<HUserRecord<HInstruction*>> GetInputRecords() final {
+    return ArrayRef<HUserRecord<HInstruction*>>(
+        &special_input_, (special_input_.GetInstruction() != nullptr) ? 1u : 0u);
+  }
+
+  bool IsClonable() const override { return true; }
+
+  dex::ProtoIndex GetProtoIndex() const { return proto_index_; }
+
+  const DexFile& GetDexFile() const { return dex_file_; }
+
+  static SideEffects SideEffectsForArchRuntimeCalls() {
+    return SideEffects::CanTriggerGC();
+  }
+
+  DECLARE_INSTRUCTION(LoadMethodType);
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(LoadMethodType);
+
+ private:
+  // The special input is the HCurrentMethod for kRuntimeCall.
+  HUserRecord<HInstruction*> special_input_;
+
+  const dex::ProtoIndex proto_index_;
+  const DexFile& dex_file_;
+};
+
 /**
  * Performs an initialization check on its Class object input.
  */
-class HClinitCheck FINAL : public HExpression<1> {
+class HClinitCheck final : public HExpression<1> {
  public:
   HClinitCheck(HLoadClass* constant, uint32_t dex_pc)
       : HExpression(
@@ -6412,19 +6745,18 @@ class HClinitCheck FINAL : public HExpression<1> {
             dex_pc) {
     SetRawInputAt(0, constant);
   }
-
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  // TODO: Make ClinitCheck clonable.
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  bool NeedsEnvironment() const OVERRIDE {
+  bool NeedsEnvironment() const override {
     // May call runtime to initialize the class.
     return true;
   }
 
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
   HLoadClass* GetLoadClass() const {
     DCHECK(InputAt(0)->IsLoadClass());
@@ -6438,7 +6770,7 @@ class HClinitCheck FINAL : public HExpression<1> {
   DEFAULT_COPY_CONSTRUCTOR(ClinitCheck);
 };
 
-class HStaticFieldGet FINAL : public HExpression<1> {
+class HStaticFieldGet final : public HExpression<1> {
  public:
   HStaticFieldGet(HInstruction* cls,
                   ArtField* field,
@@ -6464,15 +6796,15 @@ class HStaticFieldGet FINAL : public HExpression<1> {
   }
 
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return !IsVolatile(); }
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return !IsVolatile(); }
 
-  bool InstructionDataEquals(const HInstruction* other) const OVERRIDE {
+  bool InstructionDataEquals(const HInstruction* other) const override {
     const HStaticFieldGet* other_get = other->AsStaticFieldGet();
     return GetFieldOffset().SizeValue() == other_get->GetFieldOffset().SizeValue();
   }
 
-  size_t ComputeHashCode() const OVERRIDE {
+  size_t ComputeHashCode() const override {
     return (HInstruction::ComputeHashCode() << 7) | GetFieldOffset().SizeValue();
   }
 
@@ -6497,7 +6829,7 @@ class HStaticFieldGet FINAL : public HExpression<1> {
   const FieldInfo field_info_;
 };
 
-class HStaticFieldSet FINAL : public HTemplateInstruction<2> {
+class HStaticFieldSet final : public HExpression<2> {
  public:
   HStaticFieldSet(HInstruction* cls,
                   HInstruction* value,
@@ -6509,9 +6841,9 @@ class HStaticFieldSet FINAL : public HTemplateInstruction<2> {
                   uint16_t declaring_class_def_index,
                   const DexFile& dex_file,
                   uint32_t dex_pc)
-      : HTemplateInstruction(kStaticFieldSet,
-                             SideEffects::FieldWriteOfType(field_type, is_volatile),
-                             dex_pc),
+      : HExpression(kStaticFieldSet,
+                    SideEffects::FieldWriteOfType(field_type, is_volatile),
+                    dex_pc),
         field_info_(field,
                     field_offset,
                     field_type,
@@ -6524,7 +6856,7 @@ class HStaticFieldSet FINAL : public HTemplateInstruction<2> {
     SetRawInputAt(1, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
   const FieldInfo& GetFieldInfo() const { return field_info_; }
   MemberOffset GetFieldOffset() const { return field_info_.GetFieldOffset(); }
   DataType::Type GetFieldType() const { return field_info_.GetFieldType(); }
@@ -6548,7 +6880,7 @@ class HStaticFieldSet FINAL : public HTemplateInstruction<2> {
   const FieldInfo field_info_;
 };
 
-class HUnresolvedInstanceFieldGet FINAL : public HExpression<1> {
+class HUnresolvedInstanceFieldGet final : public HExpression<1> {
  public:
   HUnresolvedInstanceFieldGet(HInstruction* obj,
                               DataType::Type field_type,
@@ -6562,9 +6894,9 @@ class HUnresolvedInstanceFieldGet FINAL : public HExpression<1> {
     SetRawInputAt(0, obj);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool NeedsEnvironment() const OVERRIDE { return true; }
-  bool CanThrow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool NeedsEnvironment() const override { return true; }
+  bool CanThrow() const override { return true; }
 
   DataType::Type GetFieldType() const { return GetType(); }
   uint32_t GetFieldIndex() const { return field_index_; }
@@ -6578,16 +6910,14 @@ class HUnresolvedInstanceFieldGet FINAL : public HExpression<1> {
   const uint32_t field_index_;
 };
 
-class HUnresolvedInstanceFieldSet FINAL : public HTemplateInstruction<2> {
+class HUnresolvedInstanceFieldSet final : public HExpression<2> {
  public:
   HUnresolvedInstanceFieldSet(HInstruction* obj,
                               HInstruction* value,
                               DataType::Type field_type,
                               uint32_t field_index,
                               uint32_t dex_pc)
-      : HTemplateInstruction(kUnresolvedInstanceFieldSet,
-                             SideEffects::AllExceptGCDependency(),
-                             dex_pc),
+      : HExpression(kUnresolvedInstanceFieldSet, SideEffects::AllExceptGCDependency(), dex_pc),
         field_index_(field_index) {
     SetPackedField<FieldTypeField>(field_type);
     DCHECK_EQ(DataType::Kind(field_type), DataType::Kind(value->GetType()));
@@ -6595,9 +6925,9 @@ class HUnresolvedInstanceFieldSet FINAL : public HTemplateInstruction<2> {
     SetRawInputAt(1, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool NeedsEnvironment() const OVERRIDE { return true; }
-  bool CanThrow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool NeedsEnvironment() const override { return true; }
+  bool CanThrow() const override { return true; }
 
   DataType::Type GetFieldType() const { return GetPackedField<FieldTypeField>(); }
   uint32_t GetFieldIndex() const { return field_index_; }
@@ -6620,7 +6950,7 @@ class HUnresolvedInstanceFieldSet FINAL : public HTemplateInstruction<2> {
   const uint32_t field_index_;
 };
 
-class HUnresolvedStaticFieldGet FINAL : public HExpression<0> {
+class HUnresolvedStaticFieldGet final : public HExpression<0> {
  public:
   HUnresolvedStaticFieldGet(DataType::Type field_type,
                             uint32_t field_index,
@@ -6632,9 +6962,9 @@ class HUnresolvedStaticFieldGet FINAL : public HExpression<0> {
         field_index_(field_index) {
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool NeedsEnvironment() const OVERRIDE { return true; }
-  bool CanThrow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool NeedsEnvironment() const override { return true; }
+  bool CanThrow() const override { return true; }
 
   DataType::Type GetFieldType() const { return GetType(); }
   uint32_t GetFieldIndex() const { return field_index_; }
@@ -6648,24 +6978,22 @@ class HUnresolvedStaticFieldGet FINAL : public HExpression<0> {
   const uint32_t field_index_;
 };
 
-class HUnresolvedStaticFieldSet FINAL : public HTemplateInstruction<1> {
+class HUnresolvedStaticFieldSet final : public HExpression<1> {
  public:
   HUnresolvedStaticFieldSet(HInstruction* value,
                             DataType::Type field_type,
                             uint32_t field_index,
                             uint32_t dex_pc)
-      : HTemplateInstruction(kUnresolvedStaticFieldSet,
-                             SideEffects::AllExceptGCDependency(),
-                             dex_pc),
+      : HExpression(kUnresolvedStaticFieldSet, SideEffects::AllExceptGCDependency(), dex_pc),
         field_index_(field_index) {
     SetPackedField<FieldTypeField>(field_type);
     DCHECK_EQ(DataType::Kind(field_type), DataType::Kind(value->GetType()));
     SetRawInputAt(0, value);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool NeedsEnvironment() const OVERRIDE { return true; }
-  bool CanThrow() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
+  bool NeedsEnvironment() const override { return true; }
+  bool CanThrow() const override { return true; }
 
   DataType::Type GetFieldType() const { return GetPackedField<FieldTypeField>(); }
   uint32_t GetFieldIndex() const { return field_index_; }
@@ -6689,13 +7017,13 @@ class HUnresolvedStaticFieldSet FINAL : public HTemplateInstruction<1> {
 };
 
 // Implement the move-exception DEX instruction.
-class HLoadException FINAL : public HExpression<0> {
+class HLoadException final : public HExpression<0> {
  public:
   explicit HLoadException(uint32_t dex_pc = kNoDexPc)
       : HExpression(kLoadException, DataType::Type::kReference, SideEffects::None(), dex_pc) {
   }
 
-  bool CanBeNull() const OVERRIDE { return false; }
+  bool CanBeNull() const override { return false; }
 
   DECLARE_INSTRUCTION(LoadException);
 
@@ -6705,10 +7033,10 @@ class HLoadException FINAL : public HExpression<0> {
 
 // Implicit part of move-exception which clears thread-local exception storage.
 // Must not be removed because the runtime expects the TLS to get cleared.
-class HClearException FINAL : public HTemplateInstruction<0> {
+class HClearException final : public HExpression<0> {
  public:
   explicit HClearException(uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kClearException, SideEffects::AllWrites(), dex_pc) {
+      : HExpression(kClearException, SideEffects::AllWrites(), dex_pc) {
   }
 
   DECLARE_INSTRUCTION(ClearException);
@@ -6717,20 +7045,20 @@ class HClearException FINAL : public HTemplateInstruction<0> {
   DEFAULT_COPY_CONSTRUCTOR(ClearException);
 };
 
-class HThrow FINAL : public HTemplateInstruction<1> {
+class HThrow final : public HExpression<1> {
  public:
   HThrow(HInstruction* exception, uint32_t dex_pc)
-      : HTemplateInstruction(kThrow, SideEffects::CanTriggerGC(), dex_pc) {
+      : HExpression(kThrow, SideEffects::CanTriggerGC(), dex_pc) {
     SetRawInputAt(0, exception);
   }
 
-  bool IsControlFlow() const OVERRIDE { return true; }
+  bool IsControlFlow() const override { return true; }
 
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
-  bool CanThrow() const OVERRIDE { return true; }
+  bool CanThrow() const override { return true; }
 
-  bool AlwaysThrows() const OVERRIDE { return true; }
+  bool AlwaysThrows() const override { return true; }
 
   DECLARE_INSTRUCTION(Throw);
 
@@ -6750,49 +7078,148 @@ enum class TypeCheckKind {
   kInterfaceCheck,        // No optimization yet when checking against an interface.
   kArrayObjectCheck,      // Can just check if the array is not primitive.
   kArrayCheck,            // No optimization yet when checking against a generic array.
+  kBitstringCheck,        // Compare the type check bitstring.
   kLast = kArrayCheck
 };
 
 std::ostream& operator<<(std::ostream& os, TypeCheckKind rhs);
 
-class HInstanceOf FINAL : public HExpression<2> {
+// Note: HTypeCheckInstruction is just a helper class, not an abstract instruction with an
+// `IsTypeCheckInstruction()`. (New virtual methods in the HInstruction class have a high cost.)
+class HTypeCheckInstruction : public HVariableInputSizeInstruction {
  public:
-  HInstanceOf(HInstruction* object,
-              HLoadClass* target_class,
-              TypeCheckKind check_kind,
-              uint32_t dex_pc)
-      : HExpression(kInstanceOf,
-                    DataType::Type::kBool,
-                    SideEffectsForArchRuntimeCalls(check_kind),
-                    dex_pc) {
+  HTypeCheckInstruction(InstructionKind kind,
+                        DataType::Type type,
+                        HInstruction* object,
+                        HInstruction* target_class_or_null,
+                        TypeCheckKind check_kind,
+                        Handle<mirror::Class> klass,
+                        uint32_t dex_pc,
+                        ArenaAllocator* allocator,
+                        HIntConstant* bitstring_path_to_root,
+                        HIntConstant* bitstring_mask,
+                        SideEffects side_effects)
+      : HVariableInputSizeInstruction(
+          kind,
+          type,
+          side_effects,
+          dex_pc,
+          allocator,
+          /* number_of_inputs= */ check_kind == TypeCheckKind::kBitstringCheck ? 4u : 2u,
+          kArenaAllocTypeCheckInputs),
+        klass_(klass) {
     SetPackedField<TypeCheckKindField>(check_kind);
     SetPackedFlag<kFlagMustDoNullCheck>(true);
+    SetPackedFlag<kFlagValidTargetClassRTI>(false);
     SetRawInputAt(0, object);
-    SetRawInputAt(1, target_class);
+    SetRawInputAt(1, target_class_or_null);
+    DCHECK_EQ(check_kind == TypeCheckKind::kBitstringCheck, bitstring_path_to_root != nullptr);
+    DCHECK_EQ(check_kind == TypeCheckKind::kBitstringCheck, bitstring_mask != nullptr);
+    if (check_kind == TypeCheckKind::kBitstringCheck) {
+      DCHECK(target_class_or_null->IsNullConstant());
+      SetRawInputAt(2, bitstring_path_to_root);
+      SetRawInputAt(3, bitstring_mask);
+    } else {
+      DCHECK(target_class_or_null->IsLoadClass());
+    }
   }
 
   HLoadClass* GetTargetClass() const {
+    DCHECK_NE(GetTypeCheckKind(), TypeCheckKind::kBitstringCheck);
     HInstruction* load_class = InputAt(1);
     DCHECK(load_class->IsLoadClass());
     return load_class->AsLoadClass();
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
-    return true;
+  uint32_t GetBitstringPathToRoot() const {
+    DCHECK_EQ(GetTypeCheckKind(), TypeCheckKind::kBitstringCheck);
+    HInstruction* path_to_root = InputAt(2);
+    DCHECK(path_to_root->IsIntConstant());
+    return static_cast<uint32_t>(path_to_root->AsIntConstant()->GetValue());
   }
 
-  bool NeedsEnvironment() const OVERRIDE {
-    return CanCallRuntime(GetTypeCheckKind());
+  uint32_t GetBitstringMask() const {
+    DCHECK_EQ(GetTypeCheckKind(), TypeCheckKind::kBitstringCheck);
+    HInstruction* mask = InputAt(3);
+    DCHECK(mask->IsIntConstant());
+    return static_cast<uint32_t>(mask->AsIntConstant()->GetValue());
   }
 
-  // Used only in code generation.
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+
+  bool InstructionDataEquals(const HInstruction* other) const override {
+    DCHECK(other->IsInstanceOf() || other->IsCheckCast()) << other->DebugName();
+    return GetPackedFields() == down_cast<const HTypeCheckInstruction*>(other)->GetPackedFields();
+  }
+
   bool MustDoNullCheck() const { return GetPackedFlag<kFlagMustDoNullCheck>(); }
   void ClearMustDoNullCheck() { SetPackedFlag<kFlagMustDoNullCheck>(false); }
   TypeCheckKind GetTypeCheckKind() const { return GetPackedField<TypeCheckKindField>(); }
   bool IsExactCheck() const { return GetTypeCheckKind() == TypeCheckKind::kExactCheck; }
+
+  ReferenceTypeInfo GetTargetClassRTI() {
+    if (GetPackedFlag<kFlagValidTargetClassRTI>()) {
+      // Note: The is_exact flag from the return value should not be used.
+      return ReferenceTypeInfo::CreateUnchecked(klass_, /* is_exact= */ true);
+    } else {
+      return ReferenceTypeInfo::CreateInvalid();
+    }
+  }
+
+  // Target class RTI is marked as valid by RTP if the klass_ is admissible.
+  void SetValidTargetClassRTI() REQUIRES_SHARED(Locks::mutator_lock_) {
+    DCHECK(klass_ != nullptr);
+    SetPackedFlag<kFlagValidTargetClassRTI>(true);
+  }
+
+  Handle<mirror::Class> GetClass() const {
+    return klass_;
+  }
+
+ protected:
+  DEFAULT_COPY_CONSTRUCTOR(TypeCheckInstruction);
+
+ private:
+  static constexpr size_t kFieldTypeCheckKind = kNumberOfGenericPackedBits;
+  static constexpr size_t kFieldTypeCheckKindSize =
+      MinimumBitsToStore(static_cast<size_t>(TypeCheckKind::kLast));
+  static constexpr size_t kFlagMustDoNullCheck = kFieldTypeCheckKind + kFieldTypeCheckKindSize;
+  static constexpr size_t kFlagValidTargetClassRTI = kFlagMustDoNullCheck + 1;
+  static constexpr size_t kNumberOfInstanceOfPackedBits = kFlagValidTargetClassRTI + 1;
+  static_assert(kNumberOfInstanceOfPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
+  using TypeCheckKindField = BitField<TypeCheckKind, kFieldTypeCheckKind, kFieldTypeCheckKindSize>;
+
+  Handle<mirror::Class> klass_;
+};
+
+class HInstanceOf final : public HTypeCheckInstruction {
+ public:
+  HInstanceOf(HInstruction* object,
+              HInstruction* target_class_or_null,
+              TypeCheckKind check_kind,
+              Handle<mirror::Class> klass,
+              uint32_t dex_pc,
+              ArenaAllocator* allocator,
+              HIntConstant* bitstring_path_to_root,
+              HIntConstant* bitstring_mask)
+      : HTypeCheckInstruction(kInstanceOf,
+                              DataType::Type::kBool,
+                              object,
+                              target_class_or_null,
+                              check_kind,
+                              klass,
+                              dex_pc,
+                              allocator,
+                              bitstring_path_to_root,
+                              bitstring_mask,
+                              SideEffectsForArchRuntimeCalls(check_kind)) {}
+
+  bool IsClonable() const override { return true; }
+
+  bool NeedsEnvironment() const override {
+    return CanCallRuntime(GetTypeCheckKind());
+  }
 
   static bool CanCallRuntime(TypeCheckKind check_kind) {
     // Mips currently does runtime calls for any other checks.
@@ -6807,18 +7234,9 @@ class HInstanceOf FINAL : public HExpression<2> {
 
  protected:
   DEFAULT_COPY_CONSTRUCTOR(InstanceOf);
-
- private:
-  static constexpr size_t kFieldTypeCheckKind = kNumberOfExpressionPackedBits;
-  static constexpr size_t kFieldTypeCheckKindSize =
-      MinimumBitsToStore(static_cast<size_t>(TypeCheckKind::kLast));
-  static constexpr size_t kFlagMustDoNullCheck = kFieldTypeCheckKind + kFieldTypeCheckKindSize;
-  static constexpr size_t kNumberOfInstanceOfPackedBits = kFlagMustDoNullCheck + 1;
-  static_assert(kNumberOfInstanceOfPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-  using TypeCheckKindField = BitField<TypeCheckKind, kFieldTypeCheckKind, kFieldTypeCheckKindSize>;
 };
 
-class HBoundType FINAL : public HExpression<1> {
+class HBoundType final : public HExpression<1> {
  public:
   explicit HBoundType(HInstruction* input, uint32_t dex_pc = kNoDexPc)
       : HExpression(kBoundType, DataType::Type::kReference, SideEffects::None(), dex_pc),
@@ -6829,7 +7247,8 @@ class HBoundType FINAL : public HExpression<1> {
     SetRawInputAt(0, input);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool InstructionDataEquals(const HInstruction* other) const override;
+  bool IsClonable() const override { return true; }
 
   // {Get,Set}Upper* should only be used in reference type propagation.
   const ReferenceTypeInfo& GetUpperBound() const { return upper_bound_; }
@@ -6841,7 +7260,7 @@ class HBoundType FINAL : public HExpression<1> {
     SetPackedFlag<kFlagCanBeNull>(can_be_null);
   }
 
-  bool CanBeNull() const OVERRIDE { return GetPackedFlag<kFlagCanBeNull>(); }
+  bool CanBeNull() const override { return GetPackedFlag<kFlagCanBeNull>(); }
 
   DECLARE_INSTRUCTION(BoundType);
 
@@ -6851,7 +7270,7 @@ class HBoundType FINAL : public HExpression<1> {
  private:
   // Represents the top constraint that can_be_null_ cannot exceed (i.e. if this
   // is false then CanBeNull() cannot be true).
-  static constexpr size_t kFlagUpperCanBeNull = kNumberOfExpressionPackedBits;
+  static constexpr size_t kFlagUpperCanBeNull = kNumberOfGenericPackedBits;
   static constexpr size_t kFlagCanBeNull = kFlagUpperCanBeNull + 1;
   static constexpr size_t kNumberOfBoundTypePackedBits = kFlagCanBeNull + 1;
   static_assert(kNumberOfBoundTypePackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
@@ -6865,57 +7284,40 @@ class HBoundType FINAL : public HExpression<1> {
   ReferenceTypeInfo upper_bound_;
 };
 
-class HCheckCast FINAL : public HTemplateInstruction<2> {
+class HCheckCast final : public HTypeCheckInstruction {
  public:
   HCheckCast(HInstruction* object,
-             HLoadClass* target_class,
+             HInstruction* target_class_or_null,
              TypeCheckKind check_kind,
-             uint32_t dex_pc)
-      : HTemplateInstruction(kCheckCast, SideEffects::CanTriggerGC(), dex_pc) {
-    SetPackedField<TypeCheckKindField>(check_kind);
-    SetPackedFlag<kFlagMustDoNullCheck>(true);
-    SetRawInputAt(0, object);
-    SetRawInputAt(1, target_class);
-  }
+             Handle<mirror::Class> klass,
+             uint32_t dex_pc,
+             ArenaAllocator* allocator,
+             HIntConstant* bitstring_path_to_root,
+             HIntConstant* bitstring_mask)
+      : HTypeCheckInstruction(kCheckCast,
+                              DataType::Type::kVoid,
+                              object,
+                              target_class_or_null,
+                              check_kind,
+                              klass,
+                              dex_pc,
+                              allocator,
+                              bitstring_path_to_root,
+                              bitstring_mask,
+                              SideEffects::CanTriggerGC()) {}
 
-  HLoadClass* GetTargetClass() const {
-    HInstruction* load_class = InputAt(1);
-    DCHECK(load_class->IsLoadClass());
-    return load_class->AsLoadClass();
-  }
-
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
-    return true;
-  }
-
-  bool NeedsEnvironment() const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool NeedsEnvironment() const override {
     // Instruction may throw a CheckCastError.
     return true;
   }
 
-  bool CanThrow() const OVERRIDE { return true; }
-
-  bool MustDoNullCheck() const { return GetPackedFlag<kFlagMustDoNullCheck>(); }
-  void ClearMustDoNullCheck() { SetPackedFlag<kFlagMustDoNullCheck>(false); }
-  TypeCheckKind GetTypeCheckKind() const { return GetPackedField<TypeCheckKindField>(); }
-  bool IsExactCheck() const { return GetTypeCheckKind() == TypeCheckKind::kExactCheck; }
+  bool CanThrow() const override { return true; }
 
   DECLARE_INSTRUCTION(CheckCast);
 
  protected:
   DEFAULT_COPY_CONSTRUCTOR(CheckCast);
-
- private:
-  static constexpr size_t kFieldTypeCheckKind = kNumberOfGenericPackedBits;
-  static constexpr size_t kFieldTypeCheckKindSize =
-      MinimumBitsToStore(static_cast<size_t>(TypeCheckKind::kLast));
-  static constexpr size_t kFlagMustDoNullCheck = kFieldTypeCheckKind + kFieldTypeCheckKindSize;
-  static constexpr size_t kNumberOfCheckCastPackedBits = kFlagMustDoNullCheck + 1;
-  static_assert(kNumberOfCheckCastPackedBits <= kMaxNumberOfPackedBits, "Too many packed fields.");
-  using TypeCheckKindField = BitField<TypeCheckKind, kFieldTypeCheckKind, kFieldTypeCheckKindSize>;
 };
 
 /**
@@ -6944,17 +7346,16 @@ enum MemBarrierKind {
 };
 std::ostream& operator<<(std::ostream& os, const MemBarrierKind& kind);
 
-class HMemoryBarrier FINAL : public HTemplateInstruction<0> {
+class HMemoryBarrier final : public HExpression<0> {
  public:
   explicit HMemoryBarrier(MemBarrierKind barrier_kind, uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(
-            kMemoryBarrier,
-            SideEffects::AllWritesAndReads(),  // Assume write/read on all fields/arrays.
-            dex_pc) {
+      : HExpression(kMemoryBarrier,
+                    SideEffects::AllWritesAndReads(),  // Assume write/read on all fields/arrays.
+                    dex_pc) {
     SetPackedField<BarrierKindField>(barrier_kind);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
 
   MemBarrierKind GetBarrierKind() { return GetPackedField<BarrierKindField>(); }
 
@@ -7027,10 +7428,10 @@ class HMemoryBarrier FINAL : public HTemplateInstruction<0> {
 //     }
 //
 // See also:
-// * CompilerDriver::RequiresConstructorBarrier
+// * DexCompilationUnit::RequiresConstructorBarrier
 // * QuasiAtomic::ThreadFenceForConstructor
 //
-class HConstructorFence FINAL : public HVariableInputSizeInstruction {
+class HConstructorFence final : public HVariableInputSizeInstruction {
                                   // A fence has variable inputs because the inputs can be removed
                                   // after prepare_for_register_allocation phase.
                                   // (TODO: In the future a fence could freeze multiple objects
@@ -7073,7 +7474,7 @@ class HConstructorFence FINAL : public HVariableInputSizeInstruction {
                                       SideEffects::AllReads(),
                                       dex_pc,
                                       allocator,
-                                      /* number_of_inputs */ 1,
+                                      /* number_of_inputs= */ 1,
                                       kArenaAllocConstructorFenceInputs) {
     DCHECK(fence_object != nullptr);
     SetRawInputAt(0, fence_object);
@@ -7127,7 +7528,7 @@ class HConstructorFence FINAL : public HVariableInputSizeInstruction {
   DEFAULT_COPY_CONSTRUCTOR(ConstructorFence);
 };
 
-class HMonitorOperation FINAL : public HTemplateInstruction<1> {
+class HMonitorOperation final : public HExpression<1> {
  public:
   enum class OperationKind {
     kEnter,
@@ -7136,18 +7537,17 @@ class HMonitorOperation FINAL : public HTemplateInstruction<1> {
   };
 
   HMonitorOperation(HInstruction* object, OperationKind kind, uint32_t dex_pc)
-    : HTemplateInstruction(
-          kMonitorOperation,
-          SideEffects::AllExceptGCDependency(),  // Assume write/read on all fields/arrays.
-          dex_pc) {
+    : HExpression(kMonitorOperation,
+                  SideEffects::AllExceptGCDependency(),  // Assume write/read on all fields/arrays.
+                  dex_pc) {
     SetPackedField<OperationKindField>(kind);
     SetRawInputAt(0, object);
   }
 
   // Instruction may go into runtime, so we need an environment.
-  bool NeedsEnvironment() const OVERRIDE { return true; }
+  bool NeedsEnvironment() const override { return true; }
 
-  bool CanThrow() const OVERRIDE {
+  bool CanThrow() const override {
     // Verifier guarantees that monitor-exit cannot throw.
     // This is important because it allows the HGraphBuilder to remove
     // a dead throw-catch loop generated for `synchronized` blocks/methods.
@@ -7173,7 +7573,7 @@ class HMonitorOperation FINAL : public HTemplateInstruction<1> {
   using OperationKindField = BitField<OperationKind, kFieldOperationKind, kFieldOperationKindSize>;
 };
 
-class HSelect FINAL : public HExpression<3> {
+class HSelect final : public HExpression<3> {
  public:
   HSelect(HInstruction* condition,
           HInstruction* true_value,
@@ -7191,17 +7591,17 @@ class HSelect FINAL : public HExpression<3> {
     SetRawInputAt(2, condition);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
+  bool IsClonable() const override { return true; }
   HInstruction* GetFalseValue() const { return InputAt(0); }
   HInstruction* GetTrueValue() const { return InputAt(1); }
   HInstruction* GetCondition() const { return InputAt(2); }
 
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
 
-  bool CanBeNull() const OVERRIDE {
+  bool CanBeNull() const override {
     return GetTrueValue()->CanBeNull() || GetFalseValue()->CanBeNull();
   }
 
@@ -7289,10 +7689,10 @@ std::ostream& operator<<(std::ostream& os, const MoveOperands& rhs);
 
 static constexpr size_t kDefaultNumberOfMoves = 4;
 
-class HParallelMove FINAL : public HTemplateInstruction<0> {
+class HParallelMove final : public HExpression<0> {
  public:
   explicit HParallelMove(ArenaAllocator* allocator, uint32_t dex_pc = kNoDexPc)
-      : HTemplateInstruction(kParallelMove, SideEffects::None(), dex_pc),
+      : HExpression(kParallelMove, SideEffects::None(), dex_pc),
         moves_(allocator->Adapter(kArenaAllocMoveOperands)) {
     moves_.reserve(kDefaultNumberOfMoves);
   }
@@ -7351,7 +7751,7 @@ class HParallelMove FINAL : public HTemplateInstruction<0> {
 // never used across anything that can trigger GC.
 // The result of this instruction is not a pointer in the sense of `DataType::Type::kreference`.
 // So we represent it by the type `DataType::Type::kInt`.
-class HIntermediateAddress FINAL : public HExpression<2> {
+class HIntermediateAddress final : public HExpression<2> {
  public:
   HIntermediateAddress(HInstruction* base_address, HInstruction* offset, uint32_t dex_pc)
       : HExpression(kIntermediateAddress,
@@ -7365,12 +7765,12 @@ class HIntermediateAddress FINAL : public HExpression<2> {
     SetRawInputAt(1, offset);
   }
 
-  bool IsClonable() const OVERRIDE { return true; }
-  bool CanBeMoved() const OVERRIDE { return true; }
-  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool IsClonable() const override { return true; }
+  bool CanBeMoved() const override { return true; }
+  bool InstructionDataEquals(const HInstruction* other ATTRIBUTE_UNUSED) const override {
     return true;
   }
-  bool IsActualObject() const OVERRIDE { return false; }
+  bool IsActualObject() const override { return false; }
 
   HInstruction* GetBaseAddress() const { return InputAt(0); }
   HInstruction* GetOffset() const { return InputAt(1); }
@@ -7392,7 +7792,7 @@ class HIntermediateAddress FINAL : public HExpression<2> {
 #ifdef ART_ENABLE_CODEGEN_mips
 #include "nodes_mips.h"
 #endif
-#ifdef ART_ENABLE_CODEGEN_x86
+#if defined(ART_ENABLE_CODEGEN_x86) || defined(ART_ENABLE_CODEGEN_x86_64)
 #include "nodes_x86.h"
 #endif
 
@@ -7443,7 +7843,7 @@ class HGraphDelegateVisitor : public HGraphVisitor {
 
   // Visit functions that delegate to to super class.
 #define DECLARE_VISIT_INSTRUCTION(name, super)                                        \
-  void Visit##name(H##name* instr) OVERRIDE { Visit##super(instr); }
+  void Visit##name(H##name* instr) override { Visit##super(instr); }
 
   FOR_EACH_INSTRUCTION(DECLARE_VISIT_INSTRUCTION)
 
@@ -7465,7 +7865,7 @@ class CloneAndReplaceInstructionVisitor : public HGraphDelegateVisitor {
   explicit CloneAndReplaceInstructionVisitor(HGraph* graph)
       : HGraphDelegateVisitor(graph), instr_replaced_by_clones_count_(0) {}
 
-  void VisitInstruction(HInstruction* instruction) OVERRIDE {
+  void VisitInstruction(HInstruction* instruction) override {
     if (instruction->IsClonable()) {
       ReplaceInstrOrPhiByClone(instruction);
       instr_replaced_by_clones_count_++;
@@ -7584,8 +7984,30 @@ inline bool IsZeroBitPattern(HInstruction* instruction) {
   return instruction->IsConstant() && instruction->AsConstant()->IsZeroBitPattern();
 }
 
+// Implement HInstruction::Is##type() for concrete instructions.
 #define INSTRUCTION_TYPE_CHECK(type, super)                                    \
-  inline bool HInstruction::Is##type() const { return GetKind() == k##type; }  \
+  inline bool HInstruction::Is##type() const { return GetKind() == k##type; }
+  FOR_EACH_CONCRETE_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
+#undef INSTRUCTION_TYPE_CHECK
+
+// Implement HInstruction::Is##type() for abstract instructions.
+#define INSTRUCTION_TYPE_CHECK_RESULT(type, super)                             \
+  std::is_base_of<BaseType, H##type>::value,
+#define INSTRUCTION_TYPE_CHECK(type, super)                                    \
+  inline bool HInstruction::Is##type() const {                                 \
+    DCHECK_LT(GetKind(), kLastInstructionKind);                                \
+    using BaseType = H##type;                                                  \
+    static constexpr bool results[] = {                                        \
+        FOR_EACH_CONCRETE_INSTRUCTION(INSTRUCTION_TYPE_CHECK_RESULT)           \
+    };                                                                         \
+    return results[static_cast<size_t>(GetKind())];                            \
+  }
+
+  FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
+#undef INSTRUCTION_TYPE_CHECK
+#undef INSTRUCTION_TYPE_CHECK_RESULT
+
+#define INSTRUCTION_TYPE_CAST(type, super)                                     \
   inline const H##type* HInstruction::As##type() const {                       \
     return Is##type() ? down_cast<const H##type*>(this) : nullptr;             \
   }                                                                            \
@@ -7593,8 +8015,9 @@ inline bool IsZeroBitPattern(HInstruction* instruction) {
     return Is##type() ? static_cast<H##type*>(this) : nullptr;                 \
   }
 
-  FOR_EACH_CONCRETE_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
-#undef INSTRUCTION_TYPE_CHECK
+  FOR_EACH_INSTRUCTION(INSTRUCTION_TYPE_CAST)
+#undef INSTRUCTION_TYPE_CAST
+
 
 // Create space in `blocks` for adding `number_of_new_blocks` entries
 // starting at location `at`. Blocks after `at` are moved accordingly.

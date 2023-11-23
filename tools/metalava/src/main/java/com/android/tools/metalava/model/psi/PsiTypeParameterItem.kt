@@ -20,6 +20,7 @@ import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.TypeParameterItem
 import com.android.tools.metalava.model.psi.ClassType.TYPE_PARAMETER
 import com.intellij.psi.PsiTypeParameter
+import org.jetbrains.kotlin.asJava.elements.KtLightTypeParameter
 
 class PsiTypeParameterItem(
     codebase: PsiBasedCodebase,
@@ -39,6 +40,10 @@ class PsiTypeParameterItem(
     documentation = ""
 ), TypeParameterItem {
     override fun bounds(): List<ClassItem> = bounds
+
+    override fun isReified(): Boolean {
+        return element is KtLightTypeParameter && element.kotlinOrigin.text.startsWith("reified")
+    }
 
     private lateinit var bounds: List<ClassItem>
 

@@ -23,8 +23,8 @@
   <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700'>
   <link rel='stylesheet' href='/css/navbar.css'>
   <link rel='stylesheet' href='/css/common.css'>
-  <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js'></script>
-  <script src='https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.0/jquery-ui.min.js'></script>
+  <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+  <script src='https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js'></script>
   <script src='https://www.gstatic.com/external_hosted/materialize/materialize.min.js'></script>
   <script type='text/javascript'>
     if (${analyticsID}) {

@@ -18,6 +18,7 @@
 
 #include "android-base/logging.h"
 #include "android-base/macros.h"
+#include "jni_binder.h"
 #include "jni_helper.h"
 #include "jvmti_helper.h"
 #include "jvmti.h"
@@ -112,19 +113,66 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_android_jvmti_cts_JvmtiTaggingTes
   }
 
   auto callback = [&](jint i) -> jobject {
+    jobject ret = nullptr;
     switch(i) {
       case 0:
-        return resultObjectArray;
+        ret = resultObjectArray;
+        break;
       case 1:
-        return resultTagArray;
+        ret = resultTagArray;
+        break;
       case 2:
-        return count_integer;
+        ret = count_integer;
+        break;
       default:
         LOG(FATAL) << "Unexpected";
-        return nullptr;
     }
+    return ret;
   };
   return CreateObjectArray(env, 3, "java/lang/Object", callback);
+}
+
+static JNINativeMethod gMethodsForMain[] = {
+  { "setTag", "(Ljava/lang/Object;J)V",
+          (void*)Java_android_jvmti_cts_JniBindings_setTag },
+
+  { "getTag", "(Ljava/lang/Object;)J",
+          (void*)Java_android_jvmti_cts_JniBindings_getTag },
+};
+
+void register_art_Main(jvmtiEnv* jenv, JNIEnv* env) {
+  ScopedLocalRef<jclass> klass(env, GetClass(jenv, env, "art/Main", nullptr));
+  if (klass.get() == nullptr) {
+    env->ExceptionClear();
+    return;
+  }
+
+  env->RegisterNatives(klass.get(), gMethodsForMain,
+          sizeof(gMethodsForMain) / sizeof(JNINativeMethod));
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+    LOG(ERROR) << "Could not register natives for Main class";
+  }
+}
+
+static JNINativeMethod gMethods[] = {
+  { "getTaggedObjects", "([JZZ)[Ljava/lang/Object;",
+          (void*)Java_android_jvmti_cts_JvmtiTaggingTest_getTaggedObjects },
+};
+
+void register_android_jvmti_cts_JvmtiTaggingTest(jvmtiEnv* jenv, JNIEnv* env) {
+  ScopedLocalRef<jclass> klass(env, GetClass(jenv, env,
+          "android/jvmti/cts/JvmtiTaggingTest", nullptr));
+  if (klass.get() == nullptr) {
+    env->ExceptionClear();
+    return;
+  }
+
+  env->RegisterNatives(klass.get(), gMethods, sizeof(gMethods) / sizeof(JNINativeMethod));
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+    LOG(ERROR) << "Could not register natives for JvmtiTaggingTest class";
+  }
 }
 
 }  // namespace art

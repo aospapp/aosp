@@ -16,7 +16,8 @@
 
 package com.android.ahat.heapdump;
 
-import com.android.ahat.dominators.DominatorsComputation;
+import com.android.ahat.dominators.Dominators;
+import com.android.ahat.progress.Progress;
 import java.util.List;
 
 /**
@@ -39,29 +40,61 @@ public class AhatSnapshot implements Diffable<AhatSnapshot> {
   AhatSnapshot(SuperRoot root,
                Instances<AhatInstance> instances,
                List<AhatHeap> heaps,
-               Site rootSite) {
+               Site rootSite,
+               Progress progress,
+               Reachability retained) {
     mSuperRoot = root;
     mInstances = instances;
     mHeaps = heaps;
     mRootSite = rootSite;
 
-    // Update registered native allocation size.
-    for (AhatInstance cleaner : mInstances) {
-      AhatInstance.RegisteredNativeAllocation nra = cleaner.asRegisteredNativeAllocation();
+    AhatInstance.computeReachability(mSuperRoot, progress, mInstances.size());
+
+    for (AhatInstance inst : mInstances) {
+      // Add this instance to its site.
+      inst.getSite().addInstance(inst);
+
+      // Update registered native allocation size.
+      AhatInstance.RegisteredNativeAllocation nra = inst.asRegisteredNativeAllocation();
       if (nra != null) {
         nra.referent.addRegisteredNativeSize(nra.size);
       }
+
+      if (retained == Reachability.UNREACHABLE && inst.isUnreachable()) {
+        mSuperRoot.addRoot(inst);
+      }
     }
 
-    AhatInstance.computeReverseReferences(mSuperRoot);
-    DominatorsComputation.computeDominators(mSuperRoot);
+    Dominators.Graph<AhatInstance> graph = new Dominators.Graph<AhatInstance>() {
+      @Override
+      public void setDominatorsComputationState(AhatInstance node, Object state) {
+        node.setTemporaryUserData(state);
+      }
+
+      @Override
+      public Object getDominatorsComputationState(AhatInstance node) {
+        return node.getTemporaryUserData();
+      }
+
+      @Override
+      public Iterable<AhatInstance> getReferencesForDominators(AhatInstance node) {
+        return node.getReferencesForDominators(retained);
+      }
+
+      @Override
+      public void setDominator(AhatInstance node, AhatInstance dominator) {
+        node.setDominator(dominator);
+      }
+    };
+    new Dominators(graph).progress(progress, mInstances.size()).computeDominators(mSuperRoot);
+
     AhatInstance.computeRetainedSize(mSuperRoot, mHeaps.size());
 
     for (AhatHeap heap : mHeaps) {
       heap.addToSize(mSuperRoot.getRetainedSize(heap));
     }
 
-    mRootSite.prepareForUse(0, mHeaps.size());
+    mRootSite.prepareForUse(0, mHeaps.size(), retained);
   }
 
   /**

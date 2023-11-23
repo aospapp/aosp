@@ -11,7 +11,7 @@ test_metadata_xml = \
 <?xml version="1.0" encoding="utf-8"?>
 <metadata xmlns="http://schemas.android.com/service/camera/metadata/"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata_properties.xsd">
+xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata_definitions.xsd">
 
 <namespace name="testOuter1">
   <section name="testSection1">

@@ -43,4 +43,21 @@ void SetRootOfTrust(nos::NuggetClientInterface *client)
   avb_tools::BootloaderDone(client);
 }
 
+void SetBootState(nos::NuggetClientInterface *client)
+{
+
+  // Do keymaster setup that is normally executed by the bootloader.
+  avb_tools::SetBootloader(client);
+
+  SetBootStateRequest request;
+  SetBootStateResponse response;
+  Keymaster service(*client);
+  request.set_public_key(string(32, '\0'));
+  request.set_boot_hash(string(32, '\0'));
+  ASSERT_NO_ERROR(service.SetBootState(request, &response), "");
+  EXPECT_EQ((ErrorCode)response.error_code(), ErrorCode::OK);
+
+  avb_tools::BootloaderDone(client);
+}
+
 }  // namespace keymaster_tools

@@ -34,31 +34,22 @@ def get_all():
     return versions
 
 
-def get(board=DEFAULT, android=False):
+def get(board=DEFAULT):
     """Get stable version for the given board.
 
     @param board: Name of the board, default to value `DEFAULT`.
-    @param android: If True, indicates we are looking up a Android/Brillo-based
-                    board. There is no default version that works for all
-                    Android/Brillo boards. If False, we are looking up a Chrome
-                    OS based board.
 
     @return: Stable version of the given board. If the given board is not listed
              in afe_stable_versions table, DEFAULT will be used.
              Return global_config value of CROS.stable_cros_version if
              afe_stable_versions table does not have entry of board DEFAULT.
     """
-    if board == DEFAULT and android:
-        return None
     try:
         return models.StableVersion.objects.get(board=board).version
     except django.core.exceptions.ObjectDoesNotExist:
         if board == DEFAULT:
             return global_config.global_config.get_config_value(
                     'CROS', 'stable_cros_version')
-        elif android:
-            return global_config.global_config.get_config_value(
-                    'ANDROID', 'stable_version_%s' % board, default=None)
         else:
             return get(board=DEFAULT)
 

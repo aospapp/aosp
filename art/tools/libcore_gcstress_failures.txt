@@ -7,7 +7,35 @@
 {
   description: "Timeouts on target with gcstress.",
   result: EXEC_FAILED,
-  modes: [device],
+  modes: [device_testdex],
   names: ["libcore.javax.crypto.CipherBasicsTest#testGcmEncryption"]
+},
+{
+  description: "Timeouts.",
+  result: EXEC_FAILED,
+  names: ["libcore.java.lang.ref.ReferenceQueueTest#testRemoveWithDelayedResultAndNoTimeout"]
+},
+{
+  description: "Timeouts.",
+  result: EXEC_FAILED,
+  modes: [host],
+  names: ["libcore.java.lang.ref.ReferenceQueueTest#testRemoveWithDelayedResultAndTimeout",
+          "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnectionTest#testGetOutputStream",
+          "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnectionTest#testProxyAuthorization"]
+},
+{
+  description: "Timeouts.",
+  result: EXEC_FAILED,
+  modes: [device_testdex],
+  names: ["jsr166.TimeUnitTest#testConvert",
+          "libcore.java.lang.StringTest#testFastPathString_wellFormedUtf8Sequence",
+          "libcore.java.text.DecimalFormatTest#testCurrencySymbolSpacing",
+          "libcore.java.text.SimpleDateFormatTest#testLocales",
+          "org.apache.harmony.tests.java.lang.ref.ReferenceQueueTest#test_remove",
+          "org.apache.harmony.tests.java.lang.ProcessManagerTest#testSleep",
+          "org.apache.harmony.tests.java.lang.String2Test#test_getBytes",
+          "org.apache.harmony.tests.java.text.DateFormatTest#test_getAvailableLocales",
+          "org.apache.harmony.tests.java.util.TimerTest#testOverdueTaskExecutesImmediately",
+          "org.apache.harmony.tests.java.util.WeakHashMapTest#test_keySet_hasNext"]
 }
 ]

@@ -48,4 +48,10 @@ public interface BodyDeclarationLocator {
    * declaring type of the method. When called on a {@link TypeLocator} it returns {@code this}.
    */
   TypeLocator getTypeLocator();
+
+  @Override
+  boolean equals(Object object);
+
+  @Override
+  int hashCode();
 }

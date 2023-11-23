@@ -57,7 +57,8 @@ void TestInputMessageAlignment() {
   CHECK_OFFSET(InputMessage::Body::Motion, flags, 36);
   CHECK_OFFSET(InputMessage::Body::Motion, metaState, 40);
   CHECK_OFFSET(InputMessage::Body::Motion, buttonState, 44);
-  CHECK_OFFSET(InputMessage::Body::Motion, edgeFlags, 48);
+  CHECK_OFFSET(InputMessage::Body::Motion, classification, 48);
+  CHECK_OFFSET(InputMessage::Body::Motion, edgeFlags, 52);
   CHECK_OFFSET(InputMessage::Body::Motion, downTime, 56);
   CHECK_OFFSET(InputMessage::Body::Motion, xOffset, 64);
   CHECK_OFFSET(InputMessage::Body::Motion, yOffset, 68);
@@ -65,6 +66,9 @@ void TestInputMessageAlignment() {
   CHECK_OFFSET(InputMessage::Body::Motion, yPrecision, 76);
   CHECK_OFFSET(InputMessage::Body::Motion, pointerCount, 80);
   CHECK_OFFSET(InputMessage::Body::Motion, pointers, 88);
+
+  CHECK_OFFSET(InputMessage::Body::Finished, seq, 0);
+  CHECK_OFFSET(InputMessage::Body::Finished, handled, 4);
 }
 
 } // namespace android

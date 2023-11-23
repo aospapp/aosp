@@ -29,8 +29,8 @@ public class Vp8BitstreamsTest extends MediaBitstreamsTest {
     }
 
     public Vp8BitstreamsTest(String prefix, String path,
-            BitstreamPackage pkg, BitstreamPackage packageToRun) {
-        super(prefix, path, pkg, packageToRun);
+            BitstreamPackage pkg, BitstreamPackage packageToRun, boolean enforce) {
+        super(prefix, path, pkg, packageToRun, enforce);
     }
 
 }

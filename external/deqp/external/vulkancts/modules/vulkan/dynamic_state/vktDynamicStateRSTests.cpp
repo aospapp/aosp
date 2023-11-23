@@ -28,6 +28,8 @@
 #include "vktDynamicStateTestCaseUtil.hpp"
 
 #include "vkImageUtil.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuImageCompare.hpp"
@@ -131,13 +133,13 @@ protected:
 		ImageCreateInfo targetImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, imageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT, vk::VK_IMAGE_TILING_OPTIMAL,
 											  vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-		m_colorTargetImage = Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator());
+		m_colorTargetImage = Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 		const ImageCreateInfo depthStencilImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_depthStencilAttachmentFormat, imageExtent,
 														  1, 1, vk::VK_SAMPLE_COUNT_1_BIT, vk::VK_IMAGE_TILING_OPTIMAL,
 														  vk::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-		m_depthStencilImage = Image::createAndAlloc(m_vk, device, depthStencilImageCreateInfo, m_context.getDefaultAllocator());
+		m_depthStencilImage = Image::createAndAlloc(m_vk, device, depthStencilImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 		const ImageViewCreateInfo colorTargetViewInfo(m_colorTargetImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 		m_colorTargetView = vk::createImageView(m_vk, device, &colorTargetViewInfo);
@@ -249,10 +251,7 @@ protected:
 		deUint8* ptr = reinterpret_cast<unsigned char *>(m_vertexBuffer->getBoundMemory().getHostPtr());
 		deMemcpy(ptr, &m_data[0], static_cast<size_t>(dataSize));
 
-		vk::flushMappedMemoryRange(m_vk, device,
-								   m_vertexBuffer->getBoundMemory().getMemory(),
-								   m_vertexBuffer->getBoundMemory().getOffset(),
-								   dataSize);
+		vk::flushAlloc(m_vk, device, m_vertexBuffer->getBoundMemory());
 
 		const CmdPoolCreateInfo cmdPoolCreateInfo(m_context.getUniversalQueueFamilyIndex());
 		m_cmdPool = vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -273,11 +272,12 @@ protected:
 
 	void beginRenderPassWithClearColor (const vk::VkClearColorValue &clearColor)
 	{
-		const CmdBufferBeginInfo beginInfo;
-		m_vk.beginCommandBuffer(*m_cmdBuffer, &beginInfo);
+		beginCommandBuffer(m_vk, *m_cmdBuffer, 0u);
 
-		initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL);
-		initialTransitionDepthStencil2DImage(m_vk, *m_cmdBuffer, m_depthStencilImage->object(), vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, vk::VK_ACCESS_TRANSFER_WRITE_BIT);
+		initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+									  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
+		initialTransitionDepthStencil2DImage(m_vk, *m_cmdBuffer, m_depthStencilImage->object(), vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+											 vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 		const ImageSubresourceRange subresourceRangeImage(vk::VK_IMAGE_ASPECT_COLOR_BIT);
 		m_vk.cmdClearColorImage(*m_cmdBuffer, m_colorTargetImage->object(),
@@ -304,31 +304,20 @@ protected:
 			vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 			0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
-		const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
-		const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
+		transition2DImage(m_vk, *m_cmdBuffer, m_depthStencilImage->object(), vk::VK_IMAGE_ASPECT_DEPTH_BIT | vk::VK_IMAGE_ASPECT_STENCIL_BIT,
+						  vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+						  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+						  vk::VK_PIPELINE_STAGE_TRANSFER_BIT, vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
-		transition2DImage(m_vk, *m_cmdBuffer, m_depthStencilImage->object(), vk::VK_IMAGE_ASPECT_DEPTH_BIT | vk::VK_IMAGE_ASPECT_STENCIL_BIT, vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-
-		m_vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+		vk::beginRenderPass(m_vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, vk::makeRect2D(0, 0, WIDTH, HEIGHT));
 	}
 
 	void setDynamicViewportState (const deUint32 width, const deUint32 height)
 	{
-		vk::VkViewport viewport;
-		viewport.x = 0;
-		viewport.y = 0;
-		viewport.width = static_cast<float>(width);
-		viewport.height = static_cast<float>(height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-
+		vk::VkViewport viewport = vk::makeViewport(tcu::UVec2(width, height));
 		m_vk.cmdSetViewport(*m_cmdBuffer, 0, 1, &viewport);
 
-		vk::VkRect2D scissor;
-		scissor.offset.x = 0;
-		scissor.offset.y = 0;
-		scissor.extent.width = width;
-		scissor.extent.height = height;
+		vk::VkRect2D scissor = vk::makeRect2D(tcu::UVec2(width, height));
 		m_vk.cmdSetScissor(*m_cmdBuffer, 0, 1, &scissor);
 	}
 
@@ -399,8 +388,9 @@ public:
 
 	virtual tcu::TestStatus iterate (void)
 	{
-		tcu::TestLog &log		= m_context.getTestContext().getLog();
-		const vk::VkQueue queue = m_context.getUniversalQueue();
+		tcu::TestLog&		log		= m_context.getTestContext().getLog();
+		const vk::VkQueue	queue	= m_context.getUniversalQueue();
+		const vk::VkDevice	device	= m_context.getDevice();
 
 		beginRenderPass();
 
@@ -422,22 +412,10 @@ public:
 		setDynamicRasterizationState(1.0f, -1.0f);
 		m_vk.cmdDraw(*m_cmdBuffer, 4, 1, 8, 0);
 
-		m_vk.cmdEndRenderPass(*m_cmdBuffer);
-		m_vk.endCommandBuffer(*m_cmdBuffer);
+		endRenderPass(m_vk, *m_cmdBuffer);
+		endCommandBuffer(m_vk, *m_cmdBuffer);
 
-		vk::VkSubmitInfo submitInfo =
-		{
-			vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-			DE_NULL,							// const void*				pNext;
-			0,									// deUint32					waitSemaphoreCount;
-			DE_NULL,							// const VkSemaphore*		pWaitSemaphores;
-			(const vk::VkPipelineStageFlags*)DE_NULL,
-			1,									// deUint32					commandBufferCount;
-			&m_cmdBuffer.get(),					// const VkCommandBuffer*	pCommandBuffers;
-			0,									// deUint32					signalSemaphoreCount;
-			DE_NULL								// const VkSemaphore*		pSignalSemaphores;
-		};
-		m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL);
+		submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 		// validation
 		{
@@ -506,8 +484,12 @@ public:
 
 	virtual tcu::TestStatus iterate (void)
 	{
-		tcu::TestLog &log = m_context.getTestContext().getLog();
-		const vk::VkQueue queue = m_context.getUniversalQueue();
+		tcu::TestLog&		log		= m_context.getTestContext().getLog();
+		const vk::VkQueue	queue	= m_context.getUniversalQueue();
+		const vk::VkDevice	device	= m_context.getDevice();
+
+		if (!m_context.getDeviceFeatures().depthBiasClamp)
+			TCU_THROW(NotSupportedError, "depthBiasClamp feature is not supported");
 
 		beginRenderPass();
 
@@ -528,27 +510,13 @@ public:
 		setDynamicRasterizationState(1.0f, 0.0f);
 		m_vk.cmdDraw(*m_cmdBuffer, 4, 1, 4, 0);
 
-		m_vk.cmdEndRenderPass(*m_cmdBuffer);
-		m_vk.endCommandBuffer(*m_cmdBuffer);
+		endRenderPass(m_vk, *m_cmdBuffer);
+		endCommandBuffer(m_vk, *m_cmdBuffer);
 
-		vk::VkSubmitInfo submitInfo =
-		{
-			vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-			DE_NULL,							// const void*				pNext;
-			0,									// deUint32					waitSemaphoreCount;
-			DE_NULL,							// const VkSemaphore*		pWaitSemaphores;
-			(const vk::VkPipelineStageFlags*)DE_NULL,
-			1,									// deUint32					commandBufferCount;
-			&m_cmdBuffer.get(),					// const VkCommandBuffer*	pCommandBuffers;
-			0,									// deUint32					signalSemaphoreCount;
-			DE_NULL								// const VkSemaphore*		pSignalSemaphores;
-		};
-		m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL);
+		submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 		// validation
 		{
-			VK_CHECK(m_vk.queueWaitIdle(queue));
-
 			tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
 			referenceFrame.allocLevel(0);
 
@@ -612,8 +580,9 @@ public:
 
 	virtual tcu::TestStatus iterate (void)
 	{
-		tcu::TestLog &log		= m_context.getTestContext().getLog();
-		const vk::VkQueue queue = m_context.getUniversalQueue();
+		tcu::TestLog&		log		= m_context.getTestContext().getLog();
+		const vk::VkQueue	queue	= m_context.getUniversalQueue();
+		const vk::VkDevice	device	= m_context.getDevice();
 
 		beginRenderPass();
 
@@ -634,27 +603,13 @@ public:
 
 		m_vk.cmdDraw(*m_cmdBuffer, static_cast<deUint32>(m_data.size()), 1, 0, 0);
 
-		m_vk.cmdEndRenderPass(*m_cmdBuffer);
-		m_vk.endCommandBuffer(*m_cmdBuffer);
+		endRenderPass(m_vk, *m_cmdBuffer);
+		endCommandBuffer(m_vk, *m_cmdBuffer);
 
-		vk::VkSubmitInfo submitInfo =
-		{
-			vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType			sType;
-			DE_NULL,							// const void*				pNext;
-			0,									// deUint32					waitSemaphoreCount;
-			DE_NULL,							// const VkSemaphore*		pWaitSemaphores;
-			(const vk::VkPipelineStageFlags*)DE_NULL,
-			1,									// deUint32					commandBufferCount;
-			&m_cmdBuffer.get(),					// const VkCommandBuffer*	pCommandBuffers;
-			0,									// deUint32					signalSemaphoreCount;
-			DE_NULL								// const VkSemaphore*		pSignalSemaphores;
-		};
-		m_vk.queueSubmit(queue, 1, &submitInfo, DE_NULL);
+		submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 		// validation
 		{
-			VK_CHECK(m_vk.queueWaitIdle(queue));
-
 			tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
 			referenceFrame.allocLevel(0);
 

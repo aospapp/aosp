@@ -15,10 +15,15 @@
  */
 package com.android.tradefed.testtype;
 
+import static org.mockito.Mockito.doReturn;
+
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.DynamicRemoteFileResolver;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.config.remote.GcsRemoteFileResolver;
+import com.android.tradefed.config.remote.IRemoteFileResolver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -51,7 +56,9 @@ import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.JUnit4;
 import org.junit.runners.Suite.SuiteClasses;
 import org.junit.runners.model.InitializationError;
+import org.mockito.Mockito;
 
+import java.io.File;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.AnnotatedElement;
@@ -67,14 +74,19 @@ import java.util.Map;
 @SuppressWarnings("unchecked")
 public class HostTestTest extends TestCase {
 
+    private static final File FAKE_REMOTE_FILE_PATH = new File("gs://bucket/path/file");
+
     private HostTest mHostTest;
     private ITestInvocationListener mListener;
     private ITestDevice mMockDevice;
     private IBuildInfo mMockBuildInfo;
 
+    private IRemoteFileResolver mMockResolver;
+
     @MyAnnotation
     @MyAnnotation3
     public static class SuccessTestCase extends TestCase {
+
         public SuccessTestCase() {}
 
         public SuccessTestCase(String name) {
@@ -88,6 +100,22 @@ public class HostTestTest extends TestCase {
         @MyAnnotation
         @MyAnnotation2
         public void testPass2() {
+        }
+    }
+
+    public static class DynamicTestCase extends TestCase {
+
+        @Option(name = "dynamic-option")
+        private File mDynamicFile = FAKE_REMOTE_FILE_PATH;
+
+        public DynamicTestCase() {}
+
+        public DynamicTestCase(String name) {
+            super(name);
+        }
+
+        public void testPass() {
+            assertFalse(mDynamicFile.equals(new File("gs://bucket/path/file")));
         }
     }
 
@@ -163,6 +191,9 @@ public class HostTestTest extends TestCase {
         @Option(name = "junit4-option")
         public boolean mOption = false;
 
+        @Option(name = "map-option")
+        public Map<String, String> mapOption = new HashMap<>();
+
         @Rule public TestMetrics metrics = new TestMetrics();
 
         @MyAnnotation
@@ -179,6 +210,9 @@ public class HostTestTest extends TestCase {
             metrics.addTestMetric("key2", "value2");
             if (mOption) {
                 metrics.addTestMetric("junit4-option", "true");
+            }
+            if (!mapOption.isEmpty()) {
+                metrics.addTestMetric("map-option", mapOption.values().toString());
             }
         }
     }
@@ -262,6 +296,20 @@ public class HostTestTest extends TestCase {
         @After
         public void tearDown() {
             Assert.assertTrue(false);
+        }
+    }
+
+    @RunWith(DeviceJUnit4ClassRunner.class)
+    public static class JUnit4TestClassMultiExceptionDnae {
+
+        @org.junit.Test
+        public void testPass5() {
+            Assume.assumeTrue(false);
+        }
+
+        @After
+        public void tearDown() throws Exception {
+            throw new DeviceNotAvailableException("dnae", "serial");
         }
     }
 
@@ -435,13 +483,53 @@ public class HostTestTest extends TestCase {
         }
     }
 
+    public static class TestableHostTest extends HostTest {
+
+        private IRemoteFileResolver mRemoteFileResolver;
+
+        public TestableHostTest() {
+            mRemoteFileResolver = null;
+        }
+
+        public TestableHostTest(IRemoteFileResolver remoteFileResolver) {
+            mRemoteFileResolver = remoteFileResolver;
+        }
+
+        @Override
+        OptionSetter createOptionSetter(Object obj) throws ConfigurationException {
+            return new OptionSetter(obj) {
+                @Override
+                protected DynamicRemoteFileResolver createResolver() {
+                    DynamicRemoteFileResolver mResolver =
+                            new DynamicRemoteFileResolver() {
+                                @Override
+                                protected IRemoteFileResolver getResolver(String protocol) {
+                                    if (protocol.equals(GcsRemoteFileResolver.PROTOCOL)) {
+                                        return mRemoteFileResolver;
+                                    }
+                                    return null;
+                                }
+
+                                @Override
+                                protected boolean updateProtocols() {
+                                    // Do not set the static variable
+                                    return false;
+                                }
+                            };
+                    return mResolver;
+                }
+            };
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mHostTest = new HostTest();
+        mMockResolver = Mockito.mock(IRemoteFileResolver.class);
+        mHostTest = new TestableHostTest(mMockResolver);
         mListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
@@ -571,6 +659,25 @@ public class HostTestTest extends TestCase {
         mListener.testEnded(EasyMock.eq(test1), (HashMap<String, Metric>) EasyMock.anyObject());
         mListener.testStarted(EasyMock.eq(test2));
         mListener.testEnded(EasyMock.eq(test2), (HashMap<String, Metric>) EasyMock.anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        EasyMock.replay(mListener);
+        mHostTest.run(mListener);
+        EasyMock.verify(mListener);
+    }
+
+    /**
+     * Test success case for {@link HostTest#run(ITestInvocationListener)}, where test to run is a
+     * {@link TestSuite} and has dynamic options.
+     */
+    public void testRun_junit3TestSuite_dynamicOptions() throws Exception {
+        doReturn(new File("/downloaded/somewhere"))
+                .when(mMockResolver)
+                .resolveRemoteFiles(Mockito.eq(FAKE_REMOTE_FILE_PATH), Mockito.any());
+        mHostTest.setClassName(DynamicTestCase.class.getName());
+        TestDescription test1 = new TestDescription(DynamicTestCase.class.getName(), "testPass");
+        mListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.eq(1));
+        mListener.testStarted(EasyMock.eq(test1));
+        mListener.testEnded(EasyMock.eq(test1), (HashMap<String, Metric>) EasyMock.anyObject());
         mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.replay(mListener);
         mHostTest.run(mListener);
@@ -769,6 +876,15 @@ public class HostTestTest extends TestCase {
     public void testCountTestCases() throws Exception {
         mHostTest.setClassName(SuccessTestCase.class.getName());
         assertEquals("Incorrect test case count", 2, mHostTest.countTestCases());
+    }
+
+    /** Test for {@link HostTest#countTestCases()} */
+    public void testCountTestCases_dirtyCount() throws Exception {
+        mHostTest.setClassName(SuccessTestCase.class.getName());
+        assertEquals("Incorrect test case count", 2, mHostTest.countTestCases());
+        TestDescription test1 = new TestDescription(SuccessTestCase.class.getName(), "testPass");
+        mHostTest.addIncludeFilter(test1.toString());
+        assertEquals("Incorrect test case count", 1, mHostTest.countTestCases());
     }
 
     /**
@@ -1089,6 +1205,29 @@ public class HostTestTest extends TestCase {
         EasyMock.verify(mListener);
     }
 
+    public void testRun_junit4style_multiException_dnae() throws Exception {
+        mListener = EasyMock.createStrictMock(ITestInvocationListener.class);
+        mHostTest.setClassName(JUnit4TestClassMultiExceptionDnae.class.getName());
+        TestDescription test1 =
+                new TestDescription(JUnit4TestClassMultiExceptionDnae.class.getName(), "testPass5");
+        mListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.eq(1));
+        mListener.testStarted(EasyMock.eq(test1));
+        mListener.testFailed(
+                EasyMock.eq(test1),
+                EasyMock.contains("MultipleFailureException: There were 2 errors:"));
+        mListener.testEnded(EasyMock.eq(test1), (HashMap<String, Metric>) EasyMock.anyObject());
+        mListener.testRunFailed(EasyMock.anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        EasyMock.replay(mListener);
+        try {
+            mHostTest.run(mListener);
+            fail("Should have thrown an exception.");
+        } catch (DeviceNotAvailableException expected) {
+
+        }
+        EasyMock.verify(mListener);
+    }
+
     /**
      * Test for {@link HostTest#run(ITestInvocationListener)}, for test with Junit4 style properly
      * pass to the test the {@link IMultiDeviceTest} information.
@@ -1219,6 +1358,79 @@ public class HostTestTest extends TestCase {
     }
 
     /**
+     * Test success case for {@link HostTest#run(ITestInvocationListener)} when passing a dedicated
+     * option to it.
+     */
+    public void testRun_testcase_TargetedOptionPassing() throws Exception {
+        mHostTest.setClassName(Junit4TestClass.class.getName());
+        mHostTest.addExcludeAnnotation("com.android.tradefed.testtype.HostTestTest$MyAnnotation2");
+        OptionSetter setter = new OptionSetter(mHostTest);
+        setter.setOptionValue(
+                "set-option", Junit4TestClass.class.getName() + ":junit4-option:true");
+        setter.setOptionValue(
+                "set-option", Junit4TestClass.class.getName() + ":map-option:key=test");
+        TestDescription test1 = new TestDescription(Junit4TestClass.class.getName(), "testPass6");
+        // Only test1 will run, test2 should be filtered out.
+        mListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.eq(1));
+        mListener.testStarted(EasyMock.eq(test1));
+        Map<String, String> metrics = new HashMap<>();
+        metrics.put("key2", "value2");
+        // If the option was correctly set, this metric should be true.
+        metrics.put("junit4-option", "true");
+        metrics.put("map-option", "[test]");
+        mListener.testEnded(
+                EasyMock.eq(test1), EasyMock.eq(TfMetricProtoUtil.upgradeConvert(metrics)));
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        EasyMock.replay(mListener);
+        mHostTest.run(mListener);
+        EasyMock.verify(mListener);
+    }
+
+    /**
+     * Test success case for {@link HostTest#run(ITestInvocationListener)} when passing a dedicated
+     * option to it. The class without the option doesn't throw an exception since it's not
+     * targeted.
+     */
+    public void testRun_testcase_multiTargetedOptionPassing() throws Exception {
+        mHostTest.addExcludeAnnotation("com.android.tradefed.testtype.HostTestTest$MyAnnotation2");
+        OptionSetter setter = new OptionSetter(mHostTest);
+        setter.setOptionValue("class", Junit4TestClass.class.getName());
+        setter.setOptionValue("class", Junit4TestLogClass.class.getName());
+        setter.setOptionValue(
+                "set-option", Junit4TestClass.class.getName() + ":junit4-option:true");
+
+        TestDescription test1 =
+                new TestDescription(Junit4TestLogClass.class.getName(), "testPass1");
+        TestDescription test2 =
+                new TestDescription(Junit4TestLogClass.class.getName(), "testPass2");
+        mListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.eq(2));
+        mListener.testStarted(EasyMock.eq(test1));
+        mListener.testLog(EasyMock.eq("TEST"), EasyMock.eq(LogDataType.TEXT), EasyMock.anyObject());
+        mListener.testEnded(test1, new HashMap<String, Metric>());
+        mListener.testStarted(EasyMock.eq(test2));
+        // test cases do not share logs, only the second test logs are seen.
+        mListener.testLog(
+                EasyMock.eq("TEST2"), EasyMock.eq(LogDataType.TEXT), EasyMock.anyObject());
+        mListener.testEnded(test2, new HashMap<String, Metric>());
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+
+        TestDescription test6 = new TestDescription(Junit4TestClass.class.getName(), "testPass6");
+        // Only test1 will run, test2 should be filtered out.
+        mListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.eq(1));
+        mListener.testStarted(EasyMock.eq(test6));
+        Map<String, String> metrics = new HashMap<>();
+        metrics.put("key2", "value2");
+        // If the option was correctly set, this metric should be true.
+        metrics.put("junit4-option", "true");
+        mListener.testEnded(
+                EasyMock.eq(test6), EasyMock.eq(TfMetricProtoUtil.upgradeConvert(metrics)));
+        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        EasyMock.replay(mListener);
+        mHostTest.run(mListener);
+        EasyMock.verify(mListener);
+    }
+
+    /**
      * Test success case for {@link HostTest#run(ITestInvocationListener)}, where filtering is
      * applied and results in 0 tests to run.
      */
@@ -1307,11 +1519,14 @@ public class HostTestTest extends TestCase {
         List<IRemoteTest> list = (ArrayList<IRemoteTest>) mHostTest.split(1);
         // split by class; numShards parameter should be ignored
         assertEquals(3, list.size());
-        assertEquals("com.android.tradefed.testtype.HostTest",
+        assertEquals(
+                "com.android.tradefed.testtype.HostTestTest$TestableHostTest",
                 list.get(0).getClass().getName());
-        assertEquals("com.android.tradefed.testtype.HostTest",
+        assertEquals(
+                "com.android.tradefed.testtype.HostTestTest$TestableHostTest",
                 list.get(1).getClass().getName());
-        assertEquals("com.android.tradefed.testtype.HostTest",
+        assertEquals(
+                "com.android.tradefed.testtype.HostTestTest$TestableHostTest",
                 list.get(2).getClass().getName());
 
         // We expect all the test from the JUnit4 suite to run under the original suite classname
@@ -1426,204 +1641,8 @@ public class HostTestTest extends TestCase {
         assertNull(mHostTest.split(1));
     }
 
-    /**
-     * Test for {@link HostTest#getTestShard(int, int)} with one shard per classes, the runtime hint
-     * is also split across tests based on number of tests.
-     */
-    public void testGetTestStrictShardable() throws Exception {
-        OptionSetter setter = new OptionSetter(mHostTest);
-        setter.setOptionValue("class", Junit4SuiteClass.class.getName());
-        setter.setOptionValue("class", SuccessTestSuite.class.getName());
-        setter.setOptionValue("class", TestRemoteNotCollector.class.getName());
-        setter.setOptionValue("runtime-hint", "2m");
-        IRemoteTest shard0 = mHostTest.getTestShard(3, 0);
-        assertTrue(shard0 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard0).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$Junit4SuiteClass",
-                ((HostTest)shard0).getClasses().get(0).getName());
-        // This shard contains 4 out of 7 tests: (4/7) * 2 minutes
-        assertEquals(68571, ((HostTest) shard0).getRuntimeHint());
-
-        IRemoteTest shard1 = mHostTest.getTestShard(3, 1);
-        assertTrue(shard1 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard1).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$SuccessTestSuite",
-                ((HostTest)shard1).getClasses().get(0).getName());
-        // This shard contains 2 out of 7 tests: (2/7) * 2 minutes
-        assertEquals(34285, ((HostTest) shard1).getRuntimeHint());
-
-        IRemoteTest shard2 = mHostTest.getTestShard(3, 2);
-        assertTrue(shard2 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard2).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$TestRemoteNotCollector",
-                ((HostTest)shard2).getClasses().get(0).getName());
-        // This shard contains 1 out of 7 tests: (1/7) * 2 minutes
-        assertEquals(17142, ((HostTest) shard2).getRuntimeHint());
-    }
-
-    /**
-     * Similar to {@link #testGetTestStrictShardable()} but with shard-unit set to method
-     */
-    public void testGetTestStrictShardable_shardUnit_method() throws Exception {
-        OptionSetter setter = new OptionSetter(mHostTest);
-        setter.setOptionValue("class", Junit4SuiteClass.class.getName());
-        setter.setOptionValue("class", SuccessTestSuite.class.getName());
-        setter.setOptionValue("class", TestRemoteNotCollector.class.getName());
-        setter.setOptionValue("runtime-hint", "2m");
-        setter.setOptionValue("shard-unit", "method");
-        final int numShards = mHostTest.countTestCases();
-        final long runtimeHint = 2 * 60 * 1000; // 2 minutes in microseconds
-        final Class<?>[] expectedTestCaseClasses = new Class<?>[] {
-            Junit4TestClass.class,
-            Junit4TestClass.class,
-            SuccessTestCase.class,
-            SuccessTestCase.class,
-            SuccessTestSuite.class,
-            SuccessTestSuite.class,
-            TestRemoteNotCollector.class,
-        };
-        assertEquals(expectedTestCaseClasses.length, numShards);
-        for (int i = 0; i < numShards; i++) {
-            IRemoteTest shard = mHostTest.getTestShard(numShards, i);
-            assertTrue(shard instanceof HostTest);
-            HostTest hostTest = (HostTest)shard;
-            assertEquals(1, hostTest.getClasses().size());
-            assertEquals(1, hostTest.countTestCases());
-            assertEquals(expectedTestCaseClasses[i], hostTest.getClasses().get(0));
-            assertEquals(runtimeHint / numShards, hostTest.getRuntimeHint());
-        }
-    }
-
-    /**
-     * Test for {@link HostTest#getTestShard(int, int)} when more shard than classes are requested,
-     * the empty shard will have no test (StubTest).
-     */
-    public void testGetTestStrictShardable_tooManyShards() throws Exception {
-        OptionSetter setter = new OptionSetter(mHostTest);
-        setter.setOptionValue("class", Junit4SuiteClass.class.getName());
-        setter.setOptionValue("class", SuccessTestSuite.class.getName());
-        IRemoteTest shard0 = mHostTest.getTestShard(4, 0);
-        assertTrue(shard0 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard0).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$Junit4SuiteClass",
-                ((HostTest)shard0).getClasses().get(0).getName());
-
-        IRemoteTest shard1 = mHostTest.getTestShard(4, 1);
-        assertTrue(shard1 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard1).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$SuccessTestSuite",
-                ((HostTest)shard1).getClasses().get(0).getName());
-
-        IRemoteTest shard2 = mHostTest.getTestShard(4, 2);
-        assertTrue(shard2 instanceof HostTest);
-        assertEquals(0, ((HostTest)shard2).getClasses().size());
-        IRemoteTest shard3 = mHostTest.getTestShard(4, 3);
-        assertTrue(shard3 instanceof HostTest);
-        assertEquals(0, ((HostTest)shard3).getClasses().size());
-        // empty shard that can run and be skipped without reporting anything
-        ITestInvocationListener mockListener = EasyMock.createMock(ITestInvocationListener.class);
-        EasyMock.replay(mockListener);
-        shard3.run(mockListener);
-        EasyMock.verify(mockListener);
-    }
-
-    /**
-     * Similar to {@link #testGetTestStrictShardable_tooManyShards()} but with shard-unit
-     * set to method
-     */
-    public void testGetTestStrictShardable_tooManyShards_shardUnit_method() throws Exception {
-        OptionSetter setter = new OptionSetter(mHostTest);
-        setter.setOptionValue("class", Junit4SuiteClass.class.getName());
-        setter.setOptionValue("class", SuccessTestSuite.class.getName());
-        setter.setOptionValue("shard-unit", "method");
-        int numTestCases = mHostTest.countTestCases();
-        final int numShards = numTestCases + 1;
-        final Class<?>[] expectedTestCaseClasses = new Class<?>[] {
-            Junit4TestClass.class,
-            Junit4TestClass.class,
-            SuccessTestCase.class,
-            SuccessTestCase.class,
-            SuccessTestSuite.class,
-            SuccessTestSuite.class,
-        };
-        assertEquals(expectedTestCaseClasses.length, numTestCases);
-        for (int i = 0; i < numTestCases ; i++) {
-            IRemoteTest shard = mHostTest.getTestShard(numShards, i);
-            assertTrue(shard instanceof HostTest);
-            HostTest hostTest = (HostTest)shard;
-            assertEquals(1, hostTest.getClasses().size());
-            assertEquals(1, hostTest.countTestCases());
-            assertEquals(expectedTestCaseClasses[i], hostTest.getClasses().get(0));
-        }
-        IRemoteTest lastShard = mHostTest.getTestShard(numShards, numTestCases);
-        assertTrue(lastShard instanceof HostTest);
-        assertEquals(0, ((HostTest)lastShard).getClasses().size());
-        assertEquals(0, ((HostTest)lastShard).countTestCases());
-        // empty shard that can run and be skipped without reporting anything
-        ITestInvocationListener mockListener = EasyMock.createMock(ITestInvocationListener.class);
-        EasyMock.replay(mockListener);
-        lastShard.run(mockListener);
-        EasyMock.verify(mockListener);
-    }
-
-    /**
-     * Test for {@link HostTest#getTestShard(int, int)} with one shard per classes.
-     */
-    public void testGetTestStrictShardable_wrapping() throws Exception {
-        final ITestDevice device = EasyMock.createMock(ITestDevice.class);
-        mHostTest.setDevice(device);
-        OptionSetter setter = new OptionSetter(mHostTest);
-        setter.setOptionValue("class", Junit4SuiteClass.class.getName());
-        setter.setOptionValue("class", SuccessTestSuite.class.getName());
-        setter.setOptionValue("class", TestRemoteNotCollector.class.getName());
-        setter.setOptionValue("class", SuccessHierarchySuite.class.getName());
-        setter.setOptionValue("class", SuccessDeviceTest.class.getName());
-        IRemoteTest shard0 = mHostTest.getTestShard(3, 0);
-        assertTrue(shard0 instanceof HostTest);
-        assertEquals(2, ((HostTest)shard0).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$Junit4SuiteClass",
-                ((HostTest)shard0).getClasses().get(0).getName());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$SuccessHierarchySuite",
-                ((HostTest)shard0).getClasses().get(1).getName());
-
-        IRemoteTest shard1 = mHostTest.getTestShard(3, 1);
-        assertTrue(shard1 instanceof HostTest);
-        assertEquals(2, ((HostTest)shard1).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$SuccessTestSuite",
-                ((HostTest)shard1).getClasses().get(0).getName());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$SuccessDeviceTest",
-                ((HostTest)shard1).getClasses().get(1).getName());
-
-        IRemoteTest shard2 = mHostTest.getTestShard(3, 2);
-        assertTrue(shard2 instanceof HostTest);
-        assertEquals(1, ((HostTest)shard2).getClasses().size());
-        assertEquals("com.android.tradefed.testtype.HostTestTest$TestRemoteNotCollector",
-                ((HostTest)shard2).getClasses().get(0).getName());
-    }
-
-    /**
-     * Similar to {@link #testGetTestStrictShardable_wrapping()} but with shard-unit set to method
-     */
-    public void testGetTestStrictShardable_wrapping_shardUnit_method() throws Exception {
-        testGetTestShardable_wrapping_shardUnit_method(true);
-    }
-
-    /**
-     * Similar to {@link #testGetTestStrictShardable_wrapping_shardUnit_method()}
-     * but test {@link IShardableTest} interface
-     */
+    /** Test {@link IShardableTest} interface and check the sharding is correct. */
     public void testGetTestShardable_wrapping_shardUnit_method() throws Exception {
-        testGetTestShardable_wrapping_shardUnit_method(false);
-    }
-
-    /**
-     * Shard by method and verify that each shard contains the expected classes
-     *
-     * @param strict test {@link IStrictShardableTest} interface if true,
-     * {@link IShardableTest} if false
-     * @throws Exception
-     */
-    private void testGetTestShardable_wrapping_shardUnit_method(boolean strict) throws Exception {
         final ITestDevice device = EasyMock.createMock(ITestDevice.class);
         mHostTest.setDevice(device);
         OptionSetter setter = new OptionSetter(mHostTest);
@@ -1652,11 +1671,7 @@ public class HostTestTest extends TestCase {
         assertEquals(expectedTestCaseClasses.length, numTestCases);
         for (int i = 0, j = 0; i < numShards ; i++) {
             IRemoteTest shard;
-            if (strict) {
-                shard = mHostTest.getTestShard(numShards, i);
-            } else {
-                shard = new ArrayList<>(mHostTest.split(numShards)).get(i);
-            }
+            shard = new ArrayList<>(mHostTest.split(numShards)).get(i);
             assertTrue(shard instanceof HostTest);
             HostTest hostTest = (HostTest)shard;
             int q = numTestCases / numShards;
@@ -1821,31 +1836,6 @@ public class HostTestTest extends TestCase {
     }
 
     /**
-     * Test that {@link HostTest#getTestShard(int, int)} returns a {@link IRemoteTest} with no
-     * runtime and no tests when filtered out of all its tests.
-     */
-    public void testShardAndUpdateRuntime() {
-        mHostTest.setClassName(SuccessTestCase.class.getName());
-        mHostTest.addExcludeAnnotation("com.android.tradefed.testtype.HostTestTest$MyAnnotation");
-        HostTest test = (HostTest) mHostTest.getTestShard(2, 0);
-        assertEquals(0l, test.getRuntimeHint());
-        assertEquals(0, test.countTestCases());
-    }
-
-    /**
-     * {@link HostTest#getTestShard(int, int)} returns a {@link IRemoteTest} with no runtime and no
-     * tests when filtered out of all its tests with a exclude-filter.
-     */
-    public void testShardAndUpdateRuntime_filters() {
-        mHostTest.setClassName(SuccessDeviceTest.class.getName());
-        mHostTest.addExcludeFilter(
-                "com.android.tradefed.testtype.HostTestTest$SuccessDeviceTest#testPass");
-        HostTest test = (HostTest) mHostTest.getTestShard(2, 0);
-        assertEquals(0l, test.getRuntimeHint());
-        assertEquals(0, test.countTestCases());
-    }
-
-    /**
      * Test for {@link HostTest#split(int)} when the exclude-filter is set, it should be carried over
      * to shards.
      */
@@ -1925,6 +1915,7 @@ public class HostTestTest extends TestCase {
         mListener.testRunStarted(
                 EasyMock.eq("com.android.tradefed.testtype.HostTestTest$Junit4RegularClass"),
                 EasyMock.eq(1));
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mListener);
         try {
             mHostTest.run(mListener);
@@ -2122,5 +2113,23 @@ public class HostTestTest extends TestCase {
             assertEquals(0L, ((HostTest) test).getRuntimeHint());
             assertEquals(0, ((HostTest) test).countTestCases());
         }
+    }
+
+    public void testEarlyFailure() throws Exception {
+        OptionSetter setter = new OptionSetter(mHostTest);
+        setter.setOptionValue("class", "i.cannot.be.resolved");
+
+        mListener.testRunStarted(HostTestTest.class.getName() + ".TestableHostTest", 0);
+        mListener.testRunFailed("Could not load Test class i.cannot.be.resolved");
+        mListener.testRunEnded(0L, new HashMap<String, Metric>());
+
+        EasyMock.replay(mListener);
+        try {
+            mHostTest.run(mListener);
+            fail("Should have thrown an exception");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+        EasyMock.verify(mListener);
     }
 }

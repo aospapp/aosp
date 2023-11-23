@@ -414,7 +414,20 @@
 #define OP_glGetFramebufferParameteriv 					2456
 #define OP_glGetTexLevelParameterfv 					2457
 #define OP_glGetTexLevelParameteriv 					2458
-#define OP_last 					2459
+#define OP_glMapBufferRangeDMA 					2459
+#define OP_glUnmapBufferDMA 					2460
+#define OP_glMapBufferRangeDirect 					2461
+#define OP_glUnmapBufferDirect 					2462
+#define OP_glFlushMappedBufferRangeDirect 					2463
+#define OP_glGetGraphicsResetStatusEXT 					2464
+#define OP_glReadnPixelsEXT 					2465
+#define OP_glGetnUniformfvEXT 					2466
+#define OP_glGetnUniformivEXT 					2467
+#define OP_glDrawArraysNullAEMU 					2468
+#define OP_glDrawElementsNullAEMU 					2469
+#define OP_glDrawElementsOffsetNullAEMU 					2470
+#define OP_glDrawElementsDataNullAEMU 					2471
+#define OP_last 					2472
 
 
 #endif

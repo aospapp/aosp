@@ -182,9 +182,9 @@
 #endif
 
 #ifdef EXTERN
-__RCSID("$MirOS: src/bin/mksh/sh.h,v 1.858 2018/01/14 01:47:36 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/sh.h,v 1.870 2019/03/01 16:18:14 tg Exp $");
 #endif
-#define MKSH_VERSION "R56 2018/01/14"
+#define MKSH_VERSION "R57 2019/03/01"
 
 /* arithmetic types: C implementation */
 #if !HAVE_CAN_INTTYPES
@@ -491,6 +491,10 @@ extern int __cdecl setegid(gid_t);
 #define O_BINARY	0
 #endif
 
+#ifndef O_MAYEXEC
+#define O_MAYEXEC	0
+#endif
+
 #ifdef MKSH__NO_SYMLINK
 #undef S_ISLNK
 #define S_ISLNK(m)	(/* CONSTCOND */ 0)
@@ -643,7 +647,7 @@ char *ucstrstr(char *, const char *);
 #endif
 #endif
 
-#if (!defined(MKSH_BUILDMAKEFILE4BSD) && !defined(MKSH_BUILDSH)) || (MKSH_BUILD_R != 563)
+#if (!defined(MKSH_BUILDMAKEFILE4BSD) && !defined(MKSH_BUILDSH)) || (MKSH_BUILD_R != 571)
 #error Must run Build.sh to compile this.
 extern void thiswillneverbedefinedIhope(void);
 int
@@ -783,7 +787,7 @@ enum sh_flag {
 };
 
 #define Flag(f)	(shell_flags[(int)(f)])
-#define UTFMODE	Flag(FUNICODE)
+#define UTFMODE	Flag(FUNNYCODE)
 
 /*
  * parsing & execution environment
@@ -1950,10 +1954,11 @@ struct ioword {
 #define IOSKIP		BIT(5)	/* <<-, skip ^\t* */
 #define IOCLOB		BIT(6)	/* >|, override -o noclobber */
 #define IORDUP		BIT(7)	/* x<&y (as opposed to x>&y) */
-#define IONAMEXP	BIT(8)	/* name has been expanded */
-#define IOBASH		BIT(9)	/* &> etc. */
-#define IOHERESTR	BIT(10)	/* <<< (here string) */
-#define IONDELIM	BIT(11)	/* null delimiter (<<) */
+#define IODUPSELF	BIT(8)	/* x>&x (as opposed to x>&y) */
+#define IONAMEXP	BIT(9)	/* name has been expanded */
+#define IOBASH		BIT(10)	/* &> etc. */
+#define IOHERESTR	BIT(11)	/* <<< (here string) */
+#define IONDELIM	BIT(12)	/* null delimiter (<<) */
 
 /* execute/exchild flags */
 #define XEXEC	BIT(0)		/* execute without forking */
@@ -2637,7 +2642,7 @@ const char *wdscan(const char *, int);
 #define WDS_TPUTS	BIT(0)		/* tputS (dumpwdvar) mode */
 char *wdstrip(const char *, int);
 void tfree(struct op *, Area *);
-void dumpchar(struct shf *, int);
+void dumpchar(struct shf *, unsigned char);
 void dumptree(struct shf *, struct op *);
 void dumpwdvar(struct shf *, const char *);
 void dumpioact(struct shf *shf, struct op *t);

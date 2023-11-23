@@ -20,7 +20,7 @@ BUG_TEMPLATE = {
 }
 
 DOC = """
-This test verify YouTube video playback, states and resolutions.
+This test verify YouTube video playback and states.
 """
 
 job.run_test('video_YouTubeHTML5')

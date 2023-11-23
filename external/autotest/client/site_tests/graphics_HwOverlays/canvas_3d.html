@@ -1,0 +1,33 @@
+<html>
+<head>
+  <title>Canvas 3D</title>
+</head>
+<body>
+  <canvas id='canvas1' style="border: 1px solid black;"></canvas>
+</body>
+<script type="text/javascript">
+  var canvas = document.getElementById('canvas1');
+  var ctx = canvas.getContext('webgl');
+  // Make the canvas very large but still falling inside the viewport; |height|
+  // also has to account for the Shelf (taskbar) at the bottom.
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = (window.innerWidth / dpr) * 0.9 / dpr;
+  canvas.height = (window.innerHeight / dpr) * 0.9 / dpr;
+
+  var draw_passes_count = 0;
+
+  function draw_pass() {
+    // Consider a seeded random number generator if there are reproducibility
+    // problems.
+    ctx.clearColor(0, Math.random(), 0, 1.0);
+    ctx.clear(ctx.COLOR_BUFFER_BIT);
+    draw_passes_count++;
+  }
+  setInterval(draw_pass, 1000);
+
+  function get_draw_passes_count() {
+    return draw_passes_count;
+  }
+
+</script>
+</html>

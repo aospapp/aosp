@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"ঢাকনাটি খোলা"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"জ্যাম হয়েছে"</string>
     <string name="printer_offline" msgid="9196864753298645066">"অফলাইন"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"খারাপ সার্টিফিকেট"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"এনক্রিপ্ট করা হয়নি"</string>
     <string name="printer_check" msgid="6428369671197132828">"প্রিন্টারটি পরীক্ষা করুন"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"পাঠানোর জন্য অপেক্ষা করা হচ্ছে"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"দস্তাবেজটি পড়া যাবেনা"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"প্রিন্টারটি সমর্থিত নয়"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"ওয়াই-ফাই ডাইরেক্ট"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"ওয়াই-ফাই ডাইরেক্ট সমর্থিত প্রিন্টার খুঁজুন"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi ডাইরেক্ট প্রিন্টিং"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"ওয়াই-ফাই ডাইরেক্ট সমর্থিত প্রিন্টার"</string>
     <string name="searching" msgid="2114018057619514587">"খোঁজা হচ্ছে…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"প্রিন্টারের সামনের প্যানেলে এই সংযোগটি অনুমোদন করতে হবে"</string>
@@ -54,7 +57,15 @@
     <string name="failed_printer_connection" msgid="4196305972749960362">"প্রিন্টারের সাথে সংযুক্ত করা যায়নি"</string>
     <string name="failed_connection" msgid="8068661997318286575">"<xliff:g id="PRINTER">%1$s</xliff:g> এর সাথে সংযুক্ত করা যায়নি"</string>
     <string name="saved_printers" msgid="4567534965213125526">"সেভ করা প্রিন্টার"</string>
-    <string name="forget" msgid="892068061425802502">"ভুলে যান"</string>
+    <string name="forget" msgid="892068061425802502">"সরিয়ে দিন"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ওয়াই-ফাই ডাইরেক্টের মাধ্যমে সংযুক্ত হয়"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"বর্তমান নেটওয়ার্কের মাধ্যমে <xliff:g id="IP_ADDRESS">%1$s</xliff:g> অ্যাড্রেসে সংযুক্ত হয়"</string>
+    <string name="security" msgid="2279008326210305401">"নিরাপত্তা"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"এই প্রিন্টার একটি নতুন নিরাপত্তার সার্টিফিকেট দেবে, অথবা ডিভাইস থেকে এটি ব্যবহার করা হচ্ছে। নতুন সার্টিফিকেট গ্রহণ করতে চান?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"এই প্রিন্টারের মাধ্যমে আর এনক্রিপ্ট করা ডকুমেন্ট প্রিন্ট করা যাবে না। প্রিন্টিং করা চালিয়ে যেতে চান?"</string>
+    <string name="accept" msgid="4426153292469698134">"গ্রহণ করুন"</string>
+    <string name="reject" msgid="24751635160440693">"বাতিল করুন"</string>
+    <string name="connections" msgid="8895413761760117180">"কানেকশন"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"আশেপাশের ডিভাইস খোঁজার জন্য ডিফল্ট প্রিন্ট পরিষেবাকে লোকেশন অ্যাক্সেসের অনুমতি দিতে হবে।"</string>
+    <string name="fix" msgid="7784394272611365393">"রিভিউ করার অনুমতি"</string>
 </resources>

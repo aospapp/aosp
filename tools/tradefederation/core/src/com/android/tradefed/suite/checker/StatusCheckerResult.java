@@ -27,6 +27,7 @@ public class StatusCheckerResult {
 
     private CheckStatus mCheckStatus = CheckStatus.FAILED;
     private String mErrorMessage = null;
+    private boolean mBugreportNeeded = false;
 
     /** Create a {@link StatusCheckerResult} with the default {@link CheckStatus#FAILED} status. */
     public StatusCheckerResult() {}
@@ -60,5 +61,15 @@ public class StatusCheckerResult {
     /** Sets the error message associated with a failure. */
     public void setErrorMessage(String message) {
         mErrorMessage = message;
+    }
+
+    /** Returns whether or not a bugreport is needed in case of checker failure. */
+    public boolean isBugreportNeeded() {
+        return mBugreportNeeded;
+    }
+
+    /** Sets whether or not a bugreport is needed in case of checker failure. */
+    public void setBugreportNeeded(boolean need) {
+        mBugreportNeeded = need;
     }
 }

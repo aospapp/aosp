@@ -53,6 +53,7 @@ static const size_t test_channel_counts[] = {
 	4,
 	2,
 	1,
+	8,
 	0
 };
 
@@ -304,7 +305,6 @@ int cras_alsa_resume_appl_ptr(snd_pcm_t *handle, snd_pcm_uframes_t ahead)
 int cras_alsa_set_channel_map(snd_pcm_t *handle,
 			      struct cras_audio_format *fmt)
 {
-	int rc = 0;
 	size_t i, ch;
 	snd_pcm_chmap_query_t **chmaps;
 	snd_pcm_chmap_query_t *match;
@@ -315,14 +315,12 @@ int cras_alsa_set_channel_map(snd_pcm_t *handle,
 	chmaps = snd_pcm_query_chmaps(handle);
 	if (chmaps == NULL) {
 		syslog(LOG_WARNING, "No chmap queried! Skip chmap set");
-		rc = 0;
 		goto done;
 	}
 
 	match = cras_chmap_caps_best(handle, chmaps, fmt);
 	if (!match) {
 		syslog(LOG_ERR, "Unable to find the best channel map");
-		rc = -1;
 		goto done;
 	}
 
@@ -337,11 +335,12 @@ int cras_alsa_set_channel_map(snd_pcm_t *handle,
 		if (ch != CRAS_CH_MAX)
 			match->map.pos[i] = CH_TO_ALSA(ch);
 	}
-	rc = snd_pcm_set_chmap(handle, &match->map);
+	if (snd_pcm_set_chmap(handle, &match->map) != 0)
+		syslog(LOG_ERR, "Unable to set channel map");
 
 done:
 	snd_pcm_free_chmaps(chmaps);
-	return rc;
+	return 0;
 }
 
 int cras_alsa_get_channel_map(snd_pcm_t *handle,
@@ -354,7 +353,6 @@ int cras_alsa_get_channel_map(snd_pcm_t *handle,
 
 	chmaps = snd_pcm_query_chmaps(handle);
 	if (chmaps == NULL) {
-		syslog(LOG_ERR, "No chmap queried!");
 		rc = -EINVAL;
 		goto done;
 	}
@@ -385,48 +383,34 @@ done:
 	return rc;
 }
 
-int cras_alsa_fill_properties(const char *dev, snd_pcm_stream_t stream,
+int cras_alsa_fill_properties(snd_pcm_t *handle,
 			      size_t **rates, size_t **channel_counts,
 			      snd_pcm_format_t **formats)
 {
 	int rc;
-	snd_pcm_t *handle;
 	size_t i, num_found;
 	snd_pcm_hw_params_t *params;
 
 	snd_pcm_hw_params_alloca(&params);
 
-	rc = cras_alsa_pcm_open(&handle,
-				dev,
-				stream);
-	if (rc < 0) {
-		syslog(LOG_ERR, "snd_pcm_open_failed: %s", snd_strerror(rc));
-		return rc;
-	}
-
 	rc = snd_pcm_hw_params_any(handle, params);
 	if (rc < 0) {
-		snd_pcm_close(handle);
 		syslog(LOG_ERR, "snd_pcm_hw_params_any: %s", snd_strerror(rc));
 		return rc;
 	}
 
 	*rates = (size_t *)malloc(sizeof(test_sample_rates));
-	if (*rates == NULL) {
-		snd_pcm_close(handle);
+	if (*rates == NULL)
 		return -ENOMEM;
-	}
 	*channel_counts = (size_t *)malloc(sizeof(test_channel_counts));
 	if (*channel_counts == NULL) {
 		free(*rates);
-		snd_pcm_close(handle);
 		return -ENOMEM;
 	}
 	*formats = (snd_pcm_format_t *)malloc(sizeof(test_formats));
 	if (*formats == NULL) {
 		free(*channel_counts);
 		free(*rates);
-		snd_pcm_close(handle);
 		return -ENOMEM;
 	}
 
@@ -438,6 +422,10 @@ int cras_alsa_fill_properties(const char *dev, snd_pcm_stream_t stream,
 			(*rates)[num_found++] = test_sample_rates[i];
 	}
 	(*rates)[num_found] = 0;
+	if (num_found == 0) {
+		syslog(LOG_WARNING, "No valid sample rates.");
+		return -EINVAL;
+	}
 
 	num_found = 0;
 	for (i = 0; test_channel_counts[i] != 0; i++) {
@@ -447,6 +435,10 @@ int cras_alsa_fill_properties(const char *dev, snd_pcm_stream_t stream,
 			(*channel_counts)[num_found++] = test_channel_counts[i];
 	}
 	(*channel_counts)[num_found] = 0;
+	if (num_found == 0) {
+		syslog(LOG_WARNING, "No valid channel counts found.");
+		return -EINVAL;
+	}
 
 	num_found = 0;
 	for (i = 0; test_formats[i] != 0; i++) {
@@ -456,8 +448,10 @@ int cras_alsa_fill_properties(const char *dev, snd_pcm_stream_t stream,
 			(*formats)[num_found++] = test_formats[i];
 	}
 	(*formats)[num_found] = (snd_pcm_format_t)0;
-
-	snd_pcm_close(handle);
+	if (num_found == 0) {
+		syslog(LOG_WARNING, "No valid sample formats.");
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -669,8 +663,7 @@ int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 			       snd_pcm_uframes_t severe_underrun_frames,
 			       const char *dev_name,
 			       snd_pcm_uframes_t *avail,
-			       struct timespec *tstamp,
-			       unsigned int *underruns)
+			       struct timespec *tstamp)
 {
 	snd_pcm_sframes_t frames;
 	int rc = 0;
@@ -694,17 +687,16 @@ int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 		syslog(LOG_ERR, "pcm_avail error %s, %s\n",
 		       dev_name, snd_strerror(rc));
 		goto error;
-	} else if (frames >= (snd_pcm_sframes_t)buf_size) {
+	} else if (frames > (snd_pcm_sframes_t)buf_size) {
 		struct timespec tstamp_now;
-		*underruns = *underruns + 1;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &tstamp_now);
 		/* Limit the log rate. */
 		if ((tstamp_now.tv_sec - tstamp_last_underrun_log.tv_sec) >
 		    UNDERRUN_LOG_TIME_SECS) {
 			syslog(LOG_ERR,
 			       "pcm_avail returned frames larger than buf_size: "
-			       "%s: %ld > %lu for %u times\n",
-			       dev_name, frames, buf_size, *underruns);
+			       "%s: %ld > %lu\n",
+			       dev_name, frames, buf_size);
 			tstamp_last_underrun_log.tv_sec = tstamp_now.tv_sec;
 			tstamp_last_underrun_log.tv_nsec = tstamp_now.tv_nsec;
 		}
@@ -741,6 +733,13 @@ int cras_alsa_get_delay_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 	return 0;
 }
 
+/*
+ * Attempts to resume a PCM.
+ * Note that this path does not get executed for default playback/capture
+ * stream. Default playback/capture stream are removed from the device
+ * upon suspend, and re-attached to the device after resume.
+ * The only stream that lives across suspend resume is hotword stream.
+ */
 int cras_alsa_attempt_resume(snd_pcm_t *handle)
 {
 	int rc;
@@ -749,18 +748,31 @@ int cras_alsa_attempt_resume(snd_pcm_t *handle)
 	while ((rc = snd_pcm_resume(handle)) == -EAGAIN)
 		usleep(ALSA_SUSPENDED_SLEEP_TIME_US);
 	if (rc < 0) {
+		/*
+		 * Some devices do not support snd_pcm_resume, that is
+		 * acceptable.
+		 */
 		syslog(LOG_INFO, "System suspended, failed to resume %s.",
 		       snd_strerror(rc));
 		rc = snd_pcm_prepare(handle);
-		if (rc < 0)
-			syslog(LOG_INFO, "Suspended, failed to prepare: %s.",
+		if (rc < 0) {
+			syslog(LOG_ERR, "Suspended, failed to prepare: %s.",
 			       snd_strerror(rc));
+		}
+		/*
+		 * CRAS does not use auto-start (start_threshold = 0), so start
+		 * PCM after it is prepared. This is only for hotword stream.
+		 */
+		rc = snd_pcm_start(handle);
+		if (rc < 0) {
+			syslog(LOG_ERR, "Suspended, failed to start: %s.",
+			       snd_strerror(rc));
+		}
 	}
 	return rc;
 }
 
-int cras_alsa_mmap_get_whole_buffer(snd_pcm_t *handle, uint8_t **dst,
-				    unsigned int *underruns)
+int cras_alsa_mmap_get_whole_buffer(snd_pcm_t *handle, uint8_t **dst)
 {
 	snd_pcm_uframes_t offset;
 	/* The purpose of calling cras_alsa_mmap_begin is to get the base
@@ -773,13 +785,12 @@ int cras_alsa_mmap_get_whole_buffer(snd_pcm_t *handle, uint8_t **dst,
 	 */
 	snd_pcm_uframes_t frames = 1;
 
-	return cras_alsa_mmap_begin(
-			handle, 0, dst, &offset, &frames, underruns);
+	return cras_alsa_mmap_begin(handle, 0, dst, &offset, &frames);
 }
 
 int cras_alsa_mmap_begin(snd_pcm_t *handle, unsigned int format_bytes,
 			 uint8_t **dst, snd_pcm_uframes_t *offset,
-			 snd_pcm_uframes_t *frames, unsigned int *underruns)
+			 snd_pcm_uframes_t *frames)
 {
 	int rc;
 	unsigned int attempts = 0;
@@ -794,7 +805,6 @@ int cras_alsa_mmap_begin(snd_pcm_t *handle, unsigned int format_bytes,
 				return rc;
 			continue; /* Recovered from suspend, try again. */
 		} else if (rc < 0) {
-			*underruns = *underruns + 1;
 			/* If we can recover, continue and try again. */
 			if (snd_pcm_recover(handle, rc, 0) == 0)
 				continue;
@@ -819,7 +829,7 @@ int cras_alsa_mmap_begin(snd_pcm_t *handle, unsigned int format_bytes,
 }
 
 int cras_alsa_mmap_commit(snd_pcm_t *handle, snd_pcm_uframes_t offset,
-			  snd_pcm_uframes_t frames, unsigned int *underruns)
+			  snd_pcm_uframes_t frames)
 {
 	int rc;
 	snd_pcm_sframes_t res;
@@ -833,7 +843,6 @@ int cras_alsa_mmap_commit(snd_pcm_t *handle, snd_pcm_uframes_t offset,
 			if (rc < 0)
 				return rc;
 		} else {
-			*underruns = *underruns + 1;
 			/* If we can recover, continue and try again. */
 			rc = snd_pcm_recover(handle, res, 0);
 			if (rc < 0) {

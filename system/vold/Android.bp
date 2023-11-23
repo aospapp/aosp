@@ -17,6 +17,7 @@ cc_defaults {
         "-*",
         "cert-*",
         "clang-analyzer-security*",
+        "android-*",
     ],
     tidy_flags: [
         "-warnings-as-errors=clang-analyzer-security*,cert-*",
@@ -31,6 +32,7 @@ cc_defaults {
         "libbootloader_message",
         "libfec",
         "libfec_rs",
+        "libfs_avb",
         "libfs_mgr",
         "libscrypt_static",
         "libsquashfs_utils",
@@ -39,6 +41,7 @@ cc_defaults {
     shared_libs: [
         "android.hardware.keymaster@3.0",
         "android.hardware.keymaster@4.0",
+        "android.hardware.boot@1.0",
         "libbase",
         "libbinder",
         "libcrypto",
@@ -47,6 +50,7 @@ cc_defaults {
         "libdiskconfig",
         "libext4_utils",
         "libf2fs_sparseblock",
+        "libfscrypt",
         "libhardware",
         "libhardware_legacy",
         "libhidlbase",
@@ -93,12 +97,14 @@ cc_library_static {
     ],
 
     srcs: [
+        "AppFuseUtil.cpp",
         "Benchmark.cpp",
         "CheckEncryption.cpp",
+        "Checkpoint.cpp",
         "Devmapper.cpp",
         "EncryptInplace.cpp",
-        "Ext4Crypt.cpp",
         "FileDeviceUtils.cpp",
+        "FsCrypt.cpp",
         "IdleMaint.cpp",
         "KeyBuffer.cpp",
         "KeyStorage.cpp",
@@ -126,19 +132,30 @@ cc_library_static {
         "model/PrivateVolume.cpp",
         "model/PublicVolume.cpp",
         "model/VolumeBase.cpp",
-        "secontext.cpp",
+        "model/StubVolume.cpp",
     ],
     product_variables: {
         arc: {
             exclude_srcs: [
+                "AppFuseUtil.cpp",
                 "model/ObbVolume.cpp",
             ],
             static_libs: [
                 "arc_services_aidl",
+                "libarcappfuse",
                 "libarcobbvolume",
             ],
         },
+        debuggable: {
+            cppflags: ["-D__ANDROID_DEBUGGABLE__"],
+        },
     },
+    shared_libs: [
+        "android.hardware.health.storage@1.0",
+    ],
+    whole_static_libs: [
+        "com.android.sysprop.apex",
+    ],
 }
 
 cc_binary {
@@ -154,6 +171,7 @@ cc_binary {
         arc: {
             static_libs: [
                 "arc_services_aidl",
+                "libarcappfuse",
                 "libarcobbvolume",
             ],
         },
@@ -167,6 +185,11 @@ cc_binary {
         "mke2fs",
         "vold_prepare_subdirs",
         "wait_for_keymaster",
+    ],
+
+    shared_libs: [
+        "android.hardware.health.storage@1.0",
+        "libhidltransport",
     ],
 }
 

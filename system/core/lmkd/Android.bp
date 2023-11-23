@@ -3,8 +3,10 @@ cc_binary {
 
     srcs: ["lmkd.c"],
     shared_libs: [
-        "liblog",
         "libcutils",
+        "liblog",
+        "libprocessgroup",
+        "libpsi",
     ],
     static_libs: [
         "libstatslogc",
@@ -20,6 +22,7 @@ cc_binary {
             ],
         },
     },
+    logtags: ["event.logtags"],
 }
 
 cc_library_static {

@@ -14,16 +14,24 @@
 
 #include "FormatConversions.h"
 
+#if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
+#else
+#include <log/log.h>
+#endif
 #include <string.h>
 
 #define DEBUG 0
 
 #if DEBUG
-#define DD(...) ALOGD(...)
+#define DD(...) ALOGD(__VA_ARGS__)
 #else
 #define DD(...)
 #endif
+
+static int get_rgb_offset(int row, int width, int rgbStride) {
+    return row * width * rgbStride;
+}
 
 void get_yv12_offsets(int width, int height,
                              uint32_t* yStride_out,
@@ -66,6 +74,8 @@ signed clamp_rgb(signed value) {
 
 void rgb565_to_yv12(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 2;
+
     int align = 16;
     int yStride = (width + (align -1)) & ~(align-1);
     int cStride = (yStride / 2 + (align - 1)) & ~(align-1);
@@ -75,13 +85,12 @@ void rgb565_to_yv12(char* dest, char* src, int width, int height,
     uint16_t *rgb_ptr0 = (uint16_t *)src;
     uint8_t *yv12_y0 = (uint8_t *)dest;
     uint8_t *yv12_v0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_u0 = yv12_v0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_v = yv12_v0 + (j/2) * cStride;
         uint8_t *yv12_u = yv12_v + cSize;
-        uint16_t *rgb_ptr = rgb_ptr0 + j * width;
+        uint16_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j, width, rgb_stride);
         bool jeven = (j & 1) == 0;
         for (int i = left; i <= right; ++i) {
             uint8_t r = ((rgb_ptr[i]) >> 11) & 0x01f;
@@ -106,24 +115,25 @@ void rgb565_to_yv12(char* dest, char* src, int width, int height,
 
 void rgb888_to_yv12(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 3;
+
     DD("%s convert %d by %d", __func__, width, height);
     int align = 16;
     int yStride = (width + (align -1)) & ~(align-1);
     int cStride = (yStride / 2 + (align - 1)) & ~(align-1);
     int yOffset = 0;
     int cSize = cStride * height/2;
-    int rgb_stride = 3;
+
 
     uint8_t *rgb_ptr0 = (uint8_t *)src;
     uint8_t *yv12_y0 = (uint8_t *)dest;
     uint8_t *yv12_v0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_u0 = yv12_v0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_v = yv12_v0 + (j/2) * cStride;
         uint8_t *yv12_u = yv12_v + cSize;
-        uint8_t  *rgb_ptr = rgb_ptr0 + j * width*rgb_stride;
+        uint8_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j, width, rgb_stride);
         bool jeven = (j & 1) == 0;
         for (int i = left; i <= right; ++i) {
             uint8_t R = rgb_ptr[i*rgb_stride];
@@ -143,23 +153,23 @@ void rgb888_to_yv12(char* dest, char* src, int width, int height,
 
 void rgb888_to_yuv420p(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 3;
+
     DD("%s convert %d by %d", __func__, width, height);
     int yStride = width;
     int cStride = yStride / 2;
     int yOffset = 0;
     int cSize = cStride * height/2;
-    int rgb_stride = 3;
 
     uint8_t *rgb_ptr0 = (uint8_t *)src;
     uint8_t *yv12_y0 = (uint8_t *)dest;
     uint8_t *yv12_u0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_v0 = yv12_u0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_u = yv12_u0 + (j/2) * cStride;
-        uint8_t *yv12_v = yv12_u + cStride;
-        uint8_t  *rgb_ptr = rgb_ptr0 + j * width*rgb_stride;
+        uint8_t *yv12_v = yv12_u + cSize;
+        uint8_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j, width, rgb_stride);
         bool jeven = (j & 1) == 0;
         for (int i = left; i <= right; ++i) {
             uint8_t R = rgb_ptr[i*rgb_stride];
@@ -180,6 +190,8 @@ void rgb888_to_yuv420p(char* dest, char* src, int width, int height,
 // certain stride requirements for Y and UV respectively.
 void yv12_to_rgb565(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 2;
+
     DD("%s convert %d by %d", __func__, width, height);
     int align = 16;
     int yStride = (width + (align -1)) & ~(align-1);
@@ -190,13 +202,12 @@ void yv12_to_rgb565(char* dest, char* src, int width, int height,
     uint16_t *rgb_ptr0 = (uint16_t *)dest;
     uint8_t *yv12_y0 = (uint8_t *)src;
     uint8_t *yv12_v0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_u0 = yv12_v0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_v = yv12_v0 + (j/2) * cStride;
         uint8_t *yv12_u = yv12_v + cSize;
-        uint16_t *rgb_ptr = rgb_ptr0 + (j-top) * (right-left+1);
+        uint16_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j, width, rgb_stride);
         for (int i = left; i <= right; ++i) {
             // convert to rgb
             // frameworks/av/media/libstagefright/colorconversion/ColorConverter.cpp
@@ -225,24 +236,24 @@ void yv12_to_rgb565(char* dest, char* src, int width, int height,
 // certain stride requirements for Y and UV respectively.
 void yv12_to_rgb888(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 3;
+
     DD("%s convert %d by %d", __func__, width, height);
     int align = 16;
     int yStride = (width + (align -1)) & ~(align-1);
     int cStride = (yStride / 2 + (align - 1)) & ~(align-1);
     int yOffset = 0;
     int cSize = cStride * height/2;
-    int rgb_stride = 3;
 
     uint8_t *rgb_ptr0 = (uint8_t *)dest;
     uint8_t *yv12_y0 = (uint8_t *)src;
     uint8_t *yv12_v0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_u0 = yv12_v0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_v = yv12_v0 + (j/2) * cStride;
         uint8_t *yv12_u = yv12_v + cSize;
-        uint8_t *rgb_ptr = rgb_ptr0 + (j-top) * (right-left+1) * rgb_stride;
+        uint8_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j - top, right - left + 1, rgb_stride);
         for (int i = left; i <= right; ++i) {
             // convert to rgb
             // frameworks/av/media/libstagefright/colorconversion/ColorConverter.cpp
@@ -271,23 +282,23 @@ void yv12_to_rgb888(char* dest, char* src, int width, int height,
 // certain stride requirements for Y and UV respectively.
 void yuv420p_to_rgb888(char* dest, char* src, int width, int height,
         int left, int top, int right, int bottom) {
+    const int rgb_stride = 3;
+
     DD("%s convert %d by %d", __func__, width, height);
     int yStride = width;
     int cStride = yStride / 2;
     int yOffset = 0;
     int cSize = cStride * height/2;
-    int rgb_stride = 3;
 
     uint8_t *rgb_ptr0 = (uint8_t *)dest;
     uint8_t *yv12_y0 = (uint8_t *)src;
     uint8_t *yv12_u0 = yv12_y0 + yStride * height;
-    uint8_t *yv12_v0 = yv12_u0 + cSize;
 
     for (int j = top; j <= bottom; ++j) {
         uint8_t *yv12_y = yv12_y0 + j * yStride;
         uint8_t *yv12_u = yv12_u0 + (j/2) * cStride;
         uint8_t *yv12_v = yv12_u + cSize;
-        uint8_t *rgb_ptr = rgb_ptr0 + (j-top) * (right-left+1) * rgb_stride;
+        uint8_t *rgb_ptr = rgb_ptr0 + get_rgb_offset(j - top, right - left + 1, rgb_stride);
         for (int i = left; i <= right; ++i) {
             // convert to rgb
             // frameworks/av/media/libstagefright/colorconversion/ColorConverter.cpp

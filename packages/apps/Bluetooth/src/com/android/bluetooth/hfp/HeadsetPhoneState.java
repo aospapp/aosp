@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Looper;
-import android.support.annotation.VisibleForTesting;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -31,6 +30,7 @@ import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.TelephonyIntents;
 
@@ -160,7 +160,7 @@ public class HeadsetPhoneState {
             return;
         }
         Log.i(TAG, "startListenForPhoneState(), subId=" + subId + ", enabled_events=" + events);
-        mPhoneStateListener = new HeadsetPhoneStateListener(subId,
+        mPhoneStateListener = new HeadsetPhoneStateListener(
                 mHeadsetService.getStateMachinesThreadLooper());
         mTelephonyManager.listen(mPhoneStateListener, events);
         if ((events & PhoneStateListener.LISTEN_SIGNAL_STRENGTHS) != 0) {
@@ -192,7 +192,7 @@ public class HeadsetPhoneState {
         return mNumActive;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setNumActiveCall(int numActive) {
         mNumActive = numActive;
     }
@@ -201,7 +201,7 @@ public class HeadsetPhoneState {
         return mCallState;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setCallState(int callState) {
         mCallState = callState;
     }
@@ -210,7 +210,7 @@ public class HeadsetPhoneState {
         return mNumHeld;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setNumHeldCall(int numHeldCall) {
         mNumHeld = numHeldCall;
     }
@@ -228,7 +228,7 @@ public class HeadsetPhoneState {
      *
      * @param batteryLevel battery level value
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setCindBatteryCharge(int batteryLevel) {
         if (mCindBatteryCharge != batteryLevel) {
             mCindBatteryCharge = batteryLevel;
@@ -274,8 +274,8 @@ public class HeadsetPhoneState {
     }
 
     private class HeadsetPhoneStateListener extends PhoneStateListener {
-        HeadsetPhoneStateListener(Integer subId, Looper looper) {
-            super(subId, looper);
+        HeadsetPhoneStateListener(Looper looper) {
+            super(looper);
         }
 
         @Override
@@ -323,134 +323,18 @@ public class HeadsetPhoneState {
 
         @Override
         public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-
             int prevSignal = mCindSignal;
             if (mCindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
                 mCindSignal = 0;
-            } else if (signalStrength.isGsm()) {
-                mCindSignal = signalStrength.getLteLevel();
-                if (mCindSignal == SignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN) {
-                    mCindSignal = gsmAsuToSignal(signalStrength);
-                } else {
-                    // SignalStrength#getLteLevel returns the scale from 0-4
-                    // Bluetooth signal scales at 0-5
-                    // Let's match up the larger side
-                    mCindSignal++;
-                }
             } else {
-                mCindSignal = cdmaDbmEcioToSignal(signalStrength);
+                mCindSignal = signalStrength.getLevel() + 1;
             }
-
-            // network signal strength is scaled to BT 1-5 levels.
+            // +CIND "signal" indicator is always between 0 to 5
+            mCindSignal = Integer.max(Integer.min(mCindSignal, 5), 0);
             // This results in a lot of duplicate messages, hence this check
             if (prevSignal != mCindSignal) {
                 sendDeviceStateChanged();
             }
-        }
-
-        /* convert [0,31] ASU signal strength to the [0,5] expected by
-         * bluetooth devices. Scale is similar to status bar policy
-         */
-        private int gsmAsuToSignal(SignalStrength signalStrength) {
-            int asu = signalStrength.getGsmSignalStrength();
-            if (asu == 99) {
-                return 0;
-            } else if (asu >= 16) {
-                return 5;
-            } else if (asu >= 8) {
-                return 4;
-            } else if (asu >= 4) {
-                return 3;
-            } else if (asu >= 2) {
-                return 2;
-            } else if (asu >= 1) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-
-        /**
-         * Convert the cdma / evdo db levels to appropriate icon level.
-         * The scale is similar to the one used in status bar policy.
-         *
-         * @param signalStrength signal strength level
-         * @return the icon level for remote device
-         */
-        private int cdmaDbmEcioToSignal(SignalStrength signalStrength) {
-            int levelDbm = 0;
-            int levelEcio = 0;
-            int cdmaIconLevel = 0;
-            int evdoIconLevel = 0;
-            int cdmaDbm = signalStrength.getCdmaDbm();
-            int cdmaEcio = signalStrength.getCdmaEcio();
-
-            if (cdmaDbm >= -75) {
-                levelDbm = 4;
-            } else if (cdmaDbm >= -85) {
-                levelDbm = 3;
-            } else if (cdmaDbm >= -95) {
-                levelDbm = 2;
-            } else if (cdmaDbm >= -100) {
-                levelDbm = 1;
-            } else {
-                levelDbm = 0;
-            }
-
-            // Ec/Io are in dB*10
-            if (cdmaEcio >= -90) {
-                levelEcio = 4;
-            } else if (cdmaEcio >= -110) {
-                levelEcio = 3;
-            } else if (cdmaEcio >= -130) {
-                levelEcio = 2;
-            } else if (cdmaEcio >= -150) {
-                levelEcio = 1;
-            } else {
-                levelEcio = 0;
-            }
-
-            cdmaIconLevel = (levelDbm < levelEcio) ? levelDbm : levelEcio;
-
-            // STOPSHIP: Change back to getRilVoiceRadioTechnology
-            if (mServiceState != null && (
-                    mServiceState.getRadioTechnology() == ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_0
-                            || mServiceState.getRadioTechnology()
-                            == ServiceState.RIL_RADIO_TECHNOLOGY_EVDO_A)) {
-                int evdoEcio = signalStrength.getEvdoEcio();
-                int evdoSnr = signalStrength.getEvdoSnr();
-                int levelEvdoEcio = 0;
-                int levelEvdoSnr = 0;
-
-                // Ec/Io are in dB*10
-                if (evdoEcio >= -650) {
-                    levelEvdoEcio = 4;
-                } else if (evdoEcio >= -750) {
-                    levelEvdoEcio = 3;
-                } else if (evdoEcio >= -900) {
-                    levelEvdoEcio = 2;
-                } else if (evdoEcio >= -1050) {
-                    levelEvdoEcio = 1;
-                } else {
-                    levelEvdoEcio = 0;
-                }
-
-                if (evdoSnr > 7) {
-                    levelEvdoSnr = 4;
-                } else if (evdoSnr > 5) {
-                    levelEvdoSnr = 3;
-                } else if (evdoSnr > 3) {
-                    levelEvdoSnr = 2;
-                } else if (evdoSnr > 1) {
-                    levelEvdoSnr = 1;
-                } else {
-                    levelEvdoSnr = 0;
-                }
-
-                evdoIconLevel = (levelEvdoEcio < levelEvdoSnr) ? levelEvdoEcio : levelEvdoSnr;
-            }
-            // TODO(): There is a bug open regarding what should be sent.
-            return (cdmaIconLevel > evdoIconLevel) ? cdmaIconLevel : evdoIconLevel;
         }
     }
 }

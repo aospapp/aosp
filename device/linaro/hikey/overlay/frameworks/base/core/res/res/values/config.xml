@@ -30,9 +30,6 @@
     <!-- Separate software navigation bar required on this device. -->
     <bool name="config_showNavigationBar">true</bool>
 
-    <!-- Integer indicating the framework scan interval in milliseconds. -->
-    <integer translatable="false" name="config_wifi_framework_scan_interval">10000</integer>
-
     <!-- XXXXX NOTE THE FOLLOWING RESOURCES USE THE WRONG NAMING CONVENTION.
          Please don't copy them, copy anything else. -->
 

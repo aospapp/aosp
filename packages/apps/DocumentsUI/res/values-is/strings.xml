@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Deila"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Eyða"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Velja allt"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Velja"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Raða eftir..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"Afrita í…"</string>
     <string name="menu_move" msgid="2310760789561129882">"Færa í…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Þjappa"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Gerð"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Stærð"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Breytt"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Skráarheiti (A til Ö)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Gerð (A til Ö)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Stærð (minnsta fyrst)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Breytt (elsta fyrst)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Skráarheiti (Ö til A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Gerð (Ö til A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Stærð (stærsta fyrst)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Breytt (nýjasta fyrst)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Raða eftir"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Raðað eftir <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Fjöldi atriða"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Hækkandi"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Lækkandi"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Opna <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Sýna rótarsöfn"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Fela rótarsöfn"</string>
     <string name="save_error" msgid="8631128801982095782">"Ekki tókst að vista skjalið"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Viltu veita <xliff:g id="APPNAME"><b>^1</b></xliff:g> aðgang að skráasafninu <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> á <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Viltu veita <xliff:g id="APPNAME"><b>^1</b></xliff:g> aðgang að skráasafninu <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Viltu veita <xliff:g id="APPNAME"><b>^1</b></xliff:g> aðgang að gögnunum þínum, þar á meðal myndum og myndskeiðum, á <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Ekki spyrja aftur"</string>
     <string name="allow" msgid="1275746941353040309">"Leyfa"</string>
     <string name="deny" msgid="5127201668078153379">"Hafna"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"geymsla<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Skrifa yfir <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Halda áfram í bakgrunni"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> valið</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> valin</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Nýlegar skrár í síma"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Skrár í síma"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> í símanum"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Skrár í <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Skrár frá <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Skrár frá <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Nýlegar myndir í síma"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Myndir í síma"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"Myndir í <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"Myndir frá <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Myndir frá <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Myndir"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Hljóð"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Vídeó"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Skjöl"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Möppuheiti"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Nýtt heiti"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Forskoða skrána <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Skoða skrár í öðrum forritum"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Nafnlaus"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Leyfa aðgang að „<xliff:g id="DIRECTORY">%1$s</xliff:g>“"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Leyfa aðgang að „<xliff:g id="DIRECTORY">%1$s</xliff:g>“ á „<xliff:g id="ROOT">%2$s</xliff:g>“?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Þetta gefur „<xliff:g id="APPNAME">%1$s</xliff:g>“ fullan aðgang að öllum skrám sem eru geymdar á þessum stað eins og er og öllu efni sem verður geymt hér síðar meir."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Leita í þessum síma"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Eyða leitarferli <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

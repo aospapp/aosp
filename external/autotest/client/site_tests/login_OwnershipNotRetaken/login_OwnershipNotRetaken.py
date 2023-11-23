@@ -26,7 +26,9 @@ class login_OwnershipNotRetaken(test.test):
         ownership.restart_ui_to_clear_ownership_files()
 
         bus_loop = DBusGMainLoop(set_as_default=True)
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop)
+        self._cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop,
+                                                            self.autodir,
+                                                            self.job)
 
 
     def run_once(self):

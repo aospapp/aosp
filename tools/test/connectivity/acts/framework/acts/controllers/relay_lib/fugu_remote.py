@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -15,13 +15,11 @@
 #   limitations under the License.
 import time
 import enum
-from acts.controllers.relay_lib.generic_relay_device import GenericRelayDevice
+
 from acts.controllers.relay_lib.relay import SynchronizeRelays
-from acts.controllers.relay_lib.errors import RelayConfigError
-from acts.controllers.relay_lib.helpers import validate_key
+from acts.controllers.relay_lib.devices.bluetooth_relay_device import BluetoothRelayDevice
 
 PAIRING_MODE_WAIT_TIME = 5.2
-MISSING_RELAY_MSG = 'Relay config for FuguRemote "%s" missing relay "%s".'
 
 
 class Buttons(enum.Enum):
@@ -30,29 +28,19 @@ class Buttons(enum.Enum):
     PLAY_PAUSE = 'Play'
 
 
-class FuguRemote(GenericRelayDevice):
+class FuguRemote(BluetoothRelayDevice):
     """A Nexus Player (Fugu) Remote.
 
     Wraps the button presses, as well as the special features like pairing.
     """
 
     def __init__(self, config, relay_rig):
-        GenericRelayDevice.__init__(self, config, relay_rig)
-
-        self.mac_address = validate_key('mac_address', config, str,
-                                        'FuguRemote')
-
-        for button in Buttons:
-            self.ensure_config_contains_relay(button.value)
-
-    def ensure_config_contains_relay(self, relay_name):
-        """Throws an error if the relay does not exist."""
-        if relay_name not in self.relays:
-            raise RelayConfigError(MISSING_RELAY_MSG % (self.name, relay_name))
+        BluetoothRelayDevice.__init__(self, config, relay_rig)
+        self._ensure_config_contains_relays(button.value for button in Buttons)
 
     def setup(self):
         """Sets all relays to their default state (off)."""
-        GenericRelayDevice.setup(self)
+        BluetoothRelayDevice.setup(self)
         # If the Fugu remote does have a power relay attached, turn it on.
         power = 'Power'
         if power in self.relays:
@@ -60,7 +48,7 @@ class FuguRemote(GenericRelayDevice):
 
     def clean_up(self):
         """Sets all relays to their default state (off)."""
-        GenericRelayDevice.clean_up(self)
+        BluetoothRelayDevice.clean_up(self)
 
     def enter_pairing_mode(self):
         """Enters pairing mode. Blocks the thread until pairing mode is set.

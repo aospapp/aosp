@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <algorithm>
 
 #include "common/libs/auto_resources/auto_resources.h"
 #include "common/libs/glog/logging.h"
@@ -71,6 +72,23 @@ bool FileInstance::CopyFrom(FileInstance& in) {
         // The caller will have to log an appropriate message.
         return false;
       }
+    }
+  }
+  return true;
+}
+
+bool FileInstance::CopyFrom(FileInstance& in, size_t length) {
+  AutoFreeBuffer buffer;
+  buffer.Resize(8192);
+  while (length > 0) {
+    ssize_t num_read = in.Read(buffer.data(), std::min(buffer.size(), length));
+    length -= num_read;
+    if (num_read <= 0) {
+      return false;
+    }
+    if (Write(buffer.data(), num_read) != num_read) {
+      // The caller will have to log an appropriate message.
+      return false;
     }
   }
   return true;
@@ -235,8 +253,8 @@ SharedFD SharedFD::Epoll(int flags) {
       new FileInstance(epoll_create1(flags), errno));
 }
 
-inline bool SharedFD::SocketPair(int domain, int type, int protocol,
-                                 SharedFD* fd0, SharedFD* fd1) {
+bool SharedFD::SocketPair(int domain, int type, int protocol,
+                          SharedFD* fd0, SharedFD* fd1) {
   int fds[2];
   int rval = socketpair(domain, type, protocol, fds);
   if (rval != -1) {
@@ -256,6 +274,10 @@ SharedFD SharedFD::Open(const char* path, int flags, mode_t mode) {
   }
 }
 
+SharedFD SharedFD::Creat(const char* path, mode_t mode) {
+  return SharedFD::Open(path, O_CREAT|O_WRONLY|O_TRUNC, mode);
+}
+
 SharedFD SharedFD::Socket(int domain, int socket_type, int protocol) {
   int fd = TEMP_FAILURE_RETRY(socket(domain, socket_type, protocol));
   if (fd == -1) {
@@ -263,6 +285,10 @@ SharedFD SharedFD::Socket(int domain, int socket_type, int protocol) {
   } else {
     return SharedFD(std::shared_ptr<FileInstance>(new FileInstance(fd, 0)));
   }
+}
+
+SharedFD SharedFD::ErrorFD(int error) {
+  return SharedFD(std::shared_ptr<FileInstance>(new FileInstance(-1, error)));
 }
 
 SharedFD SharedFD::SocketLocalClient(const char* name, bool abstract,
@@ -275,9 +301,7 @@ SharedFD SharedFD::SocketLocalClient(const char* name, bool abstract,
     return rval;
   }
   if (rval->Connect(reinterpret_cast<sockaddr*>(&addr), addrlen) == -1) {
-    LOG(ERROR) << "Connect failed; name=" << name << ": " << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
   return rval;
 }
@@ -293,9 +317,7 @@ SharedFD SharedFD::SocketLocalClient(int port, int type) {
   }
   if (rval->Connect(reinterpret_cast<const sockaddr*>(&addr),
                     sizeof addr) < 0) {
-    LOG(ERROR) << "Connect() failed" << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
   return rval;
 }
@@ -313,19 +335,16 @@ SharedFD SharedFD::SocketLocalServer(int port, int type) {
   int n = 1;
   if (rval->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) == -1) {
     LOG(ERROR) << "SetSockOpt failed " << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
   if(rval->Bind(reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
     LOG(ERROR) << "Bind failed " << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
   if (type == SOCK_STREAM) {
     if (rval->Listen(4) < 0) {
       LOG(ERROR) << "Listen failed " << rval->StrError();
-      return SharedFD(std::shared_ptr<FileInstance>(
-          new FileInstance(-1, rval->GetErrno())));
+      return SharedFD::ErrorFD(rval->GetErrno());
     }
   }
   return rval;
@@ -348,13 +367,11 @@ SharedFD SharedFD::SocketLocalServer(const char* name, bool abstract,
   int n = 1;
   if (rval->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) == -1) {
     LOG(ERROR) << "SetSockOpt failed " << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
   if (rval->Bind(reinterpret_cast<sockaddr*>(&addr), addrlen) == -1) {
     LOG(ERROR) << "Bind failed; name=" << name << ": " << rval->StrError();
-    return SharedFD(
-        std::shared_ptr<FileInstance>(new FileInstance(-1, rval->GetErrno())));
+    return SharedFD::ErrorFD(rval->GetErrno());
   }
 
   /* Only the bottom bits are really the socket type; there are flags too. */
@@ -365,8 +382,7 @@ SharedFD SharedFD::SocketLocalServer(const char* name, bool abstract,
     // Follows the default from socket_local_server
     if (rval->Listen(1) == -1) {
       LOG(ERROR) << "Listen failed: " << rval->StrError();
-      return SharedFD(std::shared_ptr<FileInstance>(
-          new FileInstance(-1, rval->GetErrno())));
+      return SharedFD::ErrorFD(rval->GetErrno());
     }
   }
 
@@ -377,6 +393,45 @@ SharedFD SharedFD::SocketLocalServer(const char* name, bool abstract,
     }
   }
   return rval;
+}
+
+SharedFD SharedFD::VsockServer(unsigned int port, int type) {
+  auto vsock = cvd::SharedFD::Socket(AF_VSOCK, type, 0);
+  if (!vsock->IsOpen()) {
+    return vsock;
+  }
+  sockaddr_vm addr{};
+  addr.svm_family = AF_VSOCK;
+  addr.svm_port = port;
+  addr.svm_cid = VMADDR_CID_ANY;
+  auto casted_addr = reinterpret_cast<sockaddr*>(&addr);
+  if (vsock->Bind(casted_addr, sizeof(addr)) == -1) {
+    LOG(ERROR) << "Bind failed (" << vsock->StrError() << ")";
+    return SharedFD::ErrorFD(vsock->GetErrno());
+  }
+  if (type == SOCK_STREAM) {
+    if (vsock->Listen(4) < 0) {
+      LOG(ERROR) << "Listen failed (" << vsock->StrError() << ")";
+      return SharedFD::ErrorFD(vsock->GetErrno());
+    }
+  }
+  return vsock;
+}
+
+SharedFD SharedFD::VsockClient(unsigned int cid, unsigned int port, int type) {
+  auto vsock = cvd::SharedFD::Socket(AF_VSOCK, type, 0);
+  if (!vsock->IsOpen()) {
+    return vsock;
+  }
+  sockaddr_vm addr{};
+  addr.svm_family = AF_VSOCK;
+  addr.svm_port = port;
+  addr.svm_cid = cid;
+  auto casted_addr = reinterpret_cast<sockaddr*>(&addr);
+  if (vsock->Connect(casted_addr, sizeof(addr)) == -1) {
+    return SharedFD::ErrorFD(vsock->GetErrno());
+  }
+  return vsock;
 }
 
 }  // namespace cvd

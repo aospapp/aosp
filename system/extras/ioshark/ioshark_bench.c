@@ -428,7 +428,7 @@ do_io(struct thread_state_s *state)
 		if (ioshark_read_file_op(state->fp, &file_op) != 1) {
 			fprintf(stderr, "%s read error trace.outfile\n",
 				progname);
-			exit(EXIT_FAILURE);
+			goto fail;
 		}
 		if (do_delay) {
 			struct timeval start;
@@ -446,7 +446,7 @@ do_io(struct thread_state_s *state)
 			fprintf(stderr,
 				"%s state filename %s, i %d\n",
 				progname, state->filename, i);
-			exit(EXIT_FAILURE);
+			goto fail;
 		}
 		if (file_op.ioshark_io_op != IOSHARK_OPEN &&
 		    files_db_get_fd(db_node) == -1) {
@@ -469,18 +469,25 @@ do_io(struct thread_state_s *state)
 					files_db_get_filename(db_node),
 					openflags,
 					errno);
-				exit(EXIT_FAILURE);
+				goto fail;
 			}
 			files_db_update_fd(db_node, fd);
 		}
 		do_one_io(db_node, &file_op,
 			  op_counts, &rw_bytes, &buf, &buflen);
 	}
+
+	free(buf);
 	files_db_fsync_discard_files(state->db_handle);
 	files_db_close_files(state->db_handle);
 	update_time(&aggregate_delay_time, &total_delay_time);
 	update_op_counts(op_counts);
 	update_byte_counts(&aggr_io_rw_bytes, &rw_bytes);
+	return;
+
+fail:
+	free(buf);
+	exit(EXIT_FAILURE);
 }
 
 void *

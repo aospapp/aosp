@@ -1,0 +1,4 @@
+# mediaserver interface
+allow mediaserver hi_mem_device:chr_file { open read write };
+allow mediaserver hi_vdec_device:chr_file { open read write };
+allow mediaserver hi_vfmw_device:chr_file { open read write };

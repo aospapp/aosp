@@ -16,125 +16,88 @@
 
 package android.assist.cts;
 
+import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class ScreenshotTest extends AssistTestBase {
     static final String TAG = "ScreenshotTest";
 
     private static final String TEST_CASE_TYPE = Utils.SCREENSHOT;
 
-    private BroadcastReceiver mScreenshotActivityReceiver;
-    private CountDownLatch mHasResumedLatch, mReadyLatch;
-
-    public ScreenshotTest() {
-        super();
-    }
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mReadyLatch = new CountDownLatch(1);
-        // set up receiver
-        mScreenshotActivityReceiver = new ScreenshotTestReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Utils.ASSIST_RECEIVER_REGISTERED);
-        filter.addAction(Utils.APP_3P_HASRESUMED);
-        mContext.registerReceiver(mScreenshotActivityReceiver, filter);
-
         // start test start activity
         startTestActivity(TEST_CASE_TYPE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        if (mScreenshotActivityReceiver != null) {
-            mContext.unregisterReceiver(mScreenshotActivityReceiver);
-        }
-        super.tearDown();
-    }
-
-    public void testRedScreenshot() throws Exception {
+    public void testRedScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
             return;
         }
-        Log.i(TAG, "Starting screenshot test");
-        mTestActivity.startTest(TEST_CASE_TYPE);
-        Log.i(TAG, "start waitForAssistantToBeReady()");
-        waitForAssistantToBeReady(mReadyLatch);
 
-        waitForActivityResumeAndAssist(Color.RED);
-        verifyAssistDataNullness(false, false, false, false);
-        assertTrue(mScreenshotMatches);
+        startTest(TEST_CASE_TYPE);
+        waitForAssistantToBeReady();
+
+        Bundle bundle = new Bundle();
+        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.RED);
+        start3pApp(TEST_CASE_TYPE, bundle);
+
+        eventuallyWithSessionClose(() -> {
+            delayAndStartSession(Color.RED);
+            verifyAssistDataNullness(false, false, false, false);
+            assertTrue(mScreenshotMatches);
+        });
     }
 
-    public void testGreenScreenshot() throws Exception {
+    public void testGreenScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
             return;
         }
-        Log.i(TAG, "Starting screenshot test");
-        mTestActivity.startTest(TEST_CASE_TYPE);
-        Log.i(TAG, "start waitForAssistantToBeReady()");
-        waitForAssistantToBeReady(mReadyLatch);
 
-        waitForActivityResumeAndAssist(Color.GREEN);
-        verifyAssistDataNullness(false, false, false, false);
-        assertTrue(mScreenshotMatches);
+        startTest(TEST_CASE_TYPE);
+        waitForAssistantToBeReady();
+
+        Bundle bundle = new Bundle();
+        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.GREEN);
+        start3pApp(TEST_CASE_TYPE, bundle);
+
+        eventuallyWithSessionClose(() -> {
+            delayAndStartSession(Color.GREEN);
+            verifyAssistDataNullness(false, false, false, false);
+            assertTrue(mScreenshotMatches);
+        });
     }
 
-    public void testBlueScreenshot() throws Exception {
+    public void testBlueScreenshot() throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
             return;
         }
-        Log.i(TAG, "Starting screenshot test");
-        mTestActivity.startTest(TEST_CASE_TYPE);
-        Log.i(TAG, "start waitForAssistantToBeReady()");
-        waitForAssistantToBeReady(mReadyLatch);
 
-        waitForActivityResumeAndAssist(Color.BLUE);
-        verifyAssistDataNullness(false, false, false, false);
-        assertTrue(mScreenshotMatches);
+        startTest(TEST_CASE_TYPE);
+        waitForAssistantToBeReady();
+
+        Bundle bundle = new Bundle();
+        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.BLUE);
+        start3pApp(TEST_CASE_TYPE, bundle);
+
+        eventuallyWithSessionClose(() -> {
+            delayAndStartSession(Color.BLUE);
+            verifyAssistDataNullness(false, false, false, false);
+            assertTrue(mScreenshotMatches);
+        });
     }
 
-    private void waitForActivityResumeAndAssist(int color) throws Exception {
-        mHasResumedLatch = new CountDownLatch(1);
+    private void delayAndStartSession(int color) throws Exception {
         Bundle extras = new Bundle();
         extras.putInt(Utils.SCREENSHOT_COLOR_KEY, color);
-        startSession(TEST_CASE_TYPE, extras);
-        Log.i(TAG, "waiting for onResume() before continuing.");
-        if (!mHasResumedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-            fail("activity failed to resume in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
-        }
-        waitForContext();
-    }
-
-    private class ScreenshotTestReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            Log.i(ScreenshotTest.TAG, "Got some broadcast: " + action);
-            if (action.equals(Utils.ASSIST_RECEIVER_REGISTERED)) {
-                Log.i(ScreenshotTest.TAG, "Received assist receiver is registered.");
-                if (mReadyLatch != null) {
-                    mReadyLatch.countDown();
-                }
-            } else if (action.equals(Utils.APP_3P_HASRESUMED)) {
-                if (mHasResumedLatch != null) {
-                    mHasResumedLatch.countDown();
-                }
-            }
-        }
+        final AutoResetLatch latch = startSession(TEST_CASE_TYPE, extras);
+        waitForContext(latch);
     }
 }

@@ -24,7 +24,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
 import android.os.IBinder;
-import android.support.annotation.Nullable;
+
+import androidx.annotation.Nullable;
 
 /**
  * Class that helps registering {@link CarUxRestrictionsManager.OnUxRestrictionsChangedListener} and

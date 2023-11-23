@@ -1,7 +1,7 @@
-// Take three word input lines on stdin (the three space separated words are
-// command name, option string with current config, option string from
-// allyesconfig; space separated, the last two are and double quotes)
-// and produce flag #defines to stdout.
+// Take three word input lines on stdin and produce flag #defines to stdout.
+// The three words on each input lnie are command name, option string with
+// current config, option string from allyesconfig. The three are space
+// separated and the last two are in double quotes.
 
 // This is intentionally crappy code because we control the inputs. It leaks
 // memory like a sieve and segfaults if malloc returns null, but does the job.
@@ -21,7 +21,10 @@ struct flag {
 
 int chrtype(char c)
 {
-  if (strchr("?&^-:#|@*; ", c)) return 1;
+  // Does this populate a GLOBALS() variable?
+  if (strchr("?&^-:#|@*; %", c)) return 1;
+
+  // Is this followed by a numeric argument in optstr?
   if (strchr("=<>", c)) return 2;
 
   return 0;
@@ -61,7 +64,7 @@ char *mark_gaps(char *flags, char *all)
     if (bare) bare = chrtype(c);
     if (*flags == c) {
       *(new++) = c;
-      *flags++;
+      flags++;
       continue;
     }
 
@@ -74,12 +77,12 @@ char *mark_gaps(char *flags, char *all)
   return n;
 }
 
-// Break down a command string into struct flag list.
+// Break down a command string into linked list of "struct flag".
 
 struct flag *digest(char *string)
 {
   struct flag *list = NULL;
-  char *err = string;
+  char *err = string, c;
 
   while (*string) {
     // Groups must be at end.
@@ -108,8 +111,10 @@ struct flag *digest(char *string)
       continue;
     }
 
-    if (strchr("?&^-:#|@*; ", *string)) string++;
-    else if (strchr("=<>", *string)) {
+    c = chrtype(*string);
+    if (c == 1) string++;
+    else if (c == 2) {
+      if (string[1]=='-') string++;
       if (!isdigit(string[1])) {
         fprintf(stderr, "%c without number in '%s'", *string, err);
         exit(1);
@@ -130,6 +135,21 @@ struct flag *digest(char *string)
   }
 
   return list;
+}
+
+// Parse C-style octal escape
+void octane(char *from)
+{
+  unsigned char *to = (void *)from;
+
+  while (*from) {
+    if (*from == '\\') {
+      *to = 0;
+      while (isdigit(*++from)) *to = (8**to)+*from-'0';
+      to++;
+    } else *to++ = *from++;
+  }
+  *to = 0;
 }
 
 int main(int argc, char *argv[])
@@ -153,6 +173,8 @@ int main(int argc, char *argv[])
     *command = *flags = *allflags = 0;
     bit = fscanf(stdin, "%255s \"%1023[^\"]\" \"%1023[^\"]\"\n",
                     command, flags, allflags);
+    octane(flags);
+    octane(allflags);
 
     if (getenv("DEBUG"))
       fprintf(stderr, "command=%s, flags=%s, allflags=%s\n",
@@ -181,12 +203,14 @@ int main(int argc, char *argv[])
            command, command, command);
 
     while (offlist) {
-      struct flag *f = offlist->lopt;
-      while (f) {
-        printf("#undef FLAG_%s\n", f->command);
-        f = f->next;
+      char *s = (char []){0, 0, 0, 0};
+
+      if (!offlist->command) s = offlist->lopt->command;
+      else {
+        *s = *offlist->command;
+        if (127 < (unsigned char)*s) sprintf(s, "X%02X", 127&*s);
       }
-      if (offlist->command) printf("#undef FLAG_%c\n", *offlist->command);
+      printf("#undef FLAG_%s\n", s);
       offlist = offlist->next;
     }
     printf("#endif\n\n");
@@ -196,37 +220,25 @@ int main(int argc, char *argv[])
     out += strlen(out);
 
     while (aflist) {
-      char *llstr = bit>31 ? "LL" : "";
+      char *llstr = bit>31 ? "LL" : "", *s = (char []){0, 0, 0, 0};
+      int enabled = 0;
 
       // Output flag macro for bare longopts
-      if (aflist->lopt) {
+      if (!aflist->command) {
+        s = aflist->lopt->command;
         if (flist && flist->lopt &&
-            !strcmp(flist->lopt->command, aflist->lopt->command))
-        {
-          sprintf(out, "#define FLAG_%s (1%s<<%d)\n", flist->lopt->command,
-            llstr, bit);
-          flist->lopt = flist->lopt->next;
-        } else sprintf(out, "#define FLAG_%s (FORCED_FLAG%s<<%d)\n",
-                       aflist->lopt->command, llstr, bit);
-        aflist->lopt = aflist->lopt->next;
-        if (!aflist->command) {
-          aflist = aflist->next;
-          bit++;
-          if (flist) flist = flist->next;
-        }
+            !strcmp(flist->lopt->command, aflist->lopt->command)) enabled++;
       // Output normal flag macro
-      } else if (aflist->command) {
-        if (flist && flist->command && *aflist->command == *flist->command) {
-          if (aflist->command)
-            sprintf(out, "#define FLAG_%c (1%s<<%d)\n", *aflist->command,
-              llstr, bit);
-          flist = flist->next;
-        } else sprintf(out, "#define FLAG_%c (FORCED_FLAG%s<<%d)\n",
-                       *aflist->command, llstr, bit);
-        bit++;
-        aflist = aflist->next;
+      } else {
+        *s = *aflist->command;
+        if (127 < (unsigned char)*s) sprintf(s, "X%02X", 127&*s);
+        if (flist && flist->command && *aflist->command == *flist->command)
+          enabled++;
       }
-      out += strlen(out);
+      out += sprintf(out, "#define FLAG_%s (%s%s<<%d)\n",
+                       s, enabled ? "1" : "FORCED_FLAG", llstr, bit++);
+      aflist = aflist->next;
+      if (enabled) flist = flist->next;
     }
     out = stpcpy(out, "#endif\n\n");
   }

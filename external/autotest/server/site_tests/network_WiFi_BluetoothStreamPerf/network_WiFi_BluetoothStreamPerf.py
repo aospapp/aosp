@@ -118,6 +118,9 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
         factory = remote_facade_factory.RemoteFacadeFactory(
                 host, results_dir=self.resultsdir)
         chameleon_board = host.chameleon
+        if chameleon_board is None:
+            raise error.TestNAError("No chameleon device is present")
+
         chameleon_board.setup_and_reset(self.outputdir)
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 factory, host)
@@ -135,8 +138,6 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
         for ap_config in self._ap_configs:
             # Set up the router and associate the client with it.
             self.context.configure(ap_config)
-            if ap_config.is_11ac and not self.context.client.is_vht_supported():
-                raise error.TestNAError('Client does not have AC support')
             assoc_params = xmlrpc_datatypes.AssociationParameters(
                     ssid=self.context.router.get_ssid(),
                     security_config=ap_config.security_config)

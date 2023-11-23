@@ -25,7 +25,7 @@ config UNSHARE
     Create new container namespace(s) for this process and its children, so
     some attribute is not shared with the parent process.
 
-    -f  Fork command in the background (--fork)
+    -f	Fork command in the background (--fork)
     -i	SysV IPC (message queues, semaphores, shared memory) (--ipc)
     -m	Mount/unmount tree (--mount)
     -n	Network address, sockets, routing, iptables (--net)
@@ -46,8 +46,8 @@ config NSENTER
 
     Run COMMAND in an existing (set of) namespace(s).
 
-    -t  PID to take namespaces from    (--target)
-    -F  don't fork, even if -p is used (--no-fork)
+    -t	PID to take namespaces from    (--target)
+    -F	don't fork, even if -p is used (--no-fork)
 
     The namespaces to switch are:
 
@@ -64,13 +64,15 @@ config NSENTER
 
 #define FOR_nsenter
 #include "toys.h"
+#include <sys/syscall.h>
 #include <linux/sched.h>
-int unshare(int flags);
-int setns(int fd, int nstype); 
+
+#define unshare(flags) syscall(SYS_unshare, flags)
+#define setns(fd, nstype) syscall(SYS_setns, fd, nstype)
 
 GLOBALS(
-  char *nsnames[6];
-  long targetpid;
+  char *Uupnmi[6];
+  long t;
 )
 
 // Code that must run in unshare's flag context
@@ -144,12 +146,12 @@ void unshare_main(void)
     char *nsnames = "user\0uts\0pid\0net\0mnt\0ipc";
 
     for (i = 0; i<ARRAY_LEN(flags); i++) {
-      char *filename = TT.nsnames[i];
+      char *filename = TT.Uupnmi[i];
 
       if (toys.optflags & (1<<i)) {
         if (!filename || !*filename) {
           if (!(toys.optflags & FLAG_t)) error_exit("need -t or =filename");
-          sprintf(toybuf, "/proc/%ld/ns/%s", TT.targetpid, nsnames);
+          sprintf(toybuf, "/proc/%ld/ns/%s", TT.t, nsnames);
           filename = toybuf;
         }
 

@@ -6,7 +6,6 @@ import logging
 import multiprocessing
 import os
 import threading
-import time
 
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.server import utils
@@ -83,7 +82,8 @@ class MasterSsh(object):
             # Start a new master SSH connection.
             if not self._master_job:
                 # Create a shared socket in a temp location.
-                self._master_tempdir = autotemp.tempdir(unique_id='ssh-master')
+                self._master_tempdir = autotemp.tempdir(
+                        unique_id='ssh-master', dir='/tmp')
 
                 # Start the master SSH connection in the background.
                 master_cmd = _MASTER_SSH_COMMAND_TEMPLATE % {
@@ -99,17 +99,20 @@ class MasterSsh(object):
                          stdout_tee=utils.DEVNULL, stderr_tee=utils.DEVNULL,
                          unjoinable=True)
 
-                # To prevent a race between the the master ssh connection
+                # To prevent a race between the master ssh connection
                 # startup and its first attempted use, wait for socket file to
                 # exist before returning.
-                end_time = time.time() + timeout
-                while time.time() < end_time:
-                    if os.path.exists(self._socket_path):
-                        break
-                    time.sleep(.2)
-                else:
+                try:
+                    utils.poll_for_condition(
+                            condition=lambda: os.path.exists(self._socket_path),
+                            timeout=timeout,
+                            sleep_interval=0.2,
+                            desc='Wait for a socket file to exist')
+                # log the issue if it fails, but don't throw an exception
+                except utils.TimeoutError:
                     logging.info('Timed out waiting for master-ssh connection '
-                       'to be established.')
+                                 'to be established.')
+
 
     def close(self):
         """Releases all resources used by multiplexed ssh connection."""

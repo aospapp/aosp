@@ -17,8 +17,12 @@
 #ifndef WIFICOND_NET_NETLINK_UTILS_H_
 #define WIFICOND_NET_NETLINK_UTILS_H_
 
+#include <array>
+#include <functional>
 #include <string>
 #include <vector>
+
+#include <linux/if_ether.h>
 
 #include <android-base/macros.h>
 
@@ -30,18 +34,18 @@ namespace wificond {
 
 struct InterfaceInfo {
   InterfaceInfo() = default;
-  InterfaceInfo(uint32_t index_,
-                const std::string name_,
-                const std::vector<uint8_t> mac_address_)
-      : index(index_),
-        name(name_),
-        mac_address(mac_address_) {}
+  InterfaceInfo(uint32_t index,
+                const std::string& name,
+                const std::array<uint8_t, ETH_ALEN>& mac_address)
+      : index(index),
+        name(name),
+        mac_address(mac_address) {}
   // Index of this interface.
   uint32_t index;
   // Name of this interface.
   std::string name;
   // MAC address of this interface.
-  std::vector<uint8_t> mac_address;
+  std::array<uint8_t, ETH_ALEN> mac_address;
 };
 
 struct BandInfo {
@@ -96,7 +100,8 @@ struct WiphyFeatures {
         supports_random_mac_sched_scan(false),
         supports_low_span_oneshot_scan(false),
         supports_low_power_oneshot_scan(false),
-        supports_high_accuracy_oneshot_scan(false) {}
+        supports_high_accuracy_oneshot_scan(false),
+        supports_tx_mgmt_frame_mcs(false) {}
   WiphyFeatures(uint32_t feature_flags,
                 const std::vector<uint8_t>& ext_feature_flags_bytes);
   // This device/driver supports using a random MAC address during scan
@@ -111,6 +116,11 @@ struct WiphyFeatures {
   bool supports_low_power_oneshot_scan;
   // This device/driver supports performing high-accuracy one-shot scans.
   bool supports_high_accuracy_oneshot_scan;
+  // This device/driver supports sending a management frame at a specified MCS.
+  bool supports_tx_mgmt_frame_mcs;
+  // This device/driver supports sched_scan for reporting BSSs
+  // with better RSSI than the current connected BSS
+  bool supports_ext_sched_scan_relative_rssi;
   // There are other flags included in NL80211_ATTR_FEATURE_FLAGS.
   // We will add them once we find them useful.
 };
@@ -120,11 +130,13 @@ struct StationInfo {
   StationInfo(uint32_t station_tx_packets_,
               uint32_t station_tx_failed_,
               uint32_t station_tx_bitrate_,
-              int8_t current_rssi_)
+              int8_t current_rssi_,
+              uint32_t station_rx_bitrate_)
       : station_tx_packets(station_tx_packets_),
         station_tx_failed(station_tx_failed_),
         station_tx_bitrate(station_tx_bitrate_),
-        current_rssi(current_rssi_) {}
+        current_rssi(current_rssi_),
+        station_rx_bitrate(station_rx_bitrate_) {}
   // Number of successfully transmitted packets.
   int32_t station_tx_packets;
   // Number of tramsmission failures.
@@ -133,6 +145,8 @@ struct StationInfo {
   uint32_t station_tx_bitrate;
   // Current signal strength.
   int8_t current_rssi;
+  // Last Received unicast packet bit rate in 100kbit/s.
+  uint32_t station_rx_bitrate;
   // There are many other counters/parameters included in station info.
   // We will add them once we find them useful.
 };
@@ -157,6 +171,8 @@ class NetlinkUtils {
   // |*out_wiphy_index| returns the wiphy index from kernel.
   // Returns true on success.
   virtual bool GetWiphyIndex(uint32_t* out_wiphy_index);
+  virtual bool GetWiphyIndex(uint32_t* out_wiphy_index,
+                             const std::string& iface_name);
 
   // Get wifi interfaces info from kernel.
   // |wiphy_index| is the wiphy index we get using GetWiphyIndex().
@@ -184,7 +200,7 @@ class NetlinkUtils {
   // |*out_station_info]| is the struct of available station information.
   // Returns true on success.
   virtual bool GetStationInfo(uint32_t interface_index,
-                              const std::vector<uint8_t>& mac_address,
+                              const std::array<uint8_t, ETH_ALEN>& mac_address,
                               StationInfo* out_station_info);
 
   // Get a bitmap for nl80211 protocol features,
@@ -241,6 +257,16 @@ class NetlinkUtils {
 
   // Cancel the sign-up of receiving channel switch events.
   virtual void UnsubscribeChannelSwitchEvent(uint32_t interface_index);
+
+  // Sign up to be notified of frame tx status events.
+  virtual void SubscribeFrameTxStatusEvent(
+      uint32_t interface_index, OnFrameTxStatusEventHandler handler);
+
+  // Cancel the sign-up of receiving frame tx status events.
+  virtual void UnsubscribeFrameTxStatusEvent(uint32_t interface_index);
+
+  virtual bool SendMgmtFrame(uint32_t interface_index,
+    const std::vector<uint8_t>& frame, int32_t mcs, uint64_t* out_cookie);
 
   // Visible for testing.
   bool supports_split_wiphy_dump_;

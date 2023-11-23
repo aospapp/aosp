@@ -23,6 +23,7 @@
     <string name="wifi_fail_to_scan" msgid="1265540342578081461">"Não é possível verificar redes"</string>
     <string name="wifi_security_none" msgid="7985461072596594400">"Nenhuma"</string>
     <string name="wifi_remembered" msgid="4955746899347821096">"Guardada"</string>
+    <string name="wifi_disconnected" msgid="8085419869003922556">"Desligada"</string>
     <string name="wifi_disabled_generic" msgid="4259794910584943386">"Desativado"</string>
     <string name="wifi_disabled_network_failure" msgid="2364951338436007124">"Falha de configuração de IP"</string>
     <string name="wifi_disabled_by_recommendation_provider" msgid="5168315140978066096">"Não ligado devido à baixa qualidade da rede"</string>
@@ -38,13 +39,21 @@
     <string name="connected_via_network_scorer" msgid="5713793306870815341">"Ligado automaticamente através de %1$s"</string>
     <string name="connected_via_network_scorer_default" msgid="7867260222020343104">"Ligado automaticamente através do fornecedor de classificação de rede"</string>
     <string name="connected_via_passpoint" msgid="2826205693803088747">"Ligado através de %1$s"</string>
+    <string name="connected_via_app" msgid="5571999941988929520">"Ligado via <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="available_via_passpoint" msgid="1617440946846329613">"Disponível através de %1$s"</string>
+    <string name="tap_to_sign_up" msgid="6449724763052579434">"Toque para se inscrever"</string>
     <string name="wifi_connected_no_internet" msgid="8202906332837777829">"Ligado, sem Internet."</string>
+    <string name="wifi_limited_connection" msgid="7717855024753201527">"Ligação limitada"</string>
     <string name="wifi_status_no_internet" msgid="5784710974669608361">"Sem Internet"</string>
     <string name="wifi_status_sign_in_required" msgid="123517180404752756">"É necessário iniciar sessão"</string>
     <string name="wifi_ap_unable_to_handle_new_sta" msgid="5348824313514404541">"Ponto de acesso temporariamente cheio"</string>
     <string name="connected_via_carrier" msgid="7583780074526041912">"Ligado através de %1$s"</string>
     <string name="available_via_carrier" msgid="1469036129740799053">"Disponível através de %1$s"</string>
+    <string name="osu_opening_provider" msgid="5488997661548640424">"A abrir <xliff:g id="PASSPOINTPROVIDER">%1$s</xliff:g>"</string>
+    <string name="osu_connect_failed" msgid="2187750899158158934">"Não foi possível estabelecer ligação"</string>
+    <string name="osu_completing_sign_up" msgid="9037638564719197082">"A concluir a inscrição…"</string>
+    <string name="osu_sign_up_failed" msgid="7296159750352873260">"Não foi possível concluir a inscrição. Toque para tentar novamente."</string>
+    <string name="osu_sign_up_complete" msgid="8207626049093289203">"Inscrição concluída. A ligar…"</string>
     <string name="speed_label_very_slow" msgid="1867055264243608530">"Muito lenta"</string>
     <string name="speed_label_slow" msgid="813109590815810235">"Lenta"</string>
     <string name="speed_label_okay" msgid="2331665440671174858">"OK"</string>
@@ -66,7 +75,9 @@
     <string name="bluetooth_connected_no_a2dp_battery_level" msgid="3908466636369853652">"Ligado (sem multimédia), bateria a <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g><xliff:g id="ACTIVE_DEVICE">%2$s</xliff:g>"</string>
     <string name="bluetooth_connected_no_headset_no_a2dp_battery_level" msgid="1163440823807659316">"Ligado (sem telemóvel nem multimédia), bateria a <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g><xliff:g id="ACTIVE_DEVICE">%2$s</xliff:g>"</string>
     <string name="bluetooth_active_battery_level" msgid="3149689299296462009">"Ativo, <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g> de bateria"</string>
+    <string name="bluetooth_active_battery_level_untethered" msgid="6662649951391456747">"Ativo, E: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_0">%1$s</xliff:g> de bateria, D: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_1">%2$s</xliff:g> de bateria"</string>
     <string name="bluetooth_battery_level" msgid="1447164613319663655">"<xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g> de bateria"</string>
+    <string name="bluetooth_battery_level_untethered" msgid="5974406100211667177">"E: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_0">%1$s</xliff:g> de bateria, D: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_1">%2$s</xliff:g> de bateria"</string>
     <string name="bluetooth_active_no_battery_level" msgid="8380223546730241956">"Ativo"</string>
     <string name="bluetooth_profile_a2dp" msgid="2031475486179830674">"Áudio de multimédia"</string>
     <string name="bluetooth_profile_headset" msgid="7815495680863246034">"Chamadas telefónicas"</string>
@@ -80,8 +91,8 @@
     <string name="bluetooth_profile_sap" msgid="5764222021851283125">"Acesso ao SIM"</string>
     <string name="bluetooth_profile_a2dp_high_quality" msgid="5444517801472820055">"Áudio HD: <xliff:g id="CODEC_NAME">%1$s</xliff:g>"</string>
     <string name="bluetooth_profile_a2dp_high_quality_unknown_codec" msgid="8510588052415438887">"Áudio HD"</string>
-    <string name="bluetooth_profile_hearing_aid" msgid="7999237886427812595">"Aparelho auditivo"</string>
-    <string name="bluetooth_hearing_aid_profile_summary_connected" msgid="7188282786730266159">"Associar ao aparelho auditivo"</string>
+    <string name="bluetooth_profile_hearing_aid" msgid="6680721080542444257">"Aparelhos auditivos"</string>
+    <string name="bluetooth_hearing_aid_profile_summary_connected" msgid="3051944447369418317">"Ligado a aparelhos auditivos"</string>
     <string name="bluetooth_a2dp_profile_summary_connected" msgid="963376081347721598">"Ligado ao áudio de multimédia"</string>
     <string name="bluetooth_headset_profile_summary_connected" msgid="7661070206715520671">"Ligado ao áudio do telefone"</string>
     <string name="bluetooth_opp_profile_summary_connected" msgid="2611913495968309066">"Ligado ao servidor de transferência de ficheiros"</string>
@@ -98,7 +109,7 @@
     <string name="bluetooth_headset_profile_summary_use_for" msgid="8705753622443862627">"Utilizar para áudio do telefone"</string>
     <string name="bluetooth_opp_profile_summary_use_for" msgid="1255674547144769756">"Utilizar para transferência de ficheiros"</string>
     <string name="bluetooth_hid_profile_summary_use_for" msgid="232727040453645139">"Utilizar para entrada"</string>
-    <string name="bluetooth_hearing_aid_profile_summary_use_for" msgid="908775281788309484">"Utilizar com o aparelho auditivo"</string>
+    <string name="bluetooth_hearing_aid_profile_summary_use_for" msgid="8843499209204010224">"Utilizar para aparelhos auditivos"</string>
     <string name="bluetooth_pairing_accept" msgid="6163520056536604875">"Sincr."</string>
     <string name="bluetooth_pairing_accept_all_caps" msgid="6061699265220789149">"SINCRONIZAR"</string>
     <string name="bluetooth_pairing_decline" msgid="4185420413578948140">"Cancelar"</string>
@@ -129,6 +140,7 @@
     <string name="process_kernel_label" msgid="3916858646836739323">"SO Android"</string>
     <string name="data_usage_uninstalled_apps" msgid="614263770923231598">"Aplicações removidas"</string>
     <string name="data_usage_uninstalled_apps_users" msgid="7986294489899813194">"Aplicações e utilizadores removidos"</string>
+    <string name="data_usage_ota" msgid="5377889154805560860">"Atualizações do sistema"</string>
     <string name="tether_settings_title_usb" msgid="6688416425801386511">"Ligação USB"</string>
     <string name="tether_settings_title_wifi" msgid="3277144155960302049">"Hotspot portátil"</string>
     <string name="tether_settings_title_bluetooth" msgid="355855408317564420">"Ligação Bluetooth"</string>
@@ -197,7 +209,7 @@
     <string name="keep_screen_on" msgid="1146389631208760344">"Manter ativo"</string>
     <string name="keep_screen_on_summary" msgid="2173114350754293009">"O ecrã nunca entrará em suspensão durante o carregamento"</string>
     <string name="bt_hci_snoop_log" msgid="3340699311158865670">"Ativar registo de monit. Bluetooth HCI"</string>
-    <string name="bt_hci_snoop_log_summary" msgid="366083475849911315">"Capturar todos os pacotes Bluetooth HCI num ficheiro (ative/desative o Bluetooth após alterar esta definição)"</string>
+    <string name="bt_hci_snoop_log_summary" msgid="8857606786588106495">"Capturar os pacotes Bluetooth (ative/desative o Bluetooth após alterar esta definição)"</string>
     <string name="oem_unlock_enable" msgid="6040763321967327691">"Desbloqueio de OEM"</string>
     <string name="oem_unlock_enable_summary" msgid="4720281828891618376">"Permitir o desbloqueio do carregador de arranque"</string>
     <string name="confirm_enable_oem_unlock_title" msgid="4802157344812385674">"Pretende permitir o desbloqueio de OEM?"</string>
@@ -208,7 +220,7 @@
     <string name="debug_networking_category" msgid="7044075693643009662">"Redes"</string>
     <string name="wifi_display_certification" msgid="8611569543791307533">"Certificação de display sem fios"</string>
     <string name="wifi_verbose_logging" msgid="4203729756047242344">"Ativar o registo verboso de Wi-Fi"</string>
-    <string name="wifi_connected_mac_randomization" msgid="3168165236877957767">"Seleção aleatória do MAC ligado"</string>
+    <string name="wifi_scan_throttling" msgid="160014287416479843">"Controlo da procura de Wi‑Fi"</string>
     <string name="mobile_data_always_on" msgid="8774857027458200434">"Dados móveis sempre ativos"</string>
     <string name="tethering_hardware_offload" msgid="7470077827090325814">"Aceleração de hardware para ligação (à Internet) via telemóvel"</string>
     <string name="bluetooth_show_devices_without_names" msgid="4708446092962060176">"Mostrar dispositivos Bluetooth sem nomes"</string>
@@ -235,14 +247,14 @@
     <string name="private_dns_mode_provider_failure" msgid="231837290365031223">"Não foi possível estabelecer ligação"</string>
     <string name="wifi_display_certification_summary" msgid="1155182309166746973">"Mostrar opções da certificação de display sem fios"</string>
     <string name="wifi_verbose_logging_summary" msgid="6615071616111731958">"Aumentar o nível de reg. de Wi-Fi, mostrar por RSSI de SSID no Selec. de Wi-Fi"</string>
-    <string name="wifi_connected_mac_randomization_summary" msgid="1743059848752201485">"Selecionar aleatoriamente o endereço MAC quando estabelecer ligação a redes Wi‑Fi"</string>
+    <string name="wifi_scan_throttling_summary" msgid="4461922728822495763">"Reduz o consumo rápido da bateria e melhora o desempenho da rede"</string>
     <string name="wifi_metered_label" msgid="4514924227256839725">"Acesso limitado"</string>
     <string name="wifi_unmetered_label" msgid="6124098729457992931">"Acesso ilimitado"</string>
     <string name="select_logd_size_title" msgid="7433137108348553508">"Tamanhos da memória intermédia do registo"</string>
     <string name="select_logd_size_dialog_title" msgid="1206769310236476760">"Selec. tam. reg. p/ mem. int. reg."</string>
     <string name="dev_logpersist_clear_warning_title" msgid="684806692440237967">"Pretende limpar o armazenamento persistente do registo?"</string>
     <string name="dev_logpersist_clear_warning_message" msgid="2256582531342994562">"Quando deixamos de monitorizar com o registo persistente, é necessário apagar os dados de registo que se encontram no seu dispositivo."</string>
-    <string name="select_logpersist_title" msgid="7530031344550073166">"Arm. dados de registo persist. no disp."</string>
+    <string name="select_logpersist_title" msgid="7530031344550073166">"Guardar dados de registo consistentemente"</string>
     <string name="select_logpersist_dialog_title" msgid="4003400579973269060">"Selecionar buffers de registo para armazenamento persistente no dispositivo"</string>
     <string name="select_usb_configuration_title" msgid="2649938511506971843">"Selecionar configuração USB"</string>
     <string name="select_usb_configuration_dialog_title" msgid="6385564442851599963">"Selecionar configuração USB"</string>
@@ -278,60 +290,59 @@
     <string name="media_category" msgid="4388305075496848353">"Multimédia"</string>
     <string name="debug_monitoring_category" msgid="7640508148375798343">"Monitorização"</string>
     <string name="strict_mode" msgid="1938795874357830695">"Modo rigoroso ativado"</string>
-    <string name="strict_mode_summary" msgid="142834318897332338">"Piscar ecrã se aplic. fazem oper. prolong. no tópico princ."</string>
+    <string name="strict_mode_summary" msgid="142834318897332338">"Piscar ecrã se app fazem oper. prolong. no tópico princ."</string>
     <string name="pointer_location" msgid="6084434787496938001">"Localização do ponteiro"</string>
     <string name="pointer_location_summary" msgid="840819275172753713">"Apresentar dados atuais de toque"</string>
     <string name="show_touches" msgid="2642976305235070316">"Mostrar toques"</string>
     <string name="show_touches_summary" msgid="6101183132903926324">"Mostrar feedback visual para toques"</string>
-    <string name="show_screen_updates" msgid="5470814345876056420">"Atualiz. de superfície"</string>
+    <string name="show_screen_updates" msgid="5470814345876056420">"Mostrar superfície atualizada"</string>
     <string name="show_screen_updates_summary" msgid="2569622766672785529">"Destacar a superfície da janela ao atualizar"</string>
-    <string name="show_hw_screen_updates" msgid="5036904558145941590">"Most.atualiz. visual. GPU"</string>
-    <string name="show_hw_screen_updates_summary" msgid="1115593565980196197">"Dest. visualiz. em janelas quando desenh. c/ GPU"</string>
-    <string name="show_hw_layers_updates" msgid="5645728765605699821">"Mostrar atual. cam. hard."</string>
+    <string name="show_hw_screen_updates" msgid="4117270979975470789">"Ver atualizações de vistas"</string>
+    <string name="show_hw_screen_updates_summary" msgid="6506943466625875655">"Destacar vistas em janelas quando desenhadas"</string>
+    <string name="show_hw_layers_updates" msgid="5645728765605699821">"Atualizações de camadas de hardware"</string>
     <string name="show_hw_layers_updates_summary" msgid="5296917233236661465">"Camadas de hard. flash verdes quando estão atuali."</string>
     <string name="debug_hw_overdraw" msgid="2968692419951565417">"Depurar sobreposição GPU"</string>
-    <string name="disable_overlays" msgid="2074488440505934665">"Desativ. sobreposições HW"</string>
+    <string name="disable_overlays" msgid="2074488440505934665">"Desativar sobreposições HW"</string>
     <string name="disable_overlays_summary" msgid="3578941133710758592">"Utilizar sempre GPU para a composição do ecrã"</string>
     <string name="simulate_color_space" msgid="6745847141353345872">"Simular espaço da cor"</string>
     <string name="enable_opengl_traces_title" msgid="6790444011053219871">"Ativar vestígios OpenGL"</string>
-    <string name="usb_audio_disable_routing" msgid="8114498436003102671">"Desativ. encam. áudio USB"</string>
+    <string name="usb_audio_disable_routing" msgid="8114498436003102671">"Desativar encaminhamento áudio USB"</string>
     <string name="usb_audio_disable_routing_summary" msgid="980282760277312264">"Desativar encam. auto. para periféricos áudio USB"</string>
-    <string name="debug_layout" msgid="5981361776594526155">"Mostrar limit. do esquema"</string>
+    <string name="debug_layout" msgid="5981361776594526155">"Mostrar limites do esquema"</string>
     <string name="debug_layout_summary" msgid="2001775315258637682">"Apresentar limites de clipes, margens, etc."</string>
-    <string name="force_rtl_layout_all_locales" msgid="2259906643093138978">"Forçar dir. do esq. RTL"</string>
+    <string name="force_rtl_layout_all_locales" msgid="2259906643093138978">"Forçar direção do esquema RTL"</string>
     <string name="force_rtl_layout_all_locales_summary" msgid="9192797796616132534">"Forçar dir. do esq. do ecrã p. RTL tds os locais"</string>
-    <string name="force_hw_ui" msgid="6426383462520888732">"Forçar composição GPU"</string>
-    <string name="force_hw_ui_summary" msgid="5535991166074861515">"Forçar a utilização de GPU para desenho 2D"</string>
     <string name="force_msaa" msgid="7920323238677284387">"Forçar 4x MSAA"</string>
     <string name="force_msaa_summary" msgid="9123553203895817537">"Ativar o 4x MSAA em aplicações OpenGL ES 2.0"</string>
     <string name="show_non_rect_clip" msgid="505954950474595172">"Depurar operações de clipe não retangulares"</string>
-    <string name="track_frame_time" msgid="6146354853663863443">"Conversão GPU do perfil"</string>
+    <string name="track_frame_time" msgid="6094365083096851167">"Renderização HWUI do perfil"</string>
     <string name="enable_gpu_debug_layers" msgid="3848838293793255097">"Ativar cam. depuração GPU"</string>
-    <string name="enable_gpu_debug_layers_summary" msgid="8009136940671194940">"Permitir carreg. cam. depuração GPU p/ dep. aplic."</string>
-    <string name="window_animation_scale_title" msgid="6162587588166114700">"Escala de anim. da janela"</string>
-    <string name="transition_animation_scale_title" msgid="387527540523595875">"Escala de anim. de trans."</string>
-    <string name="animator_duration_scale_title" msgid="3406722410819934083">"Esc. de duração do anim."</string>
+    <string name="enable_gpu_debug_layers_summary" msgid="8009136940671194940">"Permitir carreg. cam. depuração GPU p/ dep. app"</string>
+    <string name="window_animation_scale_title" msgid="6162587588166114700">"Escala de animação de transição"</string>
+    <string name="transition_animation_scale_title" msgid="387527540523595875">"Escala de animação de transição"</string>
+    <string name="animator_duration_scale_title" msgid="3406722410819934083">"Escala de duração de animação"</string>
     <string name="overlay_display_devices_title" msgid="5364176287998398539">"Simular apresentações secundárias"</string>
     <string name="debug_applications_category" msgid="4206913653849771549">"Aplicações"</string>
     <string name="immediately_destroy_activities" msgid="1579659389568133959">"Não manter atividades"</string>
     <string name="immediately_destroy_activities_summary" msgid="3592221124808773368">"Destruir atividades assim que o utilizador sair"</string>
-    <string name="app_process_limit_title" msgid="4280600650253107163">"Limite proc. em 2º plano"</string>
+    <string name="app_process_limit_title" msgid="4280600650253107163">"Limite do processo em 2º plano"</string>
     <string name="show_all_anrs" msgid="4924885492787069007">"Mostrar ANRs em 2.º plano"</string>
     <string name="show_all_anrs_summary" msgid="6636514318275139826">"Mostrar caixa de diálogo A aplicação não está a responder para aplicações em segundo plano"</string>
     <string name="show_notification_channel_warnings" msgid="1399948193466922683">"Mostrar avisos do canal de notificações"</string>
     <string name="show_notification_channel_warnings_summary" msgid="5536803251863694895">"Mostra um aviso no ecrã quando uma aplicação publica uma notificação sem o canal ser válido"</string>
-    <string name="force_allow_on_external" msgid="3215759785081916381">"Forçar perm. de aplicações no armazenamento ext."</string>
+    <string name="force_allow_on_external" msgid="3215759785081916381">"Forçar permissão de apps no armazenamento externo"</string>
     <string name="force_allow_on_external_summary" msgid="3640752408258034689">"Torna qualquer aplicação elegível para ser gravada no armazenamento externo, independentemente dos valores do manifesto"</string>
     <string name="force_resizable_activities" msgid="8615764378147824985">"Forçar as atividades a serem redimensionáveis"</string>
     <string name="force_resizable_activities_summary" msgid="6667493494706124459">"Tornar todas as atividades redimensionáveis para várias janelas, independentemente dos valores do manifesto."</string>
     <string name="enable_freeform_support" msgid="1461893351278940416">"Ativar janelas de forma livre"</string>
     <string name="enable_freeform_support_summary" msgid="8247310463288834487">"Ativar a compatibilidade com janelas de forma livre experimentais."</string>
-    <string name="local_backup_password_title" msgid="3860471654439418822">"Palavra-passe cópia do comp."</string>
+    <string name="local_backup_password_title" msgid="3860471654439418822">"Palavra-passe cópia do computador"</string>
     <string name="local_backup_password_summary_none" msgid="6951095485537767956">"As cópias de segurança completas no ambiente de trabalho não estão atualmente protegidas"</string>
     <string name="local_backup_password_summary_change" msgid="5376206246809190364">"Tocar para alterar ou remover a palavra-passe para cópias de segurança completas no ambiente de trabalho"</string>
     <string name="local_backup_password_toast_success" msgid="582016086228434290">"Nova palavra-passe da cópia de segurança definida"</string>
     <string name="local_backup_password_toast_confirmation_mismatch" msgid="7805892532752708288">"A nova palavra-passe e a confirmação não coincidem"</string>
     <string name="local_backup_password_toast_validation_failure" msgid="5646377234895626531">"Falha na definição da palavra-passe da cópia de segurança"</string>
+    <string name="loading_injected_setting_summary" msgid="4095178591461231376">"A carregar…"</string>
   <string-array name="color_mode_names">
     <item msgid="2425514299220523812">"Vibrante (predefinição)"</item>
     <item msgid="8446070607501413455">"Natural"</item>
@@ -372,11 +383,14 @@
     <string name="power_discharging_duration" msgid="8848256785736335185">"Resta(m) cerca de <xliff:g id="TIME_REMAINING">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
     <string name="power_remaining_duration_only_enhanced" msgid="4189311599812296592">"Resta(m) cerca de <xliff:g id="TIME_REMAINING">%1$s</xliff:g> com base na sua utilização"</string>
     <string name="power_discharging_duration_enhanced" msgid="1992003260664804080">"Resta(m) cerca de <xliff:g id="TIME_REMAINING">%1$s</xliff:g> com base na sua utilização (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
-    <string name="power_remaining_duration_only_short" msgid="3463575350656389957">"Resta(m) <xliff:g id="TIME_REMAINING">%1$s</xliff:g>"</string>
+    <!-- no translation found for power_remaining_duration_only_short (9183070574408359726) -->
+    <skip />
     <string name="power_discharge_by_enhanced" msgid="2095821536747992464">"Deve durar até cerca da(s) <xliff:g id="TIME">%1$s</xliff:g> com base na sua utilização (<xliff:g id="LEVEL">%2$s</xliff:g>)."</string>
     <string name="power_discharge_by_only_enhanced" msgid="2175151772952365149">"Deve durar até cerca da(s) <xliff:g id="TIME">%1$s</xliff:g> com base na sua utilização."</string>
     <string name="power_discharge_by" msgid="6453537733650125582">"Deve durar até cerca da(s) <xliff:g id="TIME">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)."</string>
     <string name="power_discharge_by_only" msgid="107616694963545745">"Deve durar até cerca da(s) <xliff:g id="TIME">%1$s</xliff:g>."</string>
+    <string name="power_discharge_by_only_short" msgid="1372817269546888804">"Até à(s) <xliff:g id="TIME">%1$s</xliff:g>"</string>
+    <string name="power_suggestion_extend_battery" msgid="4401408879069551485">"Prolongar a autonomia da bateria após <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="power_remaining_less_than_duration_only" msgid="5996752448813295329">"Resta(m) menos de <xliff:g id="THRESHOLD">%1$s</xliff:g>."</string>
     <string name="power_remaining_less_than_duration" msgid="5751885147712659423">"Resta(m) menos de <xliff:g id="THRESHOLD">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)."</string>
     <string name="power_remaining_more_than_subtext" msgid="3176771815132876675">"Resta(m) mais de <xliff:g id="TIME_REMAINING">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)."</string>
@@ -397,8 +411,6 @@
     <string name="battery_info_status_not_charging" msgid="8523453668342598579">"Ligada à corrente, não é possível carregar neste momento"</string>
     <string name="battery_info_status_full" msgid="2824614753861462808">"Completo"</string>
     <string name="disabled_by_admin_summary_text" msgid="6750513964908334617">"Controlado pelo gestor"</string>
-    <string name="enabled_by_admin" msgid="5302986023578399263">"Ativada pelo gestor"</string>
-    <string name="disabled_by_admin" msgid="8505398946020816620">"Desativada pelo gestor"</string>
     <string name="disabled" msgid="9206776641295849915">"Desativada"</string>
     <string name="external_source_trusted" msgid="2707996266575928037">"Autorizada"</string>
     <string name="external_source_untrusted" msgid="2677442511837596726">"Não autorizada"</string>
@@ -417,7 +429,6 @@
     <string name="screen_zoom_summary_very_large" msgid="7108563375663670067">"Maior"</string>
     <string name="screen_zoom_summary_extremely_large" msgid="7427320168263276227">"O maior"</string>
     <string name="screen_zoom_summary_custom" msgid="5611979864124160447">"Personalizado (<xliff:g id="DENSITYDPI">%d</xliff:g>)"</string>
-    <string name="help_feedback_label" msgid="6815040660801785649">"Ajuda e comentários"</string>
     <string name="content_description_menu_button" msgid="8182594799812351266">"Menu"</string>
     <string name="retail_demo_reset_message" msgid="118771671364131297">"Introduzir palavra-passe para efetuar a reposição de fábrica no modo demo"</string>
     <string name="retail_demo_reset_next" msgid="8356731459226304963">"Próximo"</string>
@@ -451,5 +462,7 @@
     <string name="alarm_template_far" msgid="3779172822607461675">"no(a) <xliff:g id="WHEN">%1$s</xliff:g>"</string>
     <string name="zen_mode_duration_settings_title" msgid="229547412251222757">"Duração"</string>
     <string name="zen_mode_duration_always_prompt_title" msgid="6478923750878945501">"Perguntar sempre"</string>
+    <string name="zen_mode_forever" msgid="2704305038191592967">"Até ser desativado"</string>
     <string name="time_unit_just_now" msgid="6363336622778342422">"Agora mesmo"</string>
+    <string name="media_transfer_this_device_name" msgid="1636276898262571213">"Este dispositivo"</string>
 </resources>

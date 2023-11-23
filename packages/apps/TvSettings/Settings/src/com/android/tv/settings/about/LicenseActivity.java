@@ -24,12 +24,12 @@ import android.content.Intent;
 import android.content.Loader;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.SystemProperties;
-import android.support.annotation.VisibleForTesting;
-import android.support.v4.content.FileProvider;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.core.content.FileProvider;
 
 import com.android.settingslib.license.LicenseHtmlLoader;
 import com.android.tv.settings.R;
@@ -44,8 +44,7 @@ public class LicenseActivity extends Activity implements
     private static final String TAG = "LicenseActivity";
     private static final String FILE_PROVIDER_AUTHORITY = "com.android.settings.files";
 
-    private static final String DEFAULT_LICENSE_PATH = "/system/etc/NOTICE.html.gz";
-    private static final String PROPERTY_LICENSE_PATH = "ro.config.license_path";
+    private static final String LICENSE_PATH = "/system/etc/NOTICE.html.gz";
 
     private static final int LOADER_ID_LICENSE_HTML_LOADER = 0;
 
@@ -53,10 +52,8 @@ public class LicenseActivity extends Activity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        final String licenseHtmlPath =
-                SystemProperties.get(PROPERTY_LICENSE_PATH, DEFAULT_LICENSE_PATH);
-        if (isFilePathValid(licenseHtmlPath)) {
-            showSelectedFile(licenseHtmlPath);
+        if (isFilePathValid(LICENSE_PATH)) {
+            showSelectedFile(LICENSE_PATH);
         } else {
             showHtmlFromDefaultXmlFiles();
         }

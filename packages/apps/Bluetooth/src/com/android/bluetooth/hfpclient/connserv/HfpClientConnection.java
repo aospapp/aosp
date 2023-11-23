@@ -80,7 +80,6 @@ public class HfpClientConnection extends Connection {
             return;
         }
 
-        mHeadsetProfile.connectAudio(device);
         setInitializing();
         setDialing();
         finishInitializing();
@@ -265,7 +264,6 @@ public class HfpClientConnection extends Connection {
         if (!mClosed) {
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
-        mHeadsetProfile.connectAudio(mDevice);
     }
 
     @Override

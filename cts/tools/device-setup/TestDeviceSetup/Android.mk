@@ -25,6 +25,8 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt
+
 # uncomment when b/13282254 is fixed
 #LOCAL_SDK_VERSION := current
 LOCAL_SDK_VERSION := system_current

@@ -27,6 +27,8 @@ type Singleton interface {
 type SingletonContext interface {
 	Config() interface{}
 
+	Name() string
+
 	ModuleName(module Module) string
 	ModuleDir(module Module) string
 	ModuleSubDir(module Module) string
@@ -46,6 +48,10 @@ type SingletonContext interface {
 	// that controls where Ninja stores its build log files.  This value can be
 	// set at most one time for a single build, later calls are ignored.
 	SetNinjaBuildDir(pctx PackageContext, value string)
+
+	// AddSubninja adds a ninja file to include with subninja. This should likely
+	// only ever be used inside bootstrap to handle glob rules.
+	AddSubninja(file string)
 
 	// Eval takes a string with embedded ninja variables, and returns a string
 	// with all of the variables recursively expanded. Any variables references
@@ -79,6 +85,7 @@ type SingletonContext interface {
 var _ SingletonContext = (*singletonContext)(nil)
 
 type singletonContext struct {
+	name    string
 	context *Context
 	config  interface{}
 	scope   *localScope
@@ -92,6 +99,10 @@ type singletonContext struct {
 
 func (s *singletonContext) Config() interface{} {
 	return s.config
+}
+
+func (s *singletonContext) Name() string {
+	return s.name
 }
 
 func (s *singletonContext) ModuleName(logicModule Module) string {
@@ -203,8 +214,23 @@ func (s *singletonContext) SetNinjaBuildDir(pctx PackageContext, value string) {
 	s.context.setNinjaBuildDir(ninjaValue)
 }
 
+func (s *singletonContext) AddSubninja(file string) {
+	s.context.subninjas = append(s.context.subninjas, file)
+}
+
 func (s *singletonContext) VisitAllModules(visit func(Module)) {
-	s.context.VisitAllModules(visit)
+	var visitingModule Module
+	defer func() {
+		if r := recover(); r != nil {
+			panic(newPanicErrorf(r, "VisitAllModules(%s) for module %s",
+				funcName(visit), visitingModule))
+		}
+	}()
+
+	s.context.VisitAllModules(func(m Module) {
+		visitingModule = m
+		visit(m)
+	})
 }
 
 func (s *singletonContext) VisitAllModulesIf(pred func(Module) bool,

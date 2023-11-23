@@ -19,23 +19,24 @@ package com.android.server.wifi;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-import android.support.test.filters.SmallTest;
 import android.util.Xml;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Unit tests for {@link com.android.server.wifi.DeletedEphemeralSsidsStoreData}.
@@ -44,32 +45,40 @@ import java.util.Set;
 public class DeletedEphemeralSsidsStoreDataTest {
     private static final String TEST_SSID1 = "SSID 1";
     private static final String TEST_SSID2 = "SSID 2";
-    private static final String TEST_SSID_LIST_XML_STRING =
+    private static final long TEST_SSID1_TSTAMP = 6837367L;
+    private static final long TEST_SSID2_TSTAMP = 4567367L;
+
+    private static final String TEST_SSID_LIST_XML_STRING_MAP =
+            "<map name=\"SSIDList\">\n"
+            + "<long name=\"" + TEST_SSID1 + "\" value=\"" + TEST_SSID1_TSTAMP + "\" />\n"
+            + "<long name=\"" + TEST_SSID2 + "\" value=\"" + TEST_SSID2_TSTAMP + "\" />\n"
+            + "</map>\n";
+    private static final String TEST_SSID_LIST_XML_STRING_SET =
             "<set name=\"SSIDList\">\n"
             + "<string>" + TEST_SSID1 + "</string>\n"
             + "<string>" + TEST_SSID2 + "</string>\n"
             + "</set>\n";
-    private static final byte[] TEST_SSID_LIST_XML_BYTES =
-            TEST_SSID_LIST_XML_STRING.getBytes(StandardCharsets.UTF_8);
+    @Mock Clock mClock;
     private DeletedEphemeralSsidsStoreData mDeletedEphemeralSsidsStoreData;
 
     @Before
     public void setUp() throws Exception {
-        mDeletedEphemeralSsidsStoreData = new DeletedEphemeralSsidsStoreData();
+        MockitoAnnotations.initMocks(this);
+
+        mDeletedEphemeralSsidsStoreData = new DeletedEphemeralSsidsStoreData(mClock);
     }
 
     /**
      * Helper function for serializing configuration data to a XML block.
      *
-     * @param shared Flag indicating serializing shared or user configurations
      * @return byte[] of the XML data
      * @throws Exception
      */
-    private byte[] serializeData(boolean shared) throws Exception {
+    private byte[] serializeData() throws Exception {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mDeletedEphemeralSsidsStoreData.serializeData(out, shared);
+        mDeletedEphemeralSsidsStoreData.serializeData(out);
         out.flush();
         return outputStream.toByteArray();
     }
@@ -78,40 +87,15 @@ public class DeletedEphemeralSsidsStoreDataTest {
      * Helper function for parsing configuration data from a XML block.
      *
      * @param data XML data to parse from
-     * @param shared Flag indicating parsing of shared or user configurations
      * @return SSID list
      * @throws Exception
      */
-    private Set<String> deserializeData(byte[] data, boolean shared) throws Exception {
+    private Map<String, Long> deserializeData(byte[] data) throws Exception {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mDeletedEphemeralSsidsStoreData.deserializeData(in, in.getDepth(), shared);
-        return mDeletedEphemeralSsidsStoreData.getSsidList();
-    }
-
-    /**
-     * Verify that a XmlPullParserException will be thrown when attempting to serialize SSID list
-     * to the share store, since the deleted ephemeral SSID list should never be persist
-     * to the share store.
-     *
-     * @throws Exception
-     */
-    @Test(expected = XmlPullParserException.class)
-    public void serializeShareData() throws Exception {
-        serializeData(true /* shared */);
-    }
-
-    /**
-     * Verify that a XmlPullParserException will be thrown when attempting to parse SSID list
-     * from the share store, since the deleted ephemeral SSID list should never be persist
-     * to the share store.
-     *
-     * @throws Exception
-     */
-    @Test(expected = XmlPullParserException.class)
-    public void deserializeShareData() throws Exception {
-        deserializeData(new byte[0], true /* shared */);
+        mDeletedEphemeralSsidsStoreData.deserializeData(in, in.getDepth());
+        return mDeletedEphemeralSsidsStoreData.getSsidToTimeMap();
     }
 
     /**
@@ -122,7 +106,7 @@ public class DeletedEphemeralSsidsStoreDataTest {
      */
     @Test
     public void serializeEmptyConfigs() throws Exception {
-        assertEquals(0, serializeData(false /* shared */).length);
+        assertEquals(0, serializeData().length);
     }
 
     /**
@@ -133,17 +117,19 @@ public class DeletedEphemeralSsidsStoreDataTest {
      */
     @Test
     public void deserializeEmptyData() throws Exception {
-        assertTrue(deserializeData(new byte[0], false /* shared */).isEmpty());
+        assertTrue(deserializeData(new byte[0]).isEmpty());
     }
 
     /**
-     * Verify that DeletedEphemeralSsidsStoreData does not support share data.
+     * Verify that DeletedEphemeralSsidsStoreData is written to
+     * {@link WifiConfigStore#STORE_FILE_NAME_USER_GENERAL}.
      *
      * @throws Exception
      */
     @Test
-    public void supportShareData() throws Exception {
-        assertFalse(mDeletedEphemeralSsidsStoreData.supportShareData());
+    public void getUserStoreFileId() throws Exception {
+        assertEquals(WifiConfigStore.STORE_FILE_USER_GENERAL,
+                mDeletedEphemeralSsidsStoreData.getStoreFileId());
     }
 
     /**
@@ -153,13 +139,13 @@ public class DeletedEphemeralSsidsStoreDataTest {
      * @throws Exception
      */
     @Test
-    public void serializeSsidList() throws Exception {
-        Set<String> ssidList = new HashSet<>();
-        ssidList.add(TEST_SSID1);
-        ssidList.add(TEST_SSID2);
-        mDeletedEphemeralSsidsStoreData.setSsidList(ssidList);
-        byte[] actualData = serializeData(false /* shared */);
-        assertTrue(Arrays.equals(TEST_SSID_LIST_XML_BYTES, actualData));
+    public void serializeSsidToTimeMap() throws Exception {
+        Map<String, Long> ssidToTimeMap = new HashMap<>();
+        ssidToTimeMap.put(TEST_SSID1, TEST_SSID1_TSTAMP);
+        ssidToTimeMap.put(TEST_SSID2, TEST_SSID2_TSTAMP);
+        mDeletedEphemeralSsidsStoreData.setSsidToTimeMap(ssidToTimeMap);
+        byte[] actualData = serializeData();
+        assertEquals(TEST_SSID_LIST_XML_STRING_MAP, new String(actualData));
     }
 
     /**
@@ -169,10 +155,28 @@ public class DeletedEphemeralSsidsStoreDataTest {
      * @throws Exception
      */
     @Test
-    public void deserializeSsidList() throws Exception {
-        Set<String> ssidList = new HashSet<>();
-        ssidList.add(TEST_SSID1);
-        ssidList.add(TEST_SSID2);
-        assertEquals(ssidList, deserializeData(TEST_SSID_LIST_XML_BYTES, false /* shared */));
+    public void deserializeSsidToTimeMap() throws Exception {
+        Map<String, Long> ssidToTimeMap = new HashMap<>();
+        ssidToTimeMap.put(TEST_SSID1, TEST_SSID1_TSTAMP);
+        ssidToTimeMap.put(TEST_SSID2, TEST_SSID2_TSTAMP);
+        assertEquals(ssidToTimeMap, deserializeData(TEST_SSID_LIST_XML_STRING_MAP.getBytes()));
+    }
+
+    /**
+     * Verify that user store SSID list is deserialized correctly using the predefined test XML
+     * data.
+     * This simulates the config store migration from the previous set representation to the new
+     * map of ssid to timestamp representation.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void deserializeSsidToTimeMapFromSet() throws Exception {
+        long currentTimeMs = 67934838L;
+        when(mClock.getWallClockMillis()).thenReturn(currentTimeMs);
+        Map<String, Long> ssidToTimeMap = new HashMap<>();
+        ssidToTimeMap.put(TEST_SSID1, currentTimeMs);
+        ssidToTimeMap.put(TEST_SSID2, currentTimeMs);
+        assertEquals(ssidToTimeMap, deserializeData(TEST_SSID_LIST_XML_STRING_SET.getBytes()));
     }
 }

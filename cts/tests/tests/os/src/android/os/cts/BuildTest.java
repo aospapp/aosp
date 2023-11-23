@@ -20,9 +20,8 @@ import static android.os.Build.VERSION.CODENAME;
 import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 
 import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RestrictedBuildTest;
-
-import dalvik.system.VMRuntime;
 
 import junit.framework.TestCase;
 
@@ -30,8 +29,10 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class BuildTest extends TestCase {
@@ -40,14 +41,41 @@ public class BuildTest extends TestCase {
     private static final String RO_PRODUCT_CPU_ABILIST32 = "ro.product.cpu.abilist32";
     private static final String RO_PRODUCT_CPU_ABILIST64 = "ro.product.cpu.abilist64";
 
-    /** Tests that check the values of {@link Build#CPU_ABI} and {@link Build#CPU_ABI2}. */
+    /**
+     * Verify that the values of the various CPU ABI fields are consistent.
+     */
+    @AppModeFull(reason = "Instant apps cannot access APIs")
     public void testCpuAbi() throws Exception {
         runTestCpuAbiCommon();
-        if (VMRuntime.getRuntime().is64Bit()) {
+        if (android.os.Process.is64Bit()) {
             runTestCpuAbi64();
         } else {
             runTestCpuAbi32();
         }
+    }
+
+    /**
+     * Verify that the CPU ABI fields on device match the permitted ABIs defined by CDD.
+     */
+    public void testCpuAbi_valuesMatchPermitted() throws Exception {
+        // The permitted ABIs are listed in https://developer.android.com/ndk/guides/abis.
+        Set<String> just32 = new HashSet<>(Arrays.asList("armeabi", "armeabi-v7a", "x86"));
+        Set<String> just64 = new HashSet<>(Arrays.asList("x86_64", "arm64-v8a"));
+        Set<String> all = new HashSet<>();
+        all.addAll(just32);
+        all.addAll(just64);
+        Set<String> allAndEmpty = new HashSet<>(all);
+        allAndEmpty.add("");
+
+        // The cpu abi fields on the device must match the permitted values.
+        assertValueIsAllowed(all, Build.CPU_ABI);
+        // CPU_ABI2 will be empty when the device does not support a secondary CPU architecture.
+        assertValueIsAllowed(allAndEmpty, Build.CPU_ABI2);
+
+        // The supported abi fields on the device must match the permitted values.
+        assertValuesAreAllowed(all, Build.SUPPORTED_ABIS);
+        assertValuesAreAllowed(just32, Build.SUPPORTED_32_BIT_ABIS);
+        assertValuesAreAllowed(just64, Build.SUPPORTED_64_BIT_ABIS);
     }
 
     private void runTestCpuAbiCommon() throws Exception {
@@ -63,13 +91,13 @@ public class BuildTest extends TestCase {
         // Every supported 32 bit ABI must be present in Build.SUPPORTED_ABIS.
         for (String abi : Build.SUPPORTED_32_BIT_ABIS) {
             assertTrue(abiList.contains(abi));
-            assertFalse(VMRuntime.is64BitAbi(abi));
+            assertFalse(Build.is64BitAbi(abi));
         }
 
         // Every supported 64 bit ABI must be present in Build.SUPPORTED_ABIS.
         for (String abi : Build.SUPPORTED_64_BIT_ABIS) {
             assertTrue(abiList.contains(abi));
-            assertTrue(VMRuntime.is64BitAbi(abi));
+            assertTrue(Build.is64BitAbi(abi));
         }
 
         // Build.CPU_ABI and Build.CPU_ABI2 must be present in Build.SUPPORTED_ABIS.
@@ -167,6 +195,17 @@ public class BuildTest extends TestCase {
             if (scanner != null) {
                 scanner.close();
             }
+        }
+    }
+
+    private static void assertValueIsAllowed(Set<String> allowedValues, String actualValue) {
+        assertTrue("Expected one of " + allowedValues + ", but was: '" + actualValue + "'",
+                allowedValues.contains(actualValue));
+    }
+
+    private static void assertValuesAreAllowed(Set<String> allowedValues, String[] actualValues) {
+        for (String actualValue : actualValues) {
+            assertValueIsAllowed(allowedValues, actualValue);
         }
     }
 
@@ -284,6 +323,7 @@ public class BuildTest extends TestCase {
      * on production (user) builds.
      */
     @RestrictedBuildTest
+    @AppModeFull(reason = "Instant apps cannot access APIs")
     public void testIsSecureUserBuild() throws IOException {
         assertEquals("Must be a user build", "user", Build.TYPE);
         assertProperty("Must be a non-debuggable build", RO_DEBUGGABLE, "0");

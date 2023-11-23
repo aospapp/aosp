@@ -108,7 +108,7 @@ class Scene {
 
     int mHour;
     float mExposureDuration;
-    float mSensorSensitivity;
+    //float mSensorSensitivity;
 
     enum Materials {
         GRASS = 0,

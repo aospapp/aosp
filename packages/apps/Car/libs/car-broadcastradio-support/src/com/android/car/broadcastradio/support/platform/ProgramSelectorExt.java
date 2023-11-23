@@ -61,6 +61,15 @@ public class ProgramSelectorExt {
     public static final int NAME_MODULATION_ONLY = 1 << 1;
 
     /**
+     * If the channel name is not human-readable (i.e. DAB SId), radio technology is displayed
+     * instead. This flag prevents that.
+     *
+     * With radio technology fallback, null pointer may still be returned in case of unsupported
+     * radio technologies.
+     */
+    public static final int NAME_NO_PROGRAM_TYPE_FALLBACK = 1 << 2;
+
+    /**
      * Flags to control how channel values are converted to string with {@link #getDisplayName}.
      *
      * Upper 16 bits are reserved for {@link ProgramInfoExt#NameFlag}.
@@ -252,20 +261,37 @@ public class ProgramSelectorExt {
      */
     public static @Nullable String getDisplayName(@NonNull ProgramSelector sel,
             @NameFlag int flags) {
+        boolean noProgramTypeFallback = (flags & NAME_NO_PROGRAM_TYPE_FALLBACK) != 0;
+
         if (isAmFmProgram(sel)) {
-            if (!hasId(sel, ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY)) return null;
+            if (!hasId(sel, ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY)) {
+                if (noProgramTypeFallback) return null;
+                // if there is no frequency assigned, let's assume it's a malformed RDS selector
+                return "FM";
+            }
             long freq = sel.getFirstId(ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY);
             return formatAmFmFrequency(freq, flags);
         }
 
         if ((flags & NAME_MODULATION_ONLY) != 0) return null;
 
-        if (sel.getPrimaryId().getType() == ProgramSelector.IDENTIFIER_TYPE_SXM_SERVICE_ID) {
-            if (!hasId(sel, ProgramSelector.IDENTIFIER_TYPE_SXM_CHANNEL)) return null;
+        if (sel.getPrimaryId().getType() == ProgramSelector.IDENTIFIER_TYPE_SXM_SERVICE_ID
+                && hasId(sel, ProgramSelector.IDENTIFIER_TYPE_SXM_CHANNEL)) {
             return Long.toString(sel.getFirstId(ProgramSelector.IDENTIFIER_TYPE_SXM_CHANNEL));
         }
 
-        return null;
+        if (noProgramTypeFallback) return null;
+
+        switch (sel.getPrimaryId().getType()) {
+            case ProgramSelector.IDENTIFIER_TYPE_SXM_SERVICE_ID:
+                return "SXM";
+            case ProgramSelector.IDENTIFIER_TYPE_DAB_SIDECC:
+                return "DAB";
+            case ProgramSelector.IDENTIFIER_TYPE_DRMO_SERVICE_ID:
+                return "DRMO";
+            default:
+                return null;
+        }
     }
 
     static {

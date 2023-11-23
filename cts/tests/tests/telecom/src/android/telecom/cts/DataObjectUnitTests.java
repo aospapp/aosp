@@ -40,7 +40,6 @@ import android.telecom.VideoProfile;
 import android.test.InstrumentationTestCase;
 
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Verifies that the setter, getter and parcelable interfaces of the Telecom data objects are
@@ -53,7 +52,7 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
         Context context = getInstrumentation().getContext();
         PhoneAccountHandle accountHandle = new PhoneAccountHandle(
                 new ComponentName(PACKAGE, COMPONENT),
-                ACCOUNT_ID);
+                ACCOUNT_ID_1);
         Icon phoneIcon = Icon.createWithResource(context, R.drawable.ic_phone_24dp);
         Uri tel = Uri.parse("tel:555-TEST");
         PhoneAccount account = PhoneAccount.builder(
@@ -102,11 +101,11 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
         final UserHandle userHandle = Process.myUserHandle();
         PhoneAccountHandle accountHandle = new PhoneAccountHandle(
                 component,
-                ACCOUNT_ID,
+                ACCOUNT_ID_1,
                 userHandle);
         assertNotNull(accountHandle);
         assertEquals(component, accountHandle.getComponentName());
-        assertEquals(ACCOUNT_ID, accountHandle.getId());
+        assertEquals(ACCOUNT_ID_1, accountHandle.getId());
         assertEquals(userHandle, accountHandle.getUserHandle());
         assertEquals(0, accountHandle.describeContents());
 
@@ -126,7 +125,7 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
     public void testConnectionRequest() throws Exception {
         PhoneAccountHandle accountHandle = new PhoneAccountHandle(
                 new ComponentName(PACKAGE, COMPONENT),
-                ACCOUNT_ID);
+                ACCOUNT_ID_1);
         Bundle extras = new Bundle();
         extras.putString(
                 TelecomManager.GATEWAY_PROVIDER_PACKAGE,

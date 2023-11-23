@@ -21,11 +21,10 @@
  */
 #include <unistd.h>
 #include <errno.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <fcntl.h>
 
 #include "tst_timer_test.h"
+#include "select.h"
 
 static int fds[2];
 
@@ -43,8 +42,8 @@ static int sample_fn(int clk_id, long long usec)
 	tst_timer_stop();
 	tst_timer_sample();
 
-	if (TEST_RETURN != 0) {
-		tst_res(TFAIL | TTERRNO, "select() returned %li", TEST_RETURN);
+	if (TST_RET != 0) {
+		tst_res(TFAIL | TTERRNO, "select() returned %li", TST_RET);
 		return 1;
 	}
 
@@ -66,7 +65,7 @@ static void cleanup(void)
 }
 
 static struct tst_test test = {
-	.scall = "select()",
+	.scall = str_expand(SELECT_TEST_SYSCALL) "()",
 	.sample = sample_fn,
 	.setup = setup,
 	.cleanup = cleanup,

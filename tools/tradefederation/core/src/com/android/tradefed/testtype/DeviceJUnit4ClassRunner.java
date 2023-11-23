@@ -16,27 +16,38 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.testtype.MetricTestCase.LogHolder;
+import com.android.tradefed.testtype.junit4.CarryDnaeError;
+import com.android.tradefed.testtype.junit4.RunNotifierWrapper;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import org.junit.rules.ExternalResource;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
+import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
+import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 
+import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * JUnit4 test runner that also accommodate {@link IDeviceTest}. Should be specify above JUnit4 Test
@@ -54,6 +65,9 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner
     private IAbi mAbi;
     private IInvocationContext mContext;
     private Map<ITestDevice, IBuildInfo> mDeviceInfos;
+
+    /** Keep track of the list of downloaded files. */
+    private List<File> mDownloadedFiles = new ArrayList<>();
 
     @Option(name = HostTest.SET_OPTION_NAME, description = HostTest.SET_OPTION_DESC)
     private List<String> mKeyValueOptions = new ArrayList<>();
@@ -92,7 +106,33 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner
         }
         // Set options of test object
         HostTest.setOptionToLoadedObject(testObj, mKeyValueOptions);
+        mDownloadedFiles.addAll(resolveRemoteFileForObject(testObj));
         return testObj;
+    }
+
+    @Override
+    protected void runChild(FrameworkMethod method, RunNotifier notifier) {
+        RunNotifierWrapper wrapper = new RunNotifierWrapper(notifier);
+        try {
+            super.runChild(method, wrapper);
+        } finally {
+            for (File f : mDownloadedFiles) {
+                FileUtil.recursiveDelete(f);
+            }
+        }
+        if (wrapper.getDeviceNotAvailableException() != null) {
+            throw new CarryDnaeError(wrapper.getDeviceNotAvailableException());
+        }
+    }
+
+    @Override
+    public void run(RunNotifier notifier) {
+        RunNotifierWrapper wrapper = new RunNotifierWrapper(notifier);
+        super.run(wrapper);
+
+        if (wrapper.getDeviceNotAvailableException() != null) {
+            throw new CarryDnaeError(wrapper.getDeviceNotAvailableException());
+        }
     }
 
     @Override
@@ -130,6 +170,20 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner
         mDeviceInfos = deviceInfos;
     }
 
+    @VisibleForTesting
+    OptionSetter createOptionSetter(Object obj) throws ConfigurationException {
+        return new OptionSetter(obj);
+    }
+
+    private Set<File> resolveRemoteFileForObject(Object obj) {
+        try {
+            OptionSetter setter = createOptionSetter(obj);
+            return setter.validateRemoteFilePath();
+        } catch (ConfigurationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Implementation of {@link ExternalResource} and {@link TestRule}. This rule allows to log
      * metrics during a test case (inside @Test). It guarantees that the metrics map is cleaned
@@ -141,13 +195,13 @@ public class DeviceJUnit4ClassRunner extends BlockJUnit4ClassRunner
      *
      * &#064;Test
      * public void testFoo() {
-     *     metrics.put("key", "value");
-     *     metrics.put("key2", "value2");
+     *     metrics.addTestMetric("key", "value");
+     *     metrics.addTestMetric("key2", "value2");
      * }
      *
      * &#064;Test
      * public void testFoo2() {
-     *     metrics.put("key3", "value3");
+     *     metrics.addTestMetric("key3", "value3");
      * }
      * </pre>
      */

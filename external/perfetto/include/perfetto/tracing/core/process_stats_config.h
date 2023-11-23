@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #ifndef INCLUDE_PERFETTO_TRACING_CORE_PROCESS_STATS_CONFIG_H_
@@ -57,6 +57,10 @@ class PERFETTO_EXPORT ProcessStatsConfig {
   ProcessStatsConfig& operator=(ProcessStatsConfig&&);
   ProcessStatsConfig(const ProcessStatsConfig&);
   ProcessStatsConfig& operator=(const ProcessStatsConfig&);
+  bool operator==(const ProcessStatsConfig&) const;
+  bool operator!=(const ProcessStatsConfig& other) const {
+    return !(*this == other);
+  }
 
   // Conversion methods from/to the corresponding protobuf types.
   void FromProto(const perfetto::protos::ProcessStatsConfig&);
@@ -64,6 +68,8 @@ class PERFETTO_EXPORT ProcessStatsConfig {
 
   int quirks_size() const { return static_cast<int>(quirks_.size()); }
   const std::vector<Quirks>& quirks() const { return quirks_; }
+  std::vector<Quirks>* mutable_quirks() { return &quirks_; }
+  void clear_quirks() { quirks_.clear(); }
   Quirks* add_quirks() {
     quirks_.emplace_back();
     return &quirks_.back();
@@ -79,10 +85,20 @@ class PERFETTO_EXPORT ProcessStatsConfig {
   bool record_thread_names() const { return record_thread_names_; }
   void set_record_thread_names(bool value) { record_thread_names_ = value; }
 
+  uint32_t proc_stats_poll_ms() const { return proc_stats_poll_ms_; }
+  void set_proc_stats_poll_ms(uint32_t value) { proc_stats_poll_ms_ = value; }
+
+  uint32_t proc_stats_cache_ttl_ms() const { return proc_stats_cache_ttl_ms_; }
+  void set_proc_stats_cache_ttl_ms(uint32_t value) {
+    proc_stats_cache_ttl_ms_ = value;
+  }
+
  private:
   std::vector<Quirks> quirks_;
   bool scan_all_processes_on_start_ = {};
   bool record_thread_names_ = {};
+  uint32_t proc_stats_poll_ms_ = {};
+  uint32_t proc_stats_cache_ttl_ms_ = {};
 
   // Allows to preserve unknown protobuf fields for compatibility
   // with future versions of .proto files.
@@ -90,4 +106,5 @@ class PERFETTO_EXPORT ProcessStatsConfig {
 };
 
 }  // namespace perfetto
+
 #endif  // INCLUDE_PERFETTO_TRACING_CORE_PROCESS_STATS_CONFIG_H_

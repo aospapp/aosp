@@ -1,0 +1,14 @@
+# EGL Tests to exclude when Testing ANGLE.
+
+# anglebug.com/1028
+dEQP-GLES2.functional.fbo.completeness.renderable.texture.color0.srgb8
+dEQP-GLES2.functional.fbo.completeness.renderable.texture.stencil.srgb8
+dEQP-GLES2.functional.fbo.completeness.renderable.texture.depth.srgb8
+
+# anglebug.com/2830
+dEQP-GLES2.functional.rasterization.primitives.line_loop
+dEQP-GLES2.functional.rasterization.primitives.line_strip
+dEQP-GLES2.functional.rasterization.primitives.lines
+
+# anglebug.com/2808 -- b/118636566
+dEQP-GLES2.functional.shaders.builtin_variable.fragcoord_w

@@ -15,8 +15,6 @@
 package config
 
 import (
-	"fmt"
-	"runtime"
 	"strings"
 
 	"android/soong/android"
@@ -85,13 +83,22 @@ var (
 		"-Wl,--warn-shared-textrel",
 		"-Wl,--fatal-warnings",
 		"-Wl,--no-undefined-version",
+		"-Wl,--exclude-libs,libgcc.a",
+		"-Wl,--exclude-libs,libgcc_stripped.a",
 	}
+
+	deviceGlobalLldflags = append(ClangFilterUnknownLldflags(deviceGlobalLdflags),
+		[]string{
+			"-fuse-ld=lld",
+		}...)
 
 	hostGlobalCflags = []string{}
 
 	hostGlobalCppflags = []string{}
 
 	hostGlobalLdflags = []string{}
+
+	hostGlobalLldflags = []string{"-fuse-ld=lld"}
 
 	commonGlobalCppflags = []string{
 		"-Wsign-promo",
@@ -107,17 +114,16 @@ var (
 	}
 
 	CStdVersion               = "gnu99"
-	CppStdVersion             = "gnu++14"
-	GccCppStdVersion          = "gnu++11"
+	CppStdVersion             = "gnu++17"
 	ExperimentalCStdVersion   = "gnu11"
-	ExperimentalCppStdVersion = "gnu++1z"
+	ExperimentalCppStdVersion = "gnu++2a"
 
 	NdkMaxPrebuiltVersionInt = 27
 
 	// prebuilts/clang default settings.
 	ClangDefaultBase         = "prebuilts/clang/host"
-	ClangDefaultVersion      = "clang-4691093"
-	ClangDefaultShortVersion = "6.0.2"
+	ClangDefaultVersion      = "clang-r353983c"
+	ClangDefaultShortVersion = "9.0.3"
 
 	// Directories with warnings from Android.bp files.
 	WarningAllowedProjects = []string{
@@ -136,22 +142,23 @@ func init() {
 		commonGlobalCflags = append(commonGlobalCflags, "-fdebug-prefix-map=/proc/self/cwd=")
 	}
 
-	pctx.StaticVariable("CommonGlobalCflags", strings.Join(commonGlobalCflags, " "))
 	pctx.StaticVariable("CommonGlobalConlyflags", strings.Join(commonGlobalConlyflags, " "))
-	pctx.StaticVariable("DeviceGlobalCflags", strings.Join(deviceGlobalCflags, " "))
 	pctx.StaticVariable("DeviceGlobalCppflags", strings.Join(deviceGlobalCppflags, " "))
 	pctx.StaticVariable("DeviceGlobalLdflags", strings.Join(deviceGlobalLdflags, " "))
-	pctx.StaticVariable("HostGlobalCflags", strings.Join(hostGlobalCflags, " "))
+	pctx.StaticVariable("DeviceGlobalLldflags", strings.Join(deviceGlobalLldflags, " "))
 	pctx.StaticVariable("HostGlobalCppflags", strings.Join(hostGlobalCppflags, " "))
 	pctx.StaticVariable("HostGlobalLdflags", strings.Join(hostGlobalLdflags, " "))
-	pctx.StaticVariable("NoOverrideGlobalCflags", strings.Join(noOverrideGlobalCflags, " "))
-
-	pctx.StaticVariable("CommonGlobalCppflags", strings.Join(commonGlobalCppflags, " "))
+	pctx.StaticVariable("HostGlobalLldflags", strings.Join(hostGlobalLldflags, " "))
 
 	pctx.StaticVariable("CommonClangGlobalCflags",
 		strings.Join(append(ClangFilterUnknownCflags(commonGlobalCflags), "${ClangExtraCflags}"), " "))
-	pctx.StaticVariable("DeviceClangGlobalCflags",
-		strings.Join(append(ClangFilterUnknownCflags(deviceGlobalCflags), "${ClangExtraTargetCflags}"), " "))
+	pctx.VariableFunc("DeviceClangGlobalCflags", func(ctx android.PackageVarContext) string {
+		if ctx.Config().Fuchsia() {
+			return strings.Join(ClangFilterUnknownCflags(deviceGlobalCflags), " ")
+		} else {
+			return strings.Join(append(ClangFilterUnknownCflags(deviceGlobalCflags), "${ClangExtraTargetCflags}"), " ")
+		}
+	})
 	pctx.StaticVariable("HostClangGlobalCflags",
 		strings.Join(ClangFilterUnknownCflags(hostGlobalCflags), " "))
 	pctx.StaticVariable("NoOverrideClangGlobalCflags",
@@ -159,6 +166,8 @@ func init() {
 
 	pctx.StaticVariable("CommonClangGlobalCppflags",
 		strings.Join(append(ClangFilterUnknownCflags(commonGlobalCppflags), "${ClangExtraCppflags}"), " "))
+
+	pctx.StaticVariable("ClangExternalCflags", "${ClangExtraExternalCflags}")
 
 	// Everything in these lists is a crime against abstraction and dependency tracking.
 	// Do not add anything to this list.
@@ -169,7 +178,6 @@ func init() {
 			"hardware/libhardware/include",
 			"hardware/libhardware_legacy/include",
 			"hardware/ril/include",
-			"libnativehelper/include",
 			"frameworks/native/include",
 			"frameworks/native/opengl/include",
 			"frameworks/av/include",
@@ -194,6 +202,7 @@ func init() {
 	})
 	pctx.StaticVariable("ClangPath", "${ClangBase}/${HostPrebuiltTag}/${ClangVersion}")
 	pctx.StaticVariable("ClangBin", "${ClangPath}/bin")
+	pctx.StaticVariable("ClangTidyShellPath", "build/soong/scripts/clang-tidy.sh")
 
 	pctx.VariableFunc("ClangShortVersion", func(ctx android.PackageVarContext) string {
 		if override := ctx.Config().Getenv("LLVM_RELEASE_VERSION"); override != "" {
@@ -202,11 +211,6 @@ func init() {
 		return ClangDefaultShortVersion
 	})
 	pctx.StaticVariable("ClangAsanLibDir", "${ClangBase}/linux-x86/${ClangVersion}/lib64/clang/${ClangShortVersion}/lib/linux")
-	if runtime.GOOS == "darwin" {
-		pctx.StaticVariable("LLVMGoldPlugin", "${ClangPath}/lib64/LLVMgold.dylib")
-	} else {
-		pctx.StaticVariable("LLVMGoldPlugin", "${ClangPath}/lib64/LLVMgold.so")
-	}
 
 	// These are tied to the version of LLVM directly in external/llvm, so they might trail the host prebuilts
 	// being used for the rest of the build process.
@@ -240,11 +244,4 @@ func bionicHeaders(kernelArch string) string {
 		"-isystem bionic/libc/kernel/android/scsi",
 		"-isystem bionic/libc/kernel/android/uapi",
 	}, " ")
-}
-
-func replaceFirst(slice []string, from, to string) {
-	if slice[0] != from {
-		panic(fmt.Errorf("Expected %q, found %q", from, to))
-	}
-	slice[0] = to
 }

@@ -76,6 +76,10 @@ struct FwmarkCommand {
     uint32_t trafficCtrlInfo;  // used in TAG_SOCKET, SET_COUNTERSET and SET_PACIFIER command;
                                // ignored otherwise. Depend on the case, it can be a tag, a
                                // counterSet or a pacifier signal.
+
+    static bool isSupportedFamily(int socketFamily) {
+        return socketFamily == AF_INET || socketFamily == AF_INET6;
+    }
 };
 
 #endif  // NETD_INCLUDE_FWMARK_COMMAND_H

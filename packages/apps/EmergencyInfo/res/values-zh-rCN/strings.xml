@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"急救信息"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"医疗信息"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"修改信息"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"添加信息"</string>
     <string name="edit_info" msgid="5973929805855224805">"修改急救信息"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"信息"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"联系人"</string>
@@ -80,7 +80,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"医疗注意事项"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"未知"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"例如，哮喘"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"器官捐献者"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"器官捐献"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"未知"</string>
     <string name="yes" msgid="5829765567799916128">"是"</string>
     <string name="no" msgid="1681689233660683509">"否"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"添加医疗信息和紧急情况联系人有助于第一线救援人员在发生紧急事件时提供相关援助。\n\n任何人都无需将您的手机解锁，即可在锁定屏幕上看到此类信息，并能通过点按相关联系人的姓名拨打对方的电话。"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"添加紧急信息"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"让一线急救人员查看您的信息"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"拍照"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"选择图片"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"选择照片"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"昵称"</string>
 </resources>

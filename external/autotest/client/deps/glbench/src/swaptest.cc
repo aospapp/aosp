@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/bind.h"
-#include "base/callback.h"
-
 #include "glinterface.h"
 #include "glinterfacetest.h"
 #include "main.h"
@@ -23,7 +20,7 @@ class SwapTest : public GLInterfaceTest {
 };
 
 bool SwapTest::TestFunc(uint64_t iterations) {
-  for (uint64_t i = 0 ; i < iterations; ++i) {
+  for (uint64_t i = 0; i < iterations; ++i) {
     if (!render_func_.is_null())
       render_func_.Run();
     g_main_gl_interface->SwapBuffers();
@@ -35,4 +32,4 @@ TestBase* GetSwapTest() {
   return new SwapTest;
 }
 
-} // namespace glbench
+}  // namespace glbench

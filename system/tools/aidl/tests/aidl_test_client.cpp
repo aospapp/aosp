@@ -23,6 +23,7 @@
 
 #include "android/aidl/tests/ITestService.h"
 
+#include "aidl_test_client_defaultimpl.h"
 #include "aidl_test_client_file_descriptors.h"
 #include "aidl_test_client_nullables.h"
 #include "aidl_test_client_parcelables.h"
@@ -75,7 +76,6 @@ int main(int /* argc */, char * argv []) {
   sp<ITestService> service;
   namespace client_tests = android::aidl::tests::client;
 
-
   if (!client_tests::GetService(&service)) return 1;
 
   if (!client_tests::ConfirmPrimitiveRepeat(service)) return 1;
@@ -90,9 +90,15 @@ int main(int /* argc */, char * argv []) {
 
   if (!client_tests::ConfirmPersistableBundles(service)) return 1;
 
+  if (!client_tests::ConfirmStructuredParcelables(service)) return 1;
+
   if (!client_tests::ConfirmFileDescriptors(service)) return 1;
 
   if (!client_tests::ConfirmFileDescriptorArrays(service)) return 1;
+
+  if (!client_tests::ConfirmParcelFileDescriptors(service)) return 1;
+
+  if (!client_tests::ConfirmParcelFileDescriptorArrays(service)) return 1;
 
   if (!client_tests::ConfirmServiceSpecificExceptions(service)) return 1;
 
@@ -103,6 +109,8 @@ int main(int /* argc */, char * argv []) {
   if (!client_tests::ConfirmUtf8InCppStringArrayReverse(service)) return 1;
 
   if (!client_tests::ConfirmUtf8InCppStringListReverse(service)) return 1;
+
+  if (!client_tests::ConfirmDefaultImpl(service)) return 1;
 
   return 0;
 }

@@ -161,7 +161,7 @@ def get_available_output_sizes(fmt, props, max_size=None, match_ar_size=None):
 
     Args:
         fmt: the output format, as a string in
-            ["jpg", "yuv", "raw", "raw10", "raw12"].
+            ["jpg", "yuv", "raw", "raw10", "raw12", "y8"].
         props: the object returned from its.device.get_camera_properties().
         max_size: (Optional) A (w,h) tuple.
             Sizes larger than max_size (either w or h)  will be discarded.
@@ -174,7 +174,7 @@ def get_available_output_sizes(fmt, props, max_size=None, match_ar_size=None):
     """
     AR_TOLERANCE = 0.03
     fmt_codes = {"raw":0x20, "raw10":0x25, "raw12":0x26,"yuv":0x23,
-                 "jpg":0x100, "jpeg":0x100}
+                 "jpg":0x100, "jpeg":0x100, "y8":0x20203859}
     configs = props['android.scaler.streamConfigurationMap']\
                    ['availableStreamConfigurations']
     fmt_configs = [cfg for cfg in configs if cfg['format'] == fmt_codes[fmt]]

@@ -31,8 +31,8 @@ public class HevcYuv400BitstreamsFullTest extends MediaBitstreamsTest {
     }
 
     public HevcYuv400BitstreamsFullTest(String prefix, String path,
-            BitstreamPackage pkg, BitstreamPackage packageToRun) {
-        super(prefix, path, pkg, packageToRun);
+            BitstreamPackage pkg, BitstreamPackage packageToRun, boolean enforce) {
+        super(prefix, path, pkg, packageToRun, enforce);
     }
 
     @Test

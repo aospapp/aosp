@@ -13,16 +13,17 @@
  */
 package com.android.settings.display;
 
+import static android.provider.Settings.Secure.CAMERA_GESTURE_DISABLED;
+
 import android.content.Context;
 import android.os.SystemProperties;
 import android.provider.Settings;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
+
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.core.AbstractPreferenceController;
-
-import static android.provider.Settings.Secure.CAMERA_GESTURE_DISABLED;
 
 public class CameraGesturePreferenceController extends AbstractPreferenceController implements
         PreferenceControllerMixin, Preference.OnPreferenceChangeListener {

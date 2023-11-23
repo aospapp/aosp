@@ -16,13 +16,14 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.arch.lifecycle.ViewModelProviders;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.lifecycle.ViewModelProviders;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.wifi.AccessPoint;
@@ -225,7 +226,13 @@ public class WifiConnectionActivity extends InstrumentedActivity implements
                     ViewModelProviders.of(this).get(UserChoiceInfo.class);
         userChoiceInfo.setWifiConfiguration(mConfiguration);
         userChoiceInfo.setWifiSecurity(mWifiSecurity);
-        if (WifiConfigHelper.isNetworkSaved(mConfiguration)) {
+
+        WifiConfiguration.NetworkSelectionStatus networkStatus =
+                mConfiguration.getNetworkSelectionStatus();
+        if (networkStatus.getNetworkSelectionDisableReason()
+                == WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD) {
+            mStateMachine.setStartState(mEnterPasswordState);
+        } else if (WifiConfigHelper.isNetworkSaved(mConfiguration)) {
             mStateMachine.setStartState(mKnownNetworkState);
         } else {
             mStateMachine.setStartState(mAddStartState);
@@ -238,7 +245,7 @@ public class WifiConnectionActivity extends InstrumentedActivity implements
         mStateMachine.back();
     }
 
-    private void updateView(android.support.v4.app.Fragment fragment, boolean movingForward) {
+    private void updateView(androidx.fragment.app.Fragment fragment, boolean movingForward) {
         if (fragment != null) {
             FragmentTransaction updateTransaction = getSupportFragmentManager().beginTransaction();
             if (movingForward) {

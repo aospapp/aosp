@@ -77,10 +77,14 @@ bool OmahaRequestParams::Init(const string& in_app_version,
   LOG(INFO) << "Running from channel " << image_props_.current_channel;
 
   os_platform_ = constants::kOmahaPlatformName;
-  if (!image_props_.system_version.empty())
+  if (!image_props_.system_version.empty()) {
+    if (in_app_version == "ForcedUpdate") {
+      image_props_.system_version = in_app_version;
+    }
     os_version_ = image_props_.system_version;
-  else
+  } else {
     os_version_ = OmahaRequestParams::kOsVersion;
+  }
   if (!in_app_version.empty())
     image_props_.version = in_app_version;
 
@@ -97,8 +101,8 @@ bool OmahaRequestParams::Init(const string& in_app_version,
     // know (i.e. stat() returns some unexpected error), then err on the side of
     // caution and say deltas are not okay.
     struct stat stbuf;
-    delta_okay_ = (stat((root_ + "/.nodelta").c_str(), &stbuf) < 0) &&
-                  (errno == ENOENT);
+    delta_okay_ =
+        (stat((root_ + "/.nodelta").c_str(), &stbuf) < 0) && (errno == ENOENT);
   } else {
     LOG(INFO) << "Disabling deltas as a channel change to "
               << mutable_image_props_.target_channel
@@ -118,6 +122,10 @@ bool OmahaRequestParams::Init(const string& in_app_version,
 
   // Set the interactive flag accordingly.
   interactive_ = in_interactive;
+
+  dlc_module_ids_.clear();
+  // Set false so it will do update by default.
+  is_install_ = false;
   return true;
 }
 
@@ -127,16 +135,10 @@ bool OmahaRequestParams::IsUpdateUrlOfficial() const {
 }
 
 bool OmahaRequestParams::CollectECFWVersions() const {
-  return base::StartsWith(hwid_, string("SAMS ALEX"),
-                          base::CompareCase::SENSITIVE) ||
-         base::StartsWith(hwid_, string("BUTTERFLY"),
-                          base::CompareCase::SENSITIVE) ||
-         base::StartsWith(hwid_, string("LUMPY"),
-                          base::CompareCase::SENSITIVE) ||
-         base::StartsWith(hwid_, string("PARROT"),
-                          base::CompareCase::SENSITIVE) ||
-         base::StartsWith(hwid_, string("SPRING"),
-                          base::CompareCase::SENSITIVE) ||
+  return base::StartsWith(
+             hwid_, string("PARROT"), base::CompareCase::SENSITIVE) ||
+         base::StartsWith(
+             hwid_, string("SPRING"), base::CompareCase::SENSITIVE) ||
          base::StartsWith(hwid_, string("SNOW"), base::CompareCase::SENSITIVE);
 }
 

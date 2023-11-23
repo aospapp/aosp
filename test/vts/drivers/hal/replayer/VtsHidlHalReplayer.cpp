@@ -54,13 +54,22 @@ void VtsHidlHalReplayer::ListTestServices(const string& trace_file) {
   set<string> registeredHalServices;
   while (readOneDelimited(&msg, &input)) {
     string package_name = msg.package();
-    float version = msg.version();
+    int version_major = msg.version_major();
+    int version_minor = msg.version_minor();
+    // for backward compatibility, some previous testcases don't
+    // specify major and minor versions separately, manually parse it
+    if (version_major == -1 && version_minor == -1) {
+      string version_str = GetVersionString(msg.version());
+      version_major = GetVersionMajor(version_str);
+      version_minor = GetVersionMinor(version_str);
+    }
     string interface_name = msg.interface();
-    string service_fq_name =
-        GetInterfaceFQName(package_name, version, interface_name);
+    string service_fq_name = GetInterfaceFQName(package_name, version_major,
+                                                version_minor, interface_name);
     registeredHalServices.insert(service_fq_name);
+    msg.Clear();
   }
-  for (string service : registeredHalServices) {
+  for (const string& service : registeredHalServices) {
     cout << "hal_service: " << service << endl;
   }
 }
@@ -106,10 +115,18 @@ bool VtsHidlHalReplayer::ReplayTrace(
     }
 
     string package_name = call_msg.package();
-    float version = call_msg.version();
+    int version_major = call_msg.version_major();
+    int version_minor = call_msg.version_minor();
+    // for backward compatibility, some previous testcases don't
+    // specify major and minor versions separately, manually parse it
+    if (version_major == -1 && version_minor == -1) {
+      string version_str = std::to_string(call_msg.version());
+      version_major = GetVersionMajor(version_str);
+      version_minor = GetVersionMinor(version_str);
+    }
     string interface_name = call_msg.interface();
-    string instance_name =
-        GetInterfaceFQName(package_name, version, interface_name);
+    string instance_name = GetInterfaceFQName(package_name, version_major,
+                                              version_minor, interface_name);
     string hal_service_name = "default";
 
     if (hal_service_instances.find(instance_name) ==
@@ -124,7 +141,8 @@ bool VtsHidlHalReplayer::ReplayTrace(
     LOG(DEBUG) << "Replay function: " << call_msg.func_msg().DebugString();
 
     int32_t driver_id = driver_manager_->GetDriverIdForHidlHalInterface(
-        package_name, version, interface_name, hal_service_name);
+        package_name, version_major, version_minor, interface_name,
+        hal_service_name);
     if (driver_id == kInvalidDriverId) {
       LOG(ERROR) << "Couldn't get a driver base class";
       return false;

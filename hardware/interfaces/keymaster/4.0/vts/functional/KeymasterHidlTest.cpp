@@ -16,6 +16,7 @@
 
 #include "KeymasterHidlTest.h"
 
+#include <chrono>
 #include <vector>
 
 #include <android-base/logging.h>
@@ -204,6 +205,47 @@ void KeymasterHidlTest::CheckedDeleteKey(HidlBuf* key_blob, bool keep_key_blob) 
 
 void KeymasterHidlTest::CheckedDeleteKey() {
     CheckedDeleteKey(&key_blob_);
+}
+
+void KeymasterHidlTest::CheckCreationDateTime(
+        const AuthorizationSet& sw_enforced,
+        std::chrono::time_point<std::chrono::system_clock> creation) {
+    for (int i = 0; i < sw_enforced.size(); i++) {
+        if (sw_enforced[i].tag == TAG_CREATION_DATETIME) {
+            std::chrono::time_point<std::chrono::system_clock> now =
+                    std::chrono::system_clock::now();
+            std::chrono::time_point<std::chrono::system_clock> reported_time{
+                    std::chrono::milliseconds(sw_enforced[i].f.dateTime)};
+            // The test is flaky for EC keys, so a buffer time of 120 seconds will be added.
+            EXPECT_LE(creation - 120s, reported_time);
+            EXPECT_LE(reported_time, now + 1s);
+        }
+    }
+}
+
+void KeymasterHidlTest::CheckGetCharacteristics(const HidlBuf& key_blob, const HidlBuf& client_id,
+                                                const HidlBuf& app_data,
+                                                KeyCharacteristics* key_characteristics) {
+    HidlBuf empty_buf = {};
+    EXPECT_EQ(ErrorCode::OK,
+              GetCharacteristics(key_blob, client_id, app_data, key_characteristics));
+    EXPECT_GT(key_characteristics->hardwareEnforced.size(), 0);
+    EXPECT_GT(key_characteristics->softwareEnforced.size(), 0);
+
+    EXPECT_EQ(ErrorCode::INVALID_KEY_BLOB,
+              GetCharacteristics(key_blob, empty_buf, app_data, key_characteristics));
+    EXPECT_EQ(key_characteristics->hardwareEnforced.size(), 0);
+    EXPECT_EQ(key_characteristics->softwareEnforced.size(), 0);
+
+    EXPECT_EQ(ErrorCode::INVALID_KEY_BLOB,
+              GetCharacteristics(key_blob, client_id, empty_buf, key_characteristics));
+    EXPECT_EQ(key_characteristics->hardwareEnforced.size(), 0);
+    EXPECT_EQ(key_characteristics->softwareEnforced.size(), 0);
+
+    EXPECT_EQ(ErrorCode::INVALID_KEY_BLOB,
+              GetCharacteristics(key_blob, empty_buf, empty_buf, key_characteristics));
+    EXPECT_EQ(key_characteristics->hardwareEnforced.size(), 0);
+    EXPECT_EQ(key_characteristics->softwareEnforced.size(), 0);
 }
 
 ErrorCode KeymasterHidlTest::GetCharacteristics(const HidlBuf& key_blob, const HidlBuf& client_id,
@@ -651,6 +693,8 @@ std::vector<uint32_t> KeymasterHidlTest::InvalidKeySizes(Algorithm algorithm) {
             return {3072, 4096};
         case Algorithm::EC:
             return {224, 384, 521};
+        case Algorithm::AES:
+            return {192};
         default:
             return {};
     }
@@ -670,8 +714,7 @@ std::vector<EcCurve> KeymasterHidlTest::InvalidCurves() {
     return {EcCurve::P_224, EcCurve::P_384, EcCurve::P_521};
 }
 
-std::initializer_list<Digest> KeymasterHidlTest::ValidDigests(bool withNone, bool withMD5) {
-    std::vector<Digest> result;
+std::vector<Digest> KeymasterHidlTest::ValidDigests(bool withNone, bool withMD5) {
     switch (SecLevel()) {
         case SecurityLevel::TRUSTED_ENVIRONMENT:
             if (withNone) {

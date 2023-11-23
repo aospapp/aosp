@@ -26,14 +26,27 @@ import acts.test_utils.wifi.wifi_test_utils as wutils
 import WifiManagerTest
 from acts import asserts
 from acts import signals
+from acts.libs.uicd.uicd_cli import UicdCli
+from acts.libs.uicd.uicd_cli import UicdError
 from acts.test_decorators import test_tracker_info
+from acts.test_utils.tel.tel_test_utils import get_operator_name
 from acts.utils import force_airplane_mode
 
 WifiEnums = wutils.WifiEnums
 
 DEFAULT_TIMEOUT = 10
+OSU_TEST_TIMEOUT = 300
+
+# Constants for providers.
 GLOBAL_RE = 0
+OSU_BOINGO = 0
 BOINGO = 1
+ATT = 2
+
+# Constants used for various device operations.
+RESET = 1
+TOGGLE = 2
+
 UNKNOWN_FQDN = "@#@@!00fffffx"
 
 class WifiPasspointTest(acts.base_test.BaseTestClass):
@@ -48,13 +61,18 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
     def setup_class(self):
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        req_params = ("passpoint_networks",)
+        req_params = ["passpoint_networks", "uicd_workflows", "uicd_zip"]
+        opt_param = []
+        self.unpack_userparams(
+            req_param_names=req_params, opt_param_names=opt_param)
         self.unpack_userparams(req_params)
         asserts.assert_true(
             len(self.passpoint_networks) > 0,
             "Need at least one Passpoint network.")
         wutils.wifi_toggle_state(self.dut, True)
         self.unknown_fqdn = UNKNOWN_FQDN
+        # Setup Uicd cli object for UI interation.
+        self.ui = UicdCli(self.uicd_zip[0], self.uicd_workflows)
 
 
     def setup_test(self):
@@ -125,6 +143,60 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
             raise signals.TestFailure("Failed to delete Passpoint configuration"
                                       " with FQDN = %s" % passpoint_config[0])
 
+    def start_subscription_provisioning(self, state):
+        """Start subscription provisioning with a default provider."""
+
+        self.unpack_userparams(('osu_configs',))
+        asserts.assert_true(
+            len(self.osu_configs) > 0,
+            "Need at least one osu config.")
+        osu_config = self.osu_configs[OSU_BOINGO]
+        # Clear all previous events.
+        self.dut.ed.clear_all_events()
+        self.dut.droid.startSubscriptionProvisioning(osu_config)
+        start_time = time.time()
+        while time.time() < start_time + OSU_TEST_TIMEOUT:
+            dut_event = self.dut.ed.pop_event("onProvisioningCallback",
+                                              DEFAULT_TIMEOUT * 18)
+            if dut_event['data']['tag'] == 'success':
+                self.log.info("Passpoint Provisioning Success")
+                # Reset WiFi after provisioning success.
+                if state == RESET:
+                    wutils.reset_wifi(self.dut)
+                    time.sleep(DEFAULT_TIMEOUT)
+                # Toggle WiFi after provisioning success.
+                elif state == TOGGLE:
+                    wutils.toggle_wifi_off_and_on(self.dut)
+                    time.sleep(DEFAULT_TIMEOUT)
+                break
+            if dut_event['data']['tag'] == 'failure':
+                raise signals.TestFailure(
+                    "Passpoint Provisioning is failed with %s" %
+                    dut_event['data'][
+                        'reason'])
+                break
+            if dut_event['data']['tag'] == 'status':
+                self.log.info(
+                    "Passpoint Provisioning status %s" % dut_event['data'][
+                        'status'])
+                if int(dut_event['data']['status']) == 7:
+                    self.ui.run(self.dut.serial, "passpoint-login")
+        # Clear all previous events.
+        self.dut.ed.clear_all_events()
+
+        # Verify device connects to the Passpoint network.
+        time.sleep(DEFAULT_TIMEOUT)
+        current_passpoint = self.dut.droid.wifiGetConnectionInfo()
+        if current_passpoint[WifiEnums.SSID_KEY] not in osu_config[
+            "expected_ssids"]:
+            raise signals.TestFailure("Device did not connect to the %s"
+                                      " passpoint network" % osu_config[
+                                          "expected_ssids"])
+        # Delete the Passpoint profile.
+        self.get_configured_passpoint_and_delete()
+        wutils.wait_for_disconnect(self.dut)
+
+
     """Tests"""
 
     @test_tracker_info(uuid="b0bc0153-77bb-4594-8f19-cea2c6bd2f43")
@@ -189,11 +261,12 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         6. Ensure all Passpoint configurations can be deleted.
 
         """
-        for passpoint_config in self.passpoint_networks:
+        for passpoint_config in self.passpoint_networks[:2]:
             self.install_passpoint_profile(passpoint_config)
             time.sleep(DEFAULT_TIMEOUT)
         configs = self.dut.droid.getPasspointConfigs()
-        if not len(configs) or len(configs) != len(self.passpoint_networks):
+        #  It is length -1 because ATT profile will be handled separately
+        if not len(configs) or len(configs) != len(self.passpoint_networks[:2]):
             raise signals.TestFailure("Failed to fetch some or all of the"
                                       " configured passpoint networks.")
         for config in configs:
@@ -230,7 +303,7 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         """
         # Install both Passpoint profiles on the device.
         passpoint_ssid = list()
-        for passpoint_config in self.passpoint_networks:
+        for passpoint_config in self.passpoint_networks[:2]:
             passpoint_ssid.append(passpoint_config[WifiEnums.SSID_KEY])
             self.install_passpoint_profile(passpoint_config)
             time.sleep(DEFAULT_TIMEOUT)
@@ -248,7 +321,7 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
             expected_ssid = self.passpoint_networks[1][WifiEnums.SSID_KEY]
 
         # Remove the current Passpoint profile.
-        for network in self.passpoint_networks:
+        for network in self.passpoint_networks[:2]:
             if network[WifiEnums.SSID_KEY] == current_ssid:
                 if not wutils.delete_passpoint(self.dut, network["fqdn"]):
                     raise signals.TestFailure("Failed to delete Passpoint"
@@ -265,3 +338,58 @@ class WifiPasspointTest(acts.base_test.BaseTestClass):
         # Delete the remaining Passpoint profile.
         self.get_configured_passpoint_and_delete()
         wutils.wait_for_disconnect(self.dut)
+
+
+    def test_install_att_passpoint_profile(self):
+        """Add an AT&T Passpoint profile.
+
+        It is used for only installing the profile for other tests.
+        """
+        isFound = False
+        for passpoint_config in self.passpoint_networks:
+            if 'att' in passpoint_config['fqdn']:
+                isFound = True
+                self.install_passpoint_profile(passpoint_config)
+                break
+        if not isFound:
+            raise signals.TestFailure("cannot find ATT profile.")
+
+
+    @test_tracker_info(uuid="e3e826d2-7c39-4c37-ab3f-81992d5aa0e8")
+    def test_att_passpoint_network(self):
+        """Add a AT&T Passpoint network and verify device connects to it.
+
+        Steps:
+            1. Install a AT&T Passpoint Profile.
+            2. Verify the device connects to the required Passpoint SSID.
+            3. Get the Passpoint configuration added above.
+            4. Delete Passpoint configuration using its FQDN.
+            5. Verify that we are disconnected from the Passpoint network.
+
+        """
+        carriers = ["att"]
+        operator = get_operator_name(self.log, self.dut)
+        asserts.skip_if(operator not in carriers,
+                        "Device %s does not have a ATT sim" % self.dut.model)
+
+        passpoint_config = self.passpoint_networks[ATT]
+        self.install_passpoint_profile(passpoint_config)
+        ssid = passpoint_config[WifiEnums.SSID_KEY]
+        self.check_passpoint_connection(ssid)
+        self.get_configured_passpoint_and_delete()
+        wutils.wait_for_disconnect(self.dut)
+
+
+    @test_tracker_info(uuid="c85c81b2-7133-4635-8328-9498169ae802")
+    def test_start_subscription_provisioning(self):
+        self.start_subscription_provisioning(0)
+
+
+    @test_tracker_info(uuid="fd09a643-0d4b-45a9-881a-a771f9707ab1")
+    def test_start_subscription_provisioning_and_reset_wifi(self):
+        self.start_subscription_provisioning(RESET)
+
+
+    @test_tracker_info(uuid="f43ea759-673f-4567-aa11-da3bc2cabf08")
+    def test_start_subscription_provisioning_and_toggle_wifi(self):
+        self.start_subscription_provisioning(TOGGLE)

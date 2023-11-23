@@ -18,32 +18,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.mail.emailtests">
 
-    <uses-sdk android:targetSdkVersion="19" android:minSdkVersion="14" />
+    <uses-sdk android:targetSdkVersion="28" android:minSdkVersion="14" />
 
     <!-- We add an application tag here just so that we can indicate that
          this package needs to link against the android.test library,
          which is needed when building test cases. -->
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
-        <provider android:name="TestFileProvider" android:authorities="testfile"
-                  android:syncable="false" android:multiprocess="false" />
-        <activity android:name="TestFilePicker" android:label="Pick test file">
-            <intent-filter>
-                <action android:name="android.intent.action.PICK" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.OPENABLE" />
-            </intent-filter>
-        </activity>
     </application>
 
     <!--
     This declares that this app uses the instrumentation test runner targeting
     the package of com.android.mail.  To run the tests use the command:
-    "adb shell am instrument -w com.android.mail.emailtests/android.support.test.runner.AndroidJUnitRunner"
-i
+    "adb shell am instrument -w com.android.mail.emailtests/androidx.test.runner.AndroidJUnitRunner"
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.mail"
-                     android:label="Tests for Email."/>
+                     android:label="Tests for UnifiedEmail."/>
 
 </manifest>

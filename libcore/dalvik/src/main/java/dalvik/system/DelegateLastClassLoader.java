@@ -22,6 +22,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Enumeration;
 
+import libcore.util.NonNull;
+import libcore.util.Nullable;
+
 /**
  * A {@code ClassLoader} implementation that implements a <b>delegate last</b> lookup policy.
  * For every class or resource this loader is requested to load, the following lookup order
@@ -37,11 +40,24 @@ import java.util.Enumeration;
 public final class DelegateLastClassLoader extends PathClassLoader {
 
     /**
-     * Equivalent to calling {@link #DelegateLastClassLoader(String, String, ClassLoader)}
-     * with {@code librarySearchPath = null}.
+     * Whether resource loading delegates to the parent class loader. True by default.
+     */
+    private final boolean delegateResourceLoading;
+
+    /**
+     * Equivalent to calling {@link #DelegateLastClassLoader(String, String, ClassLoader, boolean)}
+     * with {@code librarySearchPath = null, delegateResourceLoading = true}.
      */
     public DelegateLastClassLoader(String dexPath, ClassLoader parent) {
-        super(dexPath, parent);
+        this(dexPath, null, parent, true);
+    }
+
+    /**
+     * Equivalent to calling {@link #DelegateLastClassLoader(String, String, ClassLoader, boolean)}
+     * with {@code delegateResourceLoading = true}.
+     */
+    public DelegateLastClassLoader(String dexPath, String librarySearchPath, ClassLoader parent) {
+        this(dexPath, librarySearchPath, parent, true);
     }
 
     /**
@@ -75,10 +91,28 @@ public final class DelegateLastClassLoader extends PathClassLoader {
      *                {@code File.pathSeparator}, which defaults to {@code ":"} on Android.
      * @param librarySearchPath the list of directories containing native libraries, delimited
      *                          by {@code File.pathSeparator}; may be {@code null}.
-     * @param parent the parent class loader
+     * @param parent the parent class loader. May be {@code null} for the boot classloader.
+     * @param delegateResourceLoading whether to delegate resource loading to the parent if
+     *                                the resource is not found. This does not affect class
+     *                                loading delegation.
      */
-    public DelegateLastClassLoader(String dexPath, String librarySearchPath, ClassLoader parent) {
+
+    public DelegateLastClassLoader(@NonNull String dexPath, @Nullable String librarySearchPath,
+            @Nullable ClassLoader parent, boolean delegateResourceLoading) {
         super(dexPath, librarySearchPath, parent);
+        this.delegateResourceLoading = delegateResourceLoading;
+    }
+
+    /**
+     * @hide
+     */
+    @libcore.api.CorePlatformApi
+    public DelegateLastClassLoader(
+            String dexPath, String librarySearchPath, ClassLoader parent,
+            ClassLoader[] sharedLibraryLoaders) {
+        super(dexPath, librarySearchPath, parent, sharedLibraryLoaders);
+        // Delegating is the default behavior.
+        this.delegateResourceLoading = true;
     }
 
     @Override
@@ -97,7 +131,7 @@ public final class DelegateLastClassLoader extends PathClassLoader {
         }
 
         // Next, check whether the class in question is present in the dexPath that this classloader
-        // operates on.
+        // operates on, or its shared libraries.
         ClassNotFoundException fromSuper = null;
         try {
             return findClass(name);
@@ -131,9 +165,11 @@ public final class DelegateLastClassLoader extends PathClassLoader {
             return resource;
         }
 
-
-        final ClassLoader cl = getParent();
-        return (cl == null) ? null : cl.getResource(name);
+        if (delegateResourceLoading) {
+            final ClassLoader cl = getParent();
+            return (cl == null) ? null : cl.getResource(name);
+        }
+        return null;
     }
 
     @Override
@@ -142,7 +178,8 @@ public final class DelegateLastClassLoader extends PathClassLoader {
         final Enumeration<URL>[] resources = (Enumeration<URL>[]) new Enumeration<?>[] {
                 Object.class.getClassLoader().getResources(name),
                 findResources(name),
-                (getParent() == null) ? null : getParent().getResources(name) };
+                (getParent() == null || !delegateResourceLoading)
+                        ? null : getParent().getResources(name) };
 
         return new CompoundEnumeration<>(resources);
     }

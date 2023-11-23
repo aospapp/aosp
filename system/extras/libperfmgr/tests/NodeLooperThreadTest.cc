@@ -18,10 +18,10 @@
 #include <thread>
 
 #include <android-base/file.h>
-#include <android-base/test_utils.h>
 
 #include <gtest/gtest.h>
 
+#include "perfmgr/FileNode.h"
 #include "perfmgr/NodeLooperThread.h"
 
 namespace android {
@@ -35,14 +35,14 @@ class NodeLooperThreadTest : public ::testing::Test {
   protected:
     virtual void SetUp() {
         std::unique_ptr<TemporaryFile> tf = std::make_unique<TemporaryFile>();
-        nodes_.emplace_back(
-            new Node("n0", tf->path,
-                     {{"n0_value0"}, {"n0_value1"}, {"n0_value2"}}, 2, false));
+        nodes_.emplace_back(new FileNode(
+            "n0", tf->path, {{"n0_value0"}, {"n0_value1"}, {"n0_value2"}}, 2,
+            false));
         files_.emplace_back(std::move(tf));
         tf = std::make_unique<TemporaryFile>();
-        nodes_.emplace_back(
-            new Node("n1", tf->path,
-                     {{"n1_value0"}, {"n1_value1"}, {"n1_value2"}}, 2, true));
+        nodes_.emplace_back(new FileNode(
+            "n1", tf->path, {{"n1_value0"}, {"n1_value1"}, {"n1_value2"}}, 2,
+            true));
         files_.emplace_back(std::move(tf));
     }
 

@@ -29,14 +29,12 @@
 #define LOG_TAG "Netd"
 
 #include <android-base/strings.h>
-#include <cutils/log.h>
+#include <log/log.h>
+#include <netdutils/Stopwatch.h>
 
 #include "NetdConstants.h"
 #include "Permission.h"
 #include "SockDiag.h"
-#include "Stopwatch.h"
-
-#include <chrono>
 
 #ifndef SOCK_DESTROY
 #define SOCK_DESTROY 21
@@ -45,8 +43,10 @@
 #define INET_DIAG_BC_MARK_COND 10
 
 namespace android {
-namespace net {
 
+using netdutils::Stopwatch;
+
+namespace net {
 namespace {
 
 int checkError(int fd) {
@@ -329,7 +329,7 @@ int SockDiag::destroySockets(const char *addrstr) {
     return mSocketsDestroyed;
 }
 
-int SockDiag::destroyLiveSockets(DestroyFilter destroyFilter, const char *what,
+int SockDiag::destroyLiveSockets(const DestroyFilter& destroyFilter, const char *what,
                                  iovec *iov, int iovcnt) {
     const int proto = IPPROTO_TCP;
     const uint32_t states = (1 << TCP_ESTABLISHED) | (1 << TCP_SYN_SENT) | (1 << TCP_SYN_RECV);
@@ -423,16 +423,10 @@ int SockDiag::destroySockets(const UidRanges& uidRanges, const std::set<uid_t>& 
         return ret;
     }
 
-    std::vector<uid_t> skipUidStrings;
-    for (uid_t uid : skipUids) {
-        skipUidStrings.push_back(uid);
-    }
-    std::sort(skipUidStrings.begin(), skipUidStrings.end());
-
     if (mSocketsDestroyed > 0) {
         ALOGI("Destroyed %d sockets for %s skip={%s} in %.1f ms",
               mSocketsDestroyed, uidRanges.toString().c_str(),
-              android::base::Join(skipUidStrings, " ").c_str(), s.timeTaken());
+              android::base::Join(skipUids, " ").c_str(), s.timeTaken());
     }
 
     return 0;

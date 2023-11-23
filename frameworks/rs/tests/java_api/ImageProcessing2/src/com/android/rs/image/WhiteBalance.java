@@ -17,9 +17,9 @@
 package com.android.rs.image2;
 
 import java.lang.Math;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.ScriptIntrinsicHistogram;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.ScriptIntrinsicHistogram;
 
 public class WhiteBalance extends TestBase {
     private ScriptC_wbalance mScript;

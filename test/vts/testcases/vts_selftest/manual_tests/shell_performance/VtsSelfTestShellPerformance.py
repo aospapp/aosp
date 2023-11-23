@@ -76,7 +76,7 @@ class VtsSelfTestShellPerformance(base_test.BaseTestClass):
         return time.time() - start
 
     def testPerformance(self):
-        '''Run a empty test case on device for 100 times and log the times.'''
+        '''Run an empty gtest on device for 100 times and log the times.'''
 
         cmd = "/data/local/tmp/zero_testcase"
 
@@ -94,6 +94,20 @@ class VtsSelfTestShellPerformance(base_test.BaseTestClass):
         logging.info("vts shell for 100 times = %s", vts_time)
         logging.info("vts shell with for 100 times = %s", vts_list_time)
 
+        # vts_list_time = repeats * x + y
+        # vts_time = repeats * (x + y)
+        # adb_time = repeats * (x + z)
+
+        # y = vts_list_time - repeats * x
+        # vts_time = repeats * (x + (vts_list_time - repeats * x))
+        x = (vts_list_time * repeats - vts_time) / ((repeats - 1) * repeats)
+        y = vts_list_time - repeats * x
+        z = adb_time / repeats - x
+
+        logging.info("estimated execution time for vts = %s", x)
+        logging.info("estimated communication latency for vts = %s", y)
+        logging.info("estimated communication latency for adb "
+                     "(only apply to non-nohup tests) = %s", z)
 
 if __name__ == "__main__":
     test_runner.main()

@@ -13,6 +13,14 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+<!--
+    To run test manually:
+        make -j netd_integration_test && \
+        tradefed.sh run template/local_min -\-template:map test=netd_integration_test
+
+    For a list of options, see:
+        tools/tradefederation/core/src/com/android/tradefed/testtype/GTest.java
+-->
 <configuration description="Config for netd_integration_test">
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />

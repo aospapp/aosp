@@ -31,28 +31,23 @@ clean-oat: clean-oat-host clean-oat-target
 .PHONY: clean-oat-host
 clean-oat-host:
 	find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" -o -name '*.vdex' | xargs rm -f
-ifneq ($(TMPDIR),)
-	rm -rf $(TMPDIR)/$(USER)/test-*/dalvik-cache/*
+	rm -rf $(TMPDIR)/*/test-*/dalvik-cache/*
 	rm -rf $(TMPDIR)/android-data/dalvik-cache/*
-else
-	rm -rf /tmp/$(USER)/test-*/dalvik-cache/*
-	rm -rf /tmp/android-data/dalvik-cache/*
-endif
 
 .PHONY: clean-oat-target
 clean-oat-target:
-	adb root
-	adb wait-for-device remount
-	adb shell rm -rf $(ART_TARGET_NATIVETEST_DIR)
-	adb shell rm -rf $(ART_TARGET_TEST_DIR)
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*/*
-	adb shell rm -rf $(DEXPREOPT_BOOT_JAR_DIR)/$(DEX2OAT_TARGET_ARCH)
-	adb shell rm -rf system/app/$(DEX2OAT_TARGET_ARCH)
+	$(ADB) root
+	$(ADB) wait-for-device remount
+	$(ADB) shell rm -rf $(ART_TARGET_NATIVETEST_DIR)
+	$(ADB) shell rm -rf $(ART_TARGET_TEST_DIR)
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*/*
+	$(ADB) shell rm -rf $(ART_DEXPREOPT_BOOT_JAR_DIR)/$(DEX2OAT_TARGET_ARCH)
+	$(ADB) shell rm -rf system/app/$(DEX2OAT_TARGET_ARCH)
 ifdef TARGET_2ND_ARCH
-	adb shell rm -rf $(DEXPREOPT_BOOT_JAR_DIR)/$($(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH)
-	adb shell rm -rf system/app/$($(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH)
+	$(ADB) shell rm -rf $(ART_DEXPREOPT_BOOT_JAR_DIR)/$($(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH)
+	$(ADB) shell rm -rf system/app/$($(TARGET_2ND_ARCH_VAR_PREFIX)DEX2OAT_TARGET_ARCH)
 endif
-	adb shell rm -rf data/run-test/test-*/dalvik-cache/*
+	$(ADB) shell rm -rf data/run-test/test-*/dalvik-cache/*
 
 ########################################################################
 # cpplint rules to style check art source files
@@ -68,7 +63,6 @@ include $(art_path)/tools/ahat/Android.mk
 include $(art_path)/tools/amm/Android.mk
 include $(art_path)/tools/dexfuzz/Android.mk
 include $(art_path)/tools/veridex/Android.mk
-include $(art_path)/libart_fake/Android.mk
 
 ART_HOST_DEPENDENCIES := \
   $(ART_HOST_EXECUTABLES) \
@@ -92,40 +86,56 @@ endif
 # test rules
 
 # All the dependencies that must be built ahead of sync-ing them onto the target device.
-TEST_ART_TARGET_SYNC_DEPS :=
+TEST_ART_TARGET_SYNC_DEPS := $(ADB_EXECUTABLE)
 
 include $(art_path)/build/Android.common_test.mk
 include $(art_path)/build/Android.gtest.mk
 include $(art_path)/test/Android.run-test.mk
 
+TEST_ART_TARGET_SYNC_DEPS += $(ART_TEST_TARGET_GTEST_DEPENDENCIES) $(ART_TEST_TARGET_RUN_TEST_DEPENDENCIES)
+
+# Make sure /system is writable on the device.
 TEST_ART_ADB_ROOT_AND_REMOUNT := \
-    (adb root && \
-     adb wait-for-device remount && \
-     ((adb shell touch /system/testfile && \
-       (adb shell rm /system/testfile || true)) || \
-      (adb disable-verity && \
-       adb reboot && \
-       adb wait-for-device root && \
-       adb wait-for-device remount)))
+    ($(ADB) root && \
+     $(ADB) wait-for-device remount && \
+     (($(ADB) shell touch /system/testfile && \
+       ($(ADB) shell rm /system/testfile || true)) || \
+      ($(ADB) disable-verity && \
+       $(ADB) reboot && \
+       $(ADB) wait-for-device root && \
+       $(ADB) wait-for-device remount)))
 
 # Sync test files to the target, depends upon all things that must be pushed to the target.
 .PHONY: test-art-target-sync
-# Check if we need to sync. In case ART_TEST_ANDROID_ROOT is not empty,
-# the code below uses 'adb push' instead of 'adb sync', which does not
-# check if the files on the device have changed.
+# Check if we need to sync. In case ART_TEST_CHROOT or ART_TEST_ANDROID_ROOT
+# is not empty, the code below uses 'adb push' instead of 'adb sync',
+# which does not check if the files on the device have changed.
+# TODO: Remove support for ART_TEST_ANDROID_ROOT when it is no longer needed.
 ifneq ($(ART_TEST_NO_SYNC),true)
+# Sync system and data partitions.
 ifeq ($(ART_TEST_ANDROID_ROOT),)
+ifeq ($(ART_TEST_CHROOT),)
 test-art-target-sync: $(TEST_ART_TARGET_SYNC_DEPS)
 	$(TEST_ART_ADB_ROOT_AND_REMOUNT)
-	adb sync system && adb sync data
+	$(ADB) sync system && $(ADB) sync data
+else
+# TEST_ART_ADB_ROOT_AND_REMOUNT is not needed here, as we are only
+# pushing things to the chroot dir, which is expected to be under
+# /data on the device.
+test-art-target-sync: $(TEST_ART_TARGET_SYNC_DEPS)
+	$(ADB) wait-for-device
+	$(ADB) push $(PRODUCT_OUT)/system $(ART_TEST_CHROOT)/
+	$(ADB) push $(PRODUCT_OUT)/data $(ART_TEST_CHROOT)/
+endif
 else
 test-art-target-sync: $(TEST_ART_TARGET_SYNC_DEPS)
 	$(TEST_ART_ADB_ROOT_AND_REMOUNT)
-	adb wait-for-device push $(PRODUCT_OUT)/system $(ART_TEST_ANDROID_ROOT)
-# Push the contents of the `data` dir into `/data` on the device.  If
-# `/data` already exists on the device, it is not overwritten, but its
-# contents are updated.
-	adb push $(PRODUCT_OUT)/data /
+	$(ADB) wait-for-device
+	$(ADB) push $(PRODUCT_OUT)/system $(ART_TEST_CHROOT)$(ART_TEST_ANDROID_ROOT)
+# Push the contents of the `data` dir into `$(ART_TEST_CHROOT)/data` on the device (note
+# that $(ART_TEST_CHROOT) can be empty).  If `$(ART_TEST_CHROOT)/data` already exists on
+# the device, it is not overwritten, but its content is updated.
+	$(ADB) push $(PRODUCT_OUT)/data $(ART_TEST_CHROOT)/
 endif
 endif
 
@@ -234,19 +244,6 @@ endif
 test-art-host-dexdump: $(addprefix $(HOST_OUT_EXECUTABLES)/, dexdump2 dexlist)
 	ANDROID_HOST_OUT=$(realpath $(HOST_OUT)) art/test/dexdump/run-all-tests
 
-# Valgrind.
-.PHONY: valgrind-test-art-host
-valgrind-test-art-host: valgrind-test-art-host-gtest
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
-
-.PHONY: valgrind-test-art-host32
-valgrind-test-art-host32: valgrind-test-art-host-gtest32
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
-
-.PHONY: valgrind-test-art-host64
-valgrind-test-art-host64: valgrind-test-art-host-gtest64
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
-
 ########################################################################
 # target test rules
 
@@ -298,7 +295,7 @@ test-art-target-jit$(ART_PHONY_TEST_TARGET_SUFFIX): test-art-target-run-test-jit
 	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
 
 # Secondary target architecture variants:
-ifdef TARGET_2ND_ARCH
+ifdef 2ND_ART_PHONY_TEST_TARGET_SUFFIX
 .PHONY: test-art-target$(2ND_ART_PHONY_TEST_TARGET_SUFFIX)
 test-art-target$(2ND_ART_PHONY_TEST_TARGET_SUFFIX): test-art-target-gtest$(2ND_ART_PHONY_TEST_TARGET_SUFFIX) \
     test-art-target-run-test$(2ND_ART_PHONY_TEST_TARGET_SUFFIX)
@@ -321,19 +318,85 @@ test-art-target-jit$(2ND_ART_PHONY_TEST_TARGET_SUFFIX): test-art-target-run-test
 	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
 endif
 
-# Valgrind.
-.PHONY: valgrind-test-art-target
-valgrind-test-art-target: valgrind-test-art-target-gtest
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
 
-.PHONY: valgrind-test-art-target32
-valgrind-test-art-target32: valgrind-test-art-target-gtest32
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
+#######################
+# Android Runtime APEX.
 
-.PHONY: valgrind-test-art-target64
-valgrind-test-art-target64: valgrind-test-art-target-gtest64
-	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
+include $(CLEAR_VARS)
 
+# The Android Runtime APEX comes in two flavors:
+# - the release module (`com.android.runtime.release`), containing
+#   only "release" artifacts;
+# - the debug module (`com.android.runtime.debug`), containing both
+#   "release" and "debug" artifacts, as well as additional tools.
+#
+# The Android Runtime APEX module (`com.android.runtime`) is an
+# "alias" for one of the previous modules. By default, "user" build
+# variants contain the release module, while "userdebug" and "eng"
+# build variant contain the debug module. However, if
+# `PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD` is defined, it overrides
+# the previous logic:
+# - if `PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD` is set to `false`, the
+#   build will include the release module (whatever the build
+#   variant);
+# - if `PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD` is set to `true`, the
+#   build will include the debug module (whatever the build variant).
+
+art_target_include_debug_build := $(PRODUCT_ART_TARGET_INCLUDE_DEBUG_BUILD)
+ifneq (false,$(art_target_include_debug_build))
+  ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+    art_target_include_debug_build := true
+  endif
+endif
+ifeq (true,$(art_target_include_debug_build))
+  # Module with both release and debug variants, as well as
+  # additional tools.
+  TARGET_RUNTIME_APEX := com.android.runtime.debug
+  APEX_TEST_MODULE := art-check-debug-apex-gen-fakebin
+else
+  # Release module (without debug variants nor tools).
+  TARGET_RUNTIME_APEX := com.android.runtime.release
+  APEX_TEST_MODULE := art-check-release-apex-gen-fakebin
+endif
+
+LOCAL_MODULE := com.android.runtime
+LOCAL_REQUIRED_MODULES := $(TARGET_RUNTIME_APEX)
+LOCAL_REQUIRED_MODULES += art_apex_boot_integrity
+
+# Clear locally used variable.
+art_target_include_debug_build :=
+
+include $(BUILD_PHONY_PACKAGE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := com.android.runtime
+LOCAL_IS_HOST_MODULE := true
+ifneq ($(HOST_OS),darwin)
+  LOCAL_REQUIRED_MODULES += $(APEX_TEST_MODULE)
+endif
+include $(BUILD_PHONY_PACKAGE)
+
+# Create canonical name -> file name symlink in the symbol directory
+# The symbol files for the debug or release variant are installed to
+# $(TARGET_OUT_UNSTRIPPED)/$(TARGET_RUNTIME_APEX) directory. However,
+# since they are available via /apex/com.android.runtime at runtime
+# regardless of which variant is installed, create a symlink so that
+# $(TARGET_OUT_UNSTRIPPED)/apex/com.android.runtime is linked to
+# $(TARGET_OUT_UNSTRIPPED)/apex/$(TARGET_RUNTIME_APEX).
+# Note that installation of the symlink is triggered by the apex_manifest.json
+# file which is the file that is guaranteed to be created regardless of the
+# value of TARGET_FLATTEN_APEX.
+ifeq ($(TARGET_FLATTEN_APEX),true)
+runtime_apex_manifest_file := $(PRODUCT_OUT)/system/apex/$(TARGET_RUNTIME_APEX)/apex_manifest.json
+else
+runtime_apex_manifest_file := $(PRODUCT_OUT)/apex/$(TARGET_RUNTIME_APEX)/apex_manifest.json
+endif
+
+$(runtime_apex_manifest_file): $(TARGET_OUT_UNSTRIPPED)/apex/com.android.runtime
+$(TARGET_OUT_UNSTRIPPED)/apex/com.android.runtime :
+	$(hide) ln -sf $(TARGET_RUNTIME_APEX) $@
+
+runtime_apex_manifest_file :=
 
 #######################
 # Fake packages for ART
@@ -353,12 +416,8 @@ LOCAL_REQUIRED_MODULES := \
     libart-compiler \
     libopenjdkjvm \
     libopenjdkjvmti \
-    patchoat \
     profman \
     libadbconnection \
-
-# For nosy apps, we provide a fake library that avoids namespace issues and gives some warnings.
-LOCAL_REQUIRED_MODULES += libart_fake
 
 # Potentially add in debug variants:
 #
@@ -379,7 +438,6 @@ LOCAL_REQUIRED_MODULES += \
     libopenjdkd \
     libopenjdkjvmd \
     libopenjdkjvmtid \
-    patchoatd \
     profmand \
     libadbconnectiond \
 
@@ -388,18 +446,27 @@ endif
 
 include $(BUILD_PHONY_PACKAGE)
 
-# The art-tools package depends on helpers and tools that are useful for developers and on-device
-# investigations.
+# The art-tools package depends on helpers and tools that are useful for developers. Similar
+# dependencies exist for the APEX builds for these tools (see build/apex/Android.bp).
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := art-tools
+LOCAL_IS_HOST_MODULE := true
 LOCAL_REQUIRED_MODULES := \
     ahat \
-    dexdiag \
     dexdump \
-    dexlist \
     hprof-conv \
+
+# A subset of the tools are disabled when HOST_PREFER_32_BIT is defined as make reports that
+# they are not supported on host (b/129323791). This is likely due to art_apex disabling host
+# APEX builds when HOST_PREFER_32_BIT is set (b/120617876).
+ifneq ($(HOST_PREFER_32_BIT),true)
+LOCAL_REQUIRED_MODULES += \
+    dexdiag \
+    dexlist \
     oatdump \
+
+endif
 
 include $(BUILD_PHONY_PACKAGE)
 
@@ -432,19 +499,6 @@ LOCAL_REQUIRED_MODULES := libopenjdkd
 include $(BUILD_PHONY_PACKAGE)
 endif
 
-# Create dummy hidden API lists which are normally generated by the framework
-# but which we do not have in the master-art manifest.
-# We need to execute this now to ensure Makefile rules depending on these files can
-# be constructed.
-define build-art-hiddenapi
-$(shell if [ ! -d frameworks/base ]; then \
-  mkdir -p ${TARGET_OUT_COMMON_INTERMEDIATES}/PACKAGING; \
-	touch ${TARGET_OUT_COMMON_INTERMEDIATES}/PACKAGING/hiddenapi-{blacklist,dark-greylist,light-greylist}.txt; \
-  fi;)
-endef
-
-$(eval $(call build-art-hiddenapi))
-
 ########################################################################
 # "m build-art" for quick minimal build
 .PHONY: build-art
@@ -457,24 +511,105 @@ build-art-host:   $(HOST_OUT_EXECUTABLES)/art $(ART_HOST_DEPENDENCIES) $(HOST_CO
 build-art-target: $(TARGET_OUT_EXECUTABLES)/art $(ART_TARGET_DEPENDENCIES) $(TARGET_CORE_IMG_OUTS)
 
 ########################################################################
+# Workaround for not using symbolic links for linker and bionic libraries
+# in a minimal setup (eg buildbot or golem).
+########################################################################
+
+PRIVATE_BIONIC_FILES := \
+  bin/bootstrap/linker \
+  bin/bootstrap/linker64 \
+  lib/bootstrap/libc.so \
+  lib/bootstrap/libm.so \
+  lib/bootstrap/libdl.so \
+  lib64/bootstrap/libc.so \
+  lib64/bootstrap/libm.so \
+  lib64/bootstrap/libdl.so \
+
+PRIVATE_RUNTIME_DEPENDENCY_LIBS := \
+  lib/libnativebridge.so \
+  lib64/libnativebridge.so \
+  lib/libnativehelper.so \
+  lib64/libnativehelper.so \
+  lib/libdexfile_external.so \
+  lib64/libdexfile_external.so \
+  lib/libnativeloader.so \
+  lib64/libnativeloader.so \
+  lib/libandroidio.so \
+  lib64/libandroidio.so \
+
+# Copy some libraries into `$(TARGET_OUT)/lib(64)` (the
+# `/system/lib(64)` directory to be sync'd to the target) for ART testing
+# purposes:
+# - Bionic bootstrap libraries, copied from
+#   `$(TARGET_OUT)/lib(64)/bootstrap` (the `/system/lib(64)/bootstrap`
+#   directory to be sync'd to the target);
+# - Some libraries which are part of the Runtime APEX; if the product
+#   to build uses flattened APEXes, these libraries are copied from
+#   `$(TARGET_OUT)/apex/com.android.runtime.debug` (the flattened
+#   (Debug) Runtime APEX directory to be sync'd to the target);
+#   otherwise, they are copied from
+#   `$(TARGET_OUT)/../apex/com.android.runtime.debug` (the local
+#   directory under the build tree containing the (Debug) Runtime APEX
+#   artifacts, which is not sync'd to the target).
+#
+# TODO(b/121117762): Remove this when the ART Buildbot and Golem have
+# full support for the Runtime APEX.
+.PHONY: standalone-apex-files
+standalone-apex-files: libc.bootstrap libdl.bootstrap libm.bootstrap linker com.android.runtime.debug
+	for f in $(PRIVATE_BIONIC_FILES); do \
+	  tf=$(TARGET_OUT)/$$f; \
+	  if [ -f $$tf ]; then cp -f $$tf $$(echo $$tf | sed 's,bootstrap/,,'); fi; \
+	done
+	if [ "x$(TARGET_FLATTEN_APEX)" = xtrue ]; then \
+	  runtime_apex_orig_dir=$(TARGET_OUT)/apex/com.android.runtime.debug; \
+	else \
+	  runtime_apex_orig_dir=$(TARGET_OUT)/../apex/com.android.runtime.debug; \
+	fi; \
+	for f in $(PRIVATE_RUNTIME_DEPENDENCY_LIBS); do \
+	  tf="$$runtime_apex_orig_dir/$$f"; \
+	  if [ -f $$tf ]; then cp -f $$tf $(TARGET_OUT)/$$f; fi; \
+	done
+
+########################################################################
 # Phony target for only building what go/lem requires for pushing ART on /data.
 
 .PHONY: build-art-target-golem
 # Also include libartbenchmark, we always include it when running golem.
 # libstdc++ is needed when building for ART_TARGET_LINUX.
+#
+# Also include the bootstrap Bionic libraries (libc, libdl, libm).
+# These are required as the "main" libc, libdl, and libm have moved to
+# the Runtime APEX. This is a temporary change needed until Golem
+# fully supports the Runtime APEX.
+# TODO(b/121117762): Remove this when the ART Buildbot and Golem have
+# full support for the Runtime APEX.
+#
+# Also include a copy of the ICU .dat prebuilt files in
+# /system/etc/icu on target (see module `icu-data-art-test`), so that
+# it can found even if the Runtime APEX is not available, by setting
+# the environment variable `ART_TEST_ANDROID_RUNTIME_ROOT` to
+# "/system" on device. This is a temporary change needed until Golem
+# fully supports the Runtime APEX.
+# TODO(b/121117762): Remove this when the ART Buildbot and Golem have
+# full support for the Runtime APEX.
 ART_TARGET_SHARED_LIBRARY_BENCHMARK := $(TARGET_OUT_SHARED_LIBRARIES)/libartbenchmark.so
-build-art-target-golem: dex2oat dalvikvm patchoat linker libstdc++ \
+build-art-target-golem: dex2oat dalvikvm linker libstdc++ \
                         $(TARGET_OUT_EXECUTABLES)/art \
                         $(TARGET_OUT)/etc/public.libraries.txt \
                         $(ART_TARGET_DEX_DEPENDENCIES) \
                         $(ART_TARGET_SHARED_LIBRARY_DEPENDENCIES) \
                         $(ART_TARGET_SHARED_LIBRARY_BENCHMARK) \
                         $(TARGET_CORE_IMG_OUT_BASE).art \
-                        $(TARGET_CORE_IMG_OUT_BASE)-interpreter.art
-	# remove libartd.so and libdexfiled.so from public.libraries.txt because golem builds
+                        $(TARGET_CORE_IMG_OUT_BASE)-interpreter.art \
+                        libc.bootstrap libdl.bootstrap libm.bootstrap \
+                        icu-data-art-test \
+                        standalone-apex-files
+	# remove debug libraries from public.libraries.txt because golem builds
 	# won't have it.
 	sed -i '/libartd.so/d' $(TARGET_OUT)/etc/public.libraries.txt
 	sed -i '/libdexfiled.so/d' $(TARGET_OUT)/etc/public.libraries.txt
+	sed -i '/libprofiled.so/d' $(TARGET_OUT)/etc/public.libraries.txt
+	sed -i '/libartbased.so/d' $(TARGET_OUT)/etc/public.libraries.txt
 
 ########################################################################
 # Phony target for building what go/lem requires on host.
@@ -496,97 +631,97 @@ build-art-unbundled-golem: art-runtime linker oatdump $(TARGET_CORE_JARS) crash_
 build-art-host-tests:   build-art-host $(TEST_ART_RUN_TEST_DEPENDENCIES) $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES) $(ART_TEST_HOST_GTEST_DEPENDENCIES) | $(TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES)
 
 .PHONY: build-art-target-tests
-build-art-target-tests:   build-art-target $(TEST_ART_RUN_TEST_DEPENDENCIES) $(TEST_ART_TARGET_SYNC_DEPS) | $(TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES)
+build-art-target-tests:   build-art-target $(TEST_ART_RUN_TEST_DEPENDENCIES) $(ART_TEST_TARGET_RUN_TEST_DEPENDENCIES) $(ART_TEST_TARGET_GTEST_DEPENDENCIES) | $(TEST_ART_RUN_TEST_ORDERONLY_DEPENDENCIES)
 
 ########################################################################
 # targets to switch back and forth from libdvm to libart
 
 .PHONY: use-art
 use-art:
-	adb root
-	adb wait-for-device shell stop
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libart.so
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libart.so
+	$(ADB) shell start
 
 .PHONY: use-artd
 use-artd:
-	adb root
-	adb wait-for-device shell stop
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
+	$(ADB) shell start
 
 .PHONY: use-dalvik
 use-dalvik:
-	adb root
-	adb wait-for-device shell stop
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libdvm.so
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libdvm.so
+	$(ADB) shell start
 
 .PHONY: use-art-full
 use-art-full:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter \"\"
-	adb shell setprop dalvik.vm.image-dex2oat-filter \"\"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libart.so
-	adb shell setprop dalvik.vm.usejit false
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter \"\"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter \"\"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libart.so
+	$(ADB) shell setprop dalvik.vm.usejit false
+	$(ADB) shell start
 
 .PHONY: use-artd-full
 use-artd-full:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter \"\"
-	adb shell setprop dalvik.vm.image-dex2oat-filter \"\"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
-	adb shell setprop dalvik.vm.usejit false
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter \"\"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter \"\"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
+	$(ADB) shell setprop dalvik.vm.usejit false
+	$(ADB) shell start
 
 .PHONY: use-art-jit
 use-art-jit:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter "verify-at-runtime"
-	adb shell setprop dalvik.vm.image-dex2oat-filter "verify-at-runtime"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libart.so
-	adb shell setprop dalvik.vm.usejit true
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter "verify-at-runtime"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter "verify-at-runtime"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libart.so
+	$(ADB) shell setprop dalvik.vm.usejit true
+	$(ADB) shell start
 
 .PHONY: use-art-interpret-only
 use-art-interpret-only:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter "interpret-only"
-	adb shell setprop dalvik.vm.image-dex2oat-filter "interpret-only"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libart.so
-	adb shell setprop dalvik.vm.usejit false
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter "interpret-only"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter "interpret-only"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libart.so
+	$(ADB) shell setprop dalvik.vm.usejit false
+	$(ADB) shell start
 
 .PHONY: use-artd-interpret-only
 use-artd-interpret-only:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter "interpret-only"
-	adb shell setprop dalvik.vm.image-dex2oat-filter "interpret-only"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
-	adb shell setprop dalvik.vm.usejit false
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter "interpret-only"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter "interpret-only"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libartd.so
+	$(ADB) shell setprop dalvik.vm.usejit false
+	$(ADB) shell start
 
 .PHONY: use-art-verify-none
 use-art-verify-none:
-	adb root
-	adb wait-for-device shell stop
-	adb shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
-	adb shell setprop dalvik.vm.dex2oat-filter "verify-none"
-	adb shell setprop dalvik.vm.image-dex2oat-filter "verify-none"
-	adb shell setprop persist.sys.dalvik.vm.lib.2 libart.so
-	adb shell setprop dalvik.vm.usejit false
-	adb shell start
+	$(ADB) root
+	$(ADB) wait-for-device shell stop
+	$(ADB) shell rm -rf $(ART_TARGET_DALVIK_CACHE_DIR)/*
+	$(ADB) shell setprop dalvik.vm.dex2oat-filter "verify-none"
+	$(ADB) shell setprop dalvik.vm.image-dex2oat-filter "verify-none"
+	$(ADB) shell setprop persist.sys.dalvik.vm.lib.2 libart.so
+	$(ADB) shell setprop dalvik.vm.usejit false
+	$(ADB) shell start
 
 ########################################################################
 
@@ -598,11 +733,11 @@ TEST_ART_TARGET_SYNC_DEPS :=
 # Can be used, for example, to dump initialization failures:
 #   m art-boot-image ART_BOOT_IMAGE_EXTRA_ARGS=--dump-init-failures=fails.txt
 .PHONY: art-boot-image
-art-boot-image: $(DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME)
+art-boot-image:  $(DEXPREOPT_IMAGE_boot_$(TARGET_ARCH))
 
 .PHONY: art-job-images
 art-job-images: \
-  $(DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) \
+  art-boot-image \
   $(2ND_DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) \
   $(HOST_OUT_EXECUTABLES)/dex2oats \
   $(HOST_OUT_EXECUTABLES)/dex2oatds \

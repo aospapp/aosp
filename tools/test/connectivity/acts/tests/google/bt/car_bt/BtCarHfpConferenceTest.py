@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -66,12 +66,12 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
         1. Devices are connected over HFP.
 
         Steps:
-        1. Make a call from re to AG
-        2. Wait for dialing on re and ringing on HF/AG.
-        3. Accept the call on HF
-        4. Make a call on RE2 to AG
-        5. Wait for dialing on re and ringing on HF/AG.
-        6. Accept the call on HF.
+        1. Make a call from AG to RE
+        2. Wait for dialing on re and ringing on RE/HF.
+        3. Accept the call on RE
+        4. Make a call from AG to RE2
+        5. Wait for dialing on re and ringing on RE2/HF.
+        6. Accept the call on RE2.
         7. See that HF/AG have one active and one held call.
         8. Merge the call on HF.
         9. Verify that we have a conference call on HF/AG.
@@ -84,15 +84,15 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
 
         Priority: 0
         """
-        timeout_for_state_updates = 3
-        # Dial AG from re
-        if not initiate_call(self.log, self.re, self.ag_phone_number):
+
+        # Dial RE from AG
+        if not initiate_call(self.log, self.ag, self.re_phone_number):
             self.log.error("Failed to initiate call from re.")
             return False
 
         # Wait for dialing/ringing
         ret = True
-        ret &= wait_for_ringing_call(self.log, self.ag)
+        ret &= wait_for_ringing_call(self.log, self.re)
         ret &= car_telecom_utils.wait_for_ringing(self.log, self.hf)
 
         if not ret:
@@ -103,24 +103,28 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
         time.sleep(SHORT_TIMEOUT)
         # Extract the call.
         call_1 = car_telecom_utils.get_calls_in_states(
-            self.log, self.hf, [tel_defines.CALL_STATE_RINGING])
+            self.log, self.hf, [tel_defines.CALL_STATE_DIALING])
         if len(call_1) != 1:
             self.hf.log.error("Call State in ringing failed {}".format(call_1))
             return False
 
-        # Accept the call on HF
-        if not car_telecom_utils.accept_call(self.log, self.hf, call_1[0]):
+        re_ringing_call_id = car_telecom_utils.get_calls_in_states(
+            self.log, self.re, [tel_defines.CALL_STATE_RINGING])
+
+        # Accept the call on RE
+        if not car_telecom_utils.accept_call(self.log, self.re, re_ringing_call_id[0]):
             self.hf.log.error("Accepting call failed {}".format(
                 self.hf.serial))
             return False
 
-        # Dial another call from RE2
-        if not initiate_call(self.log, self.re2, self.ag_phone_number):
+        time.sleep(SHORT_TIMEOUT)
+        # Dial another call to RE2
+        if not initiate_call(self.log, self.ag, self.re2_phone_number):
             self.re2.log.error("Failed to initiate call from re.")
             return False
 
         # Wait for dialing/ringing
-        ret &= wait_for_ringing_call(self.log, self.ag)
+        ret &= wait_for_ringing_call(self.log, self.re2)
         ret &= car_telecom_utils.wait_for_ringing(self.log, self.hf)
 
         if not ret:
@@ -132,30 +136,34 @@ class BtCarHfpConferenceTest(BluetoothCarHfpBaseTest):
         # Extract the call.
         # input("Continue?")
         call_2 = car_telecom_utils.get_calls_in_states(
-            self.log, self.hf, [tel_defines.CALL_STATE_RINGING])
+            self.log, self.hf, [tel_defines.CALL_STATE_DIALING])
         if len(call_2) != 1:
             self.hf.log.info("Call State in ringing failed {}".format(call_2))
             return False
 
+        re2_ringing_call_id = car_telecom_utils.get_calls_in_states(
+            self.log, self.re2, [tel_defines.CALL_STATE_RINGING])
+
         # Accept the call on HF
-        if not car_telecom_utils.accept_call(self.log, self.hf, call_2[0]):
+        if not car_telecom_utils.accept_call(self.log, self.re2, re2_ringing_call_id[0]):
             self.hf.log.info("Accepting call failed {}".format(self.hf.serial))
             return False
+
+        # Give time before merge for state to update due to carrier limitations
+        time.sleep(SHORT_TIMEOUT)
 
         # Merge the calls now.
         self.hf.droid.telecomCallJoinCallsInConf(call_1[0], call_2[0])
 
         # Check if we are in conference with call_1 and call_2
-        conf_call_id = car_telecom_utils.wait_for_conference(
-            self.log, self.hf, [call_1[0], call_2[0]])
-        if conf_call_id == None:
+        conf_call_id = car_telecom_utils.wait_for_conference(self.log, self.hf, participants=2)
+        if conf_call_id is None:
             self.hf.log.error("Did not get the conference setup correctly")
             return False
 
         # Now hangup the conference call.
         if not car_telecom_utils.hangup_conf(self.log, self.hf, conf_call_id):
-            self.hf.log.error("Could not hangup conference call {}!".format(
-                conf_call_id))
+            self.hf.log.error("Could not hangup conference call {}!".format(conf_call_id))
             return False
 
         return True

@@ -173,7 +173,7 @@ LiteralConstantExpression::LiteralConstantExpression(
 
     CHECK(!expr.empty());
     CHECK(isSupported(kind));
-    mTrivialDescription = true;
+    mTrivialDescription = std::to_string(value) == expr;
     mExpr = expr;
     mValueKind = kind;
     mValue = value;
@@ -254,7 +254,7 @@ void UnaryConstantExpression::evaluate() {
     CHECK(mUnary->isEvaluated());
     mIsEvaluated = true;
 
-    mExpr = std::string("(") + mOp + mUnary->description() + ")";
+    mExpr = std::string("(") + mOp + mUnary->mExpr + ")";
     mValueKind = mUnary->mValueKind;
 
 #define CASE_UNARY(__type__)                                          \
@@ -270,7 +270,7 @@ void BinaryConstantExpression::evaluate() {
     CHECK(mRval->isEvaluated());
     mIsEvaluated = true;
 
-    mExpr = std::string("(") + mLval->description() + " " + mOp + " " + mRval->description() + ")";
+    mExpr = std::string("(") + mLval->mExpr + " " + mOp + " " + mRval->mExpr + ")";
 
     bool isArithmeticOrBitflip = OP_IS_BIN_ARITHMETIC || OP_IS_BIN_BITFLIP;
 
@@ -330,8 +330,7 @@ void TernaryConstantExpression::evaluate() {
     CHECK(mFalseVal->isEvaluated());
     mIsEvaluated = true;
 
-    mExpr = std::string("(") + mCond->description() + "?" + mTrueVal->description() + ":" +
-            mFalseVal->description() + ")";
+    mExpr = std::string("(") + mCond->mExpr + "?" + mTrueVal->mExpr + ":" + mFalseVal->mExpr + ")";
 
     // note: for ?:, unlike arithmetic ops, integral promotion is not processed.
     mValueKind = usualArithmeticConversion(mTrueVal->mValueKind, mFalseVal->mValueKind);
@@ -356,34 +355,54 @@ void ReferenceConstantExpression::evaluate() {
     mIsEvaluated = true;
 }
 
+status_t AttributeConstantExpression::validate() const {
+    if (mTag == "len") {
+        if (!mReference->isEnum()) {
+            std::cerr << "ERROR: " << mExpr << " refers to " << mReference->typeName()
+                      << " but should refer to an enum." << std::endl;
+            return UNKNOWN_ERROR;
+        }
+    } else {
+        std::cerr << "ERROR: " << mExpr << " is not a supported tag" << std::endl;
+        return UNKNOWN_ERROR;
+    }
+
+    return OK;
+}
+
+void AttributeConstantExpression::evaluate() {
+    if (isEvaluated()) return;
+
+    CHECK(mTag == "len");
+    CHECK(mReference->isEnum());
+
+    EnumType* enumType = static_cast<EnumType*>(mReference.get());
+    mValue = enumType->numValueNames();
+
+    if (mValue <= INT32_MAX)
+        mValueKind = SK(INT32);
+    else
+        mValueKind = SK(INT64);
+
+    mIsEvaluated = true;
+}
+
 std::unique_ptr<ConstantExpression> ConstantExpression::addOne(ScalarType::Kind baseKind) {
     auto ret = std::make_unique<BinaryConstantExpression>(
         this, "+", ConstantExpression::One(baseKind).release());
     return ret;
 }
 
-const std::string& ConstantExpression::description() const {
-    CHECK(isEvaluated());
-    return mExpr;
-}
-
-bool ConstantExpression::descriptionIsTrivial() const {
-    CHECK(isEvaluated());
-    return mTrivialDescription;
-}
-
 std::string ConstantExpression::value() const {
-    CHECK(isEvaluated());
-    return rawValue(mValueKind);
+    return value(mValueKind);
 }
 
 std::string ConstantExpression::value(ScalarType::Kind castKind) const {
     CHECK(isEvaluated());
-    return rawValue(castKind);
+    return rawValue(castKind) + descriptionSuffix();
 }
 
 std::string ConstantExpression::cppValue() const {
-    CHECK(isEvaluated());
     return cppValue(mValueKind);
 }
 
@@ -399,35 +418,60 @@ std::string ConstantExpression::cppValue(ScalarType::Kind castKind) const {
     // -(uint64_t)9223372036854775808 == 9223372036854775808 could not
     // be narrowed to int64_t.
     if(castKind == SK(INT64) && (int64_t)mValue == INT64_MIN) {
-        return "static_cast<" +
-               ScalarType(SK(INT64), nullptr /* parent */).getCppStackType()  // "int64_t"
-               + ">(" + literal + "ull)";
+        literal = "static_cast<" +
+                  ScalarType(SK(INT64), nullptr /* parent */).getCppStackType()  // "int64_t"
+                  + ">(" + literal + "ull)";
+    } else {
+        // add suffix if necessary.
+        if (castKind == SK(UINT32) || castKind == SK(UINT64)) literal += "u";
+        if (castKind == SK(UINT64) || castKind == SK(INT64)) literal += "ll";
     }
 
-    // add suffix if necessary.
-    if(castKind == SK(UINT32) || castKind == SK(UINT64)) literal += "u";
-    if(castKind == SK(UINT64) || castKind == SK(INT64)) literal += "ll";
-    return literal;
+    return literal + descriptionSuffix();
 }
 
 std::string ConstantExpression::javaValue() const {
-    CHECK(isEvaluated());
     return javaValue(mValueKind);
 }
 
 std::string ConstantExpression::javaValue(ScalarType::Kind castKind) const {
     CHECK(isEvaluated());
+    std::string literal;
+
     switch(castKind) {
-        case SK(UINT64): return rawValue(SK(INT64)) + "L";
-        case SK(INT64):  return rawValue(SK(INT64)) + "L";
-        case SK(UINT32): return rawValue(SK(INT32));
-        case SK(UINT16): return rawValue(SK(INT16));
-        case SK(UINT8) : return rawValue(SK(INT8));
+        case SK(UINT64):
+            literal = rawValue(SK(INT64)) + "L";
+            break;
+        case SK(INT64):
+            literal = rawValue(SK(INT64)) + "L";
+            break;
+        case SK(UINT32):
+            literal = rawValue(SK(INT32));
+            break;
+        case SK(UINT16):
+            literal = rawValue(SK(INT16));
+            break;
+        case SK(UINT8):
+            literal = rawValue(SK(INT8));
+            break;
         case SK(BOOL)  :
-            return this->cast<bool>() ? "true" : "false";
-        default: break;
+            literal = this->cast<bool>() ? "true" : "false";
+            break;
+        default:
+            literal = rawValue(castKind);
+            break;
     }
-    return rawValue(castKind);
+
+    return literal + descriptionSuffix();
+}
+
+const std::string& ConstantExpression::expression() const {
+    CHECK(isEvaluated());
+    return mExpr;
+}
+
+std::string ConstantExpression::rawValue() const {
+    return rawValue(mValueKind);
 }
 
 std::string ConstantExpression::rawValue(ScalarType::Kind castKind) const {
@@ -435,7 +479,7 @@ std::string ConstantExpression::rawValue(ScalarType::Kind castKind) const {
 
 #define CASE_STR(__type__) return std::to_string(this->cast<__type__>());
 
-    SWITCH_KIND(castKind, CASE_STR, SHOULD_NOT_REACH(); return 0; );
+    SWITCH_KIND(castKind, CASE_STR, SHOULD_NOT_REACH(); return nullptr; );
 }
 
 template<typename T>
@@ -447,6 +491,17 @@ T ConstantExpression::cast() const {
     SWITCH_KIND(mValueKind, CASE_CAST_T, SHOULD_NOT_REACH(); return 0; );
 }
 
+std::string ConstantExpression::descriptionSuffix() const {
+    CHECK(isEvaluated());
+
+    if (!mTrivialDescription) {
+        CHECK(!mExpr.empty());
+
+        return " /* " + mExpr + " */";
+    }
+    return "";
+}
+
 size_t ConstantExpression::castSizeT() const {
     CHECK(isEvaluated());
     return this->cast<size_t>();
@@ -454,6 +509,10 @@ size_t ConstantExpression::castSizeT() const {
 
 bool ConstantExpression::isReferenceConstantExpression() const {
     return false;
+}
+
+status_t ConstantExpression::validate() const {
+    return OK;
 }
 
 std::vector<ConstantExpression*> ConstantExpression::getConstantExpressions() {
@@ -473,6 +532,18 @@ std::vector<Reference<LocalIdentifier>*> ConstantExpression::getReferences() {
 }
 
 std::vector<const Reference<LocalIdentifier>*> ConstantExpression::getReferences() const {
+    return {};
+}
+
+std::vector<Reference<Type>*> ConstantExpression::getTypeReferences() {
+    const auto& constRet = static_cast<const ConstantExpression*>(this)->getTypeReferences();
+    std::vector<Reference<Type>*> ret(constRet.size());
+    std::transform(constRet.begin(), constRet.end(), ret.begin(),
+                   [](const auto* ce) { return const_cast<Reference<Type>*>(ce); });
+    return ret;
+}
+
+std::vector<const Reference<Type>*> ConstantExpression::getTypeReferences() const {
     return {};
 }
 
@@ -652,6 +723,22 @@ std::vector<const ConstantExpression*> ReferenceConstantExpression::getConstantE
 }
 
 std::vector<const Reference<LocalIdentifier>*> ReferenceConstantExpression::getReferences() const {
+    return {&mReference};
+}
+
+AttributeConstantExpression::AttributeConstantExpression(const Reference<Type>& value,
+                                                         const std::string& fqname,
+                                                         const std::string& tag)
+    : mReference(value), mTag(tag) {
+    mExpr = fqname + "#" + tag;
+}
+
+std::vector<const ConstantExpression*> AttributeConstantExpression::getConstantExpressions() const {
+    // Returns reference instead
+    return {};
+}
+
+std::vector<const Reference<Type>*> AttributeConstantExpression::getTypeReferences() const {
     return {&mReference};
 }
 

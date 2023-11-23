@@ -22,6 +22,7 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
+import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.dvr.data.ScheduledRecording;
@@ -29,7 +30,7 @@ import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
 
 /** A class for details content. */
-class DetailsContent {
+public class DetailsContent {
     /** Constant for invalid time. */
     public static final long INVALID_TIME = -1;
 
@@ -40,6 +41,7 @@ class DetailsContent {
     private String mLogoImageUri;
     private String mBackgroundImageUri;
     private boolean mUsingChannelLogo;
+    private boolean mShowErrorMessage;
 
     static DetailsContent createFromRecordedProgram(
             Context context, RecordedProgram recordedProgram) {
@@ -56,6 +58,23 @@ class DetailsContent {
                                 : recordedProgram.getLongDescription())
                 .setPosterArtUri(recordedProgram.getPosterArtUri())
                 .setThumbnailUri(recordedProgram.getThumbnailUri())
+                .build(context);
+    }
+
+    public static DetailsContent createFromProgram(Context context, Program program) {
+        return new DetailsContent.Builder()
+                .setChannelId(program.getChannelId())
+                .setProgramTitle(program.getTitle())
+                .setSeasonNumber(program.getSeasonNumber())
+                .setEpisodeNumber(program.getEpisodeNumber())
+                .setStartTimeUtcMillis(program.getStartTimeUtcMillis())
+                .setEndTimeUtcMillis(program.getEndTimeUtcMillis())
+                .setDescription(
+                        TextUtils.isEmpty(program.getLongDescription())
+                                ? program.getDescription()
+                                : program.getLongDescription())
+                .setPosterArtUri(program.getPosterArtUri())
+                .setThumbnailUri(program.getThumbnailUri())
                 .build(context);
     }
 
@@ -79,37 +98,9 @@ class DetailsContent {
                 TvSingletons.getSingletons(context)
                         .getChannelDataManager()
                         .getChannel(scheduledRecording.getChannelId());
-        String description =
-                !TextUtils.isEmpty(scheduledRecording.getProgramDescription())
-                        ? scheduledRecording.getProgramDescription()
-                        : scheduledRecording.getProgramLongDescription();
-        if (TextUtils.isEmpty(description)) {
-            description = channel != null ? channel.getDescription() : null;
-        }
-        return new DetailsContent.Builder()
-                .setChannelId(scheduledRecording.getChannelId())
-                .setProgramTitle(scheduledRecording.getProgramTitle())
-                .setSeasonNumber(scheduledRecording.getSeasonNumber())
-                .setEpisodeNumber(scheduledRecording.getEpisodeNumber())
-                .setStartTimeUtcMillis(scheduledRecording.getStartTimeMs())
-                .setEndTimeUtcMillis(scheduledRecording.getEndTimeMs())
-                .setDescription(description)
-                .setPosterArtUri(scheduledRecording.getProgramPosterArtUri())
-                .setThumbnailUri(scheduledRecording.getProgramThumbnailUri())
-                .build(context);
-    }
-
-    static DetailsContent createFromFailedScheduledRecording(
-            Context context, ScheduledRecording scheduledRecording, String errMsg) {
-        Channel channel =
-                TvSingletons.getSingletons(context)
-                        .getChannelDataManager()
-                        .getChannel(scheduledRecording.getChannelId());
         String description;
-        if (scheduledRecording.getState() == ScheduledRecording.STATE_RECORDING_FAILED
-                && errMsg != null) {
-            description = errMsg
-                    + " (Error code: " + scheduledRecording.getFailedReason() + ")";
+        if (scheduledRecording.getState() == ScheduledRecording.STATE_RECORDING_FAILED) {
+            description = getErrorMessage(context, scheduledRecording);
         } else {
             description =
                     !TextUtils.isEmpty(scheduledRecording.getProgramDescription())
@@ -129,7 +120,37 @@ class DetailsContent {
                 .setDescription(description)
                 .setPosterArtUri(scheduledRecording.getProgramPosterArtUri())
                 .setThumbnailUri(scheduledRecording.getProgramThumbnailUri())
+                .setShowErrorMessage(
+                        scheduledRecording.getState() == ScheduledRecording.STATE_RECORDING_FAILED)
                 .build(context);
+    }
+
+    private static String getErrorMessage(Context context, ScheduledRecording recording) {
+        int reason = recording.getFailedReason() == null
+                ? ScheduledRecording.FAILED_REASON_OTHER
+                : recording.getFailedReason();
+        switch (reason) {
+            case ScheduledRecording.FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED:
+                return context.getString(R.string.dvr_recording_failed_not_started);
+            case ScheduledRecording.FAILED_REASON_RESOURCE_BUSY:
+                return context.getString(R.string.dvr_recording_failed_resource_busy);
+            case ScheduledRecording.FAILED_REASON_INPUT_UNAVAILABLE:
+                return context.getString(
+                        R.string.dvr_recording_failed_input_unavailable,
+                        recording.getInputId());
+            case ScheduledRecording.FAILED_REASON_INPUT_DVR_UNSUPPORTED:
+                return context.getString(R.string.dvr_recording_failed_input_dvr_unsupported);
+            case ScheduledRecording.FAILED_REASON_INSUFFICIENT_SPACE:
+                return context.getString(R.string.dvr_recording_failed_insufficient_space);
+            case ScheduledRecording.FAILED_REASON_OTHER: // fall through
+            case ScheduledRecording.FAILED_REASON_NOT_FINISHED: // fall through
+            case ScheduledRecording.FAILED_REASON_SCHEDULER_STOPPED: // fall through
+            case ScheduledRecording.FAILED_REASON_INVALID_CHANNEL: // fall through
+            case ScheduledRecording.FAILED_REASON_MESSAGE_NOT_SENT: // fall through
+            case ScheduledRecording.FAILED_REASON_CONNECTION_FAILED: // fall through
+            default:
+                return context.getString(R.string.dvr_recording_failed_system_failure, reason);
+        }
     }
 
     private DetailsContent() {}
@@ -169,6 +190,11 @@ class DetailsContent {
         return mUsingChannelLogo;
     }
 
+    /** Returns if the error message should be shown. */
+    public boolean shouldShowErrorMessage() {
+        return mShowErrorMessage;
+    }
+
     /** Copies other details content. */
     public void copyFrom(DetailsContent other) {
         if (this == other) {
@@ -181,6 +207,7 @@ class DetailsContent {
         mLogoImageUri = other.mLogoImageUri;
         mBackgroundImageUri = other.mBackgroundImageUri;
         mUsingChannelLogo = other.mUsingChannelLogo;
+        mShowErrorMessage = other.mShowErrorMessage;
     }
 
     /** A class for building details content. */
@@ -263,6 +290,11 @@ class DetailsContent {
 
         private Builder setThumbnailUri(String thumbnailUri) {
             mThumbnailUri = thumbnailUri;
+            return this;
+        }
+
+        private Builder setShowErrorMessage(boolean showErrorMessage) {
+            mDetailsContent.mShowErrorMessage = showErrorMessage;
             return this;
         }
 

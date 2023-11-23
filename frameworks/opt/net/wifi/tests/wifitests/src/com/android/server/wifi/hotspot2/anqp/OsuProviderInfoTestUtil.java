@@ -32,7 +32,7 @@ public class OsuProviderInfoTestUtil {
     // Test data
     private static final List<I18Name> TEST_FRIENDLY_NAMES =
             Arrays.asList(new I18Name("en", Locale.forLanguageTag("en"), "FriendlyName"));
-    private static final String TEST_SERVER_URI = "test.server.com";
+    private static final String TEST_SERVER_URI = "https://test.server.com";
     private static final List<Integer> TEST_METHOD_LIST = Arrays.asList(0, 1);
     private static final List<IconInfo> TEST_ICON_INFO_LIST =
             Arrays.asList(IconInfoTestUtil.TEST_ICON_INFO);

@@ -60,13 +60,8 @@ public class RunCommandTargetPreparer extends BaseTargetPreparer implements ITar
             isTimeVal = true)
     private long mRunCmdTimeout = 0;
 
-    @Option(
-        name = "use-shell-v2",
-        description =
-                "Whether or not to use the shell v2 execution which provides status and output "
-                        + "for the shell command."
-    )
-    private boolean mUseShellV2 = false;
+    @Option(name = "throw-if-cmd-fail", description = "Whether or not to throw if a command fails")
+    private boolean mThrowIfFailed = false;
 
     private Map<BackgroundDeviceAction, CollectingOutputReceiver> mBgDeviceActionsMap =
             new HashMap<>();
@@ -88,42 +83,34 @@ public class RunCommandTargetPreparer extends BaseTargetPreparer implements ITar
         }
 
         for (String cmd : mCommands) {
-            CLog.d("About to run setup command on device %s: %s", device.getSerialNumber(), cmd);
             CommandResult result;
-            if (!mUseShellV2) {
-                // Shell v1 without command status.
-                if (mRunCmdTimeout > 0) {
-                    CollectingOutputReceiver receiver = new CollectingOutputReceiver();
-                    device.executeShellCommand(
-                            cmd, receiver, mRunCmdTimeout, TimeUnit.MILLISECONDS, 0);
-                    CLog.v("cmd: '%s', returned:\n%s", cmd, receiver.getOutput());
-                } else {
-                    String output = device.executeShellCommand(cmd);
-                    CLog.v("cmd: '%s', returned:\n%s", cmd, output);
-                }
+            // Shell v2 with command status checks
+            if (mRunCmdTimeout > 0) {
+                result =
+                        device.executeShellV2Command(cmd, mRunCmdTimeout, TimeUnit.MILLISECONDS, 0);
             } else {
-                // Shell v2 with command status checks
-                if (mRunCmdTimeout > 0) {
-                    result =
-                            device.executeShellV2Command(
-                                    cmd, mRunCmdTimeout, TimeUnit.MILLISECONDS, 0);
-                } else {
-                    result = device.executeShellV2Command(cmd);
-                }
-                // Ensure the command ran successfully.
-                if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
+                result = device.executeShellV2Command(cmd);
+            }
+            // Ensure the command ran successfully.
+            if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
+                if (mThrowIfFailed) {
                     throw new TargetSetupError(
                             String.format(
                                     "Failed to run '%s' without error. stdout: '%s'\nstderr: '%s'",
                                     cmd, result.getStdout(), result.getStderr()),
                             device.getDeviceDescriptor());
+                } else {
+                    CLog.d(
+                            "cmd: '%s' failed, returned:\nstdout:%s\nstderr:%s",
+                            cmd, result.getStdout(), result.getStderr());
                 }
-                CLog.v("cmd: '%s', returned:\n%s", cmd, result.getStdout());
             }
         }
 
-        CLog.d("Sleeping %d msecs on device %s", mDelayMsecs, device.getSerialNumber());
-        RunUtil.getDefault().sleep(mDelayMsecs);
+        if (mDelayMsecs > 0) {
+            CLog.d("Sleeping %d msecs on device %s", mDelayMsecs, device.getSerialNumber());
+            RunUtil.getDefault().sleep(mDelayMsecs);
+        }
     }
 
     /**
@@ -141,14 +128,18 @@ public class RunCommandTargetPreparer extends BaseTargetPreparer implements ITar
             }
             bgAction.getKey().cancel();
         }
-
-        for (String cmd : mTeardownCommands) {
-            CLog.d("About to run tearDown command on device %s: %s", device.getSerialNumber(),
-                    cmd);
-            String output = device.executeShellCommand(cmd);
-            CLog.v("tearDown cmd: '%s', returned:\n%s", cmd, output);
+        if (e instanceof DeviceNotAvailableException) {
+            CLog.e("Skipping command teardown since exception was DeviceNotAvailable");
+            return;
         }
-
+        for (String cmd : mTeardownCommands) {
+            CommandResult result = device.executeShellV2Command(cmd);
+            if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
+                CLog.d(
+                        "tearDown cmd: '%s' failed, returned:\nstdout:%s\nstderr:%s",
+                        cmd, result.getStdout(), result.getStderr());
+            }
+        }
     }
 }
 

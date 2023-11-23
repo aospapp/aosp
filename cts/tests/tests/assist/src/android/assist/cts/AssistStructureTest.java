@@ -16,14 +16,10 @@
 
 package android.assist.cts;
 
+import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.util.Log;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 
@@ -35,98 +31,37 @@ public class AssistStructureTest extends AssistTestBase {
     private static final String TAG = "AssistStructureTest";
     private static final String TEST_CASE_TYPE = Utils.ASSIST_STRUCTURE;
 
-    private BroadcastReceiver mReceiver;
-    private CountDownLatch mHasResumedLatch = new CountDownLatch(1);
-    private CountDownLatch mHasDrawedLatch = new CountDownLatch(1);
-    private CountDownLatch mReadyLatch = new CountDownLatch(1);
-
-    public AssistStructureTest() {
-        super();
-    }
+    private AutoResetLatch mHasDrawedLatch;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        setUpAndRegisterReceiver();
+        mHasDrawedLatch = new AutoResetLatch(1);
+        mActionLatchReceiver = new ActionLatchReceiver(Utils.APP_3P_HASDRAWED, mHasDrawedLatch);
         startTestActivity(TEST_CASE_TYPE);
     }
-
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-            mReceiver = null;
-        }
-    }
-
-    private void setUpAndRegisterReceiver() {
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-        }
-        mReceiver = new AssistStructureTestBroadcastReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Utils.APP_3P_HASRESUMED);
-        filter.addAction(Utils.APP_3P_HASDRAWED);
-        filter.addAction(Utils.ASSIST_RECEIVER_REGISTERED);
-        mContext.registerReceiver(mReceiver, filter);
-    }
-
-    private void waitForOnResume() throws Exception {
-        Log.i(TAG, "waiting for onResume() before continuing");
-        if (!mHasResumedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-            fail("Activity failed to resume in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
-        }
-
-    }
-
     private void waitForOnDraw() throws Exception {
         Log.i(TAG, "waiting for onDraw() before continuing");
         if (!mHasDrawedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
             fail("Activity failed to draw in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
         }
-
     }
 
     public void testAssistStructure() throws Throwable {
-        if (mActivityManager.isLowRamDevice()) {
-            Log.d(TAG, "Not running assist tests on low-RAM device.");
+        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS)) {
+            Log.d(TAG, "Not running assist tests - voice_recognizers feature is not supported");
             return;
         }
-        mTestActivity.start3pApp(TEST_CASE_TYPE);
-        mTestActivity.startTest(TEST_CASE_TYPE);
-        waitForAssistantToBeReady(mReadyLatch);
-        waitForOnResume();
+        start3pApp(TEST_CASE_TYPE);
+        startTest(TEST_CASE_TYPE);
+        waitForAssistantToBeReady();
         waitForOnDraw();
-        startSession();
-        waitForContext();
+        final AutoResetLatch latch = startSession();
+        waitForContext(latch);
         getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                verifyAssistDataNullness(false, false, false, false);
-                verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false /*FLAG_SECURE set*/);
-            }
+        runTestOnUiThread(() -> {
+            verifyAssistDataNullness(false, false, false, false);
+            verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE), false /*FLAG_SECURE set*/);
         });
-    }
-
-    private class AssistStructureTestBroadcastReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (action.equals(Utils.APP_3P_HASRESUMED)) {
-                if (mHasResumedLatch != null) {
-                    mHasResumedLatch.countDown();
-                }
-            } else if (action.equals(Utils.ASSIST_RECEIVER_REGISTERED)) {
-                if (mReadyLatch != null) {
-                    mReadyLatch.countDown();
-                }
-            }else if (action.equals(Utils.APP_3P_HASDRAWED)) {
-                if (mHasDrawedLatch != null) {
-                    mHasDrawedLatch.countDown();
-                }
-            }
-        }
     }
 }

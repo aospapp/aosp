@@ -17,14 +17,6 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "hardware.google.media.c2@1.0-service"
 
-// Vendor's TODO: Remove this when V4L2 service is removed. (See below.)
-// The dependency on libv4l2_c2componentstore should be removed as well.
-#include <C2V4l2Support.h>
-
-// Vendor's TODO: Remove this if property_get_bool is removed. (See below.)
-// The dependency on libcutils should be removed as well.
-#include <cutils/properties.h>
-
 #include <codec2/hidl/1.0/ComponentStore.h>
 #include <hidl/HidlTransportSupport.h>
 #include <binder/ProcessState.h>
@@ -123,18 +115,12 @@ int main(int /* argc */, char** /* argv */) {
         using namespace ::hardware::google::media::c2::V1_0;
         android::sp<IComponentStore> store;
 
-        // Vendor's TODO: Replace this if...else block with
+        // Vendor's TODO: Replace this with
         // store = new utils::ComponentStore(
         //         /* implementation of C2ComponentStore */);
-        if (property_get_bool("debug.stagefright.ccodec_v4l2", false)) {
-            ALOGD("Instantiating Codec2's V4L2 IComponentStore service...");
-            store = new utils::ComponentStore(
-                    android::GetCodec2VDAComponentStore());
-        } else {
-            ALOGD("Instantiating Codec2's dummy IComponentStore service...");
-            store = new utils::ComponentStore(
-                    std::make_shared<DummyC2Store>());
-        }
+        ALOGD("Instantiating Codec2's dummy IComponentStore service...");
+        store = new utils::ComponentStore(
+                std::make_shared<DummyC2Store>());
 
         if (store == nullptr) {
             ALOGE("Cannot create Codec2's IComponentStore service.");
@@ -162,4 +148,3 @@ int main(int /* argc */, char** /* argv */) {
     android::hardware::joinRpcThreadpool();
     return 0;
 }
-

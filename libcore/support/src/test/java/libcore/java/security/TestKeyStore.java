@@ -18,33 +18,6 @@ package libcore.java.security;
 
 import static org.junit.Assert.assertEquals;
 
-import com.android.org.bouncycastle.asn1.DEROctetString;
-import com.android.org.bouncycastle.asn1.x500.X500Name;
-import com.android.org.bouncycastle.asn1.x509.BasicConstraints;
-import com.android.org.bouncycastle.asn1.x509.CRLReason;
-import com.android.org.bouncycastle.asn1.x509.ExtendedKeyUsage;
-import com.android.org.bouncycastle.asn1.x509.Extension;
-import com.android.org.bouncycastle.asn1.x509.GeneralName;
-import com.android.org.bouncycastle.asn1.x509.GeneralNames;
-import com.android.org.bouncycastle.asn1.x509.GeneralSubtree;
-import com.android.org.bouncycastle.asn1.x509.KeyPurposeId;
-import com.android.org.bouncycastle.asn1.x509.KeyUsage;
-import com.android.org.bouncycastle.asn1.x509.NameConstraints;
-import com.android.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import com.android.org.bouncycastle.cert.X509CertificateHolder;
-import com.android.org.bouncycastle.cert.X509v3CertificateBuilder;
-import com.android.org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-import com.android.org.bouncycastle.cert.ocsp.BasicOCSPResp;
-import com.android.org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
-import com.android.org.bouncycastle.cert.ocsp.CertificateID;
-import com.android.org.bouncycastle.cert.ocsp.CertificateStatus;
-import com.android.org.bouncycastle.cert.ocsp.OCSPResp;
-import com.android.org.bouncycastle.cert.ocsp.OCSPRespBuilder;
-import com.android.org.bouncycastle.cert.ocsp.RevokedStatus;
-import com.android.org.bouncycastle.jce.provider.BouncyCastleProvider;
-import com.android.org.bouncycastle.operator.DigestCalculatorProvider;
-import com.android.org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
-import com.android.org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -81,6 +54,33 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.security.auth.x500.X500Principal;
 import libcore.javax.net.ssl.TestKeyManager;
 import libcore.javax.net.ssl.TestTrustManager;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.CRLReason;
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.GeneralSubtree;
+import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.NameConstraints;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
+import org.bouncycastle.cert.ocsp.CertificateID;
+import org.bouncycastle.cert.ocsp.CertificateStatus;
+import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cert.ocsp.OCSPRespBuilder;
+import org.bouncycastle.cert.ocsp.RevokedStatus;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.DigestCalculatorProvider;
+import org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 /**
  * TestKeyStore is a convenience class for other tests that
@@ -693,13 +693,13 @@ public final class TestKeyStore {
         String keyAlgorithm = privateKey.getAlgorithm();
         String signatureAlgorithm;
         if (keyAlgorithm.equals("RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else if (keyAlgorithm.equals("DSA")) {
-            signatureAlgorithm = "sha1WithDSA";
+            signatureAlgorithm = "sha256WithDSA";
         } else if (keyAlgorithm.equals("EC")) {
-            signatureAlgorithm = "sha1WithECDSA";
+            signatureAlgorithm = "sha256WithECDSA";
         } else if (keyAlgorithm.equals("EC_RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else {
             throw new IllegalArgumentException("Unknown key algorithm " + keyAlgorithm);
         }

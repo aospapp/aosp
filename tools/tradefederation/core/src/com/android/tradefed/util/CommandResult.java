@@ -24,6 +24,7 @@ public class CommandResult {
     private CommandStatus mCmdStatus = CommandStatus.TIMED_OUT;
     private String mStdout = null;
     private String mStderr = null;
+    private Integer mExitCode = null;
 
     /**
      * Create a {@link CommandResult} with the default {@link CommandStatus#TIMED_OUT} status.
@@ -77,5 +78,18 @@ public class CommandResult {
 
     public void setStderr(String stderr) {
         mStderr = stderr;
+    }
+
+    /**
+     * Get the exit/return code produced by command.
+     *
+     * @return the exit code or <code>null</code> if it is unset
+     */
+    public Integer getExitCode() {
+        return mExitCode;
+    }
+
+    public void setExitCode(int exitCode) {
+        mExitCode = exitCode;
     }
 }

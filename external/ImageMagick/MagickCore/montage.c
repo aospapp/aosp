@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -59,6 +59,7 @@
 #include "MagickCore/image-private.h"
 #include "MagickCore/list.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/montage.h"
@@ -106,9 +107,7 @@ MagickExport MontageInfo *CloneMontageInfo(const ImageInfo *image_info,
   MontageInfo
     *clone_info;
 
-  clone_info=(MontageInfo *) AcquireMagickMemory(sizeof(*clone_info));
-  if (clone_info == (MontageInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  clone_info=(MontageInfo *) AcquireCriticalMemory(sizeof(*clone_info));
   GetMontageInfo(image_info,clone_info);
   if (montage_info == (MontageInfo *) NULL)
     return(clone_info);
@@ -129,7 +128,7 @@ MagickExport MontageInfo *CloneMontageInfo(const ImageInfo *image_info,
   clone_info->shadow=montage_info->shadow;
   clone_info->fill=montage_info->fill;
   clone_info->stroke=montage_info->stroke;
-  clone_info->alpha_color=montage_info->alpha_color;
+  clone_info->matte_color=montage_info->matte_color;
   clone_info->background_color=montage_info->background_color;
   clone_info->border_color=montage_info->border_color;
   clone_info->gravity=montage_info->gravity;
@@ -164,9 +163,9 @@ MagickExport MontageInfo *CloneMontageInfo(const ImageInfo *image_info,
 */
 MagickExport MontageInfo *DestroyMontageInfo(MontageInfo *montage_info)
 {
+  assert(montage_info != (MontageInfo *) NULL);
   if (montage_info->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
-  assert(montage_info != (MontageInfo *) NULL);
   assert(montage_info->signature == MagickCoreSignature);
   if (montage_info->geometry != (char *) NULL)
     montage_info->geometry=(char *)
@@ -221,7 +220,7 @@ MagickExport void GetMontageInfo(const ImageInfo *image_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
       image_info->filename);
   assert(montage_info != (MontageInfo *) NULL);
-  (void) ResetMagickMemory(montage_info,0,sizeof(*montage_info));
+  (void) memset(montage_info,0,sizeof(*montage_info));
   (void) CopyMagickString(montage_info->filename,image_info->filename,
     MagickPathExtent);
   montage_info->geometry=AcquireString(DefaultTileGeometry);
@@ -229,9 +228,9 @@ MagickExport void GetMontageInfo(const ImageInfo *image_info,
     montage_info->font=AcquireString(image_info->font);
   montage_info->gravity=CenterGravity;
   montage_info->pointsize=image_info->pointsize;
-  montage_info->fill.alpha=OpaqueAlpha;
-  montage_info->stroke.alpha=(Quantum) TransparentAlpha;
-  montage_info->alpha_color=image_info->alpha_color;
+  montage_info->fill.alpha=(MagickRealType) OpaqueAlpha;
+  montage_info->stroke.alpha=(MagickRealType) TransparentAlpha;
+  montage_info->matte_color=image_info->matte_color;
   montage_info->background_color=image_info->background_color;
   montage_info->border_color=image_info->border_color;
   montage_info->debug=IsEventLogging();
@@ -373,7 +372,6 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     extract_info;
 
   size_t
-    bevel_width,
     border_width,
     extent,
     height,
@@ -390,6 +388,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     width;
 
   ssize_t
+    bevel_width,
     tile,
     x,
     x_offset,
@@ -412,10 +411,10 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   assert(exception->signature == MagickCoreSignature);
   number_images=GetImageListLength(images);
   master_list=ImageListToArray(images,exception);
+  if (master_list == (Image **) NULL)
+    return((Image *) NULL);
   image_list=master_list;
   image=image_list[0];
-  if (master_list == (Image **) NULL)
-    ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
   thumbnail=NewImageList();
   for (i=0; i < (ssize_t) number_images; i++)
   {
@@ -439,6 +438,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
   }
   if (i < (ssize_t) number_images)
     {
+      if (image != (Image *) NULL)
+        image=DestroyImage(image);
       if (thumbnail == (Image *) NULL)
         i--;
       for (tile=0; (ssize_t) tile <= i; tile++)
@@ -485,7 +486,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     }
   border_width=montage_info->border_width;
   bevel_width=0;
-  (void) ResetMagickMemory(&frame_info,0,sizeof(frame_info));
+  (void) memset(&frame_info,0,sizeof(frame_info));
   if (montage_info->frame != (char *) NULL)
     {
       char
@@ -500,12 +501,12 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
       if ((flags & HeightValue) == 0)
         frame_info.height=frame_info.width;
       if ((flags & XiValue) == 0)
-        frame_info.outer_bevel=(ssize_t) frame_info.width/2;
+        frame_info.outer_bevel=(ssize_t) frame_info.width/2-1;
       if ((flags & PsiValue) == 0)
         frame_info.inner_bevel=frame_info.outer_bevel;
       frame_info.x=(ssize_t) frame_info.width;
       frame_info.y=(ssize_t) frame_info.height;
-      bevel_width=(size_t) MagickMax(frame_info.inner_bevel,
+      bevel_width=(ssize_t) MagickMax(frame_info.inner_bevel,
         frame_info.outer_bevel);
       border_width=(size_t) MagickMax((ssize_t) frame_info.width,
         (ssize_t) frame_info.height);
@@ -638,7 +639,14 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
       sizeof(*montage->directory));
     if ((montage->montage == (char *) NULL) ||
         (montage->directory == (char *) NULL))
-      ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
+      {
+        if (montage->montage != (char *) NULL)
+          montage->montage=(char *) RelinquishMagickMemory(montage->montage);
+        if (montage->directory != (char *) NULL)
+          montage->directory=(char *) RelinquishMagickMemory(
+            montage->directory);
+        ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
+      }
     x_offset=0;
     y_offset=0;
     if (montage_info->tile != (char *) NULL)
@@ -657,7 +665,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
     {
       (void) ConcatenateMagickString(montage->directory,
         image_list[tile]->filename,extent);
-      (void) ConcatenateMagickString(montage->directory,"\n",extent);
+      (void) ConcatenateMagickString(montage->directory,"\xff",extent);
       tile++;
     }
     progress_monitor=SetImageProgressMonitor(montage,(MagickProgressMonitor)
@@ -666,29 +674,28 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
       (void) TextureImage(montage,texture,exception);
     if (montage_info->title != (char *) NULL)
       {
-        char
-          geometry[MagickPathExtent];
-
         DrawInfo
-          *clone_info;
+          *draw_clone_info;
 
         TypeMetric
-          metrics;
+          tile_metrics;
 
         /*
           Annotate composite image with title.
         */
-        clone_info=CloneDrawInfo(image_info,draw_info);
-        clone_info->gravity=CenterGravity;
-        clone_info->pointsize*=2.0;
-        (void) GetTypeMetrics(image_list[0],clone_info,&metrics,exception);
-        (void) FormatLocaleString(geometry,MagickPathExtent,
+        draw_clone_info=CloneDrawInfo(image_info,draw_info);
+        draw_clone_info->gravity=CenterGravity;
+        draw_clone_info->pointsize*=2.0;
+        (void) GetTypeMetrics(image_list[0],draw_clone_info,&tile_metrics,
+          exception);
+        (void) FormatLocaleString(tile_geometry,MagickPathExtent,
           "%.20gx%.20g%+.20g%+.20g",(double) montage->columns,(double)
-          (metrics.ascent-metrics.descent),0.0,(double) extract_info.y+4);
-        (void) CloneString(&clone_info->geometry,geometry);
-        (void) CloneString(&clone_info->text,title);
-        (void) AnnotateImage(montage,clone_info,exception);
-        clone_info=DestroyDrawInfo(clone_info);
+          (tile_metrics.ascent-tile_metrics.descent),0.0,
+          (double) extract_info.y+4);
+        (void) CloneString(&draw_clone_info->geometry,tile_geometry);
+        (void) CloneString(&draw_clone_info->text,title);
+        (void) AnnotateImage(montage,draw_clone_info,exception);
+        draw_clone_info=DestroyDrawInfo(draw_clone_info);
       }
     (void) SetImageProgressMonitor(montage,progress_monitor,
       montage->client_data);
@@ -710,6 +717,8 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
         Copy this tile to the composite.
       */
       image=CloneImage(image_list[tile],0,0,MagickTrue,exception);
+      if (image == (Image *) NULL)
+        ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
       progress_monitor=SetImageProgressMonitor(image,
         (MagickProgressMonitor) NULL,image->client_data);
       width=concatenate != MagickFalse ? image->columns : extract_info.width;
@@ -756,15 +765,15 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
       tile_image->gravity=montage_info->gravity;
       if (image->gravity != UndefinedGravity)
         tile_image->gravity=image->gravity;
-      (void) FormatLocaleString(tile_geometry,MagickPathExtent,"%.20gx%.20g+0+0",
-        (double) image->columns,(double) image->rows);
+      (void) FormatLocaleString(tile_geometry,MagickPathExtent,
+        "%.20gx%.20g+0+0",(double) image->columns,(double) image->rows);
       flags=ParseGravityGeometry(tile_image,tile_geometry,&geometry,exception);
       x=(ssize_t) (geometry.x+border_width);
       y=(ssize_t) (geometry.y+border_width);
-      if ((montage_info->frame != (char *) NULL) && (bevel_width != 0))
+      if ((montage_info->frame != (char *) NULL) && (bevel_width > 0))
         {
           FrameInfo
-            extract_info;
+            frame_clone;
 
           Image
             *frame_image;
@@ -772,14 +781,14 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           /*
             Put an ornamental border around this tile.
           */
-          extract_info=frame_info;
-          extract_info.width=width+2*frame_info.width;
-          extract_info.height=height+2*frame_info.height;
+          frame_clone=frame_info;
+          frame_clone.width=width+2*frame_info.width;
+          frame_clone.height=height+2*frame_info.height;
           value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
-            extract_info.height+=(size_t) ((metrics.ascent-metrics.descent+4)*
+            frame_clone.height+=(size_t) ((metrics.ascent-metrics.descent+4)*
               MultilineCensus(value));
-          frame_image=FrameImage(image,&extract_info,image->compose,exception);
+          frame_image=FrameImage(image,&frame_clone,image->compose,exception);
           if (frame_image != (Image *) NULL)
             {
               image=DestroyImage(image);
@@ -817,13 +826,10 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
           value=GetImageProperty(image,"label",exception);
           if (value != (const char *) NULL)
             {
-              char
-                geometry[MagickPathExtent];
-
               /*
                 Annotate composite tile with label.
               */
-              (void) FormatLocaleString(geometry,MagickPathExtent,
+              (void) FormatLocaleString(tile_geometry,MagickPathExtent,
                 "%.20gx%.20g%+.20g%+.20g",(double) ((montage_info->frame ?
                 image->columns : width)-2*border_width),(double)
                 (metrics.ascent-metrics.descent+4)*MultilineCensus(value),
@@ -831,7 +837,7 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
                 ((montage_info->frame ? y_offset+height+border_width+4 :
                 y_offset+extract_info.height+border_width+
                 (montage_info->shadow != MagickFalse ? 4 : 0))+bevel_width));
-              (void) CloneString(&draw_info->geometry,geometry);
+              (void) CloneString(&draw_info->geometry,tile_geometry);
               (void) CloneString(&draw_info->text,value);
               (void) AnnotateImage(montage,draw_info,exception);
             }
@@ -848,9 +854,6 @@ MagickExport Image *MontageImageList(const ImageInfo *image_info,
         }
       if (images->progress_monitor != (MagickProgressMonitor) NULL)
         {
-          MagickBooleanType
-            proceed;
-
           proceed=SetImageProgress(image,MontageImageTag,tiles,total_tiles);
           if (proceed == MagickFalse)
             status=MagickFalse;

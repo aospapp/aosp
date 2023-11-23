@@ -16,33 +16,48 @@
 
 package android.car.vms;
 
+import android.annotation.NonNull;
+import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.internal.util.Preconditions;
 
 import java.util.*;
 
 /**
- * A VMS Layer with a list of publisher IDs it is associated with.
+ * A Vehicle Map Service layer with a list of publisher IDs it is associated with.
  *
  * @hide
  */
+@SystemApi
 public final class VmsAssociatedLayer implements Parcelable {
-
-    // The VmsLayer.
     private final VmsLayer mLayer;
-
-    // The IDs of the publishers that can publish this VmsLayer.
     private final Set<Integer> mPublisherIds;
 
-    public VmsAssociatedLayer(VmsLayer layer, Set<Integer> publisherIds) {
-        mLayer = layer;
+    /**
+     * Constructs a new layer offering.
+     *
+     * @param layer layer being offered
+     * @param publisherIds IDs of publishers associated with the layer
+     */
+    public VmsAssociatedLayer(@NonNull VmsLayer layer, @NonNull Set<Integer> publisherIds) {
+        mLayer = Preconditions.checkNotNull(layer, "layer cannot be null");
         mPublisherIds = Collections.unmodifiableSet(publisherIds);
     }
 
+    /**
+     * @return layer being offered
+     */
+    @NonNull
     public VmsLayer getVmsLayer() {
         return mLayer;
     }
 
+    /**
+     * @return IDs of publishers associated with the layer
+     */
+    @NonNull
     public Set<Integer> getPublisherIds() {
         return mPublisherIds;
     }
@@ -52,7 +67,6 @@ public final class VmsAssociatedLayer implements Parcelable {
         return "VmsAssociatedLayer{ VmsLayer: " + mLayer + ", Publishers: " + mPublisherIds + "}";
     }
 
-    // Parcelable related methods.
     public static final Parcelable.Creator<VmsAssociatedLayer> CREATOR =
             new Parcelable.Creator<VmsAssociatedLayer>() {
                 public VmsAssociatedLayer createFromParcel(Parcel in) {

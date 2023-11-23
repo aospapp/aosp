@@ -21,6 +21,8 @@
 #if (BTA_HH_INCLUDED == TRUE)
 
 #include "bta_hh_int.h"
+#include "btif/include/btif_storage.h"
+#include "device/include/interop.h"
 #include "osi/include/osi.h"
 
 /* if SSR max latency is not defined by remote device, set the default value
@@ -392,6 +394,16 @@ tBTA_HH_STATUS bta_hh_read_ssr_param(const RawAddress& bd_addr,
         BTA_HH_SSR_MAX_LATENCY_DEF */
         if (ssr_max_latency > BTA_HH_SSR_MAX_LATENCY_DEF)
           ssr_max_latency = BTA_HH_SSR_MAX_LATENCY_DEF;
+
+        char remote_name[BTM_MAX_REM_BD_NAME_LEN] = "";
+        if (btif_storage_get_stored_remote_name(bd_addr, remote_name)) {
+          if (interop_match_name(INTEROP_HID_HOST_LIMIT_SNIFF_INTERVAL,
+                                 remote_name)) {
+            if (ssr_max_latency > 18 /* slots * 0.625ms */) {
+              ssr_max_latency = 18;
+            }
+          }
+        }
 
         *p_max_ssr_lat = ssr_max_latency;
       } else

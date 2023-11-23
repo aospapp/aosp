@@ -5,6 +5,7 @@
 #ifndef LIBBRILLO_BRILLO_DBUS_DBUS_SIGNAL_HANDLER_H_
 #define LIBBRILLO_BRILLO_DBUS_DBUS_SIGNAL_HANDLER_H_
 
+#include <functional>
 #include <string>
 
 #include <brillo/bind_lambda.h>
@@ -58,10 +59,11 @@ void ConnectToSignal(
   };
 
   // Register our stub handler with D-Bus ObjectProxy.
-  object_proxy->ConnectToSignal(interface_name,
-                                signal_name,
-                                base::Bind(dbus_signal_callback, signal_callback),
-                                on_connected_callback);
+  object_proxy->ConnectToSignal(
+      interface_name,
+      signal_name,
+      base::Bind(dbus_signal_callback, signal_callback),
+      on_connected_callback);
 }
 
 }  // namespace dbus_utils

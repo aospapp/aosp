@@ -19,6 +19,10 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-hal-replay" />
 
+  <target_preparer class="com.android.tradefed.targetprep.VtsCoveragePreparer" >
+    <option name="coverage-report-dir" value="vts-coverage" />
+  </target_preparer>
+
   <!-- For Hidl Hal replay tests -->
   <option name="compatibility:include-filter" value="VtsHalNfcV1_0TargetReplay" />
 

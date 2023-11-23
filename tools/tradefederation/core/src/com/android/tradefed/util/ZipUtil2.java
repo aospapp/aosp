@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A helper class for zip extraction that takes POSIX file permissions into account
@@ -33,21 +35,20 @@ public class ZipUtil2 {
     /**
      * A util method to apply unix mode from {@link ZipArchiveEntry} to the created local file
      * system entry if necessary
+     *
      * @param entry the entry inside zipfile (potentially contains mode info)
      * @param localFile the extracted local file entry
+     * @return True if the Unix permissions are set, false otherwise.
      * @throws IOException
      */
-    private static void applyUnixModeIfNecessary(ZipArchiveEntry entry, File localFile)
+    private static boolean applyUnixModeIfNecessary(ZipArchiveEntry entry, File localFile)
             throws IOException {
         if (entry.getPlatform() == ZipArchiveEntry.PLATFORM_UNIX) {
             Files.setPosixFilePermissions(localFile.toPath(),
                     FileUtil.unixModeToPosix(entry.getUnixMode()));
-        } else {
-            CLog.d(
-                    "Entry '%s' exists but does not contain Unix mode permission info. File will "
-                            + "have default permission.",
-                    entry.getName());
+            return true;
         }
+        return false;
     }
 
     /**
@@ -59,18 +60,29 @@ public class ZipUtil2 {
      */
     public static void extractZip(ZipFile zipFile, File destDir) throws IOException {
         Enumeration<? extends ZipArchiveEntry> entries = zipFile.getEntries();
+        Set<String> noPermissions = new HashSet<>();
         while (entries.hasMoreElements()) {
             ZipArchiveEntry entry = entries.nextElement();
             File childFile = new File(destDir, entry.getName());
             childFile.getParentFile().mkdirs();
             if (entry.isDirectory()) {
                 childFile.mkdirs();
-                applyUnixModeIfNecessary(entry, childFile);
+                if (!applyUnixModeIfNecessary(entry, childFile)) {
+                    noPermissions.add(entry.getName());
+                }
                 continue;
             } else {
                 FileUtil.writeToFile(zipFile.getInputStream(entry), childFile);
-                applyUnixModeIfNecessary(entry, childFile);
+                if (!applyUnixModeIfNecessary(entry, childFile)) {
+                    noPermissions.add(entry.getName());
+                }
             }
+        }
+        if (!noPermissions.isEmpty()) {
+            CLog.d(
+                    "Entries '%s' exist but do not contain Unix mode permission info. Files will "
+                            + "have default permission.",
+                    noPermissions);
         }
     }
 

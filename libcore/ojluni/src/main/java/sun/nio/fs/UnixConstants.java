@@ -27,22 +27,15 @@
 // AUTOMATICALLY GENERATED FILE - DO NOT EDIT
 package sun.nio.fs;
 
+// BEGIN Android-changed: Use constants from android.system.OsConstants. http://b/32203242
+// Those constants are initialized by native code to ensure correctness on different architectures.
+// AT_SYMLINK_NOFOLLOW (used by fstatat) and AT_REMOVEDIR (used by unlinkat) as of July 2018 do not
+// have equivalents in android.system.OsConstants so left unchanged.
 import android.system.OsConstants;
 
-import java.io.ObjectStreamClass;
-
 class UnixConstants {
+    private UnixConstants() { }
 
-    private UnixConstants() {
-    }
-
-    // Android-changed (http://b/32203242): Instead of maintaining a separate set of UnixConstants,
-    // use the values from android.system.OsConstants.  AT_SYMLINK_NOFOLLOW is used by fstatat when
-    // a symbolic link is passed. With AT_SYMLINK_NOLLOW, it doesn't dereference and instead return
-    // information about the link, and with it, returns the information about the target. There is
-    // no suitable alternative for the flag in android.system.OsConstant, therefore, left untouched.
-    // With AT_REMOVEDIR, unlinkat works equivalent to rmdir. Again there is no suitable alternative
-    // for the flag in android.system.OsConstant, therefore, left unchanged.
     static final int O_RDONLY = OsConstants.O_RDONLY;
 
     static final int O_WRONLY = OsConstants.O_WRONLY;
@@ -137,10 +130,6 @@ class UnixConstants {
 
     static final int EMFILE = OsConstants.EMFILE;
 
-    static final int AT_SYMLINK_NOFOLLOW = 0x100;
-
-    static final int AT_REMOVEDIR = 0x200;
-
     // S_IAMB are access mode bits, therefore, calculated by taking OR of all the read, write and
     // execute permissions bits for owner, group and other.
     private static int get_S_IAMB() {
@@ -148,4 +137,9 @@ class UnixConstants {
                 OsConstants.S_IRGRP | OsConstants.S_IWGRP | OsConstants.S_IXGRP |
                 OsConstants.S_IROTH | OsConstants.S_IWOTH | OsConstants.S_IXOTH);
     }
-}
+    // END Android-changed: Use constants from android.system.OsConstants. http://b/32203242
+
+
+    static final int AT_SYMLINK_NOFOLLOW = 0x100;
+    static final int AT_REMOVEDIR = 0x200;
+}                                                                              

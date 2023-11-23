@@ -93,7 +93,7 @@ class SockDiag {
     int sendDumpRequest(uint8_t proto, uint8_t family, uint8_t extensions, uint32_t states,
                         iovec *iov, int iovcnt);
     int destroySockets(uint8_t proto, int family, const char *addrstr);
-    int destroyLiveSockets(DestroyFilter destroy, const char *what, iovec *iov, int iovcnt);
+    int destroyLiveSockets(const DestroyFilter& destroy, const char *what, iovec *iov, int iovcnt);
     bool hasSocks() { return mSock != -1 && mWriteSock != -1; }
     void closeSocks() { close(mSock); close(mWriteSock); mSock = mWriteSock = -1; }
     static bool isLoopbackSocket(const inet_diag_msg *msg);

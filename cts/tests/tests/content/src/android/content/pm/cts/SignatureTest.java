@@ -19,10 +19,12 @@ package android.content.pm.cts;
 
 import android.content.pm.Signature;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.util.Arrays;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class SignatureTest extends AndroidTestCase {
 
     private static final String SIGNATURE_STRING = "1234567890abcdef";

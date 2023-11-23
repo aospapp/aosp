@@ -40,11 +40,10 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class GetValuesTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ObjectReference::GetValues command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/GetValuesDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.GetValuesDebuggee";
+        return GetValuesDebuggee.class.getName();
     }
 
     /**
@@ -60,7 +59,7 @@ public class GetValuesTest extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

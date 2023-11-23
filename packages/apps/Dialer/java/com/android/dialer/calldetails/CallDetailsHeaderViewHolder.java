@@ -27,7 +27,7 @@ import android.widget.ImageView;
 import android.widget.QuickContactBadge;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import com.android.dialer.calldetails.CallDetailsActivity.AssistedDialingNumberParseWorker;
+import com.android.dialer.calldetails.CallDetailsActivityCommon.AssistedDialingNumberParseWorker;
 import com.android.dialer.calldetails.CallDetailsEntries.CallDetailsEntry;
 import com.android.dialer.calllogutils.CallbackActionHelper.CallbackAction;
 import com.android.dialer.common.Assert;
@@ -37,27 +37,40 @@ import com.android.dialer.common.concurrent.DialerExecutor.SuccessListener;
 import com.android.dialer.compat.telephony.TelephonyManagerCompat;
 import com.android.dialer.contactphoto.ContactPhotoManager;
 import com.android.dialer.dialercontact.DialerContact;
+import com.android.dialer.glidephotomanager.GlidePhotoManagerComponent;
 import com.android.dialer.logging.InteractionEvent;
 import com.android.dialer.logging.Logger;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.widget.BidiTextView;
 
-/** ViewHolder for Header/Contact in {@link CallDetailsActivity}. */
+/**
+ * ViewHolder for the header in {@link OldCallDetailsActivity} or {@link CallDetailsActivity}.
+ *
+ * <p>The header contains contact info and the primary callback button.
+ */
 public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
     implements OnClickListener, FailureListener {
 
   private final CallDetailsHeaderListener callDetailsHeaderListener;
   private final ImageView callbackButton;
-  private final TextView nameView;
-  private final TextView numberView;
+  private final BidiTextView nameView;
+  private final BidiTextView numberView;
   private final TextView networkView;
   private final QuickContactBadge contactPhoto;
   private final Context context;
   private final TextView assistedDialingInternationalDirectDialCodeAndCountryCodeText;
   private final RelativeLayout assistedDialingContainer;
 
-  private DialerContact contact;
+  private final String number;
+  private final String postDialDigits;
+
   private @CallbackAction int callbackAction;
 
-  CallDetailsHeaderViewHolder(View container, CallDetailsHeaderListener callDetailsHeaderListener) {
+  CallDetailsHeaderViewHolder(
+      View container,
+      String number,
+      String postDialDigits,
+      CallDetailsHeaderListener callDetailsHeaderListener) {
     super(container);
     context = container.getContext();
     callbackButton = container.findViewById(R.id.call_back_button);
@@ -73,7 +86,11 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
         callDetailsHeaderListener::openAssistedDialingSettings);
 
     callbackButton.setOnClickListener(this);
+
+    this.number = number;
+    this.postDialDigits = postDialDigits;
     this.callDetailsHeaderListener = callDetailsHeaderListener;
+
     Logger.get(context)
         .logQuickContactOnTouch(
             contactPhoto, InteractionEvent.Type.OPEN_QUICK_CONTACT_FROM_CALL_DETAILS, true);
@@ -89,7 +106,7 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
     if (callDetailsEntry != null && hasAssistedDialingFeature(callDetailsEntry.getFeatures())) {
       showAssistedDialingContainer(true);
       callDetailsHeaderListener.createAssistedDialerNumberParserTask(
-          new CallDetailsActivity.AssistedDialingNumberParseWorker(),
+          new CallDetailsActivityCommon.AssistedDialingNumberParseWorker(),
           this::updateAssistedDialingText,
           this::onFailure);
 
@@ -132,7 +149,6 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
 
   /** Populates the contact info fields based on the current contact information. */
   void updateContactInfo(DialerContact contact, @CallbackAction int callbackAction) {
-    this.contact = contact;
     ContactPhotoManager.getInstance(context)
         .loadDialerThumbnailOrPhoto(
             contactPhoto,
@@ -142,20 +158,26 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
             contact.getNameOrNumber(),
             contact.getContactType());
 
-    nameView.setText(contact.getNameOrNumber());
-    if (!TextUtils.isEmpty(contact.getDisplayNumber())) {
-      numberView.setVisibility(View.VISIBLE);
-      String secondaryInfo =
-          TextUtils.isEmpty(contact.getNumberLabel())
-              ? contact.getDisplayNumber()
-              : context.getString(
-                  com.android.contacts.common.R.string.call_subject_type_and_number,
-                  contact.getNumberLabel(),
-                  contact.getDisplayNumber());
-      numberView.setText(secondaryInfo);
+    // Hide the secondary text of the header by default.
+    // We will show it if needed (see below).
+    numberView.setVisibility(View.GONE);
+    numberView.setText(null);
+
+    if (PhoneNumberHelper.isLocalEmergencyNumber(context, contact.getNumber())) {
+      nameView.setText(context.getResources().getString(R.string.emergency_number));
     } else {
-      numberView.setVisibility(View.GONE);
-      numberView.setText(null);
+      nameView.setText(contact.getNameOrNumber());
+      if (!TextUtils.isEmpty(contact.getDisplayNumber())) {
+        numberView.setVisibility(View.VISIBLE);
+        String secondaryInfo =
+            TextUtils.isEmpty(contact.getNumberLabel())
+                ? contact.getDisplayNumber()
+                : context.getString(
+                    com.android.dialer.contacts.resources.R.string.call_subject_type_and_number,
+                    contact.getNumberLabel(),
+                    contact.getDisplayNumber());
+        numberView.setText(secondaryInfo);
+      }
     }
 
     if (!TextUtils.isEmpty(contact.getSimDetails().getNetwork())) {
@@ -164,6 +186,23 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
       if (contact.getSimDetails().getColor() != PhoneAccount.NO_HIGHLIGHT_COLOR) {
         networkView.setTextColor(contact.getSimDetails().getColor());
       }
+    }
+
+    setCallbackAction(callbackAction);
+  }
+
+  void updateContactInfo(CallDetailsHeaderInfo headerInfo, @CallbackAction int callbackAction) {
+    GlidePhotoManagerComponent.get(context)
+        .glidePhotoManager()
+        .loadQuickContactBadge(contactPhoto, headerInfo.getPhotoInfo());
+
+    nameView.setText(headerInfo.getPrimaryText());
+    if (!headerInfo.getSecondaryText().isEmpty()) {
+      numberView.setVisibility(View.VISIBLE);
+      numberView.setText(headerInfo.getSecondaryText());
+    } else {
+      numberView.setVisibility(View.GONE);
+      numberView.setText(null);
     }
 
     setCallbackAction(callbackAction);
@@ -194,14 +233,13 @@ public class CallDetailsHeaderViewHolder extends RecyclerView.ViewHolder
     if (view == callbackButton) {
       switch (callbackAction) {
         case CallbackAction.IMS_VIDEO:
-          callDetailsHeaderListener.placeImsVideoCall(contact.getNumber());
+          callDetailsHeaderListener.placeImsVideoCall(number);
           break;
         case CallbackAction.DUO:
-          callDetailsHeaderListener.placeDuoVideoCall(contact.getNumber());
+          callDetailsHeaderListener.placeDuoVideoCall(number);
           break;
         case CallbackAction.VOICE:
-          callDetailsHeaderListener.placeVoiceCall(
-              contact.getNumber(), contact.getPostDialDigits());
+          callDetailsHeaderListener.placeVoiceCall(number, postDialDigits);
           break;
         case CallbackAction.NONE:
         default:

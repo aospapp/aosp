@@ -34,7 +34,7 @@
     <string name="callFailed_noSignal" msgid="1758972490451048086">"Sem sinal"</string>
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"Limite de ACM excedido"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"Rádio desativado"</string>
-    <string name="callFailed_simError" msgid="3307159523385380486">"Sem SIM ou erro de SIM"</string>
+    <string name="callFailed_simError" msgid="3307159523385380486">"Sem chip ou erro de chip"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Rede de celular não disponível."</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"As chamadas enviadas são restringidas pelo FDN."</string>
     <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Chamada alterada para solicitação USSD"</string>

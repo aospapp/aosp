@@ -22,8 +22,9 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.cts.R;
 import android.graphics.drawable.VectorDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
 import org.junit.Test;

@@ -17,7 +17,8 @@ CtsCurrentApiSignatureTestCases
 CtsSystemApiSignatureTestCases
 CtsAndroidTestMockCurrentApiSignatureTestCases
 CtsAndroidTestRunnerCurrentApiSignatureTestCases
-CtsAndroidTestBase27ApiSignatureTestCases
+CtsAndroidTestBase28ApiSignatureTestCases
+CtsAndroidTestBaseCurrentApiSignatureTestCases
 
 CtsApacheHttpLegacy27ApiSignatureTestCases
 CtsApacheHttpLegacyCurrentApiSignatureTestCases
@@ -27,25 +28,17 @@ CtsSystemApiAnnotationTestCases
 
 CtsHiddenApiBlacklistCurrentApiTestCases
 CtsHiddenApiBlacklistApi27TestCases
+CtsHiddenApiBlacklistApi28TestCases
 CtsHiddenApiBlacklistDebugClassTestCases
 
 CtsHiddenApiKillswitchWildcardTestCases
 CtsHiddenApiKillswitchWhitelistTestCases
 CtsHiddenApiKillswitchDebugClassTestCases
+
+CtsSharedLibsApiSignatureTestCases
 "
 else
     PACKAGES=${1+"$@"}
 fi
 
-cd $ANDROID_BUILD_TOP
-make -j32 $PACKAGES
-
-TMPFILE=$(mktemp)
-trap "echo Removing temporary directory; rm -f $TMPFILE" EXIT
-
-for p in $PACKAGES
-do
-    echo cts -a arm64-v8a -m "$p" >> $TMPFILE
-done
-
-cts-tradefed run cmdfileAndExit $TMPFILE
+atest ${PACKAGES}

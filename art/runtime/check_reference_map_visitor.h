@@ -64,20 +64,18 @@ class CheckReferenceMapVisitor : public StackVisitor {
   void CheckOptimizedMethod(int* registers, int number_of_references, uint32_t native_pc_offset)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
-    CodeInfo code_info = GetCurrentOatQuickMethodHeader()->GetOptimizedCodeInfo();
-    CodeInfoEncoding encoding = code_info.ExtractEncoding();
-    StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset, encoding);
+    CodeInfo code_info(GetCurrentOatQuickMethodHeader());
+    StackMap stack_map = code_info.GetStackMapForNativePcOffset(native_pc_offset);
     CodeItemDataAccessor accessor(m->DexInstructionData());
     uint16_t number_of_dex_registers = accessor.RegistersSize();
-    DexRegisterMap dex_register_map =
-        code_info.GetDexRegisterMapOf(stack_map, encoding, number_of_dex_registers);
-    uint32_t register_mask = code_info.GetRegisterMaskOf(encoding, stack_map);
-    BitMemoryRegion stack_mask = code_info.GetStackMaskOf(encoding, stack_map);
+    DexRegisterMap dex_register_map = code_info.GetDexRegisterMapOf(stack_map);
+    DCHECK_EQ(dex_register_map.size(), number_of_dex_registers);
+    uint32_t register_mask = code_info.GetRegisterMaskOf(stack_map);
+    BitMemoryRegion stack_mask = code_info.GetStackMaskOf(stack_map);
     for (int i = 0; i < number_of_references; ++i) {
       int reg = registers[i];
       CHECK_LT(reg, accessor.RegistersSize());
-      DexRegisterLocation location = dex_register_map.GetDexRegisterLocation(
-          reg, number_of_dex_registers, code_info, encoding);
+      DexRegisterLocation location = dex_register_map[reg];
       switch (location.GetKind()) {
         case DexRegisterLocation::Kind::kNone:
           // Not set, should not be a reference.
@@ -100,7 +98,7 @@ class CheckReferenceMapVisitor : public StackVisitor {
           CHECK_EQ(location.GetValue(), 0);
           break;
         default:
-          LOG(FATAL) << "Unexpected location kind " << location.GetInternalKind();
+          LOG(FATAL) << "Unexpected location kind " << location.GetKind();
       }
     }
   }

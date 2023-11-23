@@ -17,7 +17,7 @@
     <option name="config-descriptor:metadata" key="plan" value="vts-misc" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
-        <option name="push-group" value="HalHidlHostTest.push"/>
+        <option name="push-group" value="VtsHalReplayTest.push"/>
         <option name="cleanup" value="true"/>
         <option name="push" value="spec/hardware/interfaces/thermal/1.0/vts/Thermal.vts->/data/local/tmp/spec/android/hardware/thermal/1.0/Thermal.vts"/>
         <option name="push" value="spec/hardware/interfaces/thermal/1.0/vts/types.vts->/data/local/tmp/spec/android/hardware/thermal/1.0/types.vts"/>

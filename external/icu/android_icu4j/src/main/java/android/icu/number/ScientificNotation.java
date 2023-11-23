@@ -11,12 +11,14 @@ import android.icu.impl.number.MultiplierProducer;
 import android.icu.impl.number.NumberStringBuilder;
 import android.icu.impl.number.RoundingUtils;
 import android.icu.number.NumberFormatter.SignDisplay;
-import android.icu.number.Rounder.SignificantRounderImpl;
+import android.icu.number.Precision.SignificantRounderImpl;
 import android.icu.text.DecimalFormatSymbols;
 import android.icu.text.NumberFormat;
+import android.icu.text.NumberFormat.Field;
 
 /**
- * A class that defines the scientific notation style to be used when formatting numbers in NumberFormatter.
+ * A class that defines the scientific notation style to be used when formatting numbers in
+ * NumberFormatter.
  *
  * <p>
  * To create a ScientificNotation, use one of the factory methods in {@link Notation}.
@@ -32,7 +34,10 @@ public class ScientificNotation extends Notation implements Cloneable {
     int minExponentDigits;
     SignDisplay exponentSignDisplay;
 
-    /* package-private */ ScientificNotation(int engineeringInterval, boolean requireMinInt, int minExponentDigits,
+    /* package-private */ ScientificNotation(
+            int engineeringInterval,
+            boolean requireMinInt,
+            int minExponentDigits,
             SignDisplay exponentSignDisplay) {
         this.engineeringInterval = engineeringInterval;
         this.requireMinInt = requireMinInt;
@@ -41,12 +46,12 @@ public class ScientificNotation extends Notation implements Cloneable {
     }
 
     /**
-     * Sets the minimum number of digits to show in the exponent of scientific notation, padding with zeros if
-     * necessary. Useful for fixed-width display.
+     * Sets the minimum number of digits to show in the exponent of scientific notation, padding with
+     * zeros if necessary. Useful for fixed-width display.
      *
      * <p>
-     * For example, with minExponentDigits=2, the number 123 will be printed as "1.23E02" in <em>en-US</em> instead of
-     * the default "1.23E2".
+     * For example, with minExponentDigits=2, the number 123 will be printed as "1.23E02" in
+     * <em>en-US</em> instead of the default "1.23E2".
      *
      * @param minExponentDigits
      *            The minimum number of digits to show in the exponent.
@@ -55,23 +60,24 @@ public class ScientificNotation extends Notation implements Cloneable {
      * @hide draft / provisional / internal are hidden on Android
      */
     public ScientificNotation withMinExponentDigits(int minExponentDigits) {
-        if (minExponentDigits >= 0 && minExponentDigits < RoundingUtils.MAX_INT_FRAC_SIG) {
+        if (minExponentDigits >= 1 && minExponentDigits <= RoundingUtils.MAX_INT_FRAC_SIG) {
             ScientificNotation other = (ScientificNotation) this.clone();
             other.minExponentDigits = minExponentDigits;
             return other;
         } else {
-            throw new IllegalArgumentException(
-                    "Integer digits must be between 0 and " + RoundingUtils.MAX_INT_FRAC_SIG);
+            throw new IllegalArgumentException("Integer digits must be between 1 and "
+                    + RoundingUtils.MAX_INT_FRAC_SIG
+                    + " (inclusive)");
         }
     }
 
     /**
-     * Sets whether to show the sign on positive and negative exponents in scientific notation. The default is AUTO,
-     * showing the minus sign but not the plus sign.
+     * Sets whether to show the sign on positive and negative exponents in scientific notation. The
+     * default is AUTO, showing the minus sign but not the plus sign.
      *
      * <p>
-     * For example, with exponentSignDisplay=ALWAYS, the number 123 will be printed as "1.23E+2" in <em>en-US</em>
-     * instead of the default "1.23E2".
+     * For example, with exponentSignDisplay=ALWAYS, the number 123 will be printed as "1.23E+2" in
+     * <em>en-US</em> instead of the default "1.23E2".
      *
      * @param exponentSignDisplay
      *            The strategy for displaying the sign in the exponent.
@@ -86,10 +92,8 @@ public class ScientificNotation extends Notation implements Cloneable {
     }
 
     /**
-     * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
     @Override
     public Object clone() {
         try {
@@ -100,21 +104,27 @@ public class ScientificNotation extends Notation implements Cloneable {
         }
     }
 
-    /* package-private */ MicroPropsGenerator withLocaleData(DecimalFormatSymbols symbols, boolean build,
+    /* package-private */ MicroPropsGenerator withLocaleData(
+            DecimalFormatSymbols symbols,
+            boolean build,
             MicroPropsGenerator parent) {
         return new ScientificHandler(this, symbols, build, parent);
     }
 
-    // NOTE: The object lifecycle of ScientificModifier and ScientificHandler differ greatly in Java and C++.
+    // NOTE: The object lifecycle of ScientificModifier and ScientificHandler differ greatly in Java and
+    // C++.
     //
     // During formatting, we need to provide an object with state (the exponent) as the inner modifier.
     //
     // In Java, where the priority is put on reducing object creations, the unsafe code path re-uses the
-    // ScientificHandler as a ScientificModifier, and the safe code path pre-computes 25 ScientificModifier
+    // ScientificHandler as a ScientificModifier, and the safe code path pre-computes 25
+    // ScientificModifier
     // instances. This scheme reduces the number of object creations by 1 in both safe and unsafe.
     //
-    // In C++, MicroProps provides a pre-allocated ScientificModifier, and ScientificHandler simply populates
-    // the state (the exponent) into that ScientificModifier. There is no difference between safe and unsafe.
+    // In C++, MicroProps provides a pre-allocated ScientificModifier, and ScientificHandler simply
+    // populates
+    // the state (the exponent) into that ScientificModifier. There is no difference between safe and
+    // unsafe.
 
     private static class ScientificHandler implements MicroPropsGenerator, MultiplierProducer, Modifier {
 
@@ -124,7 +134,10 @@ public class ScientificNotation extends Notation implements Cloneable {
         final MicroPropsGenerator parent;
         /* unsafe */ int exponent;
 
-        private ScientificHandler(ScientificNotation notation, DecimalFormatSymbols symbols, boolean safe,
+        private ScientificHandler(
+                ScientificNotation notation,
+                DecimalFormatSymbols symbols,
+                boolean safe,
                 MicroPropsGenerator parent) {
             this.notation = notation;
             this.symbols = symbols;
@@ -144,21 +157,22 @@ public class ScientificNotation extends Notation implements Cloneable {
         @Override
         public MicroProps processQuantity(DecimalQuantity quantity) {
             MicroProps micros = parent.processQuantity(quantity);
-            assert micros.rounding != null;
+            assert micros.rounder != null;
 
             // Treat zero as if it had magnitude 0
             int exponent;
             if (quantity.isZero()) {
-                if (notation.requireMinInt && micros.rounding instanceof SignificantRounderImpl) {
+                if (notation.requireMinInt && micros.rounder instanceof SignificantRounderImpl) {
                     // Show "00.000E0" on pattern "00.000E0"
-                    ((SignificantRounderImpl) micros.rounding).apply(quantity, notation.engineeringInterval);
+                    ((SignificantRounderImpl) micros.rounder).apply(quantity,
+                            notation.engineeringInterval);
                     exponent = 0;
                 } else {
-                    micros.rounding.apply(quantity);
+                    micros.rounder.apply(quantity);
                     exponent = 0;
                 }
             } else {
-                exponent = -micros.rounding.chooseMultiplierAndApply(quantity, this);
+                exponent = -micros.rounder.chooseMultiplierAndApply(quantity, this);
             }
 
             // Add the Modifier for the scientific format.
@@ -175,7 +189,7 @@ public class ScientificNotation extends Notation implements Cloneable {
             }
 
             // We already performed rounding. Do not perform it again.
-            micros.rounding = Rounder.constructPassThrough();
+            micros.rounder = Precision.constructPassThrough();
 
             return micros;
         }
@@ -205,14 +219,37 @@ public class ScientificNotation extends Notation implements Cloneable {
 
         @Override
         public int getCodePointCount() {
-            // This method is not used for strong modifiers.
-            throw new AssertionError();
+            // NOTE: This method is only called one place, NumberRangeFormatterImpl.
+            // The call site only cares about != 0 and != 1.
+            // Return a very large value so that if this method is used elsewhere, we should notice.
+            return 999;
         }
 
         @Override
         public boolean isStrong() {
             // Scientific is always strong
             return true;
+        }
+
+        @Override
+        public boolean containsField(Field field) {
+            // This method is not currently used. (unsafe path not used in range formatting)
+            assert false;
+            return false;
+        }
+
+        @Override
+        public Parameters getParameters() {
+            // This method is not currently used.
+            assert false;
+            return null;
+        }
+
+        @Override
+        public boolean semanticallyEquivalent(Modifier other) {
+            // This method is not currently used. (unsafe path not used in range formatting)
+            assert false;
+            return false;
         }
 
         @Override
@@ -263,14 +300,38 @@ public class ScientificNotation extends Notation implements Cloneable {
 
         @Override
         public int getCodePointCount() {
-            // This method is not used for strong modifiers.
-            throw new AssertionError();
+            // NOTE: This method is only called one place, NumberRangeFormatterImpl.
+            // The call site only cares about != 0 and != 1.
+            // Return a very large value so that if this method is used elsewhere, we should notice.
+            return 999;
         }
 
         @Override
         public boolean isStrong() {
             // Scientific is always strong
             return true;
+        }
+
+        @Override
+        public boolean containsField(Field field) {
+            // This method is not used for inner modifiers.
+            assert false;
+            return false;
+        }
+
+        @Override
+        public Parameters getParameters() {
+            return null;
+        }
+
+        @Override
+        public boolean semanticallyEquivalent(Modifier other) {
+            if (!(other instanceof ScientificModifier)) {
+                return false;
+            }
+            ScientificModifier _other = (ScientificModifier) other;
+            // TODO: Check for locale symbols and settings as well? Could be less efficient.
+            return exponent == _other.exponent;
         }
     }
 }

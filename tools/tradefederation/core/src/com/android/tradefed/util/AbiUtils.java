@@ -15,8 +15,9 @@
  */
 package com.android.tradefed.util;
 
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -66,19 +67,19 @@ public class AbiUtils {
      */
     private static final Set<String> MIPS_ABIS = new HashSet<String>();
 
-    /**
-     * The set of ABI names which Compatibility supports.
-     */
-    protected static final Set<String> ABIS_SUPPORTED_BY_COMPATIBILITY = new HashSet<String>();
+    /** The set of ABI names which Compatibility supports. */
+    protected static final Set<String> ABIS_SUPPORTED_BY_COMPATIBILITY = new LinkedHashSet<>();
 
-    /**
-     * The map of architecture to ABI.
-     */
-    private static final Map<String, Set<String>> ARCH_TO_ABIS = new HashMap<String, Set<String>>();
+    /** The set of Architecture supported. */
+    private static final Set<String> ARCH_SUPPORTED = new LinkedHashSet<>();
 
-    private static final Map<String, String> ABI_TO_ARCH = new HashMap<String, String>();
+    /** The map of architecture to ABI. */
+    private static final Map<String, Set<String>> ARCH_TO_ABIS =
+            new LinkedHashMap<String, Set<String>>();
 
-    private static final Map<String, String> ABI_TO_BASE_ARCH = new HashMap<String, String>();
+    private static final Map<String, String> ABI_TO_ARCH = new LinkedHashMap<String, String>();
+
+    private static final Map<String, String> ABI_TO_BASE_ARCH = new LinkedHashMap<String, String>();
 
     static {
         ABIS_32BIT.add(ABI_ARM_V7A);
@@ -122,6 +123,13 @@ public class AbiUtils {
         ABI_TO_BASE_ARCH.put(ABI_X86_64, BASE_ARCH_X86);
         ABI_TO_BASE_ARCH.put(ABI_MIPS, BASE_ARCH_MIPS);
         ABI_TO_BASE_ARCH.put(ABI_MIPS64, BASE_ARCH_MIPS);
+
+        ARCH_SUPPORTED.add(BASE_ARCH_ARM);
+        ARCH_SUPPORTED.add(ARCH_ARM64);
+        ARCH_SUPPORTED.add(BASE_ARCH_X86);
+        ARCH_SUPPORTED.add(ARCH_X86_64);
+        ARCH_SUPPORTED.add(BASE_ARCH_MIPS);
+        ARCH_SUPPORTED.add(ARCH_MIPS64);
     }
 
     /**
@@ -138,7 +146,7 @@ public class AbiUtils {
         if (arch == null || arch.isEmpty() || !ARCH_TO_ABIS.containsKey(arch)) {
             return getAbisSupportedByCompatibility();
         }
-        return new HashSet<String>(ARCH_TO_ABIS.get(arch));
+        return new LinkedHashSet<String>(ARCH_TO_ABIS.get(arch));
     }
 
     /**
@@ -165,7 +173,12 @@ public class AbiUtils {
      * @return a new Set containing the supported ABIs.
      */
     public static Set<String> getAbisSupportedByCompatibility() {
-        return new HashSet<String>(ABIS_SUPPORTED_BY_COMPATIBILITY);
+        return new LinkedHashSet<String>(ABIS_SUPPORTED_BY_COMPATIBILITY);
+    }
+
+    /** Returns the set of supported architecture representations. */
+    public static Set<String> getArchSupported() {
+        return new LinkedHashSet<String>(ARCH_SUPPORTED);
     }
 
     /**
@@ -266,5 +279,12 @@ public class AbiUtils {
             }
         }
         return abiSet;
+    }
+
+    /** Returns the Set of abis supported by the host machine. */
+    public static Set<String> getHostAbi() {
+        CommandResult commandResult = RunUtil.getDefault().runTimedCmd(5000L, "uname", "-m");
+        String mainAbi = commandResult.getStdout().trim();
+        return getAbisForArch(mainAbi);
     }
 }

@@ -16,20 +16,19 @@
 
 package android.os.cts;
 
-import android.content.Context;
+import static org.junit.Assert.fail;
+
 import android.media.AudioAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
-import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.fail;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest

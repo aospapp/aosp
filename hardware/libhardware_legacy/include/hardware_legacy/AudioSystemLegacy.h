@@ -338,9 +338,6 @@ public:
     static bool isBluetoothScoDevice(audio_devices device) {
         return audio_is_bluetooth_sco_device((audio_devices_t)device);
     }
-    static bool isLowVisibility(stream_type stream) {
-        return audio_is_low_visibility((audio_stream_type_t)stream);
-    }
     static bool isValidFormat(uint32_t format) {
         return audio_is_valid_format((audio_format_t) format);
     }

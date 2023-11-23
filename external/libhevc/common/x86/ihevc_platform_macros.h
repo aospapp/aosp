@@ -36,11 +36,9 @@
 #ifndef _IHEVC_PLATFORM_MACROS_H_
 #define _IHEVC_PLATFORM_MACROS_H_
 
-//#include <immintrin.h>
 
-
-#define CLIP_U8(x) CLIP3((x), 0,     255)
-#define CLIP_S8(x) CLIP3((x), -128,  127)
+#define CLIP_U8(x) CLIP3((x), 0,     255);
+#define CLIP_S8(x) CLIP3((x), -128,  127);
 
 #define CLIP_U10(x) CLIP3((x), 0,     1023);
 #define CLIP_S10(x) CLIP3((x), -512,  511);
@@ -48,9 +46,11 @@
 #define CLIP_U12(x) CLIP3((x), 0,     4095);
 #define CLIP_S12(x) CLIP3((x), -2048,  2047);
 
-#define CLIP_U16(x) CLIP3((x), 0,        65535)
-#define CLIP_S16(x) CLIP3((x), -32768,   32767)
+#define CLIP_U14(x) CLIP3((x), 0,     16383);
+#define CLIP_S14(x) CLIP3((x), -8192,  8191);
 
+#define CLIP_U16(x) CLIP3((x), 0,        65535);
+#define CLIP_S16(x) CLIP3((x), -32768,   32767);
 
 
 #define SHL(x,y) (((y) < 32) ? ((x) << (y)) : 0)
@@ -65,8 +65,7 @@
                             ((x & 0x00ff0000) >> 8)    |   \
                             ((UWORD32)x >> 24);
 
-
-#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = (nop_cnt) ; nop_i > 0 ; nop_i--) asm("nop");}
+#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++) asm("nop");}
 
 #define POPCNT_U32(x)       __builtin_popcount(x)
 
@@ -78,12 +77,14 @@ static INLINE UWORD32 CLZ(UWORD32 u4_word)
     if(u4_word)
         return (__builtin_clz(u4_word));
     else
-        return 32;
+        return 31;
 }
+
 static INLINE UWORD32 CLZNZ(UWORD32 u4_word)
 {
    return (__builtin_clz(u4_word));
 }
+
 static INLINE UWORD32 CTZ(UWORD32 u4_word)
 {
     if(0 == u4_word)
@@ -104,15 +105,15 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
 ******************************************************************************
  */
 #define GET_POS_MSB_32(r,word)                         \
-{                                                       \
+{                                                      \
     if(word)                                           \
-    {                                                   \
+    {                                                  \
         r = 31 - __builtin_clz(word);                  \
-    }                                                   \
-    else                                                \
-    {                                                   \
-        r = -1;                                         \
-    }                                                   \
+    }                                                  \
+    else                                               \
+    {                                                  \
+        r = -1;                                        \
+    }                                                  \
 }
 
 /**
@@ -138,17 +139,36 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
  *  @brief  returns max number of bits required to represent input word (max 32bits)
 ******************************************************************************
  */
-#define GETRANGE(r,word)                                \
-{                                                       \
-    if(word)                                            \
-    {                                                   \
-        r = 32 - __builtin_clz(word);                   \
-    }                                                   \
-    else                                                \
-    {                                                   \
-        r = 1;                                          \
-    }                                                   \
+#define GETRANGE(r,word)                               \
+{                                                      \
+    if(word)                                           \
+    {                                                  \
+        r = 32 - __builtin_clz(word);                  \
+    }                                                  \
+    else                                               \
+    {                                                  \
+        r = 1;                                         \
+    }                                                  \
 }
+
+/**
+*****************************************************************************************************
+*  @brief  returns max number of bits required to represent input unsigned long long word (max 64bits)
+*****************************************************************************************************
+*/
+#define GETRANGE64(r,llword)                             \
+{                                                        \
+    if(llword)                                           \
+    {                                                    \
+        r = 64 - __builtin_clzll(llword);                \
+    }                                                    \
+    else                                                 \
+    {                                                    \
+        r = 1;                                           \
+    }                                                    \
+}
+
+
 #define GCC_ENABLE 0
 
 #if GCC_ENABLE
@@ -159,7 +179,6 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
 #define _mm256_set_m128i(X,Y) _mm256_insertf128_si256(_mm256_castsi128_si256((Y)),(X),1);
 
 #endif
-
 
 #define PREFETCH_ENABLE 1
 

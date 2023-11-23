@@ -25,11 +25,11 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * A2DP Native Interface to/from JNI.
@@ -104,6 +104,16 @@ public class A2dpNativeInterface {
      */
     public boolean disconnectA2dp(BluetoothDevice device) {
         return disconnectA2dpNative(getByteAddress(device));
+    }
+
+    /**
+     * Sets a connected A2DP remote device to silence mode.
+     *
+     * @param device the remote device
+     * @return true on success, otherwise false.
+     */
+    public boolean setSilenceDevice(BluetoothDevice device, boolean silence) {
+        return setSilenceDeviceNative(getByteAddress(device), silence);
     }
 
     /**
@@ -199,6 +209,7 @@ public class A2dpNativeInterface {
     private native void cleanupNative();
     private native boolean connectA2dpNative(byte[] address);
     private native boolean disconnectA2dpNative(byte[] address);
+    private native boolean setSilenceDeviceNative(byte[] address, boolean silence);
     private native boolean setActiveDeviceNative(byte[] address);
     private native boolean setCodecConfigPreferenceNative(byte[] address,
                 BluetoothCodecConfig[] codecConfigArray);

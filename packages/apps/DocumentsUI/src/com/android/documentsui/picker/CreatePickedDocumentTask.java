@@ -21,8 +21,9 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.provider.DocumentsContract;
-import android.support.design.widget.Snackbar;
 import android.util.Log;
+
+import com.google.android.material.snackbar.Snackbar;
 
 import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.DocumentsApplication;

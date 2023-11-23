@@ -18,12 +18,11 @@ package com.android.tv.menu;
 
 import android.content.Context;
 import android.media.tv.TvTrackInfo;
-import android.support.annotation.VisibleForTesting;
-import com.android.tv.TvFeatures;
 import com.android.tv.TvOptionsManager;
 import com.android.tv.common.customization.CustomAction;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.DisplayMode;
+import com.android.tv.features.TvFeatures;
 import com.android.tv.ui.TvViewUiManager;
 import com.android.tv.ui.sidepanel.ClosedCaptionFragment;
 import com.android.tv.ui.sidepanel.DeveloperOptionFragment;
@@ -78,7 +77,6 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
         }
     }
 
-    @VisibleForTesting
     private boolean updateClosedCaptionAction() {
         return updateActionDescription(MenuAction.SELECT_CLOSED_CAPTION_ACTION);
     }

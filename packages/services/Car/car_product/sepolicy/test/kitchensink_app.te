@@ -9,6 +9,7 @@ hal_client_domain(kitchensink_app, hal_vehicle)
 allow kitchensink_app {
     accessibility_service
     activity_service
+    activity_task_service
     autofill_service
     connectivity_service
     content_service

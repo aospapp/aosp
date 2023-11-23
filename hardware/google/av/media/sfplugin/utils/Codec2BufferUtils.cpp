@@ -18,6 +18,8 @@
 #define LOG_TAG "Codec2BufferUtils"
 #include <utils/Log.h>
 
+#include <libyuv.h>
+
 #include <list>
 #include <mutex>
 
@@ -62,14 +64,10 @@ struct MemCopier<false, S> {
  */
 template<bool ToMediaImage, typename View, typename ImagePixel>
 static status_t _ImageCopy(View &view, const MediaImage2 *img, ImagePixel *imgBase) {
-    // TODO: more efficient copying --- e.g. one row at a time, copying
-    //       interleaved planes together, etc.
+    // TODO: more efficient copying --- e.g. copy interleaved planes together, etc.
     const C2PlanarLayout &layout = view.layout();
     const size_t bpp = divUp(img->mBitDepthAllocated, 8u);
-    if (view.width() != img->mWidth
-            || view.height() != img->mHeight) {
-        return BAD_VALUE;
-    }
+
     for (uint32_t i = 0; i < layout.numPlanes; ++i) {
         typename std::conditional<ToMediaImage, uint8_t, const uint8_t>::type *imgRow =
             imgBase + img->mPlane[i].mOffset;
@@ -88,16 +86,30 @@ static status_t _ImageCopy(View &view, const MediaImage2 *img, ImagePixel *imgBa
 
         uint32_t planeW = img->mWidth / plane.colSampling;
         uint32_t planeH = img->mHeight / plane.rowSampling;
-        for (uint32_t row = 0; row < planeH; ++row) {
-            decltype(imgRow) imgPtr = imgRow;
-            decltype(viewRow) viewPtr = viewRow;
-            for (uint32_t col = 0; col < planeW; ++col) {
-                MemCopier<ToMediaImage, 0>::copy(imgPtr, viewPtr, bpp);
-                imgPtr += img->mPlane[i].mColInc;
-                viewPtr += plane.colInc;
+
+        bool canCopyByRow = (plane.colInc == 1) && (img->mPlane[i].mColInc == 1);
+        bool canCopyByPlane = canCopyByRow && (plane.rowInc == img->mPlane[i].mRowInc);
+        if (canCopyByPlane) {
+            MemCopier<ToMediaImage, 0>::copy(imgRow, viewRow, plane.rowInc * planeH);
+        } else if (canCopyByRow) {
+            for (uint32_t row = 0; row < planeH; ++row) {
+                MemCopier<ToMediaImage, 0>::copy(
+                        imgRow, viewRow, std::min(plane.rowInc, img->mPlane[i].mRowInc));
+                imgRow += img->mPlane[i].mRowInc;
+                viewRow += plane.rowInc;
             }
-            imgRow += img->mPlane[i].mRowInc;
-            viewRow += plane.rowInc;
+        } else {
+            for (uint32_t row = 0; row < planeH; ++row) {
+                decltype(imgRow) imgPtr = imgRow;
+                decltype(viewRow) viewPtr = viewRow;
+                for (uint32_t col = 0; col < planeW; ++col) {
+                    MemCopier<ToMediaImage, 0>::copy(imgPtr, viewPtr, bpp);
+                    imgPtr += img->mPlane[i].mColInc;
+                    viewPtr += plane.colInc;
+                }
+                imgRow += img->mPlane[i].mRowInc;
+                viewRow += plane.rowInc;
+            }
         }
     }
     return OK;
@@ -106,10 +118,72 @@ static status_t _ImageCopy(View &view, const MediaImage2 *img, ImagePixel *imgBa
 }  // namespace
 
 status_t ImageCopy(uint8_t *imgBase, const MediaImage2 *img, const C2GraphicView &view) {
+    if (view.width() != img->mWidth || view.height() != img->mHeight) {
+        return BAD_VALUE;
+    }
+    if ((IsNV12(view) && IsI420(img)) || (IsI420(view) && IsNV12(img))) {
+        // Take shortcuts to use libyuv functions between NV12 and I420 conversion.
+        const uint8_t* src_y = view.data()[0];
+        const uint8_t* src_u = view.data()[1];
+        const uint8_t* src_v = view.data()[2];
+        int32_t src_stride_y = view.layout().planes[0].rowInc;
+        int32_t src_stride_u = view.layout().planes[1].rowInc;
+        int32_t src_stride_v = view.layout().planes[2].rowInc;
+        uint8_t* dst_y = imgBase + img->mPlane[0].mOffset;
+        uint8_t* dst_u = imgBase + img->mPlane[1].mOffset;
+        uint8_t* dst_v = imgBase + img->mPlane[2].mOffset;
+        int32_t dst_stride_y = img->mPlane[0].mRowInc;
+        int32_t dst_stride_u = img->mPlane[1].mRowInc;
+        int32_t dst_stride_v = img->mPlane[2].mRowInc;
+        if (IsNV12(view) && IsI420(img)) {
+            if (!libyuv::NV12ToI420(src_y, src_stride_y, src_u, src_stride_u, dst_y, dst_stride_y,
+                                    dst_u, dst_stride_u, dst_v, dst_stride_v, view.width(),
+                                    view.height())) {
+                return OK;
+            }
+        } else {
+            if (!libyuv::I420ToNV12(src_y, src_stride_y, src_u, src_stride_u, src_v, src_stride_v,
+                                    dst_y, dst_stride_y, dst_u, dst_stride_u, view.width(),
+                                    view.height())) {
+                return OK;
+            }
+        }
+    }
     return _ImageCopy<true>(view, img, imgBase);
 }
 
 status_t ImageCopy(C2GraphicView &view, const uint8_t *imgBase, const MediaImage2 *img) {
+    if (view.width() != img->mWidth || view.height() != img->mHeight) {
+        return BAD_VALUE;
+    }
+    if ((IsNV12(img) && IsI420(view)) || (IsI420(img) && IsNV12(view))) {
+        // Take shortcuts to use libyuv functions between NV12 and I420 conversion.
+        const uint8_t* src_y = imgBase + img->mPlane[0].mOffset;
+        const uint8_t* src_u = imgBase + img->mPlane[1].mOffset;
+        const uint8_t* src_v = imgBase + img->mPlane[2].mOffset;
+        int32_t src_stride_y = img->mPlane[0].mRowInc;
+        int32_t src_stride_u = img->mPlane[1].mRowInc;
+        int32_t src_stride_v = img->mPlane[2].mRowInc;
+        uint8_t* dst_y = view.data()[0];
+        uint8_t* dst_u = view.data()[1];
+        uint8_t* dst_v = view.data()[2];
+        int32_t dst_stride_y = view.layout().planes[0].rowInc;
+        int32_t dst_stride_u = view.layout().planes[1].rowInc;
+        int32_t dst_stride_v = view.layout().planes[2].rowInc;
+        if (IsNV12(img) && IsI420(view)) {
+            if (!libyuv::NV12ToI420(src_y, src_stride_y, src_u, src_stride_u, dst_y, dst_stride_y,
+                                    dst_u, dst_stride_u, dst_v, dst_stride_v, view.width(),
+                                    view.height())) {
+                return OK;
+            }
+        } else {
+            if (!libyuv::I420ToNV12(src_y, src_stride_y, src_u, src_stride_u, src_v, src_stride_v,
+                                    dst_y, dst_stride_y, dst_u, dst_stride_u, view.width(),
+                                    view.height())) {
+                return OK;
+            }
+        }
+    }
     return _ImageCopy<false>(view, img, imgBase);
 }
 
@@ -137,6 +211,65 @@ bool IsYUV420(const C2GraphicView &view) {
             && layout.planes[layout.PLANE_V].rowSampling == 2);
 }
 
+bool IsNV12(const C2GraphicView &view) {
+    if (!IsYUV420(view)) {
+        return false;
+    }
+    const C2PlanarLayout &layout = view.layout();
+    return (layout.rootPlanes == 2
+            && layout.planes[layout.PLANE_U].colInc == 2
+            && layout.planes[layout.PLANE_U].rootIx == layout.PLANE_U
+            && layout.planes[layout.PLANE_U].offset == 0
+            && layout.planes[layout.PLANE_V].colInc == 2
+            && layout.planes[layout.PLANE_V].rootIx == layout.PLANE_U
+            && layout.planes[layout.PLANE_V].offset == 1);
+}
+
+bool IsI420(const C2GraphicView &view) {
+    if (!IsYUV420(view)) {
+        return false;
+    }
+    const C2PlanarLayout &layout = view.layout();
+    return (layout.rootPlanes == 3
+            && layout.planes[layout.PLANE_U].colInc == 1
+            && layout.planes[layout.PLANE_U].rootIx == layout.PLANE_U
+            && layout.planes[layout.PLANE_U].offset == 0
+            && layout.planes[layout.PLANE_V].colInc == 1
+            && layout.planes[layout.PLANE_V].rootIx == layout.PLANE_V
+            && layout.planes[layout.PLANE_V].offset == 0);
+}
+
+bool IsYUV420(const MediaImage2 *img) {
+    return (img->mType == MediaImage2::MEDIA_IMAGE_TYPE_YUV
+            && img->mNumPlanes == 3
+            && img->mBitDepth == 8
+            && img->mBitDepthAllocated == 8
+            && img->mPlane[0].mHorizSubsampling == 1
+            && img->mPlane[0].mVertSubsampling == 1
+            && img->mPlane[1].mHorizSubsampling == 2
+            && img->mPlane[1].mVertSubsampling == 2
+            && img->mPlane[2].mHorizSubsampling == 2
+            && img->mPlane[2].mVertSubsampling == 2);
+}
+
+bool IsNV12(const MediaImage2 *img) {
+    if (!IsYUV420(img)) {
+        return false;
+    }
+    return (img->mPlane[1].mColInc == 2
+            && img->mPlane[2].mColInc == 2
+            && (img->mPlane[2].mOffset - img->mPlane[1].mOffset == 1));
+}
+
+bool IsI420(const MediaImage2 *img) {
+    if (!IsYUV420(img)) {
+        return false;
+    }
+    return (img->mPlane[1].mColInc == 1
+            && img->mPlane[2].mColInc == 1
+            && img->mPlane[2].mOffset > img->mPlane[1].mOffset);
+}
+
 MediaImage2 CreateYUV420PlanarMediaImage2(
         uint32_t width, uint32_t height, uint32_t stride, uint32_t vstride) {
     return MediaImage2 {
@@ -145,6 +278,7 @@ MediaImage2 CreateYUV420PlanarMediaImage2(
         .mWidth = width,
         .mHeight = height,
         .mBitDepth = 8,
+        .mBitDepthAllocated = 8,
         .mPlane = {
             {
                 .mOffset = 0,
@@ -179,6 +313,7 @@ MediaImage2 CreateYUV420SemiPlanarMediaImage2(
         .mWidth = width,
         .mHeight = height,
         .mBitDepth = 8,
+        .mBitDepthAllocated = 8,
         .mPlane = {
             {
                 .mOffset = 0,

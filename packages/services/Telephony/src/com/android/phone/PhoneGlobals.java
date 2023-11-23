@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.XmlResourceParser;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
@@ -41,15 +42,17 @@ import android.os.UpdateLock;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
+import android.telecom.TelecomManager;
+import android.telephony.AnomalyReporter;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.data.ApnSetting;
 import android.util.LocalLog;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.MmiCode;
@@ -58,11 +61,11 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.SettingsObserver;
 import com.android.internal.telephony.TelephonyCapabilities;
+import com.android.internal.telephony.TelephonyComponentFactory;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.dataconnection.DataConnectionReasons;
 import com.android.internal.telephony.dataconnection.DataConnectionReasons.DataDisallowedReasonType;
 import com.android.internal.util.IndentingPrintWriter;
-import com.android.phone.common.CallLogAsync;
 import com.android.phone.settings.SettingsConstants;
 import com.android.phone.vvm.CarrierVvmPackageInstalledReceiver;
 import com.android.services.telephony.sip.SipAccountRegistry;
@@ -141,7 +144,6 @@ public class PhoneGlobals extends ContextWrapper {
     public PhoneInterfaceManager phoneMgr;
     CarrierConfigLoader configLoader;
 
-    private CallGatewayManager callGatewayManager;
     private Phone phoneInEcm;
 
     static boolean sVoiceCapable = true;
@@ -224,7 +226,8 @@ public class PhoneGlobals extends ContextWrapper {
                     // Marks the event where the SIM goes into ready state.
                     // Right now, this is only used for the PUK-unlocking
                     // process.
-                    if (msg.obj.equals(IccCardConstants.INTENT_VALUE_ICC_READY)) {
+                    if (msg.obj.equals(IccCardConstants.INTENT_VALUE_ICC_READY)
+                            || msg.obj.equals(IccCardConstants.INTENT_VALUE_ICC_LOADED)) {
                         // when the right event is triggered and there
                         // are UI objects in the foreground, we close
                         // them to display the lock panel.
@@ -282,6 +285,12 @@ public class PhoneGlobals extends ContextWrapper {
         //   getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY_VOICE_CALLS);
 
         if (mCM == null) {
+            // Initialize AnomalyReporter early so that it can be used
+            AnomalyReporter.initialize(this);
+
+            // Inject telephony component factory if configured using other jars.
+            XmlResourceParser parser = getResources().getXml(R.xml.telephony_injection);
+            TelephonyComponentFactory.getInstance().injectTheComponentFactory(parser);
             // Initialize the telephony framework
             PhoneFactory.makeDefaultPhones(this);
 
@@ -320,17 +329,13 @@ public class PhoneGlobals extends ContextWrapper {
 
             if (DBG) Log.d(LOG_TAG, "onCreate: mUpdateLock: " + mUpdateLock);
 
-            CallLogger callLogger = new CallLogger(this, new CallLogAsync());
-
-            callGatewayManager = CallGatewayManager.getInstance();
-
             // Create the CallerInfoCache singleton, which remembers custom ring tone and
             // send-to-voicemail settings.
             //
             // The asynchronous caching will start just after this call.
             callerInfoCache = CallerInfoCache.init(this);
 
-            phoneMgr = PhoneInterfaceManager.init(this, PhoneFactory.getDefaultPhone());
+            phoneMgr = PhoneInterfaceManager.init(this);
 
             configLoader = CarrierConfigLoader.init(this);
 
@@ -344,9 +349,6 @@ public class PhoneGlobals extends ContextWrapper {
 
             // register for MMI/USSD
             mCM.registerForMmiComplete(mHandler, MMI_COMPLETE, null);
-
-            // register connection tracking to PhoneUtils
-            PhoneUtils.initializeConnectionHandler(mCM);
 
             // Register for misc other intent broadcasts.
             IntentFilter intentFilter =
@@ -371,11 +373,6 @@ public class PhoneGlobals extends ContextWrapper {
             PreferenceManager.setDefaultValues(this, R.xml.network_setting_fragment, false);
 
             PreferenceManager.setDefaultValues(this, R.xml.call_feature_setting, false);
-
-            // Make sure the audio mode (along with some
-            // audio-mode-related state of our own) is initialized
-            // correctly, given the current state of the phone.
-            PhoneUtils.setAudioMode(mCM);
         }
 
         // XXX pre-load the SimProvider so that it's ready
@@ -408,14 +405,6 @@ public class PhoneGlobals extends ContextWrapper {
     }
 
     /**
-     * Returns the singleton instance of the PhoneApp if running as the
-     * primary user, otherwise null.
-     */
-    static PhoneGlobals getInstanceIfPrimary() {
-        return sMe;
-    }
-
-    /**
      * Returns the default phone.
      *
      * WARNING: This method should be used carefully, now that there may be multiple phones.
@@ -437,7 +426,7 @@ public class PhoneGlobals extends ContextWrapper {
     }
 
     public PersistableBundle getCarrierConfigForSubId(int subId) {
-        return configLoader.getConfigForSubId(subId);
+        return configLoader.getConfigForSubId(subId, getOpPackageName());
     }
 
     private void registerSettingsObserver() {
@@ -495,52 +484,6 @@ public class PhoneGlobals extends ContextWrapper {
     }
 
     /**
-     * Controls whether or not the screen is allowed to sleep.
-     *
-     * Once sleep is allowed (WakeState is SLEEP), it will rely on the
-     * settings for the poke lock to determine when to timeout and let
-     * the device sleep {@link PhoneGlobals#setScreenTimeout}.
-     *
-     * @param ws tells the device to how to wake.
-     */
-    /* package */ void requestWakeState(WakeState ws) {
-        if (VDBG) Log.d(LOG_TAG, "requestWakeState(" + ws + ")...");
-        synchronized (this) {
-            if (mWakeState != ws) {
-                switch (ws) {
-                    case PARTIAL:
-                        // acquire the processor wake lock, and release the FULL
-                        // lock if it is being held.
-                        mPartialWakeLock.acquire();
-                        if (mWakeLock.isHeld()) {
-                            mWakeLock.release();
-                        }
-                        break;
-                    case FULL:
-                        // acquire the full wake lock, and release the PARTIAL
-                        // lock if it is being held.
-                        mWakeLock.acquire();
-                        if (mPartialWakeLock.isHeld()) {
-                            mPartialWakeLock.release();
-                        }
-                        break;
-                    case SLEEP:
-                    default:
-                        // release both the PARTIAL and FULL locks.
-                        if (mWakeLock.isHeld()) {
-                            mWakeLock.release();
-                        }
-                        if (mPartialWakeLock.isHeld()) {
-                            mPartialWakeLock.release();
-                        }
-                        break;
-                }
-                mWakeState = ws;
-            }
-        }
-    }
-
-    /**
      * If we are not currently keeping the screen on, then poke the power
      * manager to wake up the screen for the user activity timeout duration.
      */
@@ -551,52 +494,6 @@ public class PhoneGlobals extends ContextWrapper {
                 mPowerManager.wakeUp(SystemClock.uptimeMillis(), "android.phone:WAKE");
             }
         }
-    }
-
-    /**
-     * Sets the wake state and screen timeout based on the current state
-     * of the phone, and the current state of the in-call UI.
-     *
-     * This method is a "UI Policy" wrapper around
-     * {@link PhoneGlobals#requestWakeState} and {@link PhoneGlobals#setScreenTimeout}.
-     *
-     * It's safe to call this method regardless of the state of the Phone
-     * (e.g. whether or not it's idle), and regardless of the state of the
-     * Phone UI (e.g. whether or not the InCallScreen is active.)
-     */
-    /* package */ void updateWakeState() {
-        PhoneConstants.State state = mCM.getState();
-
-        // True if the speakerphone is in use.  (If so, we *always* use
-        // the default timeout.  Since the user is obviously not holding
-        // the phone up to his/her face, we don't need to worry about
-        // false touches, and thus don't need to turn the screen off so
-        // aggressively.)
-        // Note that we need to make a fresh call to this method any
-        // time the speaker state changes.  (That happens in
-        // PhoneUtils.turnOnSpeaker().)
-        boolean isSpeakerInUse = (state == PhoneConstants.State.OFFHOOK) && PhoneUtils.isSpeakerOn(this);
-
-        // TODO (bug 1440854): The screen timeout *might* also need to
-        // depend on the bluetooth state, but this isn't as clear-cut as
-        // the speaker state (since while using BT it's common for the
-        // user to put the phone straight into a pocket, in which case the
-        // timeout should probably still be short.)
-
-        // Decide whether to force the screen on or not.
-        //
-        // Force the screen to be on if the phone is ringing or dialing,
-        // or if we're displaying the "Call ended" UI for a connection in
-        // the "disconnected" state.
-        // However, if the phone is disconnected while the user is in the
-        // middle of selecting a quick response message, we should not force
-        // the screen to be on.
-        //
-        boolean isRinging = (state == PhoneConstants.State.RINGING);
-        boolean isDialing = (mCM.getFgPhone().getForegroundCall().getState() == Call.State.DIALING);
-        boolean keepScreenOn = isRinging || isDialing;
-        // keepScreenOn == true means we'll hold a full wake lock:
-        requestWakeState(keepScreenOn ? WakeState.FULL : WakeState.SLEEP);
     }
 
     KeyguardManager getKeyguardManager() {
@@ -665,7 +562,9 @@ public class PhoneGlobals extends ContextWrapper {
         if (isAirplaneNewlyOn) {
             // If we are trying to turn off the radio, make sure there are no active
             // emergency calls.  If there are, switch airplane mode back to off.
-            if (PhoneUtils.isInEmergencyCall(mCM)) {
+            TelecomManager tm = (TelecomManager) context.getSystemService(TELECOM_SERVICE);
+
+            if (tm != null && tm.isInEmergencyCall()) {
                 // Switch airplane mode back to off.
                 ConnectivityManager.from(this).setAirplaneMode(false);
                 Toast.makeText(this, R.string.radio_off_during_emergency_call, Toast.LENGTH_LONG)
@@ -700,14 +599,22 @@ public class PhoneGlobals extends ContextWrapper {
                     airplaneMode = AIRPLANE_ON;
                 }
                 handleAirplaneModeChange(context, airplaneMode);
-            } else if ((action.equals(TelephonyIntents.ACTION_SIM_STATE_CHANGED)) &&
-                    (mPUKEntryActivity != null)) {
-                // if an attempt to un-PUK-lock the device was made, while we're
-                // receiving this state change notification, notify the handler.
-                // NOTE: This is ONLY triggered if an attempt to un-PUK-lock has
-                // been attempted.
-                mHandler.sendMessage(mHandler.obtainMessage(EVENT_SIM_STATE_CHANGED,
-                        intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE)));
+            } else if (action.equals(TelephonyIntents.ACTION_SIM_STATE_CHANGED)) {
+                // re-register as it may be a new IccCard
+                int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY,
+                        SubscriptionManager.INVALID_PHONE_INDEX);
+                if (SubscriptionManager.isValidPhoneId(phoneId)) {
+                    PhoneUtils.unregisterIccStatus(mHandler, phoneId);
+                    PhoneUtils.registerIccStatus(mHandler, EVENT_SIM_NETWORK_LOCKED, phoneId);
+                }
+                if (mPUKEntryActivity != null) {
+                    // if an attempt to un-PUK-lock the device was made, while we're
+                    // receiving this state change notification, notify the handler.
+                    // NOTE: This is ONLY triggered if an attempt to un-PUK-lock has
+                    // been attempted.
+                    mHandler.sendMessage(mHandler.obtainMessage(EVENT_SIM_STATE_CHANGED,
+                            intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE)));
+                }
             } else if (action.equals(TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED)) {
                 String newPhone = intent.getStringExtra(PhoneConstants.PHONE_NAME_KEY);
                 Log.d(LOG_TAG, "Radio technology switched. Now " + newPhone + " is active.");
@@ -824,7 +731,7 @@ public class PhoneGlobals extends ContextWrapper {
         }
 
         DataConnectionReasons reasons = new DataConnectionReasons();
-        boolean dataAllowed = phone.isDataAllowed(reasons);
+        boolean dataAllowed = phone.isDataAllowed(ApnSetting.TYPE_DEFAULT, reasons);
         mDataRoamingNotifLog.log("dataAllowed=" + dataAllowed + ", reasons=" + reasons);
         if (VDBG) Log.v(LOG_TAG, "dataAllowed=" + dataAllowed + ", reasons=" + reasons);
         if (!mNoDataDueToRoaming
@@ -862,38 +769,17 @@ public class PhoneGlobals extends ContextWrapper {
     }
 
     /**
-     * Dismisses the message waiting (voicemail) indicator.
+     * Called when the network selection on the subscription {@code subId} is changed by the user.
      *
-     * @param subId the subscription id we should dismiss the notification for.
+     * @param subId the subscription id.
      */
-    public void clearMwiIndicator(int subId) {
-        // Setting voiceMessageCount to 0 will remove the current notification and clear the system
-        // cached value.
+    public void onNetworkSelectionChanged(int subId) {
         Phone phone = getPhone(subId);
-        if (phone == null) {
-            Log.w(LOG_TAG, "clearMwiIndicator on null phone, subId:" + subId);
+        if (phone != null) {
+            notificationMgr.updateNetworkSelection(phone.getServiceState().getState(), subId);
         } else {
-            phone.setVoiceMessageCount(0);
+            Log.w(LOG_TAG, "onNetworkSelectionChanged on null phone, subId: " + subId);
         }
-    }
-
-    /**
-     * Enables or disables the visual voicemail check for message waiting indicator. Default value
-     * is true. MWI is the traditional voicemail notification which should be suppressed if visual
-     * voicemail is active. {@link NotificationMgr#updateMwi(int, boolean, boolean)} currently
-     * checks the {@link android.provider.VoicemailContract.Status#CONFIGURATION_STATE} to suppress
-     * the MWI, but there are several issues. b/31229016 is a bug that when the device boots the
-     * configuration state will be cleared and the MWI for voicemail that arrives when the device
-     * is offline will be cleared, even if the account cannot be activated. A full solution will be
-     * adding a setMwiEnabled() method and stop checking the configuration state, but that is too
-     * risky at this moment. This is a temporary workaround to shut down the configuration state
-     * check if visual voicemail cannot be activated.
-     * <p>TODO(twyen): implement the setMwiEnabled() mentioned above.
-     *
-     * @param subId the account to set the enabled state
-     */
-    public void setShouldCheckVisualVoicemailConfigurationForMwi(int subId, boolean enabled) {
-        notificationMgr.setShouldCheckVisualVoicemailConfigurationForMwi(subId, enabled);
     }
 
     /**
@@ -910,6 +796,7 @@ public class PhoneGlobals extends ContextWrapper {
         pw.println("mNoDataDueToRoaming=" + mNoDataDueToRoaming);
         pw.println("mDefaultDataSubId=" + mDefaultDataSubId);
         pw.println("mDataRoamingNotifLog:");
+        pw.println("isSmsCapable=" + TelephonyManager.from(this).isSmsCapable());
         pw.increaseIndent();
         mDataRoamingNotifLog.dump(fd, pw, args);
         pw.decreaseIndent();

@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="sms_app_name" msgid="3641211328012514267">"सामान्य संदेश प्राप्तकर्ता"</string>
     <string name="sms_message_from_format" msgid="7163240046237558485">"<xliff:g id="USERNAME">%1$s</xliff:g> से संदेश"</string>
-    <string name="sms_done_button" msgid="4063239029747798890">"पूर्ण"</string>
+    <string name="sms_done_button" msgid="4063239029747798890">"पूरा हुआ"</string>
 </resources>

@@ -16,12 +16,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   coreApp="true"
   package="com.android.dialer"
-  android:versionCode="250000"
-  android:versionName="19.0">
+  android:versionCode="2900000"
+  android:versionName="23.0">
 
   <uses-sdk
-    android:minSdkVersion="23"
-    android:targetSdkVersion="27"/>
+    android:minSdkVersion="24"
+    android:targetSdkVersion="28"/>
 
   <uses-permission android:name="android.permission.CALL_PHONE"/>
   <uses-permission android:name="android.permission.READ_CONTACTS"/>
@@ -45,6 +45,7 @@
   <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
   <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.BLUETOOTH"/>
   <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
   <uses-permission android:name="com.android.voicemail.permission.ADD_VOICEMAIL"/>
   <uses-permission android:name="com.android.voicemail.permission.WRITE_VOICEMAIL"/>
@@ -56,6 +57,9 @@
   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
   <uses-permission android:name="android.permission.SEND_SMS"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+  <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
 
   <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
   <!-- We use this to disable the status bar buttons of home, back and recent

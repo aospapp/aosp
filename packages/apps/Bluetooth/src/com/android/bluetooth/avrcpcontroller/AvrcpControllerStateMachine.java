@@ -17,23 +17,22 @@
 package com.android.bluetooth.avrcpcontroller;
 
 import android.bluetooth.BluetoothAvrcpController;
-import android.bluetooth.BluetoothAvrcpPlayerSettings;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.media.AudioManager;
-import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.browse.MediaBrowser.MediaItem;
+import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Message;
 import android.util.Log;
+import android.util.SparseArray;
 
 import com.android.bluetooth.BluetoothMetricsProto;
+import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.MetricsLogger;
@@ -43,595 +42,488 @@ import com.android.internal.util.StateMachine;
 
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * Provides Bluetooth AVRCP Controller State Machine responsible for all remote control connections
  * and interactions with a remote controlable device.
  */
 class AvrcpControllerStateMachine extends StateMachine {
+    static final String TAG = "AvrcpControllerStateMachine";
+    static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
 
-    // commands from Binder service
-    static final int MESSAGE_SEND_PASS_THROUGH_CMD = 1;
-    static final int MESSAGE_SEND_GROUP_NAVIGATION_CMD = 3;
-    static final int MESSAGE_GET_NOW_PLAYING_LIST = 5;
-    static final int MESSAGE_GET_FOLDER_LIST = 6;
-    static final int MESSAGE_GET_PLAYER_LIST = 7;
-    static final int MESSAGE_CHANGE_FOLDER_PATH = 8;
-    static final int MESSAGE_FETCH_ATTR_AND_PLAY_ITEM = 9;
-    static final int MESSAGE_SET_BROWSED_PLAYER = 10;
+    //0->99 Events from Outside
+    public static final int CONNECT = 1;
+    public static final int DISCONNECT = 2;
 
-    // commands from native layer
-    static final int MESSAGE_PROCESS_SET_ABS_VOL_CMD = 103;
-    static final int MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION = 104;
-    static final int MESSAGE_PROCESS_TRACK_CHANGED = 105;
-    static final int MESSAGE_PROCESS_PLAY_POS_CHANGED = 106;
-    static final int MESSAGE_PROCESS_PLAY_STATUS_CHANGED = 107;
-    static final int MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION = 108;
-    static final int MESSAGE_PROCESS_GET_FOLDER_ITEMS = 109;
-    static final int MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE = 110;
-    static final int MESSAGE_PROCESS_GET_PLAYER_ITEMS = 111;
-    static final int MESSAGE_PROCESS_FOLDER_PATH = 112;
-    static final int MESSAGE_PROCESS_SET_BROWSED_PLAYER = 113;
-    static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 114;
+    //100->199 Internal Events
+    protected static final int CLEANUP = 100;
+    private static final int CONNECT_TIMEOUT = 101;
 
-    // commands from A2DP sink
-    static final int MESSAGE_STOP_METADATA_BROADCASTS = 201;
-    static final int MESSAGE_START_METADATA_BROADCASTS = 202;
+    //200->299 Events from Native
+    static final int STACK_EVENT = 200;
+    static final int MESSAGE_INTERNAL_CMD_TIMEOUT = 201;
 
-    // commands for connection
-    static final int MESSAGE_PROCESS_RC_FEATURES = 301;
-    static final int MESSAGE_PROCESS_CONNECTION_CHANGE = 302;
-    static final int MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE = 303;
+    static final int MESSAGE_PROCESS_SET_ABS_VOL_CMD = 203;
+    static final int MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION = 204;
+    static final int MESSAGE_PROCESS_TRACK_CHANGED = 205;
+    static final int MESSAGE_PROCESS_PLAY_POS_CHANGED = 206;
+    static final int MESSAGE_PROCESS_PLAY_STATUS_CHANGED = 207;
+    static final int MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION = 208;
+    static final int MESSAGE_PROCESS_GET_FOLDER_ITEMS = 209;
+    static final int MESSAGE_PROCESS_GET_FOLDER_ITEMS_OUT_OF_RANGE = 210;
+    static final int MESSAGE_PROCESS_GET_PLAYER_ITEMS = 211;
+    static final int MESSAGE_PROCESS_FOLDER_PATH = 212;
+    static final int MESSAGE_PROCESS_SET_BROWSED_PLAYER = 213;
+    static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 214;
+    static final int MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED = 215;
+    static final int MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED = 216;
 
-    // Interal messages
-    static final int MESSAGE_INTERNAL_BROWSE_DEPTH_INCREMENT = 401;
-    static final int MESSAGE_INTERNAL_MOVE_N_LEVELS_UP = 402;
-    static final int MESSAGE_INTERNAL_CMD_TIMEOUT = 403;
+    //300->399 Events for Browsing
+    static final int MESSAGE_GET_FOLDER_ITEMS = 300;
+    static final int MESSAGE_PLAY_ITEM = 301;
+    static final int MSG_AVRCP_PASSTHRU = 302;
+
     static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
-
-    static final int ABS_VOL_TIMEOUT_MILLIS = 1000; //1s
-    static final int CMD_TIMEOUT_MILLIS = 5000; // 5s
-    // Fetch only 20 items at a time.
-    static final int GET_FOLDER_ITEMS_PAGINATION_SIZE = 20;
-    // Fetch no more than 1000 items per directory.
-    static final int MAX_FOLDER_ITEMS = 1000;
 
     /*
      * Base value for absolute volume from JNI
      */
     private static final int ABS_VOL_BASE = 127;
 
-    /*
-     * Notification types for Avrcp protocol JNI.
-     */
-    private static final byte NOTIFICATION_RSP_TYPE_INTERIM = 0x00;
-    private static final byte NOTIFICATION_RSP_TYPE_CHANGED = 0x01;
-
-
-    private static final String TAG = "AvrcpControllerSM";
-    private static final boolean DBG = true;
-    private static final boolean VDBG = false;
-
-    private final Context mContext;
     private final AudioManager mAudioManager;
 
-    private final State mDisconnected;
-    private final State mConnected;
-    private final SetBrowsedPlayer mSetBrowsedPlayer;
-    private final SetAddresedPlayerAndPlayItem mSetAddrPlayer;
-    private final ChangeFolderPath mChangeFolderPath;
-    private final GetFolderList mGetFolderList;
-    private final GetPlayerListing mGetPlayerListing;
-    private final MoveToRoot mMoveToRoot;
+    protected final BluetoothDevice mDevice;
+    protected final byte[] mDeviceAddress;
+    protected final AvrcpControllerService mService;
+    protected final Disconnected mDisconnected;
+    protected final Connecting mConnecting;
+    protected final Connected mConnected;
+    protected final Disconnecting mDisconnecting;
 
-    private final Object mLock = new Object();
-    private static final ArrayList<MediaItem> EMPTY_MEDIA_ITEM_LIST = new ArrayList<>();
-    private static final MediaMetadata EMPTY_MEDIA_METADATA = new MediaMetadata.Builder().build();
+    protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
-    // APIs exist to access these so they must be thread safe
-    private Boolean mIsConnected = false;
-    private RemoteDevice mRemoteDevice;
-    private AvrcpPlayer mAddressedPlayer;
-
-    // Only accessed from State Machine processMessage
+    boolean mRemoteControlConnected = false;
+    boolean mBrowsingConnected = false;
+    final BrowseTree mBrowseTree;
+    private AvrcpPlayer mAddressedPlayer = new AvrcpPlayer();
+    private int mAddressedPlayerId = -1;
+    private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     private int mVolumeChangedNotificationsToIgnore = 0;
-    private int mPreviousPercentageVol = -1;
 
-    // Depth from root of current browsing. This can be used to move to root directly.
-    private int mBrowseDepth = 0;
+    GetFolderList mGetFolderList = null;
 
-    // Browse tree.
-    private BrowseTree mBrowseTree = new BrowseTree();
+    //Number of items to get in a single fetch
+    static final int ITEM_PAGE_SIZE = 20;
+    static final int CMD_TIMEOUT_MILLIS = 10000;
+    static final int ABS_VOL_TIMEOUT_MILLIS = 1000; //1s
 
-    AvrcpControllerStateMachine(Context context) {
+    AvrcpControllerStateMachine(BluetoothDevice device, AvrcpControllerService service) {
         super(TAG);
-        mContext = context;
+        mDevice = device;
+        mDeviceAddress = Utils.getByteAddress(mDevice);
+        mService = service;
+        logD(device.toString());
 
-        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        mContext.registerReceiver(mBroadcastReceiver, filter);
-
+        mBrowseTree = new BrowseTree(mDevice);
         mDisconnected = new Disconnected();
+        mConnecting = new Connecting();
         mConnected = new Connected();
-
-        // Used to change folder path and fetch the new folder listing.
-        mSetBrowsedPlayer = new SetBrowsedPlayer();
-        mSetAddrPlayer = new SetAddresedPlayerAndPlayItem();
-        mChangeFolderPath = new ChangeFolderPath();
-        mGetFolderList = new GetFolderList();
-        mGetPlayerListing = new GetPlayerListing();
-        mMoveToRoot = new MoveToRoot();
+        mDisconnecting = new Disconnecting();
 
         addState(mDisconnected);
+        addState(mConnecting);
         addState(mConnected);
+        addState(mDisconnecting);
 
-        // Any action that needs blocking other requests to the state machine will be implemented as
-        // a separate substate of the mConnected state. Once transtition to the sub-state we should
-        // only handle the messages that are relevant to the sub-action. Everything else should be
-        // deferred so that once we transition to the mConnected we can process them hence.
-        addState(mSetBrowsedPlayer, mConnected);
-        addState(mSetAddrPlayer, mConnected);
-        addState(mChangeFolderPath, mConnected);
+        mGetFolderList = new GetFolderList();
         addState(mGetFolderList, mConnected);
-        addState(mGetPlayerListing, mConnected);
-        addState(mMoveToRoot, mConnected);
+        mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
 
         setInitialState(mDisconnected);
     }
 
-    class Disconnected extends State {
+    BrowseTree.BrowseNode findNode(String parentMediaId) {
+        logD("FindNode");
+        return mBrowseTree.findBrowseNodeByID(parentMediaId);
+    }
+
+    /**
+     * Get the current connection state
+     *
+     * @return current State
+     */
+    public int getState() {
+        return mMostRecentState;
+    }
+
+    /**
+     * Get the underlying device tracked by this state machine
+     *
+     * @return device in focus
+     */
+    public synchronized BluetoothDevice getDevice() {
+        return mDevice;
+    }
+
+    /**
+     * send the connection event asynchronously
+     */
+    public boolean connect(StackEvent event) {
+        if (event.mBrowsingConnected) {
+            onBrowsingConnected();
+        }
+        mRemoteControlConnected = event.mRemoteControlConnected;
+        sendMessage(CONNECT);
+        return true;
+    }
+
+    /**
+     * send the Disconnect command asynchronously
+     */
+    public void disconnect() {
+        sendMessage(DISCONNECT);
+    }
+
+    /**
+     * Dump the current State Machine to the string builder.
+     *
+     * @param sb output string
+     */
+    public void dump(StringBuilder sb) {
+        ProfileService.println(sb, "mDevice: " + mDevice.getAddress() + "("
+                + mDevice.getName() + ") " + this.toString());
+    }
+
+    @Override
+    protected void unhandledMessage(Message msg) {
+        Log.w(TAG, "Unhandled message in state " + getCurrentState() + "msg.what=" + msg.what);
+    }
+
+    private static void logD(String message) {
+        if (DBG) {
+            Log.d(TAG, message);
+        }
+    }
+
+    synchronized void onBrowsingConnected() {
+        if (mBrowsingConnected) return;
+        mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
+        BluetoothMediaBrowserService.notifyChanged(mService
+                .sBrowseTree.mRootNode);
+        BluetoothMediaBrowserService.notifyChanged(mAddressedPlayer.getPlaybackState());
+        mBrowsingConnected = true;
+    }
+
+    synchronized void onBrowsingDisconnected() {
+        if (!mBrowsingConnected) return;
+        mAddressedPlayer.setPlayStatus(PlaybackState.STATE_ERROR);
+        mAddressedPlayer.updateCurrentTrack(null);
+        mBrowseTree.mNowPlayingNode.setCached(false);
+        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mNowPlayingNode);
+        PlaybackState.Builder pbb = new PlaybackState.Builder();
+        pbb.setState(PlaybackState.STATE_ERROR, PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                1.0f).setActions(0);
+        pbb.setErrorMessage(mService.getString(R.string.bluetooth_disconnected));
+        BluetoothMediaBrowserService.notifyChanged(pbb.build());
+        mService.sBrowseTree.mRootNode.removeChild(
+                mBrowseTree.mRootNode);
+        BluetoothMediaBrowserService.notifyChanged(mService
+                .sBrowseTree.mRootNode);
+        BluetoothMediaBrowserService.trackChanged(null);
+        mBrowsingConnected = false;
+    }
+
+    private void notifyChanged(BrowseTree.BrowseNode node) {
+        BluetoothMediaBrowserService.notifyChanged(node);
+    }
+
+    void requestContents(BrowseTree.BrowseNode node) {
+        sendMessage(MESSAGE_GET_FOLDER_ITEMS, node);
+
+        logD("Fetching " + node);
+    }
+
+    void nowPlayingContentChanged() {
+        mBrowseTree.mNowPlayingNode.setCached(false);
+        sendMessage(MESSAGE_GET_FOLDER_ITEMS, mBrowseTree.mNowPlayingNode);
+    }
+
+    protected class Disconnected extends State {
+        @Override
+        public void enter() {
+            logD("Enter Disconnected");
+            if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
+                sendMessage(CLEANUP);
+            }
+            broadcastConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTED);
+        }
 
         @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) Log.d(TAG, " HandleMessage: " + dumpMessageString(msg.what));
-            switch (msg.what) {
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                    if (msg.arg1 == BluetoothProfile.STATE_CONNECTED) {
-                        mBrowseTree.init();
-                        transitionTo(mConnected);
-                        BluetoothDevice rtDevice = (BluetoothDevice) msg.obj;
-                        synchronized (mLock) {
-                            mRemoteDevice = new RemoteDevice(rtDevice);
-                            mAddressedPlayer = new AvrcpPlayer();
-                            mIsConnected = true;
-                        }
-                        MetricsLogger.logProfileConnectionEvent(
-                                BluetoothMetricsProto.ProfileId.AVRCP_CONTROLLER);
-                        Intent intent = new Intent(
-                                BluetoothAvrcpController.ACTION_CONNECTION_STATE_CHANGED);
-                        intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE,
-                                BluetoothProfile.STATE_DISCONNECTED);
-                        intent.putExtra(BluetoothProfile.EXTRA_STATE,
-                                BluetoothProfile.STATE_CONNECTED);
-                        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, rtDevice);
-                        mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-                    }
+        public boolean processMessage(Message message) {
+            switch (message.what) {
+                case CONNECT:
+                    logD("Connect");
+                    transitionTo(mConnecting);
                     break;
-
-                default:
-                    Log.w(TAG,
-                            "Currently Disconnected not handling " + dumpMessageString(msg.what));
-                    return false;
+                case CLEANUP:
+                    mService.removeStateMachine(AvrcpControllerStateMachine.this);
+                    break;
             }
             return true;
         }
     }
+
+    protected class Connecting extends State {
+        @Override
+        public void enter() {
+            logD("Enter Connecting");
+            broadcastConnectionStateChanged(BluetoothProfile.STATE_CONNECTING);
+            transitionTo(mConnected);
+        }
+    }
+
 
     class Connected extends State {
-        @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) Log.d(TAG, " HandleMessage: " + dumpMessageString(msg.what));
-            A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
-            synchronized (mLock) {
-                switch (msg.what) {
-                    case MESSAGE_SEND_PASS_THROUGH_CMD:
-                        BluetoothDevice device = (BluetoothDevice) msg.obj;
-                        AvrcpControllerService.sendPassThroughCommandNative(
-                                Utils.getByteAddress(device), msg.arg1, msg.arg2);
-                        if (a2dpSinkService != null) {
-                            if (DBG) Log.d(TAG, " inform AVRCP Commands to A2DP Sink ");
-                            a2dpSinkService.informAvrcpPassThroughCmd(device, msg.arg1, msg.arg2);
-                        }
-                        break;
-
-                    case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                        AvrcpControllerService.sendGroupNavigationCommandNative(
-                                mRemoteDevice.getBluetoothAddress(), msg.arg1, msg.arg2);
-                        break;
-
-                    case MESSAGE_GET_NOW_PLAYING_LIST:
-                        mGetFolderList.setFolder((String) msg.obj);
-                        mGetFolderList.setBounds((int) msg.arg1, (int) msg.arg2);
-                        mGetFolderList.setScope(AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING);
-                        transitionTo(mGetFolderList);
-                        break;
-
-                    case MESSAGE_GET_FOLDER_LIST:
-                        // Whenever we transition we set the information for folder we need to
-                        // return result.
-                        mGetFolderList.setBounds(msg.arg1, msg.arg2);
-                        mGetFolderList.setFolder((String) msg.obj);
-                        mGetFolderList.setScope(AvrcpControllerService.BROWSE_SCOPE_VFS);
-                        transitionTo(mGetFolderList);
-                        break;
-
-                    case MESSAGE_GET_PLAYER_LIST:
-                        AvrcpControllerService.getPlayerListNative(
-                                mRemoteDevice.getBluetoothAddress(), (byte) msg.arg1,
-                                (byte) msg.arg2);
-                        transitionTo(mGetPlayerListing);
-                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
-                        break;
-
-                    case MESSAGE_CHANGE_FOLDER_PATH: {
-                        int direction = msg.arg1;
-                        Bundle b = (Bundle) msg.obj;
-                        String uid = b.getString(AvrcpControllerService.EXTRA_FOLDER_BT_ID);
-                        String fid = b.getString(AvrcpControllerService.EXTRA_FOLDER_ID);
-
-                        // String is encoded as a Hex String (mostly for display purposes)
-                        // hence convert this back to real byte string.
-                        AvrcpControllerService.changeFolderPathNative(
-                                mRemoteDevice.getBluetoothAddress(), (byte) msg.arg1,
-                                AvrcpControllerService.hexStringToByteUID(uid));
-                        mChangeFolderPath.setFolder(fid);
-                        transitionTo(mChangeFolderPath);
-                        sendMessage(MESSAGE_INTERNAL_BROWSE_DEPTH_INCREMENT, (byte) msg.arg1);
-                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
-                        break;
-                    }
-
-                    case MESSAGE_FETCH_ATTR_AND_PLAY_ITEM: {
-                        int scope = msg.arg1;
-                        String playItemUid = (String) msg.obj;
-                        BrowseTree.BrowseNode currBrPlayer = mBrowseTree.getCurrentBrowsedPlayer();
-                        BrowseTree.BrowseNode currAddrPlayer =
-                                mBrowseTree.getCurrentAddressedPlayer();
-                        if (DBG) {
-                            Log.d(TAG, "currBrPlayer " + currBrPlayer + " currAddrPlayer "
-                                    + currAddrPlayer);
-                        }
-
-                        if (currBrPlayer == null || currBrPlayer.equals(currAddrPlayer)) {
-                            // String is encoded as a Hex String (mostly for display purposes)
-                            // hence convert this back to real byte string.
-                            // NOTE: It may be possible that sending play while the same item is
-                            // playing leads to reset of track.
-                            AvrcpControllerService.playItemNative(
-                                    mRemoteDevice.getBluetoothAddress(), (byte) scope,
-                                    AvrcpControllerService.hexStringToByteUID(playItemUid),
-                                    (int) 0);
-                        } else {
-                            // Send out the request for setting addressed player.
-                            AvrcpControllerService.setAddressedPlayerNative(
-                                    mRemoteDevice.getBluetoothAddress(),
-                                    currBrPlayer.getPlayerID());
-                            mSetAddrPlayer.setItemAndScope(currBrPlayer.getID(), playItemUid,
-                                    scope);
-                            transitionTo(mSetAddrPlayer);
-                        }
-                        break;
-                    }
-
-                    case MESSAGE_SET_BROWSED_PLAYER: {
-                        AvrcpControllerService.setBrowsedPlayerNative(
-                                mRemoteDevice.getBluetoothAddress(), (int) msg.arg1);
-                        mSetBrowsedPlayer.setFolder((String) msg.obj);
-                        transitionTo(mSetBrowsedPlayer);
-                        break;
-                    }
-
-                    case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER:
-                        AvrcpControllerService.getPlayerListNative(
-                                mRemoteDevice.getBluetoothAddress(), 0, 255);
-                        transitionTo(mGetPlayerListing);
-                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
-                        break;
-
-
-                    case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                        if (msg.arg1 == BluetoothProfile.STATE_DISCONNECTED) {
-                            synchronized (mLock) {
-                                mIsConnected = false;
-                                mRemoteDevice = null;
-                            }
-                            mBrowseTree.clear();
-                            transitionTo(mDisconnected);
-                            BluetoothDevice rtDevice = (BluetoothDevice) msg.obj;
-                            Intent intent = new Intent(
-                                    BluetoothAvrcpController.ACTION_CONNECTION_STATE_CHANGED);
-                            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE,
-                                    BluetoothProfile.STATE_CONNECTED);
-                            intent.putExtra(BluetoothProfile.EXTRA_STATE,
-                                    BluetoothProfile.STATE_DISCONNECTED);
-                            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, rtDevice);
-                            mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-                        }
-                        break;
-
-                    case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                        // Service tells us if the browse is connected or disconnected.
-                        // This is useful only for deciding whether to send browse commands rest of
-                        // the connection state handling should be done via the message
-                        // MESSAGE_PROCESS_CONNECTION_CHANGE.
-                        Intent intent = new Intent(
-                                AvrcpControllerService.ACTION_BROWSE_CONNECTION_STATE_CHANGED);
-                        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, (BluetoothDevice) msg.obj);
-                        if (DBG) {
-                            Log.d(TAG, "Browse connection state " + msg.arg1);
-                        }
-                        if (msg.arg1 == 1) {
-                            intent.putExtra(BluetoothProfile.EXTRA_STATE,
-                                    BluetoothProfile.STATE_CONNECTED);
-                        } else if (msg.arg1 == 0) {
-                            intent.putExtra(BluetoothProfile.EXTRA_STATE,
-                                    BluetoothProfile.STATE_DISCONNECTED);
-                            // If browse is disconnected, the next time we connect we should
-                            // be at the ROOT.
-                            mBrowseDepth = 0;
-                        } else {
-                            Log.w(TAG, "Incorrect browse state " + msg.arg1);
-                        }
-
-                        mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-                        break;
-
-                    case MESSAGE_PROCESS_RC_FEATURES:
-                        mRemoteDevice.setRemoteFeatures(msg.arg1);
-                        break;
-
-                    case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                        mVolumeChangedNotificationsToIgnore++;
-                        removeMessages(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT);
-                        sendMessageDelayed(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT,
-                                ABS_VOL_TIMEOUT_MILLIS);
-                        setAbsVolume(msg.arg1, msg.arg2);
-                        break;
-
-                    case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION: {
-                        mRemoteDevice.setNotificationLabel(msg.arg1);
-                        mRemoteDevice.setAbsVolNotificationRequested(true);
-                        int percentageVol = getVolumePercentage();
-                        if (DBG) {
-                            Log.d(TAG, " Sending Interim Response = " + percentageVol + " label "
-                                    + msg.arg1);
-                        }
-                        AvrcpControllerService.sendRegisterAbsVolRspNative(
-                                mRemoteDevice.getBluetoothAddress(), NOTIFICATION_RSP_TYPE_INTERIM,
-                                percentageVol, mRemoteDevice.getNotificationLabel());
-                    }
-                    break;
-
-                    case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION: {
-                        if (mVolumeChangedNotificationsToIgnore > 0) {
-                            mVolumeChangedNotificationsToIgnore--;
-                            if (mVolumeChangedNotificationsToIgnore == 0) {
-                                removeMessages(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT);
-                            }
-                        } else {
-                            if (mRemoteDevice.getAbsVolNotificationRequested()) {
-                                int percentageVol = getVolumePercentage();
-                                if (percentageVol != mPreviousPercentageVol) {
-                                    AvrcpControllerService.sendRegisterAbsVolRspNative(
-                                            mRemoteDevice.getBluetoothAddress(),
-                                            NOTIFICATION_RSP_TYPE_CHANGED, percentageVol,
-                                            mRemoteDevice.getNotificationLabel());
-                                    mPreviousPercentageVol = percentageVol;
-                                    mRemoteDevice.setAbsVolNotificationRequested(false);
-                                }
-                            }
-                        }
-                    }
-                    break;
-
-                    case MESSAGE_INTERNAL_ABS_VOL_TIMEOUT:
-                        // Volume changed notifications should come back promptly from the
-                        // AudioManager, if for some reason some notifications were squashed don't
-                        // prevent future notifications.
-                        if (DBG) Log.d(TAG, "Timed out on volume changed notification");
-                        mVolumeChangedNotificationsToIgnore = 0;
-                        break;
-
-                    case MESSAGE_PROCESS_TRACK_CHANGED:
-                        // Music start playing automatically and update Metadata
-                        mAddressedPlayer.updateCurrentTrack((TrackInfo) msg.obj);
-                        broadcastMetaDataChanged(
-                                mAddressedPlayer.getCurrentTrack().getMediaMetaData());
-                        break;
-
-                    case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                        if (msg.arg2 != -1) {
-                            mAddressedPlayer.setPlayTime(msg.arg2);
-                            broadcastPlayBackStateChanged(getCurrentPlayBackState());
-                        }
-                        break;
-
-                    case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                        int status = msg.arg1;
-                        mAddressedPlayer.setPlayStatus(status);
-                        broadcastPlayBackStateChanged(getCurrentPlayBackState());
-                        if (status == PlaybackState.STATE_PLAYING) {
-                            a2dpSinkService.informTGStatePlaying(mRemoteDevice.mBTDevice, true);
-                        } else if (status == PlaybackState.STATE_PAUSED
-                                || status == PlaybackState.STATE_STOPPED) {
-                            a2dpSinkService.informTGStatePlaying(mRemoteDevice.mBTDevice, false);
-                        }
-                        break;
-
-                    default:
-                        return false;
-                }
-            }
-            return true;
-        }
-    }
-
-    // Handle the change folder path meta-action.
-    // a) Send Change folder command
-    // b) Once successful transition to folder fetch state.
-    class ChangeFolderPath extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.ChangeFolderPath";
-        private int mTmpIncrDirection;
-        private String mID = "";
-
-        public void setFolder(String id) {
-            mID = id;
-        }
+        private static final String STATE_TAG = "Avrcp.ConnectedAvrcpController";
+        private int mCurrentlyHeldKey = 0;
 
         @Override
         public void enter() {
+            if (mMostRecentState == BluetoothProfile.STATE_CONNECTING) {
+                broadcastConnectionStateChanged(BluetoothProfile.STATE_CONNECTED);
+                BluetoothMediaBrowserService.addressedPlayerChanged(mSessionCallbacks);
+            } else {
+                logD("ReEnteringConnected");
+            }
             super.enter();
-            mTmpIncrDirection = -1;
         }
 
         @Override
         public boolean processMessage(Message msg) {
-            if (DBG) Log.d(STATE_TAG, "processMessage " + msg.what);
+            logD(STATE_TAG + " processMessage " + msg.what);
             switch (msg.what) {
-                case MESSAGE_INTERNAL_BROWSE_DEPTH_INCREMENT:
-                    mTmpIncrDirection = msg.arg1;
-                    break;
-
-                case MESSAGE_PROCESS_FOLDER_PATH: {
-                    // Fetch the listing of objects in this folder.
-                    if (DBG) {
-                        Log.d(STATE_TAG,
-                                "MESSAGE_PROCESS_FOLDER_PATH returned " + msg.arg1 + " elements");
-                    }
-
-                    // Update the folder depth.
-                    if (mTmpIncrDirection
-                            == AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP) {
-                        mBrowseDepth -= 1;
-                    } else if (mTmpIncrDirection
-                            == AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN) {
-                        mBrowseDepth += 1;
-                    } else {
-                        throw new IllegalStateException("incorrect nav " + mTmpIncrDirection);
-                    }
-                    if (DBG) Log.d(STATE_TAG, "New browse depth " + mBrowseDepth);
-
-                    if (msg.arg1 > 0) {
-                        sendMessage(MESSAGE_GET_FOLDER_LIST, 0, msg.arg1 - 1, mID);
-                    } else {
-                        // Return an empty response to the upper layer.
-                        broadcastFolderList(mID, EMPTY_MEDIA_ITEM_LIST);
-                    }
-                    mBrowseTree.setCurrentBrowsedFolder(mID);
-                    transitionTo(mConnected);
-                    break;
-                }
-
-                case MESSAGE_INTERNAL_CMD_TIMEOUT:
-                    // We timed out changing folders. It is imperative we tell
-                    // the upper layers that we failed by giving them an empty list.
-                    Log.e(STATE_TAG, "change folder failed, sending empty list.");
-                    broadcastFolderList(mID, EMPTY_MEDIA_ITEM_LIST);
-                    transitionTo(mConnected);
-                    break;
-
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
                 case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
+                    mVolumeChangedNotificationsToIgnore++;
+                    removeMessages(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT);
+                    sendMessageDelayed(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT,
+                            ABS_VOL_TIMEOUT_MILLIS);
+                    setAbsVolume(msg.arg1, msg.arg2);
+                    return true;
+
+                case MESSAGE_GET_FOLDER_ITEMS:
+                    transitionTo(mGetFolderList);
+                    return true;
+
+                case MESSAGE_PLAY_ITEM:
+                    //Set Addressed Player
+                    playItem((BrowseTree.BrowseNode) msg.obj);
+                    return true;
+
+                case MSG_AVRCP_PASSTHRU:
+                    passThru(msg.arg1);
+                    return true;
+
                 case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
+                    mAddressedPlayer.updateCurrentTrack((MediaMetadata) msg.obj);
+                    BluetoothMediaBrowserService.trackChanged((MediaMetadata) msg.obj);
+                    return true;
+
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
+                    mAddressedPlayer.setPlayStatus(msg.arg1);
+                    BluetoothMediaBrowserService.notifyChanged(mAddressedPlayer.getPlaybackState());
+                    if (mAddressedPlayer.getPlaybackState().getState()
+                            == PlaybackState.STATE_PLAYING
+                            && A2dpSinkService.getFocusState() == AudioManager.AUDIOFOCUS_NONE
+                            && !shouldRequestFocus()) {
+                        sendMessage(MSG_AVRCP_PASSTHRU,
+                                AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+                    }
+                    return true;
+
+                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
+                    if (msg.arg2 != -1) {
+                        mAddressedPlayer.setPlayTime(msg.arg2);
+
+                        BluetoothMediaBrowserService.notifyChanged(
+                                mAddressedPlayer.getPlaybackState());
+                    }
+                    return true;
+
+                case MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED:
+                    mAddressedPlayerId = msg.arg1;
+                    logD("AddressedPlayer = " + mAddressedPlayerId);
+                    AvrcpPlayer updatedPlayer = mAvailablePlayerList.get(mAddressedPlayerId);
+                    if (updatedPlayer != null) {
+                        mAddressedPlayer = updatedPlayer;
+                        logD("AddressedPlayer = " + mAddressedPlayer.getName());
+                    } else {
+                        mBrowseTree.mRootNode.setCached(false);
+                        mBrowseTree.mRootNode.setExpectedChildren(255);
+                        BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
+                    }
+                    return true;
+
+                case DISCONNECT:
+                    transitionTo(mDisconnecting);
+                    return true;
 
                 default:
-                    if (DBG) {
-                        Log.d(STATE_TAG, "deferring message " + msg.what + " to Connected state.");
-                    }
-                    deferMessage(msg);
+                    return super.processMessage(msg);
             }
-            return true;
+
+        }
+
+        private void playItem(BrowseTree.BrowseNode node) {
+            if (node == null) {
+                Log.w(TAG, "Invalid item to play");
+            } else {
+                mService.playItemNative(
+                        mDeviceAddress, node.getScope(),
+                        node.getBluetoothID(), 0);
+            }
+        }
+
+        private synchronized void passThru(int cmd) {
+            logD("msgPassThru " + cmd);
+            // Some keys should be held until the next event.
+            if (mCurrentlyHeldKey != 0) {
+                mService.sendPassThroughCommandNative(
+                        mDeviceAddress, mCurrentlyHeldKey,
+                        AvrcpControllerService.KEY_STATE_RELEASED);
+
+                if (mCurrentlyHeldKey == cmd) {
+                    // Return to prevent starting FF/FR operation again
+                    mCurrentlyHeldKey = 0;
+                    return;
+                } else {
+                    // FF/FR is in progress and other operation is desired
+                    // so after stopping FF/FR, not returning so that command
+                    // can be sent for the desired operation.
+                    mCurrentlyHeldKey = 0;
+                }
+            }
+
+            // Send the pass through.
+            mService.sendPassThroughCommandNative(mDeviceAddress, cmd,
+                    AvrcpControllerService.KEY_STATE_PRESSED);
+
+            if (isHoldableKey(cmd)) {
+                // Release cmd next time a command is sent.
+                mCurrentlyHeldKey = cmd;
+            } else {
+                mService.sendPassThroughCommandNative(mDeviceAddress,
+                        cmd, AvrcpControllerService.KEY_STATE_RELEASED);
+            }
+        }
+
+        private boolean isHoldableKey(int cmd) {
+            return (cmd == AvrcpControllerService.PASS_THRU_CMD_ID_REWIND)
+                    || (cmd == AvrcpControllerService.PASS_THRU_CMD_ID_FF);
         }
     }
 
     // Handle the get folder listing action
     // a) Fetch the listing of folders
     // b) Once completed return the object listing
-    class GetFolderList extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.GetFolderList";
+    class GetFolderList extends State {
+        private static final String STATE_TAG = "Avrcp.GetFolderList";
 
-        String mID = "";
-        int mStartInd;
-        int mEndInd;
-        int mCurrInd;
-        int mScope;
-        private ArrayList<MediaItem> mFolderList = new ArrayList<>();
+        boolean mAbort;
+        BrowseTree.BrowseNode mBrowseNode;
+        BrowseTree.BrowseNode mNextStep;
 
         @Override
         public void enter() {
+            logD(STATE_TAG + " Entering GetFolderList");
             // Setup the timeouts.
+            sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
             super.enter();
-            mCurrInd = 0;
-            mFolderList.clear();
-            callNativeFunctionForScope(mStartInd,
-                    Math.min(mEndInd, mStartInd + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
-        }
-
-        public void setScope(int scope) {
-            mScope = scope;
-        }
-
-        public void setFolder(String id) {
-            if (DBG) Log.d(STATE_TAG, "Setting folder to " + id);
-            mID = id;
-        }
-
-        public void setBounds(int startInd, int endInd) {
-            if (DBG) {
-                Log.d(STATE_TAG, "startInd " + startInd + " endInd " + endInd);
+            mAbort = false;
+            Message msg = getCurrentMessage();
+            if (msg.what == MESSAGE_GET_FOLDER_ITEMS) {
+                {
+                    logD(STATE_TAG + " new Get Request");
+                    mBrowseNode = (BrowseTree.BrowseNode) msg.obj;
+                }
             }
-            mStartInd = startInd;
-            mEndInd = Math.min(endInd, MAX_FOLDER_ITEMS);
+
+            if (mBrowseNode == null) {
+                transitionTo(mConnected);
+            } else {
+                navigateToFolderOrRetrieve(mBrowseNode);
+            }
         }
 
         @Override
         public boolean processMessage(Message msg) {
-            Log.d(STATE_TAG, "processMessage " + msg.what);
+            logD(STATE_TAG + " processMessage " + msg.what);
             switch (msg.what) {
                 case MESSAGE_PROCESS_GET_FOLDER_ITEMS:
                     ArrayList<MediaItem> folderList = (ArrayList<MediaItem>) msg.obj;
-                    mFolderList.addAll(folderList);
-                    if (DBG) {
-                        Log.d(STATE_TAG,
-                                "Start " + mStartInd + " End " + mEndInd + " Curr " + mCurrInd
-                                        + " received " + folderList.size());
-                    }
-                    mCurrInd += folderList.size();
+                    int endIndicator = mBrowseNode.getExpectedChildren() - 1;
+                    logD("GetFolderItems: End " + endIndicator
+                            + " received " + folderList.size());
 
                     // Always update the node so that the user does not wait forever
                     // for the list to populate.
-                    sendFolderBroadcastAndUpdateNode();
+                    mBrowseNode.addChildren(folderList);
+                    notifyChanged(mBrowseNode);
 
-                    if (mCurrInd > mEndInd || folderList.size() == 0) {
+                    if (mBrowseNode.getChildrenCount() >= endIndicator || folderList.size() == 0
+                            || mAbort) {
                         // If we have fetched all the elements or if the remotes sends us 0 elements
                         // (which can lead us into a loop since mCurrInd does not proceed) we simply
                         // abort.
+                        mBrowseNode.setCached(true);
                         transitionTo(mConnected);
                     } else {
                         // Fetch the next set of items.
-                        callNativeFunctionForScope(mCurrInd, Math.min(mEndInd,
-                                mCurrInd + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
+                        fetchContents(mBrowseNode);
                         // Reset the timeout message since we are doing a new fetch now.
                         removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
                         sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                     }
                     break;
+                case MESSAGE_PROCESS_SET_BROWSED_PLAYER:
+                    mBrowseTree.setCurrentBrowsedPlayer(mNextStep.getID(), msg.arg1, msg.arg2);
+                    removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+                    sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+                    navigateToFolderOrRetrieve(mBrowseNode);
+                    break;
+
+                case MESSAGE_PROCESS_FOLDER_PATH:
+                    mBrowseTree.setCurrentBrowsedFolder(mNextStep.getID());
+                    mBrowseTree.getCurrentBrowsedFolder().setExpectedChildren(msg.arg1);
+
+                    if (mAbort) {
+                        transitionTo(mConnected);
+                    } else {
+                        removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
+                        navigateToFolderOrRetrieve(mBrowseNode);
+                    }
+                    break;
+
+                case MESSAGE_PROCESS_GET_PLAYER_ITEMS:
+                    BrowseTree.BrowseNode rootNode = mBrowseTree.mRootNode;
+                    if (!rootNode.isCached()) {
+                        List<AvrcpPlayer> playerList = (List<AvrcpPlayer>) msg.obj;
+                        mAvailablePlayerList.clear();
+                        for (AvrcpPlayer player : playerList) {
+                            mAvailablePlayerList.put(player.getId(), player);
+                        }
+                        rootNode.addChildren(playerList);
+                        mBrowseTree.setCurrentBrowsedFolder(BrowseTree.ROOT);
+                        rootNode.setExpectedChildren(playerList.size());
+                        rootNode.setCached(true);
+                        notifyChanged(rootNode);
+                    }
+                    transitionTo(mConnected);
+                    break;
 
                 case MESSAGE_INTERNAL_CMD_TIMEOUT:
                     // We have timed out to execute the request, we should simply send
                     // whatever listing we have gotten until now.
-                    sendFolderBroadcastAndUpdateNode();
+                    Log.w(TAG, "TIMEOUT");
                     transitionTo(mConnected);
                     break;
 
@@ -639,651 +531,267 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // If we have gotten an error for OUT OF RANGE we have
                     // already sent all the items to the client hence simply
                     // transition to Connected state here.
+                    mBrowseNode.setCached(true);
                     transitionTo(mConnected);
                     break;
 
-                case MESSAGE_CHANGE_FOLDER_PATH:
-                case MESSAGE_FETCH_ATTR_AND_PLAY_ITEM:
-                case MESSAGE_GET_PLAYER_LIST:
-                case MESSAGE_GET_NOW_PLAYING_LIST:
-                case MESSAGE_SET_BROWSED_PLAYER:
-                    // A new request has come in, no need to fetch more.
-                    mEndInd = 0;
-                    deferMessage(msg);
+                case MESSAGE_GET_FOLDER_ITEMS:
+                    if (!mBrowseNode.equals(msg.obj)) {
+                        if (shouldAbort(mBrowseNode.getScope(),
+                                 ((BrowseTree.BrowseNode) msg.obj).getScope())) {
+                            mAbort = true;
+                        }
+                        deferMessage(msg);
+                        logD("GetFolderItems: Go Get Another Directory");
+                    } else {
+                        logD("GetFolderItems: Get The Same Directory, ignore");
+                    }
                     break;
 
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
+                case CONNECT:
+                case DISCONNECT:
+                case MSG_AVRCP_PASSTHRU:
                 case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
                 case MESSAGE_PROCESS_TRACK_CHANGED:
                 case MESSAGE_PROCESS_PLAY_POS_CHANGED:
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
                 case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
+                case MESSAGE_PLAY_ITEM:
+                case MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED:
                     // All of these messages should be handled by parent state immediately.
                     return false;
 
                 default:
-                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg.what + " to connected!");
+                    logD(STATE_TAG + " deferring message " + msg.what
+                                + " to connected!");
                     deferMessage(msg);
             }
             return true;
         }
 
-        private void sendFolderBroadcastAndUpdateNode() {
-            BrowseTree.BrowseNode bn = mBrowseTree.findBrowseNodeByID(mID);
-            if (bn == null) {
-                Log.e(TAG, "Can not find BrowseNode by ID: " + mID);
-                return;
+        /**
+         * shouldAbort calculates the cases where fetching the current directory is no longer
+         * necessary.
+         *
+         * @return true:  a new folder in the same scope
+         *                a new player while fetching contents of a folder
+         *         false: other cases, specifically Now Playing while fetching a folder
+         */
+        private boolean shouldAbort(int currentScope, int fetchScope) {
+            if ((currentScope == fetchScope)
+                    || (currentScope == AvrcpControllerService.BROWSE_SCOPE_VFS
+                    && fetchScope == AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST)) {
+                return true;
             }
-            if (bn.isPlayer()) {
-                // Add the now playing folder.
-                MediaDescription.Builder mdb = new MediaDescription.Builder();
-                mdb.setMediaId(BrowseTree.NOW_PLAYING_PREFIX + ":" + bn.getPlayerID());
-                mdb.setTitle(BrowseTree.NOW_PLAYING_PREFIX);
-                Bundle mdBundle = new Bundle();
-                mdBundle.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY,
-                        BrowseTree.NOW_PLAYING_PREFIX + ":" + bn.getID());
-                mdb.setExtras(mdBundle);
-                mFolderList.add(new MediaItem(mdb.build(), MediaItem.FLAG_BROWSABLE));
-            }
-            mBrowseTree.refreshChildren(bn, mFolderList);
-            broadcastFolderList(mID, mFolderList);
-
-            // For now playing we need to set the current browsed folder here.
-            // For normal folders it is set after ChangeFolderPath.
-            if (mScope == AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING) {
-                mBrowseTree.setCurrentBrowsedFolder(mID);
-            }
+            return false;
         }
 
-        private void callNativeFunctionForScope(int start, int end) {
-            switch (mScope) {
+        private void fetchContents(BrowseTree.BrowseNode target) {
+            int start = target.getChildrenCount();
+            int end = Math.min(target.getExpectedChildren(), target.getChildrenCount()
+                    + ITEM_PAGE_SIZE) - 1;
+            switch (target.getScope()) {
+                case AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST:
+                    mService.getPlayerListNative(mDeviceAddress,
+                            start, end);
+                    break;
                 case AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING:
-                    AvrcpControllerService.getNowPlayingListNative(
-                            mRemoteDevice.getBluetoothAddress(), start, end);
+                    mService.getNowPlayingListNative(
+                            mDeviceAddress, start, end);
                     break;
                 case AvrcpControllerService.BROWSE_SCOPE_VFS:
-                    AvrcpControllerService.getFolderListNative(mRemoteDevice.getBluetoothAddress(),
+                    mService.getFolderListNative(mDeviceAddress,
                             start, end);
                     break;
                 default:
-                    Log.e(STATE_TAG, "Scope " + mScope + " cannot be handled here.");
+                    Log.e(TAG, STATE_TAG + " Scope " + target.getScope()
+                            + " cannot be handled here.");
             }
         }
-    }
 
-    // Handle the get player listing action
-    // a) Fetch the listing of players
-    // b) Once completed return the object listing
-    class GetPlayerListing extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.GetPlayerList";
-
-        @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) Log.d(STATE_TAG, "processMessage " + msg.what);
-            switch (msg.what) {
-                case MESSAGE_PROCESS_GET_PLAYER_ITEMS:
-                    List<AvrcpPlayer> playerList = (List<AvrcpPlayer>) msg.obj;
-                    mBrowseTree.refreshChildren(BrowseTree.ROOT, playerList);
-                    ArrayList<MediaItem> mediaItemList = new ArrayList<>();
-                    for (BrowseTree.BrowseNode c : mBrowseTree.findBrowseNodeByID(BrowseTree.ROOT)
-                            .getChildren()) {
-                        mediaItemList.add(c.getMediaItem());
-                    }
-                    broadcastFolderList(BrowseTree.ROOT, mediaItemList);
-                    mBrowseTree.setCurrentBrowsedFolder(BrowseTree.ROOT);
+        /* One of several things can happen when trying to get a folder list
+         *
+         *
+         * 0: The folder handle is no longer valid
+         * 1: The folder contents can be retrieved directly (NowPlaying, Root, Current)
+         * 2: The folder is a browsable player
+         * 3: The folder is a non browsable player
+         * 4: The folder is not a child of the current folder
+         * 5: The folder is a child of the current folder
+         *
+         */
+        private void navigateToFolderOrRetrieve(BrowseTree.BrowseNode target) {
+            mNextStep = mBrowseTree.getNextStepToFolder(target);
+            logD("NAVIGATING From "
+                    + mBrowseTree.getCurrentBrowsedFolder().toString());
+            logD("NAVIGATING Toward " + target.toString());
+            if (mNextStep == null) {
+                return;
+            } else if (target.equals(mBrowseTree.mNowPlayingNode)
+                    || target.equals(mBrowseTree.mRootNode)
+                    || mNextStep.equals(mBrowseTree.getCurrentBrowsedFolder())) {
+                fetchContents(mNextStep);
+            } else if (mNextStep.isPlayer()) {
+                logD("NAVIGATING Player " + mNextStep.toString());
+                if (mNextStep.isBrowsable()) {
+                    mService.setBrowsedPlayerNative(
+                            mDeviceAddress, (int) mNextStep.getBluetoothID());
+                } else {
+                    logD("Player doesn't support browsing");
+                    mNextStep.setCached(true);
                     transitionTo(mConnected);
-                    break;
+                }
+            } else if (mNextStep.equals(mBrowseTree.mNavigateUpNode)) {
+                logD("NAVIGATING UP " + mNextStep.toString());
+                mNextStep = mBrowseTree.getCurrentBrowsedFolder().getParent();
+                mBrowseTree.getCurrentBrowsedFolder().setCached(false);
 
-                case MESSAGE_INTERNAL_CMD_TIMEOUT:
-                    // We have timed out to execute the request.
-                    // Send an empty list here.
-                    broadcastFolderList(BrowseTree.ROOT, EMPTY_MEDIA_ITEM_LIST);
-                    transitionTo(mConnected);
-                    break;
+                mService.changeFolderPathNative(
+                        mDeviceAddress,
+                        AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP,
+                        0);
 
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
-
-                default:
-                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg.what + " to connected!");
-                    deferMessage(msg);
+            } else {
+                logD("NAVIGATING DOWN " + mNextStep.toString());
+                mService.changeFolderPathNative(
+                        mDeviceAddress,
+                        AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN,
+                        mNextStep.getBluetoothID());
             }
-            return true;
-        }
-    }
-
-    class MoveToRoot extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.MoveToRoot";
-        private String mID = "";
-
-        public void setFolder(String id) {
-            if (DBG) Log.d(STATE_TAG, "setFolder " + id);
-            mID = id;
-        }
-
-        @Override
-        public void enter() {
-            // Setup the timeouts.
-            super.enter();
-
-            // We need to move mBrowseDepth levels up. The following message is
-            // completely internal to this state.
-            sendMessage(MESSAGE_INTERNAL_MOVE_N_LEVELS_UP);
-        }
-
-        @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) {
-                Log.d(STATE_TAG, "processMessage " + msg.what + " browse depth " + mBrowseDepth);
-            }
-            switch (msg.what) {
-                case MESSAGE_INTERNAL_MOVE_N_LEVELS_UP:
-                    if (mBrowseDepth == 0) {
-                        Log.w(STATE_TAG, "Already in root!");
-                        transitionTo(mConnected);
-                        sendMessage(MESSAGE_GET_FOLDER_LIST, 0, 0xff, mID);
-                    } else {
-                        AvrcpControllerService.changeFolderPathNative(
-                                mRemoteDevice.getBluetoothAddress(),
-                                (byte) AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP,
-                                AvrcpControllerService.hexStringToByteUID(null));
-                    }
-                    break;
-
-                case MESSAGE_PROCESS_FOLDER_PATH:
-                    mBrowseDepth -= 1;
-                    if (DBG) Log.d(STATE_TAG, "New browse depth " + mBrowseDepth);
-                    if (mBrowseDepth < 0) {
-                        throw new IllegalArgumentException("Browse depth negative!");
-                    }
-
-                    sendMessage(MESSAGE_INTERNAL_MOVE_N_LEVELS_UP);
-                    break;
-
-                case MESSAGE_INTERNAL_CMD_TIMEOUT:
-                    broadcastFolderList(BrowseTree.ROOT, EMPTY_MEDIA_ITEM_LIST);
-                    transitionTo(mConnected);
-                    break;
-
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
-
-                default:
-                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg.what + " to connected!");
-                    deferMessage(msg);
-            }
-            return true;
-        }
-    }
-
-    class SetBrowsedPlayer extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.SetBrowsedPlayer";
-        String mID = "";
-
-        public void setFolder(String id) {
-            mID = id;
-        }
-
-        @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) Log.d(STATE_TAG, "processMessage " + msg.what);
-            switch (msg.what) {
-                case MESSAGE_PROCESS_SET_BROWSED_PLAYER:
-                    // Set the new depth.
-                    if (DBG) Log.d(STATE_TAG, "player depth " + msg.arg2);
-                    mBrowseDepth = msg.arg2;
-
-                    // If we already on top of player and there is no content.
-                    // This should very rarely happen.
-                    if (mBrowseDepth == 0 && msg.arg1 == 0) {
-                        broadcastFolderList(mID, EMPTY_MEDIA_ITEM_LIST);
-                        transitionTo(mConnected);
-                    } else {
-                        // Otherwise move to root and fetch the listing.
-                        // the MoveToRoot#enter() function takes care of fetch.
-                        mMoveToRoot.setFolder(mID);
-                        transitionTo(mMoveToRoot);
-                    }
-                    mBrowseTree.setCurrentBrowsedFolder(mID);
-                    // Also set the browsed player here.
-                    mBrowseTree.setCurrentBrowsedPlayer(mID);
-                    break;
-
-                case MESSAGE_INTERNAL_CMD_TIMEOUT:
-                    broadcastFolderList(mID, EMPTY_MEDIA_ITEM_LIST);
-                    transitionTo(mConnected);
-                    break;
-
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
-
-                default:
-                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg.what + " to connected!");
-                    deferMessage(msg);
-            }
-            return true;
-        }
-    }
-
-    class SetAddresedPlayerAndPlayItem extends CmdState {
-        private static final String STATE_TAG = "AVRCPSM.SetAddresedPlayerAndPlayItem";
-        int mScope;
-        String mPlayItemId;
-        String mAddrPlayerId;
-
-        public void setItemAndScope(String addrPlayerId, String playItemId, int scope) {
-            mAddrPlayerId = addrPlayerId;
-            mPlayItemId = playItemId;
-            mScope = scope;
-        }
-
-        @Override
-        public boolean processMessage(Message msg) {
-            if (DBG) Log.d(STATE_TAG, "processMessage " + msg.what);
-            switch (msg.what) {
-                case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER:
-                    // Set the new addressed player.
-                    mBrowseTree.setCurrentAddressedPlayer(mAddrPlayerId);
-
-                    // And now play the item.
-                    AvrcpControllerService.playItemNative(mRemoteDevice.getBluetoothAddress(),
-                            (byte) mScope, AvrcpControllerService.hexStringToByteUID(mPlayItemId),
-                            (int) 0);
-
-                    // Transition to connected state here.
-                    transitionTo(mConnected);
-                    break;
-
-                case MESSAGE_INTERNAL_CMD_TIMEOUT:
-                    transitionTo(mConnected);
-                    break;
-
-                case MESSAGE_SEND_PASS_THROUGH_CMD:
-                case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_STOP_METADATA_BROADCASTS:
-                case MESSAGE_START_METADATA_BROADCASTS:
-                case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                case MESSAGE_PROCESS_BROWSE_CONNECTION_CHANGE:
-                    // All of these messages should be handled by parent state immediately.
-                    return false;
-
-                default:
-                    if (DBG) Log.d(STATE_TAG, "deferring message " + msg.what + " to connected!");
-                    deferMessage(msg);
-            }
-            return true;
-        }
-    }
-
-    // Class template for commands. Each state should do the following:
-    // (a) In enter() send a timeout message which could be tracked in the
-    // processMessage() stage.
-    // (b) In exit() remove all the timeouts.
-    //
-    // Essentially the lifecycle of a timeout should be bounded to a CmdState always.
-    abstract class CmdState extends State {
-        @Override
-        public void enter() {
-            sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
         }
 
         @Override
         public void exit() {
             removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
+            mBrowseNode = null;
+            super.exit();
         }
     }
 
-    // Interface APIs
-    boolean isConnected() {
-        synchronized (mLock) {
-            return mIsConnected;
+    protected class Disconnecting extends State {
+        @Override
+        public void enter() {
+            onBrowsingDisconnected();
+            broadcastConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTING);
+            transitionTo(mDisconnected);
         }
     }
 
-    void doQuit() {
-        try {
-            mContext.unregisterReceiver(mBroadcastReceiver);
-        } catch (IllegalArgumentException expected) {
-            // If the receiver was never registered unregister will throw an
-            // IllegalArgumentException.
-        }
-        quit();
-    }
-
-    void dump(StringBuilder sb) {
-        ProfileService.println(sb, "StateMachine: " + this.toString());
-    }
-
-    MediaMetadata getCurrentMetaData() {
-        synchronized (mLock) {
-            if (mAddressedPlayer != null && mAddressedPlayer.getCurrentTrack() != null) {
-                MediaMetadata mmd = mAddressedPlayer.getCurrentTrack().getMediaMetaData();
-                if (DBG) {
-                    Log.d(TAG, "getCurrentMetaData mmd " + mmd);
-                }
-            }
-            return EMPTY_MEDIA_METADATA;
-        }
-    }
-
-    PlaybackState getCurrentPlayBackState() {
-        return getCurrentPlayBackState(true);
-    }
-
-    PlaybackState getCurrentPlayBackState(boolean cached) {
-        if (cached) {
-            synchronized (mLock) {
-                if (mAddressedPlayer == null) {
-                    return new PlaybackState.Builder().setState(PlaybackState.STATE_ERROR,
-                            PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0).build();
-                }
-                return mAddressedPlayer.getPlaybackState();
-            }
-        } else {
-            // Issue a native request, we return NULL since this is only for PTS.
-            AvrcpControllerService.getPlaybackStateNative(mRemoteDevice.getBluetoothAddress());
-            return null;
-        }
-    }
-
-    // Entry point to the state machine where the services should call to fetch children
-    // for a specific node. It checks if the currently browsed node is the same as the one being
-    // asked for, in that case it returns the currently cached children. This saves bandwidth and
-    // also if we are already fetching elements for a current folder (since we need to batch
-    // fetches) then we should not submit another request but simply return what we have fetched
-    // until now.
-    //
-    // It handles fetches to all VFS, Now Playing and Media Player lists.
-    void getChildren(String parentMediaId, int start, int items) {
-        BrowseTree.BrowseNode bn = mBrowseTree.findBrowseNodeByID(parentMediaId);
-        if (bn == null) {
-            Log.e(TAG, "Invalid folder to browse " + mBrowseTree);
-            broadcastFolderList(parentMediaId, EMPTY_MEDIA_ITEM_LIST);
-            return;
-        }
-
-        if (DBG) {
-            Log.d(TAG, "To Browse folder " + bn + " is cached " + bn.isCached() + " current folder "
-                    + mBrowseTree.getCurrentBrowsedFolder());
-        }
-        if (bn.equals(mBrowseTree.getCurrentBrowsedFolder()) && bn.isCached()) {
-            if (DBG) {
-                Log.d(TAG, "Same cached folder -- returning existing children.");
-            }
-            BrowseTree.BrowseNode n = mBrowseTree.findBrowseNodeByID(parentMediaId);
-            ArrayList<MediaItem> childrenList = new ArrayList<MediaItem>();
-            for (BrowseTree.BrowseNode cn : n.getChildren()) {
-                childrenList.add(cn.getMediaItem());
-            }
-            broadcastFolderList(parentMediaId, childrenList);
-            return;
-        }
-
-        Message msg = null;
-        int btDirection = mBrowseTree.getDirection(parentMediaId);
-        BrowseTree.BrowseNode currFol = mBrowseTree.getCurrentBrowsedFolder();
-        if (DBG) {
-            Log.d(TAG, "Browse direction parent " + mBrowseTree.getCurrentBrowsedFolder() + " req "
-                    + parentMediaId + " direction " + btDirection);
-        }
-        if (BrowseTree.ROOT.equals(parentMediaId)) {
-            // Root contains the list of players.
-            msg = obtainMessage(AvrcpControllerStateMachine.MESSAGE_GET_PLAYER_LIST, start, items);
-        } else if (bn.isPlayer() && btDirection != BrowseTree.DIRECTION_SAME) {
-            // Set browsed (and addressed player) as the new player.
-            // This should fetch the list of folders.
-            msg = obtainMessage(AvrcpControllerStateMachine.MESSAGE_SET_BROWSED_PLAYER,
-                    bn.getPlayerID(), 0, bn.getID());
-        } else if (bn.isNowPlaying()) {
-            // Issue a request to fetch the items.
-            msg = obtainMessage(AvrcpControllerStateMachine.MESSAGE_GET_NOW_PLAYING_LIST, start,
-                    items, parentMediaId);
-        } else {
-            // Only change folder if desired. If an app refreshes a folder
-            // (because it resumed etc) and current folder does not change
-            // then we can simply fetch list.
-
-            // We exempt two conditions from change folder:
-            // a) If the new folder is the same as current folder (refresh of UI)
-            // b) If the new folder is ROOT and current folder is NOW_PLAYING (or vice-versa)
-            // In this condition we 'fake' child-parent hierarchy but it does not exist in
-            // bluetooth world.
-            boolean isNowPlayingToRoot =
-                    currFol.isNowPlaying() && bn.getID().equals(BrowseTree.ROOT);
-            if (!isNowPlayingToRoot) {
-                // Find the direction of traversal.
-                int direction = -1;
-                if (DBG) Log.d(TAG, "Browse direction " + currFol + " " + bn + " = " + btDirection);
-                if (btDirection == BrowseTree.DIRECTION_UNKNOWN) {
-                    Log.w(TAG, "parent " + bn + " is not a direct "
-                            + "successor or predeccessor of current folder " + currFol);
-                    broadcastFolderList(parentMediaId, EMPTY_MEDIA_ITEM_LIST);
-                    return;
-                }
-
-                if (btDirection == BrowseTree.DIRECTION_DOWN) {
-                    direction = AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_DOWN;
-                } else if (btDirection == BrowseTree.DIRECTION_UP) {
-                    direction = AvrcpControllerService.FOLDER_NAVIGATION_DIRECTION_UP;
-                }
-
-                Bundle b = new Bundle();
-                b.putString(AvrcpControllerService.EXTRA_FOLDER_ID, bn.getID());
-                b.putString(AvrcpControllerService.EXTRA_FOLDER_BT_ID, bn.getFolderUID());
-                msg = obtainMessage(AvrcpControllerStateMachine.MESSAGE_CHANGE_FOLDER_PATH,
-                        direction, 0, b);
-            } else {
-                // Fetch the listing without changing paths.
-                msg = obtainMessage(AvrcpControllerStateMachine.MESSAGE_GET_FOLDER_LIST, start,
-                        items, bn.getFolderUID());
-            }
-        }
-
-        if (msg != null) {
-            sendMessage(msg);
-        }
-    }
-
-    public void fetchAttrAndPlayItem(String uid) {
-        BrowseTree.BrowseNode currItem = mBrowseTree.findFolderByIDLocked(uid);
-        BrowseTree.BrowseNode currFolder = mBrowseTree.getCurrentBrowsedFolder();
-        if (DBG) Log.d(TAG, "fetchAttrAndPlayItem mediaId=" + uid + " node=" + currItem);
-        if (currItem != null) {
-            int scope = currFolder.isNowPlaying() ? AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING
-                    : AvrcpControllerService.BROWSE_SCOPE_VFS;
-            Message msg =
-                    obtainMessage(AvrcpControllerStateMachine.MESSAGE_FETCH_ATTR_AND_PLAY_ITEM,
-                            scope, 0, currItem.getFolderUID());
-            sendMessage(msg);
-        }
-    }
-
-    private void broadcastMetaDataChanged(MediaMetadata metadata) {
-        Intent intent = new Intent(AvrcpControllerService.ACTION_TRACK_EVENT);
-        intent.putExtra(AvrcpControllerService.EXTRA_METADATA, metadata);
-        if (VDBG) {
-            Log.d(TAG, " broadcastMetaDataChanged = " + metadata.getDescription());
-        }
-        mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-    }
-
-    private void broadcastFolderList(String id, ArrayList<MediaItem> items) {
-        Intent intent = new Intent(AvrcpControllerService.ACTION_FOLDER_LIST);
-        if (VDBG) Log.d(TAG, "broadcastFolderList id " + id + " items " + items);
-        intent.putExtra(AvrcpControllerService.EXTRA_FOLDER_ID, id);
-        intent.putParcelableArrayListExtra(AvrcpControllerService.EXTRA_FOLDER_LIST, items);
-        mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-    }
-
-    private void broadcastPlayBackStateChanged(PlaybackState state) {
-        Intent intent = new Intent(AvrcpControllerService.ACTION_TRACK_EVENT);
-        intent.putExtra(AvrcpControllerService.EXTRA_PLAYBACK, state);
-        if (DBG) {
-            Log.d(TAG, " broadcastPlayBackStateChanged = " + state.toString());
-        }
-        mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-    }
 
     private void setAbsVolume(int absVol, int label) {
         int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        // Ignore first volume command since phone may not know difference between stream volume
-        // and amplifier volume.
-        if (mRemoteDevice.getFirstAbsVolCmdRecvd()) {
-            int newIndex = (maxVolume * absVol) / ABS_VOL_BASE;
-            if (DBG) {
-                Log.d(TAG, " setAbsVolume =" + absVol + " maxVol = " + maxVolume
-                        + " cur = " + currIndex + " new = " + newIndex);
-            }
-            /*
-             * In some cases change in percentage is not sufficient enough to warrant
-             * change in index values which are in range of 0-15. For such cases
-             * no action is required
-             */
-            if (newIndex != currIndex) {
-                mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newIndex,
-                        AudioManager.FLAG_SHOW_UI);
-            }
-        } else {
-            mRemoteDevice.setFirstAbsVolCmdRecvd();
-            absVol = (currIndex * ABS_VOL_BASE) / maxVolume;
-            if (DBG) Log.d(TAG, " SetAbsVol recvd for first time, respond with " + absVol);
+        int newIndex = (maxVolume * absVol) / ABS_VOL_BASE;
+        logD(" setAbsVolume =" + absVol + " maxVol = " + maxVolume
+                + " cur = " + currIndex + " new = " + newIndex);
+        /*
+         * In some cases change in percentage is not sufficient enough to warrant
+         * change in index values which are in range of 0-15. For such cases
+         * no action is required
+         */
+        if (newIndex != currIndex) {
+            mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newIndex,
+                    AudioManager.FLAG_SHOW_UI);
         }
-        AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
-                label);
+        mService.sendAbsVolRspNative(mDeviceAddress, absVol, label);
     }
 
-    private int getVolumePercentage() {
-        int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        int percentageVol = ((currIndex * ABS_VOL_BASE) / maxVolume);
-        return percentageVol;
-    }
-
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+    MediaSession.Callback mSessionCallbacks = new MediaSession.Callback() {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (action.equals(AudioManager.VOLUME_CHANGED_ACTION)) {
-                int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                if (streamType == AudioManager.STREAM_MUSIC) {
-                    sendMessage(MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION);
-                }
+        public void onPlay() {
+            logD("onPlay");
+            onPrepare();
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_PLAY);
+        }
+
+        @Override
+        public void onPause() {
+            logD("onPause");
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE);
+        }
+
+        @Override
+        public void onSkipToNext() {
+            logD("onSkipToNext");
+            onPrepare();
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_FORWARD);
+        }
+
+        @Override
+        public void onSkipToPrevious() {
+            logD("onSkipToPrevious");
+            onPrepare();
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_BACKWARD);
+        }
+
+        @Override
+        public void onSkipToQueueItem(long id) {
+            logD("onSkipToQueueItem" + id);
+            onPrepare();
+            BrowseTree.BrowseNode node = mBrowseTree.getTrackFromNowPlayingList((int) id);
+            if (node != null) {
+                sendMessage(MESSAGE_PLAY_ITEM, node);
             }
+        }
+
+        @Override
+        public void onStop() {
+            logD("onStop");
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_STOP);
+        }
+
+        @Override
+        public void onPrepare() {
+            logD("onPrepare");
+            A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
+            if (a2dpSinkService != null) {
+                a2dpSinkService.requestAudioFocus(mDevice, true);
+            }
+        }
+
+        @Override
+        public void onRewind() {
+            logD("onRewind");
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_REWIND);
+        }
+
+        @Override
+        public void onFastForward() {
+            logD("onFastForward");
+            sendMessage(MSG_AVRCP_PASSTHRU, AvrcpControllerService.PASS_THRU_CMD_ID_FF);
+        }
+
+        @Override
+        public void onPlayFromMediaId(String mediaId, Bundle extras) {
+            logD("onPlayFromMediaId");
+            // Play the item if possible.
+            onPrepare();
+            BrowseTree.BrowseNode node = mBrowseTree.findBrowseNodeByID(mediaId);
+            sendMessage(MESSAGE_PLAY_ITEM, node);
         }
     };
 
-    public static String dumpMessageString(int message) {
-        String str = "UNKNOWN";
-        switch (message) {
-            case MESSAGE_SEND_PASS_THROUGH_CMD:
-                str = "REQ_PASS_THROUGH_CMD";
-                break;
-            case MESSAGE_SEND_GROUP_NAVIGATION_CMD:
-                str = "REQ_GRP_NAV_CMD";
-                break;
-            case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                str = "CB_SET_ABS_VOL_CMD";
-                break;
-            case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                str = "CB_REGISTER_ABS_VOL";
-                break;
-            case MESSAGE_PROCESS_TRACK_CHANGED:
-                str = "CB_TRACK_CHANGED";
-                break;
-            case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                str = "CB_PLAY_POS_CHANGED";
-                break;
-            case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                str = "CB_PLAY_STATUS_CHANGED";
-                break;
-            case MESSAGE_PROCESS_RC_FEATURES:
-                str = "CB_RC_FEATURES";
-                break;
-            case MESSAGE_PROCESS_CONNECTION_CHANGE:
-                str = "CB_CONN_CHANGED";
-                break;
-            default:
-                str = Integer.toString(message);
-                break;
+    protected void broadcastConnectionStateChanged(int currentState) {
+        if (mMostRecentState == currentState) {
+            return;
         }
-        return str;
+        if (currentState == BluetoothProfile.STATE_CONNECTED) {
+            MetricsLogger.logProfileConnectionEvent(
+                    BluetoothMetricsProto.ProfileId.AVRCP_CONTROLLER);
+        }
+        logD("Connection state " + mDevice + ": " + mMostRecentState + "->" + currentState);
+        Intent intent = new Intent(BluetoothAvrcpController.ACTION_CONNECTION_STATE_CHANGED);
+        intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, mMostRecentState);
+        intent.putExtra(BluetoothProfile.EXTRA_STATE, currentState);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+        mMostRecentState = currentState;
+        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
     }
 
-    public static String displayBluetoothAvrcpSettings(BluetoothAvrcpPlayerSettings mSett) {
-        StringBuffer sb = new StringBuffer();
-        int supportedSetting = mSett.getSettings();
-        if (VDBG) {
-            Log.d(TAG, " setting: " + supportedSetting);
-        }
-        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_EQUALIZER) != 0) {
-            sb.append(" EQ : ");
-            sb.append(Integer.toString(mSett.getSettingValue(
-                    BluetoothAvrcpPlayerSettings.SETTING_EQUALIZER)));
-        }
-        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_REPEAT) != 0) {
-            sb.append(" REPEAT : ");
-            sb.append(Integer.toString(mSett.getSettingValue(
-                    BluetoothAvrcpPlayerSettings.SETTING_REPEAT)));
-        }
-        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_SHUFFLE) != 0) {
-            sb.append(" SHUFFLE : ");
-            sb.append(Integer.toString(mSett.getSettingValue(
-                    BluetoothAvrcpPlayerSettings.SETTING_SHUFFLE)));
-        }
-        if ((supportedSetting & BluetoothAvrcpPlayerSettings.SETTING_SCAN) != 0) {
-            sb.append(" SCAN : ");
-            sb.append(Integer.toString(mSett.getSettingValue(
-                    BluetoothAvrcpPlayerSettings.SETTING_SCAN)));
-        }
-        return sb.toString();
+    private boolean shouldRequestFocus() {
+        return mService.getResources()
+                .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
     }
 }

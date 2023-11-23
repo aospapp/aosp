@@ -28,17 +28,18 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
-import android.app.Instrumentation;
 import android.content.res.Resources;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.inputmethod.EditorInfo;
 import android.widget.SearchView;
+
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -51,7 +52,6 @@ import org.junit.runner.RunWith;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class SearchViewTest {
-    private Instrumentation mInstrumentation;
     private Activity mActivity;
     private SearchView mSearchView;
 
@@ -61,7 +61,6 @@ public class SearchViewTest {
 
     @Before
     public void setup() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mSearchView = (SearchView) mActivity.findViewById(R.id.search_view);
     }
@@ -122,8 +121,8 @@ public class SearchViewTest {
             mSearchView.setIconified(false);
         });
 
-        mActivityRule.runOnUiThread(() -> mSearchView.setIconified(true));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mSearchView,
+                () -> mSearchView.setIconified(true), true);
 
         // Since our search view is marked with iconifiedByDefault=false, call to setIconified
         // with true us going to be ignored, as detailed in the class-level documentation of
@@ -143,8 +142,8 @@ public class SearchViewTest {
         when(mockDenyCloseListener.onClose()).thenReturn(Boolean.TRUE);
         mSearchView.setOnCloseListener(mockDenyCloseListener);
 
-        mActivityRule.runOnUiThread(() -> mSearchView.setIconified(true));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mSearchView,
+                () -> mSearchView.setIconified(true), true);
 
         // Our mock listener is configured to return true from its onClose, thereby preventing
         // the iconify request to be completed. Check that the listener was called and that the
@@ -165,8 +164,8 @@ public class SearchViewTest {
         when(mockAllowCloseListener.onClose()).thenReturn(Boolean.FALSE);
         mSearchView.setOnCloseListener(mockAllowCloseListener);
 
-        mActivityRule.runOnUiThread(() -> mSearchView.setIconified(true));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mSearchView,
+                () -> mSearchView.setIconified(true), true);
 
         // Our mock listener is configured to return false from its onClose, thereby allowing
         // the iconify request to be completed. Check that the listener was called and that the
@@ -182,15 +181,16 @@ public class SearchViewTest {
         final int maxWidth2 = res.getDimensionPixelSize(R.dimen.search_view_max_width2);
 
         // Set search view to not be iconified before running max-width tests
-        mActivityRule.runOnUiThread(() -> mSearchView.setIconified(false));
-
-        mActivityRule.runOnUiThread(() -> mSearchView.setMaxWidth(maxWidth1));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mSearchView,
+                () -> {
+                    mSearchView.setIconified(false);
+                    mSearchView.setMaxWidth(maxWidth1);
+                }, true);
         assertEquals(maxWidth1, mSearchView.getMaxWidth());
         assertTrue(mSearchView.getWidth() <= maxWidth1);
 
-        mActivityRule.runOnUiThread(() -> mSearchView.setMaxWidth(maxWidth2));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mSearchView,
+                () -> mSearchView.setMaxWidth(maxWidth2), true);
         assertEquals(maxWidth2, mSearchView.getMaxWidth());
         assertTrue(mSearchView.getWidth() <= maxWidth2);
     }

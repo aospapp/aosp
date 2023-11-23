@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 import common
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import constants
 
 
@@ -29,9 +30,15 @@ class ChromeBinaryTest(test.test):
     test_binary_dir = None
 
     def setup(self):
+        """
+        Sets up a test.
+        """
         self.job.setup_dep([self.CHROME_TEST_DEP])
 
     def initialize(self):
+        """
+        Initializes members after setup().
+        """
         test_dep_dir = os.path.join(self.autodir, 'deps', self.CHROME_TEST_DEP)
         self.job.install_pkg(self.CHROME_TEST_DEP, 'dep', test_dep_dir)
 
@@ -48,15 +55,23 @@ class ChromeBinaryTest(test.test):
         self.home_dir = tempfile.mkdtemp()
 
     def cleanup(self):
+        """
+        Cleans up working directory after run.
+        """
         if self.home_dir:
             shutil.rmtree(self.home_dir, ignore_errors=True)
 
     def get_chrome_binary_path(self, binary_to_run):
+        """
+        Gets test binary's full path.
+
+        @returns full path of the test binary to run.
+        """
         return os.path.join(self.test_binary_dir, binary_to_run)
 
     def parse_fail_reason(self, err, gtest_xml):
         """
-        Parse reason of failure from CmdError and gtest result.
+        Parses reason of failure from CmdError and gtest result.
 
         @param err: CmdError raised from utils.system().
         @param gtest_xml: filename of gtest result xml.
@@ -99,42 +114,64 @@ class ChromeBinaryTest(test.test):
                                binary_to_run,
                                extra_params='',
                                prefix='',
-                               as_chronos=True):
+                               as_chronos=True,
+                               timeout=None):
         """
-        Run chrome test binary.
+        Runs chrome test binary.
 
         @param binary_to_run: The name of the browser test binary.
         @param extra_params: Arguments for the browser test binary.
         @param prefix: Prefix to the command that invokes the test binary.
         @param as_chronos: Boolean indicating if the tests should run in a
             chronos shell.
+        @param timeout: timeout in seconds
 
         @raises: error.TestFail if there is error running the command.
+        @raises: CmdTimeoutError: the command timed out and |timeout| is
+            specified and not None.
         """
         gtest_xml = tempfile.mktemp(prefix='gtest_xml', suffix='.xml')
-
-        cmd = '%s/%s %s' % (self.test_binary_dir, binary_to_run, extra_params)
+        binary_path = self.get_chrome_binary_path(binary_to_run)
         env_vars = ' '.join([
             'HOME=' + self.home_dir,
             'CR_SOURCE_ROOT=' + self.cr_source_dir,
             'CHROME_DEVEL_SANDBOX=' + self.CHROME_SANDBOX,
             'GTEST_OUTPUT=xml:' + gtest_xml,
             ])
-        cmd = '%s %s' % (env_vars, prefix + cmd)
+        cmd = ' '.join([env_vars, prefix, binary_path, extra_params])
 
         try:
             if as_chronos:
-                utils.system('su %s -c \'%s\'' % ('chronos', cmd))
+                utils.system("su chronos -c '%s'" % cmd,
+                             timeout=timeout)
             else:
-                utils.system(cmd)
+                utils.system(cmd, timeout=timeout)
         except error.CmdError as e:
-            raise error.TestFail(self.parse_fail_reason(e, gtest_xml))
+            return_code = e.result_obj.exit_status
+            if return_code == 126:
+                path_permission = '; '.join(
+                    file_utils.recursive_path_permission(binary_path))
+                fail_reason = ('Cannot execute command %s. Permissions: %s' %
+                               (binary_path, path_permission))
+            elif return_code == 127:
+                fail_reason = ('Command not found: %s' % binary_path)
+            else:
+                fail_reason = self.parse_fail_reason(e, gtest_xml)
+
+            raise error.TestFail(fail_reason)
 
 
 def nuke_chrome(func):
-    """Decorator to nuke the Chrome browser processes."""
+    """
+    Decorator to nuke the Chrome browser processes.
+    """
 
     def wrapper(*args, **kargs):
+        """
+        Nukes Chrome browser processes before invoking func().
+
+        Also, restarts Chrome after func() returns.
+        """
         open(constants.DISABLE_BROWSER_RESTART_MAGIC_FILE, 'w').close()
         try:
             try:

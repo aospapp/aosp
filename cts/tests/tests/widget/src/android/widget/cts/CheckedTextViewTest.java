@@ -25,16 +25,12 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.StateSet;
 import android.view.View;
@@ -44,6 +40,12 @@ import android.widget.CheckedTextView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.cts.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -106,13 +108,12 @@ public class CheckedTextViewTest {
 
     @Test
     public void testChecked() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
             mListView.setAdapter(new CheckedTextViewAdapter());
 
             mListView.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
             mListView.setItemChecked(1, true);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(1, mListView.getCheckedItemPosition());
         assertTrue(mListView.isItemChecked(1));
@@ -126,11 +127,10 @@ public class CheckedTextViewTest {
         assertTrue(view1.isChecked());
         assertFalse(view2.isChecked());
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
             mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
             mListView.setItemChecked(2, true);
         });
-        mInstrumentation.waitForIdleSync();
         assertFalse(view0.isChecked());
         assertTrue(view1.isChecked());
         assertTrue(view2.isChecked());
@@ -170,22 +170,20 @@ public class CheckedTextViewTest {
 
     @Test
     public void testSetPadding() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
             mListView.setPadding(1, 2, 3, 4);
             mListView.requestLayout();
         });
-        mInstrumentation.waitForIdleSync();
 
         final int origTop = mListView.getPaddingTop();
         final int origBottom = mListView.getPaddingBottom();
         final int origLeft = mListView.getPaddingLeft();
         final int origRight = mListView.getPaddingRight();
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView, () -> {
             mListView.setPadding(10, 20, 30, 40);
             mListView.requestLayout();
         });
-        mInstrumentation.waitForIdleSync();
 
         assertTrue(origTop < mListView.getPaddingTop());
         assertTrue(origBottom < mListView.getPaddingBottom());
@@ -352,6 +350,55 @@ public class CheckedTextViewTest {
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mCheckedTextView,
                 () -> mCheckedTextView.setCheckMarkDrawable(R.drawable.icon_yellow));
         assertEquals(PorterDuff.Mode.SRC_OVER, mCheckedTextView.getCheckMarkTintMode());
+        assertEquals(0x8000FF00, mCheckedTextView.getCheckMarkTintList().getDefaultColor());
+        checkMark = mCheckedTextView.getCheckMarkDrawable();
+        TestUtils.assertAllPixelsOfColor("Expected 50% green over full yellow", checkMark,
+                checkMark.getIntrinsicWidth(), checkMark.getIntrinsicHeight(), false,
+                TestUtils.compositeColors(0x8000FF00, Color.YELLOW), 1, true);
+    }
+
+    @Test
+    public void testCheckMarkTintBlendMode() throws Throwable {
+        mActivityRule.runOnUiThread(() -> mCheckedTextView.setChecked(true));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mCheckedTextView,
+                () -> mCheckedTextView.setCheckMarkDrawable(R.drawable.icon_red));
+
+        Drawable checkMark = mCheckedTextView.getCheckMarkDrawable();
+        TestUtils.assertAllPixelsOfColor("Initial state is red", checkMark,
+                checkMark.getBounds().width(), checkMark.getBounds().height(), false,
+                Color.RED, 1, true);
+
+        // With SRC_IN we're expecting the translucent tint color to "take over" the
+        // original red checkmark.
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mCheckedTextView, () -> {
+            mCheckedTextView.setCheckMarkTintBlendMode(BlendMode.SRC_IN);
+            mCheckedTextView.setCheckMarkTintList(ColorStateList.valueOf(0x8000FF00));
+        });
+
+        assertEquals(BlendMode.SRC_IN, mCheckedTextView.getCheckMarkTintBlendMode());
+        assertEquals(0x8000FF00, mCheckedTextView.getCheckMarkTintList().getDefaultColor());
+        checkMark = mCheckedTextView.getCheckMarkDrawable();
+        TestUtils.assertAllPixelsOfColor("Expected 50% green", checkMark,
+                checkMark.getIntrinsicWidth(), checkMark.getIntrinsicHeight(), false,
+                0x8000FF00, 1, true);
+
+        // With SRC_OVER we're expecting the translucent tint color to be drawn on top
+        // of the original red checkmark, creating a composite color fill as the result.
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mCheckedTextView,
+                () -> mCheckedTextView.setCheckMarkTintBlendMode(BlendMode.SRC_OVER));
+
+        assertEquals(BlendMode.SRC_OVER, mCheckedTextView.getCheckMarkTintBlendMode());
+        assertEquals(0x8000FF00, mCheckedTextView.getCheckMarkTintList().getDefaultColor());
+        checkMark = mCheckedTextView.getCheckMarkDrawable();
+        TestUtils.assertAllPixelsOfColor("Expected 50% green over full red", checkMark,
+                checkMark.getIntrinsicWidth(), checkMark.getIntrinsicHeight(), false,
+                TestUtils.compositeColors(0x8000FF00, Color.RED), 1, true);
+
+        // Switch to a different color for the underlying checkmark and verify that the
+        // currently configured tinting (50% green overlay) is still respected
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mCheckedTextView,
+                () -> mCheckedTextView.setCheckMarkDrawable(R.drawable.icon_yellow));
+        assertEquals(BlendMode.SRC_OVER, mCheckedTextView.getCheckMarkTintBlendMode());
         assertEquals(0x8000FF00, mCheckedTextView.getCheckMarkTintList().getDefaultColor());
         checkMark = mCheckedTextView.getCheckMarkDrawable();
         TestUtils.assertAllPixelsOfColor("Expected 50% green over full yellow", checkMark,

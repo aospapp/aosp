@@ -49,8 +49,7 @@ class FmqPerformanceTest(base_test.BaseTestClass):
     }
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
+        self.dut = self.android_devices[0]
         self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(
             self.dut)
         self._cpu_freq.DisableCpuScaling()
@@ -82,7 +81,7 @@ class FmqPerformanceTest(base_test.BaseTestClass):
         # Start the benchmark service.
         logging.info("Start the benchmark service(%s bit mode)", bits)
         binary = "/data/local/tmp/%s/mq_benchmark_service%s" % (bits, bits)
-        results = self.dut.shell.one.Execute([
+        results = self.dut.shell.Execute([
             "chmod 755 %s" % binary,
             "VTS_ROOT_PATH=/data/local/tmp TREBLE_TESTING_OVERRIDE=true " \
             "LD_LIBRARY_PATH=/data/local/tmp/%s:"
@@ -97,14 +96,14 @@ class FmqPerformanceTest(base_test.BaseTestClass):
         logging.info("Start to run the benchmark (%s bit mode)", bits)
         binary = "/data/local/tmp/%s/mq_benchmark_client%s" % (bits, bits)
 
-        results = self.dut.shell.one.Execute([
+        results = self.dut.shell.Execute([
             "chmod 755 %s" % binary,
             "TREBLE_TESTING_OVERRIDE=true LD_LIBRARY_PATH=/data/local/tmp/%s:"
             "$LD_LIBRARY_PATH %s" % (bits, binary)
         ])
 
         # Stop the benchmark service.
-        self.dut.shell.one.Execute("kill -9 `pidof mq_benchmark_service%s`" %
+        self.dut.shell.Execute("kill -9 `pidof mq_benchmark_service%s`" %
                                    bits)
 
         # Parses the result.

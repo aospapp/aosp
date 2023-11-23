@@ -17,35 +17,43 @@ package com.android.settings.connecteddevice;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 
-import android.util.Log;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceScreen;
+
 import com.android.settings.bluetooth.BluetoothDeviceUpdater;
 import com.android.settings.bluetooth.SavedBluetoothDeviceUpdater;
+import com.android.settings.connecteddevice.dock.DockUpdater;
 import com.android.settings.core.BasePreferenceController;
 import com.android.settings.dashboard.DashboardFragment;
-
+import com.android.settings.overlay.FeatureFactory;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.core.lifecycle.events.OnStart;
 import com.android.settingslib.core.lifecycle.events.OnStop;
-import com.android.settingslib.utils.ThreadUtils;
 
 public class PreviouslyConnectedDevicePreferenceController extends BasePreferenceController
         implements LifecycleObserver, OnStart, OnStop, DevicePreferenceCallback {
 
-    private Preference mPreference;
+    private static final int MAX_DEVICE_NUM = 3;
+
+    private PreferenceGroup mPreferenceGroup;
     private BluetoothDeviceUpdater mBluetoothDeviceUpdater;
+    private DockUpdater mSavedDockUpdater;
     private int mPreferenceSize;
 
     public PreviouslyConnectedDevicePreferenceController(Context context, String preferenceKey) {
         super(context, preferenceKey);
+
+        mSavedDockUpdater = FeatureFactory.getFactory(
+                context).getDockUpdaterFeatureProvider().getSavedDockUpdater(context, this);
     }
 
     @Override
     public int getAvailabilityStatus() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+        return (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+                || mSavedDockUpdater != null)
                 ? AVAILABLE
                 : CONDITIONALLY_UNAVAILABLE;
     }
@@ -53,21 +61,26 @@ public class PreviouslyConnectedDevicePreferenceController extends BasePreferenc
     @Override
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
+        mPreferenceGroup = screen.findPreference(getPreferenceKey());
+        mPreferenceGroup.setVisible(false);
+
         if (isAvailable()) {
-            mPreference = screen.findPreference(getPreferenceKey());
-            mBluetoothDeviceUpdater.setPrefContext(screen.getContext());
+            final Context context = screen.getContext();
+            mBluetoothDeviceUpdater.setPrefContext(context);
+            mSavedDockUpdater.setPreferenceContext(context);
         }
     }
 
     @Override
     public void onStart() {
         mBluetoothDeviceUpdater.registerCallback();
-        updatePreferenceOnSizeChanged();
+        mSavedDockUpdater.registerCallback();
     }
 
     @Override
     public void onStop() {
         mBluetoothDeviceUpdater.unregisterCallback();
+        mSavedDockUpdater.unregisterCallback();
     }
 
     public void init(DashboardFragment fragment) {
@@ -78,13 +91,17 @@ public class PreviouslyConnectedDevicePreferenceController extends BasePreferenc
     @Override
     public void onDeviceAdded(Preference preference) {
         mPreferenceSize++;
-        updatePreferenceOnSizeChanged();
+        if (mPreferenceSize <= MAX_DEVICE_NUM) {
+            mPreferenceGroup.addPreference(preference);
+        }
+        updatePreferenceVisiblity();
     }
 
     @Override
     public void onDeviceRemoved(Preference preference) {
         mPreferenceSize--;
-        updatePreferenceOnSizeChanged();
+        mPreferenceGroup.removePreference(preference);
+        updatePreferenceVisiblity();
     }
 
     @VisibleForTesting
@@ -93,18 +110,17 @@ public class PreviouslyConnectedDevicePreferenceController extends BasePreferenc
     }
 
     @VisibleForTesting
-    void setPreferenceSize(int size) {
-        mPreferenceSize = size;
+    void setSavedDockUpdater(DockUpdater savedDockUpdater) {
+        mSavedDockUpdater = savedDockUpdater;
     }
 
     @VisibleForTesting
-    void setPreference(Preference preference) {
-        mPreference = preference;
+    void setPreferenceGroup(PreferenceGroup preferenceGroup) {
+        mPreferenceGroup = preferenceGroup;
     }
 
-    private void updatePreferenceOnSizeChanged() {
-        if (isAvailable()) {
-            mPreference.setEnabled(mPreferenceSize != 0);
-        }
+    @VisibleForTesting
+    void updatePreferenceVisiblity() {
+        mPreferenceGroup.setVisible(mPreferenceSize > 0);
     }
 }

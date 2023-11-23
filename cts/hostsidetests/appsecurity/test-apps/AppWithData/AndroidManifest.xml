@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.appwithdata">
+       package="com.android.cts.appwithdata"
+       android:targetSandboxVersion="2">
 
     <!--
     A simple app to test that other apps cannot access another app's private data.
@@ -30,10 +31,11 @@
         <provider
             android:name="com.android.cts.appwithdata.MyProvider"
             android:authorities="com.android.cts.appwithdata"
-            android:exported="true" />
+            android:exported="true"
+            android:visibleToInstantApps="true" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.appwithdata"
                      android:label="Test to create app data."/>
 </manifest>

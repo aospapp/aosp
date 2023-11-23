@@ -17,23 +17,37 @@
 <resources>
     <color name="no_content_text_color">#ffffff</color>
 
-    <color name="car_body5_light">@android:color/white</color>
-    <color name="car_body5_dark">@android:color/black</color>
-    <color name="car_body5">@color/car_body5_dark</color>
+    <color name="icon_tint">@*android:color/car_body2_light</color>
+
+    <color name="album_art_background">@*android:color/car_grey_100</color>
 
     <!-- Color displayed behind the transport controls while browsing -->
-    <color name="browse_playback_bg">@android:color/black</color>
+    <color name="browse_playback_bg_color">@*android:color/car_card</color>
     <!-- Default media background -->
-    <color name="media_template_background">@color/car_dark_blue_grey_800</color>
+    <color name="media_template_background">@*android:color/car_dark_blue_grey_800</color>
     <!-- Scrim displayed on top of playback album art background -->
-    <color name="media_scrim_background">@color/car_dark_blue_grey_900</color>
+    <color name="media_scrim_background">@*android:color/car_dark_blue_grey_900</color>
     <!-- Color used on the progress bar background -->
-    <color name="progress_bar_background">@color/car_grey_900</color>
+    <color name="progress_bar_background">@*android:color/car_seekbar_track_background</color>
     <!-- Color used on the progress bar -->
-    <color name="progress_bar_highlight">#fafafa</color>
+    <color name="progress_bar_highlight">@color/media_source_default_color</color>
+    <!-- Color used on the thumb of the progress bar -->
+    <color name="progress_bar_thumb_color">@color/media_source_default_color</color>
 
-    <!-- App selection backgroun -->
-    <color name="alpha_fragment_background_color">#ea000000</color>
-    <!-- App selection items background -->
-    <color name="app_item_background_color">#66ffffff</color>
+    <!-- appbar_view.xml -->
+    <color name="appbar_view_icon_tint">@color/primary_app_icon_color</color>
+    <color name="appbar_view_settings_tint">@color/uxr_button_image_color_selector</color>
+    <color name="search_hint_text_color">#33FFFFFF</color>
+
+    <!-- fragment_metadata.xml -->
+    <color name="fragment_metadata_queue_divider_color">@*android:color/car_list_divider_light
+    </color>
+    <color name="queue_playing_icon_color">@*android:color/car_tint_light</color>
+
+    <!-- tab_view.xml -->
+    <color name="tab_view_icon_tint">@*android:color/car_tint_light</color>
+    <color name="tab_view_text_color">@*android:color/car_grey_400</color>
+
+    <!-- fragment_error.xml -->
+    <color name="error_button_text_color">@color/uxr_button_text_color_selector</color>
 </resources>

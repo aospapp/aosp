@@ -24,6 +24,7 @@ import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvSettings.ContentRatingLevel;
+import com.google.common.collect.ImmutableList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -160,6 +161,26 @@ public class ParentalControlSettings {
     }
 
     /**
+     * Checks whether any of given ratings is blocked and returns the first blocked rating.
+     *
+     * @param ratings The array of ratings to check
+     * @return The {@link TvContentRating} that is blocked.
+     */
+    public TvContentRating getBlockedRating(ImmutableList<TvContentRating> ratings) {
+        if (ratings == null || ratings.isEmpty()) {
+            return mTvInputManager.isRatingBlocked(TvContentRating.UNRATED)
+                    ? TvContentRating.UNRATED
+                    : null;
+        }
+        for (TvContentRating rating : ratings) {
+            if (mTvInputManager.isRatingBlocked(rating)) {
+                return rating;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Sets the blocked status of a given content rating.
      *
      * <p>Note that a call to this method automatically changes the current rating level to {@code
@@ -178,31 +199,11 @@ public class ParentalControlSettings {
     /**
      * Checks whether any of given ratings is blocked.
      *
-     * @param ratings The array of ratings to check
+     * @param ratings The list of ratings to check
      * @return {@code true} if a rating is blocked, {@code false} otherwise.
      */
-    public boolean isRatingBlocked(TvContentRating[] ratings) {
+    public boolean isRatingBlocked(ImmutableList<TvContentRating> ratings) {
         return getBlockedRating(ratings) != null;
-    }
-
-    /**
-     * Checks whether any of given ratings is blocked and returns the first blocked rating.
-     *
-     * @param ratings The array of ratings to check
-     * @return The {@link TvContentRating} that is blocked.
-     */
-    public TvContentRating getBlockedRating(TvContentRating[] ratings) {
-        if (ratings == null || ratings.length <= 0) {
-            return mTvInputManager.isRatingBlocked(TvContentRating.UNRATED)
-                    ? TvContentRating.UNRATED
-                    : null;
-        }
-        for (TvContentRating rating : ratings) {
-            if (mTvInputManager.isRatingBlocked(rating)) {
-                return rating;
-            }
-        }
-        return null;
     }
 
     /**

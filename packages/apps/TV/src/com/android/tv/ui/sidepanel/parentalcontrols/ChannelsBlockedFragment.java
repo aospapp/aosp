@@ -41,7 +41,6 @@ import com.android.tv.ui.sidepanel.Item;
 import com.android.tv.ui.sidepanel.SideFragment;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class ChannelsBlockedFragment extends SideFragment {
@@ -132,15 +131,11 @@ public class ChannelsBlockedFragment extends SideFragment {
         mChannels.addAll(getChannelDataManager().getChannelList());
         Collections.sort(
                 mChannels,
-                new Comparator<Channel>() {
-                    @Override
-                    public int compare(Channel lhs, Channel rhs) {
-                        if (lhs.isBrowsable() != rhs.isBrowsable()) {
-                            return lhs.isBrowsable() ? -1 : 1;
-                        }
-                        return ChannelNumber.compare(
-                                lhs.getDisplayNumber(), rhs.getDisplayNumber());
+                (Channel lhs, Channel rhs) -> {
+                    if (lhs.isBrowsable() != rhs.isBrowsable()) {
+                        return lhs.isBrowsable() ? -1 : 1;
                     }
+                    return ChannelNumber.compare(lhs.getDisplayNumber(), rhs.getDisplayNumber());
                 });
 
         final long currentChannelId = getMainActivity().getCurrentChannelId();

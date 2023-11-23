@@ -75,4 +75,21 @@
         android:layout_height="wrap_content"
         android:text="@string/reg_changefailed_button"
         android:id="@+id/reg_changefailed_button"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height= "1dp"
+        android:paddingRight="4dp"
+        android:background="?android:attr/listDivider" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:text="Registration Callback Listener Events:"/>
+
+    <ListView
+        android:id="@+id/reg_cb_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 </LinearLayout>

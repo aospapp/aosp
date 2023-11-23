@@ -41,8 +41,7 @@ class DiagnosisUtilsTest(unittest.TestCase):
     def testCheckDutAvailable(self):
         """Test check_dut_availability with different scenarios"""
         rpc_helper = self._constructRPCHelper()
-        board = 'test_board'
-        pool = 'test_pool'
+        labels = ('board:test_board', 'pool:test_pool', 'model:test_model')
 
         # Mock aef.get_hosts to return 0 host
         self.afe_mock.get_hosts.return_value = self._mockZeroHost()
@@ -50,15 +49,15 @@ class DiagnosisUtilsTest(unittest.TestCase):
 
         # When minimum_duts is 0, do not force available DUTs
         minimum_duts = 0
-        rpc_helper.check_dut_availability(board, pool,
+        rpc_helper.check_dut_availability(labels,
                                           minimum_duts=minimum_duts,
                                           skip_duts_check=skip_duts_check)
 
         # When skip_duts_check = False and minimum_duts > 0 and there's no host,
-        # should raise BoardNotAvailableError
+        # should raise DUTsNotAvailableError
         minimum_duts = 1
-        with self.assertRaises(diagnosis_utils.BoardNotAvailableError):
-            rpc_helper.check_dut_availability(board, pool,
+        with self.assertRaises(diagnosis_utils.DUTsNotAvailableError):
+            rpc_helper.check_dut_availability(labels,
                                               minimum_duts=minimum_duts,
                                               skip_duts_check=skip_duts_check)
 
@@ -69,7 +68,7 @@ class DiagnosisUtilsTest(unittest.TestCase):
         # although available DUTs are less then minimum_duts
         minimum_duts = 4
         skip_duts_check = True
-        rpc_helper.check_dut_availability(board, pool,
+        rpc_helper.check_dut_availability(labels,
                                           minimum_duts=minimum_duts,
                                           skip_duts_check=skip_duts_check)
 
@@ -77,14 +76,14 @@ class DiagnosisUtilsTest(unittest.TestCase):
         # then minimum_duts, should raise NotEnoughDutsError
         skip_duts_check = False
         with self.assertRaises(diagnosis_utils.NotEnoughDutsError):
-            rpc_helper.check_dut_availability(board, pool,
+            rpc_helper.check_dut_availability(labels,
                                               minimum_duts=minimum_duts,
                                               skip_duts_check=skip_duts_check)
 
         # When skip_duts_check is False and current available DUTs
         # satisfy minimum_duts, no errors
         minimum_duts = 2
-        rpc_helper.check_dut_availability(board, pool,
+        rpc_helper.check_dut_availability(labels,
                                           minimum_duts=minimum_duts,
                                           skip_duts_check=skip_duts_check)
 
@@ -94,7 +93,7 @@ class DiagnosisUtilsTest(unittest.TestCase):
         # When skip_duts_check is False and the two hosts are not available,
         # should raise NotEnoughDutsError
         with self.assertRaises(diagnosis_utils.NotEnoughDutsError):
-            rpc_helper.check_dut_availability(board, pool,
+            rpc_helper.check_dut_availability(labels,
                                               minimum_duts=minimum_duts,
                                               skip_duts_check=skip_duts_check)
 

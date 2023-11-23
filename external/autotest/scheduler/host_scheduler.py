@@ -79,7 +79,6 @@ from autotest_lib.scheduler import rdb_lib
 from autotest_lib.scheduler import rdb_utils
 from autotest_lib.scheduler import scheduler_lib
 from autotest_lib.scheduler import scheduler_models
-from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import server_manager_utils
 
 
@@ -312,9 +311,6 @@ class HostScheduler(BaseHostScheduler):
         """
         secs_in_queued = (datetime.datetime.now() -
                           queue_entry.job.created_on).total_seconds()
-        job_overhead.record_state_duration(
-                queue_entry.job_id, host.hostname,
-                job_overhead.STATUS.QUEUED, secs_in_queued)
         self._suite_recorder.record_assignment(queue_entry)
 
 

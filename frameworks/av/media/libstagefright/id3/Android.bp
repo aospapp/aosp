@@ -3,6 +3,10 @@ cc_library_static {
 
     srcs: ["ID3.cpp"],
 
+    header_libs: [
+        "media_ndk_headers",
+    ],
+
     cflags: [
         "-Werror",
         "-Wall",
@@ -12,9 +16,6 @@ cc_library_static {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 }
 
@@ -43,9 +44,6 @@ cc_test {
 
     sanitize: {
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 
 }

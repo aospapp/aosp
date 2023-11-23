@@ -17,6 +17,7 @@
 #ifndef UPDATE_ENGINE_CONNECTION_MANAGER_H_
 #define UPDATE_ENGINE_CONNECTION_MANAGER_H_
 
+#include <memory>
 #include <string>
 
 #include <base/macros.h>
@@ -43,10 +44,11 @@ class ConnectionManager : public ConnectionManagerInterface {
                                ConnectionTethering* out_tethering) override;
   bool IsUpdateAllowedOver(ConnectionType type,
                            ConnectionTethering tethering) const override;
+  bool IsAllowedConnectionTypesForUpdateSet() const override;
 
  private:
-  // Returns (via out_path) the default network path, or empty string if
-  // there's no network up. Returns true on success.
+  // Returns (via out_path) the default network path, or "/" if there's no
+  // network up. Returns true on success.
   bool GetDefaultServicePath(dbus::ObjectPath* out_path);
 
   bool GetServicePathProperties(const dbus::ObjectPath& path,

@@ -27,7 +27,7 @@ public class TimeUtilTest {
     public void testFormatDateTime() {
         long time = 1504286976352052l;
         String expected = "2017-09-01 10:29:36 (PDT)";
-        String timeString = TimeUtil.getDateTimeString(time);
+        String timeString = TimeUtil.getDateTimeZoneString(time);
         assertEquals(expected, timeString);
     }
 

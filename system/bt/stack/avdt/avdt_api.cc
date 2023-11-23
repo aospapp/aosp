@@ -90,7 +90,8 @@ void avdt_scb_transport_channel_timer_timeout(void* data) {
  ******************************************************************************/
 void AVDT_Register(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback) {
   /* register PSM with L2CAP */
-  L2CA_Register(AVDT_PSM, (tL2CAP_APPL_INFO*)&avdt_l2c_appl);
+  L2CA_Register(AVDT_PSM, (tL2CAP_APPL_INFO*)&avdt_l2c_appl,
+                true /* enable_snoop */);
 
   /* set security level */
   BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVDTP, p_reg->sec_mask,
@@ -1212,6 +1213,8 @@ uint8_t AVDT_SetTraceLevel(uint8_t new_level) {
 }
 
 void stack_debug_avdtp_api_dump(int fd) {
+  if (appl_trace_level < BT_TRACE_LEVEL_DEBUG) return;
+
   dprintf(fd, "\nAVDTP Stack State:\n");
   dprintf(fd, "  AVDTP signalling L2CAP channel MTU: %d\n",
           avdtp_cb.rcb.ctrl_mtu);
@@ -1219,6 +1222,9 @@ void stack_debug_avdtp_api_dump(int fd) {
 
   for (size_t i = 0; i < AVDT_NUM_LINKS; i++) {
     const AvdtpCcb& ccb = avdtp_cb.ccb[i];
+    if (ccb.peer_addr.IsEmpty()) {
+      continue;
+    }
     dprintf(fd, "\n  Channel control block: %zu peer: %s\n", i,
             ccb.peer_addr.ToString().c_str());
     dprintf(fd, "    Allocated: %s\n", ccb.allocated ? "true" : "false");
@@ -1235,6 +1241,9 @@ void stack_debug_avdtp_api_dump(int fd) {
 
     for (size_t i = 0; i < AVDT_NUM_SEPS; i++) {
       const AvdtpScb& scb = ccb.scb[i];
+      if (!scb.in_use) {
+        continue;
+      }
       dprintf(fd, "\n    Stream control block: %zu\n", i);
       dprintf(fd, "      SEP codec: %s\n",
               A2DP_CodecName(scb.stream_config.cfg.codec_info));

@@ -18,35 +18,28 @@
 #include <error.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/utsname.h>
 
 #include <gtest/gtest.h>
 #include <qtaguid/qtaguid.h>
 
-int hasQtaguidKernelSupport() {
-    struct utsname buf;
-    int kernel_version_major;
-    int kernel_version_minor;
-
-    int ret = uname(&buf);
-    if (ret) {
-        ret = -errno;
-        return ret;
-    }
-    char dummy;
-    ret = sscanf(buf.release, "%d.%d%c", &kernel_version_major, &kernel_version_minor, &dummy);
-    if (ret < 3)
-        return -EINVAL;
-
-    if ((kernel_version_major == 4 && kernel_version_minor < 9) ||
-        (kernel_version_major < 4)) {
-        return 1;
-    } else {
-        return access("/proc/net/xt_qtaguid/ctrl", F_OK) != -1;
-    }
+int canAccessQtaguidFile() {
+    int fd = open("/proc/net/xt_qtaguid/ctrl", O_RDONLY | O_CLOEXEC);
+    close(fd);
+    return fd != -1;
 }
+
+#define SKIP_IF_QTAGUID_NOT_SUPPORTED()                                                       \
+  do {                                                                                        \
+    int res = canAccessQtaguidFile();                                                      \
+    ASSERT_LE(0, res);                                                                        \
+    if (!res) {                                                                               \
+          GTEST_LOG_(INFO) << "This test is skipped since kernel may not have the module\n";  \
+          return;                                                                             \
+    }                                                                                         \
+  } while (0)
 
 int getCtrlSkInfo(int tag, uid_t uid, uint64_t* sk_addr, int* ref_cnt) {
     FILE *fp;
@@ -95,12 +88,8 @@ void checkNoSocketPointerLeaks(int family) {
 }
 
 TEST (NativeQtaguidTest, close_socket_without_untag) {
-    int res = hasQtaguidKernelSupport();
-    ASSERT_LE(0, res);
-    if (!res) {
-          GTEST_LOG_(INFO) << "This test is skipped since kernel may not have the module\n";
-          return;
-    }
+    SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     uid_t uid = getuid();
     int tag = arc4random();
@@ -114,12 +103,8 @@ TEST (NativeQtaguidTest, close_socket_without_untag) {
 }
 
 TEST (NativeQtaguidTest, close_socket_without_untag_ipv6) {
-    int res = hasQtaguidKernelSupport();
-    ASSERT_LE(0, res);
-    if (!res) {
-          GTEST_LOG_(INFO) << "This test is skipped since kernel may not have the module\n";
-          return;
-    }
+    SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
     int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
     uid_t uid = getuid();
     int tag = arc4random();
@@ -133,12 +118,8 @@ TEST (NativeQtaguidTest, close_socket_without_untag_ipv6) {
 }
 
 TEST (NativeQtaguidTest, no_socket_addr_leak) {
-    int res = hasQtaguidKernelSupport();
-    ASSERT_LE(0, res);
-    if (!res) {
-          GTEST_LOG_(INFO) << "This test is skipped since kernel may not have the module\n";
-          return;
-    }
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   checkNoSocketPointerLeaks(AF_INET);
   checkNoSocketPointerLeaks(AF_INET6);
 }

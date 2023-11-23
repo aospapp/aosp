@@ -1,5 +1,5 @@
 /* Backend hook signatures internal interface for libebl.
-   Copyright (C) 2000-2011, 2013, 2014 Red Hat, Inc.
+   Copyright (C) 2000-2011, 2013, 2014, 2016, 2017 Red Hat, Inc.
    This file is part of elfutils.
 
    This file is free software; you can redistribute it and/or modify
@@ -26,9 +26,6 @@
    the GNU Lesser General Public License along with this program.  If
    not, see <http://www.gnu.org/licenses/>.  */
 
-/* Return symbol representaton of object file type.  */
-const char *EBLHOOK(object_type_name) (int, char *, size_t);
-
 /* Return symbolic representation of relocation type.  */
 const char *EBLHOOK(reloc_type_name) (int, char *, size_t);
 
@@ -36,7 +33,7 @@ const char *EBLHOOK(reloc_type_name) (int, char *, size_t);
 bool EBLHOOK(reloc_type_check) (int);
 
 /* Check if relocation type is for simple absolute relocations.  */
-Elf_Type EBLHOOK(reloc_simple_type) (Ebl *, int);
+Elf_Type EBLHOOK(reloc_simple_type) (Ebl *, int, int *);
 
 /* Check relocation type use.  */
 bool EBLHOOK(reloc_valid_use) (Elf *, int);
@@ -80,9 +77,6 @@ const char *EBLHOOK(dynamic_tag_name) (int64_t, char *, size_t);
 /* Check dynamic tag.  */
 bool EBLHOOK(dynamic_tag_check) (int64_t);
 
-/* Combine section header flags values.  */
-GElf_Word EBLHOOK(sh_flags_combine) (GElf_Word, GElf_Word);
-
 /* Return symbolic representation of OS ABI.  */
 const char *EBLHOOK(osabi_name) (int, char *, size_t);
 
@@ -124,8 +118,11 @@ bool EBLHOOK(none_reloc_p) (int);
 bool EBLHOOK(relative_reloc_p) (int);
 
 /* Check whether given symbol's value is ok despite normal checks.  */
-bool EBLHOOK(check_special_symbol) (Elf *, GElf_Ehdr *, const GElf_Sym *,
+bool EBLHOOK(check_special_symbol) (Elf *, const GElf_Sym *,
 			      const char *, const GElf_Shdr *);
+
+/* Check if this is a data marker symbol.  e.g. '$d' symbols for ARM.  */
+bool EBLHOOK(data_marker_symbol) (const GElf_Sym *sym, const char *sname);
 
 /* Check whether only valid bits are set on the st_other symbol flag.
    Standard ST_VISIBILITY have already been masked off.  */
@@ -150,7 +147,7 @@ int EBLHOOK(syscall_abi) (Ebl *ebl, int *sp, int *pc,
 			  int *callno, int args[6]);
 
 /* Disassembler function.  */
-int EBLHOOK(disasm) (const uint8_t **startp, const uint8_t *end,
+int EBLHOOK(disasm) (Ebl *ebl, const uint8_t **startp, const uint8_t *end,
 		     GElf_Addr addr, const char *fmt, DisasmOutputCB_t outcb,
 		     DisasmGetSymCB_t symcb, void *outcbarg, void *symcbarg);
 

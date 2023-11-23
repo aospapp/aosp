@@ -19,19 +19,20 @@ package com.google.turbine.deps;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.turbine.binder.Binder;
 import com.google.turbine.binder.Binder.BindingResult;
+import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.diag.SourceFile;
 import com.google.turbine.lower.IntegrationTestSupport;
 import com.google.turbine.lower.Lower;
 import com.google.turbine.lower.Lower.Lowered;
 import com.google.turbine.parse.Parser;
 import com.google.turbine.proto.DepsProto;
+import com.google.turbine.testing.TestClassPaths;
 import com.google.turbine.tree.Tree.CompUnit;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -43,10 +44,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -55,9 +56,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class DependenciesTest {
-
-  static final ImmutableSet<Path> BOOTCLASSPATH =
-      ImmutableSet.of(Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar"));
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -77,8 +75,7 @@ public class DependenciesTest {
 
     Path compileToJar(String path) throws Exception {
       Path lib = temporaryFolder.newFile(path).toPath();
-      Map<String, byte[]> classes =
-          IntegrationTestSupport.runJavac(sources, classpath, BOOTCLASSPATH);
+      Map<String, byte[]> classes = IntegrationTestSupport.runJavac(sources, classpath);
       try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(lib))) {
         for (Map.Entry<String, byte[]> entry : classes.entrySet()) {
           jos.putNextEntry(new JarEntry(entry.getKey() + ".class"));
@@ -104,20 +101,22 @@ public class DependenciesTest {
     }
 
     DepsProto.Dependencies run() throws IOException {
-      BindingResult bound = Binder.bind(units, classpath, BOOTCLASSPATH);
+      BindingResult bound =
+          Binder.bind(
+              units,
+              ClassPathBinder.bindClasspath(classpath),
+              TestClassPaths.TURBINE_BOOTCLASSPATH,
+              /* moduleVersion=*/ Optional.empty());
 
-      Lowered lowered = Lower.lowerAll(bound.units(), bound.classPathEnv());
+      Lowered lowered = Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv());
 
       return Dependencies.collectDeps(
-          Optional.of("//test"),
-          ImmutableSet.copyOf(Iterables.transform(BOOTCLASSPATH, Path::toString)),
-          bound,
-          lowered);
+          Optional.of("//test"), TestClassPaths.TURBINE_BOOTCLASSPATH, bound, lowered);
     }
   }
 
   private Map<Path, DepsProto.Dependency.Kind> depsMap(DepsProto.Dependencies deps) {
-    return StreamSupport.stream(deps.getDependencyList().spliterator(), false)
+    return Streams.stream(deps.getDependencyList())
         .collect(Collectors.toMap(d -> Paths.get(d.getPath()), DepsProto.Dependency::getKind));
   }
 
@@ -131,7 +130,7 @@ public class DependenciesTest {
             .addSourceLines("Test.java", "class Test extends A {}")
             .run();
 
-    assertThat(depsMap(deps)).isEqualTo(ImmutableMap.of(liba, DepsProto.Dependency.Kind.EXPLICIT));
+    assertThat(depsMap(deps)).containsExactly(liba, DepsProto.Dependency.Kind.EXPLICIT);
   }
 
   @Test
@@ -157,7 +156,7 @@ public class DependenciesTest {
             .addSourceLines("Test.java", "class Test extends B {}")
             .run();
 
-    assertThat(depsMap(deps)).isEqualTo(ImmutableMap.of(libb, DepsProto.Dependency.Kind.EXPLICIT));
+    assertThat(depsMap(deps)).containsExactly(libb, DepsProto.Dependency.Kind.EXPLICIT);
   }
 
   @Test
@@ -185,10 +184,8 @@ public class DependenciesTest {
                 "}")
             .run();
     assertThat(depsMap(deps))
-        .isEqualTo(
-            ImmutableMap.of(
-                libb, DepsProto.Dependency.Kind.EXPLICIT,
-                liba, DepsProto.Dependency.Kind.EXPLICIT));
+        .containsExactly(
+            libb, DepsProto.Dependency.Kind.EXPLICIT, liba, DepsProto.Dependency.Kind.EXPLICIT);
   }
 
   @Test
@@ -228,11 +225,13 @@ public class DependenciesTest {
                   "class Test extends B {}")
               .run();
       assertThat(depsMap(deps))
-          .isEqualTo(
-              ImmutableMap.of(
-                  libi, DepsProto.Dependency.Kind.EXPLICIT,
-                  libb, DepsProto.Dependency.Kind.EXPLICIT,
-                  liba, DepsProto.Dependency.Kind.EXPLICIT));
+          .containsExactly(
+              libi,
+              DepsProto.Dependency.Kind.EXPLICIT,
+              libb,
+              DepsProto.Dependency.Kind.EXPLICIT,
+              liba,
+              DepsProto.Dependency.Kind.EXPLICIT);
     }
     {
       // partial classpath
@@ -245,10 +244,8 @@ public class DependenciesTest {
                   "class Test extends B {}")
               .run();
       assertThat(depsMap(deps))
-          .isEqualTo(
-              ImmutableMap.of(
-                  libb, DepsProto.Dependency.Kind.EXPLICIT,
-                  liba, DepsProto.Dependency.Kind.EXPLICIT));
+          .containsExactly(
+              libb, DepsProto.Dependency.Kind.EXPLICIT, liba, DepsProto.Dependency.Kind.EXPLICIT);
     }
   }
 
@@ -258,10 +255,10 @@ public class DependenciesTest {
         ImmutableList.of(
             "a.jar", "b.jar", "c.jar", "d.jar", "e.jar", "f.jar", "g.jar", "h.jar", "i.jar",
             "j.jar");
-    ImmutableMap<String, String> directJarsToTargets = ImmutableMap.of();
+    ImmutableSet<String> directJars = ImmutableSet.of();
     ImmutableList<String> depsArtifacts = ImmutableList.of();
-    assertThat(Dependencies.reduceClasspath(classpath, directJarsToTargets, depsArtifacts))
-        .isEqualTo(classpath);
+    assertThat(Dependencies.reduceClasspath(classpath, directJars, depsArtifacts))
+        .containsExactlyElementsIn(classpath);
   }
 
   @Test
@@ -273,11 +270,7 @@ public class DependenciesTest {
         ImmutableList.of(
             "a.jar", "b.jar", "c.jar", "d.jar", "e.jar", "f.jar", "g.jar", "h.jar", "i.jar",
             "j.jar");
-    ImmutableMap<String, String> directJarsToTargets =
-        ImmutableMap.of(
-            "c.jar", "//a",
-            "d.jar", "//d",
-            "g.jar", "//e");
+    ImmutableSet<String> directJars = ImmutableSet.of("c.jar", "d.jar", "g.jar");
     ImmutableList<String> depsArtifacts =
         ImmutableList.of(cdeps.toString(), ddeps.toString(), gdeps.toString());
     writeDeps(
@@ -291,7 +284,7 @@ public class DependenciesTest {
             "f.jar", DepsProto.Dependency.Kind.UNUSED,
             "j.jar", DepsProto.Dependency.Kind.UNUSED));
     writeDeps(gdeps, ImmutableMap.of("i.jar", DepsProto.Dependency.Kind.IMPLICIT));
-    assertThat(Dependencies.reduceClasspath(classpath, directJarsToTargets, depsArtifacts))
+    assertThat(Dependencies.reduceClasspath(classpath, directJars, depsArtifacts))
         .containsExactly("b.jar", "c.jar", "d.jar", "e.jar", "g.jar", "i.jar")
         .inOrder();
   }

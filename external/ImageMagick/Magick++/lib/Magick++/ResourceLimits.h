@@ -1,6 +1,6 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
-// Copyright Dirk Lemstra 2014
+// Copyright Dirk Lemstra 2014-2018
 //
 // Definition of resource limits.
 //
@@ -37,6 +37,10 @@ namespace Magick
     // The maximum height of an image.
     static void height(const MagickSizeType limit_);
     static MagickSizeType height(void);
+
+    // The maximum number of images in an image list.
+    static void listLength(const MagickSizeType limit_);
+    static MagickSizeType listLength();
 
     // Pixel cache limit in bytes.  Once this memory limit is exceeded,
     // all subsequent pixels cache operations are to/from disk.

@@ -107,7 +107,7 @@ bool operator==(const keymaster_key_param_t& a, const keymaster_key_param_t& b) 
         return a.boolean == b.boolean;
     case KM_BIGNUM:
     case KM_BYTES:
-        if ((a.blob.data == NULL || b.blob.data == NULL) && a.blob.data != b.blob.data)
+        if ((a.blob.data == nullptr || b.blob.data == nullptr) && a.blob.data != b.blob.data)
             return false;
         return a.blob.data_length == b.blob.data_length &&
                (memcmp(a.blob.data, b.blob.data, a.blob.data_length) == 0);
@@ -359,7 +359,7 @@ keymaster_error_t Keymaster2Test::UpgradeKey(const AuthorizationSet& upgrade_par
 }
 
 string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string& message) {
-    EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), NULL /* output_params */));
+    EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), nullptr /* output_params */));
 
     string result;
     EXPECT_EQ(KM_ERROR_OK, FinishOperation(message, "" /* signature */, &result));
@@ -390,7 +390,7 @@ string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string&
 
 string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string& message,
                                       const string& signature) {
-    EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), NULL /* output_params */));
+    EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), nullptr /* output_params */));
 
     string result;
     EXPECT_EQ(KM_ERROR_OK, FinishOperation(message, signature, &result));
@@ -608,14 +608,14 @@ string Keymaster2Test::DecryptMessageWithParams(const string& message,
 
 keymaster_error_t Keymaster2Test::GetCharacteristics() {
     FreeCharacteristics();
-    return device()->get_key_characteristics(device(), &blob_, &client_id_, NULL /* app_data */,
+    return device()->get_key_characteristics(device(), &blob_, &client_id_, nullptr /* app_data */,
                                              &characteristics_);
 }
 
 keymaster_error_t Keymaster2Test::ExportKey(keymaster_key_format_t format, string* export_data) {
     keymaster_blob_t export_tmp;
     keymaster_error_t error = device()->export_key(device(), format, &blob_, &client_id_,
-                                                   NULL /* app_data */, &export_tmp);
+                                                   nullptr /* app_data */, &export_tmp);
 
     if (error != KM_ERROR_OK)
         return error;
@@ -691,7 +691,7 @@ void Keymaster2Test::FreeCharacteristics() {
 
 void Keymaster2Test::FreeKeyBlob() {
     free(const_cast<uint8_t*>(blob_.key_material));
-    blob_.key_material = NULL;
+    blob_.key_material = nullptr;
 }
 
 void Keymaster2Test::corrupt_key_blob() {

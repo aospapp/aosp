@@ -17,7 +17,7 @@
 package com.android.settings.intelligence.search.query;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.android.settings.intelligence.overlay.FeatureFactory;
 import com.android.settings.intelligence.search.SearchResult;

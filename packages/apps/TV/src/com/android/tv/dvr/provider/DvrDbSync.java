@@ -277,7 +277,6 @@ public class DvrDbSync {
                     }
                 }
             } else {
-                long currentTimeMs = System.currentTimeMillis();
                 ScheduledRecording.Builder builder =
                         ScheduledRecording.buildFrom(schedule)
                                 .setEndTimeMs(program.getEndTimeUtcMillis())
@@ -361,7 +360,7 @@ public class DvrDbSync {
         private final long mProgramId;
 
         QueryProgramTask(long programId) {
-            super(mDbExecutor, mContext.getContentResolver(), programId);
+            super(mDbExecutor, mContext, programId);
             mProgramId = programId;
         }
 

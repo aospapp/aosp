@@ -25,7 +25,7 @@
 # a time zone for an Android device.
 
 # ianaVersion: The version of the IANA rules this file matches.
-ianaVersion:"2018e"
+ianaVersion:"2019b"
 
 # countries:
 #
@@ -1799,7 +1799,7 @@ countries:<
 
 # KAZAKHSTAN
 #
-# Priorities assigned on 20180309 using:
+# Priorities assigned on 20190107 using:
 # https://en.wikipedia.org/wiki/List_of_cities_in_Kazakhstan
 # Priority is just an abstract score.
 countries:<
@@ -1812,8 +1812,7 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"6:00"
-    id:"Asia/Qyzylorda"
-    priority:1
+    id:"Asia/Qostanay"
   >
 
   timeZoneMappings:<
@@ -1824,6 +1823,11 @@ countries:<
     utcOffset:"5:00"
     id:"Asia/Oral"
     priority:2
+  >
+  timeZoneMappings:<
+    utcOffset:"5:00"
+    id:"Asia/Qyzylorda"
+    priority:1
   >
   timeZoneMappings:<
     utcOffset:"5:00"
@@ -2727,7 +2731,12 @@ countries:<
     # 2.52M
     priority:2520
   >
-
+  timeZoneMappings:<
+    utcOffset:"4:00"
+    id:"Europe/Volgograd"
+    # 2.61M
+    priority:2610
+  >
   timeZoneMappings:<
     utcOffset:"3:00"
     id:"Europe/Moscow"
@@ -2736,25 +2745,10 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"3:00"
-    id:"Europe/Volgograd"
-    # 2.61M
-    priority:2610
-  >
-  timeZoneMappings:<
-    utcOffset:"3:00"
     id:"Europe/Kirov"
     # 474K
     priority:474
   >
-  timeZoneMappings:<
-    utcOffset:"3:00"
-    id:"Europe/Simferopol"
-    # ?
-    priority:1
-    # http://b/73922616
-    shownInPicker:false
-  >
-
   timeZoneMappings:<
     utcOffset:"2:00"
     id:"Europe/Kaliningrad"
@@ -2920,7 +2914,7 @@ countries:<
 countries:<
   isoCode:"st"
   timeZoneMappings:<
-    utcOffset:"1:00"
+    utcOffset:"0:00"
     id:"Africa/Sao_Tome"
   >
 >
@@ -3127,6 +3121,14 @@ countries:<
     utcOffset:"2:00"
     id:"Europe/Zaporozhye"
     priority:2
+  >
+  timeZoneMappings:<
+    utcOffset:"3:00"
+    id:"Europe/Simferopol"
+    # ?
+    priority:1
+    # http://b/73922616
+    shownInPicker:false
   >
 >
 

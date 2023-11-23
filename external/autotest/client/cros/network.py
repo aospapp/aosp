@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import dbus
 import logging
 import socket
 import time
@@ -10,86 +9,8 @@ import urllib2
 
 import common
 
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import routing
-
-
-class IpTablesContext(object):
-    """Context manager that manages iptables rules."""
-    IPTABLES = '/sbin/iptables'
-
-    def __init__(self, initial_allowed_host=None):
-        self.initial_allowed_host = initial_allowed_host
-        self.rules = []
-
-    def _IpTables(self, command):
-        # Run, log, return output
-        return utils.system_output('%s %s' % (self.IPTABLES, command),
-                                   retain_output=True)
-
-    def _RemoveRule(self, rule):
-        self._IpTables('-D ' + rule)
-        self.rules.remove(rule)
-
-    def AllowHost(self, host):
-        """
-        Allows the specified host through the firewall.
-
-        @param host: Name of host to allow
-        """
-        for proto in ['tcp', 'udp']:
-            rule = 'INPUT -s %s/32 -p %s -m %s -j ACCEPT' % (host, proto, proto)
-            output = self._IpTables('-S INPUT')
-            current = [x.rstrip() for x in output.splitlines()]
-            logging.error('current: %s', current)
-            if '-A ' + rule in current:
-                # Already have the rule
-                logging.info('Not adding redundant %s', rule)
-                continue
-            self._IpTables('-A '+ rule)
-            self.rules.append(rule)
-
-    def _CleanupRules(self):
-        for rule in self.rules:
-            self._RemoveRule(rule)
-
-    def __enter__(self):
-        if self.initial_allowed_host:
-            self.AllowHost(self.initial_allowed_host)
-        return self
-
-    def __exit__(self, exception, value, traceback):
-        self._CleanupRules()
-        return False
-
-
-def NameServersForService(conn_mgr, service):
-    """
-    Returns the list of name servers used by a connected service.
-
-    @param conn_mgr: Connection manager (shill)
-    @param service: Name of the connected service
-    @return: List of name servers used by |service|
-    """
-    service_properties = service.GetProperties(utf8_strings=True)
-    device_path = service_properties['Device']
-    device = conn_mgr.GetObjectInterface('Device', device_path)
-    if device is None:
-        logging.error('No device for service %s', service)
-        return []
-
-    properties = device.GetProperties(utf8_strings=True)
-
-    hosts = []
-    for path in properties['IPConfigs']:
-        ipconfig = conn_mgr.GetObjectInterface('IPConfig', path)
-        ipconfig_properties = ipconfig.GetProperties(utf8_strings=True)
-        hosts += ipconfig_properties['NameServers']
-
-    logging.info('Name servers: %s', ', '.join(hosts))
-
-    return hosts
 
 
 def CheckInterfaceForDestination(host, expected_interface):

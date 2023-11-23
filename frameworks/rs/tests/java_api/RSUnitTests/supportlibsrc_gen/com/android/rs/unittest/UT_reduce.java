@@ -25,14 +25,14 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.Float2;
-import android.support.v8.renderscript.Int2;
-import android.support.v8.renderscript.Int3;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.ScriptIntrinsicHistogram;
-import android.support.v8.renderscript.Type;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.Float2;
+import androidx.renderscript.Int2;
+import androidx.renderscript.Int3;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.ScriptIntrinsicHistogram;
+import androidx.renderscript.Type;
 import android.util.Log;
 
 import java.util.ArrayList;

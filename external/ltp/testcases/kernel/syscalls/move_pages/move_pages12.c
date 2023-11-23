@@ -87,7 +87,7 @@ static void do_child(void)
 
 		TEST(numa_move_pages(ppid, test_pages,
 			pages, nodes, status, MPOL_MF_MOVE_ALL));
-		if (TEST_RETURN) {
+		if (TST_RET < 0) {
 			tst_res(TFAIL | TTERRNO, "move_pages failed");
 			break;
 		}
@@ -101,6 +101,7 @@ static void do_test(void)
 	int i;
 	pid_t cpid = -1;
 	int status;
+	unsigned int twenty_percent = (tst_timeout_remaining() / 5);
 
 	addr = SAFE_MMAP(NULL, TEST_PAGES * hpsz, PROT_READ | PROT_WRITE,
 		MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
@@ -123,14 +124,15 @@ static void do_test(void)
 		memset(addr, 0, TEST_PAGES * hpsz);
 
 		SAFE_MUNMAP(addr, TEST_PAGES * hpsz);
+
+		if (tst_timeout_remaining() < twenty_percent)
+			break;
 	}
 
-	if (i == LOOPS) {
-		SAFE_KILL(cpid, SIGKILL);
-		SAFE_WAITPID(cpid, &status, 0);
-		if (!WIFEXITED(status))
-			tst_res(TPASS, "Bug not reproduced");
-	}
+	SAFE_KILL(cpid, SIGKILL);
+	SAFE_WAITPID(cpid, &status, 0);
+	if (!WIFEXITED(status))
+		tst_res(TPASS, "Bug not reproduced");
 }
 
 static void alloc_free_huge_on_node(unsigned int node, size_t size)
@@ -166,9 +168,9 @@ static void alloc_free_huge_on_node(unsigned int node, size_t size)
 	}
 
 	TEST(mlock(mem, size));
-	if (TEST_RETURN) {
+	if (TST_RET) {
 		SAFE_MUNMAP(mem, size);
-		if (TEST_ERRNO == ENOMEM || TEST_ERRNO == EAGAIN)
+		if (TST_ERR == ENOMEM || TST_ERR == EAGAIN)
 			tst_brk(TCONF, "Cannot lock huge pages");
 		tst_brk(TBROK | TTERRNO, "mlock failed");
 	}
@@ -180,7 +182,8 @@ static void alloc_free_huge_on_node(unsigned int node, size_t size)
 
 static void setup(void)
 {
-	int memfree, ret;
+	int ret;
+	long memfree;
 
 	check_config(TEST_NODES);
 
@@ -194,8 +197,8 @@ static void setup(void)
 	pgsz = (int)get_page_size();
 	SAFE_FILE_LINES_SCANF(PATH_MEMINFO, "Hugepagesize: %d", &hpsz);
 
-	SAFE_FILE_LINES_SCANF(PATH_MEMINFO, "MemFree: %d", &memfree);
-	tst_res(TINFO, "Free RAM %d kB", memfree);
+	SAFE_FILE_LINES_SCANF(PATH_MEMINFO, "MemFree: %ld", &memfree);
+	tst_res(TINFO, "Free RAM %ld kB", memfree);
 
 	if (4 * hpsz > memfree)
 		tst_brk(TBROK, "Not enough free RAM");
@@ -267,5 +270,5 @@ static struct tst_test test = {
 };
 
 #else
-	TST_TEST_TCONF("test requires libnuma >= 2 and it's development packages");
+	TST_TEST_TCONF(NUMA_ERROR_MSG);
 #endif

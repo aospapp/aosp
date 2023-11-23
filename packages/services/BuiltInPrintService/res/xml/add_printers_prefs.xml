@@ -25,17 +25,24 @@
         android:persistent="false"
         android:order="1" />
 
+    <SwitchPreference
+        android:key="wifi_direct_printing"
+        android:title="@string/wifi_direct_printing"
+        android:iconSpaceReserved="true"
+        android:persistent="false"
+        android:order="2" />
+
     <Preference
         android:key="find_wifi_direct"
         android:title="@string/find_wifi_direct"
         android:icon="@drawable/ic_menu_search"
         android:persistent="false"
-        android:order="2" />
+        android:order="3" />
 
     <PreferenceCategory
         android:key="saved_printers"
         android:title="@string/saved_printers"
         android:persistent="false"
-        android:order="3" />
+        android:order="4" />
 
 </PreferenceScreen>

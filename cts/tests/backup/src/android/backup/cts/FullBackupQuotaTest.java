@@ -16,12 +16,15 @@
 
 package android.backup.cts;
 
+import android.platform.test.annotations.AppModeFull;
+
 /**
  * Verifies receiving quotaExceeded() callback on full backup.
  *
  * Uses test app that creates large file and receives the callback.
- * {@link com.android.internal.backup.LocalTransport} is used, it has size quota 25MB.
+ * {@link com.android.localtransport.LocalTransport} is used, it has size quota 25MB.
  */
+@AppModeFull
 public class FullBackupQuotaTest extends BaseBackupCtsTest {
 
     private static final String BACKUP_APP_NAME = "android.backup.app";
@@ -41,7 +44,7 @@ public class FullBackupQuotaTest extends BaseBackupCtsTest {
         createTestFileOfSize(BACKUP_APP_NAME, LOCAL_TRANSPORT_EXCEEDING_FILE_SIZE);
 
         // Request backup and wait for quota exceeded event in logcat
-        exec("bmgr backupnow " + BACKUP_APP_NAME);
+        getBackupUtils().backupNowSync(BACKUP_APP_NAME);
         waitForLogcat(TIMEOUT_SECONDS,separator,
             "Quota exceeded!");
     }
@@ -51,8 +54,9 @@ public class FullBackupQuotaTest extends BaseBackupCtsTest {
             return;
         }
         // get the app out of (possibly) stopped state so that backup can be run
-        exec("cmd activity broadcast -a android.backup.app.ACTION_WAKE_UP " +
-                "-n android.backup.app/.WakeUpReceiver");
+        getBackupUtils().executeShellCommandSync(
+                "cmd activity broadcast -a android.backup.app.ACTION_WAKE_UP "
+                        + "-n android.backup.app/.WakeUpReceiver");
 
         // give it 3s for the broadcast to be delivered
         try {
@@ -60,7 +64,7 @@ public class FullBackupQuotaTest extends BaseBackupCtsTest {
         } catch (InterruptedException e) {}
 
         String separator = markLogcat();
-        exec("bmgr backupnow " + BACKUP_APP_NAME);
+        getBackupUtils().backupNowSync(BACKUP_APP_NAME);
         waitForLogcat(TIMEOUT_SECONDS,separator,
             "quota is " + LOCAL_TRANSPORT_BACKUP_QUOTA);
     }

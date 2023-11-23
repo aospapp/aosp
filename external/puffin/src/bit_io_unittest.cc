@@ -8,7 +8,7 @@
 
 #include "puffin/src/bit_reader.h"
 #include "puffin/src/bit_writer.h"
-#include "puffin/src/set_errors.h"
+#include "puffin/src/logging.h"
 #include "puffin/src/unittest_common.h"
 
 namespace puffin {
@@ -62,4 +62,26 @@ TEST(BitIOTest, BitWriterAndBitReaderTest) {
   ASSERT_FALSE(br.CacheBits(1));
 }
 
+TEST(BitIOTest, BitsRemaining) {
+  const size_t kSize = 5;
+  uint8_t buf[kSize];
+
+  BufferBitReader br(buf, kSize);
+  EXPECT_EQ(br.BitsRemaining(), 40);
+  ASSERT_TRUE(br.CacheBits(1));
+  br.DropBits(1);
+  EXPECT_EQ(br.BitsRemaining(), 39);
+
+  ASSERT_TRUE(br.CacheBits(7));
+  br.DropBits(7);
+  EXPECT_EQ(br.BitsRemaining(), 32);
+
+  ASSERT_TRUE(br.CacheBits(31));
+  br.DropBits(31);
+  EXPECT_EQ(br.BitsRemaining(), 1);
+
+  ASSERT_TRUE(br.CacheBits(1));
+  br.DropBits(1);
+  EXPECT_EQ(br.BitsRemaining(), 0);
+}
 }  // namespace puffin

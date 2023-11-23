@@ -2,11 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject, os
+import gobject
 from dbus.mainloop.glib import DBusGMainLoop
 
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import policy, session_manager
 from autotest_lib.client.cros import constants, cros_ui, cryptohome, ownership
@@ -18,13 +18,10 @@ class login_GuestAndActualSession(test.test):
     """
     version = 1
 
-    def setup(self):
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
-
 
     def initialize(self):
         super(login_GuestAndActualSession, self).initialize()
+        policy.install_protobufs(self.autodir, self.job)
         # Ensure a clean beginning.
         ownership.restart_ui_to_clear_ownership_files()
 
@@ -47,10 +44,11 @@ class login_GuestAndActualSession(test.test):
         # Ensure that the first real user got to be the owner.
         retrieved_policy = policy.get_policy(self._session_manager)
         if retrieved_policy is None: raise error.TestFail('Policy not found')
-        policy.compare_policy_response(self.srcdir, retrieved_policy,
-                                       owner=owner)
+        policy.compare_policy_response(retrieved_policy, owner=owner)
 
 
     def cleanup(self):
-        self._session_manager.StopSession('')
+        # Testing is done, so just stop the UI instead of calling StopSession.
+        # The latter can fail if Chrome is hanging: https://crbug.com/876197
+        cros_ui.stop(allow_fail=True)
         cros_ui.start(allow_fail=True, wait_for_login_prompt=False)

@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD կոդը գործարկվում է..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI կոդը չեղարկված է"</string>
     <string name="cancel" msgid="5044513931633602634">"Չեղարկել"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD հաղորդագրությունը պետք է պարունակի <xliff:g id="MIN_LEN">%d</xliff:g>-ից <xliff:g id="MAX_LEN">%d</xliff:g> նիշ: Խնդրում ենք կրկին փորձել:"</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD հաղորդագրությունը պետք է պարունակի <xliff:g id="MIN_LEN">%1$d</xliff:g>-ից <xliff:g id="MAX_LEN">%2$d</xliff:g> նիշ: Խնդրում ենք կրկին փորձել:"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Կառավարեք կոնֆերանս զանգը"</string>
     <string name="ok" msgid="3811371167865772377">"Լավ"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Բարձրախոս"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"Ձայնային փոստ"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Ձայնային փոստ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"ՁՓ՝"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"Զանգեք և զանգեր ստացեք"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"Խելացի վերահասցեավորում"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"Երբ համարներից մեկն անհասանելի է, միշտ վերահասցեավորեք զանգերը ձեր մյուս համարին"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Ծանուցումներ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Ծանուցումներ արտակարգ իրավիճակների մասին"</string>
     <string name="call_settings" msgid="6112441768261754562">"Զանգի կարգավորումներ"</string>
@@ -90,7 +93,7 @@
     <string name="sum_loading_settings" msgid="1826692909391168620">"Կարգավորումները բեռնվում են..."</string>
     <string name="sum_hide_caller_id" msgid="1071407020290873782">"Համարը թաքնված է ելքային զանգերի ժամանակ"</string>
     <string name="sum_show_caller_id" msgid="6768534125447290401">"Համարը ցուցադրվում է ելքային զանգերի ժամանակ"</string>
-    <string name="sum_default_caller_id" msgid="1954518825510901365">"Օգտագործել լռելյայն օպերատորի կարգավորումները՝ ելքային զանգերի ժամանակ իմ համարը ցուցադրելու համար"</string>
+    <string name="sum_default_caller_id" msgid="1954518825510901365">"Օգտագործել օպերատորի ստանդարտ կարգավորումները՝ ելքային զանգերի ժամանակ իմ համարը ցուցադրելու համար"</string>
     <string name="labelCW" msgid="6120513814915920200">"Զանգի սպասում"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"Զանգի ընթացքում տեղեկացնել ինձ մուտքային զանգերի մասին"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"Զանգի ընթացքում տեղեկացնել ինձ մուտքային զանգերի մասին"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"Գրանցված է ցանցում:"</string>
     <string name="already_auto" msgid="6067116884321285507">"Արդեն նշել եք ավտոմատ ընտրությունը:"</string>
     <string name="select_automatically" msgid="1046727200631770962">"Ավտոմատ ընտրել ցանցը"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"Հասանելի չէ, երբ միացած է «%1$s» ցանցին"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Ցանց"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Ավտոմատ գրանցում..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Ցանցի նախընտրելի տեսակը"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"Զանգ"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Ցանց"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Ընդլայնված 4G LTE ռեժիմ"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Ընդլայնված զանգ"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Ձայնի և կապի որակը բարելավելու համար օգտվեք LTE ծառայություններից (հանձնարարելի)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Ձայնի և կապի որակը լավացնելու համար օգտվեք 4G ծառայություններից (խորհուրդ է տրվում)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Տվյալները միացված են"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Թույլատրել տվյալների օգտագործումը"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Ուշադրություն"</string>
@@ -256,7 +264,7 @@
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"Բջջային ինտերնետ"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"Օգտվել բջջային ինտերնետից"</string>
-    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Անջատե՞լ բջջային ինտերնետը։"</string>
+    <string name="data_usage_disable_mobile" msgid="3577275288809667615">"Անջատե՞լ բջջային ինտերնետը"</string>
     <string name="sim_selection_required_pref" msgid="7049424902961844236">"Ընտրեք SIM քարտը"</string>
     <string name="sim_change_data_title" msgid="5332425991853799280">"Փոխե՞լ բջջային ինտերնետի SIM-ը"</string>
     <string name="sim_change_data_message" msgid="2163963581444907496">"Օգտագործե՞լ <xliff:g id="NEW_SIM">%1$s</xliff:g> քարտը <xliff:g id="OLD_SIM">%2$s</xliff:g> քարտի փոխարեն բջջային ինտերնետի համար:"</string>
@@ -272,14 +280,10 @@
     <!-- String.format failed for translation -->
     <!-- no translation found for throttle_status_subtext (1657318943142085170) -->
     <skip />
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_data_usage_subtext (6029276011123694701) -->
-    <skip />
-    <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"<xliff:g id="USED_0">%1$s</xliff:g> առավելագույնը գերազանցվել է\nՏվյալների արժեքը նվազել է մինչև <xliff:g id="USED_1">%2$d</xliff:g> կբիթ/վ"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
-    <skip />
-    <string name="throttle_rate_subtext" msgid="2149102656120726855">"Տվյալների ծավալը կնվազի մինչև <xliff:g id="USED">%1$d</xliff:g> կբիթ/վ, եթե տվյալների օգտագործման սահմանաչափը գերազանցվի"</string>
+    <string name="throttle_data_usage_subtext" msgid="6029276011123694701">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) <xliff:g id="USED_2">%3$s</xliff:g>-ի ժամանակահատվածի առավելագույնը"</string>
+    <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"<xliff:g id="USED_0">%1$s</xliff:g> առավելագույնը գերազանցվել է\nՏվյալների արժեքը նվազել է մինչև <xliff:g id="USED_1">%2$d</xliff:g> Կբիթ/վ"</string>
+    <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"Շրջանի <xliff:g id="USED_0">%1$d</xliff:g>٪ -ը լրացել է\nՀաջորդ ժամանակահատվածը սկսվում է <xliff:g id="USED_1">%2$d</xliff:g> օրից (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
+    <string name="throttle_rate_subtext" msgid="2149102656120726855">"Տվյալների ծավալը կնվազի մինչև <xliff:g id="USED">%1$d</xliff:g> Կբիթ/վ, եթե տվյալների օգտագործման սահմանաչափը գերազանցվի"</string>
     <string name="throttle_help_subtext" msgid="5217706521499010816">"Լրացուցիչ տեղեկություններ ձեր սպասարկողի բջջային ցանցի տվյալների օգտագործման քաղաքականության մասին"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Բջջային հեռարձակման SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"Բջջային հեռարձակման SMS"</string>
@@ -438,7 +442,7 @@
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Ընթերցում է SIM քարտից..."</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"Ձեր SIM քարտում կոնտակտներ չկան:"</string>
     <string name="simContacts_title" msgid="1861472842524839921">"Ընտրեք կոնտակտները ներմուծման համար"</string>
-    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"Կոնտակտները SIM քարտից ներմուծելու համար անջատեք Ինքնաթիռի ռեժիմը:"</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"Կոնտակտները SIM քարտից ներմուծելու համար անջատեք Ավիառեժիմը:"</string>
     <string name="enable_pin" msgid="5422767284133234860">"Միացնել/անջատել SIM PIN-ը"</string>
     <string name="change_pin" msgid="9174186126330785343">"Փոխել SIM PIN-ը"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"SIM PIN՝"</string>
@@ -488,10 +492,10 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"Զանգել <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Ձայնային փոստի համարն անհայտ է"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Ծառայություններ չկան"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"Ընտրված ցանցը (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) անհասանելի է"</string>
-    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Զանգ կատարելու համար միացեք բջջային ցանցին, անջատեք ինքնաթիռի կամ էներգախնայման ռեժիմը:"</string>
-    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Զանգ կատարելու համար անջատեք Ինքնաթիռի ռեժիմը:"</string>
-    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Զանգ կատարելու համար անջատեք Ինքնաթիռի ռեժիմը կամ միացեք անլար ցանցին:"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"Ընտրված ցանցը (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) անհասանելի է"</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Զանգ կատարելու համար միացեք բջջային ցանցին, անջատեք մարտկոցի տնտեսումը կամ ավիառեժիմը:"</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Զանգ կատարելու համար անջատեք Ավիառեժիմը:"</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Զանգ կատարելու համար անջատեք Ավիառեժիմը կամ միացեք անլար ցանցին:"</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Սովորական զանգ կատարելու համար դուրս եկեք շտապ կանչի ռեժիմից։"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Ցանցում գրանցված չէ:"</string>
     <string name="incall_error_out_of_service" msgid="8587993036435080418">"Բջջային ցանցն անհասանելի է:"</string>
@@ -501,21 +505,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Զանգն այս պահին հնարավոր չէ ավելացնել: Փորձեք հաղորդագրություն ուղարկել:"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Ծառայությունը չի աջակցվում"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Հնարավոր չէ փոխանջատել զանգը:"</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"Չհաջողվեց վերսկսել զանգը:"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Հնարավոր չէ առանձնացնել զանգը:"</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"Հնարավոր չէ փոխանցել:"</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Կոնֆերանս զանգը հնարավոր չէ:"</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"Չհաջողվեց միավորել զանգերը:"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Հնարավոր չէ մերժել զանգը:"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Հնարավոր չէ անջատել զանգ(եր)ը:"</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Հնարավոր չէ հետաձգել զանգերը:"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Զանգ կատարելու համար միացեք անլար ցանցին:"</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"Զանգ կատարելու համար միացրեք «Զանգեր Wi-Fi ցանցի միջոցով» գործառույթը:"</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"Անհետաձգելի բուժօգնության տվյալներ"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"Սեփականատեր"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"Կրկին հպեք՝ տեղեկությունները դիտելու համար"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Շտապ կանչ"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"Արտակարգ ծառայություն"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"Արտակարգ ծառայությունների հեռախոսահամարներ"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"Կրկին հպեք՝ <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> համարին զանգելու համար"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Ռադիոն միացվում է..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Ծառայությունը մատչելի չէ: Նորից փորձեք…"</string>
-    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Շտապ կանչի ժամանակ հնարավոր չէ մտնել ինքնաթիռի ռեժիմ:"</string>
+    <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Շտապ կանչի ժամանակ հնարավոր չէ մտնել Ավիառեժիմ:"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Հնարավոր չէ զանգել: <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> համարը արտակարգ իրավիճակի համար չէ:"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Հնարավոր չէ զանգել: Հավաքեք արտակարգ իրավիճակի որևէ համար:"</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Շտապ կանչերը հասանելի չեն"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"Ոստիկանություն"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"Շտապ օգնություն"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"Հրշեջ ծառայություն"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Օգտագործեք ստեղնաշարը՝ համարհավաքման համար"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Պահել"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Ավարտել"</string>
@@ -541,7 +556,7 @@
     <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT-ն օգնում է այն բաժանորդներին, ովքեր լսողության և խոսքի դժվարություններ ունեն, կամ ովքեր լոկ ձայնով չեն բավարարվում:&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Իմանալ ավելին&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – RTT զանգերը պահվում են որպես հաղորդագրության տառադրումներ\n       &lt;br&gt; – RTT-ն հասանելի չէ տեսազանգի ժամանակ"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY-ն անջատված է"</item>
-    <item msgid="3971695875449640648">"TTY Full"</item>
+    <item msgid="3971695875449640648">"Լիարժեք TTY"</item>
     <item msgid="1937509904407445684">"TTY HCO"</item>
     <item msgid="5644925873488772224">"TTY VCO"</item>
   </string-array>
@@ -558,7 +573,7 @@
     <string name="ota_hfa_activation_title" msgid="2234246934160473981">"Ակտիվացվում է..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="8092479227918463415">"Հեռախոսը ակտիվացնում է ձեր բջջային տվյալների ծառայությունը:\n\nՍա կարող է տևել մինչև 5 րոպե:"</string>
     <string name="ota_skip_activation_dialog_title" msgid="2943366608272261306">"Բաց թողնե՞լ ակտիվացումը"</string>
-    <string name="ota_skip_activation_dialog_message" msgid="2440770373498870550">"Եթե ​​դուք բաց թողնեք ակտիվացումը, դուք չեք կարող կատարել զանգեր և միանալ բջջային տվյալների ցանցերին (թեև դուք կարող եք միանալ Wi-Fi ցանցերին): Մինչև դուք չակտիվացնեեք ձեր հեռախոսը, ձեզ հարցվելու է ակտիվացնել յուրաքանչյուր անգամ, երբ դուք միացնեք այն:"</string>
+    <string name="ota_skip_activation_dialog_message" msgid="2440770373498870550">"Եթե ​​դուք բաց թողնեք ակտիվացումը, դուք չեք կարող կատարել զանգեր և միանալ բջջային տվյալների ցանցերին (թեև դուք կարող եք միանալ Wi-Fi ցանցերին): Մինչև դուք չակտիվացնեեք ձեր հեռախոսը, ձեզ հարցվելու է ակտիվացնել յուրաքանչյուր անգամ, երբ միացնեք այն:"</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="3458532775091563208">"Բաց թողնել"</string>
     <string name="ota_activate" msgid="1368528132525626264">"Ակտիվացնել"</string>
     <string name="ota_title_activate_success" msgid="6570240212263372046">"Հեռախոսն ակտիվացված է:"</string>
@@ -601,7 +616,9 @@
     <string name="selectContact" msgid="781975788478987237">"ընտրել կոնտակտ"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Ձայնային զանգերը չեն սպասարկվում"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"համարհավաքել"</string>
-    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Տեսողական ձայնային փոստ"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"ցուցադրել թվաշարը"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"Շտապ կանչերի թվաշար"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Վիզուալ ձայնային փոստ"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Ընտրեք PIN"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Փոխել PIN-ը"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Ձայներանգ &amp; Թրթռոց"</string>
@@ -651,58 +668,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ԱՎԵԼԱՑՆԵԼ ԹՐԱՖԻԿԸ"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ՉԵՂԱՐԿԵԼ"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Զանգն ավարտվել է"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Ռադիոկապն անջատված է"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"SIM քարտ չի գտնվել կամ SIM քարտի սխալ է առաջացել"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"Ավիառեժիմը միացած է"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"SIM քարտի սխալ"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Բջջային ցանցն անհասանելի է"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Չնշանակված (չտեղաբաշխված) համար"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Տվյալ ուղղությունը չի սպասարկվում"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Սխալ կապուղի"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Օպերատորի կողմից սահմանված արգելք"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Զանգի սովորական ավարտ"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"Զանգվող բաժանորդի հեռախոսահամարի հետ խնդիր կա: Սխալի կոդը՝ 1:"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"Զանգն ընդհատվեց: Սխալի կոդը՝ 3:"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"Զանգն ընդհատվեց: Սխալի կոդը՝ 6:"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"Զանգն ընդհատվեց: Սխալի կոդը՝ 8:"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"Զանգն ընդհատվեց: Սխալի կոդը՝ 16:"</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Բաժանորդը զբաղված է"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Պատասխան չկա"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Օգտատիրոջ սարքից պատասխան չկա"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"Օգտատերը չի պատասխանում"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"Զանգն ընդհատվեց: Սխալի կոդը՝ 19:"</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Զանգը մերժվել է"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Համարը փոխվել է"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Ծառայության առաջնահերթ ընդհատում"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Հասցեատեր չի ընտրվել"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Հասցեատերը չի սպասարկվում"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"Զանգն ընդհատվեց: Սխալի կոդը՝ 25:"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"Զանգն ընդհատվեց: Սխալի կոդը՝ 26:"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"Զանգն ընդհատվեց: Սխալի կոդը՝ 27:"</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Համարի ձևաչափը սխալ է (համարը լիարժեք չէ)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Սարքի օգտագործման հարցումը մերժվել է"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Հարցման կարգավիճակի պատասխան"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Սովորական, նշված չէ"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Շղթան կամ կապուղին հասանելի չէ"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Ցանցը խափանված է"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Ժամանակավոր խափանում"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Կոմուտատորը գերբեռնված է"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Մուտքի տվյալները հեռացվել են"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Պահանջվող շղթան կամ կապուղին հասանելի չէ"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Ռեսուրսներն անհասանելի են, պատճառն անհայտ է"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Ծառայության պահանջվող որակը հնարավոր չէ ապահովել"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Պահանջվող սարքի բաժանորդագրությունը բացակայում է"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Բաժանորդների փակ խմբի ներսում մուտքային զանգերն արգելված են"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Թողունակությունը թույլատրված չէ"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Տվյալ թողունակությունն այս պահին հնարավոր չէ ապահովել"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Ծառայությունը կամ ընտրանքը հասանելի չէ, պատճառն անհայտ է"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Չի հաջողվում ապահովել տվյալ թողունակությունը"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM արժեքը մեծ կամ հավասար է ACMmax արժեքին"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Պահանջվող սարքը չի աջակցվում"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Առկա է թվային տվյալների փոխանցման սահմանափակ հնարավորություն"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Ծառայությունը կամ ընտրանքը չի աջակցվում, պատճառն անհայտ է"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Գործարքի նույնացուցիչի արժեքը սխալ է"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Բաժանորդը փակ խմբի անդամ չէ"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Ընդունող սարքն անհամատեղելի է"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Տարանցիկ ցանցի անվավեր ընտրություն"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Հաղորդագրությունը իմաստային առումով սխալ է"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Անվավեր պարտադիր տվյալներ"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Հաղորդագրության տեսակը գոյություն չունի կամ չի աջակցվում"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Հաղորդագրության տեսակը համատեղելի չէ հաղորդակարգի կարգավիճակի հետ"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Տեղեկատվական տարրը գոյություն չունի կամ չի աջակցվում"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Պայմանական IE սխալ"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Հաղորդագրությունը համատեղելի չէ հաղորդակարգի կարգավիճակի հետ"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Վերականգնում ժամաչափի լրանալու արդյունքում"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Հաղորդակարգի անհայտ սխալ"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Միջցանցային փոխազդեցության անհայտ սխալ"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"Զանգն ընդհատվեց: Սխալի կոդը՝ 29:"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"Զանգն ընդհատվեց: Սխալի կոդը՝ 30:"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"Զանգն ընդհատվեց: Սխալի կոդը՝ 31:"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"Զանգն ընդհատվեց: Սխալի կոդը՝ 34:"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"Զանգն ընդհատվեց: Սխալի կոդը՝ 38:"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"Զանգն ընդհատվեց: Սխալի կոդը՝ 41:"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"Զանգն ընդհատվեց: Սխալի կոդը՝ 42:"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"Զանգն ընդհատվեց: Սխալի կոդը՝ 43:"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"Զանգն ընդհատվեց: Սխալի կոդը՝ 44:"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"Զանգն ընդհատվեց: Սխալի կոդը՝ 47:"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"Զանգն ընդհատվեց: Սխալի կոդը՝ 49:"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"Զանգն ընդհատվեց: Սխալի կոդը՝ 50:"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"Զանգն ընդհատվեց: Սխալի կոդը՝ 55:"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"Զանգն ընդհատվեց: Սխալի կոդը՝ 57:"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"Զանգն ընդհատվեց: Սխալի կոդը՝ 58:"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"Զանգն ընդհատվեց: Սխալի կոդը՝ 63:"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"Զանգն ընդհատվեց: Սխալի կոդը՝ 65:"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"Զանգն ընդհատվեց: Սխալի կոդը՝ 68:"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"Զանգն ընդհատվեց: Սխալի կոդը՝ 69:"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"Զանգն ընդհատվեց: Սխալի կոդը՝ 70:"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"Զանգն ընդհատվեց: Սխալի կոդը՝ 79:"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"Զանգն ընդհատվեց: Սխալի կոդը՝ 81:"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"Զանգն ընդհատվեց: Սխալի կոդը՝ 87:"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"Զանգն ընդհատվեց: Սխալի կոդը՝ 88:"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"Զանգն ընդհատվեց: Սխալի կոդը՝ 91:"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"Զանգն ընդհատվեց: Սխալի կոդը՝ 95:"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"Զանգն ընդհատվեց: Սխալի կոդը՝ 96:"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"Զանգն ընդհատվեց: Սխալի կոդը՝ 97:"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"Զանգն ընդհատվեց: Սխալի կոդը՝ 98:"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"Զանգն ընդհատվեց: Սխալի կոդը՝ 99:"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"Զանգն ընդհատվեց: Սխալի կոդը՝ 100:"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"Զանգն ընդհատվեց: Սխալի կոդը՝ 101:"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"Զանգն ընդհատվեց: Սխալի կոդը՝ 102:"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"Զանգն ընդհատվեց: Սխալի կոդը՝ 111:"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"Զանգն ընդհատվեց: Սխալի կոդը՝ 127:"</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"Զանգերի արգելափակում"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Միացված է"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Անջատված է"</string>
@@ -736,6 +753,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"Մուտքագրեք գաղտնաբառը"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"Զանգերի արգելափակման կարգավորումներ"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Անջատե՞լ զանգերի արգելափակման բոլոր կարգավորումները"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"Ցանցը զբաղված է: Ավելի ուշ նորից փորձեք զանգել:"</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"Ցանցը ծանրաբեռնված է: Օգնության համար դիմեք ձեր բջջային օպերատորին:"</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Զանգը վերահասցեավորվեց:"</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Զանգը վերահասցեավորվեց:"</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Զանգը սպասման մեջ է:"</string>
@@ -753,4 +772,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Վերահասցեավորված զանգ"</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"Միացում կոնֆերանս զանգի"</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"Զանգը հանվեց սպասման ռեժիմից:"</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"Հնարավոր չէ զանգել, քանի որ սարքը ներկայումս նախապատրաստման փուլում է:"</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"Հնարավոր չէ զանգել, քանի որ տվյալ պահին մեկ այլ ելքային զանգ է կատարվում:"</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"Հնարավոր չէ զանգել, քանի որ անպատասխան մուտքային զանգ կա: Նախքան նոր զանգ կատարելը պատասխանեք մուտքային զանգին կամ մերժեք այն:"</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"Հնարավոր չէ զանգել, քանի որ զանգելու գործառույթը զանգերի համակարգի ro.telephony.disable կարգավորման միջոցով կասեցվել է:"</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"Հնարավոր չէ զանգել, քանի որ արդեն երկու ընթացիկ զանգ կա: Նախքան նոր զանգ կատարելը ավարտեք զանգերից մեկը կամ միավորեք դրանք մեկ խմբային զանգում:"</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ծառայությունից օգտվելու համար համոզվեք, որ բջջային ինտերնետը միացված է: Սա կարող եք փոխել բջջային ցանցի կարգավորումներում:"</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ծառայությունից օգտվելու համար համոզվեք, որ բջջային ինտերնետը և ինտերնետը ռոումինգում միացված են: Սրանք կարող եք փոխել բջջային ցանցի կարգավորումներում:"</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> ծառայությունից օգտվելու համար համոզվեք, որ SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> քարտի համար բջջային ինտերնետը միացված է: Սա կարող եք փոխել բջջային ցանցի կարգավորումներում:"</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> ծառայությունից օգտվելու համար համոզվեք, որ SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> քարտի համար բջջային ինտերնետը և ինտերնետը ռոումինգում միացված են: Սրանք կարող եք փոխել բջջային ցանցի կարգավորումներում:"</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"Փակել"</string>
 </resources>

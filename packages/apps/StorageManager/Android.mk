@@ -21,13 +21,15 @@ LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_PROGUARD_FLAG_FILES := proguard.cfg
 
+LOCAL_PRODUCT_MODULE := true
 LOCAL_PRIVILEGED_MODULE := true
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.storagemanager
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-v14-preference \
-    android-support-v7-appcompat \
-    android-support-v7-preference \
-    android-support-v7-recyclerview
+      androidx.legacy_legacy-preference-v14 \
+      androidx.appcompat_appcompat \
+      androidx.preference_preference \
+      androidx.recyclerview_recyclerview
 
 LOCAL_USE_AAPT2 := true
 

@@ -10,8 +10,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:hotrod, suite:hotrod-release"
-DEPENDENCIES = "usb_speaker"
+ATTRIBUTES = "suite:hotrod"
+DEPENDENCIES = "atrus, meet_app"
 JOB_RETRIES = 3
 
 DOC = """
@@ -23,10 +23,9 @@ validated against the cras_test_client output to make sure the volume matches.
 """
 
 args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=servo_args)
+    host = hosts.create_host(machine)
     repeat = int(args_dict.get('repeat', 10))
     cmd = "cras_test_client --dump_server_info | awk '/Output Nodes:/," \
           "/Input Devices:/' | grep -E 'USB' | awk -v N=3 '{print $N}'"

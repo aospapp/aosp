@@ -16,47 +16,41 @@
 
 <!-- CoordinatorLayout is necessary for various components (e.g. Snackbars, and
      floating action buttons) to operate correctly. -->
-<android.support.design.widget.CoordinatorLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/coordinator_layout">
 
-    <android.support.v4.widget.DrawerLayout
+    <androidx.drawerlayout.widget.DrawerLayout
         android:id="@+id/drawer_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <LinearLayout
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <Toolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="?android:attr/actionBarSize"
-                android:background="?android:attr/colorPrimary"
-                android:elevation="8dp"
-                android:theme="?actionBarTheme"
-                android:popupTheme="?actionBarPopupTheme">
-
-                <com.android.documentsui.DropdownBreadcrumb
-                    android:id="@+id/dropdown_breadcrumb"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:popupTheme="?actionBarPopupTheme"
-                    android:background="@android:color/transparent"
-                    android:overlapAnchor="true" />
-
-            </Toolbar>
-
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                app:layout_behavior="@string/scrolling_behavior">
 
-                <include layout="@layout/directory_cluster"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:id="@+id/container_directory"
+                        android:clipToPadding="false"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                </LinearLayout>
 
                 <!-- Drawer edge is a dummy view used to capture hovering event
                      on view edge to open the drawer. (b/28345294) -->
@@ -67,7 +61,17 @@
                     android:layout_height="match_parent"/>
             </FrameLayout>
 
-        </LinearLayout>
+            <androidx.coordinatorlayout.widget.CoordinatorLayout
+                android:id="@+id/container_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:background="?android:attr/colorBackgroundFloating"
+                android:elevation="8dp" />
+
+            <include layout="@layout/directory_app_bar"/>
+
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
         <LinearLayout
             android:id="@+id/drawer_roots"
@@ -75,17 +79,17 @@
             android:layout_height="match_parent"
             android:layout_gravity="start"
             android:orientation="vertical"
-            android:elevation="16dp"
-            android:background="@color/drawer_background">
+            android:elevation="0dp"
+            android:background="?android:attr/colorBackground">
 
-            <Toolbar
+            <androidx.appcompat.widget.Toolbar
                 android:id="@+id/roots_toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?android:attr/actionBarSize"
-                android:background="?android:attr/colorPrimary"
-                android:elevation="8dp"
-                android:theme="?actionBarTheme"
-                android:popupTheme="?actionBarPopupTheme" />
+                android:background="?android:attr/colorBackground"
+                android:elevation="0dp"
+                app:titleTextAppearance="@style/DrawerMenuTitle"
+                app:titleTextColor="?android:colorPrimary"/>
 
             <FrameLayout
                 android:id="@+id/container_roots"
@@ -95,5 +99,5 @@
 
         </LinearLayout>
 
-    </android.support.v4.widget.DrawerLayout>
-</android.support.design.widget.CoordinatorLayout>
+    </androidx.drawerlayout.widget.DrawerLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

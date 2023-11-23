@@ -16,5 +16,6 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <com.android.emergency.preferences.ViewEmergencyContactsPreference
         android:key="emergency_contacts"
-        android:title="@string/emergency_contacts_title" />
+        android:title="@string/emergency_contacts_title"
+        style="@style/PreferenceCategory" />
 </PreferenceScreen>

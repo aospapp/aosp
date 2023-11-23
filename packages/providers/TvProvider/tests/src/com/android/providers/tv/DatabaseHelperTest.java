@@ -54,7 +54,9 @@ public class DatabaseHelperTest extends AndroidTestCase {
         info.authority = TvContract.AUTHORITY;
         mProvider.attachInfoForTesting(getContext(), info);
         mDatabaseHelper = new DatabaseHelperForTesting(getContext(), BASE_DATABASE_VERSION);
-        mProvider.setOpenHelper(mDatabaseHelper);
+        // not re-initialize for BASE_DATABASE_VERSION. Some tables don't exist in this version, so
+        // there are "table not found" issues if it's re-initialized.
+        mProvider.setOpenHelper(mDatabaseHelper, false);
     }
 
     @Override
@@ -68,8 +70,10 @@ public class DatabaseHelperTest extends AndroidTestCase {
         assertEquals(BASE_DATABASE_VERSION, db.getVersion());
         mDatabaseHelper.close();
 
+        // need to re-initialize the projrction maps. Some customized columns may have been added
+        // to projection maps, and they do not exist in the DB of DatabaseHelperForTesting.
         mProvider.setOpenHelper(
-                new DatabaseHelperForTesting(getContext(), TvProvider.DATABASE_VERSION));
+                new DatabaseHelperForTesting(getContext(), TvProvider.DATABASE_VERSION), true);
 
         try (Cursor cursor = mResolver.query(
                 TvContract.Channels.CONTENT_URI, null, null, null, null)) {

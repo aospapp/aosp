@@ -67,6 +67,7 @@ public final class MessagePatternUtil {
      * Common base class for all elements in a tree of nodes
      * returned by {@link MessagePatternUtil#buildMessageNode(MessagePattern)}.
      * This class and all subclasses are immutable and thread-safe.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class Node {
         private Node() {}
@@ -74,6 +75,7 @@ public final class MessagePatternUtil {
 
     /**
      * A Node representing a parsed MessageFormat pattern string.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class MessageNode extends Node {
         /**
@@ -116,10 +118,12 @@ public final class MessagePatternUtil {
     /**
      * A piece of MessageNode contents.
      * Use getType() to determine the type and the actual Node subclass.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class MessageContentsNode extends Node {
         /**
          * The type of a piece of MessageNode contents.
+         * @hide Only a subset of ICU is exposed in Android
          */
         public enum Type {
             /**
@@ -168,6 +172,7 @@ public final class MessagePatternUtil {
 
     /**
      * Literal text, a piece of MessageNode contents.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class TextNode extends MessageContentsNode {
         /**
@@ -194,6 +199,7 @@ public final class MessagePatternUtil {
 
     /**
      * A piece of MessageNode contents representing a message argument and its details.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class ArgNode extends MessageContentsNode {
         /**
@@ -272,6 +278,7 @@ public final class MessagePatternUtil {
     /**
      * A Node representing details of the argument style of a complex argument.
      * (Which is a choice/plural/select argument which selects among nested messages.)
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class ComplexArgStyleNode extends Node {
         /**
@@ -369,6 +376,7 @@ public final class MessagePatternUtil {
     /**
      * A Node representing a nested message (nested inside an argument)
      * with its selection criterium.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class VariantNode extends Node {
         /**

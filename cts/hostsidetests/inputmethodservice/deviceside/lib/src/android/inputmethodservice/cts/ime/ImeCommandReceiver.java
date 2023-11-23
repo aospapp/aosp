@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.ime;
@@ -40,30 +40,30 @@ final class ImeCommandReceiver<T extends InputMethodService & ImeCommandCallback
          * @param text text to be committed via {@link android.view.inputmethod.InputConnection}.
          * @param newCursorPosition new cursor position after commit.
          */
-        void commandCommitText(final CharSequence text, final int newCursorPosition);
+        void commandCommitText(CharSequence text, int newCursorPosition);
 
         /**
          * Callback method for {@link ImeCommandConstants#COMMAND_SWITCH_INPUT_METHOD} intent.
          *
          * @param imeId IME id to switch.
          */
-        void commandSwitchInputMethod(final String imeId);
+        void commandSwitchInputMethod(String imeId);
 
         /**
          * Callback method for {@link ImeCommandConstants#COMMAND_REQUEST_HIDE_SELF} intent.
          */
-        void commandRequestHideSelf(final int flags);
+        void commandRequestHideSelf(int flags);
     }
 
     private T mIme;
 
-    void register(final T ime) {
+    void register(T ime) {
         mIme = ime;
         ime.registerReceiver(this, new IntentFilter(ImeCommandConstants.ACTION_IME_COMMAND));
     }
 
     @Override
-    public void onReceive(final Context context, final Intent intent) {
+    public void onReceive(Context context, Intent intent) {
         final String command = intent.getStringExtra(ImeCommandConstants.EXTRA_COMMAND);
         if (DEBUG) {
             Log.d(mIme.getClass().getSimpleName(), "onReceive: command=" + command);
@@ -106,15 +106,15 @@ final class ImeCommandReceiver<T extends InputMethodService & ImeCommandCallback
         }
     }
 
-    private static CharSequence getCharSequence1(final Intent intent) {
+    private static CharSequence getCharSequence1(Intent intent) {
         return intent.getCharSequenceExtra(ImeCommandConstants.EXTRA_ARG_CHARSEQUENCE1);
     }
 
-    private static String getString1(final Intent intent) {
+    private static String getString1(Intent intent) {
         return intent.getStringExtra(ImeCommandConstants.EXTRA_ARG_STRING1);
     }
 
-    private static int getInt1(final Intent intent) {
+    private static int getInt1(Intent intent) {
         if (intent.hasExtra(ImeCommandConstants.EXTRA_ARG_INT1)) {
             return intent.getIntExtra(ImeCommandConstants.EXTRA_ARG_INT1, 0);
         }

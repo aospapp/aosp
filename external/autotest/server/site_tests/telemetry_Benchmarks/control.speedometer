@@ -24,9 +24,11 @@ Pass local=True to run with local telemetry and no AFE server.
 
 def run_benchmark(machine):
     host = hosts.create_host(machine)
+    dargs = utils.args_to_dict(args)
+    dargs['extra_args'] = ''.split()
     job.run_test('telemetry_Benchmarks', host=host,
                  benchmark='speedometer',
                  tag='speedometer',
-                 args=utils.args_to_dict(args))
+                 args=dargs)
 
 parallel_simple(run_benchmark, machines)

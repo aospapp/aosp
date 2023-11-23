@@ -27,6 +27,7 @@ import android.content.res.Resources;
 import android.content.SyncStatusInfo;
 import android.os.Bundle;
 import android.os.Looper;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.RenamingDelegatingContext;
 import android.test.mock.MockContentResolver;
@@ -41,6 +42,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.List;
 
+@AppModeFull(reason = "Sync manager not supported")
 public class SyncStorageEngineTest extends AndroidTestCase {
     public void testMalformedAuthority() throws Exception {
         Looper.prepare();

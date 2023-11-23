@@ -15,10 +15,12 @@ struct cras_iodev;
  * until a new iodev becomes available.
  * Args:
  *    direciton - input or output.
+ *    node_type - the default node type.
  * Returns:
  *    A pointer to the newly created iodev if successful, NULL otherwise.
  */
-struct cras_iodev *empty_iodev_create(enum CRAS_STREAM_DIRECTION direction);
+struct cras_iodev *empty_iodev_create(enum CRAS_STREAM_DIRECTION direction,
+				      enum CRAS_NODE_TYPE node_type);
 
 /* Destroys an empty_iodev created with empty_iodev_create. */
 void empty_iodev_destroy(struct cras_iodev *iodev);

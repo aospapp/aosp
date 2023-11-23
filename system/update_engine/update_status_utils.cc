@@ -30,6 +30,8 @@ const char* UpdateStatusToString(const UpdateStatus& status) {
       return update_engine::kUpdateStatusCheckingForUpdate;
     case UpdateStatus::UPDATE_AVAILABLE:
       return update_engine::kUpdateStatusUpdateAvailable;
+    case UpdateStatus::NEED_PERMISSION_TO_UPDATE:
+      return update_engine::kUpdateStatusNeedPermissionToUpdate;
     case UpdateStatus::DOWNLOADING:
       return update_engine::kUpdateStatusDownloading;
     case UpdateStatus::VERIFYING:
@@ -50,8 +52,7 @@ const char* UpdateStatusToString(const UpdateStatus& status) {
   return nullptr;
 }
 
-bool StringToUpdateStatus(const std::string& s,
-                          UpdateStatus* status) {
+bool StringToUpdateStatus(const std::string& s, UpdateStatus* status) {
   if (s == update_engine::kUpdateStatusIdle) {
     *status = UpdateStatus::IDLE;
     return true;
@@ -60,6 +61,9 @@ bool StringToUpdateStatus(const std::string& s,
     return true;
   } else if (s == update_engine::kUpdateStatusUpdateAvailable) {
     *status = UpdateStatus::UPDATE_AVAILABLE;
+    return true;
+  } else if (s == update_engine::kUpdateStatusNeedPermissionToUpdate) {
+    *status = UpdateStatus::NEED_PERMISSION_TO_UPDATE;
     return true;
   } else if (s == update_engine::kUpdateStatusDownloading) {
     *status = UpdateStatus::DOWNLOADING;

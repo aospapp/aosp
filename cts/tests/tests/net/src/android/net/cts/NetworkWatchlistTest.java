@@ -23,10 +23,13 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.platform.test.annotations.AppModeFull;
 import android.os.FileUtils;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.InstrumentationRegistry;
+import android.os.ParcelFileDescriptor;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.SystemUtil;
@@ -37,8 +40,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-
-import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Formatter;
@@ -50,8 +52,6 @@ public class NetworkWatchlistTest {
     private static final String TEST_WATCHLIST_XML = "assets/network_watchlist_config_for_test.xml";
     private static final String TEST_EMPTY_WATCHLIST_XML =
             "assets/network_watchlist_config_empty_for_test.xml";
-    private static final String SDCARD_CONFIG_PATH =
-            "/sdcard/network_watchlist_config_for_test.xml";
     private static final String TMP_CONFIG_PATH =
             "/data/local/tmp/network_watchlist_config_for_test.xml";
     // Generated from sha256sum network_watchlist_config_for_test.xml
@@ -83,8 +83,7 @@ public class NetworkWatchlistTest {
         }
     }
 
-    private void cleanup() throws Exception {
-        runCommand("rm " + SDCARD_CONFIG_PATH);
+    private void cleanup() throws IOException {
         runCommand("rm " + TMP_CONFIG_PATH);
     }
 
@@ -99,6 +98,7 @@ public class NetworkWatchlistTest {
      * returns the hash of config we set.
      */
     @Test
+    @AppModeFull(reason = "Cannot access resource file in instant app mode")
     public void testGetWatchlistConfigHash() throws Exception {
         // Set watchlist config file for test
         setWatchlistConfig(TEST_WATCHLIST_XML);
@@ -116,22 +116,43 @@ public class NetworkWatchlistTest {
     }
 
     private void saveResourceToFile(String res, String filePath) throws IOException {
-        InputStream in = getClass().getClassLoader().getResourceAsStream(res);
-        FileUtils.copyToFileOrThrow(in, new File(filePath));
+        // App can't access /data/local/tmp directly, so we pipe resource to file through stdin.
+        ParcelFileDescriptor stdin = pipeFromStdin(filePath);
+        pipeResourceToFileDescriptor(res, stdin);
+    }
+
+    /* Pipe stdin to a file in filePath. Returns PFD for stdin. */
+    private ParcelFileDescriptor pipeFromStdin(String filePath) {
+        // Not all devices have symlink for /dev/stdin, so use /proc/self/fd/0 directly.
+        // /dev/stdin maps to /proc/self/fd/0.
+        return runRwCommand("cp /proc/self/fd/0 " + filePath)[1];
+    }
+
+    private void pipeResourceToFileDescriptor(String res, ParcelFileDescriptor pfd)
+            throws IOException {
+        InputStream resStream = getClass().getClassLoader().getResourceAsStream(res);
+        FileOutputStream fdStream = new ParcelFileDescriptor.AutoCloseOutputStream(pfd);
+
+        FileUtils.copy(resStream, fdStream);
+
+        try {
+            fdStream.close();
+        } catch (IOException e) {
+        }
     }
 
     private static String runCommand(String command) throws IOException {
         return SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
+    private static ParcelFileDescriptor[] runRwCommand(String command) {
+        return InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().executeShellCommandRw(command);
+    }
+
     private void setWatchlistConfig(String watchlistConfigFile) throws Exception {
         cleanup();
-        // Save test watchlist config to sdcard as app can't access /data/local/tmp
-        saveResourceToFile(watchlistConfigFile, SDCARD_CONFIG_PATH);
-        // Copy test watchlist config from sdcard to /data/local/tmp as system service
-        // can't access /sdcard
-        runCommand("cp " + SDCARD_CONFIG_PATH + " " + TMP_CONFIG_PATH);
-        // Set test watchlist config to system
+        saveResourceToFile(watchlistConfigFile, TMP_CONFIG_PATH);
         final String cmdResult = runCommand(
                 "cmd network_watchlist set-test-config " + TMP_CONFIG_PATH).trim();
         assertThat(cmdResult).contains("Success");

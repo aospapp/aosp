@@ -15,31 +15,28 @@ from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server import utils
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.lib import status_history
-from autotest_lib.utils import labellib
 
 CONFIG = global_config.global_config
 
 
-class BoardNotAvailableError(utils.TestLabException):
-    """Raised when a board is not available in the lab."""
+class DUTsNotAvailableError(utils.TestLabException):
+    """Raised when a DUT label combination is not available in the lab."""
 
 
 class NotEnoughDutsError(utils.TestLabException):
     """Rasied when the lab doesn't have the minimum number of duts."""
 
-    def __init__(self, board, pool, num_available, num_required, hosts):
+    def __init__(self, labels, num_available, num_required, hosts):
         """Initialize instance.
 
         Please pass arguments by keyword.
 
-        @param board: Name of board.
-        @param pool: Name of pool.
+        @param labels: Labels required, including board an pool labels.
         @param num_available: Number of available hosts.
         @param num_required: Number of hosts required.
         @param hosts: Sequence of Host instances for given board and pool.
         """
-        self.board = board
-        self.pool = pool
+        self.labels = labels
         self.num_available = num_available
         self.num_required = num_required
         self.hosts = hosts
@@ -51,8 +48,7 @@ class NotEnoughDutsError(utils.TestLabException):
     def __repr__(self):
         return (
             '<{cls} at 0x{id:x} with'
-            ' board={this.board!r},'
-            ' pool={this.pool!r},'
+            ' labels={this.labels!r},'
             ' num_available={this.num_available!r},'
             ' num_required={this.num_required!r},'
             ' bug_id={this.bug_id!r},'
@@ -64,7 +60,7 @@ class NotEnoughDutsError(utils.TestLabException):
 
     def __str__(self):
         msg_parts = [
-            'Not enough DUTs for board: {this.board}, pool: {this.pool};'
+            'Not enough DUTs for requirements: {this.labels};'
             ' required: {this.num_required}, found: {this.num_available}'
         ]
         format_dict = {'this': self}
@@ -221,11 +217,11 @@ class RPCHelper(object):
         self.rpc_interface = rpc_interface
 
 
-    def diagnose_pool(self, board, pool, time_delta_hours, limit=10):
+    def diagnose_pool(self, labels, time_delta_hours, limit=10):
         """Log diagnostic information about a timeout for a board/pool.
 
-        @param board: The board for which the current suite was run.
-        @param pool: The pool against which the current suite was run.
+        @param labels: DUT label dependencies, including board and pool
+                       labels.
         @param time_delta_hours: The time from which we should log information.
             This is a datetime.timedelta object, as stored by the JobTimer.
         @param limit: The maximum number of jobs per host, to log.
@@ -234,18 +230,14 @@ class RPCHelper(object):
         """
         end_time = datetime.now()
         start_time = end_time - time_delta_hours
-        labels = labellib.LabelsMapping()
-        labels['board'] = board
-        labels['pool'] = pool
         host_histories = status_history.HostJobHistory.get_multiple_histories(
                 self.rpc_interface,
                 time_utils.to_epoch_time(start_time),
                 time_utils.to_epoch_time(end_time),
-                labels.getlabels(),
+                labels,
         )
         if not host_histories:
-            logging.error('No hosts found for board:%s in pool:%s',
-                            board, pool)
+            logging.error('No hosts found for labels %r', labels)
             return
         status_map = {
             status_history.UNUSED: 'Unused',
@@ -275,56 +267,54 @@ class RPCHelper(object):
                           job_info)
 
 
-    def check_dut_availability(self, board, pool, minimum_duts=0, skip_duts_check=False):
+    def check_dut_availability(self, labels, minimum_duts=0,
+                               skip_duts_check=False):
         """Check if DUT availability for a given board and pool is less than
         minimum.
 
-        @param board: The board to check DUT availability.
-        @param pool: The pool to check DUT availability.
+        @param labels: DUT label dependencies, including board and pool
+                       labels.
         @param minimum_duts: Minimum Number of available machines required to
                              run the suite. Default is set to 0, which means do
                              not force the check of available machines before
                              running the suite.
         @param skip_duts_check: If True, skip minimum available DUTs check.
         @raise: NotEnoughDutsError if DUT availability is lower than minimum.
-        @raise: BoardNotAvailableError if no host found for requested
+        @raise: DUTsNotAvailableError if no host found for requested
                 board/pool.
         """
         if minimum_duts == 0:
             return
 
-        # TODO(ayatane): Replace label prefixes with constants in
-        # autotest_lib.server.constants
         hosts = self.rpc_interface.get_hosts(
-                invalid=False,
-                multiple_labels=('pool:%s' % pool, 'board:%s' % board))
+                invalid=False, multiple_labels=labels)
         if not hosts:
-            raise BoardNotAvailableError(
-                    'No hosts found for board:%s in pool:%s. The test lab '
-                    'currently does not cover test for this board and pool.'%
-                    (board, pool))
+            raise DUTsNotAvailableError(
+                    'No hosts found for labels %r. The test lab '
+                    'currently does not cover test for those DUTs.' %
+                    (labels,))
 
         if skip_duts_check:
             # Bypass minimum avilable DUTs check
-            logging.debug('skip_duts_check is on, do not enforce minimum DUTs check.')
+            logging.debug('skip_duts_check is on, do not enforce minimum '
+                          'DUTs check.')
             return
 
         if len(hosts) < minimum_duts:
-            logging.debug('The total number of DUTs for %s in pool:%s is %d, '
-                          'which is less than %d, the required minimum number of'
-                          ' available DUTS', board, pool, len(hosts),
+            logging.debug('The total number of DUTs for %r is %d, '
+                          'which is less than %d, the required minimum '
+                          'number of available DUTS', labels, len(hosts),
                           minimum_duts)
 
         available_hosts = 0
         for host in hosts:
             if host.is_available():
                 available_hosts += 1
-        logging.debug('%d of %d DUTs are available for board %s pool %s.',
-                      available_hosts, len(hosts), board, pool)
+        logging.debug('%d of %d DUTs are available for %r.',
+                      available_hosts, len(hosts), labels)
         if available_hosts < minimum_duts:
             raise NotEnoughDutsError(
-                board=board,
-                pool=pool,
+                labels=labels,
                 num_available=available_hosts,
                 num_required=minimum_duts,
                 hosts=hosts)

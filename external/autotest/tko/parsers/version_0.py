@@ -1,3 +1,4 @@
+# pylint: disable=missing-docstring
 import os
 import re
 
@@ -90,8 +91,9 @@ class job(models.job):
                     board_labels = [l[8:] for l in labels
                                if l.startswith('board%3A')]
                 if board_labels:
-                    # Testbeds have multiple boards so concat them into a
-                    # single string then add it to the machine_groups list.
+                    # Multiple board/model labels aren't supposed to
+                    # happen, but let's report something sane rather
+                    # than just failing.
                     machine_groups.add(','.join(board_labels))
                 else:
                     error = ('Failed to retrieve board label from host labels: '

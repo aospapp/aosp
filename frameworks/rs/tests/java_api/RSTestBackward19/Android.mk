@@ -21,12 +21,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_RENDERSCRIPT_TARGET_API := 19
 LOCAL_MIN_SDK_VERSION := 17
-LOCAL_PACKAGE_NAME := RSTestBackward19
 LOCAL_SDK_VERSION := current
+LOCAL_PACKAGE_NAME := RSTestBackward19
 my_rs_unit_tests_path := ../RSUnitTests/src/com/android/rs/unittest
 LOCAL_SRC_FILES :=\
     $(call all-java-files-under,src)\

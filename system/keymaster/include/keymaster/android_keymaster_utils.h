@@ -18,13 +18,36 @@
 #define SYSTEM_KEYMASTER_ANDROID_KEYMASTER_UTILS_H_
 
 #include <stdint.h>
+#ifndef  __clang__
+// We need to diable foritfy level for memset in gcc because we want to use
+// memset unoptimized. This would falsely trigger __warn_memset_zero_len in
+// /usr/include/bits/string3.h. The inline checking function is only supposed to
+// work when the optimization level is at least 1.
+#pragma push_macro("__USE_FORTIFY_LEVEL")
+#undef __USE_FORTIFY_LEVEL
+#endif
 #include <string.h>
+#ifndef  __clang__
+#pragma pop_macro("__USE_FORTIFY_LEVEL")
+#endif
 #include <time.h>  // for time_t.
 
 #include <keymaster/UniquePtr.h>
 
 #include <hardware/keymaster_defs.h>
 #include <keymaster/serializable.h>
+
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(x) 0
+#endif
+
+// Mark intentional fallthroughts in switch statements to silence
+// -Wimplicit-fallthrough.
+#if __has_cpp_attribute(clang::fallthrough)
+#define FALLTHROUGH [[clang::fallthrough]]
+#else
+#define FALLTHROUGH
+#endif
 
 namespace keymaster {
 
@@ -329,7 +352,9 @@ struct TKeymasterBlob : public BlobType {
     const uint8_t* end() const { return accessBlobData(this) + accessBlobSize(this); }
 
     void Clear() {
-        memset_s(const_cast<uint8_t*>(accessBlobData(this)), 0, accessBlobSize(this));
+        if (accessBlobSize(this)) {
+            memset_s(const_cast<uint8_t*>(accessBlobData(this)), 0, accessBlobSize(this));
+        }
         delete[] accessBlobData(this);
         accessBlobData(this) = nullptr;
         accessBlobSize(this) = 0;

@@ -68,6 +68,15 @@ public interface IDeviceManager {
     public ITestDevice allocateDevice(IDeviceSelection options);
 
     /**
+     * Request a device for testing that meets certain criteria.
+     *
+     * @param options the {@link IDeviceSelection} the device should meet.
+     * @param isTemporary whether or not a temporary NullDevice should be created.
+     * @return a {@link ITestDevice} for testing, or <code>null</code> if one is not available
+     */
+    public ITestDevice allocateDevice(IDeviceSelection options, boolean isTemporary);
+
+    /**
      * Rudely allocate a device, even if its not currently available.
      * <p/>
      * Will have no effect if device is already allocated.
@@ -181,20 +190,29 @@ public interface IDeviceManager {
     public void restartAdbBridge();
 
     /**
-     * Returns a map of all known devices and their state
+     * Returns a list of DeviceDescriptors for all known devices
      *
-     * @return a list of device serials and their {@link
-     *     com.android.tradefed.device.DeviceAllocationState}
+     * @return a list of {@link DeviceDescriptor} for all known devices
      */
     public List<DeviceDescriptor> listAllDevices();
 
     /**
-     * Output a user-friendly description containing list of known devices, their state, and
-     * values for commonly used {@link IDeviceSelection} options.
+     * Returns the DeviceDescriptor with the given serial.
+     *
+     * @param serial serial number for the device to get
+     * @return the {@link DeviceDescriptor} for the selected device, or null if the serial does not
+     *     match a known device.
+     */
+    public DeviceDescriptor getDeviceDescriptor(String serial);
+
+    /**
+     * Output a user-friendly description containing list of known devices, their state, and values
+     * for commonly used {@link IDeviceSelection} options.
      *
      * @param printWriter the {@link PrintWriter} to output the description to
+     * @param includeStub Whether or not to display stub devices too.
      */
-    public void displayDevicesInfo(PrintWriter printWriter);
+    public void displayDevicesInfo(PrintWriter printWriter, boolean includeStub);
 
     /**
      * Informs the manager that a listener is interested in fastboot state changes.
@@ -234,9 +252,10 @@ public interface IDeviceManager {
      */
     public void removeDeviceMonitor(IDeviceMonitor mon);
 
-    /**
-     * Returns the path to the fastboot binary path to use.
-     */
+    /** Returns the path to the adb binary to use. */
+    public String getAdbPath();
+
+    /** Returns the path to the fastboot binary to use. */
     public String getFastbootPath();
 
     /**

@@ -16,13 +16,13 @@
 %                               January 2006                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -268,7 +268,7 @@ MagickExport Image *CoalesceImages(const Image *image,ExceptionInfo *exception)
     exception);
   if (coalesce_image == (Image *) NULL)
     return((Image *) NULL);
-  coalesce_image->background_color.alpha=(Quantum) TransparentAlpha;
+  coalesce_image->background_color.alpha=(MagickRealType) TransparentAlpha;
   (void) SetImageBackgroundColor(coalesce_image,exception);
   coalesce_image->alpha_trait=next->alpha_trait;
   coalesce_image->page=bounds;
@@ -405,7 +405,7 @@ MagickExport Image *DisposeImages(const Image *images,ExceptionInfo *exception)
   dispose_image->page.x=0;
   dispose_image->page.y=0;
   dispose_image->dispose=NoneDispose;
-  dispose_image->background_color.alpha=(Quantum) TransparentAlpha;
+  dispose_image->background_color.alpha=(MagickRealType) TransparentAlpha;
   (void) SetImageBackgroundColor(dispose_image,exception);
   dispose_images=NewImageList();
   for (next=image; image != (Image *) NULL; image=GetNextImageInList(image))
@@ -616,8 +616,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,
   {
     p=GetVirtualPixels(image1,x,0,1,image1->rows,exception);
     q=GetVirtualPixels(image2,x,0,1,image2->rows,exception);
-    if ((p == (const Quantum *) NULL) ||
-        (q == (Quantum *) NULL))
+    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (y=0; y < (ssize_t) image1->rows; y++)
     {
@@ -647,8 +646,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,
   {
     p=GetVirtualPixels(image1,x,0,1,image1->rows,exception);
     q=GetVirtualPixels(image2,x,0,1,image2->rows,exception);
-    if ((p == (const Quantum *) NULL) ||
-        (q == (Quantum *) NULL))
+    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (y=0; y < (ssize_t) image1->rows; y++)
     {
@@ -667,8 +665,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,
   {
     p=GetVirtualPixels(image1,0,y,image1->columns,1,exception);
     q=GetVirtualPixels(image2,0,y,image2->columns,1,exception);
-    if ((p == (const Quantum *) NULL) ||
-        (q == (Quantum *) NULL))
+    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (x=0; x < (ssize_t) image1->columns; x++)
     {
@@ -687,8 +684,7 @@ static RectangleInfo CompareImagesBounds(const Image *image1,
   {
     p=GetVirtualPixels(image1,0,y,image1->columns,1,exception);
     q=GetVirtualPixels(image2,0,y,image2->columns,1,exception);
-    if ((p == (const Quantum *) NULL) ||
-        (q == (Quantum *) NULL))
+    if ((p == (const Quantum *) NULL) || (q == (Quantum *) NULL))
       break;
     for (x=0; x < (ssize_t) image1->columns; x++)
     {
@@ -788,7 +784,7 @@ MagickExport Image *CompareImagesLayers(const Image *image,
       bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
       return((Image *) NULL);
     }
-  image_a->background_color.alpha=(Quantum) TransparentAlpha;
+  image_a->background_color.alpha=(MagickRealType) TransparentAlpha;
   (void) SetImageBackgroundColor(image_a,exception);
   image_a->page=next->page;
   image_a->page.x=0;
@@ -966,10 +962,11 @@ static Image *OptimizeLayerFrames(const Image *image,
   {
     if ((curr->columns != image->columns) || (curr->rows != image->rows))
       ThrowImageException(OptionError,"ImagesAreNotTheSameSize");
-    /*
-      FUTURE: also check that image is also fully coalesced (full page)
-      Though as long as they are the same size it should not matter.
-    */
+
+    if ((curr->page.x != 0) || (curr->page.y != 0) ||
+        (curr->page.width != image->page.width) ||
+        (curr->page.height != image->page.height))
+      ThrowImageException(OptionError,"ImagePagesAreNotCoalesced");
   }
   /*
     Allocate memory (times 2 if we allow the use of frame duplications)
@@ -991,8 +988,7 @@ static Image *OptimizeLayerFrames(const Image *image,
   /*
     Initialise Previous Image as fully transparent
   */
-  prev_image=CloneImage(curr,curr->page.width,curr->page.height,
-    MagickTrue,exception);
+  prev_image=CloneImage(curr,curr->columns,curr->rows,MagickTrue,exception);
   if (prev_image == (Image *) NULL)
     {
       bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
@@ -1004,7 +1000,7 @@ static Image *OptimizeLayerFrames(const Image *image,
   prev_image->page.y=0;
   prev_image->dispose=NoneDispose;
   prev_image->background_color.alpha_trait=BlendPixelTrait;
-  prev_image->background_color.alpha=(Quantum) TransparentAlpha;
+  prev_image->background_color.alpha=(MagickRealType) TransparentAlpha;
   (void) SetImageBackgroundColor(prev_image,exception);
   /*
     Figure out the area of overlay of the first frame
@@ -1100,8 +1096,7 @@ static Image *OptimizeLayerFrames(const Image *image,
         dup_bounds.width=dup_bounds.height=0; /* no dup, no pixel added */
         if ( add_frames )
           {
-            dup_image=CloneImage(curr->previous,curr->previous->page.width,
-                curr->previous->page.height,MagickTrue,exception);
+            dup_image=CloneImage(curr->previous,0,0,MagickTrue,exception);
             if (dup_image == (Image *) NULL)
               {
                 bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
@@ -1128,8 +1123,7 @@ static Image *OptimizeLayerFrames(const Image *image,
         /*
           Now compare against a simple background disposal
         */
-        bgnd_image=CloneImage(curr->previous,curr->previous->page.width,
-          curr->previous->page.height,MagickTrue,exception);
+        bgnd_image=CloneImage(curr->previous,0,0,MagickTrue,exception);
         if (bgnd_image == (Image *) NULL)
           {
             bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
@@ -1284,8 +1278,7 @@ static Image *OptimizeLayerFrames(const Image *image,
           bgnd_image=DestroyImage(bgnd_image);
         if ( disposals[i-1] == NoneDispose )
           {
-            prev_image=CloneImage(curr->previous,curr->previous->page.width,
-              curr->previous->page.height,MagickTrue,exception);
+            prev_image=ReferenceImage(curr->previous);
             if (prev_image == (Image *) NULL)
               {
                 bounds=(RectangleInfo *) RelinquishMagickMemory(bounds);
@@ -1327,6 +1320,8 @@ static Image *OptimizeLayerFrames(const Image *image,
     prev_image=CloneImage(curr,0,0,MagickTrue,exception);
     if (prev_image == (Image *) NULL)
       break;
+    if (prev_image->alpha_trait == UndefinedPixelTrait)
+      (void) SetImageAlphaChannel(prev_image,OpaqueAlphaChannel,exception);
     if ( disposals[i] == DelDispose ) {
       size_t time = 0;
       while ( disposals[i] == DelDispose ) {
@@ -1489,7 +1484,7 @@ MagickExport void OptimizeImageTransparency(const Image *image,
   dispose_image->page.y=0;
   dispose_image->dispose=NoneDispose;
   dispose_image->background_color.alpha_trait=BlendPixelTrait;
-  dispose_image->background_color.alpha=(Quantum) TransparentAlpha;
+  dispose_image->background_color.alpha=(MagickRealType) TransparentAlpha;
   (void) SetImageBackgroundColor(dispose_image,exception);
 
   while ( next != (Image *) NULL )
@@ -1764,10 +1759,15 @@ static inline void CompositeCanvas(Image *destination,
   const CompositeOperator compose,Image *source,ssize_t x_offset,
   ssize_t y_offset,ExceptionInfo *exception)
 {
+  const char
+    *value;
+
   x_offset+=source->page.x-destination->page.x;
   y_offset+=source->page.y-destination->page.y;
-  (void) CompositeImage(destination,source,compose,MagickTrue,x_offset,
-    y_offset,exception);
+  value=GetImageArtifact(source,"compose:outside-overlay");
+  (void) CompositeImage(destination,source,compose,
+    (value != (const char *) NULL) && (IsStringTrue(value) != MagickFalse) ?
+    MagickFalse : MagickTrue,x_offset,y_offset,exception);
 }
 
 MagickExport void CompositeLayers(Image *destination,
@@ -1866,8 +1866,8 @@ MagickExport void CompositeLayers(Image *destination,
 %
 %  The format of the MergeImageLayers is:
 %
-%      Image *MergeImageLayers(const Image *image,
-%        const LayerMethod method, ExceptionInfo *exception)
+%      Image *MergeImageLayers(Image *image,const LayerMethod method,
+%        ExceptionInfo *exception)
 %
 %  A description of each parameter follows:
 %

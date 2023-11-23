@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Слање датотеке примаоцу „<xliff:g id="RECIPIENT">%1$s</xliff:g>“"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Слање<xliff:g id="NUMBER">%1$s</xliff:g> датотека примаоцу „<xliff:g id="RECIPIENT">%2$s</xliff:g>“"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Заустављено слање примаоцу „<xliff:g id="RECIPIENT">%1$s</xliff:g>“"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Нема довољно простора у USB меморији да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"Нема довољно простора на SD картици да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Нема довољно простора у USB меморији да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Нема довољно простора на SD картици да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Потребан простор: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Превише захтева се обрађује. Пробајте поново касније."</string>
     <string name="status_pending" msgid="2503691772030877944">"Пренос датотеке још није почео."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Циљни уређај је забранио пренос."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Корисник је отказао пренос."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Проблем са складиштем."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Нема USB меморије."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Нема SD картице. Уметните SD картицу да бисте сачували пренете датотеке."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Нема USB меморије."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Нема SD картице. Уметните SD картицу да бисте сачували пренете датотеке."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Повезивање није успело."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Није могуће исправно обрадити захтев."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Непозната грешка."</string>
@@ -124,6 +124,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Отвори"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Обриши са листе"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Брисање"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Тренутно свира"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Сачувај"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Откажи"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Изаберите налоге које желите да делите преко Bluetooth-а. И даље морате да прихватите било какав приступ налозима при повезивању."</string>

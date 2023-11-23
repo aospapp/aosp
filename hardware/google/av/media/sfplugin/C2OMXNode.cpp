@@ -50,7 +50,8 @@ public:
 }  // namespace
 
 C2OMXNode::C2OMXNode(const std::shared_ptr<Codec2Client::Component> &comp)
-    : mComp(comp), mFrameIndex(0), mWidth(0), mHeight(0) {
+    : mComp(comp), mFrameIndex(0), mWidth(0), mHeight(0),
+      mAdjustTimestampGapUs(0), mFirstInputFrame(true) {
     // TODO: read from intf()
     if (!strncmp(comp->getName().c_str(), "c2.android.", 11)) {
         mUsage = GRALLOC_USAGE_SW_READ_OFTEN;
@@ -65,8 +66,11 @@ status_t C2OMXNode::freeNode() {
 }
 
 status_t C2OMXNode::sendCommand(OMX_COMMANDTYPE cmd, OMX_S32 param) {
-    (void)cmd;
-    (void)param;
+    if (cmd == OMX_CommandStateSet && param == OMX_StateLoaded) {
+        // Reset first input frame so if C2OMXNode is recycled, the timestamp does not become
+        // negative. This is a workaround for HW codecs that do not handle timestamp rollover.
+        mFirstInputFrame = true;
+    }
     return ERROR_UNSUPPORTED;
 }
 
@@ -99,9 +103,14 @@ status_t C2OMXNode::getParameter(OMX_INDEXTYPE index, void *params, size_t size)
 }
 
 status_t C2OMXNode::setParameter(OMX_INDEXTYPE index, const void *params, size_t size) {
-    (void)index;
-    (void)params;
-    (void)size;
+    // handle max/fixed frame duration control
+    if (index == (OMX_INDEXTYPE)OMX_IndexParamMaxFrameDurationForBitrateControl
+            && params != NULL
+            && size == sizeof(OMX_PARAM_U32TYPE)) {
+        // The incoming number is an int32_t contained in OMX_U32.
+        mAdjustTimestampGapUs = (int32_t)((OMX_PARAM_U32TYPE*)params)->nU32;
+        return OK;
+    }
     return ERROR_UNSUPPORTED;
 }
 
@@ -217,7 +226,7 @@ status_t C2OMXNode::emptyBuffer(
             && omxBuf.mGraphicBuffer != nullptr) {
         std::shared_ptr<C2GraphicAllocation> alloc;
         handle = WrapNativeCodec2GrallocHandle(
-                native_handle_clone(omxBuf.mGraphicBuffer->handle),
+                omxBuf.mGraphicBuffer->handle,
                 omxBuf.mGraphicBuffer->width,
                 omxBuf.mGraphicBuffer->height,
                 omxBuf.mGraphicBuffer->format,
@@ -235,6 +244,30 @@ status_t C2OMXNode::emptyBuffer(
     std::unique_ptr<C2Work> work(new C2Work);
     work->input.flags = (C2FrameData::flags_t)c2Flags;
     work->input.ordinal.timestamp = timestamp;
+
+    // WORKAROUND: adjust timestamp based on gapUs
+    {
+        work->input.ordinal.customOrdinal = timestamp; // save input timestamp
+        if (mFirstInputFrame) {
+            // grab timestamps on first frame
+            mPrevInputTimestamp = timestamp;
+            mPrevCodecTimestamp = timestamp;
+            mFirstInputFrame = false;
+        } else if (mAdjustTimestampGapUs > 0) {
+            work->input.ordinal.timestamp =
+                mPrevCodecTimestamp
+                        + c2_min((timestamp - mPrevInputTimestamp).peek(), mAdjustTimestampGapUs);
+        } else if (mAdjustTimestampGapUs < 0) {
+            work->input.ordinal.timestamp = mPrevCodecTimestamp - mAdjustTimestampGapUs;
+        }
+        mPrevInputTimestamp = work->input.ordinal.customOrdinal;
+        mPrevCodecTimestamp = work->input.ordinal.timestamp;
+        ALOGV("adjusting %lld to %lld (gap=%lld)",
+              work->input.ordinal.customOrdinal.peekll(),
+              work->input.ordinal.timestamp.peekll(),
+              (long long)mAdjustTimestampGapUs);
+    }
+
     work->input.ordinal.frameIndex = mFrameIndex++;
     work->input.buffers.clear();
     if (block) {
@@ -276,7 +309,11 @@ status_t C2OMXNode::dispatchMessage(const omx_message& msg) {
     if (msg.u.event_data.event != OMX_EventDataSpaceChanged) {
         return ERROR_UNSUPPORTED;
     }
-    // TODO: fill intf() with info inside |msg|.
+    android_dataspace dataSpace = (android_dataspace)msg.u.event_data.data1;
+    uint32_t pixelFormat = msg.u.event_data.data3;
+
+    // TODO: set dataspace on component to see if it impacts color aspects
+    ALOGD("dataspace changed to %#x pixel format: %#x", dataSpace, pixelFormat);
     return OK;
 }
 

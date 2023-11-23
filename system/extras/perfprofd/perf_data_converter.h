@@ -14,7 +14,8 @@ namespace perfprofd {
 
 PerfprofdRecord*
 RawPerfDataToAndroidPerfProfile(const std::string &perf_file,
-                                ::perfprofd::Symbolizer* symbolizer);
+                                ::perfprofd::Symbolizer* symbolizer,
+                                bool symbolize_everything);
 
 }  // namespace perfprofd
 }  // namespace android

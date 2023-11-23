@@ -17,22 +17,25 @@ package com.google.android.car.kitchensink.vhal;
 
 import android.annotation.Nullable;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
+import android.content.Context;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
+import android.hardware.automotive.vehicle.V2_0.StatusCode;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+
+import android.widget.TextView;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
@@ -42,27 +45,11 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class VehicleHalFragment extends Fragment {
+
     private static final String TAG = "CAR.VEHICLEHAL.KS";
 
     private KitchenSinkActivity mActivity;
     private ListView mListView;
-
-    private final OnClickListener mNopOnClickListener = new OnClickListener() {
-        @Override
-        public void onClick(DialogInterface dialog, int which) { }
-    };
-
-    private final OnItemClickListener mOnClickListener = new OnItemClickListener() {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            HalPropertyInfo entry = (HalPropertyInfo)parent.getItemAtPosition(position);
-            AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-            builder.setTitle("Info for " + entry.name)
-                   .setPositiveButton(android.R.string.yes, mNopOnClickListener)
-                   .setMessage(entry.config.toString())
-                   .show();
-        }
-    };
 
     @Nullable
     @Override
@@ -72,8 +59,6 @@ public class VehicleHalFragment extends Fragment {
         View view = inflater.inflate(R.layout.vhal, container, false);
         mActivity = (KitchenSinkActivity) getHost();
         mListView = view.findViewById(R.id.hal_prop_list);
-        mListView.setOnItemClickListener(mOnClickListener);
-
         return view;
     }
 
@@ -102,12 +87,11 @@ public class VehicleHalFragment extends Fragment {
             .sorted()
             .collect(Collectors.toList());
 
-        mListView.setAdapter(new ArrayAdapter<HalPropertyInfo>(mActivity,
-                android.R.layout.simple_list_item_1,
-                supportedProperties));
+        mListView.setAdapter(new ListAdapter(mActivity, vehicle, supportedProperties));
     }
 
     private static class HalPropertyInfo implements Comparable<HalPropertyInfo> {
+
         public final int id;
         public final String name;
         public final VehiclePropConfig config;
@@ -125,10 +109,7 @@ public class VehicleHalFragment extends Fragment {
 
         @Override
         public boolean equals(Object other) {
-            if (other instanceof HalPropertyInfo) {
-                return ((HalPropertyInfo)other).id == id;
-            }
-            return false;
+            return other instanceof HalPropertyInfo && ((HalPropertyInfo) other).id == id;
         }
 
         @Override
@@ -139,6 +120,80 @@ public class VehicleHalFragment extends Fragment {
         @Override
         public int compareTo(HalPropertyInfo halPropertyInfo) {
             return name.compareTo(halPropertyInfo.name);
+        }
+
+        public String getValue(IVehicle vehicle) {
+            String result[] = new String[] {"<unknown>"};
+
+            try {
+                VehiclePropValue request = new VehiclePropValue();
+                // TODO: add zones support
+                request.prop = id;
+
+                // NB: this call is synchronous
+                vehicle.get(request, (status, propValue) -> {
+                    if (status == StatusCode.OK) {
+                        result[0] = propValue.value.toString();
+                    }
+                });
+            } catch (android.os.RemoteException e) {
+                Log.e(TAG, "unable to read property " + name, e);
+            }
+
+            return result[0];
+        }
+    }
+
+    private static final class ListAdapter extends ArrayAdapter<HalPropertyInfo> {
+        private static final int RESOURCE_ID = R.layout.vhal_listitem;
+
+        // cannot use superclass' LayoutInflater as it is private
+        private final LayoutInflater mLayoutInflater;
+        private final IVehicle mVehicle;
+
+        ListAdapter(Context context, IVehicle vehicle, List<HalPropertyInfo> properties) {
+            super(context, RESOURCE_ID, properties);
+            mVehicle = vehicle;
+            mLayoutInflater = LayoutInflater.from(context);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            final HalPropertyInfo item = getItem(position);
+
+            final LinearLayout viewLayout;
+            if (convertView != null && convertView instanceof LinearLayout) {
+                viewLayout  = (LinearLayout)convertView;
+            } else {
+                // this is the value used by the superclass's view inflater
+                final boolean attachToRoot = false;
+
+                viewLayout =
+                        (LinearLayout)mLayoutInflater.inflate(RESOURCE_ID, parent, attachToRoot);
+            }
+
+            TextView textString = viewLayout.findViewById(R.id.textString);
+            Button infoButton = viewLayout.findViewById(R.id.infoButton);
+            Button valueButton = viewLayout.findViewById(R.id.valueButton);
+
+            infoButton.setOnClickListener(btn -> {
+                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                builder.setTitle("Configuration for " + item.name)
+                    .setPositiveButton(android.R.string.yes, (x, y) -> { })
+                    .setMessage(item.config.toString())
+                    .show();
+            });
+
+            valueButton.setOnClickListener(btn -> {
+                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                builder.setTitle("Value for " + item.name)
+                    .setPositiveButton(android.R.string.yes, (x, y) -> { })
+                    .setMessage(item.getValue(mVehicle))
+                    .show();
+            });
+
+            textString.setText(item.toString());
+            return viewLayout;
         }
     }
 }

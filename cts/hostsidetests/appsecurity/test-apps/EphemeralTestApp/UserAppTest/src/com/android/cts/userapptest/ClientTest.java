@@ -22,8 +22,9 @@ import static org.junit.Assert.fail;
 
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +35,7 @@ import java.util.List;
 public class ClientTest {
     /** Action to query for test activities */
     private static final String ACTION_QUERY_ACTIVITY =
-            "com.android.cts.ephemeraltest.QUERY";
+            "com.android.cts.instantappusertest.QUERY";
 
     @Test
     public void testQueryInstant() throws Exception {

@@ -30,7 +30,8 @@ import android.os.RemoteException;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.INetworkService;
 import android.telephony.INetworkServiceCallback;
-import android.telephony.NetworkRegistrationState;
+import android.telephony.LteVopsSupportInfo;
+import android.telephony.NetworkRegistrationInfo;
 import android.telephony.NetworkService;
 import android.telephony.NetworkServiceCallback;
 import android.telephony.ServiceState;
@@ -44,6 +45,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 public class CellularNetworkServiceTest extends TelephonyTest {
     CellularNetworkService mCellularNetworkService;
 
@@ -54,10 +59,10 @@ public class CellularNetworkServiceTest extends TelephonyTest {
         mCellularNetworkService = new CellularNetworkService();
         ServiceInfo serviceInfo =  new ServiceInfo();
         serviceInfo.packageName = "com.android.phone";
-        serviceInfo.permission = "android.permission.BIND_NETWORK_SERVICE";
+        serviceInfo.permission = "android.permission.BIND_TELEPHONY_NETWORK_SERVICE";
         IntentFilter filter = new IntentFilter();
         mContextFixture.addService(
-                NetworkService.NETWORK_SERVICE_INTERFACE,
+                NetworkService.SERVICE_INTERFACE,
                 null,
                 "com.android.phone",
                 mCellularNetworkService.mBinder,
@@ -91,12 +96,12 @@ public class CellularNetworkServiceTest extends TelephonyTest {
 
     @Test
     @MediumTest
-    public void testGetNetworkRegistrationState() {
-        int voiceRegState = NetworkRegistrationState.REG_STATE_HOME;
-        int dataRegState = NetworkRegistrationState.REG_STATE_HOME;
+    public void testGetNetworkRegistrationInfo() {
+        int voiceRegState = NetworkRegistrationInfo.REGISTRATION_STATE_HOME;
+        int dataRegState = NetworkRegistrationInfo.REGISTRATION_STATE_HOME;
         int voiceRadioTech = ServiceState.RIL_RADIO_TECHNOLOGY_HSPA;
         int dataRadioTech = ServiceState.RIL_RADIO_TECHNOLOGY_HSPA;
-        int domain = NetworkRegistrationState.DOMAIN_CS;
+        int domain = NetworkRegistrationInfo.DOMAIN_CS;
 
         boolean cssSupported = true;
         int roamingIndicator = 1;
@@ -104,11 +109,11 @@ public class CellularNetworkServiceTest extends TelephonyTest {
         int defaultRoamingIndicator = 3;
         int reasonForDenial = 0;
         int maxDataCalls = 4;
-        int[] availableServices = new int[] {
-                NetworkRegistrationState.SERVICE_TYPE_VOICE,
-                NetworkRegistrationState.SERVICE_TYPE_SMS,
-                NetworkRegistrationState.SERVICE_TYPE_VIDEO
-        };
+        List<Integer> availableServices = new ArrayList<>(Arrays.asList(new Integer[] {
+                NetworkRegistrationInfo.SERVICE_TYPE_VOICE,
+                NetworkRegistrationInfo.SERVICE_TYPE_SMS,
+                NetworkRegistrationInfo.SERVICE_TYPE_VIDEO
+        }));
 
         mSimulatedCommands.setVoiceRegState(voiceRegState);
         mSimulatedCommands.setVoiceRadioTech(voiceRadioTech);
@@ -124,43 +129,48 @@ public class CellularNetworkServiceTest extends TelephonyTest {
         mSimulatedCommands.notifyNetworkStateChanged();
 
         try {
-            mBinder.getNetworkRegistrationState(0, domain, mCallback);
+            mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
         } catch (RemoteException e) {
             assertTrue(false);
         }
 
         waitForMs(1000);
 
-        NetworkRegistrationState expectedState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WWAN, domain, voiceRegState,
+        NetworkRegistrationInfo expectedState = new NetworkRegistrationInfo(
+                domain, AccessNetworkConstants.TRANSPORT_TYPE_WWAN, voiceRegState,
                 ServiceState.rilRadioTechnologyToNetworkType(voiceRadioTech), reasonForDenial,
                 false, availableServices, null, cssSupported,
                 roamingIndicator, systemIsInPrl, defaultRoamingIndicator);
 
         try {
-            verify(mCallback, times(1)).onGetNetworkRegistrationStateComplete(
+            verify(mCallback, times(1)).onRequestNetworkRegistrationInfoComplete(
                     eq(NetworkServiceCallback.RESULT_SUCCESS), eq(expectedState));
         } catch (RemoteException e) {
             assertTrue(false);
         }
 
-        domain = NetworkRegistrationState.DOMAIN_PS;
-        availableServices = new int[] {NetworkRegistrationState.SERVICE_TYPE_DATA};
+        domain = NetworkRegistrationInfo.DOMAIN_PS;
+        availableServices = Arrays.asList(NetworkRegistrationInfo.SERVICE_TYPE_DATA);
         try {
-            mBinder.getNetworkRegistrationState(0, domain, mCallback);
+            mBinder.requestNetworkRegistrationInfo(0, domain, mCallback);
         } catch (RemoteException e) {
             assertTrue(false);
         }
 
         waitForMs(1000);
 
-        expectedState = new NetworkRegistrationState(
-                AccessNetworkConstants.TransportType.WWAN, domain, voiceRegState,
+        LteVopsSupportInfo lteVopsSupportInfo =
+                new LteVopsSupportInfo(LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE,
+                        LteVopsSupportInfo.LTE_STATUS_NOT_AVAILABLE);
+
+        expectedState = new NetworkRegistrationInfo(
+                domain, AccessNetworkConstants.TRANSPORT_TYPE_WWAN, voiceRegState,
                 ServiceState.rilRadioTechnologyToNetworkType(voiceRadioTech), reasonForDenial,
-                false, availableServices, null, maxDataCalls);
+                false, availableServices, null, maxDataCalls, false, false, false,
+                lteVopsSupportInfo, false);
 
         try {
-            verify(mCallback, times(1)).onGetNetworkRegistrationStateComplete(
+            verify(mCallback, times(1)).onRequestNetworkRegistrationInfoComplete(
                     eq(NetworkServiceCallback.RESULT_SUCCESS), eq(expectedState));
         } catch (RemoteException e) {
             assertTrue(false);

@@ -33,7 +33,7 @@ namespace keymaster {
 
 class AeCtx {
   public:
-    AeCtx() : ctx_(ae_allocate(NULL)) {}
+    AeCtx() : ctx_(ae_allocate(nullptr)) {}
     ~AeCtx() {
         ae_clear(ctx_);
         ae_free(ctx_);
@@ -138,7 +138,7 @@ keymaster_error_t OcbEncryptKey(const AuthorizationSet& hw_enforced,
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     int ae_err = ae_encrypt(ctx.get(), nonce.peek_read(), plaintext.key_material,
-                            plaintext.key_material_size, NULL /* additional data */,
+                            plaintext.key_material_size, nullptr /* additional data */,
                             0 /* additional data length */, ciphertext->writable_data(),
                             tag->peek_write(), 1 /* final */);
     if (ae_err < 0) {
@@ -174,7 +174,7 @@ keymaster_error_t OcbDecryptKey(const AuthorizationSet& hw_enforced,
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     int ae_err = ae_decrypt(ctx.get(), nonce.peek_read(), ciphertext.key_material,
-                            ciphertext.key_material_size, NULL /* additional data */,
+                            ciphertext.key_material_size, nullptr /* additional data */,
                             0 /* additional data length */, plaintext->writable_data(),
                             tag.peek_read(), 1 /* final */);
     if (ae_err == AE_INVALID) {

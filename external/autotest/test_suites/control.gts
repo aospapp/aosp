@@ -17,7 +17,6 @@ This suite wraps the current GTS bundle for autotest.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
@@ -28,12 +27,6 @@ def predicate(test):
     return False
   # Strip off the cheets_GTS. from the test name before comparing to args
   name = test.name[test.name.find('.') + 1:]
-  # TODO(crbug.com/758427): suite_args needed to support being run by old Autotest
-  try:
-    if suite_args and name not in suite_args:
-      return False
-  except NameError:
-    pass
   if 'tests' in args_dict and name not in args_dict['tests']:
     return False
   return True
@@ -41,7 +34,6 @@ def predicate(test):
 args_dict['name'] = NAME
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['predicate'] = predicate
 dynamic_suite.reimage_and_run(**args_dict)
 

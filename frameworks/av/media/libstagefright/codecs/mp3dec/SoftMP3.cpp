@@ -114,7 +114,7 @@ void SoftMP3::initDecoder() {
     mConfig->crcEnabled = false;
 
     uint32_t memRequirements = pvmp3_decoderMemRequirements();
-    mDecoderBuf = malloc(memRequirements);
+    mDecoderBuf = calloc(1, memRequirements);
 
     pvmp3_InitDecoder(mConfig, mDecoderBuf);
     mIsFirst = true;
@@ -407,7 +407,7 @@ void SoftMP3::onQueueFilled(OMX_U32 /* portIndex */) {
         }
 
         outHeader->nTimeStamp =
-            mAnchorTimeUs + (mNumFramesOutput * 1000000ll) / mSamplingRate;
+            mAnchorTimeUs + (mNumFramesOutput * 1000000LL) / mSamplingRate;
 
         if (inHeader) {
             CHECK_GE((int32_t)inHeader->nFilledLen, mConfig->inputBufferUsedLength);

@@ -4,12 +4,16 @@
 
 import logging
 import os
+import time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import enrollment
 from autotest_lib.client.common_lib.cros import kiosk_utils
+from autotest_lib.client.common_lib import utils as utils2
+
+KIOSK_MODE = 'Starting kiosk mode...'
 
 
 class enterprise_KioskEnrollment(test.test):
@@ -49,4 +53,10 @@ class enterprise_KioskEnrollment(test.test):
         with chrome.Chrome(auto_login=False,
                            disable_gaia_services=False) as cr:
             enrollment.EnterpriseEnrollment(cr.browser, user_id, password)
-            self._CheckKioskExtensionContexts(cr.browser)
+        # This way of checking a kiosk extension doesn't work.
+        #self._CheckKioskExtensionContexts(cr.browser)
+        time.sleep(15)
+        running_apps = utils2.system_output('cat /var/log/messages | grep kiosk')
+        if KIOSK_MODE not in running_apps:
+            raise error.TestFail(
+                'DUT did not enter kiosk mode. and it should have.')    

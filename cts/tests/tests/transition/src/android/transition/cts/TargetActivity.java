@@ -28,6 +28,10 @@ import android.view.View;
 import com.android.compatibility.common.util.transition.TrackingTransition;
 import com.android.compatibility.common.util.transition.TrackingVisibility;
 
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 public class TargetActivity extends Activity {
@@ -43,11 +47,17 @@ public class TargetActivity extends Activity {
     final TransitionListener enterListener = mock(TransitionListener.class);
     final TransitionListener returnListener = mock(TransitionListener.class);
 
-    public static TargetActivity sLastCreated;
+    public static List<TargetActivity> sCreated = Mockito.spy(new ArrayList<>());
 
     public int startVisibility = -1;
     public int endVisibility = -1;
     public CountDownLatch transitionComplete;
+    public CountDownLatch drawnOnce = new CountDownLatch(1);
+    public int preDrawCalls = 0;
+
+    public static void clearCreated() {
+        sCreated = Mockito.spy(new ArrayList<>());
+    }
 
     @Override
     public void onCreate(Bundle bundle){
@@ -66,7 +76,9 @@ public class TargetActivity extends Activity {
 
         if (useAnimator) {
             enterTransition = new TrackingVisibilityWithAnimator();
+            enterTransition.setDuration(2000);
             returnTransition = new TrackingVisibilityWithAnimator();
+            returnTransition.setDuration(2000);
         }
 
         if (excludeId != 0) {
@@ -99,6 +111,11 @@ public class TargetActivity extends Activity {
         enterTransition.addListener(enterListener);
         returnTransition.addListener(returnListener);
 
-        sLastCreated = this;
+        getWindow().getDecorView().getViewTreeObserver().addOnPreDrawListener(() -> {
+            preDrawCalls++;
+            drawnOnce.countDown();
+            return true;
+        });
+        sCreated.add(this);
     }
 }

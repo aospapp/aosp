@@ -61,11 +61,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #define WCNSS_CAL_CHUNK (3*1024)
-#define WCNSS_CAL_FILE  "/data/misc/wifi/WCNSS_qcom_wlan_cal.bin"
-#define WCNSS_FACT_FILE "/data/misc/wifi/WCN_FACTORY"
+#define WCNSS_CAL_FILE  "/data/vendor/wifi/WCNSS_qcom_wlan_cal.bin"
+#define WCNSS_FACT_FILE "/data/vendor/wifi/WCN_FACTORY"
 #define WCNSS_DEVICE    "/dev/wcnss_wlan"
 #define WCNSS_CTRL      "/dev/wcnss_ctrl"
-#define WLAN_INI_FILE_DEST   "/data/misc/wifi/WCNSS_qcom_cfg.ini"
+#define WLAN_INI_FILE_DEST   "/data/vendor/wifi/WCNSS_qcom_cfg.ini"
 #define WLAN_INI_FILE_SOURCE "/vendor/etc/wifi/WCNSS_qcom_cfg.ini"
 #define WCNSS_HAS_CAL_DATA\
 		"/sys/module/wcnsscore/parameters/has_calibrated_data"

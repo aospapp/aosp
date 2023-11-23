@@ -17,7 +17,6 @@
 package com.android.dialer.app.calllog;
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -39,7 +38,7 @@ import com.android.dialer.calllogutils.PhoneNumberDisplayUtil;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.database.Selection;
 import com.android.dialer.compat.android.provider.VoicemailCompat;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.phonenumbercache.ContactInfoHelper;
@@ -51,7 +50,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Helper class operating on call log notifications. */
-@TargetApi(Build.VERSION_CODES.M)
 public class CallLogNotificationsQueryHelper {
 
   @VisibleForTesting
@@ -111,7 +109,14 @@ public class CallLogNotificationsQueryHelper {
       return;
     }
     if (!PermissionsUtil.hasPhonePermissions(context)) {
-      LogUtil.e("CallLogNotificationsQueryHelper.markMissedCallsInCallLogAsRead", "no permission");
+      LogUtil.e(
+          "CallLogNotificationsQueryHelper.markMissedCallsInCallLogAsRead", "no phone permission");
+      return;
+    }
+    if (!PermissionsUtil.hasCallLogWritePermissions(context)) {
+      LogUtil.e(
+          "CallLogNotificationsQueryHelper.markMissedCallsInCallLogAsRead",
+          "no call log write permission");
       return;
     }
 
@@ -160,7 +165,8 @@ public class CallLogNotificationsQueryHelper {
     return newCallsQuery.query(
         Calls.VOICEMAIL_TYPE,
         System.currentTimeMillis()
-            - ConfigProviderBindings.get(context)
+            - ConfigProviderComponent.get(context)
+                .getConfigProvider()
                 .getLong(
                     CONFIG_NEW_VOICEMAIL_NOTIFICATION_THRESHOLD_OFFSET, TimeUnit.DAYS.toMillis(7)));
   }
@@ -252,7 +258,7 @@ public class CallLogNotificationsQueryHelper {
 
     /** Returns a {@link NewCall} pointed by the {@code callsUri} */
     @Nullable
-    NewCall query(Uri callsUri);
+    NewCall queryUnreadVoicemail(Uri callsUri);
   }
 
   /** Information about a new voicemail. */
@@ -341,14 +347,12 @@ public class CallLogNotificationsQueryHelper {
 
     @Override
     @Nullable
-    @TargetApi(Build.VERSION_CODES.M)
     public List<NewCall> query(int type) {
       return query(type, NO_THRESHOLD);
     }
 
     @Override
     @Nullable
-    @TargetApi(Build.VERSION_CODES.M)
     @SuppressWarnings("MissingPermission")
     public List<NewCall> query(int type, long thresholdMillis) {
       if (!PermissionsUtil.hasPermission(context, Manifest.permission.READ_CALL_LOG)) {
@@ -407,20 +411,26 @@ public class CallLogNotificationsQueryHelper {
 
     @Nullable
     @Override
-    public NewCall query(Uri callsUri) {
+    @SuppressWarnings("missingPermission")
+    public NewCall queryUnreadVoicemail(Uri voicemailUri) {
       if (!PermissionsUtil.hasPermission(context, Manifest.permission.READ_CALL_LOG)) {
         LogUtil.w(
             "CallLogNotificationsQueryHelper.DefaultNewCallsQuery.query",
             "No READ_CALL_LOG permission, returning null for calls lookup.");
         return null;
       }
-      final String selection = String.format("%s = '%s'", Calls.VOICEMAIL_URI, callsUri.toString());
+      Selection selection =
+          Selection.column(Calls.VOICEMAIL_URI)
+              .is("=", voicemailUri)
+              .buildUpon()
+              .and(Selection.column(Calls.IS_READ).is("IS NOT", 1))
+              .build();
       try (Cursor cursor =
           contentResolver.query(
               Calls.CONTENT_URI_WITH_VOICEMAIL,
               (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? PROJECTION_O : PROJECTION,
-              selection,
-              null,
+              selection.getSelection(),
+              selection.getSelectionArgs(),
               null)) {
         if (cursor == null) {
           return null;

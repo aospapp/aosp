@@ -52,9 +52,11 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -142,11 +144,11 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
 
     @Option(name = "include-filter",
             description = "The include filters of the test name to run.")
-    private List<String> mIncludeFilters = new ArrayList<>();
+    private Set<String> mIncludeFilters = new LinkedHashSet<>();
 
     @Option(name = "exclude-filter",
             description = "The exclude filters of the test name to run.")
-    private List<String> mExcludeFilters = new ArrayList<>();
+    private Set<String> mExcludeFilters = new LinkedHashSet<>();
 
     @Option(name = "test-file-include-filter",
             description="A file containing a list of line separated test classes and optionally"
@@ -260,6 +262,38 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
     @Override
     public void addAllExcludeFilters(Set<String> filters) {
         mExcludeFilters.addAll(filters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Set<String> getIncludeFilters() {
+        return mIncludeFilters;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Set<String> getExcludeFilters() {
+        return mExcludeFilters;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearIncludeFilters() {
+        mIncludeFilters.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearExcludeFilters() {
+        mExcludeFilters.clear();
     }
 
     /**
@@ -408,7 +442,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                         test = getTestDescription(parts[1]);
                         listener.testStarted(test);
                     } else if (tag.equals(FAILURE)) {
-                        listener.testFailed(test, parts[1]);
+                        listener.testFailed(test, processSerializedValue(parts[1]));
                     } else if (tag.equals(END_TEST)) {
                         listener.testEnded(getTestDescription(parts[1]),
                                 Collections.<String, String>emptyMap());
@@ -416,6 +450,11 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                     // Always log the output for debugging
                     CLog.d(line);
                 }
+            }
+
+            private String processSerializedValue(String input) {
+                // Opposite of stringify.
+                return input.replace("^~^", "\n");
             }
 
             private TestDescription getTestDescription(String name) {

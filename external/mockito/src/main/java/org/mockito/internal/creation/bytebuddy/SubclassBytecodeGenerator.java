@@ -38,6 +38,8 @@ import static org.mockito.internal.util.StringUtil.join;
 
 class SubclassBytecodeGenerator implements BytecodeGenerator {
 
+    private static final String CODEGEN_PACKAGE = "org.mockito.codegen.";
+
     private final SubclassLoader loader;
 
     private final ByteBuddy byteBuddy;
@@ -45,6 +47,11 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
 
     private final Implementation readReplace;
     private final ElementMatcher<? super MethodDescription> matcher;
+
+    private final Implementation dispatcher = to(DispatcherDefaultingToRealMethod.class);
+    private final Implementation hashCode = to(MockMethodInterceptor.ForHashCode.class);
+    private final Implementation equals = to(MockMethodInterceptor.ForEquals.class);
+    private final Implementation writeReplace = to(MockMethodInterceptor.ForWriteReplace.class);
 
     public SubclassBytecodeGenerator() {
         this(new SubclassInjectionLoader());
@@ -68,31 +75,32 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
 
     @Override
     public <T> Class<? extends T> mockClass(MockFeatures<T> features) {
+        String name = nameFor(features.mockedType);
         DynamicType.Builder<T> builder =
                 byteBuddy.subclass(features.mockedType)
-                         .name(nameFor(features.mockedType))
+                         .name(name)
                          .ignoreAlso(isGroovyMethod())
                          .annotateType(features.stripAnnotations
                              ? new Annotation[0]
                              : features.mockedType.getAnnotations())
                          .implement(new ArrayList<Type>(features.interfaces))
                          .method(matcher)
-                           .intercept(to(DispatcherDefaultingToRealMethod.class))
+                           .intercept(dispatcher)
                            .transform(withModifiers(SynchronizationState.PLAIN))
                            .attribute(features.stripAnnotations
                                ? MethodAttributeAppender.NoOp.INSTANCE
                                : INCLUDING_RECEIVER)
                          .method(isHashCode())
-                           .intercept(to(MockMethodInterceptor.ForHashCode.class))
+                           .intercept(hashCode)
                          .method(isEquals())
-                           .intercept(to(MockMethodInterceptor.ForEquals.class))
+                           .intercept(equals)
                          .serialVersionUid(42L)
                          .defineField("mockitoInterceptor", MockMethodInterceptor.class, PRIVATE)
                          .implement(MockAccess.class)
                            .intercept(FieldAccessor.ofBeanProperty());
         if (features.serializableMode == SerializableMode.ACROSS_CLASSLOADERS) {
             builder = builder.implement(CrossClassLoaderSerializableMock.class)
-                             .intercept(to(MockMethodInterceptor.ForWriteReplace.class));
+                             .intercept(writeReplace);
         }
         if (readReplace != null) {
             builder = builder.defineMethod("readObject", void.class, Visibility.PRIVATE)
@@ -118,7 +126,7 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
                 .or(hasParameters(whereAny(hasType(isPackagePrivate())))));
         }
         return builder.make()
-                      .load(classLoader, loader.getStrategy(features.mockedType))
+                      .load(classLoader, loader.resolveStrategy(features.mockedType, classLoader, name.startsWith(CODEGEN_PACKAGE)))
                       .getLoaded();
     }
 
@@ -132,7 +140,7 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
         if (isComingFromJDK(type)
                 || isComingFromSignedJar(type)
                 || isComingFromSealedPackage(type)) {
-            typeName = "codegen." + typeName;
+            typeName = CODEGEN_PACKAGE + type.getSimpleName();
         }
         return String.format("%s$%s$%d", typeName, "MockitoMock", Math.abs(random.nextInt()));
     }

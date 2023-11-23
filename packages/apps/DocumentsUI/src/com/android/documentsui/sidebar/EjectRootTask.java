@@ -16,10 +16,13 @@
 
 package com.android.documentsui.sidebar;
 
+import static android.content.ContentResolver.wrap;
+
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.FileUtils;
 import android.provider.DocumentsContract;
 import android.util.Log;
 
@@ -57,14 +60,14 @@ public final class EjectRootTask extends AsyncTask<Void, Void, Boolean> {
         try {
             client = DocumentsApplication.acquireUnstableProviderOrThrow(
                     mResolver, mAuthority);
-            DocumentsContract.ejectRoot(client, rootUri);
+            DocumentsContract.ejectRoot(wrap(client), rootUri);
             return true;
         } catch (IllegalStateException e) {
             Log.w(TAG, "Failed to eject root.", e);
         } catch (Exception e) {
             Log.w(TAG, "Binder call failed.", e);
         } finally {
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
 
         return false;

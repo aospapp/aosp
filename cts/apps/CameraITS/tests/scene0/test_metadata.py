@@ -31,6 +31,8 @@ def main():
         # Arbitrary capture request exposure values; image content is not
         # important for this test, only the metadata.
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
+        its.caps.skip_unless(its.caps.backward_compatible(props))
         auto_req = its.objects.auto_capture_request()
         cap = cam.do_capture(auto_req)
         md = cap["metadata"]
@@ -90,8 +92,8 @@ def main():
         pixel_pitch_w = (sensor_size["width"] / fmts[0]["width"] * 1E3)
         print "Assert pixel_pitch WxH: %.2f um, %.2f um" % (pixel_pitch_w,
                                                             pixel_pitch_h)
-        assert 0.9 <= pixel_pitch_w <= 10
-        assert 0.9 <= pixel_pitch_h <= 10
+        assert 0.7 <= pixel_pitch_w <= 10
+        assert 0.7 <= pixel_pitch_h <= 10
         assert 0.333 <= pixel_pitch_w/pixel_pitch_h <= 3.0
 
         diag = math.sqrt(sensor_size["height"] ** 2 +

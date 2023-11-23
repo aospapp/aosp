@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "dunno@chromium.org"
-NAME = "video_YouTubeMseEme"
+NAME = "video_YouTubeMseEme.can_not_play_play_ready"
 PURPOSE = "Verify Chrome MSE/EME works for YouTube."
 CRITERIA = """
 This test will fail if the browser can play Play Ready (update this test when it

@@ -16,6 +16,7 @@
 
 #include "wificond/scanning/scanner_impl.h"
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -30,13 +31,11 @@ using android::binder::Status;
 using android::net::wifi::IPnoScanEvent;
 using android::net::wifi::IScanEvent;
 using android::net::wifi::IWifiScannerImpl;
-using android::hardware::wifi::offload::V1_0::IOffload;
 using android::sp;
 using com::android::server::wifi::wificond::NativeScanResult;
 using com::android::server::wifi::wificond::PnoSettings;
 using com::android::server::wifi::wificond::SingleScanSettings;
 
-using std::pair;
 using std::string;
 using std::vector;
 using std::weak_ptr;
@@ -59,6 +58,10 @@ bool IsScanTypeSupported(int scan_type, const WiphyFeatures& wiphy_features) {
   }
   return {};
 }
+
+constexpr const int kPercentNetworksWithFreq = 30;
+constexpr const int kPnoScanDefaultFreqs[] = {2412, 2417, 2422, 2427, 2432, 2437, 2447, 2452,
+    2457, 2462, 5180, 5200, 5220, 5240, 5745, 5765, 5785, 5805};
 } // namespace
 
 namespace android {
@@ -109,6 +112,7 @@ void ScannerImpl::Invalidate() {
             << (int)interface_index_;
   scan_utils_->UnsubscribeScanResultNotification(interface_index_);
   scan_utils_->UnsubscribeSchedScanResultNotification(interface_index_);
+  valid_ = false;
 }
 
 bool ScannerImpl::CheckIsValid() {
@@ -244,6 +248,8 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
   const uint8_t kNetworkFlagsDefault = 0;
   vector<vector<uint8_t>> skipped_scan_ssids;
   vector<vector<uint8_t>> skipped_match_ssids;
+  std::set<int32_t> unique_frequencies;
+  int num_networks_no_freqs = 0;
   for (auto& network : pno_settings.pno_networks_) {
     // Add hidden network ssid.
     if (network.is_hidden_) {
@@ -262,8 +268,25 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
     }
     match_ssids->push_back(network.ssid_);
     match_security->push_back(kNetworkFlagsDefault);
+
+    // build the set of unique frequencies to scan for.
+    for (const auto& frequency : network.frequencies_) {
+      unique_frequencies.insert(frequency);
+    }
+    if (network.frequencies_.empty()) {
+      num_networks_no_freqs++;
+    }
   }
 
+  // Also scan the default frequencies if there is frequency data passed down but more than 30% of
+  // networks don't have frequency data.
+  if (unique_frequencies.size() > 0 && num_networks_no_freqs * 100 / match_ssids->size()
+      > kPercentNetworksWithFreq) {
+    unique_frequencies.insert(std::begin(kPnoScanDefaultFreqs), std::end(kPnoScanDefaultFreqs));
+  }
+  for (const auto& frequency : unique_frequencies) {
+    freqs->push_back(frequency);
+  }
   LogSsidList(skipped_scan_ssids, "Skip scan ssid for pno scan");
   LogSsidList(skipped_match_ssids, "Skip match ssid for pno scan");
 }
@@ -289,13 +312,18 @@ bool ScannerImpl::StartPnoScanDefault(const PnoSettings& pno_settings) {
   // Always request a low power scan for PNO, if device supports it.
   bool request_low_power = wiphy_features_.supports_low_power_oneshot_scan;
 
+  bool request_sched_scan_relative_rssi = wiphy_features_.supports_ext_sched_scan_relative_rssi;
+
   int error_code = 0;
+  struct SchedScanReqFlags req_flags = {};
+  req_flags.request_random_mac = request_random_mac;
+  req_flags.request_low_power = request_low_power;
+  req_flags.request_sched_scan_relative_rssi = request_sched_scan_relative_rssi;
   if (!scan_utils_->StartScheduledScan(interface_index_,
                                        GenerateIntervalSetting(pno_settings),
                                        pno_settings.min_2g_rssi_,
                                        pno_settings.min_5g_rssi_,
-                                       request_random_mac,
-                                       request_low_power,
+                                       req_flags,
                                        scan_ssids,
                                        match_ssids,
                                        freqs,
@@ -304,7 +332,16 @@ bool ScannerImpl::StartPnoScanDefault(const PnoSettings& pno_settings) {
     CHECK(error_code != ENODEV) << "Driver is in a bad state, restarting wificond";
     return false;
   }
-  LOG(INFO) << "Pno scan started";
+  string freq_string;
+  if (freqs.empty()) {
+    freq_string = "for all supported frequencies";
+  } else {
+    freq_string = "for frequencies: ";
+    for (uint32_t f : freqs) {
+      freq_string += std::to_string(f) + ", ";
+    }
+  }
+  LOG(INFO) << "Pno scan started " << freq_string;
   pno_scan_started_ = true;
   return true;
 }

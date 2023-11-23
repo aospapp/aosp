@@ -23,18 +23,20 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.LocaleList;
 import android.os.Parcel;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.style.SuggestionSpan;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -247,5 +249,36 @@ public class SuggestionSpanTest {
                 parcel.recycle();
             }
         }
+    }
+
+    @Test
+    public void testGetUnderlineColor_NoUnderline() {
+        final String[] suggestions = new String[0];
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions, 0);
+        assertEquals(span.getUnderlineColor(), 0);
+    }
+
+    @Test
+    public void testGetUnderlineColor_EasyCorrectUnderline() {
+        final String[] suggestions = new String[0];
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_EASY_CORRECT);
+        assertEquals(span.getUnderlineColor(), Color.BLACK);
+    }
+
+    @Test
+    public void testGetUnderlineColor_MisspelledUnderline() {
+        final String[] suggestions = new String[0];
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_EASY_CORRECT | SuggestionSpan.FLAG_MISSPELLED);
+        assertEquals(span.getUnderlineColor(), Color.BLACK);
+    }
+
+    @Test
+    public void testGetUnderlineColor_AutoCorrectionUnderline() {
+        final String[] suggestions = new String[0];
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+        assertEquals(span.getUnderlineColor(), Color.BLACK);
     }
 }

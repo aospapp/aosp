@@ -46,7 +46,7 @@
 
     </RelativeLayout>
 
-    <android.support.wear.widget.BoxInsetLayout
+    <androidx.wear.widget.BoxInsetLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -97,5 +97,5 @@
                 android:visibility="gone" />
 
         </RelativeLayout>
-    </android.support.wear.widget.BoxInsetLayout>
+    </androidx.wear.widget.BoxInsetLayout>
 </LinearLayout>

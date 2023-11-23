@@ -47,8 +47,8 @@
 #include "base/strlcpy.h"
 #include "base/mutex.h"
 #include "events.h"
-#include "java_vm_ext.h"
-#include "jni_env_ext.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_env_ext.h"
 #include "jvmti.h"
 #include "ti_breakpoint.h"
 
@@ -101,6 +101,10 @@ struct ArtJvmTiEnv : public jvmtiEnv {
 
   // RW lock to protect access to all of the event data.
   art::ReaderWriterMutex event_info_mutex_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+
+  std::string last_error_ GUARDED_BY(last_error_mutex_);
+  // Lock to touch the last-error-message.
+  art::Mutex last_error_mutex_ BOTTOM_MUTEX_ACQUIRED_AFTER;
 
   ArtJvmTiEnv(art::JavaVMExt* runtime, EventHandler* event_handler, jint ti_version);
 
@@ -249,7 +253,7 @@ const jvmtiCapabilities kPotentialCapabilities = {
     .can_get_owned_monitor_info                      = 1,
     .can_get_current_contended_monitor               = 1,
     .can_get_monitor_info                            = 1,
-    .can_pop_frame                                   = 0,
+    .can_pop_frame                                   = 1,
     .can_redefine_classes                            = 1,
     .can_signal_thread                               = 1,
     .can_get_source_file_name                        = 1,
@@ -291,6 +295,7 @@ const jvmtiCapabilities kPotentialCapabilities = {
 //   can_retransform_classes:
 //   can_redefine_any_class:
 //   can_redefine_classes:
+//   can_pop_frame:
 //     We need to ensure that inlined code is either not present or can always be deoptimized. This
 //     is not guaranteed for non-debuggable processes since we might have inlined bootclasspath code
 //     on a threads stack.
@@ -303,7 +308,7 @@ const jvmtiCapabilities kNonDebuggableUnsupportedCapabilities = {
     .can_get_owned_monitor_info                      = 0,
     .can_get_current_contended_monitor               = 0,
     .can_get_monitor_info                            = 0,
-    .can_pop_frame                                   = 0,
+    .can_pop_frame                                   = 1,
     .can_redefine_classes                            = 1,
     .can_signal_thread                               = 0,
     .can_get_source_file_name                        = 0,

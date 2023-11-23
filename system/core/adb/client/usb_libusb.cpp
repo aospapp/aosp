@@ -332,13 +332,6 @@ static void process_device(libusb_device* device) {
             return;
         }
 
-        rc = libusb_set_interface_alt_setting(handle.get(), interface_num, 0);
-        if (rc != 0) {
-            LOG(WARNING) << "failed to set interface alt setting for device '" << device_serial
-                         << "'" << libusb_error_name(rc);
-            return;
-        }
-
         for (uint8_t endpoint : {bulk_in, bulk_out}) {
             rc = libusb_clear_halt(handle.get(), endpoint);
             if (rc != 0) {
@@ -589,7 +582,7 @@ int usb_write(usb_handle* h, const void* d, int len) {
 
     int rc = perform_usb_transfer(h, info, std::move(lock));
     LOG(DEBUG) << "usb_write(" << len << ") = " << rc;
-    return rc;
+    return info->transfer->actual_length;
 }
 
 int usb_read(usb_handle* h, void* d, int len) {
@@ -627,6 +620,11 @@ int usb_close(usb_handle* h) {
     }
     usb_handles.erase(h->device_address);
     return 0;
+}
+
+void usb_reset(usb_handle* h) {
+    libusb_reset_device(h->device_handle);
+    usb_kick(h);
 }
 
 void usb_kick(usb_handle* h) {

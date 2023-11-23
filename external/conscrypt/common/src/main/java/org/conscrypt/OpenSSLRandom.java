@@ -21,12 +21,12 @@ import java.security.SecureRandomSpi;
 
 /**
  * Implements {@link java.security.SecureRandom} using BoringSSL's RAND interface.
- *
- * @hide
  */
 @Internal
 public final class OpenSSLRandom extends SecureRandomSpi implements Serializable {
     private static final long serialVersionUID = 8506210602917522861L;
+
+    public OpenSSLRandom() {}
 
     @Override
     protected void engineSetSeed(byte[] seed) {

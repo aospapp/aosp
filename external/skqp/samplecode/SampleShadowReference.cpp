@@ -5,7 +5,7 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-#include "SampleCode.h"
+#include "Sample.h"
 #include "Resources.h"
 #include "SkCanvas.h"
 #include "SkImage.h"
@@ -16,7 +16,7 @@
 ////////////////////////////////////////////////////////////////////////////
 // Sample to compare the Material Design shadow reference to our results
 
-class ShadowRefView : public SampleView {
+class ShadowRefView : public Sample {
     SkPath         fRRectPath;
     sk_sp<SkImage> fReferenceImage;
 
@@ -38,15 +38,14 @@ protected:
         fReferenceImage = GetResourceAsImage("images/shadowreference.png");
     }
 
-    // overrides from SkEventSink
-    bool onQuery(SkEvent* evt) override {
-        if (SampleCode::TitleQ(*evt)) {
-            SampleCode::TitleR(evt, "ShadowReference");
+    bool onQuery(Sample::Event* evt) override {
+        if (Sample::TitleQ(*evt)) {
+            Sample::TitleR(evt, "ShadowReference");
             return true;
         }
 
         SkUnichar uni;
-        if (SampleCode::CharQ(*evt, &uni)) {
+        if (Sample::CharQ(*evt, &uni)) {
             bool handled = false;
             switch (uni) {
                 case 'W':
@@ -94,9 +93,12 @@ protected:
         if (fUseAlt) {
             flags |= SkShadowFlags::kGeometricOnly_ShadowFlag;
         }
+
+        SkColor ambientColor = SkColorSetARGB(ambientAlpha * 255, 0, 0, 0);
+        SkColor spotColor = SkColorSetARGB(spotAlpha * 255, 0, 0, 0);
         SkShadowUtils::DrawShadow(canvas, path, zPlaneParams,
                                   lightPos, lightWidth,
-                                  ambientAlpha, spotAlpha, SK_ColorBLACK, flags);
+                                  ambientColor, spotColor, flags);
 
         if (fShowObject) {
             canvas->drawPath(path, paint);
@@ -195,10 +197,9 @@ protected:
     }
 
 private:
-    typedef SampleView INHERITED;
+    typedef Sample INHERITED;
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
-static SkView* MyFactory() { return new ShadowRefView; }
-static SkViewRegister reg(MyFactory);
+DEF_SAMPLE( return new ShadowRefView(); )

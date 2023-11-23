@@ -25,6 +25,19 @@ import java.nio.file.Paths;
 
 public class VtsFileUtil extends FileUtil {
     /**
+     * Replacing characters in a string to make it a valid file name.
+     *
+     * The current method is to replace any non-word character with '_' except '.' and '-'.
+     *
+     * @param filename the potential name of a file to normalize.
+     *                 Do not use path here as path delimitor will be replaced
+     * @return normalized file name
+     */
+    public static String normalizeFileName(String filename) {
+        return filename.replaceAll("[^\\w.-]", "_");
+    }
+
+    /**
      * Save a resource file to a directory.
      *
      * TODO(yuexima): This method is to be removed when it becomes available in FileUtil.

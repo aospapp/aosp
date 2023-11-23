@@ -155,7 +155,16 @@ static tA2DP_STATUS A2DP_ParseInfoAptx(tA2DP_APTX_CIE* p_ie,
   p_ie->sampleRate = *p_codec_info & 0xF0;
   p_codec_info++;
 
-  if (is_capability) return A2DP_SUCCESS;
+  if (is_capability) {
+    // NOTE: The checks here are very liberal. We should be using more
+    // pedantic checks specific to the SRC or SNK as specified in the spec.
+    if (A2DP_BitsSet(p_ie->sampleRate) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_SAMP_FREQ;
+    if (A2DP_BitsSet(p_ie->channelMode) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_CH_MODE;
+
+    return A2DP_SUCCESS;
+  }
 
   if (A2DP_BitsSet(p_ie->sampleRate) != A2DP_SET_ONE_BIT)
     return A2DP_BAD_SAMP_FREQ;
@@ -304,6 +313,21 @@ int A2DP_VendorGetTrackSampleRateAptx(const uint8_t* p_codec_info) {
   return -1;
 }
 
+int A2DP_VendorGetTrackBitsPerSampleAptx(const uint8_t* p_codec_info) {
+  tA2DP_APTX_CIE aptx_cie;
+
+  // Check whether the codec info contains valid data
+  tA2DP_STATUS a2dp_status = A2DP_ParseInfoAptx(&aptx_cie, p_codec_info, false);
+  if (a2dp_status != A2DP_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s: cannot decode codec information: %d", __func__,
+              a2dp_status);
+    return -1;
+  }
+
+  // NOTE: The bits per sample never changes for aptX
+  return 16;
+}
+
 int A2DP_VendorGetTrackChannelCountAptx(const uint8_t* p_codec_info) {
   tA2DP_APTX_CIE aptx_cie;
 
@@ -419,8 +443,8 @@ bool A2DP_VendorInitCodecConfigAptx(AvdtpSepConfig* p_cfg) {
 
 A2dpCodecConfigAptx::A2dpCodecConfigAptx(
     btav_a2dp_codec_priority_t codec_priority)
-    : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX, "aptX",
-                      codec_priority) {
+    : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX,
+                      A2DP_VendorCodecIndexStrAptx(), codec_priority) {
   // Compute the local capability
   if (a2dp_aptx_source_caps.sampleRate & A2DP_APTX_SAMPLERATE_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;

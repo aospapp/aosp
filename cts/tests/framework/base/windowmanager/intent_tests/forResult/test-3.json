@@ -1,0 +1,54 @@
+{
+    "setup": {
+        "initialIntents": [
+            {
+                "flags": "FLAG_ACTIVITY_NEW_TASK",
+                "class": "android.server.wm.intent.Activities$SingleTopActivity",
+                "package": "android.server.wm.cts",
+                "startForResult": false
+            }
+        ],
+        "act": [
+            {
+                "flags": "",
+                "class": "android.server.wm.intent.Activities$SingleTopActivity",
+                "package": "android.server.wm.cts",
+                "startForResult": false
+            }
+        ]
+    },
+    "initialState": {
+        "stacks": [
+            {
+                "tasks": [
+                    {
+                        "activities": [
+                            {
+                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity",
+                                "state": "RESUMED"
+                            }
+                        ]
+                    }
+                ],
+                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity"
+            }
+        ]
+    },
+    "endState": {
+        "stacks": [
+            {
+                "tasks": [
+                    {
+                        "activities": [
+                            {
+                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity",
+                                "state": "RESUMED"
+                            }
+                        ]
+                    }
+                ],
+                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTopActivity"
+            }
+        ]
+    }
+}

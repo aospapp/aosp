@@ -15,9 +15,9 @@
  */
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
-
 import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -25,10 +25,9 @@ import android.content.Intent;
 import android.service.autofill.CustomDescription;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject2;
-import android.util.Log;
 import android.widget.RemoteViews;
 
-import static org.junit.Assume.assumeTrue;
+import androidx.annotation.NonNull;
 
 import org.junit.Test;
 
@@ -46,10 +45,31 @@ import org.junit.Test;
  * <p>The overall behavior should be the same in both cases, although the implementation of the
  * tests per se will be sligthly different.
  */
-abstract class CustomDescriptionWithLinkTestCase extends AutoFillServiceTestCase {
+abstract class CustomDescriptionWithLinkTestCase<A extends AbstractAutoFillActivity> extends
+        AutoFillServiceTestCase.AutoActivityLaunch<A> {
 
-    private static final String TAG = "CustomDescriptionWithLinkTestCase";
     private static final String ID_LINK = "link";
+
+    private final Class<A> mActivityClass;
+
+    protected A mActivity;
+
+    protected CustomDescriptionWithLinkTestCase(@NonNull Class<A> activityClass) {
+        mActivityClass = activityClass;
+    }
+
+    protected void startActivity() {
+        startActivity(false);
+    }
+
+    protected void startActivity(boolean remainOnRecents) {
+        final Intent intent = new Intent(mContext, mActivityClass);
+        if (remainOnRecents) {
+            intent.setFlags(
+                    Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS | Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        mActivity = launchActivity(intent);
+    }
 
     /**
      * Tests scenarios when user taps a link in the custom description and then taps back:
@@ -69,27 +89,18 @@ abstract class CustomDescriptionWithLinkTestCase extends AutoFillServiceTestCase
     public final void testTapLink_changeOrientationThenTapBack() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
 
-        final int width = mUiBot.getDevice().getDisplayWidth();
-        final int heigth = mUiBot.getDevice().getDisplayHeight();
-        final int min = Math.min(width, heigth);
-
-        assumeTrue("Screen size is too small (" + width + "x" + heigth + ")", min >= 500);
-        Log.d(TAG, "testTapLink_changeOrientationThenTapBack(): screen size is "
-                + width + "x" + heigth);
-
         mUiBot.setScreenOrientation(UiBot.PORTRAIT);
         try {
-            runShellCommand("wm size 1080x1920");
-            runShellCommand("wm density 420");
             saveUiRestoredAfterTappingLinkTest(
                     PostSaveLinkTappedAction.ROTATE_THEN_TAP_BACK_BUTTON);
         } finally {
-            mUiBot.setScreenOrientation(UiBot.PORTRAIT);
             try {
+                mUiBot.setScreenOrientation(UiBot.PORTRAIT);
                 cleanUpAfterScreenOrientationIsBackToPortrait();
+            } catch (Exception e) {
+                mSafeCleanerRule.add(e);
             } finally {
-                runShellCommand("wm density reset");
-                runShellCommand("wm size reset");
+                mUiBot.resetScreenResolution();
             }
         }
     }

@@ -20,9 +20,12 @@ LOCAL_PACKAGE_NAME := CtsNetSecConfigPrePCleartextTrafficTestCases
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ctstestrunner-axt \
+    androidx.test.rules \
+    compatibility-device-util-axt
 
-LOCAL_JAVA_LIBRARIES := org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := org.apache.http.legacy android.test.base.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_SRC_FILES += $(call all-java-files-under, ../src)
@@ -32,5 +35,7 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res/
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_SDK_VERSION := 26
+LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 26
+
 include $(BUILD_CTS_PACKAGE)

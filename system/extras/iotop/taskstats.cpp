@@ -194,6 +194,9 @@ TaskStatistics::TaskStatistics(const taskstats& taskstats_stats) {
   cpu_time_real_ = taskstats_stats.cpu_run_real_total;
   cpu_time_virtual_ = taskstats_stats.cpu_run_virtual_total;
 
+  majflt_ = taskstats_stats.ac_majflt;
+  minflt_ = taskstats_stats.ac_minflt;
+
   read_bytes_ = taskstats_stats.read_bytes;
   write_bytes_ = taskstats_stats.write_bytes;
   read_write_bytes_ = read_bytes_ + write_bytes_;
@@ -221,6 +224,8 @@ void TaskStatistics::AddPidToTgid(const TaskStatistics& pid_statistics) {
 // Store new statistics and return the delta from the old statistics
 TaskStatistics TaskStatistics::Update(const TaskStatistics& new_statistics) {
   TaskStatistics delta = new_statistics;
+  delta.minflt_                -= minflt_;
+  delta.majflt_                -= majflt_;
   delta.cpu_delay_count_       -= cpu_delay_count_;
   delta.cpu_delay_ns_          -= cpu_delay_ns_;
   delta.block_io_delay_count_  -= block_io_delay_count_;

@@ -26,7 +26,8 @@ LOCAL_DEX_PREOPT := false
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := \
+  androidx.test.rules
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -38,6 +39,6 @@ LOCAL_PACKAGE_NAME := CtsThemeDeviceApp
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_SDK_VERSION := 23
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

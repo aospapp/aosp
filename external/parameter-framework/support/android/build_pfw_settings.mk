@@ -42,7 +42,7 @@ $(LOCAL_BUILT_MODULE): MY_SCHEMAS_DIR := $(PFW_SCHEMAS_DIR)
 $(LOCAL_BUILT_MODULE): $(LOCAL_ADDITIONAL_DEPENDENCIES) $(HOST_OUT)/bin/domainGenerator.py
 	$(hide) mkdir -p "$(dir $@)"
 
-	"$(MY_TOOL)" --validate \
+	PATH=$(HOST_OUT_EXECUTABLES):$$PATH "$(MY_TOOL)" --validate \
 		--toplevel-config "$(MY_TOPLEVEL_FILE)" \
 		--criteria "$(MY_CRITERIA_FILE)" \
 		--initial-settings $(MY_TUNING_FILE) \

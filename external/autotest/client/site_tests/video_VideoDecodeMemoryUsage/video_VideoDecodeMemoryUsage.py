@@ -188,7 +188,7 @@ class MemoryTest(object):
 
         self.browser.DumpMemory()
 
-        trace_data = self.browser.platform.tracing_controller.StopTracing()[0]
+        trace_data = self.browser.platform.tracing_controller.StopTracing()
         model = TimelineModel(trace_data)
         memory_dump = model.IterGlobalMemoryDumps().next()
         process_memory = collections.defaultdict(int)

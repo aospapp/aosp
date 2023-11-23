@@ -5,6 +5,7 @@
 #include "nugget_tools.h"
 #include "nugget/app/avb/avb.pb.h"
 #include "Avb.client.h"
+#include "src/test-data/test-keys/reset_key_data.h"
 #include <avb.h>
 #include <application.h>
 #include <nos/AppClient.h>
@@ -139,38 +140,10 @@ void AvbTest::SetUp(void)
   EXPECT_EQ(locks[OWNER], 0x00);
 }
 
-static const uint8_t kResetKeyPem[] =
-"-----BEGIN RSA PRIVATE KEY-----\n\
-MIIEpAIBAAKCAQEAo0IoAa5cK7XyAj7u1jFStsfEcxkgAZVF9VWKzH1bofKxLioA\n\
-r5Lo4D33glKehxkOlDo6GkBj1PoI8WuvYYvEUyxJNUdlVpa1C2lbewEL0rfyBrZ9\n\
-4cp0ZeUknymYHn3ynW4Z8sYMlj7BNxGttV/jbxtgtT5WHJ+hg5/4/ifCPucN17Bt\n\
-heUKIBoAjy6DlB/pMg1NUQ82DaASMFe89mEzI9Zk4CRtkWjEhknY0bYm46U1ABJb\n\
-YmIsHlxdADskvWFDmq8CfJr/jXstTXxZeqaxPPdSP+WPwXN/ku5W7qkF2qimEKiy\n\
-DYHzY65JhfWmHOLLGNuz6iHkq93uzkKsGIIPGQIDAQABAoIBABGTvdrwetv56uRz\n\
-AiPti4pCV9RMkDWbbLzNSPRbStJU3t6phwlgN9Js2YkefBLvj7JF0pug8x6rDOtx\n\
-PKCz+5841Wj3FuILt9JStZa4th0p0NUIMOVudrnBwf+g6s/dn5FzmTeaOyCyAPt8\n\
-28b7W/FKcU8SNxM93JXfU1+JyFAdREqsXQfqLhCAXBb46fs5D8hg0c99RdWuJSuY\n\
-HKyVXDrjmYAHS5qUDeMx0OY/q1qM03FBvHekvJ78WPpUKF7B/gYH9lBHIHE0KLJY\n\
-JR6kKkzN/Ii6BsSubKKeuNntzlzd2ukvFdX4uc42dDpIXPdaQAn84KRYN7++KoGz\n\
-2LqtAAECgYEAzQt5kt9c+xDeKMPR92XQ4uMeLxTufBei1PFGZbJnJT8aEMkVhKT/\n\
-Pbh1Z8OnN9YvFprDNpEilUm7xyffrE7p0pI1/qiBXZExy6pIcGAo4ZcB8ayN0JV3\n\
-k+RilE73x+sKAyWOm82b273PiyHNsQI4flkO5Ev9rpZbPMKlvZYsmxkCgYEAy9RR\n\
-RwxwCpvFi3um0Rwz7CI2uvVXGaLVXyR2oNGLcJG7AhusYi4FX6XJQ3vAgiDmzu/c\n\
-SaEF9w7uqeueIUA7L7njYP1ojfJAUJEtQRfVJF2tDntN5YgYUTsx8n3IKTs4xFT4\n\
-dBthKo16zzLv92+8m4sWJhFW2zzFFLwk+G5jlAECgYEAln1piSZus8Y5h2nRXOZZ\n\
-XWyb5qpSLrmaRPegV1uM4IVjuBYduPDwdHhBkxrCS/TjMo/73ry+yRsIuq7FN03j\n\
-xyyQfItoByhdh8E+0VuCJbATOTEQFJre3KiuwXMD4LLc8lpKRIevcKPrA46XzOZ4\n\
-WCM9DsnHMrAf3oRt6KujqWECgYEAyu43fWUEp4suwg/5pXdOumnV040vinZzuKW0\n\
-9aeqDAkLBq5Gkfj/oJqOJoGux9+5640i5KtMJQzY0JOke7ZXNsz7dDTXQ3tMTOo9\n\
-A/GWYv5grWpVw5AbpcQpliNkhKhRfCactfwMYTE6c89i2haE0NdI1d2te9ik3l/y\n\
-7uP4gAECgYA3u2CumlkjHq+LbMK6Ry+Ajyy4ssM5PKJUqSogJDUkHsG/C7yaCdq/\n\
-Ljt2x2220H0pM9885C3PpKxoYwRih9dzOamnARJocAElp2b5AQB+tKddlMdwx1pQ\n\
-0IMGQ3fBYkDFLGYDk7hGYkLLlSJCZwi64xKmmfEwl83RL6JDSFupDg==\n\
------END RSA PRIVATE KEY-----";
-
-static RSA *GetResetKey()
+RSA *GetResetKey()
 {
-  BIO *bio = BIO_new_mem_buf((void*)kResetKeyPem, sizeof(kResetKeyPem) - 1);
+  BIO *bio = BIO_new_mem_buf((void*)test_data::kResetKeyPem,
+                              test_data::kResetKeyPemSize - 1);
   RSA *rsa = PEM_read_bio_RSAPrivateKey(bio, NULL, 0, NULL);
   BIO_free(bio);
   return rsa;
@@ -747,7 +720,7 @@ TEST_F(AvbTest, GetResetChallengeTest)
   ASSERT_LE(sizeof(data), len);
   ASSERT_NO_ERROR(code, "");
   EXPECT_NE(0ULL, nonce);
-  EXPECT_EQ((uint32_t)ResetToken::CURRENT, selector);
+  EXPECT_LE(selector, (uint32_t)ResetToken::CURRENT);
   EXPECT_EQ(32UL, len);
   // We didn't set a device id.
   EXPECT_EQ(0, memcmp(data, empty, sizeof(empty)));
@@ -805,33 +778,6 @@ TEST_F(AvbTest, ResetProductionValid)
   ASSERT_NO_ERROR(code, "");
 }
 
-static const uint8_t kNullSig[] = {
-  0x95, 0x35, 0x5a, 0xb6, 0xe3, 0x8e, 0x43, 0x03, 0xd9, 0xd9, 0xd5, 0x6e,
-  0x99, 0x86, 0xff, 0x8e, 0x6a, 0xf1, 0x54, 0x6f, 0xa8, 0xff, 0x37, 0x38,
-  0xc6, 0x9b, 0x4d, 0xc6, 0x99, 0x1f, 0x37, 0x5c, 0xec, 0xf4, 0x32, 0xd8,
-  0xe6, 0x00, 0xcc, 0x74, 0xde, 0xa9, 0x68, 0x1a, 0xab, 0x6a, 0x6e, 0xe7,
-  0xa7, 0xa1, 0x59, 0xe0, 0x7c, 0x86, 0x95, 0x28, 0x94, 0x18, 0x3f, 0x0f,
-  0xb9, 0x0f, 0x05, 0x6c, 0x86, 0x5a, 0x6a, 0xe4, 0x6d, 0x36, 0x71, 0x86,
-  0x38, 0xab, 0x7a, 0x2d, 0x9c, 0xa5, 0xfa, 0xc8, 0x7c, 0x48, 0x02, 0x8c,
-  0x6b, 0x4d, 0xda, 0xa4, 0xb5, 0xa8, 0x17, 0x39, 0x5e, 0xe3, 0x1a, 0xd5,
-  0xf8, 0x87, 0x6e, 0xd9, 0xc0, 0x0c, 0x29, 0x4d, 0x93, 0xa2, 0x3b, 0xfc,
-  0x2d, 0x38, 0x8e, 0x2b, 0xc7, 0x49, 0x26, 0xd9, 0xcb, 0x47, 0x89, 0x4c,
-  0x79, 0xd3, 0x60, 0x62, 0xf9, 0x71, 0xa7, 0x73, 0x6a, 0x03, 0x65, 0x1f,
-  0x11, 0x0d, 0x9e, 0x27, 0x99, 0x6b, 0xa7, 0x46, 0x85, 0x75, 0xec, 0xff,
-  0x5b, 0x1d, 0x8d, 0x1b, 0x34, 0xd8, 0xb9, 0x4f, 0x63, 0x88, 0x08, 0xa8,
-  0x16, 0xba, 0xfc, 0xe7, 0x66, 0xa4, 0xe5, 0xde, 0x4e, 0x0b, 0x98, 0x80,
-  0xd5, 0x16, 0x55, 0xfb, 0xdb, 0xe8, 0xa2, 0x90, 0x85, 0x4e, 0xa9, 0xb6,
-  0x81, 0x55, 0xef, 0xbf, 0x12, 0xe3, 0xd2, 0xa9, 0xae, 0x2c, 0x43, 0x67,
-  0x4c, 0x09, 0x6d, 0x95, 0xaf, 0x44, 0xc2, 0xb9, 0x9d, 0x7c, 0xb1, 0x88,
-  0xf8, 0x6c, 0xa0, 0x13, 0x4c, 0xbf, 0x85, 0xa2, 0x8b, 0x9d, 0x06, 0xc8,
-  0x11, 0xdb, 0x1f, 0xfb, 0x05, 0x15, 0xd6, 0x1f, 0xe5, 0x52, 0x9c, 0xd5,
-  0xbd, 0xff, 0xb0, 0xce, 0x29, 0xec, 0xd8, 0x9e, 0xdb, 0x5b, 0xc9, 0x52,
-  0x24, 0xaf, 0x22, 0xeb, 0xce, 0x15, 0x0d, 0xfd, 0x6c, 0x76, 0x90, 0x3e,
-  0x4f, 0x63, 0xfd, 0xb1
-};
-
-const static unsigned int kNullSigLen = 256;
-
 TEST_F(AvbTest, ProductionResetTestValid)
 {
   static const uint8_t kDeviceHash[] = {
@@ -876,7 +822,8 @@ TEST_F(AvbTest, ProductionResetTestValid)
   message.nonce = 0;
   memset(message.data, 0, sizeof(message.data));
   code = ProductionResetTest(selector, message.nonce, message.data, len,
-                             kNullSig, kNullSigLen);
+                             test_data::kResetSignatures[selector],
+                             test_data::kResetSignatureLengths[selector]);
   ASSERT_NO_ERROR(code, "");
 }
 
@@ -887,6 +834,31 @@ TEST_F(AvbTest, WipeUserDataDoesNotLockDeviceLock) {
   uint8_t locks[4];
   GetState(client.get(), nullptr, nullptr, locks);
   EXPECT_EQ(locks[DEVICE], 0x00);
+}
+
+TEST_F(AvbTest, ResetKeyNullTokenSignatureTest)
+{
+  struct ResetMessage message;
+  int code;
+
+  uint32_t selector;
+  uint64_t nonce;
+  uint8_t device_data[AVB_DEVICE_DATA_SIZE];
+  size_t len = sizeof(device_data);
+
+  // Get the selector
+  code = GetResetChallenge(client.get(), &selector, &nonce,
+                           device_data, &len);
+  ASSERT_NO_ERROR(code, "");
+  ASSERT_LT(selector, test_data::kResetSignatureCount);
+
+  memset(&message, 0, sizeof(message));
+  // Now use a good one, but without getting a new nonce.
+  cout << "Testing key: " << selector << "\n";
+  code = ProductionResetTest(selector, message.nonce, message.data, 32,
+                             test_data::kResetSignatures[selector],
+                             test_data::kResetSignatureLengths[selector]);
+  ASSERT_NO_ERROR(code, "");
 }
 
 }  // namespace

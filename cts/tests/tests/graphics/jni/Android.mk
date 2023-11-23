@@ -32,6 +32,8 @@ LOCAL_SRC_FILES := \
 	android_graphics_cts_MediaVulkanGpuTest.cpp \
 	android_graphics_cts_VulkanFeaturesTest.cpp \
 	android_graphics_cts_VulkanPreTransformCtsActivity.cpp \
+	android_graphics_cts_VulkanSurfaceSupportTest.cpp \
+        android_graphics_fonts_cts_SystemFonts.cpp \
 	CameraTestHelpers.cpp \
 	ImageReaderTestHelpers.cpp \
 	MediaTestHelpers.cpp \
@@ -39,7 +41,7 @@ LOCAL_SRC_FILES := \
 	VulkanPreTransformTestHelpers.cpp \
 	VulkanTestHelpers.cpp
 
-LOCAL_CFLAGS += -std=c++14 -Wall -Werror -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
+LOCAL_CFLAGS += -Wall -Werror -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 
 LOCAL_STATIC_LIBRARIES := libvkjson_ndk
 LOCAL_SHARED_LIBRARIES := libandroid libvulkan libnativewindow libsync liblog libdl libjnigraphics \

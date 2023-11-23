@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_SDK_VERSION := current
 LOCAL_PACKAGE_NAME := WallpaperPicker
+LOCAL_PRODUCT_MODULE := true
 include $(BUILD_PACKAGE)
 
 

@@ -1,0 +1,30 @@
+# Rules for audio service.
+type hiavplayer, domain;
+type hiavplayer_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(hiavplayer)
+
+vndbinder_use(hiavplayer)
+binder_call(hiavplayer, vndservicemanager)
+
+allow hiavplayer hiavplayer_service:service_manager { add };
+allow hiavplayer hal_audio_default:binder { transfer call };
+allow hiavplayer hal_audio_default:fd { use };
+allow hiavplayer hi_sys_device:chr_file { read write open ioctl };
+allow hiavplayer hi_vfmw_device:chr_file { open read write ioctl getattr};
+allow hiavplayer hi_userproc_device:chr_file { read write open ioctl };
+allow hiavplayer hi_log_device:chr_file { read write open getattr ioctl };
+allow hiavplayer hi_mem_device:chr_file { read write open ioctl };
+allow hiavplayer hi_module_device:chr_file { read write open ioctl };
+allow hiavplayer hi_stat_device:chr_file { read write open ioctl };
+allow hiavplayer hi_userproc_device:chr_file { read write open ioctl };
+allow hiavplayer hi_vdec_device:chr_file { read write open ioctl };
+allow hiavplayer hi_sync_device:chr_file { read write open ioctl };
+allow hiavplayer hi_ao_device:chr_file { read write open ioctl };
+allow hiavplayer hi_vo_device:chr_file { read write open ioctl };
+allow hiavplayer mmz_userdev_device:chr_file { read write open ioctl };
+allow hiavplayer hi_adec_device:chr_file { read write open ioctl };
+allow hiavplayer mediacodec:binder { call };
+
+# neverallow
+# binder_in_vendor_violators, vendor_executes_system_violators;

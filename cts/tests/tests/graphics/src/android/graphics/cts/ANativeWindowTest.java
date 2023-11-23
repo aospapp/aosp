@@ -16,8 +16,9 @@
 
 package android.graphics.cts;
 
-import static org.junit.Assert.assertEquals;
 import static android.opengl.EGL14.*;
+
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
@@ -26,15 +27,15 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
-import android.support.test.filters.SmallTest;
-import android.view.Surface;
 import android.util.Log;
+import android.view.Surface;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
-
 
 @SmallTest
 @RunWith(BlockJUnit4ClassRunner.class)

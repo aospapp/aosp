@@ -29,7 +29,6 @@ vtslib_interfacespec_includes := \
   test/vts/drivers/hal/libdatatype \
   test/vts/drivers/hal/libmeasurement \
   bionic \
-  libcore \
   device/google/gce/include \
   system/extras \
   system/media/camera/include \

@@ -14,7 +14,7 @@ import java.text.AttributedCharacterIterator.Attribute;
 import java.text.CharacterIterator;
 import java.util.Map;
 
-import android.icu.impl.number.Parse;
+import android.icu.impl.StaticUnicodeSets;
 import android.icu.lang.UCharacter;
 import android.icu.util.ULocale;
 
@@ -219,14 +219,14 @@ public final class ScientificNumberFormatter {
                     int start = iterator.getRunStart(NumberFormat.Field.EXPONENT_SIGN);
                     int limit = iterator.getRunLimit(NumberFormat.Field.EXPONENT_SIGN);
                     int aChar = char32AtAndAdvance(iterator);
-                    if (Parse.UNISET_MINUS.contains(aChar)) {
+                    if (StaticUnicodeSets.get(StaticUnicodeSets.Key.MINUS_SIGN).contains(aChar)) {
                         append(
                                 iterator,
                                 copyFromOffset,
                                 start,
                                 result);
                         result.append(SUPERSCRIPT_MINUS_SIGN);
-                    } else if (Parse.UNISET_PLUS.contains(aChar)) {
+                    } else if (StaticUnicodeSets.get(StaticUnicodeSets.Key.PLUS_SIGN).contains(aChar)) {
                         append(
                                 iterator,
                                 copyFromOffset,

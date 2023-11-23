@@ -91,7 +91,7 @@ BINARY_II_INTRINSIC(MterpIntegerRotateLeft, (Rot<int32_t, true>), SetI);
 // java.lang.Integer.signum(I)I
 UNARY_INTRINSIC(MterpIntegerSignum, Signum, GetVReg, SetI);
 
-// java.lang.Long.reverse(I)I
+// java.lang.Long.reverse(J)J
 UNARY_INTRINSIC(MterpLongReverse, ReverseBits64, GetVRegLong, SetJ);
 
 // java.lang.Long.reverseBytes(J)J
@@ -116,10 +116,10 @@ UNARY_INTRINSIC(MterpLongNumberOfLeadingZeros, JAVASTYLE_CLZ, GetVRegLong, SetJ)
 UNARY_INTRINSIC(MterpLongNumberOfTrailingZeros, JAVASTYLE_CTZ, GetVRegLong, SetJ);
 
 // java.lang.Long.rotateRight(JI)J
-BINARY_JJ_INTRINSIC(MterpLongRotateRight, (Rot<int64_t, false>), SetJ);
+BINARY_JI_INTRINSIC(MterpLongRotateRight, (Rot<int64_t, false>), SetJ);
 
 // java.lang.Long.rotateLeft(JI)J
-BINARY_JJ_INTRINSIC(MterpLongRotateLeft, (Rot<int64_t, true>), SetJ);
+BINARY_JI_INTRINSIC(MterpLongRotateLeft, (Rot<int64_t, true>), SetJ);
 
 // java.lang.Long.signum(J)I
 UNARY_INTRINSIC(MterpLongSignum, Signum, GetVRegLong, SetI);
@@ -186,7 +186,7 @@ static ALWAYS_INLINE bool MterpStringCharAt(ShadowFrame* shadow_frame,
     REQUIRES_SHARED(Locks::mutator_lock_) {
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};
   inst->GetVarArgs(arg, inst_data);
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString();
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString();
   int length = str->GetLength();
   int index = shadow_frame->GetVReg(arg[1]);
   uint16_t res;
@@ -210,8 +210,8 @@ static ALWAYS_INLINE bool MterpStringCompareTo(ShadowFrame* shadow_frame,
     REQUIRES_SHARED(Locks::mutator_lock_) {
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};
   inst->GetVarArgs(arg, inst_data);
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString();
-  mirror::Object* arg1 = shadow_frame->GetVRegReference(arg[1]);
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString();
+  ObjPtr<mirror::Object> arg1 = shadow_frame->GetVRegReference(arg[1]);
   if (arg1 == nullptr) {
     return false;
   }
@@ -227,7 +227,7 @@ static ALWAYS_INLINE bool Mterp##name(ShadowFrame* shadow_frame, \
     REQUIRES_SHARED(Locks::mutator_lock_) {                      \
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};                \
   inst->GetVarArgs(arg, inst_data);                              \
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString(); \
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString(); \
   int ch = shadow_frame->GetVReg(arg[1]);                        \
   if (ch >= 0x10000) {                                           \
     /* Punt if supplementary char. */                            \
@@ -251,7 +251,7 @@ static ALWAYS_INLINE bool Mterp##name(ShadowFrame* shadow_frame, \
     REQUIRES_SHARED(Locks::mutator_lock_) {                      \
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};                \
   inst->GetVarArgs(arg, inst_data);                              \
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString(); \
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString(); \
   result_register->operation;                                    \
   return true;                                                   \
 }
@@ -271,11 +271,11 @@ static ALWAYS_INLINE bool MterpStringGetCharsNoCheck(ShadowFrame* shadow_frame,
   // Start, end & index already checked by caller - won't throw.  Destination is uncompressed.
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};
   inst->GetVarArgs(arg, inst_data);
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString();
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString();
   int32_t start = shadow_frame->GetVReg(arg[1]);
   int32_t end = shadow_frame->GetVReg(arg[2]);
   int32_t index = shadow_frame->GetVReg(arg[4]);
-  mirror::CharArray* array = shadow_frame->GetVRegReference(arg[3])->AsCharArray();
+  ObjPtr<mirror::CharArray> array = shadow_frame->GetVRegReference(arg[3])->AsCharArray();
   uint16_t* dst = array->GetData() + index;
   int32_t len = (end - start);
   if (str->IsCompressed()) {
@@ -298,11 +298,11 @@ static ALWAYS_INLINE bool MterpStringEquals(ShadowFrame* shadow_frame,
     REQUIRES_SHARED(Locks::mutator_lock_) {
   uint32_t arg[Instruction::kMaxVarArgRegs] = {};
   inst->GetVarArgs(arg, inst_data);
-  mirror::String* str = shadow_frame->GetVRegReference(arg[0])->AsString();
-  mirror::Object* obj = shadow_frame->GetVRegReference(arg[1]);
+  ObjPtr<mirror::String> str = shadow_frame->GetVRegReference(arg[0])->AsString();
+  ObjPtr<mirror::Object> obj = shadow_frame->GetVRegReference(arg[1]);
   bool res = false;  // Assume not equal.
   if ((obj != nullptr) && obj->IsString()) {
-    mirror::String* str2 = obj->AsString();
+    ObjPtr<mirror::String> str2 = obj->AsString();
     if (str->GetCount() == str2->GetCount()) {
       // Length & compression status are same.  Can use block compare.
       void* bytes1;
@@ -558,6 +558,9 @@ bool MterpHandleIntrinsic(ShadowFrame* shadow_frame,
     UNIMPLEMENTED_CASE(ReferenceGetReferent /* ()Ljava/lang/Object; */)
     UNIMPLEMENTED_CASE(IntegerValueOf /* (I)Ljava/lang/Integer; */)
     UNIMPLEMENTED_CASE(ThreadInterrupted /* ()Z */)
+    UNIMPLEMENTED_CASE(CRC32Update /* (II)I */)
+    UNIMPLEMENTED_CASE(CRC32UpdateBytes /* (I[BII)I */)
+    UNIMPLEMENTED_CASE(CRC32UpdateByteBuffer /* (IJII)I */)
     INTRINSIC_CASE(VarHandleFullFence)
     INTRINSIC_CASE(VarHandleAcquireFence)
     INTRINSIC_CASE(VarHandleReleaseFence)

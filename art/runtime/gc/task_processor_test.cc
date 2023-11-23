@@ -33,11 +33,11 @@ class RecursiveTask : public HeapTask {
      : HeapTask(NanoTime() + MsToNs(10)), task_processor_(task_processor), counter_(counter),
        max_recursion_(max_recursion) {
   }
-  virtual void Run(Thread* self) OVERRIDE {
+  void Run(Thread* self) override {
     if (max_recursion_ > 0) {
       task_processor_->AddTask(self,
                                new RecursiveTask(task_processor_, counter_, max_recursion_ - 1));
-      counter_->FetchAndAddSequentiallyConsistent(1U);
+      counter_->fetch_add(1U, std::memory_order_seq_cst);
     }
   }
 
@@ -52,9 +52,9 @@ class WorkUntilDoneTask : public SelfDeletingTask {
   WorkUntilDoneTask(TaskProcessor* task_processor, Atomic<bool>* done_running)
       : task_processor_(task_processor), done_running_(done_running) {
   }
-  virtual void Run(Thread* self) OVERRIDE {
+  void Run(Thread* self) override {
     task_processor_->RunAllTasks(self);
-    done_running_->StoreSequentiallyConsistent(true);
+    done_running_->store(true, std::memory_order_seq_cst);
   }
 
  private:
@@ -76,7 +76,7 @@ TEST_F(TaskProcessorTest, Interrupt) {
   thread_pool.StartWorkers(self);
   ASSERT_FALSE(done_running);
   // Wait until all the tasks are done, but since we didn't interrupt, done_running should be 0.
-  while (counter.LoadSequentiallyConsistent() != kRecursion) {
+  while (counter.load(std::memory_order_seq_cst) != kRecursion) {
     usleep(10);
   }
   ASSERT_FALSE(done_running);
@@ -84,11 +84,11 @@ TEST_F(TaskProcessorTest, Interrupt) {
   thread_pool.Wait(self, true, false);
   // After the interrupt and wait, the WorkUntilInterruptedTasktask should have terminated and
   // set done_running_ to true.
-  ASSERT_TRUE(done_running.LoadSequentiallyConsistent());
+  ASSERT_TRUE(done_running.load(std::memory_order_seq_cst));
 
   // Test that we finish remaining tasks before returning from RunTasksUntilInterrupted.
-  counter.StoreSequentiallyConsistent(0);
-  done_running.StoreSequentiallyConsistent(false);
+  counter.store(0, std::memory_order_seq_cst);
+  done_running.store(false, std::memory_order_seq_cst);
   // Self interrupt before any of the other tasks run, but since we added them we should keep on
   // working until all the tasks are completed.
   task_processor.Stop(self);
@@ -96,8 +96,8 @@ TEST_F(TaskProcessorTest, Interrupt) {
   thread_pool.AddTask(self, new WorkUntilDoneTask(&task_processor, &done_running));
   thread_pool.StartWorkers(self);
   thread_pool.Wait(self, true, false);
-  ASSERT_TRUE(done_running.LoadSequentiallyConsistent());
-  ASSERT_EQ(counter.LoadSequentiallyConsistent(), kRecursion);
+  ASSERT_TRUE(done_running.load(std::memory_order_seq_cst));
+  ASSERT_EQ(counter.load(std::memory_order_seq_cst), kRecursion);
 }
 
 class TestOrderTask : public HeapTask {
@@ -105,7 +105,7 @@ class TestOrderTask : public HeapTask {
   TestOrderTask(uint64_t expected_time, size_t expected_counter, size_t* counter)
      : HeapTask(expected_time), expected_counter_(expected_counter), counter_(counter) {
   }
-  virtual void Run(Thread* thread ATTRIBUTE_UNUSED) OVERRIDE {
+  void Run(Thread* thread ATTRIBUTE_UNUSED) override {
     ASSERT_EQ(*counter_, expected_counter_);
     ++*counter_;
   }
@@ -137,10 +137,10 @@ TEST_F(TaskProcessorTest, Ordering) {
   Atomic<bool> done_running(false);
   // Add a task which will wait until interrupted to the thread pool.
   thread_pool.AddTask(self, new WorkUntilDoneTask(&task_processor, &done_running));
-  ASSERT_FALSE(done_running.LoadSequentiallyConsistent());
+  ASSERT_FALSE(done_running.load(std::memory_order_seq_cst));
   thread_pool.StartWorkers(self);
   thread_pool.Wait(self, true, false);
-  ASSERT_TRUE(done_running.LoadSequentiallyConsistent());
+  ASSERT_TRUE(done_running.load(std::memory_order_seq_cst));
   ASSERT_EQ(counter, kNumTasks);
 }
 

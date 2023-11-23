@@ -15,8 +15,7 @@
  */
 package com.android.tradefed.testtype;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -58,7 +57,7 @@ public class InstrumentationSerialTestTest {
     @Test
     public void testRun() throws DeviceNotAvailableException, ConfigurationException {
         final String packageName = "com.foo";
-        final TestDescription test = new TestDescription("FooTest", "testFoo");
+        final TestDescription test = new TestDescription("FooTest", "testFoo[param]");
         final Collection<TestDescription> testList = new ArrayList<TestDescription>(1);
         testList.add(test);
         final InstrumentationTest mockITest =
@@ -84,7 +83,7 @@ public class InstrumentationSerialTestTest {
                         return mockITest;
                     }
                 };
-        mMockListener.testRunStarted(packageName, 1);
+        mMockListener.testRunStarted(packageName, 0, 1);
         mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
         mMockListener.testEnded(
                 EasyMock.eq(test), EasyMock.eq(10l), EasyMock.eq(new HashMap<String, Metric>()));
@@ -94,7 +93,7 @@ public class InstrumentationSerialTestTest {
         mInstrumentationSerialTest.run(mMockListener);
         assertEquals(mMockTestDevice, mockITest.getDevice());
         assertEquals(test.getClassName(), mockITest.getClassName());
-        assertEquals(test.getTestName(), mockITest.getMethodName());
+        assertEquals(test.getTestNameWithoutParams(), mockITest.getMethodName());
         EasyMock.verify(mMockListener, mMockTestDevice);
     }
 
@@ -129,13 +128,17 @@ public class InstrumentationSerialTestTest {
             }
         };
         // expect two attempts, plus 1 additional run to mark the test as failed
-        int expectedAttempts = InstrumentationSerialTest.FAILED_RUN_TEST_ATTEMPTS+1;
-        mMockListener.testRunStarted(packageName, 1);
-        EasyMock.expectLastCall().times(expectedAttempts);
+        int expectedAttempts = InstrumentationSerialTest.FAILED_RUN_TEST_ATTEMPTS;
+        mMockListener.testRunStarted(packageName, 0);
+        EasyMock.expectLastCall().times(1);
+        mMockListener.testRunStarted(packageName, 0, 1);
+        EasyMock.expectLastCall().times(1);
+        mMockListener.testRunStarted(packageName, 0, 2);
+        EasyMock.expectLastCall().times(1);
         mMockListener.testRunFailed(runFailureMsg);
         EasyMock.expectLastCall().times(expectedAttempts);
         mMockListener.testRunEnded(0, new HashMap<String, Metric>());
-        EasyMock.expectLastCall().times(expectedAttempts - 1);
+        EasyMock.expectLastCall().times(expectedAttempts);
         mMockListener.testRunEnded(0, new HashMap<String, Metric>());
 
         // now expect test to be marked as failed
@@ -165,5 +168,54 @@ public class InstrumentationSerialTestTest {
         } catch (IllegalArgumentException e) {
             // expected
         }
+    }
+
+    /** Test that the serial rerun properly exclude test-package since we are specifying 'class'. */
+    @Test
+    public void testRun_package() throws DeviceNotAvailableException, ConfigurationException {
+        final String packageName = "com.foo";
+        final String testPackageName = "com.foo.subfoo";
+        final TestDescription test = new TestDescription("FooTest", "testFoo");
+        final Collection<TestDescription> testList = new ArrayList<TestDescription>(1);
+        testList.add(test);
+        final InstrumentationTest mockITest =
+                new InstrumentationTest() {
+                    @Override
+                    public void run(ITestInvocationListener listener) {
+                        listener.testRunStarted(packageName, 1);
+                        listener.testStarted(test);
+                        listener.testEnded(test, 10l, new HashMap<String, Metric>());
+                        listener.testRunEnded(0, new HashMap<String, Metric>());
+                    }
+                };
+
+        // mock out InstrumentationTest that will be used to create InstrumentationSerialTest
+        mockITest.setDevice(mMockTestDevice);
+        mockITest.setPackageName(packageName);
+        // A test-package was specified for the original instrumentation.
+        mockITest.setTestPackageName(testPackageName);
+
+        mInstrumentationSerialTest =
+                new InstrumentationSerialTest(mockITest, testList) {
+                    @Override
+                    InstrumentationTest createInstrumentationTest(
+                            InstrumentationTest instrumentationTest) throws ConfigurationException {
+                        return mockITest;
+                    }
+                };
+        mMockListener.testRunStarted(packageName, 0, 1);
+        mMockListener.testStarted(EasyMock.eq(test), EasyMock.anyLong());
+        mMockListener.testEnded(
+                EasyMock.eq(test), EasyMock.eq(10l), EasyMock.eq(new HashMap<String, Metric>()));
+        mMockListener.testRunEnded(0, new HashMap<String, Metric>());
+
+        EasyMock.replay(mMockListener, mMockTestDevice);
+        mInstrumentationSerialTest.run(mMockListener);
+        assertEquals(mMockTestDevice, mockITest.getDevice());
+        assertEquals(test.getClassName(), mockITest.getClassName());
+        assertEquals(test.getTestName(), mockITest.getMethodName());
+        // We do not carry the test-package because it conflicts with -e class
+        assertNull(mockITest.getTestPackageName());
+        EasyMock.verify(mMockListener, mMockTestDevice);
     }
 }

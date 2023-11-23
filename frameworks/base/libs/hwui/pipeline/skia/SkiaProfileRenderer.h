@@ -16,14 +16,14 @@
 
 #include "IProfileRenderer.h"
 
-#include "BakedOpRenderer.h"
+#include "SkCanvas.h"
 
 namespace android {
 namespace uirenderer {
 
 class SkiaProfileRenderer : public IProfileRenderer {
 public:
-    SkiaProfileRenderer(SkCanvas* canvas) : mCanvas(canvas) {}
+    explicit SkiaProfileRenderer(SkCanvas* canvas) : mCanvas(canvas) {}
 
     void drawRect(float left, float top, float right, float bottom, const SkPaint& paint) override;
     void drawRects(const float* rects, int count, const SkPaint& paint) override;

@@ -30,24 +30,28 @@ import android.util.Log;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
-public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
-    private static final String LOG_TAG = MultipleFragmentLoginTest.class.getSimpleName();
-    @Rule
-    public final AutofillActivityTestRule<FragmentContainerActivity> mActivityRule =
-            new AutofillActivityTestRule<>(FragmentContainerActivity.class);
+public class MultipleFragmentLoginTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<FragmentContainerActivity> {
+
+    private static final String LOG_TAG = "MultipleFragmentLoginTest";
+
     private FragmentContainerActivity mActivity;
     private EditText mEditText1;
     private EditText mEditText2;
 
-    @Before
-    public void init() {
-        mActivity = mActivityRule.getActivity();
-        mEditText1 = mActivity.findViewById(R.id.editText1);
-        mEditText2 = mActivity.findViewById(R.id.editText2);
+    @Override
+    protected AutofillActivityTestRule<FragmentContainerActivity> getActivityRule() {
+        return new AutofillActivityTestRule<FragmentContainerActivity>(
+                FragmentContainerActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+                mEditText1 = mActivity.findViewById(R.id.editText1);
+                mEditText2 = mActivity.findViewById(R.id.editText2);
+            }
+        };
     }
 
     @Test
@@ -64,21 +68,18 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
                 .setExtras(clientState)
                 .build());
 
-        final InstrumentedAutoFillService.FillRequest[] fillRequest =
-                new InstrumentedAutoFillService.FillRequest[1];
+        // Trigger autofill on editText2
+        mActivity.syncRunOnUiThread(() -> mEditText2.requestFocus());
 
-        // Trigger autofill
-        mActivity.syncRunOnUiThread(() -> {
-            mEditText2.requestFocus();
-            mEditText1.requestFocus();
-        });
+        final InstrumentedAutoFillService.FillRequest fillRequest1 = sReplier.getNextFillRequest();
+        assertThat(fillRequest1.data).isNull();
 
-        fillRequest[0] = sReplier.getNextFillRequest();
+        mUiBot.assertNoDatasetsEver(); // UI is only shown on editText1
 
-        assertThat(fillRequest[0].data).isNull();
+        mActivity.setRootContainerFocusable(false);
 
-        AssistStructure structure = fillRequest[0].contexts.get(0).getStructure();
-        assertThat(fillRequest[0].contexts.size()).isEqualTo(1);
+        final AssistStructure structure = fillRequest1.contexts.get(0).getStructure();
+        assertThat(fillRequest1.contexts.size()).isEqualTo(1);
         assertThat(findNodeByResourceId(structure, "editText1")).isNotNull();
         assertThat(findNodeByResourceId(structure, "editText2")).isNotNull();
         assertThat(findNodeByResourceId(structure, "editText3")).isNull();
@@ -86,6 +87,7 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
         assertThat(findNodeByResourceId(structure, "editText5")).isNull();
 
         // Wait until autofill has been applied
+        mActivity.syncRunOnUiThread(() -> mEditText1.requestFocus());
         mUiBot.selectDataset("dataset1");
         mUiBot.assertShownByText("editText1-autofilled");
 
@@ -111,15 +113,15 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
                         R.id.rootContainer, new FragmentWithMoreEditTexts(),
                         FRAGMENT_TAG).commitNow());
         EditText editText5 = mActivity.findViewById(R.id.editText5);
-        fillRequest[0] = sReplier.getNextFillRequest();
+        final InstrumentedAutoFillService.FillRequest fillRequest2 = sReplier.getNextFillRequest();
 
         // The fillRequest should have a fillContext for each partition. The first partition
         // should be filled in
-        assertThat(fillRequest[0].contexts.size()).isEqualTo(2);
+        assertThat(fillRequest2.contexts.size()).isEqualTo(2);
 
-        assertThat(fillRequest[0].data.getString("key")).isEqualTo("value1");
+        assertThat(fillRequest2.data.getString("key")).isEqualTo("value1");
 
-        AssistStructure structure1 = fillRequest[0].contexts.get(0).getStructure();
+        final AssistStructure structure1 = fillRequest2.contexts.get(0).getStructure();
         ViewNode editText1Node = findNodeByResourceId(structure1, "editText1");
         // The actual value in the structure is not updated in FillRequest-contexts, but the
         // autofill value is. For text views in SaveRequest both are updated, but this is the
@@ -136,7 +138,7 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
         assertThat(findNodeByResourceId(structure1, "editText4")).isNull();
         assertThat(findNodeByResourceId(structure1, "editText5")).isNull();
 
-        AssistStructure structure2 = fillRequest[0].contexts.get(1).getStructure();
+        final AssistStructure structure2 = fillRequest2.contexts.get(1).getStructure();
 
         assertThat(findNodeByResourceId(structure2, "editText1")).isNull();
         assertThat(findNodeByResourceId(structure2, "editText2")).isNull();
@@ -157,33 +159,33 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
         mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
 
         // The saveRequest should have a fillContext for each partition with all the data
-        InstrumentedAutoFillService.SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        final InstrumentedAutoFillService.SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertThat(saveRequest.contexts.size()).isEqualTo(2);
 
         assertThat(saveRequest.data.getString("key")).isEqualTo("value2");
 
-        structure1 = saveRequest.contexts.get(0).getStructure();
-        editText1Node = findNodeByResourceId(structure1, "editText1");
+        final AssistStructure saveStructure1 = saveRequest.contexts.get(0).getStructure();
+        editText1Node = findNodeByResourceId(saveStructure1, "editText1");
         assertThat(editText1Node.getText().toString()).isEqualTo("editText1-autofilled");
 
-        editText2Node = findNodeByResourceId(structure1, "editText2");
+        editText2Node = findNodeByResourceId(saveStructure1, "editText2");
         assertThat(editText2Node.getText().toString()).isEqualTo("editText2-manually-filled");
 
-        assertThat(findNodeByResourceId(structure1, "editText3")).isNull();
-        assertThat(findNodeByResourceId(structure1, "editText4")).isNull();
-        assertThat(findNodeByResourceId(structure1, "editText5")).isNull();
+        assertThat(findNodeByResourceId(saveStructure1, "editText3")).isNull();
+        assertThat(findNodeByResourceId(saveStructure1, "editText4")).isNull();
+        assertThat(findNodeByResourceId(saveStructure1, "editText5")).isNull();
 
-        structure2 = saveRequest.contexts.get(1).getStructure();
-        assertThat(findNodeByResourceId(structure2, "editText1")).isNull();
-        assertThat(findNodeByResourceId(structure2, "editText2")).isNull();
+        final AssistStructure saveStructure2 = saveRequest.contexts.get(1).getStructure();
+        assertThat(findNodeByResourceId(saveStructure2, "editText1")).isNull();
+        assertThat(findNodeByResourceId(saveStructure2, "editText2")).isNull();
 
-        ViewNode editText3Node = findNodeByResourceId(structure2, "editText3");
+        ViewNode editText3Node = findNodeByResourceId(saveStructure2, "editText3");
         assertThat(editText3Node.getText().toString()).isEqualTo("editText3-autofilled");
 
-        ViewNode editText4Node = findNodeByResourceId(structure2, "editText4");
+        ViewNode editText4Node = findNodeByResourceId(saveStructure2, "editText4");
         assertThat(editText4Node.getText().toString()).isEqualTo("editText4-autofilled");
 
-        ViewNode editText5Node = findNodeByResourceId(structure2, "editText5");
+        ViewNode editText5Node = findNodeByResourceId(saveStructure2, "editText5");
         assertThat(editText5Node.getText().toString()).isEqualTo("editText5-manually-filled");
     }
 
@@ -213,14 +215,15 @@ public class MultipleFragmentLoginTest extends AutoFillServiceTestCase {
 
         sReplier.addResponse(response.build());
 
-        // Trigger autofill
-        mActivity.syncRunOnUiThread(() -> {
-            mEditText2.requestFocus();
-            mEditText1.requestFocus();
-        });
+        // Trigger autofill on editText2
+        mActivity.syncRunOnUiThread(() -> mEditText2.requestFocus());
+        sReplier.getNextFillRequest();
+        mUiBot.assertNoDatasetsEver(); // UI is only shown on editText1
+
+        mActivity.setRootContainerFocusable(false);
 
         // Check UI is shown, but don't select it.
-        sReplier.getNextFillRequest();
+        mActivity.syncRunOnUiThread(() -> mEditText1.requestFocus());
         mUiBot.assertDatasets("dataset1");
 
         // Switch fragments

@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.devicetest;
@@ -29,14 +29,17 @@ import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventTyp
 import android.inputmethodservice.cts.common.EventProviderConstants.EventTableConstants;
 import android.inputmethodservice.cts.common.test.TestInfo;
 import android.net.Uri;
-import androidx.annotation.IdRes;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Test;
+
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -56,14 +59,36 @@ final class TestHelper {
     private final UiDevice mUiDevice;
 
     /**
-     * Construct a helper object of specified test method.
+     * @return {@link Method} that has {@link Test} annotation in the call stack.
      *
-     * @param testClass a {@link Class} of test.
-     * @param testMethod a name of test method.
+     * <p>Note: This can be removed once we switch to JUnit5, where org.junit.jupiter.api.TestInfo
+     * is supported in the framework level.</p>
      */
-    TestHelper(final Class<?> testClass, final String testMethod) {
+    private static Method getTestMethod() {
+        for (StackTraceElement stackTraceElement : Thread.currentThread().getStackTrace()) {
+            try {
+                final Class<?> clazz = Class.forName(stackTraceElement.getClassName());
+                final Method method = clazz.getDeclaredMethod(stackTraceElement.getMethodName());
+                final Test annotation = method.getAnnotation(Test.class);
+                if (annotation != null) {
+                    return method;
+                }
+            } catch (ClassNotFoundException | NoSuchMethodException e) {
+            }
+        }
+        throw new IllegalStateException(
+                "Method that has @Test annotation is not found in the call stack.");
+    }
+
+    /**
+     * Construct a helper object of specified test method.
+     */
+    TestHelper() {
+        final Method testMethod = getTestMethod();
+        final Class<?> testClass = testMethod.getDeclaringClass();
         final Context testContext = InstrumentationRegistry.getContext();
-        mTestInfo = new TestInfo(testContext.getPackageName(), testClass.getName(), testMethod);
+        mTestInfo = new TestInfo(testContext.getPackageName(), testClass.getName(),
+                testMethod.getName());
         mResolver = testContext.getContentResolver();
         mTargetContext = InstrumentationRegistry.getTargetContext();
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -75,7 +100,7 @@ final class TestHelper {
      * @return command's standard output without ending newline.
      * @throws IOException
      */
-    String shell(final String command) throws IOException {
+    String shell(String command) throws IOException {
         return mUiDevice.executeShellCommand(command).trim();
     }
 
@@ -85,7 +110,7 @@ final class TestHelper {
      * @param className activity's class name.
      * @param uri uri to be handled.
      */
-    void launchActivity(final String packageName, final String className, final String uri) {
+    void launchActivity(String packageName, String className, String uri) {
         final Intent intent = new Intent()
                 .setAction(Intent.ACTION_VIEW)
                 .addCategory(Intent.CATEGORY_BROWSABLE)
@@ -112,7 +137,7 @@ final class TestHelper {
      * @return {@link Stream<DeviceEvent>} of all device events.
      */
     Stream<DeviceEvent> queryAllEvents() {
-        try (final Cursor cursor = mResolver.query(
+        try (Cursor cursor = mResolver.query(
                 DEVICE_EVENTS_CONTENT_URI,
                 null /* projection */,
                 null /* selection */,

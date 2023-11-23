@@ -8,6 +8,7 @@ import os
 import utils
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 from autotest_lib.client.cros.input_playback import input_playback
 
@@ -17,21 +18,6 @@ POLL_FREQUENCY = 0.5
 
 class policy_DisableScreenshots(
         enterprise_policy_base.EnterprisePolicyTest):
-    """
-    Test DisableScreenshots policy effect on ChromerOS behavior.
-
-    This test verifies the behavior of Chrome OS with a set of valid values
-    for the DisableScreenshots user policy ie, the policy value is set to True,
-    False or is Unset.
-    These valid values are covered by the test cases: DisableScreenshot_Block,
-    NotSet_Allow and False_Allow.
-
-    When the policy value is None or is set to False (as in the cases
-    NotSet_Allow and False_Allow), then screenshots will be captured on pressing
-    the Ctrl and F5 keyboard buttons. When the value is set to True (as in case
-    DisableScreenshot_Block), screenshot capture is disabled.
-
-    """
     version = 1
 
     def initialize(self, **kwargs):
@@ -55,22 +41,20 @@ class policy_DisableScreenshots(
             'False_Allow': False,
             'NotSet_Allow': None
         }
-        self.STARTUP_URLS = ['chrome://policy', 'chrome://settings']
-        self.SUPPORTING_POLICIES = {
-            'RestoreOnStartupURLs': self.STARTUP_URLS,
-            'RestoreOnStartup': 4
-        }
 
-
-    def _capture_screenshot(self):
-        """Capture a screenshot by pressing Ctrl +F5."""
-        self.player.blocking_playback_of_default_file(
-                input_type='keyboard', filename='keyboard_ctrl+f5')
+        # Possible API methods to capture the screen
+        self.CAPTURE_CMDS = [
+                'captureVisibleTab',
+                # TODO(timkovich): https://crbug.com/839630
+                # 'tabCapture',
+                # TODO(timkovich): https://crbug.com/817497
+                # 'desktopCapture'
+        ]
 
 
     def _screenshot_file_exists(self):
         """
-        Return True if screenshot was captured. else returns False.
+        Checks if screenshot file was created by keyboard shortcut.
 
         @returns boolean indicating if screenshot file was saved or not.
 
@@ -101,9 +85,9 @@ class policy_DisableScreenshots(
         super(policy_DisableScreenshots, self).cleanup()
 
 
-    def _test_screenshot_disabled(self, policy_value):
+    def _test_screenshot_shortcut(self, policy_value):
         """
-        Verify CrOS enforces the DisableScreenshots policy.
+        Verify DisableScreenshots is enforced for the screenshot shortcut.
 
         When DisableScreenshots policy value is undefined, screenshots shall
         be captured via the keyboard shortcut Ctrl + F5.
@@ -116,13 +100,75 @@ class policy_DisableScreenshots(
         logging.info('Deleting preexisting Screenshot files.')
         self._delete_screenshot_files()
 
-        self._capture_screenshot()
+        # Keyboard shortcut for screenshots
+        self.player.blocking_playback_of_default_file(
+                input_type='keyboard', filename='keyboard_ctrl+f5')
+
         screenshot_file_captured = self._screenshot_file_exists()
         if policy_value:
             if screenshot_file_captured:
                 raise error.TestFail('Screenshot should not be captured')
         elif not screenshot_file_captured:
             raise error.TestFail('Screenshot should be captured')
+
+
+    def _test_screenshot_apis(self, policy_value):
+        """
+        Verify DisableScreenshot policy blocks API calls.
+
+        Attempts to capture the screen using all of the methods to capture
+        the screen through the APIs. Captures should not happen when
+        policy_value is True and should happen in the other cases.
+
+        @param policy_value: policy value for this case
+
+        @raises error.TestFail: In the case where the capture behavior
+            does not match the policy value
+
+        """
+        tab = self.navigate_to_url('https://google.com')
+
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+
+        for method in self.CAPTURE_CMDS:
+            # Set the document.title to the test name
+            tab.ExecuteJavaScript('document.title = "%s"' % method)
+
+            # Call the extension's shortcut to trigger the API call
+            self.player.blocking_playback(
+                    input_type='keyboard',
+                    filepath=os.path.join(current_dir, 'keyboard_ctrl+shift+y'))
+
+            # desktopCapture opens a prompt window that needs to be OKed
+            if method == 'desktopCapture':
+                self.player.blocking_playback_of_default_file(
+                        input_type='keyboard', filename='keyboard_enter')
+
+            # The document.title is used to pass information to and from
+            # the DOM and the extension. The return value of the screenshot
+            # API call is set to the document.title.
+            try:
+                utils.poll_for_condition(
+                        lambda: tab.EvaluateJavaScript(
+                            'document.title != "%s"' % method
+                        ),
+                        timeout=POLL_TIMEOUT)
+                capture = tab.EvaluateJavaScript('document.title')
+            except utils.TimeoutError:
+                capture = None
+
+            if capture == 'undefined':
+                capture = None
+
+            if policy_value:
+                if capture is not None:
+                    raise error.TestFail('Screen should not be captured. '
+                                         'method = %s, capture = %s'
+                                         % (method, capture))
+            elif capture is None:
+                raise error.TestFail('Screen should be captured. '
+                                     'method = %s, capture = %s'
+                                     % (method, capture))
 
 
     def run_once(self, case):
@@ -133,6 +179,11 @@ class policy_DisableScreenshots(
 
         """
         case_value = self.TEST_CASES[case]
-        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
-        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
-        self._test_screenshot_disabled(case_value)
+        self._extension_path = os.path.join(os.path.dirname(__file__),
+                                            'Screenshooter')
+
+        self.setup_case(user_policies={self.POLICY_NAME: case_value},
+                        extension_paths=[self._extension_path])
+
+        self._test_screenshot_shortcut(case_value)
+        self._test_screenshot_apis(case_value)

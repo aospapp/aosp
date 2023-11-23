@@ -22,6 +22,9 @@ import android.os.UserHandle;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.LayoutRes;
+import androidx.annotation.StringRes;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
 import com.android.internal.widget.LockPatternUtils;
@@ -48,17 +51,22 @@ public class ConfirmLockPatternFragment extends BaseFragment {
     private int mUserId;
     private List<LockPatternView.Cell> mPattern;
 
-    /**
-     * Factory method for creating ConfirmLockPatternFragment
-     */
-    public static ConfirmLockPatternFragment newInstance() {
-        ConfirmLockPatternFragment patternFragment = new ConfirmLockPatternFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.security_settings_title);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.confirm_lock_pattern_fragment);
-        patternFragment.setArguments(bundle);
-        return patternFragment;
+    @Override
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar_with_button;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getLayoutId() {
+        return R.layout.confirm_lock_pattern;
+    }
+
+    @Override
+    @StringRes
+    protected int getTitleId() {
+        return R.string.security_settings_title;
     }
 
     @Override
@@ -110,7 +118,7 @@ public class ConfirmLockPatternFragment extends BaseFragment {
         }
     }
 
-    private Runnable mClearErrorRunnable = () ->  {
+    private Runnable mClearErrorRunnable = () -> {
         mLockPatternView.clearPattern();
         mMsgView.setText("");
     };
@@ -118,38 +126,40 @@ public class ConfirmLockPatternFragment extends BaseFragment {
     private LockPatternView.OnPatternListener mLockPatternListener =
             new LockPatternView.OnPatternListener() {
 
-        public void onPatternStart() {
-            mLockPatternView.removeCallbacks(mClearErrorRunnable);
-            mMsgView.setText("");
-        }
+                public void onPatternStart() {
+                    mLockPatternView.removeCallbacks(mClearErrorRunnable);
+                    mMsgView.setText("");
+                }
 
-        public void onPatternCleared() {
-            mLockPatternView.removeCallbacks(mClearErrorRunnable);
-        }
+                public void onPatternCleared() {
+                    mLockPatternView.removeCallbacks(mClearErrorRunnable);
+                }
 
-        public void onPatternCellAdded(List<LockPatternView.Cell> pattern) {}
+                public void onPatternCellAdded(List<LockPatternView.Cell> pattern) {
+                }
 
-        public void onPatternDetected(List<LockPatternView.Cell> pattern) {
-            mLockPatternView.setEnabled(false);
+                public void onPatternDetected(List<LockPatternView.Cell> pattern) {
+                    mLockPatternView.setEnabled(false);
 
-            if (mCheckLockWorker == null) {
-                mCheckLockWorker = new CheckLockWorker();
-                mCheckLockWorker.setListener(ConfirmLockPatternFragment.this::onCheckCompleted);
+                    if (mCheckLockWorker == null) {
+                        mCheckLockWorker = new CheckLockWorker();
+                        mCheckLockWorker.setListener(
+                                ConfirmLockPatternFragment.this::onCheckCompleted);
 
-                getFragmentManager()
-                        .beginTransaction()
-                        .add(mCheckLockWorker, FRAGMENT_TAG_CHECK_LOCK_WORKER)
-                        .commitNow();
-            }
+                        getFragmentManager()
+                                .beginTransaction()
+                                .add(mCheckLockWorker, FRAGMENT_TAG_CHECK_LOCK_WORKER)
+                                .commitNow();
+                    }
 
-            mPattern = pattern;
-            mCheckLockWorker.checkPattern(mUserId, pattern);
-        }
-    };
+                    mPattern = pattern;
+                    mCheckLockWorker.checkPattern(mUserId, pattern);
+                }
+            };
 
     private void onCheckCompleted(boolean lockMatched) {
         if (lockMatched) {
-            mCheckLockListener.onLockVerified(LockPatternUtils.patternToString(mPattern));
+            mCheckLockListener.onLockVerified(LockPatternUtils.patternToByteArray(mPattern));
         } else {
             mLockPatternView.setEnabled(true);
             mMsgView.setText(R.string.lockpattern_pattern_wrong);

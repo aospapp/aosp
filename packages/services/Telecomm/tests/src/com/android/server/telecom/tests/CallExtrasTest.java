@@ -16,6 +16,11 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.Conference;
@@ -25,6 +30,8 @@ import android.telecom.ParcelableCall;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 
+import androidx.test.filters.FlakyTest;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,11 +40,6 @@ import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Tests the {@link Connection} and {@link Call} extras functionality.
@@ -398,6 +400,7 @@ public class CallExtrasTest extends TelecomSystemTest {
      * @throws Exception
      */
     @LargeTest
+    @FlakyTest(bugId = 117751305)
     @Test
     public void testConferenceExtraOperations() throws Exception {
         ParcelableCall call = makeConferenceCall();

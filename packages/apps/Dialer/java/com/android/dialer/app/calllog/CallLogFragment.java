@@ -58,7 +58,7 @@ import com.android.dialer.blocking.FilteredNumberAsyncQueryHandler;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.database.CallLogQueryHandler;
 import com.android.dialer.database.CallLogQueryHandler.Listener;
 import com.android.dialer.location.GeoUtil;
@@ -297,7 +297,9 @@ public class CallLogFragment extends Fragment
 
   protected void setupView(View view) {
     recyclerView = (RecyclerView) view.findViewById(R.id.recycler_view);
-    if (ConfigProviderBindings.get(getContext()).getBoolean("is_call_log_item_anim_null", false)) {
+    if (ConfigProviderComponent.get(getContext())
+        .getConfigProvider()
+        .getBoolean("is_call_log_item_anim_null", false)) {
       recyclerView.setItemAnimator(null);
     }
     recyclerView.setHasFixedSize(true);
@@ -449,7 +451,7 @@ public class CallLogFragment extends Fragment
     super.onStart();
     CequintCallerIdManager cequintCallerIdManager = null;
     if (CequintCallerIdManager.isCequintCallerIdEnabled(getContext())) {
-      cequintCallerIdManager = CequintCallerIdManager.createInstanceForCallLog();
+      cequintCallerIdManager = new CequintCallerIdManager();
     }
     contactInfoCache.setCequintCallerIdManager(cequintCallerIdManager);
   }
@@ -489,7 +491,10 @@ public class CallLogFragment extends Fragment
   @Override
   public void fetchCalls() {
     callLogQueryHandler.fetchCalls(callTypeFilter, dateLimit);
-    if (!isCallLogActivity) {
+    if (!isCallLogActivity
+        && getActivity() != null
+        && !getActivity().isFinishing()
+        && FragmentUtils.getParent(this, CallLogFragmentListener.class) != null) {
       FragmentUtils.getParentUnsafe(this, CallLogFragmentListener.class).updateTabUnreadCounts();
     }
   }

@@ -17,8 +17,9 @@
 #ifndef CONSCRYPT_TRACE_H_
 #define CONSCRYPT_TRACE_H_
 
+#include <stdio.h>
 #include <cstddef>
-#include <conscrypt/macros.h>
+#include <conscrypt/logging.h>
 
 namespace conscrypt {
 namespace trace {
@@ -64,17 +65,17 @@ extern const std::size_t kWithJniTraceDataChunkSize;
 }  // namespace trace
 }  // namespace conscrypt
 
-#define JNI_TRACE(...)                               \
-    if (conscrypt::trace::kWithJniTrace) {           \
-        ALOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
+#define JNI_TRACE(...)                                        \
+    if (conscrypt::trace::kWithJniTrace) {                    \
+        CONSCRYPT_LOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
     }
-#define JNI_TRACE_MD(...)                            \
-    if (conscrypt::trace::kWithJniTraceMd) {         \
-        ALOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
+#define JNI_TRACE_MD(...)                                     \
+    if (conscrypt::trace::kWithJniTraceMd) {                  \
+        CONSCRYPT_LOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
     }
-#define JNI_TRACE_KEYS(...)                          \
-    if (conscrypt::trace::kWithJniTraceKeys) {       \
-        ALOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
+#define JNI_TRACE_KEYS(...)                                   \
+    if (conscrypt::trace::kWithJniTraceKeys) {                \
+        CONSCRYPT_LOG(LOG_INFO, LOG_TAG "-jni", __VA_ARGS__); \
     }
 #define JNI_TRACE_PACKET_DATA(ssl, dir, data, len)    \
     if (conscrypt::trace::kWithJniTracePackets) {     \

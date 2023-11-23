@@ -144,6 +144,12 @@ public interface IModuleResult extends Comparable<IModuleResult> {
      */
     int countResults(TestStatus status);
 
+    /** Sets the module as failed. */
+    void setFailed();
+
+    /** Returns whether or not the module has failed. */
+    boolean isFailed();
+
     /**
      * Merge the module results from otherModuleResult into this moduleResult.
      */

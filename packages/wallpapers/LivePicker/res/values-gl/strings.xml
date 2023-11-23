@@ -24,6 +24,8 @@
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Fondos de pantalla animados"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Vista previa de fondo de pantalla animado"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Configuración…"</string>
+    <string name="delete_live_wallpaper" msgid="5127205073129449497">"Eliminar"</string>
+    <string name="preview" msgid="5553971347768345401">"Vista previa"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"Establecer fondo de pantalla"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"Non hai fondos de pantalla animados."</string>
     <string name="set_live_wallpaper" msgid="2381437614949033266">"Establecer fondo de pantalla"</string>
@@ -31,6 +33,10 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Cargando fondo de pantalla animado…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Pantalla de inicio"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Pantalla de inicio e pantalla de bloqueo"</string>
+    <string name="explore_further" msgid="2891466461738034935">"Explorar"</string>
+    <string name="tab_info" msgid="2612717074705274392">"Información"</string>
+    <string name="tab_customize" msgid="5282247400178296263">"Personalizar"</string>
+    <string name="delete_wallpaper_confirmation" msgid="6449356646369781400">"Queres eliminar este fondo de pantalla do teu teléfono?"</string>
     <string name="collapse_attribution_panel" msgid="4998500891743118630">"Contrae o panel de información do fondo de pantalla"</string>
     <string name="expand_attribution_panel" msgid="3151357815478885438">"Desprega o panel de información do fondo de pantalla"</string>
 </resources>

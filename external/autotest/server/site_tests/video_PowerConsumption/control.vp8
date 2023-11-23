@@ -7,9 +7,9 @@ NAME = "video_PowerConsumption.vp8"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:crosbolt_perf_perbuild"
 TEST_TYPE = "server"
-DEPENDENCIES = "rpm, power:battery"
+DEPENDENCIES = "power:battery"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome", "VideoTestFailure"],
     "cc": ["chromeos-video-test-failures@google.com"],
@@ -37,7 +37,8 @@ def _run_client_test(machine):
         client.power_off()
         client_at = autotest.Autotest(client)
         client_at.run_test("video_PlaybackPerf", video_name=VIDEO_NAME,
-                           video_description=VIDEO_DESCRIPTION, power_test=True)
+                           video_description=VIDEO_DESCRIPTION,
+                           capability='hw_dec_vp8_1080_30', power_test=True)
     finally:
         client.power_on()
 

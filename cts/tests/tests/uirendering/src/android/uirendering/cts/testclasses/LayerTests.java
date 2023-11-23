@@ -29,9 +29,6 @@ import android.graphics.Point;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.ColorCountVerifier;
@@ -48,8 +45,10 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -193,7 +192,7 @@ public class LayerTests extends ActivityTestBase {
     @Test
     public void testLayerClear() {
         ViewInitializer initializer = new ViewInitializer() {
-            ValueAnimator mAnimator;
+            ValueAnimator mAnimator = ValueAnimator.ofInt(0, 20);
             @Override
             public void initializeView(View view) {
                 FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
@@ -207,7 +206,6 @@ public class LayerTests extends ActivityTestBase {
                 child.setLayerType(View.LAYER_TYPE_HARDWARE, null);
                 root.addView(child);
 
-                mAnimator = ValueAnimator.ofInt(0, 20);
                 mAnimator.setRepeatMode(ValueAnimator.REVERSE);
                 mAnimator.setRepeatCount(ValueAnimator.INFINITE);
                 mAnimator.setDuration(200);
@@ -227,7 +225,8 @@ public class LayerTests extends ActivityTestBase {
 
         createTest()
                 .addLayout(R.layout.frame_layout, initializer, true)
-                .runWithAnimationVerifier(new ColorCountVerifier(Color.WHITE, 90 * 90 - 50 * 50));
+                .runWithAnimationVerifier(new ColorCountVerifier(
+                        Color.WHITE, 90 * 90 - 50 * 50, 10));
     }
 
     @Test
@@ -538,12 +537,19 @@ public class LayerTests extends ActivityTestBase {
 
     @LargeTest
     @Test
-    @Ignore // b/109839751
     public void testWebViewWithUnclippedLayer() {
         if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             return; // no WebView to run test on
         }
         CountDownLatch hwFence = new CountDownLatch(1);
+        Point[] testPoints = new Point[] {
+            // solid area
+            new Point(0, 0),
+            new Point(0, TEST_HEIGHT - 1),
+            // fade area
+            new Point(0, TEST_HEIGHT - 10),
+            new Point(0, TEST_HEIGHT - 5)
+        };
         createTest()
                 .addLayout(R.layout.test_content_webview, (ViewInitializer) view -> {
                     WebView webview = view.requireViewById(R.id.webview);
@@ -553,32 +559,39 @@ public class LayerTests extends ActivityTestBase {
                     webview.setVerticalScrollBarEnabled(false);
                     webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
+                    // Adjust Y to match the same gradient percentage, regardless of vertical
+                    // fading edge length.
+                    int verticalFadingEdgeLength = webview.getVerticalFadingEdgeLength();
+                    testPoints[2].y = TEST_HEIGHT - verticalFadingEdgeLength * 10 / 42;
+                    testPoints[3].y = TEST_HEIGHT - verticalFadingEdgeLength * 5 / 42;
                 }, true, hwFence)
                 .runWithVerifier(new SamplePointVerifier(
-                        new Point[] {
-                                // solid area
-                                new Point(0, 0),
-                                new Point(0, TEST_HEIGHT - 1),
-                                // fade area
-                                new Point(0, TEST_HEIGHT - 10),
-                                new Point(0, TEST_HEIGHT - 5)
-                        },
+                        testPoints,
                         new int[] {
                                 Color.BLUE,
                                 Color.WHITE,
-                                0xffb3b3ff, // white blended with blue
+                                0xffc5c5ff, // white blended with blue
                                 0xffdbdbff  // white blended with blue
-                        }));
+                        }, 50));
     }
 
     @LargeTest
     @Test
-    @Ignore // b/109839751
     public void testWebViewWithUnclippedLayerAndComplexClip() {
         if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             return; // no WebView to run test on
         }
         CountDownLatch hwFence = new CountDownLatch(1);
+        Point[] testPoints = new Point[] {
+            // solid white area
+            new Point(0, 0),
+            new Point(0, TEST_HEIGHT - 1),
+            // solid blue area
+            new Point(TEST_WIDTH / 2 , 5),
+            // fade area
+            new Point(TEST_WIDTH / 2, TEST_HEIGHT - 10),
+            new Point(TEST_WIDTH / 2, TEST_HEIGHT - 5)
+        };
         createTest()
                 .addLayout(R.layout.circle_clipped_webview, (ViewInitializer) view -> {
                     WebView webview = view.requireViewById(R.id.webview);
@@ -587,26 +600,21 @@ public class LayerTests extends ActivityTestBase {
                     webview.setVerticalFadingEdgeEnabled(true);
                     webview.setVerticalScrollBarEnabled(false);
                     webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
+                    // Adjust Y to match the same gradient percentage, regardless of vertical
+                    // fading edge length.
+                    int verticalFadingEdgeLength = webview.getVerticalFadingEdgeLength();
+                    testPoints[3].y = TEST_HEIGHT - verticalFadingEdgeLength * 10 / 42;
+                    testPoints[4].y = TEST_HEIGHT - verticalFadingEdgeLength * 5 / 42;
                 }, true, hwFence)
                 .runWithVerifier(new SamplePointVerifier(
-                        new Point[] {
-                                // solid white area
-                                new Point(0, 0),
-                                new Point(0, TEST_HEIGHT - 1),
-                                // solid blue area
-                                new Point(TEST_WIDTH / 2 , 5),
-                                // fade area
-                                new Point(TEST_WIDTH / 2, TEST_HEIGHT - 10),
-                                new Point(TEST_WIDTH / 2, TEST_HEIGHT - 5)
-                        },
+                        testPoints,
                         new int[] {
                                 Color.WHITE,
                                 Color.WHITE,
                                 Color.BLUE,
-                                0xffb3b3ff, // white blended with blue
+                                0xffc5c5ff, // white blended with blue
                                 0xffdbdbff  // white blended with blue
-                        }));
+                        }, 50));
     }
 
     @LargeTest

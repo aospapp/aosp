@@ -9,7 +9,7 @@ CRITERIA = """
 This test will fail if, after playback of touchscreen events, no scrolling is
 detected or if scrolling is in the wrong direction.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

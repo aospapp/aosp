@@ -28,8 +28,11 @@ import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
+
+import com.android.compatibility.common.util.ShellIdentityUtils;
 
 import java.util.List;
 
@@ -38,9 +41,12 @@ import java.util.List;
  */
 public abstract class ShortcutManagerDeviceTestBase extends InstrumentationTestCase {
     private ShortcutManager mManager;
+    private UserManager mUserManager;
     private LauncherApps mLauncherApps;
 
     private String mOriginalLauncher;
+
+    protected boolean mIsManagedUser;
 
     protected Context getContext() {
         return getInstrumentation().getTargetContext();
@@ -53,12 +59,16 @@ public abstract class ShortcutManagerDeviceTestBase extends InstrumentationTestC
         mOriginalLauncher = getDefaultLauncher(getInstrumentation());
 
         mManager = getContext().getSystemService(ShortcutManager.class);
+        mUserManager = getContext().getSystemService(UserManager.class);
         mLauncherApps = getContext().getSystemService(LauncherApps.class);
+
+        mIsManagedUser = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                mUserManager, UserManager::isManagedProfile);
     }
 
     @Override
     protected void tearDown() throws Exception {
-        if (!TextUtils.isEmpty(mOriginalLauncher)) {
+        if (!mIsManagedUser && !TextUtils.isEmpty(mOriginalLauncher)) {
             setDefaultLauncher(getInstrumentation(), mOriginalLauncher);
         }
 

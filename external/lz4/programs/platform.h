@@ -30,10 +30,10 @@ extern "C" {
 *  Compiler Options
 ****************************************/
 #if defined(_MSC_VER)
-#  define _CRT_SECURE_NO_WARNINGS   /* Disable Visual Studio warning messages for fopen, strncpy, strerror */
-#  define _CRT_SECURE_NO_DEPRECATE  /* VS2005 - must be declared before <io.h> and <windows.h> */ 
-#  if (_MSC_VER <= 1800)            /* (1800 = Visual Studio 2013) */
-#    define snprintf sprintf_s      /* snprintf unsupported by Visual <= 2013 */
+#  define _CRT_SECURE_NO_WARNINGS    /* Disable Visual Studio warning messages for fopen, strncpy, strerror */
+#  if (_MSC_VER <= 1800)             /* (1800 = Visual Studio 2013) */
+#    define _CRT_SECURE_NO_DEPRECATE /* VS2005 - must be declared before <io.h> and <windows.h> */
+#    define snprintf sprintf_s       /* snprintf unsupported by Visual <= 2013 */
 #  endif
 #endif
 
@@ -59,8 +59,8 @@ extern "C" {
 /* *********************************************************
 *  Turn on Large Files support (>4GB) for 32-bit Linux/Unix
 ***********************************************************/
-#if !defined(__64BIT__)                               /* No point defining Large file for 64 bit */
-#  if !defined(_FILE_OFFSET_BITS)   
+#if !defined(__64BIT__) || defined(__MINGW32__)       /* No point defining Large file for 64 bit but MinGW-w64 requires it */
+#  if !defined(_FILE_OFFSET_BITS)
 #    define _FILE_OFFSET_BITS 64                      /* turn off_t into a 64-bit type for ftello, fseeko */
 #  endif
 #  if !defined(_LARGEFILE_SOURCE)                     /* obsolete macro, replaced with _FILE_OFFSET_BITS */
@@ -81,11 +81,13 @@ extern "C" {
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__)) /* UNIX-like OS */ \
    || defined(__midipix__) || defined(__VMS))
 #  if (defined(__APPLE__) && defined(__MACH__)) || defined(__SVR4) || defined(_AIX) || defined(__hpux) /* POSIX.1–2001 (SUSv3) conformant */ \
-     || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)  /* BSD distros */
+     || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)  || defined(__MidnightBSD__) /* BSD distros */
 #    define PLATFORM_POSIX_VERSION 200112L
 #  else
 #    if defined(__linux__) || defined(__linux)
-#      define _POSIX_C_SOURCE 200112L  /* use feature test macro */
+#      ifndef _POSIX_C_SOURCE
+#        define _POSIX_C_SOURCE 200112L  /* use feature test macro */
+#      endif
 #    endif
 #    include <unistd.h>  /* declares _POSIX_VERSION */
 #    if defined(_POSIX_VERSION)  /* POSIX compliant */
@@ -106,9 +108,18 @@ extern "C" {
 #if (defined(__linux__) && (PLATFORM_POSIX_VERSION >= 1)) || (PLATFORM_POSIX_VERSION >= 200112L) || defined(__DJGPP__)
 #  include <unistd.h>   /* isatty */
 #  define IS_CONSOLE(stdStream) isatty(fileno(stdStream))
-#elif defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(_WIN32) || defined(__CYGWIN__)
+#elif defined(MSDOS) || defined(OS2) || defined(__CYGWIN__)
 #  include <io.h>       /* _isatty */
 #  define IS_CONSOLE(stdStream) _isatty(_fileno(stdStream))
+#elif defined(WIN32) || defined(_WIN32)
+#  include <io.h>      /* _isatty */
+#  include <windows.h> /* DeviceIoControl, HANDLE, FSCTL_SET_SPARSE */
+#  include <stdio.h>   /* FILE */
+static __inline int IS_CONSOLE(FILE* stdStream)
+{
+    DWORD dummy;
+    return _isatty(_fileno(stdStream)) && GetConsoleMode((HANDLE)_get_osfhandle(_fileno(stdStream)), &dummy);
+}
 #else
 #  define IS_CONSOLE(stdStream) 0
 #endif

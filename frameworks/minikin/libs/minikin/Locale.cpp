@@ -34,8 +34,9 @@ uint32_t registerLocaleList(const std::string& locales) {
     return LocaleListCache::getId(locales);
 }
 
-// Check if a language code supports emoji according to its subtag
-static bool isEmojiSubtag(const char* buf, size_t bufLen, const char* subtag, size_t subtagLen) {
+// Check if a language code supports extension such as emoji and line break etc. according to its
+// subtag
+static bool isSubtag(const char* buf, size_t bufLen, const char* subtag, size_t subtagLen) {
     if (bufLen < subtagLen) {
         return false;
     }
@@ -206,7 +207,7 @@ Locale::Locale(const StringPiece& input) : Locale() {
         }
     }
 
-    mEmojiStyle = resolveEmojiStyle(input.data(), input.length());
+    resolveUnicodeExtension(input.data(), input.length());
 
 finalize:
     if (mEmojiStyle == EmojiStyle::EMPTY) {
@@ -214,23 +215,58 @@ finalize:
     }
 }
 
+void Locale::resolveUnicodeExtension(const char* buf, size_t length) {
+    static const char kPrefix[] = "-u-";
+    const char* pos = std::search(buf, buf + length, kPrefix, kPrefix + strlen(kPrefix));
+    if (pos != buf + length) {
+        pos += strlen(kPrefix);
+        const size_t remainingLength = length - (pos - buf);
+        mLBStyle = resolveLineBreakStyle(pos, remainingLength);
+        mEmojiStyle = resolveEmojiStyle(pos, remainingLength);
+    }
+}
+
 // static
-EmojiStyle Locale::resolveEmojiStyle(const char* buf, size_t length) {
-    // First, lookup emoji subtag.
-    // 10 is the length of "-u-em-text", which is the shortest emoji subtag,
-    // unnecessary comparison can be avoided if total length is smaller than 10.
-    const size_t kMinSubtagLength = 10;
+// Lookup line break subtag and determine the line break style.
+LineBreakStyle Locale::resolveLineBreakStyle(const char* buf, size_t length) {
+    // 8 is the length of "-u-lb-loose", which is the shortest line break subtag,
+    // unnecessary comparison can be avoided if total length is smaller than 11.
+    const size_t kMinSubtagLength = 8;
     if (length >= kMinSubtagLength) {
-        static const char kPrefix[] = "-u-em-";
+        static const char kPrefix[] = "lb-";
         const char* pos = std::search(buf, buf + length, kPrefix, kPrefix + strlen(kPrefix));
         if (pos != buf + length) {  // found
             pos += strlen(kPrefix);
             const size_t remainingLength = length - (pos - buf);
-            if (isEmojiSubtag(pos, remainingLength, "emoji", 5)) {
+            if (isSubtag(pos, remainingLength, "loose", 5)) {
+                return LineBreakStyle::LOOSE;
+            } else if (isSubtag(pos, remainingLength, "normal", 6)) {
+                return LineBreakStyle::NORMAL;
+            } else if (isSubtag(pos, remainingLength, "strict", 6)) {
+                return LineBreakStyle::STRICT;
+            }
+        }
+    }
+    return LineBreakStyle::EMPTY;
+}
+
+// static
+// Lookup emoji subtag and determine the emoji style.
+EmojiStyle Locale::resolveEmojiStyle(const char* buf, size_t length) {
+    // 7 is the length of "-u-em-text", which is the shortest emoji subtag,
+    // unnecessary comparison can be avoided if total length is smaller than 10.
+    const size_t kMinSubtagLength = 7;
+    if (length >= kMinSubtagLength) {
+        static const char kPrefix[] = "em-";
+        const char* pos = std::search(buf, buf + length, kPrefix, kPrefix + strlen(kPrefix));
+        if (pos != buf + length) {  // found
+            pos += strlen(kPrefix);
+            const size_t remainingLength = length - (pos - buf);
+            if (isSubtag(pos, remainingLength, "emoji", 5)) {
                 return EmojiStyle::EMOJI;
-            } else if (isEmojiSubtag(pos, remainingLength, "text", 4)) {
+            } else if (isSubtag(pos, remainingLength, "text", 4)) {
                 return EmojiStyle::TEXT;
-            } else if (isEmojiSubtag(pos, remainingLength, "default", 7)) {
+            } else if (isSubtag(pos, remainingLength, "default", 7)) {
                 return EmojiStyle::DEFAULT;
             }
         }
@@ -291,7 +327,7 @@ uint8_t Locale::scriptToSubScriptBits(uint32_t script) {
 }
 
 std::string Locale::getString() const {
-    char buf[24];
+    char buf[32] = {};
     size_t i;
     if (mLanguage == NO_LANGUAGE) {
         buf[0] = 'u';
@@ -325,6 +361,42 @@ std::string Locale::getString() const {
             case Variant::GERMAN_1996_ORTHOGRAPHY:
                 buf[i++] = '9';
                 buf[i++] = '6';
+                break;
+            default:
+                MINIKIN_ASSERT(false, "Must not reached.");
+        }
+    }
+    // Add line break unicode extension.
+    if (mLBStyle != LineBreakStyle::EMPTY) {
+        buf[i++] = '-';
+        buf[i++] = 'u';
+        buf[i++] = '-';
+        buf[i++] = 'l';
+        buf[i++] = 'b';
+        buf[i++] = '-';
+        switch (mLBStyle) {
+            case LineBreakStyle::LOOSE:
+                buf[i++] = 'l';
+                buf[i++] = 'o';
+                buf[i++] = 'o';
+                buf[i++] = 's';
+                buf[i++] = 'e';
+                break;
+            case LineBreakStyle::NORMAL:
+                buf[i++] = 'n';
+                buf[i++] = 'o';
+                buf[i++] = 'r';
+                buf[i++] = 'm';
+                buf[i++] = 'a';
+                buf[i++] = 'l';
+                break;
+            case LineBreakStyle::STRICT:
+                buf[i++] = 's';
+                buf[i++] = 't';
+                buf[i++] = 'r';
+                buf[i++] = 'i';
+                buf[i++] = 'c';
+                buf[i++] = 't';
                 break;
             default:
                 MINIKIN_ASSERT(false, "Must not reached.");

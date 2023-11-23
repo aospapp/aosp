@@ -33,6 +33,7 @@
 #include "vkImageUtil.hpp"
 #include "vktTestCase.hpp"
 #include "vktTestGroupUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "vktProtectedMemUtils.hpp"
 #include "vktProtectedMemContext.hpp"
@@ -110,7 +111,7 @@ void ImageValidator::initPrograms (vk::SourceCollections& programCollection) con
 }
 
 bool ImageValidator::validateImage (ProtectedContext& ctx, const ValidationData& refData,
-									const vk::VkImage image, const vk::VkFormat imageFormat) const
+									const vk::VkImage image, const vk::VkFormat imageFormat, const vk::VkImageLayout imageLayout) const
 {
 	// Log out a few reference info
 	{
@@ -196,7 +197,7 @@ bool ImageValidator::validateImage (ProtectedContext& ctx, const ValidationData&
 	{
 		vk::VkDescriptorBufferInfo	descRefUniform	= makeDescriptorBufferInfo(**refUniform, 0, refUniformSize);
 		vk::VkDescriptorBufferInfo	descBuffer		= makeDescriptorBufferInfo(**helperBuffer, 0, helperBufferSize);
-		vk::VkDescriptorImageInfo	descSampledImg	= makeDescriptorImageInfo(*sampler, *imageView, vk::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		vk::VkDescriptorImageInfo	descSampledImg	= makeDescriptorImageInfo(*sampler, *imageView, imageLayout);
 
 		vk::DescriptorSetUpdateBuilder()
 			.writeSingle(*descriptorSet, vk::DescriptorSetUpdateBuilder::Location::binding(0u), vk::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &descSampledImg)
@@ -221,7 +222,7 @@ bool ImageValidator::validateImage (ProtectedContext& ctx, const ValidationData&
 		vk.cmdBindDescriptorSets(*resetCmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
 		vk.cmdDispatch(*resetCmdBuffer, 1u, 1u, 1u);
 
-		VK_CHECK(vk.endCommandBuffer(*resetCmdBuffer));
+		endCommandBuffer(vk, *resetCmdBuffer);
 		VK_CHECK(queueSubmit(ctx, PROTECTION_ENABLED, queue, *resetCmdBuffer, *fence, ~0ull));
 	}
 
@@ -238,7 +239,7 @@ bool ImageValidator::validateImage (ProtectedContext& ctx, const ValidationData&
 		vk.cmdBindDescriptorSets(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &*descriptorSet, 0u, DE_NULL);
 		vk.cmdDispatch(*cmdBuffer, 1u, 1u, 1u);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 
 		queueSubmitResult										= queueSubmit(ctx, PROTECTION_ENABLED, queue, *cmdBuffer, *fence, oneSec);
 	}

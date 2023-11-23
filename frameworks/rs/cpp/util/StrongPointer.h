@@ -1,3 +1,4 @@
+// COPY OF StrongPointer.h from system/core/libutils/include/utils.
 /*
  * Copyright (C) 2013 The Android Open Source Project
  *

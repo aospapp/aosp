@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 /* Max data size for read/write.
- * TODO: Yes, it's a magic number. */
+ * Yes, it's a magic number. See b/37675056#comment8. */
 #define MAX_DEVICE_TRANSFER 2044
 
 struct nos_device_ops {

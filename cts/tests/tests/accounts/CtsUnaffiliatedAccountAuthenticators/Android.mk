@@ -28,7 +28,7 @@ LOCAL_MIN_SDK_VERSION  := 1
 LOCAL_SDK_VERSION := current
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-	ctstestrunner \
+	ctstestrunner-axt \
 	CtsAccountTestsCommon
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

@@ -16,12 +16,12 @@
 
 package android.sample.cts.app2;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import android.support.test.runner.AndroidJUnit4;
 
 /**
  * Device-side tests for CtsSampleHostTestCases

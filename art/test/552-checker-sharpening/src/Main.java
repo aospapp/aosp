@@ -41,10 +41,7 @@ public class Main {
     return x;
   }
 
-  /// CHECK-START: int Main.testSimple(int) sharpening (before)
-  /// CHECK:                InvokeStaticOrDirect method_load_kind:RuntimeCall
-
-  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: int Main.testSimple(int) sharpening (after)
+  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: int Main.testSimple(int) builder (after)
   /// CHECK:                InvokeStaticOrDirect method_load_kind:BssEntry
 
   /// CHECK-START-X86: int Main.testSimple(int) pc_relative_fixups_x86 (before)
@@ -59,11 +56,7 @@ public class Main {
     return $noinline$foo(x);
   }
 
-  /// CHECK-START: int Main.testDiamond(boolean, int) sharpening (before)
-  /// CHECK:                InvokeStaticOrDirect method_load_kind:RuntimeCall
-  /// CHECK:                InvokeStaticOrDirect method_load_kind:RuntimeCall
-
-  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: int Main.testDiamond(boolean, int) sharpening (after)
+  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: int Main.testDiamond(boolean, int) builder (after)
   /// CHECK:                InvokeStaticOrDirect method_load_kind:BssEntry
   /// CHECK:                InvokeStaticOrDirect method_load_kind:BssEntry
 
@@ -140,8 +133,7 @@ public class Main {
   }
 
   /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: java.lang.String Main.$noinline$getBootImageString() builder (after)
-  // Note: load kind depends on PIC/non-PIC
-  /// CHECK:                LoadString load_kind:{{BootImageAddress|BootImageInternTable}}
+  /// CHECK:                LoadString load_kind:BootImageRelRo
 
   public static String $noinline$getBootImageString() {
     // Prevent inlining to avoid the string comparison being optimized away.
@@ -168,8 +160,7 @@ public class Main {
   }
 
   /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: java.lang.Class Main.$noinline$getStringClass() builder (after)
-  // Note: load kind depends on PIC/non-PIC
-  /// CHECK:                LoadClass load_kind:{{BootImageAddress|BootImageClassTable}} class_name:java.lang.String
+  /// CHECK:                LoadClass load_kind:BootImageRelRo class_name:java.lang.String
 
   public static Class<?> $noinline$getStringClass() {
     // Prevent inlining to avoid the string comparison being optimized away.
@@ -195,6 +186,25 @@ public class Main {
     return Other.class;
   }
 
+  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: java.lang.String Main.$noinline$toHexString(int) builder (after)
+  /// CHECK:                InvokeStaticOrDirect method_load_kind:BootImageRelRo
+  public static String $noinline$toHexString(int value) {
+    return Integer.toString(value, 16);
+  }
+
+  /// CHECK-START-{ARM,ARM64,MIPS,MIPS64,X86,X86_64}: java.lang.String Main.$noinline$toHexStringIndirect(int) builder (after)
+  /// CHECK:                InvokeStaticOrDirect method_load_kind:BssEntry
+
+  /// CHECK-START-X86: java.lang.String Main.$noinline$toHexStringIndirect(int) pc_relative_fixups_x86 (before)
+  /// CHECK-NOT:            X86ComputeBaseMethodAddress
+
+  /// CHECK-START-X86: java.lang.String Main.$noinline$toHexStringIndirect(int) pc_relative_fixups_x86 (after)
+  /// CHECK-DAG:            X86ComputeBaseMethodAddress
+  /// CHECK-DAG:            InvokeStaticOrDirect method_load_kind:BssEntry
+  public static String $noinline$toHexStringIndirect(int value) {
+    return $noinline$toHexString(value);
+  }
+
   public static void main(String[] args) {
     assertIntEquals(1, testSimple(1));
     assertIntEquals(1, testDiamond(false, 1));
@@ -208,6 +218,8 @@ public class Main {
     assertStringEquals("non-boot-image-string", $noinline$getNonBootImageString());
     assertClassEquals(String.class, $noinline$getStringClass());
     assertClassEquals(Other.class, $noinline$getOtherClass());
+    assertStringEquals("12345678", $noinline$toHexString(0x12345678));
+    assertStringEquals("76543210", $noinline$toHexStringIndirect(0x76543210));
   }
 }
 

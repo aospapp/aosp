@@ -20,7 +20,7 @@ LOCAL_PACKAGE_NAME := CtsLibcoreJsr166TestCases
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    cts-core-test-runner \
+    cts-core-test-runner-axt \
     jsr166-tests
 
 # Don't include this package in any target

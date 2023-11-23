@@ -23,15 +23,18 @@ import android.content.IntentFilter;
 import android.location.LocationManager;
 import android.os.BatteryManager;
 import android.os.Bundle;
+import android.os.Process;
 import android.os.UserManager;
 import android.provider.Settings;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.location.RecentLocationApps;
@@ -46,6 +49,7 @@ import java.util.List;
 /**
  * The location settings screen in TV settings.
  */
+@Keep
 public class LocationFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
 
@@ -110,7 +114,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         recentRequests.setLayoutResource(R.layout.preference_category_compact_layout);
 
         List<RecentLocationApps.Request> recentLocationRequests =
-                new RecentLocationApps(themedContext).getAppList();
+                new RecentLocationApps(themedContext).getAppList(true);
         List<Preference> recentLocationPrefs = new ArrayList<>(recentLocationRequests.size());
         for (final RecentLocationApps.Request request : recentLocationRequests) {
             Preference pref = new Preference(themedContext);
@@ -178,7 +182,7 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         if (TextUtils.equals(preference.getKey(), KEY_LOCATION_MODE)) {
             int mode = Settings.Secure.LOCATION_MODE_OFF;
             if (TextUtils.equals((CharSequence) newValue, LOCATION_MODE_WIFI)) {
-                mode = Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
+                mode = Settings.Secure.LOCATION_MODE_ON;
             } else if (TextUtils.equals((CharSequence) newValue, LOCATION_MODE_OFF)) {
                 mode = Settings.Secure.LOCATION_MODE_OFF;
             } else {
@@ -198,26 +202,19 @@ public class LocationFragment extends SettingsPreferenceFragment implements
         intent.putExtra(CURRENT_MODE_KEY, currentMode);
         intent.putExtra(NEW_MODE_KEY, mode);
         getActivity().sendBroadcast(intent, android.Manifest.permission.WRITE_SECURE_SETTINGS);
-        Settings.Secure.putInt(getActivity().getContentResolver(),
-                Settings.Secure.LOCATION_MODE, mode);
+        getActivity().getSystemService(LocationManager.class).setLocationEnabledForUser(
+                mode != Settings.Secure.LOCATION_MODE_OFF,
+                Process.myUserHandle());
     }
 
     private void refreshLocationMode() {
         if (mLocationMode == null) {
             return;
         }
-        final int mode = Settings.Secure.getInt(getActivity().getContentResolver(),
-                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
-        if (mode == Settings.Secure.LOCATION_MODE_HIGH_ACCURACY
-                    || mode == Settings.Secure.LOCATION_MODE_BATTERY_SAVING) {
+        if (getActivity().getSystemService(LocationManager.class).isLocationEnabled()) {
             mLocationMode.setValue(LOCATION_MODE_WIFI);
-        } else if (mode == Settings.Secure.LOCATION_MODE_OFF) {
-            mLocationMode.setValue(LOCATION_MODE_OFF);
-        } else if (mode == Settings.Secure.LOCATION_MODE_SENSORS_ONLY) {
-            writeLocationMode(Settings.Secure.LOCATION_MODE_OFF);
-            mLocationMode.setValue(LOCATION_MODE_OFF);
         } else {
-            Log.d(TAG, "Unknown location mode: " + mode);
+            mLocationMode.setValue(LOCATION_MODE_OFF);
         }
     }
 

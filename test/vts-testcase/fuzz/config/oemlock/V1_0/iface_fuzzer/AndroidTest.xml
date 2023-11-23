@@ -7,7 +7,6 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="IfaceFuzzerTest.push"/>
     </target_preparer>
-    <multi_target_preparer class="com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer" />
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsHalOemlockV1_0IfaceFuzzer"/>
         <option name="hal-hidl-package-name" value="android.hardware.oemlock@1.0"/>

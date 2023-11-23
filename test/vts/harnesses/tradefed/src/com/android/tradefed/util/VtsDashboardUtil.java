@@ -16,10 +16,9 @@
 
 package com.android.tradefed.util;
 
-import java.io.BufferedReader;
+import com.google.common.base.Strings;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -28,19 +27,11 @@ import java.util.Base64;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.config.Option;
-import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.CommandStatus;
-import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.IRunUtil;
-import com.android.tradefed.util.RunUtil;
-import com.android.tradefed.util.VtsVendorConfigFileUtil;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
@@ -51,21 +42,30 @@ import com.google.api.client.json.JsonFactory;
 import com.android.vts.proto.VtsReportMessage.DashboardPostMessage;
 import com.android.vts.proto.VtsReportMessage.TestPlanReportMessage;
 
+import com.google.api.client.http.javanet.NetHttpTransport;
+
 /**
- * Uploads the VTS test plan execution result to the web DB using a RESTful API and
- * an OAuth2 credential kept in a json file.
+ * Uploads the VTS test plan execution result to the web DB using a RESTful API and an OAuth2
+ * credential kept in a json file.
  */
 public class VtsDashboardUtil {
     private static final String PLUS_ME = "https://www.googleapis.com/auth/plus.me";
     private static final int BASE_TIMEOUT_MSECS = 1000 * 60;
     private static VtsVendorConfigFileUtil mConfigReader;
-    IRunUtil mRunUtil = new RunUtil();
+    private static final IRunUtil mRunUtil = new RunUtil();
+    private static VtsDashboardApiTransport vtsDashboardApiTransport;
 
     public VtsDashboardUtil(VtsVendorConfigFileUtil configReader) {
         mConfigReader = configReader;
+        try {
+            String apiUrl = mConfigReader.GetVendorConfigVariable("dashboard_api_host_url");
+            vtsDashboardApiTransport = new VtsDashboardApiTransport(new NetHttpTransport(), apiUrl);
+        } catch (NoSuchElementException e) {
+            CLog.w("Configure file not available.");
+        }
     }
 
-    /*
+    /**
      * Returns an OAuth2 token string obtained using a service account json keyfile.
      *
      * Uses the service account keyfile located at config variable 'service_key_json_path'
@@ -82,7 +82,7 @@ public class VtsDashboardUtil {
         JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
         Credential credential = null;
         try {
-            List<String> listStrings = new LinkedList<String>();
+            List<String> listStrings = new LinkedList<>();
             listStrings.add(PLUS_ME);
             credential = GoogleCredential.fromStream(new FileInputStream(keyFilePath))
                                  .createScoped(listStrings);
@@ -96,42 +96,72 @@ public class VtsDashboardUtil {
         return null;
     }
 
-    /*
+    /**
      * Uploads the given message to the web DB.
      *
      * @param message, DashboardPostMessage that keeps the result to upload.
      */
-    public void Upload(DashboardPostMessage message) {
+    public void Upload(DashboardPostMessage.Builder message) {
+        String dashboardCurlCommand =
+                mConfigReader.GetVendorConfigVariable("dashboard_use_curl_command");
+        Optional<String> dashboardCurlCommandOpt = Optional.of(dashboardCurlCommand);
+        Boolean curlCommandCheck = Boolean.parseBoolean(dashboardCurlCommandOpt.orElse("false"));
         String token = GetToken();
         if (token == null) {
-            CLog.d("Token is not available for DashboardPostMessage.");
             return;
         }
         message.setAccessToken(token);
+        String messageFilePath = "";
         try {
-            String messageFilePath = WriteToTempFile(
-                    Base64.getEncoder().encodeToString(message.toByteArray()).getBytes());
-            Upload(messageFilePath);
+            messageFilePath = WriteToTempFile(
+                    Base64.getEncoder().encodeToString(message.build().toByteArray()).getBytes());
         } catch (IOException e) {
             CLog.e("Couldn't write a proto message to a temp file.");
-        } catch (NullPointerException e) {
-            CLog.e("Couldn't serialize proto message.");
+        }
+
+        if (Strings.isNullOrEmpty(messageFilePath)) {
+            CLog.e("Couldn't get the MessageFilePath.");
+        } else {
+            if (curlCommandCheck) {
+                CurlUpload(messageFilePath);
+            } else {
+                Upload(messageFilePath);
+            }
         }
     }
 
-    /*
-     * Uploads the given message file path to the web DB.
+    /**
+     * Uploads the given message file path to the web DB using google http java api library.
      *
-     * @param message, DashboardPostMessage file path that keeps the result to upload.
+     * @param messageFilePath, DashboardPostMessage file path that keeps the result to upload.
      */
-    public void Upload(String messageFilePath) {
+    public Boolean Upload(String messageFilePath) {
+        try {
+            String response = vtsDashboardApiTransport.postFile(
+                    "/api/datastore", "application/octet-stream", messageFilePath);
+            CLog.d(String.format("Upload Result : %s", response));
+            return true;
+        } catch (IOException e) {
+            CLog.e("Error occurred on uploading dashboard message file!");
+            CLog.e(e.getLocalizedMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Uploads the given message file path to the web DB using curl command.
+     *
+     * @param messageFilePath, DashboardPostMessage file path that keeps the result to upload.
+     */
+    @Deprecated
+    public void CurlUpload(String messageFilePath) {
         try {
             String commandTemplate =
                     mConfigReader.GetVendorConfigVariable("dashboard_post_command");
             commandTemplate = commandTemplate.replace("{path}", messageFilePath);
             // removes ', while keeping any substrings quoted by "".
             commandTemplate = commandTemplate.replace("'", "");
-            CLog.i(String.format("Upload command: %s", commandTemplate));
+            CLog.d(String.format("Upload command: %s", commandTemplate));
             List<String> commandList = new ArrayList<String>();
             Matcher matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(commandTemplate);
             while (matcher.find()) {
@@ -150,7 +180,7 @@ public class VtsDashboardUtil {
         }
     }
 
-    /*
+    /**
      * Simple wrapper to write data to a temp file.
      *
      * @param data, actual data to write to a file.

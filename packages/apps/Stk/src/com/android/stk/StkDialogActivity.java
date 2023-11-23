@@ -16,19 +16,12 @@
 
 package com.android.stk;
 
-import com.android.internal.telephony.cat.CatLog;
-import com.android.internal.telephony.cat.TextMessage;
-
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
-import android.app.PendingIntent;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
-
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -38,6 +31,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.android.internal.telephony.cat.CatLog;
+import com.android.internal.telephony.cat.TextMessage;
 
 /**
  * AlertDialog used for DISPLAY TEXT commands.
@@ -52,16 +48,20 @@ public class StkDialogActivity extends Activity {
     private StkAppService appService = StkAppService.getInstance();
     // Determines whether Terminal Response (TR) has been sent
     private boolean mIsResponseSent = false;
-    private Context mContext;
+    // Determines whether this is in the pending state.
+    private boolean mIsPending = false;
     // Utilize AlarmManager for real-time countdown
-    private PendingIntent mTimeoutIntent;
-    private AlarmManager mAlarmManager;
-    private final static String ALARM_TIMEOUT = "com.android.stk.DIALOG_ALARM_TIMEOUT";
+    private static final String DIALOG_ALARM_TAG = LOG_TAG;
+    private static final long NO_DIALOG_ALARM = -1;
+    private long mAlarmTime = NO_DIALOG_ALARM;
 
     // Keys for saving the state of the dialog in the bundle
     private static final String TEXT_KEY = "text";
-    private static final String TIMEOUT_INTENT_KEY = "timeout";
+    private static final String ALARM_TIME_KEY = "alarm_time";
+    private static final String RESPONSE_SENT_KEY = "response_sent";
     private static final String SLOT_ID_KEY = "slotid";
+    private static final String PENDING = "pending";
+
 
     private AlertDialog mAlertDialog;
 
@@ -89,9 +89,7 @@ public class StkDialogActivity extends Activity {
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
                         CatLog.d(LOG_TAG, "OK Clicked!, mSlotId: " + mSlotId);
-                        cancelTimeOut();
                         sendResponse(StkAppService.RES_ID_CONFIRM, true);
-                        finish();
                     }
                 });
 
@@ -100,9 +98,7 @@ public class StkDialogActivity extends Activity {
                     @Override
                     public void onClick(DialogInterface dialog,int id) {
                         CatLog.d(LOG_TAG, "Cancel Clicked!, mSlotId: " + mSlotId);
-                        cancelTimeOut();
                         sendResponse(StkAppService.RES_ID_CONFIRM, false);
-                        finish();
                     }
                 });
 
@@ -110,9 +106,7 @@ public class StkDialogActivity extends Activity {
                     @Override
                     public void onCancel(DialogInterface dialog) {
                         CatLog.d(LOG_TAG, "Moving backward!, mSlotId: " + mSlotId);
-                        cancelTimeOut();
                         sendResponse(StkAppService.RES_ID_BACKWARD);
-                        finish();
                     }
                 });
 
@@ -157,12 +151,6 @@ public class StkDialogActivity extends Activity {
         mAlertDialog = alertDialogBuilder.create();
         mAlertDialog.setCanceledOnTouchOutside(false);
         mAlertDialog.show();
-
-        mContext = getBaseContext();
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(ALARM_TIMEOUT);
-        mContext.registerReceiver(mBroadcastReceiver, intentFilter);
-        mAlarmManager =(AlarmManager)mContext.getSystemService(Context.ALARM_SERVICE);
     }
 
     @Override
@@ -170,6 +158,8 @@ public class StkDialogActivity extends Activity {
         super.onResume();
         CatLog.d(LOG_TAG, "onResume - mIsResponseSent[" + mIsResponseSent +
                 "], sim id: " + mSlotId);
+        // The pending dialog is unregistered if this instance was registered as it before.
+        setPendingState(false);
 
         /*
          * If the userClear flag is set and dialogduration is set to 0, the display Text
@@ -192,12 +182,8 @@ public class StkDialogActivity extends Activity {
          * inform the SIM in correct time when there is no response from the User
          * to a dialog.
          */
-        if (mTimeoutIntent != null) {
-            CatLog.d(LOG_TAG, "Pending Alarm! Let it finish counting down...");
-        }
-        else {
-            CatLog.d(LOG_TAG, "No Pending Alarm! OK to start timer...");
-            startTimeOut(mTextMsg.userClear);
+        if (mAlarmTime == NO_DIALOG_ALARM) {
+            startTimeOut();
         }
     }
 
@@ -230,23 +216,13 @@ public class StkDialogActivity extends Activity {
         CatLog.d(LOG_TAG, "onStop - before Send CONFIRM false mIsResponseSent[" +
                 mIsResponseSent + "], sim id: " + mSlotId);
 
-        // Avoid calling finish() or setPendingDialogInstance()
-        // if the activity is being restarted now.
-        if (isChangingConfigurations()) {
+        // Nothing should be done here if this activity is being finished or restarted now.
+        if (isFinishing() || isChangingConfigurations()) {
             return;
         }
 
-        if (!mTextMsg.responseNeeded) {
-            return;
-        }
-        if (!mIsResponseSent) {
-            appService.getStkContext(mSlotId).setPendingDialogInstance(this);
-        } else {
-            CatLog.d(LOG_TAG, "finish.");
-            appService.getStkContext(mSlotId).setPendingDialogInstance(null);
-            cancelTimeOut();
-            finish();
-        }
+        // This is registered as the pending dialog as this was sent to the background.
+        setPendingState(true);
     }
 
     @Override
@@ -270,34 +246,43 @@ public class StkDialogActivity extends Activity {
             if (!mIsResponseSent && appService != null && !appService.isDialogPending(mSlotId)) {
                 sendResponse(StkAppService.RES_ID_CONFIRM, false);
             }
-            cancelTimeOut();
         }
-        // Cleanup broadcast receivers to avoid leaks
-        if (mBroadcastReceiver != null) {
-            unregisterReceiver(mBroadcastReceiver);
-        }
+        cancelTimeOut();
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
-        CatLog.d(LOG_TAG, "onSaveInstanceState");
-
         super.onSaveInstanceState(outState);
 
+        CatLog.d(LOG_TAG, "onSaveInstanceState");
+
         outState.putParcelable(TEXT_KEY, mTextMsg);
-        outState.putParcelable(TIMEOUT_INTENT_KEY, mTimeoutIntent);
+        outState.putBoolean(RESPONSE_SENT_KEY, mIsResponseSent);
+        outState.putLong(ALARM_TIME_KEY, mAlarmTime);
         outState.putInt(SLOT_ID_KEY, mSlotId);
+        outState.putBoolean(PENDING, mIsPending);
     }
 
     @Override
     public void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
 
+        CatLog.d(LOG_TAG, "onRestoreInstanceState");
+
         mTextMsg = savedInstanceState.getParcelable(TEXT_KEY);
-        mTimeoutIntent = savedInstanceState.getParcelable(TIMEOUT_INTENT_KEY);
+        mIsResponseSent = savedInstanceState.getBoolean(RESPONSE_SENT_KEY);
+        mAlarmTime = savedInstanceState.getLong(ALARM_TIME_KEY, NO_DIALOG_ALARM);
         mSlotId = savedInstanceState.getInt(SLOT_ID_KEY);
-        appService.getStkContext(mSlotId).setPendingDialogInstance(this);
-        CatLog.d(LOG_TAG, "onRestoreInstanceState - [" + mTextMsg + "]");
+
+        // The pending dialog must be replaced if the previous instance was in the pending state.
+        if (savedInstanceState.getBoolean(PENDING)) {
+            setPendingState(true);
+        }
+
+        if (mAlarmTime != NO_DIALOG_ALARM) {
+            startTimeOut();
+        }
+
     }
 
     @Override
@@ -318,7 +303,18 @@ public class StkDialogActivity extends Activity {
         }
     }
 
+    private void setPendingState(boolean on) {
+        if (mTextMsg.responseNeeded) {
+            if (mIsPending != on) {
+                appService.getStkContext(mSlotId).setPendingDialogInstance(on ? this : null);
+                mIsPending = on;
+            }
+        }
+    }
+
     private void sendResponse(int resId, boolean confirmed) {
+        cancelTimeOut();
+
         if (mSlotId == -1) {
             CatLog.d(LOG_TAG, "sim id is invalid");
             return;
@@ -340,6 +336,10 @@ public class StkDialogActivity extends Activity {
             startService(new Intent(this, StkAppService.class).putExtras(args));
             mIsResponseSent = true;
         }
+        if (!isFinishing()) {
+            finish();
+        }
+
     }
 
     private void sendResponse(int resId) {
@@ -360,61 +360,47 @@ public class StkDialogActivity extends Activity {
     }
 
     private void cancelTimeOut() {
-        CatLog.d(LOG_TAG, "cancelTimeOut: " + mSlotId);
-        if (mTimeoutIntent != null) {
-            mAlarmManager.cancel(mTimeoutIntent);
-            mTimeoutIntent = null;
+        if (mAlarmTime != NO_DIALOG_ALARM) {
+            CatLog.d(LOG_TAG, "cancelTimeOut - slot id: " + mSlotId);
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            am.cancel(mAlarmListener);
+            mAlarmTime = NO_DIALOG_ALARM;
         }
     }
 
-    private void startTimeOut(boolean waitForUserToClear) {
-
-        // Reset timeout.
-        cancelTimeOut();
-        int dialogDuration = StkApp.calculateDurationInMilis(mTextMsg.duration);
-        // If duration is specified, this has priority. If not, set timeout
-        // according to condition given by the card.
-        if (mTextMsg.userClear == true && mTextMsg.responseNeeded == false) {
+    private void startTimeOut() {
+        // No need to set alarm if device sent TERMINAL RESPONSE already
+        // and it is required to wait for user to clear the message.
+        if (mIsResponseSent || (mTextMsg.userClear && !mTextMsg.responseNeeded)) {
             return;
-        } else {
-            // userClear = false. will disappear after a while.
-            if (dialogDuration == 0) {
-                if (waitForUserToClear) {
-                    dialogDuration = StkApp.DISP_TEXT_WAIT_FOR_USER_TIMEOUT;
+        }
+
+        if (mAlarmTime == NO_DIALOG_ALARM) {
+            int duration = StkApp.calculateDurationInMilis(mTextMsg.duration);
+            // If no duration is specified, the timeout set by the terminal manufacturer is applied.
+            if (duration == 0) {
+                if (mTextMsg.userClear) {
+                    duration = StkApp.DISP_TEXT_WAIT_FOR_USER_TIMEOUT;
                 } else {
-                    dialogDuration = StkApp.DISP_TEXT_CLEAR_AFTER_DELAY_TIMEOUT;
+                    duration = StkApp.DISP_TEXT_CLEAR_AFTER_DELAY_TIMEOUT;
                 }
             }
-            CatLog.d(LOG_TAG, "startTimeOut: " + mSlotId);
-            Intent mAlarmIntent = new Intent(ALARM_TIMEOUT);
-            mAlarmIntent.putExtra(StkAppService.SLOT_ID, mSlotId);
-            mTimeoutIntent = PendingIntent.getBroadcast(mContext, 0, mAlarmIntent, PendingIntent.FLAG_CANCEL_CURRENT);
-
-            // Try to use a more stringent timer not affected by system sleep.
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
-                mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                        SystemClock.elapsedRealtime() + dialogDuration, mTimeoutIntent);
-            }
-            else {
-                mAlarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                        SystemClock.elapsedRealtime() + dialogDuration, mTimeoutIntent);
-            }
+            mAlarmTime = SystemClock.elapsedRealtime() + duration;
         }
+
+        CatLog.d(LOG_TAG, "startTimeOut: " + mAlarmTime + "ms, slot id: " + mSlotId);
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        am.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, mAlarmTime, DIALOG_ALARM_TAG,
+                mAlarmListener, null);
     }
 
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            int slotID = intent.getIntExtra(StkAppService.SLOT_ID, 0);
-
-            if (action == null || slotID != mSlotId) return;
-            CatLog.d(LOG_TAG, "onReceive, action=" + action + ", sim id: " + slotID);
-            if (action.equals(ALARM_TIMEOUT)) {
-                CatLog.d(LOG_TAG, "ALARM_TIMEOUT rcvd");
-                mTimeoutIntent = null;
-                sendResponse(StkAppService.RES_ID_TIMEOUT);
-                finish();
-            }
-        }
-    };
+    private final AlarmManager.OnAlarmListener mAlarmListener =
+            new AlarmManager.OnAlarmListener() {
+                @Override
+                public void onAlarm() {
+                    CatLog.d(LOG_TAG, "The alarm time is reached");
+                    mAlarmTime = NO_DIALOG_ALARM;
+                    sendResponse(StkAppService.RES_ID_TIMEOUT);
+                }
+            };
 }

@@ -15,6 +15,7 @@
  */
 package com.google.currysrc.api.process.ast;
 
+import java.util.Objects;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -84,6 +85,24 @@ public final class EnumConstantLocator implements BodyDeclarationLocator {
 
   @Override public String getStringFormTarget() {
     return typeLocator.getStringFormTarget() + "#" + constantName;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof EnumConstantLocator)) {
+      return false;
+    }
+    EnumConstantLocator that = (EnumConstantLocator) o;
+    return Objects.equals(typeLocator, that.typeLocator) &&
+        Objects.equals(constantName, that.constantName);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(typeLocator, constantName);
   }
 
   @Override

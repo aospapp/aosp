@@ -26,8 +26,8 @@ class v8(object):
         def_flag(flags, 'LDFLAGS', '-static')
         options = '-C %s i18nsupport=off snapshot=off -j40' % self.src
         if arch == 'armv7l':
-            def_flag(flags, 'CXX', 'armv7a-cros-linux-gnueabi-g++')
-            def_flag(flags, 'LINK', 'armv7a-cros-linux-gnueabi-g++')
+            def_flag(flags, 'CXX', 'armv7a-cros-linux-gnueabihf-g++')
+            def_flag(flags, 'LINK', 'armv7a-cros-linux-gnueabihf-g++')
             options += ' arm.release'
             d8src = '%s/out/arm.release/d8' % self.src
         elif arch == 'x86_64':

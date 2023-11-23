@@ -16,14 +16,9 @@
 
 package com.android.phone.settings;
 
-import com.android.phone.R;
-
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.UserHandle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.telecom.PhoneAccount;
@@ -31,6 +26,8 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+
+import com.android.phone.R;
 
 import java.util.List;
 import java.util.Objects;

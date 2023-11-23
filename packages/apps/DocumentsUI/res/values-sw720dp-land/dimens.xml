@@ -17,8 +17,14 @@
 <resources>
     <dimen name="list_item_height">64dp</dimen>
     <dimen name="list_item_padding">24dp</dimen>
+    <dimen name="list_item_icon_padding">12dp</dimen>
 
     <dimen name="list_divider_inset">80dp</dimen>
 
     <dimen name="max_drawer_width">320dp</dimen>
+
+    <dimen name="search_bar_background_margin_start">280dp</dimen>
+    <dimen name="search_bar_background_margin_end">280dp</dimen>
+    <dimen name="search_bar_text_margin_start">270dp</dimen>
+    <dimen name="search_bar_text_margin_end">182dp</dimen>
 </resources>

@@ -37,7 +37,6 @@ abstract class EventLocationEventTestCase extends JDWPEventTestCase {
 
     private Set<Integer> requestIds = new HashSet<Integer>();
 
-    protected abstract String getDebuggeeSignature();
     protected abstract String getExpectedLocationMethodName();
     protected abstract void createEventBuilder(EventBuilder builder);
     protected abstract void checkEvent(ParsedEvent event);
@@ -91,7 +90,7 @@ abstract class EventLocationEventTestCase extends JDWPEventTestCase {
         requestIds.clear();
 
         // Find the method where we expect the event to occur.
-        long typeId = getClassIDBySignature(getDebuggeeSignature());
+        long typeId = getClassIDBySignature(getDebuggeeClassSignature());
         long methodId = getMethodID(typeId, getExpectedLocationMethodName());
 
         // Get its line table

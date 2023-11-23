@@ -296,6 +296,9 @@ public class IntlTestDecimalFormatSymbols extends TestFmwk
         final String[] differentDigitStrings = {"0", "b", "3", "d", "5", "ff", "7", "h", "9", "j"};
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ENGLISH);
+        if (defZero != symbols.getCodePointZero()) {
+            errln("ERROR: Code point zero initialize to ASCII 0");
+        }
 
         symbols.setDigitStrings(osmanyaDigitStrings);
         if (!Arrays.equals(symbols.getDigitStrings(), osmanyaDigitStrings)) {
@@ -308,6 +311,36 @@ public class IntlTestDecimalFormatSymbols extends TestFmwk
             errln("ERROR: Zero digit should be 0");
         }
         if (!Arrays.equals(symbols.getDigits(), defDigits)) {
+            errln("ERROR: Char digits should be Latin digits");
+        }
+
+        // Check on copy
+        DecimalFormatSymbols copy = (DecimalFormatSymbols) symbols.clone();
+        if (!Arrays.equals(copy.getDigitStrings(), osmanyaDigitStrings)) {
+            errln("ERROR: Osmanya digits (supplementary) should be set");
+        }
+        if (Character.codePointAt(osmanyaDigitStrings[0], 0) != copy.getCodePointZero()) {
+            errln("ERROR: Code point zero be Osmanya code point zero");
+        }
+        if (defZero != copy.getZeroDigit()) {
+            errln("ERROR: Zero digit should be 0");
+        }
+        if (!Arrays.equals(copy.getDigits(), defDigits)) {
+            errln("ERROR: Char digits should be Latin digits");
+        }
+
+        // Check on resource bundle
+        DecimalFormatSymbols fromData = DecimalFormatSymbols.getInstance(new ULocale("en@numbers=osma"));
+        if (!Arrays.equals(fromData.getDigitStrings(), osmanyaDigitStrings)) {
+            errln("ERROR: Osmanya digits (supplementary) should be set");
+        }
+        if (Character.codePointAt(osmanyaDigitStrings[0], 0) != fromData.getCodePointZero()) {
+            errln("ERROR: Code point zero be Osmanya code point zero");
+        }
+        if (defZero != fromData.getZeroDigit()) {
+            errln("ERROR: Zero digit should be 0");
+        }
+        if (!Arrays.equals(fromData.getDigits(), defDigits)) {
             errln("ERROR: Char digits should be Latin digits");
         }
 
@@ -332,36 +365,60 @@ public class IntlTestDecimalFormatSymbols extends TestFmwk
     @Test
     public void testNumberingSystem() {
         Object[][] cases = {
-                {"en", "latn", "1,234.56", ';'},
-                {"en", "arab", "١٬٢٣٤٫٥٦", '؛'},
-                {"en", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", ';'},
-                {"en", "mymr", "၁,၂၃၄.၅၆", ';'},
-                {"my", "latn", "1,234.56", ';'},
-                {"my", "arab", "١٬٢٣٤٫٥٦", '؛'},
-                {"my", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", ';'},
-                {"my", "mymr", "၁,၂၃၄.၅၆", '၊'},
-                {"en@numbers=thai", "mymr", "၁,၂၃၄.၅၆", ';'}, // conflicting numbering system
+                {"en", "latn", "1,234.56", '%'},
+                {"en", "arab", "١٬٢٣٤٫٥٦", "٪\u061C"},
+                {"en", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", '%'},
+                {"en", "mymr", "၁,၂၃၄.၅၆", '%'},
+                {"my", "latn", "1,234.56", '%'},
+                {"my", "arab", "١٬٢٣٤٫٥٦", "٪\u061C"},
+                {"my", "mathsanb", "𝟭,𝟮𝟯𝟰.𝟱𝟲", '%'},
+                {"my", "mymr", "၁,၂၃၄.၅၆", '%'},
+                {"ar", "latn", "1,234.56", "\u200E%\u200E"},
+                {"ar", "arab", "١٬٢٣٤٫٥٦", "٪\u061C"},
+                {"en@numbers=thai", "mymr", "၁,၂၃၄.၅၆", '%'}, // conflicting numbering system
         };
 
         for (Object[] cas : cases) {
             ULocale loc = new ULocale((String) cas[0]);
             NumberingSystem ns = NumberingSystem.getInstanceByName((String) cas[1]);
             String expectedFormattedNumberString = (String) cas[2];
-            char expectedPatternSeparator = (Character) cas[3];
+            String expectedPercentSign = String.valueOf(cas[3]);
 
             DecimalFormatSymbols dfs = DecimalFormatSymbols.forNumberingSystem(loc, ns);
             DecimalFormat df = new DecimalFormat("#,##0.##", dfs);
             String actual1 = df.format(1234.56);
             assertEquals("1234.56 with " + loc + " and " + ns.getName(),
                     expectedFormattedNumberString, actual1);
-            // The pattern separator is something that differs by numbering system in my@numbers=mymr.
-            char actual2 = dfs.getPatternSeparator();
-            assertEquals("Pattern separator with " + loc + " and " + ns.getName(),
-                    expectedPatternSeparator, actual2);
+
+            // The percent sign differs by numbering system.
+            String actual2 = dfs.getPercentString();
+            assertEquals("Percent sign with " + loc + " and " + ns.getName(),
+                    expectedPercentSign, actual2);
 
             // Coverage for JDK Locale overload
             DecimalFormatSymbols dfs2 = DecimalFormatSymbols.forNumberingSystem(loc.toLocale(), ns);
             assertEquals("JDK Locale and ICU Locale should produce the same object", dfs, dfs2);
+        }
+    }
+
+    @Test
+    public void testSetPatternForCurrencySpacing_notSharedByInstances() {
+        for (int type = DecimalFormatSymbols.CURRENCY_SPC_CURRENCY_MATCH; type <= DecimalFormatSymbols.CURRENCY_SPC_INSERT; type++) {
+            DecimalFormatSymbols dfs1 = DecimalFormatSymbols.getInstance(Locale.US);
+            DecimalFormatSymbols dfs2 = DecimalFormatSymbols.getInstance(Locale.US);
+            final String pattern = "foobar";
+            // before
+            dfs1.setPatternForCurrencySpacing(type, false, pattern);
+            assertEquals("setPatternForCurrencySpacing() must set the pattern", pattern,
+                    dfs1.getPatternForCurrencySpacing(type, false));
+            assertNotEquals("DFS instances must not share same pattern", pattern,
+                    dfs2.getPatternForCurrencySpacing(type, false));
+            // after
+            dfs1.setPatternForCurrencySpacing(type, true, pattern);
+            assertEquals("setPatternForCurrencySpacing() must set the pattern", pattern,
+                    dfs1.getPatternForCurrencySpacing(type, true));
+            assertNotEquals("DFS instances must not share same pattern", pattern,
+                    dfs2.getPatternForCurrencySpacing(type, true));
         }
     }
 }

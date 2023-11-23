@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -28,8 +28,7 @@
 
 #include "honggfuzz.h"
 
-extern void fuzz_threadsStart(honggfuzz_t* fuzz, pthread_t* threads);
-extern void fuzz_threadsStop(honggfuzz_t* fuzz, pthread_t* threads);
+extern void fuzz_threadsStart(honggfuzz_t* fuzz);
 extern bool fuzz_isTerminating(void);
 extern void fuzz_setTerminating(void);
 extern bool fuzz_shouldTerminate(void);

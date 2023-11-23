@@ -19,25 +19,25 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Byte2;
-import android.support.v8.renderscript.Byte3;
-import android.support.v8.renderscript.Byte4;
-import android.support.v8.renderscript.Double2;
-import android.support.v8.renderscript.Double3;
-import android.support.v8.renderscript.Double4;
-import android.support.v8.renderscript.Float2;
-import android.support.v8.renderscript.Float3;
-import android.support.v8.renderscript.Float4;
-import android.support.v8.renderscript.Int2;
-import android.support.v8.renderscript.Int3;
-import android.support.v8.renderscript.Int4;
-import android.support.v8.renderscript.Long2;
-import android.support.v8.renderscript.Long3;
-import android.support.v8.renderscript.Long4;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.Short2;
-import android.support.v8.renderscript.Short3;
-import android.support.v8.renderscript.Short4;
+import androidx.renderscript.Byte2;
+import androidx.renderscript.Byte3;
+import androidx.renderscript.Byte4;
+import androidx.renderscript.Double2;
+import androidx.renderscript.Double3;
+import androidx.renderscript.Double4;
+import androidx.renderscript.Float2;
+import androidx.renderscript.Float3;
+import androidx.renderscript.Float4;
+import androidx.renderscript.Int2;
+import androidx.renderscript.Int3;
+import androidx.renderscript.Int4;
+import androidx.renderscript.Long2;
+import androidx.renderscript.Long3;
+import androidx.renderscript.Long4;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.Short2;
+import androidx.renderscript.Short3;
+import androidx.renderscript.Short4;
 
 public class UT_vector extends UnitTest {
 

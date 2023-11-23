@@ -966,7 +966,7 @@ public class URLTest extends TestCase {
     /**
      * java.net.URL#openConnection()
      */
-    public void test_openConnection_FileProtocal() throws Exception {
+    public void test_openConnection_FileProtocol() throws Exception {
         // Regression test for Harmony-5779
         String basedir = new File("temp.java").getAbsolutePath();
         String fileUrlString = "file://localhost/" + basedir;

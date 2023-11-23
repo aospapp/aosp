@@ -22,6 +22,9 @@ import android.content.res.Configuration;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.SettingsUtils;
+
 public class UiModeManagerTest extends AndroidTestCase {
     private static final String TAG = "UiModeManagerTest";
 
@@ -63,6 +66,90 @@ public class UiModeManagerTest extends AndroidTestCase {
                 doTestUnlockedNightMode();
             }
         }
+    }
+
+    public void testNightModeInCarModeIsTransient() {
+        if (mUiModeManager.isNightModeLocked()) {
+            return;
+        }
+
+        assertNightModeChange(UiModeManager.MODE_NIGHT_NO);
+
+        mUiModeManager.enableCarMode(0);
+        assertEquals(Configuration.UI_MODE_TYPE_CAR, mUiModeManager.getCurrentModeType());
+
+        assertNightModeChange(UiModeManager.MODE_NIGHT_YES);
+
+        mUiModeManager.disableCarMode(0);
+        assertNotSame(Configuration.UI_MODE_TYPE_CAR, mUiModeManager.getCurrentModeType());
+        assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
+    }
+
+    public void testNightModeToggleInCarModeDoesNotChangeSetting() {
+        if (mUiModeManager.isNightModeLocked()) {
+            return;
+        }
+
+        assertNightModeChange(UiModeManager.MODE_NIGHT_NO);
+        assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
+
+        mUiModeManager.enableCarMode(0);
+        assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
+
+        assertNightModeChange(UiModeManager.MODE_NIGHT_YES);
+        assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
+
+        mUiModeManager.disableCarMode(0);
+        assertStoredNightModeSetting(UiModeManager.MODE_NIGHT_NO);
+    }
+
+    public void testNightModeInCarModeOnPowerSaveIsTransient() throws Throwable {
+        if (mUiModeManager.isNightModeLocked() || !BatteryUtils.isBatterySaverSupported()) {
+            return;
+        }
+
+        BatteryUtils.runDumpsysBatteryUnplug();
+
+        // Turn off battery saver, disable night mode
+        BatteryUtils.enableBatterySaver(false);
+        mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
+        assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+
+        // Then enable battery saver to check night mode is made visible
+        BatteryUtils.enableBatterySaver(true);
+        assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+
+        // Then disable it, enable car mode, and check night mode is not visible
+        BatteryUtils.enableBatterySaver(false);
+        mUiModeManager.enableCarMode(0);
+        assertEquals(Configuration.UI_MODE_TYPE_CAR, mUiModeManager.getCurrentModeType());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+
+        // Enable battery saver, check that night mode is still not visible, overridden by car mode
+        BatteryUtils.enableBatterySaver(true);
+        assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+
+        // Disable car mode
+        mUiModeManager.disableCarMode(0);
+
+        // Toggle night mode to force propagation of uiMode update, since disabling car mode
+        // is deferred to a broadcast.
+        mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_YES);
+        mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
+
+        // Check battery saver mode now shows night mode
+        assertNotSame(Configuration.UI_MODE_TYPE_CAR, mUiModeManager.getCurrentModeType());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_YES);
+
+        // Disable battery saver and check night mode back to not visible
+        BatteryUtils.enableBatterySaver(false);
+        assertEquals(UiModeManager.MODE_NIGHT_NO, mUiModeManager.getNightMode());
+        assertVisibleNightModeInConfiguration(Configuration.UI_MODE_NIGHT_NO);
+
+        BatteryUtils.runDumpsysBatteryReset();
     }
 
     private boolean isAutomotive() {
@@ -138,5 +225,18 @@ public class UiModeManagerTest extends AndroidTestCase {
     private void assertNightModeChange(int mode) {
         mUiModeManager.setNightMode(mode);
         assertEquals(mode, mUiModeManager.getNightMode());
+    }
+
+    private void assertVisibleNightModeInConfiguration(int mode) {
+        int uiMode = getContext().getResources().getConfiguration().uiMode;
+        int flags = uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        assertEquals(mode, flags);
+    }
+
+    private void assertStoredNightModeSetting(int mode) {
+        // Settings.Secure.UI_NIGHT_MODE
+        String storedMode = SettingsUtils.getSecureSetting("ui_night_mode");
+        int storedModeInt = Integer.parseInt(storedMode);
+        assertEquals(mode, storedModeInt);
     }
 }

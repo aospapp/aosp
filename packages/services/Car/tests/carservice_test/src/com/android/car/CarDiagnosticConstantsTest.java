@@ -16,9 +16,10 @@
 
 package com.android.car;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.TestCase;
 

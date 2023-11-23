@@ -20,8 +20,9 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import android.content.ComponentName;
-import android.support.test.runner.AndroidJUnit4;
 import android.telecom.PhoneAccountHandle;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;

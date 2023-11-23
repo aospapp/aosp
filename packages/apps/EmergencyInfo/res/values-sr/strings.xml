@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Информације за хитне случајеве"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Медицински подаци"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Измени податке"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Додајте информације"</string>
     <string name="edit_info" msgid="5973929805855224805">"Измените информације за хитне случајеве"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Информације"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Контакти"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Ако додате медицинске податке и контакте за хитне случајеве, можете да помогнете екипама хитних служби у хитним случајевима.\n\nСвако може да прочита те податке са закључаног екрана без откључавања телефона."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Додајте информације за хитне случајеве"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Дозволите екипама хитних служби да виде информације"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Сликајте"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Одаберите слику"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Изаберите слику"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Надимак"</string>
 </resources>

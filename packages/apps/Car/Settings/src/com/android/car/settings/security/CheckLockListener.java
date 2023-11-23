@@ -25,5 +25,5 @@ public interface CheckLockListener {
      *
      * @param lock The verified credential
      */
-    void onLockVerified(String lock);
+    void onLockVerified(byte[] lock);
 }

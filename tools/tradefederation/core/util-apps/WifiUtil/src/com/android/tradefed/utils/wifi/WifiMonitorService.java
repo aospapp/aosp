@@ -25,10 +25,6 @@ import android.util.Log;
 
 import com.android.tradefed.utils.wifi.WifiConnector.WifiException;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
@@ -146,10 +142,7 @@ public class WifiMonitorService extends IntentService {
      */
     private static long checkLatency(final String urlToCheck) {
         final long startTime = System.currentTimeMillis();
-        final HttpClient httpclient = new DefaultHttpClient();
-        try {
-            httpclient.execute(new HttpGet(urlToCheck));
-        } catch (final IOException e) {
+        if (!WifiConnector.checkConnectivity(urlToCheck)) {
             return -1;
         }
         return System.currentTimeMillis() - startTime;

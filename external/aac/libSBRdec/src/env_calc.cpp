@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
 Software License for The Fraunhofer FDK AAC Codec Library for Android
 
-© Copyright  1995 - 2018 Fraunhofer-Gesellschaft zur Förderung der angewandten
+© Copyright  1995 - 2019 Fraunhofer-Gesellschaft zur Förderung der angewandten
 Forschung e.V. All rights reserved.
 
  1.    INTRODUCTION
@@ -493,7 +493,7 @@ static void mapSineFlags(
   }
 }
 
-#define INTER_TES_SF_CHANGE 3
+#define INTER_TES_SF_CHANGE 4
 
 typedef struct {
   FIXP_DBL subsample_power_low[(((1024) / (32) * (4) / 2) + (3 * (4)))];
@@ -626,7 +626,8 @@ static void apply_inter_tes(FIXP_DBL **qmfReal, FIXP_DBL **qmfImag,
         total_power_low >>= diff;
         total_power_low_sf = new_summand_sf;
       } else if (new_summand_sf < total_power_low_sf) {
-        new_summand >>= total_power_low_sf - new_summand_sf;
+        new_summand >>=
+            fMin(DFRACT_BITS - 1, total_power_low_sf - new_summand_sf);
       }
 
       total_power_low += (new_summand >> preShift2);
@@ -638,7 +639,8 @@ static void apply_inter_tes(FIXP_DBL **qmfReal, FIXP_DBL **qmfImag,
             fMin(DFRACT_BITS - 1, new_summand_sf - total_power_high_sf);
         total_power_high_sf = new_summand_sf;
       } else if (new_summand_sf < total_power_high_sf) {
-        new_summand >>= total_power_high_sf - new_summand_sf;
+        new_summand >>=
+            fMin(DFRACT_BITS - 1, total_power_high_sf - new_summand_sf);
       }
 
       total_power_high += (new_summand >> preShift2);
@@ -1561,13 +1563,14 @@ void calculateSbrEnvelope(
             adjustTimeSlotHQ_GainAndNoise(
                 &analysBufferReal[j][lowSubband],
                 &analysBufferImag[j][lowSubband], h_sbr_cal_env, pNrgs,
-                lowSubband, noSubbands, scale_change, smooth_ratio, noNoiseFlag,
-                filtBufferNoiseShift);
+                lowSubband, noSubbands, fMin(scale_change, DFRACT_BITS - 1),
+                smooth_ratio, noNoiseFlag, filtBufferNoiseShift);
           } else {
             adjustTimeSlotHQ(&analysBufferReal[j][lowSubband],
                              &analysBufferImag[j][lowSubband], h_sbr_cal_env,
-                             pNrgs, lowSubband, noSubbands, scale_change,
-                             smooth_ratio, noNoiseFlag, filtBufferNoiseShift);
+                             pNrgs, lowSubband, noSubbands,
+                             fMin(scale_change, DFRACT_BITS - 1), smooth_ratio,
+                             noNoiseFlag, filtBufferNoiseShift);
           }
         } else {
           FDK_ASSERT(!iTES_enable); /* not supported */
@@ -1575,13 +1578,14 @@ void calculateSbrEnvelope(
             /* FDKmemset(analysBufferReal[j], 0, 64 * sizeof(FIXP_DBL)); */
             adjustTimeSlot_EldGrid(&analysBufferReal[j][lowSubband], pNrgs,
                                    &h_sbr_cal_env->harmIndex, lowSubband,
-                                   noSubbands, scale_change, noNoiseFlag,
-                                   &h_sbr_cal_env->phaseIndex,
+                                   noSubbands,
+                                   fMin(scale_change, DFRACT_BITS - 1),
+                                   noNoiseFlag, &h_sbr_cal_env->phaseIndex,
                                    EXP2SCALE(adj_e) - sbrScaleFactor->lb_scale);
           } else {
             adjustTimeSlotLC(&analysBufferReal[j][lowSubband], pNrgs,
                              &h_sbr_cal_env->harmIndex, lowSubband, noSubbands,
-                             scale_change, noNoiseFlag,
+                             fMin(scale_change, DFRACT_BITS - 1), noNoiseFlag,
                              &h_sbr_cal_env->phaseIndex);
           }
         }
@@ -2321,7 +2325,15 @@ static void calcSubbandGain(
     }
 
     /*  gain = nrgRef / B */
-    FDK_divide_MantExp(nrgRef, nrgRef_e, b, b_e, ptrNrgGain, ptrNrgGain_e);
+    INT result_exp = 0;
+    *ptrNrgGain = fDivNorm(nrgRef, b, &result_exp);
+    *ptrNrgGain_e = (SCHAR)result_exp + (nrgRef_e - b_e);
+
+    /* There could be a one bit diffs. This is important to compensate,
+       because later in the code values are compared by exponent only. */
+    int headroom = CountLeadingBits(*ptrNrgGain);
+    *ptrNrgGain <<= headroom;
+    *ptrNrgGain_e -= headroom;
   }
 }
 
@@ -2427,8 +2439,7 @@ static void adjustTimeSlot_EldGrid(
     sbNoise = *pNoiseLevel++;
     if (((INT)sineLevel_curr | noNoiseFlag) == 0) {
       signalReal +=
-          (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[phaseIndex][0], sbNoise)
-           << 4);
+          fMult(FDK_sbrDecoder_sbr_randomPhase[phaseIndex][0], sbNoise);
     }
     signalReal += sineLevel_curr * p_harmonicPhase[0];
     signalReal =
@@ -2462,8 +2473,7 @@ static void adjustTimeSlot_EldGrid(
     sbNoise = *pNoiseLevel++;
     if (((INT)sineLevel_curr | noNoiseFlag) == 0) {
       signalReal +=
-          (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[phaseIndex][0], sbNoise)
-           << 4);
+          fMult(FDK_sbrDecoder_sbr_randomPhase[phaseIndex][0], sbNoise);
     }
     signalReal += sineLevel_curr * p_harmonicPhase[0];
     *ptrReal++ = signalReal;
@@ -2523,8 +2533,7 @@ static void adjustTimeSlotLC(
   else if (!noNoiseFlag)
     /* Add noisefloor to the amplified signal */
     signalReal +=
-        (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0], pNoiseLevel[0])
-         << 4);
+        fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], pNoiseLevel[0]);
 
   {
     if (!(harmIndex & 0x1)) {
@@ -2571,9 +2580,8 @@ static void adjustTimeSlotLC(
             !noNoiseFlag) {
           /* Add noisefloor to the amplified signal */
           index &= (SBR_NF_NO_RANDOM_VAL - 1);
-          signalReal += (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0],
-                                   pNoiseLevel[0])
-                         << 4);
+          signalReal +=
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], pNoiseLevel[0]);
         }
 
         /* The next multiplication constitutes the actual envelope adjustment of
@@ -2598,9 +2606,8 @@ static void adjustTimeSlotLC(
         else if (!noNoiseFlag) {
           /* Add noisefloor to the amplified signal */
           index &= (SBR_NF_NO_RANDOM_VAL - 1);
-          signalReal += (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0],
-                                   pNoiseLevel[0])
-                         << 4);
+          signalReal +=
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], pNoiseLevel[0]);
         }
 
         pNoiseLevel++;
@@ -2629,10 +2636,8 @@ static void adjustTimeSlotLC(
     else if (!noNoiseFlag) {
       /* Add noisefloor to the amplified signal */
       index &= (SBR_NF_NO_RANDOM_VAL - 1);
-      signalReal =
-          signalReal +
-          (fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0], pNoiseLevel[0])
-           << 4);
+      signalReal = signalReal + fMult(FDK_sbrDecoder_sbr_randomPhase[index][0],
+                                      pNoiseLevel[0]);
     }
 
     if (!(harmIndex & 0x1)) {
@@ -2737,11 +2742,9 @@ static void adjustTimeSlotHQ_GainAndNoise(
         /* Add noisefloor to the amplified signal */
         index &= (SBR_NF_NO_RANDOM_VAL - 1);
         noiseReal =
-            fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise)
-            << 4;
+            fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise);
         noiseImag =
-            fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise)
-            << 4;
+            fMult(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise);
         *ptrReal++ = (signalReal + noiseReal);
         *ptrImag++ = (signalImag + noiseImag);
       }
@@ -2759,13 +2762,12 @@ static void adjustTimeSlotHQ_GainAndNoise(
         smoothedNoise = noiseLevel[k];
         index &= (SBR_NF_NO_RANDOM_VAL - 1);
         noiseReal =
-            fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise);
+            fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise);
         noiseImag =
-            fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise);
+            fMult(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise);
 
-        /* FDK_sbrDecoder_sbr_randomPhase is downscaled by 2^3 */
-        signalReal += noiseReal << 4;
-        signalImag += noiseImag << 4;
+        signalReal += noiseReal;
+        signalImag += noiseImag;
       }
       *ptrReal++ = signalReal;
       *ptrImag++ = signalImag;
@@ -2940,13 +2942,10 @@ static void adjustTimeSlotHQ(
         } else {
           /* Add noisefloor to the amplified signal */
           index &= (SBR_NF_NO_RANDOM_VAL - 1);
-          /* FDK_sbrDecoder_sbr_randomPhase is downscaled by 2^3 */
           noiseReal =
-              fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise)
-              << 4;
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise);
           noiseImag =
-              fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise)
-              << 4;
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise);
           *ptrReal++ = (signalReal + noiseReal);
           *ptrImag++ = (signalImag + noiseImag);
         }
@@ -2988,14 +2987,13 @@ static void adjustTimeSlotHQ(
           /* Add noisefloor to the amplified signal */
           smoothedNoise = noiseLevel[k];
           index &= (SBR_NF_NO_RANDOM_VAL - 1);
-          noiseReal = fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][0],
-                                smoothedNoise);
-          noiseImag = fMultDiv2(FDK_sbrDecoder_sbr_randomPhase[index][1],
-                                smoothedNoise);
+          noiseReal =
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][0], smoothedNoise);
+          noiseImag =
+              fMult(FDK_sbrDecoder_sbr_randomPhase[index][1], smoothedNoise);
 
-          /* FDK_sbrDecoder_sbr_randomPhase is downscaled by 2^3 */
-          signalReal += noiseReal << 4;
-          signalImag += noiseImag << 4;
+          signalReal += noiseReal;
+          signalImag += noiseImag;
         }
       }
       *ptrReal++ = signalReal;

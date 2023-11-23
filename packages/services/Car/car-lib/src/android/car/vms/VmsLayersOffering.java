@@ -16,6 +16,7 @@
 
 package android.car.vms;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -28,7 +29,11 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * The state of dependencies for a single publisher.
+ * A Vehicle Map Service layer offering for a single publisher.
+ *
+ * Contains all layers the publisher can offer, and the layers that offering depends on.
+ *
+ * A layer will not be advertised to subscribers unless all of its dependencies are met.
  *
  * @hide
  */
@@ -39,18 +44,26 @@ public final class VmsLayersOffering implements Parcelable {
 
     private final int mPublisherId;
 
-    public VmsLayersOffering(Set<VmsLayerDependency> dependencies, int publisherId) {
+    /**
+     *
+     * @param dependencies
+     * @param publisherId
+     */
+    public VmsLayersOffering(@NonNull Set<VmsLayerDependency> dependencies, int publisherId) {
         mDependencies = Collections.unmodifiableSet(dependencies);
         mPublisherId = publisherId;
     }
 
     /**
-     * Returns the dependencies.
+     * @return set of layer and dependencies in the offering
      */
     public Set<VmsLayerDependency> getDependencies() {
         return mDependencies;
     }
 
+    /**
+     * @return ID of the publisher making the offering
+     */
     public int getPublisherId() {
         return mPublisherId;
     }
@@ -77,8 +90,7 @@ public final class VmsLayersOffering implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel out, int flags) {
-
-        out.writeParcelableList(new ArrayList(mDependencies), flags);
+        out.writeParcelableList(new ArrayList<>(mDependencies), flags);
         out.writeInt(mPublisherId);
     }
 
@@ -88,7 +100,8 @@ public final class VmsLayersOffering implements Parcelable {
             return false;
         }
         VmsLayersOffering p = (VmsLayersOffering) o;
-        return Objects.equals(p.mPublisherId, mPublisherId) && p.mDependencies.equals(mDependencies);
+        return Objects.equals(p.mPublisherId, mPublisherId)
+                && p.mDependencies.equals(mDependencies);
     }
 
     @Override

@@ -23,11 +23,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.R;
@@ -90,7 +91,7 @@ public class TrustAgentListPreferenceController extends AbstractPreferenceContro
     @Override
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
-        mSecurityCategory = (PreferenceCategory) screen.findPreference(PREF_KEY_SECURITY_CATEGORY);
+        mSecurityCategory = screen.findPreference(PREF_KEY_SECURITY_CATEGORY);
         updateTrustAgents();
     }
 

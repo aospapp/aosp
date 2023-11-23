@@ -19,7 +19,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -27,10 +27,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsSplitApp
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 4
 LOCAL_PACKAGE_SPLITS := mdpi-v4 hdpi-v4 xhdpi-v4 xxhdpi-v4 v7 fr de
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
 
@@ -40,7 +41,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-LOCAL_SDK_VERSION := test_current
+LOCAL_EXPORT_PACKAGE_RESOURCES := true
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -52,7 +53,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_MIN_SDK_VERSION := 4
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -62,7 +64,7 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffRevision
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_MANIFEST_FILE := revision/AndroidManifest.xml
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
@@ -70,8 +72,6 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundredRevisionTwelve -
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
-
-LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -83,7 +83,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_MIN_SDK_VERSION := 4
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -93,15 +94,13 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffVersion
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 LOCAL_AAPT_FLAGS := --version-code 101 --version-name OneHundredOne --replace-version
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
-
-LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
@@ -113,7 +112,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_MIN_SDK_VERSION := 4
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -123,7 +123,7 @@ LOCAL_PACKAGE_NAME := CtsSplitAppDiffCert
 LOCAL_PACKAGE_SPLITS := v7
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2
 LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-version
@@ -131,7 +131,35 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-LOCAL_SDK_VERSION := test_current
+include $(BUILD_CTS_SUPPORT_PACKAGE)
+
+
+#################################################
+# Define a variant requiring a split for install
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_TAGS := tests
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_MANIFEST_FILE := needsplit/AndroidManifest.xml
+
+LOCAL_PACKAGE_NAME := CtsNeedSplitApp
+LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 4
+LOCAL_PACKAGE_SPLITS := xxhdpi-v4
+
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+
+LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
+
+LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
+LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundredRevisionTwelve --replace-version
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
+LOCAL_PROGUARD_ENABLED := disabled
+LOCAL_DEX_PREOPT := false
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 

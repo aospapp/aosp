@@ -67,7 +67,7 @@ class NodeVerifier : public HintManager {
   private:
     NodeVerifier(sp<NodeLooperThread> nm,
                  const std::map<std::string, std::vector<NodeAction>>& actions)
-        : HintManager(nm, actions) {}
+        : HintManager(std::move(nm), actions) {}
 };
 
 }  // namespace perfmgr

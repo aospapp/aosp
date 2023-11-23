@@ -24,22 +24,25 @@
 
   <FrameLayout
       android:id="@+id/avatar_container"
-      android:layout_width="104dp"
+      android:layout_width="wrap_content"
       android:layout_height="104dp"
       android:layout_gravity="center_horizontal"
-      android:layout_marginBottom="8dp">
+      android:layout_marginBottom="8dp"
+      android:minWidth="128dp">
 
-    <com.android.dialer.speeddial.SquareImageView
+    <QuickContactBadge
         android:id="@+id/avatar"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="104dp"
+        android:layout_height="104dp"
+        android:layout_gravity="center_horizontal"
         android:clickable="false"/>
 
     <FrameLayout
         android:id="@+id/video_call_container"
         android:layout_width="36dp"
         android:layout_height="36dp"
-        android:layout_gravity="bottom|end">
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp">
 
       <ImageView
           android:layout_width="match_parent"
@@ -50,7 +53,7 @@
           android:layout_width="24dp"
           android:layout_height="24dp"
           android:layout_gravity="center"
-          android:src="@drawable/quantum_ic_videocam_white_24"/>
+          android:src="@drawable/quantum_ic_videocam_vd_white_24"/>
     </FrameLayout>
   </FrameLayout>
 
@@ -59,12 +62,23 @@
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:layout_gravity="center_horizontal"
-      style="@style/PrimaryText"/>
+      android:layout_marginStart="4dp"
+      android:layout_marginEnd="4dp"
+      android:layout_marginTop="8dp"
+      android:layout_marginBottom="1dp"
+      android:fontFamily="sans-serif-medium"
+      android:textSize="14sp"
+      android:gravity="center_horizontal"
+      style="@style/Dialer.TextAppearance.Primary"/>
 
   <TextView
       android:id="@+id/phone_type"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:layout_gravity="center_horizontal"
-      style="@style/SecondaryText"/>
+      android:layout_marginStart="4dp"
+      android:layout_marginEnd="4dp"
+      android:layout_marginBottom="17dp"
+      android:gravity="center_horizontal"
+      style="@style/Dialer.TextAppearance.Secondary"/>
 </LinearLayout>

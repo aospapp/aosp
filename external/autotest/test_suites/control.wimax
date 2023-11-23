@@ -30,7 +30,6 @@ verify the WiMAX support on Chrome OS:
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 # Values specified in this bug template will override default values when
@@ -49,7 +48,6 @@ _BUG_TEMPLATE = {
 # marked as experimental.
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['name'] = NAME
 args_dict['job'] = job
 

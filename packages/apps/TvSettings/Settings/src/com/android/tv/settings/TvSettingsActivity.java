@@ -20,7 +20,6 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.transition.Scene;
 import android.transition.Slide;
 import android.transition.Transition;
@@ -30,8 +29,11 @@ import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 
+import androidx.annotation.Nullable;
+
 import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
 import com.android.settingslib.core.instrumentation.SharedPreferencesLogger;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 public abstract class TvSettingsActivity extends Activity {
     private static final String TAG = "TvSettingsActivity";
@@ -43,6 +45,19 @@ public abstract class TvSettingsActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
+
+            final Fragment fragment = createSettingsFragment();
+            if (fragment == null) {
+                return;
+            }
+            if (FeatureFactory.getFactory(this).isTwoPanelLayout()) {
+                getFragmentManager().beginTransaction()
+                        .setCustomAnimations(android.R.animator.fade_in,
+                                android.R.animator.fade_out)
+                        .add(android.R.id.content, fragment, SETTINGS_FRAGMENT_TAG)
+                        .commitNow();
+                return;
+            }
 
             final ViewGroup root = findViewById(android.R.id.content);
             root.getViewTreeObserver().addOnPreDrawListener(
@@ -57,13 +72,10 @@ public abstract class TvSettingsActivity extends Activity {
                                     Log.d(TAG, "Got torn down before adding fragment");
                                     return;
                                 }
-                                final Fragment fragment = createSettingsFragment();
-                                if (fragment != null) {
-                                    getFragmentManager().beginTransaction()
-                                            .add(android.R.id.content, fragment,
-                                                    SETTINGS_FRAGMENT_TAG)
-                                            .commitNow();
-                                }
+                                getFragmentManager().beginTransaction()
+                                        .add(android.R.id.content, fragment,
+                                                SETTINGS_FRAGMENT_TAG)
+                                        .commitNow();
                             });
 
                             final Slide slide = new Slide(Gravity.END);
@@ -82,6 +94,11 @@ public abstract class TvSettingsActivity extends Activity {
     @Override
     public void finish() {
         final Fragment fragment = getFragmentManager().findFragmentByTag(SETTINGS_FRAGMENT_TAG);
+        if (FeatureFactory.getFactory(this).isTwoPanelLayout()) {
+            super.finish();
+            return;
+        }
+
         if (isResumed() && fragment != null) {
             final ViewGroup root = findViewById(android.R.id.content);
             final Scene scene = new Scene(root);

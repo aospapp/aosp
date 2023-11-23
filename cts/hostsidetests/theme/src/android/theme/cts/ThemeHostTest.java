@@ -55,11 +55,12 @@ public class ThemeHostTest extends DeviceTestCase {
     private static final String GENERATED_ASSETS_ZIP = "/sdcard/cts-theme-assets.zip";
 
     /** The class name of the main activity in the APK. */
-    private static final String TEST_CLASS = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String TEST_CLASS = "androidx.test.runner.AndroidJUnitRunner";
 
     /** The command to launch the main instrumentation test. */
     private static final String START_CMD = String.format(
-            "am instrument -w --no-window-animation %s/%s", APP_PACKAGE_NAME, TEST_CLASS);
+            "am instrument -w --no-isolated-storage --no-window-animation %s/%s",
+            APP_PACKAGE_NAME, TEST_CLASS);
 
     private static final String CLEAR_GENERATED_CMD = "rm -rf %s/*.png";
     private static final String STOP_CMD = String.format("am force-stop %s", APP_PACKAGE_NAME);
@@ -83,13 +84,16 @@ public class ThemeHostTest extends DeviceTestCase {
 
     private ExecutorCompletionService<Pair<String, File>> mCompletionService;
 
+    // Density to which the device should be restored, or -1 if unnecessary.
+    private int mRestoreDensity;
+
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
         mDevice = getDevice();
-
+        mRestoreDensity = resetDensityIfNeeded(mDevice);
         final String density = getDensityBucketForDevice(mDevice);
         final String referenceZipAssetPath = String.format("/%s.zip", density);
         mReferences = extractReferenceImages(referenceZipAssetPath);
@@ -139,12 +143,14 @@ public class ThemeHostTest extends DeviceTestCase {
         // Remove generated images.
         mDevice.executeShellCommand(CLEAR_GENERATED_CMD);
 
+        restoreDensityIfNeeded(mDevice, mRestoreDensity);
+
         super.tearDown();
     }
 
     public void testThemes() throws Exception {
         if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
-            Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test for watch / TV");
+            Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test for watch / TV / automotive");
             return;
         }
 
@@ -154,7 +160,7 @@ public class ThemeHostTest extends DeviceTestCase {
             return;
         }
 
-        assertTrue("Aborted image generation", generateDeviceImages());
+        assertTrue("Aborted image generation, see device log for details", generateDeviceImages());
 
         // Pull ZIP file from remote device.
         final File localZip = File.createTempFile("generated", ".zip");
@@ -268,14 +274,26 @@ public class ThemeHostTest extends DeviceTestCase {
         return bucket;
     }
 
-    private static int getDensityForDevice(ITestDevice device) throws DeviceNotAvailableException {
+    private static int resetDensityIfNeeded(ITestDevice device) throws DeviceNotAvailableException {
         final String output = device.executeShellCommand(WM_DENSITY);
-        final Pattern p = Pattern.compile("Override density: (\\d+)");
-        final Matcher m = p.matcher(output);
-        if (m.find()) {
-            return Integer.parseInt(m.group(1));
-        }
+         final Pattern p = Pattern.compile("Override density: (\\d+)");
+         final Matcher m = p.matcher(output);
+         if (m.find()) {
+             device.executeShellCommand(WM_DENSITY + " reset");
+             int restoreDensity = Integer.parseInt(m.group(1));
+             return restoreDensity;
+         }
+         return -1;
+    }
 
+    private static void restoreDensityIfNeeded(ITestDevice device, int restoreDensity)
+            throws DeviceNotAvailableException {
+        if (restoreDensity > 0) {
+            device.executeShellCommand(WM_DENSITY + " " + restoreDensity);
+        }
+    }
+
+    private static int getDensityForDevice(ITestDevice device) throws DeviceNotAvailableException {
         final String densityProp;
         if (device.getSerialNumber().startsWith("emulator-")) {
             densityProp = DENSITY_PROP_EMULATOR;
@@ -287,6 +305,7 @@ public class ThemeHostTest extends DeviceTestCase {
 
     private static boolean checkHardwareTypeSkipTest(String hardwareTypeString) {
         return hardwareTypeString.contains("android.hardware.type.watch")
-                || hardwareTypeString.contains("android.hardware.type.television");
+                || hardwareTypeString.contains("android.hardware.type.television")
+                || hardwareTypeString.contains("android.hardware.type.automotive");
     }
 }

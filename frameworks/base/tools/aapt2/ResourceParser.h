@@ -20,9 +20,9 @@
 #include <memory>
 
 #include "android-base/macros.h"
+#include "androidfw/ConfigDescription.h"
 #include "androidfw/StringPiece.h"
 
-#include "ConfigDescription.h"
 #include "Diagnostics.h"
 #include "ResourceTable.h"
 #include "ResourceValues.h"
@@ -45,6 +45,10 @@ struct ResourceParserOptions {
    * warnings.
    */
   bool error_on_positional_arguments = true;
+
+  // If visibility was forced, we need to use it when creating a new resource and also error if we
+  // try to parse the <public>, <public-group>, <java-symbol> or <symbol> tags.
+  Maybe<Visibility::Level> visibility;
 };
 
 /*
@@ -53,7 +57,7 @@ struct ResourceParserOptions {
 class ResourceParser {
  public:
   ResourceParser(IDiagnostics* diag, ResourceTable* table, const Source& source,
-                 const ConfigDescription& config,
+                 const android::ConfigDescription& config,
                  const ResourceParserOptions& options = {});
   bool Parse(xml::XmlPullParser* parser);
 
@@ -110,7 +114,7 @@ class ResourceParser {
   IDiagnostics* diag_;
   ResourceTable* table_;
   Source source_;
-  ConfigDescription config_;
+  android::ConfigDescription config_;
   ResourceParserOptions options_;
 };
 

@@ -16,19 +16,22 @@
 
 #include "reference_processor.h"
 
+#include "art_field-inl.h"
+#include "base/mutex.h"
 #include "base/time_utils.h"
 #include "base/utils.h"
+#include "class_root.h"
 #include "collector/garbage_collector.h"
-#include "java_vm_ext.h"
+#include "jni/java_vm_ext.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "object_callbacks.h"
-#include "reference_processor-inl.h"
 #include "reflection.h"
 #include "scoped_thread_state_change-inl.h"
 #include "task_processor.h"
+#include "thread_pool.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -47,13 +50,35 @@ ReferenceProcessor::ReferenceProcessor()
       cleared_references_(Locks::reference_queue_cleared_references_lock_) {
 }
 
+static inline MemberOffset GetSlowPathFlagOffset(ObjPtr<mirror::Class> reference_class)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(reference_class == GetClassRoot<mirror::Reference>());
+  // Second static field
+  ArtField* field = reference_class->GetStaticField(1);
+  DCHECK_STREQ(field->GetName(), "slowPathEnabled");
+  return field->GetOffset();
+}
+
+static inline void SetSlowPathFlag(bool enabled) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::Class> reference_class = GetClassRoot<mirror::Reference>();
+  MemberOffset slow_path_offset = GetSlowPathFlagOffset(reference_class);
+  reference_class->SetFieldBoolean</* kTransactionActive= */ false, /* kCheckTransaction= */ false>(
+      slow_path_offset, enabled ? 1 : 0);
+}
+
 void ReferenceProcessor::EnableSlowPath() {
-  mirror::Reference::GetJavaLangRefReference()->SetSlowPath(true);
+  SetSlowPathFlag(/* enabled= */ true);
 }
 
 void ReferenceProcessor::DisableSlowPath(Thread* self) {
-  mirror::Reference::GetJavaLangRefReference()->SetSlowPath(false);
+  SetSlowPathFlag(/* enabled= */ false);
   condition_.Broadcast(self);
+}
+
+bool ReferenceProcessor::SlowPathEnabled() {
+  ObjPtr<mirror::Class> reference_class = GetClassRoot<mirror::Reference>();
+  MemberOffset slow_path_offset = GetSlowPathFlagOffset(reference_class);
+  return reference_class->GetFieldBoolean(slow_path_offset);
 }
 
 void ReferenceProcessor::BroadcastForSlowPath(Thread* self) {
@@ -67,7 +92,7 @@ ObjPtr<mirror::Object> ReferenceProcessor::GetReferent(Thread* self,
     // Under read barrier / concurrent copying collector, it's not safe to call GetReferent() when
     // weak ref access is disabled as the call includes a read barrier which may push a ref onto the
     // mark stack and interfere with termination of marking.
-    ObjPtr<mirror::Object> const referent = reference->GetReferent();
+    const ObjPtr<mirror::Object> referent = reference->GetReferent();
     // If the referent is null then it is already cleared, we can just return null since there is no
     // scenario where it becomes non-null during the reference processing phase.
     if (UNLIKELY(!SlowPathEnabled()) || referent == nullptr) {
@@ -215,13 +240,13 @@ void ReferenceProcessor::DelayReferenceReferent(ObjPtr<mirror::Class> klass,
   mirror::HeapReference<mirror::Object>* referent = ref->GetReferentReferenceAddr();
   // do_atomic_update needs to be true because this happens outside of the reference processing
   // phase.
-  if (!collector->IsNullOrMarkedHeapReference(referent, /*do_atomic_update*/true)) {
+  if (!collector->IsNullOrMarkedHeapReference(referent, /*do_atomic_update=*/true)) {
     if (UNLIKELY(collector->IsTransactionActive())) {
       // In transaction mode, keep the referent alive and avoid any reference processing to avoid the
       // issue of rolling back reference processing.  do_atomic_update needs to be true because this
       // happens outside of the reference processing phase.
       if (!referent->IsNull()) {
-        collector->MarkHeapReference(referent, /*do_atomic_update*/ true);
+        collector->MarkHeapReference(referent, /*do_atomic_update=*/ true);
       }
       return;
     }
@@ -253,7 +278,7 @@ class ClearedReferenceTask : public HeapTask {
   explicit ClearedReferenceTask(jobject cleared_references)
       : HeapTask(NanoTime()), cleared_references_(cleared_references) {
   }
-  virtual void Run(Thread* thread) {
+  void Run(Thread* thread) override {
     ScopedObjectAccess soa(thread);
     jvalue args[1];
     args[0].l = cleared_references_;
@@ -265,8 +290,11 @@ class ClearedReferenceTask : public HeapTask {
   const jobject cleared_references_;
 };
 
-void ReferenceProcessor::EnqueueClearedReferences(Thread* self) {
+SelfDeletingTask* ReferenceProcessor::CollectClearedReferences(Thread* self) {
   Locks::mutator_lock_->AssertNotHeld(self);
+  // By default we don't actually need to do anything. Just return this no-op task to avoid having
+  // to put in ifs.
+  std::unique_ptr<SelfDeletingTask> result(new FunctionTask([](Thread*) {}));
   // When a runtime isn't started there are no reference queues to care about so ignore.
   if (!cleared_references_.IsEmpty()) {
     if (LIKELY(Runtime::Current()->IsStarted())) {
@@ -282,12 +310,12 @@ void ReferenceProcessor::EnqueueClearedReferences(Thread* self) {
         Runtime::Current()->GetHeap()->GetTaskProcessor()->AddTask(
             self, new ClearedReferenceTask(cleared_references));
       } else {
-        ClearedReferenceTask task(cleared_references);
-        task.Run(self);
+        result.reset(new ClearedReferenceTask(cleared_references));
       }
     }
     cleared_references_.Clear();
   }
+  return result.release();
 }
 
 void ReferenceProcessor::ClearReferent(ObjPtr<mirror::Reference> ref) {

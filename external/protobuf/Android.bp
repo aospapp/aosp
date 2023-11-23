@@ -24,7 +24,7 @@ IGNORED_WARNINGS = [
 cc_defaults {
     name: "protobuf-cflags-defaults",
     clang_cflags: [
-        "-Wno-error=unused-const-variable",
+        "-Wno-unused-const-variable",
         "-Wno-error=user-defined-warnings",
     ],
     cflags: [
@@ -75,6 +75,7 @@ cc_defaults {
         "src/google/protobuf/wire_format_lite.cc",
         "src/google/protobuf/io/coded_stream.cc",
         "src/google/protobuf/io/zero_copy_stream.cc",
+        "src/google/protobuf/io/zero_copy_stream_impl.cc",
         "src/google/protobuf/io/zero_copy_stream_impl_lite.cc",
     ],
 
@@ -105,10 +106,12 @@ cc_library_static {
 cc_library {
     name: "libprotobuf-cpp-lite",
     host_supported: true,
+    recovery_available: true,
     vendor_available: true,
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
     defaults: ["libprotobuf-cpp-lite-defaults"],
 
     cflags: ["-DGOOGLE_PROTOBUF_NO_RTTI"],
@@ -177,7 +180,6 @@ cc_defaults {
         "src/google/protobuf/io/printer.cc",
         "src/google/protobuf/io/strtod.cc",
         "src/google/protobuf/io/tokenizer.cc",
-        "src/google/protobuf/io/zero_copy_stream_impl.cc",
         "src/google/protobuf/compiler/importer.cc",
         "src/google/protobuf/compiler/parser.cc",
         "src/google/protobuf/util/field_comparator.cc",
@@ -453,10 +455,18 @@ cc_binary_host {
 
 }
 
+java_defaults {
+    name: "libprotobuf_errorprone_defaults",
+    errorprone: {
+        javacflags: ["-Xep:MissingOverride:OFF"],  // b/73499927
+    },
+}
+
 // Java nano library
 // =======================================================
 java_library_static {
     name: "libprotobuf-java-nano",
+    defaults: ["libprotobuf_errorprone_defaults"],
     host_supported: true,
 
     sdk_version: "9",
@@ -487,6 +497,7 @@ java_library_host {
 // =======================================================
 java_library_static {
     name: "libprotobuf-java-micro",
+    defaults: ["libprotobuf_errorprone_defaults"],
     host_supported: true,
 
     sdk_version: "8",
@@ -570,13 +581,19 @@ java_library_host {
 // =======================================================
 java_library_host {
     name: "libprotobuf-java-full",
+    defaults: ["libprotobuf_errorprone_defaults"],
 
     srcs: [
-        // This contains more source files than needed for the full version, but the
-        // additional files should not create any conflict.
         "java/core/src/main/java/**/*.java",
-        "src/google/protobuf/descriptor.proto",
+        ":libprotobuf-internal-protos",
     ],
+
+    proto: {
+        local_include_dirs: [
+            "src",
+        ],
+        canonical_path_from_root: false,
+    },
 
     java_version: "1.7",
 }
@@ -595,4 +612,133 @@ java_library {
     srcs: ["java/core/src/stubs/**/*.java"],
     sdk_version: "core_current",
     installable: false,
+}
+
+// Python library
+// =======================================================
+python_library {
+    name: "libprotobuf-python",
+    srcs: [
+        ":libprotobuf-internal-python-srcs",
+        ":libprotobuf-internal-protos",
+    ],
+    version: {
+        py2: {
+            enabled: true,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
+    libs: [
+        "py-six",
+    ],
+    proto: {
+        local_include_dirs: [
+            "src",
+        ],
+        canonical_path_from_root: false,
+    },
+    host_supported: true,
+}
+
+filegroup {
+    name: "libprotobuf-internal-python-srcs",
+    srcs: ["python/google/**/*.py"],
+    path: "python",
+}
+
+filegroup {
+    name: "libprotobuf-internal-protos",
+    srcs: [
+        "src/google/protobuf/descriptor.proto",
+        "src/google/protobuf/any.proto",
+        "src/google/protobuf/source_context.proto",
+        "src/google/protobuf/type.proto",
+        "src/google/protobuf/compiler/plugin.proto",
+        "src/google/protobuf/api.proto",
+        "src/google/protobuf/duration.proto",
+        "src/google/protobuf/empty.proto",
+        "src/google/protobuf/field_mask.proto",
+        "src/google/protobuf/struct.proto",
+        "src/google/protobuf/timestamp.proto",
+        "src/google/protobuf/wrappers.proto",
+    ],
+    path: "src",
+}
+
+// To test java proto params build rules.
+// =======================================================
+java_test {
+    name: "aprotoc-test-nano-params",
+    sdk_version: "current",
+    proto: {
+        type: "nano",
+        local_include_dirs: ["src"],
+        output_params: [
+            "java_package=javanano/src/test/java/com/google/protobuf/nano/unittest_import_nano.proto\\|com.google.protobuf.nano",
+            "java_outer_classname=javanano/src/test/java/com/google/protobuf/nano/unittest_import_nano.proto\\|UnittestImportNano",
+        ],
+    },
+    srcs: [
+        "javanano/src/test/java/com/google/protobuf/nano/unittest_import_nano.proto",
+        "javanano/src/test/java/com/google/protobuf/nano/unittest_simple_nano.proto",
+        "javanano/src/test/java/com/google/protobuf/nano/unittest_stringutf8_nano.proto",
+        "javanano/src/test/java/com/google/protobuf/nano/unittest_recursive_nano.proto",
+    ],
+    java_version: "1.7",
+}
+
+// To test Android-specific nanoproto features.
+// =======================================================
+java_test {
+    // Parcelable messages
+    name: "android-nano-test-parcelable",
+    sdk_version: "current",
+    // Only needed at compile-time.
+    libs: ["android-support-annotations"],
+    proto: {
+        type: "nano",
+        local_include_dirs: ["src"],
+        output_params: [
+            "parcelable_messages=true",
+            "generate_intdefs=true",
+        ],
+    },
+    srcs: ["javanano/src/test/java/com/google/protobuf/nano/unittest_simple_nano.proto"],
+}
+
+java_test {
+    // Parcelable and extendable messages
+    name: "android-nano-test-parcelable-extendable",
+    sdk_version: "current",
+    // Only needed at compile-time.
+    libs: ["android-support-annotations"],
+    proto: {
+        type: "nano",
+        local_include_dirs: ["src"],
+        output_params: [
+            "parcelable_messages=true",
+            "generate_intdefs=true",
+            "store_unknown_fields=true",
+        ],
+    },
+    srcs: ["javanano/src/test/java/com/google/protobuf/nano/unittest_extension_nano.proto"],
+    java_version: "1.7",
+}
+
+android_test {
+    // Test APK
+    name: "NanoAndroidTest",
+    sdk_version: "8",
+    srcs: ["javanano/src/device/test/java/com/google/protobuf/nano/**/*.java"],
+    manifest: "javanano/src/device/test/AndroidManifest.xml",
+    static_libs: [
+        "libprotobuf-java-nano",
+        "android-nano-test-parcelable",
+        "android-nano-test-parcelable-extendable",
+    ],
+    dex_preopt: {
+        enabled: false,
+    },
 }

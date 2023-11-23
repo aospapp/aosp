@@ -22,7 +22,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
     ../PermissionDeclareApp/src/com/android/cts/permissiondeclareapp/UtilsProvider.java
 
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

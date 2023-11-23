@@ -53,7 +53,8 @@ bool AppToHostEvent::CheckAppId(SensorType sensor_type) const {
     switch (sensor_type) {
       case SensorType::Accel:
       case SensorType::Gyro:
-        if (GetAppId() != kAppIdBoschBmi160Bmm150 && GetAppId() != kAppIdSTMicroLsm6dsm) {
+        if (GetAppId() != kAppIdBoschBmi160Bmm150 && GetAppId() != kAppIdSTMicroLsm6dsm &&
+            GetAppId() != kAppIdInvnIcm40600) {
             return false;
         }
         break;

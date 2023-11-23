@@ -29,17 +29,17 @@ public final class DebugFlags {
 
     private DebugFlags() {}
 
-    private static String mQvPackage;
+    private static String sQvPackage;
     private static boolean sDocumentDetailsEnabled;
     private static int sForcedPageOffset = -1;
     private static int sForcedPageLimit = -1;
 
     public static void setQuickViewer(@Nullable String qvPackage) {
-        mQvPackage = qvPackage;
+        sQvPackage = qvPackage;
     }
 
     public static @Nullable String getQuickViewer() {
-        return mQvPackage;
+        return sQvPackage;
     }
 
     public static void setDocumentDetailsEnabled(boolean enabled) {

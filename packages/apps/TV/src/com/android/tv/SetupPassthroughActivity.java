@@ -28,11 +28,11 @@ import android.support.annotation.MainThread;
 import android.util.Log;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.actions.InputSetupActionUtils;
-import com.android.tv.common.experiments.Experiments;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ChannelDataManager.Listener;
 import com.android.tv.data.epg.EpgFetcher;
 import com.android.tv.data.epg.EpgInputWhiteList;
+import com.android.tv.features.TvFeatures;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
@@ -66,12 +66,10 @@ public class SetupPassthroughActivity extends Activity {
         Intent intent = getIntent();
         String inputId = intent.getStringExtra(InputSetupActionUtils.EXTRA_INPUT_ID);
         mTvInputInfo = inputManager.getTvInputInfo(inputId);
-        mEpgInputWhiteList = new EpgInputWhiteList(tvSingletons.getRemoteConfig());
+        mEpgInputWhiteList = new EpgInputWhiteList(tvSingletons.getCloudEpgFlags());
         mActivityAfterCompletion = InputSetupActionUtils.getExtraActivityAfter(intent);
         boolean needToFetchEpg =
-                mTvInputInfo != null
-                        && Utils.isInternalTvInput(this, mTvInputInfo.getId())
-                        && Experiments.CLOUD_EPG.get();
+                mTvInputInfo != null && Utils.isInternalTvInput(this, mTvInputInfo.getId());
         if (needToFetchEpg) {
             // In case when the activity is restored, this flag should be restored as well.
             mEpgFetcherDuringScan = true;
@@ -144,23 +142,30 @@ public class SetupPassthroughActivity extends Activity {
             finish();
             return;
         }
+        if (mTvInputInfo == null) {
+            Log.w(
+                    TAG,
+                    "There is no input with ID "
+                            + getIntent().getStringExtra(InputSetupActionUtils.EXTRA_INPUT_ID)
+                            + ".");
+            setResult(resultCode, data);
+            finish();
+            return;
+        }
         TvSingletons.getSingletons(this)
                 .getSetupUtils()
                 .onTvInputSetupFinished(
                         mTvInputInfo.getId(),
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                if (mActivityAfterCompletion != null) {
-                                    try {
-                                        startActivity(mActivityAfterCompletion);
-                                    } catch (ActivityNotFoundException e) {
-                                        Log.w(TAG, "Activity launch failed", e);
-                                    }
+                        () -> {
+                            if (mActivityAfterCompletion != null) {
+                                try {
+                                    startActivity(mActivityAfterCompletion);
+                                } catch (ActivityNotFoundException e) {
+                                    Log.w(TAG, "Activity launch failed", e);
                                 }
-                                setResult(resultCode, data);
-                                finish();
                             }
+                            setResult(resultCode, data);
+                            finish();
                         });
     }
 
@@ -178,15 +183,12 @@ public class SetupPassthroughActivity extends Activity {
         private final ChannelDataManager mChannelDataManager;
         private final Handler mHandler = new Handler(Looper.getMainLooper());
         private final Runnable mScanTimeoutRunnable =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        Log.w(
-                                TAG,
-                                "No channels has been added for a while."
-                                        + " The scan might have finished unexpectedly.");
-                        onScanTimedOut();
-                    }
+                () -> {
+                    Log.w(
+                            TAG,
+                            "No channels has been added for a while."
+                                    + " The scan might have finished unexpectedly.");
+                    onScanTimedOut();
                 };
         private final Listener mChannelDataManagerListener =
                 new Listener() {

@@ -19,6 +19,7 @@ import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.test.InstrumentationTestCase;
 
 /**
@@ -38,6 +39,7 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected DevicePolicyManager mParentDevicePolicyManager;
     protected Context mContext;
+    protected boolean mHasSecureLockScreen;
 
     @Override
     protected void setUp() throws Exception {
@@ -54,6 +56,9 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
         assertTrue(mDevicePolicyManager.isProfileOwnerApp(
                 ADMIN_RECEIVER_COMPONENT.getPackageName()));
         assertTrue(mDevicePolicyManager.isManagedProfile(ADMIN_RECEIVER_COMPONENT));
+
+        mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SECURE_LOCK_SCREEN);
     }
 
     protected DevicePolicyManager getDevicePolicyManager(boolean isParent) {

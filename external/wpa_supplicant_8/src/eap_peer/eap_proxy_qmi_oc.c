@@ -32,7 +32,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef CONFIG_EAP_PROXY
 #include "qmi_client.h"
-#include "eap_proxy_qmi.h"
+#include "eap_proxy_qmi_oc.h"
 #include "qmi_client.h"
 #include "qmi_idl_lib.h"
 #include "authentication_service_v01.h"

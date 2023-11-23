@@ -25,6 +25,7 @@
 
 #include "vkDefs.hpp"
 #include "deStringUtil.hpp"
+#include "vkValidatorOptions.hpp"
 
 #include <string>
 
@@ -38,15 +39,23 @@ namespace vk
 
 struct SpirVAsmBuildOptions
 {
+	deUint32	vulkanVersion;
 	SpirvVersion	targetVersion;
 
-	SpirVAsmBuildOptions (SpirvVersion targetVersion_)
-		: targetVersion	(targetVersion_)
+	SpirVAsmBuildOptions (deUint32 vulkanVersion_, SpirvVersion targetVersion_)
+		: vulkanVersion	(vulkanVersion_)
+		, targetVersion	(targetVersion_)
 	{}
 
 	SpirVAsmBuildOptions (void)
-		: targetVersion	(SPIRV_VERSION_1_0)
+		: vulkanVersion	(VK_MAKE_VERSION(1, 0, 0))
+		, targetVersion	(SPIRV_VERSION_1_0)
 	{}
+
+	SpirvValidatorOptions getSpirvValidatorOptions() const
+	{
+		return SpirvValidatorOptions(vulkanVersion);
+	}
 };
 
 struct SpirVAsmSource

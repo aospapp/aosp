@@ -32,6 +32,8 @@
 #include "vkTypeUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkBuilderUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "gluShaderUtil.hpp"
 
@@ -70,6 +72,8 @@ typedef de::SharedPtr<Unique<VkImageView> >	VkImageViewSp;
 typedef de::SharedPtr<Unique<VkBuffer> >	VkBufferSp;
 typedef de::SharedPtr<Allocation>			AllocationSp;
 
+static VkFormat getAttributeFormat(const glu::DataType dataType);
+
 // Shader utilities
 
 static VkClearValue	getDefaultClearColor (void)
@@ -81,7 +85,7 @@ static std::string generateEmptyFragmentSource (void)
 {
 	std::ostringstream src;
 
-	src << "#version 310 es\n"
+	src << "#version 450\n"
 		   "layout(location=0) out highp vec4 o_color;\n";
 
 	src << "void main (void)\n{\n";
@@ -91,16 +95,90 @@ static std::string generateEmptyFragmentSource (void)
 	return src.str();
 }
 
-static std::string generatePassthroughVertexShader (const std::vector<Symbol>& inputs, const char* inputPrefix, const char* outputPrefix)
+void packFloat16Bit (std::ostream& src, const std::vector<Symbol>& outputs)
 {
+	for (vector<Symbol>::const_iterator symIter = outputs.begin(); symIter != outputs.end(); ++symIter)
+	{
+		if(glu::isDataTypeFloatType(symIter->varType.getBasicType()))
+		{
+			if(glu::isDataTypeVector(symIter->varType.getBasicType()))
+			{
+				for(int i = 0; i < glu::getDataTypeScalarSize(symIter->varType.getBasicType()); i++)
+				{
+					src << "\tpacked_" << symIter->name << "[" << i << "] = uintBitsToFloat(packFloat2x16(f16vec2(" << symIter->name << "[" << i << "], -1.0)));\n";
+				}
+			}
+			else if (glu::isDataTypeMatrix(symIter->varType.getBasicType()))
+			{
+				int maxRow = 0;
+				int maxCol = 0;
+				switch (symIter->varType.getBasicType())
+				{
+				case glu::TYPE_FLOAT_MAT2:
+					maxRow = maxCol = 2;
+					break;
+				case glu::TYPE_FLOAT_MAT2X3:
+					maxRow = 2;
+					maxCol = 3;
+					break;
+				case glu::TYPE_FLOAT_MAT2X4:
+					maxRow = 2;
+					maxCol = 4;
+					break;
+				case glu::TYPE_FLOAT_MAT3X2:
+					maxRow = 3;
+					maxCol = 2;
+					break;
+				case glu::TYPE_FLOAT_MAT3:
+					maxRow = maxCol = 3;
+					break;
+				case glu::TYPE_FLOAT_MAT3X4:
+					maxRow = 3;
+					maxCol = 4;
+					break;
+				case glu::TYPE_FLOAT_MAT4X2:
+					maxRow = 4;
+					maxCol = 2;
+					break;
+				case glu::TYPE_FLOAT_MAT4X3:
+					maxRow = 4;
+					maxCol = 3;
+					break;
+				case glu::TYPE_FLOAT_MAT4:
+					maxRow = maxCol = 4;
+					break;
+				default:
+					DE_ASSERT(false);
+					break;
+				}
 
+				for(int i = 0; i < maxRow; i++)
+				for(int j = 0; j < maxCol; j++)
+				{
+					src << "\tpacked_" << symIter->name << "[" << i << "][" << j << "] = uintBitsToFloat(packFloat2x16(f16vec2(" << symIter->name << "[" << i << "][" << j << "], -1.0)));\n";
+				}
+			}
+			else
+			{
+					src << "\tpacked_" << symIter->name << " = uintBitsToFloat(packFloat2x16(f16vec2(" << symIter->name << ", -1.0)));\n";
+			}
+		}
+	}
+}
+
+static std::string generatePassthroughVertexShader (const ShaderSpec& shaderSpec, const char* inputPrefix, const char* outputPrefix)
+{
 	std::ostringstream	src;
 	int					location	= 0;
 
-	src << "#version 310 es\n"
-		   "layout(location = " << location << ") in highp vec4 a_position;\n";
+	src << glu::getGLSLVersionDeclaration(shaderSpec.glslVersion) << "\n";
 
-	for (vector<Symbol>::const_iterator input = inputs.begin(); input != inputs.end(); ++input)
+	if (!shaderSpec.globalDeclarations.empty())
+		src << shaderSpec.globalDeclarations << "\n";
+
+	src << "layout(location = " << location << ") in highp vec4 a_position;\n";
+
+	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input)
 	{
 		location++;
 		src << "layout(location = "<< location << ") in " << glu::declare(input->varType, inputPrefix + input->name) << ";\n"
@@ -111,7 +189,7 @@ static std::string generatePassthroughVertexShader (const std::vector<Symbol>& i
 		<< "	gl_Position = a_position;\n"
 		<< "	gl_PointSize = 1.0;\n";
 
-	for (vector<Symbol>::const_iterator input = inputs.begin(); input != inputs.end(); ++input)
+	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input)
 		src << "\t" << outputPrefix << input->name << " = " << inputPrefix << input->name << ";\n";
 
 	src << "}\n";
@@ -132,9 +210,11 @@ static std::string generateVertexShader (const ShaderSpec& shaderSpec, const std
 
 	src << "layout(location = 0) in highp vec4 a_position;\n";
 
-	int locationNumber = 1;
+	int			locationNumber	= 1;
 	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input, ++locationNumber)
+	{
 		src <<  "layout(location = " << locationNumber << ") in " << glu::declare(input->varType, inputPrefix + input->name) << ";\n";
+	}
 
 	locationNumber = 0;
 	for (vector<Symbol>::const_iterator output = shaderSpec.outputs.begin(); output != shaderSpec.outputs.end(); ++output, ++locationNumber)
@@ -161,11 +241,29 @@ static std::string generateVertexShader (const ShaderSpec& shaderSpec, const std
 
 	// Declare & fetch local input variables
 	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input)
-		src << "\t" << glu::declare(input->varType, input->name) << " = " << inputPrefix << input->name << ";\n";
+	{
+		if (shaderSpec.packFloat16Bit && isDataTypeFloatOrVec(input->varType.getBasicType()))
+		{
+			const std::string tname = glu::getDataTypeName(getDataTypeFloat16Scalars(input->varType.getBasicType()));
+			src << "\t" << tname << " " << input->name << " = " << tname << "(" << inputPrefix << input->name << ");\n";
+		}
+		else
+			src << "\t" << glu::declare(input->varType, input->name) << " = " << inputPrefix << input->name << ";\n";
+	}
 
 	// Declare local output variables
 	for (vector<Symbol>::const_iterator output = shaderSpec.outputs.begin(); output != shaderSpec.outputs.end(); ++output)
-		src << "\t" << glu::declare(output->varType, output->name) << ";\n";
+	{
+		if (shaderSpec.packFloat16Bit && isDataTypeFloatOrVec(output->varType.getBasicType()))
+		{
+			const std::string tname = glu::getDataTypeName(getDataTypeFloat16Scalars(output->varType.getBasicType()));
+			src << "\t" << tname << " " << output->name << ";\n";
+			const char* tname2 = glu::getDataTypeName(output->varType.getBasicType());
+			src << "\t" << tname2 << " " << "packed_" << output->name << ";\n";
+		}
+		else
+			src << "\t" << glu::declare(output->varType, output->name) << ";\n";
+	}
 
 	// Operation - indented to correct level.
 	{
@@ -176,18 +274,28 @@ static std::string generateVertexShader (const ShaderSpec& shaderSpec, const std
 			src << "\t" << line << "\n";
 	}
 
+	if (shaderSpec.packFloat16Bit)
+		packFloat16Bit(src, shaderSpec.outputs);
+
 	// Assignments to outputs.
 	for (vector<Symbol>::const_iterator output = shaderSpec.outputs.begin(); output != shaderSpec.outputs.end(); ++output)
 	{
-		if (glu::isDataTypeBoolOrBVec(output->varType.getBasicType()))
+		if (shaderSpec.packFloat16Bit && isDataTypeFloatOrVec(output->varType.getBasicType()))
 		{
-			const int				vecSize		= glu::getDataTypeScalarSize(output->varType.getBasicType());
-			const glu::DataType		intBaseType	= vecSize > 1 ? glu::getDataTypeIntVec(vecSize) : glu::TYPE_INT;
-
-			src << "\t" << outputPrefix << output->name << " = " << glu::getDataTypeName(intBaseType) << "(" << output->name << ");\n";
+			src << "\t" << outputPrefix << output->name << " = packed_" << output->name << ";\n";
 		}
 		else
-			src << "\t" << outputPrefix << output->name << " = " << output->name << ";\n";
+		{
+			if (glu::isDataTypeBoolOrBVec(output->varType.getBasicType()))
+			{
+				const int				vecSize		= glu::getDataTypeScalarSize(output->varType.getBasicType());
+				const glu::DataType		intBaseType	= vecSize > 1 ? glu::getDataTypeIntVec(vecSize) : glu::TYPE_INT;
+
+				src << "\t" << outputPrefix << output->name << " = " << glu::getDataTypeName(intBaseType) << "(" << output->name << ");\n";
+			}
+			else
+				src << "\t" << outputPrefix << output->name << " = " << output->name << ";\n";
+		}
 	}
 
 	src << "}\n";
@@ -250,10 +358,15 @@ static void generateFragShaderOutputDecl (std::ostream& src, const ShaderSpec& s
 	}
 }
 
-static void generateFragShaderOutAssign (std::ostream& src, const ShaderSpec& shaderSpec, bool useIntOutputs, const std::string& valuePrefix, const std::string& outputPrefix)
+static void generateFragShaderOutAssign (std::ostream& src, const ShaderSpec& shaderSpec, bool useIntOutputs, const std::string& valuePrefix, const std::string& outputPrefix, const bool isInput16Bit = false)
 {
+	if (isInput16Bit)
+		packFloat16Bit(src, shaderSpec.outputs);
+
 	for (vector<Symbol>::const_iterator output = shaderSpec.outputs.begin(); output != shaderSpec.outputs.end(); ++output)
 	{
+		const std::string packPrefix = (isInput16Bit && glu::isDataTypeFloatType(output->varType.getBasicType())) ? "packed_" : "";
+
 		if (useIntOutputs && glu::isDataTypeFloatOrVec(output->varType.getBasicType()))
 			src << "	o_" << output->name << " = floatBitsToUint(" << valuePrefix << output->name << ");\n";
 		else if (glu::isDataTypeMatrix(output->varType.getBasicType()))
@@ -264,7 +377,7 @@ static void generateFragShaderOutAssign (std::ostream& src, const ShaderSpec& sh
 				if (useIntOutputs)
 					src << "\t" << outputPrefix << output->name << "_" << vecNdx << " = floatBitsToUint(" << valuePrefix << output->name << "[" << vecNdx << "]);\n";
 				else
-					src << "\t" << outputPrefix << output->name << "_" << vecNdx << " = " << valuePrefix << output->name << "[" << vecNdx << "];\n";
+					src << "\t" << outputPrefix << output->name << "_" << vecNdx << " = " << packPrefix << valuePrefix << output->name << "[" << vecNdx << "];\n";
 		}
 		else if (glu::isDataTypeBoolOrBVec(output->varType.getBasicType()))
 		{
@@ -274,7 +387,7 @@ static void generateFragShaderOutAssign (std::ostream& src, const ShaderSpec& sh
 			src << "\t" << outputPrefix << output->name << " = " << glu::getDataTypeName(intBaseType) << "(" << valuePrefix << output->name << ");\n";
 		}
 		else
-			src << "\t" << outputPrefix << output->name << " = " << valuePrefix << output->name << ";\n";
+			src << "\t" << outputPrefix << output->name << " = " << packPrefix << valuePrefix << output->name << ";\n";
 	}
 }
 
@@ -282,7 +395,7 @@ static std::string generatePassthroughFragmentShader (const ShaderSpec& shaderSp
 {
 	std::ostringstream	src;
 
-	src <<"#version 310 es\n";
+	src <<"#version 450\n";
 
 	if (!shaderSpec.globalDeclarations.empty())
 		src << shaderSpec.globalDeclarations << "\n";
@@ -313,7 +426,7 @@ static std::string generatePassthroughFragmentShader (const ShaderSpec& shaderSp
 	return src.str();
 }
 
-static std::string generateGeometryShader (const ShaderSpec& shaderSpec, const std::string& inputPrefix, const std::string& outputPrefix)
+static std::string generateGeometryShader (const ShaderSpec& shaderSpec, const std::string& inputPrefix, const std::string& outputPrefix, const bool pointSizeSupported)
 {
 	DE_ASSERT(!inputPrefix.empty() && !outputPrefix.empty());
 
@@ -354,7 +467,8 @@ static std::string generateGeometryShader (const ShaderSpec& shaderSpec, const s
 	src << "\n"
 		<< "void main (void)\n"
 		<< "{\n"
-		<< "	gl_Position = gl_in[0].gl_Position;\n\n";
+		<< "	gl_Position = gl_in[0].gl_Position;\n"
+		<< (pointSizeSupported ? "	gl_PointSize = gl_in[0].gl_PointSize;\n\n" : "");
 
 	// Fetch input variables
 	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input)
@@ -403,9 +517,11 @@ static std::string generateFragmentShader (const ShaderSpec& shaderSpec, bool us
 	if (!shaderSpec.globalDeclarations.empty())
 		src << shaderSpec.globalDeclarations << "\n";
 
-	int locationNumber = 0;
+	int			locationNumber	= 0;
 	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input, ++locationNumber)
+	{
 		src << "layout(location = " << locationNumber << ") flat in " << glu::declare(input->varType, inputPrefix + input->name) << ";\n";
+	}
 
 	generateFragShaderOutputDecl(src, shaderSpec, useIntOutputs, outLocationMap, outputPrefix);
 
@@ -413,11 +529,29 @@ static std::string generateFragmentShader (const ShaderSpec& shaderSpec, bool us
 
 	// Declare & fetch local input variables
 	for (vector<Symbol>::const_iterator input = shaderSpec.inputs.begin(); input != shaderSpec.inputs.end(); ++input)
-		src << "\t" << glu::declare(input->varType, input->name) << " = " << inputPrefix << input->name << ";\n";
+	{
+		if (shaderSpec.packFloat16Bit && isDataTypeFloatOrVec(input->varType.getBasicType()))
+		{
+			const std::string tname = glu::getDataTypeName(getDataTypeFloat16Scalars(input->varType.getBasicType()));
+			src << "\t" << tname << " " << input->name << " = " << tname << "(" << inputPrefix << input->name << ");\n";
+		}
+		else
+			src << "\t" << glu::declare(input->varType, input->name) << " = " << inputPrefix << input->name << ";\n";
+	}
 
 	// Declare output variables
 	for (vector<Symbol>::const_iterator output = shaderSpec.outputs.begin(); output != shaderSpec.outputs.end(); ++output)
-		src << "\t" << glu::declare(output->varType, output->name) << ";\n";
+	{
+		if (shaderSpec.packFloat16Bit && isDataTypeFloatOrVec(output->varType.getBasicType()))
+		{
+			const std::string tname = glu::getDataTypeName(getDataTypeFloat16Scalars(output->varType.getBasicType()));
+			src << "\t" << tname << " " << output->name << ";\n";
+			const char* tname2 = glu::getDataTypeName(output->varType.getBasicType());
+			src << "\t" << tname2 << " " << "packed_" << output->name << ";\n";
+		}
+		else
+			src << "\t" << glu::declare(output->varType, output->name) << ";\n";
+	}
 
 	// Operation - indented to correct level.
 	{
@@ -428,7 +562,7 @@ static std::string generateFragmentShader (const ShaderSpec& shaderSpec, bool us
 			src << "\t" << line << "\n";
 	}
 
-	generateFragShaderOutAssign(src, shaderSpec, useIntOutputs, "", outputPrefix);
+	generateFragShaderOutAssign(src, shaderSpec, useIntOutputs, "", outputPrefix, shaderSpec.packFloat16Bit);
 
 	src << "}\n";
 
@@ -498,6 +632,19 @@ FragmentOutExecutor::FragmentOutExecutor (Context& context, glu::ShaderType shad
 	, m_outputLayout			(computeFragmentOutputLayout(m_shaderSpec.outputs))
 	, m_extraResourcesLayout	(extraResourcesLayout)
 {
+	const VkPhysicalDevice		physicalDevice = m_context.getPhysicalDevice();
+	const InstanceInterface&	vki = m_context.getInstanceInterface();
+
+	// Input attributes
+	for (int inputNdx = 0; inputNdx < (int)m_shaderSpec.inputs.size(); inputNdx++)
+	{
+		const Symbol&				symbol = m_shaderSpec.inputs[inputNdx];
+		const glu::DataType			basicType = symbol.varType.getBasicType();
+		const VkFormat				format = getAttributeFormat(basicType);
+		const VkFormatProperties	formatProperties = getPhysicalDeviceFormatProperties(vki, physicalDevice, format);
+		if ((formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) == 0)
+			TCU_THROW(NotSupportedError, "format not supported by device as vertex buffer attribute format");
+	}
 }
 
 FragmentOutExecutor::~FragmentOutExecutor (void)
@@ -536,10 +683,11 @@ static tcu::TextureFormat getRenderbufferFormatForOutput (const glu::VarType& ou
 
 	switch (glu::getDataTypeScalarType(basicType))
 	{
-		case glu::TYPE_UINT:	channelType = tcu::TextureFormat::UNSIGNED_INT32;												break;
-		case glu::TYPE_INT:		channelType = tcu::TextureFormat::SIGNED_INT32;													break;
-		case glu::TYPE_BOOL:	channelType = tcu::TextureFormat::SIGNED_INT32;													break;
-		case glu::TYPE_FLOAT:	channelType = useIntOutputs ? tcu::TextureFormat::UNSIGNED_INT32 : tcu::TextureFormat::FLOAT;	break;
+		case glu::TYPE_UINT:	channelType = tcu::TextureFormat::UNSIGNED_INT32;														break;
+		case glu::TYPE_INT:		channelType = tcu::TextureFormat::SIGNED_INT32;															break;
+		case glu::TYPE_BOOL:	channelType = tcu::TextureFormat::SIGNED_INT32;															break;
+		case glu::TYPE_FLOAT:	channelType = useIntOutputs ? tcu::TextureFormat::UNSIGNED_INT32 : tcu::TextureFormat::FLOAT;			break;
+		case glu::TYPE_FLOAT16:	channelType = useIntOutputs ? tcu::TextureFormat::UNSIGNED_INT32 : tcu::TextureFormat::HALF_FLOAT;		break;
 		default:
 			throw tcu::InternalError("Invalid output type");
 	}
@@ -553,6 +701,11 @@ static VkFormat getAttributeFormat (const glu::DataType dataType)
 {
 	switch (dataType)
 	{
+		case glu::TYPE_FLOAT16:			return VK_FORMAT_R16_SFLOAT;
+		case glu::TYPE_FLOAT16_VEC2:	return VK_FORMAT_R16G16_SFLOAT;
+		case glu::TYPE_FLOAT16_VEC3:	return VK_FORMAT_R16G16B16_SFLOAT;
+		case glu::TYPE_FLOAT16_VEC4:	return VK_FORMAT_R16G16B16A16_SFLOAT;
+
 		case glu::TYPE_FLOAT:			return VK_FORMAT_R32_SFLOAT;
 		case glu::TYPE_FLOAT_VEC2:		return VK_FORMAT_R32G32_SFLOAT;
 		case glu::TYPE_FLOAT_VEC3:		return VK_FORMAT_R32G32B32_SFLOAT;
@@ -631,7 +784,7 @@ void FragmentOutExecutor::addAttribute (deUint32 bindingLocation, VkFormat forma
 	VK_CHECK(vk.bindBufferMemory(vkDevice, *buffer, alloc->getMemory(), alloc->getOffset()));
 
 	deMemcpy(alloc->getHostPtr(), dataPtr, (size_t)inputSize);
-	flushMappedMemoryRange(vk, vkDevice, alloc->getMemory(), alloc->getOffset(), inputSize);
+	flushAlloc(vk, vkDevice, *alloc);
 
 	m_vertexBuffers.push_back(de::SharedPtr<Unique<VkBuffer> >(new Unique<VkBuffer>(buffer)));
 	m_vertexBufferAllocs.push_back(AllocationSp(alloc.release()));
@@ -652,6 +805,8 @@ void FragmentOutExecutor::bindAttributes (int numValues, const void* const* inpu
 
 		if (glu::isDataTypeFloatOrVec(basicType))
 			elementSize = sizeof(float);
+		else if (glu::isDataTypeFloat16OrVec(basicType))
+			elementSize = sizeof(deUint16);
 		else if (glu::isDataTypeIntOrIVec(basicType))
 			elementSize = sizeof(int);
 		else if (glu::isDataTypeUintOrUVec(basicType))
@@ -766,8 +921,6 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 	Move<VkCommandPool>									cmdPool;
 	Move<VkCommandBuffer>								cmdBuffer;
 
-	Move<VkFence>										fence;
-
 	Unique<VkDescriptorSetLayout>						emptyDescriptorSetLayout	(createEmptyDescriptorSetLayout(vk, vkDevice));
 	Unique<VkDescriptorPool>							dummyDescriptorPool			(createDummyDescriptorPool(vk, vkDevice));
 	Unique<VkDescriptorSet>								emptyDescriptorSet			(allocateSingleDescriptorSet(vk, vkDevice, *dummyDescriptorPool, *emptyDescriptorSetLayout));
@@ -801,9 +954,16 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 		for (int outNdx = 0; outNdx < (int)m_outputLayout.locationSymbols.size(); ++outNdx)
 		{
 			const bool		isFloat		= isDataTypeFloatOrVec(m_shaderSpec.outputs[outNdx].varType.getBasicType());
+			const bool		isFloat16b	= glu::isDataTypeFloat16OrVec(m_shaderSpec.outputs[outNdx].varType.getBasicType());
 			const bool		isSigned	= isDataTypeIntOrIVec (m_shaderSpec.outputs[outNdx].varType.getBasicType());
 			const bool		isBool		= isDataTypeBoolOrBVec(m_shaderSpec.outputs[outNdx].varType.getBasicType());
-			const VkFormat	colorFormat = isFloat ? VK_FORMAT_R32G32B32A32_SFLOAT : (isSigned || isBool ? VK_FORMAT_R32G32B32A32_SINT : VK_FORMAT_R32G32B32A32_UINT);
+			const VkFormat	colorFormat = isFloat16b ? VK_FORMAT_R16G16B16A16_SFLOAT : (isFloat ? VK_FORMAT_R32G32B32A32_SFLOAT : (isSigned || isBool ? VK_FORMAT_R32G32B32A32_SINT : VK_FORMAT_R32G32B32A32_UINT));
+
+			{
+				const VkFormatProperties	formatProperties	= getPhysicalDeviceFormatProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice(), colorFormat);
+				if ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) == 0)
+					TCU_THROW(NotSupportedError, "Image format doesn't support COLOR_ATTACHMENT_BIT");
+			}
 
 			const VkImageCreateInfo	 colorImageParams =
 			{
@@ -1018,55 +1178,15 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 
 		if (useGeometryShader)
 		{
-			geometryShaderModule = createShaderModule(vk, vkDevice, m_context.getBinaryCollection().get("geom"), 0);
+			if (m_context.getDeviceFeatures().shaderTessellationAndGeometryPointSize)
+				geometryShaderModule = createShaderModule(vk, vkDevice, m_context.getBinaryCollection().get("geom_point_size"), 0);
+			else
+				geometryShaderModule = createShaderModule(vk, vkDevice, m_context.getBinaryCollection().get("geom"), 0);
 		}
 	}
 
 	// Create pipeline
 	{
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStageParams;
-
-		const VkPipelineShaderStageCreateInfo vertexShaderStageParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-			DE_NULL,													// const void*							pNext;
-			(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-			VK_SHADER_STAGE_VERTEX_BIT,									// VkShaderStageFlagBits				stage;
-			*vertexShaderModule,										// VkShaderModule						module;
-			"main",														// const char*							pName;
-			DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-		};
-
-		const VkPipelineShaderStageCreateInfo fragmentShaderStageParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-			DE_NULL,													// const void*							pNext;
-			(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-			VK_SHADER_STAGE_FRAGMENT_BIT,								// VkShaderStageFlagBits				stage;
-			*fragmentShaderModule,										// VkShaderModule						module;
-			"main",														// const char*							pName;
-			DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-		};
-
-		shaderStageParams.push_back(vertexShaderStageParams);
-		shaderStageParams.push_back(fragmentShaderStageParams);
-
-		if (useGeometryShader)
-		{
-			const VkPipelineShaderStageCreateInfo geometryShaderStageParams =
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_GEOMETRY_BIT,								// VkShaderStageFlagBits				stage;
-				*geometryShaderModule,										// VkShaderModule						module;
-				"main",														// VkShader								shader;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			};
-
-			shaderStageParams.push_back(geometryShaderStageParams);
-		}
-
 		const VkPipelineVertexInputStateCreateInfo vertexInputStateParams =
 		{
 			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,	// VkStructureType								sType;
@@ -1078,77 +1198,8 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 			&m_vertexAttributeDescriptions[0],							// const VkVertexInputAttributeDescription*		pvertexAttributeDescriptions;
 		};
 
-		const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,	// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			(VkPipelineInputAssemblyStateCreateFlags)0,						// VkPipelineInputAssemblyStateCreateFlags	flags;
-			VK_PRIMITIVE_TOPOLOGY_POINT_LIST,								// VkPrimitiveTopology						topology;
-			DE_FALSE														// VkBool32									primitiveRestartEnable;
-		};
-
-		const VkViewport viewport =
-		{
-			0.0f,						// float	originX;
-			0.0f,						// float	originY;
-			(float)renderSize.x(),		// float	width;
-			(float)renderSize.y(),		// float	height;
-			0.0f,						// float	minDepth;
-			1.0f						// float	maxDepth;
-		};
-
-		const VkRect2D scissor =
-		{
-			{
-				0u,						// deUint32	x;
-				0u,						// deUint32	y;
-			},							// VkOffset2D	offset;
-			{
-				renderSize.x(),			// deUint32	width;
-				renderSize.y(),			// deUint32	height;
-			},							// VkExtent2D	extent;
-		};
-
-		const VkPipelineViewportStateCreateInfo viewportStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,	// VkStructureType										sType;
-			DE_NULL,												// const void*											pNext;
-			0u,														// VkPipelineViewportStateCreateFlags					flags;
-			1u,														// deUint32												viewportCount;
-			&viewport,												// const VkViewport*									pViewports;
-			1u,														// deUint32												scissorsCount;
-			&scissor												// const VkRect2D*										pScissors;
-		};
-
-		const VkPipelineRasterizationStateCreateInfo rasterStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,		// VkStructureType								sType;
-			DE_NULL,														// const void*									pNext;
-			(VkPipelineRasterizationStateCreateFlags)0u,					//VkPipelineRasterizationStateCreateFlags		flags;
-			VK_FALSE,														// VkBool32										depthClipEnable;
-			VK_FALSE,														// VkBool32										rasterizerDiscardEnable;
-			VK_POLYGON_MODE_FILL,											// VkPolygonMode								polygonMode;
-			VK_CULL_MODE_NONE,												// VkCullModeFlags								cullMode;
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,								// VkFrontFace									frontFace;
-			VK_FALSE,														// VkBool32										depthBiasEnable;
-			0.0f,															// float										depthBias;
-			0.0f,															// float										depthBiasClamp;
-			0.0f,															// float										slopeScaledDepthBias;
-			1.0f															// float										lineWidth;
-		};
-
-		const VkPipelineMultisampleStateCreateInfo multisampleStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,		// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			0u,																// VkPipelineMultisampleStateCreateFlags	flags;
-			VK_SAMPLE_COUNT_1_BIT,											// VkSampleCountFlagBits					rasterizationSamples;
-			VK_FALSE,														// VkBool32									sampleShadingEnable;
-			0.0f,															// float									minSampleShading;
-			DE_NULL,														// const VkSampleMask*						pSampleMask;
-			VK_FALSE,														// VkBool32									alphaToCoverageEnable;
-			VK_FALSE														// VkBool32									alphaToOneEnable;
-		};
+		const std::vector<VkViewport>	viewports	(1, makeViewport(renderSize));
+		const std::vector<VkRect2D>		scissors	(1, makeRect2D(renderSize));
 
 		const VkPipelineColorBlendStateCreateInfo colorBlendStateParams =
 		{
@@ -1162,30 +1213,25 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 			{ 0.0f, 0.0f, 0.0f, 0.0f }										// float										blendConst[4];
 		};
 
-		const VkGraphicsPipelineCreateInfo graphicsPipelineParams =
-		{
-			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,	// VkStructureType									sType;
-			DE_NULL,											// const void*										pNext;
-			(VkPipelineCreateFlags)0,							// VkPipelineCreateFlags							flags;
-			(deUint32)shaderStageParams.size(),					// deUint32											stageCount;
-			&shaderStageParams[0],								// const VkPipelineShaderStageCreateInfo*			pStages;
-			&vertexInputStateParams,							// const VkPipelineVertexInputStateCreateInfo*		pVertexInputState;
-			&inputAssemblyStateParams,							// const VkPipelineInputAssemblyStateCreateInfo*	pInputAssemblyState;
-			DE_NULL,											// const VkPipelineTessellationStateCreateInfo*		pTessellationState;
-			&viewportStateParams,								// const VkPipelineViewportStateCreateInfo*			pViewportState;
-			&rasterStateParams,									// const VkPipelineRasterStateCreateInfo*			pRasterState;
-			&multisampleStateParams,							// const VkPipelineMultisampleStateCreateInfo*		pMultisampleState;
-			DE_NULL,											// const VkPipelineDepthStencilStateCreateInfo*		pDepthStencilState;
-			&colorBlendStateParams,								// const VkPipelineColorBlendStateCreateInfo*		pColorBlendState;
-			(const VkPipelineDynamicStateCreateInfo*)DE_NULL,	// const VkPipelineDynamicStateCreateInfo*			pDynamicState;
-			*pipelineLayout,									// VkPipelineLayout									layout;
-			*renderPass,										// VkRenderPass										renderPass;
-			0u,													// deUint32											subpass;
-			0u,													// VkPipeline										basePipelineHandle;
-			0u													// deInt32											basePipelineIndex;
-		};
-
-		graphicsPipeline = createGraphicsPipeline(vk, vkDevice, DE_NULL, &graphicsPipelineParams);
+		graphicsPipeline = makeGraphicsPipeline(vk,														// const DeviceInterface&                        vk
+												vkDevice,												// const VkDevice                                device
+												*pipelineLayout,										// const VkPipelineLayout                        pipelineLayout
+												*vertexShaderModule,									// const VkShaderModule                          vertexShaderModule
+												DE_NULL,												// const VkShaderModule                          tessellationControlShaderModule
+												DE_NULL,												// const VkShaderModule                          tessellationEvalShaderModule
+												useGeometryShader ? *geometryShaderModule : DE_NULL,	// const VkShaderModule                          geometryShaderModule
+												*fragmentShaderModule,									// const VkShaderModule                          fragmentShaderModule
+												*renderPass,											// const VkRenderPass                            renderPass
+												viewports,												// const std::vector<VkViewport>&                viewports
+												scissors,												// const std::vector<VkRect2D>&                  scissors
+												VK_PRIMITIVE_TOPOLOGY_POINT_LIST,						// const VkPrimitiveTopology                     topology
+												0u,														// const deUint32                                subpass
+												0u,														// const deUint32                                patchControlPoints
+												&vertexInputStateParams,								// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
+												DE_NULL,												// const VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo
+												DE_NULL,												// const VkPipelineMultisampleStateCreateInfo*   multisampleStateCreateInfo
+												DE_NULL,												// const VkPipelineDepthStencilStateCreateInfo*  depthStencilStateCreateInfo
+												&colorBlendStateParams);								// const VkPipelineColorBlendStateCreateInfo*    colorBlendStateCreateInfo
 	}
 
 	// Create command pool
@@ -1193,34 +1239,15 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 
 	// Create command buffer
 	{
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType				sType;
-			DE_NULL,										// const void*					pNext;
-			0u,												// VkCmdBufferOptimizeFlags		flags;
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
-
-		const VkRenderPassBeginInfo renderPassBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,				// VkStructureType		sType;
-			DE_NULL,												// const void*			pNext;
-			*renderPass,											// VkRenderPass			renderPass;
-			*framebuffer,											// VkFramebuffer		framebuffer;
-			{ { 0, 0 }, { renderSize.x(), renderSize.y() } },		// VkRect2D				renderArea;
-			(deUint32)attachmentClearValues.size(),					// deUint32				attachmentCount;
-			&attachmentClearValues[0]								// const VkClearValue*	pAttachmentClearValues;
-		};
-
 		cmdBuffer = allocateCommandBuffer(vk, vkDevice, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *cmdBuffer);
 
-		vk.cmdPipelineBarrier(*cmdBuffer, vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, (VkDependencyFlags)0,
+		vk.cmdPipelineBarrier(*cmdBuffer, vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0,
 							  0, (const VkMemoryBarrier*)DE_NULL,
 							  0, (const VkBufferMemoryBarrier*)DE_NULL,
 							  (deUint32)colorImagePreRenderBarriers.size(), colorImagePreRenderBarriers.empty() ? DE_NULL : &colorImagePreRenderBarriers[0]);
-		vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, renderSize.x(), renderSize.y()), (deUint32)attachmentClearValues.size(), &attachmentClearValues[0]);
 
 		vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
 
@@ -1246,38 +1273,17 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 		vk.cmdBindVertexBuffers(*cmdBuffer, 0, numberOfVertexAttributes, &buffers[0], &offsets[0]);
 		vk.cmdDraw(*cmdBuffer, (deUint32)positions.size(), 1u, 0u, 0u);
 
-		vk.cmdEndRenderPass(*cmdBuffer);
-		vk.cmdPipelineBarrier(*cmdBuffer, vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, (VkDependencyFlags)0,
+		endRenderPass(vk, *cmdBuffer);
+		vk.cmdPipelineBarrier(*cmdBuffer, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0,
 							  0, (const VkMemoryBarrier*)DE_NULL,
 							  0, (const VkBufferMemoryBarrier*)DE_NULL,
 							  (deUint32)colorImagePostRenderBarriers.size(), colorImagePostRenderBarriers.empty() ? DE_NULL : &colorImagePostRenderBarriers[0]);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 	}
-
-	// Create fence
-	fence = createFence(vk, vkDevice);
 
 	// Execute Draw
-	{
-
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// sType
-			DE_NULL,								// pNext
-			0u,										// waitSemaphoreCount
-			DE_NULL,								// pWaitSemaphores
-			(const VkPipelineStageFlags*)DE_NULL,
-			1u,										// commandBufferCount
-			&cmdBuffer.get(),						// pCommandBuffers
-			0u,										// signalSemaphoreCount
-			DE_NULL									// pSignalSemaphores
-		};
-
-		VK_CHECK(vk.resetFences(vkDevice, 1, &fence.get()));
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(vkDevice, 1, &fence.get(), DE_TRUE, ~(0ull) /* infinity*/));
-	}
+	submitCommandsAndWait(vk, vkDevice, queue, cmdBuffer.get());
 
 	// Read back result and output
 	{
@@ -1296,14 +1302,6 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 
 		// constants for image copy
 		Move<VkCommandPool>	copyCmdPool = createCommandPool(vk, vkDevice, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
-
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-			DE_NULL,										// const void*						pNext;
-			0u,												// VkCmdBufferOptimizeFlags			flags;
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
 
 		const VkBufferImageCopy copyParams =
 		{
@@ -1327,7 +1325,6 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 			const int					outSize			= output.varType.getScalarSize();
 			const int					outVecSize		= glu::getDataTypeNumComponents(output.varType.getBasicType());
 			const int					outNumLocs		= glu::getDataTypeNumLocations(output.varType.getBasicType());
-			deUint32*					dstPtrBase		= static_cast<deUint32*>(outputs[outNdx]);
 			const int					outLocation		= de::lookup(m_outputLayout.locationMap, output.name);
 
 			for (int locNdx = 0; locNdx < outNumLocs; ++locNdx)
@@ -1345,38 +1342,14 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 
 					Move<VkCommandBuffer> copyCmdBuffer = allocateCommandBuffer(vk, vkDevice, *copyCmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-					const VkSubmitInfo submitInfo =
-					{
-						VK_STRUCTURE_TYPE_SUBMIT_INFO,
-						DE_NULL,
-						0u,
-						(const VkSemaphore*)DE_NULL,
-						(const VkPipelineStageFlags*)DE_NULL,
-						1u,
-						&copyCmdBuffer.get(),
-						0u,
-						(const VkSemaphore*)DE_NULL,
-					};
-
-					VK_CHECK(vk.beginCommandBuffer(*copyCmdBuffer, &cmdBufferBeginInfo));
+					beginCommandBuffer(vk, *copyCmdBuffer);
 					vk.cmdCopyImageToBuffer(*copyCmdBuffer, colorImages[outLocation + locNdx].get()->get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *readImageBuffer, 1u, &copyParams);
-					VK_CHECK(vk.endCommandBuffer(*copyCmdBuffer));
+					endCommandBuffer(vk, *copyCmdBuffer);
 
-					VK_CHECK(vk.resetFences(vkDevice, 1, &fence.get()));
-					VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-					VK_CHECK(vk.waitForFences(vkDevice, 1, &fence.get(), true, ~(0ull) /* infinity */));
+					submitCommandsAndWait(vk, vkDevice, queue, copyCmdBuffer.get());
 				}
 
-				const VkMappedMemoryRange range =
-				{
-					VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	// VkStructureType	sType;
-					DE_NULL,								// const void*		pNext;
-					readImageBufferMemory->getMemory(),		// VkDeviceMemory	mem;
-					0,										// VkDeviceSize		offset;
-					imageSizeBytes,							// VkDeviceSize		size;
-				};
-
-				VK_CHECK(vk.invalidateMappedMemoryRanges(vkDevice, 1u, &range));
+				invalidateAlloc(vk, vkDevice, *readImageBufferMemory);
 
 				tmpBuf.setStorage(readFormat, renderSize.x(), renderSize.y());
 
@@ -1385,15 +1358,34 @@ void FragmentOutExecutor::execute (int numValues, const void* const* inputs, voi
 
 				tcu::copy(tmpBuf.getAccess(), resultAccess);
 
-				if (outSize == 4 && outNumLocs == 1)
-					deMemcpy(dstPtrBase, tmpBuf.getAccess().getDataPtr(), numValues * outVecSize * sizeof(deUint32));
+				if (isOutput16Bit(static_cast<size_t>(outNdx)))
+				{
+					deUint16*	dstPtrBase = static_cast<deUint16*>(outputs[outNdx]);
+					if (outSize == 4 && outNumLocs == 1)
+						deMemcpy(dstPtrBase, tmpBuf.getAccess().getDataPtr(), numValues * outVecSize * sizeof(deUint16));
+					else
+					{
+						for (int valNdx = 0; valNdx < numValues; valNdx++)
+						{
+							const deUint16* srcPtr = (const deUint16*)tmpBuf.getAccess().getDataPtr() + valNdx * 4;
+							deUint16*		dstPtr = &dstPtrBase[outSize * valNdx + outVecSize * locNdx];
+							deMemcpy(dstPtr, srcPtr, outVecSize * sizeof(deUint16));
+						}
+					}
+				}
 				else
 				{
-					for (int valNdx = 0; valNdx < numValues; valNdx++)
+					deUint32*	dstPtrBase = static_cast<deUint32*>(outputs[outNdx]);
+					if (outSize == 4 && outNumLocs == 1)
+						deMemcpy(dstPtrBase, tmpBuf.getAccess().getDataPtr(), numValues * outVecSize * sizeof(deUint32));
+					else
 					{
-						const deUint32* srcPtr = (const deUint32*)tmpBuf.getAccess().getDataPtr() + valNdx * 4;
-						deUint32*		dstPtr = &dstPtrBase[outSize * valNdx + outVecSize * locNdx];
-						deMemcpy(dstPtr, srcPtr, outVecSize * sizeof(deUint32));
+						for (int valNdx = 0; valNdx < numValues; valNdx++)
+						{
+							const deUint32* srcPtr = (const deUint32*)tmpBuf.getAccess().getDataPtr() + valNdx * 4;
+							deUint32*		dstPtr = &dstPtrBase[outSize * valNdx + outVecSize * locNdx];
+							deMemcpy(dstPtr, srcPtr, outVecSize * sizeof(deUint32));
+						}
 					}
 				}
 			}
@@ -1459,9 +1451,10 @@ void GeometryShaderExecutor::generateSources (const ShaderSpec& shaderSpec, Sour
 {
 	const FragmentOutputLayout	outputLayout	(computeFragmentOutputLayout(shaderSpec.outputs));
 
-	programCollection.glslSources.add("vert") << glu::VertexSource(generatePassthroughVertexShader(shaderSpec.inputs, "a_", "vtx_out_")) << shaderSpec.buildOptions;
+	programCollection.glslSources.add("vert") << glu::VertexSource(generatePassthroughVertexShader(shaderSpec, "a_", "vtx_out_")) << shaderSpec.buildOptions;
 
-	programCollection.glslSources.add("geom") << glu::GeometrySource(generateGeometryShader(shaderSpec, "vtx_out_", "geom_out_")) << shaderSpec.buildOptions;
+	programCollection.glslSources.add("geom") << glu::GeometrySource(generateGeometryShader(shaderSpec, "vtx_out_", "geom_out_", false)) << shaderSpec.buildOptions;
+	programCollection.glslSources.add("geom_point_size") << glu::GeometrySource(generateGeometryShader(shaderSpec, "vtx_out_", "geom_out_", true)) << shaderSpec.buildOptions;
 
 	/* \todo [2015-09-18 rsipka] set useIntOutputs parameter if needed. */
 	programCollection.glslSources.add("frag") << glu::FragmentSource(generatePassthroughFragmentShader(shaderSpec, false, outputLayout.locationMap, "geom_out_", "o_")) << shaderSpec.buildOptions;
@@ -1493,7 +1486,7 @@ void FragmentShaderExecutor::generateSources (const ShaderSpec& shaderSpec, Sour
 {
 	const FragmentOutputLayout	outputLayout	(computeFragmentOutputLayout(shaderSpec.outputs));
 
-	programCollection.glslSources.add("vert") << glu::VertexSource(generatePassthroughVertexShader(shaderSpec.inputs, "a_", "vtx_out_")) << shaderSpec.buildOptions;
+	programCollection.glslSources.add("vert") << glu::VertexSource(generatePassthroughVertexShader(shaderSpec, "a_", "vtx_out_")) << shaderSpec.buildOptions;
 	/* \todo [2015-09-11 hegedusd] set useIntOutputs parameter if needed. */
 	programCollection.glslSources.add("frag") << glu::FragmentSource(generateFragmentShader(shaderSpec, false, outputLayout.locationMap, "vtx_out_", "o_")) << shaderSpec.buildOptions;
 }
@@ -1502,6 +1495,15 @@ void FragmentShaderExecutor::generateSources (const ShaderSpec& shaderSpec, Sour
 
 static deUint32 getVecStd430ByteAlignment (glu::DataType type)
 {
+	switch (type)
+	{
+		case glu::TYPE_FLOAT16:			return 2u;
+		case glu::TYPE_FLOAT16_VEC2:	return 4u;
+		case glu::TYPE_FLOAT16_VEC3:	return 8u;
+		case glu::TYPE_FLOAT16_VEC4:	return 8u;
+		default: break;
+	}
+
 	switch (glu::getDataTypeScalarSize(type))
 	{
 		case 1:		return 4u;
@@ -1600,7 +1602,7 @@ void BufferIoExecutor::computeVarLayout (const std::vector<Symbol>& symbols, std
 		if (glu::isDataTypeScalarOrVector(basicType))
 		{
 			const deUint32	alignment	= getVecStd430ByteAlignment(basicType);
-			const deUint32	size		= (deUint32)glu::getDataTypeScalarSize(basicType) * (int)sizeof(deUint32);
+			const deUint32	size		= (deUint32)glu::getDataTypeScalarSize(basicType) * (isDataTypeFloat16OrVec(basicType) ? (int)sizeof(deUint16) : (int)sizeof(deUint32));
 
 			curOffset		= (deUint32)deAlign32((int)curOffset, (int)alignment);
 			maxAlignment	= de::max(maxAlignment, alignment);
@@ -1614,7 +1616,7 @@ void BufferIoExecutor::computeVarLayout (const std::vector<Symbol>& symbols, std
 		{
 			const int				numVecs			= glu::getDataTypeMatrixNumColumns(basicType);
 			const glu::DataType		vecType			= glu::getDataTypeFloatVec(glu::getDataTypeMatrixNumRows(basicType));
-			const deUint32			vecAlignment	= getVecStd430ByteAlignment(vecType);
+			const deUint32			vecAlignment	= isDataTypeFloat16OrVec(basicType) ? getVecStd430ByteAlignment(vecType)/2 : getVecStd430ByteAlignment(vecType);
 
 			curOffset		= (deUint32)deAlign32((int)curOffset, (int)vecAlignment);
 			maxAlignment	= de::max(maxAlignment, vecAlignment);
@@ -1674,11 +1676,39 @@ void BufferIoExecutor::declareBufferBlocks (std::ostream& src, const ShaderSpec&
 
 void BufferIoExecutor::generateExecBufferIo (std::ostream& src, const ShaderSpec& spec, const char* invocationNdxName)
 {
+	std::string	tname;
 	for (vector<Symbol>::const_iterator symIter = spec.inputs.begin(); symIter != spec.inputs.end(); ++symIter)
-		src << "\t" << glu::declare(symIter->varType, symIter->name) << " = inputs[" << invocationNdxName << "]." << symIter->name << ";\n";
+	{
+		const bool f16BitTest = spec.packFloat16Bit && glu::isDataTypeFloatType(symIter->varType.getBasicType());
+		if (f16BitTest)
+		{
+			tname = glu::getDataTypeName(getDataTypeFloat16Scalars(symIter->varType.getBasicType()));
+		}
+		else
+		{
+			tname = glu::getDataTypeName(symIter->varType.getBasicType());
+		}
+		src << "\t" << tname << " "<< symIter->name << " = " << tname << "(inputs[" << invocationNdxName << "]." << symIter->name << ");\n";
+	}
 
 	for (vector<Symbol>::const_iterator symIter = spec.outputs.begin(); symIter != spec.outputs.end(); ++symIter)
-		src << "\t" << glu::declare(symIter->varType, symIter->name) << ";\n";
+	{
+		const bool f16BitTest = spec.packFloat16Bit && glu::isDataTypeFloatType(symIter->varType.getBasicType());
+		if (f16BitTest)
+		{
+			tname = glu::getDataTypeName(getDataTypeFloat16Scalars(symIter->varType.getBasicType()));
+		}
+		else
+		{
+			tname = glu::getDataTypeName(symIter->varType.getBasicType());
+		}
+		src << "\t" << tname << " " << symIter->name << ";\n";
+		if (f16BitTest)
+		{
+			const char* ttname = glu::getDataTypeName(symIter->varType.getBasicType());
+			src << "\t" << ttname << " " << "packed_" << symIter->name << ";\n";
+		}
+	}
 
 	src << "\n";
 
@@ -1690,9 +1720,18 @@ void BufferIoExecutor::generateExecBufferIo (std::ostream& src, const ShaderSpec
 			src << "\t" << line << "\n";
 	}
 
+	if (spec.packFloat16Bit)
+		packFloat16Bit (src, spec.outputs);
+
 	src << "\n";
 	for (vector<Symbol>::const_iterator symIter = spec.outputs.begin(); symIter != spec.outputs.end(); ++symIter)
-		src << "\toutputs[" << invocationNdxName << "]." << symIter->name << " = " << symIter->name << ";\n";
+	{
+		const bool f16BitTest = spec.packFloat16Bit && glu::isDataTypeFloatType(symIter->varType.getBasicType());
+		if(f16BitTest)
+			src << "\toutputs[" << invocationNdxName << "]." << symIter->name << " = packed_" << symIter->name << ";\n";
+		else
+			src << "\toutputs[" << invocationNdxName << "]." << symIter->name << " = " << symIter->name << ";\n";
+	}
 }
 
 void BufferIoExecutor::copyToBuffer (const glu::VarType& varType, const VarLayout& layout, int numValues, const void* srcBasePtr, void* dstBasePtr)
@@ -1709,12 +1748,13 @@ void BufferIoExecutor::copyToBuffer (const glu::VarType& varType, const VarLayou
 		{
 			for (int vecNdx = 0; vecNdx < numVecs; vecNdx++)
 			{
-				const int		srcOffset		= (int)sizeof(deUint32) * (elemNdx * scalarSize + vecNdx * numComps);
+				const int		size			= (glu::isDataTypeFloat16OrVec(basicType) ? (int)sizeof(deUint16) : (int)sizeof(deUint32));
+				const int		srcOffset		= size * (elemNdx * scalarSize + vecNdx * numComps);
 				const int		dstOffset		= layout.offset + layout.stride * elemNdx + (isMatrix ? layout.matrixStride * vecNdx : 0);
 				const deUint8*	srcPtr			= (const deUint8*)srcBasePtr + srcOffset;
 				deUint8*		dstPtr			= (deUint8*)dstBasePtr + dstOffset;
 
-				deMemcpy(dstPtr, srcPtr, sizeof(deUint32) * numComps);
+				deMemcpy(dstPtr, srcPtr, size * numComps);
 			}
 		}
 	}
@@ -1736,12 +1776,13 @@ void BufferIoExecutor::copyFromBuffer (const glu::VarType& varType, const VarLay
 		{
 			for (int vecNdx = 0; vecNdx < numVecs; vecNdx++)
 			{
+				const int		size			= (glu::isDataTypeFloat16OrVec(basicType) ? (int)sizeof(deUint16) : (int)sizeof(deUint32));
 				const int		srcOffset		= layout.offset + layout.stride * elemNdx + (isMatrix ? layout.matrixStride * vecNdx : 0);
-				const int		dstOffset		= (int)sizeof(deUint32) * (elemNdx * scalarSize + vecNdx * numComps);
+				const int		dstOffset		= size * (elemNdx * scalarSize + vecNdx * numComps);
 				const deUint8*	srcPtr			= (const deUint8*)srcBasePtr + srcOffset;
 				deUint8*		dstPtr			= (deUint8*)dstBasePtr + dstOffset;
 
-				deMemcpy(dstPtr, srcPtr, sizeof(deUint32) * numComps);
+				deMemcpy(dstPtr, srcPtr, size * numComps);
 			}
 		}
 	}
@@ -1769,7 +1810,7 @@ void BufferIoExecutor::uploadInputBuffer (const void* const* inputPtrs, int numV
 		copyToBuffer(varType, layout, numValues, inputPtrs[inputNdx], m_inputAlloc->getHostPtr());
 	}
 
-	flushMappedMemoryRange(vk, vkDevice, m_inputAlloc->getMemory(), m_inputAlloc->getOffset(), inputBufferSize);
+	flushAlloc(vk, vkDevice, *m_inputAlloc);
 }
 
 void BufferIoExecutor::readOutputBuffer (void* const* outputPtrs, int numValues)
@@ -1777,12 +1818,9 @@ void BufferIoExecutor::readOutputBuffer (void* const* outputPtrs, int numValues)
 	const VkDevice			vkDevice			= m_context.getDevice();
 	const DeviceInterface&	vk					= m_context.getDeviceInterface();
 
-	const deUint32			outputStride		= getLayoutStride(m_outputLayout);
-	const int				outputBufferSize	= numValues * outputStride;
+	DE_ASSERT(numValues > 0); // At least some outputs are required.
 
-	DE_ASSERT(outputBufferSize > 0); // At least some outputs are required.
-
-	invalidateMappedMemoryRange(vk, vkDevice, m_outputAlloc->getMemory(), m_outputAlloc->getOffset(), outputBufferSize);
+	invalidateAlloc(vk, vkDevice, *m_outputAlloc);
 
 	DE_ASSERT(m_shaderSpec.outputs.size() == m_outputLayout.size());
 	for (size_t outputNdx = 0; outputNdx < m_shaderSpec.outputs.size(); ++outputNdx)
@@ -1872,34 +1910,414 @@ ComputeShaderExecutor::~ComputeShaderExecutor	(void)
 {
 }
 
-std::string ComputeShaderExecutor::generateComputeShader (const ShaderSpec& spec)
+std::string getTypeSpirv(const glu::DataType type)
 {
-	std::ostringstream src;
-	src << glu::getGLSLVersionDeclaration(spec.glslVersion) << "\n";
+	switch(type)
+	{
+	case glu::TYPE_FLOAT16:
+		return "%f16";
+	case glu::TYPE_FLOAT16_VEC2:
+		return "%v2f16";
+	case glu::TYPE_FLOAT16_VEC3:
+		return "%v3f16";
+	case glu::TYPE_FLOAT16_VEC4:
+		return "%v4f16";
+	case glu::TYPE_FLOAT:
+		return "%f32";
+	case glu::TYPE_FLOAT_VEC2:
+		return "%v2f32";
+	case glu::TYPE_FLOAT_VEC3:
+		return "%v3f32";
+	case glu::TYPE_FLOAT_VEC4:
+		return "%v4f32";
+	case glu::TYPE_INT:
+		return "%i32";
+	case glu::TYPE_INT_VEC2:
+		return "%v2i32";
+	case glu::TYPE_INT_VEC3:
+		return "%v3i32";
+	case glu::TYPE_INT_VEC4:
+		return "%v4i32";
+	default:
+		DE_ASSERT(0);
+		return "";
+		break;
+	}
+}
 
-	if (!spec.globalDeclarations.empty())
-		src << spec.globalDeclarations << "\n";
+std::string moveBitOperation (std::string variableName, const int operationNdx)
+{
+	std::ostringstream	src;
+	src << "\n"
+	<< "%operation_move_" << operationNdx << " = OpLoad %i32 " << variableName << "\n"
+	<< "%move1_" << operationNdx << " = OpShiftLeftLogical %i32 %operation_move_"<< operationNdx <<" %c_i32_1\n"
+	<< "OpStore " << variableName << " %move1_" << operationNdx << "\n";
+	return src.str();
+}
 
-	src << "layout(local_size_x = 1) in;\n"
-		<< "\n";
+std::string sclarComparison(const std::string opeartion, const int operationNdx, const glu::DataType type, const std::string& outputType, const int scalarSize)
+{
+	std::ostringstream	src;
+	std::string			boolType;
 
-	declareBufferBlocks(src, spec);
+	switch (type)
+	{
+	case glu::TYPE_FLOAT16:
+	case glu::TYPE_FLOAT:
+		src << "\n"
+			<< "%operation_result_" << operationNdx << " = " << opeartion << " %bool %in0_val %in1_val\n"
+			<< "OpSelectionMerge %IF_" << operationNdx << " None\n"
+			<< "OpBranchConditional %operation_result_" << operationNdx << " %label_IF_" << operationNdx << " %IF_" << operationNdx << "\n"
+			<< "%label_IF_" << operationNdx << " = OpLabel\n"
+			<< "%operation_val_" << operationNdx << " = OpLoad %i32 %operation\n"
+			<< "%out_val_" << operationNdx << " = OpLoad %i32 %out\n"
+			<< "%add_if_" << operationNdx << " = OpIAdd %i32 %out_val_" << operationNdx << " %operation_val_" << operationNdx << "\n"
+			<< "OpStore %out %add_if_" << operationNdx << "\n"
+			<< "OpBranch %IF_" << operationNdx << "\n"
+			<< "%IF_" << operationNdx << " = OpLabel\n";
+		return src.str();
+	case glu::TYPE_FLOAT16_VEC2:
+	case glu::TYPE_FLOAT_VEC2:
+		boolType = "%v2bool";
+		break;
+	case glu::TYPE_FLOAT16_VEC3:
+	case glu::TYPE_FLOAT_VEC3:
+		boolType = "%v3bool";
+		break;
+	case glu::TYPE_FLOAT16_VEC4:
+	case glu::TYPE_FLOAT_VEC4:
+		boolType = "%v4bool";
+		break;
+	default:
+		DE_ASSERT(0);
+		return "";
+		break;
+	}
 
-	src << "void main (void)\n"
-		<< "{\n"
-		<< "	uint invocationNdx = gl_NumWorkGroups.x*gl_NumWorkGroups.y*gl_WorkGroupID.z\n"
-		<< "	                   + gl_NumWorkGroups.x*gl_WorkGroupID.y + gl_WorkGroupID.x;\n";
+	src << "\n"
+		<< "%operation_result_" << operationNdx << " = " << opeartion << " " << boolType << " %in0_val %in1_val\n"
+		<< "%ivec_result_" << operationNdx << " = OpSelect " << outputType << " %operation_result_" << operationNdx << " %c_" << &outputType[1] << "_1 %c_" << &outputType[1] << "_0\n"
+		<< "%operation_val_" << operationNdx << " = OpLoad %i32 %operation\n";
 
-	generateExecBufferIo(src, spec, "invocationNdx");
+	src << "%operation_vec_" << operationNdx << " = OpCompositeConstruct " << outputType;
+	for(int ndx = 0; ndx < scalarSize; ++ndx)
+		src << " %operation_val_" << operationNdx;
+	src << "\n";
 
-	src << "}\n";
+	src << "%toAdd" << operationNdx << " = OpIMul "<< outputType << " %ivec_result_" << operationNdx << " %operation_vec_" << operationNdx <<"\n"
+		<< "%out_val_" << operationNdx << " = OpLoad "<< outputType << " %out\n"
+
+		<< "%add_if_" << operationNdx << " = OpIAdd " << outputType << " %out_val_" << operationNdx << " %toAdd" << operationNdx << "\n"
+		<< "OpStore %out %add_if_" << operationNdx << "\n";
 
 	return src.str();
 }
 
+std::string generateSpirv(const ShaderSpec& spec, const bool are16Bit, const bool isMediump)
+{
+	const int			operationAmount	= 10;
+	int					moveBitNdx		= 0;
+	const std::string	inputType1		= getTypeSpirv(spec.inputs[0].varType.getBasicType());
+	const std::string	inputType2		= getTypeSpirv(spec.inputs[1].varType.getBasicType());
+	const std::string	outputType		= getTypeSpirv(spec.outputs[0].varType.getBasicType());
+	const std::string	packType		= spec.packFloat16Bit ? getTypeSpirv(getDataTypeFloat16Scalars(spec.inputs[0].varType.getBasicType())) : "";
+
+	std::string	opeartions[operationAmount]	=
+	{
+		"OpFOrdEqual",
+		"OpFOrdGreaterThan",
+		"OpFOrdLessThan",
+		"OpFOrdGreaterThanEqual",
+		"OpFOrdLessThanEqual",
+		"OpFUnordEqual",
+		"OpFUnordGreaterThan",
+		"OpFUnordLessThan",
+		"OpFUnordGreaterThanEqual",
+		"OpFUnordLessThanEqual"
+	};
+
+	std::ostringstream	src;
+	src << "; SPIR-V\n"
+		"; Version: 1.0\n"
+		"; Generator: Khronos Glslang Reference Front End; 4\n"
+		"; Bound: 114\n"
+		"; Schema: 0\n"
+		"OpCapability Shader\n";
+
+	if (spec.packFloat16Bit || are16Bit)
+		src << "OpCapability Float16\n";
+
+	if (are16Bit)
+		src << "OpCapability StorageBuffer16BitAccess\n"
+			"OpCapability UniformAndStorageBuffer16BitAccess\n";
+
+	if (are16Bit)
+		src << "OpExtension \"SPV_KHR_16bit_storage\"\n";
+
+	src << "%1 = OpExtInstImport \"GLSL.std.450\"\n"
+		"OpMemoryModel Logical GLSL450\n"
+		"OpEntryPoint GLCompute %BP_main \"main\" %BP_id3uNum %BP_id3uID\n"
+		"OpExecutionMode %BP_main LocalSize 1 1 1\n"
+		"OpDecorate %BP_id3uNum BuiltIn NumWorkgroups\n"
+		"OpDecorate %BP_id3uID BuiltIn WorkgroupId\n";
+
+	//input offset
+	{
+		int offset = 0;
+		int ndx = 0;
+		for (vector<Symbol>::const_iterator symIter = spec.inputs.begin(); symIter != spec.inputs.end(); ++symIter)
+		{
+			src << "OpMemberDecorate %SSB0_IN "<< ndx <<" Offset " << offset << "\n";
+			++ndx;
+			offset += (symIter->varType.getScalarSize() == 3 ? 4 : symIter->varType.getScalarSize()) * (isDataTypeFloat16OrVec(symIter->varType.getBasicType()) ? (int)sizeof(deUint16) : (int)sizeof(deUint32));
+		}
+		src << "OpDecorate %up_SSB0_IN ArrayStride "<< offset << "\n";
+	}
+
+	src << "OpMemberDecorate %ssboIN 0 Offset 0\n"
+		"OpDecorate %ssboIN BufferBlock\n"
+		"OpDecorate %ssbo_src DescriptorSet 0\n"
+		"OpDecorate %ssbo_src Binding 0\n"
+		"\n";
+
+	if (isMediump)
+	{
+		src << "OpMemberDecorate %SSB0_IN 1 RelaxedPrecision\n"
+			"OpDecorate %in0 RelaxedPrecision\n"
+			"OpMemberDecorate %SSB0_IN 0 RelaxedPrecision\n"
+			"OpDecorate %src_val_0_0 RelaxedPrecision\n"
+			"OpDecorate %src_val_0_0 RelaxedPrecision\n"
+			"OpDecorate %in1 RelaxedPrecision\n"
+			"OpDecorate %src_val_0_1 RelaxedPrecision\n"
+			"OpDecorate %src_val_0_1 RelaxedPrecision\n"
+			"OpDecorate %in0_val RelaxedPrecision\n"
+			"OpDecorate %in1_val RelaxedPrecision\n"
+			"OpDecorate %in0_val RelaxedPrecision\n"
+			"OpDecorate %in1_val RelaxedPrecision\n"
+			"OpMemberDecorate %SSB0_OUT 0 RelaxedPrecision\n";
+	}
+
+	//output offset
+	{
+		int offset = 0;
+		int ndx = 0;
+		for (vector<Symbol>::const_iterator symIter = spec.outputs.begin(); symIter != spec.outputs.end(); ++symIter)
+		{
+			src << "OpMemberDecorate %SSB0_OUT " << ndx << " Offset " << offset << "\n";
+			++ndx;
+			offset += (symIter->varType.getScalarSize() == 3 ? 4 : symIter->varType.getScalarSize()) * (isDataTypeFloat16OrVec(symIter->varType.getBasicType()) ? (int)sizeof(deUint16) : (int)sizeof(deUint32));
+		}
+		src << "OpDecorate %up_SSB0_OUT ArrayStride " << offset << "\n";
+	}
+
+	src << "OpMemberDecorate %ssboOUT 0 Offset 0\n"
+		"OpDecorate %ssboOUT BufferBlock\n"
+		"OpDecorate %ssbo_dst DescriptorSet 0\n"
+		"OpDecorate %ssbo_dst Binding 1\n"
+		"\n"
+		"%void  = OpTypeVoid\n"
+		"%bool  = OpTypeBool\n"
+		"%v2bool = OpTypeVector %bool 2\n"
+		"%v3bool = OpTypeVector %bool 3\n"
+		"%v4bool = OpTypeVector %bool 4\n"
+		"%u32   = OpTypeInt 32 0\n";
+
+	if (!are16Bit) //f32 is not needed when shader operates only on f16
+		src << "%f32   = OpTypeFloat 32\n"
+			"%v2f32 = OpTypeVector %f32 2\n"
+			"%v3f32 = OpTypeVector %f32 3\n"
+			"%v4f32 = OpTypeVector %f32 4\n";
+
+	if (spec.packFloat16Bit || are16Bit)
+		src << "%f16   = OpTypeFloat 16\n"
+			"%v2f16 = OpTypeVector %f16 2\n"
+			"%v3f16 = OpTypeVector %f16 3\n"
+			"%v4f16 = OpTypeVector %f16 4\n";
+
+	src << "%i32   = OpTypeInt 32 1\n"
+		"%v2i32 = OpTypeVector %i32 2\n"
+		"%v3i32 = OpTypeVector %i32 3\n"
+		"%v4i32 = OpTypeVector %i32 4\n"
+		"%v3u32 = OpTypeVector %u32 3\n"
+		"\n"
+		"%ip_u32   = OpTypePointer Input %u32\n"
+		"%ip_v3u32 = OpTypePointer Input %v3u32\n"
+		"%up_float   = OpTypePointer Uniform " << inputType1 << "\n"
+		"\n"
+		"%fun     = OpTypeFunction %void\n"
+		"%fp_u32  = OpTypePointer Function %u32\n"
+		"%fp_i32  = OpTypePointer Function " << outputType << "\n"
+		"%fp_f32  = OpTypePointer Function " << inputType1 << "\n"
+		"%fp_operation =  OpTypePointer Function %i32\n";
+
+	if (spec.packFloat16Bit)
+		src << "%fp_f16  = OpTypePointer Function " << packType << "\n";
+
+	src << "%BP_id3uID = OpVariable %ip_v3u32 Input\n"
+		"%BP_id3uNum = OpVariable %ip_v3u32 Input\n"
+		"%up_i32 = OpTypePointer Uniform " << outputType << "\n"
+		"\n"
+		"%c_u32_0 = OpConstant %u32 0\n"
+		"%c_u32_1 = OpConstant %u32 1\n"
+		"%c_u32_2 = OpConstant %u32 2\n"
+		"%c_i32_0 = OpConstant %i32 0\n"
+		"%c_i32_1 = OpConstant %i32 1\n"
+		"%c_v2i32_0 = OpConstantComposite %v2i32 %c_i32_0 %c_i32_0\n"
+		"%c_v2i32_1 = OpConstantComposite %v2i32 %c_i32_1 %c_i32_1\n"
+		"%c_v3i32_0 = OpConstantComposite %v3i32 %c_i32_0 %c_i32_0 %c_i32_0\n"
+		"%c_v3i32_1 = OpConstantComposite %v3i32 %c_i32_1 %c_i32_1 %c_i32_1\n"
+		"%c_v4i32_0 = OpConstantComposite %v4i32 %c_i32_0 %c_i32_0 %c_i32_0 %c_i32_0\n"
+		"%c_v4i32_1 = OpConstantComposite %v4i32 %c_i32_1 %c_i32_1 %c_i32_1 %c_i32_1\n"
+		"\n"
+		"%SSB0_IN    = OpTypeStruct " << inputType1 << " " << inputType2 << "\n"
+		"%up_SSB0_IN = OpTypeRuntimeArray %SSB0_IN\n"
+		"%ssboIN     = OpTypeStruct %up_SSB0_IN\n"
+		"%up_ssboIN  = OpTypePointer Uniform %ssboIN\n"
+		"%ssbo_src   = OpVariable %up_ssboIN Uniform\n"
+		"\n"
+		"%SSB0_OUT    = OpTypeStruct " << outputType << "\n"
+		"%up_SSB0_OUT = OpTypeRuntimeArray %SSB0_OUT\n"
+		"%ssboOUT     = OpTypeStruct %up_SSB0_OUT\n"
+		"%up_ssboOUT  = OpTypePointer Uniform %ssboOUT\n"
+		"%ssbo_dst    = OpVariable %up_ssboOUT Uniform\n"
+		"\n"
+		"%BP_main = OpFunction %void None %fun\n"
+		"%BP_label = OpLabel\n"
+		"%invocationNdx = OpVariable  %fp_u32 Function\n";
+
+	if (spec.packFloat16Bit)
+		src << "%in0 = OpVariable %fp_f16 Function\n"
+			"%in1 = OpVariable %fp_f16 Function\n";
+	else
+		src << "%in0 = OpVariable %fp_f32 Function\n"
+			"%in1 = OpVariable %fp_f32 Function\n";
+
+	src << "%operation = OpVariable %fp_operation Function\n"
+		"%out = OpVariable %fp_i32 Function\n"
+		"%BP_id_0_ptr  = OpAccessChain %ip_u32 %BP_id3uID %c_u32_0\n"
+		"%BP_id_1_ptr  = OpAccessChain %ip_u32 %BP_id3uID %c_u32_1\n"
+		"%BP_id_2_ptr  = OpAccessChain %ip_u32 %BP_id3uID %c_u32_2\n"
+		"%BP_num_0_ptr  = OpAccessChain %ip_u32 %BP_id3uNum %c_u32_0\n"
+		"%BP_num_1_ptr  = OpAccessChain %ip_u32 %BP_id3uNum %c_u32_1\n"
+		"%BP_id_0_val = OpLoad %u32 %BP_id_0_ptr\n"
+		"%BP_id_1_val = OpLoad %u32 %BP_id_1_ptr\n"
+		"%BP_id_2_val = OpLoad %u32 %BP_id_2_ptr\n"
+		"%BP_num_0_val = OpLoad %u32 %BP_num_0_ptr\n"
+		"%BP_num_1_val = OpLoad %u32 %BP_num_1_ptr\n"
+		"\n"
+		"%mul_1 = OpIMul %u32 %BP_num_0_val %BP_num_1_val\n"
+		"%mul_2 = OpIMul %u32 %mul_1 %BP_id_2_val\n"
+		"%mul_3 = OpIMul %u32 %BP_num_0_val %BP_id_1_val\n"
+		"%add_1 = OpIAdd %u32 %mul_2 %mul_3\n"
+		"%add_2 = OpIAdd %u32 %add_1 %BP_id_0_val\n"
+		"OpStore %invocationNdx %add_2\n"
+		"%invocationNdx_val = OpLoad %u32 %invocationNdx\n"
+		"\n"
+		"%src_ptr_0_0 = OpAccessChain %up_float %ssbo_src %c_i32_0 %invocationNdx_val %c_i32_0\n"
+		"%src_val_0_0 = OpLoad " << inputType1 << " %src_ptr_0_0\n";
+
+	if(spec.packFloat16Bit)
+		src << "%val_f16_0_0 = OpFConvert " << packType <<" %src_val_0_0\n"
+			"OpStore %in0 %val_f16_0_0\n";
+	else
+		src << "OpStore %in0 %src_val_0_0\n";
+
+	src << "\n"
+		"%src_ptr_0_1 = OpAccessChain %up_float %ssbo_src %c_i32_0 %invocationNdx_val %c_i32_1\n"
+		"%src_val_0_1 = OpLoad " << inputType2 << " %src_ptr_0_1\n";
+
+	if (spec.packFloat16Bit)
+		src << "%val_f16_0_1 = OpFConvert " << packType << " %src_val_0_1\n"
+			"OpStore %in1 %val_f16_0_1\n";
+	else
+		src << "OpStore %in1 %src_val_0_1\n";
+
+	src << "\n"
+		"OpStore %operation %c_i32_1\n"
+		"OpStore %out %c_" << &outputType[1] << "_0\n"
+		"\n";
+
+	if (spec.packFloat16Bit)
+		src << "%in0_val = OpLoad " << packType << " %in0\n"
+			"%in1_val = OpLoad " << packType << " %in1\n";
+	else
+		src << "%in0_val = OpLoad " << inputType1 << " %in0\n"
+			"%in1_val = OpLoad " << inputType2 << " %in1\n";
+
+	src << "\n";
+	for(int operationNdx = 0; operationNdx < operationAmount; ++operationNdx)
+	{
+		src << sclarComparison	(opeartions[operationNdx], operationNdx,
+								spec.inputs[0].varType.getBasicType(),
+								outputType,
+								spec.outputs[0].varType.getScalarSize());
+		src << moveBitOperation("%operation", moveBitNdx);
+		++moveBitNdx;
+	}
+
+	src << "\n"
+		"%out_val_final = OpLoad " << outputType << " %out\n"
+		"%ssbo_dst_ptr = OpAccessChain %up_i32 %ssbo_dst %c_i32_0 %invocationNdx_val %c_i32_0\n"
+		"OpStore %ssbo_dst_ptr %out_val_final\n"
+		"\n"
+		"OpReturn\n"
+		"OpFunctionEnd\n";
+	return src.str();
+}
+
+
+std::string ComputeShaderExecutor::generateComputeShader (const ShaderSpec& spec)
+{
+	if(spec.spirVShader)
+	{
+		bool	are16Bit	= false;
+		bool	isMediump	= false;
+		for (vector<Symbol>::const_iterator symIter = spec.inputs.begin(); symIter != spec.inputs.end(); ++symIter)
+		{
+			if (glu::isDataTypeFloat16OrVec(symIter->varType.getBasicType()))
+				are16Bit = true;
+
+			if (symIter->varType.getPrecision() == glu::PRECISION_MEDIUMP)
+				isMediump = true;
+
+			if(isMediump && are16Bit)
+				break;
+		}
+
+		return generateSpirv(spec, are16Bit, isMediump);
+	}
+	else
+	{
+		std::ostringstream src;
+		src << glu::getGLSLVersionDeclaration(spec.glslVersion) << "\n";
+
+		if (!spec.globalDeclarations.empty())
+			src << spec.globalDeclarations << "\n";
+
+		src << "layout(local_size_x = 1) in;\n"
+			<< "\n";
+
+		declareBufferBlocks(src, spec);
+
+		src << "void main (void)\n"
+			<< "{\n"
+			<< "	uint invocationNdx = gl_NumWorkGroups.x*gl_NumWorkGroups.y*gl_WorkGroupID.z\n"
+			<< "	                   + gl_NumWorkGroups.x*gl_WorkGroupID.y + gl_WorkGroupID.x;\n";
+
+		generateExecBufferIo(src, spec, "invocationNdx");
+
+		src << "}\n";
+
+		return src.str();
+	}
+}
+
 void ComputeShaderExecutor::generateSources (const ShaderSpec& shaderSpec, SourceCollections& programCollection)
 {
-	programCollection.glslSources.add("compute") << glu::ComputeSource(generateComputeShader(shaderSpec)) << shaderSpec.buildOptions;
+	if(shaderSpec.spirVShader)
+		programCollection.spirvAsmSources.add("compute") << SpirVAsmBuildOptions(programCollection.usedVulkanVersion, SPIRV_VERSION_1_3) << generateComputeShader(shaderSpec);
+	else
+		programCollection.glslSources.add("compute") << glu::ComputeSource(generateComputeShader(shaderSpec)) << shaderSpec.buildOptions;
 }
 
 void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, void* const* outputs, VkDescriptorSet extraResources)
@@ -1920,7 +2338,6 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 	Move<VkDescriptorSetLayout>		descriptorSetLayout;
 	Move<VkDescriptorSet>			descriptorSet;
 	const deUint32					numDescriptorSets		= (m_extraResourcesLayout != 0) ? 2u : 1u;
-	Move<VkFence>					fence;
 
 	DE_ASSERT((m_extraResourcesLayout != 0) == (extraResources != 0));
 
@@ -1933,13 +2350,6 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 	cmdPool = createCommandPool(vk, vkDevice, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex);
 
 	// Create command buffer
-	const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-		DE_NULL,										// const void*						pNext;
-		0u,												// VkCmdBufferOptimizeFlags			flags;
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
 
 	descriptorSetLayoutBuilder.addSingleBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorPoolBuilder.addType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
@@ -2015,9 +2425,6 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 		computePipeline = createComputePipeline(vk, vkDevice, DE_NULL, &computePipelineParams);
 	}
 
-	// Create fence
-	fence = createFence(vk, vkDevice);
-
 	const int			maxValuesPerInvocation	= m_context.getDeviceProperties().limits.maxComputeWorkGroupSize[0];
 	int					curOffset				= 0;
 	const deUint32		inputStride				= getInputStride();
@@ -2057,7 +2464,7 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 		}
 
 		cmdBuffer = allocateCommandBuffer(vk, vkDevice, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-		VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *cmdBuffer);
 		vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *computePipeline);
 
 		{
@@ -2067,30 +2474,12 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 
 		vk.cmdDispatch(*cmdBuffer, numToExec, 1, 1);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 
 		curOffset += numToExec;
 
 		// Execute
-		{
-			VK_CHECK(vk.resetFences(vkDevice, 1, &fence.get()));
-
-			const VkSubmitInfo submitInfo =
-			{
-				VK_STRUCTURE_TYPE_SUBMIT_INFO,
-				DE_NULL,
-				0u,
-				(const VkSemaphore*)DE_NULL,
-				(const VkPipelineStageFlags*)DE_NULL,
-				1u,
-				&cmdBuffer.get(),
-				0u,
-				(const VkSemaphore*)DE_NULL,
-			};
-
-			VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-			VK_CHECK(vk.waitForFences(vkDevice, 1, &fence.get(), true, ~(0ull) /* infinity*/));
-		}
+		submitCommandsAndWait(vk, vkDevice, queue, cmdBuffer.get());
 	}
 
 	// Read back data
@@ -2102,7 +2491,7 @@ void ComputeShaderExecutor::execute (int numValues, const void* const* inputs, v
 static std::string generateVertexShaderForTess (void)
 {
 	std::ostringstream	src;
-	src << "#version 310 es\n"
+	src << "#version 450\n"
 		<< "void main (void)\n{\n"
 		<< "	gl_Position = vec4(gl_VertexIndex/2, gl_VertexIndex%2, 0.0, 1.0);\n"
 		<< "}\n";
@@ -2164,8 +2553,6 @@ void TessellationExecutor::renderTess (deUint32 numValues, deUint32 vertexCount,
 
 	Move<VkCommandPool>					cmdPool;
 	Move<VkCommandBuffer>				cmdBuffer;
-
-	Move<VkFence>						fence;
 
 	Move<VkDescriptorPool>				descriptorPool;
 	Move<VkDescriptorSetLayout>			descriptorSetLayout;
@@ -2388,46 +2775,6 @@ void TessellationExecutor::renderTess (deUint32 numValues, deUint32 vertexCount,
 
 	// Create pipeline
 	{
-		const VkPipelineShaderStageCreateInfo shaderStageParams[4] =
-		{
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_VERTEX_BIT,									// VkShaderStageFlagBit					stage;
-				*vertexShaderModule,										// VkShaderModule						shader;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			},
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,					// VkShaderStageFlagBit					stage;
-				*tessControlShaderModule,									// VkShaderModule						shader;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			},
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,				// VkShaderStageFlagBit					stage;
-				*tessEvalShaderModule,										// VkShaderModule						shader;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			},
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType						sType;
-				DE_NULL,													// const void*							pNext;
-				(VkPipelineShaderStageCreateFlags)0,						// VkPipelineShaderStageCreateFlags		flags;
-				VK_SHADER_STAGE_FRAGMENT_BIT,								// VkShaderStageFlagBit					stage;
-				*fragmentShaderModule,										// VkShaderModule						shader;
-				"main",														// const char*							pName;
-				DE_NULL														// const VkSpecializationInfo*			pSpecializationInfo;
-			}
-		};
-
 		const VkPipelineVertexInputStateCreateInfo vertexInputStateParams =
 		{
 			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,		// VkStructureType							sType;
@@ -2439,137 +2786,24 @@ void TessellationExecutor::renderTess (deUint32 numValues, deUint32 vertexCount,
 			DE_NULL,														// const VkVertexInputAttributeDescription*	pvertexAttributeDescriptions;
 		};
 
-		const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,	// VkStructureType						sType;
-			DE_NULL,														// const void*							pNext;
-			(VkPipelineShaderStageCreateFlags)0,							// VkPipelineShaderStageCreateFlags	flags;
-			VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,								// VkPrimitiveTopology					topology;
-			DE_FALSE														// VkBool32								primitiveRestartEnable;
-		};
+		const std::vector<VkViewport>	viewports	(1, makeViewport(renderSize));
+		const std::vector<VkRect2D>		scissors	(1, makeRect2D(renderSize));
 
-		struct VkPipelineTessellationStateCreateInfo tessellationStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,		// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			(VkPipelineTessellationStateCreateFlags)0,						// VkPipelineTessellationStateCreateFlags	flags;
-			patchControlPoints												// uint32_t									patchControlPoints;
-		};
-
-		const VkViewport viewport =
-		{
-			0.0f,						// float	originX;
-			0.0f,						// float	originY;
-			(float)renderSize.x(),		// float	width;
-			(float)renderSize.y(),		// float	height;
-			0.0f,						// float	minDepth;
-			1.0f						// float	maxDepth;
-		};
-
-		const VkRect2D scissor =
-		{
-			{
-				0u,						// deUint32	x;
-				0u,						// deUint32	y;
-			},							// VkOffset2D	offset;
-			{
-				renderSize.x(),			// deUint32	width;
-				renderSize.y(),			// deUint32	height;
-			},							// VkExtent2D	extent;
-		};
-
-		const VkPipelineViewportStateCreateInfo viewportStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,	// VkStructureType						sType;
-			DE_NULL,												// const void*							pNext;
-			(VkPipelineViewportStateCreateFlags)0,					// VkPipelineViewPortStateCreateFlags	flags;
-			1u,														// deUint32								viewportCount;
-			&viewport,												// const VkViewport*					pViewports;
-			1u,														// deUint32								scissorsCount;
-			&scissor												// const VkRect2D*						pScissors;
-		};
-
-		const VkPipelineRasterizationStateCreateInfo rasterStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,		// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			(VkPipelineRasterizationStateCreateFlags)0,						// VkPipelineRasterizationStageCreateFlags	flags;
-			VK_FALSE,														// VkBool32									depthClipEnable;
-			VK_FALSE,														// VkBool32									rasterizerDiscardEnable;
-			VK_POLYGON_MODE_FILL,											// VkPolygonMode							polygonMode;
-			VK_CULL_MODE_NONE,												// VkCullMode								cullMode;
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,								// VkFrontFace								frontFace;
-			VK_FALSE,														// VkBool32									depthBiasEnable;
-			0.0f,															// float									depthBias;
-			0.0f,															// float									depthBiasClamp;
-			0.0f,															// float									slopeScaledDepthBias;
-			1.0f															// float									lineWidth;
-		};
-
-		const VkPipelineMultisampleStateCreateInfo multisampleStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,		// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			0u,																// VkPipelineMultisampleStateCreateFlags	flags;
-			VK_SAMPLE_COUNT_1_BIT,											// VkSampleCountFlagBits					rasterizationSamples;
-			VK_FALSE,														// VkBool32									sampleShadingEnable;
-			0.0f,															// float									minSampleShading;
-			DE_NULL,														// const VkSampleMask*						pSampleMask;
-			VK_FALSE,														// VkBool32									alphaToCoverageEnable;
-			VK_FALSE														// VkBool32									alphaToOneEnable;
-		};
-
-		const VkPipelineColorBlendAttachmentState colorBlendAttachmentState =
-		{
-			VK_FALSE,						// VkBool32					blendEnable;
-			VK_BLEND_FACTOR_ONE,			// VkBlendFactor			srcBlendColor;
-			VK_BLEND_FACTOR_ZERO,			// VkBlendFactor			destBlendColor;
-			VK_BLEND_OP_ADD,				// VkBlendOp				blendOpColor;
-			VK_BLEND_FACTOR_ONE,			// VkBlendFactor			srcBlendAlpha;
-			VK_BLEND_FACTOR_ZERO,			// VkBlendFactor			destBlendAlpha;
-			VK_BLEND_OP_ADD,				// VkBlendOp				blendOpAlpha;
-			(VK_COLOR_COMPONENT_R_BIT |
-			 VK_COLOR_COMPONENT_G_BIT |
-			 VK_COLOR_COMPONENT_B_BIT |
-			 VK_COLOR_COMPONENT_A_BIT)		// VkColorComponentFlags	colorWriteMask;
-		};
-
-		const VkPipelineColorBlendStateCreateInfo colorBlendStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,	// VkStructureType								sType;
-			DE_NULL,													// const void*									pNext;
-			(VkPipelineColorBlendStateCreateFlags)0,					// VkPipelineColorBlendStateCreateFlags			flags
-			VK_FALSE,													// VkBool32										logicOpEnable;
-			VK_LOGIC_OP_COPY,											// VkLogicOp									logicOp;
-			1u,															// deUint32										attachmentCount;
-			&colorBlendAttachmentState,									// const VkPipelineColorBlendAttachmentState*	pAttachments;
-			{ 0.0f, 0.0f, 0.0f, 0.0f }									// float										blendConst[4];
-		};
-
-		const VkGraphicsPipelineCreateInfo graphicsPipelineParams =
-		{
-			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,	// VkStructureType									sType;
-			DE_NULL,											// const void*										pNext;
-			0u,													// VkPipelineCreateFlags							flags;
-			4u,													// deUint32											stageCount;
-			shaderStageParams,									// const VkPipelineShaderStageCreateInfo*			pStages;
-			&vertexInputStateParams,							// const VkPipelineVertexInputStateCreateInfo*		pVertexInputState;
-			&inputAssemblyStateParams,							// const VkPipelineInputAssemblyStateCreateInfo*	pInputAssemblyState;
-			&tessellationStateParams,							// const VkPipelineTessellationStateCreateInfo*		pTessellationState;
-			&viewportStateParams,								// const VkPipelineViewportStateCreateInfo*			pViewportState;
-			&rasterStateParams,									// const VkPipelineRasterStateCreateInfo*			pRasterState;
-			&multisampleStateParams,							// const VkPipelineMultisampleStateCreateInfo*		pMultisampleState;
-			DE_NULL,											// const VkPipelineDepthStencilStateCreateInfo*		pDepthStencilState;
-			&colorBlendStateParams,								// const VkPipelineColorBlendStateCreateInfo*		pColorBlendState;
-			(const VkPipelineDynamicStateCreateInfo*)DE_NULL,	// const VkPipelineDynamicStateCreateInfo*			pDynamicState;
-			*pipelineLayout,									// VkPipelineLayout									layout;
-			*renderPass,										// VkRenderPass										renderPass;
-			0u,													// deUint32											subpass;
-			0u,													// VkPipeline										basePipelineHandle;
-			0u													// deInt32											basePipelineIndex;
-		};
-
-		graphicsPipeline = createGraphicsPipeline(vk, vkDevice, DE_NULL, &graphicsPipelineParams);
+		graphicsPipeline = makeGraphicsPipeline(vk,									// const DeviceInterface&                        vk
+												vkDevice,							// const VkDevice                                device
+												*pipelineLayout,					// const VkPipelineLayout                        pipelineLayout
+												*vertexShaderModule,				// const VkShaderModule                          vertexShaderModule
+												*tessControlShaderModule,			// const VkShaderModule                          tessellationControlShaderModule
+												*tessEvalShaderModule,				// const VkShaderModule                          tessellationEvalShaderModule
+												DE_NULL,							// const VkShaderModule                          geometryShaderModule
+												*fragmentShaderModule,				// const VkShaderModule                          fragmentShaderModule
+												*renderPass,						// const VkRenderPass                            renderPass
+												viewports,							// const std::vector<VkViewport>&                viewports
+												scissors,							// const std::vector<VkRect2D>&                  scissors
+												VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,	// const VkPrimitiveTopology                     topology
+												0u,									// const deUint32                                subpass
+												patchControlPoints,					// const deUint32                                patchControlPoints
+												&vertexInputStateParams);			// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
 	}
 
 	// Create command pool
@@ -2577,35 +2811,13 @@ void TessellationExecutor::renderTess (deUint32 numValues, deUint32 vertexCount,
 
 	// Create command buffer
 	{
-		const VkCommandBufferBeginInfo cmdBufferBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType					sType;
-			DE_NULL,										// const void*						pNext;
-			0u,												// VkCmdBufferOptimizeFlags			flags;
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
-
-		const VkClearValue clearValues[1] =
-		{
-			getDefaultClearColor()
-		};
-
-		const VkRenderPassBeginInfo renderPassBeginInfo =
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,				// VkStructureType		sType;
-			DE_NULL,												// const void*			pNext;
-			*renderPass,											// VkRenderPass			renderPass;
-			*framebuffer,											// VkFramebuffer		framebuffer;
-			{ { 0, 0 }, { renderSize.x(), renderSize.y() } },		// VkRect2D				renderArea;
-			1,														// deUint32				attachmentCount;
-			clearValues												// const VkClearValue*	pClearValues;
-		};
+		const VkClearValue clearValue = getDefaultClearColor();
 
 		cmdBuffer = allocateCommandBuffer(vk, vkDevice, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufferBeginInfo));
+		beginCommandBuffer(vk, *cmdBuffer);
 
-		vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, renderSize.x(), renderSize.y()), clearValue);
 
 		vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
 
@@ -2616,31 +2828,12 @@ void TessellationExecutor::renderTess (deUint32 numValues, deUint32 vertexCount,
 
 		vk.cmdDraw(*cmdBuffer, vertexCount, 1, 0, 0);
 
-		vk.cmdEndRenderPass(*cmdBuffer);
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endRenderPass(vk, *cmdBuffer);
+		endCommandBuffer(vk, *cmdBuffer);
 	}
-
-	// Create fence
-	fence = createFence(vk, vkDevice);
 
 	// Execute Draw
-	{
-		VK_CHECK(vk.resetFences(vkDevice, 1, &fence.get()));
-		const VkSubmitInfo submitInfo =
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			DE_NULL,
-			0u,
-			(const VkSemaphore*)0,
-			(const VkPipelineStageFlags*)DE_NULL,
-			1u,
-			&cmdBuffer.get(),
-			0u,
-			(const VkSemaphore*)0,
-		};
-		VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, *fence));
-		VK_CHECK(vk.waitForFences(vkDevice, 1, &fence.get(), true, ~(0ull) /* infinity*/));
-	}
+	submitCommandsAndWait(vk, vkDevice, queue, cmdBuffer.get());
 }
 
 // TessControlExecutor
@@ -2705,7 +2898,7 @@ static std::string generateEmptyTessEvalShader ()
 {
 	std::ostringstream src;
 
-	src << "#version 310 es\n"
+	src << "#version 450\n"
 		   "#extension GL_EXT_tessellation_shader : require\n\n";
 
 	src << "layout(triangles, ccw) in;\n";
@@ -2769,7 +2962,7 @@ static std::string generatePassthroughTessControlShader (void)
 {
 	std::ostringstream src;
 
-	src << "#version 310 es\n"
+	src << "#version 450\n"
 		   "#extension GL_EXT_tessellation_shader : require\n\n";
 
 	src << "layout(vertices = 1) out;\n\n";
@@ -2847,6 +3040,33 @@ void TessEvaluationExecutor::execute (int numValues, const void* const* inputs, 
 
 ShaderExecutor::~ShaderExecutor (void)
 {
+}
+
+bool ShaderExecutor::areInputs16Bit (void) const
+{
+	for (vector<Symbol>::const_iterator symIter = m_shaderSpec.inputs.begin(); symIter != m_shaderSpec.inputs.end(); ++symIter)
+	{
+		if (glu::isDataTypeFloat16OrVec(symIter->varType.getBasicType()))
+			return true;
+	}
+	return false;
+}
+
+bool ShaderExecutor::areOutputs16Bit (void) const
+{
+	for (vector<Symbol>::const_iterator symIter = m_shaderSpec.outputs.begin(); symIter != m_shaderSpec.outputs.end(); ++symIter)
+	{
+		if (glu::isDataTypeFloat16OrVec(symIter->varType.getBasicType()))
+			return true;
+	}
+	return false;
+}
+
+bool ShaderExecutor::isOutput16Bit (const size_t ndx) const
+{
+	if (glu::isDataTypeFloat16OrVec(m_shaderSpec.outputs[ndx].varType.getBasicType()))
+		return true;
+	return false;
 }
 
 // Utilities

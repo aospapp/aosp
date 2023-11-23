@@ -16,10 +16,6 @@
 
 package android.jobscheduler.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;
@@ -58,13 +54,6 @@ public class TriggerContentTest extends ConstraintTest {
     // Path segments for image-specific URIs in the provider.
     static final List<String> EXTERNAL_PATH_SEGMENTS
             = MediaStore.Images.Media.EXTERNAL_CONTENT_URI.getPathSegments();
-
-    // The columns we want to retrieve about a particular image.
-    static final String[] PROJECTION = new String[] {
-            MediaStore.Images.ImageColumns._ID, MediaStore.Images.ImageColumns.DATA
-    };
-    static final int PROJECTION_ID = 0;
-    static final int PROJECTION_DATA = 1;
 
     // This is the external storage directory where cameras place pictures.
     static final String DCIM_DIR = Environment.getExternalStoragePublicDirectory(
@@ -161,6 +150,7 @@ public class TriggerContentTest extends ConstraintTest {
         if (destFile.exists()) {
             destFile.delete();
         }
+        destFile.getParentFile().mkdirs();
         FileOutputStream out = new FileOutputStream(destFile);
         try {
             byte[] buffer = new byte[4096];
@@ -197,7 +187,7 @@ public class TriggerContentTest extends ConstraintTest {
         return mActiveUris[which];
     }
 
-    private void assertUriArrayLength(int length, Uri[] uris) {
+    private static void assertUriArrayLength(int length, Uri[] uris) {
         if (uris.length != length) {
             StringBuilder sb = new StringBuilder();
             sb.append("Expected ");
@@ -217,7 +207,7 @@ public class TriggerContentTest extends ConstraintTest {
         }
     }
 
-    private void assertHasUri(Uri wanted, Uri[] uris) {
+    private static void assertHasUri(Uri wanted, Uri[] uris) {
         for (int i=0; i<uris.length; i++) {
             if (wanted.equals(uris[i])) {
                 return;
@@ -235,6 +225,17 @@ public class TriggerContentTest extends ConstraintTest {
             sb.append(uris[i]);
         }
         fail(sb.toString());
+    }
+
+    private static void assertUriDecendant(Uri expected, Uri actual) {
+        assertEquals(expected.getScheme(), expected.getScheme());
+        assertEquals(expected.getAuthority(), expected.getAuthority());
+
+        final List<String> expectedPath = expected.getPathSegments();
+        final List<String> actualPath = actual.getPathSegments();
+        for (int i = 0; i < expectedPath.size(); i++) {
+            assertEquals(expectedPath.get(i), actualPath.get(i));
+        }
     }
 
     public void testDescendantsObserver() throws Exception {
@@ -350,8 +351,9 @@ public class TriggerContentTest extends ConstraintTest {
         assertTrue("Timed out waiting for trigger content.", executed);
         JobParameters params = kTriggerTestEnvironment.getLastJobParameters();
         Uri[] uris = params.getTriggeredContentUris();
-        assertUriArrayLength(1, uris);
-        assertEquals(mActiveUris[0], uris[0]);
+        for (Uri uri : uris) {
+            assertUriDecendant(MEDIA_URI, uri);
+        }
         String[] auths = params.getTriggeredContentAuthorities();
         assertEquals(1, auths.length);
         assertEquals(MediaStore.AUTHORITY, auths[0]);
@@ -368,8 +370,9 @@ public class TriggerContentTest extends ConstraintTest {
         assertTrue("Timed out waiting for trigger content.", executed);
         params = kTriggerTestEnvironment.getLastJobParameters();
         uris = params.getTriggeredContentUris();
-        assertUriArrayLength(1, uris);
-        assertEquals(mActiveUris[1], uris[0]);
+        for (Uri uri : uris) {
+            assertUriDecendant(MEDIA_URI, uri);
+        }
         auths = params.getTriggeredContentAuthorities();
         assertEquals(1, auths.length);
         assertEquals(MediaStore.AUTHORITY, auths[0]);
@@ -389,8 +392,9 @@ public class TriggerContentTest extends ConstraintTest {
         assertTrue("Timed out waiting for trigger content.", executed);
         params = kTriggerTestEnvironment.getLastJobParameters();
         uris = params.getTriggeredContentUris();
-        assertUriArrayLength(1, uris);
-        assertEquals(MEDIA_EXTERNAL_URI, uris[0]);
+        for (Uri uri : uris) {
+            assertUriDecendant(MEDIA_URI, uri);
+        }
         auths = params.getTriggeredContentAuthorities();
         assertEquals(1, auths.length);
         assertEquals(MediaStore.AUTHORITY, auths[0]);

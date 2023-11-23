@@ -48,7 +48,7 @@ class A2dpCodecConfigAacSource : public A2dpCodecConfigAacBase {
   virtual ~A2dpCodecConfigAacSource();
 
   bool init() override;
-  period_ms_t encoderIntervalMs() const override;
+  uint64_t encoderIntervalMs() const override;
   int getEffectiveMtu() const override;
 
  private:
@@ -66,7 +66,7 @@ class A2dpCodecConfigAacSink : public A2dpCodecConfigAacBase {
   virtual ~A2dpCodecConfigAacSink();
 
   bool init() override;
-  period_ms_t encoderIntervalMs() const override;
+  uint64_t encoderIntervalMs() const override;
   int getEffectiveMtu() const override;
 
  private:
@@ -146,6 +146,12 @@ bool A2DP_CodecEqualsAac(const uint8_t* p_codec_info_a,
 // Returns the track sample rate on success, or -1 if |p_codec_info|
 // contains invalid codec information.
 int A2DP_GetTrackSampleRateAac(const uint8_t* p_codec_info);
+
+// Gets the track bits per sample value for the A2DP AAC codec.
+// |p_codec_info| is a pointer to the AAC codec_info to decode.
+// Returns the track bits per sample on success, or -1 if |p_codec_info|
+// contains invalid codec information.
+int A2DP_GetTrackBitsPerSampleAac(const uint8_t* p_codec_info);
 
 // Gets the channel count for the A2DP AAC codec.
 // |p_codec_info| is a pointer to the AAC codec_info to decode.

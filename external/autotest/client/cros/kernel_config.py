@@ -67,7 +67,10 @@ class KernelConfig():
 
         @param name: name of config item to test
         """
-        self.has_value(name, ['y'])
+        wanted = ['y']
+        if name in self._missing_ok:
+            wanted.append(None)
+        self.has_value(name, wanted)
 
     def has_module(self, name):
         """Check if the specific config item is a module (present but not
@@ -75,7 +78,10 @@ class KernelConfig():
 
         @param name: name of config item to test
         """
-        self.has_value(name, ['m'])
+        wanted = ['m']
+        if name in self._missing_ok:
+            wanted.append(None)
+        self.has_value(name, wanted)
 
     def is_enabled(self, name):
         """Check if the specific config item is present (either built-in or
@@ -83,7 +89,10 @@ class KernelConfig():
 
         @param name: name of config item to test
         """
-        self.has_value(name, ['y', 'm'])
+        wanted = ['y', 'm']
+        if name in self._missing_ok:
+            wanted.append(None)
+        self.has_value(name, wanted)
 
     def is_missing(self, name):
         """Check if the specific config item is not present (neither built-in
@@ -98,8 +107,8 @@ class KernelConfig():
         are present in the kernel configs.
 
         @param exclusive: hash containing "missing", "builtin", "module",
-                          each to be checked with the corresponding has_*
-                          function based on config items matching the
+                          "enabled" each to be checked with the corresponding
+                          has_* function based on config items matching the
                           "regex" value.
         """
         expected = set()
@@ -110,6 +119,9 @@ class KernelConfig():
             expected.add('CONFIG_%s' % (name))
         for name in exclusive['module']:
             self.has_module(name)
+            expected.add('CONFIG_%s' % (name))
+        for name in exclusive['enabled']:
+            self.is_enabled(name)
             expected.add('CONFIG_%s' % (name))
 
         # Now make sure nothing else with the specified regex exists.
@@ -141,7 +153,7 @@ class KernelConfig():
 
         self._fatal("Cannot locate suitable kernel config file")
 
-    def initialize(self):
+    def initialize(self, missing_ok=None):
         """Load the kernel configuration and parse it.
         """
         fileobj = self._open_config()
@@ -160,4 +172,6 @@ class KernelConfig():
 
         self._config = config
         self._failures = []
-
+        self._missing_ok = set()
+        if missing_ok:
+            self._missing_ok |= set(missing_ok)

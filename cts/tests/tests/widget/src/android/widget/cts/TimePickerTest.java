@@ -32,16 +32,17 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Parcelable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.TimePicker;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
@@ -392,6 +393,9 @@ public class TimePickerTest {
         if (isWatch()) {
             return;
         }
+        // Hide timepicker_clock so that timepicker_spinner would be visible.
+        mActivityRule.runOnUiThread(() ->
+                mActivity.findViewById(R.id.timepicker_clock).setVisibility(View.GONE));
         mTimePicker = (TimePicker) mActivity.findViewById(R.id.timepicker_spinner);
 
         mActivityRule.runOnUiThread(() -> mTimePicker.setIs24HourView(false));
@@ -425,7 +429,8 @@ public class TimePickerTest {
 
         // Input valid hour.
         assertEquals(initialHour, mTimePicker.getHour());
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTimePicker.getHourView());
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+                mTimePicker.getHourView());
         CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTimePicker, KeyEvent.KEYCODE_1);
         CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTimePicker, KeyEvent.KEYCODE_0);
         assertEquals(10, mTimePicker.getHour());
@@ -503,7 +508,8 @@ public class TimePickerTest {
 
         // Input valid hour.
         assertEquals(initialHour, mTimePicker.getHour());
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTimePicker.getHourView());
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+                mTimePicker.getHourView());
         CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTimePicker, KeyEvent.KEYCODE_1);
         CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mTimePicker, KeyEvent.KEYCODE_0);
         assertEquals(10, mTimePicker.getHour());

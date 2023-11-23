@@ -44,10 +44,10 @@ using netdutils::status::ok;
 
 class MockNetdEventListener {
   public:
-    MOCK_METHOD10(onWakeupEvent, void(
-            const std::string& prefix, int uid, int ether, int ipNextHeader,
-            std::vector<uint8_t> dstHw, const std::string& srcIp, const std::string& dstIp,
-            int srcPort, int dstPort, uint64_t timestampNs));
+    MOCK_METHOD10(onWakeupEvent,
+                  void(const std::string& prefix, int uid, int ether, int ipNextHeader,
+                       const std::vector<uint8_t>& dstHw, const std::string& srcIp,
+                       const std::string& dstIp, int srcPort, int dstPort, uint64_t timestampNs));
 };
 
 class MockIptablesRestore : public IptablesRestoreInterface {
@@ -74,7 +74,7 @@ class WakeupControllerTest : public Test {
             .WillOnce(DoAll(SaveArg<2>(&mMessageHandler), Return(ok)));
         EXPECT_CALL(mListener,
             unsubscribe(NetlinkManager::NFLOG_WAKEUP_GROUP)).WillOnce(Return(ok));
-        mController.init(&mListener);
+        EXPECT_OK(mController.init(&mListener));
     }
 
     StrictMock<MockNetdEventListener> mEventListener;
@@ -291,7 +291,7 @@ TEST_F(WakeupControllerTest, addInterface) {
         " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8"
         " -m mark --mark 0x12345678/0x0f0f0f0f -m limit --limit 10/s\nCOMMIT\n";
     EXPECT_CALL(mIptables, execute(V4V6, kExpected, _)).WillOnce(Return(0));
-    mController.addInterface(kPrefix, kIfName, kMark, kMask);
+    EXPECT_OK(mController.addInterface(kPrefix, kIfName, kMark, kMask));
 }
 
 TEST_F(WakeupControllerTest, delInterface) {
@@ -304,7 +304,7 @@ TEST_F(WakeupControllerTest, delInterface) {
         " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8"
         " -m mark --mark 0x12345678/0xf0f0f0f0 -m limit --limit 10/s\nCOMMIT\n";
     EXPECT_CALL(mIptables, execute(V4V6, kExpected, _)).WillOnce(Return(0));
-    mController.delInterface(kPrefix, kIfName, kMark, kMask);
+    EXPECT_OK(mController.delInterface(kPrefix, kIfName, kMark, kMask));
 }
 
 }  // namespace net

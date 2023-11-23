@@ -19,6 +19,9 @@
       <!-- See AttemptUpdateFlags enum in update_engine/dbus-constants.h. -->
       <arg type="i" name="flags" direction="in" />
     </method>
+    <method name="AttemptInstall">
+      <arg type="s" name="dlc_request" direction="in" />
+    </method>
     <method name="AttemptRollback">
       <arg type="b" name="powerwash" direction="in" />
     </method>
@@ -66,6 +69,10 @@
     </method>
     <method name="SetUpdateOverCellularPermission">
       <arg type="b" name="allowed" direction="in" />
+    </method>
+    <method name="SetUpdateOverCellularTarget">
+      <arg type="s" name="target_version" direction="in" />
+      <arg type="x" name="target_size" direction="in" />
     </method>
     <method name="GetUpdateOverCellularPermission">
       <arg type="b" name="allowed" direction="out" />

@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import errno
 import logging
 import os
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 DOWNLOAD_BASE = ('http://commondatastorage.googleapis.com/'
@@ -87,11 +89,14 @@ class video_JEAPerf(chrome_binary_test.ChromeBinaryTest):
 
     @helper_logger.video_log_wrapper
     @chrome_binary_test.nuke_chrome
-    def run_once(self, test_cases):
+    def run_once(self, test_cases, capability):
         """
         Runs JpegEncodeAcceleratorTest.SimpleEncode on the device and reports
         latency values for HW and SW.
+
+        @param capability: Capability required for executing this test.
         """
+        device_capability.DeviceCapability().ensure_capability(capability)
 
         for (image_path, width, height) in test_cases:
             url = DOWNLOAD_BASE + image_path
@@ -117,4 +122,3 @@ class video_JEAPerf(chrome_binary_test.ChromeBinaryTest):
             finally:
                 self.remove_if_exists(input_path)
                 self.remove_if_exists(output_path)
-

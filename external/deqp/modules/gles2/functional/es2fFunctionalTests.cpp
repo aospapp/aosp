@@ -25,6 +25,7 @@
 
 #include "es2fColorClearTest.hpp"
 #include "es2fLightAmountTest.hpp"
+#include "es2fMultisampledRenderToTextureTests.hpp"
 #include "es2fShaderExecuteTest.hpp"
 #include "es2fFboApiTest.hpp"
 #include "es2fFboRenderTest.hpp"
@@ -136,6 +137,7 @@ public:
 		addChild(new ShaderExecuteTest(m_context, "qualification_order",			"Order of Qualification Tests"));
 		addChild(new ShaderExecuteTest(m_context, "scoping",						"Scoping of Declarations"));
 		addChild(new ShaderExecuteTest(m_context, "invalid_implicit_conversions",	"Invalid Implicit Conversions"));
+		addChild(new ShaderExecuteTest(m_context, "misc",							"Miscellaneous Tests"));
 
 
 		addChild(new ShaderIndexingTests		(m_context));
@@ -314,6 +316,7 @@ void FunctionalTests::init (void)
 	addChild(new DepthStencilClearTests		(m_context));
 	addChild(new BufferTests				(m_context));
 	addChild(new LightAmountTest			(m_context));
+	addChild(new MultisampledRenderToTextureTests(m_context));
 	addChild(new ShadersTestGroup			(m_context));
 	addChild(new TextureTestGroup			(m_context));
 	addChild(new FragmentOpTests			(m_context));

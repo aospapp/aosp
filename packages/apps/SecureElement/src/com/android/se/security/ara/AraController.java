@@ -95,7 +95,7 @@ public class AraController {
 
         // set access conditions to access ARA-M.
         ChannelAccess araChannelAccess = new ChannelAccess();
-        araChannelAccess.setAccess(ChannelAccess.ACCESS.ALLOWED, mTag);
+        araChannelAccess.setAccess(ChannelAccess.ACCESS.ALLOWED, "");
         araChannelAccess.setApduAccess(ChannelAccess.ACCESS.ALLOWED);
         channel.setChannelAccess(araChannelAccess);
 

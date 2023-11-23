@@ -12,6 +12,14 @@
 
 // <variant>
 
+// XFAIL: availability=macosx10.13
+// XFAIL: availability=macosx10.12
+// XFAIL: availability=macosx10.11
+// XFAIL: availability=macosx10.10
+// XFAIL: availability=macosx10.9
+// XFAIL: availability=macosx10.8
+// XFAIL: availability=macosx10.7
+
 // template <class ...Types> class variant;
 
 // template <size_t I, class Up, class ...Args>
@@ -72,6 +80,12 @@ void test_ctor_sfinae() {
     static_assert(
         !std::is_constructible<V, std::in_place_index_t<2>, IL>::value, "");
     static_assert(!test_convertible<V, std::in_place_index_t<2>, IL>(), "");
+  }
+  { // index not in variant
+    using V = std::variant<InitList, InitListArg, int>;
+    static_assert(
+        !std::is_constructible<V, std::in_place_index_t<3>, IL>::value, "");
+    static_assert(!test_convertible<V, std::in_place_index_t<3>, IL>(), "");
   }
 }
 

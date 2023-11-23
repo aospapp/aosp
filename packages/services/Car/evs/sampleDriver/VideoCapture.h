@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_VIDEOCAPTURE_H
+#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_VIDEOCAPTURE_H
+
 #include <atomic>
 #include <thread>
 #include <functional>
@@ -73,3 +76,4 @@ private:
     };
 };
 
+#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_VIDEOCAPTURE_

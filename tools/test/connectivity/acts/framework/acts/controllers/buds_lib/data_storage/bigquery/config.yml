@@ -1,0 +1,7 @@
+project_id: 'google.com:wearables-qa'
+credentials_path: '/google/data/ro/teams/wearables/test/automation/bigquery/wearables-service-key.json'
+queue_size: 30000
+ip_address: ''
+port: 60009
+authkey: 'wearables'
+flush_period: 5

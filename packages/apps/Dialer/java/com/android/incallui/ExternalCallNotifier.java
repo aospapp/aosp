@@ -38,13 +38,13 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.common.compat.CallCompat;
-import com.android.contacts.common.preference.ContactsPreferences;
-import com.android.contacts.common.util.ContactDisplayUtils;
 import com.android.dialer.common.Assert;
 import com.android.dialer.contactphoto.BitmapUtil;
+import com.android.dialer.contacts.ContactsComponent;
 import com.android.dialer.notification.DialerNotificationManager;
 import com.android.dialer.notification.NotificationChannelId;
 import com.android.dialer.telecom.TelecomCallUtil;
+import com.android.dialer.theme.base.ThemeComponent;
 import com.android.incallui.call.DialerCall;
 import com.android.incallui.call.DialerCallDelegate;
 import com.android.incallui.call.ExternalCallList;
@@ -77,13 +77,11 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
   private final ContactInfoCache contactInfoCache;
   private Map<Call, NotificationInfo> notifications = new ArrayMap<>();
   private int nextUniqueNotificationId;
-  private ContactsPreferences contactsPreferences;
 
   /** Initializes a new instance of the external call notifier. */
   public ExternalCallNotifier(
       @NonNull Context context, @NonNull ContactInfoCache contactInfoCache) {
     this.context = context;
-    contactsPreferences = ContactsPreferencesFactory.newContactsPreferences(this.context);
     this.contactInfoCache = contactInfoCache;
   }
 
@@ -215,7 +213,7 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
    * notification to the notification manager.
    */
   private void saveContactInfo(NotificationInfo info, ContactInfoCache.ContactCacheEntry entry) {
-    info.setContentTitle(getContentTitle(context, contactsPreferences, entry, info.getCall()));
+    info.setContentTitle(getContentTitle(context, entry, info.getCall()));
     info.setPersonReference(getPersonReference(entry, info.getCall()));
     postNotification(info);
   }
@@ -239,7 +237,7 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
     builder.setSmallIcon(R.drawable.quantum_ic_call_white_24);
     builder.setContentTitle(info.getContentTitle());
     builder.setLargeIcon(info.getLargeIcon());
-    builder.setColor(context.getResources().getColor(R.color.dialer_theme_color));
+    builder.setColor(ThemeComponent.get(context).theme().getColorPrimary());
     builder.addPerson(info.getPersonReference());
     if (BuildCompat.isAtLeastO()) {
       builder.setChannelId(NotificationChannelId.DEFAULT);
@@ -275,7 +273,7 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
      */
     Notification.Builder publicBuilder = new Notification.Builder(context);
     publicBuilder.setSmallIcon(R.drawable.quantum_ic_call_white_24);
-    publicBuilder.setColor(context.getResources().getColor(R.color.dialer_theme_color));
+    publicBuilder.setColor(ThemeComponent.get(context).theme().getColorPrimary());
     if (BuildCompat.isAtLeastO()) {
       publicBuilder.setChannelId(NotificationChannelId.DEFAULT);
     }
@@ -341,17 +339,12 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
    * number.
    *
    * @param context The context.
-   * @param contactsPreferences Contacts preferences, used to determine the preferred formatting for
-   *     contact names.
    * @param contactInfo The contact info which was looked up in the contact cache.
    * @param call The call to generate a title for.
    * @return The content title.
    */
   private @Nullable String getContentTitle(
-      Context context,
-      @Nullable ContactsPreferences contactsPreferences,
-      ContactInfoCache.ContactCacheEntry contactInfo,
-      android.telecom.Call call) {
+      Context context, ContactInfoCache.ContactCacheEntry contactInfo, android.telecom.Call call) {
 
     if (call.getDetails().hasProperty(android.telecom.Call.Details.PROPERTY_CONFERENCE)) {
       return CallerInfoUtils.getConferenceString(
@@ -360,8 +353,9 @@ public class ExternalCallNotifier implements ExternalCallList.ExternalCallListen
     }
 
     String preferredName =
-        ContactDisplayUtils.getPreferredDisplayName(
-            contactInfo.namePrimary, contactInfo.nameAlternative, contactsPreferences);
+        ContactsComponent.get(context)
+            .contactDisplayPreferences()
+            .getDisplayName(contactInfo.namePrimary, contactInfo.nameAlternative);
     if (TextUtils.isEmpty(preferredName)) {
       return TextUtils.isEmpty(contactInfo.number)
           ? null

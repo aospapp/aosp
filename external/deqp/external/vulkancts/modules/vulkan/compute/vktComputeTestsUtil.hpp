@@ -126,32 +126,6 @@ vk::VkBufferCreateInfo			makeBufferCreateInfo			(const vk::VkDeviceSize						buf
 vk::VkBufferImageCopy			makeBufferImageCopy				(const vk::VkExtent3D						extent,
 																 const deUint32								arraySize);
 
-vk::VkBufferMemoryBarrier		makeBufferMemoryBarrier			(const vk::VkAccessFlags					srcAccessMask,
-																 const vk::VkAccessFlags					dstAccessMask,
-																 const vk::VkBuffer							buffer,
-																 const vk::VkDeviceSize						offset,
-																 const vk::VkDeviceSize						bufferSizeBytes);
-
-vk::VkImageMemoryBarrier		makeImageMemoryBarrier			(const vk::VkAccessFlags					srcAccessMask,
-																 const vk::VkAccessFlags					dstAccessMask,
-																 const vk::VkImageLayout					oldLayout,
-																 const vk::VkImageLayout					newLayout,
-																 const vk::VkImage							image,
-																 const vk::VkImageSubresourceRange			subresourceRange);
-
-void							beginCommandBuffer				(const vk::DeviceInterface&					vk,
-																 const vk::VkCommandBuffer					cmdBuffer);
-
-void							endCommandBuffer				(const vk::DeviceInterface&					vk,
-																 const vk::VkCommandBuffer					cmdBuffer);
-
-void							submitCommandsAndWait			(const vk::DeviceInterface&					vk,
-																 const vk::VkDevice							device,
-																 const vk::VkQueue							queue,
-																 const vk::VkCommandBuffer					cmdBuffer,
-																 const bool									useDeviceGroups = false,
-																 const deUint32								deviceMask = 1);
-
 inline vk::VkExtent3D makeExtent3D (const tcu::IVec3& vec)
 {
 	return vk::makeExtent3D(vec.x(), vec.y(), vec.z());

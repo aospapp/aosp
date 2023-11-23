@@ -42,7 +42,7 @@ public class PropertyCheckTest extends TestCase {
         super.setUp();
         mPropertyCheck = new PropertyCheck();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
-        mMockBuildInfo = new DeviceBuildInfo("0", "", "");
+        mMockBuildInfo = new DeviceBuildInfo("0", "");
         mOptionSetter = new OptionSetter(mPropertyCheck);
         EasyMock.expect(mMockDevice.getProperty(PROPERTY)).andReturn(ACTUAL_VALUE).anyTimes();
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(null).anyTimes();

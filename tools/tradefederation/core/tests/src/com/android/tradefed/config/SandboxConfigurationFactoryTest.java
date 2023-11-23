@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
+import com.android.tradefed.build.StubBuildProvider;
 import com.android.tradefed.sandbox.ISandbox;
 import com.android.tradefed.sandbox.SandboxConfigDump;
 import com.android.tradefed.sandbox.SandboxConfigDump.DumpCmd;
@@ -42,6 +43,7 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 /** Unit tests for {@link SandboxConfigurationFactory}. */
 @RunWith(JUnit4.class)
@@ -103,6 +105,7 @@ public class SandboxConfigurationFactoryTest {
         String[] args = new String[] {mConfig.getAbsolutePath()};
         mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
         EasyMock.expectLastCall().times(2);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
         mMockRunUtil.setEnvVariable(
                 EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE), EasyMock.anyObject());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
@@ -124,6 +127,7 @@ public class SandboxConfigurationFactoryTest {
         String[] args = new String[] {mConfig.getAbsolutePath()};
         mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
         EasyMock.expectLastCall().times(2);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
         mMockRunUtil.setEnvVariable(
                 EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE), EasyMock.anyObject());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
@@ -148,5 +152,23 @@ public class SandboxConfigurationFactoryTest {
             // expected
         }
         EasyMock.verify(mFakeSandbox, mMockRunUtil);
+    }
+
+    @Test
+    public void testCreateConfiguration_runConfig() throws Exception {
+        IConfiguration originalConfig = new Configuration("name", "description");
+        StubBuildProvider provider = new StubBuildProvider();
+        OptionSetter providerSetter = new OptionSetter(provider);
+        providerSetter.setOptionValue("branch", "test-branch");
+        originalConfig.setBuildProvider(provider);
+
+        try (PrintWriter pw = new PrintWriter(mConfig)) {
+            originalConfig.dumpXml(pw);
+        }
+
+        String[] args = new String[] {mConfig.getAbsolutePath()};
+        IConfiguration config = mFactory.createConfigurationFromArgs(args, DumpCmd.RUN_CONFIG);
+        // Test that object not part of the versioning still receive their options
+        assertEquals("test-branch", config.getBuildProvider().getBuild().getBuildBranch());
     }
 }

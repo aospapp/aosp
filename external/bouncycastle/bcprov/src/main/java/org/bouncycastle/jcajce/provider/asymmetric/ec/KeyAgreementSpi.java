@@ -16,9 +16,13 @@ import org.bouncycastle.crypto.DerivationFunction;
 import org.bouncycastle.crypto.agreement.ECDHBasicAgreement;
 // BEGIN Android-removed: Unsupported algorithms
 // import org.bouncycastle.crypto.agreement.ECDHCBasicAgreement;
+// import org.bouncycastle.crypto.agreement.ECDHCUnifiedAgreement;
 // import org.bouncycastle.crypto.agreement.ECMQVBasicAgreement;
 // import org.bouncycastle.crypto.agreement.kdf.ConcatenationKDFGenerator;
+// import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 // import org.bouncycastle.crypto.generators.KDF2BytesGenerator;
+// import org.bouncycastle.crypto.params.ECDHUPrivateParameters;
+// import org.bouncycastle.crypto.params.ECDHUPublicParameters;
 // END Android-removed: Unsupported algorithms
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
@@ -31,6 +35,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.jcajce.provider.asymmetric.util.BaseAgreementSpi;
 import org.bouncycastle.jcajce.provider.asymmetric.util.ECUtil;
 // BEGIN Android-removed: Unsupported algorithms
+// import org.bouncycastle.jcajce.spec.DHUParameterSpec;
 // import org.bouncycastle.jcajce.spec.MQVParameterSpec;
 // END Android-removed: Unsupported algorithms
 import org.bouncycastle.jcajce.spec.UserKeyingMaterialSpec;
@@ -40,11 +45,12 @@ import org.bouncycastle.jce.interfaces.ECPublicKey;
 // import org.bouncycastle.jce.interfaces.MQVPrivateKey;
 // import org.bouncycastle.jce.interfaces.MQVPublicKey;
 // END Android-removed: Unsupported algorithms
+import org.bouncycastle.util.Arrays;
 
 /**
  * Diffie-Hellman key agreement using elliptic curve keys, ala IEEE P1363
  * both the simple one, and the simple one with cofactors are supported.
- *
+ * <p>
  * Also, MQV key agreement per SEC-1
  */
 public class KeyAgreementSpi
@@ -52,14 +58,15 @@ public class KeyAgreementSpi
 {
     private static final X9IntegerConverter converter = new X9IntegerConverter();
 
-    private String                 kaAlgorithm;
+    private String kaAlgorithm;
 
-    private ECDomainParameters     parameters;
-    private BasicAgreement         agreement;
+    private ECDomainParameters parameters;
+    private Object agreement;
 
     // Android-removed: Unsupported algorithms
     // private MQVParameterSpec       mqvParameters;
-    private BigInteger             result;
+    // private DHUParameterSpec dheParameters;
+    private byte[] result;
 
     protected KeyAgreementSpi(
         String kaAlgorithm,
@@ -72,15 +79,30 @@ public class KeyAgreementSpi
         this.agreement = agreement;
     }
 
+    // BEGIN Android-removed: Unsupported algorithms
+    /*
+    protected KeyAgreementSpi(
+        String kaAlgorithm,
+        ECDHCUnifiedAgreement agreement,
+        DerivationFunction kdf)
+    {
+        super(kaAlgorithm, kdf);
+
+        this.kaAlgorithm = kaAlgorithm;
+        this.agreement = agreement;
+    }
+    */
+    // END Android-removed: Unsupported algorithms
+
     protected byte[] bigIntToBytes(
-        BigInteger    r)
+        BigInteger r)
     {
         return converter.integerToBytes(r, converter.getByteLength(parameters.getCurve()));
     }
 
     protected Key engineDoPhase(
-        Key     key,
-        boolean lastPhase) 
+        Key key,
+        boolean lastPhase)
         throws InvalidKeyException, IllegalStateException
     {
         if (parameters == null)
@@ -93,7 +115,7 @@ public class KeyAgreementSpi
             throw new IllegalStateException(kaAlgorithm + " can only be between two parties.");
         }
 
-        CipherParameters pubKey;        
+        CipherParameters pubKey;
         // BEGIN Android-removed: Unsupported algorithms
         /*
         if (agreement instanceof ECMQVBasicAgreement)
@@ -118,6 +140,15 @@ public class KeyAgreementSpi
                 pubKey = new MQVPublicParameters(staticKey, ephemKey);
             }
         }
+        else if (agreement instanceof ECDHCUnifiedAgreement)
+        {
+            ECPublicKeyParameters staticKey = (ECPublicKeyParameters)
+                ECUtils.generatePublicKeyParameter((PublicKey)key);
+            ECPublicKeyParameters ephemKey = (ECPublicKeyParameters)
+                ECUtils.generatePublicKeyParameter(dheParameters.getOtherPartyEphemeralKey());
+
+            pubKey = new ECDHUPublicParameters(staticKey, ephemKey);
+        }
         else
         */
         // END Android-removed: Unsupported algorithms
@@ -133,16 +164,31 @@ public class KeyAgreementSpi
 
         try
         {
-            result = agreement.calculateAgreement(pubKey);
+            // BEGIN Android-removed: Unsupported algorithms
+            /*
+            if (agreement instanceof BasicAgreement)
+            {
+            */
+            // END Android-removed: Unsupported algorithms
+                result = bigIntToBytes(((BasicAgreement)agreement).calculateAgreement(pubKey));
+            // BEGIN Android-removed: Unsupported algorithms
+            /*
+            }
+            else
+            {
+                result = ((ECDHCUnifiedAgreement)agreement).calculateAgreement(pubKey);
+            }
+            */
+            // END Android-removed: Unsupported algorithms
         }
         catch (final Exception e)
         {
             throw new InvalidKeyException("calculation failed: " + e.getMessage())
             {
                 public Throwable getCause()
-                            {
-                                return e;
-                            }
+                {
+                    return e;
+                }
             };
         }
 
@@ -150,13 +196,14 @@ public class KeyAgreementSpi
     }
 
     protected void engineInit(
-        Key                     key,
-        AlgorithmParameterSpec  params,
-        SecureRandom            random) 
+        Key key,
+        AlgorithmParameterSpec params,
+        SecureRandom random)
         throws InvalidKeyException, InvalidAlgorithmParameterException
     {
         // Android-removed: Unsupported algorithms
-        // if (params != null && !(params instanceof MQVParameterSpec || params instanceof UserKeyingMaterialSpec))
+        // if (params != null &&
+        //     !(params instanceof MQVParameterSpec || params instanceof UserKeyingMaterialSpec || params instanceof DHUParameterSpec))
         if (params != null && !(params instanceof UserKeyingMaterialSpec))
         {
             throw new InvalidAlgorithmParameterException("No algorithm parameters supported");
@@ -166,15 +213,23 @@ public class KeyAgreementSpi
     }
 
     protected void engineInit(
-        Key             key,
-        SecureRandom    random) 
+        Key key,
+        SecureRandom random)
         throws InvalidKeyException
     {
-        initFromKey(key, null);
+        try
+        {
+            initFromKey(key, null);
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            // this should never occur.
+            throw new InvalidKeyException(e.getMessage());
+        }
     }
 
     private void initFromKey(Key key, AlgorithmParameterSpec parameterSpec)
-        throws InvalidKeyException
+        throws InvalidKeyException, InvalidAlgorithmParameterException
     {
         // BEGIN Android-removed: Unsupported algorithms
         /*
@@ -183,7 +238,7 @@ public class KeyAgreementSpi
             mqvParameters = null;
             if (!(key instanceof MQVPrivateKey) && !(parameterSpec instanceof MQVParameterSpec))
             {
-                throw new InvalidKeyException(kaAlgorithm + " key agreement requires "
+                throw new InvalidAlgorithmParameterException(kaAlgorithm + " key agreement requires "
                     + getSimpleName(MQVParameterSpec.class) + " for initialisation");
             }
 
@@ -229,7 +284,38 @@ public class KeyAgreementSpi
 
             // TODO Validate that all the keys are using the same parameters?
 
-            agreement.init(localParams);
+            ((ECMQVBasicAgreement)agreement).init(localParams);
+        }
+        else if (parameterSpec instanceof DHUParameterSpec)
+        {
+            if (!(agreement instanceof ECDHCUnifiedAgreement))
+            {
+                throw new InvalidAlgorithmParameterException(kaAlgorithm + " key agreement cannot be used with "
+                    + getSimpleName(DHUParameterSpec.class));
+            }
+            DHUParameterSpec dheParameterSpec = (DHUParameterSpec)parameterSpec;
+            ECPrivateKeyParameters staticPrivKey;
+            ECPrivateKeyParameters ephemPrivKey;
+            ECPublicKeyParameters ephemPubKey;
+
+            staticPrivKey = (ECPrivateKeyParameters)
+                ECUtil.generatePrivateKeyParameter((PrivateKey)key);
+            ephemPrivKey = (ECPrivateKeyParameters)
+                ECUtil.generatePrivateKeyParameter(dheParameterSpec.getEphemeralPrivateKey());
+
+            ephemPubKey = null;
+            if (dheParameterSpec.getEphemeralPublicKey() != null)
+            {
+                ephemPubKey = (ECPublicKeyParameters)
+                    ECUtils.generatePublicKeyParameter(dheParameterSpec.getEphemeralPublicKey());
+            }
+            dheParameters = dheParameterSpec;
+            ukmParameters = dheParameterSpec.getUserKeyingMaterial();
+
+            ECDHUPrivateParameters localParams = new ECDHUPrivateParameters(staticPrivKey, ephemPrivKey, ephemPubKey);
+            this.parameters = staticPrivKey.getParameters();
+
+            ((ECDHCUnifiedAgreement)agreement).init(localParams);
         }
         else
         */
@@ -240,11 +326,14 @@ public class KeyAgreementSpi
                 throw new InvalidKeyException(kaAlgorithm + " key agreement requires "
                     + getSimpleName(ECPrivateKey.class) + " for initialisation");
             }
-
+            if (kdf == null && parameterSpec instanceof UserKeyingMaterialSpec)
+            {
+                throw new InvalidAlgorithmParameterException("no KDF specified for UserKeyingMaterialSpec");
+            }
             ECPrivateKeyParameters privKey = (ECPrivateKeyParameters)ECUtil.generatePrivateKeyParameter((PrivateKey)key);
             this.parameters = privKey.getParameters();
             ukmParameters = (parameterSpec instanceof UserKeyingMaterialSpec) ? ((UserKeyingMaterialSpec)parameterSpec).getUserKeyingMaterial() : null;
-            agreement.init(privKey);
+            ((BasicAgreement)agreement).init(privKey);
         }
     }
 
@@ -254,11 +343,10 @@ public class KeyAgreementSpi
 
         return fullName.substring(fullName.lastIndexOf('.') + 1);
     }
-
-
+    
     protected byte[] calcSecret()
     {
-        return bigIntToBytes(result);
+        return Arrays.clone(result);
     }
 
     public static class DH
@@ -287,6 +375,15 @@ public class KeyAgreementSpi
         public MQV()
         {
             super("ECMQV", new ECMQVBasicAgreement(), null);
+        }
+    }
+
+    public static class DHUC
+        extends KeyAgreementSpi
+    {
+        public DHUC()
+        {
+            super("ECCDHU", new ECDHCUnifiedAgreement(), null);
         }
     }
 
@@ -372,22 +469,22 @@ public class KeyAgreementSpi
     }
 
     public static class DHwithSHA512KDFAndSharedInfo
-         extends KeyAgreementSpi
-     {
-         public DHwithSHA512KDFAndSharedInfo()
-         {
-             super("ECDHwithSHA512KDF", new ECDHBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
-         }
-     }
+        extends KeyAgreementSpi
+    {
+        public DHwithSHA512KDFAndSharedInfo()
+        {
+            super("ECDHwithSHA512KDF", new ECDHBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
+        }
+    }
 
-     public static class CDHwithSHA512KDFAndSharedInfo
-         extends KeyAgreementSpi
-     {
-         public CDHwithSHA512KDFAndSharedInfo()
-         {
-             super("ECCDHwithSHA512KDF", new ECDHCBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
-         }
-     }
+    public static class CDHwithSHA512KDFAndSharedInfo
+        extends KeyAgreementSpi
+    {
+        public CDHwithSHA512KDFAndSharedInfo()
+        {
+            super("ECCDHwithSHA512KDF", new ECDHCBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
+        }
+    }
 
     public static class MQVwithSHA1KDFAndSharedInfo
         extends KeyAgreementSpi
@@ -514,6 +611,219 @@ public class KeyAgreementSpi
             super("ECMQVwithSHA512CKDF", new ECMQVBasicAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA512()));
         }
     }
-    */
-    // END Android-removed: Unsupported algorithms
+
+    public static class MQVwithSHA1KDF
+        extends KeyAgreementSpi
+    {
+        public MQVwithSHA1KDF()
+        {
+            super("ECMQVwithSHA1KDF", new ECMQVBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA1()));
+        }
+    }
+
+    public static class MQVwithSHA224KDF
+        extends KeyAgreementSpi
+    {
+        public MQVwithSHA224KDF()
+        {
+            super("ECMQVwithSHA224KDF", new ECMQVBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA224()));
+        }
+    }
+
+    public static class MQVwithSHA256KDF
+        extends KeyAgreementSpi
+    {
+        public MQVwithSHA256KDF()
+        {
+            super("ECMQVwithSHA256KDF", new ECMQVBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA256()));
+        }
+    }
+
+    public static class MQVwithSHA384KDF
+        extends KeyAgreementSpi
+    {
+        public MQVwithSHA384KDF()
+        {
+            super("ECMQVwithSHA384KDF", new ECMQVBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA384()));
+        }
+    }
+
+    public static class MQVwithSHA512KDF
+        extends KeyAgreementSpi
+    {
+        public MQVwithSHA512KDF()
+        {
+            super("ECMQVwithSHA512KDF", new ECMQVBasicAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
+        }
+    }
+
+    public static class DHUwithSHA1CKDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA1CKDF()
+        {
+            super("ECCDHUwithSHA1CKDF", new ECDHCUnifiedAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA1()));
+        }
+    }
+
+    public static class DHUwithSHA224CKDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA224CKDF()
+        {
+            super("ECCDHUwithSHA224CKDF", new ECDHCUnifiedAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA224()));
+        }
+    }
+
+    public static class DHUwithSHA256CKDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA256CKDF()
+        {
+            super("ECCDHUwithSHA256CKDF", new ECDHCUnifiedAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA256()));
+        }
+    }
+
+    public static class DHUwithSHA384CKDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA384CKDF()
+        {
+            super("ECCDHUwithSHA384CKDF", new ECDHCUnifiedAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA384()));
+        }
+    }
+
+    public static class DHUwithSHA512CKDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA512CKDF()
+        {
+            super("ECCDHUwithSHA512CKDF", new ECDHCUnifiedAgreement(), new ConcatenationKDFGenerator(DigestFactory.createSHA512()));
+        }
+    }
+
+    public static class DHUwithSHA1KDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA1KDF()
+        {
+            super("ECCDHUwithSHA1KDF", new ECDHCUnifiedAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA1()));
+        }
+    }
+
+    public static class DHUwithSHA224KDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA224KDF()
+        {
+            super("ECCDHUwithSHA224KDF", new ECDHCUnifiedAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA224()));
+        }
+    }
+
+    public static class DHUwithSHA256KDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA256KDF()
+        {
+            super("ECCDHUwithSHA256KDF", new ECDHCUnifiedAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA256()));
+        }
+    }
+
+    public static class DHUwithSHA384KDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA384KDF()
+        {
+            super("ECCDHUwithSHA384KDF", new ECDHCUnifiedAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA384()));
+        }
+    }
+
+    public static class DHUwithSHA512KDF
+        extends KeyAgreementSpi
+    {
+        public DHUwithSHA512KDF()
+        {
+            super("ECCDHUwithSHA512KDF", new ECDHCUnifiedAgreement(), new KDF2BytesGenerator(DigestFactory.createSHA512()));
+        }
+    }
+
+    /**
+   	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+   	 *
+   	public static class ECKAEGwithSHA1KDF
+   			extends KeyAgreementSpi
+   	{
+   		public ECKAEGwithSHA1KDF()
+   		{
+   			super("ECKAEGwithSHA1KDF", new ECDHBasicAgreement(),
+                   new KDF2BytesGenerator(DigestFactory.createSHA1()));
+   		}
+   	}
+
+    /**
+   	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+   	 *
+   	public static class ECKAEGwithRIPEMD160KDF
+   			extends KeyAgreementSpi
+   	{
+   		public ECKAEGwithRIPEMD160KDF()
+   		{
+   			super("ECKAEGwithRIPEMD160KDF", new ECDHBasicAgreement(),
+                   new KDF2BytesGenerator(new RIPEMD160Digest()));
+   		}
+   	}
+
+    /**
+   	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+   	 *
+   	public static class ECKAEGwithSHA224KDF
+   			extends KeyAgreementSpi
+   	{
+   		public ECKAEGwithSHA224KDF()
+   		{
+   			super("ECKAEGwithSHA224KDF", new ECDHBasicAgreement(),
+                   new KDF2BytesGenerator(DigestFactory.createSHA224()));
+   		}
+   	}
+
+	/**
+	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+	 *
+	public static class ECKAEGwithSHA256KDF
+			extends KeyAgreementSpi
+	{
+		public ECKAEGwithSHA256KDF()
+		{
+			super("ECKAEGwithSHA256KDF", new ECDHBasicAgreement(),
+                new KDF2BytesGenerator(DigestFactory.createSHA256()));
+		}
+	}
+
+	/**
+	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+	 *
+	public static class ECKAEGwithSHA384KDF
+			extends KeyAgreementSpi
+	{
+		public ECKAEGwithSHA384KDF()
+		{
+			super("ECKAEGwithSHA384KDF", new ECDHBasicAgreement(),
+                new KDF2BytesGenerator(DigestFactory.createSHA384()));
+		}
+	}
+
+	/**
+	 * KeyAgreement according to BSI TR-03111 chapter 4.3.1
+	 *
+	public static class ECKAEGwithSHA512KDF
+			extends KeyAgreementSpi
+	{
+		public ECKAEGwithSHA512KDF()
+		{
+			super("ECKAEGwithSHA512KDF", new ECDHBasicAgreement(),
+                new KDF2BytesGenerator(DigestFactory.createSHA512()));
+		}
+	}
+  */
+  // END Android-removed: Unsupported algorithms
 }

@@ -22,9 +22,8 @@
 #include <type_traits>
 #include <vector>
 
-// Explicitly include our own elf.h to avoid Linux and other dependencies.
-#include "./elf.h"
-#include "mem_map.h"
+#include "base/mem_map.h"
+#include "elf/elf_utils.h"
 
 namespace art {
 
@@ -48,13 +47,12 @@ class ElfFileImpl {
                            bool writable,
                            bool program_header_only,
                            bool low_4gb,
-                           std::string* error_msg,
-                           uint8_t* requested_base = nullptr);
+                           /*out*/std::string* error_msg);
   static ElfFileImpl* Open(File* file,
                            int mmap_prot,
                            int mmap_flags,
                            bool low_4gb,
-                           std::string* error_msg);
+                           /*out*/std::string* error_msg);
   ~ElfFileImpl();
 
   const std::string& GetFilePath() const {
@@ -62,15 +60,15 @@ class ElfFileImpl {
   }
 
   uint8_t* Begin() const {
-    return map_->Begin();
+    return map_.Begin();
   }
 
   uint8_t* End() const {
-    return map_->End();
+    return map_.End();
   }
 
   size_t Size() const {
-    return map_->Size();
+    return map_.Size();
   }
 
   Elf_Ehdr& GetHeader() const;
@@ -115,7 +113,11 @@ class ElfFileImpl {
 
   // Load segments into memory based on PT_LOAD program headers.
   // executable is true at run time, false at compile time.
-  bool Load(File* file, bool executable, bool low_4gb, std::string* error_msg);
+  bool Load(File* file,
+            bool executable,
+            bool low_4gb,
+            /*inout*/MemMap* reservation,
+            /*out*/std::string* error_msg);
 
   bool Fixup(Elf_Addr base_address);
   bool FixupDynamic(Elf_Addr base_address);
@@ -131,11 +133,15 @@ class ElfFileImpl {
   bool Strip(File* file, std::string* error_msg);
 
  private:
-  ElfFileImpl(File* file, bool writable, bool program_header_only, uint8_t* requested_base);
+  ElfFileImpl(File* file, bool writable, bool program_header_only);
+
+  bool GetLoadedAddressRange(/*out*/uint8_t** vaddr_begin,
+                             /*out*/size_t* vaddr_size,
+                             /*out*/std::string* error_msg) const;
 
   bool Setup(File* file, int prot, int flags, bool low_4gb, std::string* error_msg);
 
-  bool SetMap(File* file, MemMap* map, std::string* error_msg);
+  bool SetMap(File* file, MemMap&& map, std::string* error_msg);
 
   uint8_t* GetProgramHeadersStart() const;
   uint8_t* GetSectionHeadersStart() const;
@@ -193,9 +199,9 @@ class ElfFileImpl {
 
   // ELF header mapping. If program_header_only_ is false, will
   // actually point to the entire elf file.
-  std::unique_ptr<MemMap> map_;
+  MemMap map_;
   Elf_Ehdr* header_;
-  std::vector<MemMap*> segments_;
+  std::vector<MemMap> segments_;
 
   // Pointer to start of first PT_LOAD program segment after Load()
   // when program_header_only_ is true.
@@ -216,9 +222,6 @@ class ElfFileImpl {
 
   SymbolTable* symtab_symbol_table_;
   SymbolTable* dynsym_symbol_table_;
-
-  // Override the 'base' p_vaddr in the first LOAD segment with this value (if non-null).
-  uint8_t* requested_base_;
 
   DISALLOW_COPY_AND_ASSIGN(ElfFileImpl);
 };

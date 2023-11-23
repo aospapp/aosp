@@ -16,7 +16,7 @@
 
 package com.android.car.media.browse;
 
-import android.support.annotation.LayoutRes;
+import androidx.annotation.LayoutRes;
 
 /**
  * Possible view types that would be used by the {@link BrowseAdapter}.
@@ -28,17 +28,16 @@ public enum BrowseItemViewType {
     GRID_ITEM(com.android.car.media.R.layout.media_browse_grid_item, 1),
     /** A list item including title and subtitle */
     LIST_ITEM(com.android.car.media.R.layout.media_browse_list_item),
-    /** An item in a panel of items (menu) */
-    PANEL_ITEM(com.android.car.media.R.layout.media_browse_panel_item),
-    /** A footer that can be used to navigate to an expanded version of a section */
-    MORE_FOOTER(com.android.car.media.R.layout.media_browse_more_footer),
-    ;
-    private final @LayoutRes int mLayoutId;
+    /** A spacer view that creates additional padding at the edges of the list, and for headers */
+    SPACER(com.android.car.media.R.layout.media_browse_spacer);
+
+    @LayoutRes
+    private final int mLayoutId;
     private final int mSpanSize;
 
     /**
-     * {@link BrowseItemViewType} that take the whole width of the
-     * {@link android.support.v7.widget.RecyclerView}
+     * {@link BrowseItemViewType} that take the whole width of the {@link
+     * androidx.recyclerview.widget.RecyclerView}
      */
     BrowseItemViewType(@LayoutRes int layoutId) {
         mLayoutId = layoutId;
@@ -62,9 +61,10 @@ public enum BrowseItemViewType {
     }
 
     /**
-     * @return layout that should be inflated to generate this view type.
+     * Returns the layout that should be inflated to generate this view type.
      */
-    public @LayoutRes int getLayoutId() {
+    @LayoutRes
+    public int getLayoutId() {
         return mLayoutId;
     }
 }

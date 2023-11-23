@@ -34,6 +34,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuVectorUtil.hpp"
@@ -75,6 +76,8 @@ VkFormat getPlaneCompatibleFormat (VkFormat multiPlanarFormat, deUint32 planeNdx
 		case VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM:
 			if (de::inRange(planeNdx, 0u, 2u))
 				return VK_FORMAT_R8_UNORM;
+			else
+				break;
 
 		case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
 		case VK_FORMAT_G8_B8R8_2PLANE_422_UNORM:
@@ -82,12 +85,16 @@ VkFormat getPlaneCompatibleFormat (VkFormat multiPlanarFormat, deUint32 planeNdx
 				return VK_FORMAT_R8_UNORM;
 			else if (planeNdx == 1)
 				return VK_FORMAT_R8G8_UNORM;
+			else
+				break;
 
 		case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
 		case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16:
 		case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16:
 			if (de::inRange(planeNdx, 0u, 2u))
 				return VK_FORMAT_R10X6_UNORM_PACK16;
+			else
+				break;
 
 		case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
 		case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16:
@@ -95,12 +102,16 @@ VkFormat getPlaneCompatibleFormat (VkFormat multiPlanarFormat, deUint32 planeNdx
 				return VK_FORMAT_R10X6_UNORM_PACK16;
 			else if (planeNdx == 1)
 				return VK_FORMAT_R10X6G10X6_UNORM_2PACK16;
+			else
+				break;
 
 		case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16:
 		case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16:
 		case VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16:
 			if (de::inRange(planeNdx, 0u, 2u))
 				return VK_FORMAT_R12X4_UNORM_PACK16;
+			else
+				break;
 
 		case VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16:
 		case VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16:
@@ -108,12 +119,16 @@ VkFormat getPlaneCompatibleFormat (VkFormat multiPlanarFormat, deUint32 planeNdx
 				return VK_FORMAT_R12X4_UNORM_PACK16;
 			else if (planeNdx == 1)
 				return VK_FORMAT_R12X4G12X4_UNORM_2PACK16;
+			else
+				break;
 
 		case VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM:
 		case VK_FORMAT_G16_B16_R16_3PLANE_422_UNORM:
 		case VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM:
 			if (de::inRange(planeNdx, 0u, 2u))
 				return VK_FORMAT_R16_UNORM;
+			else
+				break;
 
 		case VK_FORMAT_G16_B16R16_2PLANE_420_UNORM:
 		case VK_FORMAT_G16_B16R16_2PLANE_422_UNORM:
@@ -121,11 +136,15 @@ VkFormat getPlaneCompatibleFormat (VkFormat multiPlanarFormat, deUint32 planeNdx
 				return VK_FORMAT_R16_UNORM;
 			else if (planeNdx == 1)
 				return VK_FORMAT_R16G16_UNORM;
+			else
+				break;
 
 		default:
-			DE_FATAL("Invalid format and plane index combination");
-			return VK_FORMAT_UNDEFINED;
+			break;
 	}
+
+	DE_FATAL("Invalid format and plane index combination");
+	return VK_FORMAT_UNDEFINED;
 }
 
 Move<VkImage> createTestImage (const DeviceInterface&	vkd,
@@ -326,17 +345,7 @@ void executeImageBarrier (const DeviceInterface&		vkd,
 	const Unique<VkCommandPool>		cmdPool		(createCommandPool(vkd, device, (VkCommandPoolCreateFlags)0, queueFamilyNdx));
 	const Unique<VkCommandBuffer>	cmdBuffer	(allocateCommandBuffer(vkd, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
-	{
-		const VkCommandBufferBeginInfo	beginInfo		=
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			DE_NULL,
-			(VkCommandBufferUsageFlags)VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-			(const VkCommandBufferInheritanceInfo*)DE_NULL
-		};
-
-		VK_CHECK(vkd.beginCommandBuffer(*cmdBuffer, &beginInfo));
-	}
+	beginCommandBuffer(vkd, *cmdBuffer);
 
 	vkd.cmdPipelineBarrier(*cmdBuffer,
 						   srcStage,
@@ -349,26 +358,9 @@ void executeImageBarrier (const DeviceInterface&		vkd,
 						   1u,
 						   &barrier);
 
-	VK_CHECK(vkd.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vkd, *cmdBuffer);
 
-	{
-		const Unique<VkFence>	fence		(createFence(vkd, device));
-		const VkSubmitInfo		submitInfo	=
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			DE_NULL,
-			0u,
-			(const VkSemaphore*)DE_NULL,
-			(const VkPipelineStageFlags*)DE_NULL,
-			1u,
-			&*cmdBuffer,
-			0u,
-			(const VkSemaphore*)DE_NULL,
-		};
-
-		VK_CHECK(vkd.queueSubmit(queue, 1u, &submitInfo, *fence));
-		VK_CHECK(vkd.waitForFences(device, 1u, &*fence, VK_TRUE, ~0ull));
-	}
+	submitCommandsAndWait(vkd, device, queue, *cmdBuffer);
 }
 
 struct TestParameters
@@ -464,6 +456,15 @@ void checkImageUsageSupport (Context&			context,
 	}
 }
 
+void checkSupport(Context& context, TestParameters params)
+{
+	const VkFormat					planeViewFormat	= getPlaneCompatibleFormat(params.format, params.planeNdx);
+	const VkImageUsageFlags			usage			= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	checkImageSupport(context, params.format, params.createFlags);
+	checkImageUsageSupport(context, params.format, usage);
+	checkImageUsageSupport(context, planeViewFormat, usage);
+}
 
 tcu::TestStatus testPlaneView (Context& context, TestParameters params)
 {
@@ -481,11 +482,6 @@ tcu::TestStatus testPlaneView (Context& context, TestParameters params)
 	const UVec2						size			= params.size;
 	const UVec2						planeSize		(size.x() / formatInfo.planes[params.planeNdx].widthDivisor,
 													 size.y() / formatInfo.planes[params.planeNdx].heightDivisor);
-	const VkImageUsageFlags			usage			= VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-	checkImageSupport(context, format, createFlags);
-	checkImageUsageSupport(context, format, usage);
-	checkImageUsageSupport(context, planeViewFormat, usage);
 
 	const Unique<VkImage>			image			(createTestImage(vkd, device, format, size, createFlags));
 	const Unique<VkImage>			imageAlias		((params.viewType == TestParameters::VIEWTYPE_MEMORY_ALIAS)
@@ -722,7 +718,7 @@ void addPlaneViewCase (tcu::TestCaseGroup* group, const TestParameters& params)
 
 	name << "_plane_" << params.planeNdx;
 
-	addFunctionCaseWithPrograms(group, name.str(), "", initPrograms, testPlaneView, params);
+	addFunctionCaseWithPrograms(group, name.str(), "", checkSupport, initPrograms, testPlaneView, params);
 }
 
 void populateViewTypeGroup (tcu::TestCaseGroup* group, TestParameters::ViewType viewType)

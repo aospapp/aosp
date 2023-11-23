@@ -17,6 +17,7 @@
 package android.dumpsys.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -54,155 +55,161 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
                 }
 
 
-                // With a default limit of 0, empty strings at the end are discarded.
-                // We still consider the empty string as a valid value in some cases.
-                // Using any negative number for the limit will preserve a trailing empty string.
-                // @see String#split(String, int)
-                String[] parts = line.split(",", -1);
-                assertInteger(parts[0]); // old version
-                assertInteger(parts[1]); // UID
-                switch (parts[2]) { // aggregation type
-                    case "i":
-                    case "l":
-                    case "c":
-                    case "u":
-                        break;
-                    default:
-                        fail("malformed stat: " + parts[2]);
-                }
-                assertNotNull(parts[3]);
-                seenTags.add(parts[3]);
+                try {
+                    // With a default limit of 0, empty strings at the end are discarded.
+                    // We still consider the empty string as a valid value in some cases.
+                    // Using any negative number for the limit will preserve a trailing empty string.
+                    // @see String#split(String, int)
+                    String[] parts = line.split(",", -1);
+                    assertInteger(parts[0]); // old version
+                    assertInteger(parts[1]); // UID
+                    switch (parts[2]) { // aggregation type
+                        case "i":
+                        case "l":
+                        case "c":
+                        case "u":
+                            break;
+                        default:
+                            fail("malformed stat: " + parts[2]);
+                    }
+                    assertNotNull(parts[3]);
+                    seenTags.add(parts[3]);
 
-                // Note the time fields are measured in milliseconds by default.
-                switch (parts[3]) {
-                    case "vers":
-                        checkVersion(parts);
-                        break;
-                    case "uid":
-                        checkUid(parts);
-                        break;
-                    case "apk":
-                        checkApk(parts);
-                        break;
-                    case "pr":
-                        checkProcess(parts);
-                        break;
-                    case "sr":
-                        checkSensor(parts);
-                        break;
-                    case "vib":
-                        checkVibrator(parts);
-                        break;
-                    case "fg":
-                        checkForegroundActivity(parts);
-                        break;
-                    case "fgs":
-                        checkForegroundService(parts);
-                        break;
-                    case "st":
-                        checkStateTime(parts);
-                        break;
-                    case "wl":
-                        checkWakelock(parts);
-                        break;
-                    case "awl":
-                        checkAggregatedWakelock(parts);
-                        break;
-                    case "sy":
-                        checkSync(parts);
-                        break;
-                    case "jb":
-                        checkJob(parts);
-                        break;
-                    case "jbc":
-                        checkJobCompletion(parts);
-                        break;
-                    case "jbd":
-                        checkJobsDeferred(parts);
-                        break;
-                    case "kwl":
-                        checkKernelWakelock(parts);
-                        break;
-                    case "wr":
-                        checkWakeupReason(parts);
-                        break;
-                    case "nt":
-                        checkNetwork(parts);
-                        break;
-                    case "ua":
-                        checkUserActivity(parts);
-                        break;
-                    case "bt":
-                        checkBattery(parts);
-                        break;
-                    case "dc":
-                        checkBatteryDischarge(parts);
-                        break;
-                    case "lv":
-                        checkBatteryLevel(parts);
-                        break;
-                    case "wfl":
-                        checkWifi(parts);
-                        break;
-                    case "m":
-                        checkMisc(parts);
-                        break;
-                    case "gn":
-                        checkGlobalNetwork(parts);
-                        break;
-                    case "br":
-                        checkScreenBrightness(parts);
-                        break;
-                    case "sgt":
-                    case "sgc":
-                        checkSignalStrength(parts);
-                        break;
-                    case "sst":
-                        checkSignalScanningTime(parts);
-                        break;
-                    case "dct":
-                    case "dcc":
-                        checkDataConnection(parts);
-                        break;
-                    case "wst":
-                    case "wsc":
-                        checkWifiState(parts);
-                        break;
-                    case "wsst":
-                    case "wssc":
-                        checkWifiSupplState(parts);
-                        break;
-                    case "wsgt":
-                    case "wsgc":
-                        checkWifiSignalStrength(parts);
-                        break;
-                    case "bst":
-                    case "bsc":
-                        checkBluetoothState(parts);
-                        break;
-                    case "blem":
-                        checkBluetoothMisc(parts);
-                        break;
-                    case "pws":
-                        checkPowerUseSummary(parts);
-                        break;
-                    case "pwi":
-                        checkPowerUseItem(parts);
-                        break;
-                    case "dsd":
-                    case "csd":
-                        checkChargeDischargeStep(parts);
-                        break;
-                    case "dtr":
-                        checkDischargeTimeRemain(parts);
-                        break;
-                    case "ctr":
-                        checkChargeTimeRemain(parts);
-                        break;
-                    case "cpu":
-                        checkUidCpuUsage(parts);
-                    default:
-                        break;
+                    // Note the time fields are measured in milliseconds by default.
+                    switch (parts[3]) {
+                        case "vers":
+                            checkVersion(parts);
+                            break;
+                        case "uid":
+                            checkUid(parts);
+                            break;
+                        case "apk":
+                            checkApk(parts);
+                            break;
+                        case "pr":
+                            checkProcess(parts);
+                            break;
+                        case "sr":
+                            checkSensor(parts);
+                            break;
+                        case "vib":
+                            checkVibrator(parts);
+                            break;
+                        case "fg":
+                            checkForegroundActivity(parts);
+                            break;
+                        case "fgs":
+                            checkForegroundService(parts);
+                            break;
+                        case "st":
+                            checkStateTime(parts);
+                            break;
+                        case "wl":
+                            checkWakelock(parts);
+                            break;
+                        case "awl":
+                            checkAggregatedWakelock(parts);
+                            break;
+                        case "sy":
+                            checkSync(parts);
+                            break;
+                        case "jb":
+                            checkJob(parts);
+                            break;
+                        case "jbc":
+                            checkJobCompletion(parts);
+                            break;
+                        case "jbd":
+                            checkJobsDeferred(parts);
+                            break;
+                        case "kwl":
+                            checkKernelWakelock(parts);
+                            break;
+                        case "wr":
+                            checkWakeupReason(parts);
+                            break;
+                        case "nt":
+                            checkNetwork(parts);
+                            break;
+                        case "ua":
+                            checkUserActivity(parts);
+                            break;
+                        case "bt":
+                            checkBattery(parts);
+                            break;
+                        case "dc":
+                            checkBatteryDischarge(parts);
+                            break;
+                        case "lv":
+                            checkBatteryLevel(parts);
+                            break;
+                        case "wfl":
+                            checkWifi(parts);
+                            break;
+                        case "m":
+                            checkMisc(parts);
+                            break;
+                        case "gn":
+                            checkGlobalNetwork(parts);
+                            break;
+                        case "br":
+                            checkScreenBrightness(parts);
+                            break;
+                        case "sgt":
+                        case "sgc":
+                            checkSignalStrength(parts);
+                            break;
+                        case "sst":
+                            checkSignalScanningTime(parts);
+                            break;
+                        case "dct":
+                        case "dcc":
+                            checkDataConnection(parts);
+                            break;
+                        case "wst":
+                        case "wsc":
+                            checkWifiState(parts);
+                            break;
+                        case "wsst":
+                        case "wssc":
+                            checkWifiSupplState(parts);
+                            break;
+                        case "wsgt":
+                        case "wsgc":
+                            checkWifiSignalStrength(parts);
+                            break;
+                        case "bst":
+                        case "bsc":
+                            checkBluetoothState(parts);
+                            break;
+                        case "blem":
+                            checkBluetoothMisc(parts);
+                            break;
+                        case "pws":
+                            checkPowerUseSummary(parts);
+                            break;
+                        case "pwi":
+                            checkPowerUseItem(parts);
+                            break;
+                        case "dsd":
+                        case "csd":
+                            checkChargeDischargeStep(parts);
+                            break;
+                        case "dtr":
+                            checkDischargeTimeRemain(parts);
+                            break;
+                        case "ctr":
+                            checkChargeTimeRemain(parts);
+                            break;
+                        case "cpu":
+                            checkUidCpuUsage(parts);
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (AssertionError e) {
+                    CLog.e("Assert fail for line <" + line + ">");
+                    throw e;
                 }
             }
         }
@@ -436,11 +443,12 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkUserActivity(String[] parts) {
-        assertEquals(8, parts.length);
+        assertEquals(9, parts.length);
         assertInteger(parts[4]); // other
         assertInteger(parts[5]); // button
         assertInteger(parts[6]); // touch
         assertInteger(parts[7]); // accessibility
+        assertInteger(parts[8]); // attention
     }
 
     private void checkBattery(String[] parts) {
@@ -567,7 +575,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkDataConnection(String[] parts) {
-        assertEquals(25, parts.length);
+        assertEquals(26, parts.length);
         assertInteger(parts[4]);  // none
         assertInteger(parts[5]);  // gprs
         assertInteger(parts[6]);  // edge
@@ -588,7 +596,8 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[21]); // td_scdma
         assertInteger(parts[22]); // iwlan
         assertInteger(parts[23]); // lte_ca
-        assertInteger(parts[24]); // other
+        assertInteger(parts[24]); // nr
+        assertInteger(parts[25]); // other
     }
 
     private void checkWifiState(String[] parts) {

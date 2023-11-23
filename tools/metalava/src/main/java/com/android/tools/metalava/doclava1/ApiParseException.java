@@ -16,34 +16,54 @@
 
 package com.android.tools.metalava.doclava1;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 //
 // Copied from doclava1, but adapted to metalava's code model
 //
 public final class ApiParseException extends Exception {
-    public String file;
-    public int line;
+    private String file;
+    private int line;
 
-    public ApiParseException(String message) {
+    ApiParseException(@NotNull String message) {
         super(message);
     }
 
-    public ApiParseException(String message, Exception cause) {
+    ApiParseException(@NotNull String message, Exception cause) {
         super(message, cause);
         if (cause instanceof ApiParseException) {
+            this.file = ((ApiParseException) cause).file;
             this.line = ((ApiParseException) cause).line;
         }
     }
 
-    public ApiParseException(String message, int line) {
+    ApiParseException(@NotNull String message, @NotNull ApiFile.Tokenizer tokenizer) {
+        this(message, tokenizer.getFileName(), tokenizer.getLine());
+    }
+
+    private ApiParseException(@NotNull String message, @Nullable String file, int line) {
         super(message);
+        this.file = file;
         this.line = line;
     }
 
+    ApiParseException(@NotNull String message, int line) {
+        this(message, null, line);
+    }
+
     public String getMessage() {
-        if (line > 0) {
-            return super.getMessage() + " line " + line;
-        } else {
-            return super.getMessage();
+        StringBuilder sb = new StringBuilder();
+        if (file != null) {
+            sb.append(file).append(':');
         }
+        if (line > 0) {
+            sb.append(line).append(':');
+        }
+        if (sb.length() > 0) {
+            sb.append(' ');
+        }
+        sb.append(super.getMessage());
+        return sb.toString();
     }
 }

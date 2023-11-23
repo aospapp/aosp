@@ -17,25 +17,20 @@
 #ifndef TOOLS_FTRACE_PROTO_GEN_FTRACE_PROTO_GEN_H_
 #define TOOLS_FTRACE_PROTO_GEN_FTRACE_PROTO_GEN_H_
 
+#include <google/protobuf/descriptor.h>
+#include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
-#include "perfetto/ftrace_reader/format_parser.h"
+#include "src/traced/probes/ftrace/format_parser.h"
+#include "tools/ftrace_proto_gen/proto_gen_utils.h"
 
 namespace perfetto {
 
-struct Proto {
-  struct Field {
-    std::string type;
-    std::string name;
-    uint32_t number;
-  };
-  std::string name;
-  std::vector<Field> fields;
-
-  std::string ToString();
-};
+std::string EventNameToProtoName(const std::string&);
+std::string EventNameToProtoFieldName(const std::string&);
 
 void PrintFtraceEventProtoAdditions(const std::set<std::string>& events);
 void PrintEventFormatterMain(const std::set<std::string>& events);
@@ -44,15 +39,16 @@ void PrintEventFormatterFunctions(const std::set<std::string>& events);
 void PrintInodeHandlerMain(const std::string& event_name,
                            const perfetto::Proto& proto);
 
-bool GenerateProto(const FtraceEvent& format, Proto* proto_out);
-std::string InferProtoType(const FtraceEvent::Field& field);
-
-std::set<std::string> GetWhitelistedEvents(const std::string& whitelist_path);
-std::string SingleEventInfo(perfetto::FtraceEvent format,
-                            perfetto::Proto proto,
+std::vector<FtraceEventName> ReadWhitelist(const std::string& filename);
+void GenerateFtraceEventProto(const std::vector<FtraceEventName>& raw_whitelist,
+                              const std::set<std::string>& groups,
+                              std::ostream* fout);
+std::string SingleEventInfo(perfetto::Proto proto,
                             const std::string& group,
-                            const std::string& proto_field_id);
-void GenerateEventInfo(const std::vector<std::string>& events_info);
+                            const uint32_t proto_field_id);
+void GenerateEventInfo(const std::vector<std::string>& events_info,
+                       std::ostream* fout);
+std::string ProtoHeader();
 
 }  // namespace perfetto
 

@@ -17,7 +17,6 @@
 #ifndef V4L2_CAMERA_HAL_METADATA_PROPERTY_H_
 #define V4L2_CAMERA_HAL_METADATA_PROPERTY_H_
 
-#include "../common.h"
 #include "metadata_common.h"
 #include "partial_metadata_interface.h"
 
@@ -41,22 +40,22 @@ class Property : public PartialMetadataInterface {
   };
 
   virtual int PopulateDynamicFields(
-      android::CameraMetadata* metadata) const override {
+      android::CameraMetadata* /*metadata*/) const override {
     return 0;
   };
 
   virtual int PopulateTemplateRequest(
-      int template_type, android::CameraMetadata* metadata) const override {
+      int /*template_type*/, android::CameraMetadata* /*metadata*/) const override {
     return 0;
   };
 
   virtual bool SupportsRequestValues(
-      const android::CameraMetadata& metadata) const override {
+      const android::CameraMetadata& /*metadata*/) const override {
     return true;
   };
 
   virtual int SetRequestValues(
-      const android::CameraMetadata& metadata) override {
+      const android::CameraMetadata& /*metadata*/) override {
     return 0;
   };
 

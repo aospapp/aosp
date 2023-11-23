@@ -28,7 +28,8 @@
 TST_TOTAL=10
 TCID="ping01"
 
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 do_setup()
 {
@@ -37,7 +38,7 @@ do_setup()
 
 	PING_CMD=ping${TST_IPV6}
 
-	tst_check_cmds $PING_CMD
+	tst_test_cmds $PING_CMD
 }
 
 do_test()

@@ -61,10 +61,8 @@ bool PlatformNanoapp::isSystemNanoapp() const {
   return (mAppInfo != nullptr && mAppInfo->isSystemNanoapp);
 }
 
-bool PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
-                                       size_t bufferSize) const {
-  return true;
-}
+void PlatformNanoapp::logStateToBuffer(char *buffer, size_t *bufferPos,
+                                       size_t bufferSize) const {}
 
 void PlatformNanoappBase::loadFromFile(const std::string& filename) {
   CHRE_ASSERT(!isLoaded());
@@ -111,8 +109,10 @@ bool PlatformNanoappBase::openNanoappFromFile() {
       LOGE("Failed to find app info symbol in %s: %s",
            mFilename.c_str(), dlerror());
     } else {
-      success = validateAppInfo(0 /* skip ID validation */, 0, mAppInfo,
-                                true /* ignoreAppVersion */);
+      // TODO(b/120778991): reenable this check after adding support for passing
+      // in the .napp_header to the simulator
+      //success = validateAppInfo(0 /* skip ID validation */, 0, mAppInfo);
+      success = true;
       if (!success) {
         mAppInfo = nullptr;
       } else {
@@ -129,6 +129,7 @@ bool PlatformNanoappBase::openNanoappFromFile() {
 
 void PlatformNanoappBase::closeNanoapp() {
   if (mDsoHandle != nullptr) {
+    mAppInfo = nullptr;
     if (dlclose(mDsoHandle) != 0) {
       LOGE("dlclose failed: %s", dlerror());
     }

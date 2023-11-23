@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_VERSIONING_H
-#define ANDROID_VERSIONING_H
+#pragma once
 
 #define __INTRODUCED_IN(api_level) __attribute__((annotate("introduced_in=" #api_level)))
-#define __INTRODUCED_IN_FUTURE __attribute__((annotate("introduced_in_future")))
 #define __DEPRECATED_IN(api_level) __attribute__((annotate("deprecated_in=" #api_level)))
 #define __REMOVED_IN(api_level) __attribute__((annotate("obsoleted_in=" #api_level)))
 #define __INTRODUCED_IN_32(api_level) __attribute__((annotate("introduced_in_32=" #api_level)))
@@ -28,5 +26,3 @@
 #define __INTRODUCED_IN_MIPS(api_level) __attribute__((annotate("introduced_in_mips=" #api_level)))
 
 #define __VERSIONER_NO_GUARD __attribute__((annotate("versioner_no_guard")))
-
-#endif /* ANDROID_VERSIONING_H */

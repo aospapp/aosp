@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-#include <errno.h>
-#include <string.h>
+//#define LOG_NDEBUG 0
+#define LOG_TAG "BoottimeStateDelegate"
 
 #include "boottime_state_delegate.h"
+
+#include <cerrno>
+#include <cstring>
+
+#include "common.h"
 
 namespace v4l2_camera_hal {
 

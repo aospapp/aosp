@@ -18,7 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.wrap.wrap_nodebug.cts">
 
-    <application>
+    <!-- Ensure that wrap.sh is extracted. -->
+    <application android:extractNativeLibs="true">
         <uses-library android:name="android.test.runner" />
         <meta-data android:name="android.wrap.cts.expext_env" android:value="false" />
         <activity android:name="android.wrap.WrapActivity" >
@@ -31,7 +32,7 @@
 
     <!--  self-instrumenting test package. -->
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="CTS tests for wrap.sh"
         android:targetPackage="android.wrap.wrap_nodebug.cts" >
     </instrumentation>

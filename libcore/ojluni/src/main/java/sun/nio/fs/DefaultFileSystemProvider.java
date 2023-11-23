@@ -59,7 +59,9 @@ public class DefaultFileSystemProvider {
             .doPrivileged(new GetPropertyAction("os.name"));
         if (osname.equals("SunOS"))
             return createProvider("sun.nio.fs.SolarisFileSystemProvider");
-        if (osname.equals("Linux"))
+        // Android-changed: Fuchsia: Use LinuxFileSystemProvider.
+        // if (osname.equals("Linux"))
+        if (osname.equals("Linux") || osname.equals("Fuchsia"))
             return createProvider("sun.nio.fs.LinuxFileSystemProvider");
         if (osname.contains("OS X"))
             return createProvider("sun.nio.fs.MacOSXFileSystemProvider");

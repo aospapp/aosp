@@ -21,7 +21,6 @@ import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Set;
 
 
 /**
@@ -34,18 +33,6 @@ public interface ISubPlan extends ITestFilterReceiver {
      * @param xmlInputStream the {@link InputStream} containing subplan XML
      */
     public void parse(InputStream xmlInputStream) throws ParseException;
-
-    /**
-     * Retrieve the set of include filters previously added or parsed from XML.
-     * @return a set of include filter strings
-     */
-    public Set<String> getIncludeFilters();
-
-    /**
-     * Retrieve the set of exclude filters previously added or parsed from XML.
-     * @return a set of exclude filter strings
-     */
-    public Set<String> getExcludeFilters();
 
     /**
      * Serialize the existing filters into a stream of XML, and write to an output stream.

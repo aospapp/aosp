@@ -53,18 +53,6 @@
 #	include <Dxgi1_2.h>
 #endif
 
-#if (DE_OS == DE_OS_ANDROID) && defined(__ANDROID_API_O__) && (DE_ANDROID_API >= __ANDROID_API_O__)
-#	define USE_ANDROID_O_HARDWARE_BUFFER
-#endif
-
-#if (DE_OS == DE_OS_ANDROID) && defined(__ANDROID_API_P__) && (DE_ANDROID_API >= __ANDROID_API_P__)
-#	define USE_ANDROID_P_HARDWARE_BUFFER
-#endif
-
-#if defined(USE_ANDROID_O_HARDWARE_BUFFER)
-#	include <android/hardware_buffer.h>
-#endif
-
 using tcu::TestLog;
 using namespace vkt::ExternalMemoryUtil;
 
@@ -243,6 +231,8 @@ vk::Move<vk::VkInstance> createInstance (const vk::PlatformInterface&					vkp,
 }
 
 vk::Move<vk::VkDevice> createDevice (const deUint32									apiVersion,
+									 const vk::PlatformInterface&					vkp,
+									 vk::VkInstance									instance,
 									 const vk::InstanceInterface&					vki,
 									 vk::VkPhysicalDevice							physicalDevice,
 									 const vk::VkExternalSemaphoreHandleTypeFlags	externalSemaphoreTypes,
@@ -307,7 +297,7 @@ vk::Move<vk::VkDevice> createDevice (const deUint32									apiVersion,
 	}
 
 	if ((externalMemoryTypes
-			& vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) != 0)
+		& vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) != 0)
 	{
 		deviceExtensions.push_back("VK_ANDROID_external_memory_android_hardware_buffer");
 	}
@@ -344,7 +334,7 @@ vk::Move<vk::VkDevice> createDevice (const deUint32									apiVersion,
 
 	try
 	{
-		return vk::createDevice(vki, physicalDevice, &deviceCreateInfo);
+		return vk::createDevice(vkp, instance, vki, physicalDevice, &deviceCreateInfo);
 	}
 	catch (const vk::Error& error)
 	{
@@ -775,8 +765,8 @@ tcu::TestStatus testSemaphoreWin32Create (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>					device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver							vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>					device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver							vkd				(vkp, *instance, *device);
 		const vk::VkQueue								queue			(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::VkExportSemaphoreWin32HandleInfoKHR	win32ExportInfo	=
 		{
@@ -846,8 +836,8 @@ tcu::TestStatus testSemaphoreImportTwice (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>		device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd				(vkp, *instance, *device);
 		const vk::VkQueue					queue			(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkSemaphore>	semaphore		(createExportableSemaphore(vkd, *device, config.externalType));
 		NativeHandle						handleA;
@@ -893,8 +883,8 @@ tcu::TestStatus testSemaphoreImportReimport (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>		device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd				(vkp, *instance, *device);
 		const vk::VkQueue					queue			(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA		(createExportableSemaphore(vkd, *device, config.externalType));
@@ -939,8 +929,8 @@ tcu::TestStatus testSemaphoreSignalExportImportWait (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd					(vki, *device);
+		const vk::Unique<vk::VkDevice>		device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd					(vkp, *instance, *device);
 		const vk::VkQueue					queue				(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkSemaphore>	semaphoreA			(createExportableSemaphore(vkd, *device, config.externalType));
 		{
@@ -975,8 +965,8 @@ tcu::TestStatus testSemaphoreExportSignalImportWait (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd					(vki, *device);
+		const vk::Unique<vk::VkDevice>		device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd					(vkp, *instance, *device);
 		const vk::VkQueue					queue				(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA			(createExportableSemaphore(vkd, *device, config.externalType));
@@ -1012,8 +1002,8 @@ tcu::TestStatus testSemaphoreExportImportSignalWait (Context&					context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA	(createExportableSemaphore(vkd, *device, config.externalType));
@@ -1046,8 +1036,8 @@ tcu::TestStatus testSemaphoreSignalImport (Context&						context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA	(createExportableSemaphore(vkd, *device, config.externalType));
@@ -1094,8 +1084,8 @@ tcu::TestStatus testSemaphoreSignalWaitImport (Context&						context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA	(createExportableSemaphore(vkd, *device, config.externalType));
@@ -1144,8 +1134,8 @@ tcu::TestStatus testSemaphoreMultipleExports (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkSemaphore>	semaphore	(createExportableSemaphore(vkd, *device, config.externalType));
 
@@ -1183,8 +1173,8 @@ tcu::TestStatus testSemaphoreMultipleImports (Context&					context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkSemaphore>	semaphoreA	(createExportableSemaphore(vkd, *device, config.externalType));
 		NativeHandle						handleA;
@@ -1233,8 +1223,8 @@ tcu::TestStatus testSemaphoreTransference (Context&						context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(),  vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkSemaphore>	semaphoreA	(createExportableSemaphore(vkd, *device, config.externalType));
@@ -1326,8 +1316,8 @@ tcu::TestStatus testSemaphoreFdDup (Context&					context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&							log			= context.getTestContext().getLog();
@@ -1360,10 +1350,10 @@ tcu::TestStatus testSemaphoreFdDup (Context&					context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -1389,8 +1379,8 @@ tcu::TestStatus testSemaphoreFdDup2 (Context&					context,
 
 	{
 		const vk::VkSemaphoreImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&							log			= context.getTestContext().getLog();
@@ -1430,10 +1420,10 @@ tcu::TestStatus testSemaphoreFdDup2 (Context&					context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -1458,8 +1448,8 @@ tcu::TestStatus testSemaphoreFdDup3 (Context&					context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&							log			= context.getTestContext().getLog();
@@ -1500,10 +1490,10 @@ tcu::TestStatus testSemaphoreFdDup3 (Context&					context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -1528,8 +1518,8 @@ tcu::TestStatus testSemaphoreFdSendOverSocket (Context&						context,
 	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
-		const vk::DeviceDriver				vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>		device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, *instance, *device);
 		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&							log			= context.getTestContext().getLog();
@@ -1715,8 +1705,8 @@ tcu::TestStatus testFenceWin32Create (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>				device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver						vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>				device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver						vkd				(vkp, *instance, *device);
 		const vk::VkQueue							queue			(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::VkExportFenceWin32HandleInfoKHR	win32ExportInfo	=
 		{
@@ -1786,8 +1776,8 @@ tcu::TestStatus testFenceImportTwice (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd			(vkp, *instance, *device);
 		const vk::VkQueue				queue		(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkFence>	fence		(createExportableFence(vkd, *device, config.externalType));
 		NativeHandle					handleA;
@@ -1833,8 +1823,8 @@ tcu::TestStatus testFenceImportReimport (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -1879,8 +1869,8 @@ tcu::TestStatus testFenceSignalExportImportWait (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
 
@@ -1916,8 +1906,8 @@ tcu::TestStatus testFenceExportSignalImportWait (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -1953,8 +1943,8 @@ tcu::TestStatus testFenceExportImportSignalWait (Context&				context,
 
 	{
 		const vk::VkFenceImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd			(vkp, *instance, *device);
 		const vk::VkQueue				queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -1987,8 +1977,8 @@ tcu::TestStatus testFenceSignalImport (Context&					context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -2035,8 +2025,8 @@ tcu::TestStatus testFenceReset (Context&				context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -2048,10 +2038,8 @@ tcu::TestStatus testFenceReset (Context&				context,
 		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		submitDummySignalAndGetFenceNative(vkd, *device, queue, queueFamilyIndex, *fenceA, config.externalType, handle);
-		{
-			NativeHandle					handleB	(handle);
-			importFence(vkd, *device, *fenceB, config.externalType, handleB, flags);
-		}
+		NativeHandle					handleB	(handle);
+		importFence(vkd, *device, *fenceB, config.externalType, handleB, flags);
 		importFence(vkd, *device, *fenceC, config.externalType, handle, flags);
 
 		VK_CHECK(vkd.queueWaitIdle(queue));
@@ -2102,8 +2090,8 @@ tcu::TestStatus testFenceSignalWaitImport (Context&					context,
 
 	{
 		const vk::VkFenceImportFlags	flags		= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd			(vki, *device);
+		const vk::Unique<vk::VkDevice>	device		(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd			(vkp, *instance, *device);
 		const vk::VkQueue				queue		(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -2152,8 +2140,8 @@ tcu::TestStatus testFenceMultipleExports (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkFence>	fence	(createExportableFence(vkd, *device, config.externalType));
 
@@ -2191,8 +2179,8 @@ tcu::TestStatus testFenceMultipleImports (Context&				context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
 		NativeHandle					handleA;
@@ -2241,8 +2229,8 @@ tcu::TestStatus testFenceTransference (Context&					context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		const vk::Unique<vk::VkFence>	fenceA	(createExportableFence(vkd, *device, config.externalType));
@@ -2340,8 +2328,8 @@ tcu::TestStatus testFenceFdDup (Context&				context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&						log		= context.getTestContext().getLog();
@@ -2374,10 +2362,10 @@ tcu::TestStatus testFenceFdDup (Context&				context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -2403,8 +2391,8 @@ tcu::TestStatus testFenceFdDup2 (Context&				context,
 
 	{
 		const vk::VkFenceImportFlags	flags	= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&						log		= context.getTestContext().getLog();
@@ -2444,10 +2432,10 @@ tcu::TestStatus testFenceFdDup2 (Context&				context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -2472,8 +2460,8 @@ tcu::TestStatus testFenceFdDup3 (Context&				context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&						log		= context.getTestContext().getLog();
@@ -2514,10 +2502,10 @@ tcu::TestStatus testFenceFdDup3 (Context&				context,
 				}
 				else
 					DE_FATAL("Unknown permanence.");
+
+				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
-
-		VK_CHECK(vkd.queueWaitIdle(queue));
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -2542,8 +2530,8 @@ tcu::TestStatus testFenceFdSendOverSocket (Context&					context,
 	checkFenceSupport(vki, physicalDevice, config.externalType);
 
 	{
-		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
-		const vk::DeviceDriver			vkd		(vki, *device);
+		const vk::Unique<vk::VkDevice>	device	(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, *instance, *device);
 		const vk::VkQueue				queue	(getQueue(vkd, *device, queueFamilyIndex));
 
 		TestLog&						log		= context.getTestContext().getLog();
@@ -2752,8 +2740,8 @@ tcu::TestStatus testBufferQueries (Context& context, vk::VkExternalMemoryHandleT
 				// \note We need to re-create with dedicated mem extensions if previous device instance didn't have them
 				try
 				{
-					device				= createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, externalType, 0u, queueFamilyIndex, requiresDedicated);
-					vkd					= de::MovePtr<vk::DeviceDriver>(new vk::DeviceDriver(vki, *device));
+					device				= createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, externalType, 0u, queueFamilyIndex, requiresDedicated);
+					vkd					= de::MovePtr<vk::DeviceDriver>(new vk::DeviceDriver(vkp, *instance, *device));
 					deviceHasDedicated	= requiresDedicated;
 				}
 				catch (const tcu::NotSupportedError& e)
@@ -2827,8 +2815,8 @@ tcu::TestStatus testMemoryWin32Create (Context& context, MemoryTestConfig config
 	const vk::InstanceDriver					vki					(vkp, *instance);
 	const vk::VkPhysicalDevice					physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32								queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>				device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-	const vk::DeviceDriver						vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>				device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+	const vk::DeviceDriver						vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const deUint32								seed				= 1261033864u;
 	const vk::VkDeviceSize						bufferSize			= 1024;
@@ -2909,8 +2897,8 @@ tcu::TestStatus testMemoryImportTwice (Context& context, MemoryTestConfig config
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const deUint32							seed				= 1261033864u;
 	const vk::VkDeviceSize					bufferSize			= 1024;
@@ -2931,9 +2919,15 @@ tcu::TestStatus testMemoryImportTwice (Context& context, MemoryTestConfig config
 	getMemoryNative(vkd, *device, *memory, config.externalType, handleA);
 
 	{
+		const vk::Unique<vk::VkBuffer>			bufferA	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+		const vk::Unique<vk::VkBuffer>			bufferB	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		NativeHandle							handleB	(handleA);
-		const vk::Unique<vk::VkDeviceMemory>	memoryA	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleA));
-		const vk::Unique<vk::VkDeviceMemory>	memoryB	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleB));
+		const vk::Unique<vk::VkDeviceMemory>	memoryA	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferA, requirements, config.externalType, exportedMemoryTypeIndex, handleA)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleA));
+		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferB, requirements, config.externalType, exportedMemoryTypeIndex, handleB)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleB));
 
 		if (config.hostVisible)
 		{
@@ -2962,8 +2956,8 @@ tcu::TestStatus testMemoryMultimpleImports (Context& context, MemoryTestConfig c
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkDeviceSize					bufferSize			= 1024;
 
@@ -2980,8 +2974,11 @@ tcu::TestStatus testMemoryMultimpleImports (Context& context, MemoryTestConfig c
 
 	for (size_t ndx = 0; ndx < count; ndx++)
 	{
+		const vk::Unique<vk::VkBuffer>			bufferB	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		NativeHandle							handleB	(handleA);
-		const vk::Unique<vk::VkDeviceMemory>	memoryB	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleB));
+		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferB, requirements, config.externalType, exportedMemoryTypeIndex, handleB)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handleB));
 	}
 
 	return tcu::TestStatus::pass("Pass");
@@ -2995,8 +2992,8 @@ tcu::TestStatus testMemoryMultimpleExports (Context& context, MemoryTestConfig c
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkDeviceSize					bufferSize			= 1024;
 
@@ -3027,8 +3024,8 @@ tcu::TestStatus testMemoryFdDup (Context& context, MemoryTestConfig config)
 	const deUint32						queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 
 	{
-		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-		const vk::DeviceDriver					vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+		const vk::DeviceDriver					vkd				(vkp, *instance, *device);
 
 		TestLog&								log				= context.getTestContext().getLog();
 		const vk::VkBufferUsageFlags			usage			= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -3056,7 +3053,10 @@ tcu::TestStatus testMemoryFdDup (Context& context, MemoryTestConfig config)
 		TCU_CHECK_MSG(newFd.getFd() >= 0, "Failed to call dup() for memorys fd");
 
 		{
-			const vk::Unique<vk::VkDeviceMemory>	newMemory	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, newFd));
+			const vk::Unique<vk::VkBuffer>			newBuffer	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+			const vk::Unique<vk::VkDeviceMemory>	newMemory	(config.dedicated
+																 ? importDedicatedMemory(vkd, *device, *newBuffer, requirements, config.externalType, exportedMemoryTypeIndex, newFd)
+																 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, newFd));
 
 			if (config.hostVisible)
 			{
@@ -3088,8 +3088,8 @@ tcu::TestStatus testMemoryFdDup2 (Context& context, MemoryTestConfig config)
 	const deUint32						queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 
 	{
-		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-		const vk::DeviceDriver					vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+		const vk::DeviceDriver					vkd				(vkp, *instance, *device);
 
 		TestLog&								log				= context.getTestContext().getLog();
 		const vk::VkBufferUsageFlags			usage			= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -3118,7 +3118,10 @@ tcu::TestStatus testMemoryFdDup2 (Context& context, MemoryTestConfig config)
 		TCU_CHECK_MSG(newFd >= 0, "Failed to call dup2() for memorys fd");
 
 		{
-			const vk::Unique<vk::VkDeviceMemory>	newMemory	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, secondFd));
+			const vk::Unique<vk::VkBuffer>			newBuffer	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+			const vk::Unique<vk::VkDeviceMemory>	newMemory	(config.dedicated
+																 ? importDedicatedMemory(vkd, *device, *newBuffer, requirements, config.externalType, exportedMemoryTypeIndex, secondFd)
+																 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, secondFd));
 
 			if (config.hostVisible)
 			{
@@ -3150,8 +3153,8 @@ tcu::TestStatus testMemoryFdDup3 (Context& context, MemoryTestConfig config)
 	const deUint32						queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 
 	{
-		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-		const vk::DeviceDriver					vkd				(vki, *device);
+		const vk::Unique<vk::VkDevice>			device			(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+		const vk::DeviceDriver					vkd				(vkp, *instance, *device);
 
 		TestLog&								log				= context.getTestContext().getLog();
 		const vk::VkBufferUsageFlags			usage			= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -3180,7 +3183,10 @@ tcu::TestStatus testMemoryFdDup3 (Context& context, MemoryTestConfig config)
 		TCU_CHECK_MSG(newFd >= 0, "Failed to call dup3() for memorys fd");
 
 		{
-			const vk::Unique<vk::VkDeviceMemory>	newMemory	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, secondFd));
+			const vk::Unique<vk::VkBuffer>			newBuffer	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+			const vk::Unique<vk::VkDeviceMemory>	newMemory	(config.dedicated
+																 ? importDedicatedMemory(vkd, *device, *newBuffer, requirements, config.externalType, exportedMemoryTypeIndex, secondFd)
+																 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, secondFd));
 
 			if (config.hostVisible)
 			{
@@ -3212,8 +3218,8 @@ tcu::TestStatus testMemoryFdSendOverSocket (Context& context, MemoryTestConfig c
 	const deUint32								queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 
 	{
-		const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
-		const vk::DeviceDriver					vkd					(vki, *device);
+		const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex));
+		const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 
 		TestLog&								log					= context.getTestContext().getLog();
 		const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -3318,7 +3324,10 @@ tcu::TestStatus testMemoryFdSendOverSocket (Context& context, MemoryTestConfig c
 						TCU_CHECK_MSG(newFd.getFd() >= 0, "Didn't receive valid fd from socket");
 
 						{
-							const vk::Unique<vk::VkDeviceMemory> newMemory (importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, newFd));
+							const vk::Unique<vk::VkBuffer>			newBuffer	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+							const vk::Unique<vk::VkDeviceMemory>	newMemory	(config.dedicated
+																				 ? importDedicatedMemory(vkd, *device, *newBuffer, requirements, config.externalType, exportedMemoryTypeIndex, newFd)
+																				 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, newFd));
 
 							if (config.hostVisible)
 							{
@@ -3365,8 +3374,8 @@ tcu::TestStatus testBufferBindExportImportBind (Context&				context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkDeviceSize					bufferSize			= 1024;
 
@@ -3384,8 +3393,10 @@ tcu::TestStatus testBufferBindExportImportBind (Context&				context,
 	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
 
 	{
-		const vk::Unique<vk::VkDeviceMemory>	memoryB	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 		const vk::Unique<vk::VkBuffer>			bufferB	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 
 		VK_CHECK(vkd.bindBufferMemory(*device, *bufferB, *memoryB, 0u));
 	}
@@ -3401,8 +3412,8 @@ tcu::TestStatus testBufferExportBindImportBind (Context&				context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkDeviceSize					bufferSize			= 1024;
 
@@ -3419,8 +3430,10 @@ tcu::TestStatus testBufferExportBindImportBind (Context&				context,
 	VK_CHECK(vkd.bindBufferMemory(*device, *bufferA, *memoryA, 0u));
 
 	{
-		const vk::Unique<vk::VkDeviceMemory>	memoryB	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 		const vk::Unique<vk::VkBuffer>			bufferB	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 
 		VK_CHECK(vkd.bindBufferMemory(*device, *bufferB, *memoryB, 0u));
 	}
@@ -3436,8 +3449,8 @@ tcu::TestStatus testBufferExportImportBindBind (Context&				context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkBufferUsageFlags			usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkDeviceSize					bufferSize			= 1024;
 
@@ -3453,8 +3466,10 @@ tcu::TestStatus testBufferExportImportBindBind (Context&				context,
 	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
 
 	{
-		const vk::Unique<vk::VkDeviceMemory>	memoryB	(importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 		const vk::Unique<vk::VkBuffer>			bufferB	(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
+														 ? importDedicatedMemory(vkd, *device, *bufferB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
 
 		VK_CHECK(vkd.bindBufferMemory(*device, *bufferA, *memoryA, 0u));
 		VK_CHECK(vkd.bindBufferMemory(*device, *bufferB, *memoryB, 0u));
@@ -3472,8 +3487,7 @@ tcu::TestStatus testImageQueries (Context& context, vk::VkExternalMemoryHandleTy
 		vk::VK_IMAGE_CREATE_SPARSE_BINDING_BIT|vk::VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT,
 		vk::VK_IMAGE_CREATE_SPARSE_BINDING_BIT|vk::VK_IMAGE_CREATE_SPARSE_ALIASED_BIT,
 		vk::VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
-		vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
-		vk::VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT
+		vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT
 	};
 	const vk::VkImageUsageFlags			usageFlags[]		=
 	{
@@ -3572,8 +3586,8 @@ tcu::TestStatus testImageQueries (Context& context, vk::VkExternalMemoryHandleTy
 				// \note We need to re-create with dedicated mem extensions if previous device instance didn't have them
 				try
 				{
-					device				= createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, externalType, 0u, queueFamilyIndex, requiresDedicated);
-					vkd					= de::MovePtr<vk::DeviceDriver>(new vk::DeviceDriver(vki, *device));
+					device				= createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, externalType, 0u, queueFamilyIndex, requiresDedicated);
+					vkd					= de::MovePtr<vk::DeviceDriver>(new vk::DeviceDriver(vkp, *instance, *device));
 					deviceHasDedicated	= requiresDedicated;
 				}
 				catch (const tcu::NotSupportedError& e)
@@ -3634,8 +3648,8 @@ tcu::TestStatus testImageBindExportImportBind (Context&					context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
@@ -3674,8 +3688,8 @@ tcu::TestStatus testImageExportBindImportBind (Context&					context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
@@ -3713,8 +3727,8 @@ tcu::TestStatus testImageExportImportBindBind (Context&					context,
 	const vk::InstanceDriver				vki					(vkp, *instance);
 	const vk::VkPhysicalDevice				physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
-	const vk::DeviceDriver					vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>			device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
+	const vk::DeviceDriver					vkd					(vkp, *instance, *device);
 	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
@@ -3806,75 +3820,34 @@ de::MovePtr<tcu::TestCaseGroup> createFenceTests (tcu::TestContext& testCtx, vk:
 	return fenceGroup;
 }
 
-#if defined(USE_ANDROID_O_HARDWARE_BUFFER)
-deUint32 vkUsageToAhbUsage(deUint64 vkFlag) {
-	switch(vkFlag) {
-		case vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT:
-		case vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT:
-			// No AHB equivalent.
-			return 0u;
-		case vk::VK_IMAGE_USAGE_SAMPLED_BIT:
-			return AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
-		case vk::VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT:
-			return AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
-		case vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT:
-			return AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
-	}
-	return 0u;
-}
+bool ValidateAHardwareBuffer(vk::VkFormat format, deUint64 requiredAhbUsage, const vk::DeviceDriver& vkd, const vk::VkDevice& device, vk::VkImageCreateFlags createFlag, deUint32 layerCount, bool& enableMaxLayerTest)
+{
+	DE_UNREF(createFlag);
 
-deUint32 vkCreateToAhbUsage(deUint64 vkFlag) {
-	switch(vkFlag) {
-		case vk::VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT:
-		case vk::VK_IMAGE_CREATE_EXTENDED_USAGE_BIT:
-			// No AHB equivalent.
-			return 0u;
-		case vk::VK_IMAGE_CREATE_PROTECTED_BIT:
-			return AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT;
-#if defined(USE_ANDROID_P_HARDWARE_BUFFER)
-		case vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT:
-			return AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP;
-#endif
-	}
-	return 0u;
-}
-
-deUint32 vkFormatToAhbFormat(deUint64 vkFormat) {
-	switch(vkFormat) {
-		case vk::VK_FORMAT_R8G8B8A8_UNORM:
-			return AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
-		case vk::VK_FORMAT_R8G8B8_UNORM:
-			return AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM;
-		case vk::VK_FORMAT_R5G6B5_UNORM_PACK16:
-			return AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM;
-		case vk::VK_FORMAT_R16G16B16A16_SFLOAT:
-			return AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT;
-		case vk::VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-			return AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM;
-	}
-	return 0u;
-}
-
-bool ValidateAHardwareBuffer(vk::VkFormat format, deUint32 requiredAhbUsage, const vk::DeviceDriver& vkd, const vk::VkDevice& device) {
-	AHardwareBuffer_Desc    hbufferdesc =
+	AndroidHardwareBufferExternalApi* ahbApi = AndroidHardwareBufferExternalApi::getInstance();
+	if (!ahbApi)
 	{
-		64u,
-		64u,
-		1u,
-		vkFormatToAhbFormat(format),
-		requiredAhbUsage,
-		0u,
-		0u,
-		0u
-	};
-	AHardwareBuffer* hbuffer      = DE_NULL;
-	AHardwareBuffer_allocate(&hbufferdesc, &hbuffer);
-	if (!hbuffer)
+		TCU_THROW(NotSupportedError, "Platform doesn't support Android Hardware Buffer handles");
+	}
+
+#if (DE_OS == DE_OS_ANDROID)
+	// If CubeMap create flag is used and AHB doesn't support CubeMap return false.
+	if(!AndroidHardwareBufferExternalApi::supportsCubeMap() && (createFlag & vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT))
 		return false;
+#endif
 
-	NativeHandle nativeHandle;
-	nativeHandle = vk::pt::AndroidHardwareBufferPtr(hbuffer);
-
+	vk::pt::AndroidHardwareBufferPtr ahb = ahbApi->allocate(64u, 64u, layerCount, ahbApi->vkFormatToAhbFormat(format), requiredAhbUsage);
+	if (ahb.internal == DE_NULL)
+	{
+		enableMaxLayerTest = false;
+		// try again with layerCount '1'
+		ahb = ahbApi->allocate(64u, 64u, 1u, ahbApi->vkFormatToAhbFormat(format), requiredAhbUsage);
+		if (ahb.internal == DE_NULL)
+		{
+			return false;
+		}
+	}
+	NativeHandle nativeHandle(ahb);
 	vk::VkAndroidHardwareBufferFormatPropertiesANDROID formatProperties =
 	{
 		vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
@@ -3882,19 +3855,21 @@ bool ValidateAHardwareBuffer(vk::VkFormat format, deUint32 requiredAhbUsage, con
 		vk::VK_FORMAT_UNDEFINED,
 		0u,
 		0u,
+		{ vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY },
 		vk::VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY,
 		vk::VK_SAMPLER_YCBCR_RANGE_ITU_FULL,
 		vk::VK_CHROMA_LOCATION_COSITED_EVEN,
 		vk::VK_CHROMA_LOCATION_COSITED_EVEN
 	};
-	vk::VkAndroidHardwareBufferPropertiesANDROID bufferProperties = {
+	vk::VkAndroidHardwareBufferPropertiesANDROID bufferProperties =
+	{
 		vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
 		&formatProperties,
 		0u,
 		0u
 	};
 
-	VK_CHECK(vkd.getAndroidHardwareBufferPropertiesANDROID(device, vk::pt::AndroidHardwareBufferPtr(hbuffer), &bufferProperties));
+	VK_CHECK(vkd.getAndroidHardwareBufferPropertiesANDROID(device, ahb, &bufferProperties));
 	TCU_CHECK(formatProperties.format != vk::VK_FORMAT_UNDEFINED);
 	TCU_CHECK(formatProperties.format == format);
 	TCU_CHECK(formatProperties.externalFormat != 0u);
@@ -3902,20 +3877,36 @@ bool ValidateAHardwareBuffer(vk::VkFormat format, deUint32 requiredAhbUsage, con
 	TCU_CHECK((formatProperties.formatFeatures & (vk::VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT | vk::VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT)) != 0u);
 	return true;
 }
-#endif
 
-tcu::TestStatus testAndroidHardwareBufferImageFormat(Context& context, vk::VkFormat format)
+tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkFormat format)
 {
-#if defined(USE_ANDROID_O_HARDWARE_BUFFER)
+	AndroidHardwareBufferExternalApi* ahbApi = AndroidHardwareBufferExternalApi::getInstance();
+	if (!ahbApi)
+	{
+		TCU_THROW(NotSupportedError, "Platform doesn't support Android Hardware Buffer handles");
+	}
+
 	const vk::VkExternalMemoryHandleTypeFlagBits  externalMemoryType  =	vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 	const vk::PlatformInterface&				  vkp					(context.getPlatformInterface());
 	const vk::Unique<vk::VkInstance>			  instance				(createInstance(vkp, context.getUsedApiVersion(), externalMemoryType, 0u, 0u));
 	const vk::InstanceDriver					  vki					(vkp, *instance);
 	const vk::VkPhysicalDevice					  physicalDevice		(vk::chooseDevice(vki, *instance, context.getTestContext().getCommandLine()));
 	const deUint32								  queueFamilyIndex		(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::VkImageTiling						  tiling			  =	vk::VK_IMAGE_TILING_OPTIMAL;
-	const vk::Unique<vk::VkDevice>				  device				(createDevice(context.getUsedApiVersion(), vki, physicalDevice, 0u, externalMemoryType, 0u, queueFamilyIndex, true));
-	const vk::DeviceDriver						  vkd					(vki, *device);
+	const vk::Unique<vk::VkDevice>				  device				(createDevice(context.getUsedApiVersion(), vkp, *instance, vki, physicalDevice, 0u, externalMemoryType, 0u, queueFamilyIndex));
+	const vk::DeviceDriver						  vkd					(vkp, *instance, *device);
+	TestLog&									  log				  = context.getTestContext().getLog();
+	const vk::VkPhysicalDeviceLimits			  limits			  = getPhysicalDeviceProperties(vki, physicalDevice).limits;
+
+	vk::VkPhysicalDeviceProtectedMemoryFeatures		protectedFeatures;
+	protectedFeatures.sType				= vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES;
+	protectedFeatures.pNext				= DE_NULL;
+	protectedFeatures.protectedMemory	= VK_FALSE;
+
+	vk::VkPhysicalDeviceFeatures2					deviceFeatures;
+	deviceFeatures.sType		= vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	deviceFeatures.pNext		= &protectedFeatures;
+
+	vki.getPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
 
 	const vk::VkImageUsageFlagBits				  usageFlags[]		  =
 	{
@@ -3932,37 +3923,40 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat(Context& context, vk::VkFor
 		vk::VK_IMAGE_CREATE_PROTECTED_BIT,
 		vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
 	};
-	deUint32 mustSupportAhbUsageFlags =
-			AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-			AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
-#if defined(USE_ANDROID_P_HARDWARE_BUFFER)
-	mustSupportAhbUsageFlags |=
-			AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP |
-			AHARDWAREBUFFER_USAGE_GPU_MIPMAP_COMPLETE;
-#endif
+	const vk::VkImageTiling						  tilings[]			  =
+	{
+		vk::VK_IMAGE_TILING_OPTIMAL,
+		vk::VK_IMAGE_TILING_LINEAR,
+	};
+	deUint64 mustSupportAhbUsageFlags = ahbApi->mustSupportAhbUsageFlags();
 	const size_t	numOfUsageFlags				= DE_LENGTH_OF_ARRAY(usageFlags);
 	const size_t	numOfCreateFlags			= DE_LENGTH_OF_ARRAY(createFlags);
 	const size_t	numOfFlagCombos				= 1u << (numOfUsageFlags + numOfCreateFlags);
+	const size_t	numOfTilings				= DE_LENGTH_OF_ARRAY(tilings);
 
 	for (size_t combo = 0; combo < numOfFlagCombos; combo++)
 	{
 		vk::VkImageUsageFlags	usage				= 0;
 		vk::VkImageCreateFlags	createFlag			= 0;
-		deUint32				requiredAhbUsage	= 0;
+		deUint64				requiredAhbUsage	= 0;
+		bool					enableMaxLayerTest	= true;
 		for (size_t usageNdx = 0; usageNdx < numOfUsageFlags; usageNdx++)
 		{
 			if ((combo & (1u << usageNdx)) == 0)
 				continue;
 			usage |= usageFlags[usageNdx];
-			requiredAhbUsage |= vkUsageToAhbUsage(usageFlags[usageNdx]);
+			requiredAhbUsage |= ahbApi->vkUsageToAhbUsage(usageFlags[usageNdx]);
 		}
 		for (size_t createFlagNdx = 0; createFlagNdx < numOfCreateFlags; createFlagNdx++)
 		{
 			const size_t	bit	= numOfUsageFlags + createFlagNdx;
 			if ((combo & (1u << bit)) == 0)
 				continue;
+			if (((createFlags[createFlagNdx] & vk::VK_IMAGE_CREATE_PROTECTED_BIT) == vk::VK_IMAGE_CREATE_PROTECTED_BIT ) &&
+				(protectedFeatures.protectedMemory == VK_FALSE))
+				continue;
 			createFlag |= createFlags[createFlagNdx];
-			requiredAhbUsage |= vkCreateToAhbUsage(createFlags[createFlagNdx]);
+			requiredAhbUsage |= ahbApi->vkCreateToAhbUsage(createFlags[createFlagNdx]);
 		}
 
 		// Only test a combination if the usage flags include at least one of the AHARDWAREBUFFER_USAGE_GPU_* flag.
@@ -3970,126 +3964,150 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat(Context& context, vk::VkFor
 			continue;
 
 		// Only test a combination if AHardwareBuffer can be successfully allocated for it.
-		if (!ValidateAHardwareBuffer(format, requiredAhbUsage, vkd, *device))
+		if (!ValidateAHardwareBuffer(format, requiredAhbUsage, vkd, *device, createFlag, limits.maxImageArrayLayers, enableMaxLayerTest))
 			continue;
 
-		const vk::VkPhysicalDeviceExternalImageFormatInfo	externalInfo		=
+		bool foundAnyUsableTiling = false;
+		for (size_t tilingIndex = 0; tilingIndex < numOfTilings; tilingIndex++)
 		{
-			vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
-			DE_NULL,
-			vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID
-		};
-		const vk::VkPhysicalDeviceImageFormatInfo2			info		=
-		{
-			vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
-			&externalInfo,
-			format,
-			vk::VK_IMAGE_TYPE_2D,
-			vk::VK_IMAGE_TILING_OPTIMAL,
-			usage,
-			createFlag,
-		};
+			const vk::VkImageTiling tiling = tilings[tilingIndex];
 
-		vk::VkAndroidHardwareBufferUsageANDROID				ahbUsageProperties	=
-		{
-			vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_USAGE_ANDROID,
-			DE_NULL,
-			0u
-		};
-		vk::VkExternalImageFormatProperties					externalProperties	=
-		{
-			vk::VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES,
-			&ahbUsageProperties,
-			{ 0u, 0u, 0u }
-		};
-		vk::VkImageFormatProperties2						properties			=
-		{
-			vk::VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
-			&externalProperties,
+			const vk::VkPhysicalDeviceExternalImageFormatInfo	externalInfo		=
 			{
-				{ 0u, 0u, 0u },
-				0u,
-				0u,
-				0u,
+				vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+				DE_NULL,
+				vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID
+			};
+			const vk::VkPhysicalDeviceImageFormatInfo2			info				=
+			{
+				vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+				&externalInfo,
+				format,
+				vk::VK_IMAGE_TYPE_2D,
+				tiling,
+				usage,
+				createFlag,
+			};
+
+			vk::VkAndroidHardwareBufferUsageANDROID				ahbUsageProperties	=
+			{
+				vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_USAGE_ANDROID,
+				DE_NULL,
 				0u
+			};
+			vk::VkExternalImageFormatProperties					externalProperties	=
+			{
+				vk::VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES,
+				&ahbUsageProperties,
+				{ 0u, 0u, 0u }
+			};
+			vk::VkImageFormatProperties2						properties			=
+			{
+				vk::VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+				&externalProperties,
+				{
+					{ 0u, 0u, 0u },
+					0u,
+					0u,
+					0u,
+					0u
+				}
+			};
+
+			if (vki.getPhysicalDeviceImageFormatProperties2(physicalDevice, &info, &properties) == vk::VK_ERROR_FORMAT_NOT_SUPPORTED)
+			{
+				log << TestLog::Message << "Tiling " << tiling << " is not supported." << TestLog::EndMessage;
+				continue;
 			}
-		};
 
-		vki.getPhysicalDeviceImageFormatProperties2(physicalDevice, &info, &properties);
-		TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) != 0);
-		TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) != 0);
-		TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0);
-		deUint32 maxWidth   = properties.imageFormatProperties.maxExtent.width;
-		deUint32 maxHeight  = properties.imageFormatProperties.maxExtent.height;
-		TCU_CHECK(maxWidth >= 4096);
-		TCU_CHECK(maxHeight >= 4096);
-		// Even if not requested, at least one of GPU_* usage flags must be present.
-		TCU_CHECK((ahbUsageProperties.androidHardwareBufferUsage & mustSupportAhbUsageFlags) != 0u);
-		// The AHB usage flags corresponding to the create and usage flags used in info must be present.
-		TCU_CHECK((ahbUsageProperties.androidHardwareBufferUsage & requiredAhbUsage) == requiredAhbUsage);
+			foundAnyUsableTiling = true;
 
-		struct ImageSize {
-			deUint32 width;
-			deUint32 height;
-		};
-		ImageSize sizes[] = {
-			{64u, 64u},
-			{1024u, 2096u},
-		};
-		deUint32					exportedMemoryTypeIndex = ~0U;
-		for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(sizes); i++) {
-			const vk::Unique<vk::VkImage>		  image			(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, sizes[i].width, sizes[i].height, tiling, createFlag, usage));
-			const vk::VkMemoryRequirements		  requirements	(getImageMemoryRequirements(vkd, *device, *image));
-			const vk::Unique<vk::VkDeviceMemory>  memory		(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
-			NativeHandle						  handle;
+			TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT) != 0);
+			TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) != 0);
+			TCU_CHECK((externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0);
+			deUint32 maxWidth   = properties.imageFormatProperties.maxExtent.width;
+			deUint32 maxHeight  = properties.imageFormatProperties.maxExtent.height;
+			TCU_CHECK(maxWidth >= 4096);
+			TCU_CHECK(maxHeight >= 4096);
+			// Even if not requested, at least one of GPU_* usage flags must be present.
+			TCU_CHECK((ahbUsageProperties.androidHardwareBufferUsage & mustSupportAhbUsageFlags) != 0u);
+			// The AHB usage flags corresponding to the create and usage flags used in info must be present.
+			TCU_CHECK((ahbUsageProperties.androidHardwareBufferUsage & requiredAhbUsage) == requiredAhbUsage);
 
-			VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
-			getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
+			log << TestLog::Message << "Required flags: " << std::hex << requiredAhbUsage << " Actual flags: " << std::hex << ahbUsageProperties.androidHardwareBufferUsage
+				<< TestLog::EndMessage;
 
-			AHardwareBuffer_Desc desc;
-			AHardwareBuffer_describe(static_cast<const AHardwareBuffer*>(handle.getAndroidHardwareBuffer().internal), &desc);
-			TCU_CHECK(desc.format == vkFormatToAhbFormat(format));
-			TCU_CHECK((desc.usage & requiredAhbUsage) == requiredAhbUsage);
+			struct ImageSize
+			{
+				deUint32 width;
+				deUint32 height;
+			};
+			ImageSize sizes[] =
+			{
+				{64u, 64u},
+				{1024u, 2096u},
+			};
+			for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(sizes); i++)
+			{
+				deUint32								exportedMemoryTypeIndex	= ~0U;
+				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, sizes[i].width, sizes[i].height, tiling, createFlag, usage));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				NativeHandle							handle;
+
+				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
+				getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
+
+				deUint32 ahbFormat = 0;
+				deUint64 anhUsage  = 0;
+				ahbApi->describe(handle.getAndroidHardwareBuffer(), DE_NULL, DE_NULL, DE_NULL, &ahbFormat, &anhUsage, DE_NULL);
+				TCU_CHECK(ahbFormat == ahbApi->vkFormatToAhbFormat(format));
+				TCU_CHECK((anhUsage & requiredAhbUsage) == requiredAhbUsage);
+
+				// Let watchdog know we're alive
+				context.getTestContext().touchWatchdog();
+			}
+
+			if (properties.imageFormatProperties.maxMipLevels > 1u)
+			{
+				deUint32								exportedMemoryTypeIndex	= ~0U;
+				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage, properties.imageFormatProperties.maxMipLevels));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				NativeHandle							handle;
+
+				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
+				getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
+
+				deUint32 ahbFormat = 0;
+				deUint64 anhUsage  = 0;
+				ahbApi->describe(handle.getAndroidHardwareBuffer(), DE_NULL, DE_NULL, DE_NULL, &ahbFormat, &anhUsage, DE_NULL);
+				TCU_CHECK(ahbFormat == ahbApi->vkFormatToAhbFormat(format));
+				TCU_CHECK((anhUsage & requiredAhbUsage) == requiredAhbUsage);
+			}
+
+			if ((properties.imageFormatProperties.maxArrayLayers > 1u) && enableMaxLayerTest)
+			{
+				deUint32								exportedMemoryTypeIndex	= ~0U;
+				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage, 1u, properties.imageFormatProperties.maxArrayLayers));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				NativeHandle							handle;
+
+				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
+				getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
+
+				deUint32 ahbFormat = 0;
+				deUint64 anhUsage  = 0;
+				ahbApi->describe(handle.getAndroidHardwareBuffer(), DE_NULL, DE_NULL, DE_NULL, &ahbFormat, &anhUsage, DE_NULL);
+				TCU_CHECK(ahbFormat == ahbApi->vkFormatToAhbFormat(format));
+				TCU_CHECK((anhUsage & requiredAhbUsage) == requiredAhbUsage);
+			}
 		}
 
-		if (properties.imageFormatProperties.maxMipLevels > 1u) {
-			const vk::Unique<vk::VkImage>			image			(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage,
-																						 properties.imageFormatProperties.maxMipLevels));
-	        const vk::VkMemoryRequirements			requirements	(getImageMemoryRequirements(vkd, *device, *image));
-	        const vk::Unique<vk::VkDeviceMemory>	memory			(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
-	        NativeHandle							handle;
-
-			VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
-			getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
-
-			AHardwareBuffer_Desc desc;
-			AHardwareBuffer_describe(static_cast<const AHardwareBuffer*>(handle.getAndroidHardwareBuffer().internal), &desc);
-			TCU_CHECK(desc.format == vkFormatToAhbFormat(format));
-			TCU_CHECK((desc.usage & requiredAhbUsage) == requiredAhbUsage);
-		}
-
-		if (properties.imageFormatProperties.maxArrayLayers > 1u) {
-			const vk::Unique<vk::VkImage>		  image		  (createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage,
-                                                                                                                     1u, properties.imageFormatProperties.maxArrayLayers));
-			const vk::VkMemoryRequirements		  requirements(getImageMemoryRequirements(vkd, *device, *image));
-			const vk::Unique<vk::VkDeviceMemory>  memory	  (allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
-			NativeHandle						  handle;
-
-			VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
-			getMemoryNative(vkd, *device, *memory, externalMemoryType, handle);
-
-			AHardwareBuffer_Desc desc;
-			AHardwareBuffer_describe(static_cast<const AHardwareBuffer*>(handle.getAndroidHardwareBuffer().internal), &desc);
-			TCU_CHECK(desc.format == vkFormatToAhbFormat(format));
-			TCU_CHECK((desc.usage & requiredAhbUsage) == requiredAhbUsage);
-		}
+		TCU_CHECK(foundAnyUsableTiling);
 	}
 	return tcu::TestStatus::pass("Pass");
-#else
-	DE_UNREF(context);
-	DE_UNREF(format);
-	TCU_THROW(NotSupportedError, "Platform doesn't support AHardwareBuffers");
-#endif
 }
 
 de::MovePtr<tcu::TestCaseGroup> createFenceTests (tcu::TestContext& testCtx)
@@ -4259,6 +4277,7 @@ de::MovePtr<tcu::TestCaseGroup> createMemoryTests (tcu::TestContext& testCtx, vk
 		{
 			const vk::VkFormat	format			= ahbFormats[ahbFormatNdx];
 			const std::string	testCaseName	= getFormatCaseName(format);
+
 			addFunctionCase(formatGroup.get(), testCaseName, "", testAndroidHardwareBufferImageFormat, format);
 		}
 

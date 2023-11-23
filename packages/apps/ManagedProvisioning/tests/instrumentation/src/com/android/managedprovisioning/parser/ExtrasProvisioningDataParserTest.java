@@ -27,29 +27,88 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_AD
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION;
+
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_CONTENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ORGANIZATION_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_CONSENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_SETUP;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORT_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_USE_MOBILE_DATA;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_DOMAIN;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_EAP_METHOD;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_HIDDEN;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_IDENTITY;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PAC_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PASSWORD;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PHASE2_AUTH;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_BYPASS;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_HOST;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_PORT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DISCLAIMERS_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DISCLAIMER_CONTENT_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_DISCLAIMER_HEADER_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_LOCALE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_LOCAL_TIME_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_LOGO_URI_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_MAIN_COLOR_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_ORGANIZATION_NAME_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_SKIP_ENCRYPTION_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_SKIP_USER_CONSENT_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_SKIP_USER_SETUP_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_SUPPORT_URL_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_TIME_ZONE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_USE_MOBILE_DATA_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_DOMAIN_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_EAP_METHOD_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_HIDDEN_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_IDENTITY_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PAC_URL_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PASSWORD_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PHASE2_AUTH_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PROXY_BYPASS_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PROXY_HOST_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_PROXY_PORT_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_SSID_SHORT;
+import static com.android.managedprovisioning.parser.ExtrasProvisioningDataParser.EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE_SHORT;
+
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -59,7 +118,9 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -72,7 +133,12 @@ import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
+
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Stream;
+
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -109,11 +175,19 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
     private static final String TEST_SSID = "TestWifi";
     private static final boolean TEST_HIDDEN = true;
     private static final String TEST_SECURITY_TYPE = "WPA2";
+    private static final String TEST_SECURITY_TYPE_EAP = "EAP";
     private static final String TEST_PASSWORD = "GoogleRock";
     private static final String TEST_PROXY_HOST = "testhost.com";
     private static final int TEST_PROXY_PORT = 7689;
     private static final String TEST_PROXY_BYPASS_HOSTS = "http://host1.com;https://host2.com";
     private static final String TEST_PAC_URL = "pac.test.com";
+    private static final String TEST_EAP_METHOD = "TTLS";
+    private static final String TEST_PHASE2_AUTH = "PAP";
+    private static final String TEST_CA_CERT = "certificate";
+    private static final String TEST_USER_CERT = "certificate";
+    private static final String TEST_IDENTITY = "TestUser";
+    private static final String TEST_ANONYMOUS_IDENTITY = "TestAUser";
+    private static final String TEST_DOMAIN = "google.com";
     private static final WifiInfo TEST_WIFI_INFO = WifiInfo.Builder.builder()
             .setSsid(TEST_SSID)
             .setHidden(TEST_HIDDEN)
@@ -141,6 +215,10 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                     .setSignatureChecksum(TEST_SIGNATURE_CHECKSUM)
                     .setMinVersion(TEST_MIN_SUPPORT_VERSION)
                     .build();
+    private static final boolean TEST_USE_MOBILE_DATA = true;
+    private static final Uri TEST_URI = Uri.parse("https://www.google.com/");
+    private static final String TEST_DISCLAMER_HEADER = "Google";
+
     @Mock
     private Context mContext;
 
@@ -163,6 +241,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         when(mContext.getSystemServiceName(DevicePolicyManager.class))
                 .thenReturn(Context.DEVICE_POLICY_SERVICE);
         when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE)).thenReturn(mDpm);
+        when(mContext.getContentResolver()).thenReturn(getContext().getContentResolver());
+        when(mContext.getFilesDir()).thenReturn(getContext().getFilesDir());
         when(mSharedPreferences.incrementAndGetProvisioningId()).thenReturn(TEST_PROVISIONING_ID);
         mUtils = spy(new Utils());
         mExtrasProvisioningDataParser = new ExtrasProvisioningDataParser(mContext, mUtils,
@@ -195,7 +275,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE is translated to
                         // ACTION_PROVISION_MANAGED_DEVICE
@@ -222,8 +302,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setDeviceAdminLabel(TEST_DEVICE_ADMIN_PACKAGE_LABEL)
                         .setOrganizationName(TEST_ORGANIZATION_NAME)
                         .setSupportUrl(TEST_SUPPORT_URL)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_resumeProvisioningIntent() throws Exception {
@@ -237,13 +317,12 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         // WHEN the intent is parsed by the parser
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
         // THEN we get back the original ProvisioningParams.
-        assertEquals(expected, params);
+        assertThat(expected).isEqualTo(params);
     }
 
     public void testParse_managedProfileIntent() throws Exception {
         // GIVEN a managed profile provisioning intent and other extras.
         Intent intent = new Intent(ACTION_PROVISION_MANAGED_PROFILE)
-                // GIVEN a device admin package name and component name
                 .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
                 .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
                 .putExtras(getTestTimeTimeZoneAndLocaleExtras())
@@ -259,16 +338,13 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                 .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, TEST_ACCOUNT_TO_MIGRATE);
 
         // GIVEN the device admin is installed.
-        doReturn(TEST_COMPONENT_NAME)
-                .when(mUtils)
-                .findDeviceAdmin(
-                        TEST_PACKAGE_NAME, TEST_COMPONENT_NAME, mContext, UserHandle.myUserId());
+        mockInstalledDeviceAdminForTestPackageName();
 
         // WHEN the intent is parsed by the parser.
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN provisioning action is ACTION_PROVISION_MANAGED_PROFILE
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
@@ -289,31 +365,16 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setKeepAccountMigrated(TEST_KEEP_ACCOUNT_MIGRATED)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_managedProfileIntent_CompProvisioning() throws Exception {
         // GIVEN a managed profile provisioning intent and other extras.
-        Intent intent = new Intent(ACTION_PROVISION_MANAGED_PROFILE)
-                // GIVEN a device admin package name and component name
-                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
-                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
-                .putExtras(getTestTimeTimeZoneAndLocaleExtras())
-                .putExtras(getTestWifiInfoExtras())
-                .putExtras(getTestDeviceAdminDownloadExtras())
-                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, createTestAdminExtras())
-                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, TEST_SKIP_ENCRYPTION)
-                .putExtra(EXTRA_PROVISIONING_MAIN_COLOR, TEST_MAIN_COLOR)
-                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT, TEST_SKIP_USER_CONSENT)
-                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED)
-                .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, TEST_ACCOUNT_TO_MIGRATE);
+        Intent intent = buildTestManagedProfileIntent();
 
         // GIVEN the device admin is installed.
-        doReturn(TEST_COMPONENT_NAME)
-                .when(mUtils)
-                .findDeviceAdmin(
-                        TEST_PACKAGE_NAME, TEST_COMPONENT_NAME, mContext, UserHandle.myUserId());
+        mockInstalledDeviceAdminForTestPackageName();
 
         // GIVEN the device admin is also device owner in primary user.
         when(mDpm.getDeviceOwnerComponentOnCallingUser()).thenReturn(TEST_COMPONENT_NAME);
@@ -322,7 +383,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN provisioning action is ACTION_PROVISION_MANAGED_PROFILE
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
@@ -340,8 +401,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setKeepAccountMigrated(TEST_KEEP_ACCOUNT_MIGRATED)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_managedProfileIntent_DeviceOwnerWithByodProvisioning() throws Exception {
@@ -352,9 +413,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                 .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED);
 
         // GIVEN the device admin is installed.
-        doReturn(TEST_COMPONENT_NAME)
-                .when(mUtils)
-                .findDeviceAdmin(null, TEST_COMPONENT_NAME, mContext, UserHandle.myUserId());
+        mockInstalledDeviceAdminForNullPackageName();
 
         // GIVEN a different device admin is a device owner in primary user.
         when(mDpm.getDeviceOwnerComponentOnCallingUser()).thenReturn(TEST_COMPONENT_NAME_2);
@@ -363,7 +422,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
                         .setDeviceAdminComponentName(TEST_COMPONENT_NAME)
@@ -371,8 +430,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         // THEN skipping user consent flag is ignored
                         .setSkipUserConsent(false)
                         .setKeepAccountMigrated(TEST_KEEP_ACCOUNT_MIGRATED)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_managedUserIntent() throws Exception {
@@ -393,7 +452,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN provisioning action is ACTION_PROVISION_MANAGED_USER
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_USER)
@@ -410,8 +469,13 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setSkipEncryption(TEST_SKIP_ENCRYPTION)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
+    }
+
+    public void testParse_shortExtras_sameAsLongExtras() throws Exception {
+        assertThat(mExtrasProvisioningDataParser.parse(buildIntentWithAllLongExtras()))
+            .isEqualTo(mExtrasProvisioningDataParser.parse(buildIntentWithAllShortExtras()));
     }
 
     public void testParse_managedDeviceIntent() throws Exception {
@@ -434,7 +498,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN provisioning action is ACTION_PROVISION_MANAGED_DEVICE
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
@@ -453,8 +517,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setWifiInfo(null)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_managedSharableDeviceIntent() throws Exception {
@@ -475,7 +539,7 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
 
         // THEN ProvisionParams is constructed as expected.
-        assertEquals(
+        assertThat(
                 ProvisioningParams.Builder.builder()
                         // THEN provisioning action is ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE
                         .setProvisioningAction(ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE)
@@ -493,8 +557,8 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                         .setWifiInfo(null)
                         .setAdminExtrasBundle(createTestAdminExtras())
                         .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
-                        .build(),
-                params);
+                        .build())
+                .isEqualTo(params);
     }
 
     public void testParse_nfcProvisioningIntentThrowsException() {
@@ -546,6 +610,206 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         }
     }
 
+    public void testSetUseMobileData_forManagedProfile_alwaysFalse() throws Exception {
+        Intent intent =
+                buildTestManagedProfileIntent().putExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA, true);
+        mockInstalledDeviceAdminForTestPackageName();
+
+        assertThat(mExtrasProvisioningDataParser.parse(intent).useMobileData).isFalse();
+    }
+
+    public void testSetUseMobileData_fromTrustedSource_toFalse() throws Exception {
+        Intent intent =
+                buildTestTrustedSourceIntent().putExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA, true);
+        mockInstalledDeviceAdminForTestPackageName();
+
+        assertThat(mExtrasProvisioningDataParser.parse(intent).useMobileData).isTrue();
+    }
+
+    public void testSetUseMobileData_fromTrustedSource_toTrue() throws Exception {
+        Intent intent =
+                buildTestTrustedSourceIntent().putExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA, true);
+        mockInstalledDeviceAdminForTestPackageName();
+
+        assertThat(mExtrasProvisioningDataParser.parse(intent).useMobileData).isTrue();
+    }
+
+    public void testSetUseMobileData_fromTrustedSource_defaultsToFalse() throws Exception {
+        Intent intent = buildTestTrustedSourceIntent();
+        intent.removeExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA);
+        mockInstalledDeviceAdminForTestPackageName();
+
+        assertThat(mExtrasProvisioningDataParser.parse(intent).useMobileData).isFalse();
+    }
+
+    public void testParse_WifiInfoWithCertificates() throws Exception {
+        Intent intent = new Intent(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
+                .putExtra(EXTRA_PROVISIONING_WIFI_SSID, TEST_SSID)
+                .putExtra(EXTRA_PROVISIONING_WIFI_HIDDEN, TEST_HIDDEN)
+                .putExtra(EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, TEST_SECURITY_TYPE_EAP)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PASSWORD, TEST_PASSWORD)
+                .putExtra(EXTRA_PROVISIONING_WIFI_EAP_METHOD, TEST_EAP_METHOD)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH, TEST_PHASE2_AUTH)
+                .putExtra(EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE, TEST_CA_CERT)
+                .putExtra(EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE, TEST_USER_CERT)
+                .putExtra(EXTRA_PROVISIONING_WIFI_IDENTITY, TEST_IDENTITY)
+                .putExtra(EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY, TEST_ANONYMOUS_IDENTITY)
+                .putExtra(EXTRA_PROVISIONING_WIFI_DOMAIN, TEST_DOMAIN)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_HOST, TEST_PROXY_HOST)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_PORT, TEST_PROXY_PORT)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS, TEST_PROXY_BYPASS_HOSTS)
+                .putExtra(EXTRA_PROVISIONING_WIFI_PAC_URL, TEST_PAC_URL);
+
+        ProvisioningParams params = mExtrasProvisioningDataParser.parse(intent);
+
+        assertThat(params).isEqualTo(createTestProvisioningParamsBuilder()
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setStartedByTrustedSource(true)
+                .setDeviceAdminComponentName(TEST_COMPONENT_NAME)
+                .setWifiInfo(WifiInfo.Builder.builder()
+                        .setSsid(TEST_SSID)
+                        .setHidden(TEST_HIDDEN)
+                        .setSecurityType(TEST_SECURITY_TYPE_EAP)
+                        .setPassword(TEST_PASSWORD)
+                        .setEapMethod(TEST_EAP_METHOD)
+                        .setPhase2Auth(TEST_PHASE2_AUTH)
+                        .setCaCertificate(TEST_CA_CERT)
+                        .setUserCertificate(TEST_USER_CERT)
+                        .setIdentity(TEST_IDENTITY)
+                        .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                        .setDomain(TEST_DOMAIN)
+                        .setProxyHost(TEST_PROXY_HOST)
+                        .setProxyPort(TEST_PROXY_PORT)
+                        .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
+                        .setPacUrl(TEST_PAC_URL)
+                        .build())
+                .build());
+    }
+
+    public void testShortNamesOfExtrasAreUnique() {
+        assertEquals(buildAllShortExtras().distinct().count(), buildAllShortExtras().count());
+    }
+
+    private Stream<Field> buildAllShortExtras() {
+        Field[] fields = ExtrasProvisioningDataParser.class.getDeclaredFields();
+        return Arrays.stream(fields)
+                .filter(field -> field.getName().startsWith("EXTRA_")
+                        && field.getName().endsWith("_SHORT"));
+    }
+
+    private ProvisioningParams.Builder createTestProvisioningParamsBuilder() {
+        return ProvisioningParams.Builder.builder().setProvisioningId(TEST_PROVISIONING_ID);
+    }
+
+    private Intent buildIntentWithAllShortExtras() {
+        Bundle bundleShort = new Bundle();
+        bundleShort.putString(
+                EXTRA_PROVISIONING_DISCLAIMER_HEADER_SHORT, TEST_DISCLAMER_HEADER);
+        bundleShort.putParcelable(EXTRA_PROVISIONING_DISCLAIMER_CONTENT_SHORT, TEST_URI);
+        Parcelable[] parcelablesShort = {bundleShort};
+        return new Intent(ACTION_PROVISION_MANAGED_DEVICE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME_SHORT,
+                        TEST_PACKAGE_NAME)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME_SHORT,
+                        TEST_COMPONENT_NAME)
+                .putExtras(getShortTestTimeTimeZoneAndLocaleExtras())
+                .putExtras(getAllShortTestWifiInfoExtras())
+                .putExtras(getShortTestDeviceAdminDownloadExtras())
+                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE_SHORT,
+                        createTestAdminExtras())
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION_SHORT, TEST_SKIP_ENCRYPTION)
+                .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED_SHORT,
+                        TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
+                .putExtra(EXTRA_PROVISIONING_MAIN_COLOR_SHORT, TEST_MAIN_COLOR)
+                .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE_SHORT, TEST_ACCOUNT_TO_MIGRATE)
+                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION_SHORT,
+                        TEST_KEEP_ACCOUNT_MIGRATED)
+                .putExtra(EXTRA_PROVISIONING_ORGANIZATION_NAME_SHORT,
+                        TEST_ORGANIZATION_NAME)
+                .putExtra(EXTRA_PROVISIONING_SUPPORT_URL_SHORT, TEST_SUPPORT_URL)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL_SHORT,
+                        TEST_DEVICE_ADMIN_PACKAGE_LABEL)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT_SHORT,
+                        TEST_SKIP_USER_CONSENT)
+                .putExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA_SHORT,
+                        TEST_USE_MOBILE_DATA)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_SETUP_SHORT,
+                        ExtrasProvisioningDataParserTest.TEST_SKIP_USER_SETUP)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI_SHORT, TEST_URI)
+                .putExtra(EXTRA_PROVISIONING_LOGO_URI_SHORT, TEST_URI)
+                .putExtra(EXTRA_PROVISIONING_DISCLAIMERS_SHORT, parcelablesShort);
+    }
+
+    private Intent buildIntentWithAllLongExtras() {
+        Bundle bundleLong = new Bundle();
+        bundleLong.putString(EXTRA_PROVISIONING_DISCLAIMER_HEADER, TEST_DISCLAMER_HEADER);
+        bundleLong.putParcelable(EXTRA_PROVISIONING_DISCLAIMER_CONTENT, TEST_URI);
+        Parcelable[] parcelablesLong = {bundleLong};
+        return new Intent(ACTION_PROVISION_MANAGED_DEVICE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
+                .putExtras(getTestTimeTimeZoneAndLocaleExtras())
+                .putExtras(getAllTestWifiInfoExtras())
+                .putExtras(getTestDeviceAdminDownloadExtras())
+                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, createTestAdminExtras())
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, TEST_SKIP_ENCRYPTION)
+                .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                        TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
+                .putExtra(EXTRA_PROVISIONING_MAIN_COLOR, TEST_MAIN_COLOR)
+                .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, TEST_ACCOUNT_TO_MIGRATE)
+                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED)
+                .putExtra(EXTRA_PROVISIONING_ORGANIZATION_NAME, TEST_ORGANIZATION_NAME)
+                .putExtra(EXTRA_PROVISIONING_SUPPORT_URL, TEST_SUPPORT_URL)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL,
+                        TEST_DEVICE_ADMIN_PACKAGE_LABEL)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT, TEST_SKIP_USER_CONSENT)
+                .putExtra(EXTRA_PROVISIONING_USE_MOBILE_DATA, TEST_USE_MOBILE_DATA)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_SETUP,
+                        ExtrasProvisioningDataParserTest.TEST_SKIP_USER_SETUP)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI, TEST_URI)
+                .putExtra(EXTRA_PROVISIONING_LOGO_URI, TEST_URI)
+                .putExtra(EXTRA_PROVISIONING_DISCLAIMERS, parcelablesLong);
+    }
+
+    private static Intent buildTestManagedProfileIntent() {
+        return new Intent(ACTION_PROVISION_MANAGED_PROFILE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
+                .putExtras(getTestTimeTimeZoneAndLocaleExtras())
+                .putExtras(getTestWifiInfoExtras())
+                .putExtras(getTestDeviceAdminDownloadExtras())
+                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, createTestAdminExtras())
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, TEST_SKIP_ENCRYPTION)
+                .putExtra(EXTRA_PROVISIONING_MAIN_COLOR, TEST_MAIN_COLOR)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT, TEST_SKIP_USER_CONSENT)
+                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED)
+                .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                        TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
+                .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, TEST_ACCOUNT_TO_MIGRATE);
+    }
+
+    private static Intent buildTestTrustedSourceIntent() {
+        return  new Intent(ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, TEST_PACKAGE_NAME)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, TEST_COMPONENT_NAME)
+                .putExtras(getTestTimeTimeZoneAndLocaleExtras())
+                .putExtras(getTestWifiInfoExtras())
+                .putExtras(getTestDeviceAdminDownloadExtras())
+                .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, createTestAdminExtras())
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, TEST_SKIP_ENCRYPTION)
+                .putExtra(EXTRA_PROVISIONING_SKIP_USER_CONSENT, TEST_SKIP_USER_CONSENT)
+                .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, TEST_KEEP_ACCOUNT_MIGRATED)
+                .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                        TEST_LEAVE_ALL_SYSTEM_APP_ENABLED)
+                .putExtra(EXTRA_PROVISIONING_MAIN_COLOR, TEST_MAIN_COLOR)
+                .putExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, TEST_ACCOUNT_TO_MIGRATE)
+                .putExtra(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL,
+                        TEST_DEVICE_ADMIN_PACKAGE_LABEL)
+                .putExtra(EXTRA_PROVISIONING_ORGANIZATION_NAME, TEST_ORGANIZATION_NAME)
+                .putExtra(EXTRA_PROVISIONING_SUPPORT_URL, TEST_SUPPORT_URL);
+    }
+
     private static Bundle getTestWifiInfoExtras() {
         Bundle wifiInfoExtras = new Bundle();
         wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_SSID, TEST_SSID);
@@ -559,8 +823,77 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         return wifiInfoExtras;
     }
 
+    private static Bundle getAllTestWifiInfoExtras() {
+        Bundle wifiInfoExtras = new Bundle();
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_SSID, TEST_SSID);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, TEST_SECURITY_TYPE);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PASSWORD, TEST_PASSWORD);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_EAP_METHOD, TEST_EAP_METHOD);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH, TEST_PHASE2_AUTH);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE, TEST_CA_CERT);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE, TEST_USER_CERT);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_IDENTITY, TEST_IDENTITY);
+        wifiInfoExtras.putString(
+                EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY, TEST_ANONYMOUS_IDENTITY);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_DOMAIN, TEST_DOMAIN);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PROXY_HOST, TEST_PROXY_HOST);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS, TEST_PROXY_BYPASS_HOSTS);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PAC_URL, TEST_PAC_URL);
+        wifiInfoExtras.putInt(EXTRA_PROVISIONING_WIFI_PROXY_PORT, TEST_PROXY_PORT);
+        wifiInfoExtras.putBoolean(EXTRA_PROVISIONING_WIFI_HIDDEN, TEST_HIDDEN);
+        return wifiInfoExtras;
+    }
+
+    private static Bundle getAllShortTestWifiInfoExtras() {
+        Bundle wifiInfoExtras = new Bundle();
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_SSID_SHORT, TEST_SSID);
+        wifiInfoExtras.putString(
+                EXTRA_PROVISIONING_WIFI_SECURITY_TYPE_SHORT, TEST_SECURITY_TYPE);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PASSWORD_SHORT, TEST_PASSWORD);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_EAP_METHOD_SHORT, TEST_EAP_METHOD);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH_SHORT, TEST_PHASE2_AUTH);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE_SHORT, TEST_CA_CERT);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE_SHORT, TEST_USER_CERT);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_IDENTITY_SHORT, TEST_IDENTITY);
+        wifiInfoExtras.putString(
+                EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY_SHORT, TEST_ANONYMOUS_IDENTITY);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_DOMAIN_SHORT, TEST_DOMAIN);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PROXY_HOST_SHORT, TEST_PROXY_HOST);
+        wifiInfoExtras.putString(
+                EXTRA_PROVISIONING_WIFI_PROXY_BYPASS_SHORT, TEST_PROXY_BYPASS_HOSTS);
+        wifiInfoExtras.putString(EXTRA_PROVISIONING_WIFI_PAC_URL_SHORT, TEST_PAC_URL);
+        wifiInfoExtras.putInt(EXTRA_PROVISIONING_WIFI_PROXY_PORT_SHORT, TEST_PROXY_PORT);
+        wifiInfoExtras.putBoolean(EXTRA_PROVISIONING_WIFI_HIDDEN_SHORT, TEST_HIDDEN);
+        return wifiInfoExtras;
+    }
+
+    private void mockInstalledDeviceAdminForTestPackageName()
+            throws IllegalProvisioningArgumentException {
+        mockInstalledDeviceAdmin(TEST_PACKAGE_NAME);
+    }
+
+    private void mockInstalledDeviceAdminForNullPackageName()
+            throws IllegalProvisioningArgumentException {
+        mockInstalledDeviceAdmin(null);
+    }
+
+    private void mockInstalledDeviceAdmin(String packageName)
+            throws IllegalProvisioningArgumentException {
+        doReturn(TEST_COMPONENT_NAME)
+                .when(mUtils)
+                .findDeviceAdmin(packageName, TEST_COMPONENT_NAME, mContext, UserHandle.myUserId());
+    }
+
+    private static String buildTestLocaleString() {
+        return StoreUtils.localeToString(TEST_LOCALE);
+    }
+
     private static Bundle getTestTimeTimeZoneAndLocaleExtras() {
-        return getTestTimeTimeZoneAndLocaleExtrasInternal(StoreUtils.localeToString(TEST_LOCALE));
+        return getTestTimeTimeZoneAndLocaleExtrasInternal(buildTestLocaleString());
+    }
+
+    private static Bundle getShortTestTimeTimeZoneAndLocaleExtras() {
+        return getShortTestTimeTimeZoneAndLocaleExtrasInternal(buildTestLocaleString());
     }
 
     private static Bundle getTestTimeTimeZoneAndLocaleExtras(String locale) {
@@ -575,6 +908,17 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
         return timeTimezoneAndLocaleExtras;
     }
 
+    private static Bundle getShortTestTimeTimeZoneAndLocaleExtrasInternal(String locale){
+        Bundle timeTimezoneAndLocaleExtras = new Bundle();
+        timeTimezoneAndLocaleExtras.putLong(
+                EXTRA_PROVISIONING_LOCAL_TIME_SHORT, TEST_LOCAL_TIME);
+        timeTimezoneAndLocaleExtras.putString(
+                EXTRA_PROVISIONING_TIME_ZONE_SHORT, TEST_TIME_ZONE);
+        timeTimezoneAndLocaleExtras.putString(
+                EXTRA_PROVISIONING_LOCALE_SHORT, locale);
+        return timeTimezoneAndLocaleExtras;
+    }
+
     private static Bundle getTestDeviceAdminDownloadExtras() {
         Bundle downloadInfoExtras = new Bundle();
         downloadInfoExtras.putInt(
@@ -585,12 +929,40 @@ public class ExtrasProvisioningDataParserTest extends AndroidTestCase {
                 EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER, TEST_COOKIE_HEADER);
         downloadInfoExtras.putString(
                 EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM,
-                Base64.encodeToString(TEST_PACKAGE_CHECKSUM,
-                        Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+                buildTestPackageChecksum());
         downloadInfoExtras.putString(
                 EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM,
-                Base64.encodeToString(TEST_SIGNATURE_CHECKSUM,
-                        Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP));
+                buildTestSignatureChecksum());
         return downloadInfoExtras;
+    }
+
+    private static String buildTestPackageChecksum() {
+        return Base64.encodeToString(TEST_PACKAGE_CHECKSUM,
+                Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+    }
+
+    private static Bundle getShortTestDeviceAdminDownloadExtras() {
+        Bundle downloadInfoExtras = new Bundle();
+        downloadInfoExtras.putInt(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE_SHORT,
+                TEST_MIN_SUPPORT_VERSION);
+        downloadInfoExtras.putString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION_SHORT,
+                TEST_DOWNLOAD_LOCATION);
+        downloadInfoExtras.putString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER_SHORT,
+                TEST_COOKIE_HEADER);
+        downloadInfoExtras.putString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM_SHORT,
+                buildTestPackageChecksum());
+        downloadInfoExtras.putString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM_SHORT,
+                buildTestSignatureChecksum());
+        return downloadInfoExtras;
+    }
+
+    private static String buildTestSignatureChecksum() {
+        return Base64.encodeToString(TEST_SIGNATURE_CHECKSUM,
+                Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
     }
 }

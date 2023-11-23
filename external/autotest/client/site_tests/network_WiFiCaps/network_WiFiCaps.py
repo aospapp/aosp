@@ -33,8 +33,8 @@ class network_WiFiCaps(test.test):
 
 
     def __run_iwcap(self, phy, caps):
-        dir = os.path.join(self.autodir, 'deps', 'iwcap', 'iwcap')
-        iwcap = utils.run(dir + ' ' + phy + ' ' + string.join(caps))
+        iwcapdir = os.path.join(self.autodir, 'deps', 'iwcap', 'iwcap')
+        iwcap = utils.run(iwcapdir + ' ' + phy + ' ' + string.join(caps))
         return self.__parse_iwcap(iwcap.stdout)
 
     def run_once(self):

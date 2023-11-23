@@ -15,20 +15,14 @@
  */
 package com.android.server.cts.device.batterystats;
 
-import static junit.framework.Assert.assertEquals;
-
 import android.content.Context;
 import android.os.PowerManager;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.InstrumentationRegistry;
-import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 /**
  * Used by BatteryStatsValidationTest.

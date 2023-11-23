@@ -27,6 +27,7 @@ import android.content.Context;
 import android.content.SyncAdapterType;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@AppModeFull(reason = "Sync manager not supported")
 public class ContentResolverSyncTestCase extends AndroidTestCase {
     private static final String TAG = "SyncTest";
 

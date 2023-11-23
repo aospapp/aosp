@@ -1,0 +1,1 @@
+allow appdomain same_process_hal_file:file { read execute_no_trans };

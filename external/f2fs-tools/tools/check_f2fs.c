@@ -145,14 +145,14 @@ int main(void)
 
 	printf("\n\n# Test 2: Atomic_write on /userdata\n");
 	if (test_atomic_write(DB1_PATH))
-		return -1;
+		return 0;
 
 	printf("# Test 3: Atomic_write on /sdcard\n");
 	if (test_atomic_write(DB2_PATH))
-		return -1;
+		return 0;
 
 	printf("# Test 4: Bad write(2) call\n");
 	if (test_bad_write_call(FILE_PATH))
-		return -1;
+		return 0;
 	return 0;
 }

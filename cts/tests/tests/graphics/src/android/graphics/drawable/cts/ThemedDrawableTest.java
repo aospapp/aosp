@@ -23,6 +23,8 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Shader.TileMode;
@@ -33,10 +35,12 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.NinePatchDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.graphics.drawable.VectorDrawable;
 import android.view.Gravity;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -169,5 +173,15 @@ public class ThemedDrawableTest {
 
         NinePatchDrawable ninePatchDrawable = (NinePatchDrawable) d.getDrawable(1);
         verifyNinePatchDrawable(ninePatchDrawable);
+    }
+
+    @Test
+    public void testVectorDrawableWithStateListColorThemeAttrs() {
+        VectorDrawable d = (VectorDrawable) mContext.getDrawable(R.drawable.heart);
+        d.setBounds(0, 0, 64, 64);
+        Bitmap bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        d.draw(canvas);
+        assertEquals(0xff0000ff, bitmap.getPixel(32, 32));
     }
 }

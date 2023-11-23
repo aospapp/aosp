@@ -47,6 +47,9 @@ class BinderUpdateEngineClient : public UpdateEngineClient {
                      const std::string& omaha_url,
                      bool at_user_request) override;
 
+  bool AttemptInstall(const std::string& omaha_url,
+                      const std::vector<std::string>& dlc_module_ids) override;
+
   bool GetStatus(int64_t* out_last_checked_time,
                  double* out_progress,
                  UpdateStatus* out_update_status,
@@ -87,8 +90,8 @@ class BinderUpdateEngineClient : public UpdateEngineClient {
   bool GetEolStatus(int32_t* eol_status) const override;
 
  private:
-  class StatusUpdateCallback :
-      public android::brillo::BnUpdateEngineStatusCallback {
+  class StatusUpdateCallback
+      : public android::brillo::BnUpdateEngineStatusCallback {
    public:
     explicit StatusUpdateCallback(BinderUpdateEngineClient* client)
         : client_(client) {}

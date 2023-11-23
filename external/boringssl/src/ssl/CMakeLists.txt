@@ -4,7 +4,6 @@ add_library(
   ssl
 
   bio_ssl.cc
-  custom_extensions.cc
   d1_both.cc
   d1_lib.cc
   d1_pkt.cc
@@ -42,6 +41,8 @@ add_library(
   tls13_server.cc
 )
 
+add_dependencies(ssl global_target)
+
 target_link_libraries(ssl crypto)
 
 add_executable(
@@ -51,11 +52,12 @@ add_executable(
   ssl_test.cc
 
   $<TARGET_OBJECTS:boringssl_gtest_main>
-  $<TARGET_OBJECTS:test_support>
 )
 
-target_link_libraries(ssl_test ssl crypto boringssl_gtest)
-if (WIN32)
+add_dependencies(ssl_test global_target)
+
+target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
+if(WIN32)
   target_link_libraries(ssl_test ws2_32)
 endif()
 add_dependencies(all_tests ssl_test)

@@ -123,10 +123,10 @@ class SampleTreeTest : public testing::Test {
     thread_tree.SetThreadName(1, 1, "p1t1");
     thread_tree.SetThreadName(1, 11, "p1t11");
     thread_tree.SetThreadName(2, 2, "p2t2");
-    thread_tree.AddThreadMap(1, 1, 1, 5, 0, 0, "process1_thread1");
-    thread_tree.AddThreadMap(1, 11, 6, 5, 0, 0, "process1_thread1_map2");
-    thread_tree.AddThreadMap(2, 2, 1, 20, 0, 0, "process2_thread2");
-    thread_tree.AddKernelMap(10, 20, 0, 0, "kernel");
+    thread_tree.AddThreadMap(1, 1, 1, 5, 0, "process1_thread1");
+    thread_tree.AddThreadMap(1, 11, 6, 5, 0, "process1_thread1_map2");
+    thread_tree.AddThreadMap(2, 2, 1, 20, 0, "process2_thread2");
+    thread_tree.AddKernelMap(10, 20, 0, "kernel");
     sample_tree_builder.reset(new TestSampleTreeBuilder(&thread_tree));
   }
 
@@ -214,12 +214,12 @@ TEST(sample_tree, overlapped_map) {
   ThreadTree thread_tree;
   TestSampleTreeBuilder sample_tree_builder(&thread_tree);
   thread_tree.SetThreadName(1, 1, "thread1");
-  thread_tree.AddThreadMap(1, 1, 1, 10, 0, 0, "map1");  // Add map 1.
+  thread_tree.AddThreadMap(1, 1, 1, 10, 0, "map1");     // Add map 1.
   sample_tree_builder.AddSample(1, 1, 5, false);        // Hit map 1.
-  thread_tree.AddThreadMap(1, 1, 5, 20, 0, 0, "map2");  // Add map 2.
+  thread_tree.AddThreadMap(1, 1, 5, 20, 0, "map2");     // Add map 2.
   sample_tree_builder.AddSample(1, 1, 6, false);        // Hit map 2.
   sample_tree_builder.AddSample(1, 1, 4, false);        // Hit map 1.
-  thread_tree.AddThreadMap(1, 1, 2, 7, 0, 0, "map3");   // Add map 3.
+  thread_tree.AddThreadMap(1, 1, 2, 7, 0, "map3");      // Add map 3.
   sample_tree_builder.AddSample(1, 1, 7, false);        // Hit map 3.
   sample_tree_builder.AddSample(1, 1, 10, false);       // Hit map 2.
 

@@ -35,10 +35,6 @@ local_java_files := $(filter %.java,$(LOCAL_SRC_FILES))
 # This only works if the class name matches the file name and the directory structure
 # matches the package.
 local_classes := $(subst /,.,$(patsubst src/%.java,%,$(local_java_files)))
-# Utility variables to allow replacing a space with a comma
-comma:= ,
-empty:=
-space:= $(empty) $(empty)
 # Convert class name list to jacoco exclude list
 # This appends a * to all classes and replace the space separators with commas.
 # These patterns will match all classes in this module and their inner classes.
@@ -58,18 +54,18 @@ LOCAL_JACK_FLAGS := --multi-dex native
 # TODO figure out if this is the correct thing to do, this seems to not be right
 # since neither is declared a static java library.
 LOCAL_STATIC_JAVA_LIBRARIES := \
-	android-support-test \
-	mockito-target-minus-junit4 \
+	androidx.test.rules hamcrest-library \
+	mockito-target-extended-minus-junit4 \
 	frameworks-base-testutils \
 	services \
 	wifi-service \
+	truth-prebuilt \
 
 LOCAL_JAVA_LIBRARIES := \
 	android.test.runner \
-	android.hidl.manager-V1.0-java \
+	android.hidl.manager-V1.2-java \
 	android.test.base \
-	android.test.mock \
-	conscrypt
+	android.test.mock
 
 # These must be explicitly included because they are not normally accessible
 # from apps.
@@ -82,15 +78,19 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 	libbacktrace \
 	libbase \
 	libbinder \
+	libbinderthreadstate \
 	libc++ \
+	ld-android \
+	libdl_android \
 	libcamera_client \
 	libcamera_metadata \
+	libcgrouprc \
 	libcutils \
 	libexpat \
 	libgui \
 	libhardware \
-	libicui18n \
-	libicuuc \
+	libandroidicu \
+	libjsoncpp \
 	liblzma \
 	libmedia \
 	libnativehelper \
@@ -98,17 +98,18 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 	libnetutils \
 	libnl \
 	libpowermanager \
+	libprocessgroup \
 	libsonivox \
-	libspeexresampler \
 	libstagefright_foundation \
 	libstdc++ \
 	libsync \
 	libwifi-system \
 	libui \
-	libunwind \
 	libunwindstack \
 	libutils \
 	libvndksupport \
+	libdexmakerjvmtiagent \
+	libstaticjvmtiagent
 
 ifdef WPA_SUPPLICANT_VERSION
 LOCAL_JNI_SHARED_LIBRARIES += libwpa_client

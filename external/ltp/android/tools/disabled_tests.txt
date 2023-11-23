@@ -1,4 +1,4 @@
-# disabled_gtests.txt: list of tests which cannot (currently) be built
+# disabled_tests.txt: list of tests which cannot (currently) be built
 # for Android/bionic
 
 # POSIX functions not implemented in bionic
@@ -9,19 +9,13 @@ ulimit01
 
 # Non-POSIX functions not implemented in bionic
 getcontext01
-llistxattr01
-llistxattr02
-llistxattr03
 mallopt01
 profil01
 stime01
 stime02
-ustat01
-ustat02
-vhangup01
-vhangup02
 
 # Test SysV IPC, which is not allowed in Android kernels.
+
 cve-2017-5669
 hugeshmat01
 hugeshmat02
@@ -77,14 +71,18 @@ msgsnd03
 msgsnd04
 msgsnd05
 msgsnd06
+msgstress01
+msgstress02
+msgstress03
+msgstress04
 remap_file_pages01
-remap_file_pages02
 sem01
 sem02
+sem_comm
+sem_nstest
 semaphore_test_01
 semaphore_test_02
 semaphore_test_03
-sem_comm
 semctl01
 semctl02
 semctl03
@@ -97,7 +95,6 @@ semget02
 semget03
 semget05
 semget06
-sem_nstest
 semop01
 semop02
 semop03
@@ -105,12 +102,12 @@ semop04
 semop05
 semtest_2ns
 setns02
-set_thread_area01
+shm_comm
+shm_test
 shmat01
 shmat02
 shmat03
 shmat1
-shm_comm
 shmctl01
 shmctl02
 shmctl03
@@ -140,8 +137,6 @@ shmt07
 shmt08
 shmt09
 shmt10
-shm_test
-
 # Require SysV IPC, but don't directly test it -- these could potentially be
 # wrapped with ashmem
 cpuset_memory_test
@@ -160,13 +155,26 @@ openat02
 process
 sendmsg02
 
+# needs gzip -r
+gzip_tests.sh
+
+# needs mv -b
+mv_tests.sh
+
+# needs tar -d, tar -r
+tar_tests.sh
+
+# needs wc --long-options
+wc01.sh
+
+# needs which --long-options
+which01.sh
+
 # Following tests are for commands that are not available on Android
 # device
 ar01
 at_allow01
 at_deny01
-cp_tests.sh
-cpio_tests.sh
 cron02
 cron03
 cron_allow01
@@ -177,32 +185,10 @@ cron_illegal_cron_lines
 cron_neg_tests.sh
 cron_pos_tests.sh
 cron_tests.sh
-df01.sh
 du01.sh
 eject_check_tray
 eject-tests.sh
 file_test.sh
-# TODO(b/69117476): Enable ftrace_stress tests again
-ftrace_buffer_size_kb.h
-ftrace_current_tracer.sh
-ftrace_ftrace_enabled.sh
-ftrace_function_profile_enabled.sh
-ftrace_set_event.sh
-ftrace_set_ftrace_filter.sh
-ftrace_set_ftrace_pid.sh
-ftrace_stack_max_size.sh
-ftrace_stack_trace.sh
-ftrace_stress_test.sh
-ftrace_trace.sh
-ftrace_trace_clock.sh
-ftrace_trace_options.sh
-ftrace_trace_pipe.sh
-ftrace_trace_stat.sh
-ftrace_tracing_cpumask.sh
-ftrace_tracing_enabled.sh
-ftrace_tracing_max_latency.sh
-ftrace_tracing_on.sh
-gzip_tests.sh
 insmod01.sh
 keyctl01.sh
 ld01
@@ -216,10 +202,7 @@ lddfile5.obj.so
 logrotate_tests.sh
 lsmod01.sh
 mail_tests.sh
-mkdir_tests.sh
-mkfs01.sh
 mkswap01.sh
-mv_tests.sh
 nm01
 sssd01
 sssd02
@@ -228,7 +211,6 @@ sssd-lib.sh
 su01
 su01_s1
 su_set_passwd
-tar_tests.sh
 tpm_changeauth_tests.sh
 tpm_changeauth_tests_exp01.sh
 tpm_changeauth_tests_exp02.sh
@@ -270,8 +252,6 @@ tpmtoken_setpasswd_tests_exp02.sh
 tpmtoken_setpasswd_tests_exp03.sh
 tpmtoken_setpasswd_tests_exp04.sh
 unzip_tests.sh
-wc01.sh
-which01.sh
 
 # Following tests are for containers which Android doesn't support / use.
 # Some of these also require SysV IPC, so they need to be disabled anyway.
@@ -347,6 +327,8 @@ chmod06
 chown04
 chown04_16
 creat06
+df01.sh
+mkfs01.sh
 
 # Requires glob()
 epoll-test
@@ -357,10 +339,6 @@ ioctl02
 # Require aio.h
 growfiles
 pipeio
-
-# Require {get,set}grent()
-getgroups03
-getgroups03_16
 
 # Require mqueue
 mq_timedsend01
@@ -396,32 +374,8 @@ gf13
 # Case designed only for i386
 f00f
 
-# The following test cases are disabled due to build error on AOSP
-eventfd01
-epoll_pwait01
-abs01
-io_setup01
-rt_sigsuspend01
-io_destroy01
-pidns12
-io_cancel01
-verify_caps_exec
-sigsuspend01
-pidns10
-ksm05
-atof01
-trace_sched
-nextafter01
-io_submit01
-pidns17
-pidns20
-io_getevents01
-nfs05_make_tree
-test
-check_tray
 # build error due to unavailability of eaccess()
 prot_hsymlinks
-setpriority01
 
 # The following test prebuilds are disabled due to build error on AOSP
 ldmain.obj
@@ -439,14 +393,6 @@ f1.obj
 nmfile.obj
 nmfile2.obj
 
-# The following test cases are disabled due to a disabled library
-cpuset_syscall_test
-cpuset_list_compute
-cpuset_cpu_hog
-cpuset_mem_hog
-cpuset_sched_domains_check
-cpuset_memory_pressure
-
 # The following test cases are disabled due to a disabled cflags
 
 # TODO b/69263988
@@ -462,3 +408,72 @@ getrusage03
 
 # input03 depends on /dev/input/mice which may not exist
 input03
+
+# Following test is flaky at best and renders the device unusable
+# after running.
+min_free_kbytes
+
+# Disable prebuilts that have no dependency on existing tests. The following prebuilts are disabled
+# as the only script that uses it is testscripts/test_fs_bind.sh. We currently do not support 'testscripts'
+# build for Android.
+testcases/bin/fs_bind/bind/test01
+testcases/bin/fs_bind/bind/test02
+testcases/bin/fs_bind/bind/test03
+testcases/bin/fs_bind/bind/test04
+testcases/bin/fs_bind/bind/test05
+testcases/bin/fs_bind/bind/test06
+testcases/bin/fs_bind/bind/test07
+testcases/bin/fs_bind/bind/test07-2
+testcases/bin/fs_bind/bind/test08
+testcases/bin/fs_bind/bind/test09
+testcases/bin/fs_bind/bind/test13
+testcases/bin/fs_bind/bind/test17
+testcases/bin/fs_bind/bind/test20
+testcases/bin/fs_bind/bind/test21
+testcases/bin/fs_bind/bind/test22
+testcases/bin/fs_bind/bind/test23
+testcases/bin/fs_bind/bind/test24
+testcases/bin/fs_bind/cloneNS/test01
+testcases/bin/fs_bind/cloneNS/test02
+testcases/bin/fs_bind/cloneNS/test03
+testcases/bin/fs_bind/cloneNS/test04
+testcases/bin/fs_bind/cloneNS/test05
+testcases/bin/fs_bind/cloneNS/test06
+testcases/bin/fs_bind/cloneNS/test07
+testcases/bin/fs_bind/move/test01
+testcases/bin/fs_bind/move/test02
+testcases/bin/fs_bind/move/test03
+testcases/bin/fs_bind/move/test04
+testcases/bin/fs_bind/move/test05
+testcases/bin/fs_bind/move/test06
+testcases/bin/fs_bind/move/test07
+testcases/bin/fs_bind/move/test09
+testcases/bin/fs_bind/move/test10
+testcases/bin/fs_bind/move/test11
+testcases/bin/fs_bind/move/test12
+testcases/bin/fs_bind/move/test13
+testcases/bin/fs_bind/move/test14
+testcases/bin/fs_bind/move/test15
+testcases/bin/fs_bind/move/test16
+testcases/bin/fs_bind/move/test17
+testcases/bin/fs_bind/move/test18
+testcases/bin/fs_bind/move/test19
+testcases/bin/fs_bind/move/test20
+testcases/bin/fs_bind/move/test21
+testcases/bin/fs_bind/rbind/test08
+testcases/bin/fs_bind/rbind/test10
+testcases/bin/fs_bind/rbind/test11
+testcases/bin/fs_bind/rbind/test12
+testcases/bin/fs_bind/rbind/test14
+testcases/bin/fs_bind/rbind/test15
+testcases/bin/fs_bind/rbind/test16
+testcases/bin/fs_bind/rbind/test18
+testcases/bin/fs_bind/rbind/test19
+testcases/bin/fs_bind/rbind/test22
+testcases/bin/fs_bind/regression/test01
+testcases/bin/fs_bind/regression/test02
+testcases/bin/fs_bind/regression/test03
+
+# Depends on CONFIG_EXT4_FS_ENCRYPTION which is not required on Android.
+# b/123523766
+statx05

@@ -17,61 +17,63 @@
 package android.autofillservice.cts;
 
 import android.view.View;
-
-import org.junit.Before;
-import org.junit.Rule;
+import android.view.accessibility.AccessibilityEvent;
 
 import java.util.concurrent.TimeoutException;
 
 /**
  * Base class for test cases using {@link LoginActivity}.
  */
-abstract class AbstractLoginActivityTestCase extends AutoFillServiceTestCase {
-    @Rule
-    public final AutofillActivityTestRule<LoginActivity> mActivityRule =
-            new AutofillActivityTestRule<LoginActivity>(LoginActivity.class);
-
-    @Rule
-    public final AutofillActivityTestRule<CheckoutActivity> mCheckoutActivityRule =
-            new AutofillActivityTestRule<CheckoutActivity>(CheckoutActivity.class, false);
+public abstract class AbstractLoginActivityTestCase
+        extends AutoFillServiceTestCase.AutoActivityLaunch<LoginActivity> {
 
     protected LoginActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<LoginActivity> getActivityRule() {
+        return new AutofillActivityTestRule<LoginActivity>(
+                LoginActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     /**
      * Requests focus on username and expect Window event happens.
      */
     protected void requestFocusOnUsername() throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus));
     }
 
     /**
      * Requests focus on username and expect no Window event happens.
      */
     protected void requestFocusOnUsernameNoWindowChange() {
+        final AccessibilityEvent event;
         try {
-            // TODO: define a small value in Timeout
-            mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus),
-                    Timeouts.UI_TIMEOUT.ms());
+            event = mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus),
+                    Timeouts.WINDOW_CHANGE_NOT_GENERATED_NAPTIME_MS);
         } catch (TimeoutException ex) {
             // no window events! looking good
             return;
         }
         throw new IllegalStateException("Expect no window event when focusing to"
-                + " username, but event happened");
+                + " username, but event happened: " + event);
     }
 
     /**
      * Requests focus on password and expect Window event happens.
      */
     protected void requestFocusOnPassword() throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.onPassword(View::requestFocus),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> mActivity.onPassword(View::requestFocus));
     }
 
+    /**
+     * Clears focus from input fields by focusing on the parent layout.
+     */
+    protected void clearFocus() {
+        mActivity.clearFocus();
+    }
 }

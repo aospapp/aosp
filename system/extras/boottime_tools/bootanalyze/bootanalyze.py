@@ -250,23 +250,25 @@ def capture_bugreport(bugreport_hint, boot_complete_time):
 
 def generate_timing_points(timing_events, timings):
   timing_points = collections.OrderedDict()
+  monitor_contention_points = collections.OrderedDict()
   for k, l in timing_events.iteritems():
       for v in l:
-        name, time_v = extract_timing(v, timings)
+        name, time_v, dict = extract_timing(v, timings)
         if name and time_v:
           if v.find("SystemServerTimingAsync") > 0:
             name = "(" + name + ")"
+          if k.endswith("_secs"):
+            time_v = time_v * 1000.0
+          if k.startswith("long_monitor_contention"):
+            monitor_contention_points[v] = time_v
+            continue
           new_name = name
           name_index = 0
           while timing_points.get(new_name): # if the name is already taken, append #digit
             name_index += 1
             new_name = name + "#" + str(name_index)
-          name = new_name
-          if k.endswith("_secs"):
-            timing_points[name] = time_v * 1000.0
-          else:
-            timing_points[name] = time_v
-  return timing_points
+          timing_points[new_name] = time_v
+  return timing_points, monitor_contention_points
 
 def dump_timing_points(msg_header, timing_points):
     print msg_header + " event timing in time order, key: time"
@@ -280,6 +282,13 @@ def dump_timing_points(msg_header, timing_points):
       print '{0:30}: {1:<7.5}'.format(
         item[0], item[1])
     print "-----------------"
+
+def dump_monitor_contentions(logcat_monitor_contentions):
+  print "Monitor contentions over 100ms:"
+  for item in logcat_monitor_contentions.items():
+      if item[1] > 100:
+        print '{0:<7.5}ms: {1}'.format(item[1], item[0])
+  print "-----------------"
 
 def handle_reboot_log(capture_log_on_error, shutdown_events_pattern, components_to_monitor):
   shutdown_events, shutdown_timing_events = collect_logcat_for_shutdown(capture_log_on_error,\
@@ -300,7 +309,7 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
     # sleep to make sure that logcat reader is reading before adb is gone by reboot. ugly but make
     # impl simple.
     t = threading.Thread(target = lambda : (time.sleep(2), reboot(args.serial, args.stressfs != '',\
-        args.permissive, args.adb_reboot)))
+        args.permissive, args.adb_reboot, args.buffersize)))
     t.start()
     shutdown_events, shutdown_timing_events = handle_reboot_log(True, shutdown_events_pattern,\
         components_to_monitor)
@@ -350,7 +359,7 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
 
   if not logcat_event_time.get(KERNEL_TIME_KEY):
     print "kernel time not captured in logcat, cannot get time diff"
-    return None, None, None, None
+    return None, None, None, None, None, None
   diffs = []
   diffs.append((logcat_event_time[KERNEL_TIME_KEY], logcat_event_time[KERNEL_TIME_KEY]))
   if logcat_event_time.get(BOOT_ANIM_END_TIME_KEY) and dmesg_event_time.get(BOOT_ANIM_END_TIME_KEY):
@@ -360,9 +369,9 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
   if not dmesg_event_time.get(KERNEL_BOOT_COMPLETE):
       print "BootAnimEnd time or BootComplete-kernel not captured in both log" +\
         ", cannot get time diff"
-      return None, None, None, None
-  diffs.append((logcat_event_time[KERNEL_BOOT_COMPLETE],\
-                logcat_event_time[KERNEL_BOOT_COMPLETE] - dmesg_event_time[KERNEL_BOOT_COMPLETE]))
+      return None, None, None, None, None, None
+  diffs.append((logcat_event_time[LOGCAT_BOOT_COMPLETE],\
+                logcat_event_time[LOGCAT_BOOT_COMPLETE] - dmesg_event_time[KERNEL_BOOT_COMPLETE]))
 
   for k, v in logcat_event_time.iteritems():
     debug("event[{0}, {1}]".format(k, v))
@@ -398,10 +407,12 @@ def iterate(args, search_events_pattern, timings_pattern, shutdown_events_patter
   print "-----------------"
 
   if args.timings:
-    kernel_timing_points = generate_timing_points(kernel_timing_events, timings_pattern)
-    logcat_timing_points = generate_timing_points(logcat_timing_events, timings_pattern)
+    kernel_timing_points, _ = generate_timing_points(kernel_timing_events, timings_pattern)
+    logcat_timing_points, logcat_monitor_contentions =\
+      generate_timing_points(logcat_timing_events, timings_pattern)
     dump_timing_points("Kernel", kernel_timing_points)
     dump_timing_points("Logcat", logcat_timing_points)
+    dump_monitor_contentions(logcat_monitor_contentions)
 
   for item in sorted(events.items(), key=operator.itemgetter(1)):
     data_points[item[0]] = {
@@ -472,8 +483,8 @@ def extract_timing(s, patterns):
   for k, p in patterns.iteritems():
     m = p.search(s)
     if m:
-      g_dict = m.groupdict()
-      return g_dict['name'], float(g_dict['time'])
+      dict = m.groupdict()
+      return dict['name'], float(dict['time']), dict
   return None, None
 
 def init_arguments():
@@ -520,6 +531,9 @@ def init_arguments():
   parser.add_argument('-y', '--systrace', dest='systrace',
                       action='store_true',
                       help='collect systrace from the device. kernel trace should be already enabled', )
+  parser.add_argument('-G', '--buffersize', dest='buffersize', action='store', type=str,
+                      default=None,
+                      help='set logcat buffersize')
   return parser.parse_args()
 
 def handle_zygote_event(zygote_pids, events, event, line):
@@ -752,7 +766,7 @@ def do_reboot(serial, use_adb_reboot):
     retry += 1
   return False
 
-def reboot(serial, use_stressfs, permissive, use_adb_reboot):
+def reboot(serial, use_stressfs, permissive, use_adb_reboot, adb_buffersize=None):
   if use_stressfs:
     print 'Starting write to data partition'
     run_adb_shell_cmd('am start' +\
@@ -771,6 +785,11 @@ def reboot(serial, use_stressfs, permissive, use_adb_reboot):
 
   print 'Waiting the device'
   run_adb_cmd('wait-for-device')
+
+  if adb_buffersize is not None:
+    # increase the buffer size
+    if run_adb_cmd('logcat -G {}'.format(adb_buffersize)) != 0:
+      debug('Fail to set logcat buffer size as {}'.format(adb_buffersize))
 
 def run_adb_cmd(cmd):
   return subprocess.call(ADB_CMD + ' ' + cmd, shell=True)

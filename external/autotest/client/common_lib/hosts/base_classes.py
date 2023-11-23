@@ -437,12 +437,6 @@ class Host(object):
         pass
 
 
-    def machine_install(self):
-        """Install on the host.
-        """
-        raise NotImplementedError('Machine install not implemented!')
-
-
     def install(self, installableObject):
         """Call install on a thing.
 

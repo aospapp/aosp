@@ -3,6 +3,7 @@ cc_library_shared {
     defaults: ["hidl_defaults"],
     relative_install_path: "hw",
     vendor: true,
+    recovery_available: true,
     srcs: ["BootControl.cpp"],
 
     shared_libs: [

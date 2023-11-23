@@ -30,9 +30,15 @@ public class BlockCheckerAdapter {
      * @param context the context of the caller.
      * @param number the number to check.
      * @param extras the extra attribute of the number.
-     * @return {@code true} if the number is blocked. {@code false} otherwise.
+     * @return result code indicating if the number should be blocked, and if so why.
+     *         Valid values are: {@link android.provider.BlockedNumberContract#STATUS_NOT_BLOCKED},
+     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_IN_LIST},
+     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_NOT_IN_CONTACTS},
+     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_PAYPHONE},
+     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_RESTRICTED},
+     *         {@link android.provider.BlockedNumberContract#STATUS_BLOCKED_UNKNOWN_NUMBER}.
      */
-    public boolean isBlocked(Context context, String number, Bundle extras) {
-        return BlockChecker.isBlocked(context, number, extras);
+    public int getBlockStatus(Context context, String number, Bundle extras) {
+        return BlockChecker.getBlockStatus(context, number, extras);
     }
 }

@@ -21,20 +21,18 @@ java_library_static {
     // For the platform, compile everything except the carrier to phone number
     // which isn't used.
     java_resource_dirs: [
-        "libphonenumber/src",
-        "geocoder/src",
-        "internal/prefixmapper/src",
+        "repackaged/libphonenumber/src",
+        "repackaged/geocoder/src",
+        "repackaged/internal/prefixmapper/src",
     ],
 
     srcs: [
-        "libphonenumber/src/**/*.java",
-        "geocoder/src/**/*.java",
-        "internal/prefixmapper/src/**/*.java",
+        "repackaged/libphonenumber/src/**/*.java",
+        "repackaged/geocoder/src/**/*.java",
+        "repackaged/internal/prefixmapper/src/**/*.java",
     ],
-    jarjar_rules: "jarjar-rules.txt",
 
-    sdk_version: "core_current",
-    java_version: "1.7",
+    no_framework_libs: true,
 }
 
 
@@ -74,3 +72,29 @@ java_library_static {
     java_version: "1.7",
 }
 
+// Tests for unbundled use.
+// vogar --timeout 0  \
+//    --classpath out/target/common/obj/JAVA_LIBRARIES/libphonenumber-test_intermediates/classes.jack \
+//    com.google.i18n.phonenumbers
+java_library {
+    name: "libphonenumber_test",
+    srcs: [
+        "carrier/test/**/*.java",
+        "geocoder/test/**/*.java",
+        "internal/prefixmapper/test/**/*.java",
+        "libphonenumber/test/**/*.java",
+    ],
+
+    java_resource_dirs: [
+        "carrier/test",
+        "geocoder/test",
+        "libphonenumber/test",
+    ],
+
+    sdk_version: "current",
+    static_libs: [
+        "libphonenumber",
+        "junit",
+    ],
+    java_version: "1.7",
+}

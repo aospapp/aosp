@@ -546,9 +546,7 @@ static void loc_delete_aiding_data(GpsAidingData f)
 {
     ENTRY_LOG();
 
-#ifndef TARGET_BUILD_VARIANT_USER
     loc_eng_delete_aiding_data(loc_afw_data, f);
-#endif
 
     EXIT_LOG(%s, VOID_RET);
 }
@@ -1000,7 +998,7 @@ static inline int createSocket() {
         LOC_LOGE("create socket error. reason:%s", strerror(errno));
 
      } else {
-        const char* socketPath = "/data/misc/location/xtra/socket_hal_xtra";
+        const char* socketPath = "/data/vendor/location/xtra/socket_hal_xtra";
         struct sockaddr_un addr = { .sun_family = AF_UNIX };
         snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", socketPath);
 

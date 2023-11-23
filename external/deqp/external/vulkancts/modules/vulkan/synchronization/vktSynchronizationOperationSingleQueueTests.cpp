@@ -29,8 +29,11 @@
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
 #include "vkMemUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 #include "deUniquePtr.hpp"
 #include "tcuTestLog.hpp"
 #include "vktSynchronizationUtil.hpp"
@@ -231,6 +234,12 @@ public:
 			const VkImageMemoryBarrier barrier =  makeImageMemoryBarrier(writeSync.accessMask, readSync.accessMask,
 				writeSync.imageLayout, readSync.imageLayout, m_resource->getImage().handle, m_resource->getImage().subresourceRange);
 			vk.cmdPipelineBarrier(cmdBuffers[WRITE],  writeSync.stageMask, readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &barrier);
+		}
+		else
+		{
+			const VkBufferMemoryBarrier barrier = makeBufferMemoryBarrier(writeSync.accessMask, readSync.accessMask,
+				m_resource->getBuffer().handle, 0, VK_WHOLE_SIZE);
+			vk.cmdPipelineBarrier(cmdBuffers[WRITE],  writeSync.stageMask, readSync.stageMask, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 1u, &barrier, 0u, (const VkImageMemoryBarrier*)DE_NULL);
 		}
 
 		endCommandBuffer(vk, cmdBuffers[WRITE]);

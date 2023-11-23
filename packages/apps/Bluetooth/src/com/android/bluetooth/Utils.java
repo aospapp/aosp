@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.location.LocationManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.ParcelUuid;
@@ -38,6 +39,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -107,6 +110,24 @@ public final class Utils {
             sb.append(String.format("%02x", valueBuf[idx]));
         }
         return sb.toString();
+    }
+
+    /**
+     * A parser to transfer a byte array to a UTF8 string
+     *
+     * @param valueBuf the byte array to transfer
+     * @return the transferred UTF8 string
+     */
+    public static String byteArrayToUtf8String(byte[] valueBuf) {
+        CharsetDecoder decoder = Charset.forName("UTF8").newDecoder();
+        ByteBuffer byteBuffer = ByteBuffer.wrap(valueBuf);
+        String valueStr = "";
+        try {
+            valueStr = decoder.decode(byteBuffer).toString();
+        } catch (Exception ex) {
+            Log.e(TAG, "Error when parsing byte array to UTF8 String. " + ex);
+        }
+        return valueStr;
     }
 
     public static byte[] intToByteArray(int value) {
@@ -277,48 +298,107 @@ public final class Utils {
     }
 
     /**
-     * Checks that calling process has android.Manifest.permission.ACCESS_COARSE_LOCATION or
-     * android.Manifest.permission.ACCESS_FINE_LOCATION and a corresponding app op is allowed
+     * Checks whether location is off and must be on for us to perform some operation
      */
-    public static boolean checkCallerHasLocationPermission(Context context, AppOpsManager appOps,
-            String callingPackage) {
-        if (context.checkCallingOrSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED && isAppOppAllowed(
-                        appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+    public static boolean blockedByLocationOff(Context context, UserHandle userHandle) {
+        return !context.getSystemService(LocationManager.class)
+                .isLocationEnabledForUser(userHandle);
+    }
+
+    /**
+     * Checks that calling process has android.Manifest.permission.ACCESS_COARSE_LOCATION and
+     * OP_COARSE_LOCATION is allowed
+     */
+    public static boolean checkCallerHasCoarseLocation(Context context, AppOpsManager appOps,
+            String callingPackage, UserHandle userHandle) {
+        if (blockedByLocationOff(context, userHandle)) {
+            Log.e(TAG, "Permission denial: Location is off.");
+            return false;
+        }
+
+        // Check coarse, but note fine
+        if (context.checkCallingOrSelfPermission(
+                android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
             return true;
         }
 
-        if (context.checkCallingOrSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED && isAppOppAllowed(
-                        appOps, AppOpsManager.OP_COARSE_LOCATION, callingPackage)) {
-            return true;
-        }
-        // Enforce location permission for apps targeting M and later versions
-        if (isMApp(context, callingPackage)) {
-            // PEERS_MAC_ADDRESS is another way to get scan results without
-            // requiring location permissions, so only throw an exception here
-            // if PEERS_MAC_ADDRESS permission is missing as well
-            if (!checkCallerHasPeersMacAddressPermission(context)) {
-                throw new SecurityException("Need ACCESS_COARSE_LOCATION or "
-                        + "ACCESS_FINE_LOCATION permission to get scan results");
-            }
-        } else {
-            // Pre-M apps running in the foreground should continue getting scan results
-            if (isForegroundApp(context, callingPackage)) {
-                return true;
-            }
-            Log.e(TAG, "Permission denial: Need ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION "
-                    + "permission to get scan results");
-        }
+        Log.e(TAG, "Permission denial: Need ACCESS_COARSE_LOCATION "
+                + "permission to get scan results");
         return false;
     }
 
     /**
-     * Returns true if the caller holds PEERS_MAC_ADDRESS.
+     * Checks that calling process has android.Manifest.permission.ACCESS_COARSE_LOCATION and
+     * OP_COARSE_LOCATION is allowed or android.Manifest.permission.ACCESS_FINE_LOCATION and
+     * OP_FINE_LOCATION is allowed
      */
-    public static boolean checkCallerHasPeersMacAddressPermission(Context context) {
-        return context.checkCallingOrSelfPermission(android.Manifest.permission.PEERS_MAC_ADDRESS)
+    public static boolean checkCallerHasCoarseOrFineLocation(Context context, AppOpsManager appOps,
+            String callingPackage, UserHandle userHandle) {
+        if (blockedByLocationOff(context, userHandle)) {
+            Log.e(TAG, "Permission denial: Location is off.");
+            return false;
+        }
+
+        if (context.checkCallingOrSelfPermission(
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+            return true;
+        }
+
+        // Check coarse, but note fine
+        if (context.checkCallingOrSelfPermission(
+                android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+            return true;
+        }
+
+        Log.e(TAG, "Permission denial: Need ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION"
+                + "permission to get scan results");
+        return false;
+    }
+
+    /**
+     * Checks that calling process has android.Manifest.permission.ACCESS_FINE_LOCATION and
+     * OP_FINE_LOCATION is allowed
+     */
+    public static boolean checkCallerHasFineLocation(Context context, AppOpsManager appOps,
+            String callingPackage, UserHandle userHandle) {
+        if (blockedByLocationOff(context, userHandle)) {
+            Log.e(TAG, "Permission denial: Location is off.");
+            return false;
+        }
+
+        if (context.checkCallingOrSelfPermission(
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+            return true;
+        }
+
+        Log.e(TAG, "Permission denial: Need ACCESS_FINE_LOCATION "
+                + "permission to get scan results");
+        return false;
+    }
+
+    /**
+     * Returns true if the caller holds NETWORK_SETTINGS
+     */
+    public static boolean checkCallerHasNetworkSettingsPermission(Context context) {
+        return context.checkCallingOrSelfPermission(android.Manifest.permission.NETWORK_SETTINGS)
                 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Returns true if the caller holds NETWORK_SETUP_WIZARD
+     */
+    public static boolean checkCallerHasNetworkSetupWizardPermission(Context context) {
+        return context.checkCallingOrSelfPermission(
+                android.Manifest.permission.NETWORK_SETUP_WIZARD)
+                        == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean isLegacyForegroundApp(Context context, String pkgName) {
@@ -335,6 +415,15 @@ public final class Utils {
         return true;
     }
 
+    public static boolean isQApp(Context context, String pkgName) {
+        try {
+            return context.getPackageManager().getApplicationInfo(pkgName, 0).targetSdkVersion
+                    >= Build.VERSION_CODES.Q;
+        } catch (PackageManager.NameNotFoundException e) {
+            // In case of exception, assume Q app
+        }
+        return true;
+    }
     /**
      * Return true if the specified package name is a foreground app.
      *

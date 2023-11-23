@@ -18,6 +18,7 @@ package com.android.tradefed.util;
 
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.MultiLineReceiver;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,9 +26,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Set;
 
 /**
  * A {@link IShellOutputReceiver} that parses the output of a 'pm list instrumentation' query
@@ -44,8 +45,11 @@ public class ListInstrumentationParser extends MultiLineReceiver {
     // Instrumentation is shardable. A workaround is to have a list of shardable instrumentation
     // runners, and check if a target uses that particular runner, although this means that any
     // subclasses or other custom runner classes won't be acknowledged as shardable.
-    public static final Set<String> SHARDABLE_RUNNERS = new HashSet<>(Arrays.asList(
-                "android.support.test.runner.AndroidJUnitRunner"));
+    public static final Set<String> SHARDABLE_RUNNERS =
+            new HashSet<>(
+                    Arrays.asList(
+                            "android.support.test.runner.AndroidJUnitRunner",
+                            "androidx.test.runner.AndroidJUnitRunner"));
 
     private List<InstrumentationTarget> mInstrumentationTargets = new ArrayList<>();
 
@@ -131,6 +135,7 @@ public class ListInstrumentationParser extends MultiLineReceiver {
     @Override
     public void processNewLines(String[] lines) {
         for (String line : lines) {
+            CLog.d(line);
             Matcher m = LIST_INSTR_PATTERN.matcher(line);
             if (m.find()) {
                 mInstrumentationTargets.add(

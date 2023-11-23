@@ -179,7 +179,7 @@ bool InplaceSamplerClient::HandleMessage(const UnixSocketMessage& msg) {
     std::vector<uint64_t> ips(ip_nr);
     MoveFromBinaryFormat(ips.data(), ip_nr, p);
     // Don't know which cpu tid is running on, use cpu 0.
-    SampleRecord r(attr_, Id(), ips[0], pid_, tid, time, 0, period, ips);
+    SampleRecord r(attr_, Id(), ips[0], pid_, tid, time, 0, period, ips, {}, 0);
     if (!record_callback_(&r)) {
       return false;
     }

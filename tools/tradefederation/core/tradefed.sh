@@ -23,7 +23,12 @@ source "${shdir}/script_help.sh"
 # JAVA_VERSION, RDBG_FLAG, TF_PATH, TRADEFED_OPTS
 checkPath adb
 
+# Allow to specify another java entry point
+CONSOLE_CLASS="com.android.tradefed.command.Console"
+if [ ! -z "${ENTRY_CLASS}" ]; then
+  CONSOLE_CLASS=${ENTRY_CLASS}
+fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
-java $RDBG_FLAG -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow $TRADEFED_OPTS \
-  -cp "${TF_PATH}" -DTF_JAR_DIR=${TF_JAR_DIR} com.android.tradefed.command.Console "$@"
+exec java $RDBG_FLAG -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow $TRADEFED_OPTS \
+  -cp "${TF_PATH}" -DTF_JAR_DIR=${TF_JAR_DIR} $CONSOLE_CLASS "$@"

@@ -96,7 +96,7 @@ RsFile rsaFileA3DCreateFromFile(RsContext con, const char *path) {
     Context *rsc = static_cast<Context *>(con);
     FileA3D *fa3d = nullptr;
 
-    FILE *f = fopen(path, "rb");
+    FILE *f = fopen(path, "rbe");
     if (f) {
         fa3d = new FileA3D(rsc);
         fa3d->incUserRef();

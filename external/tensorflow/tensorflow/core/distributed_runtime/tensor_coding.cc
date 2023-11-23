@@ -68,20 +68,21 @@ Status TensorResponse::InitFrom(RecvTensorResponse* response) {
   return s;
 }
 
-void TensorResponse::InitPartial(const RecvTensorResponse& response) {
+void TensorResponse::InitPartial(const RecvTensorResponse& response,
+                                 const AllocationAttributes& allocation_attr) {
   // Everything except content is present in *response.  Content will
   // arrive later; allocate a Tensor with appropriate storage for that
   // content.
   meta_ = response;
   TensorShape shape(meta_.tensor().tensor_shape());
-  Tensor t(allocator_, meta_.tensor().dtype(), shape);
+  Tensor t(allocator_, meta_.tensor().dtype(), shape, allocation_attr);
   tensor_ = std::move(t);
 }
 
 Status TensorResponse::ParseFrom(Source* source) {
   if (!on_host_) {
     protobuf::io::CodedInputStream input(source->contents());
-    input.SetTotalBytesLimit(INT_MAX);  // Unlimited
+    input.SetTotalBytesLimit(INT_MAX, INT_MAX);  // Unlimited
 
     // Pre-parse into local storage, then delegate to device.
     if (!meta_.ParseFromCodedStream(&input) || !input.ConsumedEntireMessage()) {
@@ -217,7 +218,7 @@ bool TensorResponse::ParseTensorSubmessage(
 
 bool TensorResponse::ParseFast(Source* source) {
   protobuf::io::CodedInputStream input(source->contents());
-  input.SetTotalBytesLimit(INT_MAX);  // Unlimited
+  input.SetTotalBytesLimit(INT_MAX, INT_MAX);  // Unlimited
   while (true) {
     auto p = input.ReadTagWithCutoff(127);
     int tag = GetTagFieldNumber(p.first);

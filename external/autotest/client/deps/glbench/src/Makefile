@@ -28,23 +28,21 @@ SOURCES_GL_BENCH += readpixeltest.cc
 SOURCES_GL_BENCH += attributefetchtest.cc varyingsandddxytest.cc cleartest.cc
 SOURCES_GL_BENCH += texturetest.cc texturereusetest.cc textureupdatetest.cc
 SOURCES_GL_BENCH += textureuploadtest.cc trianglesetuptest.cc fillratetest.cc
-SOURCES_GL_BENCH += windowmanagercompositingtest.cc
-SOURCES_GL_BENCH += md5.cc png_helper.cc utils.cc waffle_stuff.cc
+SOURCES_GL_BENCH += windowmanagercompositingtest.cc drawsizetest.cc
+SOURCES_GL_BENCH += texturerebind.cc
+SOURCES_GL_BENCH += md5.cc png_helper.cc utils.cc waffle_stuff.cc filepath.cc
+SOURCES_GL_BENCH += bufferuploadtest.cc bufferuploadsubtest.cc
 
-SOURCES_WINDOWMANAGERTEST = windowmanagertest.cc utils.cc waffle_stuff.cc
+SOURCES_WINDOWMANAGERTEST = windowmanagertest.cc utils.cc waffle_stuff.cc filepath.cc
 
 PKG_CONFIG ?= pkg-config
-BASE_VER ?= 369476
-PC_DEPS = libchrome-$(BASE_VER) libpng
+PC_DEPS = libpng
 PC_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(PC_DEPS))
 PC_LIBS := $(shell $(PKG_CONFIG) --libs $(PC_DEPS))
 
 CXXFLAGS = -g -Wall -Werror -std=gnu++11
 CPPFLAGS += $(PC_CFLAGS)
 LDLIBS = $(PC_LIBS) -lgflags
-# To compile outside of chroot or with newest libchrome, use the following two lines:
-#CPPFLAGS += -I$(HOME)/chromium/src -DWORKAROUND_CROSBUG14304
-#LDLIBS += -lbase_static -L$(HOME)/chromium/src/out/Release/obj.target/base
 
 GL_BENCH = ../glbench
 WINDOWMANAGERTEST = ../windowmanagertest

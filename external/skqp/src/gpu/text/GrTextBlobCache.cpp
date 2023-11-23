@@ -9,8 +9,13 @@
 
 DECLARE_SKMESSAGEBUS_MESSAGE(GrTextBlobCache::PurgeBlobMessage)
 
+static inline bool SkShouldPostMessageToBus(
+        const GrTextBlobCache::PurgeBlobMessage& msg, uint32_t msgBusUniqueID) {
+    return msg.fContextID == msgBusUniqueID;
+}
+
 GrTextBlobCache::~GrTextBlobCache() {
-    SkDEBUGCODE(this->freeAll();)
+    this->freeAll();
 }
 
 void GrTextBlobCache::freeAll() {
@@ -22,14 +27,15 @@ void GrTextBlobCache::freeAll() {
 
     fBlobIDCache.reset();
 
+    fCurrentSize = 0;
+
     // There should be no allocations in the memory pool at this point
-    SkASSERT(fPool.isEmpty());
     SkASSERT(fBlobList.isEmpty());
 }
 
 void GrTextBlobCache::PostPurgeBlobMessage(uint32_t blobID, uint32_t cacheID) {
     SkASSERT(blobID != SK_InvalidGenID);
-    SkMessageBus<PurgeBlobMessage>::Post(PurgeBlobMessage({blobID}), cacheID);
+    SkMessageBus<PurgeBlobMessage>::Post(PurgeBlobMessage(blobID, cacheID));
 }
 
 void GrTextBlobCache::purgeStaleBlobs() {
@@ -37,7 +43,7 @@ void GrTextBlobCache::purgeStaleBlobs() {
     fPurgeBlobInbox.poll(&msgs);
 
     for (const auto& msg : msgs) {
-        auto* idEntry = fBlobIDCache.find(msg.fID);
+        auto* idEntry = fBlobIDCache.find(msg.fBlobID);
         if (!idEntry) {
             // no cache entries for id
             continue;
@@ -45,24 +51,25 @@ void GrTextBlobCache::purgeStaleBlobs() {
 
         // remove all blob entries from the LRU list
         for (const auto& blob : idEntry->fBlobs) {
+            fCurrentSize -= blob->size();
             fBlobList.remove(blob.get());
         }
 
         // drop the idEntry itself (unrefs all blobs)
-        fBlobIDCache.remove(msg.fID);
+        fBlobIDCache.remove(msg.fBlobID);
     }
 }
 
-void GrTextBlobCache::checkPurge(GrAtlasTextBlob* blob) {
+void GrTextBlobCache::checkPurge(GrTextBlob* blob) {
     // First, purge all stale blob IDs.
     this->purgeStaleBlobs();
 
     // If we are still over budget, then unref until we are below budget again
-    if (fPool.size() > fBudget) {
+    if (fCurrentSize > fSizeBudget) {
         BitmapBlobList::Iter iter;
         iter.init(fBlobList, BitmapBlobList::Iter::kTail_IterStart);
-        GrAtlasTextBlob* lruBlob = nullptr;
-        while (fPool.size() > fBudget && (lruBlob = iter.get()) && lruBlob != blob) {
+        GrTextBlob* lruBlob = nullptr;
+        while (fCurrentSize > fSizeBudget && (lruBlob = iter.get()) && lruBlob != blob) {
             // Backup the iterator before removing and unrefing the blob
             iter.prev();
 
@@ -77,7 +84,7 @@ void GrTextBlobCache::checkPurge(GrAtlasTextBlob* blob) {
         }
 
 #ifdef SPEW_BUDGET_MESSAGE
-        if (fPool.size() > fBudget) {
+        if (fCurrentSize > fSizeBudget) {
             SkDebugf("Single textblob is larger than our whole budget");
         }
 #endif

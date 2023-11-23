@@ -3,7 +3,7 @@
  * Universitaet Berlin.  See the accompanying file "COPYRIGHT" for
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
- 
+
 /*
  * common code to sweet.c and bitter.c
  */

@@ -24,6 +24,7 @@ import android.os.Parcelable;
 import android.util.JsonWriter;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
+
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -35,7 +36,7 @@ import java.util.Objects;
  * @hide
  */
 @SystemApi
-public class CarDiagnosticEvent implements Parcelable {
+public final class CarDiagnosticEvent implements Parcelable {
     /** Whether this frame represents a live or a freeze frame */
     public final int frameType;
 
@@ -213,26 +214,84 @@ public class CarDiagnosticEvent implements Parcelable {
             return new Builder(CarDiagnosticManager.FRAME_TYPE_FREEZE);
         }
 
-        /** Sets the timestamp for the frame being built */
+        /**
+         * Sets the timestamp for the frame being built
+         * @deprecated Use {@link Builder#setTimeStamp(long)} instead.
+         */
+        @Deprecated
         public Builder atTimestamp(long timestamp) {
             mTimestamp = timestamp;
             return this;
         }
 
-        /** Adds an integer-valued sensor to the frame being built */
+        /**
+         * Sets the timestamp for the frame being built
+         * @param timeStamp timeStamp for CarDiagnosticEvent
+         * @return Builder
+         */
+        public Builder setTimeStamp(long timeStamp) {
+            mTimestamp = timeStamp;
+            return this;
+        }
+
+        /**
+         * Adds an integer-valued sensor to the frame being built
+         * @deprecated Use {@link Builder#setIntValue(int, int)} instead.
+         */
+        @Deprecated
         public Builder withIntValue(int key, int value) {
             mIntValues.put(key, value);
             return this;
         }
 
-        /** Adds a float-valued sensor to the frame being built */
+        /**
+         * Adds an integer-valued sensor to the frame being built
+         * @param key key of integer value
+         * @param value int value
+         * @return Builder
+         */
+        public Builder setIntValue(int key, int value) {
+            mIntValues.put(key, value);
+            return this;
+        }
+
+        /**
+         * Adds a float-valued sensor to the frame being built
+         * @deprecated Use {@link Builder#setFloatValue(int, float)} instead.
+         */
+        @Deprecated
         public Builder withFloatValue(int key, float value) {
             mFloatValues.put(key, value);
             return this;
         }
 
-        /** Sets the DTC for the frame being built */
+        /**
+         * Adds a float-valued sensor to the frame being built
+         * @param key key of float value
+         * @param value float value
+         * @return Builder
+         */
+        public Builder setFloatValue(int key, float value) {
+            mFloatValues.put(key, value);
+            return this;
+        }
+
+        /**
+         * Sets the DTC for the frame being built
+         * @deprecated Use {@link Builder#setDtc(String)} instead.
+         */
+        @Deprecated
         public Builder withDtc(String dtc) {
+            mDtc = dtc;
+            return this;
+        }
+
+        /**
+         * Sets the DTC for the frame being built
+         * @param dtc string value of CarDiagnosticEvent
+         * @return Builder
+         */
+        public Builder setDtc(String dtc) {
             mDtc = dtc;
             return this;
         }
@@ -483,6 +542,7 @@ public class CarDiagnosticEvent implements Parcelable {
         public static final int CLOSED_LOOP_BUT_FEEDBACK_FAULT = 16;
 
         @Retention(RetentionPolicy.SOURCE)
+        /** @hide */
         @IntDef({
             OPEN_INSUFFICIENT_ENGINE_TEMPERATURE,
             CLOSED_LOOP,
@@ -507,6 +567,7 @@ public class CarDiagnosticEvent implements Parcelable {
         public static final int PUMP_ON_FOR_DIAGNOSTICS = 8;
 
         @Retention(RetentionPolicy.SOURCE)
+        /** @hide */
         @IntDef({
             UPSTREAM,
             DOWNSTREAM_OF_CATALYCIC_CONVERTER,
@@ -550,6 +611,7 @@ public class CarDiagnosticEvent implements Parcelable {
         public static final int BIFUEL_RUNNING_DIESEL = 23;
 
         @Retention(RetentionPolicy.SOURCE)
+        /** @hide */
         @IntDef({
             NOT_AVAILABLE,
             GASOLINE,

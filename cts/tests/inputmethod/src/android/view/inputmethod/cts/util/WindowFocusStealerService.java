@@ -25,11 +25,12 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.ResultReceiver;
+import android.view.WindowManager;
+import android.widget.TextView;
+
 import androidx.annotation.BinderThread;
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
-import android.view.WindowManager;
-import android.widget.TextView;
 
 public final class WindowFocusStealerService extends Service {
 

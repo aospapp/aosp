@@ -16,12 +16,16 @@
 package android.appsecurity.cts;
 
 import android.platform.test.annotations.AppModeFull;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
+import android.platform.test.annotations.AppModeInstant;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-@AppModeFull // TODO: Needs porting to instant
-public class IsolatedSplitsTests extends DeviceTestCase implements IBuildReceiver {
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class IsolatedSplitsTests extends BaseAppSecurityTest {
     private static final String PKG = "com.android.cts.isolatedsplitapp";
     private static final String TEST_CLASS = PKG + ".SplitAppTest";
 
@@ -40,68 +44,129 @@ public class IsolatedSplitsTests extends DeviceTestCase implements IBuildReceive
     private static final String APK_FEATURE_C = "CtsIsolatedSplitAppFeatureC.apk";
     private static final String APK_FEATURE_C_pl = "CtsIsolatedSplitAppFeatureC_pl.apk";
 
-    private IBuildInfo mBuildInfo;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         Utils.prepareSingleUser(getDevice());
         getDevice().uninstallPackage(PKG);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(PKG);
     }
 
-    public void testInstallBase() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).run();
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallBase_full() throws Exception {
+        testInstallBase(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallBase_instant() throws Exception {
+        testInstallBase(true);
+    }
+    private void testInstallBase(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadDefault");
     }
 
-    public void testInstallBaseAndConfigSplit() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_BASE_pl).run();
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallBaseAndConfigSplit_full() throws Exception {
+        testInstallBaseAndConfigSplit(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallBaseAndConfigSplit_instant() throws Exception {
+        testInstallBaseAndConfigSplit(true);
+    }
+    private void testInstallBaseAndConfigSplit(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_BASE_pl).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadPolishLocale");
     }
 
-    public void testInstallMissingDependency() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_B).runExpectingFailure();
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallMissingDependency_full() throws Exception {
+        testInstallMissingDependency(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallMissingDependency_instant() throws Exception {
+        testInstallMissingDependency(true);
+    }
+    private void testInstallMissingDependency(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_B).runExpectingFailure();
     }
 
-    public void testInstallOneFeatureSplit() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).run();
+    @Test
+    @AppModeFull(reason = "b/109878606; instant applications can't send broadcasts to manifest receivers")
+    public void testInstallOneFeatureSplit_full() throws Exception {
+        testInstallOneFeatureSplit(false);
+    }
+    private void testInstallOneFeatureSplit(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_A).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureADefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureAReceivers");
     }
 
-    public void testInstallOneFeatureSplitAndConfigSplits() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_BASE_pl)
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallOneFeatureSplitAndConfigSplits_full() throws Exception {
+        testInstallOneFeatureSplitAndConfigSplits(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallOneFeatureSplitAndConfigSplits_instant() throws Exception {
+        testInstallOneFeatureSplitAndConfigSplits(true);
+    }
+    private void testInstallOneFeatureSplitAndConfigSplits(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_BASE_pl)
                 .addApk(APK_FEATURE_A_pl).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadPolishLocale");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureAPolishLocale");
     }
 
-    public void testInstallDependentFeatureSplits() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B).run();
+    @Test
+    @AppModeFull(reason = "b/109878606; instant applications can't send broadcasts to manifest receivers")
+    public void testInstallDependentFeatureSplits_full() throws Exception {
+        testInstallDependentFeatureSplits(false);
+    }
+    private void testInstallDependentFeatureSplits(boolean instant) throws Exception {
+        new InstallMultiple(instant)
+                .addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureADefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureBDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureAAndBReceivers");
     }
 
-    public void testInstallDependentFeatureSplitsAndConfigSplits() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallDependentFeatureSplitsAndConfigSplits_full() throws Exception {
+        testInstallDependentFeatureSplitsAndConfigSplits(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallDependentFeatureSplitsAndConfigSplits_instant() throws Exception {
+        testInstallDependentFeatureSplitsAndConfigSplits(true);
+    }
+    private void testInstallDependentFeatureSplitsAndConfigSplits(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
                 .addApk(APK_BASE_pl).addApk(APK_FEATURE_A_pl).addApk(APK_FEATURE_B_pl).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadPolishLocale");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureAPolishLocale");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureBPolishLocale");
     }
 
-    public void testInstallAllFeatureSplits() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
+    @Test
+    @AppModeFull(reason = "b/109878606; instant applications can't send broadcasts to manifest receivers")
+    public void testInstallAllFeatureSplits_full() throws Exception {
+        testInstallAllFeatureSplits(false);
+    }
+    private void testInstallAllFeatureSplits(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
                 .addApk(APK_FEATURE_C).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureADefault");
@@ -110,24 +175,23 @@ public class IsolatedSplitsTests extends DeviceTestCase implements IBuildReceive
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureAAndBAndCReceivers");
     }
 
-    public void testInstallAllFeatureSplitsAndConfigSplits() throws Exception {
-        new InstallMultiple().addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallAllFeatureSplitsAndConfigSplits_full() throws Exception {
+        testInstallAllFeatureSplitsAndConfigSplits(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallAllFeatureSplitsAndConfigSplits_instant() throws Exception {
+        testInstallAllFeatureSplitsAndConfigSplits(true);
+    }
+    private void testInstallAllFeatureSplitsAndConfigSplits(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B)
                 .addApk(APK_FEATURE_C).addApk(APK_BASE_pl).addApk(APK_FEATURE_A_pl)
                 .addApk(APK_FEATURE_C_pl).run();
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureADefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureBDefault");
         Utils.runDeviceTests(getDevice(), PKG, TEST_CLASS, "shouldLoadFeatureCDefault");
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-    }
-
-    private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
-        public InstallMultiple() {
-            super(getDevice(), mBuildInfo, null);
-        }
     }
 }

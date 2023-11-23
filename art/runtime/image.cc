@@ -16,6 +16,9 @@
 
 #include "image.h"
 
+#include <lz4.h>
+#include <sstream>
+
 #include "base/bit_utils.h"
 #include "base/length_prefixed_array.h"
 #include "base/utils.h"
@@ -26,9 +29,11 @@
 namespace art {
 
 const uint8_t ImageHeader::kImageMagic[] = { 'a', 'r', 't', '\n' };
-const uint8_t ImageHeader::kImageVersion[] = { '0', '5', '6', '\0' };  // ReachabilityFence.
+const uint8_t ImageHeader::kImageVersion[] = { '0', '7', '4', '\0' };  // CRC32UpdateBB intrinsic
 
-ImageHeader::ImageHeader(uint32_t image_begin,
+ImageHeader::ImageHeader(uint32_t image_reservation_size,
+                         uint32_t component_count,
+                         uint32_t image_begin,
                          uint32_t image_size,
                          ImageSection* sections,
                          uint32_t image_roots,
@@ -39,15 +44,12 @@ ImageHeader::ImageHeader(uint32_t image_begin,
                          uint32_t oat_file_end,
                          uint32_t boot_image_begin,
                          uint32_t boot_image_size,
-                         uint32_t boot_oat_begin,
-                         uint32_t boot_oat_size,
-                         uint32_t pointer_size,
-                         bool compile_pic,
-                         bool is_pic,
-                         StorageMode storage_mode,
-                         size_t data_size)
-  : image_begin_(image_begin),
+                         uint32_t pointer_size)
+  : image_reservation_size_(image_reservation_size),
+    component_count_(component_count),
+    image_begin_(image_begin),
     image_size_(image_size),
+    image_checksum_(0u),
     oat_checksum_(oat_checksum),
     oat_file_begin_(oat_file_begin),
     oat_data_begin_(oat_data_begin),
@@ -55,15 +57,8 @@ ImageHeader::ImageHeader(uint32_t image_begin,
     oat_file_end_(oat_file_end),
     boot_image_begin_(boot_image_begin),
     boot_image_size_(boot_image_size),
-    boot_oat_begin_(boot_oat_begin),
-    boot_oat_size_(boot_oat_size),
-    patch_delta_(0),
     image_roots_(image_roots),
-    pointer_size_(pointer_size),
-    compile_pic_(compile_pic),
-    is_pic_(is_pic),
-    storage_mode_(storage_mode),
-    data_size_(data_size) {
+    pointer_size_(pointer_size) {
   CHECK_EQ(image_begin, RoundUp(image_begin, kPageSize));
   CHECK_EQ(oat_file_begin, RoundUp(oat_file_begin, kPageSize));
   CHECK_EQ(oat_data_begin, RoundUp(oat_data_begin, kPageSize));
@@ -77,23 +72,22 @@ ImageHeader::ImageHeader(uint32_t image_begin,
   std::copy_n(sections, kSectionCount, sections_);
 }
 
-void ImageHeader::RelocateImage(off_t delta) {
+void ImageHeader::RelocateImage(int64_t delta) {
   CHECK_ALIGNED(delta, kPageSize) << " patch delta must be page aligned";
   oat_file_begin_ += delta;
   oat_data_begin_ += delta;
   oat_data_end_ += delta;
   oat_file_end_ += delta;
-  patch_delta_ += delta;
   RelocateImageObjects(delta);
   RelocateImageMethods(delta);
 }
 
-void ImageHeader::RelocateImageObjects(off_t delta) {
+void ImageHeader::RelocateImageObjects(int64_t delta) {
   image_begin_ += delta;
   image_roots_ += delta;
 }
 
-void ImageHeader::RelocateImageMethods(off_t delta) {
+void ImageHeader::RelocateImageMethods(int64_t delta) {
   for (size_t i = 0; i < kImageMethodsCount; ++i) {
     image_methods_[i] += delta;
   }
@@ -104,6 +98,9 @@ bool ImageHeader::IsValid() const {
     return false;
   }
   if (memcmp(version_, kImageVersion, sizeof(kImageVersion)) != 0) {
+    return false;
+  }
+  if (!IsAligned<kPageSize>(image_reservation_size_)) {
     return false;
   }
   // Unsigned so wraparound is well defined.
@@ -119,9 +116,6 @@ bool ImageHeader::IsValid() const {
   if (oat_file_begin_ >= oat_data_begin_) {
     return false;
   }
-  if (!IsAligned<kPageSize>(patch_delta_)) {
-    return false;
-  }
   return true;
 }
 
@@ -133,11 +127,6 @@ const char* ImageHeader::GetMagic() const {
 ArtMethod* ImageHeader::GetImageMethod(ImageMethod index) const {
   CHECK_LT(static_cast<size_t>(index), kImageMethodsCount);
   return reinterpret_cast<ArtMethod*>(image_methods_[index]);
-}
-
-void ImageHeader::SetImageMethod(ImageMethod index, ArtMethod* method) {
-  CHECK_LT(static_cast<size_t>(index), kImageMethodsCount);
-  image_methods_[index] = reinterpret_cast<uint64_t>(method);
 }
 
 std::ostream& operator<<(std::ostream& os, const ImageSection& section) {
@@ -157,40 +146,38 @@ void ImageHeader::VisitObjects(ObjectVisitor* visitor,
   }
 }
 
-void ImageHeader::VisitPackedArtFields(ArtFieldVisitor* visitor, uint8_t* base) const {
-  const ImageSection& fields = GetFieldsSection();
-  for (size_t pos = 0; pos < fields.Size(); ) {
-    auto* array = reinterpret_cast<LengthPrefixedArray<ArtField>*>(base + fields.Offset() + pos);
-    for (size_t i = 0; i < array->size(); ++i) {
-      visitor->Visit(&array->At(i, sizeof(ArtField)));
-    }
-    pos += array->ComputeSize(array->size());
-  }
-}
-
-void ImageHeader::VisitPackedArtMethods(ArtMethodVisitor* visitor,
-                                        uint8_t* base,
-                                        PointerSize pointer_size) const {
-  const size_t method_alignment = ArtMethod::Alignment(pointer_size);
-  const size_t method_size = ArtMethod::Size(pointer_size);
-  const ImageSection& methods = GetMethodsSection();
-  for (size_t pos = 0; pos < methods.Size(); ) {
-    auto* array = reinterpret_cast<LengthPrefixedArray<ArtMethod>*>(base + methods.Offset() + pos);
-    for (size_t i = 0; i < array->size(); ++i) {
-      visitor->Visit(&array->At(i, method_size, method_alignment));
-    }
-    pos += array->ComputeSize(array->size(), method_size, method_alignment);
-  }
-  const ImageSection& runtime_methods = GetRuntimeMethodsSection();
-  for (size_t pos = 0; pos < runtime_methods.Size(); ) {
-    auto* method = reinterpret_cast<ArtMethod*>(base + runtime_methods.Offset() + pos);
-    visitor->Visit(method);
-    pos += method_size;
-  }
-}
-
 PointerSize ImageHeader::GetPointerSize() const {
   return ConvertToPointerSize(pointer_size_);
+}
+
+bool ImageHeader::Block::Decompress(uint8_t* out_ptr,
+                                    const uint8_t* in_ptr,
+                                    std::string* error_msg) const {
+  switch (storage_mode_) {
+    case kStorageModeUncompressed: {
+      CHECK_EQ(image_size_, data_size_);
+      memcpy(out_ptr + image_offset_, in_ptr + data_offset_, data_size_);
+      break;
+    }
+    case kStorageModeLZ4:
+    case kStorageModeLZ4HC: {
+      // LZ4HC and LZ4 have same internal format, both use LZ4_decompress.
+      const size_t decompressed_size = LZ4_decompress_safe(
+          reinterpret_cast<const char*>(in_ptr) + data_offset_,
+          reinterpret_cast<char*>(out_ptr) + image_offset_,
+          data_size_,
+          image_size_);
+      CHECK_EQ(decompressed_size, image_size_);
+      break;
+    }
+    default: {
+      if (error_msg != nullptr) {
+        *error_msg = (std::ostringstream() << "Invalid image format " << storage_mode_).str();
+      }
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace art

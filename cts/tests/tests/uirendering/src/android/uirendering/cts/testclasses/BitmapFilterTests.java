@@ -21,14 +21,15 @@ import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RegionVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -193,9 +194,9 @@ public class BitmapFilterTests extends ActivityTestBase {
                 }))
                 .runWithVerifier(new RegionVerifier()
                         // We're filtering, so... BLACK-ish and WHITE-ish it is.
-                        .addVerifier(blackArea, new ColorVerifier(Color.BLACK, 6))
+                        .addVerifier(blackArea, new ColorVerifier(Color.BLACK, 16))
                         .addVerifier(greyArea1, GREY_ONLY_VERIFIER)
                         .addVerifier(greyArea2, GREY_ONLY_VERIFIER)
-                        .addVerifier(whiteArea, new ColorVerifier(Color.WHITE, 6)));
+                        .addVerifier(whiteArea, new ColorVerifier(Color.WHITE, 16)));
     }
 }

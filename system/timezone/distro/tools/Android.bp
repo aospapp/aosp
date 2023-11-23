@@ -12,13 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Library of tools classes for creating / interpreting time zone distros.
-// Used when generating distros and in host-side tests.
-java_library_static {
-    name: "time_zone_distro_tools",
-    host_supported: true,
+// The tool used to create time zone distro.zip files.
+java_library_host {
+    name: "create_time_zone_distro",
 
     srcs: ["src/main/**/*.java"],
+    libs: [
+        "time_zone_distro",
+    ],
+}
+
+// Code that can build a time zone distro.zip. Used in tests.
+java_library {
+    name: "time_zone_distro_builder",
+    host_supported: true,
+
+    srcs: ["src/main/**/builder/*.java"],
     libs: [
         "time_zone_distro",
     ],

@@ -23,7 +23,7 @@
     </application>
 
     <!-- This is a self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.calendarcommon2.cts"
                      android:label="CTS tests of calendarcommon">
         <meta-data android:name="listener"

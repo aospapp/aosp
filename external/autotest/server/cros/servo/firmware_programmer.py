@@ -24,7 +24,7 @@ from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
 
 
 # Number of seconds for program EC/BIOS to time out.
-FIRMWARE_PROGRAM_TIMEOUT_SEC = 600
+FIRMWARE_PROGRAM_TIMEOUT_SEC = 900
 
 class ProgrammerError(Exception):
     """Local exception class wrapper."""
@@ -154,7 +154,7 @@ class FlashromProgrammer(_BaseProgrammer):
 
             servo_v2_programmer = 'ft2232_spi:type=servo-v2'
             servo_v3_programmer = 'linux_spi'
-            servo_v4_with_micro_programmer = 'raiden_spi'
+            servo_v4_with_micro_programmer = 'raiden_debug_spi'
             servo_v4_with_ccd_programmer = 'raiden_debug_spi:target=AP'
             if self._servo_version == 'servo_v2':
                 programmer = servo_v2_programmer
@@ -168,7 +168,7 @@ class FlashromProgrammer(_BaseProgrammer):
                 # firmware programmer will always use the uServo to program.
                 servo_micro_serial = self._servo_serials.get('servo_micro')
                 programmer = servo_v4_with_micro_programmer
-                programmer += ',serial=%s' % servo_micro_serial
+                programmer += ':serial=%s' % servo_micro_serial
             elif self._servo_version == 'servo_v4_with_ccd_cr50':
                 ccd_serial = self._servo_serials.get('ccd')
                 programmer = servo_v4_with_ccd_programmer
@@ -270,8 +270,10 @@ class FlashECProgrammer(_BaseProgrammer):
         port = self._servo._servo_host.servo_port
         self._program_cmd = ('flash_ec --chip=%s --image=%s --port=%d' %
                              (self._ec_chip, image, port))
-        if self._servo_version == 'servo_v4_with_ccd_cr50':
-            self._program_cmd += ' --raiden'
+        if self._ec_chip == 'stm32':
+            self._program_cmd += ' --bitbang_rate=57600'
+        self._program_cmd += ' --verify'
+        self._program_cmd += ' --verbose'
 
 
 class ProgrammerV2(object):
@@ -498,43 +500,3 @@ class ProgrammerV3RwOnly(ProgrammerV3):
         """
         # Do nothing. EC software sync will update the EC RW.
         pass
-
-
-class ProgrammerDfu(object):
-    """Main programmer class which provides programmer for Base EC via DFU.
-
-    It programs through the DUT, i.e. running the flash_ec script on DUT
-    instead of running it in beaglebone (a host of the servo board).
-    It is independent of the version of servo board as long as the servo
-    board has the ec_boot_mode interface.
-
-    """
-
-    def __init__(self, servo, cros_host):
-        self._servo = servo
-        self._cros_host = cros_host
-        # Get the chip name of the base EC and append '_dfu' to it, like
-        # 'stm32' -> 'stm32_dfu'.
-        ec_chip = servo.get(servo.get_base_board() + '_ec_chip') + '_dfu'
-        self._ec_programmer = FlashECProgrammer(servo, cros_host, ec_chip)
-
-
-    def program_ec(self, image):
-        """Programs the DUT with provide ec image.
-
-        @param image: (required) location of ec image file.
-
-        """
-        self._ec_programmer.prepare_programmer(image)
-        ec_boot_mode = self._servo.get_base_board() + '_ec_boot_mode'
-        try:
-            self._servo.set(ec_boot_mode, 'on')
-            # Power cycle the base to enter DFU mode
-            self._cros_host.run('ectool gpioset PP3300_DX_BASE 0')
-            self._cros_host.run('ectool gpioset PP3300_DX_BASE 1')
-            self._ec_programmer.program()
-        finally:
-            self._servo.set(ec_boot_mode, 'off')
-            # Power cycle the base to back normal mode
-            self._cros_host.run('ectool gpioset PP3300_DX_BASE 0')
-            self._cros_host.run('ectool gpioset PP3300_DX_BASE 1')

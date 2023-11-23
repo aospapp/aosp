@@ -17,13 +17,13 @@
 #define LOG_TAG "IcuUtilities"
 
 #include <android/log.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedUtfChars.h>
 
 #include "IcuUtilities.h"
 
+#include "JniConstants.h"
 #include "JniException.h"
 #include "unicode/strenum.h"
 #include "unicode/ustring.h"
@@ -39,7 +39,7 @@ jobjectArray fromStringEnumeration(JNIEnv* env, UErrorCode& status, const char* 
     return NULL;
   }
 
-  jobjectArray result = env->NewObjectArray(count, JniConstants::stringClass, NULL);
+  jobjectArray result = env->NewObjectArray(count, JniConstants::GetStringClass(env), NULL);
   for (int32_t i = 0; i < count; ++i) {
     const icu::UnicodeString* string = se->snext(status);
     if (maybeThrowIcuException(env, "StringEnumeration::snext", status)) {

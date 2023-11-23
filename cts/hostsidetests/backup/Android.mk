@@ -25,7 +25,7 @@ LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests
 
 LOCAL_MODULE := CtsBackupHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util truth-prebuilt
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

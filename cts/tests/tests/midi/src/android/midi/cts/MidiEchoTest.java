@@ -29,7 +29,10 @@ import android.media.midi.MidiInputPort;
 import android.media.midi.MidiReceiver;
 import android.media.midi.MidiSender;
 import android.os.Bundle;
+import android.util.Log;
 import android.test.AndroidTestCase;
+
+import com.android.midi.MidiEchoTestService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,8 +42,9 @@ import java.util.Random;
  * Test MIDI using a virtual MIDI device that echos input to output.
  */
 public class MidiEchoTest extends AndroidTestCase {
-    public static final String TEST_MANUFACTURER = "AndroidCTS";
-    public static final String ECHO_PRODUCT = "MidiEcho";
+    private static final String TAG = "MidiEchoTest";
+    private static final boolean DEBUG = false;
+
     // I am overloading the timestamp for some tests. It is passed
     // directly through the Echo server unchanged.
     // The high 32-bits has a recognizable value.
@@ -150,41 +154,20 @@ public class MidiEchoTest extends AndroidTestCase {
         super.tearDown();
     }
 
-    // Search through the available devices for the ECHO loop-back device.
-    protected MidiDeviceInfo findEchoDevice() {
-        MidiManager midiManager = (MidiManager) mContext.getSystemService(
-                Context.MIDI_SERVICE);
-        MidiDeviceInfo[] infos = midiManager.getDevices();
-        MidiDeviceInfo echoInfo = null;
-        for (MidiDeviceInfo info : infos) {
-            Bundle properties = info.getProperties();
-            String manufacturer = (String) properties.get(
-                    MidiDeviceInfo.PROPERTY_MANUFACTURER);
-
-            if (TEST_MANUFACTURER.equals(manufacturer)) {
-                String product = (String) properties.get(
-                        MidiDeviceInfo.PROPERTY_PRODUCT);
-                if (ECHO_PRODUCT.equals(product)) {
-                    echoInfo = info;
-                    break;
-                }
-            }
-        }
-        assertTrue("could not find " + ECHO_PRODUCT, echoInfo != null);
-        return echoInfo;
-    }
-
     protected MidiTestContext setUpEchoServer() throws Exception {
+        if (DEBUG) {
+            Log.i(TAG, "setUpEchoServer()");
+        }
         MidiManager midiManager = (MidiManager) mContext.getSystemService(
                 Context.MIDI_SERVICE);
 
-        MidiDeviceInfo echoInfo = findEchoDevice();
+        MidiDeviceInfo echoInfo = MidiEchoTestService.findEchoDevice(mContext);
 
         // Open device.
         MyTestOpenCallback callback = new MyTestOpenCallback();
         midiManager.openDevice(echoInfo, callback, null);
         MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
-        assertTrue("could not open " + ECHO_PRODUCT, echoDevice != null);
+        assertTrue("could not open " + MidiEchoTestService.getEchoServerName(), echoDevice != null);
 
         // Query echo service directly to see if it is getting status updates.
         MidiEchoTestService echoService = MidiEchoTestService.getInstance();
@@ -547,13 +530,13 @@ public class MidiEchoTest extends AndroidTestCase {
         MidiManager midiManager = (MidiManager) mContext.getSystemService(
                 Context.MIDI_SERVICE);
 
-        MidiDeviceInfo echoInfo = findEchoDevice();
+        MidiDeviceInfo echoInfo = MidiEchoTestService.findEchoDevice(mContext);
 
         // Open device.
         MyTestOpenCallback callback = new MyTestOpenCallback();
         midiManager.openDevice(echoInfo, callback, null);
         MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
-        assertTrue("could not open " + ECHO_PRODUCT, echoDevice != null);
+        assertTrue("could not open " + MidiEchoTestService.getEchoServerName(), echoDevice != null);
         MyDeviceCallback deviceCallback = new MyDeviceCallback(echoInfo);
         try {
 

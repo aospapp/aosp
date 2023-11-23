@@ -23,7 +23,6 @@ DOC = """This is a suite job that ultimately provisions a number of DUTs.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
@@ -31,6 +30,5 @@ args_dict['max_runtime_mins'] = 20
 args_dict['name'] = 'provision'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 
 dynamic_suite.run_provision_suite(**args_dict)

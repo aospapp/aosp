@@ -30,8 +30,15 @@
 #include "osi/include/future.h"
 #include "stack/include/btm_ble_api.h"
 
-const bt_event_mask_t BLE_EVENT_MASK = {
-    {0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x1E, 0x7f}};
+const bt_event_mask_t BLE_EVENT_MASK = {{0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+#if (BLE_PRIVACY_SPT == TRUE)
+                                         0x1E,
+#else
+                                         /* Disable "LE Enhanced Connection
+                                            Complete" when privacy is off */
+                                         0x1C,
+#endif
+                                         0x7f}};
 
 const bt_event_mask_t CLASSIC_EVENT_MASK = {HCI_DUMO_EVENT_MASK_EXT};
 
@@ -262,6 +269,10 @@ static future_t* start_up(void) {
         AWAIT_COMMAND(packet_factory->make_read_local_supported_codecs());
     packet_parser->parse_read_local_supported_codecs_response(
         response, &number_of_local_supported_codecs, local_supported_codecs);
+  }
+
+  if (!HCI_READ_ENCR_KEY_SIZE_SUPPORTED(supported_commands)) {
+    LOG(FATAL) << " Controller must support Read Encryption Key Size command";
   }
 
   readable = true;

@@ -25,7 +25,6 @@ extern const size_t kMagicLength;
 // |patch|         IN  The input patch.
 // |patch_length|  IN  The length of the patch.
 // |max_cache_size|IN  The maximum amount of memory to cache puff buffers.
-PUFFIN_EXPORT
 bool PuffPatch(UniqueStreamPtr src,
                UniqueStreamPtr dst,
                const uint8_t* patch,

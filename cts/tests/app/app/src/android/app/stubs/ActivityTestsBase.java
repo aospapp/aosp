@@ -38,6 +38,7 @@ public class ActivityTestsBase extends AndroidTestCase implements PerformanceTes
     private boolean mFinished;
     private int mResultCode = 0;
     private Intent mData;
+    private Activity mActivity;
     private RuntimeException mResultStack = null;
 
     @Override
@@ -84,8 +85,12 @@ public class ActivityTestsBase extends AndroidTestCase implements PerformanceTes
         }
     }
 
+    public void activityRunning(Activity activity) {
+        finishWithActivity(activity);
+    }
+
     public void activityFinished(int resultCode, Intent data, RuntimeException where) {
-        finishWithResult(resultCode, data, where);
+        finishWithResult(resultCode, data, null, where);
     }
 
     public Intent editIntent() {
@@ -110,16 +115,25 @@ public class ActivityTestsBase extends AndroidTestCase implements PerformanceTes
         finishWithResult(Activity.RESULT_CANCELED, new Intent().setAction(error));
     }
 
+    public void finishWithActivity(Activity activity) {
+        final RuntimeException where = new RuntimeException("Original error was here");
+        where.fillInStackTrace();
+        finishWithResult(Activity.RESULT_OK, null, activity, where);
+
+    }
+
     public void finishWithResult(int resultCode, Intent data) {
         final RuntimeException where = new RuntimeException("Original error was here");
         where.fillInStackTrace();
-        finishWithResult(resultCode, data, where);
+        finishWithResult(resultCode, data, null, where);
     }
 
-    public void finishWithResult(int resultCode, Intent data, RuntimeException where) {
+    public void finishWithResult(int resultCode, Intent data, Activity activity,
+            RuntimeException where) {
         synchronized (this) {
             mResultCode = resultCode;
             mData = data;
+            mActivity = activity;
             mResultStack = where;
             mFinished = true;
             notifyAll();
@@ -202,6 +216,10 @@ public class ActivityTestsBase extends AndroidTestCase implements PerformanceTes
 
     public RuntimeException getResultStack() {
         return mResultStack;
+    }
+
+    public Activity getRunningActivity() {
+        return mActivity;
     }
 
     public void onTimeout() {

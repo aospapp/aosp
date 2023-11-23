@@ -19,27 +19,41 @@ package android.view.inputmethod.cts;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
+import static android.view.inputmethod.cts.util.TestUtils.runOnMainSync;
 import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
 
 import static com.android.cts.mockime.ImeEventStreamTestUtils.EventFilterMode.CHECK_EXIT_EVENT_ONLY;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
+import android.graphics.Matrix;
 import android.inputmethodservice.InputMethodService;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.os.SystemClock;
 import android.text.TextUtils;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.inputmethod.CursorAnchorInfo;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputConnectionWrapper;
+import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
+import android.view.inputmethod.cts.util.TestUtils;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.mockime.ImeCommand;
 import com.android.cts.mockime.ImeEvent;
@@ -51,8 +65,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 /**
@@ -124,7 +141,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
                 waitOnMainUntil(() -> testActivity.getOnBackPressedCallCount() > 0,
                         EXPECTED_TIMEOUT);
                 fail("Activity#onBackPressed() should not be called");
-            } catch (TimeoutException e){
+            } catch (TimeoutException e) {
                 // This is fine.  We actually expect timeout.
             }
         }
@@ -182,6 +199,169 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
             imeSession.callRequestShowSelf(0);
             expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
             expectEvent(stream, event -> "onStartInputView".equals(event.getEventName()), TIMEOUT);
+        }
+    }
+
+    private static void assertSynthesizedSoftwareKeyEvent(KeyEvent keyEvent, int expectedAction,
+            int expectedKeyCode, long expectedEventTimeBefore, long expectedEventTimeAfter) {
+        if (keyEvent.getEventTime() < expectedEventTimeBefore
+                || expectedEventTimeAfter < keyEvent.getEventTime()) {
+            fail(String.format("EventTime must be within [%d, %d],"
+                            + " which was %d", expectedEventTimeBefore, expectedEventTimeAfter,
+                    keyEvent.getEventTime()));
+        }
+        assertEquals(expectedAction, keyEvent.getAction());
+        assertEquals(expectedKeyCode, keyEvent.getKeyCode());
+        assertEquals(KeyCharacterMap.VIRTUAL_KEYBOARD, keyEvent.getDeviceId());
+        assertEquals(0, keyEvent.getScanCode());
+        assertEquals(0, keyEvent.getRepeatCount());
+        assertEquals(0, keyEvent.getRepeatCount());
+        final int mustHaveFlags = KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE;
+        final int mustNotHaveFlags = KeyEvent.FLAG_FROM_SYSTEM;
+        if ((keyEvent.getFlags() & mustHaveFlags) == 0
+                || (keyEvent.getFlags() & mustNotHaveFlags) != 0) {
+            fail(String.format("Flags must have FLAG_SOFT_KEYBOARD|"
+                    + "FLAG_KEEP_TOUCH_MODE and must not have FLAG_FROM_SYSTEM, "
+                    + "which was 0x%08X", keyEvent.getFlags()));
+        }
+    }
+
+    /**
+     * Test compatibility requirements of {@link InputMethodService#sendDownUpKeyEvents(int)}.
+     */
+    @Test
+    public void testSendDownUpKeyEvents() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            final AtomicReference<ArrayList<KeyEvent>> keyEventsRef = new AtomicReference<>();
+            final String marker = "testSendDownUpKeyEvents/" + SystemClock.elapsedRealtimeNanos();
+
+            TestActivity.startSync(activity -> {
+                final LinearLayout layout = new LinearLayout(activity);
+                layout.setOrientation(LinearLayout.VERTICAL);
+
+                final ArrayList<KeyEvent> keyEvents = new ArrayList<>();
+                keyEventsRef.set(keyEvents);
+                final EditText editText = new EditText(activity) {
+                    @Override
+                    public InputConnection onCreateInputConnection(EditorInfo editorInfo) {
+                        return new InputConnectionWrapper(
+                                super.onCreateInputConnection(editorInfo), false) {
+                            /**
+                             * {@inheritDoc}
+                             */
+                            @Override
+                            public boolean sendKeyEvent(KeyEvent event) {
+                                keyEvents.add(event);
+                                return super.sendKeyEvent(event);
+                            }
+                        };
+                    }
+                };
+                editText.setPrivateImeOptions(marker);
+                layout.addView(editText);
+                editText.requestFocus();
+                return layout;
+            });
+
+            // Wait until "onStartInput" gets called for the EditText.
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+
+            // Make sure that InputConnection#sendKeyEvent() has never been called yet.
+            assertTrue(TestUtils.getOnMainSync(
+                    () -> new ArrayList<>(keyEventsRef.get())).isEmpty());
+
+            final int expectedKeyCode = KeyEvent.KEYCODE_0;
+            final long uptimeStart = SystemClock.uptimeMillis();
+            expectCommand(stream, imeSession.callSendDownUpKeyEvents(expectedKeyCode), TIMEOUT);
+            final long uptimeEnd = SystemClock.uptimeMillis();
+
+            final ArrayList<KeyEvent> keyEvents = TestUtils.getOnMainSync(
+                    () -> new ArrayList<>(keyEventsRef.get()));
+
+            // Check KeyEvent objects.
+            assertNotNull(keyEvents);
+            assertEquals(2, keyEvents.size());
+            assertSynthesizedSoftwareKeyEvent(keyEvents.get(0), KeyEvent.ACTION_DOWN,
+                    expectedKeyCode, uptimeStart, uptimeEnd);
+            assertSynthesizedSoftwareKeyEvent(keyEvents.get(1), KeyEvent.ACTION_UP,
+                    expectedKeyCode, uptimeStart, uptimeEnd);
+        }
+    }
+
+    /**
+     * Ensure that {@link InputConnection#requestCursorUpdates(int)} works for the built-in
+     * {@link EditText} and {@link InputMethodService#onUpdateCursorAnchorInfo(CursorAnchorInfo)}
+     * will be called back.
+     */
+    @Test
+    public void testOnUpdateCursorAnchorInfo() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                InstrumentationRegistry.getContext(),
+                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final String marker =
+                    "testOnUpdateCursorAnchorInfo()/" + SystemClock.elapsedRealtimeNanos();
+
+            final AtomicReference<EditText> editTextRef = new AtomicReference<>();
+            final AtomicInteger requestCursorUpdatesCallCount = new AtomicInteger();
+            TestActivity.startSync(activity -> {
+                final LinearLayout layout = new LinearLayout(activity);
+                layout.setOrientation(LinearLayout.VERTICAL);
+
+                final EditText editText = new EditText(activity) {
+                    @Override
+                    public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+                        final InputConnection original = super.onCreateInputConnection(outAttrs);
+                        return new InputConnectionWrapper(original, false) {
+                            @Override
+                            public boolean requestCursorUpdates(int cursorUpdateMode) {
+                                if (cursorUpdateMode == InputConnection.CURSOR_UPDATE_IMMEDIATE) {
+                                    requestCursorUpdatesCallCount.incrementAndGet();
+                                    return true;
+                                }
+                                return false;
+                            }
+                        };
+                    }
+                };
+                editTextRef.set(editText);
+                editText.setPrivateImeOptions(marker);
+                layout.addView(editText);
+                editText.requestFocus();
+                return layout;
+            });
+            final EditText editText = editTextRef.get();
+
+            final ImeEventStream stream = imeSession.openEventStream();
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+
+            // Make sure that InputConnection#requestCursorUpdates() returns true.
+            assertTrue(expectCommand(stream,
+                    imeSession.callRequestCursorUpdates(InputConnection.CURSOR_UPDATE_IMMEDIATE),
+                    TIMEOUT).getReturnBooleanValue());
+
+            // Also make sure that requestCursorUpdates() actually gets called only once.
+            assertEquals(1, requestCursorUpdatesCallCount.get());
+
+            final CursorAnchorInfo originalCursorAnchorInfo = new CursorAnchorInfo.Builder()
+                    .setMatrix(new Matrix())
+                    .setInsertionMarkerLocation(3.0f, 4.0f, 5.0f, 6.0f, 0)
+                    .setSelectionRange(7, 8)
+                    .build();
+
+            runOnMainSync(() -> editText.getContext().getSystemService(InputMethodManager.class)
+                    .updateCursorAnchorInfo(editText, originalCursorAnchorInfo));
+
+            final CursorAnchorInfo receivedCursorAnchorInfo = expectEvent(stream,
+                    event -> "onUpdateCursorAnchorInfo".equals(event.getEventName()),
+                    TIMEOUT).getArguments().getParcelable("cursorAnchorInfo");
+            assertNotNull(receivedCursorAnchorInfo);
+            assertEquals(receivedCursorAnchorInfo, originalCursorAnchorInfo);
         }
     }
 }

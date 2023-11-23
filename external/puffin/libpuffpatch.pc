@@ -2,5 +2,8 @@
 
 Name: libpuffpatch
 Description: Puffin library for applying delta patches
-Version: 0.0.1
+Version: 1.0.0
+# libpuffpatch library is static lib ATM, so we don't use private versions of
+# Libs and Requires fields.
 Libs: -lpuffpatch
+Requires: libbspatch

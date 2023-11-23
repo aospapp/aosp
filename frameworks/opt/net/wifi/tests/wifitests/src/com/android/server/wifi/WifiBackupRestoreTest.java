@@ -22,7 +22,8 @@ import static org.mockito.Mockito.*;
 import android.net.IpConfiguration;
 import android.net.wifi.WifiConfiguration;
 import android.os.Process;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.net.IpConfigStore;
 import com.android.server.wifi.util.WifiPermissionsUtil;
@@ -85,6 +86,7 @@ public class WifiBackupRestoreTest {
 
     // |AllowedKeyMgmt|, |AllowedProtocols|, |AllowedAuthAlgorithms|, |AllowedGroupCiphers| and
     // |AllowedPairwiseCiphers| fields have invalid values in them.
+    // NOTE: The byte values are encoded in little endian
     private static final String WIFI_BACKUP_DATA_WITH_UNSUPPORTED_VALUES_IN_BITSETS =
             "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>"
                     + "<WifiBackupData>"
@@ -101,17 +103,78 @@ public class WifiBackupRestoreTest {
                     + "<boolean name=\"HiddenSSID\" value=\"false\" />"
                     + "<boolean name=\"RequirePMF\" value=\"false\" />"
                     // Valid Value: 01
-                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"2\">0101</byte-array>"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"2\">0180</byte-array>"
                     // Valid Value: 03
                     + "<byte-array name=\"AllowedProtocols\" num=\"1\">0b</byte-array>"
                     // Valid Value: 01
                     + "<byte-array name=\"AllowedAuthAlgos\" num=\"1\">09</byte-array>"
                     // Valid Value: 0f
-                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">2f</byte-array>"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">4f</byte-array>"
                     // Valid Value: 06
-                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">0e</byte-array>"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">26</byte-array>"
                     + "<boolean name=\"Shared\" value=\"true\" />"
                     + "<null name=\"SimSlot\" />"
+                    + "</WifiConfiguration>"
+                    + "<IpConfiguration>"
+                    + "<string name=\"IpAssignment\">DHCP</string>"
+                    + "<string name=\"ProxySettings\">NONE</string>"
+                    + "</IpConfiguration>"
+                    + "</Network>"
+                    + "</NetworkList>"
+                    + "</WifiBackupData>";
+
+    private static final String WIFI_BACKUP_DATA_V1_0 =
+            "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>"
+                    + "<WifiBackupData>"
+                    + "<float name=\"Version\" value=\"1.0\" />"
+                    + "<NetworkList>"
+                    + "<Network>"
+                    + "<WifiConfiguration>"
+                    + "<string name=\"ConfigKey\">&quot;GoogleGuest-Legacy&quot;NONE</string>"
+                    + "<string name=\"SSID\">&quot;GoogleGuest-Legacy&quot;</string>"
+                    + "<null name=\"BSSID\" />"
+                    + "<null name=\"PreSharedKey\" />"
+                    + "<null name=\"WEPKeys\" />"
+                    + "<int name=\"WEPTxKeyIndex\" value=\"0\" />"
+                    + "<boolean name=\"HiddenSSID\" value=\"false\" />"
+                    + "<boolean name=\"RequirePMF\" value=\"false\" />"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"1\">01</byte-array>"
+                    + "<byte-array name=\"AllowedProtocols\" num=\"1\">03</byte-array>"
+                    + "<byte-array name=\"AllowedAuthAlgos\" num=\"1\">01</byte-array>"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">0f</byte-array>"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">06</byte-array>"
+                    + "<boolean name=\"Shared\" value=\"true\" />"
+                    + "</WifiConfiguration>"
+                    + "<IpConfiguration>"
+                    + "<string name=\"IpAssignment\">DHCP</string>"
+                    + "<string name=\"ProxySettings\">NONE</string>"
+                    + "</IpConfiguration>"
+                    + "</Network>"
+                    + "</NetworkList>"
+                    + "</WifiBackupData>";
+
+    private static final String WIFI_BACKUP_DATA_V1_1 =
+            "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>"
+                    + "<WifiBackupData>"
+                    + "<float name=\"Version\" value=\"1.1\" />"
+                    + "<NetworkList>"
+                    + "<Network>"
+                    + "<WifiConfiguration>"
+                    + "<string name=\"ConfigKey\">&quot;GoogleGuest-Legacy&quot;NONE</string>"
+                    + "<string name=\"SSID\">&quot;GoogleGuest-Legacy&quot;</string>"
+                    + "<null name=\"BSSID\" />"
+                    + "<null name=\"PreSharedKey\" />"
+                    + "<null name=\"WEPKeys\" />"
+                    + "<int name=\"WEPTxKeyIndex\" value=\"0\" />"
+                    + "<boolean name=\"HiddenSSID\" value=\"false\" />"
+                    + "<boolean name=\"RequirePMF\" value=\"false\" />"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"1\">01</byte-array>"
+                    + "<byte-array name=\"AllowedProtocols\" num=\"1\">03</byte-array>"
+                    + "<byte-array name=\"AllowedAuthAlgos\" num=\"1\">01</byte-array>"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">0f</byte-array>"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">06</byte-array>"
+                    + "<boolean name=\"Shared\" value=\"true\" />"
+                    + "<int name=\"MeteredOverride\" value=\"1\" />"
                     + "</WifiConfiguration>"
                     + "<IpConfiguration>"
                     + "<string name=\"IpAssignment\">DHCP</string>"
@@ -371,6 +434,7 @@ public class WifiBackupRestoreTest {
     public void testSingleEnterpriseNetworkNotBackupRestore() {
         List<WifiConfiguration> configurations = new ArrayList<>();
         configurations.add(WifiConfigurationTestUtil.createEapNetwork());
+        configurations.add(WifiConfigurationTestUtil.createEapSuiteBNetwork());
 
         byte[] backupData = mWifiBackupRestore.retrieveBackupDataFromConfigurations(configurations);
         List<WifiConfiguration> retrievedConfigurations =
@@ -466,6 +530,8 @@ public class WifiBackupRestoreTest {
         configurations.add(WifiConfigurationTestUtil.createWepNetwork());
         configurations.add(WifiConfigurationTestUtil.createPskNetwork());
         configurations.add(WifiConfigurationTestUtil.createOpenNetwork());
+        configurations.add(WifiConfigurationTestUtil.createOweNetwork());
+        configurations.add(WifiConfigurationTestUtil.createSaeNetwork());
 
         byte[] backupData = mWifiBackupRestore.retrieveBackupDataFromConfigurations(configurations);
         List<WifiConfiguration> retrievedConfigurations =
@@ -488,6 +554,7 @@ public class WifiBackupRestoreTest {
         expectedConfigurations.add(wepNetwork);
 
         configurations.add(WifiConfigurationTestUtil.createEapNetwork());
+        configurations.add(WifiConfigurationTestUtil.createEapSuiteBNetwork());
 
         WifiConfiguration pskNetwork = WifiConfigurationTestUtil.createPskNetwork();
         configurations.add(pskNetwork);
@@ -496,6 +563,14 @@ public class WifiBackupRestoreTest {
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         configurations.add(openNetwork);
         expectedConfigurations.add(openNetwork);
+
+        WifiConfiguration saeNetwork = WifiConfigurationTestUtil.createSaeNetwork();
+        configurations.add(saeNetwork);
+        expectedConfigurations.add(saeNetwork);
+
+        WifiConfiguration oweNetwork = WifiConfigurationTestUtil.createOweNetwork();
+        configurations.add(oweNetwork);
+        expectedConfigurations.add(oweNetwork);
 
         byte[] backupData = mWifiBackupRestore.retrieveBackupDataFromConfigurations(configurations);
         List<WifiConfiguration> retrievedConfigurations =
@@ -865,6 +940,84 @@ public class WifiBackupRestoreTest {
         // No valid data to check in dump.
         mCheckDump = false;
     }
+
+    /**
+     * Verify that restoring of configuration from a 1.0 version backup data.
+     */
+    @Test
+    public void testRestoreFromV1_0BackupData() {
+        List<WifiConfiguration> configurations = new ArrayList<>();
+        configurations.add(createNetworkForConfigurationWithV1_0Data());
+
+        byte[] backupData = WIFI_BACKUP_DATA_V1_0.getBytes();
+        List<WifiConfiguration> retrievedConfigurations =
+                mWifiBackupRestore.retrieveConfigurationsFromBackupData(backupData);
+        WifiConfigurationTestUtil.assertConfigurationsEqualForBackup(
+                configurations, retrievedConfigurations);
+
+        // No valid data to check in dump.
+        mCheckDump = false;
+    }
+
+    /**
+     * Creates correct WiFiConfiguration that should be parsed out of
+     * {@link #WIFI_BACKUP_DATA_V1_0} configuration which contains 1.0 version backup.
+     */
+    private static WifiConfiguration createNetworkForConfigurationWithV1_0Data() {
+        final WifiConfiguration config = new WifiConfiguration();
+        config.SSID = "\"GoogleGuest-Legacy\"";
+        config.wepTxKeyIndex = 0;
+        config.hiddenSSID = false;
+        config.requirePMF = false;
+        config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        config.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
+        config.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
+        config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
+        config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+        config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
+        config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+        config.shared = true;
+
+        IpConfiguration ipConfiguration = new IpConfiguration();
+        ipConfiguration.setIpAssignment(IpConfiguration.IpAssignment.DHCP);
+        ipConfiguration.setProxySettings(IpConfiguration.ProxySettings.NONE);
+        config.setIpConfiguration(ipConfiguration);
+
+        return config;
+    }
+
+    /**
+     * Verify that restoring of configuration from a 1.1 version backup data.
+     */
+    @Test
+    public void testRestoreFromV1_1BackupData() {
+        List<WifiConfiguration> configurations = new ArrayList<>();
+        configurations.add(createNetworkForConfigurationWithV1_1Data());
+
+        byte[] backupData = WIFI_BACKUP_DATA_V1_1.getBytes();
+        List<WifiConfiguration> retrievedConfigurations =
+                mWifiBackupRestore.retrieveConfigurationsFromBackupData(backupData);
+        WifiConfigurationTestUtil.assertConfigurationsEqualForBackup(
+                configurations, retrievedConfigurations);
+
+        // No valid data to check in dump.
+        mCheckDump = false;
+    }
+
+    /**
+     * Creates correct WiFiConfiguration that should be parsed out of
+     * {@link #WIFI_BACKUP_DATA_V1_1} configuration which contains 1.1 version backup.
+     */
+    private static WifiConfiguration createNetworkForConfigurationWithV1_1Data() {
+        final WifiConfiguration config = createNetworkForConfigurationWithV1_0Data();
+        config.meteredOverride = WifiConfiguration.METERED_OVERRIDE_METERED;
+
+        return config;
+    }
+
 
     /**
      * Helper method to write a list of networks in wpa_supplicant.conf format to the output stream.

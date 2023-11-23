@@ -16,15 +16,17 @@
 
 package android.webkit.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.HttpAuthHandler;
 import android.webkit.WebView;
-import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 
 import org.apache.http.HttpStatus;
 
+@AppModeFull
 public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
 
     private static final long TIMEOUT = 10000;
@@ -46,7 +48,7 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
         super.setUp();
         WebView webview = getActivity().getWebView();
         if (webview != null) {
-            mOnUiThread = new WebViewOnUiThread(this, webview);
+            mOnUiThread = new WebViewOnUiThread(webview);
         }
     }
 

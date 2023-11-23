@@ -8,6 +8,7 @@ import shutil
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
 
 
@@ -18,8 +19,11 @@ class hardware_RamFio(test.test):
 
     version = 1
 
-    _DEFAULT_SIZE = 1024 * 1024 * 1024
+    _MB = 1024 * 1024
+    _DEFAULT_SIZE = 1024 * _MB
+    _RESERVED_RAM_SIZE = 200 * _MB
     _RAMDISK = '/tmp/ramdisk'
+    _RAMFS_OVERHEAD = 0.2
 
     def initialize(self):
         # This test grabs a lot of system memory. Lets move Chrome out of the
@@ -41,7 +45,15 @@ class hardware_RamFio(test.test):
         usable_mem = utils.usable_memtotal() * 1024
         logging.info('Found %d bytes of usable memory.', usable_mem)
         # Assume 20% overhead with ramfs.
-        usable_mem = 0.8 * usable_mem
+        usable_mem *= 1 - self._RAMFS_OVERHEAD
+
+        # crbug.com/762315 Reserved 200 MiB to prevent OOM error.
+        if usable_mem <= self._RESERVED_RAM_SIZE:
+            raise error.TestNAError(
+                'Usable memory (%d MiB) is less than reserved size (%d MiB).' %
+                (usable_mem / self._MB, self._RESERVED_RAM_SIZE / self._MB))
+        usable_mem -= self._RESERVED_RAM_SIZE
+
         if size == 0:
             size = usable_mem
         elif usable_mem < size:

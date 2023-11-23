@@ -827,15 +827,15 @@ void Writer::WriteInstructions(slicer::ArrayView<const dex::u2> instructions) {
     dex::u4* index32 = nullptr;
 
     switch (dex::GetFormatFromOpcode(opcode)) {
-      case dex::kFmt20bc:
-      case dex::kFmt21c:
-      case dex::kFmt35c:
-      case dex::kFmt3rc:
-      case dex::kFmt22c:
+      case dex::k20bc:
+      case dex::k21c:
+      case dex::k35c:
+      case dex::k3rc:
+      case dex::k22c:
         index16 = &ptr[1];
         break;
 
-      case dex::kFmt31c:
+      case dex::k31c:
         index32 = reinterpret_cast<dex::u4*>(&ptr[1]);
         break;
 

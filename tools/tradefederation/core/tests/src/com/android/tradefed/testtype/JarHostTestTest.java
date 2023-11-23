@@ -45,8 +45,10 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Unit tests for {@link HostTest} jar handling functionalities. */
@@ -127,9 +129,9 @@ public class JarHostTestTest {
         }
     }
 
-    /** Test that {@link HostTest#getTestShard(int, int)} can split classes coming from a jar. */
+    /** Test that {@link HostTest#split(int)} can split classes coming from a jar. */
     @Test
-    public void testGetTestShard_withJar() throws Exception {
+    public void testSplit_withJar() throws Exception {
         File testJar = getJarResource(TEST_JAR1, mTestDir);
         mTest = new HostTestLoader(mTestDir, testJar);
         mTest.setBuild(mStubBuildInfo);
@@ -141,51 +143,86 @@ public class JarHostTestTest {
         // full class count without sharding
         assertEquals(238, mTest.countTestCases());
 
-        // only one shard
-        IRemoteTest oneShard = mTest.getTestShard(1, 0);
-        assertTrue(oneShard instanceof HostTest);
-        ((HostTest) oneShard).setBuild(new BuildInfo());
-        ((HostTest) oneShard).setDevice(device);
-        assertEquals(238, ((HostTest) oneShard).countTestCases());
+        List<IRemoteTest> tests = new ArrayList<>(mTest.split(5));
+        // HostTest sharding does not respect the shard-count hint (expected)
+        assertEquals(8, tests.size());
 
         // 5 shards total the number of tests.
         int total = 0;
-        IRemoteTest shard1 = mTest.getTestShard(5, 0);
+        IRemoteTest shard1 = tests.get(0);
         assertTrue(shard1 instanceof HostTest);
         ((HostTest) shard1).setBuild(new BuildInfo());
         ((HostTest) shard1).setDevice(device);
-        assertEquals(58, ((HostTest) shard1).countTestCases());
+        assertEquals(28, ((HostTest) shard1).countTestCases());
         total += ((HostTest) shard1).countTestCases();
 
-        IRemoteTest shard2 = mTest.getTestShard(5, 1);
+        IRemoteTest shard2 = tests.get(1);
         assertTrue(shard2 instanceof HostTest);
         ((HostTest) shard2).setBuild(new BuildInfo());
         ((HostTest) shard2).setDevice(device);
-        assertEquals(60, ((HostTest) shard2).countTestCases());
+        assertEquals(30, ((HostTest) shard2).countTestCases());
         total += ((HostTest) shard2).countTestCases();
 
-        IRemoteTest shard3 = mTest.getTestShard(5, 2);
+        IRemoteTest shard3 = tests.get(2);
         assertTrue(shard3 instanceof HostTest);
         ((HostTest) shard3).setBuild(new BuildInfo());
         ((HostTest) shard3).setDevice(device);
-        assertEquals(60, ((HostTest) shard3).countTestCases());
+        assertEquals(30, ((HostTest) shard3).countTestCases());
         total += ((HostTest) shard3).countTestCases();
 
-        IRemoteTest shard4 = mTest.getTestShard(5, 3);
+        IRemoteTest shard4 = tests.get(3);
         assertTrue(shard4 instanceof HostTest);
         ((HostTest) shard4).setBuild(new BuildInfo());
         ((HostTest) shard4).setDevice(device);
         assertEquals(30, ((HostTest) shard4).countTestCases());
         total += ((HostTest) shard4).countTestCases();
 
-        IRemoteTest shard5 = mTest.getTestShard(5, 4);
+        IRemoteTest shard5 = tests.get(4);
         assertTrue(shard5 instanceof HostTest);
         ((HostTest) shard5).setBuild(new BuildInfo());
         ((HostTest) shard5).setDevice(device);
         assertEquals(30, ((HostTest) shard5).countTestCases());
         total += ((HostTest) shard5).countTestCases();
 
+        IRemoteTest shard6 = tests.get(5);
+        assertTrue(shard6 instanceof HostTest);
+        ((HostTest) shard6).setBuild(new BuildInfo());
+        ((HostTest) shard6).setDevice(device);
+        assertEquals(30, ((HostTest) shard6).countTestCases());
+        total += ((HostTest) shard6).countTestCases();
+
+        IRemoteTest shard7 = tests.get(6);
+        assertTrue(shard7 instanceof HostTest);
+        ((HostTest) shard7).setBuild(new BuildInfo());
+        ((HostTest) shard7).setDevice(device);
+        assertEquals(30, ((HostTest) shard7).countTestCases());
+        total += ((HostTest) shard7).countTestCases();
+
+        IRemoteTest shard8 = tests.get(7);
+        assertTrue(shard8 instanceof HostTest);
+        ((HostTest) shard8).setBuild(new BuildInfo());
+        ((HostTest) shard8).setDevice(device);
+        assertEquals(30, ((HostTest) shard8).countTestCases());
+        total += ((HostTest) shard8).countTestCases();
+
         assertEquals(238, total);
+    }
+
+    /** Avoid collision between --class and --jar when they reference common classes. */
+    @Test
+    public void testSplit_countWithFilter() throws Exception {
+        File testJar = getJarResource(TEST_JAR1, mTestDir);
+        mTest = new HostTestLoader(mTestDir, testJar);
+        mTest.setBuild(mStubBuildInfo);
+        ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
+        mTest.setDevice(device);
+        OptionSetter setter = new OptionSetter(mTest);
+        setter.setOptionValue("enable-pretty-logs", "false");
+        setter.setOptionValue("jar", testJar.getName());
+        // Explicitly request a class from the jar
+        setter.setOptionValue("class", "android.ui.cts.TestClass8");
+        // full class count without sharding should be 238
+        assertEquals(238, mTest.countTestCases());
     }
 
     /**
@@ -226,6 +263,12 @@ public class JarHostTestTest {
         OptionSetter setter = new OptionSetter(mTest);
         setter.setOptionValue("jar", "thisjardoesnotexistatall.jar");
         mTest.setBuild(new BuildInfo());
+
+        mListener.testRunStarted(HostTest.class.getName(), 0);
+        mListener.testRunFailed(
+                "java.io.FileNotFoundException: Could not find jar: thisjardoesnotexistatall.jar");
+        mListener.testRunEnded(0L, new HashMap<String, Metric>());
+
         EasyMock.replay(mListener);
         try {
             mTest.run(mListener);
@@ -252,7 +295,7 @@ public class JarHostTestTest {
         metrics.put("key", "value");
         mListener.testEnded(
                 EasyMock.eq(tid), EasyMock.eq(TfMetricProtoUtil.upgradeConvert(metrics)));
-        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mListener);
         mTest.run(mListener);
         EasyMock.verify(mListener);

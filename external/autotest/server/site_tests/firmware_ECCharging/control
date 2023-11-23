@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "Chrome OS Team"
 NAME = "firmware_ECCharging"
 PURPOSE = "Servo based EC charging control test"
-CRITERIA = "This test will fail if EC charging control misbehalved."
+CRITERIA = "This test will fail if EC charging control misbehaved."
 ATTRIBUTES = "suite:faft, suite:faft_ec, suite:faft_ec_au_1, suite:faft_ec_au_2, suite:faft_ec_au_3, suite:faft_ec3po, suite:faft_ec_tot"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"

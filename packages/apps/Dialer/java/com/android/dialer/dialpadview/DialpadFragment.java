@@ -16,6 +16,7 @@
 
 package com.android.dialer.dialpadview;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -34,7 +35,10 @@ import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.os.Trace;
 import android.provider.Contacts.People;
 import android.provider.Contacts.Phones;
@@ -48,6 +52,7 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberFormattingTextWatcher;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.Selection;
@@ -75,6 +80,7 @@ import android.widget.TextView;
 import com.android.contacts.common.dialog.CallSubjectDialog;
 import com.android.contacts.common.util.StopWatch;
 import com.android.dialer.animation.AnimUtils;
+import com.android.dialer.animation.AnimUtils.AnimationCallback;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.callintent.CallIntentBuilder;
 import com.android.dialer.common.Assert;
@@ -83,7 +89,6 @@ import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.DialerExecutor;
 import com.android.dialer.common.concurrent.DialerExecutor.Worker;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
-import com.android.dialer.common.concurrent.ThreadUtil;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.logging.UiAction;
 import com.android.dialer.oem.MotorolaUtils;
@@ -142,7 +147,18 @@ public class DialpadFragment extends Fragment
   private static final String PREF_DIGITS_FILLED_BY_INTENT = "pref_digits_filled_by_intent";
   private static final String PREF_IS_DIALPAD_SLIDE_OUT = "pref_is_dialpad_slide_out";
 
+  /**
+   * Hidden key in carrier config to determine if no emergency call over wifi warning is required.
+   *
+   * <p>"Time delay (in ms) after which we show the notification for emergency calls, while the
+   * device is registered over WFC. Default value is -1, which indicates that this notification is
+   * not pertinent for a particular carrier. We've added a delay to prevent false positives."
+   */
+  @VisibleForTesting
+  static final String KEY_EMERGENCY_NOTIFICATION_DELAY_INT = "emergency_notification_delay_int";
+
   private static Optional<String> currentCountryIsoForTesting = Optional.absent();
+  private static Boolean showEmergencyCallWarningForTest = null;
 
   private final Object toneGeneratorLock = new Object();
   /** Set of dialpad keys that are currently being pressed */
@@ -151,6 +167,7 @@ public class DialpadFragment extends Fragment
   private OnDialpadQueryChangedListener dialpadQueryListener;
   private DialpadView dialpadView;
   private EditText digits;
+  private TextView digitsHint;
   private int dialpadSlideInDuration;
   /** Remembers if we need to clear digits field when the screen is completely gone. */
   private boolean clearDigitsOnStop;
@@ -304,6 +321,7 @@ public class DialpadFragment extends Fragment
         activity.invalidateOptionsMenu();
         updateMenuOverflowButton(wasEmptyBeforeTextChange);
       }
+      updateDialpadHint();
     }
 
     // DTMF Tones do not need to be played here any longer -
@@ -386,6 +404,7 @@ public class DialpadFragment extends Fragment
     dialpadView = fragmentView.findViewById(R.id.dialpad_view);
     dialpadView.setCanDigitsBeEdited(true);
     digits = dialpadView.getDigits();
+    digitsHint = dialpadView.getDigitsHint();
     digits.setKeyListener(UnicodeDialerKeyListener.INSTANCE);
     digits.setOnClickListener(this);
     digits.setOnKeyListener(this);
@@ -393,7 +412,9 @@ public class DialpadFragment extends Fragment
     digits.addTextChangedListener(this);
     digits.setElegantTextHeight(false);
 
-    initPhoneNumberFormattingTextWatcherExecutor.executeSerial(getCurrentCountryIso());
+    if (!MotorolaUtils.shouldDisablePhoneNumberFormatting(getContext())) {
+      initPhoneNumberFormattingTextWatcherExecutor.executeSerial(getCurrentCountryIso());
+    }
 
     // Check for the presence of the keypad
     View oneButton = fragmentView.findViewById(R.id.one);
@@ -436,6 +457,76 @@ public class DialpadFragment extends Fragment
     Trace.endSection();
     Trace.endSection();
     return fragmentView;
+  }
+
+  /**
+   * The dialpad hint is a TextView overlaid above the digit EditText. {@link EditText#setHint(int)}
+   * is not used because the digits has auto resize and makes setting the size of the hint
+   * difficult.
+   */
+  private void updateDialpadHint() {
+    if (!TextUtils.isEmpty(digits.getText())) {
+      digitsHint.setVisibility(View.GONE);
+      return;
+    }
+
+    if (shouldShowEmergencyCallWarning(getContext())) {
+      String hint = getContext().getString(R.string.dialpad_hint_emergency_calling_not_available);
+      digits.setContentDescription(hint);
+      digitsHint.setText(hint);
+      digitsHint.setVisibility(View.VISIBLE);
+      return;
+    }
+    digits.setContentDescription(null);
+
+    digitsHint.setVisibility(View.GONE);
+  }
+
+  /**
+   * Only show the "emergency call not available" warning when on wifi call and carrier requires it.
+   *
+   * <p>internal method tested because the conditions cannot be setup in espresso, and the layout
+   * cannot be inflated in robolectric.
+   */
+  @SuppressWarnings("missingPermission")
+  @TargetApi(VERSION_CODES.O)
+  @VisibleForTesting
+  static boolean shouldShowEmergencyCallWarning(Context context) {
+    if (showEmergencyCallWarningForTest != null) {
+      return showEmergencyCallWarningForTest;
+    }
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      return false;
+    }
+    if (!PermissionsUtil.hasReadPhoneStatePermissions(context)) {
+      return false;
+    }
+    TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+    PersistableBundle config = telephonyManager.getCarrierConfig();
+    // A delay of -1 means wifi emergency call is available/the warning is not required.
+    if (config == null || config.getInt(KEY_EMERGENCY_NOTIFICATION_DELAY_INT, -1) == -1) {
+      return false;
+    }
+
+    // TelephonyManager.getVoiceNetworkType() Doesn't always return NETWORK_TYPE_IWLAN when on wifi.
+    // other wifi calling checks are hidden API. Emergency calling is not available without service
+    // regardless of the wifi state so this check is omitted.
+
+    switch (telephonyManager.getServiceState().getState()) {
+      case ServiceState.STATE_OUT_OF_SERVICE:
+      case ServiceState.STATE_POWER_OFF:
+        return true;
+      case ServiceState.STATE_EMERGENCY_ONLY:
+      case ServiceState.STATE_IN_SERVICE:
+        return false;
+      default:
+        throw new AssertionError("unknown state " + telephonyManager.getServiceState().getState());
+    }
+  }
+
+  @VisibleForTesting
+  static void setShowEmergencyCallWarningForTest(Boolean value) {
+    showEmergencyCallWarningForTest = value;
   }
 
   @Override
@@ -646,6 +737,14 @@ public class DialpadFragment extends Fragment
     LogUtil.i("DialpadFragment.onStart", "first launch: %b", firstLaunch);
     Trace.beginSection(TAG + " onStart");
     super.onStart();
+    Resources res = getResources();
+    int iconId = R.drawable.quantum_ic_call_vd_theme_24;
+    if (MotorolaUtils.isWifiCallingAvailable(getContext())) {
+      iconId = R.drawable.ic_wifi_calling;
+    }
+    floatingActionButtonController.changeIcon(
+        getContext(), iconId, res.getString(R.string.description_dial_button));
+
     // if the mToneGenerator creation fails, just continue without it.  It is
     // a local audio signal, and is not as important as the dtmf tone itself.
     final long start = System.currentTimeMillis();
@@ -673,14 +772,6 @@ public class DialpadFragment extends Fragment
     LogUtil.enterBlock("DialpadFragment.onResume");
     Trace.beginSection(TAG + " onResume");
     super.onResume();
-
-    Resources res = getResources();
-    int iconId = R.drawable.quantum_ic_call_vd_theme_24;
-    if (MotorolaUtils.isWifiCallingAvailable(getContext())) {
-      iconId = R.drawable.ic_wifi_calling;
-    }
-    floatingActionButtonController.changeIcon(
-        getContext(), iconId, res.getString(R.string.description_dial_button));
 
     dialpadQueryListener = FragmentUtils.getParentUnsafe(this, OnDialpadQueryChangedListener.class);
 
@@ -731,6 +822,8 @@ public class DialpadFragment extends Fragment
     overflowMenuButton.setOnClickListener(this);
     overflowMenuButton.setVisibility(isDigitsEmpty() ? View.INVISIBLE : View.VISIBLE);
 
+    updateDialpadHint();
+
     if (firstLaunch) {
       // The onHiddenChanged callback does not get called the first time the fragment is
       // attached, so call it ourselves here.
@@ -762,6 +855,7 @@ public class DialpadFragment extends Fragment
     LogUtil.enterBlock("DialpadFragment.onStop");
     super.onStop();
 
+    floatingActionButtonController.scaleOut();
     synchronized (toneGeneratorLock) {
       if (toneGenerator != null) {
         toneGenerator.release();
@@ -962,8 +1056,14 @@ public class DialpadFragment extends Fragment
       digits.clear();
       return true;
     } else if (id == R.id.one) {
-      if (isDigitsEmpty() || TextUtils.equals(this.digits.getText(), "1")) {
+      // For non-talkback users: check for empty
+      // For linear navigation users: check for "1"
+      // For explore by touch users: check for "11"
+      if (isDigitsEmpty()
+          || TextUtils.equals(this.digits.getText(), "1")
+          || TextUtils.equals(this.digits.getText(), "11")) {
         // We'll try to initiate voicemail and thus we want to remove irrelevant string.
+        removePreviousDigitIfPossible('1');
         removePreviousDigitIfPossible('1');
 
         List<PhoneAccountHandle> subscriptionAccountHandles =
@@ -1005,6 +1105,7 @@ public class DialpadFragment extends Fragment
         // If the zero key is currently pressed, then the long press occurred by touch
         // (and not via other means like certain accessibility input methods).
         // Remove the '0' that was input when the key was first pressed.
+        removePreviousDigitIfPossible('0');
         removePreviousDigitIfPossible('0');
       }
       keyPressed(KeyEvent.KEYCODE_PLUS);
@@ -1244,19 +1345,14 @@ public class DialpadFragment extends Fragment
       if (dialpadView != null) {
         LogUtil.i("DialpadFragment.showDialpadChooser", "mDialpadView not null");
         dialpadView.setVisibility(View.VISIBLE);
-        floatingActionButtonController.scaleIn();
+        if (isDialpadSlideUp()) {
+          floatingActionButtonController.scaleIn();
+        }
       } else {
         LogUtil.i("DialpadFragment.showDialpadChooser", "mDialpadView null");
         digits.setVisibility(View.VISIBLE);
       }
 
-      // mFloatingActionButtonController must also be 'scaled in', in order to be visible after
-      // 'scaleOut()' hidden method.
-      if (!floatingActionButtonController.isVisible()) {
-        // Just call 'scaleIn()' method if the mFloatingActionButtonController was not already
-        // previously visible.
-        floatingActionButtonController.scaleIn();
-      }
       dialpadChooser.setVisibility(View.GONE);
     }
   }
@@ -1395,7 +1491,16 @@ public class DialpadFragment extends Fragment
     if (transitionIn) {
       AnimUtils.fadeIn(overflowMenuButton, AnimUtils.DEFAULT_DURATION);
     } else {
-      AnimUtils.fadeOut(overflowMenuButton, AnimUtils.DEFAULT_DURATION);
+      AnimUtils.fadeOut(
+          overflowMenuButton,
+          AnimUtils.DEFAULT_DURATION,
+          new AnimationCallback() {
+            @Override
+            public void onAnimationEnd() {
+              // AnimUtils will set the visibility to GONE and cause the layout to move around.
+              overflowMenuButton.setVisibility(View.INVISIBLE);
+            }
+          });
     }
   }
 
@@ -1472,18 +1577,8 @@ public class DialpadFragment extends Fragment
       if (animate) {
         dialpadView.animateShow();
       }
-      ThreadUtil.getUiThreadHandler()
-          .postDelayed(
-              () -> {
-                if (!isDialpadChooserVisible()) {
-                  floatingActionButtonController.scaleIn();
-                }
-              },
-              animate ? dialpadSlideInDuration : 0);
       FragmentUtils.getParentUnsafe(this, DialpadListener.class).onDialpadShown();
       digits.requestFocus();
-    } else if (hidden) {
-      floatingActionButtonController.scaleOut();
     }
   }
 
@@ -1546,6 +1641,7 @@ public class DialpadFragment extends Fragment
     slideDown.setAnimationListener(listener);
     slideDown.setDuration(animate ? dialpadSlideInDuration : 0);
     getView().startAnimation(slideDown);
+    floatingActionButtonController.scaleOut();
   }
 
   /** Animate the dialpad up onto the screen. */
@@ -1561,6 +1657,19 @@ public class DialpadFragment extends Fragment
     Animation slideUp = AnimationUtils.loadAnimation(getContext(), animation);
     slideUp.setInterpolator(AnimUtils.EASE_IN);
     slideUp.setDuration(animate ? dialpadSlideInDuration : 0);
+    slideUp.setAnimationListener(
+        new AnimationListener() {
+          @Override
+          public void onAnimationStart(Animation animation) {}
+
+          @Override
+          public void onAnimationEnd(Animation animation) {
+            floatingActionButtonController.scaleIn();
+          }
+
+          @Override
+          public void onAnimationRepeat(Animation animation) {}
+        });
     getView().startAnimation(slideUp);
   }
 

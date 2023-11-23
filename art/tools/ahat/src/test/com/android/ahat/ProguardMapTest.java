@@ -25,7 +25,11 @@ import static org.junit.Assert.assertEquals;
 
 public class ProguardMapTest {
   private static final String TEST_MAP =
-    "class.that.is.Empty -> a:\n"
+      "# compiler: richard\n"
+    + "# compiler_version: 3.0-dev\n"
+    + "# min_api: 10000\n"
+    + "# compiler_hash: b7e25308967a577aa1f05a4b5a745c26\n"
+    + "class.that.is.Empty -> a:\n"
     + "class.that.is.Empty$subclass -> b:\n"
     + "class.with.only.Fields -> c:\n"
     + "    int prim_type_field -> a\n"
@@ -44,7 +48,8 @@ public class ProguardMapTest {
     + "    59:61:void methodWithObfObjArg(class.with.only.Fields) -> m\n"
     + "    64:66:class.with.only.Fields methodWithObfRes() -> n\n"
     + "    80:80:void lineObfuscatedMethod():8:8 -> o\n"
-    + "    90:90:void lineObfuscatedMethod2():9 -> p\n"
+    + "    100:105:void lineObfuscatedMethod():50 -> o\n"
+    + "    90:94:void lineObfuscatedMethod2():9 -> p\n"
     ;
 
   @Test
@@ -152,6 +157,12 @@ public class ProguardMapTest {
     assertEquals("()V", frame.signature);
     assertEquals("Methods.java", frame.filename);
     assertEquals(8, frame.line);
+
+    frame = map.getFrame("class.with.Methods", "o", "()V", "SourceFile.java", 103);
+    assertEquals("lineObfuscatedMethod", frame.method);
+    assertEquals("()V", frame.signature);
+    assertEquals("Methods.java", frame.filename);
+    assertEquals(53, frame.line);
 
     frame = map.getFrame("class.with.Methods", "p", "()V", "SourceFile.java", 94);
     assertEquals("lineObfuscatedMethod2", frame.method);

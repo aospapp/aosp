@@ -17,13 +17,13 @@
 %                                 May  2004                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -76,17 +76,21 @@ WandExport size_t AcquireWandId(void)
   static size_t
     id = 0;
 
+  size_t
+    wand_id;
+
   if (wand_semaphore == (SemaphoreInfo *) NULL)
     ActivateSemaphoreInfo(&wand_semaphore);
   LockSemaphoreInfo(wand_semaphore);
   if (wand_ids == (SplayTreeInfo *) NULL)
     wand_ids=NewSplayTree((int (*)(const void *,const void *)) NULL,
       (void *(*)(void *)) NULL,(void *(*)(void *)) NULL);
-  id++;
-  (void) AddValueToSplayTree(wand_ids,(const void *) id,(const void *) id);
+  wand_id=id++;
+  (void) AddValueToSplayTree(wand_ids,(const void *) wand_id,
+    (const void *) wand_id);
   instantiate_wand=MagickTrue;
   UnlockSemaphoreInfo(wand_semaphore);
-  return(id);
+  return(wand_id);
 }
 
 /*
@@ -147,6 +151,6 @@ WandExport void RelinquishWandId(const size_t id)
 {
   LockSemaphoreInfo(wand_semaphore);
   if (wand_ids != (SplayTreeInfo *) NULL)
-    (void) DeleteNodeByValueFromSplayTree(wand_ids,(const void *) id);
+    (void) DeleteNodeFromSplayTree(wand_ids,(const void *) id);
   UnlockSemaphoreInfo(wand_semaphore);
 }

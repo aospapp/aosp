@@ -20,7 +20,8 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Before;
 

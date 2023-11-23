@@ -784,10 +784,10 @@ mmap_subscript(mmap_object *self, PyObject *item)
     else if (PySlice_Check(item)) {
         Py_ssize_t start, stop, step, slicelen;
 
-        if (PySlice_GetIndicesEx((PySliceObject *)item, self->size,
-                         &start, &stop, &step, &slicelen) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return NULL;
         }
+        slicelen = _PySlice_AdjustIndices(self->size, &start, &stop, step);
 
         if (slicelen <= 0)
             return PyString_FromStringAndSize("", 0);
@@ -816,24 +816,6 @@ mmap_subscript(mmap_object *self, PyObject *item)
                         "mmap indices must be integers");
         return NULL;
     }
-}
-
-static PyObject *
-mmap_concat(mmap_object *self, PyObject *bb)
-{
-    CHECK_VALID(NULL);
-    PyErr_SetString(PyExc_SystemError,
-                    "mmaps don't support concatenation");
-    return NULL;
-}
-
-static PyObject *
-mmap_repeat(mmap_object *self, Py_ssize_t n)
-{
-    CHECK_VALID(NULL);
-    PyErr_SetString(PyExc_SystemError,
-                    "mmaps don't support repeat operation");
-    return NULL;
 }
 
 static int
@@ -939,11 +921,10 @@ mmap_ass_subscript(mmap_object *self, PyObject *item, PyObject *value)
     else if (PySlice_Check(item)) {
         Py_ssize_t start, stop, step, slicelen;
 
-        if (PySlice_GetIndicesEx((PySliceObject *)item,
-                                 self->size, &start, &stop,
-                                 &step, &slicelen) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return -1;
         }
+        slicelen = _PySlice_AdjustIndices(self->size, &start, &stop, step);
         if (value == NULL) {
             PyErr_SetString(PyExc_TypeError,
                 "mmap object doesn't support slice deletion");
@@ -994,9 +975,9 @@ mmap_ass_subscript(mmap_object *self, PyObject *item, PyObject *value)
 
 static PySequenceMethods mmap_as_sequence = {
     (lenfunc)mmap_length,                      /*sq_length*/
-    (binaryfunc)mmap_concat,                   /*sq_concat*/
-    (ssizeargfunc)mmap_repeat,                 /*sq_repeat*/
-    (ssizeargfunc)mmap_item,                           /*sq_item*/
+    0,                                         /*sq_concat*/
+    0,                                         /*sq_repeat*/
+    (ssizeargfunc)mmap_item,                   /*sq_item*/
     (ssizessizeargfunc)mmap_slice,             /*sq_slice*/
     (ssizeobjargproc)mmap_ass_item,            /*sq_ass_item*/
     (ssizessizeobjargproc)mmap_ass_slice,      /*sq_ass_slice*/
@@ -1045,7 +1026,7 @@ To map anonymous memory, pass -1 as the fileno (both versions).");
 static PyTypeObject mmap_object_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "mmap.mmap",                                /* tp_name */
-    sizeof(mmap_object),                        /* tp_size */
+    sizeof(mmap_object),                        /* tp_basicsize */
     0,                                          /* tp_itemsize */
     /* methods */
     (destructor) mmap_object_dealloc,           /* tp_dealloc */
@@ -1115,7 +1096,7 @@ new_mmap_object(PyTypeObject *type, PyObject *args, PyObject *kwdict)
         return NULL;
     if (map_size < 0) {
         PyErr_SetString(PyExc_OverflowError,
-                        "memory mapped length must be postiive");
+                        "memory mapped length must be positive");
         return NULL;
     }
     if (offset < 0) {
@@ -1301,7 +1282,7 @@ new_mmap_object(PyTypeObject *type, PyObject *args, PyObject *kwdict)
 
     if (map_size < 0) {
         PyErr_SetString(PyExc_OverflowError,
-                        "memory mapped length must be postiive");
+                        "memory mapped length must be positive");
         return NULL;
     }
     if (offset < 0) {

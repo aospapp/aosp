@@ -16,8 +16,8 @@
 
 #include "drmdisplaycompositor.h"
 #include "drmhwcomposer.h"
-#include "drmresources.h"
 #include "platform.h"
+#include "resourcemanager.h"
 #include "vsyncworker.h"
 
 #include <hardware/hwcomposer2.h>
@@ -111,7 +111,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Composition validated_type_ = HWC2::Composition::Invalid;
 
     HWC2::BlendMode blending_ = HWC2::BlendMode::None;
-    buffer_handle_t buffer_;
+    buffer_handle_t buffer_ = NULL;
     UniqueFd acquire_fence_;
     int release_fence_raw_ = -1;
     UniqueFd release_fence_;
@@ -135,14 +135,15 @@ class DrmHwcTwo : public hwc2_device_t {
 
   class HwcDisplay {
    public:
-    HwcDisplay(DrmResources *drm, std::shared_ptr<Importer> importer,
-               const gralloc_module_t *gralloc, hwc2_display_t handle,
+    HwcDisplay(ResourceManager *resource_manager, DrmDevice *drm,
+               std::shared_ptr<Importer> importer, hwc2_display_t handle,
                HWC2::DisplayType type);
     HwcDisplay(const HwcDisplay &) = delete;
     HWC2::Error Init(std::vector<DrmPlane *> *planes);
 
     HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
                                       hwc2_function_pointer_t func);
+    void ClearDisplay();
 
     // HWC Hooks
     HWC2::Error AcceptDisplayChanges();
@@ -173,6 +174,7 @@ class DrmHwcTwo : public hwc2_device_t {
                                  int32_t *fences);
     HWC2::Error PresentDisplay(int32_t *retire_fence);
     HWC2::Error SetActiveConfig(hwc2_config_t config);
+    HWC2::Error ChosePreferredConfig();
     HWC2::Error SetClientTarget(buffer_handle_t target, int32_t acquire_fence,
                                 int32_t dataspace, hwc_region_t damage);
     HWC2::Error SetColorMode(int32_t mode);
@@ -186,13 +188,14 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    private:
+    HWC2::Error CreateComposition(bool test);
     void AddFenceToRetireFence(int fd);
 
-    DrmResources *drm_;
+    ResourceManager *resource_manager_;
+    DrmDevice *drm_;
     DrmDisplayCompositor compositor_;
     std::shared_ptr<Importer> importer_;
     std::unique_ptr<Planner> planner_;
-    const gralloc_module_t *gralloc_;
 
     std::vector<DrmPlane *> primary_planes_;
     std::vector<DrmPlane *> overlay_planes_;
@@ -210,6 +213,18 @@ class DrmHwcTwo : public hwc2_device_t {
     int32_t color_mode_;
 
     uint32_t frame_no_ = 0;
+  };
+
+  class DrmHotplugHandler : public DrmEventHandler {
+   public:
+    DrmHotplugHandler(DrmHwcTwo *hwc2, DrmDevice *drm)
+        : hwc2_(hwc2), drm_(drm) {
+    }
+    void HandleEvent(uint64_t timestamp_us);
+
+   private:
+    DrmHwcTwo *hwc2_;
+    DrmDevice *drm_;
   };
 
   static DrmHwcTwo *toDrmHwcTwo(hwc2_device_t *dev) {
@@ -254,18 +269,18 @@ class DrmHwcTwo : public hwc2_device_t {
 
   // Device functions
   HWC2::Error CreateVirtualDisplay(uint32_t width, uint32_t height,
-                                   int32_t *format,
-                                   hwc2_display_t *display);
+                                   int32_t *format, hwc2_display_t *display);
   HWC2::Error DestroyVirtualDisplay(hwc2_display_t display);
   void Dump(uint32_t *size, char *buffer);
   uint32_t GetMaxVirtualDisplayCount();
   HWC2::Error RegisterCallback(int32_t descriptor, hwc2_callback_data_t data,
                                hwc2_function_pointer_t function);
+  HWC2::Error CreateDisplay(hwc2_display_t displ, HWC2::DisplayType type);
+  void HandleDisplayHotplug(hwc2_display_t displayid, int state);
+  void HandleInitialHotplugState(DrmDevice *drmDevice);
 
-  DrmResources drm_;
-  std::shared_ptr<Importer> importer_;  // Shared with HwcDisplay
-  const gralloc_module_t *gralloc_;
+  ResourceManager resource_manager_;
   std::map<hwc2_display_t, HwcDisplay> displays_;
   std::map<HWC2::Callback, HwcCallback> callbacks_;
 };
-}
+}  // namespace android

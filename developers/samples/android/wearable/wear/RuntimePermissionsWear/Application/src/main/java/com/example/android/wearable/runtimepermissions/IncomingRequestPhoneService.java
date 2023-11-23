@@ -20,21 +20,19 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Environment;
-import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 
-import com.example.android.wearable.runtimepermissions.common.Constants;
+import androidx.core.app.ActivityCompat;
 
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
+import com.example.android.wearable.runtimepermissions.common.Constants;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
 
 import java.io.File;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Handles all incoming requests for phone data (and permissions) from wear devices.
@@ -140,31 +138,26 @@ public class IncomingRequestPhoneService extends WearableListenerService {
     private void sendMessage(String nodeId, DataMap dataMap) {
         Log.d(TAG, "sendMessage() Node: " + nodeId);
 
-        GoogleApiClient client = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .build();
-        client.blockingConnect(Constants.CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
 
-
-        PendingResult<MessageApi.SendMessageResult> pendingMessageResult =
-                Wearable.MessageApi.sendMessage(
-                        client,
+        // Clients are inexpensive to create, so in this case we aren't creating member variables.
+        // (They are cached and shared between GoogleApi instances.)
+        Task<Integer> sendMessageTask =
+                Wearable.getMessageClient(
+                        getApplicationContext()).sendMessage(
                         nodeId,
                         Constants.MESSAGE_PATH_WEAR,
                         dataMap.toByteArray());
 
-        MessageApi.SendMessageResult sendMessageResult =
-                pendingMessageResult.await(
-                        Constants.CONNECTION_TIME_OUT_MS,
-                        TimeUnit.MILLISECONDS);
-
-        if (!sendMessageResult.getStatus().isSuccess()) {
-            Log.d(TAG, "Sending message failed, status: "
-                    + sendMessageResult.getStatus());
-        } else {
-            Log.d(TAG, "Message sent successfully");
-        }
-        client.disconnect();
+        sendMessageTask.addOnCompleteListener(new OnCompleteListener<Integer>() {
+            @Override
+            public void onComplete(Task<Integer> task) {
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Message sent successfully");
+                } else {
+                    Log.d(TAG, "Message failed.");
+                }
+            }
+        });
     }
 
     private boolean isExternalStorageReadable() {

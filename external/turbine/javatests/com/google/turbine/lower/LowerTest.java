@@ -17,7 +17,9 @@
 package com.google.turbine.lower;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -27,31 +29,34 @@ import com.google.turbine.binder.Binder;
 import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.binder.bound.SourceTypeBoundClass;
-import com.google.turbine.binder.bytecode.BytecodeBoundClass;
-import com.google.turbine.binder.env.CompoundEnv;
 import com.google.turbine.binder.env.SimpleEnv;
-import com.google.turbine.binder.lookup.TopLevelIndex;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.MethodSymbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
-import com.google.turbine.bytecode.AsmUtils;
 import com.google.turbine.bytecode.ByteReader;
 import com.google.turbine.bytecode.ConstantPoolReader;
+import com.google.turbine.diag.TurbineError;
 import com.google.turbine.model.TurbineConstantTypeKind;
 import com.google.turbine.model.TurbineFlag;
 import com.google.turbine.model.TurbineTyKind;
 import com.google.turbine.parse.Parser;
+import com.google.turbine.testing.AsmUtils;
 import com.google.turbine.type.Type;
+import com.google.turbine.type.Type.ClassTy;
+import com.google.turbine.type.Type.ClassTy.SimpleClassTy;
+import com.google.turbine.type.Type.IntersectionTy;
+import com.google.turbine.type.Type.PrimTy;
+import com.google.turbine.type.Type.TyVar;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import org.junit.Rule;
@@ -72,22 +77,17 @@ public class LowerTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private static final ImmutableList<Path> BOOTCLASSPATH =
-      ImmutableList.of(Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar"));
-
   @Test
   public void hello() throws Exception {
-    CompoundEnv<ClassSymbol, BytecodeBoundClass> classpath =
-        ClassPathBinder.bind(ImmutableList.of(), BOOTCLASSPATH, TopLevelIndex.builder());
 
-    ImmutableList<Type.ClassTy> interfaceTypes =
+    ImmutableList<Type> interfaceTypes =
         ImmutableList.of(
-            new Type.ClassTy(
+            ClassTy.create(
                 ImmutableList.of(
-                    new Type.ClassTy.SimpleClassTy(
+                    SimpleClassTy.create(
                         new ClassSymbol("java/util/List"),
                         ImmutableList.of(
-                            new Type.TyVar(
+                            TyVar.create(
                                 new TyVarSymbol(new ClassSymbol("test/Test"), "V"),
                                 ImmutableList.of())),
                         ImmutableList.of()))));
@@ -96,13 +96,14 @@ public class LowerTest {
         ImmutableMap.of(
             new TyVarSymbol(new ClassSymbol("test/Test"), "V"),
             new SourceTypeBoundClass.TyVarInfo(
-                new Type.ClassTy(
+                IntersectionTy.create(
                     ImmutableList.of(
-                        new Type.ClassTy.SimpleClassTy(
-                            new ClassSymbol("test/Test$Inner"),
-                            ImmutableList.of(),
-                            ImmutableList.of()))),
-                ImmutableList.of(),
+                        ClassTy.create(
+                            ImmutableList.of(
+                                SimpleClassTy.create(
+                                    new ClassSymbol("test/Test$Inner"),
+                                    ImmutableList.of(),
+                                    ImmutableList.of()))))),
                 ImmutableList.of()));
     int access = TurbineFlag.ACC_SUPER | TurbineFlag.ACC_PUBLIC;
     ImmutableList<SourceTypeBoundClass.MethodInfo> methods =
@@ -110,7 +111,7 @@ public class LowerTest {
             new SourceTypeBoundClass.MethodInfo(
                 new MethodSymbol(new ClassSymbol("test/Test"), "f"),
                 ImmutableMap.of(),
-                new Type.PrimTy(TurbineConstantTypeKind.INT, ImmutableList.of()),
+                PrimTy.create(TurbineConstantTypeKind.INT, ImmutableList.of()),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 TurbineFlag.ACC_STATIC | TurbineFlag.ACC_PUBLIC,
@@ -123,34 +124,35 @@ public class LowerTest {
                 ImmutableMap.of(
                     new TyVarSymbol(new MethodSymbol(new ClassSymbol("test/Test"), "g"), "V"),
                     new SourceTypeBoundClass.TyVarInfo(
-                        null,
-                        ImmutableList.of(
-                            new Type.ClassTy(
-                                ImmutableList.of(
-                                    new Type.ClassTy.SimpleClassTy(
-                                        new ClassSymbol("java/lang/Runnable"),
-                                        ImmutableList.of(),
-                                        ImmutableList.of())))),
+                        IntersectionTy.create(
+                            ImmutableList.of(
+                                ClassTy.create(
+                                    ImmutableList.of(
+                                        SimpleClassTy.create(
+                                            new ClassSymbol("java/lang/Runnable"),
+                                            ImmutableList.of(),
+                                            ImmutableList.of()))))),
                         ImmutableList.of()),
                     new TyVarSymbol(new MethodSymbol(new ClassSymbol("test/Test"), "g"), "E"),
                     new SourceTypeBoundClass.TyVarInfo(
-                        new Type.ClassTy(
+                        IntersectionTy.create(
                             ImmutableList.of(
-                                new Type.ClassTy.SimpleClassTy(
-                                    new ClassSymbol("java/lang/Error"),
-                                    ImmutableList.of(),
-                                    ImmutableList.of()))),
-                        ImmutableList.of(),
+                                ClassTy.create(
+                                    ImmutableList.of(
+                                        SimpleClassTy.create(
+                                            new ClassSymbol("java/lang/Error"),
+                                            ImmutableList.of(),
+                                            ImmutableList.of()))))),
                         ImmutableList.of())),
                 Type.VOID,
                 ImmutableList.of(
                     new SourceTypeBoundClass.ParamInfo(
-                        new Type.PrimTy(TurbineConstantTypeKind.INT, ImmutableList.of()),
+                        PrimTy.create(TurbineConstantTypeKind.INT, ImmutableList.of()),
                         "foo",
                         ImmutableList.of(),
                         0)),
                 ImmutableList.of(
-                    new Type.TyVar(
+                    TyVar.create(
                         new TyVarSymbol(new MethodSymbol(new ClassSymbol("test/Test"), "g"), "E"),
                         ImmutableList.of())),
                 TurbineFlag.ACC_PUBLIC,
@@ -190,6 +192,7 @@ public class LowerTest {
             null,
             null,
             ImmutableList.of(),
+            null,
             null);
 
     SourceTypeBoundClass i =
@@ -209,6 +212,7 @@ public class LowerTest {
             null,
             null,
             ImmutableList.of(),
+            null,
             null);
 
     SimpleEnv.Builder<ClassSymbol, SourceTypeBoundClass> b = SimpleEnv.builder();
@@ -219,7 +223,8 @@ public class LowerTest {
         Lower.lowerAll(
                 ImmutableMap.of(
                     new ClassSymbol("test/Test"), c, new ClassSymbol("test/Test$Inner"), i),
-                classpath)
+                ImmutableList.of(),
+                TURBINE_BOOTCLASSPATH.env())
             .bytes();
 
     assertThat(AsmUtils.textify(bytes.get("test/Test")))
@@ -249,13 +254,15 @@ public class LowerTest {
                             "    class InnerMost {}",
                             "  }",
                             "}"))),
-            ImmutableList.of(),
-            BOOTCLASSPATH);
-    Map<String, byte[]> lowered = Lower.lowerAll(bound.units(), bound.classPathEnv()).bytes();
+            ClassPathBinder.bindClasspath(ImmutableList.of()),
+            TURBINE_BOOTCLASSPATH,
+            /* moduleVersion=*/ Optional.empty());
+    Map<String, byte[]> lowered =
+        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
     List<String> attributes = new ArrayList<>();
     new ClassReader(lowered.get("Test$Inner$InnerMost"))
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM7) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
@@ -278,7 +285,7 @@ public class LowerTest {
                 UTF_8));
 
     Map<String, byte[]> actual =
-        IntegrationTestSupport.runTurbine(input.sources, ImmutableList.of(), BOOTCLASSPATH);
+        IntegrationTestSupport.runTurbine(input.sources, ImmutableList.of());
 
     ByteReader reader = new ByteReader(actual.get("Test"), 0);
     assertThat(reader.u4()).isEqualTo(0xcafebabe); // magic
@@ -325,17 +332,19 @@ public class LowerTest {
                             "class Test {",
                             "  public @Anno int[][] xs;",
                             "}"))),
-            ImmutableList.of(),
-            BOOTCLASSPATH);
-    Map<String, byte[]> lowered = Lower.lowerAll(bound.units(), bound.classPathEnv()).bytes();
+            ClassPathBinder.bindClasspath(ImmutableList.of()),
+            TURBINE_BOOTCLASSPATH,
+            /* moduleVersion=*/ Optional.empty());
+    Map<String, byte[]> lowered =
+        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
     TypePath[] path = new TypePath[1];
     new ClassReader(lowered.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM7) {
               @Override
               public FieldVisitor visitField(
                   int access, String name, String desc, String signature, Object value) {
-                return new FieldVisitor(Opcodes.ASM5) {
+                return new FieldVisitor(Opcodes.ASM7) {
                   @Override
                   public AnnotationVisitor visitTypeAnnotation(
                       int typeRef, TypePath typePath, String desc, boolean visible) {
@@ -377,13 +386,12 @@ public class LowerTest {
                     "  static final boolean ZCONST = Lib.ZCONST || false;",
                     "}"));
 
-    Map<String, byte[]> actual =
-        IntegrationTestSupport.runTurbine(input, ImmutableList.of(lib), BOOTCLASSPATH);
+    Map<String, byte[]> actual = IntegrationTestSupport.runTurbine(input, ImmutableList.of(lib));
 
     Map<String, Object> values = new LinkedHashMap<>();
     new ClassReader(actual.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM7) {
               @Override
               public FieldVisitor visitField(
                   int access, String name, String desc, String signature, Object value) {
@@ -402,13 +410,15 @@ public class LowerTest {
     BindingResult bound =
         Binder.bind(
             ImmutableList.of(Parser.parse("@Deprecated class Test {}")),
-            ImmutableList.of(),
-            BOOTCLASSPATH);
-    Map<String, byte[]> lowered = Lower.lowerAll(bound.units(), bound.classPathEnv()).bytes();
+            ClassPathBinder.bindClasspath(ImmutableList.of()),
+            TURBINE_BOOTCLASSPATH,
+            /* moduleVersion=*/ Optional.empty());
+    Map<String, byte[]> lowered =
+        Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
     int[] acc = {0};
     new ClassReader(lowered.get("Test"))
         .accept(
-            new ClassVisitor(Opcodes.ASM5) {
+            new ClassVisitor(Opcodes.ASM7) {
               @Override
               public void visit(
                   int version,
@@ -421,7 +431,7 @@ public class LowerTest {
               }
             },
             0);
-    assertThat((acc[0] & Opcodes.ACC_DEPRECATED) == Opcodes.ACC_DEPRECATED).isTrue();
+    assertThat((acc[0] & Opcodes.ACC_DEPRECATED)).isEqualTo(Opcodes.ACC_DEPRECATED);
   }
 
   @Test
@@ -475,12 +485,158 @@ public class LowerTest {
       noImports = builder.build();
     }
 
-    Map<String, byte[]> expected =
-        IntegrationTestSupport.runJavac(noImports, ImmutableList.of(), BOOTCLASSPATH);
-    Map<String, byte[]> actual =
-        IntegrationTestSupport.runTurbine(sources, ImmutableList.of(), BOOTCLASSPATH);
+    Map<String, byte[]> expected = IntegrationTestSupport.runJavac(noImports, ImmutableList.of());
+    Map<String, byte[]> actual = IntegrationTestSupport.runTurbine(sources, ImmutableList.of());
     assertThat(IntegrationTestSupport.dump(IntegrationTestSupport.sortMembers(actual)))
         .isEqualTo(IntegrationTestSupport.dump(IntegrationTestSupport.canonicalize(expected)));
+  }
+
+  @Test
+  public void missingOuter() throws Exception {
+
+    Map<String, byte[]> lib =
+        IntegrationTestSupport.runJavac(
+            ImmutableMap.of(
+                "A.java",
+                    lines(
+                        "interface A {", //
+                        "  interface M {",
+                        "    interface I {}",
+                        "  } ",
+                        "}"),
+                "B.java",
+                    lines(
+                        "interface B extends A {",
+                        "  interface BM extends M {",
+                        "    interface BI extends I {}",
+                        "  }",
+                        "}")),
+            ImmutableList.of());
+
+    Path libJar = temporaryFolder.newFile("lib.jar").toPath();
+    try (OutputStream os = Files.newOutputStream(libJar);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      jos.putNextEntry(new JarEntry("A$M.class"));
+      jos.write(lib.get("A$M"));
+      jos.putNextEntry(new JarEntry("A$M$I.class"));
+      jos.write(lib.get("A$M$I"));
+      jos.putNextEntry(new JarEntry("B.class"));
+      jos.write(lib.get("B"));
+      jos.putNextEntry(new JarEntry("B$BM.class"));
+      jos.write(lib.get("B$BM"));
+      jos.putNextEntry(new JarEntry("B$BM$BI.class"));
+      jos.write(lib.get("B$BM$BI"));
+    }
+
+    ImmutableMap<String, String> sources =
+        ImmutableMap.<String, String>builder()
+            .put(
+                "Test.java",
+                lines(
+                    "public class Test extends B.BM {", //
+                    "  I i;",
+                    "}"))
+            .build();
+
+    try {
+      IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar));
+      fail();
+    } catch (TurbineError error) {
+      assertThat(error)
+          .hasMessageThat()
+          .contains("Test.java: error: could not locate class file for A");
+    }
+  }
+
+  @Test
+  public void missingOuter2() throws Exception {
+
+    Map<String, byte[]> lib =
+        IntegrationTestSupport.runJavac(
+            ImmutableMap.of(
+                "A.java",
+                lines(
+                    "class A {", //
+                    "  class M { ",
+                    "    class I {} ",
+                    "  } ",
+                    "}"),
+                "B.java",
+                lines(
+                    "class B extends A { ",
+                    "  class BM extends M { ",
+                    "    class BI extends I {} ",
+                    "  } ",
+                    "}")),
+            ImmutableList.of());
+
+    Path libJar = temporaryFolder.newFile("lib.jar").toPath();
+    try (OutputStream os = Files.newOutputStream(libJar);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      jos.putNextEntry(new JarEntry("A$M.class"));
+      jos.write(lib.get("A$M"));
+      jos.putNextEntry(new JarEntry("A$M$I.class"));
+      jos.write(lib.get("A$M$I"));
+      jos.putNextEntry(new JarEntry("B.class"));
+      jos.write(lib.get("B"));
+      jos.putNextEntry(new JarEntry("B$BM.class"));
+      jos.write(lib.get("B$BM"));
+      jos.putNextEntry(new JarEntry("B$BM$BI.class"));
+      jos.write(lib.get("B$BM$BI"));
+    }
+
+    ImmutableMap<String, String> sources =
+        ImmutableMap.<String, String>builder()
+            .put(
+                "Test.java",
+                lines(
+                    "public class Test extends B {", //
+                    "  class M extends BM {",
+                    "     I i;",
+                    "  }",
+                    "}"))
+            .build();
+
+    try {
+      IntegrationTestSupport.runTurbine(sources, ImmutableList.of(libJar));
+      fail();
+    } catch (TurbineError error) {
+      assertThat(error)
+          .hasMessageThat()
+          .contains(
+              "Test.java:3: error: could not locate class file for A\n"
+                  + "     I i;\n"
+                  + "       ^");
+    }
+  }
+
+  // If an element incorrectly has multiple visibility modifiers, pick one, and rely on javac to
+  // report a diagnostic.
+  @Test
+  public void multipleVisibilities() throws Exception {
+    ImmutableMap<String, String> sources =
+        ImmutableMap.of("Test.java", "public protected class Test {}");
+
+    Map<String, byte[]> lowered =
+        IntegrationTestSupport.runTurbine(sources, /* classpath= */ ImmutableList.of());
+    int[] testAccess = {0};
+    new ClassReader(lowered.get("Test"))
+        .accept(
+            new ClassVisitor(Opcodes.ASM7) {
+              @Override
+              public void visit(
+                  int version,
+                  int access,
+                  String name,
+                  String signature,
+                  String superName,
+                  String[] interfaces) {
+                testAccess[0] = access;
+              }
+            },
+            0);
+    assertThat((testAccess[0] & TurbineFlag.ACC_PUBLIC)).isEqualTo(TurbineFlag.ACC_PUBLIC);
+    assertThat((testAccess[0] & TurbineFlag.ACC_PROTECTED)).isNotEqualTo(TurbineFlag.ACC_PROTECTED);
   }
 
   static String lines(String... lines) {

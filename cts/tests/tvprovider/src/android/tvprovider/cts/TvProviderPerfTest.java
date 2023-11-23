@@ -30,6 +30,7 @@ import android.media.tv.TvContract.Channels;
 import android.media.tv.TvContract.Programs;
 import android.net.Uri;
 import android.os.RemoteException;
+import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
@@ -51,6 +52,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
     private static final int TRANSACTION_RUNS = 100;
     private static final int QUERY_RUNS = 10;
     private static final String REPORT_LOG_NAME = "CtsTvProviderTestCases";
+    private static final String TAG = "TvProviderPerfTest";
 
     private ContentResolver mContentResolver;
     private String mInputId;
@@ -81,10 +83,15 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         if (!mHasTvInputFramework) return;
         double[] averages = new double[5];
 
-        // Insert
+        Log.d(TAG, "Insert");
         final ArrayList<ContentProviderOperation> operations = new ArrayList<>();
         final int TRANSACTION_SIZE = 1000;
         double[] applyBatchTimes = MeasureTime.measure(TRANSACTION_RUNS, new MeasureRun() {
+            @Override
+            public void prepare(int i) {
+                mContentResolver.delete(Channels.CONTENT_URI, null, null);
+            }
+
             @Override
             public void run(int i) {
                 operations.clear();
@@ -111,7 +118,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultUnit.MS);
         averages[0] = Stat.getAverage(applyBatchTimes);
 
-        // Update
+        Log.d(TAG, "Update");
         final String[] projection = { Channels._ID };
         try (final Cursor cursor = mContentResolver.query(Channels.CONTENT_URI,
                 projection, null, null, null)) {
@@ -139,7 +146,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultUnit.MS);
         averages[1] = Stat.getAverage(applyBatchTimes);
 
-        // Query channels
+        Log.d(TAG, "Query channels");
         applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -155,7 +162,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[2] = Stat.getAverage(applyBatchTimes);
 
-        // Query a channel
+        Log.d(TAG, "Query a channel");
         try (final Cursor cursor = mContentResolver.query(Channels.CONTENT_URI,
                 projection, null, null, null)) {
             applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
@@ -175,7 +182,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[3] = Stat.getAverage(applyBatchTimes);
 
-        // Delete
+        Log.d(TAG, "Delete");
         applyBatchTimes = MeasureTime.measure(1, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -195,7 +202,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         if (!mHasTvInputFramework) return;
         double[] averages = new double[7];
 
-        // Prepare (insert channels)
+        Log.d(TAG, "Prepare (insert channels)");
         final ArrayList<ContentProviderOperation> operations = new ArrayList<>();
         final int TRANSACTION_SIZE = 1000;
         final int NUM_CHANNELS = 100;
@@ -222,7 +229,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
             throw new RuntimeException(e);
         }
 
-        // Insert
+        Log.d(TAG, "Insert programs");
         double[] applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -249,7 +256,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultUnit.MS);
         averages[0] = Stat.getAverage(applyBatchTimes);
 
-        // Update
+        Log.d(TAG, "Update programs");
         final long PROGRAM_DURATION_MS = 60 * 1000;
         final String[] projection = { Programs._ID };
         applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
@@ -284,7 +291,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultUnit.MS);
         averages[1] = Stat.getAverage(applyBatchTimes);
 
-        // Query programs
+        Log.d(TAG, "Query programs");
         applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -300,7 +307,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[2] = Stat.getAverage(applyBatchTimes);
 
-        // Query programs with selection
+        Log.d(TAG, "Query programs with selection");
         applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -320,7 +327,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[3] = Stat.getAverage(applyBatchTimes);
 
-        // Query a program
+        Log.d(TAG, "Query a program");
         try (final Cursor cursor = mContentResolver.query(Programs.CONTENT_URI,
                 projection, null, null, null)) {
             applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
@@ -340,7 +347,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[4] = Stat.getAverage(applyBatchTimes);
 
-        // Delete programs
+        Log.d(TAG, "Delete programs");
         applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -357,7 +364,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[5] = Stat.getAverage(applyBatchTimes);
 
-        // Delete channels
+        Log.d(TAG, "Delete channels");
         applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
             @Override
             public void run(int i) {

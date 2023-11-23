@@ -45,10 +45,11 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctsdeviceutillegacy \
+    compatibility-device-util-axt \
+    ctsdeviceutillegacy-axt \
     ctsmediautil \
-    ctstestrunner \
+    ctstestrunner-axt \
+    hamcrest-library \
     ctstestserver \
     junit \
     ndkaudio \
@@ -56,7 +57,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     truth-prebuilt \
     mockito-target-minus-junit4 \
     androidx.heifwriter_heifwriter \
-    androidx.media_media \
+    androidx.media2_media2 \
 
 LOCAL_JNI_SHARED_LIBRARIES := \
     libaudio_jni \
@@ -72,6 +73,7 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 LOCAL_AAPT_FLAGS := -0 .vp9
 LOCAL_AAPT_FLAGS += -0 .ts
 LOCAL_AAPT_FLAGS += -0 .heic
+LOCAL_AAPT_FLAGS += -0 .trp
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -88,6 +90,8 @@ LOCAL_JAVA_LIBRARIES += \
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+
+LOCAL_HOST_REQUIRED_MODULES := cts-dynamic-config
 
 include $(BUILD_CTS_PACKAGE)
 

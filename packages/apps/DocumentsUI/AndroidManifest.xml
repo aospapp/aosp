@@ -19,15 +19,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.documentsui">
 
-    <uses-permission android:name="android.permission.GET_APP_GRANTED_URI_PERMISSIONS" />
-    <uses-permission android:name="android.permission.FORCE_PERSISTABLE_URI_PERMISSIONS" />
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
     <uses-permission android:name="android.permission.REMOVE_TASKS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CACHE_CONTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SET_PREFERRED_APPLICATIONS" />
+    <uses-permission android:name="android.permission.CHANGE_OVERLAY_PACKAGES" />
 
     <application
         android:name=".DocumentsApplication"
@@ -94,6 +92,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.APP_FILES" />
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
@@ -117,7 +116,7 @@
             </intent-filter>
         </activity>
 
-        <activity-alias android:name="ViewDownloadsActivity"
+        <activity-alias android:name=".ViewDownloadsActivity"
                         android:targetActivity=".files.FilesActivity"
                         android:enabled="@bool/handle_view_downloads_intent">
             <intent-filter>
@@ -136,15 +135,13 @@
         </activity>
 
         <provider
-            android:name=".ScopedAccessProvider"
-            android:authorities="com.android.documentsui.scopedAccess"
-            android:permission="android.permission.MANAGE_SCOPED_ACCESS_DIRECTORY_PERMISSIONS"
-            android:exported="true">
-        </provider>
-
-        <provider
             android:name=".picker.LastAccessedProvider"
             android:authorities="com.android.documentsui.lastAccessed"
+            android:exported="false"/>
+
+        <provider
+            android:name=".picker.PickCountRecordProvider"
+            android:authorities="com.android.documentsui.pickCountRecord"
             android:exported="false"/>
 
         <provider
@@ -172,6 +169,12 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".PreBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.PRE_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Run FileOperationService in a separate process so that we can use FileLock class to
             wait until jumbo clip is done writing to disk before reading it. See ClipStorage for
             details. -->
@@ -184,7 +187,7 @@
         <activity
             android:name=".selection.demo.SelectionDemoActivity"
             android:label="Selection Demo"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            android:theme="@style/DocumentsTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>

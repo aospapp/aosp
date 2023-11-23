@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Калибрлеу"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Форматтарды таңдау"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Көлемді дыбыс"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -151,9 +151,9 @@
     <string name="about_system_update" msgid="7282772247661356586">"Жүйе жаңартуы"</string>
     <string name="about_preference" msgid="4131396784531360434">"Мәлімет"</string>
     <string name="device_name" msgid="2670488158531273028">"Құрылғы атауы"</string>
-    <string name="restart_button_label" msgid="8153112858638352970">"Қайта бастау"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Қайта қосу"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Құқықтық ақпарат"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"Ашық бастапқы код лицензиялары"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"Ашық кодты бағдарлама лицензиялары"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google құқықтық ақпараты"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Лицензия деректері қол жетімді емес"</string>
     <string name="about_model" msgid="6625269442206323995">"Үлгі"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Кейбір қолданбалар жетек қайта жалғанбайынша қол жетімсіз болады немесе дұрыс жұмыс істемейді."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Жадта орын жеткіліксіз."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Қолданба жоқ."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Қолданба көшірмеден қорғалған"</string>
     <string name="invalid_location" msgid="5269044848535157307">"Аймақ орнату жарамсыз."</string>
     <string name="system_package" msgid="9200255718634512790">"Жүйе жаңартуларын сыртқы медиаға орнату мүмкін емес."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Құрылғы әкімшісін сыртқы медиа құралға орнату мүмкін емес."</string>
@@ -481,7 +480,7 @@
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Жасанды орындарға рұқсат беру"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"Күйін келтіру қолданбасын таңдау"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Күйін келтірушіні күту"</string>
-    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB арқылы қолданбаларды растау"</string>
+    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB арқылы орнатылған қолданбаларды растау"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"ADB/ADT арқылы орнатылған қолданбаларда зиянды мінез-құлық бар-жоғын тексеру"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Wi-Fi егжей-тегжейлі журналға тіркеу"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Wi‑Fi егжей-тегжейлі журналға тіркеуді қосу"</string>
@@ -491,7 +490,7 @@
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Графикалық процессор көрінісінің жаңартуларын көрсету"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Жабдық қабатын көрсету"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Графикалық процессордың артық сызуын көрсету"</string>
-    <string name="system_show_surface_updates" msgid="8878834675712192327">"Бет жаңартуларын көрсету"</string>
+    <string name="system_show_surface_updates" msgid="8878834675712192327">"Бедердің жаңарғанын көрсету"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Терезе анимациясының масштабы"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Өту анимациясының масштабы"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Аниматор ұзақтығының шкаласы"</string>
@@ -507,11 +506,11 @@
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"Bluetooth HCI толық журналын жүргізуді қосу"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"USB қосылғанда күйін келтіру режимі"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"Орындау алдында бекіту үшін күйі келтірілетін қолданба күйін келтірушіні күтеді."</string>
-    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"Қию шектерін, шеттерді, т.б көрсету."</string>
+    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"Қию шегін, шеттерді, т.б. көрсету"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"Графикалық процессор сызғанда терезелер ішіндегі көріністердің жыпылықтауы"</string>
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"Жаңартылғанда жабдық қабаттарын жасыл түспен жыпылықтату"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Ең жақсыдан ең жаманға қарай: көк, жасыл, ашық қызыл, қызыл"</string>
-    <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Жаңартылғанда бүкіл терезе бетін жыпылықтату"</string>
+    <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Бедері жаңарғанда, терезені түгелдей жыпылықтату"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Қолданбалар негізгі ағында ұзақ әрекеттерді орындағанда экранды жыпылықтату"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"adb shell dumpsys gfxinfo ішінде бейнелеу уақытын өлшеу"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Қосулы"</string>
@@ -726,9 +725,12 @@
     <string name="high_power_on" msgid="7725180078784796673">"Оңтайландырылмады"</string>
     <string name="high_power_off" msgid="308272752152871252">"Қуат тұтынуды оңтайландыру"</string>
     <string name="high_power_system" msgid="7815843517656137656">"Қуат тұтынуды оңтайландыру мүмкін емес"</string>
-    <string name="manage_notification_access_title" msgid="2051765294087620434">"Хабарландыруларға кіру"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"Хабарландыруларды пайдалану"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Орнатылған қолданбалардың ешбірі хабарландыруға кіруге рұқсат сұрамады."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Бұл қолданбалар барлық хабарландыруларды, соның ішінде контакт аты мен алынатын хабар мәтіні сияқты жеке ақпаратты оқи алады. Сонымен қатар олар хабарландырулардан бас тарта не әрекет түймелерін іске қоса алады."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Каталогке кіру"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Бұл қолданбаларда белгілі каталогтерге кіру рұқсаты бар."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Басқа қолданбалардың үстінен көрсету"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Басқа қолданбалардың үстінен көрсетілуге рұқсат беру"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Қолданбаның пайдаланылып жатқан басқа қолданбалардың үстінен көрсетілуіне рұқсат беріңіз. Ол қолданбаларды пайдалануыңызға кедергі келтіріп, олардың көрсетілуін не жұмыс әдісін өзгертуі мүмкін."</string>

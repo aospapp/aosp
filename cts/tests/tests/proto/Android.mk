@@ -37,6 +37,6 @@ LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-        ctstestrunner
+        ctstestrunner-axt
 
 include $(BUILD_CTS_PACKAGE)

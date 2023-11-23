@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2015-2016 The Khronos Group Inc.
- * Copyright (c) 2015-2016 Valve Corporation
- * Copyright (c) 2015-2016 LunarG, Inc.
+ * Copyright (c) 2015-2019 The Khronos Group Inc.
+ * Copyright (c) 2015-2019 Valve Corporation
+ * Copyright (c) 2015-2019 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@
 #ifndef VKTESTFRAMEWORK_H
 #define VKTESTFRAMEWORK_H
 
-//#include "gtest-1.7.0/include/gtest/gtest.h"
 #include "SPIRV/GLSL.std.450.h"
+#include "spirv-tools/libspirv.h"
 #include "glslang/Public/ShaderLang.h"
 #include "icd-spv.h"
 #include "test_common.h"
@@ -67,7 +67,9 @@ class VkTestFramework : public ::testing::Test {
     static void InitArgs(int *argc, char *argv[]);
     static void Finish();
 
-    bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spv);
+    bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spv,
+                   bool debug = false);
+    bool ASMtoSPV(const spv_target_env target_env, const uint32_t options, const char *pasm, std::vector<unsigned int> &spv);
     static bool m_canonicalize_spv;
     static bool m_strip_spv;
     static bool m_do_everything_spv;

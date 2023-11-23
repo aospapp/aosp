@@ -19,10 +19,10 @@ package com.android.documentsui.dirlist;
 import static com.android.documentsui.base.DocumentInfo.getCursorLong;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
-import android.annotation.ColorInt;
+import androidx.annotation.ColorInt;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.database.Cursor;
-import android.graphics.Rect;
 import android.provider.DocumentsContract.Document;
 import android.text.format.Formatter;
 import android.view.MotionEvent;
@@ -35,6 +35,9 @@ import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.roots.RootCursorWrapper;
+import com.android.documentsui.ui.Views;
+
+import java.util.function.Function;
 
 final class GridDocumentHolder extends DocumentHolder {
 
@@ -46,18 +49,16 @@ final class GridDocumentHolder extends DocumentHolder {
     final ImageView mIconThumb;
     final ImageView mIconCheck;
     final IconHelper mIconHelper;
+    final View mIconLayout;
+    final View mPreviewIcon;
 
-    private final @ColorInt int mDisabledBgColor;
-    private final @ColorInt int mDefaultBgColor;
     // This is used in as a convenience in our bind method.
     private final DocumentInfo mDoc = new DocumentInfo();
 
     public GridDocumentHolder(Context context, ViewGroup parent, IconHelper iconHelper) {
         super(context, parent, R.layout.item_doc_grid);
 
-        mDisabledBgColor = context.getColor(R.color.item_doc_background_disabled);
-        mDefaultBgColor = context.getColor(R.color.item_doc_background);
-
+        mIconLayout = itemView.findViewById(R.id.icon);
         mTitle = (TextView) itemView.findViewById(android.R.id.title);
         mDate = (TextView) itemView.findViewById(R.id.date);
         mDetails = (TextView) itemView.findViewById(R.id.details);
@@ -65,6 +66,7 @@ final class GridDocumentHolder extends DocumentHolder {
         mIconMimeSm = (ImageView) itemView.findViewById(R.id.icon_mime_sm);
         mIconThumb = (ImageView) itemView.findViewById(R.id.icon_thumb);
         mIconCheck = (ImageView) itemView.findViewById(R.id.icon_check);
+        mPreviewIcon = itemView.findViewById(R.id.preview_icon);
 
         mIconHelper = iconHelper;
     }
@@ -101,13 +103,21 @@ final class GridDocumentHolder extends DocumentHolder {
     public void setEnabled(boolean enabled) {
         super.setEnabled(enabled);
 
-        // Text colors enabled/disabled is handle via a color set.
-        itemView.setBackgroundColor(enabled ? mDefaultBgColor : mDisabledBgColor);
         float imgAlpha = enabled ? 1f : DISABLED_ALPHA;
 
         mIconMimeLg.setAlpha(imgAlpha);
         mIconMimeSm.setAlpha(imgAlpha);
         mIconThumb.setAlpha(imgAlpha);
+    }
+
+    @Override
+    public void bindPreviewIcon(boolean show, Function<View, Boolean> clickCallback) {
+        mPreviewIcon.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) {
+            mPreviewIcon.setContentDescription(
+                    itemView.getResources().getString(R.string.preview_file, mDoc.displayName));
+            mPreviewIcon.setAccessibilityDelegate(new PreviewAccessibilityDelegate(clickCallback));
+        }
     }
 
     @Override
@@ -118,10 +128,12 @@ final class GridDocumentHolder extends DocumentHolder {
 
     @Override
     public boolean inSelectRegion(MotionEvent event) {
-        Rect iconRect = new Rect();
-        mIconMimeSm.getGlobalVisibleRect(iconRect);
+        return Views.isEventOver(event, mIconLayout);
+    }
 
-        return iconRect.contains((int) event.getRawX(), (int) event.getRawY());
+    @Override
+    public boolean inPreviewIconRegion(MotionEvent event) {
+        return Views.isEventOver(event, mPreviewIcon);
     }
 
     /**

@@ -20,8 +20,8 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.net import connectivity_const as cconst
 from acts.test_utils.net import ipsec_test_utils as iutils
 from acts.test_utils.net import socket_test_utils as sutils
-from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts.test_utils.tel.tel_test_utils import stop_adb_tcpdump
+from acts.test_utils.net.net_test_utils import start_tcpdump
+from acts.test_utils.net.net_test_utils import stop_tcpdump
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 import random
@@ -47,32 +47,22 @@ class IpSecTest(base_test.BaseTestClass):
         self.ipv6_dut_a = self.dut_a.droid.connectivityGetIPv6Addresses(WLAN)[0]
         self.ipv6_dut_b = self.dut_b.droid.connectivityGetIPv6Addresses(WLAN)[0]
 
-        self.tcpdump_pid_a = None
-        self.tcpdump_file_a = None
-        self.tcpdump_pid_b = None
-        self.tcpdump_file_b = None
-
         self.crypt_auth_combos = iutils.generate_random_crypt_auth_combo()
+
+        self.tcpdump_pid_a = None
+        self.tcpdump_pid_b = None
 
     def teardown_class(self):
         for ad in self.android_devices:
             wutils.reset_wifi(ad)
 
     def setup_test(self):
-        self.tcpdump_pid_a = start_adb_tcpdump(
-            self.dut_a, self.test_name, mask='all')
-        self.tcpdump_pid_b = start_adb_tcpdump(
-            self.dut_b, self.test_name, mask='all')
+        self.tcpdump_pid_a = start_tcpdump(self.dut_a, self.test_name)
+        self.tcpdump_pid_b = start_tcpdump(self.dut_b, self.test_name)
 
     def teardown_test(self):
-        if self.tcpdump_pid_a:
-            stop_adb_tcpdump(
-                self.dut_a, self.tcpdump_pid_a, pull_tcpdump=True)
-        if self.tcpdump_pid_b:
-            stop_adb_tcpdump(
-                self.dut_b, self.tcpdump_pid_b, pull_tcpdump=True)
-        self.tcpdump_pid_a = None
-        self.tcpdump_pid_b = None
+        stop_tcpdump(self.dut_a, self.tcpdump_pid_a, self.test_name)
+        stop_tcpdump(self.dut_b, self.tcpdump_pid_b, self.test_name)
 
     def on_fail(self, test_name, begin_time):
         self.dut_a.take_bug_report(test_name, begin_time)

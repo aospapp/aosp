@@ -16,6 +16,8 @@
 
 package android.cts.statsd.atom;
 
+import android.cts.statsd.validation.ValidationTestUtil;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
@@ -45,7 +47,7 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
 
     protected IBuildInfo mCtsBuild;
 
-    private static final String TEST_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String TEST_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     @Override
     protected void setUp() throws Exception {
@@ -56,6 +58,19 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
     @Override
     public void setBuild(IBuildInfo buildInfo) {
         mCtsBuild = buildInfo;
+    }
+
+    public IBuildInfo getBuild() {
+        return mCtsBuild;
+    }
+
+    /**
+     * Create and return {@link ValidationTestUtil} and give it the current build.
+     */
+    public ValidationTestUtil createValidationUtil() {
+        ValidationTestUtil util = new ValidationTestUtil();
+        util.setBuild(getBuild());
+        return util;
     }
 
     /**
@@ -92,6 +107,10 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
         assertNull("Failed to install " + appFileName + ": " + result, result);
     }
 
+    protected CompatibilityBuildHelper getBuildHelper() {
+        return new CompatibilityBuildHelper(mCtsBuild);
+    }
+
     /**
      * Run a device side test.
      *
@@ -120,11 +139,11 @@ public class BaseTestCase extends DeviceTestCase implements IBuildReceiver {
 
         final TestRunResult result = listener.getCurrentRunResults();
         if (result.isRunFailure()) {
-            throw new AssertionError("Failed to successfully run device tests for "
+            throw new Error("Failed to successfully run device tests for "
                     + result.getName() + ": " + result.getRunFailureMessage());
         }
         if (result.getNumTests() == 0) {
-            throw new AssertionError("No tests were run on the device");
+            throw new Error("No tests were run on the device");
         }
 
         if (result.hasFailedTests()) {

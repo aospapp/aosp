@@ -1,0 +1,9 @@
+# system /dev/block/mmcblk1p3
+allow fsck hi_system_block_device:blk_file { getattr read open write ioctl };
+# system /dev/block/mmcblk1p5
+allow fsck hi_vendor_block_device:blk_file { getattr read open write ioctl };
+# system /dev/block/mmcblk1p6
+allow fsck hi_cache_block_device:blk_file { getattr read open write ioctl };
+# system /dev/block/mmcblk1p7
+allow fsck hi_userdata_block_device:blk_file { getattr read open write ioctl };
+# allow fsck block_device:blk_file { ioctl open read write };

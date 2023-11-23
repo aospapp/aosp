@@ -54,6 +54,7 @@ import android.util.Log;
  */
 public class PreferredServices implements com.android.nfc.ForegroundUtils.Callback {
     static final String TAG = "PreferredCardEmulationServices";
+    static final boolean DBG = false;
     static final Uri paymentDefaultUri = Settings.Secure.getUriFor(
             Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT);
     static final Uri paymentForegroundUri = Settings.Secure.getUriFor(
@@ -255,8 +256,8 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
                     RegisteredAidCache.AidResolveInfo resolveInfo = mAidCache.resolveAid(aid);
                     if (CardEmulation.CATEGORY_PAYMENT.equals(resolveInfo.category) &&
                             paymentServiceInfo.equals(resolveInfo.defaultService)) {
-                        Log.d(TAG, "AID " + aid + " is handled by the default payment app, " +
-                                "and the user has not allowed payments to be overridden.");
+                        if (DBG) Log.d(TAG, "AID " + aid + " is handled by the default payment app,"
+                                + " and the user has not allowed payments to be overridden.");
                         return false;
                     }
                 }

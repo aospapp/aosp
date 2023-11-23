@@ -50,12 +50,17 @@ option(PYTHON_BINDINGS "Python library to use the Parameter Framework from pytho
 option(C_BINDINGS "Library to use the Parameter Framework using a C API" ON)
 option(FATAL_WARNINGS "Turn warnings into errors (-Werror flag)" ON)
 option(NETWORKING "Set to OFF in order to stub networking code" ON)
+option(CLIENT_SIMULATOR "Set to OFF to disable client simulator" ON)
 
 include(SetVersion.cmake)
 
 # Add FindLibXml2.cmake in cmake path so that `find_package(LibXml2)` will
 # call the wrapper
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_EXTENSIONS NO)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 if(WIN32)
     # By default cmake adds a warning level.
@@ -76,15 +81,13 @@ if(WIN32)
     # and thus are not to be used by the client. A better fix would be to export
     # only public methods instead of the whole class, but they are too many to
     # do that. A separated plugin interface would fix that.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /FIiso646.h -wd4127 -wd4251")
+    add_compile_options(/W4 /FIiso646.h -wd4127 -wd4251)
 
     # FIXME: Once we have removed all warnings on windows, add the /WX flags if
     # FATAL_WARNINGS is enabled
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Wconversion -Wno-sign-conversion")
-    if(FATAL_WARNINGS)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-    endif()
+    add_compile_options(-Wall -Wextra -Wconversion -Wno-sign-conversion
+                 $<$<BOOL:FATAL_WARNINGS>:-Werror>)
 endif()
 
 # Hide symbols by default, then exposed symbols are the same in linux and windows
@@ -94,12 +97,18 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN true)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+# Automatically add the current source and build dirs to the private and
+# interface include directories.
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_INCLUDE_CURRENT_DIR_IN_INTERFACE ON)
 
 include(ctest/CMakeLists.txt)
 
+# Since there is no directory-wide property for linker flags, we can't use
+# set_property for the link-time coverage flags.
 if(COVERAGE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fprofile-arcs -ftest-coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
 endif()
 
 add_subdirectory(xmlserializer)
@@ -118,6 +127,9 @@ endif()
 
 add_subdirectory(tools/xmlGenerator)
 add_subdirectory(tools/xmlValidator)
+if (CLIENT_SIMULATOR)
+    add_subdirectory(tools/clientSimulator)
+endif()
 
 add_subdirectory(bindings)
 
@@ -126,3 +138,4 @@ add_subdirectory(doc)
 add_subdirectory(schemas)
 
 add_subdirectory(cpack)
+add_subdirectory(cmake)

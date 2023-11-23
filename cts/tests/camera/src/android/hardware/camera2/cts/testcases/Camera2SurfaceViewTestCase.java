@@ -17,20 +17,9 @@
 package android.hardware.camera2.cts.testcases;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
+
 import static com.android.ex.camera2.blocking.BlockingStateCallback.STATE_CLOSED;
 
-import android.hardware.camera2.params.StreamConfigurationMap;
-import android.media.ImageReader;
-import android.os.Environment;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.test.ActivityInstrumentationTestCase2;
-import android.util.Log;
-import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.View;
-import android.view.WindowManager;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
@@ -42,21 +31,37 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.util.Size;
-import android.util.Range;
 import android.hardware.camera2.cts.Camera2SurfaceViewCtsActivity;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
+import android.media.ImageReader;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.util.Log;
+import android.util.Range;
+import android.util.Size;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.View;
+import android.view.WindowManager;
+
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
 
-import java.util.Arrays;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -70,15 +75,11 @@ import java.util.List;
  * </p>
  */
 
-public class Camera2SurfaceViewTestCase extends
-        ActivityInstrumentationTestCase2<Camera2SurfaceViewCtsActivity> {
+public class Camera2SurfaceViewTestCase {
     private static final String TAG = "SurfaceViewTestCase";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final int WAIT_FOR_SURFACE_CHANGE_TIMEOUT_MS = 1000;
 
-    // TODO: Use internal storage for this to make sure the file is only visible to test.
-    protected static final String DEBUG_FILE_NAME_BASE =
-            Environment.getExternalStorageDirectory().getPath();
     protected static final int WAIT_FOR_RESULT_TIMEOUT_MS = 3000;
     protected static final float FRAME_DURATION_ERROR_MARGIN = 0.01f; // 1 percent error margin.
     protected static final int NUM_RESULTS_WAIT_TIMEOUT = 100;
@@ -93,6 +94,7 @@ public class Camera2SurfaceViewTestCase extends
     protected BlockingStateCallback mCameraListener;
     protected BlockingSessionCallback mSessionListener;
     protected CameraErrorCollector mCollector;
+    protected HashMap<String, StaticMetadata> mAllStaticInfo;
     // Per device fields:
     protected StaticMetadata mStaticInfo;
     protected CameraDevice mCamera;
@@ -107,21 +109,17 @@ public class Camera2SurfaceViewTestCase extends
     protected List<Size> mOrderedVideoSizes; // In descending order.
     protected List<Size> mOrderedStillSizes; // In descending order.
     protected HashMap<Size, Long> mMinPreviewFrameDurationMap;
+    protected String mDebugFileNameBase;
 
     protected WindowManager mWindowManager;
 
-    public Camera2SurfaceViewTestCase() {
-        super(Camera2SurfaceViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<Camera2SurfaceViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(Camera2SurfaceViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        /**
-         * Set up the camera preview required environments, including activity,
-         * CameraManager, HandlerThread, Camera IDs, and CameraStateCallback.
-         */
-        super.setUp();
-        mContext = getActivity();
+    @Before
+    public void setUp() throws Exception {
+        mContext = mActivityRule.getActivity().getApplicationContext();
         /**
          * Workaround for mockito and JB-MR2 incompatibility
          *
@@ -139,11 +137,38 @@ public class Camera2SurfaceViewTestCase extends
         mCameraListener = new BlockingStateCallback();
         mCollector = new CameraErrorCollector();
 
+        File filesDir = mContext.getPackageManager().isInstantApp()
+                ? mContext.getFilesDir()
+                : mContext.getExternalFilesDir(null);
+
+        mDebugFileNameBase = filesDir.getPath();
+
+        mAllStaticInfo = new HashMap<String, StaticMetadata>();
+        List<String> hiddenPhysicalIds = new ArrayList<>();
+        for (String cameraId : mCameraIds) {
+            CameraCharacteristics props = mCameraManager.getCameraCharacteristics(cameraId);
+            StaticMetadata staticMetadata = new StaticMetadata(props,
+                    CheckLevel.ASSERT, /*collector*/null);
+            mAllStaticInfo.put(cameraId, staticMetadata);
+
+            for (String physicalId : props.getPhysicalCameraIds()) {
+                if (!Arrays.asList(mCameraIds).contains(physicalId) &&
+                        !hiddenPhysicalIds.contains(physicalId)) {
+                    hiddenPhysicalIds.add(physicalId);
+                    props = mCameraManager.getCameraCharacteristics(physicalId);
+                    staticMetadata = new StaticMetadata(
+                            mCameraManager.getCameraCharacteristics(physicalId),
+                            CheckLevel.ASSERT, /*collector*/null);
+                    mAllStaticInfo.put(physicalId, staticMetadata);
+                }
+            }
+        }
+
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         String[] cameraIdsPostTest = mCameraManager.getCameraIdList();
         assertNotNull("Camera ids shouldn't be null", cameraIdsPostTest);
         Log.i(TAG, "Camera ids in setup:" + Arrays.toString(mCameraIds));
@@ -162,8 +187,6 @@ public class Camera2SurfaceViewTestCase extends
         } catch (Throwable e) {
             // When new Exception(e) is used, exception info will be printed twice.
             throw new Exception(e.getMessage());
-        } finally {
-            super.tearDown();
         }
     }
 
@@ -269,9 +292,10 @@ public class Camera2SurfaceViewTestCase extends
     protected void prepareStillCaptureAndStartPreview(CaptureRequest.Builder previewRequest,
             CaptureRequest.Builder stillRequest, Size previewSz, Size stillSz,
             CaptureCallback resultListener,
-            ImageReader.OnImageAvailableListener imageListener) throws Exception {
+            ImageReader.OnImageAvailableListener imageListener, boolean isHeic) throws Exception {
         prepareCaptureAndStartPreview(previewRequest, stillRequest, previewSz, stillSz,
-                ImageFormat.JPEG, resultListener, MAX_READER_IMAGES, imageListener);
+                isHeic ? ImageFormat.HEIC : ImageFormat.JPEG, resultListener, MAX_READER_IMAGES,
+                imageListener);
     }
 
     /**
@@ -288,9 +312,9 @@ public class Camera2SurfaceViewTestCase extends
     protected void prepareStillCaptureAndStartPreview(CaptureRequest.Builder previewRequest,
             CaptureRequest.Builder stillRequest, Size previewSz, Size stillSz,
             CaptureCallback resultListener, int maxNumImages,
-            ImageReader.OnImageAvailableListener imageListener) throws Exception {
+            ImageReader.OnImageAvailableListener imageListener, boolean isHeic) throws Exception {
         prepareCaptureAndStartPreview(previewRequest, stillRequest, previewSz, stillSz,
-                ImageFormat.JPEG, resultListener, maxNumImages, imageListener);
+                isHeic ? ImageFormat.HEIC : ImageFormat.JPEG, resultListener, maxNumImages, imageListener);
     }
 
     /**
@@ -333,9 +357,8 @@ public class Camera2SurfaceViewTestCase extends
     protected static <T> void waitForResultValue(SimpleCaptureCallback listener,
             CaptureResult.Key<T> resultKey,
             T expectedValue, int numResultsWait) {
-        List<T> expectedValues = new ArrayList<T>();
-        expectedValues.add(expectedValue);
-        waitForAnyResultValue(listener, resultKey, expectedValues, numResultsWait);
+        CameraTestUtils.waitForResultValue(listener, resultKey, expectedValue,
+                numResultsWait, WAIT_FOR_RESULT_TIMEOUT_MS);
     }
 
     /**
@@ -357,31 +380,8 @@ public class Camera2SurfaceViewTestCase extends
     protected static <T> void waitForAnyResultValue(SimpleCaptureCallback listener,
             CaptureResult.Key<T> resultKey,
             List<T> expectedValues, int numResultsWait) {
-        if (numResultsWait < 0 || listener == null || expectedValues == null) {
-            throw new IllegalArgumentException(
-                    "Input must be non-negative number and listener/expectedValues "
-                    + "must be non-null");
-        }
-
-        int i = 0;
-        CaptureResult result;
-        do {
-            result = listener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
-            T value = result.get(resultKey);
-            for ( T expectedValue : expectedValues) {
-                if (VERBOSE) {
-                    Log.v(TAG, "Current result value for key " + resultKey.getName() + " is: "
-                            + value.toString());
-                }
-                if (value.equals(expectedValue)) {
-                    return;
-                }
-            }
-        } while (i++ < numResultsWait);
-
-        throw new TimeoutRuntimeException(
-                "Unable to get the expected result value " + expectedValues + " for key " +
-                        resultKey.getName() + " after waiting for " + numResultsWait + " results");
+        CameraTestUtils.waitForAnyResultValue(listener, resultKey, expectedValues, numResultsWait,
+                WAIT_FOR_RESULT_TIMEOUT_MS);
     }
 
     /**
@@ -465,17 +465,8 @@ public class Camera2SurfaceViewTestCase extends
      */
     protected static CaptureResult waitForNumResults(SimpleCaptureCallback resultListener,
             int numResultsWait) {
-        if (numResultsWait < 0 || resultListener == null) {
-            throw new IllegalArgumentException(
-                    "Input must be positive number and listener must be non-null");
-        }
-
-        CaptureResult result = null;
-        for (int i = 0; i < numResultsWait; i++) {
-            result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
-        }
-
-        return result;
+        return CameraTestUtils.waitForNumResults(resultListener, numResultsWait,
+                WAIT_FOR_RESULT_TIMEOUT_MS);
     }
 
     /**
@@ -495,7 +486,6 @@ public class Camera2SurfaceViewTestCase extends
         waitForNumResults(resultListener, maxLatency);
     }
 
-
     /**
      * Wait for AE to be stabilized before capture: CONVERGED or FLASH_REQUIRED.
      *
@@ -512,17 +502,8 @@ public class Camera2SurfaceViewTestCase extends
      */
     protected void waitForAeStable(SimpleCaptureCallback resultListener,
             int numResultWaitForUnknownLatency) {
-        waitForSettingsApplied(resultListener, numResultWaitForUnknownLatency);
-
-        if (!mStaticInfo.isHardwareLevelAtLeastLimited()) {
-            // No-op for metadata
-            return;
-        }
-        List<Integer> expectedAeStates = new ArrayList<Integer>();
-        expectedAeStates.add(new Integer(CaptureResult.CONTROL_AE_STATE_CONVERGED));
-        expectedAeStates.add(new Integer(CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED));
-        waitForAnyResultValue(resultListener, CaptureResult.CONTROL_AE_STATE, expectedAeStates,
-                NUM_RESULTS_WAIT_TIMEOUT);
+        CameraTestUtils.waitForAeStable(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY,
+                mStaticInfo, WAIT_FOR_RESULT_TIMEOUT_MS, NUM_RESULTS_WAIT_TIMEOUT);
     }
 
     /**
@@ -551,8 +532,8 @@ public class Camera2SurfaceViewTestCase extends
 
         List<Integer> expectedAeStates = new ArrayList<Integer>();
         expectedAeStates.add(new Integer(CaptureResult.CONTROL_AE_STATE_LOCKED));
-        waitForAnyResultValue(resultListener, CaptureResult.CONTROL_AE_STATE, expectedAeStates,
-                NUM_RESULTS_WAIT_TIMEOUT);
+        CameraTestUtils.waitForAnyResultValue(resultListener, CaptureResult.CONTROL_AE_STATE,
+                expectedAeStates, WAIT_FOR_RESULT_TIMEOUT_MS, NUM_RESULTS_WAIT_TIMEOUT);
     }
 
     /**
@@ -580,6 +561,72 @@ public class Camera2SurfaceViewTestCase extends
         CameraTestUtils.closeImageReader(mReader);
         mReader = null;
         mReaderSurface = null;
+    }
+
+    /**
+     * Close the pending images then close current active {@link ImageReader} objects.
+     */
+    protected void closeImageReaders(ImageReader[] readers) {
+        CameraTestUtils.closeImageReaders(readers);
+    }
+
+    /**
+     * Setup still capture configuration and start preview.
+     *
+     * @param previewRequest The capture request to be used for preview
+     * @param stillRequest The capture request to be used for still capture
+     * @param previewSz Preview size
+     * @param captureSizes Still capture sizes
+     * @param formats The single capture image formats
+     * @param resultListener Capture result listener
+     * @param maxNumImages The max number of images set to the image reader
+     * @param imageListeners The single capture capture image listeners
+     * @param isHeic HEIC still capture if true, JPEG still capture if false
+     */
+    protected ImageReader[] prepareStillCaptureAndStartPreview(
+            CaptureRequest.Builder previewRequest, CaptureRequest.Builder stillRequest,
+            Size previewSz, Size[] captureSizes, int[] formats, CaptureCallback resultListener,
+            int maxNumImages, ImageReader.OnImageAvailableListener[] imageListeners,
+            boolean isHeic)
+            throws Exception {
+
+        if ((captureSizes == null) || (formats == null) || (imageListeners == null) &&
+                (captureSizes.length != formats.length) ||
+                (formats.length != imageListeners.length)) {
+            throw new IllegalArgumentException("Invalid capture sizes/formats or image listeners!");
+        }
+
+        if (VERBOSE) {
+            Log.v(TAG, String.format("Prepare still capture and preview (%s)",
+                    previewSz.toString()));
+        }
+
+        // Update preview size.
+        updatePreviewSurface(previewSz);
+
+        ImageReader[] readers = new ImageReader[captureSizes.length];
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        outputSurfaces.add(mPreviewSurface);
+        for (int i = 0; i < captureSizes.length; i++) {
+            readers[i] = makeImageReader(captureSizes[i], formats[i], maxNumImages,
+                    imageListeners[i], mHandler);
+            outputSurfaces.add(readers[i].getSurface());
+        }
+
+        mSessionListener = new BlockingSessionCallback();
+        mSession = configureCameraSession(mCamera, outputSurfaces, mSessionListener, mHandler);
+
+        // Configure the requests.
+        previewRequest.addTarget(mPreviewSurface);
+        stillRequest.addTarget(mPreviewSurface);
+        for (int i = 0; i < readers.length; i++) {
+            stillRequest.addTarget(readers[i].getSurface());
+        }
+
+        // Start preview.
+        mSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+
+        return readers;
     }
 
     /**
@@ -636,7 +683,7 @@ public class Camera2SurfaceViewTestCase extends
         }
 
         mPreviewSize = size;
-        Camera2SurfaceViewCtsActivity ctsActivity = getActivity();
+        Camera2SurfaceViewCtsActivity ctsActivity = mActivityRule.getActivity();
         final SurfaceHolder holder = ctsActivity.getSurfaceView().getHolder();
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(new Runnable() {
@@ -663,7 +710,7 @@ public class Camera2SurfaceViewTestCase extends
      * recreated
      */
     protected void recreatePreviewSurface() {
-        Camera2SurfaceViewCtsActivity ctsActivity = getActivity();
+        Camera2SurfaceViewCtsActivity ctsActivity = mActivityRule.getActivity();
         setPreviewVisibility(View.GONE);
         boolean res = ctsActivity.waitForSurfaceState(
             WAIT_FOR_SURFACE_CHANGE_TIMEOUT_MS, /*valid*/ false);
@@ -681,7 +728,7 @@ public class Camera2SurfaceViewTestCase extends
      * @param visibility the new new visibility to set, one of View.VISIBLE / INVISIBLE / GONE
      */
     protected void setPreviewVisibility(int visibility) {
-        final Camera2SurfaceViewCtsActivity ctsActivity = getActivity();
+        final Camera2SurfaceViewCtsActivity ctsActivity = mActivityRule.getActivity();
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(new Runnable() {
             @Override
@@ -829,37 +876,6 @@ public class Camera2SurfaceViewTestCase extends
     }
 
     protected Range<Integer> getSuitableFpsRangeForDuration(String cameraId, long frameDuration) {
-        // Add 0.05 here so Fps like 29.99 evaluated to 30
-        int minBurstFps = (int) Math.floor(1e9 / frameDuration + 0.05f);
-        boolean foundConstantMaxYUVRange = false;
-        boolean foundYUVStreamingRange = false;
-        boolean isExternalCamera = mStaticInfo.isExternalCamera();
-
-        // Find suitable target FPS range - as high as possible that covers the max YUV rate
-        // Also verify that there's a good preview rate as well
-        List<Range<Integer> > fpsRanges = Arrays.asList(
-                mStaticInfo.getAeAvailableTargetFpsRangesChecked());
-        Range<Integer> targetRange = null;
-        for (Range<Integer> fpsRange : fpsRanges) {
-            if (fpsRange.getLower() == minBurstFps && fpsRange.getUpper() == minBurstFps) {
-                foundConstantMaxYUVRange = true;
-                targetRange = fpsRange;
-            } else if (isExternalCamera && fpsRange.getUpper() == minBurstFps) {
-                targetRange = fpsRange;
-            }
-            if (fpsRange.getLower() <= 15 && fpsRange.getUpper() == minBurstFps) {
-                foundYUVStreamingRange = true;
-            }
-
-        }
-
-        if (!isExternalCamera) {
-            assertTrue(String.format("Cam %s: Target FPS range of (%d, %d) must be supported",
-                    cameraId, minBurstFps, minBurstFps), foundConstantMaxYUVRange);
-        }
-        assertTrue(String.format(
-                "Cam %s: Target FPS range of (x, %d) where x <= 15 must be supported",
-                cameraId, minBurstFps), foundYUVStreamingRange);
-        return targetRange;
+        return CameraTestUtils.getSuitableFpsRangeForDuration(cameraId, frameDuration, mStaticInfo);
     }
 }

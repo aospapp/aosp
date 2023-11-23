@@ -29,6 +29,7 @@ import android.hardware.cts.helpers.TestSensorEventListener;
 import android.hardware.cts.helpers.TestSensorManager;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.sensorverification.MagnitudeVerification;
+import android.hardware.cts.helpers.sensorverification.OffsetVerification;
 import android.hardware.cts.helpers.sensorverification.StandardDeviationVerification;
 
 /**
@@ -88,6 +89,37 @@ public class MagneticFieldMeasurementTestActivity extends SensorCtsVerifierTestA
                 expectedMagneticFieldEarth,
                 magneticFieldEarthThreshold));
         verifyNorm.execute(getCurrentTestNode());
+        return null;
+    }
+
+    /**
+     * This test verifies that the norm of the sensor offset is less than the reference value.
+     * The units of the reference value are dependent on the type of sensor.
+     *
+     * The test takes a sample from the sensor under test and calculates the Euclidean Norm of the
+     * offset represented by the sampled data. It then compares it against the test expectations
+     * that are represented by a reference value.
+     *
+     * The assertion associated with the test provides the required data needed to identify any
+     * possible issue. It provides:
+     * - the thread id on which the failure occurred
+     * - the sensor type and sensor handle that caused the failure
+     * - the values representing the expectation of the test
+     * - the values sampled from the sensor
+     */
+    @SuppressWarnings("unused")
+    public String testOffset() throws Throwable {
+        getTestLogger().logMessage(R.string.snsr_mag_verify_offset);
+
+        TestSensorEnvironment environment = new TestSensorEnvironment(
+                getApplicationContext(),
+                Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED,
+                SensorManager.SENSOR_DELAY_FASTEST);
+        TestSensorOperation verifyOffset =
+                TestSensorOperation.createOperation(environment, 100 /* event count */);
+
+        verifyOffset.addVerification(OffsetVerification.getDefault(environment));
+        verifyOffset.execute(getCurrentTestNode());
         return null;
     }
 

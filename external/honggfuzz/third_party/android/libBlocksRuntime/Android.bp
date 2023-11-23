@@ -12,7 +12,6 @@ cc_library {
     c_std: "c11",
     clang:true,
     srcs: [
-        "data.c",
-        "runtime.c"
+        "*.c",
     ]
 }

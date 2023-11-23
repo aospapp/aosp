@@ -72,3 +72,6 @@ tko/perf_upload/perf_dashboard_shadow_config.json
 
 # HWID key file used by site_utils/hwid_lib.py
 hwid_key
+
+# Present on Skylab drones
+/swarming_state/

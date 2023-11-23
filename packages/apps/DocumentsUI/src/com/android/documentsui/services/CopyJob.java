@@ -16,7 +16,7 @@
 
 package com.android.documentsui.services;
 
-import static android.os.SystemClock.elapsedRealtime;
+import static android.content.ContentResolver.wrap;
 import static android.provider.DocumentsContract.buildChildDocumentsUri;
 import static android.provider.DocumentsContract.buildDocumentUri;
 import static android.provider.DocumentsContract.getDocumentId;
@@ -33,7 +33,6 @@ import static com.android.documentsui.services.FileOperationService.MESSAGE_FINI
 import static com.android.documentsui.services.FileOperationService.MESSAGE_PROGRESS;
 import static com.android.documentsui.services.FileOperationService.OPERATION_COPY;
 
-import android.annotation.StringRes;
 import android.app.Notification;
 import android.app.Notification.Builder;
 import android.app.PendingIntent;
@@ -52,6 +51,7 @@ import android.os.Messenger;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
@@ -59,11 +59,11 @@ import android.system.ErrnoException;
 import android.system.Int64Ref;
 import android.system.Os;
 import android.system.OsConstants;
-import android.text.format.DateUtils;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 import com.android.documentsui.DocumentsApplication;
+import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
@@ -73,8 +73,7 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.roots.ProvidersCache;
 import com.android.documentsui.services.FileOperationService.OpType;
-
-import libcore.io.IoUtils;
+import com.android.documentsui.util.FormatUtils;
 
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
@@ -83,6 +82,12 @@ import java.io.InputStream;
 import java.io.SyncFailedException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+
+import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 class CopyJob extends ResolvedResourcesJob {
 
@@ -96,15 +101,7 @@ class CopyJob extends ResolvedResourcesJob {
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private final Messenger mMessenger;
 
-    private long mStartTime = -1;
-    private long mBytesRequired;
-    private volatile long mBytesCopied;
-
-    // Speed estimation.
-    private long mBytesCopiedSample;
-    private long mSampleTime;
-    private long mSpeed;
-    private long mRemainingTime;
+    private CopyJobProgressTracker mProgressTracker;
 
     /**
      * @see @link {@link Job} constructor for most param descriptions.
@@ -138,38 +135,14 @@ class CopyJob extends ResolvedResourcesJob {
     }
 
     Notification getProgressNotification(@StringRes int msgId) {
-        updateRemainingTimeEstimate();
-
-        if (mBytesRequired >= 0) {
-            double completed = (double) this.mBytesCopied / mBytesRequired;
-            mProgressBuilder.setProgress(100, (int) (completed * 100), false);
-            mProgressBuilder.setSubText(
-                    NumberFormat.getPercentInstance().format(completed));
-        } else {
-            // If the total file size failed to compute on some files, then show
-            // an indeterminate spinner. CopyJob would most likely fail on those
-            // files while copying, but would continue with another files.
-            // Also, if the total size is 0 bytes, show an indeterminate spinner.
-            mProgressBuilder.setProgress(0, 0, true);
-        }
-
-        if (mRemainingTime > 0) {
-            mProgressBuilder.setContentText(service.getString(msgId,
-                    DateUtils.formatDuration(mRemainingTime)));
-        } else {
-            mProgressBuilder.setContentText(null);
-        }
-
+        mProgressTracker.update(mProgressBuilder, (remainingTime) -> service.getString(msgId,
+                FormatUtils.formatDuration(remainingTime)));
         return mProgressBuilder.build();
     }
 
     @Override
     public Notification getProgressNotification() {
         return getProgressNotification(R.string.copy_remaining);
-    }
-
-    void onBytesCopied(long numBytes) {
-        this.mBytesCopied += numBytes;
     }
 
     @Override
@@ -180,33 +153,6 @@ class CopyJob extends ResolvedResourcesJob {
             // Ignore. Most likely the frontend was killed.
         }
         super.finish();
-    }
-
-    /**
-     * Generates an estimate of the remaining time in the copy.
-     */
-    private void updateRemainingTimeEstimate() {
-        long elapsedTime = elapsedRealtime() - mStartTime;
-
-        // mBytesCopied is modified in worker thread, but this method is called in monitor thread,
-        // so take a snapshot of mBytesCopied to make sure the updated estimate is consistent.
-        final long bytesCopied = mBytesCopied;
-        final long sampleDuration = Math.max(elapsedTime - mSampleTime, 1L); // avoid dividing 0
-        final long sampleSpeed = ((bytesCopied - mBytesCopiedSample) * 1000) / sampleDuration;
-        if (mSpeed == 0) {
-            mSpeed = sampleSpeed;
-        } else {
-            mSpeed = ((3 * mSpeed) + sampleSpeed) / 4;
-        }
-
-        if (mSampleTime > 0 && mSpeed > 0) {
-            mRemainingTime = ((mBytesRequired - bytesCopied) * 1000) / mSpeed;
-        } else {
-            mRemainingTime = 0;
-        }
-
-        mSampleTime = elapsedTime;
-        mBytesCopiedSample = bytesCopied;
     }
 
     @Override
@@ -248,13 +194,7 @@ class CopyJob extends ResolvedResourcesJob {
         if (isCanceled()) {
             return false;
         }
-
-        try {
-            mBytesRequired = calculateBytesRequired();
-        } catch (ResourceException e) {
-            Log.w(TAG, "Failed to calculate total size. Copying without progress.", e);
-            mBytesRequired = -1;
-        }
+        mProgressTracker = createProgressTracker();
 
         // Check if user has canceled this task. We should check it again here as user cancels
         // tasks in main thread, but this is running in a worker thread. calculateSize() may
@@ -269,14 +209,17 @@ class CopyJob extends ResolvedResourcesJob {
 
     @Override
     void start() {
-        mStartTime = elapsedRealtime();
+        mProgressTracker.start();
+
         DocumentInfo srcInfo;
         for (int i = 0; i < mResolvedDocs.size() && !isCanceled(); ++i) {
             srcInfo = mResolvedDocs.get(i);
 
-            if (DEBUG) Log.d(TAG,
+            if (DEBUG) {
+                Log.d(TAG,
                     "Copying " + srcInfo.displayName + " (" + srcInfo.derivedUri + ")"
-                    + " to " + mDstInfo.displayName + " (" + mDstInfo.derivedUri + ")");
+                        + " to " + mDstInfo.displayName + " (" + mDstInfo.derivedUri + ")");
+            }
 
             try {
                 // Copying recursively to itself or one of descendants is not allowed.
@@ -284,7 +227,7 @@ class CopyJob extends ResolvedResourcesJob {
                     Log.e(TAG, "Skipping recursive copy of " + srcInfo.derivedUri);
                     onFileFailed(srcInfo);
                 } else {
-                    processDocument(srcInfo, null, mDstInfo);
+                    processDocumentThenUpdateProgress(srcInfo, null, mDstInfo);
                 }
             } catch (ResourceException e) {
                 Log.e(TAG, "Failed to copy " + srcInfo.derivedUri, e);
@@ -292,7 +235,7 @@ class CopyJob extends ResolvedResourcesJob {
             }
         }
 
-        Metrics.logFileOperation(service, operationType, mResolvedDocs, mDstInfo);
+        Metrics.logFileOperation(operationType, mResolvedDocs, mDstInfo);
     }
 
     /**
@@ -300,7 +243,15 @@ class CopyJob extends ResolvedResourcesJob {
      * @return true if the root has enough space or doesn't provide free space info; otherwise false
      */
     boolean checkSpace() {
-        return verifySpaceAvailable(mBytesRequired);
+        if (!mProgressTracker.hasRequiredBytes()) {
+            if (DEBUG) {
+                Log.w(TAG,
+                    "Proceeding copy without knowing required space, files or directories may "
+                        + "empty or failed to compute required bytes.");
+            }
+            return true;
+        }
+        return verifySpaceAvailable(mProgressTracker.getRequiredBytes());
     }
 
     /**
@@ -345,15 +296,14 @@ class CopyJob extends ResolvedResourcesJob {
      * @param bytesCopied
      */
     private void makeCopyProgress(long bytesCopied) {
-        final int completed =
-            mBytesRequired >= 0 ? (int) (100.0 * this.mBytesCopied / mBytesRequired) : -1;
         try {
             mMessenger.send(Message.obtain(mHandler, MESSAGE_PROGRESS,
-                    completed, (int) mRemainingTime));
+                    (int) (100 * mProgressTracker.getProgress()), // Progress in percentage
+                    (int) mProgressTracker.getRemainingTimeEstimate()));
         } catch (RemoteException e) {
             // Ignore. The frontend may be gone.
         }
-        onBytesCopied(bytesCopied);
+        mProgressTracker.onBytesCopied(bytesCopied);
     }
 
     /**
@@ -377,21 +327,22 @@ class CopyJob extends ResolvedResourcesJob {
         if (src.authority.equals(dstDirInfo.authority)) {
             if ((src.flags & Document.FLAG_SUPPORTS_COPY) != 0) {
                 try {
-                    if (DocumentsContract.copyDocument(getClient(src), src.derivedUri,
+                    if (DocumentsContract.copyDocument(wrap(getClient(src)), src.derivedUri,
                             dstDirInfo.derivedUri) != null) {
-                        Metrics.logFileOperated(
-                                appContext, operationType, Metrics.OPMODE_PROVIDER);
+                        Metrics.logFileOperated(operationType, MetricConsts.OPMODE_PROVIDER);
                         return;
                     }
-                } catch (RemoteException | RuntimeException e) {
+                } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                     Log.e(TAG, "Provider side copy failed for: " + src.derivedUri
                             + " due to an exception.", e);
                     Metrics.logFileOperationFailure(
-                            appContext, Metrics.SUBFILEOP_QUICK_COPY, src.derivedUri);
+                            appContext, MetricConsts.SUBFILEOP_QUICK_COPY, src.derivedUri);
                 }
 
                 // If optimized copy fails, then fallback to byte-by-byte copy.
-                if (DEBUG) Log.d(TAG, "Fallback to byte-by-byte copy for: " + src.derivedUri);
+                if (DEBUG) {
+                    Log.d(TAG, "Fallback to byte-by-byte copy for: " + src.derivedUri);
+                }
             }
         }
 
@@ -399,11 +350,19 @@ class CopyJob extends ResolvedResourcesJob {
         byteCopyDocument(src, dstDirInfo);
     }
 
+    private void processDocumentThenUpdateProgress(DocumentInfo src, DocumentInfo srcParent,
+            DocumentInfo dstDirInfo) throws ResourceException {
+        processDocument(src, srcParent, dstDirInfo);
+        mProgressTracker.onDocumentCompleted();
+    }
+
     void byteCopyDocument(DocumentInfo src, DocumentInfo dest) throws ResourceException {
         final String dstMimeType;
         final String dstDisplayName;
 
-        if (DEBUG) Log.d(TAG, "Doing byte copy of document: " + src);
+        if (DEBUG) {
+            Log.d(TAG, "Doing byte copy of document: " + src);
+        }
         // If the file is virtual, but can be converted to another format, then try to copy it
         // as such format. Also, append an extension for the target mime type (if known).
         if (src.isVirtual()) {
@@ -412,7 +371,7 @@ class CopyJob extends ResolvedResourcesJob {
                 streamTypes = getContentResolver().getStreamTypes(src.derivedUri, "*/*");
             } catch (RuntimeException e) {
                 Metrics.logFileOperationFailure(
-                        appContext, Metrics.SUBFILEOP_OBTAIN_STREAM_TYPE, src.derivedUri);
+                        appContext, MetricConsts.SUBFILEOP_OBTAIN_STREAM_TYPE, src.derivedUri);
                 throw new ResourceException(
                         "Failed to obtain streamable types for %s due to an exception.",
                         src.derivedUri, e);
@@ -425,7 +384,7 @@ class CopyJob extends ResolvedResourcesJob {
                         (extension != null ? "." + extension : src.displayName);
             } else {
                 Metrics.logFileOperationFailure(
-                        appContext, Metrics.SUBFILEOP_OBTAIN_STREAM_TYPE, src.derivedUri);
+                        appContext, MetricConsts.SUBFILEOP_OBTAIN_STREAM_TYPE, src.derivedUri);
                 throw new ResourceException("Cannot copy virtual file %s. No streamable formats "
                         + "available.", src.derivedUri);
             }
@@ -439,10 +398,10 @@ class CopyJob extends ResolvedResourcesJob {
         Uri dstUri = null;
         try {
             dstUri = DocumentsContract.createDocument(
-                    getClient(dest), dest.derivedUri, dstMimeType, dstDisplayName);
-        } catch (RemoteException | RuntimeException e) {
+                    wrap(getClient(dest)), dest.derivedUri, dstMimeType, dstDisplayName);
+        } catch (FileNotFoundException | RemoteException | RuntimeException e) {
             Metrics.logFileOperationFailure(
-                    appContext, Metrics.SUBFILEOP_CREATE_DOCUMENT, dest.derivedUri);
+                    appContext, MetricConsts.SUBFILEOP_CREATE_DOCUMENT, dest.derivedUri);
             throw new ResourceException(
                     "Couldn't create destination document " + dstDisplayName + " in directory %s "
                     + "due to an exception.", dest.derivedUri, e);
@@ -450,7 +409,7 @@ class CopyJob extends ResolvedResourcesJob {
         if (dstUri == null) {
             // If this is a directory, the entire subdir will not be copied over.
             Metrics.logFileOperationFailure(
-                    appContext, Metrics.SUBFILEOP_CREATE_DOCUMENT, dest.derivedUri);
+                    appContext, MetricConsts.SUBFILEOP_CREATE_DOCUMENT, dest.derivedUri);
             throw new ResourceException(
                     "Couldn't create destination document " + dstDisplayName + " in directory %s.",
                     dest.derivedUri);
@@ -461,7 +420,7 @@ class CopyJob extends ResolvedResourcesJob {
             dstInfo = DocumentInfo.fromUri(getContentResolver(), dstUri);
         } catch (FileNotFoundException | RuntimeException e) {
             Metrics.logFileOperationFailure(
-                    appContext, Metrics.SUBFILEOP_QUERY_DOCUMENT, dstUri);
+                    appContext, MetricConsts.SUBFILEOP_QUERY_DOCUMENT, dstUri);
             throw new ResourceException("Could not load DocumentInfo for newly created file %s.",
                     dstUri);
         }
@@ -500,7 +459,7 @@ class CopyJob extends ResolvedResourcesJob {
                 cursor = queryChildren(srcDir, queryColumns);
             } catch (RemoteException | RuntimeException e) {
                 Metrics.logFileOperationFailure(
-                        appContext, Metrics.SUBFILEOP_QUERY_CHILDREN, srcDir.derivedUri);
+                        appContext, MetricConsts.SUBFILEOP_QUERY_CHILDREN, srcDir.derivedUri);
                 throw new ResourceException("Failed to query children of %s due to an exception.",
                         srcDir.derivedUri, e);
             }
@@ -523,7 +482,7 @@ class CopyJob extends ResolvedResourcesJob {
                     srcDir.derivedUri.toString(), destDir.derivedUri.toString()), e);
             success = false;
         } finally {
-            IoUtils.closeQuietly(cursor);
+            FileUtils.closeQuietly(cursor);
         }
 
         if (!success) {
@@ -559,7 +518,7 @@ class CopyJob extends ResolvedResourcesJob {
                                 src.derivedUri, mimeType, null, mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                     Metrics.logFileOperationFailure(
-                            appContext, Metrics.SUBFILEOP_OPEN_FILE, src.derivedUri);
+                            appContext, MetricConsts.SUBFILEOP_OPEN_FILE, src.derivedUri);
                     throw new ResourceException("Failed to open a file as asset for %s due to an "
                             + "exception.", src.derivedUri, e);
                 }
@@ -568,33 +527,31 @@ class CopyJob extends ResolvedResourcesJob {
                     in = new AssetFileDescriptor.AutoCloseInputStream(srcFileAsAsset);
                 } catch (IOException e) {
                     Metrics.logFileOperationFailure(
-                            appContext, Metrics.SUBFILEOP_OPEN_FILE, src.derivedUri);
+                            appContext, MetricConsts.SUBFILEOP_OPEN_FILE, src.derivedUri);
                     throw new ResourceException("Failed to open a file input stream for %s due "
                             + "an exception.", src.derivedUri, e);
                 }
 
-                Metrics.logFileOperated(
-                        appContext, operationType, Metrics.OPMODE_CONVERTED);
+                Metrics.logFileOperated(operationType, MetricConsts.OPMODE_CONVERTED);
             } else {
                 try {
                     srcFile = getClient(src).openFile(src.derivedUri, "r", mSignal);
                 } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                     Metrics.logFileOperationFailure(
-                            appContext, Metrics.SUBFILEOP_OPEN_FILE, src.derivedUri);
+                            appContext, MetricConsts.SUBFILEOP_OPEN_FILE, src.derivedUri);
                     throw new ResourceException(
                             "Failed to open a file for %s due to an exception.", src.derivedUri, e);
                 }
                 in = new ParcelFileDescriptor.AutoCloseInputStream(srcFile);
 
-                Metrics.logFileOperated(
-                        appContext, operationType, Metrics.OPMODE_CONVENTIONAL);
+                Metrics.logFileOperated(operationType, MetricConsts.OPMODE_CONVENTIONAL);
             }
 
             try {
                 dstFile = getClient(dest).openFile(dest.derivedUri, "w", mSignal);
             } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                 Metrics.logFileOperationFailure(
-                        appContext, Metrics.SUBFILEOP_OPEN_FILE, dest.derivedUri);
+                        appContext, MetricConsts.SUBFILEOP_OPEN_FILE, dest.derivedUri);
                 throw new ResourceException("Failed to open the destination file %s for writing "
                         + "due to an exception.", dest.derivedUri, e);
             }
@@ -614,13 +571,15 @@ class CopyJob extends ResolvedResourcesJob {
 
                 try {
                     final Int64Ref last = new Int64Ref(0);
-                    FileUtils.copy(in, out, (long progress) -> {
+                    FileUtils.copy(in, out, mSignal, Runnable::run, (long progress) -> {
                         final long delta = progress - last.value;
                         last.value = progress;
                         makeCopyProgress(delta);
-                    }, mSignal);
+                    });
                 } catch (OperationCanceledException e) {
-                    if (DEBUG) Log.d(TAG, "Canceled copy mid-copy of: " + src.derivedUri);
+                    if (DEBUG) {
+                        Log.d(TAG, "Canceled copy mid-copy of: " + src.derivedUri);
+                    }
                     return;
                 }
 
@@ -636,12 +595,16 @@ class CopyJob extends ResolvedResourcesJob {
                 }
 
                 // Need to invoke IoUtils.close explicitly to avoid from ignoring errors at flush.
-                IoUtils.close(dstFile.getFileDescriptor());
+                try {
+                    Os.close(dstFile.getFileDescriptor());
+                } catch (ErrnoException e) {
+                    throw new IOException(e);
+                }
                 srcFile.checkError();
             } catch (IOException e) {
                 Metrics.logFileOperationFailure(
                         appContext,
-                        Metrics.SUBFILEOP_WRITE_FILE,
+                        MetricConsts.SUBFILEOP_WRITE_FILE,
                         dest.derivedUri);
                 throw new ResourceException(
                         "Failed to copy bytes from %s to %s due to an IO exception.",
@@ -663,7 +626,9 @@ class CopyJob extends ResolvedResourcesJob {
                     }
                 }
 
-                if (DEBUG) Log.d(TAG, "Cleaning up failed operation leftovers.");
+                if (DEBUG) {
+                    Log.d(TAG, "Cleaning up failed operation leftovers.");
+                }
                 mSignal.cancel();
                 try {
                     deleteDocument(dest, destParent);
@@ -673,39 +638,49 @@ class CopyJob extends ResolvedResourcesJob {
             }
 
             // This also ensures the file descriptors are closed.
-            IoUtils.closeQuietly(in);
-            IoUtils.closeQuietly(out);
+            FileUtils.closeQuietly(in);
+            FileUtils.closeQuietly(out);
         }
     }
 
     /**
-     * Calculates the cumulative size of all the documents in the list. Directories are recursed
-     * into and totaled up.
+     * Create CopyJobProgressTracker instance for notification to update copy progress.
      *
-     * @return Size in bytes.
-     * @throws ResourceException
+     * @return Instance of CopyJobProgressTracker according required bytes or documents.
      */
-    private long calculateBytesRequired() throws ResourceException {
-        long result = 0;
+    private CopyJobProgressTracker createProgressTracker() {
+        long docsRequired = mResolvedDocs.size();
+        long bytesRequired = 0;
 
-        for (DocumentInfo src : mResolvedDocs) {
-            if (src.isDirectory()) {
-                // Directories need to be recursed into.
-                try {
-                    result += calculateFileSizesRecursively(getClient(src), src.derivedUri);
-                } catch (RemoteException e) {
-                    throw new ResourceException("Failed to obtain the client for %s.",
-                            src.derivedUri, e);
+        try {
+            for (DocumentInfo src : mResolvedDocs) {
+                if (src.isDirectory()) {
+                    // Directories need to be recursed into.
+                    try {
+                        bytesRequired +=
+                                calculateFileSizesRecursively(getClient(src), src.derivedUri);
+                    } catch (RemoteException e) {
+                        Log.w(TAG, "Failed to obtain the client for " + src.derivedUri, e);
+                        return new IndeterminateProgressTracker(bytesRequired);
+                    }
+                } else {
+                    bytesRequired += src.size;
                 }
-            } else {
-                result += src.size;
-            }
 
-            if (isCanceled()) {
-                return result;
+                if (isCanceled()) {
+                    break;
+                }
             }
+        } catch (ResourceException e) {
+            Log.w(TAG, "Failed to calculate total size. Copying without progress.", e);
+            return new IndeterminateProgressTracker(bytesRequired);
         }
-        return result;
+
+        if (bytesRequired > 0) {
+            return new ByteCountProgressTracker(bytesRequired, SystemClock::elapsedRealtime);
+        } else {
+            return new FileCountProgressTracker(docsRequired, SystemClock::elapsedRealtime);
+        }
     }
 
     /**
@@ -743,7 +718,7 @@ class CopyJob extends ResolvedResourcesJob {
             throw new ResourceException(
                     "Failed to calculate size for %s due to an exception.", uri, e);
         } finally {
-            IoUtils.closeQuietly(cursor);
+            FileUtils.closeQuietly(cursor);
         }
 
         return result;
@@ -818,8 +793,8 @@ class CopyJob extends ResolvedResourcesJob {
             throws ResourceException {
         if (parent.isDirectory() && doc.authority.equals(parent.authority)) {
             try {
-                return isChildDocument(getClient(doc), doc.derivedUri, parent.derivedUri);
-            } catch (RemoteException | RuntimeException e) {
+                return isChildDocument(wrap(getClient(doc)), doc.derivedUri, parent.derivedUri);
+            } catch (FileNotFoundException | RemoteException | RuntimeException e) {
                 throw new ResourceException(
                         "Failed to check if %s is a child of %s due to an exception.",
                         doc.derivedUri, parent.derivedUri, e);
@@ -856,6 +831,159 @@ class CopyJob extends ResolvedResourcesJob {
             synchronized (mNotifier) {
                 mNotifier.notify();
             }
+        }
+    }
+
+    @VisibleForTesting
+    static abstract class CopyJobProgressTracker implements ProgressTracker {
+        private LongSupplier mElapsedRealTimeSupplier;
+        // Speed estimation.
+        private long mStartTime = -1;
+        private long mDataProcessedSample;
+        private long mSampleTime;
+        private long mSpeed;
+        private long mRemainingTime = -1;
+
+        public CopyJobProgressTracker(LongSupplier timeSupplier) {
+            mElapsedRealTimeSupplier = timeSupplier;
+        }
+
+        protected void onBytesCopied(long numBytes) {
+        }
+
+        protected void onDocumentCompleted() {
+        }
+
+        protected boolean hasRequiredBytes() {
+            return false;
+        }
+
+        protected long getRequiredBytes() {
+            return -1;
+        }
+
+        protected void start() {
+            mStartTime = mElapsedRealTimeSupplier.getAsLong();
+        }
+
+        protected void update(Builder builder, Function<Long, String> messageFormatter) {
+            updateEstimateRemainingTime();
+            final double completed = getProgress();
+
+            builder.setProgress(100, (int) (completed * 100), false);
+            builder.setSubText(
+                    NumberFormat.getPercentInstance().format(completed));
+            if (getRemainingTimeEstimate() > 0) {
+                builder.setContentText(messageFormatter.apply(getRemainingTimeEstimate()));
+            } else {
+                builder.setContentText(null);
+            }
+        }
+
+        abstract void updateEstimateRemainingTime();
+
+        /**
+         * Generates an estimate of the remaining time in the copy.
+         * @param dataProcessed the number of data processed
+         * @param dataRequired the number of data required.
+         */
+        protected void estimateRemainingTime(final long dataProcessed, final long dataRequired) {
+            final long currentTime = mElapsedRealTimeSupplier.getAsLong();
+            final long elapsedTime = currentTime - mStartTime;
+            final long sampleDuration = Math.max(elapsedTime - mSampleTime, 1L); // avoid dividing 0
+            final long sampleSpeed =
+                    ((dataProcessed - mDataProcessedSample) * 1000) / sampleDuration;
+            if (mSpeed == 0) {
+                mSpeed = sampleSpeed;
+            } else {
+                mSpeed = ((3 * mSpeed) + sampleSpeed) / 4;
+            }
+
+            if (mSampleTime > 0 && mSpeed > 0) {
+                mRemainingTime = ((dataRequired - dataProcessed) * 1000) / mSpeed;
+            }
+
+            mSampleTime = elapsedTime;
+            mDataProcessedSample = dataProcessed;
+        }
+
+        @Override
+        public long getRemainingTimeEstimate() {
+            return mRemainingTime;
+        }
+    }
+
+    @VisibleForTesting
+    static class ByteCountProgressTracker extends CopyJobProgressTracker {
+        final long mBytesRequired;
+        final AtomicLong mBytesCopied = new AtomicLong(0);
+
+        public ByteCountProgressTracker(long bytesRequired, LongSupplier elapsedRealtimeSupplier) {
+            super(elapsedRealtimeSupplier);
+            mBytesRequired = bytesRequired;
+        }
+
+        @Override
+        public double getProgress() {
+            return (double) mBytesCopied.get() / mBytesRequired;
+        }
+
+        @Override
+        protected boolean hasRequiredBytes() {
+            return mBytesRequired > 0;
+        }
+
+        @Override
+        public void onBytesCopied(long numBytes) {
+            mBytesCopied.getAndAdd(numBytes);
+        }
+
+        @Override
+        public void updateEstimateRemainingTime() {
+            estimateRemainingTime(mBytesCopied.get(), mBytesRequired);
+        }
+    }
+
+    @VisibleForTesting
+    static class FileCountProgressTracker extends CopyJobProgressTracker {
+        final long mDocsRequired;
+        final AtomicLong mDocsProcessed = new AtomicLong(0);
+
+        public FileCountProgressTracker(long docsRequired, LongSupplier elapsedRealtimeSupplier) {
+            super(elapsedRealtimeSupplier);
+            mDocsRequired = docsRequired;
+        }
+
+        @Override
+        public double getProgress() {
+            // Use the number of copied docs to calculate progress when mBytesRequired is zero.
+            return (double) mDocsProcessed.get() / mDocsRequired;
+        }
+
+        @Override
+        public void onDocumentCompleted() {
+            mDocsProcessed.getAndIncrement();
+        }
+
+        @Override
+        public void updateEstimateRemainingTime() {
+            estimateRemainingTime(mDocsProcessed.get(), mDocsRequired);
+        }
+    }
+
+    private static class IndeterminateProgressTracker extends ByteCountProgressTracker {
+        public IndeterminateProgressTracker(long bytesRequired) {
+            super(bytesRequired, () -> -1L /* No need to update elapsedTime */);
+        }
+
+        @Override
+        protected void update(Builder builder, Function<Long, String> messageFormatter) {
+            // If the total file size failed to compute on some files, then show
+            // an indeterminate spinner. CopyJob would most likely fail on those
+            // files while copying, but would continue with another files.
+            // Also, if the total size is 0 bytes, show an indeterminate spinner.
+            builder.setProgress(0, 0, true);
+            builder.setContentText(null);
         }
     }
 }

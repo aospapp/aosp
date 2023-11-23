@@ -23,6 +23,7 @@ from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
 from vts.testcases.vndk.golden import vndk_data
+from vts.utils.python.os import path_utils
 from vts.utils.python.vndk import vndk_utils
 
 
@@ -110,19 +111,20 @@ class VtsVndkOpenLibrariesTest(base_test.BaseTestClass):
             vndk_data.VNDK_SP,
             vndk_data.VNDK_SP_PRIVATE)
         asserts.assertTrue(vndk_lists, "Cannot load VNDK library lists.")
-        allowed_libs = set()
-        for vndk_list in vndk_lists:
-            allowed_libs.update(vndk_list)
+        allowed_libs = set().union(*vndk_lists)
         logging.debug("Allowed system libraries: %s", allowed_libs)
 
         asserts.assertTrue(self._dut.isAdbRoot,
                            "Must be root to find all libraries in use.")
         cmds = self._ListProcessCommands(lambda x: (x.startswith("/odm/") or
                                                     x.startswith("/vendor/")))
-        deps = self._ListOpenFiles(cmds.keys(),
-                                   lambda x: (x.startswith("/system/") and
-                                              x.endswith(".so") and
-                                              x not in allowed_libs))
+
+        def _IsDisallowedSystemLib(lib_path):
+            return (lib_path.startswith("/system/") and
+                    lib_path.endswith(".so") and
+                    path_utils.TargetBaseName(lib_path) not in allowed_libs)
+
+        deps = self._ListOpenFiles(cmds.keys(), _IsDisallowedSystemLib)
         if deps:
             error_lines = ["%s %s %s" % (pid, cmds[pid], libs)
                            for pid, libs in deps.iteritems()]

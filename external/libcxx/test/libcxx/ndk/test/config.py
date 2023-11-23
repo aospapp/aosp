@@ -1,7 +1,6 @@
 import os
 
 import libcxx.test.config
-import libcxx.android.build
 import libcxx.android.test.format
 
 
@@ -9,7 +8,6 @@ class Configuration(libcxx.test.config.Configuration):
     def __init__(self, lit_config, config):
         super(Configuration, self).__init__(lit_config, config)
         self.cxx_under_test = None
-        self.build_cmds_dir = None
         self.cxx_template = None
         self.link_template = None
 

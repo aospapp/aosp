@@ -18,7 +18,7 @@ Content-Type: text/plain
 Location: %s\r\n\r
 """
 
-GOOGLE_STORAGE_PATTERN = 'pantheon.corp.google.com/storage/browser/'
+VIEWER_PREFIX = 'stainless.corp.google.com/browse/'
 
 # Define function for retrieving logs
 def _retrieve_logs_dummy(job_path):
@@ -64,7 +64,17 @@ def _check_result(args):
         http_path = 'http://%s%s' % (host, job_path)
 
     try:
-        utils.urlopen(http_path)
+        # HACK: This urlopen call isn't forwarding HTTP headers correctly. This
+        # leads to uberproxy sitting between master (orignator of this request)
+        # and shard (target of the request) to redirect to the the login page.
+        # We detect this condition and reject the target shard as a viable
+        # redirect. The implication is that we will not redirect to the shard
+        # even if the user could themselves access the shard with the correct
+        # credentials.
+        u = utils.urlopen(http_path)
+        redirected_url = u.geturl()
+        if 'accounts.google.com' in redirected_url:
+            return None
 
         # On Vms the shard name is set to the default gateway but the
         # browser used to navigate frontends (that runs on the host of
@@ -138,7 +148,7 @@ def find_repository_host(job_path):
                     os.path.join('/usr/local/autotest/results',
                                  job_relative_path)):
             gsuri = utils.get_offload_gsuri().split('gs://')[1]
-            return ['https', GOOGLE_STORAGE_PATTERN, gsuri + job_relative_path]
+            return ['https', VIEWER_PREFIX, gsuri + job_relative_path]
 
 
 def get_full_url(info, log_path):

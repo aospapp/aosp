@@ -46,9 +46,7 @@ namespace perfmgr {
 // protection from caller e.g. NodeLooperThread.
 class Node {
   public:
-    Node(std::string name, std::string node_path,
-         std::vector<RequestGroup> req_sorted, std::size_t default_val_index,
-         bool reset_on_init, bool hold_fd = false);
+    virtual ~Node() {}
 
     // Return true if successfully add a request
     bool AddRequest(std::size_t value_index, const std::string& hint_type,
@@ -61,18 +59,20 @@ class Node {
     // std::chrono::milliseconds::max() if no active request on Node; update
     // node's controlled file node value and the current value index based on
     // active request.
-    std::chrono::milliseconds Update();
+    virtual std::chrono::milliseconds Update(bool log_error) = 0;
 
-    std::string GetName() const;
-    std::string GetPath() const;
+    const std::string& GetName() const;
+    const std::string& GetPath() const;
     std::vector<std::string> GetValues() const;
     std::size_t GetDefaultIndex() const;
     bool GetResetOnInit() const;
-    bool GetHoldFd() const;
-    bool GetValueIndex(const std::string value, std::size_t* index) const;
-    void DumpToFd(int fd);
+    bool GetValueIndex(const std::string& value, std::size_t* index) const;
+    virtual void DumpToFd(int fd) const = 0;
 
-  private:
+  protected:
+    Node(std::string name, std::string node_path,
+         std::vector<RequestGroup> req_sorted, std::size_t default_val_index,
+         bool reset_on_init);
     Node(const Node& other) = delete;
     Node& operator=(Node const&) = delete;
 
@@ -81,10 +81,8 @@ class Node {
     // request vector, one entry per possible value, sorted by priority
     std::vector<RequestGroup> req_sorted_;
     const std::size_t default_val_index_;
-    std::size_t current_val_index_;
     const bool reset_on_init_;
-    const bool hold_fd_;
-    android::base::unique_fd fd_;
+    std::size_t current_val_index_;
 };
 
 }  // namespace perfmgr

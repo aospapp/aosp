@@ -4,14 +4,11 @@
 
 #include <memory>
 
-#include "base/logging.h"
-
 #include "main.h"
 #include "testbase.h"
-
+#include "utils.h"
 
 namespace glbench {
-
 
 class ReadPixelTest : public TestBase {
  public:
@@ -28,7 +25,6 @@ class ReadPixelTest : public TestBase {
   DISALLOW_COPY_AND_ASSIGN(ReadPixelTest);
 };
 
-
 bool ReadPixelTest::TestFunc(uint64_t iterations) {
   glReadPixels(0, 0, g_width, g_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels_);
   CHECK(glGetError() == 0);
@@ -36,7 +32,6 @@ bool ReadPixelTest::TestFunc(uint64_t iterations) {
     glReadPixels(0, 0, g_width, g_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels_);
   return true;
 }
-
 
 bool ReadPixelTest::Run() {
   // One GL_RGBA pixel takes 4 bytes.
@@ -59,10 +54,8 @@ bool ReadPixelTest::Run() {
   return true;
 }
 
-
 TestBase* GetReadPixelTest() {
   return new ReadPixelTest;
 }
 
-
-} // namespace glbench
+}  // namespace glbench

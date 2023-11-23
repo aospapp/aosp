@@ -15,13 +15,14 @@ from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.power import power_rapl
 from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_utils
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import histogram_verifier
 from autotest_lib.client.cros.video import constants
 from autotest_lib.client.cros.video import helper_logger
 
 
-DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS = [
-        '--disable-accelerated-video-decode']
+DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS = '--disable-accelerated-video-decode'
+ENABLE_AUTOPLAY = '--autoplay-policy=no-user-gesture-required'
 DOWNLOAD_BASE = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/'
 
 PLAYBACK_WITH_HW_ACCELERATION = 'playback_with_hw_acceleration'
@@ -31,11 +32,6 @@ PLAYBACK_WITHOUT_HW_ACCELERATION = 'playback_without_hw_acceleration'
 MEASUREMENT_DURATION = 30
 # Time to exclude from calculation after playing a video [seconds].
 STABILIZATION_DURATION = 10
-
-# List of thermal throttling services that should be disabled.
-# - temp_metrics for link.
-# - thermal for daisy, snow, pit etc.
-THERMAL_SERVICES = ['temp_metrics', 'thermal']
 
 # Time in seconds to wait for cpu idle until giveup.
 WAIT_FOR_IDLE_CPU_TIMEOUT = 60.0
@@ -58,7 +54,6 @@ class video_PlaybackPerf(test.test):
     consumption for video playback to performance dashboard.
     """
     version = 1
-    arc_mode = None
 
 
     def initialize(self):
@@ -67,16 +62,15 @@ class video_PlaybackPerf(test.test):
         self._backlight = None
 
 
-    def start_playback(self, cr, local_path):
+    def start_playback(self, cr, tab, local_path):
         """
         Opens the video and plays it.
 
         @param cr: Autotest Chrome instance.
+        @param tab: Chrome tab playing a video.
         @param local_path: path to the local video file to play.
         """
         cr.browser.platform.SetHTTPServerDirectories(self.bindir)
-
-        tab = cr.browser.tabs[0]
         tab.Navigate(cr.browser.platform.http_server.UrlOf(local_path))
         tab.WaitForDocumentReadyStateToBeComplete()
         tab.EvaluateJavaScript("document.getElementsByTagName('video')[0]."
@@ -84,25 +78,27 @@ class video_PlaybackPerf(test.test):
 
 
     @helper_logger.video_log_wrapper
-    def run_once(self, video_name, video_description, power_test=False,
-                 arc_mode=None):
+    def run_once(self, video_name, video_description, capability,
+                 power_test=False):
         """
         Runs the video_PlaybackPerf test.
 
         @param video_name: the name of video to play in the DOWNLOAD_BASE
         @param video_description: a string describes the video to play which
                 will be part of entry name in dashboard.
+        @param capability: If a device has a specified capability, HW playback
+                must be available.
         @param power_test: True if this is a power test and it would only run
                 the power test. If False, it would run the cpu usage test and
                 the dropped frame count test.
-        @param arc_mode: if 'enabled', run the test with Android enabled.
         """
         # Download test video.
         url = DOWNLOAD_BASE + video_name
         local_path = os.path.join(self.bindir, os.path.basename(video_name))
         logging.info("Downloading %s to %s", url, local_path);
         file_utils.download_file(url, local_path)
-        self.arc_mode = arc_mode
+        self.must_hw_playback = (
+            device_capability.DeviceCapability().have_capability(capability))
 
         if not power_test:
             # Run the video playback dropped frame tests.
@@ -202,7 +198,7 @@ class video_PlaybackPerf(test.test):
             logging.warning('Could not get cold machine pre login.')
 
         # Stop the thermal service that may change the cpu frequency.
-        self._service_stopper = service_stopper.ServiceStopper(THERMAL_SERVICES)
+        self._service_stopper = service_stopper.get_thermal_service_stopper()
         self._service_stopper.stop_services()
         # Set the scaling governor to performance mode to set the cpu to the
         # highest frequency available.
@@ -250,9 +246,26 @@ class video_PlaybackPerf(test.test):
             time.sleep(MEASUREMENT_DURATION)
             power_logger.checkpoint('result', start_time)
             keyval = power_logger.calc()
-            keyval = {key: keyval[key]
-                      for key in keyval if key.endswith('_pwr')}
-            return keyval
+            # save_results() will save result_raw.txt and result_summary.txt,
+            # where the former contains raw data.
+            fname_prefix = 'result_%.0f' % time.time()
+            power_logger.save_results(self.resultsdir, fname_prefix)
+            pwrval = {}
+            for measurement in measurements:
+                metric_name = 'result_' + measurement.domain
+                # Use a list contains the average power only for fallback.
+                pwrval[metric_name + '_pwr'] = [
+                        keyval[metric_name + '_pwr_avg']]
+                with open(os.path.join(
+                        self.resultsdir, fname_prefix + '_raw.txt')) as f:
+                    for line in f.readlines():
+                        if line.startswith(metric_name):
+                            split_data = line.split('\t')
+                            # split_data[0] is metric_name, [1:] are raw data.
+                            pwrval[metric_name + '_pwr'] = [
+                                    float(data) for data in split_data[1:]]
+                            break
+            return pwrval
 
         return self.test_playback(local_path, get_power)
 
@@ -271,8 +284,8 @@ class video_PlaybackPerf(test.test):
         keyvals = {}
 
         with chrome.Chrome(
-                extra_browser_args=helper_logger.chrome_vmodule_flag(),
-                arc_mode=self.arc_mode,
+                extra_browser_args=[helper_logger.chrome_vmodule_flag(),
+                                    ENABLE_AUTOPLAY],
                 init_network_controller=True) as cr:
 
             # crbug/753292 - enforce the idle checks after login
@@ -281,40 +294,91 @@ class video_PlaybackPerf(test.test):
                 logging.warning('Could not get idle CPU post login.')
             if not utils.wait_for_cool_machine():
                 logging.warning('Could not get cold machine post login.')
+            hd = histogram_verifier.HistogramDiffer(
+                    cr, constants.MEDIA_GVD_INIT_STATUS)
+            error_differ = histogram_verifier.HistogramDiffer(
+                cr, constants.MEDIA_GVD_ERROR)
 
             # Open the video playback page and start playing.
-            self.start_playback(cr, local_path)
+            video_tab = cr.browser.tabs[0]
+            self.start_playback(cr, video_tab, local_path)
             result = gather_result(cr)
 
+            self.check_playback(video_tab)
+
             # Check if decode is hardware accelerated.
-            if histogram_verifier.is_bucket_present(
-                    cr,
-                    constants.MEDIA_GVD_INIT_STATUS,
-                    constants.MEDIA_GVD_BUCKET):
+            _, histogram = histogram_verifier.poll_histogram_grow(
+                    hd, timeout=10, sleep_interval=1)
+
+            # Without disabling HW acceleration, some bucket in GVD Initialize
+            # Status must be incremented, in either failure or success.
+            if len(histogram) != 1:
+                raise error.TestError(err_desc)
+
+            # Check if there's GPU Video Error for a period of time.
+            has_error, diff_error = histogram_verifier.poll_histogram_grow(
+                error_differ)
+            if has_error:
+                raise error.TestError(
+                    'GPU Video Decoder Error. Histogram diff: %r' % diff_error)
+
+            if constants.MEDIA_GVD_BUCKET in histogram:
                 keyvals[PLAYBACK_WITH_HW_ACCELERATION] = result
             else:
-                logging.info("Can not use hardware decoding.")
+                logging.info('Hardware playback not detected.')
+                if self.must_hw_playback:
+                    raise error.TestError(
+                        'Expected hardware playback is not detected.')
                 keyvals[PLAYBACK_WITHOUT_HW_ACCELERATION] = result
                 return keyvals
 
         # Start chrome with disabled video hardware decode flag.
-        with chrome.Chrome(extra_browser_args=
+        with chrome.Chrome(extra_browser_args=[
                 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS,
-                arc_mode=self.arc_mode, init_network_controller=True) as cr:
+                ENABLE_AUTOPLAY],
+                init_network_controller=True) as cr:
+            hd = histogram_verifier.HistogramDiffer(
+                    cr, constants.MEDIA_GVD_INIT_STATUS)
             # Open the video playback page and start playing.
-            self.start_playback(cr, local_path)
+            video_tab = cr.browser.tabs[0]
+            self.start_playback(cr, video_tab, local_path)
             result = gather_result(cr)
 
+            self.check_playback(video_tab)
+
             # Make sure decode is not hardware accelerated.
-            if histogram_verifier.is_bucket_present(
-                    cr,
-                    constants.MEDIA_GVD_INIT_STATUS,
-                    constants.MEDIA_GVD_BUCKET):
+            _, histogram = histogram_verifier.poll_histogram_grow(
+                    hd, timeout=10, sleep_interval=1)
+            if constants.MEDIA_GVD_BUCKET in histogram:
                 raise error.TestError(
                         'Video decode acceleration should not be working.')
+
             keyvals[PLAYBACK_WITHOUT_HW_ACCELERATION] = result
 
         return keyvals
+
+
+    def check_playback(self, tab, minimum_decoded_frames=100):
+        """
+        Checks if video playback works as expected.
+        It checks number of decoded frames. It it is too few, there must be
+        something wrong.
+
+        @param tab: chrome tab used to play a video.
+        @param minimum_decoded_frame: the number of decoded frames if Chrome
+            plays a video correctly in the tab.
+        @raise TestError if video is not played correctly.
+        """
+        decoded_frame_count = tab.EvaluateJavaScript(
+            "document.getElementsByTagName"
+            "('video')[0].webkitDecodedFrameCount")
+        # If playback is performed successfully, 100 video frames are decoded
+        # at least in any case.
+        if decoded_frame_count < minimum_decoded_frames:
+            raise error.TestError(
+                "Playback is not done correctly. The number of decoded "
+                "frames (=%d) is less than %d for 30 seconds" %
+                (decoded_frame_count, minimum_decoded_frames))
 
 
     def log_result(self, keyvals, description, units, graph=None):

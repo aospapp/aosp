@@ -47,14 +47,7 @@ class BinaryTest(base_test.BaseTestClass):
         tags: all the tags that appeared in binary list
         DEVICE_TMP_DIR: string, temp location for storing binary
         TAG_DELIMITER: string, separator used to separate tag and path
-        SYSPROP_VTS_NATIVE_SERVER: string, the name of a system property which
-                                   tells whether to stop properly configured
-                                   native servers where properly configured
-                                   means a server's init.rc is configured to
-                                   stop when that property's value is 1.
     '''
-    SYSPROP_VTS_NATIVE_SERVER = "vts.native_server.on"
-
     DEVICE_TMP_DIR = '/data/local/tmp'
     TAG_DELIMITER = '::'
     PUSH_DELIMITER = '->'
@@ -77,8 +70,6 @@ class BinaryTest(base_test.BaseTestClass):
             keys.ConfigKeys.IKEY_BINARY_TEST_ARGS,
             keys.ConfigKeys.IKEY_BINARY_TEST_LD_LIBRARY_PATH,
             keys.ConfigKeys.IKEY_BINARY_TEST_PROFILING_LIBRARY_PATH,
-            keys.ConfigKeys.IKEY_BINARY_TEST_DISABLE_FRAMEWORK,
-            keys.ConfigKeys.IKEY_BINARY_TEST_STOP_NATIVE_SERVERS,
             keys.ConfigKeys.IKEY_NATIVE_SERVER_PROCESS_NAME,
             keys.ConfigKeys.IKEY_PRECONDITION_FILE_PATH_PREFIX,
             keys.ConfigKeys.IKEY_PRECONDITION_SYSPROP,
@@ -90,7 +81,7 @@ class BinaryTest(base_test.BaseTestClass):
         self.getUserParam(
             keys.ConfigKeys.KEY_TESTBED_NAME, error_if_not_found=True)
 
-        logging.info("%s: %s", keys.ConfigKeys.IKEY_DATA_FILE_PATH,
+        logging.debug("%s: %s", keys.ConfigKeys.IKEY_DATA_FILE_PATH,
                      self.data_file_path)
 
         self.binary_test_source = self.getUserParam(
@@ -115,7 +106,7 @@ class BinaryTest(base_test.BaseTestClass):
                 path = token
                 split = token.find(self.TAG_DELIMITER)
                 if split >= 0:
-                    tag, arg = token[:split], token[
+                    tag, path = token[:split], token[
                         split + len(self.TAG_DELIMITER):]
                 if tag in self.envp:
                     self.envp[tag] += ' %s' % path
@@ -207,7 +198,7 @@ class BinaryTest(base_test.BaseTestClass):
         self.testcases = []
         if not precondition_utils.CheckSysPropPrecondition(
                 self, self._dut, self.shell):
-            logging.info('Precondition sysprop not met; '
+            logging.warn('Precondition sysprop not met; '
                          'all tests skipped.')
             self.skipAllTests('precondition sysprop not met')
 
@@ -220,37 +211,6 @@ class BinaryTest(base_test.BaseTestClass):
         if any(cmd_results[const.EXIT_CODE]):
             logging.error('Failed to set permission to some of the binaries:\n'
                           '%s\n%s', cmd, cmd_results)
-
-        if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_DISABLE_FRAMEWORK,
-                   False):
-            # Disable the framework if requested.
-            self._dut.stop()
-        else:
-            # Enable the framework if requested.
-            self._dut.start()
-
-        if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_STOP_NATIVE_SERVERS,
-                   False):
-            logging.debug("Stops all properly configured native servers.")
-            results = self._dut.setProp(self.SYSPROP_VTS_NATIVE_SERVER, "1")
-            native_server_process_names = getattr(
-                self, keys.ConfigKeys.IKEY_NATIVE_SERVER_PROCESS_NAME, [])
-            if native_server_process_names:
-                for native_server_process_name in native_server_process_names:
-                    while True:
-                        cmd_result = self.shell.Execute("ps -A")
-                        if cmd_result[const.EXIT_CODE][0] != 0:
-                            logging.error("ps command failed (exit code: %s",
-                                          cmd_result[const.EXIT_CODE][0])
-                            break
-                        if (native_server_process_name not in cmd_result[
-                                const.STDOUT][0]):
-                            logging.info("Process %s not running",
-                                         native_server_process_name)
-                            break
-                        logging.info("Checking process %s",
-                                     native_server_process_name)
-                        time.sleep(1)
 
     def CreateTestCases(self):
         '''Push files to device and create test case objects.'''
@@ -279,22 +239,23 @@ class BinaryTest(base_test.BaseTestClass):
             if (tag.endswith(const.SUFFIX_32BIT) and self.abi_bitness == '64'
                 ) or (tag.endswith(const.SUFFIX_64BIT) and
                       self.abi_bitness == '32'):
-                logging.info('Bitness of test source, %s, does not match the '
-                             'abi_bitness, %s, of test run.', str(source[0]),
+                logging.debug('Bitness of test source, %s, does not match the '
+                             'abi_bitness, %s, of test run. Skipping',
+                             str(source[0]),
                              self.abi_bitness)
                 return False
 
             return True
 
         source_list = filter(isValidSource, source_list)
-        logging.info('Parsed test sources: %s', source_list)
+        logging.debug('Parsed test sources: %s', source_list)
 
         # Push source files first
         for src, dst, tag in source_list:
             if src:
                 if os.path.isdir(src):
                     src = os.path.join(src, '.')
-                logging.info('Pushing from %s to %s.', src, dst)
+                logging.debug('Pushing from %s to %s.', src, dst)
                 self._dut.adb.push('{src} {dst}'.format(src=src, dst=dst))
                 self.shell.Execute('ls %s' % dst)
 
@@ -306,7 +267,7 @@ class BinaryTest(base_test.BaseTestClass):
             if tag is not None:
                 # tag not being None means to create a test case
                 self.tags.add(tag)
-                logging.info('Creating test case from %s with tag %s', dst,
+                logging.debug('Creating test case from %s with tag %s', dst,
                              tag)
                 testcase = self.CreateTestCase(dst, tag)
                 if not testcase:
@@ -359,18 +320,16 @@ class BinaryTest(base_test.BaseTestClass):
 
     def tearDownClass(self):
         '''Perform clean-up tasks'''
-        if getattr(self, keys.ConfigKeys.IKEY_BINARY_TEST_STOP_NATIVE_SERVERS,
-                   False):
-            logging.debug("Restarts all properly configured native servers.")
-            results = self._dut.setProp(self.SYSPROP_VTS_NATIVE_SERVER, "0")
-
         # Retrieve coverage if applicable
         if self.coverage.enabled and self.coverage.global_coverage:
             if not self.isSkipAllTests():
                 self.coverage.SetCoverageData(dut=self._dut, isGlobal=True)
 
+        if self.profiling.enabled:
+            self.profiling.DisableVTSProfiling(self.shell)
+
         # Clean up the pushed binaries
-        logging.info('Start class cleaning up jobs.')
+        logging.debug('Start class cleaning up jobs.')
         # Delete pushed files
 
         sources = [
@@ -396,7 +355,7 @@ class BinaryTest(base_test.BaseTestClass):
         if not self.isSkipAllTests() and self.profiling.enabled:
             self.profiling.ProcessAndUploadTraceData()
 
-        logging.info('Finished class cleaning up jobs.')
+        logging.debug('Finished class cleaning up jobs.')
 
     def ParseTestSource(self, source):
         '''Convert host side binary path to device side path.
@@ -523,7 +482,7 @@ class BinaryTest(base_test.BaseTestClass):
                                               test_case.profiling_library_path)
 
         cmd = test_case.GetRunCommand()
-        logging.info("Executing binary test command: %s", cmd)
+        logging.debug("Executing binary test command: %s", cmd)
         command_results = self.shell.Execute(cmd)
 
         self.VerifyTestResult(test_case, command_results)

@@ -13,7 +13,7 @@ $(my_coverage_output): PRIVATE_COVERAGE_REPORT_JAR := $(my_coverage_report_jar)
 $(my_coverage_output): PRIVATE_REPORT_DIR := $(my_report_dir)
 
 # Generate the coverage report.
-$(my_coverage_output): $(my_collect_target) $(my_coverage_report_jar)
+$(my_coverage_output): $(my_collect_file) $(my_coverage_report_jar)
 	$(hide) rm -rf $(PRIVATE_REPORT_DIR)
 	$(hide) mkdir -p $(PRIVATE_REPORT_DIR)
 	$(hide) $(JAVA) \
@@ -36,7 +36,7 @@ $(my_coverage_output_zip): $(my_coverage_output)
 	$(hide) cd $(PRIVATE_REPORT_DIR) && zip --quiet -r $(PWD)/$@ .
 
 # Add coverage report zip to dist files.
-$(call dist-for-goals, $(my_target), \
+$(call dist-for-goals, $(my_report_target), \
     $(my_coverage_output_zip):robotests-coverage/$(LOCAL_MODULE)/robolectric-html-coverage.zip \
     $(my_coverage_output):robotests-coverage/$(LOCAL_MODULE)/robolectric-coverage.xml)
 

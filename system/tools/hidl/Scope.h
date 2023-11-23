@@ -51,7 +51,7 @@ struct Scope : public NamedType {
     // Returns the single interface or NULL.
     Interface *getInterface() const;
 
-    bool containsInterfaces() const;
+    bool definesInterfaces() const;
 
     const std::vector<Annotation*>& annotations() const;
 
@@ -66,6 +66,7 @@ struct Scope : public NamedType {
     void emitTypeDeclarations(Formatter& out) const override;
     void emitGlobalTypeDeclarations(Formatter& out) const override;
     void emitPackageTypeDeclarations(Formatter& out) const override;
+    void emitPackageTypeHeaderDefinitions(Formatter& out) const override;
     void emitPackageHwDeclarations(Formatter& out) const override;
 
     void emitJavaTypeDeclarations(Formatter& out, bool atTopLevel) const override;

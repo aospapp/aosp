@@ -17,4 +17,4 @@
 #pragma once
 
 #define LOG_TAG "wifi_emu_hal"
-#include <cutils/log.h>
+#include <log/log.h>

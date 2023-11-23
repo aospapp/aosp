@@ -59,8 +59,8 @@ bool WriteExtents(const string& part_path,
     uint64_t to_write =
         std::min(static_cast<uint64_t>(extent.num_blocks()) * block_size,
                  static_cast<uint64_t>(data.size()) - offset);
-    TEST_AND_RETURN_FALSE(
-        fwrite(data.data() + offset, 1, to_write, fp.get()) == to_write);
+    TEST_AND_RETURN_FALSE(fwrite(data.data() + offset, 1, to_write, fp.get()) ==
+                          to_write);
     offset += extent.num_blocks() * block_size;
   }
   return true;
@@ -68,8 +68,10 @@ bool WriteExtents(const string& part_path,
 
 // Create a fake filesystem of the given |size| and initialize the partition
 // holding it in the PartitionConfig |part|.
-void CreatePartition(PartitionConfig* part, const string& pattern,
-                     uint64_t block_size, off_t size) {
+void CreatePartition(PartitionConfig* part,
+                     const string& pattern,
+                     uint64_t block_size,
+                     off_t size) {
   int fd = -1;
   ASSERT_TRUE(utils::MakeTempFile(pattern.c_str(), &part->path, &fd));
   ASSERT_EQ(0, ftruncate(fd, size));
@@ -95,7 +97,8 @@ bool InitializePartitionWithUniqueBlocks(const PartitionConfig& part,
     brillo::Blob block_data(prefix.begin(), prefix.end());
     TEST_AND_RETURN_FALSE(prefix.size() <= block_size);
     block_data.resize(block_size, 'X');
-    std::copy(block_data.begin(), block_data.end(),
+    std::copy(block_data.begin(),
+              block_data.end(),
               file_data.begin() + i * block_size);
   }
   return test_utils::WriteFileVector(part.path, file_data);
@@ -108,13 +111,16 @@ class DeltaDiffUtilsTest : public ::testing::Test {
   const uint64_t kDefaultBlockCount = 128;
 
   void SetUp() override {
-    CreatePartition(&old_part_, "DeltaDiffUtilsTest-old_part-XXXXXX",
-                    block_size_, block_size_ * kDefaultBlockCount);
-    CreatePartition(&new_part_, "DeltaDiffUtilsTest-old_part-XXXXXX",
-                    block_size_, block_size_ * kDefaultBlockCount);
-    ASSERT_TRUE(utils::MakeTempFile("DeltaDiffUtilsTest-blob-XXXXXX",
-                                    &blob_path_,
-                                    &blob_fd_));
+    CreatePartition(&old_part_,
+                    "DeltaDiffUtilsTest-old_part-XXXXXX",
+                    block_size_,
+                    block_size_ * kDefaultBlockCount);
+    CreatePartition(&new_part_,
+                    "DeltaDiffUtilsTest-old_part-XXXXXX",
+                    block_size_,
+                    block_size_ * kDefaultBlockCount);
+    ASSERT_TRUE(utils::MakeTempFile(
+        "DeltaDiffUtilsTest-blob-XXXXXX", &blob_path_, &blob_fd_));
   }
 
   void TearDown() override {
@@ -131,6 +137,7 @@ class DeltaDiffUtilsTest : public ::testing::Test {
                                   uint32_t minor_version) {
     BlobFileWriter blob_file(blob_fd_, &blob_size_);
     PayloadVersion version(kChromeOSMajorPayloadVersion, minor_version);
+    ExtentRanges old_zero_blocks;
     return diff_utils::DeltaMovedAndZeroBlocks(&aops_,
                                                old_part_.path,
                                                new_part_.path,
@@ -140,7 +147,8 @@ class DeltaDiffUtilsTest : public ::testing::Test {
                                                version,
                                                &blob_file,
                                                &old_visited_blocks_,
-                                               &new_visited_blocks_);
+                                               &new_visited_blocks_,
+                                               &old_zero_blocks);
   }
 
   // Old and new temporary partitions used in the tests. These are initialized
@@ -161,13 +169,38 @@ class DeltaDiffUtilsTest : public ::testing::Test {
   ExtentRanges new_visited_blocks_;
 };
 
+TEST_F(DeltaDiffUtilsTest, SkipVerityExtentsTest) {
+  new_part_.verity.hash_tree_extent = ExtentForRange(20, 30);
+  new_part_.verity.fec_extent = ExtentForRange(40, 50);
+
+  BlobFileWriter blob_file(blob_fd_, &blob_size_);
+  EXPECT_TRUE(diff_utils::DeltaReadPartition(
+      &aops_,
+      old_part_,
+      new_part_,
+      -1,
+      -1,
+      PayloadVersion(kMaxSupportedMajorPayloadVersion,
+                     kVerityMinorPayloadVersion),
+      &blob_file));
+  for (const auto& aop : aops_) {
+    new_visited_blocks_.AddRepeatedExtents(aop.op.dst_extents());
+  }
+  for (const auto& extent : new_visited_blocks_.extent_set()) {
+    EXPECT_FALSE(ExtentRanges::ExtentsOverlap(
+        extent, new_part_.verity.hash_tree_extent));
+    EXPECT_FALSE(
+        ExtentRanges::ExtentsOverlap(extent, new_part_.verity.fec_extent));
+  }
+}
+
 TEST_F(DeltaDiffUtilsTest, MoveSmallTest) {
   brillo::Blob data_blob(block_size_);
   test_utils::FillWithData(&data_blob);
 
   // The old file is on a different block than the new one.
-  vector<Extent> old_extents = { ExtentForRange(11, 1) };
-  vector<Extent> new_extents = { ExtentForRange(1, 1) };
+  vector<Extent> old_extents = {ExtentForRange(11, 1)};
+  vector<Extent> new_extents = {ExtentForRange(1, 1)};
 
   EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
   EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize, data_blob));
@@ -210,15 +243,12 @@ TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
   // Old:  [ 20     21 22     23     24 25 ] [ 28     29 ]
   // New:  [ 18 ] [ 21 22 ] [ 20 ] [ 24 25     26 ] [ 29 ]
   // Same:          ^^ ^^            ^^ ^^            ^^
-  vector<Extent> old_extents = {
-      ExtentForRange(20, 6),
-      ExtentForRange(28, 2) };
-  vector<Extent> new_extents = {
-      ExtentForRange(18, 1),
-      ExtentForRange(21, 2),
-      ExtentForRange(20, 1),
-      ExtentForRange(24, 3),
-      ExtentForRange(29, 1) };
+  vector<Extent> old_extents = {ExtentForRange(20, 6), ExtentForRange(28, 2)};
+  vector<Extent> new_extents = {ExtentForRange(18, 1),
+                                ExtentForRange(21, 2),
+                                ExtentForRange(20, 1),
+                                ExtentForRange(24, 3),
+                                ExtentForRange(29, 1)};
 
   uint64_t num_blocks = utils::BlocksInExtents(old_extents);
   EXPECT_EQ(num_blocks, utils::BlocksInExtents(new_extents));
@@ -255,13 +285,9 @@ TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
 
   // The expected old and new extents that actually moved. See comment above.
   old_extents = {
-      ExtentForRange(20, 1),
-      ExtentForRange(23, 1),
-      ExtentForRange(28, 1) };
+      ExtentForRange(20, 1), ExtentForRange(23, 1), ExtentForRange(28, 1)};
   new_extents = {
-      ExtentForRange(18, 1),
-      ExtentForRange(20, 1),
-      ExtentForRange(26, 1) };
+      ExtentForRange(18, 1), ExtentForRange(20, 1), ExtentForRange(26, 1)};
   num_blocks = utils::BlocksInExtents(old_extents);
 
   EXPECT_EQ(num_blocks * kBlockSize, op.src_length());
@@ -290,8 +316,8 @@ TEST_F(DeltaDiffUtilsTest, BsdiffSmallTest) {
   test_utils::FillWithData(&data_blob);
 
   // The old file is on a different block than the new one.
-  vector<Extent> old_extents = { ExtentForRange(1, 1) };
-  vector<Extent> new_extents = { ExtentForRange(2, 1) };
+  vector<Extent> old_extents = {ExtentForRange(1, 1)};
+  vector<Extent> new_extents = {ExtentForRange(2, 1)};
 
   EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
   // Modify one byte in the new file.
@@ -328,8 +354,8 @@ TEST_F(DeltaDiffUtilsTest, BsdiffSmallTest) {
 
 TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
   // The old file is on a different block than the new one.
-  vector<Extent> old_extents = { ExtentForRange(1, 1) };
-  vector<Extent> new_extents = { ExtentForRange(2, 1) };
+  vector<Extent> old_extents = {ExtentForRange(1, 1)};
+  vector<Extent> new_extents = {ExtentForRange(2, 1)};
 
   // Make a blob that's just 1's that will compress well.
   brillo::Blob ones(kBlockSize, 1);
@@ -345,8 +371,8 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
   for (int i = 0; i < 2; i++) {
     brillo::Blob data_to_test = i == 0 ? random_data : ones;
     // The old_extents will be initialized with 0.
-    EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize,
-                             data_to_test));
+    EXPECT_TRUE(
+        WriteExtents(new_part_.path, new_extents, kBlockSize, data_to_test));
 
     brillo::Blob data;
     InstallOperation op;
@@ -364,7 +390,7 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
     EXPECT_FALSE(data.empty());
 
     EXPECT_TRUE(op.has_type());
-    const InstallOperation_Type expected_type =
+    const InstallOperation::Type expected_type =
         (i == 0 ? InstallOperation::REPLACE : InstallOperation::REPLACE_BZ);
     EXPECT_EQ(expected_type, op.type());
     EXPECT_FALSE(op.has_data_offset());
@@ -385,8 +411,8 @@ TEST_F(DeltaDiffUtilsTest, SourceCopyTest) {
   test_utils::FillWithData(&data_blob);
 
   // The old file is on a different block than the new one.
-  vector<Extent> old_extents = { ExtentForRange(11, 1) };
-  vector<Extent> new_extents = { ExtentForRange(1, 1) };
+  vector<Extent> old_extents = {ExtentForRange(11, 1)};
+  vector<Extent> new_extents = {ExtentForRange(1, 1)};
 
   EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
   EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize, data_blob));
@@ -417,8 +443,8 @@ TEST_F(DeltaDiffUtilsTest, SourceBsdiffTest) {
   test_utils::FillWithData(&data_blob);
 
   // The old file is on a different block than the new one.
-  vector<Extent> old_extents = { ExtentForRange(1, 1) };
-  vector<Extent> new_extents = { ExtentForRange(2, 1) };
+  vector<Extent> old_extents = {ExtentForRange(1, 1)};
+  vector<Extent> new_extents = {ExtentForRange(2, 1)};
 
   EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
   // Modify one byte in the new file.
@@ -441,6 +467,37 @@ TEST_F(DeltaDiffUtilsTest, SourceBsdiffTest) {
   EXPECT_FALSE(data.empty());
   EXPECT_TRUE(op.has_type());
   EXPECT_EQ(InstallOperation::SOURCE_BSDIFF, op.type());
+}
+
+TEST_F(DeltaDiffUtilsTest, PreferReplaceTest) {
+  brillo::Blob data_blob(kBlockSize);
+  vector<Extent> extents = {ExtentForRange(1, 1)};
+
+  // Write something in the first 50 bytes so that REPLACE_BZ will be slightly
+  // larger than BROTLI_BSDIFF.
+  std::iota(data_blob.begin(), data_blob.begin() + 50, 0);
+  EXPECT_TRUE(WriteExtents(old_part_.path, extents, kBlockSize, data_blob));
+  // Shift the first 50 bytes in the new file by one.
+  std::iota(data_blob.begin(), data_blob.begin() + 50, 1);
+  EXPECT_TRUE(WriteExtents(new_part_.path, extents, kBlockSize, data_blob));
+
+  brillo::Blob data;
+  InstallOperation op;
+  EXPECT_TRUE(diff_utils::ReadExtentsToDiff(
+      old_part_.path,
+      new_part_.path,
+      extents,
+      extents,
+      {},  // old_deflates
+      {},  // new_deflates
+      PayloadVersion(kMaxSupportedMajorPayloadVersion,
+                     kMaxSupportedMinorPayloadVersion),
+      &data,
+      &op));
+
+  EXPECT_FALSE(data.empty());
+  EXPECT_TRUE(op.has_type());
+  EXPECT_EQ(InstallOperation::REPLACE_BZ, op.type());
 }
 
 TEST_F(DeltaDiffUtilsTest, IsNoopOperationTest) {
@@ -542,7 +599,9 @@ TEST_F(DeltaDiffUtilsTest, IdenticalBlocksAreCopiedFromSource) {
 
   // Override some of the old blocks with different data.
   vector<Extent> different_blocks = {ExtentForRange(40, 5)};
-  EXPECT_TRUE(WriteExtents(old_part_.path, different_blocks, kBlockSize,
+  EXPECT_TRUE(WriteExtents(old_part_.path,
+                           different_blocks,
+                           kBlockSize,
                            brillo::Blob(5 * kBlockSize, 'a')));
 
   EXPECT_TRUE(RunDeltaMovedAndZeroBlocks(10,  // chunk_blocks
@@ -592,8 +651,8 @@ TEST_F(DeltaDiffUtilsTest, IdenticalBlocksAreCopiedInOder) {
   brillo::Blob partition_data(old_part_.size);
   for (size_t offset = 0; offset < partition_data.size();
        offset += file_data.size()) {
-    std::copy(file_data.begin(), file_data.end(),
-              partition_data.begin() + offset);
+    std::copy(
+        file_data.begin(), file_data.end(), partition_data.begin() + offset);
   }
   EXPECT_TRUE(test_utils::WriteFileVector(old_part_.path, partition_data));
   EXPECT_TRUE(test_utils::WriteFileVector(new_part_.path, partition_data));
@@ -693,8 +752,8 @@ TEST_F(DeltaDiffUtilsTest, ShuffledBlocksAreTracked) {
   // as block permutation[i] in the new_part_.
   brillo::Blob new_contents;
   EXPECT_TRUE(utils::ReadFile(new_part_.path, &new_contents));
-  EXPECT_TRUE(WriteExtents(old_part_.path, perm_extents, block_size_,
-                           new_contents));
+  EXPECT_TRUE(
+      WriteExtents(old_part_.path, perm_extents, block_size_, new_contents));
 
   EXPECT_TRUE(RunDeltaMovedAndZeroBlocks(-1,  // chunk_blocks
                                          kSourceMinorPayloadVersion));
@@ -721,6 +780,47 @@ TEST_F(DeltaDiffUtilsTest, IsExtFilesystemTest) {
       test_utils::GetBuildArtifactsPath("gen/disk_ext2_1k.img")));
   EXPECT_TRUE(diff_utils::IsExtFilesystem(
       test_utils::GetBuildArtifactsPath("gen/disk_ext2_4k.img")));
+}
+
+TEST_F(DeltaDiffUtilsTest, GetOldFileEmptyTest) {
+  EXPECT_TRUE(diff_utils::GetOldFile({}, "filename").name.empty());
+}
+
+TEST_F(DeltaDiffUtilsTest, GetOldFileTest) {
+  std::map<string, FilesystemInterface::File> old_files_map;
+  auto file_list = {
+      "filename",
+      "filename.zip",
+      "version1.1",
+      "version2.0",
+      "version",
+      "update_engine",
+      "delta_generator",
+  };
+  for (const auto& name : file_list) {
+    FilesystemInterface::File file;
+    file.name = name;
+    old_files_map.emplace(name, file);
+  }
+
+  // Always return exact match if possible.
+  for (const auto& name : file_list)
+    EXPECT_EQ(diff_utils::GetOldFile(old_files_map, name).name, name);
+
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "file_name").name,
+            "filename");
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "filename_new.zip").name,
+            "filename.zip");
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "version1.2").name,
+            "version1.1");
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "version3.0").name,
+            "version2.0");
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "_version").name, "version");
+  EXPECT_EQ(
+      diff_utils::GetOldFile(old_files_map, "update_engine_unittest").name,
+      "update_engine");
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "bin/delta_generator").name,
+            "delta_generator");
 }
 
 }  // namespace chromeos_update_engine

@@ -20,6 +20,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -44,6 +46,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 /** Unit Tests for {@link SubprocessTestResultsParser} */
@@ -346,6 +349,60 @@ public class SubprocessTestResultsParserTest {
             EasyMock.verify(mockRunListener);
             assertEquals(subTestTag, context.getTestTag());
             assertEquals(250l, resultParser.getStartTime().longValue());
+        } finally {
+            StreamUtil.close(resultParser);
+            FileUtil.deleteFile(tmp);
+        }
+    }
+
+    /** Tests the parser smoothly handling case where there is no build info. */
+    @Test
+    public void testParse_testInvocationEndedWithoutBuildInfo() throws Exception {
+        InvocationContext context = new InvocationContext();
+        context.setTestTag("stub");
+
+        ITestInvocationListener mockRunListener =
+                EasyMock.createMock(ITestInvocationListener.class);
+        EasyMock.replay(mockRunListener);
+        File tmp = FileUtil.createTempFile("sub", "unit");
+        SubprocessTestResultsParser resultParser = null;
+        try {
+            resultParser = new SubprocessTestResultsParser(mockRunListener, false, context);
+            String event = "INVOCATION_ENDED {\"foo\": \"bar\"}";
+            FileUtil.writeToFile(event, tmp, true);
+            resultParser.parseFile(tmp);
+            EasyMock.verify(mockRunListener);
+        } finally {
+            StreamUtil.close(resultParser);
+            FileUtil.deleteFile(tmp);
+        }
+    }
+
+    /** Tests the parser propagating up build attributes. */
+    @Test
+    public void testParse_testInvocationEnded() throws Exception {
+        InvocationContext context = new InvocationContext();
+        IBuildInfo info = new BuildInfo();
+        context.setTestTag("stub");
+        context.addDeviceBuildInfo("device1", info);
+        info.addBuildAttribute("baz", "qux");
+
+        ITestInvocationListener mockRunListener =
+                EasyMock.createMock(ITestInvocationListener.class);
+        EasyMock.replay(mockRunListener);
+        File tmp = FileUtil.createTempFile("sub", "unit");
+        SubprocessTestResultsParser resultParser = null;
+        try {
+            resultParser = new SubprocessTestResultsParser(mockRunListener, false, context);
+            String event = "INVOCATION_ENDED {\"foo\": \"bar\", \"baz\": \"wrong\"}";
+            FileUtil.writeToFile(event, tmp, true);
+            resultParser.parseFile(tmp);
+            Map<String, String> attributes = info.getBuildAttributes();
+            // foo=bar is propagated up
+            assertEquals("bar", attributes.get("foo"));
+            // baz=qux is not overwritten
+            assertEquals("qux", attributes.get("baz"));
+            EasyMock.verify(mockRunListener);
         } finally {
             StreamUtil.close(resultParser);
             FileUtil.deleteFile(tmp);

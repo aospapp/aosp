@@ -21,6 +21,7 @@ import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfigurationServer;
 import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.config.gcs.GCSConfigurationFactory.GCSConfigLoader;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
 
 import org.junit.After;
@@ -96,13 +97,16 @@ public class GCSConfigurationFactoryTest {
     }
 
     @After
-    public void tearDown() {}
+    public void tearDown() {
+        FileUtil.deleteFile(mGCSConfigurationFactory.getLatestDownloadedFile());
+    }
 
     @Test
     public void testGetConfigStream() throws Exception {
         InputStream input = mGCSConfigurationFactory.getConfigStream("cluster/host-config.xml");
         String content = StreamUtil.getStringFromStream(input);
         Assert.assertEquals(HOST_CONFIG, content);
+        Assert.assertTrue(mGCSConfigurationFactory.getLatestDownloadedFile().exists());
     }
 
     @Test
@@ -191,6 +195,12 @@ public class GCSConfigurationFactoryTest {
     public void getPath_withRelative() throws Exception {
         String path = mGCSConfigLoader.getPath("path/to/file.xml", "../file1.xml");
         Assert.assertEquals("path/file1.xml", path);
+    }
+
+    @Test
+    public void getPath_parentSameLevel() throws Exception {
+        String path = mGCSConfigLoader.getPath("file1.xml", "file2.xml");
+        Assert.assertEquals("file2.xml", path);
     }
 
     @Test

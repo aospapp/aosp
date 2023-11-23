@@ -18,28 +18,18 @@
 #include <jni.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #if defined(ARCH_SUPPORTS_SECCOMP)
 #include <libminijail.h>
 #include <seccomp_bpf_tests.h>
 #endif
 
-static const char TAG[] = "SeccompBpfTest-Native";
-
 jboolean android_security_cts_SeccompBpfTest_runKernelUnitTest(
       JNIEnv* env, jobject thiz __unused, jstring name) {
 #if defined(ARCH_SUPPORTS_SECCOMP)
     const char* nameStr = env->GetStringUTFChars(name, nullptr);
-
-    for (struct __test_metadata* t = get_seccomp_test_list(); t; t = t->next) {
-        if (strcmp(t->name, nameStr) == 0) {
-            __android_log_print(ANDROID_LOG_INFO, TAG, "Start: %s", t->name);
-            __run_test(t);
-            __android_log_print(ANDROID_LOG_INFO, TAG, "%s: %s",
-                t->passed ? "PASS" : "FAIL", t->name);
-            return t->passed;
-        }
-    }
+    return run_seccomp_test(nameStr);
 #endif  // ARCH_SUPPORTS_SECCOMP
 
     return false;

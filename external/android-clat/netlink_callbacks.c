@@ -15,8 +15,8 @@
  *
  * netlink_callbacks.c - generic callbacks for netlink responses
  */
-#include <netinet/in.h>
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <linux/rtnetlink.h>
 #include <netlink/handlers.h>
@@ -29,7 +29,7 @@
  */
 static int ack_handler(__attribute__((unused)) struct nl_msg *msg, void *data) {
   int *retval = data;
-  *retval = 0;
+  *retval     = 0;
   return NL_OK;
 }
 
@@ -39,26 +39,26 @@ static int ack_handler(__attribute__((unused)) struct nl_msg *msg, void *data) {
  * err  - netlink error message
  * arg  - pointer to an int, stores the error code
  */
-static int error_handler(__attribute__((unused)) struct sockaddr_nl *nla,
-                         struct nlmsgerr *err, void *arg) {
+static int error_handler(__attribute__((unused)) struct sockaddr_nl *nla, struct nlmsgerr *err,
+                         void *arg) {
   int *retval = arg;
-  if(err->error < 0) {
+  if (err->error < 0) {
     *retval = err->error;
   } else {
-    *retval = 0; // NLMSG_ERROR used as reply type on no error
+    *retval = 0;  // NLMSG_ERROR used as reply type on no error
   }
   return NL_OK;
 }
 
 /* function: alloc_ack_callbacks
- * allocates a set of netlink callbacks.  returns NULL on failure.  callbacks will modify retval with <0 meaning failure
- * retval - shared state between caller and callback functions
+ * allocates a set of netlink callbacks.  returns NULL on failure.  callbacks will modify retval
+ * with <0 meaning failure retval - shared state between caller and callback functions
  */
 struct nl_cb *alloc_ack_callbacks(int *retval) {
   struct nl_cb *callbacks;
 
   callbacks = nl_cb_alloc(NL_CB_DEFAULT);
-  if(!callbacks) {
+  if (!callbacks) {
     return NULL;
   }
   nl_cb_set(callbacks, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, retval);

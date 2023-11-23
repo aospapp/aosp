@@ -65,6 +65,9 @@ struct StringType : public Type {
     void emitJavaFieldInitializer(
             Formatter &out, const std::string &fieldName) const override;
 
+    void emitJavaFieldDefaultInitialValue(
+            Formatter &out, const std::string &declaredFieldName) const override;
+
     void emitJavaFieldReaderWriter(
             Formatter &out,
             size_t depth,

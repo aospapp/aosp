@@ -9,27 +9,62 @@ MAINTAINERCLEANFILES =
 # Convenience targets:
 lib:
 	@$(MAKE) $(AM_MAKEFLAGS) -C $(top_builddir)/src lib
+libs:
+	@$(MAKE) $(AM_MAKEFLAGS) -C $(top_builddir)/src libs
+
+EXTRA_DIST += CMakeLists.txt
+
+EXTRA_DIST += fonts
+
+LINK = $(CXXLINK)
 
 if HAVE_GLIB
 AM_CPPFLAGS = -DSRCDIR="\"$(srcdir)\"" -I$(top_srcdir)/src/ -I$(top_builddir)/src/ $(GLIB_CFLAGS)
 LDADD = $(top_builddir)/src/libharfbuzz.la $(GLIB_LIBS)
 
-EXTRA_DIST += hb-test.h
+EXTRA_DIST += hb-test.h hb-subset-test.h
 
 check_PROGRAMS = $(TEST_PROGS)
 noinst_PROGRAMS = $(TEST_PROGS)
 
 TEST_PROGS = \
+	test-aat-layout \
+	test-baseline \
 	test-blob \
 	test-buffer \
+	test-collect-unicodes \
 	test-common \
 	test-font \
+	test-map \
 	test-object \
+	test-ot-face \
 	test-set \
 	test-shape \
+	test-subset \
+	test-subset-cmap \
+	test-subset-glyf \
+	test-subset-hdmx \
+	test-subset-hmtx \
+	test-subset-os2 \
+	test-subset-post \
+	test-subset-vmtx \
+	test-subset-cff1 \
+	test-subset-cff2 \
 	test-unicode \
 	test-version \
 	$(NULL)
+
+test_subset_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_codepoints_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_cmap_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_glyf_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_hdmx_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_hmtx_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_os2_LDADD  = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_post_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_vmtx_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_cff1_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
+test_subset_cff2_LDADD = $(LDADD) $(top_builddir)/src/libharfbuzz-subset.la
 
 test_unicode_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -42,11 +77,25 @@ test_unicode_LDADD += $(top_builddir)/src/libharfbuzz-icu.la $(ICU_LIBS)
 endif
 
 
-if HAVE_OT
-
 TEST_PROGS += \
+	test-ot-color \
+	test-ot-ligature-carets \
+	test-ot-name \
 	test-ot-tag \
+	test-ot-extents-cff \
 	$(NULL)
+
+
+if HAVE_PTHREAD
+if HAVE_FREETYPE
+TEST_PROGS += test-multithread
+test_multithread_CFLAGS = $(CFLAGS) $(PTHREAD_CFLAGS) $(FREETYPE_CFLAGS)
+test_multithread_LDADD = $(LDADD) $(PTHREAD_LIBS) $(FREETYPE_LIBS)
+# The auto-generated link rule somehow includes CFLAGS as well.  Without
+# it, pthread link fails, because, who knows why, $PTHREAD_LIBS is empty.
+test_multithread_LINK = $(LINK) $(PTHREAD_CFLAGS)
+endif
+endif
 
 if HAVE_FREETYPE
 TEST_PROGS += \
@@ -54,18 +103,8 @@ TEST_PROGS += \
 	$(NULL)
 test_ot_math_LDADD = $(LDADD) $(FREETYPE_LIBS)
 test_ot_math_CPPFLAGS = $(AM_CPPFLAGS) $(FREETYPE_CFLAGS)
-EXTRA_DIST += \
-	fonts/MathTestFontEmpty.otf \
-	fonts/MathTestFontFull.otf \
-	fonts/MathTestFontNone.otf \
-	fonts/MathTestFontPartial1.otf \
-	fonts/MathTestFontPartial2.otf \
-	fonts/MathTestFontPartial3.otf \
-	fonts/MathTestFontPartial4.otf \
-	$(NULL)
 endif # HAVE_FREETYPE
 
-endif # HAVE_OT
 
 # Tests for header compilation
 TEST_PROGS += \
@@ -116,9 +155,9 @@ check-gtester:
 
 # Check tests under valgrind.  Saves log to log-valgrind.txt
 VALGRIND_FLAGS = \
-	--tool=memcheck --suppressions=$(srcdir)/.valgrind-suppressions \
+	--tool=memcheck \
 	--track-origins=yes \
-	--leak-check=yes
+	--leak-check=yes \
 	$(EXTRA_VALGRIND_FLAGS)
 #	Can't do for now: --show-reachable=yes
 CLEANFILES +=  log-valgrind.txt
@@ -137,13 +176,18 @@ symbols-tested.txt: $(TEST_PROGS)
 	$(AM_V_GEN)$(top_builddir)/libtool --mode=execute nm $^ \
 	| grep ' U hb_' | sed 's/.* U hb_/hb_/' \
 	| sort | uniq > $@.tmp && mv $@.tmp $@
+symbols-tested-or-deprecated.txt: symbols-tested.txt $(top_builddir)/src/harfbuzz-deprecated-symbols.txt
+	$(AM_V_GEN)cat $^ | sort | uniq > $@.tmp; mv $@.tmp $@
 symbols-exported.txt: $(top_builddir)/src/.libs/libharfbuzz.so
 	$(AM_V_GEN)$(top_builddir)/libtool --mode=execute nm $^ \
 	| grep ' T ' | sed 's/.* T //' | grep -v '^\(_init\|_fini\)$$' \
 	| sort | uniq > $@.tmp && mv $@.tmp $@
-symbols-untested.txt: symbols-tested.txt symbols-exported.txt
+symbols-untested.txt: symbols-tested-or-deprecated.txt symbols-exported.txt
 	$(AM_V_GEN)diff $^ > $@.tmp; mv $@.tmp $@
-CLEANFILES += symbols-tested.txt symbols-exported.txt symbols-untested.txt
+CLEANFILES += symbols-tested.txt \
+	symbols-exported.txt \
+	symbols-untested.txt \
+	symbols-tested-or-deprecated.txt
 check-symbols: symbols-untested.txt
 	@! cat $^ | grep .
 

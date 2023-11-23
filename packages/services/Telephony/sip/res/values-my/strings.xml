@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sip_settings" msgid="3768482698061677257">"SIP ချိန်ညှိချက်များ"</string>
+    <string name="sip_settings" msgid="3768482698061677257">"SIP ဆက်တင်များ"</string>
     <string name="sip_accounts" msgid="85559497282185405">"SIP အကောင့်များ"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"အကောင့်များ"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"အဝင် ခေါ်ဆိုမှုများ လက်ခံရန်"</string>

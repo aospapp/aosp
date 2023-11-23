@@ -43,9 +43,10 @@ public class BluetoothHeadsetProxy {
     }
 
     public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-            int type) {
+            int type, String name) {
 
-        mBluetoothHeadset.phoneStateChanged(numActive, numHeld, callState, number, type);
+        mBluetoothHeadset.phoneStateChanged(numActive, numHeld, callState, number, type,
+            name);
     }
 
     public List<BluetoothDevice> getConnectedDevices() {

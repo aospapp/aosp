@@ -42,4 +42,19 @@ public interface IFileDownloader {
      * @throws BuildRetrievalError if file could not be downloaded
      */
     public void downloadFile(String relativeRemotePath, File destFile) throws BuildRetrievalError;
+
+    /**
+     * Check local file's freshness. If local file is the same as remote file, then it's fresh. If
+     * not, local file is stale. This is mainly used for cache. The default implementation will
+     * always return true, so if the file is immutable it will never need to check freshness.
+     *
+     * @param localFile local file.
+     * @param remoteFilePath remote file path.
+     * @return True if local file is fresh, otherwise false.
+     * @throws BuildRetrievalError
+     */
+    public default boolean isFresh(File localFile, String remoteFilePath)
+            throws BuildRetrievalError {
+        return true;
+    }
 }

@@ -310,6 +310,8 @@ UfsHcFlush (
   IN  EDKII_UFS_HOST_CONTROLLER_PROTOCOL *This
   )
 {
+  ArmInstructionSynchronizationBarrier ();
+  ArmDataSynchronizationBarrier ();
   return EFI_SUCCESS;
 }
 
@@ -508,13 +510,23 @@ UfsHcPhyInit (
 EFI_STATUS
 EFIAPI
 UfsHcPhySetPowerMode (
-  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This
+  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This,
+  IN     UINT32                                    DevQuirks
   )
 {
   UFS_HOST_CONTROLLER_PRIVATE_DATA  *Private;
   UINT32                            Data, TxLanes, RxLanes;
 
   Private  = UFS_HOST_CONTROLLER_PRIVATE_DATA_FROM_UFSHC (This);
+
+  if (DevQuirks & UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME) {
+    DEBUG ((DEBUG_INFO | DEBUG_LOAD, "ufs: H**** device must set VS_DebugSaveConfigTime 0x10\n"));
+    /* VS_DebugSaveConfigTime */
+    DwUfsDmeSet (Private->RegBase, 0xD0A0, 0x0, 0x10);
+    /* sync length */
+    DwUfsDmeSet (Private->RegBase, 0x1556, 0x0, 0x48);
+  }
+
   // PA_Tactive
   DwUfsDmeGet (Private->RegBase, 0x15A8, 0, &Data);
   if (Data < 7) {

@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.audio;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -45,6 +47,23 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
     private TextView mBtnBStatusTxt;
     private TextView mBtnCStatusTxt;
 
+    public USBAudioPeripheralButtonsActivity() {
+        super(false); // Mandated peripheral is NOT required
+    }
+
+    private void showDisableAssistantDialog() {
+        AlertDialog.Builder builder =
+                new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+        builder.setTitle(getResources().getString(R.string.uapButtonsDisableAssistantTitle));
+        builder.setMessage(getResources().getString(R.string.uapButtonsDisableAssistant));
+        builder.setPositiveButton(android.R.string.yes,
+            new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {}
+         });
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.show();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,12 +81,12 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
 
         setPassFailButtonClickListeners();
         setInfoResources(R.string.usbaudio_buttons_test, R.string.usbaudio_buttons_info, -1);
+
+        showDisableAssistantDialog();
     }
 
     private void showButtonsState() {
-        int ctrlColor = mIsPeripheralAttached && mSelectedProfile != null
-                ? Color.WHITE
-                : Color.GRAY;
+        int ctrlColor = mIsPeripheralAttached ? Color.WHITE : Color.GRAY;
         mBtnALabelTxt.setTextColor(ctrlColor);
         mBtnAStatusTxt.setTextColor(ctrlColor);
         mBtnBLabelTxt.setTextColor(ctrlColor);
@@ -81,23 +100,13 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
             mHasBtnB ? R.string.uapButtonsRecognized : R.string.uapButtonsNotRecognized));
         mBtnCStatusTxt.setText(getString(
             mHasBtnC ? R.string.uapButtonsRecognized : R.string.uapButtonsNotRecognized));
+
+        calculateMatch();
     }
 
     private void calculateMatch() {
-        if (mIsPeripheralAttached && mSelectedProfile != null) {
-            ProfileButtonAttributes mButtonAttributes = mSelectedProfile.getButtonAttributes();
-            boolean match = mButtonAttributes != null;
-            boolean interceptedVolume = getResources().getBoolean(Resources.getSystem()
-                .getIdentifier("config_handleVolumeKeysInWindowManager", "bool", "android"));
-            if (match && mButtonAttributes.mHasBtnA != mHasBtnA) {
-                match = false;
-            }
-            if (match && mButtonAttributes.mHasBtnB != mHasBtnB && !interceptedVolume) {
-                match = false;
-            }
-            if (match && mButtonAttributes.mHasBtnC != mHasBtnC && !interceptedVolume) {
-                match = false;
-            }
+        if (mIsPeripheralAttached) {
+            boolean match = mHasBtnA && mHasBtnB && mHasBtnC;
             Log.i(TAG, "match:" + match);
             getPassButton().setEnabled(match);
         } else {
@@ -107,28 +116,26 @@ public class USBAudioPeripheralButtonsActivity extends USBAudioPeripheralActivit
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        Log.i(TAG, "onKeyDown(" + keyCode + ")");
-        if (mSelectedProfile != null) {
-            switch (keyCode) {
-            // Function A control event
-            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                mHasBtnA = true;
-                break;
-    
-            // Function B control event
-            case KeyEvent.KEYCODE_VOLUME_UP:
-                mHasBtnB = true;
-                break;
-    
-            // Function C control event
-            case KeyEvent.KEYCODE_VOLUME_DOWN:
-                mHasBtnC = true;
-                break;
-            }
-    
-            showButtonsState();
-            calculateMatch();
+        // Log.i(TAG, "onKeyDown(" + keyCode + ")");
+        switch (keyCode) {
+        // Function A control event
+        case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+            mHasBtnA = true;
+            break;
+
+        // Function B control event
+        case KeyEvent.KEYCODE_VOLUME_UP:
+            mHasBtnB = true;
+            break;
+
+        // Function C control event
+        case KeyEvent.KEYCODE_VOLUME_DOWN:
+            mHasBtnC = true;
+            break;
         }
+
+        showButtonsState();
+        calculateMatch();
 
         return super.onKeyDown(keyCode, event);
     }

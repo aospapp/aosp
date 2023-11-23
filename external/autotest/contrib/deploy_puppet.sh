@@ -75,7 +75,7 @@ if [ -z "${ROLE}" ] && [ -z "${STATUS}" ] && [ -z "${HOSTNAME}" ]; then
   exit 1
 fi
 
-hosts="$(${AUTOTEST_ROOT}/cli/atest server list ${STATUS_OPT} ${ROLE_OPT} ${HOSTNAME}| grep Hostname| awk {'print $3'})"
+hosts="$(${AUTOTEST_ROOT}/cli/atest server list ${STATUS_OPT} ${ROLE_OPT} ${HOSTNAME} | awk '/hostname *:/ {gsub(/"/, "", $2); print $2}')"
 
 echo -e "\n******* Will update the following servers ********\n "
 

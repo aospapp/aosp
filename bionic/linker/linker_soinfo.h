@@ -30,9 +30,13 @@
 
 #include <link.h>
 
+#include <memory>
 #include <string>
+#include <vector>
 
+#include "private/bionic_elf_tls.h"
 #include "linker_namespaces.h"
+#include "linker_tls.h"
 
 #define FLAG_LINKED           0x00000001
 #define FLAG_EXE              0x00000004 // The main executable
@@ -51,7 +55,7 @@
                                          // when load group is crossing
                                          // namespace boundary twice and second
                                          // local group depends on the same libraries.
-#define FLAG_TLS_NODELETE     0x00000200 // This flag set when there is at least one
+#define FLAG_RESERVED         0x00000200 // This flag was set when there is at least one
                                          // outstanding thread_local dtor
                                          // registered with this soinfo. In such
                                          // a case the actual unload is
@@ -61,7 +65,7 @@
                                          // unset.
 #define FLAG_NEW_SOINFO       0x40000000 // new soinfo format
 
-#define SOINFO_VERSION 4
+#define SOINFO_VERSION 5
 
 typedef void (*linker_dtor_function_t)();
 typedef void (*linker_ctor_function_t)(int, char**, char**);
@@ -99,6 +103,11 @@ struct version_info {
 
 // TODO(dimitry): remove reference from soinfo member functions to this class.
 class VersionTracker;
+
+struct soinfo_tls {
+  TlsSegment segment;
+  size_t module_id = kTlsUninitializedModuleId;
+};
 
 #if defined(__work_around_b_24465209__)
 #define SOINFO_NAME_LEN 128
@@ -214,7 +223,7 @@ struct soinfo {
   void call_pre_init_constructors();
   bool prelink_image();
   bool link_image(const soinfo_list_t& global_group, const soinfo_list_t& local_group,
-                  const android_dlextinfo* extinfo);
+                  const android_dlextinfo* extinfo, size_t* relro_fd_offset);
   bool protect_relro();
 
   void add_child(soinfo* child);
@@ -260,8 +269,6 @@ struct soinfo {
   void set_linker_flag();
   void set_main_executable();
   void set_nodelete();
-  void set_tls_nodelete();
-  void unset_tls_nodelete();
 
   size_t increment_ref_count();
   size_t decrement_ref_count();
@@ -278,13 +285,15 @@ struct soinfo {
   ElfW(Addr) get_verdef_ptr() const;
   size_t get_verdef_cnt() const;
 
-  uint32_t get_target_sdk_version() const;
+  int get_target_sdk_version() const;
 
   void set_dt_runpath(const char *);
   const std::vector<std::string>& get_dt_runpath() const;
   android_namespace_t* get_primary_namespace();
   void add_secondary_namespace(android_namespace_t* secondary_ns);
   android_namespace_list_t& get_secondary_namespaces();
+
+  soinfo_tls* get_tls() const;
 
   void set_mapped_by_caller(bool reserved_map);
   bool is_mapped_by_caller() const;
@@ -355,7 +364,7 @@ struct soinfo {
   ElfW(Addr) verneed_ptr_;
   size_t verneed_cnt_;
 
-  uint32_t target_sdk_version_;
+  int target_sdk_version_;
 
   // version >= 3
   std::vector<std::string> dt_runpath_;
@@ -363,13 +372,15 @@ struct soinfo {
   android_namespace_list_t secondary_namespaces_;
   uintptr_t handle_;
 
-  friend soinfo* get_libdl_info(const char* linker_path,
-                                const soinfo& linker_si,
-                                const link_map& linker_map);
+  friend soinfo* get_libdl_info(const char* linker_path, const soinfo& linker_si);
 
   // version >= 4
   ElfW(Relr)* relr_;
   size_t relr_count_;
+
+  // version >= 5
+  std::unique_ptr<soinfo_tls> tls_;
+  std::vector<TlsDynamicResolverArg> tlsdesc_args_;
 };
 
 // This function is used by dlvsym() to calculate hash of sym_ver

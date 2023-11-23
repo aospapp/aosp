@@ -23,7 +23,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsmediautil compatibility-device-util ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctsmediautil compatibility-device-util-axt ctstestrunner-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 

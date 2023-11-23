@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Información de emergencia"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Información médica"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Editar información"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Añadir información"</string>
     <string name="edit_info" msgid="5973929805855224805">"Cambiar información de emergencia"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Información"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Contactos"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Añadir información médica y contactos de emergencia puede ayudar a los servicios de emergencia en caso de urgencias.\n\nCualquiera puede leer esta información en tu pantalla de bloqueo y tocar el nombre de tus contactos para llamarlos sin desbloquear el teléfono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Añadir información de emergencia"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Permitir que primeros en responder vean tu información"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Hacer una foto"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Seleccionar una imagen"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Selecciona la foto"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Apodo"</string>
 </resources>

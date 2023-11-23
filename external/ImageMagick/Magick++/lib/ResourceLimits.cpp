@@ -1,6 +1,6 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
-// Copyright Dirk Lemstra 2014
+// Copyright Dirk Lemstra 2014-2018
 //
 // Implementation of ResourceLimits
 //
@@ -48,6 +48,16 @@ void Magick::ResourceLimits::height(const MagickSizeType limit_)
 MagickCore::MagickSizeType Magick::ResourceLimits::height(void)
 {
   return(GetMagickResourceLimit(HeightResource));
+}
+
+void Magick::ResourceLimits::listLength(const MagickSizeType limit_)
+{
+  (void) SetMagickResourceLimit(ListLengthResource,limit_);
+}
+
+MagickCore::MagickSizeType Magick::ResourceLimits::listLength(void)
+{
+  return(GetMagickResourceLimit(ListLengthResource));
 }
 
 void Magick::ResourceLimits::map(const MagickSizeType limit_)

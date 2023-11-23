@@ -17,38 +17,34 @@
 package com.example.android.wearable.runtimepermissions;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Looper;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.wear.ambient.AmbientMode;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.example.android.wearable.runtimepermissions.common.Constants;
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.wearable.CapabilityApi;
+import com.example.android.wearable.runtimepermissions.common.Constants;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.wearable.CapabilityClient;
 import com.google.android.gms.wearable.CapabilityInfo;
 import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageClient;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Displays data that requires runtime permissions both locally (BODY_SENSORS) and remotely on
@@ -59,12 +55,10 @@ import java.util.concurrent.TimeUnit;
  * this Activity also sends back the results of the permission request to the phone device (and
  * the sensor data if approved).
  */
-public class MainWearActivity extends Activity implements
-        AmbientMode.AmbientCallbackProvider,
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener,
-        CapabilityApi.CapabilityListener,
-        MessageApi.MessageListener,
+public class MainWearActivity extends FragmentActivity
+        implements AmbientModeSupport.AmbientCallbackProvider,
+        CapabilityClient.OnCapabilityChangedListener,
+        MessageClient.OnMessageReceivedListener,
         ActivityCompat.OnRequestPermissionsResultCallback {
 
     private static final String TAG = "MainWearActivity";
@@ -82,7 +76,7 @@ public class MainWearActivity extends Activity implements
      * Ambient mode controller attached to this display. Used by the Activity to see if it is in
      * ambient mode.
      */
-    private AmbientMode.AmbientController mAmbientController;
+    private AmbientModeSupport.AmbientController mAmbientController;
 
     private boolean mWearBodySensorsPermissionApproved;
     private boolean mPhoneStoragePermissionApproved;
@@ -94,8 +88,6 @@ public class MainWearActivity extends Activity implements
     private TextView mOutputTextView;
 
     private String mPhoneNodeId;
-
-    private GoogleApiClient mGoogleApiClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,34 +103,26 @@ public class MainWearActivity extends Activity implements
         setContentView(R.layout.activity_main);
 
         // Enables Ambient mode.
-        mAmbientController = AmbientMode.attachAmbientSupport(this);
+        mAmbientController = AmbientModeSupport.attach(this);
 
         // Checks if phone app requested wear permission (permission request opens later if true).
         mPhoneRequestingWearSensorPermission =
                 getIntent().getBooleanExtra(EXTRA_PROMPT_PERMISSION_FROM_PHONE, false);
 
-        mWearBodySensorsPermissionButton =
-                (Button) findViewById(R.id.wear_body_sensors_permission_button);
+        mWearBodySensorsPermissionButton = findViewById(R.id.wear_body_sensors_permission_button);
 
         if (mWearBodySensorsPermissionApproved) {
             mWearBodySensorsPermissionButton.setCompoundDrawablesWithIntrinsicBounds(
                     R.drawable.ic_permission_approved, 0, 0, 0);
         }
 
-        mPhoneStoragePermissionButton = (Button) findViewById(R.id.phone_storage_permission_button);
+        mPhoneStoragePermissionButton = findViewById(R.id.phone_storage_permission_button);
 
-        mOutputTextView = (TextView) findViewById(R.id.output);
+        mOutputTextView = findViewById(R.id.output);
 
         if (mPhoneRequestingWearSensorPermission) {
             launchPermissionDialogForPhone();
         }
-
-
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
     }
 
     public void onClickWearBodySensors(View view) {
@@ -175,23 +159,42 @@ public class MainWearActivity extends Activity implements
     protected void onPause() {
         Log.d(TAG, "onPause()");
         super.onPause();
-        if ((mGoogleApiClient != null) && mGoogleApiClient.isConnected()) {
-            Wearable.CapabilityApi.removeCapabilityListener(
-                    mGoogleApiClient,
-                    this,
-                    Constants.CAPABILITY_PHONE_APP);
-            Wearable.MessageApi.removeListener(mGoogleApiClient, this);
-            mGoogleApiClient.disconnect();
-        }
+
+        Wearable.getMessageClient(this).removeListener(this);
+        Wearable.getCapabilityClient(this).removeListener(this);
     }
+
 
     @Override
     protected void onResume() {
         Log.d(TAG, "onResume()");
         super.onResume();
-        if (mGoogleApiClient != null) {
-            mGoogleApiClient.connect();
-        }
+
+        // Instantiates clients without member variables, as clients are inexpensive to create and
+        // won't lose their listeners. (They are cached and shared between GoogleApi instances.)
+        Wearable.getMessageClient(this).addListener(this);
+        Wearable.getCapabilityClient(this).addListener(
+                this, Constants.CAPABILITY_PHONE_APP);
+
+        // Initial check of capabilities to find the phone.
+        Task<CapabilityInfo> capabilityInfoTask = Wearable.getCapabilityClient(this)
+                .getCapability(Constants.CAPABILITY_PHONE_APP, CapabilityClient.FILTER_REACHABLE);
+
+        capabilityInfoTask.addOnCompleteListener(new OnCompleteListener<CapabilityInfo>() {
+            @Override
+            public void onComplete(Task<CapabilityInfo> task) {
+
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Capability request succeeded.");
+
+                    CapabilityInfo capabilityInfo = task.getResult();
+                    mPhoneNodeId = pickBestNodeId(capabilityInfo.getNodes());
+
+                } else {
+                    Log.d(TAG, "Capability request failed to return any results.");
+                }
+            }
+        });
 
         // Enables app to handle 23+ (M+) style permissions.
         mWearBodySensorsPermissionApproved =
@@ -218,51 +221,6 @@ public class MainWearActivity extends Activity implements
         }
     }
 
-
-    @Override
-    public void onConnected(Bundle bundle) {
-        Log.d(TAG, "onConnected()");
-
-        // Set up listeners for capability and message changes.
-        Wearable.CapabilityApi.addCapabilityListener(
-                mGoogleApiClient,
-                this,
-                Constants.CAPABILITY_PHONE_APP);
-        Wearable.MessageApi.addListener(mGoogleApiClient, this);
-
-        // Initial check of capabilities to find the phone.
-        PendingResult<CapabilityApi.GetCapabilityResult> pendingResult =
-                Wearable.CapabilityApi.getCapability(
-                        mGoogleApiClient,
-                        Constants.CAPABILITY_PHONE_APP,
-                        CapabilityApi.FILTER_REACHABLE);
-
-        pendingResult.setResultCallback(new ResultCallback<CapabilityApi.GetCapabilityResult>() {
-            @Override
-            public void onResult(CapabilityApi.GetCapabilityResult getCapabilityResult) {
-
-                if (getCapabilityResult.getStatus().isSuccess()) {
-                    CapabilityInfo capabilityInfo = getCapabilityResult.getCapability();
-                    mPhoneNodeId = pickBestNodeId(capabilityInfo.getNodes());
-
-                } else {
-                    Log.d(TAG, "Failed CapabilityApi result: "
-                            + getCapabilityResult.getStatus());
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.d(TAG, "onConnectionSuspended(): connection to location client suspended");
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        Log.e(TAG, "onConnectionFailed(): connection to location client failed");
-    }
-
     public void onCapabilityChanged(CapabilityInfo capabilityInfo) {
         Log.d(TAG, "onCapabilityChanged(): " + capabilityInfo);
 
@@ -274,7 +232,7 @@ public class MainWearActivity extends Activity implements
      */
     @Override
     public void onRequestPermissionsResult(
-            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+            int requestCode, String[] permissions, int[] grantResults) {
 
         String permissionResult = "Request code: " + requestCode + ", Permissions: " + permissions
                 + ", Results: " + grantResults;
@@ -377,27 +335,21 @@ public class MainWearActivity extends Activity implements
         Log.d(TAG, "sendMessage(): " + mPhoneNodeId);
 
         if (mPhoneNodeId != null) {
+            // Clients are inexpensive to create, so in this case we aren't creating member variables.
+            // (They are cached and shared between GoogleApi instances.)
+            Task<Integer> sendMessageTask = Wearable.getMessageClient(this)
+                    .sendMessage(mPhoneNodeId, Constants.MESSAGE_PATH_PHONE, dataMap.toByteArray());
 
-            PendingResult<MessageApi.SendMessageResult> pendingResult =
-                    Wearable.MessageApi.sendMessage(
-                            mGoogleApiClient,
-                            mPhoneNodeId,
-                            Constants.MESSAGE_PATH_PHONE,
-                            dataMap.toByteArray());
-
-            pendingResult.setResultCallback(new ResultCallback<MessageApi.SendMessageResult>() {
+            sendMessageTask.addOnCompleteListener(new OnCompleteListener<Integer>() {
                 @Override
-                public void onResult(MessageApi.SendMessageResult sendMessageResult) {
-
-                    if (!sendMessageResult.getStatus().isSuccess()) {
-                        updatePhoneButtonOnUiThread();
-                        logToUi("Sending message failed.");
-
+                public void onComplete(Task<Integer> task) {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "Message sent successfully");
                     } else {
-                        Log.d(TAG, "Message sent successfully.");
+                        Log.d(TAG, "Message failed.");
                     }
                 }
-            }, Constants.CONNECTION_TIME_OUT_MS, TimeUnit.SECONDS);
+            });
 
         } else {
             // Unable to retrieve node with proper capability
@@ -485,11 +437,11 @@ public class MainWearActivity extends Activity implements
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {
         /** Prepares the UI for ambient mode. */
         @Override
         public void onEnterAmbient(Bundle ambientDetails) {

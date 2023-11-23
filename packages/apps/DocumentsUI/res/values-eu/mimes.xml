@@ -40,6 +40,6 @@
     <string name="gtable_file_type" msgid="7332773878374650335">"Google taula"</string>
     <string name="gform_file_type" msgid="4803176103746107611">"Google inprimakia"</string>
     <string name="gmap_file_type" msgid="6684180781808007016">"Google mapa"</string>
-    <string name="gsite_file_type" msgid="3742812051249149526">"Google webgunea"</string>
+    <string name="gsite_file_type" msgid="3742812051249149526">"Google-ren webgunea"</string>
     <string name="directory_type" msgid="2702987727566226354">"Karpeta"</string>
 </resources>

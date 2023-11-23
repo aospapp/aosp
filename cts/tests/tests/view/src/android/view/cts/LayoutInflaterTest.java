@@ -19,6 +19,7 @@ package android.view.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -26,14 +27,12 @@ import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.util.Xml;
@@ -48,10 +47,17 @@ import android.view.ViewGroup;
 import android.view.cts.util.XmlUtils;
 import android.widget.LinearLayout;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -412,6 +418,39 @@ public class LayoutInflaterTest {
         assertNotNull(container.findViewById(R.id.include_layout_from_attr));
     }
 
+    // API : LayoutInflater#onCreateView(Context, View, String, AttributeSet)
+    // API : LayoutInflater#createView(Context, String, prefix, AttributeSet)
+    // onCreateView with Context should be called when there is no factory to inflate and should
+    // pass the LayoutInflater's context at the root and the parent's context other times.
+    // createView with Context should be called when there is a "." in the name.
+    @Test
+    public void testCreateViewWithContext() throws Throwable {
+        final Context context = mLayoutInflater.getContext();
+        CreateViewContextInflater inflater = new CreateViewContextInflater(context);
+        final ViewGroup container = (ViewGroup) inflater.inflate(R.layout.inflater_layout, null);
+
+        // The LinearLayout and TextViews inflate with onCreateView
+        assertEquals(9, inflater.onCreateViewCalls.size());
+        assertEquals(context, inflater.onCreateViewCalls.get(0)[0]);
+        assertNull(inflater.onCreateViewCalls.get(0)[1]);
+        assertEquals("LinearLayout", inflater.onCreateViewCalls.get(0)[2]);
+
+        Context parentContext = container.getContext();
+        // This should be a wrapper context since MethodTrackerInflater changes LinearLayout context
+        assertNotSame(context, parentContext);
+        for (int i = 1; i < 9; i++) {
+            Object[] params = inflater.onCreateViewCalls.get(i);
+            assertEquals(parentContext, params[0]);
+            assertEquals(container, params[1]);
+            assertEquals("TextView", params[2]);
+        }
+
+        // Also has android.view.ct.MockViewStub
+        assertEquals(9, container.getChildCount());
+        View mockViewStub = container.getChildAt(8);
+        assertEquals(parentContext, mockViewStub.getContext());
+    }
+
     static class MockLayoutInflater extends LayoutInflater {
 
         public MockLayoutInflater(Context c) {
@@ -431,6 +470,41 @@ public class LayoutInflaterTest {
         @Override
         public LayoutInflater cloneInContext(Context newContext) {
             return null;
+        }
+    }
+
+    /**
+     * Used to track calling of onCreateView protected method.
+     */
+    static class CreateViewContextInflater extends LayoutInflater {
+        public final List<Object[]> onCreateViewCalls = new ArrayList<>();
+
+        CreateViewContextInflater(Context context) {
+            super(context);
+        }
+
+        @Override
+        public LayoutInflater cloneInContext(Context newContext) {
+            return null;
+        }
+
+        @Override
+        public View onCreateView(Context viewContext, View parent, String name,
+                AttributeSet attrs) throws ClassNotFoundException {
+            onCreateViewCalls.add(new Object[] {viewContext, parent, name, attrs});
+            if ("LinearLayout".equals(name)) {
+                viewContext = new ContextWrapper(viewContext);
+            }
+            String prefix = null;
+            int dotIndex = name.lastIndexOf('.');
+            if (dotIndex >= 0) {
+                prefix = name.substring(0, dotIndex + 1);
+                name = name.substring(dotIndex + 1);
+            } else {
+                prefix = "android.widget.";
+            }
+
+            return createView(viewContext, name, prefix, attrs);
         }
     }
 

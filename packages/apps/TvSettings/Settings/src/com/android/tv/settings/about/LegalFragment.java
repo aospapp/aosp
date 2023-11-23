@@ -18,8 +18,9 @@ package com.android.tv.settings.about;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.Keep;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.annotation.Keep;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.PreferenceUtils;

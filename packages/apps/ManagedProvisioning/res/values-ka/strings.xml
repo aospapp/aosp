@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"სამსახურის პროფილის დაყენება"</string>
+    <string name="app_label" msgid="1527793174155125990">"სამსახურის პარამეტრები"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"უკაცრავად!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"სამსახურის პროფილის დაყენება"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"თქვენი ორგანიზაცია აკონტროლებს ამ პროფილს და მის უსაფრთხოებას. ყველაფერ დანარჩენს კი თქვენ აკონტროლებთ თქვენს მოწყობილობაზე."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"შემდეგი აპი მართავს თქვენს მოწყობილობას:"</string>
     <string name="next" msgid="1004321437324424398">"შემდეგი"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"სამსახურის პროფილი იქმნება…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"თქვენს ადმინისტრატორს შეუძლია ამ პროფილთან დაკავშირებული პარამეტრების, კორპორაციული წვდომის, აპების, ნებართვებისა და მონაცემების (მათ შორის, თქვენი ქსელის აქტივობის, მოწყობილობის მდებარეობის, საუბრის ისტორიისა და კონტაქტების ძიების ისტორიის) მონიტორინგი და მართვა.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>დამატებითი ინფორმაციისთვის (მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების შესახებ) დაუკავშირდით თქვენს ადმინისტრატორს."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"თქვენს ადმინისტრატორს შეუძლია ამ მოწყობილობასთან დაკავშირებული პარამეტრების, კორპორაციული წვდომის, აპების, ნებართვებისა და მონაცემების (მათ შორის, თქვენი ქსელის აქტივობის, მოწყობილობის მდებარეობის, საუბრის ისტორიისა და კონტაქტების ძიების ისტორიის) მონიტორინგი და მართვა.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>დამატებითი ინფორმაციისთვის (მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების შესახებ) დაუკავშირდით თქვენს ადმინისტრატორს."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"თქვენს IT ადმინისტრატორს შეუძლია ამ პროფილთან დაკავშირებული პარამეტრების, კორპორაციული წვდომის, აპების, ნებართვებისა და მონაცემების (მათ შორის, თქვენი ქსელის აქტივობის, მოწყობილობის მდებარეობის, საუბრის ისტორიისა და კონტაქტების ძიების ისტორიის) მონიტორინგი და მართვა.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>დამატებითი ინფორმაციისთვის (მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების შესახებ) დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"თქვენს IT ადმინისტრატორს შეუძლია ამ მოწყობილობასთან დაკავშირებული პარამეტრების, კორპორაციული წვდომის, აპების, ნებართვებისა და მონაცემების (მათ შორის, თქვენი ქსელის აქტივობის, მოწყობილობის მდებარეობის, საუბრის ისტორიისა და კონტაქტების ძიების ისტორიის) მონიტორინგი და მართვა.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>დამატებითი ინფორმაციისთვის (მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების შესახებ) დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"მოპარვისგან დაცვის ფუნქციების გამოსაყენებლად, თქვენი მოწყობილობა პაროლით დაცულ ეკრანის დაბლოკვას უნდა იყენებდეს."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"დამატებითი ინფორმაციისთვის, მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების თაობაზე, დაუკავშირდით თქვენს ადმინისტრატორს."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"დამატებითი ინფორმაციისთვის, მათ შორის, თქვენი ორგანიზაციის კონფიდენციალურობის დებულებების თაობაზე, დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"შეიტყვეთ მეტი"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"გაუქმება"</string>
     <string name="ok_setup" msgid="4593707675416137504">"კარგი"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"თქვენი სამუშაო პროფილი ვერ შეიქმნა. დაუკავშირდით თქვენს IT განყოფილებას ან სცადეთ ისევ."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"სამსახურის პროფილის დამატება ვერ მოხერხდა"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"სამსახურის პროფილის ჩანაცვლება ან ამოშლა ვერ ხერხდება"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ამ მოწყობილობაში სამსახურის პროფილის დამატება ვერ ხერხდება. თუ შეკითხვები გაქვთ, დაუკავშირდით ადმინისტრატორს."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"ამ მოწყობილობაში სამსახურის პროფილის დამატება ვერ ხერხდება. თუ შეკითხვები გაქვთ, დაუკავშირდით IT ადმინისტრატორს."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"მოწყობილობის გამშვები ვერ შეიცვალა"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"გამშვების ამ აპს თქვენი სამსახურის პროფილი ვერ გამოიყენებს"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"გაუქმება"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"მიმდინარეობს ბოლო შტრიხების შეტანა…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"მოწყობილობის მფლობელის დაყენება…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"მიმდინარეობს მოწყობილობის ინიცირება…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"ამ მოწყობილობის მიერ მხარდაუჭერელია დაშიფვრა, რომელიც საჭიროა დაყენებისას. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ამ მოწყობილობის მიერ მხარდაუჭერელია დაშიფვრა, რომელიც საჭიროა დაყენებისას. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"გსურთ დაყენების შეწყვეტა და მოწყობილობის გადაყენება?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"ეს ქმედება გადააყენებს თქვენს მოწყობილობას და პირველ ეკრანს დაუბრუნდებით"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"შეჩერდეს დაყენება და წაიშალოს თქვენი მოწყობილობის მონაცემები?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"გადაყენება"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"პროფილის დაყენება ვერ მოხერხდა"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"მოწყობილობის დაყენება ვერ მოხერხდა"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"თქვენი მოწყობილობის დაყენება ვერ მოხერხდა. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"თქვენი მოწყობილობის დაყენება ვერ მოხერხდა. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"დახმარებისათვის თქვენს IT ადმინისტრატორს დაუკავშირდეთ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"მოწყობილობა უკვე დაყენებულია"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Wi-Fi-თან დაკავშირება ვერ მოხერხდა"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"თქვენს მოწყობილობაზე ჩართულია გადაყენებისგან დაცვა. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi ქსელთან დაკავშირება ვერ მოხერხდა"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"თქვენს მოწყობილობაზე ჩართულია გადაყენებისგან დაცვა. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"ამოშლა"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"გთხოვთ, დაელოდოთ..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"ადმინისტრატორის აპის გამოყენება ვერ მოხერხდა საკონტროლო ჯამთან დაკავშირებული შეცდომის გამო. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"ადმინისტრატორის აპის ჩამოტვირთვა ვერ მოხერხდა."</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"ადმინისტრატორის აპის გამოყენება ვერ მოხერხდა, რადგან მას აკლია კომპონენტები, ან დაზიანებულია. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"ადმინისტრატორის აპი ვერ დაინსტალირდა."</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"ადმინისტრატორის აპის გამოყენება ვერ მოხერხდა საკონტროლო ჯამთან დაკავშირებული შეცდომის გამო. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"ადმინისტრატორის აპის ჩამოტვირთვა ვერ მოხერხდა"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"ადმინისტრატორის აპის გამოყენება ვერ ხერხდება. მას კომპონენტები აკლია ან დაზიანებულია. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"ადმინისტრატორის აპის ინსტალაცია ვერ მოხერხდა"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"გსურთ დაყენების შეჩერება?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"არა"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"კი"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"ამ მოწყობილობის მართვას და მონიტორინგს შემდეგში <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> განახორციელებს, რომელიც მის უსაფრთხოებასაც უზრუნველყოფს. იმოქმედებს პირობები: <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ამ მოწყობილობის მართვას და მონიტორინგს შემდეგში <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> განახორციელებს, რომელიც მის უსაფრთხოებასაც უზრუნველყოფს. იმოქმედებს <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>-ის პირობები: <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ეს ბმული დაუცველია და მოწყობილობის დაყენების დასრულებამდე ვერ გაიხსენება: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"თუ შეკითხვები გაქვთ, თქვენი <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> პასუხების მიღებაში დაგეხმარებათ."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"თუ შეკითხვები გაქვთ, დაუკავშირდით თქვენი ორგანიზაციის ადმინისტრატორს"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"დაყენება არ დასრულდა. დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"დახმარებისთვის დაუკავშირდით თქვენს ადმინისტრატორს"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"ორგანიზაციის ადმინისტრატორი"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"დამატებითი ინფორმაციისთვის, დაუკავშირდით <xliff:g id="IT_ADMIN">%1$s</xliff:g>-ს."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"თუ შეკითხვები გაქვთ, დაუკავშირდით თქვენს IT ადმინისტრატორს"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"დაყენება არ დასრულდა. დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"დახმარებისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT ადმინისტრატორი"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ამ მოწყობილობის მართვას და მონიტორინგს განახორციელებს შემდეგი აპის მეშვეობით:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"თქვენი ორგანიზაცია"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"თქვენი ორგანიზაცია"</string>
     <string name="view_terms" msgid="7230493092383341605">"წესების ნახვა"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"მიღება და გაგრძელება"</string>
-    <string name="close" msgid="7208600934846389439">"დახურვა"</string>
+    <string name="back" msgid="6455622465896147127">"უკან"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"თქვენი მოწყობილობის დაყენება"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"შეცვალეთ მუშაობის ჩვეული მეთოდი"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"განაცალკევეთ სამსახურის და პირადი მონაცემები"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"ამას შეიძლება რამდენიმე წუთი დასჭირდეს"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"თქვენი სამსახურის აპები ამ პროფილში შეინახება და თქვენი ორგანიზაციის მიერ იქნება მართული"</string>
     <string name="device_owner_description" msgid="168013145812679664">"ამ მოწყობილობის დაცვა და მართვა თქვენი ორგანიზაციის მიერ მოხდება"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"მიმდინარეობს სამსახურის მოწყობილობის დასაყენებლად მზადება…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"მიმდინარეობს ადმინისტრატორის აპის დაყენება"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"დააყენეთ დანარჩენი"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ახლა დავაყენოთ დანარჩენი"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"ეს მოწყობილობა თქვენს ორგანიზაციას ეკუთვნის"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"ქვემოთ მითითებული აპი გამოყენებული იქნება ამ ტელეფონის სამართავად და მონიტორინგისთვის"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"მზადება სამსახურისთვის დასაყენებლად…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"პირველ რიგში საჭიროა თქვენი სამსახურის პროფილის დაყენება"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"მოდით, გავმართოთ თქვენი სამსახურის პროფილი"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"დააპაუზეთ სამსახურის აპები, როდესაც მოცემულ დღეს მუშაობას დაასრულებთ"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"თქვენი IT ადმინისტრატორი მხოლოდ თქვენს სამსახურის პროფილში არსებულ მონაცემებს ხედავს"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"მიმდინარეობს თქვენი სამსახურის პროფილის დაყენება…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"სამსახურის აპები თქვენს სამსახურის პროფილში ინახება. შეგიძლიათ, დააპაუზოთ სამსახურის აპები, როდესაც მოცემულ დღეს მუშაობას დაასრულებთ. თქვენი IT ადმინისტრატორი მხოლოდ თქვენს სამსახურის პროფილში არსებულ მონაცემებს ხედავს."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"მოდით, გავმართოთ თქვენი სამუშაო მოწყობილობა"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"იქონიეთ სამსახურის აპები ადვილად მისაწვდომ ადგილზე"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ეს მოწყობილობა არ არის პირადი"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას ამ მოწყობილობაზე."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"მიმდინარეობს თქვენი მოწყობილობის დაყენება…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"გამოიყენეთ ეს მოწყობილობა თქვენს სამუშაო აპებზე მარტივად წვდომისთვის. ეს მოწყობილობა არ არის პირადი, ამიტომ თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას. დამატებითი ინფორმაციისთვის დაუკავშირდით თქვენს IT ადმინისტრატორს."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"კონფიდენციალურობის შესახებ შეხსენება"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"თქვენი IT ადმინისტრატორი შეიძლება ხედავდეს თქვენს მონაცემებს და აქტივობას ამ მოწყობილობაზე"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"თქვენი მოწყობილობა გამოსაყენებლად მზად არის!"</string>
+    <string name="done" msgid="7755227776955952318">"მზადაა"</string>
 </resources>

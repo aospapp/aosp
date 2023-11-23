@@ -19,8 +19,8 @@
 #include "android-base/stringprintf.h"
 
 #include "art_field-inl.h"
+#include "base/mem_map.h"
 #include "dex/dex_file-inl.h"
-#include "mem_map.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array.h"
@@ -49,21 +49,22 @@ size_t SpaceBitmap<kAlignment>::ComputeHeapSize(uint64_t bitmap_bytes) {
 
 template<size_t kAlignment>
 SpaceBitmap<kAlignment>* SpaceBitmap<kAlignment>::CreateFromMemMap(
-    const std::string& name, MemMap* mem_map, uint8_t* heap_begin, size_t heap_capacity) {
-  CHECK(mem_map != nullptr);
-  uintptr_t* bitmap_begin = reinterpret_cast<uintptr_t*>(mem_map->Begin());
+    const std::string& name, MemMap&& mem_map, uint8_t* heap_begin, size_t heap_capacity) {
+  CHECK(mem_map.IsValid());
+  uintptr_t* bitmap_begin = reinterpret_cast<uintptr_t*>(mem_map.Begin());
   const size_t bitmap_size = ComputeBitmapSize(heap_capacity);
-  return new SpaceBitmap(name, mem_map, bitmap_begin, bitmap_size, heap_begin, heap_capacity);
+  return new SpaceBitmap(
+      name, std::move(mem_map), bitmap_begin, bitmap_size, heap_begin, heap_capacity);
 }
 
 template<size_t kAlignment>
 SpaceBitmap<kAlignment>::SpaceBitmap(const std::string& name,
-                                     MemMap* mem_map,
+                                     MemMap&& mem_map,
                                      uintptr_t* bitmap_begin,
                                      size_t bitmap_size,
                                      const void* heap_begin,
                                      size_t heap_capacity)
-    : mem_map_(mem_map),
+    : mem_map_(std::move(mem_map)),
       bitmap_begin_(reinterpret_cast<Atomic<uintptr_t>*>(bitmap_begin)),
       bitmap_size_(bitmap_size),
       heap_begin_(reinterpret_cast<uintptr_t>(heap_begin)),
@@ -83,14 +84,16 @@ SpaceBitmap<kAlignment>* SpaceBitmap<kAlignment>::Create(
   // (we represent one word as an `intptr_t`).
   const size_t bitmap_size = ComputeBitmapSize(heap_capacity);
   std::string error_msg;
-  std::unique_ptr<MemMap> mem_map(MemMap::MapAnonymous(name.c_str(), nullptr, bitmap_size,
-                                                       PROT_READ | PROT_WRITE, false, false,
-                                                       &error_msg));
-  if (UNLIKELY(mem_map.get() == nullptr)) {
+  MemMap mem_map = MemMap::MapAnonymous(name.c_str(),
+                                        bitmap_size,
+                                        PROT_READ | PROT_WRITE,
+                                        /*low_4gb=*/ false,
+                                        &error_msg);
+  if (UNLIKELY(!mem_map.IsValid())) {
     LOG(ERROR) << "Failed to allocate bitmap " << name << ": " << error_msg;
     return nullptr;
   }
-  return CreateFromMemMap(name, mem_map.release(), heap_begin, heap_capacity);
+  return CreateFromMemMap(name, std::move(mem_map), heap_begin, heap_capacity);
 }
 
 template<size_t kAlignment>
@@ -114,7 +117,7 @@ std::string SpaceBitmap<kAlignment>::Dump() const {
 template<size_t kAlignment>
 void SpaceBitmap<kAlignment>::Clear() {
   if (bitmap_begin_ != nullptr) {
-    mem_map_->MadviseDontNeedAndZero();
+    mem_map_.MadviseDontNeedAndZero();
   }
 }
 
@@ -145,7 +148,7 @@ void SpaceBitmap<kAlignment>::CopyFrom(SpaceBitmap* source_bitmap) {
   Atomic<uintptr_t>* const src = source_bitmap->Begin();
   Atomic<uintptr_t>* const dest = Begin();
   for (size_t i = 0; i < count; ++i) {
-    dest[i].StoreRelaxed(src[i].LoadRelaxed());
+    dest[i].store(src[i].load(std::memory_order_relaxed), std::memory_order_relaxed);
   }
 }
 
@@ -166,42 +169,48 @@ void SpaceBitmap<kAlignment>::SweepWalk(const SpaceBitmap<kAlignment>& live_bitm
     return;
   }
 
-  // TODO: rewrite the callbacks to accept a std::vector<mirror::Object*> rather than a mirror::Object**?
-  constexpr size_t buffer_size = sizeof(intptr_t) * kBitsPerIntPtrT;
-#ifdef __LP64__
-  // Heap-allocate for smaller stack frame.
-  std::unique_ptr<mirror::Object*[]> pointer_buf_ptr(new mirror::Object*[buffer_size]);
-  mirror::Object** pointer_buf = pointer_buf_ptr.get();
-#else
-  // Stack-allocate buffer as it's small enough.
-  mirror::Object* pointer_buf[buffer_size];
-#endif
-  mirror::Object** pb = &pointer_buf[0];
-
-  size_t start = OffsetToIndex(sweep_begin - live_bitmap.heap_begin_);
-  size_t end = OffsetToIndex(sweep_end - live_bitmap.heap_begin_ - 1);
-  CHECK_LT(end, live_bitmap.Size() / sizeof(intptr_t));
+  size_t buffer_size = sizeof(intptr_t) * kBitsPerIntPtrT;
   Atomic<uintptr_t>* live = live_bitmap.bitmap_begin_;
   Atomic<uintptr_t>* mark = mark_bitmap.bitmap_begin_;
+  const size_t start = OffsetToIndex(sweep_begin - live_bitmap.heap_begin_);
+  const size_t end = OffsetToIndex(sweep_end - live_bitmap.heap_begin_ - 1);
+  CHECK_LT(end, live_bitmap.Size() / sizeof(intptr_t));
+
+  if (Runtime::Current()->IsRunningOnMemoryTool()) {
+    // For memory tool, make the buffer large enough to hold all allocations. This is done since
+    // we get the size of objects (and hence read the class) inside of the freeing logic. This can
+    // cause crashes for unloaded classes since the class may get zeroed out before it is read.
+    // See b/131542326
+    for (size_t i = start; i <= end; i++) {
+      uintptr_t garbage =
+          live[i].load(std::memory_order_relaxed) & ~mark[i].load(std::memory_order_relaxed);
+      buffer_size += POPCOUNT(garbage);
+    }
+  }
+  std::vector<mirror::Object*> pointer_buf(buffer_size);
+  mirror::Object** cur_pointer = &pointer_buf[0];
+  mirror::Object** pointer_end = cur_pointer + (buffer_size - kBitsPerIntPtrT);
+
   for (size_t i = start; i <= end; i++) {
-    uintptr_t garbage = live[i].LoadRelaxed() & ~mark[i].LoadRelaxed();
+    uintptr_t garbage =
+        live[i].load(std::memory_order_relaxed) & ~mark[i].load(std::memory_order_relaxed);
     if (UNLIKELY(garbage != 0)) {
       uintptr_t ptr_base = IndexToOffset(i) + live_bitmap.heap_begin_;
       do {
         const size_t shift = CTZ(garbage);
         garbage ^= (static_cast<uintptr_t>(1)) << shift;
-        *pb++ = reinterpret_cast<mirror::Object*>(ptr_base + shift * kAlignment);
+        *cur_pointer++ = reinterpret_cast<mirror::Object*>(ptr_base + shift * kAlignment);
       } while (garbage != 0);
       // Make sure that there are always enough slots available for an
       // entire word of one bits.
-      if (pb >= &pointer_buf[buffer_size - kBitsPerIntPtrT]) {
-        (*callback)(pb - &pointer_buf[0], &pointer_buf[0], arg);
-        pb = &pointer_buf[0];
+      if (cur_pointer >= pointer_end) {
+        (*callback)(cur_pointer - &pointer_buf[0], &pointer_buf[0], arg);
+        cur_pointer  = &pointer_buf[0];
       }
     }
   }
-  if (pb > &pointer_buf[0]) {
-    (*callback)(pb - &pointer_buf[0], &pointer_buf[0], arg);
+  if (cur_pointer > &pointer_buf[0]) {
+    (*callback)(cur_pointer - &pointer_buf[0], &pointer_buf[0], arg);
   }
 }
 

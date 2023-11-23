@@ -17,9 +17,53 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "AAudioTest"
 
+#include <cstring>
+
 #include <aaudio/AAudio.h>
 #include <android/log.h>
 #include <gtest/gtest.h>
+#include <sys/system_properties.h>
+
+#include "utils.h"
+
+// This was copied from "system/core/libcutils/properties.cpp" because the linker says
+// "libnativeaaudiotest (native:ndk:libc++:static) should not link to libcutils (native:platform)"
+static int8_t my_property_get_bool(const char *key, int8_t default_value) {
+    if (!key) {
+        return default_value;
+    }
+
+    int8_t result = default_value;
+    char buf[PROP_VALUE_MAX] = {'\0'};
+
+    int len = __system_property_get(key, buf);
+    if (len == 1) {
+        char ch = buf[0];
+        if (ch == '0' || ch == 'n') {
+            result = false;
+        } else if (ch == '1' || ch == 'y') {
+            result = true;
+        }
+    } else if (len > 1) {
+        if (!strcmp(buf, "no") || !strcmp(buf, "false") || !strcmp(buf, "off")) {
+            result = false;
+        } else if (!strcmp(buf, "yes") || !strcmp(buf, "true") || !strcmp(buf, "on")) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+/**
+ * See https://source.android.com/devices/tech/perf/low-ram
+ * for more details.
+ *
+ * @return true if running on low memory device
+ */
+static bool isLowRamDevice() {
+    return (bool) my_property_get_bool("ro.config.low_ram", false);
+}
 
 // Creates a builder, the caller takes ownership
 static void create_stream_builder(AAudioStreamBuilder** aaudioBuilder) {
@@ -85,6 +129,7 @@ TEST(test_aaudio, aaudio_stream_device_negative) {
 
 // Test creating a default stream with everything unspecified.
 TEST(test_aaudio, aaudio_stream_unspecified) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
 
@@ -110,11 +155,19 @@ class AAudioStreamBuilderSamplingRateTest : public ::testing::TestWithParam<int3
 };
 
 TEST_P(AAudioStreamBuilderSamplingRateTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
+    const int32_t sampleRate = GetParam();
+    const bool isSampleRateValid = isValidSamplingRate(sampleRate);
+    // Opening a stream with a high sample rates can fail because the required buffer size
+    // is bigger than the heap size. This is a limitation in AudioFlinger.  b/112528380
+    if (isSampleRateValid && isLowRamDevice() && (sampleRate > 192000)) {
+        return; // skip this test
+    }
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
-    AAudioStreamBuilder_setSampleRate(aaudioBuilder, GetParam());
+    AAudioStreamBuilder_setSampleRate(aaudioBuilder, sampleRate);
     try_opening_audio_stream(
-            aaudioBuilder, isValidSamplingRate(GetParam()) ? Expect::SUCCEED : Expect::FAIL);
+            aaudioBuilder, isSampleRateValid ? Expect::SUCCEED : Expect::FAIL);
 }
 
 INSTANTIATE_TEST_CASE_P(SR, AAudioStreamBuilderSamplingRateTest,
@@ -138,6 +191,7 @@ class AAudioStreamBuilderChannelCountTest : public ::testing::TestWithParam<int3
 };
 
 TEST_P(AAudioStreamBuilderChannelCountTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setChannelCount(aaudioBuilder, GetParam());
@@ -171,6 +225,7 @@ class AAudioStreamBuilderFormatTest : public ::testing::TestWithParam<aaudio_for
 };
 
 TEST_P(AAudioStreamBuilderFormatTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
@@ -198,6 +253,7 @@ class AAudioStreamBuilderSharingModeTest : public ::testing::TestWithParam<aaudi
 };
 
 TEST_P(AAudioStreamBuilderSharingModeTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
@@ -225,6 +281,10 @@ class AAudioStreamBuilderDirectionTest : public ::testing::TestWithParam<aaudio_
 };
 
 TEST_P(AAudioStreamBuilderDirectionTest, openStream) {
+    if (GetParam() == AAUDIO_DIRECTION_OUTPUT
+            && !deviceSupportsFeature(FEATURE_PLAYBACK)) return;
+    if (GetParam() == AAUDIO_DIRECTION_INPUT
+            && !deviceSupportsFeature(FEATURE_RECORDING)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
@@ -254,6 +314,7 @@ class AAudioStreamBuilderBufferCapacityTest : public ::testing::TestWithParam<in
 };
 
 TEST_P(AAudioStreamBuilderBufferCapacityTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setBufferCapacityInFrames(aaudioBuilder, GetParam());
@@ -287,6 +348,7 @@ class AAudioStreamBuilderPerfModeTest : public ::testing::TestWithParam<aaudio_p
 };
 
 TEST_P(AAudioStreamBuilderPerfModeTest, openStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setPerformanceMode(aaudioBuilder, GetParam());

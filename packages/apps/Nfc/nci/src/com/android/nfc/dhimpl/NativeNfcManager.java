@@ -70,8 +70,8 @@ public class NativeNfcManager implements DeviceHost {
     public native int doGetLastError();
 
     @Override
-    public void checkFirmware() {
-        doDownload();
+    public boolean checkFirmware() {
+        return doDownload();
     }
 
     private native boolean doInitialize();
@@ -331,6 +331,8 @@ public class NativeNfcManager implements DeviceHost {
 
     }
 
+    public native int getAidTableSize();
+
     private native void doSetP2pInitiatorModes(int modes);
     @Override
     public void setP2pInitiatorModes(int modes) {
@@ -379,6 +381,12 @@ public class NativeNfcManager implements DeviceHost {
     public boolean disableScreenOffSuspend() {
         doDisableScreenOffSuspend();
         return true;
+    }
+
+    private native boolean doSetNfcSecure(boolean enable);
+    @Override
+    public boolean setNfcSecure(boolean enable) {
+        return doSetNfcSecure(enable);
     }
 
     /**
@@ -431,5 +439,9 @@ public class NativeNfcManager implements DeviceHost {
 
     private void notifyTransactionListeners(byte[] aid, byte[] data, String evtSrc) {
         mListener.onNfcTransactionEvent(aid, data, evtSrc);
+    }
+
+    private void notifyEeUpdated() {
+        mListener.onEeUpdated();
     }
 }

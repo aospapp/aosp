@@ -17,8 +17,8 @@
 #ifndef ART_RUNTIME_GC_ROOT_H_
 #define ART_RUNTIME_GC_ROOT_H_
 
+#include "base/locks.h"       // For Locks::mutator_lock_.
 #include "base/macros.h"
-#include "base/mutex.h"       // For Locks::mutator_lock_.
 #include "mirror/object_reference.h"
 #include "read_barrier_option.h"
 
@@ -133,7 +133,7 @@ class RootVisitor {
 // critical.
 class SingleRootVisitor : public RootVisitor {
  private:
-  void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) OVERRIDE
+  void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) override
       REQUIRES_SHARED(Locks::mutator_lock_) {
     for (size_t i = 0; i < count; ++i) {
       VisitRoot(*roots[i], info);
@@ -141,7 +141,7 @@ class SingleRootVisitor : public RootVisitor {
   }
 
   void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
-                          const RootInfo& info) OVERRIDE
+                          const RootInfo& info) override
       REQUIRES_SHARED(Locks::mutator_lock_) {
     for (size_t i = 0; i < count; ++i) {
       VisitRoot(roots[i]->AsMirrorPtr(), info);

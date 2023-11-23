@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -27,9 +27,12 @@ class Config(enum.Enum):
     # These keys define the wording of test configs and their internal
     # references.
     key_log_path = "logpath"
+    key_testbeds_under_test = 'testbeds_under_test'
     key_testbed = "testbed"
     key_testbed_name = "name"
+    # configpath is the directory. key_config_full_path is the file path.
     key_config_path = "configpath"
+    key_config_full_path = 'config_full_path'
     key_test_paths = "testpaths"
     key_port = "Port"
     key_address = "Address"
@@ -38,34 +41,43 @@ class Config(enum.Enum):
     key_test_failure_tracebacks = "test_failure_tracebacks"
     # Config names for controllers packaged in ACTS.
     key_android_device = "AndroidDevice"
+    key_fuchsia_device = "FuchsiaDevice"
+    key_buds_device = "BudsDevice"
     key_chameleon_device = "ChameleonDevice"
     key_native_android_device = "NativeAndroidDevice"
     key_relay_device = "RelayDevice"
     key_access_point = "AccessPoint"
     key_attenuator = "Attenuator"
     key_iperf_server = "IPerfServer"
+    key_iperf_client = "IPerfClient"
     key_packet_sender = "PacketSender"
     key_monsoon = "Monsoon"
     key_sniffer = "Sniffer"
     key_arduino_wifi_dongle = "ArduinoWifiDongle"
+    key_packet_capture = "PacketCapture"
     # Internal keys, used internally, not exposed to user's config files.
     ikey_user_param = "user_params"
     ikey_testbed_name = "testbed_name"
     ikey_logger = "log"
     ikey_logpath = "log_path"
+    ikey_summary_writer = 'summary_writer'
     ikey_cli_args = "cli_args"
     # module name of controllers packaged in ACTS.
     m_key_monsoon = "monsoon"
     m_key_android_device = "android_device"
+    m_key_fuchsia_device = "fuchsia_device"
+    m_key_buds_device = "buds_controller"
     m_key_chameleon_device = "chameleon_controller"
     m_key_native_android_device = "native_android_device"
     m_key_relay_device = "relay_device_controller"
     m_key_access_point = "access_point"
     m_key_attenuator = "attenuator"
     m_key_iperf_server = "iperf_server"
+    m_key_iperf_client = "iperf_client"
     m_key_packet_sender = "packet_sender"
     m_key_sniffer = "sniffer"
     m_key_arduino_wifi_dongle = "arduino_wifi_dongle"
+    m_key_packet_capture = "packet_capture"
 
     # A list of keys whose values in configs should not be passed to test
     # classes without unpacking first.
@@ -74,16 +86,20 @@ class Config(enum.Enum):
     # Controller names packaged with ACTS.
     builtin_controller_names = [
         key_android_device,
+        key_fuchsia_device,
+        key_buds_device,
         key_native_android_device,
         key_relay_device,
         key_access_point,
         key_attenuator,
         key_iperf_server,
+        key_iperf_client,
         key_packet_sender,
         key_monsoon,
         key_sniffer,
         key_chameleon_device,
         key_arduino_wifi_dongle,
+        key_packet_capture,
     ]
 
     # Keys that are file or folder paths.
@@ -95,13 +111,6 @@ def get_name_by_value(value):
         if member.value == value:
             return name
     return None
-
-
-def get_internal_value(external_value):
-    """Translates the value of an external key to the value of its
-    corresponding internal key.
-    """
-    return value_to_value(external_value, "i%s")
 
 
 def get_module_name(name_in_config):

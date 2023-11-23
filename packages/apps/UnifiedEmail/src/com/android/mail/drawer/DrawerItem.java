@@ -16,7 +16,7 @@
 
 package com.android.mail.drawer;
 
-import android.support.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;

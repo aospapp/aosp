@@ -15,8 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.test.example.helloworld"
-    android:sharedUserId="android.uid.system" >
+    package="android.test.example.helloworld" >
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="21" />
 

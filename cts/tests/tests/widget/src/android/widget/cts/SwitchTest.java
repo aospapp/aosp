@@ -24,20 +24,22 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.res.ColorStateList;
+import android.graphics.BlendMode;
 import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.ContextThemeWrapper;
 import android.view.ViewGroup;
 import android.widget.Switch;
 import android.widget.cts.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -103,6 +105,23 @@ public class SwitchTest {
 
     @UiThreadTest
     @Test
+    public void testAccessThumbTintBlendMode() {
+        mSwitch = findSwitchById(R.id.switch1);
+
+        // These are the default set in layout XML
+        assertEquals(Color.WHITE, mSwitch.getThumbTintList().getDefaultColor());
+        assertEquals(BlendMode.SRC_OVER, mSwitch.getThumbTintBlendMode());
+
+        ColorStateList colors = ColorStateList.valueOf(Color.RED);
+        mSwitch.setThumbTintList(colors);
+        mSwitch.setThumbTintBlendMode(BlendMode.XOR);
+
+        assertSame(colors, mSwitch.getThumbTintList());
+        assertEquals(BlendMode.XOR, mSwitch.getThumbTintBlendMode());
+    }
+
+    @UiThreadTest
+    @Test
     public void testAccessTrackTint() {
         mSwitch = findSwitchById(R.id.switch1);
 
@@ -116,6 +135,23 @@ public class SwitchTest {
 
         assertSame(colors, mSwitch.getTrackTintList());
         assertEquals(Mode.XOR, mSwitch.getTrackTintMode());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAccessTrackTintBlendMode() {
+        mSwitch = findSwitchById(R.id.switch1);
+
+        // These are the default set in layout XML
+        assertEquals(Color.BLACK, mSwitch.getTrackTintList().getDefaultColor());
+        assertEquals(BlendMode.SRC_ATOP, mSwitch.getTrackTintBlendMode());
+
+        ColorStateList colors = ColorStateList.valueOf(Color.RED);
+        mSwitch.setTrackTintList(colors);
+        mSwitch.setTrackTintBlendMode(BlendMode.XOR);
+
+        assertSame(colors, mSwitch.getTrackTintList());
+        assertEquals(BlendMode.XOR, mSwitch.getTrackTintBlendMode());
     }
 
     @Test

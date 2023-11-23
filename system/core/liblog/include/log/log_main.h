@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef _LIBS_LOG_LOG_MAIN_H
-#define _LIBS_LOG_LOG_MAIN_H
+#pragma once
 
 #include <stdbool.h>
+#include <sys/cdefs.h>
+#include <sys/types.h>
 
 #include <android/log.h>
-#include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
@@ -52,6 +52,28 @@ __BEGIN_DECLS
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
+
+/*
+ * Use __VA_ARGS__ if running a static analyzer,
+ * to avoid warnings of unused variables in __VA_ARGS__.
+ * Use contexpr function in C++ mode, so these macros can be used
+ * in other constexpr functions without warning.
+ */
+#ifdef __clang_analyzer__
+#ifdef __cplusplus
+extern "C++" {
+template <typename... Ts>
+constexpr int __fake_use_va_args(Ts...) {
+  return 0;
+}
+}
+#else
+extern int __fake_use_va_args(int, ...);
+#endif /* __cplusplus */
+#define __FAKE_USE_VA_ARGS(...) ((void)__fake_use_va_args(0, ##__VA_ARGS__))
+#else
+#define __FAKE_USE_VA_ARGS(...) ((void)(0))
+#endif /* __clang_analyzer__ */
 
 #ifndef __predict_false
 #define __predict_false(exp) __builtin_expect((exp) != 0, 0)
@@ -112,7 +134,7 @@ __BEGIN_DECLS
 #define LOG_ALWAYS_FATAL_IF(cond, ...)                              \
   ((__predict_false(cond))                                          \
        ? ((void)android_printAssert(#cond, LOG_TAG, ##__VA_ARGS__)) \
-       : (void)0)
+       : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 
 #ifndef LOG_ALWAYS_FATAL
@@ -128,10 +150,10 @@ __BEGIN_DECLS
 #if LOG_NDEBUG
 
 #ifndef LOG_FATAL_IF
-#define LOG_FATAL_IF(cond, ...) ((void)0)
+#define LOG_FATAL_IF(cond, ...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
 #endif
 #ifndef LOG_FATAL
-#define LOG_FATAL(...) ((void)0)
+#define LOG_FATAL(...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
 #endif
 
 #else
@@ -175,11 +197,12 @@ __BEGIN_DECLS
 #ifndef ALOGV
 #define __ALOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
 #if LOG_NDEBUG
-#define ALOGV(...)          \
-  do {                      \
-    if (false) {            \
-      __ALOGV(__VA_ARGS__); \
-    }                       \
+#define ALOGV(...)                   \
+  do {                               \
+    __FAKE_USE_VA_ARGS(__VA_ARGS__); \
+    if (false) {                     \
+      __ALOGV(__VA_ARGS__);          \
+    }                                \
   } while (false)
 #else
 #define ALOGV(...) __ALOGV(__VA_ARGS__)
@@ -188,11 +211,11 @@ __BEGIN_DECLS
 
 #ifndef ALOGV_IF
 #if LOG_NDEBUG
-#define ALOGV_IF(cond, ...) ((void)0)
+#define ALOGV_IF(cond, ...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
 #else
 #define ALOGV_IF(cond, ...)                                                  \
   ((__predict_false(cond)) ? ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__)) \
-                           : (void)0)
+                           : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 #endif
 
@@ -206,7 +229,7 @@ __BEGIN_DECLS
 #ifndef ALOGD_IF
 #define ALOGD_IF(cond, ...)                                                \
   ((__predict_false(cond)) ? ((void)ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__)) \
-                           : (void)0)
+                           : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 
 /*
@@ -219,7 +242,7 @@ __BEGIN_DECLS
 #ifndef ALOGI_IF
 #define ALOGI_IF(cond, ...)                                               \
   ((__predict_false(cond)) ? ((void)ALOG(LOG_INFO, LOG_TAG, __VA_ARGS__)) \
-                           : (void)0)
+                           : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 
 /*
@@ -232,7 +255,7 @@ __BEGIN_DECLS
 #ifndef ALOGW_IF
 #define ALOGW_IF(cond, ...)                                               \
   ((__predict_false(cond)) ? ((void)ALOG(LOG_WARN, LOG_TAG, __VA_ARGS__)) \
-                           : (void)0)
+                           : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 
 /*
@@ -245,7 +268,7 @@ __BEGIN_DECLS
 #ifndef ALOGE_IF
 #define ALOGE_IF(cond, ...)                                                \
   ((__predict_false(cond)) ? ((void)ALOG(LOG_ERROR, LOG_TAG, __VA_ARGS__)) \
-                           : (void)0)
+                           : __FAKE_USE_VA_ARGS(__VA_ARGS__))
 #endif
 
 /* --------------------------------------------------------------------- */
@@ -326,20 +349,6 @@ __BEGIN_DECLS
  *        over Android.
  */
 
-#ifndef __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE
-#ifndef __ANDROID_API__
-#define __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE 2
-#elif __ANDROID_API__ > 24 /* > Nougat */
-#define __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE 2
-#elif __ANDROID_API__ > 22 /* > Lollipop */
-#define __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE 1
-#else
-#define __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE 0
-#endif
-#endif
-
-#if __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE
-
 /*
  * Use the per-tag properties "log.tag.<tagname>" to generate a runtime
  * result of non-zero to expose a log. prio is ANDROID_LOG_VERBOSE to
@@ -347,12 +356,7 @@ __BEGIN_DECLS
  * any other value.
  */
 int __android_log_is_loggable(int prio, const char* tag, int default_prio);
-
-#if __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE > 1
-#include <sys/types.h>
-
-int __android_log_is_loggable_len(int prio, const char* tag, size_t len,
-                                  int default_prio);
+int __android_log_is_loggable_len(int prio, const char* tag, size_t len, int default_prio);
 
 #if LOG_NDEBUG /* Production */
 #define android_testLog(prio, tag)                                           \
@@ -364,28 +368,8 @@ int __android_log_is_loggable_len(int prio, const char* tag, size_t len,
                                  ANDROID_LOG_VERBOSE) != 0)
 #endif
 
-#else
-
-#if LOG_NDEBUG /* Production */
-#define android_testLog(prio, tag) \
-  (__android_log_is_loggable(prio, tag, ANDROID_LOG_DEBUG) != 0)
-#else
-#define android_testLog(prio, tag) \
-  (__android_log_is_loggable(prio, tag, ANDROID_LOG_VERBOSE) != 0)
-#endif
-
-#endif
-
-#else /* __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE */
-
-#define android_testLog(prio, tag) (1)
-
-#endif /* !__ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE */
-
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
 
 __END_DECLS
-
-#endif /* _LIBS_LOG_LOG_MAIN_H */

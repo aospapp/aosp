@@ -16,32 +16,31 @@
 
 package com.android.storagemanager.automatic;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import android.os.Bundle;
 import android.os.Environment;
+
 import com.android.storagemanager.deletionhelper.DeletionHelperSettings;
 import com.android.storagemanager.deletionhelper.DeletionType;
 import com.android.storagemanager.deletionhelper.DeletionType.LoadingStatus;
 import com.android.storagemanager.deletionhelper.DownloadsDeletionType;
 import com.android.storagemanager.deletionhelper.FetchDownloadsLoader.DownloadsResult;
-import com.android.storagemanager.testing.TestingConstants;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.util.Set;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest= TestingConstants.MANIFEST, sdk=23)
 public class DownloadsDeletionTypeTest {
     private DownloadsDeletionType mDeletion;
     private File mDownloadsDirectory;
@@ -54,7 +53,7 @@ public class DownloadsDeletionTypeTest {
     }
 
     @Test
-    public void testInitializeWithUncheckedFiles() throws Exception {
+    public void testInitializeWithUncheckedFiles() {
         File temp = new File(mDownloadsDirectory, "temp");
         File temp2 = new File(mDownloadsDirectory, "temp2");
         String[] filePaths = new String[2];
@@ -67,7 +66,7 @@ public class DownloadsDeletionTypeTest {
     }
 
     @Test
-    public void testFetchDownloads() throws Exception {
+    public void testFetchDownloads() {
         File temp = new File(mDownloadsDirectory, "temp");
         File temp2 = new File(mDownloadsDirectory, "temp2");
         DownloadsResult result = new DownloadsResult();
@@ -82,7 +81,7 @@ public class DownloadsDeletionTypeTest {
     }
 
     @Test
-    public void testSetChecked() throws Exception {
+    public void testSetChecked() {
         File temp = new File(mDownloadsDirectory, "temp");
         DownloadsResult result = new DownloadsResult();
         result.files.add(temp);
@@ -121,7 +120,7 @@ public class DownloadsDeletionTypeTest {
     }
 
     @Test
-    public void testSaveAndRestoreRemembersUncheckedFiles() throws Exception {
+    public void testSaveAndRestoreRemembersUncheckedFiles() {
         File temp = new File(mDownloadsDirectory, "temp");
         File temp2 = new File(mDownloadsDirectory, "temp2");
         DownloadsResult result = new DownloadsResult();
@@ -140,7 +139,7 @@ public class DownloadsDeletionTypeTest {
     }
 
     @Test
-    public void testCallbackOnFileLoad() throws Exception {
+    public void testCallbackOnFileLoad() {
         File temp = new File(mDownloadsDirectory, "temp");
         File temp2 = new File(mDownloadsDirectory, "temp2");
         DownloadsResult result = new DownloadsResult();

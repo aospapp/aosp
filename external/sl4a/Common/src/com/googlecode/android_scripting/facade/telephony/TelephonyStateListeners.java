@@ -16,17 +16,18 @@
 
 package com.googlecode.android_scripting.facade.telephony;
 
-import com.googlecode.android_scripting.facade.EventFacade;
 import android.os.Looper;
 import android.telephony.CellInfo;
 import android.telephony.DataConnectionRealTimeInfo;
 import android.telephony.PhoneStateListener;
+import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseCallState;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.telephony.VoLteServiceState;
+
+import com.googlecode.android_scripting.facade.EventFacade;
 
 import java.util.List;
 
@@ -53,13 +54,13 @@ public class TelephonyStateListeners {
         }
 
         public CallStateChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
             subscriptionId = subId;
         }
 
         public CallStateChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
             subscriptionId = subId;
         }
@@ -118,13 +119,13 @@ public class TelephonyStateListeners {
         }
 
         public DataConnectionRealTimeInfoChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
             subscriptionId = subId;
         }
 
         public DataConnectionRealTimeInfoChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
             subscriptionId = subId;
         }
@@ -155,7 +156,7 @@ public class TelephonyStateListeners {
         }
 
         public DataConnectionStateChangeListener(EventFacade ef, TelephonyManager tm, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
             mTelephonyManager = tm;
             subscriptionId = subId;
@@ -163,7 +164,7 @@ public class TelephonyStateListeners {
 
         public DataConnectionStateChangeListener(
                 EventFacade ef, TelephonyManager tm, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
             mTelephonyManager = tm;
             subscriptionId = subId;
@@ -180,6 +181,43 @@ public class TelephonyStateListeners {
         }
     }
 
+    public static class ActiveDataSubIdChangeListener extends PhoneStateListener {
+
+        private final EventFacade mEventFacade;
+        private final TelephonyManager mTelephonyManager;
+        public static final int sListeningStates =
+                PhoneStateListener.LISTEN_ACTIVE_DATA_SUBSCRIPTION_ID_CHANGE;
+        public int subscriptionId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+
+        public ActiveDataSubIdChangeListener(EventFacade ef, TelephonyManager tm) {
+            super();
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
+        }
+
+        public ActiveDataSubIdChangeListener(EventFacade ef, TelephonyManager tm, int subId) {
+            super();
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = subId;
+        }
+
+        public ActiveDataSubIdChangeListener(
+                EventFacade ef, TelephonyManager tm, int subId, Looper looper) {
+            super(looper);
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = subId;
+        }
+
+        @Override
+        public void onActiveDataSubscriptionIdChanged(int subId) {
+            mEventFacade.postEvent(
+                TelephonyConstants.EventActiveDataSubIdChanged, subId);
+        }
+    }
+
     public static class ServiceStateChangeListener extends PhoneStateListener {
 
         private final EventFacade mEventFacade;
@@ -193,13 +231,13 @@ public class TelephonyStateListeners {
         }
 
         public ServiceStateChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
             subscriptionId = subId;
         }
 
         public ServiceStateChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
             subscriptionId = subId;
         }
@@ -224,12 +262,12 @@ public class TelephonyStateListeners {
         }
 
         public CellInfoChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
         }
 
         public CellInfoChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
         }
 
@@ -240,31 +278,31 @@ public class TelephonyStateListeners {
         }
     }
 
-    public static class VolteServiceStateChangeListener
+    public static class SrvccStateChangeListener
             extends PhoneStateListener {
 
         private final EventFacade mEventFacade;
 
-        public VolteServiceStateChangeListener(EventFacade ef) {
+        public SrvccStateChangeListener(EventFacade ef) {
             super();
             mEventFacade = ef;
         }
 
-        public VolteServiceStateChangeListener(EventFacade ef, int subId) {
-            super(subId);
+        public SrvccStateChangeListener(EventFacade ef, int subId) {
+            super();
             mEventFacade = ef;
         }
 
-        public VolteServiceStateChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+        public SrvccStateChangeListener(EventFacade ef, int subId, Looper looper) {
+            super(looper);
             mEventFacade = ef;
         }
 
         @Override
-        public void onVoLteServiceStateChanged(VoLteServiceState volteInfo) {
+        public void onSrvccStateChanged(int srvccState) {
             mEventFacade.postEvent(
-                    TelephonyConstants.EventVolteServiceStateChanged,
-                    volteInfo);
+                    TelephonyConstants.EventSrvccStateChanged,
+                    srvccState);
         }
     }
 
@@ -281,12 +319,12 @@ public class TelephonyStateListeners {
         }
 
         public VoiceMailStateChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
         }
 
         public VoiceMailStateChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
         }
 
@@ -311,12 +349,12 @@ public class TelephonyStateListeners {
         }
 
         public SignalStrengthChangeListener(EventFacade ef, int subId) {
-            super(subId);
+            super();
             mEventFacade = ef;
         }
 
         public SignalStrengthChangeListener(EventFacade ef, int subId, Looper looper) {
-            super(subId, looper);
+            super(looper);
             mEventFacade = ef;
         }
 
@@ -325,6 +363,35 @@ public class TelephonyStateListeners {
             mSignalStrengths = signalStrength;
             mEventFacade.postEvent(
                 TelephonyConstants.EventSignalStrengthChanged, signalStrength);
+        }
+    }
+
+    public static class PhysicalChannelConfigurationChangeListener extends PhoneStateListener {
+
+        private final EventFacade mEventFacade;
+        public List<PhysicalChannelConfig> mConfigs;
+        public static final int sListeningStates =
+                PhoneStateListener.LISTEN_PHYSICAL_CHANNEL_CONFIGURATION;
+        public PhysicalChannelConfigurationChangeListener(EventFacade ef) {
+            super();
+            mEventFacade = ef;
+        }
+
+        public PhysicalChannelConfigurationChangeListener(EventFacade ef, int subId) {
+            super();
+            mEventFacade = ef;
+        }
+
+        public PhysicalChannelConfigurationChangeListener(
+                EventFacade ef, int subId, Looper looper) {
+            super(looper);
+            mEventFacade = ef;
+        }
+
+        @Override
+        public void onPhysicalChannelConfigurationChanged(List<PhysicalChannelConfig> config) {
+            mEventFacade.postEvent(
+                TelephonyConstants.EventPhysicalChannelConfigChanged, config);
         }
     }
 

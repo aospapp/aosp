@@ -26,10 +26,11 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.ConditionVariable;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
@@ -55,7 +56,6 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
     private static final int MAX_NETWORK_TYPE = TYPE_VPN;
 
     private ConnectivityManager mCm;
-    private WifiManager mWifiManager;
     private PackageManager mPackageManager;
 
     private final List<Integer>mProtectedNetworks = new ArrayList<Integer>();
@@ -63,7 +63,6 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mCm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
         mPackageManager = getContext().getPackageManager();
 
         // Get com.android.internal.R.array.config_protectedNetworks
@@ -257,7 +256,7 @@ public class ConnectivityManagerLegacyTest extends AndroidTestCase {
                     NetworkInfo.State.DISCONNECTED;
             expectNetworkBroadcast(TYPE_WIFI, desiredState, new Runnable() {
                 public void run() {
-                    mWifiManager.setWifiEnabled(enabled);
+                    SystemUtil.runShellCommand("svc wifi " + (enabled ? "enable" : "disable"));
                 }
             });
         }

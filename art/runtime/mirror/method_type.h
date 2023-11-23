@@ -17,7 +17,6 @@
 #ifndef ART_RUNTIME_MIRROR_METHOD_TYPE_H_
 #define ART_RUNTIME_MIRROR_METHOD_TYPE_H_
 
-#include "base/utils.h"
 #include "object_array.h"
 #include "object.h"
 #include "string.h"
@@ -31,46 +30,40 @@ namespace mirror {
 // C++ mirror of java.lang.invoke.MethodType
 class MANAGED MethodType : public Object {
  public:
-  static MethodType* Create(Thread* const self,
-                            Handle<Class> return_type,
-                            Handle<ObjectArray<Class>> param_types)
+  static ObjPtr<MethodType> Create(Thread* const self,
+                                   Handle<Class> return_type,
+                                   Handle<ObjectArray<Class>> param_types)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static MethodType* CloneWithoutLeadingParameter(Thread* const self,
-                                                  ObjPtr<MethodType> method_type)
+  static ObjPtr<MethodType> CloneWithoutLeadingParameter(Thread* const self,
+                                                         ObjPtr<MethodType> method_type)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static Class* StaticClass() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return static_class_.Read();
-  }
+  // Collects trailing parameter types into an array. Assumes caller
+  // has checked trailing arguments are all of the same type.
+  static ObjPtr<MethodType> CollectTrailingArguments(Thread* const self,
+                                                     ObjPtr<MethodType> method_type,
+                                                     ObjPtr<Class> collector_array_class,
+                                                     int32_t start_index)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ObjectArray<Class>* GetPTypes() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<ObjectArray<Class>>(OFFSET_OF_OBJECT_MEMBER(MethodType, p_types_));
-  }
+  ObjPtr<ObjectArray<Class>> GetPTypes() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int GetNumberOfPTypes() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetPTypes()->GetLength();
-  }
+  int GetNumberOfPTypes() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Number of virtual registers required to hold the parameters for
   // this method type.
   size_t NumberOfVRegs() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  Class* GetRType() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<Class>(OFFSET_OF_OBJECT_MEMBER(MethodType, r_type_));
-  }
-
-  static void SetClass(Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
-  static void ResetClass() REQUIRES_SHARED(Locks::mutator_lock_);
-  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<Class> GetRType() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true iff. |this| is an exact match for method type |target|, i.e
   // iff. they have the same return types and parameter types.
-  bool IsExactMatch(MethodType* target) REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsExactMatch(ObjPtr<MethodType> target) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true iff. |this| can be converted to match |target| method type, i.e
   // iff. they have convertible return types and parameter types.
-  bool IsConvertible(MethodType* target) REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsConvertible(ObjPtr<MethodType> target) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the pretty descriptor for this method type, suitable for display in
   // exception messages and the like.
@@ -102,8 +95,6 @@ class MANAGED MethodType : public Object {
   HeapReference<ObjectArray<Class>> p_types_;
   HeapReference<Class> r_type_;
   HeapReference<Object> wrap_alt_;  // Unused in the runtime
-
-  static GcRoot<Class> static_class_;  // java.lang.invoke.MethodType.class
 
   friend struct art::MethodTypeOffsets;  // for verifying offset information
   DISALLOW_IMPLICIT_CONSTRUCTORS(MethodType);

@@ -296,7 +296,10 @@ void TestMethodInstrumenter(std::shared_ptr<ir::DexFile> dex_ir) {
   mi.AddTransformation<slicer::ExitHook>(ir::MethodId("LTracer;", "onFooExit"));
   mi.AddTransformation<slicer::DetourVirtualInvoke>(
       ir::MethodId("LBase;", "foo", "(ILjava/lang/String;)I"),
-      ir::MethodId("LTracer;", "wrapFoo"))  ;
+      ir::MethodId("LTracer;", "wrapFoo"));
+  mi.AddTransformation<slicer::DetourInterfaceInvoke>(
+      ir::MethodId("LIBase;", "bar", "(Ljava/lang/String;)V"),
+      ir::MethodId("LTracer;", "wrapBar"));
 
   auto method1 = ir::MethodId("LTarget;", "foo", "(ILjava/lang/String;)I");
   SLICER_CHECK(mi.InstrumentMethod(method1));

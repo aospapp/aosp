@@ -83,14 +83,20 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
         } else if ((dir = makeResultDir()) == null) {
             failed("Cannot create directory for device info files");
         } else {
+            File jsonFile;
             try {
-                File jsonFile = new File(dir, getClass().getSimpleName() + ".deviceinfo.json");
+                jsonFile = new File(dir, getClass().getSimpleName() + ".deviceinfo.json");
                 jsonFile.createNewFile();
                 mResultFilePath = jsonFile.getAbsolutePath();
-                DeviceInfoStore store = new DeviceInfoStore(jsonFile);
-                store.open();
-                collectDeviceInfo(store);
-                store.close();
+                try (DeviceInfoStore store = new DeviceInfoStore(jsonFile)) {
+                    store.open();
+                    collectDeviceInfo(store);
+                } finally {
+                    if (jsonFile != null && jsonFile.exists() &&
+                            jsonFile.length() == 0) {
+                        jsonFile.delete();
+                    }
+                }
                 if (mResultCode == ResultCode.STARTED) {
                     mResultCode = ResultCode.COMPLETED;
                 }

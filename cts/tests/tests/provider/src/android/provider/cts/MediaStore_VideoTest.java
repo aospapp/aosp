@@ -16,61 +16,73 @@
 
 package android.provider.cts;
 
-import android.provider.cts.R;
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.platform.test.annotations.Presubmit;
+import android.provider.MediaStore;
 import android.provider.MediaStore.Video;
 import android.provider.MediaStore.Video.VideoColumns;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-import com.android.compatibility.common.util.FileCopyHelper;
+import androidx.test.InstrumentationRegistry;
 
-import java.util.ArrayList;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
-public class MediaStore_VideoTest extends InstrumentationTestCase {
-    private static final String TEST_VIDEO_3GP = "testVideo.3gp";
+import java.io.File;
 
-    private ArrayList<Uri> mRowsAdded;
-
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_VideoTest {
     private Context mContext;
+    private ContentResolver mResolver;
 
-    private ContentResolver mContentResolver;
+    private Uri mExternalVideo;
 
-    private FileCopyHelper mHelper;
+    @Parameter(0)
+    public String mVolumeName;
 
-    @Override
-    protected void tearDown() throws Exception {
-        for (Uri row : mRowsAdded) {
-            mContentResolver.delete(row, null, null);
-        }
-        mHelper.clear();
-        super.tearDown();
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
-        mContentResolver = mContext.getContentResolver();
-        mHelper = new FileCopyHelper(mContext);
-        mRowsAdded = new ArrayList<Uri>();
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+        mExternalVideo = MediaStore.Video.Media.getContentUri(mVolumeName);
     }
 
+    @Test
     public void testQuery() throws Exception {
         ContentValues values = new ContentValues();
-        String valueOfData = mHelper.copy(R.raw.testvideo, TEST_VIDEO_3GP);
+
+        final File file = new File(ProviderTestUtils.stageDir(mVolumeName),
+                "testVideo" + System.nanoTime() + ".3gp");
+        final String valueOfData = file.getAbsolutePath();
+        ProviderTestUtils.stageFile(R.raw.testvideo, file);
+
         values.put(VideoColumns.DATA, valueOfData);
 
-        Uri newUri = mContentResolver.insert(Video.Media.INTERNAL_CONTENT_URI, values);
-        if (!Video.Media.INTERNAL_CONTENT_URI.equals(newUri)) {
-            mRowsAdded.add(newUri);
-        }
+        Uri newUri = mResolver.insert(mExternalVideo, values);
+        assertNotNull(newUri);
 
-        Cursor c = Video.query(mContentResolver, newUri, new String[] { VideoColumns.DATA });
+        Cursor c = Video.query(mResolver, newUri, new String[] { VideoColumns.DATA });
         assertEquals(1, c.getCount());
         c.moveToFirst();
         assertEquals(valueOfData, c.getString(c.getColumnIndex(VideoColumns.DATA)));

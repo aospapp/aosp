@@ -20,17 +20,21 @@ import static org.junit.Assert.fail;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.targetprep.ApkInstaller;
+import com.android.compatibility.common.tradefed.targetprep.PreconditionPreparer;
 import com.android.compatibility.common.tradefed.testtype.JarHostTest;
 import com.android.tradefed.build.FolderBuildInfo;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.invoker.shard.token.TokenProperty;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.AndroidJUnitTest;
 import com.android.tradefed.testtype.HostTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.suite.ITestSuite;
+import com.android.tradefed.testtype.suite.params.ModuleParameters;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,9 +43,12 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -62,6 +69,8 @@ public class CtsConfigLoadingTest {
             "bionic",
             "bluetooth",
             "camera",
+            "contentcapture",
+            "deviceinfo",
             "deqp",
             "devtools",
             "framework",
@@ -87,6 +96,24 @@ public class CtsConfigLoadingTest {
             "vr",
             "webview"
     ));
+    private static final Set<String> KNOWN_MISC_MODULES =
+            new HashSet<>(
+                    Arrays.asList(
+                            // Modifications to the list below must be approved by someone in
+                            // test/suite_harness/OWNERS.
+                            "CtsSliceTestCases.config",
+                            "CtsSampleDeviceTestCases.config",
+                            "CtsUsbTests.config",
+                            "CtsGpuToolsHostTestCases.config",
+                            "CtsEdiHostTestCases.config",
+                            "CtsClassLoaderFactoryPathClassLoaderTestCases.config",
+                            "CtsSampleHostTestCases.config",
+                            "CtsHardwareTestCases.config",
+                            "CtsMonkeyTestCases.config",
+                            "CtsAndroidAppTestCases.config",
+                            "CtsClassLoaderFactoryInMemoryDexClassLoaderTestCases.config",
+                            "CtsAppComponentFactoryTestCases.config",
+                            "CtsSeccompHostTestCases.config"));
 
     /**
      * List of the officially supported runners in CTS, they meet all the interfaces criteria as
@@ -109,14 +136,46 @@ public class CtsConfigLoadingTest {
      * features required (filtering, sharding, etc.). We do not typically expect people to need a
      * different runner.
      */
-    private static final String INSTRUMENTATION_RUNNER_NAME =
-            "android.support.test.runner.AndroidJUnitRunner";
+    private static final Set<String> ALLOWED_INSTRUMENTATION_RUNNER_NAME = new HashSet<>();
+    static {
+        ALLOWED_INSTRUMENTATION_RUNNER_NAME.add("android.support.test.runner.AndroidJUnitRunner");
+        ALLOWED_INSTRUMENTATION_RUNNER_NAME.add("androidx.test.runner.AndroidJUnitRunner");
+    }
     private static final Set<String> RUNNER_EXCEPTION = new HashSet<>();
     static {
         // Used for a bunch of system-api cts tests
         RUNNER_EXCEPTION.add("repackaged.android.test.InstrumentationTestRunner");
         // Used by a UiRendering scenario where an activity is persisted between tests
         RUNNER_EXCEPTION.add("android.uirendering.cts.runner.UiRenderingRunner");
+    }
+
+    /**
+     * Families of module parameterization that MUST be specified explicitly in the module
+     * AndroidTest.xml.
+     */
+    private static final Set<String> MANDATORY_PARAMETERS_FAMILY = new HashSet<>();
+
+    static {
+        MANDATORY_PARAMETERS_FAMILY.add(ModuleParameters.INSTANT_APP_FAMILY);
+        MANDATORY_PARAMETERS_FAMILY.add(ModuleParameters.MULTI_ABI_FAMILY);
+    }
+
+    /**
+     * Whitelist to start enforcing metadata on modules. No additional entry will be allowed! This
+     * is meant to burn down the remaining modules definition.
+     */
+    private static final Set<String> WHITELIST_MODULE_PARAMETERS = new HashSet<>();
+
+    static {
+        WHITELIST_MODULE_PARAMETERS.add("CtsWidgetTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsSimpleCpuTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsAppSecurityHostTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsMediaStressTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsTelephonySdk28TestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsHardwareTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsGestureTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsNetTestCases.config");
+        WHITELIST_MODULE_PARAMETERS.add("CtsPermissionTestCasesSdk28.config");
     }
 
     /**
@@ -147,6 +206,7 @@ public class CtsConfigLoadingTest {
         stubFolder.setRootDir(new File(ctsRoot));
         stubFolder.addBuildAttribute(CompatibilityBuildHelper.SUITE_NAME, "CTS");
         stubFolder.addBuildAttribute("ROOT_DIR", ctsRoot);
+        List<String> missingMandatoryParameters = new ArrayList<>();
         // We expect to be able to load every single config in testcases/
         for (File config : listConfig) {
             IConfiguration c = ConfigurationFactory.getInstance()
@@ -159,6 +219,13 @@ public class CtsConfigLoadingTest {
                                     + "SuiteApkInstaller instead of com.android.compatibility."
                                     + "common.tradefed.targetprep.ApkInstaller, options will be "
                                     + "the same.", config));
+                }
+                if (prep.getClass().isAssignableFrom(PreconditionPreparer.class)) {
+                    throw new ConfigurationException(
+                            String.format(
+                                    "%s: includes a PreconditionPreparer (%s) which is not allowed"
+                                            + " in modules.",
+                                    config.getName(), prep.getClass()));
                 }
             }
             // We can ensure that Host side tests are not empty.
@@ -186,16 +253,17 @@ public class CtsConfigLoadingTest {
                             "Test in module %s must implement ITestFilterReceiver.",
                             config.getName()));
                 }
-                // Ensure that the device runner is the AJUR one
+                // Ensure that the device runner is the AJUR one if explicitly specified.
                 if (test instanceof AndroidJUnitTest) {
                     AndroidJUnitTest instru = (AndroidJUnitTest) test;
-                    if (!INSTRUMENTATION_RUNNER_NAME.equals(instru.getRunnerName())) {
+                    if (instru.getRunnerName() != null &&
+                            !ALLOWED_INSTRUMENTATION_RUNNER_NAME.contains(instru.getRunnerName())) {
                         // Some runner are exempt
                         if (!RUNNER_EXCEPTION.contains(instru.getRunnerName())) {
                             throw new ConfigurationException(
-                                    String.format("%s: uses '%s' instead of the '%s' that is "
+                                    String.format("%s: uses '%s' instead of on of '%s' that are "
                                             + "expected", config.getName(), instru.getRunnerName(),
-                                            INSTRUMENTATION_RUNNER_NAME));
+                                            ALLOWED_INSTRUMENTATION_RUNNER_NAME));
                         }
                     }
                 }
@@ -217,6 +285,26 @@ public class CtsConfigLoadingTest {
                     + "field \"%s\", supported ones are: %s\nconfig: %s",
                     cmp, KNOWN_COMPONENTS, config), KNOWN_COMPONENTS.contains(cmp));
 
+            if ("misc".equals(cmp)) {
+                String configFileName = config.getName();
+                Assert.assertTrue(
+                        String.format(
+                                "Adding new module %s to \"misc\" component is restricted, "
+                                        + "please pick a component that your module fits in",
+                                configFileName),
+                        KNOWN_MISC_MODULES.contains(configFileName));
+            }
+
+            // Check that specified parameters are expected
+            boolean res =
+                    checkModuleParameters(
+                            config.getName(), cd.getMetaData(ITestSuite.PARAMETER_KEY));
+            if (!res) {
+                missingMandatoryParameters.add(config.getName());
+            }
+            // Check that specified tokens are expected
+            checkTokens(config.getName(), cd.getMetaData(ITestSuite.TOKEN_KEY));
+
             // Ensure each CTS module is tagged with <option name="test-suite-tag" value="cts" />
             Assert.assertTrue(String.format(
                     "Module config %s does not contains "
@@ -234,6 +322,70 @@ public class CtsConfigLoadingTest {
                     }
                 }
             }
+            // Ensure options have been set
+            c.validateOptions();
         }
+
+        // Exempt the whitelist
+        missingMandatoryParameters.removeAll(WHITELIST_MODULE_PARAMETERS);
+        // Ensure the mandatory fields are filled
+        if (!missingMandatoryParameters.isEmpty()) {
+            String msg =
+                    String.format(
+                            "The following %s modules are missing some of the mandatory "
+                                    + "parameters [instant_app, not_instant_app, "
+                                    + "multi_abi, not_multi_abi]: '%s'",
+                            missingMandatoryParameters.size(), missingMandatoryParameters);
+            throw new ConfigurationException(msg);
+        }
+    }
+
+    /** Test that all parameter metadata can be resolved. */
+    private boolean checkModuleParameters(String configName, List<String> parameters)
+            throws ConfigurationException {
+        if (parameters == null) {
+            return false;
+        }
+        Map<String, Boolean> families = createFamilyCheckMap();
+        for (String param : parameters) {
+            try {
+                ModuleParameters p = ModuleParameters.valueOf(param.toUpperCase());
+                if (families.containsKey(p.getFamily())) {
+                    families.put(p.getFamily(), true);
+                }
+            } catch (IllegalArgumentException e) {
+                throw new ConfigurationException(
+                        String.format("Config: %s includes an unknown parameter '%s'.",
+                                configName, param));
+            }
+        }
+        if (families.containsValue(false)) {
+            return false;
+        }
+        return true;
+    }
+
+    /** Test that all tokens can be resolved. */
+    private void checkTokens(String configName, List<String> tokens) throws ConfigurationException {
+        if (tokens == null) {
+            return;
+        }
+        for (String token : tokens) {
+            try {
+                TokenProperty.valueOf(token.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new ConfigurationException(
+                        String.format(
+                                "Config: %s includes an unknown token '%s'.", configName, token));
+            }
+        }
+    }
+
+    private Map<String, Boolean> createFamilyCheckMap() {
+        Map<String, Boolean> families = new HashMap<>();
+        for (String family : MANDATORY_PARAMETERS_FAMILY) {
+            families.put(family, false);
+        }
+        return families;
     }
 }

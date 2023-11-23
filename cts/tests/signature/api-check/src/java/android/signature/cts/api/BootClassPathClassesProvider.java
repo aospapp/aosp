@@ -67,11 +67,11 @@ public class BootClassPathClassesProvider extends ClassProvider {
         String klass_desc = "L" + klass.getName().replace('.', '/') + ";";
         DexMember[] members = new DexMember[field_infos[0].length + method_infos[0].length];
         for (int i = 0; i < field_infos[0].length; i++) {
-            members[i] = new DexField(klass_desc, field_infos[0][i], field_infos[1][i]);
+            members[i] = new DexField(klass_desc, field_infos[0][i], field_infos[1][i], null);
         }
         for (int i = 0; i < method_infos[0].length; i++) {
             members[i + field_infos[0].length] =
-                new DexMethod(klass_desc, method_infos[0][i], method_infos[1][i]);
+                new DexMethod(klass_desc, method_infos[0][i], method_infos[1][i], null);
         }
         return Arrays.stream(members);
     }

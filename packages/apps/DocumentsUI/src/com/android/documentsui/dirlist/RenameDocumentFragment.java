@@ -18,22 +18,11 @@ package com.android.documentsui.dirlist;
 
 import static com.android.documentsui.base.SharedMinimal.TAG;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
-import android.app.FragmentManager;
-import android.content.ContentProviderClient;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.DocumentsContract;
-import android.support.annotation.Nullable;
-import android.support.design.widget.Snackbar;
-import android.support.design.widget.TextInputLayout;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -44,13 +33,21 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentManager;
+
 import com.android.documentsui.BaseActivity;
-import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.ui.Snackbars;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputLayout;
 
 /**
  * Dialog to rename file or directory.
@@ -76,12 +73,13 @@ public class RenameDocumentFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Context context = getActivity();
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context);
         LayoutInflater dialogInflater = LayoutInflater.from(builder.getContext());
         View view = dialogInflater.inflate(R.layout.dialog_file_name, null, false);
 
         mEditText = (EditText) view.findViewById(android.R.id.text1);
-        mRenameInputWrapper = (TextInputLayout) view.findViewById(R.id.rename_input_wrapper);
+        mRenameInputWrapper = (TextInputLayout) view.findViewById(R.id.input_wrapper);
+        mRenameInputWrapper.setHint(getString(R.string.input_hint_rename));
         builder.setTitle(R.string.menu_rename);
         builder.setView(view);
         builder.setPositiveButton(android.R.string.ok, null);
@@ -198,7 +196,7 @@ public class RenameDocumentFragment extends DialogFragment {
         } else if (activity.getInjector().getModel().hasFileWithName(newDisplayName)){
             mRenameInputWrapper.setError(getContext().getString(R.string.name_conflict));
             selectFileName(mEditText);
-            Metrics.logRenameFileError(getContext());
+            Metrics.logRenameFileError();
         } else {
             new RenameDocumentsTask(activity, newDisplayName).execute(mDocument);
         }
@@ -229,10 +227,10 @@ public class RenameDocumentFragment extends DialogFragment {
         @Override
         protected void onPostExecute(DocumentInfo result) {
             if (result != null) {
-                Metrics.logRenameFileOperation(getContext());
+                Metrics.logRenameFileOperation();
             } else {
                 Snackbars.showRenameFailed(mActivity);
-                Metrics.logRenameFileError(getContext());
+                Metrics.logRenameFileError();
             }
             if (mDialog != null) {
                 mDialog.dismiss();

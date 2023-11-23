@@ -3,9 +3,8 @@
  * found in the LICENSE file.
  */
 
-#include <iniparser.h>
-
 #include "cras_device_blacklist.h"
+#include "iniparser_wrapper.h"
 #include "utlist.h"
 
 /* Allocate 63 chars + 1 for null where declared. */
@@ -33,7 +32,7 @@ struct cras_device_blacklist *cras_device_blacklist_create(
 	snprintf(ini_name, MAX_INI_NAME_LEN, "%s/%s",
 		 config_path, "device_blacklist");
 	ini_name[MAX_INI_NAME_LEN] = '\0';
-	blacklist->ini = iniparser_load(ini_name);
+	blacklist->ini = iniparser_load_wrapper(ini_name);
 
 	return blacklist;
 }

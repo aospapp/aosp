@@ -114,6 +114,7 @@ private:
         uint32_t usage_lo;
         uint32_t usage_hi;
         uint32_t stride;
+        uint32_t generation;
         uint32_t igbp_id_lo;
         uint32_t igbp_id_hi;
         uint32_t igbp_slot;
@@ -142,8 +143,9 @@ private:
     }
 
 public:
-    void getIgbpData(uint64_t *igbp_id, uint32_t *igbp_slot) const {
+    void getIgbpData(uint32_t *generation, uint64_t *igbp_id, uint32_t *igbp_slot) const {
         const ExtraData *ed = getExtraData(this);
+        *generation = ed->generation;
         *igbp_id = unsigned(ed->igbp_id_lo) | uint64_t(unsigned(ed->igbp_id_hi)) << 32;
         *igbp_slot = ed->igbp_slot;
     }
@@ -157,10 +159,10 @@ public:
         return xd != nullptr && xd->magic == MAGIC;
     }
 
-    static C2HandleGralloc* WrapNativeHandle(
+    static C2HandleGralloc* WrapAndMoveNativeHandle(
             const native_handle_t *const handle,
             uint32_t width, uint32_t height, uint32_t format, uint64_t usage,
-            uint32_t stride, uint64_t igbp_id = 0, uint32_t igbp_slot = 0) {
+            uint32_t stride, uint32_t generation, uint64_t igbp_id = 0, uint32_t igbp_slot = 0) {
         //CHECK(handle != nullptr);
         if (native_handle_is_invalid(handle) ||
             handle->numInts > int((INT_MAX - handle->version) / sizeof(int)) - NUM_INTS - handle->numFds) {
@@ -168,7 +170,8 @@ public:
         }
         ExtraData xd = {
             width, height, format, uint32_t(usage & 0xFFFFFFFF), uint32_t(usage >> 32),
-            stride, uint32_t(igbp_id & 0xFFFFFFFF), uint32_t(igbp_id >> 32), igbp_slot, MAGIC
+            stride, generation, uint32_t(igbp_id & 0xFFFFFFFF), uint32_t(igbp_id >> 32),
+            igbp_slot, MAGIC
         };
         native_handle_t *res = native_handle_create(handle->numFds, handle->numInts + NUM_INTS);
         if (res != nullptr) {
@@ -176,6 +179,26 @@ public:
             *getExtraData(res) = xd;
         }
         return reinterpret_cast<C2HandleGralloc *>(res);
+    }
+
+    static C2HandleGralloc* WrapNativeHandle(
+            const native_handle_t *const handle,
+            uint32_t width, uint32_t height, uint32_t format, uint64_t usage,
+            uint32_t stride, uint32_t generation, uint64_t igbp_id = 0, uint32_t igbp_slot = 0) {
+        if (handle == nullptr) {
+            return nullptr;
+        }
+        native_handle_t *clone = native_handle_clone(handle);
+        if (clone == nullptr) {
+            return nullptr;
+        }
+        C2HandleGralloc *res = WrapAndMoveNativeHandle(
+                clone, width, height, format, usage, stride, generation, igbp_id, igbp_slot);
+        if (res == nullptr) {
+            native_handle_close(clone);
+        }
+        native_handle_delete(clone);
+        return res;
     }
 
     static native_handle_t* UnwrapNativeHandle(
@@ -192,11 +215,13 @@ public:
     }
 
     static native_handle_t* UnwrapNativeHandle(
-            const C2Handle *const handle, uint64_t *igbp_id, uint32_t *igbp_slot) {
+            const C2Handle *const handle,
+            uint32_t *generation, uint64_t *igbp_id, uint32_t *igbp_slot) {
         const ExtraData *xd = getExtraData(handle);
         if (xd == nullptr || xd->magic != MAGIC) {
             return nullptr;
         }
+        *generation = xd->generation;
         *igbp_id = unsigned(xd->igbp_id_lo) | uint64_t(unsigned(xd->igbp_id_hi)) << 32;
         *igbp_slot = xd->igbp_slot;
         native_handle_t *res = native_handle_create(handle->numFds, handle->numInts - NUM_INTS);
@@ -210,7 +235,7 @@ public:
             const C2Handle *const handle,
             uint32_t *width, uint32_t *height, uint32_t *format,
             uint64_t *usage, uint32_t *stride,
-            uint64_t *igbp_id, uint32_t *igbp_slot) {
+            uint32_t *generation, uint64_t *igbp_id, uint32_t *igbp_slot) {
         const ExtraData *xd = getExtraData(handle);
         if (xd == nullptr) {
             return nullptr;
@@ -220,6 +245,7 @@ public:
         *format = xd->format;
         *usage = xd->usage_lo | (uint64_t(xd->usage_hi) << 32);
         *stride = xd->stride;
+        *generation = xd->generation;
         *igbp_id = xd->igbp_id_lo | (uint64_t(xd->igbp_id_hi) << 32);
         *igbp_slot = xd->igbp_slot;
         return reinterpret_cast<const C2HandleGralloc *>(handle);
@@ -231,14 +257,17 @@ native_handle_t *UnwrapNativeCodec2GrallocHandle(const C2Handle *const handle) {
 }
 
 native_handle_t *UnwrapNativeCodec2GrallocHandle(
-        const C2Handle *const handle, uint64_t *igbp_id, uint32_t *igbp_slot) {
-    return C2HandleGralloc::UnwrapNativeHandle(handle, igbp_id, igbp_slot);
+        const C2Handle *const handle,
+        uint32_t *generation, uint64_t *igbp_id, uint32_t *igbp_slot) {
+    return C2HandleGralloc::UnwrapNativeHandle(handle, generation, igbp_id, igbp_slot);
 }
 
 C2Handle *WrapNativeCodec2GrallocHandle(
         const native_handle_t *const handle,
-        uint32_t width, uint32_t height, uint32_t format, uint64_t usage, uint32_t stride, uint64_t igbp_id, uint32_t igbp_slot) {
-    return C2HandleGralloc::WrapNativeHandle(handle, width, height, format, usage, stride, igbp_id, igbp_slot);
+        uint32_t width, uint32_t height, uint32_t format, uint64_t usage, uint32_t stride,
+        uint32_t generation, uint64_t igbp_id, uint32_t igbp_slot) {
+    return C2HandleGralloc::WrapNativeHandle(handle, width, height, format, usage, stride,
+                                             generation, igbp_id, igbp_slot);
 }
 
 class C2AllocationGralloc : public C2GraphicAllocation {
@@ -274,6 +303,7 @@ private:
     const C2HandleGralloc *mLockedHandle;
     bool mLocked;
     C2Allocator::id_t mAllocatorId;
+    std::mutex mMappedLock;
 };
 
 C2AllocationGralloc::C2AllocationGralloc(
@@ -294,17 +324,23 @@ C2AllocationGralloc::C2AllocationGralloc(
 }
 
 C2AllocationGralloc::~C2AllocationGralloc() {
-    if (!mBuffer) {
-        return;
-    }
-    if (mLocked) {
+    if (mBuffer && mLocked) {
         // implementation ignores addresss and rect
         uint8_t* addr[C2PlanarLayout::MAX_NUM_PLANES] = {};
         unmap(addr, C2Rect(), nullptr);
     }
-    mMapper->freeBuffer(const_cast<native_handle_t *>(mBuffer));
-    native_handle_delete(const_cast<native_handle_t*>(
-            reinterpret_cast<const native_handle_t*>(mHandle)));
+    if (mBuffer) {
+        mMapper->freeBuffer(const_cast<native_handle_t *>(mBuffer));
+    }
+    if (mHandle) {
+        native_handle_delete(
+                const_cast<native_handle_t *>(reinterpret_cast<const native_handle_t *>(mHandle)));
+    }
+    if (mLockedHandle) {
+        native_handle_delete(
+                const_cast<native_handle_t *>(
+                        reinterpret_cast<const native_handle_t *>(mLockedHandle)));
+    }
 }
 
 c2_status_t C2AllocationGralloc::map(
@@ -317,6 +353,7 @@ c2_status_t C2AllocationGralloc::map(
     // TODO
     (void) fence;
 
+    std::lock_guard<std::mutex> lock(mMappedLock);
     if (mBuffer && mLocked) {
         ALOGD("already mapped");
         return C2_DUPLICATE;
@@ -343,17 +380,26 @@ c2_status_t C2AllocationGralloc::map(
             ALOGD("importBuffer returned null buffer");
             return C2_CORRUPTED;
         }
+        uint32_t generation = 0;
         uint64_t igbp_id = 0;
         uint32_t igbp_slot = 0;
         if (mHandle) {
-            mHandle->getIgbpData(&igbp_id, &igbp_slot);
+            mHandle->getIgbpData(&generation, &igbp_id, &igbp_slot);
         }
-        mLockedHandle = C2HandleGralloc::WrapNativeHandle(
+        mLockedHandle = C2HandleGralloc::WrapAndMoveNativeHandle(
                 mBuffer, mInfo.mapperInfo.width, mInfo.mapperInfo.height,
-                (uint32_t)mInfo.mapperInfo.format, mInfo.mapperInfo.usage, mInfo.stride, igbp_id, igbp_slot);
+                (uint32_t)mInfo.mapperInfo.format, mInfo.mapperInfo.usage, mInfo.stride,
+                generation, igbp_id, igbp_slot);
     }
 
-    switch (mInfo.mapperInfo.format) {
+    // UGLY HACK: assume YCbCr 4:2:0 8-bit format (and lockable via lockYCbCr) if we don't
+    // recognize the format
+    PixelFormat format = mInfo.mapperInfo.format;
+    if (format != PixelFormat::RGBA_8888 && format != PixelFormat::RGBX_8888) {
+        format = PixelFormat::YCBCR_420_888;
+    }
+
+    switch (format) {
         case PixelFormat::YCBCR_420_888:
         case PixelFormat::YV12: {
             YCbCrLayout ycbcrLayout;
@@ -514,6 +560,8 @@ c2_status_t C2AllocationGralloc::unmap(
     // TODO: check addr and size, use fence
     (void)addr;
     (void)rect;
+
+    std::lock_guard<std::mutex> lock(mMappedLock);
     c2_status_t err = C2_OK;
     mMapper->unlock(
             const_cast<native_handle_t *>(mBuffer),
@@ -574,8 +622,9 @@ private:
 void _UnwrapNativeCodec2GrallocMetadata(
         const C2Handle *const handle,
         uint32_t *width, uint32_t *height, uint32_t *format,uint64_t *usage, uint32_t *stride,
-        uint64_t *igbp_id, uint32_t *igbp_slot) {
-    (void)C2HandleGralloc::Import(handle, width, height, format, usage, stride, igbp_id, igbp_slot);
+        uint32_t *generation, uint64_t *igbp_id, uint32_t *igbp_slot) {
+    (void)C2HandleGralloc::Import(handle, width, height, format, usage, stride,
+                                  generation, igbp_id, igbp_slot);
 }
 
 C2AllocatorGralloc::Impl::Impl(id_t id, bool bufferQueue)
@@ -638,7 +687,7 @@ c2_status_t C2AllocatorGralloc::Impl::newGraphicAllocation(
                     return;
                 }
                 info.stride = stride;
-                buffer = std::move(buffers[0]);
+                buffer = buffers[0];
             });
     if (err != C2_OK) {
         return err;
@@ -647,11 +696,11 @@ c2_status_t C2AllocatorGralloc::Impl::newGraphicAllocation(
 
     allocation->reset(new C2AllocationGralloc(
             info, mMapper, buffer,
-            C2HandleGralloc::WrapNativeHandle(
+            C2HandleGralloc::WrapAndMoveNativeHandle(
                     buffer.getNativeHandle(),
                     info.mapperInfo.width, info.mapperInfo.height,
                     (uint32_t)info.mapperInfo.format, info.mapperInfo.usage, info.stride,
-                    0, mBufferQueue ? ~0 : 0),
+                    0, 0, mBufferQueue ? ~0 : 0),
             mTraits->id));
     return C2_OK;
 }
@@ -661,13 +710,14 @@ c2_status_t C2AllocatorGralloc::Impl::priorGraphicAllocation(
         std::shared_ptr<C2GraphicAllocation> *allocation) {
     BufferDescriptorInfo info;
     info.mapperInfo.layerCount = 1u;
+    uint32_t generation;
     uint64_t igbp_id;
     uint32_t igbp_slot;
     const C2HandleGralloc *grallocHandle = C2HandleGralloc::Import(
             handle,
             &info.mapperInfo.width, &info.mapperInfo.height,
             (uint32_t *)&info.mapperInfo.format, (uint64_t *)&info.mapperInfo.usage, &info.stride,
-            &igbp_id, &igbp_slot);
+            &generation, &igbp_id, &igbp_slot);
     if (grallocHandle == nullptr) {
         return C2_BAD_VALUE;
     }

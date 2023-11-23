@@ -62,7 +62,7 @@ struct SsidBuilder {
   void add_ssid(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> ssid) {
     fbb_.AddOffset(Ssid::VT_SSID, ssid);
   }
-  SsidBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit SsidBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   SsidBuilder &operator=(const SsidBuilder &);
@@ -113,7 +113,7 @@ struct PreferredNetworkBuilder {
     fbb_.AddElement<uint8_t>(PreferredNetwork::VT_SECURITY_MODES,
                              security_modes, 0);
   }
-  PreferredNetworkBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit PreferredNetworkBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   PreferredNetworkBuilder &operator=(const PreferredNetworkBuilder &);
@@ -195,7 +195,7 @@ struct ScanResultBuilder {
   void add_tsf(uint64_t tsf) {
     fbb_.AddElement<uint64_t>(ScanResult::VT_TSF, tsf, 0);
   }
-  ScanResultBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanResultBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanResultBuilder &operator=(const ScanResultBuilder &);
@@ -258,7 +258,7 @@ struct ScanResultMessageBuilder {
           scan_results) {
     fbb_.AddOffset(ScanResultMessage::VT_SCAN_RESULTS, scan_results);
   }
-  ScanResultMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanResultMessageBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanResultMessageBuilder &operator=(const ScanResultMessageBuilder &);
@@ -339,7 +339,7 @@ struct ScanParamsBuilder {
     fbb_.AddElement<uint32_t>(ScanParams::VT_DISCONNECTED_MODE_SCAN_INTERVAL_MS,
                               disconnected_mode_scan_interval_ms, 0);
   }
-  ScanParamsBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanParamsBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanParamsBuilder &operator=(const ScanParamsBuilder &);
@@ -415,7 +415,7 @@ struct ScanFilterBuilder {
     fbb_.AddElement<int8_t>(ScanFilter::VT_MIN_RSSI_THRESHOLD_DBM,
                             min_rssi_threshold_dbm, 0);
   }
-  ScanFilterBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanFilterBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanFilterBuilder &operator=(const ScanFilterBuilder &);
@@ -478,7 +478,7 @@ struct ScanConfigBuilder {
   void add_scan_filter(flatbuffers::Offset<ScanFilter> scan_filter) {
     fbb_.AddOffset(ScanConfig::VT_SCAN_FILTER, scan_filter);
   }
-  ScanConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanConfigBuilder &operator=(const ScanConfigBuilder &);
@@ -538,7 +538,7 @@ struct ScanRecordBuilder {
     fbb_.AddElement<uint32_t>(ScanRecord::VT_NUM_ENTRIES_AGGREGATED,
                               num_entries_aggregated, 0);
   }
-  ScanRecordBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanRecordBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanRecordBuilder &operator=(const ScanRecordBuilder &);
@@ -583,7 +583,7 @@ struct RpcLogRecordBuilder {
     fbb_.AddElement<uint32_t>(RpcLogRecord::VT_TIMESTAMP_CHRE_MS,
                               timestamp_chre_ms, 0);
   }
-  RpcLogRecordBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit RpcLogRecordBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   RpcLogRecordBuilder &operator=(const RpcLogRecordBuilder &);
@@ -715,7 +715,7 @@ struct ScanStatsBuilder {
           rpc_log_records) {
     fbb_.AddOffset(ScanStats::VT_RPC_LOG_RECORDS, rpc_log_records);
   }
-  ScanStatsBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
+  explicit ScanStatsBuilder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
   ScanStatsBuilder &operator=(const ScanStatsBuilder &);

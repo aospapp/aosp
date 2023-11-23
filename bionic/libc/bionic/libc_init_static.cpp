@@ -39,11 +39,23 @@
 #include "libc_init_common.h"
 #include "pthread_internal.h"
 
+#include "private/bionic_elf_tls.h"
 #include "private/bionic_globals.h"
 #include "private/bionic_macros.h"
 #include "private/bionic_page.h"
 #include "private/bionic_tls.h"
 #include "private/KernelArgumentBlock.h"
+
+#if __has_feature(hwaddress_sanitizer)
+#include <sanitizer/hwasan_interface.h>
+#endif
+
+// Leave the variable uninitialized for the sake of the dynamic loader, which
+// links in this file. The loader will initialize this variable before
+// relocating itself.
+#if defined(__i386__)
+__LIBC_HIDDEN__ void* __libc_sysinfo;
+#endif
 
 extern "C" int __cxa_atexit(void (*)(void *), void *, void *);
 
@@ -53,6 +65,52 @@ static void call_array(void(**list)()) {
     (*list)();
   }
 }
+
+#if defined(__aarch64__) || defined(__x86_64__)
+extern __LIBC_HIDDEN__ __attribute__((weak)) ElfW(Rela) __rela_iplt_start[], __rela_iplt_end[];
+
+static void call_ifunc_resolvers() {
+  if (__rela_iplt_start == nullptr || __rela_iplt_end == nullptr) {
+    // These symbols are not emitted by gold. Gold has code to do so, but for
+    // whatever reason it is not being run. In these cases ifuncs cannot be
+    // resolved, so we do not support using ifuncs in static executables linked
+    // with gold.
+    //
+    // Since they are weak, they will be non-null when linked with bfd/lld and
+    // null when linked with gold.
+    return;
+  }
+
+  typedef ElfW(Addr) (*ifunc_resolver_t)(void);
+  for (ElfW(Rela) *r = __rela_iplt_start; r != __rela_iplt_end; ++r) {
+    ElfW(Addr)* offset = reinterpret_cast<ElfW(Addr)*>(r->r_offset);
+    ElfW(Addr) resolver = r->r_addend;
+    *offset = reinterpret_cast<ifunc_resolver_t>(resolver)();
+  }
+}
+#else
+extern __LIBC_HIDDEN__ __attribute__((weak)) ElfW(Rel) __rel_iplt_start[], __rel_iplt_end[];
+
+static void call_ifunc_resolvers() {
+  if (__rel_iplt_start == nullptr || __rel_iplt_end == nullptr) {
+    // These symbols are not emitted by gold. Gold has code to do so, but for
+    // whatever reason it is not being run. In these cases ifuncs cannot be
+    // resolved, so we do not support using ifuncs in static executables linked
+    // with gold.
+    //
+    // Since they are weak, they will be non-null when linked with bfd/lld and
+    // null when linked with gold.
+    return;
+  }
+
+  typedef ElfW(Addr) (*ifunc_resolver_t)(void);
+  for (ElfW(Rel) *r = __rel_iplt_start; r != __rel_iplt_end; ++r) {
+    ElfW(Addr)* offset = reinterpret_cast<ElfW(Addr)*>(r->r_offset);
+    ElfW(Addr) resolver = *offset;
+    *offset = reinterpret_cast<ifunc_resolver_t>(resolver)();
+  }
+}
+#endif
 
 static void apply_gnu_relro() {
   ElfW(Phdr)* phdr_start = reinterpret_cast<ElfW(Phdr)*>(getauxval(AT_PHDR));
@@ -71,6 +129,35 @@ static void apply_gnu_relro() {
   }
 }
 
+static void layout_static_tls(KernelArgumentBlock& args) {
+  StaticTlsLayout& layout = __libc_shared_globals()->static_tls_layout;
+  layout.reserve_bionic_tls();
+
+  const char* progname = args.argv[0];
+  ElfW(Phdr)* phdr_start = reinterpret_cast<ElfW(Phdr)*>(getauxval(AT_PHDR));
+  size_t phdr_ct = getauxval(AT_PHNUM);
+
+  static TlsModule mod;
+  TlsModules& modules = __libc_shared_globals()->tls_modules;
+  if (__bionic_get_tls_segment(phdr_start, phdr_ct, 0, &mod.segment)) {
+    if (!__bionic_check_tls_alignment(&mod.segment.alignment)) {
+      async_safe_fatal("error: TLS segment alignment in \"%s\" is not a power of 2: %zu\n",
+                       progname, mod.segment.alignment);
+    }
+    mod.static_offset = layout.reserve_exe_segment_and_tcb(&mod.segment, progname);
+    mod.first_generation = kTlsGenerationFirst;
+
+    modules.module_count = 1;
+    modules.module_table = &mod;
+  } else {
+    layout.reserve_exe_segment_and_tcb(nullptr, progname);
+  }
+  // Enable the fast path in __tls_get_addr.
+  __libc_tls_generation_copy = modules.generation;
+
+  layout.finish_layout();
+}
+
 // The program startup function __libc_init() defined here is
 // used for static executables only (i.e. those that don't depend
 // on shared libraries). It is called from arch-$ARCH/bionic/crtbegin_static.S
@@ -78,23 +165,25 @@ static void apply_gnu_relro() {
 //
 // The 'structors' parameter contains pointers to various initializer
 // arrays that must be run before the program's 'main' routine is launched.
-
-__noreturn void __libc_init(void* raw_args,
-                            void (*onexit)(void) __unused,
-                            int (*slingshot)(int, char**, char**),
-                            structors_array_t const * const structors) {
+__noreturn static void __real_libc_init(void *raw_args,
+                                        void (*onexit)(void) __unused,
+                                        int (*slingshot)(int, char**, char**),
+                                        structors_array_t const * const structors,
+                                        bionic_tcb* temp_tcb) {
   BIONIC_STOP_UNWIND;
 
+  // Initialize TLS early so system calls and errno work.
   KernelArgumentBlock args(raw_args);
-  __libc_init_main_thread(args);
+  __libc_init_main_thread_early(args, temp_tcb);
+  __libc_init_main_thread_late();
+  __libc_init_globals();
+  __libc_shared_globals()->init_progname = args.argv[0];
+  __libc_init_AT_SECURE(args.envp);
+  layout_static_tls(args);
+  __libc_init_main_thread_final();
+  __libc_init_common();
 
-  // Initializing the globals requires TLS to be available for errno.
-  __init_thread_stack_guard(__get_thread());
-  __libc_init_globals(args);
-
-  __libc_init_AT_SECURE(args);
-  __libc_init_common(args);
-
+  call_ifunc_resolvers();
   apply_gnu_relro();
 
   // Several Linux ABIs don't pass the onexit pointer, and the ones that
@@ -106,13 +195,44 @@ __noreturn void __libc_init(void* raw_args,
   // The executable may have its own destructors listed in its .fini_array
   // so we need to ensure that these are called when the program exits
   // normally.
-  if (structors->fini_array != NULL) {
-    __cxa_atexit(__libc_fini,structors->fini_array,NULL);
+  if (structors->fini_array != nullptr) {
+    __cxa_atexit(__libc_fini,structors->fini_array,nullptr);
   }
 
   exit(slingshot(args.argc, args.argv, args.envp));
 }
 
-uint32_t bionic_get_application_target_sdk_version() {
-  return __ANDROID_API__;
+extern "C" void __hwasan_init_static();
+
+__attribute__((no_sanitize("hwaddress")))
+__noreturn void __libc_init(void* raw_args,
+                            void (*onexit)(void) __unused,
+                            int (*slingshot)(int, char**, char**),
+                            structors_array_t const * const structors) {
+  bionic_tcb temp_tcb = {};
+#if __has_feature(hwaddress_sanitizer)
+  // Install main thread TLS early. It will be initialized later in __libc_init_main_thread. For now
+  // all we need is access to TLS_SLOT_SANITIZER.
+  __set_tls(&temp_tcb.tls_slot(0));
+  // Initialize HWASan enough to run instrumented code. This sets up TLS_SLOT_SANITIZER, among other
+  // things.
+  __hwasan_init_static();
+  // We are ready to run HWASan-instrumented code, proceed with libc initialization...
+#endif
+  __real_libc_init(raw_args, onexit, slingshot, structors, &temp_tcb);
+}
+
+static int g_target_sdk_version{__ANDROID_API__};
+
+extern "C" int android_get_application_target_sdk_version() {
+  return g_target_sdk_version;
+}
+
+extern "C" void android_set_application_target_sdk_version(int target) {
+  g_target_sdk_version = target;
+}
+
+__LIBC_HIDDEN__ libc_shared_globals* __libc_shared_globals() {
+  static libc_shared_globals globals;
+  return &globals;
 }

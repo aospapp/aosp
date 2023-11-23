@@ -16,6 +16,8 @@
 
 #include "update_engine/hardware_chromeos.h"
 
+#include <utility>
+
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
@@ -59,8 +61,12 @@ const char kPowerwashCountMarker[] = "powerwash_count";
 const char kPowerwashMarkerFile[] =
     "/mnt/stateful_partition/factory_install_reset";
 
-// The contents of the powerwash marker file.
+// The contents of the powerwash marker file for the non-rollback case.
 const char kPowerwashCommand[] = "safe fast keepimg reason=update_engine\n";
+
+// The contents of the powerwas marker file for the rollback case.
+const char kRollbackPowerwashCommand[] =
+    "safe fast keepimg rollback reason=update_engine\n";
 
 // UpdateManager config path.
 const char* kConfigFilePath = "/etc/update_manager.conf";
@@ -129,8 +135,7 @@ bool HardwareChromeOS::IsOOBEComplete(base::Time* out_time_of_oobe) const {
   struct stat statbuf;
   if (stat(kOOBECompletedMarker, &statbuf) != 0) {
     if (errno != ENOENT) {
-      PLOG(ERROR) << "Error getting information about "
-                  << kOOBECompletedMarker;
+      PLOG(ERROR) << "Error getting information about " << kOOBECompletedMarker;
     }
     return false;
   }
@@ -143,8 +148,8 @@ bool HardwareChromeOS::IsOOBEComplete(base::Time* out_time_of_oobe) const {
 static string ReadValueFromCrosSystem(const string& key) {
   char value_buffer[VB_MAX_STRING_PROPERTY];
 
-  const char* rv = VbGetSystemPropertyString(key.c_str(), value_buffer,
-                                             sizeof(value_buffer));
+  const char* rv = VbGetSystemPropertyString(
+      key.c_str(), value_buffer, sizeof(value_buffer));
   if (rv != nullptr) {
     string return_value(value_buffer);
     base::TrimWhitespaceASCII(return_value, base::TRIM_ALL, &return_value);
@@ -180,10 +185,38 @@ string HardwareChromeOS::GetECVersion() const {
   return utils::ParseECVersion(input_line);
 }
 
+int HardwareChromeOS::GetMinKernelKeyVersion() const {
+  return VbGetSystemPropertyInt("tpm_kernver");
+}
+
+int HardwareChromeOS::GetMaxFirmwareKeyRollforward() const {
+  return VbGetSystemPropertyInt("firmware_max_rollforward");
+}
+
+bool HardwareChromeOS::SetMaxFirmwareKeyRollforward(
+    int firmware_max_rollforward) {
+  // Not all devices have this field yet. So first try to read
+  // it and if there is an error just fail.
+  if (GetMaxFirmwareKeyRollforward() == -1)
+    return false;
+
+  return VbSetSystemPropertyInt("firmware_max_rollforward",
+                                firmware_max_rollforward) == 0;
+}
+
+int HardwareChromeOS::GetMinFirmwareKeyVersion() const {
+  return VbGetSystemPropertyInt("tpm_fwver");
+}
+
+bool HardwareChromeOS::SetMaxKernelKeyRollforward(int kernel_max_rollforward) {
+  return VbSetSystemPropertyInt("kernel_max_rollforward",
+                                kernel_max_rollforward) == 0;
+}
+
 int HardwareChromeOS::GetPowerwashCount() const {
   int powerwash_count;
-  base::FilePath marker_path = base::FilePath(kPowerwashSafeDirectory).Append(
-      kPowerwashCountMarker);
+  base::FilePath marker_path =
+      base::FilePath(kPowerwashSafeDirectory).Append(kPowerwashCountMarker);
   string contents;
   if (!utils::ReadFile(marker_path.value(), &contents))
     return -1;
@@ -193,12 +226,15 @@ int HardwareChromeOS::GetPowerwashCount() const {
   return powerwash_count;
 }
 
-bool HardwareChromeOS::SchedulePowerwash() {
+bool HardwareChromeOS::SchedulePowerwash(bool is_rollback) {
+  const char* powerwash_command =
+      is_rollback ? kRollbackPowerwashCommand : kPowerwashCommand;
   bool result = utils::WriteFile(
-      kPowerwashMarkerFile, kPowerwashCommand, strlen(kPowerwashCommand));
+      kPowerwashMarkerFile, powerwash_command, strlen(powerwash_command));
   if (result) {
     LOG(INFO) << "Created " << kPowerwashMarkerFile
-              << " to powerwash on next reboot";
+              << " to powerwash on next reboot (is_rollback=" << is_rollback
+              << ")";
   } else {
     PLOG(ERROR) << "Error in creating powerwash marker file: "
                 << kPowerwashMarkerFile;
@@ -257,7 +293,7 @@ void HardwareChromeOS::LoadConfig(const string& root_prefix, bool normal_mode) {
 bool HardwareChromeOS::GetFirstActiveOmahaPingSent() const {
   int exit_code = 0;
   string active_ping_str;
-  vector<string> cmd = { "vpd_get_value", kActivePingKey };
+  vector<string> cmd = {"vpd_get_value", kActivePingKey};
   if (!Subprocess::SynchronousExec(cmd, &exit_code, &active_ping_str) ||
       exit_code) {
     LOG(ERROR) << "Failed to get vpd key for " << kActivePingKey
@@ -265,9 +301,7 @@ bool HardwareChromeOS::GetFirstActiveOmahaPingSent() const {
     return false;
   }
 
-  base::TrimWhitespaceASCII(active_ping_str,
-                            base::TRIM_ALL,
-                            &active_ping_str);
+  base::TrimWhitespaceASCII(active_ping_str, base::TRIM_ALL, &active_ping_str);
   int active_ping;
   if (active_ping_str.empty() ||
       !base::StringToInt(active_ping_str, &active_ping)) {
@@ -277,26 +311,26 @@ bool HardwareChromeOS::GetFirstActiveOmahaPingSent() const {
   return static_cast<bool>(active_ping);
 }
 
-void HardwareChromeOS::SetFirstActiveOmahaPingSent() {
+bool HardwareChromeOS::SetFirstActiveOmahaPingSent() {
   int exit_code = 0;
   string output;
   vector<string> vpd_set_cmd = {
-    "vpd", "-i", "RW_VPD", "-s", string(kActivePingKey) + "=1" };
+      "vpd", "-i", "RW_VPD", "-s", string(kActivePingKey) + "=1"};
   if (!Subprocess::SynchronousExec(vpd_set_cmd, &exit_code, &output) ||
       exit_code) {
     LOG(ERROR) << "Failed to set vpd key for " << kActivePingKey
-               << " with exit code: " << exit_code
-               << " with error: " << output;
-    return;
+               << " with exit code: " << exit_code << " with error: " << output;
+    return false;
   }
 
-  vector<string> vpd_dump_cmd = { "dump_vpd_log", "--force" };
+  vector<string> vpd_dump_cmd = {"dump_vpd_log", "--force"};
   if (!Subprocess::SynchronousExec(vpd_dump_cmd, &exit_code, &output) ||
       exit_code) {
-    LOG(ERROR) << "Failed to cache " << kActivePingKey<< " using dump_vpd_log"
-               << " with exit code: " << exit_code
-               << " with error: " << output;
+    LOG(ERROR) << "Failed to cache " << kActivePingKey << " using dump_vpd_log"
+               << " with exit code: " << exit_code << " with error: " << output;
+    return false;
   }
+  return true;
 }
 
 }  // namespace chromeos_update_engine

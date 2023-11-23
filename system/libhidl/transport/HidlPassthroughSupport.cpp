@@ -16,6 +16,8 @@
 
 #include <hidl/HidlPassthroughSupport.h>
 
+#include <InternalStatic.h>  // TODO(b/69122224): remove this include, for tryWrap
+
 #include <hidl/HidlTransportUtils.h>
 #include <hidl/Static.h>
 
@@ -28,7 +30,8 @@ namespace details {
 static sp<IBase> tryWrap(const std::string& descriptor, sp<IBase> iface) {
     auto func = getBsConstructorMap().get(descriptor, nullptr);
     if (!func) {
-        func = gBsConstructorMap.get(descriptor, nullptr);
+        // TODO(b/69122224): remove this when prebuilts don't reference it
+        func = gBsConstructorMap->get(descriptor, nullptr);
     }
     if (func) {
         return func(static_cast<void*>(iface.get()));

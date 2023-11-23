@@ -44,6 +44,13 @@ using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
+using android::vintf::Arch;
+using android::vintf::CompatibilityMatrix;
+using android::vintf::gCompatibilityMatrixConverter;
+using android::vintf::gHalManifestConverter;
+using android::vintf::HalManifest;
+using android::vintf::Transport;
+using android::vintf::VintfObject;
 
 using InstanceDebugInfo = IServiceManager::InstanceDebugInfo;
 
@@ -184,7 +191,7 @@ public:
 // expose protected fields and methods for ListCommand
 class MockListCommand : public ListCommand {
 public:
-    MockListCommand(Lshal* lshal) : ListCommand(*lshal) {}
+    explicit MockListCommand(Lshal* lshal) : ListCommand(*lshal) {}
 
     Status parseArgs(const Arg& arg) { return ListCommand::parseArgs(arg); }
     Status main(const Arg& arg) { return ListCommand::main(arg); }
@@ -207,6 +214,11 @@ public:
     MOCK_CONST_METHOD2(getPidInfo, bool(pid_t, PidInfo*));
     MOCK_CONST_METHOD1(parseCmdline, std::string(pid_t));
     MOCK_METHOD1(getPartition, Partition(pid_t));
+
+    MOCK_CONST_METHOD0(getDeviceManifest, std::shared_ptr<const vintf::HalManifest>());
+    MOCK_CONST_METHOD0(getDeviceMatrix, std::shared_ptr<const vintf::CompatibilityMatrix>());
+    MOCK_CONST_METHOD0(getFrameworkManifest, std::shared_ptr<const vintf::HalManifest>());
+    MOCK_CONST_METHOD0(getFrameworkMatrix, std::shared_ptr<const vintf::CompatibilityMatrix>());
 };
 
 class ListParseArgsTest : public ::testing::Test {
@@ -214,12 +226,13 @@ public:
     void SetUp() override {
         mockLshal = std::make_unique<NiceMock<MockLshal>>();
         mockList = std::make_unique<MockListCommand>(mockLshal.get());
+        ON_CALL(*mockLshal, err()).WillByDefault(Return(NullableOStream<std::ostream>(err)));
         // ListCommand::parseArgs should parse arguments from the second element
         optind = 1;
     }
     std::unique_ptr<MockLshal> mockLshal;
     std::unique_ptr<MockListCommand> mockList;
-    std::stringstream output;
+    std::stringstream err;
 };
 
 TEST_F(ListParseArgsTest, Args) {
@@ -229,6 +242,7 @@ TEST_F(ListParseArgsTest, Args) {
                                    TableColumnType::SERVER_ADDR, TableColumnType::CLIENT_PIDS}),
                   table.getSelectedColumns());
     });
+    EXPECT_EQ("", err.str());
 }
 
 TEST_F(ListParseArgsTest, Cmds) {
@@ -243,12 +257,12 @@ TEST_F(ListParseArgsTest, Cmds) {
         EXPECT_THAT(table.getSelectedColumns(), Contains(TableColumnType::CLIENT_CMDS))
                 << "should print client cmds with -m";
     });
+    EXPECT_EQ("", err.str());
 }
 
 TEST_F(ListParseArgsTest, DebugAndNeat) {
-    ON_CALL(*mockLshal, err()).WillByDefault(Return(NullableOStream<std::ostream>(output)));
     EXPECT_NE(0u, mockList->parseArgs(createArg({"lshal", "--neat", "-d"})));
-    EXPECT_THAT(output.str(), StrNe(""));
+    EXPECT_THAT(err.str(), HasSubstr("--neat should not be used with --debug."));
 }
 
 /// Fetch Test
@@ -294,7 +308,7 @@ static hidl_hash getHashFromId(pid_t serverId) {
 // Fake service returned by mocked IServiceManager::get.
 class TestService : public IBase {
 public:
-    TestService(pid_t id) : mId(id) {}
+    explicit TestService(pid_t id) : mId(id) {}
     hardware::Return<void> getDebugInfo(getDebugInfo_cb cb) override {
         cb({ mId /* pid */, getPtr(mId), DebugInfo::Architecture::IS_64BIT });
         return hardware::Void();
@@ -313,7 +327,7 @@ private:
 
 class ListTest : public ::testing::Test {
 public:
-    void SetUp() override {
+    virtual void SetUp() override {
         initMockServiceManager();
         lshal = std::make_unique<Lshal>(out, err, serviceManager, passthruManager);
         initMockList();
@@ -335,6 +349,15 @@ public:
             });
         }));
         ON_CALL(*mockList, getPartition(_)).WillByDefault(Return(Partition::VENDOR));
+
+        ON_CALL(*mockList, getDeviceManifest())
+                .WillByDefault(Return(std::make_shared<HalManifest>()));
+        ON_CALL(*mockList, getDeviceMatrix())
+                .WillByDefault(Return(std::make_shared<CompatibilityMatrix>()));
+        ON_CALL(*mockList, getFrameworkManifest())
+                .WillByDefault(Return(std::make_shared<HalManifest>()));
+        ON_CALL(*mockList, getFrameworkMatrix())
+                .WillByDefault(Return(std::make_shared<CompatibilityMatrix>()));
     }
 
     void initMockServiceManager() {
@@ -388,92 +411,76 @@ TEST_F(ListTest, GetPidInfoCached) {
 }
 
 TEST_F(ListTest, Fetch) {
-    EXPECT_EQ(0u, mockList->fetch());
-    std::array<std::string, 6> transports{{"hwbinder", "hwbinder", "passthrough",
-                                          "passthrough", "passthrough", "passthrough"}};
-    std::array<Architecture, 6> archs{{ARCH64, ARCH64, ARCH32, ARCH32, ARCH32, ARCH32}};
-    int id = 1;
+    optind = 1; // mimic Lshal::parseArg()
+    ASSERT_EQ(0u, mockList->parseArgs(createArg({"lshal"})));
+    ASSERT_EQ(0u, mockList->fetch());
+    vintf::TransportArch hwbinder{Transport::HWBINDER, Arch::ARCH_64};
+    vintf::TransportArch passthrough{Transport::PASSTHROUGH, Arch::ARCH_32};
+    std::array<vintf::TransportArch, 6> transportArchs{{hwbinder, hwbinder, passthrough,
+                                                        passthrough, passthrough, passthrough}};
+    int i = 0;
     mockList->forEachTable([&](const Table& table) {
-        ASSERT_EQ(2u, table.size());
         for (const auto& entry : table) {
-            const auto& transport = transports[id - 1];
+            if (i >= transportArchs.size()) {
+                break;
+            }
+
+            int id = i + 1;
+            auto transport = transportArchs.at(i).transport;
             TableEntry expected{
                 .interfaceName = getFqInstanceName(id),
                 .transport = transport,
-                .serverPid = transport == "hwbinder" ? id : NO_PID,
-                .threadUsage = transport == "hwbinder" ? getPidInfoFromId(id).threadUsage : 0,
-                .threadCount = transport == "hwbinder" ? getPidInfoFromId(id).threadCount : 0,
+                .serverPid = transport == Transport::HWBINDER ? id : NO_PID,
+                .threadUsage =
+                        transport == Transport::HWBINDER ? getPidInfoFromId(id).threadUsage : 0,
+                .threadCount =
+                        transport == Transport::HWBINDER ? getPidInfoFromId(id).threadCount : 0,
                 .serverCmdline = {},
-                .serverObjectAddress = transport == "hwbinder" ? getPtr(id) : NO_PTR,
+                .serverObjectAddress = transport == Transport::HWBINDER ? getPtr(id) : NO_PTR,
                 .clientPids = getClients(id),
                 .clientCmdlines = {},
-                .arch = archs[id - 1],
+                .arch = transportArchs.at(i).arch,
             };
             EXPECT_EQ(expected, entry) << expected.to_string() << " vs. " << entry.to_string();
 
-            ++id;
+            ++i;
         }
     });
+
+    EXPECT_EQ(transportArchs.size(), i) << "Not all entries are tested.";
 
 }
 
 TEST_F(ListTest, DumpVintf) {
-    const std::string expected =
-        "<!-- \n"
-        "    This is a skeleton device manifest. Notes: \n" + ListCommand::INIT_VINTF_NOTES +
-        "-->\n"
-        "<manifest version=\"1.0\" type=\"device\">\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo1</name>\n"
-        "        <transport>hwbinder</transport>\n"
-        "        <version>1.0</version>\n"
-        "        <interface>\n"
-        "            <name>IFoo</name>\n"
-        "            <instance>1</instance>\n"
-        "        </interface>\n"
-        "    </hal>\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo2</name>\n"
-        "        <transport>hwbinder</transport>\n"
-        "        <version>2.0</version>\n"
-        "        <interface>\n"
-        "            <name>IFoo</name>\n"
-        "            <instance>2</instance>\n"
-        "        </interface>\n"
-        "    </hal>\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo3</name>\n"
-        "        <transport arch=\"32\">passthrough</transport>\n"
-        "        <version>3.0</version>\n"
-        "        <interface>\n"
-        "            <name>IFoo</name>\n"
-        "            <instance>3</instance>\n"
-        "        </interface>\n"
-        "    </hal>\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo4</name>\n"
-        "        <transport arch=\"32\">passthrough</transport>\n"
-        "        <version>4.0</version>\n"
-        "        <interface>\n"
-        "            <name>IFoo</name>\n"
-        "            <instance>4</instance>\n"
-        "        </interface>\n"
-        "    </hal>\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo5</name>\n"
-        "        <transport arch=\"32\">passthrough</transport>\n"
-        "        <version>5.0</version>\n"
-        "    </hal>\n"
-        "    <hal format=\"hidl\">\n"
-        "        <name>a.h.foo6</name>\n"
-        "        <transport arch=\"32\">passthrough</transport>\n"
-        "        <version>6.0</version>\n"
-        "    </hal>\n"
-        "</manifest>\n";
+    const std::string expected = "<manifest version=\"1.0\" type=\"device\">\n"
+                                 "    <hal format=\"hidl\">\n"
+                                 "        <name>a.h.foo1</name>\n"
+                                 "        <transport>hwbinder</transport>\n"
+                                 "        <fqname>@1.0::IFoo/1</fqname>\n"
+                                 "    </hal>\n"
+                                 "    <hal format=\"hidl\">\n"
+                                 "        <name>a.h.foo2</name>\n"
+                                 "        <transport>hwbinder</transport>\n"
+                                 "        <fqname>@2.0::IFoo/2</fqname>\n"
+                                 "    </hal>\n"
+                                 "    <hal format=\"hidl\">\n"
+                                 "        <name>a.h.foo3</name>\n"
+                                 "        <transport arch=\"32\">passthrough</transport>\n"
+                                 "        <fqname>@3.0::IFoo/3</fqname>\n"
+                                 "    </hal>\n"
+                                 "    <hal format=\"hidl\">\n"
+                                 "        <name>a.h.foo4</name>\n"
+                                 "        <transport arch=\"32\">passthrough</transport>\n"
+                                 "        <fqname>@4.0::IFoo/4</fqname>\n"
+                                 "    </hal>\n"
+                                 "</manifest>";
 
     optind = 1; // mimic Lshal::parseArg()
     EXPECT_EQ(0u, mockList->main(createArg({"lshal", "--init-vintf"})));
-    EXPECT_EQ(expected, out.str());
+    auto output = out.str();
+    EXPECT_THAT(output, HasSubstr(expected));
+    EXPECT_THAT(output, HasSubstr("a.h.foo5@5.0::IFoo/5"));
+    EXPECT_THAT(output, HasSubstr("a.h.foo6@6.0::IFoo/6"));
     EXPECT_EQ("", err.str());
 
     vintf::HalManifest m;
@@ -487,18 +494,18 @@ TEST_F(ListTest, DumpDefault) {
     const std::string expected =
         "[fake description 0]\n"
         "R Interface            Thread Use Server Clients\n"
-        "  a.h.foo1@1.0::IFoo/1 11/21      1      2 4\n"
+        "N a.h.foo1@1.0::IFoo/1 11/21      1      2 4\n"
         "Y a.h.foo2@2.0::IFoo/2 12/22      2      3 5\n"
         "\n"
         "[fake description 1]\n"
         "R Interface            Thread Use Server Clients\n"
-        "  a.h.foo3@3.0::IFoo/3 N/A        N/A    4 6\n"
-        "  a.h.foo4@4.0::IFoo/4 N/A        N/A    5 7\n"
+        "? a.h.foo3@3.0::IFoo/3 N/A        N/A    4 6\n"
+        "? a.h.foo4@4.0::IFoo/4 N/A        N/A    5 7\n"
         "\n"
         "[fake description 2]\n"
         "R Interface            Thread Use Server Clients\n"
-        "  a.h.foo5@5.0::IFoo/5 N/A        N/A    6 8\n"
-        "  a.h.foo6@6.0::IFoo/6 N/A        N/A    7 9\n"
+        "? a.h.foo5@5.0::IFoo/5 N/A        N/A    6 8\n"
+        "? a.h.foo6@6.0::IFoo/6 N/A        N/A    7 9\n"
         "\n";
 
     optind = 1; // mimic Lshal::parseArg()
@@ -511,18 +518,18 @@ TEST_F(ListTest, DumpHash) {
     const std::string expected =
         "[fake description 0]\n"
         "Interface            R Hash\n"
-        "a.h.foo1@1.0::IFoo/1   0000000000000000000000000000000000000000000000000000000000000000\n"
+        "a.h.foo1@1.0::IFoo/1 N 0000000000000000000000000000000000000000000000000000000000000000\n"
         "a.h.foo2@2.0::IFoo/2 Y 0202020202020202020202020202020202020202020202020202020202020202\n"
         "\n"
         "[fake description 1]\n"
         "Interface            R Hash\n"
-        "a.h.foo3@3.0::IFoo/3   \n"
-        "a.h.foo4@4.0::IFoo/4   \n"
+        "a.h.foo3@3.0::IFoo/3 ? \n"
+        "a.h.foo4@4.0::IFoo/4 ? \n"
         "\n"
         "[fake description 2]\n"
         "Interface            R Hash\n"
-        "a.h.foo5@5.0::IFoo/5   \n"
-        "a.h.foo6@6.0::IFoo/6   \n"
+        "a.h.foo5@5.0::IFoo/5 ? \n"
+        "a.h.foo6@6.0::IFoo/6 ? \n"
         "\n";
 
     optind = 1; // mimic Lshal::parseArg()
@@ -591,6 +598,225 @@ TEST_F(ListTest, DumpNeat) {
     optind = 1; // mimic Lshal::parseArg()
     EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-iepc", "--neat"})));
     EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, DumpSingleHalType) {
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport Arch Thread Use Server PTR              Clients\n"
+        "a.h.foo1@1.0::IFoo/1 hwbinder  64   11/21      1      0000000000002711 2 4\n"
+        "a.h.foo2@2.0::IFoo/2 hwbinder  64   12/22      2      0000000000002712 3 5\n"
+        "\n";
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-itrepac", "--types=binderized"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, DumpReorderedHalTypes) {
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo3@3.0::IFoo/3 passthrough 32   N/A        N/A    N/A 4 6\n"
+        "a.h.foo4@4.0::IFoo/4 passthrough 32   N/A        N/A    N/A 5 7\n"
+        "\n"
+        "[fake description 1]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo5@5.0::IFoo/5 passthrough 32   N/A        N/A    N/A 6 8\n"
+        "a.h.foo6@6.0::IFoo/6 passthrough 32   N/A        N/A    N/A 7 9\n"
+        "\n"
+        "[fake description 2]\n"
+        "Interface            Transport Arch Thread Use Server PTR              Clients\n"
+        "a.h.foo1@1.0::IFoo/1 hwbinder  64   11/21      1      0000000000002711 2 4\n"
+        "a.h.foo2@2.0::IFoo/2 hwbinder  64   12/22      2      0000000000002712 3 5\n"
+        "\n";
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-itrepac", "--types=passthrough_clients",
+                                            "--types=passthrough_libs", "--types=binderized"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, DumpAbbreviatedHalTypes) {
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo3@3.0::IFoo/3 passthrough 32   N/A        N/A    N/A 4 6\n"
+        "a.h.foo4@4.0::IFoo/4 passthrough 32   N/A        N/A    N/A 5 7\n"
+        "\n"
+        "[fake description 1]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo5@5.0::IFoo/5 passthrough 32   N/A        N/A    N/A 6 8\n"
+        "a.h.foo6@6.0::IFoo/6 passthrough 32   N/A        N/A    N/A 7 9\n"
+        "\n";
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-itrepac", "--types=c,l"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, DumpEmptyAndDuplicateHalTypes) {
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo3@3.0::IFoo/3 passthrough 32   N/A        N/A    N/A 4 6\n"
+        "a.h.foo4@4.0::IFoo/4 passthrough 32   N/A        N/A    N/A 5 7\n"
+        "\n"
+        "[fake description 1]\n"
+        "Interface            Transport   Arch Thread Use Server PTR Clients\n"
+        "a.h.foo5@5.0::IFoo/5 passthrough 32   N/A        N/A    N/A 6 8\n"
+        "a.h.foo6@6.0::IFoo/6 passthrough 32   N/A        N/A    N/A 7 9\n"
+        "\n";
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-itrepac", "--types=c,l,,,l,l,c,",
+                                            "--types=passthrough_libs,passthrough_clients"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, UnknownHalType) {
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(1u, mockList->main(createArg({"lshal", "-itrepac", "--types=c,a"})));
+    EXPECT_THAT(err.str(), HasSubstr("Unrecognized HAL type: a"));
+}
+
+TEST_F(ListTest, Vintf) {
+    std::string deviceManifestXml =
+            "<manifest version=\"1.0\" type=\"device\">\n"
+            "    <hal>\n"
+            "        <name>a.h.foo1</name>\n"
+            "        <transport>hwbinder</transport>\n"
+            "        <fqname>@1.0::IFoo/1</fqname>\n"
+            "    </hal>\n"
+            "    <hal>\n"
+            "        <name>a.h.foo3</name>\n"
+            "        <transport arch=\"32+64\">passthrough</transport>\n"
+            "        <fqname>@3.0::IFoo/3</fqname>\n"
+            "    </hal>\n"
+            "</manifest>\n";
+    std::string frameworkManifestXml =
+            "<manifest version=\"1.0\" type=\"framework\">\n"
+            "    <hal>\n"
+            "        <name>a.h.foo5</name>\n"
+            "        <transport arch=\"32\">passthrough</transport>\n"
+            "        <fqname>@5.0::IFoo/5</fqname>\n"
+            "    </hal>\n"
+            "</manifest>\n";
+    std::string deviceMatrixXml =
+            "<compatibility-matrix version=\"1.0\" type=\"device\">\n"
+            "    <hal>\n"
+            "        <name>a.h.foo5</name>\n"
+            "        <version>5.0</version>\n"
+            "        <interface>\n"
+            "            <name>IFoo</name>\n"
+            "            <instance>5</instance>\n"
+            "        </interface>\n"
+            "    </hal>\n"
+            "</compatibility-matrix>\n";
+    std::string frameworkMatrixXml =
+            "<compatibility-matrix version=\"1.0\" type=\"framework\">\n"
+            "    <hal>\n"
+            "        <name>a.h.foo1</name>\n"
+            "        <version>1.0</version>\n"
+            "        <interface>\n"
+            "            <name>IFoo</name>\n"
+            "            <instance>1</instance>\n"
+            "        </interface>\n"
+            "    </hal>\n"
+            "    <hal>\n"
+            "        <name>a.h.foo3</name>\n"
+            "        <version>3.0</version>\n"
+            "        <interface>\n"
+            "            <name>IFoo</name>\n"
+            "            <instance>3</instance>\n"
+            "        </interface>\n"
+            "    </hal>\n"
+            "</compatibility-matrix>\n";
+
+    std::string expected = "DM,FC a.h.foo1@1.0::IFoo/1\n"
+                           "X     a.h.foo2@2.0::IFoo/2\n"
+                           "DM,FC a.h.foo3@3.0::IFoo/3\n"
+                           "X     a.h.foo4@4.0::IFoo/4\n"
+                           "DC,FM a.h.foo5@5.0::IFoo/5\n"
+                           "X     a.h.foo6@6.0::IFoo/6\n";
+
+    auto deviceManifest = std::make_shared<HalManifest>();
+    auto frameworkManifest = std::make_shared<HalManifest>();
+    auto deviceMatrix = std::make_shared<CompatibilityMatrix>();
+    auto frameworkMatrix = std::make_shared<CompatibilityMatrix>();
+
+    ASSERT_TRUE(gHalManifestConverter(deviceManifest.get(), deviceManifestXml));
+    ASSERT_TRUE(gHalManifestConverter(frameworkManifest.get(), frameworkManifestXml));
+    ASSERT_TRUE(gCompatibilityMatrixConverter(deviceMatrix.get(), deviceMatrixXml));
+    ASSERT_TRUE(gCompatibilityMatrixConverter(frameworkMatrix.get(), frameworkMatrixXml));
+
+    ON_CALL(*mockList, getDeviceManifest()).WillByDefault(Return(deviceManifest));
+    ON_CALL(*mockList, getDeviceMatrix()).WillByDefault(Return(deviceMatrix));
+    ON_CALL(*mockList, getFrameworkManifest()).WillByDefault(Return(frameworkManifest));
+    ON_CALL(*mockList, getFrameworkMatrix()).WillByDefault(Return(frameworkMatrix));
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-Vi", "--neat"})));
+    EXPECT_THAT(out.str(), HasSubstr(expected));
+    EXPECT_EQ("", err.str());
+}
+
+class ListVintfTest : public ListTest {
+public:
+    virtual void SetUp() override {
+        ListTest::SetUp();
+        const std::string mockManifestXml =
+                "<manifest version=\"1.0\" type=\"device\">\n"
+                "    <hal format=\"hidl\">\n"
+                "        <name>a.h.foo1</name>\n"
+                "        <transport>hwbinder</transport>\n"
+                "        <fqname>@1.0::IFoo/1</fqname>\n"
+                "    </hal>\n"
+                "    <hal format=\"hidl\">\n"
+                "        <name>a.h.bar1</name>\n"
+                "        <transport>hwbinder</transport>\n"
+                "        <fqname>@1.0::IBar/1</fqname>\n"
+                "    </hal>\n"
+                "    <hal format=\"hidl\">\n"
+                "        <name>a.h.bar2</name>\n"
+                "        <transport arch=\"32+64\">passthrough</transport>\n"
+                "        <fqname>@2.0::IBar/2</fqname>\n"
+                "    </hal>\n"
+                "</manifest>";
+        auto manifest = std::make_shared<HalManifest>();
+        EXPECT_TRUE(gHalManifestConverter(manifest.get(), mockManifestXml));
+        EXPECT_CALL(*mockList, getDeviceManifest())
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(manifest));
+    }
+};
+
+TEST_F(ListVintfTest, ManifestHals) {
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-iStr", "--types=v", "--neat"})));
+    EXPECT_THAT(out.str(), HasSubstr("a.h.bar1@1.0::IBar/1 declared hwbinder    ?"));
+    EXPECT_THAT(out.str(), HasSubstr("a.h.bar2@2.0::IBar/2 declared passthrough 32+64"));
+    EXPECT_THAT(out.str(), HasSubstr("a.h.foo1@1.0::IFoo/1 declared hwbinder    ?"));
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListVintfTest, Lazy) {
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-iStr", "--types=z", "--neat"})));
+    EXPECT_THAT(out.str(), HasSubstr("a.h.bar1@1.0::IBar/1 declared hwbinder    ?"));
+    EXPECT_THAT(out.str(), HasSubstr("a.h.bar2@2.0::IBar/2 declared passthrough 32+64"));
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListVintfTest, NoLazy) {
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-iStr", "--types=b,c,l", "--neat"})));
+    EXPECT_THAT(out.str(), Not(HasSubstr("IBar")));
     EXPECT_EQ("", err.str());
 }
 

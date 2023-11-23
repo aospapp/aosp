@@ -16,15 +16,12 @@
 
 package com.android.dialer.blocking;
 
-import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.os.AsyncTask;
-import android.os.Build.VERSION_CODES;
 import android.provider.BlockedNumberContract.BlockedNumbers;
-import android.support.annotation.RequiresApi;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.database.FilteredNumberContract;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumber;
@@ -35,7 +32,7 @@ import java.util.Objects;
  * Class which should be used to migrate numbers from {@link FilteredNumberContract} blocking to
  * {@link android.provider.BlockedNumberContract} blocking.
  */
-@TargetApi(VERSION_CODES.M)
+@Deprecated
 public class BlockedNumbersMigrator {
 
   private final Context context;
@@ -48,8 +45,6 @@ public class BlockedNumbersMigrator {
     this.context = Objects.requireNonNull(context);
   }
 
-  @RequiresApi(VERSION_CODES.N)
-  @TargetApi(VERSION_CODES.N)
   private static boolean migrateToNewBlockingInBackground(ContentResolver resolver) {
     try (Cursor cursor =
         resolver.query(
@@ -90,8 +85,6 @@ public class BlockedNumbersMigrator {
     }
   }
 
-  @RequiresApi(VERSION_CODES.N)
-  @TargetApi(VERSION_CODES.N)
   private static boolean isNumberInNewBlocking(ContentResolver resolver, String originalNumber) {
     try (Cursor cursor =
         resolver.query(
@@ -133,7 +126,6 @@ public class BlockedNumbersMigrator {
     void onComplete();
   }
 
-  @TargetApi(VERSION_CODES.N)
   private class MigratorTask extends AsyncTask<Void, Void, Boolean> {
 
     private final Listener listener;

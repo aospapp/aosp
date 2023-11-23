@@ -27,6 +27,7 @@ import unittest
 import multinetwork_base
 import net_test
 from tun_twister import TapTwister
+import util
 import xfrm
 import xfrm_base
 
@@ -72,49 +73,26 @@ AEAD_ALGOS = [
 ]
 
 def InjectTests():
-    XfrmAlgorithmTest.InjectTests()
+  XfrmAlgorithmTest.InjectTests()
+
 
 class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
   @classmethod
   def InjectTests(cls):
-    """Inject parameterized test cases into this class.
-
-    Because a library for parameterized testing is not availble in
-    net_test.rootfs.20150203, this does a minimal parameterization.
-
-    This finds methods named like "ParamTestFoo" and replaces them with several
-    "testFoo(*)" methods taking different parameter dicts. A set of test
-    parameters is generated from every combination of encryption,
-    authentication, IP version, and TCP/UDP.
-
-    The benefit of this approach is that an individually failing tests have a
-    clearly separated stack trace, and one failed test doesn't prevent the rest
-    from running.
-    """
-    param_test_names = [
-        name for name in dir(cls) if name.startswith("ParamTest")
-    ]
     VERSIONS = (4, 6)
     TYPES = (SOCK_DGRAM, SOCK_STREAM)
 
     # Tests all combinations of auth & crypt. Mutually exclusive with aead.
-    for crypt, auth, version, proto, name in itertools.product(
-        CRYPT_ALGOS, AUTH_ALGOS, VERSIONS, TYPES, param_test_names):
-      XfrmAlgorithmTest.InjectSingleTest(name, version, proto, crypt=crypt, auth=auth)
+    param_list = itertools.product(VERSIONS, TYPES, AUTH_ALGOS, CRYPT_ALGOS,
+                                   [None])
+    util.InjectParameterizedTest(cls, param_list, cls.TestNameGenerator)
 
     # Tests all combinations of aead. Mutually exclusive with auth/crypt.
-    for aead, version, proto, name in itertools.product(
-        AEAD_ALGOS, VERSIONS, TYPES, param_test_names):
-      XfrmAlgorithmTest.InjectSingleTest(name, version, proto, aead=aead)
+    param_list = itertools.product(VERSIONS, TYPES, [None], [None], AEAD_ALGOS)
+    util.InjectParameterizedTest(cls, param_list, cls.TestNameGenerator)
 
-  @classmethod
-  def InjectSingleTest(cls, name, version, proto, crypt=None, auth=None, aead=None):
-    func = getattr(cls, name)
-
-    def TestClosure(self):
-      func(self, {"crypt": crypt, "auth": auth, "aead": aead,
-          "version": version, "proto": proto})
-
+  @staticmethod
+  def TestNameGenerator(version, proto, auth, crypt, aead):
     # Produce a unique and readable name for each test. e.g.
     #     testSocketPolicySimple_cbc-aes_256_hmac-sha512_512_256_IPv6_UDP
     param_string = ""
@@ -131,12 +109,9 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
 
     param_string += "%s_%s" % ("IPv4" if version == 4 else "IPv6",
         "UDP" if proto == SOCK_DGRAM else "TCP")
-    new_name = "%s_%s" % (func.__name__.replace("ParamTest", "test"),
-                          param_string)
-    new_name = new_name.replace("(", "-").replace(")", "")  # remove parens
-    setattr(cls, new_name, TestClosure)
+    return param_string
 
-  def ParamTestSocketPolicySimple(self, params):
+  def ParamTestSocketPolicySimple(self, version, proto, auth, crypt, aead):
     """Test two-way traffic using transport mode and socket policies."""
 
     def AssertEncrypted(packet):
@@ -153,37 +128,21 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
     # other using transport mode ESP. Because of TapTwister, both sockets
     # perceive each other as owning "remote_addr".
     netid = self.RandomNetid()
-    family = net_test.GetAddressFamily(params["version"])
-    local_addr = self.MyAddress(params["version"], netid)
-    remote_addr = self.GetRemoteSocketAddress(params["version"])
-    crypt_left = (xfrm.XfrmAlgo((
-        params["crypt"].name,
-        params["crypt"].key_len)),
-        os.urandom(params["crypt"].key_len / 8)) if params["crypt"] else None
-    crypt_right = (xfrm.XfrmAlgo((
-        params["crypt"].name,
-        params["crypt"].key_len)),
-        os.urandom(params["crypt"].key_len / 8)) if params["crypt"] else None
-    auth_left = (xfrm.XfrmAlgoAuth((
-        params["auth"].name,
-        params["auth"].key_len,
-        params["auth"].trunc_len)),
-        os.urandom(params["auth"].key_len / 8)) if params["auth"] else None
-    auth_right = (xfrm.XfrmAlgoAuth((
-        params["auth"].name,
-        params["auth"].key_len,
-        params["auth"].trunc_len)),
-        os.urandom(params["auth"].key_len / 8)) if params["auth"] else None
-    aead_left = (xfrm.XfrmAlgoAead((
-        params["aead"].name,
-        params["aead"].key_len,
-        params["aead"].icv_len)),
-        os.urandom(params["aead"].key_len / 8)) if params["aead"] else None
-    aead_right = (xfrm.XfrmAlgoAead((
-        params["aead"].name,
-        params["aead"].key_len,
-        params["aead"].icv_len)),
-        os.urandom(params["aead"].key_len / 8)) if params["aead"] else None
+    family = net_test.GetAddressFamily(version)
+    local_addr = self.MyAddress(version, netid)
+    remote_addr = self.GetRemoteSocketAddress(version)
+    auth_left = (xfrm.XfrmAlgoAuth((auth.name, auth.key_len, auth.trunc_len)),
+                 os.urandom(auth.key_len / 8)) if auth else None
+    auth_right = (xfrm.XfrmAlgoAuth((auth.name, auth.key_len, auth.trunc_len)),
+                  os.urandom(auth.key_len / 8)) if auth else None
+    crypt_left = (xfrm.XfrmAlgo((crypt.name, crypt.key_len)),
+                  os.urandom(crypt.key_len / 8)) if crypt else None
+    crypt_right = (xfrm.XfrmAlgo((crypt.name, crypt.key_len)),
+                   os.urandom(crypt.key_len / 8)) if crypt else None
+    aead_left = (xfrm.XfrmAlgoAead((aead.name, aead.key_len, aead.icv_len)),
+                 os.urandom(aead.key_len / 8)) if aead else None
+    aead_right = (xfrm.XfrmAlgoAead((aead.name, aead.key_len, aead.icv_len)),
+                  os.urandom(aead.key_len / 8)) if aead else None
     spi_left = 0xbeefface
     spi_right = 0xcafed00d
     req_ids = [100, 200, 300, 400]  # Used to match templates and SAs.
@@ -242,20 +201,20 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         output_mark=None)
 
     # Make two sockets.
-    sock_left = socket(family, params["proto"], 0)
+    sock_left = socket(family, proto, 0)
     sock_left.settimeout(2.0)
     sock_left.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     self.SelectInterface(sock_left, netid, "mark")
-    sock_right = socket(family, params["proto"], 0)
+    sock_right = socket(family, proto, 0)
     sock_right.settimeout(2.0)
     sock_right.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     self.SelectInterface(sock_right, netid, "mark")
 
     # For UDP, set SO_LINGER to 0, to prevent TCP sockets from hanging around
     # in a TIME_WAIT state.
-    if params["proto"] == SOCK_STREAM:
-        net_test.DisableFinWait(sock_left)
-        net_test.DisableFinWait(sock_right)
+    if proto == SOCK_STREAM:
+      net_test.DisableFinWait(sock_left)
+      net_test.DisableFinWait(sock_right)
 
     # Apply the left outbound socket policy.
     xfrm_base.ApplySocketPolicy(sock_left, family, xfrm.XFRM_POLICY_OUT,
@@ -302,14 +261,14 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         sock.close()
 
     # Server and client need to know each other's port numbers in advance.
-    wildcard_addr = net_test.GetWildcardAddress(params["version"])
+    wildcard_addr = net_test.GetWildcardAddress(version)
     sock_left.bind((wildcard_addr, 0))
     sock_right.bind((wildcard_addr, 0))
     left_port = sock_left.getsockname()[1]
     right_port = sock_right.getsockname()[1]
 
     # Start the appropriate server type on sock_right.
-    target = TcpServer if params["proto"] == SOCK_STREAM else UdpServer
+    target = TcpServer if proto == SOCK_STREAM else UdpServer
     server = threading.Thread(
         target=target,
         args=(sock_right, left_port),

@@ -16,6 +16,11 @@ TEST_CLASS = "network"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:cellular_ota_tmobile, suite:cellular_ota_verizon"
 DEPENDENCIES = "modem:gobi3k"
+
+# TODO(crbug.com/932661) Fix the root cause of the flakiness and
+# remove this hack.
+JOB_RETRIES=3
+
 DOC = """
   Tests that 3G modem can connect to the network
 

@@ -32,6 +32,10 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
 
     private TextView mTestStatusTx;
 
+    public USBAudioPeripheralAttributesActivity() {
+        super(true); // Mandated peripheral is required
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,21 +70,27 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
                 if (deviceInfo.getChannelCounts().length == 0) {
                     sb.append("Output - No Peripheral Channel Counts\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getChannelCounts(), attribs.mChannelCounts)) {
-                    sb.append("Output - Channel Counts Mismatch\n");
+                    sb.append("Output - Channel Counts Mismatch" +
+                            " d" + ListsHelper.textFormatDecimal(deviceInfo.getChannelCounts()) +
+                            " p" + ListsHelper.textFormatDecimal(attribs.mChannelCounts) +"\n");
                 }
 
                 // Encodings
                 if (deviceInfo.getEncodings().length == 0) {
                     sb.append("Output - No Peripheral Encodings\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getEncodings(), attribs.mEncodings)) {
-                    sb.append("Output - Encodings Mismatch\n");
+                    sb.append("Output - Encodings Mismatch" +
+                            " d" + ListsHelper.textFormatHex(deviceInfo.getEncodings()) +
+                            " p" + ListsHelper.textFormatHex(attribs.mEncodings) + "\n");
                 }
 
                 // Sample Rates
                 if (deviceInfo.getSampleRates().length == 0) {
                     sb.append("Output - No Peripheral Sample Rates\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getSampleRates(), attribs.mSampleRates)) {
-                    sb.append("Output - Sample Rates Mismatch\n");
+                    sb.append("Output - Sample Rates Mismatch" +
+                            " d" + ListsHelper.textFormatHex(deviceInfo.getSampleRates()) +
+                            " p" + ListsHelper.textFormatHex(attribs.mSampleRates) + "\n");
                 }
 
                 // Channel Masks
@@ -91,13 +101,17 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
                     // Channel Index Masks
                     if (!ListsHelper.isSubset(deviceInfo.getChannelIndexMasks(),
                             attribs.mChannelIndexMasks)) {
-                        sb.append("Output - Channel Index Masks Mismatch\n");
+                        sb.append("Output - Channel Index Masks Mismatch" +
+                                " d" + ListsHelper.textFormatHex(deviceInfo.getChannelIndexMasks()) +
+                                " p" + ListsHelper.textFormatHex(attribs.mChannelIndexMasks) + "\n");
                     }
 
                     // Channel Position Masks
                     if (!ListsHelper.isSubset(deviceInfo.getChannelMasks(),
                             attribs.mChannelPositionMasks)) {
-                        sb.append("Output - Channel Position Masks Mismatch\n");
+                        sb.append("Output - Channel Position Masks Mismatch" +
+                                " d" + ListsHelper.textFormatHex(deviceInfo.getChannelMasks()) +
+                                " p" + ListsHelper.textFormatHex(attribs.mChannelPositionMasks) + "\n");
                     }
                 }
 
@@ -124,21 +138,27 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
                 if (deviceInfo.getChannelCounts().length == 0) {
                     sb.append("Input - No Peripheral Channel Counts\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getChannelCounts(), attribs.mChannelCounts)) {
-                    sb.append("Input - Channel Counts Mismatch\n");
+                    sb.append("Input - Channel Counts Mismatch" +
+                            " d" + ListsHelper.textFormatDecimal(deviceInfo.getChannelCounts()) +
+                            " p" + ListsHelper.textFormatDecimal(attribs.mChannelCounts) + "\n");
                 }
 
                 // Encodings
                 if (deviceInfo.getEncodings().length == 0) {
                     sb.append("Input - No Peripheral Encodings\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getEncodings(), attribs.mEncodings)) {
-                    sb.append("Input - Encodings Mismatch\n");
+                    sb.append("Input - Encodings Mismatch" +
+                            " d" + ListsHelper.textFormatHex(deviceInfo.getEncodings()) +
+                            " p" + ListsHelper.textFormatHex(attribs.mEncodings) + "\n");
                 }
 
                 // Sample Rates
                 if (deviceInfo.getSampleRates().length == 0) {
                     sb.append("Input - No Peripheral Sample Rates\n");
                 } else if (!ListsHelper.isSubset(deviceInfo.getSampleRates(), attribs.mSampleRates)) {
-                    sb.append("Input - Sample Rates Mismatch\n");
+                    sb.append("Input - Sample Rates Mismatch" +
+                            " d" + ListsHelper.textFormatDecimal(deviceInfo.getSampleRates()) +
+                            " p" + ListsHelper.textFormatDecimal(attribs.mSampleRates) + "\n");
                 }
 
                 // Channel Masks
@@ -148,11 +168,15 @@ public class USBAudioPeripheralAttributesActivity extends USBAudioPeripheralActi
                 } else {
                     if (!ListsHelper.isSubset(deviceInfo.getChannelIndexMasks(),
                             attribs.mChannelIndexMasks)) {
-                        sb.append("Input - Channel Index Masks Mismatch\n");
+                        sb.append("Input - Channel Index Masks Mismatch" +
+                                " d" + ListsHelper.textFormatHex(deviceInfo.getChannelIndexMasks()) +
+                                " p" + ListsHelper.textFormatHex(attribs.mChannelIndexMasks) + "\n");
                     }
                     if (!ListsHelper.isSubset(deviceInfo.getChannelMasks(),
                             attribs.mChannelPositionMasks)) {
-                        sb.append("Input - Channel Position Masks Mismatch\n");
+                        sb.append("Input - Channel Position Masks Mismatch" +
+                                " d" + ListsHelper.textFormatHex(deviceInfo.getChannelMasks()) +
+                                " p" + ListsHelper.textFormatHex(attribs.mChannelPositionMasks) + "\n");
                     }
                 }
                 if (sb.toString().length() == 0){

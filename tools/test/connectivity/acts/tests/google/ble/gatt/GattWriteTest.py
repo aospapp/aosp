@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -278,6 +278,7 @@ class GattWriteTest(GattConnectedBaseTest):
         6. Client: write the same characteristic again.
         7. Peripheral: receive the written data.  Check it was properly
            truncated to (max MTU - 1 - gatt_characteristic_attr_length['attr_2'])
+        8. Client: return mtu size.
 
         Expected Result:
         Verify that data received by the Peripheral side is properly truncated
@@ -352,8 +353,15 @@ class GattWriteTest(GattConnectedBaseTest):
         self.assertEqual(
             expected_value, event['data']['value'],
             "Received value should have {} bytes".format(data_length))
-        return True
 
+        # return the mtu to default
+        self.mtu = gatt_mtu_size['min']
+        self.log.info("Set mtu to min : {}".format(self.mtu))
+        if not setup_gatt_mtu(self.cen_ad, self.bluetooth_gatt,
+                              self.gatt_callback, self.mtu):
+            return False   
+        return True
+ 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='319eee6d-22d9-4498-bb15-21d0018e45e6')
     def test_write_characteristic_stress(self):

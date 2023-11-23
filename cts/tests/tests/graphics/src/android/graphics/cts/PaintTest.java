@@ -16,6 +16,12 @@
 
 package android.graphics.cts;
 
+import static android.graphics.Paint.CURSOR_AFTER;
+import static android.graphics.Paint.CURSOR_AT;
+import static android.graphics.Paint.CURSOR_AT_OR_AFTER;
+import static android.graphics.Paint.CURSOR_AT_OR_BEFORE;
+import static android.graphics.Paint.CURSOR_BEFORE;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -24,7 +30,10 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
+import android.graphics.BlendMode;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.ColorSpace;
 import android.graphics.MaskFilter;
 import android.graphics.Matrix;
 import android.graphics.Paint;
@@ -34,20 +43,29 @@ import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PathEffect;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.Xfermode;
 import android.os.LocaleList;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannedString;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.ColorUtils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Locale;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -68,6 +86,42 @@ public class PaintTest {
 
         Paint p = new Paint();
         new Paint(p);
+    }
+
+    @Test
+    public void testDefaultColor() {
+        Supplier<Paint> set = () -> {
+            Paint result = new Paint();
+            result.setColor(Color.BLUE);
+            assertEquals(Color.BLUE, result.getColor());
+            result.setShadowLayer(10.0f, 1.0f, 1.0f, Color.RED);
+            assertEquals(Color.RED, result.getShadowLayerColor());
+
+            Paint def = new Paint();
+            result.set(def);
+            return result;
+        };
+        Supplier<Paint> reset = () -> {
+            Paint result = new Paint();
+            result.setColor(Color.GREEN);
+            assertEquals(Color.GREEN, result.getColor());
+            result.setShadowLayer(10.0f, 1.0f, 1.0f, Color.WHITE);
+            assertEquals(Color.WHITE, result.getShadowLayerColor());
+
+            result.reset();
+            return result;
+        };
+        for (Paint p : new Paint[]{ new Paint(),
+                                    new Paint(1),
+                                    new Paint(new Paint()),
+                                    set.get(),
+                                    reset.get()}) {
+            assertEquals(Color.BLACK, p.getColor());
+            assertEquals(Color.TRANSPARENT, p.getShadowLayerColor());
+
+            assertEquals(Color.BLACK, Color.toArgb(p.getColorLong()));
+            assertEquals(Color.TRANSPARENT, Color.toArgb(p.getShadowLayerColorLong()));
+        }
     }
 
     @Test
@@ -709,23 +763,87 @@ public class PaintTest {
         p.setAlpha(255);
         assertEquals(255, p.getAlpha());
 
-        // set value should between 0 and 255, so 266 is rounded to 10
+        // set value should between 0 and 255, ensure return value is always in range
         p.setAlpha(266);
-        assertEquals(10, p.getAlpha());
+        assertTrue(0 <= p.getAlpha() && p.getAlpha() <= 255);
 
-        // set value should between 0 and 255, so -20 is rounded to 236
+        // set value should between 0 and 255, ensure return value is always in range
         p.setAlpha(-20);
-        assertEquals(236, p.getAlpha());
+        assertTrue(0 <= p.getAlpha() && p.getAlpha() <= 255);
+    }
+
+    @Test
+    public void testSetAlpha() {
+        for (ColorSpace.Named e : new ColorSpace.Named[] {
+                ColorSpace.Named.SRGB,
+                ColorSpace.Named.LINEAR_EXTENDED_SRGB,
+                ColorSpace.Named.DISPLAY_P3}) {
+            ColorSpace cs = ColorSpace.get(e);
+
+            // Arbitrary colors
+            final float red = .2f;
+            final float green = .7f;
+            final float blue = .9f;
+            final long desiredColor = Color.pack(red, green, blue, 1.0f, cs);
+
+            Paint p = new Paint();
+            p.setColor(desiredColor);
+            final long origColor = p.getColorLong();
+            assertEquals(desiredColor, origColor);
+
+            final float origRed = Color.red(origColor);
+            final float origGreen = Color.green(origColor);
+            final float origBlue = Color.blue(origColor);
+
+            // There is a slight difference in the packed color.
+            assertEquals(red, Color.red(origColor), 0.002f);
+            assertEquals(green, Color.green(origColor), 0.002f);
+            assertEquals(blue, Color.blue(origColor), 0.002f);
+
+            for (int alpha = 0; alpha <= 255; ++alpha) {
+                p.setAlpha(alpha);
+                assertEquals(alpha, p.getAlpha());
+
+                final long color = p.getColorLong();
+                assertEquals(origRed, Color.red(color), 0.0f);
+                assertEquals(origGreen, Color.green(color), 0.0f);
+                assertEquals(origBlue, Color.blue(color), 0.0f);
+            }
+        }
+    }
+
+    private void testIsFilterBitmap(Paint orig) {
+        Paint p = new Paint(orig);
+        assertEquals(orig.isFilterBitmap(), p.isFilterBitmap());
+
+        p = new Paint();
+        p.set(orig);
+        assertEquals(orig.isFilterBitmap(), p.isFilterBitmap());
     }
 
     @Test
     public void testSetFilterBitmap() {
         Paint p = new Paint();
+        assertTrue(p.isFilterBitmap());
+        testIsFilterBitmap(p);
 
         p.setFilterBitmap(true);
         assertTrue(p.isFilterBitmap());
 
         p.setFilterBitmap(false);
+        assertFalse(p.isFilterBitmap());
+        testIsFilterBitmap(p);
+
+        p.reset();
+        assertTrue(p.isFilterBitmap());
+
+        p.setFilterBitmap(false);
+        assertFalse(p.isFilterBitmap());
+
+        p.setFlags(Paint.FILTER_BITMAP_FLAG);
+        assertTrue(p.isFilterBitmap());
+
+        p.setFlags(~Paint.FILTER_BITMAP_FLAG);
         assertFalse(p.isFilterBitmap());
     }
 
@@ -750,8 +868,13 @@ public class PaintTest {
     }
 
     @Test
-    public void testSetShadowLayer() {
-        new Paint().setShadowLayer(10, 1, 1, 0);
+    public void testSetGetShadowLayer() {
+        Paint paint = new Paint();
+        paint.setShadowLayer(10, 1, 1, 0);
+        assertEquals(10, paint.getShadowLayerRadius(), 0.0f);
+        assertEquals(1, paint.getShadowLayerDx(), 0.0f);
+        assertEquals(1, paint.getShadowLayerDy(), 0.0f);
+        assertEquals(0, paint.getShadowLayerColor());
     }
 
     @Test
@@ -912,7 +1035,8 @@ public class PaintTest {
 
         Paint p = new Paint();
         Context context = InstrumentationRegistry.getTargetContext();
-        Typeface typeface = Typeface.createFromAsset(context.getAssets(), "multiaxis.ttf");
+        Typeface typeface = Typeface.createFromAsset(context.getAssets(),
+                "fonts/var_fonts/multiaxis.ttf");
         p.setTypeface(typeface);
 
         // multiaxis.ttf supports "wght", "PRIV", "PR12" axes.
@@ -972,11 +1096,15 @@ public class PaintTest {
         String text1 = "hello";
         Rect bounds1 = new Rect();
         Rect bounds2 = new Rect();
+        Rect bounds3 = new Rect();
         p.getTextBounds(text1, 0, text1.length(), bounds1);
         char[] textChars1 = text1.toCharArray();
         p.getTextBounds(textChars1, 0, textChars1.length, bounds2);
+        CharSequence charSequence1 = new StringBuilder(text1);
+        p.getTextBounds(charSequence1, 0, textChars1.length, bounds3);
         // verify that string and char array methods produce consistent results
         assertEquals(bounds1, bounds2);
+        assertEquals(bounds2, bounds3);
         String text2 = "hello world";
 
         // verify substring produces consistent results
@@ -1021,7 +1149,8 @@ public class PaintTest {
         assertEquals(Paint.ANTI_ALIAS_FLAG, p.getFlags());
 
         p.reset();
-        assertEquals(Paint.DEV_KERN_TEXT_FLAG | Paint.EMBEDDED_BITMAP_TEXT_FLAG, p.getFlags());
+        assertEquals(Paint.FILTER_BITMAP_FLAG | Paint.DEV_KERN_TEXT_FLAG
+                    | Paint.EMBEDDED_BITMAP_TEXT_FLAG, p.getFlags());
         assertEquals(null, p.getColorFilter());
         assertEquals(null, p.getMaskFilter());
         assertEquals(null, p.getPathEffect());
@@ -1224,6 +1353,7 @@ public class PaintTest {
         new Paint().getTextPath("HIJKLMN", 3, 9, 0, 0, new Path());
     }
 
+    @CddTest(requirement="3.8.13/C-1-2")
     @Test
     public void testHasGlyph() {
         Paint p = new Paint();
@@ -1717,5 +1847,424 @@ public class PaintTest {
         assertFalse(p1.equalsForTextMeasurement(p2));
         p1.setTypeface(p2.getTypeface());
         assertTrue(p1.equalsForTextMeasurement(p2));
+    }
+
+    @Test
+    public void testWordSpacing() {
+        Paint p = new Paint();
+        assertEquals(0.0f, p.getWordSpacing(), 0.0f);  // The default value is 0.
+        p.setWordSpacing(10.0f);
+        assertEquals(10.0f, p.getWordSpacing(), 0.0f);
+        p.setWordSpacing(20.0f);
+        assertEquals(20.0f, p.getWordSpacing(), 0.0f);
+    }
+
+    @Test
+    public void testStrikeThruPosition_notCrashes() {
+        // We can't expect any values of strike-through position in CTS.
+        // Just make sure calling that method doesn't crash the app.
+        new Paint().getStrikeThruPosition();
+    }
+
+    @Test
+    public void testStrikeThruThickness_notCrashes() {
+        // We can't expect any values of strike-through thickness in CTS.
+        // Just make sure calling that method doesn't crash the app.
+        new Paint().getStrikeThruThickness();
+    }
+
+    @Test
+    public void testUnderlinePosition_notCrashes() {
+        // We can't expect any values of underline position in CTS.
+        // Just make sure calling that method doesn't crash the app.
+        new Paint().getUnderlinePosition();
+    }
+
+    @Test
+    public void testUnderlineThickness_notCrashes() {
+        // We can't expect any values of underline thickness in CTS.
+        // Just make sure calling that method doesn't crash the app.
+        new Paint().getUnderlineThickness();
+    }
+
+    @Test
+    public void testSetGetHyphenEdit() {
+        Paint paint = new Paint();
+
+        // By default, no hyphen edit is specified.
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, paint.getStartHyphenEdit());
+        assertEquals(Paint.END_HYPHEN_EDIT_NO_EDIT, paint.getEndHyphenEdit());
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_INSERT_HYPHEN);
+        assertEquals(Paint.START_HYPHEN_EDIT_INSERT_HYPHEN, paint.getStartHyphenEdit());
+        assertEquals(Paint.END_HYPHEN_EDIT_NO_EDIT, paint.getEndHyphenEdit());
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, paint.getStartHyphenEdit());
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, paint.getEndHyphenEdit());
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_INSERT_HYPHEN);
+        assertEquals(Paint.START_HYPHEN_EDIT_INSERT_HYPHEN, paint.getStartHyphenEdit());
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, paint.getEndHyphenEdit());
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+    }
+
+    @Test
+    public void testHyphenEdit() {
+        final Paint paint = new Paint();
+        final Context context = InstrumentationRegistry.getTargetContext();
+        // The hyphenation.ttf font supports following characters
+        // - U+0061..U+007A (a..z): The glyph has 1em width.
+        // - U+2010 (HYPHEN): The glyph has 2em width.
+        // - U+058A (ARMENIAN HYPHEN): The glyph has 3em width.
+        // - U+05BE (MAQAF): The glyph has 4em width.
+        // - U+1400 (UCAS HYPHEN): The glyph has 5em width.
+        paint.setTypeface(Typeface.createFromAsset(context.getAssets(),
+                  "fonts/layout/hyphenation.ttf"));
+        paint.setTextSize(10.0f);  // Make 1em = 10px
+
+        assertEquals(30.0f, paint.measureText("abc", 0, 3), 0.0f);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+        assertEquals(50.0f, paint.measureText("abc", 0, 3), 0.0f);  // "abc-" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_INSERT_HYPHEN);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN);
+        assertEquals(70.0f, paint.measureText("abc", 0, 3), 0.0f);  // "-abc-" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_ARMENIAN_HYPHEN);
+        assertEquals(60.0f, paint.measureText("abc", 0, 3), 0.0f);  // "abcU+058A" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_MAQAF);
+        assertEquals(70.0f, paint.measureText("abc", 0, 3), 0.0f);  // "abcU+05BE" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_UCAS_HYPHEN);
+        assertEquals(80.0f, paint.measureText("abc", 0, 3), 0.0f);  // "abcU+1400" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_INSERT_ZWJ_AND_HYPHEN);
+        // "abcU+200D-" in visual. Note that ZWJ is zero width.
+        assertEquals(50.0f, paint.measureText("abc", 0, 3), 0.0f);
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_REPLACE_WITH_HYPHEN);
+        assertEquals(40.0f, paint.measureText("abc", 0, 3), 0.0f);  // "ab-" in visual.
+        paint.setStartHyphenEdit(Paint.START_HYPHEN_EDIT_NO_EDIT);
+        paint.setEndHyphenEdit(Paint.END_HYPHEN_EDIT_NO_EDIT);
+    }
+
+    @Test
+    public void testGetTextRunAdvances() {
+        final Paint paint = new Paint();
+        final Context context = InstrumentationRegistry.getTargetContext();
+        paint.setTypeface(Typeface.createFromAsset(context.getAssets(),
+                  "fonts/layout/textrunadvances.ttf"));
+        // The textrunadvances.ttf font supports following characters
+        // - U+0061 (a): The glyph has 3em width.
+        // - U+0062..U+0065 (b..e): The glyph has 1em width.
+        // - U+1F600 (GRINNING FACE): The glyph has 3em width.
+        paint.setTextSize(10.0f);  // Make 1em = 10px
+
+        final char[] chars = { 'a', 'b', 'a', 'b' };
+        final float[] buffer = new float[32];
+
+        assertEquals(80.0f,
+                paint.getTextRunAdvances(chars, 0, 4, 0, 4, false /* isRtl */, buffer, 0), 0.0f);
+        assertEquals(30.0f, buffer[0], 0.0f);
+        assertEquals(10.0f, buffer[1], 0.0f);
+        assertEquals(30.0f, buffer[2], 0.0f);
+        assertEquals(10.0f, buffer[3], 0.0f);
+
+        // Output offset test
+        assertEquals(40.0f,
+                paint.getTextRunAdvances(chars, 1, 2, 1, 2, false /* isRtl */, buffer, 5), 0.0f);
+        assertEquals(10.0f, buffer[5], 0.0f);
+        assertEquals(30.0f, buffer[6], 0.0f);
+
+        // Surrogate pairs
+        final char[] chars2 = Character.toChars(0x1F600);
+        assertEquals(30.0f,
+                paint.getTextRunAdvances(chars2, 0, 2, 0, 2, false /* isRtl */, buffer, 0), 0.0f);
+        assertEquals(30.0f, buffer[0], 0.0f);
+        assertEquals(0.0f, buffer[1], 0.0f);
+    }
+
+    private int getTextRunCursor(String text, int offset, int cursorOpt) {
+        final int contextStart = 0;
+        final int contextEnd = text.length();
+        final int contextCount = text.length();
+        Paint p = new Paint();
+        int result = p.getTextRunCursor(new StringBuilder(text), // as a CharSequence
+                contextStart, contextEnd, false /* isRtl */, offset, cursorOpt);
+        assertEquals(result, p.getTextRunCursor(text.toCharArray(),
+                contextStart, contextCount, false /* isRtl */, offset, cursorOpt));
+        assertEquals(result, p.getTextRunCursor(new StringBuilder(text),  // as a CharSequence
+                contextStart, contextCount, true /* isRtl */, offset, cursorOpt));
+        assertEquals(result, p.getTextRunCursor(text.toCharArray(),
+                contextStart, contextCount, true, offset, cursorOpt));
+        return result;
+    }
+
+    @Test
+    public void testGetRunCursor_CURSOR_AFTER() {
+        assertEquals(1, getTextRunCursor("abc", 0, CURSOR_AFTER));
+        assertEquals(2, getTextRunCursor("abc", 1, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("abc", 2, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("abc", 3, CURSOR_AFTER));
+
+        // Surrogate pairs
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 0, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 1, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 2, CURSOR_AFTER));
+        assertEquals(4, getTextRunCursor("a\uD83D\uDE00c", 3, CURSOR_AFTER));
+        assertEquals(4, getTextRunCursor("a\uD83D\uDE00c", 4, CURSOR_AFTER));
+
+        // Combining marks
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 0, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 1, CURSOR_AFTER));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 2, CURSOR_AFTER));
+        assertEquals(4, getTextRunCursor("a\u0061\u0302c", 3, CURSOR_AFTER));
+        assertEquals(4, getTextRunCursor("a\u0061\u0302c", 4, CURSOR_AFTER));
+    }
+
+    @Test
+    public void testGetRunCursor_CURSOR_AT() {
+        assertEquals(0, getTextRunCursor("abc", 0, CURSOR_AT));
+        assertEquals(1, getTextRunCursor("abc", 1, CURSOR_AT));
+        assertEquals(2, getTextRunCursor("abc", 2, CURSOR_AT));
+        assertEquals(3, getTextRunCursor("abc", 3, CURSOR_AT));
+
+        // Surrogate pairs
+        assertEquals(0, getTextRunCursor("a\uD83D\uDE00c", 0, CURSOR_AT));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 1, CURSOR_AT));
+        assertEquals(-1, getTextRunCursor("a\uD83D\uDE00c", 2, CURSOR_AT));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 3, CURSOR_AT));
+        assertEquals(4, getTextRunCursor("a\uD83D\uDE00c", 4, CURSOR_AT));
+
+        // Combining marks
+        assertEquals(0, getTextRunCursor("a\u0061\u0302c", 0, CURSOR_AT));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 1, CURSOR_AT));
+        assertEquals(-1, getTextRunCursor("a\u0061\u0302c", 2, CURSOR_AT));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 3, CURSOR_AT));
+        assertEquals(4, getTextRunCursor("a\u0061\u0302c", 4, CURSOR_AT));
+    }
+
+    @Test
+    public void testGetRunCursor_CURSOR_AT_OR_AFTER() {
+        assertEquals(0, getTextRunCursor("abc", 0, CURSOR_AT_OR_AFTER));
+        assertEquals(1, getTextRunCursor("abc", 1, CURSOR_AT_OR_AFTER));
+        assertEquals(2, getTextRunCursor("abc", 2, CURSOR_AT_OR_AFTER));
+        assertEquals(3, getTextRunCursor("abc", 3, CURSOR_AT_OR_AFTER));
+
+        // Surrogate pairs
+        assertEquals(0, getTextRunCursor("a\uD83D\uDE00c", 0, CURSOR_AT_OR_AFTER));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 1, CURSOR_AT_OR_AFTER));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 2, CURSOR_AT_OR_AFTER));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 3, CURSOR_AT_OR_AFTER));
+        assertEquals(4, getTextRunCursor("a\uD83D\uDE00c", 4, CURSOR_AT_OR_AFTER));
+
+        // Combining marks
+        assertEquals(0, getTextRunCursor("a\u0061\u0302c", 0, CURSOR_AT_OR_AFTER));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 1, CURSOR_AT_OR_AFTER));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 2, CURSOR_AT_OR_AFTER));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 3, CURSOR_AT_OR_AFTER));
+        assertEquals(4, getTextRunCursor("a\u0061\u0302c", 4, CURSOR_AT_OR_AFTER));
+    }
+
+    @Test
+    public void testGetRunCursor_CURSOR_AT_OR_BEFORE() {
+        assertEquals(0, getTextRunCursor("abc", 0, CURSOR_AT_OR_BEFORE));
+        assertEquals(1, getTextRunCursor("abc", 1, CURSOR_AT_OR_BEFORE));
+        assertEquals(2, getTextRunCursor("abc", 2, CURSOR_AT_OR_BEFORE));
+        assertEquals(3, getTextRunCursor("abc", 3, CURSOR_AT_OR_BEFORE));
+
+        // Surrogate pairs
+        assertEquals(0, getTextRunCursor("a\uD83D\uDE00c", 0, CURSOR_AT_OR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 1, CURSOR_AT_OR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 2, CURSOR_AT_OR_BEFORE));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 3, CURSOR_AT_OR_BEFORE));
+        assertEquals(4, getTextRunCursor("a\uD83D\uDE00c", 4, CURSOR_AT_OR_BEFORE));
+
+        // Combining marks
+        assertEquals(0, getTextRunCursor("a\u0061\u0302c", 0, CURSOR_AT_OR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 1, CURSOR_AT_OR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 2, CURSOR_AT_OR_BEFORE));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 3, CURSOR_AT_OR_BEFORE));
+        assertEquals(4, getTextRunCursor("a\u0061\u0302c", 4, CURSOR_AT_OR_BEFORE));
+    }
+
+    @Test
+    public void testGetRunCursor_CURSOR_BEFORE() {
+        assertEquals(0, getTextRunCursor("abc", 0, CURSOR_BEFORE));
+        assertEquals(0, getTextRunCursor("abc", 1, CURSOR_BEFORE));
+        assertEquals(1, getTextRunCursor("abc", 2, CURSOR_BEFORE));
+        assertEquals(2, getTextRunCursor("abc", 3, CURSOR_BEFORE));
+
+        // Surrogate pairs
+        assertEquals(0, getTextRunCursor("a\uD83D\uDE00c", 0, CURSOR_BEFORE));
+        assertEquals(0, getTextRunCursor("a\uD83D\uDE00c", 1, CURSOR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 2, CURSOR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\uD83D\uDE00c", 3, CURSOR_BEFORE));
+        assertEquals(3, getTextRunCursor("a\uD83D\uDE00c", 4, CURSOR_BEFORE));
+
+        // Combining marks
+        assertEquals(0, getTextRunCursor("a\u0061\u0302c", 0, CURSOR_BEFORE));
+        assertEquals(0, getTextRunCursor("a\u0061\u0302c", 1, CURSOR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 2, CURSOR_BEFORE));
+        assertEquals(1, getTextRunCursor("a\u0061\u0302c", 3, CURSOR_BEFORE));
+        assertEquals(3, getTextRunCursor("a\u0061\u0302c", 4, CURSOR_BEFORE));
+    }
+
+    @Test
+    public void testGetBlendModeFromPorterDuffMode() {
+        Paint p = new Paint();
+        PorterDuff.Mode[] porterDuffModes = PorterDuff.Mode.values();
+        for (PorterDuff.Mode mode : porterDuffModes) {
+            p.setXfermode(new PorterDuffXfermode(mode));
+            assertEquals(getBlendModeFromPorterDuffMode(mode), p.getBlendMode());
+        }
+
+    }
+
+    private BlendMode getBlendModeFromPorterDuffMode(PorterDuff.Mode mode) {
+        switch (mode) {
+            case CLEAR: return BlendMode.CLEAR;
+            case SRC: return BlendMode.SRC;
+            case DST: return BlendMode.DST;
+            case SRC_OVER: return BlendMode.SRC_OVER;
+            case DST_OVER: return BlendMode.DST_OVER;
+            case SRC_IN: return BlendMode.SRC_IN;
+            case DST_IN: return BlendMode.DST_IN;
+            case SRC_OUT: return BlendMode.SRC_OUT;
+            case DST_OUT: return BlendMode.DST_OUT;
+            case SRC_ATOP: return BlendMode.SRC_ATOP;
+            case DST_ATOP: return BlendMode.DST_ATOP;
+            case XOR: return BlendMode.XOR;
+            case DARKEN: return BlendMode.DARKEN;
+            case LIGHTEN: return BlendMode.LIGHTEN;
+             // The odd one out, see b/73224934. PorterDuff.Mode.MULTIPLY was improperly mapped
+            // to Skia's modulate
+            case MULTIPLY: return BlendMode.MODULATE;
+            case SCREEN: return BlendMode.SCREEN;
+            case ADD: return BlendMode.PLUS;
+            case OVERLAY: return BlendMode.OVERLAY;
+            default: throw new IllegalArgumentException("Unknown PorterDuffmode: " + mode);
+        }
+    }
+
+    private void testColorLongs(String methodName, BiConsumer<Paint, Long> setColor,
+                                Function<Paint, Integer> getColor,
+                                Function<Paint, Long> getColorLong) {
+        // Pack SRGB colors into ColorLongs
+        for (int color : new int[]{ Color.RED, Color.BLUE, Color.GREEN, Color.BLACK,
+                Color.WHITE, Color.TRANSPARENT }) {
+            final Paint p = new Paint();
+            final long longColor = Color.pack(color);
+            setColor.accept(p, longColor);
+
+            assertEquals(color, getColor.apply(p).intValue());
+            assertEquals(longColor, getColorLong.apply(p).longValue());
+        }
+
+        // Arbitrary colors in various ColorSpaces
+        for (int srgbColor : new int[]{ Color.argb(1.0f, .5f, .5f, .5f),
+                                        Color.argb(1.0f, .3f, .6f, .9f),
+                                        Color.argb(0.5f, .2f, .8f, .7f) }) {
+            for (ColorSpace.Named e : ColorSpace.Named.values()) {
+                ColorSpace cs = ColorSpace.get(e);
+                if (cs.getModel() != ColorSpace.Model.RGB) {
+                    continue;
+                }
+                if (((ColorSpace.Rgb) cs).getTransferParameters() == null) {
+                    continue;
+                }
+
+                final long longColor = Color.convert(srgbColor, cs);
+                Paint p = new Paint();
+                setColor.accept(p, longColor);
+                assertEquals(longColor, getColorLong.apply(p).longValue());
+
+                // These tolerances were chosen by trial and error. It is expected that
+                // some conversions do not round-trip perfectly.
+                int tolerance = 0;
+                if (cs.equals(ColorSpace.get(ColorSpace.Named.SMPTE_C))) {
+                    tolerance = 2;
+                }
+                int color = getColor.apply(p);
+                ColorUtils.verifyColor("Paint#" + methodName + " mismatch for " + cs, srgbColor,
+                        color, tolerance);
+            }
+        }
+    }
+
+    @Test
+    public void testSetColorLong() {
+        testColorLongs("setColor", (p, c) -> p.setColor(c), (p) -> p.getColor(),
+                (p) -> p.getColorLong());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorXYZ() {
+        Paint p = new Paint();
+        p.setColor(Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_XYZ)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorLAB() {
+        Paint p = new Paint();
+        p.setColor(Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_LAB)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorUnknown() {
+        Paint p = new Paint();
+        p.setColor(-1L);
+    }
+
+    @Test
+    public void testSetShadowLayerLong() {
+        testColorLongs("setShadowLayer", (p, c) -> p.setShadowLayer(10.0f, 1.0f, 1.0f, c),
+                (p) -> p.getShadowLayerColor(), (p) -> p.getShadowLayerColorLong());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetShadowLayerXYZ() {
+        Paint p = new Paint();
+        p.setShadowLayer(10.0f, 1.0f, 1.0f,
+                Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_XYZ)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetShadowLayerLAB() {
+        Paint p = new Paint();
+        p.setShadowLayer(10.0f, 1.0f, 1.0f,
+                Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_LAB)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetShadowLayerUnknown() {
+        Paint p = new Paint();
+        p.setShadowLayer(10.0f, 1.0f, 1.0f, -1L);
     }
 }

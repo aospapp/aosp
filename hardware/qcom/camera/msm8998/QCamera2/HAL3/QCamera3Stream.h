@@ -99,6 +99,7 @@ public:
 
     static void releaseFrameData(void *data, void *user_data);
     int32_t timeoutFrame(int32_t bufIdx);
+    void setBufStride(uint32_t stride) {mStreamInfo->buf_stride = stride;}
 
 private:
     uint32_t mCamHandle;

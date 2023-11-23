@@ -29,6 +29,15 @@ else
 CRAS_FMA =
 endif
 
+if HAVE_WEBRTC_APM
+CRAS_WEBRTC_APM_SOURCES = \
+	server/cras_apm_list.c \
+	server/config/aec_config.c \
+	server/config/apm_config.c
+else
+CRAS_WEBRTC_APM_SOURCES =
+endif
+
 CRAS_UT_TMPDIR_CFLAGS=-DCRAS_UT_TMPDIR=\"/tmp\"
 COMMON_CPPFLAGS = -O2 -Wall -Werror -Wno-error=cpp
 COMMON_SIMD_CPPFLAGS = -O3 -Wall -Werror -Wno-error=cpp
@@ -56,13 +65,24 @@ CRAS_DBUS_SOURCES = \
 	server/cras_a2dp_endpoint.c \
 	server/cras_a2dp_info.c \
 	server/cras_a2dp_iodev.c \
-	server/cras_telephony.c
+	server/cras_telephony.c \
+	server/cras_utf8.c
 else
 CRAS_DBUS_SOURCES =
 endif
 
-cras_SOURCES = \
+if HAVE_SELINUX
+CRAS_SELINUX_SOURCES = common/cras_selinux_helper.c
+CRAS_SELINUX_UNITTEST_SOURCES = tests/cras_selinux_helper_unittest.c
+else
+CRAS_SELINUX_SOURCES =
+CRAS_SELINUX_UNITTEST_SOURCES =
+endif
+
+cras_server_SOURCES = \
 	$(CRAS_DBUS_SOURCES) \
+	$(CRAS_SELINUX_SOURCES) \
+	$(CRAS_WEBRTC_APM_SOURCES) \
 	common/cras_audio_format.c \
 	common/cras_checksum.c \
 	common/cras_config.c \
@@ -75,6 +95,7 @@ cras_SOURCES = \
 	dsp/biquad.c \
 	dsp/crossover.c \
 	dsp/crossover2.c \
+	dsp/dcblock.c \
 	dsp/drc.c \
 	dsp/drc_kernel.c \
 	dsp/drc_math.c \
@@ -83,9 +104,9 @@ cras_SOURCES = \
 	dsp/eq2.c \
 	server/audio_thread.c \
 	server/buffer_share.c \
+	server/config/cras_board_config.c \
 	server/config/cras_card_config.c \
 	server/config/cras_device_blacklist.c \
-	server/cras.c \
 	server/cras_alert.c \
 	server/cras_alsa_card.c \
 	server/cras_alsa_helpers.c \
@@ -96,6 +117,7 @@ cras_SOURCES = \
 	server/cras_alsa_ucm.c \
 	server/cras_alsa_ucm_section.c \
 	server/cras_audio_area.c \
+	server/cras_audio_thread_monitor.c \
 	server/cras_device_monitor.c \
 	server/cras_dsp.c \
 	server/cras_dsp_ini.c \
@@ -106,28 +128,53 @@ cras_SOURCES = \
 	server/cras_expr.c \
 	server/cras_fmt_conv.c \
 	server/cras_gpio_jack.c \
+	server/cras_hotword_handler.c \
 	server/cras_iodev.c \
 	server/cras_iodev_list.c \
 	server/cras_loopback_iodev.c \
 	server/cras_main_message.c \
 	server/cras_mix.c \
+	server/cras_non_empty_audio_handler.c \
 	server/cras_observer.c \
 	server/cras_ramp.c \
 	server/cras_rclient.c \
 	server/cras_rstream.c \
-	server/cras_utf8.c \
-	server/cras_server.c \
 	server/cras_server_metrics.c \
 	server/cras_system_state.c \
 	server/cras_tm.c \
 	server/cras_udev.c \
 	server/cras_volume_curve.c \
+	server/dev_io.c \
 	server/dev_stream.c \
+	server/input_data.c \
 	server/linear_resampler.c \
+	server/polled_interval_checker.c \
+	server/server_stream.c \
 	server/stream_list.c \
 	server/test_iodev.c \
 	server/rate_estimator.c \
 	server/softvol_curve.c
+
+libcrasserver_la_SOURCES = \
+	$(cras_server_SOURCES)
+libcrasserver_la_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
+	-I$(top_srcdir)/src/dsp -I$(top_srcdir)/src/server \
+	-I$(top_srcdir)/src/server/config \
+	$(DBUS_CFLAGS) $(SBC_CFLAGS) $(SELINUX_CFLAGS)
+libcrasserver_la_LIBADD = \
+	libcrasmix.la \
+	$(CRAS_SSE4_2) \
+	$(CRAS_AVX) \
+	$(CRAS_AVX2) \
+	$(CRAS_FMA) \
+	-lpthread -lasound -lrt -liniparser -ludev -ldl -lm -lspeexdsp \
+	$(SBC_LIBS) \
+	$(DBUS_LIBS) \
+	$(SELINUX_LIBS)
+
+cras_SOURCES = \
+	server/cras.c \
+	server/cras_server.c
 
 cras_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/dsp -I$(top_srcdir)/src/server \
@@ -136,20 +183,24 @@ cras_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 
 cras_LDADD = \
 	libcrasmix.la \
+	libcrasserver.la \
 	$(CRAS_SSE4_2) \
 	$(CRAS_AVX) \
 	$(CRAS_AVX2) \
 	$(CRAS_FMA) \
 	-lpthread -lasound -lrt -liniparser -ludev -ldl -lm -lspeexdsp \
+	$(METRICS_LIBS) \
 	$(SBC_LIBS) \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+	$(WEBRTC_APM_LIBS)
 
 noinst_LTLIBRARIES = \
 	$(CRAS_SSE4_2) \
 	$(CRAS_AVX) \
 	$(CRAS_AVX2) \
 	$(CRAS_FMA) \
-	libcrasmix.la
+	libcrasmix.la \
+	libcrasserver.la
 
 libcrasmix_la_SOURCES = \
 	server/cras_mix_ops.c
@@ -265,11 +316,20 @@ else
 DBUS_TESTS =
 endif
 
+if HAVE_WEBRTC_APM
+CRAS_WEBRTC_APM_TESTS = \
+	apm_list_unittest
+else
+CRAS_WEBRTC_APM_TESTS =
+endif
+
 TESTS = \
 	$(DBUS_TESTS) \
+	$(CRAS_WEBRTC_APM_TESTS) \
 	audio_area_unittest \
 	audio_format_unittest \
 	audio_thread_unittest \
+	audio_thread_monitor_unittest \
 	alert_unittest \
 	alsa_card_unittest \
 	alsa_helpers_unittest \
@@ -283,6 +343,7 @@ TESTS = \
 	cras_client_unittest \
 	cras_tm_unittest \
 	device_monitor_unittest \
+	dev_io_unittest \
 	dev_stream_unittest \
 	device_blacklist_unittest \
 	dsp_core_unittest \
@@ -293,6 +354,7 @@ TESTS = \
 	edid_utils_unittest \
 	expr_unittest \
 	file_wait_unittest \
+	float_buffer_unittest \
 	fmt_conv_unittest \
 	hfp_info_unittest \
 	buffer_share_unittest \
@@ -302,6 +364,7 @@ TESTS = \
 	mix_unittest \
 	linear_resampler_unittest \
 	observer_unittest \
+	polled_interval_checker_unittest \
 	ramp_unittest \
 	rate_estimator_unittest \
 	rclient_unittest \
@@ -311,6 +374,7 @@ TESTS = \
 	softvol_curve_unittest \
 	stream_list_unittest \
 	system_state_unittest \
+	timing_unittest \
 	utf8_unittest \
 	util_unittest \
 	volume_curve_unittest
@@ -357,45 +421,53 @@ common/cras_version.h:
 check_PROGRAMS += \
 	crossover_test \
 	crossover2_test \
+	dcblock_test \
 	drc_test \
 	dsp_util_test \
 	eq_test \
 	eq2_test \
 	cmpraw
 
+DSP_INCLUDE_PATHS = -I$(top_srcdir)/src/dsp -I$(top_srcdir)/src/common
+
 crossover_test_SOURCES = dsp/crossover.c dsp/biquad.c dsp/dsp_util.c \
 	dsp/tests/crossover_test.c dsp/tests/dsp_test_util.c dsp/tests/raw.c
 crossover_test_LDADD = -lrt -lm
-crossover_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+crossover_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 crossover2_test_SOURCES = dsp/crossover2.c dsp/biquad.c dsp/dsp_util.c \
 	dsp/tests/crossover2_test.c dsp/tests/dsp_test_util.c dsp/tests/raw.c
 crossover2_test_LDADD = -lrt -lm
-crossover2_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+crossover2_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
+
+dcblock_test_SOURCES = dsp/dcblock.c dsp/dsp_util.c dsp/tests/dcblock_test.c \
+	dsp/tests/dsp_test_util.c dsp/tests/raw.c
+dcblock_test_LDADD = -lrt -lm
+dcblock_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 drc_test_SOURCES = dsp/drc.c dsp/drc_kernel.c dsp/drc_math.c \
 	dsp/crossover2.c dsp/eq2.c dsp/biquad.c dsp/dsp_util.c \
 	dsp/tests/drc_test.c dsp/tests/dsp_test_util.c dsp/tests/raw.c
 drc_test_LDADD = -lrt -lm
-drc_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+drc_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 dsp_util_test_SOURCES = dsp/tests/dsp_util_test.c dsp/dsp_util.c
 dsp_util_test_LDADD = -lm
-dsp_util_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp -Wno-error=strict-aliasing
+dsp_util_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS) -Wno-error=strict-aliasing
 
 eq_test_SOURCES = dsp/biquad.c dsp/eq.c dsp/dsp_util.c dsp/tests/eq_test.c \
 	dsp/tests/dsp_test_util.c dsp/tests/raw.c
 eq_test_LDADD = -lrt -lm
-eq_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+eq_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 eq2_test_SOURCES = dsp/biquad.c dsp/eq2.c dsp/dsp_util.c dsp/tests/eq2_test.c \
 	dsp/tests/dsp_test_util.c dsp/tests/raw.c
 eq2_test_LDADD = -lrt -lm
-eq2_test_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+eq2_test_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 cmpraw_SOURCES = dsp/tests/cmpraw.c dsp/tests/raw.c
 cmpraw_LDADD = -lm
-cmpraw_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+cmpraw_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 
 # unit tests
 alert_unittest_SOURCES = tests/alert_unittest.cc \
@@ -450,7 +522,8 @@ alsa_io_unittest_SOURCES = tests/alsa_io_unittest.cc server/softvol_curve.c \
 	common/sfh.c \
 	server/cras_alsa_ucm_section.c \
 	server/cras_alsa_mixer_name.c
-alsa_io_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/server \
+alsa_io_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) $(DBUS_CFLAGS) \
+	-I$(top_srcdir)/src/server \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/server/config
 alsa_io_unittest_LDADD = -lgtest -lpthread
@@ -481,14 +554,31 @@ alsa_ucm_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
 	-I$(top_srcdir)/src/server/config
 alsa_ucm_unittest_LDADD = -lgtest -lpthread
 
+if HAVE_WEBRTC_APM
+apm_list_unittest_SOURCES = tests/apm_list_unittest.cc \
+	server/cras_apm_list.c
+apm_list_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
+	$(DSP_INCLUDE_PATHS) \
+	-I$(top_srcdir)/src/server \
+	-I$(top_srcdir)/src/server/config \
+	$(WEBRTC_APM_CFLAGS)
+apm_list_unittest_LDADD = -lgtest
+endif
+
 array_unittest_SOURCES = tests/array_unittest.cc
 array_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common
 array_unittest_LDADD = -lgtest -lpthread
 
-audio_thread_unittest_SOURCES = tests/audio_thread_unittest.cc
+audio_thread_unittest_SOURCES = tests/audio_thread_unittest.cc \
+	server/dev_io.c tests/empty_audio_stub.cc
 audio_thread_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
 	-I$(top_srcdir)/src/common -I$(top_srcdir)/src/server
 audio_thread_unittest_LDADD = -lgtest -lpthread -lrt
+
+audio_thread_monitor_unittest_SOURCES = tests/audio_thread_monitor_unittest.cc
+audio_thread_monitor_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
+	-I$(top_srcdir)/src/common -I$(top_srcdir)/src/server
+audio_thread_monitor_unittest_LDADD = -lgtest -lpthread -lrt
 
 if HAVE_DBUS
 bt_device_unittest_SOURCES = tests/bt_device_unittest.cc \
@@ -529,6 +619,39 @@ cras_tm_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 	 -I$(top_srcdir)/src/server
 cras_tm_unittest_LDADD = -lgtest -lpthread
 
+dev_io_unittest_SOURCES = \
+	$(CRAS_SELINUX_UNITTEST_SOURCES) \
+	common/cras_audio_format.c \
+	common/cras_shm.c \
+	server/cras_audio_area.c \
+	server/cras_fmt_conv.c \
+	server/cras_mix.c \
+	server/cras_mix_ops.c \
+	server/dev_io.c \
+	server/dev_stream.c \
+	server/linear_resampler.c \
+	tests/dev_io_stubs.cc \
+	tests/iodev_stub.cc \
+	tests/empty_audio_stub.cc \
+	tests/rstream_stub.cc \
+	tests/dev_io_unittest.cc
+dev_io_unittest_CXXFLAGS = \
+	-std=c++11 -Wno-noexcept-type
+dev_io_unittest_CPPFLAGS = \
+	$(COMMON_CPPFLAGS) \
+	-I$(top_srcdir)/src/common \
+	-I$(top_srcdir)/src/server \
+	-I$(top_srcdir)/src/server/config \
+	$(SELINUX_CFLAGS)
+dev_io_unittest_LDADD = \
+	libcrasmix.la \
+	$(CRAS_SSE4_2) \
+	$(CRAS_AVX) \
+	$(CRAS_AVX2) \
+	$(CRAS_FMA) \
+	$(SELINUX_LIBS) \
+	-lgtest -lrt -lpthread -ldl -lm -lspeexdsp
+
 dev_stream_unittest_SOURCES = tests/dev_stream_unittest.cc \
 	server/dev_stream.c
 dev_stream_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
@@ -550,7 +673,7 @@ device_monitor_unittest_LDADD = -lgtest -lpthread
 dsp_core_unittest_SOURCES = tests/dsp_core_unittest.cc dsp/eq.c dsp/eq2.c \
 	dsp/biquad.c dsp/dsp_util.c dsp/crossover.c dsp/crossover2.c dsp/drc.c \
 	dsp/drc_kernel.c dsp/drc_math.c
-dsp_core_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/dsp
+dsp_core_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) $(DSP_INCLUDE_PATHS)
 dsp_core_unittest_LDADD = -lgtest -lpthread
 
 dsp_ini_unittest_SOURCES = tests/dsp_ini_unittest.cc \
@@ -562,16 +685,16 @@ dsp_ini_unittest_LDADD = -lgtest -liniparser -lpthread
 dsp_pipeline_unittest_SOURCES = tests/cras_dsp_pipeline_unittest.cc \
 	server/cras_dsp_ini.c server/cras_expr.c server/cras_dsp_pipeline.c \
 	common/dumper.c dsp/dsp_util.c
-dsp_pipeline_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
-	-I$(top_srcdir)/src/server -I$(top_srcdir)/src/dsp
+dsp_pipeline_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
+	-I$(top_srcdir)/src/server $(DSP_INCLUDE_PATHS)
 dsp_pipeline_unittest_LDADD = -lgtest -lrt -liniparser -lpthread
 
 dsp_unittest_SOURCES = tests/dsp_unittest.cc \
 	server/cras_dsp.c server/cras_dsp_ini.c server/cras_dsp_pipeline.c \
 	server/cras_expr.c common/dumper.c dsp/dsp_util.c \
 	dsp/tests/dsp_test_util.c
-dsp_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
-	-I$(top_srcdir)/src/server -I$(top_srcdir)/src/dsp
+dsp_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
+	-I$(top_srcdir)/src/server $(DSP_INCLUDE_PATHS)
 dsp_unittest_LDADD = -lgtest -lrt -liniparser -lpthread
 
 dumper_unittest_SOURCES = tests/dumper_unittest.cc common/dumper.c
@@ -592,6 +715,12 @@ file_wait_unittest_SOURCES = tests/file_wait_unittest.cc \
 file_wait_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 	$(CRAS_UT_TMPDIR_CFLAGS)
 file_wait_unittest_LDADD = -lgtest -lpthread
+
+
+float_buffer_unittest_SOURCES = tests/float_buffer_unittest.cc
+float_buffer_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
+	-I$(top_srcdir)/src/server
+float_buffer_unittest_LDADD = -lgtest -lpthread
 
 fmt_conv_unittest_SOURCES = tests/fmt_conv_unittest.cc server/cras_fmt_conv.c
 fmt_conv_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
@@ -664,6 +793,12 @@ observer_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/server
 observer_unittest_LDADD = -lgtest -lpthread
 
+polled_interval_checker_unittest_SOURCES = tests/polled_interval_checker_unittest.cc \
+    server/polled_interval_checker.c
+polled_interval_checker_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
+	-I$(top_srcdir)/src/server
+polled_interval_checker_unittest_LDADD = -lgtest -lpthread
+
 ramp_unittest_SOURCES = tests/ramp_unittest.cc
 ramp_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/server
@@ -680,10 +815,11 @@ rclient_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 rclient_unittest_LDADD = -lgtest -lpthread
 
 rstream_unittest_SOURCES = tests/rstream_unittest.cc server/cras_rstream.c \
-	common/cras_shm.c
+	common/cras_shm.c $(CRAS_SELINUX_UNITTEST_SOURCES)
 rstream_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
-	 -I$(top_srcdir)/src/server
-rstream_unittest_LDADD = -lasound -lgtest -lpthread -lrt
+	 -I$(top_srcdir)/src/server $(SELINUX_CFLAGS)
+rstream_unittest_LDADD = $(SELINUX_LIBS) \
+	-lasound -lgtest -lpthread -lrt
 
 server_metrics_unittest_SOURCES = tests/server_metrics_unittest.cc
 server_metrics_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
@@ -706,11 +842,46 @@ stream_list_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \
 stream_list_unittest_LDADD = -lgtest -lpthread
 
 system_state_unittest_SOURCES = tests/system_state_unittest.cc \
-	server/cras_system_state.c common/cras_shm.c
+	server/cras_system_state.c common/cras_shm.c \
+	server/config/cras_board_config.c $(CRAS_SELINUX_UNITTEST_SOURCES)
 system_state_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) \
 	-I$(top_srcdir)/src/common -I$(top_srcdir)/src/server \
-	-I$(top_srcdir)/src/server/config
-system_state_unittest_LDADD = -lgtest -lrt -lpthread
+	-I$(top_srcdir)/src/server/config $(SELINUX_CFLAGS)
+system_state_unittest_LDADD = $(SELINUX_LIBS) \
+	-lgtest -liniparser -lpthread -lrt
+
+timing_unittest_SOURCES = \
+	$(CRAS_SELINUX_UNITTEST_SOURCES) \
+	common/cras_audio_format.c \
+	common/cras_shm.c \
+	server/cras_audio_area.c \
+	server/cras_fmt_conv.c \
+	server/cras_mix.c \
+	server/cras_mix_ops.c \
+	server/dev_io.c \
+	server/dev_stream.c \
+	server/linear_resampler.c \
+	tests/dev_io_stubs.cc \
+	tests/iodev_stub.cc \
+	tests/empty_audio_stub.cc \
+	tests/rstream_stub.cc \
+	tests/timing_unittest.cc
+timing_unittest_CXXFLAGS = \
+	-std=c++11 -Wno-noexcept-type
+timing_unittest_CPPFLAGS = \
+	$(COMMON_CPPFLAGS) \
+	-I$(top_srcdir)/src/common \
+	-I$(top_srcdir)/src/server \
+	-I$(top_srcdir)/src/server/config \
+	$(SELINUX_CFLAGS)
+timing_unittest_LDADD = \
+	libcrasmix.la \
+	$(CRAS_SSE4_2) \
+	$(CRAS_AVX) \
+	$(CRAS_AVX2) \
+	$(CRAS_FMA) \
+	$(SELINUX_LIBS) \
+	-lgtest -lrt -lpthread -ldl -lm -lspeexdsp
 
 utf8_unittest_SOURCES = tests/utf8_unittest.cc server/cras_utf8.c
 utf8_unittest_CPPFLAGS = $(COMMON_CPPFLAGS) -I$(top_srcdir)/src/common \

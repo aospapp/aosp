@@ -16,6 +16,7 @@
 package com.android.cts.net.hostside.app2;
 
 import static android.net.ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED;
+
 import static com.android.cts.net.hostside.app2.Common.ACTION_RECEIVER_READY;
 import static com.android.cts.net.hostside.app2.Common.DYNAMIC_RECEIVER;
 import static com.android.cts.net.hostside.app2.Common.TAG;
@@ -26,13 +27,16 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.os.IBinder;
-import android.os.Looper;
+import android.os.RemoteException;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.android.cts.net.hostside.IMyService;
+import com.android.cts.net.hostside.INetworkCallback;
 
 /**
  * Service used to dynamically register a broadcast receiver.
@@ -40,7 +44,10 @@ import com.android.cts.net.hostside.IMyService;
 public class MyService extends Service {
     private static final String NOTIFICATION_CHANNEL_ID = "MyService";
 
+    ConnectivityManager mCm;
+
     private MyBroadcastReceiver mReceiver;
+    private ConnectivityManager.NetworkCallback mNetworkCallback;
 
     // TODO: move MyBroadcast static functions here - they were kept there to make git diff easier.
 
@@ -81,7 +88,66 @@ public class MyService extends Service {
             MyBroadcastReceiver .sendNotification(getApplicationContext(), NOTIFICATION_CHANNEL_ID,
                     notificationId, notificationType);
         }
+
+        @Override
+        public void registerNetworkCallback(INetworkCallback cb) {
+            if (mNetworkCallback != null) {
+                Log.d(TAG, "unregister previous network callback: " + mNetworkCallback);
+                unregisterNetworkCallback();
+            }
+            Log.d(TAG, "registering network callback");
+
+            mNetworkCallback = new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onBlockedStatusChanged(Network network, boolean blocked) {
+                    try {
+                        cb.onBlockedStatusChanged(network, blocked);
+                    } catch (RemoteException e) {
+                        Log.d(TAG, "Cannot send onBlockedStatusChanged: " + e);
+                        unregisterNetworkCallback();
+                    }
+                }
+
+                @Override
+                public void onAvailable(Network network) {
+                    try {
+                        cb.onAvailable(network);
+                    } catch (RemoteException e) {
+                        Log.d(TAG, "Cannot send onAvailable: " + e);
+                        unregisterNetworkCallback();
+                    }
+                }
+
+                @Override
+                public void onLost(Network network) {
+                    try {
+                        cb.onLost(network);
+                    } catch (RemoteException e) {
+                        Log.d(TAG, "Cannot send onLost: " + e);
+                        unregisterNetworkCallback();
+                    }
+                }
+            };
+            mCm.registerNetworkCallback(makeWifiNetworkRequest(), mNetworkCallback);
+            try {
+                cb.asBinder().linkToDeath(() -> unregisterNetworkCallback(), 0);
+            } catch (RemoteException e) {
+                unregisterNetworkCallback();
+            }
+        }
       };
+
+    private void unregisterNetworkCallback() {
+        Log.d(TAG, "unregistering network callback");
+        mCm.unregisterNetworkCallback(mNetworkCallback);
+        mNetworkCallback = null;
+    }
+
+    private NetworkRequest makeWifiNetworkRequest() {
+        return new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build();
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -94,6 +160,8 @@ public class MyService extends Service {
         ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
                 .createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL_ID,
                         NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_DEFAULT));
+        mCm = (ConnectivityManager) getApplicationContext()
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
     @Override

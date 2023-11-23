@@ -2,14 +2,15 @@
 <head>
 <script>
 
- // How many arrays to allocate.
+// How many arrays to allocate.
 var __n_arrays = 10;
 // How many elements in each array
 var __n_elements = 10 * 1000 * 1000;
 // Touch one element every __touch_step elements.
-var __touch_step = 5 * 1000;
-var __total_allocation;
+var __touch_step = 1000;
+var __bloat_interval_ms = 100;
 var __text_area = null;
+var __start_time;
 
 function __initialize_bloat() {
   __total_allocation = 0;
@@ -30,23 +31,24 @@ function __display_message(text) {
 }
 
 function __bloat_array(i) {
-  var message = "allocated "
-      + __total_allocation / (1000000) + "M elements ...";
-  if (i >= __n_arrays) {
-    message += " done"
-  }
-  __display_message(message);
   if (i < __n_arrays) {
-    __total_allocation += __n_elements;
     document.bloat[i] += new Array(__n_elements);
     for (j = 0; j < __n_elements; j += __touch_step) {
             document.bloat[i][j] = j;
     }
-    setTimeout(function() {__bloat_array(i + 1);}, 10);
+    setTimeout(function() {__bloat_array(i + 1);}, __bloat_interval_ms);
   }
+  var message = "allocated "
+      + i + " arrays of size " + __n_elements / (1000 * 1000) + "M\n";
+  if (i >= __n_arrays) {
+      message += "done, elapsed time = " +
+          ((new Date).getTime() - __start_time) / 1000.0 + " seconds";
+  }
+  __display_message(message);
 }
 
 function __bloat() {
+  __start_time = (new Date).getTime();
   __bloat_array(0);
 }
 

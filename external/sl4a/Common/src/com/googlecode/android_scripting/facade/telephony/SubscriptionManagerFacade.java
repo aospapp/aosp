@@ -102,6 +102,13 @@ public class SubscriptionManagerFacade extends RpcReceiver {
         return mSubscriptionManager.getActiveSubscriptionInfo(subId);
     }
 
+    @Rpc(description = "Return if AlwaysAllowMMSData is set correctly")
+    public boolean subscriptionSetAlwaysAllowMmsData(
+            @RpcParameter(name = "subId") Integer subId,
+            @RpcParameter(name = "alwaysAllow") Boolean alwaysAllow) {
+        return mSubscriptionManager.setAlwaysAllowMmsData(subId, alwaysAllow);
+    }
+
     @Rpc(description = "Set Data Roaming Enabled or Disabled for a particular Subscription ID")
     public Integer subscriptionSetDataRoaming(
             @RpcParameter(name = "roaming") Integer roaming,

@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,6 +40,19 @@ extern MagickPrivate ssize_t
 extern MagickPrivate void
   ChopPathComponents(char *,const size_t),
   ExpandFilename(char *);
+
+static inline int MagickReadDirectory(DIR *directory,struct dirent *entry,
+  struct dirent **result)
+{
+#if defined(MAGICKCORE_HAVE_READDIR_R)
+  return(readdir_r(directory,entry,result));
+#else
+  (void) entry;
+  errno=0;
+  *result=readdir(directory);
+  return(errno);
+#endif
+}
 
 /*
   Windows UTF8 compatibility methods.
@@ -114,7 +127,7 @@ static inline int access_utf8(const char *path,int mode)
 
 static inline FILE *fopen_utf8(const char *path,const char *mode)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(fopen(path,mode));
 #else
    FILE
@@ -142,7 +155,7 @@ static inline FILE *fopen_utf8(const char *path,const char *mode)
 
 static inline void getcwd_utf8(char *path,size_t extent)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   char
     *directory;
 
@@ -157,14 +170,14 @@ static inline void getcwd_utf8(char *path,size_t extent)
 #endif
 }
 
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 typedef int
   mode_t;
 #endif
 
 static inline int open_utf8(const char *path,int flags,mode_t mode)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(open(path,flags,mode));
 #else
    int
@@ -184,7 +197,7 @@ static inline int open_utf8(const char *path,int flags,mode_t mode)
 
 static inline FILE *popen_utf8(const char *command,const char *type)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(popen(command,type));
 #else
    FILE
@@ -212,7 +225,7 @@ static inline FILE *popen_utf8(const char *command,const char *type)
 
 static inline int remove_utf8(const char *path)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(unlink(path));
 #else
    int
@@ -232,7 +245,7 @@ static inline int remove_utf8(const char *path)
 
 static inline int rename_utf8(const char *source,const char *destination)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(rename(source,destination));
 #else
    int
@@ -260,7 +273,7 @@ static inline int rename_utf8(const char *source,const char *destination)
 
 static inline int stat_utf8(const char *path,struct stat *attributes)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
   return(stat(path,attributes));
 #else
    int

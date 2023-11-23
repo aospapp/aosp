@@ -246,6 +246,12 @@ public class MockDeviceManager implements IDeviceManager {
     /** {@inheritDoc} */
     @Override
     public ITestDevice allocateDevice(IDeviceSelection options) {
+        return allocateDevice(options, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ITestDevice allocateDevice(IDeviceSelection options, boolean isTemporary) {
         if (mTcpDeviceRequested) {
             ((DeviceSelectionOptions)options).setTcpDeviceRequested(true);
         }
@@ -348,11 +354,9 @@ public class MockDeviceManager implements IDeviceManager {
         // ignore
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void displayDevicesInfo(PrintWriter stream) {
+    public void displayDevicesInfo(PrintWriter stream, boolean includeStub) {
         // ignore
     }
 
@@ -362,6 +366,20 @@ public class MockDeviceManager implements IDeviceManager {
     @Override
     public List<DeviceDescriptor> listAllDevices() {
         return new ArrayList<DeviceDescriptor>();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public DeviceDescriptor getDeviceDescriptor(String serial) {
+        return new DeviceDescriptor(
+                serial,
+                false,
+                DeviceAllocationState.Available,
+                "product",
+                "productVariant",
+                "sdkVersion",
+                "buildId",
+                "batteryLevel");
     }
 
     @Override
@@ -382,6 +400,11 @@ public class MockDeviceManager implements IDeviceManager {
     @Override
     public void removeDeviceMonitor(IDeviceMonitor mon) {
         mDvcMon.removeMonitor(mon);
+    }
+
+    @Override
+    public String getAdbPath() {
+        return "adb";
     }
 
     @Override

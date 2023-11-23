@@ -67,19 +67,3 @@ ifeq (libLLVM, $(filter libLLVM,$(LOCAL_SHARED_LIBRARIES)$(LOCAL_SHARED_LIBRARIE
 # Skip building a 32-bit shared object if they are using libLLVM.
 LOCAL_MULTILIB := first
 endif
-
-###########################################################
-## Commands for running tblgen to compile a td file
-###########################################################
-define transform-host-td-to-out
-@mkdir -p $(dir $@)
-@echo "Host TableGen: $(TBLGEN_LOCAL_MODULE) (gen-$(1)) <= $<"
-$(hide) $(LLVM_TBLGEN) \
-	-I $(dir $<)	\
-	-I $(LLVM_ROOT_PATH)/include	\
-	-I $(LLVM_ROOT_PATH)/host/include	\
-	-I $(LLVM_ROOT_PATH)/lib/Target	\
-	$(if $(strip $(CLANG_ROOT_PATH)),-I $(CLANG_ROOT_PATH)/include,)	\
-	-gen-$(strip $(1))	\
-	-d $@.d -o $@ $<
-endef

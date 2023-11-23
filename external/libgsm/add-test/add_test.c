@@ -99,7 +99,7 @@ char * parse P1((buf), char * buf)
 
 	if ((a = strchr(buf, '=')) != 0) *a++ = 0;
 
-	opname = s = strtek(buf, " \t("); 
+	opname = s = strtek(buf, " \t(");
 	if (!s) return (char *)0;
 
 	op1 = op2 = L_op1 = L_op2 = 0;
@@ -139,7 +139,7 @@ void fprint_longword P2((f, w), FILE * f, longword w)
 	else fprintf(f, "0x%8.8lx (%ld%s)",
 		(unsigned long)w, (long)w, w == MIN_WORD ? "/-"
 		: (w == MAX_WORD ? "/+"
-		: (w == MIN_LONGWORD ? "/--" 
+		: (w == MIN_LONGWORD ? "/--"
 		: (w == MAX_LONGWORD ? "/++" : ""))));
 }
 
@@ -255,11 +255,11 @@ fail:
 		if (!strcmp(c, "abs" )) {
 			do_word(    gsm_abs(op1) );
 			continue;
-		} 
+		}
 		if (!strcmp(c, "M_abs" )) {
 			do_word(    M_gsm_abs(op1) );
 			continue;
-		} 
+		}
 		if (!strcmp(c, "div" )) {
 			do_word(    gsm_div( op1, op2 ));
 			continue;
@@ -267,11 +267,11 @@ fail:
 		if (!strcmp(c,  "norm" )) {
 			do_word(	gsm_norm(L_op1));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  "<<" )) {
 			do_word(    gsm_asl( op1, op2));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  ">>" )) {
 			do_word(    gsm_asr( op1, op2 ));
 			continue;
@@ -287,19 +287,19 @@ fail:
 		if (!strcmp(c,  "L_add" )) {
 			do_longword( gsm_L_add( L_op1, L_op2 ));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  "M_L_add" )) {
 			do_longword( M_gsm_L_add( L_op1, L_op2 ));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  "L_sub" )) {
 			do_longword( gsm_L_sub( L_op1, L_op2 ));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  "L_<<" )) {
 			do_longword(    gsm_L_asl( L_op1, L_op2 ));
 			continue;
-		} 
+		}
 		if (!strcmp(c,  "L_>>")) {
 			do_longword(    gsm_L_asr( L_op1, L_op2 ));
 			continue;

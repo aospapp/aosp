@@ -51,7 +51,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class ContactsTest extends AndroidTestCase {
 
     private static final String TAG = "ContactsTest";

@@ -35,14 +35,11 @@ public class ScaledLayout extends ViewGroup {
     private static final String TAG = "ScaledLayout";
     private static final boolean DEBUG = false;
     private static final Comparator<Rect> mRectTopLeftSorter =
-            new Comparator<Rect>() {
-                @Override
-                public int compare(Rect lhs, Rect rhs) {
-                    if (lhs.top != rhs.top) {
-                        return lhs.top - rhs.top;
-                    } else {
-                        return lhs.left - rhs.left;
-                    }
+            (Rect lhs, Rect rhs) -> {
+                if (lhs.top != rhs.top) {
+                    return lhs.top - rhs.top;
+                } else {
+                    return lhs.left - rhs.left;
                 }
             };
 

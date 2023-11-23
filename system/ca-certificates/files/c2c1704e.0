@@ -26,7 +26,8 @@ tJ/X5g==
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 9548242946988625984 (0x84822c5f1c62d040)
+        Serial Number:
+            84:82:2c:5f:1c:62:d0:40
     Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor ECA-1
         Validity

@@ -20,9 +20,10 @@
 #include <stdint.h>
 #include <string>
 
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
 #include "quick/quick_method_frame_info.h"
+#include "stack_map.h"
 
 namespace art {
 
@@ -142,6 +143,36 @@ class StackVisitor {
   template <CountTransitions kCount = CountTransitions::kYes>
   void WalkStack(bool include_transitions = false) REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Convenience helper function to walk the stack with a lambda as a visitor.
+  template <CountTransitions kCountTransitions = CountTransitions::kYes,
+            typename T>
+  ALWAYS_INLINE static void WalkStack(const T& fn,
+                                      Thread* thread,
+                                      Context* context,
+                                      StackWalkKind walk_kind,
+                                      bool check_suspended = true,
+                                      bool include_transitions = false)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    class LambdaStackVisitor : public StackVisitor {
+     public:
+      LambdaStackVisitor(const T& fn,
+                         Thread* thread,
+                         Context* context,
+                         StackWalkKind walk_kind,
+                         bool check_suspended = true)
+          : StackVisitor(thread, context, walk_kind, check_suspended), fn_(fn) {}
+
+      bool VisitFrame() override REQUIRES_SHARED(Locks::mutator_lock_) {
+        return fn_(this);
+      }
+
+     private:
+      T fn_;
+    };
+    LambdaStackVisitor visitor(fn, thread, context, walk_kind, check_suspended);
+    visitor.template WalkStack<kCountTransitions>(include_transitions);
+  }
+
   Thread* GetThread() const {
     return thread_;
   }
@@ -219,11 +250,11 @@ class StackVisitor {
   void SetReturnPc(uintptr_t new_ret_pc) REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsInInlinedFrame() const {
-    return current_inlining_depth_ != 0;
+    return !current_inline_frames_.empty();
   }
 
-  size_t GetCurrentInliningDepth() const {
-    return current_inlining_depth_;
+  InlineInfo GetCurrentInlinedFrame() const {
+    return current_inline_frames_.back();
   }
 
   uintptr_t GetCurrentQuickFramePc() const {
@@ -309,9 +340,10 @@ class StackVisitor {
   size_t num_frames_;
   // Depth of the frame we're currently at.
   size_t cur_depth_;
-  // Current inlining depth of the method we are currently at.
-  // 0 if there is no inlined frame.
-  size_t current_inlining_depth_;
+  // Current inlined frames of the method we are currently at.
+  // We keep poping frames from the end as we visit the frames.
+  CodeInfo current_code_info_;
+  BitTableRange<InlineInfo> current_inline_frames_;
 
  protected:
   Context* const context_;

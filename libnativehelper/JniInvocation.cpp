@@ -14,20 +14,29 @@
  * limitations under the License.
  */
 
-#include <nativehelper/JniInvocation.h>
+#include "nativehelper/JniInvocation.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dlfcn.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
 #include <cstddef>
 
 #define LOG_TAG "JniInvocation"
-#include "cutils/log.h"
+#include <log/log.h>
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
 #endif
+
+#include "android-base/errors.h"
+#include "JniConstants.h"
+
+namespace {
 
 template <typename T>
 void UNUSED(const T&) {}
@@ -51,33 +60,117 @@ int GetLibrarySystemProperty(char* buffer) {
 #endif
 }
 
-JniInvocation* JniInvocation::jni_invocation_ = NULL;
+#ifdef _WIN32
+#define FUNC_POINTER FARPROC
+#else
+#define FUNC_POINTER void*
+#endif
 
-JniInvocation::JniInvocation() :
+void* OpenLibrary(const char* filename) {
+#ifdef _WIN32
+  return LoadLibrary(filename);
+#else
+  // Load with RTLD_NODELETE in order to ensure that libart.so is not unmapped when it is closed.
+  // This is due to the fact that it is possible that some threads might have yet to finish
+  // exiting even after JNI_DeleteJavaVM returns, which can lead to segfaults if the library is
+  // unloaded.
+  const int kDlopenFlags = RTLD_NOW | RTLD_NODELETE;
+  return dlopen(filename, kDlopenFlags);
+#endif
+}
+
+int CloseLibrary(void* handle) {
+#ifdef _WIN32
+  return FreeLibrary(static_cast<HMODULE>(handle));
+#else
+  return dlclose(handle);
+#endif
+}
+
+FUNC_POINTER GetSymbol(void* handle, const char* symbol) {
+#ifdef _WIN32
+  return GetProcAddress(static_cast<HMODULE>(handle), symbol);
+#else
+  return dlsym(handle, symbol);
+#endif
+}
+
+std::string GetError() {
+#ifdef _WIN32
+  return android::base::SystemErrorCodeToString(GetLastError());
+#else
+  return std::string(dlerror());
+#endif
+}
+
+}  // namespace
+
+struct JniInvocationImpl final {
+ public:
+  JniInvocationImpl();
+  ~JniInvocationImpl();
+
+  bool Init(const char* library);
+
+  //  static const char* GetLibrary(const char* library, char* buffer);
+
+  static const char* GetLibrary(const char* library,
+                                char* buffer,
+                                bool (*is_debuggable)() = IsDebuggable,
+                                int (*get_library_system_property)(char* buffer) = GetLibrarySystemProperty);
+
+  static JniInvocationImpl& GetJniInvocation();
+
+  jint JNI_GetDefaultJavaVMInitArgs(void* vmargs);
+  jint JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args);
+  jint JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count);
+
+ private:
+  JniInvocationImpl(const JniInvocationImpl&) = delete;
+  JniInvocationImpl& operator=(const JniInvocationImpl&) = delete;
+
+  bool FindSymbol(FUNC_POINTER* pointer, const char* symbol);
+
+  static JniInvocationImpl* jni_invocation_;
+
+  // Handle to library opened with dlopen(). Library exports
+  // JNI_GetDefaultJavaVMInitArgs, JNI_CreateJavaVM, JNI_GetCreatedJavaVMs.
+  void* handle_;
+  jint (*JNI_GetDefaultJavaVMInitArgs_)(void*);
+  jint (*JNI_CreateJavaVM_)(JavaVM**, JNIEnv**, void*);
+  jint (*JNI_GetCreatedJavaVMs_)(JavaVM**, jsize, jsize*);
+
+  friend class JNIInvocation_Debuggable_Test;
+  friend class JNIInvocation_NonDebuggable_Test;
+};
+
+// Check JniInvocationImpl size is same as fields, e.g. no vtable present.
+static_assert(sizeof(JniInvocationImpl) == 4 * sizeof(uintptr_t));
+
+JniInvocationImpl* JniInvocationImpl::jni_invocation_ = NULL;
+
+JniInvocationImpl::JniInvocationImpl() :
     handle_(NULL),
     JNI_GetDefaultJavaVMInitArgs_(NULL),
     JNI_CreateJavaVM_(NULL),
     JNI_GetCreatedJavaVMs_(NULL) {
-
   LOG_ALWAYS_FATAL_IF(jni_invocation_ != NULL, "JniInvocation instance already initialized");
   jni_invocation_ = this;
 }
 
-JniInvocation::~JniInvocation() {
+JniInvocationImpl::~JniInvocationImpl() {
   jni_invocation_ = NULL;
   if (handle_ != NULL) {
-    dlclose(handle_);
+    CloseLibrary(handle_);
   }
 }
 
 static const char* kLibraryFallback = "libart.so";
 
-const char* JniInvocation::GetLibrary(const char* library, char* buffer) {
-  return GetLibrary(library, buffer, &IsDebuggable, &GetLibrarySystemProperty);
-}
-
-const char* JniInvocation::GetLibrary(const char* library, char* buffer, bool (*is_debuggable)(),
-                                      int (*get_library_system_property)(char* buffer)) {
+const char* JniInvocationImpl::GetLibrary(const char* library,
+                                          char* buffer,
+                                          bool (*is_debuggable)(),
+                                          int (*get_library_system_property)(char* buffer)) {
 #ifdef __ANDROID__
   const char* default_library;
 
@@ -116,23 +209,18 @@ const char* JniInvocation::GetLibrary(const char* library, char* buffer, bool (*
   return library;
 }
 
-bool JniInvocation::Init(const char* library) {
+bool JniInvocationImpl::Init(const char* library) {
 #ifdef __ANDROID__
   char buffer[PROP_VALUE_MAX];
 #else
   char* buffer = NULL;
 #endif
   library = GetLibrary(library, buffer);
-  // Load with RTLD_NODELETE in order to ensure that libart.so is not unmapped when it is closed.
-  // This is due to the fact that it is possible that some threads might have yet to finish
-  // exiting even after JNI_DeleteJavaVM returns, which can lead to segfaults if the library is
-  // unloaded.
-  const int kDlopenFlags = RTLD_NOW | RTLD_NODELETE;
-  handle_ = dlopen(library, kDlopenFlags);
+  handle_ = OpenLibrary(library);
   if (handle_ == NULL) {
     if (strcmp(library, kLibraryFallback) == 0) {
       // Nothing else to try.
-      ALOGE("Failed to dlopen %s: %s", library, dlerror());
+      ALOGE("Failed to dlopen %s: %s", library, GetError().c_str());
       return false;
     }
     // Note that this is enough to get something like the zygote
@@ -141,66 +229,93 @@ bool JniInvocation::Init(const char* library) {
     // RuntimeInit.commonInit for where we fix up the property to
     // avoid future fallbacks. http://b/11463182
     ALOGW("Falling back from %s to %s after dlopen error: %s",
-          library, kLibraryFallback, dlerror());
+          library, kLibraryFallback, GetError().c_str());
     library = kLibraryFallback;
-    handle_ = dlopen(library, kDlopenFlags);
+    handle_ = OpenLibrary(library);
     if (handle_ == NULL) {
-      ALOGE("Failed to dlopen %s: %s", library, dlerror());
+      ALOGE("Failed to dlopen %s: %s", library, GetError().c_str());
       return false;
     }
   }
-  if (!FindSymbol(reinterpret_cast<void**>(&JNI_GetDefaultJavaVMInitArgs_),
+  if (!FindSymbol(reinterpret_cast<FUNC_POINTER*>(&JNI_GetDefaultJavaVMInitArgs_),
                   "JNI_GetDefaultJavaVMInitArgs")) {
     return false;
   }
-  if (!FindSymbol(reinterpret_cast<void**>(&JNI_CreateJavaVM_),
+  if (!FindSymbol(reinterpret_cast<FUNC_POINTER*>(&JNI_CreateJavaVM_),
                   "JNI_CreateJavaVM")) {
     return false;
   }
-  if (!FindSymbol(reinterpret_cast<void**>(&JNI_GetCreatedJavaVMs_),
+  if (!FindSymbol(reinterpret_cast<FUNC_POINTER*>(&JNI_GetCreatedJavaVMs_),
                   "JNI_GetCreatedJavaVMs")) {
     return false;
   }
   return true;
 }
 
-jint JniInvocation::JNI_GetDefaultJavaVMInitArgs(void* vmargs) {
+jint JniInvocationImpl::JNI_GetDefaultJavaVMInitArgs(void* vmargs) {
   return JNI_GetDefaultJavaVMInitArgs_(vmargs);
 }
 
-jint JniInvocation::JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args) {
+jint JniInvocationImpl::JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args) {
   return JNI_CreateJavaVM_(p_vm, p_env, vm_args);
 }
 
-jint JniInvocation::JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count) {
+jint JniInvocationImpl::JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count) {
   return JNI_GetCreatedJavaVMs_(vms, size, vm_count);
 }
 
-bool JniInvocation::FindSymbol(void** pointer, const char* symbol) {
-  *pointer = dlsym(handle_, symbol);
+bool JniInvocationImpl::FindSymbol(FUNC_POINTER* pointer, const char* symbol) {
+  *pointer = GetSymbol(handle_, symbol);
   if (*pointer == NULL) {
-    ALOGE("Failed to find symbol %s: %s\n", symbol, dlerror());
-    dlclose(handle_);
+    ALOGE("Failed to find symbol %s: %s\n", symbol, GetError().c_str());
+    CloseLibrary(handle_);
     handle_ = NULL;
     return false;
   }
   return true;
 }
 
-JniInvocation& JniInvocation::GetJniInvocation() {
+JniInvocationImpl& JniInvocationImpl::GetJniInvocation() {
   LOG_ALWAYS_FATAL_IF(jni_invocation_ == NULL,
                       "Failed to create JniInvocation instance before using JNI invocation API");
   return *jni_invocation_;
 }
 
-extern "C" jint JNI_GetDefaultJavaVMInitArgs(void* vm_args) {
-  return JniInvocation::GetJniInvocation().JNI_GetDefaultJavaVMInitArgs(vm_args);
+MODULE_API jint JNI_GetDefaultJavaVMInitArgs(void* vm_args) {
+  return JniInvocationImpl::GetJniInvocation().JNI_GetDefaultJavaVMInitArgs(vm_args);
 }
 
-extern "C" jint JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args) {
-  return JniInvocation::GetJniInvocation().JNI_CreateJavaVM(p_vm, p_env, vm_args);
+MODULE_API jint JNI_CreateJavaVM(JavaVM** p_vm, JNIEnv** p_env, void* vm_args) {
+  // Ensure any cached heap objects from previous VM instances are
+  // invalidated. There is no notification here that a VM is destroyed. These
+  // cached objects limit us to one VM instance per process.
+  JniConstants::Uninitialize();
+  return JniInvocationImpl::GetJniInvocation().JNI_CreateJavaVM(p_vm, p_env, vm_args);
 }
 
-extern "C" jint JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count) {
-  return JniInvocation::GetJniInvocation().JNI_GetCreatedJavaVMs(vms, size, vm_count);
+MODULE_API jint JNI_GetCreatedJavaVMs(JavaVM** vms, jsize size, jsize* vm_count) {
+  return JniInvocationImpl::GetJniInvocation().JNI_GetCreatedJavaVMs(vms, size, vm_count);
+}
+
+MODULE_API JniInvocationImpl* JniInvocationCreate() {
+  return new JniInvocationImpl();
+}
+
+MODULE_API void JniInvocationDestroy(JniInvocationImpl* instance) {
+  delete instance;
+}
+
+MODULE_API int JniInvocationInit(JniInvocationImpl* instance, const char* library) {
+  return instance->Init(library) ? 1 : 0;
+}
+
+MODULE_API const char* JniInvocationGetLibrary(const char* library, char* buffer) {
+  return JniInvocationImpl::GetLibrary(library, buffer);
+}
+
+MODULE_API const char* JniInvocation::GetLibrary(const char* library,
+                                                 char* buffer,
+                                                 bool (*is_debuggable)(),
+                                                 int (*get_library_system_property)(char* buffer)) {
+  return JniInvocationImpl::GetLibrary(library, buffer, is_debuggable, get_library_system_property);
 }

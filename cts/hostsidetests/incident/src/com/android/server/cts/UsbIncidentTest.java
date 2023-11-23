@@ -61,9 +61,11 @@ public class UsbIncidentTest extends ProtoDumpTestCase {
     }
 
     private static void verifyUsbAccessoryProto(UsbAccessoryProto uap, final int filterLevel) throws Exception {
-        if (filterLevel == PRIVACY_AUTO) {
-            assertTrue(uap.getUri().isEmpty());
+        if (filterLevel < PRIVACY_LOCAL) {
             assertTrue(uap.getSerial().isEmpty());
+            if (filterLevel == PRIVACY_AUTO) {
+                assertTrue(uap.getUri().isEmpty());
+            }
         }
     }
 
@@ -84,7 +86,7 @@ public class UsbIncidentTest extends ProtoDumpTestCase {
     }
 
     private static void verifyUsbDeviceProto(UsbDeviceProto udp, final int filterLevel) throws Exception {
-        if (filterLevel == PRIVACY_AUTO) {
+        if (filterLevel < PRIVACY_LOCAL) {
             assertTrue(udp.getSerialNumber().isEmpty());
         }
     }

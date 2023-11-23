@@ -31,7 +31,6 @@ cc_library_shared {
 
     include_dirs: [
         "frameworks/native/include",
-        "libcore",
         "system/core/include",
         "system/extras",
     ],
@@ -65,6 +64,7 @@ cc_library_shared {
                 "libvts_codecoverage",
                 "libvts_drivercomm",
                 "libvts_multidevice_proto",
+                "libvts_resource_manager",
             ],
         },
     },

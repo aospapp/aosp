@@ -26,12 +26,12 @@
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 
 #include <android-base/logging.h>
 #include <android-base/macros.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <art_image_values.h>
 #include <cutils/fs.h>
 #include <cutils/properties.h>
 #include <dex2oat_return_codes.h>
@@ -57,7 +57,6 @@
 #define REPLY_MAX     256   /* largest reply allowed */
 
 using android::base::EndsWith;
-using android::base::Join;
 using android::base::Split;
 using android::base::StartsWith;
 using android::base::StringPrintf;
@@ -88,6 +87,12 @@ static_assert(DEXOPT_MASK           == (0x1dfe | DEXOPT_IDLE_BACKGROUND_JOB),
               "DEXOPT_MASK unexpected.");
 
 
+template<typename T>
+static constexpr bool IsPowerOfTwo(T x) {
+  static_assert(std::is_integral<T>::value, "T must be integral");
+  // TODO: assert unsigned. There is currently many uses with signed values.
+  return (x & (x - 1)) == 0;
+}
 
 template<typename T>
 static constexpr T RoundDown(T x, typename std::decay<T>::type n) {
@@ -315,21 +320,8 @@ private:
             return false;
         }
         const char* isa = parameters_.instruction_set;
-
-        // Check whether the file exists where expected.
         std::string dalvik_cache = GetOTADataDirectory() + "/" + DALVIK_CACHE;
         std::string isa_path = dalvik_cache + "/" + isa;
-        std::string art_path = isa_path + "/system@framework@boot.art";
-        std::string oat_path = isa_path + "/system@framework@boot.oat";
-        bool cleared = false;
-        if (access(art_path.c_str(), F_OK) == 0 && access(oat_path.c_str(), F_OK) == 0) {
-            // Files exist, assume everything is alright if not forced. Otherwise clean up.
-            if (!force) {
-                return true;
-            }
-            ClearDirectory(isa_path);
-            cleared = true;
-        }
 
         // Reset umask in otapreopt, so that we control the the access for the files we create.
         umask(0);
@@ -348,18 +340,34 @@ private:
             }
         }
 
-        // Prepare to create.
+        // Check whether we have files in /data.
+        // TODO: check that the files are correct wrt/ jars.
+        std::string art_path = isa_path + "/system@framework@boot.art";
+        std::string oat_path = isa_path + "/system@framework@boot.oat";
+        bool cleared = false;
+        if (access(art_path.c_str(), F_OK) == 0 && access(oat_path.c_str(), F_OK) == 0) {
+            // Files exist, assume everything is alright if not forced. Otherwise clean up.
+            if (!force) {
+                return true;
+            }
+            ClearDirectory(isa_path);
+            cleared = true;
+        }
+
+        // Check whether we have an image in /system.
+        // TODO: check that the files are correct wrt/ jars.
+        std::string preopted_boot_art_path = StringPrintf("/system/framework/%s/boot.art", isa);
+        if (access(preopted_boot_art_path.c_str(), F_OK) == 0) {
+            // Note: we ignore |force| here.
+            return true;
+        }
+
+
         if (!cleared) {
             ClearDirectory(isa_path);
         }
 
-        std::string preopted_boot_art_path = StringPrintf("/system/framework/%s/boot.art", isa);
-        if (access(preopted_boot_art_path.c_str(), F_OK) == 0) {
-          return PatchoatBootImage(isa_path, isa);
-        } else {
-          // No preopted boot image. Try to compile.
-          return Dex2oatBootImage(boot_classpath_, art_path, oat_path, isa);
-        }
+        return Dex2oatBootImage(boot_classpath_, art_path, oat_path, isa);
     }
 
     static bool CreatePath(const std::string& path) {
@@ -424,45 +432,22 @@ private:
         CHECK_EQ(0, closedir(c_dir)) << "Unable to close directory.";
     }
 
-    bool PatchoatBootImage(const std::string& output_dir, const char* isa) const {
-        // This needs to be kept in sync with ART, see art/runtime/gc/space/image_space.cc.
-
-        std::vector<std::string> cmd;
-        cmd.push_back("/system/bin/patchoat");
-
-        cmd.push_back("--input-image-location=/system/framework/boot.art");
-        cmd.push_back(StringPrintf("--output-image-directory=%s", output_dir.c_str()));
-
-        cmd.push_back(StringPrintf("--instruction-set=%s", isa));
-
-        int32_t base_offset = ChooseRelocationOffsetDelta(ART_BASE_ADDRESS_MIN_DELTA,
-                                                          ART_BASE_ADDRESS_MAX_DELTA);
-        cmd.push_back(StringPrintf("--base-offset-delta=%d", base_offset));
-
-        std::string error_msg;
-        bool result = Exec(cmd, &error_msg);
-        if (!result) {
-            LOG(ERROR) << "Could not generate boot image: " << error_msg;
-        }
-        return result;
-    }
-
     bool Dex2oatBootImage(const std::string& boot_cp,
                           const std::string& art_path,
                           const std::string& oat_path,
                           const char* isa) const {
         // This needs to be kept in sync with ART, see art/runtime/gc/space/image_space.cc.
         std::vector<std::string> cmd;
-        cmd.push_back("/system/bin/dex2oat");
+        cmd.push_back(kDex2oatPath);
         cmd.push_back(StringPrintf("--image=%s", art_path.c_str()));
         for (const std::string& boot_part : Split(boot_cp, ":")) {
             cmd.push_back(StringPrintf("--dex-file=%s", boot_part.c_str()));
         }
         cmd.push_back(StringPrintf("--oat-file=%s", oat_path.c_str()));
 
-        int32_t base_offset = ChooseRelocationOffsetDelta(ART_BASE_ADDRESS_MIN_DELTA,
-                ART_BASE_ADDRESS_MAX_DELTA);
-        cmd.push_back(StringPrintf("--base=0x%x", ART_BASE_ADDRESS + base_offset));
+        int32_t base_offset = ChooseRelocationOffsetDelta(art::GetImageMinBaseAddressDelta(),
+                                                          art::GetImageMaxBaseAddressDelta());
+        cmd.push_back(StringPrintf("--base=0x%x", art::GetImageBaseAddress() + base_offset));
 
         cmd.push_back(StringPrintf("--instruction-set=%s", isa));
 
@@ -604,7 +589,7 @@ private:
         // If the dexopt failed, we may have a stale boot image from a previous OTA run.
         // Then regenerate and retry.
         if (WEXITSTATUS(dexopt_result) ==
-                static_cast<int>(art::dex2oat::ReturnCode::kCreateRuntime)) {
+                static_cast<int>(::art::dex2oat::ReturnCode::kCreateRuntime)) {
             if (!PrepareBootImage(/* force */ true)) {
                 LOG(ERROR) << "Forced boot image creating failed. Original error return was "
                         << dexopt_result;
@@ -631,61 +616,6 @@ private:
     ////////////////////////////////////
     // Helpers, mostly taken from ART //
     ////////////////////////////////////
-
-    // Wrapper on fork/execv to run a command in a subprocess.
-    static bool Exec(const std::vector<std::string>& arg_vector, std::string* error_msg) {
-        const std::string command_line = Join(arg_vector, ' ');
-
-        CHECK_GE(arg_vector.size(), 1U) << command_line;
-
-        // Convert the args to char pointers.
-        const char* program = arg_vector[0].c_str();
-        std::vector<char*> args;
-        for (size_t i = 0; i < arg_vector.size(); ++i) {
-            const std::string& arg = arg_vector[i];
-            char* arg_str = const_cast<char*>(arg.c_str());
-            CHECK(arg_str != nullptr) << i;
-            args.push_back(arg_str);
-        }
-        args.push_back(nullptr);
-
-        // Fork and exec.
-        pid_t pid = fork();
-        if (pid == 0) {
-            // No allocation allowed between fork and exec.
-
-            // Change process groups, so we don't get reaped by ProcessManager.
-            setpgid(0, 0);
-
-            execv(program, &args[0]);
-
-            PLOG(ERROR) << "Failed to execv(" << command_line << ")";
-            // _exit to avoid atexit handlers in child.
-            _exit(1);
-        } else {
-            if (pid == -1) {
-                *error_msg = StringPrintf("Failed to execv(%s) because fork failed: %s",
-                        command_line.c_str(), strerror(errno));
-                return false;
-            }
-
-            // wait for subprocess to finish
-            int status;
-            pid_t got_pid = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
-            if (got_pid != pid) {
-                *error_msg = StringPrintf("Failed after fork for execv(%s) because waitpid failed: "
-                        "wanted %d, got %d: %s",
-                        command_line.c_str(), pid, got_pid, strerror(errno));
-                return false;
-            }
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                *error_msg = StringPrintf("Failed execv(%s) because non-0 exit status",
-                        command_line.c_str());
-                return false;
-            }
-        }
-        return true;
-    }
 
     // Choose a random relocation offset. Taken from art/runtime/gc/image_space.cc.
     static int32_t ChooseRelocationOffsetDelta(int32_t min_delta, int32_t max_delta) {

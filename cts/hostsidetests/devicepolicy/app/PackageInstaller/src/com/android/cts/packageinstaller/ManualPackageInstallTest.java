@@ -23,6 +23,8 @@ import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 
+import java.util.regex.Pattern;
+
 /**
  * This class tests manual package install and uninstall by a device owner.
  */
@@ -38,9 +40,8 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
             .clazz(android.widget.ImageView.class.getName())
             .res("com.android.settings:id/admin_support_icon")
             .pkg("com.android.settings");
-    private static final BySelector INSTALL_BUTTON_SELECTOR = By
-            .clazz(android.widget.Button.class.getName())
-            .res("com.android.packageinstaller:id/ok_button");
+    private static final BySelector INSTALL_BUTTON_SELECTOR = By.text(Pattern.compile("Install",
+            Pattern.CASE_INSENSITIVE));
 
     public void testManualInstallSucceeded() throws Exception {
         assertInstallPackage();

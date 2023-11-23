@@ -16,52 +16,31 @@
 
 package android.assist.cts;
 
+import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Point;
+import android.os.Bundle;
 import android.util.Log;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Test verifying the Content View of the Assistant */
 public class AssistantContentViewTest extends AssistTestBase {
     private static final String TAG = "ContentViewTest";
-    private BroadcastReceiver mReceiver;
-    private CountDownLatch mContentViewLatch, mReadyLatch;
-    private Intent mIntent;
+    private AutoResetLatch mContentViewLatch = new AutoResetLatch(1);
+    private Bundle mBundle;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        mContentViewLatch = new CountDownLatch(1);
-        mReadyLatch = new CountDownLatch(1);
-        setUpAndRegisterReceiver();
+        mActionLatchReceiver = new AssistantReceiver();
         startTestActivity(Utils.VERIFY_CONTENT_VIEW);
     }
 
     @Override
     public void tearDown() throws Exception {
+        mBundle = null;
         super.tearDown();
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-            mReceiver = null;
-        }
-    }
-
-    private void setUpAndRegisterReceiver() {
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-        }
-        mReceiver = new AssistantContentViewReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(Utils.BROADCAST_CONTENT_VIEW_HEIGHT);
-        filter.addAction(Utils.ASSIST_RECEIVER_REGISTERED);
-        mContext.registerReceiver(mReceiver, filter);
-
     }
 
     private void waitForContentView() throws Exception {
@@ -76,31 +55,27 @@ public class AssistantContentViewTest extends AssistTestBase {
           Log.d(TAG, "Not running assist tests on low-RAM device.");
           return;
         }
-        mTestActivity.startTest(Utils.VERIFY_CONTENT_VIEW);
-        waitForAssistantToBeReady(mReadyLatch);
+        startTest(Utils.VERIFY_CONTENT_VIEW);
+        waitForAssistantToBeReady();
         startSession();
         waitForContentView();
-        int height = mIntent.getIntExtra(Utils.EXTRA_CONTENT_VIEW_HEIGHT, 0);
-        int width = mIntent.getIntExtra(Utils.EXTRA_CONTENT_VIEW_WIDTH, 0);
-        Point displayPoint = (Point) mIntent.getParcelableExtra(Utils.EXTRA_DISPLAY_POINT);
+        int height = mBundle.getInt(Utils.EXTRA_CONTENT_VIEW_HEIGHT, 0);
+        int width = mBundle.getInt(Utils.EXTRA_CONTENT_VIEW_WIDTH, 0);
+        Point displayPoint = mBundle.getParcelable(Utils.EXTRA_DISPLAY_POINT);
         assertEquals(displayPoint.y, height);
         assertEquals(displayPoint.x, width);
     }
 
-    private class AssistantContentViewReceiver extends BroadcastReceiver {
+    private class AssistantReceiver extends ActionLatchReceiver {
+
+        AssistantReceiver() {
+            super(Utils.BROADCAST_CONTENT_VIEW_HEIGHT, mContentViewLatch);
+        }
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (action.equals(Utils.BROADCAST_CONTENT_VIEW_HEIGHT)) {
-                mIntent = intent;
-                if (mContentViewLatch != null) {
-                    mContentViewLatch.countDown();
-                }
-            } else if (action.equals(Utils.ASSIST_RECEIVER_REGISTERED)) {
-                if (mReadyLatch != null) {
-                    mReadyLatch.countDown();
-                }
-            }
+        protected void onAction(Bundle bundle, String action) {
+            mBundle = bundle;
+            super.onAction(bundle, action);
         }
     }
 }

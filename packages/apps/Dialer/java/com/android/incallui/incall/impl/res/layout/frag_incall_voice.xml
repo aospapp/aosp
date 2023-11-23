@@ -22,9 +22,7 @@
     android:layout_height="match_parent">
 
   <RelativeLayout
-      xmlns:android="http://schemas.android.com/apk/res/android"
-      xmlns:app="http://schemas.android.com/apk/res-auto"
-      xmlns:tools="http://schemas.android.com/tools"
+      android:id="@+id/incall_ui_container"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
       android:clipChildren="false"
@@ -127,11 +125,4 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:layout_gravity="top"/>
-  <FrameLayout
-      android:id="@+id/navigation_bar_background"
-      android:layout_width="match_parent"
-      android:layout_height="0dp"
-      android:layout_gravity="bottom"
-      android:background="@android:color/background_dark"
-      android:visibility="gone"/>
 </FrameLayout>

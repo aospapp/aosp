@@ -17,8 +17,7 @@ from acts import asserts
 from acts import base_test
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
-from acts.test_utils.tel.tel_test_utils import verify_http_connection
+from acts.test_utils.net import net_test_utils as nutils
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 dum_class = "com.android.tests.connectivity.uid.ConnectivityTestActivity"
@@ -30,16 +29,14 @@ class CoreNetworkingTest(base_test.BaseTestClass):
     def setup_class(self):
         """ Setup devices for tests and unpack params """
         self.dut = self.android_devices[0]
-        wutils.wifi_toggle_state(self.dut, False)
-        self.dut.droid.telephonyToggleDataConnection(True)
-        wait_for_cell_data_connection(self.log, self.dut, True)
-        asserts.assert_true(
-            verify_http_connection(self.log, self.dut),
-            "HTTP verification failed on cell data connection")
+        nutils.verify_lte_data_and_tethering_supported(self.dut)
 
     def teardown_class(self):
         """ Reset devices """
         wutils.wifi_toggle_state(self.dut, True)
+
+    def on_fail(self, test_name, begin_time):
+        self.dut.take_bug_report(test_name, begin_time)
 
     """ Test Cases """
 

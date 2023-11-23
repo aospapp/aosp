@@ -1,10 +1,11 @@
 
 # Installation directories.
-PREFIX ?= $(DESTDIR)/usr
+LINGUAS ?= ru
+PREFIX ?= /usr
 SBINDIR ?= $(PREFIX)/sbin
 MANDIR ?= $(PREFIX)/share/man
-ETCDIR ?= $(DESTDIR)/etc
-LOCALEDIR ?= /usr/share/locale
+ETCDIR ?= /etc
+LOCALEDIR ?= $(DESTDIR)$(PREFIX)/share/locale
 PAMH ?= $(shell test -f /usr/include/security/pam_appl.h && echo y)
 AUDITH ?= $(shell test -f /usr/include/libaudit.h && echo y)
 
@@ -32,14 +33,20 @@ open_init_pty: open_init_pty.c
 
 
 install: all
-	test -d $(SBINDIR)      || install -m 755 -d $(SBINDIR)
-	test -d $(MANDIR)/man8 || install -m 755 -d $(MANDIR)/man8
-	install -m 755 run_init $(SBINDIR)
-	install -m 755 open_init_pty $(SBINDIR)
-	install -m 644 run_init.8 $(MANDIR)/man8/
-	install -m 644 open_init_pty.8 $(MANDIR)/man8/
+	test -d $(DESTDIR)$(SBINDIR)      || install -m 755 -d $(DESTDIR)$(SBINDIR)
+	test -d $(DESTDIR)$(MANDIR)/man8 || install -m 755 -d $(DESTDIR)$(MANDIR)/man8
+	install -m 755 run_init $(DESTDIR)$(SBINDIR)
+	install -m 755 open_init_pty $(DESTDIR)$(SBINDIR)
+	install -m 644 run_init.8 $(DESTDIR)$(MANDIR)/man8/
+	install -m 644 open_init_pty.8 $(DESTDIR)$(MANDIR)/man8/
+	for lang in $(LINGUAS) ; do \
+		if [ -e $${lang} ] ; then \
+			test -d $(DESTDIR)$(MANDIR)/$${lang}/man8 || install -m 755 -d $(DESTDIR)$(MANDIR)/$${lang}/man8 ; \
+			install -m 644 $${lang}/*.8 $(DESTDIR)$(MANDIR)/$${lang}/man8/ ; \
+		fi ; \
+	done
 ifeq ($(PAMH), y)
-	install -m 644 run_init.pamd $(ETCDIR)/pam.d/run_init
+	install -m 644 run_init.pamd $(DESTDIR)$(ETCDIR)/pam.d/run_init
 endif
 
 clean:
@@ -49,4 +56,4 @@ indent:
 	../../scripts/Lindent $(wildcard *.[ch])
 
 relabel: install
-	/sbin/restorecon $(SBINDIR)/run_init $(SBINDIR)/open_init_pty
+	/sbin/restorecon $(DESTDIR)$(SBINDIR)/run_init $(DESTDIR)$(SBINDIR)/open_init_pty

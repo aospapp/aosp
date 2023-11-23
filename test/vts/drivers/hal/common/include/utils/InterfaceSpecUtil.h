@@ -36,14 +36,57 @@ bool ParseInterfaceSpec(const char* file_path,
 // Returns the function name prefix of a given interface specification.
 string GetFunctionNamePrefix(const ComponentSpecificationMessage& message);
 
+// Get HAL version (represented by two integers) string to be used to
+// build a relevant dir path.
+//
+// Args:
+//     version_major: int, HAL major version, e.g. 1.10 -> 1.
+//     version_minor: int, HAL minor version, e.g. 1.10 -> 10.
+//     for_macro: bool, if true, it returns version 1.10 as V1_10
+//
+// Returns:
+//     string, for version 1.10, if for_macro is true, it returns V1_10,
+//     otherwise, it returns 1.10.
+string GetVersionString(int version_major, int version_minor,
+                        bool for_macro = false);
+
+// deprecated
 // Get HAL version string to be used to build a relevant dir path.
+//
+// Args:
+//     version: float, HAL version, e.g. 1.10.
+//     for_macro: bool, if true, it returns version 1.10 as V1_10.
+//
+// Returns:
+//     string, for version 1.10, if for_macro is true, it returns V1_10,
+//     otherwise, it returns 1.10.
 string GetVersionString(float version, bool for_macro=false);
 
 // Get the driver library name for a given HIDL HAL.
-string GetHidlHalDriverLibName(const string& package_name, const float version);
+//
+// Args:
+//     package_name: string, name of target package.
+//     version_major: int, hal major version, e.g. 1.10 -> 1.
+//     version_minor: int, hal minor version, e.g. 1.10 -> 10.
+//
+// Returns:
+//     string, the driver lib name built from the arguments.
+string GetHidlHalDriverLibName(const string& package_name,
+                               const int version_major,
+                               const int version_minor);
 
-// Get the FQNmae for a given HIDL HAL.
-string GetInterfaceFQName(const string& package_name, const float version,
+// Get the FQName for a given HIDL HAL.
+//
+// Args:
+//     package_name: string, name of target package.
+//     version_major: int, hal major version, e.g. 1.10 -> 1.
+//     version_minor: int, hal minor version, e.g. 1.10 -> 10.
+//     interface_name: string, name of target interface.
+//
+// Returns:
+//     string, the interface FQ name built from the arguments.
+string GetInterfaceFQName(const string& package_name, const int version_major,
+                          const int version_minor,
                           const string& interface_name);
 
 // Extract package name from full hidl type name
@@ -51,8 +94,20 @@ string GetInterfaceFQName(const string& package_name, const float version,
 string GetPackageName(const string& type_name);
 
 // Extract version from full hidl type name
-// e.g. ::android::hardware::nfc::V1_0::INfc -> 1.0
-float GetVersion(const string& type_name);
+// e.g. ::android::hardware::nfc::V1_0::INfc -> "1_0"
+string GetVersion(const string& type_name);
+
+// Extract major version from version string
+// for_macro is true if the input version string has "_"
+// e.g. "1_10" -> 1 if for_macro is true
+//      "1.10" -> 1 if for_macro is false
+int GetVersionMajor(const string& version, bool for_macro = false);
+
+// Extract minor version from version string
+// for_macro is true if the input version string has "_"
+// e.g. "1_10" -> 10 if for_macro is true
+//      "1.10" -> 10 if for_macro is false
+int GetVersionMinor(const string& version, bool for_macro = false);
 
 // Extract component name from full hidl type name
 // e.g. ::android::hardware::nfc::V1_0::INfc -> INfc

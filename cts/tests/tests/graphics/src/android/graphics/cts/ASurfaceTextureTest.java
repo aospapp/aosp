@@ -18,17 +18,15 @@ package android.graphics.cts;
 
 import static android.opengl.EGL14.*;
 
-import android.graphics.Canvas;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
-import android.support.test.filters.SmallTest;
-import android.util.Log;
 
-import android.view.Surface;
+import androidx.test.filters.SmallTest;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

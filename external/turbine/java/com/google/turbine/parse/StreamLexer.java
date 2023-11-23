@@ -339,19 +339,23 @@ public class StreamLexer implements Lexer {
           {
             eat();
             char value;
-            if (ch == '\\') {
-              eat();
-              value = escape();
-            } else {
-              value = ch;
-              eat();
+            switch (ch) {
+              case '\\':
+                eat();
+                value = escape();
+                break;
+              case '\'':
+                throw error(ErrorKind.EMPTY_CHARACTER_LITERAL);
+              default:
+                value = ch;
+                eat();
             }
             if (ch == '\'') {
               saveValue(String.valueOf(value));
               eat();
               return Token.CHAR_LITERAL;
             }
-            throw error(ErrorKind.UNEXPECTED_INPUT, ch);
+            throw error(ErrorKind.UNTERMINATED_CHARACTER_LITERAL);
           }
 
         case '"':
@@ -370,6 +374,8 @@ public class StreamLexer implements Lexer {
                   saveValue(sb.toString());
                   eat();
                   return Token.STRING_LITERAL;
+                case '\n':
+                  throw error(ErrorKind.UNTERMINATED_STRING);
                 case ASCII_SUB:
                   if (reader.done()) {
                     return Token.EOF;

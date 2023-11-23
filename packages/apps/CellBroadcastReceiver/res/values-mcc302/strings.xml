@@ -28,6 +28,8 @@
     <string name="etws_other_emergency_type" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
     <string name="cmas_presidential_level_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
     <string name="cmas_extreme_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
+    <string name="cmas_extreme_immediate_observed_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
+    <string name="cmas_extreme_immediate_likely_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
     <string name="cmas_severe_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
     <string name="cmas_amber_alert" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>
     <string name="cmas_required_monthly_test" translatable="false">EMERGENCY ALERT / ALERTE D’URGENCE</string>

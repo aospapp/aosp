@@ -16,10 +16,13 @@
 
 package android.os.cts;
 
+import android.icu.util.ULocale;
 import android.os.LocaleList;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class LocaleListTest extends AndroidTestCase {
@@ -247,7 +250,7 @@ public class LocaleListTest extends AndroidTestCase {
             assertEquals("ae,en,ja", LocaleList.getAdjustedDefault().toLanguageTags());
         } finally {
             // restore the original values
-            LocaleList.setDefault(originalLocaleList, originalLocaleList.indexOf(originalLocale));
+            resetDefaultLocaleList(originalLocale, originalLocaleList);
         }
     }
 
@@ -281,7 +284,7 @@ public class LocaleListTest extends AndroidTestCase {
             assertEquals(locales, LocaleList.getAdjustedDefault());
         } finally {
             // restore the original values
-            LocaleList.setDefault(originalLocaleList, originalLocaleList.indexOf(originalLocale));
+            resetDefaultLocaleList(originalLocale, originalLocaleList);
         }
     }
 
@@ -297,7 +300,7 @@ public class LocaleListTest extends AndroidTestCase {
             assertEquals(locales, LocaleList.getAdjustedDefault());
         } finally {
             // restore the original values
-            LocaleList.setDefault(originalLocaleList, originalLocaleList.indexOf(originalLocale));
+            resetDefaultLocaleList(originalLocale, originalLocaleList);
         }
     }
 
@@ -317,6 +320,26 @@ public class LocaleListTest extends AndroidTestCase {
         LocaleList.forLanguageTags("").describeContents();
         LocaleList.forLanguageTags(null).describeContents();
         LocaleList.getEmptyLocaleList().describeContents();
+    }
+
+    private static void resetDefaultLocaleList(Locale topLocale, LocaleList localeList) {
+        final List<Locale> newLocales = new ArrayList<>();
+
+        if (topLocale != null) {
+            newLocales.add(topLocale);
+        }
+
+        if (localeList != null) {
+            for (int index = 0; index < localeList.size(); index++) {
+                final Locale locale = localeList.get(index);
+                if (topLocale != null && !topLocale.equals(locale)) {
+                    newLocales.add(locale);
+                }
+            }
+        }
+
+        final LocaleList result = new LocaleList(newLocales.toArray(new Locale[newLocales.size()]));
+        LocaleList.setDefault(result);
     }
 
     private static LocaleList cloneViaParcel(final LocaleList original) {
@@ -499,5 +522,16 @@ public class LocaleListTest extends AndroidTestCase {
         assertEquals(
                 Locale.forLanguageTag("sr"),
                 LocaleList.forLanguageTags("sr,qaa").getFirstMatch(onePrivateLocale));
+    }
+
+    public void testIsPseudoLocale() {
+        assertTrue(LocaleList.isPseudoLocale(ULocale.forLanguageTag("en-XA")));
+        assertTrue(LocaleList.isPseudoLocale(ULocale.forLanguageTag("ar-XB")));
+        assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("en-US")));
+        assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("ar-AR")));
+        assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("fa-IR")));
+        assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("zh-CN")));
+        assertFalse(LocaleList.isPseudoLocale(ULocale.forLanguageTag("fr-CA")));
+        assertFalse(LocaleList.isPseudoLocale((ULocale) null));
     }
 }

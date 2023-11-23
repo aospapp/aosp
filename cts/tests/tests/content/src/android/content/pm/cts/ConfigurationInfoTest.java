@@ -22,8 +22,10 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class ConfigurationInfoTest extends AndroidTestCase {
     public void testConfigPreferences() throws NameNotFoundException {
         PackageManager pm = getContext().getPackageManager();

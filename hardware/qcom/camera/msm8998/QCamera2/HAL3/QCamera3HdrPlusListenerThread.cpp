@@ -31,6 +31,15 @@ QCamera3HdrPlusListenerThread::QCamera3HdrPlusListenerThread(
 QCamera3HdrPlusListenerThread::~QCamera3HdrPlusListenerThread()
 {
     requestExit();
+
+    while (mResults.size() > 0) {
+        PendingResult result = mResults.front();
+        mResults.pop();
+
+        if (result.metadata != nullptr) {
+            free_camera_metadata(result.metadata);
+        }
+    }
 }
 
 void QCamera3HdrPlusListenerThread::onOpened(std::unique_ptr<HdrPlusClient> client)
@@ -225,6 +234,10 @@ void QCamera3HdrPlusListenerThread::handleCaptureResult()
         mListener->onFailedCaptureResult(&result.result);
     } else {
         mListener->onCaptureResult(&result.result, *result.metadata);
+    }
+
+    if (result.metadata != nullptr) {
+        free_camera_metadata(result.metadata);
     }
 }
 

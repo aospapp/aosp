@@ -16,16 +16,17 @@
 
 package com.android.phone.tests;
 
-import android.support.test.runner.AndroidJUnit4;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import android.telephony.PhoneNumberUtils;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Locale;
-
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 /**
  * Tests Related to CallForwardInfoTest

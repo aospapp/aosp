@@ -34,16 +34,17 @@
 #include "btcore/include/module.h"
 #include "btm_int.h"
 #include "btu.h"
+#include "common/message_loop_thread.h"
 #include "device/include/controller.h"
 #include "hci_layer.h"
 #include "hcimsgs.h"
 #include "l2c_int.h"
 #include "osi/include/osi.h"
-#include "osi/include/thread.h"
+#include "stack/gatt/connection_manager.h"
 
 #include "gatt_int.h"
 
-extern thread_t* bt_workqueue_thread;
+extern bluetooth::common::MessageLoopThread bt_startup_thread;
 
 /******************************************************************************/
 /*               L O C A L    D A T A    D E F I N I T I O N S                */
@@ -66,6 +67,7 @@ extern thread_t* bt_workqueue_thread;
 
 static void btm_decode_ext_features_page(uint8_t page_number,
                                          const BD_FEATURES p_features);
+static void BTM_BT_Quality_Report_VSE_CBack(uint8_t length, uint8_t* p_stream);
 
 /*******************************************************************************
  *
@@ -76,7 +78,7 @@ static void btm_decode_ext_features_page(uint8_t page_number,
  * Returns          void
  *
  ******************************************************************************/
-void btm_dev_init(void) {
+void btm_dev_init() {
   /* Initialize nonzero defaults */
   memset(btm_cb.cfg.bd_name, 0, sizeof(tBTM_LOC_BD_NAME));
 
@@ -188,8 +190,7 @@ static void reset_complete(void* result) {
   btm_cb.btm_inq_vars.page_scan_type = HCI_DEF_SCAN_TYPE;
 
   btm_cb.ble_ctr_cb.conn_state = BLE_CONN_IDLE;
-  btm_cb.ble_ctr_cb.bg_conn_type = BTM_BLE_CONN_NONE;
-  gatt_reset_bgdev_list();
+  connection_manager::reset(true);
 
   btm_pm_reset();
 
@@ -231,7 +232,7 @@ void BTM_DeviceReset(UNUSED_ATTR tBTM_CMPL_CB* p_cb) {
   btm_db_reset();
 
   module_start_up_callbacked_wrapper(get_module(CONTROLLER_MODULE),
-                                     bt_workqueue_thread, reset_complete);
+                                     &bt_startup_thread, reset_complete);
 }
 
 /*******************************************************************************
@@ -320,9 +321,7 @@ static void btm_decode_ext_features_page(uint8_t page_number,
 
       /* Create (e)SCO supported packet types mask */
       btm_cb.btm_sco_pkt_types_supported = 0;
-#if (BTM_SCO_INCLUDED == TRUE)
       btm_cb.sco_cb.esco_supported = false;
-#endif
       if (HCI_SCO_LINK_SUPPORTED(p_features)) {
         btm_cb.btm_sco_pkt_types_supported = ESCO_PKT_TYPES_MASK_HV1;
 
@@ -866,4 +865,75 @@ void btm_report_device_status(tBTM_DEV_STATUS status) {
 
   /* Call the call back to pass the device status to application */
   if (p_cb) (*p_cb)(status);
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_BT_Quality_Report_VSE_CBack
+ *
+ * Description      Callback invoked on receiving of Vendor Specific Events.
+ *                  This function will call registered BQR report receiver if
+ *                  Bluetooth Quality Report sub-event is identified.
+ *
+ * Parameters:      length - Lengths of all of the parameters contained in the
+ *                    Vendor Specific Event.
+ *                  p_stream - A pointer to the quality report which is sent
+ *                    from the Bluetooth controller via Vendor Specific Event.
+ *
+ ******************************************************************************/
+static void BTM_BT_Quality_Report_VSE_CBack(uint8_t length, uint8_t* p_stream) {
+  if (length == 0) {
+    LOG(WARNING) << __func__ << ": Lengths of all of the parameters are zero.";
+    return;
+  }
+
+  uint8_t sub_event = 0;
+  STREAM_TO_UINT8(sub_event, p_stream);
+  length--;
+
+  if (sub_event == HCI_VSE_SUBCODE_BQR_SUB_EVT) {
+    LOG(INFO) << __func__
+              << ": BQR sub event, report length: " << std::to_string(length);
+
+    if (btm_cb.p_bqr_report_receiver == nullptr) {
+      LOG(WARNING) << __func__ << ": No registered report receiver.";
+      return;
+    }
+
+    btm_cb.p_bqr_report_receiver(length, p_stream);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         BTM_BT_Quality_Report_VSE_Register
+ *
+ * Description      Register/Deregister for Bluetooth Quality Report VSE sub
+ *                  event Callback.
+ *
+ * Parameters:      is_register - True/False to register/unregister for VSE.
+ *                  p_bqr_report_receiver - The receiver for receiving Bluetooth
+ *                    Quality Report VSE sub event.
+ *
+ ******************************************************************************/
+tBTM_STATUS BTM_BT_Quality_Report_VSE_Register(
+    bool is_register, tBTM_BT_QUALITY_REPORT_RECEIVER* p_bqr_report_receiver) {
+  tBTM_STATUS retval =
+      BTM_RegisterForVSEvents(BTM_BT_Quality_Report_VSE_CBack, is_register);
+
+  if (retval != BTM_SUCCESS) {
+    LOG(WARNING) << __func__ << ": Fail to (un)register VSEvents: " << retval
+                 << ", is_register: " << logbool(is_register);
+    return retval;
+  }
+
+  if (is_register) {
+    btm_cb.p_bqr_report_receiver = p_bqr_report_receiver;
+  } else {
+    btm_cb.p_bqr_report_receiver = nullptr;
+  }
+
+  LOG(INFO) << __func__ << ": Success to (un)register VSEvents."
+            << " is_register: " << logbool(is_register);
+  return retval;
 }

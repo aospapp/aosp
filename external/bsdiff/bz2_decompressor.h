@@ -14,6 +14,7 @@ namespace bsdiff {
 class BZ2Decompressor : public DecompressorInterface {
  public:
   BZ2Decompressor() = default;
+  ~BZ2Decompressor();
 
   bool SetInputData(const uint8_t* input_data, size_t size) override;
 
@@ -22,7 +23,11 @@ class BZ2Decompressor : public DecompressorInterface {
   bool Close() override;
 
  private:
+  // The low-level bzip2 stream.
   bz_stream stream_;
+
+  // Whether the stream_ is initialized.
+  bool stream_initialized_{false};
 };
 
 }  // namespace bsdiff

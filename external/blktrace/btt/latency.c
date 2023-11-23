@@ -26,18 +26,16 @@ static inline void latency_out(FILE *ofp, __u64 tstamp, __u64 latency)
 		fprintf(ofp, "%lf %lf\n", TO_SEC(tstamp), TO_SEC(latency));
 }
 
-FILE *latency_open(__u32 device, char *name, char *post)
+FILE *latency_open(struct d_info *dip, char *name, char *post)
 {
 	FILE *fp = NULL;
 
 	if (name) {
-		int mjr, mnr;
-		char oname[strlen(name) + 32];
+		size_t tlen = strlen(name) + strlen(dip->dip_name)
+					   + strlen(post) + 32;
+		char oname[tlen];
 
-		mjr = device >> MINORBITS;
-		mnr = device & ((1 << MINORBITS) - 1);
-
-		sprintf(oname, "%s_%03d,%03d_%s.dat", name, mjr, mnr, post);
+		sprintf(oname, "%s_%s_%s.dat", name, dip->dip_name, post);
 		if ((fp = my_fopen(oname, "w")) == NULL)
 			perror(oname);
 		else
@@ -49,9 +47,9 @@ FILE *latency_open(__u32 device, char *name, char *post)
 
 void latency_alloc(struct d_info *dip)
 {
-	dip->q2d_ofp = latency_open(dip->device, q2d_name, "q2d");
-	dip->d2c_ofp = latency_open(dip->device, d2c_name, "d2c");
-	dip->q2c_ofp = latency_open(dip->device, q2c_name, "q2c");
+	dip->q2d_ofp = latency_open(dip, q2d_name, "q2d");
+	dip->d2c_ofp = latency_open(dip, d2c_name, "d2c");
+	dip->q2c_ofp = latency_open(dip, q2c_name, "q2c");
 }
 
 void latency_q2d(struct d_info *dip, __u64 tstamp, __u64 latency)

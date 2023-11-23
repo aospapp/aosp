@@ -22,10 +22,12 @@
  *
  ******************************************************************************/
 
+#include <cutils/log.h>
 #include "bt_target.h"
 
 #include <string.h>
 #include "btm_ble_api.h"
+#include "common/metrics.h"
 #include "l2c_api.h"
 
 #include "smp_int.h"
@@ -141,6 +143,14 @@ static void smp_data_received(uint16_t channel, const RawAddress& bd_addr,
   uint8_t* p = (uint8_t*)(p_buf + 1) + p_buf->offset;
   uint8_t cmd;
 
+  if (p_buf->len < 1) {
+    android_errorWriteLog(0x534e4554, "111215315");
+    SMP_TRACE_WARNING("%s: smp packet length %d too short: must be at least 1",
+                      __func__, p_buf->len);
+    osi_free(p_buf);
+    return;
+  }
+
   STREAM_TO_UINT8(cmd, p);
 
   SMP_TRACE_EVENT("%s: SMDBG l2c, cmd=0x%x", __func__, cmd);
@@ -171,6 +181,9 @@ static void smp_data_received(uint16_t channel, const RawAddress& bd_addr,
   if (bd_addr == p_cb->pairing_bda) {
     alarm_set_on_mloop(p_cb->smp_rsp_timer_ent, SMP_WAIT_FOR_RSP_TIMEOUT_MS,
                        smp_rsp_timeout, NULL);
+
+    smp_log_metrics(p_cb->pairing_bda, false /* incoming */,
+                    p_buf->data + p_buf->offset, p_buf->len);
 
     if (cmd == SMP_OPCODE_CONFIRM) {
       SMP_TRACE_DEBUG(
@@ -282,6 +295,14 @@ static void smp_br_data_received(uint16_t channel, const RawAddress& bd_addr,
   uint8_t cmd;
   SMP_TRACE_EVENT("SMDBG l2c %s", __func__);
 
+  if (p_buf->len < 1) {
+    android_errorWriteLog(0x534e4554, "111215315");
+    SMP_TRACE_WARNING("%s: smp packet length %d too short: must be at least 1",
+                      __func__, p_buf->len);
+    osi_free(p_buf);
+    return;
+  }
+
   STREAM_TO_UINT8(cmd, p);
 
   /* sanity check */
@@ -309,6 +330,9 @@ static void smp_br_data_received(uint16_t channel, const RawAddress& bd_addr,
   if (bd_addr == p_cb->pairing_bda) {
     alarm_set_on_mloop(p_cb->smp_rsp_timer_ent, SMP_WAIT_FOR_RSP_TIMEOUT_MS,
                        smp_rsp_timeout, NULL);
+
+    smp_log_metrics(p_cb->pairing_bda, false /* incoming */,
+                    p_buf->data + p_buf->offset, p_buf->len);
 
     p_cb->rcvd_cmd_code = cmd;
     p_cb->rcvd_cmd_len = (uint8_t)p_buf->len;

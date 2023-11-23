@@ -30,8 +30,8 @@
 
 #include "sysdeps.h"
 
+#include <android-base/file.h>
 #include <android-base/macros.h>
-#include <android-base/test_utils.h>
 
 #ifdef _WIN32
 static std::string subdir(const char* parent, const char* child) {
@@ -82,30 +82,38 @@ TEST(adb_utils, directory_exists_win32_symlink_junction) {
 #endif
 
 TEST(adb_utils, escape_arg) {
-  ASSERT_EQ(R"('')", escape_arg(""));
+  EXPECT_EQ(R"('')", escape_arg(""));
 
-  ASSERT_EQ(R"('abc')", escape_arg("abc"));
+  EXPECT_EQ(R"('abc')", escape_arg("abc"));
 
-  ASSERT_EQ(R"(' abc')", escape_arg(" abc"));
-  ASSERT_EQ(R"(''\''abc')", escape_arg("'abc"));
-  ASSERT_EQ(R"('"abc')", escape_arg("\"abc"));
-  ASSERT_EQ(R"('\abc')", escape_arg("\\abc"));
-  ASSERT_EQ(R"('(abc')", escape_arg("(abc"));
-  ASSERT_EQ(R"(')abc')", escape_arg(")abc"));
+  auto wrap = [](const std::string& x) { return '\'' + x + '\''; };
+  const std::string q = R"('\'')";
+  EXPECT_EQ(wrap(q), escape_arg("'"));
+  EXPECT_EQ(wrap(q + q), escape_arg("''"));
+  EXPECT_EQ(wrap(q + "abc" + q), escape_arg("'abc'"));
+  EXPECT_EQ(wrap(q + "abc"), escape_arg("'abc"));
+  EXPECT_EQ(wrap("abc" + q), escape_arg("abc'"));
+  EXPECT_EQ(wrap("abc" + q + "def"), escape_arg("abc'def"));
+  EXPECT_EQ(wrap("a" + q + "b" + q + "c"), escape_arg("a'b'c"));
+  EXPECT_EQ(wrap("a" + q + "bcde" + q + "f"), escape_arg("a'bcde'f"));
 
-  ASSERT_EQ(R"('abc abc')", escape_arg("abc abc"));
-  ASSERT_EQ(R"('abc'\''abc')", escape_arg("abc'abc"));
-  ASSERT_EQ(R"('abc"abc')", escape_arg("abc\"abc"));
-  ASSERT_EQ(R"('abc\abc')", escape_arg("abc\\abc"));
-  ASSERT_EQ(R"('abc(abc')", escape_arg("abc(abc"));
-  ASSERT_EQ(R"('abc)abc')", escape_arg("abc)abc"));
+  EXPECT_EQ(R"(' abc')", escape_arg(" abc"));
+  EXPECT_EQ(R"('"abc')", escape_arg("\"abc"));
+  EXPECT_EQ(R"('\abc')", escape_arg("\\abc"));
+  EXPECT_EQ(R"('(abc')", escape_arg("(abc"));
+  EXPECT_EQ(R"(')abc')", escape_arg(")abc"));
 
-  ASSERT_EQ(R"('abc ')", escape_arg("abc "));
-  ASSERT_EQ(R"('abc'\''')", escape_arg("abc'"));
-  ASSERT_EQ(R"('abc"')", escape_arg("abc\""));
-  ASSERT_EQ(R"('abc\')", escape_arg("abc\\"));
-  ASSERT_EQ(R"('abc(')", escape_arg("abc("));
-  ASSERT_EQ(R"('abc)')", escape_arg("abc)"));
+  EXPECT_EQ(R"('abc abc')", escape_arg("abc abc"));
+  EXPECT_EQ(R"('abc"abc')", escape_arg("abc\"abc"));
+  EXPECT_EQ(R"('abc\abc')", escape_arg("abc\\abc"));
+  EXPECT_EQ(R"('abc(abc')", escape_arg("abc(abc"));
+  EXPECT_EQ(R"('abc)abc')", escape_arg("abc)abc"));
+
+  EXPECT_EQ(R"('abc ')", escape_arg("abc "));
+  EXPECT_EQ(R"('abc"')", escape_arg("abc\""));
+  EXPECT_EQ(R"('abc\')", escape_arg("abc\\"));
+  EXPECT_EQ(R"('abc(')", escape_arg("abc("));
+  EXPECT_EQ(R"('abc)')", escape_arg("abc)"));
 }
 
 void test_mkdirs(const std::string& basepath) {
@@ -139,17 +147,16 @@ TEST(adb_utils, mkdirs) {
 
 #if !defined(_WIN32)
 TEST(adb_utils, set_file_block_mode) {
-  int fd = adb_open("/dev/null", O_RDWR | O_APPEND);
-  ASSERT_GE(fd, 0);
-  int flags = fcntl(fd, F_GETFL, 0);
-  ASSERT_EQ(O_RDWR | O_APPEND, (flags & (O_RDWR | O_APPEND)));
-  ASSERT_TRUE(set_file_block_mode(fd, false));
-  int new_flags = fcntl(fd, F_GETFL, 0);
-  ASSERT_EQ(flags | O_NONBLOCK, new_flags);
-  ASSERT_TRUE(set_file_block_mode(fd, true));
-  new_flags = fcntl(fd, F_GETFL, 0);
-  ASSERT_EQ(flags, new_flags);
-  ASSERT_EQ(0, adb_close(fd));
+    unique_fd fd(adb_open("/dev/null", O_RDWR | O_APPEND));
+    ASSERT_GE(fd, 0);
+    int flags = fcntl(fd, F_GETFL, 0);
+    ASSERT_EQ(O_RDWR | O_APPEND, (flags & (O_RDWR | O_APPEND)));
+    ASSERT_TRUE(set_file_block_mode(fd, false));
+    int new_flags = fcntl(fd, F_GETFL, 0);
+    ASSERT_EQ(flags | O_NONBLOCK, new_flags);
+    ASSERT_TRUE(set_file_block_mode(fd, true));
+    new_flags = fcntl(fd, F_GETFL, 0);
+    ASSERT_EQ(flags, new_flags);
 }
 #endif
 
@@ -172,4 +179,57 @@ TEST(adb_utils, test_forward_targets_are_valid) {
     EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:", &error));
     EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:a", &error));
     EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:22x", &error));
+}
+
+void TestParseUint(std::string_view string, bool expected_success, uint32_t expected_value = 0) {
+    // Standalone.
+    {
+        uint32_t value;
+        std::string_view remaining;
+        bool success = ParseUint(&value, string, &remaining);
+        EXPECT_EQ(success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(value, expected_value);
+        }
+        EXPECT_TRUE(remaining.empty());
+    }
+
+    // With trailing text.
+    {
+        std::string text = std::string(string) + "foo";
+        uint32_t value;
+        std::string_view remaining;
+        bool success = ParseUint(&value, text, &remaining);
+        EXPECT_EQ(success, expected_success);
+        if (expected_success) {
+            EXPECT_EQ(value, expected_value);
+            EXPECT_EQ(remaining, "foo");
+        }
+    }
+
+    // With trailing text, without remaining.
+    {
+        std::string text = std::string(string) + "foo";
+        uint32_t value;
+        bool success = ParseUint(&value, text, nullptr);
+        EXPECT_EQ(success, false);
+    }
+}
+
+TEST(adb_utils, ParseUint) {
+    TestParseUint("", false);
+    TestParseUint("foo", false);
+    TestParseUint("foo123", false);
+    TestParseUint("-1", false);
+
+    TestParseUint("123", true, 123);
+    TestParseUint("9999999999999999999999999", false);
+    TestParseUint(std::to_string(UINT32_MAX), true, UINT32_MAX);
+    TestParseUint("0" + std::to_string(UINT32_MAX), true, UINT32_MAX);
+    TestParseUint(std::to_string(static_cast<uint64_t>(UINT32_MAX) + 1), false);
+    TestParseUint("0" + std::to_string(static_cast<uint64_t>(UINT32_MAX) + 1), false);
+
+    std::string x = std::to_string(UINT32_MAX) + "123";
+    std::string_view substr = std::string_view(x).substr(0, std::to_string(UINT32_MAX).size());
+    TestParseUint(substr, true, UINT32_MAX);
 }

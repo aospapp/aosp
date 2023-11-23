@@ -31,6 +31,10 @@
     <string name="live_wallpaper_preview_title">Live wallpaper preview</string>
     <!-- List item for configuring the current wallpaper -->
     <string name="configure_wallpaper">Settings…</string>
+    <!-- List item for deleting the current wallpaper -->
+    <string name="delete_live_wallpaper">Delete</string>
+    <!-- List item for showing the current wallpaper by hiding bottom panel. -->
+    <string name="preview">Preview</string>
     <!-- Button label on Wallpaper Gallery screen; user selects this button to set a specific wallpaper -->
     <string name="wallpaper_instructions">Set wallpaper</string>
     <!-- Warning message, no live wallpapers available. -->
@@ -47,11 +51,24 @@
     <!-- Option for setting the wallpaper on both the home screen and lock screen. -->
     <string name="which_wallpaper_option_home_screen_and_lock_screen">Home screen and lock screen</string>
 
-    <!-- Content description for a button letting the user collapse a visual panel showing info
+    <!-- Button label on attribution panel, explores further context about the wallpaper.
+         [CHAR_LIMIT=15] -->
+    <string name="explore_further">Explore</string>
+
+    <!-- Label for the 'Info' tab of view pager in wallpaper preview activity. [CHAR_LIMIT=25] -->
+    <string name="tab_info">Info</string>
+    <!-- Label for the 'Customize' tab of view pager in wallpaper preview activity.
+         [CHAR_LIMIT=25] -->
+    <string name="tab_customize">Customize</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete one wallpaper. [CHAR LIMIT=NONE]  -->
+    <string name="delete_wallpaper_confirmation">Delete this wallpaper from your phone?</string>
+
+    <!-- Content description for a checkbox letting the user collapse a visual panel showing info
          about the wallpaper being previewed. [CHAR LIMIT=none] -->
     <string name="collapse_attribution_panel">Collapse wallpaper info panel</string>
 
-    <!-- Content description for a button letting the user expand a visual panel showing info about
-         the wallpaper being previewed. [CHAR LIMIT=none] -->
+    <!-- Content description for a checkbox letting the user expand a visual panel showing info
+         about the wallpaper being previewed. [CHAR LIMIT=none] -->
     <string name="expand_attribution_panel">Expand wallpaper info panel</string>
 </resources>

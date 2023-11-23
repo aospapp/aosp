@@ -1,6 +1,18 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
+#
+# Copyright (C) 2013 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 """Tools for reading, verifying and applying Chrome OS update payloads."""
 
@@ -10,7 +22,6 @@ import hashlib
 import struct
 
 from update_payload import applier
-from update_payload import block_tracer
 from update_payload import checker
 from update_payload import common
 from update_payload import update_metadata_pb2
@@ -262,19 +273,19 @@ class Payload(object):
     return not self.IsDelta()
 
   def Check(self, pubkey_file_name=None, metadata_sig_file=None,
-            report_out_file=None, assert_type=None, block_size=0,
-            rootfs_part_size=0, kernel_part_size=0, allow_unhashed=False,
+            metadata_size=0, report_out_file=None, assert_type=None,
+            block_size=0, part_sizes=None, allow_unhashed=False,
             disabled_tests=()):
     """Checks the payload integrity.
 
     Args:
       pubkey_file_name: public key used for signature verification
       metadata_sig_file: metadata signature, if verification is desired
+      metadata_size: metadata size, if verification is desired
       report_out_file: file object to dump the report to
       assert_type: assert that payload is either 'full' or 'delta'
       block_size: expected filesystem / payload block size
-      rootfs_part_size: the size of (physical) rootfs partitions in bytes
-      kernel_part_size: the size of (physical) kernel partitions in bytes
+      part_sizes: map of partition label to (physical) size in bytes
       allow_unhashed: allow unhashed operation blobs
       disabled_tests: list of tests to disable
 
@@ -289,20 +300,18 @@ class Payload(object):
         allow_unhashed=allow_unhashed, disabled_tests=disabled_tests)
     helper.Run(pubkey_file_name=pubkey_file_name,
                metadata_sig_file=metadata_sig_file,
-               rootfs_part_size=rootfs_part_size,
-               kernel_part_size=kernel_part_size,
+               metadata_size=metadata_size,
+               part_sizes=part_sizes,
                report_out_file=report_out_file)
 
-  def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
-            old_rootfs_part=None, bsdiff_in_place=True, bspatch_path=None,
-            puffpatch_path=None, truncate_to_expected_size=True):
+  def Apply(self, new_parts, old_parts=None, bsdiff_in_place=True,
+            bspatch_path=None, puffpatch_path=None,
+            truncate_to_expected_size=True):
     """Applies the update payload.
 
     Args:
-      new_kernel_part: name of dest kernel partition file
-      new_rootfs_part: name of dest rootfs partition file
-      old_kernel_part: name of source kernel partition file (optional)
-      old_rootfs_part: name of source rootfs partition file (optional)
+      new_parts: map of partition name to dest partition file
+      old_parts: map of partition name to partition file (optional)
       bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
       bspatch_path: path to the bspatch binary (optional)
       puffpatch_path: path to the puffpatch binary (optional)
@@ -320,26 +329,4 @@ class Payload(object):
         self, bsdiff_in_place=bsdiff_in_place, bspatch_path=bspatch_path,
         puffpatch_path=puffpatch_path,
         truncate_to_expected_size=truncate_to_expected_size)
-    helper.Run(new_kernel_part, new_rootfs_part,
-               old_kernel_part=old_kernel_part,
-               old_rootfs_part=old_rootfs_part)
-
-  def TraceBlock(self, block, skip, trace_out_file, is_kernel):
-    """Traces the origin(s) of a given dest partition block.
-
-    The tracing tries to find origins transitively, when possible (it currently
-    only works for move operations, where the mapping of src/dst is
-    one-to-one). It will dump a list of operations and source blocks
-    responsible for the data in the given dest block.
-
-    Args:
-      block: the block number whose origin to trace
-      skip: the number of first origin mappings to skip
-      trace_out_file: file object to dump the trace to
-      is_kernel: trace through kernel (True) or rootfs (False) operations
-    """
-    self._AssertInit()
-
-    # Create a short-lived payload block tracer object and run it.
-    helper = block_tracer.PayloadBlockTracer(self)
-    helper.Run(block, skip, trace_out_file, is_kernel)
+    helper.Run(new_parts, old_parts=old_parts)

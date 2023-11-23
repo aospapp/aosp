@@ -11,10 +11,10 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
-package com.android.car.settings.quicksettings;
 
+package com.android.car.settings.quicksettings;
 
 import android.annotation.DrawableRes;
 import android.annotation.Nullable;
@@ -27,6 +27,8 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import com.android.car.settings.R;
+import com.android.car.settings.bluetooth.BluetoothSettingsFragment;
+import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -40,6 +42,7 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
     private final StateChangedListener mStateChangedListener;
     private LocalBluetoothAdapter mLocalAdapter;
     private LocalBluetoothManager mLocalManager;
+    private View.OnLongClickListener mLaunchBluetoothSettings;
 
     @DrawableRes
     private int mIconRes = R.drawable.ic_settings_bluetooth;
@@ -65,7 +68,7 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
                         break;
                     default:
                         mIconRes = R.drawable.ic_settings_bluetooth;
-                        mText = mContext.getString(R.string.bluetooth_settings);
+                        mText = mContext.getString(R.string.bluetooth_settings_title);
                         mState = State.ON;
                 }
             } else if (action.equals(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED)) {
@@ -84,20 +87,19 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
         }
     };
 
-    BluetoothTile(Context context, StateChangedListener stateChangedListener) {
+    BluetoothTile(
+            Context context,
+            StateChangedListener stateChangedListener,
+            FragmentController fragmentController) {
         mStateChangedListener = stateChangedListener;
         mContext = context;
-        IntentFilter mBtStateChangeFilter = new IntentFilter();
-        mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
-        mContext.registerReceiver(mBtStateReceiver, mBtStateChangeFilter);
         mLocalManager = LocalBluetoothManager.getInstance(
                 mContext, /* onInitCallback= */ null);
         if (mLocalManager == null) {
             LOG.e("Bluetooth is not supported on this device");
             return;
         }
-        mText = mContext.getString(R.string.bluetooth_settings);
+        mText = mContext.getString(R.string.bluetooth_settings_title);
         mLocalAdapter = mLocalManager.getBluetoothAdapter();
         if (mLocalAdapter.isEnabled()) {
             mIconRes = R.drawable.ic_settings_bluetooth;
@@ -106,11 +108,15 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
             mIconRes = R.drawable.ic_settings_bluetooth_disabled;
             mState = State.OFF;
         }
+        mLaunchBluetoothSettings = v -> {
+            fragmentController.launchFragment(new BluetoothSettingsFragment());
+            return true;
+        };
     }
 
     @Nullable
-    public View.OnClickListener getDeepDiveListener() {
-        return null;
+    public View.OnLongClickListener getOnLongClickListener() {
+        return mLaunchBluetoothSettings;
     }
 
     @Override
@@ -136,6 +142,14 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
     }
 
     @Override
+    public void start() {
+        IntentFilter mBtStateChangeFilter = new IntentFilter();
+        mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        mBtStateChangeFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        mContext.registerReceiver(mBtStateReceiver, mBtStateChangeFilter);
+    }
+
+    @Override
     public void stop() {
         mContext.unregisterReceiver(mBtStateReceiver);
     }
@@ -145,6 +159,6 @@ public class BluetoothTile implements QuickSettingGridAdapter.Tile {
         if (mLocalAdapter == null) {
             return;
         }
-        mLocalAdapter.setBluetoothEnabled(mLocalAdapter.isEnabled() ? false : true);
+        mLocalAdapter.setBluetoothEnabled(!mLocalAdapter.isEnabled());
     }
 }

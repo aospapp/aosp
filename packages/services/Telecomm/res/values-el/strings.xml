@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Γρήγορη απάντηση"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Το μήνυμα εστάλη στο <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Η αποστολή του μηνύματος στο <xliff:g id="PHONE_NUMBER">%s</xliff:g> απέτυχε."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Λογαριασμοί κλήσης"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Επιτρέπονται μόνο κλήσεις έκτακτης ανάγκης."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Αυτή η εφαρμογή δεν μπορεί να πραγματοποιήσει εξερχόμενες κλήσεις χωρίς την άδεια \"Τηλέφωνο\"."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Ορισμός ως προεπιλογή"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Ακύρωση"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"Το <xliff:g id="NEW_APP">%s</xliff:g> θα έχει τη δυνατότητα πραγματοποίησης κλήσεων, καθώς και ελέγχου κάθε πτυχής τους. Μόνον κάποια αξιόπιστη εφαρμογή θα πρέπει να ορίζεται ως προεπιλεγμένη."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Ορισμός <xliff:g id="NEW_APP">%s</xliff:g> ως προεπιλεγμένης εφαρμογής διαλογής κλήσεων;"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"Η εφαρμογή <xliff:g id="OLD_APP">%s</xliff:g> δεν θα χρησιμοποιείται πλέον για διαλογή κλήσεων."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"Το <xliff:g id="NEW_APP">%s</xliff:g> θα έχει τη δυνατότητα πρόσβασης σε πληροφορίες για καλούντες που δεν ανήκουν στις επαφές σας και θα είναι σε θέση να αποκλείει τέτοιες κλήσεις. Μόνον κάποια αξιόπιστη εφαρμογή θα πρέπει να ορίζεται ως προεπιλεγμένη εφαρμογή διαλογής κλήσεων."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Ορισμός ως προεπιλογή"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Ακύρωση"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Αποκλεισμένοι αριθμοί"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Δεν θα λαμβάνετε κλήσεις ή μηνύματα κειμένου από αποκλεισμένους αριθμούς."</string>
     <string name="block_number" msgid="1101252256321306179">"Προσθήκη αριθμού"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Εάν απαντήσετε, η τρέχουσα βιντεοκλήση σας θα τερματιστεί"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Απάντηση"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Απόρριψη"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, επειδή δεν υπάρχουν λογαριασμοί κλήσεων που υποστηρίζουν κλήσεις αυτού του τύπου."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, λόγω της κλήσης σας μέσω <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, λόγω των κλήσεών σας μέσω <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, λόγω κάποιας κλήσης μέσω άλλης εφαρμογής."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Αναπάντητες κλήσεις"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Φραγή κλήσεων"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Εάν πραγματοποιήσετε αυτήν την κλήση, η κλήση σας μέσω <xliff:g id="OTHER_APP">%1$s</xliff:g> θα τερματιστεί."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Επιλέξτε πώς θα πραγματοποιήσετε την κλήση"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Ανακατεύθυνση της κλήσης μέσω <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Κλήση μέσω του αριθμού τηλεφώνου μου"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Δεν είναι δυνατή η πραγματοποίηση κλήσης από την εφαρμογή <xliff:g id="OTHER_APP">%1$s</xliff:g>. Δοκιμάστε να χρησιμοποιήσετε μια άλλη εφαρμογή ανακατεύθυνσης κλήσεων ή να επικοινωνήσετε με τον προγραμματιστή της εφαρμογής για βοήθεια."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Φραγή κλήσεων"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Αριθμοί που δεν βρίσκονται στις Επαφές"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Αποκλεισμός αριθμών που δεν περιλαμβάνονται στις επαφές σας"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Φραγή κλήσεων απενεργοποιημένη"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Πραγματοποιήθηκε κλήση έκτακτης ανάγκης"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Η φραγή κλήσεων έχει απενεργοποιηθεί, ώστε να επιτρέπεται σε άτομα που ανταποκρίνονται σε έκτακτες ανάγκες να επικοινωνούν μαζί σας."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Μενού προγραμματιστών τηλεπικοινωνιών"</string>
 </resources>

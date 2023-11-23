@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD-code uitvoeren..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI-code geannuleerd"</string>
     <string name="cancel" msgid="5044513931633602634">"Annuleren"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD-bericht moet tussen <xliff:g id="MIN_LEN">%d</xliff:g> en <xliff:g id="MAX_LEN">%d</xliff:g> tekens lang zijn. Probeer het opnieuw."</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD-bericht moet tussen <xliff:g id="MIN_LEN">%1$d</xliff:g> en <xliff:g id="MAX_LEN">%2$d</xliff:g> tekens lang zijn. Probeer het opnieuw."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Telefonische vergadering beheren"</string>
     <string name="ok" msgid="3811371167865772377">"OK"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Luidspreker"</string>
@@ -60,9 +60,9 @@
     <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA-oproepinstellingen (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"Namen toegangspunten"</string>
     <string name="settings_label" msgid="3876743539816984008">"Netwerkinstellingen"</string>
-    <string name="phone_accounts" msgid="6376603393888116364">"Oproepaccounts"</string>
+    <string name="phone_accounts" msgid="6376603393888116364">"Gespreksaccounts"</string>
     <string name="phone_accounts_make_calls_with" msgid="1969188078933152231">"Bellen met"</string>
-    <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"SIP-oproepen uitvoeren met"</string>
+    <string name="phone_accounts_make_sip_calls_with" msgid="4677789312053828493">"SIP-gesprekken uitvoeren met"</string>
     <string name="phone_accounts_ask_every_time" msgid="4346499067149985702">"Eerst vragen"</string>
     <string name="phone_accounts_default_account_label" msgid="4183772241814460014">"Geen netwerk beschikbaar"</string>
     <string name="phone_accounts_settings_header" msgid="4141710640883261094">"Instellingen"</string>
@@ -77,9 +77,12 @@
     <string name="voicemail" msgid="8693759337917898954">"Voicemail"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Voicemail (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"Bellen en gebeld worden"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"Slim doorschakelen"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"Wanneer één nummer niet bereikbaar is, worden gesprekken altijd doorgeschakeld naar je andere nummer"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Meldingen"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Nooduitzendingen"</string>
-    <string name="call_settings" msgid="6112441768261754562">"Oproepinstellingen"</string>
+    <string name="call_settings" msgid="6112441768261754562">"Gespreksinstellingen"</string>
     <string name="additional_gsm_call_settings" msgid="1391795981938800617">"Aanvullende instellingen"</string>
     <string name="additional_gsm_call_settings_with_label" msgid="1385241520708457376">"Aanvullende instellingen (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="sum_gsm_call_settings" msgid="4076647190996778012">"Aanvullende oproepinstellingen voor alleen GSM"</string>
@@ -88,19 +91,19 @@
     <string name="labelNwService" msgid="4699970172021870983">"Instellingen voor netwerkservice"</string>
     <string name="labelCallerId" msgid="3888899447379069198">"Beller-ID"</string>
     <string name="sum_loading_settings" msgid="1826692909391168620">"Instellingen laden…"</string>
-    <string name="sum_hide_caller_id" msgid="1071407020290873782">"Nummer verborgen bij uitgaande oproepen"</string>
-    <string name="sum_show_caller_id" msgid="6768534125447290401">"Nummer weergegeven bij uitgaande oproepen"</string>
-    <string name="sum_default_caller_id" msgid="1954518825510901365">"Gebruik de standaard operatorinstellingen om mijn nummer bij uitgaande oproepen weer te geven"</string>
+    <string name="sum_hide_caller_id" msgid="1071407020290873782">"Nummer verborgen bij uitgaande gesprekken"</string>
+    <string name="sum_show_caller_id" msgid="6768534125447290401">"Nummer weergegeven bij uitgaande gesprekken"</string>
+    <string name="sum_default_caller_id" msgid="1954518825510901365">"Gebruik de standaard operatorinstellingen om mijn nummer bij uitgaande gesprekken weer te geven"</string>
     <string name="labelCW" msgid="6120513814915920200">"Wisselgesprek"</string>
-    <string name="sum_cw_enabled" msgid="8083061901633671397">"Inkomende oproepen melden als ik aan het bellen ben"</string>
-    <string name="sum_cw_disabled" msgid="3648693907300104575">"Inkomende oproepen melden als ik aan het bellen ben"</string>
-    <string name="call_forwarding_settings" msgid="3378927671091537173">"Doorschakelinstellingen oproepen"</string>
-    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"Doorschakelinstellingen voor oproepen (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="labelCF" msgid="2574386948026924737">"Oproep doorschakelen"</string>
+    <string name="sum_cw_enabled" msgid="8083061901633671397">"Inkomende gesprekken melden als ik aan het bellen ben"</string>
+    <string name="sum_cw_disabled" msgid="3648693907300104575">"Inkomende gesprekken melden als ik aan het bellen ben"</string>
+    <string name="call_forwarding_settings" msgid="3378927671091537173">"Doorschakelinstellingen gesprekken"</string>
+    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"Doorschakelinstellingen voor gesprekken (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="labelCF" msgid="2574386948026924737">"Gesprek doorschakelen"</string>
     <string name="labelCFU" msgid="8147177368148660600">"Altijd doorschakelen"</string>
     <string name="messageCFU" msgid="3560082430662923687">"Altijd dit nummer gebruiken"</string>
-    <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"Alle oproepen doorschakelen"</string>
-    <string name="sum_cfu_enabled" msgid="2450052502198827927">"Alle oproepen doorschakelen naar <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
+    <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"Alle gesprekken doorschakelen"</string>
+    <string name="sum_cfu_enabled" msgid="2450052502198827927">"Alle gesprekken doorschakelen naar <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"Het telefoonnummer is niet beschikbaar"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"Uit"</string>
     <string name="labelCFB" msgid="6139853033106283172">"Indien bezet"</string>
@@ -118,7 +121,7 @@
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Doorschakelen naar <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Uit"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Je provider biedt geen ondersteuning voor het uitschakelen van oproepdoorschakelingen wanneer je telefoon niet bereikbaar is."</string>
-    <string name="updating_title" msgid="6146755386174019046">"Oproepinstellingen"</string>
+    <string name="updating_title" msgid="6146755386174019046">"Gespreksinstellingen"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Oproepinstellingen kunnen alleen worden gewijzigd door de beheerder."</string>
     <string name="call_settings_with_label" msgid="3401177261468593519">"Instellingen (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"Fout met oproepinstellingen"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"Geregistreerd op netwerk."</string>
     <string name="already_auto" msgid="6067116884321285507">"Al in automatische selectie."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Netwerk automatisch selecteren"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"Niet beschikbaar bij verbinding met %1$s"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Netwerk"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Automatische registratie..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Voorkeursnetwerktype"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"Bellen"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Netwerk"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Geoptimaliseerde 4G LTE-modus"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Geavanceerd bellen"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE-services gebruiken voor betere spraak- en andere communicatie (aanbevolen)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"4G-services gebruiken voor betere gesproken en andere communicatie (aanbevolen)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Gegevenstoegang aan"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Gegevensgebruik toestaan"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Let op"</string>
@@ -472,17 +480,17 @@
     <string name="card_title_dialing" msgid="5769417478498348054">"Kiezen"</string>
     <string name="card_title_redialing" msgid="8253487008234167266">"Opnieuw bellen"</string>
     <string name="card_title_conf_call" msgid="1162980346189744501">"Telefonische vergadering"</string>
-    <string name="card_title_incoming_call" msgid="7364539451234646909">"Inkomende oproep"</string>
-    <string name="card_title_call_ended" msgid="5544730338889702298">"Oproep beëindigd"</string>
+    <string name="card_title_incoming_call" msgid="7364539451234646909">"Inkomend gesprek"</string>
+    <string name="card_title_call_ended" msgid="5544730338889702298">"Gesprek beëindigd"</string>
     <string name="card_title_on_hold" msgid="821463117892339942">"In de wacht"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"Ophangen"</string>
-    <string name="card_title_in_call" msgid="6346543933068225205">"Actieve oproep"</string>
+    <string name="card_title_in_call" msgid="6346543933068225205">"Actief gesprek"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"Nieuwe voicemail"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"Nieuwe voicemail (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g> bellen"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Voicemailnummer onbekend"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Geen service"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"Geselecteerd netwerk (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) niet beschikbaar"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"Geselecteerd netwerk <xliff:g id="OPERATOR_NAME">%s</xliff:g> niet beschikbaar"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Schakel het mobiele netwerk in, schakel de vliegtuigmodus uit of schakel Batterijbesparing uit om te bellen."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Schakel de vliegtuigmodus uit om te bellen."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Schakel de vliegtuigmodus uit of maak verbinding met een draadloos netwerk om te bellen."</string>
@@ -491,32 +499,43 @@
     <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mobiel netwerk niet beschikbaar."</string>
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobiel netwerk is niet beschikbaar. Maak verbinding met een draadloos netwerk om te bellen."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Als je wilt bellen, moet je een geldig nummer invoeren."</string>
-    <string name="incall_error_call_failed" msgid="5891978320269774095">"Oproep mislukt."</string>
-    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Oproep kan op dit moment niet worden toegevoegd. Je kunt contact opnemen door een bericht te sturen."</string>
+    <string name="incall_error_call_failed" msgid="5891978320269774095">"Gesprek mislukt."</string>
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Gesprek kan op dit moment niet worden toegevoegd. Je kunt contact opnemen door een bericht te sturen."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Service wordt niet ondersteund"</string>
-    <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Kan niet overschakelen tussen oproepen."</string>
-    <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Kan oproep niet scheiden."</string>
+    <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Kan niet overschakelen tussen gesprekken."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"Kan gesprek niet hervatten."</string>
+    <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Kan gesprek niet scheiden."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"Kan niet doorschakelen."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Telefonische vergaderingen niet mogelijk."</string>
-    <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Kan oproep niet weigeren."</string>
-    <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Kan oproep(en) niet vrijgeven."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"Kan gesprekken niet samenvoegen."</string>
+    <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Kan gesprek niet weigeren."</string>
+    <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Kan gesprek(ken) niet vrijgeven."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Kan gesprekken niet in de wacht zetten."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Maak verbinding met een draadloos netwerk om te bellen."</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"Schakel bellen via wifi in om te bellen."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"Informatie bij nood"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"Eigenaar"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"Tik nogmaals om informatie weer te geven"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Noodoproep"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"Alarmnummer"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"Alarmnummers"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"Tik nogmaals om <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> te bellen"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Radio aanzetten..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Geen bereik. Opnieuw proberen…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Kan vliegtuigmodus niet activeren tijdens een noodoproep."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Kan niet bellen. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> is geen alarmnummer."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Bellen niet mogelijk. Bel een alarmnummer."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Noodoproepen niet beschikbaar"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"Politie"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"Ambulance"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"Vuur"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Toetsen gebruiken om te bellen"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"In de wacht"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Beëindigen"</string>
     <string name="onscreenShowDialpadText" msgid="8561805492659639893">"Toetsenblok"</string>
     <string name="onscreenMuteText" msgid="5011369181754261374">"Dempen"</string>
-    <string name="onscreenAddCallText" msgid="5140385634712287403">"Oproep toevoegen"</string>
-    <string name="onscreenMergeCallsText" msgid="6640195098064538950">"Oproepen samenvoegen"</string>
+    <string name="onscreenAddCallText" msgid="5140385634712287403">"Gesprek toevoegen"</string>
+    <string name="onscreenMergeCallsText" msgid="6640195098064538950">"Gesprekken samenvoegen"</string>
     <string name="onscreenSwapCallsText" msgid="1602990689244030047">"Wisselen"</string>
     <string name="onscreenManageCallsText" msgid="5473231160123254154">"Gesprekken beheren"</string>
     <string name="onscreenManageConferenceText" msgid="6485935856534311346">"Conferentie beheren"</string>
@@ -531,7 +550,7 @@
     <string name="hac_mode_title" msgid="8740268574688743289">"Gehoorapparaten"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"Compatibiliteit voor gehoorapparaat inschakelen"</string>
     <string name="rtt_mode_title" msgid="6954652435543570121">"Realtime tekstoproep (RTT)"</string>
-    <string name="rtt_mode_summary" msgid="5146344277246544580">"Berichten in een spraakoproep toestaan"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"Berichten in een audiogesprek toestaan"</string>
     <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT helpt bellers die doof of slechthorend zijn, een spraakbeperking hebben of meer dan alleen een stem nodig hebben.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Meer informatie&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT-gesprekken worden opgeslagen als berichttranscript.\n       &lt;br&gt; - RTT is niet beschikbaar voor videogesprekken"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY uit"</item>
@@ -548,7 +567,7 @@
     <string name="network_info_message" msgid="7738596060242881930">"Netwerkbericht"</string>
     <string name="network_error_message" msgid="3394780436230411413">"Foutmelding"</string>
     <string name="ota_title_activate" msgid="8616918561356194398">"Je telefoon activeren"</string>
-    <string name="ota_touch_activate" msgid="6553212803262586244">"Je moet een speciale oproep uitvoeren om je telefoonservice te activeren. \n\nNadat je op \'Activeren\' hebt gedrukt, luister je naar de instructies om je telefoon te activeren."</string>
+    <string name="ota_touch_activate" msgid="6553212803262586244">"Je moet een speciaal gesprek voeren om je telefoonservice te activeren. \n\nNadat je op \'Activeren\' hebt gedrukt, luister je naar de instructies om je telefoon te activeren."</string>
     <string name="ota_hfa_activation_title" msgid="2234246934160473981">"Activeren..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="8092479227918463415">"De telefoon activeert je mobiele gegevensservice.\n\nDit kan tot vijf minuten duren."</string>
     <string name="ota_skip_activation_dialog_title" msgid="2943366608272261306">"Activering overslaan?"</string>
@@ -593,12 +612,14 @@
     <string name="contactPhoto" msgid="4713193418046639466">"contactfoto"</string>
     <string name="goPrivate" msgid="865837794424530980">"privé"</string>
     <string name="selectContact" msgid="781975788478987237">"contact selecteren"</string>
-    <string name="not_voice_capable" msgid="2739898841461577811">"Spraakoproepen worden niet ondersteund"</string>
+    <string name="not_voice_capable" msgid="2739898841461577811">"Audiogesprekken worden niet ondersteund"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"bellen"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"toetsenblok weergeven"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"Noodtoetsenblok"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Visuele voicemail"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Pincode instellen"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Pincode wijzigen"</string>
-    <string name="preference_category_ringtone" msgid="5197960752529332721">"Beltoon en trillen"</string>
+    <string name="preference_category_ringtone" msgid="5197960752529332721">"Ringtone en trillen"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Ingebouwde simkaarten"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Videogesprekken inschakelen"</string>
     <string name="enable_video_calling_dialog_msg" msgid="8948186136957417948">"Als je videogesprekken wilt inschakelen, moet je de geoptimaliseerde 4G LTE-modus inschakelen in de netwerkinstellingen."</string>
@@ -608,14 +629,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Alleen noodoproepen"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"Simkaart, sleuf: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Toegankelijkheid"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wifi-oproep van"</string>
-    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wifi-oproep"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wifi-gesprek van"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wifi-gesprek"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Tik nogmaals om te openen"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Er is een fout opgetreden tijdens het decoderen van het bericht."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"Een simkaart heeft je service geactiveerd en heeft de roaming-mogelijkheden van je telefoon geüpdatet."</string>
-    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Er zijn te veel actieve oproepen. Beëindig bestaande oproepen of voeg ze samen voordat je een nieuwe oproep start."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Er zijn te veel actieve gesprekken. Beëindig bestaande gesprekken of voeg ze samen voordat je een nieuw gesprek start."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Kan geen verbinding maken. Plaats een geldige simkaart."</string>
-    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wifi-verbinding verbroken. Oproep beëindigd."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wifi-verbinding verbroken. Gesprek beëindigd."</string>
     <string name="dialFailed_low_battery" msgid="8760548177088774268">"Je videogesprek kan niet worden gestart omdat de batterij bijna leeg is."</string>
     <string name="callFailed_low_battery" msgid="4913582435905872616">"Videogesprek beëindigd omdat batterij bijna leeg is."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Voicemailpincode wijzigen"</string>
@@ -644,83 +665,83 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"Je moet mogelijk data toevoegen via <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"DATA TOEVOEGEN"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ANNULEREN"</string>
-    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Oproep beëindigd"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Radio uit"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Geen simkaart of simkaartfout"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Gesprek beëindigd"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"Vliegtuigmodus is ingeschakeld"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"Kan geen toegang tot simkaart krijgen"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Mobiel netwerk niet beschikbaar"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Niet-toegewezen nummer"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Geen route naar bestemming"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Kanaal niet acceptabel"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Provider heeft de blokkering bepaald"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Normale gespreksvrijgave"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"Probleem met het telefoonnummer dat je probeert te bellen. Foutcode 1."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"Kan gesprek niet voltooien. Foutcode 3."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"Kan gesprek niet voltooien. Foutcode 6."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"Kan gesprek niet voltooien. Foutcode 8."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"Kan gesprek niet voltooien. Foutcode 16."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Gebruiker bezet"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Geen gebruiker die reageert"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Gebruiker wordt gewaarschuwd, geen reactie"</string>
-    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Oproep afgewezen"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"Gebruiker reageert niet"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"Kan gesprek niet voltooien. Foutcode 19."</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Gesprek afgewezen"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Nummer gewijzigd"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Tijdelijke onderbreking"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Niet-geselecteerde gebruikersvrijgave"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Bestemming werkt niet"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"Kan gesprek niet voltooien. Foutcode 25."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"Kan gesprek niet voltooien. Foutcode 26."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"Kan gesprek niet voltooien. Foutcode 27."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Ongeldige nummerindeling (onvolledig nummer)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Faciliteit afgewezen"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Reactie op STATUSVERZOEK"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normaal, niet gespecificeerd"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Geen circuit/kanaal beschikbaar"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Netwerk werkt niet"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Tijdelijke fout"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Congestie van schakelapparatuur"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Toegangsinformatie verwijderd"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Gevraagd circuit/kanaal niet beschikbaar"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Bronnen niet beschikbaar, niet gespecificeerd"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Kwaliteit van service niet beschikbaar"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Gevraagde faciliteit niet geabonneerd"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Inkomende oproepen geblokkeerd binnen de CUG"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Mogelijkheden van drager niet geautoriseerd"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Mogelijkheden van drager momenteel niet beschikbaar"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Service of optie niet beschikbaar, niet gespecificeerd"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Dragerservice niet geïmplementeerd"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM gelijk aan of hoger dan ACMmax"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Gevraagde faciliteit niet geïmplementeerd"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Er zijn alleen mogelijkheden van drager voor beperkte digitale informatie beschikbaar"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Service of optie niet geïmplementeerd, niet gespecificeerd"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Ongeldige transactie-ID-waarde"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Gebruiker geen lid van CUG"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Ongeschikte bestemming"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Ongeldige doorvoernetwerkselectie"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Semantisch incorrect bericht"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Ongeldige verplichte informatie"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Berichttype bestaat niet of is niet geïmplementeerd"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Berichttype niet geschikt voor protocolstatus"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Informatie-element bestaat niet of is niet geïmplementeerd"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Voorwaardelijke IE-fout"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Bericht niet geschikt voor protocolstatus"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Herstel na afloop van timer"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Protocolfout, niet gespecificeerd"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Interworking, niet gespecificeerd"</string>
-    <string name="labelCallBarring" msgid="3452870940716226978">"Oproepen blokkeren"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"Kan gesprek niet voltooien. Foutcode 29."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"Kan gesprek niet voltooien. Foutcode 30."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"Kan gesprek niet voltooien. Foutcode 31."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"Kan gesprek niet voltooien. Foutcode 34."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"Kan gesprek niet voltooien. Foutcode 38."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"Kan gesprek niet voltooien. Foutcode 41."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"Kan gesprek niet voltooien. Foutcode 42."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"Kan gesprek niet voltooien. Foutcode 43."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"Kan gesprek niet voltooien. Foutcode 44."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"Kan gesprek niet voltooien. Foutcode 47."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"Kan gesprek niet voltooien. Foutcode 49."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"Kan gesprek niet voltooien. Foutcode 50."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"Kan gesprek niet voltooien. Foutcode 55."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"Kan gesprek niet voltooien. Foutcode 57."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"Kan gesprek niet voltooien. Foutcode 58."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"Kan gesprek niet voltooien. Foutcode 63."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"Kan gesprek niet voltooien. Foutcode 65."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"Kan gesprek niet voltooien. Foutcode 68."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"Kan gesprek niet voltooien. Foutcode 69."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"Kan gesprek niet voltooien. Foutcode 70."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"Kan gesprek niet voltooien. Foutcode 79."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"Kan gesprek niet voltooien. Foutcode 81."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"Kan gesprek niet voltooien. Foutcode 87."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"Kan gesprek niet voltooien. Foutcode 88."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"Kan gesprek niet voltooien. Foutcode 91."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"Kan gesprek niet voltooien. Foutcode 95."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"Kan gesprek niet voltooien. Foutcode 96."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"Kan gesprek niet voltooien. Foutcode 97."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"Kan gesprek niet voltooien. Foutcode 98."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"Kan gesprek niet voltooien. Foutcode 99."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"Kan gesprek niet voltooien. Foutcode 100."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"Kan gesprek niet voltooien. Foutcode 101."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"Kan gesprek niet voltooien. Foutcode 102."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"Kan gesprek niet voltooien. Foutcode 111."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"Kan gesprek niet voltooien. Foutcode 127."</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"Gesprekken blokkeren"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Aan"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Uit"</string>
-    <string name="call_barring_baoc" msgid="1199843944333106035">"Alle uitgaande oproepen"</string>
-    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Blokkering van alle uitgaande oproepen opheffen?"</string>
-    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Alle uitgaande oproepen blokkeren?"</string>
-    <string name="call_barring_baoic" msgid="3162154267825211826">"Uitgaande internationale oproepen"</string>
-    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Blokkering van uitgaande internationale oproepen opheffen?"</string>
-    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Uitgaande internationale oproepen blokkeren?"</string>
-    <string name="call_barring_baoicr" msgid="8951699885885742076">"Uitgaande internationale oproepen tijdens roaming"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"Alle uitgaande gesprekken"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"Blokkering van alle uitgaande gesprekken opheffen?"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"Alle uitgaande gesprekken blokkeren?"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"Uitgaande internationale gesprekken"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"Blokkering van uitgaande internationale gesprekken opheffen?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"Uitgaande internationale gesprekken blokkeren?"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"Uitgaande internationale gesprekken tijdens roaming"</string>
     <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"opheffen?"</string>
-    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Uitgaande internationale oproepen blokkeren tijdens roaming?"</string>
-    <string name="call_barring_baic" msgid="5272726081458339912">"Alle inkomende oproepen"</string>
-    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Blokkering van alle inkomende oproepen opheffen?"</string>
-    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Alle inkomende oproepen blokkeren?"</string>
-    <string name="call_barring_baicr" msgid="5728784220691481693">"Inkomende internationale oproepen tijdens roaming"</string>
-    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Blokkering van inkomende internationale oproepen tijdens roaming opheffen?"</string>
-    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Inkomende internationale oproepen blokkeren tijdens roaming?"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"Uitgaande internationale gesprekken blokkeren tijdens roaming?"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"Alle inkomende gesprekken"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"Blokkering van alle inkomende gesprekken opheffen?"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"Alle inkomende gesprekken blokkeren?"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"Inkomende internationale gesprekken tijdens roaming"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"Blokkering van inkomende internationale gesprekken tijdens roaming opheffen?"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"Inkomende internationale gesprekken blokkeren tijdens roaming?"</string>
     <string name="call_barring_deactivate_all" msgid="5269788384941003415">"Alles deactiveren"</string>
-    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Alle blokkeerinstellingen voor oproepen deactiveren"</string>
-    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Blokkering van oproepen gedeactiveerd"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"Alle blokkeerinstellingen voor gesprekken deactiveren"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"Blokkering van gesprekken gedeactiveerd"</string>
     <string name="call_barring_change_pwd" msgid="6887420609726284232">"Wachtwoord wijzigen"</string>
-    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Wachtwoord voor blokkering van oproepen wijzigen"</string>
-    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Wachtwoord voor blokkering van oproepen kan niet worden gewijzigd."</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"Wachtwoord voor blokkering van gesprekken wijzigen"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"Wachtwoord voor blokkering van gesprekken kan niet worden gewijzigd."</string>
     <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"De wachtwoorden komen niet overeen"</string>
     <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"Geef een wachtwoord van vier cijfers op"</string>
     <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"Wachtwoord gewijzigd"</string>
@@ -728,23 +749,35 @@
     <string name="call_barring_new_pwd" msgid="7048532299150269547">"Nieuw wachtwoord"</string>
     <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"Wachtwoord bevestigen"</string>
     <string name="messageCallBarring" msgid="2412123220272136055">"Wachtwoord invoeren"</string>
-    <string name="call_barring_settings" msgid="80766145008623645">"Blokkeerinstellingen voor oproepen"</string>
-    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Alle blokkeerinstellingen voor oproepen deactiveren?"</string>
-    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Oproep doorgeschakeld naar ander nummer."</string>
-    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Oproep doorgeschakeld."</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"Blokkeerinstellingen voor gesprekken"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Alle blokkeerinstellingen voor gesprekken deactiveren?"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"Netwerk is bezet. Probeer je gesprek later opnieuw uit te voeren."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"Het netwerk is overbelast. Neem contact op met je mobiele provider voor hulp."</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Gesprek doorgeschakeld naar ander nummer."</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Gesprek doorgeschakeld."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Wisselgesprek."</string>
     <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"Nummerblokkering is geweigerd."</string>
-    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Oproep van gesloten gebruikersgroep."</string>
-    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Inkomende oproepen geblokkeerd."</string>
-    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Uitgaande oproepen geblokkeerd."</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"Gesprek van gesloten gebruikersgroep."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"Inkomende gesprekken geblokkeerd."</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"Uitgaande gesprekken geblokkeerd."</string>
     <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"Oproepdoorschakeling actief."</string>
-    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Aanvullende oproep doorgeschakeld."</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"Bijkomend gesprek doorgeschakeld."</string>
     <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"Expliciet doorverbinden voltooid."</string>
-    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Oproep expliciet doorverbinden…"</string>
-    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Oproep in de wacht."</string>
-    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Oproep hervat."</string>
-    <string name="supp_service_deflected_call" msgid="138970419873492166">"Oproep is doorgeschakeld naar jou."</string>
-    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Doorgeschakelde oproep."</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"Gesprek expliciet doorverbinden…"</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"Gesprek in de wacht."</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"Gesprek hervat."</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"Gesprek is doorgeschakeld naar jou."</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Doorgeschakeld gesprek."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"Deelnemen aan telefonische vergadering…"</string>
-    <string name="supp_service_held_call_released" msgid="2030677825038709779">"In de wacht gezette oproep is vrijgegeven."</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"In de wacht gezette gesprek is vrijgegeven."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"Kan geen gesprek plaatsen omdat het apparaat momenteel wordt geregistreerd."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"Kan gesprek niet plaatsen omdat er al een uitgaand gesprek is gestart."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"Kan gesprek niet plaatsen omdat er een niet-beantwoord inkomend gesprek is. Beantwoord of weiger het inkomende gesprek voordat je een nieuw gesprek plaatst."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"Kan gesprek niet plaatsen omdat bellen is uitgeschakeld via de systeemeigenschap ro.telephony.disable-call."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"Kan gesprek niet plaatsen omdat er al twee actieve gesprekken zijn. Verbreek de verbinding in een van de gesprekken of voeg ze samen tot een conferencecall voordat je een nieuw gesprek plaatst."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"Als je <xliff:g id="SUPP_SERVICE">%s</xliff:g> wilt gebruiken, zorg je dat je mobiele data hebt ingeschakeld. Je kunt dit wijzigen via de mobiele netwerkinstellingen."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"Als je <xliff:g id="SUPP_SERVICE">%s</xliff:g> wilt gebruiken, zorg je dat je mobiele data en dataroaming hebt ingeschakeld. Je kunt dit wijzigen via de mobiele netwerkinstellingen."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"Als je <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> wilt gebruiken, zorg je dat je mobiele data hebt ingeschakeld voor sim <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Je kunt dit wijzigen via de mobiele netwerkinstellingen."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"Als je <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> wilt gebruiken, zorg je dat je mobiele data en dataroaming hebt ingeschakeld voor sim <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Je kunt dit wijzigen via de mobiele netwerkinstellingen."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"Sluiten"</string>
 </resources>

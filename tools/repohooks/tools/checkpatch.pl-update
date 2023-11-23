@@ -46,8 +46,9 @@ get_latest_version() {
   output=$(git ls-remote --tags "${GIT_URL}")
   # Filter out rc/signed tags.
   output=$(echo "${output}" | grep -v -e '-rc' -e '\^{}')
-  # The output should be sorted already, so grab the last entry.
-  output=$(echo "${output}" | tail -1 | cut -d/ -f3)
+  # The output might not be sorted based on versions, so do so ourselves and
+  # grab the last entry.
+  output=$(echo "${output}" | cut -d/ -f3 | sort -V | tail -1)
   # Chop the leading "v" bit.
   echo "${output#v}"
 }

@@ -18,6 +18,7 @@ package android.aidl.tests;
 
 import android.aidl.tests.INamedCallback;
 import android.aidl.tests.SimpleParcelable;
+import android.aidl.tests.StructuredParcelable;
 import android.os.PersistableBundle;
 
 interface ITestService {
@@ -37,6 +38,8 @@ interface ITestService {
 
   const String STRING_TEST_CONSTANT = "foo";
   const String STRING_TEST_CONSTANT2 = "bar";
+
+  const @utf8InCpp String STRING_TEST_CONSTANT_UTF8 = "baz";
 
   // Test that primitives work as parameters and return types.
   boolean RepeatBoolean(boolean token);
@@ -82,6 +85,10 @@ interface ITestService {
   FileDescriptor[] ReverseFileDescriptorArray(in FileDescriptor[] input,
                                               out FileDescriptor[] repeated);
 
+  ParcelFileDescriptor RepeatParcelFileDescriptor(in ParcelFileDescriptor read);
+  ParcelFileDescriptor[] ReverseParcelFileDescriptorArray(in ParcelFileDescriptor[] input,
+                                              out ParcelFileDescriptor[] repeated);
+
   // Test that service specific exceptions work correctly.
   void ThrowServiceException(int code);
 
@@ -113,4 +120,16 @@ interface ITestService {
       out @nullable @utf8InCpp List<String> repeated);
 
   @nullable INamedCallback GetCallback(boolean return_null);
+
+  // Since this paracelable has clearly defined default values, it would be
+  // inefficient to use an IPC to fill it out in practice.
+  void FillOutStructuredParcelable(inout StructuredParcelable parcel);
+
+  // This is to emulate a method that is added after the service is implemented.
+  // So the client cannot assume that call to this method will be successful
+  // or not. However, inside the test environment, we can't build client and
+  // the server with different version of this AIDL file. So, we let the server
+  // to actually implement this, but intercept the dispatch to the method
+  // inside onTransact().
+  int UnimplementedMethod(int arg);
 }

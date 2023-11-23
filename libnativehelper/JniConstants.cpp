@@ -15,131 +15,273 @@
  */
 
 #define LOG_TAG "JniConstants"
-
 #include "ALog-priv.h"
-#include "JNIHelp-priv.h"
-#include <nativehelper/JniConstants.h>
-#include <nativehelper/JniConstants-priv.h>
-#include <nativehelper/ScopedLocalRef.h>
 
-#include <stdlib.h>
+#include "JniConstants.h"
 
 #include <atomic>
 #include <mutex>
+#include <string>
 
-static std::atomic<bool> g_constants_initialized(false);
-static std::mutex g_constants_mutex;
+#include "nativehelper/ScopedLocalRef.h"
 
-jclass JniConstants::booleanClass;
-jclass JniConstants::byteArrayClass;
-jclass JniConstants::calendarClass;
-jclass JniConstants::charsetICUClass;
-jclass JniConstants::doubleClass;
-jclass JniConstants::errnoExceptionClass;
-jclass JniConstants::fileDescriptorClass;
-jclass JniConstants::gaiExceptionClass;
-jclass JniConstants::inet6AddressClass;
-jclass JniConstants::inet6AddressHolderClass;
-jclass JniConstants::inetAddressClass;
-jclass JniConstants::inetAddressHolderClass;
-jclass JniConstants::inetSocketAddressClass;
-jclass JniConstants::inetSocketAddressHolderClass;
-jclass JniConstants::integerClass;
-jclass JniConstants::localeDataClass;
-jclass JniConstants::longClass;
-jclass JniConstants::netlinkSocketAddressClass;
-jclass JniConstants::packetSocketAddressClass;
-jclass JniConstants::patternSyntaxExceptionClass;
-jclass JniConstants::referenceClass;
-jclass JniConstants::socketTaggerClass;
-jclass JniConstants::stringClass;
-jclass JniConstants::structAddrinfoClass;
-jclass JniConstants::structFlockClass;
-jclass JniConstants::structGroupReqClass;
-jclass JniConstants::structIfaddrs;
-jclass JniConstants::structLingerClass;
-jclass JniConstants::structPasswdClass;
-jclass JniConstants::structPollfdClass;
-jclass JniConstants::structStatClass;
-jclass JniConstants::structStatVfsClass;
-jclass JniConstants::structTimevalClass;
-jclass JniConstants::structTimespecClass;
-jclass JniConstants::structUcredClass;
-jclass JniConstants::structUtsnameClass;
-jclass JniConstants::unixSocketAddressClass;
-jclass JniConstants::zipEntryClass;
+namespace {
 
-static jclass findClass(JNIEnv* env, const char* name) {
-    ScopedLocalRef<jclass> localClass(env, env->FindClass(name));
-    jclass result = reinterpret_cast<jclass>(env->NewGlobalRef(localClass.get()));
-    if (result == NULL) {
-        ALOGE("failed to find class '%s'", name);
-        abort();
-    }
+// Mutex protecting the initialization of cached class references.
+std::mutex g_class_refs_mutex;
+
+// Atomic boolean flag for double locked checking that class references are
+// initialized before use.
+std::atomic<bool> g_class_refs_initialized(false);
+
+// Cached global references to class instances.
+//
+// These are GC heap references that are initialized under the protection of
+// |g_class_refs_mutex| as they should only be initialized once to avoid losing a
+// global reference. Initialization happens lazily when an accessor tries to
+// retrieve one of these classes.
+
+jclass g_file_descriptor_class = nullptr;  // java.io.FileDescriptor
+jclass g_nio_access_class = nullptr;       // java.nio.Access
+jclass g_nio_buffer_class = nullptr;       // java.nio.Buffer
+jclass g_reference_class = nullptr;        // java.lang.ref.Reference
+jclass g_string_class = nullptr;           // java.lang.String
+
+// Cached field and method ids.
+//
+// These are non-GC heap values. They are initialized lazily and racily. We
+// avoid holding a mutex here because the JNI API supports concurrent calls to
+// Get{Field,Method}ID and also because finding an id may recursively call into
+// Get{Field,Method}ID.
+//
+// The recursion issue occurs here for the fields in the FileDescriptor class
+// since retrieving a field id requires the class to be initialized. Class
+// initialization leads to the initialization of static fields. The
+// FileDescriptor class has static fields that are FileDescriptor instances. The
+// initialization of these static FileDescriptor fields follows a convoluted
+// path that that leads to a call to jniGetFDFromFileDescriptor() which then
+// needs to call GetFieldID() which is in the call stack. If thread-safety were
+// desirable here, a recursive mutex would be required.
+//
+// These field and method ids have default values of nullptr. They are reset
+// back to nullptr in JniConstants::Uninitialize(), along with the class
+// references, when a new runtime instance is created via JNI_CreateJavaVM(). The
+// reset happens before the new runtime instance is returned to the caller and
+// under the protection of the |g_class_refs_mutex|.
+
+jfieldID g_file_descriptor_descriptor_field = nullptr;  // java.io.FileDescriptor.descriptor
+jfieldID g_file_descriptor_owner_id_field = nullptr;    // java.io.FileDescriptor.ownerId
+jmethodID g_file_descriptor_init_method = nullptr;      // void java.io.FileDescriptor.<init>()
+jmethodID g_nio_access_get_base_array_method = nullptr;        // Object java.nio.NIOAccess.getBaseArray()
+jmethodID g_nio_access_get_base_array_offset_method = nullptr; // Object java.nio.NIOAccess.getBaseArray()
+jfieldID g_nio_buffer_address_field = nullptr;          // long java.nio.Buffer.address
+jfieldID g_nio_buffer_element_size_shift_field = nullptr; // int java.nio.Buffer._elementSizeShift
+jfieldID g_nio_buffer_limit_field = nullptr;            // int java.nio.Buffer.limit
+jfieldID g_nio_buffer_position_field = nullptr;         // int java.nio.Buffer.position
+jmethodID g_nio_buffer_array_method = nullptr;          // Object java.nio.Buffer.array()
+jmethodID g_nio_buffer_array_offset_method = nullptr;   // int java.nio.Buffer.arrayOffset()
+jmethodID g_reference_get_method = nullptr;             // Object java.lang.ref.Reference.get()
+
+jclass FindClass(JNIEnv* env, const char* name) {
+    ScopedLocalRef<jclass> klass(env, env->FindClass(name));
+    ALOG_ALWAYS_FATAL_IF(klass.get() == nullptr, "failed to find class '%s'", name);
+    return reinterpret_cast<jclass>(env->NewGlobalRef(klass.get()));
+}
+
+jfieldID FindField(JNIEnv* env, jclass klass, const char* name, const char* desc) {
+    jfieldID result = env->GetFieldID(klass, name, desc);
+    ALOG_ALWAYS_FATAL_IF(result == nullptr, "failed to find field '%s:%s'", name, desc);
     return result;
 }
 
-void JniConstants::init(JNIEnv* env) {
-    // Fast check
-    if (g_constants_initialized) {
-      // already initialized
-      return;
-    }
-
-    // Slightly slower check
-    std::lock_guard<std::mutex> guard(g_constants_mutex);
-    if (g_constants_initialized) {
-      // already initialized
-      return;
-    }
-
-    booleanClass = findClass(env, "java/lang/Boolean");
-    byteArrayClass = findClass(env, "[B");
-    calendarClass = findClass(env, "java/util/Calendar");
-    charsetICUClass = findClass(env, "java/nio/charset/CharsetICU");
-    doubleClass = findClass(env, "java/lang/Double");
-    errnoExceptionClass = findClass(env, "android/system/ErrnoException");
-    fileDescriptorClass = findClass(env, "java/io/FileDescriptor");
-    gaiExceptionClass = findClass(env, "android/system/GaiException");
-    inet6AddressClass = findClass(env, "java/net/Inet6Address");
-    inet6AddressHolderClass = findClass(env, "java/net/Inet6Address$Inet6AddressHolder");
-    inetAddressClass = findClass(env, "java/net/InetAddress");
-    inetAddressHolderClass = findClass(env, "java/net/InetAddress$InetAddressHolder");
-    inetSocketAddressClass = findClass(env, "java/net/InetSocketAddress");
-    inetSocketAddressHolderClass = findClass(env, "java/net/InetSocketAddress$InetSocketAddressHolder");
-    integerClass = findClass(env, "java/lang/Integer");
-    localeDataClass = findClass(env, "libcore/icu/LocaleData");
-    longClass = findClass(env, "java/lang/Long");
-    netlinkSocketAddressClass = findClass(env, "android/system/NetlinkSocketAddress");
-    packetSocketAddressClass = findClass(env, "android/system/PacketSocketAddress");
-    patternSyntaxExceptionClass = findClass(env, "java/util/regex/PatternSyntaxException");
-    referenceClass = findClass(env, "java/lang/ref/Reference");
-    socketTaggerClass = findClass(env, "dalvik/system/SocketTagger");
-    stringClass = findClass(env, "java/lang/String");
-    structAddrinfoClass = findClass(env, "android/system/StructAddrinfo");
-    structFlockClass = findClass(env, "android/system/StructFlock");
-    structGroupReqClass = findClass(env, "android/system/StructGroupReq");
-    structIfaddrs = findClass(env, "android/system/StructIfaddrs");
-    structLingerClass = findClass(env, "android/system/StructLinger");
-    structPasswdClass = findClass(env, "android/system/StructPasswd");
-    structPollfdClass = findClass(env, "android/system/StructPollfd");
-    structStatClass = findClass(env, "android/system/StructStat");
-    structStatVfsClass = findClass(env, "android/system/StructStatVfs");
-    structTimevalClass = findClass(env, "android/system/StructTimeval");
-    structTimespecClass = findClass(env, "android/system/StructTimespec");
-    structUcredClass = findClass(env, "android/system/StructUcred");
-    structUtsnameClass = findClass(env, "android/system/StructUtsname");
-    unixSocketAddressClass = findClass(env, "android/system/UnixSocketAddress");
-    zipEntryClass = findClass(env, "java/util/zip/ZipEntry");
-
-    g_constants_initialized = true;
+jmethodID FindMethod(JNIEnv* env, jclass klass, const char* name, const char* signature) {
+    jmethodID result = env->GetMethodID(klass, name, signature);
+    ALOG_ALWAYS_FATAL_IF(result == nullptr, "failed to find method '%s%s'", name, signature);
+    return result;
 }
 
-namespace android {
-
-void ClearJniConstantsCache() {
-    g_constants_initialized = false;
-    ClearJNIHelpLocalCache();
+jmethodID FindStaticMethod(JNIEnv* env, jclass klass, const char* name, const char* signature) {
+    jmethodID result = env->GetStaticMethodID(klass, name, signature);
+    ALOG_ALWAYS_FATAL_IF(result == nullptr, "failed to find static method '%s%s'", name, signature);
+    return result;
 }
 
+}  // namespace
+
+jclass JniConstants::GetFileDescriptorClass(JNIEnv* env) {
+    EnsureClassReferencesInitialized(env);
+    return g_file_descriptor_class;
+}
+
+jclass JniConstants::GetNioAccessClass(JNIEnv* env) {
+    EnsureClassReferencesInitialized(env);
+    return g_nio_access_class;
+}
+
+jclass JniConstants::GetNioBufferClass(JNIEnv* env) {
+    EnsureClassReferencesInitialized(env);
+    return g_nio_buffer_class;
+}
+
+jclass JniConstants::GetReferenceClass(JNIEnv* env) {
+    EnsureClassReferencesInitialized(env);
+    return g_reference_class;
+}
+
+jclass JniConstants::GetStringClass(JNIEnv* env) {
+    EnsureClassReferencesInitialized(env);
+    return g_string_class;
+}
+
+jfieldID JniConstants::GetFileDescriptorDescriptorField(JNIEnv* env) {
+    if (g_file_descriptor_descriptor_field == nullptr) {
+        jclass klass = GetFileDescriptorClass(env);
+        g_file_descriptor_descriptor_field = FindField(env, klass, "descriptor", "I");
+    }
+    return g_file_descriptor_descriptor_field;
+}
+
+jfieldID JniConstants::GetFileDescriptorOwnerIdField(JNIEnv* env) {
+    if (g_file_descriptor_owner_id_field == nullptr) {
+        jclass klass = GetFileDescriptorClass(env);
+        g_file_descriptor_owner_id_field = FindField(env, klass, "ownerId", "J");
+    }
+    return g_file_descriptor_owner_id_field;
+}
+
+jmethodID JniConstants::GetFileDescriptorInitMethod(JNIEnv* env) {
+    if (g_file_descriptor_init_method == nullptr) {
+        jclass klass = GetFileDescriptorClass(env);
+        g_file_descriptor_init_method = FindMethod(env, klass, "<init>", "()V");
+    }
+    return g_file_descriptor_init_method;
+}
+
+jmethodID JniConstants::GetNioAccessGetBaseArrayMethod(JNIEnv* env) {
+    if (g_nio_access_get_base_array_method == nullptr) {
+        jclass klass = GetNioAccessClass(env);
+        g_nio_access_get_base_array_method =
+                FindStaticMethod(env, klass, "getBaseArray",
+                                 "(Ljava/nio/Buffer;)Ljava/lang/Object;");
+    }
+    return g_nio_access_get_base_array_method;
+}
+
+jmethodID JniConstants::GetNioAccessGetBaseArrayOffsetMethod(JNIEnv* env) {
+    if (g_nio_access_get_base_array_offset_method == nullptr) {
+        jclass klass = GetNioAccessClass(env);
+        g_nio_access_get_base_array_offset_method =
+                FindStaticMethod(env, klass, "getBaseArrayOffset", "(Ljava/nio/Buffer;)I");
+    }
+    return g_nio_access_get_base_array_offset_method;
+}
+
+jfieldID JniConstants::GetNioBufferAddressField(JNIEnv* env) {
+    if (g_nio_buffer_address_field == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_address_field = FindField(env, klass, "address", "J");
+    }
+    return g_nio_buffer_address_field;
+}
+
+jfieldID JniConstants::GetNioBufferElementSizeShiftField(JNIEnv* env) {
+    if (g_nio_buffer_element_size_shift_field == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_element_size_shift_field = FindField(env, klass, "_elementSizeShift", "I");
+    }
+    return g_nio_buffer_element_size_shift_field;
+}
+
+jfieldID JniConstants::GetNioBufferLimitField(JNIEnv* env) {
+    if (g_nio_buffer_limit_field == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_limit_field = FindField(env, klass, "limit", "I");
+    }
+    return g_nio_buffer_limit_field;
+}
+
+jfieldID JniConstants::GetNioBufferPositionField(JNIEnv* env) {
+    if (g_nio_buffer_position_field == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_position_field = FindField(env, klass, "position", "I");
+    }
+    return g_nio_buffer_position_field;
+}
+
+jmethodID JniConstants::GetNioBufferArrayMethod(JNIEnv* env) {
+    if (g_nio_buffer_array_method == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_array_method = FindMethod(env, klass, "array", "()Ljava/lang/Object;");
+    }
+    return g_nio_buffer_array_method;
+}
+
+jmethodID JniConstants::GetNioBufferArrayOffsetMethod(JNIEnv* env) {
+    if (g_nio_buffer_array_offset_method == nullptr) {
+        jclass klass = GetNioBufferClass(env);
+        g_nio_buffer_array_offset_method = FindMethod(env, klass, "arrayOffset", "()I");
+    }
+    return g_nio_buffer_array_offset_method;
+}
+
+jmethodID JniConstants::GetReferenceGetMethod(JNIEnv* env) {
+    if (g_reference_get_method == nullptr) {
+        jclass klass = GetReferenceClass(env);
+        g_reference_get_method = FindMethod(env, klass, "get", "()Ljava/lang/Object;");
+    }
+    return g_reference_get_method;
+}
+
+void JniConstants::EnsureClassReferencesInitialized(JNIEnv* env) {
+    // Fast check if class references are initialized.
+    if (g_class_refs_initialized.load(std::memory_order_acquire)) {
+        return;
+    }
+
+    // Slower check with initialization if necessary.
+    std::lock_guard<std::mutex> guard(g_class_refs_mutex);
+    if (g_class_refs_initialized.load(std::memory_order_relaxed)) {
+        return;
+    }
+
+    // Class constants should be initialized only once because they global
+    // references. Field ids and Method ids can be initialized later since they
+    // are not references and races only have trivial performance
+    // consequences.
+    g_file_descriptor_class = FindClass(env, "java/io/FileDescriptor");
+    g_nio_access_class = FindClass(env, "java/nio/NIOAccess");
+    g_nio_buffer_class = FindClass(env, "java/nio/Buffer");
+    g_reference_class = FindClass(env, "java/lang/ref/Reference");
+    g_string_class = FindClass(env, "java/lang/String");
+    g_class_refs_initialized.store(true, std::memory_order_release);
+}
+
+void JniConstants::Uninitialize() {
+    // This method is called when a new runtime instance is created. There is no
+    // notification of a runtime instance being destroyed in the JNI interface
+    // so we piggyback on creation. Since only one runtime is supported at a
+    // time, we know the constants are invalid when JNI_CreateJavaVM() is
+    // called.
+    //
+    // Clean shutdown would require calling DeleteGlobalRef() for each of the
+    // class references.
+    std::lock_guard<std::mutex> guard(g_class_refs_mutex);
+    g_file_descriptor_class = nullptr;
+    g_file_descriptor_descriptor_field = nullptr;
+    g_file_descriptor_owner_id_field = nullptr;
+    g_file_descriptor_init_method = nullptr;
+    g_nio_access_class = nullptr;
+    g_nio_access_get_base_array_method = nullptr;
+    g_nio_access_get_base_array_offset_method = nullptr;
+    g_nio_buffer_class = nullptr;
+    g_nio_buffer_address_field = nullptr;
+    g_nio_buffer_element_size_shift_field = nullptr;
+    g_nio_buffer_limit_field = nullptr;
+    g_nio_buffer_position_field = nullptr;
+    g_nio_buffer_array_method = nullptr;
+    g_nio_buffer_array_offset_method = nullptr;
+    g_reference_class = nullptr;
+    g_reference_get_method = nullptr;
+    g_string_class = nullptr;
+    g_class_refs_initialized.store(false, std::memory_order_release);
 }

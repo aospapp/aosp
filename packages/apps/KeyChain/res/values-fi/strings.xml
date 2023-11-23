@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Sovellus %s pyysi varmennetta. Jos valitset varmenteen, annat sovellukselle oikeuden käyttää kyseistä identiteettiä palvelimilla nyt ja myöhemmin."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Sovellus määritti pyytävän palvelimen olevan %s, mutta suosittelemme antamaan sovellukselle varmenteen käyttöoikeuden vain, jos luotat sovellukseen."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Voit asentaa varmenteita PKCS#12-tiedostosta, jos ulkoisessa tallennustilassa on %1$s tai %2$s-laajennus."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Asenna varmenne"</string>
     <string name="allow_button" msgid="3030990695030371561">"Valitse"</string>
     <string name="deny_button" msgid="3766539809121892584">"Hylkää"</string>
 </resources>

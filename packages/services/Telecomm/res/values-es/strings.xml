@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Respuesta rápida"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mensaje enviado a <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"No se ha podido enviar el mensaje al <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Cuentas de llamadas"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Solo se permiten llamadas de emergencia."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Esta aplicación no puede hacer llamadas sin permiso del teléfono."</string>
@@ -49,12 +50,17 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Configurar como predeterminada"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Cancelar"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> podrá llamar y controlar todo lo relacionado con las llamadas. Te aconsejamos que solo configures una aplicación como predeterminada si es de confianza."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"¿Convertir <xliff:g id="NEW_APP">%s</xliff:g> en tu aplicación de filtro predeterminada?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> ya no podrá filtrar llamadas."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> podrá ver información sobre las llamadas que recibas de personas que no estén en tus contactos y podrá bloquearlas. Te recomendamos que solo configures una aplicación de filtro de llamadas como predeterminada si es de confianza."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Configurar como predeterminada"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Cancelar"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Números bloqueados"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"No recibirás llamadas ni SMS de los números bloqueados."</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"No recibirás llamadas ni mensajes de los números bloqueados."</string>
     <string name="block_number" msgid="1101252256321306179">"Añadir un número"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"¿Desbloquear el número <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Desbloquear"</string>
-    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Bloquear llamadas y mensajes de texto de"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Bloquear llamadas y mensajes de texto del"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"Número de teléfono"</string>
     <string name="block_button" msgid="8822290682524373357">"Bloquear"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"Solo el propietario del dispositivo puede ver y administrar los números bloqueados."</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Al responder, finalizará la videollamada en curso"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Responder"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Rechazar"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"No puedes llamar porque no hay cuentas de llamada que admitan este tipo de llamadas."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"No puedes llamar porque tienes una llamada de <xliff:g id="OTHER_CALL">%1$s</xliff:g> en curso."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"No puedes llamar porque tienes varias llamadas de <xliff:g id="OTHER_CALL">%1$s</xliff:g> en curso."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"No puedes llamar porque tienes una llamada en curso en otra aplicación."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Llamadas perdidas"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Bloqueo de llamadas"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Si haces esta llamada, se finalizará la de <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Elige cómo quieres hacer esta llamada"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Redirigir llamada con <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Llamar con mi número de teléfono"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"<xliff:g id="OTHER_APP">%1$s</xliff:g> no puede realizar la llamada. Prueba con otra aplicación de redirección de llamadas o ponte en contacto con el desarrollador para obtener ayuda."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Bloqueo de llamadas"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Números que no están en Contactos"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Bloquea los números que no estén en Contactos"</string>
@@ -91,10 +102,11 @@
     <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Bloquea las llamadas que tengan el número oculto"</string>
     <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Teléfono público"</string>
     <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Bloquea las llamadas de teléfonos públicos"</string>
-    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Desconocida"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Desconocidos"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Bloquea las llamadas de números desconocidos"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Bloqueo de llamadas"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Se ha inhabilitado el bloqueo de llamadas"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Se ha hecho una llamada de emergencia"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Se ha inhabilitado el bloqueo de llamadas para que los servicios de emergencia puedan ponerse en contacto contigo."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Menú para desarrolladores de telecomunicaciones"</string>
 </resources>

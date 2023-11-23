@@ -24,7 +24,7 @@ LOCAL_DEX_PREOPT := false
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

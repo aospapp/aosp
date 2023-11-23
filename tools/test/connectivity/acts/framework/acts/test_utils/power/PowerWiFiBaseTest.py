@@ -34,6 +34,7 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
             self.access_point_main = self.access_points[0]
             if len(self.access_points) > 1:
                 self.access_point_aux = self.access_points[1]
+        if hasattr(self, 'network_file'):
             self.networks = self.unpack_custom_file(self.network_file, False)
             self.main_network = self.networks['main_network']
             self.aux_network = self.networks['aux_network']

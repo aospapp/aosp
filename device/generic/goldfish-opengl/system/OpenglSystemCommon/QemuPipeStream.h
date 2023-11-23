@@ -23,6 +23,14 @@
 #include <stdlib.h>
 #include "IOStream.h"
 
+#include "qemu_pipe.h"
+
+#ifdef __Fuchsia__
+#include <lib/zx/channel.h>
+#include <lib/zx/event.h>
+#include <lib/zx/vmo.h>
+#endif
+
 class QemuPipeStream : public IOStream {
 public:
     typedef enum { ERR_INVALID_SOCKET = -1000 } QemuPipeStreamError;
@@ -36,17 +44,22 @@ public:
     virtual const unsigned char *readFully( void *buf, size_t len);
     virtual const unsigned char *read( void *buf, size_t *inout_len);
 
-    bool valid() { return m_sock >= 0; }
+    bool valid() { return qemu_pipe_valid(m_sock); }
     int recv(void *buf, size_t len);
 
     virtual int writeFully(const void *buf, size_t len);
 
-    int getSocket() const;
+    QEMU_PIPE_HANDLE getSocket() const;
 private:
-    int m_sock;
+    QEMU_PIPE_HANDLE m_sock;
     size_t m_bufsize;
     unsigned char *m_buf;
-    QemuPipeStream(int sock, size_t bufSize);
+#ifdef __Fuchsia__
+    zx::channel m_channel;
+    zx::event m_event;
+    zx::vmo m_vmo;
+#endif
+    QemuPipeStream(QEMU_PIPE_HANDLE sock, size_t bufSize);
 };
 
 #endif

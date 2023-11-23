@@ -59,11 +59,19 @@ class chromedriver(object):
         self._cleanup = not skip_cleanup
         assert os.geteuid() == 0, 'Need superuser privileges'
 
+        # When ChromeDriver starts Chrome on other platforms (Linux, Windows,
+        # etc.), it accepts flag inputs of the form "--flag_name" or
+        # "flag_name". Before starting Chrome with those flags, ChromeDriver
+        # reformats them all to "--flag_name". This behavior is copied
+        # to ChromeOS for consistency across platforms.
+        fixed_extra_chrome_flags = [
+            f if f.startswith('--') else '--%s' % f for f in extra_chrome_flags]
+
         # Log in with telemetry
         self._chrome = chrome.Chrome(extension_paths=extension_paths,
                                      username=username,
                                      password=password,
-                                     extra_browser_args=extra_chrome_flags,
+                                     extra_browser_args=fixed_extra_chrome_flags,
                                      gaia_login=gaia_login,
                                      disable_default_apps=disable_default_apps,
                                      dont_override_profile=dont_override_profile

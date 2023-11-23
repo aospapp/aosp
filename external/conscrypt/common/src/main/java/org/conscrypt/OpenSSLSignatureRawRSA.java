@@ -29,8 +29,6 @@ import java.security.interfaces.RSAPublicKey;
 /**
  * Implements the JDK Signature interface needed for RAW RSA signature
  * generation and verification using BoringSSL.
- *
- * @hide
  */
 @Internal
 public final class OpenSSLSignatureRawRSA extends SignatureSpi {
@@ -53,6 +51,8 @@ public final class OpenSSLSignatureRawRSA extends SignatureSpi {
      * Provides a flag to specify when the input is too long.
      */
     private boolean inputIsTooLong;
+
+    public OpenSSLSignatureRawRSA() {}
 
     @Override
     protected void engineUpdate(byte input) {

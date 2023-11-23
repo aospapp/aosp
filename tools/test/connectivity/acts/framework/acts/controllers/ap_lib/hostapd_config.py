@@ -455,7 +455,7 @@ class HostapdConfig(object):
         self._scenario_name = scenario_name
         self._min_streams = min_streams
 
-        self._bss_lookup = {}
+        self._bss_lookup = collections.OrderedDict()
         for bss in bss_settings:
             if bss.name in self._bss_lookup:
                 raise ValueError('Cannot have multiple bss settings with the'

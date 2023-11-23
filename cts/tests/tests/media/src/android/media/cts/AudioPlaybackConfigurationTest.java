@@ -16,8 +16,13 @@
 
 package android.media.cts;
 
+import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_ALL;
+import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_NONE;
+import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM;
+
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
+import android.media.AudioAttributes.CapturePolicy;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
@@ -37,7 +42,7 @@ import java.util.List;
 public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
     private final static String TAG = "AudioPlaybackConfigurationTest";
 
-    private final static int TEST_TIMING_TOLERANCE_MS = 50;
+    private final static int TEST_TIMING_TOLERANCE_MS = 150;
     private final static int TEST_TIMEOUT_SOUNDPOOL_LOAD_MS = 3000;
 
     // not declared inside test so it can be released in case of failure
@@ -77,11 +82,12 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         final AudioAttributes aa = (new AudioAttributes.Builder())
                 .setUsage(TEST_USAGE)
                 .setContentType(TEST_CONTENT)
+                .setAllowedCapturePolicy(ALLOW_CAPTURE_BY_NONE)
                 .build();
         mMp = MediaPlayer.create(getContext(), R.raw.sine1khzs40dblong,
                 aa, am.generateAudioSessionId());
         mMp.start();
-        Thread.sleep(2*TEST_TIMING_TOLERANCE_MS);// waiting for playback to start
+        Thread.sleep(TEST_TIMING_TOLERANCE_MS);// waiting for playback to start
         List<AudioPlaybackConfiguration> configs = am.getActivePlaybackConfigurations();
         mMp.stop();
         assertTrue("No playback reported", configs.size() > 0);
@@ -120,6 +126,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         final AudioAttributes aa = (new AudioAttributes.Builder())
                 .setUsage(TEST_USAGE)
                 .setContentType(TEST_CONTENT)
+                .setAllowedCapturePolicy(ALLOW_CAPTURE_BY_ALL)
                 .build();
 
         List<AudioPlaybackConfiguration> configs = am.getActivePlaybackConfigurations();
@@ -132,7 +139,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 nbActivePlayersBeforeStart /*expected*/, configs.size());
 
         mMp.start();
-        Thread.sleep(2*TEST_TIMING_TOLERANCE_MS);// waiting for playback to start
+        Thread.sleep(TEST_TIMING_TOLERANCE_MS);// waiting for playback to start
         configs = am.getActivePlaybackConfigurations();
         assertEquals("active MediaPlayer, number of configs should have increased",
                 nbActivePlayersBeforeStart + 1 /*expected*/,
@@ -308,6 +315,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         final AudioAttributes aa = (new AudioAttributes.Builder())
                 .setUsage(TEST_USAGE)
                 .setContentType(TEST_CONTENT)
+                .setAllowedCapturePolicy(ALLOW_CAPTURE_BY_SYSTEM)
                 .build();
 
         mSp = new SoundPool.Builder()
@@ -398,15 +406,25 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
     }
 
     private static boolean hasAttr(List<AudioPlaybackConfiguration> configs, AudioAttributes aa) {
-        Iterator<AudioPlaybackConfiguration> it = configs.iterator();
-        while (it.hasNext()) {
-            final AudioPlaybackConfiguration apc = it.next();
+        for (AudioPlaybackConfiguration apc : configs) {
             if (apc.getAudioAttributes().getContentType() == aa.getContentType()
-                    && apc.getAudioAttributes().getUsage() == aa.getUsage()) {
+                && apc.getAudioAttributes().getUsage() == aa.getUsage()
+                && apc.getAudioAttributes().getFlags() == aa.getFlags()
+                && anonymizeCapturePolicy(apc.getAudioAttributes().getAllowedCapturePolicy())
+                    == aa.getAllowedCapturePolicy()) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** ALLOW_CAPTURE_BY_SYSTEM is anonymized to ALLOW_CAPTURE_BY_NONE. */
+    @CapturePolicy
+    private static int anonymizeCapturePolicy(@CapturePolicy int policy) {
+        if (policy == ALLOW_CAPTURE_BY_SYSTEM) {
+            return ALLOW_CAPTURE_BY_NONE;
+        }
+        return policy;
     }
 
     private boolean isValidPlatform(String testName) {

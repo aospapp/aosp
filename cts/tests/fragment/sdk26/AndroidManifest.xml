@@ -22,7 +22,7 @@
         <activity android:name=".NonConfigOnStopActivity"/>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.fragment.cts.sdk26"
                      android:label="CTS tests of android.app Fragments" />
 </manifest>

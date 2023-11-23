@@ -58,9 +58,9 @@ void RsdCpuScriptIntrinsicYuvToRGB::setGlobalObj(uint32_t slot, ObjectBase *data
 
 
 static uchar4 rsYuvToRGBA_uchar4(uchar y, uchar u, uchar v) {
-    short Y = ((short)y) - 16;
-    short U = ((short)u) - 128;
-    short V = ((short)v) - 128;
+    int16_t Y = ((int16_t)y) - 16;
+    int16_t U = ((int16_t)u) - 128;
+    int16_t V = ((int16_t)v) - 128;
 
     short4 p;
     p.x = (Y * 298 + V * 409 + 128) >> 8;

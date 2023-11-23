@@ -12,36 +12,99 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_binary {
-    name: "hwservicemanager",
-    init_rc: [
-        "hwservicemanager.rc",
-    ],
-    srcs: [
-        "AccessControl.cpp",
-        "HidlService.cpp",
-        "ServiceManager.cpp",
-        "service.cpp",
-        "TokenManager.cpp",
-        "Vintf.cpp",
-    ],
+cc_defaults {
+    name: "hwservicemanager_defaults",
     cflags: [
         "-Wall",
         "-Wextra",
         "-Werror",
     ],
     shared_libs: [
-        "android.hidl.token@1.0",
-        "libbase",
-        "libcrypto", // for TokenManager
-        "libcutils",
         "libhidlbase",
         "libhidltransport",
+        "liblog",
+    ],
+}
+
+cc_defaults {
+    name: "libhwservicemanager_shared_libs",
+    shared_libs: [
+        "libbase",
         "libhidl-gen-utils",
         "libhwbinder",
-        "liblog",
         "libselinux",
         "libutils",
         "libvintf",
     ],
+}
+
+cc_library_static {
+    name: "libhwservicemanager",
+    defaults: [
+        "hwservicemanager_defaults",
+        "libhwservicemanager_shared_libs",
+    ],
+    srcs: [
+        "AccessControl.cpp",
+        "HidlService.cpp",
+        "ServiceManager.cpp",
+        "Vintf.cpp",
+    ],
+}
+
+cc_defaults {
+    name: "libtokenmanager_shared_libs",
+    shared_libs: [
+        "android.hidl.token@1.0",
+        "libcrypto",
+    ],
+}
+
+cc_library_static {
+    name: "libtokenmanager",
+    defaults: [
+        "hwservicemanager_defaults",
+        "libtokenmanager_shared_libs",
+    ],
+    srcs: [
+        "TokenManager.cpp",
+    ],
+}
+
+cc_binary {
+    name: "hwservicemanager",
+    defaults: [
+        "hwservicemanager_defaults",
+        "libhwservicemanager_shared_libs",
+        "libtokenmanager_shared_libs",
+    ],
+    init_rc: [
+        "hwservicemanager.rc",
+    ],
+    srcs: [
+        "service.cpp",
+    ],
+    shared_libs: [
+        "libcutils",
+    ],
+    static_libs: [
+        "libhwservicemanager",
+        "libtokenmanager",
+    ],
+}
+
+cc_test {
+    name: "hwservicemanager_test",
+    defaults: [
+        "hwservicemanager_defaults",
+        "libhwservicemanager_shared_libs",
+    ],
+    static_libs: [
+        "libgmock",
+        "libhwservicemanager",
+    ],
+    srcs: [
+        "test_lazy.cpp",
+    ],
+    test_suites: ["device-tests"],
 }

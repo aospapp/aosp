@@ -44,7 +44,8 @@ import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -69,7 +70,7 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     private static boolean sIsDefaultPrinterSet;
 
     @Before
-    public void setDefaultPrinter() throws Exception {
+    public void setDefaultPrinter() throws Throwable {
         if (!sIsDefaultPrinterSet) {
             // Create a callback for the target print service.
             PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(

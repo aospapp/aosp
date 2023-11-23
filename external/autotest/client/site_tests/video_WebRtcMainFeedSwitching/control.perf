@@ -7,7 +7,7 @@ NAME = "video_WebRtcMainFeedSwitching.perf"
 PURPOSE = """Measure performance when srcObject of video tags are frequently
 swapped"""
 CRITERIA = "Fails if Chrome crashes"
-ATTRIBUTES = "suite:hotrod, suite:bluestreak, suite:bluestreak-perbuild"
+ATTRIBUTES = "suite:hotrod"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -16,6 +16,7 @@ BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Video"],
 }
+JOB_RETRIES = 2
 
 DOC = """
 This test starts 5 high resolution (1280x720) loopback peer connections. Four

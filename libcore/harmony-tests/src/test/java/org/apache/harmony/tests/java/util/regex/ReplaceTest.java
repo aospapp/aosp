@@ -4,9 +4,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,15 +28,15 @@ public class ReplaceTest extends TestCase {
     public void testSimpleReplace() throws PatternSyntaxException {
         String target, pattern, repl;
 
-        target = "foobarfobarfoofo1";
+        target = "foobarfobarfoofo1barfort";
         pattern = "fo[^o]";
         repl = "xxx";
 
         Pattern p = Pattern.compile(pattern);
         Matcher m = p.matcher(target);
 
-        assertEquals("foobarxxxarfoofo1", m.replaceFirst(repl));
-        assertEquals("foobarxxxarfooxxx", m.replaceAll(repl));
+        assertEquals("foobarxxxarfoofo1barfort", m.replaceFirst(repl));
+        assertEquals("foobarxxxarfooxxxbarxxxt", m.replaceAll(repl));
     }
 
     public void testCaptureReplace() {

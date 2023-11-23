@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import logging
+
 from host_controller.command_processor import base_command_processor
 
 
@@ -78,5 +80,5 @@ class CommandList(base_command_processor.BaseCommandProcessor):
 
     def Help(self):
         base_command_processor.BaseCommandProcessor.Help(self)
-        print("Sample: build --target=aosp_sailfish-userdebug "
-              "--branch=<branch name> --artifact-type=device")
+        logging.info("Sample: build --target=aosp_sailfish-userdebug "
+                     "--branch=<branch name> --artifact-type=device")

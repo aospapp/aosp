@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package android.autofillservice.cts;
 
 import android.platform.test.annotations.AppModeFull;
 
-import org.junit.Rule;
-
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class DatePickerSpinnerActivityTest extends DatePickerTestCase<DatePickerSpinnerActivity> {
 
-    @Rule
-    public final AutofillActivityTestRule<DatePickerSpinnerActivity> mActivityRule =
-        new AutofillActivityTestRule<DatePickerSpinnerActivity>(DatePickerSpinnerActivity.class);
-
     @Override
-    protected DatePickerSpinnerActivity getDatePickerActivity() {
-        return mActivityRule.getActivity();
+    protected AutofillActivityTestRule<DatePickerSpinnerActivity> getActivityRule() {
+        return new AutofillActivityTestRule<DatePickerSpinnerActivity>(
+                DatePickerSpinnerActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 }

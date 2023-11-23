@@ -15,6 +15,8 @@ class network_WiFi_IBSS(wifi_cell_test_base.WiFiCellTestBase):
 
     def run_once(self):
         """Body of the test."""
+        self.context.client.require_capabilities(
+                [site_linux_system.LinuxSystem.CAPABILITY_IBSS])
         self.context.router.require_capabilities(
                 [site_linux_system.LinuxSystem.CAPABILITY_IBSS])
         # In the past, we have seen a bug where a previous association on a

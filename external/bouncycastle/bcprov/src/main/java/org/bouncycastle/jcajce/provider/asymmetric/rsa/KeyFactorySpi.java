@@ -18,8 +18,17 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.params.RSAKeyParameters;
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+// Android-removed: Unsupported algorithms
+// import org.bouncycastle.crypto.util.OpenSSHPrivateKeyUtil;
+// import org.bouncycastle.crypto.util.OpenSSHPublicKeyUtil;
 import org.bouncycastle.jcajce.provider.asymmetric.util.BaseKeyFactorySpi;
 import org.bouncycastle.jcajce.provider.asymmetric.util.ExtendedInvalidKeySpecException;
+// Android-removed: Unsupported algorithms
+// import org.bouncycastle.jce.spec.OpenSSHPrivateKeySpec;
+// import org.bouncycastle.jce.spec.OpenSSHPublicKeySpec;
 
 public class KeyFactorySpi
     extends BaseKeyFactorySpi
@@ -56,6 +65,48 @@ public class KeyFactorySpi
                 k.getPrimeExponentP(), k.getPrimeExponentQ(),
                 k.getCrtCoefficient());
         }
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        else if (spec.isAssignableFrom(OpenSSHPublicKeySpec.class) && key instanceof RSAPublicKey)
+        {
+            try
+            {
+                return new OpenSSHPublicKeySpec(
+                    OpenSSHPublicKeyUtil.encodePublicKey(
+                        new RSAKeyParameters(
+                            false,
+                            ((RSAPublicKey)key).getModulus(),
+                            ((RSAPublicKey)key).getPublicExponent())
+                    )
+                );
+            }
+            catch (IOException e)
+            {
+                throw new IllegalArgumentException("unable to produce encoding: " + e.getMessage());
+            }
+        }
+        else if (spec.isAssignableFrom(OpenSSHPrivateKeySpec.class) && key instanceof RSAPrivateCrtKey)
+        {
+            try
+            {
+                return new OpenSSHPrivateKeySpec(OpenSSHPrivateKeyUtil.encodePrivateKey(new RSAPrivateCrtKeyParameters(
+                    ((RSAPrivateCrtKey)key).getModulus(),
+                    ((RSAPrivateCrtKey)key).getPublicExponent(),
+                    ((RSAPrivateCrtKey)key).getPrivateExponent(),
+                    ((RSAPrivateCrtKey)key).getPrimeP(),
+                    ((RSAPrivateCrtKey)key).getPrimeQ(),
+                    ((RSAPrivateCrtKey)key).getPrimeExponentP(),
+                    ((RSAPrivateCrtKey)key).getPrimeExponentQ(),
+                    ((RSAPrivateCrtKey)key).getCrtCoefficient()
+                )));
+            }
+            catch (IOException e)
+            {
+                throw new IllegalArgumentException("unable to produce encoding: " + e.getMessage());
+            }
+        }
+        */
+        // END Android-removed: Unsupported algorithms
 
         return super.engineGetKeySpec(key, spec);
     }
@@ -114,8 +165,23 @@ public class KeyFactorySpi
         {
             return new BCRSAPrivateKey((RSAPrivateKeySpec)keySpec);
         }
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        else if (keySpec instanceof OpenSSHPrivateKeySpec)
+        {
+            CipherParameters parameters = OpenSSHPrivateKeyUtil.parsePrivateKeyBlob(((OpenSSHPrivateKeySpec)keySpec).getEncoded());
 
-        throw new InvalidKeySpecException("Unknown KeySpec type: " + keySpec.getClass().getName());
+            if (parameters instanceof RSAPrivateCrtKeyParameters)
+            {
+                return new BCRSAPrivateCrtKey((RSAPrivateCrtKeyParameters)parameters);
+            }
+
+            throw new InvalidKeySpecException("open SSH public key is not RSA private key");
+        }
+        */
+        // END Android-removed: Unsupported algorithms
+
+        throw new InvalidKeySpecException("unknown KeySpec type: " + keySpec.getClass().getName());
     }
 
     protected PublicKey engineGeneratePublic(
@@ -126,6 +192,22 @@ public class KeyFactorySpi
         {
             return new BCRSAPublicKey((RSAPublicKeySpec)keySpec);
         }
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        else if (keySpec instanceof OpenSSHPublicKeySpec)
+        {
+
+            CipherParameters parameters = OpenSSHPublicKeyUtil.parsePublicKey(((OpenSSHPublicKeySpec)keySpec).getEncoded());
+            if (parameters instanceof RSAKeyParameters)
+            {
+                return new BCRSAPublicKey((RSAKeyParameters)parameters);
+            }
+
+            throw new InvalidKeySpecException("Open SSH public key is not RSA public key");
+
+        }
+        */
+        // END Android-removed: Unsupported algorithms
 
         return super.engineGeneratePublic(keySpec);
     }

@@ -18,14 +18,14 @@ ifneq ($(TARGET_BUILD_PDK),true)
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := RFFspeed_501.bmd
-LOCAL_MODULE_CLASS := etc
+LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/usr/share/bmd
 LOCAL_SRC_FILES := Embedded/common/data/APIEm/Modules/RFFspeed_501.bmd
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := RFFstd_501.bmd
-LOCAL_MODULE_CLASS := etc
+LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/usr/share/bmd
 LOCAL_SRC_FILES := Embedded/common/data/APIEm/Modules/RFFstd_501.bmd
 include $(BUILD_PREBUILT)

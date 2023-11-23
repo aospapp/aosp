@@ -60,9 +60,9 @@
     <string name="camera_attach" msgid="4048659554893435232">"இணை"</string>
     <string name="camera_cancel" msgid="8203341746672085747">"ரத்துசெய்"</string>
     <string name="camera_crop" msgid="5584000454518174632">"செதுக்கு"</string>
-    <string name="no_way_to_share_image" msgid="7980215622010396797">"படத்தைப் பகிர்வதற்குகந்த பயன்பாடு எதுவுமில்லை."</string>
-    <string name="no_way_to_share_video" msgid="4506167265329982928">"வீடியோவைப் பகிர்வதற்குகந்த பயன்பாடு எதுவுமில்லை."</string>
-    <string name="no_way_to_share" msgid="5276805314940059662">"மீடியா கோப்பை(களை) பகிர்வதற்குகந்த பயன்பாடு எதுவுமில்லை."</string>
+    <string name="no_way_to_share_image" msgid="7980215622010396797">"படத்தைப் பகிர்வதற்குகந்த ஆப்ஸ் எதுவுமில்லை."</string>
+    <string name="no_way_to_share_video" msgid="4506167265329982928">"வீடியோவைப் பகிர்வதற்குகந்த ஆப்ஸ் எதுவுமில்லை."</string>
+    <string name="no_way_to_share" msgid="5276805314940059662">"மீடியா கோப்பை(களை) பகிர்வதற்குகந்த ஆப்ஸ் எதுவுமில்லை."</string>
     <string name="video_play" msgid="5287787282508002895">"இயக்கு"</string>
     <string name="camera_pick_wallpaper" msgid="7026385960511811641">"படங்கள்"</string>
     <string name="camera_setas_wallpaper" msgid="797463183863414289">"வால்பேப்பர்"</string>

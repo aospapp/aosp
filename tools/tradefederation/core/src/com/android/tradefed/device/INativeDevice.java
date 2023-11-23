@@ -36,9 +36,11 @@ import com.google.errorprone.annotations.MustBeClosed;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -85,6 +87,16 @@ public interface INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public String getProperty(String name) throws DeviceNotAvailableException;
+
+    /**
+     * Sets the given property value on the device. Requires adb root is true.
+     *
+     * @param propKey The key targeted to be set.
+     * @param propValue The property value to be set.
+     * @return returns <code>True</code> if the setprop command was successful, False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean setProperty(String propKey, String propValue) throws DeviceNotAvailableException;
 
     /**
      * Convenience method to get the bootloader version of this device.
@@ -276,6 +288,32 @@ public interface INativeDevice {
     public CommandResult executeShellV2Command(String command) throws DeviceNotAvailableException;
 
     /**
+     * Helper method which executes an adb shell command and returns the results as a {@link
+     * CommandResult} properly populated with the command status output, stdout and stderr.
+     *
+     * @param command The command that should be run.
+     * @param pipeAsInput A {@link File} that will be piped as input to the command.
+     * @return The result in {@link CommandResult}.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     */
+    public CommandResult executeShellV2Command(String command, File pipeAsInput)
+            throws DeviceNotAvailableException;
+
+    /**
+     * Helper method which executes an adb shell command and returns the results as a {@link
+     * CommandResult} properly populated with the command status output, stdout and stderr.
+     *
+     * @param command The command that should be run.
+     * @param pipeToOutput {@link OutputStream} where the std output will be redirected.
+     * @return The result in {@link CommandResult}.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     */
+    public CommandResult executeShellV2Command(String command, OutputStream pipeToOutput)
+            throws DeviceNotAvailableException;
+
+    /**
      * Executes a adb shell command, with more parameters to control command behavior.
      *
      * @see #executeShellV2Command(String)
@@ -308,6 +346,32 @@ public interface INativeDevice {
      */
     public CommandResult executeShellV2Command(
             String command,
+            final long maxTimeoutForCommand,
+            final TimeUnit timeUnit,
+            int retryAttempts)
+            throws DeviceNotAvailableException;
+
+    /**
+     * Executes a adb shell command, with more parameters to control command behavior.
+     *
+     * @see #executeShellV2Command(String)
+     * @param command the adb shell command to run
+     * @param pipeAsInput A {@link File} that will be piped as input to the command.
+     * @param pipeToOutput {@link OutputStream} where the std output will be redirected.
+     * @param maxTimeoutForCommand the maximum timeout for the command to complete; unit as
+     *     specified in <code>timeUnit</code>
+     * @param timeUnit unit for <code>maxTimeToOutputShellResponse</code>
+     * @param retryAttempts the maximum number of times to retry command if it fails due to a
+     *     exception. DeviceNotResponsiveException will be thrown if <var>retryAttempts</var> are
+     *     performed without success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @see TimeUtil
+     */
+    public CommandResult executeShellV2Command(
+            String command,
+            File pipeAsInput,
+            OutputStream pipeToOutput,
             final long maxTimeoutForCommand,
             final TimeUnit timeUnit,
             int retryAttempts)
@@ -558,6 +622,20 @@ public interface INativeDevice {
             throws DeviceNotAvailableException;
 
     /**
+     * Recursively push directory contents to device while excluding some directories that are
+     * filtered.
+     *
+     * @param localDir the local directory to push
+     * @param deviceFilePath the absolute file path of the remote destination
+     * @param excludedDirectories Set of excluded directories names that shouldn't be pushed.
+     * @return <code>true</code> if file was pushed successfully. <code>false</code> otherwise.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     */
+    public boolean pushDir(File localDir, String deviceFilePath, Set<String> excludedDirectories)
+            throws DeviceNotAvailableException;
+
+    /**
      * Incrementally syncs the contents of a local file directory to device.
      * <p/>
      * Decides which files to push by comparing timestamps of local files with their remote
@@ -591,6 +669,14 @@ public interface INativeDevice {
     public boolean doesFileExist(String deviceFilePath) throws DeviceNotAvailableException;
 
     /**
+     * Helper method to delete a file or directory on the device.
+     *
+     * @param deviceFilePath The absolute path of the file on the device.
+     * @throws DeviceNotAvailableException
+     */
+    public void deleteFile(String deviceFilePath) throws DeviceNotAvailableException;
+
+    /**
      * Retrieve a reference to a remote file on device.
      *
      * @param path the file path to retrieve. Can be an absolute path or path relative to '/'. (ie
@@ -600,6 +686,13 @@ public interface INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public IFileEntry getFileEntry(String path) throws DeviceNotAvailableException;
+
+    /**
+     * Returns True if the file path on the device is an executable file, false otherwise.
+     *
+     * @throws DeviceNotAvailableException
+     */
+    public boolean isExecutable(String fullPath) throws DeviceNotAvailableException;
 
     /**
      * Return True if the path on the device is a directory, false otherwise.
@@ -1047,6 +1140,17 @@ public interface INativeDevice {
     public int getApiLevel() throws DeviceNotAvailableException;
 
     /**
+     * Check whether or not a feature is currently supported given a minimally supported level. This
+     * method takes into account unreleased features yet, before API level is raised.
+     *
+     * @param strictMinLevel The strict min possible level that supports the feature.
+     * @return True if the level is supported. False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean checkApiLevelAgainstNextRelease(int strictMinLevel)
+            throws DeviceNotAvailableException;
+
+    /**
      * Helper to get the time difference between the device and a given {@link Date}. Use Epoch time
      * internally.
      *
@@ -1144,6 +1248,15 @@ public interface INativeDevice {
             throws TargetSetupError, DeviceNotAvailableException;
 
     /**
+     * Extra steps for device specific required setup that will be executed on the device prior to
+     * the invocation flow.
+     */
+    public default void preInvocationSetup(IBuildInfo info, List<IBuildInfo> testResourceBuildInfos)
+            throws TargetSetupError, DeviceNotAvailableException {
+        preInvocationSetup(info);
+    }
+
+    /**
      * Extra steps for device specific required clean up that will be executed after the invocation
      * is done.
      */
@@ -1188,4 +1301,28 @@ public interface INativeDevice {
      * @param args the args to be replaced via String.format().
      */
     public void logOnDevice(String tag, LogLevel level, String format, Object... args);
+
+    /** Returns total physical memory size in bytes or -1 in case of internal error */
+    public long getTotalMemory();
+
+    /** Returns the current battery level of a device or Null if battery level unavailable. */
+    public Integer getBattery();
+
+    /**
+     * Returns the last time Tradefed APIs triggered a reboot in milliseconds since EPOCH as
+     * returned by {@link System#currentTimeMillis()}.
+     */
+    public long getLastExpectedRebootTimeMillis();
+
+    /**
+     * Fetch and return the list of tombstones from the devices. Requires root.
+     *
+     * <p>method is best-effort so if one tombstone fails to be pulled for any reason it will be
+     * missing from the list. Only a {@link DeviceNotAvailableException} will terminate the method
+     * early.
+     *
+     * @return A list of tombstone files, empty if no tombstone.
+     * @see <a href="https://source.android.com/devices/tech/debug">Tombstones documentation</a>
+     */
+    public List<File> getTombstones() throws DeviceNotAvailableException;
 }

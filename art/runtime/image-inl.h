@@ -22,18 +22,20 @@
 #include "art_method.h"
 #include "imt_conflict_table.h"
 #include "imtable.h"
+#include "mirror/object_array-inl.h"
+#include "obj_ptr-inl.h"
 #include "read_barrier-inl.h"
 
 namespace art {
 
 template <ReadBarrierOption kReadBarrierOption>
-inline mirror::Object* ImageHeader::GetImageRoot(ImageRoot image_root) const {
-  mirror::ObjectArray<mirror::Object>* image_roots = GetImageRoots<kReadBarrierOption>();
+inline ObjPtr<mirror::Object> ImageHeader::GetImageRoot(ImageRoot image_root) const {
+  ObjPtr<mirror::ObjectArray<mirror::Object>> image_roots = GetImageRoots<kReadBarrierOption>();
   return image_roots->Get<kVerifyNone, kReadBarrierOption>(static_cast<int32_t>(image_root));
 }
 
 template <ReadBarrierOption kReadBarrierOption>
-inline mirror::ObjectArray<mirror::Object>* ImageHeader::GetImageRoots() const {
+inline ObjPtr<mirror::ObjectArray<mirror::Object>> ImageHeader::GetImageRoots() const {
   // Need a read barrier as it's not visited during root scan.
   // Pass in the address of the local variable to the read barrier
   // rather than image_roots_ because it won't move (asserted below)
@@ -45,6 +47,40 @@ inline mirror::ObjectArray<mirror::Object>* ImageHeader::GetImageRoots() const {
           &image_roots);
   DCHECK_EQ(image_roots, result);
   return image_roots;
+}
+
+template <typename Visitor>
+inline void ImageHeader::VisitPackedArtFields(const Visitor& visitor, uint8_t* base) const {
+  const ImageSection& fields = GetFieldsSection();
+  for (size_t pos = 0u; pos < fields.Size(); ) {
+    auto* array = reinterpret_cast<LengthPrefixedArray<ArtField>*>(base + fields.Offset() + pos);
+    for (size_t i = 0u; i < array->size(); ++i) {
+      visitor(array->At(i, sizeof(ArtField)));
+    }
+    pos += array->ComputeSize(array->size());
+  }
+}
+
+template <typename Visitor>
+inline void ImageHeader::VisitPackedArtMethods(const Visitor& visitor,
+                                               uint8_t* base,
+                                               PointerSize pointer_size) const {
+  const size_t method_alignment = ArtMethod::Alignment(pointer_size);
+  const size_t method_size = ArtMethod::Size(pointer_size);
+  const ImageSection& methods = GetMethodsSection();
+  for (size_t pos = 0u; pos < methods.Size(); ) {
+    auto* array = reinterpret_cast<LengthPrefixedArray<ArtMethod>*>(base + methods.Offset() + pos);
+    for (size_t i = 0u; i < array->size(); ++i) {
+      visitor(array->At(i, method_size, method_alignment));
+    }
+    pos += array->ComputeSize(array->size(), method_size, method_alignment);
+  }
+  const ImageSection& runtime_methods = GetRuntimeMethodsSection();
+  for (size_t pos = 0u; pos < runtime_methods.Size(); ) {
+    auto* method = reinterpret_cast<ArtMethod*>(base + runtime_methods.Offset() + pos);
+    visitor(*method);
+    pos += method_size;
+  }
 }
 
 template <typename Visitor>

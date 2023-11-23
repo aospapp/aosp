@@ -16,26 +16,30 @@
 
 package com.android.tradefed.util.keystore;
 
+import static org.junit.Assert.*;
+
 import com.android.tradefed.util.FileUtil;
 
-import junit.framework.TestCase;
-
 import org.json.JSONObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 
-/**
- * Unit tests for JSON File Key Store Client test.
- */
-public class JSONFileKeyStoreClientTest extends TestCase {
+/** Unit tests for JSON File Key Store Client test. */
+@RunWith(JUnit4.class)
+public class JSONFileKeyStoreClientTest {
     final String mJsonData = new String("{\"key1\":\"value 1\",\"key2 \":\"foo\"}");
     JSONFileKeyStoreClient mKeyStore = null;
 
-    @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         mKeyStore = new JSONFileKeyStoreClient();
     }
 
+    @Test
     public void testKeyStoreNullFile() throws Exception {
         try {
             new JSONFileKeyStoreClient(null);
@@ -45,10 +49,13 @@ public class JSONFileKeyStoreClientTest extends TestCase {
         }
     }
 
+    @Test
     public void testKeyStoreFetchUnreadableFile() throws Exception {
         File test = FileUtil.createTempFile("keystore", "test");
-        test.setReadable(false);
         try {
+            // Delete the file to make it non-readable. (do not use setReadable as a root tradefed
+            // process would still be able to write it)
+            test.delete();
             new JSONFileKeyStoreClient(test);
             fail("Should have thrown an exception");
         } catch(KeyStoreException expected) {
@@ -59,6 +66,7 @@ public class JSONFileKeyStoreClientTest extends TestCase {
         }
     }
 
+    @Test
     public void testKeyStoreFetchEmptyFile() throws Exception {
         File test = FileUtil.createTempFile("keystore", "test");
         try {
@@ -71,6 +79,7 @@ public class JSONFileKeyStoreClientTest extends TestCase {
         }
     }
 
+    @Test
     public void testKeyStoreFetchFile() throws Exception {
         File test = FileUtil.createTempFile("keystore", "test");
         try {
@@ -83,11 +92,13 @@ public class JSONFileKeyStoreClientTest extends TestCase {
         }
     }
 
+    @Test
     public void testContainsKeyinNullKeyStore() throws Exception {
         mKeyStore.setKeyStore(null);
         assertFalse("Key should not exist in null key store", mKeyStore.containsKey("test"));
     }
 
+    @Test
     public void testDoesNotContainMissingKey() throws Exception {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);
@@ -95,12 +106,14 @@ public class JSONFileKeyStoreClientTest extends TestCase {
                 mKeyStore.containsKey("invalid key"));
     }
 
+    @Test
     public void testContainsValidKey() throws Exception {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);
         assertTrue("Failed to fetch valid key in key store", mKeyStore.containsKey("key1"));
     }
 
+    @Test
     public void testFetchMissingKey() throws Exception {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);
@@ -108,6 +121,7 @@ public class JSONFileKeyStoreClientTest extends TestCase {
                 mKeyStore.fetchKey("invalid key"));
     }
 
+    @Test
     public void testFetchNullKey() throws Exception {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);
@@ -115,6 +129,7 @@ public class JSONFileKeyStoreClientTest extends TestCase {
                 mKeyStore.fetchKey(null));
     }
 
+    @Test
     public void testFetchValidKey() throws Exception {
         JSONObject data = new JSONObject(mJsonData);
         mKeyStore.setKeyStore(data);

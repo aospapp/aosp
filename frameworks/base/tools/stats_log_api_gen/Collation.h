@@ -34,6 +34,8 @@ using std::vector;
 using google::protobuf::Descriptor;
 using google::protobuf::FieldDescriptor;
 
+const int PULL_ATOM_START_ID = 10000;
+
 /**
  * The types for atom parameters.
  */
@@ -48,6 +50,7 @@ typedef enum {
   JAVA_TYPE_DOUBLE = 6,
   JAVA_TYPE_STRING = 7,
   JAVA_TYPE_ENUM = 8,
+  JAVA_TYPE_KEY_VALUE_PAIR = 9,
 
   JAVA_TYPE_OBJECT = -1,
   JAVA_TYPE_BYTE_ARRAY = -2,
@@ -86,6 +89,13 @@ struct AtomDecl {
 
     int uidField = 0;
 
+    bool whitelisted = false;
+
+    vector<int> binaryFields;
+
+    bool hasModule = false;
+    string moduleName;
+
     AtomDecl();
     AtomDecl(const AtomDecl& that);
     AtomDecl(int code, const string& name, const string& message);
@@ -97,10 +107,10 @@ struct AtomDecl {
 };
 
 struct Atoms {
-    set<vector<java_type_t>> signatures;
+    map<vector<java_type_t>, set<string>> signatures_to_modules;
     set<AtomDecl> decls;
     set<AtomDecl> non_chained_decls;
-    set<vector<java_type_t>> non_chained_signatures;
+    map<vector<java_type_t>, set<string>> non_chained_signatures_to_modules;
 };
 
 /**

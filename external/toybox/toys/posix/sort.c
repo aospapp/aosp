@@ -7,65 +7,58 @@
  * Deviations from POSIX: Lots.
  * We invented -x
 
-USE_SORT(NEWTOY(sort, USE_SORT_FLOAT("g")USE_SORT_BIG("S:T:m" "o:k*t:xbMcszdfi") "run", TOYFLAG_USR|TOYFLAG_BIN))
+USE_SORT(NEWTOY(sort, USE_SORT_FLOAT("g")"S:T:m" "o:k*t:" "xVbMcszdfirun", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 
 config SORT
   bool "sort"
   default y
   help
-    usage: sort [-run] [FILE...]
+    usage: sort [-runbcdfiMsz] [FILE...] [-k#[,#[x]] [-t X]] [-o FILE]
 
     Sort all lines of text from input files (or stdin) to stdout.
 
-    -r	reverse
-    -u	unique lines only
-    -n	numeric order (instead of alphabetical)
-
-config SORT_BIG
-  bool "SuSv3 options (Support -ktcsbdfiozM)"
-  default y
-  depends on SORT
-  help
-    usage: sort [-bcdfiMsz] [-k#[,#[x]] [-t X]] [-o FILE]
-
-    -b	ignore leading blanks (or trailing blanks in second part of key)
-    -c	check whether input is sorted
-    -d	dictionary order (use alphanumeric and whitespace chars only)
-    -f	force uppercase (case insensitive sort)
-    -i	ignore nonprinting characters
-    -M	month sort (jan, feb, etc)
+    -r	Reverse
+    -u	Unique lines only
+    -n	Numeric order (instead of alphabetical)
+    -b	Ignore leading blanks (or trailing blanks in second part of key)
+    -c	Check whether input is sorted
+    -d	Dictionary order (use alphanumeric and whitespace chars only)
+    -f	Force uppercase (case insensitive sort)
+    -i	Ignore nonprinting characters
+    -M	Month sort (jan, feb, etc)
     -x	Hexadecimal numerical sort
-    -s	skip fallback sort (only sort with keys)
-    -z	zero (null) terminated lines
-    -k	sort by "key" (see below)
-    -t	use a key separator other than whitespace
-    -o	output to FILE instead of stdout
+    -s	Skip fallback sort (only sort with keys)
+    -z	Zero (null) terminated lines
+    -k	Sort by "key" (see below)
+    -t	Use a key separator other than whitespace
+    -o	Output to FILE instead of stdout
+    -V	Version numbers (name-1.234-rc6.5b.tgz)
 
-    Sorting by key looks at a subset of the words on each line.  -k2
-    uses the second word to the end of the line, -k2,2 looks at only
-    the second word, -k2,4 looks from the start of the second to the end
-    of the fourth word.  Specifying multiple keys uses the later keys as
-    tie breakers, in order.  A type specifier appended to a sort key
-    (such as -2,2n) applies only to sorting that key.
+    Sorting by key looks at a subset of the words on each line. -k2 uses the
+    second word to the end of the line, -k2,2 looks at only the second word,
+    -k2,4 looks from the start of the second to the end of the fourth word.
+    -k2.4,5 starts from the fourth character of the second word, to the end
+    of the fifth word. Specifying multiple keys uses the later keys as tie
+    breakers, in order. A type specifier appended to a sort key (such as -2,2n)
+    applies only to sorting that key.
 
 config SORT_FLOAT
   bool
   default y
-  depends on SORT_BIG && TOYBOX_FLOAT
+  depends on TOYBOX_FLOAT
   help
     usage: sort [-g]
 
-    -g	general numeric sort (double precision with nan and inf)
+    -g	General numeric sort (double precision with nan and inf)
 */
 
 #define FOR_sort
 #include "toys.h"
 
 GLOBALS(
-  char *key_separator;
-  struct arg_list *raw_keys;
-  char *outfile;
-  char *ignore1, ignore2;   // GNU compatability NOPs for -S and -T.
+  char *t;
+  struct arg_list *k;
+  char *o, *T, S;
 
   void *key_list;
   int linecount;
@@ -109,13 +102,12 @@ static char *get_key_data(char *str, struct sort_key *key, int flags)
       for (i=1; i < key->range[2*j]+j; i++) {
 
         // Skip leading blanks
-        if (str[end] && !TT.key_separator)
-          while (isspace(str[end])) end++;
+        if (str[end] && !TT.t) while (isspace(str[end])) end++;
 
         // Skip body of key
         for (; str[end]; end++) {
-          if (TT.key_separator) {
-            if (str[end]==*TT.key_separator) {
+          if (TT.t) {
+            if (str[end]==*TT.t) {
               end++;
               break;
             }
@@ -127,10 +119,11 @@ static char *get_key_data(char *str, struct sort_key *key, int flags)
   }
 
   // Key with explicit separator starts after the separator
-  if (TT.key_separator && str[start]==*TT.key_separator) start++;
+  if (TT.t && str[start]==*TT.t) start++;
 
   // Strip leading and trailing whitespace if necessary
-  if (flags&FLAG_b) while (isspace(str[start])) start++;
+  if ((flags&FLAG_b) || (!TT.t && !key->range[3]))
+    while (isspace(str[start])) start++;
   if (flags&FLAG_bb) while (end>start && isspace(str[end-1])) end--;
 
   // Handle offsets on start and end
@@ -178,12 +171,7 @@ static struct sort_key *add_key(void)
 // Perform actual comparison
 static int compare_values(int flags, char *x, char *y)
 {
-  int ff = flags & (FLAG_n|FLAG_g|FLAG_M|FLAG_x);
-
-  // Ascii sort
-  if (!ff) return ((flags&FLAG_f) ? strcasecmp : strcmp)(x, y);
-
-  if (CFG_SORT_FLOAT && ff == FLAG_g) {
+  if (CFG_SORT_FLOAT && (flags & FLAG_g)) {
     char *xx,*yy;
     double dx = strtod(x,&xx), dy = strtod(y,&yy);
     int xinf, yinf;
@@ -207,7 +195,7 @@ static int compare_values(int flags, char *x, char *y)
     if (yinf) return dy<0 ? 1 : -1;
 
     return dx>dy ? 1 : (dx<dy ? -1 : 0);
-  } else if (CFG_SORT_BIG && ff == FLAG_M) {
+  } else if (flags & FLAG_M) {
     struct tm thyme;
     int dx;
     char *xx,*yy;
@@ -219,10 +207,27 @@ static int compare_values(int flags, char *x, char *y)
     else if (!yy) return 1;
     else return dx==thyme.tm_mon ? 0 : dx-thyme.tm_mon;
 
-  } else if (CFG_SORT_BIG && ff == FLAG_x) {
-    return strtol(x, NULL, 16)-strtol(y, NULL, 16);
-  // This has to be ff == FLAG_n
-  } else {
+  } else if (flags & FLAG_x) return strtol(x, NULL, 16)-strtol(y, NULL, 16);
+  else if (flags & FLAG_V) {
+    while (*x && *y) {
+      while (*x && *x == *y) x++, y++;
+      if (isdigit(*x) && isdigit(*y)) {
+        long long xx = strtoll(x, &x, 10), yy = strtoll(y, &y, 10);
+
+        if (xx<yy) return -1;
+        if (xx>yy) return 1;
+      } else {
+        char xx = *x ? *x : x[-1], yy = *y ? *y : y[-1];
+
+        // -rc/-pre hack so abc-123 > abc-123-rc1 (other way already - < 0-9)
+        if (xx != yy) {
+          if (xx<yy && !strstart(&y, "-rc") && !strstart(&y, "-pre")) return -1;
+          else return 1;
+        }
+      }
+    }
+    return *x ? !!*y : -1;
+  } else if (flags & FLAG_n) {
     // Full floating point version of -n
     if (CFG_SORT_FLOAT) {
       double dx = atof(x), dy = atof(y);
@@ -230,7 +235,9 @@ static int compare_values(int flags, char *x, char *y)
       return dx>dy ? 1 : (dx<dy ? -1 : 0);
     // Integer version of -n for tiny systems
     } else return atoi(x)-atoi(y);
-  }
+
+  // Ascii sort
+  } else return ((flags&FLAG_f) ? strcasecmp : strcmp)(x, y);
 }
 
 // Callback from qsort(): Iterate through key_list and perform comparisons.
@@ -240,31 +247,27 @@ static int compare_keys(const void *xarg, const void *yarg)
   char *x, *y, *xx = *(char **)xarg, *yy = *(char **)yarg;
   struct sort_key *key;
 
-  if (CFG_SORT_BIG) {
-    for (key=(struct sort_key *)TT.key_list; !retval && key;
-       key = key->next_key)
-    {
-      flags = key->flags ? key->flags : toys.optflags;
+  for (key=(struct sort_key *)TT.key_list; !retval && key; key = key->next_key){
+    flags = key->flags ? key->flags : toys.optflags;
 
-      // Chop out and modify key chunks, handling -dfib
+    // Chop out and modify key chunks, handling -dfib
 
-      x = get_key_data(xx, key, flags);
-      y = get_key_data(yy, key, flags);
+    x = get_key_data(xx, key, flags);
+    y = get_key_data(yy, key, flags);
 
-      retval = compare_values(flags, x, y);
+    retval = compare_values(flags, x, y);
 
-      // Free the copies get_key_data() made.
+    // Free the copies get_key_data() made.
 
-      if (x != xx) free(x);
-      if (y != yy) free(y);
+    if (x != xx) free(x);
+    if (y != yy) free(y);
 
-      if (retval) break;
-    }
-  } else retval = compare_values(flags, xx, yy);
+    if (retval) break;
+  }
 
   // Perform fallback sort if necessary (always case insensitive, no -f,
   // the point is to get a stable order even for -f sorts)
-  if (!retval && !(CFG_SORT_BIG && (toys.optflags&FLAG_s))) {
+  if (!retval && !FLAG(s)) {
     flags = toys.optflags;
     retval = strcmp(xx, yy);
   }
@@ -278,14 +281,13 @@ static void sort_read(int fd, char *name)
   // Read each line from file, appending to a big array.
 
   for (;;) {
-    char * line = (CFG_SORT_BIG && (toys.optflags&FLAG_z))
-             ? get_rawline(fd, NULL, 0) : get_line(fd);
+    char * line = FLAG(z) ? get_rawline(fd, NULL, 0) : get_line(fd);
 
     if (!line) break;
 
     // handle -c here so we don't allocate more memory than necessary.
-    if (CFG_SORT_BIG && (toys.optflags&FLAG_c)) {
-      int j = (toys.optflags&FLAG_u) ? -1 : 0;
+    if (FLAG(c)) {
+      int j = FLAG(u) ? -1 : 0;
 
       if (TT.lines && compare_keys((void *)&TT.lines, &line)>j)
         error_exit("%s: Check line %d\n", name, TT.linecount);
@@ -304,15 +306,11 @@ void sort_main(void)
 {
   int idx, fd = 1;
 
-  // Open output file if necessary.
-  if (CFG_SORT_BIG && TT.outfile)
-    fd = xcreate(TT.outfile, O_CREAT|O_TRUNC|O_WRONLY, 0666);
-
   // Parse -k sort keys.
-  if (CFG_SORT_BIG && TT.raw_keys) {
+  if (TT.k) {
     struct arg_list *arg;
 
-    for (arg = TT.raw_keys; arg; arg = arg->next) {
+    for (arg = TT.k; arg; arg = arg->next) {
       struct sort_key *key = add_key();
       char *temp;
       int flag;
@@ -344,9 +342,10 @@ void sort_main(void)
 
           // Was it a flag that can apply to a key?
 
-          if (!temp2 || flag>FLAG_b
+          if (!temp2 || flag>FLAG_x
             || (flag&(FLAG_u|FLAG_c|FLAG_s|FLAG_z)))
           {
+            toys.exitval = 2;
             error_exit("Unknown key option.");
           }
           // b after , means strip _trailing_ space, not leading.
@@ -358,23 +357,23 @@ void sort_main(void)
   }
 
   // global b flag strips both leading and trailing spaces
-  if (toys.optflags&FLAG_b) toys.optflags |= FLAG_bb;
+  if (FLAG(b)) toys.optflags |= FLAG_bb;
 
   // If no keys, perform alphabetic sort over the whole line.
-  if (CFG_SORT_BIG && !TT.key_list) add_key()->range[0] = 1;
+  if (!TT.key_list) add_key()->range[0] = 1;
 
   // Open input files and read data, populating TT.lines[TT.linecount]
   loopfiles(toys.optargs, sort_read);
 
   // The compare (-c) logic was handled in sort_read(),
   // so if we got here, we're done.
-  if (CFG_SORT_BIG && (toys.optflags&FLAG_c)) goto exit_now;
+  if (FLAG(c)) goto exit_now;
 
   // Perform the actual sort
   qsort(TT.lines, TT.linecount, sizeof(char *), compare_keys);
 
   // handle unique (-u)
-  if (toys.optflags&FLAG_u) {
+  if (FLAG(u)) {
     int jdx;
 
     for (jdx=0, idx=1; idx<TT.linecount; idx++) {
@@ -385,12 +384,16 @@ void sort_main(void)
     if (TT.linecount) TT.linecount = jdx+1;
   }
 
+  // Open output file if necessary. We can't do this until we've finished
+  // reading in case the output file is one of the input files.
+  if (TT.o) fd = xcreate(TT.o, O_CREAT|O_TRUNC|O_WRONLY, 0666);
+
   // Output result
   for (idx = 0; idx<TT.linecount; idx++) {
     char *s = TT.lines[idx];
     unsigned i = strlen(s);
 
-    if (!(toys.optflags&FLAG_z)) s[i] = '\n';
+    if (!FLAG(z)) s[i] = '\n';
     xwrite(fd, s, i+1);
     if (CFG_TOYBOX_FREE) free(s);
   }

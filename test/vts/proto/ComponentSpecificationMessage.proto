@@ -93,6 +93,12 @@ enum ComponentType {
   GRAPHICS_COMPOSER = 23;
   // For a media omx submodule.
   MEDIA_OMX = 24;
+  // For msgq test HAL.
+  TESTS_MSGQ = 25;
+  // For memory test HAL.
+  TESTS_MEMORY = 26;
+  // For dumpstate HAL (a lazy HAL, for debugging).
+  DUMPSTATE = 27;
 
   // for bionic's libm
   BIONIC_LIBM = 1001;
@@ -138,6 +144,8 @@ enum VariableType {
   TYPE_FMQ_UNSYNC = 19;
   // for HIDL ref<>, a restricted native pointer type.
   TYPE_REF = 20;
+  // similar to TYPE_UNION, but support runtime type check.
+  TYPE_SAFE_UNION = 21;
 }
 
 
@@ -188,14 +196,17 @@ message FunctionCallMessage {
   // Component type, e.g., BLUETOOTH, used for Conventional HAL only.
   optional ComponentType component_type = 22;
   // Component version (e.g., 1.0).
+  // Deprecated, use component_type_version_major and component_type_version_minor instead.
   optional bytes component_type_version = 23 [deprecated = true];
   // Component name (e.g., INfc), used for HIDL HALs only.
   optional bytes component_name = 24;
   // Component package name (e.g., android.hardware.nfc).
   optional bytes package_name = 25;
   // Component major and minor versions stored separately.
-  optional uint32 component_type_version_major = 26;
-  optional uint32 component_type_version_minor = 27;
+  // HAL major version of component (e.g. 1.0 -> 1).
+  optional int32 component_type_version_major = 26 [default = -1];
+  // HAL minor version of component (e.g. 1.0 -> 0).
+  optional int32 component_type_version_minor = 27 [default = -1];
 
   // Specifies API function and inputs.
   optional FunctionSpecificationMessage api = 100;
@@ -212,6 +223,9 @@ message FunctionSpecificationMessage {
   // the HIDL interface ID used to call an API of another nested interface
   // using a VTS HAL driver (for HIDL HAL). 0 for the main interface.
   optional int32 hidl_interface_id = 3;
+
+  // whether the function is inherited from another class.
+  optional bool is_inherited = 4;
 
   // data type of the return value (for legacy HALs and shared libraries).
   optional VariableSpecificationMessage return_type = 11;
@@ -331,6 +345,15 @@ message EnumDataValueMessage {
 message MemoryDataValueMessage {
   optional int64 size = 1;
   optional bytes contents = 2;
+  // To identify an existing hidl_memory object stored in resource_manager.
+  optional int32 mem_id = 3 [default = -1];
+  // To record the pointer address of hidl_memory object.
+  // We use uint64 to represent the address of the hidl_memory pointer,
+  // which allows vtsc to reinterpret the address when caller wants to use
+  // an existing hidl_memory object stored in resource_manager.
+  // This field is updated by driver_manager when the hidl_memory address
+  // is found in memory.
+  optional uint64 hidl_mem_address = 4;
 }
 
 // Type of a file descriptor.
@@ -349,6 +372,9 @@ message FdMessage {
   optional uint32 mode = 2;
   optional int32 flags = 3;
   optional bytes file_name = 4;
+  // When opening a file in host side, user specifies file
+  // access mode in string.
+  optional bytes file_mode_str = 5;
   // For shared memory.
   optional MemoryDataValueMessage memory = 6;
 }
@@ -365,6 +391,17 @@ message HandleDataValueMessage {
   repeated FdMessage fd_val = 4;
   // ints values
   repeated int32 int_val = 5;
+  // To specify an existing handle object registered in target-side driver.
+  // If host side specifies this field, HIDL function calls will retrieve
+  // the handle object from target-side driver, instead of creating a new one.
+  optional int32 handle_id = 6 [default = -1];
+  // To record the pointer address of hidl_handle object.
+  // We use uint64 to represent the address of the hidl_handle pointer,
+  // which allows vtsc to reinterpret the address when caller wants to use
+  // an existing hidl_handle object stored in target-side driver.
+  // This field is updated by driver_manager when the hidl_handle address
+  // is found in memory.
+  optional uint64 hidl_handle_address = 7;
 }
 
 // To specify a function argument or an attribute in general.
@@ -413,8 +450,28 @@ message VariableSpecificationMessage {
   // for nested union type declarations (without actual definitions).
   repeated VariableSpecificationMessage sub_union = 153;
 
+  // for sub variables when this's a safe_union type.
+  repeated VariableSpecificationMessage safe_union_value = 154;
+
+  // the runtime type used in the safe union.
+  optional VariableType safe_union_type = 155;
+
+  // for nested safe_union type declarations.
+  repeated VariableSpecificationMessage sub_safe_union = 156;
+
   // for the definition/value of TYPE_FMQ_SYNC and TYPE_FMQ_UNSYNC.
   repeated VariableSpecificationMessage fmq_value = 161;
+  // for queue identifier of TYPE_FMQ_SYNC and TYPE_FMQ_UNSYNC,
+  // when caller wants to use an existing FMQ.
+  optional int32 fmq_id = 162 [default = -1];
+  // descriptor of an existing queue.
+  // The descriptor can be passed in hidl and be used to create new
+  // FMQ objects. We use uint64 to represent the address of the descriptor,
+  // which allows vtsc to reinterpret the address when callers wants to use
+  // an existing FMQ.
+  // This field is updated by driver_manager when the descriptor of
+  // an queue object is located in memory.
+  optional uint64 fmq_desc_address = 163;
 
   // for TYPE_REF.
   optional VariableSpecificationMessage ref_value = 171;
@@ -498,13 +555,21 @@ message ComponentSpecificationMessage {
   // Class, type, and version of a target component.
   optional ComponentClass component_class = 1;
   optional ComponentType component_type = 2;
-  optional float component_type_version = 3 [default = 1.0];
+  // component HAL version (e.g. 1.0).
+  // Deprecated, use component_type_version_major and component_type_version_minor instead.
+  optional float component_type_version = 3 [deprecated = true];
 
   // The name of a target component (used for HIDL HALs).
   optional bytes component_name = 4;
 
   // for the target processor architecture.
   optional TargetArch target_arch = 5;
+
+  // use two ints to represent major and minor versions separately.
+  // HAL major version of component (e.g. 1.0 -> 1).
+  optional int32 component_type_version_major = 6 [default = -1];
+  // HAL minor version of component (e.g. 1.0 -> 0).
+  optional int32 component_type_version_minor = 7 [default = -1];
 
   // The package path of a target component (e.g., android.hardware.name).
   // name implies the component_type field.

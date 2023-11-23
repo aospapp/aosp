@@ -81,11 +81,11 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
     UniquePtr<BIGNUM, BIGNUM_Delete> exponent(BN_new());
     UniquePtr<RSA, RsaKey::RSA_Delete> rsa_key(RSA_new());
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (exponent.get() == NULL || rsa_key.get() == NULL || pkey.get() == NULL)
+    if (exponent.get() == nullptr || rsa_key.get() == nullptr || pkey.get() == nullptr)
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     if (!BN_set_word(exponent.get(), public_exponent) ||
-        !RSA_generate_key_ex(rsa_key.get(), key_size, exponent.get(), NULL /* callback */))
+        !RSA_generate_key_ex(rsa_key.get(), key_size, exponent.get(), nullptr /* callback */))
         return TranslateLastOpenSslError();
 
     if (EVP_PKEY_set1_RSA(pkey.get(), rsa_key.get()) != 1)

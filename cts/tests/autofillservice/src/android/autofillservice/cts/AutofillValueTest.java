@@ -35,8 +35,6 @@ import android.widget.TimePicker;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /*
@@ -53,11 +51,9 @@ import org.junit.Test;
  *  redundant tests and add more tests (like triggering autofill using different views) to
  *  CheckoutActivityTest.
  */
-@AppModeFull // Unit test
-public class AutofillValueTest extends AutoFillServiceTestCase {
-    @Rule
-    public final AutofillActivityTestRule<AllAutofillableViewsActivity> mActivityRule =
-            new AutofillActivityTestRule<>(AllAutofillableViewsActivity.class);
+@AppModeFull(reason = "Unit test")
+public class AutofillValueTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<AllAutofillableViewsActivity> {
 
     private AllAutofillableViewsActivity mActivity;
     private EditText mEditText;
@@ -69,9 +65,8 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
     private DatePicker mDatePicker;
     private TimePicker mTimePicker;
 
-    @Before
-    public void setFields() {
-        mActivity = mActivityRule.getActivity();
+    private void setFields(AllAutofillableViewsActivity activity) {
+        mActivity = activity;
 
         mEditText = (EditText) mActivity.findViewById(R.id.editText);
         mCompoundButton = (CompoundButton) mActivity.findViewById(R.id.compoundButton);
@@ -81,6 +76,17 @@ public class AutofillValueTest extends AutoFillServiceTestCase {
         mSpinner = (Spinner) mActivity.findViewById(R.id.spinner);
         mDatePicker = (DatePicker) mActivity.findViewById(R.id.datePicker);
         mTimePicker = (TimePicker) mActivity.findViewById(R.id.timePicker);
+    }
+
+    @Override
+    protected AutofillActivityTestRule<AllAutofillableViewsActivity> getActivityRule() {
+        return new AutofillActivityTestRule<AllAutofillableViewsActivity>(
+                AllAutofillableViewsActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                setFields(getActivity());
+            }
+        };
     }
 
     @Test

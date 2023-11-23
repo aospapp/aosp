@@ -1,0 +1,19 @@
+name: "ARM-software/optimized-routines"
+description: "Optimized implementations of various library functions for ARM architecture processors "
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://github.com/ARM-software/optimized-routines"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/ARM-software/optimized-routines.git"
+  }
+  version: "6e60567b9bbf59b38c72493faf7cc9eb6ce43c64"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2019
+    month: 1
+    day: 8
+  }
+}

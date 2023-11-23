@@ -18,7 +18,6 @@ package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
 import android.text.format.DateUtils;
-import com.android.storagemanager.testing.TestingConstants;
 import com.android.storagemanager.utils.IconProvider;
 import java.io.File;
 import java.io.FileWriter;
@@ -31,15 +30,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestingConstants.MANIFEST, sdk = TestingConstants.SDK_VERSION)
 public class DownloadsFilePreferenceTest {
 
     //23-01-2100
@@ -93,7 +90,7 @@ public class DownloadsFilePreferenceTest {
     }
 
     @Test
-    public void compareTo_fallbackToFileName() throws Exception {
+    public void compareTo_fallbackToFileName() {
         File file = new File(mTempDir, "test.bmp");
         DownloadsFilePreference preference =
                 new DownloadsFilePreference(mContext, file, mIconProvider);

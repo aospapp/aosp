@@ -24,6 +24,7 @@
 #define __KVM_HAVE_GUEST_DEBUG
 #define __KVM_HAVE_IRQ_LINE
 #define __KVM_HAVE_READONLY_MEM
+#define __KVM_HAVE_VCPU_EVENTS
 #define KVM_COALESCED_MMIO_PAGE_OFFSET 1
 #define KVM_REG_SIZE(id) (1U << (((id) & KVM_REG_SIZE_MASK) >> KVM_REG_SIZE_SHIFT))
 #define KVM_ARM_SVC_sp svc_regs[0]
@@ -69,6 +70,7 @@ struct kvm_regs {
 #define KVM_VGIC_V3_ADDR_TYPE_DIST 2
 #define KVM_VGIC_V3_ADDR_TYPE_REDIST 3
 #define KVM_VGIC_ITS_ADDR_TYPE 4
+#define KVM_VGIC_V3_ADDR_TYPE_REDIST_REGION 5
 #define KVM_VGIC_V3_DIST_SIZE SZ_64K
 #define KVM_VGIC_V3_REDIST_SIZE (2 * SZ_64K)
 #define KVM_VGIC_V3_ITS_SIZE (2 * SZ_64K)
@@ -91,6 +93,15 @@ struct kvm_sync_regs {
 };
 struct kvm_arch_memory_slot {
 };
+struct kvm_vcpu_events {
+  struct {
+    __u8 serror_pending;
+    __u8 serror_has_esr;
+    __u8 pad[6];
+    __u64 serror_esr;
+  } exception;
+  __u32 reserved[12];
+};
 #define KVM_REG_ARM_COPROC_MASK 0x000000000FFF0000
 #define KVM_REG_ARM_COPROC_SHIFT 16
 #define KVM_REG_ARM_32_OPC2_MASK 0x0000000000000007
@@ -101,6 +112,8 @@ struct kvm_arch_memory_slot {
 #define KVM_REG_ARM_CRM_SHIFT 7
 #define KVM_REG_ARM_32_CRN_MASK 0x0000000000007800
 #define KVM_REG_ARM_32_CRN_SHIFT 11
+#define KVM_REG_ARM_SECURE_MASK 0x0000000010000000
+#define KVM_REG_ARM_SECURE_SHIFT 28
 #define ARM_CP15_REG_SHIFT_MASK(x,n) (((x) << KVM_REG_ARM_ ##n ##_SHIFT) & KVM_REG_ARM_ ##n ##_MASK)
 #define __ARM_CP15_REG(op1,crn,crm,op2) (KVM_REG_ARM | (15 << KVM_REG_ARM_COPROC_SHIFT) | ARM_CP15_REG_SHIFT_MASK(op1, OPC1) | ARM_CP15_REG_SHIFT_MASK(crn, 32_CRN) | ARM_CP15_REG_SHIFT_MASK(crm, CRM) | ARM_CP15_REG_SHIFT_MASK(op2, 32_OPC2))
 #define ARM_CP15_REG32(...) (__ARM_CP15_REG(__VA_ARGS__) | KVM_REG_SIZE_U32)
@@ -130,6 +143,9 @@ struct kvm_arch_memory_slot {
 #define KVM_REG_ARM_VFP_FPEXC 0x1008
 #define KVM_REG_ARM_VFP_FPINST 0x1009
 #define KVM_REG_ARM_VFP_FPINST2 0x100A
+#define KVM_REG_ARM_FW (0x0014 << KVM_REG_ARM_COPROC_SHIFT)
+#define KVM_REG_ARM_FW_REG(r) (KVM_REG_ARM | KVM_REG_SIZE_U64 | KVM_REG_ARM_FW | ((r) & 0xffff))
+#define KVM_REG_ARM_PSCI_VERSION KVM_REG_ARM_FW_REG(0)
 #define KVM_DEV_ARM_VGIC_GRP_ADDR 0
 #define KVM_DEV_ARM_VGIC_GRP_DIST_REGS 1
 #define KVM_DEV_ARM_VGIC_GRP_CPU_REGS 2

@@ -1,8 +1,14 @@
+# coding: utf-8
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+
 otData = [
 
 	#
 	# common
 	#
+
+	('LookupOrder', []),
 
 	('ScriptList', [
 		('uint16', 'ScriptCount', None, None, 'Number of ScriptRecords'),
@@ -54,23 +60,23 @@ otData = [
 	('FeatureParamsSize', [
 		('DeciPoints', 'DesignSize', None, None, 'The design size in 720/inch units (decipoints).'),
 		('uint16', 'SubfamilyID', None, None, 'Serves as an identifier that associates fonts in a subfamily.'),
-		('uint16', 'SubfamilyNameID', None, None, 'Subfamily NameID.'),
+		('NameID', 'SubfamilyNameID', None, None, 'Subfamily NameID.'),
 		('DeciPoints', 'RangeStart', None, None, 'Small end of recommended usage range (exclusive) in 720/inch units.'),
 		('DeciPoints', 'RangeEnd', None, None, 'Large end of recommended usage range (inclusive) in 720/inch units.'),
 	]),
 
 	('FeatureParamsStylisticSet', [
 		('uint16', 'Version', None, None, 'Set to 0.'),
-		('uint16', 'UINameID', None, None, 'UI NameID.'),
+		('NameID', 'UINameID', None, None, 'UI NameID.'),
 	]),
 
 	('FeatureParamsCharacterVariants', [
 		('uint16', 'Format', None, None, 'Set to 0.'),
-		('uint16', 'FeatUILabelNameID', None, None, 'Feature UI label NameID.'),
-		('uint16', 'FeatUITooltipTextNameID', None, None, 'Feature UI tooltip text NameID.'),
-		('uint16', 'SampleTextNameID', None, None, 'Sample text NameID.'),
+		('NameID', 'FeatUILabelNameID', None, None, 'Feature UI label NameID.'),
+		('NameID', 'FeatUITooltipTextNameID', None, None, 'Feature UI tooltip text NameID.'),
+		('NameID', 'SampleTextNameID', None, None, 'Sample text NameID.'),
 		('uint16', 'NumNamedParameters', None, None, 'Number of named parameters.'),
-		('uint16', 'FirstParamUILabelNameID', None, None, 'First NameID of UI feature parameters.'),
+		('NameID', 'FirstParamUILabelNameID', None, None, 'First NameID of UI feature parameters.'),
 		('uint16', 'CharCount', None, None, 'Count of characters this feature provides glyph variants for.'),
 		('uint24', 'Character', 'CharCount', 0, 'Unicode characters for which this feature provides glyph variants.'),
 	]),
@@ -129,7 +135,7 @@ otData = [
 		('uint16', 'StartSize', None, None, 'Smallest size to correct-in ppem'),
 		('uint16', 'EndSize', None, None, 'Largest size to correct-in ppem'),
 		('uint16', 'DeltaFormat', None, None, 'Format of DeltaValue array data: 1, 2, or 3'),
-		('DeltaValue', 'DeltaValue', '', 0, 'Array of compressed data'),
+		('DeltaValue', 'DeltaValue', '', 'DeltaFormat in (1,2,3)', 'Array of compressed data'),
 	]),
 
 
@@ -138,10 +144,11 @@ otData = [
 	#
 
 	('GPOS', [
-		('Version', 'Version', None, None, 'Version of the GPOS table-initially = 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GPOS table- 0x00010000 or 0x00010001'),
 		('Offset', 'ScriptList', None, None, 'Offset to ScriptList table-from beginning of GPOS table'),
 		('Offset', 'FeatureList', None, None, 'Offset to FeatureList table-from beginning of GPOS table'),
 		('Offset', 'LookupList', None, None, 'Offset to LookupList table-from beginning of GPOS table'),
+		('LOffset', 'FeatureVariations', None, 'Version >= 0x00010001', 'Offset to FeatureVariations table-from beginning of GPOS table'),
 	]),
 
 	('SinglePosFormat1', [
@@ -390,16 +397,16 @@ otData = [
 		('LOffset', 'ExtSubTable', None, None, 'Offset to SubTable'),
 	]),
 
-	('ValueRecord', [
-		('int16', 'XPlacement', None, None, 'Horizontal adjustment for placement-in design units'),
-		('int16', 'YPlacement', None, None, 'Vertical adjustment for placement-in design units'),
-		('int16', 'XAdvance', None, None, 'Horizontal adjustment for advance-in design units (only used for horizontal writing)'),
-		('int16', 'YAdvance', None, None, 'Vertical adjustment for advance-in design units (only used for vertical writing)'),
-		('Offset', 'XPlaDevice', None, None, 'Offset to Device table for horizontal placement-measured from beginning of PosTable (may be NULL)'),
-		('Offset', 'YPlaDevice', None, None, 'Offset to Device table for vertical placement-measured from beginning of PosTable (may be NULL)'),
-		('Offset', 'XAdvDevice', None, None, 'Offset to Device table for horizontal advance-measured from beginning of PosTable (may be NULL)'),
-		('Offset', 'YAdvDevice', None, None, 'Offset to Device table for vertical advance-measured from beginning of PosTable (may be NULL)'),
-	]),
+#	('ValueRecord', [
+#		('int16', 'XPlacement', None, None, 'Horizontal adjustment for placement-in design units'),
+#		('int16', 'YPlacement', None, None, 'Vertical adjustment for placement-in design units'),
+#		('int16', 'XAdvance', None, None, 'Horizontal adjustment for advance-in design units (only used for horizontal writing)'),
+#		('int16', 'YAdvance', None, None, 'Vertical adjustment for advance-in design units (only used for vertical writing)'),
+#		('Offset', 'XPlaDevice', None, None, 'Offset to Device table for horizontal placement-measured from beginning of PosTable (may be NULL)'),
+#		('Offset', 'YPlaDevice', None, None, 'Offset to Device table for vertical placement-measured from beginning of PosTable (may be NULL)'),
+#		('Offset', 'XAdvDevice', None, None, 'Offset to Device table for horizontal advance-measured from beginning of PosTable (may be NULL)'),
+#		('Offset', 'YAdvDevice', None, None, 'Offset to Device table for vertical advance-measured from beginning of PosTable (may be NULL)'),
+#	]),
 
 	('AnchorFormat1', [
 		('uint16', 'AnchorFormat', None, None, 'Format identifier-format = 1'),
@@ -438,16 +445,17 @@ otData = [
 	#
 
 	('GSUB', [
-		('Version', 'Version', None, None, 'Version of the GSUB table-initially set to 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GSUB table- 0x00010000 or 0x00010001'),
 		('Offset', 'ScriptList', None, None, 'Offset to ScriptList table-from beginning of GSUB table'),
 		('Offset', 'FeatureList', None, None, 'Offset to FeatureList table-from beginning of GSUB table'),
 		('Offset', 'LookupList', None, None, 'Offset to LookupList table-from beginning of GSUB table'),
+		('LOffset', 'FeatureVariations', None, 'Version >= 0x00010001', 'Offset to FeatureVariations table-from beginning of GSUB table'),
 	]),
 
 	('SingleSubstFormat1', [
 		('uint16', 'SubstFormat', None, None, 'Format identifier-format = 1'),
 		('Offset', 'Coverage', None, None, 'Offset to Coverage table-from beginning of Substitution table'),
-		('int16', 'DeltaGlyphID', None, None, 'Add to original GlyphID to get substitute GlyphID'),
+		('uint16', 'DeltaGlyphID', None, None, 'Add to original GlyphID modulo 65536 to get substitute GlyphID'),
 	]),
 
 	('SingleSubstFormat2', [
@@ -634,12 +642,13 @@ otData = [
 	#
 
 	('GDEF', [
-		('Version', 'Version', None, None, 'Version of the GDEF table-initially 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GDEF table- 0x00010000, 0x00010002, or 0x00010003'),
 		('Offset', 'GlyphClassDef', None, None, 'Offset to class definition table for glyph type-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'AttachList', None, None, 'Offset to list of glyphs with attachment points-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'LigCaretList', None, None, 'Offset to list of positioning points for ligature carets-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'MarkAttachClassDef', None, None, 'Offset to class definition table for mark attachment type-from beginning of GDEF header (may be NULL)'),
-		('Offset', 'MarkGlyphSetsDef', None, 'int(round(Version*0x10000)) >= 0x00010002', 'Offset to the table of mark set definitions-from beginning of GDEF header (may be NULL)'),
+		('Offset', 'MarkGlyphSetsDef', None, 'Version >= 0x00010002', 'Offset to the table of mark set definitions-from beginning of GDEF header (may be NULL)'),
+		('LOffset', 'VarStore', None, 'Version >= 0x00010003', 'Offset to variation store (may be NULL)'),
 	]),
 
 	('AttachList', [
@@ -831,6 +840,193 @@ otData = [
 		('Offset', 'Lookup', 'LookupCount', 0, 'Array of offsets to GPOS-type lookup tables-from beginning of JstfMax table-in design order'),
 	]),
 
+
+	#
+	# STAT
+	#
+	('STAT', [
+		('Version', 'Version', None, None, 'Version of the table-initially set to 0x00010000, currently 0x00010002.'),
+		('uint16', 'DesignAxisRecordSize', None, None, 'Size in bytes of each design axis record'),
+		('uint16', 'DesignAxisCount', None, None, 'Number of design axis records'),
+		('LOffsetTo(AxisRecordArray)', 'DesignAxisRecord', None, None, 'Offset in bytes from the beginning of the STAT table to the start of the design axes array'),
+		('uint16', 'AxisValueCount', None, None, 'Number of axis value tables'),
+		('LOffsetTo(AxisValueArray)', 'AxisValueArray', None, None, 'Offset in bytes from the beginning of the STAT table to the start of the axes value offset array'),
+		('NameID', 'ElidedFallbackNameID', None, 'Version >= 0x00010001', 'NameID to use when all style attributes are elided.'),
+	]),
+
+	('AxisRecordArray', [
+		('AxisRecord', 'Axis', 'DesignAxisCount', 0, 'Axis records'),
+	]),
+
+	('AxisRecord', [
+		('Tag', 'AxisTag', None, None, 'A tag identifying the axis of design variation'),
+		('NameID', 'AxisNameID', None, None, 'The name ID for entries in the "name" table that provide a display string for this axis'),
+		('uint16', 'AxisOrdering', None, None, 'A value that applications can use to determine primary sorting of face names, or for ordering of descriptors when composing family or face names'),
+		('uint8', 'MoreBytes', 'DesignAxisRecordSize', -8, 'Extra bytes.  Set to empty array.'),
+	]),
+
+	('AxisValueArray', [
+		('Offset', 'AxisValue', 'AxisValueCount', 0, 'Axis values'),
+	]),
+
+	('AxisValueFormat1', [
+		('uint16', 'Format', None, None, 'Format, = 1'),
+		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
+		('uint16', 'Flags', None, None, 'Flags.'),
+		('NameID', 'ValueNameID', None, None, ''),
+		('Fixed', 'Value', None, None, ''),
+	]),
+
+	('AxisValueFormat2', [
+		('uint16', 'Format', None, None, 'Format, = 2'),
+		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
+		('uint16', 'Flags', None, None, 'Flags.'),
+		('NameID', 'ValueNameID', None, None, ''),
+		('Fixed', 'NominalValue', None, None, ''),
+		('Fixed', 'RangeMinValue', None, None, ''),
+		('Fixed', 'RangeMaxValue', None, None, ''),
+	]),
+
+	('AxisValueFormat3', [
+		('uint16', 'Format', None, None, 'Format, = 3'),
+		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
+		('uint16', 'Flags', None, None, 'Flags.'),
+		('NameID', 'ValueNameID', None, None, ''),
+		('Fixed', 'Value', None, None, ''),
+		('Fixed', 'LinkedValue', None, None, ''),
+	]),
+
+	('AxisValueFormat4', [
+		('uint16', 'Format', None, None, 'Format, = 4'),
+		('uint16', 'AxisCount', None, None, 'The total number of axes contributing to this axis-values combination.'),
+		('uint16', 'Flags', None, None, 'Flags.'),
+		('NameID', 'ValueNameID', None, None, ''),
+		('struct', 'AxisValueRecord', 'AxisCount', 0, 'Array of AxisValue records that provide the combination of axis values, one for each contributing axis. '),
+	]),
+
+	('AxisValueRecord', [
+			('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
+			('Fixed', 'Value', None, None, 'A numeric value for this attribute value.'),
+	]),
+
+
+	#
+	# Variation fonts
+	#
+
+	# GSUB/GPOS FeatureVariations
+
+	('FeatureVariations', [
+		('Version', 'Version', None, None, 'Version of the table-initially set to 0x00010000'),
+		('uint32', 'FeatureVariationCount', None, None, 'Number of records in the FeatureVariationRecord array'),
+		('struct', 'FeatureVariationRecord', 'FeatureVariationCount', 0, 'Array of FeatureVariationRecord'),
+	]),
+
+	('FeatureVariationRecord', [
+		('LOffset', 'ConditionSet', None, None, 'Offset to a ConditionSet table, from beginning of the FeatureVariations table.'),
+		('LOffset', 'FeatureTableSubstitution', None, None, 'Offset to a FeatureTableSubstitution table, from beginning of the FeatureVariations table'),
+	]),
+
+	('ConditionSet', [
+		('uint16', 'ConditionCount', None, None, 'Number of condition tables in the ConditionTable array'),
+		('LOffset', 'ConditionTable', 'ConditionCount', 0, 'Array of condition tables.'),
+	]),
+
+	('ConditionTableFormat1', [
+		('uint16', 'Format', None, None, 'Format, = 1'),
+		('uint16', 'AxisIndex', None, None, 'Index for the variation axis within the fvar table, base 0.'),
+		('F2Dot14', 'FilterRangeMinValue', None, None, 'Minimum normalized axis value of the font variation instances that satisfy this condition.'),
+		('F2Dot14', 'FilterRangeMaxValue', None, None, 'Maximum value that satisfies this condition.'),
+	]),
+
+	('FeatureTableSubstitution', [
+		('Version', 'Version', None, None, 'Version of the table-initially set to 0x00010000'),
+		('uint16', 'SubstitutionCount', None, None, 'Number of records in the FeatureVariationRecords array'),
+		('FeatureTableSubstitutionRecord', 'SubstitutionRecord', 'SubstitutionCount', 0, 'Array of FeatureTableSubstitutionRecord'),
+	]),
+
+	('FeatureTableSubstitutionRecord', [
+		('uint16', 'FeatureIndex', None, None, 'The feature table index to match.'),
+		('LOffset', 'Feature', None, None, 'Offset to an alternate feature table, from start of the FeatureTableSubstitution table.'),
+	]),
+
+	# VariationStore
+
+	('VarRegionAxis', [
+		('F2Dot14', 'StartCoord', None, None, ''),
+		('F2Dot14', 'PeakCoord', None, None, ''),
+		('F2Dot14', 'EndCoord', None, None, ''),
+	]),
+
+	('VarRegion', [
+		('struct', 'VarRegionAxis', 'RegionAxisCount', 0, ''),
+	]),
+
+	('VarRegionList', [
+		('uint16', 'RegionAxisCount', None, None, ''),
+		('uint16', 'RegionCount', None, None, ''),
+		('VarRegion', 'Region', 'RegionCount', 0, ''),
+	]),
+
+	('VarData', [
+		('uint16', 'ItemCount', None, None, ''),
+		('uint16', 'NumShorts', None, None, ''),
+		('uint16', 'VarRegionCount', None, None, ''),
+		('uint16', 'VarRegionIndex', 'VarRegionCount', 0, ''),
+		('VarDataValue', 'Item', 'ItemCount', 0, ''),
+	]),
+
+	('VarStore', [
+		('uint16', 'Format', None, None, 'Set to 1.'),
+		('LOffset', 'VarRegionList', None, None, ''),
+		('uint16', 'VarDataCount', None, None, ''),
+		('LOffset', 'VarData', 'VarDataCount', 0, ''),
+	]),
+
+	# Variation helpers
+
+	('VarIdxMap', [
+		('uint16', 'EntryFormat', None, None, ''), # Automatically computed
+		('uint16', 'MappingCount', None, None, ''), # Automatically computed
+		('VarIdxMapValue', 'mapping', '', 0, 'Array of compressed data'),
+	]),
+
+	# Glyph advance variations
+
+	('HVAR', [
+		('Version', 'Version', None, None, 'Version of the HVAR table-initially = 0x00010000'),
+		('LOffset', 'VarStore', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'AdvWidthMap', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'LsbMap', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'RsbMap', None, None, ''),
+	]),
+	('VVAR', [
+		('Version', 'Version', None, None, 'Version of the VVAR table-initially = 0x00010000'),
+		('LOffset', 'VarStore', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'AdvHeightMap', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'TsbMap', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'BsbMap', None, None, ''),
+		('LOffsetTo(VarIdxMap)', 'VOrgMap', None, None, 'Vertical origin mapping.'),
+	]),
+
+	# Font-wide metrics variations
+
+	('MetricsValueRecord', [
+		('Tag', 'ValueTag', None, None, '4-byte font-wide measure identifier'),
+		('uint32', 'VarIdx', None, None, 'Combined outer-inner variation index'),
+		('uint8', 'MoreBytes', 'ValueRecordSize', -8, 'Extra bytes.  Set to empty array.'),
+	]),
+
+	('MVAR', [
+		('Version', 'Version', None, None, 'Version of the MVAR table-initially = 0x00010000'),
+		('uint16', 'Reserved', None, None, 'Set to 0'),
+		('uint16', 'ValueRecordSize', None, None, ''),
+		('uint16', 'ValueRecordCount', None, None, ''),
+		('Offset', 'VarStore', None, None, ''),
+		('MetricsValueRecord', 'ValueRecord', 'ValueRecordCount', 0, ''),
+	]),
+
+
 	#
 	# math
 	#
@@ -977,6 +1173,370 @@ otData = [
 		('uint16', 'EndConnectorLength', None, None, 'Advance width/ height of the straight bar connector material, in design units, is at the end of the glyph, in the direction of the extension.'),
 		('uint16', 'FullAdvance', None, None, 'Full advance width/height for this part, in the direction of the extension. In design units.'),
 		('uint16', 'PartFlags', None, None, 'Part qualifiers. PartFlags enumeration currently uses only one bit: 0x0001 fExtender: If set, the part can be skipped or repeated. 0xFFFE Reserved'),
+	]),
+
+
+	##
+	## Apple Advanced Typography (AAT) tables
+	##
+
+	('AATLookupSegment', [
+		('uint16', 'lastGlyph', None, None, 'Last glyph index in this segment.'),
+		('uint16', 'firstGlyph', None, None, 'First glyph index in this segment.'),
+		('uint16', 'value', None, None, 'A 16-bit offset from the start of the table to the data.'),
+	]),
+
+
+	#
+	# ankr
+	#
+
+	('ankr', [
+		('struct', 'AnchorPoints', None, None, 'Anchor points table.'),
+        ]),
+
+	('AnchorPointsFormat0', [
+		('uint16', 'Format', None, None, 'Format of the anchor points table, = 0.'),
+		('uint16', 'Flags', None, None, 'Flags. Currenty unused, set to zero.'),
+		('AATLookupWithDataOffset(AnchorGlyphData)', 'Anchors', None, None, 'Table of with anchor overrides for each glyph.'),
+	]),
+
+	('AnchorGlyphData', [
+		('uint32', 'AnchorPointCount', None, None, 'Number of anchor points for this glyph.'),
+		('struct', 'AnchorPoint', 'AnchorPointCount', 0, 'Individual anchor points.'),
+	]),
+
+	('AnchorPoint', [
+		('int16', 'XCoordinate', None, None, 'X coordinate of this anchor point.'),
+		('int16', 'YCoordinate', None, None, 'Y coordinate of this anchor point.'),
+	]),
+
+	#
+	# bsln
+	#
+
+	('bsln', [
+		('Version', 'Version', None, None, 'Version number of the AAT baseline table (0x00010000 for the initial version).'),
+		('struct', 'Baseline', None, None, 'Baseline table.'),
+	]),
+
+	('BaselineFormat0', [
+		('uint16', 'Format', None, None, 'Format of the baseline table, = 0.'),
+		('uint16', 'DefaultBaseline', None, None, 'Default baseline value for all glyphs. This value can be from 0 through 31.'),
+		('uint16', 'Delta', 32, 0, u'These are the FUnit distance deltas from the font’s natural baseline to the other baselines used in the font. A total of 32 deltas must be assigned.'),
+	]),
+
+	('BaselineFormat1', [
+		('uint16', 'Format', None, None, 'Format of the baseline table, = 1.'),
+		('uint16', 'DefaultBaseline', None, None, 'Default baseline value for all glyphs. This value can be from 0 through 31.'),
+		('uint16', 'Delta', 32, 0, u'These are the FUnit distance deltas from the font’s natural baseline to the other baselines used in the font. A total of 32 deltas must be assigned.'),
+		('AATLookup(uint16)', 'BaselineValues', None, None, 'Lookup table that maps glyphs to their baseline values.'),
+	]),
+
+	('BaselineFormat2', [
+		('uint16', 'Format', None, None, 'Format of the baseline table, = 1.'),
+		('uint16', 'DefaultBaseline', None, None, 'Default baseline value for all glyphs. This value can be from 0 through 31.'),
+		('GlyphID', 'StandardGlyph', None, None, 'Glyph index of the glyph in this font to be used to set the baseline values. This glyph must contain a set of control points (whose numbers are contained in the following field) that determines baseline distances.'),
+		('uint16', 'ControlPoint', 32, 0, 'Array of 32 control point numbers, associated with the standard glyph. A value of 0xFFFF means there is no corresponding control point in the standard glyph.'),
+	]),
+
+	('BaselineFormat3', [
+		('uint16', 'Format', None, None, 'Format of the baseline table, = 1.'),
+		('uint16', 'DefaultBaseline', None, None, 'Default baseline value for all glyphs. This value can be from 0 through 31.'),
+		('GlyphID', 'StandardGlyph', None, None, 'Glyph index of the glyph in this font to be used to set the baseline values. This glyph must contain a set of control points (whose numbers are contained in the following field) that determines baseline distances.'),
+		('uint16', 'ControlPoint', 32, 0, 'Array of 32 control point numbers, associated with the standard glyph. A value of 0xFFFF means there is no corresponding control point in the standard glyph.'),
+		('AATLookup(uint16)', 'BaselineValues', None, None, 'Lookup table that maps glyphs to their baseline values.'),
+	]),
+
+
+	#
+	# cidg
+	#
+
+	('cidg', [
+		('struct', 'CIDGlyphMapping', None, None, 'CID-to-glyph mapping table.'),
+        ]),
+
+	('CIDGlyphMappingFormat0', [
+		('uint16', 'Format', None, None, 'Format of the CID-to-glyph mapping table, = 0.'),
+		('uint16', 'DataFormat', None, None, 'Currenty unused, set to zero.'),
+		('uint32', 'StructLength', None, None, 'Size of the table in bytes.'),
+		('uint16', 'Registry', None, None, 'The registry ID.'),
+		('char64', 'RegistryName', None, None, 'The registry name in ASCII; unused bytes should be set to 0.'),
+		('uint16', 'Order', None, None, 'The order ID.'),
+		('char64', 'OrderName', None, None, 'The order name in ASCII; unused bytes should be set to 0.'),
+		('uint16', 'SupplementVersion', None, None, 'The supplement version.'),
+		('CIDGlyphMap', 'Mapping', None, None, 'A mapping from CIDs to the glyphs in the font, starting with CID 0. If a CID from the identified collection has no glyph in the font, 0xFFFF is used'),
+	]),
+
+
+	#
+	# feat
+	#
+
+	('feat', [
+		('Version', 'Version', None, None, 'Version of the feat table-initially set to 0x00010000.'),
+		('FeatureNames', 'FeatureNames', None, None, 'The feature names.'),
+	]),
+
+	('FeatureNames', [
+		('uint16', 'FeatureNameCount', None, None, 'Number of entries in the feature name array.'),
+		('uint16', 'Reserved1', None, None, 'Reserved (set to zero).'),
+		('uint32', 'Reserved2', None, None, 'Reserved (set to zero).'),
+		('FeatureName', 'FeatureName', 'FeatureNameCount', 0, 'The feature name array.'),
+	]),
+
+	('FeatureName', [
+		('uint16', 'FeatureType', None, None, 'Feature type.'),
+		('uint16', 'SettingsCount', None, None, 'The number of records in the setting name array.'),
+		('LOffset', 'Settings', None, None, 'Offset to setting table for this feature.'),
+		('uint16', 'FeatureFlags', None, None, 'Single-bit flags associated with the feature type.'),
+		('NameID', 'FeatureNameID', None, None, 'The name table index for the feature name.'),
+	]),
+
+	('Settings', [
+		('Setting', 'Setting', 'SettingsCount', 0, 'The setting array.'),
+	]),
+
+	('Setting', [
+		('uint16', 'SettingValue', None, None, 'The setting.'),
+		('NameID', 'SettingNameID', None, None, 'The name table index for the setting name.'),
+	]),
+
+
+	#
+	# gcid
+	#
+
+	('gcid', [
+		('struct', 'GlyphCIDMapping', None, None, 'Glyph to CID mapping table.'),
+        ]),
+
+	('GlyphCIDMappingFormat0', [
+		('uint16', 'Format', None, None, 'Format of the glyph-to-CID mapping table, = 0.'),
+		('uint16', 'DataFormat', None, None, 'Currenty unused, set to zero.'),
+		('uint32', 'StructLength', None, None, 'Size of the table in bytes.'),
+		('uint16', 'Registry', None, None, 'The registry ID.'),
+		('char64', 'RegistryName', None, None, 'The registry name in ASCII; unused bytes should be set to 0.'),
+		('uint16', 'Order', None, None, 'The order ID.'),
+		('char64', 'OrderName', None, None, 'The order name in ASCII; unused bytes should be set to 0.'),
+		('uint16', 'SupplementVersion', None, None, 'The supplement version.'),
+		('GlyphCIDMap', 'Mapping', None, None, 'The CIDs for the glyphs in the font, starting with glyph 0. If a glyph does not correspond to a CID in the identified collection, 0xFFFF is used'),
+	]),
+
+
+	#
+	# lcar
+	#
+
+	('lcar', [
+		('Version', 'Version', None, None, 'Version number of the ligature caret table (0x00010000 for the initial version).'),
+		('struct', 'LigatureCarets', None, None, 'Ligature carets table.'),
+        ]),
+
+	('LigatureCaretsFormat0', [
+		('uint16', 'Format', None, None, 'Format of the ligature caret table. Format 0 indicates division points are distances in font units, Format 1 indicates division points are indexes of control points.'),
+		('AATLookup(LigCaretDistances)', 'Carets', None, None, 'Lookup table associating ligature glyphs with their caret positions, in font unit distances.'),
+	]),
+
+	('LigatureCaretsFormat1', [
+		('uint16', 'Format', None, None, 'Format of the ligature caret table. Format 0 indicates division points are distances in font units, Format 1 indicates division points are indexes of control points.'),
+		('AATLookup(LigCaretPoints)', 'Carets', None, None, 'Lookup table associating ligature glyphs with their caret positions, as control points.'),
+	]),
+
+	('LigCaretDistances', [
+		('uint16', 'DivsionPointCount', None, None, 'Number of division points.'),
+		('int16', 'DivisionPoint', 'DivsionPointCount', 0, 'Distance in font units through which a subdivision is made orthogonally to the baseline.'),
+	]),
+
+	('LigCaretPoints', [
+		('uint16', 'DivsionPointCount', None, None, 'Number of division points.'),
+		('int16', 'DivisionPoint', 'DivsionPointCount', 0, 'The number of the control point through which a subdivision is made orthogonally to the baseline.'),
+	]),
+
+
+	#
+	# mort
+	#
+
+	('mort', [
+		('Version', 'Version', None, None, 'Version of the mort table.'),
+		('uint32', 'MorphChainCount', None, None, 'Number of metamorphosis chains.'),
+		('MortChain', 'MorphChain', 'MorphChainCount', 0, 'Array of metamorphosis chains.'),
+	]),
+
+	('MortChain', [
+		('Flags32', 'DefaultFlags', None, None, 'The default specification for subtables.'),
+		('uint32', 'StructLength', None, None, 'Total byte count, including this header; must be a multiple of 4.'),
+		('uint16', 'MorphFeatureCount', None, None, 'Number of metamorphosis feature entries.'),
+		('uint16', 'MorphSubtableCount', None, None, 'The number of subtables in the chain.'),
+		('struct', 'MorphFeature', 'MorphFeatureCount', 0, 'Array of metamorphosis features.'),
+		('MortSubtable', 'MorphSubtable', 'MorphSubtableCount', 0, 'Array of metamorphosis subtables.'),
+	]),
+
+	('MortSubtable', [
+		('uint16', 'StructLength', None, None, 'Total subtable length, including this header.'),
+		('uint8', 'CoverageFlags', None, None, 'Most significant byte of coverage flags.'),
+		('uint8', 'MorphType', None, None, 'Subtable type.'),
+		('Flags32', 'SubFeatureFlags', None, None, 'The 32-bit mask identifying which subtable this is (the subtable being executed if the AND of this value and the processed defaultFlags is nonzero).'),
+		('SubStruct', 'SubStruct', None, None, 'SubTable.'),
+	]),
+
+	#
+	# morx
+	#
+
+	('morx', [
+		('uint16', 'Version', None, None, 'Version of the morx table.'),
+		('uint16', 'Reserved', None, None, 'Reserved (set to zero).'),
+		('uint32', 'MorphChainCount', None, None, 'Number of extended metamorphosis chains.'),
+		('MorxChain', 'MorphChain', 'MorphChainCount', 0, 'Array of extended metamorphosis chains.'),
+	]),
+
+	('MorxChain', [
+		('Flags32', 'DefaultFlags', None, None, 'The default specification for subtables.'),
+		('uint32', 'StructLength', None, None, 'Total byte count, including this header; must be a multiple of 4.'),
+		('uint32', 'MorphFeatureCount', None, None, 'Number of feature subtable entries.'),
+		('uint32', 'MorphSubtableCount', None, None, 'The number of subtables in the chain.'),
+		('MorphFeature', 'MorphFeature', 'MorphFeatureCount', 0, 'Array of metamorphosis features.'),
+		('MorxSubtable', 'MorphSubtable', 'MorphSubtableCount', 0, 'Array of extended metamorphosis subtables.'),
+	]),
+
+	('MorphFeature', [
+		('uint16', 'FeatureType', None, None, 'The type of feature.'),
+		('uint16', 'FeatureSetting', None, None, "The feature's setting (aka selector)."),
+		('Flags32', 'EnableFlags', None, None, 'Flags for the settings that this feature and setting enables.'),
+		('Flags32', 'DisableFlags', None, None, 'Complement of flags for the settings that this feature and setting disable.'),
+	]),
+
+	# Apple TrueType Reference Manual, chapter “The ‘morx’ table”,
+	# section “Metamorphosis Subtables”.
+	# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6morx.html
+	('MorxSubtable', [
+		('uint32', 'StructLength', None, None, 'Total subtable length, including this header.'),
+		('uint8', 'CoverageFlags', None, None, 'Most significant byte of coverage flags.'),
+		('uint16', 'Reserved', None, None, 'Unused.'),
+		('uint8', 'MorphType', None, None, 'Subtable type.'),
+		('Flags32', 'SubFeatureFlags', None, None, 'The 32-bit mask identifying which subtable this is (the subtable being executed if the AND of this value and the processed defaultFlags is nonzero).'),
+		('SubStruct', 'SubStruct', None, None, 'SubTable.'),
+        ]),
+
+	('StateHeader', [
+		('uint32', 'ClassCount', None, None, 'Number of classes, which is the number of 16-bit entry indices in a single line in the state array.'),
+		('uint32', 'MorphClass', None, None, 'Offset from the start of this state table header to the start of the class table.'),
+		('uint32', 'StateArrayOffset', None, None, 'Offset from the start of this state table header to the start of the state array.'),
+		('uint32', 'EntryTableOffset', None, None, 'Offset from the start of this state table header to the start of the entry table.'),
+	]),
+
+	('RearrangementMorph', [
+		('STXHeader(RearrangementMorphAction)', 'StateTable', None, None, 'Finite-state transducer table for indic rearrangement.'),
+	]),
+
+	('ContextualMorph', [
+		('STXHeader(ContextualMorphAction)', 'StateTable', None, None, 'Finite-state transducer for contextual glyph substitution.'),
+	]),
+
+	('LigatureMorph', [
+		('STXHeader(LigatureMorphAction)', 'StateTable', None, None, 'Finite-state transducer for ligature substitution.'),
+	]),
+
+	('NoncontextualMorph', [
+		('AATLookup(GlyphID)', 'Substitution', None, None, 'The noncontextual glyph substitution table.'),
+        ]),
+
+	('InsertionMorph', [
+		('STXHeader(InsertionMorphAction)', 'StateTable', None, None, 'Finite-state transducer for glyph insertion.'),
+	]),
+
+	('MorphClass', [
+		('uint16', 'FirstGlyph', None, None, 'Glyph index of the first glyph in the class table.'),
+		#('uint16', 'GlyphCount', None, None, 'Number of glyphs in class table.'),
+		#('uint8', 'GlyphClass', 'GlyphCount', 0, 'The class codes (indexed by glyph index minus firstGlyph). Class codes range from 0 to the value of stateSize minus 1.'),
+	]),
+
+	# If the 'morx' table version is 3 or greater, then the last subtable in the chain is followed by a subtableGlyphCoverageArray, as described below.
+	#		('Offset', 'MarkGlyphSetsDef', None, 'round(Version*0x10000) >= 0x00010002', 'Offset to the table of mark set definitions-from beginning of GDEF header (may be NULL)'),
+
+
+	#
+	# prop
+	#
+
+	('prop', [
+		('Fixed', 'Version', None, None, 'Version number of the AAT glyphs property table. Version 1.0 is the initial table version. Version 2.0, which is recognized by macOS 8.5 and later, adds support for the “attaches on right” bit. Version 3.0, which gets recognized by macOS X and iOS, adds support for the additional directional properties defined in Unicode 3.0.'),
+		('struct', 'GlyphProperties', None, None, 'Glyph properties.'),
+	]),
+
+	('GlyphPropertiesFormat0', [
+		('uint16', 'Format', None, None, 'Format, = 0.'),
+		('uint16', 'DefaultProperties', None, None, 'Default properties applied to a glyph. Since there is no lookup table in prop format 0, the default properties get applied to every glyph in the font.'),
+        ]),
+
+	('GlyphPropertiesFormat1', [
+		('uint16', 'Format', None, None, 'Format, = 1.'),
+		('uint16', 'DefaultProperties', None, None, 'Default properties applied to a glyph if that glyph is not present in the Properties lookup table.'),
+		('AATLookup(uint16)', 'Properties', None, None, 'Lookup data associating glyphs with their properties.'),
+        ]),
+
+
+	#
+	# opbd
+	#
+
+	('opbd', [
+		('Version', 'Version', None, None, 'Version number of the optical bounds table (0x00010000 for the initial version).'),
+		('struct', 'OpticalBounds', None, None, 'Optical bounds table.'),
+	]),
+
+	('OpticalBoundsFormat0', [
+		('uint16', 'Format', None, None, 'Format of the optical bounds table, = 0.'),
+		('AATLookup(OpticalBoundsDeltas)', 'OpticalBoundsDeltas', None, None, 'Lookup table associating glyphs with their optical bounds, given as deltas in font units.'),
+	]),
+
+	('OpticalBoundsFormat1', [
+		('uint16', 'Format', None, None, 'Format of the optical bounds table, = 1.'),
+		('AATLookup(OpticalBoundsPoints)', 'OpticalBoundsPoints', None, None, 'Lookup table associating glyphs with their optical bounds, given as references to control points.'),
+	]),
+
+	('OpticalBoundsDeltas', [
+		('int16', 'Left', None, None, 'Delta value for the left-side optical edge.'),
+		('int16', 'Top', None, None, 'Delta value for the top-side optical edge.'),
+		('int16', 'Right', None, None, 'Delta value for the right-side optical edge.'),
+		('int16', 'Bottom', None, None, 'Delta value for the bottom-side optical edge.'),
+	]),
+
+	('OpticalBoundsPoints', [
+		('int16', 'Left', None, None, 'Control point index for the left-side optical edge, or -1 if this glyph has none.'),
+		('int16', 'Top', None, None, 'Control point index for the top-side optical edge, or -1 if this glyph has none.'),
+		('int16', 'Right', None, None, 'Control point index for the right-side optical edge, or -1 if this glyph has none.'),
+		('int16', 'Bottom', None, None, 'Control point index for the bottom-side optical edge, or -1 if this glyph has none.'),
+	]),
+
+	#
+	# TSIC
+	#
+	('TSIC', [
+		('Version', 'Version', None, None, 'Version of table initially set to 0x00010000.'),
+		('uint16', 'Flags', None, None, 'TSIC flags - set to 0'),
+		('uint16', 'AxisCount', None, None, 'Axis count from fvar'),
+		('uint16', 'RecordCount', None, None, 'TSIC record count'),
+		('uint16', 'Reserved', None, None, 'Set to 0'),
+		('Tag', 'AxisArray', 'AxisCount', 0, 'Array of axis tags in fvar order'),
+		('LocationRecord', 'RecordLocations', 'RecordCount', 0, 'Location in variation space of TSIC record'),
+		('TSICRecord', 'Record', 'RecordCount', 0, 'Array of TSIC records'),
+	]),
+
+	('LocationRecord', [
+		('F2Dot14', 'Axis', 'AxisCount', 0, 'Axis record'),
+	]),
+
+	('TSICRecord', [
+		('uint16', 'Flags', None, None, 'Record flags - set to 0'),
+		('uint16', 'NumCVTEntries', None, None, 'Number of CVT number value pairs'),
+		('uint16', 'NameLength', None, None, 'Length of optional user record name'),
+		('uint16', 'NameArray', 'NameLength', 0, 'Unicode 16 name'),
+		('uint16', 'CVTArray', 'NumCVTEntries', 0, 'CVT number array'),
+		('int16', 'CVTValueArray', 'NumCVTEntries', 0, 'CVT value'),
 	]),
 
 ]

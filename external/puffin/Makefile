@@ -33,7 +33,7 @@ LIBPUFFIN = libpuffin.so
 UNITTESTS = puffin_unittests
 
 CXXFLAGS ?= -O3 -ggdb
-CXXFLAGS += -Wall -fPIC -std=c++11
+CXXFLAGS += -Wall -fPIC -std=c++14
 CPPFLAGS += -I../ -Isrc/include
 LDLIBS = -lgflags -lglog -lprotobuf-lite -lgtest -lpthread
 

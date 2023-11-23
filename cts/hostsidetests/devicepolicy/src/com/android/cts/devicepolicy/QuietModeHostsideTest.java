@@ -49,16 +49,40 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
         super.tearDown();
     }
 
-    public void testQuietMode() throws Exception {
+    public void testQuietMode_defaultForegroundLauncher() throws Exception {
         if (!mHasFeature) {
           return;
         }
         runDeviceTestsAsUser(
                 TEST_PACKAGE,
                 TEST_CLASS,
-                null,
+                "testTryEnableQuietMode_defaultForegroundLauncher",
                 mPrimaryUserId,
                 createParams(mProfileId));
+    }
+
+    public void testQuietMode_notForegroundLauncher() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(
+            TEST_PACKAGE,
+            TEST_CLASS,
+            "testTryEnableQuietMode_notForegroundLauncher",
+            mPrimaryUserId,
+            createParams(mProfileId));
+    }
+
+    public void testQuietMode_notDefaultLauncher() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(
+            TEST_PACKAGE,
+            TEST_CLASS,
+            "testTryEnableQuietMode_notDefaultLauncher",
+            mPrimaryUserId,
+            createParams(mProfileId));
     }
 
     private void createAndStartManagedProfile() throws Exception {

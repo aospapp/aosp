@@ -93,7 +93,7 @@ struct devpath {
 	char *path;			/* path to device special file */
 	char *buts_name;		/* name returned from bt kernel code */
 	struct pdc_stats *stats;
-	int fd, idx, ncpus;
+	int fd, ncpus;
 	unsigned long long drops;
 
 	/*
@@ -274,7 +274,9 @@ static char blktrace_version[] = "2.0.0";
 int data_is_native = -1;
 
 static int ndevs;
+static int max_cpus;
 static int ncpus;
+static cpu_set_t *online_cpus;
 static int pagesize;
 static int act_mask = ~0U;
 static int kill_running_trace;
@@ -435,24 +437,39 @@ static struct option l_opts[] = {
 	}
 };
 
-static char usage_str[] = \
-	"-d <dev> [ -r debugfs path ] [ -o <output> ] [-k ] [ -w time ]\n" \
-	"[ -a action ] [ -A action mask ] [ -I  <devs file> ] [ -v ]\n\n" \
+static char usage_str[] = "\n\n" \
+	"-d <dev>             | --dev=<dev>\n" \
+        "[ -r <debugfs path>  | --relay=<debugfs path> ]\n" \
+        "[ -o <file>          | --output=<file>]\n" \
+        "[ -D <dir>           | --output-dir=<dir>\n" \
+        "[ -w <time>          | --stopwatch=<time>]\n" \
+        "[ -a <action field>  | --act-mask=<action field>]\n" \
+        "[ -A <action mask>   | --set-mask=<action mask>]\n" \
+        "[ -b <size>          | --buffer-size]\n" \
+        "[ -n <number>        | --num-sub-buffers=<number>]\n" \
+        "[ -l                 | --listen]\n" \
+        "[ -h <hostname>      | --host=<hostname>]\n" \
+        "[ -p <port number>   | --port=<port number>]\n" \
+        "[ -s                 | --no-sendfile]\n" \
+        "[ -I <devs file>     | --input-devs=<devs file>]\n" \
+        "[ -v <version>       | --version]\n" \
+        "[ -V <version>       | --version]\n" \
+
 	"\t-d Use specified device. May also be given last after options\n" \
 	"\t-r Path to mounted debugfs, defaults to /sys/kernel/debug\n" \
 	"\t-o File(s) to send output to\n" \
 	"\t-D Directory to prepend to output file names\n" \
-	"\t-k Kill a running trace\n" \
 	"\t-w Stop after defined time, in seconds\n" \
 	"\t-a Only trace specified actions. See documentation\n" \
 	"\t-A Give trace mask as a single value. See documentation\n" \
-	"\t-b Sub buffer size in KiB\n" \
-	"\t-n Number of sub buffers\n" \
+	"\t-b Sub buffer size in KiB (default 512)\n" \
+	"\t-n Number of sub buffers (default 4)\n" \
 	"\t-l Run in network listen mode (blktrace server)\n" \
 	"\t-h Run in network client mode, connecting to the given host\n" \
 	"\t-p Network port to use (default 8462)\n" \
 	"\t-s Make the network client NOT use sendfile() to transfer data\n" \
 	"\t-I Add devices found in <devs file>\n" \
+	"\t-v Print program version info\n" \
 	"\t-V Print program version info\n\n";
 
 static void clear_events(struct pollfd *pfd)
@@ -493,7 +510,7 @@ static inline void pdc_nev_update(struct devpath *dpp, int cpu, int nevents)
 
 static void show_usage(char *prog)
 {
-	fprintf(stderr, "Usage: %s %s %s", prog, blktrace_version, usage_str);
+	fprintf(stderr, "Usage: %s %s", prog, usage_str);
 }
 
 /*
@@ -606,19 +623,23 @@ static void dpp_free(struct devpath *dpp)
 
 static int lock_on_cpu(int cpu)
 {
-#ifndef _ANDROID_
-	cpu_set_t cpu_mask;
+	cpu_set_t * cpu_mask;
+	size_t size;
 
-	CPU_ZERO(&cpu_mask);
-	CPU_SET(cpu, &cpu_mask);
-	if (sched_setaffinity(0, sizeof(cpu_mask), &cpu_mask) < 0)
+	cpu_mask = CPU_ALLOC(max_cpus);
+	size = CPU_ALLOC_SIZE(max_cpus);
+
+	CPU_ZERO_S(size, cpu_mask);
+	CPU_SET_S(cpu, size, cpu_mask);
+	if (sched_setaffinity(0, size, cpu_mask) < 0) {
+		CPU_FREE(cpu_mask);		
 		return errno;
-#endif
+	}
 
+	CPU_FREE(cpu_mask);		
 	return 0;
 }
 
-#ifndef _ANDROID_
 static int increase_limit(int resource, rlim_t increase)
 {
 	struct rlimit rlim;
@@ -636,16 +657,11 @@ static int increase_limit(int resource, rlim_t increase)
 	errno = save_errno;
 	return 0;
 }
-#endif
 
 static int handle_open_failure(void)
 {
 	if (errno == ENFILE || errno == EMFILE)
-#ifndef _ANDROID_
 		return increase_limit(RLIMIT_NOFILE, 16);
-#else
-		return -ENOSYS;
-#endif
 	return 0;
 }
 
@@ -654,11 +670,7 @@ static int handle_mem_failure(size_t length)
 	if (errno == ENFILE)
 		return handle_open_failure();
 	else if (errno == ENOMEM)
-#ifndef _ANDROID_
 		return increase_limit(RLIMIT_MEMLOCK, 2 * length);
-#else
-		return -ENOSYS;
-#endif
 	return 0;
 }
 
@@ -718,18 +730,24 @@ static void *my_mmap(void *addr, size_t length, int prot, int flags, int fd,
 	return new;
 }
 
-static int my_mlock(const void *addr, size_t len)
+static int my_mlock(struct tracer *tp,
+		    const void *addr, size_t len)
 {
-	int ret;
+	int ret, retry = 0;
 
 	do {
 		ret = mlock(addr, len);
+		if ((retry >= 10) && tp && tp->is_done)
+			break;
+		retry++;
 	} while (ret < 0 && handle_mem_failure(len));
 
 	return ret;
 }
 
-static int setup_mmap(int fd, unsigned int maxlen, struct mmap_info *mip)
+static int setup_mmap(int fd, unsigned int maxlen,
+		      struct mmap_info *mip,
+		      struct tracer *tp)
 {
 	if (mip->fs_off + maxlen > mip->fs_buf_len) {
 		unsigned long nr = max(16, mip->buf_nr);
@@ -756,7 +774,10 @@ static int setup_mmap(int fd, unsigned int maxlen, struct mmap_info *mip)
 			perror("setup_mmap: mmap");
 			return 1;
 		}
-		my_mlock(mip->fs_buf, mip->fs_buf_len);
+		if (my_mlock(tp, mip->fs_buf, mip->fs_buf_len) < 0) {
+			perror("setup_mlock: mlock");
+			return 1;
+		}
 	}
 
 	return 0;
@@ -860,10 +881,11 @@ static int net_send_header(int fd, int cpu, char *buts_name, int len)
 	memset(&hdr, 0, sizeof(hdr));
 
 	hdr.magic = BLK_IO_TRACE_MAGIC;
+	memset(hdr.buts_name, 0, sizeof(hdr.buts_name));
 	strncpy(hdr.buts_name, buts_name, sizeof(hdr.buts_name));
-	hdr.buts_name[sizeof(hdr.buts_name)-1] = '\0';
+	hdr.buts_name[sizeof(hdr.buts_name) - 1] = '\0';
 	hdr.cpu = cpu;
-	hdr.max_cpus = ncpus;
+	hdr.max_cpus = max_cpus;
 	hdr.len = len;
 	hdr.cl_id = getpid();
 	hdr.buf_size = buf_size;
@@ -969,7 +991,9 @@ retry:
 		}
 
 		memcpy(&addr->sin_addr, hent->h_addr, 4);
-		strcpy(hostname, hent->h_name);
+		memset(hostname, 0, sizeof(hostname));
+		strncpy(hostname, hent->h_name, sizeof(hostname));
+		hostname[sizeof(hostname) - 1] = '\0';
 	}
 
 	return 0;
@@ -1005,9 +1029,12 @@ static int net_setup_client(void)
 static int open_client_connections(void)
 {
 	int cpu;
+	size_t alloc_size = CPU_ALLOC_SIZE(max_cpus);
 
 	cl_fds = calloc(ncpus, sizeof(*cl_fds));
-	for (cpu = 0; cpu < ncpus; cpu++) {
+	for (cpu = 0; cpu < max_cpus; cpu++) {
+		if (!CPU_ISSET_S(cpu, alloc_size, online_cpus))
+			continue;
 		cl_fds[cpu] = net_setup_client();
 		if (cl_fds[cpu] < 0)
 			goto err;
@@ -1025,8 +1052,11 @@ static void close_client_connections(void)
 {
 	if (cl_fds) {
 		int cpu, *fdp;
+		size_t alloc_size = CPU_ALLOC_SIZE(max_cpus);
 
-		for (cpu = 0, fdp = cl_fds; cpu < ncpus; cpu++, fdp++) {
+		for (cpu = 0, fdp = cl_fds; cpu < max_cpus; cpu++, fdp++) {
+			if (!CPU_ISSET_S(cpu, alloc_size, online_cpus))
+				continue;
 			if (*fdp >= 0) {
 				net_send_drops(*fdp);
 				net_close_connection(fdp);
@@ -1036,9 +1066,10 @@ static void close_client_connections(void)
 	}
 }
 
-static void setup_buts(void)
+static int setup_buts(void)
 {
 	struct list_head *p;
+	int ret = 0;
 
 	__list_for_each(p, &devpaths) {
 		struct blk_user_trace_setup buts;
@@ -1048,17 +1079,22 @@ static void setup_buts(void)
 		buts.buf_size = buf_size;
 		buts.buf_nr = buf_nr;
 		buts.act_mask = act_mask;
+
 		if (ioctl(dpp->fd, BLKTRACESETUP, &buts) >= 0) {
-			dpp->ncpus = ncpus;
+			dpp->ncpus = max_cpus;
 			dpp->buts_name = strdup(buts.name);
 			if (dpp->stats)
 				free(dpp->stats);
 			dpp->stats = calloc(dpp->ncpus, sizeof(*dpp->stats));
 			memset(dpp->stats, 0, dpp->ncpus * sizeof(*dpp->stats));
-		} else
+		} else {
 			fprintf(stderr, "BLKTRACESETUP(2) %s failed: %d/%s\n",
 				dpp->path, errno, strerror(errno));
+			ret++;
+		}
 	}
+
+	return ret;
 }
 
 static void start_buts(void)
@@ -1133,7 +1169,7 @@ static void free_tracer_heads(struct devpath *dpp)
 	int cpu;
 	struct tracer_devpath_head *hd;
 
-	for (cpu = 0, hd = dpp->heads; cpu < ncpus; cpu++, hd++) {
+	for (cpu = 0, hd = dpp->heads; cpu < max_cpus; cpu++, hd++) {
 		if (hd->prev)
 			free(hd->prev);
 
@@ -1155,8 +1191,8 @@ static int setup_tracer_devpaths(void)
 		struct tracer_devpath_head *hd;
 		struct devpath *dpp = list_entry(p, struct devpath, head);
 
-		dpp->heads = calloc(ncpus, sizeof(struct tracer_devpath_head));
-		for (cpu = 0, hd = dpp->heads; cpu < ncpus; cpu++, hd++) {
+		dpp->heads = calloc(max_cpus, sizeof(struct tracer_devpath_head));
+		for (cpu = 0, hd = dpp->heads; cpu < max_cpus; cpu++, hd++) {
 			INIT_LIST_HEAD(&hd->head);
 			pthread_mutex_init(&hd->mutex, NULL);
 			hd->prev = NULL;
@@ -1211,7 +1247,16 @@ static int add_devpath(char *path)
 {
 	int fd;
 	struct devpath *dpp;
+	struct list_head *p;
 
+	/*
+	 * Verify device is not duplicated
+	 */
+	__list_for_each(p, &devpaths) {
+	       struct devpath *tmp = list_entry(p, struct devpath, head);
+	       if (!strcmp(tmp->path, path))
+		        return 0;
+	}
 	/*
 	 * Verify device is valid before going too far
 	 */
@@ -1226,7 +1271,7 @@ static int add_devpath(char *path)
 	memset(dpp, 0, sizeof(*dpp));
 	dpp->path = strdup(path);
 	dpp->fd = fd;
-	dpp->idx = ndevs++;
+	ndevs++;
 	list_add_tail(&dpp->head, &devpaths);
 
 	return 0;
@@ -1308,7 +1353,7 @@ static struct trace_buf *tb_combine(struct trace_buf *prev,
 		 * the whole structures, as the other fields
 		 * are "static".
 		 */
-		prev = realloc(prev->buf, sizeof(*prev) + tot_len);
+		prev = realloc(prev, sizeof(*prev) + tot_len);
 		prev->buf = (void *)(prev + 1);
 	}
 
@@ -1395,7 +1440,7 @@ static void __process_trace_bufs(void)
 		struct devpath *dpp = list_entry(p, struct devpath, head);
 		struct tracer_devpath_head *hd = dpp->heads;
 
-		for (cpu = 0; cpu < ncpus; cpu++, hd++) {
+		for (cpu = 0; cpu < max_cpus; cpu++, hd++) {
 			pthread_mutex_lock(&hd->mutex);
 			if (list_empty(&hd->head)) {
 				pthread_mutex_unlock(&hd->mutex);
@@ -1462,30 +1507,25 @@ static inline int net_sendfile_data(struct tracer *tp, struct io_info *iop)
 	return net_sendfile(iop);
 }
 
-static int fill_ofname(struct io_info *iop, int cpu)
+static int fill_ofname(char *dst, int dstlen, char *subdir, char *buts_name,
+		       int cpu)
 {
 	int len;
 	struct stat sb;
-	char *dst = iop->ofn;
 
 	if (output_dir)
-		len = snprintf(iop->ofn, sizeof(iop->ofn), "%s/", output_dir);
+		len = snprintf(dst, dstlen, "%s/", output_dir);
 	else
-		len = snprintf(iop->ofn, sizeof(iop->ofn), "./");
+		len = snprintf(dst, dstlen, "./");
 
-	if (net_mode == Net_server) {
-		struct cl_conn *nc = iop->nc;
+	if (subdir)
+		len += snprintf(dst + len, dstlen - len, "%s", subdir);
 
-		len += sprintf(dst + len, "%s-", nc->ch->hostname);
-		len += strftime(dst + len, 64, "%F-%T/",
-				gmtime(&iop->dpp->cl_connect_time));
-	}
-
-	if (stat(iop->ofn, &sb) < 0) {
+	if (stat(dst, &sb) < 0) {
 		if (errno != ENOENT) {
 			fprintf(stderr,
 				"Destination dir %s stat failed: %d/%s\n",
-				iop->ofn, errno, strerror(errno));
+				dst, errno, strerror(errno));
 			return 1;
 		}
 		/*
@@ -1493,20 +1533,20 @@ static int fill_ofname(struct io_info *iop, int cpu)
 		 * trying to create the directory at once.  It's harmless
 		 * to let them try, so just detect the problem and move on.
 		 */
-		if (mkdir(iop->ofn, 0755) < 0 && errno != EEXIST) {
+		if (mkdir(dst, 0755) < 0 && errno != EEXIST) {
 			fprintf(stderr,
 				"Destination dir %s can't be made: %d/%s\n",
-				iop->ofn, errno, strerror(errno));
+				dst, errno, strerror(errno));
 			return 1;
 		}
 	}
 
 	if (output_name)
-		snprintf(iop->ofn + len, sizeof(iop->ofn), "%s.blktrace.%d",
+		snprintf(dst + len, dstlen - len, "%s.blktrace.%d",
 			 output_name, cpu);
 	else
-		snprintf(iop->ofn + len, sizeof(iop->ofn), "%s.blktrace.%d",
-			 iop->dpp->buts_name, cpu);
+		snprintf(dst + len, dstlen - len, "%s.blktrace.%d",
+			 buts_name, cpu);
 
 	return 0;
 }
@@ -1527,8 +1567,23 @@ static int set_vbuf(struct io_info *iop, int mode, size_t size)
 
 static int iop_open(struct io_info *iop, int cpu)
 {
+	char hostdir[MAXPATHLEN + 64];
+
 	iop->ofd = -1;
-	if (fill_ofname(iop, cpu))
+	if (net_mode == Net_server) {
+		struct cl_conn *nc = iop->nc;
+		int len;
+
+		len = snprintf(hostdir, sizeof(hostdir), "%s-",
+			       nc->ch->hostname);
+		len += strftime(hostdir + len, sizeof(hostdir) - len, "%F-%T/",
+				gmtime(&iop->dpp->cl_connect_time));
+	} else {
+		hostdir[0] = 0;
+	}
+
+	if (fill_ofname(iop->ofn, sizeof(iop->ofn), hostdir,
+			iop->dpp->buts_name, cpu))
 		return 1;
 
 	iop->ofp = my_fopen(iop->ofn, "w+");
@@ -1670,7 +1725,7 @@ static int handle_pfds_file(struct tracer *tp, int nevs, int force_read)
 		if (pfd->revents & POLLIN || force_read) {
 			mip = &iop->mmap_info;
 
-			ret = setup_mmap(iop->ofd, buf_size, mip);
+			ret = setup_mmap(iop->ofd, buf_size, mip, tp);
 			if (ret < 0) {
 				pfd->events = 0;
 				break;
@@ -1706,11 +1761,10 @@ static int handle_pfds_netclient(struct tracer *tp, int nevs, int force_read)
 {
 	struct stat sb;
 	int i, nentries = 0;
-	struct pdc_stats *sp;
 	struct pollfd *pfd = tp->pfds;
 	struct io_info *iop = tp->ios;
 
-	for (i = 0; i < ndevs; i++, pfd++, iop++, sp++) {
+	for (i = 0; i < ndevs; i++, pfd++, iop++) {
 		if (pfd->revents & POLLIN || force_read) {
 			if (fstat(iop->ifd, &sb) < 0) {
 				perror(iop->ifn);
@@ -1844,16 +1898,49 @@ static int start_tracer(int cpu)
 	return 0;
 }
 
+static int create_output_files(int cpu)
+{
+	char fname[MAXPATHLEN + 64];
+	struct list_head *p;
+	FILE *f;
+
+	__list_for_each(p, &devpaths) {
+		struct devpath *dpp = list_entry(p, struct devpath, head);
+
+		if (fill_ofname(fname, sizeof(fname), NULL, dpp->buts_name,
+				cpu))
+			return 1;
+		f = my_fopen(fname, "w+");
+		if (!f)
+			return 1;
+		fclose(f);
+	}
+	return 0;
+}
+
 static void start_tracers(void)
 {
-	int cpu;
+	int cpu, started = 0;
 	struct list_head *p;
+	size_t alloc_size = CPU_ALLOC_SIZE(max_cpus);
 
-	for (cpu = 0; cpu < ncpus; cpu++)
+	for (cpu = 0; cpu < max_cpus; cpu++) {
+		if (!CPU_ISSET_S(cpu, alloc_size, online_cpus)) {
+			/*
+			 * Create fake empty output files so that other tools
+			 * like blkparse don't have to bother with sparse CPU
+			 * number space.
+			 */
+			if (create_output_files(cpu))
+				break;
+			continue;
+		}
 		if (start_tracer(cpu))
 			break;
+		started++;
+	}
 
-	wait_tracers_ready(cpu);
+	wait_tracers_ready(started);
 
 	__list_for_each(p, &tracers) {
 		struct tracer *tp = list_entry(p, struct tracer, head);
@@ -1883,6 +1970,7 @@ static void stop_tracers(void)
 		struct tracer *tp = list_entry(p, struct tracer, head);
 		tp->is_done = 1;
 	}
+	pthread_cond_broadcast(&mt_cond);
 }
 
 static void del_tracers(void)
@@ -2054,9 +2142,13 @@ static int handle_args(int argc, char *argv[])
 				return 1;
 			}
 
-			while (fscanf(ifp, "%s\n", dev_line) == 1)
-				if (add_devpath(dev_line) != 0)
+			while (fscanf(ifp, "%s\n", dev_line) == 1) {
+				if (add_devpath(dev_line) != 0) {
+					fclose(ifp);
 					return 1;
+				}
+			}
+			fclose(ifp);
 			break;
 		}
 
@@ -2106,7 +2198,9 @@ static int handle_args(int argc, char *argv[])
 			break;
 		case 'h':
 			net_mode = Net_client;
-			strcpy(hostname, optarg);
+			memset(hostname, 0, sizeof(hostname));
+			strncpy(hostname, optarg, sizeof(hostname));
+			hostname[sizeof(hostname) - 1] = '\0';
 			break;
 		case 'l':
 			net_mode = Net_server;
@@ -2133,9 +2227,14 @@ static int handle_args(int argc, char *argv[])
 		return 1;
 	}
 
-	if (statfs(debugfs_path, &st) < 0 || st.f_type != (long)DEBUGFS_TYPE) {
+	if (statfs(debugfs_path, &st) < 0) {
 		fprintf(stderr, "Invalid debug path %s: %d/%s\n",
 			debugfs_path, errno, strerror(errno));
+		return 1;
+	}
+
+	if (st.f_type != (long)DEBUGFS_TYPE) {
+		fprintf(stderr, "Debugfs is not mounted at %s\n", debugfs_path);
 		return 1;
 	}
 
@@ -2156,7 +2255,10 @@ static int handle_args(int argc, char *argv[])
 		piped_output = 1;
 		handle_pfds = handle_pfds_entries;
 		pfp = stdout;
-		setvbuf(pfp, NULL, _IONBF, 0);
+		if (setvbuf(pfp, NULL, _IONBF, 0)) {
+			perror("setvbuf stdout");
+			return 1;
+		}
 	} else
 		handle_pfds = handle_pfds_file;
 	return 0;
@@ -2368,7 +2470,7 @@ static void net_client_read_data(struct cl_conn *nc, struct devpath *dpp,
 	struct io_info *iop = &dpp->ios[bnh->cpu];
 	struct mmap_info *mip = &iop->mmap_info;
 
-	if (setup_mmap(iop->ofd, bnh->len, &iop->mmap_info)) {
+	if (setup_mmap(iop->ofd, bnh->len, &iop->mmap_info, NULL)) {
 		fprintf(stderr, "ncd(%s:%d): mmap failed\n",
 			nc->ch->hostname, nc->fd);
 		exit(1);
@@ -2579,7 +2681,8 @@ static int run_tracers(void)
 	if (net_mode == Net_client)
 		printf("blktrace: connecting to %s\n", hostname);
 
-	setup_buts();
+	if (setup_buts())
+		return 1;
 
 	if (use_tracer_devpaths()) {
 		if (setup_tracer_devpaths())
@@ -2612,19 +2715,94 @@ static int run_tracers(void)
 	return 0;
 }
 
+static cpu_set_t *get_online_cpus(void)
+{
+	FILE *cpus;
+	cpu_set_t *set;
+	size_t alloc_size;
+	int cpuid, prevcpuid = -1;
+	char nextch;
+	int n, ncpu, curcpu = 0;
+	int *cpu_nums;
+
+	ncpu = sysconf(_SC_NPROCESSORS_CONF);
+	if (ncpu < 0)
+		return NULL;
+
+	cpu_nums = malloc(sizeof(int)*ncpu);
+	if (!cpu_nums) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	/*
+	 * There is no way to easily get maximum CPU number. So we have to
+	 * parse the file first to find it out and then create appropriate
+	 * cpuset
+	 */
+	cpus = my_fopen("/sys/devices/system/cpu/online", "r");
+	for (;;) {
+		n = fscanf(cpus, "%d%c", &cpuid, &nextch);
+		if (n <= 0)
+			break;
+		if (n == 2 && nextch == '-') {
+			prevcpuid = cpuid;
+			continue;
+		}
+		if (prevcpuid == -1)
+			prevcpuid = cpuid;
+		while (prevcpuid <= cpuid) {
+			/* More CPUs listed than configured? */
+			if (curcpu >= ncpu) {
+				errno = EINVAL;
+				return NULL;
+			}
+			cpu_nums[curcpu++] = prevcpuid++;
+		}
+		prevcpuid = -1;
+	}
+	fclose(cpus);
+
+	ncpu = curcpu;
+	max_cpus = cpu_nums[ncpu - 1] + 1;
+
+	/* Now that we have maximum cpu number, create a cpuset */
+	set = CPU_ALLOC(max_cpus);
+	if (!set) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	alloc_size = CPU_ALLOC_SIZE(max_cpus);
+	CPU_ZERO_S(alloc_size, set);
+
+	for (curcpu = 0; curcpu < ncpu; curcpu++)
+		CPU_SET_S(cpu_nums[curcpu], alloc_size, set);
+
+	free(cpu_nums);
+
+	return set;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret = 0;
 
 	setlocale(LC_NUMERIC, "en_US");
 	pagesize = getpagesize();
-	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-	if (ncpus < 0) {
-		fprintf(stderr, "sysconf(_SC_NPROCESSORS_ONLN) failed %d/%s\n",
+	online_cpus = get_online_cpus();
+	if (!online_cpus) {
+		fprintf(stderr, "cannot get online cpus %d/%s\n",
 			errno, strerror(errno));
 		ret = 1;
 		goto out;
 	} else if (handle_args(argc, argv)) {
+		ret = 1;
+		goto out;
+	}
+
+	ncpus = CPU_COUNT_S(CPU_ALLOC_SIZE(max_cpus), online_cpus);
+	if (ndevs > 1 && output_name && strcmp(output_name, "-") != 0) {
+		fprintf(stderr, "-o not supported with multiple devices\n");
 		ret = 1;
 		goto out;
 	}

@@ -517,6 +517,10 @@ public class FtpClient extends sun.net.ftp.FtpClient {
      * @return <code>true</code> if the command was successful
      * @throws IOException
      */
+    // Android-changed: Integrate upstream fix to guard against '\n'.
+    // Integrates OpenJDK's "8170222: Better transfers of files".
+    // See http://b/35784677 .
+    // private boolean issueCommand(String cmd) throws IOException {
     private boolean issueCommand(String cmd) throws IOException,
             sun.net.ftp.FtpProtocolException {
         if (!isConnected()) {
@@ -529,12 +533,14 @@ public class FtpClient extends sun.net.ftp.FtpClient {
                 // ignore...
             }
         }
+        // BEGIN Android-added: Integrate upstream fix to guard against '\n'.
         if (cmd.indexOf('\n') != -1) {
             sun.net.ftp.FtpProtocolException ex
                     = new sun.net.ftp.FtpProtocolException("Illegal FTP command");
             ex.initCause(new IllegalArgumentException("Illegal carriage return"));
             throw ex;
         }
+        // END Android-added: Integrate upstream fix to guard against '\n'.
         sendServer(cmd + "\r\n");
         return readReply();
     }

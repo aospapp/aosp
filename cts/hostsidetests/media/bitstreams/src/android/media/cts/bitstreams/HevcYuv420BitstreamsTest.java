@@ -29,8 +29,8 @@ public class HevcYuv420BitstreamsTest extends MediaBitstreamsTest {
     }
 
     public HevcYuv420BitstreamsTest(String prefix, String path,
-            BitstreamPackage pkg, BitstreamPackage packageToRun) {
-        super(prefix, path, pkg, packageToRun);
+            BitstreamPackage pkg, BitstreamPackage packageToRun, boolean enforce) {
+        super(prefix, path, pkg, packageToRun, enforce);
     }
 
 }

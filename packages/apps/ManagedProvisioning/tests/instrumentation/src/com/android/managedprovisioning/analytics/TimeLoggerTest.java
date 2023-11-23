@@ -16,6 +16,8 @@
 
 package com.android.managedprovisioning.analytics;
 
+import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
+
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
@@ -24,6 +26,8 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -34,7 +38,7 @@ import org.mockito.MockitoAnnotations;
 @SmallTest
 public class TimeLoggerTest extends AndroidTestCase {
 
-    private static final int CATEGORY = 1;
+    private static final int CATEGORY = PROVISIONING_PROVISIONING_ACTIVITY_TIME_MS;
     private static final long START_TIME_MS = 1500;
     private static final long STOP_TIME_MS = 2500;
 
@@ -43,6 +47,8 @@ public class TimeLoggerTest extends AndroidTestCase {
     @Mock private Context mContext;
     @Mock private MetricsLoggerWrapper mMetricsLoggerWrapper;
     @Mock private AnalyticsUtils mAnalyticsUtils;
+    @Mock private MetricsWriter mMetricsWriter;
+    @Mock private ManagedProvisioningSharedPreferences mSharedPreferences;
 
     @Override
     public void setUp() {
@@ -51,7 +57,8 @@ public class TimeLoggerTest extends AndroidTestCase {
 
         MockitoAnnotations.initMocks(this);
 
-        mTimeLogger = new TimeLogger(mContext, CATEGORY, mMetricsLoggerWrapper, mAnalyticsUtils);
+        mTimeLogger = new TimeLogger(mContext, CATEGORY, mMetricsLoggerWrapper, mAnalyticsUtils,
+                new ProvisioningAnalyticsTracker(mMetricsWriter, mSharedPreferences));
     }
 
     @SmallTest

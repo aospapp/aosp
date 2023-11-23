@@ -2,6 +2,7 @@
 cc_test {
     name: "camera_metadata_tests",
     srcs: ["camera_metadata_tests.cpp"],
+    test_suites: ["device-tests"],
 
     shared_libs: [
         "libutils",

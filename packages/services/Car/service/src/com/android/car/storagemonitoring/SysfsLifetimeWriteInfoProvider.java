@@ -19,7 +19,9 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.storagemonitoring.LifetimeWriteInfo;
 import android.util.Log;
+
 import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -100,7 +102,12 @@ public class SysfsLifetimeWriteInfoProvider implements LifetimeWriteInfoProvider
         for (String fstype : KNOWN_FILESYSTEMS) {
             File fspath = new File(mWriteInfosPath, fstype);
             if (!fspath.exists() || !fspath.isDirectory()) continue;
-            Arrays.stream(fspath.listFiles(File::isDirectory))
+            File[] files = fspath.listFiles(File::isDirectory);
+            if (files == null) {
+                Log.e(TAG, "there are no directories at location " + fspath.getAbsolutePath());
+                continue;
+            }
+            Arrays.stream(files)
                 .map(this::tryParse)
                 .filter(Objects::nonNull)
                 .forEach(writeInfos::add);

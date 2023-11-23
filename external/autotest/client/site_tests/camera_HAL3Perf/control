@@ -6,7 +6,7 @@ AUTHOR = "Chrome OS Team, chromeos-video@google.com"
 NAME = "camera_HAL3Perf"
 PURPOSE = "Monitor the performance of the camera HAL3."
 CRITERIA = """
-The test fails if the arc_camera3_test fails or crashes.
+The test fails if the cros_camera_test fails or crashes.
 """
 ATTRIBUTES = "suite:crosbolt_perf_nightly"
 TIME = "SHORT"
@@ -20,7 +20,7 @@ BUG_TEMPLATE = {
 }
 
 DOC = """
-This test utilizes the arc_camera3_test to measure the performance of the
+This test utilizes the cros_camera_test to measure the performance of the
 camera HAL3.
 """
 

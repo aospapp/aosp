@@ -23,8 +23,6 @@ class VPNServer(object):
 
 class L2TPIPSecVPNServer(VPNServer):
     """Implementation of an L2TP/IPSec VPN.  Uses ipsec starter and xl2tpd."""
-    PRELOAD_MODULES = ('af_key', 'ah4', 'esp4', 'ipcomp', 'xfrm_user',
-                       'xfrm4_tunnel')
     ROOT_DIRECTORIES = ('etc/ipsec.d', 'etc/ipsec.d/cacerts',
                         'etc/ipsec.d/certs', 'etc/ipsec.d/crls',
                         'etc/ipsec.d/private', 'etc/ppp', 'etc/xl2tpd')
@@ -190,7 +188,6 @@ class L2TPIPSecVPNServer(VPNServer):
         chroot.add_startup_command('%s -c /%s -C /tmp/l2tpd.control' %
                                    (self.XL2TPD_COMMAND,
                                     self.XL2TPD_CONFIG_FILE))
-        self.preload_modules()
         chroot.startup()
 
 
@@ -206,12 +203,6 @@ class L2TPIPSecVPNServer(VPNServer):
     def get_log_contents(self):
         """Return all logs related to the chroot."""
         return self._chroot.get_log_contents()
-
-
-    def preload_modules(self):
-        """Pre-load ipsec modules since they can't be loaded from chroot."""
-        for module in self.PRELOAD_MODULES:
-            utils.system('modprobe %s' % module)
 
 
 class OpenVPNServer(VPNServer):

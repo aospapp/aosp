@@ -17,13 +17,13 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -1690,7 +1690,7 @@ MagickExport MagickBooleanType DisplayImages(const ImageInfo *image_info,
     CatchException(exception);
   (void) XSetErrorHandler(XError);
   resource_database=XGetResourceDatabase(display,GetClientName());
-  (void) ResetMagickMemory(&resource_info,0,sizeof(resource_info));
+  (void) memset(&resource_info,0,sizeof(resource_info));
   XGetResourceInfo(image_info,resource_database,GetClientName(),&resource_info);
   if (image_info->page != (char *) NULL)
     resource_info.image_geometry=AcquireString(image_info->page);
@@ -2931,7 +2931,7 @@ static MagickBooleanType XChopImage(Display *display,
   (void) XSelectInput(display,windows->image.id,
     windows->image.attributes.event_mask | PointerMotionMask);
   state=DefaultState;
-  (void) ResetMagickMemory(&segment_info,0,sizeof(segment_info));
+  (void) memset(&segment_info,0,sizeof(segment_info));
   do
   {
     if (windows->info.mapped != MagickFalse )
@@ -5746,8 +5746,8 @@ static MagickBooleanType XDrawEditImage(Display *display,
               if (stipple_image == (Image *) NULL)
                 break;
               (void) AcquireUniqueFileResource(filename);
-              (void) FormatLocaleString(stipple_image->filename,MagickPathExtent,
-                "xbm:%s",filename);
+              (void) FormatLocaleString(stipple_image->filename,
+                MagickPathExtent,"xbm:%s",filename);
               (void) WriteImage(image_info,stipple_image,exception);
               stipple_image=DestroyImage(stipple_image);
               image_info=DestroyImageInfo(image_info);
@@ -7530,8 +7530,9 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
           height=(unsigned int) (*image)->rows;
           (void) XParseGeometry(windows->image.crop_geometry,&x,&y,
             &width,&height);
-          (void) FormatLocaleString(windows->image.crop_geometry,MagickPathExtent,
-            "%ux%u%+d%+d",width,height,(int) (*image)->columns-(int) width-x,y);
+          (void) FormatLocaleString(windows->image.crop_geometry,
+            MagickPathExtent,"%ux%u%+d%+d",width,height,(int) (*image)->columns-
+            (int) width-x,y);
         }
       if (windows->image.orphan != MagickFalse )
         break;
@@ -7565,8 +7566,9 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
           height=(unsigned int) (*image)->rows;
           (void) XParseGeometry(windows->image.crop_geometry,&x,&y,
             &width,&height);
-          (void) FormatLocaleString(windows->image.crop_geometry,MagickPathExtent,
-            "%ux%u%+d%+d",width,height,x,(int) (*image)->rows-(int) height-y);
+          (void) FormatLocaleString(windows->image.crop_geometry,
+            MagickPathExtent,"%ux%u%+d%+d",width,height,x,(int) (*image)->rows-
+            (int) height-y);
         }
       if (windows->image.orphan != MagickFalse )
         break;
@@ -8917,7 +8919,7 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
         exception);
       XSetCursorState(display,windows,MagickTrue);
       XCheckRefreshWindows(display,windows);
-      (void) QueryColorCompliance(color,AllCompliance,&(*image)->alpha_color,
+      (void) QueryColorCompliance(color,AllCompliance,&(*image)->matte_color,
         exception);
       (void) ParsePageGeometry(*image,geometry,&page_geometry,
         exception);
@@ -9133,8 +9135,8 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
       (void) DeleteImageProperty(*image,"label");
       (void) SetImageProperty(*image,"label","Histogram",exception);
       (void) AcquireUniqueFilename(filename);
-      (void) FormatLocaleString((*image)->filename,MagickPathExtent,"histogram:%s",
-        filename);
+      (void) FormatLocaleString((*image)->filename,MagickPathExtent,
+        "histogram:%s",filename);
       status=WriteImage(image_info,*image,exception);
       (void) CopyMagickString(image_info->filename,filename,MagickPathExtent);
       histogram_image=ReadImage(image_info,exception);
@@ -9903,8 +9905,8 @@ static MagickBooleanType XMatteEditImage(Display *display,
                 (void) FormatLocaleString(matte,MagickPathExtent,QuantumFormat,
                   OpaqueAlpha);
                 if (LocaleCompare(MatteMenu[entry],"Transparent") == 0)
-                  (void) FormatLocaleString(matte,MagickPathExtent,QuantumFormat,
-                    (Quantum) TransparentAlpha);
+                  (void) FormatLocaleString(matte,MagickPathExtent,
+                    QuantumFormat,(Quantum) TransparentAlpha);
                 break;
               }
             (void) FormatLocaleString(message,MagickPathExtent,
@@ -10669,6 +10671,8 @@ static MagickBooleanType XPasteImage(Display *display,
   if (resource_info->copy_image == (Image *) NULL)
     return(MagickFalse);
   paste_image=CloneImage(resource_info->copy_image,0,0,MagickTrue,exception);
+  if (paste_image == (Image *) NULL)
+    return(MagickFalse);
   /*
     Map Command widget.
   */
@@ -12437,8 +12441,8 @@ static MagickBooleanType XRotateImage(Display *display,
           /*
             Rotate 90 degrees.
           */
-          (void) FormatLocaleString(windows->image.crop_geometry,MagickPathExtent,
-            "%ux%u%+d%+d",height,width,(int) (*image)->columns-
+          (void) FormatLocaleString(windows->image.crop_geometry,
+            MagickPathExtent,"%ux%u%+d%+d",height,width,(int) (*image)->columns-
             (int) height-y,x);
           break;
         }
@@ -12447,8 +12451,9 @@ static MagickBooleanType XRotateImage(Display *display,
           /*
             Rotate 180 degrees.
           */
-          (void) FormatLocaleString(windows->image.crop_geometry,MagickPathExtent,
-            "%ux%u%+d%+d",width,height,(int) width-x,(int) height-y);
+          (void) FormatLocaleString(windows->image.crop_geometry,
+            MagickPathExtent,"%ux%u%+d%+d",width,height,(int) width-x,(int)
+            height-y);
           break;
         }
         case 3:
@@ -12456,8 +12461,9 @@ static MagickBooleanType XRotateImage(Display *display,
           /*
             Rotate 270 degrees.
           */
-          (void) FormatLocaleString(windows->image.crop_geometry,MagickPathExtent,
-            "%ux%u%+d%+d",height,width,y,(int) (*image)->rows-(int) width-x);
+          (void) FormatLocaleString(windows->image.crop_geometry,
+            MagickPathExtent,"%ux%u%+d%+d",height,width,y,(int) (*image)->rows-
+            (int) width-x);
           break;
         }
       }
@@ -13147,7 +13153,7 @@ static Image *XTileImage(Display *display,XResourceInfo *resource_info,
   p=image->directory;
   for (i=tile; (i != 0) && (*p != '\0'); )
   {
-    if (*p == '\n')
+    if (*p == '\xff')
       i--;
     p++;
   }
@@ -13257,7 +13263,7 @@ static Image *XTileImage(Display *display,XResourceInfo *resource_info,
           *image_view;
 
         q=p;
-        while ((*q != '\n') && (*q != '\0'))
+        while ((*q != '\xff') && (*q != '\0'))
           q++;
         (void) CopyMagickString(filename,p,(size_t) (q-p+1));
         p=q;
@@ -14622,7 +14628,8 @@ MagickExport Image *XDisplayImage(Display *display,XResourceInfo *resource_info,
     resource_info,&windows->context);
   (void) CloneString(&class_hints->res_name,resource_info->client_name);
   (void) CloneString(&class_hints->res_class,resource_info->client_name);
-  class_hints->res_class[0]=(char) toupper((int) class_hints->res_class[0]);
+  class_hints->res_class[0]=(char) LocaleUppercase((int)
+    class_hints->res_class[0]);
   manager_hints->flags=InputHint | StateHint;
   manager_hints->input=MagickFalse;
   manager_hints->initial_state=WithdrawnState;
@@ -14731,7 +14738,8 @@ MagickExport Image *XDisplayImage(Display *display,XResourceInfo *resource_info,
           "%s: %s[scene: %.20g frames: %.20g]",MagickPackageName,filename,
           (double) display_image->scene,(double) GetImageListLength(
           display_image));
-      (void) CopyMagickString(windows->image.icon_name,filename,MagickPathExtent);
+      (void) CopyMagickString(windows->image.icon_name,filename,
+        MagickPathExtent);
     }
   if (resource_info->immutable)
     windows->image.immutable=MagickTrue;

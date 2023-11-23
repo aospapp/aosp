@@ -27,10 +27,14 @@
 #ifndef VIXL_AARCH64_SIMULATOR_AARCH64_H_
 #define VIXL_AARCH64_SIMULATOR_AARCH64_H_
 
+#include <vector>
+
 #include "../globals-vixl.h"
 #include "../utils-vixl.h"
 
+#include "cpu-features.h"
 #include "abi-aarch64.h"
+#include "cpu-features-auditor-aarch64.h"
 #include "disasm-aarch64.h"
 #include "instructions-aarch64.h"
 #include "instrument-aarch64.h"
@@ -50,204 +54,6 @@
 
 namespace vixl {
 namespace aarch64 {
-
-// Assemble the specified IEEE-754 components into the target type and apply
-// appropriate rounding.
-//  sign:     0 = positive, 1 = negative
-//  exponent: Unbiased IEEE-754 exponent.
-//  mantissa: The mantissa of the input. The top bit (which is not encoded for
-//            normal IEEE-754 values) must not be omitted. This bit has the
-//            value 'pow(2, exponent)'.
-//
-// The input value is assumed to be a normalized value. That is, the input may
-// not be infinity or NaN. If the source value is subnormal, it must be
-// normalized before calling this function such that the highest set bit in the
-// mantissa has the value 'pow(2, exponent)'.
-//
-// Callers should use FPRoundToFloat or FPRoundToDouble directly, rather than
-// calling a templated FPRound.
-template <class T, int ebits, int mbits>
-T FPRound(int64_t sign,
-          int64_t exponent,
-          uint64_t mantissa,
-          FPRounding round_mode) {
-  VIXL_ASSERT((sign == 0) || (sign == 1));
-
-  // Only FPTieEven and FPRoundOdd rounding modes are implemented.
-  VIXL_ASSERT((round_mode == FPTieEven) || (round_mode == FPRoundOdd));
-
-  // Rounding can promote subnormals to normals, and normals to infinities. For
-  // example, a double with exponent 127 (FLT_MAX_EXP) would appear to be
-  // encodable as a float, but rounding based on the low-order mantissa bits
-  // could make it overflow. With ties-to-even rounding, this value would become
-  // an infinity.
-
-  // ---- Rounding Method ----
-  //
-  // The exponent is irrelevant in the rounding operation, so we treat the
-  // lowest-order bit that will fit into the result ('onebit') as having
-  // the value '1'. Similarly, the highest-order bit that won't fit into
-  // the result ('halfbit') has the value '0.5'. The 'point' sits between
-  // 'onebit' and 'halfbit':
-  //
-  //            These bits fit into the result.
-  //               |---------------------|
-  //  mantissa = 0bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  //                                     ||
-  //                                    / |
-  //                                   /  halfbit
-  //                               onebit
-  //
-  // For subnormal outputs, the range of representable bits is smaller and
-  // the position of onebit and halfbit depends on the exponent of the
-  // input, but the method is otherwise similar.
-  //
-  //   onebit(frac)
-  //     |
-  //     | halfbit(frac)          halfbit(adjusted)
-  //     | /                      /
-  //     | |                      |
-  //  0b00.0 (exact)      -> 0b00.0 (exact)                    -> 0b00
-  //  0b00.0...           -> 0b00.0...                         -> 0b00
-  //  0b00.1 (exact)      -> 0b00.0111..111                    -> 0b00
-  //  0b00.1...           -> 0b00.1...                         -> 0b01
-  //  0b01.0 (exact)      -> 0b01.0 (exact)                    -> 0b01
-  //  0b01.0...           -> 0b01.0...                         -> 0b01
-  //  0b01.1 (exact)      -> 0b01.1 (exact)                    -> 0b10
-  //  0b01.1...           -> 0b01.1...                         -> 0b10
-  //  0b10.0 (exact)      -> 0b10.0 (exact)                    -> 0b10
-  //  0b10.0...           -> 0b10.0...                         -> 0b10
-  //  0b10.1 (exact)      -> 0b10.0111..111                    -> 0b10
-  //  0b10.1...           -> 0b10.1...                         -> 0b11
-  //  0b11.0 (exact)      -> 0b11.0 (exact)                    -> 0b11
-  //  ...                   /             |                      /   |
-  //                       /              |                     /    |
-  //                                                           /     |
-  // adjusted = frac - (halfbit(mantissa) & ~onebit(frac));   /      |
-  //
-  //                   mantissa = (mantissa >> shift) + halfbit(adjusted);
-
-  static const int mantissa_offset = 0;
-  static const int exponent_offset = mantissa_offset + mbits;
-  static const int sign_offset = exponent_offset + ebits;
-  VIXL_ASSERT(sign_offset == (sizeof(T) * 8 - 1));
-
-  // Bail out early for zero inputs.
-  if (mantissa == 0) {
-    return static_cast<T>(sign << sign_offset);
-  }
-
-  // If all bits in the exponent are set, the value is infinite or NaN.
-  // This is true for all binary IEEE-754 formats.
-  static const int infinite_exponent = (1 << ebits) - 1;
-  static const int max_normal_exponent = infinite_exponent - 1;
-
-  // Apply the exponent bias to encode it for the result. Doing this early makes
-  // it easy to detect values that will be infinite or subnormal.
-  exponent += max_normal_exponent >> 1;
-
-  if (exponent > max_normal_exponent) {
-    // Overflow: the input is too large for the result type to represent.
-    if (round_mode == FPTieEven) {
-      // FPTieEven rounding mode handles overflows using infinities.
-      exponent = infinite_exponent;
-      mantissa = 0;
-    } else {
-      VIXL_ASSERT(round_mode == FPRoundOdd);
-      // FPRoundOdd rounding mode handles overflows using the largest magnitude
-      // normal number.
-      exponent = max_normal_exponent;
-      mantissa = (UINT64_C(1) << exponent_offset) - 1;
-    }
-    return static_cast<T>((sign << sign_offset) |
-                          (exponent << exponent_offset) |
-                          (mantissa << mantissa_offset));
-  }
-
-  // Calculate the shift required to move the top mantissa bit to the proper
-  // place in the destination type.
-  const int highest_significant_bit = 63 - CountLeadingZeros(mantissa);
-  int shift = highest_significant_bit - mbits;
-
-  if (exponent <= 0) {
-    // The output will be subnormal (before rounding).
-    // For subnormal outputs, the shift must be adjusted by the exponent. The +1
-    // is necessary because the exponent of a subnormal value (encoded as 0) is
-    // the same as the exponent of the smallest normal value (encoded as 1).
-    shift += -exponent + 1;
-
-    // Handle inputs that would produce a zero output.
-    //
-    // Shifts higher than highest_significant_bit+1 will always produce a zero
-    // result. A shift of exactly highest_significant_bit+1 might produce a
-    // non-zero result after rounding.
-    if (shift > (highest_significant_bit + 1)) {
-      if (round_mode == FPTieEven) {
-        // The result will always be +/-0.0.
-        return static_cast<T>(sign << sign_offset);
-      } else {
-        VIXL_ASSERT(round_mode == FPRoundOdd);
-        VIXL_ASSERT(mantissa != 0);
-        // For FPRoundOdd, if the mantissa is too small to represent and
-        // non-zero return the next "odd" value.
-        return static_cast<T>((sign << sign_offset) | 1);
-      }
-    }
-
-    // Properly encode the exponent for a subnormal output.
-    exponent = 0;
-  } else {
-    // Clear the topmost mantissa bit, since this is not encoded in IEEE-754
-    // normal values.
-    mantissa &= ~(UINT64_C(1) << highest_significant_bit);
-  }
-
-  if (shift > 0) {
-    if (round_mode == FPTieEven) {
-      // We have to shift the mantissa to the right. Some precision is lost, so
-      // we need to apply rounding.
-      uint64_t onebit_mantissa = (mantissa >> (shift)) & 1;
-      uint64_t halfbit_mantissa = (mantissa >> (shift - 1)) & 1;
-      uint64_t adjustment = (halfbit_mantissa & ~onebit_mantissa);
-      uint64_t adjusted = mantissa - adjustment;
-      T halfbit_adjusted = (adjusted >> (shift - 1)) & 1;
-
-      T result =
-          static_cast<T>((sign << sign_offset) | (exponent << exponent_offset) |
-                         ((mantissa >> shift) << mantissa_offset));
-
-      // A very large mantissa can overflow during rounding. If this happens,
-      // the exponent should be incremented and the mantissa set to 1.0
-      // (encoded as 0). Applying halfbit_adjusted after assembling the float
-      // has the nice side-effect that this case is handled for free.
-      //
-      // This also handles cases where a very large finite value overflows to
-      // infinity, or where a very large subnormal value overflows to become
-      // normal.
-      return result + halfbit_adjusted;
-    } else {
-      VIXL_ASSERT(round_mode == FPRoundOdd);
-      // If any bits at position halfbit or below are set, onebit (ie. the
-      // bottom bit of the resulting mantissa) must be set.
-      uint64_t fractional_bits = mantissa & ((UINT64_C(1) << shift) - 1);
-      if (fractional_bits != 0) {
-        mantissa |= UINT64_C(1) << shift;
-      }
-
-      return static_cast<T>((sign << sign_offset) |
-                            (exponent << exponent_offset) |
-                            ((mantissa >> shift) << mantissa_offset));
-    }
-  } else {
-    // We have to shift the mantissa to the left (or not at all). The input
-    // mantissa is exactly representable in the output mantissa, so apply no
-    // rounding correction.
-    return static_cast<T>((sign << sign_offset) |
-                          (exponent << exponent_offset) |
-                          ((mantissa << -shift) << mantissa_offset));
-  }
-}
-
 
 // Representation of memory, with typed getters and setters for access.
 class Memory {
@@ -290,12 +96,11 @@ class SimRegisterBase {
   // Write the specified value. The value is zero-extended if necessary.
   template <typename T>
   void Write(T new_value) {
-    VIXL_STATIC_ASSERT(sizeof(new_value) <= kSizeInBytes);
     if (sizeof(new_value) < kSizeInBytes) {
       // All AArch64 registers are zero-extending.
       memset(value_ + sizeof(new_value), 0, kSizeInBytes - sizeof(new_value));
     }
-    memcpy(value_, &new_value, sizeof(new_value));
+    WriteLane(new_value, 0);
     NotifyRegisterWrite();
   }
   template <typename T>
@@ -309,10 +114,7 @@ class SimRegisterBase {
   // 0 represents the least significant bits.
   template <typename T>
   void Insert(int lane, T new_value) {
-    VIXL_ASSERT(lane >= 0);
-    VIXL_ASSERT((sizeof(new_value) + (lane * sizeof(new_value))) <=
-                kSizeInBytes);
-    memcpy(&value_[lane * sizeof(new_value)], &new_value, sizeof(new_value));
+    WriteLane(new_value, lane);
     NotifyRegisterWrite();
   }
 
@@ -327,9 +129,7 @@ class SimRegisterBase {
   template <typename T>
   T GetLane(int lane) const {
     T result;
-    VIXL_ASSERT(lane >= 0);
-    VIXL_ASSERT((sizeof(result) + (lane * sizeof(result))) <= kSizeInBytes);
-    memcpy(&result, &value_[lane * sizeof(result)], sizeof(result));
+    ReadLane(&result, lane);
     return result;
   }
   template <typename T>
@@ -351,9 +151,43 @@ class SimRegisterBase {
   bool written_since_last_log_;
 
   void NotifyRegisterWrite() { written_since_last_log_ = true; }
+
+ private:
+  template <typename T>
+  void ReadLane(T* dst, int lane) const {
+    VIXL_ASSERT(lane >= 0);
+    VIXL_ASSERT((sizeof(*dst) + (lane * sizeof(*dst))) <= kSizeInBytes);
+    memcpy(dst, &value_[lane * sizeof(*dst)], sizeof(*dst));
+  }
+
+  template <typename T>
+  void WriteLane(T src, int lane) {
+    VIXL_ASSERT(lane >= 0);
+    VIXL_ASSERT((sizeof(src) + (lane * sizeof(src))) <= kSizeInBytes);
+    memcpy(&value_[lane * sizeof(src)], &src, sizeof(src));
+  }
 };
 typedef SimRegisterBase<kXRegSizeInBytes> SimRegister;   // r0-r31
 typedef SimRegisterBase<kQRegSizeInBytes> SimVRegister;  // v0-v31
+
+// The default ReadLane and WriteLane methods assume what we are copying is
+// "trivially copyable" by using memcpy. We have to provide alternative
+// implementations for SimFloat16 which cannot be copied this way.
+
+template <>
+template <>
+inline void SimVRegister::ReadLane(vixl::internal::SimFloat16* dst,
+                                   int lane) const {
+  uint16_t rawbits;
+  ReadLane(&rawbits, lane);
+  *dst = RawbitsToFloat16(rawbits);
+}
+
+template <>
+template <>
+inline void SimVRegister::WriteLane(vixl::internal::SimFloat16 src, int lane) {
+  WriteLane(Float16ToRawbits(src), lane);
+}
 
 // Representation of a vector register, with typed getters and setters for lanes
 // and additional information to represent lane state.
@@ -362,10 +196,10 @@ class LogicVRegister {
   inline LogicVRegister(
       SimVRegister& other)  // NOLINT(runtime/references)(runtime/explicit)
       : register_(other) {
-    for (unsigned i = 0; i < sizeof(saturated_) / sizeof(saturated_[0]); i++) {
+    for (size_t i = 0; i < ArrayLength(saturated_); i++) {
       saturated_[i] = kNotSaturated;
     }
-    for (unsigned i = 0; i < sizeof(round_) / sizeof(round_[0]); i++) {
+    for (size_t i = 0; i < ArrayLength(round_); i++) {
       round_[i] = 0;
     }
   }
@@ -885,9 +719,18 @@ class Simulator : public DecoderVisitor {
     // The program counter should always be aligned.
     VIXL_ASSERT(IsWordAligned(pc_));
     pc_modified_ = false;
+
+    // decoder_->Decode(...) triggers at least the following visitors:
+    //  1. The CPUFeaturesAuditor (`cpu_features_auditor_`).
+    //  2. The PrintDisassembler (`print_disasm_`), if enabled.
+    //  3. The Simulator (`this`).
+    // User can add additional visitors at any point, but the Simulator requires
+    // that the ordering above is preserved.
     decoder_->Decode(pc_);
     IncrementPc();
     LogAllWrittenRegisters();
+
+    VIXL_CHECK(cpu_features_auditor_.InstructionIsAvailable());
   }
 
 // Declare all Visitor functions.
@@ -1161,11 +1004,15 @@ class Simulator : public DecoderVisitor {
     return ReadBRegister(code);
   }
 
-  int16_t ReadHRegister(unsigned code) const {
-    return ReadVRegister<int16_t>(code);
+  vixl::internal::SimFloat16 ReadHRegister(unsigned code) const {
+    return RawbitsToFloat16(ReadHRegisterBits(code));
   }
   VIXL_DEPRECATED("ReadHRegister", int16_t hreg(unsigned code) const) {
-    return ReadHRegister(code);
+    return Float16ToRawbits(ReadHRegister(code));
+  }
+
+  uint16_t ReadHRegisterBits(unsigned code) const {
+    return ReadVRegister<uint16_t>(code);
   }
 
   float ReadSRegister(unsigned code) const {
@@ -1275,6 +1122,12 @@ class Simulator : public DecoderVisitor {
                                 int8_t value,
                                 RegLogMode log_mode = LogRegWrites)) {
     return WriteBRegister(code, value, log_mode);
+  }
+
+  void WriteHRegister(unsigned code,
+                      vixl::internal::SimFloat16 value,
+                      RegLogMode log_mode = LogRegWrites) {
+    WriteVRegister(code, Float16ToRawbits(value), log_mode);
   }
 
   void WriteHRegister(unsigned code,
@@ -1439,8 +1292,13 @@ class Simulator : public DecoderVisitor {
   }
   VIXL_DEPRECATED("ReadRMode", FPRounding RMode()) { return ReadRMode(); }
 
-  bool ReadDN() const { return fpcr_.GetDN() != 0; }
-  VIXL_DEPRECATED("ReadDN", bool DN()) { return ReadDN(); }
+  UseDefaultNaN ReadDN() const {
+    return fpcr_.GetDN() != 0 ? kUseDefaultNaN : kIgnoreDefaultNaN;
+  }
+
+  VIXL_DEPRECATED("ReadDN", bool DN()) {
+    return ReadDN() == kUseDefaultNaN ? true : false;
+  }
 
   SimSystemRegister& ReadFpcr() { return fpcr_; }
   VIXL_DEPRECATED("ReadFpcr", SimSystemRegister& fpcr()) { return ReadFpcr(); }
@@ -1466,14 +1324,15 @@ class Simulator : public DecoderVisitor {
 
     kPrintRegAsVectorMask = 3 << 3,
 
-    // Indicate floating-point format lanes. (This flag is only supported for S-
-    // and D-sized lanes.)
+    // Indicate floating-point format lanes. (This flag is only supported for
+    // S-, H-, and D-sized lanes.)
     kPrintRegAsFP = 1 << 5,
 
     // Supported combinations.
 
     kPrintXReg = kPrintRegLaneSizeX | kPrintRegAsScalar,
     kPrintWReg = kPrintRegLaneSizeW | kPrintRegAsScalar,
+    kPrintHReg = kPrintRegLaneSizeH | kPrintRegAsScalar | kPrintRegAsFP,
     kPrintSReg = kPrintRegLaneSizeS | kPrintRegAsScalar | kPrintRegAsFP,
     kPrintDReg = kPrintRegLaneSizeD | kPrintRegAsScalar | kPrintRegAsFP,
 
@@ -1486,6 +1345,9 @@ class Simulator : public DecoderVisitor {
     kPrintReg1S = kPrintRegLaneSizeS | kPrintRegAsScalar,
     kPrintReg2S = kPrintRegLaneSizeS | kPrintRegAsDVector,
     kPrintReg4S = kPrintRegLaneSizeS | kPrintRegAsQVector,
+    kPrintReg1HFP = kPrintRegLaneSizeH | kPrintRegAsScalar | kPrintRegAsFP,
+    kPrintReg4HFP = kPrintRegLaneSizeH | kPrintRegAsDVector | kPrintRegAsFP,
+    kPrintReg8HFP = kPrintRegLaneSizeH | kPrintRegAsQVector | kPrintRegAsFP,
     kPrintReg1SFP = kPrintRegLaneSizeS | kPrintRegAsScalar | kPrintRegAsFP,
     kPrintReg2SFP = kPrintRegLaneSizeS | kPrintRegAsDVector | kPrintRegAsFP,
     kPrintReg4SFP = kPrintRegLaneSizeS | kPrintRegAsQVector | kPrintRegAsFP,
@@ -1539,11 +1401,14 @@ class Simulator : public DecoderVisitor {
         return kPrintDReg;
       case kSRegSizeInBytes:
         return kPrintSReg;
+      case kHRegSizeInBytes:
+        return kPrintHReg;
     }
   }
 
   PrintRegisterFormat GetPrintRegisterFormatTryFP(PrintRegisterFormat format) {
-    if ((GetPrintRegLaneSizeInBytes(format) == kSRegSizeInBytes) ||
+    if ((GetPrintRegLaneSizeInBytes(format) == kHRegSizeInBytes) ||
+        (GetPrintRegLaneSizeInBytes(format) == kSRegSizeInBytes) ||
         (GetPrintRegLaneSizeInBytes(format) == kDRegSizeInBytes)) {
       return static_cast<PrintRegisterFormat>(format | kPrintRegAsFP);
     }
@@ -1563,6 +1428,11 @@ class Simulator : public DecoderVisitor {
   PrintRegisterFormat GetPrintRegisterFormat(float value) {
     VIXL_STATIC_ASSERT(sizeof(value) == kSRegSizeInBytes);
     return GetPrintRegisterFormatForSizeFP(sizeof(value));
+  }
+
+  PrintRegisterFormat GetPrintRegisterFormat(Float16 value) {
+    VIXL_STATIC_ASSERT(sizeof(Float16ToRawbits(value)) == kHRegSizeInBytes);
+    return GetPrintRegisterFormatForSizeFP(sizeof(Float16ToRawbits(value)));
   }
 
   PrintRegisterFormat GetPrintRegisterFormat(VectorFormat vform);
@@ -1673,6 +1543,7 @@ class Simulator : public DecoderVisitor {
                                      Reg31Mode mode = Reg31IsZeroRegister);
   static const char* XRegNameForCode(unsigned code,
                                      Reg31Mode mode = Reg31IsZeroRegister);
+  static const char* HRegNameForCode(unsigned code);
   static const char* SRegNameForCode(unsigned code);
   static const char* DRegNameForCode(unsigned code);
   static const char* VRegNameForCode(unsigned code);
@@ -1713,6 +1584,60 @@ class Simulator : public DecoderVisitor {
   void SilenceExclusiveAccessWarning() {
     print_exclusive_access_warning_ = false;
   }
+
+  enum PointerType { kDataPointer, kInstructionPointer };
+
+  struct PACKey {
+    uint64_t high;
+    uint64_t low;
+    int number;
+  };
+
+  // Current implementation is that all pointers are tagged.
+  bool HasTBI(uint64_t ptr, PointerType type) {
+    USE(ptr, type);
+    return true;
+  }
+
+  // Current implementation uses 48-bit virtual addresses.
+  int GetBottomPACBit(uint64_t ptr, int ttbr) {
+    USE(ptr, ttbr);
+    VIXL_ASSERT((ttbr == 0) || (ttbr == 1));
+    return 48;
+  }
+
+  // The top PAC bit is 55 for the purposes of relative bit fields with TBI,
+  // however bit 55 is the TTBR bit regardless of TBI so isn't part of the PAC
+  // codes in pointers.
+  int GetTopPACBit(uint64_t ptr, PointerType type) {
+    return HasTBI(ptr, type) ? 55 : 63;
+  }
+
+  // Armv8.3 Pointer authentication helpers.
+  uint64_t CalculatePACMask(uint64_t ptr, PointerType type, int ext_bit);
+  uint64_t ComputePAC(uint64_t data, uint64_t context, PACKey key);
+  uint64_t AuthPAC(uint64_t ptr,
+                   uint64_t context,
+                   PACKey key,
+                   PointerType type);
+  uint64_t AddPAC(uint64_t ptr, uint64_t context, PACKey key, PointerType type);
+  uint64_t StripPAC(uint64_t ptr, PointerType type);
+
+  // The common CPUFeatures interface with the set of available features.
+
+  CPUFeatures* GetCPUFeatures() {
+    return cpu_features_auditor_.GetCPUFeatures();
+  }
+
+  void SetCPUFeatures(const CPUFeatures& cpu_features) {
+    cpu_features_auditor_.SetCPUFeatures(cpu_features);
+  }
+
+  // The set of features that the simulator has encountered.
+  const CPUFeatures& GetSeenFeatures() {
+    return cpu_features_auditor_.GetSeenFeatures();
+  }
+  void ResetSeenFeatures() { cpu_features_auditor_.ResetSeenFeatures(); }
 
 // Runtime call emulation support.
 // It requires VIXL's ABI features, and C++11 or greater.
@@ -1882,6 +1807,16 @@ class Simulator : public DecoderVisitor {
                        int64_t offset,
                        AddrMode addrmode);
   void LoadStorePairHelper(const Instruction* instr, AddrMode addrmode);
+  template <typename T>
+  void CompareAndSwapHelper(const Instruction* instr);
+  template <typename T>
+  void CompareAndSwapPairHelper(const Instruction* instr);
+  template <typename T>
+  void AtomicMemorySimpleHelper(const Instruction* instr);
+  template <typename T>
+  void AtomicMemorySwapHelper(const Instruction* instr);
+  template <typename T>
+  void LoadAcquireRCpcHelper(const Instruction* instr);
   uintptr_t AddressModeHelper(unsigned addr_reg,
                               int64_t offset,
                               AddrMode addrmode);
@@ -2173,6 +2108,26 @@ class Simulator : public DecoderVisitor {
                           const LogicVRegister& src1,
                           const LogicVRegister& src2,
                           int index);
+  LogicVRegister sdot(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int index);
+  LogicVRegister sqrdmlah(VectorFormat vform,
+                          LogicVRegister dst,
+                          const LogicVRegister& src1,
+                          const LogicVRegister& src2,
+                          int index);
+  LogicVRegister udot(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2,
+                      int index);
+  LogicVRegister sqrdmlsh(VectorFormat vform,
+                          LogicVRegister dst,
+                          const LogicVRegister& src1,
+                          const LogicVRegister& src2,
+                          int index);
   LogicVRegister sub(VectorFormat vform,
                      LogicVRegister dst,
                      const LogicVRegister& src1,
@@ -2263,6 +2218,41 @@ class Simulator : public DecoderVisitor {
                      const LogicVRegister& src1,
                      const LogicVRegister& src2,
                      int index);
+  template <typename T>
+  LogicVRegister fcadd(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int rot);
+  LogicVRegister fcadd(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int rot);
+  template <typename T>
+  LogicVRegister fcmla(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int index,
+                       int rot);
+  LogicVRegister fcmla(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int index,
+                       int rot);
+  template <typename T>
+  LogicVRegister fcmla(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int rot);
+  LogicVRegister fcmla(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int rot);
   LogicVRegister ins_element(VectorFormat vform,
                              LogicVRegister dst,
                              int dst_index,
@@ -2720,6 +2710,35 @@ class Simulator : public DecoderVisitor {
                           const LogicVRegister& src1,
                           const LogicVRegister& src2,
                           bool round = true);
+  LogicVRegister dot(VectorFormat vform,
+                     LogicVRegister dst,
+                     const LogicVRegister& src1,
+                     const LogicVRegister& src2,
+                     bool is_signed);
+  LogicVRegister sdot(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2);
+  LogicVRegister udot(VectorFormat vform,
+                      LogicVRegister dst,
+                      const LogicVRegister& src1,
+                      const LogicVRegister& src2);
+  LogicVRegister sqrdmlash(VectorFormat vform,
+                           LogicVRegister dst,
+                           const LogicVRegister& src1,
+                           const LogicVRegister& src2,
+                           bool round = true,
+                           bool sub_op = false);
+  LogicVRegister sqrdmlah(VectorFormat vform,
+                          LogicVRegister dst,
+                          const LogicVRegister& src1,
+                          const LogicVRegister& src2,
+                          bool round = true);
+  LogicVRegister sqrdmlsh(VectorFormat vform,
+                          LogicVRegister dst,
+                          const LogicVRegister& src1,
+                          const LogicVRegister& src2,
+                          bool round = true);
   LogicVRegister sqdmulh(VectorFormat vform,
                          LogicVRegister dst,
                          const LogicVRegister& src1,
@@ -2949,12 +2968,16 @@ class Simulator : public DecoderVisitor {
                         LogicVRegister dst,
                         const LogicVRegister& src);
 
-  typedef float (Simulator::*FPMinMaxOp)(float a, float b);
+  template <typename T>
+  struct TFPMinMaxOp {
+    typedef T (Simulator::*type)(T a, T b);
+  };
 
+  template <typename T>
   LogicVRegister fminmaxv(VectorFormat vform,
                           LogicVRegister dst,
                           const LogicVRegister& src,
-                          FPMinMaxOp Op);
+                          typename TFPMinMaxOp<T>::type Op);
 
   LogicVRegister fminv(VectorFormat vform,
                        LogicVRegister dst,
@@ -2987,11 +3010,6 @@ class Simulator : public DecoderVisitor {
 
   void FPCompare(double val0, double val1, FPTrapFlags trap);
   double FPRoundInt(double value, FPRounding round_mode);
-  double FPToDouble(float value);
-  float FPToFloat(double value, FPRounding round_mode);
-  float FPToFloat(float16 value);
-  float16 FPToFloat16(float value, FPRounding round_mode);
-  float16 FPToFloat16(double value, FPRounding round_mode);
   double recip_sqrt_estimate(double a);
   double recip_estimate(double a);
   double FPRecipSqrtEstimate(double a);
@@ -3000,13 +3018,25 @@ class Simulator : public DecoderVisitor {
   double UFixedToDouble(uint64_t src, int fbits, FPRounding round_mode);
   float FixedToFloat(int64_t src, int fbits, FPRounding round_mode);
   float UFixedToFloat(uint64_t src, int fbits, FPRounding round_mode);
+  ::vixl::internal::SimFloat16 FixedToFloat16(int64_t src,
+                                              int fbits,
+                                              FPRounding round_mode);
+  ::vixl::internal::SimFloat16 UFixedToFloat16(uint64_t src,
+                                               int fbits,
+                                               FPRounding round_mode);
+  int16_t FPToInt16(double value, FPRounding rmode);
   int32_t FPToInt32(double value, FPRounding rmode);
   int64_t FPToInt64(double value, FPRounding rmode);
+  uint16_t FPToUInt16(double value, FPRounding rmode);
   uint32_t FPToUInt32(double value, FPRounding rmode);
   uint64_t FPToUInt64(double value, FPRounding rmode);
+  int32_t FPToFixedJS(double value);
 
   template <typename T>
   T FPAdd(T op1, T op2);
+
+  template <typename T>
+  T FPNeg(T op);
 
   template <typename T>
   T FPDiv(T op1, T op2);
@@ -3052,6 +3082,12 @@ class Simulator : public DecoderVisitor {
 
   // Pseudo Printf instruction
   void DoPrintf(const Instruction* instr);
+
+  // Pseudo-instructions to configure CPU features dynamically.
+  void DoConfigureCPUFeatures(const Instruction* instr);
+
+  void DoSaveCPUFeatures(const Instruction* instr);
+  void DoRestoreCPUFeatures(const Instruction* instr);
 
 // Simulate a runtime call.
 #ifndef VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT
@@ -3126,22 +3162,29 @@ class Simulator : public DecoderVisitor {
 
   static const char* xreg_names[];
   static const char* wreg_names[];
+  static const char* hreg_names[];
   static const char* sreg_names[];
   static const char* dreg_names[];
   static const char* vreg_names[];
 
  private:
+  static const PACKey kPACKeyIA;
+  static const PACKey kPACKeyIB;
+  static const PACKey kPACKeyDA;
+  static const PACKey kPACKeyDB;
+  static const PACKey kPACKeyGA;
+
   template <typename T>
   static T FPDefaultNaN();
 
   // Standard NaN processing.
   template <typename T>
   T FPProcessNaN(T op) {
-    VIXL_ASSERT(std::isnan(op));
+    VIXL_ASSERT(IsNaN(op));
     if (IsSignallingNaN(op)) {
       FPProcessException();
     }
-    return ReadDN() ? FPDefaultNaN<T>() : ToQuietNaN(op);
+    return (ReadDN() == kUseDefaultNaN) ? FPDefaultNaN<T>() : ToQuietNaN(op);
   }
 
   template <typename T>
@@ -3150,10 +3193,10 @@ class Simulator : public DecoderVisitor {
       return FPProcessNaN(op1);
     } else if (IsSignallingNaN(op2)) {
       return FPProcessNaN(op2);
-    } else if (std::isnan(op1)) {
+    } else if (IsNaN(op1)) {
       VIXL_ASSERT(IsQuietNaN(op1));
       return FPProcessNaN(op1);
-    } else if (std::isnan(op2)) {
+    } else if (IsNaN(op2)) {
       VIXL_ASSERT(IsQuietNaN(op2));
       return FPProcessNaN(op2);
     } else {
@@ -3169,13 +3212,13 @@ class Simulator : public DecoderVisitor {
       return FPProcessNaN(op2);
     } else if (IsSignallingNaN(op3)) {
       return FPProcessNaN(op3);
-    } else if (std::isnan(op1)) {
+    } else if (IsNaN(op1)) {
       VIXL_ASSERT(IsQuietNaN(op1));
       return FPProcessNaN(op1);
-    } else if (std::isnan(op2)) {
+    } else if (IsNaN(op2)) {
       VIXL_ASSERT(IsQuietNaN(op2));
       return FPProcessNaN(op2);
-    } else if (std::isnan(op3)) {
+    } else if (IsNaN(op3)) {
       VIXL_ASSERT(IsQuietNaN(op3));
       return FPProcessNaN(op3);
     } else {
@@ -3194,6 +3237,9 @@ class Simulator : public DecoderVisitor {
   // Indicates whether the exclusive-access warning has been printed.
   bool print_exclusive_access_warning_;
   void PrintExclusiveAccessWarning();
+
+  CPUFeaturesAuditor cpu_features_auditor_;
+  std::vector<CPUFeatures> saved_cpu_features_;
 };
 
 #if defined(VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT) && __cplusplus < 201402L

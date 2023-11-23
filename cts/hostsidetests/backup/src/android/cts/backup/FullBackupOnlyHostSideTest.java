@@ -18,6 +18,8 @@ package android.cts.backup;
 
 import static org.junit.Assert.assertNull;
 
+import android.platform.test.annotations.AppModeFull;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -47,6 +49,7 @@ import org.junit.runner.RunWith;
  * - Only file in no_backup folder for key/value.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull
 public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
 
     private static final String FULLBACKUPONLY_APP_PACKAGE = "android.cts.backup.fullbackuponlyapp";
@@ -105,7 +108,7 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
 
         checkFullBackupOnlyDeviceTest("createFiles");
 
-        backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
 
         assertNull(uninstallPackage(FULLBACKUPONLY_APP_PACKAGE));
 
@@ -131,7 +134,7 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
 
         checkFullBackupOnlyDeviceTest("createFiles");
 
-        backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
 
         assertNull(uninstallPackage(FULLBACKUPONLY_APP_PACKAGE));
 
@@ -157,7 +160,7 @@ public class FullBackupOnlyHostSideTest extends BaseBackupHostSideTest {
 
         checkFullBackupOnlyDeviceTest("createFiles");
 
-        backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(FULLBACKUPONLY_APP_PACKAGE);
 
         assertNull(uninstallPackage(FULLBACKUPONLY_APP_PACKAGE));
 

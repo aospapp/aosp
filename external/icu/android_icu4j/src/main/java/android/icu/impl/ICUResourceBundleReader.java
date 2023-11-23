@@ -15,6 +15,7 @@ import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.IntBuffer;
+import java.util.Arrays;
 
 import android.icu.util.ICUException;
 import android.icu.util.ICUUncheckedIOException;
@@ -1169,7 +1170,7 @@ public final class ICUResourceBundleReader {
                 return value;
             }
             values[index] = CacheValue.futureInstancesWillBeStrong() ?
-                    item : new SoftReference<Object>(item);
+                    item : new SoftReference<>(item);
             return item;
         }
 
@@ -1218,7 +1219,7 @@ public final class ICUResourceBundleReader {
                         return level.putIfAbsent(key, item, size);
                     }
                     keys[index] = key;
-                    values[index] = storeDirectly(size) ? item : new SoftReference<Object>(item);
+                    values[index] = storeDirectly(size) ? item : new SoftReference<>(item);
                     return item;
                 }
                 // Collision: Add a child level, move the old item there,
@@ -1287,29 +1288,7 @@ public final class ICUResourceBundleReader {
         }
 
         private int findSimple(int key) {
-            // With Java 6, return Arrays.binarySearch(keys, 0, length, key).
-            int start = 0;
-            int limit = length;
-            while((limit - start) > 8) {
-                int mid = (start + limit) / 2;
-                if(key < keys[mid]) {
-                    limit = mid;
-                } else {
-                    start = mid;
-                }
-            }
-            // For a small number of items, linear search should be a little faster.
-            while(start < limit) {
-                int k = keys[start];
-                if(key < k) {
-                    return ~start;
-                }
-                if(key == k) {
-                    return start;
-                }
-                ++start;
-            }
-            return ~start;
+            return Arrays.binarySearch(keys, 0, length, key);
         }
 
         @SuppressWarnings("unchecked")
@@ -1350,7 +1329,7 @@ public final class ICUResourceBundleReader {
                     }
                     ++length;
                     keys[index] = res;
-                    values[index] = storeDirectly(size) ? item : new SoftReference<Object>(item);
+                    values[index] = storeDirectly(size) ? item : new SoftReference<>(item);
                     return item;
                 } else /* not found && length == SIMPLE_LENGTH */ {
                     // Grow to become trie-like.

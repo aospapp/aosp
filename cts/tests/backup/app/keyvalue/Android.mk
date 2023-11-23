@@ -29,7 +29,7 @@ LOCAL_SDK_VERSION := current
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctstestrunner
+    compatibility-device-util-axt \
+    ctstestrunner-axt
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

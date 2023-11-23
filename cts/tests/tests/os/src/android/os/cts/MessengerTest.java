@@ -21,20 +21,16 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
-import android.os.IInterface;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
 import android.os.RemoteException;
-import android.os.ResultReceiver;
-import android.os.ShellCallback;
 import android.test.AndroidTestCase;
-
-import java.io.FileDescriptor;
 
 public class MessengerTest extends AndroidTestCase {
 
@@ -54,48 +50,7 @@ public class MessengerTest extends AndroidTestCase {
         }
     };
 
-    private final IBinder mIBinder = new IBinder() {
-
-        public String getInterfaceDescriptor() throws RemoteException {
-            return null;
-        }
-
-        public boolean isBinderAlive() {
-            return false;
-        }
-
-        public void linkToDeath(DeathRecipient recipient, int flags) throws RemoteException {
-        }
-
-        public boolean pingBinder() {
-            return false;
-        }
-
-        public IInterface queryLocalInterface(String descriptor) {
-            return null;
-        }
-
-        public boolean transact(int code, Parcel data, Parcel reply, int flags)
-                throws RemoteException {
-            return false;
-        }
-
-        public boolean unlinkToDeath(DeathRecipient recipient, int flags) {
-            return false;
-        }
-
-        public void dump(FileDescriptor fd, String[] args) throws RemoteException {
-        }
-
-        public void dumpAsync(FileDescriptor fd, String[] args) throws RemoteException {
-        }
-
-        @Override
-        public void shellCommand(FileDescriptor in, FileDescriptor out, FileDescriptor err,
-                String[] args, ShellCallback shellCallback, ResultReceiver resultReceiver) {
-        }
-
-    };
+    private final IBinder mIBinder = new Binder();
 
     // Create another messenger to send msg.
     private ServiceConnection mConnection = new ServiceConnection() {

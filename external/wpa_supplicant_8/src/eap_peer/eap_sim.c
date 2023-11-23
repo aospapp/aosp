@@ -48,6 +48,7 @@ struct eap_sim_data {
 	int result_ind, use_result_ind;
 	int use_pseudonym;
 	int error_code;
+	int anonymous_flag;
 };
 
 
@@ -83,6 +84,7 @@ static void * eap_sim_init(struct eap_sm *sm)
 {
 	struct eap_sim_data *data;
 	struct eap_peer_config *config = eap_get_config(sm);
+	static const char *anonymous_id_prefix = "anonymous@";
 
 	data = os_zalloc(sizeof(*data));
 	if (data == NULL)
@@ -97,7 +99,7 @@ static void * eap_sim_init(struct eap_sm *sm)
 
 	/* Zero is a valid error code, so we need to initialize */
 	data->error_code = NO_EAP_METHOD_ERROR;
-
+	data->anonymous_flag = 0;
 	data->min_num_chal = 2;
 	if (config && config->phase1) {
 		char *pos = os_strstr(config->phase1, "sim_min_num_chal=");
@@ -127,6 +129,14 @@ static void * eap_sim_init(struct eap_sm *sm)
 			os_memcpy(data->pseudonym, config->anonymous_identity,
 				  config->anonymous_identity_len);
 			data->pseudonym_len = config->anonymous_identity_len;
+			if (data->pseudonym_len > os_strlen(anonymous_id_prefix) &&
+					!os_memcmp(data->pseudonym, anonymous_id_prefix,
+					os_strlen(anonymous_id_prefix))) {
+				data->anonymous_flag = 1;
+				wpa_printf(MSG_DEBUG,
+					   "EAP-SIM: Setting anonymous@realm flag");
+			}
+
 		}
 	}
 
@@ -437,6 +447,7 @@ static int eap_sim_learn_ids(struct eap_sm *sm, struct eap_sim_data *data,
 		if (data->use_pseudonym)
 			eap_set_anon_id(sm, data->pseudonym,
 					data->pseudonym_len);
+		data->anonymous_flag = 0;
 	}
 
 	if (attr->next_reauth_id) {
@@ -492,7 +503,7 @@ static struct wpabuf * eap_sim_response_start(struct eap_sm *sm,
 		identity_len = data->reauth_id_len;
 		data->reauth = 1;
 	} else if ((id_req == ANY_ID || id_req == FULLAUTH_ID) &&
-		   data->pseudonym) {
+		   data->pseudonym && !data->anonymous_flag) {
 		identity = data->pseudonym;
 		identity_len = data->pseudonym_len;
 		eap_sim_clear_identities(sm, data, CLEAR_REAUTH_ID);
@@ -768,7 +779,7 @@ static struct wpabuf * eap_sim_process_challenge(struct eap_sm *sm,
 	if (data->last_eap_identity) {
 		identity = data->last_eap_identity;
 		identity_len = data->last_eap_identity_len;
-	} else if (data->pseudonym) {
+	} else if (data->pseudonym && !data->anonymous_flag) {
 		identity = data->pseudonym;
 		identity_len = data->pseudonym_len;
 	} else {
@@ -1248,20 +1259,23 @@ static u8 * eap_sim_get_emsk(struct eap_sm *sm, void *priv, size_t *len)
 	return key;
 }
 
+
 static int eap_sim_get_error_code(void *priv)
 {
 	struct eap_sim_data *data = priv;
+	int current_data_error;
 
 	if (!data)
 		return NO_EAP_METHOD_ERROR;
 
-	int current_data_error = data->error_code;
+	current_data_error = data->error_code;
 
 	/* Now reset for next transaction */
 	data->error_code = NO_EAP_METHOD_ERROR;
 
 	return current_data_error;
 }
+
 
 int eap_peer_sim_register(void)
 {

@@ -45,7 +45,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getUserSelectedOutgoingPhoneAccount
      */
-    PhoneAccountHandle getUserSelectedOutgoingPhoneAccount();
+    PhoneAccountHandle getUserSelectedOutgoingPhoneAccount(String callingPackage);
 
     /**
      * @see TelecomServiceImpl#setUserSelectedOutgoingPhoneAccount
@@ -97,7 +97,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getSimCallManager
      */
-    PhoneAccountHandle getSimCallManager();
+    PhoneAccountHandle getSimCallManager(int subId);
 
     /**
      * @see TelecomServiceImpl#getSimCallManagerForUser
@@ -182,6 +182,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getCallState
      */
+    @UnsupportedAppUsage
     int getCallState();
 
     /**
@@ -279,4 +280,30 @@ interface ITelecomService {
      * @see TelecomServiceImpl#acceptHandover
      */
     void acceptHandover(in Uri srcAddr, int videoState, in PhoneAccountHandle destAcct);
+
+    /**
+     * @see TelecomServiceImpl#isInEmergencyCall
+     */
+    boolean isInEmergencyCall();
+
+    /**
+     * @see TelecomServiceImpl#handleCallIntent
+     */
+    void handleCallIntent(in Intent intent);
+
+    void setTestDefaultCallRedirectionApp(String packageName);
+
+    void setTestPhoneAcctSuggestionComponent(String flattenedComponentName);
+
+    void setTestDefaultCallScreeningApp(String packageName);
+
+    void addOrRemoveTestCallCompanionApp(String packageName, boolean isAdded);
+
+    void setTestAutoModeApp(String packageName);
+
+    /**
+     * @see TelecomServiceImpl#setTestDefaultDialer
+     */
+    void setTestDefaultDialer(in String packageName);
+
 }

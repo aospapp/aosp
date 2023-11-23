@@ -30,6 +30,7 @@
 
 #include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
+#include "test/vts/proto/VtsResourceControllerMessage.pb.h"
 
 using namespace std;
 
@@ -40,28 +41,28 @@ void VtsDriverHalSocketServer::Exit() {
   LOG(INFO) << "VtsHalDriverServer::Exit";
 }
 
-int32_t VtsDriverHalSocketServer::LoadHal(const string& path, int target_class,
-                                          int target_type, float target_version,
-                                          const string& target_package,
-                                          const string& target_component_name,
-                                          const string& hw_binder_service_name,
-                                          const string& /*module_name*/) {
+int32_t VtsDriverHalSocketServer::LoadHal(
+    const string& path, int target_class, int target_type,
+    int target_version_major, int target_version_minor,
+    const string& target_package, const string& target_component_name,
+    const string& hw_binder_service_name, const string& /*module_name*/) {
   LOG(DEBUG) << "LoadHal(" << path << ")";
   int32_t driver_id = driver_manager_->LoadTargetComponent(
-      path.c_str(), lib_path_, target_class, target_type, target_version,
-      target_package.c_str(), target_component_name.c_str(),
-      hw_binder_service_name.c_str());
+      path.c_str(), lib_path_, target_class, target_type, target_version_major,
+      target_version_minor, target_package.c_str(),
+      target_component_name.c_str(), hw_binder_service_name.c_str());
   LOG(DEBUG) << "Result: " << driver_id;
   return driver_id;
 }
 
-
 string VtsDriverHalSocketServer::ReadSpecification(
-    const string& name, int target_class, int target_type, float target_version,
+    const string& name, int target_class, int target_type,
+    int target_version_major, int target_version_minor,
     const string& target_package) {
   ComponentSpecificationMessage msg;
   driver_manager_->FindComponentSpecification(
-      target_class, target_type, target_version, target_package, name, &msg);
+      target_class, target_type, target_version_major, target_version_minor,
+      target_package, name, &msg);
   string result;
   google::protobuf::TextFormat::PrintToString(msg, &result);
   LOG(DEBUG) << "Result: " << result;
@@ -120,7 +121,8 @@ bool VtsDriverHalSocketServer::ProcessOneCommand() {
       LOG(INFO) << "Process command LOAD_HAL";
       int32_t driver_id = LoadHal(
           command_message.file_path(), command_message.target_class(),
-          command_message.target_type(), command_message.target_version(),
+          command_message.target_type(), command_message.target_version_major(),
+          command_message.target_version_minor(),
           command_message.target_package(),
           command_message.target_component_name(),
           command_message.hw_binder_service_name(),
@@ -159,7 +161,8 @@ bool VtsDriverHalSocketServer::ProcessOneCommand() {
       LOG(INFO) << "Process command READ_SPECIFICATION";
       const string& result = ReadSpecification(
           command_message.module_name(), command_message.target_class(),
-          command_message.target_type(), command_message.target_version(),
+          command_message.target_type(), command_message.target_version_major(),
+          command_message.target_version_minor(),
           command_message.target_package());
       VtsDriverControlResponseMessage response_message;
       response_message.set_response_code(VTS_DRIVER_RESPONSE_SUCCESS);
@@ -189,6 +192,42 @@ bool VtsDriverHalSocketServer::ProcessOneCommand() {
       if (VtsSocketSendMessage(response_message)) return true;
       break;
     }
+    case FMQ_OPERATION: {
+      LOG(INFO) << "Process command FMQ_OPERATION";
+      VtsDriverControlResponseMessage response_message;
+      FmqResponseMessage* fmq_response =
+          response_message.mutable_fmq_response();
+      // call method on resource_manager to process the command
+      resource_manager_->ProcessFmqCommand(command_message.fmq_request(),
+                                           fmq_response);
+      response_message.set_response_code(VTS_DRIVER_RESPONSE_SUCCESS);
+      if (VtsSocketSendMessage(response_message)) return true;
+      break;
+    }
+    case HIDL_MEMORY_OPERATION: {
+      LOG(INFO) << "Process command HIDL_MEMORY_OPERATION";
+      VtsDriverControlResponseMessage response_message;
+      HidlMemoryResponseMessage* hidl_memory_response =
+          response_message.mutable_hidl_memory_response();
+      // call method on resource_manager to process the command
+      resource_manager_->ProcessHidlMemoryCommand(
+          command_message.hidl_memory_request(), hidl_memory_response);
+      response_message.set_response_code(VTS_DRIVER_RESPONSE_SUCCESS);
+      if (VtsSocketSendMessage(response_message)) return true;
+      break;
+    }
+    case HIDL_HANDLE_OPERATION: {
+      LOG(INFO) << "Process command HIDL_HANDLE_OPERATION";
+      VtsDriverControlResponseMessage response_message;
+      HidlHandleResponseMessage* hidl_handle_response =
+          response_message.mutable_hidl_handle_response();
+      // call method on resource manager to process the command
+      resource_manager_->ProcessHidlHandleCommand(
+          command_message.hidl_handle_request(), hidl_handle_response);
+      response_message.set_response_code(VTS_DRIVER_RESPONSE_SUCCESS);
+      if (VtsSocketSendMessage(response_message)) return true;
+      break;
+    }
     default:
       break;
   }
@@ -199,6 +238,7 @@ bool VtsDriverHalSocketServer::ProcessOneCommand() {
 // Starts to run a UNIX socket server (foreground).
 int StartSocketServer(const string& socket_port_file,
                       VtsHalDriverManager* driver_manager,
+                      VtsResourceManager* resource_manager,
                       const char* lib_path) {
   int sockfd;
   socklen_t clilen;
@@ -241,8 +281,8 @@ int StartSocketServer(const string& socket_port_file,
     if (pid == 0) {  // child
       close(sockfd);
       LOG(DEBUG) << "Process for an agent - pid = " << getpid();
-      VtsDriverHalSocketServer* server =
-          new VtsDriverHalSocketServer(driver_manager, lib_path);
+      VtsDriverHalSocketServer* server = new VtsDriverHalSocketServer(
+          driver_manager, resource_manager, lib_path);
       server->SetSockfd(newsockfd);
       while (server->ProcessOneCommand())
         ;

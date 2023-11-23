@@ -20,7 +20,8 @@ import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
 import android.app.admin.DevicePolicyManager;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 
@@ -40,8 +41,10 @@ public class TransferProfileOwnerIncomingTest extends DeviceAndProfileOwnerTrans
 
         DevicePolicyManager targetParentProfileInstance =
                 mDevicePolicyManager.getParentProfileInstance(mIncomingComponentName);
-        assertEquals(
-                passwordExpirationTimeout,
-                targetParentProfileInstance.getPasswordExpirationTimeout(mIncomingComponentName));
+        if (mHasSecureLockScreen) {
+            assertEquals(
+                    passwordExpirationTimeout,
+                    targetParentProfileInstance.getPasswordExpirationTimeout(mIncomingComponentName));
+        }
     }
 }

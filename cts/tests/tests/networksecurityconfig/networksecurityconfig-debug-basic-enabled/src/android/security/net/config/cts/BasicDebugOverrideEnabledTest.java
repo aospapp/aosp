@@ -16,9 +16,7 @@
 
 package android.security.net.config.cts;
 
-import junit.framework.TestCase;
-
-public class BasicDebugOverrideEnabledTest extends TestCase {
+public class BasicDebugOverrideEnabledTest extends BaseTestCase {
 
     public void testDefaultConfig() throws Exception {
         // Connections should work thanks to the debug overrides adding the system CA store.

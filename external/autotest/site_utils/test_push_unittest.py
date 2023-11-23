@@ -19,9 +19,14 @@ from autotest_lib.server import site_utils
 retry.retry = mock.create_autospec(retry.retry, return_value=lambda func: func)
 from autotest_lib.site_utils import test_push
 
-
 class TestPushUnittests(mox.MoxTestBase):
     """Unittest for test_push script."""
+
+    _ARGV = [
+        'command',
+        '--build', 'stumpy-release/R36-5881-0.0',
+        '--shard_build', 'quawks-release/R36-5881-0.0'
+    ]
 
     def setUp(self):
         """Initialize the unittest."""
@@ -46,12 +51,6 @@ class TestPushUnittests(mox.MoxTestBase):
         self.mox.StubOutWithMock(urllib2, 'urlopen')
         urllib2.urlopen(mox.IgnoreArg()).AndReturn(response)
 
-        self.mox.StubOutWithMock(test_push, 'get_default_build')
-        test_push.get_default_build(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(
-                'stumpy-release/R36-5881-0.0')
-        test_push.get_default_build(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(
-                'quawks-release/R36-5881-0.0')
-
         self.mox.StubOutWithMock(test_push, 'check_dut_image')
         test_push.check_dut_image(mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(
                 None)
@@ -59,7 +58,7 @@ class TestPushUnittests(mox.MoxTestBase):
         self.mox.StubOutWithMock(test_push, 'do_run_suite')
         test_push.do_run_suite(
                 test_push.PUSH_TO_PROD_SUITE, mox.IgnoreArg(), mox.IgnoreArg(),
-                mox.IgnoreArg(), mox.IgnoreArg()).AndReturn((1))
+                mox.IgnoreArg()).AndReturn((1))
 
         self.mox.StubOutWithMock(site_utils, 'get_test_views_from_tko')
         site_utils.get_test_views_from_tko(1, None).AndReturn(test_views)
@@ -75,7 +74,7 @@ class TestPushUnittests(mox.MoxTestBase):
         self.stub_out_methods(test_views)
         self.mox.ReplayAll()
         test_push.test_suite(test_push.PUSH_TO_PROD_SUITE, test_views,
-                             arguments=test_push.parse_arguments())
+                             arguments=test_push.parse_arguments(self._ARGV))
         self.mox.VerifyAll()
 
 
@@ -88,7 +87,7 @@ class TestPushUnittests(mox.MoxTestBase):
         self.stub_out_methods(test_views)
         self.mox.ReplayAll()
         test_push.test_suite(test_push.PUSH_TO_PROD_SUITE, test_views,
-                             arguments=test_push.parse_arguments())
+                             arguments=test_push.parse_arguments(self._ARGV))
         self.mox.VerifyAll()
 
 
@@ -103,7 +102,7 @@ class TestPushUnittests(mox.MoxTestBase):
         self.stub_out_methods(test_views)
         self.mox.ReplayAll()
         test_push.test_suite(test_push.PUSH_TO_PROD_SUITE, test_views,
-                             arguments=test_push.parse_arguments())
+                             arguments=test_push.parse_arguments(self._ARGV))
         self.mox.VerifyAll()
 
 
@@ -118,7 +117,7 @@ class TestPushUnittests(mox.MoxTestBase):
         self.stub_out_methods(test_views)
         self.mox.ReplayAll()
         test_push.test_suite(test_push.PUSH_TO_PROD_SUITE, test_views,
-                             arguments=test_push.parse_arguments())
+                             arguments=test_push.parse_arguments(self._ARGV))
         self.mox.VerifyAll()
 
 

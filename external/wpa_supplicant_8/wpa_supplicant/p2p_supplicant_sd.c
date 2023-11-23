@@ -559,15 +559,24 @@ static void wpas_sd_req_asp(struct wpa_supplicant *wpa_s,
 			    const u8 *query, size_t query_len)
 {
 	struct p2ps_advertisement *adv_data;
-	const u8 *svc = &query[1];
+	const u8 *svc;
 	const u8 *info = NULL;
-	size_t svc_len = query[0];
+	size_t svc_len;
 	size_t info_len = 0;
 	int prefix = 0;
 	u8 *count_pos = NULL;
 	u8 *len_pos = NULL;
 
 	wpa_hexdump(MSG_DEBUG, "P2P: SD Request for ASP", query, query_len);
+
+	if (query_len < 1) {
+		wpa_printf(MSG_DEBUG, "P2P: ASP bad request");
+		wpas_sd_add_bad_request(resp, P2P_SERV_P2PS, srv_trans_id);
+		return;
+	}
+
+	svc_len = query[0];
+	svc = &query[1];
 
 	if (!wpa_s->global->p2p) {
 		wpa_printf(MSG_DEBUG, "P2P: ASP protocol not available");

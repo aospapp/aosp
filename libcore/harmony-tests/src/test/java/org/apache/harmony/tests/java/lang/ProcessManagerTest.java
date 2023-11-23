@@ -99,7 +99,6 @@ public class ProcessManagerTest extends TestCase {
         }
 
         thread.interrupt();
-        //process.destroy();
         try {
             Thread.sleep(100);
         } catch(InterruptedException ie) {
@@ -107,6 +106,9 @@ public class ProcessManagerTest extends TestCase {
         }
 
         assertTrue(isThrown);
+        // Destroy process, otherwise it will run until 1000 seconds
+        // have elapsed but we don't need it again for this test.
+        process.destroy();
     }
 
     public void testPwd() throws IOException, InterruptedException {

@@ -10,6 +10,7 @@
 
 #include <functional>
 #include "GrTypes.h"
+#include "GrTypesPriv.h"
 
 class GrTextureProxy;
 
@@ -95,9 +96,10 @@ public:
     GrDeferredUploadToken nextDrawToken() const { return fLastIssuedToken.next(); }
 
 private:
-    // Only these two classes get to increment the token counters
+    // Only these three classes get to increment the token counters
     friend class SkInternalAtlasTextContext;
     friend class GrOpFlushState;
+    friend class TestingUploadTarget;
 
     /** Issues the next token for a draw. */
     GrDeferredUploadToken issueDrawToken() { return ++fLastIssuedToken; }
@@ -115,7 +117,7 @@ private:
  */
 using GrDeferredTextureUploadWritePixelsFn =
         std::function<bool(GrTextureProxy*, int left, int top, int width, int height,
-                           GrPixelConfig config, const void* buffer, size_t rowBytes)>;
+                           GrColorType colorType, const void* buffer, size_t rowBytes)>;
 
 /**
  * A deferred texture upload is simply a std::function that takes a

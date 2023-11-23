@@ -14,30 +14,14 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Netd"
-
 #include "EventReporter.h"
-#include "log/log.h"
 
 using android::interface_cast;
+using android::net::INetdUnsolicitedEventListener;
 using android::net::metrics::INetdEventListener;
 
-int EventReporter::setMetricsReportingLevel(const int level) {
-    if (level < INetdEventListener::REPORTING_LEVEL_NONE
-            || level > INetdEventListener::REPORTING_LEVEL_FULL) {
-        ALOGE("Invalid metrics reporting level %d", level);
-        return -EINVAL;
-    }
-    mReportingLevel = level;
-    return 0;
-}
-
-int EventReporter::getMetricsReportingLevel() const {
-    return mReportingLevel;
-}
-
 android::sp<INetdEventListener> EventReporter::getNetdEventListener() {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard lock(mEventMutex);
     if (mNetdEventListener == nullptr) {
         // Use checkService instead of getService because getService waits for 5 seconds for the
         // service to become available. The DNS resolver inside netd is started much earlier in the
@@ -45,13 +29,50 @@ android::sp<INetdEventListener> EventReporter::getNetdEventListener() {
         // for 5 seconds until the DNS listener starts up.
         android::sp<android::IBinder> b = android::defaultServiceManager()->checkService(
                 android::String16("netd_listener"));
-        if (b != nullptr) {
-            mNetdEventListener = interface_cast<INetdEventListener>(b);
-        }
+        mNetdEventListener = interface_cast<INetdEventListener>(b);
     }
     // If the netd listener service is dead, the binder call will just return an error, which should
     // be fine because the only impact is that we can't log netd events. In any case, this should
     // only happen if the system server is going down, which means it will shortly be taking us down
     // with it.
     return mNetdEventListener;
+}
+
+EventReporter::UnsolListenerMap EventReporter::getNetdUnsolicitedEventListenerMap() const {
+    std::lock_guard lock(mUnsolicitedMutex);
+    return mUnsolListenerMap;
+}
+
+void EventReporter::registerUnsolEventListener(
+        const android::sp<INetdUnsolicitedEventListener>& listener) {
+    std::lock_guard lock(mUnsolicitedMutex);
+
+    // Create the death listener.
+    class DeathRecipient : public android::IBinder::DeathRecipient {
+      public:
+        DeathRecipient(EventReporter* eventReporter,
+                       android::sp<INetdUnsolicitedEventListener> listener)
+            : mEventReporter(eventReporter), mListener(std::move(listener)) {}
+        ~DeathRecipient() override = default;
+        void binderDied(const android::wp<android::IBinder>& /* who */) override {
+            mEventReporter->unregisterUnsolEventListener(mListener);
+        }
+
+      private:
+        EventReporter* mEventReporter;
+        android::sp<INetdUnsolicitedEventListener> mListener;
+    };
+    android::sp<android::IBinder::DeathRecipient> deathRecipient =
+            new DeathRecipient(this, listener);
+
+    android::IInterface::asBinder(listener)->linkToDeath(deathRecipient);
+
+    // TODO: Consider to use remote binder address as registering key
+    mUnsolListenerMap.insert({listener, deathRecipient});
+}
+
+void EventReporter::unregisterUnsolEventListener(
+        const android::sp<INetdUnsolicitedEventListener>& listener) {
+    std::lock_guard lock(mUnsolicitedMutex);
+    mUnsolListenerMap.erase(listener);
 }

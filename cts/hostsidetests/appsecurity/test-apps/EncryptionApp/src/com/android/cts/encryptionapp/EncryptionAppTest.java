@@ -19,6 +19,9 @@ package com.android.cts.encryptionapp;
 import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_AWARE;
 import static android.content.pm.PackageManager.MATCH_DIRECT_BOOT_UNAWARE;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,8 +31,13 @@ import android.content.pm.ComponentInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Environment;
+import android.os.StrictMode;
+import android.os.StrictMode.ViolationInfo;
 import android.os.SystemClock;
 import android.os.UserManager;
+import android.os.strictmode.CredentialProtectedWhileLockedViolation;
+import android.os.strictmode.ImplicitDirectBootViolation;
+import android.os.strictmode.Violation;
 import android.provider.Settings;
 import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
@@ -39,7 +47,9 @@ import android.view.KeyEvent;
 
 import java.io.File;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class EncryptionAppTest extends InstrumentationTestCase {
     private static final String TAG = "EncryptionAppTest";
@@ -217,6 +227,22 @@ public class EncryptionAppTest extends InstrumentationTestCase {
             assertEquals(expected, mCe.getExternalCacheDir());
             assertEquals(expected, mDe.getExternalCacheDir());
         }
+
+        assertViolation(
+                new StrictMode.VmPolicy.Builder().detectImplicitDirectBoot()
+                        .penaltyLog().build(),
+                ImplicitDirectBootViolation.class,
+                () -> {
+                    final Intent intent = new Intent(Intent.ACTION_DATE_CHANGED);
+                    mCe.getPackageManager().queryBroadcastReceivers(intent, 0);
+                });
+
+        final File ceFile = getTestFile(mCe);
+        assertViolation(
+                new StrictMode.VmPolicy.Builder().detectCredentialProtectedWhileLocked()
+                        .penaltyLog().build(),
+                CredentialProtectedWhileLockedViolation.class,
+                ceFile::exists);
     }
 
     public void assertUnlocked() throws Exception {
@@ -260,6 +286,20 @@ public class EncryptionAppTest extends InstrumentationTestCase {
             assertCanonicalEquals(expected, mCe.getExternalCacheDir());
             assertCanonicalEquals(expected, mDe.getExternalCacheDir());
         }
+
+        assertNoViolation(
+                new StrictMode.VmPolicy.Builder().detectImplicitDirectBoot()
+                        .penaltyLog().build(),
+                () -> {
+                    final Intent intent = new Intent(Intent.ACTION_DATE_CHANGED);
+                    mCe.getPackageManager().queryBroadcastReceivers(intent, 0);
+                });
+
+        final File ceFile = getTestFile(mCe);
+        assertNoViolation(
+                new StrictMode.VmPolicy.Builder().detectCredentialProtectedWhileLocked()
+                        .penaltyLog().build(),
+                ceFile::exists);
     }
 
     private void assertQuery(int count, int flags) throws Exception {
@@ -350,5 +390,37 @@ public class EncryptionAppTest extends InstrumentationTestCase {
             SystemClock.sleep(1000);
         }
         throw new AssertionError("Failed to find " + probe);
+    }
+
+    public interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    private static void assertViolation(StrictMode.VmPolicy policy,
+            Class<? extends Violation> expected, ThrowingRunnable r) throws Exception {
+        inspectViolation(policy, r,
+                info -> assertThat(info.getViolationClass()).isAssignableTo(expected));
+    }
+
+    private static void assertNoViolation(StrictMode.VmPolicy policy, ThrowingRunnable r)
+            throws Exception {
+        inspectViolation(policy, r,
+                info -> assertWithMessage("Unexpected violation").that(info).isNull());
+    }
+
+    private static void inspectViolation(StrictMode.VmPolicy policy, ThrowingRunnable violating,
+            Consumer<ViolationInfo> consume) throws Exception {
+        final LinkedBlockingQueue<ViolationInfo> violations = new LinkedBlockingQueue<>();
+        StrictMode.setViolationLogger(violations::add);
+
+        final StrictMode.VmPolicy original = StrictMode.getVmPolicy();
+        try {
+            StrictMode.setVmPolicy(policy);
+            violating.run();
+            consume.accept(violations.poll(5, TimeUnit.SECONDS));
+        } finally {
+            StrictMode.setVmPolicy(original);
+            StrictMode.setViolationLogger(null);
+        }
     }
 }

@@ -31,6 +31,7 @@ int getNetworkForSocket(unsigned* netId, int socketFd);
 int setNetworkForSocket(unsigned netId, int socketFd);
 
 unsigned getNetworkForProcess(void);
+
 int setNetworkForProcess(unsigned netId);
 
 int setNetworkForResolv(unsigned netId);
@@ -48,6 +49,16 @@ int untagSocket(int socketFd);
 int setCounterSet(uint32_t counterSet, uid_t uid);
 
 int deleteTagData(uint32_t tag, uid_t uid);
+
+int resNetworkQuery(unsigned netId, const char* dname, int ns_class, int ns_type, uint32_t flags);
+
+int resNetworkResult(int query_fd, int* rcode, uint8_t* answer, size_t anslen);
+
+int resNetworkSend(unsigned netId, const uint8_t* msg, size_t msglen, uint32_t flags);
+
+void resNetworkCancel(int nsend_fd);
+
+int getNetworkForDns(unsigned* dnsNetId);
 __END_DECLS
 
 #endif  // NETD_INCLUDE_NETD_CLIENT_H

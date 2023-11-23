@@ -78,12 +78,17 @@ def _gather_presentation_info(config_data, test_name):
 
     @raises PerfUploadingError if some required data is missing.
     """
-    if not test_name in config_data:
+    presentation_dict = None
+    for regex in config_data:
+        match = re.match(regex, test_name)
+        if match:
+            presentation_dict = config_data[regex]
+            break
+
+    if not presentation_dict:
         raise PerfUploadingError(
                 'No config data is specified for test %s in %s.' %
                 (test_name, _PRESENTATION_CONFIG_FILE))
-
-    presentation_dict = config_data[test_name]
     try:
         master_name = presentation_dict['master_name']
     except KeyError:

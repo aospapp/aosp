@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BASE_SCOPEGUARD_H
-#define ANDROID_BASE_SCOPEGUARD_H
+#pragma once
 
 #include <utility>  // for std::move, std::forward
 
@@ -29,7 +28,7 @@ class ScopeGuard {
  public:
   ScopeGuard(F&& f) : f_(std::forward<F>(f)), active_(true) {}
 
-  ScopeGuard(ScopeGuard&& that) : f_(std::move(that.f_)), active_(that.active_) {
+  ScopeGuard(ScopeGuard&& that) noexcept : f_(std::move(that.f_)), active_(that.active_) {
     that.active_ = false;
   }
 
@@ -66,5 +65,3 @@ ScopeGuard<F> make_scope_guard(F&& f) {
 
 }  // namespace base
 }  // namespace android
-
-#endif  // ANDROID_BASE_SCOPEGUARD_H

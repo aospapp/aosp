@@ -1,0 +1,10 @@
+--- android_icu4j/src/main/java/android/icu/text/DateTimePatternGenerator.java	2018-10-22 05:12:26.868613656 +0100
++++ android_icu4j/src/main/java/android/icu/text/DateTimePatternGenerator.java	2018-10-22 05:12:45.536675367 +0100
+@@ -1230,7 +1230,6 @@
+      *
+      * @param field The index to get the append item name.
+      * @return name for field
+-     * @see #getFieldDisplayName(int, DisplayWidth)
+      */
+     public String getAppendItemName(int field) {
+         return getFieldDisplayName(field, APPENDITEM_WIDTH);

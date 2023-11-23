@@ -47,7 +47,11 @@ AtomDecl::AtomDecl(const AtomDecl& that)
       fields(that.fields),
       primaryFields(that.primaryFields),
       exclusiveField(that.exclusiveField),
-      uidField(that.uidField) {}
+      uidField(that.uidField),
+      whitelisted(that.whitelisted),
+      binaryFields(that.binaryFields),
+      hasModule(that.hasModule),
+      moduleName(that.moduleName) {}
 
 AtomDecl::AtomDecl(int c, const string& n, const string& m)
     :code(c),
@@ -116,6 +120,12 @@ java_type(const FieldDescriptor* field)
             if (field->message_type()->full_name() ==
                 "android.os.statsd.AttributionNode") {
               return JAVA_TYPE_ATTRIBUTION_CHAIN;
+            } else if (field->message_type()->full_name() ==
+                       "android.os.statsd.KeyValuePair") {
+              return JAVA_TYPE_KEY_VALUE_PAIR;
+            } else if (field->options().GetExtension(os::statsd::log_mode) ==
+                       os::statsd::LogMode::MODE_BYTES) {
+                return JAVA_TYPE_BYTE_ARRAY;
             } else {
                 return JAVA_TYPE_OBJECT;
             }
@@ -155,6 +165,7 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
                  vector<java_type_t> *signature) {
 
   int errorCount = 0;
+
   // Build a sorted list of the fields. Descriptor has them in source file
   // order.
   map<int, const FieldDescriptor *> fields;
@@ -185,6 +196,8 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
   for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
        it != fields.end(); it++) {
     const FieldDescriptor *field = it->second;
+    bool isBinaryField = field->options().GetExtension(os::statsd::log_mode) ==
+                         os::statsd::LogMode::MODE_BYTES;
 
     java_type_t javaType = java_type(field);
 
@@ -192,17 +205,34 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
       print_error(field, "Unkown type for field: %s\n", field->name().c_str());
       errorCount++;
       continue;
-    } else if (javaType == JAVA_TYPE_OBJECT) {
-      // Allow attribution chain, but only at position 1.
-      print_error(field, "Message type not allowed for field: %s\n",
-                  field->name().c_str());
-      errorCount++;
-      continue;
-    } else if (javaType == JAVA_TYPE_BYTE_ARRAY) {
-      print_error(field, "Raw bytes type not allowed for field: %s\n",
-                  field->name().c_str());
-      errorCount++;
-      continue;
+    } else if (javaType == JAVA_TYPE_OBJECT &&
+               atomDecl->code < PULL_ATOM_START_ID) {
+        // Allow attribution chain, but only at position 1.
+        print_error(field,
+                    "Message type not allowed for field in pushed atoms: %s\n",
+                    field->name().c_str());
+        errorCount++;
+        continue;
+    } else if (javaType == JAVA_TYPE_BYTE_ARRAY && !isBinaryField) {
+        print_error(field, "Raw bytes type not allowed for field: %s\n",
+                    field->name().c_str());
+        errorCount++;
+        continue;
+    }
+
+    if (isBinaryField && javaType != JAVA_TYPE_BYTE_ARRAY) {
+        print_error(field, "Cannot mark field %s as bytes.\n",
+                    field->name().c_str());
+        errorCount++;
+        continue;
+    }
+
+    // Doubles are not supported yet.
+    if (javaType == JAVA_TYPE_DOUBLE) {
+        print_error(field, "Doubles are not supported in atoms. Please change field %s to float\n",
+                    field->name().c_str());
+        errorCount++;
+        continue;
     }
   }
 
@@ -228,18 +258,29 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
        it != fields.end(); it++) {
     const FieldDescriptor *field = it->second;
     java_type_t javaType = java_type(field);
+    bool isBinaryField = field->options().GetExtension(os::statsd::log_mode) ==
+                         os::statsd::LogMode::MODE_BYTES;
 
     AtomField atField(field->name(), javaType);
+    // Generate signature for pushed atoms
+    if (atomDecl->code < PULL_ATOM_START_ID) {
+      if (javaType == JAVA_TYPE_ENUM) {
+        // All enums are treated as ints when it comes to function signatures.
+        signature->push_back(JAVA_TYPE_INT);
+        collate_enums(*field->enum_type(), &atField);
+      } else if (javaType == JAVA_TYPE_OBJECT && isBinaryField) {
+          signature->push_back(JAVA_TYPE_BYTE_ARRAY);
+      } else {
+          signature->push_back(javaType);
+      }
+    }
     if (javaType == JAVA_TYPE_ENUM) {
       // All enums are treated as ints when it comes to function signatures.
-      signature->push_back(JAVA_TYPE_INT);
       collate_enums(*field->enum_type(), &atField);
-    } else {
-      signature->push_back(javaType);
     }
     atomDecl->fields.push_back(atField);
 
-    if (field->options().GetExtension(os::statsd::stateFieldOption).option() ==
+    if (field->options().GetExtension(os::statsd::state_field_option).option() ==
         os::statsd::StateField::PRIMARY) {
         if (javaType == JAVA_TYPE_UNKNOWN ||
             javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
@@ -249,7 +290,7 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
         atomDecl->primaryFields.push_back(it->first);
     }
 
-    if (field->options().GetExtension(os::statsd::stateFieldOption).option() ==
+    if (field->options().GetExtension(os::statsd::state_field_option).option() ==
         os::statsd::StateField::EXCLUSIVE) {
         if (javaType == JAVA_TYPE_UNKNOWN ||
             javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
@@ -274,6 +315,10 @@ int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
         } else {
             errorCount++;
         }
+    }
+    // Binary field validity is already checked above.
+    if (isBinaryField) {
+        atomDecl->binaryFields.push_back(it->first);
     }
   }
 
@@ -354,30 +399,64 @@ int collate_atoms(const Descriptor *descriptor, Atoms *atoms) {
 
     const Descriptor *atom = atomField->message_type();
     AtomDecl atomDecl(atomField->number(), atomField->name(), atom->name());
+
+    if (atomField->options().GetExtension(os::statsd::allow_from_any_uid) == true) {
+        atomDecl.whitelisted = true;
+    }
+
+    if (atomField->options().HasExtension(os::statsd::log_from_module)) {
+        atomDecl.hasModule = true;
+        atomDecl.moduleName = atomField->options().GetExtension(os::statsd::log_from_module);
+    }
+
     vector<java_type_t> signature;
     errorCount += collate_atom(atom, &atomDecl, &signature);
     if (atomDecl.primaryFields.size() != 0 && atomDecl.exclusiveField == 0) {
         errorCount++;
     }
-    atoms->signatures.insert(signature);
+
+    // Add the signature if does not already exist.
+    auto signature_to_modules_it = atoms->signatures_to_modules.find(signature);
+    if (signature_to_modules_it == atoms->signatures_to_modules.end()) {
+        set<string> modules;
+        if (atomDecl.hasModule) {
+            modules.insert(atomDecl.moduleName);
+        }
+        atoms->signatures_to_modules[signature] = modules;
+    } else {
+        if (atomDecl.hasModule) {
+            signature_to_modules_it->second.insert(atomDecl.moduleName);
+        }
+    }
     atoms->decls.insert(atomDecl);
 
     AtomDecl nonChainedAtomDecl(atomField->number(), atomField->name(), atom->name());
     vector<java_type_t> nonChainedSignature;
     if (get_non_chained_node(atom, &nonChainedAtomDecl, &nonChainedSignature)) {
-        atoms->non_chained_signatures.insert(nonChainedSignature);
+        auto it = atoms->non_chained_signatures_to_modules.find(signature);
+        if (it == atoms->non_chained_signatures_to_modules.end()) {
+            set<string> modules_non_chained;
+            if (atomDecl.hasModule) {
+                modules_non_chained.insert(atomDecl.moduleName);
+            }
+            atoms->non_chained_signatures_to_modules[nonChainedSignature] = modules_non_chained;
+        } else {
+            if (atomDecl.hasModule) {
+                it->second.insert(atomDecl.moduleName);
+            }
+        }
         atoms->non_chained_decls.insert(nonChainedAtomDecl);
     }
   }
 
   if (dbg) {
     printf("signatures = [\n");
-    for (set<vector<java_type_t>>::const_iterator it =
-             atoms->signatures.begin();
-         it != atoms->signatures.end(); it++) {
+    for (map<vector<java_type_t>, set<string>>::const_iterator it =
+             atoms->signatures_to_modules.begin();
+         it != atoms->signatures_to_modules.end(); it++) {
       printf("   ");
-      for (vector<java_type_t>::const_iterator jt = it->begin();
-           jt != it->end(); jt++) {
+      for (vector<java_type_t>::const_iterator jt = it->first.begin();
+           jt != it->first.end(); jt++) {
         printf(" %d", (int)*jt);
       }
       printf("\n");

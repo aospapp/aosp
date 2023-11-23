@@ -38,7 +38,11 @@
 #include "ti_allocator.h"
 #include "ti_class.h"
 #include "ti_ddms.h"
+#include "ti_dump.h"
 #include "ti_heap.h"
+#include "ti_logging.h"
+#include "ti_monitor.h"
+
 #include "thread-inl.h"
 
 namespace openjdkjvmti {
@@ -252,6 +256,77 @@ jvmtiError ExtensionUtil::GetExtensionFunctions(jvmtiEnv* env,
   if (error != ERR(NONE)) {
     return error;
   }
+
+  // Raw monitors no suspend
+  error = add_extension(
+      reinterpret_cast<jvmtiExtensionFunction>(MonitorUtil::RawMonitorEnterNoSuspend),
+      "com.android.art.concurrent.raw_monitor_enter_no_suspend",
+      "Normally entering a monitor will not return until both the monitor is locked and the"
+      " current thread is not suspended. This method will return once the monitor is locked"
+      " even if the thread is suspended. Note that using rawMonitorWait will wait until the"
+      " thread is not suspended again on wakeup and so should be avoided.",
+      {
+          { "raw_monitor", JVMTI_KIND_IN_PTR, JVMTI_TYPE_CVOID, false },
+      },
+      {
+        ERR(NULL_POINTER),
+        ERR(INVALID_MONITOR),
+      });
+  if (error != ERR(NONE)) {
+    return error;
+  }
+
+  // GetLastError extension
+  error = add_extension(
+      reinterpret_cast<jvmtiExtensionFunction>(LogUtil::GetLastError),
+      "com.android.art.misc.get_last_error_message",
+      "In some cases the jvmti plugin will log data about errors to the android logcat. These can"
+      " be useful to tools so we make (some) of the messages available here as well. This will"
+      " fill the given 'msg' buffer with the last non-fatal message associated with this"
+      " jvmti-env. Note this is best-effort only, not all log messages will be accessible through"
+      " this API. This will return the last error-message from all threads. Care should be taken"
+      " interpreting the return value when used with a multi-threaded program. The error message"
+      " will only be cleared by a call to 'com.android.art.misc.clear_last_error_message' and will"
+      " not be cleared by intervening successful calls. If no (tracked) error message has been"
+      " sent since the last call to clear_last_error_message this API will return"
+      " JVMTI_ERROR_ABSENT_INFORMATION. Not all failures will cause an error message to be"
+      " recorded.",
+      {
+          { "msg", JVMTI_KIND_ALLOC_BUF, JVMTI_TYPE_CCHAR, false },
+      },
+      {
+        ERR(NULL_POINTER),
+        ERR(ABSENT_INFORMATION),
+      });
+  if (error != ERR(NONE)) {
+    return error;
+  }
+
+  // ClearLastError extension
+  error = add_extension(
+      reinterpret_cast<jvmtiExtensionFunction>(LogUtil::ClearLastError),
+      "com.android.art.misc.clear_last_error_message",
+      "Clears the error message returned by 'com.android.art.misc.get_last_error_message'.",
+      { },
+      { });
+  if (error != ERR(NONE)) {
+    return error;
+  }
+
+  // DumpInternalState
+  error = add_extension(
+      reinterpret_cast<jvmtiExtensionFunction>(DumpUtil::DumpInternalState),
+      "com.android.art.misc.get_plugin_internal_state",
+      "Gets internal state about the plugin and serializes it to the given msg. "
+      "There is no particular format to this message beyond being human readable.",
+      {
+          { "msg", JVMTI_KIND_ALLOC_BUF, JVMTI_TYPE_CCHAR, false },
+      },
+      { ERR(NULL_POINTER) });
+  if (error != ERR(NONE)) {
+    return error;
+  }
+
   // Copy into output buffer.
 
   *extension_count_ptr = ext_vector.size();
@@ -404,7 +479,7 @@ jvmtiError ExtensionUtil::SetExtensionEventCallback(jvmtiEnv* env,
     }
   }
   return event_handler->SetEvent(art_env,
-                                 /*event_thread*/nullptr,
+                                 /*thread=*/nullptr,
                                  static_cast<ArtJvmtiEvent>(extension_event_index),
                                  mode);
 }

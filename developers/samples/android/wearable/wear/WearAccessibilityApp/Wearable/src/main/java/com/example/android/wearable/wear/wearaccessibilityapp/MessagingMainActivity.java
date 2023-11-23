@@ -19,7 +19,8 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
+
+import androidx.wear.ambient.AmbientMode;
 
 /**
  * Template class meant to include functionality for your Messaging App. (This project's main focus

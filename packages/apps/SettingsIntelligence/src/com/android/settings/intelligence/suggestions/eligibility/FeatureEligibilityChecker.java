@@ -18,7 +18,7 @@ package com.android.settings.intelligence.suggestions.eligibility;
 
 import android.content.Context;
 import android.content.pm.ResolveInfo;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 

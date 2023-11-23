@@ -75,6 +75,7 @@ public class CurrencyMetaInfo {
 
     /**
      * A filter used to select which currency info is returned.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class CurrencyFilter {
         /**
@@ -341,6 +342,7 @@ public class CurrencyMetaInfo {
 
     /**
      * Represents the raw information about fraction digits and rounding increment.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class CurrencyDigits {
         /**
@@ -377,6 +379,7 @@ public class CurrencyMetaInfo {
      * and priority.
      * Use {@link CurrencyMetaInfo#currencyInfo(CurrencyFilter)}
      * for a list of info objects matching the filter.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class CurrencyInfo {
         /**

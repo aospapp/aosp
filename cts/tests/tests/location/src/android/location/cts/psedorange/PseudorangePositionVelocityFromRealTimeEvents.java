@@ -19,14 +19,12 @@ package android.location.cts.pseudorange;
 import android.location.GnssClock;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
-import android.location.GnssNavigationMessage;
 import android.location.GnssStatus;
 import android.util.Log;
 import android.location.cts.pseudorange.Ecef2EnuConverter.EnuValues;
 import android.location.cts.pseudorange.Ecef2LlaConverter.GeodeticLlaValues;
 import android.location.cts.nano.Ephemeris.GpsEphemerisProto;
 import android.location.cts.nano.Ephemeris.GpsNavMessageProto;
-import android.location.cts.pseudorange.GpsTime;
 import android.location.cts.suplClient.SuplRrlpController;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,6 +54,9 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
 
   private static final String SUPL_SERVER_NAME = "supl.google.com";
   private static final int SUPL_SERVER_PORT = 7276;
+
+  private static final double GPS_L5_FREQ_HZ_LOWER_BOUND = 1.164e9;
+  private static final double GPS_L5_FREQ_HZ_UPPER_BOUND = 1.189e9;
 
   private final double[] mPositionSolutionLatLngDeg = {Double.NaN, Double.NaN, Double.NaN};
   private final double[] mVelocitySolutionEnuMps = {Double.NaN, Double.NaN, Double.NaN};
@@ -106,6 +107,11 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
       if (measurement.getConstellationType() != GnssStatus.CONSTELLATION_GPS) {
           continue;
         }
+
+      if (isGpsL5FrequencyHz(measurement.getCarrierFrequencyHz())) {
+        continue;
+      }
+
         // ignore raw data if time is zero, if signal to noise ratio is below threshold or if
         // TOW is not yet decoded
         if (measurement.getCn0DbHz() >= C_TO_N0_THRESHOLD_DB_HZ
@@ -261,6 +267,11 @@ public class PseudorangePositionVelocityFromRealTimeEvents {
         mVelocitySolutionEnuMps[1] = Double.NaN;
         mVelocitySolutionEnuMps[2] = Double.NaN;
     }
+  }
+
+  private static boolean isGpsL5FrequencyHz(float carrierFrequencyHz) {
+    return carrierFrequencyHz >= GPS_L5_FREQ_HZ_LOWER_BOUND
+            && carrierFrequencyHz <= GPS_L5_FREQ_HZ_UPPER_BOUND;
   }
 
   private boolean isEmptyNavMessage(GpsNavMessageProto navMessageProto) {

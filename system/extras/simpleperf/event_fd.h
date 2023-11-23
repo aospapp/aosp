@@ -43,7 +43,7 @@ class EventFd {
                                                 EventFd* group_event_fd,
                                                 bool report_error = true);
 
-  ~EventFd();
+  virtual ~EventFd();
 
   // Give information about this perf_event_file, like (event_name, tid, cpu).
   std::string Name() const;
@@ -58,31 +58,39 @@ class EventFd {
 
   // It tells the kernel to start counting and recording events specified by
   // this file.
-  bool EnableEvent();
+  bool SetEnableEvent(bool enable);
 
   bool ReadCounter(PerfCounter* counter);
 
   // Create mapped buffer used to receive records sent by the kernel.
   // mmap_pages should be power of 2.
-  bool CreateMappedBuffer(size_t mmap_pages, bool report_error);
+  virtual bool CreateMappedBuffer(size_t mmap_pages, bool report_error);
 
   // Share the mapped buffer used by event_fd. The two EventFds should monitor
   // the same event on the same cpu, but have different thread ids.
   bool ShareMappedBuffer(const EventFd& event_fd, bool report_error);
 
   bool HasMappedBuffer() const { return mmap_data_buffer_size_ != 0; }
+  char* GetMappedBuffer(size_t& buffer_size) {
+    buffer_size = mmap_data_buffer_size_;
+    return mmap_data_buffer_;
+  }
 
-  void DestroyMappedBuffer();
+  virtual void DestroyMappedBuffer();
 
-  // When the kernel writes new sampled records to the mapped area, we can get
-  // them by returning the start address and size of the data.
-  size_t GetAvailableMmapData(std::vector<char>& buffer, size_t& buffer_pos);
+  // Return available data in the kernel buffer.
+  std::vector<char> GetAvailableMmapData();
+  // Return the size of available data in the buffer, and set data_pos to the first available data
+  // position in mmap_data_buffer_.
+  virtual size_t GetAvailableMmapDataSize(size_t& data_pos);
+  // Discard the size of the data we have read, so the kernel can reuse the space for new data.
+  virtual void DiscardMmapData(size_t discard_size);
 
   // [callback] is called when there is data available in the mapped buffer.
-  bool StartPolling(IOEventLoop& loop, const std::function<bool()>& callback);
-  bool StopPolling();
+  virtual bool StartPolling(IOEventLoop& loop, const std::function<bool()>& callback);
+  virtual bool StopPolling();
 
- private:
+ protected:
   EventFd(const perf_event_attr& attr, int perf_event_fd,
           const std::string& event_name, pid_t tid, int cpu)
       : attr_(attr),
@@ -100,9 +108,6 @@ class EventFd {
         last_counter_value_(0) {}
 
   bool InnerReadCounter(PerfCounter* counter) const;
-  // Discard how much data we have read, so the kernel can reuse this part of
-  // mapped area to store new data.
-  void DiscardMmapData(size_t discard_size);
 
   const perf_event_attr attr_;
   int perf_event_fd_;
@@ -117,11 +122,6 @@ class EventFd {
   char* mmap_data_buffer_;  // Starting from the second page of mmap_area,
                             // containing records written by then kernel.
   size_t mmap_data_buffer_size_;
-
-  // As mmap_data_buffer is a ring buffer, it is possible that one record is
-  // wrapped at the end of the buffer. So we need to copy records from
-  // mmap_data_buffer to data_process_buffer before processing them.
-  static std::vector<char> data_process_buffer_;
 
   IOEventRef ioevent_ref_;
 

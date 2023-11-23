@@ -16,15 +16,29 @@
 package android.car.cluster.renderer;
 
 import android.car.navigation.CarNavigationInstrumentCluster;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 
 /**
- * Binder API for Instrument Cluster Navigation.
+ * Binder API for Instrument Cluster Navigation. This represents a direct communication channel
+ * from navigation applications to the cluster vendor implementation.
  *
  * @hide
  */
 interface IInstrumentClusterNavigation {
-    void onEvent(int eventType, in Bundle bundle);
+    /**
+     * Called when there is a change on the navigation state.
+     *
+     * @param bundle {@link android.os.Bundle} containing the description of the navigation state
+     *               change. This information can be parsed using
+     *               <a href="https://developer.android.com/reference/androidx/car/cluster/navigation/NavigationState.html#toParcelable()">
+     *               androidx.car.cluster.navigation.NavigationState#fromParcelable(Parcelable)</a>
+     */
+    void onNavigationStateChanged(in Bundle bundle);
+
+    /**
+     * Returns attributes of instrument cluster for navigation.
+     */
     CarNavigationInstrumentCluster getInstrumentClusterInfo();
 }

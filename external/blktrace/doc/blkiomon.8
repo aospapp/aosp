@@ -7,7 +7,7 @@ blkiomon \- monitor block device I/O based o blktrace data
 
 .SH SYNOPSIS
 .B blkiomon \-I \fIinterval\fR [ \-h \fIfile\fR ] [ \-b \fIfile\fR ]
-[ \-D \fIfile\fR ] [ \-Q \fIpath_name\fR
+[ \-d \fIfile\fR ] [ \-D \fIfile\fR ] [ \-Q \fIpath_name\fR
 \-q \fImsg_queue_id\fR \-m \fImsg_id\fR ] [ \-V ]
 .br
 
@@ -17,6 +17,8 @@ blkiomon is a block device I/O monitor. It periodically generates per-device
 request size and request latency statistics from blktrace data. It provides
 histograms as well as data that can be used to calculate min, max, average
 and variance. For this purpose, it consumes D and C traces read from stdin.
+Note, that this doesn't work for logical volumes, as high-level drivers
+don't see the completion of the events (C).
 
 There are options for binary output and human-readable output to files and
 stdout. Output to a message queue is supported as well.
@@ -46,6 +48,13 @@ Human-readable output file. Use '\-' for stdout.
 \-\-binary=\fIfile\fR
 .RS
 Binary output file. Use '\-' for stdout.
+.RE
+
+\-d \fIfile\fR
+.br
+\-\-dump-lldd=\fIfile\fR
+.RS
+Output file for data emitted by low level device driver.
 .RE
 
 \-D \fIfile\fR

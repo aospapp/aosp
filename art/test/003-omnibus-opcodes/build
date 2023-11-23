@@ -17,20 +17,20 @@
 # Stop if something fails.
 set -e
 
-mkdir classes
-${JAVAC} -d classes `find src -name '*.java'`
-rm classes/UnresClass.class
-${JAVAC} -d classes `find src2 -name '*.java'`
+export ORIGINAL_JAVAC="$JAVAC"
 
-if [ ${USE_JACK} = "true" ]; then
-  jar cf classes.jill.jar -C classes .
-  ${JACK} --import classes.jill.jar --output-dex .
-else
-  if [ ${NEED_DEX} = "true" ]; then
-    ${DX} -JXmx256m --debug --dex --output=classes.dex classes
-  fi
-fi
+# Wrapper function for javac which invokes the compiler and applies
+# additional setup steps for the test.
+function javac_wrapper {
+  set -e # Stop on error - the caller script may not have this set.
 
-if [ ${NEED_DEX} = "true" ]; then
-  zip $TEST_NAME.jar classes.dex
-fi
+  $ORIGINAL_JAVAC "$@"
+  rm -f classes/UnresClass.class
+}
+
+export -f javac_wrapper
+export JAVAC=javac_wrapper
+
+######################################################################
+
+./default-build "$@"

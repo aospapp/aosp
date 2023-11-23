@@ -99,8 +99,7 @@ int VtsProfilingInterface::CreateTraceFile(const string& package,
   int fd = open(file_path.c_str(), O_RDWR | O_CREAT | O_EXCL,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   if (fd < 0) {
-    LOG(ERROR) << "Can not open trace file: " << file_path
-               << " error: " << std::strerror(errno);
+    PLOG(ERROR) << "Can not open trace file: " << file_path;
     return -1;
   }
   return fd;
@@ -110,12 +109,16 @@ void VtsProfilingInterface::AddTraceEvent(
     android::hardware::details::HidlInstrumentor::InstrumentationEvent event,
     const char* package, const char* version, const char* interface,
     const FunctionSpecificationMessage& message) {
+  std::string version_str = std::string(version);
+  int version_major = stoi(version_str.substr(0, version_str.find('.')));
+  int version_minor = stoi(version_str.substr(version_str.find('.') + 1));
   // Build the VTSProfilingRecord and print it to string.
   VtsProfilingRecord record;
   record.set_timestamp(NanoTime());
   record.set_event((InstrumentationEventType) static_cast<int>(event));
   record.set_package(package);
-  record.set_version(stof(version));
+  record.set_version_major(version_major);
+  record.set_version_minor(version_minor);
   record.set_interface(interface);
   *record.mutable_func_msg() = message;
 
@@ -130,7 +133,7 @@ void VtsProfilingInterface::AddTraceEvent(
       LOG(ERROR) << "Failed to write record.";
     }
     if (!trace_output.Flush()) {
-      LOG(ERROR) << "Failed to flush: " << std::strerror(errno);
+      PLOG(ERROR) << "Failed to flush";
     }
   }
   mutex_.unlock();

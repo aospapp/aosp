@@ -38,14 +38,23 @@ public class ScanRecordTest extends AndroidTestCase {
                 0x02, 0x0A, (byte) 0xec, // tx power level
                 0x05, 0x16, 0x0b, 0x11, 0x50, 0x64, // service data
                 0x05, (byte) 0xff, (byte) 0xe0, 0x00, 0x02, 0x15, // manufacturer specific data
+                0x05, 0x14, 0x0c, 0x11, 0x0d, 0x11, // 16 bit service solicitation uuids
                 0x03, 0x50, 0x01, 0x02, // an unknown data type won't cause trouble
         };
         ScanRecord data = TestUtils.parseScanRecord(scanRecord);
         assertEquals(0x1a, data.getAdvertiseFlags());
         ParcelUuid uuid1 = ParcelUuid.fromString("0000110A-0000-1000-8000-00805F9B34FB");
         ParcelUuid uuid2 = ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB");
+        ParcelUuid uuid3 = ParcelUuid.fromString("0000110C-0000-1000-8000-00805F9B34FB");
+        ParcelUuid uuid4 = ParcelUuid.fromString("0000110D-0000-1000-8000-00805F9B34FB");
         assertTrue(data.getServiceUuids().contains(uuid1));
         assertTrue(data.getServiceUuids().contains(uuid2));
+        assertFalse(data.getServiceUuids().contains(uuid3));
+        assertFalse(data.getServiceUuids().contains(uuid4));
+        assertFalse(data.getServiceSolicitationUuids().contains(uuid1));
+        assertFalse(data.getServiceSolicitationUuids().contains(uuid2));
+        assertTrue(data.getServiceSolicitationUuids().contains(uuid3));
+        assertTrue(data.getServiceSolicitationUuids().contains(uuid4));
 
         assertEquals("Ped", data.getDeviceName());
         assertEquals(-20, data.getTxPowerLevel());

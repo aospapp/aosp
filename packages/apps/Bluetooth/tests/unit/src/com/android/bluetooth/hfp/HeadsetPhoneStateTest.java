@@ -24,11 +24,12 @@ import android.content.Context;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.ServiceManager;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.PhoneStateListener;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.TestUtils;
 import com.android.internal.telephony.ISub;
@@ -72,6 +73,7 @@ public class HeadsetPhoneStateTest {
         // Stub other methods
         when(mHeadsetService.getSystemService(Context.TELEPHONY_SERVICE)).thenReturn(
                 mTelephonyManager);
+        when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(mTelephonyManager);
         when(mHeadsetService.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE)).thenReturn(
                 mSubscriptionManager);
         mHandlerThread = new HandlerThread("HeadsetStateMachineTestHandlerThread");

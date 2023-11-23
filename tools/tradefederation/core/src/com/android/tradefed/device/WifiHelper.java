@@ -52,6 +52,8 @@ public class WifiHelper implements IWifiHelper {
 
     static final String CHECK_PACKAGE_CMD =
             String.format("dumpsys package %s", INSTRUMENTATION_PKG);
+    static final String ENABLE_WIFI_CMD = "svc wifi enable";
+    static final String DISABLE_WIFI_CMD = "svc wifi disable";
     static final Pattern PACKAGE_VERSION_PAT = Pattern.compile("versionCode=(\\d*)");
     static final int PACKAGE_VERSION_CODE = 21;
 
@@ -60,7 +62,7 @@ public class WifiHelper implements IWifiHelper {
     private static final long WIFIUTIL_CMD_TIMEOUT_MINUTES = 5;
 
     /** the default time in ms to wait for a wifi state */
-    private static final long DEFAULT_WIFI_STATE_TIMEOUT = 30*1000;
+    private static final long DEFAULT_WIFI_STATE_TIMEOUT = 200*1000;
 
     private final ITestDevice mDevice;
     private File mWifiUtilApkFile;
@@ -165,7 +167,10 @@ public class WifiHelper implements IWifiHelper {
      */
     @Override
     public boolean enableWifi() throws DeviceNotAvailableException {
-        return asBool(runWifiUtil("enableWifi"));
+        mDevice.executeShellCommand(ENABLE_WIFI_CMD);
+        // shell command does not produce any message to indicate success/failure, wait for state
+        // change to complete.
+        return waitForWifiEnabled();
     }
 
     /**
@@ -173,7 +178,10 @@ public class WifiHelper implements IWifiHelper {
      */
     @Override
     public boolean disableWifi() throws DeviceNotAvailableException {
-        return asBool(runWifiUtil("disableWifi"));
+        mDevice.executeShellCommand(DISABLE_WIFI_CMD);
+        // shell command does not produce any message to indicate success/failure, wait for state
+        // change to complete.
+        return waitForWifiDisabled();
     }
 
     /**
@@ -447,8 +455,16 @@ public class WifiHelper implements IWifiHelper {
     @Override
     public boolean connectToNetwork(String ssid, String psk, String urlToCheck,
             boolean scanSsid) throws DeviceNotAvailableException {
-        return asBool(runWifiUtil("connectToNetwork", "ssid", ssid, "psk", psk, "urlToCheck",
-                urlToCheck, "scan_ssid", Boolean.toString(scanSsid)));
+        if (!enableWifi()) {
+            CLog.e("Failed to enable wifi");
+            return false;
+        }
+        if (!asBool(runWifiUtil("connectToNetwork", "ssid", ssid, "psk", psk, "urlToCheck",
+                urlToCheck, "scan_ssid", Boolean.toString(scanSsid)))) {
+            CLog.e("Failed to connect to " + ssid);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -456,7 +472,15 @@ public class WifiHelper implements IWifiHelper {
      */
     @Override
     public boolean disconnectFromNetwork() throws DeviceNotAvailableException {
-        return asBool(runWifiUtil("disconnectFromNetwork"));
+        if (!asBool(runWifiUtil("disconnectFromNetwork"))) {
+            CLog.e("Failed to disconnect");
+            return false;
+        }
+        if (!disableWifi()) {
+            CLog.e("Failed to disable wifi");
+            return false;
+        }
+        return true;
     }
 
     /**

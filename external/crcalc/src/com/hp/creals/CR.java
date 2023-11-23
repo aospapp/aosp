@@ -110,6 +110,12 @@
 // performance problems for (-huge).exp()
 // hboehm@google.com 8/21/2017
 // Have comparison check for interruption. hboehm@google.com 10/31/2017
+// Fix precision overflow issue in most general compareTo function.
+// Fix a couple of unused variable bugs. Notably selector_sign was
+// accidentally locally redeclared. (This turns out to be safe but useless.)
+// hboehm@google.com 11/20/2018.
+// Fix an exception-safety issue in gl_pi_CR.approximate.
+// hboehm@google.com 3/3/2019.
 
 package com.hp.creals;
 
@@ -473,9 +479,11 @@ public volatile static boolean please_stop = false;
         int this_msd = iter_msd(a);
         int x_msd = x.iter_msd(this_msd > a? this_msd : a);
         int max_msd = (x_msd > this_msd? x_msd : this_msd);
+        if (max_msd == Integer.MIN_VALUE) {
+          return 0;
+        }
+        check_prec(r);
         int rel = max_msd + r;
-            // This can't approach overflow, since r and a are
-            // effectively divided by 2, and msds are checked.
         int abs_prec = (rel > a? rel : a);
         return compareTo(x, abs_prec);
       }
@@ -1108,7 +1116,7 @@ class select_CR extends CR {
     CR op2;
     select_CR(CR s, CR x, CR y) {
         selector = s;
-        int selector_sign = selector.get_appr(-20).signum();
+        selector_sign = selector.get_appr(-20).signum();
         op1 = x;
         op2 = y;
     }
@@ -1379,7 +1387,6 @@ class prescaled_ln_CR extends slow_CR {
         int op_prec = p - 3;
         BigInteger op_appr = op.get_appr(op_prec);
           // Error analysis as for exponential.
-        BigInteger scaled_1 = big1.shiftLeft(-calc_precision);
         BigInteger x_nth = scale(op_appr, op_prec - calc_precision);
         BigInteger current_term = x_nth;  // x**n
         BigInteger current_sum = current_term;
@@ -1572,6 +1579,11 @@ class gl_pi_CR extends slow_CR {
     private static CR SQRT_HALF = new sqrt_CR(ONE.shiftRight(1));
 
     protected BigInteger approximate(int p) {
+        // Get us back into a consistent state if the last computation
+        // was interrupted after pushing onto b_prec.
+        if (b_prec.size() > b_val.size()) {
+            b_prec.remove(b_prec.size() - 1);
+        }
         // Rough approximations are easy.
         if (p >= 0) return scale(BigInteger.valueOf(3), -p);
         // We need roughly log2(p) iterations.  Each iteration should
@@ -1590,28 +1602,35 @@ class gl_pi_CR extends slow_CR {
             // Current values correspond to n, next_ values to n + 1
             // b_prec.size() == b_val.size() >= n + 1
             final BigInteger next_a = a.add(b).shiftRight(1);
+            final BigInteger next_b;
             final BigInteger a_diff = a.subtract(next_a);
-            CR next_b_as_CR;
             final BigInteger b_prod = a.multiply(b).shiftRight(-eval_prec);
-            // We the compute square root approximations using a nested
+            // We compute square root approximations using a nested
             // temporary CR computation, to avoid implementing BigInteger
             // square roots separately.
             final CR b_prod_as_CR = CR.valueOf(b_prod).shiftRight(-eval_prec);
             if (b_prec.size() == n + 1) {
-                // Need an n+1st slot.
-                b_prec.add(null);
-                b_val.add(null);
-                next_b_as_CR = b_prod_as_CR.sqrt();
+                // Add an n+1st slot.
+                // Take care to make this exception-safe; b_prec and b_val
+                // must remain consistent, even if we are interrupted, or run
+                // out of memory. It's OK to just push on b_prec in that case.
+                final CR next_b_as_CR = b_prod_as_CR.sqrt();
+                next_b = next_b_as_CR.get_appr(eval_prec);
+                final BigInteger scaled_next_b = scale(next_b, -extra_eval_prec);
+                b_prec.add(p);
+                b_val.add(scaled_next_b);
             } else {
                 // Reuse previous approximation to reduce sqrt iterations,
                 // hopefully to one.
-                next_b_as_CR = new sqrt_CR(b_prod_as_CR, b_prec.get(n + 1),
-                                           b_val.get(n + 1));
+                final CR next_b_as_CR =
+                        new sqrt_CR(b_prod_as_CR,
+                                    b_prec.get(n + 1), b_val.get(n + 1));
+                next_b = next_b_as_CR.get_appr(eval_prec);
+                // We assume that set() doesn't throw for any reason.
+                b_prec.set(n + 1, p);
+                b_val.set(n + 1, scale(next_b, -extra_eval_prec));
             }
             // b_prec.size() == b_val.size() >= n + 2
-            final BigInteger next_b = next_b_as_CR.get_appr(eval_prec);
-            b_prec.set(n + 1, Integer.valueOf(p));
-            b_val.set(n + 1, scale(next_b, -extra_eval_prec));
             final BigInteger next_t =
                     t.subtract(a_diff.multiply(a_diff)
                      .shiftLeft(n + eval_prec));  // shift dist. usually neg.

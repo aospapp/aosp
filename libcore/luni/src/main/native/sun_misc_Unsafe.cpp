@@ -17,7 +17,7 @@
 #define LOG_TAG "Unsafe"
 
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
+#include <nativehelper/jni_macros.h>
 
 static jobject Unsafe_allocateInstance(JNIEnv* env, jclass, jclass c) {
   return env->AllocObject(c);

@@ -106,6 +106,9 @@
 /* Define to 1 if you have the `clock' function. */
 #undef HAVE_CLOCK
 
+/* Define to 1 if you have the `clock_getres' function. */
+#undef HAVE_CLOCK_GETRES
+
 /* Define to 1 if you have clock_gettime. */
 #undef HAVE_CLOCK_GETTIME
 
@@ -282,7 +285,7 @@
    than `double'. */
 #undef HAVE_LONG_DOUBLE_WIDER
 
-/* Define to 1 if the system has the type 'long long int'. */
+/* Define to 1 if the system has the type `long long int'. */
 #undef HAVE_LONG_LONG_INT
 
 /* Define to 1 if you have the `lstat' function. */
@@ -389,9 +392,6 @@
 
 /* Define to 1 if you have the `rand_r' function. */
 #undef HAVE_RAND_R
-
-/* Define to 1 if you have the `readdir_r' function. */
-#undef HAVE_READDIR_R
 
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
@@ -631,7 +631,7 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define to 1 if the system has the type 'unsigned long long int'. */
+/* Define to 1 if the system has the type `unsigned long long int'. */
 #undef HAVE_UNSIGNED_LONG_LONG_INT
 
 /* Define to 1 if you have the `uselocale' function. */
@@ -718,6 +718,9 @@
 /* Whether hdri is enabled or not */
 #undef HDRI_ENABLE_OBSOLETE_IN_H
 
+/* Define if you have libheif library */
+#undef HEIC_DELEGATE
+
 /* Define if you have jemalloc memory allocation library */
 #undef HasJEMALLOC
 
@@ -759,8 +762,12 @@
 /* Define if you have LQR library */
 #undef LQR_DELEGATE
 
-/* Define if using libltdl to support dynamically loadable modules */
+/* Define if using libltdl to support dynamically loadable modules and OpenCL
+   */
 #undef LTDL_DELEGATE
+
+/* Native module suffix */
+#undef LTDL_MODULE_EXT
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
@@ -788,6 +795,9 @@
 
 /* Magick API method prefix */
 #undef NAMESPACE_PREFIX
+
+/* Magick API method prefix tag */
+#undef NAMESPACE_PREFIX_TAG
 
 /* Define to 1 if assertions should be disabled. */
 #undef NDEBUG
@@ -840,6 +850,9 @@
 
 /* Define if you have RAQM library */
 #undef RAQM_DELEGATE
+
+/* Define if you have LIBRAW library */
+#undef RAW_R_DELEGATE
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
@@ -966,6 +979,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define if you have WEBPMUX library */
+#undef WEBPMUX_DELEGATE
+
 /* Define if you have WEBP library */
 #undef WEBP_DELEGATE
 
@@ -1007,6 +1023,9 @@
 
 /* Define if you have ZLIB library */
 #undef ZLIB_DELEGATE
+
+/* Define if you have ZSTD library */
+#undef ZSTD_DELEGATE
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE

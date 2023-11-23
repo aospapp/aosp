@@ -24,11 +24,11 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := android.test.runner.stubs cts-junit org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs junit org.apache.http.legacy
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctstestrunner \
-    compatibility-device-util \
+    ctstestrunner-axt \
+    compatibility-device-util-axt \
     androidx.legacy_legacy-support-v4
 
 LOCAL_SDK_VERSION := test_current

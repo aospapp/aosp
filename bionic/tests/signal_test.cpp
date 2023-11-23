@@ -22,9 +22,10 @@
 
 #include <thread>
 
+#include <android-base/macros.h>
 #include <gtest/gtest.h>
 
-#include "ScopedSignalHandler.h"
+#include "SignalUtils.h"
 
 static int SIGNAL_MIN() {
   return 1; // Signals start at 1 (SIGHUP), not 0.
@@ -37,13 +38,13 @@ static int SIGNAL_MAX(SigSetT* set) {
 
 template <typename SigSetT>
 static void TestSigSet1(int (fn)(SigSetT*)) {
-  // NULL sigset_t*/sigset64_t*.
-  SigSetT* set_ptr = NULL;
+  // nullptr sigset_t*/sigset64_t*.
+  SigSetT* set_ptr = nullptr;
   errno = 0;
   ASSERT_EQ(-1, fn(set_ptr));
   ASSERT_EQ(EINVAL, errno);
 
-  // Non-NULL.
+  // Non-nullptr.
   SigSetT set = {};
   errno = 0;
   ASSERT_EQ(0, fn(&set));
@@ -52,8 +53,8 @@ static void TestSigSet1(int (fn)(SigSetT*)) {
 
 template <typename SigSetT>
 static void TestSigSet2(int (fn)(SigSetT*, int)) {
-  // NULL sigset_t*/sigset64_t*.
-  SigSetT* set_ptr = NULL;
+  // nullptr sigset_t*/sigset64_t*.
+  SigSetT* set_ptr = nullptr;
   errno = 0;
   ASSERT_EQ(-1, fn(set_ptr, SIGSEGV));
   ASSERT_EQ(EINVAL, errno);
@@ -281,9 +282,9 @@ static void TestSigAction(int (sigaction_fn)(int, const SigActionT*, SigActionT*
 
   // See what's currently set for this signal.
   SigActionT original_sa = {};
-  ASSERT_EQ(0, sigaction_fn(sig, NULL, &original_sa));
-  ASSERT_TRUE(original_sa.sa_handler == NULL);
-  ASSERT_TRUE(original_sa.sa_sigaction == NULL);
+  ASSERT_EQ(0, sigaction_fn(sig, nullptr, &original_sa));
+  ASSERT_TRUE(original_sa.sa_handler == nullptr);
+  ASSERT_TRUE(original_sa.sa_sigaction == nullptr);
   ASSERT_EQ(0U, original_sa.sa_flags & ~sa_restorer);
 #ifdef SA_RESTORER
   ASSERT_EQ(bool(original_sa.sa_flags & sa_restorer), bool(original_sa.sa_restorer));
@@ -295,11 +296,11 @@ static void TestSigAction(int (sigaction_fn)(int, const SigActionT*, SigActionT*
   sigaddset_fn(&sa.sa_mask, sig);
   sa.sa_flags = SA_ONSTACK;
   sa.sa_handler = no_op_signal_handler;
-  ASSERT_EQ(0, sigaction_fn(sig, &sa, NULL));
+  ASSERT_EQ(0, sigaction_fn(sig, &sa, nullptr));
 
   // Check that we can read it back.
   sa = {};
-  ASSERT_EQ(0, sigaction_fn(sig, NULL, &sa));
+  ASSERT_EQ(0, sigaction_fn(sig, nullptr, &sa));
   ASSERT_TRUE(sa.sa_handler == no_op_signal_handler);
   ASSERT_TRUE((void*) sa.sa_sigaction == (void*) sa.sa_handler);
   ASSERT_EQ(static_cast<unsigned>(SA_ONSTACK), sa.sa_flags & ~sa_restorer);
@@ -313,11 +314,11 @@ static void TestSigAction(int (sigaction_fn)(int, const SigActionT*, SigActionT*
   sigaddset_fn(&sa.sa_mask, sig);
   sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
   sa.sa_sigaction = no_op_sigaction;
-  ASSERT_EQ(0, sigaction_fn(sig, &sa, NULL));
+  ASSERT_EQ(0, sigaction_fn(sig, &sa, nullptr));
 
   // Check that we can read it back.
   sa = {};
-  ASSERT_EQ(0, sigaction_fn(sig, NULL, &sa));
+  ASSERT_EQ(0, sigaction_fn(sig, nullptr, &sa));
   ASSERT_TRUE(sa.sa_sigaction == no_op_sigaction);
   ASSERT_TRUE((void*) sa.sa_sigaction == (void*) sa.sa_handler);
   ASSERT_EQ(static_cast<unsigned>(SA_ONSTACK | SA_SIGINFO), sa.sa_flags & ~sa_restorer);
@@ -326,7 +327,7 @@ static void TestSigAction(int (sigaction_fn)(int, const SigActionT*, SigActionT*
 #endif
 
   // Put everything back how it was.
-  ASSERT_EQ(0, sigaction_fn(sig, &original_sa, NULL));
+  ASSERT_EQ(0, sigaction_fn(sig, &original_sa, nullptr));
 }
 
 TEST(signal, sigaction) {
@@ -339,6 +340,17 @@ TEST(signal, sigaction64_SIGRTMIN) {
 
 static void ClearSignalMask() {
   uint64_t sigset = 0;
+  SignalSetAdd(&sigset, __SIGRTMIN);
+  if (syscall(__NR_rt_sigprocmask, SIG_SETMASK, &sigset, nullptr, sizeof(sigset)) != 0) {
+    abort();
+  }
+}
+
+static void FillSignalMask() {
+  uint64_t sigset = ~0ULL;
+  for (int signo = __SIGRTMIN + 1; signo < SIGRTMIN; ++signo) {
+    SignalSetDel(&sigset, signo);
+  }
   if (syscall(__NR_rt_sigprocmask, SIG_SETMASK, &sigset, nullptr, sizeof(sigset)) != 0) {
     abort();
   }
@@ -352,40 +364,27 @@ static uint64_t GetSignalMask() {
   return sigset;
 }
 
-enum class SignalMaskFunctionType {
-  RtAware,
-  RtNonaware,
-};
-
-#if defined(__LP64__) || !defined(__BIONIC__)
-constexpr SignalMaskFunctionType sigset_type = SignalMaskFunctionType::RtAware;
-#else
-constexpr SignalMaskFunctionType sigset_type = SignalMaskFunctionType::RtNonaware;
-#endif
-
-static void TestSignalMaskFiltered(uint64_t sigset, SignalMaskFunctionType type) {
-  for (int signo = 1; signo <= 64; ++signo) {
+static void TestSignalMaskFiltered(uint64_t sigset) {
+#if defined(__BIONIC__)
+  for (int signo = __SIGRTMIN; signo < SIGRTMIN; ++signo) {
     bool signal_blocked = sigset & (1ULL << (signo - 1));
-    if (signo == SIGKILL || signo == SIGSTOP) {
-      // SIGKILL and SIGSTOP shouldn't be blocked.
-      EXPECT_EQ(false, signal_blocked) << "signal " << signo;
-    } else if (signo < __SIGRTMIN) {
-      // Everything else should be blocked.
+    if (signo == __SIGRTMIN) {
+      // TIMER_SIGNAL must be blocked.
       EXPECT_EQ(true, signal_blocked) << "signal " << signo;
-    } else if (signo >= __SIGRTMIN && signo < SIGRTMIN) {
-      // Reserved signals must not be blocked.
+    } else {
+      // The other reserved signals must not be blocked.
       EXPECT_EQ(false, signal_blocked) << "signal " << signo;
-    } else if (type == SignalMaskFunctionType::RtAware) {
-      // Realtime signals should be blocked, unless we blocked using a non-rt aware function.
-      EXPECT_EQ(true, signal_blocked) << "signal " << signo;
     }
   }
+#else
+  UNUSED(sigset);
+#endif
 }
 
-static void TestSignalMaskFunction(std::function<void()> fn, SignalMaskFunctionType fn_type) {
+static void TestSignalMaskFunction(std::function<void()> fn) {
   ClearSignalMask();
   fn();
-  TestSignalMaskFiltered(GetSignalMask(), fn_type);
+  TestSignalMaskFiltered(GetSignalMask());
 }
 
 TEST(signal, sigaction_filter) {
@@ -393,11 +392,19 @@ TEST(signal, sigaction_filter) {
   static uint64_t sigset;
   struct sigaction sa = {};
   sa.sa_handler = [](int) { sigset = GetSignalMask(); };
+  sa.sa_flags = SA_ONSTACK | SA_NODEFER;
   sigfillset(&sa.sa_mask);
   sigaction(SIGUSR1, &sa, nullptr);
   raise(SIGUSR1);
-  ASSERT_NE(0ULL, sigset);
-  TestSignalMaskFiltered(sigset, sigset_type);
+
+  // On LP32, struct sigaction::sa_mask is only 32-bits wide.
+  unsigned long expected_sigset = ~0UL;
+
+  // SIGKILL and SIGSTOP are always blocked.
+  expected_sigset &= ~(1UL << (SIGKILL - 1));
+  expected_sigset &= ~(1UL << (SIGSTOP - 1));
+
+  ASSERT_EQ(static_cast<uint64_t>(expected_sigset), sigset);
 }
 
 TEST(signal, sigaction64_filter) {
@@ -405,115 +412,146 @@ TEST(signal, sigaction64_filter) {
   static uint64_t sigset;
   struct sigaction64 sa = {};
   sa.sa_handler = [](int) { sigset = GetSignalMask(); };
+  sa.sa_flags = SA_ONSTACK | SA_NODEFER;
   sigfillset64(&sa.sa_mask);
   sigaction64(SIGUSR1, &sa, nullptr);
   raise(SIGUSR1);
-  ASSERT_NE(0ULL, sigset);
-  TestSignalMaskFiltered(sigset, SignalMaskFunctionType::RtAware);
+
+  uint64_t expected_sigset = ~0ULL;
+
+  // SIGKILL and SIGSTOP are always blocked.
+  expected_sigset &= ~(1ULL << (SIGKILL - 1));
+  expected_sigset &= ~(1ULL << (SIGSTOP - 1));
+
+  ASSERT_EQ(expected_sigset, sigset);
 }
 
 TEST(signal, sigprocmask_setmask_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset_t sigset_libc;
-        sigfillset(&sigset_libc);
-        ASSERT_EQ(0, sigprocmask(SIG_SETMASK, &sigset_libc, nullptr));
-      },
-      sigset_type);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask(SIG_SETMASK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, sigprocmask64_setmask_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset64_t sigset_libc;
-        sigfillset64(&sigset_libc);
-        ASSERT_EQ(0, sigprocmask64(SIG_SETMASK, &sigset_libc, nullptr));
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask64(SIG_SETMASK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, pthread_sigmask_setmask_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset_t sigset_libc;
-        sigfillset(&sigset_libc);
-        ASSERT_EQ(0, pthread_sigmask(SIG_SETMASK, &sigset_libc, nullptr));
-      },
-      sigset_type);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask(SIG_SETMASK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, pthread_sigmask64_setmask_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset64_t sigset_libc;
-        sigfillset64(&sigset_libc);
-        ASSERT_EQ(0, pthread_sigmask64(SIG_SETMASK, &sigset_libc, nullptr));
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask64(SIG_SETMASK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, sigprocmask_block_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset_t sigset_libc;
-        sigfillset(&sigset_libc);
-        ASSERT_EQ(0, sigprocmask(SIG_BLOCK, &sigset_libc, nullptr));
-      },
-      sigset_type);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask(SIG_BLOCK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, sigprocmask64_block_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset64_t sigset_libc;
-        sigfillset64(&sigset_libc);
-        ASSERT_EQ(0, sigprocmask64(SIG_BLOCK, &sigset_libc, nullptr));
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask64(SIG_BLOCK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, pthread_sigmask_block_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset_t sigset_libc;
-        sigfillset(&sigset_libc);
-        ASSERT_EQ(0, pthread_sigmask(SIG_BLOCK, &sigset_libc, nullptr));
-      },
-      sigset_type);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask(SIG_BLOCK, &sigset_libc, nullptr));
+  });
 }
 
 TEST(signal, pthread_sigmask64_block_filter) {
-  TestSignalMaskFunction(
-      []() {
-        sigset64_t sigset_libc;
-        sigfillset64(&sigset_libc);
-        ASSERT_EQ(0, pthread_sigmask64(SIG_BLOCK, &sigset_libc, nullptr));
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    ClearSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask64(SIG_BLOCK, &sigset_libc, nullptr));
+  });
+}
+
+TEST(signal, sigprocmask_unblock_filter) {
+  TestSignalMaskFunction([]() {
+    FillSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask(SIG_UNBLOCK, &sigset_libc, nullptr));
+  });
+}
+
+TEST(signal, sigprocmask64_unblock_filter) {
+  TestSignalMaskFunction([]() {
+    FillSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, sigprocmask64(SIG_UNBLOCK, &sigset_libc, nullptr));
+  });
+}
+
+TEST(signal, pthread_sigmask_unblock_filter) {
+  TestSignalMaskFunction([]() {
+    FillSignalMask();
+    sigset_t sigset_libc;
+    sigfillset(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask(SIG_UNBLOCK, &sigset_libc, nullptr));
+  });
+}
+
+TEST(signal, pthread_sigmask64_unblock_filter) {
+  TestSignalMaskFunction([]() {
+    FillSignalMask();
+    sigset64_t sigset_libc;
+    sigfillset64(&sigset_libc);
+    ASSERT_EQ(0, pthread_sigmask64(SIG_UNBLOCK, &sigset_libc, nullptr));
+  });
 }
 
 // glibc filters out signals via sigfillset, not the actual underlying functions.
 TEST(signal, sigset_filter) {
 #if defined(__BIONIC__)
-  TestSignalMaskFunction(
-      []() {
-        for (int i = 1; i <= 64; ++i) {
-          sigset(i, SIG_HOLD);
-        }
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    for (int i = 1; i <= 64; ++i) {
+      sigset(i, SIG_HOLD);
+    }
+  });
 #endif
 }
 
 TEST(signal, sighold_filter) {
 #if defined(__BIONIC__)
-  TestSignalMaskFunction(
-      []() {
-        for (int i = 1; i <= 64; ++i) {
-          sighold(i);
-        }
-      },
-      SignalMaskFunctionType::RtAware);
+  TestSignalMaskFunction([]() {
+    for (int i = 1; i <= 64; ++i) {
+      sighold(i);
+    }
+  });
 #endif
 }
 
@@ -525,37 +563,31 @@ extern "C" int sigsetmask(int);
 
 TEST(signal, sigblock_filter) {
 #if defined(__BIONIC__)
-  TestSignalMaskFunction(
-      []() {
-        int mask = ~0U;
-        ASSERT_EQ(0, sigblock(mask));
-      },
-      SignalMaskFunctionType::RtNonaware);
+  TestSignalMaskFunction([]() {
+    sigblock(~0U);
+  });
 #endif
 }
 
 TEST(signal, sigsetmask_filter) {
 #if defined(__BIONIC__)
-  TestSignalMaskFunction(
-      []() {
-        int mask = ~0U;
-        ASSERT_EQ(0, sigsetmask(mask));
-      },
-      SignalMaskFunctionType::RtNonaware);
+  TestSignalMaskFunction([]() {
+    sigsetmask(~0U);
+  });
 #endif
 }
 
 TEST(signal, sys_signame) {
 #if defined(__BIONIC__)
-  ASSERT_TRUE(sys_signame[0] == NULL);
+  ASSERT_TRUE(sys_signame[0] == nullptr);
   ASSERT_STREQ("HUP", sys_signame[SIGHUP]);
 #else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
+  GTEST_SKIP() << "glibc doesn't have sys_signame";
 #endif
 }
 
 TEST(signal, sys_siglist) {
-  ASSERT_TRUE(sys_siglist[0] == NULL);
+  ASSERT_TRUE(sys_siglist[0] == nullptr);
   ASSERT_STREQ("Hangup", sys_siglist[SIGHUP]);
 }
 
@@ -594,6 +626,42 @@ TEST(signal, sigqueue) {
   errno = 0;
   ASSERT_EQ(0, sigqueue(getpid(), SIGALRM, sigval));
   ASSERT_EQ(0, errno);
+  ASSERT_EQ(1, g_sigqueue_signal_handler_call_count);
+}
+
+TEST(signal, pthread_sigqueue_self) {
+  ScopedSignalHandler ssh(SIGALRM, SigqueueSignalHandler, SA_SIGINFO);
+  sigval_t sigval;
+  sigval.sival_int = 1;
+  errno = 0;
+  ASSERT_EQ(0, pthread_sigqueue(pthread_self(), SIGALRM, sigval));
+  ASSERT_EQ(0, errno);
+  ASSERT_EQ(1, g_sigqueue_signal_handler_call_count);
+}
+
+TEST(signal, pthread_sigqueue_other) {
+  ScopedSignalHandler ssh(SIGALRM, SigqueueSignalHandler, SA_SIGINFO);
+  sigval_t sigval;
+  sigval.sival_int = 1;
+
+  sigset_t mask;
+  sigfillset(&mask);
+  pthread_sigmask(SIG_SETMASK, &mask, nullptr);
+  pthread_t thread;
+  int rc = pthread_create(&thread, nullptr,
+                          [](void*) -> void* {
+                            sigset_t mask;
+                            sigemptyset(&mask);
+                            sigsuspend(&mask);
+                            return nullptr;
+                          },
+                          nullptr);
+  ASSERT_EQ(0, rc);
+
+  errno = 0;
+  ASSERT_EQ(0, pthread_sigqueue(thread, SIGALRM, sigval));
+  ASSERT_EQ(0, errno);
+  pthread_join(thread, nullptr);
   ASSERT_EQ(1, g_sigqueue_signal_handler_call_count);
 }
 
@@ -708,7 +776,7 @@ TEST(signal, sigtimedwait_timeout) {
   ASSERT_EQ(EAGAIN, errno);
   ASSERT_GE(NanoTime() - start_time, 1000000);
 
-  ASSERT_EQ(0, sigprocmask(SIG_SETMASK, &original_set, NULL));
+  ASSERT_EQ(0, sigprocmask(SIG_SETMASK, &original_set, nullptr));
 }
 
 #if defined(__BIONIC__)
@@ -806,7 +874,7 @@ static void TestSigholdSigpauseSigrelse(int sig) {
 
   // sighold(SIGALRM/SIGRTMIN) should add SIGALRM/SIGRTMIN to the signal mask ...
   ASSERT_EQ(0, sighold(sig));
-  ASSERT_EQ(0, sigprocmask(SIG_SETMASK, 0, &set));
+  ASSERT_EQ(0, sigprocmask(SIG_SETMASK, nullptr, &set));
   EXPECT_TRUE(sigismember(&set, sig));
 
   // ... preventing our SIGALRM/SIGRTMIN handler from running ...
@@ -819,12 +887,12 @@ static void TestSigholdSigpauseSigrelse(int sig) {
 
   if (sig >= SIGRTMIN && sizeof(void*) == 8) {
     // But sigpause(SIGALRM/SIGRTMIN) shouldn't permanently unblock SIGALRM/SIGRTMIN.
-    ASSERT_EQ(0, sigprocmask(SIG_SETMASK, 0, &set));
+    ASSERT_EQ(0, sigprocmask(SIG_SETMASK, nullptr, &set));
     EXPECT_TRUE(sigismember(&set, sig));
 
     // Whereas sigrelse(SIGALRM/SIGRTMIN) should.
     ASSERT_EQ(0, sigrelse(sig));
-    ASSERT_EQ(0, sigprocmask(SIG_SETMASK, 0, &set));
+    ASSERT_EQ(0, sigprocmask(SIG_SETMASK, nullptr, &set));
     EXPECT_FALSE(sigismember(&set, sig));
   } else {
     // sigismember won't work for SIGRTMIN on LP32.

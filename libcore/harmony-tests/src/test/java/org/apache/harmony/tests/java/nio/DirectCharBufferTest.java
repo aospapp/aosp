@@ -20,12 +20,11 @@ import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.DirectByteBuffer;
 import java.nio.NIOAccess;
-import libcore.io.SizeOf;
 
 public class DirectCharBufferTest extends CharBufferTest {
     
     public void setUp(){
-        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*2).asCharBuffer();
+        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*Character.BYTES).asCharBuffer();
         super.loadTestData1(buf);
         baseBuf = buf;
     }
@@ -66,7 +65,7 @@ public class DirectCharBufferTest extends CharBufferTest {
 
         // Check if the NIOAccess method adds up the current position value.
         charBuffer.put('b');
-        assertEquals(charBufferBasePointer + SizeOf.CHAR, NIOAccess.getBasePointer(charBuffer));
+        assertEquals(charBufferBasePointer + Character.BYTES, NIOAccess.getBasePointer(charBuffer));
     }
 
     public void testIsDirect() {

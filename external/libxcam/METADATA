@@ -14,5 +14,5 @@ third_party {
   }
   version: "1.0.0"
   last_upgrade_date { year: 2017 month: 9 day: 11 }
-  license_type: "Apache-2.0"
+  license_type: NOTICE
 }

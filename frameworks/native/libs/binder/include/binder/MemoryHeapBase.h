@@ -42,17 +42,17 @@ public:
      * maps the memory referenced by fd. but DOESN'T take ownership
      * of the filedescriptor (it makes a copy with dup()
      */
-    MemoryHeapBase(int fd, size_t size, uint32_t flags = 0, uint32_t offset = 0);
+    MemoryHeapBase(int fd, size_t size, uint32_t flags = 0, off_t offset = 0);
 
     /*
      * maps memory from the given device
      */
-    MemoryHeapBase(const char* device, size_t size = 0, uint32_t flags = 0);
+    explicit MemoryHeapBase(const char* device, size_t size = 0, uint32_t flags = 0);
 
     /*
      * maps memory from ashmem, with the given name for debugging
      */
-    MemoryHeapBase(size_t size, uint32_t flags = 0, char const* name = NULL);
+    explicit MemoryHeapBase(size_t size, uint32_t flags = 0, char const* name = nullptr);
 
     virtual ~MemoryHeapBase();
 
@@ -64,7 +64,7 @@ public:
 
     virtual size_t      getSize() const;
     virtual uint32_t    getFlags() const;
-    virtual uint32_t    getOffset() const;
+            off_t       getOffset() const override;
 
     const char*         getDevice() const;
 
@@ -74,7 +74,7 @@ public:
     /* this is only needed as a workaround, use only if you know
      * what you are doing */
     status_t setDevice(const char* device) {
-        if (mDevice == 0)
+        if (mDevice == nullptr)
             mDevice = device;
         return mDevice ? NO_ERROR : ALREADY_EXISTS;
     }
@@ -82,11 +82,11 @@ public:
 protected:
             MemoryHeapBase();
     // init() takes ownership of fd
-    status_t init(int fd, void *base, int size,
-            int flags = 0, const char* device = NULL);
+    status_t init(int fd, void *base, size_t size,
+            int flags = 0, const char* device = nullptr);
 
 private:
-    status_t mapfd(int fd, size_t size, uint32_t offset = 0);
+    status_t mapfd(int fd, size_t size, off_t offset = 0);
 
     int         mFD;
     size_t      mSize;
@@ -94,7 +94,7 @@ private:
     uint32_t    mFlags;
     const char* mDevice;
     bool        mNeedUnmap;
-    uint32_t    mOffset;
+    off_t       mOffset;
 };
 
 // ---------------------------------------------------------------------------

@@ -150,11 +150,17 @@ uint8_t *cras_shm_get_writeable_frames(const struct cras_audio_shm *shm,
 	unsigned i = shm->area->write_buf_idx & CRAS_SHM_BUFFERS_MASK;
 	unsigned write_offset;
 	const unsigned frame_bytes = shm->config.frame_bytes;
+	unsigned written;
 
 	write_offset = cras_shm_check_write_offset(shm,
 						   shm->area->write_offset[i]);
-	if (frames)
-		*frames = limit_frames - (write_offset / frame_bytes);
+	written = write_offset / frame_bytes;
+	if (frames) {
+		if (limit_frames >= written)
+			*frames = limit_frames - written;
+		else
+			*frames = 0;
+	}
 
 	return cras_shm_buff_for_idx(shm, i) + write_offset;
 }
@@ -353,13 +359,10 @@ void cras_shm_buffer_read(struct cras_audio_shm *shm, size_t frames)
 		buf_idx = (buf_idx + 1) & CRAS_SHM_BUFFERS_MASK;
 		if (remainder < area->write_offset[buf_idx]) {
 			area->read_offset[buf_idx] = remainder;
-		} else {
-			area->read_offset[buf_idx] = 0;
+		} else if (remainder) {
+			/* Read all of this buffer too. */
 			area->write_offset[buf_idx] = 0;
-			if (remainder) {
-				/* Read all of this buffer too. */
-				buf_idx = (buf_idx + 1) & CRAS_SHM_BUFFERS_MASK;
-			}
+			buf_idx = (buf_idx + 1) & CRAS_SHM_BUFFERS_MASK;
 		}
 		area->read_buf_idx = buf_idx;
 	}
@@ -509,5 +512,32 @@ int cras_shm_reopen_ro (const char *name, int fd);
  *    >= 0 new file descriptor value, or negative errno value on error.
  */
 void cras_shm_close_unlink (const char *name, int fd);
+
+/*
+ * Configure shared memory for the system state.
+ * Args:
+ *    name - Name of the shared-memory area.
+ *    mmap_size - Amount of shared memor to map.
+ *    rw_fd_out - Filled with the RW fd for the shm region.
+ *    ro_fd_out - Filled with the RO fd for the shm region.
+ * Returns a pointer to the new shared memory region. Or NULL on error.
+ */
+void *cras_shm_setup(const char *name,
+		     size_t mmap_size,
+		     int *rw_fd_out,
+		     int *ro_fd_out);
+
+#ifdef CRAS_SELINUX
+/*
+ * Wrapper around selinux_restorecon(). This is helpful in unit tests because
+ * we can mock out the selinux_restorecon() behaviour there. That is required
+ * because selinux_restorecon() would fail in the unit tests, since there
+ * is no file_contexts file.
+ * Args:
+ *    pathname - Name of the file on which to run restorecon
+ * Returns 0 on success, otherwise -1 and errno is set appropriately.
+ */
+int cras_selinux_restorecon(const char *pathname);
+#endif
 
 #endif /* CRAS_SHM_H_ */

@@ -17,12 +17,13 @@
 package com.android.tv.settings.device.apps.specialaccess;
 
 import android.app.Application;
-import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
+
+import androidx.annotation.NonNull;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
 
 import com.android.settingslib.applications.ApplicationsState;
 

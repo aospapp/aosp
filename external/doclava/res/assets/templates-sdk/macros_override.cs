@@ -23,9 +23,9 @@
   <?cs set:count = #1 ?>
   <table class="jd-sumtable-expando">
     <?cs each:cl=classes ?>
-      <tr class="api apilevel-<?cs var:cl.type.since ?>"<?cs
-          if:cl.type.since ?>
-          data-version-added="<?cs var:cl.type.since ?>"<?cs
+      <tr <?cs
+          if:cl.type.since
+            ?>data-version-added="<?cs var:cl.type.since ?>"<?cs
           /if ?><?cs
           if:cl.type.deprecatedsince
             ?> data-version-deprecated="<?cs var:cl.type.deprecatedsince ?>"<?cs
@@ -68,6 +68,7 @@ def:aux_tag_list(tags) ?><?cs
       elif:tag.kind == "@permission" ?><?cs call:dump_permission(tag) ?><?cs
       elif:tag.kind == "@service" ?><?cs call:dump_service(tag) ?><?cs
       elif:tag.kind == "@feature" ?><?cs call:dump_feature(tag) ?><?cs
+      elif:tag.kind == "@column" ?><?cs call:dump_column(tag) ?><?cs
       /if ?><?cs
   /each ?></p><?cs
 /def ?><?cs
@@ -142,4 +143,15 @@ def:dump_service(tag) ?>Instances of this class must be obtained using <?cs
 def:dump_feature(tag) ?>Requires the <?cs
   call:tag_list(tag.values[0].commentTags) ?> feature which can be detected using <?cs
   call:tag_list(tag.values[1].commentTags) ?>.<?cs
+/def ?>
+
+# Print output for @column tags ?><?cs
+def:dump_column(tag) ?>This constant represents a column name that can be used with a <?cs
+  call:tag_list(tag.values[0].commentTags) ?> through a <?cs
+  call:tag_list(tag.values[1].commentTags) ?> or <?cs
+  call:tag_list(tag.values[2].commentTags) ?> object. The values stored in this column are <?cs
+  call:tag_list(tag.values[3].commentTags) ?><?cs
+  if tag.readOnly ?>, and are read-only and cannot be mutated<?cs
+  else ?><?cs
+  /if ?>.<?cs
 /def ?>

@@ -14,16 +14,17 @@
 
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-v7-appcompat \
-    android-support-v4 \
-    android-support-annotations
+LOCAL_USE_AAPT2 := true
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    androidx.appcompat_appcompat \
+    androidx.legacy_legacy-support-v4 \
+    androidx.annotation_annotation
 LOCAL_MODULE_TAGS := samples
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 LOCAL_PACKAGE_NAME := FingerprintDialog
 LOCAL_SDK_VERSION := current
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res \
-    frameworks/support/v7/appcompat/res
+    prebuilts/sdk/current/support/v7/appcompat/res
 LOCAL_AAPT_FLAGS := --auto-add-overlay \
     --extra-packages android.support.v7.appcompat
 

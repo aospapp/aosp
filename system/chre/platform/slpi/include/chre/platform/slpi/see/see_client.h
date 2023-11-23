@@ -40,6 +40,14 @@ inline SeeHelper *getSeeHelper() {
   return SeeHelperSingleton::get();
 }
 
+#ifdef CHRE_SLPI_UIMG_ENABLED
+typedef Singleton<BigImageSeeHelper> BigImageSeeHelperSingleton;
+
+inline SeeHelper *getBigImageSeeHelper() {
+  return BigImageSeeHelperSingleton::get();
+}
+#endif  // CHRE_SLPI_UIMG_ENABLED
+
 }  // namespace chre
 
 #endif  // CHRE_PLATFORM_SLPI_SEE_SEE_CLIENT_H_

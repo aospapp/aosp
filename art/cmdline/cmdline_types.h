@@ -24,11 +24,11 @@
 #include "detail/cmdline_debug_detail.h"
 #include "memory_representation.h"
 
+#include "android-base/logging.h"
 #include "android-base/strings.h"
 
 // Includes for the types that are being specialized
 #include <string>
-#include "base/logging.h"
 #include "base/time_utils.h"
 #include "experimental_flags.h"
 #include "gc/collector_type.h"
@@ -237,7 +237,7 @@ struct CmdlineType<int> : CmdlineTypeParser<int> {
     return ParseNumeric<int>(str);
   }
 
-  static const char* Name() { return "unsigned integer"; }
+  static const char* Name() { return "integer"; }
 };
 
 // Lightweight nanosecond value type. Allows parser to convert user-input from milliseconds
@@ -416,8 +416,6 @@ static gc::CollectorType ParseCollectorType(const std::string& option) {
     return gc::kCollectorTypeGSS;
   } else if (option == "CC") {
     return gc::kCollectorTypeCC;
-  } else if (option == "MC") {
-    return gc::kCollectorTypeMC;
   } else {
     return gc::kCollectorTypeNone;
   }
@@ -429,6 +427,7 @@ struct XGcOption {
   gc::CollectorType collector_type_ = gc::kCollectorTypeDefault;
   bool verify_pre_gc_heap_ = false;
   bool verify_pre_sweeping_heap_ = kIsDebugBuild;
+  bool generational_cc = kEnableGenerationalCCByDefault;
   bool verify_post_gc_heap_ = false;
   bool verify_pre_gc_rosalloc_ = kIsDebugBuild;
   bool verify_pre_sweeping_rosalloc_ = false;
@@ -457,6 +456,20 @@ struct CmdlineType<XGcOption> : CmdlineTypeParser<XGcOption> {
         xgc.verify_pre_sweeping_heap_ = true;
       } else if (gc_option == "nopresweepingverify") {
         xgc.verify_pre_sweeping_heap_ = false;
+      } else if (gc_option == "generational_cc") {
+        // Note: Option "-Xgc:generational_cc" can be passed directly by
+        // app_process/zygote (see `android::AndroidRuntime::startVm`). If this
+        // option is ever deprecated, it should still be accepted (but ignored)
+        // for compatibility reasons (this should not prevent the runtime from
+        // starting up).
+        xgc.generational_cc = true;
+      } else if (gc_option == "nogenerational_cc") {
+        // Note: Option "-Xgc:nogenerational_cc" can be passed directly by
+        // app_process/zygote (see `android::AndroidRuntime::startVm`). If this
+        // option is ever deprecated, it should still be accepted (but ignored)
+        // for compatibility reasons (this should not prevent the runtime from
+        // starting up).
+        xgc.generational_cc = false;
       } else if (gc_option == "postverify") {
         xgc.verify_post_gc_heap_ = true;
       } else if (gc_option == "nopostverify") {

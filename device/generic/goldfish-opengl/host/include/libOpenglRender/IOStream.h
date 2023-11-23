@@ -41,7 +41,7 @@ public:
         // NOTE: m_buf is 'owned' by the child class thus we expect it to be released by it
     }
 
-    unsigned char *alloc(size_t len) {
+    virtual unsigned char *alloc(size_t len) {
 
         if (m_buf && len > m_free) {
             if (flush() < 0) {
@@ -68,7 +68,7 @@ public:
         return ptr;
     }
 
-    int flush() {
+    virtual int flush() {
 
         if (!m_buf || m_free == m_bufsize) return 0;
 

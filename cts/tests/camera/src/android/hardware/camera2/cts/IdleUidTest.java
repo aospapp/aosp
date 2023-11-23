@@ -16,10 +16,9 @@
 
 package android.hardware.camera2.cts;
 
-import static org.junit.Assert.fail;
-
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -32,9 +31,10 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.platform.test.annotations.AppModeFull;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.os.Process;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -52,7 +52,6 @@ import java.io.IOException;
  * get an error callback losing the camera handle. Similarly if the UID is
  * already idle it cannot obtain a camera handle.
  */
-@AppModeFull
 @RunWith(AndroidJUnit4.class)
 public final class IdleUidTest {
     private static final long CAMERA_OPERATION_TIMEOUT_MILLIS = 5000; // 5 sec
@@ -196,13 +195,15 @@ public final class IdleUidTest {
 
     private static void makeMyPackageActive() throws IOException {
         final String command = "cmd media.camera reset-uid-state "
-                +  InstrumentationRegistry.getTargetContext().getPackageName();
+                +  InstrumentationRegistry.getTargetContext().getPackageName()
+                        + " --user " + Process.myUserHandle().getIdentifier();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
     private static void makeMyPackageIdle() throws IOException {
         final String command = "cmd media.camera set-uid-state "
-                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle";
+                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle"
+                        + " --user " + Process.myUserHandle().getIdentifier();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 }

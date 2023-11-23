@@ -1,0 +1,263 @@
+#!/system/bin/sh
+# Copyright (C) 2018 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Abort on any error
+
+# Global configuration
+FUZZER_BASES=( "/data/nativetest64/fuzzers" "/data/nativetest/fuzzers" )
+WORK_BASE="/data/local/tmp/fuzz"
+LAST_FUZZ="$WORK_BASE/last_session"
+
+#------------------------------ HELPER FUNCTIONS ------------------------------
+function die() {
+    echo "$@" >&2
+    exit 1
+}
+
+# Print the usage and exit.
+# Optionally takes an extra string to print.
+function usage() {
+    die "\
+Usage: $0 [-a artifacts_path] [-c corpus] [-e engine] [-l logname] [-n new_corpus] [-w workdir] fuzzer [-- fuzzer_option...]
+
+Run a fuzzing session.
+
+All of the information on the most recent session is symlinked at $LAST_FUZZ,
+which points to the most recent session's working directory.
+
+The working directory is standardized to contain the following directories (or symlinks,
+if non-default options are provided):
+
+    artifacts/      Crashing test cases and other fuzzer output
+    corpus/         Input corpus
+    corpus_new/     Mutated test cases which exercise coverage features not represented
+                    in the input corpus.
+    fuzz.log        Contents of stdout from the fuzzing session.
+
+Arguments:
+    fuzzer          Name of the fuzzer, e.g. cxa_demangle_fuzzer, or a full path to the fuzzer
+    fuzzer_option   Fuzzer-specific arguments
+
+Options:
+    -a  Path where fuzzer artifacts (logs, timeouts, crashes) should be stored
+        (Default: \$WORK/artifacts)
+
+    -c  Path where input corpus is stored.  Must not be empty.
+        (Default: \$WORK/corpus)
+
+    -e  Fuzzer engine to use.  Defaults to libFuzzer.
+
+    -l  Filename to use for the fuzzer log.
+        (Default: fuzz.log)
+
+    -n  Path to store new corpus elements
+        (Default: \$WORK/corpus_new)
+
+    -w  Work directory to use
+        (Default: $WORK_BASE/\$FUZZER)
+
+Examples:
+
+    $ adb shell fuzz IOMX
+    $ adb shell fuzz -e honggfuzz IOMX
+    $ adb shell fuzz -w /sdcard        IOMX
+    $ adb shell fuzz -c /sdcard/corpus IOMX
+    $ adb shell fuzz /data/my_fuzzer -- --foo --bar
+$@"
+}
+
+# Create a symlink from $1 ==> $2, if $2 is specified.
+# Otherwise, ensure $1 exists and is a directory.
+function symlink_or_create() {
+    DIR=$1
+    TARGET=$2
+    if [ -n "$TARGET" ]; then
+        if [ ! -d "$TARGET" ]; then
+            die "Directory does not exist: $TARGET"
+        fi
+        rm -rf "$DIR"
+        ln -sv "$TARGET" "$DIR"
+    elif [ ! -d "$DIR" ]; then
+        mkdir -p "$DIR"
+    fi
+}
+
+# Ensure that there is "enough space" left on the device for
+# the path provided.
+function ensure_space() {
+    FREE_SPACE=$(df $1 | tail -1 | awk '{print $4}')
+    TEN_MEGABYTES=$((1024*10))
+
+    if [ $FREE_SPACE -lt $TEN_MEGABYTES ]; then
+        die "Not enough free space available at $(realpath $1):\n$(df -h $1)"
+    fi
+}
+
+# Ensure that the provided directory is not empty.
+function ensure_not_empty() {
+    if [ "$(find -H $1 -type f | wc -l)" -eq "0" ]; then
+        die "$1 is empty"
+    fi
+}
+
+#--------------------------- CHECK SYSTEM VIABILITY ---------------------------
+# Make sure ASAN and coverage work
+if ! sanitizer-status asan cov &>/dev/null; then
+    # repeat the command to show the output
+    die "Sanitizer Checks Failed!\n$(sanitizer-status)"
+fi
+
+#------------------------------ CHECK ARGUMENTS -------------------------------
+# Determine what fuzzer we want to run, and ensure that it's on the device
+OPT_ARTIFACTS=""
+OPT_CORPUS=""
+OPT_CORPUS_NEW=""
+OPT_ENGINE="libFuzzer"
+OPT_LOG="fuzz.log"
+OPT_WORKDIR=""
+
+while getopts "a:c:e:l:n:w:" o; do
+    case "${o}" in
+        a) OPT_ARTIFACTS="${OPTARG}" ;;
+        c) OPT_CORPUS="${OPTARG}" ;;
+        e) OPT_ENGINE="${OPTARG}" ;;
+        l) OPT_LOG="${OPTARG}" ;;
+        n) OPT_CORPUS_NEW="${OPTARG}" ;;
+        w) OPT_WORKDIR="${OPTARG}" ;;
+        *) usage ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+if [ $# -lt 1 ]; then
+    usage "\nMissing arguments: fuzzer"
+fi
+
+if [ -e $1 ]; then
+    FUZZER_BIN="$1"
+    FUZZER="$(basename $FUZZER_BIN)"
+else
+    FUZZER="${1%_fuzzer}"
+
+    for FUZZER_BASE in "${FUZZER_BASES[@]}"; do
+        FUZZER_BIN="${FUZZER_BASE}/${OPT_ENGINE}/${FUZZER}_fuzzer/${FUZZER}_fuzzer"
+        [ -e "$FUZZER_BIN" ] && break
+    done
+fi
+
+shift
+
+if [ ! -e "$FUZZER_BIN" ]; then
+    die "Invalid fuzzer path $FUZZER_BIN: File does not exist"
+fi
+
+#------------------------- CREATE DIRECTORY STRUCTURE -------------------------
+# First set up the root work directory.
+#
+# This directory is the default location where the corpus/, corpus_new/, and
+# artifacts/ directories will be created.
+#
+# We also create symlinks here if any of those options are provided, so that
+# the same directory structure is always available, and any external utilities
+# can easily find the last fuzzing session's data.
+WORK_ROOT="$WORK_BASE/$FUZZER"
+symlink_or_create "$WORK_ROOT"  "$OPT_WORKDIR"
+WORK_ROOT="${OPT_WORKDIR:-$WORK_ROOT}"
+
+# Change into the work root, in case any of the OPT_XXX paths are relative.
+cd "$WORK_ROOT"
+
+# Create the rest of the directory structure
+ARTIFACTS="$WORK_ROOT/artifacts"
+CORPUS="$WORK_ROOT/corpus"
+CORPUS_NEW="$WORK_ROOT/corpus_new"
+
+symlink_or_create "$ARTIFACTS"  "$OPT_ARTIFACTS"
+symlink_or_create "$CORPUS"     "$OPT_CORPUS"
+symlink_or_create "$CORPUS_NEW" "$OPT_CORPUS_NEW"
+
+# Update the environment variables so that the "real" paths show up in
+# the command invocation.
+ARTIFACTS="${OPT_ARTIFACTS:-$ARTIFACTS}"
+CORPUS="${OPT_CORPUS:-$CORPUS}"
+CORPUS_NEW="${OPT_CORPUS_NEW:-$CORPUS_NEW}"
+
+# Check the contents of the corpus aren't empty, this indicates a user error.
+ensure_not_empty "$CORPUS"
+
+# Ensure that there's room to grow the corpus / dump artifacts.
+ensure_space "$CORPUS_NEW"
+ensure_space "$ARTIFACTS"
+
+#------------------------- UPDATE ENVIRONMENT OPTIONS -------------------------
+# Set up the ASAN_OPTIONS for optimal everything
+# Note that we are only appending options, so that we do not override the
+# default-at-boot ASAN_OPTIONS (e.g include=/system/asan.options).
+
+ASAN_OPTIONS+=:coverage=1
+ASAN_OPTIONS+=:atexit=1
+# ASAN_OPTIONS+=:verbosity=2
+ASAN_OPTIONS+=:print_cmdline=1
+ASAN_OPTIONS+=:print_stats=1
+ASAN_OPTIONS+=:print_legend=1
+ASAN_OPTIONS+=:print_scariness=1
+ASAN_OPTIONS+=:log_path=/dev/null
+
+export ASAN_OPTIONS="$ASAN_OPTIONS"
+echo "ASAN_OPTIONS=$ASAN_OPTIONS"
+
+
+#---------------------------- BUILD FUZZER COMMAND ----------------------------
+# Based on the fuzzer engine selected, build up the command line.
+case "${OPT_ENGINE}" in
+    libFuzzer)
+        # NOTE: We use '-jobs=-1' to get libFuzzer to fuzz forever.
+        set -A FUZZ_CMD -- \
+        "$FUZZER_BIN" \
+            -artifact_prefix="$ARTIFACTS" \
+            -print_coverage=1 \
+            -detect_leaks=0 \
+            -jobs=-1 \
+            "$CORPUS_NEW" \
+            "$CORPUS" \
+            "$@"
+        ;;
+    honggfuzz)
+        set -A FUZZ_CMD -- \
+        honggfuzz \
+            --persistent \
+            --sanitizers \
+            --tmout_sigvtalrm \
+            --workspace "$ARTIFACTS" \
+            --input "$CORPUS_NEW" \
+            --covdir_new "$CORPUS_NEW" \
+            -- "$FUZZER_BIN" "$@"
+        ;;
+    *)
+        die "Unknown fuzzer engine $FUZZER_TYPE"
+        ;;
+esac
+
+#--------------------------------- RUN FUZZER ---------------------------------
+# Set up a symlink for the "last fuzz session" so that we can easily find it.
+ln -svf "$WORK_ROOT" "$LAST_FUZZ"
+
+# Change into the artifacts directory, so that anything
+# the fuzzer emits to $PWD will also be captured.
+cd "$ARTIFACTS"
+
+echo "Running fuzzer: ${FUZZ_CMD[@]}"
+echo "------------------------------"
+${FUZZ_CMD[@]} | tee "${OPT_LOG}"

@@ -25,7 +25,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Build;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -37,7 +37,7 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
     private static final String TAG = "IndexDatabaseHelper";
 
     private static final String DATABASE_NAME = "search_index.db";
-    private static final int DATABASE_VERSION = 119;
+    private static final int DATABASE_VERSION = 120;
 
     @VisibleForTesting
     static final String SHARED_PREFS_TAG = "indexing_manager";
@@ -61,6 +61,7 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
         String DATA_ENTRIES = "data_entries";
         String DATA_KEYWORDS = "data_keywords";
         String DATA_PACKAGE = "package";
+        String DATA_AUTHORITY = "authority";
         String CLASS_NAME = "class_name";
         String SCREEN_TITLE = "screen_title";
         String INTENT_ACTION = "intent_action";
@@ -110,6 +111,8 @@ public class IndexDatabaseHelper extends SQLiteOpenHelper {
                     IndexColumns.DATA_KEYWORDS +
                     ", " +
                     IndexColumns.DATA_PACKAGE +
+                    ", " +
+                    IndexColumns.DATA_AUTHORITY +
                     ", " +
                     IndexColumns.SCREEN_TITLE +
                     ", " +

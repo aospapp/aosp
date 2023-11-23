@@ -17,13 +17,13 @@
 %                                July 1993                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -49,9 +49,15 @@
 #include "MagickCore/log.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
+
+/*
+  Define declarations.
+*/
+#define MaxExceptionList  64
 
 /*
   Forward declarations.
@@ -68,11 +74,6 @@ static void
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
-
-/*
-  Global declarations.
-*/
-#define MaxExceptions  128
 
 /*
   Global declarations.
@@ -109,9 +110,7 @@ MagickExport ExceptionInfo *AcquireExceptionInfo(void)
   ExceptionInfo
     *exception;
 
-  exception=(ExceptionInfo *) AcquireMagickMemory(sizeof(*exception));
-  if (exception == (ExceptionInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  exception=(ExceptionInfo *) AcquireCriticalMemory(sizeof(*exception));
   InitializeExceptionInfo(exception);
   exception->relinquish=MagickTrue;
   return(exception);
@@ -196,6 +195,9 @@ MagickExport void ClearMagickException(ExceptionInfo *exception)
 */
 MagickExport void CatchException(ExceptionInfo *exception)
 {
+  LinkedListInfo
+    *exceptions;
+
   register const ExceptionInfo
     *p;
 
@@ -207,27 +209,18 @@ MagickExport void CatchException(ExceptionInfo *exception)
   if (exception->exceptions  == (void *) NULL)
     return;
   LockSemaphoreInfo(exception->semaphore);
-  ResetLinkedListIterator((LinkedListInfo *) exception->exceptions);
-  p=(const ExceptionInfo *) GetNextValueInLinkedList((LinkedListInfo *)
-    exception->exceptions);
+  exceptions=(LinkedListInfo *) exception->exceptions;
+  ResetLinkedListIterator(exceptions);
+  p=(const ExceptionInfo *) GetNextValueInLinkedList(exceptions);
   for (i=0; p != (const ExceptionInfo *) NULL; i++)
   {
-    if (i < MaxExceptions)
-      {
-        if ((p->severity >= WarningException) && (p->severity < ErrorException))
-          MagickWarning(p->severity,p->reason,p->description);
-        if ((p->severity >= ErrorException) &&
-            (p->severity < FatalErrorException))
-          MagickError(p->severity,p->reason,p->description);
-      }
-    else
-      if (i == MaxExceptions)
-        MagickError(ResourceLimitError,"too many exceptions",
-          "exception processing is suspended");
+    if ((p->severity >= WarningException) && (p->severity < ErrorException))
+      MagickWarning(p->severity,p->reason,p->description);
+    if ((p->severity >= ErrorException) && (p->severity < FatalErrorException))
+      MagickError(p->severity,p->reason,p->description);
     if (p->severity >= FatalErrorException)
       MagickFatalError(p->severity,p->reason,p->description);
-    p=(const ExceptionInfo *) GetNextValueInLinkedList((LinkedListInfo *)
-      exception->exceptions);
+    p=(const ExceptionInfo *) GetNextValueInLinkedList(exceptions);
   }
   UnlockSemaphoreInfo(exception->semaphore);
   ClearMagickException(exception);
@@ -260,9 +253,7 @@ MagickExport ExceptionInfo *CloneExceptionInfo(ExceptionInfo *exception)
   ExceptionInfo
     *clone_exception;
 
-  clone_exception=(ExceptionInfo *) AcquireMagickMemory(sizeof(*exception));
-  if (clone_exception == (ExceptionInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  clone_exception=(ExceptionInfo *) AcquireCriticalMemory(sizeof(*exception));
   InitializeExceptionInfo(clone_exception);
   InheritException(clone_exception,exception);
   clone_exception->relinquish=MagickTrue;
@@ -435,9 +426,10 @@ MagickExport ExceptionInfo *DestroyExceptionInfo(ExceptionInfo *exception)
         exception->exceptions=(void *) DestroyLinkedList((LinkedListInfo *)
           exception->exceptions,DestroyExceptionElement);
     }
-  else if (exception->exceptions != (void *) NULL)
-    ClearLinkedList((LinkedListInfo *) exception->exceptions,
-      DestroyExceptionElement);
+  else
+    if (exception->exceptions != (void *) NULL)
+      ClearLinkedList((LinkedListInfo *) exception->exceptions,
+        DestroyExceptionElement);
   relinquish=exception->relinquish;
   UnlockSemaphoreInfo(exception->semaphore);
   if (relinquish != MagickFalse)
@@ -684,7 +676,7 @@ MagickExport void InheritException(ExceptionInfo *exception,
 MagickPrivate void InitializeExceptionInfo(ExceptionInfo *exception)
 {
   assert(exception != (ExceptionInfo *) NULL);
-  (void) ResetMagickMemory(exception,0,sizeof(*exception));
+  (void) memset(exception,0,sizeof(*exception));
   exception->severity=UndefinedException;
   exception->exceptions=(void *) NewLinkedList(0);
   exception->semaphore=AcquireSemaphoreInfo();
@@ -929,14 +921,31 @@ MagickExport WarningHandler SetWarningHandler(WarningHandler handler)
 MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
   const ExceptionType severity,const char *reason,const char *description)
 {
+  LinkedListInfo
+    *exceptions;
+
   register ExceptionInfo
     *p;
 
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
   LockSemaphoreInfo(exception->semaphore);
-  p=(ExceptionInfo *) GetLastValueInLinkedList((LinkedListInfo *)
-    exception->exceptions);
+  exceptions=(LinkedListInfo *) exception->exceptions;
+  if (GetNumberOfElementsInLinkedList(exceptions) > MaxExceptionList)
+    {
+      if (severity < ErrorException)
+        {
+          UnlockSemaphoreInfo(exception->semaphore);
+          return(MagickTrue);
+        }
+      p=(ExceptionInfo *) GetLastValueInLinkedList(exceptions);
+      if (p->severity >= ErrorException)
+        {
+          UnlockSemaphoreInfo(exception->semaphore);
+          return(MagickTrue);
+        }
+    }
+  p=(ExceptionInfo *) GetLastValueInLinkedList(exceptions);
   if ((p != (ExceptionInfo *) NULL) && (p->severity == severity) &&
       (LocaleCompare(exception->reason,reason) == 0) &&
       (LocaleCompare(exception->description,description) == 0))
@@ -950,21 +959,25 @@ MagickExport MagickBooleanType ThrowException(ExceptionInfo *exception,
       UnlockSemaphoreInfo(exception->semaphore);
       ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
     }
-  (void) ResetMagickMemory(p,0,sizeof(*p));
+  (void) memset(p,0,sizeof(*p));
   p->severity=severity;
   if (reason != (const char *) NULL)
     p->reason=ConstantString(reason);
   if (description != (const char *) NULL)
     p->description=ConstantString(description);
   p->signature=MagickCoreSignature;
-  (void) AppendValueToLinkedList((LinkedListInfo *) exception->exceptions,p);
-  if (p->severity >= exception->severity)
+  (void) AppendValueToLinkedList(exceptions,p);
+  if (p->severity > exception->severity)
     {
       exception->severity=p->severity;
       exception->reason=p->reason;
       exception->description=p->description;
     }
   UnlockSemaphoreInfo(exception->semaphore);
+  if (GetNumberOfElementsInLinkedList(exceptions) == MaxExceptionList)
+    (void) ThrowMagickException(exception,GetMagickModule(),
+      ResourceLimitWarning,"TooManyExceptions",
+      "(exception processing is suspended)");
   return(MagickTrue);
 }
 
@@ -1052,8 +1065,8 @@ MagickExport MagickBooleanType ThrowMagickExceptionList(
     type="error";
   if (severity >= FatalErrorException)
     type="fatal";
-  (void) FormatLocaleString(message,MagickPathExtent,"%s @ %s/%s/%s/%.20g",reason,
-    type,path,function,(double) line);
+  (void) FormatLocaleString(message,MagickPathExtent,"%s @ %s/%s/%s/%.20g",
+    reason,type,path,function,(double) line);
   (void) ThrowException(exception,severity,message,(char *) NULL);
   return(status);
 }

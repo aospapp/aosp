@@ -37,34 +37,24 @@
 #include <jni.h>
 
 #include "art_jvmti.h"
-#include "art_method.h"
 #include "base/array_ref.h"
-#include "class_linker.h"
-#include "dex/dex_file.h"
-#include "dex/utf.h"
-#include "gc_root-inl.h"
-#include "globals.h"
-#include "jni_env_ext-inl.h"
+#include "base/globals.h"
+#include "jni/jni_env_ext-inl.h"
 #include "jvmti.h"
-#include "linear_alloc.h"
-#include "mem_map.h"
-#include "mirror/array-inl.h"
 #include "mirror/array.h"
-#include "mirror/class-inl.h"
 #include "mirror/class.h"
-#include "mirror/class_loader-inl.h"
-#include "mirror/string-inl.h"
-#include "oat_file.h"
 #include "obj_ptr.h"
-#include "scoped_thread_state_change-inl.h"
-#include "stack.h"
-#include "thread_list.h"
-#include "ti_class_definition.h"
-#include "transform.h"
-#include "utils/dex_cache_arrays_layout-inl.h"
+
+namespace art {
+namespace dex {
+struct ClassDef;
+}  // namespace dex
+class DexFile;
+}  // namespace art
 
 namespace openjdkjvmti {
 
+class ArtClassDefinition;
 class RedefinitionDataHolder;
 class RedefinitionDataIter;
 
@@ -94,9 +84,9 @@ class Redefiner {
 
   static jvmtiError IsModifiableClass(jvmtiEnv* env, jclass klass, jboolean* is_redefinable);
 
-  static std::unique_ptr<art::MemMap> MoveDataToMemMap(const std::string& original_location,
-                                                       art::ArrayRef<const unsigned char> data,
-                                                       std::string* error_msg);
+  static art::MemMap MoveDataToMemMap(const std::string& original_location,
+                                      art::ArrayRef<const unsigned char> data,
+                                      std::string* error_msg);
 
   // Helper for checking if redefinition/retransformation is allowed.
   static jvmtiError GetClassRedefinitionError(jclass klass, /*out*/std::string* error_msg)
@@ -125,8 +115,9 @@ class Redefiner {
       other.driver_ = nullptr;
     }
 
-    art::mirror::Class* GetMirrorClass() REQUIRES_SHARED(art::Locks::mutator_lock_);
-    art::mirror::ClassLoader* GetClassLoader() REQUIRES_SHARED(art::Locks::mutator_lock_);
+    art::ObjPtr<art::mirror::Class> GetMirrorClass() REQUIRES_SHARED(art::Locks::mutator_lock_);
+    art::ObjPtr<art::mirror::ClassLoader> GetClassLoader()
+        REQUIRES_SHARED(art::Locks::mutator_lock_);
 
     const art::DexFile& GetDexFile() {
       return *dex_file_;
@@ -152,7 +143,7 @@ class Redefiner {
         /*out*/RedefinitionDataIter* cur_data)
           REQUIRES_SHARED(art::Locks::mutator_lock_);
 
-    void FindAndAllocateObsoleteMethods(art::mirror::Class* art_klass)
+    void FindAndAllocateObsoleteMethods(art::ObjPtr<art::mirror::Class> art_klass)
         REQUIRES(art::Locks::mutator_lock_);
 
     // Checks that the dex file contains only the single expected class and that the top-level class
@@ -188,7 +179,7 @@ class Redefiner {
         REQUIRES(art::Locks::mutator_lock_);
 
     void UpdateMethods(art::ObjPtr<art::mirror::Class> mclass,
-                       const art::DexFile::ClassDef& class_def)
+                       const art::dex::ClassDef& class_def)
         REQUIRES(art::Locks::mutator_lock_);
 
     void UpdateClass(art::ObjPtr<art::mirror::Class> mclass,

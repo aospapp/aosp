@@ -16,8 +16,9 @@
 
 package com.android.documentsui.base;
 
+import static androidx.core.util.Preconditions.checkArgument;
+
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
-import static com.android.internal.util.Preconditions.checkArgument;
 
 import android.content.ContentResolver;
 import android.database.Cursor;
@@ -125,13 +126,17 @@ public class DocumentStack implements Durable, Parcelable {
 
     public void push(DocumentInfo info) {
         checkArgument(!mList.contains(info));
-        if (DEBUG) Log.d(TAG, "Adding doc to stack: " + info);
+        if (DEBUG) {
+            Log.d(TAG, "Adding doc to stack: " + info);
+        }
         mList.addLast(info);
         mStackTouched = true;
     }
 
     public DocumentInfo pop() {
-        if (DEBUG) Log.d(TAG, "Popping doc off stack.");
+        if (DEBUG) {
+            Log.d(TAG, "Popping doc off stack.");
+        }
         final DocumentInfo result = mList.removeLast();
         mStackTouched = true;
 
@@ -139,7 +144,9 @@ public class DocumentStack implements Durable, Parcelable {
     }
 
     public void popToRootDocument() {
-        if (DEBUG) Log.d(TAG, "Popping docs to root folder.");
+        if (DEBUG) {
+            Log.d(TAG, "Popping docs to root folder.");
+        }
         while (mList.size() > 1) {
             mList.removeLast();
         }
@@ -147,9 +154,18 @@ public class DocumentStack implements Durable, Parcelable {
     }
 
     public void changeRoot(RootInfo root) {
-        if (DEBUG) Log.d(TAG, "Root changed to: " + root);
+        if (DEBUG) {
+            Log.d(TAG, "Root changed to: " + root);
+        }
         reset();
         mRoot = root;
+
+        // Add this for keep stack size is 1 on recent root.
+        if (root.isRecents()) {
+            DocumentInfo rootRecent = new DocumentInfo();
+            rootRecent.deriveFields();
+            push(rootRecent);
+        }
     }
 
     /** This will return true even when the initial location is set.
@@ -170,7 +186,7 @@ public class DocumentStack implements Durable, Parcelable {
     }
 
     public boolean isRecents() {
-        return mRoot != null && mRoot.isRecents();
+        return mRoot != null && mRoot.isRecents() && size() == 1;
     }
 
     /**
@@ -178,7 +194,9 @@ public class DocumentStack implements Durable, Parcelable {
      * {@link #mRoot} instead of making a copy.
      */
     public void reset(DocumentStack stack) {
-        if (DEBUG) Log.d(TAG, "Resetting the whole darn stack to: " + stack);
+        if (DEBUG) {
+            Log.d(TAG, "Resetting the whole darn stack to: " + stack);
+        }
 
         mList = stack.mList;
         mRoot = stack.mRoot;

@@ -49,11 +49,7 @@ UniquePtr<ObjectType>::UniquePtr(UniquePtr<OtherObjectType>&& other) {
 
 template<typename ObjectType>
 UniquePtr<ObjectType>::~UniquePtr() {
-  if (mObject != nullptr) {
-    mObject->~ObjectType();
-    memoryFree(mObject);
-    mObject = nullptr;
-  }
+  reset();
 }
 
 template<typename ObjectType>
@@ -77,8 +73,17 @@ template<typename ObjectType>
 void UniquePtr<ObjectType>::reset(ObjectType *object) {
   CHRE_ASSERT(object == nullptr || mObject != object);
 
-  this->~UniquePtr<ObjectType>();
+  reset();
   mObject = object;
+}
+
+template<typename ObjectType>
+void UniquePtr<ObjectType>::reset()  {
+  if (mObject != nullptr) {
+    mObject->~ObjectType();
+    memoryFree(mObject);
+    mObject = nullptr;
+  }
 }
 
 template<typename ObjectType>
@@ -97,9 +102,21 @@ ObjectType& UniquePtr<ObjectType>::operator[](size_t index) const {
 }
 
 template<typename ObjectType>
+bool UniquePtr<ObjectType>::operator==(
+    const UniquePtr<ObjectType> &other) const {
+  return mObject == other.get();
+}
+
+template<typename ObjectType>
+bool UniquePtr<ObjectType>::operator!=(
+    const UniquePtr<ObjectType> &other) const {
+  return !(*this == other);
+}
+
+template<typename ObjectType>
 UniquePtr<ObjectType>& UniquePtr<ObjectType>::operator=(
     UniquePtr<ObjectType>&& other) {
-  this->~UniquePtr<ObjectType>();
+  reset();
   mObject = other.mObject;
   other.mObject = nullptr;
   return *this;

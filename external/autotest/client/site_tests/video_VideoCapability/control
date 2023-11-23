@@ -5,7 +5,7 @@
 AUTHOR = "Chrome OS Team, chromeos-video@google.com"
 NAME = "video_VideoCapability"
 PURPOSE = "Monitor the capabilities on device"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:crosbolt_perf_perbuild, suite:video, suite:av_webcam"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

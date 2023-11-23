@@ -21,9 +21,22 @@ import com.android.vts.proto.VtsReportMessage.VtsProfilingType;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.Index;
+import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "ProfilingPoint")
+@Cache
+@Data
+@NoArgsConstructor
 /** Entity describing a profiling point. */
 public class ProfilingPointEntity implements DashboardEntity {
     protected static final Logger logger = Logger.getLogger(ProfilingPointEntity.class.getName());
@@ -39,14 +52,38 @@ public class ProfilingPointEntity implements DashboardEntity {
     public static final String X_LABEL = "xLabel";
     public static final String Y_LABEL = "yLabel";
 
-    public final Key key;
+    @Ignore
+    private Key key;
 
-    public final String testName;
-    public final String profilingPointName;
-    public final VtsProfilingType type;
-    public final VtsProfilingRegressionMode regressionMode;
-    public final String xLabel;
-    public final String yLabel;
+    /** ProfilingPointEntity testName field */
+    @Id
+    private String name;
+
+    /** ProfilingPointEntity profilingPointName field */
+    @Index
+    private String profilingPointName;
+
+    /** ProfilingPointEntity testName field */
+    @Index
+    private String testName;
+
+    /** ProfilingPointEntity type field */
+    private int type;
+
+    /** ProfilingPointEntity regressionMode field */
+    private int regressionMode;
+
+    /** ProfilingPointEntity xLabel field */
+    private String xLabel;
+
+    /** ProfilingPointEntity xLabel field */
+    private String yLabel;
+
+    /**
+     * When this record was created or updated
+     */
+    @Index
+    Date updated;
 
     /**
      * Create a ProfilingPointEntity object.
@@ -68,10 +105,29 @@ public class ProfilingPointEntity implements DashboardEntity {
         this.key = createKey(testName, profilingPointName);
         this.testName = testName;
         this.profilingPointName = profilingPointName;
-        this.type = VtsProfilingType.valueOf(type);
-        this.regressionMode = VtsProfilingRegressionMode.valueOf(regressionMode);
+        this.type = type;
+        this.regressionMode = regressionMode;
         this.xLabel = xLabel;
         this.yLabel = yLabel;
+        this.updated = new Date();
+    }
+
+    /**
+     * Get VtsProfilingType from int value.
+     *
+     * @return VtsProfilingType class.
+     */
+    public VtsProfilingType getVtsProfilingType(int type) {
+        return VtsProfilingType.forNumber(type);
+    }
+
+    /**
+     * Get VtsProfilingRegressionMode from int value.
+     *
+     * @return VtsProfilingType class.
+     */
+    public VtsProfilingRegressionMode getVtsProfilingRegressionMode(int regressionMode) {
+        return VtsProfilingRegressionMode.forNumber(regressionMode);
     }
 
     /**
@@ -85,13 +141,18 @@ public class ProfilingPointEntity implements DashboardEntity {
         return KeyFactory.createKey(KIND, testName + DELIMITER + profilingPointName);
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<ProfilingPointEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity profilingPoint = new Entity(key);
         profilingPoint.setIndexedProperty(TEST_NAME, this.testName);
         profilingPoint.setIndexedProperty(PROFILING_POINT_NAME, this.profilingPointName);
-        profilingPoint.setUnindexedProperty(TYPE, this.type.getNumber());
-        profilingPoint.setUnindexedProperty(REGRESSION_MODE, this.regressionMode.getNumber());
+        profilingPoint.setUnindexedProperty(TYPE, this.type);
+        profilingPoint.setUnindexedProperty(REGRESSION_MODE, this.regressionMode);
         profilingPoint.setUnindexedProperty(X_LABEL, this.xLabel);
         profilingPoint.setUnindexedProperty(Y_LABEL, this.yLabel);
 

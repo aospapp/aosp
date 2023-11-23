@@ -28,9 +28,12 @@
 #include "vkRef.hpp"
 #include "tcuDefs.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkPlatform.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuResultCollector.hpp"
 
@@ -255,7 +258,7 @@ MovePtr<MultiQueues> createQueues (const Context& context, const VkQueueFlags& q
 	deviceInfo.queueCreateInfoCount		= static_cast<deUint32>(queues.countQueueFamilyIndex());
 	deviceInfo.pQueueCreateInfos		= &queueInfos[0];
 
-	queues.setDevice(createDevice(instance, physicalDevice, &deviceInfo));
+	queues.setDevice(createDevice(context.getPlatformInterface(), context.getInstance(), instance, physicalDevice, &deviceInfo));
 
 	for (deUint32 queueFamilyIndex = 0; queueFamilyIndex < queues.countQueueFamilyIndex(); ++queueFamilyIndex)
 	{
@@ -268,54 +271,6 @@ MovePtr<MultiQueues> createQueues (const Context& context, const VkQueueFlags& q
 
 	queues.m_allocator = createAllocator(context, queues.getDevice());
 	return moveQueues;
-}
-
-Move<VkRenderPass>	createRenderPass (const Context& context, const VkDevice& device, const VkFormat& colorFormat)
-{
-	const DeviceInterface&			vk							= context.getDeviceInterface();
-	const VkAttachmentDescription	colorAttachmentDescription	=
-																{
-																	0u,											// VkAttachmentDescriptionFlags	flags;
-																	colorFormat,								// VkFormat						format;
-																	VK_SAMPLE_COUNT_1_BIT,						// VkSampleCountFlagBits		samples;
-																	VK_ATTACHMENT_LOAD_OP_CLEAR,				// VkAttachmentLoadOp			loadOp;
-																	VK_ATTACHMENT_STORE_OP_STORE,				// VkAttachmentStoreOp			storeOp;
-																	VK_ATTACHMENT_LOAD_OP_DONT_CARE,			// VkAttachmentLoadOp			stencilLoadOp;
-																	VK_ATTACHMENT_STORE_OP_DONT_CARE,			// VkAttachmentStoreOp			stencilStoreOp;
-																	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	// VkImageLayout				initialLayout;
-																	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	// VkImageLayout				finalLayout;
-																};
-	const VkAttachmentReference		colorAttachmentReference	=
-																{
-																	0u,											// deUint32			attachment;
-																	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL	// VkImageLayout	layout;
-																};
-	const VkSubpassDescription		subpassDescription			=
-																{
-																	0u,									// VkSubpassDescriptionFlags	flags;
-																	VK_PIPELINE_BIND_POINT_GRAPHICS,	// VkPipelineBindPoint			pipelineBindPoint;
-																	0u,									// deUint32						inputAttachmentCount;
-																	DE_NULL,							// const VkAttachmentReference*	pInputAttachments;
-																	1u,									// deUint32						colorAttachmentCount;
-																	&colorAttachmentReference,			// const VkAttachmentReference*	pColorAttachments;
-																	DE_NULL,							// const VkAttachmentReference*	pResolveAttachments;
-																	DE_NULL,							// const VkAttachmentReference*	pDepthStencilAttachment;
-																	0u,									// deUint32						preserveAttachmentCount;
-																	DE_NULL								// const VkAttachmentReference*	pPreserveAttachments;
-																};
-	const VkRenderPassCreateInfo	renderPassParams			=
-																{
-																	VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,	// VkStructureType					sType;
-																	DE_NULL,									// const void*						pNext;
-																	0u,											// VkRenderPassCreateFlags			flags;
-																	1u,											// deUint32							attachmentCount;
-																	&colorAttachmentDescription,				// const VkAttachmentDescription*	pAttachments;
-																	1u,											// deUint32							subpassCount;
-																	&subpassDescription,						// const VkSubpassDescription*		pSubpasses;
-																	0u,											// deUint32							dependencyCount;
-																	DE_NULL										// const VkSubpassDependency*		pDependencies;
-																};
-	return createRenderPass(vk, device, &renderPassParams);
 }
 
 TestStatus executeComputePipeline (const Context& context, const VkPipeline& pipeline, const VkPipelineLayout& pipelineLayout,
@@ -340,7 +295,7 @@ TestStatus executeComputePipeline (const Context& context, const VkPipeline& pip
 		{
 			const Allocation& alloc = resultBuffer.getAllocation();
 			deMemset(alloc.getHostPtr(), 0, BUFFER_SIZE);
-			flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), BUFFER_SIZE);
+			flushAlloc(vk, device, alloc);
 		}
 
 		// Start recording commands
@@ -376,7 +331,7 @@ TestStatus executeComputePipeline (const Context& context, const VkPipeline& pip
 
 		{
 			const Allocation& resultAlloc = resultBuffer.getAllocation();
-			invalidateMappedMemoryRange(vk, device, resultAlloc.getMemory(), resultAlloc.getOffset(), BUFFER_SIZE);
+			invalidateAlloc(vk, device, resultAlloc);
 
 			const deInt32*	ptr = reinterpret_cast<deInt32*>(resultAlloc.getHostPtr());
 			for (deInt32 ndx = 0; ndx < BUFFER_ELEMENT_COUNT; ++ndx)
@@ -428,7 +383,7 @@ TestStatus executeGraphicPipeline (const Context& context, const VkPipeline& pip
 		{
 			const Allocation& alloc = resultBuffer.getAllocation();
 			deMemset(alloc.getHostPtr(), 0, BUFFER_SIZE);
-			flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), BUFFER_SIZE);
+			flushAlloc(vk, device, alloc);
 		}
 
 		// Start recording commands
@@ -440,16 +395,12 @@ TestStatus executeGraphicPipeline (const Context& context, const VkPipeline& pip
 				VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				**colorAttachmentImage, colorImageSubresourceRange);
 
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, (VkDependencyFlags)0,
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0,
 				0u, DE_NULL, 0u, DE_NULL, 1u, &colorAttachmentLayoutBarrier);
 		}
 
 		{
-			const VkRect2D	renderArea	=
-										{
-											makeOffset2D(0, 0),
-											makeExtent2D(1, 1),
-										};
+			const VkRect2D	renderArea	= makeRect2D(1u, 1u);
 			const tcu::Vec4	clearColor	= tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 			beginRenderPass(vk, *cmdBuffer, renderPass, *framebuffer, renderArea, clearColor);
 		}
@@ -474,7 +425,7 @@ TestStatus executeGraphicPipeline (const Context& context, const VkPipeline& pip
 
 		{
 			const Allocation& resultAlloc = resultBuffer.getAllocation();
-			invalidateMappedMemoryRange(vk, device, resultAlloc.getMemory(), resultAlloc.getOffset(), BUFFER_SIZE);
+			invalidateAlloc(vk, device, resultAlloc);
 
 			const deInt32*	ptr = reinterpret_cast<deInt32*>(resultAlloc.getHostPtr());
 			for (deInt32 ndx = 0; ndx < BUFFER_ELEMENT_COUNT; ++ndx)
@@ -781,7 +732,7 @@ public:
 		MovePtr<MultiQueues>					queues					= createQueues (m_context, VK_QUEUE_GRAPHICS_BIT);
 		const VkDevice							device					= queues->getDevice();
 		VkFormat								colorFormat				= VK_FORMAT_R8G8B8A8_UNORM;
-		Move<VkRenderPass>						renderPass				= createRenderPass(m_context, device, colorFormat);
+		Move<VkRenderPass>						renderPass				= makeRenderPass(vk, device, colorFormat);
 		const Move<VkDescriptorSetLayout>		descriptorSetLayout		(DescriptorSetLayoutBuilder()
 																			.addSingleBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 																			.build(vk, device));

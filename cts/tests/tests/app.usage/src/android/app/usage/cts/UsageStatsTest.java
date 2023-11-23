@@ -18,17 +18,13 @@ package android.app.usage.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
-import android.app.Activity;
-import android.app.AppOpsManager;
-import android.app.KeyguardManager;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
+import android.app.*;
 import android.app.usage.EventStats;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageEvents.Event;
@@ -40,9 +36,8 @@ import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
@@ -52,14 +47,21 @@ import android.util.SparseArray;
 import android.util.SparseLongArray;
 import android.view.KeyEvent;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.AppStandbyUtils;
 
+import com.android.compatibility.common.util.SystemUtil;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
 import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +90,18 @@ public class UsageStatsTest {
     private static final String APPOPS_SET_SHELL_COMMAND = "appops set {0} " +
             AppOpsManager.OPSTR_GET_USAGE_STATS + " {1}";
 
+    private static final String USAGE_SOURCE_GET_SHELL_COMMAND = "settings get global " +
+            Settings.Global.APP_TIME_LIMIT_USAGE_SOURCE;
+
+    private static final String USAGE_SOURCE_SET_SHELL_COMMAND = "settings put global " +
+            Settings.Global.APP_TIME_LIMIT_USAGE_SOURCE + " {0}";
+
+    private static final String USAGE_SOURCE_DELETE_SHELL_COMMAND = "settings delete global " +
+            Settings.Global.APP_TIME_LIMIT_USAGE_SOURCE;
+
+    private static final String TEST_APP_PKG = "android.app.usage.cts.test1";
+    private static final String TEST_APP_CLASS = "android.app.usage.cts.test1.SomeActivity";
+
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private static final long MINUTE = TimeUnit.MINUTES.toMillis(1);
     private static final long DAY = TimeUnit.DAYS.toMillis(1);
@@ -101,6 +115,7 @@ public class UsageStatsTest {
     private UiDevice mUiDevice;
     private UsageStatsManager mUsageStatsManager;
     private String mTargetPackage;
+    private String mCachedUsageSourceSetting;
 
     @Before
     public void setUp() throws Exception {
@@ -110,6 +125,17 @@ public class UsageStatsTest {
         mTargetPackage = InstrumentationRegistry.getContext().getPackageName();
         assumeTrue("App Standby not enabled on device", AppStandbyUtils.isAppStandbyEnabled());
         setAppOpsMode("allow");
+        mCachedUsageSourceSetting = getUsageSourceSetting();
+    }
+
+
+    @After
+    public void cleanUp() throws Exception {
+        if (mCachedUsageSourceSetting != null &&
+            !mCachedUsageSourceSetting.equals(getUsageSourceSetting())) {
+            setUsageSourceSetting(mCachedUsageSourceSetting);
+            mUsageStatsManager.forceUsageSourceSettingRead();
+        }
     }
 
     private static void assertLessThan(long left, long right) {
@@ -124,6 +150,22 @@ public class UsageStatsTest {
         final String command = MessageFormat.format(APPOPS_SET_SHELL_COMMAND,
                 InstrumentationRegistry.getContext().getPackageName(), mode);
         mUiDevice.executeShellCommand(command);
+    }
+
+
+    private String getUsageSourceSetting() throws Exception {
+        return mUiDevice.executeShellCommand(USAGE_SOURCE_GET_SHELL_COMMAND);
+    }
+
+    private void setUsageSourceSetting(String usageSource) throws Exception {
+        if (usageSource.equals("null")) {
+            mUiDevice.executeShellCommand(USAGE_SOURCE_DELETE_SHELL_COMMAND);
+        } else {
+            final String command = MessageFormat.format(USAGE_SOURCE_SET_SHELL_COMMAND,
+                                                        usageSource);
+            mUiDevice.executeShellCommand(command);
+        }
+        mUsageStatsManager.forceUsageSourceSettingRead();
     }
 
     private void launchSubActivity(Class<? extends Activity> clazz) {
@@ -141,7 +183,7 @@ public class UsageStatsTest {
         }
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testOrderedActivityLaunchSequenceInEventLog() throws Exception {
         @SuppressWarnings("unchecked")
@@ -150,62 +192,89 @@ public class UsageStatsTest {
                 Activities.ActivityTwo.class,
                 Activities.ActivityThree.class,
         };
+        mUiDevice.wakeUp();
 
-        final long startTime = System.currentTimeMillis() - MINUTE;
-
+        final long startTime = System.currentTimeMillis();
         // Launch the series of Activities.
         launchSubActivities(activitySequence);
-
         final long endTime = System.currentTimeMillis();
         UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
 
-        // Consume all the events.
+        // Only look at events belongs to mTargetPackage.
         ArrayList<UsageEvents.Event> eventList = new ArrayList<>();
         while (events.hasNextEvent()) {
             UsageEvents.Event event = new UsageEvents.Event();
             assertTrue(events.getNextEvent(event));
-            eventList.add(event);
-        }
-
-        // Find the last Activity's MOVE_TO_FOREGROUND event.
-        int end = eventList.size();
-        while (end > 0) {
-            UsageEvents.Event event = eventList.get(end - 1);
-            if (event.getClassName().equals(activitySequence[activitySequence.length - 1].getName())
-                    && event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                break;
+            if (mTargetPackage.equals(event.getPackageName())) {
+                eventList.add(event);
             }
-            end--;
         }
-
-        // We expect 2 events per Activity launched (foreground + background)
-        // except for the last Activity, which was in the foreground when
-        // we queried the event log.
-        final int start = end - ((activitySequence.length * 2) - 1);
-        assertTrue("Not enough events", start >= 0);
 
         final int activityCount = activitySequence.length;
         for (int i = 0; i < activityCount; i++) {
-            final int index = start + (i * 2);
-
-            // Check for foreground event.
-            UsageEvents.Event event = eventList.get(index);
-            assertEquals(mTargetPackage, event.getPackageName());
-            assertEquals(activitySequence[i].getName(), event.getClassName());
-            assertEquals(UsageEvents.Event.MOVE_TO_FOREGROUND, event.getEventType());
-
-            // Only check for the background event if this is not the
-            // last activity.
+            String className = activitySequence[i].getName();
+            ArrayList<UsageEvents.Event> activityEvents = new ArrayList<>();
+            final int size = eventList.size();
+            for (int j = 0; j < size; j++) {
+                Event evt = eventList.get(j);
+                if (className.equals(evt.getClassName())) {
+                    activityEvents.add(evt);
+                }
+            }
+            // We expect 3 events per Activity launched (ACTIVITY_RESUMED + ACTIVITY_PAUSED
+            // + ACTIVITY_STOPPED) except for the last Activity, which only has
+            // ACTIVITY_RESUMED event.
             if (i < activityCount - 1) {
-                event = eventList.get(index + 1);
-                assertEquals(mTargetPackage, event.getPackageName());
-                assertEquals(activitySequence[i].getName(), event.getClassName());
-                assertEquals(UsageEvents.Event.MOVE_TO_BACKGROUND, event.getEventType());
+                assertEquals(3, activityEvents.size());
+                assertEquals(Event.ACTIVITY_RESUMED, activityEvents.get(0).getEventType());
+                assertEquals(Event.ACTIVITY_PAUSED, activityEvents.get(1).getEventType());
+                assertEquals(Event.ACTIVITY_STOPPED, activityEvents.get(2).getEventType());
+            } else {
+                // The last activity
+                assertEquals(1, activityEvents.size());
+                assertEquals(Event.ACTIVITY_RESUMED, activityEvents.get(0).getEventType());
             }
         }
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testActivityOnBackButton() throws Exception {
+        testActivityOnButton(mUiDevice::pressBack);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testActivityOnHomeButton() throws Exception {
+        testActivityOnButton(mUiDevice::pressHome);
+    }
+
+    private void testActivityOnButton(Runnable pressButton) throws Exception {
+        mUiDevice.wakeUp();
+        final long startTime = System.currentTimeMillis();
+        final Class clazz = Activities.ActivityOne.class;
+        launchSubActivity(clazz);
+        pressButton.run();
+        Thread.sleep(1000);
+        final long endTime = System.currentTimeMillis();
+        UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        ArrayList<UsageEvents.Event> eventList = new ArrayList<>();
+        while (events.hasNextEvent()) {
+            UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+            if (mTargetPackage.equals(event.getPackageName())
+                && clazz.getName().equals(event.getClassName())) {
+                eventList.add(event);
+            }
+        }
+        assertEquals(3, eventList.size());
+        assertEquals(Event.ACTIVITY_RESUMED, eventList.get(0).getEventType());
+        assertEquals(Event.ACTIVITY_PAUSED, eventList.get(1).getEventType());
+        assertEquals(Event.ACTIVITY_STOPPED, eventList.get(2).getEventType());
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testAppLaunchCount() throws Exception {
         long endTime = System.currentTimeMillis();
@@ -232,7 +301,7 @@ public class UsageStatsTest {
         assertEquals(startingCount + 2, stats.getAppLaunchCount());
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testStandbyBucketChangeLog() throws Exception {
         final long startTime = System.currentTimeMillis();
@@ -394,7 +463,7 @@ public class UsageStatsTest {
         assertEquals(events.hasNextEvent(), reparceledEvents.hasNextEvent());
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testPackageUsageStatsIntervals() throws Exception {
         final long beforeTime = System.currentTimeMillis();
@@ -457,15 +526,18 @@ public class UsageStatsTest {
         assertTrue(stats.isEmpty());
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testNotificationSeen() throws Exception {
         final long startTime = System.currentTimeMillis();
         Context context = InstrumentationRegistry.getContext();
-        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            // Skip the test for wearable device.
-            return;
-        }
+
+        // Skip the test for wearable devices and televisions; neither has a notification shade.
+        assumeFalse("Test cannot run on a watch- notification shade is not shown",
+                context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH));
+        assumeFalse("Test cannot run on a television- notifications are not shown",
+                context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY));
+
         NotificationManager mNotificationManager =
             (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         int importance = NotificationManager.IMPORTANCE_DEFAULT;
@@ -747,7 +819,7 @@ public class UsageStatsTest {
         }
     }
 
-    @AppModeFull // No usage events access in instant apps
+    @AppModeFull(reason = "No usage events access in instant apps")
     @Test
     public void testInteractiveEvents() throws Exception {
         final KeyguardManager kmgr = InstrumentationRegistry.getInstrumentation()
@@ -844,14 +916,296 @@ public class UsageStatsTest {
     }
 
     @Test
-    public void testObserveUsagePermission() {
+    public void testObserveUsagePermissionForRegisterObserver() {
+        final int observerId = 0;
+        final String[] packages = new String[] {"com.android.settings"};
+
         try {
-            mUsageStatsManager.registerAppUsageObserver(0, new String[] {"com.android.settings"},
+            mUsageStatsManager.registerAppUsageObserver(observerId, packages,
                     1, java.util.concurrent.TimeUnit.HOURS, null);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
         } catch (SecurityException e) {
-            return;
+            // Exception expected
         }
-        fail("Should throw SecurityException");
+
+        try {
+            mUsageStatsManager.registerUsageSessionObserver(observerId, packages,
+                    Duration.ofHours(1), Duration.ofSeconds(10), null, null);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
+        } catch (SecurityException e) {
+            // Exception expected
+        }
+
+        try {
+            mUsageStatsManager.registerAppUsageLimitObserver(observerId, packages,
+                    Duration.ofHours(1), Duration.ofHours(0), null);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
+        } catch (SecurityException e) {
+            // Exception expected
+        }
+    }
+
+    @Test
+    public void testObserveUsagePermissionForUnregisterObserver() {
+        final int observerId = 0;
+
+        try {
+            mUsageStatsManager.unregisterAppUsageObserver(observerId);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
+        } catch (SecurityException e) {
+            // Exception expected
+        }
+
+        try {
+            mUsageStatsManager.unregisterUsageSessionObserver(observerId);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
+        } catch (SecurityException e) {
+            // Exception expected
+        }
+
+        try {
+            mUsageStatsManager.unregisterAppUsageLimitObserver(observerId);
+            fail("Expected SecurityException for an app not holding OBSERVE_APP_USAGE permission.");
+        } catch (SecurityException e) {
+            // Exception expected
+        }
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testForegroundService() throws Exception {
+        // This test start a foreground service then stop it. The event list should have one
+        // FOREGROUND_SERVICE_START and one FOREGROUND_SERVICE_STOP event.
+        final long startTime = System.currentTimeMillis();
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        context.startService(new Intent(context, TestService.class));
+        mUiDevice.wait(Until.hasObject(By.clazz(TestService.class)), TIMEOUT);
+        final long sleepTime = 500;
+        SystemClock.sleep(sleepTime);
+        context.stopService(new Intent(context, TestService.class));
+        mUiDevice.wait(Until.gone(By.clazz(TestService.class)), TIMEOUT);
+        final long endTime = System.currentTimeMillis();
+        UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        int numStarts = 0;
+        int numStops = 0;
+        int startIdx = -1;
+        int stopIdx = -1;
+        int i = 0;
+        while (events.hasNextEvent()) {
+            UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+            if (mTargetPackage.equals(event.getPackageName())
+                    || TestService.class.getName().equals(event.getClassName())) {
+                if (event.getEventType() == Event.FOREGROUND_SERVICE_START) {
+                    numStarts++;
+                    startIdx = i;
+                } else if (event.getEventType() == Event.FOREGROUND_SERVICE_STOP) {
+                    numStops++;
+                    stopIdx = i;
+                }
+                i++;
+            }
+        }
+        // One FOREGROUND_SERVICE_START event followed by one FOREGROUND_SERVICE_STOP event.
+        assertEquals(numStarts, 1);
+        assertEquals(numStops, 1);
+        assertLessThan(startIdx, stopIdx);
+
+        final Map<String, UsageStats> map = mUsageStatsManager.queryAndAggregateUsageStats(
+            startTime, endTime);
+        final UsageStats stats = map.get(mTargetPackage);
+        assertNotNull(stats);
+        final long lastTimeUsed = stats.getLastTimeForegroundServiceUsed();
+        // lastTimeUsed should be falling between startTime and endTime.
+        assertLessThan(startTime, lastTimeUsed);
+        assertLessThan(lastTimeUsed, endTime);
+        final long totalTimeUsed = stats.getTotalTimeForegroundServiceUsed();
+        // because we slept for 500 milliseconds earlier, we know the totalTimeUsed must be more
+        // more than 500 milliseconds.
+        assertLessThan(sleepTime, totalTimeUsed);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testTaskRootEventField() throws Exception {
+        final KeyguardManager kmgr = InstrumentationRegistry.getInstrumentation()
+                .getContext().getSystemService(KeyguardManager.class);
+        mUiDevice.wakeUp();
+        // Also want to start out with the keyguard dismissed.
+        if (kmgr.isKeyguardLocked()) {
+            final long startTime = getEvents(KEYGUARD_EVENTS, 0, null) + 1;
+            mUiDevice.executeShellCommand("wm dismiss-keyguard");
+            ArrayList<Event> events = waitForEventCount(KEYGUARD_EVENTS, startTime, 1);
+            assertEquals(Event.KEYGUARD_HIDDEN, events.get(0).getEventType());
+            SystemClock.sleep(500);
+        }
+
+        final long startTime = System.currentTimeMillis();
+        launchSubActivity(TaskRootActivity.class);
+        final long endTime = System.currentTimeMillis();
+        UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        while (events.hasNextEvent()) {
+            UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+            if (TaskRootActivity.TEST_APP_PKG.equals(event.getPackageName())
+                    && TaskRootActivity.TEST_APP_CLASS.equals(event.getClassName())) {
+                assertEquals(mTargetPackage, event.getTaskRootPackageName());
+                assertEquals(TaskRootActivity.class.getCanonicalName(),
+                        event.getTaskRootClassName());
+                return;
+            }
+        }
+        fail("Did not find nested activity name in usage events");
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testUsageSourceAttribution() throws Exception {
+        final KeyguardManager kmgr = InstrumentationRegistry.getInstrumentation()
+                .getContext().getSystemService(KeyguardManager.class);
+        mUiDevice.wakeUp();
+        // Also want to start out with the keyguard dismissed.
+        if (kmgr.isKeyguardLocked()) {
+            final long startTime = getEvents(KEYGUARD_EVENTS, 0, null) + 1;
+            mUiDevice.executeShellCommand("wm dismiss-keyguard");
+            ArrayList<Event> events = waitForEventCount(KEYGUARD_EVENTS, startTime, 1);
+            assertEquals(Event.KEYGUARD_HIDDEN, events.get(0).getEventType());
+            SystemClock.sleep(500);
+        }
+
+        mUiDevice.pressHome();
+
+        setUsageSourceSetting(Integer.toString(mUsageStatsManager.USAGE_SOURCE_CURRENT_ACTIVITY));
+        launchSubActivity(TaskRootActivity.class);
+        // Usage should be attributed to the test app package
+        assertAppOrTokenUsed(TaskRootActivity.TEST_APP_PKG, true);
+
+        mUiDevice.pressHome();
+
+        setUsageSourceSetting(Integer.toString(
+                mUsageStatsManager.USAGE_SOURCE_TASK_ROOT_ACTIVITY));
+        launchSubActivity(TaskRootActivity.class);
+        // Usage should be attributed to this package
+        assertAppOrTokenUsed(mTargetPackage, true);
+    }
+
+    @AppModeInstant
+    @Test
+    public void testInstantAppUsageEventsObfuscated() throws Exception {
+        @SuppressWarnings("unchecked")
+        final Class<? extends Activity>[] activitySequence = new Class[] {
+                Activities.ActivityOne.class,
+                Activities.ActivityTwo.class,
+                Activities.ActivityThree.class,
+        };
+        mUiDevice.wakeUp();
+        mUiDevice.pressHome();
+
+        final long startTime = System.currentTimeMillis();
+        // Launch the series of Activities.
+        launchSubActivities(activitySequence);
+        SystemClock.sleep(250);
+
+        final long endTime = System.currentTimeMillis();
+        final UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        int resumes = 0;
+        int pauses = 0;
+        int stops = 0;
+
+        // Only look at events belongs to mTargetPackage.
+        ArrayList<UsageEvents.Event> eventList = new ArrayList<>();
+        while (events.hasNextEvent()) {
+            final UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+            // There should be no events with this packages name
+            assertFalse("Instant app package name found in usage event list",
+                    mTargetPackage.equals(event.getPackageName()));
+
+            // Look for the obfuscated instant app string instead
+            if(UsageEvents.INSTANT_APP_PACKAGE_NAME.equals(event.getPackageName())) {
+                switch (event.mEventType) {
+                    case Event.ACTIVITY_RESUMED:
+                        resumes++;
+                        break;
+                    case Event.ACTIVITY_PAUSED:
+                        pauses++;
+                        break;
+                    case Event.ACTIVITY_STOPPED:
+                        stops++;
+                        break;
+                }
+            }
+        }
+        assertEquals("Unexpected number of activity resumes", 3, resumes);
+        assertEquals("Unexpected number of activity pauses", 2, pauses);
+        assertEquals("Unexpected number of activity stops", 2, stops);
+    }
+
+
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testSuddenDestroy() throws Exception {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        final KeyguardManager kmgr = InstrumentationRegistry.getInstrumentation()
+                .getContext().getSystemService(KeyguardManager.class);
+        mUiDevice.wakeUp();
+        // Also want to start out with the keyguard dismissed.
+        if (kmgr.isKeyguardLocked()) {
+            final long startTime = getEvents(KEYGUARD_EVENTS, 0, null) + 1;
+            mUiDevice.executeShellCommand("wm dismiss-keyguard");
+            ArrayList<Event> events = waitForEventCount(KEYGUARD_EVENTS, startTime, 1);
+            assertEquals(Event.KEYGUARD_HIDDEN, events.get(0).getEventType());
+            SystemClock.sleep(500);
+        }
+
+        mUiDevice.pressHome();
+
+        final long startTime = System.currentTimeMillis();
+        final ActivityManager mAm = context.getSystemService(ActivityManager.class);
+
+        Intent intent = new Intent();
+        intent.setClassName(TEST_APP_PKG, TEST_APP_CLASS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+        mUiDevice.wait(Until.hasObject(By.clazz(TEST_APP_PKG, TEST_APP_CLASS)), TIMEOUT);
+        SystemClock.sleep(500);
+
+        // Destroy the activity
+        SystemUtil.runWithShellPermissionIdentity(() -> mAm.forceStopPackage(TEST_APP_PKG));
+        mUiDevice.wait(Until.gone(By.clazz(TEST_APP_PKG, TEST_APP_CLASS)), TIMEOUT);
+        SystemClock.sleep(500);
+
+        final long endTime = System.currentTimeMillis();
+        final UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        int resumes = 0;
+        int stops = 0;
+
+        while (events.hasNextEvent()) {
+            final UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+
+            if(TEST_APP_PKG.equals(event.getPackageName())) {
+                switch (event.mEventType) {
+                    case Event.ACTIVITY_RESUMED:
+                        assertNotNull("ACTIVITY_RESUMED event Task Root should not be null",
+                                event.getTaskRootPackageName());
+                        resumes++;
+                        break;
+                    case Event.ACTIVITY_STOPPED:
+                        assertNotNull("ACTIVITY_STOPPED event Task Root should not be null",
+                                event.getTaskRootPackageName());
+                        stops++;
+                        break;
+                }
+            }
+        }
+        assertEquals("Unexpected number of activity resumes", 1, resumes);
+        assertEquals("Unexpected number of activity stops", 1, stops);
     }
 
     private void pressWakeUp() {
@@ -860,5 +1214,31 @@ public class UsageStatsTest {
 
     private void pressSleep() {
         mUiDevice.pressKeyCode(KeyEvent.KEYCODE_SLEEP);
+    }
+
+    /**
+     * Assert on an app or token's usage state.
+     * @param entity name of the app or token
+     * @param expected expected usage state, true for in use, false for not in use
+     */
+    private void assertAppOrTokenUsed(String entity, boolean expected) throws IOException {
+        final String activeUsages =
+                mUiDevice.executeShellCommand("dumpsys usagestats apptimelimit actives");
+        final String[] actives = activeUsages.split("\n");
+        boolean found = false;
+
+        for (String active : actives) {
+            if (active.equals(entity)) {
+                found = true;
+                break;
+            }
+        }
+        if (expected) {
+            assertTrue(entity + " not found in list of active activities and tokens\n"
+                    + activeUsages, found);
+        } else {
+            assertFalse(entity + " found in list of active activities and tokens\n"
+                    + activeUsages, found);
+        }
     }
 }

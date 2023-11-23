@@ -10,9 +10,9 @@ import com.android.rs.refocus.RefocusFilter;
 import com.android.rs.refocus.renderscript.ScriptC_layered_filter_fast_f32;
 
 import android.graphics.Bitmap;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.Script;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.Script;
 import android.util.Log;
 /**
  * An accelerated implementation of RefocusFilter using float32 as pixel

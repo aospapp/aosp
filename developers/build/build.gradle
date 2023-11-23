@@ -24,11 +24,6 @@ task preflight {
     project.afterEvaluate({preflight.dependsOn(project.refresh)})
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '2.10'
-}
-
-
 String outPath(String buildType) {
 /*
     def repoInfo = "repo info platform/developers/build".execute().text

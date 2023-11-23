@@ -183,6 +183,7 @@
 #define EXT2_ET_BAD_CRC                          (2133571503L)
 #define EXT2_ET_CORRUPT_JOURNAL_SB               (2133571504L)
 #define EXT2_ET_INODE_CORRUPTED                  (2133571505L)
+#define EXT2_ET_EA_INODE_CORRUPTED               (2133571506L)
 extern const struct error_table et_ext2_error_table;
 extern void initialize_ext2_error_table(void);
 

@@ -31,9 +31,13 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.Globals;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -63,7 +67,10 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams provisioningParams,
             Callback callback) {
-        this(new Utils(), context, provisioningParams, callback);
+        this(new Utils(), context, provisioningParams, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
@@ -71,8 +78,9 @@ public class DownloadPackageTask extends AbstractProvisioningTask {
             Utils utils,
             Context context,
             ProvisioningParams provisioningParams,
-            Callback callback) {
-        super(context, provisioningParams, callback);
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, provisioningParams, callback, provisioningAnalyticsTracker);
 
         mUtils = checkNotNull(utils);
         mDownloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);

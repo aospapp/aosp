@@ -22,11 +22,11 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     android-common \
     ctstestserver \
-    ctstestrunner \
-    compatibility-device-util \
+    ctstestrunner-axt \
+    compatibility-device-util-axt \
     guava \
     platform-test-annotations
 

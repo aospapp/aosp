@@ -17,18 +17,18 @@
 package com.android.settingslib.widget;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
+
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.arch.lifecycle.LifecycleOwner;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.PreferenceManager;
-import android.support.v7.preference.PreferenceScreen;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceManager;
+import androidx.preference.PreferenceScreen;
 
-import com.android.settingslib.SettingsLibRobolectricTestRunner;
 import com.android.settingslib.core.lifecycle.Lifecycle;
 
 import org.junit.Before;
@@ -36,9 +36,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 
-@RunWith(SettingsLibRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class FooterPreferenceMixinTest {
 
     @Mock
@@ -57,7 +58,7 @@ public class FooterPreferenceMixinTest {
         mLifecycle = new Lifecycle(mLifecycleOwner);
         when(mFragment.getPreferenceManager()).thenReturn(mock(PreferenceManager.class));
         when(mFragment.getPreferenceManager().getContext())
-                .thenReturn(ShadowApplication.getInstance().getApplicationContext());
+                .thenReturn(RuntimeEnvironment.application);
         mMixin = new FooterPreferenceMixin(mFragment, mLifecycle);
     }
 

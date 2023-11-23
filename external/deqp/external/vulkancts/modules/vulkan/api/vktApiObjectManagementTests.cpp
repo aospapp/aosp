@@ -34,6 +34,7 @@
 #include "vkPlatform.hpp"
 #include "vkStrUtil.hpp"
 #include "vkAllocationCallbackUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuVector.hpp"
 #include "tcuResultCollector.hpp"
@@ -49,6 +50,8 @@
 #include "deInt32.h"
 
 #include <limits>
+
+#define VK_DESCRIPTOR_TYPE_LAST (VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1)
 
 namespace vkt
 {
@@ -231,6 +234,7 @@ struct Environment
 {
 	const PlatformInterface&		vkp;
 	deUint32						apiVersion;
+	VkInstance						instance;
 	const DeviceInterface&			vkd;
 	VkDevice						device;
 	deUint32						queueFamilyIndex;
@@ -241,6 +245,7 @@ struct Environment
 	Environment (Context& context, deUint32 maxResourceConsumers_)
 		: vkp					(context.getPlatformInterface())
 		, apiVersion			(context.getUsedApiVersion())
+		, instance				(context.getInstance())
 		, vkd					(context.getDeviceInterface())
 		, device				(context.getDevice())
 		, queueFamilyIndex		(context.getUniversalQueueFamilyIndex())
@@ -252,6 +257,7 @@ struct Environment
 
 	Environment (const PlatformInterface&		vkp_,
 				 deUint32						apiVersion_,
+				 VkInstance						instance_,
 				 const DeviceInterface&			vkd_,
 				 VkDevice						device_,
 				 deUint32						queueFamilyIndex_,
@@ -260,6 +266,7 @@ struct Environment
 				 deUint32						maxResourceConsumers_)
 		: vkp					(vkp_)
 		, apiVersion			(apiVersion_)
+		, instance				(instance_)
 		, vkd					(vkd_)
 		, device				(device_)
 		, queueFamilyIndex		(queueFamilyIndex_)
@@ -343,6 +350,7 @@ size_t computeSystemMemoryUsage (Context& context, const typename Object::Parame
 	AllocationCallbackRecorder			allocRecorder		(getSystemAllocator());
 	const Environment					env					(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
@@ -583,7 +591,7 @@ struct Device
 			DE_NULL,								// pEnabledFeatures
 		};
 
-		return createDevice(res.vki, res.physicalDevice, &deviceInfo, env.allocationCallbacks);
+		return createDevice(env.vkp, env.instance, res.vki, res.physicalDevice, &deviceInfo, env.allocationCallbacks);
 	}
 };
 
@@ -696,7 +704,7 @@ struct DeviceGroup
 			DE_NULL,											// pEnabledFeatures
 		};
 
-		return createDevice(res.vki, res.physicalDevices[params.deviceIndex], &deviceGroupCreateInfo, env.allocationCallbacks);
+		return createDevice(env.vkp, env.instance, res.vki, res.physicalDevices[params.deviceIndex], &deviceGroupCreateInfo, env.allocationCallbacks);
 	}
 };
 
@@ -1565,72 +1573,13 @@ struct RenderPass
 
 	static Move<VkRenderPass> create (const Environment& env, const Resources&, const Parameters&)
 	{
-		const VkAttachmentDescription	attachments[]		=
-		{
-			{
-				(VkAttachmentDescriptionFlags)0,
-				VK_FORMAT_R8G8B8A8_UNORM,
-				VK_SAMPLE_COUNT_1_BIT,
-				VK_ATTACHMENT_LOAD_OP_CLEAR,
-				VK_ATTACHMENT_STORE_OP_STORE,
-				VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			},
-			{
-				(VkAttachmentDescriptionFlags)0,
-				VK_FORMAT_D16_UNORM,
-				VK_SAMPLE_COUNT_1_BIT,
-				VK_ATTACHMENT_LOAD_OP_CLEAR,
-				VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-				VK_ATTACHMENT_STORE_OP_DONT_CARE,
-				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			}
-		};
-		const VkAttachmentReference		colorAttachments[]	=
-		{
-			{
-				0u,											// attachment
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			}
-		};
-		const VkAttachmentReference		dsAttachment		=
-		{
-			1u,											// attachment
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-		};
-		const VkSubpassDescription		subpasses[]			=
-		{
-			{
-				(VkSubpassDescriptionFlags)0,
-				VK_PIPELINE_BIND_POINT_GRAPHICS,
-				0u,											// inputAttachmentCount
-				DE_NULL,									// pInputAttachments
-				DE_LENGTH_OF_ARRAY(colorAttachments),
-				colorAttachments,
-				DE_NULL,									// pResolveAttachments
-				&dsAttachment,
-				0u,											// preserveAttachmentCount
-				DE_NULL,									// pPreserveAttachments
-			}
-		};
-		const VkRenderPassCreateInfo	renderPassInfo		=
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-			DE_NULL,
-			(VkRenderPassCreateFlags)0,
-			DE_LENGTH_OF_ARRAY(attachments),
-			attachments,
-			DE_LENGTH_OF_ARRAY(subpasses),
-			subpasses,
-			0u,												// dependencyCount
-			DE_NULL											// pDependencies
-		};
-
-		return createRenderPass(env.vkd, env.device, &renderPassInfo, env.allocationCallbacks);
+		return makeRenderPass(env.vkd, env.device, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_D16_UNORM,
+			VK_ATTACHMENT_LOAD_OP_CLEAR,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			env.allocationCallbacks);
 	}
 };
 
@@ -1735,30 +1684,25 @@ struct GraphicsPipeline
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 			VK_FALSE								// primitiveRestartEnable
 		};
-		const VkViewport								viewports[]			=
-		{
-			{ 0.0f, 0.0f, 64.f, 64.f, 0.0f, 1.0f }
-		};
-		const VkRect2D									scissors[]			=
-		{
-			{ { 0, 0 }, { 64, 64 } }
-		};
+		const VkViewport								viewport			= makeViewport(tcu::UVec2(64));
+		const VkRect2D									scissor				= makeRect2D(tcu::UVec2(64));
+
 		const VkPipelineViewportStateCreateInfo			viewportState		=
 		{
 			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
 			DE_NULL,
 			(VkPipelineViewportStateCreateFlags)0,
-			DE_LENGTH_OF_ARRAY(viewports),
-			viewports,
-			DE_LENGTH_OF_ARRAY(scissors),
-			scissors,
+			1u,
+			&viewport,
+			1u,
+			&scissor,
 		};
 		const VkPipelineRasterizationStateCreateInfo	rasterState			=
 		{
 			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 			DE_NULL,
 			(VkPipelineRasterizationStateCreateFlags)0,
-			VK_TRUE,								// depthClampEnable
+			VK_FALSE,								// depthClampEnable
 			VK_FALSE,								// rasterizerDiscardEnable
 			VK_POLYGON_MODE_FILL,
 			VK_CULL_MODE_BACK_BIT,
@@ -2410,6 +2354,7 @@ template<typename Object>	int getCreateCount				(void) { return 100;	}
 // Creating VkDevice and VkInstance can take significantly longer than other object types
 template<>					int getCreateCount<Instance>	(void) { return 20;		}
 template<>					int getCreateCount<Device>		(void) { return 20;		}
+template<>					int getCreateCount<DeviceGroup>	(void) { return 20;		}
 
 template<typename Object>
 class CreateThread : public ThreadGroupThread
@@ -2495,8 +2440,8 @@ struct EnvClone
 	EnvClone (const Environment& parent, const Device::Parameters& deviceParams, deUint32 maxResourceConsumers)
 		: deviceRes	(parent, deviceParams)
 		, device	(Device::create(parent, deviceRes, deviceParams))
-		, vkd		(deviceRes.vki, *device)
-		, env		(parent.vkp, parent.apiVersion, vkd, *device, deviceRes.queueFamilyIndex, parent.programBinaries, parent.allocationCallbacks, maxResourceConsumers)
+		, vkd		(parent.vkp, parent.instance, *device)
+		, env		(parent.vkp, parent.apiVersion, parent.instance, vkd, *device, deviceRes.queueFamilyIndex, parent.programBinaries, parent.allocationCallbacks, maxResourceConsumers)
 	{
 	}
 };
@@ -2548,6 +2493,7 @@ tcu::TestStatus createSingleAllocCallbacksTest (Context& context, typename Objec
 	// Root environment still uses default instance and device, created without callbacks
 	const Environment					rootEnv			(context.getPlatformInterface(),
 														 context.getUsedApiVersion(),
+														 context.getInstance(),
 														 context.getDeviceInterface(),
 														 context.getDevice(),
 														 context.getUniversalQueueFamilyIndex(),
@@ -2564,6 +2510,7 @@ tcu::TestStatus createSingleAllocCallbacksTest (Context& context, typename Objec
 		AllocationCallbackRecorder			objCallbacks(getSystemAllocator(), 128);
 		const Environment					objEnv		(resEnv.env.vkp,
 														 resEnv.env.apiVersion,
+														 resEnv.env.instance,
 														 resEnv.env.vkd,
 														 resEnv.env.device,
 														 resEnv.env.queueFamilyIndex,
@@ -2590,8 +2537,9 @@ tcu::TestStatus createSingleAllocCallbacksTest (Context& context, typename Objec
 	return tcu::TestStatus::pass("Ok");
 }
 
-template<typename Object>	deUint32	getOomIterLimit			(void) { return 1024;	}
-template<>					deUint32	getOomIterLimit<Device>	(void) { return 20;		}
+template<typename Object>	deUint32	getOomIterLimit					(void) { return 1024;	}
+template<>					deUint32	getOomIterLimit<Device>         (void) { return 20;		}
+template<>					deUint32	getOomIterLimit<DeviceGroup>	(void) { return 20;		}
 
 template<typename Object>
 tcu::TestStatus allocCallbackFailTest (Context& context, typename Object::Parameters params)
@@ -2599,6 +2547,7 @@ tcu::TestStatus allocCallbackFailTest (Context& context, typename Object::Parame
 	AllocationCallbackRecorder			resCallbacks		(getSystemAllocator(), 128);
 	const Environment					rootEnv				(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
@@ -2622,6 +2571,7 @@ tcu::TestStatus allocCallbackFailTest (Context& context, typename Object::Parame
 			AllocationCallbackRecorder			recorder	(objAllocator.getCallbacks(), 128);
 			const Environment					objEnv		(resEnv.env.vkp,
 															 resEnv.env.apiVersion,
+															 resEnv.env.instance,
 															 resEnv.env.vkd,
 															 resEnv.env.device,
 															 resEnv.env.queueFamilyIndex,
@@ -2710,6 +2660,7 @@ tcu::TestStatus allocCallbackFailMultipleObjectsTest (Context& context, typename
 			AllocationCallbackRecorder			recorder	(objAllocator.getCallbacks(), 128);
 			const Environment					objEnv		(context.getPlatformInterface(),
 															 context.getUsedApiVersion(),
+															 context.getInstance(),
 															 context.getDeviceInterface(),
 															 context.getDevice(),
 															 context.getUniversalQueueFamilyIndex(),
@@ -2884,12 +2835,13 @@ tcu::TestCaseGroup* createObjectManagementTests (tcu::TestContext& testCtx)
 
 	const DescriptorSetLayout::Parameters	singleUboDescLayout	= DescriptorSetLayout::Parameters::single(0u, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1u, VK_SHADER_STAGE_VERTEX_BIT);
 
-	static const NamedParameters<Instance>				s_instanceCases[]				=
+	static const NamedParameters<Instance>					s_instanceCases[]				=
 	{
 		{ "instance",					Instance::Parameters() },
 	};
 	// \note Device index may change - must not be static
-	const NamedParameters<Device>						s_deviceCases[]					=
+
+	const NamedParameters<Device>				s_deviceCases[]					=
 	{
 		{ "device",						Device::Parameters(testCtx.getCommandLine().getVKDeviceId()-1u, VK_QUEUE_GRAPHICS_BIT)	},
 	};

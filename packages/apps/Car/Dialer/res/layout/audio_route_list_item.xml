@@ -13,25 +13,26 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<android.support.constraint.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/car_action_bar_height"
-    android:background="@color/phone_theme"
-    android:elevation="@dimen/in_call_card_elevation">
-    <android.support.constraint.Guideline
+    android:layout_height="@dimen/audio_route_height"
+    android:background="?android:attr/selectableItemBackground"
+    android:elevation="@dimen/dialer_card_elevation">
+    <androidx.constraintlayout.widget.Guideline
         android:id="@+id/text_start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_begin="124dp"/>
+        app:layout_constraintGuide_begin="@dimen/audio_route_constraint_guide_begin"/>
     <ImageView
         android:id="@+id/icon"
-        android:layout_width="@dimen/car_app_icon_size"
-        android:layout_height="@dimen/car_app_icon_size"
+        android:layout_width="@dimen/audio_route_icon_size"
+        android:layout_height="@dimen/audio_route_icon_size"
         android:scaleType="fitCenter"
-        android:tint="@color/primary_icon_color"
+        android:layout_marginStart="@dimen/audio_route_content_padding"
+        android:tint="@color/icon_accent_activatable"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
@@ -39,9 +40,10 @@ limitations under the License.
         android:id="@+id/body"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        style="@style/TextAppearance.Car.Body1"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textColor="@color/text_accent_activatable"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="@+id/text_start"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
-</android.support.constraint.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

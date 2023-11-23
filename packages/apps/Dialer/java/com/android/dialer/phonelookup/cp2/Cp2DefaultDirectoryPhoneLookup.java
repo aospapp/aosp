@@ -24,6 +24,7 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.DeletedContacts;
+import android.provider.ContactsContract.Directory;
 import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
 import android.support.v4.util.ArraySet;
@@ -33,7 +34,9 @@ import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.Annotations.BackgroundExecutor;
 import com.android.dialer.common.concurrent.Annotations.LightweightExecutor;
+import com.android.dialer.configprovider.ConfigProvider;
 import com.android.dialer.inject.ApplicationContext;
+import com.android.dialer.logging.Logger;
 import com.android.dialer.phonelookup.PhoneLookup;
 import com.android.dialer.phonelookup.PhoneLookupInfo;
 import com.android.dialer.phonelookup.PhoneLookupInfo.Cp2Info;
@@ -41,6 +44,7 @@ import com.android.dialer.phonelookup.PhoneLookupInfo.Cp2Info.Cp2ContactInfo;
 import com.android.dialer.phonelookup.database.contract.PhoneLookupHistoryContract.PhoneLookupHistory;
 import com.android.dialer.phonenumberproto.PartitionedNumbers;
 import com.android.dialer.storage.Unencrypted;
+import com.android.dialer.util.PermissionsUtil;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -56,6 +60,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.Predicate;
 import javax.inject.Inject;
 
 /** PhoneLookup implementation for contacts in the default directory. */
@@ -64,15 +69,12 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
   private static final String PREF_LAST_TIMESTAMP_PROCESSED =
       "cp2DefaultDirectoryPhoneLookupLastTimestampProcessed";
 
-  // We cannot efficiently process invalid numbers because batch queries cannot be constructed which
-  // accomplish the necessary loose matching. We'll attempt to process a limited number of them,
-  // but if there are too many we fall back to querying CP2 at render time.
-  private static final int MAX_SUPPORTED_INVALID_NUMBERS = 5;
-
   private final Context appContext;
   private final SharedPreferences sharedPreferences;
   private final ListeningExecutorService backgroundExecutorService;
   private final ListeningExecutorService lightweightExecutorService;
+  private final ConfigProvider configProvider;
+  private final MissingPermissionsOperations missingPermissionsOperations;
 
   @Nullable private Long currentLastTimestampProcessed;
 
@@ -81,15 +83,22 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
       @ApplicationContext Context appContext,
       @Unencrypted SharedPreferences sharedPreferences,
       @BackgroundExecutor ListeningExecutorService backgroundExecutorService,
-      @LightweightExecutor ListeningExecutorService lightweightExecutorService) {
+      @LightweightExecutor ListeningExecutorService lightweightExecutorService,
+      ConfigProvider configProvider,
+      MissingPermissionsOperations missingPermissionsOperations) {
     this.appContext = appContext;
     this.sharedPreferences = sharedPreferences;
     this.backgroundExecutorService = backgroundExecutorService;
     this.lightweightExecutorService = lightweightExecutorService;
+    this.configProvider = configProvider;
+    this.missingPermissionsOperations = missingPermissionsOperations;
   }
 
   @Override
   public ListenableFuture<Cp2Info> lookup(DialerPhoneNumber dialerPhoneNumber) {
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      return Futures.immediateFuture(Cp2Info.getDefaultInstance());
+    }
     return backgroundExecutorService.submit(() -> lookupInternal(dialerPhoneNumber));
   }
 
@@ -125,7 +134,8 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
         return Cp2Info.getDefaultInstance();
       }
       while (cursor.moveToNext()) {
-        cp2ContactInfos.add(Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor));
+        cp2ContactInfos.add(
+            Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor, Directory.DEFAULT));
       }
     } finally {
       if (cursor != null) {
@@ -137,8 +147,17 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
 
   @Override
   public ListenableFuture<Boolean> isDirty(ImmutableSet<DialerPhoneNumber> phoneNumbers) {
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      LogUtil.w("Cp2DefaultDirectoryPhoneLookup.isDirty", "missing permissions");
+      Predicate<PhoneLookupInfo> phoneLookupInfoIsDirtyFn =
+          phoneLookupInfo ->
+              !phoneLookupInfo.getDefaultCp2Info().equals(Cp2Info.getDefaultInstance());
+      return missingPermissionsOperations.isDirtyForMissingPermissions(
+          phoneNumbers, phoneLookupInfoIsDirtyFn);
+    }
+
     PartitionedNumbers partitionedNumbers = new PartitionedNumbers(phoneNumbers);
-    if (partitionedNumbers.invalidNumbers().size() > MAX_SUPPORTED_INVALID_NUMBERS) {
+    if (partitionedNumbers.invalidNumbers().size() > getMaxSupportedInvalidNumbers()) {
       // If there are N invalid numbers, we can't determine determine dirtiness without running N
       // queries; since running this many queries is not feasible for the (lightweight) isDirty
       // check, simply return true. The expectation is that this should rarely be the case as the
@@ -234,7 +253,8 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
 
     // Then run a separate query for each invalid number. Separate queries are done to accomplish
     // loose matching which couldn't be accomplished with a batch query.
-    Assert.checkState(partitionedNumbers.invalidNumbers().size() <= MAX_SUPPORTED_INVALID_NUMBERS);
+    Assert.checkState(
+        partitionedNumbers.invalidNumbers().size() <= getMaxSupportedInvalidNumbers());
     for (String invalidNumber : partitionedNumbers.invalidNumbers()) {
       queryFutures.add(queryPhoneLookupTableForContactIdsBasedOnRawNumber(invalidNumber));
     }
@@ -440,6 +460,11 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
       ImmutableMap<DialerPhoneNumber, Cp2Info> existingInfoMap) {
     currentLastTimestampProcessed = null;
 
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      LogUtil.w("Cp2DefaultDirectoryPhoneLookup.getMostRecentInfo", "missing permissions");
+      return missingPermissionsOperations.getMostRecentInfoForMissingPermissions(existingInfoMap);
+    }
+
     ListenableFuture<Long> lastModifiedFuture =
         backgroundExecutorService.submit(
             () -> sharedPreferences.getLong(PREF_LAST_TIMESTAMP_PROCESSED, 0L));
@@ -529,7 +554,11 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
       ImmutableMap<DialerPhoneNumber, Cp2Info> existingInfoMap) {
     ArraySet<DialerPhoneNumber> unprocessableNumbers = new ArraySet<>();
     PartitionedNumbers partitionedNumbers = new PartitionedNumbers(existingInfoMap.keySet());
-    if (partitionedNumbers.invalidNumbers().size() > MAX_SUPPORTED_INVALID_NUMBERS) {
+
+    int invalidNumberCount = partitionedNumbers.invalidNumbers().size();
+    Logger.get(appContext).logAnnotatedCallLogMetrics(invalidNumberCount);
+
+    if (invalidNumberCount > getMaxSupportedInvalidNumbers()) {
       for (String invalidNumber : partitionedNumbers.invalidNumbers()) {
         unprocessableNumbers.addAll(partitionedNumbers.dialerPhoneNumbersForInvalid(invalidNumber));
       }
@@ -623,8 +652,25 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
   }
 
   @Override
-  public void registerContentObservers(Context appContext) {
+  public void registerContentObservers() {
     // Do nothing since CP2 changes are too noisy.
+  }
+
+  @Override
+  public void unregisterContentObservers() {}
+
+  @Override
+  public ListenableFuture<Void> clearData() {
+    return backgroundExecutorService.submit(
+        () -> {
+          sharedPreferences.edit().remove(PREF_LAST_TIMESTAMP_PROCESSED).apply();
+          return null;
+        });
+  }
+
+  @Override
+  public String getLoggingName() {
+    return "Cp2DefaultDirectoryPhoneLookup";
   }
 
   /**
@@ -749,7 +795,8 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
                   cp2ContactInfosByNumber.put(validE164Number, cp2ContactInfos);
                 }
                 cp2ContactInfos.add(
-                    Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor));
+                    Cp2Projections.buildCp2ContactInfoFromCursor(
+                        appContext, cursor, Directory.DEFAULT));
               }
             }
           }
@@ -773,7 +820,8 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
             } else {
               while (cursor.moveToNext()) {
                 cp2ContactInfos.add(
-                    Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor));
+                    Cp2Projections.buildCp2ContactInfoFromCursor(
+                        appContext, cursor, Directory.DEFAULT));
               }
             }
           }
@@ -915,5 +963,14 @@ public final class Cp2DefaultDirectoryPhoneLookup implements PhoneLookup<Cp2Info
       where.append("?");
     }
     return where.toString();
+  }
+
+  /**
+   * We cannot efficiently process invalid numbers because batch queries cannot be constructed which
+   * accomplish the necessary loose matching. We'll attempt to process a limited number of them, but
+   * if there are too many we fall back to querying CP2 at render time.
+   */
+  private long getMaxSupportedInvalidNumbers() {
+    return configProvider.getLong("cp2_phone_lookup_max_invalid_numbers", 5);
   }
 }

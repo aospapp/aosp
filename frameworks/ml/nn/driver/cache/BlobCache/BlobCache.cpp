@@ -414,7 +414,7 @@ bool BlobCache::isCleanable() const {
             return mTotalSize > mMaxTotalSize / 2;
         default:
             ALOGE("isCleanable: unknown mPolicyCapacity: %d", mPolicyCapacity);
-            // and fall through
+            [[fallthrough]];
         case Capacity::FIT:
         case Capacity::FIT_HALVE:
             return mTotalSize > 0;

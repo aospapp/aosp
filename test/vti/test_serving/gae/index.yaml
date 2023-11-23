@@ -8,6 +8,7 @@ indexes:
   - name: serial
   - name: status
   - name: scheduling_status
+  - name: timestamp
 
 - kind: BuildModel
   ancestor: no
@@ -19,6 +20,7 @@ indexes:
   - name: build_type
   - name: artifact_type
   - name: artifacts
+  - name: timestamp
 
 - kind: ScheduleModel
   ancestor: no
@@ -27,8 +29,11 @@ indexes:
   - name: build_target
   - name: test_name
   - name: require_signed_device_build
+  - name: has_bootloader_img
+  - name: has_radio_img
   - name: period
   - name: priority
+  - name: priority_value
   - name: device
   - name: shards
   - name: param
@@ -39,16 +44,30 @@ indexes:
   - name: test_branch
   - name: test_build_target
   - name: test_pab_account_id
+  - name: timestamp
+  - name: children_jobs
+  - name: suspended
+  - name: error_count
+  - name: image_package_repo_base
+  - name: required_host_equipment
+  - name: required_device_equipment
+  - name: report_bucket
+  - name: report_spreadsheet_id
+  - name: report_persistent_url
+  - name: report_reference_url
 
 - kind: LabModel
   ancestor: no
   properties:
   - name: name
   - name: owner
+  - name: admin
   - name: hostname
   - name: ip
   - name: script
   - name: devices
+  - name: timestamp
+  - name: vtslab_version
 
 - kind: JobModel
   ancestor: no
@@ -73,3 +92,21 @@ indexes:
   - name: test_build_target
   - name: test_pab_account_id
   - name: infra_log_url
+  - name: timestamp
+    direction: desc
+  - name: parent_schedule
+  - name: test_type
+  - name: require_signed_device_build
+  - name: has_bootloader_img
+  - name: has_radio_img
+  - name: image_package_repo_base
+  - name: report_bucket
+  - name: report_spreadsheet_id
+  - name: report_persistent_url
+  - name: report_reference_url
+
+- kind: JobModel
+  properties:
+  - name: hostname
+  - name: timestamp
+    direction: desc

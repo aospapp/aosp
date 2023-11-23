@@ -443,16 +443,17 @@ public class TestMessageFormat extends TestFmwk {
         String formatStr = "At <time> on {1,date}, you made a {2} of {0,number,currency}.";
         // {sfb} to get $, would need Locale::US, not Locale::ENGLISH
         // Just use unlocalized currency symbol.
+        // ICU 62: use the unknown currency symbol XXX.
         //String compareStrEng = "At <time> on Aug 8, 1997, you made a deposit of $456.83.";
         String compareStrEng = "At <time> on Aug 8, 1997, you made a deposit of ";
-        compareStrEng += '\u00a4';
+        compareStrEng += "\u00a4";
         compareStrEng += "456.83.";
         // {sfb} to get DM, would need Locale::GERMANY, not Locale::GERMAN
         // Just use unlocalized currency symbol.
         //String compareStrGer = "At <time> on 08.08.1997, you made a deposit of 456,83 DM.";
         String compareStrGer = "At <time> on 08.08.1997, you made a deposit of ";
         compareStrGer += "456,83\u00a0";
-        compareStrGer += '\u00a4';
+        compareStrGer += "XXX";
         compareStrGer += ".";
 
         MessageFormat msg = new MessageFormat(formatStr, Locale.ENGLISH);
@@ -912,12 +913,12 @@ public class TestMessageFormat extends TestFmwk {
         String compareStr = "At <time> on Aug 8, 1997, you made a deposit of $456.83.";
         // the date being German-style, but the currency being English-style
         String compareStr2 = "At <time> on 08.08.1997, you made a deposit of ";
-        compareStr2 += '\u00a4';
+        compareStr2 += "\u00A4";
         compareStr2 += "456.83.";
         // both date and currency formats are German-style
         String compareStr3 = "At <time> on 08.08.1997, you made a deposit of ";
         compareStr3 += "456,83\u00a0";
-        compareStr3 += '\u00a4';
+        compareStr3 += "XXX";
         compareStr3 += ".";
 
         MessageFormat msg = new MessageFormat(formatStr, ULocale.US);
@@ -2090,5 +2091,35 @@ public class TestMessageFormat extends TestFmwk {
         int actualHashResult1 = testDF1.hashCode();
         int actualHashResult2 = testDF2.hashCode();
         assertNotEquals("DateFormat hashCode() test: really the same hashcode?", actualHashResult1, actualHashResult2);
+    }
+
+    @Test
+    public void TestMessageFormatNumberSkeleton() {
+        Object[][] cases = new Object[][] {
+                { "{0,number,::percent}", ULocale.ENGLISH, 50, "50%" },
+                { "{0,number,::percent scale/100}", ULocale.ENGLISH, 0.5, "50%" },
+                { "{0,number,   ::   percent   scale/100   }", ULocale.ENGLISH, 0.5, "50%" },
+                { "{0,number,::currency/USD}", ULocale.ENGLISH, 23, "$23.00" },
+                { "{0,number,::precision-integer}", ULocale.ENGLISH, 514.23, "514" },
+                { "{0,number,::.000}", ULocale.ENGLISH, 514.23, "514.230" },
+                { "{0,number,::.}", ULocale.ENGLISH, 514.23, "514" },
+                { "{0,number,::}", ULocale.FRENCH, 514.23, "514,23" },
+                { "Cost: {0,number,::currency/EUR}.", ULocale.ENGLISH, 4.3, "Cost: €4.30." },
+                { "{0,number,'::'0.00}", ULocale.ENGLISH, 50, "::50.00" }, // pattern literal
+        };
+
+        for (Object[] cas : cases) {
+            String messagePattern = (String) cas[0];
+            ULocale locale = (ULocale) cas[1];
+            Number arg = (Number) cas[2];
+            String expected = (String) cas[3];
+
+            MessageFormat msgf = new MessageFormat(messagePattern, locale);
+            StringBuffer sb = new StringBuffer();
+            FieldPosition fpos = new FieldPosition(0);
+            msgf.format(new Object[] { arg }, sb, fpos);
+
+            assertEquals(messagePattern, expected, sb.toString());
+        }
     }
 }

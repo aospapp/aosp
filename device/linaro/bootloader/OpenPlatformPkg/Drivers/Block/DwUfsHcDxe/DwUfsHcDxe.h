@@ -113,6 +113,8 @@ extern EFI_DRIVER_BINDING_PROTOCOL                gUfsHcDriverBinding;
 extern EFI_COMPONENT_NAME_PROTOCOL                gUfsHcComponentName;
 extern EFI_COMPONENT_NAME2_PROTOCOL               gUfsHcComponentName2;
 
+#define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 0)
+
 //
 // Unique signature for private data structure.
 //
@@ -591,6 +593,7 @@ UfsHcPhyInit (
 EFI_STATUS
 EFIAPI
 UfsHcPhySetPowerMode (
-  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This
+  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This,
+  IN     UINT32                                    DevQuirks
   );
 #endif /* _DW_UFS_HOST_CONTROLLER_H_ */

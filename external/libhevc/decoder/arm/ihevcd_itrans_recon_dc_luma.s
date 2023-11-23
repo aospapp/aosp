@@ -59,9 +59,9 @@ ihevcd_itrans_recon_dc_luma_a9q:
 
 
     push        {r0-r11,lr}
-    ldr         r4,[sp,#0x34]               @loads log2_trans_size
-    ldr         r5,[sp,#0x38]               @ loads i2_coeff_value
-
+    vpush       {d8-d15}
+    ldr         r4,[sp,#0x74]               @loads log2_trans_size
+    ldr         r5,[sp,#0x78]               @ loads i2_coeff_value
     mov         r10,#1
     lsl         r4,r10,r4                   @    trans_size = (1 << log2_trans_size)@
     mov         r6,#64 @ 1 << (shift1 - 1)@
@@ -182,6 +182,7 @@ col_loop_4:
     vst1.u32    {d5[0]},[r1]
 
 end_loops:
+    vpop        {d8-d15}
     pop         {r0-r11,pc}
 
 

@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.util;
 
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
@@ -24,6 +25,7 @@ import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.SubprocessEventHelper.BaseTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.FailedTestEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.InvocationEndedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationFailedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationStartedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.LogAssociationEventInfo;
@@ -51,6 +53,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -90,6 +93,7 @@ public class SubprocessTestResultsParser implements Closeable {
         public static final String TEST_LOG = "TEST_LOG";
         public static final String LOG_ASSOCIATION = "LOG_ASSOCIATION";
         public static final String INVOCATION_STARTED = "INVOCATION_STARTED";
+        public static final String INVOCATION_ENDED = "INVOCATION_ENDED";
     }
 
     /**
@@ -98,6 +102,7 @@ public class SubprocessTestResultsParser implements Closeable {
     private class EventReceiverThread extends Thread {
         private ServerSocket mSocket;
         private CountDownLatch mCountDown;
+        private boolean mShouldParse = true;
 
         public EventReceiverThread() throws IOException {
             super("EventReceiverThread");
@@ -119,6 +124,14 @@ public class SubprocessTestResultsParser implements Closeable {
             }
         }
 
+        /**
+         * When reaching some issues, we might want to terminate the buffer of the socket to spy
+         * which events are still in the pipe.
+         */
+        public void stopParsing() {
+            mShouldParse = false;
+        }
+
         @Override
         public void run() {
             Socket client = null;
@@ -129,8 +142,12 @@ public class SubprocessTestResultsParser implements Closeable {
                 String event = null;
                 while ((event = in.readLine()) != null) {
                     try {
-                        CLog.d("received event: '%s'", event);
-                        parse(event);
+                        if (mShouldParse) {
+                            CLog.d("received event: '%s'", event);
+                            parse(event);
+                        } else {
+                            CLog.d("Skipping parsing of event: '%s'", event);
+                        }
                     } catch (JSONException e) {
                         CLog.e(e);
                     }
@@ -147,6 +164,7 @@ public class SubprocessTestResultsParser implements Closeable {
 
     /**
      * If the event receiver is being used, ensure that we wait for it to terminate.
+     *
      * @param millis timeout in milliseconds.
      * @return True if receiver thread terminate before timeout, False otherwise.
      */
@@ -155,6 +173,7 @@ public class SubprocessTestResultsParser implements Closeable {
             try {
                 CLog.i("Waiting for events to finish being processed.");
                 if (!mEventReceiver.getCountDown().await(millis, TimeUnit.MILLISECONDS)) {
+                    mEventReceiver.stopParsing();
                     CLog.e("Event receiver thread did not complete. Some events may be missing.");
                     return false;
                 }
@@ -224,7 +243,8 @@ public class SubprocessTestResultsParser implements Closeable {
         sb.append(StatusKeys.TEST_MODULE_ENDED).append("|");
         sb.append(StatusKeys.TEST_LOG).append("|");
         sb.append(StatusKeys.LOG_ASSOCIATION).append("|");
-        sb.append(StatusKeys.INVOCATION_STARTED);
+        sb.append(StatusKeys.INVOCATION_STARTED).append("|");
+        sb.append(StatusKeys.INVOCATION_ENDED);
         String patt = String.format("(.*)(%s)( )(.*)", sb.toString());
         mPattern = Pattern.compile(patt);
 
@@ -245,6 +265,7 @@ public class SubprocessTestResultsParser implements Closeable {
         mHandlerMap.put(StatusKeys.TEST_LOG, new TestLogEventHandler());
         mHandlerMap.put(StatusKeys.LOG_ASSOCIATION, new LogAssociationEventHandler());
         mHandlerMap.put(StatusKeys.INVOCATION_STARTED, new InvocationStartedEventHandler());
+        mHandlerMap.put(StatusKeys.INVOCATION_ENDED, new InvocationEndedEventHandler());
     }
 
     public void parseFile(File file) {
@@ -317,7 +338,11 @@ public class SubprocessTestResultsParser implements Closeable {
         @Override
         public void handleEvent(String eventJson) throws JSONException {
             TestRunStartedEventInfo rsi = new TestRunStartedEventInfo(new JSONObject(eventJson));
-            mListener.testRunStarted(rsi.mRunName, rsi.mTestCount);
+            if (rsi.mAttempt != null && rsi.mAttempt != 0) {
+                mListener.testRunStarted(rsi.mRunName, rsi.mTestCount, rsi.mAttempt);
+            } else {
+                mListener.testRunStarted(rsi.mRunName, rsi.mTestCount);
+            }
         }
     }
 
@@ -440,11 +465,8 @@ public class SubprocessTestResultsParser implements Closeable {
         public void handleEvent(String eventJson) throws JSONException {
             TestLogEventInfo logInfo = new TestLogEventInfo(new JSONObject(eventJson));
             String name = String.format("subprocess-%s", logInfo.mDataName);
-            try {
-                InputStreamSource data = new FileInputStreamSource(logInfo.mDataFile);
+            try (InputStreamSource data = new FileInputStreamSource(logInfo.mDataFile, true)) {
                 mListener.testLog(name, logInfo.mLogType, data);
-            } finally {
-                FileUtil.deleteFile(logInfo.mDataFile);
             }
         }
     }
@@ -470,6 +492,20 @@ public class SubprocessTestResultsParser implements Closeable {
                 mContext.setTestTag(eventStart.mTestTag);
             }
             mStartTime = eventStart.mStartTime;
+        }
+    }
+
+    private class InvocationEndedEventHandler implements EventHandler {
+        @Override
+        public void handleEvent(String eventJson) throws JSONException {
+            JSONObject json = new JSONObject(eventJson);
+            InvocationEndedEventInfo eventEnd = new InvocationEndedEventInfo(json);
+            // Add build attributes to the primary build (the first build
+            // provider of the running configuration).
+            List<IBuildInfo> infos = mContext.getBuildInfos();
+            if (!infos.isEmpty()) {
+                infos.get(0).addBuildAttributes(eventEnd.mBuildAttributes);
+            }
         }
     }
 

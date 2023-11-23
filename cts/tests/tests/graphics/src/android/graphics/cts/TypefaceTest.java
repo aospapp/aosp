@@ -31,9 +31,10 @@ import android.content.res.AssetManager;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.Typeface.Builder;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -186,7 +187,8 @@ public class TypefaceTest {
 
     @Test
     public void testCreateFromAsset() {
-        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
+        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont.ttf");
         assertNotNull(typeface);
     }
 
@@ -236,7 +238,7 @@ public class TypefaceTest {
                 fail("Failed to create new File!");
             }
         }
-        InputStream is = mContext.getAssets().open("samplefont.ttf");
+        InputStream is = mContext.getAssets().open("fonts/others/samplefont.ttf");
         FileOutputStream fOutput = new FileOutputStream(file);
         byte[] dataBuffer = new byte[1024];
         int readLength = 0;
@@ -250,7 +252,8 @@ public class TypefaceTest {
 
     @Test
     public void testInvalidCmapFont() {
-        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "bombfont.ttf");
+        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/security/bombfont.ttf");
         assertNotNull(typeface);
         final String testString = "abcde";
         float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
@@ -260,7 +263,8 @@ public class TypefaceTest {
 
     @Test
     public void testInvalidCmapFont2() {
-        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "bombfont2.ttf");
+        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/security/bombfont2.ttf");
         assertNotNull(typeface);
         final String testString = "abcde";
         float widthDefaultTypeface = measureText(testString, Typeface.DEFAULT);
@@ -273,10 +277,10 @@ public class TypefaceTest {
         // Following three font doen't have any coverage between U+0000..U+10FFFF. Just make sure
         // they don't crash us.
         final String[] INVALID_CMAP_FONTS = {
-            "out_of_unicode_start_cmap12.ttf",
-            "out_of_unicode_end_cmap12.ttf",
-            "too_large_start_cmap12.ttf",
-            "too_large_end_cmap12.ttf",
+            "fonts/security/out_of_unicode_start_cmap12.ttf",
+            "fonts/security/out_of_unicode_end_cmap12.ttf",
+            "fonts/security/too_large_start_cmap12.ttf",
+            "fonts/security/too_large_end_cmap12.ttf",
         };
         for (final String file : INVALID_CMAP_FONTS) {
             final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
@@ -288,7 +292,10 @@ public class TypefaceTest {
     public void testInvalidCmapFont_unsortedEntries() {
         // Following two font files have glyph for U+0400 and U+0100 but the fonts must not be used
         // due to invalid cmap data. For more details, see each ttx source file.
-        final String[] INVALID_CMAP_FONTS = { "unsorted_cmap4.ttf", "unsorted_cmap12.ttf" };
+        final String[] INVALID_CMAP_FONTS = {
+            "fonts/security/unsorted_cmap4.ttf",
+            "fonts/security/unsorted_cmap12.ttf"
+        };
         for (final String file : INVALID_CMAP_FONTS) {
             final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
             assertNotNull(typeface);
@@ -301,8 +308,8 @@ public class TypefaceTest {
         // Following two font files have glyph for U+0400 U+FE00 and U+0100 U+FE00 but the fonts
         // must not be used due to invalid cmap data. For more details, see each ttx source file.
         final String[] INVALID_CMAP_VS_FONTS = {
-            "unsorted_cmap14_default_uvs.ttf",
-            "unsorted_cmap14_non_default_uvs.ttf"
+            "fonts/security/unsorted_cmap14_default_uvs.ttf",
+            "fonts/security/unsorted_cmap14_non_default_uvs.ttf"
         };
         for (final String file : INVALID_CMAP_VS_FONTS) {
             final Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), file);
@@ -316,19 +323,23 @@ public class TypefaceTest {
 
     @Test
     public void testCreateFromAsset_cachesTypeface() {
-        Typeface typeface1 = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
+        Typeface typeface1 = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont.ttf");
         assertNotNull(typeface1);
 
-        Typeface typeface2 = Typeface.createFromAsset(mContext.getAssets(), "samplefont.ttf");
+        Typeface typeface2 = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont.ttf");
         assertNotNull(typeface2);
         assertSame("Same font asset should return same Typeface object", typeface1, typeface2);
 
-        Typeface typeface3 = Typeface.createFromAsset(mContext.getAssets(), "samplefont2.ttf");
+        Typeface typeface3 = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont2.ttf");
         assertNotNull(typeface3);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface3);
 
-        Typeface typeface4 = Typeface.createFromAsset(mContext.getAssets(), "samplefont3.ttf");
+        Typeface typeface4 = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/others/samplefont3.ttf");
         assertNotNull(typeface4);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface4);
@@ -338,38 +349,45 @@ public class TypefaceTest {
 
     @Test
     public void testBadFont() {
-        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(), "ft45987.ttf");
+        Typeface typeface = Typeface.createFromAsset(mContext.getAssets(),
+                "fonts/security/ft45987.ttf");
         assertNotNull(typeface);
     }
 
     @Test
     public void testTypefaceBuilder_AssetSource() {
-        Typeface typeface1 = new Typeface.Builder(mContext.getAssets(), "samplefont.ttf").build();
+        Typeface typeface1 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont.ttf").build();
         assertNotNull(typeface1);
 
-        Typeface typeface2 = new Typeface.Builder(mContext.getAssets(), "samplefont.ttf").build();
+        Typeface typeface2 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont.ttf").build();
         assertNotNull(typeface2);
         assertSame("Same font asset should return same Typeface object", typeface1, typeface2);
 
-        Typeface typeface3 = new Typeface.Builder(mContext.getAssets(), "samplefont2.ttf").build();
+        Typeface typeface3 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont2.ttf").build();
         assertNotNull(typeface3);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface3);
 
-        Typeface typeface4 = new Typeface.Builder(mContext.getAssets(), "samplefont3.ttf").build();
+        Typeface typeface4 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont3.ttf").build();
         assertNotNull(typeface4);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface2, typeface4);
         assertNotSame("Different font asset should return different Typeface object",
                 typeface3, typeface4);
 
-        Typeface typeface5 = new Typeface.Builder(mContext.getAssets(), "samplefont.ttf")
+        Typeface typeface5 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont.ttf")
                 .setFontVariationSettings("'wdth' 1.0").build();
         assertNotNull(typeface5);
         assertNotSame("Different font font variation should return different Typeface object",
                 typeface2, typeface5);
 
-        Typeface typeface6 = new Typeface.Builder(mContext.getAssets(), "samplefont.ttf")
+        Typeface typeface6 = new Typeface.Builder(mContext.getAssets(),
+                "fonts/others/samplefont.ttf")
                 .setFontVariationSettings("'wdth' 2.0").build();
         assertNotNull(typeface6);
         assertNotSame("Different font font variation should return different Typeface object",
@@ -416,7 +434,7 @@ public class TypefaceTest {
 
         assertNull(new Typeface.Builder(assets, "invalid path").build());
 
-        assertNull(new Typeface.Builder(assets, "samplefont.ttf")
+        assertNull(new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
                 .setTtcIndex(100 /* non-existing ttc index */).build());
 
         // If fallback is set, the builder never returns null.
@@ -466,22 +484,28 @@ public class TypefaceTest {
 
         // Cache should work for the same fallback.
         assertSame(sansSerifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("sans-serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("sans-serif")
                         .setTtcIndex(100 /* non-existing ttc index */).build());
         assertSame(serifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("serif")
                         .setTtcIndex(100 /* non-existing ttc index */).build());
         assertSame(boldSansSerifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("sans-serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("sans-serif")
                         .setTtcIndex(100 /* non-existing ttc index */).setWeight(700).build());
         assertSame(boldSerifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("serif")
                         .setTtcIndex(100 /* non-existing ttc index */).setWeight(700).build());
         assertSame(italicSansSerifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("sans-serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("sans-serif")
                         .setTtcIndex(100 /* non-existing ttc index */).setItalic(true).build());
         assertSame(italicSerifTypeface,
-                new Typeface.Builder(assets, "samplefont.ttf").setFallback("serif")
+                new Typeface.Builder(assets, "fonts/others/samplefont.ttf")
+                        .setFallback("serif")
                         .setTtcIndex(100 /* non-existing ttc index */).setItalic(true).build());
     }
 
@@ -498,14 +522,22 @@ public class TypefaceTest {
     public void testTypeface_SupportedCmapEncodingTest() {
         // We support the following combinations of cmap platfrom/endcoding pairs.
         String[] fontPaths = {
-            "CmapPlatform0Encoding0.ttf",  // Platform ID == 0, Encoding ID == 0
-            "CmapPlatform0Encoding1.ttf",  // Platform ID == 0, Encoding ID == 1
-            "CmapPlatform0Encoding2.ttf",  // Platform ID == 0, Encoding ID == 2
-            "CmapPlatform0Encoding3.ttf",  // Platform ID == 0, Encoding ID == 3
-            "CmapPlatform0Encoding4.ttf",  // Platform ID == 0, Encoding ID == 4
-            "CmapPlatform0Encoding6.ttf",  // Platform ID == 0, Encoding ID == 6
-            "CmapPlatform3Encoding1.ttf",  // Platform ID == 3, Encoding ID == 1
-            "CmapPlatform3Encoding10.ttf",  // Platform ID == 3, Encoding ID == 10
+            // Platform ID == 0, Encoding ID == 0
+            "fonts/cmap_selection/CmapPlatform0Encoding0.ttf",
+            // Platform ID == 0, Encoding ID == 1
+            "fonts/cmap_selection/CmapPlatform0Encoding1.ttf",
+            // Platform ID == 0, Encoding ID == 2
+            "fonts/cmap_selection/CmapPlatform0Encoding2.ttf",
+            // Platform ID == 0, Encoding ID == 3
+            "fonts/cmap_selection/CmapPlatform0Encoding3.ttf",
+            // Platform ID == 0, Encoding ID == 4
+            "fonts/cmap_selection/CmapPlatform0Encoding4.ttf",
+            // Platform ID == 0, Encoding ID == 6
+            "fonts/cmap_selection/CmapPlatform0Encoding6.ttf",
+            // Platform ID == 3, Encoding ID == 1
+            "fonts/cmap_selection/CmapPlatform3Encoding1.ttf",
+            // Platform ID == 3, Encoding ID == 10
+            "fonts/cmap_selection/CmapPlatform3Encoding10.ttf",
         };
 
         for (String fontPath : fontPaths) {
@@ -522,7 +554,7 @@ public class TypefaceTest {
 
     @Test
     public void testTypefaceBuilder_customFallback() {
-        final String fontPath = "samplefont2.ttf";
+        final String fontPath = "fonts/others/samplefont2.ttf";
         final Typeface regularTypeface = new Typeface.Builder(mContext.getAssets(), fontPath)
                 .setWeight(400).build();
         final Typeface blackTypeface = new Typeface.Builder(mContext.getAssets(), fontPath)
@@ -618,22 +650,23 @@ public class TypefaceTest {
         paint.setTextSize(100);  // Make 1em = 100px
 
         // By default, WeightEqualsEmVariableFont has 0 'wght' value.
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf").build());
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
+                .build());
         assertEquals(0.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 100").build());
         assertEquals(10.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 300").build());
         assertEquals(30.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 800").build());
         assertEquals(80.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 550").build());
         assertEquals(55.0f, paint.measureText("a"), 0.0f);
     }
@@ -651,11 +684,11 @@ public class TypefaceTest {
         paint.setTextSize(100);  // Make 1em = 100px
 
         // Unsupported axes do not affect the result.
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 300, 'wdth' 10").build());
         assertEquals(30.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wdth' 10, 'wght' 300").build());
         assertEquals(30.0f, paint.measureText("a"), 0.0f);
     }
@@ -673,11 +706,11 @@ public class TypefaceTest {
         paint.setTextSize(100);  // Make 1em = 100px
 
         // Out of range value needs to be clipped at the minimum or maximum values.
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' -100").build());
         assertEquals(0.0f, paint.measureText("a"), 0.0f);
 
-        paint.setTypeface(new Typeface.Builder(am, "WeightEqualsEmVariableFont.ttf")
+        paint.setTypeface(new Typeface.Builder(am, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
                 .setFontVariationSettings("'wght' 1300").build());
         assertEquals(100.0f, paint.measureText("a"), 0.0f);
     }
@@ -727,11 +760,13 @@ public class TypefaceTest {
     public void testTypefaceCreate_customFont_getWeight() {
         final AssetManager am = mContext.getAssets();
 
-        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf").build();
+        Typeface typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_a3em_weight100_upright.ttf").build();
         assertEquals(100, typeface.getWeight());
         assertFalse(typeface.isItalic());
 
-        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").build();
+        typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_b3em_weight100_italic.ttf").build();
         assertEquals(100, typeface.getWeight());
         assertTrue(typeface.isItalic());
 
@@ -740,12 +775,15 @@ public class TypefaceTest {
     @Test
     public void testTypefaceCreate_customFont_customWeight() {
         final AssetManager am = mContext.getAssets();
-        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf")
+        Typeface typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_a3em_weight100_upright.ttf")
                 .setWeight(400).build();
         assertEquals(400, typeface.getWeight());
         assertFalse(typeface.isItalic());
 
-        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").setWeight(400).build();
+        typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_b3em_weight100_italic.ttf")
+                .setWeight(400).build();
         assertEquals(400, typeface.getWeight());
         assertTrue(typeface.isItalic());
     }
@@ -754,12 +792,15 @@ public class TypefaceTest {
     public void testTypefaceCreate_customFont_customItalic() {
         final AssetManager am = mContext.getAssets();
 
-        Typeface typeface = new Builder(am, "ascii_a3em_weight100_upright.ttf")
+        Typeface typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_a3em_weight100_upright.ttf")
                 .setItalic(true).build();
         assertEquals(100, typeface.getWeight());
         assertTrue(typeface.isItalic());
 
-        typeface = new Builder(am, "ascii_b3em_weight100_italic.ttf").setItalic(false).build();
+        typeface = new Builder(am,
+                "fonts/family_selection/ttf/ascii_b3em_weight100_italic.ttf")
+                .setItalic(false).build();
         assertEquals(100, typeface.getWeight());
         assertFalse(typeface.isItalic());
     }

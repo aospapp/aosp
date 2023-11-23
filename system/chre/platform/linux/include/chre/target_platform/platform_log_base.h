@@ -47,7 +47,7 @@ class PlatformLogBase {
   std::condition_variable mConditionVariable;
 
   //! A queue of incoming log messages.
-  std::queue<std::unique_ptr<char>> mLogQueue;
+  std::queue<char *> mLogQueue;
 
   //! A flag to indicate that the logger should shut down.
   bool mStopLogger = false;

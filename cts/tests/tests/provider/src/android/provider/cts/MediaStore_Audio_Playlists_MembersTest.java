@@ -16,11 +16,20 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.MediaStore.Audio.Playlists;
@@ -31,11 +40,21 @@ import android.provider.cts.MediaStoreAudioTestHelper.Audio3;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio4;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio5;
 import android.provider.cts.MediaStoreAudioTestHelper.MockAudioMediaInfo;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-import java.util.regex.Pattern;
+import androidx.test.InstrumentationRegistry;
 
-public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestCase {
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_Playlists_MembersTest {
     private String[] mAudioProjection = {
             Members._ID,
             Members.ALBUM,
@@ -51,7 +70,6 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             Members.DISPLAY_NAME,
             Members.DURATION,
             Members.IS_ALARM,
-            Members.IS_DRM,
             Members.IS_MUSIC,
             Members.IS_NOTIFICATION,
             Members.IS_RINGTONE,
@@ -81,7 +99,6 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             Members.DISPLAY_NAME,
             Members.DURATION,
             Members.IS_ALARM,
-            Members.IS_DRM,
             Members.IS_MUSIC,
             Members.IS_NOTIFICATION,
             Members.IS_RINGTONE,
@@ -93,6 +110,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             Members.YEAR,
     };
 
+    private Context mContext;
     private ContentResolver mContentResolver;
 
     private long mIdOfAudio1;
@@ -101,8 +119,16 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
     private long mIdOfAudio4;
     private long mIdOfAudio5;
 
+    @Parameter(0)
+    public String mVolumeName;
+
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
+    }
+
     private long insertAudioItem(MockAudioMediaInfo which) {
-        Uri uri = which.insertToExternal(mContentResolver);
+        Uri uri = which.insert(mContentResolver, mVolumeName);
         Cursor c = mContentResolver.query(uri, null, null, null, null);
         c.moveToFirst();
         long id = c.getLong(c.getColumnIndex(Media._ID));
@@ -110,11 +136,13 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
         return id;
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
 
-        mContentResolver = getInstrumentation().getContext().getContentResolver();
+        Log.d(TAG, "Using volume " + mVolumeName);
+
         mIdOfAudio1 = insertAudioItem(Audio1.getInstance());
         mIdOfAudio2 = insertAudioItem(Audio2.getInstance());
         mIdOfAudio3 = insertAudioItem(Audio3.getInstance());
@@ -122,16 +150,17 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
         mIdOfAudio5 = insertAudioItem(Audio5.getInstance());
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio1, null);
-        mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio2, null);
-        mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio3, null);
-        mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio4, null);
-        mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio5, null);
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
+        final Uri uri = Media.getContentUri(mVolumeName);
+        mContentResolver.delete(uri, Media._ID + "=" + mIdOfAudio1, null);
+        mContentResolver.delete(uri, Media._ID + "=" + mIdOfAudio2, null);
+        mContentResolver.delete(uri, Media._ID + "=" + mIdOfAudio3, null);
+        mContentResolver.delete(uri, Media._ID + "=" + mIdOfAudio4, null);
+        mContentResolver.delete(uri, Media._ID + "=" + mIdOfAudio5, null);
     }
 
+    @Test
     public void testGetContentUri() {
         assertEquals("content://media/external/audio/playlists/1337/members",
                 Members.getContentUri("external", 1337).toString());
@@ -182,7 +211,11 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
         c.close();
     }
 
+    @Test
     public void testStoreAudioPlaylistsMembersExternal() {
+        // TODO: expand test to verify paths from secondary storage devices
+        if (!MediaStore.VOLUME_EXTERNAL.equals(mVolumeName)) return;
+
         ContentValues values = new ContentValues();
         values.put(Playlists.NAME, "My favourites");
         values.put(Playlists.DATA, "");
@@ -191,7 +224,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
         long dateModified = System.currentTimeMillis();
         values.put(Playlists.DATE_MODIFIED, dateModified);
         // insert
-        Uri uri = mContentResolver.insert(Playlists.EXTERNAL_CONTENT_URI, values);
+        Uri uri = mContentResolver.insert(Playlists.getContentUri(mVolumeName), values);
         assertNotNull(uri);
         Cursor c = mContentResolver.query(uri, null, null, null, null);
         c.moveToFirst();
@@ -199,11 +232,11 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
         long playlist2Id = -1; // used later
 
         // verify that the Uri has the correct format and playlist value
-        assertEquals(uri.toString(), "content://media/external/audio/playlists/" + playlistId);
+        assertEquals(ContentUris.withAppendedId(Playlists.getContentUri(mVolumeName), playlistId),
+                uri);
 
         // insert audio as the member of the playlist
-        Uri membersUri = Members.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME,
-                playlistId);
+        Uri membersUri = Members.getContentUri(mVolumeName, playlistId);
         Uri audioUri = insertPlaylistItem(membersUri, mIdOfAudio1, 1);
 
         assertNotNull(audioUri);
@@ -216,11 +249,12 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             c.moveToFirst();
             long memberId = c.getLong(c.getColumnIndex(Members._ID));
             assertEquals(memberId, Long.parseLong(audioUri.getPathSegments().get(5)));
-            assertEquals(Audio1.EXTERNAL_DATA, c.getString(c.getColumnIndex(Members.DATA)));
+            final String expected1 = Audio1.getInstance().getContentValues(mVolumeName)
+                    .getAsString(Members.DATA);
+            assertEquals(expected1, c.getString(c.getColumnIndex(Members.DATA)));
             assertTrue(c.getLong(c.getColumnIndex(Members.DATE_ADDED)) > 0);
             assertEquals(Audio1.DATE_MODIFIED, c.getLong(c.getColumnIndex(Members.DATE_MODIFIED)));
-            assertEquals(Audio1.IS_DRM, c.getInt(c.getColumnIndex(Members.IS_DRM)));
-            assertEquals(Audio1.FILE_NAME, c.getString(c.getColumnIndex(Members.DISPLAY_NAME)));
+            assertEquals(Audio1.DISPLAY_NAME, c.getString(c.getColumnIndex(Members.DISPLAY_NAME)));
             assertEquals(Audio1.MIME_TYPE, c.getString(c.getColumnIndex(Members.MIME_TYPE)));
             assertEquals(Audio1.SIZE, c.getInt(c.getColumnIndex(Members.SIZE)));
             assertEquals(Audio1.TITLE, c.getString(c.getColumnIndex(Members.TITLE)));
@@ -260,11 +294,12 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             c.moveToFirst();
             assertEquals(2, c.getInt(c.getColumnIndex(Members.PLAY_ORDER)));
             assertEquals(memberId, c.getLong(c.getColumnIndex(Members._ID)));
-            assertEquals(Audio2.EXTERNAL_DATA, c.getString(c.getColumnIndex(Members.DATA)));
+            final String expected2 = Audio2.getInstance().getContentValues(mVolumeName)
+                    .getAsString(Members.DATA);
+            assertEquals(expected2, c.getString(c.getColumnIndex(Members.DATA)));
             assertTrue(c.getLong(c.getColumnIndex(Members.DATE_ADDED)) > 0);
             assertEquals(Audio2.DATE_MODIFIED, c.getLong(c.getColumnIndex(Members.DATE_MODIFIED)));
-            assertEquals(Audio2.IS_DRM, c.getInt(c.getColumnIndex(Members.IS_DRM)));
-            assertEquals(Audio2.FILE_NAME, c.getString(c.getColumnIndex(Members.DISPLAY_NAME)));
+            assertEquals(Audio2.DISPLAY_NAME, c.getString(c.getColumnIndex(Members.DISPLAY_NAME)));
             assertEquals(Audio2.MIME_TYPE, c.getString(c.getColumnIndex(Members.MIME_TYPE)));
             assertEquals(Audio2.SIZE, c.getInt(c.getColumnIndex(Members.SIZE)));
             assertEquals(Audio2.TITLE, c.getString(c.getColumnIndex(Members.TITLE)));
@@ -319,7 +354,8 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
                     new long [] {mIdOfAudio1, mIdOfAudio2, mIdOfAudio3}, new int [] {1,2,3});
 
             // delete the middle item
-            mContentResolver.delete(Media.EXTERNAL_CONTENT_URI, Media._ID + "=" + mIdOfAudio2, null);
+            mContentResolver.delete(Media.getContentUri(mVolumeName),
+                    Media._ID + "=" + mIdOfAudio2, null);
 
             // check the remaining items are still in the right order, and the play_order of the
             // last item has been adjusted
@@ -353,7 +389,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             values.put(Playlists.DATE_ADDED, dateAdded);
             values.put(Playlists.DATE_MODIFIED, dateModified);
             // insert
-            uri = mContentResolver.insert(Playlists.EXTERNAL_CONTENT_URI, values);
+            uri = mContentResolver.insert(Playlists.getContentUri(mVolumeName), values);
             assertNotNull(uri);
             c = mContentResolver.query(uri, null, null, null, null);
             c.moveToFirst();
@@ -361,8 +397,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             c.close();
 
             // insert audio into 2nd playlist
-            Uri members2Uri = Members.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME,
-                    playlist2Id);
+            Uri members2Uri = Members.getContentUri(mVolumeName, playlist2Id);
             Uri audio2Uri = insertPlaylistItem(members2Uri, mIdOfAudio1, 1);
 
             c = mContentResolver.query(membersUri, null, null, null, null);
@@ -406,8 +441,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
 
             // insert again, then verify that deleting the audio entry cleans up its playlist member
             // entry as well
-            membersUri = Members.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME,
-                    playlistId);
+            membersUri = Members.getContentUri(mVolumeName, playlistId);
             audioUri = insertPlaylistItem(membersUri, mIdOfAudio1, 1);
             assertNotNull(audioUri);
             // Query members of the playlist
@@ -424,7 +458,7 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
             }
             assertEquals(1, cnt);
             c.close();
-            mContentResolver.delete(Media.EXTERNAL_CONTENT_URI,
+            mContentResolver.delete(Media.getContentUri(mVolumeName),
                     Media._ID + "=" + mIdOfAudio1, null);
             // Query members of the playlist
             c = mContentResolver.query(membersUri,
@@ -442,33 +476,12 @@ public class MediaStore_Audio_Playlists_MembersTest extends InstrumentationTestC
 
         } finally {
             // delete the playlists
-            mContentResolver.delete(Playlists.EXTERNAL_CONTENT_URI,
+            mContentResolver.delete(Playlists.getContentUri(mVolumeName),
                     Playlists._ID + "=" + playlistId, null);
             if (playlist2Id >= 0) {
-                mContentResolver.delete(Playlists.EXTERNAL_CONTENT_URI,
+                mContentResolver.delete(Playlists.getContentUri(mVolumeName),
                         Playlists._ID + "=" + playlist2Id, null);
             }
-        }
-    }
-
-    public void testStoreAudioPlaylistsMembersInternal() {
-        ContentValues values = new ContentValues();
-        values.put(Playlists.NAME, "My favourites");
-        values.put(Playlists.DATA, "/data/data/android.provider.cts/files/my_favorites.pl");
-        long dateAdded = System.currentTimeMillis();
-        values.put(Playlists.DATE_ADDED, dateAdded);
-        long dateModified = System.currentTimeMillis();
-        values.put(Playlists.DATE_MODIFIED, dateModified);
-        // insert
-        Uri uri = mContentResolver.insert(Playlists.INTERNAL_CONTENT_URI, values);
-        assertNotNull(uri);
-
-        try {
-            assertTrue(Pattern.matches("content://media/internal/audio/playlists/\\d+",
-                    uri.toString()));
-        } finally {
-            // delete the playlists
-            assertEquals(1, mContentResolver.delete(uri, null, null));
         }
     }
 }

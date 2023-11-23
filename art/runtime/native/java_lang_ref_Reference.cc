@@ -20,7 +20,7 @@
 
 #include "gc/heap.h"
 #include "gc/reference_processor.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
 #include "native_util.h"
@@ -30,15 +30,15 @@ namespace art {
 
 static jobject Reference_getReferent(JNIEnv* env, jobject javaThis) {
   ScopedFastNativeObjectAccess soa(env);
-  ObjPtr<mirror::Reference> ref = soa.Decode<mirror::Reference>(javaThis);
-  ObjPtr<mirror::Object> const referent =
+  const ObjPtr<mirror::Reference> ref = soa.Decode<mirror::Reference>(javaThis);
+  const ObjPtr<mirror::Object> referent =
       Runtime::Current()->GetHeap()->GetReferenceProcessor()->GetReferent(soa.Self(), ref);
   return soa.AddLocalReference<jobject>(referent);
 }
 
 static void Reference_clearReferent(JNIEnv* env, jobject javaThis) {
   ScopedFastNativeObjectAccess soa(env);
-  ObjPtr<mirror::Reference> ref = soa.Decode<mirror::Reference>(javaThis);
+  const ObjPtr<mirror::Reference> ref = soa.Decode<mirror::Reference>(javaThis);
   Runtime::Current()->GetHeap()->GetReferenceProcessor()->ClearReferent(ref);
 }
 

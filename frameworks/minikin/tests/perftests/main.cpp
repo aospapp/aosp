@@ -23,7 +23,7 @@
 #include <unicode/udata.h>
 
 int main(int argc, char** argv) {
-    const char* fn = "/system/usr/icu/" U_ICUDATA_NAME ".dat";
+    const char* fn = "/apex/com.google.runtime/etc/icu/" U_ICUDATA_NAME ".dat";
     int fd = open(fn, O_RDONLY);
     LOG_ALWAYS_FATAL_IF(fd == -1);
     struct stat st;

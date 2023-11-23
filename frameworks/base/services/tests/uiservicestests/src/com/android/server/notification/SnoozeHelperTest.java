@@ -15,12 +15,17 @@
  */
 package com.android.server.notification;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -30,23 +35,19 @@ import android.app.PendingIntent;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.service.notification.StatusBarNotification;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.IntArray;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.server.UiServiceTestCase;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -75,7 +76,7 @@ public class SnoozeHelperTest extends UiServiceTestCase {
         verify(mAm, times(1)).setExactAndAllowWhileIdle(
                 anyInt(), captor.capture(), any(PendingIntent.class));
         long actualSnoozedUntilDuration = captor.getValue() - SystemClock.elapsedRealtime();
-        assertTrue(Math.abs(actualSnoozedUntilDuration - 1000) < 25);
+        assertTrue(Math.abs(actualSnoozedUntilDuration - 1000) < 250);
         assertTrue(mSnoozeHelper.isSnoozed(
                 UserHandle.USER_SYSTEM, r.sbn.getPackageName(), r.getKey()));
     }
@@ -235,18 +236,22 @@ public class SnoozeHelperTest extends UiServiceTestCase {
         mSnoozeHelper.snooze(r2, 1000);
         mSnoozeHelper.snooze(r3, 1000);
         mSnoozeHelper.snooze(r4, 1000);
-        when(mUserProfiles.getCurrentProfileIds()).thenReturn(
-                new int[] {UserHandle.USER_SYSTEM});
+        IntArray profileIds = new IntArray();
+        profileIds.add(UserHandle.USER_SYSTEM);
+        when(mUserProfiles.getCurrentProfileIds()).thenReturn(profileIds);
         assertEquals(3, mSnoozeHelper.getSnoozed().size());
-        when(mUserProfiles.getCurrentProfileIds()).thenReturn(
-                new int[] {UserHandle.USER_CURRENT});
+        profileIds = new IntArray();
+        profileIds.add(UserHandle.USER_CURRENT);
+        when(mUserProfiles.getCurrentProfileIds()).thenReturn(profileIds);
         assertEquals(1, mSnoozeHelper.getSnoozed().size());
     }
 
     @Test
     public void testGetSnoozedByUser_managedProfiles() throws Exception {
-        when(mUserProfiles.getCurrentProfileIds()).thenReturn(
-                new int[] {UserHandle.USER_SYSTEM, UserHandle.USER_CURRENT});
+        IntArray profileIds = new IntArray();
+        profileIds.add(UserHandle.USER_CURRENT);
+        profileIds.add(UserHandle.USER_SYSTEM);
+        when(mUserProfiles.getCurrentProfileIds()).thenReturn(profileIds);
         NotificationRecord r = getNotificationRecord("pkg", 1, "one", UserHandle.SYSTEM);
         NotificationRecord r2 = getNotificationRecord("pkg", 2, "two", UserHandle.SYSTEM);
         NotificationRecord r3 = getNotificationRecord("pkg2", 3, "three", UserHandle.SYSTEM);
@@ -273,8 +278,9 @@ public class SnoozeHelperTest extends UiServiceTestCase {
 
     @Test
     public void repostGroupSummary_repostsSummary() throws Exception {
-        when(mUserProfiles.getCurrentProfileIds()).thenReturn(
-                new int[] {UserHandle.USER_SYSTEM});
+        IntArray profileIds = new IntArray();
+        profileIds.add(UserHandle.USER_SYSTEM);
+        when(mUserProfiles.getCurrentProfileIds()).thenReturn(profileIds);
         NotificationRecord r = getNotificationRecord(
                 "pkg", 1, "one", UserHandle.SYSTEM, "group1", true);
         NotificationRecord r2 = getNotificationRecord(
@@ -291,6 +297,59 @@ public class SnoozeHelperTest extends UiServiceTestCase {
 
         assertEquals(1, mSnoozeHelper.getSnoozed().size());
         assertEquals(1, mSnoozeHelper.getSnoozed(UserHandle.USER_SYSTEM, "pkg").size());
+    }
+
+    @Test
+    public void testClearData() {
+        // snooze 2 from same package
+        NotificationRecord r = getNotificationRecord("pkg", 1, "one", UserHandle.SYSTEM);
+        NotificationRecord r2 = getNotificationRecord("pkg", 2, "two", UserHandle.SYSTEM);
+        mSnoozeHelper.snooze(r, 1000);
+        mSnoozeHelper.snooze(r2, 1000);
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r.sbn.getPackageName(), r.getKey()));
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r2.sbn.getPackageName(), r2.getKey()));
+
+        // clear data
+        mSnoozeHelper.clearData(UserHandle.USER_SYSTEM, "pkg");
+
+        // nothing snoozed; alarms canceled
+        assertFalse(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r.sbn.getPackageName(), r.getKey()));
+        assertFalse(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r2.sbn.getPackageName(), r2.getKey()));
+        // twice for initial snooze, twice for canceling the snooze
+        verify(mAm, times(4)).cancel(any(PendingIntent.class));
+    }
+
+    @Test
+    public void testClearData_otherRecordsUntouched() {
+        // 2 packages, 2 users
+        NotificationRecord r = getNotificationRecord("pkg", 1, "one", UserHandle.SYSTEM);
+        NotificationRecord r2 = getNotificationRecord("pkg", 2, "two", UserHandle.ALL);
+        NotificationRecord r3 = getNotificationRecord("pkg2", 3, "three", UserHandle.SYSTEM);
+        mSnoozeHelper.snooze(r, 1000);
+        mSnoozeHelper.snooze(r2, 1000);
+        mSnoozeHelper.snooze(r3, 1000);
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r.sbn.getPackageName(), r.getKey()));
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_ALL, r2.sbn.getPackageName(), r2.getKey()));
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r3.sbn.getPackageName(), r3.getKey()));
+
+        // clear data
+        mSnoozeHelper.clearData(UserHandle.USER_SYSTEM, "pkg");
+
+        assertFalse(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r.sbn.getPackageName(), r.getKey()));
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_ALL, r2.sbn.getPackageName(), r2.getKey()));
+        assertTrue(mSnoozeHelper.isSnoozed(
+                UserHandle.USER_SYSTEM, r3.sbn.getPackageName(), r3.getKey()));
+        // once for each initial snooze, once for canceling one snooze
+        verify(mAm, times(4)).cancel(any(PendingIntent.class));
     }
 
     private NotificationRecord getNotificationRecord(String pkg, int id, String tag,

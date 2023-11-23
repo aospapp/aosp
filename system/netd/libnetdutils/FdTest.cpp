@@ -41,10 +41,10 @@ TEST(Fd, smoke) {
     // Expect the following lines to compile
     Fd fd1(1);
     Fd fd2(fd1);
-    Fd fd3 = fd1;
+    Fd fd3 = fd2;
     const Fd fd4(8);
     const Fd fd5(fd4);
-    const Fd fd6 = fd4;
+    const Fd fd6 = fd5;
     EXPECT_TRUE(isWellFormed(fd3));
     EXPECT_TRUE(isWellFormed(fd6));
 

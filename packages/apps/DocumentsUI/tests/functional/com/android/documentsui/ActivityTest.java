@@ -18,10 +18,12 @@ package com.android.documentsui;
 
 import android.app.Activity;
 import android.app.UiAutomation;
+import android.app.UiModeManager;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
@@ -48,6 +50,7 @@ import javax.annotation.Nullable;
 public abstract class ActivityTest<T extends Activity> extends ActivityInstrumentationTestCase2<T> {
 
     static final int TIMEOUT = 5000;
+    static final int NIGHT_MODE_CHANGE_WAIT_TIME = 1000;
 
     // Testing files. For custom ones, override initTestFiles().
     public static final String dirName1 = "Dir1";
@@ -69,6 +72,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
     protected ContentResolver mResolver;
     protected DocumentsProviderHelper mDocsHelper;
     protected ContentProviderClient mClient;
+    protected UiModeManager mUiModeManager;
 
     public ActivityTest(Class<T> activityClass) {
         super(activityClass);
@@ -142,7 +146,7 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
 
     protected void launchActivity() {
         final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
-                UiBot.TARGET_PKG);
+                UiBot.targetPackageName);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         if (getInitialRoot() != null) {
             intent.setAction(Intent.ACTION_VIEW);
@@ -180,5 +184,25 @@ public abstract class ActivityTest<T extends Activity> extends ActivityInstrumen
         bots.directory.waitForDocument(fileName3);
         bots.directory.waitForDocument(fileName4);
         bots.directory.assertDocumentsCount(2);
+    }
+
+    /**
+     * Setup test Activity UI Mode YES or not(AUTO/YES/NO) before start to testing
+     * @param uiModeNight Constant for {@link #setNightMode(int)}
+     *      0 - MODE_NIGHT_AUTO
+     *      1 - MODE_NIGHT_NO
+     *      2 - MODE_NIGHT_YES
+     */
+    protected void setSystemUiModeNight(int uiModeNight) {
+        int systemUiMode = getActivity().getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        if(uiModeNight != systemUiMode) {
+            /* TODO since ag/4947691 enable config_lockDayNightMode to block app setNightMode()
+               create b/115315612 to handle the UiModeManager permission deny problem */
+            mUiModeManager = (UiModeManager) getActivity()
+                    .getSystemService(Context.UI_MODE_SERVICE);
+            mUiModeManager.setNightMode(uiModeNight);
+            device.waitForIdle(NIGHT_MODE_CHANGE_WAIT_TIME);
+        }
     }
 }

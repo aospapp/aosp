@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -145,6 +145,14 @@ CAP_MAX_APP_INFO_LEN = "maxAppInfoLen"
 CAP_MAX_QUEUED_TRANSMIT_MESSAGES = "maxQueuedTransmitMessages"
 CAP_MAX_SUBSCRIBE_INTERFACE_ADDRESSES = "maxSubscribeInterfaceAddresses"
 CAP_SUPPORTED_CIPHER_SUITES = "supportedCipherSuites"
+
+######################################################
+# WifiAwareNetworkCapabilities keys
+######################################################
+
+NET_CAP_IPV6 = "aware_ipv6"
+NET_CAP_PORT = "aware_port"
+NET_CAP_TRANSPORT_PROTOCOL = "aware_transport_protocol"
 
 ######################################################
 

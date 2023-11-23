@@ -22,9 +22,10 @@
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_ONLINE_CALIBRATION_COMMON_DATA_SENSOR_DATA_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_ONLINE_CALIBRATION_COMMON_DATA_SENSOR_DATA_H_
 
-#include <stdint.h>
-#include <string.h>
 #include <sys/types.h>
+
+#include <cstdint>
+#include <cstring>
 
 #include "common/math/macros.h"
 
@@ -48,6 +49,14 @@ enum class SensorType : int8_t {
   kWifiM = 6                // 3-axis sensor (units = meter).
 };
 
+// Helper function for determining if a sensor type is 3-axis, otherwise it's
+// single-axis.
+inline bool is_three_axis(SensorType type) {
+  return type == SensorType::kAccelerometerMps2 ||
+         type == SensorType::kGyroscopeRps ||
+         type == SensorType::kMagnetometerUt;
+}
+
 /*
  * SensorData is a generalized data structure used to represent sensor samples
  * produced by either a single- or three-axis device. Usage is implied through
@@ -59,7 +68,10 @@ enum class SensorType : int8_t {
  *
  * NOTE: The unified dimensional representation makes it convenient to pass
  * either type of data into the interface functions defined in the
- * OnlineCalibration.
+ * OnlineCalibration. Additionally, this approach, although admittedly wasteful
+ * for single-axis sensors, allows one to avoid dynamic memory allocation for
+ * hardware systems where having a fixed memory footprint is either required or
+ * extremely desireable.
  */
 
 // Axis index definitions for SensorData::data.
@@ -71,28 +83,30 @@ enum SensorIndex : int8_t {
 };
 
 struct SensorData {
-  // Indicates the type of sensor this data originated from.
-  SensorType type;
-
   // Sensor sample timestamp.
   uint64_t timestamp_nanos;
 
   // Generalized sensor sample (represents either single- or three-axis data).
   float data[3];
 
-  SensorData() : type(SensorType::kUndefined), timestamp_nanos(0) {
+  // Indicates the type of sensor this data originated from.
+  SensorType type;
+
+  SensorData() : timestamp_nanos(0), type(SensorType::kUndefined) {
     memset(data, 0, sizeof(data));
   }
 
-  SensorData(SensorType type, uint64_t ts, float x, float y, float z)
-      : type(type), timestamp_nanos(ts) {
-    data[SensorIndex::kXAxis] = x;
-    data[SensorIndex::kYAxis] = y;
-    data[SensorIndex::kZAxis] = z;
+  SensorData(SensorType type, uint64_t timestamp_nanos, float x_axis,
+             float y_axis, float z_axis)
+      : timestamp_nanos(timestamp_nanos), type(type) {
+    data[SensorIndex::kXAxis] = x_axis;
+    data[SensorIndex::kYAxis] = y_axis;
+    data[SensorIndex::kZAxis] = z_axis;
   }
 
-  SensorData(SensorType type, uint64_t ts, float single_axis_sample)
-      : type(type), timestamp_nanos(ts) {
+  SensorData(SensorType type, uint64_t timestamp_nanos,
+             float single_axis_sample)
+      : timestamp_nanos(timestamp_nanos), type(type) {
     data[SensorIndex::kSingleAxis] = single_axis_sample;
   }
 };

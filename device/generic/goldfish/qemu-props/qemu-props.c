@@ -47,6 +47,8 @@
 
 int s_QemuMiscPipe = -1;
 void static notifyHostBootComplete();
+void static sendHeartBeat();
+void static sendMessage(const char* mesg);
 
 int  main(void)
 {
@@ -130,9 +132,13 @@ int  main(void)
         }
     }
 
+    close(qemud_fd);
+
     char temp[BUFF_SIZE];
-    for (;;) {
+    sendHeartBeat();
+    while (s_QemuMiscPipe >= 0) {
         usleep(5000000); /* 5 seconds */
+        sendHeartBeat();
         property_get("vendor.qemu.dev.bootcomplete", temp, "");
         int is_boot_completed = (strncmp(temp, "1", 1) == 0) ? 1 : 0;
         if (is_boot_completed) {
@@ -142,17 +148,29 @@ int  main(void)
         }
     }
 
+    while (s_QemuMiscPipe >= 0) {
+        usleep(30*1000000); /* 30 seconds */
+        sendHeartBeat();
+    }
+
     /* finally, close the channel and exit */
     if (s_QemuMiscPipe >= 0) {
         close(s_QemuMiscPipe);
         s_QemuMiscPipe = -1;
     }
-    close(qemud_fd);
     DD("exiting (%d properties set).", count);
     return 0;
 }
 
+void sendHeartBeat() {
+    sendMessage("heartbeat");
+}
+
 void notifyHostBootComplete() {
+    sendMessage("bootcomplete");
+}
+
+void sendMessage(const char* mesg) {
    if (s_QemuMiscPipe < 0) {
         s_QemuMiscPipe = qemu_pipe_open(QEMU_MISC_PIPE);
         if (s_QemuMiscPipe < 0) {
@@ -160,8 +178,9 @@ void notifyHostBootComplete() {
             return;
         }
     }
-    char set[] = "bootcomplete";
-    int pipe_command_length = sizeof(set);
+    char set[64];
+    snprintf(set, sizeof(set), "%s", mesg);
+    int pipe_command_length = strlen(set)+1; //including trailing '\0'
     WriteFully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));
     WriteFully(s_QemuMiscPipe, set, pipe_command_length);
     ReadFully(s_QemuMiscPipe, &pipe_command_length, sizeof(pipe_command_length));

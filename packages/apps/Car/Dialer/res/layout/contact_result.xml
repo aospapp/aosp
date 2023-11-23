@@ -13,43 +13,34 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- This FrameLayout is used to center the CardView since the CardView's container will be larger
-     than its width. -->
-<FrameLayout
+
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/contact_result"
+    android:foreground="?android:attr/selectableItemBackground"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:focusable="true">
+    android:layout_height="@dimen/contact_result_height">
 
-    <androidx.car.widget.ColumnCardView
-        android:id="@+id/contact_result_card"
-        android:foreground="@drawable/dialer_ripple_background"
-        android:layout_gravity="center"
-        android:layout_width="wrap_content"
-        android:layout_height="@dimen/contact_result_card_height" >
+    <ImageView
+        android:id="@+id/contact_picture"
+        android:layout_width="@dimen/avatar_icon_size"
+        android:layout_height="@dimen/avatar_icon_size"
+        android:layout_marginStart="@dimen/contact_result_avatar_margin"
+        android:scaleType="centerCrop"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
 
-        <!-- Using this FrameLayout to center the ImageView within a width of
-            car_keyline_2. -->
-        <FrameLayout
-            android:layout_width="@dimen/car_keyline_2"
-            android:layout_height="match_parent">
-
-            <ImageView
-                android:id="@+id/contact_picture"
-                android:layout_gravity="center"
-                android:layout_width="@dimen/call_log_icon_size"
-                android:layout_height="@dimen/call_log_icon_size"
-                android:scaleType="centerCrop" />
-        </FrameLayout>
-
-        <TextView
-            android:id="@+id/contact_name"
-            android:layout_marginStart="@dimen/car_keyline_2"
-            android:layout_gravity="center_vertical|start"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="2"
-            style="@style/TextAppearance.Car.Body1" />
-    </androidx.car.widget.ColumnCardView>
-</FrameLayout>
+    <TextView
+        android:id="@+id/contact_name"
+        android:layout_marginStart="@dimen/contact_result_name_margin"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:textAppearance="@style/TextAppearance.ContactResultTitle"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

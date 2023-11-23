@@ -31,7 +31,7 @@ LOCAL_JAVA_LIBRARIES := layoutlib \
 			tools-common-prebuilt \
 			sdk-common \
 			junit-host \
-			guavalib \
+			guava-prebuilt-host-jar \
 			mockito-host \
 			objenesis-host
 

@@ -23,6 +23,7 @@
     <string name="wifi_fail_to_scan" msgid="1265540342578081461">"Kan nie skandeer vir netwerke nie"</string>
     <string name="wifi_security_none" msgid="7985461072596594400">"Geen"</string>
     <string name="wifi_remembered" msgid="4955746899347821096">"Gestoor"</string>
+    <string name="wifi_disconnected" msgid="8085419869003922556">"Ontkoppel"</string>
     <string name="wifi_disabled_generic" msgid="4259794910584943386">"Gedeaktiveer"</string>
     <string name="wifi_disabled_network_failure" msgid="2364951338436007124">"IP-opstelling het misluk"</string>
     <string name="wifi_disabled_by_recommendation_provider" msgid="5168315140978066096">"Nie gekoppel nie weens laegehalte-netwerk"</string>
@@ -38,13 +39,21 @@
     <string name="connected_via_network_scorer" msgid="5713793306870815341">"Outomaties deur %1$s gekoppel"</string>
     <string name="connected_via_network_scorer_default" msgid="7867260222020343104">"Outomaties deur netwerkgraderingverskaffer gekoppel"</string>
     <string name="connected_via_passpoint" msgid="2826205693803088747">"Gekoppel via %1$s"</string>
+    <string name="connected_via_app" msgid="5571999941988929520">"Gekoppel via <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="available_via_passpoint" msgid="1617440946846329613">"Beskikbaar via %1$s"</string>
+    <string name="tap_to_sign_up" msgid="6449724763052579434">"Tik om aan te meld"</string>
     <string name="wifi_connected_no_internet" msgid="8202906332837777829">"Gekoppel, geen internet nie"</string>
+    <string name="wifi_limited_connection" msgid="7717855024753201527">"Beperkte verbinding"</string>
     <string name="wifi_status_no_internet" msgid="5784710974669608361">"Geen internet nie"</string>
     <string name="wifi_status_sign_in_required" msgid="123517180404752756">"Aanmelding word vereis"</string>
     <string name="wifi_ap_unable_to_handle_new_sta" msgid="5348824313514404541">"Toegangspunt is tydelik vol"</string>
     <string name="connected_via_carrier" msgid="7583780074526041912">"Gekoppel via %1$s"</string>
     <string name="available_via_carrier" msgid="1469036129740799053">"Beskikbaar via %1$s"</string>
+    <string name="osu_opening_provider" msgid="5488997661548640424">"Maak tans <xliff:g id="PASSPOINTPROVIDER">%1$s</xliff:g> oop"</string>
+    <string name="osu_connect_failed" msgid="2187750899158158934">"Kon nie koppel nie"</string>
+    <string name="osu_completing_sign_up" msgid="9037638564719197082">"Voltooi tans aanmelding …"</string>
+    <string name="osu_sign_up_failed" msgid="7296159750352873260">"Kon nie aanmelding voltooi nie. Tik om weer te probeer."</string>
+    <string name="osu_sign_up_complete" msgid="8207626049093289203">"Aanmelding is voltooi. Koppel tans …"</string>
     <string name="speed_label_very_slow" msgid="1867055264243608530">"Baie stadig"</string>
     <string name="speed_label_slow" msgid="813109590815810235">"Stadig"</string>
     <string name="speed_label_okay" msgid="2331665440671174858">"OK"</string>
@@ -66,7 +75,9 @@
     <string name="bluetooth_connected_no_a2dp_battery_level" msgid="3908466636369853652">"Gekoppel (geen media nie), battery <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g><xliff:g id="ACTIVE_DEVICE">%2$s</xliff:g>"</string>
     <string name="bluetooth_connected_no_headset_no_a2dp_battery_level" msgid="1163440823807659316">"Gekoppel (geen foon of media nie), battery <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g><xliff:g id="ACTIVE_DEVICE">%2$s</xliff:g>"</string>
     <string name="bluetooth_active_battery_level" msgid="3149689299296462009">"Aktief, <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g> batterykrag"</string>
+    <string name="bluetooth_active_battery_level_untethered" msgid="6662649951391456747">"Aktief, L: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_0">%1$s</xliff:g> batterykrag, R: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_1">%2$s</xliff:g> batterykrag"</string>
     <string name="bluetooth_battery_level" msgid="1447164613319663655">"<xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE">%1$s</xliff:g> batterykrag"</string>
+    <string name="bluetooth_battery_level_untethered" msgid="5974406100211667177">"L: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_0">%1$s</xliff:g> batterykrag, R: <xliff:g id="BATTERY_LEVEL_AS_PERCENTAGE_1">%2$s</xliff:g> batterykrag"</string>
     <string name="bluetooth_active_no_battery_level" msgid="8380223546730241956">"Aktief"</string>
     <string name="bluetooth_profile_a2dp" msgid="2031475486179830674">"Media-oudio"</string>
     <string name="bluetooth_profile_headset" msgid="7815495680863246034">"Foonoproepe"</string>
@@ -80,8 +91,8 @@
     <string name="bluetooth_profile_sap" msgid="5764222021851283125">"SIM-toegang"</string>
     <string name="bluetooth_profile_a2dp_high_quality" msgid="5444517801472820055">"HD-oudio: <xliff:g id="CODEC_NAME">%1$s</xliff:g>"</string>
     <string name="bluetooth_profile_a2dp_high_quality_unknown_codec" msgid="8510588052415438887">"HD oudio"</string>
-    <string name="bluetooth_profile_hearing_aid" msgid="7999237886427812595">"Gehoortoestel"</string>
-    <string name="bluetooth_hearing_aid_profile_summary_connected" msgid="7188282786730266159">"Gekoppel aan gehoortoestel"</string>
+    <string name="bluetooth_profile_hearing_aid" msgid="6680721080542444257">"Gehoortoestelle"</string>
+    <string name="bluetooth_hearing_aid_profile_summary_connected" msgid="3051944447369418317">"Gekoppel aan gehoortoestelle"</string>
     <string name="bluetooth_a2dp_profile_summary_connected" msgid="963376081347721598">"Gekoppel aan media-oudio"</string>
     <string name="bluetooth_headset_profile_summary_connected" msgid="7661070206715520671">"Gekoppel aan foonoudio"</string>
     <string name="bluetooth_opp_profile_summary_connected" msgid="2611913495968309066">"Gekoppel aan lêeroordragbediener"</string>
@@ -98,7 +109,7 @@
     <string name="bluetooth_headset_profile_summary_use_for" msgid="8705753622443862627">"Gebruik vir foonoudio"</string>
     <string name="bluetooth_opp_profile_summary_use_for" msgid="1255674547144769756">"Gebruik vir lêeroordrag"</string>
     <string name="bluetooth_hid_profile_summary_use_for" msgid="232727040453645139">"Gebruik vir invoer"</string>
-    <string name="bluetooth_hearing_aid_profile_summary_use_for" msgid="908775281788309484">"Gebruik vir gehoortoestel"</string>
+    <string name="bluetooth_hearing_aid_profile_summary_use_for" msgid="8843499209204010224">"Gebruik vir gehoortoestelle"</string>
     <string name="bluetooth_pairing_accept" msgid="6163520056536604875">"Bind saam"</string>
     <string name="bluetooth_pairing_accept_all_caps" msgid="6061699265220789149">"BIND SAAM"</string>
     <string name="bluetooth_pairing_decline" msgid="4185420413578948140">"Kanselleer"</string>
@@ -129,6 +140,7 @@
     <string name="process_kernel_label" msgid="3916858646836739323">"Android-bedryfstelsel"</string>
     <string name="data_usage_uninstalled_apps" msgid="614263770923231598">"Verwyderde programme"</string>
     <string name="data_usage_uninstalled_apps_users" msgid="7986294489899813194">"Verwyderde programme en gebruikers"</string>
+    <string name="data_usage_ota" msgid="5377889154805560860">"Stelselopdaterings"</string>
     <string name="tether_settings_title_usb" msgid="6688416425801386511">"USB-verbinding"</string>
     <string name="tether_settings_title_wifi" msgid="3277144155960302049">"Wi-Fi-warmkol"</string>
     <string name="tether_settings_title_bluetooth" msgid="355855408317564420">"Bluetooth-verbinding"</string>
@@ -197,7 +209,7 @@
     <string name="keep_screen_on" msgid="1146389631208760344">"Bly wakker"</string>
     <string name="keep_screen_on_summary" msgid="2173114350754293009">"Skerm sal nooit slaap terwyl dit laai nie"</string>
     <string name="bt_hci_snoop_log" msgid="3340699311158865670">"Aktiveer Bluetooth HCI-loerloglêer"</string>
-    <string name="bt_hci_snoop_log_summary" msgid="366083475849911315">"Vang alle Bluetooth HCI-pakkette in \'n lêer vas (Wissel Bluetooth nadat jy hierdie instelling verander het)"</string>
+    <string name="bt_hci_snoop_log_summary" msgid="8857606786588106495">"Vang Bluetooth-pakkette vas. (Wissel Bluetooth nadat jy hierdie instelling verander het)"</string>
     <string name="oem_unlock_enable" msgid="6040763321967327691">"OEM-ontsluit"</string>
     <string name="oem_unlock_enable_summary" msgid="4720281828891618376">"Laat toe dat die selflaaiprogram ontsluit word"</string>
     <string name="confirm_enable_oem_unlock_title" msgid="4802157344812385674">"Laat OEM-ontsluit toe?"</string>
@@ -208,7 +220,7 @@
     <string name="debug_networking_category" msgid="7044075693643009662">"Inligtingruiling"</string>
     <string name="wifi_display_certification" msgid="8611569543791307533">"Draadlose skermsertifisering"</string>
     <string name="wifi_verbose_logging" msgid="4203729756047242344">"Aktiveer Wi-Fi-woordryke aanmelding"</string>
-    <string name="wifi_connected_mac_randomization" msgid="3168165236877957767">"Gekoppelde MAC-verewekansiging"</string>
+    <string name="wifi_scan_throttling" msgid="160014287416479843">"Regulering van Wi-Fi-opsporing"</string>
     <string name="mobile_data_always_on" msgid="8774857027458200434">"Mobiele data is altyd aktief"</string>
     <string name="tethering_hardware_offload" msgid="7470077827090325814">"Hardewareversnelling vir verbinding"</string>
     <string name="bluetooth_show_devices_without_names" msgid="4708446092962060176">"Wys Bluetooth-toestelle sonder name"</string>
@@ -235,7 +247,7 @@
     <string name="private_dns_mode_provider_failure" msgid="231837290365031223">"Kon nie koppel nie"</string>
     <string name="wifi_display_certification_summary" msgid="1155182309166746973">"Wys opsies vir draadlose skermsertifisering"</string>
     <string name="wifi_verbose_logging_summary" msgid="6615071616111731958">"Verhoog Wi-Fi-aantekeningvlak, wys per SSID RSSI in Wi‑Fi-kieser"</string>
-    <string name="wifi_connected_mac_randomization_summary" msgid="1743059848752201485">"Verewekansig MAC-adres wanneer daar aan Wi‑Fi-netwerke gekoppel word"</string>
+    <string name="wifi_scan_throttling_summary" msgid="4461922728822495763">"Verlaag batteryverbruik en verbeter netwerk se werkverrigting"</string>
     <string name="wifi_metered_label" msgid="4514924227256839725">"Beperk"</string>
     <string name="wifi_unmetered_label" msgid="6124098729457992931">"Onbeperk"</string>
     <string name="select_logd_size_title" msgid="7433137108348553508">"Loggerbuffer se groottes"</string>
@@ -284,9 +296,9 @@
     <string name="show_touches" msgid="2642976305235070316">"Wys tikke"</string>
     <string name="show_touches_summary" msgid="6101183132903926324">"Wys visuele terugvoer vir tikke"</string>
     <string name="show_screen_updates" msgid="5470814345876056420">"Wys oppervlakopdaterings"</string>
-    <string name="show_screen_updates_summary" msgid="2569622766672785529">"Flits vensteroppervlaktes in geheel wanneer dit opdateer"</string>
-    <string name="show_hw_screen_updates" msgid="5036904558145941590">"Wys GPU-aansigopdaterings"</string>
-    <string name="show_hw_screen_updates_summary" msgid="1115593565980196197">"Flits aansigte binne die vensters wanneer dit met die GPU geskets is"</string>
+    <string name="show_screen_updates_summary" msgid="2569622766672785529">"Flits totale vensteroppervlakke wanneer dit opdateer"</string>
+    <string name="show_hw_screen_updates" msgid="4117270979975470789">"Wys aansigopdaterings"</string>
+    <string name="show_hw_screen_updates_summary" msgid="6506943466625875655">"Flits aansigte binne vensters wanneer dit getrek word"</string>
     <string name="show_hw_layers_updates" msgid="5645728765605699821">"Wys hardewarelae se opdaterings"</string>
     <string name="show_hw_layers_updates_summary" msgid="5296917233236661465">"Laat hardewarelae groen flits wanneer hulle opgedateer word"</string>
     <string name="debug_hw_overdraw" msgid="2968692419951565417">"Ontfout GPU-oortrek"</string>
@@ -300,14 +312,12 @@
     <string name="debug_layout_summary" msgid="2001775315258637682">"Wys snitgrense, kantlyne, ens."</string>
     <string name="force_rtl_layout_all_locales" msgid="2259906643093138978">"Dwing RTL-uitlegrigting"</string>
     <string name="force_rtl_layout_all_locales_summary" msgid="9192797796616132534">"Dwing skermuitlegrigting na RTL vir alle locales"</string>
-    <string name="force_hw_ui" msgid="6426383462520888732">"Forseer GPU-lewering"</string>
-    <string name="force_hw_ui_summary" msgid="5535991166074861515">"Dwing gebruik van GPU vir 2D-tekening"</string>
     <string name="force_msaa" msgid="7920323238677284387">"Dwing 4x MSAA"</string>
     <string name="force_msaa_summary" msgid="9123553203895817537">"Aktiveer 4x MSAA in OpenGL ES 2.0-programme"</string>
     <string name="show_non_rect_clip" msgid="505954950474595172">"Ontfout nie-reghoekige knipbedrywighede"</string>
-    <string name="track_frame_time" msgid="6146354853663863443">"Profiel se GPU-lewering"</string>
+    <string name="track_frame_time" msgid="6094365083096851167">"Profiel-HWUI-lewering"</string>
     <string name="enable_gpu_debug_layers" msgid="3848838293793255097">"Aktiveer GPU-ontfoutlae"</string>
-    <string name="enable_gpu_debug_layers_summary" msgid="8009136940671194940">"Laat laai van GPU-ontfoutlae vir ontfoutapps toe"</string>
+    <string name="enable_gpu_debug_layers_summary" msgid="8009136940671194940">"Laat laai van GPU-ontfoutlae vir ontfoutprogramme toe"</string>
     <string name="window_animation_scale_title" msgid="6162587588166114700">"Vensteranimasieskaal"</string>
     <string name="transition_animation_scale_title" msgid="387527540523595875">"Oorganganimasieskaal"</string>
     <string name="animator_duration_scale_title" msgid="3406722410819934083">"Animator-tydsduurskaal"</string>
@@ -315,7 +325,7 @@
     <string name="debug_applications_category" msgid="4206913653849771549">"Programme"</string>
     <string name="immediately_destroy_activities" msgid="1579659389568133959">"Moenie aktiwiteite behou nie"</string>
     <string name="immediately_destroy_activities_summary" msgid="3592221124808773368">"Vernietig elke aktiwiteit sodra die gebruiker dit verlaat"</string>
-    <string name="app_process_limit_title" msgid="4280600650253107163">"Agtergrondproses-limiet"</string>
+    <string name="app_process_limit_title" msgid="4280600650253107163">"Agtergrondproseslimiet"</string>
     <string name="show_all_anrs" msgid="4924885492787069007">"Wys agtergrond-ANR\'e"</string>
     <string name="show_all_anrs_summary" msgid="6636514318275139826">"Wys Program Reageer Nie-dialoog vir agtergrondprogramme"</string>
     <string name="show_notification_channel_warnings" msgid="1399948193466922683">"Wys kennisgewingkanaalwaarskuwings"</string>
@@ -332,6 +342,7 @@
     <string name="local_backup_password_toast_success" msgid="582016086228434290">"Nuwe rugsteunwagwoord ingestel"</string>
     <string name="local_backup_password_toast_confirmation_mismatch" msgid="7805892532752708288">"Nuwe wagwoord en bevestiging stem nie ooreen nie"</string>
     <string name="local_backup_password_toast_validation_failure" msgid="5646377234895626531">"Rugsteunwagwoord kon nie ingestel word nie"</string>
+    <string name="loading_injected_setting_summary" msgid="4095178591461231376">"Laai tans …"</string>
   <string-array name="color_mode_names">
     <item msgid="2425514299220523812">"Lewendig (verstek)"</item>
     <item msgid="8446070607501413455">"Natuurlik"</item>
@@ -347,7 +358,7 @@
     <string name="inactive_app_active_summary" msgid="4174921824958516106">"Aktief. Tik om te wissel."</string>
     <string name="standby_bucket_summary" msgid="6567835350910684727">"Programbystandstatus:<xliff:g id="BUCKET"> %s</xliff:g>"</string>
     <string name="runningservices_settings_title" msgid="8097287939865165213">"Lopende dienste"</string>
-    <string name="runningservices_settings_summary" msgid="854608995821032748">"Sien en beheer dienste wat tans loop"</string>
+    <string name="runningservices_settings_summary" msgid="854608995821032748">"Sien en beheer dienste wat tans aktief is"</string>
     <string name="select_webview_provider_title" msgid="4628592979751918907">"WebView-implementering"</string>
     <string name="select_webview_provider_dialog_title" msgid="4370551378720004872">"Stel WebView-implementering"</string>
     <string name="select_webview_provider_toast_text" msgid="5466970498308266359">"Hierdie keuse is nie meer geldig nie. Probeer weer."</string>
@@ -372,11 +383,14 @@
     <string name="power_discharging_duration" msgid="8848256785736335185">"Ongeveer <xliff:g id="TIME_REMAINING">%1$s</xliff:g> oor (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
     <string name="power_remaining_duration_only_enhanced" msgid="4189311599812296592">"Ongeveer <xliff:g id="TIME_REMAINING">%1$s</xliff:g> oor gegrond op jou gebruik"</string>
     <string name="power_discharging_duration_enhanced" msgid="1992003260664804080">"Ongeveer <xliff:g id="TIME_REMAINING">%1$s</xliff:g> oor gegrond op jou gebruik (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
-    <string name="power_remaining_duration_only_short" msgid="3463575350656389957">"<xliff:g id="TIME_REMAINING">%1$s</xliff:g> oor"</string>
+    <!-- no translation found for power_remaining_duration_only_short (9183070574408359726) -->
+    <skip />
     <string name="power_discharge_by_enhanced" msgid="2095821536747992464">"Sal op grond van jou gebruik waarskynlik hou tot omtrent <xliff:g id="TIME">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
     <string name="power_discharge_by_only_enhanced" msgid="2175151772952365149">"Sal op grond van jou gebruik waarskynlik hou tot omtrent <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="power_discharge_by" msgid="6453537733650125582">"Sal waarskynlik hou tot omtrent <xliff:g id="TIME">%1$s</xliff:g> (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
     <string name="power_discharge_by_only" msgid="107616694963545745">"Sal waarskynlik hou tot omtrent <xliff:g id="TIME">%1$s</xliff:g>"</string>
+    <string name="power_discharge_by_only_short" msgid="1372817269546888804">"Tot <xliff:g id="TIME">%1$s</xliff:g>"</string>
+    <string name="power_suggestion_extend_battery" msgid="4401408879069551485">"Verleng batterylewe verby <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="power_remaining_less_than_duration_only" msgid="5996752448813295329">"Minder as <xliff:g id="THRESHOLD">%1$s</xliff:g> oor"</string>
     <string name="power_remaining_less_than_duration" msgid="5751885147712659423">"Minder as <xliff:g id="THRESHOLD">%1$s</xliff:g> oor (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
     <string name="power_remaining_more_than_subtext" msgid="3176771815132876675">"Meer as <xliff:g id="TIME_REMAINING">%1$s</xliff:g> oor (<xliff:g id="LEVEL">%2$s</xliff:g>)"</string>
@@ -397,8 +411,6 @@
     <string name="battery_info_status_not_charging" msgid="8523453668342598579">"Ingeprop; kan nie op die oomblik laai nie"</string>
     <string name="battery_info_status_full" msgid="2824614753861462808">"Vol"</string>
     <string name="disabled_by_admin_summary_text" msgid="6750513964908334617">"Beheer deur administrateur"</string>
-    <string name="enabled_by_admin" msgid="5302986023578399263">"Geaktiveer deur administrateur"</string>
-    <string name="disabled_by_admin" msgid="8505398946020816620">"Gedeaktiveer deur administrateur"</string>
     <string name="disabled" msgid="9206776641295849915">"Gedeaktiveer"</string>
     <string name="external_source_trusted" msgid="2707996266575928037">"Toegelaat"</string>
     <string name="external_source_untrusted" msgid="2677442511837596726">"Nie toegelaat nie"</string>
@@ -417,7 +429,6 @@
     <string name="screen_zoom_summary_very_large" msgid="7108563375663670067">"Groter"</string>
     <string name="screen_zoom_summary_extremely_large" msgid="7427320168263276227">"Grootste"</string>
     <string name="screen_zoom_summary_custom" msgid="5611979864124160447">"Gepasmaak (<xliff:g id="DENSITYDPI">%d</xliff:g>)"</string>
-    <string name="help_feedback_label" msgid="6815040660801785649">"Hulp en terugvoer"</string>
     <string name="content_description_menu_button" msgid="8182594799812351266">"Kieslys"</string>
     <string name="retail_demo_reset_message" msgid="118771671364131297">"Voer wagwoord in om fabriekterugstelling in demonstrasiemodus uit te voer"</string>
     <string name="retail_demo_reset_next" msgid="8356731459226304963">"Volgende"</string>
@@ -451,5 +462,7 @@
     <string name="alarm_template_far" msgid="3779172822607461675">"op <xliff:g id="WHEN">%1$s</xliff:g>"</string>
     <string name="zen_mode_duration_settings_title" msgid="229547412251222757">"Tydsduur"</string>
     <string name="zen_mode_duration_always_prompt_title" msgid="6478923750878945501">"Vra elke keer"</string>
+    <string name="zen_mode_forever" msgid="2704305038191592967">"Totdat jy dit afskakel"</string>
     <string name="time_unit_just_now" msgid="6363336622778342422">"Sopas"</string>
+    <string name="media_transfer_this_device_name" msgid="1636276898262571213">"Hierdie toestel"</string>
 </resources>

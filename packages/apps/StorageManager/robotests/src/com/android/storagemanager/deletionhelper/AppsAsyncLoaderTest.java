@@ -21,24 +21,23 @@ import android.app.usage.UsageStatsManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.storage.VolumeInfo;
 import android.text.TextUtils;
+
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.applications.StorageStatsSource.AppStorageStats;
-import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
-import com.android.storagemanager.testing.StorageManagerRobolectricTestRunner;
-import com.android.storagemanager.testing.TestingConstants;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.ArrayList;
@@ -46,28 +45,27 @@ import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@RunWith(StorageManagerRobolectricTestRunner.class)
-@Config(manifest = TestingConstants.MANIFEST, sdk = 23)
+@RunWith(RobolectricTestRunner.class)
 public class AppsAsyncLoaderTest {
 
-    public static final String PACKAGE_SYSTEM = "package.system";
+    private static final String PACKAGE_SYSTEM = "package.system";
     private static final long STARTING_TIME = TimeUnit.DAYS.toMillis(1000);
     private static final String PACKAGE_NAME = "package.mcpackageface";
-    public static final String PACKAGE_CLEARABLE = "package.clearable";
-    public static final String PACKAGE_TOO_NEW_TO_DELETE = "package.tooNewToDelete";
-    public static final String PACKAGE_DEFAULT_LAUNCHER = "package.launcherface";
+    private static final String PACKAGE_CLEARABLE = "package.clearable";
+    private static final String PACKAGE_TOO_NEW_TO_DELETE = "package.tooNewToDelete";
+    private static final String PACKAGE_DEFAULT_LAUNCHER = "package.launcherface";
 
     @Mock private UsageStatsManager mUsageStatsManager;
     @Mock private StorageStatsSource mStorageStatsSource;
     @Mock private AppsAsyncLoader.Clock mClock;
-    @Mock private PackageManagerWrapper mPackageManager;
+    @Mock private PackageManager mPackageManager;
     @Mock private AppStorageStats mAppStorageStats;
     private AppsAsyncLoader mLoader;
     private HashMap<String, UsageStats> mUsageStats;
@@ -379,7 +377,7 @@ public class AppsAsyncLoaderTest {
         try {
             when(mPackageManager.getPackageInfo(eq(info.packageName), anyInt()))
                     .thenReturn(packageInfo);
-            when(mPackageManager.loadLabel(eq(applicationInfo)))
+            when(applicationInfo.loadLabel(eq(mPackageManager)))
                     .thenReturn(applicationInfo.packageName);
         } catch (NameNotFoundException e) {
             e.printStackTrace();

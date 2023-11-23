@@ -7,9 +7,6 @@ init_daemon_domain(netmgrd)
 set_prop(netmgrd, vendor_net_radio_prop)
 set_prop(netmgrd, net_rmnet_prop)
 
-# communicate with netd
-unix_socket_connect(netmgrd, netd, netd)
-
 allow netmgrd netmgrd_socket:dir w_dir_perms;
 allow netmgrd netmgrd_socket:sock_file create_file_perms;
 allow netmgrd self:netlink_xfrm_socket { create_socket_perms_no_ioctl nlmsg_write };
@@ -26,8 +23,6 @@ allow netmgrd sysfs_soc:dir search;
 allow netmgrd sysfs_soc:file r_file_perms;
 allow netmgrd sysfs_msm_subsys:dir r_dir_perms;
 allow netmgrd sysfs_msm_subsys:file r_file_perms;
-
-allow netmgrd system_file:file lock;
 
 r_dir_file(netmgrd, sysfs_msm_subsys)
 
@@ -48,10 +43,9 @@ dontaudit netmgrd diag_device:chr_file rw_file_perms;
 #Ignore if device loading for private IOCTL failed
 dontaudit netmgrd kernel:system { module_request };
 
-allow netmgrd proc_net:file rw_file_perms;
+allow netmgrd proc_net_type:file rw_file_perms;
 allow netmgrd netmgr_data_file:dir rw_dir_perms;
 allow netmgrd netmgr_data_file:file create_file_perms;
-allow netmgrd system_file:file execute_no_trans;
 
 allow netmgrd self:capability { net_admin net_raw setgid setpcap setuid };
 

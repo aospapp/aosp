@@ -16,7 +16,7 @@
 
 cc_library_static {
     name: "VtsHalWifiV1_0TargetTestUtil",
-    defaults: ["hidl_defaults"],
+    defaults: ["VtsHalTargetTestDefaults"],
     srcs: [
         "wifi_hidl_call_util_selftest.cpp",
         "wifi_hidl_test.cpp",
@@ -26,16 +26,9 @@ cc_library_static {
         "."
     ],
     shared_libs: [
-        "libbase",
-        "liblog",
-        "libcutils",
-        "libhidlbase",
-        "libhidltransport",
         "libnativehelper",
-        "libutils",
-        "android.hardware.wifi@1.0",
     ],
-    static_libs: ["VtsHalHidlTargetTestBase"],
+    static_libs: ["android.hardware.wifi@1.0"],
 }
 
 cc_test {
@@ -52,7 +45,11 @@ cc_test {
     static_libs: [
         "VtsHalWifiV1_0TargetTestUtil",
         "android.hardware.wifi@1.0",
+        "android.hardware.wifi@1.1",
+        "android.hardware.wifi@1.2",
+        "android.hardware.wifi@1.3",
     ],
+    test_suites: ["general-tests"],
 }
 
 cc_test {
@@ -66,4 +63,5 @@ cc_test {
         "VtsHalWifiV1_0TargetTestUtil",
         "android.hardware.wifi@1.0",
     ],
+    test_suites: ["general-tests"],
 }

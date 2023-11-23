@@ -7,11 +7,13 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "libbinder_ndk",
         "liblog",
-        "libmediaextractor",
+        "libmediandk",
     ],
 
     static_libs: [
+        "libaudioutils",
         "libfifo",
         "libstagefright_foundation",
     ],
@@ -34,9 +36,6 @@ cc_library_shared {
             "unsigned-integer-overflow",
             "signed-integer-overflow",
         ],
-        diag: {
-            cfi: true,
-        },
     },
 
 }

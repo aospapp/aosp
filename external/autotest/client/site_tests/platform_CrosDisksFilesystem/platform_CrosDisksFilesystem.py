@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import contextlib
 import dbus
 import glob
 import logging
@@ -21,9 +22,26 @@ from autotest_lib.client.cros.cros_disks import DefaultFilesystemTestContent
 class CrosDisksFilesystemTester(CrosDisksTester):
     """A tester to verify filesystem support in CrosDisks.
     """
+
+    RECONNECT_TIMEOUT_SECONDS = 10
+
     def __init__(self, test, test_configs):
         super(CrosDisksFilesystemTester, self).__init__(test)
         self._test_configs = test_configs
+
+    @contextlib.contextmanager
+    def _set_timezone(self, new_zone):
+        if not new_zone:
+          yield
+          return
+
+        try:
+          utils.system('restart cros-disks TZ=":%s"' % new_zone)
+          self.reconnect_client(self.RECONNECT_TIMEOUT_SECONDS)
+          yield
+        finally:
+          utils.system('restart cros-disks')
+          self.reconnect_client(self.RECONNECT_TIMEOUT_SECONDS)
 
     def _run_test_config(self, config):
         logging.info('Testing "%s"', config['description'])
@@ -78,7 +96,8 @@ class CrosDisksFilesystemTester(CrosDisksTester):
     def test_using_virtual_filesystem_image(self):
         try:
             for config in self._test_configs:
-                self._run_test_config(config)
+                with self._set_timezone(config.get('test_timezone')):
+                    self._run_test_config(config)
         except RuntimeError:
             cmd = 'ls -la %s' % tempfile.gettempdir()
             logging.debug(utils.run(cmd))

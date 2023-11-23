@@ -15,27 +15,22 @@
  */
 
 #include <set>
+
+#define LOG_TAG "Netd"
+
 #include "VirtualNetwork.h"
 
 #include "SockDiag.h"
 #include "RouteController.h"
 
-#define LOG_TAG "Netd"
 #include "log/log.h"
 
 namespace android {
 namespace net {
 
-VirtualNetwork::VirtualNetwork(unsigned netId, bool hasDns, bool secure) :
-        Network(netId), mHasDns(hasDns), mSecure(secure) {
-}
+VirtualNetwork::VirtualNetwork(unsigned netId, bool secure) : Network(netId), mSecure(secure) {}
 
-VirtualNetwork::~VirtualNetwork() {
-}
-
-bool VirtualNetwork::getHasDns() const {
-    return mHasDns;
-}
+VirtualNetwork::~VirtualNetwork() {}
 
 bool VirtualNetwork::isSecure() const {
     return mSecure;

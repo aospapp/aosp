@@ -100,6 +100,7 @@ enum perf_event_sample_format {
   PERF_SAMPLE_REGS_INTR = 1U << 18,
   PERF_SAMPLE_PHYS_ADDR = 1U << 19,
   PERF_SAMPLE_MAX = 1U << 20,
+  __PERF_SAMPLE_CALLCHAIN_EARLY = 1ULL << 63,
 };
 enum perf_branch_sample_type_shift {
   PERF_SAMPLE_BRANCH_USER_SHIFT = 0,
@@ -205,10 +206,14 @@ struct perf_event_attr {
   __u32 bp_type;
   union {
     __u64 bp_addr;
+    __u64 kprobe_func;
+    __u64 uprobe_path;
     __u64 config1;
   };
   union {
     __u64 bp_len;
+    __u64 kprobe_addr;
+    __u64 probe_offset;
     __u64 config2;
   };
   __u64 branch_sample_type;
@@ -219,6 +224,11 @@ struct perf_event_attr {
   __u32 aux_watermark;
   __u16 sample_max_stack;
   __u16 __reserved_2;
+};
+struct perf_event_query_bpf {
+  __u32 ids_len;
+  __u32 prog_cnt;
+  __u32 ids[0];
 };
 #define perf_flags(attr) (* (& (attr)->read_format + 1))
 #define PERF_EVENT_IOC_ENABLE _IO('$', 0)
@@ -231,6 +241,8 @@ struct perf_event_attr {
 #define PERF_EVENT_IOC_ID _IOR('$', 7, __u64 *)
 #define PERF_EVENT_IOC_SET_BPF _IOW('$', 8, __u32)
 #define PERF_EVENT_IOC_PAUSE_OUTPUT _IOW('$', 9, __u32)
+#define PERF_EVENT_IOC_QUERY_BPF _IOWR('$', 10, struct perf_event_query_bpf *)
+#define PERF_EVENT_IOC_MODIFY_ATTRIBUTES _IOW('$', 11, struct perf_event_attr *)
 enum perf_event_ioc_flags {
   PERF_IOC_FLAG_GROUP = 1U << 0,
 };
@@ -274,8 +286,10 @@ struct perf_event_mmap_page {
 #define PERF_RECORD_MISC_PROC_MAP_PARSE_TIMEOUT (1 << 12)
 #define PERF_RECORD_MISC_MMAP_DATA (1 << 13)
 #define PERF_RECORD_MISC_COMM_EXEC (1 << 13)
+#define PERF_RECORD_MISC_FORK_EXEC (1 << 13)
 #define PERF_RECORD_MISC_SWITCH_OUT (1 << 13)
 #define PERF_RECORD_MISC_EXACT_IP (1 << 14)
+#define PERF_RECORD_MISC_SWITCH_OUT_PREEMPT (1 << 14)
 #define PERF_RECORD_MISC_EXT_RESERVED (1 << 15)
 struct perf_event_header {
   __u32 type;

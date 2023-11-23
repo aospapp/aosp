@@ -33,6 +33,8 @@ public class DefaultManifestAttributesSdkTest extends DefaultManifestAttributesT
      */
     @RestrictedBuildTest
     public void testPackageHasExpectedSdkVersion() {
-        assertEquals(Build.VERSION.SDK_INT, getAppInfo().targetSdkVersion);
+        assertTrue("targetSdkVersion=" + getAppInfo().targetSdkVersion
+                + " must be at least " + Build.VERSION.SDK_INT,
+                getAppInfo().targetSdkVersion >= Build.VERSION.SDK_INT);
     }
 }

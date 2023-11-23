@@ -43,7 +43,8 @@ import android.print.test.services.PrinterDiscoverySessionCallbacks;
 import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -147,8 +148,7 @@ public class PrintJobTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected.
      */
-    private void baseTest(PrintJobTestFn testFn)
-            throws Exception {
+    private void baseTest(PrintJobTestFn testFn) throws Throwable {
         testSuccess[0] = false;
 
         // Create the session of the printers that we will be checking.
@@ -168,12 +168,17 @@ public class PrintJobTest extends BasePrintTest {
         // Create a print adapter that respects the print contract.
         PrintDocumentAdapter adapter = createDefaultPrintDocumentAdapter(1);
 
+
         // Start printing.
         print(adapter);
-        clickPrintButton();
+        waitForWriteAdapterCallback(1);
 
-        // Wait for print job to be queued
-        waitForServiceOnPrintJobQueuedCallbackCalled(1);
+        eventually(() -> {
+            clickPrintButton();
+
+            // Wait for print job to be queued
+            waitForServiceOnPrintJobQueuedCallbackCalled(1);
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for discovery session to be destroyed to isolate tests from each other
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -211,7 +216,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Before
-    public void setPrinter() throws Exception {
+    public void setPrinter() throws Throwable {
         if (!sHasBeenSetUp) {
             resetCounters();
             PrinterDiscoverySessionCallbacks sessionCallbacks
@@ -239,7 +244,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Test
-    public void blockWithReason() throws Exception {
+    public void blockWithReason() throws Throwable {
         baseTest(printJob -> {
             printJob.start();
             checkState(printJob, PrintJobInfo.STATE_STARTED);
@@ -267,7 +272,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Test
-    public void failWithReason() throws Exception {
+    public void failWithReason() throws Throwable {
         baseTest(printJob -> {
             printJob.start();
             checkState(printJob, PrintJobInfo.STATE_STARTED);
@@ -287,7 +292,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Test
-    public void tag() throws Exception {
+    public void tag() throws Throwable {
         baseTest(printJob -> {
             // Default value should be null
             assertNull(printJob.getTag());
@@ -451,7 +456,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Test
-    public void other() throws Exception {
+    public void other() throws Throwable {
         baseTest(printJob -> {
             assertNotNull(printJob.getDocument());
             assertNotNull(printJob.getId());
@@ -459,7 +464,7 @@ public class PrintJobTest extends BasePrintTest {
     }
 
     @Test
-    public void setStatus() throws Exception {
+    public void setStatus() throws Throwable {
         baseTest(printJob -> {
             printJob.start();
 

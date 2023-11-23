@@ -16,6 +16,9 @@
 <configuration description="Config for the CTS dumpsys host tests">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- This module tests system service dumps, which is irrelevant for Instant Apps. -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest">
         <option name="jar" value="CtsDumpsysHostTestCases.jar" />
     </test>

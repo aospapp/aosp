@@ -16,13 +16,19 @@
 
 package android.car.hardware;
 
+import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.car.VehicleAreaType;
+import android.car.VehicleAreaType.VehicleAreaTypeValue;
+import android.car.VehiclePropertyType;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.SparseArray;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,10 +43,8 @@ import java.util.List;
  * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
  * should be visible to framework as default class loader is being used here.
  *
- * @hide
  */
-@SystemApi
-public class CarPropertyConfig<T> implements Parcelable {
+public final class CarPropertyConfig<T> implements Parcelable {
     private final int mAccess;
     private final int mAreaType;
     private final int mChangeMode;
@@ -68,43 +72,183 @@ public class CarPropertyConfig<T> implements Parcelable {
         mType = type;
     }
 
-    public int getAccess() {
+    /** @hide */
+    @IntDef(prefix = {"VEHICLE_PROPERTY_ACCESS"}, value = {
+        VEHICLE_PROPERTY_ACCESS_NONE,
+        VEHICLE_PROPERTY_ACCESS_READ,
+        VEHICLE_PROPERTY_ACCESS_WRITE,
+        VEHICLE_PROPERTY_ACCESS_READ_WRITE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface VehiclePropertyAccessType {}
+
+    /** Property Access Unknown */
+    public static final int VEHICLE_PROPERTY_ACCESS_NONE = 0;
+    /** The property is readable */
+    public static final int VEHICLE_PROPERTY_ACCESS_READ = 1;
+    /** The property is writable */
+    public static final int VEHICLE_PROPERTY_ACCESS_WRITE = 2;
+    /** The property is readable and writable */
+    public static final int VEHICLE_PROPERTY_ACCESS_READ_WRITE = 3;
+
+    /** @hide */
+    @IntDef(prefix = {"VEHICLE_PROPERTY_CHANGE_MODE"}, value = {
+        VEHICLE_PROPERTY_CHANGE_MODE_STATIC,
+        VEHICLE_PROPERTY_CHANGE_MODE_ONCHANGE,
+        VEHICLE_PROPERTY_CHANGE_MODE_CONTINUOUS,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface VehiclePropertyChangeModeType {}
+
+    /** Properties of this type must never be changed. */
+    public static final int VEHICLE_PROPERTY_CHANGE_MODE_STATIC = 0;
+    /** Properties of this type must report when there is a change. */
+    public static final int VEHICLE_PROPERTY_CHANGE_MODE_ONCHANGE = 1;
+    /** Properties of this type change continuously. */
+    public static final int VEHICLE_PROPERTY_CHANGE_MODE_CONTINUOUS = 2;
+
+    /**
+     * Return the access type of the car property.
+     * <p>The access type could be one of the following:
+     * <ul>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_ACCESS_NONE}</li>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_ACCESS_READ}</li>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_ACCESS_WRITE}</li>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_ACCESS_READ_WRITE}</li>
+     * </ul>
+     *
+     * @return the access type of the car property.
+     */
+    public @VehiclePropertyAccessType int getAccess() {
         return mAccess;
     }
-    public @VehicleAreaType.VehicleAreaTypeValue int getAreaType() {
+
+    /**
+     * Return the area type of the car property.
+     * <p>The area type could be one of the following:
+     * <ul>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_GLOBAL}</li>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_WINDOW}</li>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_SEAT}</li>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_DOOR}</li>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_MIRROR}</li>
+     *   <li>{@link VehicleAreaType#VEHICLE_AREA_TYPE_WHEEL}</li>
+     * </ul>
+     *
+     * @return the area type of the car property.
+     */
+    public @VehicleAreaTypeValue int getAreaType() {
         return mAreaType;
     }
-    public int getChangeMode() {
+
+    /**
+     * Return the change mode of the car property.
+     *
+     * <p>The change mode could be one of the following:
+     * <ul>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_CHANGE_MODE_STATIC }</li>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_CHANGE_MODE_ONCHANGE}</li>
+     *   <li>{@link CarPropertyConfig#VEHICLE_PROPERTY_CHANGE_MODE_CONTINUOUS}</li>
+     * </ul>
+     *
+     * @return the change mode of properties.
+     */
+    public @VehiclePropertyChangeModeType int getChangeMode() {
         return mChangeMode;
     }
+
+    /**
+     *
+     * @return Additional configuration parameters. For different properties, configArrays have
+     * different information.
+     */
+    @NonNull
     public List<Integer> getConfigArray() {
         return Collections.unmodifiableList(mConfigArray);
     }
+
+    /**
+     *
+     * @return Some properties may require additional information passed over this
+     * string. Most properties do not need to set this.
+     * @hide
+     */
     public String getConfigString() {
         return mConfigString;
     }
+
+    /**
+     *
+     * @return Max sample rate in Hz. Must be defined for VehiclePropertyChangeMode::CONTINUOUS
+     * return 0 if change mode is not continuous.
+     */
     public float getMaxSampleRate() {
         return mMaxSampleRate;
     }
+
+    /**
+     *
+     * @return Min sample rate in Hz.Must be defined for VehiclePropertyChangeMode::CONTINUOUS
+     * return 0 if change mode is not continuous.
+     */
     public float getMinSampleRate() {
         return mMinSampleRate;
     }
+
+    /**
+     * @return Property identifier
+     */
     public int getPropertyId() {
         return mPropertyId;
     }
+
+    /**
+     * @return Value type of VehicleProperty.
+     * @hide
+     */
+    @SystemApi
+    @NonNull
     public Class<T> getPropertyType() {
         return mType;
     }
 
-    /** Returns true if this property doesn't hold car area-specific configuration */
+    /**
+     *
+     * @return true if this property doesn't hold car area-specific configuration.
+     */
     public boolean isGlobalProperty() {
         return mAreaType == VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL;
     }
 
+    /**
+     *
+     * @return the number of areaIds for properties.
+     * @hide
+     */
     public int getAreaCount() {
         return mSupportedAreas.size();
     }
 
+    /**
+     *
+     * @return Array of areaIds. An AreaID is a combination of one or more areas,
+     * and is represented using a bitmask of Area enums. Different AreaTypes may
+     * not be mixed in a single AreaID. For instance, a window area cannot be
+     * combined with a seat area in an AreaID.
+     * Rules for mapping a zoned property to AreaIDs:
+     *  - A property must be mapped to an array of AreaIDs that are impacted when
+     *    the property value changes.
+     *  - Each element in the array must represent an AreaID, in which, the
+     *    property value can only be changed together in all the areas within
+     *    an AreaID and never independently. That is, when the property value
+     *    changes in one of the areas in an AreaID in the array, then it must
+     *    automatically change in all other areas in the AreaID.
+     *  - The property value must be independently controllable in any two
+     *    different AreaIDs in the array.
+     *  - An area must only appear once in the array of AreaIDs. That is, an
+     *    area must only be part of a single AreaID in the array.
+     */
+    @NonNull
     public int[] getAreaIds() {
         int[] areaIds = new int[mSupportedAreas.size()];
         for (int i = 0; i < areaIds.length; i++) {
@@ -114,9 +258,10 @@ public class CarPropertyConfig<T> implements Parcelable {
     }
 
     /**
-     * Returns the first areaId.
+     * @return  the first areaId.
      * Throws {@link IllegalStateException} if supported area count not equals to one.
-     * */
+     * @hide
+     */
     public int getFirstAndOnlyAreaId() {
         if (mSupportedAreas.size() != 1) {
             throw new IllegalStateException("Expected one and only area in this property. Prop: 0x"
@@ -125,31 +270,55 @@ public class CarPropertyConfig<T> implements Parcelable {
         return mSupportedAreas.keyAt(0);
     }
 
+    /**
+     *
+     * @param areaId
+     * @return true if areaId is existing.
+     * @hide
+     */
     public boolean hasArea(int areaId) {
         return mSupportedAreas.indexOfKey(areaId) >= 0;
     }
 
+    /**
+     *
+     * @param areaId
+     * @return Min value in given areaId. Null if not have min value in given area.
+     */
     @Nullable
     public T getMinValue(int areaId) {
         AreaConfig<T> area = mSupportedAreas.get(areaId);
         return area == null ? null : area.getMinValue();
     }
 
+    /**
+     *
+     * @param areaId
+     * @return Max value in given areaId. Null if not have max value in given area.
+     */
     @Nullable
     public T getMaxValue(int areaId) {
         AreaConfig<T> area = mSupportedAreas.get(areaId);
         return area == null ? null : area.getMaxValue();
     }
 
+    /**
+     *
+     * @return Min value in areaId 0. Null if not have min value.
+     */
     @Nullable
     public T getMinValue() {
-        AreaConfig<T> area = mSupportedAreas.valueAt(0);
+        AreaConfig<T> area = mSupportedAreas.get(0);
         return area == null ? null : area.getMinValue();
     }
 
+    /**
+     *
+     * @return Max value in areaId 0. Null if not have max value.
+     */
     @Nullable
     public T getMaxValue() {
-        AreaConfig<T> area = mSupportedAreas.valueAt(0);
+        AreaConfig<T> area = mSupportedAreas.get(0);
         return area == null ? null : area.getMaxValue();
     }
 
@@ -157,6 +326,7 @@ public class CarPropertyConfig<T> implements Parcelable {
     public int describeContents() {
         return 0;
     }
+
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
@@ -220,6 +390,7 @@ public class CarPropertyConfig<T> implements Parcelable {
         }
     };
 
+    /** @hide */
     @Override
     public String toString() {
         return "CarPropertyConfig{"
@@ -236,6 +407,11 @@ public class CarPropertyConfig<T> implements Parcelable {
                 + '}';
     }
 
+    /**
+     * Represents min/max value of car property.
+     * @param <T>
+     * @hide
+     */
     public static class AreaConfig<T> implements Parcelable {
         @Nullable private final T mMinValue;
         @Nullable private final T mMaxValue;
@@ -295,7 +471,9 @@ public class CarPropertyConfig<T> implements Parcelable {
      * Prepare an instance of CarPropertyConfig
      *
      * @return Builder<T>
+     * @hide
      */
+    @SystemApi
     public static <T> Builder<T> newBuilder(Class<T> type, int propertyId, int areaType,
                                             int areaCapacity) {
         return new Builder<>(areaCapacity, areaType, propertyId, type);
@@ -306,11 +484,18 @@ public class CarPropertyConfig<T> implements Parcelable {
      * Prepare an instance of CarPropertyConfig
      *
      * @return Builder<T>
+     * @hide
      */
     public static <T> Builder<T> newBuilder(Class<T> type, int propertyId, int areaType) {
         return new Builder<>(0, areaType, propertyId, type);
     }
 
+
+    /**
+     * @param <T>
+     * @hide
+     * */
+    @SystemApi
     public static class Builder<T> {
         private int mAccess;
         private final int mAreaType;
@@ -362,7 +547,7 @@ public class CarPropertyConfig<T> implements Parcelable {
          * @return Builder<T>
          */
         public Builder<T> addAreaConfig(int areaId, T min, T max) {
-            if (min == null && max == null) {
+            if (!isRangeAvailable(min, max)) {
                 mSupportedAreas.put(areaId, null);
             } else {
                 mSupportedAreas.put(areaId, new AreaConfig<>(min, max));
@@ -435,6 +620,23 @@ public class CarPropertyConfig<T> implements Parcelable {
             return new CarPropertyConfig<>(mAccess, mAreaType, mChangeMode, mConfigArray,
                                            mConfigString, mMaxSampleRate, mMinSampleRate,
                                            mPropertyId, mSupportedAreas, mType);
+        }
+
+        private boolean isRangeAvailable(T min, T max) {
+            if (min == null || max == null) {
+                return false;
+            }
+            int propertyType = mPropertyId & VehiclePropertyType.MASK;
+            switch (propertyType) {
+                case VehiclePropertyType.INT32:
+                    return (Integer) min  != 0 || (Integer) max != 0;
+                case VehiclePropertyType.INT64:
+                    return (Long) min != 0L || (Long) max != 0L;
+                case VehiclePropertyType.FLOAT:
+                    return (Float) min != 0f || (Float) max != 0f;
+                default:
+                    return false;
+            }
         }
     }
 }

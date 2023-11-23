@@ -543,14 +543,16 @@ static void stmI2cMasterDmaTxDone(void *cookie, uint16_t bytesLeft, int err)
 
     state->tx.offset = state->tx.size - bytesLeft;
     state->tx.size = 0;
+
     stmI2cDmaDisable(pdev);
+
+    while (!(regs->SR1 & I2C_SR1_BTF))
+            ;
+
     if (err == 0 && state->rx.size > 0) {
         atomicWriteByte(&state->masterState, STM_I2C_MASTER_START);
         stmI2cStartEnable(pdev);
     } else {
-        while (!(regs->SR1 & I2C_SR1_BTF))
-            ;
-
         stmI2cStopEnable(pdev);
         stmI2cMasterTxRxDone(pdev, err);
     }

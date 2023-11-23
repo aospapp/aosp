@@ -17,6 +17,7 @@
 package org.conscrypt;
 
 import static org.conscrypt.SSLUtils.EngineStates.STATE_CLOSED;
+import static org.conscrypt.SSLUtils.EngineStates.STATE_HANDSHAKE_COMPLETED;
 import static org.conscrypt.SSLUtils.EngineStates.STATE_HANDSHAKE_STARTED;
 import static org.conscrypt.SSLUtils.EngineStates.STATE_NEW;
 import static org.conscrypt.SSLUtils.EngineStates.STATE_READY;
@@ -308,9 +309,10 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
 
     @Override
     @SuppressWarnings("unused") // used by NativeCrypto.SSLHandshakeCallbacks / client_cert_cb
-    public final void clientCertificateRequested(byte[] keyTypeBytes, byte[][] asn1DerEncodedPrincipals)
+    public final void clientCertificateRequested(byte[] keyTypeBytes, int[] signatureAlgs,
+            byte[][] asn1DerEncodedPrincipals)
             throws CertificateEncodingException, SSLException {
-        ssl.chooseClientCertificate(keyTypeBytes, asn1DerEncodedPrincipals);
+        ssl.chooseClientCertificate(keyTypeBytes, signatureAlgs, asn1DerEncodedPrincipals);
     }
 
     @Override
@@ -754,7 +756,8 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     }
 
     /**
-     * This method enables Server Name Indication
+     * This method enables Server Name Indication.  If the hostname is not a valid SNI hostname,
+     * the SNI extension will be omitted from the handshake.
      *
      * @param hostname the desired SNI hostname, or null to disable
      */
@@ -865,6 +868,16 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
     @Override
     byte[] getTlsUnique() {
         return ssl.getTlsUnique();
+    }
+
+    @Override
+    byte[] exportKeyingMaterial(String label, byte[] context, int length) throws SSLException {
+        synchronized (ssl) {
+            if (state < STATE_HANDSHAKE_COMPLETED || state == STATE_CLOSED) {
+                return null;
+            }
+        }
+        return ssl.exportKeyingMaterial(label, context, length);
     }
 
     @Override
@@ -1050,8 +1063,10 @@ class ConscryptFileDescriptorSocket extends OpenSSLSocketImpl
             if (guard != null) {
                 Platform.closeGuardWarnIfOpen(guard);
             }
-            synchronized (ssl) {
-                transitionTo(STATE_CLOSED);
+            if (ssl != null) {
+                synchronized (ssl) {
+                    transitionTo(STATE_CLOSED);
+                }
             }
         } finally {
             super.finalize();

@@ -18,8 +18,6 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-static char build_date[] = __DATE__ " at "__TIME__;
-
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -365,7 +363,7 @@ static void find_input_files(char *idir)
 	}
 
 	while ((ent = readdir(dir)) != NULL) {
-		char *p, *dsf = malloc(256);
+		char *p, *dsf;
 
 		if (strstr(ent->d_name, ".blktrace.") == NULL)
 			continue;
@@ -449,7 +447,6 @@ void handle_args(int argc, char *argv[])
 		case 'V':
 			fprintf(stderr, "btrecord -- version %s\n", 
 				my_btversion);
-			fprintf(stderr, "            Built on %s\n", build_date);
 			exit(0);
 			/*NOTREACHED*/
 

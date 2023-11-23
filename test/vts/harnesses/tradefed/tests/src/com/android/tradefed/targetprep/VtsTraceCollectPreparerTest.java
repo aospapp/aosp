@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -75,6 +74,7 @@ public final class VtsTraceCollectPreparerTest {
             public File getTestsDir() throws FileNotFoundException {
                 return mTestDir;
             }
+            @Override
             public File getResultDir() throws FileNotFoundException {
                 return mTestDir;
             }

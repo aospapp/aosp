@@ -16,7 +16,6 @@
 
 package libcore.java.security;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -28,12 +27,9 @@ import java.security.spec.ECPublicKeySpec;
 import java.security.spec.KeySpec;
 import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPublicKeySpec;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -70,47 +66,33 @@ public final class StandardNames {
 
     public static final boolean IS_RI
             = !"Dalvik Core Library".equals(System.getProperty("java.specification.name"));
-    public static final String JSSE_PROVIDER_NAME = (IS_RI) ? "SunJSSE" : "AndroidOpenSSL";
-    public static final String SECURITY_PROVIDER_NAME = (IS_RI) ? "SUN" : "BC";
 
-    public static final String KEY_MANAGER_FACTORY_DEFAULT = (IS_RI) ? "SunX509" : "PKIX";
-    public static final String TRUST_MANAGER_FACTORY_DEFAULT = "PKIX";
+    public static final String SECURITY_PROVIDER_NAME = (IS_RI) ? "SUN" : "BC";
 
     public static final String KEY_STORE_ALGORITHM = (IS_RI) ? "JKS" : "BKS";
 
     /**
      * RFC 5746's Signaling Cipher Suite Value to indicate a request for secure renegotiation
      */
-    public static final String CIPHER_SUITE_SECURE_RENEGOTIATION
+    private static final String CIPHER_SUITE_SECURE_RENEGOTIATION
             = "TLS_EMPTY_RENEGOTIATION_INFO_SCSV";
-
-    /**
-     * From https://tools.ietf.org/html/draft-ietf-tls-downgrade-scsv-00 it is a
-     * signaling cipher suite value (SCSV) to indicate that this request is a
-     * protocol fallback (e.g., TLS 1.0 -> SSL 3.0) because the server didn't respond
-     * to the first request.
-     */
-    public static final String CIPHER_SUITE_FALLBACK = "TLS_FALLBACK_SCSV";
 
     /**
      * A map from algorithm type (e.g. Cipher) to a set of algorithms (e.g. AES, DES, ...)
      */
-    public static final Map<String,Set<String>> PROVIDER_ALGORITHMS
-            = new HashMap<String,Set<String>>();
+    static final Map<String,Set<String>> PROVIDER_ALGORITHMS
+            = new HashMap<>();
 
-    public static final Map<String,Set<String>> CIPHER_MODES
-            = new HashMap<String,Set<String>>();
+    private static final Map<String,Set<String>> CIPHER_MODES
+            = new HashMap<>();
 
-    public static final Map<String,Set<String>> CIPHER_PADDINGS
-            = new HashMap<String,Set<String>>();
-
-    private static final Map<String, String[]> SSL_CONTEXT_PROTOCOLS_ENABLED
-            = new HashMap<String,String[]>();
+    private static final Map<String,Set<String>> CIPHER_PADDINGS
+            = new HashMap<>();
 
     private static void provide(String type, String algorithm) {
         Set<String> algorithms = PROVIDER_ALGORITHMS.get(type);
         if (algorithms == null) {
-            algorithms = new HashSet<String>();
+            algorithms = new HashSet<>();
             PROVIDER_ALGORITHMS.put(type, algorithms);
         }
         assertTrue("Duplicate " + type + " " + algorithm,
@@ -127,7 +109,7 @@ public final class StandardNames {
     private static void provideCipherModes(String algorithm, String newModes[]) {
         Set<String> modes = CIPHER_MODES.get(algorithm);
         if (modes == null) {
-            modes = new HashSet<String>();
+            modes = new HashSet<>();
             CIPHER_MODES.put(algorithm, modes);
         }
         modes.addAll(Arrays.asList(newModes));
@@ -135,22 +117,10 @@ public final class StandardNames {
     private static void provideCipherPaddings(String algorithm, String newPaddings[]) {
         Set<String> paddings = CIPHER_PADDINGS.get(algorithm);
         if (paddings == null) {
-            paddings = new HashSet<String>();
+            paddings = new HashSet<>();
             CIPHER_PADDINGS.put(algorithm, paddings);
         }
         paddings.addAll(Arrays.asList(newPaddings));
-    }
-    private static void provideSslContextEnabledProtocols(String algorithm, TLSVersion minimum,
-            TLSVersion maximum) {
-        if (minimum.ordinal() > maximum.ordinal()) {
-            throw new RuntimeException("TLS version: minimum > maximum");
-        }
-        int versionsLength = maximum.ordinal() - minimum.ordinal() + 1;
-        String[] versionNames = new String[versionsLength];
-        for (int i = 0; i < versionsLength; i++) {
-            versionNames[i] = TLSVersion.values()[i + minimum.ordinal()].name;
-        }
-        SSL_CONTEXT_PROTOCOLS_ENABLED.put(algorithm, versionNames);
     }
     static {
         provide("AlgorithmParameterGenerator", "DSA");
@@ -264,6 +234,7 @@ public final class StandardNames {
         provide("SSLContext", "TLSv1");
         provide("SSLContext", "TLSv1.1");
         provide("SSLContext", "TLSv1.2");
+        provide("SSLContext", "TLSv1.3");
         provide("SecretKeyFactory", "DES");
         provide("SecretKeyFactory", "DESede");
         provide("SecretKeyFactory", "PBEWithMD5AndDES");
@@ -635,43 +606,16 @@ public final class StandardNames {
                 provide("KeyStore", "KnoxAndroidKeyStore");
             }
         }
-
-        if (IS_RI) {
-            provideSslContextEnabledProtocols("SSL", TLSVersion.SSLv3, TLSVersion.TLSv1);
-            provideSslContextEnabledProtocols("SSLv3", TLSVersion.SSLv3, TLSVersion.TLSv1);
-            provideSslContextEnabledProtocols("TLS", TLSVersion.SSLv3, TLSVersion.TLSv1);
-            provideSslContextEnabledProtocols("TLSv1", TLSVersion.SSLv3, TLSVersion.TLSv1);
-            provideSslContextEnabledProtocols("TLSv1.1", TLSVersion.SSLv3, TLSVersion.TLSv11);
-            provideSslContextEnabledProtocols("TLSv1.2", TLSVersion.SSLv3, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("Default", TLSVersion.SSLv3, TLSVersion.TLSv1);
-        } else {
-            provideSslContextEnabledProtocols("SSL", TLSVersion.TLSv1, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("TLS", TLSVersion.TLSv1, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("TLSv1", TLSVersion.TLSv1, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("TLSv1.1", TLSVersion.TLSv1, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("TLSv1.2", TLSVersion.TLSv1, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("Default", TLSVersion.TLSv1, TLSVersion.TLSv12);
-        }
     }
 
-    public static final String SSL_CONTEXT_PROTOCOLS_DEFAULT = "Default";
-    public static final Set<String> SSL_CONTEXT_PROTOCOLS = new HashSet<String>(Arrays.asList(
-        SSL_CONTEXT_PROTOCOLS_DEFAULT,
-        "SSL",
-        "TLS",
-        "TLSv1",
-        "TLSv1.1",
-        "TLSv1.2"));
-    public static final String SSL_CONTEXT_PROTOCOL_DEFAULT = "TLS";
-
-    public static final Set<String> KEY_TYPES = new HashSet<String>(Arrays.asList(
-        "RSA",
-        "DSA",
-        "DH_RSA",
-        "DH_DSA",
-        "EC",
-        "EC_EC",
-        "EC_RSA"));
+    public static final Set<String> KEY_TYPES = new HashSet<>(Arrays.asList(
+            "RSA",
+            "DSA",
+            "DH_RSA",
+            "DH_DSA",
+            "EC",
+            "EC_EC",
+            "EC_RSA"));
     static {
         if (IS_RI) {
             // DH_* are specified by standard names, but do not seem to be supported by RI
@@ -680,268 +624,50 @@ public final class StandardNames {
         }
     }
 
-    public static final Set<String> SSL_SOCKET_PROTOCOLS = new HashSet<String>(Arrays.asList(
-        "TLSv1",
-        "TLSv1.1",
-        "TLSv1.2"));
-    public static final Set<String> SSL_SOCKET_PROTOCOLS_CLIENT_DEFAULT =
-            new HashSet<String>(Arrays.asList(
-                "TLSv1",
-                "TLSv1.1",
-                "TLSv1.2"));
-    public static final Set<String> SSL_SOCKET_PROTOCOLS_SERVER_DEFAULT =
-            new HashSet<String>(Arrays.asList(
-                "TLSv1",
-                "TLSv1.1",
-                "TLSv1.2"));
-    static {
-        if (IS_RI) {
-            /* Even though we use OpenSSL's SSLv23_method which
-             * supports sending SSLv2 client hello messages, the
-             * OpenSSL implementation in s23_client_hello disables
-             * this if SSL_OP_NO_SSLv2 is specified, which we always
-             * do to disable general use of SSLv2.
-             */
-            SSL_SOCKET_PROTOCOLS.add("SSLv2Hello");
-
-            /* The RI still has SSLv3 as a default protocol. */
-            SSL_SOCKET_PROTOCOLS_CLIENT_DEFAULT.add("SSLv3");
-            SSL_SOCKET_PROTOCOLS_SERVER_DEFAULT.add("SSLv3");
-        }
-    }
-
-    private static enum TLSVersion {
-        SSLv3("SSLv3"),
-        TLSv1("TLSv1"),
-        TLSv11("TLSv1.1"),
-        TLSv12("TLSv1.2");
-
-        private final String name;
-
-        TLSVersion(String name) {
-            this.name = name;
-        }
-    };
-
     /**
      * Valid values for X509TrustManager.checkClientTrusted authType,
      * either the algorithm of the public key or UNKNOWN.
      */
-    public static final Set<String> CLIENT_AUTH_TYPES = new HashSet<String>(Arrays.asList(
-        "RSA",
-        "DSA",
-        "EC",
-        "UNKNOWN"));
+    public static final Set<String> CLIENT_AUTH_TYPES = new HashSet<>(Arrays.asList(
+            "RSA",
+            "DSA",
+            "EC",
+            "UNKNOWN"));
 
     /**
      * Valid values for X509TrustManager.checkServerTrusted authType,
-     * either key exchange algorithm part of the cipher suite
-     * or UNKNOWN.
+     * either key exchange algorithm part of the cipher suite, UNKNOWN,
+     * or GENERIC (for TLS 1.3 cipher suites that don't imply a specific
+     * key exchange method).
      */
-    public static final Set<String> SERVER_AUTH_TYPES = new HashSet<String>(Arrays.asList(
-        "DHE_DSS",
-        "DHE_DSS_EXPORT",
-        "DHE_RSA",
-        "DHE_RSA_EXPORT",
-        "DH_DSS_EXPORT",
-        "DH_RSA_EXPORT",
-        "DH_anon",
-        "DH_anon_EXPORT",
-        "KRB5",
-        "KRB5_EXPORT",
-        "RSA",
-        "RSA_EXPORT",
-        "RSA_EXPORT1024",
-        "ECDH_ECDSA",
-        "ECDH_RSA",
-        "ECDHE_ECDSA",
-        "ECDHE_RSA",
-        "UNKNOWN"));
-
-    public static final String CIPHER_SUITE_INVALID = "SSL_NULL_WITH_NULL_NULL";
-
-    public static final Set<String> CIPHER_SUITES_NEITHER = new HashSet<String>();
-
-    public static final Set<String> CIPHER_SUITES_RI = new LinkedHashSet<String>();
-    public static final Set<String> CIPHER_SUITES_OPENSSL = new LinkedHashSet<String>();
-
-    public static final Set<String> CIPHER_SUITES;
-
-    private static final void addRi(String cipherSuite) {
-        CIPHER_SUITES_RI.add(cipherSuite);
-    }
-
-    private static final void addOpenSsl(String cipherSuite) {
-        CIPHER_SUITES_OPENSSL.add(cipherSuite);
-    }
-
-    private static final void addBoth(String cipherSuite) {
-        addRi(cipherSuite);
-        addOpenSsl(cipherSuite);
-    }
-
-    private static final void addNeither(String cipherSuite) {
-        CIPHER_SUITES_NEITHER.add(cipherSuite);
-    }
-
-    static {
-        // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
-        // javax.net.ssl.SSLEngine.
-        addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA");
-        addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA");
-        addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA");
-        addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "TLS_RSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "SSL_RSA_WITH_3DES_EDE_CBC_SHA");
-
-        // TLSv1.2 cipher suites
-        addBoth(   "TLS_RSA_WITH_AES_128_CBC_SHA256");
-        addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA256");
-        addOpenSsl("TLS_RSA_WITH_AES_128_GCM_SHA256");
-        addOpenSsl("TLS_RSA_WITH_AES_256_GCM_SHA384");
-        addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256");
-        addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384");
-        addOpenSsl("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
-        addOpenSsl("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384");
-        addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256");
-        addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384");
-        addOpenSsl("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
-        addOpenSsl("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
-        addOpenSsl("TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256");
-        addOpenSsl("TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256");
-
-        // Pre-Shared Key (PSK) cipher suites
-        addOpenSsl("TLS_PSK_WITH_AES_128_CBC_SHA");
-        addOpenSsl("TLS_PSK_WITH_AES_256_CBC_SHA");
-        addOpenSsl("TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA");
-        addOpenSsl("TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA");
-        addOpenSsl("TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256");
-
-        // RFC 5746's Signaling Cipher Suite Value to indicate a request for secure renegotiation
-        addBoth(CIPHER_SUITE_SECURE_RENEGOTIATION);
-
-        // From https://tools.ietf.org/html/draft-ietf-tls-downgrade-scsv-00 to indicate
-        // TLS fallback request
-        addOpenSsl(CIPHER_SUITE_FALLBACK);
-
-        // non-defaultCipherSuites
-
-        // Android does not have Kerberos support
-        addRi(     "TLS_KRB5_WITH_RC4_128_SHA");
-        addRi(     "TLS_KRB5_WITH_RC4_128_MD5");
-        addRi(     "TLS_KRB5_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_KRB5_WITH_3DES_EDE_CBC_MD5");
-        addRi(     "TLS_KRB5_WITH_DES_CBC_SHA");
-        addRi(     "TLS_KRB5_WITH_DES_CBC_MD5");
-        addRi(     "TLS_KRB5_EXPORT_WITH_RC4_40_SHA");
-        addRi(     "TLS_KRB5_EXPORT_WITH_RC4_40_MD5");
-        addRi(     "TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA");
-        addRi(     "TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5");
-
-        // Android does not have DSS support
-        addRi(     "SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA");
-        addRi(     "SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "SSL_DHE_DSS_WITH_DES_CBC_SHA");
-        addRi(     "TLS_DHE_DSS_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256");
-        addNeither("TLS_DHE_DSS_WITH_AES_128_GCM_SHA256");
-        addRi(     "TLS_DHE_DSS_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256");
-        addNeither("TLS_DHE_DSS_WITH_AES_256_GCM_SHA384");
-
-        // Android does not have RC4 support
-        addRi(     "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA");
-        addRi(     "TLS_ECDHE_RSA_WITH_RC4_128_SHA");
-        addRi(     "SSL_RSA_WITH_RC4_128_SHA");
-        addRi(     "SSL_RSA_WITH_RC4_128_MD5");
-
-        // Dropped
-        addRi(     "SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA");
-        addRi(     "SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "SSL_DHE_RSA_WITH_DES_CBC_SHA");
-        addNeither("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA");
-        addNeither("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA");
-        addRi(     "SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA");
-        addRi(     "SSL_DH_anon_EXPORT_WITH_RC4_40_MD5");
-        addRi(     "SSL_DH_anon_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "SSL_DH_anon_WITH_DES_CBC_SHA");
-        addRi(     "SSL_DH_anon_WITH_RC4_128_MD5");
-        addRi(     "SSL_RSA_EXPORT_WITH_DES40_CBC_SHA");
-        addRi(     "SSL_RSA_EXPORT_WITH_RC4_40_MD5");
-        addRi(     "SSL_RSA_WITH_DES_CBC_SHA");
-        addRi(     "SSL_RSA_WITH_NULL_MD5");
-        addRi(     "SSL_RSA_WITH_NULL_SHA");
-        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
-        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
-        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA384");
-        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
-        addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA256");
-        addNeither("TLS_DH_anon_WITH_AES_128_GCM_SHA256");
-        addRi(     "TLS_DH_anon_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_DH_anon_WITH_AES_256_CBC_SHA256");
-        addNeither("TLS_DH_anon_WITH_AES_256_GCM_SHA384");
-        addRi(     "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_ECDHE_ECDSA_WITH_NULL_SHA");
-        addRi(     "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_ECDHE_RSA_WITH_NULL_SHA");
-        addRi(     "TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256");
-        addNeither("TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256");
-        addRi(     "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384");
-        addNeither("TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384");
-        addRi(     "TLS_ECDH_ECDSA_WITH_NULL_SHA");
-        addRi(     "TLS_ECDH_ECDSA_WITH_RC4_128_SHA");
-        addRi(     "TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256");
-        addNeither("TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256");
-        addRi(     "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384");
-        addNeither("TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384");
-        addRi(     "TLS_ECDH_RSA_WITH_NULL_SHA");
-        addRi(     "TLS_ECDH_RSA_WITH_RC4_128_SHA");
-        addRi(     "TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_ECDH_anon_WITH_AES_128_CBC_SHA");
-        addRi(     "TLS_ECDH_anon_WITH_AES_256_CBC_SHA");
-        addRi(     "TLS_ECDH_anon_WITH_NULL_SHA");
-        addRi(     "TLS_ECDH_anon_WITH_RC4_128_SHA");
-        addNeither("TLS_PSK_WITH_3DES_EDE_CBC_SHA");
-        addRi(     "TLS_RSA_WITH_NULL_SHA256");
-
-        // Old non standard exportable encryption
-        addNeither("SSL_RSA_EXPORT1024_WITH_DES_CBC_SHA");
-        addNeither("SSL_RSA_EXPORT1024_WITH_RC4_56_SHA");
-
-        // No RC2
-        addNeither("SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5");
-        addNeither("TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA");
-        addNeither("TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5");
-
-        CIPHER_SUITES = (IS_RI) ? CIPHER_SUITES_RI : CIPHER_SUITES_OPENSSL;
-    }
+    public static final Set<String> SERVER_AUTH_TYPES = new HashSet<>(Arrays.asList(
+            "DHE_DSS",
+            "DHE_DSS_EXPORT",
+            "DHE_RSA",
+            "DHE_RSA_EXPORT",
+            "DH_DSS_EXPORT",
+            "DH_RSA_EXPORT",
+            "DH_anon",
+            "DH_anon_EXPORT",
+            "KRB5",
+            "KRB5_EXPORT",
+            "RSA",
+            "RSA_EXPORT",
+            "RSA_EXPORT1024",
+            "ECDH_ECDSA",
+            "ECDH_RSA",
+            "ECDHE_ECDSA",
+            "ECDHE_RSA",
+            "UNKNOWN",
+            "GENERIC"));
 
     /**
-     * Cipher suites that are not negotiated when TLSv1.2 is selected on the RI.
+     * Cipher suites that are only supported with TLS 1.3.
      */
-    public static final List<String> CIPHER_SUITES_OBSOLETE_TLS12 =
-            Arrays.asList(
-                    "SSL_RSA_WITH_DES_CBC_SHA",
-                    "SSL_DHE_RSA_WITH_DES_CBC_SHA",
-                    "SSL_DHE_DSS_WITH_DES_CBC_SHA",
-                    "SSL_DH_anon_WITH_DES_CBC_SHA",
-                    "SSL_RSA_EXPORT_WITH_RC4_40_MD5",
-                    "SSL_DH_anon_EXPORT_WITH_RC4_40_MD5",
-                    "SSL_RSA_EXPORT_WITH_DES40_CBC_SHA",
-                    "SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA",
-                    "SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA",
-                    "SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA"
-            );
+    public static final List<String> CIPHER_SUITES_TLS13 = Arrays.asList(
+            "TLS_AES_128_GCM_SHA256",
+            "TLS_AES_256_GCM_SHA384",
+            "TLS_CHACHA20_POLY1305_SHA256");
 
     // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
     // javax.net.ssl.SSLEngine.
@@ -1031,50 +757,13 @@ public final class StandardNames {
             : CpuFeatures.isAESHardwareAccelerated() ? CIPHER_SUITES_ANDROID_AES_HARDWARE
                     : CIPHER_SUITES_ANDROID_SOFTWARE;
 
-    // NOTE: This list needs to be kept in sync with Javadoc of javax.net.ssl.SSLSocket and
-    // javax.net.ssl.SSLEngine.
-    public static final List<String> CIPHER_SUITES_DEFAULT_PSK = Arrays.asList(
-            "TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA",
-            "TLS_PSK_WITH_AES_128_CBC_SHA",
-            "TLS_PSK_WITH_AES_256_CBC_SHA"
-            );
-
-    // Should be updated to match BoringSSL's defaults when they change.
-    // https://android.googlesource.com/platform/external/boringssl/+/master/src/ssl/t1_lib.c#305
-    public static final List<String> ELLIPTIC_CURVES_DEFAULT = Arrays.asList(
-            "x25519 (29)",
-            "secp256r1 (23)",
-            "secp384r1 (24)"
-            );
-
-    private static final Set<String> PERMITTED_DEFAULT_KEY_EXCHANGE_ALGS =
-            new HashSet<String>(Arrays.asList("RSA",
-                                              "DHE_RSA",
-                                              "DHE_DSS",
-                                              "ECDHE_RSA",
-                                              "ECDHE_ECDSA"));
-
-    private static final Set<String> PERMITTED_DEFAULT_BULK_ENCRYPTION_CIPHERS =
-            new HashSet<String>(Arrays.asList("AES_128_CBC",
-                                              "AES_256_CBC",
-                                              "AES_128_GCM",
-                                              "AES_256_GCM",
-                                              "CHACHA20_POLY1305"));
-
-    private static final Set<String> PERMITTED_DEFAULT_MACS =
-            new HashSet<String>(Arrays.asList("SHA",
-                                              "SHA256",
-                                              "SHA384"));
-
-    public static final Map<String, Class<? extends KeySpec>> PRIVATE_KEY_SPEC_CLASSES;
-    public static final Map<String, Class<? extends KeySpec>> PUBLIC_KEY_SPEC_CLASSES;
-    public static final Map<String, Integer> MINIMUM_KEY_SIZE;
+    private static final Map<String, Class<? extends KeySpec>> PRIVATE_KEY_SPEC_CLASSES;
+    private static final Map<String, Class<? extends KeySpec>> PUBLIC_KEY_SPEC_CLASSES;
+    private static final Map<String, Integer> MINIMUM_KEY_SIZE;
     static {
-        PRIVATE_KEY_SPEC_CLASSES = new HashMap<String, Class<? extends KeySpec>>();
-        PUBLIC_KEY_SPEC_CLASSES = new HashMap<String, Class<? extends KeySpec>>();
-        MINIMUM_KEY_SIZE = new HashMap<String, Integer>();
+        PRIVATE_KEY_SPEC_CLASSES = new HashMap<>();
+        PUBLIC_KEY_SPEC_CLASSES = new HashMap<>();
+        MINIMUM_KEY_SIZE = new HashMap<>();
         PRIVATE_KEY_SPEC_CLASSES.put("RSA", RSAPrivateCrtKeySpec.class);
         PUBLIC_KEY_SPEC_CLASSES.put("RSA", RSAPublicKeySpec.class);
         MINIMUM_KEY_SIZE.put("RSA", 512);
@@ -1101,178 +790,4 @@ public final class StandardNames {
         return MINIMUM_KEY_SIZE.get(algName);
     }
 
-    /**
-     * Asserts that the cipher suites array is non-null and that it
-     * all of its contents are cipher suites known to this
-     * implementation. As a convenience, returns any unenabled cipher
-     * suites in a test for those that want to verify separately that
-     * all cipher suites were included.
-     */
-    private static Set<String> assertValidCipherSuites(
-            Set<String> expected, String[] cipherSuites) {
-        assertNotNull(cipherSuites);
-        assertTrue(cipherSuites.length != 0);
-
-        // Make sure all cipherSuites names are expected
-        Set remainingCipherSuites = new HashSet<String>(expected);
-        Set unknownCipherSuites = new HashSet<String>();
-        for (String cipherSuite : cipherSuites) {
-            boolean removed = remainingCipherSuites.remove(cipherSuite);
-            if (!removed) {
-                unknownCipherSuites.add(cipherSuite);
-            }
-        }
-        assertEquals("Unknown cipher suites", Collections.EMPTY_SET, unknownCipherSuites);
-        return remainingCipherSuites;
-    }
-
-    /**
-     * After using assertValidCipherSuites on cipherSuites,
-     * assertSupportedCipherSuites additionally verifies that all
-     * supported cipher suites where in the input array.
-     */
-    private static void assertSupportedCipherSuites(Set<String> expected, String[] cipherSuites) {
-        Set<String> remainingCipherSuites = assertValidCipherSuites(expected, cipherSuites);
-        assertEquals("Missing cipher suites", Collections.EMPTY_SET, remainingCipherSuites);
-        assertEquals(expected.size(), cipherSuites.length);
-    }
-
-    /**
-     * Asserts that the protocols array is non-null and that it all of
-     * its contents are protocols known to this implementation. As a
-     * convenience, returns any unenabled protocols in a test for
-     * those that want to verify separately that all protocols were
-     * included.
-     */
-    private static Set<String> assertValidProtocols(Set<String> expected, String[] protocols) {
-        assertNotNull(protocols);
-        assertTrue(protocols.length != 0);
-
-        // Make sure all protocols names are expected
-        Set remainingProtocols = new HashSet<String>(expected);
-        Set unknownProtocols = new HashSet<String>();
-        for (String protocol : protocols) {
-            if (!remainingProtocols.remove(protocol)) {
-                unknownProtocols.add(protocol);
-            }
-        }
-        assertEquals("Unknown protocols", Collections.EMPTY_SET, unknownProtocols);
-        return remainingProtocols;
-    }
-
-    /**
-     * After using assertValidProtocols on protocols,
-     * assertSupportedProtocols additionally verifies that all
-     * supported protocols where in the input array.
-     */
-    private static void assertSupportedProtocols(Set<String> expected, String[] protocols) {
-        Set<String> remainingProtocols = assertValidProtocols(expected, protocols);
-        assertEquals("Missing protocols", Collections.EMPTY_SET, remainingProtocols);
-        assertEquals(expected.size(), protocols.length);
-    }
-
-    /**
-     * Asserts that the provided list of protocols matches the supported list of protocols.
-     */
-    public static void assertSupportedProtocols(String[] protocols) {
-        assertSupportedProtocols(SSL_SOCKET_PROTOCOLS, protocols);
-    }
-
-    /**
-     * Assert that the provided list of cipher suites contains only the supported cipher suites.
-     */
-    public static void assertValidCipherSuites(String[] cipherSuites) {
-        assertValidCipherSuites(CIPHER_SUITES, cipherSuites);
-    }
-
-    /**
-     * Assert that the provided list of cipher suites matches the supported list.
-     */
-    public static void assertSupportedCipherSuites(String[] cipherSuites) {
-        assertSupportedCipherSuites(CIPHER_SUITES, cipherSuites);
-    }
-
-    /**
-     * Assert cipher suites match the default list in content and priority order and contain
-     * only cipher suites permitted by default.
-     */
-    public static void assertDefaultCipherSuites(String[] cipherSuites) {
-        assertValidCipherSuites(cipherSuites);
-        assertEquals(CIPHER_SUITES_DEFAULT, Arrays.asList(cipherSuites));
-
-        // Assert that all the cipher suites are permitted to be in the default list.
-        // This assertion is a backup for the stricter assertion above.
-        //
-        // There is no point in asserting this for the RI as it's outside of our control.
-        if (!IS_RI) {
-            List<String> disallowedDefaultCipherSuites = new ArrayList<String>();
-            for (String cipherSuite : cipherSuites) {
-                if (!isPermittedDefaultCipherSuite(cipherSuite)) {
-                    disallowedDefaultCipherSuites.add(cipherSuite);
-                }
-            }
-            assertEquals(Collections.EMPTY_LIST, disallowedDefaultCipherSuites);
-        }
-    }
-
-    public static void assertDefaultEllipticCurves(String[] curves) {
-        assertEquals(ELLIPTIC_CURVES_DEFAULT, Arrays.asList(curves));
-    }
-
-    public static void assertSSLContextEnabledProtocols(String version, String[] protocols) {
-        assertEquals("For protocol \"" + version + "\"",
-                Arrays.toString(SSL_CONTEXT_PROTOCOLS_ENABLED.get(version)),
-                Arrays.toString(protocols));
-    }
-
-    private static boolean isPermittedDefaultCipherSuite(String cipherSuite) {
-        assertNotNull(cipherSuite);
-        if (CIPHER_SUITE_SECURE_RENEGOTIATION.equals(cipherSuite)) {
-            return true;
-        }
-        assertTrue(cipherSuite, cipherSuite.startsWith("TLS_") || cipherSuite.startsWith("SSL_"));
-
-        // Example: RSA_WITH_AES_128_CBC_SHA
-        String remainder = cipherSuite.substring("TLS_".length());
-        int macDelimiterIndex = remainder.lastIndexOf('_');
-        assertTrue(cipherSuite, macDelimiterIndex != -1);
-        // Example: SHA
-        String mac = remainder.substring(macDelimiterIndex + 1);
-
-        // Example: RSA_WITH_AES_128_CBC
-        remainder = remainder.substring(0, macDelimiterIndex);
-        int withDelimiterIndex = remainder.indexOf("_WITH_");
-        assertTrue(cipherSuite, withDelimiterIndex != -1);
-
-        // Example: RSA
-        String keyExchange = remainder.substring(0, withDelimiterIndex);
-        // Example: AES_128_CBC
-        String bulkEncryptionCipher = remainder.substring(withDelimiterIndex + "_WITH_".length());
-
-        if (!PERMITTED_DEFAULT_MACS.contains(mac)) {
-            return false;
-        }
-        if (!PERMITTED_DEFAULT_KEY_EXCHANGE_ALGS.contains(keyExchange)) {
-            return false;
-        }
-        if (!PERMITTED_DEFAULT_BULK_ENCRYPTION_CIPHERS.contains(bulkEncryptionCipher)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Get all supported mode names for the given cipher.
-     */
-    public static Set<String> getModesForCipher(String cipher) {
-        return CIPHER_MODES.get(cipher);
-    }
-
-    /**
-     * Get all supported padding names for the given cipher.
-     */
-    public static Set<String> getPaddingsForCipher(String cipher) {
-        return CIPHER_PADDINGS.get(cipher);
-    }
 }

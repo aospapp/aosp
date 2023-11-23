@@ -254,7 +254,7 @@ class ApBatchLocker(object):
                 unlocked_device = requests.put(CHAOS_URL + '/devices/unlock', \
                                   json={"hostname":host_name})
                 # TODO: Raise error if unable to unlock.
-                if !unlocked_device.json()['result']:
+                if not unlocked_device.json()['result']:
                     raise error
                     logging.debug(unlocked_device.content())
                 else:

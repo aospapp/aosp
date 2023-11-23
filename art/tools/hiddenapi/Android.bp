@@ -27,6 +27,9 @@ cc_defaults {
         android: {
             compile_multilib: "prefer32",
         },
+        darwin: {
+            enabled: true,
+        },
     },
 
     shared_libs: [
@@ -38,8 +41,8 @@ art_cc_binary {
     name: "hiddenapi",
     defaults: ["hiddenapi-defaults"],
     shared_libs: [
-        "libart",
         "libdexfile",
+        "libartbase",
     ],
 }
 
@@ -50,8 +53,8 @@ art_cc_binary {
         "hiddenapi-defaults",
     ],
     shared_libs: [
-        "libartd",
         "libdexfiled",
+        "libartbased",
     ],
 }
 

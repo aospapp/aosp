@@ -15,22 +15,22 @@
  */
 package android.app.cts;
 
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import android.app.stubs.MockActivity;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.ActionMode;
 import android.view.Window;
+
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.*;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)

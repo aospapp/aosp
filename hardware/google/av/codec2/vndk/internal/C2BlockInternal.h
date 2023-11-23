@@ -190,20 +190,21 @@ struct _C2BlockFactory {
      * main pieces of information:
      *   - "held" status: Whether cancelBuffer() should be called upon
      *     destruction of the block.
-     *   - bufferqueue assignment: The triple (igbp, bqId, bqSlot), where igbp
-     *     is the IGraphicBufferProducer instance of the bufferqueue, bqId is
-     *     the globally unique id of the bufferqueue, and bqSlot is the slot in
-     *     the bufferqueue.
+     *   - bufferqueue assignment: The quadruple (igbp, generation, bqId,
+     *     bqSlot), where igbp is the IGraphicBufferProducer instance of the
+     *     bufferqueue, generation is the latest generation number, of the
+     *     bufferqueue, bqId is the globally unique id of the bufferqueue, and
+     *     bqSlot is the slot in the bufferqueue.
      *
      * igbp is the instance of IGraphicBufferProducer on which cancelBuffer()
      * will be called if "held" status is true when the block is destroyed.
-     * (bqSlot is an input to cancelBuffer().) However, only bqId and bqSlot
-     * are retained when a block is transferred from one process to another. It
-     * is the responsibility of both the sending and receiving processes to
-     * maintain consistency of "held" status and igbp. Below are functions
-     * provided for this purpose:
+     * (bqSlot is an input to cancelBuffer().) However, only generation, bqId
+     * and bqSlot are retained when a block is transferred from one process to
+     * another. It is the responsibility of both the sending and receiving
+     * processes to maintain consistency of "held" status and igbp. Below are
+     * functions provided for this purpose:
      *
-     *   - GetBufferQueueData(): Returns bqId and bqSlot.
+     *   - GetBufferQueueData(): Returns generation, bqId and bqSlot.
      *   - HoldBlockFromBufferQueue(): Sets "held" status to true.
      *   - YieldBlockToBufferQueue(): Sets "held" status to false.
      *   - AssignBlockToBufferQueue(): Sets the bufferqueue assignment and
@@ -246,44 +247,52 @@ struct _C2BlockFactory {
     /**
      * Get bufferqueue data from the blockpool data.
      *
-     * Calling this function with \p bpId set to nullptr will return whether the
-     * block comes from a bufferqueue-based blockpool.
+     * Calling this function with \p generation set to nullptr will return
+     * whether the block comes from a bufferqueue-based blockpool, but will not
+     * fill in the values for \p generation, \p bqId or \p bqSlot.
      *
-     * \param[in]  poolData blockpool data
-     * \param[out] bqId     Id of the bufferqueue owning the buffer (block)
-     * \param[out] bqSlot   Slot number of the buffer
+     * \param[in]  poolData   blockpool data.
+     * \param[out] generation Generation number attached to the buffer.
+     * \param[out] bqId       Id of the bufferqueue owning the buffer (block).
+     * \param[out] bqSlot     Slot number of the buffer.
      *
-     * \return {\code true} when there is valid bufferqueue data;
-     *         {\code false} otherwise.
+     * \return \c true when there is valid bufferqueue data;
+     *         \c false otherwise.
      */
     static
     bool GetBufferQueueData(
             const std::shared_ptr<_C2BlockPoolData>& poolData,
-            uint64_t* bqId = nullptr, int32_t* bqSlot = nullptr);
+            uint32_t* generation = nullptr,
+            uint64_t* bqId = nullptr,
+            int32_t* bqSlot = nullptr);
 
     /**
      * Set bufferqueue assignment and "held" status to a block created by a
      * bufferqueue-based blockpool.
      *
      * \param poolData blockpool data associated to the block.
-     * \param igbp     \c IGraphicBufferProducer instance from the designated
-     *                 bufferqueue.
-     * \param bqId     Id of the bufferqueue that will own the buffer (block).
-     * \param bqSlot   Slot number of the buffer.
-     * \param held     Whether the block is held. This "held" status can be
-     *                 changed later by calling YieldBlockToBufferQueue() or
-     *                 HoldBlockFromBufferQueue().
+     * \param igbp       \c IGraphicBufferProducer instance from the designated
+     *                   bufferqueue.
+     * \param generation Generation number that the buffer belongs to.
+     * \param bqId       Id of the bufferqueue that will own the buffer (block).
+     * \param bqSlot     Slot number of the buffer.
+     * \param held       Whether the block is held. This "held" status can be
+     *                   changed later by calling YieldBlockToBufferQueue() or
+     *                   HoldBlockFromBufferQueue().
      *
      * \return \c true if \p poolData is valid bufferqueue data;
      *         \c false otherwise.
      *
-     * Note: bqId should match the unique id obtained from igbp->getUniqueId().
+     * Note: \p generation should match the latest generation number set on the
+     * bufferqueue, and \p bqId should match the unique id for the bufferqueue
+     * (obtainable by calling igbp->getUniqueId()).
      */
     static
     bool AssignBlockToBufferQueue(
             const std::shared_ptr<_C2BlockPoolData>& poolData,
             const ::android::sp<::android::hardware::graphics::bufferqueue::
                                 V1_0::IGraphicBufferProducer>& igbp,
+            uint32_t generation,
             uint64_t bqId,
             int32_t bqSlot,
             bool held = true);

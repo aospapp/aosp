@@ -24,7 +24,7 @@
 
     <!--  self-instrumenting test package. -->
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="CTS preconditions test"
         android:targetPackage="com.android.preconditions.cts" >
     </instrumentation>

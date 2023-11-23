@@ -18,6 +18,7 @@ cc_binary_host {
     name: "cts_audio_quality",
     srcs: ["src/main.cpp"],
     static_libs: [
+        "libbase",
         "libutils",
         "liblog",
         "libcutils",

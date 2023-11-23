@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput_char.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static char value = (char)(5 / 0); 
 }
 

@@ -32,6 +32,10 @@ namespace implementation {
 
 sp<V1_0::ISecureElementHalCallback> SecureElement::mCallbackV1_0 = nullptr;
 
+static void onLSCompleted(bool result, std::string reason, void* arg) {
+  ((SecureElement*)arg)->onStateChange(result, reason);
+}
+
 SecureElement::SecureElement()
     : mOpenedchannelCount(0),
       mOpenedChannels{false, false, false, false} {}
@@ -61,7 +65,7 @@ Return<void> SecureElement::init(
     return Void();
   }
 
-  LSCSTATUS lsStatus = LSC_doDownload(clientCallback);
+  LSCSTATUS lsStatus = LSC_doDownload(onLSCompleted, (void*)this);
   /*
    * LSC_doDownload returns LSCSTATUS_FAILED in case thread creation fails.
    * So return callback as false.
@@ -171,6 +175,13 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   phNxpEse_free(rspApdu.p_data);
 
   if (sestatus != SecureElementStatus::SUCCESS) {
+    /*If first logical channel open fails, DeInit SE*/
+    if (isSeInitialized() && (mOpenedchannelCount == 0)) {
+      SecureElementStatus deInitStatus = seHalDeInit();
+      if (deInitStatus != SecureElementStatus::SUCCESS) {
+        ALOGE("%s: seDeInit Failed", __func__);
+      }
+    }
     /*If manageChanle is failed in any of above cases
     send the callback and return*/
     _hidl_cb(resApduBuff, sestatus);
@@ -304,11 +315,17 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
     }
   }
 
-  if ((sestatus != SecureElementStatus::SUCCESS) && mOpenedChannels[0]) {
-    SecureElementStatus closeChannelStatus =
-        closeChannel(DEFAULT_BASIC_CHANNEL);
-    if (closeChannelStatus != SecureElementStatus::SUCCESS) {
-      ALOGE("%s: closeChannel Failed", __func__);
+  if (sestatus != SecureElementStatus::SUCCESS) {
+    SecureElementStatus closeStatus = SecureElementStatus::IOERROR;
+    /*If first basic channel open fails, DeInit SE*/
+    if ((mOpenedChannels[DEFAULT_BASIC_CHANNEL] == false) &&
+        (mOpenedchannelCount == 0)) {
+      closeStatus = seHalDeInit();
+    } else {
+      closeStatus = closeChannel(DEFAULT_BASIC_CHANNEL);
+    }
+    if (closeStatus != SecureElementStatus::SUCCESS) {
+      ALOGE("%s: close Failed", __func__);
     }
   }
   _hidl_cb(result, sestatus);
@@ -360,8 +377,8 @@ SecureElement::closeChannel(uint8_t channelNumber) {
 
   if ((channelNumber == DEFAULT_BASIC_CHANNEL) ||
       (sestatus == SecureElementStatus::SUCCESS)) {
+    if (mOpenedChannels[channelNumber] != false) mOpenedchannelCount--;
     mOpenedChannels[channelNumber] = false;
-    mOpenedchannelCount--;
     /*If there are no channels remaining close secureElement*/
     if (mOpenedchannelCount == 0) {
       sestatus = seHalDeInit();
@@ -424,6 +441,11 @@ SecureElement::seHalDeInit() {
     }
   }
   return sestatus;
+}
+
+void SecureElement::onStateChange(bool result, std::string reason) {
+  ALOGD("%s: result: %d, reaon= %s", __func__, result, reason.c_str());
+  mCallbackV1_0->onStateChange(result);
 }
 
 }  // namespace implementation

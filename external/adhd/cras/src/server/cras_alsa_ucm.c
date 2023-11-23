@@ -10,6 +10,7 @@
 #include <syslog.h>
 
 #include "cras_alsa_ucm.h"
+#include "cras_util.h"
 #include "utlist.h"
 
 static const char jack_var[] = "JackName";
@@ -32,10 +33,23 @@ static const char capture_device_name_var[] = "CapturePCM";
 static const char capture_device_rate_var[] = "CaptureRate";
 static const char capture_channel_map_var[] = "CaptureChannelMap";
 static const char coupled_mixers[] = "CoupledMixers";
-/* Set this value in a SectionDevice to specify the maximum software gain in dBm
- * and enable software gain on this node. */
+static const char preempt_hotword_var[] = "PreemptHotword";
+static const char echo_reference_dev_name_var[] = "EchoReferenceDev";
+/*
+ * Set this value in a SectionDevice to specify the minimum software gain in
+ * 0.01 dB and enable software gain on this node. It must be used with
+ * MaxSoftwareGain. If not, the value will be ignored.
+ */
+static const char min_software_gain[] = "MinSoftwareGain";
+/*
+ * Set this value in a SectionDevice to specify the maximum software gain in
+ * 0.01 dB and enable software gain on this node.
+ */
 static const char max_software_gain[] = "MaxSoftwareGain";
-/* Set this value in a SectionDevice to specify the default node gain in dBm. */
+/*
+ * Set this value in a SectionDevice to specify the default node gain in
+ * 0.01 dB.
+ */
 static const char default_node_gain[] = "DefaultNodeGain";
 static const char hotword_model_prefix[] = "Hotword Model";
 static const char fully_specified_ucm_var[] = "FullySpecifiedUCM";
@@ -49,6 +63,7 @@ static const char *use_case_verbs[] = {
 	"Voice Call",
 	"Speech",
 	"Pro Audio",
+	"Accessibility",
 };
 
 /* Represents a list of section names found in UCM. */
@@ -334,7 +349,8 @@ static struct mixer_name *ucm_get_mixer_names(struct cras_use_case_mgr *mgr,
 {
 	const char *names_in_string = NULL;
 	int rc;
-	char *tokens, *name, *laststr;
+	char *tokens, *name;
+	char *laststr = NULL;
 	struct mixer_name *names = NULL;
 
 	rc = get_var(mgr, var, dev, uc_verb(mgr), &names_in_string);
@@ -360,6 +376,8 @@ struct cras_use_case_mgr *ucm_create(const char *name)
 	int rc;
 	const char **list;
 	int num_verbs, i, j;
+
+	assert_on_compile(ARRAY_SIZE(use_case_verbs) == CRAS_STREAM_NUM_TYPES);
 
 	if (!name)
 		return NULL;
@@ -614,16 +632,18 @@ const char *ucm_get_dsp_name_default(struct cras_use_case_mgr *mgr,
 	return ucm_get_dsp_name(mgr, "", direction);
 }
 
-unsigned int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr)
+int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr,
+			     unsigned int *level)
 {
 	int value;
 	int rc;
 
 	rc = get_int(mgr, min_buffer_level_var, "", uc_verb(mgr), &value);
 	if (rc)
-		return 0;
+		return -ENOENT;
+	*level = value;
 
-	return value;
+	return 0;
 }
 
 unsigned int ucm_get_disable_software_volume(struct cras_use_case_mgr *mgr)
@@ -636,6 +656,19 @@ unsigned int ucm_get_disable_software_volume(struct cras_use_case_mgr *mgr)
 		return 0;
 
 	return value;
+}
+
+int ucm_get_min_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
+			      long *gain)
+{
+	int value;
+	int rc;
+
+	rc = get_int(mgr, min_software_gain, dev, uc_verb(mgr), &value);
+	if (rc)
+		return rc;
+	*gain = value;
+	return 0;
 }
 
 int ucm_get_max_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
@@ -664,6 +697,17 @@ int ucm_get_default_node_gain(struct cras_use_case_mgr *mgr, const char *dev,
 	return 0;
 }
 
+int ucm_get_preempt_hotword(struct cras_use_case_mgr *mgr, const char *dev)
+{
+	int value;
+	int rc;
+
+	rc = get_int(mgr, preempt_hotword_var, dev, uc_verb(mgr), &value);
+	if (rc)
+		return 0;
+	return value;
+}
+
 const char *ucm_get_device_name_for_dev(
 	struct cras_use_case_mgr *mgr, const char *dev,
 	enum CRAS_STREAM_DIRECTION direction)
@@ -673,6 +717,19 @@ const char *ucm_get_device_name_for_dev(
 	else if (direction == CRAS_STREAM_INPUT)
 		return ucm_get_capture_device_name_for_dev(mgr, dev);
 	return NULL;
+}
+
+const char *ucm_get_echo_reference_dev_name_for_dev(
+		struct cras_use_case_mgr *mgr, const char *dev)
+{
+	const char *name = NULL;
+	int rc;
+
+	rc = get_var(mgr, echo_reference_dev_name_var, dev,
+		     uc_verb(mgr), &name);
+	if (rc)
+		return NULL;
+	return name;
 }
 
 int ucm_get_sample_rate_for_dev(struct cras_use_case_mgr *mgr, const char *dev,
@@ -760,10 +817,10 @@ struct ucm_section *ucm_get_sections(struct cras_use_case_mgr *mgr)
 
 	/* snd_use_case_get_list fills list with pairs of device name and
 	 * comment, so device names are in even-indexed elements. */
+	const char *dev_name;
 	for (i = 0; i < num_devs; i += 2) {
 		enum CRAS_STREAM_DIRECTION dir = CRAS_STREAM_UNDEFINED;
 		int dev_idx = -1;
-		const char *dev_name = strdup(list[i]);
 		const char *jack_name;
 		const char *jack_type;
 		const char *mixer_name;
@@ -771,6 +828,7 @@ struct ucm_section *ucm_get_sections(struct cras_use_case_mgr *mgr)
 		int rc;
 		const char *target_device_name;
 
+		dev_name = strdup(list[i]);
 		if (!dev_name)
 			continue;
 
@@ -840,6 +898,7 @@ struct ucm_section *ucm_get_sections(struct cras_use_case_mgr *mgr)
 
 		DL_APPEND(sections, dev_sec);
 		ucm_section_dump(dev_sec);
+		free((void *)dev_name);
 	}
 
 	if (num_devs > 0)
@@ -850,6 +909,7 @@ error_cleanup:
 	if (num_devs > 0)
 		snd_use_case_free_list(list, num_devs);
 	ucm_section_free_list(sections);
+	free((void *)dev_name);
 	return NULL;
 }
 
@@ -920,7 +980,7 @@ int ucm_set_hotword_model(struct cras_use_case_mgr *mgr, const char *model)
 
 enable_mod:
 	ucm_set_modifier_enabled(mgr, model_mod, 1);
-
+	free((void *)model_mod);
 	return 0;
 }
 
@@ -1018,6 +1078,8 @@ const char *ucm_get_jack_type_for_dev(struct cras_use_case_mgr *mgr,
 
 	if (strcmp(name, "hctl") && strcmp(name, "gpio")) {
 		syslog(LOG_ERR, "Unknown jack type: %s", name);
+		if(name)
+			free((void *)name);
 		return NULL;
 	}
 	return name;

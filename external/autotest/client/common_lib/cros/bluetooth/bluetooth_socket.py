@@ -1086,6 +1086,31 @@ class BluetoothControlSocket(BluetoothSocket):
         return current_settings
 
 
+    def set_secure_connections(self, index, secure_conn):
+        """Set whether a controller supports secure connections.
+
+        @param index: Controller index.
+        @param secure_conn: Whether controller should support secure connections
+
+        @return New controller settings on success, 0 if the feature is not
+                supported and the parameter was False, None otherwise.
+
+        """
+        msg_data = struct.pack('<B', bool(secure_conn))
+        (status, data) = self.send_command_and_wait(
+                MGMT_OP_SET_SECURE_CONN,
+                index,
+                msg_data,
+                expected_length=4)
+        if status == MGMT_STATUS_NOT_SUPPORTED and not secure_conn:
+            return 0
+        elif status != MGMT_STATUS_SUCCESS:
+            return None
+
+        (current_settings, ) = struct.unpack_from('<L', buffer(data))
+        return current_settings
+
+
     def add_device(self, index, address, address_type, action):
         """Add a device to the action list.
 

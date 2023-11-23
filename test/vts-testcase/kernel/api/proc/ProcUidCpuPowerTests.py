@@ -42,7 +42,7 @@ class ProcUidCpuPowerTimeInStateTest(KernelProcFileTestBase.KernelProcFileTestBa
     def get_path(self):
         return "/proc/uid_cpupower/time_in_state"
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # This file is optional until implemented in Android common kernel
         return True
 
@@ -66,7 +66,7 @@ class ProcUidCpuPowerConcurrentActiveTimeTest(KernelProcFileTestBase.KernelProcF
     def get_path(self):
         return "/proc/uid_cpupower/concurrent_active_time"
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # This file is optional until implemented in Android common kernel
         return True
 
@@ -98,6 +98,6 @@ class ProcUidCpuPowerConcurrentPolicyTimeTest(KernelProcFileTestBase.KernelProcF
     def get_path(self):
         return "/proc/uid_cpupower/concurrent_policy_time"
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # This file is optional until implemented in Android common kernel
         return True

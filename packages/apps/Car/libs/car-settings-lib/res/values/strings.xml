@@ -22,4 +22,10 @@
     <!-- Language picker list all other locales header [CHAR LIMIT=40] -->
     <string name="language_picker_list_all_header">All languages</string>
 
+    <!-- An error message indicating that the name input field has been left blank and cannot be. [CHAR_LIMIT=50] -->
+    <string name="name_input_blank_error">Field can\u2019t be blank.</string>
+
+    <!-- An error message indicating that the name the user has entered is invalid. [CHAR_LIMIT=50] -->
+    <string name="name_input_invalid_error">Username entered is invalid.</string>
+
 </resources>

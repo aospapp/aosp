@@ -26,6 +26,10 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 
+import com.android.launcher3.tapl.AppIcon;
+import com.android.launcher3.tapl.LauncherInstrumentation;
+import com.android.launcher3.tapl.Workspace;
+
 /**
  * A helper class for generic launcher interactions that can be abstracted across different types
  * of launchers.
@@ -176,6 +180,39 @@ public class CommonLauncherHelper {
             Log.w(LOG_TAG, "no new window detected after app launch attempt.");
             return ILauncherStrategy.LAUNCH_FAILED_TIMESTAMP;
         }
+        return verifyAppStart(packageName, ready);
+    }
+
+    /**
+     * Triggers app launch by interacting with its launcher icon as described, optionally verify
+     * that the frontend UI has the expected app package name
+     *
+     * @param launcher root TAPL object
+     * @param appName
+     * @param packageName
+     * @return the SystemClock#uptimeMillis timestamp just before launching the application.
+     */
+    public long launchApp(LauncherInstrumentation launcher, String appName, String packageName) {
+        unlockDeviceIfAsleep();
+
+        if (isAppOpen(packageName)) {
+            // Application is already open
+            return 0;
+        }
+
+        // Go to the home page
+        final Workspace workspace = launcher.pressHome();
+        AppIcon icon = workspace.tryGetWorkspaceAppIcon(appName);
+        if (icon == null) {
+            icon = workspace.switchToAllApps().getAppIcon(appName);
+        }
+
+        final long ready = SystemClock.uptimeMillis();
+        icon.launch(packageName);
+        return ready;
+    }
+
+    private long verifyAppStart(String packageName, long appStartTime) {
         mDevice.waitForIdle();
         if (packageName != null) {
             Log.w(LOG_TAG, String.format(
@@ -183,12 +220,12 @@ public class CommonLauncherHelper {
             boolean success = mDevice.wait(Until.hasObject(
                     By.pkg(packageName).depth(0)), APP_LAUNCH_TIMEOUT);
             if (success) {
-                return ready;
+                return appStartTime;
             } else {
                 return ILauncherStrategy.LAUNCH_FAILED_TIMESTAMP;
             }
         } else {
-            return ready;
+            return appStartTime;
         }
     }
 

@@ -49,6 +49,8 @@ public interface DeviceHost {
         public void onRemoteFieldDeactivated();
 
         public void onNfcTransactionEvent(byte[] aid, byte[] data, String seName);
+
+        public void onEeUpdated();
     }
 
     public interface TagEndpoint {
@@ -172,7 +174,7 @@ public interface DeviceHost {
      * <p>This is called from a thread
      * that may block for long periods of time during the update process.
      */
-    public void checkFirmware();
+    public boolean checkFirmware();
 
     public boolean initialize();
 
@@ -225,6 +227,8 @@ public interface DeviceHost {
 
     int getMaxTransceiveLength(int technology);
 
+    public int getAidTableSize();
+
     void setP2pInitiatorModes(int modes);
 
     void setP2pTargetModes(int modes);
@@ -252,4 +256,6 @@ public interface DeviceHost {
     public void factoryReset();
 
     public void shutdown();
+
+    public boolean setNfcSecure(boolean enable);
 }

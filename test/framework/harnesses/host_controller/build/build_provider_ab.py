@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import logging
 import os
 
 from host_controller.build import build_provider
@@ -26,7 +27,8 @@ class BuildProviderAB(build_provider.BuildProvider):
     def __init__(self):
         super(BuildProviderAB, self).__init__()
         if 'run_ab_key' in os.environ:
-            print("For AB, use the key at %s" % os.environ['run_ab_key'])
+            logging.info(
+                "For AB, use the key at %s", os.environ['run_ab_key'])
             self._artifact_fetcher = artifact_fetcher.AndroidBuildClient(
                 os.environ['run_ab_key'])
         else:
@@ -50,7 +52,12 @@ class BuildProviderAB(build_provider.BuildProvider):
 
         return recent_build_ids[0]
 
-    def Fetch(self, branch, target, artifact_name, build_id="latest"):
+    def Fetch(self,
+              branch,
+              target,
+              artifact_name,
+              build_id="latest",
+              full_device_images=False):
         """Fetches Android device artifact file(s) from Android Build.
 
         Args:
@@ -82,6 +89,6 @@ class BuildProviderAB(build_provider.BuildProvider):
             branch, target, build_id, artifact_name,
             dest_filepath=dest_filepath)
 
-        self.SetFetchedFile(dest_filepath)
+        self.SetFetchedFile(dest_filepath, full_device_images)
 
         return self.GetDeviceImage(), self.GetTestSuitePackage(), fetch_info

@@ -23,9 +23,11 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
+#include <android-base/scopeguard.h>
 #include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
-
+#include <binder/Status.h>
 #include <cutils/properties.h>
 
 #include <gtest/gtest.h>
@@ -33,6 +35,7 @@
 #include <selinux/android.h>
 #include <selinux/avc.h>
 
+#include "binder_test_utils.h"
 #include "dexopt.h"
 #include "InstalldNativeService.h"
 #include "globals.h"
@@ -84,10 +87,33 @@ static void run_cmd(const std::string& cmd) {
     system(cmd.c_str());
 }
 
-static void mkdir(const std::string& path, uid_t owner, gid_t group, mode_t mode) {
-    ::mkdir(path.c_str(), mode);
-    ::chown(path.c_str(), owner, group);
-    ::chmod(path.c_str(), mode);
+template <typename Visitor>
+static void run_cmd_and_process_output(const std::string& cmd, const Visitor& visitor) {
+    FILE* file = popen(cmd.c_str(), "r");
+    CHECK(file != nullptr) << "Failed to ptrace " << cmd;
+    char* line = nullptr;
+    while (true) {
+        size_t n = 0u;
+        ssize_t value = getline(&line, &n, file);
+        if (value == -1) {
+            break;
+        }
+        visitor(line);
+    }
+    free(line);
+    fclose(file);
+}
+
+static int mkdir(const std::string& path, uid_t owner, gid_t group, mode_t mode) {
+    int ret = ::mkdir(path.c_str(), mode);
+    if (ret != 0) {
+        return ret;
+    }
+    ret = ::chown(path.c_str(), owner, group);
+    if (ret != 0) {
+        return ret;
+    }
+    return ::chmod(path.c_str(), mode);
 }
 
 static int log_callback(int type, const char *fmt, ...) { // NOLINT
@@ -137,6 +163,20 @@ static const char kDexFile[] =
     "AAAACADojmFLPcugSwoBAAAUAgAACwAYAAAAAAAAAAAAoIEAAAAAY2xhc3Nlcy5kZXhVVAUAA/Ns"
     "+ll1eAsAAQQj5QIABIgTAABQSwUGAAAAAAEAAQBRAAAATwEAAAAA";
 
+class DexoptTestEnvTest : public testing::Test {
+};
+
+TEST_F(DexoptTestEnvTest, CheckSelinux) {
+    ASSERT_EQ(1, is_selinux_enabled());
+
+    // Crude cutout for virtual devices.
+#if !defined(__i386__) && !defined(__x86_64__)
+    constexpr bool kIsX86 = false;
+#else
+    constexpr bool kIsX86 = true;
+#endif
+    ASSERT_TRUE(1 == security_getenforce() || kIsX86 || true /* b/119032200 */);
+}
 
 class DexoptTest : public testing::Test {
 protected:
@@ -184,7 +224,7 @@ protected:
         se_info_ = "default";
         app_apk_dir_ = android_app_dir + package_name_;
 
-        create_mock_app();
+        ASSERT_TRUE(create_mock_app());
     }
 
     virtual void TearDown() {
@@ -198,33 +238,57 @@ protected:
         delete service_;
     }
 
-    void create_mock_app() {
+    ::testing::AssertionResult create_mock_app() {
         // Create the oat dir.
         app_oat_dir_ = app_apk_dir_ + "/oat";
-        mkdir(app_apk_dir_, kSystemUid, kSystemGid, 0755);
-        service_->createOatDir(app_oat_dir_, kRuntimeIsa);
+        // For debug mode, the directory might already exist. Avoid erroring out.
+        if (mkdir(app_apk_dir_, kSystemUid, kSystemGid, 0755) != 0 && !kDebug) {
+            return ::testing::AssertionFailure() << "Could not create app dir " << app_apk_dir_
+                                                 << " : " << strerror(errno);
+        }
+        binder::Status status = service_->createOatDir(app_oat_dir_, kRuntimeIsa);
+        if (!status.isOk()) {
+            return ::testing::AssertionFailure() << "Could not create oat dir: "
+                                                 << status.toString8().c_str();
+        }
 
         // Copy the primary apk.
         apk_path_ = app_apk_dir_ + "/base.jar";
-        ASSERT_TRUE(WriteBase64ToFile(kDexFile, apk_path_, kSystemUid, kSystemGid, 0644));
+        std::string error_msg;
+        if (!WriteBase64ToFile(kDexFile, apk_path_, kSystemUid, kSystemGid, 0644, &error_msg)) {
+            return ::testing::AssertionFailure() << "Could not write base64 file to " << apk_path_
+                                                 << " : " << error_msg;
+        }
 
         // Create the app user data.
-        ASSERT_TRUE(service_->createAppData(
-            volume_uuid_,
-            package_name_,
-            kTestUserId,
-            kAppDataFlags,
-            kTestAppUid,
-            se_info_,
-            kOSdkVersion,
-            &ce_data_inode_).isOk());
+        status = service_->createAppData(
+                volume_uuid_,
+                package_name_,
+                kTestUserId,
+                kAppDataFlags,
+                kTestAppUid,
+                se_info_,
+                kOSdkVersion,
+                &ce_data_inode_);
+        if (!status.isOk()) {
+            return ::testing::AssertionFailure() << "Could not create app data: "
+                                                 << status.toString8().c_str();
+        }
 
         // Create a secondary dex file on CE storage
         const char* volume_uuid_cstr = volume_uuid_ == nullptr ? nullptr : volume_uuid_->c_str();
         app_private_dir_ce_ = create_data_user_ce_package_path(
                 volume_uuid_cstr, kTestUserId, package_name_.c_str());
         secondary_dex_ce_ = app_private_dir_ce_ + "/secondary_ce.jar";
-        ASSERT_TRUE(WriteBase64ToFile(kDexFile, secondary_dex_ce_, kTestAppUid, kTestAppGid, 0600));
+        if (!WriteBase64ToFile(kDexFile,
+                               secondary_dex_ce_,
+                               kTestAppUid,
+                               kTestAppGid,
+                               0600,
+                               &error_msg)) {
+            return ::testing::AssertionFailure() << "Could not write base64 file to "
+                                                 << secondary_dex_ce_ << " : " << error_msg;
+        }
         std::string app_private_dir_ce_link = create_data_user_ce_package_path_as_user_link(
                 volume_uuid_cstr, kTestUserId, package_name_.c_str());
         secondary_dex_ce_link_ = app_private_dir_ce_link + "/secondary_ce.jar";
@@ -233,10 +297,24 @@ protected:
         app_private_dir_de_ = create_data_user_de_package_path(
                 volume_uuid_cstr, kTestUserId, package_name_.c_str());
         secondary_dex_de_ = app_private_dir_de_ + "/secondary_de.jar";
-        ASSERT_TRUE(WriteBase64ToFile(kDexFile, secondary_dex_de_, kTestAppUid, kTestAppGid, 0600));
+        if (!WriteBase64ToFile(kDexFile,
+                               secondary_dex_de_,
+                               kTestAppUid,
+                               kTestAppGid,
+                               0600,
+                               &error_msg)) {
+            return ::testing::AssertionFailure() << "Could not write base64 file to "
+                                                 << secondary_dex_de_ << " : " << error_msg;
+        }
 
         // Fix app data uid.
-        ASSERT_TRUE(service_->fixupAppData(volume_uuid_, kTestUserId).isOk());
+        status = service_->fixupAppData(volume_uuid_, kTestUserId);
+        if (!status.isOk()) {
+            return ::testing::AssertionFailure() << "Could not fixup app data: "
+                                                 << status.toString8().c_str();
+        }
+
+        return ::testing::AssertionSuccess();
     }
 
 
@@ -249,16 +327,21 @@ protected:
 
     void CompileSecondaryDex(const std::string& path, int32_t dex_storage_flag,
             bool should_binder_call_succeed, bool should_dex_be_compiled = true,
-            /*out */ binder::Status* binder_result = nullptr, int32_t uid = -1) {
+            /*out */ binder::Status* binder_result = nullptr, int32_t uid = -1,
+            const char* class_loader_context = nullptr) {
         if (uid == -1) {
             uid = kTestAppUid;
+        }
+        if (class_loader_context == nullptr) {
+            class_loader_context = "&";
         }
         std::unique_ptr<std::string> package_name_ptr(new std::string(package_name_));
         int32_t dexopt_needed = 0;  // does not matter;
         std::unique_ptr<std::string> out_path = nullptr;  // does not matter
         int32_t dex_flags = DEXOPT_SECONDARY_DEX | dex_storage_flag;
         std::string compiler_filter = "speed-profile";
-        std::unique_ptr<std::string> class_loader_context_ptr(new std::string("&"));
+        std::unique_ptr<std::string> class_loader_context_ptr(
+                new std::string(class_loader_context));
         std::unique_ptr<std::string> se_info_ptr(new std::string(se_info_));
         bool downgrade = false;
         int32_t target_sdk_version = 0;  // default
@@ -394,11 +477,9 @@ protected:
         std::unique_ptr<std::string> compilation_reason_ptr(new std::string("test-reason"));
 
         bool prof_result;
-        binder::Status prof_binder_result = service_->prepareAppProfile(
+        ASSERT_BINDER_SUCCESS(service_->prepareAppProfile(
                 package_name_, kTestUserId, kTestAppId, *profile_name_ptr, apk_path_,
-                /*dex_metadata*/ nullptr, &prof_result);
-
-        ASSERT_TRUE(prof_binder_result.isOk()) << prof_binder_result.toString8().c_str();
+                /*dex_metadata*/ nullptr, &prof_result));
         ASSERT_TRUE(prof_result);
 
         binder::Status result = service_->dexopt(apk_path_,
@@ -479,10 +560,24 @@ TEST_F(DexoptTest, DexoptSecondaryCeLink) {
         /*binder_ok*/ true, /*compile_ok*/ true);
 }
 
+TEST_F(DexoptTest, DexoptSecondaryCeWithContext) {
+    LOG(INFO) << "DexoptSecondaryCeWithContext";
+    std::string class_loader_context = "PCL[" + secondary_dex_ce_ + "]";
+    CompileSecondaryDex(secondary_dex_ce_, DEXOPT_STORAGE_CE,
+        /*binder_ok*/ true, /*compile_ok*/ true, nullptr, -1, class_loader_context.c_str());
+}
+
 TEST_F(DexoptTest, DexoptSecondaryDe) {
     LOG(INFO) << "DexoptSecondaryDe";
     CompileSecondaryDex(secondary_dex_de_, DEXOPT_STORAGE_DE,
         /*binder_ok*/ true, /*compile_ok*/ true);
+}
+
+TEST_F(DexoptTest, DexoptSecondaryDeWithContext) {
+    LOG(INFO) << "DexoptSecondaryDeWithContext";
+    std::string class_loader_context = "PCL[" + secondary_dex_de_ + "]";
+    CompileSecondaryDex(secondary_dex_de_, DEXOPT_STORAGE_DE,
+        /*binder_ok*/ true, /*compile_ok*/ true, nullptr, -1, class_loader_context.c_str());
 }
 
 TEST_F(DexoptTest, DexoptSecondaryDoesNotExist) {
@@ -500,7 +595,7 @@ TEST_F(DexoptTest, DexoptSecondaryStorageValidationError) {
     CompileSecondaryDex(secondary_dex_ce_, DEXOPT_STORAGE_DE,
         /*binder_ok*/ false,  /*compile_ok*/ false, &status);
     EXPECT_STREQ(status.toString8().c_str(),
-                 "Status(-8): '-1: Dexoptanalyzer path validation failed'");
+                 "Status(-8, EX_SERVICE_SPECIFIC): '-1: Dexoptanalyzer path validation failed'");
 }
 
 TEST_F(DexoptTest, DexoptSecondaryAppOwnershipValidationError) {
@@ -509,7 +604,7 @@ TEST_F(DexoptTest, DexoptSecondaryAppOwnershipValidationError) {
     CompileSecondaryDex("/data/data/random.app/secondary.jar", DEXOPT_STORAGE_CE,
         /*binder_ok*/ false,  /*compile_ok*/ false, &status);
     EXPECT_STREQ(status.toString8().c_str(),
-                 "Status(-8): '-1: Dexoptanalyzer path validation failed'");
+                 "Status(-8, EX_SERVICE_SPECIFIC): '-1: Dexoptanalyzer path validation failed'");
 }
 
 TEST_F(DexoptTest, DexoptSecondaryAcessViaDifferentUidError) {
@@ -517,7 +612,8 @@ TEST_F(DexoptTest, DexoptSecondaryAcessViaDifferentUidError) {
     binder::Status status;
     CompileSecondaryDex(secondary_dex_ce_, DEXOPT_STORAGE_CE,
         /*binder_ok*/ false,  /*compile_ok*/ false, &status, kSystemUid);
-    EXPECT_STREQ(status.toString8().c_str(), "Status(-8): '-1: Dexoptanalyzer open zip failed'");
+    EXPECT_STREQ(status.toString8().c_str(),
+                 "Status(-8, EX_SERVICE_SPECIFIC): '-1: Dexoptanalyzer open zip failed'");
 }
 
 TEST_F(DexoptTest, DexoptPrimaryPublic) {
@@ -539,7 +635,7 @@ TEST_F(DexoptTest, DexoptPrimaryFailedInvalidFilter) {
                           DEX2OAT_FROM_SCRATCH,
                           &status);
     EXPECT_STREQ(status.toString8().c_str(),
-                 "Status(-8): \'256: Dex2oat invocation for "
+                 "Status(-8, EX_SERVICE_SPECIFIC): \'256: Dex2oat invocation for "
                  "/data/app/com.installd.test.dexopt/base.jar failed: unspecified dex2oat error'");
 }
 
@@ -570,6 +666,50 @@ TEST_F(DexoptTest, DexoptPrimaryBackgroundOk) {
                         app_oat_dir_.c_str(),
                         kTestAppGid,
                         DEX2OAT_FROM_SCRATCH);
+}
+
+TEST_F(DexoptTest, ResolveStartupConstStrings) {
+    LOG(INFO) << "DexoptDex2oatResolveStartupStrings";
+    const std::string property = "persist.device_config.runtime.dex2oat_resolve_startup_strings";
+    const std::string previous_value = android::base::GetProperty(property, "");
+    auto restore_property = android::base::make_scope_guard([=]() {
+        android::base::SetProperty(property, previous_value);
+    });
+    std::string odex = GetPrimaryDexArtifact(app_oat_dir_.c_str(), apk_path_, "odex");
+    // Disable the property to start.
+    bool found_disable = false;
+    ASSERT_TRUE(android::base::SetProperty(property, "false")) << property;
+    CompilePrimaryDexOk("speed-profile",
+                        DEXOPT_IDLE_BACKGROUND_JOB | DEXOPT_PROFILE_GUIDED |
+                                DEXOPT_GENERATE_APP_IMAGE,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH);
+    run_cmd_and_process_output(
+            "oatdump --header-only --oat-file=" + odex,
+            [&](const std::string& line) {
+        if (line.find("--resolve-startup-const-strings=false") != std::string::npos) {
+            found_disable = true;
+        }
+    });
+    EXPECT_TRUE(found_disable);
+    // Enable the property and inspect that .art artifact is larger.
+    bool found_enable = false;
+    ASSERT_TRUE(android::base::SetProperty(property, "true")) << property;
+    CompilePrimaryDexOk("speed-profile",
+                        DEXOPT_IDLE_BACKGROUND_JOB | DEXOPT_PROFILE_GUIDED |
+                                DEXOPT_GENERATE_APP_IMAGE,
+                        app_oat_dir_.c_str(),
+                        kTestAppGid,
+                        DEX2OAT_FROM_SCRATCH);
+    run_cmd_and_process_output(
+            "oatdump --header-only --oat-file=" + odex,
+            [&](const std::string& line) {
+        if (line.find("--resolve-startup-const-strings=true") != std::string::npos) {
+            found_enable = true;
+        }
+    });
+    EXPECT_TRUE(found_enable);
 }
 
 class PrimaryDexReCompilationTest : public DexoptTest {
@@ -703,9 +843,8 @@ class ProfileTest : public DexoptTest {
     void createProfileSnapshot(int32_t appid, const std::string& package_name,
             bool expected_result) {
         bool result;
-        binder::Status binder_result = service_->createProfileSnapshot(
-                appid, package_name, kPrimaryProfile, apk_path_, &result);
-        ASSERT_TRUE(binder_result.isOk()) << binder_result.toString8().c_str();
+        ASSERT_BINDER_SUCCESS(service_->createProfileSnapshot(
+                appid, package_name, kPrimaryProfile, apk_path_, &result));
         ASSERT_EQ(expected_result, result);
 
         if (!expected_result) {
@@ -745,9 +884,8 @@ class ProfileTest : public DexoptTest {
                               const std::string& code_path,
                               bool expected_result) {
         bool result;
-        binder::Status binder_result = service_->mergeProfiles(
-                kTestAppUid, package_name, code_path, &result);
-        ASSERT_TRUE(binder_result.isOk()) << binder_result.toString8().c_str();
+        ASSERT_BINDER_SUCCESS(service_->mergeProfiles(
+                kTestAppUid, package_name, code_path, &result));
         ASSERT_EQ(expected_result, result);
 
         if (!expected_result) {
@@ -773,10 +911,9 @@ class ProfileTest : public DexoptTest {
     void preparePackageProfile(const std::string& package_name, const std::string& profile_name,
             bool expected_result) {
         bool result;
-        binder::Status binder_result = service_->prepareAppProfile(
+        ASSERT_BINDER_SUCCESS(service_->prepareAppProfile(
                 package_name, kTestUserId, kTestAppId, profile_name, apk_path_,
-                /*dex_metadata*/ nullptr, &result);
-        ASSERT_TRUE(binder_result.isOk()) << binder_result.toString8().c_str();
+                /*dex_metadata*/ nullptr, &result));
         ASSERT_EQ(expected_result, result);
 
         if (!expected_result) {
@@ -799,8 +936,7 @@ class ProfileTest : public DexoptTest {
   protected:
     void TransitionToSystemServer() {
         ASSERT_TRUE(DropCapabilities(kSystemUid, kSystemGid));
-        int32_t res = selinux_android_setcontext(
-                kSystemUid, true, se_info_.c_str(), "system_server");
+        int32_t res = selinux_android_setcon("u:r:system_server:s0");
         ASSERT_EQ(0, res) << "Failed to setcon " << strerror(errno);
     }
 
@@ -862,8 +998,7 @@ TEST_F(ProfileTest, ProfileSnapshotDestroySnapshot) {
     SetupProfiles(/*setup_ref*/ true);
     createProfileSnapshot(kTestAppId, package_name_, /*expected_result*/ true);
 
-    binder::Status binder_result = service_->destroyProfileSnapshot(package_name_, kPrimaryProfile);
-    ASSERT_TRUE(binder_result.isOk()) << binder_result.toString8().c_str();
+    ASSERT_BINDER_SUCCESS(service_->destroyProfileSnapshot(package_name_, kPrimaryProfile));
     struct stat st;
     ASSERT_EQ(-1, stat(snap_profile_.c_str(), &st));
     ASSERT_EQ(ENOENT, errno);
@@ -921,7 +1056,7 @@ TEST_F(ProfileTest, ProfileDirOkAfterFixup) {
     ASSERT_EQ(0, chmod(ref_profile_dir.c_str(), 0700));
 
     // Run createAppData again which will offer to fix-up the profile directories.
-    ASSERT_TRUE(service_->createAppData(
+    ASSERT_BINDER_SUCCESS(service_->createAppData(
             volume_uuid_,
             package_name_,
             kTestUserId,
@@ -929,7 +1064,7 @@ TEST_F(ProfileTest, ProfileDirOkAfterFixup) {
             kTestAppUid,
             se_info_,
             kOSdkVersion,
-            &ce_data_inode_).isOk());
+            &ce_data_inode_));
 
     // Check the file access.
     CheckFileAccess(cur_profile_dir, kTestAppUid, kTestAppUid, 0700 | S_IFDIR);
@@ -975,9 +1110,8 @@ class BootProfileTest : public ProfileTest {
 
     void createBootImageProfileSnapshot(const std::string& classpath, bool expected_result) {
         bool result;
-        binder::Status binder_result = service_->createProfileSnapshot(
-                -1, "android", "android.prof", classpath, &result);
-        ASSERT_TRUE(binder_result.isOk());
+        ASSERT_BINDER_SUCCESS(service_->createProfileSnapshot(
+                -1, "android", "android.prof", classpath, &result));
         ASSERT_EQ(expected_result, result);
 
         if (!expected_result) {
@@ -1058,6 +1192,65 @@ TEST_F(BootProfileTest, CollectProfiles) {
     ASSERT_EQ(2u, profiles.size());
     ASSERT_TRUE(std::find(profiles.begin(), profiles.end(), current_prof) != profiles.end());
     ASSERT_TRUE(std::find(profiles.begin(), profiles.end(), ref_prof) != profiles.end());
+}
+
+TEST_F(DexoptTest, select_execution_binary) {
+    LOG(INFO) << "DexoptTestselect_execution_binary";
+
+    std::string release_str = app_private_dir_ce_  + "/release";
+    std::string debug_str = app_private_dir_ce_  + "/debug";
+
+    // Setup the binaries. Note that we only need executable files to actually
+    // test the execution binary selection
+    run_cmd("touch " + release_str);
+    run_cmd("touch " + debug_str);
+    run_cmd("chmod 777 " + release_str);
+    run_cmd("chmod 777 " + debug_str);
+
+    const char* release = release_str.c_str();
+    const char* debug = debug_str.c_str();
+
+    ASSERT_STREQ(release, select_execution_binary(
+        release,
+        debug,
+        /*background_job_compile=*/ false,
+        /*is_debug_runtime=*/ false,
+        /*is_release=*/ false,
+        /*is_debuggable_build=*/ false));
+
+    ASSERT_STREQ(release, select_execution_binary(
+        release,
+        debug,
+        /*background_job_compile=*/ true,
+        /*is_debug_runtime=*/ false,
+        /*is_release=*/ true,
+        /*is_debuggable_build=*/ true));
+
+    ASSERT_STREQ(debug, select_execution_binary(
+        release,
+        debug,
+        /*background_job_compile=*/ false,
+        /*is_debug_runtime=*/ true,
+        /*is_release=*/ false,
+        /*is_debuggable_build=*/ false));
+
+    ASSERT_STREQ(debug, select_execution_binary(
+        release,
+        debug,
+        /*background_job_compile=*/ true,
+        /*is_debug_runtime=*/ false,
+        /*is_release=*/ false,
+        /*is_debuggable_build=*/ true));
+
+
+    // Select the release when the debug file is not there.
+    ASSERT_STREQ(release, select_execution_binary(
+        release,
+        "does_not_exist",
+        /*background_job_compile=*/ false,
+        /*is_debug_runtime=*/ true,
+        /*is_release=*/ false,
+        /*is_debuggable_build=*/ false));
 }
 
 }  // namespace installd

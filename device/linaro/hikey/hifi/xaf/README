@@ -1,0 +1,39 @@
+
+.
+|--- README
+|   - This file 
+|   
+|--- release.txt
+|   - Release notes
+|   
+|--- config
+|   |   
+|   |--- hifi3_hikey960_linux.tgz
+|   |   - HiKey960 HiFi3 LX6 config with SW upgraded to RG.5 tools for Linux
+|   |   
+|   |-- hifi3_hikey960_win32.tgz
+|       - HiKey960 HiFi3 LX6 config with SW upgraded to RG.5 tools for Windows 
+|   
+|--- docs
+|   |   
+|   |--- HiFi-AF-Hosted-ProgrammersGuide.pdf
+|   |   - Xtensa Audio Framework (Hosted) Programmers Guide, v0.6
+|   |   
+|   |--- HiFi-Audio-Codec-API-Definition.pdf
+|   |   - HiFi Audio Codec API Definition, v1.0
+|   |   
+|   |--- HiFi-Speech-Codec-API-Definition.pdf
+|   |   - HiFi Speech Codec API Definition, v1.0
+|   |   
+|   |-- HiKey960-HiFi3-Android-SDK-Guide.pdf
+|       - HiKey960-HiFi3-Android-SDK Guide, v0.7
+|   
+|--- xaf-dsp-v0.7_Alpha.tgz
+|   - XAF DSP Firmware Source Code(hifi-dpf)
+|   
+|-- xaf-host-v0.7_Alpha.tgz
+|   - XAF Host application Source Code(host-apf)
+|
+|-- Get xtensa tools and guide to install xtensa tools,HiKey960 HiFi3 LX6 config
+|   -https://www.tensilicatools.com/platform/huawei-kirin-960/
+|

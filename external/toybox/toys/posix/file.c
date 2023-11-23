@@ -14,8 +14,8 @@ config FILE
 
     Examine the given files and describe their content types.
 
-    -h	don't follow symlinks (default)
-    -L	follow symlinks
+    -h	Don't follow symlinks (default)
+    -L	Follow symlinks
 */
 
 #define FOR_file
@@ -23,34 +23,34 @@ config FILE
 
 GLOBALS(
   int max_name_len;
+
+  off_t len;
 )
 
 // We don't trust elf.h to be there, and two codepaths for 32/64 is awkward
 // anyway, so calculate struct offsets manually. (It's a fixed ABI.)
-static void do_elf_file(int fd, struct stat *sb)
+static void do_elf_file(int fd)
 {
-  int endian = toybuf[5], bits = toybuf[4], i, j;
+  int endian = toybuf[5], bits = toybuf[4], i, j, dynamic = 0, stripped = 1,
+      phentsize, phnum, shsize, shnum;
   int64_t (*elf_int)(void *ptr, unsigned size);
   // Values from include/linux/elf-em.h (plus arch/*/include/asm/elf.h)
   // Names are linux/arch/ directory (sometimes before 32/64 bit merges)
   struct {int val; char *name;} type[] = {{0x9026, "alpha"}, {93, "arc"},
     {195, "arcv2"}, {40, "arm"}, {183, "arm64"}, {0x18ad, "avr32"},
     {247, "bpf"}, {106, "blackfin"}, {140, "c6x"}, {23, "cell"}, {76, "cris"},
-    {0x5441, "frv"}, {46, "h8300"}, {164, "hexagon"}, {50, "ia64"},
-    {88, "m32r"}, {0x9041, "m32r"}, {4, "m68k"}, {174, "metag"},
+    {252, "csky"}, {0x5441, "frv"}, {46, "h8300"}, {164, "hexagon"},
+    {50, "ia64"}, {88, "m32r"}, {0x9041, "m32r"}, {4, "m68k"}, {174, "metag"},
     {189, "microblaze"}, {0xbaab, "microblaze-old"}, {8, "mips"},
     {10, "mips-old"}, {89, "mn10300"}, {0xbeef, "mn10300-old"}, {113, "nios2"},
     {92, "openrisc"}, {0x8472, "openrisc-old"}, {15, "parisc"}, {20, "ppc"},
-    {21, "ppc64"}, {22, "s390"}, {0xa390, "s390-old"}, {135, "score"},
-    {42, "sh"}, {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"}, {188, "tile"},
-    {191, "tilegx"}, {3, "386"}, {6, "486"}, {62, "x86-64"}, {94, "xtensa"},
-    {0xabc7, "xtensa-old"}
+    {21, "ppc64"}, {243, "riscv"}, {22, "s390"}, {0xa390, "s390-old"},
+    {135, "score"}, {42, "sh"}, {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"},
+    {188, "tile"}, {191, "tilegx"}, {3, "386"}, {6, "486"}, {62, "x86-64"},
+    {94, "xtensa"}, {0xabc7, "xtensa-old"}
   };
-  int dynamic = 0;
-  int stripped = 1;
-  char *map;
+  char *map = 0;
   off_t phoff, shoff;
-  int phentsize, phnum, shsize, shnum;
 
   printf("ELF ");
   elf_int = (endian==2) ? peek_be : peek_le;
@@ -94,6 +94,12 @@ static void do_elf_file(int fd, struct stat *sb)
     return;
   }
 
+  // Parsing ELF means following tables that may point to data earlier in
+  // the file, so sequential reading involves buffering unknown amounts of
+  // data. Just skip it if we can't mmap.
+  if (MAP_FAILED == (map = mmap(0, TT.len, PROT_READ, MAP_SHARED, fd, 0)))
+    goto bad;
+
   // Stash what we need from the header; it's okay to reuse toybuf after this.
   phentsize = elf_int(toybuf+42+12*bits, 2);
   phnum = elf_int(toybuf+44+12*bits, 2);
@@ -105,14 +111,19 @@ static void do_elf_file(int fd, struct stat *sb)
   // With binutils, phentsize seems to only be non-zero if phnum is non-zero.
   // Such ELF files are rare, but do exist. (Android's crtbegin files, say.)
   if (phnum && (phentsize != 32+24*bits)) {
-    printf(", corrupt phentsize %d?\n", phentsize);
-    return;
+    printf(", corrupt phentsize %d?", phentsize);
+    goto bad;
   }
 
-  map = xmmap(0, sb->st_size, PROT_READ, MAP_SHARED, fd, 0);
+  // Parsing ELF means following tables that may point to data earlier in
+  // the file, so sequential reading involves buffering unknown amounts of
+  // data. Just skip it if we can't mmap.
+  if (MAP_FAILED == (map = mmap(0, TT.len, PROT_READ, MAP_SHARED, fd, 0)))
+    goto bad;
 
   // We need to read the phdrs for dynamic vs static.
   // (Note: fields got reordered for 64 bit)
+  if (phoff+phnum*phentsize>TT.len) goto bad;
   for (i = 0; i<phnum; i++) {
     char *phdr = map+phoff+i*phentsize;
     int p_type = elf_int(phdr, 4);
@@ -125,8 +136,10 @@ static void do_elf_file(int fd, struct stat *sb)
     p_offset = elf_int(phdr+4*j, 4*j);
     p_filesz = elf_int(phdr+16*j, 4*j);
 
-    if (p_type==3 /*PT_INTERP*/)
+    if (p_type==3 /*PT_INTERP*/) {
+      if (p_offset+p_filesz>TT.len) goto bad;
       printf(", dynamic (%.*s)", (int)p_filesz, map+p_offset);
+    }
   }
   if (!dynamic) printf(", static");
 
@@ -134,6 +147,7 @@ static void do_elf_file(int fd, struct stat *sb)
   // Notes are in program headers *and* section headers, but some files don't
   // contain program headers, so we prefer to check here.
   // (Note: fields got reordered for 64 bit)
+  if (shoff+i*shnum>TT.len) goto bad;
   for (i = 0; i<shnum; i++) {
     char *shdr = map+shoff+i*shsize;
     int sh_type = elf_int(shdr+4, 4);
@@ -151,18 +165,24 @@ static void do_elf_file(int fd, struct stat *sb)
       // rounded up to the next 4 bytes, without this being reflected in
       // the header byte counts themselves).
       while (sh_size >= 3*4) { // Don't try to read a truncated entry.
-        int n_namesz = elf_int(note, 4);
-        int n_descsz = elf_int(note+4, 4);
-        int n_type = elf_int(note+8, 4);
-        int notesz = 3*4 + ((n_namesz+3)&~3) + ((n_descsz+3)&~3);
+        unsigned n_namesz, n_descsz, n_type, notesz;
+
+        if (sh_offset+sh_size>TT.len) goto bad;
+
+        n_namesz = elf_int(note, 4);
+        n_descsz = elf_int(note+4, 4);
+        n_type = elf_int(note+8, 4);
+        notesz = 3*4 + ((n_namesz+3)&~3) + ((n_descsz+3)&~3);
 
         if (n_namesz==4 && !memcmp(note+12, "GNU", 4)) {
           if (n_type==3 /*NT_GNU_BUILD_ID*/) {
+            if (n_descsz+16>sh_size) goto bad;
             printf(", BuildID=");
             for (j = 0; j < n_descsz; ++j) printf("%02x", note[16 + j]);
           }
         } else if (n_namesz==8 && !memcmp(note+12, "Android", 8)) {
           if (n_type==1 /*.android.note.ident*/) {
+            if (n_descsz+24+64>sh_size) goto bad;
             printf(", for Android %d", (int)elf_int(note+20, 4));
             if (n_descsz > 24)
               printf(", built by NDK %.64s (%.64s)", note+24, note+24+64);
@@ -175,20 +195,24 @@ static void do_elf_file(int fd, struct stat *sb)
     }
   }
   printf(", %sstripped", stripped ? "" : "not ");
+bad:
   xputc('\n');
 
-  munmap(map, sb->st_size);
+  if (map && map != MAP_FAILED) munmap(map, TT.len);
 }
 
-static void do_regular_file(int fd, char *name, struct stat *sb)
+static void do_regular_file(int fd, char *name)
 {
   char *s;
-  int len = read(fd, s = toybuf, sizeof(toybuf)-256);
-  int magic;
+  int len, magic;
 
-  if (len<0) perror_msg("%s", name);
+  // zero through elf shnum, just in case
+  memset(toybuf, 0, 80);
+  if ((len = readall(fd, s = toybuf, sizeof(toybuf)))<0) perror_msg("%s", name);
 
-  if (len>40 && strstart(&s, "\177ELF")) do_elf_file(fd, sb);
+  if (!len) xputs("empty");
+  // 45 bytes: https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html
+  else if (len>=45 && strstart(&s, "\177ELF")) do_elf_file(fd);
   else if (len>=8 && strstart(&s, "!<arch>\n")) xprintf("ar archive\n");
   else if (len>28 && strstart(&s, "\x89PNG\x0d\x0a\x1a\x0a")) {
     // PNG is big-endian: https://www.w3.org/TR/PNG/#7Integers-and-byte-order
@@ -220,10 +244,14 @@ static void do_regular_file(int fd, char *name, struct stat *sb)
   // TODO: parsing JPEG for width/height is harder than GIF or PNG.
   else if (len>32 && !memcmp(toybuf, "\xff\xd8", 2)) xputs("JPEG image data");
 
-  // https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html
+  // https://en.wikipedia.org/wiki/Java_class_file#General_layout
   else if (len>8 && strstart(&s, "\xca\xfe\xba\xbe"))
-    xprintf("Java class file, version %d.%d\n",
-      (int)peek_be(s+2, 2), (int)peek_be(s, 2));
+    xprintf("Java class file, version %d.%d (Java 1.%d)\n",
+      (int)peek_be(s+2, 2), (int)peek_be(s, 2), (int)peek_be(s+2, 2)-44);
+
+  // https://source.android.com/devices/tech/dalvik/dex-format#dex-file-magic
+  else if (len>8 && strstart(&s, "dex\n") && s[3] == 0)
+    xprintf("Android dex file, version %s\n", s);
 
   // https://people.freebsd.org/~kientzle/libarchive/man/cpio.5.txt
   // the lengths for cpio are size of header + 9 bytes, since any valid
@@ -274,20 +302,47 @@ static void do_regular_file(int fd, char *name, struct stat *sb)
     xprintf("Ogg data");
     // https://wiki.xiph.org/MIMETypesCodecs
     if (!memcmp(s+28, "CELT    ", 8)) xprintf(", celt audio");
-    if (!memcmp(s+28, "CMML    ", 8)) xprintf(", cmml text");
-    if (!memcmp(s+28, "BBCD\0", 5)) xprintf(", dirac video");
-    if (!memcmp(s+28, "\177FLAC", 5)) xprintf(", flac audio");
-    if (!memcmp(s+28, "\x8bJNG\r\n\x1a\n", 8)) xprintf(", jng video");
-    if (!memcmp(s+28, "\x80kate\0\0\0", 8)) xprintf(", kate text");
-    if (!memcmp(s+28, "OggMIDI\0", 8)) xprintf(", midi text");
-    if (!memcmp(s+28, "\x8aMNG\r\n\x1a\n", 8)) xprintf(", mng video");
-    if (!memcmp(s+28, "OpusHead", 8)) xprintf(", opus audio");
-    if (!memcmp(s+28, "PCM     ", 8)) xprintf(", pcm audio");
-    if (!memcmp(s+28, "\x89PNG\r\n\x1a\n", 8)) xprintf(", png video");
-    if (!memcmp(s+28, "Speex   ", 8)) xprintf(", speex audio");
-    if (!memcmp(s+28, "\x80theora", 7)) xprintf(", theora video");
-    if (!memcmp(s+28, "\x01vorbis", 7)) xprintf(", vorbis audio");
-    if (!memcmp(s+28, "YUV4MPEG", 8)) xprintf(", yuv4mpeg video");
+    else if (!memcmp(s+28, "CMML    ", 8)) xprintf(", cmml text");
+    else if (!memcmp(s+28, "BBCD\0", 5)) xprintf(", dirac video");
+    else if (!memcmp(s+28, "\177FLAC", 5)) xprintf(", flac audio");
+    else if (!memcmp(s+28, "\x8bJNG\r\n\x1a\n", 8)) xprintf(", jng video");
+    else if (!memcmp(s+28, "\x80kate\0\0\0", 8)) xprintf(", kate text");
+    else if (!memcmp(s+28, "OggMIDI\0", 8)) xprintf(", midi text");
+    else if (!memcmp(s+28, "\x8aMNG\r\n\x1a\n", 8)) xprintf(", mng video");
+    else if (!memcmp(s+28, "OpusHead", 8)) xprintf(", opus audio");
+    else if (!memcmp(s+28, "PCM     ", 8)) xprintf(", pcm audio");
+    else if (!memcmp(s+28, "\x89PNG\r\n\x1a\n", 8)) xprintf(", png video");
+    else if (!memcmp(s+28, "Speex   ", 8)) xprintf(", speex audio");
+    else if (!memcmp(s+28, "\x80theora", 7)) xprintf(", theora video");
+    else if (!memcmp(s+28, "\x01vorbis", 7)) xprintf(", vorbis audio");
+    else if (!memcmp(s+28, "YUV4MPEG", 8)) xprintf(", yuv4mpeg video");
+    xputc('\n');
+  } else if (len>32 && !memcmp(s, "RIF", 3) && !memcmp(s+8, "WAVEfmt ", 8)) {
+    // https://en.wikipedia.org/wiki/WAV
+    int le = (s[3] == 'F');
+    int format = le ? peek_le(s+20,2) : peek_be(s+20,2);
+    int channels = le ? peek_le(s+22,2) : peek_be(s+22,2);
+    int hz = le ? peek_le(s+24,4) : peek_be(s+24,4);
+    int bits = le ? peek_le(s+34,2) : peek_be(s+34,2);
+
+    xprintf("WAV audio, %s, ", le ? "LE" : "BE");
+    if (bits != 0) xprintf("%d-bit, ", bits);
+    if (channels==1||channels==2) xprintf("%s, ", channels==1?"mono":"stereo");
+    else xprintf("%d-channel, ", channels);
+    xprintf("%d Hz, ", hz);
+    // See https://tools.ietf.org/html/rfc2361, though there appear to be bugs
+    // in the RFC. This assumes wikipedia's example files are more correct.
+    if (format == 0x01) xprintf("PCM");
+    else if (format == 0x03) xprintf("IEEE float");
+    else if (format == 0x06) xprintf("A-law");
+    else if (format == 0x07) xprintf("µ-law");
+    else if (format == 0x11) xprintf("ADPCM");
+    else if (format == 0x22) xprintf("Truespeech");
+    else if (format == 0x31) xprintf("GSM");
+    else if (format == 0x55) xprintf("MP3");
+    else if (format == 0x70) xprintf("CELP");
+    else if (format == 0xfffe) xprintf("extensible");
+    else xprintf("unknown format %d", format);
     xputc('\n');
   } else if (len>12 && !memcmp(s, "\x00\x01\x00\x00", 4)) {
     xputs("TrueType font");
@@ -313,6 +368,12 @@ static void do_regular_file(int fd, char *name, struct stat *sb)
       xprintf("(%s) ", name?name:"unknown");
     }
     xprintf("%s\n", (peek_le(s+magic+4, 2)==0x14c)?"x86":"x86-64");
+
+    // https://en.wikipedia.org/wiki/BMP_file_format
+  } else if (len > 0x32 && !memcmp(s, "BM", 2) && !memcmp(s+6, "\0\0\0\0", 4)) {
+    int w = peek_le(s+0x12,4), h = peek_le(s+0x16,4), bpp = peek_le(s+0x1c,2);
+
+    xprintf("BMP image, %d x %d, %d bpp\n", w, h, bpp);
   } else {
     char *what = 0;
     int i, bytes;
@@ -360,11 +421,14 @@ void file_main(void)
 
     xprintf("%s: %*s", name, (int)(TT.max_name_len - strlen(name)), "");
 
+    sb.st_size = 0;
     if (fd || !((toys.optflags & FLAG_L) ? stat : lstat)(name, &sb)) {
       if (fd || S_ISREG(sb.st_mode)) {
-        if (!sb.st_size) what = "empty";
+        TT.len = sb.st_size;
+        // This test identifies an empty file we don't have permission to read
+        if (!fd && !sb.st_size) what = "empty";
         else if ((fd = openro(name, O_RDONLY)) != -1) {
-          do_regular_file(fd, name, &sb);
+          do_regular_file(fd, name);
           if (fd) close(fd);
           continue;
         }

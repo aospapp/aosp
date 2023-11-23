@@ -292,7 +292,7 @@ union Union<First, Rest...> {
 
   template <typename T>
   T& get(TypeTag<T>) {
-    return rest_.template get(TypeTag<T>{});
+    return rest_.get(TypeTag<T>{});
   }
   template <typename T>
   const T& get(TypeTag<T>) const {
@@ -300,7 +300,7 @@ union Union<First, Rest...> {
   }
   template <typename T>
   constexpr std::int32_t index(TypeTag<T>) const {
-    return 1 + rest_.template index(TypeTag<T>{});
+    return 1 + rest_.index(TypeTag<T>{});
   }
 
   template <typename... Args>
@@ -447,7 +447,7 @@ class Variant {
 
   Variant(const Variant& other)
       : index_{other.index_}, value_{other.value_, other.index_} {}
-  Variant(Variant&& other)
+  Variant(Variant&& other) noexcept
       : index_{other.index_}, value_{std::move(other.value_), other.index_} {}
 
 // Recent Clang versions has a regression that produces bogus
@@ -472,7 +472,7 @@ class Variant {
     other.Visit([this](const auto& value) { *this = value; });
     return *this;
   }
-  Variant& operator=(Variant&& other) {
+  Variant& operator=(Variant&& other) noexcept {
     other.Visit([this](auto&& value) { *this = std::move(value); });
     return *this;
   }
@@ -553,7 +553,7 @@ class Variant {
   template <typename T>
   constexpr std::int32_t index_of() const {
     static_assert(HasType<T>::value, "T is not an element type of Variant.");
-    return value_.template index(DecayedTypeTag<T>{});
+    return value_.index(DecayedTypeTag<T>{});
   }
 
   // Returns the index of the active type. If the Variant is empty -1 is
@@ -575,7 +575,7 @@ class Variant {
   template <typename T>
   T* get() {
     if (is<T>())
-      return &value_.template get(DecayedTypeTag<T>{});
+      return &value_.get(DecayedTypeTag<T>{});
     else
       return nullptr;
   }
@@ -589,7 +589,7 @@ class Variant {
   template <std::size_t I>
   TypeForIndex<I>* get() {
     if (is<TypeForIndex<I>>())
-      return &value_.template get(TypeTagForIndex<I>{});
+      return &value_.get(TypeTagForIndex<I>{});
     else
       return nullptr;
   }

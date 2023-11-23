@@ -1,0 +1,28 @@
+allow untrusted_app {
+                      mali_device
+                      hi_tde_device
+                      hi_gfx2d_device }:chr_file rw_file_perms;
+
+allow untrusted_app { audio_device
+                      graphics_device
+                      input_device
+                      block_device
+                      apk_private_data_file
+                      asec_image_file
+                      property_data_file
+                      drm_data_file
+                      media_data_file
+                      install_data_file
+                      fscklogs
+                      backup_data_file
+                      usb_device
+                      tombstone_data_file }:dir { getattr read search };
+
+allow untrusted_app hi_userdata_block_device:blk_file { getattr };
+allow untrusted_app fs_bpf:dir { add_name search write };
+allow untrusted_app block_device:{ dir blk_file } { getattr };
+allow untrusted_app mali_device:chr_file { getattr ioctl open read write };
+allow untrusted_app pstorefs:dir { search };
+allow untrusted_app proc_modules:file { read };
+allow untrusted_app sysfs_kernel_notes:file { read };
+allow untrusted_app hi_vfmw_device:chr_file { write read open ioctl };

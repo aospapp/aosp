@@ -4,6 +4,8 @@
 
 import logging
 
+from urlparse import urlparse
+
 DEFAULT_TIMEOUT = 30
 TELEMETRY_API = 'hrTelemetryApi'
 
@@ -58,13 +60,23 @@ class CfmMeetingsAPI(object):
 
     # Hangouts commands/functions
     def start_meeting_session(self):
-        """Start a meeting."""
+        """Start a meeting.
+
+        @return code for the started meeting
+        """
         if self.is_in_meeting_session():
             self.end_meeting_session()
 
         self._execute_telemetry_command('startMeeting()')
         self.wait_for_meetings_in_call_page()
-        logging.info('Started meeting session.')
+        meeting_code = self._get_meeting_code()
+        logging.info('Started meeting session %s', meeting_code)
+        return meeting_code
+
+    def _get_meeting_code(self):
+        path = urlparse(self._webview_context.GetUrl()).path
+        # The meeting code is the last part of the path.
+        return path.split('/')[-1]
 
     def join_meeting_session(self, meeting_name):
         """Joins a meeting.

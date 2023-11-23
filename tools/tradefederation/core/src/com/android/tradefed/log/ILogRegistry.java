@@ -19,7 +19,6 @@ package com.android.tradefed.log;
 import com.android.ddmlib.Log.ILogOutput;
 import com.android.ddmlib.Log.LogLevel;
 
-import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -38,6 +37,7 @@ public interface ILogRegistry extends ILogOutput {
         HEAP_MEMORY,
         SHARD_POLLER_EARLY_TERMINATION,
         MODULE_DEVICE_NOT_AVAILABLE,
+        UNEXPECTED_EXCEPTION,
     }
 
     /**
@@ -46,11 +46,6 @@ public interface ILogRegistry extends ILogOutput {
      * @param logLevel the {@link LogLevel} to use
      */
     public void setGlobalLogDisplayLevel(LogLevel logLevel);
-
-    /**
-     * Set the log tags to display for the global log
-     */
-    public void setGlobalLogTagDisplay(Collection<String> logTagsDisplay);
 
     /**
      * Returns current log level display for the global log

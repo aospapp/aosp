@@ -4,3 +4,4 @@
 /dev/ttyS*                0666   system     system
 /proc                     0666   system     system
 /dev/goldfish_sync        0666   system     system
+/dev/goldfish_address_space 0666 system     system

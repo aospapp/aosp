@@ -79,6 +79,22 @@ public interface IDeviceBuildInfo extends IBuildInfo {
     public String getTestsDirVersion();
 
     /**
+     * Returns the dir containing some of the downloaded resources. (Resources are usually
+     * associated with a isFake=true device definition). Returns null if no resource dir available.
+     */
+    public default File getResourcesDir() {
+        return null;
+    }
+
+    /**
+     * Sets the resources directory {@link File}.
+     *
+     * @param resourcesDir The directory containing the shared resources.
+     * @param version The version of the directory file.
+     */
+    public default void setResourcesDir(File resourcesDir, String version) {}
+
+    /**
      * Set local path to the extracted tests.zip file contents.
      *
      * @param testsZipFile

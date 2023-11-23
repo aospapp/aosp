@@ -1,11 +1,13 @@
 #!/usr/bin/python
 
+# pylint: disable=missing-docstring
+
 import StringIO
 import errno
+import itertools
 import logging
 import os
 import select
-import shutil
 import socket
 import subprocess
 import time
@@ -14,9 +16,13 @@ import urllib2
 
 import common
 from autotest_lib.client.common_lib import autotemp
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.test_utils import mock
+
+# mock 1.0.0 (in site-packages/chromite/third_party/mock.py)
+# which is an ancestor of Python's default library starting from Python 3.3.
+# See https://docs.python.org/3/library/unittest.mock.html
+import mock as pymock
 
 metrics = utils.metrics_mock
 
@@ -1002,40 +1008,6 @@ class GetFunctionArgUnittest(unittest.TestCase):
         self.run_test(TestClass.test_static_function, False)
 
 
-class VersionMatchUnittest(unittest.TestCase):
-    """Test version_match function."""
-
-    def test_version_match(self):
-        """Test version_match function."""
-        canary_build = 'lumpy-release/R43-6803.0.0'
-        canary_release = '6803.0.0'
-        cq_build = 'lumpy-release/R43-6803.0.0-rc1'
-        cq_release = '6803.0.0-rc1'
-        trybot_paladin_build = 'trybot-lumpy-paladin/R43-6803.0.0-b123'
-        trybot_paladin_release = '6803.0.2015_03_12_2103'
-        trybot_pre_cq_build = 'trybot-wifi-pre-cq/R43-7000.0.0-b36'
-        trybot_pre_cq_release = '7000.0.2016_03_12_2103'
-        trybot_toolchain_build = 'trybot-nyan_big-gcc-toolchain/R56-8936.0.0-b14'
-        trybot_toolchain_release = '8936.0.2016_10_26_1403'
-        cros_cheets_build = 'lumpy-release/R49-6899.0.0-cheetsth'
-        cros_cheets_release = '6899.0.0'
-        trybot_paladin_cheets_build = 'trybot-lumpy-paladin/R50-6900.0.0-b123-cheetsth'
-        trybot_paladin_cheets_release = '6900.0.2015_03_12_2103'
-
-        builds = [canary_build, cq_build, trybot_paladin_build,
-                  trybot_pre_cq_build, trybot_toolchain_build,
-                  cros_cheets_build, trybot_paladin_cheets_build]
-        releases = [canary_release, cq_release, trybot_paladin_release,
-                    trybot_pre_cq_release, trybot_toolchain_release,
-                    cros_cheets_release, trybot_paladin_cheets_release]
-        for i in range(len(builds)):
-            for j in range(len(releases)):
-                self.assertEqual(
-                        utils.version_match(builds[i], releases[j]), i==j,
-                        'Build version %s should%s match release version %s.' %
-                        (builds[i], '' if i==j else ' not', releases[j]))
-
-
 class IsInSameSubnetUnittest(unittest.TestCase):
     """Test is_in_same_subnet function."""
 
@@ -1188,6 +1160,393 @@ class  MockMetricsTest(unittest.TestCase):
         """
         timer = metrics.SecondsTimer('name')
         timer['random_key'] = 'pass'
+
+
+class test_background_sample(unittest.TestCase):
+    """Test that the background sample can sample as desired.
+    """
+
+    def test_can_sample(self):
+        """Test that a simple sample will work with no other complications.
+        """
+        should_be_sampled = 'name'
+
+        def sample_function():
+            """Return value of variable stored in method."""
+            return should_be_sampled
+        still_sampling = True
+
+        t = utils.background_sample_until_condition(
+                function=sample_function,
+                condition=lambda: still_sampling,
+                timeout=5,
+                sleep_interval=0.1)
+        result = t.finish()
+        self.assertIn(should_be_sampled, result)
+
+
+    def test_samples_multiple_values(self):
+        """Test that a sample will work and actually samples at the necessary
+        intervals, such that it will pick up changes.
+        """
+        should_be_sampled = 'name'
+
+        def sample_function():
+            """Return value of variable stored in method."""
+            return should_be_sampled
+        still_sampling = True
+
+        t = utils.background_sample_until_condition(
+                function=sample_function,
+                condition=lambda: still_sampling,
+                timeout=5,
+                sleep_interval=0.1)
+        # Let it sample values some with the initial value.
+        time.sleep(2.5)
+        # It should also sample some with the new value.
+        should_be_sampled = 'noname'
+        result = t.finish()
+        self.assertIn('name', result)
+        self.assertIn('noname', result)
+
+
+class FakeTime(object):
+    """Provides time() and sleep() for faking time module.
+    """
+
+    def __init__(self, start_time):
+        self._time = start_time
+
+
+    def time(self):
+        return self._time
+
+
+    def sleep(self, interval):
+        self._time += interval
+
+
+class TimeModuleMockTestCase(unittest.TestCase):
+    """Mocks up utils.time with a FakeTime.
+
+    It substitudes time.time() and time.sleep() with FakeTime.time()
+    and FakeTime.sleep(), respectively.
+    """
+
+    def setUp(self):
+        self.fake_time_begin = 10
+        self.fake_time = FakeTime(self.fake_time_begin)
+        self.patcher = pymock.patch(
+            'autotest_lib.client.common_lib.utils.time')
+        self.time_mock = self.patcher.start()
+        self.addCleanup(self.patcher.stop)
+        self.time_mock.time.side_effect = self.fake_time.time
+        self.time_mock.sleep.side_effect = self.fake_time.sleep
+
+
+def always_raise():
+    """A function that raises an exception."""
+    raise Exception('always raise')
+
+
+def fail_n_times(count):
+    """Creates a function that returns False for the first count-th calls.
+
+    @return a function returns False for the first count-th calls and True
+            afterwards.
+    """
+    counter = itertools.count(count, -1)
+    return lambda: next(counter) <= 0
+
+
+class test_poll_for_condition(TimeModuleMockTestCase):
+    """Test poll_for_condition.
+    """
+
+    def test_ok(self):
+        """Test polling condition that returns True.
+        """
+        self.assertTrue(utils.poll_for_condition(lambda: True))
+
+
+    def test_ok_evaluated_as_true(self):
+        """Test polling condition which's return value is evaluated as True.
+        """
+        self.assertEqual(1, utils.poll_for_condition(lambda: 1))
+
+        self.assertEqual('something',
+                         utils.poll_for_condition(lambda: 'something'))
+
+
+    def test_fail(self):
+        """Test polling condition that returns False.
+
+        Expect TimeoutError exception as neither customized exception nor
+        exception raised from condition().
+        """
+        with self.assertRaises(utils.TimeoutError):
+            utils.poll_for_condition(lambda: False, timeout=3, sleep_interval=1)
+        self.assertEqual(3, self.time_mock.sleep.call_count)
+
+
+    def test_fail_evaluated_as_false(self):
+        """Test polling condition which's return value is evaluated as False.
+
+        Expect TimeoutError exception as neither customized exception nor
+        exception raised from condition().
+        """
+        with self.assertRaises(utils.TimeoutError):
+            utils.poll_for_condition(lambda: 0, timeout=3, sleep_interval=1)
+        self.assertEqual(3, self.time_mock.sleep.call_count)
+
+        with self.assertRaises(utils.TimeoutError):
+            utils.poll_for_condition(lambda: None, timeout=3, sleep_interval=1)
+
+
+    def test_exception_arg(self):
+        """Test polling condition always fails.
+
+        Expect exception raised by 'exception' args.
+        """
+        with self.assertRaisesRegexp(Exception, 'from args'):
+            utils.poll_for_condition(lambda: False,
+                                     exception=Exception('from args'),
+                                     timeout=3, sleep_interval=1)
+        self.assertEqual(3, self.time_mock.sleep.call_count)
+
+
+    def test_exception_from_condition(self):
+        """Test polling condition always fails.
+
+        Expect exception raised by condition().
+        """
+        with self.assertRaisesRegexp(Exception, 'always raise'):
+            utils.poll_for_condition(always_raise,
+                                     exception=Exception('from args'),
+                                     timeout=3, sleep_interval=1)
+        # For poll_for_condition, if condition() raises exception, it raises
+        # immidiately without retry. So sleep() should not be called.
+        self.time_mock.sleep.assert_not_called()
+
+
+    def test_ok_after_retry(self):
+        """Test polling a condition which is success after retry twice.
+        """
+        self.assertTrue(utils.poll_for_condition(fail_n_times(2), timeout=3,
+                                                 sleep_interval=1))
+
+
+    def test_cannot_wait(self):
+        """Test polling a condition which fails till timeout.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'Timed out waiting for unnamed condition'):
+            utils.poll_for_condition(fail_n_times(4), timeout=3,
+                                     sleep_interval=1)
+        self.assertEqual(3, self.time_mock.sleep.call_count)
+
+
+class test_poll_for_condition_ex(TimeModuleMockTestCase):
+    """Test poll_for_condition_ex.
+    """
+
+    def test_ok(self):
+        """Test polling condition that returns True.
+        """
+        self.assertTrue(utils.poll_for_condition_ex(lambda: True))
+
+
+    def test_ok_evaluated_as_true(self):
+        """Test polling condition which's return value is evaluated as True.
+        """
+        self.assertEqual(1, utils.poll_for_condition_ex(lambda: 1))
+
+        self.assertEqual('something',
+                         utils.poll_for_condition_ex(lambda: 'something'))
+
+
+    def test_fail(self):
+        """Test polling condition that returns False.
+
+        Expect TimeoutError raised.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'Timed out waiting for unamed condition'):
+            utils.poll_for_condition_ex(lambda: False, timeout=3,
+                                        sleep_interval=1)
+        self.assertEqual(2, self.time_mock.sleep.call_count)
+
+
+    def test_fail_evaluated_as_false(self):
+        """Test polling condition which's return value is evaluated as False.
+
+        Expect TimeoutError raised.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'Timed out waiting for unamed condition'):
+            utils.poll_for_condition_ex(lambda: 0, timeout=3,
+                                        sleep_interval=1)
+        self.assertEqual(2, self.time_mock.sleep.call_count)
+
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'Timed out waiting for unamed condition'):
+            utils.poll_for_condition_ex(lambda: None, timeout=3,
+                                        sleep_interval=1)
+
+
+    def test_desc_arg(self):
+        """Test polling condition always fails with desc.
+
+        Expect TimeoutError with condition description embedded.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'Timed out waiting for always false condition'):
+            utils.poll_for_condition_ex(lambda: False,
+                                        desc='always false condition',
+                                        timeout=3, sleep_interval=1)
+        self.assertEqual(2, self.time_mock.sleep.call_count)
+
+
+    def test_exception(self):
+        """Test polling condition that raises.
+
+        Expect TimeoutError with condition raised exception embedded.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                "Reason: Exception\('always raise',\)"):
+            utils.poll_for_condition_ex(always_raise, timeout=3,
+                                        sleep_interval=1)
+        self.assertEqual(2, self.time_mock.sleep.call_count)
+
+
+    def test_ok_after_retry(self):
+        """Test polling a condition which is success after retry twice.
+        """
+        self.assertTrue(utils.poll_for_condition_ex(fail_n_times(2), timeout=3,
+                                                    sleep_interval=1))
+
+
+    def test_cannot_wait(self):
+        """Test polling a condition which fails till timeout.
+        """
+        with self.assertRaisesRegexp(
+                utils.TimeoutError,
+                'condition evaluted as false'):
+            utils.poll_for_condition_ex(fail_n_times(3), timeout=3,
+                                        sleep_interval=1)
+        self.assertEqual(2, self.time_mock.sleep.call_count)
+
+
+class test_timer(TimeModuleMockTestCase):
+    """Test Timer.
+    """
+
+    def test_zero_timeout(self):
+        """Test Timer with zero timeout.
+
+        Only the first timer.sleep(0) is True.
+        """
+        timer = utils.Timer(0)
+        self.assertTrue(timer.sleep(0))
+        self.assertFalse(timer.sleep(0))
+        self.time_mock.sleep.assert_not_called()
+
+
+    def test_sleep(self):
+        """Test Timer.sleep()
+        """
+        timeout = 3
+        sleep_interval = 2
+        timer = utils.Timer(timeout)
+
+        # Kicks off timer.
+        self.assertTrue(timer.sleep(sleep_interval))
+        self.assertEqual(self.fake_time_begin + timeout, timer.deadline)
+        self.assertTrue(timer.sleep(sleep_interval))
+        # now: 12. 12 + 2 > 13, unable to sleep
+        self.assertFalse(timer.sleep(sleep_interval))
+
+        self.time_mock.sleep.assert_has_calls([pymock.call(sleep_interval)])
+
+
+class test_timeout_error(unittest.TestCase):
+    """Test TimeoutError.
+
+    Test TimeoutError with three invocations format.
+    """
+
+    def test_no_args(self):
+        """Create TimeoutError without arguments.
+        """
+        e = utils.TimeoutError()
+        self.assertEqual('', str(e))
+        self.assertEqual('TimeoutError()', repr(e))
+
+
+    def test_with_message(self):
+        """Create TimeoutError with text message.
+        """
+        e = utils.TimeoutError(message='Waiting for condition')
+        self.assertEqual('Waiting for condition', str(e))
+        self.assertEqual("TimeoutError('Waiting for condition',)", repr(e))
+
+        # Positional message argument for backward compatibility.
+        e = utils.TimeoutError('Waiting for condition')
+        self.assertEqual('Waiting for condition', str(e))
+        self.assertEqual("TimeoutError('Waiting for condition',)", repr(e))
+
+
+
+    def test_with_reason(self):
+        """Create TimeoutError with reason only.
+        """
+        e = utils.TimeoutError(reason='illegal input')
+        self.assertEqual("Reason: 'illegal input'", str(e))
+        self.assertEqual("TimeoutError(\"Reason: 'illegal input'\",)", repr(e))
+        self.assertEqual('illegal input', e.reason)
+
+
+    def test_with_message_reason(self):
+        """Create TimeoutError with text message and reason.
+        """
+        e = utils.TimeoutError(message='Waiting for condition',
+                               reason='illegal input')
+        self.assertEqual("Waiting for condition. Reason: 'illegal input'",
+                         str(e))
+        self.assertEqual('illegal input', e.reason)
+
+        # Positional message argument for backward compatibility.
+        e = utils.TimeoutError('Waiting for condition', reason='illegal input')
+        self.assertEqual("Waiting for condition. Reason: 'illegal input'",
+                         str(e))
+        self.assertEqual('illegal input', e.reason)
+
+
+    def test_with_message_reason_object(self):
+        """Create TimeoutError with text message and reason as exception object.
+        """
+        e = utils.TimeoutError(message='Waiting for condition',
+                               reason=Exception('illegal input'))
+        self.assertEqual(
+            "Waiting for condition. Reason: Exception('illegal input',)",
+            str(e))
+        self.assertIsInstance(e.reason, Exception)
+        self.assertEqual('illegal input', e.reason.message)
+
+        # Positional message argument for backward compatibility.
+        e = utils.TimeoutError('Waiting for condition',
+                               reason=Exception('illegal input'))
+        self.assertEqual(
+            "Waiting for condition. Reason: Exception('illegal input',)",
+            str(e))
+        self.assertIsInstance(e.reason, Exception)
+        self.assertEqual('illegal input', e.reason.message)
 
 
 

@@ -28,6 +28,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsVerifierUSBCompanion
 
 LOCAL_SDK_VERSION := 25
+#LOCAL_MIN_SDK_VERSION := 12
 
 LOCAL_DEX_PREOPT := false
 

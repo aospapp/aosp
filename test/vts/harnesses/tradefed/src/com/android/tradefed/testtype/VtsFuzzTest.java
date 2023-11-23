@@ -37,6 +37,8 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
     static final String DEFAULT_FUZZER_BINARY_PATH = "/system/bin/fuzzer";
 
     static final float DEFAULT_TARGET_VERSION = -1;
+    static final int DEFAULT_TARGET_VERSION_MAJOR = -1;
+    static final int DEFAULT_TARGET_VERSION_MINOR = -1;
     static final int DEFAULT_EPOCH_COUNT = 10;
 
     // fuzzer flags
@@ -63,9 +65,15 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
             description="The target component type.")
     private String mTargetType = null;
 
-    @Option(name = "target-version",
-            description="The target component version.")
+    @Deprecated
+    @Option(name = "target-version", description = "The target component version.")
     private float mTargetVersion = DEFAULT_TARGET_VERSION;
+
+    @Option(name = "target-version-major", description = "The target major component version.")
+    private int mTargetVersionMajor = DEFAULT_TARGET_VERSION_MAJOR;
+
+    @Option(name = "target-version-minor", description = "The target minor component version.")
+    private int mTargetVersionMinor = DEFAULT_TARGET_VERSION_MINOR;
 
     @Option(name = "epoch-count",
             description="The epoch count.")
@@ -156,6 +164,7 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
      *
      * @param version The version to set.
      */
+    @Deprecated
     public void setTargetVersion(float version) {
         mTargetVersion = version;
     }
@@ -165,8 +174,45 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
      *
      * @return The version.
      */
+    @Deprecated
     public float getTargetVersion() {
         return mTargetVersion;
+    }
+
+    /**
+     * Set the target major version variable.
+     *
+     * @param version_major The major version to set.
+     */
+    public void setTargetVersionMajor(int version_major) {
+        mTargetVersionMajor = version_major;
+    }
+
+    /**
+     * Get the target major version variable.
+     *
+     * @return The major version.
+     */
+    public int getTargetVersionMajor() {
+        return mTargetVersionMajor;
+    }
+
+    /**
+     * Set the target minor version variable.
+     *
+     * @param version The minor version to set.
+     */
+    public void setTargetVersionMinor(int version_minor) {
+        mTargetVersionMinor = version_minor;
+    }
+
+    /**
+     * Get the target minor version variable.
+     *
+     * @return The minor version.
+     */
+    public int getTargetVersionMinor() {
+        return mTargetVersionMinor;
     }
 
     /**
@@ -206,10 +252,12 @@ public class VtsFuzzTest implements IDeviceTest, IRemoteTest {
         }
         flags = String.format("%s %s=%s", flags, VTS_FUZZ_TEST_FLAG_TYPE, mTargetType);
 
-        if (mTargetVersion == DEFAULT_TARGET_VERSION) {
+        if (mTargetVersionMajor == DEFAULT_TARGET_VERSION_MAJOR
+                || mTargetVersionMinor == DEFAULT_TARGET_VERSION_MINOR) {
             throw new IllegalArgumentException(VTS_FUZZ_TEST_FLAG_VERSION + " must be set.");
         }
-        flags = String.format("%s %s=%s", flags, VTS_FUZZ_TEST_FLAG_VERSION, mTargetVersion);
+        flags = String.format("%s %s=%d.%d", flags, VTS_FUZZ_TEST_FLAG_VERSION, mTargetVersionMajor,
+                mTargetVersionMinor);
 
         flags = String.format("%s %s=%s", flags, VTS_FUZZ_TEST_FLAG_EPOCH_COUNT, mEpochCount);
 

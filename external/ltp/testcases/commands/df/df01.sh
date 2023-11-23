@@ -49,6 +49,12 @@ parse_args()
 
 setup()
 {
+	local ret
+
+	if [ -n "$FS_TYPE" ]; then
+		tst_test_cmds mkfs.${FS_TYPE}
+	fi
+
 	tst_mkfs ${FS_TYPE} ${TST_DEVICE}
 
 	ROD_SILENT mkdir -p mntpoint
@@ -73,7 +79,7 @@ cleanup()
 
 df_test()
 {
-	cmd="$1 -P"
+	local cmd="$1 -P"
 
 	df_verify $cmd
 	if [ $? -ne 0 ]; then
@@ -209,7 +215,7 @@ test11()
 
 test12()
 {
-	cmd="df -x ${DF_FS_TYPE} -P"
+	local cmd="df -x ${DF_FS_TYPE} -P"
 
 	df_verify $cmd
 	if [ $? -ne 0 ]; then

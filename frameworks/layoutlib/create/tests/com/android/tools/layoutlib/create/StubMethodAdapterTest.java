@@ -61,10 +61,10 @@ public class StubMethodAdapterTest {
         String newClassName = STUB_CLASS_NAME + '_';
         new ClassReader(STUB_CLASS_NAME).accept(
                 new ClassAdapter(newClassName, writer, methodPredicate), 0);
-        MyClassLoader myClassLoader = new MyClassLoader(newClassName, writer.toByteArray());
+        TestClassLoader myClassLoader = new TestClassLoader(newClassName, writer.toByteArray());
         Class<?> aClass = myClassLoader.loadClass(newClassName);
         assertTrue("StubClass not loaded by the classloader. Likely a bug in the test.",
-                myClassLoader.findClassCalled);
+                myClassLoader.wasClassLoaded(newClassName));
         Method method = aClass.getMethod(methodName);
         Object o = aClass.newInstance();
         assertion.accept((Boolean) method.invoke(o));
@@ -103,30 +103,11 @@ public class StubMethodAdapterTest {
             if (mMethodPredicate.test(name, descriptor)) {
                 String methodSignature = mClassName + "#" + name;
                 String invokeSignature = methodSignature + desc;
-                return new StubMethodAdapter(originalMethod, name, descriptor.getReturnType(),
+                return new StubCallMethodAdapter(originalMethod, name, descriptor.getReturnType(),
                         invokeSignature, isStatic, isNative);
             }
             return originalMethod;
         }
     }
 
-    private static class MyClassLoader extends ClassLoader {
-        private final String mName;
-        private final byte[] mBytes;
-        private boolean findClassCalled;
-
-        private MyClassLoader(String name, byte[] bytes) {
-            mName = name;
-            mBytes = bytes;
-        }
-
-        @Override
-        protected Class<?> findClass(String name) throws ClassNotFoundException {
-            if (name.equals(mName)) {
-                findClassCalled = true;
-                return defineClass(name, mBytes, 0, mBytes.length);
-            }
-            return super.findClass(name);
-        }
-    }
 }

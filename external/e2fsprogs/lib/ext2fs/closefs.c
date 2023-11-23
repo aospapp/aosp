@@ -260,10 +260,8 @@ static errcode_t write_backup_super(ext2_filsys fs, dgrp_t group,
 	if (sgrp > ((1 << 16) - 1))
 		sgrp = (1 << 16) - 1;
 
-	super_shadow->s_block_group_nr = sgrp;
-#ifdef WORDS_BIGENDIAN
-	ext2fs_swap_super(super_shadow);
-#endif
+	super_shadow->s_block_group_nr = ext2fs_cpu_to_le16(sgrp);
+
 	retval = ext2fs_superblock_csum_set(fs, super_shadow);
 	if (retval)
 		return retval;
@@ -284,7 +282,7 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 	unsigned long	fs_state;
 	__u32		feature_incompat;
 	struct ext2_super_block *super_shadow = 0;
-	struct ext2_group_desc *group_shadow = 0;
+	struct opaque_ext2_group_desc *group_shadow = 0;
 #ifdef WORDS_BIGENDIAN
 	struct ext2_group_desc *gdp;
 	dgrp_t		j;
@@ -316,7 +314,15 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 			goto errout;
 	}
 
-	/* Prepare the group descriptors for writing */
+	/*
+	 * Set the state of the FS to be non-valid.  (The state has
+	 * already been backed up earlier, and will be restored after
+	 * we write out the backup superblocks.)
+	 */
+	fs->super->s_state &= ~EXT2_VALID_FS;
+	ext2fs_clear_feature_journal_needs_recovery(fs->super);
+
+	/* Byte swap the superblock and the group descriptors if necessary */
 #ifdef WORDS_BIGENDIAN
 	retval = EXT2_ET_NO_MEMORY;
 	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, &super_shadow);
@@ -330,23 +336,15 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 	memcpy(group_shadow, fs->group_desc, (size_t) fs->blocksize *
 	       fs->desc_blocks);
 
-	/* swap the group descriptors */
+	ext2fs_swap_super(super_shadow);
 	for (j = 0; j < fs->group_desc_count; j++) {
 		gdp = ext2fs_group_desc(fs, group_shadow, j);
 		ext2fs_swap_group_desc2(fs, gdp);
 	}
 #else
 	super_shadow = fs->super;
-	group_shadow = ext2fs_group_desc(fs, fs->group_desc, 0);
+	group_shadow = fs->group_desc;
 #endif
-
-	/*
-	 * Set the state of the FS to be non-valid.  (The state has
-	 * already been backed up earlier, and will be restored after
-	 * we write out the backup superblocks.)
-	 */
-	fs->super->s_state &= ~EXT2_VALID_FS;
-	ext2fs_clear_feature_journal_needs_recovery(fs->super);
 
 	/*
 	 * If this is an external journal device, don't write out the
@@ -429,16 +427,22 @@ write_primary_superblock_only:
 	if (retval)
 		return retval;
 
-	if (!(flags & EXT2_FLAG_FLUSH_NO_SYNC))
+	if (!(flags & EXT2_FLAG_FLUSH_NO_SYNC)) {
 		retval = io_channel_flush(fs->io);
+		if (retval)
+			goto errout;
+	}
 	retval = write_primary_superblock(fs, super_shadow);
 	if (retval)
 		goto errout;
 
 	fs->flags &= ~EXT2_FLAG_DIRTY;
 
-	if (!(flags & EXT2_FLAG_FLUSH_NO_SYNC))
+	if (!(flags & EXT2_FLAG_FLUSH_NO_SYNC)) {
 		retval = io_channel_flush(fs->io);
+		if (retval)
+			goto errout;
+	}
 errout:
 	fs->super->s_state = fs_state;
 #ifdef WORDS_BIGENDIAN

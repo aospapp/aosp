@@ -60,8 +60,9 @@ public class InvocationFailureHandler {
             File f = buildHelper.getInvocationFailureFile();
             if (!f.exists()) {
                 f.createNewFile();
-                FileUtil.writeToFile(cause.toString(), f);
             }
+            // Append to previous failures to get them all.
+            FileUtil.writeToFile(cause.toString(), f, true);
         } catch (IOException e) {
             CLog.e("Exception while writing invocation failure file.");
             CLog.e(e);

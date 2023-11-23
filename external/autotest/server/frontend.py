@@ -200,21 +200,8 @@ class _StableVersionMap(object):
                         when calling the `get_stable_version` RPC.
     """
 
-    # DEFAULT_BOARD - The stable_version RPC API recognizes this special
-    # name as a mapping to use when no specific mapping for a board is
-    # present.  This default mapping is only allowed for CrOS image
-    # types; other image type subclasses exclude it.
-    #
-    # TODO(jrbarnette):  This value is copied from
-    # site_utils.stable_version_utils, because if we import that
-    # module here, it breaks unit tests.  Something about the Django
-    # setup...
-    DEFAULT_BOARD = 'DEFAULT'
-
-
-    def __init__(self, afe, android):
+    def __init__(self, afe):
         self._afe = afe
-        self._android = android
 
 
     def get_all_versions(self):
@@ -241,8 +228,7 @@ class _StableVersionMap(object):
 
         @return The version mapped for the given board.
         """
-        return self._afe.run('get_stable_version',
-                             board=board, android=self._android)
+        return self._afe.run('get_stable_version', board=board)
 
 
     def set_version(self, board, version):
@@ -276,20 +262,36 @@ class _OSVersionMap(_StableVersionMap):
     Abstract stable version mapping for full OS images of various types.
     """
 
+    def _version_is_valid(self, version):
+        return True
+
     def get_all_versions(self):
-        # TODO(jrbarnette):  We exclude non-OS (i.e. firmware) version
-        # mappings, but the returned dict doesn't distinguish CrOS
-        # boards from Android boards; both will be present, and the
-        # subclass can't distinguish them.
-        #
-        # Ultimately, the right fix is to move knowledge of image type
-        # over to the RPC server side.
-        #
         versions = super(_OSVersionMap, self).get_all_versions()
         for board in versions.keys():
-            if '/' in board:
+            if ('/' in board
+                    or not self._version_is_valid(versions[board])):
                 del versions[board]
         return versions
+
+    def get_version(self, board):
+        version = super(_OSVersionMap, self).get_version(board)
+        return version if self._version_is_valid(version) else None
+
+
+def format_cros_image_name(board, version):
+    """
+    Return an image name for a given `board` and `version`.
+
+    This formats `board` and `version` into a string identifying an
+    image file.  The string represents part of a URL for access to
+    the image.
+
+    The returned image name is typically of a form like
+    "falco-release/R55-8872.44.0".
+    """
+    build_pattern = GLOBAL_CONFIG.get_config_value(
+            'CROS', 'stable_build_pattern')
+    return build_pattern % (board, version)
 
 
 class _CrosVersionMap(_OSVersionMap):
@@ -302,24 +304,8 @@ class _CrosVersionMap(_OSVersionMap):
     working state.
     """
 
-    def __init__(self, afe):
-        super(_CrosVersionMap, self).__init__(afe, False)
-
-    @staticmethod
-    def format_image_name(board, version):
-        """
-        Return an image name for a given `board` and `version`.
-
-        This formats `board` and `version` into a string identifying an
-        image file.  The string represents part of a URL for access to
-        the image.
-
-        The returned image name is typically of a form like
-        "falco-release/R55-8872.44.0".
-        """
-        build_pattern = GLOBAL_CONFIG.get_config_value(
-                'CROS', 'stable_build_pattern')
-        return build_pattern % (board, version)
+    def _version_is_valid(self, version):
+        return version is not None and '/' not in version
 
     def get_image_name(self, board):
         """
@@ -332,25 +318,7 @@ class _CrosVersionMap(_OSVersionMap):
         @return A string identifying the image file for the stable
                 image for `board`.
         """
-        return self.format_image_name(board, self.get_version(board))
-
-
-class _AndroidVersionMap(_OSVersionMap):
-    """
-    Stable version mapping for Android release images.
-
-    This class manages a mapping of Android/Brillo board names to
-    known-good images.
-    """
-
-    def __init__(self, afe):
-        super(_AndroidVersionMap, self).__init__(afe, True)
-
-
-    def get_all_versions(self):
-        versions = super(_AndroidVersionMap, self).get_all_versions()
-        del versions[self.DEFAULT_BOARD]
-        return versions
+        return format_cros_image_name(board, self.get_version(board))
 
 
 class _SuffixHackVersionMap(_StableVersionMap):
@@ -368,10 +336,6 @@ class _SuffixHackVersionMap(_StableVersionMap):
     # lookup key.  Each subclass must define this value for itself.
     #
     _SUFFIX = None
-
-    def __init__(self, afe):
-        super(_SuffixHackVersionMap, self).__init__(afe, False)
-
 
     def get_all_versions(self):
         # Get all the mappings from the AFE, extract just the mappings
@@ -461,18 +425,15 @@ class AFE(RpcClient):
     # CROS_IMAGE_TYPE - Mappings for Chrome OS images.
     # FAFT_IMAGE_TYPE - Mappings for Firmware images for FAFT repair.
     # FIRMWARE_IMAGE_TYPE - Mappings for released RW Firmware images.
-    # ANDROID_IMAGE_TYPE - Mappings for Android images.
     #
     CROS_IMAGE_TYPE = 'cros'
     FAFT_IMAGE_TYPE = 'faft'
     FIRMWARE_IMAGE_TYPE = 'firmware'
-    ANDROID_IMAGE_TYPE = 'android'
 
     _IMAGE_MAPPING_CLASSES = {
         CROS_IMAGE_TYPE: _CrosVersionMap,
         FAFT_IMAGE_TYPE: _FAFTVersionMap,
         FIRMWARE_IMAGE_TYPE: _FirmwareVersionMap,
-        ANDROID_IMAGE_TYPE: _AndroidVersionMap
     }
 
 

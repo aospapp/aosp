@@ -340,7 +340,7 @@ public class BugreportCollector implements ITestInvocationListener {
                         break;
 
                     case TESTRUN:
-                        if (mCollector.getRunResults().size() == 1) {
+                        if (mCollector.getMergedTestRunResults().size() == 1) {
                             applicableFreqs.add(Freq.FIRST);
                         }
                         break;
@@ -364,7 +364,7 @@ public class BugreportCollector implements ITestInvocationListener {
                         break;
 
                     case TESTRUN:
-                        if (mCollector.getRunResults().size() == 1) {
+                        if (mCollector.getMergedTestRunResults().size() == 1) {
                             applicableFreqs.add(Freq.FIRST);
                         }
                         break;

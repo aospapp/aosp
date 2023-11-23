@@ -27,4 +27,5 @@ hardware acceleration support.
 VIDEO_NAME = 'traffic/traffic-1920x1080-ad53f821ff3cf8ffa7e991c9d2e0b854.vp8.webm'
 VIDEO_DESCRIPTION = 'vp8_1080p'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
-             video_description=VIDEO_DESCRIPTION)
+             video_description=VIDEO_DESCRIPTION,
+             capability='hw_dec_vp8_1080_30')

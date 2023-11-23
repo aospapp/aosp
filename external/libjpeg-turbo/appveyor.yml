@@ -16,17 +16,17 @@ install:
 
       set MSYSTEM=MINGW32
 
-      bash -c "pacman --noconfirm -S autoconf automake libtool zip"
+      bash -c "pacman --noconfirm -S zip"
 
       mklink /d "%ProgramData%\Oracle\Java32" "c:\Program Files (x86)\Java\jdk1.6.0"
 
-      git clone --depth=1 https://github.com/libjpeg-turbo/buildscripts.git c:/buildscripts
+      git clone --depth=1 https://github.com/libjpeg-turbo/buildscripts.git -b %APPVEYOR_REPO_BRANCH% c:/buildscripts
 
 build_script:
   - cmd: >-
       for /f %%i in ('"cygpath %CD%"') do set MINGWPATH=%%i
 
-      bash c:/buildscripts/buildljt -r file://%MINGWPATH% -b /c/ljt.nightly %APPVEYOR_REPO_BRANCH% -v
+      bash c:/buildscripts/buildljt -d %MINGWPATH% -b /c/ljt.nightly -v
 
       move c:\ljt.nightly\files\*.tar.gz .
 

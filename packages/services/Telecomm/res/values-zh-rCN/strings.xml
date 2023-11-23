@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"快速回复"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"讯息已发送至 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"未能将信息发送到 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"通话帐号"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"只能拨打紧急呼救电话。"</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"此应用没有电话权限，无法拨出电话。"</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"设为默认电话应用"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"取消"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> 将可用于拨打电话和全面管理通话。请务必仅将您信任的应用设为默认电话应用。"</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"要将<xliff:g id="NEW_APP">%s</xliff:g>设为默认选接电话应用吗？"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g>将无法再选接电话。"</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g>将能查看不在通讯录内的来电者信息，并屏蔽这些通话。您应仅将受信应用设为默认选接电话应用。"</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"设为默认"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"取消"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"已屏蔽的号码"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"您不会收到来自已屏蔽的号码的来电或短信。"</string>
     <string name="block_number" msgid="1101252256321306179">"添加电话号码"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"如果接听此来电，您当前的视频通话会中断。"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"接听"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"拒绝"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"无法拨出电话，因为没有通话帐号支持拨打这类电话。"</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"由于当前正在进行 <xliff:g id="OTHER_CALL">%1$s</xliff:g> 通话，因此无法拨打电话。"</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"由于当前正在进行 <xliff:g id="OTHER_CALL">%1$s</xliff:g> 通话，因此无法拨打电话。"</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"由于当前正在通过其他应用通话，因此无法拨打电话。"</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"未接电话"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"来电屏蔽"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"拨打此电话将导致<xliff:g id="OTHER_APP">%1$s</xliff:g>通话结束。"</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"选择拨打此电话的方式"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"使用<xliff:g id="OTHER_APP">%1$s</xliff:g>转移呼叫"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"使用我的电话号码拨打电话"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"无法使用<xliff:g id="OTHER_APP">%1$s</xliff:g>拨打电话。请尝试使用其他通话重定向应用，或联系开发者获取帮助。"</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"来电屏蔽"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"不在通讯录中的号码"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"屏蔽未列在您通讯录中的号码"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"来电屏蔽功能已停用"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"已拨打紧急呼救电话"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"系统已停用来电屏蔽功能，以便急救人员与您联系。"</string>
+    <string name="developer_title" msgid="1816273446906554627">"电信开发者菜单"</string>
 </resources>

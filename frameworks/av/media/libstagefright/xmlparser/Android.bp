@@ -1,3 +1,9 @@
+cc_library_headers {
+    name: "libstagefright_xmlparser_headers",
+    export_include_dirs: ["include"],
+    vendor_available: true,
+}
+
 cc_library_shared {
     name: "libstagefright_xmlparser",
     vendor_available: true,
@@ -14,6 +20,7 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "libbase",
         "libexpat",
         "liblog",
         "libstagefright_omx_utils",
@@ -32,10 +39,13 @@ cc_library_shared {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 
+}
+
+xsd_config {
+    name: "media_codecs",
+    srcs: ["media_codecs.xsd"],
+    package_name: "media.codecs",
 }
 

@@ -33,7 +33,6 @@ public class OldDecimalFormatSymbolsTest extends TestCase {
     public void test_RIHarmony_compatible() throws Exception {
         ObjectInputStream i = null;
         try {
-            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRANCE);
             i = new ObjectInputStream(
                     getClass()
                             .getClassLoader()
@@ -43,7 +42,17 @@ public class OldDecimalFormatSymbolsTest extends TestCase {
             // RI's default NaN is U+FFFD, Harmony's is based on ICU
             // This suggests an RI bug, assuming that non-UTF8 bytes are UTF8 and
             // getting a conversion failure.
+            assertEquals("\ufffd", riSymbols.getNaN());
+            // Since CLDR 34, Android's group separator in French is changed from \u00a0 to \u202f.
+            // Both are no-break whitespace in Unicode.
+            assertEquals('\u00a0', riSymbols.getGroupingSeparator());
+
+            // Override the riSymbols fields known to differ on Android values so that we can check
+            // equality on all other fields with equals().
             riSymbols.setNaN("NaN");
+            riSymbols.setGroupingSeparator('\u202f');
+            // Compare the Android defaults with the RI snapshot.
+            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRANCE);
             assertEquals(symbols, riSymbols);
         } catch(NullPointerException e) {
             assertNotNull("Failed to load /serialization/java/text/" +
@@ -144,7 +153,7 @@ public class OldDecimalFormatSymbolsTest extends TestCase {
         assertEquals("\u20AC", dfs.getCurrencySymbol());
         assertEquals(',', dfs.getDecimalSeparator());
         assertEquals('#', dfs.getDigit());
-        assertEquals('\u00a0', dfs.getGroupingSeparator());
+        assertEquals('\u202f', dfs.getGroupingSeparator());
         assertEquals("\u221e", dfs.getInfinity());
         assertEquals("EUR", dfs.getInternationalCurrencySymbol());
         assertEquals('-', dfs.getMinusSign());

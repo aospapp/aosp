@@ -15,16 +15,15 @@
  */
 package com.android.server.cts.procstats;
 
-import static junit.framework.Assert.assertEquals;
 import static junit.framework.TestCase.fail;
 
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Test;

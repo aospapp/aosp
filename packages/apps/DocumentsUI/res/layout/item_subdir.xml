@@ -32,7 +32,7 @@
         android:singleLine="true"
         android:ellipsize="end"
         android:textAlignment="viewStart"
-        android:textAppearance="@android:style/TextAppearance.Material.Subhead"
+        android:textAppearance="?android:attr/textAppearanceListItem"
         android:textColor="?android:attr/textColorPrimary" />
 
 </LinearLayout>

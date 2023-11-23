@@ -132,7 +132,7 @@ void cras_iodev_list_enable_dev(struct cras_iodev *dev) {
   enable_dev = dev;
 }
 
-void cras_iodev_list_disable_dev(struct cras_iodev *dev) {
+void cras_iodev_list_disable_dev(struct cras_iodev *dev, bool force) {
   disable_dev_called++;
   disable_dev = dev;
 }

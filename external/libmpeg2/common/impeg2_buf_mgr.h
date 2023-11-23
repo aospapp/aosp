@@ -69,6 +69,10 @@ typedef struct
 void impeg2_buf_mgr_init(
                 buf_mgr_t *ps_buf_mgr);
 
+// resets the buffer API structure
+void impeg2_buf_mgr_reset(
+                buf_mgr_t *ps_buf_mgr);
+
 // Add buffer to buffer manager. 0: success, -1: fail (u4_active_buf_cnt has reached u4_max_buf_cnt)
 WORD32 impeg2_buf_mgr_add(
                 buf_mgr_t *ps_buf_mgr,

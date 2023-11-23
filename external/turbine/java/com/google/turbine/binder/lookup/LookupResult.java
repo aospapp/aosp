@@ -16,10 +16,13 @@
 
 package com.google.turbine.binder.lookup;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.Symbol;
+import com.google.turbine.tree.Tree;
 
 /**
  * The result of a canonical type name lookup.
@@ -36,16 +39,15 @@ public class LookupResult {
   }
 
   /** The remaining nested type names. */
-  public ImmutableList<String> remaining() {
+  public ImmutableList<Tree.Ident> remaining() {
     return remaining;
   }
 
   private final Symbol sym;
-  private final ImmutableList<String> remaining;
+  private final ImmutableList<Tree.Ident> remaining;
 
   public LookupResult(Symbol sym, LookupKey remaining) {
-    this.sym = sym;
-    this.remaining =
-        remaining.hasNext() ? remaining.rest().simpleNames() : ImmutableList.<String>of();
+    this.sym = requireNonNull(sym);
+    this.remaining = remaining.hasNext() ? remaining.rest().simpleNames() : ImmutableList.of();
   }
 }

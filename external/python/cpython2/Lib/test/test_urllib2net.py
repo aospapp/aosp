@@ -102,8 +102,8 @@ class OtherNetworkTests(unittest.TestCase):
 
     def test_ftp(self):
         urls = [
-            'ftp://ftp.debian.org/debian/README',
-            ('ftp://ftp.debian.org/debian/non-existent-file',
+            'ftp://www.pythontest.net/README',
+            ('ftp://www.pythontest.net/non-existent-file',
              None, urllib2.URLError),
             ]
         self._test_urls(urls, self._extra_handlers())
@@ -184,6 +184,7 @@ class OtherNetworkTests(unittest.TestCase):
             opener.open(request)
             self.assertEqual(request.get_header('User-agent'),'Test-Agent')
 
+    @unittest.skip('XXX: http://www.imdb.com is gone')
     def test_sites_no_connection_close(self):
         # Some sites do not send Connection: close header.
         # Verify that those work properly. (#issue12576)
@@ -282,7 +283,7 @@ class TimeoutTest(unittest.TestCase):
             u = _urlopen_with_retry(url, timeout=120)
             self.assertEqual(u.fp._sock.fp._sock.gettimeout(), 120)
 
-    FTP_HOST = 'ftp://ftp.debian.org/debian/'
+    FTP_HOST = 'ftp://www.pythontest.net/'
 
     def test_ftp_basic(self):
         self.assertIsNone(socket.getdefaulttimeout())

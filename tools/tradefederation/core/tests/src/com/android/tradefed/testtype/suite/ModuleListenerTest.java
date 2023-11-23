@@ -16,11 +16,14 @@
 package com.android.tradefed.testtype.suite;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.TestRunResult;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.HashMap;
+import java.util.List;
 
 /** Unit tests for {@link ModuleListener} * */
 @RunWith(JUnit4.class)
@@ -68,7 +72,9 @@ public class ModuleListenerTest {
         mListener.testEnded(tid, new HashMap<String, Metric>());
         mListener.testRunEnded(0, new HashMap<String, Metric>());
 
-        assertEquals(numTests, mListener.getNumTotalTests());
+        // Expected and total tests differ because some tests did not execute
+        assertEquals(numTests, mListener.getExpectedTests());
+        assertEquals(1, mListener.getNumTotalTests());
         assertEquals(1, mListener.getNumTestsInState(TestStatus.PASSED));
     }
 
@@ -97,6 +103,8 @@ public class ModuleListenerTest {
 
         assertEquals(numTests, mListener.getNumTotalTests());
         assertEquals(numTests, mListener.getNumTestsInState(TestStatus.PASSED));
+        // Expected count stays as 5
+        assertEquals(numTests, mListener.getExpectedTests());
     }
 
     /** Some test runner calls testRunStart several times. We need to count all their tests. */
@@ -120,5 +128,67 @@ public class ModuleListenerTest {
         mListener.testRunEnded(0, new HashMap<String, Metric>());
         assertEquals(numTests * 2, mListener.getNumTotalTests());
         assertEquals(numTests * 2, mListener.getNumTestsInState(TestStatus.PASSED));
+    }
+
+    /**
+     * Test that as long as a run crashed at attempt X, hasRunCrashedAtAttempt returns True at that
+     * attempt.
+     */
+    @Test
+    public void testhasRunCrashedAtAttempt() throws Exception {
+        int maxRunLimit = 5;
+        int clearRun1FailureAtAttempt = 3;
+        int clearRun2FailureAtAttempt = 1;
+
+        for (int attempt = 0; attempt < maxRunLimit; attempt++) {
+            mListener.testRunStarted("run1", 0, attempt);
+            if (attempt < clearRun1FailureAtAttempt) {
+                mListener.testRunFailed("I failed!");
+            }
+            mListener.testRunEnded(0, new HashMap<String, Metric>());
+            mListener.testRunStarted("run2", 0, attempt);
+            if (attempt < clearRun2FailureAtAttempt) {
+                mListener.testRunFailed("I failed!");
+            }
+            mListener.testRunEnded(0, new HashMap<String, Metric>());
+        }
+        int finalRunFailureAtAttempt =
+                Math.max(clearRun1FailureAtAttempt, clearRun2FailureAtAttempt);
+        for (int attempt = 0; attempt < finalRunFailureAtAttempt; attempt++) {
+            assertTrue(mListener.hasRunCrashedAtAttempt(attempt));
+        }
+        for (int attempt = finalRunFailureAtAttempt; attempt < maxRunLimit; attempt++) {
+            assertFalse(mListener.hasRunCrashedAtAttempt(attempt));
+        }
+    }
+
+    /** Ensure that out of sequence attempts do not mess up reporting. */
+    @Test
+    public void testRetryInvalid() throws Exception {
+        mListener.testRunStarted("apexservice_test", 1, 0);
+        TestDescription test = new TestDescription("ApexServiceTest", "Activate");
+        mListener.testStarted(test);
+        mListener.testFailed(test, "failed");
+        mListener.testEnded(test, new HashMap<String, Metric>());
+        mListener.testRunEnded(500L, new HashMap<String, Metric>());
+        mListener.testRunStarted("apex.test", 0, 1);
+        mListener.testRunFailed("test.apex did not report any run.");
+
+        mListener.testRunStarted("apexservice_test", 1, 1);
+        mListener.testStarted(test);
+        mListener.testEnded(test, new HashMap<String, Metric>());
+        mListener.testRunEnded(500L, new HashMap<String, Metric>());
+
+        List<TestRunResult> results = mListener.getMergedTestRunResults();
+        assertEquals(2, results.size());
+        assertEquals("apexservice_test", results.get(0).getName());
+        assertFalse(results.get(0).isRunFailure());
+
+        assertEquals("apex.test", results.get(1).getName());
+        assertTrue(results.get(1).isRunFailure());
+        assertEquals(
+                "Run attempt 0 of apex.test did not exists, but got attempt 1. This is a placeholder for the missing attempt.\n\n"
+                        + "test.apex did not report any run.",
+                results.get(1).getRunFailureMessage());
     }
 }

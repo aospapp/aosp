@@ -47,7 +47,7 @@ public class ShardListenerTest {
 
     @Before
     public void setUp() {
-        mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        mMockListener = EasyMock.createMock(ILogSaverListener.class);
         mMockSaver = EasyMock.createStrictMock(ILogSaver.class);
         mShardListener = new ShardListener(mMockListener);
         mMockDevice = EasyMock.createMock(ITestDevice.class);
@@ -74,6 +74,21 @@ public class ShardListenerTest {
         mShardListener.testStarted(tid, 0l);
         mShardListener.testEnded(tid, 0l, new HashMap<String, Metric>());
         mShardListener.testRunEnded(0l, new HashMap<String, Metric>());
+        mShardListener.invocationEnded(0l);
+        EasyMock.verify(mMockListener, mMockDevice);
+    }
+
+    /** Ensure that replaying a log without a run (no tests ran) still works. */
+    @Test
+    public void testLogWithoutRun() {
+        mMockListener.invocationStarted(mContext);
+        ((ILogSaverListener) mMockListener)
+                .logAssociation(EasyMock.eq("test-file"), EasyMock.anyObject());
+        mMockListener.invocationEnded(0l);
+
+        EasyMock.replay(mMockListener, mMockDevice);
+        mShardListener.invocationStarted(mContext);
+        mShardListener.logAssociation("test-file", new LogFile("path", "url", LogDataType.TEXT));
         mShardListener.invocationEnded(0l);
         EasyMock.verify(mMockListener, mMockDevice);
     }
@@ -140,6 +155,7 @@ public class ShardListenerTest {
         EasyMock.expectLastCall().times(2);
 
         mockListener.invocationStarted(mContext);
+        EasyMock.expect(mockListener.getSummary()).andReturn(null);
         mockListener.testLog(
                 EasyMock.eq("run-file"), EasyMock.eq(LogDataType.TEXT), EasyMock.anyObject());
         LogFile runFile = new LogFile("path", "url", false, LogDataType.TEXT, 0L);

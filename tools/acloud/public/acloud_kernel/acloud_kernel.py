@@ -13,13 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Acloud Kernel Utility.
 
 This CLI implements additional functionality to acloud CLI.
 """
 import argparse
-import os
 import sys
 
 from acloud.public import acloud_common

@@ -43,7 +43,8 @@ d0jQ
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 11806822484801597146 (0xa3da427ea4b1aeda)
+        Serial Number:
+            a3:da:42:7e:a4:b1:ae:da
     Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=EU, L=Madrid (see current address at www.camerfirma.com/address)/serialNumber=A82743287, O=AC Camerfirma S.A., CN=Chambers of Commerce Root - 2008
         Validity

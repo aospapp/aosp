@@ -177,6 +177,20 @@ public class OldMatcherTest extends TestCase {
         }
     }
 
+    public void test_startI_groupIndexOutOfBounds() {
+        Matcher matcher = Pattern.compile("(Hello)").matcher("Hello, world!");
+        assertTrue(matcher.find());
+        try {
+            matcher.start(-1 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+        }
+
+        try {
+            matcher.start(2 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+        }
+    }
+
     public void test_endI() {
         String testPattern = "(((abb)a)(bb))";
         String testString = "cccabbabbabbabbabb";
@@ -199,6 +213,19 @@ public class OldMatcherTest extends TestCase {
         }
     }
 
+    public void test_endI_groupIndexOutOfBounds() {
+        Matcher matcher = Pattern.compile("(Hello)").matcher("Hello, world!");
+        assertTrue(matcher.find());
+        try {
+            matcher.end(-1 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+        }
+
+        try {
+            matcher.end(2 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+        }
+    }
 
     public void test_lookingAt() {
         String testPattern = "(((abb)a)(bb))";
@@ -632,6 +659,29 @@ public class OldMatcherTest extends TestCase {
             m.group("third");
             fail();
         } catch (IllegalArgumentException expected) {}
+        try {
+            m.start("third");
+            fail();
+        } catch (IllegalArgumentException expected) {}
+        try {
+            m.end("third");
+            fail();
+        } catch (IllegalArgumentException expected) {}
+        // Calling group(null) et al should definitely fail, since there is no named-capturing group
+        // of that name. The contract doesn't specifically require either IllegalArgumentException
+        // or NullPointerException and both seem reasonable, so this test accepts either.
+        try {
+            m.group(null);
+            fail();
+        } catch (IllegalArgumentException | NullPointerException expected) {}
+        try {
+            m.start(null);
+            fail();
+        } catch (IllegalArgumentException | NullPointerException expected) {}
+        try {
+            m.end(null);
+            fail();
+        } catch (IllegalArgumentException | NullPointerException expected) {}
 
         try {
             Pattern.compile("(?<>[a-f]*)");

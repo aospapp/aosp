@@ -16,17 +16,22 @@
 
 package com.android.documentsui.ui;
 
-import android.annotation.StringRes;
 import android.app.Activity;
-import android.support.design.widget.Snackbar;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.StringRes;
+
 import com.android.documentsui.R;
 import com.android.documentsui.base.Shared;
 
+import com.google.android.material.snackbar.Snackbar;
+
+import java.util.function.Consumer;
+
 public final class Snackbars {
+
     private Snackbars() {}
 
     public static final void showDocumentsClipped(Activity activity, int docCount) {
@@ -73,9 +78,8 @@ public final class Snackbars {
     }
 
     public static final void showInspectorError(Activity activity) {
-
         //Document Inspector uses a different view from other files app activities.
-        final View view = activity.findViewById(R.id.fragment_container);
+        final View view = activity.findViewById(R.id.inspector_root);
         Snackbar.make(view, R.string.inspector_load_error, Snackbar.LENGTH_INDEFINITE).show();
     }
 
@@ -83,11 +87,19 @@ public final class Snackbars {
         Snackbar snackbar = makeSnackbar(activity, text, Snackbar.LENGTH_SHORT);
         View snackbarLayout = snackbar.getView();
         TextView textView = (TextView)snackbarLayout.findViewById(
-                android.support.design.R.id.snackbar_text);
+                com.google.android.material.R.id.snackbar_text);
         textView.setGravity(Gravity.CENTER_HORIZONTAL);
         textView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         textView.setCompoundDrawablesWithIntrinsicBounds(imageRes, 0, 0, 0);
         snackbar.show();
+    }
+
+    public static final Snackbar makeSnackbarWithAction(Activity activity, int docCount,
+            CharSequence message, int duration, CharSequence actionText,
+            Consumer<View> action, final Snackbar.Callback callback) {
+        return makeSnackbar(activity, message, duration)
+                .setAction(actionText, action::accept)
+                .addCallback(callback);
     }
 
     public static final Snackbar makeSnackbar(Activity activity, @StringRes int messageId,
@@ -98,7 +110,7 @@ public final class Snackbars {
 
     public static final Snackbar makeSnackbar(
             Activity activity, CharSequence message, int duration) {
-        final View view = activity.findViewById(R.id.coordinator_layout);
+        final View view = activity.findViewById(R.id.container_save);
         return Snackbar.make(view, message, duration);
     }
 }

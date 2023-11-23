@@ -296,6 +296,8 @@ extern "C" {
 	void glExtGetProgramBinarySourceQCOM(GLuint program, GLenum shadertype, GLchar* source, GLint* length);
 	void glStartTilingQCOM(GLuint x, GLuint y, GLuint width, GLuint height, GLbitfield preserveMask);
 	void glEndTilingQCOM(GLbitfield preserveMask);
+	GLenum glGetGraphicsResetStatusEXT();
+	void glReadnPixelsEXT(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data);
 };
 
 #ifndef GET_CONTEXT
@@ -2060,5 +2062,17 @@ void glEndTilingQCOM(GLbitfield preserveMask)
 {
 	GET_CONTEXT;
 	ctx->glEndTilingQCOM(ctx, preserveMask);
+}
+
+GLenum glGetGraphicsResetStatusEXT()
+{
+	GET_CONTEXT;
+	return ctx->glGetGraphicsResetStatusEXT(ctx);
+}
+
+void glReadnPixelsEXT(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data)
+{
+	GET_CONTEXT;
+	ctx->glReadnPixelsEXT(ctx, x, y, width, height, format, type, bufSize, data);
 }
 

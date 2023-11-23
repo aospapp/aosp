@@ -133,7 +133,7 @@ public class MetricsXMLResultReporter extends CollectingTestListener {
         serializer.attribute(NS, ATTR_TIME, Long.toString(elapsedTime));
         serializer.attribute(NS, ATTR_TIMESTAMP, timestamp);
 
-        for (TestRunResult runResult : getRunResults()) {
+        for (TestRunResult runResult : getMergedTestRunResults()) {
             printRunMetrics(serializer, runResult.getRunMetrics());
             Map<TestDescription, TestResult> testResults = runResult.getTestResults();
             for (TestDescription test : testResults.keySet()) {

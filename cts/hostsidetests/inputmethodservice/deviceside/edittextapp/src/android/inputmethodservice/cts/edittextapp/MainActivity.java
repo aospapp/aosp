@@ -11,21 +11,19 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 package android.inputmethodservice.cts.edittextapp;
 
 import android.app.Activity;
-import android.content.Context;
-import android.widget.EditText;
 import android.os.Bundle;
-import android.view.inputmethod.InputMethodManager;
-import android.view.View;
-import android.view.View.OnFocusChangeListener;
 
+/**
+ * A test {@link Activity} that only hosts {@link android.widget.EditText}.
+ */
 public class MainActivity extends Activity {
     @Override
-    protected void onCreate(final Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inputmethod_test);
     }

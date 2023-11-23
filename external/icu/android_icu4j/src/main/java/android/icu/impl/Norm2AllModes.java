@@ -24,6 +24,9 @@ public final class Norm2AllModes {
     // Public API dispatch via Normalizer2 subclasses -------------------------- ***
 
     // Normalizer2 implementation for the old UNORM_NONE.
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static final class NoopNormalizer2 extends Normalizer2 {
         @Override
         public StringBuilder normalize(CharSequence src, StringBuilder dest) {
@@ -83,6 +86,9 @@ public final class Norm2AllModes {
 
     // Intermediate class:
     // Has Normalizer2Impl and does boilerplate argument checking and setup.
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static abstract class Normalizer2WithImpl extends Normalizer2 {
         public Normalizer2WithImpl(Normalizer2Impl ni) {
             impl=ni;
@@ -166,6 +172,9 @@ public final class Norm2AllModes {
         public final Normalizer2Impl impl;
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static final class DecomposeNormalizer2 extends Normalizer2WithImpl {
         public DecomposeNormalizer2(Normalizer2Impl ni) {
             super(ni);
@@ -196,6 +205,9 @@ public final class Norm2AllModes {
         public boolean isInert(int c) { return impl.isDecompInert(c); }
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static final class ComposeNormalizer2 extends Normalizer2WithImpl {
         public ComposeNormalizer2(Normalizer2Impl ni, boolean fcc) {
             super(ni);
@@ -252,6 +264,9 @@ public final class Norm2AllModes {
         private final boolean onlyContiguous;
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static final class FCDNormalizer2 extends Normalizer2WithImpl {
         public FCDNormalizer2(Normalizer2Impl ni) {
             super(ni);

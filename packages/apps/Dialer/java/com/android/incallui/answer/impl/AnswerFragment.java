@@ -49,11 +49,11 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.MathUtil;
-import com.android.dialer.compat.ActivityCompat;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.multimedia.MultimediaData;
@@ -70,7 +70,7 @@ import com.android.incallui.answer.impl.utils.Interpolators;
 import com.android.incallui.answer.protocol.AnswerScreen;
 import com.android.incallui.answer.protocol.AnswerScreenDelegate;
 import com.android.incallui.answer.protocol.AnswerScreenDelegateFactory;
-import com.android.incallui.call.DialerCall.State;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.contactgrid.ContactGridManager;
 import com.android.incallui.incall.protocol.ContactPhotoType;
 import com.android.incallui.incall.protocol.InCallScreen;
@@ -83,9 +83,12 @@ import com.android.incallui.incalluilock.InCallUiLock;
 import com.android.incallui.maps.MapsComponent;
 import com.android.incallui.sessiondata.AvatarPresenter;
 import com.android.incallui.sessiondata.MultimediaFragment;
+import com.android.incallui.speakeasy.Annotations.SpeakEasyChipResourceId;
+import com.android.incallui.speakeasy.SpeakEasyComponent;
 import com.android.incallui.util.AccessibilityUtil;
 import com.android.incallui.video.protocol.VideoCallScreen;
 import com.android.incallui.videotech.utils.VideoUtils;
+import com.google.common.base.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -118,6 +121,8 @@ public class AnswerFragment extends Fragment
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   static final String ARG_IS_SELF_MANAGED_CAMERA = "is_self_managed_camera";
 
+  static final String ARG_ALLOW_SPEAK_EASY = "allow_speak_easy";
+
   private static final String STATE_HAS_ANIMATED_ENTRY = "hasAnimated";
 
   private static final int HINT_SECONDARY_SHOW_DURATION_MILLIS = 5000;
@@ -142,6 +147,7 @@ public class AnswerFragment extends Fragment
   private SwipeButtonView secondaryButton;
   private SwipeButtonView answerAndReleaseButton;
   private AffordanceHolderLayout affordanceHolderLayout;
+  private LinearLayout chipContainer;
   // Use these flags to prevent user from clicking accept/reject buttons multiple times.
   // We use separate flags because in some rare cases accepting a call may fail to join the room,
   // and then user is stuck in the incoming call view until it times out. Two flags at least give
@@ -173,7 +179,7 @@ public class AnswerFragment extends Fragment
     },
 
     ANSWER_VIDEO_AS_AUDIO(
-        R.drawable.quantum_ic_videocam_off_white_24,
+        R.drawable.quantum_ic_videocam_off_vd_theme_24,
         R.string.a11y_description_incoming_call_answer_video_as_audio,
         R.string.a11y_incoming_call_answer_video_as_audio,
         R.string.call_incoming_swipe_to_answer_video_as_audio) {
@@ -194,7 +200,7 @@ public class AnswerFragment extends Fragment
       }
     };
 
-    @DrawableRes public final int icon;
+    @DrawableRes public int icon;
     @StringRes public final int contentDescription;
     @StringRes public final int accessibilityLabel;
     @StringRes public final int hintText;
@@ -216,6 +222,11 @@ public class AnswerFragment extends Fragment
       view.setImageResource(icon);
       view.setContentDescription(view.getContext().getText(contentDescription));
     }
+  }
+
+  private void performSpeakEasy(View unused) {
+    answerScreenDelegate.onSpeakEasyCall();
+    buttonAcceptClicked = true;
   }
 
   private void performAnswerAndRelease() {
@@ -351,7 +362,8 @@ public class AnswerFragment extends Fragment
       boolean isVideoUpgradeRequest,
       boolean isSelfManagedCamera,
       boolean allowAnswerAndRelease,
-      boolean hasCallOnHold) {
+      boolean hasCallOnHold,
+      boolean allowSpeakEasy) {
     Bundle bundle = new Bundle();
     bundle.putString(ARG_CALL_ID, Assert.isNotNull(callId));
     bundle.putBoolean(ARG_IS_RTT_CALL, isRttCall);
@@ -360,6 +372,7 @@ public class AnswerFragment extends Fragment
     bundle.putBoolean(ARG_IS_SELF_MANAGED_CAMERA, isSelfManagedCamera);
     bundle.putBoolean(ARG_ALLOW_ANSWER_AND_RELEASE, allowAnswerAndRelease);
     bundle.putBoolean(ARG_HAS_CALL_ON_HOLD, hasCallOnHold);
+    bundle.putBoolean(ARG_ALLOW_SPEAK_EASY, allowSpeakEasy);
 
     AnswerFragment instance = new AnswerFragment();
     instance.setArguments(bundle);
@@ -390,7 +403,7 @@ public class AnswerFragment extends Fragment
       LogUtil.i("AnswerFragment.setTextResponses", "no text responses, hiding secondary button");
       this.textResponses = null;
       secondaryButton.setVisibility(View.INVISIBLE);
-    } else if (ActivityCompat.isInMultiWindowMode(getActivity())) {
+    } else if (getActivity().isInMultiWindowMode()) {
       LogUtil.i("AnswerFragment.setTextResponses", "in multiwindow, hiding secondary button");
       this.textResponses = null;
       secondaryButton.setVisibility(View.INVISIBLE);
@@ -427,13 +440,7 @@ public class AnswerFragment extends Fragment
 
     answerAndReleaseBehavior = SecondaryBehavior.ANSWER_AND_RELEASE;
     answerAndReleaseBehavior.applyToView(answerAndReleaseButton);
-    answerAndReleaseButton.setOnClickListener(
-        new OnClickListener() {
-          @Override
-          public void onClick(View v) {
-            performAnswerAndReleaseButtonAction();
-          }
-        });
+
     answerAndReleaseButton.setClickable(AccessibilityUtil.isAccessibilityEnabled(getContext()));
     answerAndReleaseButton.setFocusable(AccessibilityUtil.isAccessibilityEnabled(getContext()));
     answerAndReleaseButton.setAccessibilityDelegate(accessibilityDelegate);
@@ -445,11 +452,45 @@ public class AnswerFragment extends Fragment
       answerAndReleaseButton.setVisibility(View.INVISIBLE);
       answerScreenDelegate.onAnswerAndReleaseButtonDisabled();
     }
+    answerAndReleaseButton.setOnClickListener(
+        new OnClickListener() {
+          @Override
+          public void onClick(View v) {
+            performAnswerAndReleaseButtonAction();
+          }
+        });
+  }
+
+  /** Initialize chip buttons */
+  private void initChips() {
+
+    if (!allowSpeakEasy()) {
+      chipContainer.setVisibility(View.GONE);
+      return;
+    }
+    chipContainer.setVisibility(View.VISIBLE);
+
+    @SpeakEasyChipResourceId
+    Optional<Integer> chipLayoutOptional = SpeakEasyComponent.get(getContext()).speakEasyChip();
+    if (chipLayoutOptional.isPresent()) {
+
+      LinearLayout chipLayout =
+          (LinearLayout) getLayoutInflater().inflate(chipLayoutOptional.get(), null);
+
+      chipLayout.setOnClickListener(this::performSpeakEasy);
+
+      chipContainer.addView(chipLayout);
+    }
   }
 
   @Override
   public boolean allowAnswerAndRelease() {
     return getArguments().getBoolean(ARG_ALLOW_ANSWER_AND_RELEASE);
+  }
+
+  @Override
+  public boolean allowSpeakEasy() {
+    return getArguments().getBoolean(ARG_ALLOW_SPEAK_EASY);
   }
 
   private boolean hasCallOnHold() {
@@ -681,6 +722,8 @@ public class AnswerFragment extends Fragment
     affordanceHolderLayout = (AffordanceHolderLayout) view.findViewById(R.id.incoming_container);
     affordanceHolderLayout.setAffordanceCallback(affordanceCallback);
 
+    chipContainer = view.findViewById(R.id.incall_data_container_chip_container);
+
     importanceBadge = view.findViewById(R.id.incall_important_call_badge);
     importanceBadge
         .getViewTreeObserver()
@@ -699,7 +742,7 @@ public class AnswerFragment extends Fragment
     updateImportanceBadgeVisibility();
 
     contactGridManager = new ContactGridManager(view, null, 0, false /* showAnonymousAvatar */);
-    boolean isInMultiWindowMode = ActivityCompat.isInMultiWindowMode(getActivity());
+    boolean isInMultiWindowMode = getActivity().isInMultiWindowMode();
     contactGridManager.onMultiWindowModeChanged(isInMultiWindowMode);
 
     Fragment answerMethod =
@@ -717,6 +760,7 @@ public class AnswerFragment extends Fragment
             .newAnswerScreenDelegate(this);
 
     initSecondaryButton();
+    initChips();
 
     int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
     if (!isInMultiWindowMode
@@ -858,7 +902,7 @@ public class AnswerFragment extends Fragment
   public void onAnswerProgressUpdate(@FloatRange(from = -1f, to = 1f) float answerProgress) {
     // Don't fade the window background for call waiting or video upgrades. Fading the background
     // shows the system wallpaper which looks bad because on reject we switch to another call.
-    if (primaryCallState.state() == State.INCOMING && !isVideoCall()) {
+    if (primaryCallState.state() == DialerCallState.INCOMING && !isVideoCall()) {
       answerScreenDelegate.updateWindowBackgroundColor(answerProgress);
     }
 
@@ -1048,9 +1092,9 @@ public class AnswerFragment extends Fragment
 
   private boolean canRejectCallWithSms() {
     return primaryCallState != null
-        && !(primaryCallState.state() == State.DISCONNECTED
-            || primaryCallState.state() == State.DISCONNECTING
-            || primaryCallState.state() == State.IDLE);
+        && !(primaryCallState.state() == DialerCallState.DISCONNECTED
+            || primaryCallState.state() == DialerCallState.DISCONNECTING
+            || primaryCallState.state() == DialerCallState.IDLE);
   }
 
   private void createInCallScreenDelegate() {

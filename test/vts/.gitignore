@@ -94,5 +94,4 @@ ENV/
 *.swo
 
 # Project settings
-.project
 .pydevproject

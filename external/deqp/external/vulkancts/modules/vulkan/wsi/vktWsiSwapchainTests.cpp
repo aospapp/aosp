@@ -39,6 +39,8 @@
 #include "vkWsiPlatform.hpp"
 #include "vkWsiUtil.hpp"
 #include "vkAllocationCallbackUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuFormatUtil.hpp"
@@ -122,7 +124,9 @@ VkPhysicalDeviceFeatures getDeviceFeaturesForWsi (void)
 	return features;
 }
 
-Move<VkDevice> createDeviceWithWsi (const InstanceInterface&		vki,
+Move<VkDevice> createDeviceWithWsi (const PlatformInterface&		vkp,
+									VkInstance						instance,
+									const InstanceInterface&		vki,
 									VkPhysicalDevice				physicalDevice,
 									const Extensions&				supportedExtensions,
 									const deUint32					queueFamilyIndex,
@@ -162,7 +166,7 @@ Move<VkDevice> createDeviceWithWsi (const InstanceInterface&		vki,
 			TCU_THROW(NotSupportedError, (string(extensions[ndx]) + " is not supported").c_str());
 	}
 
-	return createDevice(vki, physicalDevice, &deviceParams, pAllocator);
+	return createDevice(vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
 }
 
 deUint32 getNumQueueFamilyIndices (const InstanceInterface& vki, VkPhysicalDevice physicalDevice)
@@ -231,12 +235,14 @@ struct DeviceHelper
 				  const VkAllocationCallbacks*	pAllocator = DE_NULL)
 		: physicalDevice	(chooseDevice(vki, instance, context.getTestContext().getCommandLine()))
 		, queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, surface))
-		, device			(createDeviceWithWsi(vki,
+		, device			(createDeviceWithWsi(context.getPlatformInterface(),
+												 context.getInstance(),
+												 vki,
 												 physicalDevice,
 												 enumerateDeviceExtensionProperties(vki, physicalDevice, DE_NULL),
 												 queueFamilyIndex,
 												 pAllocator))
-		, vkd				(vki, *device)
+		, vkd				(context.getPlatformInterface(), context.getInstance(), *device)
 		, queue				(getDeviceQueue(vkd, *device, queueFamilyIndex, 0))
 	{
 	}
@@ -252,7 +258,8 @@ MovePtr<Display> createDisplay (const vk::Platform&	platform,
 	}
 	catch (const tcu::NotSupportedError& e)
 	{
-		if (isExtensionSupported(supportedExtensions, RequiredExtension(getExtensionName(wsiType))))
+		if (isExtensionSupported(supportedExtensions, RequiredExtension(getExtensionName(wsiType))) &&
+		    platform.hasDisplay(wsiType))
 		{
 			// If VK_KHR_{platform}_surface was supported, vk::Platform implementation
 			// must support creating native display & window for that WSI type.
@@ -561,6 +568,7 @@ vector<VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (Type								ws
 
 tcu::TestStatus createSwapchainTest (Context& context, TestParameters params)
 {
+	tcu::TestLog&							log			= context.getTestContext().getLog();
 	const InstanceHelper					instHelper	(context, params.wsiType);
 	const NativeObjects						native		(context, instHelper.supportedExtensions, params.wsiType);
 	const Unique<VkSurfaceKHR>				surface		(createSurface(instHelper.vki, *instHelper.instance, params.wsiType, *native.display, *native.window));
@@ -569,21 +577,55 @@ tcu::TestStatus createSwapchainTest (Context& context, TestParameters params)
 
 	for (size_t caseNdx = 0; caseNdx < cases.size(); ++caseNdx)
 	{
+		std::ostringstream subcase;
+		subcase << "Sub-case " << (caseNdx+1) << " / " << cases.size() << ": ";
+
 		VkSwapchainCreateInfoKHR	curParams	= cases[caseNdx];
 
 		curParams.surface				= *surface;
 		curParams.queueFamilyIndexCount	= 1u;
 		curParams.pQueueFamilyIndices	= &devHelper.queueFamilyIndex;
 
-		context.getTestContext().getLog()
-			<< TestLog::Message << "Sub-case " << (caseNdx+1) << " / " << cases.size() << ": " << curParams << TestLog::EndMessage;
+		log << TestLog::Message << subcase.str() << curParams << TestLog::EndMessage;
 
-		{
-			const Unique<VkSwapchainKHR>	swapchain	(createSwapchainKHR(devHelper.vkd, *devHelper.device, &curParams));
+		// The Vulkan 1.1.87 spec contains the following VU for VkSwapchainCreateInfoKHR:
+		//
+		//     * imageFormat, imageUsage, imageExtent, and imageArrayLayers must be supported for VK_IMAGE_TYPE_2D
+		//     VK_IMAGE_TILING_OPTIMAL images as reported by vkGetPhysicalDeviceImageFormatProperties.
+		VkImageFormatProperties properties;
+		const VkResult propertiesResult = instHelper.vki.getPhysicalDeviceImageFormatProperties(devHelper.physicalDevice,
+																								curParams.imageFormat,
+																								VK_IMAGE_TYPE_2D,
+																								VK_IMAGE_TILING_OPTIMAL,
+																								curParams.imageUsage,
+																								0, // flags
+																								&properties);
+
+		log << TestLog::Message << subcase.str()
+			<< "vkGetPhysicalDeviceImageFormatProperties => "
+			<< getResultStr(propertiesResult) << TestLog::EndMessage;
+
+		switch (propertiesResult) {
+		case VK_SUCCESS:
+			{
+				const Unique<VkSwapchainKHR>	swapchain	(createSwapchainKHR(devHelper.vkd, *devHelper.device, &curParams));
+			}
+			log << TestLog::Message << subcase.str()
+				<< "Creating swapchain succeeeded" << TestLog::EndMessage;
+			break;
+		case VK_ERROR_FORMAT_NOT_SUPPORTED:
+			log << TestLog::Message << subcase.str()
+				<< "Skip because vkGetPhysicalDeviceImageFormatProperties returned VK_ERROR_FORMAT_NOT_SUPPORTED" << TestLog::EndMessage;
+			break;
+		default:
+			log << TestLog::Message << subcase.str()
+				<< "Fail because vkGetPhysicalDeviceImageFormatProperties returned "
+				<< getResultStr(propertiesResult) << TestLog::EndMessage;
+			return tcu::TestStatus::fail("Unexpected result from vkGetPhysicalDeviceImageFormatProperties");
 		}
 	}
 
-	return tcu::TestStatus::pass("Creating swapchain succeeded");
+	return tcu::TestStatus::pass("No sub-case failed");
 }
 
 tcu::TestStatus createSwapchainSimulateOOMTest (Context& context, TestParameters params)
@@ -655,9 +697,9 @@ tcu::TestStatus createSwapchainSimulateOOMTest (Context& context, TestParameters
 				else if (numPassingAllocs == maxAllocs)
 					results.addResult(QP_TEST_RESULT_QUALITY_WARNING, "Creating swapchain did not succeed, callback limit exceeded");
 			}
-		}
 
-		context.getTestContext().touchWatchdog();
+			context.getTestContext().touchWatchdog();
+		}
 	}
 
 	if (!validateAndLog(log, allocationRecorder, 0u))
@@ -907,198 +949,20 @@ Move<VkPipeline> TriangleRenderer::createPipeline (const DeviceInterface&	vkd,
 	//		 and can be deleted immediately following that call.
 	const Unique<VkShaderModule>					vertShaderModule		(createShaderModule(vkd, device, binaryCollection.get("tri-vert"), 0));
 	const Unique<VkShaderModule>					fragShaderModule		(createShaderModule(vkd, device, binaryCollection.get("tri-frag"), 0));
+	const std::vector<VkViewport>					viewports				(1, makeViewport(renderSize));
+	const std::vector<VkRect2D>						scissors				(1, makeRect2D(renderSize));
 
-	const VkSpecializationInfo						emptyShaderSpecParams	=
-	{
-		0u,											// mapEntryCount
-		DE_NULL,									// pMap
-		0,											// dataSize
-		DE_NULL,									// pData
-	};
-	const VkPipelineShaderStageCreateInfo			shaderStageParams[]		=
-	{
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			(VkPipelineShaderStageCreateFlags)0,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			*vertShaderModule,
-			"main",
-			&emptyShaderSpecParams,
-		},
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			(VkPipelineShaderStageCreateFlags)0,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			*fragShaderModule,
-			"main",
-			&emptyShaderSpecParams,
-		}
-	};
-	const VkPipelineDepthStencilStateCreateInfo		depthStencilParams		=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineDepthStencilStateCreateFlags)0,
-		DE_FALSE,									// depthTestEnable
-		DE_FALSE,									// depthWriteEnable
-		VK_COMPARE_OP_ALWAYS,						// depthCompareOp
-		DE_FALSE,									// depthBoundsTestEnable
-		DE_FALSE,									// stencilTestEnable
-		{
-			VK_STENCIL_OP_KEEP,							// failOp
-			VK_STENCIL_OP_KEEP,							// passOp
-			VK_STENCIL_OP_KEEP,							// depthFailOp
-			VK_COMPARE_OP_ALWAYS,						// compareOp
-			0u,											// compareMask
-			0u,											// writeMask
-			0u,											// reference
-		},											// front
-		{
-			VK_STENCIL_OP_KEEP,							// failOp
-			VK_STENCIL_OP_KEEP,							// passOp
-			VK_STENCIL_OP_KEEP,							// depthFailOp
-			VK_COMPARE_OP_ALWAYS,						// compareOp
-			0u,											// compareMask
-			0u,											// writeMask
-			0u,											// reference
-		},											// back
-		-1.0f,										// minDepthBounds
-		+1.0f,										// maxDepthBounds
-	};
-	const VkViewport								viewport0				=
-	{
-		0.0f,										// x
-		0.0f,										// y
-		(float)renderSize.x(),						// width
-		(float)renderSize.y(),						// height
-		0.0f,										// minDepth
-		1.0f,										// maxDepth
-	};
-	const VkRect2D									scissor0				=
-	{
-		{ 0u, 0u, },								// offset
-		{ renderSize.x(), renderSize.y() },			// extent
-	};
-	const VkPipelineViewportStateCreateInfo			viewportParams			=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineViewportStateCreateFlags)0,
-		1u,
-		&viewport0,
-		1u,
-		&scissor0
-	};
-	const VkPipelineMultisampleStateCreateInfo		multisampleParams		=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineMultisampleStateCreateFlags)0,
-		VK_SAMPLE_COUNT_1_BIT,						// rasterizationSamples
-		VK_FALSE,									// sampleShadingEnable
-		0.0f,										// minSampleShading
-		(const VkSampleMask*)DE_NULL,				// sampleMask
-		VK_FALSE,									// alphaToCoverageEnable
-		VK_FALSE,									// alphaToOneEnable
-	};
-	const VkPipelineRasterizationStateCreateInfo	rasterParams			=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineRasterizationStateCreateFlags)0,
-		VK_FALSE,									// depthClampEnable
-		VK_FALSE,									// rasterizerDiscardEnable
-		VK_POLYGON_MODE_FILL,						// polygonMode
-		VK_CULL_MODE_NONE,							// cullMode
-		VK_FRONT_FACE_COUNTER_CLOCKWISE,			// frontFace
-		VK_FALSE,									// depthBiasEnable
-		0.0f,										// depthBiasConstantFactor
-		0.0f,										// depthBiasClamp
-		0.0f,										// depthBiasSlopeFactor
-		1.0f,										// lineWidth
-	};
-	const VkPipelineInputAssemblyStateCreateInfo	inputAssemblyParams		=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineInputAssemblyStateCreateFlags)0,
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		DE_FALSE,									// primitiveRestartEnable
-	};
-	const VkVertexInputBindingDescription			vertexBinding0			=
-	{
-		0u,											// binding
-		(deUint32)sizeof(tcu::Vec4),				// stride
-		VK_VERTEX_INPUT_RATE_VERTEX,				// inputRate
-	};
-	const VkVertexInputAttributeDescription			vertexAttrib0			=
-	{
-		0u,											// location
-		0u,											// binding
-		VK_FORMAT_R32G32B32A32_SFLOAT,				// format
-		0u,											// offset
-	};
-	const VkPipelineVertexInputStateCreateInfo		vertexInputStateParams	=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineVertexInputStateCreateFlags)0,
-		1u,
-		&vertexBinding0,
-		1u,
-		&vertexAttrib0,
-	};
-	const VkPipelineColorBlendAttachmentState		attBlendParams0			=
-	{
-		VK_FALSE,									// blendEnable
-		VK_BLEND_FACTOR_ONE,						// srcColorBlendFactor
-		VK_BLEND_FACTOR_ZERO,						// dstColorBlendFactor
-		VK_BLEND_OP_ADD,							// colorBlendOp
-		VK_BLEND_FACTOR_ONE,						// srcAlphaBlendFactor
-		VK_BLEND_FACTOR_ZERO,						// dstAlphaBlendFactor
-		VK_BLEND_OP_ADD,							// alphaBlendOp
-		(VK_COLOR_COMPONENT_R_BIT|
-		 VK_COLOR_COMPONENT_G_BIT|
-		 VK_COLOR_COMPONENT_B_BIT|
-		 VK_COLOR_COMPONENT_A_BIT),					// colorWriteMask
-	};
-	const VkPipelineColorBlendStateCreateInfo		blendParams				=
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineColorBlendStateCreateFlags)0,
-		VK_FALSE,									// logicOpEnable
-		VK_LOGIC_OP_COPY,
-		1u,
-		&attBlendParams0,
-		{ 0.0f, 0.0f, 0.0f, 0.0f },					// blendConstants[4]
-	};
-	const VkGraphicsPipelineCreateInfo				pipelineParams			=
-	{
-		VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		DE_NULL,
-		(VkPipelineCreateFlags)0,
-		(deUint32)DE_LENGTH_OF_ARRAY(shaderStageParams),
-		shaderStageParams,
-		&vertexInputStateParams,
-		&inputAssemblyParams,
-		(const VkPipelineTessellationStateCreateInfo*)DE_NULL,
-		&viewportParams,
-		&rasterParams,
-		&multisampleParams,
-		&depthStencilParams,
-		&blendParams,
-		(const VkPipelineDynamicStateCreateInfo*)DE_NULL,
-		pipelineLayout,
-		renderPass,
-		0u,											// subpass
-		DE_NULL,									// basePipelineHandle
-		0u,											// basePipelineIndex
-	};
-
-	return vk::createGraphicsPipeline(vkd, device, (VkPipelineCache)0, &pipelineParams);
+	return vk::makeGraphicsPipeline(vkd,				// const DeviceInterface&            vk
+									device,				// const VkDevice                    device
+									pipelineLayout,		// const VkPipelineLayout            pipelineLayout
+									*vertShaderModule,	// const VkShaderModule              vertexShaderModule
+									DE_NULL,			// const VkShaderModule              tessellationControlShaderModule
+									DE_NULL,			// const VkShaderModule              tessellationEvalShaderModule
+									DE_NULL,			// const VkShaderModule              geometryShaderModule
+									*fragShaderModule,	// const VkShaderModule              fragmentShaderModule
+									renderPass,			// const VkRenderPass                renderPass
+									viewports,			// const std::vector<VkViewport>&    viewports
+									scissors);			// const std::vector<VkRect2D>&      scissors
 }
 
 Move<VkImageView> TriangleRenderer::createAttachmentView (const DeviceInterface&	vkd,
@@ -1229,34 +1093,9 @@ void TriangleRenderer::recordFrame (VkCommandBuffer	cmdBuffer,
 {
 	const VkFramebuffer	curFramebuffer	= **m_framebuffers[imageNdx];
 
-	{
-		const VkCommandBufferBeginInfo	cmdBufBeginParams	=
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			DE_NULL,
-			(VkCommandBufferUsageFlags)0,
-			(const VkCommandBufferInheritanceInfo*)DE_NULL,
-		};
-		VK_CHECK(m_vkd.beginCommandBuffer(cmdBuffer, &cmdBufBeginParams));
-	}
+	beginCommandBuffer(m_vkd, cmdBuffer, 0u);
 
-	{
-		const VkClearValue			clearValue		= makeClearValueColorF32(0.125f, 0.25f, 0.75f, 1.0f);
-		const VkRenderPassBeginInfo	passBeginParams	=
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			DE_NULL,
-			*m_renderPass,
-			curFramebuffer,
-			{
-				{ 0, 0 },
-				{ (deUint32)m_renderSize.x(), (deUint32)m_renderSize.y() }
-			},													// renderArea
-			1u,													// clearValueCount
-			&clearValue,										// pClearValues
-		};
-		m_vkd.cmdBeginRenderPass(cmdBuffer, &passBeginParams, VK_SUBPASS_CONTENTS_INLINE);
-	}
+	beginRenderPass(m_vkd, cmdBuffer, *m_renderPass, curFramebuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), tcu::Vec4(0.125f, 0.25f, 0.75f, 1.0f));
 
 	m_vkd.cmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipeline);
 
@@ -1267,9 +1106,9 @@ void TriangleRenderer::recordFrame (VkCommandBuffer	cmdBuffer,
 
 	m_vkd.cmdPushConstants(cmdBuffer, *m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0u, (deUint32)sizeof(deUint32), &frameNdx);
 	m_vkd.cmdDraw(cmdBuffer, 3u, 1u, 0u, 0u);
-	m_vkd.cmdEndRenderPass(cmdBuffer);
+	endRenderPass(m_vkd, cmdBuffer);
 
-	VK_CHECK(m_vkd.endCommandBuffer(cmdBuffer));
+	endCommandBuffer(m_vkd, cmdBuffer);
 }
 
 void TriangleRenderer::getPrograms (SourceCollections& dst)
@@ -1441,7 +1280,7 @@ tcu::TestStatus basicRenderTest (Context& context, Type wsiType)
 
 				renderer.recordFrame(commandBuffer, imageNdx, frameNdx);
 				VK_CHECK(vkd.queueSubmit(devHelper.queue, 1u, &submitInfo, imageReadyFence));
-				VK_CHECK(vkd.queuePresentKHR(devHelper.queue, &presentInfo));
+				VK_CHECK_WSI(vkd.queuePresentKHR(devHelper.queue, &presentInfo));
 			}
 		}
 
@@ -1590,7 +1429,7 @@ tcu::TestStatus resizeSwapchainTest (Context& context, Type wsiType)
 
 					renderer.recordFrame(commandBuffer, imageNdx, frameNdx);
 					VK_CHECK(vkd.queueSubmit(devHelper.queue, 1u, &submitInfo, (VkFence)0));
-					VK_CHECK(vkd.queuePresentKHR(devHelper.queue, &presentInfo));
+					VK_CHECK_WSI(vkd.queuePresentKHR(devHelper.queue, &presentInfo));
 				}
 			}
 
@@ -1633,6 +1472,36 @@ tcu::TestStatus getImagesIncompleteResultTest (Context& context, Type wsiType)
 		return tcu::TestStatus::pass("Get swapchain images tests succeeded");
 }
 
+tcu::TestStatus getImagesResultsCountTest (Context& context, Type wsiType)
+{
+	const tcu::UVec2				desiredSize(256, 256);
+	const InstanceHelper			instHelper(context, wsiType);
+	const NativeObjects				native(context, instHelper.supportedExtensions, wsiType, tcu::just(desiredSize));
+	const Unique<VkSurfaceKHR>		surface(createSurface(instHelper.vki, *instHelper.instance, wsiType, *native.display, *native.window));
+	const DeviceHelper				devHelper(context, instHelper.vki, *instHelper.instance, *surface);
+	const VkSwapchainCreateInfoKHR	swapchainInfo = getBasicSwapchainParameters(wsiType, instHelper.vki, devHelper.physicalDevice, *surface, desiredSize, 2);
+	const Unique<VkSwapchainKHR>	swapchain(createSwapchainKHR(devHelper.vkd, *devHelper.device, &swapchainInfo));
+
+	deUint32	numImages = 0;
+
+	VK_CHECK(devHelper.vkd.getSwapchainImagesKHR(*devHelper.device, *swapchain, &numImages, DE_NULL));
+
+	if (numImages > 0)
+	{
+		std::vector<VkImage>	images			(numImages + 1);
+		const deUint32			numImagesOrig	= numImages;
+
+		// check if below call properly overwrites formats count
+		numImages++;
+
+		VK_CHECK(devHelper.vkd.getSwapchainImagesKHR(*devHelper.device, *swapchain, &numImages, &images[0]));
+
+		if ((size_t)numImages != numImagesOrig)
+			TCU_FAIL("Image count changed between calls");
+	}
+	return tcu::TestStatus::pass("Get swapchain images tests succeeded");
+}
+
 tcu::TestStatus destroyNullHandleSwapchainTest (Context& context, Type wsiType)
 {
 	const InstanceHelper		instHelper	(context, wsiType);
@@ -1670,6 +1539,7 @@ void populateRenderGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
 void populateGetImagesGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
 {
 	addFunctionCase(testGroup, "incomplete", "Test VK_INCOMPLETE return code", getImagesIncompleteResultTest, wsiType);
+	addFunctionCase(testGroup, "count",	"Test proper count of images", getImagesResultsCountTest, wsiType);
 }
 
 void populateModifyGroup (tcu::TestCaseGroup* testGroup, Type wsiType)

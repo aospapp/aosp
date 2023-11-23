@@ -6,8 +6,11 @@
 import heapq
 import logging
 import os
-import psutil
 import sys
+try:
+  import psutil
+except ImportError:
+  psutil = None
 
 
 BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB']
@@ -39,6 +42,9 @@ def _LogProcessInfo(pinfo, level):
 
 
 def LogHostMemoryUsage(top_n=10, level=logging.INFO):
+  if not psutil:
+    logging.warning('psutil module is not found, skipping logging memory info')
+    return
   if psutil.version_info < (2, 0):
     logging.warning('psutil %s too old, upgrade to version 2.0 or higher'
                     ' for memory usage information.', psutil.__version__)
@@ -55,7 +61,11 @@ def LogHostMemoryUsage(top_n=10, level=logging.INFO):
   logging.log(level, 'Memory usage of top %i processes groups', top_n)
   pinfos_by_names = {}
   for p in psutil.process_iter():
-    pinfo = _GetProcessInfo(p)
+    try:
+      pinfo = _GetProcessInfo(p)
+    except psutil.NoSuchProcess:
+      logging.exception('process %s no longer exists', p)
+      continue
     pname = pinfo['name']
     if pname not in pinfos_by_names:
       pinfos_by_names[pname] = {'name': pname, 'total_mem_rss': 0, 'pids': []}

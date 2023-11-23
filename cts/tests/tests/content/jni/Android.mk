@@ -21,11 +21,11 @@ LOCAL_MODULE := libnativecursorwindow_jni
 # Don't include this package in any configuration by default.
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_SRC_FILES := NativeCursorWindow.c
+LOCAL_SRC_FILES := NativeCursorWindow.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_CFLAGS := -Wall -Werror -Wno-pointer-arith -Wno-unused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wno-pointer-arith -Wno-unused-parameter -Wno-unused-variable
 
 LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
 LOCAL_CXX_STL := libc++_static

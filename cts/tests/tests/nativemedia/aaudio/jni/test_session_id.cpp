@@ -23,12 +23,14 @@
 #include <gtest/gtest.h>
 
 #include "test_aaudio.h"
+#include "utils.h"
 
 constexpr int kNumFrames = 256;
 constexpr int kChannelCount = 2;
 
 // Test AAUDIO_SESSION_ID_NONE default
 static void checkSessionIdNone(aaudio_performance_mode_t perfMode) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
 
     float *buffer = new float[kNumFrames * kChannelCount];
 
@@ -72,6 +74,10 @@ TEST(test_session_id, aaudio_session_id_none_lowlat) {
 // Test AAUDIO_SESSION_ID_ALLOCATE
 static void checkSessionIdAllocate(aaudio_performance_mode_t perfMode,
                                    aaudio_direction_t direction) {
+    // Since this test creates streams in both directions, it can't work
+    // if either of them is not supported by the device.
+    if (!deviceSupportsFeature(FEATURE_RECORDING)
+            || !deviceSupportsFeature(FEATURE_PLAYBACK)) return;
 
     float *buffer = new float[kNumFrames * kChannelCount];
 

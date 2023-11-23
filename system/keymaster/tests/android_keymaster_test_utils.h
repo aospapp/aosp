@@ -196,7 +196,7 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
 
     keymaster_error_t BeginOperation(keymaster_purpose_t purpose);
     keymaster_error_t BeginOperation(keymaster_purpose_t purpose, const AuthorizationSet& input_set,
-                                     AuthorizationSet* output_set = NULL);
+                                     AuthorizationSet* output_set = nullptr);
 
     keymaster_error_t UpdateOperation(const std::string& message, std::string* output,
                                       size_t* input_consumed);
@@ -229,11 +229,11 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
     std::string ProcessMessage(keymaster_purpose_t purpose, const std::string& message,
                                const AuthorizationSet& begin_params,
                                const AuthorizationSet& update_params,
-                               AuthorizationSet* output_params = NULL);
+                               AuthorizationSet* output_params = nullptr);
     std::string ProcessMessage(keymaster_purpose_t purpose, const std::string& message,
                                const std::string& signature, const AuthorizationSet& begin_params,
                                const AuthorizationSet& update_params,
-                               AuthorizationSet* output_params = NULL);
+                               AuthorizationSet* output_params = nullptr);
     std::string ProcessMessage(keymaster_purpose_t purpose, const std::string& message,
                                const std::string& signature);
 
@@ -249,17 +249,17 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
     void VerifyMac(const std::string& message, const std::string& signature);
 
     std::string EncryptMessage(const std::string& message, keymaster_padding_t padding,
-                               std::string* generated_nonce = NULL);
+                               std::string* generated_nonce = nullptr);
     std::string EncryptMessage(const std::string& message, keymaster_digest_t digest,
-                               keymaster_padding_t padding, std::string* generated_nonce = NULL);
+                               keymaster_padding_t padding, std::string* generated_nonce = nullptr);
     std::string EncryptMessage(const std::string& message, keymaster_block_mode_t block_mode,
-                               keymaster_padding_t padding, std::string* generated_nonce = NULL);
+                               keymaster_padding_t padding, std::string* generated_nonce = nullptr);
     std::string EncryptMessage(const AuthorizationSet& update_params, const std::string& message,
                                keymaster_digest_t digest, keymaster_padding_t padding,
-                               std::string* generated_nonce = NULL);
+                               std::string* generated_nonce = nullptr);
     std::string EncryptMessage(const AuthorizationSet& update_params, const std::string& message,
                                keymaster_block_mode_t block_mode, keymaster_padding_t padding,
-                               std::string* generated_nonce = NULL);
+                               std::string* generated_nonce = nullptr);
     std::string EncryptMessageWithParams(const std::string& message,
                                          const AuthorizationSet& begin_params,
                                          const AuthorizationSet& update_params,

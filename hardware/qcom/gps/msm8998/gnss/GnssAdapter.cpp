@@ -64,7 +64,8 @@ GnssAdapter::GnssAdapter() :
     mControlCallbacks(),
     mPowerVoteId(0),
     mNiData(),
-    mAgpsManager()
+    mAgpsManager(),
+    mAgpsInitialized(false)
 {
     LOC_LOGD("%s]: Constructor %p", __func__, this);
     mUlpPositionMode.mode = LOC_POSITION_MODE_INVALID;
@@ -1004,6 +1005,9 @@ GnssAdapter::updateClientsEventMask()
             mask |= LOC_API_ADAPTER_BIT_GNSS_MEASUREMENT;
         }
     }
+    if (true == getAgpsInitialized()) {
+        mask |= LOC_API_ADAPTER_BIT_LOCATION_SERVER_REQUEST;
+    }
     updateEvtMask(mask, LOC_REGISTRATION_MASK_SET);
 }
 
@@ -1839,38 +1843,30 @@ GnssAdapter::reportPositionEvent(const UlpLocation& ulpLocation,
     sendMsg(new MsgReportPosition(*this, ulpLocation, locationExtended, status, techMask));
 }
 
+bool
+GnssAdapter::needReport(const UlpLocation& ulpLocation,
+                        enum loc_sess_status status,
+                        LocPosTechMask techMask) {
+    bool reported = false;
+
+    reported = LocApiBase::needReport(ulpLocation, status, techMask);
+    return reported;
+}
+
 void
 GnssAdapter::reportPosition(const UlpLocation& ulpLocation,
                             const GpsLocationExtended& locationExtended,
                             enum loc_sess_status status,
                             LocPosTechMask techMask)
 {
-    bool reported = false;
-    // what's in the if is... (line by line)
-    // 1. this is a final fix; and
-    //   1.1 it is a Satellite fix; or
-    //   1.2 it is a sensor fix
-    // 2. (must be intermediate fix... implicit)
-    //   2.1 we accepte intermediate; and
-    //   2.2 it is NOT the case that
-    //   2.2.1 there is inaccuracy; and
-    //   2.2.2 we care about inaccuracy; and
-    //   2.2.3 the inaccuracy exceeds our tolerance
-    if ((LOC_SESS_SUCCESS == status &&
-              ((LOC_POS_TECH_MASK_SATELLITE |
-                LOC_POS_TECH_MASK_SENSORS   |
-                LOC_POS_TECH_MASK_HYBRID) &
-               techMask)) ||
-             (LOC_SESS_INTERMEDIATE == ContextBase::mGps_conf.INTERMEDIATE_POS &&
-              !((ulpLocation.gpsLocation.flags &
-                 LOC_GPS_LOCATION_HAS_ACCURACY) &&
-                (ContextBase::mGps_conf.ACCURACY_THRES != 0) &&
-                (ulpLocation.gpsLocation.accuracy >
-                 ContextBase::mGps_conf.ACCURACY_THRES)))) {
+    bool reported = needReport(ulpLocation, status, techMask);
+    mGnssSvIdUsedInPosAvail = false;
+    if (reported) {
         if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_GNSS_SV_USED_DATA) {
             mGnssSvIdUsedInPosAvail = true;
             mGnssSvIdUsedInPosition = locationExtended.gnss_sv_used_ids;
         }
+
         for (auto it=mClientData.begin(); it != mClientData.end(); ++it) {
             if (nullptr != it->second.trackingCb) {
                 Location location = {};
@@ -1883,11 +1879,6 @@ GnssAdapter::reportPosition(const UlpLocation& ulpLocation,
                 it->second.gnssLocationInfoCb(locationInfo);
             }
         }
-        reported = true;
-    } else {
-        LOC_LOGI("%s: not reported. Status: %d, techMask: %d, flags %d, accuracy %f",
-                __func__, (int)status, (int)techMask, (int)ulpLocation.gpsLocation.flags,
-                (float)ulpLocation.gpsLocation.accuracy);
     }
 
     if (NMEA_PROVIDER_AP == ContextBase::mGps_conf.NMEA_PROVIDER && !mTrackingSessions.empty()) {
@@ -2392,6 +2383,7 @@ void GnssAdapter::initAgpsCommand(void* statusV4Cb){
 
             mAgpsManager->createAgpsStateMachines();
 
+            mAdapter.setAgpsInitialized(true);
             /* Register for AGPS event mask */
             mAdapter.updateEvtMask(LOC_API_ADAPTER_BIT_LOCATION_SERVER_REQUEST,
                                    LOC_REGISTRATION_MASK_ENABLED);

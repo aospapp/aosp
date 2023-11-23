@@ -72,11 +72,50 @@ namespace sw
 	TranscendentalPrecision rsqPrecision = ACCURATE;
 	bool perspectiveCorrection = true;
 
+	static void setGlobalRenderingSettings(Conventions conventions, bool exactColorRounding)
+	{
+		static bool initialized = false;
+
+		if(!initialized)
+		{
+			sw::halfIntegerCoordinates = conventions.halfIntegerCoordinates;
+			sw::symmetricNormalizedDepth = conventions.symmetricNormalizedDepth;
+			sw::booleanFaceRegister = conventions.booleanFaceRegister;
+			sw::fullPixelPositionRegister = conventions.fullPixelPositionRegister;
+			sw::leadingVertexFirst = conventions.leadingVertexFirst;
+			sw::secondaryColor = conventions.secondaryColor;
+			sw::colorsDefaultToZero = conventions.colorsDefaultToZero;
+			sw::exactColorRounding = exactColorRounding;
+			initialized = true;
+		}
+	}
+
 	struct Parameters
 	{
 		Renderer *renderer;
 		int threadIndex;
 	};
+
+	Query::Query(Type type) : building(false), data(0), type(type), reference(1)
+	{
+	}
+
+	void Query::addRef()
+	{
+		++reference; // Atomic
+	}
+
+	void Query::release()
+	{
+		int ref = reference--; // Atomic
+
+		ASSERT(ref >= 0);
+
+		if(ref == 0)
+		{
+			delete this;
+		}
+	}
 
 	DrawCall::DrawCall()
 	{
@@ -105,14 +144,7 @@ namespace sw
 
 	Renderer::Renderer(Context *context, Conventions conventions, bool exactColorRounding) : VertexProcessor(context), PixelProcessor(context), SetupProcessor(context), context(context), viewport()
 	{
-		sw::halfIntegerCoordinates = conventions.halfIntegerCoordinates;
-		sw::symmetricNormalizedDepth = conventions.symmetricNormalizedDepth;
-		sw::booleanFaceRegister = conventions.booleanFaceRegister;
-		sw::fullPixelPositionRegister = conventions.fullPixelPositionRegister;
-		sw::leadingVertexFirst = conventions.leadingVertexFirst;
-		sw::secondaryColor = conventions.secondaryColor;
-		sw::colorsDefaultToZero = conventions.colorsDefaultToZero;
-		sw::exactColorRounding = exactColorRounding;
+		setGlobalRenderingSettings(conventions, exactColorRounding);
 
 		setRenderTarget(0, 0);
 		clipper = new Clipper(symmetricNormalizedDepth);
@@ -224,6 +256,7 @@ namespace sw
 
 		int ss = context->getSuperSampleCount();
 		int ms = context->getMultiSampleCount();
+		bool requiresSync = false;
 
 		for(int q = 0; q < ss; q++)
 		{
@@ -313,7 +346,7 @@ namespace sw
 				{
 					if(includePrimitivesWrittenQueries || (query->type != Query::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN))
 					{
-						++query->reference; // Atomic
+						query->addRef();
 						draw->queries->push_back(query);
 					}
 				}
@@ -367,6 +400,8 @@ namespace sw
 					draw->texture[sampler]->lock(PUBLIC, isReadWriteTexture(sampler) ? MANAGED : PRIVATE);   // If the texure is both read and written, use the same read/write lock as render targets
 
 					data->mipmap[sampler] = context->sampler[sampler].getTextureData();
+
+					requiresSync |= context->sampler[sampler].requiresSync();
 				}
 			}
 
@@ -425,6 +460,8 @@ namespace sw
 							draw->texture[TEXTURE_IMAGE_UNITS + sampler]->lock(PUBLIC, PRIVATE);
 
 							data->mipmap[TEXTURE_IMAGE_UNITS + sampler] = context->sampler[TEXTURE_IMAGE_UNITS + sampler].getTextureData();
+
+							requiresSync |= context->sampler[TEXTURE_IMAGE_UNITS + sampler].requiresSync();
 						}
 					}
 				}
@@ -607,6 +644,7 @@ namespace sw
 					if(draw->renderTarget[index])
 					{
 						unsigned int layer = context->renderTargetLayer[index];
+						requiresSync |= context->renderTarget[index]->requiresSync();
 						data->colorBuffer[index] = (unsigned int*)context->renderTarget[index]->lockInternal(0, 0, layer, LOCK_READWRITE, MANAGED);
 						data->colorBuffer[index] += q * ms * context->renderTarget[index]->getSliceB(true);
 						data->colorPitchB[index] = context->renderTarget[index]->getInternalPitchB();
@@ -620,6 +658,7 @@ namespace sw
 				if(draw->depthBuffer)
 				{
 					unsigned int layer = context->depthBufferLayer;
+					requiresSync |= context->depthBuffer->requiresSync();
 					data->depthBuffer = (float*)context->depthBuffer->lockInternal(0, 0, layer, LOCK_READWRITE, MANAGED);
 					data->depthBuffer += q * ms * context->depthBuffer->getSliceB(true);
 					data->depthPitchB = context->depthBuffer->getInternalPitchB();
@@ -629,6 +668,7 @@ namespace sw
 				if(draw->stencilBuffer)
 				{
 					unsigned int layer = context->stencilBufferLayer;
+					requiresSync |= context->stencilBuffer->requiresSync();
 					data->stencilBuffer = (unsigned char*)context->stencilBuffer->lockStencil(0, 0, layer, MANAGED);
 					data->stencilBuffer += q * ms * context->stencilBuffer->getSliceB(true);
 					data->stencilPitchB = context->stencilBuffer->getStencilPitchB();
@@ -674,6 +714,12 @@ namespace sw
 					resume[0]->signal();
 				}
 			}
+		}
+
+		// TODO(sugoi): This is a temporary brute-force workaround to ensure IOSurface synchronization.
+		if(requiresSync)
+		{
+			synchronize();
 		}
 	}
 
@@ -988,7 +1034,7 @@ namespace sw
 							break;
 						}
 
-						--query->reference; // Atomic
+						query->release();
 					}
 
 					delete draw.queries;
@@ -2456,6 +2502,18 @@ namespace sw
 		else
 		{
 			VertexProcessor::setMaxLod(sampler, maxLod);
+		}
+	}
+
+	void Renderer::setSyncRequired(SamplerType type, int sampler, bool syncRequired)
+	{
+		if(type == SAMPLER_PIXEL)
+		{
+			PixelProcessor::setSyncRequired(sampler, syncRequired);
+		}
+		else
+		{
+			VertexProcessor::setSyncRequired(sampler, syncRequired);
 		}
 	}
 

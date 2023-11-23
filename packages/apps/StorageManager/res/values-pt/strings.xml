@@ -60,8 +60,8 @@
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Ocultar itens recentes"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Um total de <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> de conteúdo será removido do seu dispositivo"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Seu armazenamento está sendo controlado pelo gerenciador de armazenamento"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Nada a remover"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Nada para remover"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisar itens recentes"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"Não há mais arquivos antigos a serem removidos. Para liberar espaço, remova fotos, vídeos e apps recentes."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"Não há mais arquivos antigos a serem removidos. Para liberar espaço, exclua fotos, vídeos e apps recentes."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"O app <xliff:g id="APP">%1$s</xliff:g> precisa de <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> de espaço"</string>
 </resources>

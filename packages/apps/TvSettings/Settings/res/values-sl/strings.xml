@@ -96,8 +96,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Umerjanje"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Izbira oblik zvoka"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Prostorski zvok"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -366,7 +366,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Nekatere aplikacije ne bodo na voljo ali ne bodo pravilno delovale, dokler ne bo povezava s pogonom znova vzpostavljena."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Ni dovolj prostora za shranjevanje."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Aplikacija ne obstaja."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikacija je zaščitena pred kopiranjem."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Mesto namestitve ni veljavno."</string>
     <string name="system_package" msgid="9200255718634512790">"Sistemskih posodobitev ni mogoče namestiti na zunanji medij."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Skrbnika naprave ni mogoče namestiti na zunanji medij."</string>
@@ -500,7 +499,7 @@
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Prikaži posodobitve površine"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Merilo animacije okna"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Merilo animacije prehoda"</string>
-    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Lestvica trajanja animacije"</string>
+    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Merilo trajanja animacije"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Strog način je omogočen"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Upodobitev profilov z GPE-jem"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Omogoči sledi"</string>
@@ -689,7 +688,7 @@
     <string name="device_daydreams_test" msgid="9038920213402659591">"Začni zdaj"</string>
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Čas začetka"</string>
     <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Ohranjevalnik zaslona se začne prikazovati po tem obdobju nedejavnosti. Če ni izbran noben ohranjevalnik zaslona, se zaslon izklopi."</string>
-    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po toliko nedejavnosti: <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po toliko časa nedejavnosti: <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"V stanje pripravljenosti"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Po tem obdobju nedejavnosti se zaslon izklopi."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Trenutno niso v nobenem računu shranjeni varnostno kopirani podatki"</string>
@@ -743,6 +742,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Dostop do obvestil"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Nobena nameščena aplikacija ni zahtevala dostopa do obvestil."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Te aplikacije lahko preberejo vsa obvestila, vključno z osebnimi podatki, kot so imena stikov ter besedilo prejetih sporočil. Prav tako lahko opustijo obvestila ali sprožijo gumbe dejanj pri obvestilih."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Dostop do imenika"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Te aplikacije imajo dovoljenje za dostop do nekaterih imenikov."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Prekrivanje drugih aplikacij"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Dovoli prekrivanje drugih aplikacij"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Omogočite aplikaciji, da prekrije druge aplikacije, ki jih uporabljate. To lahko vpliva na uporabo teh aplikacij ali spremeni njihov običajen videz ali delovanje."</string>

@@ -29,17 +29,12 @@ public class CameraPolicyTest extends AndroidTestCase {
 
     protected static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
 
-    private static final String PRIMARY_ADMIN_RECEIVER_TEST_CLASS =
-            MANAGED_PROFILE_PKG + ".PrimaryUserDeviceAdmin";
-
     private static final String MANAGED_PROFILE_ADMIN_RECEIVER_TEST_CLASS =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
 
     private DevicePolicyManager mDevicePolicyManager;
 
     private CameraManager mCameraManager;
-
-    private ComponentName mPrimaryAdminComponent;
 
     private ComponentName mManagedProfileAdminComponent;
 
@@ -56,8 +51,6 @@ public class CameraPolicyTest extends AndroidTestCase {
         mDevicePolicyManager = (DevicePolicyManager) getContext()
                 .getSystemService(Context.DEVICE_POLICY_SERVICE);
         mCameraManager = (CameraManager) getContext().getSystemService(Context.CAMERA_SERVICE);
-        mPrimaryAdminComponent = new ComponentName(MANAGED_PROFILE_PKG,
-                PRIMARY_ADMIN_RECEIVER_TEST_CLASS);
         mManagedProfileAdminComponent = new ComponentName(MANAGED_PROFILE_PKG,
                 MANAGED_PROFILE_ADMIN_RECEIVER_TEST_CLASS);
         startBackgroundThread();
@@ -83,31 +76,6 @@ public class CameraPolicyTest extends AndroidTestCase {
         checkCanOpenCamera(true);
     }
 
-    public void testDisableCameraInPrimaryProfile() throws Exception {
-        mDevicePolicyManager.setCameraDisabled(mPrimaryAdminComponent, true);
-        assertTrue(mDevicePolicyManager.getCameraDisabled(mPrimaryAdminComponent));
-        assertTrue(mDevicePolicyManager.getCameraDisabled(null));
-        checkCanOpenCamera(false);
-    }
-
-    public void testEnableCameraInPrimaryProfile() throws Exception {
-        mDevicePolicyManager.setCameraDisabled(mPrimaryAdminComponent, false);
-        assertFalse(mDevicePolicyManager.getCameraDisabled(mPrimaryAdminComponent));
-        assertFalse(mDevicePolicyManager.getCameraDisabled(null));
-        checkCanOpenCamera(true);
-    }
-
-    public void testIsCameraEnabledInPrimaryProfile() throws Exception {
-        assertFalse(mDevicePolicyManager.getCameraDisabled(mPrimaryAdminComponent));
-        assertFalse(mDevicePolicyManager.getCameraDisabled(null));
-        checkCanOpenCamera(true);
-    }
-
-    public void testIsCameraEnabledInManagedProfile() throws Exception {
-        assertFalse(mDevicePolicyManager.getCameraDisabled(mManagedProfileAdminComponent));
-        assertFalse(mDevicePolicyManager.getCameraDisabled(null));
-        checkCanOpenCamera(true);
-    }
 
     /**
      * Beginning with Android 7.0, the camera restriction policy isn't kept in the

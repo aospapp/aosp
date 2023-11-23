@@ -187,7 +187,7 @@ Memory allocation (code space): 35
   0  30 Bra
   4  22 CBra 1
  10     a
- 12   8 Once
+ 12   8 SBra
  16   4 Recurse
  20   8 KetRmax
  24     b
@@ -759,18 +759,14 @@ Memory allocation (code space): 12
 
 "(?1)(?#?'){2}(a)"
 ------------------------------------------------------------------
-  0  40 Bra
-  4   8 Once
-  8  28 Recurse
- 12   8 Ket
- 16   8 Once
- 20  28 Recurse
- 24   8 Ket
- 28   8 CBra 1
- 34     a
- 36   8 Ket
- 40  40 Ket
- 44     End
+  0  24 Bra
+  4  12 Recurse
+  8  12 Recurse
+ 12   8 CBra 1
+ 18     a
+ 20   8 Ket
+ 24  24 Ket
+ 28     End
 ------------------------------------------------------------------
 
 /.((?2)(?R)|\1|$)()/
@@ -853,21 +849,15 @@ Memory allocation (code space): 12
 
 # Use "expand" to create some very long patterns with nested parentheses, in
 # order to test workspace overflow. Again, this varies with code unit width,
-# and even with it fails in two modes, the error offset differs. It also varies
+# and even when it fails in two modes, the error offset differs. It also varies
 # with link size - hence multiple tests with different values.
 
-/(?'ABC'\[[bar](]{105}*THEN:\[A]{255}\[)]{106}/expand,-fullbincode
+/(?'ABC'\[[bar](]{792}*THEN:\[A]{255}\[)]{793}/expand,-fullbincode,parens_nest_limit=1000
 
-/(?'ABC'\[[bar](]{106}*THEN:\[A]{255}\[)]{107}/expand,-fullbincode
+/(?'ABC'\[[bar](]{793}*THEN:\[A]{255}\[)]{794}/expand,-fullbincode,parens_nest_limit=1000
 
-/(?'ABC'\[[bar](]{159}*THEN:\[A]{255}\[)]{160}/expand,-fullbincode
-Failed: error 186 at offset 936: regular expression is too complicated
-
-/(?'ABC'\[[bar](]{199}*THEN:\[A]{255}\[)]{200}/expand,-fullbincode
-Failed: error 186 at offset 936: regular expression is too complicated
-
-/(?'ABC'\[[bar](]{299}*THEN:\[A]{255}\[)]{300}/expand,-fullbincode
-Failed: error 186 at offset 936: regular expression is too complicated
+/(?'ABC'\[[bar](]{1793}*THEN:\[A]{255}\[)]{1794}/expand,-fullbincode,parens_nest_limit=2000
+Failed: error 186 at offset 12820: regular expression is too complicated
 
 /(?(1)(?1)){8,}+()/debug
 ------------------------------------------------------------------

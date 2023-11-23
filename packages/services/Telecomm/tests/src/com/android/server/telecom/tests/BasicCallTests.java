@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
@@ -52,9 +53,10 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
-import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telecom.IInCallAdapter;
 import com.android.internal.telephony.CallerInfo;
@@ -66,6 +68,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -74,8 +77,6 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
-
-import org.mockito.ArgumentCaptor;
 
 /**
  * Performs various basic call tests in Telecom.
@@ -331,12 +332,17 @@ public class BasicCallTests extends TelecomSystemTest {
         int startingNumCalls = mInCallServiceFixtureX.mCallById.size();
         String callId = startOutgoingPhoneCallWithNoPhoneAccount("650-555-1212",
                 mConnectionServiceFixtureA);
+        mTelecomSystem.getCallsManager().getLatestPreAccountSelectionFuture().join();
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         assertEquals(Call.STATE_SELECT_PHONE_ACCOUNT,
                 mInCallServiceFixtureX.getCall(callId).getState());
         assertEquals(Call.STATE_SELECT_PHONE_ACCOUNT,
                 mInCallServiceFixtureY.getCall(callId).getState());
         mInCallServiceFixtureX.mInCallAdapter.phoneAccountSelected(callId,
                 mPhoneAccountA0.getAccountHandle(), false);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+        verifyAndProcessOutgoingCallBroadcast(mPhoneAccountA0.getAccountHandle());
 
         IdPair ids = outgoingCallPhoneAccountSelected(mPhoneAccountA0.getAccountHandle(),
                 startingNumConnections, startingNumCalls, mConnectionServiceFixtureA);
@@ -548,8 +554,10 @@ public class BasicCallTests extends TelecomSystemTest {
         // TODO: We have to use the same PhoneAccount for both; see http://b/18461539
         IdPair outgoing = startAndMakeActiveOutgoingCall("650-555-1212",
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         IdPair incoming = startAndMakeActiveIncomingCall("650-555-2323",
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         verify(mConnectionServiceFixtureA.getTestDouble())
                 .hold(eq(outgoing.mConnectionId), any());
         mConnectionServiceFixtureA.mConnectionById.get(outgoing.mConnectionId).state =
@@ -585,10 +593,15 @@ public class BasicCallTests extends TelecomSystemTest {
                 .setMicrophoneMute(eq(false), any(String.class), any(Integer.class));
 
         mInCallServiceFixtureX.mInCallAdapter.setAudioRoute(CallAudioState.ROUTE_SPEAKER, null);
+        waitForHandlerAction(mTelecomSystem.getCallsManager().getCallAudioManager()
+                .getCallAudioRouteStateMachine().getHandler(), TEST_TIMEOUT);
         verify(audioManager, timeout(TEST_TIMEOUT))
                 .setSpeakerphoneOn(true);
         mInCallServiceFixtureX.mInCallAdapter.setAudioRoute(CallAudioState.ROUTE_EARPIECE, null);
-        verify(audioManager, timeout(TEST_TIMEOUT))
+        waitForHandlerAction(mTelecomSystem.getCallsManager().getCallAudioManager()
+                .getCallAudioRouteStateMachine().getHandler(), TEST_TIMEOUT);
+        // setSpeakerPhoneOn(false) gets called once during the call initiation phase
+        verify(audioManager, timeout(TEST_TIMEOUT).atLeast(2))
                 .setSpeakerphoneOn(false);
 
         mConnectionServiceFixtureA.
@@ -784,7 +797,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 anyString(),
                 eq(BlockedNumberContract.SystemContract.METHOD_SHOULD_SYSTEM_BLOCK_NUMBER),
                 eq(phoneNumber),
-                isNull(Bundle.class))).thenAnswer(answer);
+                nullable(Bundle.class))).thenAnswer(answer);
     }
 
     private void verifyNoBlockChecks() {
@@ -912,12 +925,12 @@ public class BasicCallTests extends TelecomSystemTest {
                 Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
         com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
                 .iterator().next();
-        assert(call.isVideoCallingSupported());
+        assert(call.isVideoCallingSupportedByPhoneAccount());
         assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
 
         // Change the phone account to one which supports video calling.
         call.setTargetPhoneAccount(mPhoneAccountA1.getAccountHandle());
-        assert(call.isVideoCallingSupported());
+        assert(call.isVideoCallingSupportedByPhoneAccount());
         assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
     }
 
@@ -935,12 +948,12 @@ public class BasicCallTests extends TelecomSystemTest {
                 Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
         com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
                 .iterator().next();
-        assert(call.isVideoCallingSupported());
+        assert(call.isVideoCallingSupportedByPhoneAccount());
         assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
 
         // Change the phone account to one which does not support video calling.
         call.setTargetPhoneAccount(mPhoneAccountA2.getAccountHandle());
-        assert(!call.isVideoCallingSupported());
+        assert(!call.isVideoCallingSupportedByPhoneAccount());
         assertEquals(VideoProfile.STATE_AUDIO_ONLY, call.getVideoState());
     }
 
@@ -1045,8 +1058,13 @@ public class BasicCallTests extends TelecomSystemTest {
                 mConnectionServiceFixtureA);
 
         // Should have reverted back to earpiece.
-        assertEquals(CallAudioState.ROUTE_EARPIECE,
-                mInCallServiceFixtureX.mCallAudioState.getRoute());
+        assertTrueWithTimeout(new Predicate<Void>() {
+            @Override
+            public boolean apply(Void aVoid) {
+                return mInCallServiceFixtureX.mCallAudioState.getRoute()
+                        == CallAudioState.ROUTE_EARPIECE;
+            }
+        });
     }
 
     /**
@@ -1098,6 +1116,7 @@ public class BasicCallTests extends TelecomSystemTest {
      */
     @LargeTest
     @Test
+    @FlakyTest
     public void testUnmuteDuringEmergencyCall() throws Exception {
         // Make an outgoing call and turn ON mute.
         IdPair outgoingCall = startAndMakeActiveOutgoingCall("650-555-1212",

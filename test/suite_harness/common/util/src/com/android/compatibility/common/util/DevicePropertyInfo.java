@@ -43,6 +43,7 @@ public final class DevicePropertyInfo {
     private final String mModel;
     private final String mProduct;
     private final String mReferenceFingerprint;
+    private final String mVendorFingerprint;
     private final String mSerial;
     private final String mTags;
     private final String mType;
@@ -52,11 +53,30 @@ public final class DevicePropertyInfo {
     private final String mVersionSecurityPatch;
     private final String mVersionIncremental;
 
-    public DevicePropertyInfo(String abi, String abi2, String abis, String abis32, String abis64,
-            String board, String brand, String device, String fingerprint, String id,
-            String manufacturer, String model, String product, String referenceFigerprint,
-            String serial, String tags, String type, String versionBaseOs, String versionRelease,
-            String versionSdk, String versionSecurityPatch, String versionIncremental) {
+    public DevicePropertyInfo(
+            String abi,
+            String abi2,
+            String abis,
+            String abis32,
+            String abis64,
+            String board,
+            String brand,
+            String device,
+            String fingerprint,
+            String vendorFingerprint,
+            String id,
+            String manufacturer,
+            String model,
+            String product,
+            String referenceFingerprint,
+            String serial,
+            String tags,
+            String type,
+            String versionBaseOs,
+            String versionRelease,
+            String versionSdk,
+            String versionSecurityPatch,
+            String versionIncremental) {
         mAbi = abi;
         mAbi2 = abi2;
         mAbis = abis;
@@ -66,11 +86,12 @@ public final class DevicePropertyInfo {
         mBrand = brand;
         mDevice = device;
         mFingerprint = fingerprint;
+        mVendorFingerprint = vendorFingerprint;
         mId = id;
         mManufacturer = manufacturer;
         mModel = model;
         mProduct = product;
-        mReferenceFingerprint = referenceFigerprint;
+        mReferenceFingerprint = referenceFingerprint;
         mSerial = serial;
         mTags = tags;
         mType = type;
@@ -98,6 +119,7 @@ public final class DevicePropertyInfo {
         propertyMap.put(prefix + "brand", mBrand);
         propertyMap.put(prefix + "device", mDevice);
         propertyMap.put(prefix + "fingerprint", mFingerprint);
+        propertyMap.put(prefix + "vendor_fingerprint", mVendorFingerprint);
         propertyMap.put(prefix + "id", mId);
         propertyMap.put(prefix + "manufacturer", mManufacturer);
         propertyMap.put(prefix + "model", mModel);

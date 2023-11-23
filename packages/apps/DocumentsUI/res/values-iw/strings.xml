@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"שתף"</string>
     <string name="menu_delete" msgid="1022254131543256626">"מחיקה"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"בחר הכל"</string>
+    <string name="menu_select" msgid="1366061076507142387">"בחירה"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"מיון לפי…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"העתק אל…"</string>
     <string name="menu_move" msgid="2310760789561129882">"העבר אל…"</string>
     <string name="menu_compress" msgid="37539111904724188">"דחוס"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"סוג"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"גודל"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"שינוי אחרון"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"שם הקובץ (א\' עד ת\')"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"סוג (א\' עד ת\')"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"גודל (מהקטן לגדול)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"השתנה (מהישן לחדש)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"שם הקובץ (ת\' עד א\')"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"סוג (ת\' עד א\')"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"גודל (מהגדול לקטן)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"השתנה (מהחדש לישן)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"מיון לפי"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"מיון לפי <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"מספר הפריטים"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"סדר עולה"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"סדר יורד"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"פתיחה של <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"הצג שורשים"</string>
     <string name="drawer_close" msgid="4263880768630848848">"הסתר שורשים"</string>
     <string name="save_error" msgid="8631128801982095782">"שמירת המסמך נכשלה"</string>
@@ -204,9 +217,8 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"האם להעניק לאפליקציה <xliff:g id="APPNAME"><b>^1</b></xliff:g> גישה לספריה <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> באחסון <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"האם להעניק לאפליקציה <xliff:g id="APPNAME"><b>^1</b></xliff:g> גישה אל ספריית <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"האם להעניק לאפליקציה <xliff:g id="APPNAME"><b>^1</b></xliff:g> גישה לנתונים שלך, כולל תמונות וסרטונים, השמורים ב<xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"ראיתי פעם אחת, זה מספיק"</string>
     <string name="allow" msgid="1275746941353040309">"כן, זה בסדר"</string>
-    <string name="deny" msgid="5127201668078153379">"לא, אין מצב"</string>
+    <string name="deny" msgid="5127201668078153379">"לא, תודה"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="two"><xliff:g id="COUNT_1">%1$d</xliff:g> נבחרו</item>
       <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> נבחרו</item>
@@ -248,4 +260,35 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"להחליף את <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"המשך ברקע"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="two">נבחרו <xliff:g id="COUNT_1">%1$d</xliff:g> פריטים</item>
+      <item quantity="many">נבחרו <xliff:g id="COUNT_1">%1$d</xliff:g> פריטים</item>
+      <item quantity="other">נבחרו <xliff:g id="COUNT_1">%1$d</xliff:g> פריטים</item>
+      <item quantity="one">נבחר פריט אחד (<xliff:g id="COUNT_0">%1$d</xliff:g>)</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"קבצים אחרונים בטלפון"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"קבצים בטלפון"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> בטלפון"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"קבצים ב-<xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"קבצים מ-<xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"קבצים מ-<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"תמונות אחרונות בטלפון"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"תמונות בטלפון"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"התמונות ב-<xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"תמונות מ-<xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"תמונו מ-<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"תמונות"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"אודיו"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"סרטונים"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"מסמכים"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"שם תיקייה"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"שם חדש"</string>
+    <string name="preview_file" msgid="4056622696305432343">"תצוגה מקדימה של הקובץ <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"חיפוש קבצים באפליקציות אחרות"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"אנונימית"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"מתן גישה אל \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"להתיר גישה אל \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ב-\"<xliff:g id="ROOT">%2$s</xliff:g>\"?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"לאפליקציה \"<xliff:g id="APPNAME">%1$s</xliff:g>\" תהיה הרשאת גישה מלאה לכל הקבצים שמאוחסנים כרגע במיקום זה, ולכל תוכן שיאוחסן כאן בעתיד."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"חיפוש בטלפון זה"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"מחיקת היסטוריית החיפושים <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

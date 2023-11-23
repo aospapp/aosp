@@ -16,13 +16,13 @@
 %                              December 2001                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -44,7 +44,7 @@
 #if defined(__VMS)
 #include <time.h>
 #endif
-#if defined(__MINGW32__) || defined(__MINGW64__)
+#if defined(__MINGW32__)
 #include <sys/time.h>
 #endif
 #include "MagickCore/studio.h"
@@ -52,6 +52,7 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/random_.h"
 #include "MagickCore/random-private.h"
@@ -173,10 +174,8 @@ MagickExport RandomInfo *AcquireRandomInfo(void)
     *key,
     *nonce;
 
-  random_info=(RandomInfo *) AcquireMagickMemory(sizeof(*random_info));
-  if (random_info == (RandomInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(random_info,0,sizeof(*random_info));
+  random_info=(RandomInfo *) AcquireCriticalMemory(sizeof(*random_info));
+  (void) memset(random_info,0,sizeof(*random_info));
   random_info->signature_info=AcquireSignatureInfo();
   random_info->nonce=AcquireStringInfo(2*GetSignatureDigestsize(
     random_info->signature_info));
@@ -222,7 +221,7 @@ MagickExport RandomInfo *AcquireRandomInfo(void)
   if (random_info->secret_key == ~0UL)
     {
       key=GetRandomKey(random_info,sizeof(random_info->secret_key));
-      (void) CopyMagickMemory(random_info->seed,GetStringInfoDatum(key),
+      (void) memcpy(random_info->seed,GetStringInfoDatum(key),
         GetStringInfoLength(key));
       key=DestroyStringInfo(key);
     }
@@ -238,7 +237,7 @@ MagickExport RandomInfo *AcquireRandomInfo(void)
       key=DestroyStringInfo(key);
       FinalizeSignature(signature_info);
       digest=GetSignatureDigest(signature_info);
-      (void) CopyMagickMemory(random_info->seed,GetStringInfoDatum(digest),
+      (void) memcpy(random_info->seed,GetStringInfoDatum(digest),
         MagickMin(GetSignatureDigestsize(signature_info),
         sizeof(*random_info->seed)));
       signature_info=DestroySignatureInfo(signature_info);
@@ -285,7 +284,7 @@ MagickExport RandomInfo *DestroyRandomInfo(RandomInfo *random_info)
   if (random_info->signature_info != (SignatureInfo *) NULL)
     random_info->signature_info=DestroySignatureInfo(
       random_info->signature_info);
-  (void) ResetMagickMemory(random_info->seed,0,sizeof(*random_info->seed));
+  (void) memset(random_info->seed,0,sizeof(random_info->seed));
   random_info->signature=(~MagickCoreSignature);
   UnlockSemaphoreInfo(random_info->semaphore);
   RelinquishSemaphoreInfo(&random_info->semaphore);
@@ -460,7 +459,7 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
     int
       file;
 
-    (void) GetPathTemplate(path);
+    (void) strcpy(path,"XXXXXX");
     file=mkstemp(path);
     if (file != -1)
       {
@@ -481,33 +480,29 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
   {
     double
-      seconds;
+      datum;
 
     LARGE_INTEGER
-      nanoseconds;
-
-    MagickBooleanType
-      status;
+      datum1;
 
     /*
       Not crytographically strong but better than nothing.
     */
-    seconds=NTElapsedTime()+NTUserTime();
-    SetStringInfoLength(chaos,sizeof(seconds));
-    SetStringInfoDatum(chaos,(unsigned char *) &seconds);
+    datum=NTElapsedTime()+NTUserTime();
+    SetStringInfoLength(chaos,sizeof(datum));
+    SetStringInfoDatum(chaos,(unsigned char *) &datum);
     ConcatenateStringInfo(entropy,chaos);
-    if (QueryPerformanceCounter(&nanoseconds) != 0)
+    if (QueryPerformanceCounter(&datum1) != 0)
       {
-        SetStringInfoLength(chaos,sizeof(nanoseconds));
-        SetStringInfoDatum(chaos,(unsigned char *) &nanoseconds);
+        SetStringInfoLength(chaos,sizeof(datum1));
+        SetStringInfoDatum(chaos,(unsigned char *) &datum1);
         ConcatenateStringInfo(entropy,chaos);
       }
     /*
       Our best hope for true entropy.
     */
     SetStringInfoLength(chaos,MaxEntropyExtent);
-    status=NTGatherRandomData(MaxEntropyExtent,GetStringInfoDatum(chaos));
-    (void) status;
+    (void) NTGatherRandomData(MaxEntropyExtent,GetStringInfoDatum(chaos));
     ConcatenateStringInfo(entropy,chaos);
   }
 #else
@@ -915,7 +910,7 @@ MagickExport void SetRandomKey(RandomInfo *random_info,const size_t length,
     UpdateSignature(signature_info,random_info->nonce);
     FinalizeSignature(signature_info);
     IncrementRandomNonce(random_info->nonce);
-    (void) CopyMagickMemory(p,GetStringInfoDatum(GetSignatureDigest(
+    (void) memcpy(p,GetStringInfoDatum(GetSignatureDigest(
       signature_info)),GetSignatureDigestsize(signature_info));
     p+=GetSignatureDigestsize(signature_info);
     i-=GetSignatureDigestsize(signature_info);

@@ -400,6 +400,14 @@ extern const char * const interface_names[MPH_MAX];
 extern void audioPlayerTransportUpdate(CAudioPlayer *audioPlayer);
 #endif
 
+#ifndef FALLTHROUGH_INTENDED
+#ifdef __clang__
+#define FALLTHROUGH_INTENDED [[clang::fallthrough]]
+#else
+#define FALLTHROUGH_INTENDED
+#endif // __clang__
+#endif // FALLTHROUGH_INTENDED
+
 extern SLresult IBufferQueue_Enqueue(SLBufferQueueItf self, const void *pBuffer, SLuint32 size);
 extern SLresult IBufferQueue_Clear(SLBufferQueueItf self);
 extern SLresult IBufferQueue_RegisterCallback(SLBufferQueueItf self,

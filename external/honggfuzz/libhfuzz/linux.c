@@ -1,16 +1,21 @@
-#include "libcommon/common.h"
-#include "libhfuzz.h"
-
-#include "libcommon/files.h"
-#include "libcommon/log.h"
-#include "libcommon/ns.h"
+#include "libhfcommon/common.h"
+#include "libhfcommon/files.h"
+#include "libhfcommon/log.h"
+#include "libhfcommon/ns.h"
+#include "libhfuzz/libhfuzz.h"
 
 #if defined(_HF_ARCH_LINUX)
 
-bool linuxEnterNs(uintptr_t cloneFlags) { return nsEnter(cloneFlags); }
+bool linuxEnterNs(uintptr_t cloneFlags) {
+    return nsEnter(cloneFlags);
+}
 
-bool linuxIfaceUp(const char* ifacename) { return nsIfaceUp(ifacename); }
+bool linuxIfaceUp(const char* ifacename) {
+    return nsIfaceUp(ifacename);
+}
 
-bool linuxMountTmpfs(const char* dst) { return nsMountTmpfs(dst); }
+bool linuxMountTmpfs(const char* dst) {
+    return nsMountTmpfs(dst);
+}
 
 #endif /* defined(_HF_ARCH_LINUX) */

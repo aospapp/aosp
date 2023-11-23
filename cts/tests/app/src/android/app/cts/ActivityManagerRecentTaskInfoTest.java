@@ -15,94 +15,67 @@
  */
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.app.ActivityManager;
-import android.content.ComponentName;
-import android.content.Intent;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
 
-public class ActivityManagerRecentTaskInfoTest extends AndroidTestCase {
-    protected ActivityManager.RecentTaskInfo mRecentTaskInfo;
+import androidx.test.runner.AndroidJUnit4;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+/**
+ * atest CtsAppTestCases:ActivityManagerRecentTaskInfoTest
+ */
+@RunWith(AndroidJUnit4.class)
+public class ActivityManagerRecentTaskInfoTest extends ActivityManagerBaseTaskInfoTest {
+
+    private ActivityManager.RecentTaskInfo mRecentTaskInfo;
+
+    @Before
+    public void setUp() throws Exception {
         mRecentTaskInfo = new ActivityManager.RecentTaskInfo();
+        mRecentTaskInfo.id = 1;
+        mRecentTaskInfo.persistentId = 1;
     }
 
+    @Test
     public void testConstructor() {
         new ActivityManager.RecentTaskInfo();
     }
 
+    @Test
     public void testDescribeContents() {
         assertEquals(0, mRecentTaskInfo.describeContents());
     }
 
-    public void testWriteToParcel() throws Exception {
-        int id = 1;
-        Intent baseIntent = null;
-        ComponentName origActivity = null;
-        mRecentTaskInfo.id = id;
-        mRecentTaskInfo.baseIntent = baseIntent;
-        mRecentTaskInfo.origActivity = origActivity;
-
+    @Test
+    public void testWriteToParcel() {
+        fillTaskInfo(mRecentTaskInfo);
         Parcel parcel = Parcel.obtain();
         mRecentTaskInfo.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
-        ActivityManager.RecentTaskInfo values = ActivityManager.RecentTaskInfo.CREATOR
+
+        ActivityManager.RecentTaskInfo info = ActivityManager.RecentTaskInfo.CREATOR
                 .createFromParcel(parcel);
-        assertEquals(id, values.id);
-        assertEquals(null, values.baseIntent);
-        assertEquals(null, values.origActivity);
-        // test baseIntent,origActivity is not null, and id is -1(not running)
-        baseIntent = new Intent();
-        baseIntent.setAction(Intent.ACTION_CALL);
-        origActivity = new ComponentName(mContext, this.getClass());
-        mRecentTaskInfo.id = -1;
-        mRecentTaskInfo.baseIntent = baseIntent;
-        mRecentTaskInfo.origActivity = origActivity;
-        parcel = Parcel.obtain();
-        mRecentTaskInfo.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        values = ActivityManager.RecentTaskInfo.CREATOR
-                .createFromParcel(parcel);
-        assertEquals(-1, values.id);
-        assertNotNull(values.baseIntent);
-        assertEquals(Intent.ACTION_CALL, values.baseIntent.getAction());
-        assertEquals(origActivity, values.origActivity);
+        verifyTaskInfo(info, mRecentTaskInfo);
+        assertEquals(1, info.id);
+        assertEquals(1, info.persistentId);
     }
 
-    public void testReadFromParcel() throws Exception {
-        int id = 1;
-        Intent baseIntent = null;
-        ComponentName origActivity = null;
-        mRecentTaskInfo.id = id;
-        mRecentTaskInfo.baseIntent = baseIntent;
-        mRecentTaskInfo.origActivity = origActivity;
-
+    @Test
+    public void testReadFromParcel() {
+        fillTaskInfo(mRecentTaskInfo);
         Parcel parcel = Parcel.obtain();
         mRecentTaskInfo.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
-        ActivityManager.RecentTaskInfo values = new ActivityManager.RecentTaskInfo();
-        values.readFromParcel(parcel);
-        assertEquals(id, values.id);
-        assertEquals(null, values.baseIntent);
-        assertEquals(null, values.origActivity);
-        // test baseIntent,origActivity is not null, and id is -1(not running)
-        baseIntent = new Intent();
-        baseIntent.setAction(Intent.ACTION_CALL);
-        origActivity = new ComponentName(mContext, this.getClass());
-        mRecentTaskInfo.id = -1;
-        mRecentTaskInfo.baseIntent = baseIntent;
-        mRecentTaskInfo.origActivity = origActivity;
-        parcel = Parcel.obtain();
-        mRecentTaskInfo.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        values.readFromParcel(parcel);
-        assertEquals(-1, values.id);
-        assertNotNull(values.baseIntent);
-        assertEquals(Intent.ACTION_CALL, values.baseIntent.getAction());
-        assertEquals(origActivity, values.origActivity);
-    }
 
+        ActivityManager.RecentTaskInfo info = new ActivityManager.RecentTaskInfo();
+        info.readFromParcel(parcel);
+        verifyTaskInfo(info, mRecentTaskInfo);
+        assertEquals(1, info.id);
+        assertEquals(1, info.persistentId);
+    }
 }

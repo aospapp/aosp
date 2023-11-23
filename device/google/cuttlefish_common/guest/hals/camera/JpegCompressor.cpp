@@ -23,7 +23,7 @@
 #define LOG_TAG "EmulatedCamera_JPEG"
 #include "JpegCompressor.h"
 #include <assert.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <dlfcn.h>
 
 namespace android {
@@ -46,10 +46,10 @@ typedef size_t (*GetCompressedSizeFunc)(JpegStub* stub);
 
 NV21JpegCompressor::NV21JpegCompressor() {
   if (mDl == NULL) {
-    mDl = dlopen("/vendor/lib/hw/camera.vsoc.jpeg.so", RTLD_NOW);
+    mDl = dlopen("/vendor/lib/hw/camera.cutf.jpeg.so", RTLD_NOW);
   }
   if (mDl == NULL) {
-    mDl = dlopen("/system/lib/hw/camera.vsoc.jpeg.so", RTLD_NOW);
+    mDl = dlopen("/system/lib/hw/camera.cutf.jpeg.so", RTLD_NOW);
   }
   assert(mDl != NULL);
 

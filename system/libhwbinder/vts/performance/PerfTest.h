@@ -34,7 +34,7 @@ using std::tuple;
 class Pipe {
    public:
     static tuple<Pipe, Pipe> createPipePair();
-    Pipe(Pipe&& rval);
+    Pipe(Pipe&& rval) noexcept;
     ~Pipe();
     inline void signal() {
         bool val = true;

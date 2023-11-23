@@ -130,6 +130,10 @@ class FirmwareTest(FAFTBase):
                                       'as "%s".'
                                        % (host.POWER_CONTROL_VALID_ARGS,
                                        self.power_control))
+        self._no_ec_sync = False
+        if 'no_ec_sync' in args:
+            if 'true' in args['no_ec_sync'].lower():
+                self._no_ec_sync = True
 
         if not self.faft_client.system.dev_tpm_present():
             raise error.TestError('/dev/tpm0 does not exist on the client')
@@ -184,8 +188,10 @@ class FirmwareTest(FAFTBase):
             self._restore_routine_from_timeout()
         self.switcher.restore_mode()
         self._restore_ec_write_protect()
+        self._restore_servo_v4_role()
         self._restore_gbb_flags()
         self.faft_client.updater.start_daemon()
+        self.faft_client.updater.cleanup()
         self._remove_faft_lockfile()
         self._record_servo_log()
         self._record_faft_client_log()
@@ -205,12 +211,22 @@ class FirmwareTest(FAFTBase):
             'rw_fwid': self.faft_client.system.get_crossystem_value('fwid'),
             'servod_version': self._client._servo_host.run(
                 'servod --version').stdout.strip(),
+            'os_version': self._client.get_release_builder_path(),
+            'servo_type': self.servo.get_servo_version()
         }
+
+        # Record the servo v4 and servo micro versions when possible
+        if 'servo_micro' in system_info['servo_type']:
+            system_info['servo_micro_version'] = self.servo.get(
+                    'servo_micro_version')
+
+        if 'servo_v4' in system_info['servo_type']:
+            system_info['servo_v4_version'] = self.servo.get('servo_v4_version')
 
         if hasattr(self, 'cr50'):
             system_info['cr50_version'] = self.servo.get('cr50_version')
 
-        logging.info('System info:\n' + pprint.pformat(system_info))
+        logging.info('System info:\n%s', pprint.pformat(system_info))
         self.write_attr_keyval(system_info)
 
     def invalidate_firmware_setup(self):
@@ -388,12 +404,12 @@ class FirmwareTest(FAFTBase):
                 raise error.TestError('USB stick in servo contains a %s '
                     'image, but DUT is a %s' % (usb_board, dut_board))
         finally:
-            for cmd in ('umount -l %s' % rootfs, 'sync', 'rm -rf %s' % tmpd):
+            for cmd in ('umount -l %s' % tmpd, 'sync', 'rm -rf %s' % tmpd):
                 self.servo.system(cmd)
 
         self.mark_setup_done('usb_check')
 
-    def setup_usbkey(self, usbkey, host=None):
+    def setup_usbkey(self, usbkey, host=None, used_for_recovery=None):
         """Setup the USB disk for the test.
 
         It checks the setup of USB disk and a valid ChromeOS test image inside.
@@ -403,6 +419,9 @@ class FirmwareTest(FAFTBase):
                        not required.
         @param host: Optional, True to mux the USB disk to host, False to mux it
                     to DUT, default to do nothing.
+        @param used_for_recovery: Optional, True if the USB disk is used for
+                                  recovery boot; False if the USB disk is not
+                                  used for recovery boot, like Ctrl-U USB boot.
         """
         if usbkey:
             self.assert_test_image_in_usb_disk()
@@ -414,6 +433,38 @@ class FirmwareTest(FAFTBase):
             self.servo.switch_usbkey('host')
         elif host is False:
             self.servo.switch_usbkey('dut')
+
+        if used_for_recovery is None:
+            # Default value is True if usbkey == True.
+            # As the common usecase of USB disk is for recovery boot. Tests
+            # can define it explicitly if not.
+            used_for_recovery = usbkey
+
+        if used_for_recovery:
+            # In recovery boot, the locked EC RO doesn't support PD for most
+            # of the CrOS devices. The default servo v4 power role is a SRC.
+            # The DUT becomes a SNK. Lack of PD makes CrOS unable to do the
+            # data role swap from UFP to DFP; as a result, DUT can't see the
+            # USB disk and the Ethernet dongle on servo v4.
+            #
+            # This is a workaround to set servo v4 as a SNK, for every FAFT
+            # test which boots into the USB disk in the recovery mode.
+            #
+            # TODO(waihong): Add a check to see if the battery level is too
+            # low and sleep for a while for charging.
+            self.set_servo_v4_role_to_snk()
+
+    def set_servo_v4_role_to_snk(self):
+        """Set the servo v4 role to SNK."""
+        self._needed_restore_servo_v4_role = True
+        self.servo.set_servo_v4_role('snk')
+
+    def _restore_servo_v4_role(self):
+        """Restore the servo v4 role to default SRC."""
+        if not hasattr(self, '_needed_restore_servo_v4_role'):
+            return
+        if self._needed_restore_servo_v4_role:
+            self.servo.set_servo_v4_role('src')
 
     def get_usbdisk_path_on_dut(self):
         """Get the path of the USB disk device plugged-in the servo on DUT.
@@ -466,6 +517,7 @@ class FirmwareTest(FAFTBase):
         """
         gbb_flags = self.faft_client.bios.get_gbb_flags()
         new_flags = gbb_flags & ctypes.c_uint32(~clear_mask).value | set_mask
+        self.gbb_flags = new_flags
         if new_flags != gbb_flags:
             self._backup_gbb_flags = gbb_flags
             logging.info('Changing GBB flags from 0x%x to 0x%x.',
@@ -594,14 +646,7 @@ class FirmwareTest(FAFTBase):
 
         @param enable: True if asserting write protect pin. Otherwise, False.
         """
-        try:
-            self.servo.set('fw_wp_state', 'force_on' if enable else 'force_off')
-        except:
-            # TODO(waihong): Remove this fallback when all servos have the
-            # above new fw_wp_state control.
-            self.servo.set('fw_wp_vref', self.faft_config.wp_voltage)
-            self.servo.set('fw_wp_en', 'on')
-            self.servo.set('fw_wp', 'on' if enable else 'off')
+        self.servo.set('fw_wp_state', 'force_on' if enable else 'force_off')
 
     def set_ec_write_protect_and_reboot(self, enable):
         """Set EC write protect status and reboot to take effect.
@@ -654,27 +699,40 @@ class FirmwareTest(FAFTBase):
                       not write-protected; None to do nothing.
         """
         if ec_wp is None:
-            self._old_ec_wp = None
+            self._old_wpsw_boot = None
             return
-        self._old_ec_wp = self.checkers.crossystem_checker({'wpsw_boot': '1'})
-        if ec_wp != self._old_ec_wp:
+        self._old_wpsw_cur = self.checkers.crossystem_checker(
+                                    {'wpsw_cur': '1'}, suppress_logging=True)
+        self._old_wpsw_boot = self.checkers.crossystem_checker(
+                                   {'wpsw_boot': '1'}, suppress_logging=True)
+        if not (ec_wp == self._old_wpsw_cur == self._old_wpsw_boot):
+            if not self.faft_config.ap_access_ec_flash:
+                raise error.TestNAError(
+                        "Cannot change EC write-protect for this device")
+
             logging.info('The test required EC is %swrite-protected. Reboot '
                          'and flip the state.', '' if ec_wp else 'not ')
             self.switcher.mode_aware_reboot(
                     'custom',
                      lambda:self.set_ec_write_protect_and_reboot(ec_wp))
+        wpsw_boot = wpsw_cur = '1' if ec_wp == True else '0'
+        self.check_state((self.checkers.crossystem_checker, {
+                               'wpsw_boot': wpsw_boot, 'wpsw_cur': wpsw_cur}))
 
     def _restore_ec_write_protect(self):
         """Restore the original EC write-protection."""
-        if (not hasattr(self, '_old_ec_wp')) or (self._old_ec_wp is None):
+        if (not hasattr(self, '_old_wpsw_boot')) or (self._old_wpsw_boot is
+                                                     None):
             return
-        if not self.checkers.crossystem_checker(
-                {'wpsw_boot': '1' if self._old_ec_wp else '0'}):
+        if not self.checkers.crossystem_checker({'wpsw_boot': '1' if
+                       self._old_wpsw_boot else '0'}, suppress_logging=True):
             logging.info('Restore original EC write protection and reboot.')
             self.switcher.mode_aware_reboot(
                     'custom',
                     lambda:self.set_ec_write_protect_and_reboot(
-                            self._old_ec_wp))
+                            self._old_wpsw_boot))
+        self.check_state((self.checkers.crossystem_checker, {
+                           'wpsw_boot': '1' if self._old_wpsw_boot else '0'}))
 
     def _setup_uart_capture(self):
         """Setup the CPU/EC/PD UART capture."""
@@ -682,6 +740,8 @@ class FirmwareTest(FAFTBase):
         self.servo.set('cpu_uart_capture', 'on')
         self.cr50_uart_file = None
         self.ec_uart_file = None
+        self.servo_micro_uart_file = None
+        self.servo_v4_uart_file = None
         self.usbpd_uart_file = None
         try:
             # Check that the console works before declaring the cr50 console
@@ -713,6 +773,20 @@ class FirmwareTest(FAFTBase):
                                      'usbpd_uart_capture is not supported.')
         else:
             logging.info('Not a Google EC, cannot capture ec console output.')
+        try:
+            self.servo.set('servo_micro_uart_capture', 'on')
+            self.servo_micro_uart_file = os.path.join(self.resultsdir,
+                                                      'servo_micro_uart.txt')
+        except error.TestFail as e:
+            if 'No control named' in str(e):
+                logging.warn('servo micro console not supported.')
+        try:
+            self.servo.set('servo_v4_uart_capture', 'on')
+            self.servo_v4_uart_file = os.path.join(self.resultsdir,
+                                                   'servo_v4_uart.txt')
+        except error.TestFail as e:
+            if 'No control named' in str(e):
+                logging.warn('servo v4 console not supported.')
 
     def _record_uart_capture(self):
         """Record the CPU/EC/PD UART output stream to files."""
@@ -725,6 +799,14 @@ class FirmwareTest(FAFTBase):
         if self.ec_uart_file and self.faft_config.chrome_ec:
             with open(self.ec_uart_file, 'a') as f:
                 f.write(ast.literal_eval(self.servo.get('ec_uart_stream')))
+        if self.servo_micro_uart_file:
+            with open(self.servo_micro_uart_file, 'a') as f:
+                f.write(ast.literal_eval(self.servo.get(
+                        'servo_micro_uart_stream')))
+        if self.servo_v4_uart_file:
+            with open(self.servo_v4_uart_file, 'a') as f:
+                f.write(ast.literal_eval(self.servo.get(
+                        'servo_v4_uart_stream')))
         if (self.usbpd_uart_file and self.faft_config.chrome_ec and
             self.check_ec_capability(['usbpd_uart'], suppress_warning=True)):
             with open(self.usbpd_uart_file, 'a') as f:
@@ -739,6 +821,10 @@ class FirmwareTest(FAFTBase):
             self.servo.set('cr50_uart_capture', 'off')
         if self.ec_uart_file and self.faft_config.chrome_ec:
             self.servo.set('ec_uart_capture', 'off')
+        if self.servo_micro_uart_file:
+            self.servo.set('servo_micro_uart_capture', 'off')
+        if self.servo_v4_uart_file:
+            self.servo.set('servo_v4_uart_capture', 'off')
         if (self.usbpd_uart_file and self.faft_config.chrome_ec and
             self.check_ec_capability(['usbpd_uart'], suppress_warning=True)):
             self.servo.set('usbpd_uart_capture', 'off')
@@ -811,21 +897,19 @@ class FirmwareTest(FAFTBase):
 
     def _setup_gbb_flags(self):
         """Setup the GBB flags for FAFT test."""
-        if self.faft_config.gbb_version < 1.1:
-            logging.info('Skip modifying GBB on versions older than 1.1.')
-            return
-
         if self.check_setup_done('gbb_flags'):
             return
 
         logging.info('Set proper GBB flags for test.')
-        self.clear_set_gbb_flags(vboot.GBB_FLAG_DEV_SCREEN_SHORT_DELAY |
-                                 vboot.GBB_FLAG_FORCE_DEV_SWITCH_ON |
-                                 vboot.GBB_FLAG_FORCE_DEV_BOOT_USB |
-                                 vboot.GBB_FLAG_DISABLE_FW_ROLLBACK_CHECK |
-                                 vboot.GBB_FLAG_FORCE_DEV_BOOT_FASTBOOT_FULL_CAP,
-                                 vboot.GBB_FLAG_ENTER_TRIGGERS_TONORM |
-                                 vboot.GBB_FLAG_FAFT_KEY_OVERIDE)
+        # Ensure that GBB flags are set to 0x140.
+        flags_to_set = (vboot.GBB_FLAG_FAFT_KEY_OVERIDE |
+                        vboot.GBB_FLAG_ENTER_TRIGGERS_TONORM)
+        # And if the "no_ec_sync" argument is set, then disable EC software
+        # sync.
+        if self._no_ec_sync:
+            flags_to_set |= vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC
+
+        self.clear_set_gbb_flags(0xffffffff, flags_to_set)
         self.mark_setup_done('gbb_flags')
 
     def drop_backup_gbb_flags(self):
@@ -1001,8 +1085,23 @@ class FirmwareTest(FAFTBase):
         # add buffer from the default timeout of 60 seconds.
         self.switcher.wait_for_client_offline(timeout=100, orig_boot_id=boot_id)
         time.sleep(self.faft_config.shutdown)
+        if self.check_ec_capability(['x86'], suppress_warning=True):
+            self.check_shutdown_power_state("G3", pwr_retries=5)
         # Short press power button to boot DUT again.
         self.servo.power_key(self.faft_config.hold_pwr_button_poweron)
+
+    def check_shutdown_power_state(self, power_state, pwr_retries):
+        """Check whether the device entered into requested EC power state
+        after shutdown.
+
+        @param power_state: EC power state has to be checked. Either S5 or G3.
+        @param pwr_retries: Times to check if the DUT in expected power state.
+        @raise TestFail: If device failed to enter into requested power state.
+        """
+        if not self.wait_power_state(power_state, pwr_retries):
+            raise error.TestFail('System not shutdown properly and EC fails '
+                                 'to enter into %s state.' % power_state)
+        logging.info('System entered into %s state..', power_state)
 
     def check_lid_and_power_on(self):
         """
@@ -1135,11 +1234,7 @@ class FirmwareTest(FAFTBase):
                     shutdown_action.__name__)
         except ConnectionError:
             if self.check_ec_capability(['x86'], suppress_warning=True):
-                PWR_RETRIES=5
-                if not self.wait_power_state("G3", PWR_RETRIES):
-                    raise error.TestFail("System not shutdown properly and EC"
-                                         "fails to enter into G3 state.")
-                logging.info('System entered into G3 state..')
+                self.check_shutdown_power_state("G3", pwr_retries=5)
             logging.info(
                 'DUT is surely shutdown. We are going to power it on again...')
 

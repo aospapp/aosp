@@ -1,0 +1,69 @@
+{
+    "aidegen tradefed": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-n', '-v'])"
+    ],
+    "aidegen tools/tradefederation/core": [
+        "aidegen_main.main(['tools/tradefederation/core', '-n', '-v'])"
+    ],
+    "cd tools/tradefederation/core;aidegen": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "os.chdir('tools/tradefederation/core')",
+        "aidegen_main.main(['-n', '-v'])",
+        "os.chdir('../../..')"
+    ],
+    "cd tools/tradefederation;aidegen": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "os.chdir('tools/tradefederation')",
+        "aidegen_main.main(['-n', '-v'])",
+        "os.chdir('../..')"
+    ],
+    "aidegen tradefed cts-tradefed": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', 'cts-tradefed', '-n', '-v'])"
+    ],
+    "aidegen tradefed test/suite_harness/tools/cts-tradefed": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', 'test/suite_harness/tools/cts-tradefed', '-n', '-v'])"
+    ],
+    "aidegen tools/tradefederation/core test/suite_harness/tools/cts-tradefed": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tools/tradefederation/core', 'test/suite_harness/tools/cts-tradefed', '-n', '-v'])"
+    ],
+    "aidegen cts frameworks/base frameworks/native": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['cts', 'frameworks/base', 'frameworks/native', '-n', '-v'])"
+    ],
+    "aidegen nonexist/lib/path": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['nonexist/lib/path', '-n', '-v'])"
+    ],
+    "aidegen no_module_defined": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['no_module_defined', '-n', '-v'])"
+    ],
+    "aidegen tradefed -p /opt/": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-p', '/opt/', '-n', '-v'])"
+    ],
+    "aidegen tradefed -p /home/": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-p', '/home/', '-n', '-v'])"
+    ],
+    "aidegen tradefed -i s": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-i', 's', '-n', '-v'])"
+    ],
+    "aidegen tradefed -i e": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-i', 'e', '-n', '-v'])"
+    ],
+    "aidegen tradefed -s": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['tradefed', '-s', '-n', '-v'])"
+    ],
+    "aidegen(whole aosp)": [
+        "os.remove('out/soong/module_bp_java_deps.json') if os.path.exists('out/soong/module_bp_java_deps.json') else None",
+        "aidegen_main.main(['-n', '-v'])"
+    ]
+}

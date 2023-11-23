@@ -31,7 +31,6 @@ import tensorflow.python.ops.nn_grad  # pylint: disable=unused-import
 from tensorflow.python.platform import test
 
 
-@test_util.with_c_api
 class ScalarTest(test.TestCase):
 
   def check(self, op, args, error, correct=None):
@@ -54,7 +53,7 @@ class ScalarTest(test.TestCase):
     for version in strict + lenient:
       with ops.Graph().as_default() as g:
         test_util.set_producer_version(g, version)
-        with self.test_session(graph=g) as sess:
+        with self.session(graph=g) as sess:
           feed = {}
           xs = placeholders(args, feed)
           x = op(*xs)
@@ -92,11 +91,11 @@ class ScalarTest(test.TestCase):
     self.check(array_ops.reshape, (7, 1), 'sizes input must be 1-D', [7])
 
   def testShardedFilename(self):
-    self.check(gen_io_ops._sharded_filename, ('foo', 4, [100]),
+    self.check(gen_io_ops.sharded_filename, ('foo', 4, [100]),
                'must be a scalar', b'foo-00004-of-00100')
 
   def testShardedFilespec(self):
-    self.check(gen_io_ops._sharded_filespec, ('foo', [100]), 'must be a scalar',
+    self.check(gen_io_ops.sharded_filespec, ('foo', [100]), 'must be a scalar',
                b'foo-?????-of-00100')
 
   def testUnsortedSegmentSum(self):

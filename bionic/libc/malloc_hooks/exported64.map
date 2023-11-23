@@ -13,11 +13,13 @@ LIBC_MALLOC_HOOKS {
     hooks_malloc_backtrace;
     hooks_malloc_disable;
     hooks_malloc_enable;
+    hooks_malloc_info;
     hooks_malloc_usable_size;
     hooks_mallopt;
     hooks_memalign;
     hooks_posix_memalign;
     hooks_realloc;
+    hooks_write_malloc_leak_info;
 
   local:
     *;

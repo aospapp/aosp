@@ -5,13 +5,12 @@
 #ifndef BENCH_GL_TESTBASE_H_
 #define BENCH_GL_TESTBASE_H_
 
-#include "base/macros.h"
-
+#include <string.h>
 #include "main.h"
 
 #define DISABLE_SOME_TESTS_FOR_INTEL_DRIVER 1
 
-#define IS_NOT_POWER_OF_2(v) (((v) & ((v) - 1)) && (v))
+#define IS_NOT_POWER_OF_2(v) (((v) & ((v)-1)) && (v))
 
 namespace glbench {
 
@@ -34,7 +33,7 @@ double Bench(TestBase* test);
 //   coefficient = 1, inverse = false
 //       returns number of operations per second.
 void RunTest(TestBase* test,
-             const char *name,
+             const char* name,
              double coefficient,
              const int width,
              const int height,
@@ -71,11 +70,12 @@ class DrawArraysTestFunc : public TestBase {
   // Runs the test and reports results in mpixels per second, assuming each
   // iteration updates a window of width by height pixels.
   void FillRateTestNormalSubWindow(const char* name,
-                                   const int width, const int height);
+                                   const int width,
+                                   const int height);
   // Runs the test three times: with blending on; with depth test enabled and
   // depth function of GL_NOTEQUAL; with depth function GL_NEVER.  Results are
   // reported as in FillRateTestNormal.
-  void FillRateTestBlendDepth(const char *name);
+  void FillRateTestBlendDepth(const char* name);
 };
 
 // Helper class to time glDrawElements.
@@ -92,6 +92,6 @@ class DrawElementsTestFunc : public TestBase {
   GLsizei count_;
 };
 
-} // namespace glbench
+}  // namespace glbench
 
-#endif // BENCH_GL_TESTBASE_H_
+#endif  // BENCH_GL_TESTBASE_H_

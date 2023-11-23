@@ -102,6 +102,52 @@ public class PersonTest extends AndroidTestCase {
         assertEquals(person.getUri(), result.getUri());
     }
 
+    public void testEquals() {
+        Icon testIcon = createIcon();
+        Person.Builder builder = new Person.Builder()
+                .setName(TEST_NAME)
+                .setIcon(testIcon)
+                .setUri(TEST_URI)
+                .setKey(TEST_KEY)
+                .setBot(true)
+                .setImportant(true);
+
+        Person personA = builder.build();
+        Person personB = builder.build();
+
+        assertEquals(personA, personB);
+    }
+
+    public void testEquals_noIcon() {
+        Person.Builder builder = new Person.Builder()
+                .setName(TEST_NAME)
+                .setUri(TEST_URI)
+                .setKey(TEST_KEY)
+                .setBot(true)
+                .setImportant(true);
+
+        Person personA = builder.build();
+        Person personB = builder.build();
+
+        assertEquals(personA, personB);
+    }
+
+    public void testEquals_different() {
+        Icon testIcon = createIcon();
+        Person.Builder builder = new Person.Builder()
+                .setName(TEST_NAME)
+                .setIcon(testIcon)
+                .setUri(TEST_URI)
+                .setKey(TEST_KEY)
+                .setBot(true)
+                .setImportant(true);
+
+        Person personA = builder.build();
+        Person personB = builder.setKey("different_key").build();
+
+        assertFalse(personA.equals(personB));
+    }
+
     public void testDescribeContents() {
         Person person = new Person.Builder().build();
 

@@ -23,8 +23,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.telecom.PhoneAccount;
@@ -43,12 +41,12 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.QuickContactBadge;
 import android.widget.TextView;
-import com.android.contacts.common.R;
 import com.android.dialer.animation.AnimUtils;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.callintent.CallIntentBuilder;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.contactphoto.ContactPhotoManager;
+import com.android.dialer.contacts.resources.R;
 import com.android.dialer.lettertile.LetterTileDrawable;
 import com.android.dialer.precall.PreCall;
 import com.android.dialer.util.ViewUtil;
@@ -331,7 +329,7 @@ public class CallSubjectDialog extends Activity {
       mNumberView.setText(
           TextUtils.isEmpty(mNumberLabel)
               ? mDisplayNumber
-              : getString(R.string.call_subject_type_and_number, mNumberLabel, mDisplayNumber));
+              : getString(R.string.old_call_subject_type_and_number, mNumberLabel, mDisplayNumber));
     } else {
       mNumberView.setVisibility(View.GONE);
       mNumberView.setText(null);
@@ -519,18 +517,15 @@ public class CallSubjectDialog extends Activity {
    * current phone account.
    */
   private void loadConfiguration() {
-    // Only attempt to load configuration from the phone account extras if the SDK is N or
-    // later.  If we've got a prior SDK the default encoding and message length will suffice.
-    if (VERSION.SDK_INT < VERSION_CODES.N) {
-      return;
-    }
-
     if (mPhoneAccountHandle == null) {
       return;
     }
 
     TelecomManager telecomManager = (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
     final PhoneAccount account = telecomManager.getPhoneAccount(mPhoneAccountHandle);
+    if (account == null) {
+      return;
+    }
 
     Bundle phoneAccountExtras = account.getExtras();
     if (phoneAccountExtras == null) {

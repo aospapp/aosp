@@ -778,11 +778,14 @@ UfsPassThruDriverBindingStart (
   UINTN                                 UfsHcBase;
   UINT32                                Index;
   UFS_CONFIG_DESC                       Config;
+  UFS_DEV_DESC                          Dev;
+  UINT32                                DevQuirks;
 
   Status    = EFI_SUCCESS;
   UfsHc     = NULL;
   Private   = NULL;
   UfsHcBase = 0;
+  DevQuirks = 0;
 
   DEBUG ((EFI_D_INFO, "==UfsPassThru Start== Controller = %x\n", Controller));
 
@@ -854,6 +857,22 @@ UfsPassThruDriverBindingStart (
   }
 
   MicroSecondDelay (100000);
+
+  Status = UfsRwDeviceDesc (Private, TRUE, UfsDeviceDesc, 0, 0, &Dev, sizeof (UFS_DEV_DESC));
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Ufs Get Dev Descriptor Error, Status = %r\n", Status));
+    goto Error;
+  }
+
+  if (SwapBytes16(Dev.ManufacturerId) == UFS_VENDOR_SKHYNIX) {
+    DevQuirks |= UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME;
+  }
+
+  Status = UfsHc->PhySetPowerMode (UfsHc, DevQuirks);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Phy Set Power Mode Fails, Status = %r\n", Status));
+    goto Error;
+  }
 
   //
   // Get Ufs Device's Lun Info by reading Configuration Descriptor.

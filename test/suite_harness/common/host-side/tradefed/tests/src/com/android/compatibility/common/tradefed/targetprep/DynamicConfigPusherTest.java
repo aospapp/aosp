@@ -23,8 +23,12 @@ import static org.junit.Assert.fail;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.VersionedFile;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.util.FileUtil;
 
@@ -37,7 +41,10 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 /**
@@ -50,14 +57,68 @@ public class DynamicConfigPusherTest {
     private ITestDevice mMockDevice;
     private CompatibilityBuildHelper mMockBuildHelper;
     private IBuildInfo mMockBuildInfo;
+    private IInvocationContext mModuleContext;
 
     @Before
     public void setUp() {
+        mModuleContext = new InvocationContext();
+        mModuleContext.setConfigurationDescriptor(new ConfigurationDescriptor());
         mPreparer = new DynamicConfigPusher();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
         mMockBuildHelper = new CompatibilityBuildHelper(mMockBuildInfo);
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andStubReturn(null);
+    }
+
+    /**
+     * Test getSuiteName from /test-suite-info.properties.
+     */
+    @Test
+    public void testGetSuiteName_fromTestSuiteInfo() throws Exception {
+        mPreparer = new DynamicConfigPusher();
+        mPreparer.setInvocationContext(mModuleContext);
+        EasyMock.replay(mMockDevice, mMockBuildInfo);
+        assertNotNull(mPreparer.getSuiteName());
+        EasyMock.verify(mMockDevice, mMockBuildInfo);
+    }
+
+    /**
+     * Test getSuiteName from test-suite-tag.
+     */
+    @Test
+    public void testGetSuiteName_fromTestSuiteTag() throws Exception {
+        mPreparer = new DynamicConfigPusher();
+        mModuleContext
+                .getConfigurationDescriptor()
+                .setSuiteTags(Arrays.asList("cts", "cts-instant", "gts"));
+        mPreparer.setInvocationContext(mModuleContext);
+        EasyMock.replay(mMockDevice, mMockBuildInfo);
+        assertNotNull(mPreparer.getSuiteName());
+        EasyMock.verify(mMockDevice, mMockBuildInfo);
+    }
+
+    /**
+     * Test that when we look up resources locally, we search them from the build helper.
+     */
+    @Test
+    public void testLocalRead_fromDynamicConfigName() throws Exception {
+        OptionSetter setter = new OptionSetter(mPreparer);
+        setter.setOptionValue("config-filename", "config-test-name");
+        setter.setOptionValue("dynamic-config-name", "dynamic-config-test-name");
+        setter.setOptionValue("extract-from-resource", "false");
+
+        File check = new File("anyfilewilldo");
+        mMockBuildHelper = new CompatibilityBuildHelper(mMockBuildInfo) {
+            @Override
+            public File getTestFile(String filename) throws FileNotFoundException {
+                return check;
+            }
+        };
+
+        EasyMock.replay(mMockDevice, mMockBuildInfo);
+        File res = mPreparer.getLocalConfigFile(mMockBuildHelper, mMockDevice);
+        assertEquals(check, res);
+        EasyMock.verify(mMockDevice, mMockBuildInfo);
     }
 
     /**
@@ -197,10 +258,13 @@ public class DynamicConfigPusherTest {
         Map<String, String> attributes = new HashMap<>();
         attributes.put(CompatibilityBuildHelper.SUITE_VERSION, "v1");
         EasyMock.expect(mMockBuildInfo.getBuildAttributes()).andStubReturn(attributes);
+        Collection<VersionedFile> versionedFiles = new LinkedList<VersionedFile>();
+        EasyMock.expect(mMockBuildInfo.getFiles()).andStubReturn(versionedFiles);
         Capture<File> capture = new Capture<>();
         mMockBuildInfo.setFile(EasyMock.contains("moduleName"), EasyMock.capture(capture),
                 EasyMock.eq("DYNAMIC_CONFIG_FILE:moduleName"));
 
+        mPreparer.setInvocationContext(mModuleContext);
         EasyMock.replay(mMockDevice, mMockBuildInfo);
         mPreparer.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.verify(mMockDevice, mMockBuildInfo);

@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include <string>
+#include <string_view>
 
-#include "base/logging.h"  // For InitLogging.
-#include "base/mutex.h"
-#include "base/os.h"
-#include "base/utils.h"
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 #include "base/file_utils.h"
+#include "base/logging.h"  // For InitLogging.
+#include "base/mutex.h"
+#include "base/os.h"
+#include "base/string_view_cpp20.h"
+#include "base/utils.h"
 #include "compiler_filter.h"
 #include "class_loader_context.h"
 #include "dex/dex_file.h"
@@ -39,10 +42,13 @@ enum ReturnCodes {
   kDex2OatFromScratch = 1,
   kDex2OatForBootImageOat = 2,
   kDex2OatForFilterOat = 3,
-  kDex2OatForRelocationOat = 4,
-  kDex2OatForBootImageOdex = 5,
-  kDex2OatForFilterOdex = 6,
-  kDex2OatForRelocationOdex = 7,
+  kDex2OatForBootImageOdex = 4,
+  kDex2OatForFilterOdex = 5,
+
+  // Success return code when executed with --flatten-class-loader-context.
+  // Success is typically signalled with a zero but we use a non-colliding
+  // code to communicate that the flattening code path was taken.
+  kFlattenClassLoaderContextSuccess = 50,
 
   kErrorInvalidArguments = 101,
   kErrorCannotCreateRuntime = 102,
@@ -54,6 +60,7 @@ static char** original_argv;
 
 static std::string CommandLine() {
   std::vector<std::string> command;
+  command.reserve(original_argc);
   for (int i = 0; i < original_argc; ++i) {
     command.push_back(original_argv[i]);
   }
@@ -98,6 +105,11 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("       oat file is up to date. Defaults to $ANDROID_ROOT/framework/boot.art.");
   UsageError("       Example: --image=/system/framework/boot.art");
   UsageError("");
+  UsageError("  --runtime-arg <argument>: used to specify various arguments for the runtime,");
+  UsageError("      such as initial heap size, maximum heap size, and verbose output.");
+  UsageError("      Use a separate --runtime-arg switch for each argument.");
+  UsageError("      Example: --runtime-arg -Xms256m");
+  UsageError("");
   UsageError("  --android-data=<directory>: optional, the directory which should be used as");
   UsageError("       android-data. By default ANDROID_DATA env variable is used.");
   UsageError("");
@@ -110,6 +122,17 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("  --downgrade: optional, if the purpose of dexopt is to downgrade the dex file");
   UsageError("       By default, dexopt considers upgrade case.");
   UsageError("");
+  UsageError("  --class-loader-context=<string spec>: a string specifying the intended");
+  UsageError("      runtime loading context for the compiled dex files.");
+  UsageError("");
+  UsageError("  --class-loader-context-fds=<fds>: a colon-separated list of file descriptors");
+  UsageError("      for dex files in --class-loader-context. Their order must be the same as");
+  UsageError("      dex files in flattened class loader context.");
+  UsageError("");
+  UsageError("  --flatten-class-loader-context: parse --class-loader-context, flatten it and");
+  UsageError("      print a colon-separated list of its dex files to standard output. Dexopt");
+  UsageError("      needed analysis is not performed when this option is set.");
+  UsageError("");
   UsageError("Return code:");
   UsageError("  To make it easier to integrate with the internal tools this command will make");
   UsageError("    available its result (dexoptNeeded) as the exit/return code. i.e. it will not");
@@ -119,10 +142,8 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("        kDex2OatFromScratch = 1");
   UsageError("        kDex2OatForBootImageOat = 2");
   UsageError("        kDex2OatForFilterOat = 3");
-  UsageError("        kDex2OatForRelocationOat = 4");
-  UsageError("        kDex2OatForBootImageOdex = 5");
-  UsageError("        kDex2OatForFilterOdex = 6");
-  UsageError("        kDex2OatForRelocationOdex = 7");
+  UsageError("        kDex2OatForBootImageOdex = 4");
+  UsageError("        kDex2OatForFilterOdex = 5");
 
   UsageError("        kErrorInvalidArguments = 101");
   UsageError("        kErrorCannotCreateRuntime = 102");
@@ -132,9 +153,10 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   exit(kErrorInvalidArguments);
 }
 
-class DexoptAnalyzer FINAL {
+class DexoptAnalyzer final {
  public:
   DexoptAnalyzer() :
+      only_flatten_context_(false),
       assume_profile_changed_(false),
       downgrade_(false) {}
 
@@ -153,54 +175,69 @@ class DexoptAnalyzer FINAL {
     }
 
     for (int i = 0; i < argc; ++i) {
-      const StringPiece option(argv[i]);
+      const char* raw_option = argv[i];
+      const std::string_view option(raw_option);
       if (option == "--assume-profile-changed") {
         assume_profile_changed_ = true;
-      } else if (option.starts_with("--dex-file=")) {
-        dex_file_ = option.substr(strlen("--dex-file=")).ToString();
-      } else if (option.starts_with("--compiler-filter=")) {
-        std::string filter_str = option.substr(strlen("--compiler-filter=")).ToString();
-        if (!CompilerFilter::ParseCompilerFilter(filter_str.c_str(), &compiler_filter_)) {
-          Usage("Invalid compiler filter '%s'", option.data());
+      } else if (StartsWith(option, "--dex-file=")) {
+        dex_file_ = std::string(option.substr(strlen("--dex-file=")));
+      } else if (StartsWith(option, "--compiler-filter=")) {
+        const char* filter_str = raw_option + strlen("--compiler-filter=");
+        if (!CompilerFilter::ParseCompilerFilter(filter_str, &compiler_filter_)) {
+          Usage("Invalid compiler filter '%s'", raw_option);
         }
-      } else if (option.starts_with("--isa=")) {
-        std::string isa_str = option.substr(strlen("--isa=")).ToString();
-        isa_ = GetInstructionSetFromString(isa_str.c_str());
+      } else if (StartsWith(option, "--isa=")) {
+        const char* isa_str = raw_option + strlen("--isa=");
+        isa_ = GetInstructionSetFromString(isa_str);
         if (isa_ == InstructionSet::kNone) {
-          Usage("Invalid isa '%s'", option.data());
+          Usage("Invalid isa '%s'", raw_option);
         }
-      } else if (option.starts_with("--image=")) {
-        image_ = option.substr(strlen("--image=")).ToString();
-      } else if (option.starts_with("--android-data=")) {
+      } else if (StartsWith(option, "--image=")) {
+        image_ = std::string(option.substr(strlen("--image=")));
+      } else if (option == "--runtime-arg") {
+        if (i + 1 == argc) {
+          Usage("Missing argument for --runtime-arg\n");
+        }
+        ++i;
+        runtime_args_.push_back(argv[i]);
+      } else if (StartsWith(option, "--android-data=")) {
         // Overwrite android-data if needed (oat file assistant relies on a valid directory to
         // compute dalvik-cache folder). This is mostly used in tests.
-        std::string new_android_data = option.substr(strlen("--android-data=")).ToString();
-        setenv("ANDROID_DATA", new_android_data.c_str(), 1);
-      } else if (option.starts_with("--downgrade")) {
+        const char* new_android_data = raw_option + strlen("--android-data=");
+        setenv("ANDROID_DATA", new_android_data, 1);
+      } else if (option == "--downgrade") {
         downgrade_ = true;
-      } else if (option.starts_with("--oat-fd")) {
-        oat_fd_ = std::stoi(option.substr(strlen("--oat-fd=")).ToString(), nullptr, 0);
+      } else if (StartsWith(option, "--oat-fd=")) {
+        oat_fd_ = std::stoi(std::string(option.substr(strlen("--oat-fd="))), nullptr, 0);
         if (oat_fd_ < 0) {
           Usage("Invalid --oat-fd %d", oat_fd_);
         }
-      } else if (option.starts_with("--vdex-fd")) {
-        vdex_fd_ = std::stoi(option.substr(strlen("--vdex-fd=")).ToString(), nullptr, 0);
+      } else if (StartsWith(option, "--vdex-fd=")) {
+        vdex_fd_ = std::stoi(std::string(option.substr(strlen("--vdex-fd="))), nullptr, 0);
         if (vdex_fd_ < 0) {
           Usage("Invalid --vdex-fd %d", vdex_fd_);
         }
-      } else if (option.starts_with("--zip-fd")) {
-          zip_fd_ = std::stoi(option.substr(strlen("--zip-fd=")).ToString(), nullptr, 0);
-          if (zip_fd_ < 0) {
-            Usage("Invalid --zip-fd %d", zip_fd_);
-          }
-      } else if (option.starts_with("--class-loader-context=")) {
-        std::string context_str = option.substr(strlen("--class-loader-context=")).ToString();
-        class_loader_context_ = ClassLoaderContext::Create(context_str);
-        if (class_loader_context_ == nullptr) {
-          Usage("Invalid --class-loader-context '%s'", context_str.c_str());
+      } else if (StartsWith(option, "--zip-fd=")) {
+        zip_fd_ = std::stoi(std::string(option.substr(strlen("--zip-fd="))), nullptr, 0);
+        if (zip_fd_ < 0) {
+          Usage("Invalid --zip-fd %d", zip_fd_);
         }
+      } else if (StartsWith(option, "--class-loader-context=")) {
+        context_str_ = std::string(option.substr(strlen("--class-loader-context=")));
+      } else if (StartsWith(option, "--class-loader-context-fds=")) {
+        std::string str_context_fds_arg =
+            std::string(option.substr(strlen("--class-loader-context-fds=")));
+        std::vector<std::string> str_fds = android::base::Split(str_context_fds_arg, ":");
+        for (const std::string& str_fd : str_fds) {
+          context_fds_.push_back(std::stoi(str_fd, nullptr, 0));
+          if (context_fds_.back() < 0) {
+            Usage("Invalid --class-loader-context-fds %s", str_context_fds_arg.c_str());
+          }
+        }
+      } else if (option == "--flatten-class-loader-context") {
+        only_flatten_context_ = true;
       } else {
-        Usage("Unknown argument '%s'", option.data());
+        Usage("Unknown argument '%s'", raw_option);
       }
     }
 
@@ -217,14 +254,18 @@ class DexoptAnalyzer FINAL {
     }
   }
 
-  bool CreateRuntime() {
+  bool CreateRuntime() const {
     RuntimeOptions options;
     // The image could be custom, so make sure we explicitly pass it.
     std::string img = "-Ximage:" + image_;
-    options.push_back(std::make_pair(img.c_str(), nullptr));
+    options.push_back(std::make_pair(img, nullptr));
     // The instruction set of the image should match the instruction set we will test.
     const void* isa_opt = reinterpret_cast<const void*>(GetInstructionSetString(isa_));
     options.push_back(std::make_pair("imageinstructionset", isa_opt));
+    // Explicit runtime args.
+    for (const char* runtime_arg : runtime_args_) {
+      options.push_back(std::make_pair(runtime_arg, nullptr));
+    }
      // Disable libsigchain. We don't don't need it to evaluate DexOptNeeded status.
     options.push_back(std::make_pair("-Xno-sig-chain", nullptr));
     // Pretend we are a compiler so that we can re-use the same infrastructure to load a different
@@ -246,17 +287,28 @@ class DexoptAnalyzer FINAL {
     return true;
   }
 
-  int GetDexOptNeeded() {
+  int GetDexOptNeeded() const {
     if (!CreateRuntime()) {
       return kErrorCannotCreateRuntime;
     }
     std::unique_ptr<Runtime> runtime(Runtime::Current());
 
+    // Only when the runtime is created can we create the class loader context: the
+    // class loader context will open dex file and use the MemMap global lock that the
+    // runtime owns.
+    std::unique_ptr<ClassLoaderContext> class_loader_context;
+    if (!context_str_.empty()) {
+      class_loader_context = ClassLoaderContext::Create(context_str_);
+      if (class_loader_context == nullptr) {
+        Usage("Invalid --class-loader-context '%s'", context_str_.c_str());
+      }
+    }
+
     std::unique_ptr<OatFileAssistant> oat_file_assistant;
     oat_file_assistant = std::make_unique<OatFileAssistant>(dex_file_.c_str(),
                                                             isa_,
-                                                            false /*load_executable*/,
-                                                            false /*only_load_system_executable*/,
+                                                            /*load_executable=*/ false,
+                                                            /*only_load_system_executable=*/ false,
                                                             vdex_fd_,
                                                             oat_fd_,
                                                             zip_fd_);
@@ -266,8 +318,11 @@ class DexoptAnalyzer FINAL {
       return kNoDexOptNeeded;
     }
 
-    int dexoptNeeded = oat_file_assistant->GetDexOptNeeded(
-        compiler_filter_, assume_profile_changed_, downgrade_, class_loader_context_.get());
+    int dexoptNeeded = oat_file_assistant->GetDexOptNeeded(compiler_filter_,
+                                                           assume_profile_changed_,
+                                                           downgrade_,
+                                                           class_loader_context.get(),
+                                                           context_fds_);
 
     // Convert OatFileAssitant codes to dexoptanalyzer codes.
     switch (dexoptNeeded) {
@@ -275,14 +330,35 @@ class DexoptAnalyzer FINAL {
       case OatFileAssistant::kDex2OatFromScratch: return kDex2OatFromScratch;
       case OatFileAssistant::kDex2OatForBootImage: return kDex2OatForBootImageOat;
       case OatFileAssistant::kDex2OatForFilter: return kDex2OatForFilterOat;
-      case OatFileAssistant::kDex2OatForRelocation: return kDex2OatForRelocationOat;
 
       case -OatFileAssistant::kDex2OatForBootImage: return kDex2OatForBootImageOdex;
       case -OatFileAssistant::kDex2OatForFilter: return kDex2OatForFilterOdex;
-      case -OatFileAssistant::kDex2OatForRelocation: return kDex2OatForRelocationOdex;
       default:
         LOG(ERROR) << "Unknown dexoptNeeded " << dexoptNeeded;
         return kErrorUnknownDexOptNeeded;
+    }
+  }
+
+  int FlattenClassLoaderContext() const {
+    DCHECK(only_flatten_context_);
+    if (context_str_.empty()) {
+      return kErrorInvalidArguments;
+    }
+
+    std::unique_ptr<ClassLoaderContext> context = ClassLoaderContext::Create(context_str_);
+    if (context == nullptr) {
+      Usage("Invalid --class-loader-context '%s'", context_str_.c_str());
+    }
+
+    std::cout << context->FlattenDexPaths() << std::flush;
+    return kFlattenClassLoaderContextSuccess;
+  }
+
+  int Run() const {
+    if (only_flatten_context_) {
+      return FlattenClassLoaderContext();
+    } else {
+      return GetDexOptNeeded();
     }
   }
 
@@ -290,14 +366,17 @@ class DexoptAnalyzer FINAL {
   std::string dex_file_;
   InstructionSet isa_;
   CompilerFilter::Filter compiler_filter_;
-  std::unique_ptr<ClassLoaderContext> class_loader_context_;
+  std::string context_str_;
+  bool only_flatten_context_;
   bool assume_profile_changed_;
   bool downgrade_;
   std::string image_;
+  std::vector<const char*> runtime_args_;
   int oat_fd_ = -1;
   int vdex_fd_ = -1;
   // File descriptor corresponding to apk, dex_file, or zip.
   int zip_fd_ = -1;
+  std::vector<int> context_fds_;
 };
 
 static int dexoptAnalyze(int argc, char** argv) {
@@ -305,7 +384,7 @@ static int dexoptAnalyze(int argc, char** argv) {
 
   // Parse arguments. Argument mistakes will lead to exit(kErrorInvalidArguments) in UsageError.
   analyzer.ParseArgs(argc, argv);
-  return analyzer.GetDexOptNeeded();
+  return analyzer.Run();
 }
 
 }  // namespace art

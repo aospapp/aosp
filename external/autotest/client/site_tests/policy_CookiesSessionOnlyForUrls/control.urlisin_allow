@@ -5,7 +5,7 @@
 AUTHOR = 'scunningham'
 NAME = 'policy_CookiesSessionOnlyForUrls.urlisin_allow'
 # TODO(krishnargv): enable this test once crbug.com/712713 is fixed.
-# ATTRIBUTES = 'suite:bvt-perbuild, suite:policy'
+# ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'enterprise'

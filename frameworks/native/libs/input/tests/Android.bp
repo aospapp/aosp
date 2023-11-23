@@ -1,11 +1,13 @@
 // Build the unit tests.
 cc_test {
     name: "libinput_tests",
-    test_per_src: true,
     srcs: [
         "InputChannel_test.cpp",
+        "InputDevice_test.cpp",
         "InputEvent_test.cpp",
         "InputPublisherAndConsumer_test.cpp",
+        "InputWindow_test.cpp",
+        "TouchVideoFrame_test.cpp",
         "VelocityTracker_test.cpp",
     ],
     cflags: [
@@ -34,5 +36,14 @@ cc_library_static {
         "-O0",
         "-Wall",
         "-Werror",
+        "-Wextra",
     ],
+    shared_libs: [
+        "libinput",
+        "libcutils",
+        "libutils",
+        "libbinder",
+        "libui",
+        "libbase",
+    ]
 }

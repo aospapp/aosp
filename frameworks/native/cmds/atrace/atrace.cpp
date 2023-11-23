@@ -37,6 +37,7 @@
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
 
+#include <android/hardware/atrace/1.0/IAtraceDevice.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <hidl/ServiceManagement.h>
 
@@ -52,10 +53,16 @@
 
 using namespace android;
 using pdx::default_transport::ServiceUtility;
+using hardware::hidl_vec;
+using hardware::hidl_string;
+using hardware::Return;
+using hardware::atrace::V1_0::IAtraceDevice;
+using hardware::atrace::V1_0::Status;
+using hardware::atrace::V1_0::toString;
 
 using std::string;
 
-#define MAX_SYS_FILES 10
+#define MAX_SYS_FILES 11
 
 const char* k_traceTagsProperty = "debug.atrace.tags.enableflags";
 const char* k_userInitiatedTraceProperty = "debug.atrace.user_initiated";
@@ -92,32 +99,31 @@ struct TracingCategory {
 
 /* Tracing categories */
 static const TracingCategory k_categories[] = {
-    { "gfx",        "Graphics",         ATRACE_TAG_GRAPHICS, {
-        { OPT,      "events/mdss/enable" },
-        { OPT,      "events/sde/enable" },
-    } },
-    { "input",      "Input",            ATRACE_TAG_INPUT, { } },
-    { "view",       "View System",      ATRACE_TAG_VIEW, { } },
-    { "webview",    "WebView",          ATRACE_TAG_WEBVIEW, { } },
-    { "wm",         "Window Manager",   ATRACE_TAG_WINDOW_MANAGER, { } },
-    { "am",         "Activity Manager", ATRACE_TAG_ACTIVITY_MANAGER, { } },
-    { "sm",         "Sync Manager",     ATRACE_TAG_SYNC_MANAGER, { } },
-    { "audio",      "Audio",            ATRACE_TAG_AUDIO, { } },
-    { "video",      "Video",            ATRACE_TAG_VIDEO, { } },
-    { "camera",     "Camera",           ATRACE_TAG_CAMERA, { } },
-    { "hal",        "Hardware Modules", ATRACE_TAG_HAL, { } },
-    { "res",        "Resource Loading", ATRACE_TAG_RESOURCES, { } },
-    { "dalvik",     "Dalvik VM",        ATRACE_TAG_DALVIK, { } },
-    { "rs",         "RenderScript",     ATRACE_TAG_RS, { } },
-    { "bionic",     "Bionic C Library", ATRACE_TAG_BIONIC, { } },
-    { "power",      "Power Management", ATRACE_TAG_POWER, { } },
-    { "pm",         "Package Manager",  ATRACE_TAG_PACKAGE_MANAGER, { } },
-    { "ss",         "System Server",    ATRACE_TAG_SYSTEM_SERVER, { } },
-    { "database",   "Database",         ATRACE_TAG_DATABASE, { } },
-    { "network",    "Network",          ATRACE_TAG_NETWORK, { } },
-    { "adb",        "ADB",              ATRACE_TAG_ADB, { } },
-    { "vibrator",   "Vibrator",         ATRACE_TAG_VIBRATOR, { } },
-    { "aidl",       "AIDL calls",       ATRACE_TAG_AIDL, { } },
+    { "gfx",        "Graphics",                 ATRACE_TAG_GRAPHICS, { } },
+    { "input",      "Input",                    ATRACE_TAG_INPUT, { } },
+    { "view",       "View System",              ATRACE_TAG_VIEW, { } },
+    { "webview",    "WebView",                  ATRACE_TAG_WEBVIEW, { } },
+    { "wm",         "Window Manager",           ATRACE_TAG_WINDOW_MANAGER, { } },
+    { "am",         "Activity Manager",         ATRACE_TAG_ACTIVITY_MANAGER, { } },
+    { "sm",         "Sync Manager",             ATRACE_TAG_SYNC_MANAGER, { } },
+    { "audio",      "Audio",                    ATRACE_TAG_AUDIO, { } },
+    { "video",      "Video",                    ATRACE_TAG_VIDEO, { } },
+    { "camera",     "Camera",                   ATRACE_TAG_CAMERA, { } },
+    { "hal",        "Hardware Modules",         ATRACE_TAG_HAL, { } },
+    { "res",        "Resource Loading",         ATRACE_TAG_RESOURCES, { } },
+    { "dalvik",     "Dalvik VM",                ATRACE_TAG_DALVIK, { } },
+    { "rs",         "RenderScript",             ATRACE_TAG_RS, { } },
+    { "bionic",     "Bionic C Library",         ATRACE_TAG_BIONIC, { } },
+    { "power",      "Power Management",         ATRACE_TAG_POWER, { } },
+    { "pm",         "Package Manager",          ATRACE_TAG_PACKAGE_MANAGER, { } },
+    { "ss",         "System Server",            ATRACE_TAG_SYSTEM_SERVER, { } },
+    { "database",   "Database",                 ATRACE_TAG_DATABASE, { } },
+    { "network",    "Network",                  ATRACE_TAG_NETWORK, { } },
+    { "adb",        "ADB",                      ATRACE_TAG_ADB, { } },
+    { "vibrator",   "Vibrator",                 ATRACE_TAG_VIBRATOR, { } },
+    { "aidl",       "AIDL calls",               ATRACE_TAG_AIDL, { } },
+    { "nnapi",      "NNAPI",                    ATRACE_TAG_NNAPI, { } },
+    { "rro",        "Runtime Resource Overlay", ATRACE_TAG_RRO, { } },
     { k_coreServiceCategory, "Core services", 0, { } },
     { k_pdxServiceCategory, "PDX services", 0, { } },
     { "sched",      "CPU Scheduling",   0, {
@@ -127,7 +133,11 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/sched/sched_blocked_reason/enable" },
         { OPT,      "events/sched/sched_cpu_hotplug/enable" },
         { OPT,      "events/sched/sched_pi_setprio/enable" },
+        { OPT,      "events/sched/sched_process_exit/enable" },
         { OPT,      "events/cgroup/enable" },
+        { OPT,      "events/oom/oom_score_adj_update/enable" },
+        { OPT,      "events/task/task_rename/enable" },
+        { OPT,      "events/task/task_newtask/enable" },
     } },
     { "irq",        "IRQ Events",   0, {
         { REQ,      "events/irq/enable" },
@@ -187,10 +197,12 @@ static const TracingCategory k_categories[] = {
         { REQ,      "events/cpufreq_interactive/enable" },
     } },
     { "sync",       "Synchronization",  0, {
-        // before linux kernel 4.9
+        // linux kernel < 4.9
         { OPT,      "events/sync/enable" },
-        // starting in linux kernel 4.9
+        // linux kernel == 4.9.x
         { OPT,      "events/fence/enable" },
+        // linux kernel > 4.9
+        { OPT,      "events/dma_fence/enable" },
     } },
     { "workq",      "Kernel Workqueues", 0, {
         { REQ,      "events/workqueue/enable" },
@@ -200,7 +212,7 @@ static const TracingCategory k_categories[] = {
         { REQ,      "events/vmscan/mm_vmscan_direct_reclaim_end/enable" },
         { REQ,      "events/vmscan/mm_vmscan_kswapd_wake/enable" },
         { REQ,      "events/vmscan/mm_vmscan_kswapd_sleep/enable" },
-        { REQ,      "events/lowmemorykiller/enable" },
+        { OPT,      "events/lowmemorykiller/enable" },
     } },
     { "regulators",  "Voltage and Current Regulators", 0, {
         { REQ,      "events/regulator/enable" },
@@ -208,6 +220,7 @@ static const TracingCategory k_categories[] = {
     { "binder_driver", "Binder Kernel driver", 0, {
         { REQ,      "events/binder/binder_transaction/enable" },
         { REQ,      "events/binder/binder_transaction_received/enable" },
+        { REQ,      "events/binder/binder_transaction_alloc_buf/enable" },
         { OPT,      "events/binder/binder_set_priority/enable" },
     } },
     { "binder_lock", "Binder global lock trace", 0, {
@@ -218,6 +231,28 @@ static const TracingCategory k_categories[] = {
     { "pagecache",  "Page cache", 0, {
         { REQ,      "events/filemap/enable" },
     } },
+    { "memory",  "Memory", 0, {
+        { OPT,      "events/kmem/rss_stat/enable" },
+        { OPT,      "events/kmem/ion_heap_grow/enable" },
+        { OPT,      "events/kmem/ion_heap_shrink/enable" },
+    } },
+};
+
+struct TracingVendorCategory {
+    // The name identifying the category.
+    std::string name;
+
+    // A longer description of the category.
+    std::string description;
+
+    // If the category is enabled through command.
+    bool enabled;
+
+    TracingVendorCategory(string &&name, string &&description, bool enabled)
+            : name(std::move(name))
+            , description(std::move(description))
+            , enabled(enabled)
+    {}
 };
 
 /* Command line options */
@@ -227,8 +262,8 @@ static int g_traceBufferSizeKB = 2048;
 static bool g_compress = false;
 static bool g_nohup = false;
 static int g_initialSleepSecs = 0;
-static const char* g_categoriesFile = NULL;
-static const char* g_kernelTraceFuncs = NULL;
+static const char* g_categoriesFile = nullptr;
+static const char* g_kernelTraceFuncs = nullptr;
 static const char* g_debugAppCmdLine = "";
 static const char* g_outputFile = nullptr;
 
@@ -237,6 +272,8 @@ static bool g_tracePdx = false;
 static bool g_traceAborted = false;
 static bool g_categoryEnables[arraysize(k_categories)] = {};
 static std::string g_traceFolder;
+static sp<IAtraceDevice> g_atraceHal;
+static std::vector<TracingVendorCategory> g_vendorCategories;
 
 /* Sys file paths */
 static const char* k_traceClockPath =
@@ -259,6 +296,9 @@ static const char* k_currentTracerPath =
 
 static const char* k_printTgidPath =
     "options/print-tgid";
+
+static const char* k_recordTgidPath =
+    "options/record-tgid";
 
 static const char* k_funcgraphAbsTimePath =
     "options/funcgraph-abstime";
@@ -401,15 +441,11 @@ static bool isCategorySupported(const TracingCategory& category)
     for (int i = 0; i < MAX_SYS_FILES; i++) {
         const char* path = category.sysfiles[i].path;
         bool req = category.sysfiles[i].required == REQ;
-        if (path != NULL) {
-            if (req) {
-                if (!fileIsWritable(path)) {
-                    return false;
-                } else {
-                    ok = true;
-                }
-            } else {
+        if (path != nullptr) {
+            if (fileIsWritable(path)) {
                 ok = true;
+            } else if (req) {
+                return false;
             }
         }
     }
@@ -426,7 +462,7 @@ static bool isCategorySupportedForRoot(const TracingCategory& category)
     for (int i = 0; i < MAX_SYS_FILES; i++) {
         const char* path = category.sysfiles[i].path;
         bool req = category.sysfiles[i].required == REQ;
-        if (path != NULL) {
+        if (path != nullptr) {
             if (req) {
                 if (!fileExists(path)) {
                     return false;
@@ -522,8 +558,14 @@ static bool setClock()
 
 static bool setPrintTgidEnableIfPresent(bool enable)
 {
+    // Pre-4.13 this was options/print-tgid as an android-specific option.
+    // In 4.13+ this is an upstream option called options/record-tgid
+    // Both options produce the same ftrace format change
     if (fileExists(k_printTgidPath)) {
         return setKernelOptionEnable(k_printTgidPath, enable);
+    }
+    if (fileExists(k_recordTgidPath)) {
+        return setKernelOptionEnable(k_recordTgidPath, enable);
     }
     return true;
 }
@@ -536,10 +578,10 @@ static bool pokeBinderServices()
     Vector<String16> services = sm->listServices();
     for (size_t i = 0; i < services.size(); i++) {
         sp<IBinder> obj = sm->checkService(services[i]);
-        if (obj != NULL) {
+        if (obj != nullptr) {
             Parcel data;
             if (obj->transact(IBinder::SYSPROPS_TRANSACTION, data,
-                    NULL, 0) != OK) {
+                    nullptr, 0) != OK) {
                 if (false) {
                     // XXX: For some reason this fails on tablets trying to
                     // poke the "phone" service.  It's not clear whether some
@@ -629,9 +671,9 @@ static bool setAppCmdlineProperty(char* cmdline)
 {
     int i = 0;
     char* start = cmdline;
-    while (start != NULL) {
+    while (start != nullptr) {
         char* end = strchr(start, ',');
-        if (end != NULL) {
+        if (end != nullptr) {
             *end = '\0';
             end++;
         }
@@ -661,7 +703,7 @@ static bool disableKernelTraceEvents() {
         const TracingCategory &c = k_categories[i];
         for (int j = 0; j < MAX_SYS_FILES; j++) {
             const char* path = c.sysfiles[j].path;
-            if (path != NULL && fileIsWritable(path)) {
+            if (path != nullptr && fileIsWritable(path)) {
                 ok &= setKernelOptionEnable(path, false);
             }
         }
@@ -697,7 +739,7 @@ static bool verifyKernelTraceFuncs(const char* funcs)
                 ok = false;
             }
         }
-        func = strtok(NULL, ",");
+        func = strtok(nullptr, ",");
     }
     free(myFuncs);
     return ok;
@@ -708,7 +750,7 @@ static bool setKernelTraceFuncs(const char* funcs)
 {
     bool ok = true;
 
-    if (funcs == NULL || funcs[0] == '\0') {
+    if (funcs == nullptr || funcs[0] == '\0') {
         // Disable kernel function tracing.
         if (fileIsWritable(k_currentTracerPath)) {
             ok &= writeStr(k_currentTracerPath, "nop");
@@ -730,7 +772,7 @@ static bool setKernelTraceFuncs(const char* funcs)
         char* func = strtok(myFuncs, ",");
         while (func) {
             ok &= appendStr(k_ftraceFilterPath, func);
-            func = strtok(NULL, ",");
+            func = strtok(nullptr, ",");
         }
         free(myFuncs);
 
@@ -743,13 +785,20 @@ static bool setKernelTraceFuncs(const char* funcs)
     return ok;
 }
 
-static bool setCategoryEnable(const char* name, bool enable)
+static bool setCategoryEnable(const char* name)
 {
+    bool vendor_found = false;
+    for (auto &c : g_vendorCategories) {
+        if (strcmp(name, c.name.c_str()) == 0) {
+            c.enabled = true;
+            vendor_found = true;
+        }
+    }
     for (size_t i = 0; i < arraysize(k_categories); i++) {
         const TracingCategory& c = k_categories[i];
         if (strcmp(name, c.name) == 0) {
             if (isCategorySupported(c)) {
-                g_categoryEnables[i] = enable;
+                g_categoryEnables[i] = true;
                 return true;
             } else {
                 if (isCategorySupportedForRoot(c)) {
@@ -763,6 +812,9 @@ static bool setCategoryEnable(const char* name, bool enable)
             }
         }
     }
+    if (vendor_found) {
+        return true;
+    }
     fprintf(stderr, "error: unknown tracing category \"%s\"\n", name);
     return false;
 }
@@ -772,7 +824,7 @@ static bool setCategoriesEnableFromFile(const char* categories_file)
     if (!categories_file) {
         return true;
     }
-    Tokenizer* tokenizer = NULL;
+    Tokenizer* tokenizer = nullptr;
     if (Tokenizer::open(String8(categories_file), &tokenizer) != NO_ERROR) {
         return false;
     }
@@ -783,7 +835,7 @@ static bool setCategoriesEnableFromFile(const char* categories_file)
             tokenizer->skipDelimiters(" ");
             continue;
         }
-        ok &= setCategoryEnable(token.string(), true);
+        ok &= setCategoryEnable(token.string());
     }
     delete tokenizer;
     return ok;
@@ -838,6 +890,7 @@ static void cleanUpUserspaceTracing()
     setTagsProperty(0);
     clearAppProperties();
     pokeBinderServices();
+    pokeHalServices();
 
     if (g_tracePdx) {
         ServiceUtility::PokeServices();
@@ -874,7 +927,7 @@ static bool setUpKernelTracing()
             for (int j = 0; j < MAX_SYS_FILES; j++) {
                 const char* path = c.sysfiles[j].path;
                 bool required = c.sysfiles[j].required == REQ;
-                if (path != NULL) {
+                if (path != nullptr) {
                     if (fileIsWritable(path)) {
                         ok &= setKernelOptionEnable(path, true);
                     } else if (required) {
@@ -899,7 +952,7 @@ static void cleanUpKernelTracing()
     setTraceOverwriteEnable(true);
     setTraceBufferSizeKB(1);
     setPrintTgidEnableIfPresent(false);
-    setKernelTraceFuncs(NULL);
+    setKernelTraceFuncs(nullptr);
     setUserInitiatedTraceProperty(false);
 }
 
@@ -1057,10 +1110,10 @@ static void registerSigHandler()
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sa.sa_handler = handleSignal;
-    sigaction(SIGHUP, &sa, NULL);
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGQUIT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGQUIT, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
 }
 
 static void listSupportedCategories()
@@ -1070,6 +1123,9 @@ static void listSupportedCategories()
         if (isCategorySupported(c)) {
             printf("  %10s - %s\n", c.name, c.longname);
         }
+    }
+    for (const auto &c : g_vendorCategories) {
+        printf("  %10s - %s (HAL)\n", c.name.c_str(), c.description.c_str());
     }
 }
 
@@ -1127,6 +1183,79 @@ bool findTraceFiles()
     return true;
 }
 
+void initVendorCategories()
+{
+    g_atraceHal = IAtraceDevice::getService();
+
+    if (g_atraceHal == nullptr) {
+        // No atrace HAL
+        return;
+    }
+
+    Return<void> ret = g_atraceHal->listCategories(
+        [](const auto& list) {
+            g_vendorCategories.reserve(list.size());
+            for (const auto& category : list) {
+                g_vendorCategories.emplace_back(category.name, category.description, false);
+            }
+        });
+    if (!ret.isOk()) {
+        fprintf(stderr, "calling atrace HAL failed: %s\n", ret.description().c_str());
+    }
+}
+
+static bool setUpVendorTracing()
+{
+    if (g_atraceHal == nullptr) {
+        // No atrace HAL
+        return true;
+    }
+
+    std::vector<hidl_string> categories;
+    for (const auto &c : g_vendorCategories) {
+        if (c.enabled) {
+            categories.emplace_back(c.name);
+        }
+    }
+
+    if (!categories.size()) {
+        return true;
+    }
+
+    auto ret = g_atraceHal->enableCategories(categories);
+    if (!ret.isOk()) {
+        fprintf(stderr, "calling atrace HAL failed: %s\n", ret.description().c_str());
+        return false;
+    } else if (ret != Status::SUCCESS) {
+        fprintf(stderr, "calling atrace HAL failed: %s\n", toString(ret).c_str());
+        return false;
+    }
+    return true;
+}
+
+static bool cleanUpVendorTracing()
+{
+    if (g_atraceHal == nullptr) {
+        // No atrace HAL
+        return true;
+    }
+
+    if (!g_vendorCategories.size()) {
+        // No vendor categories
+        return true;
+    }
+
+    auto ret = g_atraceHal->disableAllCategories();
+    if (!ret.isOk()) {
+        fprintf(stderr, "calling atrace HAL failed: %s\n", ret.description().c_str());
+        return false;
+    } else if (ret != Status::SUCCESS) {
+        fprintf(stderr, "calling atrace HAL failed: %s\n", toString(ret).c_str());
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     bool async = false;
@@ -1146,17 +1275,19 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    initVendorCategories();
+
     for (;;) {
         int ret;
         int option_index = 0;
         static struct option long_options[] = {
-            {"async_start",       no_argument, 0,  0 },
-            {"async_stop",        no_argument, 0,  0 },
-            {"async_dump",        no_argument, 0,  0 },
-            {"only_userspace",    no_argument, 0,  0 },
-            {"list_categories",   no_argument, 0,  0 },
-            {"stream",            no_argument, 0,  0 },
-            {           0,                  0, 0,  0 }
+            {"async_start",       no_argument, nullptr,  0 },
+            {"async_stop",        no_argument, nullptr,  0 },
+            {"async_dump",        no_argument, nullptr,  0 },
+            {"only_userspace",    no_argument, nullptr,  0 },
+            {"list_categories",   no_argument, nullptr,  0 },
+            {"stream",            no_argument, nullptr,  0 },
+            {nullptr,                       0, nullptr,  0 }
         };
 
         ret = getopt_long(argc, argv, "a:b:cf:k:ns:t:zo:",
@@ -1164,7 +1295,7 @@ int main(int argc, char **argv)
 
         if (ret < 0) {
             for (int i = optind; i < argc; i++) {
-                if (!setCategoryEnable(argv[i], true)) {
+                if (!setCategoryEnable(argv[i])) {
                     fprintf(stderr, "error enabling tracing category \"%s\"\n", argv[i]);
                     exit(1);
                 }
@@ -1267,6 +1398,7 @@ int main(int argc, char **argv)
 
     if (ok && traceStart && !onlyUserspace) {
         ok &= setUpKernelTracing();
+        ok &= setUpVendorTracing();
         ok &= startTrace();
     }
 
@@ -1285,9 +1417,7 @@ int main(int argc, char **argv)
         if (!onlyUserspace)
             ok = clearTrace();
 
-        if (!onlyUserspace)
-            writeClockSyncMarker();
-
+        writeClockSyncMarker();
         if (ok && !async && !traceStream) {
             // Sleep to allow the trace to be captured.
             struct timespec timeLeft;
@@ -1337,6 +1467,7 @@ int main(int argc, char **argv)
 
     // Reset the trace buffer size to 1.
     if (traceStop) {
+        cleanUpVendorTracing();
         cleanUpUserspaceTracing();
         if (!onlyUserspace)
             cleanUpKernelTracing();

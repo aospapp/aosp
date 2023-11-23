@@ -32,6 +32,9 @@ import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -52,12 +55,10 @@ public class InstallPackageTask extends AbstractProvisioningTask {
     public static final int ERROR_PACKAGE_INVALID = 0;
     public static final int ERROR_INSTALLATION_FAILED = 1;
 
-    private final SettingsFacade mSettingsFacade;
     private final DownloadPackageTask mDownloadPackageTask;
 
     private final PackageManager mPm;
     private final DevicePolicyManager mDpm;
-    private boolean mInitialPackageVerifierEnabled;
 
     /**
      * Create an InstallPackageTask. When run, this will attempt to install the device admin package
@@ -70,21 +71,23 @@ public class InstallPackageTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams params,
             Callback callback) {
-        this(new SettingsFacade(), downloadPackageTask, context, params, callback);
+        this(downloadPackageTask, context, params, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
     InstallPackageTask(
-            SettingsFacade settingsFacade,
             DownloadPackageTask downloadPackageTask,
             Context context,
             ProvisioningParams params,
-            Callback callback) {
-        super(context, params, callback);
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, params, callback, provisioningAnalyticsTracker);
 
         mPm = context.getPackageManager();
         mDpm = context.getSystemService(DevicePolicyManager.class);
-        mSettingsFacade = checkNotNull(settingsFacade);
         mDownloadPackageTask = checkNotNull(downloadPackageTask);
     }
 
@@ -117,15 +120,11 @@ public class InstallPackageTask extends AbstractProvisioningTask {
         String packageName = mProvisioningParams.inferDeviceAdminPackageName();
 
         ProvisionLogger.logi("Installing package " + packageName);
-        mInitialPackageVerifierEnabled = mSettingsFacade.isPackageVerifierEnabled(mContext);
         if (TextUtils.isEmpty(packageLocation)) {
             // Do not log time if not installing any package, as that isn't useful.
             success();
             return;
         }
-
-        // Temporarily turn off package verification.
-        mSettingsFacade.setPackageVerifierEnabled(mContext, false);
 
         int installFlags = PackageManager.INSTALL_REPLACE_EXISTING;
         // Current device owner (if exists) must be test-only, so it is fine to replace it with a
@@ -162,8 +161,6 @@ public class InstallPackageTask extends AbstractProvisioningTask {
                 session.commit(pendingIntent.getIntentSender());
             }
         } catch (IOException e) {
-            mSettingsFacade.setPackageVerifierEnabled(mContext, mInitialPackageVerifierEnabled);
-
             ProvisionLogger.loge("Installing package " + packageName + " failed.", e);
             error(ERROR_INSTALLATION_FAILED);
         } finally {
@@ -185,8 +182,6 @@ public class InstallPackageTask extends AbstractProvisioningTask {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            mSettingsFacade.setPackageVerifierEnabled(mContext, mInitialPackageVerifierEnabled);
-
             // Should not happen as we use a one shot pending intent specifically for this receiver
             if (intent.getAction() == null || !intent.getAction().startsWith(ACTION_INSTALL_DONE)) {
                 ProvisionLogger.logw("Incorrect action");

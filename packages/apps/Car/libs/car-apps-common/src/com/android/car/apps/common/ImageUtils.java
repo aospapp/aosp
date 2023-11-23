@@ -28,31 +28,54 @@ import android.renderscript.ScriptIntrinsicBlur;
  * Utility methods to manipulate images.
  */
 public class ImageUtils {
+
+    private static final float MIN_BLUR = 0.1f;
+    private static final float MAX_BLUR = 25f;
+
     /**
      * Blurs the given image by scaling it down by the given factor and applying the given
      * blurring radius.
      */
     @NonNull
-    public static Bitmap blur(Context context, @NonNull Bitmap image, float scale, float radius) {
-        int width = Math.round(image.getWidth() * scale);
-        int height = Math.round(image.getHeight() * scale);
+    public static Bitmap blur(Context context, @NonNull Bitmap image, int bitmapTargetSize,
+            float bitmapBlurPercent) {
+        image = maybeResize(image, bitmapTargetSize);
+        float blurRadius = bitmapBlurPercent * getBitmapDimension(image);
+
+        if (blurRadius <= MIN_BLUR) return image;
+        if (blurRadius > MAX_BLUR) blurRadius = MAX_BLUR;
 
         if (image.getConfig() != Bitmap.Config.ARGB_8888) {
             image = image.copy(Bitmap.Config.ARGB_8888, true);
         }
 
-        Bitmap inputBitmap = Bitmap.createScaledBitmap(image, width, height, false);
-        Bitmap outputBitmap = Bitmap.createBitmap(inputBitmap);
+        Bitmap outputBitmap = Bitmap.createBitmap(image);
 
         RenderScript rs = RenderScript.create(context);
         ScriptIntrinsicBlur theIntrinsic = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
-        Allocation tmpIn = Allocation.createFromBitmap(rs, inputBitmap);
+        Allocation tmpIn = Allocation.createFromBitmap(rs, image);
         Allocation tmpOut = Allocation.createFromBitmap(rs, outputBitmap);
-        theIntrinsic.setRadius(radius);
+        theIntrinsic.setRadius(blurRadius);
         theIntrinsic.setInput(tmpIn);
         theIntrinsic.forEach(tmpOut);
         tmpOut.copyTo(outputBitmap);
 
         return outputBitmap;
+    }
+
+    private static Bitmap maybeResize(@NonNull Bitmap image, int bitmapTargetSize) {
+        int imageDim = getBitmapDimension(image);
+        if (imageDim > bitmapTargetSize) {
+            float scale = bitmapTargetSize / (float) imageDim;
+            int width = Math.round(scale * image.getWidth());
+            int height = Math.round(scale * image.getHeight());
+            return Bitmap.createScaledBitmap(image, width, height, false);
+        } else {
+            return image;
+        }
+    }
+
+    private static int getBitmapDimension(@NonNull Bitmap image) {
+        return (image.getWidth() + image.getHeight()) / 2;
     }
 }

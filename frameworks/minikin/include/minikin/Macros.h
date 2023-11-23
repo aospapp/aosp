@@ -16,6 +16,12 @@
 #ifndef MINIKIN_MACROS_H
 #define MINIKIN_MACROS_H
 
+#if defined(__clang__)
+#define IGNORE_INTEGER_OVERFLOW __attribute__((no_sanitize("integer")))
+#else
+#define IGNORE_INTEGER_OVERFLOW  // no-op
+#endif                           // __clang__
+
 #define MINIKIN_PREVENT_COPY_AND_ASSIGN(Type) \
     Type(const Type&) = delete;               \
     Type& operator=(const Type&) = delete

@@ -44,16 +44,40 @@
 NAMESPACE="router"
 rm -rf /data/vendor/var/run/netns/${NAMESPACE}
 rm -rf /data/vendor/var/run/netns/${NAMESPACE}.pid
-# We need to fake a mac address to pass CTS
-# And the kernel only accept mac addresses with some special format
-# (Like, begin with 02)
-/system/bin/ip link set dev wlan0 address 02:00:00:44:55:66
+# Lower the MTU of the WiFi interface to prevent issues with packet injection.
+# The MTU of the WiFi monitor interface cannot be higher than 1500 but injection
+# requires extra space for injection headers which count against the MTU. So if
+# a 1500 byte payload needs to be injected it will fail because with the
+# additional headers the total amount of data will exceed 1500 bytes. This way
+# the payload is restricted to a smaller size that should leave room for the
+# injection headers.
+/system/bin/ip link set wlan0 mtu 1400
 
 createns ${NAMESPACE}
+
+# If this is a clean boot we need to copy the hostapd configuration file to the
+# data partition where netmgr can change it if needed. If it already exists we
+# need to preserve the existing settings.
+if [ ! -f /data/vendor/wifi/hostapd/hostapd.conf ]; then
+    cp /vendor/etc/simulated_hostapd.conf /data/vendor/wifi/hostapd/hostapd.conf
+    chown wifi:wifi /data/vendor/wifi/hostapd/hostapd.conf
+    chmod 660 /data/vendor/wifi/hostapd/hostapd.conf
+fi
+
 # createns will have created a file that contains the process id (pid) of a
 # process running in the network namespace. This pid is needed for some commands
 # to access the namespace.
 PID=$(cat /data/vendor/var/run/netns/${NAMESPACE}.pid)
+
+# Move the WiFi monitor interface to the other namespace and bring it up. This
+# is what we use for injecting WiFi frames from the outside world.
+/system/bin/ip link set hwsim0 netns ${PID}
+execns ${NAMESPACE} /system/bin/ip link set hwsim0 up
+
+# Start the network manager as soon as possible after the namespace is available.
+# This ensures that anything that follows is properly managed and monitored.
+setprop ctl.start netmgr
+
 /system/bin/ip link set eth0 netns ${PID}
 /system/bin/ip link add radio0 type veth peer name radio0-peer
 /system/bin/ip link set radio0-peer netns ${PID}
@@ -72,8 +96,10 @@ setprop ctl.start dhcpclient_rtr
 # time. Keep this short so we don't slow down startup too much.
 execns ${NAMESPACE} /system/bin/iptables -w -W 50000 -t nat -A POSTROUTING -s 192.168.232.0/21 -o eth0 -j MASQUERADE
 execns ${NAMESPACE} /system/bin/iptables -w -W 50000 -t nat -A POSTROUTING -s 192.168.200.0/24 -o eth0 -j MASQUERADE
-/system/bin/iw phy phy1 set netns $PID
+/vendor/bin/iw phy phy1 set netns $PID
+
 execns ${NAMESPACE} /system/bin/ip addr add 192.168.232.1/21 dev wlan1
+execns ${NAMESPACE} /system/bin/ip link set wlan1 mtu 1400
 execns ${NAMESPACE} /system/bin/ip link set wlan1 up
 # Start the IPv6 proxy that will enable use of IPv6 in the main namespace
 setprop ctl.start ipv6proxy

@@ -22,11 +22,12 @@
 #include "base/enums.h"
 #include "class_linker-inl.h"
 #include "class_linker.h"
+#include "class_root.h"
 #include "dex/dex_file_annotations.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
-#include "mirror/object_array-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "native_util.h"
 #include "reflection.h"
 #include "scoped_fast_native_object_access-inl.h"
@@ -58,21 +59,17 @@ static jobjectArray Method_getExceptionTypes(JNIEnv* env, jobject javaMethod) {
       ++i;
     }
     CHECK_NE(throws_index, -1);
-    mirror::ObjectArray<mirror::Class>* declared_exceptions =
+    ObjPtr<mirror::ObjectArray<mirror::Class>> declared_exceptions =
         klass->GetProxyThrows()->Get(throws_index);
     return soa.AddLocalReference<jobjectArray>(declared_exceptions->Clone(soa.Self()));
   } else {
-    mirror::ObjectArray<mirror::Class>* result_array =
+    ObjPtr<mirror::ObjectArray<mirror::Class>> result_array =
         annotations::GetExceptionTypesForMethod(method);
     if (result_array == nullptr) {
       // Return an empty array instead of a null pointer
-      ObjPtr<mirror::Class> class_class = mirror::Class::GetJavaLangClass();
-      ObjPtr<mirror::Class> class_array_class =
-          Runtime::Current()->GetClassLinker()->FindArrayClass(soa.Self(), &class_class);
-      if (class_array_class == nullptr) {
-        return nullptr;
-      }
-      mirror::ObjectArray<mirror::Class>* empty_array =
+      ObjPtr<mirror::Class> class_array_class = GetClassRoot<mirror::ObjectArray<mirror::Class>>();
+      DCHECK(class_array_class != nullptr);
+      ObjPtr<mirror::ObjectArray<mirror::Class>> empty_array =
           mirror::ObjectArray<mirror::Class>::Alloc(soa.Self(), class_array_class, 0);
       return soa.AddLocalReference<jobjectArray>(empty_array);
     } else {

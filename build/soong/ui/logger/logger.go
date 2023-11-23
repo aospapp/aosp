@@ -73,7 +73,9 @@ type Logger interface {
 }
 
 // fatalLog is the type used when Fatal[f|ln]
-type fatalLog error
+type fatalLog struct {
+	error
+}
 
 func fileRotation(from, baseName, ext string, cur, max int) error {
 	newName := baseName + "." + strconv.Itoa(cur) + ext
@@ -178,12 +180,16 @@ func (s *stdLogger) SetOutput(path string) *stdLogger {
 	return s
 }
 
+type panicWriter struct{}
+
+func (panicWriter) Write([]byte) (int, error) { panic("write to panicWriter") }
+
 // Close disables logging to the file and closes the file handle.
 func (s *stdLogger) Close() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.file != nil {
-		s.fileLogger.SetOutput(ioutil.Discard)
+		s.fileLogger.SetOutput(panicWriter{})
 		s.file.Close()
 		s.file = nil
 	}
@@ -273,7 +279,7 @@ func (s *stdLogger) Verboseln(v ...interface{}) {
 func (s *stdLogger) Fatal(v ...interface{}) {
 	output := fmt.Sprint(v...)
 	s.Output(2, output)
-	panic(fatalLog(errors.New(output)))
+	panic(fatalLog{errors.New(output)})
 }
 
 // Fatalf is equivalent to Printf() followed by a call to panic() that
@@ -281,7 +287,7 @@ func (s *stdLogger) Fatal(v ...interface{}) {
 func (s *stdLogger) Fatalf(format string, v ...interface{}) {
 	output := fmt.Sprintf(format, v...)
 	s.Output(2, output)
-	panic(fatalLog(errors.New(output)))
+	panic(fatalLog{errors.New(output)})
 }
 
 // Fatalln is equivalent to Println() followed by a call to panic() that
@@ -289,7 +295,7 @@ func (s *stdLogger) Fatalf(format string, v ...interface{}) {
 func (s *stdLogger) Fatalln(v ...interface{}) {
 	output := fmt.Sprintln(v...)
 	s.Output(2, output)
-	panic(fatalLog(errors.New(output)))
+	panic(fatalLog{errors.New(output)})
 }
 
 // Panic is equivalent to Print() followed by a call to panic().

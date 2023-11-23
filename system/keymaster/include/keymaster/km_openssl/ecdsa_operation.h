@@ -84,20 +84,20 @@ class EcdsaOperationFactory : public OperationFactory {
   private:
     KeyType registry_key() const override { return KeyType(KM_ALGORITHM_EC, purpose()); }
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                 keymaster_error_t* error) override;
+                                 keymaster_error_t* error) const override;
     const keymaster_digest_t* SupportedDigests(size_t* digest_count) const override;
 
     virtual keymaster_purpose_t purpose() const = 0;
     virtual Operation* InstantiateOperation(AuthorizationSet&& hw_enforced,
                                             AuthorizationSet&& sw_enforced,
-                                            keymaster_digest_t digest, EVP_PKEY* key) = 0;
+                                            keymaster_digest_t digest, EVP_PKEY* key) const = 0;
 };
 
 class EcdsaSignOperationFactory : public EcdsaOperationFactory {
   private:
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_SIGN; }
     Operation* InstantiateOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
-                                    keymaster_digest_t digest, EVP_PKEY* key) override {
+                                    keymaster_digest_t digest, EVP_PKEY* key) const override {
         return new (std::nothrow)
             EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key);
     }
@@ -107,7 +107,7 @@ class EcdsaVerifyOperationFactory : public EcdsaOperationFactory {
   public:
     keymaster_purpose_t purpose() const override { return KM_PURPOSE_VERIFY; }
     Operation* InstantiateOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
-                                    keymaster_digest_t digest, EVP_PKEY* key) override {
+                                    keymaster_digest_t digest, EVP_PKEY* key) const override {
         return new (std::nothrow)
             EcdsaVerifyOperation(move(hw_enforced), move(sw_enforced), digest, key);
     }

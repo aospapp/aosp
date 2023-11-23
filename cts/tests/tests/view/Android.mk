@@ -29,20 +29,24 @@ LOCAL_MULTILIB := both
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
-    ctsdeviceutillegacy \
-    ctstestrunner \
+    androidx.test.rules \
+    androidx.test.ext.junit \
+    compatibility-device-util-axt \
+    ctsdeviceutillegacy-axt \
+    ctstestrunner-axt \
     mockito-target-minus-junit4 \
     platform-test-annotations \
-    ub-uiautomator
+    ub-uiautomator \
+    truth-prebuilt \
+    CtsSurfaceValidatorLib
+
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsview_jni libnativehelper_compat_libc++
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsViewTestCases
-LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)
 

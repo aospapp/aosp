@@ -18,8 +18,6 @@
 
 #include <android-base/logging.h>
 
-using std::make_unique;
-using std::unique_ptr;
 using std::vector;
 
 namespace android {

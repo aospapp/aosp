@@ -9,6 +9,7 @@ import sys
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.cros.dynamic_suite import constants
 
 #Update status
@@ -147,9 +148,8 @@ class CliqueDUTUpdater(object):
         url = self._get_update_url(ds.url(), image)
         logging.debug('Host: %s. Installing image from %s', dut_host, url)
         try:
-            dut_host.machine_install(force_update=True, update_url=url,
-                                     force_full_update=force)
-        except error.InstallError as e:
+            autoupdater.ChromiumOSUpdater(url, host=dut_host).run_update()
+        except error.TestFail as e:
             error_str = 'Host: ' + dut_host + '. ' + e
             logging.error(error_str)
             sys.exit(UPDATE_FAILURE)

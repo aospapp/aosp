@@ -5,7 +5,7 @@
  * Size and alignment of memory chunks that are allocated by the OS's virtual
  * memory system.
  */
-#ifdef ANDROID_LG_CHUNK_DEFAULT
+#if defined(__ANDROID__) && defined(ANDROID_LG_CHUNK_DEFAULT)
 #define	LG_CHUNK_DEFAULT	ANDROID_LG_CHUNK_DEFAULT
 #else
 #define	LG_CHUNK_DEFAULT	21

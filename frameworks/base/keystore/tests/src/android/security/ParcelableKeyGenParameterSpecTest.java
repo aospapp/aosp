@@ -22,16 +22,20 @@ import static org.junit.Assert.assertThat;
 
 import android.os.Parcel;
 import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
-import android.support.test.runner.AndroidJUnit4;
+import android.security.keystore.ParcelableKeyGenParameterSpec;
+
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.math.BigInteger;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Date;
+
 import javax.security.auth.x500.X500Principal;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 /** Unit tests for {@link ParcelableKeyGenParameterSpec}. */
 @RunWith(AndroidJUnit4.class)
@@ -77,6 +81,9 @@ public final class ParcelableKeyGenParameterSpecTest {
                 .setUniqueIdIncluded(true)
                 .setUserAuthenticationValidWhileOnBody(true)
                 .setInvalidatedByBiometricEnrollment(true)
+                .setIsStrongBoxBacked(true)
+                .setUserConfirmationRequired(true)
+                .setUnlockedDeviceRequired(true)
                 .build();
     }
 
@@ -105,6 +112,9 @@ public final class ParcelableKeyGenParameterSpecTest {
         assertThat(spec.isUniqueIdIncluded(), is(true));
         assertThat(spec.isUserAuthenticationValidWhileOnBody(), is(true));
         assertThat(spec.isInvalidatedByBiometricEnrollment(), is(true));
+        assertThat(spec.isStrongBoxBacked(), is(true));
+        assertThat(spec.isUserConfirmationRequired(), is(true));
+        assertThat(spec.isUnlockedDeviceRequired(), is(true));
     }
 
     private Parcel parcelForReading(ParcelableKeyGenParameterSpec spec) {

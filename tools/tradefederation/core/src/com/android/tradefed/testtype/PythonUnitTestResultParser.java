@@ -20,6 +20,8 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -80,6 +82,8 @@ import java.util.regex.Pattern;
  * <p>---------------------------------------------------------------------- Ran 8 tests in 0.001s
  *
  * <p>FAILED (failures=2, errors=1, skipped=1, expected failures=1, unexpected successes=1)
+ *
+ * <p>TODO: Consider refactoring the full class, handling is quite messy right now.
  */
 public class PythonUnitTestResultParser extends MultiLineReceiver {
 
@@ -92,10 +96,10 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
     private StringBuilder mCurrentTraceback;
     private long mTotalElapsedTime;
     private int mTotalTestCount;
-    private int mFailedTestCount;
+    private String mCurrentTestCaseString = null;
 
     // General state
-    private final Collection<ITestInvocationListener> mListeners;
+    private Collection<ITestInvocationListener> mListeners = new ArrayList<>();
     private final String mRunName;
     private Map<TestDescription, String> mTestResultCache;
     // Use a special entry to mark skipped test in mTestResultCache
@@ -114,16 +118,32 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
     static final Pattern PATTERN_TEST_SKIPPED = Pattern.compile("skipped '.*");
     static final Pattern PATTERN_TEST_UNEXPECTED_SUCCESS = Pattern.compile("unexpected success");
 
-    static final Pattern PATTERN_ONE_LINE_RESULT = Pattern.compile(
-            "(\\S*) \\((\\S*)\\) ... (ok|expected failure|FAIL|ERROR|skipped '.*'|unexpected success)");
+    static final Pattern PATTERN_ONE_LINE_RESULT =
+            Pattern.compile(
+                    "(\\S*) \\((\\S*)\\) \\.\\.\\. "
+                            + "(ok|expected failure|FAIL|ERROR|skipped '.*'|unexpected success)");
     static final Pattern PATTERN_TWO_LINE_RESULT_FIRST = Pattern.compile(
             "(\\S*) \\((\\S*)\\)");
-    static final Pattern PATTERN_TWO_LINE_RESULT_SECOND = Pattern.compile(
-            "(.*) ... (ok|expected failure|FAIL|ERROR|skipped '.*'|unexpected success)");
+    static final Pattern PATTERN_TWO_LINE_RESULT_SECOND =
+            Pattern.compile(
+                    "(.*) \\.\\.\\. "
+                            + "(ok|expected failure|FAIL|ERROR|skipped '.*'|unexpected success)");
+    static final Pattern PATTERN_TWO_LINE_RESULT_SECOND_ERROR =
+            Pattern.compile(
+                    "(.*) \\.\\.\\. error: (.*)"
+                            + "(ok|expected failure|FAIL|ERROR|skipped '.*'|unexpected success)",
+                    Pattern.DOTALL);
     static final Pattern PATTERN_FAIL_MESSAGE = Pattern.compile(
             "(FAIL|ERROR): (\\S*) \\((\\S*)\\)");
     static final Pattern PATTERN_RUN_SUMMARY = Pattern.compile(
             "Ran (\\d+) tests? in (\\d+(.\\d*)?)s");
+
+    /** In case of error spanning over multiple lines. */
+    static final Pattern MULTILINE_RESULT_WITH_WARNING =
+            Pattern.compile("(.*) \\.\\.\\. (.*)", Pattern.DOTALL);
+
+    static final Pattern MULTILINE_FINAL_RESULT_WITH_WARNING =
+            Pattern.compile("(.*) \\.\\.\\. (.*)ok(.*)", Pattern.DOTALL);
 
     static final Pattern PATTERN_RUN_RESULT = Pattern.compile("(OK|FAILED).*");
 
@@ -145,11 +165,19 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
 
     /**
      * Create a new {@link PythonUnitTestResultParser} that reports to the given {@link
+     * ITestInvocationListener}.
+     */
+    public PythonUnitTestResultParser(ITestInvocationListener listener, String runName) {
+        this(Arrays.asList(listener), runName);
+    }
+
+    /**
+     * Create a new {@link PythonUnitTestResultParser} that reports to the given {@link
      * ITestInvocationListener}s.
      */
     public PythonUnitTestResultParser(
             Collection<ITestInvocationListener> listeners, String runName) {
-        mListeners = listeners;
+        mListeners.addAll(listeners);
         mRunName = runName;
         mTestResultCache = new HashMap<>();
     }
@@ -183,6 +211,7 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
 
     /** Parse the next result line according to current parser state. */
     void parse(String line) throws PythonUnitTestParseException {
+
         switch (mCurrentParseState) {
             case TEST_CASE:
                 processTestCase(line);
@@ -203,23 +232,46 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
 
     /** Process a test case line and collect the test name, class, and status. */
     void processTestCase(String line) throws PythonUnitTestParseException {
+        if (mCurrentTestCaseString != null) {
+            mCurrentTestCaseString = mCurrentTestCaseString + "\n" + line;
+            line = mCurrentTestCaseString;
+        }
+
         if (isEqualLine(line)) {
             // equal line before fail message
             mCurrentParseState = ParserState.FAIL_MESSAGE;
+            mCurrentTestCaseString = null;
         } else if (isDashLine(line)) {
             // dash line before run summary
             mCurrentParseState = ParserState.SUMMARY;
+            mCurrentTestCaseString = null;
         } else if (lineMatchesPattern(line, PATTERN_ONE_LINE_RESULT)) {
             mCurrentTestName = mCurrentMatcher.group(1);
             mCurrentTestClass = mCurrentMatcher.group(2);
             mCurrentTestStatus = mCurrentMatcher.group(3);
             reportNonFailureTestResult();
+            mCurrentTestCaseString = null;
         } else if (lineMatchesPattern(line, PATTERN_TWO_LINE_RESULT_FIRST)) {
             mCurrentTestName = mCurrentMatcher.group(1);
             mCurrentTestClass = mCurrentMatcher.group(2);
+            mCurrentTestCaseString = null;
         } else if (lineMatchesPattern(line, PATTERN_TWO_LINE_RESULT_SECOND)) {
             mCurrentTestStatus = mCurrentMatcher.group(2);
             reportNonFailureTestResult();
+            mCurrentTestCaseString = null;
+        } else if (lineMatchesPattern(line, PATTERN_TWO_LINE_RESULT_SECOND_ERROR)) {
+            // Skip that odd error message
+            mCurrentTestCaseString = null;
+        } else if (lineMatchesPattern(line, MULTILINE_FINAL_RESULT_WITH_WARNING)) {
+            StringBuilder message = new StringBuilder("Test seems to pass but with Warnings:\n");
+            message.append(mCurrentMatcher.group(2));
+            mCurrentTraceback = message;
+            reportFailureTestResult();
+            mCurrentTestCaseString = null;
+        } else if (lineMatchesPattern(line, MULTILINE_RESULT_WITH_WARNING)) {
+            if (mCurrentTestCaseString == null) {
+                mCurrentTestCaseString = line;
+            }
         }
     }
 
@@ -260,7 +312,7 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
         if (lineMatchesPattern(line, PATTERN_RUN_SUMMARY)) {
             mTotalTestCount = Integer.parseInt(mCurrentMatcher.group(1));
             double timeInSeconds = Double.parseDouble(mCurrentMatcher.group(2));
-            mTotalElapsedTime = (long) timeInSeconds * 1000;
+            mTotalElapsedTime = (long) (timeInSeconds * 1000D);
             reportToListeners();
             mCurrentParseState = ParserState.COMPLETE;
         }
@@ -288,7 +340,6 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
 
     /** Send recorded test results to all listeners. */
     private void reportToListeners() {
-        String failReason = String.format("Failed %d tests", mFailedTestCount);
         for (ITestInvocationListener listener : mListeners) {
             listener.testRunStarted(mRunName, mTotalTestCount);
 
@@ -301,13 +352,8 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
                 }
                 listener.testEnded(test.getKey(), new HashMap<String, Metric>());
             }
-
-            if (mFailedTestCount > 0) {
-                listener.testRunFailed(failReason);
-            }
             listener.testRunEnded(mTotalElapsedTime, new HashMap<String, Metric>());
         }
-
     }
 
     /** Record a non-failure test case. */
@@ -319,7 +365,6 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
             mTestResultCache.put(testId, SKIPPED_ENTRY);
         } else if (PATTERN_TEST_UNEXPECTED_SUCCESS.matcher(mCurrentTestStatus).matches()) {
             mTestResultCache.put(testId, "Test unexpected succeeded");
-            mFailedTestCount++;
         } else if (PATTERN_TEST_FAILURE.matcher(mCurrentTestStatus).matches()) {
             // do nothing for now, report only after traceback is collected
         } else {
@@ -331,7 +376,6 @@ public class PythonUnitTestResultParser extends MultiLineReceiver {
     private void reportFailureTestResult() {
         TestDescription testId = new TestDescription(mCurrentTestClass, mCurrentTestName);
         mTestResultCache.put(testId, mCurrentTraceback.toString());
-        mFailedTestCount++;
     }
 
     @Override

@@ -96,6 +96,23 @@ JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeStopTune(
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
+ * Method:    nativeGetSignalStrength
+ * Signature: (J)V
+ */
+JNIEXPORT int JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeGetSignalStrength(
+    JNIEnv *, jobject, jlong deviceId) {
+  std::map<jlong, DvbManager *>::iterator it = sDvbManagers.find(deviceId);
+  if (it != sDvbManagers.end()) {
+    return it->second->getSignalStrength();
+  }
+  // If DvbManager can't be found,
+  // return -3 as signal strength not supported.
+  return -3;
+}
+
+/*
+ * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeAddPidFilter
  * Signature: (JII)V
  */

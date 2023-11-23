@@ -38,7 +38,7 @@ class enterprise_CFM_SiSFwUpdater(test.test):
     _LOG_FILE_PATH = '/tmp/sis-updater.log'
     _FW_PATH = '/lib/firmware/sis/'
     _OLD_FW_NAME = 'FW_Watchdog_0110.bin'
-    _NEW_FW_NAME = 'WYD_101_WYD_9255_A353_V03.bin'
+    _NEW_FW_NAME = 'WYD_101_WYD_9255_A353_V04.bin'
     _DUT_BOARD = 'guado'
     _SIS_VID = '266e'
     _SIS_PID = '0110'

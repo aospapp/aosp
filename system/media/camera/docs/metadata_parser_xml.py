@@ -182,6 +182,11 @@ class MetadataParserXml:
     d['synthetic'] = entry.get('synthetic') == 'true'
 
     #
+    # Permission needed ?
+    #
+    d['permission_needed'] = entry.get('permission_needed')
+
+    #
     # Hardware Level (one of limited, legacy, full)
     #
     d['hwlevel'] = entry.get('hwlevel')

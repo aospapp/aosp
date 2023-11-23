@@ -18,6 +18,21 @@ not be the case (list of interfaces might be different for example).
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_spec
 
 # Cameras
+AVER_CAM520_CAMERA = usb_device_spec.UsbDeviceSpec(
+    vid='2574',
+    pid='0910',
+    product='CAM520',
+    interfaces=['uvcvideo', 'uvcvideo', 'usbhid'],
+)
+
+AVER_VC520_CAMERA = usb_device_spec.UsbDeviceSpec(
+    vid='2574',
+    pid='0901',
+    product='VC520+',
+    interfaces=['uvcvideo', 'uvcvideo', 'snd-usb-audio',
+                'snd-usb-audio', 'snd-usb-audio', 'usbhid'],
+)
+
 HUDDLY_GO = usb_device_spec.UsbDeviceSpec(
     vid='2bd9',
     pid='0011',
@@ -51,6 +66,24 @@ PTZ_PRO_2_CAMERA = usb_device_spec.UsbDeviceSpec(
     pid='085f',
     product='PTZ Pro 2 Camera',
     interfaces=['uvcvideo', 'uvcvideo', 'usbhid'],
+)
+
+# Devices with Camera and Audio
+
+# Camera in Logitech MeetUp Device
+LOGITECH_MEETUP = usb_device_spec.UsbDeviceSpec(
+    vid='046d',
+    pid='0866',
+    product='Logitech MeetUp',
+    interfaces=['uvcvideo', 'uvcvideo', 'usbhid'],
+)
+
+# Audio peripheral in Logitech MeetUp Device
+LOGITECH_MEETUP_SPEAKERPHONE = usb_device_spec.UsbDeviceSpec(
+    vid='046d',
+    pid='0867',
+    product='Logitech MeetUp Speakerphone',
+    interfaces=['snd-usb-audio', 'snd-usb-audio', 'snd-usb-audio', 'usbhid'],
 )
 
 # Audio peripherals

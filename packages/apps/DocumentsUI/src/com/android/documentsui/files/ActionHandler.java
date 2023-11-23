@@ -16,20 +16,28 @@
 
 package com.android.documentsui.files;
 
+import static android.content.ContentResolver.wrap;
+
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.app.Activity;
+import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
+import android.os.FileUtils;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.DragEvent;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+import androidx.recyclerview.selection.MutableSelection;
+import androidx.recyclerview.selection.Selection;
 
 import com.android.documentsui.AbstractActionHandler;
 import com.android.documentsui.ActionModeAddons;
@@ -38,12 +46,12 @@ import com.android.documentsui.DocumentsAccess;
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.DragAndDropManager;
 import com.android.documentsui.Injector;
+import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.Model;
 import com.android.documentsui.R;
 import com.android.documentsui.TimeoutTask;
 import com.android.documentsui.base.ConfirmationCallback;
-import com.android.documentsui.base.ConfirmationCallback.Result;
 import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
@@ -51,6 +59,7 @@ import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.MimeTypes;
+import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
@@ -62,14 +71,10 @@ import com.android.documentsui.files.ActionHandler.Addons;
 import com.android.documentsui.inspector.InspectorActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.ProvidersAccess;
-import com.android.documentsui.selection.MutableSelection;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperations;
 import com.android.documentsui.ui.DialogController;
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +85,7 @@ import javax.annotation.Nullable;
 /**
  * Provides {@link FilesActivity} action specializations to fragments.
  */
-public class ActionHandler<T extends Activity & Addons> extends AbstractActionHandler<T> {
+public class ActionHandler<T extends FragmentActivity & Addons> extends AbstractActionHandler<T> {
 
     private static final String TAG = "ManagerActionHandler";
 
@@ -136,7 +141,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void openSelectedInNewWindow() {
-        Selection selection = getStableSelection();
+        Selection<String> selection = getStableSelection();
         assert(selection.size() == 1);
         DocumentInfo doc = mModel.getDocument(selection.iterator().next());
         assert(doc != null);
@@ -145,7 +150,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void openSettings(RootInfo root) {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_SETTINGS);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_SETTINGS);
         final Intent intent = new Intent(DocumentsContract.ACTION_DOCUMENT_ROOT_SETTINGS);
         intent.setDataAndType(root.getUri(), DocumentsContract.Root.MIME_TYPE_ITEM);
         mActivity.startActivity(intent);
@@ -173,31 +178,32 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
             client = DocumentsApplication.acquireUnstableProviderOrThrow(
                     resolver, document.derivedUri.getAuthority());
             Uri newUri = DocumentsContract.renameDocument(
-                    client, document.derivedUri, name);
+                    wrap(client), document.derivedUri, name);
             return DocumentInfo.fromUri(resolver, newUri);
         } catch (Exception e) {
             Log.w(TAG, "Failed to rename file", e);
             return null;
         } finally {
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
     }
 
     @Override
     public void openRoot(RootInfo root) {
-        Metrics.logRootVisited(mActivity, Metrics.FILES_SCOPE, root);
+        Metrics.logRootVisited(MetricConsts.FILES_SCOPE, root);
         mActivity.onRootPicked(root);
     }
 
     @Override
-    public boolean openItem(ItemDetails details, @ViewType int type,
+    public boolean openItem(ItemDetails<String> details, @ViewType int type,
             @ViewType int fallback) {
-        DocumentInfo doc = mModel.getDocument(details.getStableId());
+        DocumentInfo doc = mModel.getDocument(details.getSelectionKey());
         if (doc == null) {
-            Log.w(TAG,
-                    "Can't view item. No Document available for modeId: " + details.getStableId());
+            Log.w(TAG, "Can't view item. No Document available for modeId: "
+                    + details.getSelectionKey());
             return false;
         }
+        mInjector.searchManager.recordHistory();
 
         return openDocument(doc, type, fallback);
     }
@@ -208,7 +214,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         if (mConfig.isDocumentEnabled(doc.mimeType, doc.flags, mState)) {
             onDocumentPicked(doc, type, fallback);
             mSelectionMgr.clearSelection();
-            return true;
+            return !doc.isContainer();
         }
         return false;
     }
@@ -220,8 +226,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         openContainerDocument(doc);
     }
 
-    private Selection getSelectedOrFocused() {
-        final MutableSelection selection = this.getStableSelection();
+    private Selection<String> getSelectedOrFocused() {
+        final MutableSelection<String> selection = this.getStableSelection();
         if (selection.isEmpty()) {
             String focusModelId = mFocusHandler.getFocusModelId();
             if (focusModelId != null) {
@@ -234,8 +240,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void cutToClipboard() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_CUT_CLIPBOARD);
-        Selection selection = getSelectedOrFocused();
+        Metrics.logUserAction(MetricConsts.USER_ACTION_CUT_CLIPBOARD);
+        Selection<String> selection = getSelectedOrFocused();
 
         if (selection.isEmpty()) {
             return;
@@ -255,8 +261,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void copyToClipboard() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_COPY_CLIPBOARD);
-        Selection selection = getSelectedOrFocused();
+        Metrics.logUserAction(MetricConsts.USER_ACTION_COPY_CLIPBOARD);
+        Selection<String> selection = getSelectedOrFocused();
 
         if (selection.isEmpty()) {
             return;
@@ -270,8 +276,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void viewInOwner() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_VIEW_IN_APPLICATION);
-        Selection selection = getSelectedOrFocused();
+        Metrics.logUserAction(MetricConsts.USER_ACTION_VIEW_IN_APPLICATION);
+        Selection<String> selection = getSelectedOrFocused();
 
         if (selection.isEmpty() || selection.size() > 1) {
             return;
@@ -292,7 +298,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void deleteSelectedDocuments() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_DELETE);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_DELETE);
         Selection selection = getSelectedOrFocused();
 
         if (selection.isEmpty()) {
@@ -304,7 +310,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         // Model must be accessed in UI thread, since underlying cursor is not threadsafe.
         List<DocumentInfo> docs = mModel.getDocuments(selection);
 
-        ConfirmationCallback result = (@Result int code) -> {
+        ConfirmationCallback result = (@ConfirmationCallback.Result int code) -> {
             // share the news with our caller, be it good or bad.
             mActionModeAddons.finishOnConfirmed(code);
 
@@ -343,9 +349,9 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void shareSelectedDocuments() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_SHARE);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_SHARE);
 
-        Selection selection = getStableSelection();
+        Selection<String> selection = getStableSelection();
 
         assert(!selection.isEmpty());
 
@@ -394,39 +400,65 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
     }
 
     @Override
+    public void loadDocumentsForCurrentStack() {
+        super.loadDocumentsForCurrentStack();
+    }
+
+    @Override
     public void initLocation(Intent intent) {
         assert(intent != null);
 
         // stack is initialized if it's restored from bundle, which means we're restoring a
         // previously stored state.
         if (mState.stack.isInitialized()) {
-            if (DEBUG) Log.d(TAG, "Stack already resolved for uri: " + intent.getData());
+            if (DEBUG) {
+                Log.d(TAG, "Stack already resolved for uri: " + intent.getData());
+            }
             restoreRootAndDirectory();
             return;
         }
 
         if (launchToStackLocation(intent)) {
-            if (DEBUG) Log.d(TAG, "Launched to location from stack.");
+            if (DEBUG) {
+                Log.d(TAG, "Launched to location from stack.");
+            }
             return;
         }
 
         if (launchToRoot(intent)) {
-            if (DEBUG) Log.d(TAG, "Launched to root for browsing.");
+            if (DEBUG) {
+                Log.d(TAG, "Launched to root for browsing.");
+            }
             return;
         }
 
         if (launchToDocument(intent)) {
-            if (DEBUG) Log.d(TAG, "Launched to a document.");
+            if (DEBUG) {
+                Log.d(TAG, "Launched to a document.");
+            }
             return;
         }
 
-        if (DEBUG) Log.d(TAG, "Launching directly into Home directory.");
-        loadHomeDir();
+        if (launchToDownloads(intent)) {
+            if (DEBUG) {
+                Log.d(TAG, "Launched to a downloads.");
+            }
+            return;
+        }
+
+        if (DEBUG) {
+            Log.d(TAG, "Launching directly into Home directory.");
+        }
+        launchToDefaultLocation();
     }
 
     @Override
     protected void launchToDefaultLocation() {
-        loadHomeDir();
+        if (mFeatures.isDefaultRootInBrowseEnabled()) {
+            loadHomeDir();
+        } else {
+            loadRecent();
+        }
     }
 
     // If EXTRA_STACK is not null in intent, we'll skip other means of loading
@@ -460,10 +492,20 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         if (Intent.ACTION_VIEW.equals(action)) {
             Uri uri = intent.getData();
             if (DocumentsContract.isRootUri(mActivity, uri)) {
-                if (DEBUG) Log.d(TAG, "Launching with root URI.");
+                if (DEBUG) {
+                    Log.d(TAG, "Launching with root URI.");
+                }
                 // If we've got a specific root to display, restore that root using a dedicated
                 // authority. That way a misbehaving provider won't result in an ANR.
                 loadRoot(uri);
+                return true;
+            } else if (DocumentsContract.isRootsUri(mActivity, uri)) {
+                if (DEBUG) {
+                    Log.d(TAG, "Launching first root with roots URI.");
+                }
+                // TODO: b/116760996 Let the user can disambiguate between roots if there are
+                // multiple from DocumentsProvider instead of launching the first root in default
+                loadFirstRoot(uri);
                 return true;
             }
         }
@@ -481,6 +523,17 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         return false;
     }
 
+    private boolean launchToDownloads(Intent intent) {
+        if (DownloadManager.ACTION_VIEW_DOWNLOADS.equals(intent.getAction())) {
+            Uri uri = DocumentsContract.buildRootUri(Providers.AUTHORITY_DOWNLOADS,
+                    Providers.ROOT_ID_DOWNLOADS);
+            loadRoot(uri);
+            return true;
+        }
+
+        return false;
+    }
+
     @Override
     public void showChooserForDoc(DocumentInfo doc) {
         assert(!doc.isDirectory());
@@ -491,9 +544,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         }
 
         Intent intent = Intent.createChooser(buildViewIntent(doc), null);
-        if (Features.OMC_RUNTIME) {
-            intent.putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false);
-        }
+        intent.putExtra(Intent.EXTRA_AUTO_LAUNCH_SINGLE_CHOICE, false);
         try {
             mActivity.startActivity(intent);
         } catch (ActivityNotFoundException e) {
@@ -602,7 +653,8 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
                 mActivity.getPackageManager(),
                 mActivity.getResources(),
                 doc,
-                mModel).build();
+                mModel,
+                false /* fromPicker */).build();
 
         if (intent != null) {
             // TODO: un-work around issue b/24963914. Should be fixed soon.
@@ -687,7 +739,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
 
     @Override
     public void showInspector(DocumentInfo doc) {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_INSPECTOR);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_INSPECTOR);
         Intent intent = new Intent(mActivity, InspectorActivity.class);
         intent.setData(doc.derivedUri);
 
@@ -695,7 +747,7 @@ public class ActionHandler<T extends Activity & Addons> extends AbstractActionHa
         intent.putExtra(
                 Shared.EXTRA_SHOW_DEBUG,
                 mFeatures.isDebugSupportEnabled() &&
-                        (Build.IS_DEBUGGABLE || DebugFlags.getDocumentDetailsEnabled()));
+                        (DEBUG || DebugFlags.getDocumentDetailsEnabled()));
 
         // The "root document" (top level folder in a root) don't usually have a
         // human friendly display name. That's because we've never shown the root

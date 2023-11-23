@@ -15,17 +15,17 @@
  */
 package android.location.cts;
 
-import junit.framework.Assert;
 import android.location.GnssClock;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
 import android.util.Log;
 
+import junit.framework.Assert;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Used for receiving GPS satellite measurements from the GPS engine.
@@ -38,8 +38,7 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
     private boolean filterByEventSize = false;
     // Timeout in sec for count down latch wait
     private static final int STATUS_TIMEOUT_IN_SEC = 10;
-    private static final int MEAS_TIMEOUT_IN_SEC = 60;
-    private static final int TOW_DECODED_MEASUREMENT_STATE_BIT = 3;
+    private static final int MEAS_TIMEOUT_IN_SEC = 75;
     private static final int C_TO_N0_THRESHOLD_DB_HZ = 18;
     private volatile int mStatus = -1;
 
@@ -89,15 +88,15 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
                 HashMap<Integer, Integer> constellationEventCount = new HashMap<>();
                 GnssClock gnssClock = event.getClock();
                 if (!gnssClock.hasFullBiasNanos()) {
-                    // If devices does not have FullBiasNanos yet, it will be difficult to check the quality, so await 
-                    // this flag as well.
+                    // If devices does not have FullBiasNanos yet, it will be difficult to check
+                    // the quality, so await this flag as well.
                     return;
                 }
                 for (GnssMeasurement gnssMeasurement : event.getMeasurements()){
                     int constellationType = gnssMeasurement.getConstellationType();
                     // if the measurement's signal level is too small ignore
                     if (gnssMeasurement.getCn0DbHz() < C_TO_N0_THRESHOLD_DB_HZ ||
-                        (gnssMeasurement.getState() & (1L << TOW_DECODED_MEASUREMENT_STATE_BIT)) == 0) {
+                        (gnssMeasurement.getState() & GnssMeasurement.STATE_TOW_DECODED) == 0) {
                         continue;
                     }
                     if (constellationEventCount.containsKey(constellationType)) {
@@ -144,27 +143,19 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
      * @return {@code true} if the state of the test ensures that data is expected to be collected,
      *         {@code false} otherwise.
      */
-    public boolean verifyStatus(boolean testIsStrict) {
+    public boolean verifyStatus() {
         switch (getStatus()) {
             case GnssMeasurementsEvent.Callback.STATUS_NOT_SUPPORTED:
                 String message = "GnssMeasurements is not supported in the device:"
                         + " verifications performed by this test may be skipped on older devices.";
-                if (testIsStrict) {
-                    Assert.fail(message);
-                } else {
-                    SoftAssert.failAsWarning(mTag, message);
-                }
+                Assert.fail(message);
                 return false;
             case GnssMeasurementsEvent.Callback.STATUS_READY:
                 return true;
             case GnssMeasurementsEvent.Callback.STATUS_LOCATION_DISABLED:
                 message =  "Location or GPS is disabled on the device:"
                         + " enable location to continue the test";
-                if (testIsStrict) {
-                    Assert.fail(message);
-                } else {
-                    SoftAssert.failAsWarning(mTag, message);
-                }
+                Assert.fail(message);
                 return false;
             default:
                 Assert.fail("GnssMeasurementsEvent status callback was not received.");

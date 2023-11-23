@@ -23,7 +23,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     apache-harmony-tests \
     conscrypt-tests \
     core-tests \
-    cts-core-test-runner \
+    cts-core-test-runner-axt \
     mockito-target-minus-junit4 \
     time_zone_distro-tests \
     time_zone_distro_installer-tests
@@ -50,6 +50,9 @@ LOCAL_JNI_SHARED_LIBRARIES := libjavacoretests libsqlite_jni libnativehelper_com
 # Include both the 32 and 64 bit versions of libjavacoretests,
 # where applicable.
 LOCAL_MULTILIB := both
+
+# This test requires cts-dalvik-host-test-runner to be built to run via Atest.
+LOCAL_HOST_REQUIRED_MODULES := cts-dalvik-host-test-runner
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

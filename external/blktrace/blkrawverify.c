@@ -39,7 +39,7 @@ int data_is_native = -1;
 static struct trace_info traces[] = {
 	TRACE_TO_STRING( BLK_TC_READ ),
 	TRACE_TO_STRING( BLK_TC_WRITE ),
-	TRACE_TO_STRING( BLK_TC_BARRIER ),
+	TRACE_TO_STRING( BLK_TC_FLUSH ),
 	TRACE_TO_STRING( BLK_TC_SYNC ),
 	TRACE_TO_STRING( BLK_TC_QUEUE ),
 	TRACE_TO_STRING( BLK_TC_REQUEUE ),
@@ -50,6 +50,7 @@ static struct trace_info traces[] = {
 	TRACE_TO_STRING( BLK_TC_AHEAD ),
 	TRACE_TO_STRING( BLK_TC_META ),
 	TRACE_TO_STRING( BLK_TC_DISCARD ),
+	TRACE_TO_STRING( BLK_TC_FUA ),
 };
 #define N_TRACES (sizeof(traces) / sizeof(struct trace_info))
 
@@ -86,7 +87,7 @@ static char *act_to_str(__u32 action)
 	unsigned int act = action & 0xffff;
 	unsigned int trace = (action >> BLK_TC_SHIFT) & 0xffff;
 
-	if (act <= N_ACTS) {
+	if (act < N_ACTS) {
 		sprintf(buf, "%s ", acts[act].string);
 		for (i = 0; i < N_TRACES; i++)
 			if (trace & (1 << i)) {
@@ -200,6 +201,7 @@ static int process(FILE **fp, char *devname, char *file, unsigned int cpu)
 			if (n == 0) {
 				INC_BAD("bad pdu");
 				nbad_seq++;
+				free(pdu_buf);
 				break;
 			}
 			free(pdu_buf);

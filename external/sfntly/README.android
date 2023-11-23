@@ -9,3 +9,7 @@ git rm -rf cpp/data
 git rm -rf cpp/ext
 git rm -rf cpp/tools
 git commit
+
+
+# Local changes
+Fixed uninitialized variable. See bug 116114182 for details.

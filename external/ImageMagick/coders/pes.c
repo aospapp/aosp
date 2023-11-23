@@ -17,13 +17,13 @@
 %                                 July 2009                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -534,7 +534,7 @@ static Image *ReadPESImage(const ImageInfo *image_info,ExceptionInfo *exception)
   j=0;
   delta_x=0;
   delta_y=0;
-  while (EOFBlob(image) != EOF)
+  while (EOFBlob(image) == MagickFalse)
   {
     x=ReadBlobByte(image);
     y=ReadBlobByte(image);
@@ -547,8 +547,11 @@ static Image *ReadPESImage(const ImageInfo *image_info,ExceptionInfo *exception)
         */
         j++;
         blocks[j].offset=(ssize_t) i;
-        if (j >= 256)
-          ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+        if (j >= 255)
+          {
+            stitches=(PointInfo *) RelinquishMagickMemory(stitches);
+            ThrowReaderException(ResourceLimitError,"CorruptImage");
+          }
         (void) ReadBlobByte(image);
         continue;
       }
@@ -620,6 +623,14 @@ static Image *ReadPESImage(const ImageInfo *image_info,ExceptionInfo *exception)
   j++;
   blocks[j].offset=(ssize_t) i;
   number_blocks=(size_t) j;
+  image->columns=bounds.x2-bounds.x1;
+  image->rows=bounds.y2-bounds.y1;
+  status=SetImageExtent(image,image->columns,image->rows,exception);
+  if (status == MagickFalse)
+    {
+      stitches=(PointInfo *) RelinquishMagickMemory(stitches);
+      return(DestroyImageList(image));
+    }
   /*
     Write stitches as SVG file.
   */
@@ -633,8 +644,8 @@ static Image *ReadPESImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) FormatLocaleFile(file,"<svg xmlns=\"http://www.w3.org/2000/svg\" "
     "xlink=\"http://www.w3.org/1999/xlink\" "
     "ev=\"http://www.w3.org/2001/xml-events\" version=\"1.1\" "
-    "baseProfile=\"full\" width=\"%g\" height=\"%g\">\n",bounds.x2-bounds.x1,
-    bounds.y2-bounds.y1);
+    "baseProfile=\"full\" width=\"%g\" height=\"%g\">\n",(double)
+    image->columns,(double) image->rows);
   for (i=0; i < (ssize_t) number_blocks; i++)
   {
     offset=blocks[i].offset;
@@ -649,6 +660,7 @@ static Image *ReadPESImage(const ImageInfo *image_info,ExceptionInfo *exception)
   }
   (void) FormatLocaleFile(file,"</svg>\n");
   (void) fclose(file);
+  stitches=(PointInfo *) RelinquishMagickMemory(stitches);
   (void) CloseBlob(image);
   image=DestroyImage(image);
   /*

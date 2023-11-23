@@ -29,16 +29,14 @@
 #include <utils/misc.h>
 
 // from LOCAL_C_INCLUDES
-#include "IcuUtils.h"
 #include "MediaExtractorService.h"
-#include "MediaExtractorUpdateService.h"
 #include "MediaUtils.h"
 #include "minijail.h"
 
 using namespace android;
 
 static const char kSystemSeccompPolicyPath[] =
-        "/system/etc/seccomp_policy/mediaextractor.policy";
+        "/apex/com.android.media/etc/seccomp_policy/mediaextractor.policy";
 static const char kVendorSeccompPolicyPath[] =
         "/vendor/etc/seccomp_policy/mediaextractor.policy";
 
@@ -59,17 +57,10 @@ int main(int argc __unused, char** argv)
 
     SetUpMinijail(kSystemSeccompPolicyPath, kVendorSeccompPolicyPath);
 
-    InitializeIcuOrDie();
-
     strcpy(argv[0], "media.extractor");
     sp<ProcessState> proc(ProcessState::self());
     sp<IServiceManager> sm = defaultServiceManager();
     MediaExtractorService::instantiate();
-
-    std::string value = base::GetProperty("ro.build.type", "unknown");
-    if (value == "userdebug" || value == "eng") {
-        media::MediaExtractorUpdateService::instantiate();
-    }
 
     ProcessState::self()->startThreadPool();
     IPCThreadState::self()->joinThreadPool();

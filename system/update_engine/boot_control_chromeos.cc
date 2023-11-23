@@ -16,7 +16,9 @@
 
 #include "update_engine/boot_control_chromeos.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include <base/bind.h>
 #include <base/files/file_path.h>
@@ -40,6 +42,12 @@ const char* kChromeOSPartitionNameKernel = "kernel";
 const char* kChromeOSPartitionNameRoot = "root";
 const char* kAndroidPartitionNameKernel = "boot";
 const char* kAndroidPartitionNameRoot = "system";
+
+const char kDlcInstallRootDirectoryEncrypted[] = "/home/chronos/dlc";
+const char kPartitionNamePrefixDlc[] = "dlc_";
+const char kPartitionNameDlcA[] = "dlc_a";
+const char kPartitionNameDlcB[] = "dlc_b";
+const char kPartitionNameDlcImage[] = "dlc.img";
 
 // Returns the currently booted rootfs partition. "/dev/sda3", for example.
 string GetBootDevice() {
@@ -116,9 +124,8 @@ bool BootControlChromeOS::Init() {
   }
   if (current_slot_ >= num_slots_) {
     LOG(ERROR) << "Couldn't find the slot number corresponding to the "
-                  "partition " << boot_device
-               << ", number of slots: " << num_slots_
-               << ". This device is not updateable.";
+               << "partition " << boot_device << ", number of slots: "
+               << num_slots_ << ". This device is not updateable.";
     num_slots_ = 1;
     current_slot_ = BootControlInterface::kInvalidSlot;
     return false;
@@ -141,6 +148,26 @@ BootControlInterface::Slot BootControlChromeOS::GetCurrentSlot() const {
 bool BootControlChromeOS::GetPartitionDevice(const string& partition_name,
                                              unsigned int slot,
                                              string* device) const {
+  // Partition name prefixed with |kPartitionNamePrefixDlc| is a DLC module.
+  if (base::StartsWith(partition_name,
+                       kPartitionNamePrefixDlc,
+                       base::CompareCase::SENSITIVE)) {
+    // Extract DLC module ID from partition_name (DLC module ID is the string
+    // after |kPartitionNamePrefixDlc| in partition_name).
+    const auto dlc_module_id =
+        partition_name.substr(strlen(kPartitionNamePrefixDlc));
+    if (dlc_module_id.empty()) {
+      LOG(ERROR) << " partition name does not contain DLC module ID:"
+                 << partition_name;
+      return false;
+    }
+    *device = base::FilePath(kDlcInstallRootDirectoryEncrypted)
+                  .Append(dlc_module_id)
+                  .Append(slot == 0 ? kPartitionNameDlcA : kPartitionNameDlcB)
+                  .Append(kPartitionNameDlcImage)
+                  .value();
+    return true;
+  }
   int partition_num = GetPartitionNumber(partition_name, slot);
   if (partition_num < 0)
     return false;
@@ -275,8 +302,7 @@ bool BootControlChromeOS::IsRemovableDevice(const string& device) {
 }
 
 int BootControlChromeOS::GetPartitionNumber(
-    const string partition_name,
-    BootControlInterface::Slot slot) const {
+    const string partition_name, BootControlInterface::Slot slot) const {
   if (slot >= num_slots_) {
     LOG(ERROR) << "Invalid slot number: " << slot << ", we only have "
                << num_slots_ << " slot(s)";
@@ -299,5 +325,14 @@ int BootControlChromeOS::GetPartitionNumber(
   LOG(ERROR) << "Unknown Chrome OS partition name \"" << partition_name << "\"";
   return -1;
 }
+
+bool BootControlChromeOS::InitPartitionMetadata(
+    Slot slot,
+    const PartitionMetadata& partition_metadata,
+    bool update_metadata) {
+  return true;
+}
+
+void BootControlChromeOS::Cleanup() {}
 
 }  // namespace chromeos_update_engine

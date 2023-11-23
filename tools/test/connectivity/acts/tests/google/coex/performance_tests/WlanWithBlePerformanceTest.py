@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -21,26 +21,29 @@ from acts.test_utils.bt.bt_gatt_utils import disconnect_gatt_connection
 from acts.test_utils.bt.bt_gatt_utils import GattTestUtilsError
 from acts.test_utils.bt.bt_gatt_utils import orchestrate_gatt_connection
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
+from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 
 
-class WlanWithBlePerformanceTest(CoexBaseTest):
+class WlanWithBlePerformanceTest(CoexPerformanceBaseTest):
     default_timeout = 10
     adv_instances = []
     bluetooth_gatt_list = []
     gatt_server_list = []
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
+
+    def setup_class(self):
+        super().setup_class()
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
+        super().setup_test()
         self.pri_ad.droid.bluetoothDisableBLE()
         self.gatt_server_list = []
         self.adv_instances = []
 
     def teardown_test(self):
-        CoexBaseTest.teardown_test(self)
+        super().teardown_test()
         for bluetooth_gatt in self.bluetooth_gatt_list:
             self.pri_ad.droid.gattClientClose(bluetooth_gatt)
         for gatt_server in self.gatt_server_list:
@@ -87,17 +90,18 @@ class WlanWithBlePerformanceTest(CoexBaseTest):
         Returns:
             True if successful, False otherwise.
         """
-        self.pri_ad.droid.bluetoothEnableBLE()
-        filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
-            self.pri_ad.droid)
-        self.pri_ad.droid.bleStartBleScan(filter_list, scan_settings,
+        for i in self.attenuation_range:
+            self.pri_ad.droid.bluetoothEnableBLE()
+            filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
+                self.pri_ad.droid)
+            self.pri_ad.droid.bleStartBleScan(filter_list, scan_settings,
                                           scan_callback)
-        time.sleep(self.iperf["duration"])
-        try:
-            self.pri_ad.droid.bleStopBleScan(scan_callback)
-        except Exception as err:
-            self.log.error(str(err))
-            return False
+            time.sleep(self.iperf["duration"])
+            try:
+                self.pri_ad.droid.bleStopBleScan(scan_callback)
+            except Exception as err:
+                self.log.error(str(err))
+                return False
         return True
 
     def initiate_ble_gatt_connection(self):
@@ -115,31 +119,37 @@ class WlanWithBlePerformanceTest(CoexBaseTest):
         Returns:
             True if successful, False otherwise.
         """
-        self.pri_ad.droid.bluetoothEnableBLE()
-        gatt_server_cb = self.sec_ad.droid.gattServerCreateGattServerCallback()
-        gatt_server = self.sec_ad.droid.gattServerOpenGattServer(gatt_server_cb)
-        self.gatt_server_list.append(gatt_server)
-        try:
-            bluetooth_gatt, gatt_callback, adv_callback = (
-                orchestrate_gatt_connection(self.pri_ad, self.sec_ad))
-            self.bluetooth_gatt_list.append(bluetooth_gatt)
-            time.sleep(self.iperf["duration"])
-        except GattTestUtilsError as err:
-            self.log.error(err)
-            return False
-        self.adv_instances.append(adv_callback)
-        return self._orchestrate_gatt_disconnection(bluetooth_gatt,
+        start_time = time.time()
+        while((time.time()) < (start_time + self.iperf["duration"])):
+            self.pri_ad.droid.bluetoothEnableBLE()
+            gatt_server_cb = \
+                self.sec_ad.droid.gattServerCreateGattServerCallback()
+            gatt_server = \
+                self.sec_ad.droid.gattServerOpenGattServer(gatt_server_cb)
+            self.gatt_server_list.append(gatt_server)
+            try:
+                bluetooth_gatt, gatt_callback, adv_callback = (
+                    orchestrate_gatt_connection(self.pri_ad, self.sec_ad))
+                self.bluetooth_gatt_list.append(bluetooth_gatt)
+                time.sleep(self.default_timeout)
+            except GattTestUtilsError as err:
+                self.log.error(err)
+                return False
+            self.adv_instances.append(adv_callback)
+            return self._orchestrate_gatt_disconnection(bluetooth_gatt,
                                                     gatt_callback)
 
     def ble_start_stop_scan_with_iperf(self):
-        self.run_iperf_and_get_result()
-        if not self.ble_start_stop_scan():
+        tasks = [(self.ble_start_stop_scan, ()),
+                 (self.run_iperf_and_get_result, ())]
+        if not self.set_attenuation_and_run_iperf(tasks):
             return False
         return self.teardown_result()
 
     def ble_gatt_connection_with_iperf(self):
-        self.run_iperf_and_get_result()
-        if not self.initiate_ble_gatt_connection():
+        tasks = [(self.initiate_ble_gatt_connection, ()),
+                 (self.run_iperf_and_get_result, ())]
+        if not self.set_attenuation_and_run_iperf(tasks):
             return False
         return self.teardown_result()
 

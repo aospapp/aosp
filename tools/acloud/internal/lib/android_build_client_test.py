@@ -19,18 +19,20 @@
 import io
 import time
 
-import apiclient
+import unittest
 import mock
 
-import unittest
+import apiclient
+
+from acloud import errors
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import driver_test_lib
-from acloud.public import errors
 
-
+# pylint: disable=protected-access
 class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
     """Test AndroidBuildClient."""
 
+    BUILD_BRANCH = "fake_branch"
     BUILD_TARGET = "fake_target"
     BUILD_ID = 12345
     RESOURCE_ID = "avd-system.tar.gz"
@@ -45,6 +47,7 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
         self.client = android_build_client.AndroidBuildClient(mock.MagicMock())
         self.client._service = mock.MagicMock()
 
+    # pylint: disable=no-member
     def testDownloadArtifact(self):
         """Test DownloadArtifact."""
         # Create mocks.
@@ -126,6 +129,38 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
             destination_bucket=self.DESTINATION_BUCKET,
             destination_path=self.RESOURCE_ID)
         self.assertEqual(mock_api_request.execute.call_count, 6)
+
+    def testGetBranch(self):
+        """Test GetBuild."""
+        build_info = {"branch": "aosp-master"}
+        mock_api = mock.MagicMock()
+        mock_build = mock.MagicMock()
+        mock_build.get.return_value = mock_api
+        self.client._service.build = mock.MagicMock(return_value=mock_build)
+        mock_api.execute = mock.MagicMock(return_value=build_info)
+        branch = self.client.GetBranch(self.BUILD_TARGET, self.BUILD_ID)
+        mock_build.get.assert_called_once_with(
+            target=self.BUILD_TARGET,
+            buildId=self.BUILD_ID)
+        self.assertEqual(branch, build_info["branch"])
+
+    def testGetLKGB(self):
+        """Test GetLKGB."""
+        build_info = {"nextPageToken":"Test", "builds": [{"buildId": "3950000"}]}
+        mock_api = mock.MagicMock()
+        mock_build = mock.MagicMock()
+        mock_build.list.return_value = mock_api
+        self.client._service.build = mock.MagicMock(return_value=mock_build)
+        mock_api.execute = mock.MagicMock(return_value=build_info)
+        build_id = self.client.GetLKGB(self.BUILD_TARGET, self.BUILD_BRANCH)
+        mock_build.list.assert_called_once_with(
+            target=self.BUILD_TARGET,
+            branch=self.BUILD_BRANCH,
+            buildAttemptStatus=self.client.BUILD_STATUS_COMPLETE,
+            buildType=self.client.BUILD_TYPE_SUBMITTED,
+            maxResults=self.client.ONE_RESULT,
+            successful=self.client.BUILD_SUCCESSFUL)
+        self.assertEqual(build_id, build_info.get("builds")[0].get("buildId"))
 
 
 if __name__ == "__main__":

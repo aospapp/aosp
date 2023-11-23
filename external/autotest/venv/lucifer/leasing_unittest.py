@@ -58,8 +58,8 @@ def test_obtain_lease_with_error_removes_files(tmpdir):
 
 
 @pytest.mark.slow
-def test_Lease__expired(tmpdir, end_time):
-    """Test get_expired_leases()."""
+def test_Lease_expired(tmpdir, end_time):
+    """Test Lease.Expired()."""
     _make_lease(tmpdir, 123)
     path = _make_lease(tmpdir, 124)
     with _obtain_lease(path):
@@ -84,54 +84,72 @@ def test_leases_iter_with_sock_files(tmpdir):
     assert 124 not in leases
 
 
-def test_Job_cleanup(tmpdir):
-    """Test Job.cleanup()."""
+def test_Lease_cleanup(tmpdir):
+    """Test Lease.cleanup()."""
     lease_path = _make_lease(tmpdir, 123)
     tmpdir.join('123.sock').write('')
     sock_path = str(tmpdir.join('123.sock'))
-    for job in leasing.leases_iter(str(tmpdir)):
-        logger.debug('Cleaning up %r', job)
-        job.cleanup()
+    for lease in leasing.leases_iter(str(tmpdir)):
+        logger.debug('Cleaning up %r', lease)
+        lease.cleanup()
     assert not os.path.exists(lease_path)
     assert not os.path.exists(sock_path)
 
 
-def test_Job_cleanup_does_not_raise_on_error(tmpdir):
-    """Test Job.cleanup()."""
+def test_Lease_cleanup_does_not_raise_on_error(tmpdir):
+    """Test Lease.cleanup()."""
     lease_path = _make_lease(tmpdir, 123)
     tmpdir.join('123.sock').write('')
     sock_path = str(tmpdir.join('123.sock'))
-    for job in leasing.leases_iter(str(tmpdir)):
+    for lease in leasing.leases_iter(str(tmpdir)):
         os.unlink(lease_path)
         os.unlink(sock_path)
-        job.cleanup()
+        lease.cleanup()
 
 
 @pytest.mark.slow
-def test_Job_abort(tmpdir):
-    """Test Job.abort()."""
+def test_Lease_abort(tmpdir):
+    """Test Lease.abort()."""
     _make_lease(tmpdir, 123)
     with _abort_socket(tmpdir, 123) as proc:
         expired = list(leasing.leases_iter(str(tmpdir)))
         assert len(expired) > 0
-        for job in expired:
-            job.abort()
+        for lease in expired:
+            lease.abort()
         proc.wait()
         assert proc.returncode == 0
 
 
 @pytest.mark.slow
-def test_Job_abort_with_closed_socket(tmpdir):
-    """Test Job.abort() with closed socket."""
+def test_Lease_abort_with_closed_socket(tmpdir):
+    """Test Lease.abort() with closed socket."""
     _make_lease(tmpdir, 123)
     with _abort_socket(tmpdir, 123) as proc:
         proc.terminate()
         proc.wait()
         expired = list(leasing.leases_iter(str(tmpdir)))
         assert len(expired) > 0
-        for job in expired:
+        for lease in expired:
             with pytest.raises(socket.error):
-                job.abort()
+                lease.abort()
+
+
+@pytest.mark.slow
+def test_Lease_abort_with_blocked_socket(tmpdir):
+    """Test Lease.abort() with blocked socket.
+
+    If the behavior this test is looking for is missing (a raised error
+    for nonblock write timeout), this test will hang indefinitely on a
+    blocking socket read.
+    """
+    _make_lease(tmpdir, 123)
+    with _abort_socket_norecv(tmpdir, 123):
+        expired = list(leasing.leases_iter(str(tmpdir)))
+        assert len(expired) == 1
+        lease = expired[0]
+        with pytest.raises(socket.error):
+            while True:
+                lease.abort()
 
 
 @pytest.fixture
@@ -188,6 +206,32 @@ def _abort_socket(tmpdir, job_id):
     with subprocess32.Popen(
             [sys.executable, '-um',
              'lucifer.cmd.test.abort_socket', path],
+            stdout=subprocess32.PIPE) as proc:
+        # Wait for socket bind.
+        proc.stdout.readline()
+        try:
+            yield proc
+        finally:
+            proc.terminate()
+
+
+@contextlib.contextmanager
+def _abort_socket_norecv(tmpdir, job_id):
+    """Open a testing abort socket and bad listener for a job.
+
+    The listening process doesn't actually call recv().
+
+    As a context manager, returns the Popen instance for the listener
+    process when entering.
+
+    This uses a slow subprocess; any test that uses this should be
+    marked slow.
+    """
+    path = os.path.join(str(tmpdir), '%d.sock' % job_id)
+    logger.debug('Making abort socket at %s', path)
+    with subprocess32.Popen(
+            [sys.executable, '-um',
+             'lucifer.cmd.test.abort_socket_norecv', path],
             stdout=subprocess32.PIPE) as proc:
         # Wait for socket bind.
         proc.stdout.readline()

@@ -210,6 +210,7 @@ static bool OpenDexFilesBase64(const char* base64,
                                const char* location,
                                std::vector<uint8_t>* dex_bytes,
                                std::vector<std::unique_ptr<const DexFile>>* dex_files,
+                               DexFileLoaderErrorCode* error_code,
                                std::string* error_msg) {
   DecodeDexFile(base64, dex_bytes);
 
@@ -220,8 +221,9 @@ static bool OpenDexFilesBase64(const char* base64,
   bool success = dex_file_loader.OpenAll(dex_bytes->data(),
                                          dex_bytes->size(),
                                          location,
-                                         /* verify */ true,
+                                         /* verify= */ true,
                                          kVerifyChecksum,
+                                         error_code,
                                          error_msg,
                                          dex_files);
   return success;
@@ -231,9 +233,11 @@ static std::unique_ptr<const DexFile> OpenDexFileBase64(const char* base64,
                                                         const char* location,
                                                         std::vector<uint8_t>* dex_bytes) {
   // read dex files.
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
-  bool success = OpenDexFilesBase64(base64, location, dex_bytes, &dex_files, &error_msg);
+  bool success = OpenDexFilesBase64(base64, location, dex_bytes, &dex_files, &error_code,
+                                    &error_msg);
   CHECK(success) << error_msg;
   EXPECT_EQ(1U, dex_files.size());
   return std::move(dex_files[0]);
@@ -252,9 +256,9 @@ static std::unique_ptr<const DexFile> OpenDexFileInMemoryBase64(const char* base
                                                                dex_bytes->size(),
                                                                location,
                                                                location_checksum,
-                                                               /* oat_dex_file */ nullptr,
-                                                               /* verify */ true,
-                                                               /* verify_checksum */ true,
+                                                               /* oat_dex_file= */ nullptr,
+                                                               /* verify= */ true,
+                                                               /* verify_checksum= */ true,
                                                                &error_message));
   if (expect_success) {
     CHECK(dex_file != nullptr) << error_message;
@@ -337,14 +341,16 @@ TEST_F(DexFileLoaderTest, Version40Rejected) {
   DecodeDexFile(kRawDex40, &dex_bytes);
 
   static constexpr bool kVerifyChecksum = true;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   const DexFileLoader dex_file_loader;
   ASSERT_FALSE(dex_file_loader.OpenAll(dex_bytes.data(),
                                        dex_bytes.size(),
                                        kLocationString,
-                                       /* verify */ true,
+                                       /* verify= */ true,
                                        kVerifyChecksum,
+                                       &error_code,
                                        &error_msg,
                                        &dex_files));
 }
@@ -354,14 +360,16 @@ TEST_F(DexFileLoaderTest, Version41Rejected) {
   DecodeDexFile(kRawDex41, &dex_bytes);
 
   static constexpr bool kVerifyChecksum = true;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   const DexFileLoader dex_file_loader;
   ASSERT_FALSE(dex_file_loader.OpenAll(dex_bytes.data(),
                                        dex_bytes.size(),
                                        kLocationString,
-                                       /* verify */ true,
+                                       /* verify= */ true,
                                        kVerifyChecksum,
+                                       &error_code,
                                        &error_msg,
                                        &dex_files));
 }
@@ -371,14 +379,16 @@ TEST_F(DexFileLoaderTest, ZeroLengthDexRejected) {
   DecodeDexFile(kRawDexZeroLength, &dex_bytes);
 
   static constexpr bool kVerifyChecksum = true;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   const DexFileLoader dex_file_loader;
   ASSERT_FALSE(dex_file_loader.OpenAll(dex_bytes.data(),
                                        dex_bytes.size(),
                                        kLocationString,
-                                       /* verify */ true,
+                                       /* verify= */ true,
                                        kVerifyChecksum,
+                                       &error_code,
                                        &error_msg,
                                        &dex_files));
 }
@@ -412,11 +422,13 @@ TEST(DexFileUtilsTest, GetBaseLocationAndMultiDexSuffix) {
 TEST_F(DexFileLoaderTest, ZipOpenClassesPresent) {
   std::vector<uint8_t> dex_bytes;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   ASSERT_TRUE(OpenDexFilesBase64(kRawZipClassesDexPresent,
                                  kLocationString,
                                  &dex_bytes,
                                  &dex_files,
+                                 &error_code,
                                  &error_msg));
   EXPECT_EQ(dex_files.size(), 1u);
 }
@@ -424,23 +436,28 @@ TEST_F(DexFileLoaderTest, ZipOpenClassesPresent) {
 TEST_F(DexFileLoaderTest, ZipOpenClassesAbsent) {
   std::vector<uint8_t> dex_bytes;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   ASSERT_FALSE(OpenDexFilesBase64(kRawZipClassesDexAbsent,
                                   kLocationString,
                                   &dex_bytes,
                                   &dex_files,
+                                  &error_code,
                                   &error_msg));
+  EXPECT_EQ(error_code, DexFileLoaderErrorCode::kEntryNotFound);
   EXPECT_EQ(dex_files.size(), 0u);
 }
 
 TEST_F(DexFileLoaderTest, ZipOpenThreeDexFiles) {
   std::vector<uint8_t> dex_bytes;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
+  DexFileLoaderErrorCode error_code;
   std::string error_msg;
   ASSERT_TRUE(OpenDexFilesBase64(kRawZipThreeDexFiles,
                                  kLocationString,
                                  &dex_bytes,
                                  &dex_files,
+                                 &error_code,
                                  &error_msg));
   EXPECT_EQ(dex_files.size(), 3u);
 }
@@ -463,10 +480,6 @@ TEST_F(DexFileLoaderTest, GetStringWithNoIndex) {
   EXPECT_EQ(raw->StringByTypeIdx(idx), nullptr);
 }
 
-static void Callback(void* context ATTRIBUTE_UNUSED,
-                     const DexFile::LocalInfo& entry ATTRIBUTE_UNUSED) {
-}
-
 TEST_F(DexFileLoaderTest, OpenDexDebugInfoLocalNullType) {
   std::vector<uint8_t> dex_bytes;
   std::unique_ptr<const DexFile> raw = OpenDexFileInMemoryBase64(kRawDexDebugInfoLocalNullType,
@@ -474,12 +487,11 @@ TEST_F(DexFileLoaderTest, OpenDexDebugInfoLocalNullType) {
                                                                  0xf25f2b38U,
                                                                  true,
                                                                  &dex_bytes);
-  const DexFile::ClassDef& class_def = raw->GetClassDef(0);
+  const dex::ClassDef& class_def = raw->GetClassDef(0);
   constexpr uint32_t kMethodIdx = 1;
-  const DexFile::CodeItem* code_item = raw->GetCodeItem(raw->FindCodeItemOffset(class_def,
-                                                                                kMethodIdx));
+  const dex::CodeItem* code_item = raw->GetCodeItem(raw->FindCodeItemOffset(class_def, kMethodIdx));
   CodeItemDebugInfoAccessor accessor(*raw, code_item, kMethodIdx);
-  ASSERT_TRUE(accessor.DecodeDebugLocalInfo(true, 1, Callback, nullptr));
+  ASSERT_TRUE(accessor.DecodeDebugLocalInfo(true, 1, VoidFunctor()));
 }
 
 }  // namespace art

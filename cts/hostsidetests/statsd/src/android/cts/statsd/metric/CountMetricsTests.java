@@ -121,6 +121,133 @@ public class CountMetricsTests extends DeviceAtomTestCase {
         assertEquals(1, countData.getData(0).getBucketInfo(0).getCount());
     }
 
+    public void testEventCountWithConditionAndActivation() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+        int startMatcherId = 1;
+        int startMatcherLabel = 1;
+        int endMatcherId = 2;
+        int endMatcherLabel = 2;
+        int whatMatcherId = 3;
+        int whatMatcherLabel = 3;
+        int conditionId = 4;
+        int activationMatcherId = 5;
+        int activationMatcherLabel = 5;
+        int ttlSec = 5;
+
+        StatsdConfigProto.AtomMatcher whatMatcher =
+                MetricsUtils.appBreadcrumbMatcherWithLabel(whatMatcherId, whatMatcherLabel);
+
+        StatsdConfigProto.AtomMatcher predicateStartMatcher =
+                MetricsUtils.startAtomMatcherWithLabel(startMatcherId, startMatcherLabel);
+
+        StatsdConfigProto.AtomMatcher predicateEndMatcher =
+                MetricsUtils.stopAtomMatcherWithLabel(endMatcherId, endMatcherLabel);
+
+        StatsdConfigProto.AtomMatcher activationMatcher =
+                MetricsUtils.appBreadcrumbMatcherWithLabel(activationMatcherId,
+                                                           activationMatcherLabel);
+
+        StatsdConfigProto.Predicate p = StatsdConfigProto.Predicate.newBuilder()
+                .setSimplePredicate(StatsdConfigProto.SimplePredicate.newBuilder()
+                        .setStart(startMatcherId)
+                        .setStop(endMatcherId)
+                        .setCountNesting(false))
+                .setId(conditionId)
+                .build();
+
+        StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder()
+                .addCountMetric(StatsdConfigProto.CountMetric.newBuilder()
+                        .setId(MetricsUtils.COUNT_METRIC_ID)
+                        .setBucket(StatsdConfigProto.TimeUnit.CTS)
+                        .setWhat(whatMatcherId)
+                        .setCondition(conditionId)
+                )
+                .addAtomMatcher(whatMatcher)
+                .addAtomMatcher(predicateStartMatcher)
+                .addAtomMatcher(predicateEndMatcher)
+                .addAtomMatcher(activationMatcher)
+                .addPredicate(p)
+                .addMetricActivation(StatsdConfigProto.MetricActivation.newBuilder()
+                        .setMetricId(MetricsUtils.COUNT_METRIC_ID)
+                        .setActivationType(StatsdConfigProto.ActivationType.ACTIVATE_IMMEDIATELY)
+                        .addEventActivation(StatsdConfigProto.EventActivation.newBuilder()
+                                .setAtomMatcherId(activationMatcherId)
+                                .setTtlSeconds(ttlSec)));
+
+        uploadConfig(builder);
+
+        // Activate the metric.
+        doAppBreadcrumbReported(activationMatcherLabel);
+        Thread.sleep(10);
+
+        // Set the condition to true.
+        doAppBreadcrumbReportedStart(startMatcherLabel);
+        Thread.sleep(10);
+
+        // Log an event that should be counted. Bucket 1 Count 1.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Log an event that should be counted. Bucket 1 Count 2.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Set the condition to false.
+        doAppBreadcrumbReportedStop(endMatcherLabel);
+        Thread.sleep(10);
+
+        // Log an event that should not be counted because condition is false.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+
+        // Log an event that should not be counted.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Condition to true again.
+        doAppBreadcrumbReportedStart(startMatcherLabel);
+        Thread.sleep(10);
+
+        // Event should not be counted, metric is still not active.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Activate the metric.
+        doAppBreadcrumbReported(activationMatcherLabel);
+        Thread.sleep(10);
+
+        //  Log an event that should be counted.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+
+        // Log an event that should not be counted.
+        doAppBreadcrumbReported(whatMatcherLabel);
+        Thread.sleep(10);
+
+        // Wait for the metrics to propagate to statsd.
+        Thread.sleep(2000);
+
+        StatsLogReport metricReport = getStatsLogReport();
+        assertEquals(MetricsUtils.COUNT_METRIC_ID, metricReport.getMetricId());
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertTrue(metricReport.hasCountMetrics());
+        assertFalse(metricReport.getIsActive());
+
+        StatsLogReport.CountMetricDataWrapper countData = metricReport.getCountMetrics();
+        assertEquals(1, countData.getDataCount());
+        assertEquals(2, countData.getData(0).getBucketInfoCount());
+        assertEquals(2, countData.getData(0).getBucketInfo(0).getCount());
+        assertEquals(1, countData.getData(0).getBucketInfo(1).getCount());
+    }
+
     public void testPartialBucketCountMetric() throws Exception {
         if (statsdDisabled()) {
             return;

@@ -35,7 +35,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class PopFramesTest extends JDWPStackFrameTestCase {
 
-    private String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/StackFrame/PopFramesDebuggee;";
+    private String debuggeeSignature = getClassSignature(PopFramesDebuggee.class);
 
     private String breakpointMethodName = "nestledMethod4";
 

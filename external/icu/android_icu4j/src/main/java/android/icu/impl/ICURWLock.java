@@ -45,6 +45,7 @@ public class ICURWLock {
 
     /**
      * Internal class used to gather statistics on the RWLock.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public final static class Stats {
         /**

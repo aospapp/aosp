@@ -174,28 +174,19 @@ public class TvTransitionManager extends TransitionManager {
 
         mEmptyScene = new Scene(mSceneContainer, (View) mEmptyView);
         mEmptyScene.setEnterAction(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        FrameLayout.LayoutParams emptySceneLayoutParams =
-                                (FrameLayout.LayoutParams) mEmptyView.getLayoutParams();
-                        ViewGroup.MarginLayoutParams lp =
-                                (ViewGroup.MarginLayoutParams) mCurrentSceneView.getLayoutParams();
-                        emptySceneLayoutParams.topMargin = mCurrentSceneView.getTop();
-                        emptySceneLayoutParams.setMarginStart(lp.getMarginStart());
-                        emptySceneLayoutParams.height = mCurrentSceneView.getHeight();
-                        emptySceneLayoutParams.width = mCurrentSceneView.getWidth();
-                        mEmptyView.setLayoutParams(emptySceneLayoutParams);
-                        setCurrentScene(mEmptyScene, mEmptyView);
-                    }
+                () -> {
+                    FrameLayout.LayoutParams emptySceneLayoutParams =
+                            (FrameLayout.LayoutParams) mEmptyView.getLayoutParams();
+                    ViewGroup.MarginLayoutParams lp =
+                            (ViewGroup.MarginLayoutParams) mCurrentSceneView.getLayoutParams();
+                    emptySceneLayoutParams.topMargin = mCurrentSceneView.getTop();
+                    emptySceneLayoutParams.setMarginStart(lp.getMarginStart());
+                    emptySceneLayoutParams.height = mCurrentSceneView.getHeight();
+                    emptySceneLayoutParams.width = mCurrentSceneView.getWidth();
+                    mEmptyView.setLayoutParams(emptySceneLayoutParams);
+                    setCurrentScene(mEmptyScene, mEmptyView);
                 });
-        mEmptyScene.setExitAction(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        removeAllViewsFromOverlay();
-                    }
-                });
+        mEmptyScene.setExitAction(this::removeAllViewsFromOverlay);
 
         mChannelBannerScene = buildScene(mSceneContainer, mChannelBannerView);
         mInputBannerScene = buildScene(mSceneContainer, mInputBannerView);
@@ -274,21 +265,15 @@ public class TvTransitionManager extends TransitionManager {
     private Scene buildScene(ViewGroup sceneRoot, final TransitionLayout layout) {
         final Scene scene = new Scene(sceneRoot, (View) layout);
         scene.setEnterAction(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        boolean wasEmptyScene = (mCurrentScene == mEmptyScene);
-                        setCurrentScene(scene, (ViewGroup) layout);
-                        layout.onEnterAction(wasEmptyScene);
-                    }
+                () -> {
+                    boolean wasEmptyScene = (mCurrentScene == mEmptyScene);
+                    setCurrentScene(scene, (ViewGroup) layout);
+                    layout.onEnterAction(wasEmptyScene);
                 });
         scene.setExitAction(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        removeAllViewsFromOverlay();
-                        layout.onExitAction();
-                    }
+                () -> {
+                    removeAllViewsFromOverlay();
+                    layout.onExitAction();
                 });
         return scene;
     }

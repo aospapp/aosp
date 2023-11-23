@@ -442,7 +442,7 @@ u8 *rb_get_read_buf(void *ctx, size_t *length)
     u8 *buf;
 
     /* If no buffer is available for reading */
-    if (rbc->bufs[rbc->rd_buf_no].data == NULL) {
+    if (!rbc || rbc->bufs[rbc->rd_buf_no].data == NULL) {
         *length = 0;
         return NULL;
     }

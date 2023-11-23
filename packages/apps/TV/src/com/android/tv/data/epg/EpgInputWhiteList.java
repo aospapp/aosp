@@ -21,8 +21,8 @@ import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 import com.android.tv.common.BuildConfig;
-import com.android.tv.common.config.api.RemoteConfig;
 import com.android.tv.common.experiments.Experiments;
+import com.android.tv.common.flags.CloudEpgFlags;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,7 +33,6 @@ import java.util.Set;
 public final class EpgInputWhiteList {
     private static final boolean DEBUG = false;
     private static final String TAG = "EpgInputWhiteList";
-    @VisibleForTesting public static final String KEY = "live_channels_3rd_party_epg_inputs";
     private static final String QA_DEV_INPUTS =
             "com.example.partnersupportsampletvinput/.SampleTvInputService,"
                     + "com.android.tv.tuner.sample.dvb/.tvinput.SampleDvbTunerTvInputService";
@@ -44,10 +43,10 @@ public final class EpgInputWhiteList {
         return inputId == null ? null : inputId.substring(0, inputId.indexOf("/"));
     }
 
-    private final RemoteConfig remoteConfig;
+    private final CloudEpgFlags cloudEpgFlags;
 
-    public EpgInputWhiteList(RemoteConfig remoteConfig) {
-        this.remoteConfig = remoteConfig;
+    public EpgInputWhiteList(CloudEpgFlags cloudEpgFlags) {
+        this.cloudEpgFlags = cloudEpgFlags;
     }
 
     public boolean isInputWhiteListed(String inputId) {
@@ -72,7 +71,7 @@ public final class EpgInputWhiteList {
     }
 
     private Set<String> getWhiteListedInputs() {
-        Set<String> result = toInputSet(remoteConfig.getString(KEY));
+        Set<String> result = toInputSet(cloudEpgFlags.thirdPartyEpgInputsCsv());
         if (BuildConfig.ENG || Experiments.ENABLE_QA_FEATURES.get()) {
             HashSet<String> moreInputs = new HashSet<>(toInputSet(QA_DEV_INPUTS));
             if (result.isEmpty()) {

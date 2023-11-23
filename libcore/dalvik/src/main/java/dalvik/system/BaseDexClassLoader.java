@@ -16,13 +16,17 @@
 
 package dalvik.system;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
+import sun.misc.CompoundEnumeration;
 
 /**
  * Base class for common functionality between various dex-based
@@ -43,7 +47,22 @@ public class BaseDexClassLoader extends ClassLoader {
      */
     /* @NonNull */ private static volatile Reporter reporter = null;
 
+    @UnsupportedAppUsage
     private final DexPathList pathList;
+
+    /**
+     * Array of ClassLoaders that can be used to load classes and resources that the code in
+     * {@code pathList} may depend on. This is used to implement Android's
+     * <a href=https://developer.android.com/guide/topics/manifest/uses-library-element>
+     * shared libraries</a> feature.
+     * <p>The shared library loaders are always checked before the {@code pathList} when looking
+     * up classes and resources.
+     *
+     * <p>{@code null} if the class loader has no shared library.
+     *
+     * @hide
+     */
+    protected final ClassLoader[] sharedLibraryLoaders;
 
     /**
      * Constructs an instance.
@@ -62,15 +81,48 @@ public class BaseDexClassLoader extends ClassLoader {
      */
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
             String librarySearchPath, ClassLoader parent) {
-        this(dexPath, optimizedDirectory, librarySearchPath, parent, false);
+        this(dexPath, librarySearchPath, parent, null, false);
     }
 
     /**
      * @hide
      */
+    @UnsupportedAppUsage
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
             String librarySearchPath, ClassLoader parent, boolean isTrusted) {
+        this(dexPath, librarySearchPath, parent, null, isTrusted);
+    }
+
+    /**
+     * @hide
+     */
+    public BaseDexClassLoader(String dexPath,
+            String librarySearchPath, ClassLoader parent, ClassLoader[] libraries) {
+        this(dexPath, librarySearchPath, parent, libraries, false);
+    }
+
+    /**
+     * BaseDexClassLoader implements the Android
+     * <a href=https://developer.android.com/guide/topics/manifest/uses-library-element>
+     * shared libraries</a> feature by changing the typical parent delegation mechanism
+     * of class loaders.
+     * <p> Each shared library is associated with its own class loader, which is added to a list of
+     * class loaders this BaseDexClassLoader tries to load from in order, immediately checking
+     * after the parent.
+     * The shared library loaders are always checked before the {@code pathList} when looking
+     * up classes and resources.
+     *
+     * @hide
+     */
+    public BaseDexClassLoader(String dexPath,
+            String librarySearchPath, ClassLoader parent, ClassLoader[] sharedLibraryLoaders,
+            boolean isTrusted) {
         super(parent);
+        // Setup shared libraries before creating the path list. ART relies on the class loader
+        // hierarchy being finalized before loading dex files.
+        this.sharedLibraryLoaders = sharedLibraryLoaders == null
+                ? null
+                : Arrays.copyOf(sharedLibraryLoaders, sharedLibraryLoaders.length);
         this.pathList = new DexPathList(this, dexPath, librarySearchPath, null, isTrusted);
 
         if (reporter != null) {
@@ -80,34 +132,30 @@ public class BaseDexClassLoader extends ClassLoader {
 
     /**
      * Reports the current class loader chain to the registered {@code reporter}.
-     * The chain is reported only if all its elements are {@code BaseDexClassLoader}.
      */
     private void reportClassLoaderChain() {
-        ArrayList<BaseDexClassLoader> classLoadersChain = new ArrayList<>();
+        ArrayList<ClassLoader> classLoadersChain = new ArrayList<>();
         ArrayList<String> classPaths = new ArrayList<>();
 
         classLoadersChain.add(this);
         classPaths.add(String.join(File.pathSeparator, pathList.getDexPaths()));
 
-        boolean onlySawSupportedClassLoaders = true;
         ClassLoader bootClassLoader = ClassLoader.getSystemClassLoader().getParent();
         ClassLoader current = getParent();
 
         while (current != null && current != bootClassLoader) {
+            classLoadersChain.add(current);
             if (current instanceof BaseDexClassLoader) {
                 BaseDexClassLoader bdcCurrent = (BaseDexClassLoader) current;
-                classLoadersChain.add(bdcCurrent);
                 classPaths.add(String.join(File.pathSeparator, bdcCurrent.pathList.getDexPaths()));
             } else {
-                onlySawSupportedClassLoaders = false;
-                break;
+                // We can't determine the classpath for arbitrary class loaders.
+                classPaths.add(null);
             }
             current = current.getParent();
         }
 
-        if (onlySawSupportedClassLoaders) {
-            reporter.report(classLoadersChain, classPaths);
-        }
+        reporter.report(classLoadersChain, classPaths);
     }
 
     /**
@@ -116,18 +164,32 @@ public class BaseDexClassLoader extends ClassLoader {
      * dexFile must be an in-memory representation of a full dexFile.
      *
      * @param dexFiles the array of in-memory dex files containing classes.
+     * @param librarySearchPath the list of directories containing native
+     *   libraries, delimited by {@code File.pathSeparator}; may be {@code null}
      * @param parent the parent class loader
      *
      * @hide
      */
-    public BaseDexClassLoader(ByteBuffer[] dexFiles, ClassLoader parent) {
-        // TODO We should support giving this a library search path maybe.
+    public BaseDexClassLoader(ByteBuffer[] dexFiles, String librarySearchPath, ClassLoader parent) {
         super(parent);
-        this.pathList = new DexPathList(this, dexFiles);
+        this.sharedLibraryLoaders = null;
+        this.pathList = new DexPathList(this, librarySearchPath);
+        this.pathList.initByteBufferDexPath(dexFiles);
     }
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
+        // First, check whether the class is present in our shared libraries.
+        if (sharedLibraryLoaders != null) {
+            for (ClassLoader loader : sharedLibraryLoaders) {
+                try {
+                    return loader.loadClass(name);
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+        }
+        // Check whether the class in question is present in the dexPath that
+        // this classloader operates on.
         List<Throwable> suppressedExceptions = new ArrayList<Throwable>();
         Class c = pathList.findClass(name, suppressedExceptions);
         if (c == null) {
@@ -144,6 +206,8 @@ public class BaseDexClassLoader extends ClassLoader {
     /**
      * @hide
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public void addDexPath(String dexPath) {
         addDexPath(dexPath, false /*isTrusted*/);
     }
@@ -151,6 +215,7 @@ public class BaseDexClassLoader extends ClassLoader {
     /**
      * @hide
      */
+    @UnsupportedAppUsage
     public void addDexPath(String dexPath, boolean isTrusted) {
         pathList.addDexPath(dexPath, null /*optimizedDirectory*/, isTrusted);
     }
@@ -160,18 +225,44 @@ public class BaseDexClassLoader extends ClassLoader {
      * {@link #findLibrary(String)}
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public void addNativePath(Collection<String> libPaths) {
         pathList.addNativePath(libPaths);
     }
 
     @Override
     protected URL findResource(String name) {
+        if (sharedLibraryLoaders != null) {
+            for (ClassLoader loader : sharedLibraryLoaders) {
+                URL url = loader.getResource(name);
+                if (url != null) {
+                    return url;
+                }
+            }
+        }
         return pathList.findResource(name);
     }
 
     @Override
     protected Enumeration<URL> findResources(String name) {
-        return pathList.findResources(name);
+        Enumeration<URL> myResources = pathList.findResources(name);
+        if (sharedLibraryLoaders == null) {
+          return myResources;
+        }
+
+        Enumeration<URL>[] tmp =
+            (Enumeration<URL>[]) new Enumeration<?>[sharedLibraryLoaders.length + 1];
+        // This will add duplicate resources if a shared library is loaded twice, but that's ok
+        // as we don't guarantee uniqueness.
+        for (int i = 0; i < sharedLibraryLoaders.length; i++) {
+            try {
+                tmp[i] = sharedLibraryLoaders[i].getResources(name);
+            } catch (IOException e) {
+                // Ignore.
+            }
+        }
+        tmp[sharedLibraryLoaders.length] = myResources;
+        return new CompoundEnumeration<>(tmp);
     }
 
     @Override
@@ -224,6 +315,8 @@ public class BaseDexClassLoader extends ClassLoader {
     /**
      * @hide
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public String getLdLibraryPath() {
         StringBuilder result = new StringBuilder();
         for (File directory : pathList.getNativeLibraryDirectories()) {
@@ -248,6 +341,7 @@ public class BaseDexClassLoader extends ClassLoader {
      * @param newReporter the new Reporter. Setting null will cancel reporting.
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static void setReporter(Reporter newReporter) {
         reporter = newReporter;
     }
@@ -262,11 +356,11 @@ public class BaseDexClassLoader extends ClassLoader {
     /**
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public interface Reporter {
         /**
          * Reports the construction of a BaseDexClassLoader and provides information about the
          * class loader chain.
-         * Note that this only reports if all class loader in the chain are BaseDexClassLoader.
          *
          * @param classLoadersChain the chain of class loaders used during the construction of the
          *     class loader. The first element is the BaseDexClassLoader being constructed,
@@ -274,8 +368,10 @@ public class BaseDexClassLoader extends ClassLoader {
          * @param classPaths the class paths of the class loaders present in
          *     {@param classLoadersChain}. The first element corresponds to the first class
          *     loader and so on. A classpath is represented as a list of dex files separated by
-         *     {@code File.pathSeparator}.
+         *     {@code File.pathSeparator}. If the class loader is not a BaseDexClassLoader the
+         *     classpath will be null.
          */
-        void report(List<BaseDexClassLoader> classLoadersChain, List<String> classPaths);
+        @libcore.api.CorePlatformApi
+        void report(List<ClassLoader> classLoadersChain, List<String> classPaths);
     }
 }

@@ -20,10 +20,11 @@ import android.annotation.IntDef;
 import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
-import android.car.CarNotConnectedException;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
+import android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback;
+import android.car.hardware.property.ICarProperty;
 import android.content.Context;
 import android.os.Handler;
 import android.os.IBinder;
@@ -37,6 +38,8 @@ import java.util.Collection;
 import java.util.List;
 
 /**
+ * @deprecated Use {@link CarPropertyManager} instead.
+ *
  * API for controlling Cabin system in cars.
  * Most Car Cabin properties have both a MOVE and POSITION parameter associated with them.
  *
@@ -53,6 +56,7 @@ import java.util.List;
  * capability of the hardware.
  * @hide
  */
+@Deprecated
 @SystemApi
 public final class CarCabinManager implements CarManagerBase {
     private final static boolean DBG = false;
@@ -411,8 +415,7 @@ public final class CarCabinManager implements CarManagerBase {
         void onErrorEvent(@PropertyId int propertyId, int zone);
     }
 
-    private static class CarPropertyEventListenerToBase implements
-            CarPropertyManager.CarPropertyEventListener{
+    private static class CarPropertyEventListenerToBase implements CarPropertyEventCallback {
         private final WeakReference<CarCabinManager> mManager;
 
         public CarPropertyEventListenerToBase(CarCabinManager manager) {
@@ -468,7 +471,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @hide
      */
     public CarCabinManager(IBinder service, Context context, Handler handler) {
-        mCarPropertyMgr = new CarPropertyManager(service, handler, DBG, TAG);
+        ICarProperty mCarPropertyService = ICarProperty.Stub.asInterface(service);
+        mCarPropertyMgr = new CarPropertyManager(mCarPropertyService, handler);
     }
 
     /**
@@ -483,21 +487,17 @@ public final class CarCabinManager implements CarManagerBase {
     /**
      * Implement wrappers for contained CarPropertyManagerBase object
      * @param callback
-     * @throws CarNotConnectedException
      */
-    public synchronized void registerCallback(CarCabinEventCallback callback) throws
-            CarNotConnectedException {
+    public synchronized void registerCallback(CarCabinEventCallback callback) {
         if (mCallbacks.isEmpty()) {
             mListenerToBase = new CarPropertyEventListenerToBase(this);
         }
         List<CarPropertyConfig> configs = getPropertyList();
         for (CarPropertyConfig c : configs) {
             // Register each individual propertyId
-            mCarPropertyMgr.registerListener(mListenerToBase, c.getPropertyId(), 0);
+            mCarPropertyMgr.registerCallback(mListenerToBase, c.getPropertyId(), 0);
         }
         mCallbacks.add(callback);
-
-
     }
 
     /**
@@ -505,13 +505,12 @@ public final class CarCabinManager implements CarManagerBase {
      * this listener, all listening will be stopped.
      * @param callback
      */
-    public synchronized void unregisterCallback(CarCabinEventCallback callback)
-            throws CarNotConnectedException {
+    public synchronized void unregisterCallback(CarCabinEventCallback callback) {
         mCallbacks.remove(callback);
         List<CarPropertyConfig> configs = getPropertyList();
         for (CarPropertyConfig c : configs) {
-            // Register each individual propertyId
-            mCarPropertyMgr.unregisterListener(mListenerToBase, c.getPropertyId());
+                // Register each individual propertyId
+            mCarPropertyMgr.unregisterCallback(mListenerToBase, c.getPropertyId());
         }
         if (mCallbacks.isEmpty()) {
             mListenerToBase = null;
@@ -521,9 +520,8 @@ public final class CarCabinManager implements CarManagerBase {
     /**
      * Get list of properties represented by CarCabinManager for this car.
      * @return List of CarPropertyConfig objects available via Car Cabin Manager.
-     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public List<CarPropertyConfig> getPropertyList() throws CarNotConnectedException {
+    public List<CarPropertyConfig> getPropertyList() {
         return mCarPropertyMgr.getPropertyList(mCabinPropertyIds);
     }
 
@@ -532,10 +530,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @return value of requested boolean property
-     * @throws CarNotConnectedException
      */
-    public boolean getBooleanProperty(@PropertyId int propertyId, int area)
-            throws CarNotConnectedException {
+    public boolean getBooleanProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getBooleanProperty(propertyId, area);
     }
 
@@ -544,10 +540,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @return value of requested float property
-     * @throws CarNotConnectedException
      */
-    public float getFloatProperty(@PropertyId int propertyId, int area)
-            throws CarNotConnectedException {
+    public float getFloatProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getFloatProperty(propertyId, area);
     }
 
@@ -556,10 +550,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @return value of requested integer property
-     * @throws CarNotConnectedException
      */
-    public int getIntProperty(@PropertyId int propertyId, int area)
-            throws CarNotConnectedException {
+    public int getIntProperty(@PropertyId int propertyId, int area) {
         return mCarPropertyMgr.getIntProperty(propertyId, area);
     }
 
@@ -568,10 +560,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @param val
-     * @throws CarNotConnectedException
      */
-    public void setBooleanProperty(@PropertyId int propertyId, int area, boolean val)
-            throws CarNotConnectedException {
+    public void setBooleanProperty(@PropertyId int propertyId, int area, boolean val) {
         if (mCabinPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setBooleanProperty(propertyId, area, val);
         }
@@ -582,10 +572,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @param val
-     * @throws CarNotConnectedException
      */
-    public void setFloatProperty(@PropertyId int propertyId, int area, float val)
-            throws CarNotConnectedException {
+    public void setFloatProperty(@PropertyId int propertyId, int area, float val) {
         if (mCabinPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setFloatProperty(propertyId, area, val);
         }
@@ -596,10 +584,8 @@ public final class CarCabinManager implements CarManagerBase {
      * @param propertyId
      * @param area
      * @param val
-     * @throws CarNotConnectedException
      */
-    public void setIntProperty(@PropertyId int propertyId, int area, int val)
-            throws CarNotConnectedException {
+    public void setIntProperty(@PropertyId int propertyId, int area, int val) {
         if (mCabinPropertyIds.contains(propertyId)) {
             mCarPropertyMgr.setIntProperty(propertyId, area, val);
         }

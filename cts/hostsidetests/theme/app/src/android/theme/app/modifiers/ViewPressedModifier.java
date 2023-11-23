@@ -21,8 +21,7 @@ import android.view.View;
 public class ViewPressedModifier extends AbstractLayoutModifier {
 
     @Override
-    public View modifyView(View view) {
+    public void modifyViewBeforeAdd(View view) {
         view.setPressed(true);
-        return view;
     }
 }

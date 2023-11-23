@@ -53,7 +53,8 @@ class ActsRecordsTest(unittest.TestCase):
         d[records.TestResultEnums.RECORD_LOG_END_TIME] = record.log_end_time
         d[records.TestResultEnums.RECORD_UID] = None
         d[records.TestResultEnums.RECORD_CLASS] = None
-        d[records.TestResultEnums.RECORD_ADDITIONAL_ERRORS] = {}
+        d[records.TestResultEnums.RECORD_EXTRA_ERRORS] = {}
+        d[records.TestResultEnums.RECORD_STACKTRACE] = record.stacktrace
         actual_d = record.to_dict()
         self.assertDictEqual(actual_d, d)
         # Verify that these code paths do not cause crashes and yield non-empty
@@ -214,7 +215,7 @@ class ActsRecordsTest(unittest.TestCase):
         record1.test_fail(s)
         record2 = records.TestResultRecord(self.tn)
         record2.test_begin()
-        record2.test_unknown(s)
+        record2.test_error(s)
         tr = records.TestResult()
         tr.add_record(record1)
         tr.add_record(record2)

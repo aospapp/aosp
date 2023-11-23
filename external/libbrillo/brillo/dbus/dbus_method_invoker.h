@@ -67,8 +67,10 @@
 #include <tuple>
 
 #include <base/bind.h>
+#include <base/files/scoped_file.h>
 #include <brillo/dbus/dbus_param_reader.h>
 #include <brillo/dbus/dbus_param_writer.h>
+#include <brillo/dbus/file_descriptor.h>
 #include <brillo/dbus/utils.h>
 #include <brillo/errors/error.h>
 #include <brillo/errors/error_codes.h>
@@ -139,6 +141,30 @@ inline std::unique_ptr<dbus::Response> CallMethodAndBlock(
                                        error,
                                        args...);
 }
+
+namespace internal {
+// In order to support non-copyable file descriptor types, we have this
+// internal::HackMove() helper function that does really nothing for normal
+// types but uses Pass() for file descriptors so we can move them out from
+// the temporaries created inside DBusParamReader<...>::Invoke().
+// If only libchrome supported real rvalues so we can just do std::move() and
+// be done with it.
+template <typename T>
+inline const T& HackMove(const T& val) {
+  return val;
+}
+
+// Even though |val| here is passed as const&, the actual value is created
+// inside DBusParamReader<...>::Invoke() and is temporary in nature, so it is
+// safe to move the file descriptor out of |val|. That's why we are doing
+// const_cast here. It is a bit hacky, but there is no negative side effects.
+inline base::ScopedFD HackMove(const base::ScopedFD& val) {
+  return std::move(const_cast<base::ScopedFD&>(val));
+}
+inline FileDescriptor HackMove(const FileDescriptor& val) {
+  return std::move(const_cast<FileDescriptor&>(val));
+}
+}  // namespace internal
 
 // Extracts the parameters of |ResultTypes...| types from the message reader
 // and puts the values in the resulting |tuple|. Returns false on error and

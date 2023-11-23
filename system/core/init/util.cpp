@@ -33,25 +33,21 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
-#include <android-base/stringprintf.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
-#include <cutils/android_reboot.h>
 #include <cutils/sockets.h>
 #include <selinux/android.h>
 
-#include "reboot.h"
-
 #if defined(__ANDROID__)
-#include <android-base/properties.h>
-
+#include "reboot_utils.h"
 #include "selinux.h"
 #else
 #include "host_init_stubs.h"
 #endif
 
 #ifdef _INIT_INIT_H
-#error "Do not include init.h in files used by ueventd or watchdogd; it will expose init's globals"
+#error "Do not include init.h in files used by ueventd; it will expose init's globals"
 #endif
 
 using android::base::boot_clock;
@@ -273,16 +269,6 @@ bool make_dir(const std::string& path, mode_t mode) {
 }
 
 /*
- * Writes hex_len hex characters (1/2 byte) to hex from bytes.
- */
-std::string bytes_to_hex(const uint8_t* bytes, size_t bytes_len) {
-    std::string hex("0x");
-    for (size_t i = 0; i < bytes_len; i++)
-        android::base::StringAppendF(&hex, "%02x", bytes[i]);
-    return hex;
-}
-
-/*
  * Returns true is pathname is a directory
  */
 bool is_dir(const char* pathname) {
@@ -438,6 +424,56 @@ bool IsLegalPropertyName(const std::string& name) {
     }
 
     return true;
+}
+
+static void InitAborter(const char* abort_message) {
+    // When init forks, it continues to use this aborter for LOG(FATAL), but we want children to
+    // simply abort instead of trying to reboot the system.
+    if (getpid() != 1) {
+        android::base::DefaultAborter(abort_message);
+        return;
+    }
+
+    InitFatalReboot();
+}
+
+// The kernel opens /dev/console and uses that fd for stdin/stdout/stderr if there is a serial
+// console enabled and no initramfs, otherwise it does not provide any fds for stdin/stdout/stderr.
+// SetStdioToDevNull() is used to close these existing fds if they exist and replace them with
+// /dev/null regardless.
+//
+// In the case that these fds are provided by the kernel, the exec of second stage init causes an
+// SELinux denial as it does not have access to /dev/console.  In the case that they are not
+// provided, exec of any further process is potentially dangerous as the first fd's opened by that
+// process will take the stdin/stdout/stderr fileno's, which can cause issues if printf(), etc is
+// then used by that process.
+//
+// Lastly, simply calling SetStdioToDevNull() in first stage init is not enough, since first
+// stage init still runs in kernel context, future child processes will not have permissions to
+// access any fds that it opens, including the one opened below for /dev/null.  Therefore,
+// SetStdioToDevNull() must be called again in second stage init.
+void SetStdioToDevNull(char** argv) {
+    // Make stdin/stdout/stderr all point to /dev/null.
+    int fd = open("/dev/null", O_RDWR);
+    if (fd == -1) {
+        int saved_errno = errno;
+        android::base::InitLogging(argv, &android::base::KernelLogger, InitAborter);
+        errno = saved_errno;
+        PLOG(FATAL) << "Couldn't open /dev/null";
+    }
+    dup2(fd, STDIN_FILENO);
+    dup2(fd, STDOUT_FILENO);
+    dup2(fd, STDERR_FILENO);
+    if (fd > STDERR_FILENO) close(fd);
+}
+
+void InitKernelLogging(char** argv) {
+    SetFatalRebootTarget();
+    android::base::InitLogging(argv, &android::base::KernelLogger, InitAborter);
+}
+
+bool IsRecoveryMode() {
+    return access("/system/bin/recovery", F_OK) == 0;
 }
 
 }  // namespace init

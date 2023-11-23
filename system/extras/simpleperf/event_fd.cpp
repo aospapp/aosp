@@ -114,10 +114,10 @@ uint64_t EventFd::Id() const {
   return id_;
 }
 
-bool EventFd::EnableEvent() {
-  int result = ioctl(perf_event_fd_, PERF_EVENT_IOC_ENABLE, 0);
+bool EventFd::SetEnableEvent(bool enable) {
+  int result = ioctl(perf_event_fd_, enable ? PERF_EVENT_IOC_ENABLE : PERF_EVENT_IOC_DISABLE, 0);
   if (result < 0) {
-    PLOG(ERROR) << "ioctl(enable) " << Name() << " failed";
+    PLOG(ERROR) << "ioctl(" << (enable ? "enable" : "disable") << ")" << Name() << " failed";
     return false;
   }
   return true;
@@ -204,10 +204,22 @@ void EventFd::DestroyMappedBuffer() {
   }
 }
 
-size_t EventFd::GetAvailableMmapData(std::vector<char>& buffer, size_t& buffer_pos) {
-  if (!HasMappedBuffer()) {
-    return 0;
+std::vector<char> EventFd::GetAvailableMmapData() {
+  size_t data_pos;
+  size_t data_size = GetAvailableMmapDataSize(data_pos);
+  std::vector<char> data(data_size);
+  if (data_size > 0) {
+    size_t copy_size = std::min(data_size, mmap_data_buffer_size_ - data_pos);
+    memcpy(&data[0], mmap_data_buffer_ + data_pos, copy_size);
+    if (copy_size < data_size) {
+      memcpy(&data[copy_size], mmap_data_buffer_, data_size - copy_size);
+    }
+    DiscardMmapData(data_size);
   }
+  return data;
+}
+
+size_t EventFd::GetAvailableMmapDataSize(size_t& data_pos) {
   // The mmap_data_buffer is used as a ring buffer between the kernel and
   // simpleperf. The kernel continuously writes records to the buffer, and
   // simpleperf continuously read records out.
@@ -221,49 +233,16 @@ size_t EventFd::GetAvailableMmapData(std::vector<char>& buffer, size_t& buffer_p
   // for updating write_head, and simpleperf is responsible for updating
   // read_head.
 
-  size_t buf_mask = mmap_data_buffer_size_ - 1;
-  size_t write_head =
-      static_cast<size_t>(mmap_metadata_page_->data_head & buf_mask);
-  size_t read_head =
-      static_cast<size_t>(mmap_metadata_page_->data_tail & buf_mask);
-
-  if (read_head == write_head) {
+  uint64_t write_head = mmap_metadata_page_->data_head;
+  uint64_t read_head = mmap_metadata_page_->data_tail;
+  if (write_head == read_head) {
     // No available data.
     return 0;
   }
-  size_t read_bytes;
-  if (read_head < write_head) {
-    read_bytes = write_head - read_head;
-  } else {
-    read_bytes = mmap_data_buffer_size_ - read_head + write_head;
-  }
-  // Extend the buffer if it is not big enough.
-  if (buffer.size() < buffer_pos + read_bytes) {
-    buffer.resize(buffer_pos + read_bytes);
-  }
-
   // rmb() used to ensure reading data after reading data_head.
   __sync_synchronize();
-
-  // Copy records from mapped buffer. Note that records can be wrapped at the
-  // end of the mapped buffer.
-  char* to = &buffer[buffer_pos];
-  if (read_head < write_head) {
-    char* from = mmap_data_buffer_ + read_head;
-    size_t n = write_head - read_head;
-    memcpy(to, from, n);
-  } else {
-    char* from = mmap_data_buffer_ + read_head;
-    size_t n = mmap_data_buffer_size_ - read_head;
-    memcpy(to, from, n);
-    to += n;
-    from = mmap_data_buffer_;
-    n = write_head;
-    memcpy(to, from, n);
-  }
-  buffer_pos += read_bytes;
-  DiscardMmapData(read_bytes);
-  return read_bytes;
+  data_pos = read_head & (mmap_data_buffer_size_ - 1);
+  return write_head - read_head;
 }
 
 void EventFd::DiscardMmapData(size_t discard_size) {

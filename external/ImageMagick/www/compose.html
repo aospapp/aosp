@@ -5,36 +5,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>ImageMagick: Alpha Compositing</title>
-  <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
-  <meta name="application-name" content="ImageMagick"/>
-  <meta name="description" content="ImageMagick® is a software suite to create, edit, compose, or convert bitmap images. It can read and write images in a variety of formats (over 200) including PNG, JPEG, JPEG-2000, GIF, WebP, Postscript, PDF, and SVG. Use ImageMagick to resize, flip, mirror, rotate, distort, shear and transform images, adjust image colors, apply various special effects, or draw text, lines, polygons, ellipses and Bézier curves."/>
-  <meta name="application-url" content="http://www.imagemagick.org"/>
-  <meta name="generator" content="PHP"/>
-  <meta name="keywords" content="alpha, compositing, ImageMagick, PerlMagick, image processing, image, photo, software, Magick++, OpenMP, convert"/>
-  <meta name="rating" content="GENERAL"/>
-  <meta name="robots" content="INDEX, FOLLOW"/>
-  <meta name="generator" content="ImageMagick Studio LLC"/>
-  <meta name="author" content="ImageMagick Studio LLC"/>
-  <meta name="revisit-after" content="2 DAYS"/>
-  <meta name="resource-type" content="document"/>
-  <meta name="copyright" content="Copyright (c) 1999-2016 ImageMagick Studio LLC"/>
-  <meta name="distribution" content="Global"/>
-  <meta name="magick-serial" content="P131-S030410-R485315270133-P82224-A6668-G1245-1"/>
+  <meta charset="utf-8"  />
+  <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1,shrink-to-fit=no"  />
+  <title>Alpha Compositing @ ImageMagick</title>
+  <meta name="application-name" content="ImageMagick" />
+  <meta name="description" content="Use ImageMagick® to create, edit, compose, or convert bitmap images. You can resize your image, crop it, change its shades and colors, add captions, among other operations." />
+  <meta name="application-url" content="https://imagemagick.org" />
+  <meta name="generator" content="PHP" />
+  <meta name="keywords" content="alpha, compositing, ImageMagick, PerlMagick, image processing, image, photo, software, Magick++, OpenMP, convert" />
+  <meta name="rating" content="GENERAL" />
+  <meta name="robots" content="INDEX, FOLLOW" />
+  <meta name="generator" content="ImageMagick Studio LLC" />
+  <meta name="author" content="ImageMagick Studio LLC" />
+  <meta name="revisit-after" content="2 DAYS" />
+  <meta name="resource-type" content="document" />
+  <meta name="copyright" content="Copyright (c) 1999-2019 ImageMagick Studio LLC" />
+  <meta name="distribution" content="Global" />
+  <meta name="magick-serial" content="P131-S030410-R485315270133-P82224-A6668-G1245-1" />
   <meta name="google-site-verification" content="_bMOCDpkx9ZAzBwb2kF3PRHbfUUdFj2uO8Jd1AXArz4" />
-  <link rel="icon" href="../images/wand.png"/>
-  <link rel="shortcut icon" href="../images/wand.ico"/>
-  <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Roboto:900,400,400italic,700,700italic,300,300italic|Open+Sans:300italic,400italic,700italic,300,400,600,700">
-  <link rel="stylesheet" href="css/magick.css"/>
+  <link href="compose.html" rel="canonical" />
+  <link href="../images/wand.png" rel="icon" />
+  <link href="../images/wand.ico" rel="shortcut icon" />
+  <link href="assets/magick.css" rel="stylesheet" />
 </head>
 <body>
-<div class="main">
-<div class="magick-masthead">
+  <header>
+  <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+    <a class="navbar-brand" href="../"><img class="d-block" id="icon" alt="ImageMagick" width="32" height="32" src="../images/wand.ico"/></a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsMagick" aria-controls="navbarsMagick" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="navbar-collapse collapse" id="navbarsMagick" style="">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item ">
+        <a class="nav-link" href="api/quantize.html">Home <span class="sr-only">(current)</span></a>
+      </li>
+      <li class="nav-item ">
+        <a class="nav-link" href="../www/download.html">Download</a>
+      </li>
+      <li class="nav-item ">
+        <a class="nav-link" href="../www/command-line-tools.html">Tools</a>
+      </li>
+      <li class="nav-item ">
+        <a class="nav-link" href="../www/command-line-processing.html">Command-line</a>
+      </li>
+      <li class="nav-item ">
+        <a class="nav-link" href="../www/resources.html">Resources</a>
+      </li>
+      <li class="nav-item ">
+        <a class="nav-link" href="../www/develop.html">Develop</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" target="_blank" href="https://imagemagick.org/discourse-server/">Community</a>
+      </li>
+    </ul>
+    <form class="form-inline my-2 my-lg-0" action="https://imagemagick.org/script/search.php">
+      <input class="form-control mr-sm-2" type="text" name="q" placeholder="Search" aria-label="Search">
+      <button class="btn btn-outline-success my-2 my-sm-0" type="submit" name="sa">Search</button>
+    </form>
+    </div>
+  </nav>
   <div class="container">
-    <script async="async" src="http://localhost/pagead/js/adsbygoogle.js"></script>    <ins class="adsbygoogle"
+   <script async="async" src="https://localhost/pagead/js/adsbygoogle.js"></script>    <ins class="adsbygoogle"
          style="display:block"
          data-ad-client="ca-pub-3129977114552745"
          data-ad-slot="6345125851"
@@ -42,25 +75,17 @@
     <script>
       (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
-    <nav class="magick-nav">
-      <a class="magick-nav-item " href="../index.html">Home</a>
-      <a class="magick-nav-item " href="binary-releases.html">Download</a>
-      <a class="magick-nav-item " href="command-line-tools.html">Tools</a>
-      <a class="magick-nav-item " href="command-line-processing.html">Command-line</a>
-      <a class="magick-nav-item " href="resources.html">Resources</a>
-      <a class="magick-nav-item " href="api.html">Develop</a>
-      <a class="magick-nav-item " href="http://www.imagemagick.org/script/search.php">Search</a>
-      <a class="magick-nav-item pull-right" href="https://www.imagemagick.org/discourse-server/">Community</a>
-    </nav>
+
   </div>
-</div>
-<div class="container">
+  </header>
+  <main class="container">
+    <div class="magick-template">
 <div class="magick-header">
 
 <p class="lead magick-description">This page descibed the Image composition methods that is used to define how
 two images should be merged together in various image operations.  For the
 Command Line API it is typically set using the <a
-href="command-line-options.html#compose" >-compose</a> setting option. </p>
+href="../www/command-line-options.html#compose" >-compose</a> setting option. </p>
 
 
 <p>The description of composition uses abstract terminology in order to allow
@@ -92,7 +117,7 @@ floating-point mathematics rather than simple boolean operations.</p>
 
 <p>The following alpha blending (Duff-Porter) compose methods are available:</p>
 
-<table class="table table-condensed table-striped">
+<table class="table table-sm table-striped">
   <tbody>
   <tr>
     <th align="left" style="width: 8%">Method</th>
@@ -184,20 +209,20 @@ For example the default compose method can be specified as just 'Over'.</p>
 <p>Many of these compose methods will clear the destination image which was
 not overlaid by the source image.  This is to be expected as part of that
 specific composition methods defintion. You can disable this by setting the
-special <a href="command-line-options.html#define"
+special <a href="../www/command-line-options.html#define"
 >-define</a> 'compose:outside-overlay' to a value of 'false' will turn off
 this behavior. </p>
 
 <p>On top of the above 12 Duff-Porter Alpha Composition methods, one special
 related method '<code>Copy</code>' has been provided. This is equivalent to
-using the '<code>Src</code>'  with the special <a href="command-line-options.html#define"
+using the '<code>Src</code>'  with the special <a href="../www/command-line-options.html#define"
 >-define</a> option '<code>compose:outside-overlay</code>' set to
 '<code>false</code>', so as to only modify the overlaid area, without clearing
 the rest of the image outside the overlaid area.  </p>
 
 <p>The following mathematical composition methods are also available. </p>
 
-<table class="table table-condensed table-striped">
+<table class="table table-sm table-striped">
   <tbody>
   <tr>
     <th align="left" style="width: 8%">Method</th>
@@ -290,23 +315,12 @@ any values are weighted by the alpha channel of the input and output images.
 This 'Over' alpha blending is also applied to the lighting composition methods
 below. </p>
 
-<p>As of IM v6.6.1-6, if the special '<code>Sync</code>' flag is not specified
-(enabled by default) with the <a href="command-line-options.html#channel"
->-channel</a> setting, then the above mathematical compositions will nolonger
-synchronise its actions with the alpha channel.  Instead the math composition
-will be applied on an individual channel basis as defined by the <a
-href="command-line-options.html#channel"
->-channel</a>.  This includes the alpha channel. This special usage
-allows you to perform true mathematics of the image channels, without alpha
+<p> The math composition is applied on an individual channel basis as defined by the <a href="../www/command-line-options.html#channel" >-channel</a>.  This includes the alpha channel. This special usage allows you to perform true mathematics of the image channels, without alpha
 composition effects, becoming involved. </p>
-
-<p>This special flag is not applied to the lighting composition methods (see
-below) even though they are closely related to mathematical composition
-methods.</p>
 
 <p>The following lighting composition methods are also available. </p>
 
-<table class="table table-condensed table-striped">
+<table class="table table-sm table-striped">
   <tbody>
   <tr>
     <th align="left" style="width: 8%">Method</th>
@@ -318,15 +332,13 @@ methods.</p>
     <td>This is equivalent to 'Plus' in that the color channels
         are simply added, however it does not 'Plus' the alpha channel, but
         uses the normal 'Over' alpha blending, which transparencies are
-        involved.  Produces a sort of additive multiply-like result. Added
-        ImageMagick version 6.5.4-3. </td>
+        involved.  Produces a sort of additive multiply-like result.  </td>
   </tr>
 
   <tr>
     <td>linear-burn</td>
     <td>As 'Linear-Dodge', but also subtract one from the result.
-        Sort of a additive 'Screen' of the images.  Added ImageMagick version
-        6.5.4-3. </td>
+        Sort of a additive 'Screen' of the images. </td>
   </tr>
 
   <tr>
@@ -338,8 +350,7 @@ methods.</p>
   <tr>
     <td>color-burn</td>
     <td>Darkens the destination color to reflect the source
-        color.  Painting with white produces no change. Fixed in ImageMagick
-        version 6.5.4-3. </td>
+        color.  Painting with white produces no change.  </td>
   </tr>
 
   <tr>
@@ -380,29 +391,26 @@ methods.</p>
         lightening is proportional to the difference between the source color
         and 0.5. If it is equal to 0.5, the destination is unchanged. Painting
         with pure black or white produces a distinctly darker or lighter area,
-        but does not result in pure black or white. Fixed in ImageMagick
-        version 6.5.4-3. </td>
+        but does not result in pure black or white. </td>
   </tr>
 
   <tr>
     <td>pegtop-light</td>
     <td>Almost equivalent to 'Soft-Light', but using a
         continuous mathematical formula rather than two conditionally
-        selected formulae. Added ImageMagick version 6.5.4-3. </td>
+        selected formulae. </td>
   </tr>
 
   <tr>
     <td>vivid-light</td>
     <td>A modified 'Linear-Light' designed to preserve very stong
-        primary and secondary colors in the image. Added ImageMagick version
-        6.5.4-3. </td>
+        primary and secondary colors in the image.  </td>
   </tr>
 
   <tr>
     <td>pin-light</td>
     <td>Similar to 'Hard-Light', but using sharp linear shadings,
-        to simulate the effects of a strong 'pinhole' light source. Added
-        ImageMagick version 6.5.4-3. </td>
+        to simulate the effects of a strong 'pinhole' light source. </td>
   </tr>
 
   </tbody>
@@ -410,7 +418,7 @@ methods.</p>
 
 <p>Also included are these special purpose compose methods:</p>
 
-<table class="table table-condensed table-striped">
+<table class="table table-sm table-striped">
   <tbody>
   <tr>
     <th align="left" style="width: 8%">Method</th>
@@ -439,8 +447,13 @@ methods.</p>
     <td>change-mask</td>
     <td>Replace any destination pixel that is the similar to the
     source images pixel (as defined by the current <a
-    href="command-line-options.html#fuzz">-fuzz</a> factor), with transparency.
+    href="../www/command-line-options.html#fuzz">-fuzz</a> factor), with transparency.
     </td>
+  </tr>
+
+  <tr>
+    <td>stereo</td>
+    <td>create a stereo anaglyph</td>
   </tr>
   </tbody>
 </table>
@@ -452,30 +465,27 @@ arguments, which are tabled below. </p>
 <p>In the "<code>composite</code>" command these composition methods are
 selected using special options with the arguments needed. They are usually,
 but not always, the same name as the composite 'method' they use, and replaces
-the normal use of the <a href="command-line-options.html#compose" >-compose</a>
+the normal use of the <a href="../www/command-line-options.html#compose" >-compose</a>
 setting in the "<code>composite</code>" command.  For example... </p>
 
-<pre>
-composite ... -blend 50x50 ...
-</pre>
+<pre class="highlight"><code>composite ... -blend 50x50 ...
+</code></pre>
 
-<p>As of IM v6.5.3-4 the "<code>convert</code>" command can now also supply
-these extra arguments to its <a href="command-line-options.html#composite"
->-composite</a> operator, using the special <a href="command-line-options.html#define">-define</a>
+<p>The "<code>magick</code>" command can accept these extra arguments to its <a href="../www/command-line-options.html#composite"
+>-composite</a> operator, using the special <a href="../www/command-line-options.html#define">-define</a>
 attribute of '<code class="arg">compose:args</code>'.  This means you can now
-make use of these special augmented <a href="command-line-options.html#compose"
+make use of these special augmented <a href="../www/command-line-options.html#compose"
 >-compose</a> methods, those the argument and the method both need to be set
 separately.  For example... </p>
 
-<pre>
-convert ... -compose blend  -define compose:args=50,50 -composite ...
-</pre>
+<pre class="highlight"><code>convert ... -compose blend  -define compose:args=50,50 -composite ...
+</code></pre>
 
 <p>The following is a table of these special 'argumented' compose methods,
 with a brief summary of what they do. For more details see the equivalent
 "composite" command option name.  </p>
 
-<table class="table table-condensed table-striped">
+<table class="table table-sm table-striped">
   <tbody>
   <tr>
     <th align="left" style="width: 8%">Method</th>
@@ -486,7 +496,7 @@ with a brief summary of what they do. For more details see the equivalent
     <td>dissolve</td>
     <td>Arguments:
         <var>src_percent</var>[x<var>dst_percent</var>]
-    <br/>Equivalent to "<code>composite</code>" <a href="command-line-options.html#dissolve">-dissolve</a>
+    <br/>Equivalent to "<code>composite</code>" <a href="../www/command-line-options.html#dissolve">-dissolve</a>
     <br/>Dissolve the 'source' image by the percentage given before overlaying
         'over' the 'destination' image. If <var>src_percent</var> is
         greater than 100, it starts dissolving the main image so it will
@@ -501,7 +511,7 @@ with a brief summary of what they do. For more details see the equivalent
     <td>Arguments:
         <var>src_percent</var>[x<var>dst_percent</var>]
     <br/>Equivalent to "<code>composite</code>" <a
-        href="command-line-options.html#blend">-blend</a>
+        href="../www/command-line-options.html#blend">-blend</a>
     <br/>Average the images together ('plus') according to the percentages
         given and each pixels transparency.  If only a single percentage value
         is given it sets the weight of the composite or 'source' image, while
@@ -520,12 +530,7 @@ with a brief summary of what they do. For more details see the equivalent
     <br/>     <code>A*Sc*Dc + B*Sc + C*Dc + D</code>
     <br/>Can be used to generate a custom composition method that would
         otherwise need to be implemented using the slow <a
-        href="command-line-options.html#fx">-fx</a> DIY image operator.   Added
-        to ImageMagick version 6.5.4-3.
-    <br/>As of IM v6.6.1-6 this method will do per-channel math compositions
-        if the 'Sync' flag is removed from <a
-        href="command-line-options.html#channel" >-channel</a>, just like all
-        the other mathematical composition methods above.
+        href="../www/command-line-options.html#fx">-fx</a> DIY image operator.
     </td>
   </tr>
 
@@ -533,7 +538,7 @@ with a brief summary of what they do. For more details see the equivalent
     <td>modulate</td>
     <td>Arguments:
         <var>brightness</var>[x<var>saturation</var>]
-    <br/>Equivalent to "<code>composite</code>" <a href="command-line-options.html#watermark">-watermark</a>
+    <br/>Equivalent to "<code>composite</code>" <a href="../www/command-line-options.html#watermark">-watermark</a>
     <br/>Take a grayscale image (with alpha mask) and modify the destination
         image's brightness according to watermark image's grayscale value and
         the <var>brightness</var> percentage.  The destinations
@@ -547,7 +552,7 @@ with a brief summary of what they do. For more details see the equivalent
     <td>displace</td>
     <td>Arguments:
         <var>X-scale</var>[x<var>Y-scale</var>][!][%]
-    <br/>Equivalent to "<code>composite</code>" <a href="command-line-options.html#displace">-displace</a>
+    <br/>Equivalent to "<code>composite</code>" <a href="../www/command-line-options.html#displace">-displace</a>
     <br/>With this option, the 'overlay' image, and optionally the 'mask'
         image, is used as a relative displacement map, which is used to
         displace the lookup of what part of the destination image is seen at
@@ -568,7 +573,6 @@ with a brief summary of what they do. For more details see the equivalent
         overlay image (100% = half width/height of image). Using '!' switches
         percentage arguments to refer to the destination image size instead.
     <br/><br/>
-        Special flags were added Added to ImageMagick version 6.5.3-5.
     </td>
   </tr>
 
@@ -588,7 +592,6 @@ with a brief summary of what they do. For more details see the equivalent
         This means the overlay can lookup a completely different region of the
         destination image.
     <br/><br/>
-        Added to ImageMagick version 6.5.3-5.
     </td>
   </tr>
 
@@ -596,7 +599,7 @@ with a brief summary of what they do. For more details see the equivalent
     <td>blur</td>
     <td>Arguments:
         <var>Width</var>[x<var>Height</var>[+<var>Angle</var>][+<var>Angle2</var>]]
-    <br/>Equivalent to "<code>composite</code>" <a href="command-line-options.html#blur-composite">-blur</a>
+    <br/>Equivalent to "<code>composite</code>" <a href="../www/command-line-options.html#blur-composite">-blur</a>
     <br/>A Variable Blur Mapping Composition method, where each pixel in the
         overlaid region is replaced with an Elliptical Weighted Average (EWA),
         with an ellipse (typically a circle) of the given sigma size, scaled
@@ -614,7 +617,6 @@ with a brief summary of what they do. For more details see the equivalent
         radial blurs, or a rough approximation for rotational blur. Or any mix
         of the two.
     <br/><br/>
-        Added to ImageMagick version 6.5.4-0.
     </td>
   </tr>
 
@@ -622,23 +624,27 @@ with a brief summary of what they do. For more details see the equivalent
 </table>
 
 <p>To print a complete list of all the available compose operators, use <a
-href="command-line-options.html#list">-list compose</a>.</p>
+href="../www/command-line-options.html#list">-list compose</a>.</p>
 </div>
+    </div>
+  </main><!-- /.container -->
   <footer class="magick-footer">
-    <p><a href="support.html">Donate</a> •
-     <a href="sitemap.html">Sitemap</a> •
-    <a href="links.html">Related</a> •
-    <a href="architecture.html">Architecture</a>
-</p>
-    <p><a href="compose.html#">Back to top</a> •
-    <a href="http://pgp.mit.edu:11371/pks/lookup?op=get&amp;search=0x89AB63D48277377A">Public Key</a> •
-    <a href="http://www.imagemagick.org/script/contact.php">Contact Us</a></p>
-        <p><small>©  1999-2016 ImageMagick Studio LLC</small></p>
+    <p><a href="../www/security-policy.html">Security</a> •
+    <a href="../www/architecture.html">Architecture</a> •
+    <a href="../www/links.html">Related</a> •
+     <a href="../www/sitemap.html">Sitemap</a>
+       
+    <a href="compose.html#"><img class="d-inline" id="wand" alt="And Now a Touch of Magick" width="16" height="16" src="../images/wand.ico"/></a>
+       
+    <a href="http://pgp.mit.edu/pks/lookup?op=get&amp;search=0x89AB63D48277377A">Public Key</a> •
+    <a href="../www/support.html">Donate</a> •
+    <a href="../www/https://imagemagick.org/script/contact.php">Contact Us</a>
+    <br/>
+    <small>© 1999-2019 ImageMagick Studio LLC</small></p>
   </footer>
-</div><!-- /.container -->
 
-  <script src="https://localhost/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-  <script src="../js/magick.html"></script>
-</div>
+  <!-- Javascript assets -->
+  <script src="assets/magick.js" crossorigin="anonymous"></script>
+  <script>window.jQuery || document.write('<script src="https://localhost/ajax/libs/jquery/3.3.1/jquery.min.js"><\/script>')</script>
 </body>
 </html>

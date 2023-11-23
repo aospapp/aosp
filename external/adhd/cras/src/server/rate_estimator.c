@@ -81,12 +81,8 @@ int rate_estimator_check(struct rate_estimator *re, int level,
 {
 	struct timespec td;
 
-	/* TODO(hychao) - is this the right thing to do if level is 0? */
-	if ((re->window_start_ts.tv_sec == 0) || (level == 0)) {
+	if (re->window_start_ts.tv_sec == 0) {
 		re->window_start_ts = *now;
-		re->window_frames = 0;
-		re->level_diff = 0;
-		re->last_level = level;
 		return 0;
 	}
 

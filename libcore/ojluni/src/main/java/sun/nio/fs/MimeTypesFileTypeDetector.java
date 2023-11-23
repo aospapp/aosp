@@ -25,7 +25,18 @@
 
 package sun.nio.fs;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import libcore.net.MimeUtils;
 
 /**
@@ -34,6 +45,24 @@ import libcore.net.MimeUtils;
  */
 
 class MimeTypesFileTypeDetector extends AbstractFileTypeDetector {
+
+    // BEGIN Android-removed: Delegate to libcore.net.MimeUtils.
+    /*
+    // path to mime.types file
+    private final Path mimeTypesFile;
+
+    // map of extension to MIME type
+    private Map<String,String> mimeTypeMap;
+
+    // set to true when file loaded
+    private volatile boolean loaded = false;
+
+    public MimeTypesFileTypeDetector(Path filePath) {
+        mimeTypesFile = filePath;
+    }
+    */
+    // END Android-removed: Delegate to libcore.net.MimeUtils.
+
 
     @Override
     protected String implProbeContentType(Path path) {
@@ -45,10 +74,18 @@ class MimeTypesFileTypeDetector extends AbstractFileTypeDetector {
         if (ext.isEmpty())
             return null;  // no extension
 
+        // Android-removed: Delegate to libcore.net.MimeUtils.
+        // loadMimeTypes();
+        // if (mimeTypeMap == null || mimeTypeMap.isEmpty())
+        //    return null;
+
         // Case-sensitive search
         String mimeType;
         do {
+            // BEGIN Android-changed: Delegate to libcore.net.MimeUtils.
+            // mimeType = mimeTypeMap.get(ext);
             mimeType = MimeUtils.guessMimeTypeFromExtension(ext);
+            // END Android-changed: Delegate to libcore.net.MimeUtils.
             if (mimeType == null)
                 ext = getExtension(ext);
         } while (mimeType == null && !ext.isEmpty());
@@ -67,4 +104,119 @@ class MimeTypesFileTypeDetector extends AbstractFileTypeDetector {
         }
         return ext;
     }
+
+    // BEGIN Android-removed: Delegate to libcore.net.MimeUtils.
+    /*
+    /**
+     * Parse the mime types file, and store the type-extension mappings into
+     * mimeTypeMap. The mime types file is not loaded until the first probe
+     * to achieve the lazy initialization. It adopts double-checked locking
+     * optimization to reduce the locking overhead.
+     *
+    private void loadMimeTypes() {
+        if (!loaded) {
+            synchronized (this) {
+                if (!loaded) {
+                    List<String> lines = AccessController.doPrivileged(
+                        new PrivilegedAction<List<String>>() {
+                            @Override
+                            public List<String> run() {
+                                try {
+                                    return Files.readAllLines(mimeTypesFile,
+                                                              Charset.defaultCharset());
+                                } catch (IOException ignore) {
+                                    return Collections.emptyList();
+                                }
+                            }
+                        });
+
+                    mimeTypeMap = new HashMap<>(lines.size());
+                    String entry = "";
+                    for (String line : lines) {
+                        entry += line;
+                        if (entry.endsWith("\\")) {
+                            entry = entry.substring(0, entry.length() - 1);
+                            continue;
+                        }
+                        parseMimeEntry(entry);
+                        entry = "";
+                    }
+                    if (!entry.isEmpty()) {
+                        parseMimeEntry(entry);
+                    }
+                    loaded = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * Parse a mime-types entry, which can have the following formats.
+     * 1) Simple space-delimited format
+     * image/jpeg   jpeg jpg jpe JPG
+     *
+     * 2) Netscape key-value pair format
+     * type=application/x-java-jnlp-file desc="Java Web Start" exts="jnlp"
+     * or
+     * type=text/html exts=htm,html
+     *
+    private void parseMimeEntry(String entry) {
+        entry = entry.trim();
+        if (entry.isEmpty() || entry.charAt(0) == '#')
+            return;
+
+        entry = entry.replaceAll("\\s*#.*", "");
+        int equalIdx = entry.indexOf('=');
+        if (equalIdx > 0) {
+            // Parse a mime-types command having the key-value pair format
+            final String TYPEEQUAL = "type=";
+            String typeRegex = "\\b" + TYPEEQUAL +
+                    "(\"\\p{Graph}+?/\\p{Graph}+?\"|\\p{Graph}+/\\p{Graph}+\\b)";
+            Pattern typePattern = Pattern.compile(typeRegex);
+            Matcher typeMatcher = typePattern.matcher(entry);
+
+            if (typeMatcher.find()) {
+                String type = typeMatcher.group().substring(TYPEEQUAL.length());
+                if (type.charAt(0) == '"') {
+                    type = type.substring(1, type.length() - 1);
+                }
+
+                final String EXTEQUAL = "exts=";
+                String extRegex = "\\b" + EXTEQUAL +
+                        "(\"[\\p{Graph}\\p{Blank}]+?\"|\\p{Graph}+\\b)";
+                Pattern extPattern = Pattern.compile(extRegex);
+                Matcher extMatcher = extPattern.matcher(entry);
+
+                if (extMatcher.find()) {
+                    String exts =
+                            extMatcher.group().substring(EXTEQUAL.length());
+                    if (exts.charAt(0) == '"') {
+                        exts = exts.substring(1, exts.length() - 1);
+                    }
+                    String[] extList = exts.split("[\\p{Blank}\\p{Punct}]+");
+                    for (String ext : extList) {
+                        putIfAbsent(ext, type);
+                    }
+                }
+            }
+        } else {
+            // Parse a mime-types command having the space-delimited format
+            String[] elements = entry.split("\\s+");
+            int i = 1;
+            while (i < elements.length) {
+                putIfAbsent(elements[i++], elements[0]);
+            }
+        }
+    }
+
+    private void putIfAbsent(String key, String value) {
+        if (key != null && !key.isEmpty() &&
+            value != null && !value.isEmpty() &&
+            !mimeTypeMap.containsKey(key))
+        {
+            mimeTypeMap.put(key, value);
+        }
+    }
+    */
+    // END Android-removed: Delegate to libcore.net.MimeUtils.
 }

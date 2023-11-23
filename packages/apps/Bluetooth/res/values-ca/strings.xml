@@ -45,7 +45,7 @@
     <string name="notification_sent" msgid="9218710861333027778">"Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> enviat"</string>
     <string name="notification_sent_complete" msgid="302943281067557969">"100% complet"</string>
     <string name="notification_sent_fail" msgid="6696082233774569445">"Bluetooth: <xliff:g id="FILE">%1$s</xliff:g> no enviat"</string>
-    <string name="download_title" msgid="3353228219772092586">"Transferència del fitxer"</string>
+    <string name="download_title" msgid="3353228219772092586">"Transferència de fitxers"</string>
     <string name="download_line1" msgid="4926604799202134144">"De: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="5876973543019417712">"Fitxer: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_line3" msgid="4384821622908676061">"Mida del fitxer: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"S\'està enviant el fitxer a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"S\'estan enviant <xliff:g id="NUMBER">%1$s</xliff:g> fitxers a \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"S\'ha aturat l\'enviament del fitxer a \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"No hi ha prou espai a l\'emmagatzematge USB per desar el fitxer de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"No hi ha prou espai a la targeta SD per desar el fitxer de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"No hi ha prou espai a l\'emmagatzematge USB per desar el fitxer de: <xliff:g id="SENDER">%1$s</xliff:g>"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"No hi ha prou espai a la targeta SD per desar el fitxer de: <xliff:g id="SENDER">%1$s</xliff:g>"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Espai necessari: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"S\'estan processant massa sol·licituds. Torneu-ho a provar més tard."</string>
     <string name="status_pending" msgid="2503691772030877944">"Encara no s\'ha iniciat la transferència del fitxer."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"El dispositiu de destinació no permet la transferència."</string>
     <string name="status_canceled" msgid="6664490318773098285">"L\'usuari ha cancel·lat la transferència."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Problema d\'emmagatzematge."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Sense emmagatzematge USB."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"No hi ha cap targeta SD. Inseriu una targeta SD per desar els fitxers transferits."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Sense emmagatzematge USB."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"No hi ha cap targeta SD. Insereix-ne una per desar els fitxers transferits."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Connexió incorrecta."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"La sol·licitud no es pot processar correctament."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Error desconegut."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Obre"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Esborra de la llista"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Esborra"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Reproducció actual"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Desa"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Cancel·la"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Selecciona els comptes que vulguis compartir mitjançant el Bluetooth. Cal que acceptis l\'accés als comptes en connectar-t\'hi."</string>

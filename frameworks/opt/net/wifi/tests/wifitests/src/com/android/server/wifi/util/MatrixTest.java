@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 
+import androidx.test.filters.SmallTest;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import java.util.Random;
 /**
  * Unit tests for {@link com.android.server.wifi.util.Matrix}.
  */
+@SmallTest
 public class MatrixTest {
     /**
      * Test that both forms of constructor work

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informazioni per le emergenze"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Informazioni mediche"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Modifica informazioni"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Aggiungi informazioni"</string>
     <string name="edit_info" msgid="5973929805855224805">"Modifica informazioni per le emergenze"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Dati"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Contatti"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Aggiungendo informazioni mediche e contatti di emergenza puoi aiutare i soccorritori in caso di emergenze.\n\nChiunque può leggere queste informazioni dalla schermata di blocco e chiamare i tuoi contatti toccandone il nome senza sbloccare il telefono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Aggiungi informazioni per le emergenze"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Mostra ai soccorritori le tue informazioni"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Scatta una foto"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Scegli un\'immagine"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Seleziona la foto"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Nickname"</string>
 </resources>

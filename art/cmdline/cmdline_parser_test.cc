@@ -59,8 +59,14 @@ namespace art {
   template <typename T>
   bool UsuallyEquals(const T& expected, const T& actual,
                      typename std::enable_if<
-                         detail::SupportsEqualityOperator<T>::value>::type* = 0) {
+                         detail::SupportsEqualityOperator<T>::value>::type* = nullptr) {
     return expected == actual;
+  }
+
+  template <char Separator>
+  bool UsuallyEquals(const std::vector<std::string>& expected,
+                     const ParseStringList<Separator>& actual) {
+    return expected == static_cast<std::vector<std::string>>(actual);
   }
 
   // Try to use memcmp to compare simple plain-old-data structs.
@@ -73,8 +79,8 @@ namespace art {
   template <typename T, typename ... Ignore>
   bool UsuallyEquals(const T& expected, const T& actual,
                      const Ignore& ... more ATTRIBUTE_UNUSED,
-                     typename std::enable_if<std::is_pod<T>::value>::type* = 0,
-                     typename std::enable_if<!detail::SupportsEqualityOperator<T>::value>::type* = 0
+                     typename std::enable_if<std::is_pod<T>::value>::type* = nullptr,
+                     typename std::enable_if<!detail::SupportsEqualityOperator<T>::value>::type* = nullptr
                      ) {
     return memcmp(std::addressof(expected), std::addressof(actual), sizeof(T)) == 0;
   }
@@ -131,7 +137,7 @@ class CmdlineParserTest : public ::testing::Test {
     art::InitLogging(nullptr, art::Runtime::Abort);  // argv = null
   }
 
-  virtual void SetUp() {
+  void SetUp() override {
     parser_ = ParsedOptions::MakeParser(false);  // do not ignore unrecognized options
   }
 
@@ -218,8 +224,13 @@ TEST_F(CmdlineParserTest, TestSimpleSuccesses) {
   }
 
   EXPECT_SINGLE_PARSE_EXISTS("-Xzygote", M::Zygote);
-  EXPECT_SINGLE_PARSE_VALUE_STR("/hello/world", "-Xbootclasspath:/hello/world", M::BootClassPath);
-  EXPECT_SINGLE_PARSE_VALUE("/hello/world", "-Xbootclasspath:/hello/world", M::BootClassPath);
+  EXPECT_SINGLE_PARSE_VALUE(std::vector<std::string>({"/hello/world"}),
+                            "-Xbootclasspath:/hello/world",
+                            M::BootClassPath);
+  EXPECT_SINGLE_PARSE_VALUE(std::vector<std::string>({"/hello", "/world"}),
+                            "-Xbootclasspath:/hello:/world",
+                            M::BootClassPath);
+  EXPECT_SINGLE_PARSE_VALUE_STR("/hello/world", "-classpath /hello/world", M::ClassPath);
   EXPECT_SINGLE_PARSE_VALUE(Memory<1>(234), "-Xss234", M::StackSize);
   EXPECT_SINGLE_PARSE_VALUE(MemoryKiB(1234*MB), "-Xms1234m", M::MemoryInitialSize);
   EXPECT_SINGLE_PARSE_VALUE(true, "-XX:EnableHSpaceCompactForOOM", M::EnableHSpaceCompactForOOM);
@@ -371,7 +382,7 @@ TEST_F(CmdlineParserTest, DISABLED_TestXGcOption) {
  */
 TEST_F(CmdlineParserTest, TestJdwpProviderEmpty) {
   {
-    EXPECT_SINGLE_PARSE_DEFAULT_VALUE(JdwpProvider::kNone, "", M::JdwpProvider);
+    EXPECT_SINGLE_PARSE_DEFAULT_VALUE(JdwpProvider::kUnset, "", M::JdwpProvider);
   }
 }  // TEST_F
 
@@ -558,13 +569,12 @@ TEST_F(CmdlineParserTest, TestIgnoredArguments) {
 TEST_F(CmdlineParserTest, MultipleArguments) {
   EXPECT_TRUE(IsResultSuccessful(parser_->Parse(
       "-help -XX:ForegroundHeapGrowthMultiplier=0.5 "
-      "-Xnodex2oat -Xmethod-trace -XX:LargeObjectSpace=map")));
+      "-Xmethod-trace -XX:LargeObjectSpace=map")));
 
   auto&& map = parser_->ReleaseArgumentsMap();
-  EXPECT_EQ(5u, map.Size());
+  EXPECT_EQ(4u, map.Size());
   EXPECT_KEY_VALUE(map, M::Help, Unit{});
   EXPECT_KEY_VALUE(map, M::ForegroundHeapGrowthMultiplier, 0.5);
-  EXPECT_KEY_VALUE(map, M::Dex2Oat, false);
   EXPECT_KEY_VALUE(map, M::MethodTrace, Unit{});
   EXPECT_KEY_VALUE(map, M::LargeObjectSpace, gc::space::LargeObjectSpaceType::kMap);
 }  //  TEST_F

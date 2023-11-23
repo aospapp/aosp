@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"%s aplikazioak ziurtagiri bat eskatu du. Ziurtagiri bat aukeratzen baduzu, aplikazioak identitate hori erabiliko du zerbitzarietan hemendik aurrera."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Aplikazioak %s gisa identifikatu du zerbitzari eskatzailea, baina ez diozu aplikazioari ziurtagirirako sarbidea eman behar fidagarritzat jotzen ez baduzu."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Ziurtagiriak kanpoko memorian daukazun eta %1$s edo %2$s luzapena duen PKCS#12 fitxategi batetik instala ditzakezu."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Instalatu ziurtagiria"</string>
     <string name="allow_button" msgid="3030990695030371561">"Hautatu"</string>
     <string name="deny_button" msgid="3766539809121892584">"Ukatu"</string>
 </resources>

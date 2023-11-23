@@ -62,6 +62,9 @@
 #endif /* _POSIX_THREADS */
 
 
+#ifdef dprintf
+#undef dprintf
+#endif
 #ifdef Py_DEBUG
 static int thread_debug = 0;
 #define dprintf(args)   (void)((thread_debug & 1) && printf args)

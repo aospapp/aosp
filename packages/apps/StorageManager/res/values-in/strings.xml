@@ -23,7 +23,7 @@
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"<xliff:g id="DAYS">%1$d</xliff:g> hari yang lalu"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
-    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Tidak digunakan tahun lalu"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Tidak digunakan setahun terakhir"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Tidak tahu kapan terakhir digunakan"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Kosongkan <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Foto &amp; video yang di-backup"</string>
@@ -61,7 +61,7 @@
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> konten akan dihapus dari perangkat"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Penyimpanan kini dikelola oleh pengelola penyimpanan"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Tak ada item dihapus"</string>
-    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Tinjau item yang baru dibuka"</string>
+    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Tinjau item yang lebih baru"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Tidak ada file lama lainnya untuk dihapus. Untuk mengosongkan ruang, hapus foto, video, dan aplikasi terkini."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> membutuhkan ruang sebesar <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g>"</string>
 </resources>

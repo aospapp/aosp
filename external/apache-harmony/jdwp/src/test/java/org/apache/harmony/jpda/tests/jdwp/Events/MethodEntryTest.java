@@ -52,7 +52,7 @@ public class MethodEntryTest extends JDWPEventTestCase {
     public void testMethodEntry() {
         logWriter.println("testMethodEntry started");
 
-        String methodEntryClassNameRegexp = "org.apache.harmony.jpda.tests.jdwp.Events.MethodEntryDebuggee";
+        String methodEntryClassNameRegexp = getDebuggeeClassName();
         //String methodEntryClassNameSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/MethodEntryDebuggee;";
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);

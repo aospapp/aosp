@@ -17,27 +17,28 @@
 # Stop if something fails.
 set -e
 
-mkdir classes
+export ORIGINAL_JAVAC="$JAVAC"
 
-# android.test.anno.MissingAnnotation is available at compile time...
-${JAVAC} -d classes `find src -name '*.java'`
-# overwrite RenamedEnum
-${JAVAC} -d classes `find src2 -name '*.java'`
+# Wrapper function for javac which invokes the compiler and applies
+# additional setup steps for the test.
+function javac_wrapper {
+  set -e # Stop on error - the caller script may not have this set.
 
-# ...but not at run time.
-rm 'classes/android/test/anno/MissingAnnotation.class'
-rm 'classes/android/test/anno/ClassWithInnerAnnotationClass$MissingInnerAnnotationClass.class'
+  $ORIGINAL_JAVAC "$@"
 
-if [ ${USE_JACK} = "true" ]; then
-  jar cf classes.jill.jar -C classes .
-  # Jack needs to emit annotations with CLASS retention.
-  ${JACK} -D jack.dex.annotation.class-retention=true --import classes.jill.jar --output-dex .
-else
-  if [ ${NEED_DEX} = "true" ]; then
-    ${DX} -JXmx256m --debug --dex --output=classes.dex classes
+  # Classes available at compile time, but not at runtime.
+  rm -f classes/android/test/anno/MissingAnnotation.class
+  rm -f 'classes/android/test/anno/ClassWithInnerAnnotationClass$MissingInnerAnnotationClass.class'
+
+  # overwrite RenamedEnum in classes
+  if [ -f classes2/android/test/anno/RenamedEnumClass.java ] ; then
+    mv classes2/android/test/anno/RenamedEnumClass.java classes/android/test/anno/RenamedEnumClass.java
   fi
-fi
+}
 
-if [ ${NEED_DEX} = "true" ]; then
-  zip $TEST_NAME.jar classes.dex
-fi
+export -f javac_wrapper
+export JAVAC=javac_wrapper
+
+######################################################################
+
+./default-build "$@"

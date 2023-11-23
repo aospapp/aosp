@@ -213,12 +213,9 @@ public class Menu implements AccessibilityStateChangeListener {
                 rowIdToSelect,
                 mAnimationDisabledForTest
                         ? null
-                        : new Runnable() {
-                            @Override
-                            public void run() {
-                                if (isActive()) {
-                                    mShowAnimator.start();
-                                }
+                        : () -> {
+                            if (isActive()) {
+                                mShowAnimator.start();
                             }
                         });
         scheduleHide();

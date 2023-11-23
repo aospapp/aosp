@@ -25,18 +25,17 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.metrics.LogMaker;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.server.power.batterysaver.BatterySavingStats.BatterySaverState;
 import com.android.server.power.batterysaver.BatterySavingStats.DozeState;
 import com.android.server.power.batterysaver.BatterySavingStats.InteractiveState;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
@@ -53,7 +52,7 @@ public class BatterySavingStatsTest {
         private int mBatteryLevel = 1_000_000_000;
 
         private BatterySavingStatsTestable() {
-            super(new Object(), mMetricsLogger);
+            super(new Object());
         }
 
         @Override
@@ -103,23 +102,13 @@ public class BatterySavingStatsTest {
 
     public MetricsLogger mMetricsLogger = mock(MetricsLogger.class);
 
-    private boolean sendTronEvents;
-
     @Test
-    public void testAll_withTron() {
-        sendTronEvents = true;
-        checkAll();
-    }
-
-    @Test
-    public void testAll_noTron() {
-        sendTronEvents = false;
+    public void testAll() {
         checkAll();
     }
 
     private void checkAll() {
         final BatterySavingStatsTestable target = new BatterySavingStatsTestable();
-        target.setSendTronLog(sendTronEvents);
 
         target.assertDumpable();
 
@@ -239,46 +228,13 @@ public class BatterySavingStatsTest {
                 target.toDebugString());
     }
 
-    private void assertLog(boolean batterySaver, boolean interactive, long deltaTimeMs,
-            int deltaBatteryLevelUa, int deltaBatteryLevelPercent) {
-        if (sendTronEvents) {
-            ArgumentCaptor<LogMaker> ac = ArgumentCaptor.forClass(LogMaker.class);
-            verify(mMetricsLogger, times(1)).write(ac.capture());
-
-            LogMaker lm = ac.getValue();
-            assertEquals(MetricsEvent.BATTERY_SAVER, lm.getCategory());
-            assertEquals(batterySaver ? 1 : 0,
-                    lm.getTaggedData(MetricsEvent.RESERVED_FOR_LOGBUILDER_SUBTYPE));
-            assertEquals(interactive ? 1 : 0, lm.getTaggedData(MetricsEvent.FIELD_INTERACTIVE));
-            assertEquals(deltaTimeMs, lm.getTaggedData(MetricsEvent.FIELD_DURATION_MILLIS));
-
-            assertEquals(deltaBatteryLevelUa,
-                    (int) lm.getTaggedData(MetricsEvent.FIELD_START_BATTERY_UA)
-                            - (int) lm.getTaggedData(MetricsEvent.FIELD_END_BATTERY_UA));
-            assertEquals(deltaBatteryLevelPercent,
-                    (int) lm.getTaggedData(MetricsEvent.FIELD_START_BATTERY_PERCENT)
-                            - (int) lm.getTaggedData(MetricsEvent.FIELD_END_BATTERY_PERCENT));
-        } else {
-            verify(mMetricsLogger, times(0)).write(any(LogMaker.class));
-        }
-    }
-
-
-    @Test
-    public void testMetricsLogger_withTron() {
-        sendTronEvents = true;
-        checkMetricsLogger();
+    private void assertLog() {
+        verify(mMetricsLogger, times(0)).write(any(LogMaker.class));
     }
 
     @Test
-    public void testMetricsLogger_noTron() {
-        sendTronEvents = false;
-        checkMetricsLogger();
-    }
-
-    private void checkMetricsLogger() {
+    public void testMetricsLogger() {
         final BatterySavingStatsTestable target = new BatterySavingStatsTestable();
-        target.setSendTronLog(sendTronEvents);
 
         target.advanceClock(1);
         target.drainBattery(1000);
@@ -299,7 +255,7 @@ public class BatterySavingStatsTest {
                 InteractiveState.NON_INTERACTIVE,
                 DozeState.NOT_DOZING);
 
-        assertLog(false, true, 60_000, 2000, 200);
+        assertLog();
 
         target.advanceClock(1);
         target.drainBattery(2000);
@@ -330,7 +286,7 @@ public class BatterySavingStatsTest {
                 InteractiveState.INTERACTIVE,
                 DozeState.NOT_DOZING);
 
-        assertLog(false, false, 60_000 * 3, 2000 * 3, 200 * 3);
+        assertLog();
 
         target.advanceClock(10);
         target.drainBattery(10000);
@@ -338,7 +294,7 @@ public class BatterySavingStatsTest {
         reset(mMetricsLogger);
         target.startCharging();
 
-        assertLog(true, true, 60_000 * 10, 10000, 1000);
+        assertLog();
 
         target.advanceClock(1);
         target.drainBattery(2000);
@@ -356,6 +312,6 @@ public class BatterySavingStatsTest {
 
         target.startCharging();
 
-        assertLog(true, false, 60_000, 2000, 200);
+        assertLog();
     }
 }

@@ -60,8 +60,10 @@ class Config(object):
         """Parses command line flags for unittests."""
         parser = argparse.ArgumentParser()
         parser.add_argument('-v', '--verbose', action='store_true',
+                            default=False,
                             help='Print out ALL entries.')
         parser.add_argument('-s', '--skip_cleanup', action='store_true',
+                            default=False,
                             help='Skip deleting test containers.')
         args, argv = parser.parse_known_args()
 
@@ -82,9 +84,9 @@ class Config(object):
 # line.
 config = Config()
 
-
 def setup(require_sudo=True):
     """Performs global setup for unit-tests."""
+    global setup_run
     config.parse_options()
 
     verify_user(require_sudo)

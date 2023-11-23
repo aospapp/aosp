@@ -17,16 +17,21 @@
 package android.accessibilityservice.cts.activities;
 
 import android.accessibilityservice.cts.R;
-
+import android.graphics.Rect;
 import android.os.Bundle;
+import android.view.TouchDelegate;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.BaseAdapter;
+import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * This class is an {@link android.app.Activity} used to perform end-to-end
@@ -68,6 +73,24 @@ public class AccessibilityEndToEndActivity extends AccessibilityTestActivity {
 
         ListView listView = (ListView) findViewById(R.id.listview);
         listView.setAdapter(listAdapter);
+
+        final int touchableSize = 48;
+        Button button = findViewById(R.id.button);
+        Function<View, Rect> withTouchableAtRight = (v) -> new Rect(
+                v.getLeft(), 0, v.getRight() + touchableSize, v.getHeight());
+        button.getViewTreeObserver().addOnGlobalLayoutListener(setTouchDelegate(button,
+                () -> withTouchableAtRight.apply(button))::run);
+
+        Button delegated = findViewById(R.id.buttonDelegated);
+        Function<View, Rect> withTouchableAsParent = (v) -> new Rect(
+                0, 0, v.getWidth(), v.getHeight());
+        delegated.getViewTreeObserver().addOnGlobalLayoutListener(setTouchDelegate(delegated,
+                () -> withTouchableAsParent.apply((View) delegated.getParent()))::run);
+    }
+
+    private static Runnable setTouchDelegate(View target, Supplier<Rect> rectSupplier) {
+        return () -> ((View) target.getParent()).setTouchDelegate(
+                new TouchDelegate(rectSupplier.get(), target));
     }
 
     public void setReportedPackageName(String packageName) {

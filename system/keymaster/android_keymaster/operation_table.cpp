@@ -39,16 +39,16 @@ keymaster_error_t OperationTable::Add(OperationPtr&& operation) {
 
 Operation* OperationTable::Find(keymaster_operation_handle_t op_handle) {
     if (op_handle == 0)
-        return NULL;
+        return nullptr;
 
     if (!table_.get())
-        return NULL;
+        return nullptr;
 
     for (size_t i = 0; i < table_size_; ++i) {
         if (table_[i] && table_[i]->operation_handle() == op_handle)
             return table_[i].get();
     }
-    return NULL;
+    return nullptr;
 }
 
 bool OperationTable::Delete(keymaster_operation_handle_t op_handle) {

@@ -105,6 +105,7 @@ class TimeToReadableStrTest(test_util.TensorFlowTestCase):
       cli_shared.time_to_readable_str(100, force_time_unit="ks")
 
 
+@test_util.run_deprecated_v1
 class GetRunStartIntroAndDescriptionTest(test_util.TensorFlowTestCase):
 
   def setUp(self):
@@ -324,6 +325,7 @@ class GetRunStartIntroAndDescriptionTest(test_util.TensorFlowTestCase):
     self.assertEqual("run #1: 1 fetch (a:0); 1 feed (foo)", short_description)
 
 
+@test_util.run_deprecated_v1
 class GetErrorIntroTest(test_util.TensorFlowTestCase):
 
   def setUp(self):
@@ -371,6 +373,11 @@ class GetErrorIntroTest(test_util.TensorFlowTestCase):
 
     self.assertEqual("Details:", error_intro.lines[14])
     self.assertStartsWith(error_intro.lines[15], "foo description")
+
+  def testGetErrorIntroForNoOpName(self):
+    tf_error = errors.OpError(None, None, "Fake OpError", -1)
+    error_intro = cli_shared.get_error_intro(tf_error)
+    self.assertIn("Cannot determine the name of the op", error_intro.lines[3])
 
 
 if __name__ == "__main__":

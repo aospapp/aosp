@@ -16,17 +16,22 @@
 
 package com.android.dialer.commandline;
 
-import com.android.dialer.commandline.impl.Blocking;
+import com.android.dialer.commandline.impl.ActiveCallsCommand;
+import com.android.dialer.commandline.impl.BlockingCommand;
+import com.android.dialer.commandline.impl.CallCommand;
 import com.android.dialer.commandline.impl.Echo;
 import com.android.dialer.commandline.impl.Help;
 import com.android.dialer.commandline.impl.Version;
 import com.android.dialer.function.Supplier;
+import com.android.dialer.inject.DialerVariant;
+import com.android.dialer.inject.InstallIn;
 import com.google.common.collect.ImmutableMap;
 import dagger.Module;
 import dagger.Provides;
 import javax.inject.Inject;
 
 /** Provides {@link Command} */
+@InstallIn(variants = {DialerVariant.DIALER_TEST})
 @Module
 public abstract class CommandLineModule {
 
@@ -42,21 +47,33 @@ public abstract class CommandLineModule {
     private final Help help;
     private final Version version;
     private final Echo echo;
-    private final Blocking blocking;
+    private final BlockingCommand blockingCommand;
+    private final CallCommand callCommand;
+    private final ActiveCallsCommand activeCallsCommand;
 
     @Inject
-    AospCommandInjector(Help help, Version version, Echo echo, Blocking blocking) {
+    AospCommandInjector(
+        Help help,
+        Version version,
+        Echo echo,
+        BlockingCommand blockingCommand,
+        CallCommand callCommand,
+        ActiveCallsCommand activeCallsCommand) {
       this.help = help;
       this.version = version;
       this.echo = echo;
-      this.blocking = blocking;
+      this.blockingCommand = blockingCommand;
+      this.callCommand = callCommand;
+      this.activeCallsCommand = activeCallsCommand;
     }
 
     public CommandSupplier.Builder inject(CommandSupplier.Builder builder) {
       builder.addCommand("help", help);
       builder.addCommand("version", version);
       builder.addCommand("echo", echo);
-      builder.addCommand("blocking", blocking);
+      builder.addCommand("blocking", blockingCommand);
+      builder.addCommand("call", callCommand);
+      builder.addCommand("activecalls", activeCallsCommand);
       return builder;
     }
   }

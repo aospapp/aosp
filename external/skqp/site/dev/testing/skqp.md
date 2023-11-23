@@ -6,18 +6,10 @@ with a abbreviated Git hash that points at the commit in the Skia repository it
 was built with.
 
 These are universal APKs that contain native libraries for armeabi-v7a,
-arm64-v8a, x86, and x86\_64 architectures. The most recent is listed first:
+arm64-v8a, x86, and x86\_64 architectures. The most recent is listed first.
 
-<!--
-TZ='' git log \
--\-date='format-local:%Y-%m-%d %H:%M:%S %Z' -5 origin/skqp/dev \
--\-format='  * [`%h`](https://storage.googleapis.com/skia-skqp/skqp-universal-%h.apk)%n    | `%cd` | %<(30,trunc)%s'
--->
-
-  * [`d69db48840`](https://storage.googleapis.com/skia-skqp/skqp-universal-d69db48840.apk)
-    | `2018-02-13 21:07:09 UTC` | SkQP: relax five tests
-  * [`337919990b`](https://storage.googleapis.com/skia-skqp/skqp-universal-337919990b.apk)
-    | `2018-02-13 19:33:12 UTC` | SkQP:  debug option, and fix..
+The listing can be found here:
+[https://storage.googleapis.com/skia-skqp/apklist](https://storage.googleapis.com/skia-skqp/apklist)
 
 To run tests:
 
@@ -27,7 +19,7 @@ To run tests:
 
 Monitor the output with:
 
-    adb logcat org.skia.skqp skia "*:S"
+    adb logcat TestRunner org.skia.skqp skia DEBUG "*:S"
 
 Note the test's output path on the device.  It will look something like this:
 

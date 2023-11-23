@@ -28,6 +28,7 @@ class hardware_TrimIntegrity(test.test):
       -> All case                            : TestFail
     - Trim data is not Zero
       -> SSD with RZAT                       : TestFail
+      -> NVMe with dlfeat:1                  : TestFail
       -> Otherwise                           : TestNA
     """
 
@@ -38,6 +39,7 @@ class hardware_TrimIntegrity(test.test):
 
     hdparm_trim = 'Data Set Management TRIM supported'
     hdparm_rzat = 'Deterministic read ZEROs after TRIM'
+    nvme_dlfeat = 'dlfeat'
 
     # Use hash value to check integrity of the random data.
     HASH_CMD = 'sha256sum | cut -d" " -f 1'
@@ -244,4 +246,21 @@ class hardware_TrimIntegrity(test.test):
                                                self.hdparm_rzat):
                     msg += ' Disk claim deterministic read zero after trim.'
                     raise error.TestFail(msg)
+            elif utils.is_disk_nvme(self._diskname):
+                dlfeat = utils.get_nvme_id_ns_feature(self._diskname,
+                                                      self.nvme_dlfeat)
+                if dlfeat == "None":
+                    msg += ' Expected values for trimmed data not reported.'
+                    error.TestNAError(msg)
+                elif int(dlfeat, 16) & 7 == 1:
+                    msg += ' Disk indicates values should be zero after trim.'
+                    raise error.TestFail(msg)
+                # TODO(asavery): NVMe 1.3 specification allows all bytes set
+                # to FF from a deallocated logical block
+                elif int(dlfeat, 16) & 7 == 2:
+                    msg += ' Unexpected values, test does not check for ones.'
+                    error.TestFail(msg)
+                else:
+                    msg += ' Expected values for trimmed data not specified.'
+                    error.TestNAError(msg)
             raise error.TestNAError(msg)

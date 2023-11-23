@@ -23,7 +23,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_FakeCamera2"
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "EmulatedFakeCamera2.h"
 #include "EmulatedCameraFactory.h"
@@ -114,8 +114,8 @@ status_t EmulatedFakeCamera2::Initialize() {
     int32_t width = 0, height = 0;
     size_t rawSizeCount = sizeof(kAvailableRawSizes)/sizeof(kAvailableRawSizes[0]);
     for (size_t index = 0; index + 1 < rawSizeCount; index += 2) {
-        if (width <= kAvailableRawSizes[index] &&
-            height <= kAvailableRawSizes[index+1]) {
+        if (width <= (int32_t)kAvailableRawSizes[index] &&
+            height <= (int32_t)kAvailableRawSizes[index+1]) {
             width = kAvailableRawSizes[index];
             height = kAvailableRawSizes[index+1];
         }
@@ -377,7 +377,6 @@ int EmulatedFakeCamera2::allocateStream(
     if (format != HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
         unsigned int numFormats = sizeof(kAvailableFormats) / sizeof(uint32_t);
         unsigned int formatIdx = 0;
-        unsigned int sizeOffsetIdx = 0;
         for (; formatIdx < numFormats; formatIdx++) {
             if (format == (int)kAvailableFormats[formatIdx]) break;
         }
@@ -1789,8 +1788,6 @@ bool EmulatedFakeCamera2::ControlThread::threadLoop() {
         mLockAfterPassiveScan = false;
     }
 
-    uint8_t oldAfState = afState;
-
     if (afTriggered) {
         afState = processAfTrigger(afMode, afState);
     }
@@ -2090,7 +2087,7 @@ status_t EmulatedFakeCamera2::constructStaticInfo(
     // 5 m hyperfocal distance for back camera, infinity (fixed focus) for front
     const float hyperFocalDistance = mFacingBack ? 1.0/5.0 : 0.0;
     ADD_OR_SIZE(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
-            &minFocusDistance, 1);
+            &hyperFocalDistance, 1);
 
     static const float focalLength = 3.30f; // mm
     ADD_OR_SIZE(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
@@ -2679,7 +2676,6 @@ status_t EmulatedFakeCamera2::addOrSize(camera_metadata_t *request,
         uint32_t tag,
         const void *entryData,
         size_t entryDataCount) {
-    status_t res;
     if (!sizeRequest) {
         return add_camera_metadata_entry(request, tag, entryData,
                 entryDataCount);

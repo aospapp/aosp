@@ -16,9 +16,8 @@
 
 package com.android.settings.deviceinfo;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.Fragment;
+import android.app.settings.SettingsEnums;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -36,10 +35,6 @@ import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
 import android.provider.DocumentsContract;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.text.format.Formatter.BytesResult;
@@ -51,7 +46,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.Fragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceScreen;
+
 import com.android.settings.R;
 import com.android.settings.Settings.StorageUseActivity;
 import com.android.settings.SettingsPreferenceFragment;
@@ -139,7 +140,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
     @Override
     public int getMetricsCategory() {
-        return MetricsEvent.DEVICEINFO_STORAGE;
+        return SettingsEnums.DEVICEINFO_STORAGE;
     }
 
     @Override
@@ -202,7 +203,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
         setTitle();
 
         // Valid options may have changed
-        getFragmentManager().invalidateOptionsMenu();
+        getActivity().invalidateOptionsMenu();
 
         final Context context = getActivity();
         final PreferenceScreen screen = getPreferenceScreen();
@@ -415,7 +416,8 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
                 .getPrimaryStorageCurrentVolume();
         migrate.setVisible((privateVol != null)
                 && (privateVol.getType() == VolumeInfo.TYPE_PRIVATE)
-                && !Objects.equals(mVolume, privateVol));
+                && !Objects.equals(mVolume, privateVol)
+                && privateVol.isMountedWritable());
     }
 
     @Override
@@ -433,7 +435,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
                 args.putString(VolumeInfo.EXTRA_VOLUME_ID, mVolume.getId());
                 new SubSettingLauncher(context)
                         .setDestination(PrivateVolumeUnmount.class.getCanonicalName())
-                        .setTitle(R.string.storage_menu_unmount)
+                        .setTitleRes(R.string.storage_menu_unmount)
                         .setSourceMetricsCategory(getMetricsCategory())
                         .setArguments(args)
                         .launch();
@@ -442,7 +444,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
                 args.putString(VolumeInfo.EXTRA_VOLUME_ID, mVolume.getId());
                 new SubSettingLauncher(context)
                         .setDestination(PrivateVolumeFormat.class.getCanonicalName())
-                        .setTitle(R.string.storage_menu_format)
+                        .setTitleRes(R.string.storage_menu_format)
                         .setSourceMetricsCategory(getMetricsCategory())
                         .setArguments(args)
                         .launch();
@@ -487,7 +489,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
                 intent = new SubSettingLauncher(getActivity())
                         .setDestination(ManageApplications.class.getName())
                         .setArguments(args)
-                        .setTitle(R.string.apps_storage)
+                        .setTitleRes(R.string.apps_storage)
                         .setSourceMetricsCategory(getMetricsCategory())
                         .toIntent();
 
@@ -705,7 +707,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_VOLUME_RENAME;
+            return SettingsEnums.DIALOG_VOLUME_RENAME;
         }
 
         @Override
@@ -753,7 +755,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_STORAGE_SYSTEM_INFO;
+            return SettingsEnums.DIALOG_STORAGE_SYSTEM_INFO;
         }
 
         @Override
@@ -784,7 +786,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_STORAGE_OTHER_INFO;
+            return SettingsEnums.DIALOG_STORAGE_OTHER_INFO;
         }
 
         @Override
@@ -826,7 +828,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_STORAGE_USER_INFO;
+            return SettingsEnums.DIALOG_STORAGE_USER_INFO;
         }
 
         @Override
@@ -860,7 +862,7 @@ public class PrivateVolumeSettings extends SettingsPreferenceFragment {
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_STORAGE_CLEAR_CACHE;
+            return SettingsEnums.DIALOG_STORAGE_CLEAR_CACHE;
         }
 
         @Override

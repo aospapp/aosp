@@ -16,6 +16,8 @@
 
 package com.android.server.telecom;
 
+import android.os.SystemProperties;
+
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.Logging.EventManager;
@@ -29,6 +31,9 @@ import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.telecom.nano.TelecomLogClass;
 
 import java.io.PrintWriter;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +42,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Collectors;
 
 import static android.telecom.ParcelableCallAnalytics.AnalyticsEvent;
@@ -141,6 +147,9 @@ public class Analytics {
                         ParcelableCallAnalytics.EventTiming.FILTERING_COMPLETED_TIMING);
                 put(LogUtils.Events.Timings.FILTERING_TIMED_OUT_TIMING,
                         ParcelableCallAnalytics.EventTiming.FILTERING_TIMED_OUT_TIMING);
+                put(LogUtils.Events.Timings.START_CONNECTION_TO_REQUEST_DISCONNECT_TIMING,
+                        ParcelableCallAnalytics.EventTiming.
+                                START_CONNECTION_TO_REQUEST_DISCONNECT_TIMING);
             }};
 
     public static final Map<Integer, String> sSessionIdToLogSession = new HashMap<>();
@@ -158,6 +167,9 @@ public class Analytics {
         }
 
         public void setCallIsAdditional(boolean isAdditional) {
+        }
+
+        public void setCallIsEmergency(boolean isEmergency) {
         }
 
         public void setCallIsInterrupted(boolean isInterrupted) {
@@ -188,6 +200,9 @@ public class Analytics {
         }
 
         public void addCallProperties(int properties) {
+        }
+
+        public void setCallSource(int callSource) {
         }
     }
 
@@ -222,6 +237,7 @@ public class Analytics {
         public List<TelecomLogClass.VideoEvent> videoEvents;
         public List<TelecomLogClass.InCallServiceInfo> inCallServiceInfos;
         public int callProperties = 0;
+        public int callSource = CALL_SOURCE_UNSPECIFIED;
 
         private long mTimeOfLastVideoEvent = -1;
 
@@ -251,6 +267,7 @@ public class Analytics {
             this.isVideo = other.isVideo;
             this.videoEvents = other.videoEvents;
             this.callProperties = other.callProperties;
+            this.callSource = other.callSource;
 
             if (other.callTerminationReason != null) {
                 this.callTerminationReason = new DisconnectCause(
@@ -292,6 +309,12 @@ public class Analytics {
         public void addCallTechnology(int callTechnology) {
             Log.d(TAG, "adding callTechnology for call " + callId + ": " + callTechnology);
             this.callTechnologies |= callTechnology;
+        }
+
+        @Override
+        public void setCallIsEmergency(boolean isEmergency) {
+            Log.d(TAG, "setting call as emergency: " + isEmergency);
+            this.isEmergency = isEmergency;
         }
 
         @Override
@@ -354,6 +377,11 @@ public class Analytics {
         }
 
         @Override
+        public void setCallSource(int callSource) {
+            this.callSource = callSource;
+        }
+
+        @Override
         public String toString() {
             return "{\n"
                     + "    startTime: " + startTime + '\n'
@@ -361,6 +389,7 @@ public class Analytics {
                     + "    direction: " + getCallDirectionString() + '\n'
                     + "    isAdditionalCall: " + isAdditionalCall + '\n'
                     + "    isInterrupted: " + isInterrupted + '\n'
+                    + "    isEmergency: " + isEmergency + '\n'
                     + "    callTechnologies: " + getCallTechnologiesAsString() + '\n'
                     + "    callTerminationReason: " + getCallDisconnectReasonString() + '\n'
                     + "    connectionService: " + connectionService + '\n'
@@ -368,6 +397,7 @@ public class Analytics {
                     + "    inCallServices: " + getInCallServicesString() + '\n'
                     + "    callProperties: " + Connection.propertiesToStringShort(callProperties)
                     + '\n'
+                    + "    callSource: " + getCallSourceString() + '\n'
                     + "}\n";
         }
 
@@ -410,6 +440,8 @@ public class Analytics {
                             videoEventProto.getVideoState())
                     ).collect(Collectors.toList()));
 
+            result.setCallSource(analyticsProto.getCallSource());
+
             return result;
         }
 
@@ -436,7 +468,8 @@ public class Analytics {
                     .setIsCreatedFromExistingConnection(createdFromExistingConnection)
                     .setIsEmergencyCall(isEmergency)
                     .setIsVideoCall(isVideo)
-                    .setConnectionProperties(callProperties);
+                    .setConnectionProperties(callProperties)
+                    .setCallSource(callSource);
 
             result.connectionService = new String[] {connectionService};
             if (callEvents != null) {
@@ -500,6 +533,19 @@ public class Analytics {
             s.append("]");
             return s.toString();
         }
+
+        private String getCallSourceString() {
+            switch (callSource) {
+                case CALL_SOURCE_UNSPECIFIED:
+                    return "UNSPECIFIED";
+                case CALL_SOURCE_EMERGENCY_DIALPAD:
+                    return "EMERGENCY_DIALPAD";
+                case CALL_SOURCE_EMERGENCY_SHORTCUT:
+                    return "EMERGENCY_SHORTCUT";
+                default:
+                    return "UNSPECIFIED";
+            }
+        }
     }
     public static final String TAG = "TelecomAnalytics";
 
@@ -515,6 +561,14 @@ public class Analytics {
     public static final int SIP_PHONE = ParcelableCallAnalytics.SIP_PHONE;
     public static final int THIRD_PARTY_PHONE = ParcelableCallAnalytics.THIRD_PARTY_PHONE;
 
+    // Constants for call source
+    public static final int CALL_SOURCE_UNSPECIFIED =
+            ParcelableCallAnalytics.CALL_SOURCE_UNSPECIFIED;
+    public static final int CALL_SOURCE_EMERGENCY_DIALPAD =
+            ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_DIALPAD;
+    public static final int CALL_SOURCE_EMERGENCY_SHORTCUT =
+            ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_SHORTCUT;
+
     // Constants for video events
     public static final int SEND_LOCAL_SESSION_MODIFY_REQUEST =
             ParcelableCallAnalytics.VideoEvent.SEND_LOCAL_SESSION_MODIFY_REQUEST;
@@ -528,8 +582,11 @@ public class Analytics {
     public static final long MILLIS_IN_1_SECOND = ParcelableCallAnalytics.MILLIS_IN_1_SECOND;
 
     public static final int MAX_NUM_CALLS_TO_STORE = 100;
+    public static final int MAX_NUM_DUMP_TIMES_TO_STORE = 100;
 
     private static final Object sLock = new Object(); // Coarse lock for all of analytics
+    private static final LinkedBlockingDeque<Long> sDumpTimes =
+            new LinkedBlockingDeque<>(MAX_NUM_DUMP_TIMES_TO_STORE);
     private static final Map<String, CallInfoImpl> sCallIdToInfo = new HashMap<>();
     private static final LinkedList<String> sActiveCallIds = new LinkedList<>();
     private static final List<SessionTiming> sSessionTimings = new LinkedList<>();
@@ -575,6 +632,7 @@ public class Analytics {
         TelecomLogClass.TelecomLog result = new TelecomLogClass.TelecomLog();
 
         synchronized (sLock) {
+            noteDumpTime();
             result.callLogs = sCallIdToInfo.values().stream()
                     .map(CallInfoImpl::toProto)
                     .toArray(TelecomLogClass.CallLog[]::new);
@@ -583,6 +641,7 @@ public class Analytics {
                             .setSessionEntryPoint(timing.getKey())
                             .setTimeMillis(timing.getTime()))
                     .toArray(TelecomLogClass.LogSessionTiming[]::new);
+            result.setHardwareRevision(SystemProperties.get("ro.boot.revision", ""));
             if (args.length > 1 && CLEAR_ANALYTICS_ARG.equals(args[1])) {
                 sCallIdToInfo.clear();
                 sSessionTimings.clear();
@@ -628,12 +687,30 @@ public class Analytics {
                     .filter(e -> sSessionIdToLogSession.containsKey(e.getKey()))
                     .forEach(e -> writer.printf("%s: %.2f\n",
                             sSessionIdToLogSession.get(e.getKey()), e.getValue()));
+            writer.println("Hardware Version: " + SystemProperties.get("ro.boot.revision", ""));
+            writer.println("Past analytics dumps: ");
+            writer.increaseIndent();
+            for (long time : sDumpTimes) {
+                writer.println(Instant.ofEpochMilli(time).atZone(ZoneOffset.UTC));
+            }
+            writer.decreaseIndent();
         }
     }
 
     public static void reset() {
         synchronized (sLock) {
             sCallIdToInfo.clear();
+        }
+    }
+
+    public static void noteDumpTime() {
+        if (sDumpTimes.remainingCapacity() == 0) {
+            sDumpTimes.removeLast();
+        }
+        try {
+            sDumpTimes.addFirst(System.currentTimeMillis());
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "Failed to note dump time -- full");
         }
     }
 

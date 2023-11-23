@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 public class AccelerometerMeasurementTestActivity extends SensorCtsVerifierTestActivity {
     public AccelerometerMeasurementTestActivity() {
         super(AccelerometerMeasurementTestActivity.class);
+        mEnableRetry = true;
     }
 
     public String testFaceUp() throws Throwable {
@@ -109,9 +110,11 @@ public class AccelerometerMeasurementTestActivity extends SensorCtsVerifierTestA
     private String delayedVerifyMeasurements(int descriptionResId, float ... expectations)
             throws Throwable {
         SensorTestLogger logger = getTestLogger();
-        logger.logInstructions(descriptionResId);
-        logger.logWaitForSound();
-        waitForUserToBegin();
+        if (!mShouldRetry) {
+            logger.logInstructions(descriptionResId);
+            logger.logWaitForSound();
+            waitForUserToBegin();
+        }
         Thread.sleep(TimeUnit.MILLISECONDS.convert(7, TimeUnit.SECONDS));
 
         try {
@@ -124,9 +127,11 @@ public class AccelerometerMeasurementTestActivity extends SensorCtsVerifierTestA
     private String verifyMeasurements(int descriptionResId, float ... expectations)
             throws Throwable {
         SensorTestLogger logger = getTestLogger();
-        logger.logInstructions(descriptionResId);
-        logger.logInstructions(R.string.snsr_device_steady);
-        waitForUserToBegin();
+        if (!mShouldRetry) {
+            logger.logInstructions(descriptionResId);
+            logger.logInstructions(R.string.snsr_device_steady);
+            waitForUserToBegin();
+        }
 
         return verifyMeasurements(expectations);
     }

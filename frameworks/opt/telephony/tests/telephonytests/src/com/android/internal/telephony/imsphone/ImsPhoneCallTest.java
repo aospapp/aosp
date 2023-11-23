@@ -23,10 +23,12 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import android.support.test.filters.FlakyTest;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.telephony.ims.ImsStreamMediaProfile;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.TelephonyTest;
@@ -53,6 +55,7 @@ public class ImsPhoneCallTest extends TelephonyTest {
         replaceInstance(ImsPhoneCallTracker.class, "mPhone", mImsCT, mImsPhone);
 
         mImsCallUT = new ImsPhoneCall(mImsCT, ImsPhoneCall.CONTEXT_FOREGROUND);
+        when(mImsCT.getPhone()).thenReturn(mImsPhone);
         mMediaProfile = new ImsStreamMediaProfile();
     }
 
@@ -118,8 +121,6 @@ public class ImsPhoneCallTest extends TelephonyTest {
         }
     }
 
-    @FlakyTest
-    @Ignore
     @Test
     @SmallTest
     public void testUpdateRingBackTone() {
@@ -133,6 +134,22 @@ public class ImsPhoneCallTest extends TelephonyTest {
         mImsCallUT.update(null, mImsCall, Call.State.ACTIVE);
         verify(mImsPhone, times(1)).stopRingbackTone();
         assertEquals(Call.State.ACTIVE, mImsCallUT.getState());
+    }
+
+    @Test
+    @SmallTest
+    public void testStopRingingOnHandover() {
+        //Mock local tone
+        mMediaProfile.mAudioDirection = ImsStreamMediaProfile.DIRECTION_INACTIVE;
+        mImsCallProfile.mMediaProfile = mMediaProfile;
+
+        mImsCallUT.update(null, mImsCall, Call.State.ALERTING);
+        verify(mImsPhone, times(1)).startRingbackTone();
+        assertEquals(Call.State.ALERTING, mImsCallUT.getState());
+
+        // Emulate ringback terminate on handover.
+        mImsCallUT.maybeStopRingback();
+        verify(mImsPhone, times(1)).stopRingbackTone();
     }
 
     @Test

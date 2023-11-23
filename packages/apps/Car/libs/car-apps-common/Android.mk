@@ -32,6 +32,24 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_USE_AAPT2 := true
 
+LOCAL_JAVA_LIBRARIES += android.car
+
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
+LOCAL_STATIC_ANDROID_LIBRARIES += \
+    androidx.annotation_annotation \
+    androidx.cardview_cardview \
+    androidx.interpolator_interpolator \
+    androidx.lifecycle_lifecycle-common-java8 \
+    androidx.lifecycle_lifecycle-extensions \
+    androidx-constraintlayout_constraintlayout \
+    androidx.recyclerview_recyclerview
+
+LOCAL_STATIC_JAVA_LIBRARIES += \
+    androidx-constraintlayout_constraintlayout-solver
+
 include $(BUILD_STATIC_JAVA_LIBRARY)
+
+ifeq (,$(ONE_SHOT_MAKEFILE))
+    include $(call all-makefiles-under,$(LOCAL_PATH))
+endif

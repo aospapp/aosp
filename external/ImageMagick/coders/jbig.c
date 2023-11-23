@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -70,7 +70,7 @@
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
-#include "jbig.h"
+#include <jbig.h>
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
@@ -429,6 +429,7 @@ static MagickBooleanType WriteJBIGImage(const ImageInfo *image_info,
     *q;
 
   size_t
+    imageListLength,
     number_packets;
 
   ssize_t
@@ -458,6 +459,7 @@ static MagickBooleanType WriteJBIGImage(const ImageInfo *image_info,
     return(status);
   version=StringToDouble(JBG_VERSION,(char **) NULL);
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     /*
@@ -555,8 +557,7 @@ static MagickBooleanType WriteJBIGImage(const ImageInfo *image_info,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

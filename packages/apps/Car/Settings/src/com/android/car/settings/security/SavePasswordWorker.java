@@ -23,11 +23,11 @@ package com.android.car.settings.security;
 
 public class SavePasswordWorker extends SaveLockWorkerBase {
 
-    private String mEnteredPassword;
-    private String mCurrentPassword;
+    private byte[] mEnteredPassword;
+    private byte[] mCurrentPassword;
     private int mRequestedQuality;
 
-    void start(int userId, String enteredPassword, String currentPassword, int requestedQuality) {
+    void start(int userId, byte[] enteredPassword, byte[] currentPassword, int requestedQuality) {
         init(userId);
         mEnteredPassword = enteredPassword;
         mCurrentPassword = currentPassword;

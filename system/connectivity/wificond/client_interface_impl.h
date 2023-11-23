@@ -17,13 +17,17 @@
 #ifndef WIFICOND_CLIENT_INTERFACE_IMPL_H_
 #define WIFICOND_CLIENT_INTERFACE_IMPL_H_
 
+#include <array>
 #include <string>
+
+#include <linux/if_ether.h>
 
 #include <android-base/macros.h>
 #include <utils/StrongPointer.h>
 #include <wifi_system/interface_tool.h>
 
 #include "android/net/wifi/IClientInterface.h"
+#include "android/net/wifi/ISendMgmtFrameEvent.h"
 #include "wificond/net/mlme_event_handler.h"
 #include "wificond/net/netlink_utils.h"
 #include "wificond/scanning/offload/offload_service_utils.h"
@@ -62,7 +66,7 @@ class ClientInterfaceImpl {
       uint32_t wiphy_index,
       const std::string& interface_name,
       uint32_t interface_index,
-      const std::vector<uint8_t>& interface_mac_addr,
+      const std::array<uint8_t, ETH_ALEN>& interface_mac_addr,
       android::wifi_system::InterfaceTool* if_tool,
       NetlinkUtils* netlink_utils,
       ScanUtils* scan_utils);
@@ -73,12 +77,16 @@ class ClientInterfaceImpl {
 
   bool GetPacketCounters(std::vector<int32_t>* out_packet_counters);
   bool SignalPoll(std::vector<int32_t>* out_signal_poll_results);
-  const std::vector<uint8_t>& GetMacAddress();
+  const std::array<uint8_t, ETH_ALEN>& GetMacAddress();
   const std::string& GetInterfaceName() const { return interface_name_; }
   const android::sp<ScannerImpl> GetScanner() { return scanner_; };
-  bool SetMacAddress(const ::std::vector<uint8_t>& mac);
+  bool SetMacAddress(const std::array<uint8_t, ETH_ALEN>& mac);
   virtual bool IsAssociated() const;
   void Dump(std::stringstream* ss) const;
+  void SendMgmtFrame(
+      const std::vector<uint8_t>& frame,
+      const sp<::android::net::wifi::ISendMgmtFrameEvent>& callback,
+      int32_t mcs);
 
  private:
   bool RefreshAssociateFreq();
@@ -86,7 +94,7 @@ class ClientInterfaceImpl {
   const uint32_t wiphy_index_;
   const std::string interface_name_;
   const uint32_t interface_index_;
-  const std::vector<uint8_t> interface_mac_addr_;
+  const std::array<uint8_t, ETH_ALEN> interface_mac_addr_;
   android::wifi_system::InterfaceTool* const if_tool_;
   NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
@@ -97,13 +105,18 @@ class ClientInterfaceImpl {
 
   // Cached information for this connection.
   bool is_associated_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
   uint32_t associate_freq_;
 
   // Capability information for this wiphy/interface.
   BandInfo band_info_;
   ScanCapabilities scan_capabilities_;
   WiphyFeatures wiphy_features_;
+
+  // handler for frame tx status messages
+  bool frame_tx_in_progress_;
+  uint64_t frame_tx_status_cookie_;
+  std::function<void(bool was_acked)> on_frame_tx_status_event_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(ClientInterfaceImpl);
   friend class MlmeEventHandlerImpl;

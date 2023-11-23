@@ -1,6 +1,5 @@
 package org.bouncycastle.jcajce.provider.asymmetric.dsa;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
@@ -10,23 +9,20 @@ import java.security.SignatureException;
 import java.security.SignatureSpi;
 import java.security.spec.AlgorithmParameterSpec;
 
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.DSA;
+import org.bouncycastle.crypto.DSAExt;
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.digests.NullDigest;
 // Android-added: Check DSA keys when generated
 import org.bouncycastle.crypto.params.DSAKeyParameters;
 import org.bouncycastle.crypto.params.DSAParameters;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.crypto.signers.DSAEncoding;
 // Android-removed: Unsupported algorithm
 // import org.bouncycastle.crypto.signers.HMacDSAKCalculator;
+import org.bouncycastle.crypto.signers.StandardDSAEncoding;
 // Android-changed: Use Android digests
 // import org.bouncycastle.crypto.util.DigestFactory;
 import org.bouncycastle.crypto.digests.AndroidDigestFactory;
@@ -37,12 +33,13 @@ public class DSASigner
     implements PKCSObjectIdentifiers, X509ObjectIdentifiers
 {
     private Digest                  digest;
-    private DSA                     signer;
+    private DSAExt                  signer;
+    private DSAEncoding             encoding = StandardDSAEncoding.INSTANCE;
     private SecureRandom            random;
 
     protected DSASigner(
         Digest digest,
-        DSA signer)
+        DSAExt signer)
     {
         this.digest = digest;
         this.signer = signer;
@@ -111,9 +108,9 @@ public class DSASigner
 
         try
         {
-            BigInteger[]    sig = signer.generateSignature(hash);
+            BigInteger[] sig = signer.generateSignature(hash);
 
-            return derEncode(sig[0], sig[1]);
+            return encoding.encode(signer.getOrder(), sig[0], sig[1]);
         }
         catch (Exception e)
         {
@@ -129,11 +126,11 @@ public class DSASigner
 
         digest.doFinal(hash, 0);
 
-        BigInteger[]    sig;
+        BigInteger[] sig;
 
         try
         {
-            sig = derDecode(sigBytes);
+            sig = encoding.decode(signer.getOrder(), sigBytes);
         }
         catch (Exception e)
         {
@@ -172,7 +169,7 @@ public class DSASigner
 
     // END Android-added: Check DSA keys when generated
     /**
-     * @deprecated replaced with <a href = "#engineSetParameter(java.security.spec.AlgorithmParameterSpec)">
+     * @deprecated replaced with #engineSetParameter(java.security.spec.AlgorithmParameterSpec)
      */
     protected void engineSetParameter(
         String  param,
@@ -187,36 +184,7 @@ public class DSASigner
     protected Object engineGetParameter(
         String      param)
     {
-        throw new UnsupportedOperationException("engineSetParameter unsupported");
-    }
-
-    private byte[] derEncode(
-        BigInteger  r,
-        BigInteger  s)
-        throws IOException
-    {
-        ASN1Integer[] rs = new ASN1Integer[]{ new ASN1Integer(r), new ASN1Integer(s) };
-        return new DERSequence(rs).getEncoded(ASN1Encoding.DER);
-    }
-
-    private BigInteger[] derDecode(
-        byte[]  encoding)
-        throws IOException
-    {
-        ASN1Sequence s = (ASN1Sequence)ASN1Primitive.fromByteArray(encoding);
-        if (s.size() != 2)
-        {
-            throw new IOException("malformed signature");
-        }
-        if (!Arrays.areEqual(encoding, s.getEncoded(ASN1Encoding.DER)))
-        {
-            throw new IOException("malformed signature");
-        }
-
-        return new BigInteger[]{
-            ((ASN1Integer)s.getObjectAt(0)).getValue(),
-            ((ASN1Integer)s.getObjectAt(1)).getValue()
-        };
+        throw new UnsupportedOperationException("engineGetParameter unsupported");
     }
 
     static public class stdDSA

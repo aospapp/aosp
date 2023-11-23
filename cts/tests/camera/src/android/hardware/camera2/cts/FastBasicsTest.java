@@ -41,6 +41,8 @@ import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 
+import org.junit.Test;
+
 /**
  * Quick-running test for very basic camera operation for all cameras
  * and both camera APIs.
@@ -58,18 +60,19 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     private static final int FRAMES_TO_WAIT_FOR_CAPTURE = 100;
 
     @Presubmit
+    @Test
     public void testCamera2() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 Log.i(TAG, "Testing camera2 API for camera device " + mCameraIds[i]);
-                openDevice(mCameraIds[i]);
 
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
 
+                openDevice(mCameraIds[i]);
                 camera2TestByCamera();
             } finally {
                 closeDevice();
@@ -88,7 +91,7 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
         SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
 
         prepareStillCaptureAndStartPreview(previewRequest, stillCaptureRequest,
-                previewSize, stillSize, resultListener, imageListener);
+                previewSize, stillSize, resultListener, imageListener, false /*isHeic*/);
 
         CaptureResult result = resultListener.getCaptureResult(WAIT_FOR_FRAMES_TIMEOUT_MS);
 
@@ -184,6 +187,7 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     }
 
     @Presubmit
+    @Test
     public void testCamera1() throws Exception {
         for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
             Camera camera = null;

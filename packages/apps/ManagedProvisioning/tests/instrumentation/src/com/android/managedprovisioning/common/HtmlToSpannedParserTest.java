@@ -19,8 +19,9 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import android.graphics.Color;
-import android.support.test.InstrumentationRegistry;
 import android.text.Spanned;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.managedprovisioning.preprovisioning.WebActivity;
 

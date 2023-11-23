@@ -33,14 +33,18 @@ class LibMirror(native_entity_mirror.NativeEntityMirror):
     One can use this class to create and destroy a lib mirror object.
     """
 
-    def InitLibDriver(self, target_type, target_version, target_package,
-                      target_filename, target_basepaths, handler_name, bits):
+    def InitLibDriver(self, target_type, target_version_major,
+                      target_version_minor, target_package, target_filename,
+                      target_basepaths, handler_name, bits):
         """Initiates the driver for a lib on the target device and loads
         the interface specification message.
 
         Args:
             target_type: string, the target type name (e.g., light, camera).
-            target_version: float, the target component version (e.g., 1.0).
+            target_version_major:
+              int, the target component major version (e.g. 1.0 -> 1).
+            target_version_minor:
+              int, the target component minor version (e.g. 1.0 -> 0).
             target_package: . separated string (e.g., a.b.c) to denote the
                             package name of target component.
             target_filename: string, the target file name (e.g., libm.so).
@@ -77,7 +81,8 @@ class LibMirror(native_entity_mirror.NativeEntityMirror):
             ASysCtrlMsg.VTS_DRIVER_TYPE_HAL_CONVENTIONAL,
             "lib_shared",
             target_type,
-            target_version,
+            target_version_major,
+            target_version_minor,
             target_package=target_package,
             target_filename=target_filename,
             handler_name=handler_name,
@@ -90,8 +95,8 @@ class LibMirror(native_entity_mirror.NativeEntityMirror):
         #      multiple libs together.
         found_api_spec = self._client.ListApis()
         if not found_api_spec:
-            raise errors.ComponentLoadingError("No API found for %s" %
-                                               target_type)
+            raise errors.ComponentLoadingError(
+                "No API found for %s" % target_type)
         if_spec_msg = CompSpecMsg.ComponentSpecificationMessage()
         text_format.Merge(found_api_spec, if_spec_msg)
 

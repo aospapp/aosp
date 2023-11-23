@@ -20,8 +20,8 @@ import static com.android.tv.util.images.BitmapUtils.createScaledBitmapInfo;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.graphics.Bitmap;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.util.images.BitmapUtils.ScaledBitmapInfo;
 import org.junit.Before;
 import org.junit.Test;

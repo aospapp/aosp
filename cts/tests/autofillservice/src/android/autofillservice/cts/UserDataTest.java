@@ -22,15 +22,17 @@ import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MAX_USER_DATA_
 import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MAX_VALUE_LENGTH;
 import static android.provider.Settings.Secure.AUTOFILL_USER_DATA_MIN_VALUE_LENGTH;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
-import android.autofillservice.cts.common.SettingsStateChangerRule;
 import android.content.Context;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.UserData;
-import android.support.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SettingsStateChangerRule;
 
 import com.google.common.base.Strings;
 
@@ -41,10 +43,10 @@ import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class UserDataTest {
 
-    private static final Context sContext = InstrumentationRegistry.getContext();
+    private static final Context sContext = getInstrumentation().getTargetContext();
 
     @ClassRule
     public static final SettingsStateChangerRule sUserDataMaxFcSizeChanger =
@@ -118,8 +120,10 @@ public class UserDataTest {
 
     @Test
     public void testAdd_duplicatedValue() {
-        assertThrows(IllegalStateException.class, () -> mBuilder.add(mValue, mCategoryId));
-        assertThrows(IllegalStateException.class, () -> mBuilder.add(mValue, mCategoryId2));
+        assertThat(new UserData.Builder(mId, mValue, mCategoryId).add(mValue, mCategoryId).build())
+                .isNotNull();
+        assertThat(new UserData.Builder(mId, mValue, mCategoryId).add(mValue, mCategoryId2).build())
+                .isNotNull();
     }
 
     @Test
@@ -146,11 +150,33 @@ public class UserDataTest {
     }
 
     @Test
+    public void testSetFcAlgorithmForCategory_invalid() {
+        assertThrows(NullPointerException.class, () -> mBuilder
+                .setFieldClassificationAlgorithmForCategory(null, "algo_mas", null));
+    }
+
+    @Test
+    public void testSetFcAlgorithmForCateogry() {
+        final UserData userData = mBuilder.setFieldClassificationAlgorithmForCategory(
+                mCategoryId, "algo_mas", null).build();
+        assertThat(userData.getFieldClassificationAlgorithmForCategory(mCategoryId)).isEqualTo(
+                "algo_mas");
+    }
+
+    @Test
     public void testBuild_valid() {
         final UserData userData = mBuilder.build();
         assertThat(userData).isNotNull();
         assertThat(userData.getId()).isEqualTo(mId);
-        assertThat(userData.getFieldClassificationAlgorithm()).isNull();
+        assertThat(userData.getFieldClassificationAlgorithmForCategory(mCategoryId)).isNull();
+    }
+
+    @Test
+    public void testGetFcAlgorithmForCategory_invalid() {
+        final UserData userData = mBuilder.setFieldClassificationAlgorithm("algo_mas", null)
+                .build();
+        assertThrows(NullPointerException.class, () -> userData
+                .getFieldClassificationAlgorithmForCategory(null));
     }
 
     @Test
@@ -159,7 +185,8 @@ public class UserDataTest {
 
         assertThrows(IllegalStateException.class, () -> mBuilder.add(mValue, mCategoryId2));
         assertThrows(IllegalStateException.class,
-                () -> mBuilder.setFieldClassificationAlgorithm("algo_mas", null));
+                () -> mBuilder.setFieldClassificationAlgorithmForCategory(mCategoryId,
+                        "algo_mas", null));
         assertThrows(IllegalStateException.class, () -> mBuilder.build());
     }
 }

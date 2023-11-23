@@ -44,9 +44,9 @@ class CHAGuardVisitor : HGraphVisitor {
     GetGraph()->SetNumberOfCHAGuards(0);
   }
 
-  void VisitShouldDeoptimizeFlag(HShouldDeoptimizeFlag* flag) OVERRIDE;
+  void VisitShouldDeoptimizeFlag(HShouldDeoptimizeFlag* flag) override;
 
-  void VisitBasicBlock(HBasicBlock* block) OVERRIDE;
+  void VisitBasicBlock(HBasicBlock* block) override;
 
  private:
   void RemoveGuard(HShouldDeoptimizeFlag* flag);
@@ -241,14 +241,15 @@ void CHAGuardVisitor::VisitShouldDeoptimizeFlag(HShouldDeoptimizeFlag* flag) {
   GetGraph()->IncrementNumberOfCHAGuards();
 }
 
-void CHAGuardOptimization::Run() {
+bool CHAGuardOptimization::Run() {
   if (graph_->GetNumberOfCHAGuards() == 0) {
-    return;
+    return false;
   }
   CHAGuardVisitor visitor(graph_);
   for (HBasicBlock* block : graph_->GetReversePostOrder()) {
     visitor.VisitBasicBlock(block);
   }
+  return true;
 }
 
 }  // namespace art

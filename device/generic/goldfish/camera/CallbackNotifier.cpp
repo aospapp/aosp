@@ -21,7 +21,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_CallbackNotifier"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <MetadataBufferType.h>
 #include "EmulatedCameraDevice.h"
 #undef min

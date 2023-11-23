@@ -2415,6 +2415,7 @@ dEQP-EGL.functional.get_proc_address.extension.egl_ext_compositor
 dEQP-EGL.functional.get_proc_address.extension.gl_apple_copy_texture_levels
 dEQP-EGL.functional.get_proc_address.extension.gl_apple_framebuffer_multisample
 dEQP-EGL.functional.get_proc_address.extension.gl_apple_sync
+dEQP-EGL.functional.get_proc_address.extension.gl_ext_debug_marker
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_discard_framebuffer
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_map_buffer_range
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_multi_draw_arrays
@@ -2453,7 +2454,6 @@ dEQP-EGL.functional.get_proc_address.extension.gl_ext_buffer_storage
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_clear_texture
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_copy_image
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_debug_label
-dEQP-EGL.functional.get_proc_address.extension.gl_ext_debug_marker
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_disjoint_timer_query
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_draw_buffers
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_draw_buffers_indexed
@@ -2481,7 +2481,6 @@ dEQP-EGL.functional.get_proc_address.extension.gl_ext_sparse_texture
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_tessellation_shader
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_texture_border_clamp
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_texture_buffer
-dEQP-EGL.functional.get_proc_address.extension.gl_ext_texture_filter_minmax
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_texture_view
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_win32_keyed_mutex
 dEQP-EGL.functional.get_proc_address.extension.gl_ext_window_rectangles
@@ -3277,7 +3276,6 @@ dEQP-EGL.functional.reusable_sync.valid.get_type
 dEQP-EGL.functional.reusable_sync.valid.get_status
 dEQP-EGL.functional.reusable_sync.valid.get_status_signaled
 dEQP-EGL.functional.reusable_sync.valid.destroy
-dEQP-EGL.functional.reusable_sync.valid.wait_server
 dEQP-EGL.functional.reusable_sync.invalid.create_invalid_display
 dEQP-EGL.functional.reusable_sync.invalid.create_invalid_type
 dEQP-EGL.functional.reusable_sync.invalid.create_invalid_attribs
@@ -3291,7 +3289,6 @@ dEQP-EGL.functional.reusable_sync.invalid.destroy_invalid_display
 dEQP-EGL.functional.reusable_sync.invalid.destroy_invalid_sync
 dEQP-EGL.functional.reusable_sync.invalid.wait_server_invalid_display
 dEQP-EGL.functional.reusable_sync.invalid.wait_server_invalid_sync
-dEQP-EGL.functional.reusable_sync.invalid.wait_server_invalid_flag
 dEQP-EGL.functional.resize.surface_size.shrink
 dEQP-EGL.functional.resize.surface_size.grow
 dEQP-EGL.functional.resize.surface_size.stretch_width

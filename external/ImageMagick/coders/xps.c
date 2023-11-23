@@ -17,13 +17,13 @@
 %                               January 2008                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -198,10 +198,10 @@ static Image *ReadXPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   cmyk=image->colorspace == CMYKColorspace ? MagickTrue : MagickFalse;
   count=0;
-  (void) ResetMagickMemory(&bounding_box,0,sizeof(bounding_box));
-  (void) ResetMagickMemory(&bounds,0,sizeof(bounds));
-  (void) ResetMagickMemory(&page,0,sizeof(page));
-  (void) ResetMagickMemory(command,0,sizeof(command));
+  (void) memset(&bounding_box,0,sizeof(bounding_box));
+  (void) memset(&bounds,0,sizeof(bounds));
+  (void) memset(&page,0,sizeof(page));
+  (void) memset(command,0,sizeof(command));
   p=command;
   for (c=ReadBlobByte(image); c != EOF; c=ReadBlobByte(image))
   {
@@ -273,7 +273,10 @@ static Image *ReadXPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
      else
        delegate_info=GetDelegateInfo("xps:color",(char *) NULL,exception);
   if (delegate_info == (const DelegateInfo *) NULL)
-    return((Image *) NULL);
+    {
+      image=DestroyImage(image);
+      return((Image *) NULL);
+    }
   density=AcquireString("");
   options=AcquireString("");
   (void) FormatLocaleString(density,MagickPathExtent,"%gx%g",
@@ -375,7 +378,6 @@ ModuleExport size_t RegisterXPSImage(void)
   entry->flags^=CoderAdjoinFlag;
   entry->flags^=CoderBlobSupportFlag;
   entry->flags^=CoderDecoderThreadSupportFlag;
-  entry->flags|=CoderSeekableStreamFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
 }

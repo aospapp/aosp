@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"На ваш планшет по NFC поступила ссылка:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"На ваш телефон по NFC поступила ссылка:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Открыть"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"Ошибка чтения NFC-метки. Повторите попытку."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"Для этой NFC-метки нет поддерживаемых приложений"</string>
 </resources>

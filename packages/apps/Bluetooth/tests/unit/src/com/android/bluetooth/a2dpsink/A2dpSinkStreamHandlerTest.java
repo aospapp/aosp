@@ -24,9 +24,10 @@ import android.content.res.Resources;
 import android.media.AudioManager;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 
@@ -47,7 +48,7 @@ public class A2dpSinkStreamHandlerTest {
 
     @Mock private Context mMockContext;
 
-    @Mock private A2dpSinkStateMachine mMockA2dpSink;
+    @Mock private A2dpSinkService mMockA2dpSink;
 
     @Mock private AudioManager mMockAudioManager;
 
@@ -189,7 +190,8 @@ public class A2dpSinkStreamHandlerTest {
                 mStreamHandler.obtainMessage(A2dpSinkStreamHandler.AUDIO_FOCUS_CHANGE,
                         AudioManager.AUDIOFOCUS_LOSS_TRANSIENT));
         verify(mMockAudioManager, times(0)).abandonAudioFocus(any());
-        verify(mMockA2dpSink, times(1)).informAudioFocusStateNative(0);
+        verify(mMockA2dpSink, times(0)).informAudioFocusStateNative(0);
+        verify(mMockA2dpSink, times(1)).informAudioTrackGainNative(0);
     }
 
     @Test

@@ -211,13 +211,7 @@ abstract class SchedulesHeaderRowPresenter extends RowPresenter {
                         new View.OnFocusChangeListener() {
                             @Override
                             public void onFocusChange(View view, boolean focused) {
-                                view.post(
-                                        new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                updateSelector(view);
-                                            }
-                                        });
+                                view.post(() -> updateSelector(view));
                             }
                         };
                 mSeriesSettingsButton.setOnFocusChangeListener(onFocusChangeListener);

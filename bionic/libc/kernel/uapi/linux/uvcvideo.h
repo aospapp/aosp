@@ -34,6 +34,7 @@
 #define UVC_CTRL_FLAG_GET_DEF (1 << 5)
 #define UVC_CTRL_FLAG_RESTORE (1 << 6)
 #define UVC_CTRL_FLAG_AUTO_UPDATE (1 << 7)
+#define UVC_CTRL_FLAG_ASYNCHRONOUS (1 << 8)
 #define UVC_CTRL_FLAG_GET_RANGE (UVC_CTRL_FLAG_GET_CUR | UVC_CTRL_FLAG_GET_MIN | UVC_CTRL_FLAG_GET_MAX | UVC_CTRL_FLAG_GET_RES | UVC_CTRL_FLAG_GET_DEF)
 struct uvc_menu_info {
   __u32 value;
@@ -61,4 +62,11 @@ struct uvc_xu_control_query {
 };
 #define UVCIOC_CTRL_MAP _IOWR('u', 0x20, struct uvc_xu_control_mapping)
 #define UVCIOC_CTRL_QUERY _IOWR('u', 0x21, struct uvc_xu_control_query)
+struct uvc_meta_buf {
+  __u64 ns;
+  __u16 sof;
+  __u8 length;
+  __u8 flags;
+  __u8 buf[];
+} __packed;
 #endif

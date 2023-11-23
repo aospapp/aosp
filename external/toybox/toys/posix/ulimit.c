@@ -17,6 +17,7 @@
  * runtime). We support -P to affect processes other than us.
 
 USE_ULIMIT(NEWTOY(ulimit, ">1P#<1SHavutsrRqpnmlifedc[-SH][!apvutsrRqnmlifedc]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_ULIMIT(OLDTOY(prlimit, ulimit, TOYFLAG_USR|TOYFLAG_BIN))
 
 config ULIMIT
   bool "ulimit"
@@ -45,7 +46,7 @@ config ULIMIT
 #include "toys.h"
 
 GLOBALS(
-  long pid;
+  long P;
 )
 
 // This is a linux kernel syscall added in 2.6.36 (git c022a0acad53) which
@@ -67,22 +68,22 @@ void ulimit_main(void)
                 RLIMIT_CPU, RLIMIT_NPROC, RLIMIT_AS};
 
   if (!(toys.optflags&(FLAG_H-1))) toys.optflags |= FLAG_f;
-  if ((toys.optflags&(FLAG_a|FLAG_p)) && toys.optc) error_exit("can't set -ap");
+  if ((FLAG(a)||FLAG(p)) && toys.optc) error_exit("can't set -ap");
 
   // Fetch data
-  if (!(toys.optflags&FLAG_P)) TT.pid = getppid();
+  if (!FLAG(P)) TT.P = getppid();
 
   for (i=0; i<sizeof(map); i++) {
     char *flags="cdefilmnpqRrstuv";
 
     int get = toys.optflags&(FLAG_a|(1<<i));
 
-    if (get && prlimit(TT.pid, map[i], 0, &rr)) perror_exit("-%c", flags[i]);
+    if (get && prlimit(TT.P, map[i], 0, &rr)) perror_exit("-%c", flags[i]);
     if (!toys.optc) {
-      if (toys.optflags&FLAG_a) printf("-%c: ", flags[i]);
+      if (FLAG(a)) printf("-%c: ", flags[i]);
       if (get) {
         if ((1<<i)&FLAG_p) {
-          if (toys.optflags&FLAG_H)
+          if (FLAG(H))
             xreadfile("/proc/sys/fs/pipe-max-size", toybuf, sizeof(toybuf));
           else {
             int pp[2];
@@ -92,7 +93,7 @@ void ulimit_main(void)
           }
           printf("%s", toybuf);
         } else {
-          rlim_t rl = (toys.optflags&FLAG_H) ? rr.rlim_max : rr.rlim_cur;
+          rlim_t rl = FLAG(H) ? rr.rlim_max : rr.rlim_cur;
 
           if (rl == RLIM_INFINITY) printf("unlimited\n");
           else printf("%ld\n", (long)rl);
@@ -102,7 +103,7 @@ void ulimit_main(void)
     if (toys.optflags&(1<<i)) break;
   }
 
-  if (toys.optflags&(FLAG_a|FLAG_p)) return;
+  if (FLAG(a)||FLAG(p)) return;
 
   if (toys.optc) {
     rlim_t val;
@@ -110,8 +111,8 @@ void ulimit_main(void)
     if (tolower(**toys.optargs) == 'u') val = RLIM_INFINITY;
     else val = atolx_range(*toys.optargs, 0, LONG_MAX);
 
-    if (toys.optflags&FLAG_H) rr.rlim_max = val;
+    if (FLAG(H)) rr.rlim_max = val;
     else rr.rlim_cur = val;
-    if (prlimit(TT.pid, map[i], &rr, 0)) perror_exit(0);
+    if (prlimit(TT.P, map[i], &rr, 0)) perror_exit(0);
   }
 }

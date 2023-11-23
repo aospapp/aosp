@@ -24,6 +24,10 @@
 
 namespace chre {
 
+const chrePalWwanCallbacks PlatformWwanBase::sWwanCallbacks = {
+  PlatformWwanBase::cellInfoResultCallback,
+};
+
 PlatformWwan::~PlatformWwan() {
   if (mWwanApi != nullptr) {
     LOGD("Platform WWAN closing");
@@ -37,14 +41,14 @@ void PlatformWwan::init() {
   prePalApiCall();
   mWwanApi = chrePalWwanGetApi(CHRE_PAL_WWAN_API_CURRENT_VERSION);
   if (mWwanApi != nullptr) {
-    mWwanCallbacks.cellInfoResultCallback =
-        PlatformWwanBase::cellInfoResultCallback;
-    if (!mWwanApi->open(&gChrePalSystemApi, &mWwanCallbacks)) {
+    if (!mWwanApi->open(&gChrePalSystemApi, &sWwanCallbacks)) {
       LOGE("WWAN PAL open returned false");
       mWwanApi = nullptr;
+    }  else {
+      LOGD("Opened WWAN PAL version 0x%08" PRIx32, mWwanApi->moduleVersion);
     }
   } else {
-    LOGW("Requested WWAN PAL (version %08" PRIx32 ") not found",
+    LOGW("Requested WWAN PAL (version 0x%08" PRIx32 ") not found",
          CHRE_PAL_WWAN_API_CURRENT_VERSION);
   }
 }

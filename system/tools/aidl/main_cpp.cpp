@@ -14,29 +14,31 @@
  * limitations under the License.
  */
 
-#include <memory>
-
 #include "aidl.h"
 #include "io_delegate.h"
 #include "logging.h"
 #include "options.h"
 
-using android::aidl::CppOptions;
+#include <iostream>
+
+using android::aidl::Options;
 
 // aidl is leaky. Turn off LeakSanitizer by default. b/37749857
 extern "C" const char *__asan_default_options() {
     return "detect_leaks=0";
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
   android::base::InitLogging(argv);
   LOG(DEBUG) << "aidl starting";
 
-  std::unique_ptr<CppOptions> options = CppOptions::Parse(argc, argv);
-  if (!options) {
+  Options options(argc, argv, Options::Language::CPP);
+  if (!options.Ok()) {
+    std::cerr << options.GetErrorMessage();
+    std::cerr << options.GetUsage();
     return 1;
   }
 
   android::aidl::IoDelegate io_delegate;
-  return android::aidl::compile_aidl_to_cpp(*options, io_delegate);
+  return android::aidl::compile_aidl(options, io_delegate);
 }

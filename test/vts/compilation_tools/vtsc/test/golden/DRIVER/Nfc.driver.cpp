@@ -37,7 +37,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::GetService(bool get_stub, co
     callback_message.set_name("Vts_android_hardware_nfc_V1_0_INfc::open");
     VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
     var_msg0->set_type(TYPE_HIDL_CALLBACK);
-    /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
+    LOG(ERROR) << "TYPE HIDL_CALLBACK is not supported yet. ";
     RpcCallToAgent(callback_message, callback_socket_name_);
     return ::android::hardware::nfc::V1_0::NfcStatus();
 }
@@ -151,8 +151,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
         arg0 = VtsFuzzerCreateVts_android_hardware_nfc_V1_0_INfcClientCallback(callback_socket_name);
         static_cast<Vts_android_hardware_nfc_V1_0_INfcClientCallback*>(arg0.get())->Register(func_msg.arg(0));
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->open(arg0);
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->open(arg0);
         result_msg->set_name("open");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -166,8 +165,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
             arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().uint8_t();
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        uint32_t result0;
-        result0 = hw_binder_proxy_->write(arg0);
+        uint32_t result0 = hw_binder_proxy_->write(arg0);
         result_msg->set_name("write");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -182,8 +180,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
             arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().uint8_t();
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->coreInitialized(arg0);
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->coreInitialized(arg0);
         result_msg->set_name("coreInitialized");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -192,8 +189,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
     }
     if (!strcmp(func_name, "prediscover")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->prediscover();
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->prediscover();
         result_msg->set_name("prediscover");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -202,8 +198,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
     }
     if (!strcmp(func_name, "close")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->close();
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->close();
         result_msg->set_name("close");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -212,8 +207,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
     }
     if (!strcmp(func_name, "controlGranted")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->controlGranted();
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->controlGranted();
         result_msg->set_name("controlGranted");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -222,8 +216,7 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfc::CallFunction(
     }
     if (!strcmp(func_name, "powerCycle")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::nfc::V1_0::NfcStatus result0;
-        result0 = hw_binder_proxy_->powerCycle();
+        ::android::hardware::nfc::V1_0::NfcStatus result0 = hw_binder_proxy_->powerCycle();
         result_msg->set_name("powerCycle");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);

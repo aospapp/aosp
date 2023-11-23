@@ -55,7 +55,7 @@ public class VtsCompatibilityInvocationHelper {
                         "Root directory doesn't exist %s", testCaseDir.getAbsolutePath()));
             }
             mTestCasesDir = testCaseDir.getAbsoluteFile();
-            CLog.i(String.format(
+            CLog.d(String.format(
                     "%s TEST CASES DIR: %s", TestSuiteInfo.getInstance().getName(), mTestCasesDir));
         }
 

@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD-kóðaskipun í gangi…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"Hætt við MMI-kóðaskipun"</string>
     <string name="cancel" msgid="5044513931633602634">"Hætta við"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD-skilaboð verða að vera á bilinu <xliff:g id="MIN_LEN">%d</xliff:g> til <xliff:g id="MAX_LEN">%d</xliff:g> stafir. Reyndu aftur."</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD-skilaboð verða að vera á bilinu <xliff:g id="MIN_LEN">%1$d</xliff:g> til <xliff:g id="MAX_LEN">%2$d</xliff:g> stafir. Reyndu aftur."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Stjórna símafundi"</string>
     <string name="ok" msgid="3811371167865772377">"Í lagi"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Hátalari"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"Talhólf"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Talhólf (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"Talhólf:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"Hringja og svara símtölum"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"Snjöll framsending"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"Þegar ekki næst í annað númerið geturðu látið framsenda símtöl í hitt númerið þitt"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Tilkynningar"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Neyðarútsendingar"</string>
     <string name="call_settings" msgid="6112441768261754562">"Símtalsstillingar"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"Skráð á símkerfi."</string>
     <string name="already_auto" msgid="6067116884321285507">"Nú þegar í sjálfvirku vali."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Velja netkerfi sjálfkrafa"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"Ekki í boði þegar tenging við %1$s er til staðar"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Netkerfi"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Sjálfvirk skráning…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Valin símkerfistegund"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"Hringir"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Netkerfi"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"endurbætt 4G LTE-stilling"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Betri símtöl"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Nota LTE-þjónustu til að bæta talsamband og önnur samskipti (ráðlagt)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Nota 4G-þjónustu til að bæta talsamband og önnur samskipti (ráðlagt)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Kveikt á gagnaaðgangi"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Leyfa gagnanotkun"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Athugaðu"</string>
@@ -482,7 +490,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"Hringja í <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Talhólfsnúmer ekki þekkt"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Ekkert símasamband"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"Valið símkerfi (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) er ekki tiltækt"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"Valið símkerfi<xliff:g id="OPERATOR_NAME">%s</xliff:g> er ekki tiltækt"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Kveiktu á farsímakerfie eða slökktu á flugstillingu eða rafhlöðusparnaði til að hringja."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Slökktu á flugstillingu til að hringja."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Slökktu á flugstillingu eða tengstu þráðlausu neti til að hringja."</string>
@@ -495,21 +503,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Ekki er hægt að bæta símtali við að svo stöddu. Þú getur reynt að hafa samband með því að senda skilaboð."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Þjónusta ekki studd"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Ekki hægt að skipta milli símtala."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"Ekki er hægt að halda áfram með símtal."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Ekki hægt að aðskilja símtal."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"Ekki hægt að flytja."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Ekki hægt að halda símafund."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"Ekki tókst að sameina símtöl."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Ekki hægt að hafna símtali."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Ekki hægt að leggja á."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Getur ekki sett símtöl í bið."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Tengstu þráðlausu neti til að hringja."</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"Virkjaðu Wi-Fi símtöl til að hringja."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"Neyðarupplýsingar"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"Eigandi"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"Ýttu aftur til að skoða upplýsingar"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Neyðarsímtal"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"Neyðarnúmer"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"Neyðarnúmer"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"Ýttu aftur til að hringja í <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g>"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Kveikir á loftneti…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Ekkert samband. Reynir aftur…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Ekki er hægt að fara í flugstillingu meðan neyðarsímtal er í gangi."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Ekki hægt að hringja. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> er ekki neyðarnúmer."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Ekki hægt að hringja. Hringdu í neyðarnúmer."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Neyðarsímtöl eru ekki í boði"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"Lögregla"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"Sjúkrabíll"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"Eldur"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Notaðu lyklaborðið til að hringja"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Setja í bið"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Ljúka"</string>
@@ -595,6 +614,8 @@
     <string name="selectContact" msgid="781975788478987237">"velja tengilið"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Símtöl eru ekki studd"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"hringja"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"sýna símatakkaborð"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"Takkaborð fyrir neyðarsíma"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Myndrænt talhólf"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Stilla PIN-númer"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Breyta PIN-númeri"</string>
@@ -645,58 +666,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"BÆTA VIÐ GÖGNUM"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"HÆTTA VIÐ"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Símtali lokið"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Slökkt á loftneti"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Ekkert SIM-kort eða villa í SIM-korti"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"Kveikt er á flugstillingu"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"Ekki fæst aðgangur að SIM-korti"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Farsímakerfi ekki tiltækt"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Óúthlutað (óráðstafað) númer"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Engin leið til viðtaka"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Óleyfileg rás"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Útilokun ákvörðuð af símafyrirtæki"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Venjuleg símtalahreinsun"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"Vandamál í síma sem reynt er að hringja í. Villukóði 1."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"Ekki tókst að hringja. Villukóði 3."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"Ekki tókst að hringja. Villukóði 6."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"Ekki tókst að hringja. Villukóði 8."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"Ekki tókst að hringja. Villukóði 16."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Notandi er upptekinn"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Enginn notandi svarar"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Varar notanda við, ekkert svar"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"Notandi svarar ekki"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"Ekki tókst að hringja. Villukóði 19."</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Símtali hafnað"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Breytt númer"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Fyrirbygging"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Hreinsun notanda sem var ekki valin"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Viðtaki virkar ekki"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"Ekki tókst að hringja. Villukóði 25."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"Ekki tókst að hringja. Villukóði 26."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"Ekki tókst að hringja. Villukóði 27."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Ógilt talnasvið (ófullgert númer)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Veitu hafnað"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Svar við STÖÐUFYRIRSPURN"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Venjulegt, ótilgreint"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Engin rás/boðleið tiltæk"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Kerfi í ólagi"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Tímabundin villa"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Teppa við að skipta um búnað"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Aðgangsupplýsingum var fleygt"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Umbeðin rás/boðleið er ekki tiltæk"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Tilföng ekki tiltæk, ótilgreint"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Þjónustugæði eru ekki tiltæk"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Umbeðin veita er ekki í áskrift"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Lokað á símtöl sem berast innan lokaða notendahópsins (CUG)"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Flutningssamhæfi ekki heimilað"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Flutningssamhæfi ekki tiltækt eins og stendur"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Þjónusta eða valkostur ekki í boði, ótilgreint"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Flutningssamhæfi ekki innleitt"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM er jafnt eða stærra en ACMmax"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Umbeðin veita er ekki innleidd"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Aðeins takmarkað flutningssamhæfi fyrir stafrænar upplýsingar er í boði"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Þjónusta eða valkostur ekki innleiddUR, ótilgreint"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Ógilt gildi færsluauðkennis"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Notandi ekki meðlimur í lokuðum notendahópi (CUG)"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Ósamhæfur áfangastaður"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Ógilt val á flutningskerfi"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Merkingalega röng skilaboð"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Ógildar nauðsynlegar upplýsingar"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Skilaboðagerð ekki til staðar eða ekki innleidd"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Skilaboðagerð ekki samhæf við stöðu samskiptareglna"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Upplýsingaeining ekki til staðar eða ekki innleidd"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Skilyrt IE-villa"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Skilaboð ekki samhæf við stöðu samskiptareglna"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Endurheimt við lok tímamælingar"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Villa í samskiptareglu, ótilgreind"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Samvirkni, ótilgreint"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"Ekki tókst að hringja. Villukóði 29."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"Ekki tókst að hringja. Villukóði 30."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"Ekki tókst að hringja. Villukóði 31."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"Ekki tókst að hringja. Villukóði 34."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"Ekki tókst að hringja. Villukóði 38."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"Ekki tókst að hringja. Villukóði 41."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"Ekki tókst að hringja. Villukóði 42."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"Ekki tókst að hringja. Villukóði 43."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"Ekki tókst að hringja. Villukóði 44."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"Ekki tókst að hringja. Villukóði 47."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"Ekki tókst að hringja. Villukóði 49."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"Ekki tókst að hringja. Villukóði 50."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"Ekki tókst að hringja. Villukóði 55."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"Ekki tókst að hringja. Villukóði 57."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"Ekki tókst að hringja. Villukóði 58."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"Ekki tókst að hringja. Villukóði 63."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"Ekki tókst að hringja. Villukóði 65."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"Ekki tókst að hringja. Villukóði 68."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"Ekki tókst að hringja. Villukóði 69."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"Ekki tókst að hringja. Villukóði 70."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"Ekki tókst að hringja. Villukóði 79."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"Ekki tókst að hringja. Villukóði 81."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"Ekki tókst að hringja. Villukóði 87."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"Ekki tókst að hringja. Villukóði 88."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"Ekki tókst að hringja. Villukóði 91."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"Ekki tókst að hringja. Villukóði 95."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"Ekki tókst að hringja. Villukóði 96."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"Ekki tókst að hringja. Villukóði 97."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"Ekki tókst að hringja. Villukóði 98."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"Ekki tókst að hringja. Villukóði 99."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"Ekki tókst að hringja. Villukóði 100."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"Ekki tókst að hringja. Villukóði 101."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"Ekki tókst að hringja. Villukóði 102."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"Ekki tókst að hringja. Villukóði 111."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"Ekki tókst að hringja. Villukóði 127."</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"Útilokun símtala"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Kveikt"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Slökkt"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"Slá inn aðgangsorð"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"Stillingar fyrir útilokun símtala"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Slökkva á öllum stillingum fyrir útilokun símtala?"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"Símkerfið er upptekið. Reyndu að hringja aftur síðar."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"Símkerfið er upptekið. Fáðu aðstoð hjá símafyrirtækinu þínu."</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Símtal flutt."</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Símtal framsent."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Símtal er í bið."</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Framsent símtal."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"Tekur þátt í símafundi."</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"Símtal í bið heldur áfram."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"Ekki er hægt að hringja símtal þar sem verið er að úthluta tækinu."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"Ekki er hægt að hringja símtal þar sem þegar er verið að hringja annað símtal."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"Ekki er hægt að hringja símtal þar sem ósvarað símtal er að berast. Svaraðu eða hafnaðu símtalinu áður en þú hringir nýtt símtal."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"Ekki er hægt að hringja símtal þar sem símtöl hafa verið gerð óvirk með því að nota kerfiseiginleikann ro.telephony.disable-call."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"Ekki er hægt að hringja símtal þar sem þegar eru tvö símtöl í gangi. Aftengdu annað símtalið eða sameinaðu þau í símafund áður en þú hringir nýtt símtal."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"Til að nota <xliff:g id="SUPP_SERVICE">%s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum. Þú getur breytt þessu í stillingum farsímakerfis."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"Til að nota <xliff:g id="SUPP_SERVICE">%s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum og gagnareiki. Þú getur breytt þessu í stillingum farsímakerfis."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"Til að nota <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum fyrir SIM-kortið <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Þú getur breytt þessu í stillingum farsímakerfis."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"Til að nota <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> skaltu ganga úr skugga um að kveikt sé á farsímagögnum og gagnareiki fyrir SIM-kortið <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Þú getur breytt þessu í stillingum farsímakerfis."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"Hunsa"</string>
 </resources>

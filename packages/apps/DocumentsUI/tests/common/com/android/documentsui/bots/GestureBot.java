@@ -36,19 +36,22 @@ import android.view.MotionEvent.PointerProperties;
  * and making assertions against the state of it.
  */
 public class GestureBot extends Bots.BaseBot {
-    private static final String DIR_CONTAINER_ID = "com.android.documentsui:id/container_directory";
-    private static final String DIR_LIST_ID = "com.android.documentsui:id/dir_list";
     private static final int LONGPRESS_STEPS = 60;
     private static final int TRAVELING_STEPS = 20;
     private static final int BAND_SELECTION_DEFAULT_STEPS = 100;
     private static final int STEPS_INBETWEEN_POINTS = 2;
     // Inserted after each motion event injection.
     private static final int MOTION_EVENT_INJECTION_DELAY_MILLIS = 5;
+    private static final int LONG_PRESS_EVENT_INJECTION_DELAY_MILIS = 1000;
+    private final String mDirContainerId;
+    private final String mDirListId;
     private final UiAutomation mAutomation;
     private long mDownTime = 0;
 
     public GestureBot(UiDevice device, UiAutomation automation, Context context, int timeout) {
         super(device, context, timeout);
+        mDirContainerId = mTargetPackage + ":id/container_directory";
+        mDirListId = mTargetPackage + ":id/dir_list";
         mAutomation = automation;
     }
 
@@ -80,17 +83,28 @@ public class GestureBot extends Bots.BaseBot {
         bandSelection(start, end, BAND_SELECTION_DEFAULT_STEPS);
     }
 
+    public void fingerSelection(Point start, Point end) throws Exception {
+        fingerSelection(start, end, BAND_SELECTION_DEFAULT_STEPS);
+    }
+
     public void bandSelection(Point start, Point end, int steps) throws Exception {
         int toolType = Configurator.getInstance().getToolType();
         Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_MOUSE);
-        swipe(start.x, start.y, end.x, end.y, steps, MotionEvent.BUTTON_PRIMARY);
+        swipe(start.x, start.y, end.x, end.y, steps, MotionEvent.BUTTON_PRIMARY, false);
+        Configurator.getInstance().setToolType(toolType);
+    }
+
+    private void fingerSelection(Point start, Point end, int steps) throws Exception {
+        int toolType = Configurator.getInstance().getToolType();
+        Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_FINGER);
+        swipe(start.x, start.y, end.x, end.y, steps, MotionEvent.BUTTON_PRIMARY, true);
         Configurator.getInstance().setToolType(toolType);
     }
 
     public UiObject findDocument(String label) throws UiObjectNotFoundException {
         final UiSelector docList = new UiSelector().resourceId(
-                DIR_CONTAINER_ID).childSelector(
-                        new UiSelector().resourceId(DIR_LIST_ID));
+                mDirContainerId).childSelector(
+                new UiSelector().resourceId(mDirListId));
 
         // Wait for the first list item to appear
         new UiObject(docList.childSelector(new UiSelector())).waitForExists(mTimeout);
@@ -98,22 +112,27 @@ public class GestureBot extends Bots.BaseBot {
         return mDevice.findObject(docList.childSelector(new UiSelector().text(label)));
     }
 
-    private void swipe(int downX, int downY, int upX, int upY, int steps, int button) {
+    private void swipe(int downX, int downY, int upX, int upY, int steps, int button,
+            boolean fingerSelection) {
         int swipeSteps = steps;
         double xStep = 0;
         double yStep = 0;
 
         // avoid a divide by zero
-        if(swipeSteps == 0)
+        if (swipeSteps == 0) {
             swipeSteps = 1;
+        }
 
-        xStep = ((double)(upX - downX)) / swipeSteps;
-        yStep = ((double)(upY - downY)) / swipeSteps;
+        xStep = ((double) (upX - downX)) / swipeSteps;
+        yStep = ((double) (upY - downY)) / swipeSteps;
 
         // first touch starts exactly at the point requested
         touchDown(downX, downY, button);
-        for(int i = 1; i < swipeSteps; i++) {
-            touchMove(downX + (int)(xStep * i), downY + (int)(yStep * i), button);
+        if (fingerSelection) {
+            SystemClock.sleep(LONG_PRESS_EVENT_INJECTION_DELAY_MILIS);
+        }
+        for (int i = 1; i < swipeSteps; i++) {
+            touchMove(downX + (int) (xStep * i), downY + (int) (yStep * i), button);
             // set some known constant delay between steps as without it this
             // become completely dependent on the speed of the system and results
             // may vary on different devices. This guarantees at minimum we have
@@ -159,7 +178,7 @@ public class GestureBot extends Bots.BaseBot {
         coords.y = y;
 
         return MotionEvent.obtain(downTime, eventTime, action, 1,
-                new PointerProperties[] { properties }, new PointerCoords[] { coords },
+                new PointerProperties[]{properties}, new PointerCoords[]{coords},
                 0, button, 1.0f, 1.0f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0);
     }
 }

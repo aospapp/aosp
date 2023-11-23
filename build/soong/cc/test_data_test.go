@@ -15,14 +15,12 @@
 package cc
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"android/soong/android"
-	"android/soong/genrule"
 )
 
 type dataFile struct {
@@ -129,7 +127,7 @@ func TestDataTests(t *testing.T) {
 				"dir/bar/baz":    nil,
 			})
 			ctx.RegisterModuleType("filegroup",
-				android.ModuleFactoryAdaptor(genrule.FileGroupFactory))
+				android.ModuleFactoryAdaptor(android.FileGroupFactory))
 			ctx.RegisterModuleType("test",
 				android.ModuleFactoryAdaptor(newTest))
 			ctx.Register()
@@ -155,7 +153,7 @@ func TestDataTests(t *testing.T) {
 				path := filepath.Join(test.data[i].path, test.data[i].file)
 				if test.data[i].file != got[i].Rel() ||
 					path != got[i].String() {
-					fmt.Errorf("expected %s:%s got %s:%s",
+					t.Errorf("expected %s:%s got %s:%s",
 						path, test.data[i].file,
 						got[i].String(), got[i].Rel())
 				}
@@ -168,7 +166,7 @@ type testDataTest struct {
 	android.ModuleBase
 	data       android.Paths
 	Properties struct {
-		Data []string
+		Data []string `android:"path"`
 	}
 }
 
@@ -179,10 +177,6 @@ func newTest() android.Module {
 	return m
 }
 
-func (test *testDataTest) DepsMutator(ctx android.BottomUpMutatorContext) {
-	android.ExtractSourcesDeps(ctx, test.Properties.Data)
-}
-
 func (test *testDataTest) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	test.data = ctx.ExpandSources(test.Properties.Data, nil)
+	test.data = android.PathsForModuleSrc(ctx, test.Properties.Data)
 }

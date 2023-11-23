@@ -82,6 +82,9 @@ class platform_CompressedSwap(test.test):
                 logging.info('Swap enable (%s), requested %d, total %d'
                              % (enable_size, swaprequested, swaptotal))
 
+        MB_PER_HOG = 50
+        MB_TO_KB = 1024
+        max_hog_count = (memtotal + swaptotal) / (MB_PER_HOG * MB_TO_KB)
         first_oom = 0
         first_lowmem = 0
         cleared_low_mem_notification = False
@@ -89,9 +92,9 @@ class platform_CompressedSwap(test.test):
         # Loop over hog creation until MemFree+SwapFree approaches 0.
         # Confirm we do not see any OOMs (procs killed due to Out Of Memory).
         hogs = []
-        cmd = [ self.srcdir + '/' + self.executable, '50' ]
+        cmd = [ self.srcdir + '/' + self.executable, str(MB_PER_HOG)]
         logging.debug('Memory hog command line is %s' % cmd)
-        while len(hogs) < 200:
+        while len(hogs) < max_hog_count:
             memfree = utils.read_from_meminfo('MemFree')
             swapfree = utils.read_from_meminfo('SwapFree')
             total_free = memfree + swapfree

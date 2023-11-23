@@ -334,6 +334,11 @@ class base_sysinfo(object):
             except Exception, e:
                 logging.error("error running journalctl --show-cursor: %s", e)
 
+        # log some sysinfo data into the test keyval file in case system crash.
+        test_sysinfodir = self._get_sysinfodir(test.outputdir)
+        keyval = self.log_test_keyvals(test_sysinfodir)
+        test.write_test_keyval(keyval)
+
 
     @log.log_and_ignore_errors("post-test sysinfo error:")
     def log_after_each_test(self, test):
@@ -457,7 +462,7 @@ class base_sysinfo(object):
 
 
     def log_test_keyvals(self, test_sysinfodir):
-        """Logging hook called by log_after_each_test.
+        """Generate keyval for the sysinfo.
 
         Collects keyval entries to be written in the test keyval.
 

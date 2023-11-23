@@ -17,28 +17,34 @@
 package com.android.car.settings.testutils;
 
 import android.car.drivingstate.CarUxRestrictions;
+import android.content.Intent;
+import android.content.IntentSender;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.BaseFragment;
+import com.android.car.settings.common.ActivityResultCallback;
+import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.UxRestrictionsProvider;
 
 /**
- * Test activity that extends {@link AppCompatActivity}.
- * Used for testing {@code BaseFragment} instances.
+ * Test activity used for testing {@code BaseFragment} instances.
  */
-public class BaseTestActivity extends AppCompatActivity implements
-        BaseFragment.FragmentController,
-        BaseFragment.UXRestrictionsProvider {
+public class BaseTestActivity extends FragmentActivity implements FragmentController,
+        UxRestrictionsProvider {
+
     private boolean mOnBackPressedFlag;
+    private CarUxRestrictions mRestrictionInfo = new CarUxRestrictions.Builder(/* reqOpt= */ true,
+            CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.app_compat_activity);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        setContentView(R.layout.car_setting_activity);
     }
 
     /**
@@ -47,34 +53,61 @@ public class BaseTestActivity extends AppCompatActivity implements
      * @param fragment Fragment to add to activity.
      */
     @Override
-    public void launchFragment(BaseFragment fragment) {
+    public void launchFragment(Fragment fragment) {
+        if (fragment instanceof DialogFragment) {
+            throw new IllegalArgumentException(
+                    "cannot launch dialogs with launchFragment() - use showDialog() instead");
+        }
+        String tag = Integer.toString(getSupportFragmentManager().getBackStackEntryCount());
         getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.fragment_container, fragment)
+                .replace(R.id.fragment_container, fragment, tag)
                 .addToBackStack(null)
                 .commit();
     }
 
     @Override
-    public void showDOBlockingMessage() {
+    public void showBlockingMessage() {
         // no-op
     }
 
     @Override
-    public CarUxRestrictions getCarUxRestrictions() {
-        return new CarUxRestrictions.Builder(
-                /* reqOpt= */ true,
-                CarUxRestrictions.UX_RESTRICTIONS_BASELINE,
-                /* timestamp= */ 0
-        ).build();
+    public void showDialog(DialogFragment dialogFragment, @Nullable String tag) {
+        dialogFragment.show(getSupportFragmentManager(), tag);
     }
 
-    public void reattachFragment(BaseFragment fragment) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .detach(fragment)
-                .attach(fragment)
-                .commit();
+    @Override
+    @Nullable
+    public DialogFragment findDialogByTag(String tag) {
+        Fragment fragment = getSupportFragmentManager().findFragmentByTag(tag);
+        if (fragment instanceof DialogFragment) {
+            return (DialogFragment) fragment;
+        }
+        return null;
+    }
+
+    @Override
+    public void startActivityForResult(Intent intent, int requestCode,
+            ActivityResultCallback callback) {
+        throw new UnsupportedOperationException(
+                "Unimplemented for activities that implement FragmentController");
+    }
+
+    @Override
+    public void startIntentSenderForResult(IntentSender intent, int requestCode,
+            @Nullable Intent fillInIntent, int flagsMask, int flagsValues, Bundle options,
+            ActivityResultCallback callback) {
+        throw new UnsupportedOperationException(
+                "Unimplemented for activities that implement FragmentController");
+    }
+
+    @Override
+    public CarUxRestrictions getCarUxRestrictions() {
+        return mRestrictionInfo;
+    }
+
+    public void setCarUxRestrictions(CarUxRestrictions restrictionInfo) {
+        mRestrictionInfo = restrictionInfo;
     }
 
     /**
@@ -103,6 +136,6 @@ public class BaseTestActivity extends AppCompatActivity implements
 
     @Override
     public void goBack() {
-
+        getSupportFragmentManager().popBackStackImmediate();
     }
 }

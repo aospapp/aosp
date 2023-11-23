@@ -13,7 +13,6 @@ ATTRIBUTES = "suite:bvt-cq, suite:partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_h264"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,4 +24,4 @@ This test verifies H.264 video decode acceleration works.
 """
 
 job.run_test('video_ChromeHWDecodeUsed', codec='h264', is_mse=0,
-    video_file='720_h264.mp4', tag='h264')
+    video_file='720_h264.mp4', tag='h264', capability='hw_dec_h264_1080_30')

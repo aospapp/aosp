@@ -23,12 +23,13 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackSettingsFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
+
+import androidx.annotation.Keep;
+import androidx.leanback.preference.LeanbackSettingsFragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;

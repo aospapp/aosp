@@ -4,7 +4,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
 	main_audioserver.cpp \
-	../libaudioclient/aidl/android/media/IAudioRecord.aidl
 
 LOCAL_SHARED_LIBRARIES := \
 	libaaudioservice \
@@ -13,13 +12,17 @@ LOCAL_SHARED_LIBRARIES := \
 	libbinder \
 	libcutils \
 	liblog \
+	libhidlbase \
 	libhidltransport \
 	libhwbinder \
 	libmedia \
 	libmedialogservice \
+	libmediautils \
 	libnbaio \
+	libnblog \
 	libsoundtriggerservice \
-	libutils
+	libutils \
+	libvibrator
 
 # TODO oboeservice is the old folder name for aaudioservice. It will be changed.
 LOCAL_C_INCLUDES := \
@@ -40,9 +43,6 @@ LOCAL_C_INCLUDES := \
 	$(call include-path-for, audio-utils) \
 	external/sonic \
 
-LOCAL_AIDL_INCLUDES := \
-        frameworks/av/media/libaudioclient/aidl
-
 # If AUDIOSERVER_MULTILIB in device.mk is non-empty then it is used to control
 # the LOCAL_MULTILIB for all audioserver exclusive libraries.
 # This is relevant for 64 bit architectures where either or both
@@ -54,13 +54,9 @@ LOCAL_AIDL_INCLUDES := \
 #   both    to build both 32 bit and 64 bit libraries,
 #           and use primary target architecture (32 or 64) for audioserver.
 #   first   to build libraries and audioserver for the primary target architecture only.
-#   <empty> to build both 32 and 64 bit libraries and 32 bit audioserver.
+#   <empty> to build both 32 and 64 bit libraries and primary target audioserver.
 
-ifeq ($(strip $(AUDIOSERVER_MULTILIB)),)
-LOCAL_MULTILIB := 32
-else
 LOCAL_MULTILIB := $(AUDIOSERVER_MULTILIB)
-endif
 
 LOCAL_MODULE := audioserver
 

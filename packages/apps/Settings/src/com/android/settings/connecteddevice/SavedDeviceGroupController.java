@@ -15,12 +15,13 @@
  */
 package com.android.settings.connecteddevice;
 
-import android.content.pm.PackageManager;
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceScreen;
+import android.content.pm.PackageManager;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.bluetooth.BluetoothDeviceUpdater;
 import com.android.settings.bluetooth.SavedBluetoothDeviceUpdater;
@@ -72,18 +73,22 @@ public class SavedDeviceGroupController extends BasePreferenceController
 
     @Override
     public void displayPreference(PreferenceScreen screen) {
+        mPreferenceGroup = screen.findPreference(KEY);
+        mPreferenceGroup.setVisible(false);
+
         if (isAvailable()) {
-            mPreferenceGroup = (PreferenceGroup) screen.findPreference(KEY);
-            mPreferenceGroup.setVisible(false);
-            mBluetoothDeviceUpdater.setPrefContext(screen.getContext());
+            final Context context = screen.getContext();
+            mBluetoothDeviceUpdater.setPrefContext(context);
             mBluetoothDeviceUpdater.forceUpdate();
+            mSavedDockUpdater.setPreferenceContext(context);
             mSavedDockUpdater.forceUpdate();
         }
     }
 
     @Override
     public int getAvailabilityStatus() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+        return (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+                || mSavedDockUpdater != null)
                 ? AVAILABLE
                 : UNSUPPORTED_ON_DEVICE;
     }

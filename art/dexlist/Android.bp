@@ -14,14 +14,34 @@
 
 art_cc_binary {
     name: "dexlist",
+    defaults: ["art_defaults"],
     host_supported: true,
     srcs: ["dexlist.cc"],
-    cflags: ["-Wall", "-Werror"],
-    shared_libs: ["libdexfile", "libbase"],
-    // TODO: fix b/72216369 and remove the need for this.
-    include_dirs: [
-        "art/runtime"  // dex utils.
+    shared_libs: [
+        "libdexfile",
+        "libartbase",
+        "libbase"
     ],
+}
+
+art_cc_binary {
+    name: "dexlists",
+    defaults: [
+        "art_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+    ],
+    host_supported: true,
+    srcs: ["dexlist.cc"],
+    device_supported: false,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 art_cc_test {

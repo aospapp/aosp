@@ -13,10 +13,7 @@ TEST_TYPE = 'Server'
 #       Removing from all test suites for now.
 
 ATTRIBUTES = (
-#             'suite:wifi_correctness_cros_core, '
-#             'suite:wifi_matfunc, '
-#             'suite:wifi_matfunc_noservo, '
-#             'suite:wifi_matfunc_bcm4371'
+#             'suite:wifi_matfunc'
 )
 DEPENDENCIES = 'wificell'
 
@@ -36,8 +33,7 @@ def run(machine):
                  host=host,
                  tag=NAME.split('.')[1],
                  disconnect_trigger='AP send channel switch',
-                 req_capabilities=capabilities,
-                 raw_cmdline_args=args)
+                 req_caps=capabilities, raw_cmdline_args=args)
 
 
 parallel_simple(run, machines)

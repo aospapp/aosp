@@ -239,4 +239,11 @@ public abstract class DESedeCipherTestBase extends BlockCipherTestBase {
             super.testUpdateWithEmptyInputReturnsCorrectValue();
         }
     }
+
+    @Override
+    public void testVeryLargeBlock() throws Exception {
+        if (TestUtils.supports3DES()) {
+            super.testVeryLargeBlock();
+        }
+    }
 }

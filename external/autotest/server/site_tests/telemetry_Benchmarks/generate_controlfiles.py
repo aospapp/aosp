@@ -4,6 +4,10 @@
 This file generates all telemetry_Benchmarks control files from a master list.
 """
 
+from datetime import datetime
+import os
+import re
+
 # This test list is a subset of telemetry benchmark tests. The full list can be
 # obtained by executing
 # /build/${BOARD}/usr/local/telemetry/src/tools/perf/list_benchmarks
@@ -21,48 +25,47 @@ This file generates all telemetry_Benchmarks control files from a master list.
 # haddowk in the change.
 
 PERF_PER_BUILD_TESTS = (
+    'cros_ui_smoothness',
     'jetstream',
     'kraken',
+    'loading.desktop',
     'octane',
-    'smoothness.top_25_smooth',
+    'page_cycler_v2.typical_25',
+    'rendering.desktop',
     'speedometer',
+    'speedometer2',
 )
 
 PERF_DAILY_RUN_TESTS = (
-    'cros_ui_smoothness',
-    'dromaeo.domcoreattr',
-    'dromaeo.domcoremodify',
-    'dromaeo.domcorequery',
-    'dromaeo.domcoretraverse',
-    'image_decoding.image_decoding_measurement',
+    'blink_perf.image_decoder',
+    'cros_tab_switching.typical_24',
+    'dromaeo',
+    'media.desktop',
     'memory.desktop',
-    'page_cycler_v2.typical_25',
-    'robohornet_pro',
-    'smoothness.tough_animation_cases',
-    'smoothness.tough_canvas_cases',
-    'smoothness.tough_filters_cases',
     'smoothness.tough_pinch_zoom_cases',
-    'smoothness.tough_scrolling_cases',
-    'smoothness.tough_webgl_cases',
-    'sunspider',
+    'system_health.memory_desktop',
     'webrtc',
 )
 
 PERF_WEEKLY_RUN_TESTS = (
-    'system_health.memory_desktop',
-)
-
-PERF_NO_SUITE = (
-    'page_cycler.typical_25',
 )
 
 ALL_TESTS = (PERF_PER_BUILD_TESTS +
              PERF_DAILY_RUN_TESTS +
-             PERF_WEEKLY_RUN_TESTS +
-             PERF_NO_SUITE)
+             PERF_WEEKLY_RUN_TESTS)
+
+EXTRA_ARGS_MAP = {
+    'loading.desktop': '--story-tag-filter=typical',
+    'rendering.desktop': '--story-tag-filter=top_real_world_desktop',
+    'system_health.memory_desktop': '--pageset-repeat=1',
+}
+
+DEFAULT_YEAR = str(datetime.now().year)
+
+DEFAULT_AUTHOR = 'Chrome OS Team'
 
 CONTROLFILE_TEMPLATE = (
-"""# Copyright 2018 The Chromium OS Authors. All rights reserved.
+"""# Copyright {year} The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -70,7 +73,7 @@ CONTROLFILE_TEMPLATE = (
 
 from autotest_lib.client.common_lib import utils
 
-AUTHOR = 'sbasi, achuith, rohitbm'
+AUTHOR = '{author}'
 NAME = 'telemetry_Benchmarks.{test}'
 {attributes}
 TIME = 'LONG'
@@ -88,10 +91,12 @@ Pass local=True to run with local telemetry and no AFE server.
 
 def run_benchmark(machine):
     host = hosts.create_host(machine)
+    dargs = utils.args_to_dict(args)
+    dargs['extra_args'] = '{extra_args}'.split()
     job.run_test('telemetry_Benchmarks', host=host,
                  benchmark='{test}',
                  tag='{test}',
-                 args=utils.args_to_dict(args))
+                 args=dargs)
 
 parallel_simple(run_benchmark, machines)""")
 
@@ -106,10 +111,59 @@ def _get_suite(test):
     return ''
 
 
-for test in ALL_TESTS:
+def get_existing_fields(filename):
+    """Returns the existing copyright year and author of the control file."""
+    if not os.path.isfile(filename):
+        return (DEFAULT_YEAR, DEFAULT_AUTHOR)
+
+    copyright_year = DEFAULT_YEAR
+    author = DEFAULT_AUTHOR
+    copyright_pattern = re.compile(
+            '# Copyright (\d+) The Chromium OS Authors.')
+    author_pattern = re.compile("AUTHOR = '(.+)'")
+    with open(filename) as f:
+        for line in f:
+            match_year = copyright_pattern.match(line)
+            if match_year:
+                copyright_year = match_year.group(1)
+            match_author = author_pattern.match(line)
+            if match_author:
+                author = match_author.group(1)
+    return (copyright_year, author)
+
+
+def generate_control(test):
+    """Generates control file from the template."""
     filename = 'control.%s' % test
+    copyright_year, author = get_existing_fields(filename)
+    extra_args = EXTRA_ARGS_MAP.get(test, '')
+
     with open(filename, 'w+') as f:
         content = CONTROLFILE_TEMPLATE.format(
+                attributes=_get_suite(test),
+                author=author,
+                extra_args=extra_args,
                 test=test,
-                attributes=_get_suite(test))
+                year=copyright_year)
         f.write(content)
+
+
+def check_unmanaged_control_files():
+    """Prints warning if there is unmanaged control file."""
+    for filename in os.listdir('.'):
+        if not filename.startswith('control.'):
+            continue
+        test = filename[len('control.'):]
+        if test not in ALL_TESTS:
+            print 'warning, unmanaged control file:', test
+
+
+def main():
+    """The main function."""
+    for test in ALL_TESTS:
+        generate_control(test)
+    check_unmanaged_control_files()
+
+
+if __name__ == "__main__":
+    main()

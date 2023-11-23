@@ -13,6 +13,7 @@
 
 #include <base/bind.h>
 #include <base/callback.h>
+#include <base/files/file_path.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <brillo/brillo_export.h>
@@ -48,7 +49,12 @@ class BRILLO_EXPORT Process {
     AddArg(base::StringPrintf("%d", value));
   }
 
-  // Redirects stderr and stdout to |output_file|.
+  // Redirects to read stdin from |input_file|. |input_file| must not be
+  // a symlink.
+  virtual void RedirectInput(const std::string& input_file) = 0;
+
+  // Redirects stderr and stdout to |output_file|. |output_file| must not be
+  // a symlink.
   virtual void RedirectOutput(const std::string& output_file) = 0;
 
   // Indicates we want to redirect |child_fd| in the child process's
@@ -163,6 +169,7 @@ class BRILLO_EXPORT ProcessImpl : public Process {
   virtual ~ProcessImpl();
 
   virtual void AddArg(const std::string& arg);
+  virtual void RedirectInput(const std::string& input_file);
   virtual void RedirectOutput(const std::string& output_file);
   virtual void RedirectUsingPipe(int child_fd, bool is_input);
   virtual void BindFd(int parent_fd, int child_fd);
@@ -212,6 +219,7 @@ class BRILLO_EXPORT ProcessImpl : public Process {
   // process.  pid must not be modified except by calling
   // UpdatePid(new_pid).
   pid_t pid_;
+  std::string input_file_;
   std::string output_file_;
   std::vector<std::string> arguments_;
   // Map of child target file descriptors (first) to information about

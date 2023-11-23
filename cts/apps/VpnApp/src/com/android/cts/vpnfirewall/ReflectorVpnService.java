@@ -33,30 +33,35 @@ import android.os.ParcelFileDescriptor;
 import android.os.UserManager;
 import android.text.TextUtils;
 import android.util.Log;
+import android.os.SystemProperties;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class ReflectorVpnService extends VpnService {
-
     private static final String TAG = "ReflectorVpnService";
     private static final String DEVICE_AND_PROFILE_OWNER_PACKAGE =
         "com.android.cts.deviceandprofileowner";
     private static final String ACTION_VPN_IS_UP = "com.android.cts.vpnfirewall.VPN_IS_UP";
+    private static final String ACTION_VPN_ON_START = "com.android.cts.vpnfirewall.VPN_ON_START";
     private static final int NOTIFICATION_ID = 1;
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
-    private static int MTU = 1799;
+    private static final int MTU = 1799;
 
     private ParcelFileDescriptor mFd = null;
     private PingReflector mPingReflector = null;
     private ConnectivityManager mConnectivityManager = null;
     private ConnectivityManager.NetworkCallback mNetworkCallback = null;
 
-    public static final String RESTRICTION_ADDRESSES = "vpn.addresses";
-    public static final String RESTRICTION_ROUTES = "vpn.routes";
-    public static final String RESTRICTION_ALLOWED = "vpn.allowed";
-    public static final String RESTRICTION_DISALLOWED = "vpn.disallowed";
+    private static final String RESTRICTION_ADDRESSES = "vpn.addresses";
+    private static final String RESTRICTION_ROUTES = "vpn.routes";
+    private static final String RESTRICTION_ALLOWED = "vpn.allowed";
+    private static final String RESTRICTION_DISALLOWED = "vpn.disallowed";
+    /** Service won't create the tunnel, to test lockdown behavior in case of VPN failure. */
+    private static final String RESTRICTION_DONT_ESTABLISH = "vpn.dont_establish";
+    private static final String EXTRA_ALWAYS_ON = "always-on";
+    private static final String EXTRA_LOCKDOWN = "lockdown";
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -70,7 +75,7 @@ public class ReflectorVpnService extends VpnService {
                 .setSmallIcon(R.drawable.ic_dialog_alert)
                 .build());
         start();
-        return START_REDELIVER_INTENT;
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -94,6 +99,18 @@ public class ReflectorVpnService extends VpnService {
     }
 
     private void start() {
+        final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
+        final Bundle restrictions = um.getApplicationRestrictions(getPackageName());
+
+        final Intent intent = new Intent(ACTION_VPN_ON_START);
+        intent.setPackage(DEVICE_AND_PROFILE_OWNER_PACKAGE);
+        sendBroadcast(intent);
+
+        if (restrictions.getBoolean(RESTRICTION_DONT_ESTABLISH)) {
+            stopSelf();
+            return;
+        }
+
         VpnService.prepare(this);
 
         ensureNetworkCallbackUnregistered();
@@ -105,9 +122,11 @@ public class ReflectorVpnService extends VpnService {
         mNetworkCallback = new ConnectivityManager.NetworkCallback() {
                 @Override
                 public void onAvailable(final Network net) {
-                    final Intent vpnIsUpIntent = new Intent(ACTION_VPN_IS_UP);
-                    vpnIsUpIntent.setPackage(DEVICE_AND_PROFILE_OWNER_PACKAGE);
-                    sendBroadcast(vpnIsUpIntent);
+                    final Intent intent = new Intent(ACTION_VPN_IS_UP);
+                    intent.setPackage(DEVICE_AND_PROFILE_OWNER_PACKAGE);
+                    intent.putExtra(EXTRA_ALWAYS_ON, isAlwaysOn());
+                    intent.putExtra(EXTRA_LOCKDOWN, isLockdownEnabled());
+                    sendBroadcast(intent);
                     ensureNetworkCallbackUnregistered();
                 }
             };
@@ -115,8 +134,6 @@ public class ReflectorVpnService extends VpnService {
 
         Builder builder = new Builder();
 
-        final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
-        final Bundle restrictions = um.getApplicationRestrictions(getPackageName());
 
         String[] addressArray = restrictions.getStringArray(RESTRICTION_ADDRESSES);
         if (addressArray == null) {
@@ -178,6 +195,19 @@ public class ReflectorVpnService extends VpnService {
                         continue;
                     }
                 }
+            }
+        }
+
+        if (allowedArray == null &&
+            (SystemProperties.getInt("persist.adb.tcp.port", -1) > -1
+            || SystemProperties.getInt("service.adb.tcp.port", -1) > -1)) {
+            try {
+                // If adb TCP port opened the test may be running by adb over network.
+                // Add com.android.shell application into blacklist to exclude adb socket
+                // for VPN tests.
+                builder.addDisallowedApplication("com.android.shell");
+            } catch(NameNotFoundException e) {
+                Log.w(TAG, "com.android.shell not found");
             }
         }
 

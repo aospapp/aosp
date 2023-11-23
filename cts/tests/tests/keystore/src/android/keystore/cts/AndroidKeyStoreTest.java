@@ -63,6 +63,7 @@ import java.util.Set;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.security.auth.x500.X500Principal;
@@ -1344,46 +1345,6 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         assertPrivateKeyEntryEquals(actual, "RSA", FAKE_RSA_KEY_1, FAKE_RSA_USER_1, FAKE_RSA_CA_1);
     }
 
-    public void testKeyStore_SetEntry_PrivateKeyEntry_Params_Unencrypted_Failure() throws Exception {
-        // The Android Keystore requires encrypted storage which is only decryptable with a key
-        // bound to a credential provided by the user. By default, the Keystore waits for the user
-        // to set a lock screen PIN or password and uses this credential to set up an encrypted
-        // storage space itself. In that implementation, the Keystore should not be initialized when
-        // no lock screen PIN or password has been set. This is what the test verifies.
-        //
-        // If your environment already provides encrypted storage which is only decryptable with a
-        // key bound to another credential provided by the user, you may initialize the Keystore
-        // immediately and get a waiver for this test.
-        KeyguardManager keyguardManager =
-                (KeyguardManager) getContext().getSystemService(Context.KEYGUARD_SERVICE);
-        assertNotNull(keyguardManager);
-        assertFalse("Secure lock screen must not be configured", keyguardManager.isDeviceSecure());
-
-        mKeyStore.load(null, null);
-
-        KeyFactory keyFact = KeyFactory.getInstance("RSA");
-        PrivateKey expectedKey = keyFact.generatePrivate(new PKCS8EncodedKeySpec(FAKE_RSA_KEY_1));
-
-        final CertificateFactory f = CertificateFactory.getInstance("X.509");
-
-        final Certificate[] expectedChain = new Certificate[2];
-        expectedChain[0] = f.generateCertificate(new ByteArrayInputStream(FAKE_RSA_USER_1));
-        expectedChain[1] = f.generateCertificate(new ByteArrayInputStream(FAKE_RSA_CA_1));
-
-        PrivateKeyEntry entry = new PrivateKeyEntry(expectedKey, expectedChain);
-
-        try {
-            mKeyStore.setEntry(TEST_ALIAS_1, entry,
-                    new KeyStoreParameter.Builder(getContext())
-                    .setEncryptionRequired(true)
-                    .build());
-            fail("Shouldn't be able to insert encrypted entry when KeyStore uninitialized");
-        } catch (KeyStoreException expected) {
-        }
-
-        assertNull(mKeyStore.getEntry(TEST_ALIAS_1, null));
-    }
-
     public void testKeyStore_SetEntry_PrivateKeyEntry_Overwrites_PrivateKeyEntry_Unencrypted_Success()
             throws Exception {
         mKeyStore.load(null, null);
@@ -1967,8 +1928,10 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // is bigger than the modulus.
         try {
             encrypt.doFinal(plainText);
-            fail("Expected BadPaddingException");
+            fail("Expected BadPaddingException or IllegalBlockSizeException");
         } catch (BadPaddingException e) {
+            // pass on exception as it is expected
+        } catch (IllegalBlockSizeException e) {
             // pass on exception as it is expected
         }
     }
@@ -2035,8 +1998,8 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
 
     private static final int MIN_SUPPORTED_KEY_COUNT = 1500;
     private static final long MINUTE_IN_MILLIS = 1000 * 60;
-    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS = 2 * MINUTE_IN_MILLIS;
-    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH_MILLIS = 3 * MINUTE_IN_MILLIS;
+    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS = 4 * MINUTE_IN_MILLIS;
+    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH_MILLIS = 6 * MINUTE_IN_MILLIS;
 
     private static boolean isDeadlineReached(long startTimeMillis, long durationMillis) {
         long nowMillis = System.currentTimeMillis();

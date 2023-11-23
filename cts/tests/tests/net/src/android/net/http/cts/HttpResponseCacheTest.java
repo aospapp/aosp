@@ -22,6 +22,7 @@ import com.google.mockwebserver.MockWebServer;
 import junit.framework.TestCase;
 
 import android.net.http.HttpResponseCache;
+import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.util.FileUtils;
 
@@ -126,6 +127,7 @@ public final class HttpResponseCacheTest extends TestCase {
      * Make sure that statistics tracking are wired all the way through the
      * wrapper class. http://code.google.com/p/android/issues/detail?id=25418
      */
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testStatisticsTracking() throws Exception {
         HttpResponseCache cache = HttpResponseCache.install(cacheDir, 10 * 1024 * 1024);
 

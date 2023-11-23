@@ -102,13 +102,7 @@ public class IntroView extends FullscreenDialogView {
                 .setInterpolator(interpolator)
                 .setDuration(duration)
                 .withLayer()
-                .withEndAction(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                onAnimationEnded.run();
-                            }
-                        })
+                .withEndAction(onAnimationEnded)
                 .start();
     }
 }

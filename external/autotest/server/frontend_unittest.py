@@ -47,5 +47,15 @@ class RpcClientTest(BaseRpcClientTest):
         self.god.check_playback()
 
 
+class CrosVersionFormatTestCase(unittest.TestCase):
+    def test_format_cros_image_name(self):
+        test_board = 'fubar-board'
+        test_version = 'R99-20000.15.0'
+        image_name = frontend.format_cros_image_name(
+                test_board, test_version)
+        self.assertIn(test_board, image_name)
+        self.assertIn(test_version, image_name)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -84,7 +84,11 @@ cc_library {
                 "windows",
             ],
 
-            cflags: ["-Werror"],
+            cflags: [
+                "-Werror",
+                "-Wno-unused-function",
+                "-Wno-unused-parameter",
+            ],
             enabled: true,
         },
     },

@@ -74,8 +74,10 @@ public class DvrPlaybackActivity extends Activity implements OnPinCheckedListene
     private Intent createProgramIntent(Intent intent) {
         if (Intent.ACTION_VIEW.equals(intent.getAction())) {
             Uri uri = intent.getData();
-            long recordedProgramId = ContentUris.parseId(uri);
-            intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, recordedProgramId);
+            if (uri != null) {
+                long recordedProgramId = ContentUris.parseId(uri);
+                intent.putExtra(Utils.EXTRA_KEY_RECORDED_PROGRAM_ID, recordedProgramId);
+            }
         }
         return intent;
     }

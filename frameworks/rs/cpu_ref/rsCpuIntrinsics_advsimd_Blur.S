@@ -262,23 +262,28 @@
  */
 #define TUNED_LIST1 8, 16
 .macro hconv1_8/*{{{*/
+
+.rodata
+    200:    .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .align      4
+.text
             umull       v14.4s, v9.4h, v0.h[0]
             umull2      v15.4s, v9.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .align      4
+    100:    br          x12
     108:    umlal       v14.4s, v8.4h, v1.h[0]
             umlal2      v15.4s, v8.8h, v1.h[0]
             umlal       v14.4s, v10.4h, v1.h[0]
@@ -336,31 +341,36 @@
 .endm/*}}}*/
 
 .macro hconv1_16/*{{{*/
+.rodata
+   200:     .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .hword 109f-100f
+            .hword 110f-100f
+            .hword 111f-100f
+            .hword 112f-100f
+            .hword 113f-100f
+            .hword 114f-100f
+            .hword 115f-100f
+            .hword 116f-100f
+            .align 4
+
+.text
             umull       v14.4s, v8.4h, v0.h[0]
             umull2      v15.4s, v8.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .hword 109f-100b
-            .hword 110f-100b
-            .hword 111f-100b
-            .hword 112f-100b
-            .hword 113f-100b
-            .hword 114f-100b
-            .hword 115f-100b
-            .hword 116f-100b
-            .align 4
+    100:    br          x12
     116:    //ext         v12.16b, v6.16b, v7.16b, #0*2
             //ext         v13.16b, v10.16b, v11.16b, #0*2
             umlal       v14.4s, v6.4h, v2.h[0]
@@ -470,41 +480,45 @@
 .endm/*}}}*/
 
 .macro hconv1_25/*{{{*/
+.rodata
+   200:     .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .hword 109f-100f
+            .hword 110f-100f
+            .hword 111f-100f
+            .hword 112f-100f
+            .hword 113f-100f
+            .hword 114f-100f
+            .hword 115f-100f
+            .hword 116f-100f
+            .hword 117f-100f
+            .hword 118f-100f
+            .hword 119f-100f
+            .hword 120f-100f
+            .hword 121f-100f
+            .hword 122f-100f
+            .hword 123f-100f
+            .hword 124f-100f
+            .hword 125f-100f
+            .align 4
+.text
             ext         v12.16b, v6.16b, v7.16b, #7*2
             umull       v14.4s, v12.4h, v0.h[0]
             umull2      v15.4s, v12.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .hword 109f-100b
-            .hword 110f-100b
-            .hword 111f-100b
-            .hword 112f-100b
-            .hword 113f-100b
-            .hword 114f-100b
-            .hword 115f-100b
-            .hword 116f-100b
-            .hword 117f-100b
-            .hword 118f-100b
-            .hword 119f-100b
-            .hword 120f-100b
-            .hword 121f-100b
-            .hword 122f-100b
-            .hword 123f-100b
-            .hword 124f-100b
-            .hword 125f-100b
-            .align 4
+    100:    br          x12
     125:    ext         v12.16b, v31.16b, v4.16b, #6*2
             ext         v13.16b, v10.16b, v11.16b, #0*2
             umlal       v14.4s, v12.4h, v3.h[1]
@@ -672,21 +686,25 @@
 
 #define TUNED_LIST4 6, 12, 20
 .macro hconv4_6/*{{{*/
+.rodata
+   200:     .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .align      4
+.text
             umull       v14.4s, v7.4h, v0.h[0]
             umull2      v15.4s, v7.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .align      4
+    100:    br          x12
     106:    umlal       v14.4s, v4.4h,  v0.h[6]
             umlal2      v15.4s, v4.8h,  v0.h[6]
             umlal       v14.4s, v10.4h, v0.h[6]
@@ -726,27 +744,31 @@
 .endm/*}}}*/
 
 .macro hconv4_12/*{{{*/
+.rodata
+   200:     .hword -4 //Might need to remove these...
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .hword 109f-100f
+            .hword 110f-100f
+            .hword 111f-100f
+            .hword 112f-100f
+            .align 4
+.text
             umull       v14.4s, v4.4h, v0.h[0]
             umull2      v15.4s, v4.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .hword 109f-100b
-            .hword 110f-100b
-            .hword 111f-100b
-            .hword 112f-100b
-            .align 4
+    100:    br          x12
     112:    umlal       v14.4s, v26.4h, v1.h[4]
             umlal2      v15.4s, v26.8h, v1.h[4]
             umlal       v14.4s, v10.4h, v1.h[4]
@@ -816,36 +838,39 @@
 .endm/*}}}*/
 
 .macro hconv4_20/*{{{*/
+.rodata
+   200:     .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .hword 109f-100f
+            .hword 110f-100f
+            .hword 111f-100f
+            .hword 112f-100f
+            .hword 113f-100f
+            .hword 114f-100f
+            .hword 115f-100f
+            .hword 116f-100f
+            .hword 117f-100f
+            .hword 118f-100f
+            .hword 119f-100f
+            .hword 120f-100f
+            .align 4
+.text
             umull       v14.4s, v28.4h, v0.h[0]
             umull2      v15.4s, v28.8h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .hword 109f-100b
-            .hword 110f-100b
-            .hword 111f-100b
-            .hword 112f-100b
-            .hword 113f-100b
-            .hword 114f-100b
-            .hword 115f-100b
-            .hword 116f-100b
-            .hword 117f-100b
-            .hword 118f-100b
-            .hword 119f-100b
-            .hword 120f-100b
-            .align 4
-
+    100:    br          x12
     120:    umlal       v14.4s, v18.4h, v2.h[4]
             umlal2      v15.4s, v18.8h, v2.h[4]
             umlal       v14.4s, v10.4h, v2.h[4]
@@ -955,41 +980,44 @@
 .endm/*}}}*/
 
 .macro hconv4_25/*{{{*/
+.rodata
+   200:     .hword -4
+            .hword 101f-100f
+            .hword 102f-100f
+            .hword 103f-100f
+            .hword 104f-100f
+            .hword 105f-100f
+            .hword 106f-100f
+            .hword 107f-100f
+            .hword 108f-100f
+            .hword 109f-100f
+            .hword 110f-100f
+            .hword 111f-100f
+            .hword 112f-100f
+            .hword 113f-100f
+            .hword 114f-100f
+            .hword 115f-100f
+            .hword 116f-100f
+            .hword 117f-100f
+            .hword 118f-100f
+            .hword 119f-100f
+            .hword 120f-100f
+            .hword 121f-100f
+            .hword 122f-100f
+            .hword 123f-100f
+            .hword 124f-100f
+            .hword 125f-100f
+            .align 4
+.text
             umull2      v14.4s, v25.8h, v0.h[0]
             umull       v15.4s, v26.4h, v0.h[0]
 
-            adr         x16, 100f
+            adrp        x16, 200b
+            add         x16, x16, :lo12:200b
             ldrsh       x12, [x16, x5, LSL #1]
+            adr         x16, 100f
             add         x12, x12, x16
-            br          x12
-   100:     .hword -4
-            .hword 101f-100b
-            .hword 102f-100b
-            .hword 103f-100b
-            .hword 104f-100b
-            .hword 105f-100b
-            .hword 106f-100b
-            .hword 107f-100b
-            .hword 108f-100b
-            .hword 109f-100b
-            .hword 110f-100b
-            .hword 111f-100b
-            .hword 112f-100b
-            .hword 113f-100b
-            .hword 114f-100b
-            .hword 115f-100b
-            .hword 116f-100b
-            .hword 117f-100b
-            .hword 118f-100b
-            .hword 119f-100b
-            .hword 120f-100b
-            .hword 121f-100b
-            .hword 122f-100b
-            .hword 123f-100b
-            .hword 124f-100b
-            .hword 125f-100b
-            .align 4
-
+    100:    br          x12
     125:    ld1         {v12.8h}, [x9]
             umlal       v14.4s, v12.4h, v3.h[1]
             umlal2      v15.4s, v12.8h, v3.h[1]

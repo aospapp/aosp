@@ -21,30 +21,50 @@ import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.ArrayUtil;
 
 import junit.framework.AssertionFailedError;
-import junit.framework.TestCase;
 
+import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Vector;
 
 /** Unit tests for {@link PythonUnitTestResultParser}. */
-public class PythonUnitTestResultParserTest extends TestCase {
+@RunWith(JUnit4.class)
+public class PythonUnitTestResultParserTest {
+
+    public static final String PYTHON_OUTPUT_FILE_1 = "python_output1.txt";
+    public static final String PYTHON_OUTPUT_FILE_2 = "python_output2.txt";
+    public static final String PYTHON_OUTPUT_FILE_3 = "python_output3.txt";
 
     private PythonUnitTestResultParser mParser;
     private ITestInvocationListener mMockListener;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
         mMockListener = createMock(ITestInvocationListener.class);
         mParser = new PythonUnitTestResultParser(ArrayUtil.list(mMockListener), "test");
     }
 
+    @Test
     public void testRegexTestCase() {
         String s = "a (b) ... ok";
         assertTrue(PythonUnitTestResultParser.PATTERN_ONE_LINE_RESULT.matcher(s).matches());
@@ -66,6 +86,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         assertTrue(PythonUnitTestResultParser.PATTERN_TWO_LINE_RESULT_SECOND.matcher(s).matches());
     }
 
+    @Test
     public void testRegexFailMessage() {
         String s = "FAIL: a (b)";
         assertTrue(PythonUnitTestResultParser.PATTERN_FAIL_MESSAGE.matcher(s).matches());
@@ -73,6 +94,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         assertTrue(PythonUnitTestResultParser.PATTERN_FAIL_MESSAGE.matcher(s).matches());
     }
 
+    @Test
     public void testRegexRunSummary() {
         String s = "Ran 1 test in 1s";
         assertTrue(PythonUnitTestResultParser.PATTERN_RUN_SUMMARY.matcher(s).matches());
@@ -86,6 +108,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         assertTrue(PythonUnitTestResultParser.PATTERN_RUN_SUMMARY.matcher(s).matches());
     }
 
+    @Test
     public void testRegexRunResult() {
         String s = "OK";
         assertTrue(PythonUnitTestResultParser.PATTERN_RUN_RESULT.matcher(s).matches());
@@ -95,6 +118,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         assertTrue(PythonUnitTestResultParser.PATTERN_RUN_RESULT.matcher(s).matches());
     }
 
+    @Test
     public void testParseNoTests() throws Exception {
         String[] output = {
                 "",
@@ -103,13 +127,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 "",
                 "OK"
         };
-        setRunListenerChecks(0, 0, true);
+        setRunListenerChecks(0, 0);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestPass() throws Exception {
         String[] output = {
                 "b (a) ... ok",
@@ -122,13 +147,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(1, 1000, true);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestPassWithExpectedFailure() throws Exception {
         String[] output = {
                 "b (a) ... expected failure",
@@ -141,13 +167,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(1, 1000, true);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseMultiTestPass() throws Exception {
         String[] output = {
                 "b (a) ... ok",
@@ -161,13 +188,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean didPass[] = {true, true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(2, 1000, true);
+        setRunListenerChecks(2, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseMultiTestPassWithOneExpectedFailure() throws Exception {
         String[] output = {
                 "b (a) ... expected failure",
@@ -181,13 +209,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(2, 1000, true);
+        setRunListenerChecks(2, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseMultiTestPassWithAllExpectedFailure() throws Exception {
         String[] output = {
                 "b (a) ... expected failure",
@@ -201,13 +230,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(2, 1000, true);
+        setRunListenerChecks(2, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestFail() throws Exception {
         String[] output = {
                 "b (a) ... ERROR",
@@ -227,7 +257,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         };
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
-        setRunListenerChecks(1, 1000, false);
+        setRunListenerChecks(1, 1000);
         setTestIdChecks(ids, didPass);
 
         replay(mMockListener);
@@ -235,6 +265,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         verify(mMockListener);
     }
 
+    @Test
     public void testParseMultiTestFailWithExpectedFailure() throws Exception {
         String[] output = {
                 "b (a) ... expected failure",
@@ -255,7 +286,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         };
         TestDescription[] ids = {new TestDescription("a", "b"), new TestDescription("c", "d")};
         boolean[] didPass = {true, false};
-        setRunListenerChecks(1, 1000, false);
+        setRunListenerChecks(1, 1000);
         setTestIdChecks(ids, didPass);
 
         replay(mMockListener);
@@ -263,6 +294,7 @@ public class PythonUnitTestResultParserTest extends TestCase {
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestUnexpectedSuccess() throws Exception {
         String[] output = {
                 "b (a) ... unexpected success",
@@ -275,13 +307,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(1, 1000, false);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestSkipped() throws Exception {
         String[] output = {
                 "b (a) ... skipped 'reason foo'",
@@ -295,13 +328,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         boolean[] didPass = {false};
         boolean[] didSkip = {true};
         setTestIdChecks(ids, didPass, didSkip);
-        setRunListenerChecks(1, 1000, true);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestPassWithDocString() throws Exception {
         String[] output = {
                 "b (a)",
@@ -315,13 +349,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {true};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(1, 1000, true);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseSingleTestFailWithDocString() throws Exception {
         String[] output = {
                 "b (a)",
@@ -344,13 +379,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         TestDescription[] ids = {new TestDescription("a", "b")};
         boolean[] didPass = {false};
         setTestIdChecks(ids, didPass);
-        setRunListenerChecks(1, 1000, false);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testParseOneWithEverything() throws Exception {
         String[] output = {
                 "testError (foo.testFoo) ... ERROR",
@@ -407,13 +443,14 @@ public class PythonUnitTestResultParserTest extends TestCase {
         boolean[] didPass = {false, true, false, false, true, true, false, false};
         boolean[] didSkip = {false, false, false, false, false, false, true, false};
         setTestIdChecks(ids, didPass, didSkip);
-        setRunListenerChecks(8, 1000, false);
+        setRunListenerChecks(8, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
+    @Test
     public void testCaptureMultilineTraceback() {
         String[] output = {
                 "b (a) ... ERROR",
@@ -438,26 +475,89 @@ public class PythonUnitTestResultParserTest extends TestCase {
         expectLastCall().times(1);
         mMockListener.testFailed(anyObject(), eq(expectedTrackback));
         expectLastCall().times(1);
-        mMockListener.testEnded(anyObject(), (HashMap<String, Metric>) anyObject());
+        mMockListener.testEnded(anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
         expectLastCall().times(1);
-        setRunListenerChecks(1, 1000, false);
+        setRunListenerChecks(1, 1000);
 
         replay(mMockListener);
         mParser.processNewLines(output);
         verify(mMockListener);
     }
 
-    private void setRunListenerChecks(int numTests, long time, boolean didPass) {
+    @Test
+    public void testParseRealOutput() {
+        String[] contents = readInFile(PYTHON_OUTPUT_FILE_1);
+
+        mMockListener.testRunStarted("test", 11);
+        for (int i = 0; i < 11; i++) {
+            mMockListener.testStarted(EasyMock.anyObject());
+            mMockListener.testEnded(
+                    EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
+        }
+
+        mMockListener.testFailed(
+                EasyMock.eq(new TestDescription("__main__.DisconnectionTest", "test_disconnect")),
+                EasyMock.anyObject());
+        mMockListener.testFailed(
+                EasyMock.eq(new TestDescription("__main__.EmulatorTest", "test_emulator_connect")),
+                EasyMock.anyObject());
+        mMockListener.testIgnored(
+                EasyMock.eq(new TestDescription("__main__.PowerTest", "test_resume_usb_kick")));
+        // Multi-line error
+        mMockListener.testFailed(
+                EasyMock.eq(new TestDescription("__main__.ServerTest", "test_handle_inheritance")),
+                EasyMock.anyObject());
+
+        mMockListener.testRunEnded(10314, new HashMap<String, Metric>());
+        replay(mMockListener);
+        mParser.processNewLines(contents);
+        verify(mMockListener);
+    }
+
+    private void setRunListenerChecks(int numTests, long time) {
         mMockListener.testRunStarted("test", numTests);
         expectLastCall().times(1);
-        mMockListener.testRunFailed((String)anyObject());
-        if (!didPass) {
-            expectLastCall().times(1);
-        } else {
-            expectLastCall().andThrow(new AssertionFailedError()).anyTimes();
-        }
         mMockListener.testRunEnded(time, new HashMap<String, Metric>());
         expectLastCall().times(1);
+    }
+
+    /** Test another output starting by a warning */
+    @Test
+    public void testParseRealOutput2() {
+        String[] contents = readInFile(PYTHON_OUTPUT_FILE_2);
+        mMockListener.testRunStarted("test", 107);
+        for (int i = 0; i < 107; i++) {
+            mMockListener.testStarted(EasyMock.anyObject());
+            mMockListener.testEnded(
+                    EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
+        }
+        mMockListener.testRunEnded(295, new HashMap<String, Metric>());
+        replay(mMockListener);
+        mParser.processNewLines(contents);
+        verify(mMockListener);
+    }
+
+    @Test
+    public void testParseRealOutput3() {
+        String[] contents = readInFile(PYTHON_OUTPUT_FILE_3);
+
+        mMockListener.testRunStarted("test", 11);
+        for (int i = 0; i < 11; i++) {
+            mMockListener.testStarted(EasyMock.anyObject());
+            mMockListener.testEnded(
+                    EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
+        }
+
+        mMockListener.testFailed(
+                EasyMock.eq(new TestDescription("__main__.ConnectionTest", "test_reconnect")),
+                EasyMock.anyObject());
+        mMockListener.testIgnored(
+                EasyMock.eq(new TestDescription("__main__.PowerTest", "test_resume_usb_kick")));
+
+        mMockListener.testRunEnded(27353, new HashMap<String, Metric>());
+        replay(mMockListener);
+        mParser.processNewLines(contents);
+        verify(mMockListener);
     }
 
     private void setTestIdChecks(TestDescription[] ids, boolean[] didPass) {
@@ -499,6 +599,32 @@ public class PythonUnitTestResultParserTest extends TestCase {
                 expectLastCall().times(1);
             }
         }
+    }
+
+    /**
+     * Helper to read a file from the res/testtype directory and return its contents as a String[]
+     *
+     * @param filename the name of the file (without the extension) in the res/testtype directory
+     * @return a String[] of the
+     */
+    private String[] readInFile(String filename) {
+        Vector<String> fileContents = new Vector<String>();
+        try {
+            InputStream gtestResultStream1 =
+                    getClass()
+                            .getResourceAsStream(
+                                    File.separator + "testtype" + File.separator + filename);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(gtestResultStream1));
+            String line = null;
+            while ((line = reader.readLine()) != null) {
+                fileContents.add(line);
+            }
+        } catch (NullPointerException e) {
+            CLog.e("Gest output file does not exist: " + filename);
+        } catch (IOException e) {
+            CLog.e("Unable to read contents of gtest output file: " + filename);
+        }
+        return fileContents.toArray(new String[fileContents.size()]);
     }
 }
 

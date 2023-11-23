@@ -25,6 +25,7 @@ import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -70,7 +71,8 @@ final class SSLParametersImpl implements Cloneable {
     String[] enabledProtocols;
     // set to indicate when obsolete protocols are filtered
     boolean isEnabledProtocolsFiltered;
-    // cipher suites enabled for SSL connection
+    // The TLS 1.0-1.2 cipher suites enabled for the SSL connection.  TLS 1.3 cipher suites
+    // cannot be customized, so for simplicity this field never contains any TLS 1.3 suites.
     String[] enabledCipherSuites;
 
     // if the peer with this parameters tuned to work in client mode
@@ -148,6 +150,43 @@ final class SSLParametersImpl implements Cloneable {
         // directly accesses /dev/urandom, which makes it irrelevant.
     }
 
+    // Copy constructor for the purposes of changing the final fields
+    private SSLParametersImpl(ClientSessionContext clientSessionContext,
+        ServerSessionContext serverSessionContext,
+        X509KeyManager x509KeyManager,
+        PSKKeyManager pskKeyManager,
+        X509TrustManager x509TrustManager,
+        SSLParametersImpl sslParams) {
+        this.clientSessionContext = clientSessionContext;
+        this.serverSessionContext = serverSessionContext;
+        this.x509KeyManager = x509KeyManager;
+        this.pskKeyManager = pskKeyManager;
+        this.x509TrustManager = x509TrustManager;
+
+        this.enabledProtocols =
+            (sslParams.enabledProtocols == null) ? null : sslParams.enabledProtocols.clone();
+        this.isEnabledProtocolsFiltered = sslParams.isEnabledProtocolsFiltered;
+        this.enabledCipherSuites =
+            (sslParams.enabledCipherSuites == null) ? null : sslParams.enabledCipherSuites.clone();
+        this.client_mode = sslParams.client_mode;
+        this.need_client_auth = sslParams.need_client_auth;
+        this.want_client_auth = sslParams.want_client_auth;
+        this.enable_session_creation = sslParams.enable_session_creation;
+        this.endpointIdentificationAlgorithm = sslParams.endpointIdentificationAlgorithm;
+        this.useCipherSuitesOrder = sslParams.useCipherSuitesOrder;
+        this.ctVerificationEnabled = sslParams.ctVerificationEnabled;
+        this.sctExtension =
+            (sslParams.sctExtension == null) ? null : sslParams.sctExtension.clone();
+        this.ocspResponse =
+            (sslParams.ocspResponse == null) ? null : sslParams.ocspResponse.clone();
+        this.applicationProtocols =
+            (sslParams.applicationProtocols == null) ? null : sslParams.applicationProtocols.clone();
+        this.applicationProtocolSelector = sslParams.applicationProtocolSelector;
+        this.useSessionTickets = sslParams.useSessionTickets;
+        this.useSni = sslParams.useSni;
+        this.channelIdEnabled = sslParams.channelIdEnabled;
+    }
+
     static SSLParametersImpl getDefault() throws KeyManagementException {
         SSLParametersImpl result = defaultParameters;
         if (result == null) {
@@ -202,6 +241,10 @@ final class SSLParametersImpl implements Cloneable {
      * @return the names of enabled cipher suites
      */
     String[] getEnabledCipherSuites() {
+        if (Arrays.asList(enabledProtocols).contains(NativeCrypto.SUPPORTED_PROTOCOL_TLSV1_3)) {
+            return SSLUtils.concat(
+                    NativeCrypto.SUPPORTED_TLS_1_3_CIPHER_SUITES, enabledCipherSuites);
+        }
         return enabledCipherSuites.clone();
     }
 
@@ -209,7 +252,12 @@ final class SSLParametersImpl implements Cloneable {
      * Sets the enabled cipher suites after filtering through OpenSSL.
      */
     void setEnabledCipherSuites(String[] cipherSuites) {
-        enabledCipherSuites = NativeCrypto.checkEnabledCipherSuites(cipherSuites).clone();
+        // Filter out any TLS 1.3 cipher suites the user may have passed.  Our TLS 1.3 suites
+        // are always enabled, no matter what the user requests, so we only store the 1.0-1.2
+        // suites in enabledCipherSuites.
+        enabledCipherSuites = NativeCrypto.checkEnabledCipherSuites(
+                filterFromCipherSuites(cipherSuites,
+                        NativeCrypto.SUPPORTED_TLS_1_3_CIPHER_SUITES_SET));
     }
 
     /**
@@ -383,6 +431,19 @@ final class SSLParametersImpl implements Cloneable {
         return newProtocols.toArray(EMPTY_STRING_ARRAY);
     }
 
+    private static String[] filterFromCipherSuites(String[] cipherSuites, Set<String> toRemove) {
+        if (cipherSuites == null || cipherSuites.length == 0) {
+            return cipherSuites;
+        }
+        ArrayList<String> newCipherSuites = new ArrayList<String>(cipherSuites.length);
+        for (String cipherSuite : cipherSuites) {
+            if (!toRemove.contains(cipherSuite)) {
+                newCipherSuites.add(cipherSuite);
+            }
+        }
+        return newCipherSuites.toArray(EMPTY_STRING_ARRAY);
+    }
+
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     /**
@@ -440,6 +501,11 @@ final class SSLParametersImpl implements Cloneable {
         } catch (CloneNotSupportedException e) {
             throw new AssertionError(e);
         }
+    }
+
+    SSLParametersImpl cloneWithTrustManager(X509TrustManager newTrustManager) {
+        return new SSLParametersImpl(clientSessionContext, serverSessionContext,
+            x509KeyManager, pskKeyManager, newTrustManager, this);
     }
 
     private static X509KeyManager getDefaultX509KeyManager() throws KeyManagementException {
@@ -581,39 +647,25 @@ final class SSLParametersImpl implements Cloneable {
                 // higher priority than X.509 cipher suites.
                 // NOTE: There are cipher suites that use both X.509 and PSK (e.g., those based on
                 // RSA_PSK key exchange). However, these cipher suites are not currently supported.
-                return concat(
+                return SSLUtils.concat(
                         NativeCrypto.DEFAULT_PSK_CIPHER_SUITES,
                         NativeCrypto.DEFAULT_X509_CIPHER_SUITES,
                         new String[] {NativeCrypto.TLS_EMPTY_RENEGOTIATION_INFO_SCSV});
             } else {
                 // Only X.509 cipher suites need to be listed.
-                return concat(
+                return SSLUtils.concat(
                         NativeCrypto.DEFAULT_X509_CIPHER_SUITES,
                         new String[] {NativeCrypto.TLS_EMPTY_RENEGOTIATION_INFO_SCSV});
             }
         } else if (pskCipherSuitesNeeded) {
             // Only PSK cipher suites need to be listed.
-            return concat(
+            return SSLUtils.concat(
                     NativeCrypto.DEFAULT_PSK_CIPHER_SUITES,
                     new String[] {NativeCrypto.TLS_EMPTY_RENEGOTIATION_INFO_SCSV});
         } else {
             // Neither X.509 nor PSK cipher suites need to be listed.
             return new String[] {NativeCrypto.TLS_EMPTY_RENEGOTIATION_INFO_SCSV};
         }
-    }
-
-    private static String[] concat(String[]... arrays) {
-        int resultLength = 0;
-        for (String[] array : arrays) {
-            resultLength += array.length;
-        }
-        String[] result = new String[resultLength];
-        int resultOffset = 0;
-        for (String[] array : arrays) {
-            System.arraycopy(array, 0, result, resultOffset, array.length);
-            resultOffset += array.length;
-        }
-        return result;
     }
 
     /**

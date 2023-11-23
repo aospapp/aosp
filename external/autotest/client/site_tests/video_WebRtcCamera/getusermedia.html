@@ -8,8 +8,9 @@
 
 var resolutions = [[640, 480],
                    [1280, 720]];
+var isVideoInputFound = false;
 var results = {};
-var isTestDone = 0;
+var isTestDone = false;
 var durationMs = 20000;
 
 function testNextResolution() {
@@ -30,7 +31,7 @@ function testNextResolution() {
 
 function reportTestDone() {
   console.log('tests completed');
-  isTestDone = 1;
+  isTestDone = true;
 }
 
 function getResults() {
@@ -45,6 +46,22 @@ function resolutionMatchesIndependentOfRotation(aWidth, aHeight,
 
 function saveResult(resolution, verdict) {
   results[resolution] = verdict;
+}
+
+// Check if a video input exists
+function checkVideoInput() {
+  navigator.mediaDevices.enumerateDevices()
+      .then(findVideoInput)
+      .catch(gotEnumerateDevicesError);
+}
+
+function findVideoInput(devices) {
+  isVideoInputFound = devices.some(dev => dev.kind == 'videoinput');
+}
+
+function gotEnumerateDevicesError(error) {
+  console.log('navigator.mediaDevices.enumerateDevices error: ', error);
+  results.cameraErrors.push('EnumerateDevices error: ' + error.toString());
 }
 
 function CameraTest(resolution) {
@@ -80,20 +97,19 @@ CameraTest.prototype = {
   start: function() {
     this.localVideo.addEventListener('play',
         this.startCheckingVideoFrames.bind(this), false);
-    navigator.getUserMedia = navigator.getUserMedia ||
-        navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 
-    navigator.getUserMedia(this.constraints, this.gotLocalStream.bind(this),
-        this.gotUserMediaError.bind(this));
+    navigator.mediaDevices.getUserMedia(this.constraints)
+        .then(this.gotLocalStream.bind(this))
+        .catch(this.gotUserMediaError.bind(this));
   },
 
   gotLocalStream: function(stream) {
     this.localStream = stream;
-    this.localVideo.src = window.URL.createObjectURL(stream);
+    this.localVideo.srcObject = stream;
   },
 
   gotUserMediaError: function(error) {
-    console.log('navigator.getUserMedia error: ', error);
+    console.log('navigator.mediaDevices.getUserMedia error: ', error);
     this.results.cameraErrors.push('GetUserMedia error: ' + error.toString());
   },
 

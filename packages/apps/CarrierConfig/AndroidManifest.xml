@@ -4,6 +4,7 @@
           android:versionName="1.0.0"
           package="com.android.carrierconfig">
 
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <application android:allowBackup="false"
                  android:directBootAware="true">
         <service android:name=".DefaultCarrierConfigService"

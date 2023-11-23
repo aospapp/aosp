@@ -15,12 +15,14 @@
 # limitations under the License.
 
 if [ "$#" -ne 1 ]; then
-  echo "usage: build.sh prod|test"
+  echo "usage: build.sh prod|test|public"
   exit 1
 fi
 
 if [ $1 = "prod" ]; then
   SERVICE="vtslab-schedule-prod.appspot.com"
+elif [ $1 = "public" ]; then
+  SERVICE="vtslab-schedule.appspot.com"
 else
   SERVICE="vtslab-schedule-test.appspot.com"
 fi

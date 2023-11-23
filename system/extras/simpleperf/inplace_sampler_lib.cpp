@@ -267,7 +267,7 @@ bool SampleManager::CheckMapChange(uint64_t timestamp) {
   }
   // Check new maps or changed maps.
   for (auto& map : maps) {
-    if (!map.executable) {
+    if (!(map.prot & PROT_EXEC)) {
       continue;
     }
     auto it = maps_.find(map.start_addr);

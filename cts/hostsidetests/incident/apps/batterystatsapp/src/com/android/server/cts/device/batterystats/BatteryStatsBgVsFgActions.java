@@ -231,20 +231,21 @@ public class BatteryStatsBgVsFgActions {
             }
         };
 
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                Looper.prepare();
-                locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 990, 0,
-                        locListener);
-                sleep(1_000);
-                locManager.removeUpdates(locListener);
-                latch.countDown();
-                return null;
-            }
-        }.execute();
+        HandlerThread handlerThread = new HandlerThread("doGpsUpdate_bg");
+        handlerThread.start();
+
+        Handler handler = new Handler(handlerThread.getLooper());
+        handler.post(() -> {
+                    locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 990, 0,
+                            locListener);
+                    sleep(1_000);
+                    locManager.removeUpdates(locListener);
+                    latch.countDown();
+                });
 
         waitForReceiver(ctx, 59_000, latch, null);
+        handlerThread.quitSafely();
+
         tellHostActionFinished(ACTION_GPS, requestCode);
     }
 

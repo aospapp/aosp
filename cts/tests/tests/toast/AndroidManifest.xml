@@ -23,7 +23,7 @@
     <application>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.widget.toast.cts"
         android:label="CTS tests for toast windows">
         <meta-data android:name="listener"

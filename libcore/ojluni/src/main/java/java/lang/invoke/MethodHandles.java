@@ -32,9 +32,10 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 
-import dalvik.system.VMStack;
 import sun.invoke.util.VerifyAccess;
 import sun.invoke.util.Wrapper;
+import sun.reflect.Reflection;
+
 import static java.lang.invoke.MethodHandleStatics.*;
 
 /**
@@ -85,8 +86,7 @@ public class MethodHandles {
     // Android-changed: Remove caller sensitive.
     // @CallerSensitive
     public static Lookup lookup() {
-        // Android-changed: Do not use Reflection.getCallerClass().
-        return new Lookup(VMStack.getStackClass1());
+        return new Lookup(Reflection.getCallerClass());
     }
 
     /**

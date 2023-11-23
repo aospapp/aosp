@@ -155,8 +155,7 @@ class LaunchIwEvent(object):
             timeout = done_time - time.time()
             if timeout <= 0:
                 break
-            (sread, swrite, sexec) = select.select(
-                    [self._pipe_reader], [], [], timeout)
+            (sread, _, __) = select.select([self._pipe_reader], [], [], timeout)
             if sread:
                 received_event = sread[0].recv()
                 received_event_log.append(received_event)

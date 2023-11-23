@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-feature android:glEsVersion="0x00020000"/>
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.opengl.cts" >
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

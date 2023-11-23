@@ -53,7 +53,7 @@ class WordBreaker;
 class TabStops {
 public:
     // Caller must free stops. stops can be nullprt.
-    TabStops(const int32_t* stops, size_t nStops, int32_t tabWidth)
+    TabStops(const float* stops, size_t nStops, float tabWidth)
             : mStops(stops), mStopsSize(nStops), mTabWidth(tabWidth) {}
 
     float nextTab(float widthSoFar) const {
@@ -66,9 +66,9 @@ public:
     }
 
 private:
-    const int32_t* mStops;
+    const float* mStops;
     size_t mStopsSize;
-    int32_t mTabWidth;
+    float mTabWidth;
 };
 
 // Implement this for the additional information during line breaking.
@@ -83,12 +83,6 @@ public:
 
     // Called to find out the minimum line width. This mut not return negative values.
     virtual float getMin() const = 0;
-
-    // Called to find out the available left-side padding for the line.
-    virtual float getLeftPaddingAt(size_t lineNo) const = 0;
-
-    // Called to find out the available right-side padding for the line.
-    virtual float getRightPaddingAt(size_t lineNo) const = 0;
 };
 
 struct LineBreakResult {

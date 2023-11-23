@@ -20,13 +20,10 @@ import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.app.Activity;
-import android.app.LoaderManager.LoaderCallbacks;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.content.Loader;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.graphics.drawable.ColorDrawable;
@@ -34,10 +31,17 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
 import android.view.DragEvent;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
+import androidx.loader.app.LoaderManager.LoaderCallbacks;
+import androidx.loader.content.Loader;
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+import androidx.recyclerview.selection.MutableSelection;
+import androidx.recyclerview.selection.SelectionTracker;
 
 import com.android.documentsui.AbstractActionHandler.CommonAddons;
 import com.android.documentsui.LoadDocStackTask.LoadDocStackCallback;
@@ -55,13 +59,11 @@ import com.android.documentsui.dirlist.FocusHandler;
 import com.android.documentsui.files.LauncherActivity;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.roots.GetRootDocumentTask;
+import com.android.documentsui.roots.LoadFirstRootTask;
 import com.android.documentsui.roots.LoadRootTask;
 import com.android.documentsui.roots.ProvidersAccess;
-import com.android.documentsui.selection.ContentLock;
-import com.android.documentsui.selection.MutableSelection;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.sidebar.EjectRootTask;
+import com.android.documentsui.sorting.SortListFragment;
 import com.android.documentsui.ui.Snackbars;
 
 import java.util.ArrayList;
@@ -75,7 +77,7 @@ import javax.annotation.Nullable;
 /**
  * Provides support for specializing the actions (openDocument etc.) to the host activity.
  */
-public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
+public abstract class AbstractActionHandler<T extends FragmentActivity & CommonAddons>
         implements ActionHandler {
 
     @VisibleForTesting
@@ -93,7 +95,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     protected final ProvidersAccess mProviders;
     protected final DocumentsAccess mDocs;
     protected final FocusHandler mFocusHandler;
-    protected final SelectionHelper mSelectionMgr;
+    protected final SelectionTracker<String> mSelectionMgr;
     protected final SearchViewManager mSearchMgr;
     protected final Lookup<String, Executor> mExecutors;
     protected final Injector<?> mInjector;
@@ -173,7 +175,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     }
 
     private void onAuthenticationResult(int resultCode) {
-        if (resultCode == Activity.RESULT_OK) {
+        if (resultCode == FragmentActivity.RESULT_OK) {
             Log.v(TAG, "Authentication was successful. Refreshing directory now.");
             mActivity.refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
         }
@@ -211,7 +213,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
     @Override
     public void openInNewWindow(DocumentStack path) {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_NEW_WINDOW);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_NEW_WINDOW);
 
         Intent intent = LauncherActivity.createLaunchIntent(mActivity);
         intent.putExtra(Shared.EXTRA_STACK, (Parcelable) path);
@@ -227,7 +229,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     }
 
     @Override
-    public boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback) {
+    public boolean openItem(ItemDetails<String> doc, @ViewType int type, @ViewType int fallback) {
         throw new UnsupportedOperationException("Can't open document.");
     }
 
@@ -273,7 +275,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
     @Override
     public void selectAllFiles() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_SELECT_ALL);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_SELECT_ALL);
         Model model = mInjector.getModel();
 
         // Exclude disabled files
@@ -301,9 +303,14 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
 
     @Override
     public void showCreateDirectoryDialog() {
-        Metrics.logUserAction(mActivity, Metrics.USER_ACTION_CREATE_DIR);
+        Metrics.logUserAction(MetricConsts.USER_ACTION_CREATE_DIR);
 
-        CreateDirectoryFragment.show(mActivity.getFragmentManager());
+        CreateDirectoryFragment.show(mActivity.getSupportFragmentManager());
+    }
+
+    @Override
+    public void showSortDialog() {
+        SortListFragment.show(mActivity.getSupportFragmentManager(), mState.sortModel);
     }
 
     @Override
@@ -340,6 +347,11 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         } else {
             openChildContainer(doc);
         }
+    }
+
+    @Override
+    public boolean previewItem(ItemDetails<String> doc) {
+        throw new UnsupportedOperationException("Can't handle preview.");
     }
 
     private void openFolderInSearchResult(@Nullable DocumentStack stack, DocumentInfo doc) {
@@ -422,7 +434,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             mActivity.getActionBar().setBackgroundDrawable(new ColorDrawable(
                     mActivity.getResources().getColor(R.color.primary)));
             mActivity.getWindow().setStatusBarColor(
-                    mActivity.getResources().getColor(R.color.primary_dark));
+                    mActivity.getResources().getColor(android.R.color.background_dark));
         }
     }
 
@@ -475,6 +487,12 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
     }
 
     @Override
+    public final void loadFirstRoot(Uri uri) {
+        new LoadFirstRootTask<>(mActivity, mProviders, mState, uri)
+                .executeOnExecutor(mExecutors.lookup(uri.getAuthority()));
+    }
+
+    @Override
     public void loadDocumentsForCurrentStack() {
         DocumentStack stack = mState.stack;
         if (!stack.isRecents() && stack.isEmpty()) {
@@ -487,7 +505,7 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             return;
         }
 
-        mActivity.getLoaderManager().restartLoader(LOADER_ID, null, mBindings);
+        mActivity.getSupportLoaderManager().restartLoader(LOADER_ID, null, mBindings);
     }
 
     protected final boolean launchToDocument(Uri uri) {
@@ -510,12 +528,12 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             mState.stack.reset(stack);
             mActivity.refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
 
-            Metrics.logLaunchAtLocation(mActivity, mState, stack.getRoot().getUri());
+            Metrics.logLaunchAtLocation(mState, stack.getRoot().getUri());
         } else {
             Log.w(TAG, "Failed to launch into the given uri. Launch to default location.");
             launchToDefaultLocation();
 
-            Metrics.logLaunchAtLocation(mActivity, mState, null);
+            Metrics.logLaunchAtLocation(mState, null);
         }
     }
 
@@ -533,8 +551,13 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         loadRoot(Shared.getDefaultRootUri(mActivity));
     }
 
-    protected MutableSelection getStableSelection() {
-        MutableSelection selection = new MutableSelection();
+    protected final void loadRecent() {
+        mState.stack.changeRoot(mProviders.getRecentsRoot());
+        mActivity.refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
+    }
+
+    protected MutableSelection<String> getStableSelection() {
+        MutableSelection<String> selection = new MutableSelection<>();
         mSelectionMgr.copySelection(selection);
         return selection;
     }
@@ -553,17 +576,29 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
             Context context = mActivity;
 
             if (mState.stack.isRecents()) {
-
-                if (DEBUG) Log.d(TAG, "Creating new loader recents.");
-                return new RecentsLoader(
-                        context,
-                        mProviders,
-                        mState,
-                        mInjector.features,
-                        mExecutors,
-                        mInjector.fileTypeLookup);
+                if (mSearchMgr.isSearching()) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Creating new GlobalSearchLoader.");
+                    }
+                    return new GlobalSearchLoader(
+                            context,
+                            mProviders,
+                            mState,
+                            mExecutors,
+                            mInjector.fileTypeLookup,
+                            mSearchMgr.buildQueryArgs());
+                } else {
+                    if (DEBUG) {
+                        Log.d(TAG, "Creating new loader recents.");
+                    }
+                    return new RecentsLoader(
+                            context,
+                            mProviders,
+                            mState,
+                            mExecutors,
+                            mInjector.fileTypeLookup);
+                }
             } else {
-
                 Uri contentsUri = mSearchMgr.isSearching()
                         ? DocumentsContract.buildSearchDocumentsUri(
                             mState.stack.getRoot().authority,
@@ -573,31 +608,37 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
                                 mState.stack.peek().authority,
                                 mState.stack.peek().documentId);
 
+                final Bundle queryArgs = mSearchMgr.isSearching()
+                        ? mSearchMgr.buildQueryArgs()
+                        : null;
+
                 if (mInjector.config.managedModeEnabled(mState.stack)) {
                     contentsUri = DocumentsContract.setManageMode(contentsUri);
                 }
 
-                if (DEBUG) Log.d(TAG,
+                if (DEBUG) {
+                    Log.d(TAG,
                         "Creating new directory loader for: "
-                                + DocumentInfo.debugString(mState.stack.peek()));
+                            + DocumentInfo.debugString(mState.stack.peek()));
+                }
 
                 return new DirectoryLoader(
                         mInjector.features,
                         context,
-                        mState.stack.getRoot(),
-                        mState.stack.peek(),
+                        mState,
                         contentsUri,
-                        mState.sortModel,
                         mInjector.fileTypeLookup,
                         mContentLock,
-                        mSearchMgr.isSearching());
+                        queryArgs);
             }
         }
 
         @Override
         public void onLoadFinished(Loader<DirectoryResult> loader, DirectoryResult result) {
-            if (DEBUG) Log.d(TAG, "Loader has finished for: "
+            if (DEBUG) {
+                Log.d(TAG, "Loader has finished for: "
                     + DocumentInfo.debugString(mState.stack.peek()));
+            }
             assert(result != null);
 
             mInjector.getModel().update(result);
@@ -619,6 +660,10 @@ public abstract class AbstractActionHandler<T extends Activity & CommonAddons>
         void onDocumentPicked(DocumentInfo doc);
         RootInfo getCurrentRoot();
         DocumentInfo getCurrentDirectory();
+        /**
+         * Check whether current directory is root of recent.
+         */
+        boolean isInRecents();
         void setRootsDrawerOpen(boolean open);
 
         // TODO: Let navigator listens to State

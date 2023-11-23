@@ -46,7 +46,7 @@ import java.util.HashMap;
  *  adb shell am instrument
  *   -e debug false -w
  *   -e class android.accounts.cts.AccountManagerUnaffiliatedAuthenticatorTests
- * android.accounts.cts/android.support.test.runner.AndroidJUnitRunner
+ * android.accounts.cts/androidx.test.runner.AndroidJUnitRunner
  */
 public class AccountManagerUnaffiliatedAuthenticatorTests extends AndroidTestCase {
 

@@ -26,5 +26,6 @@
     <test class="com.android.tradefed.testtype.InstrumentationTest" >
         <option name="package" value="android.platform.systemui.tests.jank" />
         <option name="runner" value="android.test.InstrumentationTestRunner" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

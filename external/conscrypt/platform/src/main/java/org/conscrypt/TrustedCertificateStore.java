@@ -35,7 +35,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.security.auth.x500.X500Principal;
-import libcore.io.IoUtils;
+import org.conscrypt.io.IoUtils;
 
 /**
  * A source for trusted root certificate authority (CA) certificates
@@ -79,11 +79,9 @@ import libcore.io.IoUtils;
  * ensures that its owner and group are the system uid and system
  * gid and that it is world readable but only writable by the system
  * user.
- *
- * @hide
  */
 @Internal
-public class TrustedCertificateStore {
+public class TrustedCertificateStore implements ConscryptCertStore {
 
     private static final String PREFIX_SYSTEM = "system:";
     private static final String PREFIX_USER = "user:";
@@ -344,6 +342,7 @@ public class TrustedCertificateStore {
      * with other differences (for example when switching signature
      * from md2WithRSAEncryption to SHA1withRSA)
      */
+    @Override
     public X509Certificate getTrustAnchor(final X509Certificate c) {
         // compare X509Certificate.getPublicKey values
         CertSelector selector = new CertSelector() {
@@ -399,6 +398,7 @@ public class TrustedCertificateStore {
         return null;
     }
 
+    @Override
     public Set<X509Certificate> findAllIssuers(final X509Certificate c) {
         Set<X509Certificate> issuers = null;
         CertSelector selector = new CertSelector() {

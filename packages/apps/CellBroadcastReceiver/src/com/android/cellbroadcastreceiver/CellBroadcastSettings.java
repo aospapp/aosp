@@ -28,17 +28,17 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserManager;
 import android.provider.Settings;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v7.preference.TwoStatePreference;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.view.MenuItem;
 
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.TwoStatePreference;
 
 /**
  * Settings activity for the cell broadcast receiver.
@@ -89,6 +89,10 @@ public class CellBroadcastSettings extends Activity {
 
     // Whether to display monthly test messages (default is disabled).
     public static final String KEY_ENABLE_TEST_ALERTS = "enable_test_alerts";
+
+    // Whether to display state/local test messages (default disabled).
+    public static final String KEY_ENABLE_STATE_LOCAL_TEST_ALERTS =
+            "enable_state_local_test_alerts";
 
     // Preference key for whether to enable area update information notifications
     // Enabled by default for phones sold in Brazil and India, otherwise this setting may be hidden.
@@ -158,6 +162,7 @@ public class CellBroadcastSettings extends Activity {
         private TwoStatePreference mFullVolumeCheckBox;
         private TwoStatePreference mAreaUpdateInfoCheckBox;
         private TwoStatePreference mTestCheckBox;
+        private TwoStatePreference mStateLocalTestCheckBox;
         private Preference mAlertHistory;
         private PreferenceCategory mAlertCategory;
         private PreferenceCategory mAlertPreferencesCategory;
@@ -202,6 +207,8 @@ public class CellBroadcastSettings extends Activity {
                     findPreference(KEY_ENABLE_AREA_UPDATE_INFO_ALERTS);
             mTestCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_TEST_ALERTS);
+            mStateLocalTestCheckBox = (TwoStatePreference)
+                    findPreference(KEY_ENABLE_STATE_LOCAL_TEST_ALERTS);
             mAlertHistory = findPreference(KEY_EMERGENCY_ALERT_HISTORY);
             mDevSettingCategory = (PreferenceCategory)
                     findPreference(KEY_CATEGORY_DEV_SETTINGS);
@@ -269,8 +276,7 @@ public class CellBroadcastSettings extends Activity {
             boolean enableDevSettings = Settings.Global.getInt(getContext().getContentResolver(),
                     Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
 
-            Resources res = getResources();
-
+            Resources res = getResourcesForDefaultSmsSubscriptionId(getContext());
             initReminderIntervalList();
 
             boolean emergencyAlertOnOffOptionEnabled = isFeatureEnabled(getContext(),
@@ -347,6 +353,17 @@ public class CellBroadcastSettings extends Activity {
                 }
             }
 
+            if (CellBroadcastChannelManager.getCellBroadcastChannelRanges(
+                    this.getContext(),
+                    R.array.state_local_test_alert_range_strings).isEmpty()) {
+                // Remove state local test messages
+                if (mAlertCategory != null) {
+                    if (mStateLocalTestCheckBox != null) {
+                        mAlertCategory.removePreference(mStateLocalTestCheckBox);
+                    }
+                }
+            }
+
             if (mAreaUpdateInfoCheckBox != null) {
                 mAreaUpdateInfoCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
             }
@@ -373,6 +390,10 @@ public class CellBroadcastSettings extends Activity {
             }
             if (mTestCheckBox != null) {
                 mTestCheckBox.setOnPreferenceChangeListener(startConfigServiceListener);
+            }
+            if (mStateLocalTestCheckBox != null) {
+                mStateLocalTestCheckBox.setOnPreferenceChangeListener(
+                        startConfigServiceListener);
             }
 
             if (mAlertHistory != null) {
@@ -402,11 +423,11 @@ public class CellBroadcastSettings extends Activity {
         }
 
         private void initReminderIntervalList() {
+            Resources res = getResourcesForDefaultSmsSubscriptionId(getContext());
 
             String[] activeValues =
-                    getResources().getStringArray(R.array.alert_reminder_interval_active_values);
-            String[] allEntries =
-                    getResources().getStringArray(R.array.alert_reminder_interval_entries);
+                    res.getStringArray(R.array.alert_reminder_interval_active_values);
+            String[] allEntries = res.getStringArray(R.array.alert_reminder_interval_entries);
             String[] newEntries = new String[activeValues.length];
 
             // Only add active interval to the list
@@ -467,6 +488,10 @@ public class CellBroadcastSettings extends Activity {
                 mPublicSafetyMessagesChannelCheckBox.setEnabled(alertsEnabled);
                 mPublicSafetyMessagesChannelCheckBox.setChecked(alertsEnabled);
             }
+            if (mStateLocalTestCheckBox != null) {
+                mStateLocalTestCheckBox.setEnabled(alertsEnabled);
+                mStateLocalTestCheckBox.setChecked(alertsEnabled);
+            }
         }
     }
 
@@ -491,5 +516,16 @@ public class CellBroadcastSettings extends Activity {
         }
 
         return defaultValue;
+    }
+
+    public static Resources getResourcesForDefaultSmsSubscriptionId(Context context) {
+        int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            subId = SubscriptionManager.getDefaultSubscriptionId();
+            if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                return context.getResources();
+            }
+        }
+        return SubscriptionManager.getResourcesForSubId(context, subId);
     }
 }

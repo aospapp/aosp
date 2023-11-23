@@ -13,26 +13,16 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@color/white">
 
-    <android.support.wearable.view.GridViewPager
-        android:id="@+id/pager"
+
+    <androidx.wear.widget.WearableRecyclerView
+        android:id="@+id/recycler_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
 
-    <android.support.wearable.view.DotsPageIndicator
-        android:id="@+id/page_indicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="10dp"
-        android:padding="5dp"
-        android:background="@drawable/rounded_background">
-    </android.support.wearable.view.DotsPageIndicator>
-
+    </androidx.wear.widget.WearableRecyclerView>
 </RelativeLayout>

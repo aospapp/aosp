@@ -22,7 +22,7 @@ import functools
 
 import numpy as np
 
-from tensorflow.compiler.tests.xla_test import XLATestCase
+from tensorflow.compiler.tests import xla_test
 from tensorflow.python.framework import errors
 from tensorflow.python.ops import array_ops
 from tensorflow.python.platform import test
@@ -68,7 +68,7 @@ def _NumpyUpdate(indices, updates, shape):
   return _NumpyScatterNd(ref, indices, updates, lambda p, u: u)
 
 
-class ScatterNdTest(XLATestCase):
+class ScatterNdTest(xla_test.XLATestCase):
 
   def _VariableRankTest(self,
                         np_scatter,
@@ -119,7 +119,7 @@ class ScatterNdTest(XLATestCase):
         self._VariableRankTest(np_scatter, tf_scatter, vtype, itype)
 
   def _runScatterNd(self, indices, updates, shape):
-    with self.test_session():
+    with self.cached_session():
       updates_placeholder = array_ops.placeholder(updates.dtype)
       indices_placeholder = array_ops.placeholder(indices.dtype)
       with self.test_scope():
@@ -133,6 +133,12 @@ class ScatterNdTest(XLATestCase):
     updates = np.array([9, 10, 11, 12], dtype=np.float32)
     expected = np.array([0, 11, 0, 10, 9, 0, 0, 12], dtype=np.int32)
     self.assertAllEqual(expected, self._runScatterNd(indices, updates, [8]))
+
+  def testRepeatedIndices(self):
+    indices = np.array([[0], [1], [0], [1]], dtype=np.int32)
+    updates = np.array([9, 10, 11, 12], dtype=np.float32)
+    expected = np.array([20, 22], dtype=np.int32)
+    self.assertAllEqual(expected, self._runScatterNd(indices, updates, [2]))
 
   def testSimple2(self):
     indices = np.array([[1, 0], [1, 1]], dtype=np.int32)

@@ -1,12 +1,12 @@
 #!/bin/bash
 #
-# Copyright (C) 2017 The Android Open Source Project
+# Copyright 2018 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,9 +14,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Stop if something fails.
+# make us exit on a failure
 set -e
 
-${DX} --dex --min-sdk-version=28 --output=classes.dex classes
+export ASM_JAR="${ANDROID_BUILD_TOP}/prebuilts/misc/common/asm/asm-6.0.jar"
 
-zip $TEST_NAME.jar classes.dex
+export ORIGINAL_JAVAC="$JAVAC"
+
+function javac_wrapper {
+  set -e
+
+  # Add annotation src files to our compiler inputs.
+  local asrcs=util-src/annotations/*.java
+
+  # Compile.
+  $ORIGINAL_JAVAC "$@" $asrcs
+
+  # Move original classes to intermediate location.
+  mv classes intermediate-classes
+  mkdir classes
+
+  # Transform intermediate classes.
+  local transformer_args="-cp ${ASM_JAR}:$PWD/transformer.jar transformer.ConstantTransformer"
+  for class in intermediate-classes/*.class ; do
+    local transformed_class=classes/$(basename ${class})
+    ${JAVA:-java} ${transformer_args} ${class} ${transformed_class}
+  done
+}
+
+export -f javac_wrapper
+export JAVAC=javac_wrapper
+
+######################################################################
+
+# Build the transformer to apply to compiled classes.
+mkdir classes
+${ORIGINAL_JAVAC:-javac} ${JAVAC_ARGS} -cp "${ASM_JAR}" -d classes $(find util-src -name '*.java')
+jar -cf transformer.jar -C classes transformer/ -C classes annotations/
+rm -rf classes
+
+# Use API level 28 for DEX file support constant method handles.
+./default-build "$@" --api-level 28

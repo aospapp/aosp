@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -17,12 +17,14 @@
 from acts.libs.proc import job
 
 import logging
+from acts import error
 
 
-class FastbootError(Exception):
+class FastbootError(error.ActsError):
     """Raised when there is an error in fastboot operations."""
 
     def __init__(self, cmd, stdout, stderr, ret_code):
+        super().__init__()
         self.cmd = cmd
         self.stdout = stdout
         self.stderr = stderr

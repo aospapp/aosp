@@ -162,7 +162,6 @@ public class IntentFiltersTestHelper {
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             forwardedIntentsFromManaged.addAll(Arrays.asList(
-                    new Intent(Intent.ACTION_DIAL).setData(Uri.parse("tel:123")),
                     new Intent("android.intent.action.CALL_EMERGENCY").setData(
                             Uri.parse("tel:123")),
                     new Intent("android.intent.action.CALL_PRIVILEGED").setData(
@@ -188,8 +187,9 @@ public class IntentFiltersTestHelper {
                             Uri.parse("mmsto:07700900100?body=Hello%20world")).addCategory(
                             Intent.CATEGORY_BROWSABLE),
                     new Intent(Settings.ACTION_APN_SETTINGS)));
-            notForwardedIntentsFromManaged
-                    .add(new Intent(Intent.ACTION_CALL).setData(Uri.parse("tel:123")));
+            notForwardedIntentsFromManaged.addAll(Arrays.asList(
+                    new Intent(Intent.ACTION_DIAL).setData(Uri.parse("tel:123")),
+                    new Intent(Intent.ACTION_CALL).setData(Uri.parse("tel:123"))));
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_NFC)) {
@@ -251,7 +251,7 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_INPUT_METHODS)) {
-            forwardedIntentsFromManaged.addAll(Arrays.asList(
+            notForwardedIntentsFromManaged.addAll(Arrays.asList(
                     new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS),
                     new Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS)));
         }

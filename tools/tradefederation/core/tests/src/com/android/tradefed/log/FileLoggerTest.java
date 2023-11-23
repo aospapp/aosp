@@ -16,12 +16,19 @@
 package com.android.tradefed.log;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.targetprep.StubTargetPreparer;
+import com.android.tradefed.targetprep.suite.SuiteApkInstaller;
+import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.util.StreamUtil;
 
 import org.junit.Test;
@@ -31,6 +38,7 @@ import org.junit.runners.JUnit4;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
 
 /** Unit tests for {@link FileLogger}. */
 @RunWith(JUnit4.class)
@@ -150,5 +158,95 @@ public class FileLoggerTest {
         // We now have 2 distinct objects
         assertNotEquals(logger, clone);
         assertEquals(logger.getMaxLogSizeMbytes(), clone.getMaxLogSizeMbytes());
+    }
+
+    /** Test that filtering configuration components properly translate them in their class tag. */
+    @Test
+    public void testFilteringComponent() throws Exception {
+        IConfiguration config = new Configuration("test", "test");
+        config.setTest(new StubTest());
+        config.setTargetPreparers(Arrays.asList(new StubTargetPreparer(), new SuiteApkInstaller()));
+        FileLogger logger = new FileLogger();
+        OptionSetter setter = new OptionSetter(logger);
+        setter.setOptionValue("component-verbosity", "test", LogLevel.DEBUG.toString());
+        setter.setOptionValue("component-verbosity", "target_preparer", LogLevel.ERROR.toString());
+        setter.setOptionValue("component-verbosity", "build_provider", LogLevel.ERROR.toString());
+        logger.initFilters(config);
+        // The component verbosity for test DEBUG is bellow INFO so StubTest print.
+        assertTrue(logger.shouldDisplay(false, LogLevel.WARN, LogLevel.INFO, "StubTest"));
+        // The component verbosity for others (ERROR) is above the message verbosity (DEBUG) so no
+        // print.
+        assertFalse(
+                logger.shouldDisplay(false, LogLevel.WARN, LogLevel.DEBUG, "StubTargetPreparer"));
+        assertFalse(
+                logger.shouldDisplay(false, LogLevel.WARN, LogLevel.DEBUG, "SuiteApkInstaller"));
+        assertFalse(
+                logger.shouldDisplay(false, LogLevel.WARN, LogLevel.DEBUG, "StubBuildProvider"));
+    }
+
+    /** Test that if both component and class verbosity is set, class verbosity has priority */
+    @Test
+    public void testFiltering_classVerbosity() throws Exception {
+        IConfiguration config = new Configuration("test", "test");
+        config.setTest(new StubTest());
+        config.setTargetPreparers(Arrays.asList(new StubTargetPreparer(), new SuiteApkInstaller()));
+        FileLogger logger = new FileLogger();
+        OptionSetter setter = new OptionSetter(logger);
+        setter.setOptionValue("class-verbosity", "StubTest", LogLevel.WARN.toString());
+        setter.setOptionValue("component-verbosity", "test", LogLevel.INFO.toString());
+        logger.initFilters(config);
+        // Class verbosity has priority so it doesn't print.
+        assertFalse(logger.shouldDisplay(false, LogLevel.INFO, LogLevel.INFO, "StubTest"));
+        // If we log we enough level, then it prints.
+        assertTrue(logger.shouldDisplay(false, LogLevel.INFO, LogLevel.WARN, "StubTest"));
+    }
+
+    /**
+     * Ensure that special tags like "ddms" have an enforced log level and only print under that
+     * forced level.
+     */
+    @Test
+    public void testFiltering_ddms() throws Exception {
+        IConfiguration config = new Configuration("test", "test");
+        FileLogger logger = new FileLogger();
+        InputStreamSource logSource = null;
+        try {
+            OptionSetter setter = new OptionSetter(logger);
+            setter.setOptionValue("log-level", "INFO");
+            logger.initFilters(config);
+            logger.init();
+            logger.printLog(LogLevel.INFO, "ddms", "should not be printed");
+            logSource = logger.getLog();
+            String content = StreamUtil.getStringFromSource(logSource);
+            assertTrue(content.isEmpty());
+        } finally {
+            StreamUtil.cancel(logSource);
+            logger.closeLog();
+        }
+    }
+
+    /**
+     * Test that special tags like "ddms" still print if their log level is high enough compared to
+     * our forced level.
+     */
+    @Test
+    public void testFiltering_ddms_log() throws Exception {
+        IConfiguration config = new Configuration("test", "test");
+        FileLogger logger = new FileLogger();
+        InputStreamSource logSource = null;
+        try {
+            OptionSetter setter = new OptionSetter(logger);
+            setter.setOptionValue("log-level", "INFO");
+            logger.initFilters(config);
+            logger.init();
+            String message = "should be printed";
+            logger.printLog(LogLevel.WARN, "ddms", message);
+            logSource = logger.getLog();
+            String content = StreamUtil.getStringFromSource(logSource);
+            assertTrue(content.contains(message));
+        } finally {
+            StreamUtil.cancel(logSource);
+            logger.closeLog();
+        }
     }
 }

@@ -49,7 +49,7 @@ class ProcUidTimeInStateTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_path(self):
         return "/proc/uid_time_in_state"
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # This file is optional until implemented in Android common kernel
         return True
 

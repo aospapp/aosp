@@ -38,6 +38,7 @@ public class DeviceFileCache implements FileCache {
         this.deviceFilesystem = deviceFilesystem;
     }
 
+    @Override
     public boolean existsInCache(String key) {
         if (cachedFiles == null) {
             try {
@@ -53,11 +54,13 @@ public class DeviceFileCache implements FileCache {
         return cachedFiles.contains(cachedFile);
     }
 
+    @Override
     public void copyFromCache(String key, File destination) {
         File cachedFile = new File(cacheRoot, key);
         cp(cachedFile, destination);
     }
 
+    @Override
     public void copyToCache(File source, String key) {
         File cachedFile = new File(cacheRoot, key);
         deviceFilesystem.mkdirs(cacheRoot);

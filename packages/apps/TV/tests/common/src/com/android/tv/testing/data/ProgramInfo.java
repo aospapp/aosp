@@ -22,7 +22,7 @@ import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import com.android.tv.testing.R;
 import com.android.tv.testing.utils.Utils;
-import java.util.Arrays;
+import com.google.common.collect.ImmutableList;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -100,7 +100,7 @@ public final class ProgramInfo {
     public final String description;
     public final long durationMs;
     public final String genre;
-    public final TvContentRating[] contentRatings;
+    public final ImmutableList<TvContentRating> contentRatings;
     public final String resourceUri;
 
     public static ProgramInfo fromCursor(Cursor c) {
@@ -129,7 +129,7 @@ public final class ProgramInfo {
             String posterArtUri,
             String description,
             long durationMs,
-            TvContentRating[] contentRatings,
+            ImmutableList<TvContentRating> contentRatings,
             String genre,
             String resourceUri) {
         this.title = title;
@@ -248,7 +248,7 @@ public final class ProgramInfo {
                 && Objects.equals(posterArtUri, that.posterArtUri)
                 && Objects.equals(description, that.description)
                 && Objects.equals(genre, that.genre)
-                && Arrays.equals(contentRatings, that.contentRatings)
+                && Objects.equals(contentRatings, that.contentRatings)
                 && Objects.equals(resourceUri, that.resourceUri);
     }
 
@@ -265,7 +265,7 @@ public final class ProgramInfo {
         private String mPosterArtUri = GEN_POSTER;
         private String mDescription;
         private long mDurationMs = GEN_DURATION;
-        private TvContentRating[] mContentRatings;
+        private ImmutableList<TvContentRating> mContentRatings;
         private String mGenre = GEN_GENRE;
         private String mResourceUri;
 
@@ -304,7 +304,7 @@ public final class ProgramInfo {
             return this;
         }
 
-        public Builder setContentRatings(TvContentRating[] contentRatings) {
+        public Builder setContentRatings(ImmutableList<TvContentRating> contentRatings) {
             mContentRatings = contentRatings;
             return this;
         }

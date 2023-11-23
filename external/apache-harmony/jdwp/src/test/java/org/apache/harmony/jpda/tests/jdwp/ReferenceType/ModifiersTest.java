@@ -29,6 +29,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -40,13 +41,22 @@ public class ModifiersTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.Modifiers command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
-    static final String debuggeeInterfaceSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorldInterface;";
-    static final String debuggeeInterfaceClassName = "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorldInterface";
+    static final String debuggeeSignature = getClassSignature(HelloWorld.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
+        return HelloWorld.class.getName();
+    }
+
+    // Note: HelloWorldInterface is intentionally not public, so we cannot use a class literal
+    //       to construct the strings. But for potential renaming, this needs to be computed.
+
+    private String getDebuggeeInterfaceSignature() {
+        return debuggeeSignature.replace("HelloWorld", "HelloWorldInterface");
+    }
+
+    private String getDebuggeeInterfaceClassName() {
+        return getDebuggeeClassName().replace("HelloWorld", "HelloWorldInterface");
     }
 
     /**
@@ -152,9 +162,9 @@ public class ModifiersTest extends JDWPSyncTestCase {
         String failMessage = "";
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long refTypeID = getClassIDBySignature(debuggeeInterfaceSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeInterfaceSignature());
 
-        logWriter.println("=> Debuggee Interface class = " + debuggeeInterfaceClassName);
+        logWriter.println("=> Debuggee Interface class = " + getDebuggeeInterfaceClassName());
         logWriter.println("=> referenceTypeID for Debuggee interface = " + refTypeID);
         logWriter.println("=> CHECK1: send " + thisCommandName + " and check reply...");
 

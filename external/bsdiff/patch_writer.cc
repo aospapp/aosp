@@ -5,6 +5,7 @@
 #include "bsdiff/patch_writer.h"
 
 #include <string.h>
+#include <limits>
 
 #include "bsdiff/brotli_compressor.h"
 #include "bsdiff/bz2_compressor.h"
@@ -27,30 +28,65 @@ void EncodeInt64(int64_t x, uint8_t* buf) {
 namespace bsdiff {
 
 BsdiffPatchWriter::BsdiffPatchWriter(const std::string& patch_filename)
-    : patch_filename_(patch_filename), format_(BsdiffFormat::kLegacy) {
-  ctrl_stream_.reset(new BZ2Compressor());
-  diff_stream_.reset(new BZ2Compressor());
-  extra_stream_.reset(new BZ2Compressor());
+    : patch_filename_(patch_filename),
+      format_(BsdiffFormat::kLegacy),
+      brotli_quality_(-1) {
+  types_.emplace_back(CompressorType::kBZ2);
 }
 
+
 BsdiffPatchWriter::BsdiffPatchWriter(const std::string& patch_filename,
-                                     CompressorType type,
-                                     int quality)
-    : patch_filename_(patch_filename), format_(BsdiffFormat::kBsdf2) {
-  if (type == CompressorType::kBZ2) {
-    ctrl_stream_.reset(new BZ2Compressor());
-    diff_stream_.reset(new BZ2Compressor());
-    extra_stream_.reset(new BZ2Compressor());
-  } else if (type == CompressorType::kBrotli) {
-    ctrl_stream_.reset(new BrotliCompressor(quality));
-    diff_stream_.reset(new BrotliCompressor(quality));
-    extra_stream_.reset(new BrotliCompressor(quality));
+                                     const std::vector<CompressorType>& types,
+                                     int brotli_quality)
+    : patch_filename_(patch_filename),
+      format_(BsdiffFormat::kBsdf2),
+      types_(types),
+      brotli_quality_(brotli_quality) {}
+
+bool BsdiffPatchWriter::InitializeCompressorList(
+    std::vector<std::unique_ptr<bsdiff::CompressorInterface>>*
+        compressor_list) {
+  if (types_.empty()) {
+    LOG(ERROR) << "Patch writer expects at least one compressor.";
+    return false;
   }
+
+  for (const auto& type : types_) {
+    switch (type) {
+      case CompressorType::kBZ2:
+        compressor_list->emplace_back(new BZ2Compressor());
+        break;
+      case CompressorType::kBrotli:
+        compressor_list->emplace_back(new BrotliCompressor(brotli_quality_));
+        break;
+      case CompressorType::kNoCompression:
+        LOG(ERROR) << "Unsupported compression type " << static_cast<int>(type);
+        return false;
+    }
+  }
+
+  for (const auto& compressor : *compressor_list) {
+    if (!compressor) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool BsdiffPatchWriter::Init(size_t /* new_size */) {
-  if (!(ctrl_stream_ && diff_stream_ && extra_stream_)) {
-    LOG(ERROR) << "uninitialized compressor stream";
+  if (!InitializeCompressorList(&ctrl_stream_list_)) {
+    LOG(ERROR) << "Failed to initialize control stream compressors.";
+    return false;
+  }
+
+  if (!InitializeCompressorList(&diff_stream_list_)) {
+    LOG(ERROR) << "Failed to initialize diff stream compressors.";
+    return false;
+  }
+
+  if (!InitializeCompressorList(&extra_stream_list_)) {
+    LOG(ERROR) << "Failed to initialize extra stream compressors.";
     return false;
   }
 
@@ -63,11 +99,23 @@ bool BsdiffPatchWriter::Init(size_t /* new_size */) {
 }
 
 bool BsdiffPatchWriter::WriteDiffStream(const uint8_t* data, size_t size) {
-  return diff_stream_->Write(data, size);
+  for (const auto& compressor : diff_stream_list_) {
+    if (!compressor->Write(data, size)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool BsdiffPatchWriter::WriteExtraStream(const uint8_t* data, size_t size) {
-  return extra_stream_->Write(data, size);
+  for (const auto& compressor : extra_stream_list_) {
+    if (!compressor->Write(data, size)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool BsdiffPatchWriter::AddControlEntry(const ControlEntry& entry) {
@@ -76,9 +124,35 @@ bool BsdiffPatchWriter::AddControlEntry(const ControlEntry& entry) {
   EncodeInt64(entry.diff_size, buf);
   EncodeInt64(entry.extra_size, buf + 8);
   EncodeInt64(entry.offset_increment, buf + 16);
-  if (!ctrl_stream_->Write(buf, sizeof(buf)))
-    return false;
+
+  for (const auto& compressor : ctrl_stream_list_) {
+    if (!compressor->Write(buf, sizeof(buf))) {
+      return false;
+    }
+  }
+
   written_output_ += entry.diff_size + entry.extra_size;
+  return true;
+}
+
+bool BsdiffPatchWriter::SelectSmallestResult(
+    const std::vector<std::unique_ptr<CompressorInterface>>& compressor_list,
+    CompressorInterface** smallest_compressor) {
+  size_t min_size = std::numeric_limits<size_t>::max();
+  for (const auto& compressor : compressor_list) {
+    if (!compressor->Finish()) {
+      LOG(ERROR) << "Failed to finalize compressed streams.";
+      return false;
+    }
+
+    // Update |smallest_compressor| if the current compressor produces a
+    // smaller result.
+    if (compressor->GetCompressedData().size() < min_size) {
+      min_size = compressor->GetCompressedData().size();
+      *smallest_compressor = compressor.get();
+    }
+  }
+
   return true;
 }
 
@@ -88,17 +162,31 @@ bool BsdiffPatchWriter::Close() {
     return false;
   }
 
-  if (!ctrl_stream_->Finish() || !diff_stream_->Finish() ||
-      !extra_stream_->Finish()) {
-    LOG(ERROR) << "Finalizing compressed streams.";
+  CompressorInterface* ctrl_stream = nullptr;
+  if (!SelectSmallestResult(ctrl_stream_list_, &ctrl_stream) || !ctrl_stream) {
     return false;
   }
 
-  auto ctrl_data = ctrl_stream_->GetCompressedData();
-  auto diff_data = diff_stream_->GetCompressedData();
-  auto extra_data = extra_stream_->GetCompressedData();
+  CompressorInterface* diff_stream = nullptr;
+  if (!SelectSmallestResult(diff_stream_list_, &diff_stream) || !diff_stream) {
+    return false;
+  }
 
-  if (!WriteHeader(ctrl_data.size(), diff_data.size()))
+  CompressorInterface* extra_stream = nullptr;
+  if (!SelectSmallestResult(extra_stream_list_, &extra_stream) ||
+      !extra_stream) {
+    return false;
+  }
+
+  auto ctrl_data = ctrl_stream->GetCompressedData();
+  auto diff_data = diff_stream->GetCompressedData();
+  auto extra_data = extra_stream->GetCompressedData();
+
+  uint8_t types[3] = {static_cast<uint8_t>(ctrl_stream->Type()),
+                      static_cast<uint8_t>(diff_stream->Type()),
+                      static_cast<uint8_t>(extra_stream->Type())};
+
+  if (!WriteHeader(types, ctrl_data.size(), diff_data.size()))
     return false;
 
   if (fwrite(ctrl_data.data(), 1, ctrl_data.size(), fp_) != ctrl_data.size()) {
@@ -122,7 +210,9 @@ bool BsdiffPatchWriter::Close() {
   return true;
 }
 
-bool BsdiffPatchWriter::WriteHeader(uint64_t ctrl_size, uint64_t diff_size) {
+bool BsdiffPatchWriter::WriteHeader(uint8_t types[3],
+                                    uint64_t ctrl_size,
+                                    uint64_t diff_size) {
   /* Header format is
    * 0 8 magic header
    * 8 8 length of compressed ctrl block
@@ -146,9 +236,7 @@ bool BsdiffPatchWriter::WriteHeader(uint64_t ctrl_size, uint64_t diff_size) {
     // 6 1 compressed type for diff stream
     // 7 1 compressed type for extra stream
     memcpy(header, kBSDF2MagicHeader, 5);
-    header[5] = static_cast<uint8_t>(ctrl_stream_->Type());
-    header[6] = static_cast<uint8_t>(diff_stream_->Type());
-    header[7] = static_cast<uint8_t>(extra_stream_->Type());
+    memcpy(header + 5, types, 3);
   } else {
     LOG(ERROR) << "Unsupported bsdiff format.";
     return false;

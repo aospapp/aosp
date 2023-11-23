@@ -18,6 +18,9 @@ ar_XB{
         "Antarctica:DumontDUrville"{
             ec{"؜‮Dumont‬؜ ؜‮d‬؜’؜‮Urville‬؜"}
         }
+        "Asia:Qostanay"{
+            ec{"؜‮Kostanay‬؜"}
+        }
         "Asia:Saigon"{
             ec{"؜‮Ho‬؜ ؜‮Chi‬؜ ؜‮Minh‬؜ ؜‮City‬؜"}
         }
@@ -597,7 +600,7 @@ ar_XB{
             ls{"؜‮Qyzylorda‬؜ ؜‮Standard‬؜ ؜‮Time‬؜"}
         }
         "meta:Reunion"{
-            ls{"؜‮Reunion‬؜ ؜‮Time‬؜"}
+            ls{"؜‮Réunion‬؜ ؜‮Time‬؜"}
         }
         "meta:Rothera"{
             ls{"؜‮Rothera‬؜ ؜‮Time‬؜"}

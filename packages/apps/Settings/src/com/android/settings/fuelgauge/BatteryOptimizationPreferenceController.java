@@ -15,8 +15,9 @@
 package com.android.settings.fuelgauge;
 
 import android.os.Bundle;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
 
 import com.android.settings.R;
 import com.android.settings.Settings;
@@ -89,7 +90,7 @@ public class BatteryOptimizationPreferenceController extends AbstractPreferenceC
         new SubSettingLauncher(mSettingsActivity)
                 .setDestination(ManageApplications.class.getName())
                 .setArguments(args)
-                .setTitle(R.string.high_power_apps)
+                .setTitleRes(R.string.high_power_apps)
                 .setSourceMetricsCategory(mFragment.getMetricsCategory())
                 .launch();
 

@@ -16,6 +16,7 @@ _CUPS_SUCCESS = 0
 _CUPS_INVALID_PPD_ERROR = 2
 _CUPS_LPADMIN_ERROR = 3
 _CUPS_AUTOCONF_FAILURE = 4
+_CUPS_BAD_URI = 5
 
 
 class platform_DebugDaemonCupsAddPrinters(test.test):
@@ -58,7 +59,7 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
             raise error.TestFail('autoconf - Incorrect error code received: '
                 '%i' % autoconfig_result)
 
-    def test_ppd_error(self):
+    def test_ppd_error(self, ppd_filename):
         """
         Validates that malformed PPDs are rejected.
 
@@ -67,7 +68,7 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
         @raises TestFail: If the test failed.
 
         """
-        ppd_contents = dbus.ByteArray('This is not a valid ppd')
+        ppd_contents = self.load_ppd(ppd_filename)
         result = debugd_util.iface().CupsAddManuallyConfiguredPrinter(
                 'ManualPrinterBreaks', 'socket://127.0.0.1/ipp/fake_printer',
                 ppd_contents)
@@ -120,7 +121,7 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
                  'UnrecognizedProtocol',
                  'badbadbad://127.0.0.1/ipp/fake_printer',
                   ppd_contents)
-        if result != _CUPS_LPADMIN_ERROR:
+        if result != _CUPS_BAD_URI:
             raise error.TestFail(
                   'lpadmin - Unrecognized protocols should be rejected by '
                   'CUPS. %d' %
@@ -138,5 +139,9 @@ class platform_DebugDaemonCupsAddPrinters(test.test):
 
         self.test_valid_config()
         self.test_lpadmin()
-        self.test_ppd_error()
         self.test_autoconf()
+
+        invalid_ppds = ['MissingMagicNumber.ppd.gz', 'InvalidCupsFilter.ppd.gz',
+                        'InvalidCupsPreFilter.ppd.gz']
+        for invalid_ppd in invalid_ppds:
+          self.test_ppd_error(invalid_ppd)

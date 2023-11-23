@@ -43,7 +43,7 @@
                     android:paddingTop="@dimen/blocked_numbers_large_padding"
                     android:paddingLeft="@dimen/blocked_numbers_large_padding"
                     android:paddingRight="@dimen/blocked_numbers_large_padding"
-                    style="@style/BlockedNumbersTitleText"
+                    style="@style/BlockedNumbersTextPrimary2"
                     android:visibility="gone" />
 
             <LinearLayout
@@ -70,7 +70,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/blocked_numbers_msg"
                             android:paddingBottom="@dimen/blocked_numbers_extra_large_padding"
-                            style="@style/BlockedNumbersTitleText" />
+                            style="@style/BlockedNumbersTextPrimary2" />
 
                     <TextView
                             android:id="@+id/add_blocked"

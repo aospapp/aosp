@@ -21,9 +21,12 @@
 #include <new>
 
 #include <shared/send_message.h>
+#include <shared/time_util.h>
 
 #include <chre.h>
 
+using nanoapp_testing::kOneMillisecondInNanoseconds;
+using nanoapp_testing::kOneSecondInNanoseconds;
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendInternalFailureToHost;
 using nanoapp_testing::sendSuccessToHost;
@@ -44,11 +47,8 @@ using nanoapp_testing::sendSuccessToHost;
  * us more time to notice them (incorrectly) firing multiple times.
  */
 
-// 10 milliseconds
-static uint64_t kShortDuration = UINT64_C(10000000);
-// 1 second
-static uint64_t kOneSecond = UINT64_C(1000000000);
-static uint64_t kLongDuration = kOneSecond;
+static uint64_t kShortDuration = 10 * kOneMillisecondInNanoseconds;
+static uint64_t kLongDuration = kOneSecondInNanoseconds;
 
 namespace general_test {
 
@@ -79,7 +79,7 @@ void TimerSetTest::Stage::processEvent(uint64_t timestamp, TimerSetTest *test) {
     sendFatalFailureToHost("Timer triggered too soon ", &mStage);
   }
   // TODO(b/32179037): Make this check much stricter.
-  if (timestamp > (expectedTime + kOneSecond)) {
+  if (timestamp > (expectedTime + kOneSecondInNanoseconds)) {
     sendFatalFailureToHost("Timer triggered over a second late ", &mStage);
   }
 

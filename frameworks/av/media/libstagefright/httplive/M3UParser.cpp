@@ -57,7 +57,7 @@ struct M3UParser::MediaGroup : public RefBase {
             const char *language,
             uint32_t flags);
 
-    bool getActiveURI(AString *uri) const;
+    bool getActiveURI(AString *uri, const char *baseURL) const;
 
     void pickRandomMediaItems();
     status_t selectTrack(size_t index, bool select);
@@ -76,6 +76,7 @@ private:
         AString mURI;
         AString mLanguage;
         uint32_t mFlags;
+        AString makeURL(const char *baseURL) const;
     };
 
     Type mType;
@@ -228,12 +229,16 @@ sp<AMessage> M3UParser::MediaGroup::getTrackInfo(size_t index) const {
     return format;
 }
 
-bool M3UParser::MediaGroup::getActiveURI(AString *uri) const {
+bool M3UParser::MediaGroup::getActiveURI(AString *uri, const char *baseURL) const {
     for (size_t i = 0; i < mMediaItems.size(); ++i) {
         if (mSelectedIndex >= 0 && i == (size_t)mSelectedIndex) {
             const Media &item = mMediaItems.itemAt(i);
 
-            *uri = item.mURI;
+            if (item.mURI.empty()) {
+                *uri = "";
+            } else {
+                *uri = item.makeURL(baseURL);
+            }
             return true;
         }
     }
@@ -253,7 +258,7 @@ M3UParser::M3UParser(
       mIsEvent(false),
       mFirstSeqNumber(-1),
       mLastSeqNumber(-1),
-      mTargetDurationUs(-1ll),
+      mTargetDurationUs(-1LL),
       mDiscontinuitySeq(0),
       mDiscontinuityCount(0),
       mSelectedIndex(-1) {
@@ -322,7 +327,7 @@ bool M3UParser::itemAt(size_t index, AString *uri, sp<AMessage> *meta) {
     }
 
     if (uri) {
-        *uri = mItems.itemAt(index).mURI;
+        *uri = mItems.itemAt(index).makeURL(mBaseURI.c_str());
     }
 
     if (meta) {
@@ -428,7 +433,7 @@ bool M3UParser::getTypeURI(size_t index, const char *key, AString *uri) const {
     AString groupID;
     if (!meta->findString(key, &groupID)) {
         if (uri != NULL) {
-            *uri = mItems.itemAt(index).mURI;
+            *uri = mItems.itemAt(index).makeURL(mBaseURI.c_str());
         }
 
         AString codecs;
@@ -459,12 +464,12 @@ bool M3UParser::getTypeURI(size_t index, const char *key, AString *uri) const {
     // don't care about the active URI (or if there is an active one)
     if (uri != NULL) {
         sp<MediaGroup> group = mMediaGroups.valueFor(groupID);
-        if (!group->getActiveURI(uri)) {
+        if (!group->getActiveURI(uri, mBaseURI.c_str())) {
             return false;
         }
 
         if ((*uri).empty()) {
-            *uri = mItems.itemAt(index).mURI;
+            *uri = mItems.itemAt(index).makeURL(mBaseURI.c_str());
         }
     }
 
@@ -546,6 +551,18 @@ static bool MakeURL(const char *baseURL, const char *url, AString *out) {
     ALOGV("base:'%s', url:'%s' => '%s'", baseURL, url, out->c_str());
 
     return true;
+}
+
+AString M3UParser::Item::makeURL(const char *baseURL) const {
+    AString out;
+    CHECK(MakeURL(baseURL, mURI.c_str(), &out));
+    return out;
+}
+
+AString M3UParser::MediaGroup::Media::makeURL(const char *baseURL) const {
+    AString out;
+    CHECK(MakeURL(baseURL, mURI.c_str(), &out));
+    return out;
 }
 
 status_t M3UParser::parse(const void *_data, size_t size) {
@@ -678,7 +695,7 @@ status_t M3UParser::parse(const void *_data, size_t size) {
             mItems.push();
             Item *item = &mItems.editItemAt(mItems.size() - 1);
 
-            CHECK(MakeURL(mBaseURI.c_str(), line.c_str(), &item->mURI));
+            item->mURI = line;
 
             item->mMeta = itemMeta;
 
@@ -687,6 +704,12 @@ status_t M3UParser::parse(const void *_data, size_t size) {
 
         offset = offsetLF + 1;
         ++lineNo;
+    }
+
+    // playlist has no item, would cause exception
+    if (mItems.size() == 0) {
+        ALOGE("playlist has no item");
+        return ERROR_MALFORMED;
     }
 
     // error checking of all fields that's required to appear once
@@ -699,7 +722,7 @@ status_t M3UParser::parse(const void *_data, size_t size) {
             ALOGE("Media playlist missing #EXT-X-TARGETDURATION");
             return ERROR_MALFORMED;
         }
-        mTargetDurationUs = targetDurationSecs * 1000000ll;
+        mTargetDurationUs = targetDurationSecs * 1000000LL;
 
         mFirstSeqNumber = 0;
         if (mMeta != NULL) {
@@ -1182,17 +1205,14 @@ status_t M3UParser::parseMedia(const AString &line) {
             if (val.size() < 2
                     || val.c_str()[0] != '"'
                     || val.c_str()[val.size() - 1] != '"') {
-                ALOGE("Expected quoted string for URI, got '%s' instead.",
-                      val.c_str());
+                ALOGE("Expected quoted string for URI.");
 
                 return ERROR_MALFORMED;
             }
 
             AString tmp(val, 1, val.size() - 2);
 
-            if (!MakeURL(mBaseURI.c_str(), tmp.c_str(), &groupURI)) {
-                ALOGI("Failed to make absolute URI from '%s'.", tmp.c_str());
-            }
+            groupURI = tmp;
 
             haveGroupURI = true;
         }
@@ -1376,6 +1396,19 @@ bool M3UParser::codecIsType(const AString &codec, const char *type) {
         case 'QDMC':
         case 'ulaw':
         case 'vdva':
+        case 'ac-4':
+        case 'Opus':
+        case 'a3ds':
+        case 'dts+':
+        case 'dts-':
+        case 'dtsx':
+        case 'dtsy':
+        case 'ec+3':
+        case 'mha1':
+        case 'mha2':
+        case 'mhm1':
+        case 'mhm2':
+        case 'sevs':
             return !strcmp("audio", type);
 
         case 'avc1':
@@ -1424,6 +1457,35 @@ bool M3UParser::codecIsType(const AString &codec, const char *type) {
         case 'tga ':
         case 'tiff':
         case 'WRLE':
+        case 'a3d1':
+        case 'a3d2':
+        case 'a3d3':
+        case 'a3d4':
+        case 'avc3':
+        case 'avc4':
+        case 'dva1':
+        case 'dvav':
+        case 'dvh1':
+        case 'dvhe':
+        case 'hev1':
+        case 'hev2':
+        case 'hvc1':
+        case 'hvc2':
+        case 'hvt1':
+        case 'lhe1':
+        case 'lht1':
+        case 'lhv1':
+        case 'mjpg':
+        case 'mvc3':
+        case 'mvc4':
+        case 'mvd1':
+        case 'mvd2':
+        case 'mvd3':
+        case 'mvd4':
+        case 'rv60':
+        case 'svc2':
+        case 'vp08':
+        case 'vp09':
             return !strcmp("video", type);
 
         default:

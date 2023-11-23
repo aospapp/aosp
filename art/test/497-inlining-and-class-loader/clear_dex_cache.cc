@@ -32,7 +32,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
                                                                     jclass,
                                                                     jclass cls) {
   ScopedObjectAccess soa(Thread::Current());
-  mirror::DexCache* dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
+  ObjPtr<mirror::DexCache> dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
   size_t num_methods = dex_cache->NumResolvedMethods();
   mirror::MethodDexCacheType* methods = dex_cache->GetResolvedMethods();
   CHECK_EQ(num_methods != 0u, methods != nullptr);
@@ -52,11 +52,11 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
     uint32_t index = pair.index;
     ArtMethod* method = pair.object;
     if (sizeof(void*) == 4) {
-      ObjPtr<mirror::IntArray> int_array = down_cast<mirror::IntArray*>(decoded_array.Ptr());
+      ObjPtr<mirror::IntArray> int_array = ObjPtr<mirror::IntArray>::DownCast(decoded_array);
       int_array->Set(2u * i, index);
-      int_array->Set(2u * i + 1u, static_cast<jint>(reinterpret_cast<uintptr_t>(method)));
+      int_array->Set(2u * i + 1u, reinterpret_cast32<jint>(method));
     } else {
-      ObjPtr<mirror::LongArray> long_array = down_cast<mirror::LongArray*>(decoded_array.Ptr());
+      ObjPtr<mirror::LongArray> long_array = ObjPtr<mirror::LongArray>::DownCast(decoded_array);
       long_array->Set(2u * i, index);
       long_array->Set(2u * i + 1u, reinterpret_cast64<jlong>(method));
     }
@@ -67,10 +67,9 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
 extern "C" JNIEXPORT void JNICALL Java_Main_restoreResolvedMethods(
     JNIEnv*, jclass, jclass cls, jobject old_cache) {
   ScopedObjectAccess soa(Thread::Current());
-  mirror::DexCache* dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
+  ObjPtr<mirror::DexCache> dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
   size_t num_methods = dex_cache->NumResolvedMethods();
-  mirror::MethodDexCacheType* methods =
-      soa.Decode<mirror::Class>(cls)->GetDexCache()->GetResolvedMethods();
+  mirror::MethodDexCacheType* methods = dex_cache->GetResolvedMethods();
   CHECK_EQ(num_methods != 0u, methods != nullptr);
   ObjPtr<mirror::Array> old = soa.Decode<mirror::Array>(old_cache);
   CHECK_EQ(methods != nullptr, old != nullptr);
@@ -79,11 +78,11 @@ extern "C" JNIEXPORT void JNICALL Java_Main_restoreResolvedMethods(
     uint32_t index;
     ArtMethod* method;
     if (sizeof(void*) == 4) {
-      ObjPtr<mirror::IntArray> int_array = down_cast<mirror::IntArray*>(old.Ptr());
+      ObjPtr<mirror::IntArray> int_array = ObjPtr<mirror::IntArray>::DownCast(old);
       index = static_cast<uint32_t>(int_array->Get(2u * i));
-      method = reinterpret_cast<ArtMethod*>(static_cast<uint32_t>(int_array->Get(2u * i + 1u)));
+      method = reinterpret_cast32<ArtMethod*>(int_array->Get(2u * i + 1u));
     } else {
-      ObjPtr<mirror::LongArray> long_array = down_cast<mirror::LongArray*>(old.Ptr());
+      ObjPtr<mirror::LongArray> long_array = ObjPtr<mirror::LongArray>::DownCast(old);
       index = dchecked_integral_cast<uint32_t>(long_array->Get(2u * i));
       method = reinterpret_cast64<ArtMethod*>(long_array->Get(2u * i + 1u));
     }

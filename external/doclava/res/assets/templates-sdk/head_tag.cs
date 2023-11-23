@@ -20,8 +20,7 @@ if:devsite ?><?cs
     if:library.root ?>
       {% setvar book_path %}/reference/<?cs var:library.root ?>/_book.yaml{% endsetvar %}<?cs
     /if ?>
-    {% include "_shared/_reference-head-tags.html" %}
-    <meta name="body_class" value="api apilevel-<?cs var:class.since ?><?cs var:package.since ?>" /><?cs
+    {% include "_shared/_reference-head-tags.html" %}<?cs
   else ?><?cs # If NOT dac... ?>
     <meta name="hide_page_heading" value="true" />
     <meta name="book_path" value="<?cs

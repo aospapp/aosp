@@ -25,6 +25,7 @@ import android.os.UserHandle;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.text.TextUtils;
 import android.util.Log;
 
 /**
@@ -37,6 +38,11 @@ public class SipIncomingCallReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, final Intent intent) {
         String action = intent.getAction();
+
+        if (TextUtils.isEmpty(action)) {
+            log("SipIncomingCallReceiver called with no action");
+            return;
+        }
 
         if (!isRunningInSystemUser()) {
             if (VERBOSE) log("SipIncomingCallReceiver only run in system user, ignore " + action);

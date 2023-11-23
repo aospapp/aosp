@@ -387,7 +387,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
     }
 
-    void set(VehiclePropValue propValue) throws PropertyTimeoutException {
+    protected void set(VehiclePropValue propValue) throws PropertyTimeoutException {
         mHalClient.setValue(propValue);
     }
 
@@ -467,33 +467,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
         for (HalServiceBase service: mAllServices) {
             service.dump(writer);
         }
-
-        List<VehiclePropConfig> configList;
-        synchronized (this) {
-            configList = new ArrayList<>(mAllProperties.values());
-        }
-
-        writer.println("**All properties**");
-        for (VehiclePropConfig config : configList) {
-            StringBuilder builder = new StringBuilder()
-                    .append("Property:0x").append(toHexString(config.prop))
-                    .append(",Property name:").append(VehicleProperty.toString(config.prop))
-                    .append(",access:0x").append(toHexString(config.access))
-                    .append(",changeMode:0x").append(toHexString(config.changeMode))
-                    .append(",config:0x").append(Arrays.toString(config.configArray.toArray()))
-                    .append(",fs min:").append(config.minSampleRate)
-                    .append(",fs max:").append(config.maxSampleRate);
-            for (VehicleAreaConfig area : config.areaConfigs) {
-                builder.append(",areaId :").append(toHexString(area.areaId))
-                        .append(",f min:").append(area.minFloatValue)
-                        .append(",f max:").append(area.maxFloatValue)
-                        .append(",i min:").append(area.minInt32Value)
-                        .append(",i max:").append(area.maxInt32Value)
-                        .append(",i64 min:").append(area.minInt64Value)
-                        .append(",i64 max:").append(area.maxInt64Value);
-            }
-            writer.println(builder.toString());
-        }
+        // Dump all VHAL property configure.
+        dumpPropertyConfigs(writer, "");
         writer.println(String.format("**All Events, now ns:%d**",
                 SystemClock.elapsedRealtimeNanos()));
         for (VehiclePropertyEventInfo info : mEventLog.values()) {
@@ -509,6 +484,107 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
     }
 
+    /**
+     * Dumps vehicle property values.
+     * @param writer
+     * @param propId property id, dump all properties' value if it is empty string.
+     * @param areaId areaId of the property, dump the property for all areaIds in the config
+     * if it is empty string.
+     */
+    public void dumpPropertyValueByCommend(PrintWriter writer, String propId, String areaId) {
+        if (propId.equals("")) {
+            writer.println("**All property values**");
+            for (VehiclePropConfig config : mAllProperties.values()) {
+                dumpPropertyValueByConfig(writer, config);
+            }
+        } else if (areaId.equals("")) {
+            VehiclePropConfig config = mAllProperties.get(Integer.parseInt(propId, 16));
+            dumpPropertyValueByConfig(writer, config);
+        } else {
+            int id = Integer.parseInt(propId, 16);
+            int area = Integer.parseInt(areaId);
+            try {
+                VehiclePropValue value = get(id, area);
+                writer.println(dumpVehiclePropValue(value));
+            } catch (Exception e) {
+                writer.println("Can not get property value for propertyId: 0x"
+                        + propId + ", areaId: " + area);
+            }
+        }
+    }
+
+    private void dumpPropertyValueByConfig(PrintWriter writer, VehiclePropConfig config) {
+        if (config.areaConfigs.isEmpty()) {
+            try {
+                VehiclePropValue value = get(config.prop);
+                writer.println(dumpVehiclePropValue(value));
+            } catch (Exception e) {
+                writer.println("Can not get property value for propertyId: 0x"
+                        + toHexString(config.prop) + ", areaId: 0");
+            }
+        } else {
+            for (VehicleAreaConfig areaConfig : config.areaConfigs) {
+                int area = areaConfig.areaId;
+                try {
+                    VehiclePropValue value = get(config.prop, area);
+                    writer.println(dumpVehiclePropValue(value));
+                } catch (Exception e) {
+                    writer.println("Can not get property value for propertyId: 0x"
+                            + toHexString(config.prop) + ", areaId: " + area);
+                }
+            }
+        }
+    }
+
+    /**
+     * Dump VHAL property configs.
+     *
+     * @param writer
+     * @param propId Property ID in Hex. If propid is empty string, dump all properties.
+     */
+    public void dumpPropertyConfigs(PrintWriter writer, String propId) {
+        List<VehiclePropConfig> configList;
+        synchronized (this) {
+            configList = new ArrayList<>(mAllProperties.values());
+        }
+
+        if (propId.equals("")) {
+            writer.println("**All properties**");
+            for (VehiclePropConfig config : configList) {
+                writer.println(dumpPropertyConfigsHelp(config));
+            }
+            return;
+        }
+        for (VehiclePropConfig config : configList) {
+            if (toHexString(config.prop).equals(propId)) {
+                writer.println(dumpPropertyConfigsHelp(config));
+                return;
+            }
+        }
+
+    }
+
+    /** Use VehiclePropertyConfig to construct string for dumping */
+    private static String dumpPropertyConfigsHelp(VehiclePropConfig config) {
+        StringBuilder builder = new StringBuilder()
+                .append("Property:0x").append(toHexString(config.prop))
+                .append(",Property name:").append(VehicleProperty.toString(config.prop))
+                .append(",access:0x").append(toHexString(config.access))
+                .append(",changeMode:0x").append(toHexString(config.changeMode))
+                .append(",config:0x").append(Arrays.toString(config.configArray.toArray()))
+                .append(",fs min:").append(config.minSampleRate)
+                .append(",fs max:").append(config.maxSampleRate);
+        for (VehicleAreaConfig area : config.areaConfigs) {
+            builder.append(",areaId :").append(toHexString(area.areaId))
+                    .append(",f min:").append(area.minFloatValue)
+                    .append(",f max:").append(area.maxFloatValue)
+                    .append(",i min:").append(area.minInt32Value)
+                    .append(",i max:").append(area.maxInt32Value)
+                    .append(",i64 min:").append(area.minInt64Value)
+                    .append(",i64 max:").append(area.maxInt64Value);
+        }
+        return builder.toString();
+    }
     /**
      * Inject a VHAL event
      *
@@ -550,6 +626,23 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
         v.timestamp = SystemClock.elapsedRealtimeNanos();
         onPropertyEvent(Lists.newArrayList(v));
+    }
+
+    /**
+     * Inject an error event.
+     *
+     * @param property the Vehicle property Id as defined in the HAL
+     * @param zone Zone for the event to inject
+     * @param errorCode Error code return from HAL
+     */
+    public void injectOnPropertySetError(String property, String zone, String errorCode) {
+        if (zone == null || property == null || errorCode == null) {
+            return;
+        }
+        int propId = Integer.decode(property);
+        int zoneId = Integer.decode(zone);
+        int errorId = Integer.decode(errorCode);
+        onPropertySetError(errorId, propId, zoneId);
     }
 
     private static class VehiclePropertyEventInfo {
@@ -616,6 +709,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
 
         StringBuilder sb = new StringBuilder()
                 .append("Property:0x").append(toHexString(value.prop))
+                .append(",status: ").append(value.status)
                 .append(",timestamp:").append(value.timestamp)
                 .append(",zone:0x").append(toHexString(value.areaId))
                 .append(",floatValues: ").append(Arrays.toString(value.value.floatValues.toArray()))

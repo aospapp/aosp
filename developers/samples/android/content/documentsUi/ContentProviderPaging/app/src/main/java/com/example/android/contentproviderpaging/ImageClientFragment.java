@@ -137,7 +137,7 @@ public class ImageClientFragment extends Fragment {
         @Override
         public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
             Bundle extras = cursor.getExtras();
-            int totalSize = extras.getInt(ContentResolver.EXTRA_TOTAL_SIZE);
+            int totalSize = extras.getInt(ContentResolver.EXTRA_SIZE);
             mAdapter.setTotalSize(totalSize);
             int beforeCount = mAdapter.getFetchedItemCount();
             while (cursor.moveToNext()) {

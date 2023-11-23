@@ -33,6 +33,7 @@
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
     <uses-permission android:name="android.car.permission.VEHICLE_DYNAMICS_STATE"/>
     <uses-permission android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"/>
+    <uses-permission android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"/>
     <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.MANAGE_USB" />
@@ -42,7 +43,10 @@
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS" />
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application android:label="@string/app_title"
         android:icon="@drawable/ic_launcher">
@@ -52,7 +56,8 @@
         <!-- This is for embedded mode. -->
         <activity android:name=".KitchenSinkActivity"
             android:theme="@style/KitchenSinkActivityTheme"
-            android:label="@string/app_title">
+            android:label="@string/app_title"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -63,20 +68,9 @@
             android:name="android.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <service android:name=".job.DishService"
-            android:permission="android.permission.BIND_JOB_SERVICE">
-        </service>
-
-        <activity android:name=".setting.CarServiceSettingsActivity"
-            android:label="@string/car_settings">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
-        </activity>
-
         <activity android:name=".orientation.LandscapeActivity"
-            android:label="@string/landscpae_activity"
-            android:screenOrientation="landscape">
+                  android:label="@string/landscpae_activity"
+                  android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -90,19 +84,13 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".setting.UsbHostManagementActivity"
-                  android:theme="@android:style/Theme.Material.Light.Dialog"
-                  android:launchMode="singleTop">
-        </activity>
         <activity android:name=".cluster.FakeClusterNavigationActivity"
                   android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
                   android:launchMode="singleInstance"
                   android:resizeableActivity="true"
-                  android:allowEmbedded="true"
-                  android:permission="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL">
-            <intent-filter android:priority="-1">
+                  android:allowEmbedded="true">
+            <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.car.cluster.NAVIGATION"/>
             </intent-filter>
         </activity>
@@ -110,10 +98,21 @@
         <activity android:name=".activityview.ActivityViewTestFragment"/>
 
         <!-- temporary solution until b/68882625 is fixed. -->
-        <receiver android:name=".touchsound.DisableTouchSoundOnBoot"  android:exported="true">
+        <receiver android:name=".touchsound.DisableTouchSoundOnBoot" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+
+        <service android:name=".vendorservice.LogLifecycleService"
+                 android:exported="false" android:directBootAware="true">
+        </service>
+
+        <!-- Content provider for images -->
+        <provider android:name=".cluster.ClusterContentProvider"
+                  android:authorities="com.google.android.car.kitchensink.cluster.clustercontentprovider"
+                  android:grantUriPermissions="true"
+                  android:exported="true" />
+
     </application>
 </manifest>

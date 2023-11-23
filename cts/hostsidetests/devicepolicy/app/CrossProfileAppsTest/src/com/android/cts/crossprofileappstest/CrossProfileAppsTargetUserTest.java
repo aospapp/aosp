@@ -27,12 +27,13 @@ import android.content.pm.CrossProfileApps;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -141,6 +142,19 @@ public class CrossProfileAppsTargetUserTest {
     @Test
     public void testGetProfileSwitchingIconDrawable() throws Exception {
         assertNotNull(mCrossProfileApps.getProfileSwitchingIconDrawable(mTargetUser));
+    }
+
+    // Designed to be called by host-side tests; not a real test.
+    @Test
+    public void testStartMainActivity_noAsserts() {
+        mCrossProfileApps.startMainActivity(
+                MainActivity.getComponentName(mContext), mTargetUser);
+    }
+
+    // Designed to be called by host-side tests; not a real test.
+    @Test
+    public void testGetTargetUserProfiles_noAsserts() {
+        mCrossProfileApps.getTargetUserProfiles();
     }
 }
 

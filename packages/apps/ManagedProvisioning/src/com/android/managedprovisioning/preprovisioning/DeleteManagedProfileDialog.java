@@ -31,7 +31,7 @@ import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.MdmPackageInfo;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.SimpleDialog;
-import com.android.setupwizardlib.util.SystemBarHelper;
+import com.google.android.setupcompat.util.SystemBarHelper;
 
 /**
  * Displays information about an existing managed profile and asks the user if it should be deleted.

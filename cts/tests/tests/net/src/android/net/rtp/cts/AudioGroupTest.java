@@ -21,13 +21,14 @@ import android.net.rtp.AudioCodec;
 import android.net.rtp.AudioGroup;
 import android.net.rtp.AudioStream;
 import android.net.rtp.RtpStream;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
-import android.util.Log;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
+@AppModeFull(reason = "RtpStream cannot create in instant app mode")
 public class AudioGroupTest extends AndroidTestCase {
 
     private static final String TAG = AudioGroupTest.class.getSimpleName();

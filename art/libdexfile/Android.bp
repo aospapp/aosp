@@ -19,6 +19,7 @@ cc_defaults {
     defaults: ["art_defaults"],
     host_supported: true,
     srcs: [
+        "dex/art_dex_file_loader.cc",
         "dex/compact_dex_file.cc",
         "dex/compact_offset_table.cc",
         "dex/descriptors_names.cc",
@@ -31,7 +32,9 @@ cc_defaults {
         "dex/dex_instruction.cc",
         "dex/modifiers.cc",
         "dex/primitive.cc",
+        "dex/signature.cc",
         "dex/standard_dex_file.cc",
+        "dex/type_lookup_table.cc",
         "dex/utf.cc",
     ],
 
@@ -42,36 +45,85 @@ cc_defaults {
                 "libz",
             ],
             shared_libs: [
-                "libutils",
+                 // For MemMap.
+                 "libartbase",
+                 "libartpalette",
+                 "liblog",
+                 // For common macros.
+                 "libbase",
+            ],
+            export_shared_lib_headers: [
+                "libartbase",
+                "libbase",
             ],
         },
-        host: {
+        not_windows: {
             shared_libs: [
                 "libziparchive",
                 "libz",
+                 // For MemMap.
+                 "libartbase",
+                 "libartpalette",
+                 "liblog",
+                 // For common macros.
+                 "libbase",
             ],
+            export_shared_lib_headers: [
+                "libartbase",
+                "libbase",
+            ],
+        },
+        windows: {
+            static_libs: [
+                "libziparchive",
+                "libz",
+                 // For MemMap.
+                 "libartbase",
+                 "libartpalette",
+                 "liblog",
+                 // For common macros.
+                 "libbase",
+            ],
+            export_static_lib_headers: [
+                "libartbase",
+                "libbase",
+            ],
+            cflags: ["-Wno-thread-safety"],
+        },
+        darwin: {
+            enabled: true,
         },
     },
     generated_sources: ["dexfile_operator_srcs"],
-    shared_libs: [
-        // Important note: relying on libartbase's header_lib is perfectly acceptable.
-        // However, relying on the libartbase shared library introduces further, possibly cyclic,
-	// dependencies for clients outside of ART.
-        "liblog",
-        // For common macros.
-        "libbase",
-        "libz",
-    ],
-    header_libs: [
-        "art_libartbase_headers",
-    ],
     export_include_dirs: ["."],
-    export_shared_lib_headers: [
+}
+
+cc_defaults {
+    name: "libdexfile_static_base_defaults",
+    static_libs: [
         "libbase",
+        "liblog",
+        "libz",
+        "libziparchive",
     ],
-    export_header_lib_headers: [
-        "art_libartbase_headers",
+}
+
+cc_defaults {
+    name: "libdexfile_static_defaults",
+    defaults: [
+        "libartbase_static_defaults",
+        "libdexfile_static_base_defaults",
     ],
+    static_libs: ["libdexfile"],
+}
+
+cc_defaults {
+    name: "libdexfiled_static_defaults",
+    defaults: [
+        "libartbased_static_defaults",
+        "libdexfile_static_base_defaults",
+    ],
+    static_libs: ["libdexfiled"],
 }
 
 gensrcs {
@@ -97,6 +149,14 @@ art_cc_library {
     strip: {
         keep_symbols: true,
     },
+    target: {
+        windows: {
+            enabled: true,
+            shared: {
+                enabled: false,
+            },
+        },
+    },
 }
 
 art_cc_library {
@@ -105,6 +165,14 @@ art_cc_library {
         "art_debug_defaults",
         "libdexfile_defaults",
     ],
+    target: {
+        windows: {
+            enabled: true,
+            shared: {
+                enabled: false,
+            },
+        },
+    },
 }
 
 art_cc_test {
@@ -113,6 +181,8 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     srcs: [
+        "dex/art_dex_file_loader_test.cc",
+        "dex/class_accessor_test.cc",
         "dex/code_item_accessors_test.cc",
         "dex/compact_dex_file_test.cc",
         "dex/compact_offset_table_test.cc",
@@ -123,6 +193,7 @@ art_cc_test {
         "dex/dex_instruction_test.cc",
         "dex/primitive_test.cc",
         "dex/string_reference_test.cc",
+        "dex/type_lookup_table_test.cc",
         "dex/utf_test.cc",
     ],
     shared_libs: [
@@ -131,5 +202,131 @@ art_cc_test {
     ],
     include_dirs: [
         "external/zlib",
+    ],
+}
+
+cc_library_headers {
+    name: "libdexfile_external_headers",
+    host_supported: true,
+    vendor_available: true,
+    recovery_available: true,
+    header_libs: ["libbase_headers"],
+    export_header_lib_headers: ["libbase_headers"],
+    export_include_dirs: ["external/include"],
+
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
+}
+
+cc_library {
+    name: "libdexfile_external",
+    host_supported: true,
+    srcs: [
+        "external/dex_file_ext.cc",
+    ],
+    header_libs: ["libdexfile_external_headers"],
+    shared_libs: [
+        "libbase",
+        "libdexfile",
+    ],
+
+    stubs: {
+        symbol_file: "external/libdexfile_external.map.txt",
+        versions: ["1"],
+    },
+}
+
+art_cc_test {
+    name: "art_libdexfile_external_tests",
+    host_supported: true,
+    test_per_src: true,  // For consistency with other ART gtests.
+    srcs: [
+        "external/dex_file_ext_c_test.c",
+    ],
+    header_libs: ["libdexfile_external_headers"],
+}
+
+// Support library with a C++ API for accessing the libdexfile API for external
+// (non-ART) users.
+//
+// This library dlopens libdexfile_external on first use, so there is no build
+// time dependency on dex file logic. It is therefore safe to use from binaries
+// compiled without dex file support, given they won't encounter any dex file
+// stack frames.
+cc_library {
+    name: "libdexfile_support",
+    host_supported: true,
+    vendor_available: true,
+    recovery_available: true,
+    srcs: [
+        "external/dex_file_supp.cc",
+    ],
+    required: ["libdexfile_external"],
+    shared_libs: ["liblog"],
+    header_libs: ["libdexfile_external_headers"],
+    export_header_lib_headers: ["libdexfile_external_headers"],
+    target: {
+        recovery: {
+            cflags: ["-DNO_DEXFILE_SUPPORT"],
+        },
+        vendor: {
+            cflags: ["-DNO_DEXFILE_SUPPORT"],
+        },
+    },
+}
+
+// The same source file is used in two tests here, so unlike other ART gtests it
+// doesn't use test_per_src. Its test target is
+// test-art-{host,target}-gtest-art_libdexfile_support_tests.
+art_cc_test {
+    name: "art_libdexfile_support_tests",
+    host_supported: true,
+    srcs: [
+        "external/dex_file_supp_test.cc",
+    ],
+    shared_libs: [
+        "libartbase",
+        "libbase",
+        "libdexfile_external",
+        "libdexfile_support",
+    ],
+}
+
+cc_library_static {
+    name: "libdexfile_support_static",
+    host_supported: true,
+    defaults: ["libdexfile_static_defaults"],
+    srcs: [
+        "external/dex_file_supp.cc",
+    ],
+    cflags: ["-DSTATIC_LIB"],
+    // Using whole_static_libs here only as a "poor man's transitivity" kludge.
+    whole_static_libs: [
+        "libbase",
+        "libdexfile",
+        "libdexfile_external",
+        "liblog",
+        "libz",
+        "libziparchive",
+    ],
+    header_libs: ["libdexfile_external_headers"],
+    export_header_lib_headers: ["libdexfile_external_headers"],
+}
+
+// The same source file is used in two tests here, so unlike other ART gtests it
+// doesn't use test_per_src. Its test target is
+// test-art-{host,target}-gtest-art_libdexfile_support_static_tests.
+art_cc_test {
+    name: "art_libdexfile_support_static_tests",
+    host_supported: true,
+    srcs: [
+        "external/dex_file_supp_test.cc",
+    ],
+    static_libs: [
+        "libbase",
+        "libdexfile_support_static",
     ],
 }

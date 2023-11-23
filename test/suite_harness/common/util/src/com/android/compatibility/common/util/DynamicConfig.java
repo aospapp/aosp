@@ -55,6 +55,12 @@ public class DynamicConfig {
         mDynamicConfigMap = createConfigMap(file);
     }
 
+    /** Init using directly a {@link FileInputStream} from the config file. */
+    public void initializeConfig(FileInputStream fileStream)
+            throws XmlPullParserException, IOException {
+        mDynamicConfigMap = createConfigMap(fileStream);
+    }
+
     public String getValue(String key) {
         assertRemoteConfigRequirementMet();
         List<String> singleValue = mDynamicConfigMap.get(key);
@@ -80,7 +86,7 @@ public class DynamicConfig {
             String val = mDynamicConfigMap.get(REMOTE_CONFIG_REQUIRED_KEY).get(0);
             return Boolean.parseBoolean(val);
         }
-        return false;
+        return true; // require remote configuration by default
     }
 
     public boolean remoteConfigRetrieved() {
@@ -109,10 +115,17 @@ public class DynamicConfig {
 
     public static Map<String, List<String>> createConfigMap(File file)
             throws XmlPullParserException, IOException {
+        try (FileInputStream stream = new FileInputStream(file)) {
+            return createConfigMap(stream);
+        }
+    }
+
+    public static Map<String, List<String>> createConfigMap(FileInputStream fileStream)
+            throws XmlPullParserException, IOException {
 
         Map<String, List<String>> dynamicConfigMap = new HashMap<String, List<String>>();
         XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
-        parser.setInput(new InputStreamReader(new FileInputStream(file)));
+        parser.setInput(new InputStreamReader(fileStream));
         parser.nextTag();
         parser.require(XmlPullParser.START_TAG, NS, CONFIG_TAG);
 

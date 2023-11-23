@@ -130,7 +130,8 @@ public class DeviceCleaner extends BaseTargetPreparer implements ITargetCleaner 
     }
 
     private void turnScreenOff(ITestDevice device) throws DeviceNotAvailableException {
-        String output = device.executeShellCommand("dumpsys power");
+        String output =
+                device.executeShellCommand("dumpsys power | grep -e mScreenOn -e mInteractive");
         int retries = 1;
         // screen on semantics have changed in newest API platform, checking for both signatures
         // to detect screen on state
@@ -140,7 +141,8 @@ public class DeviceCleaner extends BaseTargetPreparer implements ITargetCleaner 
             // due to framework initialization, device may not actually turn off screen
             // after boot, recheck screen status with linear backoff
             RunUtil.getDefault().sleep(SCREEN_OFF_RETRY_DELAY_MS * retries);
-            output = device.executeShellCommand("dumpsys power");
+            output =
+                    device.executeShellCommand("dumpsys power | grep -e mScreenOn -e mInteractive");
             retries++;
             if (retries > MAX_SCREEN_OFF_RETRY) {
                 CLog.w(String.format("screen still on after %d retries", retries));

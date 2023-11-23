@@ -24,7 +24,7 @@ import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
 import android.app.PendingIntent;
-import android.car.user.CarUserManagerHelper;
+import android.car.userlib.CarUserManagerHelper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -37,16 +37,15 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 
 import java.io.IOException;
+
 /**
- *
  * Entry point Activity for account setup. Works as follows
  *
  * <ol>
- *   <li> After receiving an account type from ChooseAccountFragment, this Activity launches the
- *        account setup specified by AccountManager.
- *   <li> After the account setup, this Activity finishes without showing anything.
+ * <li> After receiving an account type from ChooseAccountFragment, this Activity launches the
+ * account setup specified by AccountManager.
+ * <li> After the account setup, this Activity finishes without showing anything.
  * </ol>
- *
  */
 public class AddAccountActivity extends Activity {
     /**
@@ -54,11 +53,9 @@ public class AddAccountActivity extends Activity {
      */
     private static final String KEY_ADD_CALLED = "AddAccountCalled";
     /**
-     *
      * Extra parameter to identify the caller. Applications may display a
      * different UI if the call is made from Settings or from a specific
      * application.
-     *
      */
     private static final String KEY_CALLER_IDENTITY = "pendingIntent";
     private static final String SHOULD_NOT_RESOLVE = "SHOULDN'T RESOLVE!";
@@ -78,11 +75,6 @@ public class AddAccountActivity extends Activity {
     private UserHandle mUserHandle;
     private PendingIntent mPendingIntent;
     private boolean mAddAccountCalled;
-
-    public boolean hasMultipleUsers(Context context) {
-        return ((UserManager) context.getSystemService(Context.USER_SERVICE))
-                .getUsers().size() > 1;
-    }
 
     private final AccountManagerCallback<Bundle> mCallback = new AccountManagerCallback<Bundle>() {
         @Override
@@ -128,20 +120,20 @@ public class AddAccountActivity extends Activity {
         }
 
         mCarUserManagerHelper = new CarUserManagerHelper(this);
-
-        if (mAddAccountCalled) {
-            // We already called add account - maybe the callback was lost.
-            finish();
-            return;
-        }
-
         mUserHandle = mCarUserManagerHelper.getCurrentProcessUserInfo().getUserHandle();
+
         if (mCarUserManagerHelper.isCurrentProcessUserHasRestriction(
                 UserManager.DISALLOW_MODIFY_ACCOUNTS)) {
             // We aren't allowed to add an account.
             Toast.makeText(
                     this, R.string.user_cannot_add_accounts_message, Toast.LENGTH_LONG)
                     .show();
+            finish();
+            return;
+        }
+
+        if (mAddAccountCalled) {
+            // We already called add account - maybe the callback was lost.
             finish();
             return;
         }
@@ -186,5 +178,10 @@ public class AddAccountActivity extends Activity {
                 /* handler= */ null,
                 mUserHandle);
         mAddAccountCalled = true;
+    }
+
+    private boolean hasMultipleUsers(Context context) {
+        return ((UserManager) context.getSystemService(Context.USER_SERVICE))
+                .getUsers().size() > 1;
     }
 }

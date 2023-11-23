@@ -41,10 +41,10 @@ public class SeccompHostJUnit4DeviceTest extends BaseHostJUnit4Test {
 
     private static final String TEST_CTS_SYSCALL_BLOCKED = "testCTSSyscallBlocked";
     private static final String TEST_CTS_SYSCALL_ALLOWED = "testCTSSyscallAllowed";
+    private static final String TEST_CTS_SYSCALL_APP_ZYGOTE = "testAppZygoteSyscalls";
 
     @Before
     public void setUp() throws Exception {
-        installPackage(TEST_APP);
     }
 
     @Test
@@ -57,9 +57,13 @@ public class SeccompHostJUnit4DeviceTest extends BaseHostJUnit4Test {
         Assert.assertTrue(runDeviceTests(TEST_PKG, TEST_CLASS, TEST_CTS_SYSCALL_ALLOWED));
     }
 
+    @Test
+    public void testAppZygoteSyscalls() throws Exception {
+        Assert.assertTrue(runDeviceTests(TEST_PKG, TEST_CLASS, TEST_CTS_SYSCALL_APP_ZYGOTE));
+    }
+
     @After
     public void tearDown() throws Exception {
-        uninstallPackage(getDevice(), TEST_PKG);
     }
 
 }

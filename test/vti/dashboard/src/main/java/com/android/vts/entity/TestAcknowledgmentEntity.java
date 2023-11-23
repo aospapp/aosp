@@ -26,6 +26,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.Index;
+import lombok.Data;
+
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,6 +41,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "TestAcknowledgment")
+@Cache
+@Data
 /** Entity describing a test failure acknowledgment. */
 public class TestAcknowledgmentEntity implements DashboardEntity {
     protected static final Logger logger =
@@ -44,21 +55,27 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
     public static final String KEY = "key";
     public static final String TEST_KEY = "testKey";
     public static final String TEST_NAME = "testName";
-    public static final String USER = "user";
+    public static final String USER_OBJ = "userObj";
     public static final String CREATED = "created";
     public static final String BRANCHES = "branches";
     public static final String DEVICES = "devices";
     public static final String TEST_CASE_NAMES = "testCaseNames";
     public static final String NOTE = "note";
 
-    private final Key key;
-    private final long created;
-    public final Key test;
-    public final User user;
-    public final Set<String> branches;
-    public final Set<String> devices;
-    public final Set<String> testCaseNames;
-    public final String note;
+    @Ignore private final Key key;
+    @Ignore public final Key test;
+    @Ignore public final User userObj;
+
+    @Id private Long id;
+
+    private com.googlecode.objectify.Key testKey;
+    private Set<String> branches;
+    private Set<String> devices;
+    private Set<String> testCaseNames;
+    private String note;
+    private String user;
+
+    @Index private final long created;
 
     /**
      * Create a AcknowledgmentEntity object.
@@ -66,11 +83,11 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
      * @param key The key of the AcknowledgmentEntity in the database.
      * @param created The timestamp when the entity was created (in microseconds).
      * @param test The key of the test.
-     * @param user The user who created or last modified the entity.
+     * @param userObj The user who created or last modified the entity.
      * @param branches The list of branch names for which the acknowledgment applies (or null if
      *     all).
-     * @param devices The list of device build flavors for which the acknowledgment applies (or
-     *     null if all).
+     * @param devices The list of device build flavors for which the acknowledgment applies (or null
+     *     if all).
      * @param testCaseNames The list of test case names known to fail (or null if all).
      * @param note A text blob with details about the failure (or null if all).
      */
@@ -78,13 +95,13 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
             Key key,
             long created,
             Key test,
-            User user,
+            User userObj,
             List<String> branches,
             List<String> devices,
             List<String> testCaseNames,
             Text note) {
         this.test = test;
-        this.user = user;
+        this.userObj = userObj;
         if (branches != null) this.branches = new HashSet(branches);
         else this.branches = new HashSet<>();
 
@@ -105,32 +122,37 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
      * Create a AcknowledgmentEntity object.
      *
      * @param test The key of the test.
-     * @param user The user who created or last modified the entity.
+     * @param userObj The user who created or last modified the entity.
      * @param branches The list of branch names for which the acknowledgment applies (or null if
      *     all).
-     * @param devices The list of device build flavors for which the acknowledgment applies (or
-     *     null if all).
+     * @param devices The list of device build flavors for which the acknowledgment applies (or null
+     *     if all).
      * @param testCaseNames The list of test case names known to fail (or null if all).
      * @param note A text blob with details about the failure (or null if all).
      */
     public TestAcknowledgmentEntity(
             Key test,
-            User user,
+            User userObj,
             List<String> branches,
             List<String> devices,
             List<String> testCaseNames,
             Text note) {
-        this(null, -1, test, user, branches, devices, testCaseNames, note);
+        this(null, -1, test, userObj, branches, devices, testCaseNames, note);
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<TestAcknowledgmentEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity ackEntity;
         if (this.key == null) ackEntity = new Entity(KIND);
         else ackEntity = new Entity(key);
 
         ackEntity.setProperty(TEST_KEY, this.test);
-        ackEntity.setProperty(USER, this.user);
+        ackEntity.setProperty(USER_OBJ, this.userObj);
 
         long created = this.created;
         if (created < 0) created = TimeUnit.MILLISECONDS.toMicros(System.currentTimeMillis());
@@ -159,7 +181,7 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
     public static TestAcknowledgmentEntity fromEntity(Entity e) {
         if (!e.getKind().equals(KIND)
                 || !e.hasProperty(TEST_KEY)
-                || !e.hasProperty(USER)
+                || !e.hasProperty(USER_OBJ)
                 || !e.hasProperty(CREATED)) {
             logger.log(
                     Level.WARNING, "Missing attributes in acknowledgment entity: " + e.toString());
@@ -167,7 +189,7 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
         }
         try {
             Key test = (Key) e.getProperty(TEST_KEY);
-            User user = (User) e.getProperty(USER);
+            User user = (User) e.getProperty(USER_OBJ);
             long created = (long) e.getProperty(CREATED);
 
             List<String> branches;
@@ -247,7 +269,7 @@ public class TestAcknowledgmentEntity implements DashboardEntity {
         JsonObject json = new JsonObject();
         json.add(KEY, new JsonPrimitive(KeyFactory.keyToString(this.key)));
         json.add(TEST_NAME, new JsonPrimitive(this.test.getName()));
-        json.add(USER, new JsonPrimitive(this.user.getEmail()));
+        json.add(USER_OBJ, new JsonPrimitive(this.userObj.getEmail()));
         json.add(CREATED, new JsonPrimitive(this.created));
 
         List<JsonElement> branches = new ArrayList<>();

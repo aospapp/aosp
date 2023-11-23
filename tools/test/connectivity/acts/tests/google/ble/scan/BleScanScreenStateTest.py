@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -31,7 +31,6 @@ from acts.test_utils.bt.bt_constants import ble_advertise_settings_modes
 from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_constants import bt_default_timeout
 from acts.test_utils.bt.bt_constants import scan_result
-from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
@@ -41,7 +40,7 @@ class BleScanScreenStateTest(BluetoothBaseTest):
     advertise_callback = -1
     max_concurrent_scans = 27
     scan_callback = -1
-    shorter_scan_timeout = 2
+    shorter_scan_timeout = 4
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)

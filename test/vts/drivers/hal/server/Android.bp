@@ -44,5 +44,7 @@ cc_binary {
         "libvts_common",
         "libvts_drivercomm",
         "libvts_multidevice_proto",
+        "libvts_resource_driver",
+        "libvts_resource_manager",
     ],
 }

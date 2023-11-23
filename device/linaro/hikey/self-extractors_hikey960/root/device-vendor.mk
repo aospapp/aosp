@@ -16,4 +16,4 @@
 
 LOCAL_STEM := device-partial.mk
 
-$(call inherit-product-if-exists, vendor/linaro/hikey960/arm/$(LOCAL_STEM))
+$(call inherit-product-if-exists, vendor/linaro/hikey960/hisilicon/$(LOCAL_STEM))

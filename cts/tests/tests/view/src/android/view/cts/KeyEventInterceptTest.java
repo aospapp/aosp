@@ -16,16 +16,18 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -34,16 +36,22 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.concurrent.TimeUnit;
-
-
 /**
  * Certain KeyEvents should never be delivered to apps. These keys are:
  *      KEYCODE_ASSIST
  *      KEYCODE_VOICE_ASSIST
  *      KEYCODE_HOME
- * This test launches an Activity and inject KeyEvents with the corresponding key codes.
+ * This test launches an Activity and injects KeyEvents with the corresponding key codes.
  * The test will fail if any of these keys are received by the activity.
+ * Note: The ASSIST tests were removed because they caused a side-effect of launching the
+ * assistant asynchronously (as intended), which causes problems with tests which happen to
+ * be running later and lose focus/visibility because of that extra window.
+ *
+ * Certain combinations of keys should be treated as shortcuts. Those are:
+ *      KEYCODE_META_* + KEYCODE_ENTER --> KEYCODE_BACK
+ *      KEYCODE_META_* + KEYCODE_DEL --> KEYCODE_HOME
+ * For those combinations, we make sure that they are either delivered to the app
+ * as the desired key (KEYCODE_BACK), or not delivered to the app (KEYCODE_HOME).
  */
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -63,18 +71,50 @@ public class KeyEventInterceptTest {
     }
 
     @Test
-    public void testKeyCodeAssist() {
-        testKey(KeyEvent.KEYCODE_ASSIST);
-    }
-
-    @Test
-    public void testKeyCodeVoiceAssist() {
-        testKey(KeyEvent.KEYCODE_VOICE_ASSIST);
-    }
-
-    @Test
     public void testKeyCodeHome() {
         testKey(KeyEvent.KEYCODE_HOME);
+    }
+
+    @Test
+    public void testKeyCodeHomeShortcutLeftMeta() {
+        testKeyCodeHomeShortcut(KeyEvent.META_META_LEFT_ON | KeyEvent.META_META_ON);
+    }
+
+    @Test
+    public void testKeyCodeHomeShortcutRightMeta() {
+        testKeyCodeHomeShortcut(KeyEvent.META_META_RIGHT_ON | KeyEvent.META_META_ON);
+    }
+
+    @Test
+    public void testKeyCodeBackShortcutLeftMeta() {
+        testKeyCodeBackShortcut(KeyEvent.META_META_LEFT_ON | KeyEvent.META_META_ON);
+    }
+
+    @Test
+    public void testKeyCodeBackShortcutRightMeta() {
+        testKeyCodeBackShortcut(KeyEvent.META_META_RIGHT_ON | KeyEvent.META_META_ON);
+    }
+
+    private void testKeyCodeHomeShortcut(int metaState) {
+        long downTime = SystemClock.uptimeMillis();
+        injectEvent(new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_ENTER, 0, metaState));
+        injectEvent(new KeyEvent(downTime, downTime + 1, KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_ENTER, 0, metaState));
+
+        assertKeyNotReceived();
+    }
+
+    private void testKeyCodeBackShortcut(int metaState) {
+        long downTime = SystemClock.uptimeMillis();
+        injectEvent(new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_DEL, 0, metaState));
+        injectEvent(new KeyEvent(downTime, downTime + 1, KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_DEL, 0, metaState));
+
+        assertKeyReceived(KeyEvent.KEYCODE_BACK, KeyEvent.ACTION_DOWN);
+        assertKeyReceived(KeyEvent.KEYCODE_BACK, KeyEvent.ACTION_UP);
+        assertKeyNotReceived();
     }
 
     private void testKey(int keyCode) {
@@ -93,18 +133,22 @@ public class KeyEventInterceptTest {
     private void injectEvent(KeyEvent event) {
         final UiAutomation automation = mInstrumentation.getUiAutomation();
         automation.injectInputEvent(event, true);
-        event.recycle();
     }
 
     private void assertKeyNotReceived() {
-        try {
-            KeyEvent keyEvent = mActivity.mKeyEvents.poll(1, TimeUnit.SECONDS);
-            if (keyEvent == null) {
-                return;
-            }
-            fail("Should not have received " + KeyEvent.keyCodeToString(keyEvent.getKeyCode()));
-        } catch (InterruptedException ex) {
-            fail("BlockingQueue.poll(..) was unexpectedly interrupted");
+        KeyEvent keyEvent = mActivity.mKeyEvents.poll();
+        if (keyEvent == null) {
+            return;
         }
+        fail("Should not have received " + KeyEvent.keyCodeToString(keyEvent.getKeyCode()));
+    }
+
+    private void assertKeyReceived(int keyCode, int action) {
+        KeyEvent keyEvent = mActivity.mKeyEvents.poll();
+        if (keyEvent == null) {
+            fail("Did not receive " + KeyEvent.keyCodeToString(keyCode) + ", queue is empty");
+        }
+        assertEquals(keyCode, keyEvent.getKeyCode());
+        assertEquals(action, keyEvent.getAction());
     }
 }

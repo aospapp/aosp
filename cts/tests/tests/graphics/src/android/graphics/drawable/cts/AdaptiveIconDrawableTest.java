@@ -25,12 +25,13 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.StateListDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,6 +46,8 @@ import java.util.Arrays;
 public class AdaptiveIconDrawableTest {
 
     public static final String TAG = AdaptiveIconDrawableTest.class.getSimpleName();
+    public static final boolean DEBUG = false;
+
     public static void L(String s, Object... parts) {
         Log.d(TAG, (parts.length == 0) ? s : String.format(s, parts));
     }
@@ -131,6 +134,14 @@ public class AdaptiveIconDrawableTest {
         assertEquals(-21, iconDrawable.getChangingConfigurations());
     }
 
+    @Test
+    public void testGetAlpha() {
+        ColorDrawable drawable = new ColorDrawable(Color.RED);
+        AdaptiveIconDrawable iconDrawable = new AdaptiveIconDrawable(null, drawable);
+        iconDrawable.setAlpha(128);
+        assertEquals(128, iconDrawable.getAlpha());
+    }
+
     /**
      * When setBound isn't called before draw method is called.
      * Nothing is drawn.
@@ -187,11 +198,12 @@ public class AdaptiveIconDrawableTest {
         iconDrawable.draw(can_test);
         can_test.translate(left, top);
 
-
-        bm_org.compress(Bitmap.CompressFormat.PNG, 100,
-            new FileOutputStream(new File(dir, "adaptive-bm-original.png")));
-        bm_test.compress(Bitmap.CompressFormat.PNG, 100,
-            new FileOutputStream(new File(dir, "adaptive-bm-test.png")));
+        if (DEBUG) {
+            bm_org.compress(Bitmap.CompressFormat.PNG, 100,
+                    new FileOutputStream(new File(dir, "adaptive-bm-original.png")));
+            bm_test.compress(Bitmap.CompressFormat.PNG, 100,
+                    new FileOutputStream(new File(dir, "adaptive-bm-test.png")));
+        }
         Region region = new Region(new Rect(0, 0, width, height));
 
         Path circle = new Path();
@@ -252,11 +264,13 @@ public class AdaptiveIconDrawableTest {
     public void testGetOpacity() {
         AdaptiveIconDrawable iconDrawable = new AdaptiveIconDrawable(
             new ColorDrawable(Color.RED), new ColorDrawable(Color.BLUE));
+        // Drawable#getOpacity is deprecated, AdaptiveIconDrawable
+        // should return PixelFormat.TRANSLUCENT always
         iconDrawable.setOpacity(PixelFormat.OPAQUE);
-        assertEquals(PixelFormat.OPAQUE, iconDrawable.getOpacity());
+        assertEquals(PixelFormat.TRANSLUCENT, iconDrawable.getOpacity());
 
         iconDrawable.setOpacity(PixelFormat.TRANSPARENT);
-        assertEquals(PixelFormat.TRANSPARENT, iconDrawable.getOpacity());
+        assertEquals(PixelFormat.TRANSLUCENT, iconDrawable.getOpacity());
     }
 
     @Test

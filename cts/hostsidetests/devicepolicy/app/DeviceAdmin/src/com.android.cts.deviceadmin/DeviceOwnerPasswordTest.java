@@ -23,6 +23,8 @@ import android.app.admin.DevicePolicyManager;
  * Tests for {@link DevicePolicyManager#resetPassword} for complex cases.
  *
  * This needs to be run as device owner, because in NYC DA can't clear or change the password.
+ * @deprecated New tests related to password quality and reset password API should be added to
+ * {@code com.android.cts.deviceandprofileowner.ResetPasswordWithTokenTest}
  */
 public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
 

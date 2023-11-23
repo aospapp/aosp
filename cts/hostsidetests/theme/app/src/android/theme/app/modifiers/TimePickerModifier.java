@@ -22,11 +22,10 @@ import android.widget.TimePicker;
 public class TimePickerModifier extends AbstractLayoutModifier {
 
     @Override
-    public View modifyView(View view) {
+    public void modifyViewBeforeAdd(View view) {
         TimePicker timePicker = (TimePicker) view;
         timePicker.setIs24HourView(true);
         timePicker.setCurrentHour(13);
         timePicker.setCurrentMinute(37);
-        return view;
     }
 }

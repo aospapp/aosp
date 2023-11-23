@@ -32,10 +32,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
         if (!mSupportsMultiUser) {
             return;
         }
-        getDevice().createUser(
-                "TestUser_" + System.currentTimeMillis() /* name */,
-                true /* guest */,
-                false /* ephemeral */);
+        createGuestUser();
     }
 
     @Test
@@ -67,8 +64,35 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
         final String setRestriction = "pm set-user-restriction no_fun ";
         final String output = getDevice().executeShellCommand(setRestriction + "1");
         final boolean isErrorOutput = output.contains("SecurityException")
-            && output.contains("You need MANAGE_USERS permission");
+                && output.contains("You need MANAGE_USERS permission");
         Assert.assertTrue("Trying to set user restriction should fail with SecurityException. "
                 + "command output: " + output, isErrorOutput);
+    }
+
+    @Test
+    public void testCanCreateGuestUserWhenUserLimitReached() throws Exception {
+        if (!isAutomotiveDevice()) {
+            return;
+        }
+        // Remove existing guest user
+        int guestUserId = getGuestUser();
+        if (guestUserId != -1) {
+            getDevice().removeUser(guestUserId);
+        }
+        // Add new users until user limit reached
+        int maxUsers = getDevice().getMaxNumberOfUsersSupported();
+        int userCount = getDevice().listUsers().size();
+        int numUsersToCreate = maxUsers - userCount;
+        for (int i = 0; i < numUsersToCreate; i++) {
+            // tearDown will removed non-fixed users
+            getDevice().createUser(
+                    "TestUser_" + System.currentTimeMillis() /* name */,
+                    false /* guest */,
+                    false /* ephemeral */);
+        }
+        createGuestUser();
+        userCount = getDevice().listUsers().size();
+        Assert.assertTrue("User count should be greater than max users due to added guest user",
+                userCount > maxUsers);
     }
 }

@@ -41,11 +41,11 @@ public class NestedTypesTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.NestedTypes command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/NestedTypesDebuggee;";
+    static final String debuggeeSignature = getClassSignature(NestedTypesDebuggee.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.NestedTypesDebuggee";
+        return NestedTypesDebuggee.class.getName();
     }
 
     /**
@@ -80,9 +80,11 @@ public class NestedTypesTest extends JDWPSyncTestCase {
         logWriter.println("=> Returned nested types number = " + returnedNestedTypesNumber);
 
         String nestedTypeSignatures[] = {
-                "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/NestedTypesDebuggee$StatInterf_1;",
-                "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/NestedTypesDebuggee$StatClass_1;",
-                "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/NestedTypesDebuggee$NonStatClass_1;",
+                debuggeeSignature.replace("NestedTypesDebuggee",
+                        "NestedTypesDebuggee$StatInterf_1"),
+                debuggeeSignature.replace("NestedTypesDebuggee", "NestedTypesDebuggee$StatClass_1"),
+                debuggeeSignature.replace("NestedTypesDebuggee",
+                        "NestedTypesDebuggee$NonStatClass_1"),
         };
 
         byte nestedTypeTags[] = {

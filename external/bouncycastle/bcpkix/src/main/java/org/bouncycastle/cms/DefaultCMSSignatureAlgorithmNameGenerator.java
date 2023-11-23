@@ -8,9 +8,11 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 // import org.bouncycastle.asn1.bsi.BSIObjectIdentifiers;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
+// import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+// import org.bouncycastle.asn1.rosstandart.RosstandartObjectIdentifiers;
 import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
@@ -34,6 +36,22 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         addEntries(NISTObjectIdentifiers.dsa_with_sha256, "SHA256", "DSA");
         addEntries(NISTObjectIdentifiers.dsa_with_sha384, "SHA384", "DSA");
         addEntries(NISTObjectIdentifiers.dsa_with_sha512, "SHA512", "DSA");
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        addEntries(NISTObjectIdentifiers.id_dsa_with_sha3_224, "SHA3-224", "DSA");
+        addEntries(NISTObjectIdentifiers.id_dsa_with_sha3_256, "SHA3-256", "DSA");
+        addEntries(NISTObjectIdentifiers.id_dsa_with_sha3_384, "SHA3-384", "DSA");
+        addEntries(NISTObjectIdentifiers.id_dsa_with_sha3_512, "SHA3-512", "DSA");
+        addEntries(NISTObjectIdentifiers.id_rsassa_pkcs1_v1_5_with_sha3_224, "SHA3-224", "RSA");
+        addEntries(NISTObjectIdentifiers.id_rsassa_pkcs1_v1_5_with_sha3_256, "SHA3-256", "RSA");
+        addEntries(NISTObjectIdentifiers.id_rsassa_pkcs1_v1_5_with_sha3_384, "SHA3-384", "RSA");
+        addEntries(NISTObjectIdentifiers.id_rsassa_pkcs1_v1_5_with_sha3_512, "SHA3-512", "RSA");
+        addEntries(NISTObjectIdentifiers.id_ecdsa_with_sha3_224, "SHA3-224", "ECDSA");
+        addEntries(NISTObjectIdentifiers.id_ecdsa_with_sha3_256, "SHA3-256", "ECDSA");
+        addEntries(NISTObjectIdentifiers.id_ecdsa_with_sha3_384, "SHA3-384", "ECDSA");
+        addEntries(NISTObjectIdentifiers.id_ecdsa_with_sha3_512, "SHA3-512", "ECDSA");
+        */
+        // END Android-removed: Unsupported algorithms
         addEntries(OIWObjectIdentifiers.dsaWithSHA1, "SHA1", "DSA");
         // BEGIN Android-removed: Unsupported algorithms
         // addEntries(OIWObjectIdentifiers.md4WithRSA, "MD4", "RSA");
@@ -52,9 +70,13 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         addEntries(PKCSObjectIdentifiers.sha384WithRSAEncryption, "SHA384", "RSA");
         addEntries(PKCSObjectIdentifiers.sha512WithRSAEncryption, "SHA512", "RSA");
 
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
         addEntries(TeleTrusTObjectIdentifiers.rsaSignatureWithripemd128, "RIPEMD128", "RSA");
         addEntries(TeleTrusTObjectIdentifiers.rsaSignatureWithripemd160, "RIPEMD160", "RSA");
         addEntries(TeleTrusTObjectIdentifiers.rsaSignatureWithripemd256, "RIPEMD256", "RSA");
+        */
+        // END Android-removed: Unsupported algorithms
 
         addEntries(X9ObjectIdentifiers.ecdsa_with_SHA1, "SHA1", "ECDSA");
         addEntries(X9ObjectIdentifiers.ecdsa_with_SHA224, "SHA224", "ECDSA");
@@ -86,15 +108,22 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         encryptionAlgs.put(X509ObjectIdentifiers.id_ea_rsa, "RSA");
         encryptionAlgs.put(PKCSObjectIdentifiers.id_RSASSA_PSS, "RSAandMGF1");
         // BEGIN Android-removed: Unsupported algorithms
-        // encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3410_94, "GOST3410");
-        // encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3410_2001, "ECGOST3410");
-        // encryptionAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.6.2"), "ECGOST3410");
-        // encryptionAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.1.5"), "GOST3410");
-        // encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001, "ECGOST3410");
-        // encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_94, "GOST3410");
-        //
-        // digestAlgs.put(PKCSObjectIdentifiers.md2, "MD2");
-        // digestAlgs.put(PKCSObjectIdentifiers.md4, "MD4");
+        /*
+        encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3410_94, "GOST3410");
+        encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3410_2001, "ECGOST3410");
+        encryptionAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.6.2"), "ECGOST3410");
+        encryptionAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.1.5"), "GOST3410");
+        encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_gost_3410_12_256, "ECGOST3410-2012-256");
+        encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_gost_3410_12_512, "ECGOST3410-2012-512");
+        encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001, "ECGOST3410");
+        encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_94, "GOST3410");
+        encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_256, "ECGOST3410-2012-256");
+        encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_512, "ECGOST3410-2012-512");
+        encryptionAlgs.put(GMObjectIdentifiers.sm2sign_with_sm3, "SM2");
+
+        digestAlgs.put(PKCSObjectIdentifiers.md2, "MD2");
+        digestAlgs.put(PKCSObjectIdentifiers.md4, "MD4");
+        */
         // END Android-removed: Unsupported algorithms
         digestAlgs.put(PKCSObjectIdentifiers.md5, "MD5");
         digestAlgs.put(OIWObjectIdentifiers.idSHA1, "SHA1");
@@ -103,11 +132,20 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         digestAlgs.put(NISTObjectIdentifiers.id_sha384, "SHA384");
         digestAlgs.put(NISTObjectIdentifiers.id_sha512, "SHA512");
         // BEGIN Android-removed: Unsupported algorithms
-        // digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd128, "RIPEMD128");
-        // digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd160, "RIPEMD160");
-        // digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd256, "RIPEMD256");
-        // digestAlgs.put(CryptoProObjectIdentifiers.gostR3411,  "GOST3411");
-        // digestAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.2.1"),  "GOST3411");
+        /*
+        digestAlgs.put(NISTObjectIdentifiers.id_sha3_224, "SHA3-224");
+        digestAlgs.put(NISTObjectIdentifiers.id_sha3_256, "SHA3-256");
+        digestAlgs.put(NISTObjectIdentifiers.id_sha3_384, "SHA3-384");
+        digestAlgs.put(NISTObjectIdentifiers.id_sha3_512, "SHA3-512");
+        digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd128, "RIPEMD128");
+        digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd160, "RIPEMD160");
+        digestAlgs.put(TeleTrusTObjectIdentifiers.ripemd256, "RIPEMD256");
+        digestAlgs.put(CryptoProObjectIdentifiers.gostR3411,  "GOST3411");
+        digestAlgs.put(new ASN1ObjectIdentifier("1.3.6.1.4.1.5849.1.2.1"),  "GOST3411");
+        digestAlgs.put(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256,  "GOST3411-2012-256");
+        digestAlgs.put(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512,  "GOST3411-2012-512");
+        digestAlgs.put(GMObjectIdentifiers.sm3,  "SM3");
+        */
         // END Android-removed: Unsupported algorithms
     }
 

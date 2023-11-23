@@ -17,9 +17,9 @@
 #ifndef ART_RUNTIME_GC_SPACE_ZYGOTE_SPACE_H_
 #define ART_RUNTIME_GC_SPACE_ZYGOTE_SPACE_H_
 
+#include "base/mem_map.h"
 #include "gc/accounting/space_bitmap.h"
 #include "malloc_space.h"
-#include "mem_map.h"
 
 namespace art {
 namespace gc {
@@ -27,65 +27,66 @@ namespace gc {
 namespace space {
 
 // A zygote space is a space which you cannot allocate into or free from.
-class ZygoteSpace FINAL : public ContinuousMemMapAllocSpace {
+class ZygoteSpace final : public ContinuousMemMapAllocSpace {
  public:
   // Returns the remaining storage in the out_map field.
-  static ZygoteSpace* Create(const std::string& name, MemMap* mem_map,
+  static ZygoteSpace* Create(const std::string& name,
+                             MemMap&& mem_map,
                              accounting::ContinuousSpaceBitmap* live_bitmap,
                              accounting::ContinuousSpaceBitmap* mark_bitmap)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void Dump(std::ostream& os) const;
+  void Dump(std::ostream& os) const override;
 
-  SpaceType GetType() const OVERRIDE {
+  SpaceType GetType() const override {
     return kSpaceTypeZygoteSpace;
   }
 
-  ZygoteSpace* AsZygoteSpace() OVERRIDE {
+  ZygoteSpace* AsZygoteSpace() override {
     return this;
   }
 
   mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                        size_t* usable_size, size_t* bytes_tl_bulk_allocated) OVERRIDE;
+                        size_t* usable_size, size_t* bytes_tl_bulk_allocated) override;
 
-  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE;
+  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) override;
 
-  size_t Free(Thread* self, mirror::Object* ptr) OVERRIDE;
+  size_t Free(Thread* self, mirror::Object* ptr) override;
 
-  size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) OVERRIDE;
+  size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) override;
 
   // ZygoteSpaces don't have thread local state.
-  size_t RevokeThreadLocalBuffers(art::Thread*) OVERRIDE {
+  size_t RevokeThreadLocalBuffers(art::Thread*) override {
     return 0U;
   }
-  size_t RevokeAllThreadLocalBuffers() OVERRIDE {
+  size_t RevokeAllThreadLocalBuffers() override {
     return 0U;
   }
 
-  uint64_t GetBytesAllocated() {
+  uint64_t GetBytesAllocated() override {
     return Size();
   }
 
-  uint64_t GetObjectsAllocated() {
-    return objects_allocated_.LoadSequentiallyConsistent();
+  uint64_t GetObjectsAllocated() override {
+    return objects_allocated_.load();
   }
 
-  void Clear() OVERRIDE;
+  void Clear() override;
 
-  bool CanMoveObjects() const OVERRIDE {
+  bool CanMoveObjects() const override {
     return false;
   }
 
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) OVERRIDE
+  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:
-  virtual accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() {
+  accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() override {
     return &SweepCallback;
   }
 
  private:
-  ZygoteSpace(const std::string& name, MemMap* mem_map, size_t objects_allocated);
+  ZygoteSpace(const std::string& name, MemMap&& mem_map, size_t objects_allocated);
   static void SweepCallback(size_t num_ptrs, mirror::Object** ptrs, void* arg);
 
   AtomicInteger objects_allocated_;

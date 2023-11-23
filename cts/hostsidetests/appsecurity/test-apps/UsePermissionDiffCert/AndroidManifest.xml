@@ -38,5 +38,5 @@
     </application>
 
     <instrumentation android:targetPackage="com.android.cts.usespermissiondiffcertapp"
-            android:name="android.support.test.runner.AndroidJUnitRunner"/>
+            android:name="androidx.test.runner.AndroidJUnitRunner"/>
 </manifest>

@@ -36,9 +36,12 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DX_FLAGS := --multi-dex
 
+# This module depends on androidx.car_car for legacy reasons.
+# Don't copy-paste the use of androidx.car_car
+
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    androidx.appcompat_appcompat \
     androidx.car_car \
-    androidx.legacy_legacy-support-v4
+    androidx.legacy_legacy-support-v4 \
+    androidx.appcompat_appcompat
 
 include $(BUILD_PACKAGE)

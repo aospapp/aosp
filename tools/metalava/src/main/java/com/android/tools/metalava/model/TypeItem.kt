@@ -19,9 +19,17 @@ package com.android.tools.metalava.model
 import com.android.tools.lint.detector.api.ClassContext
 import com.android.tools.metalava.JAVA_LANG_OBJECT
 import com.android.tools.metalava.JAVA_LANG_PREFIX
+import com.android.tools.metalava.JAVA_LANG_STRING
 import com.android.tools.metalava.compatibility
-import com.android.tools.metalava.options
 import java.util.function.Predicate
+
+/**
+ * Whether metalava supports type use annotations.
+ * Note that you can't just turn this flag back on; you have to
+ * also add TYPE_USE back to the handful of nullness
+ * annotations in stub-annotations/src/main/java/.
+ */
+const val SUPPORT_TYPE_USE_ANNOTATIONS = false
 
 /** Represents a type */
 interface TypeItem {
@@ -32,7 +40,10 @@ interface TypeItem {
      * [outerAnnotations] controls whether the top level annotation like @Nullable
      * is included, [innerAnnotations] controls whether annotations like @NonNull
      * are included, and [erased] controls whether we return the string for
-     * the raw type, e.g. just "java.util.List"
+     * the raw type, e.g. just "java.util.List". The [kotlinStyleNulls] parameter
+     * controls whether it should return "@Nullable List<String>" as "List<String!>?".
+     * Finally, [filter] specifies a filter to apply to the type annotations, if
+     * any.
      *
      * (The combination [outerAnnotations] = true and [innerAnnotations] = false
      * is not allowed.)
@@ -40,11 +51,14 @@ interface TypeItem {
     fun toTypeString(
         outerAnnotations: Boolean = false,
         innerAnnotations: Boolean = outerAnnotations,
-        erased: Boolean = false
+        erased: Boolean = false,
+        kotlinStyleNulls: Boolean = false,
+        context: Item? = null,
+        filter: Predicate<Item>? = null
     ): String
 
     /** Alias for [toTypeString] with erased=true */
-    fun toErasedTypeString(): String
+    fun toErasedTypeString(context: Item? = null): String
 
     /** Returns the internal name of the type, as seen in bytecode */
     fun internalName(): String {
@@ -66,8 +80,8 @@ interface TypeItem {
      * from parsing, which may have slightly different formats, e.g. varargs ("...") versus
      * arrays ("[]"), java.lang. prefixes removed in wildcard signatures, etc.
      */
-    fun toCanonicalType(): String {
-        var s = toTypeString()
+    fun toCanonicalType(context: Item? = null): String {
+        var s = toTypeString(context = context)
         while (s.contains(JAVA_LANG_PREFIX)) {
             s = s.replace(JAVA_LANG_PREFIX, "")
         }
@@ -94,11 +108,16 @@ interface TypeItem {
     fun convertType(replacementMap: Map<String, String>?, owner: Item? = null): TypeItem
 
     fun convertTypeString(replacementMap: Map<String, String>?): String {
-        return convertTypeString(toTypeString(outerAnnotations = true, innerAnnotations = true), replacementMap)
+        val typeString = toTypeString(outerAnnotations = true, innerAnnotations = true, kotlinStyleNulls = false)
+        return convertTypeString(typeString, replacementMap)
     }
 
     fun isJavaLangObject(): Boolean {
         return toTypeString() == JAVA_LANG_OBJECT
+    }
+
+    fun isString(): Boolean {
+        return toTypeString() == JAVA_LANG_STRING
     }
 
     fun defaultValue(): Any? {
@@ -148,10 +167,18 @@ interface TypeItem {
      */
     fun markRecent()
 
+    /** Returns true if this type represents an array of one or more dimensions */
+    fun isArray(): Boolean = arrayDimensions() > 0
+
+    /**
+     * Ensure that we don't include any annotations in the type strings for this type.
+     */
+    fun scrubAnnotations()
+
     companion object {
         /** Shortens types, if configured */
         fun shortenTypes(type: String): String {
-            if (options.omitCommonPackages) {
+            if (compatibility.omitCommonPackages) {
                 var cleaned = type
                 if (cleaned.contains("@androidx.annotation.")) {
                     cleaned = cleaned.replace("@androidx.annotation.", "@")
@@ -205,7 +232,7 @@ interface TypeItem {
 
             var cleaned = type
 
-            if (compatibility.spacesAfterCommas && cleaned.indexOf(',') != -1) {
+            if (compatibility.spaceAfterCommaInTypes && cleaned.indexOf(',') != -1) {
                 // The compat files have spaces after commas where we normally don't
                 cleaned = cleaned.replace(",", ", ").replace(",  ", ", ")
             }
@@ -280,6 +307,47 @@ interface TypeItem {
             }
 
             return dimension + base
+        }
+
+        /** Compares two strings, ignoring space diffs (spaces, not whitespace in general) */
+        fun equalsWithoutSpace(s1: String, s2: String): Boolean {
+            if (s1 == s2) {
+                return true
+            }
+            val sp1 = s1.indexOf(' ') // first space
+            val sp2 = s2.indexOf(' ')
+            if (sp1 == -1 && sp2 == -1) {
+                // no spaces in strings and aren't equal
+                return false
+            }
+
+            val l1 = s1.length
+            val l2 = s2.length
+            var i1 = 0
+            var i2 = 0
+
+            while (i1 < l1 && i2 < l2) {
+                var c1 = s1[i1++]
+                var c2 = s2[i2++]
+
+                while (c1 == ' ' && i1 < l1) {
+                    c1 = s1[i1++]
+                }
+                while (c2 == ' ' && i2 < l2) {
+                    c2 = s2[i2++]
+                }
+                if (c1 != c2) {
+                    return false
+                }
+            }
+            // Skip trailing spaces
+            while (i1 < l1 && s1[i1] == ' ') {
+                i1++
+            }
+            while (i2 < l2 && s2[i2] == ' ') {
+                i2++
+            }
+            return i1 == l1 && i2 == l2
         }
     }
 }

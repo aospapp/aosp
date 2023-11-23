@@ -17,24 +17,24 @@
 package com.android.settings.datetime.timezone.model;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
+import libcore.timezone.CountryTimeZones;
+import libcore.timezone.CountryTimeZones.TimeZoneMapping;
+import libcore.timezone.CountryZonesFinder;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import libcore.util.CountryTimeZones;
-import libcore.util.CountryTimeZones.TimeZoneMapping;
-import libcore.util.CountryZonesFinder;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import org.robolectric.RobolectricTestRunner;
 
-@RunWith(SettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class TimeZoneDataTest {
 
     private CountryZonesFinder mCountryZonesFinder;

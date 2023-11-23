@@ -20,7 +20,6 @@
 #include <C2PlatformSupport.h>
 #include <codec2/hidl/1.0/ComponentStore.h>
 #include <media/CodecServiceRegistrant.h>
-#include <media/stagefright/omx/1.0/Omx.h>
 #include <log/log.h>
 
 extern "C" void RegisterCodecServices() {
@@ -38,15 +37,5 @@ extern "C" void RegisterCodecServices() {
             ALOGI("Codec2's IComponentStore software service created.");
         }
     }
-
-    // Default codec services
-    using namespace ::android::hardware::media::omx::V1_0;
-    android::sp<IOmx> omx = new implementation::Omx();
-    if (omx == nullptr) {
-        ALOGE("Cannot create IOmx HAL service.");
-    } else if (omx->registerAsService() != android::OK) {
-        ALOGE("Cannot register IOmx HAL service.");
-    }
-
 }
 

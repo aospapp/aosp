@@ -1,0 +1,29 @@
+# partition table
+fatload usb 0:1 0x08000000 recovery_files/mbr.bin.gz
+unzip 0x08000000 0x18000000 0x00000200
+mmc write 0x18000000 0x00000000 0x00000001
+echo
+
+fatload usb 0:1 0x08000000 recovery_files/ebr5.bin.gz
+unzip 0x08000000 0x18000000 0x00000200
+mmc write 0x18000000 0x00315fff 0x00000001
+echo
+
+fatload usb 0:1 0x08000000 recovery_files/ebr6.bin.gz
+unzip 0x08000000 0x18000000 0x00000200
+mmc write 0x18000000 0x00395fff 0x00000001
+echo
+
+fatload usb 0:1 0x08000000 recovery_files/ebr7.bin.gz
+unzip 0x08000000 0x18000000 0x00000200
+mmc write 0x18000000 0x00415fff 0x00000001
+echo
+
+# loader
+fatload usb 0:1 0x08000000 recovery_files/loader.bin.gz
+unzip 0x08000000 0x18000000 0x001efe00
+mmc write 0x18000000 0x00000001 0x00000f7f
+echo
+
+echo ============ INSTALLATION IS DONE =============
+echo (Please reset your board)

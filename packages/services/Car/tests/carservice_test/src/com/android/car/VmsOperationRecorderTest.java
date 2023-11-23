@@ -22,11 +22,10 @@ import android.car.vms.VmsLayer;
 import android.car.vms.VmsLayerDependency;
 import android.car.vms.VmsLayersOffering;
 import android.car.vms.VmsOperationRecorder;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-import junit.framework.TestCase;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -112,13 +111,13 @@ public class VmsOperationRecorderTest {
     @Test
     public void testSetLayersOffering0() throws Exception {
         mRecorder.setLayersOffering(layersOffering0);
-        assertJsonMsgEquals("{'setLayersOffering':{}}");
+        assertJsonMsgEquals("{'setLayersOffering':{'publisherId':66}}");
     }
 
     @Test
     public void testSetLayersOffering2() throws Exception {
         mRecorder.setLayersOffering(layersOffering2);
-        assertJsonMsgEquals("{'setLayersOffering':{'layerDependency':["
+        assertJsonMsgEquals("{'setLayersOffering':{'publisherId':66,'layerDependency':["
                 + "{'layer':{'type':3,'subtype':5,'version':4}},"
                 + "{'layer':{'type':1,'subtype':3,'version':2},'dependency':["
                 + "{'type':2,'subtype':4,'version':3},{'type':3,'subtype':5,'version':4}]}"
@@ -175,13 +174,13 @@ public class VmsOperationRecorderTest {
     @Test
     public void testSetPublisherLayersOffering() throws Exception {
         mRecorder.setPublisherLayersOffering(layersOffering1);
-        assertJsonMsgEquals("{'setPublisherLayersOffering':{'layerDependency':["
+        assertJsonMsgEquals("{'setPublisherLayersOffering':{'publisherId':66,'layerDependency':["
                 + "{'layer':{'type':3,'subtype':5,'version':4}}]}}");
     }
 
     @Test public void testSetHalPublisherLayersOffering() throws Exception {
         mRecorder.setHalPublisherLayersOffering(layersOffering1);
-        assertJsonMsgEquals("{'setHalPublisherLayersOffering':{'layerDependency':["
+        assertJsonMsgEquals("{'setHalPublisherLayersOffering':{'publisherId':66,'layerDependency':["
                 + "{'layer':{'type':3,'subtype':5,'version':4}}]}}");
     }
 

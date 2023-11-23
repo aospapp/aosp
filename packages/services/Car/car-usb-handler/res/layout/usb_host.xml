@@ -14,27 +14,21 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical" >
-  <LinearLayout
-      android:id="@+id/usb_handlers_progress"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:orientation="horizontal"
-      android:visibility="gone"
-      android:gravity="center">
-      <ProgressBar
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"/>
-      <TextView
-          android:text="@+string/usb_resolving_handlers"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:orientation="vertical" />
-  </LinearLayout>
-  <ListView
-            android:id="@+id/usb_handlers_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+              android:id="@+id/usb_handlers_dialog"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:visibility="gone" >
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="@dimen/title_view_padding"
+        android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium"
+        android:background="@*android:color/primary_dark_device_default_dark"
+        android:id="@+id/usb_handler_heading"
+        android:text="@string/app_name"/>
+    <ListView
+        android:id="@+id/usb_handlers_list"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
 </LinearLayout>

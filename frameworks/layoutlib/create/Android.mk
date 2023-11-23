@@ -21,6 +21,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under,src)
 LOCAL_JAR_MANIFEST := manifest.txt
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	asm-6.0 \
+	guava-prebuilt-host-jar \
 	layoutlib-common
 
 LOCAL_MODULE := layoutlib_create

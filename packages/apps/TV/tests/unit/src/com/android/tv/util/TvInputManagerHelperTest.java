@@ -16,12 +16,12 @@
 
 package com.android.tv.util;
 
-import static android.support.test.InstrumentationRegistry.getContext;
+import static androidx.test.InstrumentationRegistry.getContext;
 
 import android.content.pm.ResolveInfo;
 import android.media.tv.TvInputInfo;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.testing.ComparatorTester;
 import com.android.tv.testing.utils.TestUtils;
 import java.util.ArrayList;

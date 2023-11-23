@@ -52,6 +52,8 @@ public class WatchUidRunner {
     public static final String STATE_PERSISTENT_UI = "PERU";
     public static final String STATE_TOP = "TOP";
     public static final String STATE_BOUND_FG_SERVICE = "BFGS";
+    public static final String STATE_BOUND_TOP = "BTOP";
+    public static final String STATE_FG_SERVICE_LOCATION = "FGSL";
     public static final String STATE_FG_SERVICE = "FGS";
     public static final String STATE_TOP_SLEEPING = "TPSL";
     public static final String STATE_IMPORTANT_FG = "IMPF";

@@ -17,6 +17,7 @@
 package com.google.turbine.lower;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
@@ -24,12 +25,15 @@ import static java.util.stream.Collectors.toList;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.MoreFiles;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.turbine.binder.Binder;
-import com.google.turbine.bytecode.AsmUtils;
+import com.google.turbine.binder.ClassPath;
+import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.diag.SourceFile;
 import com.google.turbine.parse.Parser;
+import com.google.turbine.testing.AsmUtils;
 import com.google.turbine.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTool;
@@ -56,6 +60,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
@@ -131,12 +136,10 @@ public class IntegrationTestSupport {
     if (!isDeprecated(n.visibleAnnotations)) {
       n.access &= ~Opcodes.ACC_DEPRECATED;
     }
-    n.methods
-        .stream()
+    n.methods.stream()
         .filter(m -> !isDeprecated(m.visibleAnnotations))
         .forEach(m -> m.access &= ~Opcodes.ACC_DEPRECATED);
-    n.fields
-        .stream()
+    n.fields.stream()
         .filter(f -> !isDeprecated(f.visibleAnnotations))
         .forEach(f -> f.access &= ~Opcodes.ACC_DEPRECATED);
   }
@@ -184,21 +187,18 @@ public class IntegrationTestSupport {
   /** Remove elements that are omitted by turbine, e.g. private and synthetic members. */
   private static void removeImplementation(ClassNode n) {
     n.innerClasses =
-        n.innerClasses
-            .stream()
+        n.innerClasses.stream()
             .filter(x -> (x.access & Opcodes.ACC_SYNTHETIC) == 0 && x.innerName != null)
             .collect(toList());
 
     n.methods =
-        n.methods
-            .stream()
+        n.methods.stream()
             .filter(x -> (x.access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_PRIVATE)) == 0)
             .filter(x -> !x.name.equals("<clinit>"))
             .collect(toList());
 
     n.fields =
-        n.fields
-            .stream()
+        n.fields.stream()
             .filter(x -> (x.access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_PRIVATE)) == 0)
             .collect(toList());
   }
@@ -340,14 +340,14 @@ public class IntegrationTestSupport {
     if (annos == null) {
       return;
     }
-    annos.stream().forEach(a -> collectTypesFromAnnotation(types, a));
+    annos.forEach(a -> collectTypesFromAnnotation(types, a));
   }
 
   private static void addTypesInAnnotations(Set<String> types, List<AnnotationNode> annos) {
     if (annos == null) {
       return;
     }
-    annos.stream().forEach(a -> collectTypesFromAnnotation(types, a));
+    annos.forEach(a -> collectTypesFromAnnotation(types, a));
   }
 
   private static void collectTypesFromAnnotation(Set<String> types, AnnotationNode a) {
@@ -400,7 +400,7 @@ public class IntegrationTestSupport {
     final Set<String> classes1 = classes;
     new SignatureReader(signature)
         .accept(
-            new SignatureVisitor(Opcodes.ASM5) {
+            new SignatureVisitor(Opcodes.ASM7) {
               private final Set<String> classes = classes1;
               // class signatures may contain type arguments that contain class signatures
               Deque<List<String>> pieces = new ArrayDeque<>();
@@ -424,25 +424,37 @@ public class IntegrationTestSupport {
             });
   }
 
+  static Map<String, byte[]> runTurbine(Map<String, String> input, ImmutableList<Path> classpath)
+      throws IOException {
+    return runTurbine(
+        input, classpath, TURBINE_BOOTCLASSPATH, /* moduleVersion= */ Optional.empty());
+  }
+
   static Map<String, byte[]> runTurbine(
-      Map<String, String> input, ImmutableList<Path> classpath, Collection<Path> bootclasspath)
+      Map<String, String> input,
+      ImmutableList<Path> classpath,
+      ClassPath bootClassPath,
+      Optional<String> moduleVersion)
       throws IOException {
     List<Tree.CompUnit> units =
-        input
-            .entrySet()
-            .stream()
+        input.entrySet().stream()
             .map(e -> new SourceFile(e.getKey(), e.getValue()))
             .map(Parser::parse)
             .collect(toList());
 
-    Binder.BindingResult bound = Binder.bind(units, classpath, bootclasspath);
-    return Lower.lowerAll(bound.units(), bound.classPathEnv()).bytes();
+    Binder.BindingResult bound =
+        Binder.bind(units, ClassPathBinder.bindClasspath(classpath), bootClassPath, moduleVersion);
+    return Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
   }
 
   public static Map<String, byte[]> runJavac(
-      Map<String, String> sources,
-      Collection<Path> classpath,
-      Collection<? extends Path> bootclasspath)
+      Map<String, String> sources, Collection<Path> classpath) throws Exception {
+    return runJavac(
+        sources, classpath, ImmutableList.of("-parameters", "-source", "8", "-target", "8"));
+  }
+
+  public static Map<String, byte[]> runJavac(
+      Map<String, String> sources, Collection<Path> classpath, ImmutableList<String> options)
       throws Exception {
 
     FileSystem fs = Jimfs.newFileSystem(Configuration.unix());
@@ -458,23 +470,29 @@ public class IntegrationTestSupport {
       if (path.getParent() != null) {
         Files.createDirectories(path.getParent());
       }
-      Files.write(path, entry.getValue().getBytes(UTF_8));
+      MoreFiles.asCharSink(path, UTF_8).write(entry.getValue());
       inputs.add(path);
     }
 
     JavacTool compiler = JavacTool.create();
     DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
     JavacFileManager fileManager = new JavacFileManager(new Context(), true, UTF_8);
-    fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootclasspath);
     fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(out));
     fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
+    fileManager.setLocationFromPaths(StandardLocation.locationFor("MODULE_PATH"), classpath);
+    if (inputs.stream().filter(i -> i.getFileName().toString().equals("module-info.java")).count()
+        > 1) {
+      // multi-module mode
+      fileManager.setLocationFromPaths(
+          StandardLocation.locationFor("MODULE_SOURCE_PATH"), ImmutableList.of(srcs));
+    }
 
     JavacTask task =
         compiler.getTask(
             new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
             fileManager,
             collector,
-            ImmutableList.of("-parameters"),
+            options,
             ImmutableList.of(),
             fileManager.getJavaFileObjectsFromPaths(inputs));
 

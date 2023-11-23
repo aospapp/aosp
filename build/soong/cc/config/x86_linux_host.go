@@ -78,11 +78,15 @@ var (
 		"--sysroot ${LinuxGccRoot}/sysroot",
 	}...)
 
+	linuxClangLldflags = ClangFilterUnknownLldflags(linuxClangLdflags)
+
 	linuxX86ClangLdflags = append(ClangFilterUnknownCflags(linuxX86Ldflags), []string{
 		"-B${LinuxGccRoot}/lib/gcc/${LinuxGccTriple}/${LinuxGccVersion}/32",
 		"-L${LinuxGccRoot}/lib/gcc/${LinuxGccTriple}/${LinuxGccVersion}/32",
 		"-L${LinuxGccRoot}/${LinuxGccTriple}/lib32",
 	}...)
+
+	linuxX86ClangLldflags = ClangFilterUnknownLldflags(linuxX86ClangLdflags)
 
 	linuxX8664ClangLdflags = append(ClangFilterUnknownCflags(linuxX8664Ldflags), []string{
 		"-B${LinuxGccRoot}/lib/gcc/${LinuxGccTriple}/${LinuxGccVersion}",
@@ -90,18 +94,7 @@ var (
 		"-L${LinuxGccRoot}/${LinuxGccTriple}/lib64",
 	}...)
 
-	linuxClangCppflags = []string{
-		"-isystem ${LinuxGccRoot}/${LinuxGccTriple}/include/c++/${LinuxGccVersion}",
-		"-isystem ${LinuxGccRoot}/${LinuxGccTriple}/include/c++/${LinuxGccVersion}/backward",
-	}
-
-	linuxX86ClangCppflags = []string{
-		"-isystem ${LinuxGccRoot}/${LinuxGccTriple}/include/c++/${LinuxGccVersion}/${LinuxGccTriple}/32",
-	}
-
-	linuxX8664ClangCppflags = []string{
-		"-isystem ${LinuxGccRoot}/${LinuxGccTriple}/include/c++/${LinuxGccVersion}/${LinuxGccTriple}",
-	}
+	linuxX8664ClangLldflags = ClangFilterUnknownLldflags(linuxX8664ClangLdflags)
 
 	linuxAvailableLibraries = addPrefix([]string{
 		"c",
@@ -118,38 +111,37 @@ var (
 )
 
 const (
-	linuxGccVersion = "4.8"
+	linuxGccVersion   = "4.8.3"
+	linuxGlibcVersion = "2.17"
 )
 
 func init() {
 	pctx.StaticVariable("LinuxGccVersion", linuxGccVersion)
+	pctx.StaticVariable("LinuxGlibcVersion", linuxGlibcVersion)
+	// Most places use the full GCC version. A few only use up to the first two numbers.
+	if p := strings.Split(linuxGccVersion, "."); len(p) > 2 {
+		pctx.StaticVariable("ShortLinuxGccVersion", strings.Join(p[:2], "."))
+	} else {
+		pctx.StaticVariable("ShortLinuxGccVersion", linuxGccVersion)
+	}
 
 	pctx.SourcePathVariable("LinuxGccRoot",
-		"prebuilts/gcc/${HostPrebuiltTag}/host/x86_64-linux-glibc2.15-${LinuxGccVersion}")
+		"prebuilts/gcc/${HostPrebuiltTag}/host/x86_64-linux-glibc${LinuxGlibcVersion}-${ShortLinuxGccVersion}")
 
 	pctx.StaticVariable("LinuxGccTriple", "x86_64-linux")
 
-	pctx.StaticVariable("LinuxCflags", strings.Join(linuxCflags, " "))
-	pctx.StaticVariable("LinuxLdflags", strings.Join(linuxLdflags, " "))
-
 	pctx.StaticVariable("LinuxClangCflags", strings.Join(linuxClangCflags, " "))
 	pctx.StaticVariable("LinuxClangLdflags", strings.Join(linuxClangLdflags, " "))
-	pctx.StaticVariable("LinuxClangCppflags", strings.Join(linuxClangCppflags, " "))
-
-	// Extended cflags
-	pctx.StaticVariable("LinuxX86Cflags", strings.Join(linuxX86Cflags, " "))
-	pctx.StaticVariable("LinuxX8664Cflags", strings.Join(linuxX8664Cflags, " "))
-	pctx.StaticVariable("LinuxX86Ldflags", strings.Join(linuxX86Ldflags, " "))
-	pctx.StaticVariable("LinuxX8664Ldflags", strings.Join(linuxX8664Ldflags, " "))
+	pctx.StaticVariable("LinuxClangLldflags", strings.Join(linuxClangLldflags, " "))
 
 	pctx.StaticVariable("LinuxX86ClangCflags",
 		strings.Join(ClangFilterUnknownCflags(linuxX86Cflags), " "))
 	pctx.StaticVariable("LinuxX8664ClangCflags",
 		strings.Join(ClangFilterUnknownCflags(linuxX8664Cflags), " "))
 	pctx.StaticVariable("LinuxX86ClangLdflags", strings.Join(linuxX86ClangLdflags, " "))
+	pctx.StaticVariable("LinuxX86ClangLldflags", strings.Join(linuxX86ClangLldflags, " "))
 	pctx.StaticVariable("LinuxX8664ClangLdflags", strings.Join(linuxX8664ClangLdflags, " "))
-	pctx.StaticVariable("LinuxX86ClangCppflags", strings.Join(linuxX86ClangCppflags, " "))
-	pctx.StaticVariable("LinuxX8664ClangCppflags", strings.Join(linuxX8664ClangCppflags, " "))
+	pctx.StaticVariable("LinuxX8664ClangLldflags", strings.Join(linuxX8664ClangLldflags, " "))
 	// Yasm flags
 	pctx.StaticVariable("LinuxX86YasmFlags", "-f elf32 -m x86")
 	pctx.StaticVariable("LinuxX8664YasmFlags", "-f elf64 -m amd64")
@@ -189,26 +181,6 @@ func (t *toolchainLinux) GccVersion() string {
 	return linuxGccVersion
 }
 
-func (t *toolchainLinuxX86) Cflags() string {
-	return "${config.LinuxCflags} ${config.LinuxX86Cflags}"
-}
-
-func (t *toolchainLinuxX8664) Cflags() string {
-	return "${config.LinuxCflags} ${config.LinuxX8664Cflags}"
-}
-
-func (t *toolchainLinux) Cppflags() string {
-	return ""
-}
-
-func (t *toolchainLinuxX86) Ldflags() string {
-	return "${config.LinuxLdflags} ${config.LinuxX86Ldflags}"
-}
-
-func (t *toolchainLinuxX8664) Ldflags() string {
-	return "${config.LinuxLdflags} ${config.LinuxX8664Ldflags}"
-}
-
 func (t *toolchainLinux) IncludeFlags() string {
 	return ""
 }
@@ -222,7 +194,7 @@ func (t *toolchainLinuxX86) ClangCflags() string {
 }
 
 func (t *toolchainLinuxX86) ClangCppflags() string {
-	return "${config.LinuxClangCppflags} ${config.LinuxX86ClangCppflags}"
+	return ""
 }
 
 func (t *toolchainLinuxX8664) ClangTriple() string {
@@ -234,15 +206,23 @@ func (t *toolchainLinuxX8664) ClangCflags() string {
 }
 
 func (t *toolchainLinuxX8664) ClangCppflags() string {
-	return "${config.LinuxClangCppflags} ${config.LinuxX8664ClangCppflags}"
+	return ""
 }
 
 func (t *toolchainLinuxX86) ClangLdflags() string {
 	return "${config.LinuxClangLdflags} ${config.LinuxX86ClangLdflags}"
 }
 
+func (t *toolchainLinuxX86) ClangLldflags() string {
+	return "${config.LinuxClangLldflags} ${config.LinuxX86ClangLldflags}"
+}
+
 func (t *toolchainLinuxX8664) ClangLdflags() string {
 	return "${config.LinuxClangLdflags} ${config.LinuxX8664ClangLdflags}"
+}
+
+func (t *toolchainLinuxX8664) ClangLldflags() string {
+	return "${config.LinuxClangLldflags} ${config.LinuxX8664ClangLldflags}"
 }
 
 func (t *toolchainLinuxX86) YasmFlags() string {

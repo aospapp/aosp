@@ -341,9 +341,6 @@ PlatformRegisterBootSd (
   CHAR16                              *BootPathStr;
   EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL  *EfiDevicePathFromTextProtocol;
   EFI_DEVICE_PATH                     *DevicePath;
-  EFI_DEVICE_PATH                     *FileDevicePath;
-  FILEPATH_DEVICE_PATH                *FilePath;
-  UINTN                                Size;
   EFI_BOOT_MANAGER_LOAD_OPTION         NewOption;
   EFI_BOOT_MANAGER_LOAD_OPTION        *BootOptions;
   UINTN                                BootOptionCount;
@@ -359,19 +356,6 @@ PlatformRegisterBootSd (
   DevicePath = (EFI_DEVICE_PATH *)EfiDevicePathFromTextProtocol->ConvertTextToDevicePath (BootPathStr);
   ASSERT (DevicePath != NULL);
 
-  Size = StrSize (SD_FILE_NAME);
-  FileDevicePath = AllocatePool (Size + SIZE_OF_FILEPATH_DEVICE_PATH + END_DEVICE_PATH_LENGTH);
-  if (FileDevicePath != NULL) {
-    FilePath = (FILEPATH_DEVICE_PATH *) FileDevicePath;
-    FilePath->Header.Type    = MEDIA_DEVICE_PATH;
-    FilePath->Header.SubType = MEDIA_FILEPATH_DP;
-    CopyMem (&FilePath->PathName, SD_FILE_NAME, Size);
-    SetDevicePathNodeLength (&FilePath->Header, Size + SIZE_OF_FILEPATH_DEVICE_PATH);
-    SetDevicePathEndNode (NextDevicePathNode (&FilePath->Header));
-
-    DevicePath = AppendDevicePath (DevicePath, FileDevicePath);
-    FreePool (FileDevicePath);
-  }
   Status = EfiBootManagerInitializeLoadOption (
              &NewOption,
              LoadOptionNumberUnassigned,

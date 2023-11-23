@@ -15,25 +15,27 @@
  */
 package com.android.documentsui.dirlist;
 
-import static android.support.v4.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
+
 import static com.android.documentsui.base.DocumentInfo.getCursorInt;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+
+import androidx.recyclerview.selection.SelectionTracker.SelectionPredicate;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.ActivityConfig;
 import com.android.documentsui.Model;
 import com.android.documentsui.base.State;
-import com.android.documentsui.selection.SelectionHelper.SelectionPredicate;
 
 /**
  * Class embodying the logic as to whether an item (specified by id or position)
  * can be selected (or not).
  */
-final class DocsSelectionPredicate extends SelectionPredicate {
+final class DocsSelectionPredicate extends SelectionPredicate<String> {
 
     private ActivityConfig mConfig;
     private Model mModel;
@@ -56,7 +58,7 @@ final class DocsSelectionPredicate extends SelectionPredicate {
     }
 
     @Override
-    public boolean canSetStateForId(String id, boolean nextState) {
+    public boolean canSetStateForKey(String id, boolean nextState) {
         if (nextState) {
             // Check if an item can be selected
             final Cursor cursor = mModel.getItem(id);
@@ -88,8 +90,12 @@ final class DocsSelectionPredicate extends SelectionPredicate {
 
         // The band selection model only operates on documents and directories.
         // Exclude other types of adapter items like whitespace and dividers.
-        RecyclerView.ViewHolder vh = mRecView.findViewHolderForAdapterPosition(position);
-        return ModelBackedDocumentsAdapter.isContentType(vh.getItemViewType());
+        final RecyclerView.ViewHolder vh = mRecView.findViewHolderForAdapterPosition(position);
+        if (vh == null) {
+            return false;
+        } else {
+            return ModelBackedDocumentsAdapter.isContentType(vh.getItemViewType());
+        }
     }
 
     @Override

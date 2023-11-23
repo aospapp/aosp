@@ -32,6 +32,7 @@ import android.os.RemoteException;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import android.externalservice.common.RunningServiceInfo;
 import android.externalservice.common.ServiceMessages;
 
 public class ExternalServiceTest extends AndroidTestCase {
@@ -139,13 +140,14 @@ public class ExternalServiceTest extends AndroidTestCase {
 
         // Check the identity of the service.
         Messenger remote = new Messenger(mConnection.service);
-        ServiceIdentity id = identifyService(remote);
+        RunningServiceInfo id = identifyService(remote);
         assertNotNull(id);
 
         assertFalse(id.uid == 0 || id.pid == 0);
         assertNotEquals(Process.myUid(), id.uid);
         assertNotEquals(Process.myPid(), id.pid);
         assertEquals(getContext().getPackageName(), id.packageName);
+        assertEquals(-1, id.zygotePid);
     }
 
     /** Tests that the APK providing the externalService can bind the service itself, and that
@@ -162,7 +164,7 @@ public class ExternalServiceTest extends AndroidTestCase {
 
         // Get the identity of the creator.
         Messenger remoteCreator = new Messenger(creatorConnection.service);
-        ServiceIdentity creatorId = identifyService(remoteCreator);
+        RunningServiceInfo creatorId = identifyService(remoteCreator);
         assertNotNull(creatorId);
         assertFalse(creatorId.uid == 0 || creatorId.pid == 0);
 
@@ -196,7 +198,7 @@ public class ExternalServiceTest extends AndroidTestCase {
         // Get the connection to the creator's service.
         assertNotNull(creatorMsg.obj);
         Messenger remoteCreatorService = (Messenger) creatorMsg.obj;
-        ServiceIdentity creatorServiceId = identifyService(remoteCreatorService);
+        RunningServiceInfo creatorServiceId = identifyService(remoteCreatorService);
         assertNotNull(creatorServiceId);
         assertFalse(creatorServiceId.uid == 0 || creatorId.pid == 0);
 
@@ -208,7 +210,7 @@ public class ExternalServiceTest extends AndroidTestCase {
         assertTrue(getContext().bindService(intent, mConnection,
                     Context.BIND_AUTO_CREATE | Context.BIND_EXTERNAL_SERVICE));
         assertTrue(mCondition.block(CONDITION_TIMEOUT));
-        ServiceIdentity serviceId = identifyService(new Messenger(mConnection.service));
+        RunningServiceInfo serviceId = identifyService(new Messenger(mConnection.service));
         assertNotNull(serviceId);
         assertFalse(serviceId.uid == 0 || serviceId.pid == 0);
 
@@ -232,6 +234,11 @@ public class ExternalServiceTest extends AndroidTestCase {
         assertNotEquals(creatorServiceId.uid, serviceId.uid);
         assertNotEquals(creatorServiceId.pid, serviceId.pid);
 
+        assertEquals(-1, creatorServiceId.zygotePid);
+        assertEquals(-1, serviceId.zygotePid);
+        assertNull(creatorServiceId.zygotePackage);
+        assertNull(serviceId.zygotePackage);
+
         assertNotEquals(myPkg, creatorId.packageName);
         assertNotEquals(myPkg, creatorServiceId.packageName);
         assertEquals(creatorId.packageName, creatorServiceId.packageName);
@@ -253,7 +260,7 @@ public class ExternalServiceTest extends AndroidTestCase {
 
         assertTrue(mCondition.block(CONDITION_TIMEOUT));
 
-        ServiceIdentity idOne = identifyService(new Messenger(initialConn.service));
+        RunningServiceInfo idOne = identifyService(new Messenger(initialConn.service));
         assertNotNull(idOne);
         assertFalse(idOne.uid == 0 || idOne.pid == 0);
 
@@ -266,7 +273,7 @@ public class ExternalServiceTest extends AndroidTestCase {
 
         assertTrue(mCondition.block(CONDITION_TIMEOUT));
 
-        ServiceIdentity idTwo = identifyService(new Messenger(prioConn.service));
+        RunningServiceInfo idTwo = identifyService(new Messenger(prioConn.service));
         assertNotNull(idTwo);
         assertFalse(idTwo.uid == 0 || idTwo.pid == 0);
 
@@ -281,32 +288,148 @@ public class ExternalServiceTest extends AndroidTestCase {
         getContext().unbindService(initialConn);
     }
 
-    /** Contains information about the security principal of a Service. */
-    private static class ServiceIdentity {
-        int uid;
-        int pid;
-        String packageName;
+    /** Tests binding an externalService that is started by an app zygote. */
+    public void testBindExternalServiceWithZygote() {
+        // Start the service and wait for connection.
+        Intent intent = new Intent();
+        intent.setComponent(
+                new ComponentName(sServicePackage, sServicePackage+".ExternalServiceWithZygote"));
+
+        mCondition.close();
+        assertTrue(getContext().bindService(intent, mConnection,
+                    Context.BIND_AUTO_CREATE | Context.BIND_EXTERNAL_SERVICE));
+
+        assertTrue(mCondition.block(CONDITION_TIMEOUT));
+        assertEquals(getContext().getPackageName(), mConnection.name.getPackageName());
+        assertNotSame(sServicePackage, mConnection.name.getPackageName());
+
+        // Check the identity of the service.
+        Messenger remote = new Messenger(mConnection.service);
+        RunningServiceInfo id = identifyService(remote);
+        assertNotNull(id);
+
+        assertFalse(id.uid == 0 || id.pid == 0);
+        assertNotEquals(Process.myUid(), id.uid);
+        assertNotEquals(Process.myPid(), id.pid);
+        assertEquals(getContext().getPackageName(), id.packageName);
+        assertNotEquals(id.pid, id.zygotePid);
+        assertNotEquals(Process.myPid(), id.zygotePid);
+        assertNotEquals(-1, id.zygotePid);
+        assertEquals(sServicePackage, id.zygotePackage);
     }
 
-    /** Given a Messenger, this will message the service to retrieve its UID, PID, and package name.
-     * On success, returns a ServiceIdentity. On failure, returns null. */
-    private ServiceIdentity identifyService(Messenger service) {
-        final ServiceIdentity id = new ServiceIdentity();
-        Handler handler = new Handler(Looper.getMainLooper()) {
+    /** Tests that an externalService that also is also useAppZygote=true shares the same
+     * zygote, even when bound by different packages.. */
+    public void testBindExternalServiceWithZygoteWithRunningOwn() {
+        // Start the service that will create the externalService.
+        final Connection creatorConnection = new Connection();
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(sServicePackage, sServicePackage+".ServiceCreator"));
+
+        mCondition.close();
+        assertTrue(getContext().bindService(intent, creatorConnection, Context.BIND_AUTO_CREATE));
+        assertTrue(mCondition.block(CONDITION_TIMEOUT));
+
+        // Have the creator actually start its service.
+        Messenger remoteCreator = new Messenger(creatorConnection.service);
+        final Message creatorMsg = Message.obtain(null, ServiceMessages.MSG_CREATE_EXTERNAL_SERVICE,
+                        /* use zygote */ 1, 0);
+        Handler creatorHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 Log.d(TAG, "Received message: " + msg);
                 switch (msg.what) {
-                    case ServiceMessages.MSG_IDENTIFY_RESPONSE:
-                        id.uid = msg.arg1;
-                        id.pid = msg.arg2;
-                        id.packageName = msg.getData().getString(ServiceMessages.IDENTIFY_PACKAGE);
+                    case ServiceMessages.MSG_CREATE_EXTERNAL_SERVICE_RESPONSE:
+                        creatorMsg.copyFrom(msg);
                         mCondition.open();
                         break;
                 }
                 super.handleMessage(msg);
             }
         };
+        Messenger localCreator = new Messenger(creatorHandler);
+        creatorMsg.replyTo = localCreator;
+        try {
+            mCondition.close();
+            remoteCreator.send(creatorMsg);
+        } catch (RemoteException e) {
+            fail("Unexpected remote exception" + e);
+            return;
+        }
+        assertTrue(mCondition.block(CONDITION_TIMEOUT));
+
+        // Get the connection to the creator's service.
+        assertNotNull(creatorMsg.obj);
+        Messenger remoteCreatorService = (Messenger) creatorMsg.obj;
+        RunningServiceInfo creatorServiceId = identifyService(remoteCreatorService);
+        assertNotNull(creatorServiceId);
+        assertFalse(creatorServiceId.uid == 0);
+
+        // Create an external service from this (the test) process.
+        intent = new Intent();
+        intent.setComponent(
+                new ComponentName(sServicePackage, sServicePackage+".ExternalServiceWithZygote"));
+
+        mCondition.close();
+        assertTrue(getContext().bindService(intent, mConnection,
+                    Context.BIND_AUTO_CREATE | Context.BIND_EXTERNAL_SERVICE));
+        assertTrue(mCondition.block(CONDITION_TIMEOUT));
+        RunningServiceInfo serviceId = identifyService(new Messenger(mConnection.service));
+        assertNotNull(serviceId);
+        assertFalse(serviceId.uid == 0 || serviceId.pid == 0);
+
+        // Make sure that both services were started by the same zygote.
+        assertNotEquals(-1, creatorServiceId.zygotePid);
+        assertNotEquals(-1, serviceId.zygotePid);
+        assertNotEquals(creatorServiceId.pid, creatorServiceId.zygotePid);
+        assertNotEquals(serviceId.pid, serviceId.zygotePid);
+        assertEquals(sServicePackage, creatorServiceId.zygotePackage);
+        assertEquals(sServicePackage, serviceId.zygotePackage);
+        assertEquals(creatorServiceId.zygotePid, serviceId.zygotePid);
+
+        int myUid = Process.myUid();
+        int myPid = Process.myPid();
+        String myPkg = getContext().getPackageName();
+
+        assertNotEquals(myUid, creatorServiceId.uid);
+        assertNotEquals(myUid, serviceId.uid);
+        assertNotEquals(myPid, creatorServiceId.pid);
+        assertNotEquals(myPid, serviceId.pid);
+
+        assertNotEquals(creatorServiceId.uid, serviceId.uid);
+        assertNotEquals(creatorServiceId.pid, serviceId.pid);
+
+        assertNotEquals(myPkg, creatorServiceId.packageName);
+        assertEquals(myPkg, serviceId.packageName);
+
+        getContext().unbindService(creatorConnection);
+    }
+
+    /** Given a Messenger, this will message the service to retrieve its UID, PID, and package name.
+     * On success, returns a RunningServiceInfo. On failure, returns null. */
+    private RunningServiceInfo identifyService(Messenger service) {
+        class IdentifyHandler extends Handler {
+            IdentifyHandler() {
+                super(Looper.getMainLooper());
+            }
+
+            RunningServiceInfo mInfo;
+
+            @Override
+            public void handleMessage(Message msg) {
+                Log.d(TAG, "Received message: " + msg);
+                switch (msg.what) {
+                    case ServiceMessages.MSG_IDENTIFY_RESPONSE:
+                        msg.getData().setClassLoader(RunningServiceInfo.class.getClassLoader());
+                        mInfo = msg.getData().getParcelable(ServiceMessages.IDENTIFY_INFO);
+                        mCondition.open();
+                        break;
+                }
+                super.handleMessage(msg);
+            }
+        };
+
+        IdentifyHandler handler = new IdentifyHandler();
         Messenger local = new Messenger(handler);
 
         Message msg = Message.obtain(null, ServiceMessages.MSG_IDENTIFY);
@@ -321,7 +444,7 @@ public class ExternalServiceTest extends AndroidTestCase {
 
         if (!mCondition.block(CONDITION_TIMEOUT))
             return null;
-        return id;
+        return handler.mInfo;
     }
 
     private class Connection implements ServiceConnection {

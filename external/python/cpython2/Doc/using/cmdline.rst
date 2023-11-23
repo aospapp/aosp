@@ -24,7 +24,7 @@ Command line
 
 When invoking Python, you may specify any of these options::
 
-    python [-BdEiOQsRStuUvVWxX3?] [-c command | -m module-name | script | - ] [args]
+    python [-bBdEiOQsRStuUvVWxX3?] [-c command | -m module-name | script | - ] [args]
 
 The most common use case is, of course, a simple invocation of a script::
 
@@ -190,6 +190,19 @@ Generic options
 
 Miscellaneous options
 ~~~~~~~~~~~~~~~~~~~~~
+
+.. cmdoption:: -b
+
+   Issue a warning when comparing :class:`unicode` with :class:`bytearray`.
+   Issue an error when the option is given twice (:option:`!-bb`).
+
+   Note that, unlike the corresponding Python 3.x flag, this will **not** emit
+   warnings for comparisons between :class:`str` and :class:`unicode`.
+   Instead, the ``str`` instance will be implicitly decoded to ``unicode`` and
+   Unicode comparison used.
+
+   .. versionadded:: 2.6
+
 
 .. cmdoption:: -B
 
@@ -398,15 +411,15 @@ Miscellaneous options
    Skip the first line of the source, allowing use of non-Unix forms of
    ``#!cmd``.  This is intended for a DOS specific hack only.
 
-   .. note:: The line numbers in error messages will be off by one.
-
 .. cmdoption:: -3
 
    Warn about Python 3.x possible incompatibilities by emitting a
    :exc:`DeprecationWarning` for features that are removed or significantly
-   changed in Python 3.
+   changed in Python 3 and can't be detected using static code analysis.
 
    .. versionadded:: 2.6
+
+   See :doc:`/howto/pyporting` for more details.
 
 Options you shouldn't use
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -648,3 +661,17 @@ if Python was configured with the ``--with-pydebug`` build option.
 
    If set, Python will print memory allocation statistics every time a new
    object arena is created, and on shutdown.
+
+.. envvar:: PYTHONSHOWALLOCCOUNT
+
+   If set and Python was compiled with ``COUNT_ALLOCS`` defined, Python will
+   dump allocations counts into stderr on shutdown.
+
+   .. versionadded:: 2.7.15
+
+.. envvar:: PYTHONSHOWREFCOUNT
+
+   If set, Python will print the total reference count when the program
+   finishes or after each statement in the interactive interpreter.
+
+   .. versionadded:: 2.7.15

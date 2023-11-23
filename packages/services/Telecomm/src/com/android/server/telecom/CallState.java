@@ -114,6 +114,12 @@ public final class CallState {
      */
     public static final int PULLING = TelecomProtoEnums.PULLING; // = 10
 
+    /**
+     * Indicates that an incoming call has been answered by the in-call UI, but Telephony hasn't yet
+     * set the call to active.
+     */
+    public static final int ANSWERED = 11;
+
     public static String toString(int callState) {
         switch (callState) {
             case NEW:
@@ -138,6 +144,8 @@ public final class CallState {
                 return "DISCONNECTING";
             case PULLING:
                 return "PULLING";
+            case ANSWERED:
+                return "ANSWERED";
             default:
                 return "UNKNOWN";
         }

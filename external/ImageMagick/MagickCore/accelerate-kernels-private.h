@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,20 +35,6 @@ extern "C" {
 #define OPENCL_IF(...)		"\n #""if " #__VA_ARGS__ " \n"
 #define STRINGIFY(...) #__VA_ARGS__ "\n"
 
-/*
-  Typedef declarations.
-*/
-
-typedef struct _FloatPixelPacket
-{
-  MagickRealType
-    red,
-    green,
-    blue,
-    alpha,
-    black;
-} FloatPixelPacket;
-
 const char *accelerateKernels =
 
 /*
@@ -70,52 +56,52 @@ const char *accelerateKernels =
 */
   STRINGIFY(
     typedef enum
-  {
-    UndefinedColorspace,
-    RGBColorspace,            /* Linear RGB colorspace */
-    GRAYColorspace,           /* greyscale (linear) image (faked 1 channel) */
-    TransparentColorspace,
-    OHTAColorspace,
-    LabColorspace,
-    XYZColorspace,
-    YCbCrColorspace,
-    YCCColorspace,
-    YIQColorspace,
-    YPbPrColorspace,
-    YUVColorspace,
-    CMYKColorspace,           /* negared linear RGB with black separated */
-    sRGBColorspace,           /* Default: non-lienar sRGB colorspace */
-    HSBColorspace,
-    HSLColorspace,
-    HWBColorspace,
-    Rec601LumaColorspace,
-    Rec601YCbCrColorspace,
-    Rec709LumaColorspace,
-    Rec709YCbCrColorspace,
-    LogColorspace,
-    CMYColorspace,            /* negated linear RGB colorspace */
-    LuvColorspace,
-    HCLColorspace,
-    LCHColorspace,            /* alias for LCHuv */
-    LMSColorspace,
-    LCHabColorspace,          /* Cylindrical (Polar) Lab */
-    LCHuvColorspace,          /* Cylindrical (Polar) Luv */
-    scRGBColorspace,
-    HSIColorspace,
-    HSVColorspace,            /* alias for HSB */
-    HCLpColorspace,
-    YDbDrColorspace
-  } ColorspaceType;
+    {
+      UndefinedColorspace,
+      CMYColorspace,           /* negated linear RGB colorspace */
+      CMYKColorspace,          /* CMY with Black separation */
+      GRAYColorspace,          /* Single Channel greyscale (non-linear) image */
+      HCLColorspace,
+      HCLpColorspace,
+      HSBColorspace,
+      HSIColorspace,
+      HSLColorspace,
+      HSVColorspace,           /* alias for HSB */
+      HWBColorspace,
+      LabColorspace,
+      LCHColorspace,           /* alias for LCHuv */
+      LCHabColorspace,         /* Cylindrical (Polar) Lab */
+      LCHuvColorspace,         /* Cylindrical (Polar) Luv */
+      LogColorspace,
+      LMSColorspace,
+      LuvColorspace,
+      OHTAColorspace,
+      Rec601YCbCrColorspace,
+      Rec709YCbCrColorspace,
+      RGBColorspace,           /* Linear RGB colorspace */
+      scRGBColorspace,         /* ??? */
+      sRGBColorspace,          /* Default: non-linear sRGB colorspace */
+      TransparentColorspace,
+      xyYColorspace,
+      XYZColorspace,           /* IEEE Color Reference colorspace */
+      YCbCrColorspace,
+      YCCColorspace,
+      YDbDrColorspace,
+      YIQColorspace,
+      YPbPrColorspace,
+      YUVColorspace,
+      LinearGRAYColorspace     /* Single Channel greyscale (linear) image */
+    } ColorspaceType;
   )
 
   STRINGIFY(
     typedef enum
     {
       UndefinedCompositeOp,
-      NoCompositeOp,
-      ModulusAddCompositeOp,
+      AlphaCompositeOp,
       AtopCompositeOp,
       BlendCompositeOp,
+      BlurCompositeOp,
       BumpmapCompositeOp,
       ChangeMaskCompositeOp,
       ClearCompositeOp,
@@ -128,31 +114,47 @@ const char *accelerateKernels =
       CopyCyanCompositeOp,
       CopyGreenCompositeOp,
       CopyMagentaCompositeOp,
-      CopyOpacityCompositeOp,
+      CopyAlphaCompositeOp,
       CopyRedCompositeOp,
       CopyYellowCompositeOp,
       DarkenCompositeOp,
+      DarkenIntensityCompositeOp,
+      DifferenceCompositeOp,
+      DisplaceCompositeOp,
+      DissolveCompositeOp,
+      DistortCompositeOp,
+      DivideDstCompositeOp,
+      DivideSrcCompositeOp,
       DstAtopCompositeOp,
       DstCompositeOp,
       DstInCompositeOp,
       DstOutCompositeOp,
       DstOverCompositeOp,
-      DifferenceCompositeOp,
-      DisplaceCompositeOp,
-      DissolveCompositeOp,
       ExclusionCompositeOp,
       HardLightCompositeOp,
+      HardMixCompositeOp,
       HueCompositeOp,
       InCompositeOp,
+      IntensityCompositeOp,
       LightenCompositeOp,
+      LightenIntensityCompositeOp,
+      LinearBurnCompositeOp,
+      LinearDodgeCompositeOp,
       LinearLightCompositeOp,
       LuminizeCompositeOp,
+      MathematicsCompositeOp,
       MinusDstCompositeOp,
+      MinusSrcCompositeOp,
       ModulateCompositeOp,
+      ModulusAddCompositeOp,
+      ModulusSubtractCompositeOp,
       MultiplyCompositeOp,
+      NoCompositeOp,
       OutCompositeOp,
       OverCompositeOp,
       OverlayCompositeOp,
+      PegtopLightCompositeOp,
+      PinLightCompositeOp,
       PlusCompositeOp,
       ReplaceCompositeOp,
       SaturateCompositeOp,
@@ -163,38 +165,22 @@ const char *accelerateKernels =
       SrcInCompositeOp,
       SrcOutCompositeOp,
       SrcOverCompositeOp,
-      ModulusSubtractCompositeOp,
       ThresholdCompositeOp,
-      XorCompositeOp,
-      /* These are new operators, added after the above was last sorted.
-       * The list should be re-sorted only when a new library version is
-       * created.
-       */
-      DivideDstCompositeOp,
-      DistortCompositeOp,
-      BlurCompositeOp,
-      PegtopLightCompositeOp,
       VividLightCompositeOp,
-      PinLightCompositeOp,
-      LinearDodgeCompositeOp,
-      LinearBurnCompositeOp,
-      MathematicsCompositeOp,
-      DivideSrcCompositeOp,
-      MinusSrcCompositeOp,
-      DarkenIntensityCompositeOp,
-      LightenIntensityCompositeOp
+      XorCompositeOp,
+      StereoCompositeOp
     } CompositeOperator;
   )
 
   STRINGIFY(
-     typedef enum
-     {
-       UndefinedFunction,
-       ArcsinFunction,
-       ArctanFunction,
-       PolynomialFunction,
-       SinusoidFunction
-     } MagickFunction;
+    typedef enum
+    {
+      UndefinedFunction,
+      ArcsinFunction,
+      ArctanFunction,
+      PolynomialFunction,
+      SinusoidFunction
+    } MagickFunction;
   )
 
   STRINGIFY(
@@ -213,74 +199,75 @@ const char *accelerateKernels =
 
   STRINGIFY(
     typedef enum
-  {
-    UndefinedPixelIntensityMethod = 0,
-    AveragePixelIntensityMethod,
-    BrightnessPixelIntensityMethod,
-    LightnessPixelIntensityMethod,
-    Rec601LumaPixelIntensityMethod,
-    Rec601LuminancePixelIntensityMethod,
-    Rec709LumaPixelIntensityMethod,
-    Rec709LuminancePixelIntensityMethod,
-    RMSPixelIntensityMethod,
-    MSPixelIntensityMethod
-  } PixelIntensityMethod;
+    {
+      UndefinedPixelIntensityMethod = 0,
+      AveragePixelIntensityMethod,
+      BrightnessPixelIntensityMethod,
+      LightnessPixelIntensityMethod,
+      MSPixelIntensityMethod,
+      Rec601LumaPixelIntensityMethod,
+      Rec601LuminancePixelIntensityMethod,
+      Rec709LumaPixelIntensityMethod,
+      Rec709LuminancePixelIntensityMethod,
+      RMSPixelIntensityMethod
+    } PixelIntensityMethod;
   )
 
   STRINGIFY(
-  typedef enum {
-    BoxWeightingFunction = 0,
-    TriangleWeightingFunction,
-    CubicBCWeightingFunction,
-    HannWeightingFunction,
-    HammingWeightingFunction,
-    BlackmanWeightingFunction,
-    GaussianWeightingFunction,
-    QuadraticWeightingFunction,
-    JincWeightingFunction,
-    SincWeightingFunction,
-    SincFastWeightingFunction,
-    KaiserWeightingFunction,
-    WelshWeightingFunction,
-    BohmanWeightingFunction,
-    LagrangeWeightingFunction,
-    CosineWeightingFunction,
-  } ResizeWeightingFunctionType;
+    typedef enum
+    {
+      BoxWeightingFunction = 0,
+      TriangleWeightingFunction,
+      CubicBCWeightingFunction,
+      HannWeightingFunction,
+      HammingWeightingFunction,
+      BlackmanWeightingFunction,
+      GaussianWeightingFunction,
+      QuadraticWeightingFunction,
+      JincWeightingFunction,
+      SincWeightingFunction,
+      SincFastWeightingFunction,
+      KaiserWeightingFunction,
+      WelchWeightingFunction,
+      BohmanWeightingFunction,
+      LagrangeWeightingFunction,
+      CosineWeightingFunction
+    } ResizeWeightingFunctionType;
   )
 
   STRINGIFY(
-     typedef enum
-     {
-       UndefinedChannel = 0x0000,
-       RedChannel = 0x0001,
-       GrayChannel = 0x0001,
-       CyanChannel = 0x0001,
-       GreenChannel = 0x0002,
-       MagentaChannel = 0x0002,
-       BlueChannel = 0x0004,
-       YellowChannel = 0x0004,
-       BlackChannel = 0x0008,
-       AlphaChannel = 0x0010,
-       OpacityChannel = 0x0010,
-       IndexChannel = 0x0020,             /* Color Index Table? */
-       ReadMaskChannel = 0x0040,          /* Pixel is Not Readable? */
-       WriteMaskChannel = 0x0080,         /* Pixel is Write Protected? */
-       MetaChannel = 0x0100,              /* ???? */
-       CompositeChannels = 0x001F,
-       AllChannels = 0x7ffffff,
-       /*
-         Special purpose channel types.
-         FUTURE: are these needed any more - they are more like hacks
-         SyncChannels for example is NOT a real channel but a 'flag'
-         It really says -- "User has not defined channels"
-         Though it does have extra meaning in the "-auto-level" operator
-       */
-       TrueAlphaChannel = 0x0100, /* extract actual alpha channel from opacity */
-       RGBChannels = 0x0200,      /* set alpha from grayscale mask in RGB */
-       GrayChannels = 0x0400,
-       SyncChannels = 0x20000,    /* channels modified as a single unit */
-       DefaultChannels = AllChannels
-     } ChannelType;  /* must correspond to PixelChannel */
+    typedef enum
+    {
+      UndefinedChannel = 0x0000,
+      RedChannel = 0x0001,
+      GrayChannel = 0x0001,
+      CyanChannel = 0x0001,
+      GreenChannel = 0x0002,
+      MagentaChannel = 0x0002,
+      BlueChannel = 0x0004,
+      YellowChannel = 0x0004,
+      BlackChannel = 0x0008,
+      AlphaChannel = 0x0010,
+      OpacityChannel = 0x0010,
+      IndexChannel = 0x0020,             /* Color Index Table? */
+      ReadMaskChannel = 0x0040,          /* Pixel is Not Readable? */
+      WriteMaskChannel = 0x0080,         /* Pixel is Write Protected? */
+      MetaChannel = 0x0100,              /* ???? */
+      CompositeChannels = 0x001F,
+      AllChannels = 0x7ffffff,
+      /*
+        Special purpose channel types.
+        FUTURE: are these needed any more - they are more like hacks
+        SyncChannels for example is NOT a real channel but a 'flag'
+        It really says -- "User has not defined channels"
+        Though it does have extra meaning in the "-auto-level" operator
+      */
+      TrueAlphaChannel = 0x0100, /* extract actual alpha channel from opacity */
+      RGBChannels = 0x0200,      /* set alpha from grayscale mask in RGB */
+      GrayChannels = 0x0400,
+      SyncChannels = 0x20000,    /* channels modified as a single unit */
+      DefaultChannels = AllChannels
+    } ChannelType;  /* must correspond to PixelChannel */
   )
 
 /*
@@ -316,17 +303,30 @@ OPENCL_ELIF((MAGICKCORE_QUANTUM_DEPTH == 32))
 
 OPENCL_ENDIF()
 
+OPENCL_IF((MAGICKCORE_HDRI_SUPPORT == 1))
+
   STRINGIFY(
-    inline int ClampToCanvas(const int offset,const int range)
+    inline CLQuantum ClampToQuantum(const float value)
       {
-        return clamp(offset, (int)0, range-1);
+        return (CLQuantum) clamp(value, 0.0f, QuantumRange);
       }
   )
+
+OPENCL_ELSE()
 
   STRINGIFY(
     inline CLQuantum ClampToQuantum(const float value)
       {
         return (CLQuantum) (clamp(value, 0.0f, QuantumRange) + 0.5f);
+      }
+  )
+
+OPENCL_ENDIF()
+
+  STRINGIFY(
+    inline int ClampToCanvas(const int offset,const int range)
+      {
+        return clamp(offset, (int)0, range-1);
       }
   )
 
@@ -497,7 +497,7 @@ OPENCL_ENDIF()
   {
     float intensity;
 
-    if (colorspace == GRAYColorspace)
+    if ((colorspace == GRAYColorspace) || (colorspace == LinearGRAYColorspace))
       return red;
 
     switch (method)
@@ -688,18 +688,15 @@ OPENCL_ENDIF()
   }
 
   //! Represents the state of a particular generator
-  typedef struct{ uint x; uint c; } mwc64x_state_t;
-
-  enum{ MWC64X_A = 4294883355U };
-  enum{ MWC64X_M = 18446383549859758079UL };
+  typedef struct{ uint x; uint c; uint seed0; ulong seed1; } mwc64x_state_t;
 
   void MWC64X_Step(mwc64x_state_t *s)
   {
     uint X=s->x, C=s->c;
 
-    uint Xn=MWC64X_A*X+C;
+    uint Xn=s->seed0*X+C;
     uint carry=(uint)(Xn<C); // The (Xn<C) will be zero or one for scalar
-    uint Cn=mad_hi(MWC64X_A,X,carry);
+    uint Cn=mad_hi(s->seed0,X,carry);
 
     s->x=Xn;
     s->c=Cn;
@@ -707,14 +704,14 @@ OPENCL_ENDIF()
 
   void MWC64X_Skip(mwc64x_state_t *s, ulong distance)
   {
-    uint2 tmp=MWC_SkipImpl_Mod64((uint2)(s->x,s->c), MWC64X_A, MWC64X_M, distance);
+    uint2 tmp=MWC_SkipImpl_Mod64((uint2)(s->x,s->c), s->seed0, s->seed1, distance);
     s->x=tmp.x;
     s->c=tmp.y;
   }
 
   void MWC64X_SeedStreams(mwc64x_state_t *s, ulong baseOffset, ulong perStreamOffset)
   {
-    uint2 tmp=MWC_SeedImpl_Mod64(MWC64X_A, MWC64X_M, 1, 0, baseOffset, perStreamOffset);
+    uint2 tmp=MWC_SeedImpl_Mod64(s->seed0, s->seed1, 1, 0, baseOffset, perStreamOffset);
     s->x=tmp.x;
     s->c=tmp.y;
   }
@@ -840,8 +837,8 @@ OPENCL_ENDIF()
     __global CLQuantum *filteredImage)
   {
     mwc64x_state_t rng;
-    rng.x = seed0;
-    rng.c = seed1;
+    rng.seed0 = seed0;
+    rng.seed1 = seed1;
 
     uint span = pixelsPerWorkItem * numRandomNumbersPerPixel; // length of RNG substream each workitem will use
     uint offset = span * get_local_size(0) * get_group_id(0); // offset of this workgroup's RNG substream (in master stream);
@@ -1025,97 +1022,110 @@ OPENCL_ENDIF()
 
   STRINGIFY(
 
-  inline float3 ConvertRGBToHSB(CLPixelType pixel) {
-    float3 HueSaturationBrightness;
-    HueSaturationBrightness.x = 0.0f; // Hue
-    HueSaturationBrightness.y = 0.0f; // Saturation
-    HueSaturationBrightness.z = 0.0f; // Brightness
-
-    float r=(float) getRed(pixel);
-    float g=(float) getGreen(pixel);
-    float b=(float) getBlue(pixel);
-
-    float tmin=MagickMin(MagickMin(r,g),b);
-    float tmax=MagickMax(MagickMax(r,g),b);
-
-    if (tmax!=0.0f) {
+  inline float4 ConvertRGBToHSB(const float4 pixel)
+  {
+    float4 result=0.0f;
+    result.w=pixel.w;
+    float tmax=MagickMax(MagickMax(pixel.x,pixel.y),pixel.z);
+    if (tmax != 0.0f)
+    {
+      float tmin=MagickMin(MagickMin(pixel.x,pixel.y),pixel.z);
       float delta=tmax-tmin;
-      HueSaturationBrightness.y=delta/tmax;
-      HueSaturationBrightness.z=QuantumScale*tmax;
 
-      if (delta != 0.0f) {
-  HueSaturationBrightness.x = ((r == tmax)?0.0f:((g == tmax)?2.0f:4.0f));
-  HueSaturationBrightness.x += ((r == tmax)?(g-b):((g == tmax)?(b-r):(r-g)))/delta;
-        HueSaturationBrightness.x/=6.0f;
-        HueSaturationBrightness.x += (HueSaturationBrightness.x < 0.0f)?0.0f:1.0f;
+      result.y=delta/tmax;
+      result.z=QuantumScale*tmax;
+      if (delta != 0.0f)
+      {
+        result.x =((pixel.x == tmax) ? 0.0f : ((pixel.y == tmax) ? 2.0f : 4.0f));
+        result.x+=((pixel.x == tmax) ? (pixel.y-pixel.z) : ((pixel.y == tmax) ?
+          (pixel.z-pixel.x) : (pixel.x-pixel.y)))/delta;
+        result.x/=6.0f;
+        result.x+=(result.x < 0.0f) ? 0.0f : 1.0f;
       }
     }
-    return HueSaturationBrightness;
+    return(result);
   }
 
-  inline CLPixelType ConvertHSBToRGB(float3 HueSaturationBrightness) {
+  inline float4 ConvertHSBToRGB(const float4 pixel)
+  {
+    float hue=pixel.x;
+    float saturation=pixel.y;
+    float brightness=pixel.z;
 
-    float hue = HueSaturationBrightness.x;
-    float brightness = HueSaturationBrightness.z;
-    float saturation = HueSaturationBrightness.y;
-   
-    CLPixelType rgb;
+    float4 result=pixel;
 
-    if (saturation == 0.0f) {
-      setRed(&rgb,ClampToQuantum(QuantumRange*brightness));
-      setGreen(&rgb,getRed(rgb));
-      setBlue(&rgb,getRed(rgb));
+    if (saturation == 0.0f)
+    {
+      result.x=result.y=result.z=ClampToQuantum(QuantumRange*brightness);
     }
-    else {
-
+    else
+    {
       float h=6.0f*(hue-floor(hue));
       float f=h-floor(h);
       float p=brightness*(1.0f-saturation);
       float q=brightness*(1.0f-saturation*f);
       float t=brightness*(1.0f-(saturation*(1.0f-f)));
- 
-      float clampedBrightness = ClampToQuantum(QuantumRange*brightness);
-      float clamped_t = ClampToQuantum(QuantumRange*t);
-      float clamped_p = ClampToQuantum(QuantumRange*p);
-      float clamped_q = ClampToQuantum(QuantumRange*q);
       int ih = (int)h;
-      setRed(&rgb, (ih == 1)?clamped_q:
-        (ih == 2 || ih == 3)?clamped_p:
-        (ih == 4)?clamped_t:
-                 clampedBrightness);
- 
-      setGreen(&rgb, (ih == 1 || ih == 2)?clampedBrightness:
-        (ih == 3)?clamped_q:
-        (ih == 4 || ih == 5)?clamped_p:
-                 clamped_t);
 
-      setBlue(&rgb, (ih == 2)?clamped_t:
-        (ih == 3 || ih == 4)?clampedBrightness:
-        (ih == 5)?clamped_q:
-                 clamped_p);
+      if (ih == 1)
+      {
+        result.x=ClampToQuantum(QuantumRange*q);
+        result.y=ClampToQuantum(QuantumRange*brightness);
+        result.z=ClampToQuantum(QuantumRange*p);
+      }
+      else if (ih == 2)
+      {
+        result.x=ClampToQuantum(QuantumRange*p);
+        result.y=ClampToQuantum(QuantumRange*brightness);
+        result.z=ClampToQuantum(QuantumRange*t);
+      }
+      else if (ih == 3)
+      {
+        result.x=ClampToQuantum(QuantumRange*p);
+        result.y=ClampToQuantum(QuantumRange*q);
+        result.z=ClampToQuantum(QuantumRange*brightness);
+      }
+      else if (ih == 4)
+      {
+        result.x=ClampToQuantum(QuantumRange*t);
+        result.y=ClampToQuantum(QuantumRange*p);
+        result.z=ClampToQuantum(QuantumRange*brightness);
+      }
+      else if (ih == 5)
+      {
+        result.x=ClampToQuantum(QuantumRange*brightness);
+        result.y=ClampToQuantum(QuantumRange*p);
+        result.z=ClampToQuantum(QuantumRange*q);
+      }
+      else
+      {
+        result.x=ClampToQuantum(QuantumRange*brightness);
+        result.y=ClampToQuantum(QuantumRange*t);
+        result.z=ClampToQuantum(QuantumRange*p);
+      }
     }
-    return rgb;
+    return(result);
   }
 
-  __kernel void Contrast(__global CLPixelType *im, const unsigned int sharpen)
+  __kernel void Contrast(__global CLQuantum *image,
+    const unsigned int number_channels,const int sign)
   {
+    const int x=get_global_id(0);
+    const int y=get_global_id(1);
+    const unsigned int columns=get_global_size(0);
 
-    const int sign = sharpen!=0?1:-1;
-    const int x = get_global_id(0);  
-    const int y = get_global_id(1);
-    const int columns = get_global_size(0);
-    const int c = x + y * columns;
+    float4 pixel=ReadAllChannels(image,number_channels,columns,x,y);
+    if (number_channels < 3)
+      pixel.y=pixel.z=pixel.x;
 
-    CLPixelType pixel = im[c];
-    float3 HueSaturationBrightness = ConvertRGBToHSB(pixel);
-    float brightness = HueSaturationBrightness.z;
+    pixel=ConvertRGBToHSB(pixel);
+    float brightness=pixel.z;
     brightness+=0.5f*sign*(0.5f*(sinpi(brightness-0.5f)+1.0f)-brightness);
-    brightness = clamp(brightness,0.0f,1.0f);
-    HueSaturationBrightness.z = brightness;
+    brightness=clamp(brightness,0.0f,1.0f);
+    pixel.z=brightness;
+    pixel=ConvertHSBToRGB(pixel);
 
-    CLPixelType filteredPixel = ConvertHSBToRGB(HueSaturationBrightness);
-    filteredPixel.w = pixel.w;
-    im[c] = filteredPixel;
+    WriteAllChannels(image,number_channels,columns,x,y,pixel);
   }
   )
 
@@ -1850,6 +1860,9 @@ OPENCL_ENDIF()
 
         int x = get_local_id(0);
         int y = get_global_id(1);
+
+        if ((x >= imageWidth) || (y >= imageHeight))
+          return;
 
         global CLPixelType *src = srcImage + y * imageWidth;
 
@@ -2993,16 +3006,17 @@ OPENCL_ENDIF()
       ++i;
     }
 
-    float4 srcPixel = ReadFloat4(image, number_channels, columns, x, y, channel);
-    float4 diff = srcPixel - value;
+    if ((x < columns) && (y < rows)) {
+      float4 srcPixel = ReadFloat4(image, number_channels, columns, x, y, channel);
+      float4 diff = srcPixel - value;
 
-    float quantumThreshold = QuantumRange*threshold;
+      float quantumThreshold = QuantumRange*threshold;
 
-    int4 mask = isless(fabs(2.0f * diff), (float4)quantumThreshold);
-    value = select(srcPixel + diff * gain, srcPixel, mask);
+      int4 mask = isless(fabs(2.0f * diff), (float4)quantumThreshold);
+      value = select(srcPixel + diff * gain, srcPixel, mask);
 
-    if ((x < columns) && (y < rows))
       WriteFloat4(filteredImage, number_channels, columns, x, y, channel, value);
+    }
   }
   )
 
@@ -3022,8 +3036,8 @@ OPENCL_ENDIF()
 
     local float buffer[64 * 64];
 
-    int srcx = get_group_id(0) * (tileSize - 2 * pad) - pad + get_local_id(0);
-    int srcy = get_group_id(1) * (tileSize - 2 * pad) - pad;
+    int srcx = (get_group_id(0) + get_global_offset(0) / tileSize) * (tileSize - 2 * pad) - pad + get_local_id(0);
+    int srcy = (get_group_id(1) + get_global_offset(1) / 4) * (tileSize - 2 * pad) - pad;
 
     for (int i = get_local_id(1); i < tileSize; i += get_local_size(1)) {
       int pos = (mirrorTop(mirrorBottom(srcx), imageWidth) * number_channels) +

@@ -465,6 +465,10 @@ implements OnClickListener, SurfaceHolder.Callback {
                 int viewHeight = mFormatView.getHeight();
                 int newWidth, newHeight;
 
+                if (viewWidth == 0 || viewHeight == 0){
+                    return;
+                }
+
                 if (mPreviewOrientations.get(mNextPreviewOrientation) == 0
                     || mPreviewOrientations.get(mNextPreviewOrientation) == 180) {
                     // make preview width same as output image width,

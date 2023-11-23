@@ -18,10 +18,8 @@
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-codelab" />
+  <option name="compatibility:primary-abi-only" value="true" />
 
-  <option name="compatibility:include-filter" value="VtsCodelabHelloWorldTest" />
-  <option name="compatibility:include-filter" value="VtsCodelabHelloWorldSl4aTest" />
-  <option name="compatibility:include-filter" value="VtsCodelabHelloWorldStagingTest" />
-  <option name="compatibility:include-filter" value="VtsCodelabTargetBinary" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-codelab" />
 
 </configuration>

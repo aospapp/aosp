@@ -163,7 +163,7 @@ public class RulesCheckReceiver extends BroadcastReceiver {
         // is installed then the system will treat this as a no-op, and if something is installed
         // this will stage an uninstall.
         // We could install the distro from an app contained in the system image but we assume it's
-        // going to contain the same time zone data as in /system and would be a no op.
+        // going to contain the same time zone data as the base version and would be a no op.
 
         ApplicationInfo applicationInfo = providerInfo.applicationInfo;
         // isPrivilegedApp() => initial install directory for app /system/priv-app (required)
@@ -216,8 +216,8 @@ public class RulesCheckReceiver extends BroadcastReceiver {
         // Decide whether to proceed with the install.
         RulesState rulesState = mRulesManager.getRulesState();
         if (!rulesState.isDistroFormatVersionSupported(distroFormatVersion)
-            || rulesState.isSystemVersionNewerThan(distroRulesVersion)) {
-            Log.d(TAG, "Candidate distro is not supported or is not better than system version.");
+            || rulesState.isBaseVersionNewerThan(distroRulesVersion)) {
+            Log.d(TAG, "Candidate distro is not supported or is not better than base version.");
             // Nothing to do.
             handleCheckComplete(checkToken, true /* success */);
             return;

@@ -28,18 +28,20 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Instrumentation;
 import android.graphics.Rect;
-import androidx.annotation.ColorInt;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewGroup;
 import android.widget.CalendarView;
 import android.widget.ScrollView;
 import android.widget.cts.util.TestUtils;
 
+import androidx.annotation.ColorInt;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CtsTouchUtils;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -216,9 +218,8 @@ public class CalendarViewTest {
         calendar.set(Calendar.YEAR, 2008);
         calendar.set(Calendar.MONTH, Calendar.SEPTEMBER);
         calendar.set(Calendar.DAY_OF_MONTH, 16);
-        mActivityRule.runOnUiThread(
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, calendarView,
                 () -> calendarView.setDate(calendar.getTime().getTime(), false, true));
-        mInstrumentation.waitForIdleSync();
 
         // Get bounds of 09/07/2008
         calendar.set(Calendar.DAY_OF_MONTH, 7);
@@ -232,7 +233,7 @@ public class CalendarViewTest {
         }
 
         // Use instrumentation to emulate a tap on 09/07/2008
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, calendarView,
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, calendarView,
                 dayBounds.left + dayBounds.width() / 2,
                 dayBounds.top + dayBounds.height() / 2);
 

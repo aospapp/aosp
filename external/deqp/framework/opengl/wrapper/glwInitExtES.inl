@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 
 if (de::contains(extSet, "GL_KHR_blend_equation_advanced"))
@@ -22,6 +22,14 @@ if (de::contains(extSet, "GL_KHR_debug"))
 	gl->objectPtrLabel			= (glObjectPtrLabelFunc)		loader->get("glObjectPtrLabelKHR");
 	gl->popDebugGroup			= (glPopDebugGroupFunc)			loader->get("glPopDebugGroupKHR");
 	gl->pushDebugGroup			= (glPushDebugGroupFunc)		loader->get("glPushDebugGroupKHR");
+}
+
+if (de::contains(extSet, "GL_EXT_robustness"))
+{
+	gl->getGraphicsResetStatus	= (glGetGraphicsResetStatusFunc)	loader->get("glGetGraphicsResetStatusEXT");
+	gl->getnUniformfv			= (glGetnUniformfvFunc)				loader->get("glGetnUniformfvEXT");
+	gl->getnUniformiv			= (glGetnUniformivFunc)				loader->get("glGetnUniformivEXT");
+	gl->readnPixels				= (glReadnPixelsFunc)				loader->get("glReadnPixelsEXT");
 }
 
 if (de::contains(extSet, "GL_KHR_robustness"))
@@ -46,14 +54,6 @@ if (de::contains(extSet, "GL_EXT_tessellation_shader"))
 if (de::contains(extSet, "GL_EXT_geometry_shader"))
 {
 	gl->framebufferTexture	= (glFramebufferTextureFunc)	loader->get("glFramebufferTextureEXT");
-}
-
-if (de::contains(extSet, "GL_EXT_robustness"))
-{
-	gl->getGraphicsResetStatus	= (glGetGraphicsResetStatusFunc)	loader->get("glGetGraphicsResetStatusEXT");
-	gl->getnUniformfv			= (glGetnUniformfvFunc)				loader->get("glGetnUniformfvEXT");
-	gl->getnUniformiv			= (glGetnUniformivFunc)				loader->get("glGetnUniformivEXT");
-	gl->readnPixels				= (glReadnPixelsFunc)				loader->get("glReadnPixelsEXT");
 }
 
 if (de::contains(extSet, "GL_EXT_texture_buffer"))
@@ -112,6 +112,12 @@ if (de::contains(extSet, "GL_EXT_texture_border_clamp"))
 	gl->samplerParameterIuiv	= (glSamplerParameterIuivFunc)		loader->get("glSamplerParameterIuivEXT");
 	gl->texParameterIiv			= (glTexParameterIivFunc)			loader->get("glTexParameterIivEXT");
 	gl->texParameterIuiv		= (glTexParameterIuivFunc)			loader->get("glTexParameterIuivEXT");
+}
+
+if (de::contains(extSet, "GL_EXT_multisampled_render_to_texture"))
+{
+	gl->framebufferTexture2DMultisampleEXT	= (glFramebufferTexture2DMultisampleEXTFunc)	loader->get("glFramebufferTexture2DMultisampleEXT");
+	gl->renderbufferStorageMultisampleEXT	= (glRenderbufferStorageMultisampleEXTFunc)		loader->get("glRenderbufferStorageMultisampleEXT");
 }
 
 if (de::contains(extSet, "GL_EXT_debug_marker"))

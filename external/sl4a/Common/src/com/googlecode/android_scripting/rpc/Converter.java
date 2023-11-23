@@ -19,10 +19,9 @@ package com.googlecode.android_scripting.rpc;
 /**
  * A converter can take a String and turn it into an instance of type T (the type parameter to the
  * converter).
- *
  */
 public interface Converter<T> {
 
-  /** Convert a string into type T. */
-  T convert(String value);
+    /** Convert a string into type T. */
+    T convert(String value);
 }

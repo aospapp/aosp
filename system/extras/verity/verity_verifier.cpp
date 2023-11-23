@@ -22,7 +22,6 @@
 #include <string>
 
 #include <android-base/file.h>
-#include <android-base/test_utils.h>
 #include <android-base/unique_fd.h>
 #include <crypto_utils/android_pubkey.h>
 #include <fec/io.h>
@@ -81,7 +80,7 @@ int main(int argc, char* argv[]) {
 
   // Get the raw image.
   android::base::unique_fd fd(open(argv[1], O_RDONLY));
-  if (!fd) {
+  if (fd == -1) {
     fprintf(stderr, "failed to open %s: %s\n", argv[1], strerror(errno));
     return 1;
   }

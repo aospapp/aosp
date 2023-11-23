@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
 
@@ -34,6 +35,7 @@
 #include <android-base/strings.h>
 #include <android-base/stringprintf.h>
 #include <procinfo/process.h>
+#include <procinfo/process_map.h>
 
 #if defined(__ANDROID__)
 #include <android-base/properties.h>
@@ -258,37 +260,12 @@ std::vector<pid_t> GetAllProcesses() {
 }
 
 bool GetThreadMmapsInProcess(pid_t pid, std::vector<ThreadMmap>* thread_mmaps) {
-  std::string map_file = android::base::StringPrintf("/proc/%d/maps", pid);
-  FILE* fp = fopen(map_file.c_str(), "re");
-  if (fp == nullptr) {
-    PLOG(DEBUG) << "can't open file " << map_file;
-    return false;
-  }
   thread_mmaps->clear();
-  LineReader reader(fp);
-  char* line;
-  while ((line = reader.ReadLine()) != nullptr) {
-    // Parse line like: 00400000-00409000 r-xp 00000000 fc:00 426998  /usr/lib/gvfs/gvfsd-http
-    uint64_t start_addr, end_addr, pgoff;
-    char type[reader.MaxLineSize()];
-    char execname[reader.MaxLineSize()];
-    strcpy(execname, "");
-    if (sscanf(line, "%" PRIx64 "-%" PRIx64 " %s %" PRIx64 " %*x:%*x %*u %s\n", &start_addr,
-               &end_addr, type, &pgoff, execname) < 4) {
-      continue;
-    }
-    if (strcmp(execname, "") == 0) {
-      strcpy(execname, DEFAULT_EXECNAME_FOR_THREAD_MMAP);
-    }
-    ThreadMmap thread;
-    thread.start_addr = start_addr;
-    thread.len = end_addr - start_addr;
-    thread.pgoff = pgoff;
-    thread.name = execname;
-    thread.executable = (type[2] == 'x');
-    thread_mmaps->push_back(thread);
-  }
-  return true;
+  return android::procinfo::ReadProcessMaps(
+      pid, [&](uint64_t start, uint64_t end, uint16_t flags, uint64_t pgoff,
+               ino_t, const char* name) {
+        thread_mmaps->emplace_back(start, end - start, pgoff, name, flags);
+      });
 }
 
 bool GetKernelBuildId(BuildId* build_id) {
@@ -345,7 +322,7 @@ static bool ReadPerfEventParanoid(int* value) {
 
 bool CanRecordRawData() {
   int value;
-  return IsRoot() || (ReadPerfEventParanoid(&value) && value == -1);
+  return ReadPerfEventParanoid(&value) && value == -1;
 }
 
 static const char* GetLimitLevelDescription(int limit_level) {
@@ -364,8 +341,12 @@ bool CheckPerfEventLimit() {
   // may create child processes not running as root. To make sure the child processes have
   // enough permission to create inherited tracepoint events, write -1 to perf_event_paranoid.
   // See http://b/62230699.
-  if (IsRoot() && android::base::WriteStringToFile("-1", "/proc/sys/kernel/perf_event_paranoid")) {
-    return true;
+  if (IsRoot()) {
+    char* env = getenv("PERFPROFD_DISABLE_PERF_EVENT_PARANOID_CHANGE");
+    if (env != nullptr && strcmp(env, "1") == 0) {
+      return true;
+    }
+    return android::base::WriteStringToFile("-1", "/proc/sys/kernel/perf_event_paranoid");
   }
   int limit_level;
   bool can_read_paranoid = ReadPerfEventParanoid(&limit_level);
@@ -408,18 +389,102 @@ bool CheckPerfEventLimit() {
   return true;
 }
 
-bool GetMaxSampleFrequency(uint64_t* max_sample_freq) {
-  std::string s;
-  if (!android::base::ReadFileToString("/proc/sys/kernel/perf_event_max_sample_rate", &s)) {
-    PLOG(DEBUG) << "failed to read /proc/sys/kernel/perf_event_max_sample_rate";
-    return false;
-  }
-  s = android::base::Trim(s);
-  if (!android::base::ParseUint(s.c_str(), max_sample_freq)) {
-    LOG(ERROR) << "failed to parse /proc/sys/kernel/perf_event_max_sample_rate: " << s;
+#if defined(__ANDROID__)
+static bool SetProperty(const char* prop_name, uint64_t value) {
+  if (!android::base::SetProperty(prop_name, std::to_string(value))) {
+    LOG(ERROR) << "Failed to SetProperty " << prop_name << " to " << value;
     return false;
   }
   return true;
+}
+
+bool SetPerfEventLimits(uint64_t sample_freq, size_t cpu_percent, uint64_t mlock_kb) {
+  if (!SetProperty("debug.perf_event_max_sample_rate", sample_freq) ||
+      !SetProperty("debug.perf_cpu_time_max_percent", cpu_percent) ||
+      !SetProperty("debug.perf_event_mlock_kb", mlock_kb) ||
+      !SetProperty("security.perf_harden", 0)) {
+    return false;
+  }
+  // Wait for init process to change perf event limits based on properties.
+  const size_t max_wait_us = 3 * 1000000;
+  int finish_mask = 0;
+  for (size_t i = 0; i < max_wait_us && finish_mask != 7; ++i) {
+    usleep(1);  // Wait 1us to avoid busy loop.
+    if ((finish_mask & 1) == 0) {
+      uint64_t freq;
+      if (!GetMaxSampleFrequency(&freq) || freq == sample_freq) {
+        finish_mask |= 1;
+      }
+    }
+    if ((finish_mask & 2) == 0) {
+      size_t percent;
+      if (!GetCpuTimeMaxPercent(&percent) || percent == cpu_percent) {
+        finish_mask |= 2;
+      }
+    }
+    if ((finish_mask & 4) == 0) {
+      uint64_t kb;
+      if (!GetPerfEventMlockKb(&kb) || kb == mlock_kb) {
+        finish_mask |= 4;
+      }
+    }
+  }
+  if (finish_mask != 7) {
+    LOG(WARNING) << "Wait setting perf event limits timeout";
+  }
+  return true;
+}
+#else  // !defined(__ANDROID__)
+bool SetPerfEventLimits(uint64_t, size_t, uint64_t) {
+  return true;
+}
+#endif
+
+template <typename T>
+static bool ReadUintFromProcFile(const std::string& path, T* value) {
+  std::string s;
+  if (!android::base::ReadFileToString(path, &s)) {
+    PLOG(DEBUG) << "failed to read " << path;
+    return false;
+  }
+  s = android::base::Trim(s);
+  if (!android::base::ParseUint(s.c_str(), value)) {
+    LOG(ERROR) << "failed to parse " << path << ": " << s;
+    return false;
+  }
+  return true;
+}
+
+template <typename T>
+static bool WriteUintToProcFile(const std::string& path, T value) {
+  if (IsRoot()) {
+    return android::base::WriteStringToFile(std::to_string(value), path);
+  }
+  return false;
+}
+
+bool GetMaxSampleFrequency(uint64_t* max_sample_freq) {
+  return ReadUintFromProcFile("/proc/sys/kernel/perf_event_max_sample_rate", max_sample_freq);
+}
+
+bool SetMaxSampleFrequency(uint64_t max_sample_freq) {
+  return WriteUintToProcFile("/proc/sys/kernel/perf_event_max_sample_rate", max_sample_freq);
+}
+
+bool GetCpuTimeMaxPercent(size_t* percent) {
+  return ReadUintFromProcFile("/proc/sys/kernel/perf_cpu_time_max_percent", percent);
+}
+
+bool SetCpuTimeMaxPercent(size_t percent) {
+  return WriteUintToProcFile("/proc/sys/kernel/perf_cpu_time_max_percent", percent);
+}
+
+bool GetPerfEventMlockKb(uint64_t* mlock_kb) {
+  return ReadUintFromProcFile("/proc/sys/kernel/perf_event_mlock_kb", mlock_kb);
+}
+
+bool SetPerfEventMlockKb(uint64_t mlock_kb) {
+  return WriteUintToProcFile("/proc/sys/kernel/perf_event_mlock_kb", mlock_kb);
 }
 
 bool CheckKernelSymbolAddresses() {
@@ -488,7 +553,7 @@ void PrepareVdsoFile() {
   memcpy(&s[0], reinterpret_cast<void*>(static_cast<uintptr_t>(vdso_map->start_addr)),
          vdso_map->len);
   std::unique_ptr<TemporaryFile> tmpfile = ScopedTempFiles::CreateTempFile();
-  if (!android::base::WriteStringToFd(s, tmpfile->release())) {
+  if (!android::base::WriteStringToFd(s, tmpfile->fd)) {
     return;
   }
   Dso::SetVdsoFile(tmpfile->path, sizeof(size_t) == sizeof(uint64_t));
@@ -558,125 +623,205 @@ std::set<pid_t> WaitForAppProcesses(const std::string& package_name) {
   }
 }
 
-class ScopedFile {
- public:
-  ScopedFile(const std::string& filepath, const std::string& app_package_name = "")
-      : filepath_(filepath), app_package_name_(app_package_name) {}
+bool IsAppDebuggable(const std::string& package_name) {
+  return Workload::RunCmd({"run-as", package_name, "echo", ">/dev/null", "2>/dev/null"}, false);
+}
 
-  ~ScopedFile() {
-    if (app_package_name_.empty()) {
-      unlink(filepath_.c_str());
-    } else {
-      Workload::RunCmd({"run-as", app_package_name_, "rm", "-rf", filepath_});
+namespace {
+
+class InAppRunner {
+ public:
+  InAppRunner(const std::string& package_name) : package_name_(package_name) {}
+  virtual ~InAppRunner() {
+    if (!tracepoint_file_.empty()) {
+      unlink(tracepoint_file_.c_str());
     }
   }
+  virtual bool Prepare() = 0;
+  bool RunCmdInApp(const std::string& cmd, const std::vector<std::string>& args,
+                   size_t workload_args_size, const std::string& output_filepath,
+                   bool need_tracepoint_events);
+ protected:
+  virtual std::vector<std::string> GetPrefixArgs(const std::string& cmd) = 0;
 
- private:
-  std::string filepath_;
-  std::string app_package_name_;
+  const std::string package_name_;
+  std::string tracepoint_file_;
 };
 
-bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
-                     const std::vector<std::string>& args, size_t workload_args_size,
-                     const std::string& output_filepath, bool need_tracepoint_events) {
-  // 1. Test if the package exists.
-  if (!Workload::RunCmd({"run-as", app_package_name, "echo", ">/dev/null"}, false)) {
-    LOG(ERROR) << "Package " << app_package_name << " doesn't exist or isn't debuggable.";
-    return false;
-  }
-
-  // 2. Copy simpleperf binary to the package. Create tracepoint_file if needed.
-  std::string simpleperf_path;
-  if (!android::base::Readlink("/proc/self/exe", &simpleperf_path)) {
-    PLOG(ERROR) << "ReadLink failed";
-    return false;
-  }
-  if (!Workload::RunCmd({"run-as", app_package_name, "cp", simpleperf_path, "simpleperf"})) {
-    return false;
-  }
-  ScopedFile scoped_simpleperf("simpleperf", app_package_name);
-  std::unique_ptr<ScopedFile> scoped_tracepoint_file;
-  const std::string tracepoint_file = "/data/local/tmp/tracepoint_events";
+bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::string>& cmd_args,
+                              size_t workload_args_size, const std::string& output_filepath,
+                              bool need_tracepoint_events) {
+  // 1. Build cmd args running in app's context.
+  std::vector<std::string> args = GetPrefixArgs(cmd);
+  args.insert(args.end(), {"--in-app", "--log", GetLogSeverityName()});
   if (need_tracepoint_events) {
     // Since we can't read tracepoint events from tracefs in app's context, we need to prepare
     // them in tracepoint_file in shell's context, and pass the path of tracepoint_file to the
     // child process using --tracepoint-events option.
+    const std::string tracepoint_file = "/data/local/tmp/tracepoint_events";
     if (!android::base::WriteStringToFile(GetTracepointEvents(), tracepoint_file)) {
       PLOG(ERROR) << "Failed to store tracepoint events";
       return false;
     }
-    scoped_tracepoint_file.reset(new ScopedFile(tracepoint_file));
+    tracepoint_file_ = tracepoint_file;
+    args.insert(args.end(), {"--tracepoint-events", tracepoint_file_});
   }
 
-  // 3. Prepare to start child process to profile.
-  std::string output_basename = output_filepath.empty() ? "" :
-                                    android::base::Basename(output_filepath);
-  std::vector<std::string> new_args =
-      {"run-as", app_package_name, "./simpleperf", cmd, "--in-app", "--log", GetLogSeverityName()};
-  if (need_tracepoint_events) {
-    new_args.push_back("--tracepoint-events");
-    new_args.push_back(tracepoint_file);
-  }
-  for (size_t i = 0; i < args.size(); ++i) {
-    if (i >= args.size() - workload_args_size || args[i] != "-o") {
-      new_args.push_back(args[i]);
-    } else {
-      new_args.push_back(args[i++]);
-      new_args.push_back(output_basename);
+  android::base::unique_fd out_fd;
+  if (!output_filepath.empty()) {
+    // A process running in app's context can't open a file outside it's data directory to write.
+    // So pass it a file descriptor to write.
+    out_fd = FileHelper::OpenWriteOnly(output_filepath);
+    if (out_fd == -1) {
+      PLOG(ERROR) << "Failed to open " << output_filepath;
+      return false;
     }
+    args.insert(args.end(), {"--out-fd", std::to_string(int(out_fd))});
   }
-  std::unique_ptr<Workload> workload = Workload::CreateWorkload(new_args);
+
+  // We can't send signal to a process running in app's context. So use a pipe file to send stop
+  // signal.
+  android::base::unique_fd stop_signal_rfd;
+  android::base::unique_fd stop_signal_wfd;
+  if (!android::base::Pipe(&stop_signal_rfd, &stop_signal_wfd, 0)) {
+    PLOG(ERROR) << "pipe";
+    return false;
+  }
+  args.insert(args.end(), {"--stop-signal-fd", std::to_string(int(stop_signal_rfd))});
+
+  for (size_t i = 0; i < cmd_args.size(); ++i) {
+    if (i < cmd_args.size() - workload_args_size) {
+      // Omit "-o output_file". It is replaced by "--out-fd fd".
+      if (cmd_args[i] == "-o" || cmd_args[i] == "--app") {
+        i++;
+        continue;
+      }
+    }
+    args.push_back(cmd_args[i]);
+  }
+  char* argv[args.size() + 1];
+  for (size_t i = 0; i < args.size(); ++i) {
+    argv[i] = &args[i][0];
+  }
+  argv[args.size()] = nullptr;
+
+  // 2. Run child process in app's context.
+  auto ChildProcFn = [&]() {
+    stop_signal_wfd.reset();
+    execvp(argv[0], argv);
+    exit(1);
+  };
+  std::unique_ptr<Workload> workload = Workload::CreateWorkload(ChildProcFn);
   if (!workload) {
     return false;
   }
+  stop_signal_rfd.reset();
 
+  // Wait on signals.
   IOEventLoop loop;
-  bool need_to_kill_child = false;
-  if (!loop.AddSignalEvents({SIGINT, SIGTERM, SIGHUP},
-                            [&]() { need_to_kill_child = true; return loop.ExitLoop(); })) {
+  bool need_to_stop_child = false;
+  std::vector<int> stop_signals = {SIGINT, SIGTERM};
+  if (!SignalIsIgnored(SIGHUP)) {
+    stop_signals.push_back(SIGHUP);
+  }
+  if (!loop.AddSignalEvents(stop_signals,
+                            [&]() { need_to_stop_child = true; return loop.ExitLoop(); })) {
     return false;
   }
   if (!loop.AddSignalEvent(SIGCHLD, [&]() { return loop.ExitLoop(); })) {
     return false;
   }
 
-  // 4. Create child process to run run-as, and wait for the child process.
   if (!workload->Start()) {
     return false;
   }
   if (!loop.RunLoop()) {
     return false;
   }
-  if (need_to_kill_child) {
-    // The child process can exit before we kill it, so don't report kill errors.
-    Workload::RunCmd({"run-as", app_package_name, "pkill", "simpleperf"}, false);
+  if (need_to_stop_child) {
+    stop_signal_wfd.reset();
   }
   int exit_code;
   if (!workload->WaitChildProcess(&exit_code) || exit_code != 0) {
     return false;
   }
-
-  // 5. If there is any output file, copy it from the app's directory.
-  if (!output_filepath.empty()) {
-    if (!Workload::RunCmd({"run-as", app_package_name, "cat", output_basename,
-                           ">" + output_filepath})) {
-      return false;
-    }
-    if (!Workload::RunCmd({"run-as", app_package_name, "rm", output_basename})) {
-      return false;
-    }
-  }
   return true;
 }
 
-static std::string default_package_name;
+class RunAs : public InAppRunner {
+ public:
+  RunAs(const std::string& package_name) : InAppRunner(package_name) {}
+  virtual ~RunAs() {
+    if (simpleperf_copied_in_app_) {
+      Workload::RunCmd({"run-as", package_name_, "rm", "-rf", "simpleperf"});
+    }
+  }
+  bool Prepare() override;
 
-void SetDefaultAppPackageName(const std::string& package_name) {
-  default_package_name = package_name;
+ protected:
+  std::vector<std::string> GetPrefixArgs(const std::string& cmd) {
+    return {"run-as", package_name_,
+            simpleperf_copied_in_app_ ? "./simpleperf" : simpleperf_path_, cmd,
+            "--app", package_name_};
+  }
+
+  bool simpleperf_copied_in_app_ = false;
+  std::string simpleperf_path_;
+};
+
+bool RunAs::Prepare() {
+  // Test if run-as can access the package.
+  if (!IsAppDebuggable(package_name_)) {
+    return false;
+  }
+  // run-as can't run /data/local/tmp/simpleperf directly. So copy simpleperf binary if needed.
+  if (!android::base::Readlink("/proc/self/exe", &simpleperf_path_)) {
+    PLOG(ERROR) << "ReadLink failed";
+    return false;
+  }
+  if (simpleperf_path_.find("CtsSimpleperfTest") != std::string::npos) {
+    simpleperf_path_ = "/system/bin/simpleperf";
+    return true;
+  }
+  if (android::base::StartsWith(simpleperf_path_, "/system")) {
+    return true;
+  }
+  if (!Workload::RunCmd({"run-as", package_name_, "cp", simpleperf_path_, "simpleperf"})) {
+    return false;
+  }
+  simpleperf_copied_in_app_ = true;
+  return true;
 }
 
-const std::string& GetDefaultAppPackageName() {
-  return default_package_name;
+class SimpleperfAppRunner : public InAppRunner {
+ public:
+  SimpleperfAppRunner(const std::string& package_name) : InAppRunner(package_name) {}
+  bool Prepare() override {
+    return GetAndroidVersion() >= kAndroidVersionP + 1;
+  }
+
+ protected:
+  std::vector<std::string> GetPrefixArgs(const std::string& cmd) {
+    return {"simpleperf_app_runner", package_name_, cmd};
+  }
+};
+
+}  // namespace
+
+bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
+                     const std::vector<std::string>& args, size_t workload_args_size,
+                     const std::string& output_filepath, bool need_tracepoint_events) {
+  std::unique_ptr<InAppRunner> in_app_runner(new RunAs(app_package_name));
+  if (!in_app_runner->Prepare()) {
+    in_app_runner.reset(new SimpleperfAppRunner(app_package_name));
+    if (!in_app_runner->Prepare()) {
+      LOG(ERROR) << "Package " << app_package_name
+          << " doesn't exist or isn't debuggable/profileable.";
+      return false;
+    }
+  }
+  return in_app_runner->RunCmdInApp(cmd, args, workload_args_size, output_filepath,
+                                    need_tracepoint_events);
 }
 
 void AllowMoreOpenedFiles() {
@@ -710,6 +855,7 @@ std::unique_ptr<TemporaryFile> ScopedTempFiles::CreateTempFile(bool delete_in_de
   std::unique_ptr<TemporaryFile> tmp_file(new TemporaryFile(tmp_dir_));
   CHECK_NE(tmp_file->fd, -1);
   if (delete_in_destructor) {
+    tmp_file->DoNotRemove();
     files_to_delete_.push_back(tmp_file->path);
   }
   return tmp_file;
@@ -726,4 +872,70 @@ bool SignalIsIgnored(int signo) {
   }
 
   return act.sa_handler == SIG_IGN;
+}
+
+int GetAndroidVersion() {
+#if defined(__ANDROID__)
+  static int android_version = -1;
+  if (android_version == -1) {
+    android_version = 0;
+    std::string s = android::base::GetProperty("ro.build.version.release", "");
+    // The release string can be a list of numbers (like 8.1.0), a character (like Q)
+    // or many characters (like OMR1).
+    if (!s.empty()) {
+      // Each Android version has a version number: L is 5, M is 6, N is 7, O is 8, etc.
+      if (s[0] >= 'A' && s[0] <= 'Z') {
+        android_version = s[0] - 'P' + kAndroidVersionP;
+      } else if (isdigit(s[0])) {
+        sscanf(s.c_str(), "%d", &android_version);
+      }
+    }
+  }
+  return android_version;
+#else  // defined(__ANDROID__)
+  return 0;
+#endif
+}
+
+std::string GetHardwareFromCpuInfo(const std::string& cpu_info) {
+  for (auto& line : android::base::Split(cpu_info, "\n")) {
+    size_t pos = line.find(':');
+    if (pos != std::string::npos) {
+      std::string key = android::base::Trim(line.substr(0, pos));
+      if (key == "Hardware") {
+        return android::base::Trim(line.substr(pos + 1));
+      }
+    }
+  }
+  return "";
+}
+
+bool MappedFileOnlyExistInMemory(const char* filename) {
+  // Mapped files only existing in memory:
+  //   empty name
+  //   [anon:???]
+  //   [stack]
+  //   /dev/*
+  //   //anon: generated by kernel/events/core.c.
+  //   /memfd: created by memfd_create.
+  return filename[0] == '\0' ||
+           (filename[0] == '[' && strcmp(filename, "[vdso]") != 0) ||
+            strncmp(filename, "//", 2) == 0 ||
+            strncmp(filename, "/dev/", 5) == 0 ||
+            strncmp(filename, "/memfd:", 7) == 0;
+}
+
+std::string GetCompleteProcessName(pid_t pid) {
+  std::string s;
+  if (!android::base::ReadFileToString(android::base::StringPrintf("/proc/%d/cmdline", pid), &s)) {
+    s.clear();
+  }
+  for (size_t i = 0; i < s.size(); ++i) {
+    // /proc/pid/cmdline uses 0 to separate arguments.
+    if (isspace(s[i]) || s[i] == 0) {
+      s.resize(i);
+      break;
+    }
+  }
+  return s;
 }

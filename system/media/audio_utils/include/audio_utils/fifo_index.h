@@ -112,7 +112,7 @@ public:
     RefIndexDeferredStoreReleaseDeferredWake(audio_utils_fifo_index& index);
     ~RefIndexDeferredStoreReleaseDeferredWake();
 
-    // Place 'value' into the cache but do not store it to memory yet.
+    // Place 'value' into the cache, but do not store it to memory yet.
     void set(uint32_t value);
 
     // If there is a new value in the cache, store it now with memory order 'release'.
@@ -149,7 +149,7 @@ public:
     ~RefIndexCachedLoadAcquireDeferredWait();
 
     // If value is already cached, return the cached value.
-    // Otherwise load now with memory order 'acquire', cache for later, and return the value.
+    // Otherwise load now with memory order 'acquire', cache for later use, and return the value.
     uint32_t    get();
 
     // If value is already cached, this is a no-op.

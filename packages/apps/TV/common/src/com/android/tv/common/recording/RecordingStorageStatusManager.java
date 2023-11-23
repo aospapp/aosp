@@ -217,6 +217,7 @@ public class RecordingStorageStatusManager {
             }
         } catch (IllegalArgumentException e) {
             // In rare cases, storage status change was not notified yet.
+            Log.w(TAG, "Error getting Dvr Storage Status.", e);
             SoftPreconditions.checkState(false);
             return STORAGE_STATUS_FREE_SPACE_INSUFFICIENT;
         }
@@ -246,7 +247,7 @@ public class RecordingStorageStatusManager {
                 StatFs statFs = new StatFs(storageMountedDir.toString());
                 storageMountedCapacity = statFs.getTotalBytes();
             } catch (IllegalArgumentException e) {
-                Log.e(TAG, "Storage mount status was changed.");
+                Log.w(TAG, "Storage mount status was changed.", e);
                 storageMounted = false;
                 storageMountedDir = null;
             }

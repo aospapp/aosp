@@ -22,9 +22,16 @@ AUTOTEST_INSTALL_DIR = global_config.global_config.get_config_value(
 #'/usr/local/autotest'
 SHADOW_CONFIG_PATH = '%s/shadow_config.ini' % AUTOTEST_INSTALL_DIR
 ATEST_PATH = '%s/cli/atest' % AUTOTEST_INSTALL_DIR
-SUBNET_DUT_SEARCH_RE = (
-        r'/?.*\((?P<ip>192.168.231.*)\) at '
-        '(?P<mac>[0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])')
+
+# Sample output of fping that we are matching against, the fping command
+# will return 10 lines but they will be one of these two formats.
+# We want to get the IP address for the first line and not match the
+# second line that has a non 0 %loss.
+#192.168.231.100 : xmt/rcv/%loss = 10/10/0%, min/avg/max = 0.68/0.88/1.13
+#192.168.231.102 : xmt/rcv/%loss = 10/0/100%
+SUBNET_DUT_SEARCH_RE = (r'(?P<ip>192.168.231.1[0-1][0-9]) : '
+                        'xmt\/rcv\/%loss = [0-9]+\/[0-9]+\/0%')
+
 MOBLAB_HOME = '/home/moblab'
 MOBLAB_BOTO_LOCATION = '%s/.boto' % MOBLAB_HOME
 MOBLAB_LAUNCH_CONTROL_KEY_LOCATION = '%s/.launch_control_key' % MOBLAB_HOME
@@ -52,7 +59,11 @@ class UpstartServiceNotRunning(error.AutoservError):
                 state.
         """
         super(UpstartServiceNotRunning, self).__init__(
-                'Upstart service %s not in running state.' % service_name)
+                'Upstart service %s not in running state. Most likely this '
+                'means moblab did not boot correctly, check the boot logs '
+                'for detailed error messages as to see why this service was '
+                'not started.' %
+                service_name)
 
 
 class MoblabHost(cros_host.CrosHost):
@@ -164,26 +175,6 @@ class MoblabHost(cros_host.CrosHost):
         self.afe.set_timeout(self.timeout_min)
 
 
-    def _wake_devices(self):
-        """Search the subnet and attempt to ping any available duts.
-
-        Fills up the arp table with entries about devices on the subnet.
-
-        Either uses fping or directly pings devices listed in the dhcpd lease
-        file.
-        """
-        fping_result = self.run(('fping -g 192.168.231.100 192.168.231.110 '
-                                 '-a -c 10 -p 30 -q'),
-                                ignore_status=True)
-        # If fping is not on the system, ping entries in the dhcpd lease file.
-        if fping_result.exit_status == 127:
-            leases = set(self.run('grep ^lease %s' % DHCPD_LEASE_FILE,
-                                  ignore_status=True).stdout.splitlines())
-            for lease in leases:
-                ip = re.match('lease (?P<ip>.*) {', lease).groups('ip')
-                self.run('ping %s -w 1' % ip, ignore_status=True)
-
-
     def add_dut(self, hostname):
         """Add a DUT hostname to the AFE.
 
@@ -198,23 +189,21 @@ class MoblabHost(cros_host.CrosHost):
     def find_and_add_duts(self):
         """Discover DUTs on the testing subnet and add them to the AFE.
 
-        Runs 'arp -a' on the Moblab host and parses the output to discover DUTs
-        and if they are not already in the AFE, adds them.
+        Pings the range of IP's a DUT might be assigned by moblab, then
+        parses the output to discover connected DUTs, connected means
+        they have 0% dropped pings.
+        If they are not already in the AFE, adds them to AFE.
         """
-        self._wake_devices()
         existing_hosts = [host.hostname for host in self.afe.get_hosts()]
-        arp_command = self.run('arp -a')
-        for line in arp_command.stdout.splitlines():
+        fping_result = self.run('fping -g 192.168.231.100 192.168.231.110 '
+                                '-a -c 10 -p 30 -q', ignore_status=True)
+        for line in fping_result.stderr.splitlines():
             match = re.match(SUBNET_DUT_SEARCH_RE, line)
             if match:
-                dut_hostname = match.group('ip')
-                if dut_hostname in existing_hosts:
+                dut_ip = match.group('ip')
+                if dut_ip in existing_hosts:
                     break
-                # SSP package ip's start at 150 for the moblab, so it is not
-                # a DUT
-                if int(dut_hostname.split('.')[-1]) > 150:
-                    break
-                self.add_dut(dut_hostname)
+                self.add_dut(dut_ip)
 
 
     def verify_software(self):
@@ -258,14 +247,14 @@ class MoblabHost(cros_host.CrosHost):
             # device.
             self._verify_upstart_service(service, timeout_m)
         except error.TimeoutException:
-            raise error.UpstartServiceNotRunning(service)
+            raise UpstartServiceNotRunning(service)
 
         for service in MOBLAB_SERVICES[1:]:
             try:
                 # Follow up services should come up quickly.
                 self._verify_upstart_service(service, 0.5)
             except error.TimeoutException:
-                raise error.UpstartServiceNotRunning(service)
+                raise UpstartServiceNotRunning(service)
 
         for process in MOBLAB_PROCESSES:
             try:

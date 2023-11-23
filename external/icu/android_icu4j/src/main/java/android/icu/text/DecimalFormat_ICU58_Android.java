@@ -22,11 +22,11 @@ import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 
 import android.icu.impl.ICUConfig;
 import android.icu.impl.PatternProps;
-import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.math.BigDecimal;
 import android.icu.math.MathContext;
@@ -2197,7 +2197,7 @@ public class DecimalFormat_ICU58_Android extends NumberFormat {
         if (currencyPluralInfo == null) {
             currencyPluralInfo = new CurrencyPluralInfo(symbols.getULocale());
         }
-        affixPatternsForCurrency = new HashSet<AffixForCurrency>();
+        affixPatternsForCurrency = new HashSet<>();
 
         // save the current pattern, since it will be changed by
         // applyPatternWithoutExpandAffix
@@ -2215,7 +2215,7 @@ public class DecimalFormat_ICU58_Android extends NumberFormat {
 
         // add plural pattern
         Iterator<String> iter = currencyPluralInfo.pluralPatternIterator();
-        Set<String> currencyUnitPatternSet = new HashSet<String>();
+        Set<String> currencyUnitPatternSet = new HashSet<>();
         while (iter.hasNext()) {
             String pluralCount = iter.next();
             String currencyPattern = currencyPluralInfo.getCurrencyPluralPattern(pluralCount);
@@ -3932,7 +3932,7 @@ public class DecimalFormat_ICU58_Android extends NumberFormat {
             if (currencyPluralInfo != null) {
                 other.currencyPluralInfo = (CurrencyPluralInfo) currencyPluralInfo.clone();
             }
-            other.attributes = new ArrayList<FieldPosition>(); // #9240
+            other.attributes = new ArrayList<>(); // #9240
             other.currencyUsage = currencyUsage;
 
             // TODO: We need to figure out whether we share a single copy of DigitList by
@@ -3974,7 +3974,7 @@ public class DecimalFormat_ICU58_Android extends NumberFormat {
                 && (!useSignificantDigits || minSignificantDigits == other.minSignificantDigits
                         && maxSignificantDigits == other.maxSignificantDigits)
                 && symbols.equals(other.symbols)
-                && Utility.objectEquals(currencyPluralInfo, other.currencyPluralInfo)
+                && Objects.equals(currencyPluralInfo, other.currencyPluralInfo)
                 && currencyUsage.equals(other.currencyUsage);
     }
 
@@ -5961,7 +5961,7 @@ public class DecimalFormat_ICU58_Android extends NumberFormat {
     // Proclaim JDK 1.1 serial compatibility.
     private static final long serialVersionUID = 864413376551465018L;
 
-    private ArrayList<FieldPosition> attributes = new ArrayList<FieldPosition>();
+    private ArrayList<FieldPosition> attributes = new ArrayList<>();
 
     // The following are used in currency format
 

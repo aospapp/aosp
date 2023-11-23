@@ -4,6 +4,7 @@
 
 #include "src/interpreter/constant-array-builder.h"
 
+#include <cmath>
 #include <functional>
 #include <set>
 
@@ -38,11 +39,13 @@ void ConstantArrayBuilder::ConstantArraySlice::Unreserve() {
 }
 
 size_t ConstantArrayBuilder::ConstantArraySlice::Allocate(
-    ConstantArrayBuilder::Entry entry) {
-  DCHECK_GT(available(), 0u);
+    ConstantArrayBuilder::Entry entry, size_t count) {
+  DCHECK_GE(available(), count);
   size_t index = constants_.size();
   DCHECK_LT(index, capacity());
-  constants_.push_back(entry);
+  for (size_t i = 0; i < count; ++i) {
+    constants_.push_back(entry);
+  }
   return index + start_index();
 }
 
@@ -63,20 +66,57 @@ const ConstantArrayBuilder::Entry& ConstantArrayBuilder::ConstantArraySlice::At(
 #if DEBUG
 void ConstantArrayBuilder::ConstantArraySlice::CheckAllElementsAreUnique(
     Isolate* isolate) const {
-  std::set<Object*> elements;
+  std::set<Smi*> smis;
+  std::set<double> heap_numbers;
+  std::set<const AstRawString*> strings;
+  std::set<const char*> bigints;
+  std::set<const Scope*> scopes;
+  std::set<Object*> deferred_objects;
   for (const Entry& entry : constants_) {
-    Handle<Object> handle = entry.ToHandle(isolate);
-    if (elements.find(*handle) != elements.end()) {
+    bool duplicate = false;
+    switch (entry.tag_) {
+      case Entry::Tag::kSmi:
+        duplicate = !smis.insert(entry.smi_).second;
+        break;
+      case Entry::Tag::kHeapNumber:
+        duplicate = !heap_numbers.insert(entry.heap_number_).second;
+        break;
+      case Entry::Tag::kRawString:
+        duplicate = !strings.insert(entry.raw_string_).second;
+        break;
+      case Entry::Tag::kBigInt:
+        duplicate = !bigints.insert(entry.bigint_.c_str()).second;
+        break;
+      case Entry::Tag::kScope:
+        duplicate = !scopes.insert(entry.scope_).second;
+        break;
+      case Entry::Tag::kHandle:
+        duplicate = !deferred_objects.insert(*entry.handle_).second;
+        break;
+      case Entry::Tag::kDeferred:
+        UNREACHABLE();  // Should be kHandle at this point.
+      case Entry::Tag::kJumpTableSmi:
+      case Entry::Tag::kUninitializedJumpTableSmi:
+        // TODO(leszeks): Ignore jump tables because they have to be contiguous,
+        // so they can contain duplicates.
+        break;
+#define CASE_TAG(NAME, ...) case Entry::Tag::k##NAME:
+        SINGLETON_CONSTANT_ENTRY_TYPES(CASE_TAG)
+#undef CASE_TAG
+        // Singletons are non-duplicated by definition.
+        break;
+    }
+    if (duplicate) {
       std::ostringstream os;
-      os << "Duplicate constant found: " << Brief(*handle) << std::endl;
+      os << "Duplicate constant found: " << Brief(*entry.ToHandle(isolate))
+         << std::endl;
       // Print all the entries in the slice to help debug duplicates.
       size_t i = start_index();
       for (const Entry& prev_entry : constants_) {
         os << i++ << ": " << Brief(*prev_entry.ToHandle(isolate)) << std::endl;
       }
-      FATAL(os.str().c_str());
+      FATAL("%s", os.str().c_str());
     }
-    elements.insert(*handle);
   }
 }
 #endif
@@ -92,6 +132,7 @@ ConstantArrayBuilder::ConstantArrayBuilder(Zone* zone)
                      ZoneAllocationPolicy(zone)),
       smi_map_(zone),
       smi_pairs_(zone),
+      heap_number_map_(zone),
 #define INIT_SINGLETON_ENTRY_FIELD(NAME, LOWER_NAME) LOWER_NAME##_(-1),
       SINGLETON_CONSTANT_ENTRY_TYPES(INIT_SINGLETON_ENTRY_FIELD)
 #undef INIT_SINGLETON_ENTRY_FIELD
@@ -123,7 +164,6 @@ ConstantArrayBuilder::ConstantArraySlice* ConstantArrayBuilder::IndexToSlice(
     }
   }
   UNREACHABLE();
-  return nullptr;
 }
 
 MaybeHandle<Object> ConstantArrayBuilder::At(size_t index,
@@ -144,17 +184,17 @@ Handle<FixedArray> ConstantArrayBuilder::ToFixedArray(Isolate* isolate) {
   for (const ConstantArraySlice* slice : idx_slice_) {
     DCHECK_EQ(slice->reserved(), 0);
     DCHECK(array_index == 0 ||
-           base::bits::IsPowerOfTwo32(static_cast<uint32_t>(array_index)));
+           base::bits::IsPowerOfTwo(static_cast<uint32_t>(array_index)));
 #if DEBUG
     // Different slices might contain the same element due to reservations, but
-    // all elements within a slice should be unique. If this DCHECK fails, then
-    // the AST nodes are not being internalized within a CanonicalHandleScope.
+    // all elements within a slice should be unique.
     slice->CheckAllElementsAreUnique(isolate);
 #endif
     // Copy objects from slice into array.
     for (size_t i = 0; i < slice->size(); ++i) {
-      fixed_array->set(array_index++,
-                       *slice->At(slice->start_index() + i).ToHandle(isolate));
+      Handle<Object> value =
+          slice->At(slice->start_index() + i).ToHandle(isolate);
+      fixed_array->set(array_index++, *value);
     }
     // Leave holes where reservations led to unused slots.
     size_t padding = slice->capacity() - slice->size();
@@ -175,26 +215,31 @@ size_t ConstantArrayBuilder::Insert(Smi* smi) {
   return entry->second;
 }
 
+size_t ConstantArrayBuilder::Insert(double number) {
+  if (std::isnan(number)) return InsertNaN();
+  auto entry = heap_number_map_.find(number);
+  if (entry == heap_number_map_.end()) {
+    index_t index = static_cast<index_t>(AllocateIndex(Entry(number)));
+    heap_number_map_[number] = index;
+    return index;
+  }
+  return entry->second;
+}
+
 size_t ConstantArrayBuilder::Insert(const AstRawString* raw_string) {
   return constants_map_
       .LookupOrInsert(reinterpret_cast<intptr_t>(raw_string),
-                      raw_string->hash(),
+                      raw_string->Hash(),
                       [&]() { return AllocateIndex(Entry(raw_string)); },
                       ZoneAllocationPolicy(zone_))
       ->value;
 }
 
-size_t ConstantArrayBuilder::Insert(const AstValue* heap_number) {
-  // This method only accepts heap numbers. Other types of ast value should
-  // either be passed through as raw values (in the case of strings), use the
-  // singleton Insert methods (in the case of symbols), or skip the constant
-  // pool entirely and use bytecodes with immediate values (Smis, booleans,
-  // undefined, etc.).
-  DCHECK(heap_number->IsHeapNumber());
+size_t ConstantArrayBuilder::Insert(AstBigInt bigint) {
   return constants_map_
-      .LookupOrInsert(reinterpret_cast<intptr_t>(heap_number),
-                      static_cast<uint32_t>(base::hash_value(heap_number)),
-                      [&]() { return AllocateIndex(Entry(heap_number)); },
+      .LookupOrInsert(reinterpret_cast<intptr_t>(bigint.c_str()),
+                      static_cast<uint32_t>(base::hash_value(bigint.c_str())),
+                      [&]() { return AllocateIndex(Entry(bigint)); },
                       ZoneAllocationPolicy(zone_))
       ->value;
 }
@@ -220,13 +265,17 @@ SINGLETON_CONSTANT_ENTRY_TYPES(INSERT_ENTRY)
 
 ConstantArrayBuilder::index_t ConstantArrayBuilder::AllocateIndex(
     ConstantArrayBuilder::Entry entry) {
+  return AllocateIndexArray(entry, 1);
+}
+
+ConstantArrayBuilder::index_t ConstantArrayBuilder::AllocateIndexArray(
+    ConstantArrayBuilder::Entry entry, size_t count) {
   for (size_t i = 0; i < arraysize(idx_slice_); ++i) {
-    if (idx_slice_[i]->available() > 0) {
-      return static_cast<index_t>(idx_slice_[i]->Allocate(entry));
+    if (idx_slice_[i]->available() >= count) {
+      return static_cast<index_t>(idx_slice_[i]->Allocate(entry, count));
     }
   }
   UNREACHABLE();
-  return kMaxUInt32;
 }
 
 ConstantArrayBuilder::ConstantArraySlice*
@@ -254,9 +303,22 @@ size_t ConstantArrayBuilder::InsertDeferred() {
   return AllocateIndex(Entry::Deferred());
 }
 
+size_t ConstantArrayBuilder::InsertJumpTable(size_t size) {
+  return AllocateIndexArray(Entry::UninitializedJumpTableSmi(), size);
+}
+
 void ConstantArrayBuilder::SetDeferredAt(size_t index, Handle<Object> object) {
   ConstantArraySlice* slice = IndexToSlice(index);
   return slice->At(index).SetDeferred(object);
+}
+
+void ConstantArrayBuilder::SetJumpTableSmi(size_t index, Smi* smi) {
+  ConstantArraySlice* slice = IndexToSlice(index);
+  // Allow others to reuse these Smis, but insert using emplace to avoid
+  // overwriting existing values in the Smi map (which may have a smaller
+  // operand size).
+  smi_map_.emplace(smi, static_cast<index_t>(index));
+  return slice->At(index).SetJumpTableSmi(smi);
 }
 
 OperandSize ConstantArrayBuilder::CreateReservedEntry() {
@@ -267,7 +329,6 @@ OperandSize ConstantArrayBuilder::CreateReservedEntry() {
     }
   }
   UNREACHABLE();
-  return OperandSize::kNone;
 }
 
 ConstantArrayBuilder::index_t ConstantArrayBuilder::AllocateReservedEntry(
@@ -307,16 +368,22 @@ Handle<Object> ConstantArrayBuilder::Entry::ToHandle(Isolate* isolate) const {
     case Tag::kDeferred:
       // We shouldn't have any deferred entries by now.
       UNREACHABLE();
-      return Handle<Object>::null();
     case Tag::kHandle:
       return handle_;
     case Tag::kSmi:
+    case Tag::kJumpTableSmi:
       return handle(smi_, isolate);
+    case Tag::kUninitializedJumpTableSmi:
+      // TODO(leszeks): There's probably a better value we could use here.
+      return isolate->factory()->the_hole_value();
     case Tag::kRawString:
       return raw_string_->string();
     case Tag::kHeapNumber:
-      DCHECK(heap_number_->IsHeapNumber());
-      return heap_number_->value();
+      return isolate->factory()->NewNumber(heap_number_, TENURED);
+    case Tag::kBigInt:
+      // This should never fail: the parser will never create a BigInt
+      // literal that cannot be allocated.
+      return BigIntLiteral(isolate, bigint_.c_str()).ToHandleChecked();
     case Tag::kScope:
       return scope_->scope_info();
 #define ENTRY_LOOKUP(Name, name) \
@@ -326,7 +393,6 @@ Handle<Object> ConstantArrayBuilder::Entry::ToHandle(Isolate* isolate) const {
 #undef ENTRY_LOOKUP
   }
   UNREACHABLE();
-  return Handle<Object>::null();
 }
 
 }  // namespace interpreter

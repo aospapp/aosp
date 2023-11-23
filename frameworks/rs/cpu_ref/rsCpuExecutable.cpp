@@ -15,6 +15,7 @@
 
 #include <unistd.h>
 #include <dlfcn.h>
+#include <android/dlext.h>
 #include <sys/stat.h>
 
 namespace android {
@@ -23,6 +24,7 @@ namespace renderscript {
 namespace {
 
 // Check if a path exists and attempt to create it if it doesn't.
+[[maybe_unused]]
 static bool ensureCacheDirExists(const char *path) {
     if (access(path, R_OK | W_OK | X_OK) == 0) {
         // Done if we can rwx the directory
@@ -36,6 +38,7 @@ static bool ensureCacheDirExists(const char *path) {
 
 // Copy the file named \p srcFile to \p dstFile.
 // Return 0 on success and -1 if anything wasn't copied.
+[[maybe_unused]]
 static int copyFile(const char *dstFile, const char *srcFile) {
     std::ifstream srcStream(srcFile);
     if (!srcStream) {
@@ -249,6 +252,37 @@ std::string SharedLibraryUtils::getRandomString(size_t len) {
     return std::string(buf);
 }
 
+static void* loadAsCopy(const char *origName, std::string newName) {
+    void *loaded = nullptr;
+#ifndef RS_COMPATIBILITY_LIB
+    int fd = TEMP_FAILURE_RETRY(open(origName, O_RDONLY | O_CLOEXEC));
+    if (fd == -1) {
+        ALOGE("Unable to open original file %s: %s", origName, strerror(errno));
+        return nullptr;
+    }
+
+    android_dlextinfo extinfo;
+    memset(&extinfo, 0, sizeof(extinfo));
+    extinfo.flags = ANDROID_DLEXT_USE_LIBRARY_FD | ANDROID_DLEXT_FORCE_LOAD;
+    extinfo.library_fd = fd;
+
+    loaded = android_dlopen_ext(newName.c_str(), RTLD_NOW | RTLD_LOCAL, &extinfo);
+    close(fd);
+#else
+    int r = copyFile(newName.c_str(), origName);
+    if (r != 0) {
+        ALOGE("Could not create copy %s -> %s", origName, newName.c_str());
+        return nullptr;
+    }
+    loaded = dlopen(newName.c_str(), RTLD_NOW | RTLD_LOCAL);
+    r = unlink(newName.c_str());
+    if (r != 0) {
+        ALOGE("Could not unlink copy %s", newName.c_str());
+    }
+#endif  // RS_COMPATIBILITY_LIB
+    return loaded;
+}
+
 void* SharedLibraryUtils::loadSOHelper(const char *origName, const char *cacheDir,
                                        const char *resName, bool *alreadyLoaded) {
     // Keep track of which .so libraries have been loaded. Once a library is
@@ -304,16 +338,8 @@ void* SharedLibraryUtils::loadSOHelper(const char *origName, const char *cacheDi
     newName.append(getRandomString(6).c_str());  // 62^6 potential filename variants.
     newName.append(".so");
 
-    int r = copyFile(newName.c_str(), origName);
-    if (r != 0) {
-        ALOGE("Could not create copy %s -> %s", origName, newName.c_str());
-        return nullptr;
-    }
-    loaded = dlopen(newName.c_str(), RTLD_NOW | RTLD_LOCAL);
-    r = unlink(newName.c_str());
-    if (r != 0) {
-        ALOGE("Could not unlink copy %s", newName.c_str());
-    }
+    loaded = loadAsCopy(origName, newName);
+
     if (loaded) {
         LoadedLibraries.insert(newName.c_str());
     }

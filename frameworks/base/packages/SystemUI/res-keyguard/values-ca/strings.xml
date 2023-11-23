@@ -29,20 +29,21 @@
     <string name="keyguard_password_enter_password_code" msgid="595980919238127672">"Escriu la contrasenya per desbloquejar"</string>
     <string name="keyguard_password_enter_pin_password_code" msgid="7504123374204446086">"Escriu el PIN per desbloquejar"</string>
     <string name="keyguard_enter_your_pin" msgid="7152989016739952871">"Introdueix el PIN"</string>
-    <string name="keyguard_enter_your_pattern" msgid="3915717164691787047">"Introdueix el patró"</string>
-    <string name="keyguard_enter_your_password" msgid="5761514484663983731">"Introdueix la contrasenya"</string>
+    <string name="keyguard_enter_your_pattern" msgid="4297890206109830353">"Introdueix el patró"</string>
+    <string name="keyguard_enter_your_password" msgid="5397328359341314506">"Introdueix la contrasenya"</string>
     <string name="keyguard_password_wrong_pin_code" msgid="6535018036285012028">"El codi PIN no és correcte."</string>
     <string name="keyguard_sim_error_message_short" msgid="592109500618448312">"La targeta no és vàlida."</string>
-    <string name="keyguard_charged" msgid="2222329688813033109">"Bateria carregada"</string>
+    <string name="keyguard_charged" msgid="3316115607283493413">"Completament carregada"</string>
+    <string name="keyguard_plugged_in_wireless" msgid="8404159927155454732">"<xliff:g id="PERCENTAGE">%s</xliff:g> • S\'està carregant sense fil"</string>
     <string name="keyguard_plugged_in" msgid="3161102098900158923">"<xliff:g id="PERCENTAGE">%s</xliff:g> • S\'està carregant"</string>
     <string name="keyguard_plugged_in_charging_fast" msgid="3684592786276709342">"<xliff:g id="PERCENTAGE">%s</xliff:g> • S\'està carregant ràpidament"</string>
     <string name="keyguard_plugged_in_charging_slowly" msgid="509533586841478405">"<xliff:g id="PERCENTAGE">%s</xliff:g> • S\'està carregant lentament"</string>
     <string name="keyguard_low_battery" msgid="9218432555787624490">"Connecta el carregador."</string>
     <string name="keyguard_instructions_when_pattern_disabled" msgid="8566679946700751371">"Prem Menú per desbloquejar."</string>
     <string name="keyguard_network_locked_message" msgid="6743537524631420759">"La xarxa està bloquejada"</string>
-    <string name="keyguard_missing_sim_message_short" msgid="6327533369959764518">"No hi ha cap targeta SIM"</string>
-    <string name="keyguard_missing_sim_message" product="tablet" msgid="4550152848200783542">"No hi ha cap targeta SIM a la tauleta."</string>
-    <string name="keyguard_missing_sim_message" product="default" msgid="6585414237800161146">"No hi ha cap targeta SIM al telèfon."</string>
+    <string name="keyguard_missing_sim_message_short" msgid="6327533369959764518">"No hi ha cap SIM"</string>
+    <string name="keyguard_missing_sim_message" product="tablet" msgid="4550152848200783542">"No hi ha cap SIM a la tauleta."</string>
+    <string name="keyguard_missing_sim_message" product="default" msgid="6585414237800161146">"No hi ha cap SIM al telèfon."</string>
     <string name="keyguard_missing_sim_instructions" msgid="7350295932015220392">"Insereix una targeta SIM."</string>
     <string name="keyguard_missing_sim_instructions_long" msgid="589889372883904477">"Falta la targeta SIM o no es pot llegir. Insereix-ne una."</string>
     <string name="keyguard_permanent_disabled_sim_message_short" msgid="654102080186420706">"La targeta SIM no es pot fer servir."</string>
@@ -61,8 +62,8 @@
     <string name="error_disable_esim_msg" msgid="676694908770135639">"S\'ha produït un error i no es pot desactivar l\'eSIM."</string>
     <string name="keyboardview_keycode_enter" msgid="4505833604411016668">"Retorn"</string>
     <string name="kg_forgot_pattern_button_text" msgid="534245177645252620">"He oblidat el patró"</string>
-    <string name="kg_wrong_pattern" msgid="7620081431514773802">"El patró no és correcte"</string>
-    <string name="kg_wrong_password" msgid="4580683060277329277">"La contrasenya no és correcta"</string>
+    <string name="kg_wrong_pattern" msgid="2873443744087746812">"Patró incorrecte"</string>
+    <string name="kg_wrong_password" msgid="8060364776224836597">"Contrasenya incorrecta"</string>
     <string name="kg_wrong_pin" msgid="4785660766909463466">"El PIN no és correcte"</string>
     <plurals name="kg_too_many_failed_attempts_countdown" formatted="false" msgid="4368805541257003755">
       <item quantity="other">Torna-ho a provar d\'aquí a <xliff:g id="NUMBER">%d</xliff:g> segons.</item>
@@ -111,7 +112,7 @@
       <item quantity="other">El codi PUK de la SIM no és correcte. Et queden <xliff:g id="NUMBER_1">%d</xliff:g> intents; si els esgotes tots, la SIM no es podrà tornar a fer servir.</item>
       <item quantity="one">El codi PUK de la SIM no és correcte. Et queda <xliff:g id="NUMBER_0">%d</xliff:g> intent; si no l\'encertes, la SIM no es podrà tornar a fer servir.</item>
     </plurals>
-    <string name="kg_password_pin_failed" msgid="8769990811451236223">"No s\'ha pogut desbloquejar la SIM amb el codi PIN."</string>
+    <string name="kg_password_pin_failed" msgid="8769990811451236223">"Ha fallat l\'operació del PIN de la SIM"</string>
     <string name="kg_password_puk_failed" msgid="1331621440873439974">"No s\'ha pogut desbloquejar la SIM amb el codi PUK."</string>
     <string name="kg_pin_accepted" msgid="7637293533973802143">"S\'ha acceptat el codi."</string>
     <string name="keyguard_carrier_default" msgid="4274828292998453695">"Sense servei"</string>
@@ -140,7 +141,8 @@
       <item quantity="other">Fa <xliff:g id="NUMBER_1">%d</xliff:g> hores que no es desbloqueja el dispositiu. Confirma la contrasenya.</item>
       <item quantity="one">Fa <xliff:g id="NUMBER_0">%d</xliff:g> hora que no es desbloqueja el dispositiu. Confirma la contrasenya.</item>
     </plurals>
-    <string name="fingerprint_not_recognized" msgid="348813995267914625">"No s\'ha reconegut"</string>
+    <string name="kg_fingerprint_not_recognized" msgid="7854413849848459418">"No s\'ha reconegut"</string>
+    <string name="kg_face_not_recognized" msgid="6382535088345875294">"No s\'ha reconegut"</string>
     <plurals name="kg_password_default_pin_message" formatted="false" msgid="3739658416797652781">
       <item quantity="other">Introdueix el PIN de la SIM. Et queden <xliff:g id="NUMBER_1">%d</xliff:g> intents.</item>
       <item quantity="one">Introdueix el PIN de la SIM. Et queda <xliff:g id="NUMBER_0">%d</xliff:g> intent; si no l\'encertes, contacta amb l\'operador de telefonia mòbil per desbloquejar el dispositiu.</item>

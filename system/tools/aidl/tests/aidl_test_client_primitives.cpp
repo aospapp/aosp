@@ -64,7 +64,7 @@ bool ConfirmPrimitiveRepeat(const sp<ITestService>& s) {
       !RepeatPrimitive(s, &ITestService::RepeatByte, int8_t{-128}) ||
       !RepeatPrimitive(s, &ITestService::RepeatChar, char16_t{'A'}) ||
       !RepeatPrimitive(s, &ITestService::RepeatInt, int32_t{1 << 30}) ||
-      !RepeatPrimitive(s, &ITestService::RepeatLong, int64_t{1ll << 60}) ||
+      !RepeatPrimitive(s, &ITestService::RepeatLong, int64_t{1LL << 60}) ||
       !RepeatPrimitive(s, &ITestService::RepeatFloat, float{1.0f/3.0f}) ||
       !RepeatPrimitive(s, &ITestService::RepeatDouble, double{1.0/3.0}) ||
       !RepeatPrimitive(s, &ITestService::RepeatMap, test_map) ||
@@ -132,7 +132,7 @@ bool ConfirmReverseArrays(const sp<ITestService>& s) {
       !ReverseArray(s, &ITestService::ReverseInt,
                     {1, 2, 3}) ||
       !ReverseArray(s, &ITestService::ReverseLong,
-                    {-1ll, 0ll, int64_t{1ll << 60}}) ||
+                    {-1LL, 0LL, int64_t{1LL << 60}}) ||
       !ReverseArray(s, &ITestService::ReverseFloat,
                     {-0.3f, -0.7f, 8.0f}) ||
       !ReverseArray(s, &ITestService::ReverseDouble,

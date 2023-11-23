@@ -12,9 +12,14 @@
 namespace brillo {
 
 enum InitFlags {
+  // Always log to syslog.
   kLogToSyslog = 1,
+  // Always log to stderr.
   kLogToStderr = 2,
+  // Include message header in log lines.
   kLogHeader = 4,
+  // Log to stderr if stdin is a tty (e.g. command line).
+  kLogToStderrIfTty = 8,
 };
 
 // Initialize logging subsystem.  |init_flags| is a bitfield, with bits defined

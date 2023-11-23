@@ -16,8 +16,9 @@ limitations under the License.
 <resources>
     <!-- Attributes for the playing state of com.android.car.radio.PlayPauseButton. -->
     <declare-styleable name="PlayingState">
-        <attr name="state_paused" format="boolean"/>
-        <attr name="state_playing" format="boolean"/>
+        <attr name="state_paused" format="boolean" />
+        <attr name="state_playing" format="boolean" />
+        <attr name="state_disabled" format="boolean" />
     </declare-styleable>
 
     <!-- Attributes for customizing a RadioBandButton. -->

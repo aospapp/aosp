@@ -16,13 +16,11 @@
 
 package com.android.storagemanager.deletionhelper;
 
-import android.content.Context;
-import android.support.v7.preference.PreferenceViewHolder;
+import androidx.preference.PreferenceViewHolder;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import com.android.storagemanager.testing.TestingConstants;
 import com.android.storagemanager.R;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,15 +30,12 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest=TestingConstants.MANIFEST, sdk=TestingConstants.SDK_VERSION)
 public class PhotosDeletionPreferenceTest {
-    private Context mContext;
     private PreferenceViewHolder mHolder;
     private PhotosDeletionPreference mPreference;
     @Mock private DeletionType mDeletionType;
@@ -48,14 +43,16 @@ public class PhotosDeletionPreferenceTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mContext = RuntimeEnvironment.application;
-        mPreference = new PhotosDeletionPreference(mContext, null);
+        mPreference = new PhotosDeletionPreference(RuntimeEnvironment.application, null);
         mPreference.registerDeletionService(mDeletionType);
 
         // Inflate the preference and the widget.
-        LayoutInflater inflater = LayoutInflater.from(mContext);
-        final View view = inflater.inflate(mPreference.getLayoutResource(),
-                new LinearLayout(mContext), false);
+        LayoutInflater inflater = LayoutInflater.from(RuntimeEnvironment.application);
+        final View view =
+                inflater.inflate(
+                        mPreference.getLayoutResource(),
+                        new LinearLayout(RuntimeEnvironment.application),
+                        false);
         inflater.inflate(mPreference.getWidgetLayoutResource(),
                 (ViewGroup) view.findViewById(android.R.id.widget_frame));
 
@@ -93,13 +90,13 @@ public class PhotosDeletionPreferenceTest {
 
     @Test
     public void testTitleAndSummaryAfterLoaded() {
-        mPreference.onFreeableChanged(10, 1024L);
+        mPreference.onFreeableChanged(10, 1000L);
         Robolectric.flushBackgroundThreadScheduler();
         Robolectric.flushForegroundThreadScheduler();
         mPreference.onBindViewHolder(mHolder);
 
         assertThat(mPreference.getTitle()).isEqualTo("Backed up photos & videos");
-        assertThat(mPreference.getSummary().toString()).isEqualTo("1.00 KB");
+        assertThat(mPreference.getSummary().toString()).isEqualTo("1.00 kB");
     }
 
     @Test

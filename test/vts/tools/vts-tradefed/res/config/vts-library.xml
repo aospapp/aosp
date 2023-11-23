@@ -20,10 +20,10 @@
   <option name="vts-plan-result:plan-name" value="vts-library" />
 
   <option name="compatibility:include-filter" value="CpuProfilingTest" />
-  <option name="compatibility:include-filter" value="BionicUnitTests" />
-  <option name="compatibility:include-filter" value="BionicUnitTestsStatic" />
   <option name="compatibility:include-filter" value="LibcTest" />
   <option name="compatibility:include-filter" value="VtsFmqUnitTests" />
   <option name="compatibility:include-filter" value="VtsHidlUnitTests" />
+  <option name="compatibility:include-filter" value="VtsVndkHidlBufferpoolV1_0Target" />
+  <option name="compatibility:include-filter" value="VtsVndkHidlBufferpoolV2_0Target" />
 
 </configuration>

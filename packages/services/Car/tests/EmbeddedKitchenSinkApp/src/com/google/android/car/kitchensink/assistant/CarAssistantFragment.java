@@ -15,56 +15,74 @@
  */
 package com.google.android.car.kitchensink.assistant;
 
+import static android.service.voice.VoiceInteractionSession.SHOW_SOURCE_PUSH_TO_TALK;
+
+import android.app.ActivityManager;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
+import android.widget.ImageButton;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
+import com.android.internal.app.AssistUtils;
+import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 
 import com.google.android.car.kitchensink.R;
 
 public class CarAssistantFragment extends Fragment {
 
-    private ImageView mMicIntent;
-    private ImageView mMicService;
+    private static final String EXTRA_CAR_PUSH_TO_TALK =
+            "com.android.car.input.EXTRA_CAR_PUSH_TO_TALK";
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        View v = inflater.inflate(R.layout.car_assistant, container, false);
-        mMicIntent = (ImageView) v.findViewById(R.id.voice_button_intent);
-        mMicService = (ImageView) v.findViewById(R.id.voice_button_service);
+            @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.car_assistant, container, false);
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        ImageButton micButton = (ImageButton) view.findViewById(R.id.voice_button_service);
         Context context = getContext();
 
-        mMicIntent.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-                Intent intent = new Intent();
-                intent.setAction(
-                        getContext().getString(R.string.assistant_activity_action));
-                if (intent.resolveActivity(context.getPackageManager()) != null) {
-                    startActivity(intent);
-                } else {
-                    Toast.makeText(context,
-                            "Assistant app is not available.", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-        mMicService.setOnClickListener(v1 -> {
+        IVoiceInteractionSessionShowCallback showCallback =
+                new IVoiceInteractionSessionShowCallback.Stub() {
+                    @Override
+                    public void onFailed() {
+                        Toast.makeText(context, "Failed to show VoiceInteractionSession",
+                                Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onShown() {}
+                };
+
+        micButton.setOnClickListener(v1 -> {
             v1.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-            boolean success = getActivity().showAssist(null);
+
+            AssistUtils assistUtils = new AssistUtils(context);
+
+            if (assistUtils.getAssistComponentForUser(ActivityManager.getCurrentUser()) == null) {
+                Toast.makeText(context, "Unable to retrieve assist component for current user",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Bundle args = new Bundle();
+            args.putBoolean(EXTRA_CAR_PUSH_TO_TALK, true);
+
+            boolean success = assistUtils.showSessionForActiveService(args,
+                    SHOW_SOURCE_PUSH_TO_TALK, showCallback, /*activityToken=*/ null);
             if (!success) {
                 Toast.makeText(context,
                         "Assistant app is not available.", Toast.LENGTH_SHORT).show();
             }
         });
-        return v;
     }
 }

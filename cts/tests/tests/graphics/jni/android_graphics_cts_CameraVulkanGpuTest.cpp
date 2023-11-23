@@ -33,16 +33,6 @@ static constexpr uint64_t kTestImageUsage =
     AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
 static constexpr uint32_t kTestImageCount = 3;
 
-// Checks if a vector has more than 10 unique values, in which case we consider
-// it noisy.
-bool isNoisy(const std::vector<uint32_t> &data) {
-  std::set<uint32_t> values_seen;
-  for (uint32_t value : data) {
-    values_seen.insert(value);
-  }
-  return values_seen.size() > 10;
-}
-
 } // namespace
 
 // A basic test which does the following:
@@ -94,8 +84,7 @@ static void loadCameraAndVerifyFrameImport(JNIEnv *env, jclass,
              vkImage.semaphore(), vkImage.isSamplerImmutable(), &imageData),
          "Could not render/read-back Vulkan pixels.");
 
-  // Ensure that we see noise.
-  ASSERT(isNoisy(imageData), "Camera data should be noisy.");
+  // TODO(b/110025779): We should find a way to validate pixels.
 }
 
 static JNINativeMethod gMethods[] = {

@@ -86,7 +86,7 @@ public:
      * directly do with it now that it has passed on.)
      */
     virtual status_t        linkToDeath(const sp<DeathRecipient>& recipient,
-                                        void* cookie = NULL,
+                                        void* cookie = nullptr,
                                         uint32_t flags = 0) = 0;
 
     /**
@@ -97,19 +97,39 @@ public:
      * added with that cookie will be unlinked.
      */
     virtual status_t        unlinkToDeath(  const wp<DeathRecipient>& recipient,
-                                            void* cookie = NULL,
+                                            void* cookie = nullptr,
                                             uint32_t flags = 0,
-                                            wp<DeathRecipient>* outRecipient = NULL) = 0;
+                                            wp<DeathRecipient>* outRecipient = nullptr) = 0;
 
     virtual bool            checkSubclass(const void* subclassID) const;
 
     typedef void (*object_cleanup_func)(const void* id, void* obj, void* cleanupCookie);
 
+    /**
+     * This object is attached for the lifetime of this binder object. When
+     * this binder object is destructed, the cleanup function of all attached
+     * objects are invoked with their respective objectID, object, and
+     * cleanupCookie. Access to these APIs can be made from multiple threads,
+     * but calls from different threads are allowed to be interleaved.
+     */
     virtual void            attachObject(   const void* objectID,
                                             void* object,
                                             void* cleanupCookie,
                                             object_cleanup_func func) = 0;
+    /**
+     * Returns object attached with attachObject.
+     */
     virtual void*           findObject(const void* objectID) const = 0;
+    /**
+     * WARNING: this API does not call the cleanup function for legacy reasons.
+     * It also does not return void* for legacy reasons. If you need to detach
+     * an object and destroy it, there are two options:
+     * - if you can, don't call detachObject and instead wait for the destructor
+     *   to clean it up.
+     * - manually retrieve and destruct the object (if multiple of your threads
+     *   are accessing these APIs, you must guarantee that attachObject isn't
+     *   called after findObject and before detachObject is called).
+     */
     virtual void            detachObject(const void* objectID) = 0;
 
     virtual BHwBinder*        localBinder();

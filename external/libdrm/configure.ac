@@ -20,7 +20,7 @@
 
 AC_PREREQ([2.63])
 AC_INIT([libdrm],
-        [2.4.75],
+        [2.4.91],
         [https://bugs.freedesktop.org/enter_bug.cgi?product=DRI],
         [libdrm])
 
@@ -28,6 +28,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
+PKG_PROG_PKG_CONFIG
 
 # Require xorg-macros minimum of 1.12 for XORG_WITH_XSLTPROC
 m4_ifndef([XORG_MACROS_VERSION],
@@ -44,6 +45,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 # Check for programs
 AC_PROG_CC
 AC_PROG_CC_C99
+AC_PROG_NM
 
 if test "x$ac_cv_prog_cc_c99" = xno; then
 	AC_MSG_ERROR([Building libdrm requires C99 enabled compiler])
@@ -53,20 +55,39 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_FUNC_ALLOCA
 
+save_CFLAGS="$CFLAGS"
+export CFLAGS="$CFLAGS -Werror"
 AC_HEADER_MAJOR
+CFLAGS="$save_CFLAGS"
+
 AC_CHECK_HEADERS([sys/sysctl.h sys/select.h])
 
 # Initialize libtool
 LT_PREREQ([2.2])
 LT_INIT([disable-static])
 
+dnl pthread-stubs is mandatory on some BSD platforms, due to the nature of the
+dnl project. Even then there's a notable issue as described in the project README
+case "$host_os" in
+linux* | cygwin* | darwin* | solaris* | *-gnu* | gnu* | openbsd*)
+    pthread_stubs_possible="no"
+    ;;
+* )
+    pthread_stubs_possible="yes"
+    ;;
+esac
 
-
-AC_SUBST(PTHREADSTUBS_CFLAGS)
-AC_SUBST(PTHREADSTUBS_LIBS)
+if test "x$pthread_stubs_possible" = xyes; then
+    PKG_CHECK_MODULES(PTHREADSTUBS, pthread-stubs >= 0.4)
+    AC_SUBST(PTHREADSTUBS_CFLAGS)
+    AC_SUBST(PTHREADSTUBS_LIBS)
+fi
 
 pkgconfigdir=${libdir}/pkgconfig
 AC_SUBST(pkgconfigdir)
+libdrmdatadir=${datadir}/libdrm
+AC_SUBST(libdrmdatadir)
+
 AC_ARG_ENABLE([udev],
               [AS_HELP_STRING([--enable-udev],
                               [Enable support for using udev instead of mknod (default: disabled)])],
@@ -173,7 +194,9 @@ AC_CHECK_FUNCS([clock_gettime], [CLOCK_LIB=],
                              [AC_MSG_ERROR([Couldn't find clock_gettime])])])
 AC_SUBST([CLOCK_LIB])
 
-AC_CHECK_FUNCS([open_memstream], [HAVE_OPEN_MEMSTREAM=yes])
+AC_CHECK_FUNCS([open_memstream],
+               [AC_DEFINE([HAVE_OPEN_MEMSTREAM], 1, [Have open_memstream()])],
+               [AC_DEFINE([HAVE_OPEN_MEMSTREAM], 0)])
 
 dnl Use lots of warning flags with with gcc and compatible compilers
 
@@ -182,7 +205,7 @@ dnl skipped and all flags rechecked.  So there's no need to do anything
 dnl else.  If for any reason you need to force a recheck, just change
 dnl MAYBE_WARN in an ignorable way (like adding whitespace)
 
-MAYBE_WARN="-Wall -Wextra \
+MAYBE_WARN="-Wall -Wextra -Werror=undef \
 -Wsign-compare -Werror-implicit-function-declaration \
 -Wpointer-arith -Wwrite-strings -Wstrict-prototypes \
 -Wmissing-prototypes -Wmissing-declarations -Wnested-externs \
@@ -244,9 +267,13 @@ AC_CACHE_CHECK([for native atomic primitives], drm_cv_atomic_primitives, [
 if test "x$drm_cv_atomic_primitives" = xIntel; then
 	AC_DEFINE(HAVE_LIBDRM_ATOMIC_PRIMITIVES, 1,
 		[Enable if your compiler supports the Intel __sync_* atomic primitives])
+else
+	AC_DEFINE(HAVE_LIBDRM_ATOMIC_PRIMITIVES, 0)
 fi
 if test "x$drm_cv_atomic_primitives" = "xlibatomic-ops"; then
 	AC_DEFINE(HAVE_LIB_ATOMIC_OPS, 1, [Enable if you have libatomic-ops-dev installed])
+else
+	AC_DEFINE(HAVE_LIB_ATOMIC_OPS, 0)
 fi
 
 dnl Print out the approapriate message considering the value set be the
@@ -325,6 +352,8 @@ AC_SUBST(PCIACCESS_LIBS)
 
 if test "x$UDEV" = xyes; then
 	AC_DEFINE(UDEV, 1, [Have UDEV support])
+else
+	AC_DEFINE(UDEV, 0)
 fi
 
 AC_CANONICAL_HOST
@@ -343,32 +372,34 @@ AM_CONDITIONAL(HAVE_LIBKMS, [test "x$LIBKMS" = xyes])
 AM_CONDITIONAL(HAVE_INTEL, [test "x$INTEL" = xyes])
 if test "x$INTEL" = xyes; then
 	AC_DEFINE(HAVE_INTEL, 1, [Have intel support])
+else
+	AC_DEFINE(HAVE_INTEL, 0)
 fi
 
 AM_CONDITIONAL(HAVE_VMWGFX, [test "x$VMWGFX" = xyes])
 if test "x$VMWGFX" = xyes; then
 	AC_DEFINE(HAVE_VMWGFX, 1, [Have vmwgfx kernel headers])
+else
+	AC_DEFINE(HAVE_VMWGFX, 0)
 fi
 
 AM_CONDITIONAL(HAVE_NOUVEAU, [test "x$NOUVEAU" = xyes])
 if test "x$NOUVEAU" = xyes; then
 	AC_DEFINE(HAVE_NOUVEAU, 1, [Have nouveau (nvidia) support])
+else
+	AC_DEFINE(HAVE_NOUVEAU, 0)
 fi
 
 AM_CONDITIONAL(HAVE_OMAP, [test "x$OMAP" = xyes])
-if test "x$OMAP" = xyes; then
-	AC_DEFINE(HAVE_OMAP, 1, [Have OMAP support])
-fi
 
 AM_CONDITIONAL(HAVE_EXYNOS, [test "x$EXYNOS" = xyes])
 if test "x$EXYNOS" = xyes; then
 	AC_DEFINE(HAVE_EXYNOS, 1, [Have EXYNOS support])
+else
+	AC_DEFINE(HAVE_EXYNOS, 0)
 fi
 
 AM_CONDITIONAL(HAVE_FREEDRENO, [test "x$FREEDRENO" = xyes])
-if test "x$FREEDRENO" = xyes; then
-	AC_DEFINE(HAVE_FREEDRENO, 1, [Have freedreno support])
-fi
 
 if test "x$FREEDRENO_KGSL" = xyes; then
 	if test "x$FREEDRENO" != xyes; then
@@ -378,11 +409,15 @@ fi
 AM_CONDITIONAL(HAVE_FREEDRENO_KGSL, [test "x$FREEDRENO_KGSL" = xyes])
 if test "x$FREEDRENO_KGSL" = xyes; then
 	AC_DEFINE(HAVE_FREEDRENO_KGSL, 1, [Have freedreno support for KGSL kernel interface])
+else
+	AC_DEFINE(HAVE_FREEDRENO_KGSL, 0)
 fi
 
 AM_CONDITIONAL(HAVE_RADEON, [test "x$RADEON" = xyes])
 if test "x$RADEON" = xyes; then
 	AC_DEFINE(HAVE_RADEON, 1, [Have radeon support])
+else
+	AC_DEFINE(HAVE_RADEON, 0)
 fi
 
 if test "x$AMDGPU" != xno; then
@@ -409,36 +444,30 @@ AM_CONDITIONAL(HAVE_AMDGPU, [test "x$AMDGPU" = xyes])
 if test "x$AMDGPU" = xyes; then
 	AC_DEFINE(HAVE_AMDGPU, 1, [Have amdgpu support])
 
-	AC_DEFINE(HAVE_CUNIT, [test "x$have_cunit" != "xno"], [Enable CUNIT Have amdgpu support])
-
 	if test "x$have_cunit" = "xno"; then
 		AC_MSG_WARN([Could not find cunit library. Disabling amdgpu tests])
 	fi
+else
+	AC_DEFINE(HAVE_AMDGPU, 0)
 fi
 
 AM_CONDITIONAL(HAVE_TEGRA, [test "x$TEGRA" = xyes])
-if test "x$TEGRA" = xyes; then
-	AC_DEFINE(HAVE_TEGRA, 1, [Have Tegra support])
-fi
 
 AM_CONDITIONAL(HAVE_ROCKCHIP, [test "x$ROCKCHIP" = xyes])
 if test "x$ROCKCHIP" = xyes; then
 	AC_DEFINE(HAVE_ROCKCHIP, 1, [Have ROCKCHIP support])
+fi
 
 AM_CONDITIONAL(HAVE_VC4, [test "x$VC4" = xyes])
 if test "x$VC4" = xyes; then
 	AC_DEFINE(HAVE_VC4, 1, [Have VC4 support])
+else
+	AC_DEFINE(HAVE_VC4, 0)
 fi
 
 AM_CONDITIONAL(HAVE_ETNAVIV, [test "x$ETNAVIV" = xyes])
-if test "x$ETNAVIV" = xyes; then
-	AC_DEFINE(HAVE_ETNAVIV, 1, [Have etnaviv support])
-fi
 
 AM_CONDITIONAL(HAVE_INSTALL_TESTS, [test "x$INSTALL_TESTS" = xyes])
-if test "x$INSTALL_TESTS" = xyes; then
-	AC_DEFINE(HAVE_INSTALL_TESTS, 1, [Install test programs])
-fi
 
 AC_ARG_ENABLE([cairo-tests],
               [AS_HELP_STRING([--enable-cairo-tests],
@@ -456,6 +485,8 @@ if test "x$CAIRO" = xyes; then
 		AC_MSG_ERROR([Cairo support required but not present])
 	fi
 	AC_DEFINE(HAVE_CAIRO, 1, [Have Cairo support])
+else
+	AC_DEFINE(HAVE_CAIRO, 0)
 fi
 AC_MSG_RESULT([$CAIRO])
 AM_CONDITIONAL(HAVE_CAIRO, [test "x$CAIRO" = xyes])
@@ -497,6 +528,8 @@ if test "x$VALGRIND" = "xyes"; then
 		AC_MSG_ERROR([Valgrind support required but not present])
 	fi
 	AC_DEFINE([HAVE_VALGRIND], 1, [Use valgrind intrinsics to suppress false warnings])
+else
+	AC_DEFINE([HAVE_VALGRIND], 0)
 fi
 
 AC_MSG_RESULT([$VALGRIND])
@@ -514,11 +547,16 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([
 
 if test "x$HAVE_ATTRIBUTE_VISIBILITY" = xyes; then
     AC_DEFINE(HAVE_VISIBILITY, 1, [Compiler supports __attribute__(("hidden"))])
+else
+    AC_DEFINE(HAVE_VISIBILITY, 0)
 fi
+
+CFLAGS="$CFLAGS -include config.h"
 
 AC_SUBST(WARN_CFLAGS)
 AC_CONFIG_FILES([
 	Makefile
+	data/Makefile
 	libkms/Makefile
 	libkms/libkms.pc
 	intel/Makefile

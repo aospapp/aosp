@@ -20,19 +20,20 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 /**
- * This preparer ensures that the device is connected to a network.
- * The options "wifi-ssid" and "wifi-psk" allow users of the preparer to attempt connection
- * to a network. If the options are provided, the preparer disconnects any existing network
- * connection, and attempts to connect with the options provided.
+ * This preparer ensures that the device is connected to a network. The options "wifi-ssid" and
+ * "wifi-psk" allow users of the preparer to attempt connection to a network. If the options are
+ * provided, the preparer disconnects any existing network connection, and attempts to connect with
+ * the options provided.
  *
- * @throws TargetSetupError if device is not connected to a network and no options are given, or
- * if the device fails to connect to the network specified in the options
+ * @throw TargetSetupError if device is not connected to a network and no options are given, or if
+ *     the device fails to connect to the network specified in the options
  */
-@OptionClass(alias="wifi-check")
+@OptionClass(alias = "wifi-check")
 public class WifiCheck extends PreconditionPreparer {
 
     private static final String WIFI_FEATURE = "android.hardware.wifi";
@@ -62,18 +63,21 @@ public class WifiCheck extends PreconditionPreparer {
 
         if (mWifiSsid == null) { // no connection to create, check for existing connectivity
             if (!device.checkConnectivity()) {
-                logError("Device has no network connection, no ssid provided, some modules " +
-                        "of CTS require an active network connection");
+                CLog.e(
+                        "Device has no network connection, no ssid provided, some modules "
+                                + "of CTS require an active network connection");
                 return;
             }
         } else { // network provided in options, attempt to create new connection
-            logInfo("Attempting connection to \"%s\"", mWifiSsid);
+            CLog.i("Attempting connection to \"%s\"", mWifiSsid);
             if (!device.connectToWifiNetwork(mWifiSsid, mWifiPsk)) { // attempt connection
-                logError("Unable to connect to network \"%s\", some modules of CTS" +
-                        "require an active network connection", mWifiSsid);
+                CLog.e(
+                        "Unable to connect to network \"%s\", some modules of CTS"
+                                + "require an active network connection",
+                        mWifiSsid);
                 return;
             }
         }
-        logInfo("Wifi is connected");
+        CLog.i("Wifi is connected");
     }
 }

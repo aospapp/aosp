@@ -19,18 +19,22 @@ import os
 
 import webapp2
 
-from webapp.src.dashboard import build_list
-from webapp.src.dashboard import device_list
-from webapp.src.dashboard import job_list
-from webapp.src.dashboard import schedule_list
-from webapp.src.handlers.base import BaseHandler
+from webapp.src.handlers import base
 from webapp.src.scheduler import device_heartbeat
 from webapp.src.scheduler import job_heartbeat
 from webapp.src.scheduler import periodic
 from webapp.src.tasks import indexing
+from webapp.src.tasks import removing_outdated_devices
 
 
-class MainPage(BaseHandler):
+class RedirectHandler(base.BaseHandler):
+    """Redirect handler to redirect to specific appspot version."""
+    def get(self, arg):
+        if arg:
+            return self.redirect("https://{}.appspot.com/".format(arg))
+
+
+class MainPage(base.BaseHandler):
     """Main web page request handler."""
 
     def get(self):
@@ -49,20 +53,13 @@ config['webapp2_extras.sessions'] = {
 
 app = webapp2.WSGIApplication(
     [
-        ("/", MainPage), ("/build", build_list.BuildPage),
-        ("/device", device_list.DevicePage), ("/job", job_list.JobPage),
-        ("/create_job", job_list.CreateJobPage),
-        ("/create_job_template", job_list.CreateJobTemplatePage),
-        ("/result", MainPage), ("/schedule", schedule_list.SchedulePage),
         ("/tasks/schedule", periodic.PeriodicScheduler),
         ("/tasks/device_heartbeat", device_heartbeat.PeriodicDeviceHeartBeat),
         ("/tasks/job_heartbeat", job_heartbeat.PeriodicJobHeartBeat),
-        ("/tasks/indexing", indexing.CreateIndex),
-        ("/tasks/indexing/build", indexing.CreateBuildModelIndex),
-        ("/tasks/indexing/device", indexing.CreateDeviceModelIndex),
-        ("/tasks/indexing/job", indexing.CreateJobModelIndex),
-        ("/tasks/indexing/lab", indexing.CreateLabModelIndex),
-        ("/tasks/indexing/schedule", indexing.CreateScheduleModelIndex)
+        ("/tasks/remove_outdated_devices",
+         removing_outdated_devices.RemoveOutdatedDevices),
+        ("/tasks/indexing([/]?.*)", indexing.CreateIndex),
+        ("/redirect/(.*)", RedirectHandler),
     ],
     config=config,
     debug=False)

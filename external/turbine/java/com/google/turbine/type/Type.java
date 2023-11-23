@@ -16,9 +16,10 @@
 
 package com.google.turbine.type;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
 import com.google.turbine.model.TurbineConstantTypeKind;
@@ -44,7 +45,11 @@ public interface Type {
     /** A type variable type. */
     TY_VAR,
     /** A wildcard type. */
-    WILD_TY
+    WILD_TY,
+    /** An intersection type. */
+    INTERSECTION_TY,
+
+    ERROR_TY
   }
 
   /** The type kind. */
@@ -60,7 +65,8 @@ public interface Type {
       };
 
   /** A class type. */
-  class ClassTy implements Type {
+  @AutoValue
+  abstract class ClassTy implements Type {
 
     /**
      * The {@link ClassTy} for {@code java.lang.Object}. There's nothing special about this
@@ -73,11 +79,10 @@ public interface Type {
 
     /** Returns a {@link ClassTy} with no type arguments for the given {@link ClassSymbol}. */
     public static ClassTy asNonParametricClassTy(ClassSymbol i) {
-      return new ClassTy(
-          Arrays.asList(new SimpleClassTy(i, ImmutableList.of(), ImmutableList.of())));
+      return create(Arrays.asList(SimpleClassTy.create(i, ImmutableList.of(), ImmutableList.of())));
     }
 
-    public final ImmutableList<SimpleClassTy> classes;
+    public abstract ImmutableList<SimpleClassTy> classes();
 
     /**
      * A class type. Qualified types are repesented as a list tuples, each of which contains a
@@ -85,8 +90,8 @@ public interface Type {
      *
      * @param classes components of a qualified class type, possibly with type arguments.
      */
-    public ClassTy(Iterable<SimpleClassTy> classes) {
-      this.classes = ImmutableList.copyOf(classes);
+    public static ClassTy create(Iterable<SimpleClassTy> classes) {
+      return new AutoValue_Type_ClassTy(ImmutableList.copyOf(classes));
     }
 
     @Override
@@ -96,23 +101,23 @@ public interface Type {
 
     /** The class symbol. */
     public ClassSymbol sym() {
-      return classes.get(classes.size() - 1).sym;
+      return Iterables.getLast(classes()).sym();
     }
 
     @Override
-    public String toString() {
+    public final String toString() {
       StringBuilder sb = new StringBuilder();
       boolean first = true;
-      for (SimpleClassTy c : classes) {
+      for (SimpleClassTy c : classes()) {
         if (!first) {
           sb.append('.');
-          sb.append(c.sym.toString().substring(c.sym.toString().lastIndexOf('$') + 1));
+          sb.append(c.sym().binaryName().substring(c.sym().binaryName().lastIndexOf('$') + 1));
         } else {
-          sb.append(c.sym);
+          sb.append(c.sym().binaryName());
         }
-        if (!c.targs.isEmpty()) {
+        if (!c.targs().isEmpty()) {
           sb.append('<');
-          Joiner.on(',').appendTo(sb, c.targs);
+          Joiner.on(',').appendTo(sb, c.targs());
           sb.append('>');
         }
         first = false;
@@ -121,53 +126,35 @@ public interface Type {
     }
 
     /** One element of a qualified {@link ClassTy}. */
-    public static class SimpleClassTy {
+    @AutoValue
+    public abstract static class SimpleClassTy {
 
-      private final ClassSymbol sym;
-      private final ImmutableList<Type> targs;
-      private final ImmutableList<AnnoInfo> annos;
-
-      public SimpleClassTy(
+      public static SimpleClassTy create(
           ClassSymbol sym, ImmutableList<Type> targs, ImmutableList<AnnoInfo> annos) {
-        Preconditions.checkNotNull(sym);
-        Preconditions.checkNotNull(targs);
-        this.sym = sym;
-        this.targs = targs;
-        this.annos = annos;
+        return new AutoValue_Type_ClassTy_SimpleClassTy(sym, targs, annos);
       }
 
       /** The class symbol of the element. */
-      public ClassSymbol sym() {
-        return sym;
-      }
+      public abstract ClassSymbol sym();
 
       /** The type arguments. */
-      public ImmutableList<Type> targs() {
-        return targs;
-      }
+      public abstract ImmutableList<Type> targs();
 
       /** The type annotations. */
-      public ImmutableList<AnnoInfo> annos() {
-        return annos;
-      }
+      public abstract ImmutableList<AnnoInfo> annos();
     }
   }
 
   /** An array type. */
-  class ArrayTy implements Type {
+  @AutoValue
+  abstract class ArrayTy implements Type {
 
-    private final Type elem;
-    private final ImmutableList<AnnoInfo> annos;
-
-    public ArrayTy(Type elem, ImmutableList<AnnoInfo> annos) {
-      this.elem = elem;
-      this.annos = annos;
+    public static ArrayTy create(Type elem, ImmutableList<AnnoInfo> annos) {
+      return new AutoValue_Type_ArrayTy(elem, annos);
     }
 
     /** The element type of the array. */
-    public Type elementType() {
-      return elem;
-    }
+    public abstract Type elementType();
 
     @Override
     public TyKind tyKind() {
@@ -175,26 +162,19 @@ public interface Type {
     }
 
     /** The type annotations. */
-    public ImmutableList<AnnoInfo> annos() {
-      return annos;
-    }
+    public abstract ImmutableList<AnnoInfo> annos();
   }
 
   /** A type variable. */
-  class TyVar implements Type {
+  @AutoValue
+  abstract class TyVar implements Type {
 
-    private final TyVarSymbol sym;
-    private final ImmutableList<AnnoInfo> annos;
-
-    public TyVar(TyVarSymbol sym, ImmutableList<AnnoInfo> annos) {
-      this.sym = sym;
-      this.annos = annos;
+    public static TyVar create(TyVarSymbol sym, ImmutableList<AnnoInfo> annos) {
+      return new AutoValue_Type_TyVar(sym, annos);
     }
 
     /** The type variable's symbol. */
-    public TyVarSymbol sym() {
-      return sym;
-    }
+    public abstract TyVarSymbol sym();
 
     @Override
     public TyKind tyKind() {
@@ -202,31 +182,24 @@ public interface Type {
     }
 
     @Override
-    public String toString() {
-      return sym.owner() + "#" + sym.name();
+    public final String toString() {
+      return sym().owner() + "#" + sym().name();
     }
 
     /** The type annotations. */
-    public ImmutableList<AnnoInfo> annos() {
-      return annos;
-    }
+    public abstract ImmutableList<AnnoInfo> annos();
   }
 
   /** A primitive type. */
-  class PrimTy implements Type {
+  @AutoValue
+  abstract class PrimTy implements Type {
 
-    private final TurbineConstantTypeKind primtkind;
-    private final ImmutableList<AnnoInfo> annos;
-
-    public PrimTy(TurbineConstantTypeKind tykind, ImmutableList<AnnoInfo> annos) {
-      this.primtkind = tykind;
-      this.annos = annos;
+    public static PrimTy create(TurbineConstantTypeKind tykind, ImmutableList<AnnoInfo> annos) {
+      return new AutoValue_Type_PrimTy(tykind, annos);
     }
 
     /** The primtive type kind. */
-    public TurbineConstantTypeKind primkind() {
-      return primtkind;
-    }
+    public abstract TurbineConstantTypeKind primkind();
 
     @Override
     public TyKind tyKind() {
@@ -234,9 +207,7 @@ public interface Type {
     }
 
     /** The type annotations. */
-    public ImmutableList<AnnoInfo> annos() {
-      return annos;
-    }
+    public abstract ImmutableList<AnnoInfo> annos();
   }
 
   /** A wildcard type, valid only inside (possibly nested) type arguments. */
@@ -262,26 +233,16 @@ public interface Type {
   }
 
   /** An upper-bounded wildcard type. */
-  class WildUpperBoundedTy extends WildTy {
+  @AutoValue
+  abstract class WildUpperBoundedTy extends WildTy {
 
-    public final Type bound;
-    private final ImmutableList<AnnoInfo> annotations;
-
-    public WildUpperBoundedTy(Type bound, ImmutableList<AnnoInfo> annotations) {
-      this.bound = bound;
-      this.annotations = annotations;
+    public static WildUpperBoundedTy create(Type bound, ImmutableList<AnnoInfo> annotations) {
+      return new AutoValue_Type_WildUpperBoundedTy(annotations, bound);
     }
 
     /** The upper bound. */
     @Override
-    public Type bound() {
-      return bound;
-    }
-
-    @Override
-    public ImmutableList<AnnoInfo> annotations() {
-      return annotations;
-    }
+    public abstract Type bound();
 
     @Override
     public BoundKind boundKind() {
@@ -290,40 +251,29 @@ public interface Type {
   }
 
   /** An lower-bounded wildcard type. */
-  class WildLowerBoundedTy extends WildTy {
+  @AutoValue
+  abstract class WildLowerBoundedTy extends WildTy {
 
-    public final Type bound;
-    private final ImmutableList<AnnoInfo> annotations;
-
-    public WildLowerBoundedTy(Type bound, ImmutableList<AnnoInfo> annotations) {
-      this.bound = bound;
-      this.annotations = annotations;
+    public static WildLowerBoundedTy create(Type bound, ImmutableList<AnnoInfo> annotations) {
+      return new AutoValue_Type_WildLowerBoundedTy(annotations, bound);
     }
 
     /** The lower bound. */
     @Override
-    public Type bound() {
-      return bound;
-    }
+    public abstract Type bound();
 
     @Override
     public BoundKind boundKind() {
       return BoundKind.LOWER;
     }
-
-    @Override
-    public ImmutableList<AnnoInfo> annotations() {
-      return annotations;
-    }
   }
 
   /** An unbounded wildcard type. */
-  class WildUnboundedTy extends WildTy {
+  @AutoValue
+  abstract class WildUnboundedTy extends WildTy {
 
-    private final ImmutableList<AnnoInfo> annotations;
-
-    public WildUnboundedTy(ImmutableList<AnnoInfo> annotations) {
-      this.annotations = annotations;
+    public static WildUnboundedTy create(ImmutableList<AnnoInfo> annotations) {
+      return new AutoValue_Type_WildUnboundedTy(annotations);
     }
 
     @Override
@@ -335,10 +285,34 @@ public interface Type {
     public Type bound() {
       throw new IllegalStateException();
     }
+  }
+
+  /** An intersection type. */
+  @AutoValue
+  abstract class IntersectionTy implements Type {
+
+    public abstract ImmutableList<Type> bounds();
+
+    public static IntersectionTy create(ImmutableList<Type> bounds) {
+      return new AutoValue_Type_IntersectionTy(bounds);
+    }
 
     @Override
-    public ImmutableList<AnnoInfo> annotations() {
-      return annotations;
+    public TyKind tyKind() {
+      return TyKind.INTERSECTION_TY;
+    }
+  }
+
+  /** An error type. */
+  @AutoValue
+  abstract class ErrorTy implements Type {
+    public static ErrorTy create() {
+      return new AutoValue_Type_ErrorTy();
+    }
+
+    @Override
+    public TyKind tyKind() {
+      return TyKind.ERROR_TY;
     }
   }
 }

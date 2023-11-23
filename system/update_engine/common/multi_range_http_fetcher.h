@@ -62,9 +62,7 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
     ranges_.push_back(Range(offset, size));
   }
 
-  void AddRange(off_t offset) {
-    ranges_.push_back(Range(offset));
-  }
+  void AddRange(off_t offset) { ranges_.push_back(Range(offset)); }
 
   // HttpFetcher overrides.
   void SetOffset(off_t offset) override;
@@ -146,7 +144,7 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
 
   // HttpFetcherDelegate overrides.
   // State change: Downloading -> Downloading or Pending transfer ended
-  void ReceivedBytes(HttpFetcher* fetcher,
+  bool ReceivedBytes(HttpFetcher* fetcher,
                      const void* bytes,
                      size_t length) override;
 

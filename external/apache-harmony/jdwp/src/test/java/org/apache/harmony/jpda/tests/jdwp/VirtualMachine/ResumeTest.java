@@ -41,9 +41,6 @@ import java.util.List;
  */
 public class ResumeTest extends JDWPSyncTestCase {
 
-    static final String debuggeeSignature =
-        "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/ResumeDebuggee;";
-
     @Override
     protected String getDebuggeeClassName() {
         return ResumeDebuggee.class.getName();
@@ -53,7 +50,7 @@ public class ResumeTest extends JDWPSyncTestCase {
     protected void internalTearDown() {
         // We need to finish the tested threads before detaching.
         logWriter.println("Finish debuggee tested threads");
-        setStaticIntField(debuggeeSignature,
+        setStaticIntField(getDebuggeeClassSignature(),
                 ResumeDebuggee.TO_FINISH_DEBUGGEE_FIELD_NAME, 99);
         super.internalTearDown();
     }

@@ -18,10 +18,10 @@ package com.android.settings.gestures;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v7.preference.TwoStatePreference;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.R;
 import com.android.settings.core.TogglePreferenceController;
@@ -51,7 +51,7 @@ public abstract class GesturePreferenceController extends TogglePreferenceContro
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
         if (isAvailable()) {
-            mVideoPreference = (VideoPreference) screen.findPreference(getVideoPrefKey());
+            mVideoPreference = screen.findPreference(getVideoPrefKey());
         }
     }
 

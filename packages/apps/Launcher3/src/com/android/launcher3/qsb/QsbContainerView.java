@@ -16,6 +16,10 @@
 
 package com.android.launcher3.qsb;
 
+import static android.appwidget.AppWidgetManager.ACTION_APPWIDGET_BIND;
+import static android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID;
+import static android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_PROVIDER;
+
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.SearchManager;
@@ -40,6 +44,7 @@ import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.config.FeatureFlags;
+import com.android.launcher3.graphics.FragmentWithPreview;
 
 /**
  * A frame layout which contains a QSB. This internally uses fragment to bind the view, which
@@ -74,11 +79,12 @@ public class QsbContainerView extends FrameLayout {
     /**
      * A fragment to display the QSB.
      */
-    public static class QsbFragment extends Fragment implements View.OnClickListener {
+    public static class QsbFragment extends FragmentWithPreview {
 
+        public static final int QSB_WIDGET_HOST_ID = 1026;
         private static final int REQUEST_BIND_QSB = 1;
-        private static final String QSB_WIDGET_ID = "qsb_widget_id";
 
+        protected String mKeyWidgetId = "qsb_widget_id";
         private QsbWidgetHost mQsbWidgetHost;
         private AppWidgetProviderInfo mWidgetInfo;
         private QsbWidgetHostView mQsb;
@@ -88,10 +94,14 @@ public class QsbContainerView extends FrameLayout {
         private int mOrientation;
 
         @Override
-        public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            mQsbWidgetHost = new QsbWidgetHost(getActivity());
+        public void onInit(Bundle savedInstanceState) {
+            mQsbWidgetHost = createHost();
             mOrientation = getContext().getResources().getConfiguration().orientation;
+        }
+
+        protected QsbWidgetHost createHost() {
+            return new QsbWidgetHost(getContext(), QSB_WIDGET_HOST_ID,
+                    (c) -> new QsbWidgetHostView(c));
         }
 
         private FrameLayout mWrapper;
@@ -100,7 +110,7 @@ public class QsbContainerView extends FrameLayout {
         public View onCreateView(
                 LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
-            mWrapper = new FrameLayout(getActivity());
+            mWrapper = new FrameLayout(getContext());
 
             // Only add the view when enabled
             if (isQsbEnabled()) {
@@ -110,30 +120,22 @@ public class QsbContainerView extends FrameLayout {
         }
 
         private View createQsb(ViewGroup container) {
-            Activity activity = getActivity();
-            mWidgetInfo = getSearchWidgetProvider(activity);
+            mWidgetInfo = getSearchWidgetProvider();
             if (mWidgetInfo == null) {
                 // There is no search provider, just show the default widget.
-                return QsbWidgetHostView.getDefaultView(container);
+                return getDefaultView(container, false /* show setup icon */);
             }
+            Bundle opts = createBindOptions();
+            Context context = getContext();
+            AppWidgetManager widgetManager = AppWidgetManager.getInstance(context);
 
-            AppWidgetManager widgetManager = AppWidgetManager.getInstance(activity);
-            InvariantDeviceProfile idp = LauncherAppState.getIDP(activity);
-
-            Bundle opts = new Bundle();
-            Rect size = AppWidgetResizeFrame.getWidgetSizeRanges(activity, idp.numColumns, 1, null);
-            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, size.left);
-            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, size.top);
-            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, size.right);
-            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, size.bottom);
-
-            int widgetId = Utilities.getPrefs(activity).getInt(QSB_WIDGET_ID, -1);
+            int widgetId = Utilities.getPrefs(context).getInt(mKeyWidgetId, -1);
             AppWidgetProviderInfo widgetInfo = widgetManager.getAppWidgetInfo(widgetId);
             boolean isWidgetBound = (widgetInfo != null) &&
                     widgetInfo.provider.equals(mWidgetInfo.provider);
 
             int oldWidgetId = widgetId;
-            if (!isWidgetBound) {
+            if (!isWidgetBound && !isInPreviewMode()) {
                 if (widgetId > -1) {
                     // widgetId is already bound and its not the correct provider. reset host.
                     mQsbWidgetHost.deleteHost();
@@ -153,45 +155,32 @@ public class QsbContainerView extends FrameLayout {
             }
 
             if (isWidgetBound) {
-                mQsb = (QsbWidgetHostView) mQsbWidgetHost.createView(activity, widgetId, mWidgetInfo);
+                mQsb = (QsbWidgetHostView) mQsbWidgetHost.createView(context, widgetId, mWidgetInfo);
                 mQsb.setId(R.id.qsb_widget);
 
-                if (!Utilities.containsAll(AppWidgetManager.getInstance(activity)
-                        .getAppWidgetOptions(widgetId), opts)) {
-                    mQsb.updateAppWidgetOptions(opts);
+                if (!isInPreviewMode()) {
+                    if (!containsAll(AppWidgetManager.getInstance(context)
+                            .getAppWidgetOptions(widgetId), opts)) {
+                        mQsb.updateAppWidgetOptions(opts);
+                    }
+                    mQsbWidgetHost.startListening();
                 }
-                mQsb.setPadding(0, 0, 0, 0);
-                mQsbWidgetHost.startListening();
                 return mQsb;
             }
 
             // Return a default widget with setup icon.
-            View v = QsbWidgetHostView.getDefaultView(container);
-            View setupButton = v.findViewById(R.id.btn_qsb_setup);
-            setupButton.setVisibility(View.VISIBLE);
-            setupButton.setOnClickListener(this);
-            return v;
+            return getDefaultView(container, true /* show setup icon */);
         }
 
         private void saveWidgetId(int widgetId) {
-            Utilities.getPrefs(getActivity()).edit().putInt(QSB_WIDGET_ID, widgetId).apply();
-        }
-
-        @Override
-        public void onClick(View view) {
-            // Start intent for bind the widget
-            Intent intent = new Intent(AppWidgetManager.ACTION_APPWIDGET_BIND);
-            // Allocate a new widget id for QSB
-            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mQsbWidgetHost.allocateAppWidgetId());
-            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, mWidgetInfo.provider);
-            startActivityForResult(intent, REQUEST_BIND_QSB);
+            Utilities.getPrefs(getContext()).edit().putInt(mKeyWidgetId, widgetId).apply();
         }
 
         @Override
         public void onActivityResult(int requestCode, int resultCode, Intent data) {
             if (requestCode == REQUEST_BIND_QSB) {
                 if (resultCode == Activity.RESULT_OK) {
-                    saveWidgetId(data.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1));
+                    saveWidgetId(data.getIntExtra(EXTRA_APPWIDGET_ID, -1));
                     rebindFragment();
                 } else {
                     mQsbWidgetHost.deleteHost();
@@ -219,7 +208,7 @@ public class QsbContainerView extends FrameLayout {
                 return;
             }
 
-            if (mWrapper != null && getActivity() != null) {
+            if (mWrapper != null && getContext() != null) {
                 mWrapper.removeAllViews();
                 mWrapper.addView(createQsb(mWrapper));
             }
@@ -228,48 +217,103 @@ public class QsbContainerView extends FrameLayout {
         public boolean isQsbEnabled() {
             return FeatureFlags.QSB_ON_FIRST_SCREEN;
         }
-    }
 
-    /**
-     * Returns a widget with category {@link AppWidgetProviderInfo#WIDGET_CATEGORY_SEARCHBOX}
-     * provided by the same package which is set to be global search activity.
-     * If widgetCategory is not supported, or no such widget is found, returns the first widget
-     * provided by the package.
-     */
-    public static AppWidgetProviderInfo getSearchWidgetProvider(Context context) {
-        SearchManager searchManager =
-                (SearchManager) context.getSystemService(Context.SEARCH_SERVICE);
-        ComponentName searchComponent = searchManager.getGlobalSearchActivity();
-        if (searchComponent == null) return null;
-        String providerPkg = searchComponent.getPackageName();
+        protected Bundle createBindOptions() {
+            InvariantDeviceProfile idp = LauncherAppState.getIDP(getContext());
 
-        AppWidgetProviderInfo defaultWidgetForSearchPackage = null;
+            Bundle opts = new Bundle();
+            Rect size = AppWidgetResizeFrame.getWidgetSizeRanges(getContext(),
+                    idp.numColumns, 1, null);
+            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, size.left);
+            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, size.top);
+            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, size.right);
+            opts.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, size.bottom);
+            return opts;
+        }
 
-        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-        for (AppWidgetProviderInfo info : appWidgetManager.getInstalledProviders()) {
-            if (info.provider.getPackageName().equals(providerPkg) && info.configure == null) {
-                if ((info.widgetCategory & AppWidgetProviderInfo.WIDGET_CATEGORY_SEARCHBOX) != 0) {
-                    return info;
-                } else if (defaultWidgetForSearchPackage == null) {
-                    defaultWidgetForSearchPackage = info;
+        protected View getDefaultView(ViewGroup container, boolean showSetupIcon) {
+            // Return a default widget with setup icon.
+            View v = QsbWidgetHostView.getDefaultView(container);
+            if (showSetupIcon) {
+                View setupButton = v.findViewById(R.id.btn_qsb_setup);
+                setupButton.setVisibility(View.VISIBLE);
+                setupButton.setOnClickListener((v2) -> startActivityForResult(
+                        new Intent(ACTION_APPWIDGET_BIND)
+                                .putExtra(EXTRA_APPWIDGET_ID, mQsbWidgetHost.allocateAppWidgetId())
+                                .putExtra(EXTRA_APPWIDGET_PROVIDER, mWidgetInfo.provider),
+                        REQUEST_BIND_QSB));
+            }
+            return v;
+        }
+
+        /**
+         * Returns a widget with category {@link AppWidgetProviderInfo#WIDGET_CATEGORY_SEARCHBOX}
+         * provided by the same package which is set to be global search activity.
+         * If widgetCategory is not supported, or no such widget is found, returns the first widget
+         * provided by the package.
+         */
+        protected AppWidgetProviderInfo getSearchWidgetProvider() {
+            SearchManager searchManager =
+                    (SearchManager) getContext().getSystemService(Context.SEARCH_SERVICE);
+            ComponentName searchComponent = searchManager.getGlobalSearchActivity();
+            if (searchComponent == null) return null;
+            String providerPkg = searchComponent.getPackageName();
+
+            AppWidgetProviderInfo defaultWidgetForSearchPackage = null;
+
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
+            for (AppWidgetProviderInfo info : appWidgetManager.getInstalledProviders()) {
+                if (info.provider.getPackageName().equals(providerPkg) && info.configure == null) {
+                    if ((info.widgetCategory
+                            & AppWidgetProviderInfo.WIDGET_CATEGORY_SEARCHBOX) != 0) {
+                        return info;
+                    } else if (defaultWidgetForSearchPackage == null) {
+                        defaultWidgetForSearchPackage = info;
+                    }
                 }
             }
+            return defaultWidgetForSearchPackage;
         }
-        return defaultWidgetForSearchPackage;
     }
 
-    private static class QsbWidgetHost extends AppWidgetHost {
+    public static class QsbWidgetHost extends AppWidgetHost {
 
-        private static final int QSB_WIDGET_HOST_ID = 1026;
+        private final WidgetViewFactory mViewFactory;
 
-        public QsbWidgetHost(Context context) {
-            super(context, QSB_WIDGET_HOST_ID);
+        public QsbWidgetHost(Context context, int hostId, WidgetViewFactory viewFactory) {
+            super(context, hostId);
+            mViewFactory = viewFactory;
         }
 
         @Override
         protected AppWidgetHostView onCreateView(
                 Context context, int appWidgetId, AppWidgetProviderInfo appWidget) {
-            return new QsbWidgetHostView(context);
+            return mViewFactory.newView(context);
         }
+    }
+
+    public interface WidgetViewFactory {
+
+        QsbWidgetHostView newView(Context context);
+    }
+
+    /**
+     * Returns true if {@param original} contains all entries defined in {@param updates} and
+     * have the same value.
+     * The comparison uses {@link Object#equals(Object)} to compare the values.
+     */
+    private static boolean containsAll(Bundle original, Bundle updates) {
+        for (String key : updates.keySet()) {
+            Object value1 = updates.get(key);
+            Object value2 = original.get(key);
+            if (value1 == null) {
+                if (value2 != null) {
+                    return false;
+                }
+            } else if (!value1.equals(value2)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

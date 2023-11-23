@@ -18,10 +18,32 @@ package com.android.cts.crossprofileappstest;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
+import android.os.Bundle;
+import android.os.Process;
+import android.os.UserManager;
+import android.widget.TextView;
 
 public class NonMainActivity extends Activity {
 
+    @Override
+    public void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+        setContentView(R.layout.non_main);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        TextView textView = findViewById(R.id.user_textview2);
+        textView.setText(Long.toString(getCurrentUserSerialNumber()));
+    }
+
     public static ComponentName getComponentName(Context context) {
         return new ComponentName(context, NonMainActivity.class);
+    }
+
+    private long getCurrentUserSerialNumber() {
+        UserManager userManager = getSystemService(UserManager.class);
+        return userManager.getSerialNumberForUser(Process.myUserHandle());
     }
 }

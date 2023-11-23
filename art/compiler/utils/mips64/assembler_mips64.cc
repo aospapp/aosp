@@ -18,9 +18,9 @@
 
 #include "base/bit_utils.h"
 #include "base/casts.h"
+#include "base/memory_region.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
-#include "memory_region.h"
 #include "thread.h"
 
 namespace art {
@@ -52,7 +52,7 @@ void Mips64Assembler::PatchCFI() {
     return;
   }
 
-  typedef DebugFrameOpCodeWriterForAssembler::DelayedAdvancePC DelayedAdvancePC;
+  using DelayedAdvancePC = DebugFrameOpCodeWriterForAssembler::DelayedAdvancePC;
   const auto data = cfi().ReleaseStreamAndPrepareForDelayedAdvancePC();
   const std::vector<uint8_t>& old_stream = data.first;
   const std::vector<DelayedAdvancePC>& advances = data.second;
@@ -2279,6 +2279,26 @@ void Mips64Assembler::Hadd_uD(VectorRegister wd, VectorRegister ws, VectorRegist
   EmitMsa3R(0x5, 0x3, wt, ws, wd, 0x15);
 }
 
+void Mips64Assembler::PcntB(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  EmitMsa2R(0xc1, 0x0, ws, wd, 0x1e);
+}
+
+void Mips64Assembler::PcntH(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  EmitMsa2R(0xc1, 0x1, ws, wd, 0x1e);
+}
+
+void Mips64Assembler::PcntW(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  EmitMsa2R(0xc1, 0x2, ws, wd, 0x1e);
+}
+
+void Mips64Assembler::PcntD(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  EmitMsa2R(0xc1, 0x3, ws, wd, 0x1e);
+}
+
 void Mips64Assembler::ReplicateFPToVectorRegister(VectorRegister dst,
                                                   FpuRegister src,
                                                   bool is_double) {
@@ -2435,7 +2455,7 @@ Mips64Assembler::Branch::Branch(uint32_t location, uint32_t target, bool is_call
       condition_(kUncond) {
   InitializeType(
       (is_call ? (is_bare ? kBareCall : kCall) : (is_bare ? kBareCondBranch : kCondBranch)),
-      /* is_r6 */ true);
+      /* is_r6= */ true);
 }
 
 Mips64Assembler::Branch::Branch(bool is_r6,
@@ -2496,7 +2516,7 @@ Mips64Assembler::Branch::Branch(uint32_t location, GpuRegister dest_reg, Type la
       rhs_reg_(ZERO),
       condition_(kUncond) {
   CHECK_NE(dest_reg, ZERO);
-  InitializeType(label_or_literal_type, /* is_r6 */ true);
+  InitializeType(label_or_literal_type, /* is_r6= */ true);
 }
 
 Mips64Assembler::BranchCondition Mips64Assembler::Branch::OppositeCondition(
@@ -2869,14 +2889,14 @@ void Mips64Assembler::FinalizeLabeledBranch(Mips64Label* label) {
     label->LinkTo(branch_id);
   }
   // Reserve space for the branch.
-  while (length--) {
+  for (; length != 0u; --length) {
     Nop();
   }
 }
 
 void Mips64Assembler::Buncond(Mips64Label* label, bool is_bare) {
   uint32_t target = label->IsBound() ? GetLabelLocation(label) : Branch::kUnresolved;
-  branches_.emplace_back(buffer_.Size(), target, /* is_call */ false, is_bare);
+  branches_.emplace_back(buffer_.Size(), target, /* is_call= */ false, is_bare);
   FinalizeLabeledBranch(label);
 }
 
@@ -2897,7 +2917,7 @@ void Mips64Assembler::Bcond(Mips64Label* label,
 
 void Mips64Assembler::Call(Mips64Label* label, bool is_bare) {
   uint32_t target = label->IsBound() ? GetLabelLocation(label) : Branch::kUnresolved;
-  branches_.emplace_back(buffer_.Size(), target, /* is_call */ true, is_bare);
+  branches_.emplace_back(buffer_.Size(), target, /* is_call= */ true, is_bare);
   FinalizeLabeledBranch(label);
 }
 
@@ -3258,99 +3278,99 @@ void Mips64Assembler::Balc(Mips64Label* label, bool is_bare) {
 }
 
 void Mips64Assembler::Bltc(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLT, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLT, rs, rt);
 }
 
 void Mips64Assembler::Bltzc(GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLTZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLTZ, rt);
 }
 
 void Mips64Assembler::Bgtzc(GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGTZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGTZ, rt);
 }
 
 void Mips64Assembler::Bgec(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGE, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGE, rs, rt);
 }
 
 void Mips64Assembler::Bgezc(GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGEZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGEZ, rt);
 }
 
 void Mips64Assembler::Blezc(GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLEZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLEZ, rt);
 }
 
 void Mips64Assembler::Bltuc(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLTU, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLTU, rs, rt);
 }
 
 void Mips64Assembler::Bgeuc(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGEU, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGEU, rs, rt);
 }
 
 void Mips64Assembler::Beqc(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondEQ, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondEQ, rs, rt);
 }
 
 void Mips64Assembler::Bnec(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondNE, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondNE, rs, rt);
 }
 
 void Mips64Assembler::Beqzc(GpuRegister rs, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondEQZ, rs);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondEQZ, rs);
 }
 
 void Mips64Assembler::Bnezc(GpuRegister rs, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondNEZ, rs);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondNEZ, rs);
 }
 
 void Mips64Assembler::Bc1eqz(FpuRegister ft, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondF, static_cast<GpuRegister>(ft), ZERO);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondF, static_cast<GpuRegister>(ft), ZERO);
 }
 
 void Mips64Assembler::Bc1nez(FpuRegister ft, Mips64Label* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondT, static_cast<GpuRegister>(ft), ZERO);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondT, static_cast<GpuRegister>(ft), ZERO);
 }
 
 void Mips64Assembler::Bltz(GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondLTZ, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondLTZ, rt);
 }
 
 void Mips64Assembler::Bgtz(GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondGTZ, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondGTZ, rt);
 }
 
 void Mips64Assembler::Bgez(GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondGEZ, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondGEZ, rt);
 }
 
 void Mips64Assembler::Blez(GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondLEZ, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondLEZ, rt);
 }
 
 void Mips64Assembler::Beq(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondEQ, rs, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondEQ, rs, rt);
 }
 
 void Mips64Assembler::Bne(GpuRegister rs, GpuRegister rt, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondNE, rs, rt);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondNE, rs, rt);
 }
 
 void Mips64Assembler::Beqz(GpuRegister rs, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondEQZ, rs);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondEQZ, rs);
 }
 
 void Mips64Assembler::Bnez(GpuRegister rs, Mips64Label* label, bool is_bare) {
   CHECK(is_bare);
-  Bcond(label, /* is_r6 */ false, is_bare, kCondNEZ, rs);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondNEZ, rs);
 }
 
 void Mips64Assembler::AdjustBaseAndOffset(GpuRegister& base,
@@ -3613,9 +3633,8 @@ void Mips64Assembler::BuildFrame(size_t frame_size,
 
   // Write out entry spills.
   int32_t offset = frame_size + kFramePointerSize;
-  for (size_t i = 0; i < entry_spills.size(); ++i) {
-    Mips64ManagedRegister reg = entry_spills[i].AsMips64();
-    ManagedRegisterSpill spill = entry_spills.at(i);
+  for (const ManagedRegisterSpill& spill : entry_spills) {
+    Mips64ManagedRegister reg = spill.AsMips64();
     int32_t size = spill.getSize();
     if (reg.IsNoRegister()) {
       // only increment stack offset.

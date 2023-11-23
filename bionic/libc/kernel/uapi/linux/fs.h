@@ -21,6 +21,7 @@
 #include <linux/limits.h>
 #include <linux/ioctl.h>
 #include <linux/types.h>
+#include <linux/mount.h>
 #undef NR_OPEN
 #define INR_OPEN_CUR 1024
 #define INR_OPEN_MAX 4096
@@ -74,40 +75,6 @@ struct inodes_stat_t {
   long dummy[5];
 };
 #define NR_FILE 8192
-#define MS_RDONLY 1
-#define MS_NOSUID 2
-#define MS_NODEV 4
-#define MS_NOEXEC 8
-#define MS_SYNCHRONOUS 16
-#define MS_REMOUNT 32
-#define MS_MANDLOCK 64
-#define MS_DIRSYNC 128
-#define MS_NOATIME 1024
-#define MS_NODIRATIME 2048
-#define MS_BIND 4096
-#define MS_MOVE 8192
-#define MS_REC 16384
-#define MS_VERBOSE 32768
-#define MS_SILENT 32768
-#define MS_POSIXACL (1 << 16)
-#define MS_UNBINDABLE (1 << 17)
-#define MS_PRIVATE (1 << 18)
-#define MS_SLAVE (1 << 19)
-#define MS_SHARED (1 << 20)
-#define MS_RELATIME (1 << 21)
-#define MS_KERNMOUNT (1 << 22)
-#define MS_I_VERSION (1 << 23)
-#define MS_STRICTATIME (1 << 24)
-#define MS_LAZYTIME (1 << 25)
-#define MS_SUBMOUNT (1 << 26)
-#define MS_NOREMOTELOCK (1 << 27)
-#define MS_NOSEC (1 << 28)
-#define MS_BORN (1 << 29)
-#define MS_ACTIVE (1 << 30)
-#define MS_NOUSER (1 << 31)
-#define MS_RMT_MASK (MS_RDONLY | MS_SYNCHRONOUS | MS_MANDLOCK | MS_I_VERSION | MS_LAZYTIME)
-#define MS_MGC_VAL 0xC0ED0000
-#define MS_MGC_MSK 0xffff0000
 struct fsxattr {
   __u32 fsx_xflags;
   __u32 fsx_extsize;
@@ -170,6 +137,7 @@ struct fsxattr {
 #define FICLONE _IOW(0x94, 9, int)
 #define FICLONERANGE _IOW(0x94, 13, struct file_clone_range)
 #define FIDEDUPERANGE _IOWR(0x94, 54, struct file_dedupe_range)
+#define FSLABEL_MAX 256
 #define FS_IOC_GETFLAGS _IOR('f', 1, long)
 #define FS_IOC_SETFLAGS _IOW('f', 2, long)
 #define FS_IOC_GETVERSION _IOR('v', 1, long)
@@ -181,13 +149,16 @@ struct fsxattr {
 #define FS_IOC32_SETVERSION _IOW('v', 2, int)
 #define FS_IOC_FSGETXATTR _IOR('X', 31, struct fsxattr)
 #define FS_IOC_FSSETXATTR _IOW('X', 32, struct fsxattr)
+#define FS_IOC_GETFSLABEL _IOR(0x94, 49, char[FSLABEL_MAX])
+#define FS_IOC_SETFSLABEL _IOW(0x94, 50, char[FSLABEL_MAX])
 #define FS_KEY_DESCRIPTOR_SIZE 8
 #define FS_POLICY_FLAGS_PAD_4 0x00
 #define FS_POLICY_FLAGS_PAD_8 0x01
 #define FS_POLICY_FLAGS_PAD_16 0x02
 #define FS_POLICY_FLAGS_PAD_32 0x03
 #define FS_POLICY_FLAGS_PAD_MASK 0x03
-#define FS_POLICY_FLAGS_VALID 0x03
+#define FS_POLICY_FLAG_DIRECT_KEY 0x04
+#define FS_POLICY_FLAGS_VALID 0x07
 #define FS_ENCRYPTION_MODE_INVALID 0
 #define FS_ENCRYPTION_MODE_AES_256_XTS 1
 #define FS_ENCRYPTION_MODE_AES_256_GCM 2
@@ -195,6 +166,9 @@ struct fsxattr {
 #define FS_ENCRYPTION_MODE_AES_256_CTS 4
 #define FS_ENCRYPTION_MODE_AES_128_CBC 5
 #define FS_ENCRYPTION_MODE_AES_128_CTS 6
+#define FS_ENCRYPTION_MODE_SPECK128_256_XTS 7
+#define FS_ENCRYPTION_MODE_SPECK128_256_CTS 8
+#define FS_ENCRYPTION_MODE_ADIANTUM 9
 struct fscrypt_policy {
   __u8 version;
   __u8 contents_encryption_mode;
@@ -250,5 +224,6 @@ typedef int __bitwise __kernel_rwf_t;
 #define RWF_DSYNC ((__force __kernel_rwf_t) 0x00000002)
 #define RWF_SYNC ((__force __kernel_rwf_t) 0x00000004)
 #define RWF_NOWAIT ((__force __kernel_rwf_t) 0x00000008)
-#define RWF_SUPPORTED (RWF_HIPRI | RWF_DSYNC | RWF_SYNC | RWF_NOWAIT)
+#define RWF_APPEND ((__force __kernel_rwf_t) 0x00000010)
+#define RWF_SUPPORTED (RWF_HIPRI | RWF_DSYNC | RWF_SYNC | RWF_NOWAIT | RWF_APPEND)
 #endif

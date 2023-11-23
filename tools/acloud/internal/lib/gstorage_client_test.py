@@ -3,15 +3,17 @@
 import io
 import time
 
-import apiclient
+import unittest
 import mock
 
-import unittest
+import apiclient
+
+from acloud import errors
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import gstorage_client
-from acloud.public import errors
 
 
+# pylint: disable=protected-access, no-member
 class StorageClientTest(driver_test_lib.BaseDriverTest):
     """Test StorageClient."""
 
@@ -82,8 +84,8 @@ class StorageClientTest(driver_test_lib.BaseDriverTest):
         # Verify
         self.assertEqual(response, mock_response)
         io.FileIO.assert_called_with(self.LOCAL_SRC, mode="rb")
-        apiclient.http.MediaIoBaseUpload.assert_called_with(mock_file,
-                                                            self.MIME_TYPE)
+        apiclient.http.MediaIoBaseUpload.assert_called_with(
+            mock_file, self.MIME_TYPE)
         resource_mock.insert.assert_called_with(
             bucket=self.BUCKET, name=self.OBJECT, media_body=mock_media)
 
@@ -114,14 +116,15 @@ class StorageClientTest(driver_test_lib.BaseDriverTest):
         self.client._service.objects = mock.MagicMock(
             return_value=resource_mock)
         resource_mock.delete = mock.MagicMock(return_value=mock_api)
-        deleted, failed, error_msgs = self.client.DeleteFiles(self.BUCKET,
-                                                              fake_objs)
+        deleted, failed, error_msgs = self.client.DeleteFiles(
+            self.BUCKET, fake_objs)
         self.assertEqual(deleted, fake_objs)
         self.assertEqual(failed, [])
         self.assertEqual(error_msgs, [])
-        calls = [mock.call(
-            bucket=self.BUCKET, object="fake_obj1"), mock.call(
-                bucket=self.BUCKET, object="fake_obj2")]
+        calls = [
+            mock.call(bucket=self.BUCKET, object="fake_obj1"),
+            mock.call(bucket=self.BUCKET, object="fake_obj2")
+        ]
         resource_mock.delete.assert_has_calls(calls)
         self.assertEqual(mock_api.execute.call_count, 2)
 

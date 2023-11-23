@@ -14,7 +14,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_nightly, suite:chameleon_audio"
+ATTRIBUTES = "suite:chameleon_audio_unstable"
 DEPENDENCIES = "chameleon, audio_board, test_audiojack"
 JOB_RETRIES = 2
 

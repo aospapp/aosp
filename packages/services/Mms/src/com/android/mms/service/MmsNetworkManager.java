@@ -24,7 +24,6 @@ import android.net.NetworkInfo;
 import android.net.NetworkRequest;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 
 import com.android.mms.service.exception.MmsNetworkException;
 
@@ -154,24 +153,26 @@ public class MmsNetworkManager {
                 LogUtil.d(requestId, "MmsNetworkManager: start new network request");
                 startNewNetworkRequestLocked();
             }
-            final long shouldEnd = SystemClock.elapsedRealtime() + NETWORK_ACQUIRE_TIMEOUT_MILLIS;
-            long waitTime = NETWORK_ACQUIRE_TIMEOUT_MILLIS;
-            while (waitTime > 0) {
-                try {
-                    this.wait(waitTime);
-                } catch (InterruptedException e) {
-                    LogUtil.w(requestId, "MmsNetworkManager: acquire network wait interrupted");
-                }
-                if (mNetwork != null) {
-                    // Success
-                    return;
-                }
-                // Calculate remaining waiting time to make sure we wait the full timeout period
-                waitTime = shouldEnd - SystemClock.elapsedRealtime();
+            try {
+                this.wait(NETWORK_ACQUIRE_TIMEOUT_MILLIS);
+            } catch (InterruptedException e) {
+                LogUtil.w(requestId, "MmsNetworkManager: acquire network wait interrupted");
             }
-            // Timed out, so release the request and fail
+            if (mNetwork != null) {
+                // Success
+                return;
+            }
+
+            // Timed out
             LogUtil.e(requestId, "MmsNetworkManager: timed out");
-            releaseRequestLocked(mNetworkCallback);
+            if (mNetworkCallback != null) {
+                // Release the network request and wake up all the MmsRequests for fast-fail
+                // together.
+                // TODO: Start new network request for remaining MmsRequests?
+                releaseRequestLocked(mNetworkCallback);
+                this.notifyAll();
+            }
+
             throw new MmsNetworkException("Acquiring network timed out");
         }
     }

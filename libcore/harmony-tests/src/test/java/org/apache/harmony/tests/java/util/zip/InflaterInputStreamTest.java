@@ -488,8 +488,8 @@ public class InflaterInputStreamTest extends TestCaseWithRules {
     }
 
     // http://b/26462400
-    public void testInflaterInputStreamWithExternalInflater() throws Exception {
-        InputStream base = new ByteArrayInputStream(new byte[] { 'h', 'i'});
+    public void testInflaterInputStreamWithExternalInflater_3ArgConstructor() throws Exception {
+        InputStream base = new ByteArrayInputStream(new byte[]{'h', 'i'});
         Inflater inf = new Inflater();
 
         InflaterInputStream iis = new InflaterInputStream(base, inf, 512);
@@ -497,17 +497,21 @@ public class InflaterInputStreamTest extends TestCaseWithRules {
         try {
             inf.reset();
             fail();
-        } catch (IllegalStateException espected) {
+        } catch (NullPointerException expected) {
             // Expected because the inflater should've been closed when the stream was.
         }
+    }
 
-        inf = new Inflater();
-        iis = new InflaterInputStream(base, inf);
+    // http://b/26462400
+    public void testInflaterInputStreamWithExternalInflater_2ArgConstructor() throws Exception {
+        InputStream base = new ByteArrayInputStream(new byte[]{'h', 'i'});
+        Inflater inf = new Inflater();
+        InflaterInputStream iis = new InflaterInputStream(base, inf);
         iis.close();
         try {
             inf.reset();
             fail();
-        } catch (IllegalStateException espected) {
+        } catch (NullPointerException expected) {
             // Expected because the inflater should've been closed when the stream was.
         }
     }

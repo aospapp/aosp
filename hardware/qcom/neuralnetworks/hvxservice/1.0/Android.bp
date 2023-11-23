@@ -21,6 +21,7 @@ cc_binary {
     relative_install_path: "hw",
     proprietary: true,
     init_rc: ["android.hardware.neuralnetworks@1.0-service-hvx.rc"],
+    enabled: false,
     srcs: [
         "Device.cpp",
         "HexagonController.cpp",
@@ -36,6 +37,7 @@ cc_binary {
     ],
     shared_libs: [
         "libbase",
+        "libcutils",
         "libdl",
         "libhardware",
         "libhidlbase",
@@ -45,6 +47,7 @@ cc_binary {
         "libutils",
         "android.hardware.neuralnetworks@1.0",
         "android.hardware.neuralnetworks@1.1",
+        "android.hardware.neuralnetworks@1.2",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
     ],

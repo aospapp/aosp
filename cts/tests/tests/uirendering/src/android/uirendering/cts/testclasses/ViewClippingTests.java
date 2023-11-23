@@ -6,8 +6,6 @@ import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.Path;
 import android.graphics.Rect;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
@@ -17,6 +15,9 @@ import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -109,7 +110,8 @@ public class ViewClippingTests extends ActivityTestBase {
 
     @Test
     public void testOvalOutlineClip() {
-        // In hw this works because clipping to a non-round rect isn't supported, and is no-op'd.
+        // In hw this works because clipping to an arbitrary path (i.e. not a rectangle, round rect
+        // or circle) isn't supported, and is no-op'd.
         // In sw this works because Outline clipping isn't supported.
         createTest()
                 .addLayout(R.layout.blue_padded_layout, view -> {
@@ -121,10 +123,35 @@ public class ViewClippingTests extends ActivityTestBase {
                             mPath.addOval(0, 0, view.getWidth(), view.getHeight(),
                                     Path.Direction.CW);
                             outline.setConvexPath(mPath);
-                            assertFalse(outline.canClip()); // NOTE: non-round-rect, so can't clip
+                            assertFalse(outline.canClip());
                         }
                     });
-                    view.setClipToOutline(true); // should do nothing, since non-rect clip
+                    view.setClipToOutline(true); // should do nothing
+                })
+                .runWithVerifier(makeClipVerifier(FULL_RECT));
+    }
+
+    @Test
+    public void testConcaveOutlineClip() {
+        // As of Q, Outline#setConvexPath no longer throws on a concave path, but as above, it does
+        // not result in clipping. (hw no-op's the arbitrary path, and sw doesn't support Outline
+        // clipping.)
+        createTest()
+                .addLayout(R.layout.blue_padded_layout, view -> {
+                    view.setOutlineProvider(new ViewOutlineProvider() {
+                        Path mPath = new Path();
+                        @Override
+                        public void getOutline(View view, Outline outline) {
+                            mPath.reset();
+                            mPath.addRect(0, 0, 10, 100, Path.Direction.CW);
+                            mPath.addRect(0, 0, 100, 10, Path.Direction.CW);
+                            assertFalse(mPath.isConvex());
+
+                            outline.setConvexPath(mPath);
+                            assertFalse(outline.canClip());
+                        }
+                    });
+                    view.setClipToOutline(true); // should do nothing
                 })
                 .runWithVerifier(makeClipVerifier(FULL_RECT));
     }

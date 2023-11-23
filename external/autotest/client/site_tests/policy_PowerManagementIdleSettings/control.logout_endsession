@@ -4,7 +4,8 @@
 
 AUTHOR = 'scunningham'
 NAME = 'policy_PowerManagementIdleSettings.logout_endsession'
-ATTRIBUTES = 'suite:regression, suite:policy'
+#TODO (kathrelkeld): Re-enable this test once issue 840558 is resolved.
+#ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'enterprise'

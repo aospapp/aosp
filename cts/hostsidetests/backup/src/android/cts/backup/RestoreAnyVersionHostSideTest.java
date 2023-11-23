@@ -18,6 +18,8 @@ package android.cts.backup;
 
 import static org.junit.Assert.assertNull;
 
+import android.platform.test.annotations.AppModeFull;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -34,6 +36,7 @@ import org.junit.runner.RunWith;
  * android.cts.backup.restoreanyversionapp.RestoreAnyVersionTest.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull
 public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
 
     /** The name of the package of the app under test */
@@ -85,7 +88,7 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
         saveSharedPreferenceValue();
         checkRestoreAnyVersionDeviceTest("checkSharedPrefIsNew");
 
-        backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
 
         assertNull(uninstallPackage(RESTORE_ANY_VERSION_APP_PACKAGE));
 
@@ -111,7 +114,7 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
         saveSharedPreferenceValue();
         checkRestoreAnyVersionDeviceTest("checkSharedPrefIsNew");
 
-        backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
 
         assertNull(uninstallPackage(RESTORE_ANY_VERSION_APP_PACKAGE));
 
@@ -137,7 +140,7 @@ public class RestoreAnyVersionHostSideTest extends BaseBackupHostSideTest {
         saveSharedPreferenceValue();
         checkRestoreAnyVersionDeviceTest("checkSharedPrefIsOld");
 
-        backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(RESTORE_ANY_VERSION_APP_PACKAGE);
 
         assertNull(uninstallPackage(RESTORE_ANY_VERSION_APP_PACKAGE));
 

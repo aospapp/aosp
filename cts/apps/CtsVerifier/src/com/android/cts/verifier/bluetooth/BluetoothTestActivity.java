@@ -24,6 +24,7 @@ import com.android.cts.verifier.ManifestTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,6 +69,10 @@ public class BluetoothTestActivity extends PassFailButtons.TestListActivity {
                   "com.android.cts.verifier.bluetooth.BleScannerTestActivity");
             disabledTestArray.add(
                   "com.android.cts.verifier.bluetooth.BleConnectionPriorityServerBaseActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleInsecureServerTestListActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleSecureServerTestListActivity");
         }
         setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
                 disabledTestArray.toArray(new String[disabledTestArray.size()])));

@@ -20,7 +20,7 @@
 #include <stdio_ext.h>
 #include <stdlib.h>
 
-#include <android-base/test_utils.h>
+#include <android-base/file.h>
 #include <benchmark/benchmark.h>
 #include "util.h"
 
@@ -43,7 +43,7 @@ void ReadWriteTest(benchmark::State& state, Fn f, bool buffered) {
   char* buf = new char[chunk_size];
 
   if (!buffered) {
-    setvbuf(fp, 0, _IONBF, 0);
+    setvbuf(fp, nullptr, _IONBF, 0);
   }
 
   while (state.KeepRunning()) {

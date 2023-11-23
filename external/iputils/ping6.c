@@ -1262,8 +1262,6 @@ int main(int argc, char *argv[])
 
 	setup(icmp_sock);
 
-	drop_capabilities();
-
 	main_loop(icmp_sock, packet, packlen);
 }
 

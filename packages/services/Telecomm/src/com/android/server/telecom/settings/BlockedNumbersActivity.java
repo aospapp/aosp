@@ -121,6 +121,7 @@ public class BlockedNumbersActivity extends ListActivity
 
         mAddButton = (TextView) findViewById(R.id.add_blocked);
         mAddButton.setOnClickListener(this);
+        mAddButton.setContentDescription(getText(R.string.block_number));
 
         mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
         String[] fromColumns = {BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER};

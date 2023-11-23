@@ -35,7 +35,8 @@ class platform_MemCheck(test.test):
             vmemref = 210000
 
         speedref = 1333
-        os_reserve = 600000
+        os_reserve_min = 600000
+        os_reserve_ratio = 0.04
 
         # size reported in /sys/block/zram0/disksize is in byte
         swapref = int(utils.read_one_line(self.swap_disksize_file)) / 1024
@@ -52,6 +53,9 @@ class platform_MemCheck(test.test):
         # memref is in KB but phy_size is in MB
         phy_size *= 1024
         keyval['PhysicalSize'] = phy_size
+
+        # scale OS reserve size with memory size
+        os_reserve = max(os_reserve_min, int(phy_size * os_reserve_ratio))
         memref = max(memref, phy_size - os_reserve)
 
         ref = {'MemTotal': memref,

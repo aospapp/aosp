@@ -32,11 +32,6 @@ import android.app.Instrumentation;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -44,6 +39,13 @@ import android.view.View;
 import android.widget.Toolbar;
 import android.widget.cts.util.TestUtils;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
@@ -166,13 +168,11 @@ public class ToolbarTest {
 
         // Ask to show overflow menu and check that it's showing
         mActivityRule.runOnUiThread(() -> mMainToolbar.showOverflowMenu());
-        mInstrumentation.waitForIdleSync();
-        assertTrue(mMainToolbar.isOverflowMenuShowing());
+        PollingCheck.waitFor(() -> mMainToolbar.isOverflowMenuShowing());
 
         // Ask to hide the overflow menu and check that it's not showing
         mActivityRule.runOnUiThread(() -> mMainToolbar.hideOverflowMenu());
-        mInstrumentation.waitForIdleSync();
-        assertFalse(mMainToolbar.isOverflowMenuShowing());
+        PollingCheck.waitFor(() -> !mMainToolbar.isOverflowMenuShowing());
     }
 
     @Test
@@ -184,8 +184,7 @@ public class ToolbarTest {
 
         // Ask to show overflow menu and check that it's showing
         mActivityRule.runOnUiThread(mMainToolbar::showOverflowMenu);
-        mInstrumentation.waitForIdleSync();
-        assertTrue(mMainToolbar.isOverflowMenuShowing());
+        PollingCheck.waitFor(() -> mMainToolbar.isOverflowMenuShowing());
 
         // Register a mock menu item click listener on the toolbar
         Toolbar.OnMenuItemClickListener menuItemClickListener =
@@ -202,8 +201,7 @@ public class ToolbarTest {
 
         // Ask to dismiss all the popups and check that we're not showing the overflow menu
         mActivityRule.runOnUiThread(mMainToolbar::dismissPopupMenus);
-        mInstrumentation.waitForIdleSync();
-        assertFalse(mMainToolbar.isOverflowMenuShowing());
+        PollingCheck.waitFor(() -> !mMainToolbar.isOverflowMenuShowing());
     }
 
     @Test
@@ -233,29 +231,25 @@ public class ToolbarTest {
         // action view
         final MenuItem searchMenuItem = mMainToolbar.getMenu().findItem(R.id.action_search);
         mActivityRule.runOnUiThread(searchMenuItem::expandActionView);
-        mInstrumentation.waitForIdleSync();
-        assertTrue(searchMenuItem.isActionViewExpanded());
-        assertTrue(mMainToolbar.hasExpandedActionView());
+        PollingCheck.waitFor(() ->
+                searchMenuItem.isActionViewExpanded() && mMainToolbar.hasExpandedActionView());
 
         // Collapse search menu item's action view and verify that main toolbar doesn't have an
         // expanded action view
         mActivityRule.runOnUiThread(searchMenuItem::collapseActionView);
-        mInstrumentation.waitForIdleSync();
-        assertFalse(searchMenuItem.isActionViewExpanded());
-        assertFalse(mMainToolbar.hasExpandedActionView());
+        PollingCheck.waitFor(() ->
+                !searchMenuItem.isActionViewExpanded() && !mMainToolbar.hasExpandedActionView());
 
         // Expand search menu item's action view again
         mActivityRule.runOnUiThread(searchMenuItem::expandActionView);
-        mInstrumentation.waitForIdleSync();
-        assertTrue(searchMenuItem.isActionViewExpanded());
-        assertTrue(mMainToolbar.hasExpandedActionView());
+        PollingCheck.waitFor(() ->
+                searchMenuItem.isActionViewExpanded() && mMainToolbar.hasExpandedActionView());
 
         // Now collapse search menu item's action view via toolbar's API and verify that main
         // toolbar doesn't have an expanded action view
         mActivityRule.runOnUiThread(mMainToolbar::collapseActionView);
-        mInstrumentation.waitForIdleSync();
-        assertFalse(searchMenuItem.isActionViewExpanded());
-        assertFalse(mMainToolbar.hasExpandedActionView());
+        PollingCheck.waitFor(() ->
+                !searchMenuItem.isActionViewExpanded() && !mMainToolbar.hasExpandedActionView());
     }
 
     @Test
@@ -284,6 +278,42 @@ public class ToolbarTest {
         mActivityRule.runOnUiThread(
                 () -> mMainToolbar.setNavigationContentDescription("Navigation legend"));
         assertEquals("Navigation legend", mMainToolbar.getNavigationContentDescription());
+    }
+
+    @Test
+    public void testCollapseConfiguration() throws Throwable {
+        // Inflate menu and expand action view to display collapse button
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mMainToolbar,
+                () -> mMainToolbar.inflateMenu(R.menu.toolbar_menu_search));
+        final MenuItem searchMenuItem = mMainToolbar.getMenu().findItem(R.id.action_search);
+        mActivityRule.runOnUiThread(searchMenuItem::expandActionView);
+        PollingCheck.waitFor(() ->
+                searchMenuItem.isActionViewExpanded() && mMainToolbar.hasExpandedActionView());
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mMainToolbar,
+                () -> mMainToolbar.setCollapseIcon(R.drawable.icon_green));
+        Drawable toolbarCollapseIcon = mMainToolbar.getCollapseIcon();
+        TestUtils.assertAllPixelsOfColor("Collapse icon is green", toolbarCollapseIcon,
+                toolbarCollapseIcon.getIntrinsicWidth(),
+                toolbarCollapseIcon.getIntrinsicHeight(),
+                true, Color.GREEN, 1, false);
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mMainToolbar,
+                () -> mMainToolbar.setCollapseIcon(mActivity.getDrawable(R.drawable.icon_blue)));
+        toolbarCollapseIcon = mMainToolbar.getCollapseIcon();
+        TestUtils.assertAllPixelsOfColor("Collapse icon is blue", toolbarCollapseIcon,
+                toolbarCollapseIcon.getIntrinsicWidth(),
+                toolbarCollapseIcon.getIntrinsicHeight(),
+                true, Color.BLUE, 1, false);
+
+        mActivityRule.runOnUiThread(
+                () -> mMainToolbar.setCollapseContentDescription(R.string.toolbar_collapse));
+        assertEquals(mActivity.getResources().getString(R.string.toolbar_collapse),
+                mMainToolbar.getCollapseContentDescription());
+
+        mActivityRule.runOnUiThread(
+                () -> mMainToolbar.setCollapseContentDescription("Collapse legend"));
+        assertEquals("Collapse legend", mMainToolbar.getCollapseContentDescription());
     }
 
     @Test

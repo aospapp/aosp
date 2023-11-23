@@ -24,8 +24,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.graphics.ColorSpace;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -313,17 +314,19 @@ public class ColorSpaceTest {
 
     @Test
     public void testIsSRGB() {
-        assertTrue(ColorSpace.get(ColorSpace.Named.SRGB).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.LINEAR_SRGB).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.DISPLAY_P3).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.CIE_LAB).isSrgb());
-        assertFalse(ColorSpace.get(ColorSpace.Named.CIE_XYZ).isSrgb());
+        for (ColorSpace.Named e : ColorSpace.Named.values()) {
+            ColorSpace colorSpace = ColorSpace.get(e);
+            if (e == ColorSpace.Named.SRGB) {
+                assertTrue(colorSpace.isSrgb());
+            } else {
+                assertFalse("Incorrectly treating " + colorSpace + " as SRGB!",
+                            colorSpace.isSrgb());
+            }
+        }
 
-        ColorSpace.Rgb cs = new ColorSpace.Rgb("My sRGB", SRGB_TO_XYZ,
+        ColorSpace.Rgb cs = new ColorSpace.Rgb("Almost sRGB", SRGB_TO_XYZ,
                 x -> Math.pow(x, 1.0f / 2.2f), x -> Math.pow(x, 2.2f));
-        assertTrue(cs.isSrgb());
+        assertFalse(cs.isSrgb());
     }
 
     @Test
@@ -744,6 +747,10 @@ public class ColorSpaceTest {
         assertNotNull(colorSpace.getTransferParameters());
 
         colorSpace = (ColorSpace.Rgb) ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB);
+        assertNotNull(colorSpace.getTransferParameters());
+
+        colorSpace = new ColorSpace.Rgb("Almost sRGB", SRGB_TO_XYZ,
+                x -> Math.pow(x, 1.0f / 2.2f), x -> Math.pow(x, 2.2f));
         assertNull(colorSpace.getTransferParameters());
     }
 

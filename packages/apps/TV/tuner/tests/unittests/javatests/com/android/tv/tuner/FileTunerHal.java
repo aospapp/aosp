@@ -76,7 +76,7 @@ public class FileTunerHal extends TunerHal {
     }
 
     @Override
-    protected boolean openFirstAvailable() {
+    public boolean openFirstAvailable() {
         sIsDeviceOpen = true;
         getDeliverySystemTypeFromDevice();
         return true;
@@ -86,12 +86,12 @@ public class FileTunerHal extends TunerHal {
     public void close() {}
 
     @Override
-    protected boolean isDeviceOpen() {
+    public boolean isDeviceOpen() {
         return sIsDeviceOpen;
     }
 
     @Override
-    protected long getDeviceId() {
+    public long getDeviceId() {
         return DEVICE_ID;
     }
 

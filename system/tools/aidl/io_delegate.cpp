@@ -23,7 +23,9 @@
 #ifdef _WIN32
 #include <direct.h>
 #else
+#include <dirent.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -117,9 +119,7 @@ bool IoDelegate::FileIsReadable(const string& path) const {
 #endif
 }
 
-bool IoDelegate::CreatedNestedDirs(
-    const string& caller_base_dir,
-    const vector<string>& nested_subdirs) const {
+static bool CreateNestedDirs(const string& caller_base_dir, const vector<string>& nested_subdirs) {
   string base_dir = caller_base_dir;
   if (base_dir.empty()) {
     base_dir = ".";
@@ -146,7 +146,7 @@ bool IoDelegate::CreatedNestedDirs(
   return true;
 }
 
-bool IoDelegate::CreatePathForFile(const string& path) const {
+bool IoDelegate::CreateDirForPath(const string& path) const {
   if (path.empty()) {
     return true;
   }
@@ -156,7 +156,7 @@ bool IoDelegate::CreatePathForFile(const string& path) const {
     return false;
   }
 
-  auto directories = Split(absolute_path, string{1u, OS_PATH_SEPARATOR});
+  auto directories = Split(absolute_path, string{OS_PATH_SEPARATOR});
 
   // The "base" directory is just the root of the file system.  On Windows,
   // this will look like "C:\" but on Unix style file systems we get an empty
@@ -168,14 +168,21 @@ bool IoDelegate::CreatePathForFile(const string& path) const {
   directories.erase(directories.begin());
 
   // Remove the actual file in question, we're just creating the directory path.
-  directories.pop_back();
+  bool is_file = path.back() != OS_PATH_SEPARATOR;
+  if (is_file) {
+    directories.pop_back();
+  }
 
-  return CreatedNestedDirs(base, directories);
+  return CreateNestedDirs(base, directories);
 }
 
 unique_ptr<CodeWriter> IoDelegate::GetCodeWriter(
     const string& file_path) const {
-  return GetFileWriter(file_path);
+  if (CreateDirForPath(file_path)) {
+    return CodeWriter::ForFile(file_path);
+  } else {
+    return nullptr;
+  }
 }
 
 void IoDelegate::RemovePath(const std::string& file_path) const {
@@ -185,6 +192,37 @@ void IoDelegate::RemovePath(const std::string& file_path) const {
   unlink(file_path.c_str());
 #endif
 }
+
+#ifdef _WIN32
+vector<string> IoDelegate::ListFiles(const string&) const {
+  vector<string> result;
+  return result;
+}
+
+#else
+static void add_list_files(const string& dirname, vector<string>* result) {
+  CHECK(result != nullptr);
+  std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(dirname.c_str()), closedir);
+  if (dir != nullptr) {
+    while (struct dirent* ent = readdir(dir.get())) {
+      if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+        continue;
+      }
+      if (ent->d_type == DT_REG) {
+        result->emplace_back(dirname + OS_PATH_SEPARATOR + ent->d_name);
+      } else if (ent->d_type == DT_DIR) {
+        add_list_files(dirname + OS_PATH_SEPARATOR + ent->d_name, result);
+      }
+    }
+  }
+}
+
+vector<string> IoDelegate::ListFiles(const string& dir) const {
+  vector<string> result;
+  add_list_files(dir, &result);
+  return result;
+}
+#endif
 
 }  // namespace android
 }  // namespace aidl

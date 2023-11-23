@@ -15,6 +15,9 @@
  */
 package android.inputmethodservice.cts.common;
 
+/**
+ * Constant table for test EditText app.
+ */
 public class EditTextAppConstants {
     // This is constants holding class, can't instantiate.
     private EditTextAppConstants() {}

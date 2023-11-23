@@ -105,6 +105,7 @@ template <keymaster_tag_type_t tag_type, keymaster_tag_t tag> class TypedTag {
         StaticAssert<(tag & tag_type) == tag_type>::check();
         StaticAssert<(tag_type != KM_ENUM) && (tag_type != KM_ENUM_REP)>::check();
     }
+    // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
     inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
@@ -121,6 +122,7 @@ class TypedEnumTag {
         StaticAssert<(tag & tag_type) == tag_type>::check();
         StaticAssert<(tag_type == KM_ENUM) || (tag_type == KM_ENUM_REP)>::check();
     }
+    // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
     inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
@@ -152,6 +154,7 @@ DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_NO_AUTH_REQUIRED);
 DECLARE_KEYMASTER_TAG(KM_UINT, TAG_AUTH_TIMEOUT);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALLOW_WHILE_ON_BODY);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_UNLOCKED_DEVICE_REQUIRED);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_TRUSTED_CONFIRMATION_REQUIRED);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_APPLICATIONS);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_ID);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_APPLICATION_DATA);

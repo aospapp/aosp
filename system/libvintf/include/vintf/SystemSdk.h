@@ -38,6 +38,9 @@ class SystemSdk {
     // return {v : v in this and not in other}
     SystemSdk removeVersions(const SystemSdk& other) const;
 
+    // Move all from "other" to "this".
+    void addAll(SystemSdk* other);
+
    private:
     friend class AssembleVintfImpl;
     friend struct SystemSdkConverter;

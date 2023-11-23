@@ -22,6 +22,8 @@ using std::cout;
 using std::stringstream;
 using std::unique_ptr;
 
+using test_harness::TestHarness;
+
 DEFINE_bool(nos_test_dump_protos, false, "Dump binary protobufs to a file.");
 DEFINE_int32(test_input_number, -1, "Run a specific test input.");
 

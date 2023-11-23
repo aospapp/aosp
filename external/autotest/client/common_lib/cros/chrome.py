@@ -4,16 +4,14 @@
 
 import logging, os, re
 
+from autotest_lib.client.common_lib.cros import arc_common
 from autotest_lib.client.common_lib.cros import arc_util
+from autotest_lib.client.common_lib.cros import assistant_util
 from autotest_lib.client.cros import constants
 from autotest_lib.client.bin import utils
 from telemetry.core import cros_interface, exceptions, util
 from telemetry.internal.browser import browser_finder, browser_options
 from telemetry.internal.browser import extension_to_load
-
-CAP_USERNAME = 'crosautotest@gmail.com'
-CAP_URL = ('https://sites.google.com/a/chromium.org/dev/chromium-os'
-           '/testing/cros-autotest/cap')
 
 Error = exceptions.Error
 
@@ -56,10 +54,18 @@ class Chrome(object):
                  num_tries=3, extra_browser_args=None,
                  clear_enterprise_policy=True, expect_policy_fetch=False,
                  dont_override_profile=False, disable_gaia_services=True,
-                 disable_default_apps = True, auto_login=True, gaia_login=False,
+                 disable_default_apps=True, auto_login=True, gaia_login=False,
                  username=None, password=None, gaia_id=None,
                  arc_mode=None, disable_arc_opt_in=True,
-                 init_network_controller=False, login_delay=0):
+                 disable_arc_opt_in_verification=True,
+                 disable_app_sync=False,
+                 disable_play_auto_install=False,
+                 disable_locale_sync=True,
+                 disable_play_store_auto_update=True,
+                 enable_assistant=False,
+                 enterprise_arc_test=False,
+                 init_network_controller=False,
+                 login_delay=0):
         """
         Constructor of telemetry wrapper.
 
@@ -90,8 +96,35 @@ class Chrome(object):
                          start.
         @param disable_arc_opt_in: For opt in flow autotest. This option is used
                                    to disable the arc opt in flow.
+        @param disable_arc_opt_in_verification:
+             Adds --disable-arc-opt-in-verification to browser args. This should
+             generally be enabled when disable_arc_opt_in is enabled. However,
+             for data migration tests where user's home data is already set up
+             with opted-in state before login, this option needs to be set to
+             False with disable_arc_opt_in=True to make ARC container work.
+        @param disable_app_sync:
+            Adds --arc-disable-app-sync to browser args and this disables ARC
+            app sync flow. By default it is enabled.
+        @param disable_play_auto_install:
+            Adds --arc-disable-play-auto-install to browser args and this
+            disables ARC Play Auto Install flow. By default it is enabled.
+        @param enterprise_arc_test: Skips opt_in causing enterprise tests to fail
+        @param disable_locale_sync:
+            Adds --arc-disable-locale-sync to browser args and this
+            disables locale sync between Chrome and Android container. In case
+            of disabling sync, Android container is started with language and
+            preference language list as it was set on the moment of starting
+            full instance. Used to prevent random app restarts caused by racy
+            locale change, coming from profile sync. By default locale sync is
+            disabled.
+        @param disable_play_store_auto_update:
+            Adds --arc-play-store-auto-update=off to browser args and this
+            disables Play Store, GMS Core and third-party apps auto-update.
+            By default auto-update is off to have stable autotest environment.
         @param login_delay: Time for idle in login screen to simulate the time
                             required for password typing.
+        @param enable_assistant: For tests that require to enable Google
+                                  Assistant service. Default is False.
         """
         self._autotest_ext_path = None
 
@@ -110,9 +143,21 @@ class Chrome(object):
 
         finder_options = browser_options.BrowserFinderOptions()
         if utils.is_arc_available() and arc_util.should_start_arc(arc_mode):
-            if disable_arc_opt_in:
+            if disable_arc_opt_in and disable_arc_opt_in_verification:
                 finder_options.browser_options.AppendExtraBrowserArgs(
-                        arc_util.get_extra_chrome_flags())
+                        ['--disable-arc-opt-in-verification'])
+            if disable_app_sync:
+                finder_options.browser_options.AppendExtraBrowserArgs(
+                        ['--arc-disable-app-sync'])
+            if disable_play_auto_install:
+                finder_options.browser_options.AppendExtraBrowserArgs(
+                        ['--arc-disable-play-auto-install'])
+            if disable_locale_sync:
+                finder_options.browser_options.AppendExtraBrowserArgs(
+                        ['--arc-disable-locale-sync'])
+            if disable_play_store_auto_update:
+                finder_options.browser_options.AppendExtraBrowserArgs(
+                        ['--arc-play-store-auto-update=off'])
             logged_in = True
 
         self._browser_type = (self.BROWSER_TYPE_LOGIN
@@ -181,8 +226,16 @@ class Chrome(object):
                         if arc_util.should_start_arc(arc_mode):
                             arc_util.enable_play_store(self.autotest_ext, True)
                     else:
-                        arc_util.opt_in(self.browser, self.autotest_ext)
+                        if not enterprise_arc_test:
+                            wait_for_provisioning = \
+                                    arc_mode != arc_common.ARC_MODE_ENABLED_ASYNC
+                            arc_util.opt_in(
+                                    browser = self.browser,
+                                    autotest_ext = self.autotest_ext,
+                                    wait_for_provisioning = wait_for_provisioning)
                     arc_util.post_processing_after_browser(self)
+                if enable_assistant:
+                    assistant_util.enable_assistant(self.autotest_ext)
                 break
             except exceptions.LoginException as e:
                 logging.error('Timed out logging in, tries=%d, error=%s',
@@ -233,7 +286,9 @@ class Chrome(object):
               window.__login_status = s;
             });
         ''')
-        return ext.EvaluateJavaScript('window.__login_status')
+        return utils.poll_for_condition(
+                lambda: ext.EvaluateJavaScript('window.__login_status'),
+                timeout=10)
 
 
     def get_visible_notifications(self):

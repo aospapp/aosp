@@ -13,88 +13,66 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<android.support.constraint.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/car_action_bar_height"
-    android:background="@color/phone_theme"
-    android:elevation = "@dimen/in_call_card_elevation">
+    android:layout_height="@dimen/in_call_controller_bar_height">
     <ImageView
         android:id="@+id/mute_button"
         android:layout_width="@dimen/in_call_button_size"
         android:layout_height="@dimen/in_call_button_size"
         android:scaleType="center"
-        android:src="@drawable/ic_mute"
-        android:tint="@color/primary_icon_color"
+        android:src="@drawable/ic_mute_activatable"
+        android:background="@drawable/dialer_ripple_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/toggle_dialpad_button"
         app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
+        app:layout_constraintHorizontal_chainStyle="spread_inside"/>
 
     <ImageView
         android:id="@+id/toggle_dialpad_button"
         android:layout_width="@dimen/in_call_button_size"
         android:layout_height="@dimen/in_call_button_size"
         android:scaleType="center"
-        android:src="@drawable/ic_dialpad"
-        android:tint="@color/primary_icon_color"
+        android:src="@drawable/ic_dialpad_activatable"
+        android:background="@drawable/dialer_ripple_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/mute_button"
         app:layout_constraintEnd_toStartOf="@+id/end_call_button"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
+        app:layout_constraintTop_toTopOf="parent"/>
 
     <ImageView
         android:id="@+id/end_call_button"
-        android:layout_width="@dimen/fab_button_size"
-        android:layout_height="@dimen/fab_button_size"
-        android:scaleType="center"
-        android:src="@drawable/ic_call_end"
-        android:tint="@color/phone_theme_light"
+        style="@style/DialpadPrimaryButton"
+        android:src="@drawable/ic_call_end_button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/toggle_dialpad_button"
         app:layout_constraintEnd_toStartOf="@+id/voice_channel_button"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
+        app:layout_constraintTop_toTopOf="parent"/>
 
     <ImageView
         android:id="@+id/voice_channel_button"
         android:layout_width="@dimen/in_call_button_size"
         android:layout_height="@dimen/in_call_button_size"
+        android:background="@drawable/dialer_ripple_background"
         android:scaleType="center"
-        android:src="@drawable/ic_bluetooth"
-        android:tint="@color/primary_icon_color"
+        android:src="@drawable/ic_bluetooth_activatable"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/end_call_button"
         app:layout_constraintEnd_toStartOf="@+id/pause_button"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
-
-    <ImageView
-        android:id="@+id/voice_channel_chevron"
-        android:layout_width="@dimen/car_secondary_icon_size"
-        android:layout_height="@dimen/car_secondary_icon_size"
-        android:scaleType="fitCenter"
-        android:src="@drawable/ic_arrow_down"
-        android:tint="@color/primary_icon_color"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/voice_channel_button"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
+        app:layout_constraintTop_toTopOf="parent"/>
 
     <ImageView
         android:id="@+id/pause_button"
         android:layout_width="@dimen/in_call_button_size"
         android:layout_height="@dimen/in_call_button_size"
+        android:background="@drawable/dialer_ripple_background"
         android:scaleType="center"
-        android:src="@drawable/ic_call_state_switch"
-        android:tint="@color/primary_icon_color"
+        android:src="@drawable/ic_pause_activatable"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/voice_channel_button"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@color/contact_badge"/>
-</android.support.constraint.ConstraintLayout>
+        app:layout_constraintTop_toTopOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

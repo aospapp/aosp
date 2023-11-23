@@ -6,7 +6,7 @@ AUTHOR = "Chrome OS Team"
 NAME = "dummy_PassServer.ssp"
 PURPOSE = "Demonstrate success methods of autotests."
 CRITERIA = "This test will always succeed when running in a container."
-ATTRIBUTES = "suite:push_to_prod, suite:dummy_server"
+ATTRIBUTES = "suite:dummy_server, suite:push_to_prod, suite:skylab_staging_test"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"
@@ -18,6 +18,6 @@ This is a helper test that will succeed and force to use server-side packaging.
 
 def run(machine):
     job.run_test('dummy_PassServer', host=hosts.create_host(machine),
-                 force_ssp=True)
+                 expect_ssp=True)
 
 parallel_simple(run, machines)

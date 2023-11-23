@@ -4,12 +4,12 @@
 
 import json
 import logging
-import os
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.common_lib.cros import policy
 from autotest_lib.client.cros import cryptohome
 from autotest_lib.client.cros.enterprise import enterprise_fake_dmserver
 from autotest_lib.client.cros.power import power_status
@@ -18,11 +18,6 @@ from autotest_lib.client.cros.power import power_status
 class enterprise_PowerManagement(test.test):
     """Verify the power management policy setting."""
     version = 1
-
-    def setup(self):
-        """Standard autotest setup."""
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
 
     def initialize(self, percent_initial_charge_min=10):
         """
@@ -43,8 +38,9 @@ class enterprise_PowerManagement(test.test):
             self._power_status.assert_battery_state(percent_initial_charge_min)
         logging.info("Device power type is %s", self._power_type)
 
-        self.fake_dm_server = enterprise_fake_dmserver.FakeDMServer(
-                self.srcdir)
+        # Note: FakeDMServer requires policy protos to be installed.
+        policy.install_protobufs(self.autodir, self.job)
+        self.fake_dm_server = enterprise_fake_dmserver.FakeDMServer()
         self.fake_dm_server.start(self.tmpdir, self.debugdir)
 
     def cleanup(self):
@@ -67,8 +63,8 @@ class enterprise_PowerManagement(test.test):
     def _setup_lock_policy(self):
         """Setup policy to lock screen in 10 seconds of idle time."""
         self._screen_lock_delay = 10
-        screen_lock_policy = '{ "%s": %d }' % (
-                self._power_type, self._screen_lock_delay*1000)
+        screen_lock_policy = '{ "%s": %d }' % (self._power_type,
+                                               self._screen_lock_delay * 1000)
         policy_blob = """{
             "google/chromeos/user": {
                 "mandatory": {
@@ -97,7 +93,7 @@ class enterprise_PowerManagement(test.test):
                  },
                  "IdleAction": "Logout"
             }
-        }''' % (self._power_type, self._screen_logout_delay*1000)
+        }''' % (self._power_type, self._screen_logout_delay * 1000)
 
         policy_blob = """{
             "google/chromeos/user": {
@@ -121,7 +117,7 @@ class enterprise_PowerManagement(test.test):
         @returns a telemetry browser instance.
 
         """
-        extra_browser_args = '--device-management-url=%s ' %(
+        extra_browser_args = '--device-management-url=%s ' % (
                 self.fake_dm_server.server_url)
         return chrome.Chrome(
                 extra_browser_args=extra_browser_args,
@@ -138,10 +134,10 @@ class enterprise_PowerManagement(test.test):
         with self._create_chrome() as cr:
             utils.poll_for_condition(
                     lambda: cr.login_status['isScreenLocked'],
-                            exception=error.TestFail('User is not locked'),
-                            timeout=self._screen_lock_delay*2,
-                            sleep_interval=1,
-                            desc='Expects to find Chrome locked.')
+                    exception=error.TestFail('User is not locked'),
+                    timeout=self._screen_lock_delay * 2,
+                    sleep_interval=1,
+                    desc='Expects to find Chrome locked.')
 
         self._setup_logout_policy()
         with self._create_chrome() as cr:

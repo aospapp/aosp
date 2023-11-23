@@ -27,7 +27,7 @@
 
     <!--  self-instrumenting test package. -->
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="CTS tests for JVMTI"
         android:targetPackage="android.jvmti.cts.run_test_907" >
     </instrumentation>

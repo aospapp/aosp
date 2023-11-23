@@ -8,10 +8,11 @@
 #ifndef GrBufferAllocPool_DEFINED
 #define GrBufferAllocPool_DEFINED
 
+#include "GrTypesPriv.h"
+#include "SkNoncopyable.h"
 #include "SkTArray.h"
 #include "SkTDArray.h"
 #include "SkTypes.h"
-#include "GrTypesPriv.h"
 
 class GrBuffer;
 class GrGpu;
@@ -30,6 +31,8 @@ class GrGpu;
  */
 class GrBufferAllocPool : SkNoncopyable {
 public:
+    static constexpr size_t kDefaultBufferSize = 1 << 15;
+
     /**
      * Ensures all buffers are unmapped and have all data written to them.
      * Call before drawing using buffers from the pool.
@@ -52,15 +55,13 @@ protected:
      *
      * @param gpu                   The GrGpu used to create the buffers.
      * @param bufferType            The type of buffers to create.
-     * @param bufferSize            The minimum size of created buffers.
-     *                              This value will be clamped to some
-     *                              reasonable minimum.
+     * @param initialBuffer         If non-null this should be a kDefaultBufferSize byte allocation.
+     *                              This parameter can be used to avoid malloc/free when all
+     *                              usages can be satisfied with default-sized buffers.
      */
-     GrBufferAllocPool(GrGpu* gpu,
-                       GrBufferType bufferType,
-                       size_t   bufferSize = 0);
+    GrBufferAllocPool(GrGpu* gpu, GrBufferType bufferType, void* initialBuffer);
 
-     virtual ~GrBufferAllocPool();
+    virtual ~GrBufferAllocPool();
 
     /**
      * Returns a block of memory to hold data. A buffer designated to hold the
@@ -81,10 +82,7 @@ protected:
      * @param offset       returns the offset into buffer of the data.
      * @return pointer to where the client should write the data.
      */
-    void* makeSpace(size_t size,
-                    size_t alignment,
-                    const GrBuffer** buffer,
-                    size_t* offset);
+    void* makeSpace(size_t size, size_t alignment, sk_sp<const GrBuffer>* buffer, size_t* offset);
 
     /**
      * Returns a block of memory to hold data. A buffer designated to hold the
@@ -114,16 +112,16 @@ protected:
     void* makeSpaceAtLeast(size_t minSize,
                            size_t fallbackSize,
                            size_t alignment,
-                           const GrBuffer** buffer,
+                           sk_sp<const GrBuffer>* buffer,
                            size_t* offset,
                            size_t* actualSize);
 
-    GrBuffer* getBuffer(size_t size);
+    sk_sp<GrBuffer> getBuffer(size_t size);
 
 private:
     struct BufferBlock {
-        size_t      fBytesFree;
-        GrBuffer*   fBuffer;
+        size_t fBytesFree;
+        sk_sp<GrBuffer> fBuffer;
     };
 
     bool createBlock(size_t requestSize);
@@ -134,16 +132,15 @@ private:
 #ifdef SK_DEBUG
     void validate(bool unusedBlockAllowed = false) const;
 #endif
-    size_t                          fBytesInUse;
+    size_t fBytesInUse = 0;
 
-    GrGpu*                          fGpu;
-    size_t                          fMinBlockSize;
-    GrBufferType                    fBufferType;
-
-    SkTArray<BufferBlock>           fBlocks;
-    void*                           fCpuData;
-    void*                           fBufferPtr;
-    size_t                          fBufferMapThreshold;
+    SkTArray<BufferBlock> fBlocks;
+    GrGpu* fGpu;
+    GrBufferType fBufferType;
+    void* fInitialCpuData = nullptr;
+    void* fCpuData = nullptr;
+    size_t fCpuDataSize = 0;
+    void* fBufferPtr = nullptr;
 };
 
 /**
@@ -155,8 +152,11 @@ public:
      * Constructor
      *
      * @param gpu                   The GrGpu used to create the vertex buffers.
+     * @param initialBuffer         If non-null this should be a kDefaultBufferSize byte allocation.
+     *                              This parameter can be used to avoid malloc/free when all
+     *                              usages can be satisfied with default-sized buffers.
      */
-    GrVertexBufferAllocPool(GrGpu* gpu);
+    GrVertexBufferAllocPool(GrGpu* gpu, void* initialBuffer);
 
     /**
      * Returns a block of memory to hold vertices. A buffer designated to hold
@@ -181,7 +181,7 @@ public:
      */
     void* makeSpace(size_t vertexSize,
                     int vertexCount,
-                    const GrBuffer** buffer,
+                    sk_sp<const GrBuffer>* buffer,
                     int* startVertex);
 
     /**
@@ -214,7 +214,7 @@ public:
     void* makeSpaceAtLeast(size_t vertexSize,
                            int minVertexCount,
                            int fallbackVertexCount,
-                           const GrBuffer** buffer,
+                           sk_sp<const GrBuffer>* buffer,
                            int* startVertex,
                            int* actualVertexCount);
 
@@ -231,8 +231,11 @@ public:
      * Constructor
      *
      * @param gpu                   The GrGpu used to create the index buffers.
+     * @param initialBuffer         If non-null this should be a kDefaultBufferSize byte allocation.
+     *                              This parameter can be used to avoid malloc/free when all
+     *                              usages can be satisfied with default-sized buffers.
      */
-    GrIndexBufferAllocPool(GrGpu* gpu);
+    GrIndexBufferAllocPool(GrGpu* gpu, void* initialBuffer);
 
     /**
      * Returns a block of memory to hold indices. A buffer designated to hold
@@ -252,9 +255,7 @@ public:
      * @param startIndex   returns the offset into buffer of the first index.
      * @return pointer to first index.
      */
-    void* makeSpace(int indexCount,
-                    const GrBuffer** buffer,
-                    int* startIndex);
+    void* makeSpace(int indexCount, sk_sp<const GrBuffer>* buffer, int* startIndex);
 
     /**
      * Returns a block of memory to hold indices. A buffer designated to hold
@@ -283,7 +284,7 @@ public:
      */
     void* makeSpaceAtLeast(int minIndexCount,
                            int fallbackIndexCount,
-                           const GrBuffer** buffer,
+                           sk_sp<const GrBuffer>* buffer,
                            int* startIndex,
                            int* actualIndexCount);
 

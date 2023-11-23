@@ -13,6 +13,9 @@ You should import the "hosts" package instead of importing each type of host.
 import inspect
 import logging
 import re
+import time
+
+import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import pxssh
 from autotest_lib.server import utils
@@ -116,6 +119,9 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
              stdout, stderr, connect_timeout, env, options, stdin, args,
              ignore_timeout, ssh_failure_retry_ok):
         """Helper function for run()."""
+        if connect_timeout > timeout:
+            connect_timeout = int(timeout)
+
         ssh_cmd = self.ssh_command(connect_timeout, options)
         if not env.strip():
             env = ""
@@ -265,7 +271,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         return result
 
 
-    def run_very_slowly(self, command, timeout=3600, ignore_status=False,
+    def run_very_slowly(self, command, timeout=None, ignore_status=False,
             stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS,
             connect_timeout=30, options='', stdin=None, verbose=True, args=(),
             ignore_timeout=False, ssh_failure_retry_ok=False):
@@ -276,7 +282,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         every job - a server core dies in the lab.
         @see common_lib.hosts.host.run()
 
-        @param timeout: command execution timeout
+        @param timeout: command execution timeout in seconds. Default is 1 hour.
         @param connect_timeout: ssh connection timeout (in seconds)
         @param options: string with additional ssh command options
         @param verbose: log the commands
@@ -293,6 +299,9 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @raises AutoservRunError: if the command failed
         @raises AutoservSSHTimeout: ssh connection has timed out
         """
+        if timeout is None:
+            timeout = 3600
+        start_time = time.time()
         with metrics.SecondsTimer('chromeos/autotest/ssh/master_ssh_time',
                                   scale=0.001):
             if verbose:
@@ -301,12 +310,15 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 logging.debug("Running (ssh) '%s' from '%s'", command, stack)
                 command = self._verbose_logger_command(command)
 
-            # Start a master SSH connection if necessary.
-            self.start_master_ssh()
+            self.start_master_ssh(min(
+                    timeout,
+                    self.DEFAULT_START_MASTER_SSH_TIMEOUT_S,
+            ))
 
             env = " ".join("=".join(pair) for pair in self.env.iteritems())
+            elapsed = time.time() - start_time
             try:
-                return self._run(command, timeout, ignore_status,
+                return self._run(command, timeout - elapsed, ignore_status,
                                  stdout_tee, stderr_tee, connect_timeout, env,
                                  options, stdin, args, ignore_timeout,
                                  ssh_failure_retry_ok)

@@ -31,7 +31,8 @@ import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
 
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
+
+import libcore.testing.io.TestIoUtils;
 
 public final class OldAbstractPreferencesTest extends TestCase {
 
@@ -52,7 +53,7 @@ public final class OldAbstractPreferencesTest extends TestCase {
     protected void setUp() throws Exception {
         super.setUp();
 
-        File tmpDir = IoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
+        File tmpDir = TestIoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new PreferencesTest.TestPreferencesFactory(tmpDir.getAbsolutePath()));
 

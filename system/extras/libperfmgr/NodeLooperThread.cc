@@ -98,9 +98,15 @@ void NodeLooperThread::DumpToFd(int fd) {
 bool NodeLooperThread::threadLoop() {
     ::android::AutoMutex _l(lock_);
     std::chrono::milliseconds timeout_ms = kMaxUpdatePeriod;
+
+    // Update 2 passes: some node may have dependency in other node
+    // e.g. update cpufreq min to VAL while cpufreq max still set to
+    // a value lower than VAL, is expected to fail in first pass
     for (auto& n : nodes_) {
-        auto t = n->Update();
-        timeout_ms = std::min(t, timeout_ms);
+        n->Update(false);
+    }
+    for (auto& n : nodes_) {
+        timeout_ms = std::min(n->Update(true), timeout_ms);
     }
 
     nsecs_t sleep_timeout_ns = std::numeric_limits<nsecs_t>::max();

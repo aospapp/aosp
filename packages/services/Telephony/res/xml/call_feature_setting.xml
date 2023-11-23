@@ -14,8 +14,7 @@
      limitations under the License.
 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
-    android:title="@string/call_settings">
+                  android:title="@string/call_settings">
 
     <PreferenceScreen
         android:key="phone_account_settings_preference_screen"

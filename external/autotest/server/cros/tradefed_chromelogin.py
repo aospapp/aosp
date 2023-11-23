@@ -42,6 +42,10 @@ class ChromeLogin(object):
         board = kwargs.get('board')
         if board in constants.LOGIN_BOARD_TIMEOUT:
             self._timeout = constants.LOGIN_BOARD_TIMEOUT[board]
+        # DUT power off -> on cycle will still adhere DUT's reboot preference.
+        self._hard_reboot_on_failure = False
+        if kwargs.get('hard_reboot_on_failure') and self._need_reboot:
+            self._hard_reboot_on_failure = True
 
     def _cmd_builder(self, verbose=False):
         """Gets remote command to start browser with ARC enabled."""
@@ -73,16 +77,21 @@ class ChromeLogin(object):
             return True
         except autotest.AutodirNotFoundError:
             # Autotest is not installed (can happen on moblab after image
-            # install). Fall back to logging in via client test, which as a side
-            # effect installs autotest in the right place, so we should not hit
-            # this slow path repeatedly.
-            logging.warning('Autotest not installed, fallback to slow path...')
+            # install). Run dummy_Pass to foce autotest install, before trying
+            # to login again.
+            logging.warning(
+                'Autotest not installed, forcing install using dummy_Pass...')
             try:
                 autotest.Autotest(self._host).run_timed_test(
-                    'cheets_StartAndroid',
+                    'dummy_Pass',
                     timeout=2 * timeout,
                     check_client_result=True,
                     **self._cts_helper_kwargs)
+                self._host.run(
+                    self._cmd_builder(),
+                    ignore_status=False,
+                    verbose=verbose,
+                    timeout=timeout)
                 return True
             except:
                 # We were unable to start the browser/Android. Maybe we can
@@ -98,7 +107,7 @@ class ChromeLogin(object):
                 raise
         return False
 
-    def __enter__(self):
+    def enter(self):
         """Logs into Chrome with retry."""
         timeout = self._timeout
         logging.info('Ensure Android is running (timeout=%d)...', timeout)
@@ -109,7 +118,11 @@ class ChromeLogin(object):
             self.login(timeout=timeout, raise_exception=True, verbose=True)
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __enter__(self):
+        """Logs into Chrome with retry."""
+        return self.enter()
+
+    def exit(self, exc_type=None, exc_value=None, traceback=None):
         """On exit restart the browser or reboot the machine.
 
         @param exc_type: Exception type if an exception is raised from the
@@ -131,7 +144,22 @@ class ChromeLogin(object):
         if self._need_reboot:
             self.reboot(exc_type, exc_value, traceback)
 
+    def __exit__(self, exc_type, exc_value, traceback):
+        """On exit restart the browser or reboot the machine.
+
+        @param exc_type: Exception type if an exception is raised from the
+                         with-block.
+        @param exc_value: Exception instance if an exception is raised from
+                          the with-block.
+        @param traceback: Stack trace info if an exception is raised from
+                          the with-block.
+        @return None, indicating not to ignore an exception from the with-block
+                if raised.
+        """
+        self.exit(exc_type, exc_value, traceback)
+
     def restart(self):
+        """Restart Chrome browser."""
         # We clean up /tmp (which is memory backed) from crashes and
         # other files. A reboot would have cleaned /tmp as well.
         # TODO(ihf): Remove "start ui" which is a nicety to non-ARC tests (i.e.
@@ -156,8 +184,15 @@ class ChromeLogin(object):
         """
         logging.info('Rebooting...')
         try:
-            self._host.reboot()
-            self._need_reboot = False
+            if self._hard_reboot_on_failure and self._host.servo:
+                logging.info('Powering OFF the DUT: %s', self._host)
+                self._host.servo.get_power_state_controller().power_off()
+                logging.info('Powering ON the DUT: %s', self._host)
+                self._host.servo.get_power_state_controller().power_on()
+                self._hard_reboot_on_failure = False
+            else:
+                self._host.reboot()
+                self._need_reboot = False
         except Exception:
             if exc_type is None:
                 raise

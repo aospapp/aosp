@@ -27,6 +27,7 @@ class RateLimiter {
   struct Args {
     bool is_dropbox = false;
     bool ignore_guardrails = false;
+    bool allow_user_build_tracing = false;
     base::TimeSeconds current_time = base::TimeSeconds(0);
     uint64_t max_upload_bytes_override = 0;
   };
@@ -35,7 +36,7 @@ class RateLimiter {
   virtual ~RateLimiter();
 
   bool ShouldTrace(const Args& args);
-  bool OnTraceDone(const Args& args, bool success, size_t bytes);
+  bool OnTraceDone(const Args& args, bool success, uint64_t bytes);
 
   bool ClearState();
 

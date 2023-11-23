@@ -22,6 +22,7 @@
         <option name="test-module-name" value="VtsKernelLtp" />
         <option name="test-timeout" value="3h" />
         <option name="runtime-hint" value="30m" />
+        <option name="disable-framework" value="true" />
         <option name="test-case-path" value="vts/testcases/kernel/ltp/KernelLtpTest" />
     </test>
 </configuration>

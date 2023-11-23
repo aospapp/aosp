@@ -40,7 +40,7 @@ class ProcModulesTest(KernelProcFileTestBase.KernelProcFileTestBase):
         # STATE is either Unloading, Loading, or Live
         # BASE_ADDRESS is a memory address
         # TAINT_FLAG is optional and if present, has characters between ( and )
-        test_re = re.compile(r"^\w+ \d+ (\d+|-) (((\w+,)+(\[permanent\],)?)|-) (Unloading|Loading|Live) 0x[0-9a-f]+( \(\w+\))?")
+        test_re = re.compile(r"^\w+ \d+ (\d+|-) (((\w+,)*(\[permanent\],)?)|-) (Unloading|Loading|Live) 0x[0-9a-f]+( \(\w+\))?")
         for line in contents.splitlines():
             if not re.match(test_re, line):
                 raise SyntaxError("Malformed entry in /proc/modules: %s" % line)

@@ -26,6 +26,7 @@
 #include "gc_root-inl.h"
 #include "handle_scope-inl.h"
 #include "heap.h"
+#include "mirror/object-inl.h"
 #include "mirror/string.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread_list.h"
@@ -43,7 +44,7 @@ struct CountingSystemWeakHolder : public SystemWeakHolder {
         disallow_count_(0),
         sweep_count_(0) {}
 
-  void Allow() OVERRIDE
+  void Allow() override
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!allow_disallow_lock_) {
     SystemWeakHolder::Allow();
@@ -51,7 +52,7 @@ struct CountingSystemWeakHolder : public SystemWeakHolder {
     allow_count_++;
   }
 
-  void Disallow() OVERRIDE
+  void Disallow() override
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!allow_disallow_lock_) {
     SystemWeakHolder::Disallow();
@@ -59,7 +60,7 @@ struct CountingSystemWeakHolder : public SystemWeakHolder {
     disallow_count_++;
   }
 
-  void Broadcast(bool broadcast_for_checkpoint) OVERRIDE
+  void Broadcast(bool broadcast_for_checkpoint) override
       REQUIRES(!allow_disallow_lock_) {
     SystemWeakHolder::Broadcast(broadcast_for_checkpoint);
 
@@ -69,7 +70,7 @@ struct CountingSystemWeakHolder : public SystemWeakHolder {
     }
   }
 
-  void Sweep(IsMarkedVisitor* visitor) OVERRIDE
+  void Sweep(IsMarkedVisitor* visitor) override
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!allow_disallow_lock_) {
     MutexLock mu(Thread::Current(), allow_disallow_lock_);
@@ -111,6 +112,8 @@ static bool CollectorDoesAllowOrBroadcast() {
   switch (type) {
     case CollectorType::kCollectorTypeCMS:
     case CollectorType::kCollectorTypeCC:
+    case CollectorType::kCollectorTypeSS:
+    case CollectorType::kCollectorTypeGSS:
       return true;
 
     default:
@@ -142,7 +145,7 @@ TEST_F(SystemWeakTest, Keep) {
   cswh.Set(GcRoot<mirror::Object>(s.Get()));
 
   // Trigger a GC.
-  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
 
   // Expect the holder to have been called.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
@@ -163,7 +166,7 @@ TEST_F(SystemWeakTest, Discard) {
   cswh.Set(GcRoot<mirror::Object>(mirror::String::AllocFromModifiedUtf8(soa.Self(), "ABC")));
 
   // Trigger a GC.
-  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
 
   // Expect the holder to have been called.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
@@ -187,7 +190,7 @@ TEST_F(SystemWeakTest, Remove) {
   cswh.Set(GcRoot<mirror::Object>(s.Get()));
 
   // Trigger a GC.
-  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
 
   // Expect the holder to have been called.
   ASSERT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
@@ -202,7 +205,7 @@ TEST_F(SystemWeakTest, Remove) {
   Runtime::Current()->RemoveSystemWeakHolder(&cswh);
 
   // Trigger another GC.
-  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
 
   // Expectation: no change in the numbers.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);

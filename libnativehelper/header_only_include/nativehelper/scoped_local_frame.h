@@ -18,6 +18,7 @@
 #define SCOPED_LOCAL_FRAME_H_
 
 #include "jni.h"
+#include "nativehelper_utils.h"
 
 class ScopedLocalFrame {
 public:

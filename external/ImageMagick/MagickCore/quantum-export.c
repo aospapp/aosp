@@ -22,13 +22,13 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -119,7 +119,7 @@ static inline unsigned char *PopDoublePixel(QuantumInfo *quantum_info,
   unsigned char
     quantum[8];
 
-  (void) ResetMagickMemory(quantum,0,sizeof(quantum));
+  (void) memset(quantum,0,sizeof(quantum));
   p=(double *) quantum;
   *p=(double) (pixel*quantum_info->state.inverse_scale+quantum_info->minimum);
   if (quantum_info->endian == LSBEndian)
@@ -154,7 +154,7 @@ static inline unsigned char *PopFloatPixel(QuantumInfo *quantum_info,
   unsigned char
     quantum[4];
 
-  (void) ResetMagickMemory(quantum,0,sizeof(quantum));
+  (void) memset(quantum,0,sizeof(quantum));
   p=(float *) quantum;
   *p=(float) ((double) pixel*quantum_info->state.inverse_scale+
     quantum_info->minimum);
@@ -250,6 +250,7 @@ static void ExportAlphaQuantum(const Image *image,QuantumInfo *quantum_info,
 
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
+  (void) exception;
   switch (quantum_info->depth)
   {
     case 8:
@@ -2221,7 +2222,7 @@ static void ExportGrayAlphaQuantum(const Image *image,QuantumInfo *quantum_info,
 
       black=0x00;
       white=0x01;
-      if (quantum_info->min_is_white == MagickFalse)
+      if (quantum_info->min_is_white != MagickFalse)
         {
           black=0x01;
           white=0x00;
@@ -3920,16 +3921,11 @@ MagickExport size_t ExportQuantumPixels(const Image *image,
         register ssize_t
           i;
 
-        if (GetPixelReadMask(image,q) == 0)
-          {
-            q+=GetPixelChannels(image);
-            continue;
-          }
         Sa=QuantumScale*GetPixelAlpha(image,q);
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
         {
-          PixelChannel channel=GetPixelChannelChannel(image,i);
-          PixelTrait traits=GetPixelChannelTraits(image,channel);
+          PixelChannel channel = GetPixelChannelChannel(image,i);
+          PixelTrait traits = GetPixelChannelTraits(image,channel);
           if ((traits & UpdatePixelTrait) == 0)
             continue;
           q[i]=ClampToQuantum(Sa*q[i]);

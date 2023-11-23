@@ -114,10 +114,9 @@ int bsdiff(const uint8_t* old_buf, size_t oldsize, const uint8_t* new_buf,
 
 			sai->SearchPrefix(new_buf + scan, newsize - scan, &len, &pos);
 
-			for(;scsc<scan+len;scsc++)
-			if((scsc+lastoffset<oldsize) &&
-				(old_buf[scsc+lastoffset] == new_buf[scsc]))
-				oldscore++;
+			for(;scsc<scan+len && scsc+lastoffset<oldsize;scsc++)
+				if(old_buf[scsc+lastoffset] == new_buf[scsc])
+					oldscore++;
 
 			if(((len==oldscore) && (len!=0)) ||
 				(len>oldscore+8 && len>=min_length)) break;

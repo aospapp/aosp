@@ -16,57 +16,58 @@
 
 #define ATRACE_TAG ATRACE_TAG_PACKAGE_MANAGER
 
-#include "model/Disk.h"
-#include "VolumeManager.h"
 #include "NetlinkManager.h"
 #include "VoldNativeService.h"
 #include "VoldUtil.h"
+#include "VolumeManager.h"
 #include "cryptfs.h"
+#include "model/Disk.h"
 #include "sehandle.h"
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <cutils/klog.h>
+#include <hidl/HidlTransportSupport.h>
 #include <utils/Trace.h>
 
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <fs_mgr.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <getopt.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <fs_mgr.h>
 
 static int process_config(VolumeManager* vm, bool* has_adoptable, bool* has_quota,
                           bool* has_reserved);
-static void coldboot(const char *path);
+static void coldboot(const char* path);
 static void parse_args(int argc, char** argv);
 
-struct selabel_handle *sehandle;
+struct selabel_handle* sehandle;
 
 using android::base::StringPrintf;
+using android::fs_mgr::ReadDefaultFstab;
 
 int main(int argc, char** argv) {
     atrace_set_tracing_enabled(false);
-    setenv("ANDROID_LOG_TAGS", "*:v", 1);
+    setenv("ANDROID_LOG_TAGS", "*:d", 1);  // Do not submit with verbose logs enabled
     android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
 
     LOG(INFO) << "Vold 3.0 (the awakening) firing up";
 
     ATRACE_BEGIN("main");
 
+    LOG(DEBUG) << "Detected support for:"
+               << (android::vold::IsFilesystemSupported("ext4") ? " ext4" : "")
+               << (android::vold::IsFilesystemSupported("f2fs") ? " f2fs" : "")
+               << (android::vold::IsFilesystemSupported("vfat") ? " vfat" : "");
 
-    LOG(VERBOSE) << "Detected support for:"
-            << (android::vold::IsFilesystemSupported("ext4") ? " ext4" : "")
-            << (android::vold::IsFilesystemSupported("f2fs") ? " f2fs" : "")
-            << (android::vold::IsFilesystemSupported("vfat") ? " vfat" : "");
-
-    VolumeManager *vm;
-    NetlinkManager *nm;
+    VolumeManager* vm;
+    NetlinkManager* nm;
 
     parse_args(argc, argv);
 
@@ -108,6 +109,8 @@ int main(int argc, char** argv) {
         PLOG(ERROR) << "Error reading configuration... continuing anyways";
     }
 
+    android::hardware::configureRpcThreadpool(1, false /* callerWillJoin */);
+
     ATRACE_BEGIN("VoldNativeService::start");
     if (android::vold::VoldNativeService::start() != android::OK) {
         LOG(ERROR) << "Unable to start VoldNativeService";
@@ -145,19 +148,21 @@ int main(int argc, char** argv) {
 
 static void parse_args(int argc, char** argv) {
     static struct option opts[] = {
-        {"blkid_context", required_argument, 0, 'b' },
-        {"blkid_untrusted_context", required_argument, 0, 'B' },
-        {"fsck_context", required_argument, 0, 'f' },
-        {"fsck_untrusted_context", required_argument, 0, 'F' },
+        {"blkid_context", required_argument, 0, 'b'},
+        {"blkid_untrusted_context", required_argument, 0, 'B'},
+        {"fsck_context", required_argument, 0, 'f'},
+        {"fsck_untrusted_context", required_argument, 0, 'F'},
     };
 
     int c;
     while ((c = getopt_long(argc, argv, "", opts, nullptr)) != -1) {
         switch (c) {
+            // clang-format off
         case 'b': android::vold::sBlkidContext = optarg; break;
         case 'B': android::vold::sBlkidUntrustedContext = optarg; break;
         case 'f': android::vold::sFsckContext = optarg; break;
         case 'F': android::vold::sFsckUntrustedContext = optarg; break;
+                // clang-format on
         }
     }
 
@@ -167,33 +172,30 @@ static void parse_args(int argc, char** argv) {
     CHECK(android::vold::sFsckUntrustedContext != nullptr);
 }
 
-static void do_coldboot(DIR *d, int lvl) {
-    struct dirent *de;
+static void do_coldboot(DIR* d, int lvl) {
+    struct dirent* de;
     int dfd, fd;
 
     dfd = dirfd(d);
 
     fd = openat(dfd, "uevent", O_WRONLY | O_CLOEXEC);
-    if(fd >= 0) {
+    if (fd >= 0) {
         write(fd, "add\n", 4);
         close(fd);
     }
 
-    while((de = readdir(d))) {
-        DIR *d2;
+    while ((de = readdir(d))) {
+        DIR* d2;
 
-        if (de->d_name[0] == '.')
-            continue;
+        if (de->d_name[0] == '.') continue;
 
-        if (de->d_type != DT_DIR && lvl > 0)
-            continue;
+        if (de->d_type != DT_DIR && lvl > 0) continue;
 
         fd = openat(dfd, de->d_name, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-        if(fd < 0)
-            continue;
+        if (fd < 0) continue;
 
         d2 = fdopendir(fd);
-        if(d2 == 0)
+        if (d2 == 0)
             close(fd);
         else {
             do_coldboot(d2, lvl + 1);
@@ -202,10 +204,10 @@ static void do_coldboot(DIR *d, int lvl) {
     }
 }
 
-static void coldboot(const char *path) {
+static void coldboot(const char* path) {
     ATRACE_NAME("coldboot");
-    DIR *d = opendir(path);
-    if(d) {
+    DIR* d = opendir(path);
+    if (d) {
         do_coldboot(d, 0);
         closedir(d);
     }
@@ -215,8 +217,7 @@ static int process_config(VolumeManager* vm, bool* has_adoptable, bool* has_quot
                           bool* has_reserved) {
     ATRACE_NAME("process_config");
 
-    fstab_default = fs_mgr_read_fstab_default();
-    if (!fstab_default) {
+    if (!ReadDefaultFstab(&fstab_default)) {
         PLOG(ERROR) << "Failed to open default fstab";
         return -1;
     }
@@ -225,36 +226,40 @@ static int process_config(VolumeManager* vm, bool* has_adoptable, bool* has_quot
     *has_adoptable = false;
     *has_quota = false;
     *has_reserved = false;
-    for (int i = 0; i < fstab_default->num_entries; i++) {
-        auto rec = &fstab_default->recs[i];
-        if (fs_mgr_is_quota(rec)) {
+    for (auto& entry : fstab_default) {
+        if (entry.fs_mgr_flags.quota) {
             *has_quota = true;
         }
-        if (rec->reserved_size > 0) {
+        if (entry.reserved_size > 0) {
             *has_reserved = true;
         }
 
-        if (fs_mgr_is_voldmanaged(rec)) {
-            if (fs_mgr_is_nonremovable(rec)) {
+        /* Make sure logical partitions have an updated blk_device. */
+        if (entry.fs_mgr_flags.logical && !fs_mgr_update_logical_partition(&entry)) {
+            PLOG(FATAL) << "could not find logical partition " << entry.blk_device;
+        }
+
+        if (entry.fs_mgr_flags.vold_managed) {
+            if (entry.fs_mgr_flags.nonremovable) {
                 LOG(WARNING) << "nonremovable no longer supported; ignoring volume";
                 continue;
             }
 
-            std::string sysPattern(rec->blk_device);
-            std::string nickname(rec->label);
+            std::string sysPattern(entry.blk_device);
+            std::string nickname(entry.label);
             int flags = 0;
 
-            if (fs_mgr_is_encryptable(rec)) {
+            if (entry.is_encryptable()) {
                 flags |= android::vold::Disk::Flags::kAdoptable;
                 *has_adoptable = true;
             }
-            if (fs_mgr_is_noemulatedsd(rec)
-                    || android::base::GetBoolProperty("vold.debug.default_primary", false)) {
+            if (entry.fs_mgr_flags.no_emulated_sd ||
+                android::base::GetBoolProperty("vold.debug.default_primary", false)) {
                 flags |= android::vold::Disk::Flags::kDefaultPrimary;
             }
 
             vm->addDiskSource(std::shared_ptr<VolumeManager::DiskSource>(
-                    new VolumeManager::DiskSource(sysPattern, nickname, flags)));
+                new VolumeManager::DiskSource(sysPattern, nickname, flags)));
         }
     }
     return 0;

@@ -136,10 +136,23 @@ unsigned int profile_get_period_size(const alsa_device_profile* profile, unsigne
 unsigned profile_get_default_sample_rate(const alsa_device_profile* profile)
 {
     /*
+     * This is probably a poor algorithm. The default sample rate should be the highest (within
+     * limits) rate that is available for both input and output. HOWEVER, the profile has only
+     * one or the other, so that will need to be done at a higher level, like in the HAL.
+     */
+    /*
      * TODO this won't be right in general. we should store a preferred rate as we are scanning.
      * But right now it will return the highest rate, which may be correct.
      */
     return profile_is_valid(profile) ? profile->sample_rates[0] : DEFAULT_SAMPLE_RATE;
+}
+
+unsigned profile_get_highest_sample_rate(const alsa_device_profile* profile) {
+    /* The hightest sample rate is always stored in the first element of sample_rates.
+     * Note that profile_reset() initiaizes the first element of samples_rates to 0
+     * Which is what we want to return if the profile had not been read anyway.
+     */
+    return profile->sample_rates[0];
 }
 
 bool profile_is_sample_rate_valid(const alsa_device_profile* profile, unsigned rate)
@@ -154,6 +167,7 @@ bool profile_is_sample_rate_valid(const alsa_device_profile* profile, unsigned r
 
         return false;
     } else {
+        ALOGW("**** PROFILE NOT VALID!");
         return rate == DEFAULT_SAMPLE_RATE;
     }
 }

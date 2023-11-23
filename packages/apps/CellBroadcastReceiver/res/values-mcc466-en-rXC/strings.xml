@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="public_safety_message" msgid="4052407641316309322">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‎‎‎‎‏‏‏‏‎‏‎‎‎‎‏‎‏‏‎‏‎‎‎‏‏‏‎‏‏‏‏‎‎‏‏‎‏‏‏‏‎‎‏‎‏‏‏‎‎‏‎‏‎‎‏‎‏‎‎Alert message‎‏‎‎‏‎"</string>
+    <string name="public_safety_message" msgid="4052407641316309322">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‏‏‏‏‎‏‏‏‎‎‎‎‎‏‏‏‏‎‏‎‎‎‎‏‎‏‏‎‏‎‎‎‏‏‏‎‏‏‏‏‎‎‏‏‎‏‏‏‏‎‎‏‎‏‏‏‎‎‏‎‏‎‎‏‎‏‎‎Alert message‎‏‎‎‏‎"</string>
 </resources>

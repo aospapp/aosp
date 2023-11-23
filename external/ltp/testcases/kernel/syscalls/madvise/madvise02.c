@@ -25,6 +25,8 @@
  *     locked or shared pages (with MADV_DONTNEED)
  *  4. MADV_MERGEABLE or MADV_UNMERGEABLE was specified in advice,
  *     but the kernel was not configured with CONFIG_KSM.
+ *  8|9. The MADV_FREE & MADV_WIPEONFORK operation can be applied
+ *  	only to private anonymous pages.
  *
  * (B) Test Case for ENOMEM
  *  5|6. addresses in the specified range are not currently mapped
@@ -51,6 +53,7 @@
 #include "tst_test.h"
 #include "lapi/mmap.h"
 
+#define MAP_SIZE (4 * 1024)
 #define TEST_FILE "testfile"
 #define STR "abcdefghijklmnopqrstuvwxyz12345\n"
 #define KSM_SYS_DIR	"/sys/kernel/mm/ksm"
@@ -59,6 +62,8 @@ static struct stat st;
 static long pagesize;
 static char *file1;
 static char *file2;
+static char *file3;
+static char *shared_anon;
 static char *ptr_addr;
 static char *tmp_addr;
 static char *nonalign;
@@ -72,12 +77,17 @@ static struct tcase {
 } tcases[] = {
 	{MADV_NORMAL,      "MADV_NORMAL",      &nonalign, EINVAL, 0},
 	{1212,             "MADV_NORMAL",      &file1,    EINVAL, 0},
+	{MADV_REMOVE,      "MADV_REMOVE",      &file1,    EINVAL, 0},
 	{MADV_DONTNEED,    "MADV_DONTNEED",    &file1,    EINVAL, 1},
 	{MADV_MERGEABLE,   "MADV_MERGEABLE",   &file1,    EINVAL, 0},
 	{MADV_UNMERGEABLE, "MADV_UNMERGEABLE", &file1,    EINVAL, 0},
 	{MADV_NORMAL,      "MADV_NORMAL",      &file2,    ENOMEM, 0},
 	{MADV_WILLNEED,    "MADV_WILLNEED",    &file2,    ENOMEM, 0},
 	{MADV_WILLNEED,    "MADV_WILLNEED",    &tmp_addr,  EBADF, 0},
+	{MADV_FREE,        "MADV_FREE",        &file1,    EINVAL, 0},
+	{MADV_WIPEONFORK,  "MADV_WIPEONFORK",  &file1,    EINVAL, 0},
+	{MADV_WIPEONFORK,  "MADV_WIPEONFORK shared_anon", &shared_anon, EINVAL, 0},
+	{MADV_WIPEONFORK,  "MADV_WIPEONFORK private file backed", &file3, EINVAL, 0},
 };
 
 static void tcases_filter(void)
@@ -95,7 +105,10 @@ static void tcases_filter(void)
 			tc->skip = 0;
 #endif /* if !defined(UCLINUX) */
 		break;
-
+		case MADV_REMOVE:
+			if ((tst_kvercmp(2, 6, 16)) < 0)
+				tc->skip = 1;
+		break;
 		case MADV_MERGEABLE:
 		case MADV_UNMERGEABLE:
 			if ((tst_kvercmp(2, 6, 32)) < 0)
@@ -112,6 +125,14 @@ static void tcases_filter(void)
 			 * swap prefretch. */
 			if ((tst_kvercmp(3, 9, 0)) > 0 &&
 					tc->exp_errno == EBADF)
+				tc->skip = 1;
+		break;
+		case MADV_FREE:
+			if ((tst_kvercmp(4, 5, 0)) < 0)
+				tc->skip = 1;
+		break;
+		case MADV_WIPEONFORK:
+			if ((tst_kvercmp(4, 14, 0)) < 0)
 				tc->skip = 1;
 		break;
 		default:
@@ -136,13 +157,17 @@ static void setup(void)
 
 	file1 = SAFE_MMAP(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 	file2 = SAFE_MMAP(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	SAFE_MUNMAP(file2 + st.st_size - pagesize, pagesize);
+	file3 = SAFE_MMAP(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	shared_anon = SAFE_MMAP(0, MAP_SIZE, PROT_READ, MAP_SHARED |
+			MAP_ANONYMOUS, -1, 0);
 
 	nonalign = file1 + 100;
 
 	ptr_addr = SAFE_MALLOC(st.st_size);
 	tmp_addr = (void*)LTP_ALIGN((long)ptr_addr, pagesize);
 
+	/* unmap as last step to avoid subsequent mmap(s) pick same address */
+	SAFE_MUNMAP(file2 + st.st_size - pagesize, pagesize);
 	SAFE_CLOSE(fd);
 
 	tcases_filter();
@@ -159,13 +184,14 @@ static void advice_test(unsigned int i)
 	}
 
 	TEST(madvise(*(tc->addr), st.st_size, tc->advice));
-	if (TEST_RETURN == -1) {
-		if (TEST_ERRNO == tc->exp_errno) {
-			tst_res(TPASS | TTERRNO, "failed as expected");
+	if (TST_RET == -1) {
+		if (TST_ERR == tc->exp_errno) {
+			tst_res(TPASS | TTERRNO, "%s failed as expected", tc->name);
 		} else {
 			tst_res(TFAIL | TTERRNO,
-					"failed unexpectedly; expected - %d : %s",
-					tc->exp_errno, tst_strerrno(TFAIL | TTERRNO));
+					"%s failed unexpectedly; expected - %d : %s",
+					tc->name, tc->exp_errno,
+					tst_strerrno(TFAIL | TTERRNO));
 		}
 	} else {
 		tst_res(TFAIL, "madvise succeeded unexpectedly");
@@ -177,6 +203,8 @@ static void cleanup(void)
 	free(ptr_addr);
 	SAFE_MUNMAP(file1, st.st_size);
 	SAFE_MUNMAP(file2, st.st_size - pagesize);
+	SAFE_MUNMAP(file3, st.st_size);
+	SAFE_MUNMAP(shared_anon, MAP_SIZE);
 }
 
 static struct tst_test test = {

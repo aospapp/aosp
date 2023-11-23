@@ -4,7 +4,7 @@
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
  * Copyright (c) 2005-2016 Dmitry V. Levin <ldv@altlinux.org>
- * Copyright (c) 2006-2017 The strace developers.
+ * Copyright (c) 2006-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@
 
 #include "defs.h"
 #include "print_fields.h"
+#include "xfs_quota_stat.h"
 
 #define SUBCMDMASK  0x00ff
 #define SUBCMDSHIFT 8
@@ -114,26 +115,6 @@ struct if_dqinfo {
 	uint32_t dqi_valid;
 };
 
-typedef struct fs_qfilestat {
-	uint64_t qfs_ino;	/* inode number */
-	uint64_t qfs_nblks;	/* number of BBs 512-byte-blks */
-	uint32_t qfs_nextents;	/* number of extents */
-} fs_qfilestat_t;
-
-struct xfs_dqstats {
-	int8_t  qs_version;		/* version number for future changes */
-	uint16_t qs_flags;		/* XFS_QUOTA_{U,P,G}DQ_{ACCT,ENFD} */
-	int8_t  qs_pad;			/* unused */
-	fs_qfilestat_t qs_uquota;	/* user quota storage information */
-	fs_qfilestat_t qs_gquota;	/* group quota storage information */
-	uint32_t qs_incoredqs;		/* number of dquots incore */
-	int32_t qs_btimelimit;		/* limit for blks timer */
-	int32_t qs_itimelimit;		/* limit for inodes timer */
-	int32_t qs_rtbtimelimit;	/* limit for rt blks timer */
-	uint16_t qs_bwarnlimit;		/* limit for num warnings */
-	uint16_t qs_iwarnlimit;		/* limit for num warnings */
-};
-
 struct fs_qfilestatv {
 	uint64_t qfs_ino, qfs_nblks;
 	uint32_t qfs_nextents, qfs_pad;
@@ -177,7 +158,7 @@ decode_cmd_data(struct tcb *tcp, uint32_t id, uint32_t cmd, kernel_ulong_t data)
 			return 0;
 		}
 
-		/* Fall-through */
+		ATTRIBUTE_FALLTHROUGH;
 	case Q_SETQUOTA:
 	{
 		struct if_dqblk dq;
@@ -247,7 +228,7 @@ decode_cmd_data(struct tcb *tcp, uint32_t id, uint32_t cmd, kernel_ulong_t data)
 			return 0;
 		}
 
-		/* Fall-through */
+		ATTRIBUTE_FALLTHROUGH;
 	case Q_XSETQLIM:
 	{
 		struct xfs_dqblk dq;
@@ -310,7 +291,7 @@ decode_cmd_data(struct tcb *tcp, uint32_t id, uint32_t cmd, kernel_ulong_t data)
 			return 0;
 		}
 
-		/* Fall-through */
+		ATTRIBUTE_FALLTHROUGH;
 	case Q_SETINFO:
 	{
 		struct if_dqinfo dq;
@@ -336,29 +317,28 @@ decode_cmd_data(struct tcb *tcp, uint32_t id, uint32_t cmd, kernel_ulong_t data)
 
 			return 0;
 		}
-
-		if (umove_or_printaddr(tcp, data, &dq))
-			break;
-		PRINT_FIELD_D("{", dq, qs_version);
-		if (!abbrev(tcp)) {
-			PRINT_FIELD_FLAGS(", ", dq, qs_flags,
-					  xfs_quota_flags, "XFS_QUOTA_???");
-			PRINT_FIELD_U(", ", dq, qs_incoredqs);
-			PRINT_FIELD_U(", qs_uquota={", dq.qs_uquota, qfs_ino);
-			PRINT_FIELD_U(", ", dq.qs_uquota, qfs_nblks);
-			PRINT_FIELD_U(", ", dq.qs_uquota, qfs_nextents);
-			PRINT_FIELD_U("}, qs_gquota={", dq.qs_gquota, qfs_ino);
-			PRINT_FIELD_U(", ", dq.qs_gquota, qfs_nblks);
-			PRINT_FIELD_U(", ", dq.qs_gquota, qfs_nextents);
-			PRINT_FIELD_D("}, ", dq, qs_btimelimit);
-			PRINT_FIELD_D(", ", dq, qs_itimelimit);
-			PRINT_FIELD_D(", ", dq, qs_rtbtimelimit);
-			PRINT_FIELD_U(", ", dq, qs_bwarnlimit);
-			PRINT_FIELD_U(", ", dq, qs_iwarnlimit);
-		} else {
-			tprints(", ...");
+		if (fetch_struct_quotastat(tcp, data, &dq)) {
+			PRINT_FIELD_D("{", dq, qs_version);
+			if (!abbrev(tcp)) {
+				PRINT_FIELD_FLAGS(", ", dq, qs_flags,
+						  xfs_quota_flags, "XFS_QUOTA_???");
+				PRINT_FIELD_U(", qs_uquota={", dq.qs_uquota, qfs_ino);
+				PRINT_FIELD_U(", ", dq.qs_uquota, qfs_nblks);
+				PRINT_FIELD_U(", ", dq.qs_uquota, qfs_nextents);
+				PRINT_FIELD_U("}, qs_gquota={", dq.qs_gquota, qfs_ino);
+				PRINT_FIELD_U(", ", dq.qs_gquota, qfs_nblks);
+				PRINT_FIELD_U(", ", dq.qs_gquota, qfs_nextents);
+				PRINT_FIELD_U("}, ", dq, qs_incoredqs);
+				PRINT_FIELD_D(", ", dq, qs_btimelimit);
+				PRINT_FIELD_D(", ", dq, qs_itimelimit);
+				PRINT_FIELD_D(", ", dq, qs_rtbtimelimit);
+				PRINT_FIELD_U(", ", dq, qs_bwarnlimit);
+				PRINT_FIELD_U(", ", dq, qs_iwarnlimit);
+			} else {
+				tprints(", ...");
+			}
+			tprints("}");
 		}
-		tprints("}");
 		break;
 	}
 	case Q_XGETQSTATV:

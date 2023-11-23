@@ -96,7 +96,7 @@ class SystemServiceCheckTest : DriverTest() {
     @Test
     fun `Check SystemService -- no permission annotation`() {
         check(
-            warnings = "src/test/pkg/MyTest1.java:4: lint: Method 'myMethod2' must be protected with a system permission. [RequiresPermission:125]",
+            warnings = "src/test/pkg/MyTest1.java:4: lint: Method 'myMethod2' must be protected with a system permission. [RequiresPermission]",
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
             sourceFiles = *arrayOf(
@@ -153,12 +153,12 @@ class SystemServiceCheckTest : DriverTest() {
     }
 
     @Test
-    fun `Check SystemService -- at least one permission must be defined with anyOf`() {
+    fun `Check SystemService such that at least one permission must be defined with anyOf`() {
         check(
             warnings = """
-                    src/test/pkg/MyTest2.java:5: error: None of the permissions foo.bar.PERMISSION1, foo.bar.PERMISSION2 are defined by manifest TESTROOT/manifest.xml. [RemovedField:10]
-                    src/test/pkg/MyTest2.java:5: lint: Method 'myMethod1' must be protected with a system permission. [RequiresPermission:125]
-                    """,
+                src/test/pkg/MyTest2.java:5: lint: None of the permissions foo.bar.PERMISSION1, foo.bar.PERMISSION2 are defined by manifest TESTROOT/manifest.xml. [RequiresPermission]
+                src/test/pkg/MyTest2.java:5: lint: Method 'myMethod1' must be protected with a system permission. [RequiresPermission]
+                """,
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
             sourceFiles = *arrayOf(
@@ -186,7 +186,7 @@ class SystemServiceCheckTest : DriverTest() {
     @Test
     fun `Check SystemService -- missing one permission with allOf`() {
         check(
-            warnings = "src/test/pkg/MyTest2.java:5: error: Permission 'foo.bar.PERMISSION2' is not defined by manifest TESTROOT/manifest.xml. [RemovedField:10]",
+            warnings = "src/test/pkg/MyTest2.java:5: lint: Permission 'foo.bar.PERMISSION2' is not defined by manifest TESTROOT/manifest.xml. [RequiresPermission]",
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
             sourceFiles = *arrayOf(
@@ -222,7 +222,7 @@ class SystemServiceCheckTest : DriverTest() {
         check(
             warnings = "src/test/pkg/MyTest2.java:6: lint: Method 'test' must be protected with a system " +
                 "permission; it currently allows non-system callers holding [foo.bar.PERMISSION1, " +
-                "foo.bar.PERMISSION2] [RequiresPermission:125]",
+                "foo.bar.PERMISSION2] [RequiresPermission]",
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
             sourceFiles = *arrayOf(
@@ -262,9 +262,9 @@ class SystemServiceCheckTest : DriverTest() {
     fun `Check SystemService -- missing manifest permissions`() {
         check(
             warnings = """
-                src/test/pkg/MyTest2.java:5: error: Permission 'Manifest.permission.MY_PERMISSION' is not defined by manifest TESTROOT/manifest.xml. [RemovedField:10]
-                src/test/pkg/MyTest2.java:5: error: Permission 'Manifest.permission.MY_PERMISSION2' is not defined by manifest TESTROOT/manifest.xml. [RemovedField:10]
-                src/test/pkg/MyTest2.java:5: lint: Method 'test' must be protected with a system permission. [RequiresPermission:125]
+                src/test/pkg/MyTest2.java:5: lint: Permission 'Manifest.permission.MY_PERMISSION' is not defined by manifest TESTROOT/manifest.xml. [RequiresPermission]
+                src/test/pkg/MyTest2.java:5: lint: Permission 'Manifest.permission.MY_PERMISSION2' is not defined by manifest TESTROOT/manifest.xml. [RequiresPermission]
+                src/test/pkg/MyTest2.java:5: lint: Method 'test' must be protected with a system permission. [RequiresPermission]
                 """,
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
@@ -293,9 +293,9 @@ class SystemServiceCheckTest : DriverTest() {
     fun `Invalid manifest`() {
         check(
             warnings = """
-                TESTROOT/manifest.xml: error: Failed to parse TESTROOT/manifest.xml: The markup in the document preceding the root element must be well-formed. [ParseError:1]
-                src/test/pkg/MyTest2.java:6: error: None of the permissions foo.bar.PERMISSION1, foo.bar.PERMISSION2 are defined by manifest TESTROOT/manifest.xml. [RemovedField:10]
-                src/test/pkg/MyTest2.java:6: lint: Method 'test' must be protected with a system permission. [RequiresPermission:125]
+                TESTROOT/manifest.xml: error: Failed to parse TESTROOT/manifest.xml: The markup in the document preceding the root element must be well-formed. [ParseError]
+                src/test/pkg/MyTest2.java:6: lint: None of the permissions foo.bar.PERMISSION1, foo.bar.PERMISSION2 are defined by manifest TESTROOT/manifest.xml. [RequiresPermission]
+                src/test/pkg/MyTest2.java:6: lint: Method 'test' must be protected with a system permission. [RequiresPermission]
                 """,
             compatibilityMode = false,
             includeSystemApiAnnotations = true,
@@ -359,7 +359,7 @@ class SystemServiceCheckTest : DriverTest() {
             ),
             manifest = """<?xml version="1.0" encoding="UTF-8"?>
                 <manifest/>
-                            """
+                """
         )
     }
 }

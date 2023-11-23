@@ -1197,6 +1197,7 @@ public:
         }
     }
     int createSetupRequest(WifiRequest& request) {
+        char tmp_buf[DOT11_MAX_SSID_LEN + 1];
         if (epno_params.num_networks > MAX_EPNO_NETWORKS) {
             ALOGE("wrong epno num_networks:%d", epno_params.num_networks);
             return WIFI_ERROR_INVALID_ARGS;
@@ -1258,14 +1259,17 @@ public:
             if (attr2 == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
             }
-            result = request.put(GSCAN_ATTRIBUTE_EPNO_SSID, ssid_list[i].ssid, DOT11_MAX_SSID_LEN);
-            ALOGI("PNO network: SSID %s flags %x auth %x", ssid_list[i].ssid,
+            strlcpy(tmp_buf, ssid_list[i].ssid, sizeof(tmp_buf));
+            result = request.put(GSCAN_ATTRIBUTE_EPNO_SSID, tmp_buf,
+                strlen(tmp_buf));
+            ALOGI("PNO network: SSID %s flags %x auth %x", tmp_buf,
                 ssid_list[i].flags,
                 ssid_list[i].auth_bit_field);
             if (result < 0) {
                 return result;
             }
-            result = request.put_u32(GSCAN_ATTRIBUTE_EPNO_SSID_LEN, strlen(ssid_list[i].ssid));
+            result = request.put_u32(GSCAN_ATTRIBUTE_EPNO_SSID_LEN,
+                strlen(tmp_buf));
             if (result < 0) {
                 return result;
             }

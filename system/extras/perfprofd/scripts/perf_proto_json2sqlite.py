@@ -19,6 +19,7 @@ import itertools
 import json
 import sqlite3
 
+
 class SqliteWriter(object):
     def __init__(self):
         self.sample_count = 0
@@ -53,7 +54,7 @@ class SqliteWriter(object):
                                                     primary key (sample_id, depth))
                                                     ''')
         except sqlite3.OperationalError:
-            pass # ignore
+            pass  # ignore
 
     def close(self):
         self._conn.commit()
@@ -78,7 +79,7 @@ class SqliteWriter(object):
 
     def write_sqlite_index_table(self, table_dict, table_name):
         for key, value in table_dict.iteritems():
-            self._c.execute("insert into {tn} values (?,?)".format(tn=table_name), (value,key))
+            self._c.execute("insert into {tn} values (?,?)".format(tn=table_name), (value, key))
 
     def flush(self):
         self.write_sqlite_index_table(self.pid_tmp_map, 'pids')

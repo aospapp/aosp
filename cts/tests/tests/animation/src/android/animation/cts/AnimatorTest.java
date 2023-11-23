@@ -18,7 +18,6 @@ package android.animation.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -27,12 +26,13 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.AccelerateInterpolator;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -205,18 +205,23 @@ public class AnimatorTest {
 
     @Test
     public void testNullObjectAnimator() throws Throwable {
-        Object object = mActivity.view.newBall;
-        final ObjectAnimator animator = ObjectAnimator.ofFloat(object, "y", 0, 100);
+        class AnimTarget {
+            public float y = 0f;
+            public void setY(float y) {
+                this.y = y;
+            }
+
+            public float getY() {
+                return y;
+            }
+        }
+        final ObjectAnimator animator = ObjectAnimator.ofFloat(new AnimTarget(), "y", 0, 100);
         MyListener listener = new MyListener();
         animator.addListener(listener);
-        mActivity.view.newBall.setY(0);
-        startAnimation(animator);
-        int sleepCount = 0;
-        while (mActivity.view.newBall.getY() == 0 && sleepCount++ < 50) {
-            SystemClock.sleep(1);
-        }
-        assertNotSame(0, mActivity.view.newBall.getY());
-        mActivityRule.runOnUiThread(() -> animator.setTarget(null));
+        mActivityRule.runOnUiThread(() -> {
+            animator.start();
+            animator.setTarget(null);
+        });
         assertTrue(listener.mCancel);
     }
 

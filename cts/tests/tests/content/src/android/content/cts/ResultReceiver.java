@@ -21,13 +21,11 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * This class is used for testing android.content.ContentWrapper.
- *
- * @see ContextWrapperTest
+ * This class is used for {@link ContextTest}.
  */
 public class ResultReceiver extends BroadcastReceiver {
     public static final String MOCK_ACTION =
-        "android.content.cts.ContextWrapperTest.BROADCAST_RESULT";
+        "android.content.cts.ContextTest.BROADCAST_RESULT";
 
     private boolean mReceivedBroadCast;
 

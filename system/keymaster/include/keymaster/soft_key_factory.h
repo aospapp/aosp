@@ -23,11 +23,11 @@
 namespace keymaster {
 
 class SoftwareKeyBlobMaker {
-protected:
+  protected:
     // make destructor protected so only implementers can destroy instances.
     virtual ~SoftwareKeyBlobMaker() {}
-public:
 
+  public:
     /**
      * CreateKeyBlob takes authorization sets and key material and produces a key blob and hardware
      * and software authorization lists ready to be returned to the AndroidKeymaster client
@@ -39,15 +39,15 @@ public:
                                             const KeymasterKeyBlob& key_material,
                                             KeymasterKeyBlob* blob, AuthorizationSet* hw_enforced,
                                             AuthorizationSet* sw_enforced) const = 0;
-
 };
 
 class SoftKeyFactoryMixin {
-public:
-    SoftKeyFactoryMixin(const SoftwareKeyBlobMaker* blob_maker) :
-        blob_maker_(*blob_maker) {}
+  public:
+    explicit SoftKeyFactoryMixin(const SoftwareKeyBlobMaker* blob_maker)
+        : blob_maker_(*blob_maker) {}
     virtual ~SoftKeyFactoryMixin() {}
-protected:
+
+  protected:
     const SoftwareKeyBlobMaker& blob_maker_;
 };
 

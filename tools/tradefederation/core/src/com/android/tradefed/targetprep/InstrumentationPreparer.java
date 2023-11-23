@@ -142,7 +142,7 @@ public class InstrumentationPreparer extends BaseTargetPreparer {
 
     private String getFailedTestNames(CollectingTestListener listener) {
         final StringBuilder builder = new StringBuilder();
-        for (TestRunResult result : listener.getRunResults()) {
+        for (TestRunResult result : listener.getMergedTestRunResults()) {
             if (!result.hasFailedTests()) {
                 continue;
             }

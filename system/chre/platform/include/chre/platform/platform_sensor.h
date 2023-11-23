@@ -53,6 +53,9 @@ class PlatformSensor : public PlatformSensorBase,
    * and puts them in the supplied DynamicVector, which should be empty when
    * passed in. If this method returns false the vector may be partially filled.
    *
+   * NOTE: Some platform implementations depend on this list only being
+   * constructed during initialization so it must remain fixed afterwards.
+   *
    * @param sensors A non-null pointer to a DynamicVector to populate with the
    *                list of sensors.
    * @return true if the query was successful.
@@ -94,6 +97,27 @@ class PlatformSensor : public PlatformSensorBase,
    * @return true if the sampling status has been successfully obtained.
    */
   bool getSamplingStatus(struct chreSensorSamplingStatus *status) const;
+
+  /**
+   * Synchronously retrieves the current bias for a sensor that supports
+   * data in the chreSensorThreeAxisData format.
+   *
+   * @param bias A non-null pointer to store the current bias data.
+   *
+   * @return false if sensor does not report bias data in the
+   *     chreSensorThreeAxisData format.
+   */
+  bool getThreeAxisBias(struct chreSensorThreeAxisData *bias) const;
+
+  /**
+   * Makes a sensor flush request for a nanoapp asynchronously. When a flush
+   * request made by this method is completed (i.e. all pending samples are
+   * posted to the CHRE event queue), PlatformSensor should invoke
+   * SensorRequestManager::handleFlushCompleteEvent().
+   *
+   * @return true if the request was accepted.
+   */
+  bool flushAsync();
 
  protected:
   /**

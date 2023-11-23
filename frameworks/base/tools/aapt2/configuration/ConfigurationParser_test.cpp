@@ -26,6 +26,8 @@
 #include "test/Test.h"
 #include "xml/XmlDom.h"
 
+using ::android::ConfigDescription;
+
 namespace aapt {
 
 namespace configuration {
@@ -228,7 +230,7 @@ TEST_F(ConfigurationParserTest, ValidateFile) {
                                       test::ParseConfigOrDie("fr"), test::ParseConfigOrDie("de")));
   ASSERT_TRUE(a1.android_sdk);
   ASSERT_TRUE(a1.android_sdk.value().min_sdk_version);
-  EXPECT_EQ(a1.android_sdk.value().min_sdk_version, 19l);
+  EXPECT_EQ(a1.android_sdk.value().min_sdk_version, 19L);
   EXPECT_THAT(a1.textures, SizeIs(1ul));
   EXPECT_THAT(a1.features, SizeIs(1ul));
 
@@ -248,7 +250,7 @@ TEST_F(ConfigurationParserTest, ValidateFile) {
                           test::ParseConfigOrDie("fr-rCA")));
   ASSERT_TRUE(a2.android_sdk);
   ASSERT_TRUE(a2.android_sdk.value().min_sdk_version);
-  EXPECT_EQ(a2.android_sdk.value().min_sdk_version, 19l);
+  EXPECT_EQ(a2.android_sdk.value().min_sdk_version, 19L);
   EXPECT_THAT(a2.textures, SizeIs(1ul));
   EXPECT_THAT(a2.features, SizeIs(1ul));
 }
@@ -703,35 +705,24 @@ TEST_F(ConfigurationParserTest, AndroidSdkGroupAction_InvalidVersion) {
 }
 
 TEST_F(ConfigurationParserTest, AndroidSdkGroupAction_NonNumeric) {
-  static constexpr const char* xml = R"xml(
+  auto doc = test::BuildXmlDom(R"xml(
       <android-sdk
-          label="P"
+          label="Q"
           minSdkVersion="25"
-          targetSdkVersion="%s"
-          maxSdkVersion="%s">
-      </android-sdk>)xml";
-
-  const auto& dev_sdk = GetDevelopmentSdkCodeNameAndVersion();
-  const char* codename = dev_sdk.first.data();
-  const ApiVersion& version = dev_sdk.second;
-
-  auto doc = test::BuildXmlDom(StringPrintf(xml, codename, codename));
+          targetSdkVersion="Q"
+          maxSdkVersion="Q">
+      </android-sdk>)xml");
 
   PostProcessingConfiguration config;
-  bool ok = AndroidSdkTagHandler(&config, NodeCast<Element>(doc.get()->root.get()), &diag_);
-  ASSERT_TRUE(ok);
-
+  ASSERT_TRUE(AndroidSdkTagHandler(&config, NodeCast<Element>(doc.get()->root.get()), &diag_));
   ASSERT_EQ(1ul, config.android_sdks.size());
-  ASSERT_EQ(1u, config.android_sdks.count("P"));
-
-  auto& out = config.android_sdks["P"];
+  ASSERT_EQ(1u, config.android_sdks.count("Q"));
 
   AndroidSdk sdk;
   sdk.min_sdk_version = 25;
-  sdk.target_sdk_version = version;
-  sdk.max_sdk_version = version;
-
-  ASSERT_EQ(sdk, out);
+  sdk.target_sdk_version = 10000;
+  sdk.max_sdk_version = 10000;
+  ASSERT_EQ(sdk, config.android_sdks["Q"]);
 }
 
 TEST_F(ConfigurationParserTest, GlTextureGroupAction) {

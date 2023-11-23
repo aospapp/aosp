@@ -2,11 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# TODO(ihf): Find a good aapt and update to it.
 SDK_TOOLS_DIR = 'gs://chromeos-arc-images/builds/git_nyc-mr1-arc-linux-static_sdk_tools/3544738'
 SDK_TOOLS_FILES = ['aapt']
 
 # To stabilize adb behavior, we use dynamically linked adb.
-ADB_DIR = 'gs://chromeos-arc-images/builds/git_nyc-mr1-arc-linux-cheets_arm-user/3544738'
+ADB_DIR = 'gs://chromeos-arc-images/builds/git_master/4605730'
 ADB_FILES = ['adb']
 
 ADB_POLLING_INTERVAL_SECONDS = 1
@@ -39,8 +40,14 @@ TRADEFED_CACHE_CONTAINER_LOCK = '/usr/local/autotest/results/shared/lock'
 # impact of running say 100 CTS tests in parallel is acceptable (quarter
 # servers have 500GB of disk, while full servers have 2TB).
 TRADEFED_CACHE_MAX_SIZE = (20 * 1024 * 1024 * 1024)
+# The path that cts-tradefed uses to place media assets. By downloading and
+# expanding the archive here beforehand, tradefed can reuse the content.
+TRADEFED_MEDIA_PATH = '/tmp/android-cts-media'
 
 # It looks like the GCE builder can be very slow and login on VMs take much
 # longer than on hardware or bare metal.
-LOGIN_BOARD_TIMEOUT = {'betty': 300}
+LOGIN_BOARD_TIMEOUT = {'betty': 300, 'betty-arcnext': 300}
 LOGIN_DEFAULT_TIMEOUT = 90
+
+# Approximately assume ChromeOS revision Rdd-xxxxx.y.z with y>=45 as stable.
+APPROXIMATE_STABLE_BRANCH_NUMBER = 45

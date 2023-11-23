@@ -607,7 +607,7 @@ public final class CollationElementIterator
     }
 
     static final Map<Integer, Integer> computeMaxExpansions(CollationData data) {
-        Map<Integer, Integer> maxExpansions = new HashMap<Integer, Integer>();
+        Map<Integer, Integer> maxExpansions = new HashMap<>();
         MaxExpSink sink = new MaxExpSink(maxExpansions);
         new ContractionsAndExpansions(null, null, sink, true).forData(data);
         return maxExpansions;
@@ -673,12 +673,9 @@ public final class CollationElementIterator
     /**
      * Mock implementation of hashCode(). This implementation always returns a constant
      * value. When Java assertion is enabled, this method triggers an assertion failure.
-     * @deprecated This API is ICU internal only.
      * @hide original deprecated declaration
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
-    @Deprecated
     public int hashCode() {
         assert false : "hashCode not designed";
         return 42;

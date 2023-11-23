@@ -153,7 +153,7 @@ static int selabel_fini(struct selabel_handle *rec,
 
 	if (rec->spec_files)
 		path = rec->spec_files[0];
-	if (compat_validate(rec, lr, path, 0))
+	if (compat_validate(rec, lr, path, lr->lineno))
 		return -1;
 
 	if (translating && !lr->ctx_trans &&
@@ -280,6 +280,15 @@ bool selabel_partial_match(struct selabel_handle *rec, const char *key)
 	}
 
 	return rec->func_partial_match(rec, key);
+}
+
+bool selabel_hash_all_partial_matches(struct selabel_handle *rec,
+                                      const char *key, uint8_t *digest) {
+	if (!rec->func_hash_all_partial_matches) {
+		return false;
+	}
+
+	return rec->func_hash_all_partial_matches(rec, key, digest);
 }
 
 int selabel_lookup_best_match(struct selabel_handle *rec, char **con,

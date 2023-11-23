@@ -10,7 +10,6 @@ type perfd_data_file, file_type, data_file_type, core_data_file_type;
 type time_data_file, file_type, data_file_type, core_data_file_type;
 type display_data_file, file_type, data_file_type, core_data_file_type;
 type netmgr_data_file, file_type, data_file_type, core_data_file_type;
-type nanohub_lock_file, file_type, data_file_type;
 type sensors_cal_file, file_type;
 type nfc_vendor_data_file, file_type, data_file_type;
 type radio_vendor_data_file, file_type, data_file_type, mlstrustedobject;
@@ -37,7 +36,6 @@ type sysfs_video, sysfs_type, fs_type;
 type sysfs_diag, fs_type, sysfs_type;
 type sysfs_scsi_devices_0000, sysfs_type, fs_type;
 type sysfs_scsi_devices_other, sysfs_type, fs_type;
-type sysfs_devices_block, sysfs_type, fs_type;
 # b/70518189 vDSO experiments
 type sysfs_vdso, fs_type, sysfs_type;
 
@@ -81,7 +79,5 @@ type proc_irq, fs_type, proc_type;
 type irqbalance_socket, file_type;
 
 # /vendor
-type idc_file, file_type, vendor_file_type;
-type keylayout_file, file_type, vendor_file_type;
 type camera_vendor_data_file, file_type, data_file_type;
 type audio_vendor_data_file, file_type, data_file_type;

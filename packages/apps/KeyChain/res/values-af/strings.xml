@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Die %s-program het \'n sertifikaat versoek. Die kies van \'n sertifikaat sal dat die program hierdie identiteit nou en in die toekoms by bedieners gaan gebruik."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Die program het die versoekende bediener as %s geïdentifiseer, maar jy moet slegs vir die program toegang tot die sertifikaat gee as jy die program vertrou."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Jy kan sertifikate installeer van \'n PKCS#12-lêer met \'n %1$s- of \'n %2$s-uitbreiding wat in eksterne berging geleë is."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Installeer sertifikaat"</string>
     <string name="allow_button" msgid="3030990695030371561">"Kies"</string>
     <string name="deny_button" msgid="3766539809121892584">"Weier"</string>
 </resources>

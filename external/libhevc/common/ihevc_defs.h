@@ -333,10 +333,14 @@ enum
 /* CTB Size Range */
 #define MAX_CTB_SIZE        64
 #define MIN_CTB_SIZE        16
+#define LOG2_MAX_CTB_SIZE   6
+#define LOG2_MIN_CTB_SIZE   4
 
 /* TU Size Range */
 #define MAX_TU_SIZE         32
 #define MIN_TU_SIZE         4
+#define LOG2_MAX_TU_SIZE    5
+#define LOG2_MIN_TU_SIZE    2
 
 /* Max Transform Size */
 #define MAX_TRANS_SIZE      (MAX_TU_SIZE*MAX_TU_SIZE)
@@ -344,11 +348,14 @@ enum
 /* PU Size Range */
 #define MAX_PU_SIZE         64
 #define MIN_PU_SIZE         4
+#define LOG2_MAX_PU_SIZE    6
+#define LOG2_MIN_PU_SIZE    2
 
 /* CU Size Range */
 #define MAX_CU_SIZE         64
 #define MIN_CU_SIZE         8
-
+#define LOG2_MAX_CU_SIZE    6
+#define LOG2_MIN_CU_SIZE    3
 
 /* Number of max TU in a CTB row */
 #define MAX_TU_IN_CTB_ROW   ((MAX_CTB_SIZE / MIN_TU_SIZE))

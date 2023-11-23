@@ -74,5 +74,4 @@ public class SystemClockTest extends AndroidTestCase {
         long end = SystemClock.uptimeMillis();
         assertTrue(end - 100 >= start);
     }
-
 }

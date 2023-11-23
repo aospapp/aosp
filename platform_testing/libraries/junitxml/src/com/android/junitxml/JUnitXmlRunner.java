@@ -16,13 +16,16 @@
 
 package com.android.junitxml;
 
+import org.junit.Test;
 import org.junit.internal.TextListener;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.stream.Stream;
 
 /**
@@ -54,24 +57,45 @@ public class JUnitXmlRunner {
         return null;
     }
 
+    private static AtestRunListener getAtestRunListener(int count) {
+        String outputFileStr = System.getenv("EVENT_FILE_ROBOLECTRIC");
+        String suiteName = System.getenv("TEST_WORKSPACE");
+        if (outputFileStr != null && outputFileStr.length() > 0) {
+            File outputFile = new File(outputFileStr);
+            if (outputFile.exists()) {
+                return new AtestRunListener(suiteName, outputFile, count);
+            }
+        }
+        return null;
+    }
+
     public static void main(String... args) {
         JUnitCore core = new JUnitCore();
         try {
+            Class[] as =
+                    Stream.of(args)
+                            .map(
+                                    test -> {
+                                        try {
+                                            return Class.forName(test);
+                                        } catch (ClassNotFoundException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    })
+                            .toArray(Class[]::new);
             TextListener textListener = new TextListener(System.out);
             core.addListener(textListener);
             XmlRunListener xmlListener = getRunListener();
             if (xmlListener != null) {
                 core.addListener(xmlListener);
             }
-            Result result = core.run(Stream.of(args)
-                    .map(test -> {
-                        try {
-                            return Class.forName(test);
-                        } catch (ClassNotFoundException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .toArray(Class[]::new));
+
+            // Add AtestRunListener to communicate with ATest.
+            AtestRunListener atestRunListener = getAtestRunListener(calcTestCount(as));
+            if (atestRunListener != null) {
+                core.addListener(atestRunListener);
+            }
+            Result result = core.run(as);
             if (xmlListener != null) {
                 xmlListener.endTestSuite();
             }
@@ -79,6 +103,19 @@ public class JUnitXmlRunner {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static int calcTestCount(Class[] as) {
+        int count = 0;
+        for (Class cls : as) {
+            Method[] declaredMethods = cls.getMethods();
+            for (Method method : declaredMethods) {
+                if (method.isAnnotationPresent(Test.class)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }
 

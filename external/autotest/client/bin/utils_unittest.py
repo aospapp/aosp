@@ -3,9 +3,17 @@
 __author__ = "kerl@google.com, gwendal@google.com (Gwendal Grignou)"
 
 import io
+import mock
 import unittest
 
 from autotest_lib.client.bin import utils
+
+_IOSTAT_OUTPUT = (
+    'Linux 3.8.11 (localhost)   02/19/19        _x86_64_        (4 CPU)\n'
+    '\n'
+    'Device            tps    kB_read/s    kB_wrtn/s    kB_read    kB_wrtn\n'
+    'ALL              4.45        10.33       292.40     665582     188458\n'
+    '\n')
 
 class TestUtils(unittest.TestCase):
     """Test utils functions."""
@@ -141,7 +149,28 @@ class TestUtils(unittest.TestCase):
         self.assertAlmostEqual(utils.get_mem_free_plus_buffers_and_cached(),
                                600)
 
+    def test_get_meminfo(self):
+        self.fake_file_text = ('MemTotal:      2048000 kB\n'
+                               'MemFree:        307200 kB\n'
+                               'Buffers:        102400 kB\n'
+                               'Cached:         204800 kB\n'
+                               'Active(anon):   409600 kB')
+        meminfo = utils.get_meminfo()
+        self.assertEqual(meminfo.MemTotal, 2048000)
+        self.assertEqual(meminfo.Active_anon, 409600)
+
     def test_get_num_allocated_file_handles(self):
         self.fake_file_text = '123 0 456\n'
         self.assertEqual(utils.get_num_allocated_file_handles(), 123)
 
+    @mock.patch('autotest_lib.client.common_lib.utils.system_output')
+    def test_get_storage_statistics(self, system_output_mock):
+        system_output_mock.return_value = _IOSTAT_OUTPUT
+        statistics = utils.get_storage_statistics()
+        self.assertEqual({
+            'read_kb': 665582.0,
+            'written_kb_per_s': 292.4,
+            'read_kb_per_s': 10.33,
+            'transfers_per_s': 4.45,
+            'written_kb': 188458.0,
+        }, statistics)

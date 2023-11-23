@@ -16,12 +16,13 @@
 
 package com.android.documentsui.bots;
 
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 
-import android.support.test.espresso.ViewInteraction;
 import android.view.View;
+
+import androidx.test.espresso.ViewInteraction;
 
 import junit.framework.AssertionFailedError;
 

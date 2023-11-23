@@ -25,8 +25,6 @@
  */
 extern "C" void* artMterpAsmInstructionStart[];
 extern "C" void* artMterpAsmInstructionEnd[];
-extern "C" void* artMterpAsmAltInstructionStart[];
-extern "C" void* artMterpAsmAltInstructionEnd[];
 
 namespace art {
 
@@ -36,12 +34,7 @@ namespace interpreter {
 
 void InitMterpTls(Thread* self);
 void CheckMterpAsmConstants();
-
-// The return type should be 'bool' but our assembly stubs expect 'bool'
-// to be zero-extended to the whole register and that's broken on x86-64
-// as a 'bool' is returned in 'al' and the rest of 'rax' is garbage.
-// TODO: Fix mterp and stubs and revert this workaround. http://b/30232671
-extern "C" size_t MterpShouldSwitchInterpreters();
+bool CanUseMterp();
 
 // Poison value for TestExportPC.  If we segfault with this value, it means that a mterp
 // handler for a recent opcode failed to export the Dalvik PC prior to a possible exit from
@@ -49,6 +42,8 @@ extern "C" size_t MterpShouldSwitchInterpreters();
 constexpr uintptr_t kExportPCPoison = 0xdead00ff;
 // Set true to enable poison testing of ExportPC.  Uses Alt interpreter.
 constexpr bool kTestExportPC = false;
+
+constexpr size_t kMterpHandlerSize = 128;
 
 }  // namespace interpreter
 }  // namespace art

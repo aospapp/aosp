@@ -26,14 +26,13 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
 import com.android.settingslib.applications.StorageStatsSource;
 import com.android.settingslib.applications.StorageStatsSource.AppStorageStats;
-import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
 import com.android.storagemanager.utils.AsyncLoader;
 
@@ -70,7 +69,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
     private int mUserId;
     private String mUuid;
     private StorageStatsSource mStatsManager;
-    private PackageManagerWrapper mPackageManager;
+    private PackageManager mPackageManager;
 
     private UsageStatsManager mUsageStatsManager;
 
@@ -79,7 +78,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
             int userId,
             String uuid,
             StorageStatsSource source,
-            PackageManagerWrapper pm,
+            PackageManager pm,
             UsageStatsManager um,
             AppsAsyncLoader.AppFilter filter) {
         super(context);
@@ -142,8 +141,11 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
                             .setPackageName(app.packageName)
                             .setSize(appSpace.getTotalBytes())
                             .setFlags(app.flags)
-                            .setIcon(mPackageManager.getUserBadgedIcon(app))
-                            .setLabel(mPackageManager.loadLabel(app))
+                            .setIcon(
+                                    mPackageManager.getUserBadgedIcon(
+                                            mPackageManager.loadUnbadgedItemIcon(app, app),
+                                            new UserHandle(UserHandle.getUserId(app.uid))))
+                            .setLabel(app.loadLabel(mPackageManager))
                             .build();
             seenUid.add(app.uid);
             if (mFilter.filterApp(extraInfo) && !isDefaultLauncher(mPackageManager, extraInfo)) {
@@ -205,8 +207,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
     @Override
     protected void onDiscardResult(List<PackageInfo> result) {}
 
-    private static boolean isDefaultLauncher(
-            PackageManagerWrapper packageManager, PackageInfo info) {
+    private static boolean isDefaultLauncher(PackageManager packageManager, PackageInfo info) {
         if (packageManager == null) {
             return false;
         }
@@ -228,7 +229,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
         private int mUid;
         private String mUuid;
         private StorageStatsSource mStorageStatsSource;
-        private PackageManagerWrapper mPackageManager;
+        private PackageManager mPackageManager;
         private UsageStatsManager mUsageStatsManager;
         private AppsAsyncLoader.AppFilter mFilter;
 
@@ -251,7 +252,7 @@ public class AppsAsyncLoader extends AsyncLoader<List<PackageInfo>> {
             return this;
         }
 
-        public Builder setPackageManager(PackageManagerWrapper packageManager) {
+        public Builder setPackageManager(PackageManager packageManager) {
             this.mPackageManager = packageManager;
             return this;
         }

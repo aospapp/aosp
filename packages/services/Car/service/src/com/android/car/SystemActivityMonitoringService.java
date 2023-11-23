@@ -15,8 +15,11 @@
  */
 package com.android.car;
 
+import static com.android.car.pm.CarPackageManagerService.BLOCKING_INTENT_EXTRA_DISPLAY_ID;
+
 import android.app.ActivityManager;
 import android.app.ActivityManager.StackInfo;
+import android.app.ActivityOptions;
 import android.app.IActivityManager;
 import android.app.IProcessObserver;
 import android.app.TaskStackListener;
@@ -34,6 +37,7 @@ import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
+import android.view.Display;
 
 import java.io.PrintWriter;
 import java.util.Arrays;
@@ -54,11 +58,16 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     public static class TopTaskInfoContainer {
         public final ComponentName topActivity;
         public final int taskId;
+        public final int displayId;
+        public final int position;
         public final StackInfo stackInfo;
 
-        private TopTaskInfoContainer(ComponentName topActivity, int taskId, StackInfo stackInfo) {
+        private TopTaskInfoContainer(ComponentName topActivity, int taskId,
+                int displayId, int position, StackInfo stackInfo) {
             this.topActivity = topActivity;
             this.taskId = taskId;
+            this.displayId = displayId;
+            this.position = position;
             this.stackInfo = stackInfo;
         }
 
@@ -66,14 +75,17 @@ public class SystemActivityMonitoringService implements CarServiceBase {
             return taskInfo != null
                     && Objects.equals(this.topActivity, taskInfo.topActivity)
                     && this.taskId == taskInfo.taskId
+                    && this.displayId == taskInfo.displayId
+                    && this.position == taskInfo.position
                     && this.stackInfo.userId == taskInfo.stackInfo.userId;
         }
 
         @Override
         public String toString() {
             return String.format(
-                    "TaskInfoContainer [topActivity=%s, taskId=%d, stackId=%d, userId=%d",
-                    topActivity, taskId, stackInfo.stackId, stackInfo.userId);
+                    "TaskInfoContainer [topActivity=%s, taskId=%d, stackId=%d, userId=%d, "
+                    + "displayId=%d, position=%d",
+                  topActivity, taskId, stackInfo.stackId, stackInfo.userId, displayId, position);
         }
     }
 
@@ -85,6 +97,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
         void onActivityLaunch(TopTaskInfoContainer topTask);
     }
 
+    private static final int INVALID_STACK_ID = -1;
     private final Context mContext;
     private final IActivityManager mAm;
     private final ProcessObserver mProcessObserver;
@@ -93,16 +106,11 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     private final HandlerThread mMonitorHandlerThread;
     private final ActivityMonitorHandler mHandler;
 
-    /** K: stack id, V: top task */
+    /** K: display id, V: top task */
     private final SparseArray<TopTaskInfoContainer> mTopTasks = new SparseArray<>();
     /** K: uid, V : list of pid */
     private final Map<Integer, Set<Integer>> mForegroundUidPids = new ArrayMap<>();
-    private int mFocusedStackId = -1;
-
-    /**
-     * Temporary container to dispatch tasks for onActivityLaunch. Only used in handler thread.
-     * can be accessed without lock. */
-    private final List<TopTaskInfoContainer> mTasksToDispatch = new LinkedList<>();
+    private int mFocusedStackId = INVALID_STACK_ID;
     private ActivityLaunchListener mActivityLaunchListener;
 
     public SystemActivityMonitoringService(Context context) {
@@ -136,15 +144,16 @@ public class SystemActivityMonitoringService implements CarServiceBase {
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*SystemActivityMonitoringService*");
-        writer.println(" Top Tasks:");
+        writer.println(" Top Tasks per display:");
         synchronized (this) {
             for (int i = 0; i < mTopTasks.size(); i++) {
+                int displayId = mTopTasks.keyAt(i);
                 TopTaskInfoContainer info = mTopTasks.valueAt(i);
                 if (info != null) {
-                    writer.println(info);
+                    writer.println("display id " + displayId + ": " + info);
                 }
             }
-            writer.println(" Foregroud uid-pids:");
+            writer.println(" Foreground uid-pids:");
             for (Integer key : mForegroundUidPids.keySet()) {
                 Set<Integer> pids = mForegroundUidPids.get(key);
                 if (pids == null) {
@@ -169,7 +178,13 @@ public class SystemActivityMonitoringService implements CarServiceBase {
         LinkedList<TopTaskInfoContainer> tasks = new LinkedList<>();
         synchronized (this) {
             for (int i = 0; i < mTopTasks.size(); i++) {
-                tasks.add(mTopTasks.valueAt(i));
+                TopTaskInfoContainer topTask = mTopTasks.valueAt(i);
+                if (topTask == null) {
+                    Log.e(CarLog.TAG_AM, "Top tasks contains null. Full content is: "
+                            + mTopTasks.toString());
+                    continue;
+                }
+                tasks.add(topTask);
             }
         }
         return tasks;
@@ -253,7 +268,7 @@ public class SystemActivityMonitoringService implements CarServiceBase {
             Log.e(CarLog.TAG_AM, "cannot getTasks", e);
             return;
         }
-        int focusedStackId = -1;
+        int focusedStackId = INVALID_STACK_ID;
         try {
             // TODO(b/66955160): Someone on the Auto-team should probably re-work the code in the
             // synchronized block below based on this new API.
@@ -265,37 +280,44 @@ public class SystemActivityMonitoringService implements CarServiceBase {
             Log.e(CarLog.TAG_AM, "cannot getFocusedStackId", e);
             return;
         }
-        mTasksToDispatch.clear();
+
+        SparseArray<TopTaskInfoContainer> topTasks = new SparseArray<>();
         ActivityLaunchListener listener;
         synchronized (this) {
             listener = mActivityLaunchListener;
+
             for (StackInfo info : infos) {
-                int stackId = info.stackId;
+                int displayId = info.displayId;
                 if (info.taskNames.length == 0 || !info.visible) { // empty stack or not shown
-                    mTopTasks.remove(stackId);
                     continue;
                 }
                 TopTaskInfoContainer newTopTaskInfo = new TopTaskInfoContainer(
-                        info.topActivity, info.taskIds[info.taskIds.length - 1], info);
-                TopTaskInfoContainer currentTopTaskInfo = mTopTasks.get(stackId);
+                        info.topActivity, info.taskIds[info.taskIds.length - 1],
+                        info.displayId, info.position, info);
+                TopTaskInfoContainer currentTopTaskInfo = topTasks.get(displayId);
 
-                // if a new task is added to stack or focused stack changes, should notify
                 if (currentTopTaskInfo == null ||
-                        !currentTopTaskInfo.isMatching(newTopTaskInfo) ||
-                        (focusedStackId == stackId && focusedStackId != mFocusedStackId)) {
-                    mTopTasks.put(stackId, newTopTaskInfo);
-                    mTasksToDispatch.add(newTopTaskInfo);
+                        newTopTaskInfo.position > currentTopTaskInfo.position) {
+                    topTasks.put(displayId, newTopTaskInfo);
                     if (Log.isLoggable(CarLog.TAG_AM, Log.INFO)) {
-                        Log.i(CarLog.TAG_AM, "New top task: " + newTopTaskInfo);
+                        Log.i(CarLog.TAG_AM, "Updating top task to: " + newTopTaskInfo);
                     }
                 }
             }
-            mFocusedStackId = focusedStackId;
+            // Assuming displays remains the same.
+            for (int i = 0; i < topTasks.size(); i++) {
+                TopTaskInfoContainer topTask = topTasks.valueAt(i);
+
+                int displayId = topTasks.keyAt(i);
+                mTopTasks.put(displayId, topTask);
+            }
         }
         if (listener != null) {
-            for (TopTaskInfoContainer topTask : mTasksToDispatch) {
+            for (int i = 0; i < topTasks.size(); i++) {
+                TopTaskInfoContainer topTask = topTasks.valueAt(i);
+
                 if (Log.isLoggable(CarLog.TAG_AM, Log.INFO)) {
-                    Log.i(CarLog.TAG_AM, "activity launched:" + topTask.toString());
+                    Log.i(CarLog.TAG_AM, "Notifying about top task: " + topTask.toString());
                 }
                 listener.onActivityLaunch(topTask);
             }
@@ -357,7 +379,15 @@ public class SystemActivityMonitoringService implements CarServiceBase {
      * block the current task with the provided new activity.
      */
     private void handleBlockActivity(TopTaskInfoContainer currentTask, Intent newActivityIntent) {
-        mContext.startActivityAsUser(newActivityIntent,
+        int displayId = newActivityIntent.getIntExtra(BLOCKING_INTENT_EXTRA_DISPLAY_ID,
+                Display.DEFAULT_DISPLAY);
+        if (Log.isLoggable(CarLog.TAG_AM, Log.DEBUG)) {
+            Log.d(CarLog.TAG_AM, "Launching blocking activity on display: " + displayId);
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchDisplayId(displayId);
+        mContext.startActivityAsUser(newActivityIntent, options.toBundle(),
                 new UserHandle(currentTask.stackInfo.userId));
         // Now make stack with new activity focused.
         findTaskAndGrantFocus(newActivityIntent.getComponent());
@@ -398,6 +428,10 @@ public class SystemActivityMonitoringService implements CarServiceBase {
                     uid, pid, foregroundActivities));
             }
             mHandler.requestForegroundActivitiesChanged(pid, uid, foregroundActivities);
+        }
+
+        @Override
+        public void onForegroundServicesChanged(int pid, int uid, int fgServiceTypes) {
         }
 
         @Override

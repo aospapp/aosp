@@ -17,6 +17,7 @@
 package com.android.documentsui.services;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 
@@ -32,21 +33,10 @@ import java.util.HashMap;
 
 class TestNotificationManager {
 
-    private final TestForegroundManager mForegroundManager;
     private final SparseArray<HashMap<String, Notification>> mNotifications = new SparseArray<>();
     private final Answer<Void> mAnswer = this::invoke;
 
-    TestNotificationManager(TestForegroundManager foregroundManager) {
-        assert(foregroundManager != null);
-        mForegroundManager = foregroundManager;
-    }
-
-    private void notify(String tag, int id, Notification notification) {
-        if (notification == mForegroundManager.getForegroundNotification()
-                && id != mForegroundManager.getForegroundId()) {
-            throw new IllegalStateException("Mismatching ID and notification.");
-        }
-
+    void notify(String tag, int id, Notification notification) {
         if (mNotifications.get(id) == null) {
             mNotifications.put(id, new HashMap<>());
         }
@@ -54,14 +44,10 @@ class TestNotificationManager {
         mNotifications.get(id).put(tag, notification);
     }
 
-    private void cancel(String tag, int id) {
+    void cancel(String tag, int id) {
         final HashMap<String, Notification> idMap = mNotifications.get(id);
         if (idMap != null && idMap.containsKey(tag)) {
-            final Notification notification = idMap.get(tag);
-            // Only cancel non-foreground notification
-            if (mForegroundManager.getForegroundNotification() != notification) {
-                idMap.remove(tag);
-            }
+            idMap.remove(tag);
         }
     }
 
@@ -88,6 +74,14 @@ class TestNotificationManager {
         return null;
     }
 
+    private boolean hasNotification(int id, String jobId) {
+        if (mNotifications.get(id) == null) {
+            return false;
+        }
+        Notification notification = mNotifications.get(id).get(jobId);
+        return notification != null;
+    }
+
     NotificationManager createNotificationManager() {
         return Mockito.mock(NotificationManager.class, mAnswer);
     }
@@ -99,5 +93,13 @@ class TestNotificationManager {
         }
 
         assertEquals(expect, count);
+    }
+
+    void assertHasNotification(int id, String jobid) {
+        assertTrue(hasNotification(id, jobid));
+    }
+
+    void assertNoNotification(int id, String jobid) {
+        assertFalse(hasNotification(id, jobid));
     }
 }

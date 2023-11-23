@@ -16,6 +16,7 @@
 
 import unittest
 import mock
+import os
 
 from acts.libs.ota.ota_tools import ota_tool
 from acts.libs.ota.ota_runners import ota_runner
@@ -52,6 +53,9 @@ class OtaRunnerImpl(ota_runner.OtaRunner):
     def get_ota_package(self):
         return ''
 
+    def validate_update(self):
+        pass
+
 
 class OtaRunnerTest(unittest.TestCase):
     """Tests the OtaRunner class."""
@@ -65,14 +69,18 @@ class OtaRunnerTest(unittest.TestCase):
 
     def test_update(self):
         device = mock.MagicMock()
+        device.skip_sl4a = False
         tool = MockOtaTool('mock_command')
         runner = OtaRunnerImpl(tool, device)
         runner.android_device.adb.getprop = mock.Mock(side_effect=['a', 'b'])
+        runner.get_post_build_id = lambda: 'abc'
+
         runner._update()
-        device.stop_services.assert_called()
-        device.wait_for_boot_completion.assert_called()
-        device.start_services.assert_called()
-        device.adb.install.assert_called()
+
+        self.assertTrue(device.stop_services.called)
+        self.assertTrue(device.wait_for_boot_completion.called)
+        self.assertTrue(device.start_services.called)
+        self.assertTrue(device.adb.install.called)
         tool.assert_calls_equal(self, 1)
 
     def test_update_fail_on_no_change_to_build(self):
@@ -80,6 +88,7 @@ class OtaRunnerTest(unittest.TestCase):
         tool = MockOtaTool('mock_command')
         runner = OtaRunnerImpl(tool, device)
         runner.android_device.adb.getprop = mock.Mock(side_effect=['a', 'a'])
+        runner.get_post_build_id = lambda: 'abc'
         try:
             runner._update()
             self.fail('Matching build fingerprints did not throw an error!')
@@ -94,6 +103,26 @@ class OtaRunnerTest(unittest.TestCase):
         self.assertEqual(runner.ota_tool, tool)
         self.assertEqual(runner.android_device, device)
         self.assertEqual(runner.serial, device.serial)
+
+    def test_get_post_build_id_grabs_valid_data(self):
+        device = mock.MagicMock()
+        tool = MockOtaTool('mock_command')
+        runner = OtaRunnerImpl(tool, device)
+        ota_package_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'dummy_ota_package.zip')
+        runner.get_ota_package = lambda: ota_package_path
+        self.assertEqual(runner.get_post_build_id(), 'post-build_information')
+
+    def test_get_ota_package_metadata_value_does_not_exist(self):
+        device = mock.MagicMock()
+        tool = MockOtaTool('mock_command')
+        runner = OtaRunnerImpl(tool, device)
+        ota_package_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'dummy_ota_package.zip')
+        runner.get_ota_package = lambda: ota_package_path
+        self.assertEqual(runner.get_ota_package_metadata('garbage-data'), None)
 
 
 class SingleUseOtaRunnerTest(unittest.TestCase):
@@ -221,3 +250,7 @@ class MultiUseOtaRunnerTest(unittest.TestCase):
                                               ['first_pkg', 'second_pkg'],
                                               ['first_apk', 'second_apk'])
         self.assertEqual(runner.get_sl4a_apk(), 'first_apk')
+
+
+if __name__ == '__main__':
+    unittest.main()

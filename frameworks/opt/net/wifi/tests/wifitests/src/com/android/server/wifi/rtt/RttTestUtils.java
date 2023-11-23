@@ -78,6 +78,23 @@ public class RttTestUtils {
     }
 
     /**
+     * Returns a dummy ranging request with 2 requests:
+     * - First: 802.11mc capable
+     */
+    public static RangingRequest getDummyRangingRequestMcOnly(byte lastMacByte) {
+        RangingRequest.Builder builder = new RangingRequest.Builder();
+
+        ScanResult scan1 = new ScanResult();
+        scan1.BSSID = "00:01:02:03:04:" + String.format("%02d", lastMacByte);
+        scan1.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
+        scan1.channelWidth = ScanResult.CHANNEL_WIDTH_40MHZ;
+
+        builder.addAccessPoint(scan1);
+
+        return builder.build();
+    }
+
+    /**
      * Returns a dummy ranging request with 2 requests - neither of which support 802.11mc.
      */
     public static RangingRequest getDummyRangingRequestNo80211mcSupport(byte lastMacByte) {
@@ -115,11 +132,11 @@ public class RttTestUtils {
                 if (peer.peerHandle == null) {
                     rangingResult = new RangingResult(RangingResult.STATUS_SUCCESS,
                             peer.macAddress, rangeCmBase++, rangeStdDevCmBase++, rssiBase++,
-                            8, 5, null, null, rangeTimestampBase++);
+                            8, 5, null, null, null, rangeTimestampBase++);
                 } else {
                     rangingResult = new RangingResult(RangingResult.STATUS_SUCCESS,
                             peer.peerHandle, rangeCmBase++, rangeStdDevCmBase++, rssiBase++,
-                            8, 5, null, null, rangeTimestampBase++);
+                            8, 5, null, null, null, rangeTimestampBase++);
                 }
                 results.add(rangingResult);
                 halResults.add(getMatchingRttResult(rangingResult, peer.macAddress));
@@ -127,13 +144,16 @@ public class RttTestUtils {
         } else {
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("10:01:02:03:04:05"), rangeCmBase++,
-                    rangeStdDevCmBase++, rssiBase++, 8, 4, null, null, rangeTimestampBase++));
+                    rangeStdDevCmBase++, rssiBase++, 8, 4, null, null,
+                    null, rangeTimestampBase++));
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("1A:0B:0C:0D:0E:0F"), rangeCmBase++,
-                    rangeStdDevCmBase++, rssiBase++, 9, 3, null, null, rangeTimestampBase++));
+                    rangeStdDevCmBase++, rssiBase++, 9, 3, null, null,
+                    null, rangeTimestampBase++));
             results.add(new RangingResult(RangingResult.STATUS_SUCCESS,
                     MacAddress.fromString("08:09:08:07:06:05"), rangeCmBase++,
-                    rangeStdDevCmBase++, rssiBase++, 10, 2, null, null, rangeTimestampBase++));
+                    rangeStdDevCmBase++, rssiBase++, 10, 2, null, null,
+                    null, rangeTimestampBase++));
             halResults.add(getMatchingRttResult(results.get(0), null));
             halResults.add(getMatchingRttResult(results.get(1), null));
             halResults.add(getMatchingRttResult(results.get(2), null));

@@ -30,23 +30,31 @@
 #include "util.h"
 #include "commonRef.h"
 
-#define ALL_REFS -1
-
 /*
+ * ANDROID-CHANGED: This was modified for android to avoid any use of weak
+ * global (jweak) references. On Android hosts the number of jweak
+ * references active at any one time is limited. By using jweaks to keep
+ * track of objects here we could hit the jweak limit on some very large
+ * apps. The implementation is compatible with any JVMTI implementation
+ * that provides the 'can_tag_objects' and
+ * 'can_generate_object_free_events' capabilities. This works by watching
+ * for the ObjectFree events on tagged objects and storing them in a list
+ * of things that have been deleted.
+ *
  * Each object sent to the front end is tracked with the RefNode struct
  * (see util.h).
  * External to this module, objects are identified by a jlong id which is
- * simply the sequence number. A weak reference is usually used so that
+ * simply the sequence number. A JVMTI tag is usually used so that
  * the presence of a debugger-tracked object will not prevent
  * its collection. Once an object is collected, its RefNode may be
- * deleted and the weak ref inside may be reused (these may happen in
- * either order). Using the sequence number
+ * deleted (these may happen in * either order). Using the sequence number
  * as the object id prevents ambiguity in the object id when the weak ref
  * is reused. The RefNode* is stored with the object as it's JVMTI Tag.
+ * This tag also provides the weak-reference behavior.
  *
- * The ref member is changed from weak to strong when
- * gc of the object is to be prevented.
- * Whether or not it is strong, it is never exported from this module.
+ * The ref member is changed from weak to strong when gc of the object is
+ * to be prevented. Whether or not it is strong, it is never exported
+ * from this module.
  *
  * A reference count of each jobject is also maintained here. It tracks
  * the number times an object has been referenced through
@@ -54,9 +62,9 @@
  * count is decremented to 0 (with commonRef_release*), even if the
  * corresponding object has not been collected.
  *
- * One hash table is maintained. The mapping of ID to jobject (or RefNode*)
- * is handled with one hash table that will re-size itself as the number
- * of RefNode's grow.
+ * One hash table is maintained. The mapping of ID to RefNode* is handled
+ * with one hash table that will re-size itself as the number of RefNode's
+ * grow.
  */
 
 /* Initial hash table size (must be power of 2) */
@@ -82,13 +90,77 @@ newSeqNum(void)
     return gdata->nextSeqNum++;
 }
 
-/* Create a fresh RefNode structure, create a weak ref and tag the object */
+/* ANDROID-CHANGED: This helper function is unique to android.
+ * This function gets a local-ref to object the node is pointing to. If the node's object has been
+ * collected it will return NULL. The caller is responsible for calling env->DeleteLocalRef or
+ * env->PopLocalFrame to clean up the reference. This function makes no changes to the passed in
+ * node.
+ */
+static jobject
+getLocalRef(JNIEnv *env, const RefNode* node) {
+    if (node->isStrong) {
+        return JNI_FUNC_PTR(env,NewLocalRef)(env, node->ref);
+    }
+    jint count = -1;
+    jobject *objects = NULL;
+    jlong tag = ptr_to_jlong(node);
+    jvmtiError error = JVMTI_FUNC_PTR(gdata->jvmti,GetObjectsWithTags)
+            (gdata->jvmti, 1, &tag, &count, &objects, NULL);
+    if (error != JVMTI_ERROR_NONE) {
+        EXIT_ERROR(error,"GetObjectsWithTags");
+    }
+    if (count != 1 && count != 0) {
+        EXIT_ERROR(AGENT_ERROR_INTERNAL,
+                   "GetObjectsWithTags returned multiple objects unexpectedly");
+    }
+    jobject res = (count == 0) ? NULL : objects[0];
+    JVMTI_FUNC_PTR(gdata->jvmti,Deallocate)(gdata->jvmti,(unsigned char*)objects);
+    return res;
+}
+
+/* ANDROID-CHANGED: Handler function for objects being freed. */
+void commonRef_handleFreedObject(jlong tag) {
+    RefNode* node = (RefNode*)jlong_to_ptr(tag);
+    debugMonitorEnterNoSuspend(gdata->refLock); {
+        // Delete the node and remove it from the hashmap.
+        // If we raced with a deleteNode call and lost the next and prev will be null but we will
+        // not be at the start of the bucket. This is fine.
+        jint slot = hashBucket(node->seqNum);
+        if (node->next != NULL ||
+                node->prev != NULL ||
+                gdata->objectsByID[slot] == node) {
+            /* Detach from id hash table */
+            if (node->prev == NULL) {
+                gdata->objectsByID[slot] = node->next;
+            } else {
+                node->prev->next = node->next;
+            }
+            /* Also fixup back links. */
+            if (node->next != NULL) {
+                node->next->prev = node->prev;
+            }
+            gdata->objectsByIDcount--;
+        }
+        jvmtiDeallocate(node);
+    } debugMonitorExit(gdata->refLock);
+}
+
+/* Create a fresh RefNode structure, and tag the object (creating a weak-ref to it).
+ * ANDROID-CHANGED: The definition of RefNode was changed slightly so that node->ref is only for
+ * a strong reference. For weak references we use the node as a tag on the object to keep track if
+ * it.
+ * ANDROID-CHANGED: ref must be a local-reference held live for the duration of this method until it
+ * is fully in the objectByID map.
+ */
 static RefNode *
 createNode(JNIEnv *env, jobject ref)
 {
     RefNode   *node;
-    jobject    weakRef;
     jvmtiError error;
+
+    if (ref == NULL) {
+        return NULL;
+    }
 
     /* Could allocate RefNode's in blocks, not sure it would help much */
     node = (RefNode*)jvmtiAllocate((int)sizeof(RefNode));
@@ -96,24 +168,19 @@ createNode(JNIEnv *env, jobject ref)
         return NULL;
     }
 
-    /* Create weak reference to make sure we have a reference */
-    weakRef = JNI_FUNC_PTR(env,NewWeakGlobalRef)(env, ref);
-    if (weakRef == NULL) {
-        jvmtiDeallocate(node);
-        return NULL;
-    }
-
-    /* Set tag on weakRef */
-    error = JVMTI_FUNC_PTR(gdata->jvmti, SetTag)
-                          (gdata->jvmti, weakRef, ptr_to_jlong(node));
+    /* ANDROID-CHANGED: Use local reference to make sure we have a reference. We will use this
+     * reference to set a tag to the node to use as a weak-reference and keep track of the ref.
+     * ANDROID-CHANGED: Set node tag on the ref. This tag now functions as the weak-reference to the
+     * object.
+     */
+    error = JVMTI_FUNC_PTR(gdata->jvmti, SetTag)(gdata->jvmti, ref, ptr_to_jlong(node));
     if ( error != JVMTI_ERROR_NONE ) {
-        JNI_FUNC_PTR(env,DeleteWeakGlobalRef)(env, weakRef);
         jvmtiDeallocate(node);
         return NULL;
     }
 
     /* Fill in RefNode */
-    node->ref      = weakRef;
+    node->ref      = NULL;
     node->isStrong = JNI_FALSE;
     node->count    = 1;
     node->seqNum   = newSeqNum();
@@ -127,20 +194,41 @@ createNode(JNIEnv *env, jobject ref)
 static void
 deleteNode(JNIEnv *env, RefNode *node)
 {
-    LOG_MISC(("Freeing %d (%x)\n", (int)node->seqNum, node->ref));
+    /* ANDROID-CHANGED: use getLocalRef to get a local reference to the node. */
+    WITH_LOCAL_REFS(env, 1) {
+        jobject localRef = getLocalRef(env, node);
+        LOG_MISC(("Freeing %d\n", (int)node->seqNum));
 
-    if ( node->ref != NULL ) {
-        /* Clear tag */
-        (void)JVMTI_FUNC_PTR(gdata->jvmti,SetTag)
-                            (gdata->jvmti, node->ref, NULL_OBJECT_ID);
-        if (node->isStrong) {
-            JNI_FUNC_PTR(env,DeleteGlobalRef)(env, node->ref);
+        /* Detach from id hash table */
+        if (node->prev == NULL) {
+            gdata->objectsByID[hashBucket(node->seqNum)] = node->next;
         } else {
-            JNI_FUNC_PTR(env,DeleteWeakGlobalRef)(env, node->ref);
+            node->prev->next = node->next;
         }
-    }
-    gdata->objectsByIDcount--;
-    jvmtiDeallocate(node);
+        /* Also fixup back links. */
+        if (node->next != NULL) {
+            node->next->prev = node->prev;
+        }
+
+        // If we don't get the localref that means the ObjectFree event is being called and the
+        // node will be deleted there.
+        if ( localRef != NULL ) {
+            /* Clear tag */
+            (void)JVMTI_FUNC_PTR(gdata->jvmti,SetTag)
+                                (gdata->jvmti, localRef, NULL_OBJECT_ID);
+            if (node->isStrong) {
+                JNI_FUNC_PTR(env,DeleteGlobalRef)(env, node->ref);
+            }
+
+            jvmtiDeallocate(node);
+        } else {
+            // We are going to let the object-free do the final work. Mark this node as not in the
+            // list with both null links but not in the bucket.
+            node->prev = NULL;
+            node->next = NULL;
+        }
+        gdata->objectsByIDcount--;
+    } END_WITH_LOCAL_REFS(env);
 }
 
 /* Change a RefNode to have a strong reference */
@@ -148,44 +236,35 @@ static jobject
 strengthenNode(JNIEnv *env, RefNode *node)
 {
     if (!node->isStrong) {
-        jobject strongRef;
-
-        strongRef = JNI_FUNC_PTR(env,NewGlobalRef)(env, node->ref);
-        /*
-         * NewGlobalRef on a weak ref will return NULL if the weak
-         * reference has been collected or if out of memory.
-         * We need to distinguish those two occurrences.
-         */
-        if ((strongRef == NULL) && !isSameObject(env, node->ref, NULL)) {
-            EXIT_ERROR(AGENT_ERROR_NULL_POINTER,"NewGlobalRef");
-        }
-        if (strongRef != NULL) {
-            JNI_FUNC_PTR(env,DeleteWeakGlobalRef)(env, node->ref);
-            node->ref      = strongRef;
-            node->isStrong = JNI_TRUE;
-        }
-        return strongRef;
-    } else {
-        return node->ref;
+        /* ANDROID-CHANGED: We need to find and fill in the node->ref when we strengthen a node. */
+        WITH_LOCAL_REFS(env, 1) {
+            /* getLocalRef will return NULL if the referent has been collected. */
+            jobject localRef = getLocalRef(env, node);
+            if (localRef != NULL) {
+                node->ref = JNI_FUNC_PTR(env,NewGlobalRef)(env, localRef);
+                if (node->ref == NULL) {
+                    EXIT_ERROR(AGENT_ERROR_NULL_POINTER,"NewGlobalRef");
+                }
+                node->isStrong = JNI_TRUE;
+            }
+        } END_WITH_LOCAL_REFS(env);
     }
+    return node->ref;
 }
 
-/* Change a RefNode to have a weak reference */
-static jweak
+/* Change a RefNode to have a weak reference
+ * ANDROID-CHANGED: This is done by deleting the strong reference. We already have a tag in
+ * to the node from when we created the node. Since this is never removed we can simply delete the
+ * global ref, reset node->isStrong & node->ref, and return. Since no part of this can fail we can
+ * change this function to be void too.
+ */
+static void
 weakenNode(JNIEnv *env, RefNode *node)
 {
     if (node->isStrong) {
-        jweak weakRef;
-
-        weakRef = JNI_FUNC_PTR(env,NewWeakGlobalRef)(env, node->ref);
-        if (weakRef != NULL) {
-            JNI_FUNC_PTR(env,DeleteGlobalRef)(env, node->ref);
-            node->ref      = weakRef;
-            node->isStrong = JNI_FALSE;
-        }
-        return weakRef;
-    } else {
-        return node->ref;
+        JNI_FUNC_PTR(env,DeleteGlobalRef)(env, node->ref);
+        node->ref      = NULL;
+        node->isStrong = JNI_FALSE;
     }
 }
 
@@ -216,36 +295,25 @@ findNodeByRef(JNIEnv *env, jobject ref)
 static void
 deleteNodeByID(JNIEnv *env, jlong id, jint refCount)
 {
+    /* ANDROID-CHANGED: Rewrite for double-linked list. Also remove ALL_REFS since it's not needed
+     * since the free-callback will do the work of cleaning up when an object gets collected. */
     jint     slot;
     RefNode *node;
-    RefNode *prev;
 
     slot = hashBucket(id);
     node = gdata->objectsByID[slot];
-    prev = NULL;
 
     while (node != NULL) {
         if (id == node->seqNum) {
-            if (refCount != ALL_REFS) {
-                node->count -= refCount;
-            } else {
-                node->count = 0;
-            }
+            node->count -= refCount;
             if (node->count <= 0) {
                 if ( node->count < 0 ) {
                     EXIT_ERROR(AGENT_ERROR_INTERNAL,"RefNode count < 0");
-                }
-                /* Detach from id hash table */
-                if (prev == NULL) {
-                    gdata->objectsByID[slot] = node->next;
-                } else {
-                    prev->next = node->next;
                 }
                 deleteNode(env, node);
             }
             break;
         }
-        prev = node;
         node = node->next;
     }
 }
@@ -263,20 +331,22 @@ deleteNodeByID(JNIEnv *env, jlong id, jint refCount)
 static RefNode *
 findNodeByID(JNIEnv *env, jlong id)
 {
+    /* ANDROID-CHANGED: Rewrite for double-linked list */
     jint     slot;
     RefNode *node;
-    RefNode *prev;
 
     slot = hashBucket(id);
     node = gdata->objectsByID[slot];
-    prev = NULL;
 
     while (node != NULL) {
         if ( id == node->seqNum ) {
-            if ( prev != NULL ) {
+            if ( node->prev != NULL ) {
                 /* Re-order hash list so this one is up front */
-                prev->next = node->next;
+                node->prev->next = node->next;
+                node->prev->prev = node->prev;
                 node->next = gdata->objectsByID[slot];
+                node->next->prev = node;
+                node->prev = NULL;
                 gdata->objectsByID[slot] = node;
             }
             break;
@@ -302,15 +372,21 @@ initializeObjectsByID(int size)
 static void
 hashIn(RefNode *node)
 {
+    /* ANDROID-CHANGED: Modify for double-linked list */
     jint     slot;
 
     /* Add to id hashtable */
     slot                     = hashBucket(node->seqNum);
     node->next               = gdata->objectsByID[slot];
+    node->prev               = NULL;
+    if (node->next != NULL) {
+        node->next->prev     = node;
+    }
     gdata->objectsByID[slot] = node;
 }
 
-/* Allocate and add RefNode to hash table */
+/* Allocate and add RefNode to hash table
+ * ANDROID-CHANGED: Requires that ref be a held-live local ref.*/
 static RefNode *
 newCommonRef(JNIEnv *env, jobject ref)
 {
@@ -378,13 +454,8 @@ commonRef_reset(JNIEnv *env)
         for (i = 0; i < gdata->objectsByIDsize; i++) {
             RefNode *node;
 
-            node = gdata->objectsByID[i];
-            while (node != NULL) {
-                RefNode *next;
-
-                next = node->next;
+            for (node = gdata->objectsByID[i]; node != NULL; node = gdata->objectsByID[i]) {
                 deleteNode(env, node);
-                node = next;
             }
             gdata->objectsByID[i] = NULL;
         }
@@ -417,10 +488,12 @@ commonRef_refToID(JNIEnv *env, jobject ref)
 
         node = findNodeByRef(env, ref);
         if (node == NULL) {
-            node = newCommonRef(env, ref);
-            if ( node != NULL ) {
-                id = node->seqNum;
-            }
+            WITH_LOCAL_REFS(env, 1) {
+                node = newCommonRef(env, JNI_FUNC_PTR(env,NewLocalRef)(env, ref));
+                if ( node != NULL ) {
+                    id = node->seqNum;
+                }
+            } END_WITH_LOCAL_REFS(env);
         } else {
             id = node->seqNum;
             node->count++;
@@ -451,14 +524,20 @@ commonRef_idToRef(JNIEnv *env, jlong id)
             } else {
                 jobject lref;
 
-                lref = JNI_FUNC_PTR(env,NewLocalRef)(env, node->ref);
-                if ( lref == NULL ) {
-                    /* Object was GC'd shortly after we found the node */
-                    deleteNodeByID(env, node->seqNum, ALL_REFS);
-                } else {
-                    saveGlobalRef(env, node->ref, &ref);
+                /* ANDROID-CHANGED: Use getLocalRef helper to get a local-reference to the object
+                 * this node weakly points to. It will return NULL if the object has been GCd
+                 */
+                lref = getLocalRef(env, node);
+                if ( lref != NULL ) {
+                    /* ANDROID-CHANGED: Use lref to save the global ref since that is the only real
+                     * jobject we have.
+                     */
+                    saveGlobalRef(env, lref, &ref);
                     JNI_FUNC_PTR(env,DeleteLocalRef)(env, lref);
                 }
+                /* ANDROID-CHANGED: Otherwise the object was GC'd shortly after we found the node.
+                 * The free callback will deal with cleanup once we return.
+                 */
             }
         }
     } debugMonitorExit(gdata->refLock);
@@ -501,9 +580,9 @@ commonRef_pin(jlong id)
             if (strongRef == NULL) {
                 /*
                  * Referent has been collected, clean up now.
+                 * ANDROID-CHANGED: The node will be cleaned up by the object-free callback.
                  */
                 error = AGENT_ERROR_INVALID_OBJECT;
-                deleteNodeByID(env, id, ALL_REFS);
             }
         }
     } debugMonitorExit(gdata->refLock);
@@ -524,12 +603,8 @@ commonRef_unpin(jlong id)
         env  = getEnv();
         node = findNodeByID(env, id);
         if (node != NULL) {
-            jweak weakRef;
-
-            weakRef = weakenNode(env, node);
-            if (weakRef == NULL) {
-                error = AGENT_ERROR_OUT_OF_MEMORY;
-            }
+            // ANDROID-CHANGED: weakenNode was changed to never fail.
+            weakenNode(env, node);
         }
     } debugMonitorExit(gdata->refLock);
     return error;
@@ -556,44 +631,7 @@ commonRef_releaseMultiple(JNIEnv *env, jlong id, jint refCount)
 void
 commonRef_compact(void)
 {
-    JNIEnv  *env;
-    RefNode *node;
-    RefNode *prev;
-    int      i;
-
-    env = getEnv();
-    debugMonitorEnter(gdata->refLock); {
-        if ( gdata->objectsByIDsize > 0 ) {
-            /*
-             * Walk through the id-based hash table. Detach any nodes
-             * for which the ref has been collected.
-             */
-            for (i = 0; i < gdata->objectsByIDsize; i++) {
-                node = gdata->objectsByID[i];
-                prev = NULL;
-                while (node != NULL) {
-                    /* Has the object been collected? */
-                    if ( (!node->isStrong) &&
-                          isSameObject(env, node->ref, NULL)) {
-                        RefNode *freed;
-
-                        /* Detach from the ID list */
-                        if (prev == NULL) {
-                            gdata->objectsByID[i] = node->next;
-                        } else {
-                            prev->next = node->next;
-                        }
-                        freed = node;
-                        node = node->next;
-                        deleteNode(env, freed);
-                    } else {
-                        prev = node;
-                        node = node->next;
-                    }
-                }
-            }
-        }
-    } debugMonitorExit(gdata->refLock);
+    // NO-OP.
 }
 
 /* Lock the commonRef tables */

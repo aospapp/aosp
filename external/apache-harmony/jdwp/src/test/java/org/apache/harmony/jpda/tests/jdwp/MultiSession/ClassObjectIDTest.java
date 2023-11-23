@@ -35,13 +35,11 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ClassObjectIDTest extends JDWPSyncTestCase {
 
-    private String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/MultiSessionDebuggee;";
-
     //private String METHOD_NAME = "printWord";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.MultiSession.MultiSessionDebuggee";
+        return MultiSessionDebuggee.class.getName();
     }
 
     /**
@@ -55,7 +53,7 @@ public class ClassObjectIDTest extends JDWPSyncTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long classID = debuggeeWrapper.vmMirror.getClassID(DEBUGGEE_SIGNATURE);
+        long classID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
         long classObjectID = debuggeeWrapper.vmMirror.getClassObjectId(classID);
 
         logWriter.println("");

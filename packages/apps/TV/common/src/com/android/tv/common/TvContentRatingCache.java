@@ -23,9 +23,8 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 import com.android.tv.common.memory.MemoryManageable;
-import java.util.ArrayList;
+import com.google.common.collect.ImmutableList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -42,19 +41,19 @@ public final class TvContentRatingCache implements MemoryManageable {
     }
 
     // @GuardedBy("TvContentRatingCache.this")
-    private final Map<String, TvContentRating[]> mRatingsMultiMap = new ArrayMap<>();
+    private final Map<String, ImmutableList<TvContentRating>> mRatingsMultiMap = new ArrayMap<>();
 
     /**
      * Returns an array TvContentRatings from a string of comma separated set of rating strings
-     * creating each from {@link TvContentRating#unflattenFromString(String)} if needed. Returns
-     * {@code null} if the string is empty or contains no valid ratings.
+     * creating each from {@link TvContentRating#unflattenFromString(String)} if needed or an empty
+     * list if the string is empty or contains no valid ratings.
      */
-    @Nullable
-    public synchronized TvContentRating[] getRatings(String commaSeparatedRatings) {
+    public synchronized ImmutableList<TvContentRating> getRatings(
+            @Nullable String commaSeparatedRatings) {
         if (TextUtils.isEmpty(commaSeparatedRatings)) {
-            return null;
+            return ImmutableList.of();
         }
-        TvContentRating[] tvContentRatings;
+        ImmutableList<TvContentRating> tvContentRatings;
         if (mRatingsMultiMap.containsKey(commaSeparatedRatings)) {
             tvContentRatings = mRatingsMultiMap.get(commaSeparatedRatings);
         } else {
@@ -76,12 +75,13 @@ public final class TvContentRatingCache implements MemoryManageable {
 
     /** Returns a sorted array of TvContentRatings from a comma separated string of ratings. */
     @VisibleForTesting
-    static TvContentRating[] stringToContentRatings(String commaSeparatedRatings) {
+    static ImmutableList<TvContentRating> stringToContentRatings(
+            @Nullable String commaSeparatedRatings) {
         if (TextUtils.isEmpty(commaSeparatedRatings)) {
-            return null;
+            return ImmutableList.of();
         }
         Set<String> ratingStrings = getSortedSetFromCsv(commaSeparatedRatings);
-        List<TvContentRating> contentRatings = new ArrayList<>();
+        ImmutableList.Builder<TvContentRating> contentRatings = ImmutableList.builder();
         for (String rating : ratingStrings) {
             try {
                 contentRatings.add(TvContentRating.unflattenFromString(rating));
@@ -89,9 +89,7 @@ public final class TvContentRatingCache implements MemoryManageable {
                 Log.e(TAG, "Can't parse the content rating: '" + rating + "'", e);
             }
         }
-        return contentRatings.size() == 0
-                ? null
-                : contentRatings.toArray(new TvContentRating[contentRatings.size()]);
+        return contentRatings.build();
     }
 
     private static Set<String> getSortedSetFromCsv(String commaSeparatedRatings) {
@@ -118,19 +116,17 @@ public final class TvContentRatingCache implements MemoryManageable {
      * Returns a string of each flattened content rating, sorted and concatenated together with a
      * comma.
      */
-    public static String contentRatingsToString(TvContentRating[] contentRatings) {
-        if (contentRatings == null || contentRatings.length == 0) {
+    @Nullable
+    public static String contentRatingsToString(
+            @Nullable ImmutableList<TvContentRating> contentRatings) {
+        if (contentRatings == null) {
             return null;
         }
-        String[] ratingStrings = new String[contentRatings.length];
-        for (int i = 0; i < contentRatings.length; i++) {
-            ratingStrings[i] = contentRatings[i].flattenToString();
+        SortedSet<String> ratingStrings = new TreeSet<>();
+        for (TvContentRating rating : contentRatings) {
+            ratingStrings.add(rating.flattenToString());
         }
-        if (ratingStrings.length == 1) {
-            return ratingStrings[0];
-        } else {
-            return TextUtils.join(",", toSortedSet(ratingStrings));
-        }
+        return TextUtils.join(",", ratingStrings);
     }
 
     @Override

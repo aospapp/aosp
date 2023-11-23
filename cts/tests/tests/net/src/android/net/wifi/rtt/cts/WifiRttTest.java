@@ -16,11 +16,10 @@
 
 package android.net.wifi.rtt.cts;
 
-import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.rtt.RangingRequest;
 import android.net.wifi.rtt.RangingResult;
-import android.net.wifi.rtt.WifiRttManager;
+import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
@@ -33,6 +32,7 @@ import java.util.List;
 /**
  * Wi-Fi RTT CTS test: range to all available Access Points which support IEEE 802.11mc.
  */
+@AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiRttTest extends TestBase {
     // Number of scans to do while searching for APs supporting IEEE 802.11mc
     private static final int NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP = 2;
@@ -64,7 +64,10 @@ public class WifiRttTest extends TestBase {
 
         // Scan for IEEE 802.11mc supporting APs
         ScanResult testAp = scanForTestAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
-        assertTrue("Cannot find test AP", testAp != null);
+        assertTrue(
+                "Cannot find any test APs which support RTT / IEEE 802.11mc - please verify that "
+                        + "your test setup includes them!",
+                testAp != null);
 
         // Perform RTT operations
         RangingRequest request = new RangingRequest.Builder().addAccessPoint(testAp).build();
@@ -157,7 +160,8 @@ public class WifiRttTest extends TestBase {
         reportLog.submit();
 
         // Analyze results
-        assertTrue("Wi-Fi RTT failure rate exceeds threshold",
+        assertTrue("Wi-Fi RTT failure rate exceeds threshold: FAIL=" + numFailures + ", ITERATIONS="
+                        + NUM_OF_RTT_ITERATIONS,
                 numFailures <= NUM_OF_RTT_ITERATIONS * MAX_FAILURE_RATE_PERCENT / 100);
         if (numFailures != NUM_OF_RTT_ITERATIONS) {
             double distanceAvg = distanceSum / (NUM_OF_RTT_ITERATIONS - numFailures);

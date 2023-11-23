@@ -34,8 +34,8 @@ public class ColorChecker {
      *     {@code R.color.car_tint_dark}
      */
     public static int getTintColor(Context context, int backgroundColor) {
-        int lightTintColor = context.getResources().getColor(R.color.car_tint_light);
-        int darkTintColor = context.getResources().getColor(R.color.car_tint_dark);
+        int lightTintColor = context.getResources().getColor(R.color.media_tint_light);
+        int darkTintColor = context.getResources().getColor(R.color.media_tint_dark);
 
         return getTintColor(backgroundColor, lightTintColor, darkTintColor);
     }

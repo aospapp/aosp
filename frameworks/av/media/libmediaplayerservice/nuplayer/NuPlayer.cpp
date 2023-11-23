@@ -659,19 +659,30 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
         case kWhatGetSelectedTrack:
         {
+            int32_t type32;
+            CHECK(msg->findInt32("type", (int32_t*)&type32));
+            media_track_type type = (media_track_type)type32;
+
+            size_t inbandTracks = 0;
             status_t err = INVALID_OPERATION;
+            ssize_t selectedTrack = -1;
             if (mSource != NULL) {
                 err = OK;
-
-                int32_t type32;
-                CHECK(msg->findInt32("type", (int32_t*)&type32));
-                media_track_type type = (media_track_type)type32;
-                ssize_t selectedTrack = mSource->getSelectedTrack(type);
-
-                Parcel* reply;
-                CHECK(msg->findPointer("reply", (void**)&reply));
-                reply->writeInt32(selectedTrack);
+                inbandTracks = mSource->getTrackCount();
+                selectedTrack = mSource->getSelectedTrack(type);
             }
+
+            if (selectedTrack == -1 && mCCDecoder != NULL) {
+                err = OK;
+                selectedTrack = mCCDecoder->getSelectedTrack(type);
+                if (selectedTrack != -1) {
+                    selectedTrack += inbandTracks;
+                }
+            }
+
+            Parcel* reply;
+            CHECK(msg->findPointer("reply", (void**)&reply));
+            reply->writeInt32(selectedTrack);
 
             sp<AMessage> response = new AMessage;
             response->setInt32("err", err);
@@ -750,7 +761,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                 }
             }
 
-            msg->post(1000000ll);  // poll again in a second.
+            msg->post(1000000LL);  // poll again in a second.
             break;
         }
 
@@ -1038,7 +1049,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
             }
 
             if (rescan) {
-                msg->post(100000ll);
+                msg->post(100000LL);
                 mScanSourcesPending = true;
             }
             break;
@@ -1120,6 +1131,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
             } else if (what == DecoderBase::kWhatShutdownCompleted) {
                 ALOGV("%s shutdown completed", audio ? "audio" : "video");
                 if (audio) {
+                    Mutex::Autolock autoLock(mDecoderLock);
                     mAudioDecoder.clear();
                     mAudioDecoderError = false;
                     ++mAudioDecoderGeneration;
@@ -1127,6 +1139,7 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                     CHECK_EQ((int)mFlushingAudio, (int)SHUTTING_DOWN_DECODER);
                     mFlushingAudio = SHUT_DOWN;
                 } else {
+                    Mutex::Autolock autoLock(mDecoderLock);
                     mVideoDecoder.clear();
                     mVideoDecoderError = false;
                     ++mVideoDecoderGeneration;
@@ -1444,29 +1457,6 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
             in.writeFloat(playbackRate);
 
             notifyListener(MEDIA_TIME_DISCONTINUITY, 0, 0, &in);
-            break;
-        }
-
-        case kWhatGetStats:
-        {
-            ALOGV("kWhatGetStats");
-
-            Vector<sp<AMessage>> *trackStats;
-            CHECK(msg->findPointer("trackstats", (void**)&trackStats));
-
-            trackStats->clear();
-            if (mVideoDecoder != NULL) {
-                trackStats->push_back(mVideoDecoder->getStats());
-            }
-            if (mAudioDecoder != NULL) {
-                trackStats->push_back(mAudioDecoder->getStats());
-            }
-
-            // respond for synchronization
-            sp<AMessage> response = new AMessage;
-            sp<AReplyToken> replyID;
-            CHECK(msg->senderAwaitsResponse(&replyID));
-            response->postReply(replyID);
             break;
         }
 
@@ -1817,6 +1807,7 @@ void NuPlayer::restartAudio(
           (long long)currentPositionUs, forceNonOffload, needsToCreateAudioDecoder);
     if (mAudioDecoder != NULL) {
         mAudioDecoder->pause();
+        Mutex::Autolock autoLock(mDecoderLock);
         mAudioDecoder.clear();
         mAudioDecoderError = false;
         ++mAudioDecoderGeneration;
@@ -1838,10 +1829,20 @@ void NuPlayer::restartAudio(
     closeAudioSink();
     mRenderer->flush(true /* audio */, false /* notifyComplete */);
     if (mVideoDecoder != NULL) {
-        mRenderer->flush(false /* audio */, false /* notifyComplete */);
+        mDeferredActions.push_back(
+                new FlushDecoderAction(FLUSH_CMD_NONE /* audio */,
+                                       FLUSH_CMD_FLUSH /* video */));
+        mDeferredActions.push_back(
+                new SeekAction(currentPositionUs,
+                MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */));
+        // After a flush without shutdown, decoder is paused.
+        // Don't resume it until source seek is done, otherwise it could
+        // start pulling stale data too soon.
+        mDeferredActions.push_back(new ResumeDecoderAction(false));
+        processDeferredActions();
+    } else {
+        performSeek(currentPositionUs, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */);
     }
-
-    performSeek(currentPositionUs, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */);
 
     if (forceNonOffload) {
         mRenderer->signalDisableOffloadAudio();
@@ -1934,6 +1935,8 @@ status_t NuPlayer::instantiateDecoder(
             format->setFloat("operating-rate", rate * mPlaybackSettings.mSpeed);
         }
     }
+
+    Mutex::Autolock autoLock(mDecoderLock);
 
     if (audio) {
         sp<AMessage> notify = new AMessage(kWhatAudioNotify, this);
@@ -2236,13 +2239,15 @@ status_t NuPlayer::getCurrentPosition(int64_t *mediaUs) {
 void NuPlayer::getStats(Vector<sp<AMessage> > *trackStats) {
     CHECK(trackStats != NULL);
 
-    ALOGV("NuPlayer::getStats()");
-    sp<AMessage> msg = new AMessage(kWhatGetStats, this);
-    msg->setPointer("trackstats", trackStats);
+    trackStats->clear();
 
-    sp<AMessage> response;
-    (void) msg->postAndAwaitResponse(&response);
-    // response is for synchronization, ignore contents
+    Mutex::Autolock autoLock(mDecoderLock);
+    if (mVideoDecoder != NULL) {
+        trackStats->push_back(mVideoDecoder->getStats());
+    }
+    if (mAudioDecoder != NULL) {
+        trackStats->push_back(mAudioDecoder->getStats());
+    }
 }
 
 sp<MetaData> NuPlayer::getFileMeta() {
@@ -2675,7 +2680,7 @@ void NuPlayer::onSourceNotify(const sp<AMessage> &msg) {
             int posMs;
             int64_t timeUs, posUs;
             driver->getCurrentPosition(&posMs);
-            posUs = (int64_t) posMs * 1000ll;
+            posUs = (int64_t) posMs * 1000LL;
             CHECK(buffer->meta()->findInt64("timeUs", &timeUs));
 
             if (posUs < timeUs) {

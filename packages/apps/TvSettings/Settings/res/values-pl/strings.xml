@@ -96,8 +96,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibracja"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Wybierz formaty"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Dźwięk przestrzenny"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus / DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -350,7 +350,7 @@
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Dostępne: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"Odłącz pamięć urządzenia"</string>
     <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"Gdy odłączysz ten nośnik pamięci, znajdujące się na nim aplikacje przestaną działać. Ten dysk USB jest sformatowany w taki sposób, że będzie działać tylko na tym urządzeniu. Nie będzie działać na żadnych innych urządzeniach."</string>
-    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Wyuwam dysk <xliff:g id="NAME">%1$s</xliff:g>..."</string>
+    <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"Wysuwam dysk <xliff:g id="NAME">%1$s</xliff:g>..."</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Wykorzystane miejsce"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Przenoszę <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Nie wyjmuj dysku w trakcie przenoszenia danych.\nAplikacja <xliff:g id="APPNAME">%1$s</xliff:g> na tym urządzeniu będzie niedostępna, dopóki przenoszenie się nie zakończy."</string>
@@ -366,7 +366,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Niektóre aplikacje będą niedostępne lub nie będą działać poprawnie, dopóki ponownie nie zostanie podłączony dysk."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Za mało miejsca."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Aplikacja nie istnieje."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikacja jest zabezpieczona przed kopiowaniem."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Lokalizacja instalacji jest nieprawidłowa."</string>
     <string name="system_package" msgid="9200255718634512790">"Aktualizacji systemu nie można instalować na nośniku zewnętrznym."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Administratora urządzenia nie można przenieść na nośnik zewnętrzny."</string>
@@ -379,7 +378,7 @@
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Format 24-godzinny"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
-    <string name="system_auto_date_time" msgid="3629668599205033272">"Automatyczna data i czas"</string>
+    <string name="system_auto_date_time" msgid="3629668599205033272">"Automatyczna data i godzina"</string>
   <string-array name="auto_date_time_entries">
     <item msgid="4590792581242018007">"Użyj czasu podanego przez sieć"</item>
     <item msgid="3807025813081244357">"Wył."</item>
@@ -473,7 +472,7 @@
     <string name="system_drawing" msgid="6573389872154957039">"Rysowanie"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Monitorowanie"</string>
     <string name="system_apps" msgid="6293850468968494924">"Aplikacje"</string>
-    <string name="system_stay_awake" msgid="1212296404230848490">"Pozostaw ekran włączony"</string>
+    <string name="system_stay_awake" msgid="1212296404230848490">"Pozostaw włączony ekran"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"Sprawdzanie HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"Optymalizacja HDMI"</string>
     <string name="system_reboot_confirm" msgid="534407910866199191">"Uruchomić ponownie teraz?"</string>
@@ -743,6 +742,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Dostęp do powiadomień"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Żadna z zainstalowanych aplikacji nie prosiła o dostęp do powiadomień."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Te aplikacje będą mogły czytać wszystkie powiadomienia, w tym informacje osobiste (takie jak nazwy kontaktów i treść otrzymywanych wiadomości). Będą też mogły odrzucać powiadomienia lub używać zawartych w nich przycisków czynności."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Dostęp do katalogu"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Te aplikacje mają dostęp do niektórych katalogów."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Wyświetlanie nad innymi aplikacjami"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Pozwól na wyświetlanie nad innymi aplikacjami"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Pozwala aplikacji na wyświetlanie się nad innymi aplikacjami, których właśnie używasz. Może zakłócać korzystanie z innych aplikacji oraz wpływać na ich wygląd lub sposób działania."</string>
@@ -755,6 +757,6 @@
     <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"Pozwól na tryb obraz w obrazie"</string>
     <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"Żadna zainstalowana aplikacja nie obsługuje trybu obrazu w obrazie"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"Pozwala aplikacjom na tworzenie okna typu obraz w obrazie, gdy są otwarte lub gdy je opuścisz (aby np. kontynuować oglądanie filmu). To okno wyświetla się nad innymi używanymi aplikacjami."</string>
-    <string name="special_access" msgid="3513811566600299998">"Specjalny dostęp do aplikacji"</string>
+    <string name="special_access" msgid="3513811566600299998">"Aplikacje ze specjalnym dostępem"</string>
     <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

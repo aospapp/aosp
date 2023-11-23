@@ -159,7 +159,7 @@ public class UserCallIntentProcessor {
         // Save the user handle of current user before forwarding the intent to primary user.
         intent.putExtra(CallIntentProcessor.KEY_INITIATING_USER, mUserHandle);
 
-        sendIntentToDestination(intent, isLocalInvocation);
+        sendIntentToDestination(intent, isLocalInvocation, callingPackageName);
     }
 
     private boolean isDefaultOrSystemDialer(String callingPackageName) {
@@ -189,27 +189,29 @@ public class UserCallIntentProcessor {
     }
 
     /**
-     * Potentially trampolines the intent to the broadcast receiver that runs only as the primary
-     * user.  If the caller is local to the Telecom service, we send the intent to Telecom without
-     * rebroadcasting it.
+     * Potentially trampolines the intent to Telecom via TelecomServiceImpl.
+     * If the caller is local to the Telecom service, we send the intent to Telecom without
+     * sending it through TelecomServiceImpl.
      */
-    private boolean sendIntentToDestination(Intent intent, boolean isLocalInvocation) {
+    private boolean sendIntentToDestination(Intent intent, boolean isLocalInvocation,
+            String callingPackage) {
         intent.putExtra(CallIntentProcessor.KEY_IS_INCOMING_CALL, false);
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.setClass(mContext, PrimaryCallReceiver.class);
         if (isLocalInvocation) {
             // We are invoking this from TelecomServiceImpl, so TelecomSystem is available.  Don't
             // bother trampolining the intent, just sent it directly to the call intent processor.
             // TODO: We should not be using an intent here; this whole flows needs cleanup.
             Log.i(this, "sendIntentToDestination: send intent to Telecom directly.");
             synchronized (TelecomSystem.getInstance().getLock()) {
-                TelecomSystem.getInstance().getCallIntentProcessor().processIntent(intent);
+                TelecomSystem.getInstance().getCallIntentProcessor().processIntent(intent,
+                        callingPackage);
             }
         } else {
             // We're calling from the UserCallActivity, so the TelecomSystem is not in the same
             // process; we need to trampoline to TelecomSystem in the system server process.
             Log.i(this, "sendIntentToDestination: trampoline to Telecom.");
-            mContext.sendBroadcastAsUser(intent, UserHandle.SYSTEM);
+            TelecomManager tm = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
+            tm.handleCallIntent(intent);
         }
         return true;
     }

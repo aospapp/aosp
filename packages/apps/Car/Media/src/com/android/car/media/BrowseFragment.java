@@ -16,111 +16,79 @@
 
 package com.android.car.media;
 
+import static com.android.car.apps.common.FragmentUtils.checkParent;
+import static com.android.car.apps.common.FragmentUtils.requireParent;
+import static com.android.car.arch.common.LiveDataFunctions.ifThenElse;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.Fragment;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModelProviders;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.android.car.apps.common.util.ViewUtils;
+import com.android.car.arch.common.FutureData;
 import com.android.car.media.browse.BrowseAdapter;
-import com.android.car.media.browse.ContentForwardStrategy;
 import com.android.car.media.common.GridSpacingItemDecoration;
 import com.android.car.media.common.MediaItemMetadata;
-import com.android.car.media.common.MediaSource;
-import com.android.car.media.widgets.ViewUtils;
+import com.android.car.media.common.browse.MediaBrowserViewModel;
+import com.android.car.media.common.source.MediaSourceViewModel;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
-import androidx.car.widget.PagedListView;
-
 /**
  * A {@link Fragment} that implements the content forward browsing experience.
+ *
+ * This can be used to display either search or browse results at the root level. Deeper levels will
+ * be handled the same way between search and browse, using a backstack to return to the root.
  */
 public class BrowseFragment extends Fragment {
     private static final String TAG = "BrowseFragment";
     private static final String TOP_MEDIA_ITEM_KEY = "top_media_item";
-    private static final String MEDIA_SOURCE_PACKAGE_NAME_KEY = "media_source";
+    private static final String SEARCH_KEY = "search_config";
     private static final String BROWSE_STACK_KEY = "browse_stack";
 
-    private PagedListView mBrowseList;
-    private ProgressBar mProgressBar;
+    private RecyclerView mBrowseList;
     private ImageView mErrorIcon;
-    private TextView mErrorMessage;
-    private MediaSource mMediaSource;
+    private TextView mMessage;
     private BrowseAdapter mBrowseAdapter;
-    private String mMediaSourcePackageName;
     private MediaItemMetadata mTopMediaItem;
-    private Callbacks mCallbacks;
+    private String mSearchQuery;
     private int mFadeDuration;
-    private int mProgressBarDelay;
+    private int mLoadingIndicatorDelay;
+    private boolean mIsSearchFragment;
+    private boolean mPlaybackControlsVisible = false;
+    // todo(b/130760002): Create new browse fragments at deeper levels.
+    private MutableLiveData<Boolean> mShowSearchResults = new MutableLiveData<>();
     private Handler mHandler = new Handler();
     private Stack<MediaItemMetadata> mBrowseStack = new Stack<>();
-    private MediaSource.Observer mBrowseObserver = new MediaSource.Observer() {
-        @Override
-        protected void onBrowseConnected(boolean success) {
-            BrowseFragment.this.onBrowseConnected(success);
-        }
-
-        @Override
-        protected void onBrowseDisconnected() {
-            BrowseFragment.this.onBrowseDisconnected();
-        }
-    };
+    private MediaBrowserViewModel.WithMutableBrowseId mMediaBrowserViewModel;
     private BrowseAdapter.Observer mBrowseAdapterObserver = new BrowseAdapter.Observer() {
-        @Override
-        protected void onDirty() {
-            switch (mBrowseAdapter.getState()) {
-                case LOADING:
-                case IDLE:
-                    // Still loading... nothing to do.
-                    break;
-                case LOADED:
-                    stopLoadingIndicator();
-                    mBrowseAdapter.update();
-                    if (mBrowseAdapter.getItemCount() > 0) {
-                        ViewUtils.showViewAnimated(mBrowseList, mFadeDuration);
-                        ViewUtils.hideViewAnimated(mErrorIcon, mFadeDuration);
-                        ViewUtils.hideViewAnimated(mErrorMessage, mFadeDuration);
-                    } else {
-                        mErrorMessage.setText(R.string.nothing_to_play);
-                        ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
-                        ViewUtils.hideViewAnimated(mErrorIcon, mFadeDuration);
-                        ViewUtils.showViewAnimated(mErrorMessage, mFadeDuration);
-                    }
-                    break;
-                case ERROR:
-                    stopLoadingIndicator();
-                    mErrorMessage.setText(R.string.unknown_error);
-                    ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
-                    ViewUtils.showViewAnimated(mErrorMessage, mFadeDuration);
-                    ViewUtils.showViewAnimated(mErrorIcon, mFadeDuration);
-                    break;
-            }
-        }
 
         @Override
         protected void onPlayableItemClicked(MediaItemMetadata item) {
-            mCallbacks.onPlayableItemClicked(mMediaSource, item);
+            hideKeyboard();
+            getParent().onPlayableItemClicked(item);
         }
 
         @Override
-        protected void onBrowseableItemClicked(MediaItemMetadata item) {
-            navigateInto(item);
-        }
-
-        @Override
-        protected void onMoreButtonClicked(MediaItemMetadata item) {
+        protected void onBrowsableItemClicked(MediaItemMetadata item) {
             navigateInto(item);
         }
     };
@@ -130,11 +98,6 @@ public class BrowseFragment extends Fragment {
      */
     public interface Callbacks {
         /**
-         * @return a {@link MediaSource} corresponding to the given package name
-         */
-        MediaSource getMediaSource(String packageName);
-
-        /**
          * Method invoked when the back stack changes (for example, when the user moves up or down
          * the media tree)
          */
@@ -143,46 +106,85 @@ public class BrowseFragment extends Fragment {
         /**
          * Method invoked when the user clicks on a playable item
          *
-         * @param mediaSource {@link MediaSource} the playable item belongs to
          * @param item item to be played.
          */
-        void onPlayableItemClicked(MediaSource mediaSource, MediaItemMetadata item);
+        void onPlayableItemClicked(MediaItemMetadata item);
     }
 
     /**
-     * Moves the user one level up in the browse tree, if possible.
+     * Moves the user one level up in the browse tree. Returns whether that was possible.
      */
-    public void navigateBack() {
-        mBrowseStack.pop();
-        if (mBrowseAdapter != null) {
-            mBrowseAdapter.setParentMediaItemId(getCurrentMediaItem());
+    boolean navigateBack() {
+        boolean result = false;
+        if (!mBrowseStack.empty()) {
+            mBrowseStack.pop();
+            mMediaBrowserViewModel.search(mSearchQuery);
+            mMediaBrowserViewModel.setCurrentBrowseId(getCurrentMediaItemId());
+            getParent().onBackStackChanged();
+            adjustBrowseTopPadding();
+            result = true;
         }
-        if (mCallbacks != null) {
-            mCallbacks.onBackStackChanged();
+        if (mBrowseStack.isEmpty()) {
+            mShowSearchResults.setValue(mIsSearchFragment);
         }
+        return result;
+    }
+
+    @NonNull
+    private Callbacks getParent() {
+        return requireParent(this, Callbacks.class);
     }
 
     /**
-     * @return whether the user is in a level other than the top.
+     * @return whether the user is at the top of the browsing stack.
      */
-    public boolean isBackEnabled() {
-        return !mBrowseStack.isEmpty();
+    public boolean isAtTopStack() {
+        return mBrowseStack.isEmpty();
     }
 
     /**
-     * Creates a new instance of this fragment.
+     * Creates a new instance of this fragment. The root browse id will be the one provided to this
+     * method.
      *
-     * @param mediaSource media source being displayed
      * @param item media tree node to display on this fragment.
      * @return a fully initialized {@link BrowseFragment}
      */
-    public static BrowseFragment newInstance(MediaSource mediaSource, MediaItemMetadata item) {
+    public static BrowseFragment newInstance(MediaItemMetadata item) {
         BrowseFragment fragment = new BrowseFragment();
         Bundle args = new Bundle();
         args.putParcelable(TOP_MEDIA_ITEM_KEY, item);
-        args.putString(MEDIA_SOURCE_PACKAGE_NAME_KEY, mediaSource.getPackageName());
         fragment.setArguments(args);
         return fragment;
+    }
+
+    /**
+     * Creates a new instance of this fragment, meant to display search results. The root browse
+     * screen will be the search results for the provided query.
+     *
+     * @return a fully initialized {@link BrowseFragment}
+     */
+    public static BrowseFragment newSearchInstance() {
+        BrowseFragment fragment = new BrowseFragment();
+        Bundle args = new Bundle();
+        args.putBoolean(SEARCH_KEY, true);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    public void updateSearchQuery(@Nullable String query) {
+        mSearchQuery = query;
+        mMediaBrowserViewModel.search(query);
+    }
+
+    /**
+     * Clears search state from this fragment, removes any UI elements from previous results.
+     */
+    public void resetSearchState() {
+        updateSearchQuery(null);
+        mBrowseAdapter.submitItems(null, null);
+        stopLoadingIndicator();
+        ViewUtils.hideViewAnimated(mErrorIcon, mFadeDuration);
+        ViewUtils.hideViewAnimated(mMessage, mFadeDuration);
     }
 
     @Override
@@ -191,7 +193,8 @@ public class BrowseFragment extends Fragment {
         Bundle arguments = getArguments();
         if (arguments != null) {
             mTopMediaItem = arguments.getParcelable(TOP_MEDIA_ITEM_KEY);
-            mMediaSourcePackageName = arguments.getString(MEDIA_SOURCE_PACKAGE_NAME_KEY);
+            mIsSearchFragment = arguments.getBoolean(SEARCH_KEY, false);
+            mShowSearchResults.setValue(mIsSearchFragment);
         }
         if (savedInstanceState != null) {
             List<MediaItemMetadata> savedStack =
@@ -201,86 +204,120 @@ public class BrowseFragment extends Fragment {
                 mBrowseStack.addAll(savedStack);
             }
         }
+
+        // Get the MediaBrowserViewModel tied to the lifecycle of this fragment, but using the
+        // MediaSourceViewModel of the activity. This means the media source is consistent across
+        // all fragments, but the fragment contents themselves will vary
+        // (e.g. between different browse tabs, search)
+        mMediaBrowserViewModel = MediaBrowserViewModel.Factory.getInstanceWithMediaBrowser(
+                ViewModelProviders.of(this),
+                MediaSourceViewModel.get(
+                        requireActivity().getApplication()).getConnectedMediaBrowser());
+
+        MediaActivity.ViewModel viewModel = ViewModelProviders.of(requireActivity()).get(
+                MediaActivity.ViewModel.class);
+        viewModel.getMiniControlsVisible().observe(this, (visible) -> {
+            mPlaybackControlsVisible = visible;
+            adjustBrowseTopPadding();
+        });
+
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, final ViewGroup container,
+    public View onCreateView(@NonNull LayoutInflater inflater, final ViewGroup container,
             Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_browse, container, false);
-        mProgressBar = view.findViewById(R.id.loading_spinner);
-        mProgressBarDelay = getContext().getResources()
+        int viewId = mIsSearchFragment ? R.layout.fragment_search : R.layout.fragment_browse;
+        View view = inflater.inflate(viewId, container, false);
+        mLoadingIndicatorDelay = view.getContext().getResources()
                 .getInteger(R.integer.progress_indicator_delay);
         mBrowseList = view.findViewById(R.id.browse_list);
         mErrorIcon = view.findViewById(R.id.error_icon);
-        mErrorMessage = view.findViewById(R.id.error_message);
-        mFadeDuration = getContext().getResources().getInteger(
+        mMessage = view.findViewById(R.id.error_message);
+        mFadeDuration = view.getContext().getResources().getInteger(
                 R.integer.new_album_art_fade_in_duration);
-        int numColumns = getContext().getResources().getInteger(R.integer.num_browse_columns);
+        int numColumns = view.getContext().getResources().getInteger(R.integer.num_browse_columns);
         GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), numColumns);
-        RecyclerView recyclerView = mBrowseList.getRecyclerView();
-        recyclerView.setVerticalFadingEdgeEnabled(true);
-        recyclerView.setFadingEdgeLength(getResources()
-                .getDimensionPixelSize(R.dimen.car_padding_5));
-        recyclerView.setLayoutManager(gridLayoutManager);
-        recyclerView.addItemDecoration(new GridSpacingItemDecoration(
-                getResources().getDimensionPixelSize(R.dimen.car_padding_4),
-                getResources().getDimensionPixelSize(R.dimen.car_keyline_1),
-                getResources().getDimensionPixelSize(R.dimen.car_keyline_1)
+
+        mBrowseList.setLayoutManager(gridLayoutManager);
+        mBrowseList.addItemDecoration(new GridSpacingItemDecoration(
+                getResources().getDimensionPixelSize(R.dimen.grid_item_spacing),
+                getResources().getDimensionPixelSize(R.dimen.grid_item_margin_x),
+                getResources().getDimensionPixelSize(R.dimen.grid_item_margin_x)
         ));
+
+        mBrowseAdapter = new BrowseAdapter(mBrowseList.getContext());
+        mBrowseList.setAdapter(mBrowseAdapter);
+        mBrowseAdapter.registerObserver(mBrowseAdapterObserver);
+
+        if (savedInstanceState == null) {
+            mMediaBrowserViewModel.search(mSearchQuery);
+            mMediaBrowserViewModel.setCurrentBrowseId(getCurrentMediaItemId());
+        }
+        mMediaBrowserViewModel.rootBrowsableHint().observe(this, hint ->
+                mBrowseAdapter.setRootBrowsableViewType(hint));
+        mMediaBrowserViewModel.rootPlayableHint().observe(this, hint ->
+                mBrowseAdapter.setRootPlayableViewType(hint));
+        LiveData<FutureData<List<MediaItemMetadata>>> mediaItems = ifThenElse(mShowSearchResults,
+                mMediaBrowserViewModel.getSearchedMediaItems(),
+                mMediaBrowserViewModel.getBrowsedMediaItems());
+
+        mediaItems.observe(getViewLifecycleOwner(), futureData ->
+        {
+            // Prevent showing loading spinner or any error messages if search is uninitialized
+            if (mIsSearchFragment && TextUtils.isEmpty(mSearchQuery)) {
+                return;
+            }
+            boolean isLoading = futureData.isLoading();
+            if (isLoading) {
+                ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
+                startLoadingIndicator();
+                return;
+            }
+            stopLoadingIndicator();
+            List<MediaItemMetadata> items = futureData.getData();
+            mBrowseAdapter.submitItems(getCurrentMediaItem(), items);
+            if (items == null) {
+                mMessage.setText(R.string.unknown_error);
+                ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
+                ViewUtils.showViewAnimated(mMessage, mFadeDuration);
+                ViewUtils.showViewAnimated(mErrorIcon, mFadeDuration);
+            } else if (items.isEmpty()) {
+                mMessage.setText(R.string.nothing_to_play);
+                ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
+                ViewUtils.hideViewAnimated(mErrorIcon, mFadeDuration);
+                ViewUtils.showViewAnimated(mMessage, mFadeDuration);
+            } else {
+                ViewUtils.showViewAnimated(mBrowseList, mFadeDuration);
+                ViewUtils.hideViewAnimated(mErrorIcon, mFadeDuration);
+                ViewUtils.hideViewAnimated(mMessage, mFadeDuration);
+            }
+        });
         return view;
     }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mCallbacks = (Callbacks) context;
+        checkParent(this, Callbacks.class);
     }
 
-    @Override
-    public void onDetach() {
-        super.onDetach();
-        mCallbacks = null;
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        startLoadingIndicator();
-        mMediaSource = mCallbacks.getMediaSource(mMediaSourcePackageName);
-        if (mMediaSource != null) {
-            mMediaSource.subscribe(mBrowseObserver);
-        }
-    }
-
-    private Runnable mProgressIndicatorRunnable = new Runnable() {
+    private Runnable mLoadingIndicatorRunnable = new Runnable() {
         @Override
         public void run() {
-            ViewUtils.showViewAnimated(mProgressBar, mFadeDuration);
+            mMessage.setText(R.string.browser_loading);
+            ViewUtils.showViewAnimated(mMessage, mFadeDuration);
         }
     };
 
     private void startLoadingIndicator() {
         // Display the indicator after a certain time, to avoid flashing the indicator constantly,
         // even when performance is acceptable.
-        mHandler.postDelayed(mProgressIndicatorRunnable, mProgressBarDelay);
+        mHandler.postDelayed(mLoadingIndicatorRunnable, mLoadingIndicatorDelay);
     }
 
     private void stopLoadingIndicator() {
-        mHandler.removeCallbacks(mProgressIndicatorRunnable);
-        ViewUtils.hideViewAnimated(mProgressBar, mFadeDuration);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        stopLoadingIndicator();
-        if (mMediaSource != null) {
-            mMediaSource.unsubscribe(mBrowseObserver);
-        }
-        if (mBrowseAdapter != null) {
-            mBrowseAdapter.stop();
-            mBrowseAdapter = null;
-        }
+        mHandler.removeCallbacks(mLoadingIndicatorRunnable);
+        ViewUtils.hideViewAnimated(mMessage, mFadeDuration);
     }
 
     @Override
@@ -290,48 +327,53 @@ public class BrowseFragment extends Fragment {
         outState.putParcelableArrayList(BROWSE_STACK_KEY, stack);
     }
 
-    private void onBrowseConnected(boolean success) {
-        if (mBrowseAdapter != null) {
-            mBrowseAdapter.stop();
-            mBrowseAdapter = null;
-        }
-        if (!success) {
-            ViewUtils.hideViewAnimated(mBrowseList, mFadeDuration);
-            stopLoadingIndicator();
-            mErrorMessage.setText(R.string.cannot_connect_to_app);
-            ViewUtils.showViewAnimated(mErrorIcon, mFadeDuration);
-            ViewUtils.showViewAnimated(mErrorMessage, mFadeDuration);
-            return;
-        }
-        mBrowseAdapter = new BrowseAdapter(getContext(), mMediaSource, getCurrentMediaItem(),
-                ContentForwardStrategy.DEFAULT_STRATEGY);
-        mBrowseList.setAdapter(mBrowseAdapter);
-        mBrowseList.setDividerVisibilityManager(mBrowseAdapter);
-        mBrowseAdapter.registerObserver(mBrowseAdapterObserver);
-        mBrowseAdapter.start();
-    }
-
-    private void onBrowseDisconnected() {
-        if (mBrowseAdapter != null) {
-            mBrowseAdapter.stop();
-            mBrowseAdapter = null;
-        }
-    }
-
     private void navigateInto(MediaItemMetadata item) {
+        hideKeyboard();
         mBrowseStack.push(item);
-        mBrowseAdapter.setParentMediaItemId(item);
-        mCallbacks.onBackStackChanged();
+        mShowSearchResults.setValue(false);
+        mMediaBrowserViewModel.setCurrentBrowseId(item.getId());
+        getParent().onBackStackChanged();
+        adjustBrowseTopPadding();
     }
 
     /**
      * @return the current item being displayed
      */
-    public MediaItemMetadata getCurrentMediaItem() {
+    @Nullable
+    MediaItemMetadata getCurrentMediaItem() {
         if (mBrowseStack.isEmpty()) {
             return mTopMediaItem;
         } else {
             return mBrowseStack.lastElement();
         }
+    }
+
+    @Nullable
+    private String getCurrentMediaItemId() {
+        MediaItemMetadata currentItem = getCurrentMediaItem();
+        return currentItem != null ? currentItem.getId() : null;
+    }
+
+    private void adjustBrowseTopPadding() {
+        if(mBrowseList == null) {
+            return;
+        }
+
+        int topPadding = isAtTopStack()
+                ? getResources().getDimensionPixelOffset(R.dimen.browse_fragment_top_padding)
+                : getResources().getDimensionPixelOffset(
+                        R.dimen.browse_fragment_top_padding_stacked);
+        int bottomPadding = mPlaybackControlsVisible
+                ? getResources().getDimensionPixelOffset(R.dimen.browse_fragment_bottom_padding)
+                : 0;
+
+        mBrowseList.setPadding(mBrowseList.getPaddingLeft(), topPadding,
+                mBrowseList.getPaddingRight(), bottomPadding);
+    }
+
+    private void hideKeyboard() {
+        InputMethodManager in =
+                (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        in.hideSoftInputFromWindow(getView().getWindowToken(), 0);
     }
 }

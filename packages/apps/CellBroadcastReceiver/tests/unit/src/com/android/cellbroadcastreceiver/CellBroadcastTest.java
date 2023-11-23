@@ -16,6 +16,7 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 
@@ -23,8 +24,11 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.util.SparseArray;
+
+import com.android.internal.telephony.ISub;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -43,11 +47,19 @@ public abstract class CellBroadcastTest {
     CarrierConfigManager mCarrierConfigManager;
     @Mock
     Resources mResources;
+    @Mock
+    ISub.Stub mSubService;
 
     protected void setUp(String tag) throws Exception {
         TAG = tag;
         MockitoAnnotations.initMocks(this);
+        // A hack to return mResources from static method
+        // CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context).
+        doReturn(mSubService).when(mSubService).queryLocalInterface(anyString());
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSubId();
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSmsSubId();
         mMockedServiceManager = new MockedServiceManager();
+        mMockedServiceManager.replaceService("isub", mSubService);
         initContext();
     }
 

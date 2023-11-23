@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -13,7 +13,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+"""
+Test to check Basic Stress with Wlan.
 
+Test Setup:
+
+One Android device.
+"""
 import time
 
 from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
@@ -24,10 +30,10 @@ from acts.test_utils.coex.coex_test_utils import device_discoverable
 class CoexBasicStressTest(CoexBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
+        super().setup_class()
         req_params = ["iterations"]
         self.unpack_userparams(req_params)
 
@@ -44,7 +50,7 @@ class CoexBasicStressTest(CoexBaseTest):
         """
         self.run_iperf_and_get_result()
         for i in range(self.iterations):
-            self.log.info("Inquiry iteration {}".format(i))
+            self.log.info("Discovery iteration {}".format(i))
             if not self.pri_ad.droid.bluetoothStartDiscovery():
                 self.log.error("Bluetooth discovery failed.")
                 return False
@@ -76,7 +82,7 @@ class CoexBasicStressTest(CoexBaseTest):
     def toogle_bluetooth_with_iperf(self):
         """Wrapper function to start iperf traffic and toggling bluetooth."""
         self.run_iperf_and_get_result()
-        if not toggle_bluetooth(self.pri_ad, self.iterations):
+        if not toggle_bluetooth(self.pri_ad, self.iperf["duration"]):
             return False
         return self.teardown_result()
 
@@ -435,7 +441,7 @@ class CoexBasicStressTest(CoexBaseTest):
         1. Start UDP-bidirectional traffic.
         2. Make primary device visible.
         3. Check if primary device name is visible from secondary device.
-        4. Repeat step 2 and 3 for n iterations
+        4. Repeat step 2 and 3 for n iterations.
 
         Returns:
             True if successful, False otherwise.

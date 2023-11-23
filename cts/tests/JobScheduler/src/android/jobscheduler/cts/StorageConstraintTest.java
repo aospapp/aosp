@@ -113,4 +113,26 @@ public class StorageConstraintTest extends ConstraintTest {
         assertTrue("Job with storage not low constraint did not fire when storage not low.",
                 kTestEnvironment.awaitExecution());
     }
+
+    /**
+     * Test that a job that requires the device storage is not low is stopped when it becomes low.
+     */
+    public void testJobStoppedWhenStorageLow() throws Exception {
+        setStorageState(false);
+
+        kTestEnvironment.setExpectedExecutions(1);
+        kTestEnvironment.setContinueAfterStart();
+        kTestEnvironment.setExpectedWaitForRun();
+        kTestEnvironment.setExpectedStopped();
+        mJobScheduler.schedule(mBuilder.setRequiresStorageNotLow(true).build());
+        assertJobReady();
+        kTestEnvironment.readyToRun();
+
+        assertTrue("Job with storage not low constraint did not fire when storage not low.",
+                kTestEnvironment.awaitExecution());
+
+        setStorageState(true);
+        assertTrue("Job with storage not low constraint was not stopped when storage became low.",
+                kTestEnvironment.awaitStopped());
+    }
 }

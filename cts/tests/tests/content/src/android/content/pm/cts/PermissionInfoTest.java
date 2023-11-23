@@ -21,8 +21,10 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PermissionInfoTest extends AndroidTestCase {
     private static final String PERMISSION_NAME = "android.permission.INTERNET";
     private static final String DEFAULT_DISCPRIPTION = "Allows the app to create network sockets "

@@ -48,7 +48,8 @@ const MediaProfiles::NameToTagMap MediaProfiles::sAudioEncoderNameMap[] = {
     {"amrwb",  AUDIO_ENCODER_AMR_WB},
     {"aac",    AUDIO_ENCODER_AAC},
     {"heaac",  AUDIO_ENCODER_HE_AAC},
-    {"aaceld", AUDIO_ENCODER_AAC_ELD}
+    {"aaceld", AUDIO_ENCODER_AAC_ELD}, 
+    {"opus",   AUDIO_ENCODER_OPUS}
 };
 
 const MediaProfiles::NameToTagMap MediaProfiles::sFileFormatMap[] = {
@@ -91,6 +92,19 @@ const MediaProfiles::NameToTagMap MediaProfiles::sCamcorderQualityNameMap[] = {
     {"highspeed720p", CAMCORDER_QUALITY_HIGH_SPEED_720P},
     {"highspeed1080p", CAMCORDER_QUALITY_HIGH_SPEED_1080P},
     {"highspeed2160p", CAMCORDER_QUALITY_HIGH_SPEED_2160P},
+
+    // Vendor-specific profiles
+    {"vga", CAMCORDER_QUALITY_VGA},
+    {"4kdci", CAMCORDER_QUALITY_4KDCI},
+    {"timelapsevga", CAMCORDER_QUALITY_TIME_LAPSE_VGA},
+    {"timelapse4kdci", CAMCORDER_QUALITY_TIME_LAPSE_4KDCI},
+    {"highspeedcif", CAMCORDER_QUALITY_HIGH_SPEED_CIF},
+    {"highspeedvga", CAMCORDER_QUALITY_HIGH_SPEED_VGA},
+    {"highspeed4kdci", CAMCORDER_QUALITY_HIGH_SPEED_4KDCI},
+    {"qhd", CAMCORDER_QUALITY_QHD},
+    {"2k", CAMCORDER_QUALITY_2k},
+    {"timelapseqhd", CAMCORDER_QUALITY_TIME_LAPSE_QHD},
+    {"timelapse2k", CAMCORDER_QUALITY_TIME_LAPSE_2k},
 };
 
 #if LOG_NDEBUG
@@ -546,8 +560,8 @@ void MediaProfiles::checkAndAddRequiredProfilesIfNecessary() {
 
             if (info->mHasRefProfile) {
 
-                CamcorderProfile *profile =
-                    new CamcorderProfile(
+                std::unique_ptr<CamcorderProfile> profile =
+                    std::make_unique<CamcorderProfile>(
                             *mCamcorderProfiles[info->mRefProfileIndex]);
 
                 // Overwrite the quality
@@ -581,7 +595,7 @@ void MediaProfiles::checkAndAddRequiredProfilesIfNecessary() {
                         mCamcorderProfiles[info->mRefProfileIndex]->mQuality,
                         profile->mQuality, cameraId);
 
-                mCamcorderProfiles.add(profile);
+                mCamcorderProfiles.add(profile.release());
             }
         }
     }

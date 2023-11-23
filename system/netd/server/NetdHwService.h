@@ -19,16 +19,16 @@
 
 #include <android/system/net/netd/1.1/INetd.h>
 
-using android::hardware::Return;
-using android::hardware::hidl_string;
-using android::system::net::netd::V1_1::INetd;
-using StatusCode = android::system::net::netd::V1_1::INetd::StatusCode;
-
 namespace android {
 namespace net {
 
-class NetdHwService : public INetd {
-public:
+using android::hardware::Return;
+using android::hardware::hidl_string;
+using INetdHw = android::system::net::netd::V1_1::INetd;
+using StatusCode = android::system::net::netd::V1_1::INetd::StatusCode;
+
+class NetdHwService : INetdHw {
+  public:
     // 1.0
     status_t start();
     Return<void> createOemNetwork(createOemNetwork_cb _hidl_cb) override;

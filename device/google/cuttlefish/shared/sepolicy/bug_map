@@ -1,0 +1,5 @@
+kernel kernel system 130424539
+logpersist logpersist capability 132911257
+shell adbd vsock_socket 131904985
+system_server system_server process 65201432
+vendor_init kernel system 130424539

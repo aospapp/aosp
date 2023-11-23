@@ -19,12 +19,13 @@
 
 #include <arpa/inet.h>
 
-#include "translate.h"
-#include "checksum.h"
-#include "logging.h"
-#include "dump.h"
+#include "netutils/checksum.h"
+
 #include "config.h"
 #include "debug.h"
+#include "dump.h"
+#include "logging.h"
+#include "translate.h"
 
 /* function: icmp6_packet
  * takes an icmp6 packet and sets it up for translation
@@ -39,12 +40,12 @@ int icmp6_packet(clat_packet out, clat_packet_index pos, const struct icmp6_hdr 
   const uint8_t *payload;
   size_t payload_size;
 
-  if(len < sizeof(struct icmp6_hdr)) {
+  if (len < sizeof(struct icmp6_hdr)) {
     logmsg_dbg(ANDROID_LOG_ERROR, "icmp6_packet/(too small)");
     return 0;
   }
 
-  payload = (const uint8_t *) (icmp6 + 1);
+  payload      = (const uint8_t *)(icmp6 + 1);
   payload_size = len - sizeof(struct icmp6_hdr);
 
   return icmp6_to_icmp(out, pos, icmp6, payload, payload_size);
@@ -76,8 +77,8 @@ void log_bad_address(const char *fmt, const struct in6_addr *src, const struct i
  * returns: the highest position in the output clat_packet that's filled in
  */
 int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, size_t len) {
-  const struct ip6_hdr *ip6 = (struct ip6_hdr *) packet;
-  struct iphdr *ip_targ = (struct iphdr *) out[pos].iov_base;
+  const struct ip6_hdr *ip6 = (struct ip6_hdr *)packet;
+  struct iphdr *ip_targ     = (struct iphdr *)out[pos].iov_base;
   struct ip6_frag *frag_hdr = NULL;
   uint8_t protocol;
   const uint8_t *next_header;
@@ -85,14 +86,14 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
   uint32_t old_sum, new_sum;
   int iov_len;
 
-  if(len < sizeof(struct ip6_hdr)) {
+  if (len < sizeof(struct ip6_hdr)) {
     logmsg_dbg(ANDROID_LOG_ERROR, "ipv6_packet/too short for an ip6 header: %d", len);
     return 0;
   }
 
-  if(IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst)) {
+  if (IN6_IS_ADDR_MULTICAST(&ip6->ip6_dst)) {
     log_bad_address("ipv6_packet/multicast %s->%s", &ip6->ip6_src, &ip6->ip6_dst);
-    return 0; // silently ignore
+    return 0;  // silently ignore
   }
 
   // If the packet is not from the plat subnet to the local subnet, or vice versa, drop it, unless
@@ -111,7 +112,7 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
   }
 
   next_header = packet + sizeof(struct ip6_hdr);
-  len_left = len - sizeof(struct ip6_hdr);
+  len_left    = len - sizeof(struct ip6_hdr);
 
   protocol = ip6->ip6_nxt;
 
@@ -125,7 +126,7 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
   // If there's a Fragment header, parse it and decide what the next header is.
   // Do this before calculating the pseudo-header checksum because it updates the next header value.
   if (protocol == IPPROTO_FRAGMENT) {
-    frag_hdr = (struct ip6_frag *) next_header;
+    frag_hdr = (struct ip6_frag *)next_header;
     if (len_left < sizeof(*frag_hdr)) {
       logmsg_dbg(ANDROID_LOG_ERROR, "ipv6_packet/too short for fragment header: %d", len);
       return 0;
@@ -139,7 +140,7 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
 
   // ICMP and ICMPv6 have different protocol numbers.
   if (protocol == IPPROTO_ICMPV6) {
-    protocol = IPPROTO_ICMP;
+    protocol          = IPPROTO_ICMP;
     ip_targ->protocol = IPPROTO_ICMP;
   }
 
@@ -155,13 +156,13 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
   if (frag_hdr && (frag_hdr->ip6f_offlg & IP6F_OFF_MASK)) {
     iov_len = generic_packet(out, pos + 2, next_header, len_left);
   } else if (protocol == IPPROTO_ICMP) {
-    iov_len = icmp6_packet(out, pos + 2, (const struct icmp6_hdr *) next_header, len_left);
+    iov_len = icmp6_packet(out, pos + 2, (const struct icmp6_hdr *)next_header, len_left);
   } else if (protocol == IPPROTO_TCP) {
-    iov_len = tcp_packet(out, pos + 2, (const struct tcphdr *) next_header, old_sum, new_sum,
-                         len_left);
+    iov_len =
+      tcp_packet(out, pos + 2, (const struct tcphdr *)next_header, old_sum, new_sum, len_left);
   } else if (protocol == IPPROTO_UDP) {
-    iov_len = udp_packet(out, pos + 2, (const struct udphdr *) next_header, old_sum, new_sum,
-                         len_left);
+    iov_len =
+      udp_packet(out, pos + 2, (const struct udphdr *)next_header, old_sum, new_sum, len_left);
   } else if (protocol == IPPROTO_GRE) {
     iov_len = generic_packet(out, pos + 2, next_header, len_left);
   } else {
@@ -174,6 +175,6 @@ int ipv6_packet(clat_packet out, clat_packet_index pos, const uint8_t *packet, s
 
   // Set the length and calculate the checksum.
   ip_targ->tot_len = htons(ntohs(ip_targ->tot_len) + packet_length(out, pos));
-  ip_targ->check = ip_checksum(ip_targ, sizeof(struct iphdr));
+  ip_targ->check   = ip_checksum(ip_targ, sizeof(struct iphdr));
   return iov_len;
 }

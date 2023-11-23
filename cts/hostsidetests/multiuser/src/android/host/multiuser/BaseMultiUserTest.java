@@ -29,13 +29,23 @@ import java.util.ArrayList;
  * Base class for multi user tests.
  */
 public class BaseMultiUserTest implements IDeviceTest {
-    protected static final int USER_SYSTEM = 0; // From the UserHandle class.
+
+    /** Guest flag value from android/content/pm/UserInfo.java */
+    private static final int FLAG_GUEST = 0x00000004;
+
+    /**
+     * Feature flag for automotive devices
+     * https://source.android.com/compatibility/android-cdd#2_5_automotive_requirements
+     */
+    private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
     protected boolean mIsSplitSystemUser;
+    protected int mInitialUserId;
     protected int mPrimaryUserId;
-    /** Users we shouldn't delete in the tests */
+
+    /** Users we shouldn't delete in the tests. */
     private ArrayList<Integer> mFixedUsers;
 
     private ITestDevice mDevice;
@@ -44,22 +54,21 @@ public class BaseMultiUserTest implements IDeviceTest {
     public void setUp() throws Exception {
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
         mIsSplitSystemUser = checkIfSplitSystemUser();
+
+        mInitialUserId = getDevice().getCurrentUser();
         mPrimaryUserId = getDevice().getPrimaryUserId();
-        mFixedUsers = new ArrayList<>();
-        mFixedUsers.add(mPrimaryUserId);
-        if (mPrimaryUserId != USER_SYSTEM) {
-            mFixedUsers.add(USER_SYSTEM);
-        }
-        getDevice().switchUser(mPrimaryUserId);
-        removeTestUsers();
+
+        // Test should not modify / remove any of the existing users.
+        mFixedUsers = getDevice().listUsers();
     }
 
     @After
     public void tearDown() throws Exception {
-        if (getDevice().getCurrentUser() != mPrimaryUserId) {
-            CLog.w("User changed during test. Switching back to " + mPrimaryUserId);
-            getDevice().switchUser(mPrimaryUserId);
+        if (getDevice().getCurrentUser() != mInitialUserId) {
+            CLog.w("User changed during test. Switching back to " + mInitialUserId);
+            getDevice().switchUser(mInitialUserId);
         }
+        // Remove the users created during this test.
         removeTestUsers();
     }
 
@@ -114,6 +123,26 @@ public class BaseMultiUserTest implements IDeviceTest {
             CLog.e("Failed to create user: %s", output);
         }
         throw new IllegalStateException();
+    }
+
+    protected int createGuestUser() throws Exception {
+        return mDevice.createUser(
+                "TestUser_" + System.currentTimeMillis() /* name */,
+                true /* guest */,
+                false /* ephemeral */);
+    }
+
+    protected int getGuestUser() throws Exception {
+        for (int userId : mDevice.listUsers()) {
+            if ((mDevice.getUserFlags(userId) & FLAG_GUEST) != 0) {
+                return userId;
+            }
+        }
+        return -1;
+    }
+
+    protected boolean isAutomotiveDevice() throws Exception {
+        return getDevice().hasFeature(FEATURE_AUTOMOTIVE);
     }
 
     private void removeTestUsers() throws Exception {

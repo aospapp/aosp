@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"機門未關"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"卡紙"</string>
     <string name="printer_offline" msgid="9196864753298645066">"離線"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"無效的憑證"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"未經加密"</string>
     <string name="printer_check" msgid="6428369671197132828">"檢查打印機"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"正在等待傳送"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"無法讀取文件"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"不支援的打印機"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"尋找 Wi-Fi Direct 打印機"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct 列印"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct 打印機"</string>
     <string name="searching" msgid="2114018057619514587">"正在搜尋…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"您可能需要在打印機的前置面板上核准此連線"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"清除"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"透過 Wi-Fi Direct 連線"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"透過目前的網絡 (<xliff:g id="IP_ADDRESS">%1$s</xliff:g>) 連線"</string>
+    <string name="security" msgid="2279008326210305401">"安全性"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"此打印機提供了新的安全憑證，或者另一部裝置正在冒用其身分。要接受新的憑證嗎？"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"此打印機不再接受加密工作。要繼續列印嗎？"</string>
+    <string name="accept" msgid="4426153292469698134">"接受"</string>
+    <string name="reject" msgid="24751635160440693">"拒絕"</string>
+    <string name="connections" msgid="8895413761760117180">"連線"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"「預設列印服務」需要位置資訊權限，以尋找附近的裝置。"</string>
+    <string name="fix" msgid="7784394272611365393">"查看權限"</string>
 </resources>

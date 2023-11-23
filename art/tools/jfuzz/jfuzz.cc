@@ -562,11 +562,11 @@ class JFuzz {
       case 1:
         if (emitArrayVariable(tp))
           return;
-        // FALL-THROUGH
+        [[fallthrough]];
       case 2:
         if (emitLocalVariable(tp))
           return;
-        // FALL-THROUGH
+        [[fallthrough]];
       default:
         emitFieldVariable(tp);
         break;
@@ -1302,7 +1302,7 @@ class JFuzz {
 int32_t main(int32_t argc, char** argv) {
   // Time-based seed.
   struct timeval tp;
-  gettimeofday(&tp, NULL);
+  gettimeofday(&tp, nullptr);
 
   // Defaults.
   uint32_t seed = (tp.tv_sec * 1000000 + tp.tv_usec);

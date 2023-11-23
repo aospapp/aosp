@@ -27,10 +27,14 @@ on init
     start watchdogd
 
 on fs
-    mount_all /fstab.${ro.hardware}
+    mount_all /vendor/etc/fstab.${ro.hardware}
     setprop ro.crypto.fuse_sdcard false
 
 on post-fs
+
+    # set RLIMIT_MEMLOCK to 8MB
+    setrlimit 8 8388608 8388608
+
     # For legacy support
     # See storage config details at http://source.android.com/tech/storage/
     # since /storage is mounted on post-fs in init.rc
@@ -49,14 +53,12 @@ on post-fs
     setprop status.battery.level_raw  50
     setprop status.battery.level_scale 9
 
-# Set Display density
-    setprop ro.sf.lcd_density 160
-
-# Set supported opengles version
-    setprop ro.opengles.version 196608
-
 # If an app forces screen rotation, revert it once the apps closes
     setprop persist.demo.rotationlock 1
+
+# avoid USB crash
+    setprop persist.adb.nonblocking_ffs 0
+    setprop ro.adb.nonblocking_ffs 0
 
 # enable Google-specific location features,
 # like NetworkLocationProvider and LocationCollector
@@ -116,7 +118,13 @@ service wpa_supplicant /system/vendor/bin/hw/wpa_supplicant \
      oneshot
 
 # Set watchdog timer to 30 seconds and pet it every 10 seconds to get a 20 second margin
-service watchdogd /sbin/watchdogd 10 20
+service watchdogd /system/bin/watchdogd 10 20
     class core
     oneshot
     seclabel u:r:watchdogd:s0
+
+service bugreport /system/bin/dumpstate -d -p -B -z \
+    -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+    class main
+    disabled
+    oneshot

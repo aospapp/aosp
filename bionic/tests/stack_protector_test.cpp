@@ -74,14 +74,14 @@ TEST(stack_protector, same_guard_per_thread) {
   size_t thread_count = 9;
   for (size_t i = 1; i < thread_count; ++i) {
     pthread_t t;
-    ASSERT_EQ(0, pthread_create(&t, NULL, [](void* arg) -> void* {
+    ASSERT_EQ(0, pthread_create(&t, nullptr, [](void* arg) -> void* {
       stack_protector_checker* checker = reinterpret_cast<stack_protector_checker*>(arg);
       checker->Check();
       return nullptr;
     }, &checker));
     void* result;
     ASSERT_EQ(0, pthread_join(t, &result));
-    ASSERT_EQ(NULL, result);
+    ASSERT_EQ(nullptr, result);
   }
   ASSERT_EQ(thread_count, checker.tids.size());
 
@@ -95,7 +95,7 @@ TEST(stack_protector, global_guard) {
   ASSERT_NE(0, gettid());
   ASSERT_NE(0U, __stack_chk_guard);
 #else
-  GTEST_LOG_(INFO) << "glibc doesn't have a global __stack_chk_guard.\n";
+  GTEST_SKIP() << "glibc doesn't have a global __stack_chk_guard";
 #endif
 }
 
@@ -104,6 +104,11 @@ class stack_protector_DeathTest : public BionicDeathTest {};
 TEST_F(stack_protector_DeathTest, modify_stack_protector) {
   // In another file to prevent inlining, which removes stack protection.
   extern void modify_stack_protector_test();
+#if __has_feature(hwaddress_sanitizer)
+  ASSERT_EXIT(modify_stack_protector_test(),
+              testing::KilledBySignal(SIGABRT), "tag-mismatch");
+#else
   ASSERT_EXIT(modify_stack_protector_test(),
               testing::KilledBySignal(SIGABRT), "stack corruption detected");
+#endif
 }

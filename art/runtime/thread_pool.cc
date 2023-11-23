@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2012 The Android Open Source Project
  *
@@ -46,19 +47,22 @@ ThreadPoolWorker::ThreadPoolWorker(ThreadPool* thread_pool, const std::string& n
   // Add an inaccessible page to catch stack overflow.
   stack_size += kPageSize;
   std::string error_msg;
-  stack_.reset(MemMap::MapAnonymous(name.c_str(), nullptr, stack_size, PROT_READ | PROT_WRITE,
-                                    false, false, &error_msg));
-  CHECK(stack_.get() != nullptr) << error_msg;
-  CHECK_ALIGNED(stack_->Begin(), kPageSize);
+  stack_ = MemMap::MapAnonymous(name.c_str(),
+                                stack_size,
+                                PROT_READ | PROT_WRITE,
+                                /*low_4gb=*/ false,
+                                &error_msg);
+  CHECK(stack_.IsValid()) << error_msg;
+  CHECK_ALIGNED(stack_.Begin(), kPageSize);
   CheckedCall(mprotect,
               "mprotect bottom page of thread pool worker stack",
-              stack_->Begin(),
+              stack_.Begin(),
               kPageSize,
               PROT_NONE);
   const char* reason = "new thread pool worker thread";
   pthread_attr_t attr;
   CHECK_PTHREAD_CALL(pthread_attr_init, (&attr), reason);
-  CHECK_PTHREAD_CALL(pthread_attr_setstack, (&attr, stack_->Begin(), stack_->Size()), reason);
+  CHECK_PTHREAD_CALL(pthread_attr_setstack, (&attr, stack_.Begin(), stack_.Size()), reason);
   CHECK_PTHREAD_CALL(pthread_create, (&pthread_, &attr, &Callback, this), reason);
   CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attr), reason);
 }
@@ -83,7 +87,7 @@ void ThreadPoolWorker::SetPthreadPriority(int priority) {
 void ThreadPoolWorker::Run() {
   Thread* self = Thread::Current();
   Task* task = nullptr;
-  thread_pool_->creation_barier_.Wait(self);
+  thread_pool_->creation_barier_.Pass(self);
   while ((task = thread_pool_->GetTask(self)) != nullptr) {
     task->Run(self);
     task->Finalize();
@@ -98,8 +102,8 @@ void* ThreadPoolWorker::Callback(void* arg) {
                                      nullptr,
                                      worker->thread_pool_->create_peers_));
   worker->thread_ = Thread::Current();
-  // Thread pool workers cannot call into java.
-  worker->thread_->SetCanCallIntoJava(false);
+  // Mark thread pool workers as runtime-threads.
+  worker->thread_->SetIsRuntimeThread(true);
   // Do work until its time to shut down.
   worker->Run();
   runtime->DetachCurrentThread();
@@ -120,7 +124,10 @@ void ThreadPool::RemoveAllTasks(Thread* self) {
   tasks_.clear();
 }
 
-ThreadPool::ThreadPool(const char* name, size_t num_threads, bool create_peers)
+ThreadPool::ThreadPool(const char* name,
+                       size_t num_threads,
+                       bool create_peers,
+                       size_t worker_stack_size)
   : name_(name),
     task_queue_lock_("task queue lock"),
     task_queue_condition_("task queue condition", task_queue_lock_),
@@ -130,28 +137,41 @@ ThreadPool::ThreadPool(const char* name, size_t num_threads, bool create_peers)
     waiting_count_(0),
     start_time_(0),
     total_wait_time_(0),
-    // Add one since the caller of constructor waits on the barrier too.
-    creation_barier_(num_threads + 1),
+    creation_barier_(0),
     max_active_workers_(num_threads),
-    create_peers_(create_peers) {
+    create_peers_(create_peers),
+    worker_stack_size_(worker_stack_size) {
+  CreateThreads();
+}
+
+void ThreadPool::CreateThreads() {
+  CHECK(threads_.empty());
   Thread* self = Thread::Current();
-  while (GetThreadCount() < num_threads) {
-    const std::string worker_name = StringPrintf("%s worker thread %zu", name_.c_str(),
-                                                 GetThreadCount());
-    threads_.push_back(
-        new ThreadPoolWorker(this, worker_name, ThreadPoolWorker::kDefaultStackSize));
+  {
+    MutexLock mu(self, task_queue_lock_);
+    shutting_down_ = false;
+    // Add one since the caller of constructor waits on the barrier too.
+    creation_barier_.Init(self, max_active_workers_);
+    while (GetThreadCount() < max_active_workers_) {
+      const std::string worker_name = StringPrintf("%s worker thread %zu", name_.c_str(),
+                                                   GetThreadCount());
+      threads_.push_back(
+          new ThreadPoolWorker(this, worker_name, worker_stack_size_));
+    }
   }
-  // Wait for all of the threads to attach.
-  creation_barier_.Wait(self);
 }
 
-void ThreadPool::SetMaxActiveWorkers(size_t threads) {
-  MutexLock mu(Thread::Current(), task_queue_lock_);
-  CHECK_LE(threads, GetThreadCount());
-  max_active_workers_ = threads;
+void ThreadPool::WaitForWorkersToBeCreated() {
+  creation_barier_.Increment(Thread::Current(), 0);
 }
 
-ThreadPool::~ThreadPool() {
+const std::vector<ThreadPoolWorker*>& ThreadPool::GetWorkers() {
+  // Wait for all the workers to be created before returning them.
+  WaitForWorkersToBeCreated();
+  return threads_;
+}
+
+void ThreadPool::DeleteThreads() {
   {
     Thread* self = Thread::Current();
     MutexLock mu(self, task_queue_lock_);
@@ -161,8 +181,20 @@ ThreadPool::~ThreadPool() {
     task_queue_condition_.Broadcast(self);
     completion_condition_.Broadcast(self);
   }
-  // Wait for the threads to finish.
+  // Wait for the threads to finish. We expect the user of the pool
+  // not to run multi-threaded calls to `CreateThreads` and `DeleteThreads`,
+  // so we don't guard the field here.
   STLDeleteElements(&threads_);
+}
+
+void ThreadPool::SetMaxActiveWorkers(size_t max_workers) {
+  MutexLock mu(Thread::Current(), task_queue_lock_);
+  CHECK_LE(max_workers, GetThreadCount());
+  max_active_workers_ = max_workers;
+}
+
+ThreadPool::~ThreadPool() {
+  DeleteThreads();
 }
 
 void ThreadPool::StartWorkers(Thread* self) {

@@ -16,15 +16,18 @@
 
 java_library_static {
     name: "apkzlib_zip",
+    sdk_version: "24",
     srcs: [
-        "src/main/java/com/android/apkzlib/utils/**/*.java",
-        "src/main/java/com/android/apkzlib/zip/**/*.java"
+        "src/main/java/com/android/tools/build/apkzlib/utils/**/*.java",
+        "src/main/java/com/android/tools/build/apkzlib/zip/**/*.java",
         ],
     static_libs: ["guava"],
 }
 
 java_library_host {
     name: "apkzlib",
-    srcs: ["src/main/java/**/*.java"],
+    srcs: [
+        "src/main/java/com/android/tools/build/apkzlib/**/*.java",
+        ],
     static_libs: ["guava", "apksig"],
 }

@@ -44,6 +44,8 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
     protected AudioDeviceInfo mOutputDevInfo;
     protected AudioDeviceInfo mInputDevInfo;
 
+    protected final boolean mIsMandatedRequired;
+
     // This will be overriden...
     protected  int mSystemSampleRate = 48000;
 
@@ -53,8 +55,11 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
 
     private TextView mPeripheralNameTx;
 
-    public USBAudioPeripheralActivity() {
+    public USBAudioPeripheralActivity(boolean mandatedRequired) {
         super();
+
+        // determine if to show "UNSUPPORTED" if the mandated peripheral is required.
+        mIsMandatedRequired = mandatedRequired;
 
         mProfileManager.loadProfiles();
     }
@@ -99,7 +104,7 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
                 productName = mInputDevInfo.getProductName().toString();
             }
             String ctrlText;
-            if (mSelectedProfile == null) {
+            if (mSelectedProfile == null && mIsMandatedRequired) {
                 ctrlText = productName + " - UNSUPPORTED";
             } else {
                 ctrlText = productName;

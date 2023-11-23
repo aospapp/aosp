@@ -89,7 +89,6 @@ class VtsSpecParser(object):
         # Exclude the current package and packages with no corresponding libs.
         exclude_packages = [
             "android.hidl.base@1.0", "android.hidl.manager@1.0",
-            '%s.%s@%s' % (self._package_root, hal_name, hal_version)
         ]
 
         return sorted(list(set(imported_packages) - set(exclude_packages)))

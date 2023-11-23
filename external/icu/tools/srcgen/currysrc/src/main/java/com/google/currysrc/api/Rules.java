@@ -15,21 +15,8 @@
  */
 package com.google.currysrc.api;
 
-import com.google.currysrc.api.input.InputFileGenerator;
-import com.google.currysrc.api.output.OutputSourceFileGenerator;
-import com.google.currysrc.api.process.Rule;
-
-import java.io.File;
-import java.util.List;
-
 /**
- * Rules to apply to a set of source files.
+ * @deprecated Use {@link RuleSet} instead.
  */
-public interface Rules {
-
-  InputFileGenerator getInputFileGenerator();
-
-  List<Rule> getRuleList(File file);
-
-  OutputSourceFileGenerator getOutputSourceFileGenerator();
+public interface Rules extends RuleSet {
 }

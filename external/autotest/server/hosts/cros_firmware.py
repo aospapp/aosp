@@ -41,7 +41,7 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import hosts
 from autotest_lib.server import afe_utils
-from autotest_lib.server import constants
+from autotest_lib.server.hosts import repair_utils
 
 
 # _FIRMWARE_REPAIR_POOLS - The set of pools that should be
@@ -52,12 +52,6 @@ _FIRMWARE_REPAIR_POOLS = set(
             'CROS',
             'pools_support_firmware_repair',
             type=str).split(','))
-
-
-# _FIRMWARE_UPDATE_POOLS - The set of pools that should be
-# managed by `FirmwareVersionVerifier`.
-#
-_FIRMWARE_UPDATE_POOLS = set(constants.Pools.MANAGED_POOLS)
 
 
 def _is_firmware_repair_supported(host):
@@ -91,8 +85,7 @@ def _is_firmware_update_supported(host):
     @return A true value if the host should use
             `FirmwareVersionVerifier`; a false value otherwise.
     """
-    info = host.host_info_store.get()
-    return bool(info.pools & _FIRMWARE_UPDATE_POOLS)
+    return not _is_firmware_repair_supported(host)
 
 
 def _get_firmware_version(output):
@@ -161,7 +154,7 @@ class FirmwareStatusVerifier(hosts.Verifier):
             cmd = ('mkdir /tmp/verify_firmware; '
                    'cd /tmp/verify_firmware; '
                    'for section in VBLOCK_A VBLOCK_B FW_MAIN_A FW_MAIN_B; '
-                   'do flashrom -r image.bin -i $section:$section; '
+                   'do flashrom -p host -r -i $section:$section; '
                    'done')
             host.run(cmd)
 
@@ -197,10 +190,8 @@ class FirmwareRepair(hosts.RepairAction):
         if not _is_firmware_repair_supported(host):
             raise hosts.AutoservRepairError(
                     'Firmware repair is not applicable to host %s.' %
-                    host.hostname)
-        if not host.servo:
-            raise hosts.AutoservRepairError(
-                    '%s has no servo support.' % host.hostname)
+                    host.hostname, 'not_applicable')
+        repair_utils.require_servo(host)
         host.firmware_install()
 
     @property

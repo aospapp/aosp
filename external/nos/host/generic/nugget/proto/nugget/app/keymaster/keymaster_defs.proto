@@ -61,13 +61,15 @@ enum Tag {
   MIN_SECONDS_BETWEEN_OPS = 0x30193; // (TagType:UINT | 403)
   MAX_USES_PER_BOOT = 0x30194; // (TagType:UINT | 404)
   /* RESERVED: ALL_USERS = 0x701f4; // (TagType:BOOL | 500) */
-  /* RESERVED: USER_ID = 0x301f5; // (TagType:UINT | 501) */
+  USER_ID = 0x301f5; // (TagType:UINT | 501)
   USER_SECURE_ID = 0xa01f6; // (TagType:ULONG_REP | 502)
   NO_AUTH_REQUIRED = 0x701f7; // (TagType:BOOL | 503)
   USER_AUTH_TYPE = 0x101f8; // (TagType:ENUM | 504)
   AUTH_TIMEOUT = 0x301f9; // (TagType:UINT | 505)
   ALLOW_WHILE_ON_BODY = 0x701fa; // (TagType:BOOL | 506)
   TRUSTED_USER_PRESENCE_REQUIRED = 0x701fb; // (TagType:BOOL | 507)
+  TRUSTED_CONFIRMATION_REQUIRED = 0x701fc;  // (TagType:BOOL | 508)
+  UNLOCKED_DEVICE_REQUIRED = 0x701fd;  //  (TagType:BOOL | 509)
   /* RESERVED: ALL_APPLICATIONS = 0x70258; // (TagType:BOOL | 600) */
   APPLICATION_ID = 0x90259; // (TagType:BYTES | 601)
   /* RESERVED: EXPORTABLE = 0x7025a; // (TagType:BOOL | 602) */
@@ -96,6 +98,7 @@ enum Tag {
   /* RESERVED: AUTH_TOKEN = 0x903ea; // (TagType:BYTES | 1002) */
   MAC_LENGTH = 0x303eb; // (TagType:UINT | 1003)
   RESET_SINCE_ID_ROTATION = 0x703ec; // (TagType:BOOL | 1004)
+  CONFIRMATION_TOKEN = 0x903ed;// (TagType:BYTES | 1005)
 };
 
 enum Algorithm {
@@ -244,20 +247,23 @@ enum ErrorCode {
   UNKNOWN_ERROR = 71;
   INVALID_DEVICE_IDS = 72;                // Vendor specific.
   PRODUCTION_MODE_PROVISIONING = 73;      // Vendor specific.
-};
-
-enum HardwareAuthenticatorType {
-  AUTH_NONE = 0;
-  AUTH_PASSWORD = 1; // (1 << 0)
-  AUTH_FINGERPRINT = 2; // (1 << 1)
-  AUTH_ANY = 3;
-  AUTH_MAX = 4;
+  NO_USER_CONFIRMATION = 74;
+  KEY_UPGRADE_NOT_REQUIRED = 75;          // Vendor specific.
 };
 
 enum SecurityLevel {
   SOFTWARE = 0;
   TRUSTED_ENVIRONMENT = 1;
   STRONGBOX = 2;
+};
+
+// NOTE: these enum values must be kept in sync with the HAL,
+// as they are used in an HMAC calculation.
+enum HardwareAuthenticatorType {
+  HW_AUTH_NONE = 0;
+  HW_AUTH_PASSWORD = 1;
+  HW_AUTH_FINGERPRINT = 2;
+  // Additional entries must be powers of 2.
 };
 
 enum KeyFormat {
@@ -284,4 +290,18 @@ enum BootColor {
     BOOT_SELFSIGNED_YELLOW = 1;
     BOOT_UNVERIFIED_ORANGE = 2;
     BOOT_VERIFY_FAILED_RED = 3;
+}
+
+enum ChipFusing {
+    FUSING_PROTO = 0;
+    FUSING_DVT = 1;
+    FUSING_PVT = 2;
+}
+
+enum CertificateStatus {
+  CERT_PREVIOUSLY_PROVISIONED = 0;
+  CERT_MISSING = 1;
+  CERT_CHECKSUM = 2;
+  CERT_UNKNOWN_ERROR = 3;
+  CERT_WRONG_PACKET = 4;
 }

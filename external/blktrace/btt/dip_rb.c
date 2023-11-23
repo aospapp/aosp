@@ -37,8 +37,10 @@ int rb_insert(struct rb_root *root, struct io *iop)
 			p = &(*p)->rb_left;
 		else if (s > __s)
 			p = &(*p)->rb_right;
-		else
-			return 0;
+		else {
+			rb_replace_node(parent, &iop->rb_node, root);
+			return 1;
+		}
 	}
 
 	rb_link_node(&iop->rb_node, parent, p);

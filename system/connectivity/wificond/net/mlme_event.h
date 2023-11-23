@@ -17,8 +17,10 @@
 #ifndef WIFICOND_NET_MLME_EVENT_H_
 #define WIFICOND_NET_MLME_EVENT_H_
 
+#include <array>
 #include <memory>
-#include <vector>
+
+#include <linux/if_ether.h>
 
 #include <android-base/macros.h>
 
@@ -32,7 +34,7 @@ class MlmeConnectEvent {
   static std::unique_ptr<MlmeConnectEvent> InitFromPacket(
       const NL80211Packet* packet);
   // Returns the BSSID of the associated AP.
-  const std::vector<uint8_t>& GetBSSID() const { return bssid_; }
+  const std::array<uint8_t, ETH_ALEN>& GetBSSID() const { return bssid_; }
   // Get the status code of this connect event.
   // 0 = success, non-zero = failure.
   // Status codes definition: IEEE 802.11-2012, 8.4.1.9, Table 8-37
@@ -44,7 +46,7 @@ class MlmeConnectEvent {
   MlmeConnectEvent() = default;
 
   uint32_t interface_index_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
   uint16_t status_code_;
   bool is_timeout_;
 
@@ -56,7 +58,7 @@ class MlmeAssociateEvent {
   static std::unique_ptr<MlmeAssociateEvent> InitFromPacket(
       const NL80211Packet* packet);
   // Returns the BSSID of the associated AP.
-  const std::vector<uint8_t>& GetBSSID() const { return bssid_; }
+  const std::array<uint8_t, ETH_ALEN>& GetBSSID() const { return bssid_; }
   // Get the status code of this associate event.
   // 0 = success, non-zero = failure.
   // Status codes definition: IEEE 802.11-2012, 8.4.1.9, Table 8-37
@@ -68,7 +70,7 @@ class MlmeAssociateEvent {
   MlmeAssociateEvent() = default;
 
   uint32_t interface_index_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
   uint16_t status_code_;
   bool is_timeout_;
 
@@ -80,14 +82,14 @@ class MlmeRoamEvent {
   static std::unique_ptr<MlmeRoamEvent> InitFromPacket(
       const NL80211Packet* packet);
   // Returns the BSSID of the associated AP.
-  const std::vector<uint8_t>& GetBSSID() const { return bssid_; }
+  const std::array<uint8_t, ETH_ALEN>& GetBSSID() const { return bssid_; }
   uint32_t GetInterfaceIndex() const { return interface_index_; }
 
  private:
   MlmeRoamEvent() = default;
 
   uint32_t interface_index_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
 
   DISALLOW_COPY_AND_ASSIGN(MlmeRoamEvent);
 };
@@ -102,7 +104,7 @@ class MlmeDisconnectEvent {
   MlmeDisconnectEvent() = default;
 
   uint32_t interface_index_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
 
   DISALLOW_COPY_AND_ASSIGN(MlmeDisconnectEvent);
 };
@@ -116,7 +118,7 @@ class MlmeDisassociateEvent {
   MlmeDisassociateEvent() = default;
 
   uint32_t interface_index_;
-  std::vector<uint8_t> bssid_;
+  std::array<uint8_t, ETH_ALEN> bssid_;
 
   DISALLOW_COPY_AND_ASSIGN(MlmeDisassociateEvent);
 };

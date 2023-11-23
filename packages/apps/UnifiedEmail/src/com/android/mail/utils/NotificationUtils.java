@@ -31,10 +31,10 @@ import android.net.Uri;
 import android.os.Looper;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
-import android.support.v4.text.BidiFormatter;
-import android.support.v4.util.ArrayMap;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.text.BidiFormatter;
+import androidx.collection.ArrayMap;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -1444,7 +1444,7 @@ public class NotificationUtils {
      * @param subject Subject of the new message that triggered the notification
      * @param snippet Snippet of the new message that triggered the notification
      * @return a {@link CharSequence} suitable for use in
-     *         {@link android.support.v4.app.NotificationCompat.BigTextStyle}
+     *         {@link androidx.core.app.NotificationCompat.BigTextStyle}
      */
     private static CharSequence getSingleMessageInboxLine(Context context,
             String senders, String subject, String snippet) {
@@ -1517,7 +1517,7 @@ public class NotificationUtils {
      * @param subject Subject of the new message that triggered the notification
      * @param message the {@link Message} to be displayed.
      * @return a {@link CharSequence} suitable for use in
-     *         {@link android.support.v4.app.NotificationCompat.BigTextStyle}
+     *         {@link androidx.core.app.NotificationCompat.BigTextStyle}
      */
     private static CharSequence getSingleMessageBigText(Context context, String subject,
             final Message message) {

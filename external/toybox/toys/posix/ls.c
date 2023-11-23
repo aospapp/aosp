@@ -12,15 +12,15 @@
  *   Posix says the -l date format should vary based on how recent it is
  *   and we do --time-style=long-iso instead
 
-USE_LS(NEWTOY(ls, USE_LS_COLOR("(color):;")"(full-time)(show-control-chars)ZgoACFHLRSabcdfhikl@mnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL][!qb]", TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_LS(NEWTOY(ls, "(color):;(full-time)(show-control-chars)ZgoACFHLRSabcdfhikl@mnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL][!qb]", TOYFLAG_BIN|TOYFLAG_LOCALE))
 
 config LS
   bool "ls"
   default y
   help
-    usage: ls [-ACFHLRSZacdfhiklmnpqrstux1] [directory...]
+    usage: ls [-ACFHLRSZacdfhiklmnpqrstux1] [--color[=auto]] [directory...]
 
-    list files
+    List files.
 
     what to show:
     -a  all files including .hidden    -b  escape nongraphic chars
@@ -38,20 +38,12 @@ config LS
     -l  long (show full details)       -m  comma separated
     -n  like -l but numeric uid/gid    -o  like -l but no group
     -x  columns (horizontal sort)      -ll long with nanoseconds (--full-time)
-
-    sorting (default is alphabetical):
-    -f  unsorted    -r  reverse    -t  timestamp    -S  size
-
-config LS_COLOR
-  bool "ls --color"
-  default y
-  depends on LS
-  help
-    usage: ls --color[=auto]
-
     --color  device=yellow  symlink=turquoise/red  dir=blue  socket=purple
              files: exe=green  suid=red  suidfile=redback  stickydir=greenback
              =auto means detect if output is a tty.
+
+    sorting (default is alphabetical):
+    -f  unsorted    -r  reverse    -t  timestamp    -S  size
 */
 
 #define FOR_ls
@@ -62,11 +54,10 @@ config LS_COLOR
 // ls -lR starts .: then ./subdir:
 
 GLOBALS(
-  long ll;
+  long l;
   char *color;
 
   struct dirtree *files, *singledir;
-
   unsigned screen_width;
   int nl_title;
   char *escmore;
@@ -178,6 +169,8 @@ static int compare(void *a, void *b)
   if (toys.optflags & FLAG_t) {
     if (dta->st.st_mtime > dtb->st.st_mtime) ret = -1;
     else if (dta->st.st_mtime < dtb->st.st_mtime) ret = 1;
+    else if (dta->st.st_mtim.tv_nsec > dtb->st.st_mtim.tv_nsec) ret = -1;
+    else if (dta->st.st_mtim.tv_nsec < dtb->st.st_mtim.tv_nsec) ret = 1;
   }
   if (!ret) ret = strcmp(dta->name, dtb->name);
   return ret * reverse;
@@ -475,7 +468,7 @@ static void listfiles(int dirfd, struct dirtree *indir)
       // print time, always in --time-style=long-iso
       tm = localtime(&(st->st_mtime));
       strftime(tmp, sizeof(tmp), "%F %H:%M", tm);
-      if (TT.ll>1) {
+      if (TT.l>1) {
         char *s = tmp+strlen(tmp);
 
         s += sprintf(s, ":%02d.%09d ", tm->tm_sec, (int)st->st_mtim.tv_nsec);
@@ -541,7 +534,7 @@ void ls_main(void)
 
   if (toys.optflags&FLAG_full_time) {
     toys.optflags |= FLAG_l;
-    TT.ll = 2;
+    TT.l = 2;
   }
 
   // Do we have an implied -1

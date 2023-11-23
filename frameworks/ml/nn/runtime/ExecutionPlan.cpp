@@ -18,60 +18,192 @@
 
 #include "ExecutionPlan.h"
 
+#include "BurstBuilder.h"
 #include "Callbacks.h"
 #include "CompilationBuilder.h"
 #include "ExecutionBuilder.h"
+#include "ExecutionBurstController.h"
+#include "GraphDump.h"
 #include "Manager.h"
 #include "ModelBuilder.h"
+#include "OperationsUtils.h"
+#include "TokenHasher.h"
+#include "Tracing.h"
+#include "TypeManager.h"
 #include "Utils.h"
 
+#include <cutils/native_handle.h>
+#include <fcntl.h>
+#include <openssl/sha.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <queue>
+#include <strstream>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-using ::android::hardware::neuralnetworks::V1_0::implementation::ExecutionCallback;
-using ::android::hardware::neuralnetworks::V1_0::implementation::PreparedModelCallback;
+using HidlToken = hidl_array<uint8_t, ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN>;
 
 namespace android {
 namespace nn {
 
-static int compile(std::shared_ptr<Device> device, const ModelBuilder* model,
-                   int32_t executionPreference, sp<IPreparedModel>* preparedModel) {
-    nnAssert(device != nullptr);  // nullptr indicates CPU
-    // Compilation logic copied from ExecutionBuilder::startComputeOnDevice().
+namespace {
+
+// Opens cache file by filename and sets the handle to the opened fd. Returns false on fail. The
+// handle is expected to come in as empty, and is only set to a fd when the function returns true.
+// The file descriptor is always opened with both read and write permission.
+bool createCacheHandle(const std::string& cache, bool createIfNotExist, hidl_handle* handle) {
+    CHECK(handle->getNativeHandle() == nullptr);
+    int fd = open(cache.c_str(), createIfNotExist ? (O_RDWR | O_CREAT) : O_RDWR, S_IRUSR | S_IWUSR);
+    NN_RET_CHECK_GE(fd, 0);
+    native_handle_t* cacheNativeHandle = native_handle_create(1, 0);
+    if (cacheNativeHandle == nullptr) {
+        close(fd);
+        return false;
+    }
+    cacheNativeHandle->data[0] = fd;
+    handle->setTo(cacheNativeHandle, /*shouldOwn=*/true);
+    return true;
+}
+
+// Opens a list of cache files and returns the handle vector. Returns empty vector on fail.
+// The file descriptors are always opened with both read and write permission.
+hidl_vec<hidl_handle> createCacheHandleVec(uint32_t numCacheFiles, const std::string& baseFileName,
+                                           bool createIfNotExist) {
+    CHECK(numCacheFiles <= static_cast<uint32_t>(Constant::MAX_NUMBER_OF_CACHE_FILES));
+    hidl_vec<hidl_handle> handles(numCacheFiles);
+    for (uint32_t i = 0; i < numCacheFiles; i++) {
+        std::string filename = baseFileName + std::to_string(i);
+        VLOG(COMPILATION) << "Cache " << i << ": " << filename;
+        if (!createCacheHandle(filename, createIfNotExist, &handles[i])) {
+            return hidl_vec<hidl_handle>();
+        }
+    }
+    return handles;
+}
+
+// Maps token to cache file names and sets the handle vectors to the opened fds. Returns false on
+// fail and leaves the vectors empty. Each vector is expected to come in as empty.
+bool getCacheHandles(const std::string& cacheDir, const uint8_t* token,
+                     const std::pair<uint32_t, uint32_t>& numCacheFiles, bool createIfNotExist,
+                     hidl_vec<hidl_handle>* modelCache, hidl_vec<hidl_handle>* dataCache) {
+    // The filename includes ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN * 2 characters for token,
+    // and 1 character for model/data cache identifier.
+    std::string filename(ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN * 2 + 1, '0');
+    for (uint32_t i = 0; i < ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN; i++) {
+        filename[i * 2] = 'A' + (token[i] & 0x0F);
+        filename[i * 2 + 1] = 'A' + (token[i] >> 4);
+    }
+    CHECK(cacheDir.empty() || cacheDir.back() == '/');
+    std::string cacheFileName = cacheDir + filename;
+
+    cacheFileName[ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN * 2] = '1';
+    *modelCache = createCacheHandleVec(numCacheFiles.first, cacheFileName, createIfNotExist);
+    if (modelCache->size() != numCacheFiles.first) {
+        return false;
+    }
+    cacheFileName[ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN * 2] = '2';
+    *dataCache = createCacheHandleVec(numCacheFiles.second, cacheFileName, createIfNotExist);
+    if (dataCache->size() != numCacheFiles.second) {
+        modelCache->resize(0);
+        return false;
+    }
+    return true;
+}
+
+// Tries to compile directly from cache, returns false on fail.
+bool compileFromCache(const std::shared_ptr<Device>& device, const std::string& cacheDir,
+                      const uint8_t* token,
+                      std::shared_ptr<VersionedIPreparedModel>* preparedModel) {
+    CHECK(token != nullptr && device != nullptr);
+    VLOG(COMPILATION) << "compileFromCache";
+    *preparedModel = nullptr;
+    HidlToken cacheToken(token);
+    hidl_vec<hidl_handle> modelCache, dataCache;
+    NN_RET_CHECK(getCacheHandles(cacheDir, token, device->getNumberOfCacheFilesNeeded(),
+                                 /*createIfNotExist=*/false, &modelCache, &dataCache));
+    int ret = device->prepareModelFromCache(modelCache, dataCache, cacheToken, preparedModel);
+    return ret == ANEURALNETWORKS_NO_ERROR;
+}
+
+int compileModelAndCache(const std::shared_ptr<Device>& device, const ModelBuilder* model,
+                         int32_t executionPreference, const std::string& cacheDir,
+                         const uint8_t* token,
+                         std::shared_ptr<VersionedIPreparedModel>* preparedModel) {
+    CHECK(device != nullptr);
+    *preparedModel = nullptr;
+    uint8_t dummyToken[ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN] = {0};
+    HidlToken cacheToken(token == nullptr ? dummyToken : token);
+    hidl_vec<hidl_handle> modelCache, dataCache;
+    if (token == nullptr || !getCacheHandles(cacheDir, token, device->getNumberOfCacheFilesNeeded(),
+                                             /*createIfNotExist=*/true, &modelCache, &dataCache)) {
+        modelCache.resize(0);
+        dataCache.resize(0);
+    }
     Model hidlModel;
     model->setHidlModel(&hidlModel);
+    return device->prepareModel(hidlModel, static_cast<ExecutionPreference>(executionPreference),
+                                modelCache, dataCache, cacheToken, preparedModel);
+}
 
-    sp<PreparedModelCallback> preparedModelCallback = new PreparedModelCallback();
-    Return<ErrorStatus> prepareLaunchStatus = device->getInterface()->prepareModel(
-        hidlModel, static_cast<ExecutionPreference>(executionPreference), preparedModelCallback);
-    if (!prepareLaunchStatus.isOk()) {
-        LOG(ERROR) << "ExecutionStep::finishSubModel compilation failed due to transport error: "
-                   << prepareLaunchStatus.description();
-        return ANEURALNETWORKS_OP_FAILED;
+// Compiles the model on device.
+// If compilation caching is available, depending on ExecutionPlan::mState, the token may only have
+// been initialized by the user provided token (SIMPLE body), or is already re-hashed by the
+// operation indices to be executed (COMPOUND body). The token will be re-hashed further by the
+// device name, device version string, and the execution preference in this function.
+int compile(std::shared_ptr<Device> device, const ModelBuilder* model, int32_t executionPreference,
+            const std::string& cacheDir, TokenHasher* token,
+            std::shared_ptr<VersionedIPreparedModel>* preparedModel) {
+    CHECK(device != nullptr);
+    const uint8_t* tokenData = nullptr;
+    if (device->isCachingSupported() && token->ok() && token->updateFromString(device->getName()) &&
+        token->updateFromString(device->getVersionString()) &&
+        token->update(&executionPreference, sizeof(executionPreference)) && token->finish()) {
+        tokenData = token->getCacheToken();
     }
-    if (prepareLaunchStatus != ErrorStatus::NONE) {
-        LOG(ERROR) << "ExecutionStep::finishSubModel compilation failed with error: "
-                   << toString(static_cast<ErrorStatus>(prepareLaunchStatus));
-        return ANEURALNETWORKS_OP_FAILED;
+    if (tokenData != nullptr && compileFromCache(device, cacheDir, tokenData, preparedModel)) {
+        return ANEURALNETWORKS_NO_ERROR;
     }
-
-    preparedModelCallback->wait();
-    ErrorStatus prepareReturnStatus = preparedModelCallback->getStatus();
-    *preparedModel = preparedModelCallback->getPreparedModel();
-    if (prepareReturnStatus != ErrorStatus::NONE || *preparedModel == nullptr) {
-        LOG(ERROR) << "ExecutionPlan compilation on " << device->getName() << " failed:"
-                   << " prepareReturnStatus=" << toString(prepareReturnStatus)
-                   << ", preparedModel=" << preparedModel->get();
-        return ANEURALNETWORKS_OP_FAILED;
-    }
-    return ANEURALNETWORKS_NO_ERROR;
+    return compileModelAndCache(device, model, executionPreference, cacheDir, tokenData,
+                                preparedModel);
 }
 
 typedef std::function<void(uint32_t)> OperationReadyCallback;
+
+int copyOperandExtraParams(ModelBuilder& model, uint32_t toOperandIndex,
+                           const Operand& fromOperand) {
+    if (fromOperand.type == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL &&
+        fromOperand.extraParams.getDiscriminator() ==
+                Operand::ExtraParams::hidl_discriminator::channelQuant) {
+        auto& fromChannelQuant = fromOperand.extraParams.channelQuant();
+        ANeuralNetworksSymmPerChannelQuantParams toChannelQuant = {
+                .channelDim = fromChannelQuant.channelDim,
+                .scaleCount = static_cast<uint32_t>(fromChannelQuant.scales.size()),
+                .scales = fromChannelQuant.scales.data(),
+        };
+        return model.setOperandSymmPerChannelQuantParams(toOperandIndex, toChannelQuant);
+    } else if (isExtensionOperandType(fromOperand.type) &&
+               fromOperand.extraParams.getDiscriminator() ==
+                       Operand::ExtraParams::hidl_discriminator::extension) {
+        hidl_vec<uint8_t> extensionData = fromOperand.extraParams.extension();
+        return model.setOperandExtensionData(toOperandIndex, extensionData.data(),
+                                             extensionData.size());
+    } else if (fromOperand.extraParams.getDiscriminator() !=
+                       Operand::ExtraParams::hidl_discriminator::none ||
+               fromOperand.type == OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL) {
+        LOG(ERROR) << "Type " << toString(fromOperand.type)
+                   << " has an unexpected extraParams discriminator: "
+                   << static_cast<int>(fromOperand.extraParams.getDiscriminator());
+        return ANEURALNETWORKS_BAD_DATA;
+    } else {
+        return ANEURALNETWORKS_NO_ERROR;
+    }
+}
 
 // This class tracks whether we know the value of an operand as operations
 // are processed.
@@ -128,9 +260,11 @@ void OperandTracker::markProcessed(uint32_t operationIndex, OperationReadyCallba
     }
 }
 
+}  // namespace
+
 ExecutionStep::ExecutionStep(ExecutionPlan* plan, uint32_t stepIndex,
                              std::shared_ptr<Device> device)
-        : mPlan(plan), mIndex(stepIndex), mSubModel(), mDevice(device) {}
+    : mPlan(plan), mIndex(stepIndex), mSubModel(), mDevice(device), mToken(plan->getCacheToken()) {}
 
 // Adds an operand if it has not been added already.
 // Sets the index in the submodel for the corresponding operand.
@@ -151,15 +285,22 @@ int ExecutionStep::addOperand(uint32_t fromOperandIndex, uint32_t* toOperandInde
     // Add the operand to the submodel.
     const Operand& operand = fromModel.getOperand(fromOperandIndex);
     ANeuralNetworksOperandType type = {
-        .type = static_cast<int32_t>(operand.type),
-        .dimensionCount = static_cast<uint32_t>(operand.dimensions.size()),
-        .dimensions = operand.dimensions.size() > 0 ? operand.dimensions.data() : nullptr,
-        .scale = operand.scale,
-        .zeroPoint = operand.zeroPoint
+            .type = static_cast<int32_t>(operand.type),
+            .dimensionCount = static_cast<uint32_t>(operand.dimensions.size()),
+            .dimensions = operand.dimensions.size() > 0 ? operand.dimensions.data() : nullptr,
+            .scale = operand.scale,
+            .zeroPoint = operand.zeroPoint,
     };
+
     int n = mSubModel.addOperand(type);
     if (n != ANEURALNETWORKS_NO_ERROR) {
         LOG(ERROR) << "Previous error occurred when partitioning the graph";
+        return n;
+    }
+
+    n = copyOperandExtraParams(mSubModel, *toOperandIndex, operand);
+    if (n != ANEURALNETWORKS_NO_ERROR) {
+        LOG(ERROR) << "Error when copying extra parameters to the operand";
         return n;
     }
 
@@ -228,6 +369,9 @@ int ExecutionStep::addOperand(uint32_t fromOperandIndex, uint32_t* toOperandInde
 
 int ExecutionStep::addOperation(int operationIndex, const ModelBuilder& fromModel) {
     const Operation& operation = fromModel.getOperation(operationIndex);
+    if (mToken.ok()) {
+        mToken.update(&operationIndex, sizeof(operationIndex));
+    }
 
     // Convert the input and output operand indexes.
     //
@@ -348,6 +492,7 @@ static void convertModelInputsOrOutputs(
 
 int ExecutionStep::finishSubModel(const ModelBuilder* fromModel, bool* hasOutputOfUnknownSize,
                                   int32_t executionPreference) {
+    nnAssert(mDevice != nullptr);
     if (VLOG_IS_ON(COMPILATION)) {
         logSubModel();
     }
@@ -381,14 +526,19 @@ int ExecutionStep::finishSubModel(const ModelBuilder* fromModel, bool* hasOutput
     for (const auto& subModelOutput : mTempsAsSubModelOutputs) {
         outputs.push_back(subModelOutput.second);
         const Operand& operand = mSubModel.getOperand(subModelOutput.second);
-        for (uint32_t dimension : operand.dimensions) {
-            if (dimension == 0) {
-                *hasOutputOfUnknownSize = true;
-                VLOG(COMPILATION) << "SubModelOutput (operand#" << subModelOutput.first
-                                << " of original graph) has unknown size: "
-                                << toString(operand);
-                break;
+        if (operand.dimensions.size() == 0) {
+            *hasOutputOfUnknownSize = true;
+        } else {
+            for (uint32_t dimension : operand.dimensions) {
+                if (dimension == 0) {
+                    *hasOutputOfUnknownSize = true;
+                    break;
+                }
             }
+        }
+        if (*hasOutputOfUnknownSize) {
+            VLOG(COMPILATION) << "SubModelOutput (operand#" << subModelOutput.first
+                              << " of original graph) has unknown size: " << toString(operand);
         }
     }
 
@@ -424,21 +574,16 @@ int ExecutionStep::finishSubModel(const ModelBuilder* fromModel, bool* hasOutput
     }
 
     // TODO: Move compilation elsewhere?
-
-    if (mDevice == nullptr) {
-        return ANEURALNETWORKS_NO_ERROR;
-    }
-
-    VLOG(COMPILATION) << "ExecutionStep::finishSubModel, compilation";
-    return compile(mDevice, &mSubModel, executionPreference, &mPreparedSubModel);
+    VLOG(COMPILATION) << "ExecutionStep::finishSubModel, compilation on " << mDevice->getName();
+    return compile(mDevice, &mSubModel, executionPreference, *mPlan->getCacheDir(), &mToken,
+                   &mPreparedSubModel);
 }
 
 void ExecutionStep::dump() const {
     Model model;
     mSubModel.setHidlModel(&model);
     if (VLOG_IS_ON(COMPILATION)) {
-        VLOG(COMPILATION) << "ExecutionStep#" << mIndex
-                          << " for " << (mDevice == nullptr ? "CPU" : mDevice->getName());
+        VLOG(COMPILATION) << "ExecutionStep#" << mIndex << " for " << mDevice->getName();
         logModelToInfo(model);
     }
 }
@@ -465,13 +610,10 @@ int ExecutionPlan::CompoundBody::finish(const ModelBuilder* fromModel,
 
 int ExecutionPlan::SimpleBody::finish([[maybe_unused]] const ModelBuilder* fromModel,
                                       int32_t executionPreference) {
-    if (mDevice == nullptr) {
-        mSuccessfulFinish = true;
-        return ANEURALNETWORKS_NO_ERROR;
-    }
-
+    nnAssert(mDevice != nullptr);
     VLOG(COMPILATION) << "ExecutionPlan::SimpleBody::finish, compilation";
-    const int n = compile(mDevice, mModel, executionPreference, &mPreparedModel);
+    const int n =
+            compile(mDevice, mModel, executionPreference, *mCacheDir, &mToken, &mPreparedModel);
     mSuccessfulFinish = (n == ANEURALNETWORKS_NO_ERROR);
     return n;
 }
@@ -482,12 +624,15 @@ int ExecutionPlan::finish(const ModelBuilder* fromModel, int32_t executionPrefer
 }
 
 ExecutionPlan::Controller::Controller(
-    const ExecutionPlan* plan,
-    const ExecutionBuilder* executionBuilder,
-    std::shared_ptr<const SubModelInputsAndOutputsType> subModelInputsAndOutputs,
-    uint32_t totalSizeOfTemporaries) :
-        mPlan(plan), mExecutionBuilder(executionBuilder),
-        mSubModelInputsAndOutputs(subModelInputsAndOutputs), mNextStepIndex(0) {
+        const ExecutionPlan* plan, ExecutionBuilder* executionBuilder,
+        const BurstBuilder* burstBuilder,
+        std::shared_ptr<const SubModelInputsAndOutputsType> subModelInputsAndOutputs,
+        uint32_t totalSizeOfTemporaries)
+    : mPlan(plan),
+      mExecutionBuilder(executionBuilder),
+      mBurstBuilder(burstBuilder),
+      mSubModelInputsAndOutputs(subModelInputsAndOutputs),
+      mNextStepIndex(0) {
     if (totalSizeOfTemporaries) {
         if (mTemporaries.create(totalSizeOfTemporaries) != ANEURALNETWORKS_NO_ERROR) {
             LOG(ERROR) << "ExecutionPlan::Controller failed to allocate temporaries";
@@ -496,13 +641,46 @@ ExecutionPlan::Controller::Controller(
     }
 }
 
-std::shared_ptr<ExecutionPlan::Controller> ExecutionPlan::makeController(
-    const ExecutionBuilder* executionBuilder) const {
-    nnAssert((mState == EMPTY) == (mBody == nullptr));
-    if (mBody && !mBody->mSuccessfulFinish) {
-        VLOG(EXECUTION) << "ExecutionPlan::makeController -- unsuccessful finish";
-        return std::shared_ptr<Controller>(nullptr);
+// Attempt to create a burst object for each PreparedModel/Partition. If the
+// burst controller object cannot be made, return a nullptr in its place to
+// indicate the regular execution path should be used. This can occur either
+// because PreparedModel was nullptr (cpu was best choice), or because the
+// IPreparedModel was of insufficient version or failed to configure the burst.
+std::vector<std::shared_ptr<ExecutionBurstController>> ExecutionPlan::makeBursts() const {
+    switch (mState) {
+        // burst object for each partition in the compound case
+        case COMPOUND: {
+            std::vector<std::shared_ptr<ExecutionBurstController>> bursts;
+            bursts.reserve(compound()->mSteps.size());
+            for (const auto& step : compound()->mSteps) {
+                if (const auto preparedModel = step->getPreparedSubModel()) {
+                    bursts.push_back(preparedModel->configureExecutionBurst(/*blocking=*/true));
+                } else {
+                    bursts.push_back(nullptr);
+                }
+            }
+            return bursts;
+        }
+        // single burst object for the simple case
+        case SIMPLE: {
+            std::vector<std::shared_ptr<ExecutionBurstController>> burst;
+            auto simpleBody = static_cast<const SimpleBody*>(mBody);
+            if (const auto preparedModel = simpleBody->mPreparedModel) {
+                burst.push_back(preparedModel->configureExecutionBurst(/*blocking=*/true));
+            } else {
+                burst.push_back(nullptr);
+            }
+            return burst;
+        }
+        // no burst objects made
+        default:
+            return {};
     }
+}
+
+std::shared_ptr<ExecutionPlan::Controller> ExecutionPlan::makeController(
+        ExecutionBuilder* executionBuilder, const BurstBuilder* burstBuilder) const {
+    nnAssert(isValid());
 
     // Create the layout for a Memory object big enough for to hold
     // every TEMPORARY in the original model that is live across
@@ -537,7 +715,7 @@ std::shared_ptr<ExecutionPlan::Controller> ExecutionPlan::makeController(
                     subModelInputsAndOutputs =
                             std::make_shared<Controller::SubModelInputsAndOutputsType>();
                 }
-                const uint32_t size = sizeOfData(fromModelOperand);
+                const uint32_t size = TypeManager::get()->getSizeOfData(fromModelOperand);
                 totalSizeOfTemporaries += alignBytesNeeded(totalSizeOfTemporaries, size);
                 subModelInputsAndOutputs->insert(std::make_pair(fromModelOperandIndex, totalSizeOfTemporaries));
                 totalSizeOfTemporaries += size;
@@ -551,7 +729,7 @@ std::shared_ptr<ExecutionPlan::Controller> ExecutionPlan::makeController(
         }
     }
 
-    return std::shared_ptr<Controller>(new Controller(this, executionBuilder,
+    return std::shared_ptr<Controller>(new Controller(this, executionBuilder, burstBuilder,
                                                       subModelInputsAndOutputs,
                                                       totalSizeOfTemporaries));
 }
@@ -580,8 +758,12 @@ int ExecutionPlan::fallback(std::shared_ptr<Controller> controller,
 }
 
 int ExecutionPlan::next(std::shared_ptr<Controller> controller,
-                        std::shared_ptr<StepExecutor>* executor) const {
+                        std::shared_ptr<StepExecutor>* executor,
+                        std::shared_ptr<ExecutionBurstController>* burstController) const {
     *executor = nullptr;
+    if (burstController != nullptr) {
+        *burstController = nullptr;
+    }
 
     VLOG(EXECUTION) << "ExecutionPlan::next("
                     << SHOW_IF_DEBUG(controller << ", " << executor)
@@ -601,12 +783,13 @@ int ExecutionPlan::next(std::shared_ptr<Controller> controller,
         if (controller->mNextStepIndex == 0) {
             // First (and only) step.
             auto simpleBody = static_cast<const SimpleBody*>(mBody);
-            *executor = std::make_shared<StepExecutor>(
-                controller->mExecutionBuilder,
-                simpleBody->mModel,
-                (simpleBody->mDevice == nullptr ? nullptr : simpleBody->mDevice->getInterface()),
-                simpleBody->mPreparedModel);
+            *executor = std::make_shared<StepExecutor>(controller->mExecutionBuilder,
+                                                       simpleBody->mModel, simpleBody->mDevice,
+                                                       simpleBody->mPreparedModel);
             (*executor)->mapInputsAndOutputsTrivially();
+            if (burstController != nullptr && controller->mBurstBuilder != nullptr) {
+                *burstController = controller->mBurstBuilder->getControllerAt(0);
+            }
             controller->mNextStepIndex = 1;
             return ANEURALNETWORKS_NO_ERROR;
         }
@@ -630,12 +813,13 @@ int ExecutionPlan::next(std::shared_ptr<Controller> controller,
     // ExecutionStep::finishSubModel() establishes these orderings.
 
     const auto step = compoundBody->mSteps[controller->mNextStepIndex];
-    *executor = std::make_shared<StepExecutor>(
-        controller->mExecutionBuilder,
-        step->getSubModel(),
-        (step->getDevice() == nullptr ? nullptr : step->getDevice()->getInterface()),
-        step->getPreparedSubModel());
+    *executor = std::make_shared<StepExecutor>(controller->mExecutionBuilder, step->getSubModel(),
+                                               step->getDevice(), step->getPreparedSubModel());
+    (*executor)->setExecutionStep(step);
     step->mapInputsAndOutputs(*executor);
+    if (burstController != nullptr && controller->mBurstBuilder != nullptr) {
+        *burstController = controller->mBurstBuilder->getControllerAt(controller->mNextStepIndex);
+    }
     if (controller->mSubModelInputsAndOutputs != nullptr) {
         {
             // Tell executor about temps as submodel outputs.
@@ -712,7 +896,7 @@ std::shared_ptr<ExecutionStep> ExecutionPlan::createNewStep(const std::shared_pt
 void ExecutionPlan::becomeSingleStep(const std::shared_ptr<Device> device,
                                      const ModelBuilder* model) {
     nnAssert(mState == EMPTY);
-    mBody = new SimpleBody(device, model);
+    mBody = new SimpleBody(device, model, mCacheDir, mToken);
     mState = SIMPLE;
 }
 
@@ -722,6 +906,14 @@ void ExecutionPlan::dump() const {
     } else {
         VLOG(COMPILATION) << "EMPTY";
     }
+}
+
+void ExecutionPlan::reset() {
+    if (mBody) {
+        delete mBody;
+        mBody = nullptr;
+    }
+    mState = EMPTY;
 }
 
 ExecutionPlan::Kind ExecutionPlan::forTest_getKind() const {
@@ -753,8 +945,14 @@ bool ExecutionPlan::forTest_hasSubModelOutputsOfUnknownSize() const {
     return mBody->hasSubModelOutputsOfUnknownSize();
 }
 
+const uint8_t* ExecutionPlan::forTest_simpleGetCacheToken() const {
+    CHECK(mState == SIMPLE)
+            << "Calling forTest_simpleGetCacheToken from execution plan with a non-SIMPLE body";
+    return static_cast<const SimpleBody*>(mBody)->mToken.getCacheToken();
+}
+
 void ExecutionPlan::SimpleBody::dump() const {
-    VLOG(COMPILATION) << "SIMPLE for " << (mDevice == nullptr ? "CPU" : mDevice->getName());
+    VLOG(COMPILATION) << "SIMPLE for " << mDevice->getName();
 }
 
 void ExecutionPlan::CompoundBody::dump() const {
@@ -768,47 +966,25 @@ int ModelBuilder::partitionTheWork(const std::vector<std::shared_ptr<Device>>& d
     // This function uses a heuristic approach to partitioning the graph.
     // It should be good enough for the first release.
 
-    const size_t nonCpuDeviceCount = devices.size();
-    // The device count is the number of HAL devices + 1. The +1 is for the CPU.
-    // Note that deviceCount includes CPU, which has no entry in devices[].
-    const size_t deviceCount = nonCpuDeviceCount + 1;
+    const size_t deviceCount = devices.size();
     const size_t operationCount = mOperations.size();
 
     VLOG(COMPILATION) << "ModelBuilder::partitionTheWork: deviceCount = " << deviceCount
                       << ", operationCount = " << operationCount;
 
-    // If we only have the CPU, or if the graph has no operations, no need to try to partition.
-    if (nonCpuDeviceCount == 0 || operationCount == 0) {
-        // Make sure no op is an OEM operation.
-        for (auto& op: mOperations) {
-            if (op.type == OperationType::OEM_OPERATION) {
-                LOG(ERROR) << "No driver can do the OEM op";
-                return ANEURALNETWORKS_BAD_DATA;
-            }
-        }
-        plan->becomeSingleStep(nullptr /* CPU */, this);
-        return plan->finish(this, preference);
-    }
-
     // Figure out where each operation will best execute.
-    // The value of the vector is the index in the devices vector, with devices.size()
-    // representing the CPU.
+    // The value of the vector is the index in the devices vector.
     std::vector<int> bestDeviceForOperation(operationCount);
-    int status = findBestDeviceForEachOperation(preference, devices, deviceCount,
-                                                &bestDeviceForOperation);
-    if (status != ANEURALNETWORKS_NO_ERROR) {
-        return status;
-    }
+    NN_RETURN_IF_ERROR(
+            findBestDeviceForEachOperation(preference, devices, &bestDeviceForOperation));
 
     // If one device will run all the operations, we don't need to split the work.
     if (std::adjacent_find(bestDeviceForOperation.begin(), bestDeviceForOperation.end(),
                            std::not_equal_to<int>()) == bestDeviceForOperation.end()) {
         const int bestDeviceIndex = bestDeviceForOperation[0];
-        const bool cpu = (size_t(bestDeviceIndex) == deviceCount - 1);
         VLOG(COMPILATION) << "ModelBuilder::partitionTheWork: only one best device: "
-                          << bestDeviceIndex << " = "
-                          << (cpu ? "CPU" : devices[bestDeviceIndex]->getName());
-        plan->becomeSingleStep(cpu ? nullptr : devices[bestDeviceIndex], this);
+                          << bestDeviceIndex << " = " << devices[bestDeviceIndex]->getName();
+        plan->becomeSingleStep(devices[bestDeviceIndex], this);
         return plan->finish(this, preference);
     }
 
@@ -848,13 +1024,9 @@ int ModelBuilder::partitionTheWork(const std::vector<std::shared_ptr<Device>>& d
         if (deviceIndex < 0) {
             break;
         }
-        // nullptr represents the CPU.
-        std::shared_ptr<Device> device =
-                static_cast<size_t>(deviceIndex) < nonCpuDeviceCount
-                        ? devices[deviceIndex] : nullptr;
 
         // Assign as much as possible to this device.
-        std::shared_ptr<ExecutionStep> step = plan->createNewStep(device);
+        std::shared_ptr<ExecutionStep> step = plan->createNewStep(devices[deviceIndex]);
         auto& queue = perDeviceQueue[deviceIndex];
         while (!queue.empty()) {
             uint32_t operationIndex = queue.front();
@@ -888,36 +1060,488 @@ PerformanceInfo ModelBuilder::getPerformanceInfo(const std::shared_ptr<Device> d
     const OperandType operandType = mOperands[operandIndex].type;
     switch(operandType) {
         case OperandType::FLOAT32:
+            if (mRelaxComputationFloat32toFloat16) {
+                return device->getRelaxedFloat32toFloat16PerformanceScalar();
+            }
+            break;
         case OperandType::TENSOR_FLOAT32:
             if (mRelaxComputationFloat32toFloat16) {
-                return device->getRelaxedFloat32toFloat16Performance();
-            } else {
-                return device->getFloat32Performance();
+                return device->getRelaxedFloat32toFloat16PerformanceTensor();
             }
-        case OperandType::INT32:
-        case OperandType::UINT32:
-        case OperandType::TENSOR_INT32:
-        case OperandType::TENSOR_QUANT8_ASYMM:
-            // For OEM, the real selection will be made from who can run the operand.
-        case OperandType::OEM:
-        case OperandType::TENSOR_OEM_BYTE:
-            return device->getQuantized8Performance();
+            break;
         default:
-            nnAssert(false);
-            return device->getQuantized8Performance();
+            break;
     }
+
+    return device->getPerformance(operandType);
 }
 
 namespace {
+
+// Add an element to the end of the vector and return a pair consisting of the
+// index of the new element and a pointer to the new element.
+template <class T>
+std::pair<uint32_t, T*> extend(hidl_vec<T>* vec) {
+    size_t nextIndex = vec->size();
+    vec->resize(nextIndex + 1);
+    return {nextIndex, &(*vec)[nextIndex]};
+}
+
+// Add an element to the end of the vector, set it to the specified value, and
+// return a pair consisting of the index of the new element and a pointer to the
+// new element.
+template <class T>
+std::pair<uint32_t, T*> extend(hidl_vec<T>* vec, const T& val) {
+    auto extended = extend(vec);
+    *extended.second = val;
+    return extended;
+}
+
+template <typename T>
+bool operator<(const hidl_vec<T>& a, const hidl_vec<T>& b) {
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+}
+
+// Compile-time mapping from a particular Model type to a name for that type.
+template <class T_Model>
+struct ModelVersion;
+template <>
+struct ModelVersion<V1_0::Model> {
+    static constexpr char name[] = "V1_0";
+};
+template <>
+struct ModelVersion<V1_1::Model> {
+    static constexpr char name[] = "V1_1";
+};
+template <>
+struct ModelVersion<V1_2::Model> {
+    static constexpr char name[] = "V1_2";
+};
+
+// Dispatcher mechanism for calling an appropriate uncheckedConvertToV1_*
+// given the desired return type.
+template <typename T_ReturnType>
+T_ReturnType uncheckedConvertTo(OperationType type);
+template <>
+V1_0::OperationType uncheckedConvertTo<V1_0::OperationType>(OperationType type) {
+    return uncheckedConvertToV1_0(type);
+}
+template <>
+V1_1::OperationType uncheckedConvertTo<V1_1::OperationType>(OperationType type) {
+    return uncheckedConvertToV1_1(type);
+}
+
+// Dispatcher mechanism for calling an appropriate convertToV1_* given the
+// desired return type.  Note that there is no V1_1::Operand type.
+template <typename T_ReturnType>
+T_ReturnType convertTo(Operand operand);
+template <>
+V1_0::Operand convertTo<V1_0::Operand>(Operand operand) {
+    return convertToV1_0(operand);
+}
+
+// Dispatcher mechanism for calling an appropriate compliantWithV1_* given the
+// desired target model type.
+template <typename T_SlicedModel>
+void getNoncompliantOperations(const V1_2::Model& model,
+                               std::set<uint32_t>* noncompliantOperations);
+template <>
+void getNoncompliantOperations<V1_0::Model>(const V1_2::Model& model,
+                                            std::set<uint32_t>* noncompliantOperations) {
+    compliantWithV1_0(model, noncompliantOperations);
+}
+template <>
+void getNoncompliantOperations<V1_1::Model>(const V1_2::Model& model,
+                                            std::set<uint32_t>* noncompliantOperations) {
+    compliantWithV1_1(model, noncompliantOperations);
+}
+
+class PlanModelSlicer : public IModelSlicer {
+   public:
+    PlanModelSlicer(const ModelBuilder* model);
+
+    std::optional<std::pair<V1_0::Model, std::function<uint32_t(uint32_t)>>> getSliceV1_0()
+            override {
+        return getSlice(&mSliceV1_0);
+    }
+    std::optional<std::pair<V1_1::Model, std::function<uint32_t(uint32_t)>>> getSliceV1_1()
+            override {
+        return getSlice(&mSliceV1_1);
+    }
+
+    const Model& getModel() const { return mHidlModel; }
+
+   private:
+    template <class T_SlicedModel>
+    static bool invalid(const T_SlicedModel& model);
+
+    enum class SliceState { UNINITIALIZED, INVALID, NORMAL };
+    template <class T_SlicedModel>
+    struct Slice {
+        SliceState mState = SliceState::UNINITIALIZED;
+        T_SlicedModel mHidlModel;
+        std::vector<uint32_t> mSlicedOperationIndexToOrigIndex;
+    };
+    Slice<V1_0::Model> mSliceV1_0;
+    Slice<V1_1::Model> mSliceV1_1;
+
+    template <class T_SlicedModel>
+    void initializeSlice(Slice<T_SlicedModel>* slice);
+
+    template <class T_SlicedModel>
+    std::optional<std::pair<T_SlicedModel, std::function<uint32_t(uint32_t)>>> getSlice(
+            Slice<T_SlicedModel>* slice) {
+        CHECK(slice != nullptr);
+        if (slice->mState == SliceState::UNINITIALIZED) {
+            initializeSlice(slice);
+        }
+        if (slice->mState == SliceState::INVALID) {
+            return {};
+        }
+        return std::pair<T_SlicedModel, std::function<uint32_t(uint32_t)>>(
+                slice->mHidlModel, [slice](uint32_t slicedOperationIndex) {
+                    return slice->mSlicedOperationIndexToOrigIndex.at(slicedOperationIndex);
+                });
+    }
+
+    Model mHidlModel;
+};
+
+template <class T_SlicedModel>
+bool PlanModelSlicer::invalid(const T_SlicedModel& model) {
+    // A model must have at least one operation.  However, it's possible that a
+    // slice has no operations (because no operations from the original model
+    // are compliant with the sliced model type).  In this case, the sliced
+    // model would be invalid.
+    const bool looksEmpty = (model.operations.size() == 0);
+    if (DeviceManager::get()->strictSlicing()) {
+        CHECK_EQ(looksEmpty, (model.operands.size() == 0));
+    }
+    if (looksEmpty) return true;
+
+    // A model must have at least one output.  However, it's possible for a
+    // model to contain dead operations (i.e., outputs on which no model outputs
+    // are data dependent).  A slice might contain only dead operations, and
+    // hence have no model outputs.  In this case, the sliced model would be
+    // invalid.
+    if (model.outputIndexes.size() == 0) return true;
+
+    // We shouldn't have to check whether the model is valid.
+    // However, it could be invalid if:
+    // - there is an error in the slicing algorithm; or
+    // - there is an error in compliantWith (see http://b/131845106)
+    if (!validateModel(model)) {
+        LOG(WARNING) << "Sliced model fails validateModel()";
+        CHECK(!DeviceManager::get()->strictSlicing());
+        return true;
+    }
+
+    return false;
+}
+
+PlanModelSlicer::PlanModelSlicer(const ModelBuilder* model) {
+    model->setHidlModel(&mHidlModel);
+}
+
+template <class T_SlicedModel>
+void PlanModelSlicer::initializeSlice(Slice<T_SlicedModel>* slice) {
+    using SlicedOperand = std::remove_pointer_t<decltype(slice->mHidlModel.operands.data())>;
+    using SlicedOperation = std::remove_pointer_t<decltype(slice->mHidlModel.operations.data())>;
+    using SlicedOperationType = decltype(SlicedOperation::type);
+
+    CHECK(slice->mState == SliceState::UNINITIALIZED);
+
+    const auto& origOperands = mHidlModel.operands;
+    const auto& origOperations = mHidlModel.operations;
+    auto& slicedOperands = slice->mHidlModel.operands;
+    auto& slicedOperations = slice->mHidlModel.operations;
+
+    // Indexes of elements of noncompliant origOperations
+    std::set<uint32_t> noncompliantOperations;
+    getNoncompliantOperations<T_SlicedModel>(mHidlModel, &noncompliantOperations);
+
+    // Map from an operand index in origOperands to the corresponding operand index in
+    // slicedOperands
+    std::map<uint32_t, uint32_t> origOperandIndexToSlicedIndex;
+
+    // Collect the operand indexes of every operand that is an input to a
+    // compliant operation.  If the operand is a CONSTANT_* or a NO_VALUE, copy
+    // it to the sliced model and update origOperandIndexToSlicedIndex
+    // accordingly.  Otherwise, we'll deal with the operand in the subsequent
+    // "Main loop", where we process operation outputs (intermediates and model
+    // outputs).
+    std::set<uint32_t> inputOperandIndexesOfCompliantOperations;
+    for (uint32_t origOperationIndex = 0; origOperationIndex < origOperations.size();
+         ++origOperationIndex) {
+        if (noncompliantOperations.count(origOperationIndex)) {
+            continue;
+        }
+        for (uint32_t input : origOperations[origOperationIndex].inputs) {
+            if (inputOperandIndexesOfCompliantOperations.insert(input).second) {
+                const Operand& origOperand = origOperands[input];
+                switch (origOperand.lifetime) {
+                    case OperandLifeTime::CONSTANT_COPY:
+                    case OperandLifeTime::CONSTANT_REFERENCE:
+                    case OperandLifeTime::NO_VALUE: {
+                        const uint32_t slicedOperandIndex =
+                                extend(&slicedOperands, convertTo<SlicedOperand>(origOperand))
+                                        .first;
+                        slicedOperands[slicedOperandIndex].numberOfConsumers = 0;
+                        origOperandIndexToSlicedIndex[input] = slicedOperandIndex;
+                        VLOG(COMPILATION) << "origOperandIndexToSlicedIndex initialization created "
+                                          << input << " -> " << slicedOperandIndex << ": "
+                                          << toString(slicedOperands[slicedOperandIndex]);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    // For each output operand of a noncompliant operation that is the input
+    // operand of at least one compliant operation, we will ensure that there is
+    // a sliced model input whose "type" is that of the output operand.  This is
+    // a map from output operand "type" (in the original model) to model input
+    // operand index (in the sliced model).  Unfortunately, there is no
+    // representation of operand "type" defined in the HAL that we can use
+    // naively here -- we want (OperandType, dimensions, scale, zeroPoint,
+    // extraParams), but these fields exist in Operand along with other fields
+    // that need to be excluded from the map key (numberOfConsumers, lifetime,
+    // location).  There are several choices:
+    // - Don't have a map -- each output identified above gets its own sliced
+    //   model input (no sharing of sliced model inputs).
+    // - Create an operand "type" representation solely for use as a map key.
+    // - Write a tailored comparison function that ignores the excluded fields.
+    // We choose to write a tailored comparison function.  If Treble were to
+    // generate a comparison function for us (http://b/130567619) then it might
+    // be better to instead reset the excluded fields to canonical values --
+    // then we could use the Treble provided comparison function, and the
+    // solution would be robust (in a correctness sense, not a sharing sense) if
+    // more fields are added and we neglect to canonicalize them.
+    //
+    // We also use this map for model input operands of the original model that
+    // become input operands of the sliced model.  This means that an original
+    // model input operand might be coalesced with other original model input
+    // operands and/or with original model temporary operands.
+    class OrigOperandToSlicedInputOperandIndex {
+       public:
+        OrigOperandToSlicedInputOperandIndex(hidl_vec<SlicedOperand>* slicedOperands,
+                                             hidl_vec<uint32_t>* slicedInputIndexes)
+            : mSlicedOperands(*slicedOperands), mSlicedInputIndexes(*slicedInputIndexes) {}
+
+        // Given an operand from the original model, return the index of the
+        // corresponding model input operand from the sliced model.  Creates a
+        // new operand in the sliced model if necessary.
+        uint32_t getIndex(Operand operand) {
+            // Lookup
+            auto it = mMap.find(operand);
+            if (it != mMap.end()) {
+                VLOG(COMPILATION) << "OrigOperandToSlicedInputOperandIndex::getIndex looked for "
+                                  << toString(operand) << " and found " << it->second << ": "
+                                  << toString(it->first);
+                return it->second;
+            }
+
+            // Create
+            operand.numberOfConsumers = 0;
+            operand.lifetime = OperandLifeTime::MODEL_INPUT;
+            operand.location = {};
+            uint32_t slicedOperandIndex =
+                    extend(&mSlicedOperands, convertTo<SlicedOperand>(operand)).first;
+            mMap[operand] = slicedOperandIndex;
+            extend(&mSlicedInputIndexes, slicedOperandIndex);
+            VLOG(COMPILATION) << "OrigOperandToSlicedInputOperandIndex::getIndex created "
+                              << slicedOperandIndex << ": " << toString(operand);
+            return slicedOperandIndex;
+        }
+
+       private:
+        class Compare {
+           public:
+            bool operator()(const Operand& a, const Operand& b) const {
+                if (a.type != b.type) {
+                    return a.type < b.type;
+                }
+                if (a.dimensions != b.dimensions) {
+                    return a.dimensions < b.dimensions;
+                }
+                if (a.scale != b.scale) {
+                    return a.scale < b.scale;
+                }
+                if (a.zeroPoint != b.zeroPoint) {
+                    return a.zeroPoint < b.zeroPoint;
+                }
+                return compare(a.extraParams, b.extraParams);
+            }
+
+           private:
+            static bool compare(const SymmPerChannelQuantParams& a,
+                                const SymmPerChannelQuantParams& b) {
+                if (a.scales != b.scales) {
+                    return a.scales < b.scales;
+                }
+                return a.channelDim < b.channelDim;
+            }
+
+            static bool compare(const Operand::ExtraParams& a, const Operand::ExtraParams& b) {
+                if (a.getDiscriminator() != b.getDiscriminator()) {
+                    return a.getDiscriminator() < b.getDiscriminator();
+                }
+
+                switch (a.getDiscriminator()) {
+                    default:
+                        CHECK(false) << "Unexpected";
+                        FALLTHROUGH_INTENDED;
+                    case Operand::ExtraParams::hidl_discriminator::none:
+                        return false;
+
+                    case Operand::ExtraParams::hidl_discriminator::channelQuant:
+                        return compare(a.channelQuant(), b.channelQuant());
+
+                    case Operand::ExtraParams::hidl_discriminator::extension:
+                        return a.extension() < b.extension();
+                }
+            }
+        };
+        std::map<Operand, uint32_t, Compare> mMap;
+        hidl_vec<SlicedOperand>& mSlicedOperands;
+        hidl_vec<uint32_t>& mSlicedInputIndexes;
+    } origOperandToSlicedInputOperandIndex(&slicedOperands, &slice->mHidlModel.inputIndexes);
+
+    // An input of the original model is an input of the sliced model if and
+    // only if it is consumed by at least one compliant operation.  Note that in
+    // the sliced model we share all model inputs of the same "type"; and that
+    // we may later add model inputs to the sliced model.
+    for (uint32_t origInputIndex : mHidlModel.inputIndexes) {
+        if (inputOperandIndexesOfCompliantOperations.count(origInputIndex)) {
+            const uint32_t slicedIndex =
+                    origOperandToSlicedInputOperandIndex.getIndex(origOperands[origInputIndex]);
+            origOperandIndexToSlicedIndex[origInputIndex] = slicedIndex;
+            VLOG(COMPILATION) << "origOperandIndexToSlicedIndex inputIndexes processing created "
+                              << origInputIndex << " -> " << slicedIndex << ": "
+                              << toString(slicedOperands[slicedIndex]);
+        }
+    }
+
+    // Main loop: Process each operation of the original model.
+    for (uint32_t origOperationIndex = 0; origOperationIndex < origOperations.size();
+         ++origOperationIndex) {
+        const Operation& origOperation = origOperations[origOperationIndex];
+
+        if (noncompliantOperations.count(origOperationIndex)) {
+            for (uint32_t output : origOperation.outputs) {
+                if (!inputOperandIndexesOfCompliantOperations.count(output)) {
+                    continue;
+                }
+                const uint32_t slicedIndex =
+                        origOperandToSlicedInputOperandIndex.getIndex(origOperands[output]);
+                origOperandIndexToSlicedIndex[output] = slicedIndex;
+                VLOG(COMPILATION)
+                        << "origOperandIndexToSlicedIndex noncompliant output processing created "
+                        << output << " -> " << slicedIndex << ": "
+                        << toString(slicedOperands[slicedIndex]);
+            }
+        } else {
+            slice->mSlicedOperationIndexToOrigIndex.push_back(origOperationIndex);
+            SlicedOperation& slicedOperation = *extend(&slicedOperations).second;
+            CHECK(slice->mSlicedOperationIndexToOrigIndex.size() == slicedOperations.size());
+
+            slicedOperation.type = uncheckedConvertTo<SlicedOperationType>(origOperation.type);
+
+            // Model is topologically sorted, so all inputs must be present in
+            // origOperandIndexToSlicedIndex, and no outputs may be.
+
+            // Operation inputs
+            // - Fill in slicedOperation.inputs
+            // - Update number of consumers for each input operand
+            slicedOperation.inputs.resize(origOperation.inputs.size());
+            std::transform(
+                    origOperation.inputs.begin(), origOperation.inputs.end(),
+                    slicedOperation.inputs.begin(),
+                    [&origOperandIndexToSlicedIndex, &slicedOperands](uint32_t origOperandIndex) {
+                        uint32_t slicedOperandIndex =
+                                origOperandIndexToSlicedIndex.at(origOperandIndex);
+                        slicedOperands[slicedOperandIndex].numberOfConsumers++;
+                        VLOG(COMPILATION) << "origOperandIndexToSlicedIndex compliant input "
+                                             "processing created "
+                                          << origOperandIndex << " -> " << slicedOperandIndex
+                                          << ": " << toString(slicedOperands[slicedOperandIndex]);
+                        return slicedOperandIndex;
+                    });
+
+            // Operation outputs
+            // - Add new operands to slicedOperands
+            // - Update origOperandIndexToSlicedIndex
+            // - Fill in slicedOperation.outputs
+            // - Record as a model output, if necessary
+            const uint32_t firstOutputSlicedOperandIndex = slicedOperands.size();
+            slicedOperands.resize(firstOutputSlicedOperandIndex + origOperation.outputs.size());
+            slicedOperation.outputs.resize(origOperation.outputs.size());
+            for (uint32_t outputNum = 0; outputNum < slicedOperation.outputs.size(); ++outputNum) {
+                uint32_t origOperandIndex = origOperation.outputs[outputNum];
+                uint32_t slicedOperandIndex = firstOutputSlicedOperandIndex + outputNum;
+                auto& slicedOperand = slicedOperands[slicedOperandIndex];
+                const auto& origOperand = origOperands[origOperandIndex];
+                slicedOperand = convertTo<SlicedOperand>(origOperand);
+                slicedOperand.numberOfConsumers = 0;
+
+                CHECK(origOperandIndexToSlicedIndex.count(origOperandIndex) == 0);
+                origOperandIndexToSlicedIndex[origOperandIndex] = slicedOperandIndex;
+                slicedOperation.outputs[outputNum] = slicedOperandIndex;
+
+                if (!inputOperandIndexesOfCompliantOperations.count(origOperandIndex) &&
+                    origOperand.numberOfConsumers) {
+                    // Was consumed only by noncompliant operations; convert to
+                    // an output of the sliced model.
+                    slicedOperand.lifetime = OperandLifeTime::MODEL_OUTPUT;
+                }
+
+                VLOG(COMPILATION) << "origOperandIndexToSlicedIndex compliant output created "
+                                  << origOperandIndex << " -> " << slicedOperandIndex << ": "
+                                  << toString(slicedOperand);
+
+                if (slicedOperand.lifetime == OperandLifeTime::MODEL_OUTPUT) {
+                    extend(&slice->mHidlModel.outputIndexes, slicedOperandIndex);
+                }
+            }
+        }
+    }
+
+    // To keep things simple, we copy over these fields as-is.  We could instead
+    // opt to regenerate them based on the operands present in the sliced model:
+    // This would be more complex and probably take more computation time, but
+    // it would reduce the size of the sliced model, and hence the time spent
+    // copying it around and passing it across the HAL interface.
+    slice->mHidlModel.operandValues = mHidlModel.operandValues;
+    slice->mHidlModel.pools = mHidlModel.pools;
+
+    if (VLOG_IS_ON(COMPILATION)) {
+        {
+            std::ostrstream fromName;
+            fromName << "Slice: From " << ModelVersion<decltype(mHidlModel)>::name << std::ends;
+            graphDump(fromName.str(), mHidlModel);
+            fromName.freeze(false);
+        }
+        {
+            std::ostrstream toName;
+            toName << "Slice: To " << ModelVersion<decltype(slice->mHidlModel)>::name << std::ends;
+            graphDump(toName.str(), convertToV1_2(slice->mHidlModel));
+            toName.freeze(false);
+        }
+    }
+
+    slice->mState = invalid(slice->mHidlModel) ? SliceState::INVALID : SliceState::NORMAL;
+}
+
 // This class determines whether a given device can execute a given operation
 class CanDo {
 public:
     CanDo() {}
 
-    void initialize(const ModelBuilder* model, std::shared_ptr<Device> device) {
-        Model hidlModel;
-        model->setHidlModel(&hidlModel);
-        device->getSupportedOperations(hidlModel, &mSupportsOperationByIndex);
+    void initialize(PlanModelSlicer* slicer, std::shared_ptr<Device> device) {
+        device->getSupportedOperations(slicer->getModel(), slicer, &mSupportsOperationByIndex);
     }
 
     bool check(size_t operationIndex) const { return mSupportsOperationByIndex[operationIndex]; }
@@ -925,36 +1549,34 @@ public:
 private:
     hidl_vec<bool> mSupportsOperationByIndex;
 };
+
 };  // anonymous namespace
 
 int ModelBuilder::findBestDeviceForEachOperation(
-        uint32_t preference,
-        const std::vector<std::shared_ptr<Device>>& devices,
-        const size_t deviceCount,
+        uint32_t preference, const std::vector<std::shared_ptr<Device>>& devices,
         std::vector<int>* bestDeviceForOperation) const {
-
-    // Note that deviceCount includes CPU, which has no entry in devices[]
-    const size_t nonCpuDeviceCount = deviceCount - 1;
-
-    std::vector<CanDo> canDo(nonCpuDeviceCount);
-    for (size_t deviceIndex = 0; deviceIndex < nonCpuDeviceCount; deviceIndex++) {
-        canDo[deviceIndex].initialize(this, devices[deviceIndex]);
+    PlanModelSlicer slicer(this);
+    const size_t deviceCount = devices.size();
+    std::vector<CanDo> canDo(deviceCount);
+    for (size_t deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
+        canDo[deviceIndex].initialize(&slicer, devices[deviceIndex]);
     }
 
     // Figure out the best driver for each operation.
     const size_t operationCount = mOperations.size();
     for (size_t operationIndex = 0; operationIndex < operationCount; operationIndex++) {
-        // Find which non-CPU device gives the best performance for this operation.
+        // Find which device, including CPU fallback, gives the best performance for this operation.
         int bestChoice = -1;
         float bestPerfVal = 0.0;  // Do not check bestPerfVal if bestChoice < 0.
-        for (size_t deviceIndex = 0; deviceIndex < nonCpuDeviceCount; deviceIndex++) {
+        for (size_t deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
             const auto& device = devices[deviceIndex];
             if (canDo[deviceIndex].check(operationIndex)) {
                 const PerformanceInfo perf = getPerformanceInfo(device, operationIndex);
                 const float perfVal =
                             (preference == ANEURALNETWORKS_PREFER_LOW_POWER ? perf.powerUsage
                                                                             : perf.execTime);
-                if (bestChoice < 0 || perfVal < bestPerfVal) {
+                if (bestChoice < 0 || perfVal < bestPerfVal ||
+                    (perfVal == bestPerfVal && device == DeviceManager::getCpuDevice())) {
                     bestChoice = deviceIndex;
                     bestPerfVal = perfVal;
                 }
@@ -962,33 +1584,22 @@ int ModelBuilder::findBestDeviceForEachOperation(
                 // Somewhat noisy logging, but only place where the user of
                 // NNAPI can get feedback on why an operation was not run on a
                 // specific device.
-                // Logs O(operationCount * nonCpuDeviceCount) times, but
-                // typically nonCpuDeviceCount is very small.
+                // Logs O(operationCount * deviceCount) times, but
+                // typically deviceCount is very small.
                 VLOG(COMPILATION) << "Device " << device->getName()
                                   << " can't do operation "
                                   << toString(getOperation(operationIndex).type);
             }
         }
-        // If it's the OEM op, we'd better have a device able to do it.
-        if (mOperations[operationIndex].type == OperationType::OEM_OPERATION) {
-            if (bestChoice < 0) {
-                LOG(ERROR) << "No driver can do the OEM op";
-                return ANEURALNETWORKS_BAD_DATA;
-            }
-        } else {
-            // If no driver has been found, or if the best driver is not better than the CPU,
-            // prefer the CPU. Since the performance is a ratio compared to the CPU performance,
-            // by definition the performance of the CPU is 1.0.
-            if (bestChoice < 0 || bestPerfVal >= 1.0) {
-                bestChoice = nonCpuDeviceCount;  // The ID of the CPU.
-            }
+        if (bestChoice < 0) {
+            LOG(ERROR) << "No driver can do the op";
+            return ANEURALNETWORKS_BAD_DATA;
         }
 
         (*bestDeviceForOperation)[operationIndex] = bestChoice;
         VLOG(COMPILATION) << "ModelBuilder::findBestDeviceForEachOperation("
-                          << toString(getOperation(operationIndex).type)
-                          << ") = "
-                          << (*bestDeviceForOperation)[operationIndex];
+                          << toString(getOperation(operationIndex).type) << ") = " << bestChoice
+                          << " (" << devices[bestChoice]->getName() << ")";
     }
     return ANEURALNETWORKS_NO_ERROR;
 }

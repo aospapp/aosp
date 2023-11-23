@@ -57,6 +57,7 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
     private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
     private static final int FRAME_RATE = 15;               // 15fps
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
+    private static final String KEY_ALLOW_FRAME_DROP = "allow-frame-drop";
 
     // movie length, in frames
     private static final int NUM_FRAMES = 30;               // two seconds of video
@@ -418,8 +419,16 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
             decoder = MediaCodec.createDecoderByType(MIME_TYPE);
             outputSurface = new OutputSurface();
             outputSurface.changeFragmentShader(FRAGMENT_SHADER);
+            // do not allow frame drops
+            inputFormat.setInteger(KEY_ALLOW_FRAME_DROP, 0);
+
             decoder.configure(inputFormat, outputSurface.getSurface(), null, 0);
             decoder.start();
+
+            // verify that we are not dropping frames
+            inputFormat = decoder.getInputFormat();
+            assertEquals("Could not prevent frame dropping",
+                         0, inputFormat.getInteger(KEY_ALLOW_FRAME_DROP));
 
             editVideoData(inputData, decoder, outputSurface, inputSurface, encoder, outputData);
         } finally {
@@ -617,6 +626,7 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
 
             MediaFormat format = inputData.getMediaFormat();
             decoder = MediaCodec.createDecoderByType(MIME_TYPE);
+            format.setInteger(KEY_ALLOW_FRAME_DROP, 0);
             decoder.configure(format, surface.getSurface(), null, 0);
             decoder.start();
 
@@ -829,7 +839,7 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
          * Gets the MediaFormat that was used by the encoder.
          */
         public MediaFormat getMediaFormat() {
-            return mMediaFormat;
+            return new MediaFormat(mMediaFormat);
         }
 
         /**

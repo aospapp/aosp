@@ -14,5 +14,22 @@
      limitations under the License.
 -->
 <configuration description="Android test suite config for tests defined in TEST_MAPPING files">
+    <system_checker class="com.android.tradefed.suite.checker.KeyguardStatusChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.TimeStatusChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.DeviceSettingChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.SystemServerStatusChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.SystemServerFileDescriptorChecker" />
+
     <test class="com.android.tradefed.testtype.suite.TestMappingSuiteRunner"/>
+
+    <!-- Tell all AndroidJUnitTests to exclude certain annotations -->
+    <option name="test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
+    <option name="test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AppModeInstant" />
+
+    <!-- Tell all HostTests to exclude certain annotations -->
+    <option name="test-arg" value="com.android.tradefed.testtype.HostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
+    <option name="test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
+
+    <!-- Force GTest to report binary name in results -->
+    <option name="test-arg" value="com.android.tradefed.testtype.GTest:prepend-filename:true" />
 </configuration>

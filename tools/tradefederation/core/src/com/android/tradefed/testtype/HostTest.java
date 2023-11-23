@@ -33,6 +33,7 @@ import com.android.tradefed.result.JUnit4ResultForwarder;
 import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.host.PrettyTestEventLogger;
+import com.android.tradefed.testtype.junit4.CarryDnaeError;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.JUnit4TestFilter;
 import com.android.tradefed.util.StreamUtil;
@@ -91,11 +92,9 @@ public class HostTest
                 IBuildReceiver,
                 IAbiReceiver,
                 IShardableTest,
-                IStrictShardableTest,
                 IRuntimeHintProvider,
                 IMultiDeviceTest,
                 IInvocationContextReceiver {
-
 
     @Option(name = "class", description = "The JUnit test classes to run, in the format "
             + "<package>.<class>. eg. \"com.android.foo.Bar\". This field can be repeated.",
@@ -120,7 +119,9 @@ public class HostTest
                     + "separated by colon \":\"; for example, if class under test supports "
                     + "\"--iteration 1\" from a command line, it should be passed in as"
                     + " \"--set-option iteration:1\" or \"--set-option iteration:key=value\" for "
-                    + "passing options to map; escaping of \":\" \"=\" is currently not supported";
+                    + "passing options to map; escaping of \":\" \"=\" is currently not supported."
+                    + "A particular class can be targetted by specifying it. "
+                    + "\" --set-option <fully qualified class>:<option name>:<option value>\"";
 
     @Option(name = SET_OPTION_NAME, description = SET_OPTION_DESC)
     private List<String> mKeyValueOptions = new ArrayList<>();
@@ -177,6 +178,9 @@ public class HostTest
     private static final String EXCLUDE_NO_TEST_FAILURE = "org.junit.runner.manipulation.Filter";
     private static final String TEST_FULL_NAME_FORMAT = "%s#%s";
     private static final String ROOT_DIR = "ROOT_DIR";
+
+    /** Track the downloaded files. */
+    private List<File> mDownloadedFiles = new ArrayList<>();
 
     public HostTest() {
         mFilterHelper = new TestFilterHelper(new ArrayList<String>(), new ArrayList<String>(),
@@ -256,6 +260,8 @@ public class HostTest
      */
     @Override
     public void addIncludeFilter(String filter) {
+        // If filters change, reset test count so we recompute it next time it's requested.
+        mNumTestCases = -1;
         mFilterHelper.addIncludeFilter(filter);
     }
 
@@ -264,7 +270,15 @@ public class HostTest
      */
     @Override
     public void addAllIncludeFilters(Set<String> filters) {
+        mNumTestCases = -1;
         mFilterHelper.addAllIncludeFilters(filters);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearIncludeFilters() {
+        mNumTestCases = -1;
+        mFilterHelper.clearIncludeFilters();
     }
 
     /**
@@ -272,7 +286,20 @@ public class HostTest
      */
     @Override
     public void addExcludeFilter(String filter) {
+        mNumTestCases = -1;
         mFilterHelper.addExcludeFilter(filter);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIncludeFilters() {
+        return mFilterHelper.getIncludeFilters();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getExcludeFilters() {
+        return mFilterHelper.getExcludeFilters();
     }
 
     /**
@@ -280,7 +307,15 @@ public class HostTest
      */
     @Override
     public void addAllExcludeFilters(Set<String> filters) {
+        mNumTestCases = -1;
         mFilterHelper.addAllExcludeFilters(filters);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearExcludeFilters() {
+        mNumTestCases = -1;
+        mFilterHelper.clearExcludeFilters();
     }
 
     /**
@@ -387,6 +422,32 @@ public class HostTest
         mFilterHelper.addAllExcludeAnnotation(notAnnotations);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIncludeAnnotations() {
+        return mIncludeAnnotations;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getExcludeAnnotations() {
+        return mExcludeAnnotations;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearIncludeAnnotations() {
+        mIncludeAnnotations.clear();
+        mFilterHelper.clearIncludeAnnotations();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearExcludeAnnotations() {
+        mExcludeAnnotations.clear();
+        mFilterHelper.clearExcludeAnnotations();
+    }
+
     /**
      * Helper to set the information of an object based on some of its type.
      */
@@ -435,15 +496,24 @@ public class HostTest
         mFilterHelper.addAllIncludeAnnotation(mIncludeAnnotations);
         mFilterHelper.addAllExcludeAnnotation(mExcludeAnnotations);
 
-        List<Class<?>> classes = getClasses();
-        if (!mSkipTestClassCheck) {
-            if (classes.isEmpty()) {
-                throw new IllegalArgumentException("Missing Test class name");
+        try {
+            List<Class<?>> classes = getClasses();
+            if (!mSkipTestClassCheck) {
+                if (classes.isEmpty()) {
+                    throw new IllegalArgumentException("Missing Test class name");
+                }
             }
+            if (mMethodName != null && classes.size() > 1) {
+                throw new IllegalArgumentException("Method name given with multiple test classes");
+            }
+        } catch (IllegalArgumentException e) {
+            // TODO: If possible in some cases, carry the name of the failed class in the run start
+            listener.testRunStarted(this.getClass().getCanonicalName(), 0);
+            listener.testRunFailed(e.getMessage());
+            listener.testRunEnded(0L, new HashMap<String, Metric>());
+            throw e;
         }
-        if (mMethodName != null && classes.size() > 1) {
-            throw new IllegalArgumentException("Method name given with multiple test classes");
-        }
+
         // Add a pretty logger to the events to mark clearly start/end of test cases.
         if (mEnableHostDeviceLogs) {
             PrettyTestEventLogger logger = new PrettyTestEventLogger(mContext.getDevices());
@@ -465,7 +535,19 @@ public class HostTest
                 runRemoteTest(listener, test);
             } else if (Test.class.isAssignableFrom(classObj)) {
                 TestSuite junitTest = collectTests(collectClasses(classObj));
-                runJUnit3Tests(listener, junitTest, classObj.getName());
+                // Resolve dynamic files for the junit3 test objects
+                Enumeration<Test> allTest = junitTest.tests();
+                while (allTest.hasMoreElements()) {
+                    Test testObj = allTest.nextElement();
+                    mDownloadedFiles.addAll(resolveRemoteFileForObject(testObj));
+                }
+                try {
+                    runJUnit3Tests(listener, junitTest, classObj.getName());
+                } finally {
+                    for (File f : mDownloadedFiles) {
+                        FileUtil.recursiveDelete(f);
+                    }
+                }
             } else if (hasJUnit4Annotation(classObj)) {
                 // Include the method name filtering
                 Set<String> includes = mFilterHelper.getIncludeFilters();
@@ -487,13 +569,16 @@ public class HostTest
     }
 
     private void runTestCases(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        Set<String> skippedTests = new LinkedHashSet<>();
         for (Object obj : getTestMethods()) {
             if (IRemoteTest.class.isInstance(obj)) {
                 IRemoteTest test = (IRemoteTest) obj;
                 runRemoteTest(listener, test);
             } else if (TestSuite.class.isInstance(obj)) {
                 TestSuite junitTest = (TestSuite) obj;
-                runJUnit3Tests(listener, junitTest, junitTest.getName());
+                if (!runJUnit3Tests(listener, junitTest, junitTest.getName())) {
+                    skippedTests.add(junitTest.getName());
+                }
             } else if (Description.class.isInstance(obj)) {
                 // Running in a full JUnit4 manner, no downgrade to JUnit3 {@link Test}
                 Description desc = (Description) obj;
@@ -505,6 +590,7 @@ public class HostTest
                         String.format("%s is not a supported test", obj));
             }
         }
+        CLog.v("The following classes were skipped due to no test cases found: %s", skippedTests);
     }
 
     private void runRemoteTest(ITestInvocationListener listener, IRemoteTest test)
@@ -522,14 +608,16 @@ public class HostTest
         test.run(listener);
     }
 
-    private void runJUnit3Tests(
+    /** Returns True if some tests were executed, false otherwise. */
+    private boolean runJUnit3Tests(
             ITestInvocationListener listener, TestSuite junitTest, String className)
             throws DeviceNotAvailableException {
         if (mCollectTestsOnly) {
             // Collect only mode, fake the junit test execution.
-            listener.testRunStarted(className, junitTest.countTestCases());
+            int testCount = junitTest.countTestCases();
+            listener.testRunStarted(className, testCount);
             HashMap<String, Metric> empty = new HashMap<>();
-            for (int i = 0; i < junitTest.countTestCases(); i++) {
+            for (int i = 0; i < testCount; i++) {
                 Test t = junitTest.testAt(i);
                 // Test does not have a getName method.
                 // using the toString format instead: <testName>(className)
@@ -540,13 +628,19 @@ public class HostTest
             }
             HashMap<String, Metric> emptyMap = new HashMap<>();
             listener.testRunEnded(0, emptyMap);
+            if (testCount > 0) {
+                return true;
+            } else {
+                return false;
+            }
         } else {
-            JUnitRunUtil.runTest(listener, junitTest, className);
+            return JUnitRunUtil.runTest(listener, junitTest, className);
         }
     }
 
     private void runJUnit4Tests(
-            ITestInvocationListener listener, Runner checkRunner, String className) {
+            ITestInvocationListener listener, Runner checkRunner, String className)
+            throws DeviceNotAvailableException {
         JUnitCore runnerCore = new JUnitCore();
         JUnit4ResultForwarder list = new JUnit4ResultForwarder(listener);
         runnerCore.addListener(list);
@@ -555,14 +649,19 @@ public class HostTest
         if (!(checkRunner instanceof ErrorReportingRunner)) {
             long startTime = System.currentTimeMillis();
             listener.testRunStarted(className, checkRunner.testCount());
-            if (mCollectTestsOnly) {
-                fakeDescriptionExecution(checkRunner.getDescription(), list);
-            } else {
-                setTestObjectInformation(checkRunner);
-                runnerCore.run(checkRunner);
+            try {
+                if (mCollectTestsOnly) {
+                    fakeDescriptionExecution(checkRunner.getDescription(), list);
+                } else {
+                    setTestObjectInformation(checkRunner);
+                    runnerCore.run(checkRunner);
+                }
+            } catch (CarryDnaeError e) {
+                throw e.getDeviceNotAvailableException();
+            } finally {
+                listener.testRunEnded(
+                        System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
             }
-            listener.testRunEnded(
-                    System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         } else {
             // Special case where filtering leaves no tests to run, we report no failure
             // in this case.
@@ -590,8 +689,13 @@ public class HostTest
                 fakeDescriptionExecution(child, listener);
             }
         } else {
-            listener.testStarted(desc);
-            listener.testFinished(desc);
+            try {
+                listener.testStarted(desc);
+                listener.testFinished(desc);
+            } catch (Exception e) {
+                // Should never happen
+                CLog.e(e);
+            }
         }
     }
 
@@ -651,7 +755,6 @@ public class HostTest
                 if (testObj instanceof TestCase) {
                     ((TestCase)testObj).setName(method.getName());
                 }
-
                 suite.addTest(testObj);
             }
         }
@@ -718,10 +821,16 @@ public class HostTest
     }
 
     protected final List<Class<?>> getClasses() throws IllegalArgumentException {
+        // Use a set to avoid repeat between filters and jar search
+        Set<String> classNames = new HashSet<>();
         List<Class<?>> classes = new ArrayList<>();
         for (String className : mClasses) {
+            if (classNames.contains(className)) {
+                continue;
+            }
             try {
                 classes.add(Class.forName(className, true, getClassLoader()));
+                classNames.add(className);
             } catch (ClassNotFoundException e) {
                 throw new IllegalArgumentException(String.format("Could not load Test class %s",
                         className), e);
@@ -745,6 +854,9 @@ public class HostTest
                         continue;
                     }
                     String className = getClassName(je.getName());
+                    if (classNames.contains(className)) {
+                        continue;
+                    }
                     try {
                         Class<?> cls = cl.loadClass(className);
                         int modifiers = cls.getModifiers();
@@ -757,6 +869,7 @@ public class HostTest
                                 && !Modifier.isInterface(modifiers)
                                 && !Modifier.isAbstract(modifiers)) {
                             classes.add(cls);
+                            classNames.add(className);
                         }
                     } catch (ClassNotFoundException cnfe) {
                         throw new IllegalArgumentException(
@@ -835,28 +948,45 @@ public class HostTest
                 OptionSetter setter = new OptionSetter(testObj);
                 for (String item : keyValueOptions) {
                     String[] fields = item.split(":");
-                    if (fields.length == 2) {
-                        if (fields[1].contains("=")) {
-                            String[] values = fields[1].split("=");
-                            if (values.length != 2) {
-                                throw new RuntimeException(
-                                        String.format(
-                                                "set-option provided '%s' format is invalid. Only one "
-                                                        + "'=' is allowed",
-                                                item));
-                            }
-                            setter.setOptionValue(fields[0], values[0], values[1]);
+                    if (fields.length == 3) {
+                        String target = fields[0];
+                        if (testObj.getClass().getName().equals(target)) {
+                            injectOption(setter, item, fields[1], fields[2]);
                         } else {
-                            setter.setOptionValue(fields[0], fields[1]);
+                            // TODO: We should track that all targeted option end up assigned
+                            // eventually.
+                            CLog.d(
+                                    "Targeted option %s is not applicable to %s",
+                                    item, testObj.getClass().getName());
                         }
+                    } else if (fields.length == 2) {
+                        injectOption(setter, item, fields[0], fields[1]);
                     } else {
                         throw new RuntimeException(
                                 String.format("invalid option spec \"%s\"", item));
                     }
                 }
             } catch (ConfigurationException ce) {
+                CLog.e(ce);
                 throw new RuntimeException("error passing options down to test class", ce);
             }
+        }
+    }
+
+    private static void injectOption(OptionSetter setter, String origItem, String key, String value)
+            throws ConfigurationException {
+        if (value.contains("=")) {
+            String[] values = value.split("=");
+            if (values.length != 2) {
+                throw new RuntimeException(
+                        String.format(
+                                "set-option provided '%s' format is invalid. Only one "
+                                        + "'=' is allowed",
+                                origItem));
+            }
+            setter.setOptionValue(key, values[0], values[1]);
+        } else {
+            setter.setOptionValue(key, value);
         }
     }
 
@@ -1025,66 +1155,6 @@ public class HostTest
         return test;
     }
 
-    @Override
-    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
-        List<Class<?>> classes = getClasses();
-        if (classes.isEmpty()) {
-            throw new IllegalArgumentException("Missing Test class name");
-        }
-        if (mMethodName != null && classes.size() > 1) {
-            throw new IllegalArgumentException("Method name given with multiple test classes");
-        }
-        HostTest test = createTestShard(shardCount, shardIndex);
-        // In case we don't have enough classes to shard, we return a Stub.
-        if (test == null) {
-            test = createHostTest(null);
-            test.mSkipTestClassCheck = true;
-            test.mClasses.clear();
-            test.mRuntimeHint = 0l;
-        } else {
-            int newCount = test.countTestCases();
-            int numTotalTestCases = countTestCases();
-            // In case of counting inconsistency we raise the issue. Should not happen if we are
-            // counting properly. Here as a security.
-            if (newCount > numTotalTestCases) {
-                throw new RuntimeException(
-                        "Tests count number after sharding is higher than initial count.");
-            }
-            // update the runtime hint on pro-rate of number of tests.
-            if (newCount == 0) {
-                // In case there is not tests left.
-                test.mRuntimeHint = 0L;
-            } else {
-                test.mRuntimeHint = (mRuntimeHint * newCount) / numTotalTestCases;
-            }
-        }
-        return test;
-    }
-
-    private HostTest createTestShard(int shardCount, int shardIndex) {
-        int i = 0;
-        HostTest test = null;
-        List<? extends Object> tests = shardUnitIsMethod() ? getTestMethods() : getClasses();
-        for (Object testObj : tests) {
-            Class<?> classObj = Class.class.isInstance(testObj) ? (Class<?>)testObj : null;
-            if (i % shardCount == shardIndex) {
-                if (test == null) {
-                    test = createHostTest(classObj);
-                }
-                if (classObj != null) {
-                    test.addClassName(classObj.getName());
-                } else {
-                    test.addTestMethod(testObj);
-                }
-                // Carry over non-annotation filters to shards.
-                test.addAllExcludeFilters(mFilterHelper.getExcludeFilters());
-                test.addAllIncludeFilters(mFilterHelper.getIncludeFilters());
-            }
-            i++;
-        }
-        return test;
-    }
-
     private String getClassName(String name) {
         // -6 because of .class
         return name.substring(0, name.length() - 6).replace('/', '.');
@@ -1126,6 +1196,20 @@ public class HostTest
             return jarFile;
         }
         throw new FileNotFoundException(String.format("Could not find jar: %s", jarName));
+    }
+
+    @VisibleForTesting
+    OptionSetter createOptionSetter(Object obj) throws ConfigurationException {
+        return new OptionSetter(obj);
+    }
+
+    private Set<File> resolveRemoteFileForObject(Object obj) {
+        try {
+            OptionSetter setter = createOptionSetter(obj);
+            return setter.validateRemoteFilePath();
+        } catch (ConfigurationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private File searchJarFile(File baseSearchFile, String jarName) {

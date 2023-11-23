@@ -50,6 +50,9 @@
 #define BW_OFFSET 8
 #define INVALID_RSSI 255
 
+/* Based on pkt log V2, this type of event will triggered */
+#define PKTLOG_TYPE_PKT_SW_EVENT    10
+
 #define PKT_INFO_FLG_TX_LOCAL_S          0x1
 #define PKT_INFO_FLG_RX_HOST_RXD         0x2
 #define PKT_INFO_FLG_TX_REMOTE_S         0x4
@@ -62,6 +65,30 @@
 #define PKT_INFO_FLG_RX_PEER_INFO_S      0x200
 #define PKT_INFO_FLG_UNKNOWN_S           0x400
 #define PKT_INFO_FLG_PKT_DUMP_V2         0x8000
+
+/* Depend on packet log version V2 this
+ * offset are define, for more info need to
+ * check from firmware side.
+ */
+#define TX_SUCCESS_TMS_OFFSET 56
+#define LINK_LAYER_TX_SQN_OFFSET 66
+#define RATE_CODE_OFFSET 68
+#define TX_STATUS_OFFSET 70
+#define TX_RSSI_OFFSET 71
+#define NO_RETRIES_OFFSET 75
+#define EXT_FLAGS_OFFSET 76
+#define BMAP_FAILED_OFFSET 84
+#define BMAP_ENQUEUED_OFFSET 92
+#define FRAME_CTRL_OFFSET 216
+#define QOS_CTRL_OFFSET 218
+
+/* MAX HT/VHT mcs index */
+#define MAX_VHT_MCS_IDX 10
+#define MAX_HT_MCS_IDX 8
+
+/* MAX CCK/OFDM rate index */
+#define MAX_CCK_MCS_IDX 4
+#define MAX_OFDM_MCS_IDX 8
 
 /* MASK value of flags based on RX_STAT content.
  * These are the events that carry Rx decriptor
@@ -86,7 +113,8 @@ typedef struct {
 typedef struct {
     u16 flags;
     u16 missed_cnt;
-    u16 log_type;
+    u16 log_type        : 8; //[7:0]
+    u16 mac_id          : 8; //[15:8]
     u16 size;
     u32 timestamp;
     u32 reserved;
@@ -158,6 +186,24 @@ struct rx_mpdu_end {
     u32 fcs_err                         :  1; //[31]
 } __attribute__((packed));
 
+/* structure implemented w.r.t PKT_LOG_V2 Version */
+struct rx_msdu_start_v1 {
+    u32 reserved1[2];
+    u32 reserved2                       :  8; //[7:0]
+    u32 decap_format                    :  2; //[9:8]
+    u32 reserved3                       : 22; //[31:10]
+    u32 reserved4[2];
+} __attribute__((packed));
+
+struct rx_msdu_end_v1 {
+    u32 reserved1[4];
+    u32 reserved2                       : 15; //[14:0]
+    u32 last_msdu                       :  1; //[15]
+    u32 reserved3                       : 16; //[31:16]
+    u32 reserved4[9];
+} __attribute__((packed));
+/************************************************************/
+
 #define PREAMBLE_L_SIG_RATE     0x04
 #define PREAMBLE_VHT_SIG_A_1    0x08
 #define PREAMBLE_VHT_SIG_A_2    0x0c
@@ -195,9 +241,18 @@ struct rx_ppdu_end {
     u32 reserved2[5];
 } __attribute__((packed));
 
+struct rx_ppdu_end_V1 {
+    u32 reserved1[18];
+    u32 wb_timestamp_lower_32;
+    u32 reserved2[18];
+} __attribute__((packed));
+
 #define MAX_MSDUS_PER_MPDU 3
 #define MAX_RXMPDUS_PER_AMPDU 64
 #define RX_HTT_HDR_STATUS_LEN 64
+/* RX Data length is 256 for PKT_LOG_V2 Version */
+#define RX_HTT_HDR_STATUS_LEN_V1 256
+
 typedef struct {
     struct rx_attention attention;
     u32 reserved1;
@@ -209,6 +264,20 @@ typedef struct {
     struct rx_ppdu_end   ppdu_end;
     char rx_hdr_status[RX_HTT_HDR_STATUS_LEN];
 }__attribute__((packed)) rb_pkt_stats_t;
+
+/* structure implemented w.r.t PKT_LOG_V2 Version */
+typedef struct {
+    struct rx_attention attention;
+    u32 reserved1[2];
+    struct rx_mpdu_start    mpdu_start;
+    struct rx_msdu_start_v1 msdu_start;
+    struct rx_msdu_end_v1   msdu_end;
+    struct rx_mpdu_end      mpdu_end;
+    struct rx_ppdu_start    ppdu_start;
+    struct rx_ppdu_end_V1    ppdu_end;
+    char rx_hdr_status[RX_HTT_HDR_STATUS_LEN_V1];
+}__attribute__((packed)) rb_pkt_stats_t_v1;
+/************************************************************/
 
 /*Tx stats specific structures. */
 struct ppdu_status {
@@ -322,6 +391,171 @@ typedef struct {
  * prev_seq_no: Can used to track the events that come from driver and identify
  * if any event is missed.
  */
+
+/* PKT_LOG_V2 Base strcuture used to parse buffer */
+typedef struct {
+    u16 frm_ctrl;
+    u8  tx_ok;
+    u16 qos_ctrl;
+    u64 bmap_failed;
+    u64 bmap_enqueued;
+} __attribute__((packed)) node_pkt_stats;
+
+typedef u8 A_RATECODE;
+
+/* Rate Code as per PKT_LOG_V2 Version */
+typedef struct {
+    A_RATECODE rateCode;
+    u8 flags;
+} RATE_CODE;
+
+/* bandwidht type*/
+typedef enum {
+    BW_20MHZ,
+    BW_40MHZ,
+    BW_80MHZ,
+    BW_160MHZ,
+} bandwidth;
+
+/* Preamble type*/
+typedef enum {
+    WIFI_HW_RATECODE_PREAM_OFDM = 0,
+    WIFI_HW_RATECODE_PREAM_CCK  = 1,
+    WIFI_HW_RATECODE_PREAM_HT   = 2,
+    WIFI_HW_RATECODE_PREAM_VHT  = 3,
+    WIFI_HW_RATECODE_PREAM_COUNT,
+} WIFI_HW_RATECODE_PREAM_TYPE;
+
+/**
+ * struct index_data_rate_type - non vht data rate type
+ * @rate_index: cck  rate index
+ * @cck_rate: CCK supported rate table
+ */
+struct index_data_rate_cck_type {
+    uint8_t  rate_index;
+    uint16_t cck_rate[2];
+};
+
+/**
+ * struct index_data_rate_type - non vht data rate type
+ * @rate_index: ofdm  rate index
+ * @ofdm__rate: OFDM supported rate table
+ */
+struct index_data_rate_ofdm_type {
+    uint8_t  rate_index;
+    uint16_t ofdm_rate[2];
+};
+
+/*Below CCK/OFDM table refer from firmware Arch */
+/* Rate Table Based on CCK */
+static struct index_data_rate_cck_type cck_mcs_nss1[] = {
+    /*RC     LKbps   SKbps */
+    {0x40,  {11000,  11000} },
+    {0x41,  {5500,   5500} },
+    {0x42,  {2000,   2000} },
+    {0x43,  {1000,   1000} }
+};
+
+/* Rate Table Based on OFDM */
+static struct index_data_rate_ofdm_type ofdm_mcs_nss1[] = {
+    /*RC     LKbps   SKbps */
+    {0x00,  {48000,  48000} },
+    {0x01,  {34000,  24000} },
+    {0x02,  {12000,  12000} },
+    {0x03,  {6000,   6000} },
+    {0x04,  {54000,  54000} },
+    {0x05,  {36000,  36000} },
+    {0x06,  {18000,  18000} },
+    {0x07,  {9000,   9000} }
+};
+
+/**
+ * struct index_data_rate_type - non vht data rate type
+ * @mcs_index: mcs rate index
+ * @ht20_rate: HT20 supported rate table
+ * @ht40_rate: HT40 supported rate table
+ */
+struct index_data_rate_type {
+    uint8_t  mcs_index;
+    uint16_t ht20_rate[2];
+    uint16_t ht40_rate[2];
+};
+
+/**
+ * struct index_vht_data_rate_type - vht data rate type
+ * @mcs_index: mcs rate index
+ * @ht20_rate: VHT20 supported rate table
+ * @ht40_rate: VHT40 supported rate table
+ * @ht80_rate: VHT80 supported rate table
+ */
+struct index_vht_data_rate_type {
+    uint8_t mcs_index;
+    uint16_t ht20_rate[2];
+    uint16_t ht40_rate[2];
+    uint16_t ht80_rate[2];
+};
+
+/*Below HT/VHT table refer from Host Driver
+ * MCS Based rate table
+ * HT MCS parameters with Nss = 1
+ */
+static struct index_data_rate_type mcs_nss1[] = {
+    /* MCS L20  S20   L40   S40 */
+    {0,  {65,  72},  {135,  150 } },
+    {1,  {130, 144}, {270,  300 } },
+    {2,  {195, 217}, {405,  450 } },
+    {3,  {260, 289}, {540,  600 } },
+    {4,  {390, 433}, {815,  900 } },
+    {5,  {520, 578}, {1080, 1200} },
+    {6,  {585, 650}, {1215, 1350} },
+    {7,  {650, 722}, {1350, 1500} }
+};
+
+/* HT MCS parameters with Nss = 2 */
+static struct index_data_rate_type mcs_nss2[] = {
+    /* MCS L20  S20    L40   S40 */
+    {0,  {130,  144},  {270,  300 } },
+    {1,  {260,  289},  {540,  600 } },
+    {2,  {390,  433},  {810,  900 } },
+    {3,  {520,  578},  {1080, 1200} },
+    {4,  {780,  867},  {1620, 1800} },
+    {5,  {1040, 1156}, {2160, 2400} },
+    {6,  {1170, 1300}, {2430, 2700} },
+    {7,  {1300, 1440}, {2700, 3000} }
+};
+
+/* MCS Based VHT rate table
+ * MCS parameters with Nss = 1
+ */
+static struct index_vht_data_rate_type vht_mcs_nss1[] = {
+    /* MCS L20  S20    L40   S40    L80   S80 */
+    {0,  {65,   72 }, {135,  150},  {293,  325} },
+    {1,  {130,  144}, {270,  300},  {585,  650} },
+    {2,  {195,  217}, {405,  450},  {878,  975} },
+    {3,  {260,  289}, {540,  600},  {1170, 1300} },
+    {4,  {390,  433}, {810,  900},  {1755, 1950} },
+    {5,  {520,  578}, {1080, 1200}, {2340, 2600} },
+    {6,  {585,  650}, {1215, 1350}, {2633, 2925} },
+    {7,  {650,  722}, {1350, 1500}, {2925, 3250} },
+    {8,  {780,  867}, {1620, 1800}, {3510, 3900} },
+    {9,  {865,  960}, {1800, 2000}, {3900, 4333} }
+};
+
+/*MCS parameters with Nss = 2*/
+static struct index_vht_data_rate_type vht_mcs_nss2[] = {
+    /* MCS L20  S20    L40    S40    L80    S80 */
+    {0,  {130,  144},  {270,  300},  { 585,  650} },
+    {1,  {260,  289},  {540,  600},  {1170, 1300} },
+    {2,  {390,  433},  {810,  900},  {1755, 1950} },
+    {3,  {520,  578},  {1080, 1200}, {2340, 2600} },
+    {4,  {780,  867},  {1620, 1800}, {3510, 3900} },
+    {5,  {1040, 1156}, {2160, 2400}, {4680, 5200} },
+    {6,  {1170, 1300}, {2430, 2700}, {5265, 5850} },
+    {7,  {1300, 1444}, {2700, 3000}, {5850, 6500} },
+    {8,  {1560, 1733}, {3240, 3600}, {7020, 7800} },
+    {9,  {1730, 1920}, {3600, 4000}, {7800, 8667} }
+};
+/*********************************************************/
 
 #define RING_BUF_ENTRY_SIZE 512
 #define PKT_STATS_BUF_SIZE 128

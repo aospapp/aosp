@@ -5,7 +5,7 @@ cc_benchmark {
         "libbase",
         "libbinder",
         "libcutils",
-        "libdvr",
+        "libdvr.google",
         "libgui",
         "liblog",
         "libhardware",
@@ -23,5 +23,4 @@ cc_benchmark {
         "-Werror",
     ],
     name: "buffer_transport_benchmark",
-    tags: ["optional"],
 }

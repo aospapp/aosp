@@ -4,9 +4,9 @@
 
 PKG_CONFIG ?= pkg-config
 DEP_LIBS = libchrome-$(BASE_VER) libyuv
-CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(DEP_LIBS)) -std=c++11
+CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(DEP_LIBS)) -std=c++14 -DUNIT_TEST
 
-LDFLAGS = -lrt -ldl -ljpeg
+LDFLAGS = -lrt -ldl -Wl,-Bstatic -lgtest -Wl,-Bdynamic -ljpeg -lre2
 LDFLAGS += $(shell $(PKG_CONFIG) --libs $(DEP_LIBS))
 
 LDFLAGS_UNITTEST = -lrt
@@ -20,7 +20,6 @@ SRC = \
 	media_v4l2_test.cc
 
 SRC_UNITTEST = \
-	camera_characteristics.cc \
 	media_v4l2_device.cc \
 	media_v4l2_unittest.cc
 

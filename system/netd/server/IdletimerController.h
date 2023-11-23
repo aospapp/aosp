@@ -26,8 +26,6 @@ public:
     IdletimerController();
     virtual ~IdletimerController();
 
-    int enableIdletimerControl();
-    int disableIdletimerControl();
     int addInterfaceIdletimer(const char *iface, uint32_t timeout,
                               const char *classLabel);
     int removeInterfaceIdletimer(const char *iface, uint32_t timeout,
@@ -36,10 +34,10 @@ public:
 
     static const char* LOCAL_RAW_PREROUTING;
     static const char* LOCAL_MANGLE_POSTROUTING;
+    std::mutex lock;
 
- private:
+  private:
     enum IptOp { IptOpAdd, IptOpDelete };
-    int setDefaults();
     int runIpxtablesCmd(int argc, const char **cmd);
     int modifyInterfaceIdletimer(IptOp op, const char *iface, uint32_t timeout,
                                  const char *classLabel);

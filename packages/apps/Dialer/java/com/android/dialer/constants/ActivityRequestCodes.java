@@ -16,8 +16,6 @@
 
 package com.android.dialer.constants;
 
-import com.android.dialer.duo.Duo;
-
 /**
  * Class containing {@link android.app.Activity#onActivityResult(int, int, android.content.Intent)}
  * request codes.
@@ -32,9 +30,14 @@ public final class ActivityRequestCodes {
   /** Request code for {@link com.android.dialer.callcomposer.CallComposerActivity} intent. */
   public static final int DIALTACTS_CALL_COMPOSER = 2;
 
-  /** Request code for {@link Duo#getIntent(android.content.Context, String)}. */
+  /** Request code for {@link com.android.dialer.duo.Duo#getCallIntent(String)}. */
   public static final int DIALTACTS_DUO = 3;
 
-  /** Request code for {@link com.android.dialer.calldetails.CallDetailsActivity} intent. */
+  /** Request code for {@link com.android.dialer.calldetails.OldCallDetailsActivity} intent. */
   public static final int DIALTACTS_CALL_DETAILS = 4;
+
+  /**
+   * Request code for {@link com.android.dialer.speeddial.SpeedDialFragment} contact picker intent.
+   */
+  public static final int SPEED_DIAL_ADD_FAVORITE = 5;
 }

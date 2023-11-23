@@ -52,7 +52,7 @@ keymaster_error_t AsymmetricKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
     asym_key->key_material() = move(key_material);
 
     EVP_PKEY* pkey =
-        d2i_PrivateKey(evp_key_type(), NULL /* pkey */, &tmp,
+        d2i_PrivateKey(evp_key_type(), nullptr /* pkey */, &tmp,
                        asym_key->key_material().key_material_size);
     if (!pkey)
         return TranslateLastOpenSslError();

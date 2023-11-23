@@ -18,6 +18,7 @@ package com.android.dialer.phonelookup.cp2;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.PhoneLookup;
@@ -41,7 +42,8 @@ final class Cp2Projections {
         Phone.LABEL, // 5
         Phone.NORMALIZED_NUMBER, // 6
         Phone.CONTACT_ID, // 7
-        Phone.LOOKUP_KEY // 8
+        Phone.LOOKUP_KEY, // 8
+        Phone.CARRIER_PRESENCE
       };
 
   // Projection for performing lookups using the PHONE_LOOKUP table
@@ -58,7 +60,8 @@ final class Cp2Projections {
         PhoneLookup.LOOKUP_KEY // 8
       };
 
-  // The following indexes should match both PHONE_PROJECTION and PHONE_LOOKUP_PROJECTION above.
+  // The following indexes should match the common columns in
+  // PHONE_PROJECTION and PHONE_LOOKUP_PROJECTION above.
   private static final int CP2_INFO_NAME_INDEX = 0;
   private static final int CP2_INFO_PHOTO_THUMBNAIL_URI_INDEX = 1;
   private static final int CP2_INFO_PHOTO_URI_INDEX = 2;
@@ -83,7 +86,8 @@ final class Cp2Projections {
    * Builds a {@link Cp2ContactInfo} based on the current row of {@code cursor}, of which the
    * projection is either {@link #PHONE_PROJECTION} or {@link #PHONE_LOOKUP_PROJECTION}.
    */
-  static Cp2ContactInfo buildCp2ContactInfoFromCursor(Context appContext, Cursor cursor) {
+  static Cp2ContactInfo buildCp2ContactInfoFromCursor(
+      Context appContext, Cursor cursor, long directoryId) {
     String displayName = cursor.getString(CP2_INFO_NAME_INDEX);
     String photoThumbnailUri = cursor.getString(CP2_INFO_PHOTO_THUMBNAIL_URI_INDEX);
     String photoUri = cursor.getString(CP2_INFO_PHOTO_URI_INDEX);
@@ -114,8 +118,24 @@ final class Cp2Projections {
     }
     infoBuilder.setContactId(contactId);
     if (!TextUtils.isEmpty(lookupKey)) {
-      infoBuilder.setLookupUri(Contacts.getLookupUri(contactId, lookupKey).toString());
+      infoBuilder.setLookupUri(
+          Contacts.getLookupUri(contactId, lookupKey)
+              .buildUpon()
+              .appendQueryParameter(
+                  ContactsContract.DIRECTORY_PARAM_KEY, String.valueOf(directoryId))
+              .build()
+              .toString());
     }
+
+    // Only PHONE_PROJECTION has a column containing carrier presence info.
+    int carrierPresenceColumn = cursor.getColumnIndex(Phone.CARRIER_PRESENCE);
+    if (carrierPresenceColumn != -1) {
+      int carrierPresenceInfo = cursor.getInt(carrierPresenceColumn);
+      infoBuilder.setCanSupportCarrierVideoCall(
+          (carrierPresenceInfo & Phone.CARRIER_PRESENCE_VT_CAPABLE)
+              == Phone.CARRIER_PRESENCE_VT_CAPABLE);
+    }
+
     return infoBuilder.build();
   }
 

@@ -58,6 +58,7 @@ String16 consoleAPITypeValue(ConsoleAPIType type) {
   return protocol::Runtime::ConsoleAPICalled::TypeEnum::Log;
 }
 
+const char kGlobalConsoleMessageHandleLabel[] = "DevTools console";
 const unsigned maxConsoleMessageCount = 1000;
 const int maxConsoleMessageV8Size = 10 * 1024 * 1024;
 const unsigned maxArrayItemsLimit = 10000;
@@ -91,6 +92,9 @@ class V8ValueStringBuilder {
     if (value->IsString()) return append(v8::Local<v8::String>::Cast(value));
     if (value->IsStringObject())
       return append(v8::Local<v8::StringObject>::Cast(value)->ValueOf());
+    if (value->IsBigInt()) return append(v8::Local<v8::BigInt>::Cast(value));
+    if (value->IsBigIntObject())
+      return append(v8::Local<v8::BigIntObject>::Cast(value)->ValueOf());
     if (value->IsSymbol()) return append(v8::Local<v8::Symbol>::Cast(value));
     if (value->IsSymbolObject())
       return append(v8::Local<v8::SymbolObject>::Cast(value)->ValueOf());
@@ -114,13 +118,11 @@ class V8ValueStringBuilder {
         !value->IsNativeError() && !value->IsRegExp()) {
       v8::Local<v8::Object> object = v8::Local<v8::Object>::Cast(value);
       v8::Local<v8::String> stringValue;
-      if (object->ObjectProtoToString(m_isolate->GetCurrentContext())
-              .ToLocal(&stringValue))
+      if (object->ObjectProtoToString(m_context).ToLocal(&stringValue))
         return append(stringValue);
     }
     v8::Local<v8::String> stringValue;
-    if (!value->ToString(m_isolate->GetCurrentContext()).ToLocal(&stringValue))
-      return false;
+    if (!value->ToString(m_context).ToLocal(&stringValue)) return false;
     return append(stringValue);
   }
 
@@ -155,9 +157,20 @@ class V8ValueStringBuilder {
     return result;
   }
 
+  bool append(v8::Local<v8::BigInt> bigint) {
+    v8::Local<v8::String> bigint_string;
+    if (!bigint->ToString(m_context).ToLocal(&bigint_string)) return false;
+    bool result = append(bigint_string);
+    if (m_tryCatch.HasCaught()) return false;
+    m_builder.append('n');
+    return result;
+  }
+
   bool append(v8::Local<v8::String> string) {
     if (m_tryCatch.HasCaught()) return false;
-    if (!string.IsEmpty()) m_builder.append(toProtocolString(string));
+    if (!string.IsEmpty()) {
+      m_builder.append(toProtocolString(m_isolate, string));
+    }
     return true;
   }
 
@@ -204,7 +217,7 @@ void V8ConsoleMessage::setLocation(const String16& url, unsigned lineNumber,
 
 void V8ConsoleMessage::reportToFrontend(
     protocol::Console::Frontend* frontend) const {
-  DCHECK(m_origin == V8MessageOrigin::kConsole);
+  DCHECK_EQ(V8MessageOrigin::kConsole, m_origin);
   String16 level = protocol::Console::ConsoleMessage::LevelEnum::Log;
   if (m_type == ConsoleAPIType::kDebug || m_type == ConsoleAPIType::kCount ||
       m_type == ConsoleAPIType::kTimeEnd)
@@ -295,8 +308,10 @@ void V8ConsoleMessage::reportToFrontend(protocol::Runtime::Frontend* frontend,
     if (m_scriptId)
       exceptionDetails->setScriptId(String16::fromInteger(m_scriptId));
     if (!m_url.isEmpty()) exceptionDetails->setUrl(m_url);
-    if (m_stackTrace)
-      exceptionDetails->setStackTrace(m_stackTrace->buildInspectorObjectImpl());
+    if (m_stackTrace) {
+      exceptionDetails->setStackTrace(
+          m_stackTrace->buildInspectorObjectImpl(inspector->debugger()));
+    }
     if (m_contextId) exceptionDetails->setExecutionContextId(m_contextId);
     if (exception) exceptionDetails->setException(std::move(exception));
     frontend->exceptionThrown(m_timestamp, std::move(exceptionDetails));
@@ -321,10 +336,15 @@ void V8ConsoleMessage::reportToFrontend(protocol::Runtime::Frontend* frontend,
         arguments->addItem(std::move(messageArg));
       }
     }
+    Maybe<String16> consoleContext;
+    if (!m_consoleContext.isEmpty()) consoleContext = m_consoleContext;
     frontend->consoleAPICalled(
         consoleAPITypeValue(m_type), std::move(arguments), m_contextId,
         m_timestamp,
-        m_stackTrace ? m_stackTrace->buildInspectorObjectImpl() : nullptr);
+        m_stackTrace
+            ? m_stackTrace->buildInspectorObjectImpl(inspector->debugger())
+            : nullptr,
+        std::move(consoleContext));
     return;
   }
   UNREACHABLE();
@@ -353,15 +373,12 @@ ConsoleAPIType V8ConsoleMessage::type() const { return m_type; }
 
 // static
 std::unique_ptr<V8ConsoleMessage> V8ConsoleMessage::createForConsoleAPI(
-    double timestamp, ConsoleAPIType type,
+    v8::Local<v8::Context> v8Context, int contextId, int groupId,
+    V8InspectorImpl* inspector, double timestamp, ConsoleAPIType type,
     const std::vector<v8::Local<v8::Value>>& arguments,
-    std::unique_ptr<V8StackTraceImpl> stackTrace,
-    InspectedContext* inspectedContext) {
-  v8::Isolate* isolate = inspectedContext->isolate();
-  int contextId = inspectedContext->contextId();
-  int contextGroupId = inspectedContext->contextGroupId();
-  V8InspectorImpl* inspector = inspectedContext->inspector();
-  v8::Local<v8::Context> context = inspectedContext->context();
+    const String16& consoleContext,
+    std::unique_ptr<V8StackTraceImpl> stackTrace) {
+  v8::Isolate* isolate = v8Context->GetIsolate();
 
   std::unique_ptr<V8ConsoleMessage> message(
       new V8ConsoleMessage(V8MessageOrigin::kConsole, timestamp, String16()));
@@ -371,16 +388,20 @@ std::unique_ptr<V8ConsoleMessage> V8ConsoleMessage::createForConsoleAPI(
     message->m_columnNumber = stackTrace->topColumnNumber();
   }
   message->m_stackTrace = std::move(stackTrace);
+  message->m_consoleContext = consoleContext;
   message->m_type = type;
   message->m_contextId = contextId;
   for (size_t i = 0; i < arguments.size(); ++i) {
-    message->m_arguments.push_back(std::unique_ptr<v8::Global<v8::Value>>(
-        new v8::Global<v8::Value>(isolate, arguments.at(i))));
+    std::unique_ptr<v8::Global<v8::Value>> argument(
+        new v8::Global<v8::Value>(isolate, arguments.at(i)));
+    argument->AnnotateStrongRetainer(kGlobalConsoleMessageHandleLabel);
+    message->m_arguments.push_back(std::move(argument));
     message->m_v8Size +=
         v8::debug::EstimatedValueSize(isolate, arguments.at(i));
   }
   if (arguments.size())
-    message->m_message = V8ValueStringBuilder::toString(arguments[0], context);
+    message->m_message =
+        V8ValueStringBuilder::toString(arguments[0], v8Context);
 
   v8::Isolate::MessageErrorLevel clientLevel = v8::Isolate::kMessageInfo;
   if (type == ConsoleAPIType::kDebug || type == ConsoleAPIType::kCount ||
@@ -397,7 +418,7 @@ std::unique_ptr<V8ConsoleMessage> V8ConsoleMessage::createForConsoleAPI(
 
   if (type != ConsoleAPIType::kClear) {
     inspector->client()->consoleAPIMessage(
-        contextGroupId, clientLevel, toStringView(message->m_message),
+        groupId, clientLevel, toStringView(message->m_message),
         toStringView(message->m_url), message->m_lineNumber,
         message->m_columnNumber, message->m_stackTrace.get());
   }
@@ -462,13 +483,12 @@ void V8ConsoleMessageStorage::addMessage(
   V8InspectorImpl* inspector = m_inspector;
   if (message->type() == ConsoleAPIType::kClear) clear();
 
-  V8InspectorSessionImpl* session =
-      inspector->sessionForContextGroup(contextGroupId);
-  if (session) {
-    if (message->origin() == V8MessageOrigin::kConsole)
-      session->consoleAgent()->messageAdded(message.get());
-    session->runtimeAgent()->messageAdded(message.get());
-  }
+  inspector->forEachSession(
+      contextGroupId, [&message](V8InspectorSessionImpl* session) {
+        if (message->origin() == V8MessageOrigin::kConsole)
+          session->consoleAgent()->messageAdded(message.get());
+        session->runtimeAgent()->messageAdded(message.get());
+      });
   if (!inspector->hasConsoleMessageStorage(contextGroupId)) return;
 
   DCHECK(m_messages.size() <= maxConsoleMessageCount);
@@ -489,9 +509,51 @@ void V8ConsoleMessageStorage::addMessage(
 void V8ConsoleMessageStorage::clear() {
   m_messages.clear();
   m_estimatedSize = 0;
-  if (V8InspectorSessionImpl* session =
-          m_inspector->sessionForContextGroup(m_contextGroupId))
-    session->releaseObjectGroup("console");
+  m_inspector->forEachSession(m_contextGroupId,
+                              [](V8InspectorSessionImpl* session) {
+                                session->releaseObjectGroup("console");
+                              });
+  m_data.clear();
+}
+
+bool V8ConsoleMessageStorage::shouldReportDeprecationMessage(
+    int contextId, const String16& method) {
+  std::set<String16>& reportedDeprecationMessages =
+      m_data[contextId].m_reportedDeprecationMessages;
+  auto it = reportedDeprecationMessages.find(method);
+  if (it != reportedDeprecationMessages.end()) return false;
+  reportedDeprecationMessages.insert(it, method);
+  return true;
+}
+
+int V8ConsoleMessageStorage::count(int contextId, const String16& id) {
+  return ++m_data[contextId].m_count[id];
+}
+
+void V8ConsoleMessageStorage::time(int contextId, const String16& id) {
+  m_data[contextId].m_time[id] = m_inspector->client()->currentTimeMS();
+}
+
+bool V8ConsoleMessageStorage::countReset(int contextId, const String16& id) {
+  std::map<String16, int>& count_map = m_data[contextId].m_count;
+  if (count_map.find(id) == count_map.end()) return false;
+
+  count_map[id] = 0;
+  return true;
+}
+
+double V8ConsoleMessageStorage::timeEnd(int contextId, const String16& id) {
+  std::map<String16, double>& time = m_data[contextId].m_time;
+  auto it = time.find(id);
+  if (it == time.end()) return 0.0;
+  double elapsed = m_inspector->client()->currentTimeMS() - it->second;
+  time.erase(it);
+  return elapsed;
+}
+
+bool V8ConsoleMessageStorage::hasTimer(int contextId, const String16& id) {
+  const std::map<String16, double>& time = m_data[contextId].m_time;
+  return time.find(id) != time.end();
 }
 
 void V8ConsoleMessageStorage::contextDestroyed(int contextId) {
@@ -500,6 +562,8 @@ void V8ConsoleMessageStorage::contextDestroyed(int contextId) {
     m_messages[i]->contextDestroyed(contextId);
     m_estimatedSize += m_messages[i]->estimatedSize();
   }
+  auto it = m_data.find(contextId);
+  if (it != m_data.end()) m_data.erase(contextId);
 }
 
 }  // namespace v8_inspector

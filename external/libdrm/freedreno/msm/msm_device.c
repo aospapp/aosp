@@ -26,10 +26,6 @@
  *    Rob Clark <robclark@freedesktop.org>
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -63,6 +59,8 @@ drm_private struct fd_device * msm_device_new(int fd)
 	dev->funcs = &funcs;
 
 	fd_bo_cache_init(&msm_dev->ring_cache, TRUE);
+
+	dev->bo_size = sizeof(struct msm_bo);
 
 	return dev;
 }

@@ -20,13 +20,15 @@ import android.content.Context;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.support.test.filters.MediumTest;
-import android.support.v7.widget.RecyclerView;
 import android.test.AndroidTestCase;
 import android.view.ViewGroup;
 
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.test.filters.MediumTest;
+
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.Model;
+import com.android.documentsui.ModelId;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.State;
 import com.android.documentsui.testing.TestActionHandler;
@@ -71,10 +73,10 @@ public class DirectoryAddonsAdapterTest extends AndroidTestCase {
         mEnv.model.createFile("b");  // id will be "2"
         mEnv.model.update();
 
-        assertEquals(0, mAdapter.getPosition("1"));
+        assertEquals(0, mAdapter.getPosition(ModelId.build(AUTHORITY, "1")));
         // adapter inserts a view between item 0 and 1 to force layout
         // break between folders and files. This is reflected by an offset position.
-        assertEquals(2, mAdapter.getPosition("2"));
+        assertEquals(2, mAdapter.getPosition(ModelId.build(AUTHORITY, "2")));
     }
 
     // Tests that the item count is correct for a directory containing only subdirs.

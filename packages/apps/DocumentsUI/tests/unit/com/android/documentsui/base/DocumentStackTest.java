@@ -18,12 +18,14 @@ package com.android.documentsui.base;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
+import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
 
 import android.provider.DocumentsContract;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.testing.Parcelables;
 
@@ -186,5 +188,15 @@ public class DocumentStackTest {
 
             return true;
         });
+    }
+
+    @Test
+    public void testIsRecent() {
+        final RootInfo rootRecent = new RootInfo();
+        mStack.changeRoot(rootRecent);
+
+        assertEquals(1, mStack.size());
+        assertEquals(true, mStack.isRecents());
+        assertNotNull(mStack.peek().derivedUri);
     }
 }

@@ -22,6 +22,9 @@ import android.text.TextUtils;
  * Tests that require the WiFi feature.
  */
 public class WifiTest extends BaseDeviceOwnerTest {
+    /** Mac address returned when the caller doesn't have access. */
+    private static final String DEFAULT_MAC_ADDRESS = "02:00:00:00:00:00";
+
     public void testGetWifiMacAddress() {
         if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
             // wifi not supported.
@@ -30,7 +33,7 @@ public class WifiTest extends BaseDeviceOwnerTest {
         final String macAddress = mDevicePolicyManager.getWifiMacAddress(getWho());
 
         assertFalse("Device owner should be able to get the real MAC address",
-                "02:00:00:00:00:00".equals(macAddress));
+                DEFAULT_MAC_ADDRESS.equals(macAddress));
         assertFalse("getWifiMacAddress() returned an empty string.  WiFi not enabled?",
                 TextUtils.isEmpty(macAddress));
     }

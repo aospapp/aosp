@@ -17,9 +17,11 @@
 package com.android.tradefed.host;
 
 import com.android.tradefed.build.IBuildProvider;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.targetprep.DeviceFlashPreparer;
 
 import java.io.File;
+import java.util.Map;
 
 /**
  * Host options holder interface.
@@ -40,17 +42,18 @@ public interface IHostOptions {
      */
     Integer getConcurrentDownloadLimit();
 
-    /**
-     * Returns the path that fastboot should use as temporary folder
-     *
-     * @return
-     */
+    /** Returns the path that fastboot should use as temporary folder. */
     File getFastbootTmpDir();
 
-    /**
-     * Returns the path used for storing downloaded artifacts
-     *
-     * @return
-     */
+    /** Returns the path used for storing downloaded artifacts. */
     File getDownloadCacheDir();
+
+    /** Check if it should use the SingleSignOn client or not. */
+    Boolean shouldUseSsoClient();
+
+    /** Returns a Map of service account json key files. */
+    Map<String, File> getServiceAccountJsonKeyFiles();
+
+    /** Validate that the options set on {@link IHostOptions} are valid. */
+    void validateOptions() throws ConfigurationException;
 }

@@ -52,7 +52,7 @@ struct MapIterTypes {
         inline IteratorImpl &operator++()    {
             mIter++;
             return *this;
-        };
+        }
         inline IteratorImpl  operator++(int) {
             IteratorImpl i = *this;
             mIter++;
@@ -120,6 +120,10 @@ template<typename K, typename V>
 using ConstMapValueIterable = typename MapIterTypes<std::map<K, V>>::ConstValueIterable;
 template<typename K, typename V>
 using ConstMultiMapValueIterable = typename MapIterTypes<std::multimap<K, V>>::ConstValueIterable;
+template <typename K, typename V>
+using MapValueIterable = typename MapIterTypes<std::map<K, V>>::ValueIterable;
+template <typename K, typename V>
+using MultiMapValueIterable = typename MapIterTypes<std::multimap<K, V>>::ValueIterable;
 
 template<typename K, typename V>
 ConstMapValueIterable<K, V> iterateValues(const std::map<K, V> &map) {
@@ -127,6 +131,14 @@ ConstMapValueIterable<K, V> iterateValues(const std::map<K, V> &map) {
 }
 template<typename K, typename V>
 ConstMultiMapValueIterable<K, V> iterateValues(const std::multimap<K, V> &map) {
+    return map;
+}
+template <typename K, typename V>
+MapValueIterable<K, V> iterateValues(std::map<K, V>& map) {
+    return map;
+}
+template <typename K, typename V>
+MultiMapValueIterable<K, V> iterateValues(std::multimap<K, V>& map) {
     return map;
 }
 

@@ -408,6 +408,7 @@ public class BluetoothPhoneServiceImpl {
                 public void onServiceConnected(int profile, BluetoothProfile proxy) {
                     synchronized (mLock) {
                         setBluetoothHeadset(new BluetoothHeadsetProxy((BluetoothHeadset) proxy));
+                        updateHeadsetWithCallState(true /* force */);
                     }
                 }
 
@@ -513,8 +514,6 @@ public class BluetoothPhoneServiceImpl {
                 mCallsManager.disconnectCall(activeCall);
                 if (ringingCall != null) {
                     mCallsManager.answerCall(ringingCall, VideoProfile.STATE_AUDIO_ONLY);
-                } else if (heldCall != null) {
-                    mCallsManager.unholdCall(heldCall);
                 }
                 return true;
             }
@@ -584,7 +583,7 @@ public class BluetoothPhoneServiceImpl {
      */
     private void sendClccForCall(Call call, boolean shouldLog) {
         boolean isForeground = mCallsManager.getForegroundCall() == call;
-        int state = convertCallState(call.getState(), isForeground);
+        int state = getBtCallState(call, isForeground);
         boolean isPartOfConference = false;
         boolean isConferenceWithNoChildren = call.isConference() && call
                 .can(Connection.CAPABILITY_CONFERENCE_HAS_NO_CHILDREN);
@@ -707,10 +706,16 @@ public class BluetoothPhoneServiceImpl {
 
         String ringingAddress = null;
         int ringingAddressType = 128;
-        if (ringingCall != null && ringingCall.getHandle() != null) {
+        String ringingName = null;
+        if (ringingCall != null && ringingCall.getHandle() != null
+            && !ringingCall.isSilentRingingRequested()) {
             ringingAddress = ringingCall.getHandle().getSchemeSpecificPart();
             if (ringingAddress != null) {
                 ringingAddressType = PhoneNumberUtils.toaFromString(ringingAddress);
+            }
+            ringingName = ringingCall.getCallerDisplayName();
+            if (TextUtils.isEmpty(ringingName)) {
+                ringingName = ringingCall.getName();
             }
         }
         if (ringingAddress == null) {
@@ -783,18 +788,21 @@ public class BluetoothPhoneServiceImpl {
                         "numHeld %s, " +
                         "callState %s, " +
                         "ringing number %s, " +
-                        "ringing type %s",
+                        "ringing type %s, " +
+                        "ringing name %s",
                         mNumActiveCalls,
                         mNumHeldCalls,
                         CALL_STATE_DIALING,
                         Log.pii(mRingingAddress),
-                        mRingingAddressType);
+                        mRingingAddressType,
+                        Log.pii(ringingName));
                 mBluetoothHeadset.phoneStateChanged(
                         mNumActiveCalls,
                         mNumHeldCalls,
                         CALL_STATE_DIALING,
                         mRingingAddress,
-                        mRingingAddressType);
+                        mRingingAddressType,
+                        ringingName);
             }
 
             Log.i(TAG, "updateHeadsetWithCallState " +
@@ -802,26 +810,28 @@ public class BluetoothPhoneServiceImpl {
                     "numHeld %s, " +
                     "callState %s, " +
                     "ringing number %s, " +
-                    "ringing type %s",
+                    "ringing type %s, " +
+                    "ringing name %s",
                     mNumActiveCalls,
                     mNumHeldCalls,
                     mBluetoothCallState,
                     Log.pii(mRingingAddress),
-                    mRingingAddressType);
+                    mRingingAddressType,
+                    Log.pii(ringingName));
 
             mBluetoothHeadset.phoneStateChanged(
                     mNumActiveCalls,
                     mNumHeldCalls,
                     mBluetoothCallState,
                     mRingingAddress,
-                    mRingingAddressType);
+                    mRingingAddressType,
+                    ringingName);
 
             mHeadsetUpdatedRecently = true;
         }
     }
 
     private int getBluetoothCallStateForUpdate() {
-        CallsManager callsManager = mCallsManager;
         Call ringingCall = mCallsManager.getRingingCall();
         Call dialingCall = mCallsManager.getOutgoingCall();
         boolean hasOnlyDisconnectedCalls = mCallsManager.hasOnlyDisconnectedCalls();
@@ -836,7 +846,7 @@ public class BluetoothPhoneServiceImpl {
         // bluetooth devices (like not getting out of ringing state after answering a call).
         //
         int bluetoothCallState = CALL_STATE_IDLE;
-        if (ringingCall != null) {
+        if (ringingCall != null && !ringingCall.isSilentRingingRequested()) {
             bluetoothCallState = CALL_STATE_INCOMING;
         } else if (dialingCall != null) {
             bluetoothCallState = CALL_STATE_ALERTING;
@@ -847,8 +857,8 @@ public class BluetoothPhoneServiceImpl {
         return bluetoothCallState;
     }
 
-    private int convertCallState(int callState, boolean isForegroundCall) {
-        switch (callState) {
+    private int getBtCallState(Call call, boolean isForeground) {
+        switch (call.getState()) {
             case CallState.NEW:
             case CallState.ABORTED:
             case CallState.DISCONNECTED:
@@ -874,7 +884,10 @@ public class BluetoothPhoneServiceImpl {
                 return CALL_STATE_HELD;
 
             case CallState.RINGING:
-                if (isForegroundCall) {
+            case CallState.ANSWERED:
+                if (call.isSilentRingingRequested()) {
+                    return CALL_STATE_IDLE;
+                } else if (isForeground) {
                     return CALL_STATE_INCOMING;
                 } else {
                     return CALL_STATE_WAITING;

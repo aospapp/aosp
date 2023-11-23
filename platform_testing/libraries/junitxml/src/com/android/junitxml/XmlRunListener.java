@@ -218,10 +218,10 @@ public class XmlRunListener extends RunListener implements XmlConstants {
                 && !mSkippedTests.contains(description) && !mIgnoredTests
                 .contains(description)) {
             currentTest = mDocument.createElement(ELEMENT_TESTCASE);
-            final String displayName = description.getDisplayName();
+            final String methodName = description.getMethodName();
             currentTest.setAttribute(
                     ATTR_TESTCASE_NAME,
-                    displayName == null ? TESTCASE_NAME_UNKNOWN : displayName);
+                    methodName == null ? TESTCASE_NAME_UNKNOWN : methodName);
             // a TestSuite can contain Tests from multiple classes,
             // even tests with the same name - disambiguate them.
             currentTest.setAttribute(ATTR_TESTCASE_CLASSNAME, description.getClassName());

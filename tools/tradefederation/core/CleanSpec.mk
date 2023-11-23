@@ -47,6 +47,10 @@
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/GoogleTradeFed_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/GoogleTradeFedTests_intermediates)
 
+# Discard previous naming "atest", which is going to be replaced with "atest-dev".
+$(call add-clean-step, rm -f $(HOST_OUT_EXECUTABLES)/atest)
+$(call add-clean-step, rm -f $(SOONG_HOST_OUT_EXECUTABLES)/atest)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

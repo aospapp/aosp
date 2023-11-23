@@ -109,27 +109,13 @@ class graphics_GLMark2(graphics_utils.GraphicsTest):
         if not hasty:
             keyvals = {}
             score = None
-            test_re = re.compile(GLMARK2_TEST_RE)
+            # glmark2 output the final performance score as:
+            #  glmark2 Score: 530
             for line in result.stdout.splitlines():
-                match = test_re.match(line)
+                match = re.findall(GLMARK2_SCORE_RE, line)
                 if match:
-                    test = '%s.%s' % (match.group('scene'),
-                                      match.group('options'))
-                    test = test.translate(description_table, description_delete)
-                    frame_time = match.group('frametime')
-                    keyvals[test] = frame_time
-                    self.output_perf_value(
-                        description=test,
-                        value=frame_time,
-                        units='ms',
-                        higher_is_better=False)
-                else:
-                    # glmark2 output the final performance score as:
-                    #  glmark2 Score: 530
-                    match = re.findall(GLMARK2_SCORE_RE, line)
-                    if match:
-                        score = int(match[0])
-            if score is None:
+                    score = int(match[0])
+            if not score:
                 raise error.TestFail('Failed: Unable to read benchmark score')
             # Output numbers for plotting by harness.
             logging.info('GLMark2 score: %d', score)

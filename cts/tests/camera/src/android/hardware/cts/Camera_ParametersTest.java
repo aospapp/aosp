@@ -18,9 +18,7 @@ package android.hardware.cts;
 
 import junit.framework.TestCase;
 import android.hardware.Camera.Parameters;
-import android.platform.test.annotations.AppModeFull;
 
-@AppModeFull
 public class Camera_ParametersTest extends TestCase {
 
     public void testAccessMethods() {

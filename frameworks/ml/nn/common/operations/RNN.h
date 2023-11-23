@@ -18,16 +18,7 @@
 #define FRAMEWORKS_ML_NN_RNN_H
 
 #include "ActivationFunctor.h"
-
-namespace android {
-namespace hardware {
-namespace neuralnetworks {
-namespace V1_1 {
-struct Operation;
-}
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+#include "HalOperation.h"
 
 namespace android {
 namespace nn {
@@ -36,37 +27,49 @@ struct RunTimeOperandInfo;
 struct Shape;
 
 class RNN {
- public:
-  RNN(const android::hardware::neuralnetworks::V1_1::Operation &operation,
-      std::vector<RunTimeOperandInfo> &operands);
+   public:
+    RNN(const Operation& operation, std::vector<RunTimeOperandInfo>& operands);
 
-  static bool Prepare(const android::hardware::neuralnetworks::V1_1::Operation &operation,
-                      std::vector<RunTimeOperandInfo> &operands,
-                      Shape *hiddenStateShape,
-                      Shape *outputShape);
-  bool Eval();
+    static bool Prepare(const Operation& operation, std::vector<RunTimeOperandInfo>& operands,
+                        Shape* hiddenStateShape, Shape* outputShape);
+    bool Eval();
 
-  static constexpr int kInputTensor = 0;
-  static constexpr int kWeightsTensor = 1;  // Optional
-  static constexpr int kRecurrentWeightsTensor = 2;
-  static constexpr int kBiasTensor = 3;
-  static constexpr int kHiddenStateInTensor = 4;
-  static constexpr int kActivationParam = 5;
+    static constexpr int kInputTensor = 0;
+    static constexpr int kWeightsTensor = 1;  // Optional
+    static constexpr int kRecurrentWeightsTensor = 2;
+    static constexpr int kBiasTensor = 3;
+    static constexpr int kHiddenStateInTensor = 4;
+    static constexpr int kActivationParam = 5;
 
-  static constexpr int kHiddenStateOutTensor = 0;
-  static constexpr int kOutputTensor = 1;
+    static constexpr int kHiddenStateOutTensor = 0;
+    static constexpr int kOutputTensor = 1;
 
- private:
-  ActivationFn activation_;
+    template <typename T>
+    static bool RNNStep(const T* inputData, const Shape& inputShape, const T* hiddenStateInputData,
+                        const T* biasData, const T* weightsData, const Shape& weightsShape,
+                        const T* recurrentWeightsData, const Shape& recurrentWeightsShape,
+                        int32_t activation, T* outputData);
 
-  const RunTimeOperandInfo *input_;
-  const RunTimeOperandInfo *weights_;
-  const RunTimeOperandInfo *recurrent_weights_;
-  const RunTimeOperandInfo *bias_;
-  const RunTimeOperandInfo *hidden_state_in_;
+    template <typename T>
+    static bool RNNStep(const T* inputData, const Shape& inputShape, const T* auxInputData,
+                        const Shape& auxInputShape, const T* hiddenStateInputData,
+                        const T* biasData, const T* weightsData, const Shape& weightsShape,
+                        const T* auxWeightsData, const Shape& auxWeightsShape,
+                        const T* recurrentWeightsData, const Shape& recurrentWeightsShape,
+                        int32_t activation, uint32_t outputBatchStride, uint32_t outputBatchStep,
+                        T* outputData, T* hiddenStateOutput = nullptr);
 
-  RunTimeOperandInfo *hidden_state_out_;
-  RunTimeOperandInfo *output_;
+   private:
+    ActivationFn activation_;
+
+    const RunTimeOperandInfo* input_;
+    const RunTimeOperandInfo* weights_;
+    const RunTimeOperandInfo* recurrent_weights_;
+    const RunTimeOperandInfo* bias_;
+    const RunTimeOperandInfo* hidden_state_in_;
+
+    RunTimeOperandInfo* hidden_state_out_;
+    RunTimeOperandInfo* output_;
 };
 
 }  // namespace nn

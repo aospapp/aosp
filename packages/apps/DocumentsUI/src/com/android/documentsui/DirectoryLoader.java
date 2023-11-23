@@ -16,18 +16,18 @@
 
 package com.android.documentsui;
 
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.content.AsyncTaskLoader;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.OperationCanceledException;
@@ -35,24 +35,29 @@ import android.os.RemoteException;
 import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
+import androidx.loader.content.AsyncTaskLoader;
+
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DebugFlags;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.FilteringCursorWrapper;
 import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.State;
 import com.android.documentsui.roots.RootCursorWrapper;
-import com.android.documentsui.selection.ContentLock;
 import com.android.documentsui.sorting.SortModel;
 
-import libcore.io.IoUtils;
+import java.util.concurrent.Executor;
 
 public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
     private static final String TAG = "DirectoryLoader";
 
     private static final String[] SEARCH_REJECT_MIMES = new String[] { Document.MIME_TYPE_DIR };
+    private static final String[] PHOTO_PICKING_ACCEPT_MIMES = new String[]
+            {Document.MIME_TYPE_DIR, MimeTypes.IMAGE_MIME};
 
     private final LockingContentObserver mObserver;
     private final RootInfo mRoot;
@@ -60,6 +65,8 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     private final SortModel mModel;
     private final Lookup<String, String> mFileTypeLookup;
     private final boolean mSearchMode;
+    private final Bundle mQueryArgs;
+    private final boolean mPhotoPicking;
 
     private DocumentInfo mDoc;
     private CancellationSignal mSignal;
@@ -70,23 +77,28 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     public DirectoryLoader(
             Features features,
             Context context,
-            RootInfo root,
-            DocumentInfo doc,
+            State state,
             Uri uri,
-            SortModel model,
             Lookup<String, String> fileTypeLookup,
             ContentLock lock,
-            boolean inSearchMode) {
+            Bundle queryArgs) {
 
-        super(context, ProviderExecutor.forAuthority(root.authority));
+        super(context);
         mFeatures = features;
-        mRoot = root;
+        mRoot = state.stack.getRoot();
         mUri = uri;
-        mModel = model;
-        mDoc = doc;
+        mModel = state.sortModel;
+        mDoc = state.stack.peek();
         mFileTypeLookup = fileTypeLookup;
-        mSearchMode = inSearchMode;
+        mSearchMode = queryArgs != null;
+        mQueryArgs = queryArgs;
         mObserver = new LockingContentObserver(lock, this::onContentChanged);
+        mPhotoPicking = state.isPhotoPicking();
+    }
+
+    @Override
+    protected Executor getExecutor() {
+        return ProviderExecutor.forAuthority(mRoot.authority);
     }
 
     @Override
@@ -113,20 +125,20 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
             }
             result.client = client;
 
-            Resources resources = getContext().getResources();
-            if (mFeatures.isContentPagingEnabled()) {
-                Bundle queryArgs = new Bundle();
-                mModel.addQuerySortArgs(queryArgs);
+            final Bundle queryArgs = new Bundle();
+            mModel.addQuerySortArgs(queryArgs);
 
+            if (mSearchMode) {
+                queryArgs.putAll(mQueryArgs);
+            }
+
+            if (mFeatures.isContentPagingEnabled()) {
                 // TODO: At some point we don't want forced flags to override real paging...
                 // and that point is when we have real paging.
                 DebugFlags.addForcedPagingArgs(queryArgs);
-
-                cursor = client.query(mUri, null, queryArgs, mSignal);
-            } else {
-                cursor = client.query(
-                        mUri, null, null, null, mModel.getDocumentSortQuery(), mSignal);
             }
+
+            cursor = client.query(mUri, null, queryArgs, mSignal);
 
             if (cursor == null) {
                 throw new RemoteException("Provider returned null");
@@ -141,10 +153,14 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
                 cursor = new FilteringCursorWrapper(cursor, null, SEARCH_REJECT_MIMES);
             }
 
+            if (mPhotoPicking) {
+                cursor = new FilteringCursorWrapper(cursor, PHOTO_PICKING_ACCEPT_MIMES, null);
+            }
+
             // TODO: When API tweaks have landed, use ContentResolver.EXTRA_HONORED_ARGS
             // instead of checking directly for ContentResolver.QUERY_ARG_SORT_COLUMNS (won't work)
             if (mFeatures.isContentPagingEnabled()
-                        && cursor.getExtras().containsKey(ContentResolver.QUERY_ARG_SORT_COLUMNS)) {
+                    && cursor.getExtras().containsKey(ContentResolver.QUERY_ARG_SORT_COLUMNS)) {
                 if (VERBOSE) Log.d(TAG, "Skipping sort of pre-sorted cursor. Booya!");
             } else {
                 cursor = mModel.sortCursor(cursor, mFileTypeLookup);
@@ -158,7 +174,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
                 mSignal = null;
             }
             // TODO: Remove this call.
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
 
         return result;
@@ -178,7 +194,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
     @Override
     public void deliverResult(DirectoryResult result) {
         if (isReset()) {
-            IoUtils.closeQuietly(result);
+            FileUtils.closeQuietly(result);
             return;
         }
         DirectoryResult oldResult = mResult;
@@ -189,7 +205,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
         }
 
         if (oldResult != null && oldResult != result) {
-            IoUtils.closeQuietly(oldResult);
+            FileUtils.closeQuietly(oldResult);
         }
     }
 
@@ -210,7 +226,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
     @Override
     public void onCanceled(DirectoryResult result) {
-        IoUtils.closeQuietly(result);
+        FileUtils.closeQuietly(result);
     }
 
     @Override
@@ -220,7 +236,7 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
         // Ensure the loader is stopped
         onStopLoading();
 
-        IoUtils.closeQuietly(mResult);
+        FileUtils.closeQuietly(mResult);
         mResult = null;
 
         getContext().getContentResolver().unregisterContentObserver(mObserver);
@@ -243,6 +259,9 @@ public class DirectoryLoader extends AsyncTaskLoader<DirectoryResult> {
 
         @Override
         public void onChange(boolean selfChange) {
+            if (DEBUG) {
+                Log.d(TAG, "Directory content updated.");
+            }
             mLock.runWhenUnlocked(mContentChangedCallback);
         }
     }

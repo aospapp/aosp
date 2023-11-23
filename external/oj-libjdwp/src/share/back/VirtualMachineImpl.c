@@ -55,6 +55,12 @@ version(PacketInputStream *in, PacketOutputStream *out)
     if (vmVersion == NULL) {
         vmVersion = "<unknown>";
     }
+    // ANDROID-CHANGED: The runtime value of the java.version property has always been "0" on
+    //                  android but the old debugger just sent a different value. Simply sending "0"
+    //                  can confuse some JDWP clients so we will simply say that we are version "8".
+    if (strcmp(gdata->property_java_vm_name, "Dalvik") == 0 && strcmp(vmVersion, "0") == 0) {
+      vmVersion = "8";
+    }
     vmName = gdata->property_java_vm_name;
     if (vmName == NULL) {
         vmName = "<unknown>";

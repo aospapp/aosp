@@ -32,14 +32,6 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP Unit test for InstanceOnly event modifier.
  */
 public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
-
-    private static final
-            String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/InstanceOnlyModifierDebuggee;";
-    private static final
-            String TEST_CLASS_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/InstanceOnlyModifierDebuggee$TestClass;";
-    private static final
-            String TEST_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.EventModifiers.InstanceOnlyModifierDebuggee$TestClass";
-
     // The name of the test method where we set our event requests.
     private static final String METHOD_NAME = "eventTestMethod";
 
@@ -69,7 +61,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         byte typeTag = JDWPConstants.TypeTag.CLASS;
-        Breakpoint breakpoint = new Breakpoint(TEST_CLASS_SIGNATURE,
+        Breakpoint breakpoint = new Breakpoint(
+                getClassSignature(InstanceOnlyModifierDebuggee.TestClass.class),
                 METHOD_NAME, 0);
         EventBuilder builder = createBreakpointEventBuilder(typeTag,
                 breakpoint);
@@ -94,7 +87,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        EventBuilder builder = createMethodEntryEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodEntryEventBuilder(
+                InstanceOnlyModifierDebuggee.TestClass.class.getName());
         testEventWithInstanceOnlyModifier(builder);
 
         logWriter.println("testMethodEntry done");
@@ -117,7 +111,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        EventBuilder builder = createMethodExitEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodExitEventBuilder(
+                InstanceOnlyModifierDebuggee.TestClass.class.getName());
         testEventWithInstanceOnlyModifier(builder);
 
         logWriter.println("testMethodExit done");
@@ -142,7 +137,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        EventBuilder builder = createMethodExitWithReturnValueEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodExitWithReturnValueEventBuilder(
+                InstanceOnlyModifierDebuggee.TestClass.class.getName());
         testEventWithInstanceOnlyModifier(builder);
 
         logWriter.println("testMethodExitWithReturnValue done");
@@ -165,7 +161,7 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         String exceptionClassSignature =
-                "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/InstanceOnlyModifierDebuggee$TestException;";
+                getClassSignature(InstanceOnlyModifierDebuggee.TestException.class);
         EventBuilder builder = createExceptionEventBuilder(exceptionClassSignature, true, false);
         testEventWithInstanceOnlyModifier(builder);
 
@@ -190,7 +186,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         EventBuilder builder = createFieldAccessEventBuilder(
-                JDWPConstants.TypeTag.CLASS, TEST_CLASS_SIGNATURE,
+                JDWPConstants.TypeTag.CLASS,
+                getClassSignature(InstanceOnlyModifierDebuggee.TestClass.class),
                 WATCHED_FIELD_NAME);
         testEventWithInstanceOnlyModifier(builder);
 
@@ -215,7 +212,8 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         EventBuilder builder = createFieldModificationEventBuilder(
-                JDWPConstants.TypeTag.CLASS, TEST_CLASS_SIGNATURE,
+                JDWPConstants.TypeTag.CLASS,
+                getClassSignature(InstanceOnlyModifierDebuggee.TestClass.class),
                 WATCHED_FIELD_NAME);
         testEventWithInstanceOnlyModifier(builder);
 
@@ -223,7 +221,7 @@ public class InstanceOnlyModifierTest extends JDWPEventModifierTestCase {
     }
 
     private long getInstanceObjectId() {
-        Value fieldValue = getFieldValue(DEBUGGEE_SIGNATURE,
+        Value fieldValue = getFieldValue(getDebuggeeClassSignature(),
                 INSTANCE_FIELD_NAME);
         assertEquals("Invalid field value tag", JDWPConstants.Tag.OBJECT_TAG,
                 fieldValue.getTag());

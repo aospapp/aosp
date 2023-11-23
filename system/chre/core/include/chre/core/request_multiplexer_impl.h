@@ -17,6 +17,7 @@
 #ifndef CHRE_CORE_REQUEST_MULTIPLEXER_IMPL_H_
 #define CHRE_CORE_REQUEST_MULTIPLEXER_IMPL_H_
 
+#include "chre/core/request_multiplexer.h"
 #include "chre/platform/assert.h"
 
 namespace chre {

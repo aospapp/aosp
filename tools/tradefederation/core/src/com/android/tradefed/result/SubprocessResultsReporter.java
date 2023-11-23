@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.result;
 
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -23,6 +24,7 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.SubprocessEventHelper.BaseTestEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.FailedTestEventInfo;
+import com.android.tradefed.util.SubprocessEventHelper.InvocationEndedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationFailedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.InvocationStartedEventInfo;
 import com.android.tradefed.util.SubprocessEventHelper.LogAssociationEventInfo;
@@ -44,6 +46,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Implements {@link ITestInvocationListener} to be specified as a result_reporter and forward from
@@ -62,6 +65,7 @@ public class SubprocessResultsReporter
     @Option(name = "output-test-log", description = "Option to report test logs to parent process.")
     private boolean mOutputTestlog = false;
 
+    private IBuildInfo mPrimaryBuildInfo = null;
     private Socket mReportSocket = null;
     private PrintWriter mPrintWriter = null;
 
@@ -125,9 +129,17 @@ public class SubprocessResultsReporter
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_RUN_FAILED, info);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void testRunStarted(String runName, int testCount) {
-        TestRunStartedEventInfo info = new TestRunStartedEventInfo(runName, testCount);
+        testRunStarted(runName, testCount, 0);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testRunStarted(String runName, int testCount, int attemptNumber) {
+        TestRunStartedEventInfo info =
+                new TestRunStartedEventInfo(runName, testCount, attemptNumber);
         printEvent(SubprocessTestResultsParser.StatusKeys.TEST_RUN_STARTED, info);
     }
 
@@ -161,6 +173,10 @@ public class SubprocessResultsReporter
         InvocationStartedEventInfo info =
                 new InvocationStartedEventInfo(context.getTestTag(), System.currentTimeMillis());
         printEvent(SubprocessTestResultsParser.StatusKeys.INVOCATION_STARTED, info);
+
+        // Save off primary build info so that we can parse it later during invocation ended.
+        List<IBuildInfo> infos = context.getBuildInfos();
+        mPrimaryBuildInfo = infos.isEmpty() ? null : infos.get(0);
     }
 
     /** {@inheritDoc} */
@@ -188,21 +204,9 @@ public class SubprocessResultsReporter
 
     /** {@inheritDoc} */
     @Override
-    public void testLogSaved(
-            String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
-        // Do nothing, we are not passing the testLogSaved information to the parent process.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setLogSaver(ILogSaver logSaver) {
-        // Do nothing, this result_reporter does not need the log saver.
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void logAssociation(String dataName, LogFile logFile) {
-        LogAssociationEventInfo info = new LogAssociationEventInfo(dataName, logFile);
+        LogAssociationEventInfo info =
+                new LogAssociationEventInfo("subprocess-a-" + dataName, logFile);
         printEvent(SubprocessTestResultsParser.StatusKeys.LOG_ASSOCIATION, info);
     }
 
@@ -211,7 +215,12 @@ public class SubprocessResultsReporter
      */
     @Override
     public void invocationEnded(long elapsedTime) {
-        // ignore
+        if (mPrimaryBuildInfo == null) {
+            return;
+        }
+        InvocationEndedEventInfo eventEnd =
+                new InvocationEndedEventInfo(mPrimaryBuildInfo.getBuildAttributes());
+        printEvent(SubprocessTestResultsParser.StatusKeys.INVOCATION_ENDED, eventEnd);
     }
 
     /**
@@ -295,5 +304,10 @@ public class SubprocessResultsReporter
     public void close() {
         StreamUtil.close(mReportSocket);
         StreamUtil.close(mPrintWriter);
+    }
+
+    /** Sets whether or not we should output the test logged or not. */
+    public void setOutputTestLog(boolean outputTestLog) {
+        mOutputTestlog = outputTestLog;
     }
 }

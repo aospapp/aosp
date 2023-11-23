@@ -89,7 +89,7 @@ public class SubPlanHelperTest extends TestCase {
         mResultsDir = FileUtil.createTempDir("results");
         mResultDir = FileUtil.createTempDir("12345", mResultsDir);
         mSubPlansDir = FileUtil.createTempDir("subplans");
-        mBuildHelper = new SpctMockCompatibilityBuildHelper(new BuildInfo("0", "", ""));
+        mBuildHelper = new SpctMockCompatibilityBuildHelper(new BuildInfo("0", ""));
         populateResults();
 
         mSubPlanHelper = new SubPlanHelper();

@@ -16,6 +16,8 @@
 
 package android.widget.cts;
 
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -28,11 +30,11 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
+import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -44,8 +46,16 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.PopupMenu;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.WidgetTestUtils;
+
+import junit.framework.Assert;
 
 import org.junit.After;
 import org.junit.Before;
@@ -53,7 +63,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@MediumTest
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+@LargeTest
 @RunWith(AndroidJUnit4.class)
 public class PopupMenuTest {
     private Instrumentation mInstrumentation;
@@ -84,7 +97,23 @@ public class PopupMenuTest {
     @After
     public void teardown() throws Throwable {
         if (mPopupMenu != null) {
-            mActivityRule.runOnUiThread(mPopupMenu::dismiss);
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            try {
+                mActivityRule.runOnUiThread(() -> {
+                    mPopupMenu.setOnDismissListener((PopupMenu menu) -> {
+                        latch.countDown();
+                    });
+                    mPopupMenu.dismiss();
+                });
+
+                Assert.assertTrue("Expected dismissal occurred within 5 seconds",
+                        latch.await(5, TimeUnit.SECONDS));
+            } catch (Throwable t) {
+                throw new RuntimeException(t);
+            } finally {
+                mPopupMenu = null;
+            }
         }
     }
 
@@ -107,18 +136,24 @@ public class PopupMenuTest {
 
     @Test
     public void testPopulateViaInflater() throws Throwable {
-        mBuilder = new Builder().inflateWithInflater(true);
+        mBuilder = new Builder().inflateWithInflater(true).withDismissListener();
+
         mActivityRule.runOnUiThread(mBuilder::show);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
+        // Verify that nothing has dismissed the popup menu since it was shown
+        verify(mBuilder.mOnDismissListener, never()).onDismiss(mPopupMenu);
 
         verifyMenuContent();
     }
 
     @Test
     public void testDirectPopulate() throws Throwable {
-        mBuilder = new Builder().inflateWithInflater(false);
+        mBuilder = new Builder().inflateWithInflater(false).withDismissListener();
+
         mActivityRule.runOnUiThread(mBuilder::show);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
+        // Verify that nothing has dismissed the popup menu since it was shown
+        verify(mBuilder.mOnDismissListener, never()).onDismiss(mPopupMenu);
 
         verifyMenuContent();
     }
@@ -144,20 +179,24 @@ public class PopupMenuTest {
     @Test
     public void testDismissalViaAPI() throws Throwable {
         mBuilder = new Builder().withDismissListener();
-        mActivityRule.runOnUiThread(mBuilder::show);
 
-        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(mBuilder::show);
+        SystemClock.sleep(2000);
+        // Verify that nothing has dismissed the popup menu since it was shown
         verify(mBuilder.mOnDismissListener, never()).onDismiss(mPopupMenu);
 
         mActivityRule.runOnUiThread(mPopupMenu::dismiss);
-        mInstrumentation.waitForIdleSync();
+        // Verify that the popup menu has been dismissed exactly once
+        verify(mBuilder.mOnDismissListener, within(1000)).onDismiss(mPopupMenu);
         verify(mBuilder.mOnDismissListener, times(1)).onDismiss(mPopupMenu);
 
         mActivityRule.runOnUiThread(mPopupMenu::dismiss);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
         // Shouldn't have any more interactions with our dismiss listener since the menu was
         // already dismissed when we called dismiss()
         verifyNoMoreInteractions(mBuilder.mOnDismissListener);
+
+        mPopupMenu = null;
     }
 
     @Test
@@ -168,27 +207,31 @@ public class PopupMenuTest {
         mBuilder = new Builder().withDismissListener()
                 .withPopupStyleResource(R.style.PopupWindow_NullTransitions);
         mActivityRule.runOnUiThread(mBuilder::show);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
+        // Verify that nothing has dismissed the popup menu since it was shown
         verify(mBuilder.mOnDismissListener, never()).onDismiss(mPopupMenu);
 
         mActivityRule.runOnUiThread(
                 () -> mPopupMenu.getMenu().performIdentifierAction(R.id.action_share, 0));
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(500);
 
         mActivityRule.runOnUiThread(
                 () -> mPopupMenu.getMenu().findItem(R.id.action_share).getSubMenu().
                         performIdentifierAction(R.id.action_share_email, 0));
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(500);
 
         mActivityRule.runOnUiThread(mPopupMenu::dismiss);
-        mInstrumentation.waitForIdleSync();
+        // Verify that the popup menu has been dismissed exactly once
+        verify(mBuilder.mOnDismissListener, within(1000)).onDismiss(mPopupMenu);
         verify(mBuilder.mOnDismissListener, times(1)).onDismiss(mPopupMenu);
 
         mActivityRule.runOnUiThread(mPopupMenu::dismiss);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
         // Shouldn't have any more interactions with our dismiss listener since the menu was
         // already dismissed when we called dismiss()
         verifyNoMoreInteractions(mBuilder.mOnDismissListener);
+
+        mPopupMenu = null;
     }
 
     @Test
@@ -200,7 +243,9 @@ public class PopupMenuTest {
                 .withPopupMenuContent(R.menu.popup_menu_single)
                 .withPopupStyleResource(R.style.PopupWindow_NullTransitions);
         mActivityRule.runOnUiThread(mBuilder::show);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
+        // Verify that nothing has dismissed the popup menu since it was shown
+        verify(mBuilder.mOnDismissListener, never()).onDismiss(mPopupMenu);
 
         // The call below uses Instrumentation to emulate a tap outside the bounds of the
         // displayed popup menu. This tap is then treated by the framework to be "split" as
@@ -210,10 +255,13 @@ public class PopupMenuTest {
         // wouldn't emulate the user-facing interaction for this test. Also, we don't want to use
         // View.dispatchTouchEvent directly as that would require emulation of two separate
         // sequences as well.
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mBuilder.mAnchor, 10, -20);
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mBuilder.mAnchor, 10, -20);
 
-        // At this point our popup should have notified its dismiss listener
+        // Verify that the popup menu has been dismissed exactly once
+        verify(mBuilder.mOnDismissListener, within(1000)).onDismiss(mPopupMenu);
         verify(mBuilder.mOnDismissListener, times(1)).onDismiss(mPopupMenu);
+
+        mPopupMenu = null;
     }
 
     @Test
@@ -232,8 +280,11 @@ public class PopupMenuTest {
                 mPopupMenu.getMenu().findItem(R.id.action_highlight));
 
         // Popup menu should be automatically dismissed on selecting an item
+        verify(mBuilder.mOnDismissListener, within(1000)).onDismiss(mPopupMenu);
         verify(mBuilder.mOnDismissListener, times(1)).onDismiss(mPopupMenu);
         verifyNoMoreInteractions(mBuilder.mOnDismissListener);
+
+        mPopupMenu = null;
     }
 
     @Test
@@ -244,7 +295,7 @@ public class PopupMenuTest {
         mBuilder = new Builder().withDismissListener().withMenuItemClickListener()
                 .withPopupStyleResource(R.style.PopupWindow_NullTransitions);
         mActivityRule.runOnUiThread(mBuilder::show);
-        mInstrumentation.waitForIdleSync();
+        SystemClock.sleep(2000);
 
         // Verify that our menu item click listener hasn't been called yet
         verify(mBuilder.mOnMenuItemClickListener, never()).onMenuItemClick(any(MenuItem.class));
@@ -270,12 +321,15 @@ public class PopupMenuTest {
         // Popup menu should be automatically dismissed on selecting an item
         verify(mBuilder.mOnDismissListener, times(1)).onDismiss(mPopupMenu);
         verifyNoMoreInteractions(mBuilder.mOnDismissListener);
+
+        mPopupMenu = null;
     }
 
     @Test
     public void testItemViewAttributes() throws Throwable {
         mBuilder = new Builder().withDismissListener().withAnchorId(R.id.anchor_upper_left);
-        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mBuilder::show, true);
+        mActivityRule.runOnUiThread(mBuilder::show);
+        SystemClock.sleep(2000);
 
         Menu menu = mPopupMenu.getMenu();
         ListView menuItemList = mPopupMenu.getMenuListView();
@@ -313,7 +367,8 @@ public class PopupMenuTest {
     private void testGroupDivider(boolean groupDividerEnabled) throws Throwable {
         mBuilder = new Builder().withGroupDivider(groupDividerEnabled)
             .withAnchorId(R.id.anchor_upper_left);
-        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mBuilder::show, true);
+        mActivityRule.runOnUiThread(mBuilder::show);
+        SystemClock.sleep(2000);
 
         Menu menu = mPopupMenu.getMenu();
         ListView menuItemList = mPopupMenu.getMenuListView();
@@ -323,7 +378,9 @@ public class PopupMenuTest {
             final int prevGroupId =
                     i - 1 >= 0 ? menu.getItem(i - 1).getGroupId() : currGroupId;
             View itemView = menuItemList.getChildAt(i);
-            ImageView groupDivider = itemView.findViewById(com.android.internal.R.id.group_divider);
+            // Find com.android.internal.R.id.group_divider
+            ImageView groupDivider = itemView.findViewById(
+                    Resources.getSystem().getIdentifier("group_divider", "id", "android"));
 
             assertNotNull(groupDivider);
             if (!groupDividerEnabled || currGroupId == prevGroupId) {
@@ -334,6 +391,43 @@ public class PopupMenuTest {
         }
 
         teardown();
+    }
+
+    @Test
+    public void testForceShowIcon_enabled() throws Throwable {
+        testForceShowIcon(true);
+    }
+
+    @Test
+    public void testForceShowIcon_disabled() throws Throwable {
+        testForceShowIcon(false);
+    }
+
+    private void testForceShowIcon(boolean forceShowIcon) throws Throwable {
+        mBuilder = new Builder().withForceShowIcon(forceShowIcon);
+        mActivityRule.runOnUiThread(mBuilder::configure);
+
+        final TestColorDrawable drawable = new TestColorDrawable(Color.BLUE);
+        mPopupMenu.getMenu().getItem(0).setIcon(drawable);
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mActivity.findViewById(R.id.anchor_middle_left),
+                mBuilder::show
+        );
+        assertEquals(forceShowIcon, drawable.mWasDrawn);
+    }
+
+    private class TestColorDrawable extends ColorDrawable {
+        boolean mWasDrawn = false;
+        TestColorDrawable(final int color) {
+            super(color);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            super.draw(canvas);
+            mWasDrawn = true;
+        }
     }
 
     /**
@@ -363,6 +457,8 @@ public class PopupMenuTest {
         private View mAnchor;
 
         private boolean mGroupDividerEnabled = false;
+
+        private boolean mForceShowIcon = false;
 
         public Builder withMenuItemClickListener() {
             mHasMenuItemClickListener = true;
@@ -406,7 +502,12 @@ public class PopupMenuTest {
             return this;
         }
 
-        private void configure() {
+        public Builder withForceShowIcon(boolean forceShowIcon) {
+            mForceShowIcon = forceShowIcon;
+            return this;
+        }
+
+        public void configure() {
             mAnchor = mActivity.findViewById(mAnchorId);
             if (!mUseCustomGravity && !mUseCustomPopupResource) {
                 mPopupMenu = new PopupMenu(mActivity, mAnchor);
@@ -440,10 +541,14 @@ public class PopupMenuTest {
             if (mGroupDividerEnabled) {
                 mPopupMenu.getMenu().setGroupDividerEnabled(true);
             }
+
+            mPopupMenu.setForceShowIcon(mForceShowIcon);
         }
 
         public void show() {
-            configure();
+            if (mPopupMenu == null) {
+                configure();
+            }
             // Show the popup menu
             mPopupMenu.show();
         }

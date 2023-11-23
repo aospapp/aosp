@@ -111,6 +111,12 @@ public class REF_AR_DO extends BerTlv {
             index = temp.getValueIndex() + temp.getValueLength();
         } while (getValueIndex() + getValueLength() > index);
 
+        // check for Carrier Privilege rules
+        if (mRefDo != null && mArDo == null && mRefDo.getAidDo() != null
+                && mRefDo.getAidDo().isCarrierPrivilege()) {
+            return;
+        }
+
         // check for mandatory TLVs.
         if (mRefDo == null) {
             throw new ParserException("Missing Ref-DO in REF-AR-DO!");

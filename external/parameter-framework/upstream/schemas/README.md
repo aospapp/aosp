@@ -38,7 +38,7 @@ Attributes of `ParameterFrameworkConfiguration` are:
 
 - The `SystemClass` name (for consistency check)
 - `TuningAllowed` (whether the parameter-framework listens for commands)
-- The `ServerPort` on which the parameter-framework listens if
+- The `ServerPort` bind Address (PATH or TCP port) on which the parameter-framework listens if
   `TuningAllowed=true`.
 
 ## SystemClass.xsd

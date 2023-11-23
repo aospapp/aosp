@@ -18,7 +18,8 @@ import command_executer
 import logger
 
 CHROMEOS_SCRIPTS_DIR = '~/trunk/src/scripts'
-TOOLCHAIN_UTILS_PATH = '~/trunk/src/platform/dev/toolchain_utils.sh'
+TOOLCHAIN_UTILS_PATH = ('/mnt/host/source/src/third_party/toolchain-utils/'
+                        'cros_utils/toolchain_utils.sh')
 
 
 def GetChromeOSVersionFromLSBVersion(lsb_version):

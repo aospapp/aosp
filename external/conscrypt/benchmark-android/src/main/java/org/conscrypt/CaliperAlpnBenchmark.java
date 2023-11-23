@@ -35,7 +35,7 @@ public class CaliperAlpnBenchmark {
     @Param
     public BufferType b_buffer;
 
-    @Param
+    @Param({"CONSCRYPT_UNPOOLED"})
     public AndroidEngineFactory c_engine;
 
     private EngineHandshakeBenchmark benchmark;
@@ -71,6 +71,16 @@ public class CaliperAlpnBenchmark {
         @Override
         public boolean useAlpn() {
             return true;
+        }
+
+        @Override
+        public BenchmarkProtocol protocol() {
+            return BenchmarkProtocol.TLSv12;
+        }
+
+        @Override
+        public int rttMillis() {
+            return 0;
         }
     }
 }

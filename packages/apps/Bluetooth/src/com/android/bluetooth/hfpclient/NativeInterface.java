@@ -28,14 +28,18 @@ class NativeInterface {
     private static final String TAG = "NativeInterface";
     private static final boolean DBG = false;
 
+    static {
+        classInitNative();
+    }
+
     NativeInterface() {}
 
     // Native methods that call into the JNI interface
     static native void classInitNative();
 
-    static native void initializeNative();
+    native void initializeNative();
 
-    static native void cleanupNative();
+    native void cleanupNative();
 
     static native boolean connectNative(byte[] address);
 

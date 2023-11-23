@@ -16,6 +16,7 @@
 
 #include <cxxabi.h>
 #include <dlfcn.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
 #include <unwind.h>
 
 #include "perfetto/base/build_config.h"
+#include "perfetto/base/file_utils.h"
 
 // Some glibc headers hit this when using signals.
 #pragma GCC diagnostic push
@@ -38,8 +40,7 @@
 #error This translation unit should not be used in release builds
 #endif
 
-#if PERFETTO_BUILDFLAG(PERFETTO_CHROMIUM_BUILD) || \
-    PERFETTO_BUILDFLAG(PERFETTO_ANDROID_BUILD)
+#if !PERFETTO_BUILDFLAG(PERFETTO_STANDALONE_BUILD)
 #error This translation unit should not be used in non-standalone builds
 #endif
 
@@ -65,7 +66,7 @@ SigHandler g_signals[] = {{SIGSEGV, {}}, {SIGILL, {}}, {SIGTRAP, {}},
 
 template <typename T>
 void Print(const T& str) {
-  write(STDERR_FILENO, str, sizeof(str));
+  perfetto::base::WriteAll(STDERR_FILENO, str, sizeof(str));
 }
 
 template <typename T>
@@ -73,7 +74,7 @@ void PrintHex(T n) {
   for (unsigned i = 0; i < sizeof(n) * 8; i += 4) {
     char nibble = static_cast<char>(n >> (sizeof(n) * 8 - i - 4)) & 0x0F;
     char c = (nibble < 10) ? '0' + nibble : 'A' + nibble - 10;
-    write(STDERR_FILENO, &c, 1);
+    perfetto::base::WriteAll(STDERR_FILENO, &c, 1);
   }
 }
 
@@ -105,11 +106,15 @@ _Unwind_Reason_Code TraceStackFrame(_Unwind_Context* context, void* arg) {
   return _URC_NO_REASON;
 }
 
+void RestoreSignalHandlers() {
+  for (size_t i = 0; i < sizeof(g_signals) / sizeof(g_signals[0]); i++)
+    sigaction(g_signals[i].sig_num, &g_signals[i].old_handler, nullptr);
+}
+
 // Note: use only async-safe functions inside this.
 void SignalHandler(int sig_num, siginfo_t* info, void* /*ucontext*/) {
   // Restore the old handlers.
-  for (size_t i = 0; i < sizeof(g_signals) / sizeof(g_signals[0]); i++)
-    sigaction(g_signals[i].sig_num, &g_signals[i].old_handler, nullptr);
+  RestoreSignalHandlers();
 
   Print("\n------------------ BEGINNING OF CRASH ------------------\n");
   Print("Signal: ");
@@ -193,14 +198,16 @@ void SignalHandler(int sig_num, siginfo_t* info, void* /*ucontext*/) {
         // might be moved.
         g_demangled_name = demangled;
       }
-      write(STDERR_FILENO, sym.sym_name, strlen(sym.sym_name));
+      perfetto::base::WriteAll(STDERR_FILENO, sym.sym_name,
+                               strlen(sym.sym_name));
     } else {
       Print("0x");
       PrintHex(frames[i]);
     }
     if (sym.file_name[0]) {
       Print("\n     ");
-      write(STDERR_FILENO, sym.file_name, strlen(sym.file_name));
+      perfetto::base::WriteAll(STDERR_FILENO, sym.file_name,
+                               strlen(sym.file_name));
     }
     Print("\n");
   }
@@ -244,6 +251,13 @@ void EnableStacktraceOnCrashForDebug() {
       SA_RESTART | SA_SIGINFO | SA_RESETHAND);
   for (size_t i = 0; i < sizeof(g_signals) / sizeof(g_signals[0]); i++)
     sigaction(g_signals[i].sig_num, &sigact, &g_signals[i].old_handler);
+
+  // Prevents fork()-ed processes to inherit the crash signal handlers. This
+  // significantly speeds up gtest death tests, because running the unwinder
+  // takes some hundreds of ms. These signal handlers are completely useless
+  // in death tests because: (i) death tests are expected to crash by design;
+  // (ii) the output of death test is not visible.
+  pthread_atfork(nullptr, nullptr, &RestoreSignalHandlers);
 }
 
 }  // namespace

@@ -17,7 +17,10 @@
 #ifndef WIFICOND_SCANNING_SCAN_RESULT_H_
 #define WIFICOND_SCANNING_SCAN_RESULT_H_
 
+#include <array>
 #include <vector>
+
+#include <linux/if_ether.h>
 
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
@@ -35,7 +38,7 @@ class NativeScanResult : public ::android::Parcelable {
  public:
   NativeScanResult() = default;
   NativeScanResult(std::vector<uint8_t>& ssid,
-                   std::vector<uint8_t>& bssid,
+                   std::array<uint8_t, ETH_ALEN>& bssid,
                    std::vector<uint8_t>& info_element,
                    uint32_t frequency,
                    int32_t signal_mbm,
@@ -51,7 +54,7 @@ class NativeScanResult : public ::android::Parcelable {
   // SSID of the BSS.
   std::vector<uint8_t> ssid;
   // BSSID of the BSS.
-  std::vector<uint8_t> bssid;
+  std::array<uint8_t, ETH_ALEN> bssid;
   // Binary array containing the raw information elements from the probe
   // response/beacon.
   std::vector<uint8_t> info_element;

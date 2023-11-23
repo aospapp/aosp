@@ -16,10 +16,12 @@
 
 package android.systemui.cts;
 
+import android.annotation.MainThread;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
+import android.view.WindowInsets;
 
 public class LightBarBaseActivity extends Activity {
 
@@ -32,6 +34,11 @@ public class LightBarBaseActivity extends Activity {
         mContent.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT));
         setContentView(mContent);
+    }
+
+    @MainThread
+    public WindowInsets getRootWindowInsets() {
+        return getWindow().getDecorView().getRootWindowInsets();
     }
 
     public int getSystemUiVisibility() {

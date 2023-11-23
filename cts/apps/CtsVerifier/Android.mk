@@ -23,7 +23,8 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_MULTILIB := both
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src) \
+                    ../ForceStopHelperApp/src/com/android/cts/forcestophelper/Constants.java
 
 LOCAL_AIDL_INCLUDES := \
     frameworks/native/aidl/gui
@@ -34,7 +35,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
                                compatibility-common-util-devicesidelib \
                                cts-sensors-tests \
                                cts-location-tests \
-                               ctstestrunner \
+                               cts-camera-performance-tests \
+                               ctstestrunner-axt \
                                apache-commons-math \
                                androidplot \
                                ctsverifier-opencv \
@@ -42,9 +44,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
                                androidx.legacy_legacy-support-v4  \
                                mockito-target-minus-junit4 \
                                mockwebserver \
-                               compatibility-device-util \
+                               compatibility-device-util-axt \
                                platform-test-annotations \
-                               cts-security-test-support-library
+                               cts-security-test-support-library \
+                               cts-midi-lib
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
     androidx.legacy_legacy-support-v4
@@ -53,14 +56,15 @@ LOCAL_JAVA_LIBRARIES += telephony-common
 LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
 LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 LOCAL_JAVA_LIBRARIES += android.test.mock.stubs
-LOCAL_JAVA_LIBRARIES += bouncycastle
 LOCAL_JAVA_LIBRARIES += voip-common
 
 LOCAL_PACKAGE_NAME := CtsVerifier
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni \
-		libaudioloopback_jni \
+LOCAL_JNI_SHARED_LIBRARIES := \
+	libctsverifier_jni \
+	libctsnativemidi_jni \
+	libaudioloopback_jni \
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
@@ -82,6 +86,7 @@ endef
 LOCAL_MODULE := cts-verifier-framework
 LOCAL_AAPT_FLAGS := --auto-add-overlay --extra-packages android.support.v4
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 19
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 LOCAL_SRC_FILES := \
     $(call java-files-in, src/com/android/cts/verifier) \
@@ -89,7 +94,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_STATIC_JAVA_LIBRARIES := androidx.legacy_legacy-support-v4 \
                                compatibility-common-util-devicesidelib \
-                               compatibility-device-util \
+                               compatibility-device-util-axt
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -105,7 +110,11 @@ pre-installed-apps := \
     CtsEmptyDeviceAdmin \
     CtsEmptyDeviceOwner \
     CtsPermissionApp \
+    CtsForceStopHelper \
     NotificationBot
+
+# Apps to be installed as Instant App using adb install --instant
+pre-installed-instant-app := CtsVerifierInstantApp
 
 other-required-apps := \
     CtsVerifierUSBCompanion \
@@ -115,6 +124,7 @@ other-required-apps := \
 
 apps-to-include := \
     $(pre-installed-apps) \
+    $(pre-installed-instant-app) \
     $(other-required-apps)
 
 define apk-location-for
@@ -123,10 +133,11 @@ endef
 
 # Builds and launches CTS Verifier on a device.
 .PHONY: cts-verifier
-cts-verifier: CtsVerifier adb $(pre-installed-apps)
+cts-verifier: CtsVerifier adb $(pre-installed-apps) $(pre-installed-instant-app)
 	adb install -r $(PRODUCT_OUT)/data/app/CtsVerifier/CtsVerifier.apk \
 		$(foreach app,$(pre-installed-apps), \
 		    && adb install -r -t $(call apk-location-for,$(app))) \
+		&& adb install -r --instant $(call apk-location-for,$(pre-installed-instant-app)) \
 		&& adb shell "am start -n com.android.cts.verifier/.CtsVerifierActivity"
 
 #

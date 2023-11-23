@@ -30,7 +30,7 @@ LOCAL_JAVA_RESOURCE_DIRS := resources
 # The aim of this package is to run tests against the implementation in use by
 # the current android system.
 LOCAL_STATIC_JAVA_LIBRARIES := \
-	cts-core-test-runner \
+	cts-core-test-runner-axt \
 	android-icu4j-tests
 
 # Tag this module as a cts test artifact

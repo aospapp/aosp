@@ -203,13 +203,13 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: java.io.File)
             // pass for now
         } finally {
             try {
-                if (bw != null) bw.close()
+                bw?.close()
             } catch (e: IOException) {
                 // pass for now
             }
 
             try {
-                if (fw != null) fw.close()
+                fw?.close()
             } catch (e: IOException) {
                 // pass for now
             }

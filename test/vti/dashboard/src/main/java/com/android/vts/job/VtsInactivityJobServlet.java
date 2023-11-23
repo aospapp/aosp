@@ -50,7 +50,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Test inactivity notification job. */
-public class VtsInactivityJobServlet extends HttpServlet {
+public class VtsInactivityJobServlet extends BaseJobServlet {
     private static final String INACTIVITY_ALERT_URL = "/cron/vts_inactivity_job";
     protected static final Logger logger =
             Logger.getLogger(VtsInactivityJobServlet.class.getName());
@@ -77,11 +77,11 @@ public class VtsInactivityJobServlet extends HttpServlet {
         // After 7 full days have passed, notifications will no longer be sent (i.e. the
         // test is assumed to be deprecated).
         if (diff >= TimeUnit.DAYS.toMicros(1) && diff < TimeUnit.DAYS.toMicros(8)) {
-            String uploadTimeString = TimeUtil.getDateTimeString(lastRunTime);
-            String subject = "Warning! Inactive test: " + test.testName;
+            String uploadTimeString = TimeUtil.getDateTimeZoneString(lastRunTime);
+            String subject = "Warning! Inactive test: " + test.getTestName();
             String body =
                     "Hello,<br><br>Test \""
-                            + test.testName
+                            + test.getTestName()
                             + "\" is inactive. "
                             + "No new data has been uploaded since "
                             + uploadTimeString
@@ -159,12 +159,12 @@ public class VtsInactivityJobServlet extends HttpServlet {
         if (status == null) {
             return;
         }
-        Key testKey = KeyFactory.createKey(TestEntity.KIND, status.testName);
+        Key testKey = KeyFactory.createKey(TestEntity.KIND, status.getTestName());
         long lastRunTime = getLastRunTime(testKey);
 
         StringBuffer fullUrl = request.getRequestURL();
         String baseUrl = fullUrl.substring(0, fullUrl.indexOf(request.getRequestURI()));
-        String link = baseUrl + "/show_tree?testName=" + status.testName;
+        String link = baseUrl + "/show_tree?testName=" + status.getTestName();
 
         List<Message> messageQueue = new ArrayList<>();
         List<String> emails;

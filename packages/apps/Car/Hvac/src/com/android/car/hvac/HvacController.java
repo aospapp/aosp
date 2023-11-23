@@ -16,21 +16,21 @@
 package com.android.car.hvac;
 
 import android.app.Service;
+import android.car.Car;
+import android.car.CarNotConnectedException;
 import android.car.VehicleAreaSeat;
 import android.car.VehicleAreaWindow;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.hvac.CarHvacManager;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.SystemProperties;
-import android.support.car.Car;
-import android.support.car.CarNotConnectedException;
-import android.support.car.CarConnectionCallback;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -39,7 +39,6 @@ import java.util.List;
 import javax.annotation.concurrent.GuardedBy;
 
 public class HvacController extends Service {
-    private static final String DEMO_MODE_PROPERTY = "android.car.hvac.demo";
     private static final String TAG = "HvacController";
     private static final int DRIVER_ZONE_ID = VehicleAreaSeat.SEAT_ROW_1_LEFT |
             VehicleAreaSeat.SEAT_ROW_2_LEFT | VehicleAreaSeat.SEAT_ROW_2_CENTER;
@@ -52,9 +51,7 @@ public class HvacController extends Service {
             (CarHvacManager.FAN_DIRECTION_FACE | CarHvacManager.FAN_DIRECTION_FLOOR)
     };
     // Hardware specific value for the front seats
-    public static final int SEAT_ALL = VehicleAreaSeat.SEAT_ROW_1_LEFT |
-            VehicleAreaSeat.SEAT_ROW_1_RIGHT | VehicleAreaSeat.SEAT_ROW_2_LEFT |
-            VehicleAreaSeat.SEAT_ROW_2_CENTER | VehicleAreaSeat.SEAT_ROW_2_RIGHT;
+    public static final int SEAT_ALL = DRIVER_ZONE_ID | PASSENGER_ZONE_ID;
 
     /**
      * Callback for receiving updates from the hvac manager. A Callback can be
@@ -95,7 +92,7 @@ public class HvacController extends Service {
         public void onAutoModeChange(boolean isOn) {
         }
 
-        public void onHvacPowerChange(boolean isOn){
+        public void onHvacPowerChange(boolean isOn) {
         }
     }
 
@@ -120,13 +117,7 @@ public class HvacController extends Service {
     public void onCreate() {
         super.onCreate();
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            if (SystemProperties.getBoolean(DEMO_MODE_PROPERTY, false)) {
-                IBinder binder = (new LocalHvacPropertyService()).getCarPropertyService();
-                initHvacManager(new CarHvacManager(binder, this, new Handler()));
-                return;
-            }
-
-            mCarApiClient = Car.createCar(this, mCarConnectionCallback);
+            mCarApiClient = Car.createCar(this, mCarServiceConnection);
             mCarApiClient.connect();
         }
     }
@@ -171,20 +162,20 @@ public class HvacController extends Service {
             properties = mHvacManager.getPropertyList();
             mPolicy = new HvacPolicy(HvacController.this, properties);
             mHvacManager.registerCallback(mHardwareCallback);
-        } catch (android.car.CarNotConnectedException e) {
+        } catch (CarNotConnectedException e) {
             Log.e(TAG, "Car not connected in HVAC");
         }
 
     }
 
-    private final CarConnectionCallback mCarConnectionCallback =
-            new CarConnectionCallback() {
+    private final ServiceConnection mCarServiceConnection =
+            new ServiceConnection() {
                 @Override
-                public void onConnected(Car car) {
+                public void onServiceConnected(ComponentName name, IBinder service) {
                     synchronized (mHvacManagerReady) {
                         try {
                             initHvacManager((CarHvacManager) mCarApiClient.getCarManager(
-                                    android.car.Car.HVAC_SERVICE));
+                                    Car.HVAC_SERVICE));
                             mHvacManagerReady.notifyAll();
                         } catch (CarNotConnectedException e) {
                             Log.e(TAG, "Car not connected in onServiceConnected");
@@ -193,7 +184,7 @@ public class HvacController extends Service {
                 }
 
                 @Override
-                public void onDisconnected(Car car) {
+                public void onServiceDisconnected(ComponentName name) {
                 }
             };
 
@@ -363,23 +354,24 @@ public class HvacController extends Service {
 
     private void handleTempUpdate(CarPropertyValue value) {
         final int zone = value.getAreaId();
-        final float temp = (Float)value.getValue();
+        final float temp = (Float) value.getValue();
         final boolean available = value.getStatus() == CarPropertyValue.STATUS_AVAILABLE;
         boolean shouldPropagate = mDataStore.shouldPropagateTempUpdate(zone, temp, available);
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "Temp Update, zone: " + zone + " temp: " + temp +
-                "available: " + available + " should propagate: " + shouldPropagate);
+                    "available: " + available + " should propagate: " + shouldPropagate);
         }
         if (shouldPropagate) {
-            int userTemperature =  mPolicy.hardwareToUserTemp(temp);
             synchronized (mCallbacks) {
                 for (int i = 0; i < mCallbacks.size(); i++) {
-                    if (zone == VehicleAreaSeat.SEAT_ROW_1_LEFT) {
+                    if (zone == DRIVER_ZONE_ID) {
                         mCallbacks.get(i)
                                 .onDriverTemperatureChange(value);
-                    } else {
+                    } else if (zone == PASSENGER_ZONE_ID) {
                         mCallbacks.get(i)
                                 .onPassengerTemperatureChange(value);
+                    } else {
+                        Log.w(TAG, "Unknown temperature set area id: " + zone);
                     }
                 }
             }
@@ -424,8 +416,7 @@ public class HvacController extends Service {
                 fetchFanSpeed();
                 fetchDefrosterState(VehicleAreaWindow.WINDOW_FRONT_WINDSHIELD);
                 fetchDefrosterState(VehicleAreaWindow.WINDOW_REAR_WINDSHIELD);
-                fetchAirflow(DRIVER_ZONE_ID);
-                fetchAirflow(PASSENGER_ZONE_ID);
+                fetchAirflow();
                 fetchAcState();
                 fetchAirCirculation();
                 fetchHvacPowerState();
@@ -469,9 +460,9 @@ public class HvacController extends Service {
         if (mHvacManager != null) {
             try {
                 float value = mHvacManager.getFloatProperty(
-                    CarHvacManager.ID_ZONED_TEMP_SETPOINT, zone);
+                        CarHvacManager.ID_ZONED_TEMP_SETPOINT, zone);
                 boolean available = mHvacManager.isPropertyAvailable(
-                    CarHvacManager.ID_ZONED_TEMP_SETPOINT, zone);
+                        CarHvacManager.ID_ZONED_TEMP_SETPOINT, zone);
                 mDataStore.setTemperature(zone, value, available);
             } catch (android.car.CarNotConnectedException e) {
                 Log.e(TAG, "Car not connected in fetchTemperature");
@@ -480,19 +471,19 @@ public class HvacController extends Service {
     }
 
     public int getDriverTemperature() {
-        return mPolicy.hardwareToUserTemp(mDataStore.getTemperature(DRIVER_ZONE_ID));
+        return Float.valueOf(mDataStore.getTemperature(DRIVER_ZONE_ID)).intValue();
     }
 
     public int getPassengerTemperature() {
-        return mPolicy.hardwareToUserTemp(mDataStore.getTemperature(PASSENGER_ZONE_ID));
+        return Float.valueOf(mDataStore.getTemperature(PASSENGER_ZONE_ID)).intValue();
     }
 
     public void setDriverTemperature(int temperature) {
-        setTemperature(DRIVER_ZONE_ID, mPolicy.userToHardwareTemp(temperature));
+        setTemperature(DRIVER_ZONE_ID, temperature);
     }
 
     public void setPassengerTemperature(int temperature) {
-        setTemperature(PASSENGER_ZONE_ID, mPolicy.userToHardwareTemp(temperature));
+        setTemperature(PASSENGER_ZONE_ID, temperature);
     }
 
     public void setTemperature(final int zone, final float temperature) {
@@ -522,7 +513,7 @@ public class HvacController extends Service {
                 if (mHvacManager != null) {
                     try {
                         mHvacManager.setBooleanProperty(CarHvacManager.ID_ZONED_HVAC_POWER_ON,
-                            SEAT_ALL, state);
+                                SEAT_ALL, state);
                         // if the set() succeeds, consider the property available
                         mDataStore.setHvacPowerState(state);
                     } catch (android.car.CarNotConnectedException e) {
@@ -538,11 +529,11 @@ public class HvacController extends Service {
     }
 
     public void setDriverSeatWarmerLevel(int level) {
-        setSeatWarmerLevel(DRIVER_ZONE_ID, level);
+        setSeatWarmerLevel(VehicleAreaSeat.SEAT_ROW_1_LEFT, level);
     }
 
     public void setPassengerSeatWarmerLevel(int level) {
-        setSeatWarmerLevel(PASSENGER_ZONE_ID, level);
+        setSeatWarmerLevel(VehicleAreaSeat.SEAT_ROW_1_RIGHT, level);
     }
 
     public void setSeatWarmerLevel(final int zone, final int level) {
@@ -702,12 +693,12 @@ public class HvacController extends Service {
         return AIRFLOW_STATES[0];
     }
 
-    private void fetchAirflow(int zone) {
+    private void fetchAirflow() {
         if (mHvacManager != null) {
-            zone = SEAT_ALL; // Car specific workaround.
             try {
-                int val = mHvacManager.getIntProperty(CarHvacManager.ID_ZONED_FAN_DIRECTION, zone);
-                mDataStore.setAirflow(zone, fanPositionToAirflowIndex(val));
+                int val = mHvacManager.getIntProperty(CarHvacManager.ID_ZONED_FAN_DIRECTION,
+                        SEAT_ALL);
+                mDataStore.setAirflow(SEAT_ALL, fanPositionToAirflowIndex(val));
             } catch (android.car.CarNotConnectedException e) {
                 Log.e(TAG, "Car not connected in fetchAirFlow");
             }

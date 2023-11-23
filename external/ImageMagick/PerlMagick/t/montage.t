@@ -1,11 +1,11 @@
 #!/usr/bin/perl
-#  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    https://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -122,8 +122,8 @@ testMontage( q//,
 testMontage( q/bordercolor=>'blue', mattecolor=>'red'/, 
   q/background=>'#696e7e',  tile=>'4x4', geometry=>'90x80+3+3>', frame=>'8x10',
   borderwidth=>'0', gravity=>'Center', background=>'gray'/,
-  'be7fa3545e2d1b3966bcf145680460593c4aae665e58bcffba7cbe5c189998b5',
-  'be7fa3545e2d1b3966bcf145680460593c4aae665e58bcffba7cbe5c189998b5',
+  'dcfa6c2bc0e20ff0b5dba464559a1e106e605ec456c21c1205a53e478e4f3e02',
+  'dcfa6c2bc0e20ff0b5dba464559a1e106e605ec456c21c1205a53e478e4f3e02',
   '72a7587a058c71cd62226e59b64c335190a37d7dd990d68534cf05df61084783');
 
 #
@@ -133,8 +133,8 @@ testMontage( q/bordercolor=>'blue', mattecolor=>'red'/,
 testMontage( q/bordercolor=>'blue', mattecolor=>'red'/, 
   q/background=>'#696e7e',  tile=>'4x4', geometry=>'90x80+6+6>', frame=>'8x10',
   borderwidth=>'0', gravity=>'Center', shadow=>'True',background=>'gray'/,
-  '9fe18e11ac759d3a86362f16d0bdee4b6952d617daa3ad2c3511e19050dda71d',
-  '45bfd268dba4385157f76e347b968181a9fc1e0ae64d49d61f53a0171eb80d54',
+  'b3b7a530270164b4c5e391ac8080736a901428e5f650694170969fd292559317',
+  'b3b7a530270164b4c5e391ac8080736a901428e5f650694170969fd292559317',
   '9fe18e11ac759d3a86362f16d0bdee4b6952d617daa3ad2c3511e19050dda71d');
 
 #
@@ -144,7 +144,7 @@ testMontage( q/bordercolor=>'blue', mattecolor=>'red'/,
 testMontage( q/bordercolor=>'blue', mattecolor=>'red'/, 
   q/background=>'#696e7e',  tile=>'4x4', geometry=>'90x80+6+6>', frame=>'8x10',
   borderwidth=>'0', gravity=>'Center', shadow=>'True', texture=>'granite:'/,
-  '6d8b83a9e9bd385a8267e3a0205d4972b3fbb4d59bf922fdbc060d3f4cefdbf8');
+  '08d4dfa09995e13a518002565d862f6e89d65de37d59c1d1ab45d7c6cde6bd47');
 
 #
 # 14) Test Un-bordered, Un-framed Montage

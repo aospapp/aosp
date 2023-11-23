@@ -18,7 +18,8 @@ package com.android.settings.accessibility;
 
 import android.content.Context;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
+
+import androidx.annotation.VisibleForTesting;
 
 public class NotificationVibrationIntensityPreferenceController
         extends VibrationIntensityPreferenceController {
@@ -27,7 +28,7 @@ public class NotificationVibrationIntensityPreferenceController
     static final String PREF_KEY = "notification_vibration_preference_screen";
 
     public NotificationVibrationIntensityPreferenceController(Context context) {
-        super(context, PREF_KEY, Settings.System.NOTIFICATION_VIBRATION_INTENSITY);
+        super(context, PREF_KEY, Settings.System.NOTIFICATION_VIBRATION_INTENSITY, "");
     }
 
     @Override

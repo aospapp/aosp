@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -126,16 +126,15 @@ static unsigned char *SFWScan(const unsigned char *p,const unsigned char *q,
   register ssize_t
     i;
 
-  if ((p+length) < q)
-    while (p < q)
-    {
-      for (i=0; i < (ssize_t) length; i++)
-        if (p[i] != target[i])
-          break;
-      if (i == (ssize_t) length)
-        return((unsigned char *) p);
-      p++;
-    }
+  while ((p+length) < q)
+  {
+    for (i=0; i < (ssize_t) length; i++)
+      if (p[i] != target[i])
+        break;
+    if (i == (ssize_t) length)
+      return((unsigned char *) p);
+    p++;
+  }
   return((unsigned char *) NULL);
 }
 
@@ -253,28 +252,34 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
   */
   if (GetBlobSize(image) != (size_t) GetBlobSize(image))
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
-  buffer=(unsigned char *) AcquireQuantumMemory((size_t) GetBlobSize(image),
-    sizeof(*buffer));
+  if (GetBlobSize(image) < 141)
+    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  buffer=(unsigned char *) AcquireQuantumMemory((size_t) GetBlobSize(image)+
+    MagickPathExtent,sizeof(*buffer));
   if (buffer == (unsigned char *) NULL)
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   count=ReadBlob(image,(size_t) GetBlobSize(image),buffer);
   if ((count != (ssize_t) GetBlobSize(image)) ||
       (LocaleNCompare((char *) buffer,"SFW",3) != 0))
-    ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    {
+      buffer=(unsigned char *) RelinquishMagickMemory(buffer);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   (void) CloseBlob(image);
   /*
     Find the start of the JFIF data
   */
   header=SFWScan(buffer,buffer+count-1,(const unsigned char *)
     "\377\310\377\320",4);
-  if (header == (unsigned char *) NULL)
+  if ((header == (unsigned char *) NULL) ||
+      ((header+140) > (buffer+GetBlobSize(image))))
     {
       buffer=(unsigned char *) RelinquishMagickMemory(buffer);
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
     }
   TranslateSFWMarker(header);  /* translate soi and app tags */
   TranslateSFWMarker(header+2);
-  (void) CopyMagickMemory(header+6,"JFIF\0\001\0",7);  /* JFIF magic */
+  (void) memcpy(header+6,"JFIF\0\001\0",7);  /* JFIF magic */
   /*
     Translate remaining markers.
   */
@@ -324,7 +329,7 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) extent;
   extent=fwrite(HuffmanTable,1,sizeof(HuffmanTable)/sizeof(*HuffmanTable),file);
   extent=fwrite(offset+1,(size_t) (data-offset),1,file);
-  status=ferror(file) == -1 ? MagickFalse : MagickTrue;
+  status=ferror(file) != 0 ? MagickFalse : MagickTrue;
   (void) fclose(file);
   (void) close(unique_file);
   buffer=(unsigned char *) RelinquishMagickMemory(buffer);
@@ -345,6 +350,7 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Read JPEG image.
   */
+  (void) CopyMagickString(read_info->magick,"JPEG",MagickPathExtent);
   jpeg_image=ReadImage(read_info,exception);
   (void) RelinquishUniqueFileResource(read_info->filename);
   read_info=DestroyImageInfo(read_info);
@@ -353,7 +359,8 @@ static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
       image=DestroyImageList(image);
       return(jpeg_image);
     }
-  (void) CopyMagickString(jpeg_image->filename,image->filename,MagickPathExtent);
+  (void) CopyMagickString(jpeg_image->filename,image->filename,
+    MagickPathExtent);
   (void) CopyMagickString(jpeg_image->magick,image->magick,MagickPathExtent);
   image=DestroyImageList(image);
   image=jpeg_image;
@@ -401,6 +408,7 @@ ModuleExport size_t RegisterSFWImage(void)
   entry=AcquireMagickInfo("SFW","SFW","Seattle Film Works");
   entry->decoder=(DecodeImageHandler *) ReadSFWImage;
   entry->magick=(IsImageFormatHandler *) IsSFW;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderAdjoinFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);

@@ -8,7 +8,6 @@ import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.graphics import graphics_utils
-from autotest_lib.client.cros.power import power_utils, power_rapl, power_status
 
 
 PLAYBACK_TEST_TIME_S = 10
@@ -32,29 +31,15 @@ class YouTubeHelper(object):
 
     """
 
-    def __init__(self, youtube_tab, power_logging=False):
+    def __init__(self, youtube_tab):
         self._tab = youtube_tab
         self._video_duration = 0
-        self.power_logger = None
 
-        if power_logging and power_utils.has_rapl_support():
-            self.power_logger = power_status.PowerLogger(
-                power_rapl.create_rapl())
-            self.power_logger.start()
 
     def set_video_duration(self):
         """Sets the video duration."""
         self._video_duration = (int(self._tab.EvaluateJavaScript(
             'player.getDuration()')))
-
-    def get_power_measurement(self):
-        """Return power measurement.
-
-        @return: power readings. None if power_logging is not enabled.
-        """
-        if self.power_logger:
-            return self.power_logger.calc()
-        return None
 
     def video_current_time(self):
         """Returns video's current playback time.
@@ -70,15 +55,6 @@ class YouTubeHelper(object):
         return self._tab.EvaluateJavaScript(
             '(typeof playerStatus !== \'undefined\') && '
             'playerStatus.innerHTML')
-
-    def set_playback_quality(self, quality):
-        """Set the video quality to the quality passed in the arg.
-
-        @param quality: video quality to set.
-
-        """
-        self._tab.ExecuteJavaScript(
-            'player.setPlaybackQuality("%s")' % quality)
 
     def get_playback_quality(self):
         """Returns the playback quality."""
@@ -127,77 +103,6 @@ class YouTubeHelper(object):
                         player_status)
             prev_playback = self.video_current_time()
             playback = playback + 1
-
-    def wait_for_expected_resolution(self, expected_quality):
-        """Wait for some time for getting expected resolution.
-
-        @param expected_quality: quality to be set.
-
-        """
-        for _ in range(WAIT_TIMEOUT_S):
-            dummy_quality = self.get_playback_quality()
-            if dummy_quality == expected_quality:
-                logging.info('Expected resolution is set.')
-                break
-            else:
-                logging.info('Waiting for expected resolution.')
-                time.sleep(0.1)
-
-    def verify_video_resolutions(self, power_measurement=False):
-        """Verify available video resolutions.
-
-        Video resolution should be 360p, 480p, 720p and 1080p.
-
-        """
-        logging.info('Verifying the video resolutions.')
-        video_qualities = self._tab.EvaluateJavaScript(
-            'player.getAvailableQualityLevels()')
-        logging.info('Available video resolutions: %s', video_qualities)
-        if not video_qualities:
-            raise error.TestError(
-                'Player failed to return available video qualities.')
-        video_qualities.reverse()
-
-        running_quality = self.get_playback_quality()
-        index = video_qualities.index(running_quality)
-        supporting_qualities = video_qualities[index:]
-        logging.info("new video quality %s ", supporting_qualities)
-
-        width, height = graphics_utils.get_internal_resolution()
-        logging.info('checking resolution: %d width  %d height', width, height)
-        for quality in supporting_qualities:
-            logging.info('Playing video in %s quality.', quality)
-
-            if quality == "hd1080":
-                self._tab.ExecuteJavaScript('player.setSize(1920, 1080)')
-            if quality == "hd720":
-                self._tab.ExecuteJavaScript('player.setSize(1280, 720)')
-            if quality == "large":
-                self._tab.ExecuteJavaScript('player.setSize(853, 480)')
-            if quality == "medium":
-                self._tab.ExecuteJavaScript('player.setSize(640, 360)')
-            if quality == "small":
-                self._tab.ExecuteJavaScript('player.setSize(320, 240)')
-
-            self.set_playback_quality(quality)
-            self.wait_for_player_state(PLAYER_PLAYING_STATE)
-            self.wait_for_expected_resolution(quality)
-            current_quality = self.get_playback_quality()
-
-            if current_quality != quality:
-                raise error.TestError(
-                    'Expected video quality: %s. Current video quality: %s'
-                    % (quality, current_quality))
-
-            if power_measurement and self.power_logger:
-                # Seeking to the beginning and ensure the player is playing.
-                self._tab.ExecuteJavaScript('player.seekTo(0, true)')
-                self._tab.ExecuteJavaScript('player.playVideo()')
-                self.wait_for_player_state(PLAYER_PLAYING_STATE)
-                with self.power_logger.checkblock('youtube-' + quality):
-                    time.sleep(10)
-            else:
-                time.sleep(1)
 
     def verify_player_states(self):
         """Verify the player states like play, pause, ended and seek."""

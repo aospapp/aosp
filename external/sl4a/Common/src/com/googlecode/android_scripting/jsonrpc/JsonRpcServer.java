@@ -16,18 +16,13 @@
 
 package com.googlecode.android_scripting.jsonrpc;
 
-import java.io.BufferedReader;
-import java.io.PrintWriter;
-import java.net.Socket;
-import java.util.Map;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.SimpleServer;
-import com.googlecode.android_scripting.rpc.MethodDescriptor;
-import com.googlecode.android_scripting.rpc.RpcError;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 /**
  * A JSON RPC server that forwards RPC calls to a specified receiver object.
@@ -59,53 +54,22 @@ public class JsonRpcServer extends SimpleServer {
         }
     }
 
-    @Override
-    protected void handleRPCConnection(Socket sock, Integer UID, BufferedReader reader,
-            PrintWriter writer) throws Exception {
-        RpcReceiverManager receiverManager = null;
-        Map<Integer, RpcReceiverManager> mgrs = mRpcReceiverManagerFactory.getRpcReceiverManagers();
-        synchronized (mgrs) {
-            Log.d("UID " + UID);
-            Log.d("manager map keys: "
-                    + mRpcReceiverManagerFactory.getRpcReceiverManagers().keySet());
-            if (mgrs.containsKey(UID)) {
-                Log.d("Look up existing session");
-                receiverManager = mgrs.get(UID);
-            } else {
-                Log.d("Create a new session");
-                receiverManager = mRpcReceiverManagerFactory.create(UID);
-            }
-        }
-        // boolean passedAuthentication = false;
-        String data;
-        while ((data = reader.readLine()) != null) {
-            Log.v("Session " + UID + " Received: " + data);
-            JSONObject request = new JSONObject(data);
-            int id = request.getInt("id");
-            String method = request.getString("method");
-            JSONArray params = request.getJSONArray("params");
-
-            MethodDescriptor rpc = receiverManager.getMethodDescriptor(method);
-            if (rpc == null) {
-                send(writer, JsonRpcResult.error(id, new RpcError("Unknown RPC: " + method)), UID);
-                continue;
-            }
-            try {
-                send(writer, JsonRpcResult.result(id, rpc.invoke(receiverManager, params)), UID);
-            } catch (Throwable t) {
-                Log.e("Invocation error.", t);
-                send(writer, JsonRpcResult.error(id, t), UID);
-            }
-        }
-    }
-
-    private void send(PrintWriter writer, JSONObject result, int UID) {
+    private void send(PrintWriter writer, Object result) {
         writer.write(result + "\n");
         writer.flush();
-        Log.v("Session " + UID + " Sent: " + result);
+        Log.v("Sent Response: " + result);
     }
 
     @Override
     protected void handleConnection(Socket socket) throws Exception {
+        BufferedReader reader =
+                new BufferedReader(new InputStreamReader(socket.getInputStream()), 8192);
+        PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+        String data;
+        JsonRpcHandler jsonRpcHandler = new JsonRpcHandler(mRpcReceiverManagerFactory);
+        while ((data = reader.readLine()) != null) {
+            Log.v("Received Request: " + data);
+            send(writer, jsonRpcHandler.getResponse(data));
+        }
     }
 }

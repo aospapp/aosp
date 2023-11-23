@@ -38,11 +38,11 @@ namespace vold {
  * away the Android directory for secondary users.
  */
 class PublicVolume : public VolumeBase {
-public:
+  public:
     explicit PublicVolume(dev_t device);
     virtual ~PublicVolume();
 
-protected:
+  protected:
     status_t doCreate() override;
     status_t doDestroy() override;
     status_t doMount() override;
@@ -52,7 +52,7 @@ protected:
     status_t readMetadata();
     status_t initAsecStage();
 
-private:
+  private:
     /* Kernel device representing partition */
     dev_t mDevice;
     /* Block device path */
@@ -63,6 +63,7 @@ private:
     std::string mFuseDefault;
     std::string mFuseRead;
     std::string mFuseWrite;
+    std::string mFuseFull;
 
     /* PID of FUSE wrapper */
     pid_t mFusePid;

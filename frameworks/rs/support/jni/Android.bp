@@ -21,7 +21,6 @@ cc_library_shared {
         "-Wextra",
         "-Wno-unused-parameter",
         "-DRS_COMPATIBILITY_LIB",
-        "-std=c++11",
     ],
 
     shared_libs: [
@@ -62,7 +61,6 @@ cc_library_shared {
         "-Wall",
         "-Wextra",
         "-Wno-unused-parameter",
-        "-std=c++11",
         "-DRS_COMPATIBILITY_LIB",
     ],
 

@@ -25,8 +25,8 @@ import com.android.ddmlib.Log.LogLevel;
 import com.android.incident.Destination;
 import com.android.incident.Privacy;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.Message;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -72,7 +72,7 @@ public class SettingsIncidentTest extends ProtoDumpTestCase {
         verifySettings(dump.getGlobalSettings(), filterLevel);
     }
 
-    private static void verifySettings(GeneratedMessage settings, final int filterLevel) throws Exception {
+    private static void verifySettings(Message settings, final int filterLevel) throws Exception {
         verifySettings(getSettingProtos(settings), filterLevel);
 
         final List<SettingsOperationProto> ops = invoke(settings, "getHistoricalOperationsList");
@@ -88,7 +88,7 @@ public class SettingsIncidentTest extends ProtoDumpTestCase {
         }
     }
 
-    private static Map<SettingProto, Destination> getSettingProtos(GeneratedMessage settingsProto) {
+    private static Map<SettingProto, Destination> getSettingProtos(Message settingsProto) {
         CLog.d("Checking out class: " + settingsProto.getClass());
 
         Map<SettingProto, Destination> settings = new HashMap<>();
@@ -116,7 +116,7 @@ public class SettingsIncidentTest extends ProtoDumpTestCase {
                 } else {
                     // Sub messages don't inherit the container's default privacy. If the field had
                     // an annotation, it would override the sub message's default privacy.
-                    settings.putAll(getSettingProtos((GeneratedMessage) o));
+                    settings.putAll(getSettingProtos((Message) o));
                 }
             }
         }
@@ -133,7 +133,7 @@ public class SettingsIncidentTest extends ProtoDumpTestCase {
         }
     }
 
-    private static <T> T invoke(GeneratedMessage instance, String methodName, Object... args)
+    private static <T> T invoke(Message instance, String methodName, Object... args)
             throws Exception {
         final Class<?>[] inputParamTypes = Arrays.stream(args)
                 .map((arg) -> toPrimitive(arg.getClass()))

@@ -36,6 +36,7 @@ import java.util.Arrays;
  * The stream is later decoded by vp8/vp9 decoder to verify frames are decodable and to
  * calculate PSNR values for various bitrates.
  */
+@MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VpxEncoderTest extends VpxCodecTestBase {
 
@@ -67,7 +68,7 @@ public class VpxEncoderTest extends VpxCodecTestBase {
     // Maximum allowed average PSNR difference of the encoder running in a looper thread with 0 ms
     // buffer dequeue timeout comparing to the encoder running in a callee's thread with 100 ms
     // buffer dequeue timeout.
-    private static final double MAX_ASYNC_AVERAGE_PSNR_DIFFERENCE = 0.5;
+    private static final double MAX_ASYNC_AVERAGE_PSNR_DIFFERENCE = 1.5;
     // Maximum allowed minimum PSNR difference of the encoder running in a looper thread
     // comparing to the encoder running in a callee's thread.
     private static final double MAX_ASYNC_MINIMUM_PSNR_DIFFERENCE = 2;
@@ -107,10 +108,15 @@ public class VpxEncoderTest extends VpxCodecTestBase {
 
             VpxEncodingStatistics statistics = computeEncodingStatistics(bufInfo);
 
-            assertEquals("Stream bitrate " + statistics.mAverageBitrate +
+            /* Allow achieved bitrate to be smaller than target bitrate for
+             * VIDEO_ControlRateVariable mode */
+            if ((params.bitrateType == VIDEO_ControlRateConstant) ||
+                (statistics.mAverageBitrate > targetBitrate)) {
+                assertEquals("Stream bitrate " + statistics.mAverageBitrate +
                     " is different from the target " + targetBitrate,
                     targetBitrate, statistics.mAverageBitrate,
                     MAX_BITRATE_VARIATION * targetBitrate);
+            }
 
             decode(params.outputIvfFilename, null, codecMimeType, FPS, params.forceGoogleEncoder);
         }

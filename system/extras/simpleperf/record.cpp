@@ -51,6 +51,7 @@ static std::string RecordTypeToString(int record_type) {
       {SIMPLE_PERF_RECORD_EVENT_ID, "event_id"},
       {SIMPLE_PERF_RECORD_CALLCHAIN, "callchain"},
       {SIMPLE_PERF_RECORD_UNWINDING_RESULT, "unwinding_result"},
+      {SIMPLE_PERF_RECORD_TRACING_DATA, "tracing_data"},
   };
 
   auto it = record_type_names.find(record_type);
@@ -174,7 +175,7 @@ size_t SampleId::Size() const {
   return size;
 }
 
-Record::Record(Record&& other) {
+Record::Record(Record&& other) noexcept {
   header = other.header;
   sample_id = other.sample_id;
   binary_ = other.binary_;
@@ -265,6 +266,22 @@ Mmap2Record::Mmap2Record(const perf_event_attr& attr, char* p) : Record(p) {
   sample_id.ReadFromBinaryFormat(attr, p, end);
 }
 
+Mmap2Record::Mmap2Record(const perf_event_attr& attr, bool in_kernel, uint32_t pid, uint32_t tid,
+                         uint64_t addr, uint64_t len, uint64_t pgoff, uint32_t prot,
+                         const std::string& filename, uint64_t event_id, uint64_t time) {
+  SetTypeAndMisc(PERF_RECORD_MMAP2, in_kernel ? PERF_RECORD_MISC_KERNEL : PERF_RECORD_MISC_USER);
+  sample_id.CreateContent(attr, event_id);
+  sample_id.time_data.time = time;
+  Mmap2RecordDataType data;
+  data.pid = pid;
+  data.tid = tid;
+  data.addr = addr;
+  data.len = len;
+  data.pgoff = pgoff;
+  data.prot = prot;
+  SetDataAndFilename(data, filename);
+}
+
 void Mmap2Record::SetDataAndFilename(const Mmap2RecordDataType& data,
                                      const std::string& filename) {
   SetSize(header_size() + sizeof(data) + Align(filename.size() + 1, 8) +
@@ -285,11 +302,11 @@ void Mmap2Record::DumpData(size_t indent) const {
   PrintIndented(indent,
                 "pid %u, tid %u, addr 0x%" PRIx64 ", len 0x%" PRIx64 "\n",
                 data->pid, data->tid, data->addr, data->len);
-  PrintIndented(indent, "pgoff 0x" PRIx64 ", maj %u, min %u, ino %" PRId64
+  PrintIndented(indent, "pgoff 0x%" PRIx64 ", maj %u, min %u, ino %" PRId64
                         ", ino_generation %" PRIu64 "\n",
                 data->pgoff, data->maj, data->min, data->ino,
                 data->ino_generation);
-  PrintIndented(indent, "prot %u, flags %u, filenames %s\n", data->prot,
+  PrintIndented(indent, "prot %u, flags %u, filename %s\n", data->prot,
                 data->flags, filename);
 }
 
@@ -323,6 +340,29 @@ CommRecord::CommRecord(const perf_event_attr& attr, uint32_t pid, uint32_t tid,
   strcpy(p, comm.c_str());
   p += Align(comm.size() + 1, 8);
   sample_id.WriteToBinaryFormat(p);
+  UpdateBinary(new_binary);
+}
+
+void CommRecord::SetCommandName(const std::string& name) {
+  if (name.compare(comm) == 0) {
+    return;
+  }
+  // The kernel uses a 8-byte aligned space to store command name. Follow it here to allow the same
+  // reading code.
+  size_t old_name_len = Align(strlen(comm) + 1, 8);
+  size_t new_name_len = Align(name.size() + 1, 8);
+  size_t new_size = size() - old_name_len + new_name_len;
+  char* new_binary = new char[new_size];
+  char* p = new_binary;
+  header.size = new_size;
+  MoveToBinaryFormat(header, p);
+  MoveToBinaryFormat(*data, p);
+  data = reinterpret_cast<CommRecordDataType*>(p - sizeof(CommRecordDataType));
+  comm = p;
+  strcpy(p, name.c_str());
+  p += new_name_len;
+  sample_id.WriteToBinaryFormat(p);
+  CHECK_EQ(p, new_binary + new_size);
   UpdateBinary(new_binary);
 }
 
@@ -434,12 +474,7 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, char* p) : Record(p) {
       regs_user_data.reg_mask = 0;
     } else {
       regs_user_data.reg_mask = attr.sample_regs_user;
-      size_t bit_nr = 0;
-      for (size_t i = 0; i < 64; ++i) {
-        if ((regs_user_data.reg_mask >> i) & 1) {
-          bit_nr++;
-        }
-      }
+      size_t bit_nr = __builtin_popcountll(regs_user_data.reg_mask);
       regs_user_data.reg_nr = bit_nr;
       regs_user_data.regs = reinterpret_cast<uint64_t*>(p);
       p += bit_nr * sizeof(uint64_t);
@@ -465,7 +500,8 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, char* p) : Record(p) {
 SampleRecord::SampleRecord(const perf_event_attr& attr, uint64_t id,
                            uint64_t ip, uint32_t pid, uint32_t tid,
                            uint64_t time, uint32_t cpu, uint64_t period,
-                           const std::vector<uint64_t>& ips) {
+                           const std::vector<uint64_t>& ips, const std::vector<char>& stack,
+                           uint64_t dyn_stack_size) {
   SetTypeAndMisc(PERF_RECORD_SAMPLE, PERF_RECORD_MISC_USER);
   sample_type = attr.sample_type;
   CHECK_EQ(0u, sample_type & ~(PERF_SAMPLE_IP | PERF_SAMPLE_TID
@@ -485,7 +521,9 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, uint64_t id,
   branch_stack_data.stack_nr = 0;
   regs_user_data.abi = 0;
   regs_user_data.reg_mask = 0;
-  stack_user_data.size = 0;
+  regs_user_data.reg_nr = 0;
+  stack_user_data.size = stack.size();
+  stack_user_data.dyn_size = dyn_stack_size;
 
   uint32_t size = header_size();
   if (sample_type & PERF_SAMPLE_IP) {
@@ -513,7 +551,7 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, uint64_t id,
     size += sizeof(uint64_t);
   }
   if (sample_type & PERF_SAMPLE_STACK_USER) {
-    size += sizeof(uint64_t);
+    size += sizeof(uint64_t) + (stack.empty() ? 0 : stack.size() + sizeof(uint64_t));
   }
 
   SetSize(size);
@@ -548,77 +586,49 @@ SampleRecord::SampleRecord(const perf_event_attr& attr, uint64_t id,
   }
   if (sample_type & PERF_SAMPLE_STACK_USER) {
     MoveToBinaryFormat(stack_user_data.size, p);
+    if (stack_user_data.size > 0) {
+      stack_user_data.data = p;
+      MoveToBinaryFormat(stack.data(), stack_user_data.size, p);
+      MoveToBinaryFormat(stack_user_data.dyn_size, p);
+    }
   }
   CHECK_EQ(p, new_binary + size);
   UpdateBinary(new_binary);
 }
 
-void SampleRecord::ReplaceRegAndStackWithCallChain(
-    const std::vector<uint64_t>& ips) {
+void SampleRecord::ReplaceRegAndStackWithCallChain(const std::vector<uint64_t>& ips) {
   uint32_t size_added_in_callchain = sizeof(uint64_t) * (ips.size() + 1);
-  uint32_t size_reduced_in_reg_stack =
-      regs_user_data.reg_nr * sizeof(uint64_t) + stack_user_data.size +
-      sizeof(uint64_t);
-  CHECK_LE(size_added_in_callchain, size_reduced_in_reg_stack);
-  uint32_t size_reduced = size_reduced_in_reg_stack - size_added_in_callchain;
-  SetSize(size() - size_reduced);
-  char* p = binary_;
-  MoveToBinaryFormat(header, p);
-  p = (stack_user_data.data + stack_user_data.size + sizeof(uint64_t)) -
-      (size_reduced_in_reg_stack - size_added_in_callchain);
-  stack_user_data.size = 0;
-  regs_user_data.abi = 0;
-  p -= sizeof(uint64_t);
-  *reinterpret_cast<uint64_t*>(p) = stack_user_data.size;
-  p -= sizeof(uint64_t);
-  *reinterpret_cast<uint64_t*>(p) = regs_user_data.abi;
-  if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
-    p -= branch_stack_data.stack_nr * sizeof(BranchStackItemType);
-    memmove(p, branch_stack_data.stack,
-            branch_stack_data.stack_nr * sizeof(BranchStackItemType));
-    p -= sizeof(uint64_t);
-    *reinterpret_cast<uint64_t*>(p) = branch_stack_data.stack_nr;
-  }
-  if (sample_type & PERF_SAMPLE_RAW) {
-    p -= raw_data.size;
-    memmove(p, raw_data.data, raw_data.size);
-    p -= sizeof(uint32_t);
-    *reinterpret_cast<uint32_t*>(p) = raw_data.size;
-  }
-  p -= ips.size() * sizeof(uint64_t);
-  memcpy(p, ips.data(), ips.size() * sizeof(uint64_t));
-  p -= sizeof(uint64_t);
-  *reinterpret_cast<uint64_t*>(p) = PERF_CONTEXT_USER;
-  p -= sizeof(uint64_t) * (callchain_data.ip_nr);
-  callchain_data.ips = reinterpret_cast<uint64_t*>(p);
-  callchain_data.ip_nr += ips.size() + 1;
-  p -= sizeof(uint64_t);
-  *reinterpret_cast<uint64_t*>(p) = callchain_data.ip_nr;
+  uint32_t size_reduced_in_reg_stack = regs_user_data.reg_nr * sizeof(uint64_t) +
+      stack_user_data.size + sizeof(uint64_t);
+  uint32_t new_size = size() + size_added_in_callchain - size_reduced_in_reg_stack;
+  BuildBinaryWithNewCallChain(new_size, ips);
 }
 
-size_t SampleRecord::ExcludeKernelCallChain() {
-  size_t user_callchain_length = 0u;
-  if (sample_type & PERF_SAMPLE_CALLCHAIN) {
-    size_t i;
-    for (i = 0; i < callchain_data.ip_nr; ++i) {
-      if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
-        i++;
-        if (i < callchain_data.ip_nr) {
-          ip_data.ip = callchain_data.ips[i];
-          if (sample_type & PERF_SAMPLE_IP) {
-            *reinterpret_cast<uint64_t*>(binary_ + header_size()) = ip_data.ip;
-          }
-          header.misc = (header.misc & ~PERF_RECORD_MISC_KERNEL) | PERF_RECORD_MISC_USER;
-          reinterpret_cast<perf_event_header*>(binary_)->misc = header.misc;
-        }
-        break;
-      } else {
-        callchain_data.ips[i] = PERF_CONTEXT_USER;
-      }
-    }
-    user_callchain_length = callchain_data.ip_nr - i;
+bool SampleRecord::ExcludeKernelCallChain() {
+  if (!(sample_type & PERF_SAMPLE_CALLCHAIN)) {
+    return true;
   }
-  return user_callchain_length;
+  size_t i;
+  for (i = 0; i < callchain_data.ip_nr; ++i) {
+    if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
+      break;
+    }
+    // Erase kernel callchain.
+    callchain_data.ips[i] = PERF_CONTEXT_USER;
+  }
+  while (++i < callchain_data.ip_nr) {
+    if (callchain_data.ips[i] < PERF_CONTEXT_MAX) {
+      // Change the sample to make it hit the user space ip address.
+      ip_data.ip = callchain_data.ips[i];
+      if (sample_type & PERF_SAMPLE_IP) {
+        *reinterpret_cast<uint64_t*>(binary_ + header_size()) = ip_data.ip;
+      }
+      header.misc = (header.misc & ~PERF_RECORD_MISC_CPUMODE_MASK) | PERF_RECORD_MISC_USER;
+      reinterpret_cast<perf_event_header*>(binary_)->misc = header.misc;
+      return true;
+    }
+  }
+  return false;
 }
 
 bool SampleRecord::HasUserCallChain() const {
@@ -638,102 +648,74 @@ bool SampleRecord::HasUserCallChain() const {
 }
 
 void SampleRecord::UpdateUserCallChain(const std::vector<uint64_t>& user_ips) {
-  std::vector<uint64_t> kernel_ips;
+  size_t kernel_ip_count = 0;
   for (size_t i = 0; i < callchain_data.ip_nr; ++i) {
     if (callchain_data.ips[i] == PERF_CONTEXT_USER) {
       break;
     }
-    kernel_ips.push_back(callchain_data.ips[i]);
+    kernel_ip_count++;
   }
-  kernel_ips.push_back(PERF_CONTEXT_USER);
-  size_t new_size = size() - callchain_data.ip_nr * sizeof(uint64_t) +
-                    (kernel_ips.size() + user_ips.size()) * sizeof(uint64_t);
-  if (new_size == size()) {
+  if (kernel_ip_count + 1 + user_ips.size() <= callchain_data.ip_nr) {
+    // Callchain isn't changed.
     return;
   }
-  char* new_binary = new char[new_size];
+  size_t new_size = size() + (kernel_ip_count + 1 + user_ips.size() - callchain_data.ip_nr) *
+      sizeof(uint64_t);
+  callchain_data.ip_nr = kernel_ip_count;
+  BuildBinaryWithNewCallChain(new_size, user_ips);
+}
+
+void SampleRecord::BuildBinaryWithNewCallChain(uint32_t new_size,
+                                               const std::vector<uint64_t>& ips) {
+  size_t callchain_pos = reinterpret_cast<char*>(callchain_data.ips) - binary_ - sizeof(uint64_t);
+  char* new_binary = binary_;
+  if (new_size > size()) {
+    new_binary = new char[new_size];
+    memcpy(new_binary, binary_, callchain_pos);
+  }
   char* p = new_binary;
   SetSize(new_size);
   MoveToBinaryFormat(header, p);
-  if (sample_type & PERF_SAMPLE_IDENTIFIER) {
-    MoveToBinaryFormat(id_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_IP) {
-    MoveToBinaryFormat(ip_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_TID) {
-    MoveToBinaryFormat(tid_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_TIME) {
-    MoveToBinaryFormat(time_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_ADDR) {
-    MoveToBinaryFormat(addr_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_ID) {
-    MoveToBinaryFormat(id_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_STREAM_ID) {
-    MoveToBinaryFormat(stream_id_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_CPU) {
-    MoveToBinaryFormat(cpu_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_PERIOD) {
-    MoveToBinaryFormat(period_data, p);
-  }
-  if (sample_type & PERF_SAMPLE_CALLCHAIN) {
-    callchain_data.ip_nr = kernel_ips.size() + user_ips.size();
-    MoveToBinaryFormat(callchain_data.ip_nr, p);
-    callchain_data.ips = reinterpret_cast<uint64_t*>(p);
-    MoveToBinaryFormat(kernel_ips.data(), kernel_ips.size(), p);
-    MoveToBinaryFormat(user_ips.data(), user_ips.size(), p);
-  }
-  if (sample_type & PERF_SAMPLE_RAW) {
-    MoveToBinaryFormat(raw_data.size, p);
-    MoveToBinaryFormat(raw_data.data, raw_data.size, p);
-    raw_data.data = p - raw_data.size;
-  }
-  if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
-    MoveToBinaryFormat(branch_stack_data.stack_nr, p);
-    char* old_p = p;
-    MoveToBinaryFormat(branch_stack_data.stack, branch_stack_data.stack_nr, p);
-    branch_stack_data.stack = reinterpret_cast<BranchStackItemType*>(old_p);
+  p = new_binary + new_size;
+  if (sample_type & PERF_SAMPLE_STACK_USER) {
+    stack_user_data.size = 0;
+    p -= sizeof(uint64_t);
+    memcpy(p, &stack_user_data.size, sizeof(uint64_t));
   }
   if (sample_type & PERF_SAMPLE_REGS_USER) {
-    MoveToBinaryFormat(regs_user_data.abi, p);
-    CHECK_EQ(regs_user_data.abi, 0u);
+    regs_user_data.abi = 0;
+    p -= sizeof(uint64_t);
+    memcpy(p, &regs_user_data.abi, sizeof(uint64_t));
   }
-  if (sample_type & PERF_SAMPLE_STACK_USER) {
-    MoveToBinaryFormat(stack_user_data.size, p);
-    CHECK_EQ(stack_user_data.size, 0u);
+  if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
+    p -= branch_stack_data.stack_nr * sizeof(BranchStackItemType);
+    memcpy(p, branch_stack_data.stack, branch_stack_data.stack_nr * sizeof(BranchStackItemType));
+    branch_stack_data.stack = reinterpret_cast<BranchStackItemType*>(p);
+    p -= sizeof(uint64_t);
+    memcpy(p, &branch_stack_data.stack_nr, sizeof(uint64_t));
   }
-  CHECK_EQ(p, new_binary + new_size) << "sample_type = " << std::hex << sample_type;
-  UpdateBinary(new_binary);
-}
-
-// When simpleperf requests the kernel to dump 64K stack per sample, it will allocate 64K space in
-// each sample to store stack data. However, a thread may use less stack than 64K. So not all the
-// 64K stack data in a sample is valid. And this function is used to remove invalid stack data in
-// a sample, which can save time and disk space when storing samples in file.
-void SampleRecord::RemoveInvalidStackData() {
-  if (sample_type & PERF_SAMPLE_STACK_USER) {
-    uint64_t valid_stack_size = GetValidStackSize();
-    if (stack_user_data.size > valid_stack_size) {
-      // Shrink stack size to valid_stack_size, and update it in binary.
-      stack_user_data.size = valid_stack_size;
-      char* p = stack_user_data.data - sizeof(stack_user_data.size);
-      MoveToBinaryFormat(stack_user_data.size, p);
-      p += valid_stack_size;
-      // Update dyn_size in binary.
-      if (valid_stack_size != 0u) {
-        MoveToBinaryFormat(stack_user_data.dyn_size, p);
-      }
-      // Update sample size.
-      header.size = p - binary_;
-      p = binary_;
-      header.MoveToBinaryFormat(p);
-    }
+  if (sample_type & PERF_SAMPLE_RAW) {
+    p -= raw_data.size;
+    memcpy(p, raw_data.data, raw_data.size);
+    raw_data.data = p;
+    p -= sizeof(uint32_t);
+    memcpy(p, &raw_data.size, sizeof(uint32_t));
+  }
+  uint64_t* p64 = reinterpret_cast<uint64_t*>(p);
+  p64 -= ips.size();
+  memcpy(p64, ips.data(), ips.size() * sizeof(uint64_t));
+  *--p64 = PERF_CONTEXT_USER;
+  if (callchain_data.ip_nr > 0) {
+    p64 -= callchain_data.ip_nr;
+    memcpy(p64, callchain_data.ips, callchain_data.ip_nr * sizeof(uint64_t));
+  }
+  callchain_data.ips = p64;
+  callchain_data.ip_nr += 1 + ips.size();
+  *--p64 = callchain_data.ip_nr;
+  CHECK_EQ(callchain_pos, static_cast<size_t>(reinterpret_cast<char*>(p64) - new_binary))
+    << "record time " << time_data.time;
+  if (new_binary != binary_) {
+    UpdateBinary(new_binary);
   }
 }
 
@@ -822,26 +804,74 @@ void SampleRecord::AdjustCallChainGeneratedByKernel() {
   // The kernel stores return addrs in the callchain, but we want the addrs of call instructions
   // along the callchain.
   uint64_t* ips = callchain_data.ips;
+  uint64_t context = header.misc == PERF_RECORD_MISC_KERNEL ? PERF_CONTEXT_KERNEL
+                                                            : PERF_CONTEXT_USER;
   bool first_frame = true;
-  for (uint64_t i = 0; i < callchain_data.ip_nr; ++i) {
-    if (ips[i] > 0 && ips[i] < PERF_CONTEXT_MAX) {
+  for (size_t i = 0; i < callchain_data.ip_nr; ++i) {
+    if (ips[i] < PERF_CONTEXT_MAX) {
       if (first_frame) {
         first_frame = false;
       } else {
-        // Here we want to change the return addr to the addr of the previous instruction. We don't
-        // need to find the exact start addr of the previous instruction. A location in
+        if (ips[i] < 2) {
+          // A wrong ip address, erase it.
+          ips[i] = context;
+        } else {
+          // Here we want to change the return addr to the addr of the previous instruction. We
+          // don't need to find the exact start addr of the previous instruction. A location in
         // [start_addr_of_call_inst, start_addr_of_next_inst) is enough.
 #if defined(__arm__) || defined(__aarch64__)
-        // If we are built for arm/aarch64, this may be a callchain of thumb code. For thumb code,
-        // the real instruction addr is (ip & ~1), and ip - 2 can used to hit the address range
-        // of the previous instruction. For non thumb code, any addr in [ip - 4, ip - 1] is fine.
-        ips[i] -= 2;
+          // If we are built for arm/aarch64, this may be a callchain of thumb code. For thumb code,
+          // the real instruction addr is (ip & ~1), and ip - 2 can used to hit the address range
+          // of the previous instruction. For non thumb code, any addr in [ip - 4, ip - 1] is fine.
+          ips[i] -= 2;
 #else
-        ips[i]--;
+          ips[i]--;
 #endif
+        }
+      }
+    } else {
+      context = ips[i];
+    }
+  }
+}
+
+std::vector<uint64_t> SampleRecord::GetCallChain(size_t* kernel_ip_count) const {
+  std::vector<uint64_t> ips;
+  bool in_kernel = InKernel();
+  ips.push_back(ip_data.ip);
+  *kernel_ip_count = in_kernel ? 1 : 0;
+  if ((sample_type & PERF_SAMPLE_CALLCHAIN) == 0) {
+    return ips;
+  }
+  bool first_ip = true;
+  for (uint64_t i = 0; i < callchain_data.ip_nr; ++i) {
+    uint64_t ip = callchain_data.ips[i];
+    if (ip >= PERF_CONTEXT_MAX) {
+      switch (ip) {
+        case PERF_CONTEXT_KERNEL:
+          CHECK(in_kernel) << "User space callchain followed by kernel callchain.";
+          break;
+        case PERF_CONTEXT_USER:
+          in_kernel = false;
+          break;
+        default:
+          LOG(DEBUG) << "Unexpected perf_context in callchain: " << std::hex << ip << std::dec;
+      }
+    } else {
+      if (first_ip) {
+        first_ip = false;
+        // Remove duplication with sample ip.
+        if (ip == ip_data.ip) {
+          continue;
+        }
+      }
+      ips.push_back(ip);
+      if (in_kernel) {
+        ++*kernel_ip_count;
       }
     }
   }
+  return ips;
 }
 
 BuildIdRecord::BuildIdRecord(char* p) : Record(p) {
@@ -990,7 +1020,7 @@ TracingDataRecord::TracingDataRecord(char* p) : Record(p) {
 }
 
 TracingDataRecord::TracingDataRecord(const std::vector<char>& tracing_data) {
-  SetTypeAndMisc(PERF_RECORD_TRACING_DATA, 0);
+  SetTypeAndMisc(SIMPLE_PERF_RECORD_TRACING_DATA, 0);
   data_size = tracing_data.size();
   SetSize(header_size() + sizeof(uint32_t) + Align(tracing_data.size(), 64));
   char* new_binary = new char[size()];
@@ -1193,6 +1223,8 @@ std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr, uint32
       return std::unique_ptr<Record>(new CallChainRecord(p));
     case SIMPLE_PERF_RECORD_UNWINDING_RESULT:
       return std::unique_ptr<Record>(new UnwindingResultRecord(p));
+    case SIMPLE_PERF_RECORD_TRACING_DATA:
+      return std::unique_ptr<Record>(new TracingDataRecord(p));
     default:
       return std::unique_ptr<Record>(new UnknownRecord(p));
   }
@@ -1227,85 +1259,4 @@ std::vector<std::unique_ptr<Record>> ReadRecordsFromBuffer(
 std::unique_ptr<Record> ReadRecordFromBuffer(const perf_event_attr& attr, char* p) {
   auto header = reinterpret_cast<const perf_event_header*>(p);
   return ReadRecordFromBuffer(attr, header->type, p);
-}
-
-bool RecordCache::RecordWithSeq::IsHappensBefore(
-    const RecordWithSeq& other) const {
-  bool is_sample = (record->type() == PERF_RECORD_SAMPLE);
-  bool is_other_sample = (other.record->type() == PERF_RECORD_SAMPLE);
-  uint64_t time = record->Timestamp();
-  uint64_t other_time = other.record->Timestamp();
-  // The record with smaller time happens first.
-  if (time != other_time) {
-    return time < other_time;
-  }
-  // If happening at the same time, make non-sample records before sample
-  // records, because non-sample records may contain useful information to
-  // parse sample records.
-  if (is_sample != is_other_sample) {
-    return is_sample ? false : true;
-  }
-  // Otherwise, use the same order as they enter the cache.
-  return seq < other.seq;
-}
-
-bool RecordCache::RecordComparator::operator()(const RecordWithSeq& r1,
-                                               const RecordWithSeq& r2) {
-  return r2.IsHappensBefore(r1);
-}
-
-RecordCache::RecordCache(bool has_timestamp, size_t min_cache_size,
-                         uint64_t min_time_diff_in_ns)
-    : has_timestamp_(has_timestamp),
-      min_cache_size_(min_cache_size),
-      min_time_diff_in_ns_(min_time_diff_in_ns),
-      last_time_(0),
-      cur_seq_(0),
-      queue_(RecordComparator()) {}
-
-RecordCache::~RecordCache() { PopAll(); }
-
-void RecordCache::Push(std::unique_ptr<Record> record) {
-  if (has_timestamp_) {
-    last_time_ = std::max(last_time_, record->Timestamp());
-  }
-  queue_.push(RecordWithSeq(cur_seq_++, record.release()));
-}
-
-void RecordCache::Push(std::vector<std::unique_ptr<Record>> records) {
-  for (auto& r : records) {
-    Push(std::move(r));
-  }
-}
-
-std::unique_ptr<Record> RecordCache::Pop() {
-  if (queue_.size() < min_cache_size_) {
-    return nullptr;
-  }
-  Record* r = queue_.top().record;
-  if (has_timestamp_) {
-    if (r->Timestamp() + min_time_diff_in_ns_ > last_time_) {
-      return nullptr;
-    }
-  }
-  queue_.pop();
-  return std::unique_ptr<Record>(r);
-}
-
-std::vector<std::unique_ptr<Record>> RecordCache::PopAll() {
-  std::vector<std::unique_ptr<Record>> result;
-  while (!queue_.empty()) {
-    result.emplace_back(queue_.top().record);
-    queue_.pop();
-  }
-  return result;
-}
-
-std::unique_ptr<Record> RecordCache::ForcedPop() {
-  if (queue_.empty()) {
-    return nullptr;
-  }
-  Record* r = queue_.top().record;
-  queue_.pop();
-  return std::unique_ptr<Record>(r);
 }

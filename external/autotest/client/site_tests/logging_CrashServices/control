@@ -18,11 +18,4 @@ Crash all valid Chrome OS processes from a whitelist, and confirm
 that *.dmp, *.meta, and *.core files are created.
 """
 
-BUG_TEMPLATE = {
-    'labels': ['OS-Chrome'],
-    'components': ['Internals>Logging', 'OS>Systems'],
-    'owner': 'vapier@chromium.org',
-    'cc': ['vapier@chromium.org', 'benchan@chromium.org'],
-}
-
 job.run_test("logging_CrashServices")

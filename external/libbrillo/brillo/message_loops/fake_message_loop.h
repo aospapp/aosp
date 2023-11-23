@@ -36,11 +36,11 @@ class BRILLO_EXPORT FakeMessageLoop : public MessageLoop {
   explicit FakeMessageLoop(base::SimpleTestClock* clock);
   ~FakeMessageLoop() override = default;
 
-  TaskId PostDelayedTask(const tracked_objects::Location& from_here,
+  TaskId PostDelayedTask(const base::Location& from_here,
                          const base::Closure& task,
                          base::TimeDelta delay) override;
   using MessageLoop::PostDelayedTask;
-  TaskId WatchFileDescriptor(const tracked_objects::Location& from_here,
+  TaskId WatchFileDescriptor(const base::Location& from_here,
                              int fd,
                              WatchMode mode,
                              bool persistent,
@@ -63,7 +63,7 @@ class BRILLO_EXPORT FakeMessageLoop : public MessageLoop {
 
  private:
   struct ScheduledTask {
-    tracked_objects::Location location;
+    base::Location location;
     bool persistent;
     base::Closure callback;
   };

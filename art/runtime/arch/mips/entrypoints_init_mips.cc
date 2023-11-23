@@ -184,7 +184,7 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   jpoints->pDlsymLookup = art_jni_dlsym_lookup_stub;
 
   // Alloc
-  ResetQuickAllocEntryPoints(qpoints, /*is_active*/ false);
+  ResetQuickAllocEntryPoints(qpoints, /*is_active=*/ false);
 
   // Cast
   qpoints->pInstanceofNonTrivial = artInstanceOfFromCode;
@@ -192,17 +192,21 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pCheckInstanceOf = art_quick_check_instance_of;
   static_assert(!IsDirectEntrypoint(kQuickCheckInstanceOf), "Non-direct C stub marked direct.");
 
-  // DexCache
+  // Resolution and initialization
   qpoints->pInitializeStaticStorage = art_quick_initialize_static_storage;
   static_assert(!IsDirectEntrypoint(kQuickInitializeStaticStorage),
                 "Non-direct C stub marked direct.");
-  qpoints->pInitializeTypeAndVerifyAccess = art_quick_initialize_type_and_verify_access;
-  static_assert(!IsDirectEntrypoint(kQuickInitializeTypeAndVerifyAccess),
+  qpoints->pResolveTypeAndVerifyAccess = art_quick_resolve_type_and_verify_access;
+  static_assert(!IsDirectEntrypoint(kQuickResolveTypeAndVerifyAccess),
                 "Non-direct C stub marked direct.");
-  qpoints->pInitializeType = art_quick_initialize_type;
-  static_assert(!IsDirectEntrypoint(kQuickInitializeType), "Non-direct C stub marked direct.");
+  qpoints->pResolveType = art_quick_resolve_type;
+  static_assert(!IsDirectEntrypoint(kQuickResolveType), "Non-direct C stub marked direct.");
   qpoints->pResolveString = art_quick_resolve_string;
   static_assert(!IsDirectEntrypoint(kQuickResolveString), "Non-direct C stub marked direct.");
+  qpoints->pResolveMethodHandle = art_quick_resolve_method_handle;
+  static_assert(!IsDirectEntrypoint(kQuickResolveMethodHandle), "Non-direct C stub marked direct.");
+  qpoints->pResolveMethodType = art_quick_resolve_method_type;
+  static_assert(!IsDirectEntrypoint(kQuickResolveMethodType), "Non-direct C stub marked direct.");
 
   // Field
   qpoints->pSet8Instance = art_quick_set8_instance;
@@ -406,6 +410,9 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   static_assert(!IsDirectEntrypoint(kQuickInvokeVirtualTrampolineWithAccessCheck),
                 "Non-direct C stub marked direct.");
   qpoints->pInvokePolymorphic = art_quick_invoke_polymorphic;
+  static_assert(!IsDirectEntrypoint(kQuickInvokePolymorphic), "Non-direct C stub marked direct.");
+  qpoints->pInvokeCustom = art_quick_invoke_custom;
+  static_assert(!IsDirectEntrypoint(kQuickInvokeCustom), "Non-direct C stub marked direct.");
 
   // Thread
   qpoints->pTestSuspend = art_quick_test_suspend;
@@ -438,7 +445,7 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   // Read barrier.
   qpoints->pReadBarrierJni = ReadBarrierJni;
   static_assert(IsDirectEntrypoint(kQuickReadBarrierJni), "Direct C stub not marked direct.");
-  UpdateReadBarrierEntrypoints(qpoints, /*is_active*/ false);
+  UpdateReadBarrierEntrypoints(qpoints, /*is_active=*/ false);
   // Cannot use the following registers to pass arguments:
   // 0(ZERO), 1(AT), 16(S0), 17(S1), 24(T8), 25(T9), 26(K0), 27(K1), 28(GP), 29(SP), 31(RA).
   // Note that there are 30 entry points only: 00 for register 1(AT), ..., 29 for register 30(S8).

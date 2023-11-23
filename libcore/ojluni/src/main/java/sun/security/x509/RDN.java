@@ -482,7 +482,7 @@ class AVAComparator implements Comparator<AVA> {
         boolean a1Has2253 = a1.hasRFC2253Keyword();
         boolean a2Has2253 = a2.hasRFC2253Keyword();
 
-        // BEGIN Android-changed: Keep sort order of RDN from Android M
+        // BEGIN Android-changed: Keep sort order of RDN from Android M.
         if (a1Has2253) {
             if (a2Has2253) {
                 return a1.toRFC2253CanonicalString().compareTo
@@ -506,7 +506,7 @@ class AVAComparator implements Comparator<AVA> {
                         a1Oid[pos] - a2Oid[pos];
             }
         }
-        // BEGIN Android-changed: Keep sort order of RDN from prev impl
+        // END Android-changed: Keep sort order of RDN from Android M.
     }
 
 }

@@ -44,4 +44,51 @@ public class HostsideVpnTests extends HostsideNetworkTestCase {
     public void testAppDisallowed() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testAppDisallowed");
     }
+
+    public void testGetConnectionOwnerUidSecurity() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testGetConnectionOwnerUidSecurity");
+    }
+
+    public void testSetProxy() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testSetProxy");
+    }
+
+    public void testSetProxyDisallowedApps() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testSetProxyDisallowedApps");
+    }
+
+    public void testNoProxy() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testNoProxy");
+    }
+
+    public void testBindToNetworkWithProxy() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testBindToNetworkWithProxy");
+    }
+
+    public void testVpnMeterednessWithNoUnderlyingNetwork() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_PKG + ".VpnTest", "testVpnMeterednessWithNoUnderlyingNetwork");
+    }
+
+    public void testVpnMeterednessWithNullUnderlyingNetwork() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_PKG + ".VpnTest", "testVpnMeterednessWithNullUnderlyingNetwork");
+    }
+
+    public void testVpnMeterednessWithNonNullUnderlyingNetwork() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_PKG + ".VpnTest", "testVpnMeterednessWithNonNullUnderlyingNetwork");
+    }
+
+    public void testAlwaysMeteredVpnWithNullUnderlyingNetwork() throws Exception {
+        runDeviceTests(
+                TEST_PKG, TEST_PKG + ".VpnTest", "testAlwaysMeteredVpnWithNullUnderlyingNetwork");
+    }
+
+    public void testAlwaysMeteredVpnWithNonNullUnderlyingNetwork() throws Exception {
+        runDeviceTests(
+                TEST_PKG,
+                TEST_PKG + ".VpnTest",
+                "testAlwaysMeteredVpnWithNonNullUnderlyingNetwork");
+    }
 }

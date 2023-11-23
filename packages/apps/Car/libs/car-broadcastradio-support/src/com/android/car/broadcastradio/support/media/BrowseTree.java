@@ -25,12 +25,12 @@ import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager;
 import android.hardware.radio.RadioManager.BandDescriptor;
 import android.hardware.radio.RadioMetadata;
+import android.media.MediaDescription;
+import android.media.browse.MediaBrowser.MediaItem;
 import android.os.Bundle;
-import android.support.v4.media.MediaBrowserCompat.MediaItem;
-import android.support.v4.media.MediaBrowserServiceCompat;
-import android.support.v4.media.MediaBrowserServiceCompat.BrowserRoot;
-import android.support.v4.media.MediaBrowserServiceCompat.Result;
-import android.support.v4.media.MediaDescriptionCompat;
+import android.service.media.MediaBrowserService;
+import android.service.media.MediaBrowserService.BrowserRoot;
+import android.service.media.MediaBrowserService.Result;
 import android.util.Log;
 
 import com.android.car.broadcastradio.support.Program;
@@ -39,7 +39,6 @@ import com.android.car.broadcastradio.support.platform.ImageResolver;
 import com.android.car.broadcastradio.support.platform.ProgramInfoExt;
 import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
 import com.android.car.broadcastradio.support.platform.RadioMetadataExt;
-import com.android.car.media.common.ContentStyleMediaConstants;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -120,25 +119,30 @@ public class BrowseTree {
             "android.car.intent.action.PLAY_BROADCASTRADIO";
 
     private static final String NODE_ROOT = "root_id";
-    private static final String NODE_PROGRAMS = "programs_id";
-    private static final String NODE_FAVORITES = "favorites_id";
+    public static final String NODE_PROGRAMS = "programs_id";
+    public static final String NODE_FAVORITES = "favorites_id";
 
     private static final String NODEPREFIX_BAND = "band:";
+    public static final String NODE_BAND_AM = NODEPREFIX_BAND + "am";
+    public static final String NODE_BAND_FM = NODEPREFIX_BAND + "fm";
+    public static final String NODE_BAND_DAB = NODEPREFIX_BAND + "dab";
+
     private static final String NODEPREFIX_AMFMCHANNEL = "amfm:";
     private static final String NODEPREFIX_PROGRAM = "program:";
 
     private final BrowserRoot mRoot = new BrowserRoot(NODE_ROOT, null);
 
     private final Object mLock = new Object();
-    private final @NonNull MediaBrowserServiceCompat mBrowserService;
+    private final @NonNull MediaBrowserService mBrowserService;
     private final @Nullable ImageResolver mImageResolver;
 
     private List<MediaItem> mRootChildren;
 
     private final AmFmChannelList mAmChannels = new AmFmChannelList(
-            NODEPREFIX_BAND + "am", R.string.radio_am_text, "AM");
+            NODE_BAND_AM, R.string.radio_am_text, "AM");
     private final AmFmChannelList mFmChannels = new AmFmChannelList(
-            NODEPREFIX_BAND + "fm", R.string.radio_fm_text, "FM");
+            NODE_BAND_FM, R.string.radio_fm_text, "FM");
+    private boolean mDABEnabled;
 
     private final ProgramList.OnCompleteListener mProgramListCompleteListener =
             this::onProgramListUpdated;
@@ -151,7 +155,7 @@ public class BrowseTree {
     @Nullable Set<Program> mFavorites;
     @Nullable private List<MediaItem> mFavoritesCache;
 
-    public BrowseTree(@NonNull MediaBrowserServiceCompat browserService,
+    public BrowseTree(@NonNull MediaBrowserService browserService,
             @Nullable ImageResolver imageResolver) {
         mBrowserService = Objects.requireNonNull(browserService);
         mImageResolver = imageResolver;
@@ -161,9 +165,9 @@ public class BrowseTree {
         return mRoot;
     }
 
-    private static MediaItem createChild(MediaDescriptionCompat.Builder descBuilder,
+    private static MediaItem createChild(MediaDescription.Builder descBuilder,
             String mediaId, String title, ProgramSelector sel, Bitmap icon) {
-        MediaDescriptionCompat desc = descBuilder
+        MediaDescription desc = descBuilder
                 .setMediaId(mediaId)
                 .setMediaUri(ProgramSelectorExt.toUri(sel))
                 .setTitle(title)
@@ -172,20 +176,17 @@ public class BrowseTree {
         return new MediaItem(desc, MediaItem.FLAG_PLAYABLE);
     }
 
-    private static MediaItem createFolder(MediaDescriptionCompat.Builder descBuilder,
-            String mediaId, String title, boolean isPlayable, long folderType, Bundle extras) {
+    private static MediaItem createFolder(MediaDescription.Builder descBuilder, String mediaId,
+            String title, boolean isBrowseable, boolean isPlayable, long folderType,
+            Bundle extras) {
         if (extras == null) extras = new Bundle();
         extras.putLong(EXTRA_BCRADIO_FOLDER_TYPE, folderType);
-        extras.putBoolean(ContentStyleMediaConstants.CONTENT_STYLE_SUPPORTED, true);
-        extras.putInt(ContentStyleMediaConstants.CONTENT_STYLE_PLAYABLE_HINT,
-                ContentStyleMediaConstants.CONTENT_STYLE_LIST_ITEM_HINT_VALUE);
-        extras.putInt(ContentStyleMediaConstants.CONTENT_STYLE_BROWSABLE_HINT,
-                ContentStyleMediaConstants.CONTENT_STYLE_LIST_ITEM_HINT_VALUE);
 
-        MediaDescriptionCompat desc = descBuilder
+        MediaDescription desc = descBuilder
                 .setMediaId(mediaId).setTitle(title).setExtras(extras).build();
 
-        int flags = MediaItem.FLAG_BROWSABLE;
+        int flags = 0;
+        if (isBrowseable) flags |= MediaItem.FLAG_BROWSABLE;
         if (isPlayable) flags |= MediaItem.FLAG_PLAYABLE;
         return new MediaItem(desc, flags);
     }
@@ -215,6 +216,19 @@ public class BrowseTree {
             mFmChannels.setBands(fmBands);
             mRootChildren = null;
             mBrowserService.notifyChildrenChanged(NODE_ROOT);
+        }
+    }
+
+    /**
+     * Configures the BrowseTree to include a DAB node or not
+     */
+    public void setDABEnabled(boolean enabled) {
+        synchronized (mLock) {
+            if (mDABEnabled != enabled) {
+                mDABEnabled = enabled;
+                mRootChildren = null;
+                mBrowserService.notifyChildrenChanged(NODE_ROOT);
+            }
         }
     }
 
@@ -259,7 +273,7 @@ public class BrowseTree {
             if (mProgramListCache != null) return mProgramListCache;
             mProgramListCache = new ArrayList<>();
 
-            MediaDescriptionCompat.Builder dbld = new MediaDescriptionCompat.Builder();
+            MediaDescription.Builder dbld = new MediaDescription.Builder();
 
             for (RadioManager.ProgramInfo program : mProgramListSnapshot) {
                 ProgramSelector sel = program.getSelector();
@@ -310,21 +324,13 @@ public class BrowseTree {
         }
     }
 
-    /** @hide */
-    public boolean isFavorite(@NonNull ProgramSelector selector) {
-        synchronized (mLock) {
-            if (mFavorites == null) return false;
-            return mFavorites.contains(new Program(selector, ""));
-        }
-    }
-
     private List<MediaItem> getFavorites() {
         synchronized (mLock) {
             if (mFavorites == null) return null;
             if (mFavoritesCache != null) return mFavoritesCache;
             mFavoritesCache = new ArrayList<>();
 
-            MediaDescriptionCompat.Builder dbld = new MediaDescriptionCompat.Builder();
+            MediaDescription.Builder dbld = new MediaDescription.Builder();
 
             for (Program fav : mFavorites) {
                 ProgramSelector sel = fav.getSelector();
@@ -342,22 +348,28 @@ public class BrowseTree {
             if (mRootChildren != null) return mRootChildren;
             mRootChildren = new ArrayList<>();
 
-            MediaDescriptionCompat.Builder dbld = new MediaDescriptionCompat.Builder();
+            MediaDescription.Builder dbld = new MediaDescription.Builder();
             if (mProgramList != null) {
                 mRootChildren.add(createFolder(dbld, NODE_PROGRAMS,
                         mBrowserService.getString(R.string.program_list_text),
-                        false, BCRADIO_FOLDER_TYPE_PROGRAMS, null));
+                        true, false, BCRADIO_FOLDER_TYPE_PROGRAMS, null));
             }
             if (mFavorites != null) {
                 mRootChildren.add(createFolder(dbld, NODE_FAVORITES,
                         mBrowserService.getString(R.string.favorites_list_text),
-                        true, BCRADIO_FOLDER_TYPE_FAVORITES, null));
+                        true, true, BCRADIO_FOLDER_TYPE_FAVORITES, null));
             }
 
             MediaItem amRoot = mAmChannels.getBandRoot();
             if (amRoot != null) mRootChildren.add(amRoot);
             MediaItem fmRoot = mFmChannels.getBandRoot();
             if (fmRoot != null) mRootChildren.add(fmRoot);
+
+            if (mDABEnabled) {
+                mRootChildren.add(createFolder(dbld, NODE_BAND_DAB,
+                        mBrowserService.getString(R.string.radio_dab_text),
+                        false, true, BCRADIO_FOLDER_TYPE_BAND, null));
+            }
 
             return mRootChildren;
         }
@@ -397,8 +409,9 @@ public class BrowseTree {
             if (isEmpty()) return null;
             Bundle extras = new Bundle();
             extras.putString(EXTRA_BCRADIO_BAND_NAME_EN, mBandNameEn);
-            return createFolder(new MediaDescriptionCompat.Builder(), mMediaId,
-                    mBrowserService.getString(mBandName), true, BCRADIO_FOLDER_TYPE_BAND, extras);
+            return createFolder(new MediaDescription.Builder(), mMediaId,
+                    mBrowserService.getString(mBandName), true, true, BCRADIO_FOLDER_TYPE_BAND,
+                    extras);
         }
 
         public List<MediaItem> getChannels() {
@@ -407,7 +420,7 @@ public class BrowseTree {
                 if (isEmpty()) return null;
                 mChannels = new ArrayList<>();
 
-                MediaDescriptionCompat.Builder dbld = new MediaDescriptionCompat.Builder();
+                MediaDescription.Builder dbld = new MediaDescription.Builder();
 
                 for (BandDescriptor band : mBands) {
                     final int lowerLimit = band.getLowerLimit();
@@ -474,6 +487,18 @@ public class BrowseTree {
             return ProgramSelectorExt.createAmFmSelector(freqInt);
         } else if (mediaId.startsWith(NODEPREFIX_PROGRAM)) {
             return mProgramSelectors.get(mediaId);
+        } else if (mediaId.equals(NODE_FAVORITES)) {
+            if (mFavorites == null || mFavorites.isEmpty()) return null;
+            return mFavorites.iterator().next().getSelector();
+        } else if (mediaId.equals(NODE_PROGRAMS)) {
+            if (mProgramListSnapshot == null || mProgramListSnapshot.isEmpty()) return null;
+            return mProgramListSnapshot.get(0).getSelector();
+        } else if (mediaId.equals(NODE_BAND_AM)) {
+            if (mAmChannels.mBands == null || mAmChannels.mBands.isEmpty()) return null;
+            return ProgramSelectorExt.createAmFmSelector(mAmChannels.mBands.get(0).getLowerLimit());
+        } else if (mediaId.equals(NODE_BAND_FM)) {
+            if (mFmChannels.mBands == null || mFmChannels.mBands.isEmpty()) return null;
+            return ProgramSelectorExt.createAmFmSelector(mFmChannels.mBands.get(0).getLowerLimit());
         }
         return null;
     }

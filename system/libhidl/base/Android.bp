@@ -12,14 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library {
-    name: "libhidlbase",
-    vendor_available: true,
-    vndk: {
-        enabled: true,
-        support_system_process: true,
-    },
-    defaults: ["libhidl-defaults"],
+cc_defaults {
+    name: "libhidlbase-impl-shared-libs",
     shared_libs: [
         "libbase",
         "libcutils",
@@ -29,6 +23,16 @@ cc_library {
     export_shared_lib_headers: [
         "libutils",
         "libcutils", // for native_handle.h
+    ],
+}
+
+cc_library {
+    name: "libhidlbase-impl-internal",
+    vendor_available: true,
+    recovery_available: true,
+    defaults: [
+        "libhidlbase-impl-shared-libs",
+        "libhidl-defaults"
     ],
     local_include_dirs: ["include"],
     export_include_dirs: ["include"],

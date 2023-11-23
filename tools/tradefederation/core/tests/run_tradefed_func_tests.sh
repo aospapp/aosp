@@ -14,18 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A simple helper script that runs the Trade Federation unit tests
+# A simple helper script that runs the Trade Federation func tests
 
 TF_DIR=`dirname $0`/..
 
 TEST_CLASS="com.android.tradefed.FuncTests"
+DEVICE_TEST_CLASS="com.android.tradefed.DeviceFuncTests"
+
+CLASS_FILTER="--class ${TEST_CLASS} --class ${DEVICE_TEST_CLASS}"
 
 FORWARDED_ARGS=()
 while [[ $# -gt 0 ]]; do
   next="$1"
   case ${next} in
   --class)
-    TEST_CLASS="$2"
+    CLASS_FILTER="--class $2"
     shift
     ;;
   *)
@@ -36,6 +39,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-${TF_DIR}/tradefed.sh run singleCommand host -n \
+${TF_DIR}/tradefed.sh run singleCommand host \
   --console-result-reporter:suppress-passed-tests \
-  --class ${TEST_CLASS} ${FORWARDED_ARGS[*]}
+  ${CLASS_FILTER} ${FORWARDED_ARGS[*]}

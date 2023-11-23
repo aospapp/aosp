@@ -16,6 +16,16 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.when;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.BitmapFactory;
@@ -27,13 +37,15 @@ import android.os.Parcel;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.support.test.InstrumentationRegistry;
 import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.internal.telecom.IConnectionService;
 import com.android.internal.util.FastXmlSerializer;
@@ -61,16 +73,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.when;
 
 @RunWith(JUnit4.class)
 public class PhoneAccountRegistrarTest extends TelecomTestCase {
@@ -880,6 +882,64 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
         assertEquals(0, mRegistrar.getCallCapablePhoneAccounts(PhoneAccount.SCHEME_SIP,
                 false /* includeDisabled */, Process.myUserHandle()).size(),
                 PhoneAccount.CAPABILITY_RTT);
+    }
+
+    /**
+     * Tests {@link PhoneAccount#equals(Object)} operator.
+     * @throws Exception
+     */
+    @MediumTest
+    @Test
+    public void testPhoneAccountEquality() throws Exception {
+        PhoneAccountHandle handle = new PhoneAccountHandle(new ComponentName("foo", "bar"), "id");
+        PhoneAccount.Builder builder = new PhoneAccount.Builder(handle, "label");
+        builder.addSupportedUriScheme("tel");
+        builder.setAddress(Uri.fromParts("tel", "6505551212", null));
+        builder.setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER);
+        Bundle extras = new Bundle();
+        extras.putInt("INT", 1);
+        extras.putString("STR", "str");
+        builder.setExtras(extras);
+        builder.setGroupId("group");
+        builder.setHighlightColor(1);
+        builder.setShortDescription("short");
+        builder.setSubscriptionAddress(Uri.fromParts("tel", "6505551213", null));
+        builder.setSupportedAudioRoutes(2);
+
+        PhoneAccount account1 = builder.build();
+        PhoneAccount account2 = builder.build();
+        assertEquals(account1, account2);
+    }
+
+    /**
+     * Tests {@link PhoneAccountHandle#areFromSamePackage(PhoneAccountHandle,
+     * PhoneAccountHandle)} comparison.
+     */
+    @SmallTest
+    @Test
+    public void testSamePhoneAccountHandlePackage() {
+        PhoneAccountHandle a = new PhoneAccountHandle(new ComponentName("packageA", "class1"),
+                "id1");
+        PhoneAccountHandle b = new PhoneAccountHandle(new ComponentName("packageA", "class2"),
+                "id2");
+        PhoneAccountHandle c = new PhoneAccountHandle(new ComponentName("packageA", "class1"),
+                "id3");
+        PhoneAccountHandle d = new PhoneAccountHandle(new ComponentName("packageB", "class1"),
+                "id1");
+
+        assertTrue(PhoneAccountHandle.areFromSamePackage(null, null));
+        assertTrue(PhoneAccountHandle.areFromSamePackage(a, b));
+        assertTrue(PhoneAccountHandle.areFromSamePackage(a, c));
+        assertTrue(PhoneAccountHandle.areFromSamePackage(b, c));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(a, d));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(b, d));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(c, d));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(a, null));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(b, null));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(c, null));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(null, d));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(null, d));
+        assertFalse(PhoneAccountHandle.areFromSamePackage(null, d));
     }
 
     private static ComponentName makeQuickConnectionServiceComponentName() {

@@ -28,8 +28,10 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_SDK_VERSION := current
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    android-support-test \
+    compatibility-device-util-axt \
+    androidx.test.rules \
     cts-signature-common \
+
+LOCAL_HOST_REQUIRED_MODULES := cts-dynamic-config
 
 include $(BUILD_CTS_PACKAGE)

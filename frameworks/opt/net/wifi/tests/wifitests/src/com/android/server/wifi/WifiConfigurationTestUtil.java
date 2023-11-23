@@ -46,6 +46,9 @@ public class WifiConfigurationTestUtil {
     public static final int SECURITY_WEP =  1 << 0;
     public static final int SECURITY_PSK =  1 << 1;
     public static final int SECURITY_EAP =  1 << 2;
+    public static final int SECURITY_SAE =  1 << 3;
+    public static final int SECURITY_OWE =  1 << 4;
+    public static final int SECURITY_EAP_SUITE_B =  1 << 5;
 
     /**
      * These values are used to describe ip configuration parameters for a network.
@@ -61,7 +64,7 @@ public class WifiConfigurationTestUtil {
      */
     public static final int TEST_NETWORK_ID = -1;
     public static final int TEST_UID = 5;
-    public static final String TEST_SSID = "WifiConfigurationTestUtilSSID";
+    public static final String TEST_SSID = "WifiConfigurationTestSSID";
     public static final String TEST_PSK = "\"WifiConfigurationTestUtilPsk\"";
     public static final String[] TEST_WEP_KEYS =
             {"\"WifiConfigurationTestUtilWep1\"", "\"WifiConfigurationTestUtilWep2\"",
@@ -138,11 +141,27 @@ public class WifiConfigurationTestUtil {
                 config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
             }
 
+            if ((security & SECURITY_SAE) != 0) {
+                config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.SAE);
+                config.requirePMF = true;
+            }
+
+            if ((security & SECURITY_OWE) != 0) {
+                config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.OWE);
+                config.requirePMF = true;
+            }
+
             if ((security & SECURITY_EAP) != 0) {
                 config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_EAP);
                 config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.IEEE8021X);
                 config.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.TTLS);
             }
+
+            if ((security & SECURITY_EAP_SUITE_B) != 0) {
+                config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.SUITE_B_192);
+                config.requirePMF = true;
+            }
+
         }
         return config;
     }
@@ -224,6 +243,15 @@ public class WifiConfigurationTestUtil {
      * Helper methods to generate predefined WifiConfiguration objects of the required type. These
      * use a static index to avoid duplicate configurations.
      */
+    public static WifiConfiguration createOweNetwork() {
+        return createOweNetwork(createNewSSID());
+    }
+
+    public static WifiConfiguration createOweNetwork(String ssid) {
+        return generateWifiConfig(TEST_NETWORK_ID, TEST_UID, ssid, true, true, null,
+                null, SECURITY_OWE);
+    }
+
     public static WifiConfiguration createOpenNetwork() {
         return createOpenNetwork(createNewSSID());
     }
@@ -245,6 +273,17 @@ public class WifiConfigurationTestUtil {
         return configuration;
     }
 
+    public static WifiConfiguration createSaeNetwork() {
+        WifiConfiguration configuration =
+                generateWifiConfig(TEST_NETWORK_ID, TEST_UID, createNewSSID(), true, true, null,
+                        null, SECURITY_SAE);
+
+        // SAE password uses the same member.
+        configuration.preSharedKey = TEST_PSK;
+        configuration.requirePMF = true;
+        return configuration;
+    }
+
     public static WifiConfiguration createPskNetwork() {
         WifiConfiguration configuration =
                 generateWifiConfig(TEST_NETWORK_ID, TEST_UID, createNewSSID(), true, true, null,
@@ -261,6 +300,12 @@ public class WifiConfigurationTestUtil {
         return configuration;
     }
 
+    public static WifiConfiguration createSaeNetwork(String ssid) {
+        WifiConfiguration configuration =
+                generateWifiConfig(TEST_NETWORK_ID, TEST_UID, ssid, true, true, null,
+                        null, SECURITY_SAE);
+        return configuration;
+    }
 
     public static WifiConfiguration createPskHiddenNetwork() {
         WifiConfiguration configuration = createPskNetwork();
@@ -314,6 +359,17 @@ public class WifiConfigurationTestUtil {
                         null, null, SECURITY_EAP);
         configuration.enterpriseConfig.setEapMethod(eapMethod);
         configuration.enterpriseConfig.setPhase2Method(phase2Method);
+        return configuration;
+    }
+
+    public static WifiConfiguration createEapSuiteBNetwork() {
+        WifiConfiguration configuration =
+                generateWifiConfig(TEST_NETWORK_ID, TEST_UID, createNewSSID(), true, true,
+                        null, null, SECURITY_EAP_SUITE_B);
+
+        configuration.requirePMF = true;
+        configuration.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.TLS);
+        configuration.enterpriseConfig.setPhase2Method(WifiEnterpriseConfig.Phase2.NONE);
         return configuration;
     }
 
@@ -425,27 +481,62 @@ public class WifiConfigurationTestUtil {
     }
 
     /**
-     * Creates a scan detail corresponding to the provided network and given BSSID, level &frequency
-     * values.
+     * Gets scan result capabilities for a particular network configuration.
+     */
+    public static String getScanResultCapsForNetwork(WifiConfiguration configuration) {
+        String caps;
+        if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
+            caps = "[RSN-PSK-CCMP]";
+        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP)
+                || configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {
+            caps = "[RSN-EAP-CCMP]";
+        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE)
+                && WifiConfigurationUtil.hasAnyValidWepKey(configuration.wepKeys)) {
+            caps = "[WEP]";
+        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
+            caps = "[RSN-SAE-CCMP]";
+        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.OWE)) {
+            caps = "[RSN-OWE-CCMP]";
+        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SUITE_B_192)) {
+            caps = "[RSN-SUITE-B-192-CCMP]";
+        } else {
+            caps = "[]";
+        }
+        return caps;
+    }
+
+    /**
+     * Gets scan result capabilities for a WPA2/WPA3-Transition mode network configuration
+     */
+    private static String
+            getScanResultCapsForWpa2Wpa3TransitionNetwork(WifiConfiguration configuration) {
+        String caps = "[RSN-PSK+SAE-CCMP]";
+        return caps;
+    }
+
+    /**
+     * Creates a scan detail corresponding to the provided network and given BSSID, etc.
      */
     public static ScanDetail createScanDetailForNetwork(
             WifiConfiguration configuration, String bssid, int level, int frequency,
             long tsf, long seen) {
-        String caps;
-        if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
-            caps = "[WPA2-PSK-CCMP]";
-        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP)
-                || configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {
-            caps = "[WPA2-EAP-CCMP]";
-        } else if (configuration.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.NONE)
-                && WifiConfigurationUtil.hasAnyValidWepKey(configuration.wepKeys)) {
-            caps = "[WEP]";
-        } else {
-            caps = "[]";
-        }
+        String caps = getScanResultCapsForNetwork(configuration);
         WifiSsid ssid = WifiSsid.createFromAsciiEncoded(configuration.getPrintableSsid());
         return new ScanDetail(ssid, bssid, caps, level, frequency, tsf, seen);
     }
+
+    /**
+     * Creates a scan detail corresponding to the provided network and given BSSID, but sets
+     * the capabilities to WPA2/WPA3-Transition mode network.
+     */
+    public static ScanDetail createScanDetailForWpa2Wpa3TransitionModeNetwork(
+            WifiConfiguration configuration, String bssid, int level, int frequency,
+            long tsf, long seen) {
+        String caps = getScanResultCapsForWpa2Wpa3TransitionNetwork(configuration);
+        WifiSsid ssid = WifiSsid.createFromAsciiEncoded(configuration.getPrintableSsid());
+        return new ScanDetail(ssid, bssid, caps, level, frequency, tsf, seen);
+    }
+
 
     /**
      * Asserts that the 2 WifiConfigurations are equal in the elements saved for both backup/restore
@@ -473,11 +564,12 @@ public class WifiConfigurationTestUtil {
 
     /**
      * Asserts that the 2 WifiConfigurations are equal. This only compares the elements saved
-     * fpr backup/restore.
+     * for backup/restore.
      */
     public static void assertConfigurationEqualForBackup(
             WifiConfiguration expected, WifiConfiguration actual) {
         assertCommonConfigurationElementsEqual(expected, actual);
+        assertEquals(expected.meteredOverride, actual.meteredOverride);
     }
 
     /**
@@ -497,6 +589,7 @@ public class WifiConfigurationTestUtil {
         assertEquals(expected.noInternetAccessExpected, actual.noInternetAccessExpected);
         assertEquals(expected.userApproved, actual.userApproved);
         assertEquals(expected.meteredHint, actual.meteredHint);
+        assertEquals(expected.meteredOverride, actual.meteredOverride);
         assertEquals(expected.useExternalScores, actual.useExternalScores);
         assertEquals(expected.numAssociation, actual.numAssociation);
         assertEquals(expected.creatorUid, actual.creatorUid);
@@ -508,6 +601,7 @@ public class WifiConfigurationTestUtil {
         assertEquals(expected.updateTime, actual.updateTime);
         assertEquals(expected.isLegacyPasspointConfig, actual.isLegacyPasspointConfig);
         assertEquals(expected.getRandomizedMacAddress(), actual.getRandomizedMacAddress());
+        assertEquals(expected.macRandomizationSetting, actual.macRandomizationSetting);
         assertNetworkSelectionStatusEqualForConfigStore(
                 expected.getNetworkSelectionStatus(), actual.getNetworkSelectionStatus());
         assertWifiEnterpriseConfigEqualForConfigStore(
@@ -525,8 +619,13 @@ public class WifiConfigurationTestUtil {
         assertEquals(expected.providerFriendlyName, actual.providerFriendlyName);
         assertEquals(expected.noInternetAccessExpected, actual.noInternetAccessExpected);
         assertEquals(expected.meteredHint, actual.meteredHint);
+        assertEquals(expected.meteredOverride, actual.meteredOverride);
         assertEquals(expected.useExternalScores, actual.useExternalScores);
         assertEquals(expected.ephemeral, actual.ephemeral);
+        assertEquals(expected.osu, actual.osu);
+        assertEquals(expected.trusted, actual.trusted);
+        assertEquals(expected.fromWifiNetworkSuggestion, actual.fromWifiNetworkSuggestion);
+        assertEquals(expected.fromWifiNetworkSpecifier, actual.fromWifiNetworkSpecifier);
         assertEquals(expected.creatorUid, actual.creatorUid);
         assertEquals(expected.creatorName, actual.creatorName);
         assertEquals(expected.creationTime, actual.creationTime);
@@ -573,6 +672,10 @@ public class WifiConfigurationTestUtil {
             WifiConfiguration expected, WifiConfiguration actual) {
         assertCommonConfigurationElementsEqual(expected, actual);
         assertEquals(expected.networkId, actual.networkId);
+        assertEquals(expected.ephemeral, actual.ephemeral);
+        assertEquals(expected.fromWifiNetworkSuggestion, actual.fromWifiNetworkSuggestion);
+        assertEquals(expected.fromWifiNetworkSpecifier, actual.fromWifiNetworkSpecifier);
+        assertEquals(expected.trusted, actual.trusted);
     }
 
     /**

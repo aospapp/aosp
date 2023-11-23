@@ -31,12 +31,14 @@ import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.AutoCloseInputStream;
 import android.os.Parcelable;
 import android.os.cts.ParcelFileDescriptorPeer.FutureCloseListener;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.test.MoreAsserts;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.util.concurrent.AbstractFuture;
 
@@ -94,6 +96,7 @@ public class ParcelFileDescriptorTest {
     }
 
     @Test
+    @AppModeFull // opening a listening socket not permitted for instant apps
     public void testFromSocket() throws Throwable {
         final int PORT = 12222;
         final int DATA = 1;
@@ -132,21 +135,6 @@ public class ParcelFileDescriptorTest {
         done.get(5, TimeUnit.SECONDS);
     }
 
-    @Test
-    public void testFromData() throws IOException {
-        assertNull(ParcelFileDescriptor.fromData(null, null));
-        byte[] data = new byte[] { 0 };
-        assertFileDescriptorContent(data, ParcelFileDescriptor.fromData(data, null));
-        data = new byte[] { 0, 1, 2, 3 };
-        assertFileDescriptorContent(data, ParcelFileDescriptor.fromData(data, null));
-
-        // Check that modifying the data does not modify the data in the FD
-        data = new byte[] { 0, 1, 2, 3 };
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromData(data, null);
-        data[1] = 42;
-        assertFileDescriptorContent(new byte[] { 0, 1, 2, 3 }, pfd);
-    }
-
     private static void assertFileDescriptorContent(byte[] expected, ParcelFileDescriptor fd)
         throws IOException {
         assertInputStreamContent(expected, new ParcelFileDescriptor.AutoCloseInputStream(fd));
@@ -166,30 +154,8 @@ public class ParcelFileDescriptorTest {
     }
 
     @Test
-    public void testFromDataSkip() throws IOException {
-        byte[] data = new byte[] { 40, 41, 42, 43, 44, 45, 46 };
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromData(data, null);
-        assertNotNull(pfd);
-        FileDescriptor fd = pfd.getFileDescriptor();
-        assertNotNull(fd);
-        assertTrue(fd.valid());
-        FileInputStream is = new FileInputStream(fd);
-        try {
-            assertEquals(1, is.skip(1));
-            assertEquals(41, is.read());
-            assertEquals(42, is.read());
-            assertEquals(2, is.skip(2));
-            assertEquals(45, is.read());
-            assertEquals(46, is.read());
-            assertEquals(-1, is.read());
-        } finally {
-            is.close();
-        }
-    }
-
-    @Test
-    public void testToString() {
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
+    public void testToString() throws Exception {
+        ParcelFileDescriptor pfd = makeParcelFileDescriptor(getContext());
         assertNotNull(pfd.toString());
     }
 
@@ -243,8 +209,8 @@ public class ParcelFileDescriptorTest {
     }
 
     @Test
-    public void testGetFileDescriptor() {
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
+    public void testGetFileDescriptor() throws Exception {
+        ParcelFileDescriptor pfd = makeParcelFileDescriptor(getContext());
         assertNotNull(pfd.getFileDescriptor());
 
         ParcelFileDescriptor p = new ParcelFileDescriptor(pfd);
@@ -252,8 +218,8 @@ public class ParcelFileDescriptorTest {
     }
 
     @Test
-    public void testDescribeContents() {
-        ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(new Socket());
+    public void testDescribeContents() throws Exception{
+        ParcelFileDescriptor pfd = makeParcelFileDescriptor(getContext());
         assertTrue((Parcelable.CONTENTS_FILE_DESCRIPTOR & pfd.describeContents()) != 0);
     }
 

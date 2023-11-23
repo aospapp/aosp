@@ -32,6 +32,8 @@ import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.test.AndroidTestCase;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -93,7 +95,7 @@ public class TestBase extends AndroidTestCase {
         mWifiLock = mWifiManager.createWifiLock(TAG);
         mWifiLock.acquire();
         if (!mWifiManager.isWifiEnabled()) {
-            mWifiManager.setWifiEnabled(true);
+            SystemUtil.runShellCommand("svc wifi enable");
         }
 
         IntentFilter intentFilter = new IntentFilter();

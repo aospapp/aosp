@@ -640,15 +640,14 @@ extern void policydb_destroy(policydb_t * p);
 
 extern int policydb_load_isids(policydb_t * p, sidtab_t * s);
 
+extern int policydb_sort_ocontexts(policydb_t *p);
+
 /* Deprecated */
 extern int policydb_context_isvalid(const policydb_t * p,
 				    const context_struct_t * c);
 
 extern void symtabs_destroy(symtab_t * symtab);
 extern int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p);
-typedef void (*hashtab_destroy_func_t) (hashtab_key_t k, hashtab_datum_t d,
-					void *args);
-extern hashtab_destroy_func_t get_symtab_destroy_func(int sym_num);
 
 extern void class_perm_node_init(class_perm_node_t * x);
 extern void type_set_init(type_set_t * x);

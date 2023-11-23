@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -13,21 +13,34 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+"""
+Test suite to check A2DP Functionality with Wlan.
+
+Test Setup:
+
+Two Android device.
+One A2DP Headset connected to Relay.
+"""
 
 import time
 
+from acts import asserts
 from acts.test_utils.bt import BtEnum
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
+from acts.test_utils.coex.audio_test_utils import SshAudioCapture
 from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
-from acts.test_utils.coex.coex_test_utils import connect_dev_to_headset
+from acts.test_utils.coex.coex_test_utils import avrcp_actions
 from acts.test_utils.coex.coex_test_utils import connect_ble
+from acts.test_utils.coex.coex_test_utils import connect_dev_to_headset
 from acts.test_utils.coex.coex_test_utils import disconnect_headset_from_dev
 from acts.test_utils.coex.coex_test_utils import multithread_func
 from acts.test_utils.coex.coex_test_utils import music_play_and_check
 from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
 from acts.test_utils.coex.coex_test_utils import perform_classic_discovery
-from acts.test_utils.coex.coex_test_utils import toggle_screen_state
+from acts.test_utils.coex.coex_test_utils import push_music_to_android_device
 from acts.test_utils.coex.coex_test_utils import start_fping
+from acts.test_utils.coex.coex_test_utils import toggle_screen_state
+
 
 BLUETOOTH_WAIT_TIME = 2
 
@@ -35,27 +48,51 @@ BLUETOOTH_WAIT_TIME = 2
 class WlanWithA2dpFunctionalityTest(CoexBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
-        req_params = ["iterations"]
+        super().setup_class()
+        req_params = ["iterations", "fping_params", "headset_mac_address",
+                      "audio_params"]
         self.unpack_userparams(req_params)
+        if hasattr(self, "audio_params"):
+            if self.audio_params["music_file"]:
+                self.music_file_to_play = push_music_to_android_device(
+                    self.pri_ad, self.audio_params)
+                if not self.music_file_to_play:
+                    self.log.error("Music file push failed.")
+                    return False
+        else:
+            self.log.warning("No Music files pushed to play.")
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
-        self.audio_receiver.power_on()
-        self.audio_receiver.pairing_mode()
+        if hasattr(self, "RelayDevice"):
+            self.audio_receiver.enter_pairing_mode()
+            time.sleep(5)  # Wait until device goes into pairing mode.
+        elif (not hasattr(self, "RelayDevice") and
+                          "avrcp" in self.current_test_name):
+            asserts.skip("Relay device not connected,"
+                         "Hence avrcp tests can't be run")
+        super().setup_test()
+        if "a2dp_streaming" in self.current_test_name:
+            self.audio = SshAudioCapture(self.audio_params, self.log_path)
         if not pair_and_connect_headset(
-                self.pri_ad, self.audio_receiver.mac_address,
+                self.pri_ad, self.headset_mac_address,
                 set([BtEnum.BluetoothProfile.A2DP.value])):
             self.log.error("Failed to pair and connect to headset")
             return False
 
     def teardown_test(self):
         clear_bonded_devices(self.pri_ad)
-        CoexBaseTest.teardown_test(self)
-        self.audio_receiver.clean_up()
+        if hasattr(self, "RelayDevice"):
+            self.audio_receiver.clean_up()
+        if "a2dp_streaming" in self.current_test_name:
+            analysis_path = self.audio.audio_quality_analysis(self.log_path)
+            if analysis_path:
+                with open(analysis_path) as f:
+                    self.result["audio_artifacts"] = f.readline()
+            self.audio.terminate_and_store_audio_results()
+        super().teardown_test()
 
     def connect_disconnect_a2dp_headset(self):
         """Connects and disconnect a2dp profile on headset for multiple
@@ -72,14 +109,14 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         for i in range(0, self.iterations):
             self.log.info("A2DP connect/disconnect Iteration {}".format(i))
             if not connect_dev_to_headset(
-                    self.pri_ad, self.audio_receiver.mac_address,
+                    self.pri_ad, self.headset_mac_address,
                     set([BtEnum.BluetoothProfile.A2DP.value])):
                 self.log.error("Failed to connect headset.")
                 return False
 
             if not disconnect_headset_from_dev(
-                    self.pri_ad, self.audio_receiver.mac_address,
-                    [BtEnum.BluetoothProfile.A2DP.value]):
+                    self.pri_ad, self.headset_mac_address,
+                [BtEnum.BluetoothProfile.A2DP.value]):
                 self.log.error("Failed to disconnect headset.")
                 return False
         return True
@@ -92,19 +129,20 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         """
         for i in range(0, self.iterations):
             self.pri_ad.droid.bluetoothConnectBonded(
-                self.audio_receiver.mac_address)
+                self.headset_mac_address)
             time.sleep(BLUETOOTH_WAIT_TIME)
             if not self.pri_ad.droid.bluetoothIsDeviceConnected(
-                    self.audio_receiver.mac_address):
+                    self.headset_mac_address):
                 return False
             self.pri_ad.droid.bluetoothDisconnectConnected(
-                self.audio_receiver.mac_address)
+                self.headset_mac_address)
         return True
 
     def perform_classic_discovery_with_iperf(self):
         """Wrapper function to start iperf traffic and classic discovery"""
         self.run_iperf_and_get_result()
-        if not perform_classic_discovery(self.pri_ad):
+        if not perform_classic_discovery(self.pri_ad, self.iperf["duration"],
+                                         self.json_file, self.dev_list):
             return False
         return self.teardown_result()
 
@@ -121,21 +159,28 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         """Wrapper function to start iperf traffic, music streaming and
         classic discovery.
         """
-        self.run_iperf_and_get_result()
-        tasks = [(music_play_and_check,
-                  (self.pri_ad, self.audio_receiver.mac_address,
-                   self.music_file_to_play, self.iperf["duration"])),
-                 (perform_classic_discovery, (self.pri_ad,))]
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (self.run_iperf_and_get_result, ()),
+                 (perform_classic_discovery,
+                  (self.pri_ad, self.iperf["duration"], self.json_file,
+                   self.dev_list))]
         if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
 
     def music_streaming_with_iperf(self):
         """Wrapper function to start iperf traffic and music streaming."""
-        self.run_iperf_and_get_result()
-        if not music_play_and_check(
-                self.pri_ad, self.audio_receiver.mac_address,
-                self.music_file_to_play, self.iperf["duration"]):
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (self.run_iperf_and_get_result, ())]
+        if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
 
@@ -143,11 +188,13 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         """Wrapper function to start iperf traffic, music streaming and avrcp
         controls.
         """
-        self.run_iperf_and_get_result()
-        tasks = [(music_play_and_check,
-                  (self.pri_ad, self.audio_receiver.mac_address,
-                   self.music_file_to_play, self.iperf["duration"])),
-                 (self.avrcp_actions, ())]
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (avrcp_actions, (self.pri_ad, self.audio_receiver)),
+                 (self.run_iperf_and_get_result, ())]
         if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
@@ -156,12 +203,16 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         """Wrapper function to start iperf traffic, music streaming, bluetooth
         discovery and avrcp controls.
         """
-        self.run_iperf_and_get_result()
-        tasks = [(music_play_and_check,
-                  (self.pri_ad, self.audio_receiver.mac_address,
-                   self.music_file_to_play, self.iperf["duration"])),
-                 (perform_classic_discovery, (self.pri_ad,)),
-                 (self.avrcp_actions, ())]
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (self.run_iperf_and_get_result, ()),
+                 (perform_classic_discovery,
+                  (self.pri_ad, self.iperf["duration"], self.json_file,
+                   self.dev_list)),
+                 (avrcp_actions, (self.pri_ad, self.audio_receiver))]
         if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
@@ -170,17 +221,19 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         """Wrapper function to start iperf traffic, music streaming and ble
         connection.
         """
-        self.run_iperf_and_get_result()
-        tasks = [(music_play_and_check,
-                  (self.pri_ad, self.audio_receiver.mac_address,
-                   self.music_file_to_play, self.iperf["duration"])),
-                 (connect_ble, (self.pri_ad, self.sec_ad))]
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (connect_ble, (self.pri_ad, self.inquiry_devices[0])),
+                 (self.run_iperf_and_get_result, ())]
         if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
 
-    def test_inquiry_after_headset_connection_with_tcp_ul(self):
-        """Starts TCP-uplink traffic, start inquiry after bluetooth connection.
+    def test_discovery_after_headset_connection_with_tcp_ul(self):
+        """Starts TCP-uplink traffic, start discovery after bluetooth connection.
 
         This test is to start TCP-uplink traffic between host machine and
         android device and test functional behaviour of bluetooth discovery
@@ -199,8 +252,8 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
             return False
         return True
 
-    def test_inquiry_after_headset_connection_with_tcp_dl(self):
-        """Starts TCP-downlink traffic, start inquiry after bluetooth connection.
+    def test_discovery_after_headset_connection_with_tcp_dl(self):
+        """Starts TCP-downlink traffic, start disocvery after bluetooth connection.
 
         This test is to start TCP-downlink traffic between host machine and
         android device and test functional behaviour of bluetooth discovery
@@ -219,8 +272,8 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
             return False
         return True
 
-    def test_inquiry_after_headset_connection_with_udp_ul(self):
-        """Starts UDP-uplink traffic, start inquiry after bluetooth connection.
+    def test_discovery_after_headset_connection_with_udp_ul(self):
+        """Starts UDP-uplink traffic, start discovery after bluetooth connection.
 
         This test is to start UDP-uplink traffic between host machine and
         android device and test functional behaviour of bluetooth discovery
@@ -239,8 +292,8 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
             return False
         return True
 
-    def test_inquiry_after_headset_connection_with_udp_dl(self):
-        """Starts UDP-downlink traffic, start inquiry after bluetooth connection.
+    def test_discovery_after_headset_connection_with_udp_dl(self):
+        """Starts UDP-downlink traffic, start discovery after bluetooth connection.
 
         This test is to start UDP-downlink traffic between host machine and
         android device and test functional behaviour of bluetooth discovery
@@ -518,6 +571,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming and avrcp controls.
 
+        Steps:
         1. Run TCP-uplink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -538,6 +592,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming and avrcp controls.
 
+        Steps:
         1. Run TCP-downlink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -558,6 +613,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming and avrcp controls.
 
+        Steps:
         1. Run UDP-uplink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -578,6 +634,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming and avrcp controls.
 
+        Steps:
         1. Run UDP-downlink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -599,6 +656,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming, avrcp controls and bluetooth discovery.
 
+        Steps:
         1. Run TCP-uplink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -621,6 +679,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming, avrcp controls and bluetooth discovery.
 
+        Steps:
         1. Run TCP-downlink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -643,6 +702,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming, avrcp controls and bluetooth discovery.
 
+        Steps:
         1. Run UDP-uplink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -665,6 +725,7 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
         android device and test the functional behaviour of a2dp music
         streaming, avrcp controls and bluetooth discovery.
 
+        Steps:
         1. Run UDP-downlink traffic.
         2. Start media streaming to a2dp headset.
         3. Check all avrcp related controls.
@@ -696,11 +757,12 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_076
         """
-        args = [lambda: start_fping(self.pri_ad, self.iperf["duration"])]
-        self.run_thread(args)
-        if not self.connect_disconnect_headset():
+        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"],
+                                self.fping_params)),
+                 (self.connect_disconnect_headset, ())]
+        if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True
 
     def test_a2dp_streaming_with_fping(self):
         """Starts fping along with a2dp streaming.
@@ -717,13 +779,16 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_077
         """
-        args = [lambda: start_fping(self.pri_ad, self.iperf["duration"])]
-        self.run_thread(args)
-        if not music_play_and_check(
-                self.pri_ad, self.audio_receiver.mac_address,
-                self.music_file_to_play, self.iperf["duration"]):
+        tasks = [(self.audio.capture_audio, ()),
+                 (start_fping, (self.pri_ad, self.iperf["duration"],
+                                self.fping_params)),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"]))]
+        if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True
 
     def test_connect_disconnect_headset_toggle_screen_state_with_fping(self):
         """Starts fping along with connection and disconnection of the headset.
@@ -743,12 +808,13 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_079
         """
-        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"])),
+        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"],
+                                self.fping_params)),
                  (self.connect_disconnect_headset, ()),
-                 (toggle_screen_state, (self.pri_ad, self.iterations))]
+                 (toggle_screen_state, (self.pri_ad, self.iperf["duration"]))]
         if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True
 
     def test_a2dp_streaming_toggle_screen_state_with_fping(self):
         """Starts fping along with a2dp streaming.
@@ -767,14 +833,17 @@ class WlanWithA2dpFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_080
         """
-        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"])),
+        tasks = [(self.audio.capture_audio, ()),
+                 (start_fping, (self.pri_ad, self.iperf["duration"],
+                                self.fping_params)),
                  (music_play_and_check,
-                  (self.pri_ad, self.audio_receiver.mac_address,
-                   self.music_file_to_play, self.iperf["duration"])),
-                 (toggle_screen_state, (self.pri_ad, self.iterations))]
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (toggle_screen_state, (self.pri_ad, self.iperf["duration"]))]
         if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True
 
     def test_a2dp_streaming_ble_connection_with_tcp_ul(self):
         """Starts TCP-uplink traffic with a2dp streaming and ble connection.

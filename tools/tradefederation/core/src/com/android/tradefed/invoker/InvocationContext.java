@@ -18,9 +18,12 @@ package com.android.tradefed.invoker;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.BuildSerializedVersion;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.proto.BuildInformation;
 import com.android.tradefed.config.ConfigurationDescriptor;
+import com.android.tradefed.config.proto.ConfigurationDescription.Metadata;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.ITestDevice.RecoveryMode;
+import com.android.tradefed.invoker.proto.InvocationContext.Context;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.suite.ITestSuite;
 import com.android.tradefed.util.MultiMap;
@@ -72,6 +75,12 @@ public class InvocationContext implements IInvocationContext {
         mNameAndDeviceMap = new LinkedHashMap<String, ITestDevice>();
         mNameAndBuildinfoMap = new LinkedHashMap<String, IBuildInfo>();
         mShardSerials = new LinkedHashMap<Integer, List<String>>();
+    }
+
+    @Override
+    public String getInvocationId() {
+        List<String> values = mInvocationAttributes.get(INVOCATION_ID);
+        return values == null || values.isEmpty() ? null : values.get(0);
     }
 
     /**
@@ -202,7 +211,7 @@ public class InvocationContext implements IInvocationContext {
 
     /** {@inheritDoc} */
     @Override
-    public void addInvocationAttributes(UniqueMultiMap<String, String> attributesMap) {
+    public void addInvocationAttributes(MultiMap<String, String> attributesMap) {
         if (mLocked) {
             throw new IllegalStateException(
                     "Attempting to add invocation attribute during a test.");
@@ -265,6 +274,18 @@ public class InvocationContext implements IInvocationContext {
 
     /** {@inheritDoc} */
     @Override
+    public String getBuildInfoName(IBuildInfo info) {
+        for (String name : mNameAndBuildinfoMap.keySet()) {
+            if (info.equals(getBuildInfo(name))) {
+                return name;
+            }
+        }
+        CLog.d("Build info doesn't match a name in the metadata");
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String getTestTag() {
         return mTestTag;
     }
@@ -316,6 +337,12 @@ public class InvocationContext implements IInvocationContext {
         mLocked = true;
     }
 
+    /** Private method to unlock the attributes. Used for sandbox test mode only. */
+    @SuppressWarnings("unused")
+    private void unlock() {
+        mLocked = false;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void addSerialsFromShard(Integer index, List<String> serials) {
@@ -343,5 +370,66 @@ public class InvocationContext implements IInvocationContext {
         if (mInvocationTimingMetrics == null) {
             mInvocationTimingMetrics = new LinkedHashMap<>();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Context toProto() {
+        Context.Builder contextBuilder = Context.newBuilder();
+        // The invocation test tag.
+        if (mTestTag != null) {
+            contextBuilder.setTestTag(mTestTag);
+        }
+        // Map name to build info
+        Map<String, BuildInformation.BuildInfo> mapBuild = new LinkedHashMap<>();
+        for (String name : mNameAndBuildinfoMap.keySet()) {
+            mapBuild.put(name, mNameAndBuildinfoMap.get(name).toProto());
+        }
+        contextBuilder.putAllNameBuildInfo(mapBuild);
+        // Metadata
+        List<Metadata> metadatas = new ArrayList<>();
+        for (String key : mInvocationAttributes.keySet()) {
+            Metadata value =
+                    Metadata.newBuilder()
+                            .setKey(key)
+                            .addAllValue(mInvocationAttributes.get(key))
+                            .build();
+            metadatas.add(value);
+        }
+        contextBuilder.addAllMetadata(metadatas);
+        // Configuration Description
+        contextBuilder.setConfigurationDescription(mConfigurationDescriptor.toProto());
+        // Module Context if it exists
+        if (mModuleContext != null) {
+            contextBuilder.setModuleContext(mModuleContext.toProto());
+        }
+        return contextBuilder.build();
+    }
+
+    /** Inverse operation to {@link InvocationContext#toProto()} to get the instance back. */
+    public static InvocationContext fromProto(Context protoContext) {
+        InvocationContext context = new InvocationContext();
+        // Test Tag.
+        context.mTestTag = protoContext.getTestTag();
+        // Map Build Info
+        for (String key : protoContext.getNameBuildInfo().keySet()) {
+            context.mNameAndBuildinfoMap.put(
+                    key, BuildInfo.fromProto(protoContext.getNameBuildInfo().get(key)));
+        }
+        // Metadata
+        for (Metadata meta : protoContext.getMetadataList()) {
+            for (String value : meta.getValueList()) {
+                context.mInvocationAttributes.put(meta.getKey(), value);
+            }
+        }
+        // Configuration Description
+        context.mConfigurationDescriptor =
+                ConfigurationDescriptor.fromProto(protoContext.getConfigurationDescription());
+        // Module Context - context module will have some property set: module-id at the minimum
+        if (protoContext.hasModuleContext()) {
+            // TODO: Check explicitly for module-id
+            context.mModuleContext = InvocationContext.fromProto(protoContext.getModuleContext());
+        }
+        return context;
     }
 }

@@ -25,12 +25,17 @@
 #include "bta_sys.h"
 #include "bte_appl.h"
 #include "btif_dm.h"
+#include "btif_storage.h"
 #include "osi/include/osi.h"
 
+// tBTE_APPL_CFG.ble_io_cap is set to BTM_IO_CAP_UNKNOWN at structure
+// initialization since btif_storage isn't ready yet for data to be fetched.
+// This value is initialized properly during first use by fetching properly
+// from btif_storage.
 tBTE_APPL_CFG bte_appl_cfg = {
     BTA_LE_AUTH_REQ_SC_MITM_BOND,  // Authentication requirements
-    BTM_LOCAL_IO_CAPS_BLE, BTM_BLE_INITIATOR_KEY_SIZE,
-    BTM_BLE_RESPONDER_KEY_SIZE, BTM_BLE_MAX_KEY_SIZE};
+    BTM_IO_CAP_UNKNOWN, BTM_BLE_INITIATOR_KEY_SIZE, BTM_BLE_RESPONDER_KEY_SIZE,
+    BTM_BLE_MAX_KEY_SIZE};
 
 /*******************************************************************************
  *
@@ -132,7 +137,7 @@ void bta_dm_co_lk_upgrade(UNUSED_ATTR const RawAddress& bd_addr,
  * Returns          void.
  *
  ******************************************************************************/
-void bta_dm_co_loc_oob(bool valid, BT_OCTET16 c, BT_OCTET16 r) {
+void bta_dm_co_loc_oob(bool valid, const Octet16& c, const Octet16& r) {
   BTIF_TRACE_DEBUG("bta_dm_co_loc_oob, valid = %d", valid);
 #ifdef BTIF_DM_OOB_TEST
   btif_dm_proc_loc_oob(valid, c, r);
@@ -153,16 +158,16 @@ void bta_dm_co_loc_oob(bool valid, BT_OCTET16 c, BT_OCTET16 r) {
  *
  ******************************************************************************/
 void bta_dm_co_rmt_oob(const RawAddress& bd_addr) {
-  BT_OCTET16 p_c;
-  BT_OCTET16 p_r;
+  Octet16 c;
+  Octet16 r;
   bool result = false;
 
 #ifdef BTIF_DM_OOB_TEST
-  result = btif_dm_proc_rmt_oob(bd_addr, p_c, p_r);
+  result = btif_dm_proc_rmt_oob(bd_addr, &c, &r);
 #endif
 
   BTIF_TRACE_DEBUG("bta_dm_co_rmt_oob: result=%d", result);
-  bta_dm_ci_rmt_oob(result, bd_addr, p_c, p_r);
+  bta_dm_ci_rmt_oob(result, bd_addr, c, r);
 }
 
 /*******************************************************************************
@@ -207,13 +212,13 @@ void bta_dm_co_le_io_key_req(UNUSED_ATTR const RawAddress& bd_addr,
  *
  ******************************************************************************/
 void bta_dm_co_ble_load_local_keys(tBTA_DM_BLE_LOCAL_KEY_MASK* p_key_mask,
-                                   BT_OCTET16 er,
+                                   Octet16* p_er,
                                    tBTA_BLE_LOCAL_ID_KEYS* p_id_keys) {
   BTIF_TRACE_DEBUG("##################################");
   BTIF_TRACE_DEBUG(
       "bta_dm_co_ble_load_local_keys:  Load local keys if any are persisted");
   BTIF_TRACE_DEBUG("##################################");
-  btif_dm_get_ble_local_keys(p_key_mask, er, p_id_keys);
+  btif_dm_get_ble_local_keys(p_key_mask, p_er, p_id_keys);
 }
 
 /*******************************************************************************
@@ -241,6 +246,8 @@ void bta_dm_co_ble_io_req(const RawAddress& bd_addr, tBTA_IO_CAP* p_io_cap,
                           tBTA_LE_AUTH_REQ* p_auth_req, uint8_t* p_max_key_size,
                           tBTA_LE_KEY_TYPE* p_init_key,
                           tBTA_LE_KEY_TYPE* p_resp_key) {
+  bte_appl_cfg.ble_io_cap = btif_storage_get_local_io_caps_ble();
+
   /* Retrieve the properties from file system if possible */
   tBTE_APPL_CFG nv_config;
   if (btif_dm_get_smp_config(&nv_config)) bte_appl_cfg = nv_config;

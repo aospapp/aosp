@@ -116,6 +116,10 @@ public class NotificationMainView extends FrameLayout implements SwipeDetector.L
      */
     public void applyNotificationInfo(NotificationInfo mainNotification, boolean animate) {
         mNotificationInfo = mainNotification;
+        NotificationListener listener = NotificationListener.getInstanceIfConnected();
+        if (listener != null) {
+            listener.setNotificationsShown(new String[] {mNotificationInfo.notificationKey});
+        }
         CharSequence title = mNotificationInfo.title;
         CharSequence text = mNotificationInfo.text;
         if (!TextUtils.isEmpty(title) && !TextUtils.isEmpty(text)) {
@@ -175,7 +179,7 @@ public class NotificationMainView extends FrameLayout implements SwipeDetector.L
 
 
     @Override
-    public boolean onDrag(float displacement, float velocity) {
+    public boolean onDrag(float displacement) {
         setContentTranslation(canChildBeDismissed()
                 ? displacement : OverScroll.dampedScroll(displacement, getWidth()));
         mContentTranslateAnimator.cancel();

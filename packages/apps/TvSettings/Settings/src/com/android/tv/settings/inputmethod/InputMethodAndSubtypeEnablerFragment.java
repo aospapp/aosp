@@ -18,8 +18,10 @@ package com.android.tv.settings.inputmethod;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
+
+import androidx.annotation.Keep;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.inputmethod.InputMethodAndSubtypeEnablerManager;
@@ -28,6 +30,7 @@ import com.android.tv.settings.SettingsPreferenceFragment;
 /**
  * Fragment for android.settings.INPUT_METHOD_SUBTYPE_SETTINGS
  */
+@Keep
 public class InputMethodAndSubtypeEnablerFragment extends SettingsPreferenceFragment {
     private InputMethodAndSubtypeEnablerManager mManager;
 

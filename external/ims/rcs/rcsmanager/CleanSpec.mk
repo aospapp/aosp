@@ -52,6 +52,8 @@
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/com.android.ims.rcsmanager_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/product/*/obj/JAVA_LIBRARIES/com.android.ims.rcsmanager_intermediates)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/product/*/obj/ETC/com.android.ims.rcsmanager.xml_intermediates)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/framework/com.android.ims.rcsmanager.jar)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/permissions/com.android.ims.rcsmanager.xml)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

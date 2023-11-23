@@ -16,12 +16,14 @@
 
 #include "update_engine/payload_generator/xz.h"
 
-#include <7zCrc.h>
-#include <Xz.h>
-#include <XzEnc.h>
+#include <elf.h>
+#include <endian.h>
 
 #include <algorithm>
 
+#include <7zCrc.h>
+#include <Xz.h>
+#include <XzEnc.h>
 #include <base/logging.h>
 
 namespace {
@@ -34,9 +36,8 @@ struct BlobReaderStream : public ISeqInStream {
     Read = &BlobReaderStream::ReadStatic;
   }
 
-  static SRes ReadStatic(void* p, void* buf, size_t* size) {
-    auto* self =
-        static_cast<BlobReaderStream*>(reinterpret_cast<ISeqInStream*>(p));
+  static SRes ReadStatic(const ISeqInStream* p, void* buf, size_t* size) {
+    auto* self = static_cast<BlobReaderStream*>(const_cast<ISeqInStream*>(p));
     *size = std::min(*size, self->data_.size() - self->pos_);
     memcpy(buf, self->data_.data() + self->pos_, *size);
     self->pos_ += *size;
@@ -55,9 +56,10 @@ struct BlobWriterStream : public ISeqOutStream {
     Write = &BlobWriterStream::WriteStatic;
   }
 
-  static size_t WriteStatic(void* p, const void* buf, size_t size) {
-    auto* self =
-        static_cast<BlobWriterStream*>(reinterpret_cast<ISeqOutStream*>(p));
+  static size_t WriteStatic(const ISeqOutStream* p,
+                            const void* buf,
+                            size_t size) {
+    auto* self = static_cast<const BlobWriterStream*>(p);
     const uint8_t* buffer = reinterpret_cast<const uint8_t*>(buf);
     self->data_->reserve(self->data_->size() + size);
     self->data_->insert(self->data_->end(), buffer, buffer + size);
@@ -66,6 +68,37 @@ struct BlobWriterStream : public ISeqOutStream {
 
   brillo::Blob* data_;
 };
+
+// Returns the filter id to be used to compress |data|.
+// Only BCJ filter for x86 and ARM ELF file are supported, returns 0 otherwise.
+int GetFilterID(const brillo::Blob& data) {
+  if (data.size() < sizeof(Elf32_Ehdr) ||
+      memcmp(data.data(), ELFMAG, SELFMAG) != 0)
+    return 0;
+
+  const Elf32_Ehdr* header = reinterpret_cast<const Elf32_Ehdr*>(data.data());
+
+  // Only little-endian is supported.
+  if (header->e_ident[EI_DATA] != ELFDATA2LSB)
+    return 0;
+
+  switch (le16toh(header->e_machine)) {
+    case EM_386:
+    case EM_X86_64:
+      return XZ_ID_X86;
+    case EM_ARM:
+      // Both ARM and ARM Thumb instructions could be found in the same ARM ELF
+      // file. We choose to use the ARM Thumb filter here because testing shows
+      // that it usually works better than the ARM filter.
+      return XZ_ID_ARMT;
+#ifdef EM_AARCH64
+    case EM_AARCH64:
+      // Neither the ARM nor the ARM Thumb filter works well with AArch64.
+      return 0;
+#endif
+  }
+  return 0;
+}
 
 }  // namespace
 
@@ -97,7 +130,6 @@ bool XzCompress(const brillo::Blob& in, brillo::Blob* out) {
 
   // LZMA2 compression properties.
   CLzma2EncProps lzma2Props;
-  props.lzma2Props = &lzma2Props;
   Lzma2EncProps_Init(&lzma2Props);
   // LZMA compression "level 6" requires 9 MB of RAM to decompress in the worst
   // case.
@@ -106,6 +138,9 @@ bool XzCompress(const brillo::Blob& in, brillo::Blob* out) {
   // The input size data is used to reduce the dictionary size if possible.
   lzma2Props.lzmaProps.reduceSize = in.size();
   Lzma2EncProps_Normalize(&lzma2Props);
+  props.lzma2Props = lzma2Props;
+
+  props.filterProps.id = GetFilterID(in);
 
   BlobWriterStream out_writer(out);
   BlobReaderStream in_reader(in);

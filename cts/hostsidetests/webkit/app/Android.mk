@@ -22,10 +22,10 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctsdeviceutillegacy \
+    compatibility-device-util-axt \
+    ctsdeviceutillegacy-axt \
     ctstestserver \
-    ctstestrunner
+    ctstestrunner-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 

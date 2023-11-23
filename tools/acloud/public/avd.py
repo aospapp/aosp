@@ -13,10 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This module defines an AVD instance.
 
-TODO(fdeng):
+TODO:
   The current implementation only initialize an object
   with IP and instance name. A complete implementation
   will include the following features.
@@ -43,16 +42,18 @@ class AndroidVirtualDevice(object):
 
         Args:
             instance_name: Name of the gce instance, e.g. "instance-1"
-            ip: Ip address of the gce instance, e.g. "140.110.20.1"
+            ip: namedtuple (internal, external) that holds IP address of the
+                gce instance, e.g. "external:140.110.20.1, internal:10.0.0.1"
         """
         self._ip = ip
         self._instance_name = instance_name
 
     @property
     def ip(self):
+        """Getter of _ip."""
         if not self._ip:
-            raise ValueError("IP of instance %s is unknown yet." %
-                             self._instance_name)
+            raise ValueError(
+                "IP of instance %s is unknown yet." % self._instance_name)
         return self._ip
 
     @ip.setter
@@ -61,8 +62,12 @@ class AndroidVirtualDevice(object):
 
     @property
     def instance_name(self):
+        """Getter of _instance_name."""
         return self._instance_name
 
     def __str__(self):
         """Return a string representation."""
-        return "<ip: %s, instance_name: %s >" % (self._ip, self._instance_name)
+        return "<ip: (internal: %s, external: %s), instance_name: %s >" % (
+            self._ip.internal if self._ip else "",
+            self._ip.external if self._ip else "",
+            self._instance_name)

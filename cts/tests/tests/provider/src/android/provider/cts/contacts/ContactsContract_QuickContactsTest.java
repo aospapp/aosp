@@ -50,12 +50,10 @@ public class ContactsContract_QuickContactsTest extends InstrumentationTestCase 
                 testCallback(intent);
             }
 
-            @Override
             public void startActivityAsUser(Intent intent, UserHandle user) {
                 testCallback(intent);
             }
 
-            @Override
             public void startActivityAsUser(Intent intent, Bundle options, UserHandle user) {
                 testCallback(intent);
             }

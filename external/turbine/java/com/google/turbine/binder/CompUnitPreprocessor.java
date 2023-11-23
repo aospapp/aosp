@@ -17,7 +17,6 @@
 package com.google.turbine.binder;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,15 +24,22 @@ import com.google.common.collect.Iterables;
 import com.google.turbine.binder.bound.SourceBoundClass;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.diag.SourceFile;
+import com.google.turbine.diag.TurbineError;
+import com.google.turbine.diag.TurbineError.ErrorKind;
 import com.google.turbine.model.TurbineFlag;
 import com.google.turbine.model.TurbineTyKind;
 import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.CompUnit;
+import com.google.turbine.tree.Tree.Ident;
 import com.google.turbine.tree.Tree.ImportDecl;
+import com.google.turbine.tree.Tree.ModDecl;
 import com.google.turbine.tree.Tree.PkgDecl;
 import com.google.turbine.tree.Tree.TyDecl;
 import com.google.turbine.tree.TurbineModifier;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * Processes compilation units before binding, creating symbols for type declarations and desugaring
@@ -45,16 +51,19 @@ public class CompUnitPreprocessor {
   public static class PreprocessedCompUnit {
     private final ImmutableList<Tree.ImportDecl> imports;
     private final ImmutableList<SourceBoundClass> types;
+    private final Optional<ModDecl> module;
     private final SourceFile source;
     private final String packageName;
 
     public PreprocessedCompUnit(
         ImmutableList<ImportDecl> imports,
         ImmutableList<SourceBoundClass> types,
+        Optional<ModDecl> module,
         SourceFile source,
         String packageName) {
       this.imports = imports;
       this.types = types;
+      this.module = module;
       this.source = source;
       this.packageName = packageName;
     }
@@ -65,6 +74,10 @@ public class CompUnitPreprocessor {
 
     public ImmutableList<SourceBoundClass> types() {
       return types;
+    }
+
+    Optional<ModDecl> module() {
+      return module;
     }
 
     public SourceFile source() {
@@ -104,28 +117,35 @@ public class CompUnitPreprocessor {
           new ClassSymbol((!packageName.isEmpty() ? packageName + "/" : "") + decl.name());
       int access = access(decl.mods(), decl.tykind());
       ImmutableMap<String, ClassSymbol> children =
-          preprocessChildren(types, sym, decl.members(), access);
+          preprocessChildren(unit.source(), types, sym, decl.members(), access);
       types.add(new SourceBoundClass(sym, null, children, access, decl));
     }
-    return new PreprocessedCompUnit(unit.imports(), types.build(), unit.source(), packageName);
+    return new PreprocessedCompUnit(
+        unit.imports(), types.build(), unit.mod(), unit.source(), packageName);
   }
 
   private static ImmutableMap<String, ClassSymbol> preprocessChildren(
+      SourceFile source,
       ImmutableList.Builder<SourceBoundClass> types,
       ClassSymbol owner,
       ImmutableList<Tree> members,
       int enclosing) {
     ImmutableMap.Builder<String, ClassSymbol> result = ImmutableMap.builder();
+    Set<String> seen = new HashSet<>();
     for (Tree member : members) {
       if (member.kind() == Tree.Kind.TY_DECL) {
         Tree.TyDecl decl = (Tree.TyDecl) member;
         ClassSymbol sym = new ClassSymbol(owner.binaryName() + '$' + decl.name());
-        result.put(decl.name(), sym);
+        if (!seen.add(decl.name().value())) {
+          throw TurbineError.format(
+              source, member.position(), ErrorKind.DUPLICATE_DECLARATION, sym);
+        }
+        result.put(decl.name().value(), sym);
 
         int access = innerClassAccess(enclosing, decl);
 
         ImmutableMap<String, ClassSymbol> children =
-            preprocessChildren(types, sym, decl.members(), access);
+            preprocessChildren(source, types, sym, decl.members(), access);
         types.add(new SourceBoundClass(sym, owner, children, access, decl));
       }
     }
@@ -194,9 +214,9 @@ public class CompUnitPreprocessor {
         pkgDecl.position(),
         ImmutableSet.of(TurbineModifier.ACC_SYNTHETIC),
         pkgDecl.annos(),
-        "package-info",
+        new Ident(pkgDecl.position(), "package-info"),
         ImmutableList.of(),
-        Optional.absent(),
+        Optional.empty(),
         ImmutableList.of(),
         ImmutableList.of(),
         TurbineTyKind.INTERFACE);

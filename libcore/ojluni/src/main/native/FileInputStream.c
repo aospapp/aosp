@@ -89,6 +89,12 @@ FileInputStream_skip0(JNIEnv *env, jobject this, jlong toSkip) {
 }
 
 static int available(int fd, jlong *bytes) {
+// BEGIN Android-added: Fuchsia does not support FIONREAD. http://b/120566512
+#if defined(__Fuchsia__)
+  *bytes = 0;
+  return 1;
+#else
+// END Android-added: Fuchsia does not support FIONREAD. http://b/120566512
   int n;
   // Unlike the original OpenJdk implementation, we use FIONREAD for all file
   // types. For regular files, this is specified to return the difference
@@ -112,6 +118,8 @@ static int available(int fd, jlong *bytes) {
 
   // Raise an exception for all other error types.
   return 0;
+// Android-added: Fuchsia does not support the FIONREAD code. http://b/120566512
+#endif
 }
 
 JNIEXPORT jint JNICALL

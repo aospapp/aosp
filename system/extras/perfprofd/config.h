@@ -20,8 +20,7 @@
 
 #include <cstdint>
 #include <string>
-
-#include <unistd.h>
+#include <vector>
 
 struct Config {
   virtual ~Config() {}
@@ -42,13 +41,12 @@ struct Config {
   // the whole system will be profiled.
   int32_t process = -1;
 
-  // Destination directory (where to write profiles). This location
-  // chosen since it is accessible to the uploader service.
+  // Destination directory (where to write profiles).
   std::string destination_directory = "/data/misc/perfprofd";
   // Config directory (where to read configs).
   std::string config_directory = "/data/data/com.google.android.gms/files";
   // Full path to 'perf' executable.
-  std::string perf_path = "/system/xbin/simpleperf";
+  std::string perf_path = "/system/bin/simpleperf";
 
   // Desired sampling period (passed to perf -c option). Small
   // sampling periods can perturb the collected profiles, so enforce
@@ -96,12 +94,24 @@ struct Config {
 
   // If true, use an ELF symbolizer to on-device symbolize.
   bool use_elf_symbolizer = true;
+  // Whether to symbolize everything. If false, objects with build ID will be skipped.
+  bool symbolize_everything = false;
 
   // If true, use libz to compress the output proto.
   bool compress = true;
 
   // If true, send the proto to dropbox instead to a file.
   bool send_to_dropbox = false;
+
+  // Whether to fail or strip unsupported events.
+  bool fail_on_unsupported_events = false;
+
+  struct PerfCounterConfigElem {
+    std::vector<std::string> events;
+    bool group;
+    uint32_t sampling_period;
+  };
+  std::vector<PerfCounterConfigElem> event_config;
 
   // Sleep for the given number of seconds.
   virtual void Sleep(size_t seconds) = 0;

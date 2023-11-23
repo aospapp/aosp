@@ -16,13 +16,15 @@
 
 package android.util.cts;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import static org.junit.Assert.*;
+
 import android.util.*;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.*;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)

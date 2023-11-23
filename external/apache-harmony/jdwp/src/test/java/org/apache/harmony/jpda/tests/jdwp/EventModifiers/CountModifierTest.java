@@ -29,15 +29,6 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP Unit test for Count event modifier.
  */
 public class CountModifierTest extends JDWPEventModifierTestCase {
-    private static final
-            String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/CountModifierDebuggee;";
-    private static final
-            String TEST_CLASS_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/CountModifierDebuggee$TestClass;";
-    private static final
-            String TEST_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.EventModifiers.CountModifierDebuggee$TestClass";
-    private static final
-            String EXCEPTION_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/EventModifiers/CountModifierDebuggee$TestException;";
-
     // The name of the test method where we set our event requests.
     private static final String METHOD_NAME = "eventTestMethod";
 
@@ -73,8 +64,8 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
 
         // Breakpoint at start of test method.
         byte typeTag = JDWPConstants.TypeTag.CLASS;
-        Breakpoint breakpoint = new Breakpoint(TEST_CLASS_SIGNATURE,
-                METHOD_NAME, 0);
+        Breakpoint breakpoint = new Breakpoint(
+                getClassSignature(CountModifierDebuggee.TestClass.class), METHOD_NAME, 0);
         EventBuilder builder = createBreakpointEventBuilder(typeTag,
                 breakpoint);
         testEventWithCountModifier(builder, LOCATION_COUNT_FIELD_NAME);
@@ -96,7 +87,8 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testMethodEntry started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        EventBuilder builder = createMethodEntryEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodEntryEventBuilder(
+                CountModifierDebuggee.TestClass.class.getName());
         testEventWithCountModifier(builder, LOCATION_COUNT_FIELD_NAME);
 
         logWriter.println("testMethodEntry done");
@@ -116,7 +108,8 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testMethodExit started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        EventBuilder builder = createMethodExitEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodExitEventBuilder(
+                CountModifierDebuggee.TestClass.class.getName());
         testEventWithCountModifier(builder, LOCATION_COUNT_FIELD_NAME);
 
         logWriter.println("testMethodExit done");
@@ -138,7 +131,8 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testMethodExitWithReturnValue started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        EventBuilder builder = createMethodExitWithReturnValueEventBuilder(TEST_CLASS_NAME);
+        EventBuilder builder = createMethodExitWithReturnValueEventBuilder(
+                CountModifierDebuggee.TestClass.class.getName());
         testEventWithCountModifier(builder, LOCATION_COUNT_FIELD_NAME);
 
         logWriter.println("testMethodExitWithReturnValue done");
@@ -159,7 +153,8 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         logWriter.println("testException started");
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        EventBuilder builder = createExceptionEventBuilder(EXCEPTION_SIGNATURE,
+        EventBuilder builder = createExceptionEventBuilder(
+                getClassSignature(CountModifierDebuggee.TestException.class),
                 true, false);
         testEventWithCountModifier(builder,
                 EXCEPTION_EVENT_COUNT_FIELD_NAME);
@@ -185,7 +180,7 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         EventBuilder builder = createFieldAccessEventBuilder(
-                JDWPConstants.TypeTag.CLASS, DEBUGGEE_SIGNATURE,
+                JDWPConstants.TypeTag.CLASS, getDebuggeeClassSignature(),
                 WATCHED_FIELD_NAME);
         testEventWithCountModifier(builder, FIELD_READ_WRITE_COUNT_FIELD_NAME);
 
@@ -210,7 +205,7 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         EventBuilder builder = createFieldModificationEventBuilder(
-                JDWPConstants.TypeTag.CLASS, DEBUGGEE_SIGNATURE,
+                JDWPConstants.TypeTag.CLASS, getDebuggeeClassSignature(),
                 WATCHED_FIELD_NAME);
         testEventWithCountModifier(builder, FIELD_READ_WRITE_COUNT_FIELD_NAME);
 
@@ -228,7 +223,7 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
 
         // Check we properly ignore the (count - 1) previous events.
         int expectedCount = CountModifierDebuggee.EVENT_COUNT;
-        int actualCount = getStaticIntField(DEBUGGEE_SIGNATURE, countFieldName);
+        int actualCount = getStaticIntField(getDebuggeeClassSignature(), countFieldName);
         assertEquals("Invalid event count", expectedCount, actualCount);
 
         clearAndResume(event.eventKind, requestID);

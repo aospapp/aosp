@@ -20,15 +20,10 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.preference.EditTextPreference;
 import android.text.InputType;
-import android.text.method.DigitsKeyListener;
-import android.text.method.PasswordTransformationMethod;
 import android.util.AttributeSet;
 import android.view.View;
-import android.widget.EditText;
 
 import com.android.phone.R;
-
-import java.util.Map;
 
 /**
  * Class similar to the com.android.settings.EditPinPreference

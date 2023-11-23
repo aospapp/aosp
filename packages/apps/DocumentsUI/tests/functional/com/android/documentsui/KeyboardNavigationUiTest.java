@@ -17,9 +17,10 @@
 package com.android.documentsui;
 
 import android.os.RemoteException;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
 import android.view.KeyEvent;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.Suppress;
 
 import com.android.documentsui.files.FilesActivity;
 

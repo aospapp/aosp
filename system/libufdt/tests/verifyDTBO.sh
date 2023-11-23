@@ -16,7 +16,7 @@ cd $tmpdir
 
 #find out the location to read the DTBO image from
 boot_suffix=$(adb wait-for-device shell getprop ro.boot.slot_suffix)
-dtbo_partition="/dev/block/bootdevice/by-name/dtbo"
+dtbo_partition="/dev/block/by-name/dtbo"
 dtbo_path=$dtbo_partition$boot_suffix
 
 #read the dtbo image and the final device tree from device
@@ -24,7 +24,7 @@ adb pull $dtbo_path dtbo.img > /dev/null
 adb pull /sys/firmware/fdt final_dt > /dev/null
 
 #decompile the DTBO image
-mkdtimg_path="${ANDROID_HOST_BIN_LOCATION}/mkdtimg"
+mkdtimg_path="${ANDROID_HOST_BIN_LOCATION}/mkdtboimg.py"
 $mkdtimg_path dump dtbo.img -b dumped_dtbo > /dev/null
 
 #Get the index of the overlay applied from the kernel command line

@@ -160,8 +160,7 @@ public class ConnectivityBackgroundTestActivity extends PassFailButtons.Activity
 
         // Whether or not this device (currently) has a battery.
         mWaitForPowerDisconnected =
-                batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, false)
-                        && !hasPersistentPower();
+                batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, false);
 
         // Check if the device is already on battery power.
         if (mWaitForPowerDisconnected) {
@@ -641,14 +640,6 @@ public class ConnectivityBackgroundTestActivity extends PassFailButtons.Activity
         }
 
         return new HttpResult(rcode, msg);
-    }
-
-    private boolean hasPersistentPower() {
-        // Cars and TVsets are always connected to the persistent power source
-        final PackageManager pm = getPackageManager();
-        return (pm != null
-                && (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-                    || pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)));
     }
 
     private boolean requiresScreenOffSupport() {

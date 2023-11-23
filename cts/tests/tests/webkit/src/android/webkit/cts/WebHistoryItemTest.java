@@ -17,9 +17,10 @@
 package android.webkit.cts;
 
 import android.graphics.Bitmap;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.WebBackForwardList;
-import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
 import android.webkit.WebHistoryItem;
 import android.webkit.WebIconDatabase;
 import android.webkit.WebView;
@@ -27,6 +28,7 @@ import android.webkit.WebView;
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
+@AppModeFull
 public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
     private final static long TEST_TIMEOUT = 10000;
     private CtsTestServer mWebServer;
@@ -58,7 +60,7 @@ public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebView
         mWebServer = new CtsTestServer(getActivity());
         WebView webview = getActivity().getWebView();
         if (webview != null) {
-            mOnUiThread = new WebViewOnUiThread(this, webview);
+            mOnUiThread = new WebViewOnUiThread(webview);
         }
     }
 
@@ -81,14 +83,11 @@ public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebView
         }
         final WaitForIconClient waitForIconClient = new WaitForIconClient(mOnUiThread);
         mOnUiThread.setWebChromeClient(waitForIconClient);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                // getInstance must run on the UI thread
-                mIconDb = WebIconDatabase.getInstance();
-                String dbPath = getActivity().getFilesDir().toString() + "/icons";
-                mIconDb.open(dbPath);
-            }
+        WebkitUtils.onMainThreadSync(() -> {
+            // getInstance must run on the UI thread
+            mIconDb = WebIconDatabase.getInstance();
+            String dbPath = getActivity().getFilesDir().toString() + "/icons";
+            mIconDb.open(dbPath);
         });
 
         WebBackForwardList list = mOnUiThread.copyBackForwardList();

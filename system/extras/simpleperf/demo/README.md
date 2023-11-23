@@ -30,7 +30,7 @@ $ cd extras/simpleperf/demo
 The testing environment:
 
 ```
-Android Studio 3.0
+Android Studio 3.2
 test device: Android O (Google Pixel 2)
 test device: Android N (Google Nexus 6P)
 Please make sure your device having Android version >= N.

@@ -17,13 +17,16 @@
 
 package org.apache.harmony.tests.java.util.regex;
 
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import junit.framework.TestCase;
+import java.util.regex.*;
 
 /**
  * TODO Type description
+ *
  */
 @SuppressWarnings("nls")
 public class SplitTest extends TestCase {
@@ -32,9 +35,52 @@ public class SplitTest extends TestCase {
         Pattern p = Pattern.compile("/");
         String[] results = p.split("have/you/done/it/right");
         String[] expected = new String[] { "have", "you", "done", "it", "right" };
-        assertEquals(expected.length, results.length);
+        assertArraysEqual(expected, results);
+    }
+
+    @SuppressWarnings("InvalidPatternSyntax")
+    public void testEmptySplits() {
+        // Trailing empty matches are removed.
+        assertArraysEqual(new String[0], "hello".split("."));
+        assertArraysEqual(new String[] { "1", "2" }, "1:2:".split(":"));
+        // ...including when that results in an empty result.
+        assertArraysEqual(new String[0], ":".split(":"));
+        // ...but not when limit < 0.
+        assertArraysEqual(new String[] { "1", "2", "" }, "1:2:".split(":", -1));
+
+        // Leading empty matches are retained.
+        assertArraysEqual(new String[] { "", "", "o" }, "hello".split(".."));
+
+        // A separator that doesn't occur in the input gets you the input.
+        assertArraysEqual(new String[] { "hello" }, "hello".split("not-present-in-test"));
+        // ...including when the input is the empty string.
+        // (Perl returns an empty list instead.)
+        assertArraysEqual(new String[] { "" }, "".split("not-present-in-test"));
+        assertArraysEqual(new String[] { "" }, "".split("A?"));
+
+        // The limit argument controls the size of the result.
+        // If l == 0, the result is as long as needed, except trailing empty matches are dropped.
+        // If l < 0, the result is as long as needed, and trailing empty matches are retained.
+        // If l > 0, the result contains the first l matches, plus one string containing the remaining input.
+        // Examples without a trailing separator (and hence without a trailing empty match):
+        assertArraysEqual(new String[] { "a", "b", "c" }, "a,b,c".split(",", 0));
+        assertArraysEqual(new String[] { "a,b,c" }, "a,b,c".split(",", 1));
+        assertArraysEqual(new String[] { "a", "b,c" }, "a,b,c".split(",", 2));
+        assertArraysEqual(new String[] { "a", "b", "c" }, "a,b,c".split(",", 3));
+        assertArraysEqual(new String[] { "a", "b", "c" }, "a,b,c".split(",", Integer.MAX_VALUE));
+        // Examples with a trailing separator (and hence possibly with a trailing empty match):
+        assertArraysEqual(new String[] { "a", "b", "c" }, "a,b,c,".split(",", 0));
+        assertArraysEqual(new String[] { "a,b,c," }, "a,b,c,".split(",", 1));
+        assertArraysEqual(new String[] { "a", "b,c," }, "a,b,c,".split(",", 2));
+        assertArraysEqual(new String[] { "a", "b", "c," }, "a,b,c,".split(",", 3));
+        assertArraysEqual(new String[] { "a", "b", "c", "" }, "a,b,c,".split(",", Integer.MAX_VALUE));
+        assertArraysEqual(new String[] { "a", "b", "c", "" }, "a,b,c,".split(",", -1));
+    }
+
+    private void assertArraysEqual(String[] expected, String[] actual) {
+        assertEquals(expected.length, actual.length);
         for (int i = 0; i < expected.length; i++) {
-            assertEquals(results[i], expected[i]);
+            assertEquals(Integer.toString(i), expected[i], actual[i]);
         }
     }
 
@@ -131,41 +177,23 @@ public class SplitTest extends TestCase {
 
     public void testSplit2() {
         Pattern p = Pattern.compile("");
-        String s[];
-        s = p.split("a", -1);
-        assertEquals(3, s.length);
-        assertEquals("", s[0]);
-        assertEquals("a", s[1]);
-        assertEquals("", s[2]);
+        assertEquals(Arrays.asList("a", ""), Arrays.asList(p.split("a", -1)));
+        assertEquals(Arrays.asList(""), Arrays.asList(p.split("", -1)));
+        assertEquals(Arrays.asList("a", "b", "c", "d", ""), Arrays.asList(p.split("abcd", -1)));
 
-        s = p.split("", -1);
-        assertEquals(1, s.length);
-        assertEquals("", s[0]);
-
-        s = p.split("abcd", -1);
-        assertEquals(6, s.length);
-        assertEquals("", s[0]);
-        assertEquals("a", s[1]);
-        assertEquals("b", s[2]);
-        assertEquals("c", s[3]);
-        assertEquals("d", s[4]);
-        assertEquals("", s[5]);
+        // Regression test for Android
+        assertEquals("GOOG,23,500".split("|").length, 11);
     }
+
 
     public void testSplitSupplementaryWithEmptyString() {
-
         /*
-         * See http://www.unicode.org/reports/tr18/#Supplementary_Characters We
-         * have to treat text as code points not code units.
+         * See http://www.unicode.org/reports/tr18/#Supplementary_Characters
+         * We have to treat text as code points not code units.
          */
         Pattern p = Pattern.compile("");
-        String s[];
-        s = p.split("a\ud869\uded6b", -1);
-        assertEquals(5, s.length);
-        assertEquals("", s[0]);
-        assertEquals("a", s[1]);
-        assertEquals("\ud869\uded6", s[2]);
-        assertEquals("b", s[3]);
-        assertEquals("", s[4]);
+        String[] s = p.split("a\ud869\uded6b", -1);
+        assertEquals(Arrays.asList("a", "\ud869\uded6", "b", ""), Arrays.asList(s));
     }
+
 }

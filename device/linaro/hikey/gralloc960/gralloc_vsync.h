@@ -22,10 +22,10 @@
 struct framebuffer_device_t;
 
 /* Enables vsync interrupt. */
-int gralloc_vsync_enable(struct framebuffer_device_t* dev);
+int gralloc_vsync_enable(struct framebuffer_device_t *dev);
 /* Disables vsync interrupt. */
-int gralloc_vsync_disable(struct framebuffer_device_t* dev);
+int gralloc_vsync_disable(struct framebuffer_device_t *dev);
 /* Waits for the vsync interrupt. */
-int gralloc_wait_for_vsync(struct framebuffer_device_t* dev);
+int gralloc_wait_for_vsync(struct framebuffer_device_t *dev);
 
 #endif /* _GRALLOC_VSYNC_H_ */

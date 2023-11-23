@@ -248,7 +248,7 @@ return;
 
   for (Slot = 0; Slot < DW_MMC_HC_MAX_SLOT; Slot++) {
     if ((Private->Slot[Slot].Enable) && (Private->Slot[Slot].SlotType == RemovableSlot)) {
-      Status = DwMmcHcCardDetect (Private->PciIo, Slot, &MediaPresent);
+      Status = DwMmcHcCardDetect (Private->PciIo, Private->ControllerHandle, Slot, &MediaPresent);
       if ((Status == EFI_MEDIA_CHANGED) && !MediaPresent) {
         DEBUG ((DEBUG_INFO, "DwMmcHcEnumerateDevice: device disconnected at slot %d of pci %p\n", Slot, Private->PciIo));
         Private->Slot[Slot].MediaPresent = FALSE;
@@ -679,7 +679,7 @@ DwMmcHcDriverBindingStart (
     DumpCapabilityReg (Slot, &Private->Capability[Slot]);
 
     MediaPresent = FALSE;
-    Status = DwMmcHcCardDetect (Private->PciIo, Slot, &MediaPresent);
+    Status = DwMmcHcCardDetect (Private->PciIo, Controller, Slot, &MediaPresent);
     if (MediaPresent == FALSE) {
       continue;
     }

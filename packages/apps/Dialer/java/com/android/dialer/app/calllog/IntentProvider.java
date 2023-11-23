@@ -22,18 +22,18 @@ import android.content.Intent;
 import android.net.Uri;
 import android.provider.ContactsContract;
 import android.support.annotation.Nullable;
-import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import com.android.contacts.common.model.Contact;
 import com.android.contacts.common.model.ContactLoader;
-import com.android.dialer.calldetails.CallDetailsActivity;
 import com.android.dialer.calldetails.CallDetailsEntries;
+import com.android.dialer.calldetails.OldCallDetailsActivity;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.callintent.CallIntentBuilder;
 import com.android.dialer.dialercontact.DialerContact;
 import com.android.dialer.duo.DuoComponent;
-import com.android.dialer.duo.DuoConstants;
+import com.android.dialer.logging.DialerImpression;
+import com.android.dialer.logging.Logger;
 import com.android.dialer.precall.PreCall;
 import com.android.dialer.util.IntentUtil;
 import java.util.ArrayList;
@@ -95,11 +95,26 @@ public abstract class IntentProvider {
     };
   }
 
-  public static IntentProvider getDuoVideoIntentProvider(String number) {
+  public static IntentProvider getDuoVideoIntentProvider(String number, boolean isNonContact) {
     return new IntentProvider() {
       @Override
       public Intent getIntent(Context context) {
-        return DuoComponent.get(context).getDuo().getIntent(context, number);
+        return PreCall.getIntent(
+            context,
+            new CallIntentBuilder(number, CallInitiationType.Type.CALL_LOG)
+                .setIsDuoCall(true)
+                .setIsVideoCall(true));
+      }
+
+      @Override
+      public void logInteraction(Context context) {
+        Logger.get(context)
+            .logImpression(DialerImpression.Type.LIGHTBRINGER_VIDEO_REQUESTED_FROM_CALL_LOG);
+        if (isNonContact) {
+          Logger.get(context)
+              .logImpression(
+                  DialerImpression.Type.LIGHTBRINGER_NON_CONTACT_VIDEO_REQUESTED_FROM_CALL_LOG);
+        }
       }
     };
   }
@@ -108,18 +123,12 @@ public abstract class IntentProvider {
     return new IntentProvider() {
       @Override
       public Intent getIntent(Context context) {
-        return new Intent(
-            Intent.ACTION_VIEW,
-            new Uri.Builder()
-                .scheme("https")
-                .authority("play.google.com")
-                .appendEncodedPath("store/apps/details")
-                .appendQueryParameter("id", DuoConstants.PACKAGE_NAME)
-                .appendQueryParameter(
-                    "referrer",
-                    "utm_source=dialer&utm_medium=text&utm_campaign=product") // This string is from
-                // the Duo team
-                .build());
+        return DuoComponent.get(context).getDuo().getInstallDuoIntent().orNull();
+      }
+
+      @Override
+      public void logInteraction(Context context) {
+        Logger.get(context).logImpression(DialerImpression.Type.DUO_CALL_LOG_SET_UP_INSTALL);
       }
     };
   }
@@ -128,7 +137,12 @@ public abstract class IntentProvider {
     return new IntentProvider() {
       @Override
       public Intent getIntent(Context context) {
-        return new Intent(DuoConstants.DUO_ACTIVATE_ACTION).setPackage(DuoConstants.PACKAGE_NAME);
+        return DuoComponent.get(context).getDuo().getActivateIntent().orNull();
+      }
+
+      @Override
+      public void logInteraction(Context context) {
+        Logger.get(context).logImpression(DialerImpression.Type.DUO_CALL_LOG_SET_UP_ACTIVATE);
       }
     };
   }
@@ -137,11 +151,12 @@ public abstract class IntentProvider {
     return new IntentProvider() {
       @Override
       public Intent getIntent(Context context) {
-        Intent intent =
-            new Intent(DuoConstants.DUO_INVITE_ACTION)
-                .setPackage(DuoConstants.PACKAGE_NAME)
-                .setData(Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null /* fragment */));
-        return intent;
+        return DuoComponent.get(context).getDuo().getInviteIntent(number).orNull();
+      }
+
+      @Override
+      public void logInteraction(Context context) {
+        Logger.get(context).logImpression(DialerImpression.Type.DUO_CALL_LOG_INVITE);
       }
     };
   }
@@ -184,7 +199,7 @@ public abstract class IntentProvider {
     return new IntentProvider() {
       @Override
       public Intent getIntent(Context context) {
-        return CallDetailsActivity.newInstance(
+        return OldCallDetailsActivity.newInstance(
             context, callDetailsEntries, contact, canReportCallerId, canSupportAssistedDialing);
       }
     };
@@ -261,4 +276,6 @@ public abstract class IntentProvider {
   }
 
   public abstract Intent getIntent(Context context);
+
+  public void logInteraction(Context context) {}
 }

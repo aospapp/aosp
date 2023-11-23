@@ -24,7 +24,7 @@
 
 #define LOG_TAG "StrictController"
 #define LOG_NDEBUG 0
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
@@ -47,7 +47,7 @@ using android::base::StringPrintf;
 StrictController::StrictController(void) {
 }
 
-int StrictController::enableStrict(void) {
+int StrictController::setupIptablesHooks(void) {
     char connmarkFlagAccept[16];
     char connmarkFlagReject[16];
     char connmarkFlagTestAccept[32];
@@ -61,7 +61,7 @@ int StrictController::enableStrict(void) {
             ConnmarkFlags::STRICT_RESOLVED_REJECT,
             ConnmarkFlags::STRICT_RESOLVED_REJECT);
 
-    disableStrict();
+    resetChains();
 
     int res = 0;
     std::vector<std::string> v4, v6;
@@ -136,10 +136,10 @@ int StrictController::enableStrict(void) {
 #undef CMD_V6
 #undef CMD_V4V6
 
-    return res;
+    return res ? -EREMOTEIO : 0;
 }
 
-int StrictController::disableStrict(void) {
+int StrictController::resetChains(void) {
     // Flush any existing rules
 #define CLEAR_CHAIN(x) StringPrintf(":%s -", (x))
     std::vector<std::string> commandList = {
@@ -152,7 +152,7 @@ int StrictController::disableStrict(void) {
         "COMMIT\n"
     };
     const std::string commands = Join(commandList, '\n');
-    return execIptablesRestore(V4V6, commands);
+    return (execIptablesRestore(V4V6, commands) == 0) ? 0 : -EREMOTEIO;
 #undef CLEAR_CHAIN
 }
 
@@ -194,5 +194,5 @@ int StrictController::setUidCleartextPenalty(uid_t uid, StrictPenalty penalty) {
     }
     commands.push_back("COMMIT\n");
 
-    return execIptablesRestore(V4V6, Join(commands, "\n"));
+    return (execIptablesRestore(V4V6, Join(commands, "\n")) == 0) ? 0 : -EREMOTEIO;
 }

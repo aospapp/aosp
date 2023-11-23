@@ -22,6 +22,13 @@ apply plugin: 'maven'
 group = 'com.android'
 version = '1.0.6'
 
+def currentJvmVersion = org.gradle.api.JavaVersion.current()
+if (currentJvmVersion.getMajorVersion() != "8") {
+  throw new Exception("Unsupported java version '" + currentJvmVersion.toString() + "'. Please install java 8.\n" +
+"\n" +
+"If you have already installed java 8, you can instruct Gradle to use it by setting the environment variable JAVA_HOME equal to its file path.")
+}
+
 /*
  * With the build server you are given two env variables:
  * 1. The OUT_DIR is a temporary directory you can use to put things during the build.
@@ -47,7 +54,7 @@ if (System.env.DIST_DIR != null && System.env.OUT_DIR != null) {
  * If prebuilts are available, use them. Else, if this is unbundled build use jcenter().
  * Finally, if none of that is true, attempt to compile against the full source trees.
  */
-File m2repo = file('../../prebuilts/tools/common/m2/repository')
+File m2repo = file('../../prebuilts/androidx/external')
 boolean unbundleBuild = (new File("unbundled-build")).exists()
 
 if (m2repo.exists() || unbundleBuild) {

@@ -15,6 +15,7 @@
  */
 package com.android.mail.widget;
 
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
@@ -22,11 +23,13 @@ import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
 import android.content.Loader.OnLoadCompleteListener;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Looper;
-import android.support.v4.app.TaskStackBuilder;
+import androidx.core.app.TaskStackBuilder;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -68,6 +71,23 @@ public class WidgetService extends RemoteViewsService {
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
         return new MailFactory(getApplicationContext(), intent, this);
+    }
+
+    /** Checks if widgets are supported. */
+    public static boolean isWidgetSupported(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            return hasAppWidgetsSystemFeature(context);
+        } else {
+            // Before SDK 18, we can assume AppWidgetManager#getInstance will
+            // never return null, so we can always return true regardless of
+            // whether the widgets are really supported.
+            return true;
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+    private static boolean hasAppWidgetsSystemFeature(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS);
     }
 
     protected void configureValidAccountWidget(Context context, RemoteViews remoteViews,

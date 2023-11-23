@@ -15,5 +15,11 @@ enum class HalPixelFormat : uint32_t {
     YV12 = 0x32315659,
     NV12 = 0x3231564e,
 };
+
+enum class InputCodec {
+    H264,
+    VP8,
+    VP9,
+};
 } // namespace android
 #endif  // ANDROID_C2_VDA_COMMON_H

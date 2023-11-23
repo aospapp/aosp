@@ -100,6 +100,17 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
                 AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS));
         assertEquals("FLAG_REQUEST_TOUCH_EXPLORATION_MODE", AccessibilityServiceInfo.flagToString(
                 AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE));
+        assertEquals("FLAG_RETRIEVE_INTERACTIVE_WINDOWS", AccessibilityServiceInfo.flagToString(
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS));
+        assertEquals("FLAG_ENABLE_ACCESSIBILITY_VOLUME", AccessibilityServiceInfo.flagToString(
+                AccessibilityServiceInfo.FLAG_ENABLE_ACCESSIBILITY_VOLUME));
+        assertEquals("FLAG_REQUEST_ACCESSIBILITY_BUTTON", AccessibilityServiceInfo.flagToString(
+                AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON));
+        assertEquals("FLAG_REQUEST_FINGERPRINT_GESTURES", AccessibilityServiceInfo.flagToString(
+                AccessibilityServiceInfo.FLAG_REQUEST_FINGERPRINT_GESTURES));
+        assertEquals("FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK", AccessibilityServiceInfo.flagToString(
+                AccessibilityServiceInfo.FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK));
+
     }
 
     /**
@@ -115,6 +126,8 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
         sentInfo.packageNames = new String[] {
             "foo.bar.baz"
         };
+        sentInfo.setInteractiveUiTimeoutMillis(2000);
+        sentInfo.setNonInteractiveUiTimeoutMillis(4000);
     }
 
     /**
@@ -135,5 +148,11 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
                 receivedInfo.packageNames.length);
         assertEquals("packageNames not marshalled properly", sentInfo.packageNames[0],
                 receivedInfo.packageNames[0]);
+        assertEquals("interactiveUiTimeout not marshalled properly",
+                sentInfo.getInteractiveUiTimeoutMillis(),
+                receivedInfo.getInteractiveUiTimeoutMillis());
+        assertEquals("nonInteractiveUiTimeout not marshalled properly",
+                sentInfo.getNonInteractiveUiTimeoutMillis(),
+                receivedInfo.getNonInteractiveUiTimeoutMillis());
     }
 }

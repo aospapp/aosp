@@ -75,7 +75,7 @@ bool FromValue(const base::Value& in_value, std::vector<T, Alloc>* out_value) {
   out_value->reserve(list->GetSize());
   for (const auto& item : *list) {
     T value{};
-    if (!FromValue(*item, &value))
+    if (!FromValue(item, &value))
       return false;
     out_value->push_back(std::move(value));
   }

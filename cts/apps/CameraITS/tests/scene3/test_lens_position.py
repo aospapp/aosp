@@ -29,13 +29,6 @@ FRAME_TIME_TOL = 10  # ms
 VGA_WIDTH = 640
 VGA_HEIGHT = 480
 NAME = os.path.basename(__file__).split('.')[0]
-CHART_FILE = os.path.join(os.environ['CAMERA_ITS_TOP'], 'pymodules', 'its',
-                          'test_images', 'ISO12233.png')
-CHART_HEIGHT = 13.5  # cm
-CHART_DISTANCE = 30.0  # cm
-CHART_SCALE_START = 0.65
-CHART_SCALE_STOP = 1.35
-CHART_SCALE_STEP = 0.025
 
 
 def test_lens_position(cam, props, fmt, sensitivity, exp, chart):
@@ -126,9 +119,7 @@ def main():
         its.caps.skip_unless(its.caps.read_3a(props) and
                              its.caps.lens_calibrated(props))
     # initialize chart class
-    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
-                               CHART_SCALE_START, CHART_SCALE_STOP,
-                               CHART_SCALE_STEP)
+    chart = its.cv2image.Chart()
 
     with its.device.ItsSession() as cam:
         mono_camera = its.caps.mono_camera(props)

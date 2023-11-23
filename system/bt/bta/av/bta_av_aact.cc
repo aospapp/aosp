@@ -79,7 +79,6 @@
 /* ACL quota we are letting FW use for A2DP Offload Tx. */
 #define BTA_AV_A2DP_OFFLOAD_XMIT_QUOTA 4
 
-#define MAX_2MBPS_AVDTP_MTU 663
 #define BTIF_A2DP_MAX_BITPOOL_MQ 35
 
 static void bta_av_offload_codec_builder(tBTA_AV_SCB* p_scb,
@@ -966,7 +965,7 @@ void bta_av_free_sdb(tBTA_AV_SCB* p_scb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_config_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data) {
-  tBTA_AV_CI_SETCONFIG setconfig;
+  tBTA_AV_CI_SETCONFIG setconfig{};
   tAVDT_SEP_INFO* p_info;
   const AvdtpSepConfig* p_evt_cfg = &p_data->str_msg.cfg;
   uint8_t psc_mask = (p_evt_cfg->psc_mask | p_scb->cfg.psc_mask);
@@ -3247,7 +3246,7 @@ static void bta_av_offload_codec_builder(tBTA_AV_SCB* p_scb,
       APPL_TRACE_ERROR("%s: Unknown Codec type ", __func__);
       return;
   }
-  if (mtu > BTA_AV_MAX_A2DP_MTU) mtu = BTA_AV_MAX_A2DP_MTU;
+  if (mtu > MAX_3MBPS_AVDTP_MTU) mtu = MAX_3MBPS_AVDTP_MTU;
   p_a2dp_offload->codec_type = codec_type;
   p_a2dp_offload->max_latency = 0;
   p_a2dp_offload->mtu = mtu;

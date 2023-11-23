@@ -77,7 +77,7 @@ long long strtoll(const char* __s, char** __end_ptr, int __base);
 unsigned long strtoul(const char* __s, char** __end_ptr, int __base);
 unsigned long long strtoull(const char* __s, char** __end_ptr, int __base);
 
-int posix_memalign(void** __memptr, size_t __alignment, size_t __size) __INTRODUCED_IN(16);
+int posix_memalign(void** __memptr, size_t __alignment, size_t __size) __INTRODUCED_IN(17);
 
 void* aligned_alloc(size_t __alignment, size_t __size) __INTRODUCED_IN(28);
 
@@ -146,6 +146,15 @@ typedef struct {
 } lldiv_t;
 
 lldiv_t lldiv(long long __numerator, long long __denominator) __attribute_const__;
+
+/**
+ * [getloadavg(3)](http://man7.org/linux/man-pages/man3/getloadavg.3.html) queries the
+ * number of runnable processes averaged over time. The Linux kernel supports averages
+ * over the last 1, 5, and 15 minutes.
+ *
+ * Returns the number of samples written to `__averages` (at most 3), and returns -1 on failure.
+ */
+int getloadavg(double __averages[], int __n) __INTRODUCED_IN(29);
 
 /* BSD compatibility. */
 const char* getprogname(void) __INTRODUCED_IN(21);

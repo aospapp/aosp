@@ -22,8 +22,6 @@
 
     <minSdk>14</minSdk>
 
-    <dependency_external>'renderscript-v8.jar'</dependency_external>
-
     <defaultConfig>
         renderscriptTargetApi 24
         renderscriptSupportModeEnabled true

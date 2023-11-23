@@ -31,7 +31,7 @@ namespace curl {
 // This is a class that stores connection data on particular CURL socket
 // and provides file descriptor watcher to monitor read and/or write operations
 // on the socket's file descriptor.
-class Transport::SocketPollData : public base::MessageLoopForIO::Watcher {
+class Transport::SocketPollData : public base::MessagePumpForIO::FdWatcher {
  public:
   SocketPollData(const std::shared_ptr<CurlInterface>& curl_interface,
                  CURLM* curl_multi_handle,
@@ -44,12 +44,12 @@ class Transport::SocketPollData : public base::MessageLoopForIO::Watcher {
         file_descriptor_watcher_(FROM_HERE) {}
 
   // Returns the pointer for the socket-specific file descriptor watcher.
-  base::MessageLoopForIO::FileDescriptorWatcher* GetWatcher() {
+  base::MessagePumpForIO::FdWatchController* GetWatcher() {
     return &file_descriptor_watcher_;
   }
 
  private:
-  // Overrides from base::MessageLoopForIO::Watcher.
+  // Overrides from base::MessagePumpForIO::Watcher.
   void OnFileCanReadWithoutBlocking(int fd) override {
     OnSocketReady(fd, CURL_CSELECT_IN);
   }
@@ -80,7 +80,7 @@ class Transport::SocketPollData : public base::MessageLoopForIO::Watcher {
   // The socket file descriptor for the connection.
   curl_socket_t socket_fd_;
   // File descriptor watcher to notify us of asynchronous I/O on the FD.
-  base::MessageLoopForIO::FileDescriptorWatcher file_descriptor_watcher_;
+  base::MessagePumpForIO::FdWatchController file_descriptor_watcher_;
 
   DISALLOW_COPY_AND_ASSIGN(SocketPollData);
 };
@@ -130,7 +130,7 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
     return connection;
   }
 
-  LOG(INFO) << "Sending a " << method << " request to " << url;
+  VLOG(1) << "Sending a " << method << " request to " << url;
   CURLcode code = curl_interface_->EasySetOptStr(curl_handle, CURLOPT_URL, url);
 
   if (code == CURLE_OK) {
@@ -164,6 +164,10 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
           curl_handle, CURLOPT_TIMEOUT_MS,
           static_cast<int>(timeout_ms));
     }
+  }
+  if (code == CURLE_OK && !ip_address_.empty()) {
+    code = curl_interface_->EasySetOptStr(
+        curl_handle, CURLOPT_INTERFACE, ip_address_.c_str());
   }
 
   // Setup HTTP request method and optional request body.
@@ -202,7 +206,7 @@ std::shared_ptr<http::Connection> Transport::CreateConnection(
   return connection;
 }
 
-void Transport::RunCallbackAsync(const tracked_objects::Location& from_here,
+void Transport::RunCallbackAsync(const base::Location& from_here,
                                  const base::Closure& callback) {
   base::MessageLoopForIO::current()->task_runner()->PostTask(
       from_here, callback);
@@ -245,7 +249,7 @@ RequestID Transport::StartAsyncTransfer(http::Connection* connection,
     request_id_map_.erase(request_id);
     return 0;
   }
-  LOG(INFO) << "Started asynchronous HTTP request with ID " << request_id;
+  VLOG(1) << "Started asynchronous HTTP request with ID " << request_id;
   return request_id;
 }
 
@@ -266,8 +270,12 @@ void Transport::SetDefaultTimeout(base::TimeDelta timeout) {
   connection_timeout_ = timeout;
 }
 
+void Transport::SetLocalIpAddress(const std::string& ip_address) {
+  ip_address_ = "host!" + ip_address;
+}
+
 void Transport::AddEasyCurlError(brillo::ErrorPtr* error,
-                                 const tracked_objects::Location& location,
+                                 const base::Location& location,
                                  CURLcode code,
                                  CurlInterface* curl_interface) {
   brillo::Error::AddTo(error, location, "curl_easy_error",
@@ -276,7 +284,7 @@ void Transport::AddEasyCurlError(brillo::ErrorPtr* error,
 }
 
 void Transport::AddMultiCurlError(brillo::ErrorPtr* error,
-                                  const tracked_objects::Location& location,
+                                  const base::Location& location,
                                   CURLMcode code,
                                   CurlInterface* curl_interface) {
   brillo::Error::AddTo(error, location, "curl_multi_error",
@@ -354,21 +362,21 @@ int Transport::MultiSocketCallback(CURL* easy,
     poll_data->GetWatcher()->StopWatchingFileDescriptor();
     // This method can be called indirectly from SocketPollData::OnSocketReady,
     // so delay destruction of SocketPollData object till the next loop cycle.
-    base::MessageLoopForIO::current()->task_runner()->
-        DeleteSoon(FROM_HERE, poll_data);
+    base::MessageLoopForIO::current()->task_runner()->DeleteSoon(FROM_HERE,
+                                                                 poll_data);
     return 0;
   }
 
-  base::MessageLoopForIO::Mode watch_mode = base::MessageLoopForIO::WATCH_READ;
+  base::MessagePumpForIO::Mode watch_mode = base::MessagePumpForIO::WATCH_READ;
   switch (what) {
     case CURL_POLL_IN:
-      watch_mode = base::MessageLoopForIO::WATCH_READ;
+      watch_mode = base::MessagePumpForIO::WATCH_READ;
       break;
     case CURL_POLL_OUT:
-      watch_mode = base::MessageLoopForIO::WATCH_WRITE;
+      watch_mode = base::MessagePumpForIO::WATCH_WRITE;
       break;
     case CURL_POLL_INOUT:
-      watch_mode = base::MessageLoopForIO::WATCH_READ_WRITE;
+      watch_mode = base::MessagePumpForIO::WATCH_READ_WRITE;
       break;
     default:
       LOG(FATAL) << "Unknown CURL socket action: " << what;
@@ -439,9 +447,9 @@ void Transport::OnTransferComplete(Connection* connection, CURLcode code) {
   auto p = async_requests_.find(connection);
   CHECK(p != async_requests_.end()) << "Unknown connection";
   AsyncRequestData* request_data = p->second.get();
-  LOG(INFO) << "HTTP request # " << request_data->request_id
-            << " has completed "
-            << (code == CURLE_OK ? "successfully" : "with an error");
+  VLOG(1) << "HTTP request # " << request_data->request_id
+          << " has completed "
+          << (code == CURLE_OK ? "successfully" : "with an error");
   if (code != CURLE_OK) {
     brillo::ErrorPtr error;
     AddEasyCurlError(&error, FROM_HERE, code, curl_interface_.get());
@@ -450,8 +458,10 @@ void Transport::OnTransferComplete(Connection* connection, CURLcode code) {
                                 p->second->request_id,
                                 base::Owned(error.release())));
   } else {
-    LOG(INFO) << "Response: " << connection->GetResponseStatusCode() << " ("
-              << connection->GetResponseStatusText() << ")";
+    if (connection->GetResponseStatusCode() != status_code::Ok) {
+      LOG(INFO) << "Response: " << connection->GetResponseStatusCode() << " ("
+                << connection->GetResponseStatusText() << ")";
+    }
     brillo::ErrorPtr error;
     // Rewind the response data stream to the beginning so the clients can
     // read the data back.

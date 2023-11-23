@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2016-2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,12 @@
 #include "EvsGlDisplay.h"
 
 #include <dirent.h>
+#include <hardware_legacy/uevent.h>
+#include <hwbinder/IPCThreadState.h>
+#include <cutils/android_filesystem_config.h>
 
+
+using namespace std::chrono_literals;
 
 namespace android {
 namespace hardware {
@@ -32,39 +37,130 @@ namespace implementation {
 // NOTE:  All members values are static so that all clients operate on the same state
 //        That is to say, this is effectively a singleton despite the fact that HIDL
 //        constructs a new instance for each client.
-std::list<EvsEnumerator::CameraRecord>   EvsEnumerator::sCameraList;
-wp<EvsGlDisplay>                           EvsEnumerator::sActiveDisplay;
+std::unordered_map<std::string, EvsEnumerator::CameraRecord> EvsEnumerator::sCameraList;
+wp<EvsGlDisplay>                                             EvsEnumerator::sActiveDisplay;
+std::mutex                                                   EvsEnumerator::sLock;
+std::condition_variable                                      EvsEnumerator::sCameraSignal;
 
+// Constants
+const auto kEnumerationTimeout = 10s;
+
+
+bool EvsEnumerator::checkPermission() {
+    hardware::IPCThreadState *ipc = hardware::IPCThreadState::self();
+    if (AID_AUTOMOTIVE_EVS != ipc->getCallingUid()) {
+        ALOGE("EVS access denied: pid = %d, uid = %d", ipc->getCallingPid(), ipc->getCallingUid());
+        return false;
+    }
+
+    return true;
+}
+
+void EvsEnumerator::EvsUeventThread(std::atomic<bool>& running) {
+    int status = uevent_init();
+    if (!status) {
+        ALOGE("Failed to initialize uevent handler.");
+        return;
+    }
+
+    char uevent_data[PAGE_SIZE - 2] = {};
+    while (running) {
+        int length = uevent_next_event(uevent_data, static_cast<int32_t>(sizeof(uevent_data)));
+
+        // Ensure double-null termination.
+        uevent_data[length] = uevent_data[length + 1] = '\0';
+
+        const char *action = nullptr;
+        const char *devname = nullptr;
+        const char *subsys = nullptr;
+        char *cp = uevent_data;
+        while (*cp) {
+            // EVS is interested only in ACTION, SUBSYSTEM, and DEVNAME.
+            if (!std::strncmp(cp, "ACTION=", 7)) {
+                action = cp + 7;
+            } else if (!std::strncmp(cp, "SUBSYSTEM=", 10)) {
+                subsys = cp + 10;
+            } else if (!std::strncmp(cp, "DEVNAME=", 8)) {
+                devname = cp + 8;
+            }
+
+            // Advance to after next \0
+            while (*cp++);
+        }
+
+        if (!devname || !subsys || std::strcmp(subsys, "video4linux")) {
+            // EVS expects that the subsystem of enabled video devices is
+            // video4linux.
+            continue;
+        }
+
+        // Update shared list.
+        bool cmd_addition = !std::strcmp(action, "add");
+        bool cmd_removal  = !std::strcmp(action, "remove");
+        {
+            std::string devpath = "/dev/";
+            devpath += devname;
+
+            std::lock_guard<std::mutex> lock(sLock);
+            if (cmd_removal) {
+                sCameraList.erase(devpath);
+                ALOGI("%s is removed", devpath.c_str());
+            } else if (cmd_addition) {
+                // NOTE: we are here adding new device without a validation
+                // because it always fails to open, b/132164956.
+                sCameraList.emplace(devpath, devpath.c_str());
+                ALOGI("%s is added", devpath.c_str());
+            } else {
+                // Ignore all other actions including "change".
+            }
+
+            // Notify the change.
+            sCameraSignal.notify_all();
+        }
+    }
+
+    return;
+}
 
 EvsEnumerator::EvsEnumerator() {
     ALOGD("EvsEnumerator created");
 
-    unsigned videoCount   = 0;
-    unsigned captureCount = 0;
+    enumerateDevices();
+}
 
+void EvsEnumerator::enumerateDevices() {
     // For every video* entry in the dev folder, see if it reports suitable capabilities
     // WARNING:  Depending on the driver implementations this could be slow, especially if
     //           there are timeouts or round trips to hardware required to collect the needed
     //           information.  Platform implementers should consider hard coding this list of
     //           known good devices to speed up the startup time of their EVS implementation.
     //           For example, this code might be replaced with nothing more than:
-    //                   sCameraList.emplace_back("/dev/video0");
-    //                   sCameraList.emplace_back("/dev/video1");
-    ALOGI("Starting dev/video* enumeration");
+    //                   sCameraList.emplace("/dev/video0");
+    //                   sCameraList.emplace("/dev/video1");
+    ALOGI("%s: Starting dev/video* enumeration", __FUNCTION__);
+    unsigned videoCount   = 0;
+    unsigned captureCount = 0;
     DIR* dir = opendir("/dev");
     if (!dir) {
         LOG_FATAL("Failed to open /dev folder\n");
     }
     struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        // We're only looking for entries starting with 'video'
-        if (strncmp(entry->d_name, "video", 5) == 0) {
-            std::string deviceName("/dev/");
-            deviceName += entry->d_name;
-            videoCount++;
-            if (qualifyCaptureDevice(deviceName.c_str())) {
-                sCameraList.emplace_back(deviceName.c_str());
-                captureCount++;
+    {
+        std::lock_guard<std::mutex> lock(sLock);
+
+        while ((entry = readdir(dir)) != nullptr) {
+            // We're only looking for entries starting with 'video'
+            if (strncmp(entry->d_name, "video", 5) == 0) {
+                std::string deviceName("/dev/");
+                deviceName += entry->d_name;
+                videoCount++;
+                if (sCameraList.find(deviceName) != sCameraList.end()) {
+                    ALOGI("%s has been added already.", deviceName.c_str());
+                    captureCount++;
+                } else if(qualifyCaptureDevice(deviceName.c_str())) {
+                    sCameraList.emplace(deviceName, deviceName.c_str());
+                    captureCount++;
+                }
             }
         }
     }
@@ -72,10 +168,25 @@ EvsEnumerator::EvsEnumerator() {
     ALOGI("Found %d qualified video capture devices of %d checked\n", captureCount, videoCount);
 }
 
-
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
 Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
     ALOGD("getCameraList");
+    if (!checkPermission()) {
+        return Void();
+    }
+
+    {
+        std::unique_lock<std::mutex> lock(sLock);
+        if (sCameraList.size() < 1) {
+            // No qualified device has been found.  Wait until new device is ready,
+            // for 10 seconds.
+            if (!sCameraSignal.wait_for(lock,
+                                        kEnumerationTimeout,
+                                        []{ return sCameraList.size() > 0; })) {
+                ALOGD("Timer expired.  No new device has been added.");
+            }
+        }
+    }
 
     const unsigned numCameras = sCameraList.size();
 
@@ -83,7 +194,7 @@ Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
     hidl_vec<CameraDesc> hidlCameras;
     hidlCameras.resize(numCameras);
     unsigned i = 0;
-    for (const auto& cam : sCameraList) {
+    for (const auto& [key, cam] : sCameraList) {
         hidlCameras[i++] = cam.desc;
     }
 
@@ -98,13 +209,12 @@ Return<void> EvsEnumerator::getCameraList(getCameraList_cb _hidl_cb)  {
 
 Return<sp<IEvsCamera>> EvsEnumerator::openCamera(const hidl_string& cameraId) {
     ALOGD("openCamera");
+    if (!checkPermission()) {
+        return nullptr;
+    }
 
     // Is this a recognized camera id?
     CameraRecord *pRecord = findCameraById(cameraId);
-    if (!pRecord) {
-        ALOGE("Requested camera %s not found", cameraId.c_str());
-        return nullptr;
-    }
 
     // Has this camera already been instantiated by another caller?
     sp<EvsV4lCamera> pActiveCamera = pRecord->activeInstance.promote();
@@ -166,6 +276,9 @@ Return<void> EvsEnumerator::closeCamera(const ::android::sp<IEvsCamera>& pCamera
 
 Return<sp<IEvsDisplay>> EvsEnumerator::openDisplay() {
     ALOGD("openDisplay");
+    if (!checkPermission()) {
+        return nullptr;
+    }
 
     // If we already have a display active, then we need to shut it down so we can
     // give exclusive access to the new caller.
@@ -205,6 +318,9 @@ Return<void> EvsEnumerator::closeDisplay(const ::android::sp<IEvsDisplay>& pDisp
 
 Return<DisplayState> EvsEnumerator::getDisplayState()  {
     ALOGD("getDisplayState");
+    if (!checkPermission()) {
+        return DisplayState::DEAD;
+    }
 
     // Do we still have a display object we think should be active?
     sp<IEvsDisplay> pActiveDisplay = sActiveDisplay.promote();
@@ -245,40 +361,44 @@ bool EvsEnumerator::qualifyCaptureDevice(const char* deviceName) {
     // Enumerate the available capture formats (if any)
     v4l2_fmtdesc formatDescription;
     formatDescription.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    for (int i=0; true; i++) {
+    bool found = false;
+    for (int i=0; !found; i++) {
         formatDescription.index = i;
         if (ioctl(fd, VIDIOC_ENUM_FMT, &formatDescription) == 0) {
+            ALOGI("FORMAT 0x%X, type 0x%X, desc %s, flags 0x%X",
+                  formatDescription.pixelformat, formatDescription.type,
+                  formatDescription.description, formatDescription.flags);
             switch (formatDescription.pixelformat)
             {
-                case V4L2_PIX_FMT_YUYV:     return true;
-                case V4L2_PIX_FMT_NV21:     return true;
-                case V4L2_PIX_FMT_NV16:     return true;
-                case V4L2_PIX_FMT_YVU420:   return true;
-                case V4L2_PIX_FMT_RGB32:    return true;
+                case V4L2_PIX_FMT_YUYV:     found = true; break;
+                case V4L2_PIX_FMT_NV21:     found = true; break;
+                case V4L2_PIX_FMT_NV16:     found = true; break;
+                case V4L2_PIX_FMT_YVU420:   found = true; break;
+                case V4L2_PIX_FMT_RGB32:    found = true; break;
 #ifdef V4L2_PIX_FMT_ARGB32  // introduced with kernel v3.17
-                case V4L2_PIX_FMT_ARGB32:   return true;
-                case V4L2_PIX_FMT_XRGB32:   return true;
+                case V4L2_PIX_FMT_ARGB32:   found = true; break;
+                case V4L2_PIX_FMT_XRGB32:   found = true; break;
 #endif // V4L2_PIX_FMT_ARGB32
-                default:                    break;
+                default:
+                    ALOGW("Unsupported, 0x%X", formatDescription.pixelformat);
+                    break;
             }
         } else {
-            // No more formats available
+            // No more formats available.
             break;
         }
     }
 
-    // If we get here, we didn't find a usable output format
-    return false;
+    return found;
 }
 
 
 EvsEnumerator::CameraRecord* EvsEnumerator::findCameraById(const std::string& cameraId) {
     // Find the named camera
-    for (auto &&cam : sCameraList) {
-        if (cam.desc.cameraId == cameraId) {
-            // Found a match!
-            return &cam;
-        }
+    auto found = sCameraList.find(cameraId);
+    if (sCameraList.end() != found) {
+        // Found a match!
+        return &found->second;
     }
 
     // We didn't find a match

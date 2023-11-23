@@ -69,7 +69,7 @@ struct C2SoftHevcDec : public SimpleC2Component {
  private:
     status_t createDecoder();
     status_t setNumCores();
-    status_t setParams(size_t stride);
+    status_t setParams(size_t stride, IVD_VIDEO_DECODE_MODE_T dec_mode);
     status_t getVersion();
     status_t initDecoder();
     bool setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
@@ -120,14 +120,25 @@ struct C2SoftHevcDec : public SimpleC2Component {
     uint32_t mStride;
     bool mSignalledOutputEos;
     bool mSignalledError;
+    bool mHeaderDecoded;
 
-    // ColorAspects
-    Mutex mColorAspectsLock;
-    int mPreference;
-    ColorAspects mDefaultColorAspects;
-    ColorAspects mBitstreamColorAspects;
-    ColorAspects mFinalColorAspects;
-    bool mUpdateColorAspects;
+    // Color aspects. These are ISO values and are meant to detect changes in aspects to avoid
+    // converting them to C2 values for each frame
+    struct VuiColorAspects {
+        uint8_t primaries;
+        uint8_t transfer;
+        uint8_t coeffs;
+        uint8_t fullRange;
+
+        // default color aspects
+        VuiColorAspects()
+            : primaries(2), transfer(2), coeffs(2), fullRange(0) { }
+
+        bool operator==(const VuiColorAspects &o) {
+            return primaries == o.primaries && transfer == o.transfer && coeffs == o.coeffs
+                    && fullRange == o.fullRange;
+        }
+    } mBitstreamColorAspects;
 
     // profile
     struct timeval mTimeStart;

@@ -7,59 +7,54 @@ filegroup(
     srcs = ["common_jni.cc"],
 )
 
-#########################################
-# WARNING: do not depend on this target!
-#########################################
-java_library(
-    name = "common_no_dictionary_data",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["*Test*.java"],
-    ),
-    deps = ["//:jni_no_dictionary_data"],
+filegroup(
+    name = "brotli_jni_no_dictionary_data",
+    srcs = ["//:brotli_jni_no_dictionary_data.dll"],
 )
 
-#########################################
-# WARNING: do not depend on this target!
-#########################################
 java_library(
     name = "common",
     srcs = glob(
         ["*.java"],
         exclude = ["*Test*.java"],
     ),
-    deps = ["//:jni"],
+)
+
+java_library(
+    name = "test_lib",
+    testonly = 1,
+    srcs = glob(["*Test*.java"]),
+    deps = [
+        ":common",
+        "//org/brotli/dec",
+        "//org/brotli/integration:brotli_jni_test_base",
+        "//org/brotli/wrapper/dec",
+        "@junit_junit//jar",
+    ],
 )
 
 java_test(
     name = "SetZeroDictionaryTest",
+    test_class = "org.brotli.wrapper.common.SetZeroDictionaryTest",
     size = "small",
-    srcs = ["SetZeroDictionaryTest.java"],
-    data = ["//:jni_no_dictionary_data"],  # Bazel JNI workaround
-    deps = [
-        ":common_no_dictionary_data",
-        "//java/org/brotli/wrapper/dec",
-        "@junit_junit//jar",
+    data = [
+        ":brotli_jni_no_dictionary_data",  # Bazel JNI workaround
     ],
-)
-
-filegroup(
-    name = "rfc_dictionary",
-    srcs = ["//:dictionary"],
+    jvm_flags = [
+        "-DBROTLI_JNI_LIBRARY=$(location :brotli_jni_no_dictionary_data)",
+    ],
+    runtime_deps = [":test_lib"],
 )
 
 java_test(
     name = "SetRfcDictionaryTest",
+    test_class = "org.brotli.wrapper.common.SetRfcDictionaryTest",
     size = "small",
-    srcs = ["SetRfcDictionaryTest.java"],
     data = [
-        ":rfc_dictionary",
-        "//:jni_no_dictionary_data",  # Bazel JNI workaround
+        ":brotli_jni_no_dictionary_data",  # Bazel JNI workaround
     ],
-    jvm_flags = ["-DRFC_DICTIONARY=$(location :rfc_dictionary)"],
-    deps = [
-        ":common_no_dictionary_data",
-        "//java/org/brotli/wrapper/dec",
-        "@junit_junit//jar",
+    jvm_flags = [
+        "-DBROTLI_JNI_LIBRARY=$(location :brotli_jni_no_dictionary_data)",
     ],
+    runtime_deps = [":test_lib"],
 )

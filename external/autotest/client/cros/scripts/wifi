@@ -51,7 +51,7 @@ def usage():
 
 
 def configure(ssid, security, passphrase):
-    wifi = wifi_proxy.WifiProxy()
+    wifi = wifi_proxy.WifiProxy.get_proxy()
     security_parameters = {}
     if passphrase is not None:
         security_parameters[wifi.SERVICE_PROPERTY_PASSPHRASE] = passphrase
@@ -78,7 +78,7 @@ def connect(ssid, security, credentials, save_credentials, timeout=15):
     @return True upon success, False otherwise.
 
     """
-    wifi = wifi_proxy.WifiProxy()
+    wifi = wifi_proxy.WifiProxy.get_proxy()
     result = wifi.connect_to_wifi_network(ssid,
             security,
             credentials,
@@ -109,7 +109,7 @@ def disconnect(ssid, timeout=None):
     @return True upon seeing network is in idle state.
 
     """
-    wifi = wifi_proxy.WifiProxy()
+    wifi = wifi_proxy.WifiProxy.get_proxy()
     result = wifi.disconnect_from_wifi_network(ssid, timeout)
     (successful, duration, reason) = result
     if successful:

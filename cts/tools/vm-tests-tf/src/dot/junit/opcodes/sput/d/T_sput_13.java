@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static int value = 5 / 0; 
 }
 

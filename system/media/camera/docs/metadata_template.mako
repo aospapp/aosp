@@ -17,7 +17,7 @@
 <metadata
     xmlns="http://schemas.android.com/service/camera/metadata/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata_properties.xsd">
+    xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata_definitions.xsd">
 
 <tags>
 % for tag in metadata.tags:
@@ -122,6 +122,10 @@
 
           % if prop.hwlevel:
                 hwlevel="${prop.hwlevel}"
+          % endif
+
+          % if prop.permission_needed == "true":
+                permission_needed="true"
           % endif
 
           % if (prop.hal_major_version, prop.hal_minor_version) != (3,2):

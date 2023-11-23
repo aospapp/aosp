@@ -15,11 +15,9 @@ policy_testserver = None
 class FakeDMServer(object):
     """Utility class for policy tests."""
 
-    def __init__(self, proto_path):
+    def __init__(self):
         """
         Import the DM testserver from chrome source.
-
-        @param proto_path: location of proto files.
 
         """
         self.server_url = None
@@ -29,7 +27,6 @@ class FakeDMServer(object):
                      'third_party/protobuf/python/google',
                      'third_party/tlslite']:
             sys.path.append(os.path.join(telemetry_src, path))
-        sys.path.append(proto_path)
         global policy_testserver
         import policy_testserver
 

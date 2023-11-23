@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -159,11 +159,16 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
   */
   canvas_image=CloneImage(image,image->extract_info.width,1,MagickFalse,
     exception);
+  if (canvas_image == (Image *) NULL)
+    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   (void) SetImageVirtualPixelMethod(canvas_image,BlackVirtualPixelMethod,
     exception);
   quantum_info=AcquireQuantumInfo(image_info,canvas_image);
   if (quantum_info == (QuantumInfo *) NULL)
-    ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    {
+      canvas_image=DestroyImage(canvas_image);
+      ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
+    }
   quantum_type=BGRQuantum;
   if (LocaleCompare(image_info->magick,"BGRA") == 0)
     {
@@ -197,6 +202,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
   count=0;
   length=0;
   scene=0;
+  status=MagickTrue;
   do
   {
     /*
@@ -207,7 +213,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         break;
     status=SetImageExtent(image,image->columns,image->rows,exception);
     if (status == MagickFalse)
-      return(DestroyImageList(image));
+      break;
     switch (image_info->interlace)
     {
       case NoInterlace:
@@ -235,6 +241,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -316,6 +323,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -416,6 +424,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -469,6 +478,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -522,6 +532,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -583,6 +594,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
               if (count != (ssize_t) length)
                 {
+                  status=MagickFalse;
                   ThrowFileException(exception,CorruptImageError,
                     "UnexpectedEndOfFile",image->filename);
                   break;
@@ -641,27 +653,27 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         AppendImageFormat("B",image->filename);
         status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
         if (status == MagickFalse)
+          break;
+        if (DiscardBlobBytes(image,(MagickSizeType) image->offset) == MagickFalse)
           {
-            canvas_image=DestroyImageList(canvas_image);
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
+              image->filename);
+            break;
           }
-        if (DiscardBlobBytes(image,image->offset) == MagickFalse)
-          ThrowFileException(exception,CorruptImageError,"UnexpectedEndOfFile",
-            image->filename);
         length=GetQuantumExtent(canvas_image,quantum_info,BlueQuantum);
         for (i=0; i < (ssize_t) scene; i++)
+        {
           for (y=0; y < (ssize_t) image->extract_info.height; y++)
           {
             pixels=(const unsigned char *) ReadBlobStream(image,length,
               GetQuantumPixels(quantum_info),&count);
             if (count != (ssize_t) length)
-              {
-                ThrowFileException(exception,CorruptImageError,
-                  "UnexpectedEndOfFile",image->filename);
-                break;
-              }
+              break;
           }
+          if (count != (ssize_t) length)
+            break;
+        }
         pixels=(const unsigned char *) ReadBlobStream(image,length,
           GetQuantumPixels(quantum_info),&count);
         for (y=0; y < (ssize_t) image->extract_info.height; y++)
@@ -677,6 +689,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -721,24 +734,20 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         AppendImageFormat("G",image->filename);
         status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
         if (status == MagickFalse)
-          {
-            canvas_image=DestroyImageList(canvas_image);
-            image=DestroyImageList(image);
-            return((Image *) NULL);
-          }
+          break;
         length=GetQuantumExtent(canvas_image,quantum_info,GreenQuantum);
         for (i=0; i < (ssize_t) scene; i++)
+        {
           for (y=0; y < (ssize_t) image->extract_info.height; y++)
           {
             pixels=(const unsigned char *) ReadBlobStream(image,length,
               GetQuantumPixels(quantum_info),&count);
             if (count != (ssize_t) length)
-              {
-                ThrowFileException(exception,CorruptImageError,
-                  "UnexpectedEndOfFile",image->filename);
-                break;
-              }
+              break;
           }
+          if (count != (ssize_t) length)
+            break;
+        }
         pixels=(const unsigned char *) ReadBlobStream(image,length,
           GetQuantumPixels(quantum_info),&count);
         for (y=0; y < (ssize_t) image->extract_info.height; y++)
@@ -754,6 +763,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -798,24 +808,20 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         AppendImageFormat("R",image->filename);
         status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
         if (status == MagickFalse)
-          {
-            canvas_image=DestroyImageList(canvas_image);
-            image=DestroyImageList(image);
-            return((Image *) NULL);
-          }
+          break;
         length=GetQuantumExtent(canvas_image,quantum_info,RedQuantum);
         for (i=0; i < (ssize_t) scene; i++)
+        {
           for (y=0; y < (ssize_t) image->extract_info.height; y++)
           {
             pixels=(const unsigned char *) ReadBlobStream(image,length,
               GetQuantumPixels(quantum_info),&count);
             if (count != (ssize_t) length)
-              {
-                ThrowFileException(exception,CorruptImageError,
-                  "UnexpectedEndOfFile",image->filename);
-                break;
-              }
+              break;
           }
+          if (count != (ssize_t) length)
+            break;
+        }
         pixels=(const unsigned char *) ReadBlobStream(image,length,
           GetQuantumPixels(quantum_info),&count);
         for (y=0; y < (ssize_t) image->extract_info.height; y++)
@@ -831,6 +837,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
           if (count != (ssize_t) length)
             {
+              status=MagickFalse;
               ThrowFileException(exception,CorruptImageError,
                 "UnexpectedEndOfFile",image->filename);
               break;
@@ -877,24 +884,20 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
             AppendImageFormat("A",image->filename);
             status=OpenBlob(image_info,image,ReadBinaryBlobMode,exception);
             if (status == MagickFalse)
-              {
-                canvas_image=DestroyImageList(canvas_image);
-                image=DestroyImageList(image);
-                return((Image *) NULL);
-              }
+              break;
             length=GetQuantumExtent(canvas_image,quantum_info,AlphaQuantum);
             for (i=0; i < (ssize_t) scene; i++)
+            {
               for (y=0; y < (ssize_t) image->extract_info.height; y++)
               {
                 pixels=(const unsigned char *) ReadBlobStream(image,length,
                   GetQuantumPixels(quantum_info),&count);
                 if (count != (ssize_t) length)
-                  {
-                    ThrowFileException(exception,CorruptImageError,
-                      "UnexpectedEndOfFile",image->filename);
-                    break;
-                  }
+                  break;
               }
+              if (count != (ssize_t) length)
+                break;
+            }
             pixels=(const unsigned char *) ReadBlobStream(image,length,
               GetQuantumPixels(quantum_info),&count);
             for (y=0; y < (ssize_t) image->extract_info.height; y++)
@@ -910,6 +913,7 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
 
               if (count != (ssize_t) length)
                 {
+                  status=MagickFalse;
                   ThrowFileException(exception,CorruptImageError,
                     "UnexpectedEndOfFile",image->filename);
                   break;
@@ -961,6 +965,8 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         break;
       }
     }
+    if (status == MagickFalse)
+      break;
     SetQuantumImageType(image,quantum_type);
     /*
       Proceed to next image.
@@ -976,8 +982,8 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -990,6 +996,8 @@ static Image *ReadBGRImage(const ImageInfo *image_info,
   quantum_info=DestroyQuantumInfo(quantum_info);
   canvas_image=DestroyImage(canvas_image);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 
@@ -1115,6 +1123,9 @@ static MagickBooleanType WriteBGRImage(const ImageInfo *image_info,Image *image,
   size_t
     length;
 
+  size_t
+    imageListLength;
+
   ssize_t
     count,
     y;
@@ -1137,8 +1148,8 @@ static MagickBooleanType WriteBGRImage(const ImageInfo *image_info,Image *image,
         Open output image file.
       */
       assert(exception != (ExceptionInfo *) NULL);
-  assert(exception->signature == MagickCoreSignature);
-  status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
+      assert(exception->signature == MagickCoreSignature);
+      status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
       if (status == MagickFalse)
         return(status);
     }
@@ -1149,6 +1160,7 @@ static MagickBooleanType WriteBGRImage(const ImageInfo *image_info,Image *image,
       image->alpha_trait=BlendPixelTrait;
     }
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     /*
@@ -1466,8 +1478,7 @@ static MagickBooleanType WriteBGRImage(const ImageInfo *image_info,Image *image,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

@@ -8,6 +8,7 @@ LOCAL_SRC_FILES := \
     Enumerator.cpp \
     HalCamera.cpp \
     VirtualCamera.cpp \
+    HalDisplay.cpp
 
 
 LOCAL_SHARED_LIBRARIES := \
@@ -19,6 +20,7 @@ LOCAL_SHARED_LIBRARIES := \
     libhidltransport \
     libhardware \
     android.hardware.automotive.evs@1.0 \
+    libhwbinder
 
 
 LOCAL_INIT_RC := android.automotive.evs.manager@1.0.rc

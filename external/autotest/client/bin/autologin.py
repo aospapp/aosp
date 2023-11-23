@@ -10,6 +10,7 @@
 import common
 
 import argparse
+import getpass
 import sys
 
 from autotest_lib.client.common_lib.cros import chrome
@@ -26,11 +27,19 @@ def main(args):
                         help='Enable ARC and wait for it to start.')
     parser.add_argument('-d', '--dont_override_profile', action='store_true',
                         help='Keep files from previous sessions.')
+    parser.add_argument('-u', '--username',
+                        help='Log in as provided username.')
     args = parser.parse_args(args)
+
+    if args.username:
+        password = getpass.getpass()
 
     # Avoid calling close() on the Chrome object; this keeps the session active.
     chrome.Chrome(
         arc_mode=('enabled' if args.arc else None),
+        username=args.username,
+        password=(password if args.username else None),
+        gaia_login=(args.username is not None),
         dont_override_profile=args.dont_override_profile)
 
 

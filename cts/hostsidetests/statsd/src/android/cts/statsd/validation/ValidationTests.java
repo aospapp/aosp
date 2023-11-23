@@ -18,19 +18,18 @@ package android.cts.statsd.validation;
 import static org.junit.Assert.assertTrue;
 
 import android.cts.statsd.atom.DeviceAtomTestCase;
-import android.platform.test.annotations.RestrictedBuildTest;
+import android.os.BatteryPluggedStateEnum;
 import android.os.BatteryStatsProto;
 import android.os.UidProto;
 import android.os.UidProto.Wakelock;
-import android.os.BatteryPluggedStateEnum;
 import android.os.WakeLockLevelEnum;
+import android.platform.test.annotations.RestrictedBuildTest;
 import android.view.DisplayStateEnum;
 
-
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
+import com.android.internal.os.StatsdConfigProto.DurationMetric;
 import com.android.internal.os.StatsdConfigProto.FieldMatcher;
 import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
-import com.android.internal.os.StatsdConfigProto.DurationMetric;
 import com.android.internal.os.StatsdConfigProto.LogicalOperation;
 import com.android.internal.os.StatsdConfigProto.Position;
 import com.android.internal.os.StatsdConfigProto.Predicate;
@@ -42,14 +41,12 @@ import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.PluggedStateChanged;
 import com.android.os.AtomsProto.ScreenStateChanged;
 import com.android.os.AtomsProto.WakelockStateChanged;
-import com.android.os.StatsLog.EventMetricData;
 import com.android.os.StatsLog.DimensionsValue;
 import com.android.os.StatsLog.DurationBucketInfo;
 import com.android.os.StatsLog.DurationMetricData;
+import com.android.os.StatsLog.EventMetricData;
 import com.android.os.StatsLog.StatsLogReport;
 import com.android.tradefed.log.LogUtil.CLog;
-
-
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -63,6 +60,7 @@ import java.util.Set;
 public class ValidationTests extends DeviceAtomTestCase {
 
     private static final String TAG = "Statsd.ValidationTests";
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
     private static final boolean ENABLE_LOAD_TEST = false;
 
     @Override
@@ -81,8 +79,13 @@ public class ValidationTests extends DeviceAtomTestCase {
         if (statsdDisabled()) {
             return;
         }
+        if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         resetBatteryStats();
         unplugDevice();
+        // AoD needs to be turned off because the screen should go into an off state. But, if AoD is
+        // on and the device doesn't support STATE_DOZE, the screen sadly goes back to STATE_ON.
+        String aodState = getAodState();
+        setAodState("0");
         turnScreenOff();
 
         final int atomTag = Atom.WAKELOCK_STATE_CHANGED_FIELD_NUMBER;
@@ -114,7 +117,7 @@ public class ValidationTests extends DeviceAtomTestCase {
 
         for (EventMetricData event : data) {
             String tag = event.getAtom().getWakelockStateChanged().getTag();
-            WakeLockLevelEnum type = event.getAtom().getWakelockStateChanged().getLevel();
+            WakeLockLevelEnum type = event.getAtom().getWakelockStateChanged().getType();
             assertTrue("Expected tag: " + EXPECTED_TAG + ", but got tag: " + tag,
                     tag.equals(EXPECTED_TAG));
             assertTrue("Expected wakelock level: " + EXPECTED_LEVEL + ", but got level: " + type,
@@ -133,6 +136,8 @@ public class ValidationTests extends DeviceAtomTestCase {
         assertTrue(wl.getMaxDurationMs() < 700);
         assertTrue(wl.getTotalDurationMs() >= 500);
         assertTrue(wl.getTotalDurationMs() < 700);
+
+        setAodState(aodState); // restores AOD to initial state.
     }
 
     @RestrictedBuildTest
@@ -140,12 +145,19 @@ public class ValidationTests extends DeviceAtomTestCase {
         if (statsdDisabled()) {
             return;
         }
+        if (!hasFeature(FEATURE_AUTOMOTIVE, false)) return;
         turnScreenOn(); // To ensure that the ScreenOff later gets logged.
+        // AoD needs to be turned off because the screen should go into an off state. But, if AoD is
+        // on and the device doesn't support STATE_DOZE, the screen sadly goes back to STATE_ON.
+        String aodState = getAodState();
+        setAodState("0");
         uploadWakelockDurationBatteryStatsConfig(TimeUnit.CTS);
         Thread.sleep(WAIT_TIME_SHORT);
         resetBatteryStats();
         unplugDevice();
         turnScreenOff();
+
+        Thread.sleep(WAIT_TIME_SHORT);
 
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".AtomTests", "testWakelockState");
         Thread.sleep(WAIT_TIME_LONG); // Make sure the one second bucket has ended.
@@ -181,10 +193,11 @@ public class ValidationTests extends DeviceAtomTestCase {
         long statsdDurationMs = statsdWakelockData.get(EXPECTED_UID)
                 .get(EXPECTED_TAG_HASH) / 1_000_000;
         assertTrue("Wakelock in statsd with uid " + EXPECTED_UID + " and tag " + EXPECTED_TAG +
-                    "was too short. Expected " + MIN_DURATION + ", received " + statsdDurationMs,
+                        "was too short. Expected " + MIN_DURATION + ", received " +
+                        statsdDurationMs,
                 statsdDurationMs >= MIN_DURATION);
         assertTrue("Wakelock in statsd with uid " + EXPECTED_UID + " and tag " + EXPECTED_TAG +
-                    "was too long. Expected " + MAX_DURATION + ", received " + statsdDurationMs,
+                        "was too long. Expected " + MAX_DURATION + ", received " + statsdDurationMs,
                 statsdDurationMs <= MAX_DURATION);
 
         // Compare batterystats with statsd.
@@ -192,6 +205,8 @@ public class ValidationTests extends DeviceAtomTestCase {
         assertTrue("For uid=" + EXPECTED_UID + " tag=" + EXPECTED_TAG + " had " +
                         "BatteryStats=" + bsDurationMs + "ms but statsd=" + statsdDurationMs + "ms",
                 difference <= Math.max(bsDurationMs / 10, 10L));
+
+        setAodState(aodState); // restores AOD to initial state.
     }
 
     public void testPartialWakelockLoad() throws Exception {
@@ -257,7 +272,8 @@ public class ValidationTests extends DeviceAtomTestCase {
         //             long statsdDurationNs = statsdWakelockData.get(EXPECTED_UID).get(tag);
         //             long statsdDurationMs = statsdDurationNs / 1_000_000;
         //             long difference = Math.abs(statsdDurationMs - bsDurationMs);
-        //             assertTrue("Unusually large difference in wakelock duration for tag: " + tag +
+        //             assertTrue("Unusually large difference in wakelock duration for tag: " +
+        // tag +
         //                         ". Statsd had duration " + statsdDurationMs +
         //                         " and batterystats had duration " + bsDurationMs,
         //                         difference <= bsDurationMs / 10);
@@ -271,10 +287,10 @@ public class ValidationTests extends DeviceAtomTestCase {
         // assertTrue("Could not find any wakelocks with uid " + EXPECTED_UID + " in statsd",
         //         statsdWakelockData.containsKey(EXPECTED_UID));
         // HashMap<String, Long> expectedWakelocks = statsdWakelockData.get(EXPECTED_UID);
-        // assertEquals("Expected " + NUM_THREADS + " wakelocks in statsd with UID " + EXPECTED_UID +
+        // assertEquals("Expected " + NUM_THREADS + " wakelocks in statsd with UID " +
+        // EXPECTED_UID +
         //         ". Received " + expectedWakelocks.size(), expectedWakelocks.size(), NUM_THREADS);
     }
-
 
     // Helper functions
     // TODO: Refactor these into some utils class.
@@ -418,219 +434,218 @@ public class ValidationTests extends DeviceAtomTestCase {
         int deviceIsUnpluggedId = deviceIsUnpluggedName.hashCode();
 
 
-
         FieldMatcher.Builder dimensions = FieldMatcher.newBuilder()
-            .setField(atomTag)
-            .addChild(FieldMatcher.newBuilder()
-                .setField(WakelockStateChanged.TAG_FIELD_NUMBER))
-            .addChild(FieldMatcher.newBuilder()
-                .setField(1)
-                .setPosition(Position.FIRST)
+                .setField(atomTag)
                 .addChild(FieldMatcher.newBuilder()
-                    .setField(1)));
+                        .setField(WakelockStateChanged.TAG_FIELD_NUMBER))
+                .addChild(FieldMatcher.newBuilder()
+                        .setField(1)
+                        .setPosition(Position.FIRST)
+                        .addChild(FieldMatcher.newBuilder()
+                                .setField(1)));
 
         AtomMatcher.Builder wakelockAcquire = AtomMatcher.newBuilder()
-            .setId(partialWakelockAcquireId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(atomTag)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.LEVEL_FIELD_NUMBER)
-                    .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(WakelockStateChanged.State.ACQUIRE_VALUE)));
+                .setId(partialWakelockAcquireId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(atomTag)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.TYPE_FIELD_NUMBER)
+                                .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(WakelockStateChanged.State.ACQUIRE_VALUE)));
 
         AtomMatcher.Builder wakelockChangeAcquire = AtomMatcher.newBuilder()
-            .setId(partialWakelockChangeAcquireId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(atomTag)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.LEVEL_FIELD_NUMBER)
-                    .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(WakelockStateChanged.State.CHANGE_ACQUIRE_VALUE)));
+                .setId(partialWakelockChangeAcquireId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(atomTag)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.TYPE_FIELD_NUMBER)
+                                .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(WakelockStateChanged.State.CHANGE_ACQUIRE_VALUE)));
 
         AtomMatcher.Builder wakelockRelease = AtomMatcher.newBuilder()
-            .setId(partialWakelockReleaseId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(atomTag)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.LEVEL_FIELD_NUMBER)
-                    .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(WakelockStateChanged.State.RELEASE_VALUE)));
+                .setId(partialWakelockReleaseId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(atomTag)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.TYPE_FIELD_NUMBER)
+                                .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(WakelockStateChanged.State.RELEASE_VALUE)));
 
         AtomMatcher.Builder wakelockChangeRelease = AtomMatcher.newBuilder()
-            .setId(partialWakelockChangeReleaseId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(atomTag)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.LEVEL_FIELD_NUMBER)
-                    .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(WakelockStateChanged.State.CHANGE_RELEASE_VALUE)));
+                .setId(partialWakelockChangeReleaseId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(atomTag)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.TYPE_FIELD_NUMBER)
+                                .setEqInt(WakeLockLevelEnum.PARTIAL_WAKE_LOCK_VALUE))
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(WakelockStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(WakelockStateChanged.State.CHANGE_RELEASE_VALUE)));
 
         AtomMatcher.Builder wakelockOn = AtomMatcher.newBuilder()
-            .setId(partialWakelockOnId)
-            .setCombination(AtomMatcher.Combination.newBuilder()
-                .setOperation(LogicalOperation.OR)
-                .addMatcher(partialWakelockAcquireId)
-                .addMatcher(partialWakelockChangeAcquireId));
+                .setId(partialWakelockOnId)
+                .setCombination(AtomMatcher.Combination.newBuilder()
+                        .setOperation(LogicalOperation.OR)
+                        .addMatcher(partialWakelockAcquireId)
+                        .addMatcher(partialWakelockChangeAcquireId));
 
         AtomMatcher.Builder wakelockOff = AtomMatcher.newBuilder()
-            .setId(partialWakelockOffId)
-            .setCombination(AtomMatcher.Combination.newBuilder()
-                .setOperation(LogicalOperation.OR)
-                .addMatcher(partialWakelockReleaseId)
-                .addMatcher(partialWakelockChangeReleaseId));
+                .setId(partialWakelockOffId)
+                .setCombination(AtomMatcher.Combination.newBuilder()
+                        .setOperation(LogicalOperation.OR)
+                        .addMatcher(partialWakelockReleaseId)
+                        .addMatcher(partialWakelockChangeReleaseId));
 
 
         Predicate.Builder wakelockPredicate = Predicate.newBuilder()
-            .setId(partialWakelockIsOnId)
-            .setSimplePredicate(SimplePredicate.newBuilder()
-                .setStart(partialWakelockOnId)
-                .setStop(partialWakelockOffId)
-                .setCountNesting(true)
-                .setDimensions(dimensions));
+                .setId(partialWakelockIsOnId)
+                .setSimplePredicate(SimplePredicate.newBuilder()
+                        .setStart(partialWakelockOnId)
+                        .setStop(partialWakelockOffId)
+                        .setCountNesting(true)
+                        .setDimensions(dimensions));
 
         AtomMatcher.Builder pluggedStateBatteryPluggedNone = AtomMatcher.newBuilder()
-            .setId(pluggedStateBatteryPluggedNoneId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_NONE_VALUE)));
+                .setId(pluggedStateBatteryPluggedNoneId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_NONE_VALUE)));
 
         AtomMatcher.Builder pluggedStateBatteryPluggedAc = AtomMatcher.newBuilder()
-            .setId(pluggedStateBatteryPluggedAcId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_AC_VALUE)));
+                .setId(pluggedStateBatteryPluggedAcId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_AC_VALUE)));
 
         AtomMatcher.Builder pluggedStateBatteryPluggedUsb = AtomMatcher.newBuilder()
-            .setId(pluggedStateBatteryPluggedUsbId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_USB_VALUE)));
+                .setId(pluggedStateBatteryPluggedUsbId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_USB_VALUE)));
 
         AtomMatcher.Builder pluggedStateBatteryPluggedWireless = AtomMatcher.newBuilder()
-            .setId(pluggedStateBatteryPluggedWirelessId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_WIRELESS_VALUE)));
+                .setId(pluggedStateBatteryPluggedWirelessId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(PluggedStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(BatteryPluggedStateEnum.BATTERY_PLUGGED_WIRELESS_VALUE)));
 
         AtomMatcher.Builder pluggedStateBatteryPlugged = AtomMatcher.newBuilder()
-            .setId(pluggedStateBatteryPluggedId)
-            .setCombination(AtomMatcher.Combination.newBuilder()
-                .setOperation(LogicalOperation.OR)
-                .addMatcher(pluggedStateBatteryPluggedAcId)
-                .addMatcher(pluggedStateBatteryPluggedUsbId)
-                .addMatcher(pluggedStateBatteryPluggedWirelessId));
+                .setId(pluggedStateBatteryPluggedId)
+                .setCombination(AtomMatcher.Combination.newBuilder()
+                        .setOperation(LogicalOperation.OR)
+                        .addMatcher(pluggedStateBatteryPluggedAcId)
+                        .addMatcher(pluggedStateBatteryPluggedUsbId)
+                        .addMatcher(pluggedStateBatteryPluggedWirelessId));
 
         Predicate.Builder deviceIsUnplugged = Predicate.newBuilder()
-            .setId(deviceIsUnpluggedId)
-            .setSimplePredicate(SimplePredicate.newBuilder()
-                .setStart(pluggedStateBatteryPluggedNoneId)
-                .setStop(pluggedStateBatteryPluggedId)
-                .setCountNesting(false));
+                .setId(deviceIsUnpluggedId)
+                .setSimplePredicate(SimplePredicate.newBuilder()
+                        .setStart(pluggedStateBatteryPluggedNoneId)
+                        .setStop(pluggedStateBatteryPluggedId)
+                        .setCountNesting(false));
 
         AtomMatcher.Builder screenStateUnknown = AtomMatcher.newBuilder()
-            .setId(screenStateUnknownId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_UNKNOWN_VALUE)));
+                .setId(screenStateUnknownId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_UNKNOWN_VALUE)));
 
         AtomMatcher.Builder screenStateOff = AtomMatcher.newBuilder()
-            .setId(screenStateOffId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_OFF_VALUE)));
+                .setId(screenStateOffId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_OFF_VALUE)));
 
         AtomMatcher.Builder screenStateOn = AtomMatcher.newBuilder()
-            .setId(screenStateOnId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_ON_VALUE)));
+                .setId(screenStateOnId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_ON_VALUE)));
 
         AtomMatcher.Builder screenStateDoze = AtomMatcher.newBuilder()
-            .setId(screenStateDozeId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_DOZE_VALUE)));
+                .setId(screenStateDozeId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_DOZE_VALUE)));
 
         AtomMatcher.Builder screenStateDozeSuspend = AtomMatcher.newBuilder()
-            .setId(screenStateDozeSuspendId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_DOZE_SUSPEND_VALUE)));
+                .setId(screenStateDozeSuspendId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_DOZE_SUSPEND_VALUE)));
 
         AtomMatcher.Builder screenStateVr = AtomMatcher.newBuilder()
-            .setId(screenStateVrId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_VR_VALUE)));
+                .setId(screenStateVrId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_VR_VALUE)));
 
         AtomMatcher.Builder screenStateOnSuspend = AtomMatcher.newBuilder()
-            .setId(screenStateOnSuspendId)
-            .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
-                .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                    .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                    .setEqInt(DisplayStateEnum.DISPLAY_STATE_ON_SUSPEND_VALUE)));
+                .setId(screenStateOnSuspendId)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
+                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_ON_SUSPEND_VALUE)));
 
 
         AtomMatcher.Builder screenTurnedOff = AtomMatcher.newBuilder()
-            .setId(screenTurnedOffId)
-            .setCombination(AtomMatcher.Combination.newBuilder()
-                .setOperation(LogicalOperation.OR)
-                .addMatcher(screenStateOffId)
-                .addMatcher(screenStateDozeId)
-                .addMatcher(screenStateDozeSuspendId)
-                .addMatcher(screenStateUnknownId));
+                .setId(screenTurnedOffId)
+                .setCombination(AtomMatcher.Combination.newBuilder()
+                        .setOperation(LogicalOperation.OR)
+                        .addMatcher(screenStateOffId)
+                        .addMatcher(screenStateDozeId)
+                        .addMatcher(screenStateDozeSuspendId)
+                        .addMatcher(screenStateUnknownId));
 
         AtomMatcher.Builder screenTurnedOn = AtomMatcher.newBuilder()
-            .setId(screenTurnedOnId)
-            .setCombination(AtomMatcher.Combination.newBuilder()
-                .setOperation(LogicalOperation.OR)
-                .addMatcher(screenStateOnId)
-                .addMatcher(screenStateOnSuspendId)
-                .addMatcher(screenStateVrId));
+                .setId(screenTurnedOnId)
+                .setCombination(AtomMatcher.Combination.newBuilder()
+                        .setOperation(LogicalOperation.OR)
+                        .addMatcher(screenStateOnId)
+                        .addMatcher(screenStateOnSuspendId)
+                        .addMatcher(screenStateVrId));
 
         Predicate.Builder screenIsOff = Predicate.newBuilder()
-            .setId(screenIsOffId)
-            .setSimplePredicate(SimplePredicate.newBuilder()
-                .setStart(screenTurnedOffId)
-                .setStop(screenTurnedOnId)
-                .setCountNesting(false));
+                .setId(screenIsOffId)
+                .setSimplePredicate(SimplePredicate.newBuilder()
+                        .setStart(screenTurnedOffId)
+                        .setStop(screenTurnedOnId)
+                        .setCountNesting(false));
 
 
         Predicate.Builder screenOffBatteryOn = Predicate.newBuilder()
-            .setId(screenOffBatteryOnId)
-            .setCombination(Predicate.Combination.newBuilder()
-                .setOperation(LogicalOperation.AND)
-                .addPredicate(screenIsOffId)
-                .addPredicate(deviceIsUnpluggedId));
+                .setId(screenOffBatteryOnId)
+                .setCombination(Predicate.Combination.newBuilder()
+                        .setOperation(LogicalOperation.AND)
+                        .addPredicate(screenIsOffId)
+                        .addPredicate(deviceIsUnpluggedId));
 
         StatsdConfig.Builder builder = createConfigBuilder();
         builder.addDurationMetric(DurationMetric.newBuilder()
@@ -639,30 +654,30 @@ public class ValidationTests extends DeviceAtomTestCase {
                 .setCondition(screenOffBatteryOnId)
                 .setDimensionsInWhat(dimensions)
                 .setBucket(bucketsize))
-            .addAtomMatcher(wakelockAcquire)
-            .addAtomMatcher(wakelockChangeAcquire)
-            .addAtomMatcher(wakelockRelease)
-            .addAtomMatcher(wakelockChangeRelease)
-            .addAtomMatcher(wakelockOn)
-            .addAtomMatcher(wakelockOff)
-            .addAtomMatcher(pluggedStateBatteryPluggedNone)
-            .addAtomMatcher(pluggedStateBatteryPluggedAc)
-            .addAtomMatcher(pluggedStateBatteryPluggedUsb)
-            .addAtomMatcher(pluggedStateBatteryPluggedWireless)
-            .addAtomMatcher(pluggedStateBatteryPlugged)
-            .addAtomMatcher(screenStateUnknown)
-            .addAtomMatcher(screenStateOff)
-            .addAtomMatcher(screenStateOn)
-            .addAtomMatcher(screenStateDoze)
-            .addAtomMatcher(screenStateDozeSuspend)
-            .addAtomMatcher(screenStateVr)
-            .addAtomMatcher(screenStateOnSuspend)
-            .addAtomMatcher(screenTurnedOff)
-            .addAtomMatcher(screenTurnedOn)
-            .addPredicate(wakelockPredicate)
-            .addPredicate(deviceIsUnplugged)
-            .addPredicate(screenIsOff)
-            .addPredicate(screenOffBatteryOn);
+                .addAtomMatcher(wakelockAcquire)
+                .addAtomMatcher(wakelockChangeAcquire)
+                .addAtomMatcher(wakelockRelease)
+                .addAtomMatcher(wakelockChangeRelease)
+                .addAtomMatcher(wakelockOn)
+                .addAtomMatcher(wakelockOff)
+                .addAtomMatcher(pluggedStateBatteryPluggedNone)
+                .addAtomMatcher(pluggedStateBatteryPluggedAc)
+                .addAtomMatcher(pluggedStateBatteryPluggedUsb)
+                .addAtomMatcher(pluggedStateBatteryPluggedWireless)
+                .addAtomMatcher(pluggedStateBatteryPlugged)
+                .addAtomMatcher(screenStateUnknown)
+                .addAtomMatcher(screenStateOff)
+                .addAtomMatcher(screenStateOn)
+                .addAtomMatcher(screenStateDoze)
+                .addAtomMatcher(screenStateDozeSuspend)
+                .addAtomMatcher(screenStateVr)
+                .addAtomMatcher(screenStateOnSuspend)
+                .addAtomMatcher(screenTurnedOff)
+                .addAtomMatcher(screenTurnedOn)
+                .addPredicate(wakelockPredicate)
+                .addPredicate(deviceIsUnplugged)
+                .addPredicate(screenIsOff)
+                .addPredicate(screenOffBatteryOn);
 
         uploadConfig(builder);
     }

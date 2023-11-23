@@ -37,6 +37,12 @@ GenerateUsbSN (
   );
 
 EFI_STATUS
+AssignUsbSN (
+  IN  CHAR8                  *AsciiCmd,
+  OUT CHAR16                 *UnicodeSN
+  );
+
+EFI_STATUS
 LoadSNFromBlock (
   IN  EFI_HANDLE              FlashHandle,
   IN  EFI_LBA                 Lba,

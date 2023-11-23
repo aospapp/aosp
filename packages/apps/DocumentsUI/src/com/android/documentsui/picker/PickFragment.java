@@ -23,16 +23,18 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_EX
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
 
-import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.android.documentsui.BaseActivity;
 import com.android.documentsui.Injector;
@@ -54,15 +56,16 @@ public class PickFragment extends Fragment {
     private final View.OnClickListener mPickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            mInjector.actions.pickDocument(mPickTarget);
+            mInjector.actions.pickDocument(getChildFragmentManager(), mPickTarget);
         }
     };
 
     private final View.OnClickListener mCancelListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
+            mInjector.pickResult.increaseActionCount();
             final BaseActivity activity = BaseActivity.get(PickFragment.this);
-            activity.setResult(Activity.RESULT_CANCELED);
+            activity.setResult(FragmentActivity.RESULT_CANCELED);
             activity.finish();
         }
     };
@@ -98,10 +101,10 @@ public class PickFragment extends Fragment {
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         mContainer = inflater.inflate(R.layout.fragment_pick, container, false);
 
-        mPick = (TextView) mContainer.findViewById(android.R.id.button1);
+        mPick = (Button) mContainer.findViewById(android.R.id.button1);
         mPick.setOnClickListener(mPickListener);
 
-        mCancel = (TextView) mContainer.findViewById(android.R.id.button2);
+        mCancel = (Button) mContainer.findViewById(android.R.id.button2);
         mCancel.setOnClickListener(mCancelListener);
 
         updateView();
@@ -150,9 +153,24 @@ public class PickFragment extends Fragment {
      * Applies the state of fragment to the view components.
      */
     private void updateView() {
+        if (mPickTarget != null && (
+                mAction == State.ACTION_OPEN_TREE ||
+                        mPickTarget.isCreateSupported())) {
+            mContainer.setVisibility(View.VISIBLE);
+        } else {
+            mContainer.setVisibility(View.GONE);
+            return;
+        }
+
         switch (mAction) {
             case State.ACTION_OPEN_TREE:
-                mPick.setText(R.string.button_select);
+                final BaseActivity activity = (BaseActivity) getActivity();
+                final String target = activity.getCurrentTitle();
+                final String text = TextUtils.isEmpty(target)
+                        ? getString(R.string.button_select)
+                        : getString(R.string.open_tree_button, target);
+                mPick.setText(text);
+                mPick.setWidth(Integer.MAX_VALUE);
                 mCancel.setVisibility(View.GONE);
                 break;
             case State.ACTION_PICK_COPY_DESTINATION:
@@ -179,14 +197,6 @@ public class PickFragment extends Fragment {
             default:
                 mContainer.setVisibility(View.GONE);
                 return;
-        }
-
-        if (mPickTarget != null && (
-                mAction == State.ACTION_OPEN_TREE ||
-                mPickTarget.isCreateSupported())) {
-            mContainer.setVisibility(View.VISIBLE);
-        } else {
-            mContainer.setVisibility(View.GONE);
         }
     }
 }

@@ -32,8 +32,6 @@
 
 // Arbitrary period for glitches
 #define FORCED_UNDERRUN_PERIOD_FRAMES    (2 * 48000)
-// How long to sleep in a callback to cause an intentional glitch. For testing.
-#define FORCED_UNDERRUN_SLEEP_MICROS     (10 * 1000)
 
 #define MAX_TIMESTAMPS                   16
 
@@ -122,10 +120,9 @@ public:
 
         if (result == AAUDIO_OK) {
             int32_t sizeInBursts = parameters.getNumberOfBursts();
-            if (sizeInBursts > 0) {
-                int32_t framesPerBurst = AAudioStream_getFramesPerBurst(mStream);
-                AAudioStream_setBufferSizeInFrames(mStream, sizeInBursts * framesPerBurst);
-            }
+            int32_t framesPerBurst = AAudioStream_getFramesPerBurst(mStream);
+            int32_t bufferSizeFrames = sizeInBursts * framesPerBurst;
+            AAudioStream_setBufferSizeInFrames(mStream, bufferSizeFrames);
         }
 
         AAudioStreamBuilder_delete(builder);
@@ -193,7 +190,7 @@ public:
      aaudio_result_t start() {
         aaudio_result_t result = AAudioStream_requestStart(mStream);
         if (result != AAUDIO_OK) {
-            printf("ERROR - AAudioStream_requestStart() returned %d %s\n",
+            printf("ERROR - AAudioStream_requestStart(output) returned %d %s\n",
                     result, AAudio_convertResultToText(result));
         }
         return result;
@@ -203,7 +200,7 @@ public:
     aaudio_result_t stop() {
         aaudio_result_t result = AAudioStream_requestStop(mStream);
         if (result != AAUDIO_OK) {
-            printf("ERROR - AAudioStream_requestStop() returned %d %s\n",
+            printf("ERROR - AAudioStream_requestStop(output) returned %d %s\n",
                    result, AAudio_convertResultToText(result));
         }
         int32_t xRunCount = AAudioStream_getXRunCount(mStream);
@@ -215,7 +212,7 @@ public:
     aaudio_result_t pause() {
         aaudio_result_t result = AAudioStream_requestPause(mStream);
         if (result != AAUDIO_OK) {
-            printf("ERROR - AAudioStream_requestPause() returned %d %s\n",
+            printf("ERROR - AAudioStream_requestPause(output) returned %d %s\n",
                    result, AAudio_convertResultToText(result));
         }
         int32_t xRunCount = AAudioStream_getXRunCount(mStream);
@@ -223,11 +220,27 @@ public:
         return result;
     }
 
+    aaudio_result_t waitUntilPaused() {
+        aaudio_result_t result = AAUDIO_OK;
+        aaudio_stream_state_t currentState = AAudioStream_getState(mStream);
+        aaudio_stream_state_t inputState = AAUDIO_STREAM_STATE_PAUSING;
+        while (result == AAUDIO_OK && currentState == AAUDIO_STREAM_STATE_PAUSING) {
+            result = AAudioStream_waitForStateChange(mStream, inputState,
+                                                     &currentState, NANOS_PER_SECOND);
+            inputState = currentState;
+        }
+        if (result != AAUDIO_OK) {
+            return result;
+        }
+        return (currentState == AAUDIO_STREAM_STATE_PAUSED)
+               ? AAUDIO_OK : AAUDIO_ERROR_INVALID_STATE;
+    }
+
     // Flush the stream. AAudio will stop calling your callback function.
     aaudio_result_t flush() {
         aaudio_result_t result = AAudioStream_requestFlush(mStream);
         if (result != AAUDIO_OK) {
-            printf("ERROR - AAudioStream_requestFlush() returned %d %s\n",
+            printf("ERROR - AAudioStream_requestFlush(output) returned %d %s\n",
                    result, AAudio_convertResultToText(result));
         }
         return result;
@@ -259,7 +272,7 @@ typedef struct SineThreadedData_s {
 
     int                scheduler = 0;
     bool               schedulerChecked = false;
-    bool               forceUnderruns = false;
+    int32_t            hangTimeMSec = 0;
 
     AAudioSimplePlayer simplePlayer;
     int32_t            callbackCount = 0;
@@ -311,10 +324,12 @@ aaudio_data_callback_result_t SimplePlayerDataCallbackProc(
         sineData->setupSineSweeps();
     }
 
-    if (sineData->forceUnderruns) {
+    if (sineData->hangTimeMSec > 0) {
         if (sineData->framesTotal > sineData->nextFrameToGlitch) {
-            usleep(FORCED_UNDERRUN_SLEEP_MICROS);
-            printf("Simulate glitch at %lld\n", (long long) sineData->framesTotal);
+            usleep(sineData->hangTimeMSec * 1000);
+            printf("Hang callback at %lld frames for %d msec\n",
+                    (long long) sineData->framesTotal,
+                   sineData->hangTimeMSec);
             sineData->nextFrameToGlitch += FORCED_UNDERRUN_PERIOD_FRAMES;
         }
     }

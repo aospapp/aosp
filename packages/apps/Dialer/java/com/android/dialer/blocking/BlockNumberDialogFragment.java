@@ -41,6 +41,7 @@ import com.android.dialer.voicemailstatus.VisualVoicemailEnabledChecker;
  * Fragment for confirming and enacting blocking/unblocking a number. Also invokes snackbar
  * providing undo functionality.
  */
+@Deprecated
 public class BlockNumberDialogFragment extends DialogFragment {
 
   private static final String BLOCK_DIALOG_FRAGMENT = "BlockNumberDialog";
@@ -137,7 +138,7 @@ public class BlockNumberDialogFragment extends DialogFragment {
     } else {
       title =
           ContactDisplayUtils.getTtsSpannedPhoneNumber(
-              getResources(), R.string.block_number_confirmation_title, displayNumber);
+              getResources(), R.string.old_block_number_confirmation_title, displayNumber);
       okText = getString(R.string.block_number_ok);
       if (FilteredNumberCompat.useNewFiltering(getContext())) {
         message = getString(R.string.block_number_confirmation_message_new_filtering);
@@ -244,7 +245,7 @@ public class BlockNumberDialogFragment extends DialogFragment {
                 };
 
             Snackbar.make(parentView, message, Snackbar.LENGTH_LONG)
-                .setAction(R.string.block_number_undo, undoListener)
+                .setAction(R.string.snackbar_undo, undoListener)
                 .setActionTextColor(actionTextColor)
                 .show();
 
@@ -295,7 +296,7 @@ public class BlockNumberDialogFragment extends DialogFragment {
                 };
 
             Snackbar.make(parentView, message, Snackbar.LENGTH_LONG)
-                .setAction(R.string.block_number_undo, undoListener)
+                .setAction(R.string.snackbar_undo, undoListener)
                 .setActionTextColor(actionTextColor)
                 .show();
 

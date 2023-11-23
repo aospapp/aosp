@@ -11,7 +11,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "webcam"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Video"],
@@ -31,4 +30,5 @@ mean that the gUM call succeeded, but the CrOS device fails to deliver
 sane video frames.
 """
 
-job.run_test("video_WebRtcCamera")
+capability='usb_camera'
+job.run_test("video_WebRtcCamera", capability=capability)

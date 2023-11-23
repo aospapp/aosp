@@ -172,7 +172,7 @@ class platform_LabFirmwareUpdate(test.test):
         # Update and reboot if needed.
         if need_update:
             output = self._run_cmd('/usr/sbin/chromeos-firmwareupdate '
-                                   ' --mode=recovery', '(recovery) completed.')
+                                   ' --mode=recovery', 'SUCCESS')
             self.host.reboot()
             # Check that installed firmware match the shellball.
             (bios, ec) = self._get_version_all()

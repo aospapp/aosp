@@ -10,7 +10,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bluestreak"
+ATTRIBUTES = "suite:hotrod"
 DEPENDENCIES = "mimo, meet_app, atrus, huddly"
 JOB_RETRIES = 3
 
@@ -25,11 +25,10 @@ the CFM. It verifies:
 """
 
 args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run_test(machine):
     repetitions = int(args_dict.get('repetitions', 3))
-    host = hosts.create_host(machine, servo_args=servo_args)
+    host = hosts.create_host(machine)
     job.run_test('enterprise_CFM_MimoSanity', host=host,
                  repetitions=repetitions, is_meeting=True, tag='meet_app')
 

@@ -37,6 +37,8 @@ extern struct sparse_file *f2fs_sparse_file;
 extern struct f2fs_configuration c;
 static int force_overwrite = 0;
 
+INIT_FEATURE_TABLE;
+
 static void mkfs_usage()
 {
 	MSG(0, "\nUsage: mkfs.f2fs [options] device [sectors]\n");
@@ -44,18 +46,23 @@ static void mkfs_usage()
 	MSG(0, "  -a heap-based allocation [default:0]\n");
 	MSG(0, "  -c [device path] up to 7 devices excepts meta device\n");
 	MSG(0, "  -d debug level [default:0]\n");
-	MSG(0, "  -e [extension list] e.g. \"mp3,gif,mov\"\n");
+	MSG(0, "  -e [cold file ext list] e.g. \"mp3,gif,mov\"\n");
+	MSG(0, "  -E [hot file ext list] e.g. \"db\"\n");
 	MSG(0, "  -f force overwrite the exist filesystem\n");
+	MSG(0, "  -g add default options\n");
+	MSG(0, "  -i extended node bitmap, node ratio is 20%% by default\n");
 	MSG(0, "  -l label\n");
 	MSG(0, "  -m support zoned block device [default:0]\n");
 	MSG(0, "  -o overprovision ratio [default:5]\n");
-	MSG(0, "  -O [feature list] e.g. \"encrypt\"\n");
+	MSG(0, "  -O feature1[feature2,feature3,...] e.g. \"encrypt\"\n");
 	MSG(0, "  -q quiet mode\n");
+	MSG(0, "  -R root_owner [default: 0:0]\n");
 	MSG(0, "  -s # of segments per section [default:1]\n");
 	MSG(0, "  -S sparse mode\n");
 	MSG(0, "  -t 0: nodiscard, 1: discard [default:1]\n");
 	MSG(0, "  -w wanted sector size\n");
 	MSG(0, "  -z # of sections per zone [default:1]\n");
+	MSG(0, "  -V print the version number and exit\n");
 	MSG(0, "sectors: number of sectors. [default: determined by device size]\n");
 	exit(1);
 }
@@ -69,43 +76,38 @@ static void f2fs_show_info()
 		MSG(0, "Info: Disable heap-based policy\n");
 
 	MSG(0, "Info: Debug level = %d\n", c.dbg_lv);
-	if (c.extension_list)
-		MSG(0, "Info: Add new extension list\n");
+	if (c.extension_list[0])
+		MSG(0, "Info: Add new cold file extension list\n");
+	if (c.extension_list[1])
+		MSG(0, "Info: Add new hot file extension list\n");
 
-	if (c.vol_label)
+	if (strlen(c.vol_label))
 		MSG(0, "Info: Label = %s\n", c.vol_label);
 	MSG(0, "Info: Trim is %s\n", c.trim ? "enabled": "disabled");
+
+	if (c.defset == CONF_ANDROID)
+		MSG(0, "Info: Set conf for android\n");
 }
 
-static void parse_feature(const char *features)
+static void add_default_options(void)
 {
-	while (*features == ' ')
-		features++;
-	if (!strcmp(features, "encrypt")) {
+	switch (c.defset) {
+	case CONF_ANDROID:
+		/* -d1 -f -O encrypt -O quota -O verity -w 4096 -R 0:0 */
+		c.dbg_lv = 1;
+		force_overwrite = 1;
 		c.feature |= cpu_to_le32(F2FS_FEATURE_ENCRYPT);
-	} else if (!strcmp(features, "verity")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_VERITY);
-	} else if (!strcmp(features, "extra_attr")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR);
-	} else if (!strcmp(features, "project_quota")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_PRJQUOTA);
-	} else if (!strcmp(features, "inode_checksum")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM);
-	} else if (!strcmp(features, "flexible_inline_xattr")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_FLEXIBLE_INLINE_XATTR);
-	} else if (!strcmp(features, "quota")) {
 		c.feature |= cpu_to_le32(F2FS_FEATURE_QUOTA_INO);
-	} else if (!strcmp(features, "inode_crtime")) {
-		c.feature |= cpu_to_le32(F2FS_FEATURE_INODE_CRTIME);
-	} else {
-		MSG(0, "Error: Wrong features\n");
-		mkfs_usage();
+		c.feature |= cpu_to_le32(F2FS_FEATURE_VERITY);
+		c.wanted_sector_size = 4096;
+		c.root_uid = c.root_gid = 0;
+		break;
 	}
 }
 
 static void f2fs_parse_options(int argc, char *argv[])
 {
-	static const char *option_string = "qa:c:d:e:l:mo:O:s:S:z:t:fw:";
+	static const char *option_string = "qa:c:d:e:E:g:il:mo:O:R:s:S:z:t:fw:V";
 	int32_t option=0;
 
 	while ((option = getopt(argc,argv,option_string)) != EOF) {
@@ -133,7 +135,17 @@ static void f2fs_parse_options(int argc, char *argv[])
 			c.dbg_lv = atoi(optarg);
 			break;
 		case 'e':
-			c.extension_list = strdup(optarg);
+			c.extension_list[0] = strdup(optarg);
+			break;
+		case 'E':
+			c.extension_list[1] = strdup(optarg);
+			break;
+		case 'g':
+			if (!strcmp(optarg, "android"))
+				c.defset = CONF_ANDROID;
+			break;
+		case 'i':
+			c.large_nat_bitmap = 1;
 			break;
 		case 'l':		/*v: volume label */
 			if (strlen(optarg) > 512) {
@@ -150,7 +162,12 @@ static void f2fs_parse_options(int argc, char *argv[])
 			c.overprovision = atof(optarg);
 			break;
 		case 'O':
-			parse_feature(optarg);
+			if (parse_feature(feature_table, optarg))
+				mkfs_usage();
+			break;
+		case 'R':
+			if (parse_root_owner(optarg, &c.root_uid, &c.root_gid))
+				mkfs_usage();
 			break;
 		case 's':
 			c.segs_per_sec = atoi(optarg);
@@ -172,6 +189,9 @@ static void f2fs_parse_options(int argc, char *argv[])
 		case 'w':
 			c.wanted_sector_size = atoi(optarg);
 			break;
+		case 'V':
+			show_version("mkfs.f2fs");
+			exit(0);
 		default:
 			MSG(0, "\tError: Unknown option %c\n",option);
 			mkfs_usage();
@@ -179,24 +199,26 @@ static void f2fs_parse_options(int argc, char *argv[])
 		}
 	}
 
+	add_default_options();
+
 	if (!(c.feature & cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR))) {
 		if (c.feature & cpu_to_le32(F2FS_FEATURE_PRJQUOTA)) {
-			MSG(0, "\tInfo: project quota feature should always been"
+			MSG(0, "\tInfo: project quota feature should always be "
 				"enabled with extra attr feature\n");
 			exit(1);
 		}
 		if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CHKSUM)) {
-			MSG(0, "\tInfo: inode checksum feature should always been"
+			MSG(0, "\tInfo: inode checksum feature should always be "
 				"enabled with extra attr feature\n");
 			exit(1);
 		}
 		if (c.feature & cpu_to_le32(F2FS_FEATURE_FLEXIBLE_INLINE_XATTR)) {
-			MSG(0, "\tInfo: flexible inline xattr feature should always been"
+			MSG(0, "\tInfo: flexible inline xattr feature should always be "
 				"enabled with extra attr feature\n");
 			exit(1);
 		}
 		if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CRTIME)) {
-			MSG(0, "\tInfo: inode crtime feature should always been"
+			MSG(0, "\tInfo: inode crtime feature should always be "
 				"enabled with extra attr feature\n");
 			exit(1);
 		}

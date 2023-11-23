@@ -76,11 +76,12 @@ enum PropertyLocation { kField = 0, kDescriptor = 1 };
 
 // Order of modes is significant.
 // Must fit in the BitField PropertyDetails::ConstnessField.
-enum PropertyConstness { kMutable = 0, kConst = 1 };
+enum class PropertyConstness { kMutable = 0, kConst = 1 };
 
 // TODO(ishell): remove once constant field tracking is done.
 const PropertyConstness kDefaultFieldConstness =
-    FLAG_track_constant_fields ? kConst : kMutable;
+    FLAG_track_constant_fields ? PropertyConstness::kConst
+                               : PropertyConstness::kMutable;
 
 class Representation {
  public:
@@ -133,8 +134,8 @@ class Representation {
     if (kind_ == kExternal && other.kind_ == kExternal) return false;
     if (kind_ == kNone && other.kind_ == kExternal) return false;
 
-    DCHECK(kind_ != kExternal);
-    DCHECK(other.kind_ != kExternal);
+    DCHECK_NE(kind_, kExternal);
+    DCHECK_NE(other.kind_, kExternal);
     if (IsHeapObject()) return other.IsNone();
     if (kind_ == kUInteger8 && other.kind_ == kInteger8) return false;
     if (kind_ == kUInteger16 && other.kind_ == kInteger16) return false;
@@ -197,10 +198,11 @@ class Representation {
 
 
 static const int kDescriptorIndexBitCount = 10;
-// The maximum number of descriptors we want in a descriptor array (should
-// fit in a page).
-static const int kMaxNumberOfDescriptors =
-    (1 << kDescriptorIndexBitCount) - 2;
+static const int kFirstInobjectPropertyOffsetBitCount = 7;
+// The maximum number of descriptors we want in a descriptor array.  It should
+// fit in a page and also the following should hold:
+// kMaxNumberOfDescriptors + kFieldsAdded <= PropertyArray::kMaxLength.
+static const int kMaxNumberOfDescriptors = (1 << kDescriptorIndexBitCount) - 4;
 static const int kInvalidEnumCacheSentinel =
     (1 << kDescriptorIndexBitCount) - 1;
 
@@ -231,11 +233,11 @@ enum class PropertyCellConstantType {
 class PropertyDetails BASE_EMBEDDED {
  public:
   // Property details for dictionary mode properties/elements.
-  PropertyDetails(PropertyKind kind, PropertyAttributes attributes, int index,
-                  PropertyCellType cell_type) {
+  PropertyDetails(PropertyKind kind, PropertyAttributes attributes,
+                  PropertyCellType cell_type, int dictionary_index = 0) {
     value_ = KindField::encode(kind) | LocationField::encode(kField) |
              AttributesField::encode(attributes) |
-             DictionaryStorageField::encode(index) |
+             DictionaryStorageField::encode(dictionary_index) |
              PropertyCellTypeField::encode(cell_type);
   }
 
@@ -252,7 +254,7 @@ class PropertyDetails BASE_EMBEDDED {
 
   static PropertyDetails Empty(
       PropertyCellType cell_type = PropertyCellType::kNoCell) {
-    return PropertyDetails(kData, NONE, 0, cell_type);
+    return PropertyDetails(kData, NONE, cell_type);
   }
 
   int pointer() const { return DescriptorPointer::decode(value_); }
@@ -340,6 +342,10 @@ class PropertyDetails BASE_EMBEDDED {
       : public BitField<PropertyAttributes, ConstnessField::kNext, 3> {};
   static const int kAttributesReadOnlyMask =
       (READ_ONLY << AttributesField::kShift);
+  static const int kAttributesDontDeleteMask =
+      (DONT_DELETE << AttributesField::kShift);
+  static const int kAttributesDontEnumMask =
+      (DONT_ENUM << AttributesField::kShift);
 
   // Bit fields for normalized objects.
   class PropertyCellTypeField
@@ -405,15 +411,15 @@ inline bool IsGeneralizableTo(PropertyLocation a, PropertyLocation b) {
   return b == kField || a == kDescriptor;
 }
 
-// kMutable constness is more general than kConst, kConst generalizes only to
-// itself.
+// PropertyConstness::kMutable constness is more general than
+// VariableMode::kConst, VariableMode::kConst generalizes only to itself.
 inline bool IsGeneralizableTo(PropertyConstness a, PropertyConstness b) {
-  return b == kMutable || a == kConst;
+  return b == PropertyConstness::kMutable || a == PropertyConstness::kConst;
 }
 
 inline PropertyConstness GeneralizeConstness(PropertyConstness a,
                                              PropertyConstness b) {
-  return a == kMutable ? kMutable : b;
+  return a == PropertyConstness::kMutable ? PropertyConstness::kMutable : b;
 }
 
 std::ostream& operator<<(std::ostream& os,

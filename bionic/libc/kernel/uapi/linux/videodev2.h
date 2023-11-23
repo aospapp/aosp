@@ -58,6 +58,7 @@ enum v4l2_buf_type {
   V4L2_BUF_TYPE_SDR_CAPTURE = 11,
   V4L2_BUF_TYPE_SDR_OUTPUT = 12,
   V4L2_BUF_TYPE_META_CAPTURE = 13,
+  V4L2_BUF_TYPE_META_OUTPUT = 14,
   V4L2_BUF_TYPE_PRIVATE = 0x80,
 };
 #define V4L2_TYPE_IS_MULTIPLANAR(type) ((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
@@ -86,7 +87,7 @@ enum v4l2_colorspace {
   V4L2_COLORSPACE_470_SYSTEM_BG = 6,
   V4L2_COLORSPACE_JPEG = 7,
   V4L2_COLORSPACE_SRGB = 8,
-  V4L2_COLORSPACE_ADOBERGB = 9,
+  V4L2_COLORSPACE_OPRGB = 9,
   V4L2_COLORSPACE_BT2020 = 10,
   V4L2_COLORSPACE_RAW = 11,
   V4L2_COLORSPACE_DCI_P3 = 12,
@@ -96,13 +97,13 @@ enum v4l2_xfer_func {
   V4L2_XFER_FUNC_DEFAULT = 0,
   V4L2_XFER_FUNC_709 = 1,
   V4L2_XFER_FUNC_SRGB = 2,
-  V4L2_XFER_FUNC_ADOBERGB = 3,
+  V4L2_XFER_FUNC_OPRGB = 3,
   V4L2_XFER_FUNC_SMPTE240M = 4,
   V4L2_XFER_FUNC_NONE = 5,
   V4L2_XFER_FUNC_DCI_P3 = 6,
   V4L2_XFER_FUNC_SMPTE2084 = 7,
 };
-#define V4L2_MAP_XFER_FUNC_DEFAULT(colsp) ((colsp) == V4L2_COLORSPACE_ADOBERGB ? V4L2_XFER_FUNC_ADOBERGB : ((colsp) == V4L2_COLORSPACE_SMPTE240M ? V4L2_XFER_FUNC_SMPTE240M : ((colsp) == V4L2_COLORSPACE_DCI_P3 ? V4L2_XFER_FUNC_DCI_P3 : ((colsp) == V4L2_COLORSPACE_RAW ? V4L2_XFER_FUNC_NONE : ((colsp) == V4L2_COLORSPACE_SRGB || (colsp) == V4L2_COLORSPACE_JPEG ? V4L2_XFER_FUNC_SRGB : V4L2_XFER_FUNC_709)))))
+#define V4L2_MAP_XFER_FUNC_DEFAULT(colsp) ((colsp) == V4L2_COLORSPACE_OPRGB ? V4L2_XFER_FUNC_OPRGB : ((colsp) == V4L2_COLORSPACE_SMPTE240M ? V4L2_XFER_FUNC_SMPTE240M : ((colsp) == V4L2_COLORSPACE_DCI_P3 ? V4L2_XFER_FUNC_DCI_P3 : ((colsp) == V4L2_COLORSPACE_RAW ? V4L2_XFER_FUNC_NONE : ((colsp) == V4L2_COLORSPACE_SRGB || (colsp) == V4L2_COLORSPACE_JPEG ? V4L2_XFER_FUNC_SRGB : V4L2_XFER_FUNC_709)))))
 enum v4l2_ycbcr_encoding {
   V4L2_YCBCR_ENC_DEFAULT = 0,
   V4L2_YCBCR_ENC_601 = 1,
@@ -125,6 +126,8 @@ enum v4l2_quantization {
   V4L2_QUANTIZATION_LIM_RANGE = 2,
 };
 #define V4L2_MAP_QUANTIZATION_DEFAULT(is_rgb_or_hsv,colsp,ycbcr_enc) (((is_rgb_or_hsv) && (colsp) == V4L2_COLORSPACE_BT2020) ? V4L2_QUANTIZATION_LIM_RANGE : (((is_rgb_or_hsv) || (colsp) == V4L2_COLORSPACE_JPEG) ? V4L2_QUANTIZATION_FULL_RANGE : V4L2_QUANTIZATION_LIM_RANGE))
+#define V4L2_COLORSPACE_ADOBERGB V4L2_COLORSPACE_OPRGB
+#define V4L2_XFER_FUNC_ADOBERGB V4L2_XFER_FUNC_OPRGB
 enum v4l2_priority {
   V4L2_PRIORITY_UNSET = 0,
   V4L2_PRIORITY_BACKGROUND = 1,
@@ -177,6 +180,7 @@ struct v4l2_capability {
 #define V4L2_CAP_READWRITE 0x01000000
 #define V4L2_CAP_ASYNCIO 0x02000000
 #define V4L2_CAP_STREAMING 0x04000000
+#define V4L2_CAP_META_OUTPUT 0x08000000
 #define V4L2_CAP_TOUCH 0x10000000
 #define V4L2_CAP_DEVICE_CAPS 0x80000000
 struct v4l2_pix_format {
@@ -225,6 +229,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_Y16 v4l2_fourcc('Y', '1', '6', ' ')
 #define V4L2_PIX_FMT_Y16_BE v4l2_fourcc_be('Y', '1', '6', ' ')
 #define V4L2_PIX_FMT_Y10BPACK v4l2_fourcc('Y', '1', '0', 'B')
+#define V4L2_PIX_FMT_Y10P v4l2_fourcc('Y', '1', '0', 'P')
 #define V4L2_PIX_FMT_PAL8 v4l2_fourcc('P', 'A', 'L', '8')
 #define V4L2_PIX_FMT_UV8 v4l2_fourcc('U', 'V', '8', ' ')
 #define V4L2_PIX_FMT_YUYV v4l2_fourcc('Y', 'U', 'Y', 'V')
@@ -292,6 +297,10 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_SGBRG12P v4l2_fourcc('p', 'G', 'C', 'C')
 #define V4L2_PIX_FMT_SGRBG12P v4l2_fourcc('p', 'g', 'C', 'C')
 #define V4L2_PIX_FMT_SRGGB12P v4l2_fourcc('p', 'R', 'C', 'C')
+#define V4L2_PIX_FMT_SBGGR14P v4l2_fourcc('p', 'B', 'E', 'E')
+#define V4L2_PIX_FMT_SGBRG14P v4l2_fourcc('p', 'G', 'E', 'E')
+#define V4L2_PIX_FMT_SGRBG14P v4l2_fourcc('p', 'g', 'E', 'E')
+#define V4L2_PIX_FMT_SRGGB14P v4l2_fourcc('p', 'R', 'E', 'E')
 #define V4L2_PIX_FMT_SBGGR16 v4l2_fourcc('B', 'Y', 'R', '2')
 #define V4L2_PIX_FMT_SGBRG16 v4l2_fourcc('G', 'B', '1', '6')
 #define V4L2_PIX_FMT_SGRBG16 v4l2_fourcc('G', 'R', '1', '6')
@@ -308,12 +317,15 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_H263 v4l2_fourcc('H', '2', '6', '3')
 #define V4L2_PIX_FMT_MPEG1 v4l2_fourcc('M', 'P', 'G', '1')
 #define V4L2_PIX_FMT_MPEG2 v4l2_fourcc('M', 'P', 'G', '2')
+#define V4L2_PIX_FMT_MPEG2_SLICE v4l2_fourcc('M', 'G', '2', 'S')
 #define V4L2_PIX_FMT_MPEG4 v4l2_fourcc('M', 'P', 'G', '4')
 #define V4L2_PIX_FMT_XVID v4l2_fourcc('X', 'V', 'I', 'D')
 #define V4L2_PIX_FMT_VC1_ANNEX_G v4l2_fourcc('V', 'C', '1', 'G')
 #define V4L2_PIX_FMT_VC1_ANNEX_L v4l2_fourcc('V', 'C', '1', 'L')
 #define V4L2_PIX_FMT_VP8 v4l2_fourcc('V', 'P', '8', '0')
 #define V4L2_PIX_FMT_VP9 v4l2_fourcc('V', 'P', '9', '0')
+#define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C')
+#define V4L2_PIX_FMT_FWHT v4l2_fourcc('F', 'W', 'H', 'T')
 #define V4L2_PIX_FMT_CPIA1 v4l2_fourcc('C', 'P', 'I', 'A')
 #define V4L2_PIX_FMT_WNVA v4l2_fourcc('W', 'N', 'V', 'A')
 #define V4L2_PIX_FMT_SN9C10X v4l2_fourcc('S', '9', '1', '0')
@@ -345,6 +357,12 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_Z16 v4l2_fourcc('Z', '1', '6', ' ')
 #define V4L2_PIX_FMT_MT21C v4l2_fourcc('M', 'T', '2', '1')
 #define V4L2_PIX_FMT_INZI v4l2_fourcc('I', 'N', 'Z', 'I')
+#define V4L2_PIX_FMT_SUNXI_TILED_NV12 v4l2_fourcc('S', 'T', '1', '2')
+#define V4L2_PIX_FMT_CNF4 v4l2_fourcc('C', 'N', 'F', '4')
+#define V4L2_PIX_FMT_IPU3_SBGGR10 v4l2_fourcc('i', 'p', '3', 'b')
+#define V4L2_PIX_FMT_IPU3_SGBRG10 v4l2_fourcc('i', 'p', '3', 'g')
+#define V4L2_PIX_FMT_IPU3_SGRBG10 v4l2_fourcc('i', 'p', '3', 'G')
+#define V4L2_PIX_FMT_IPU3_SRGGB10 v4l2_fourcc('i', 'p', '3', 'r')
 #define V4L2_SDR_FMT_CU8 v4l2_fourcc('C', 'U', '0', '8')
 #define V4L2_SDR_FMT_CU16LE v4l2_fourcc('C', 'U', '1', '6')
 #define V4L2_SDR_FMT_CS8 v4l2_fourcc('C', 'S', '0', '8')
@@ -359,6 +377,8 @@ struct v4l2_pix_format {
 #define V4L2_TCH_FMT_TU08 v4l2_fourcc('T', 'U', '0', '8')
 #define V4L2_META_FMT_VSP1_HGO v4l2_fourcc('V', 'S', 'P', 'H')
 #define V4L2_META_FMT_VSP1_HGT v4l2_fourcc('V', 'S', 'P', 'T')
+#define V4L2_META_FMT_UVC v4l2_fourcc('U', 'V', 'C', 'H')
+#define V4L2_META_FMT_D4XX v4l2_fourcc('D', '4', 'X', 'X')
 #define V4L2_PIX_FMT_PRIV_MAGIC 0xfeedcafe
 #define V4L2_PIX_FMT_FLAG_PREMUL_ALPHA 0x00000001
 struct v4l2_fmtdesc {
@@ -457,8 +477,14 @@ struct v4l2_requestbuffers {
   __u32 count;
   __u32 type;
   __u32 memory;
-  __u32 reserved[2];
+  __u32 capabilities;
+  __u32 reserved[1];
 };
+#define V4L2_BUF_CAP_SUPPORTS_MMAP (1 << 0)
+#define V4L2_BUF_CAP_SUPPORTS_USERPTR (1 << 1)
+#define V4L2_BUF_CAP_SUPPORTS_DMABUF (1 << 2)
+#define V4L2_BUF_CAP_SUPPORTS_REQUESTS (1 << 3)
+#define V4L2_BUF_CAP_SUPPORTS_ORPHANED_BUFS (1 << 4)
 struct v4l2_plane {
   __u32 bytesused;
   __u32 length;
@@ -488,7 +514,10 @@ struct v4l2_buffer {
   } m;
   __u32 length;
   __u32 reserved2;
-  __u32 reserved;
+  union {
+    __s32 request_fd;
+    __u32 reserved;
+  };
 };
 #define V4L2_BUF_FLAG_MAPPED 0x00000001
 #define V4L2_BUF_FLAG_QUEUED 0x00000002
@@ -497,6 +526,7 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_PFRAME 0x00000010
 #define V4L2_BUF_FLAG_BFRAME 0x00000020
 #define V4L2_BUF_FLAG_ERROR 0x00000040
+#define V4L2_BUF_FLAG_IN_REQUEST 0x00000080
 #define V4L2_BUF_FLAG_TIMECODE 0x00000100
 #define V4L2_BUF_FLAG_PREPARED 0x00000400
 #define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE 0x00000800
@@ -509,6 +539,7 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_TSTAMP_SRC_EOF 0x00000000
 #define V4L2_BUF_FLAG_TSTAMP_SRC_SOE 0x00010000
 #define V4L2_BUF_FLAG_LAST 0x00100000
+#define V4L2_BUF_FLAG_REQUEST_FD 0x00800000
 struct v4l2_exportbuffer {
   __u32 type;
   __u32 index;
@@ -690,6 +721,7 @@ struct v4l2_bt_timings {
 #define V4L2_DV_FL_HAS_PICTURE_ASPECT (1 << 6)
 #define V4L2_DV_FL_HAS_CEA861_VIC (1 << 7)
 #define V4L2_DV_FL_HAS_HDMI_VIC (1 << 8)
+#define V4L2_DV_FL_CAN_DETECT_REDUCED_FPS (1 << 9)
 #define V4L2_DV_BT_BLANKING_WIDTH(bt) ((bt)->hfrontporch + (bt)->hsync + (bt)->hbackporch)
 #define V4L2_DV_BT_FRAME_WIDTH(bt) ((bt)->width + V4L2_DV_BT_BLANKING_WIDTH(bt))
 #define V4L2_DV_BT_BLANKING_HEIGHT(bt) ((bt)->vfrontporch + (bt)->vsync + (bt)->vbackporch + (bt)->il_vfrontporch + (bt)->il_vsync + (bt)->il_vbackporch)
@@ -807,7 +839,8 @@ struct v4l2_ext_controls {
   };
   __u32 count;
   __u32 error_idx;
-  __u32 reserved[2];
+  __s32 request_fd;
+  __u32 reserved[1];
   struct v4l2_ext_control * controls;
 };
 #define V4L2_CTRL_ID_MASK (0x0fffffff)
@@ -817,6 +850,7 @@ struct v4l2_ext_controls {
 #define V4L2_CTRL_MAX_DIMS (4)
 #define V4L2_CTRL_WHICH_CUR_VAL 0
 #define V4L2_CTRL_WHICH_DEF_VAL 0x0f000000
+#define V4L2_CTRL_WHICH_REQUEST_VAL 0x0f010000
 enum v4l2_ctrl_type {
   V4L2_CTRL_TYPE_INTEGER = 1,
   V4L2_CTRL_TYPE_BOOLEAN = 2,
@@ -1262,10 +1296,10 @@ struct v4l2_create_buffers {
   __u32 count;
   __u32 memory;
   struct v4l2_format format;
-  __u32 reserved[8];
+  __u32 capabilities;
+  __u32 reserved[7];
 };
 #define VIDIOC_QUERYCAP _IOR('V', 0, struct v4l2_capability)
-#define VIDIOC_RESERVED _IO('V', 1)
 #define VIDIOC_ENUM_FMT _IOWR('V', 2, struct v4l2_fmtdesc)
 #define VIDIOC_G_FMT _IOWR('V', 4, struct v4l2_format)
 #define VIDIOC_S_FMT _IOWR('V', 5, struct v4l2_format)

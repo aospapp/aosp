@@ -9,11 +9,12 @@ This file generates all telemetry_GpuTest control files from a master list.
 
 TESTS = [
     'context_lost',
+    'depth_capture',
     'gpu_process',
-    'gpu_rasterization',
     'hardware_accelerated_feature',
+    'info_collection',
     'maps',
-    'memory_test',
+    'noop_sleep',
     'pixel',
     'screenshot_sync',
     'trace_test',

@@ -22,5 +22,13 @@
           "org.apache.harmony.tests.java.net.MulticastSocketTest#test_setLoopbackModeSendReceive_IPv4"
           ],
   bug: 35922755
+},
+{
+  description: "Kernels between 4.4 and 4.9 interpret the backlog parameter differently than we
+                expect, causing this test to fail, and our emulators currently use those kernel
+                versions.  See b/31960002 for a full discussion and references to the upstream
+                changes.",
+  name: "libcore.javax.net.ServerSocketFactoryTest#testCreateServerSocketWithPortNoBacklog",
+  bug: 73535217
 }
 ]

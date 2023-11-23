@@ -44,6 +44,8 @@
 #include <android-base/parsenetaddress.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <build/version.h>
+#include <platform_tools_version.h>
 
 #include "adb_auth.h"
 #include "adb_io.h"
@@ -64,43 +66,11 @@ std::string adb_version() {
     // Don't change the format of this --- it's parsed by ddmlib.
     return android::base::StringPrintf(
         "Android Debug Bridge version %d.%d.%d\n"
-        "Version %s\n"
+        "Version %s-%s\n"
         "Installed as %s\n",
-        ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,
+        ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION,
+        PLATFORM_TOOLS_VERSION, android::build::GetBuildNumber().c_str(),
         android::base::GetExecutablePath().c_str());
-}
-
-void fatal(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[1024];
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-
-#if ADB_HOST
-    fprintf(stderr, "error: %s\n", buf);
-#else
-    LOG(ERROR) << "error: " << buf;
-#endif
-
-    va_end(ap);
-    abort();
-}
-
-void fatal_errno(const char* fmt, ...) {
-    int err = errno;
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[1024];
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-
-#if ADB_HOST
-    fprintf(stderr, "error: %s: %s\n", buf, strerror(err));
-#else
-    LOG(ERROR) << "error: " << buf << ": " << strerror(err);
-#endif
-
-    va_end(ap);
-    abort();
 }
 
 uint32_t calculate_apacket_checksum(const apacket* p) {
@@ -115,7 +85,7 @@ apacket* get_apacket(void)
 {
     apacket* p = new apacket();
     if (p == nullptr) {
-      fatal("failed to allocate an apacket");
+        LOG(FATAL) << "failed to allocate an apacket";
     }
 
     memset(&p->msg, 0, sizeof(p->msg));
@@ -131,12 +101,21 @@ void handle_online(atransport *t)
 {
     D("adb: online");
     t->online = 1;
+    t->SetConnectionEstablished(true);
 }
 
 void handle_offline(atransport *t)
 {
-    D("adb: offline");
-    //Close the associated usb
+    if (t->GetConnectionState() == kCsOffline) {
+        LOG(INFO) << t->serial_name() << ": already offline";
+        return;
+    }
+
+    LOG(INFO) << t->serial_name() << ": offline";
+
+    t->SetConnectionState(kCsOffline);
+
+    // Close the associated usb
     t->online = 0;
 
     // This is necessary to avoid a race condition that occurred when a transport closes
@@ -248,19 +227,10 @@ void send_connect(atransport* t) {
                    << connection_str.length() << ")";
     }
 
-    cp->payload = std::move(connection_str);
+    cp->payload.assign(connection_str.begin(), connection_str.end());
     cp->msg.data_length = cp->payload.size();
 
     send_packet(cp, t);
-}
-
-// qual_overwrite is used to overwrite a qualifier string.  dst is a
-// pointer to a char pointer.  It is assumed that if *dst is non-NULL, it
-// was malloc'ed and needs to freed.  *dst will be set to a dup of src.
-// TODO: switch to std::string for these atransport fields instead.
-static void qual_overwrite(char** dst, const std::string& src) {
-    free(*dst);
-    *dst = strdup(src.c_str());
 }
 
 void parse_banner(const std::string& banner, atransport* t) {
@@ -286,11 +256,11 @@ void parse_banner(const std::string& banner, atransport* t) {
             const std::string& key = key_value[0];
             const std::string& value = key_value[1];
             if (key == "ro.product.name") {
-                qual_overwrite(&t->product, value);
+                t->product = value;
             } else if (key == "ro.product.model") {
-                qual_overwrite(&t->model, value);
+                t->model = value;
             } else if (key == "ro.product.device") {
-                qual_overwrite(&t->device, value);
+                t->device = value;
             } else if (key == "features") {
                 t->SetFeatures(value);
             }
@@ -310,6 +280,9 @@ void parse_banner(const std::string& banner, atransport* t) {
     } else if (type == "sideload") {
         D("setting connection_state to kCsSideload");
         t->SetConnectionState(kCsSideload);
+    } else if (type == "rescue") {
+        D("setting connection_state to kCsRescue");
+        t->SetConnectionState(kCsRescue);
     } else {
         D("setting connection_state to kCsHost");
         t->SetConnectionState(kCsHost);
@@ -317,13 +290,11 @@ void parse_banner(const std::string& banner, atransport* t) {
 }
 
 static void handle_new_connection(atransport* t, apacket* p) {
-    if (t->GetConnectionState() != kCsOffline) {
-        t->SetConnectionState(kCsOffline);
-        handle_offline(t);
-    }
+    handle_offline(t);
 
     t->update_version(p->msg.arg0, p->msg.arg1);
-    parse_banner(p->payload, t);
+    std::string banner(p->payload.begin(), p->payload.end());
+    parse_banner(banner, t);
 
 #if ADB_HOST
     handle_online(t);
@@ -349,19 +320,6 @@ void handle_packet(apacket *p, atransport *t)
     CHECK_EQ(p->payload.size(), p->msg.data_length);
 
     switch(p->msg.command){
-    case A_SYNC:
-        if (p->msg.arg0){
-            send_packet(p, t);
-#if ADB_HOST
-            send_connect(t);
-#endif
-        } else {
-            t->SetConnectionState(kCsOffline);
-            handle_offline(t);
-            send_packet(p, t);
-        }
-        return;
-
     case A_CNXN:  // CONNECT(version, maxdata, "system-id-string")
         handle_new_connection(t, p);
         break;
@@ -370,24 +328,31 @@ void handle_packet(apacket *p, atransport *t)
         switch (p->msg.arg0) {
 #if ADB_HOST
             case ADB_AUTH_TOKEN:
-                if (t->GetConnectionState() == kCsOffline) {
-                    t->SetConnectionState(kCsUnauthorized);
+                if (t->GetConnectionState() != kCsAuthorizing) {
+                    t->SetConnectionState(kCsAuthorizing);
                 }
                 send_auth_response(p->payload.data(), p->msg.data_length, t);
                 break;
 #else
-            case ADB_AUTH_SIGNATURE:
-                if (adbd_auth_verify(t->token, sizeof(t->token), p->payload)) {
+            case ADB_AUTH_SIGNATURE: {
+                // TODO: Switch to string_view.
+                std::string signature(p->payload.begin(), p->payload.end());
+                std::string auth_key;
+                if (adbd_auth_verify(t->token, sizeof(t->token), signature, &auth_key)) {
                     adbd_auth_verified(t);
                     t->failed_auth_attempts = 0;
+                    t->auth_key = auth_key;
+                    adbd_notify_framework_connected_key(t);
                 } else {
                     if (t->failed_auth_attempts++ > 256) std::this_thread::sleep_for(1s);
                     send_auth_request(t);
                 }
                 break;
+            }
 
             case ADB_AUTH_RSAPUBLICKEY:
-                adbd_auth_confirm_key(p->payload.data(), p->msg.data_length, t);
+                t->auth_key = std::string(p->payload.data());
+                adbd_auth_confirm_key(t);
                 break;
 #endif
             default:
@@ -399,7 +364,14 @@ void handle_packet(apacket *p, atransport *t)
 
     case A_OPEN: /* OPEN(local-id, 0, "destination") */
         if (t->online && p->msg.arg0 != 0 && p->msg.arg1 == 0) {
-            asocket* s = create_local_service_socket(p->payload.c_str(), t);
+            std::string_view address(p->payload.begin(), p->payload.size());
+
+            // Historically, we received service names as a char*, and stopped at the first NUL
+            // byte. The client sent strings with null termination, which post-string_view, start
+            // being interpreted as part of the string, unless we explicitly strip them.
+            address = StripTrailingNulls(address);
+
+            asocket* s = create_local_service_socket(address, t);
             if (s == nullptr) {
                 send_close(0, p->msg.arg0, t);
             } else {
@@ -415,7 +387,7 @@ void handle_packet(apacket *p, atransport *t)
         if (t->online && p->msg.arg0 != 0 && p->msg.arg1 != 0) {
             asocket* s = find_local_socket(p->msg.arg1, 0);
             if (s) {
-                if(s->peer == 0) {
+                if(s->peer == nullptr) {
                     /* On first READY message, create the connection. */
                     s->peer = create_remote_socket(p->msg.arg0, t);
                     s->peer->peer = s;
@@ -424,8 +396,8 @@ void handle_packet(apacket *p, atransport *t)
                     /* Other READY messages must use the same local-id */
                     s->ready(s);
                 } else {
-                    D("Invalid A_OKAY(%d,%d), expected A_OKAY(%d,%d) on transport %s",
-                      p->msg.arg0, p->msg.arg1, s->peer->id, p->msg.arg1, t->serial);
+                    D("Invalid A_OKAY(%d,%d), expected A_OKAY(%d,%d) on transport %s", p->msg.arg0,
+                      p->msg.arg1, s->peer->id, p->msg.arg1, t->serial.c_str());
                 }
             } else {
                 // When receiving A_OKAY from device for A_OPEN request, the host server may
@@ -451,8 +423,8 @@ void handle_packet(apacket *p, atransport *t)
                  * socket has a peer on the same transport.
                  */
                 if (p->msg.arg0 == 0 && s->peer && s->peer->transport != t) {
-                    D("Invalid A_CLSE(0, %u) from transport %s, expected transport %s",
-                      p->msg.arg1, t->serial, s->peer->transport->serial);
+                    D("Invalid A_CLSE(0, %u) from transport %s, expected transport %s", p->msg.arg1,
+                      t->serial.c_str(), s->peer->transport->serial.c_str());
                 } else {
                     s->close(s);
                 }
@@ -640,11 +612,11 @@ static void ReportServerStartupFailure(pid_t pid) {
     fprintf(stderr, "Full server startup log: %s\n", GetLogFilePath().c_str());
     fprintf(stderr, "Server had pid: %d\n", pid);
 
-    unique_fd fd(adb_open(GetLogFilePath().c_str(), O_RDONLY));
+    android::base::unique_fd fd(unix_open(GetLogFilePath(), O_RDONLY));
     if (fd == -1) return;
 
     // Let's not show more than 128KiB of log...
-    adb_lseek(fd, -128 * 1024, SEEK_END);
+    unix_lseek(fd, -128 * 1024, SEEK_END);
     std::string content;
     if (!android::base::ReadFdToString(fd, &content)) return;
 
@@ -834,7 +806,7 @@ int launch_server(const std::string& socket_spec) {
                 memcmp(temp, expected, expected_length) == 0) {
                 got_ack = true;
             } else {
-                ReportServerStartupFailure(GetProcessId(process_handle.get()));
+                ReportServerStartupFailure(pinfo.dwProcessId);
                 return -1;
             }
         } else {
@@ -885,9 +857,8 @@ int launch_server(const std::string& socket_spec) {
     }
 #else /* !defined(_WIN32) */
     // set up a pipe so the child can tell us when it is ready.
-    // fd[0] will be parent's end, and the child will write on fd[1]
-    int fd[2];
-    if (pipe(fd)) {
+    unique_fd pipe_read, pipe_write;
+    if (!Pipe(&pipe_read, &pipe_write)) {
         fprintf(stderr, "pipe failed in launch_server, errno: %d\n", errno);
         return -1;
     }
@@ -899,11 +870,14 @@ int launch_server(const std::string& socket_spec) {
 
     if (pid == 0) {
         // child side of the fork
+        pipe_read.reset();
 
-        adb_close(fd[0]);
+        // android::base::Pipe unconditionally opens the pipe with O_CLOEXEC.
+        // Undo this manually.
+        fcntl(pipe_write.get(), F_SETFD, 0);
 
         char reply_fd[30];
-        snprintf(reply_fd, sizeof(reply_fd), "%d", fd[1]);
+        snprintf(reply_fd, sizeof(reply_fd), "%d", pipe_write.get());
         // child process
         int result = execl(path.c_str(), "adb", "-L", socket_spec.c_str(), "fork-server", "server",
                            "--reply-fd", reply_fd, NULL);
@@ -913,10 +887,10 @@ int launch_server(const std::string& socket_spec) {
         // parent side of the fork
         char temp[3] = {};
         // wait for the "OK\n" message
-        adb_close(fd[1]);
-        int ret = adb_read(fd[0], temp, 3);
+        pipe_write.reset();
+        int ret = adb_read(pipe_read.get(), temp, 3);
         int saved_errno = errno;
-        adb_close(fd[0]);
+        pipe_read.reset();
         if (ret < 0) {
             fprintf(stderr, "could not read ok from ADB Server, errno = %d\n", saved_errno);
             return -1;
@@ -931,17 +905,23 @@ int launch_server(const std::string& socket_spec) {
 }
 #endif /* ADB_HOST */
 
+bool handle_forward_request(const char* service, atransport* transport, int reply_fd) {
+    return handle_forward_request(service, [transport](std::string*) { return transport; },
+                                  reply_fd);
+}
+
 // Try to handle a network forwarding request.
-// This returns 1 on success, 0 on failure, and -1 to indicate this is not
-// a forwarding-related request.
-int handle_forward_request(const char* service, atransport* transport, int reply_fd) {
+bool handle_forward_request(const char* service,
+                            std::function<atransport*(std::string* error)> transport_acquirer,
+                            int reply_fd) {
     if (!strcmp(service, "list-forward")) {
         // Create the list of forward redirections.
         std::string listeners = format_listeners();
 #if ADB_HOST
         SendOkay(reply_fd);
 #endif
-        return SendProtocolString(reply_fd, listeners);
+        SendProtocolString(reply_fd, listeners);
+        return true;
     }
 
     if (!strcmp(service, "killforward-all")) {
@@ -951,12 +931,19 @@ int handle_forward_request(const char* service, atransport* transport, int reply
         SendOkay(reply_fd);
 #endif
         SendOkay(reply_fd);
-        return 1;
+        return true;
     }
 
     if (!strncmp(service, "forward:", 8) || !strncmp(service, "killforward:", 12)) {
         // killforward:local
         // forward:(norebind:)?local;remote
+        std::string error;
+        atransport* transport = transport_acquirer(&error);
+        if (!transport) {
+            SendFail(reply_fd, error);
+            return true;
+        }
+
         bool kill_forward = false;
         bool no_rebind = false;
         if (android::base::StartsWith(service, "killforward:")) {
@@ -976,17 +963,16 @@ int handle_forward_request(const char* service, atransport* transport, int reply
             // Check killforward: parameter format: '<local>'
             if (pieces.size() != 1 || pieces[0].empty()) {
                 SendFail(reply_fd, android::base::StringPrintf("bad killforward: %s", service));
-                return 1;
+                return true;
             }
         } else {
             // Check forward: parameter format: '<local>;<remote>'
             if (pieces.size() != 2 || pieces[0].empty() || pieces[1].empty() || pieces[1][0] == '*') {
                 SendFail(reply_fd, android::base::StringPrintf("bad forward: %s", service));
-                return 1;
+                return true;
             }
         }
 
-        std::string error;
         InstallStatus r;
         int resolved_tcp_port = 0;
         if (kill_forward) {
@@ -1007,7 +993,7 @@ int handle_forward_request(const char* service, atransport* transport, int reply
                 SendProtocolString(reply_fd, android::base::StringPrintf("%d", resolved_tcp_port));
             }
 
-            return 1;
+            return true;
         }
 
         std::string message;
@@ -1026,9 +1012,10 @@ int handle_forward_request(const char* service, atransport* transport, int reply
             break;
         }
         SendFail(reply_fd, message);
-        return 1;
+        return true;
     }
-    return 0;
+
+    return false;
 }
 
 #if ADB_HOST
@@ -1038,9 +1025,10 @@ static int SendOkay(int fd, const std::string& s) {
     return 0;
 }
 
-int handle_host_request(const char* service, TransportType type, const char* serial,
-                        TransportId transport_id, int reply_fd, asocket* s) {
-    if (strcmp(service, "kill") == 0) {
+HostRequestResult handle_host_request(std::string_view service, TransportType type,
+                                      const char* serial, TransportId transport_id, int reply_fd,
+                                      asocket* s) {
+    if (service == "kill") {
         fprintf(stderr, "adb server killed by remote request\n");
         fflush(stdout);
 
@@ -1052,29 +1040,49 @@ int handle_host_request(const char* service, TransportType type, const char* ser
         exit(0);
     }
 
-    // "transport:" is used for switching transport with a specified serial number
-    // "transport-usb:" is used for switching transport to the only USB transport
-    // "transport-local:" is used for switching transport to the only local transport
-    // "transport-any:" is used for switching transport to the only transport
-    if (!strncmp(service, "transport", strlen("transport"))) {
+    LOG(DEBUG) << "handle_host_request(" << service << ")";
+
+    // Transport selection:
+    if (service.starts_with("transport") || service.starts_with("tport:")) {
         TransportType type = kTransportAny;
 
-        if (!strncmp(service, "transport-id:", strlen("transport-id:"))) {
-            service += strlen("transport-id:");
-            transport_id = strtoll(service, const_cast<char**>(&service), 10);
-            if (*service != '\0') {
-                SendFail(reply_fd, "invalid transport id");
-                return 1;
+        std::string serial_storage;
+        bool legacy = true;
+
+        // New transport selection protocol:
+        // This is essentially identical to the previous version, except it returns the selected
+        // transport id to the caller as well.
+        if (ConsumePrefix(&service, "tport:")) {
+            legacy = false;
+            if (ConsumePrefix(&service, "serial:")) {
+                serial_storage = service;
+                serial = serial_storage.c_str();
+            } else if (service == "usb") {
+                type = kTransportUsb;
+            } else if (service == "local") {
+                type = kTransportLocal;
+            } else if (service == "any") {
+                type = kTransportAny;
             }
-        } else if (!strncmp(service, "transport-usb", strlen("transport-usb"))) {
-            type = kTransportUsb;
-        } else if (!strncmp(service, "transport-local", strlen("transport-local"))) {
-            type = kTransportLocal;
-        } else if (!strncmp(service, "transport-any", strlen("transport-any"))) {
-            type = kTransportAny;
-        } else if (!strncmp(service, "transport:", strlen("transport:"))) {
-            service += strlen("transport:");
-            serial = service;
+
+            // Selection by id is unimplemented, since you obviously already know the transport id
+            // you're connecting to.
+        } else {
+            if (ConsumePrefix(&service, "transport-id:")) {
+                if (!ParseUint(&transport_id, service)) {
+                    SendFail(reply_fd, "invalid transport id");
+                    return HostRequestResult::Handled;
+                }
+            } else if (service == "transport-usb") {
+                type = kTransportUsb;
+            } else if (service == "transport-local") {
+                type = kTransportLocal;
+            } else if (service == "transport-any") {
+                type = kTransportAny;
+            } else if (ConsumePrefix(&service, "transport:")) {
+                serial_storage = service;
+                serial = serial_storage.c_str();
+            }
         }
 
         std::string error;
@@ -1082,44 +1090,46 @@ int handle_host_request(const char* service, TransportType type, const char* ser
         if (t != nullptr) {
             s->transport = t;
             SendOkay(reply_fd);
+
+            if (!legacy) {
+                // Nothing we can do if this fails.
+                WriteFdExactly(reply_fd, &t->id, sizeof(t->id));
+            }
+
+            return HostRequestResult::SwitchedTransport;
         } else {
             SendFail(reply_fd, error);
+            return HostRequestResult::Handled;
         }
-        return 1;
     }
 
     // return a list of all connected devices
-    if (!strncmp(service, "devices", 7)) {
-        bool long_listing = (strcmp(service+7, "-l") == 0);
-        if (long_listing || service[7] == 0) {
-            D("Getting device list...");
-            std::string device_list = list_transports(long_listing);
-            D("Sending device list...");
-            return SendOkay(reply_fd, device_list);
-        }
-        return 1;
+    if (service == "devices" || service == "devices-l") {
+        bool long_listing = service == "devices-l";
+        D("Getting device list...");
+        std::string device_list = list_transports(long_listing);
+        D("Sending device list...");
+        SendOkay(reply_fd, device_list);
+        return HostRequestResult::Handled;
     }
 
-    if (!strcmp(service, "reconnect-offline")) {
+    if (service == "reconnect-offline") {
         std::string response;
         close_usb_devices([&response](const atransport* transport) {
-            switch (transport->GetConnectionState()) {
-                case kCsOffline:
-                case kCsUnauthorized:
-                    response += "reconnecting " + transport->serial_name() + "\n";
-                    return true;
-                default:
-                    return false;
+            if (!ConnectionStateIsOnline(transport->GetConnectionState())) {
+                response += "reconnecting " + transport->serial_name() + "\n";
+                return true;
             }
-        });
+            return false;
+        }, true);
         if (!response.empty()) {
             response.resize(response.size() - 1);
         }
         SendOkay(reply_fd, response);
-        return 0;
+        return HostRequestResult::Handled;
     }
 
-    if (!strcmp(service, "features")) {
+    if (service == "features") {
         std::string error;
         atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t != nullptr) {
@@ -1127,10 +1137,10 @@ int handle_host_request(const char* service, TransportType type, const char* ser
         } else {
             SendFail(reply_fd, error);
         }
-        return 0;
+        return HostRequestResult::Handled;
     }
 
-    if (!strcmp(service, "host-features")) {
+    if (service == "host-features") {
         FeatureSet features = supported_features();
         // Abuse features to report libusb status.
         if (should_use_libusb()) {
@@ -1138,97 +1148,114 @@ int handle_host_request(const char* service, TransportType type, const char* ser
         }
         features.insert(kFeaturePushSync);
         SendOkay(reply_fd, FeatureSetToString(features));
-        return 0;
+        return HostRequestResult::Handled;
     }
 
     // remove TCP transport
-    if (!strncmp(service, "disconnect:", 11)) {
-        const std::string address(service + 11);
+    if (service.starts_with("disconnect:")) {
+        std::string address(service.substr(11));
         if (address.empty()) {
             kick_all_tcp_devices();
-            return SendOkay(reply_fd, "disconnected everything");
+            SendOkay(reply_fd, "disconnected everything");
+            return HostRequestResult::Handled;
         }
 
         std::string serial;
         std::string host;
         int port = DEFAULT_ADB_LOCAL_TRANSPORT_PORT;
         std::string error;
-        if (!android::base::ParseNetAddress(address, &host, &port, &serial, &error)) {
-            return SendFail(reply_fd, android::base::StringPrintf("couldn't parse '%s': %s",
-                                                                  address.c_str(), error.c_str()));
+        if (address.starts_with("vsock:")) {
+            serial = address;
+        } else if (!android::base::ParseNetAddress(address, &host, &port, &serial, &error)) {
+            SendFail(reply_fd, android::base::StringPrintf("couldn't parse '%s': %s",
+                                                           address.c_str(), error.c_str()));
+            return HostRequestResult::Handled;
         }
         atransport* t = find_transport(serial.c_str());
         if (t == nullptr) {
-            return SendFail(reply_fd, android::base::StringPrintf("no such device '%s'",
-                                                                  serial.c_str()));
+            SendFail(reply_fd, android::base::StringPrintf("no such device '%s'", serial.c_str()));
+            return HostRequestResult::Handled;
         }
         kick_transport(t);
-        return SendOkay(reply_fd, android::base::StringPrintf("disconnected %s", address.c_str()));
+        SendOkay(reply_fd, android::base::StringPrintf("disconnected %s", address.c_str()));
+        return HostRequestResult::Handled;
     }
 
     // Returns our value for ADB_SERVER_VERSION.
-    if (!strcmp(service, "version")) {
-        return SendOkay(reply_fd, android::base::StringPrintf("%04x", ADB_SERVER_VERSION));
+    if (service == "version") {
+        SendOkay(reply_fd, android::base::StringPrintf("%04x", ADB_SERVER_VERSION));
+        return HostRequestResult::Handled;
     }
 
     // These always report "unknown" rather than the actual error, for scripts.
-    if (!strcmp(service, "get-serialno")) {
+    if (service == "get-serialno") {
         std::string error;
         atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
-            return SendOkay(reply_fd, t->serial ? t->serial : "unknown");
+            SendOkay(reply_fd, !t->serial.empty() ? t->serial : "unknown");
         } else {
-            return SendFail(reply_fd, error);
+            SendFail(reply_fd, error);
         }
+        return HostRequestResult::Handled;
     }
-    if (!strcmp(service, "get-devpath")) {
+    if (service == "get-devpath") {
         std::string error;
         atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
-            return SendOkay(reply_fd, t->devpath ? t->devpath : "unknown");
+            SendOkay(reply_fd, !t->devpath.empty() ? t->devpath : "unknown");
         } else {
-            return SendFail(reply_fd, error);
+            SendFail(reply_fd, error);
         }
+        return HostRequestResult::Handled;
     }
-    if (!strcmp(service, "get-state")) {
+    if (service == "get-state") {
         std::string error;
         atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
         if (t) {
-            return SendOkay(reply_fd, t->connection_state_name());
+            SendOkay(reply_fd, t->connection_state_name());
         } else {
-            return SendFail(reply_fd, error);
+            SendFail(reply_fd, error);
         }
+        return HostRequestResult::Handled;
     }
 
     // Indicates a new emulator instance has started.
-    if (!strncmp(service, "emulator:", 9)) {
-        int  port = atoi(service+9);
-        local_connect(port);
+    if (ConsumePrefix(&service, "emulator:")) {
+        unsigned int port;
+        if (!ParseUint(&port, service)) {
+          LOG(ERROR) << "received invalid port for emulator: " << service;
+        } else {
+          local_connect(port);
+        }
+
         /* we don't even need to send a reply */
-        return 0;
+        return HostRequestResult::Handled;
     }
 
-    if (!strcmp(service, "reconnect")) {
+    if (service == "reconnect") {
         std::string response;
         atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &response, true);
         if (t != nullptr) {
-            kick_transport(t);
+            kick_transport(t, true);
             response =
-                "reconnecting " + t->serial_name() + " [" + t->connection_state_name() + "]\n";
+                    "reconnecting " + t->serial_name() + " [" + t->connection_state_name() + "]\n";
         }
-        return SendOkay(reply_fd, response);
+        SendOkay(reply_fd, response);
+        return HostRequestResult::Handled;
     }
 
-    std::string error;
-    atransport* t = acquire_one_transport(type, serial, transport_id, nullptr, &error);
-    if (!t) {
-        return -1;
+    // TODO: Switch handle_forward_request to string_view.
+    std::string service_str(service);
+    if (handle_forward_request(
+                service_str.c_str(),
+                [=](std::string* error) {
+                    return acquire_one_transport(type, serial, transport_id, nullptr, error);
+                },
+                reply_fd)) {
+        return HostRequestResult::Handled;
     }
 
-    int ret = handle_forward_request(service, t, reply_fd);
-    if (ret >= 0)
-      return ret - 1;
-    return -1;
+    return HostRequestResult::Unhandled;
 }
 
 static auto& init_mutex = *new std::mutex();

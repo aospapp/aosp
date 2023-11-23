@@ -32,7 +32,7 @@ config ONEIT
 #include <sys/reboot.h>
 
 GLOBALS(
-  char *console;
+  char *c;
 )
 
 // The minimum amount of work necessary to get ctrl-c and such to work is:
@@ -57,6 +57,7 @@ static void oneit_signaled(int signal)
   // PID 1 can't call reboot() because it kills the task that calls it,
   // which causes the kernel to panic before the actual reboot happens.
   sync();
+  if (getpid()!=1) _exit(127+signal);
   if (!vfork()) reboot(action);
 }
 
@@ -96,7 +97,7 @@ void oneit_main(void)
       for (i=0; i<3; i++) {
         close(i);
         // Remember, O_CLOEXEC is backwards for xopen()
-        xopen_stdio(TT.console ? TT.console : "/dev/tty0", O_RDWR|O_CLOEXEC);
+        xopen_stdio(TT.c ? TT.c : "/dev/tty0", O_RDWR|O_CLOEXEC);
       }
 
       // Can't xexec() here, we vforked so we don't want to error_exit().

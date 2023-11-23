@@ -16,8 +16,14 @@
 
 package android.provider.cts;
 
-import com.android.compatibility.common.util.SystemUtil;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import android.app.Instrumentation;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -32,13 +38,42 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.provider.Settings;
-import android.test.InstrumentationTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class SettingsTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class SettingsTest {
+    @BeforeClass
+    public static void setUp() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings allow");
+
+        // Wait a beat to persist the change
+        SystemClock.sleep(500);
+    }
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings default");
+    }
+
+    @Test
     public void testSystemTable() throws RemoteException {
         final String[] SYSTEM_PROJECTION = new String[] {
                 Settings.System._ID, Settings.System.NAME, Settings.System.VALUE
@@ -46,7 +81,7 @@ public class SettingsTest extends InstrumentationTestCase {
         final int NAME_INDEX = 1;
         final int VALUE_INDEX = 2;
 
-        String name = "name";
+        String name = Settings.System.NEXT_ALARM_FORMATTED;
         String insertValue = "value_insert";
         String updateValue = "value_update";
 
@@ -89,16 +124,6 @@ public class SettingsTest extends InstrumentationTestCase {
             assertEquals(updateValue, cursor.getString(VALUE_INDEX));
             cursor.close();
             cursor = null;
-
-            // Test: delete
-            provider.delete(Settings.System.CONTENT_URI,
-                    Settings.System.NAME + "=\"" + name + "\"", null);
-            cursor = provider.query(Settings.System.CONTENT_URI, SYSTEM_PROJECTION,
-                    Settings.System.NAME + "=\"" + name + "\"", null, null, null);
-            assertNotNull(cursor);
-            assertEquals(0, cursor.getCount());
-            cursor.close();
-            cursor = null;
         } finally {
             if (cursor != null) {
                 cursor.close();
@@ -106,6 +131,7 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testSecureTable() throws Exception {
         final String[] SECURE_PROJECTION = new String[] {
                 Settings.Secure._ID, Settings.Secure.NAME, Settings.Secure.VALUE
@@ -196,6 +222,7 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testAccessNonTable() {
         tryBadTableAccess("SYSTEM", "system", "install_non_market_apps");
         tryBadTableAccess("SECURE", "secure", "install_non_market_apps");
@@ -204,6 +231,7 @@ public class SettingsTest extends InstrumentationTestCase {
         tryBadTableAccess(" secure ", "secure", "install_non_market_apps");
     }
 
+    @Test
     public void testUserDictionarySettingsExists() throws RemoteException {
         final Intent intent = new Intent(Settings.ACTION_USER_DICTIONARY_SETTINGS);
         final ResolveInfo ri = getContext().getPackageManager().resolveActivity(
@@ -211,6 +239,7 @@ public class SettingsTest extends InstrumentationTestCase {
         assertTrue(ri != null);
     }
 
+    @Test
     public void testNoStaleValueModifiedFromSameProcess() throws Exception {
         final int initialValue = Settings.System.getInt(getContext().getContentResolver(),
                 Settings.System.VIBRATE_WHEN_RINGING);
@@ -229,6 +258,7 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testNoStaleValueModifiedFromOtherProcess() throws Exception {
         final int initialValue = Settings.System.getInt(getContext().getContentResolver(),
                 Settings.System.VIBRATE_WHEN_RINGING);
@@ -247,6 +277,7 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testNoStaleValueModifiedFromMultipleProcesses() throws Exception {
         final int initialValue = Settings.System.getInt(getContext().getContentResolver(),
                 Settings.System.VIBRATE_WHEN_RINGING);
@@ -270,6 +301,7 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testUriChangesUpdatingFromDifferentProcesses() throws Exception {
         final int initialValue = Settings.System.getInt(getContext().getContentResolver(),
                 Settings.System.VIBRATE_WHEN_RINGING);
@@ -312,7 +344,11 @@ public class SettingsTest extends InstrumentationTestCase {
         }
     }
 
+    private Instrumentation getInstrumentation() {
+        return InstrumentationRegistry.getInstrumentation();
+    }
+
     private Context getContext() {
-        return getInstrumentation().getContext();
+        return InstrumentationRegistry.getTargetContext();
     }
 }

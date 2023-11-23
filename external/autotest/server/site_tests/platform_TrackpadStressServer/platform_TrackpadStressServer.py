@@ -42,9 +42,7 @@ class platform_TrackpadStressServer(test.test):
         try:
             # Simply writing to the crash interface resets the target
             # immediately, leaving files unsaved to disk and the master ssh
-            # connection wedged for a long time. The sequence below borrowed
-            # from logging_KernelCrashServer.py makes sure that the test
-            # proceeds smoothly.
+            # connection wedged for a long time.
             self.client.run(
                 'sh -c "sync; sleep 1; %s" >/dev/null 2>&1 &' % command)
         except error.AutoservRunError, e:

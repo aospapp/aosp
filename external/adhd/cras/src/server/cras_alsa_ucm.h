@@ -184,14 +184,30 @@ const char *ucm_get_dsp_name_default(struct cras_use_case_mgr *mgr,
  * unreliable dma residue.
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    level - The pointer to the returned value.
+ *
  */
-unsigned int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr);
+int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr,
+			     unsigned int *level);
 
 /* Gets the flag for disabling software volume.
  * Args:
  *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ * Returns:
+ *    0 on success, -ENOENT on failure.
  */
 unsigned int ucm_get_disable_software_volume(struct cras_use_case_mgr *mgr);
+
+/* Gets the value for minimum software gain.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for minimum software gain.
+ *    gain - The pointer to the returned value;
+ * Returns:
+ *    0 on success, other error codes on failure.
+ */
+int ucm_get_min_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
+			      long *gain);
 
 /* Gets the value for maximum software gain.
  * Args:
@@ -215,6 +231,16 @@ int ucm_get_max_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
 int ucm_get_default_node_gain(struct cras_use_case_mgr *mgr, const char *dev,
 			      long *gain);
 
+/* Gets the flag if an input device can preempt hotword recording.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check for preempt hotword flag.
+ * Returns:
+ *    Non-zero value means input can preempt hotword recording, otherwise
+ *    return zero.
+ */
+int ucm_get_preempt_hotword(struct cras_use_case_mgr *mgr, const char *dev);
+
 /* Gets the device name of this device on the card..
  *
  * Args:
@@ -229,6 +255,18 @@ int ucm_get_default_node_gain(struct cras_use_case_mgr *mgr, const char *dev,
 const char *ucm_get_device_name_for_dev(
 		struct cras_use_case_mgr *mgr, const char *dev,
 		enum CRAS_STREAM_DIRECTION direction);
+
+/* Gets the node name of the echo reference device on the card.
+ * Args:
+ *    mgr - The cras_use_case_mgr pointer returned from alsa_ucm_create.
+ *    dev - The device to check echo reference for.
+ * Returns:
+ *    String containing the node name of the echo reference to this
+ *    dev, caller is responsible to free it later. NULL if echo reference
+ *    doesn't exist.
+ */
+const char *ucm_get_echo_reference_dev_name_for_dev(
+		struct cras_use_case_mgr *mgr, const char *dev);
 
 /* Gets the sample rate at which to run this device.
  *

@@ -13,6 +13,8 @@ class detachablebase_TriggerHammerd(test.test):
     """Hammerd smoke test.
 
     Hammerd upstart job should be invoked on boot. The job should exit normally.
+
+    Also, checks that hammerd enables USB autosuspend on the hammer device.
     """
     version = 1
 
@@ -35,6 +37,12 @@ class detachablebase_TriggerHammerd(test.test):
     # normally.
     PROCESS_FAILED_MSG = '%s main process ([0-9]\+) terminated' % PROCESS_NAME
 
+    # Hammerd writes path to USB device in that file.
+    WRITE_SYSFS_PATH = '/run/hammer_sysfs_path'
+
+    # Autosuspend control sysfs PATH (rooted at USB device sysfs path)
+    SYSFS_POWER_CONTROL_PATH = 'power/control'
+
     def run_once(self):
         # Get the start line of message belonging to this current boot.
         start_line = utils.run(
@@ -43,7 +51,7 @@ class detachablebase_TriggerHammerd(test.test):
                 ignore_status=True).stdout.strip()
         logging.info('Start line: %s', start_line)
         if not start_line:
-            raise error.TestError('Start line of boot is not found.')
+            raise error.TestFail('Start line of boot is not found.')
 
         def _grep_messages(pattern):
             return utils.run('tail -n +%s %s | grep "%s"' %
@@ -58,3 +66,15 @@ class detachablebase_TriggerHammerd(test.test):
             hammerd_log = _grep_messages(self.PROCESS_NAME)
             logging.error('Hammerd log: %s', hammerd_log)
             raise error.TestFail('hammerd terminated with non-zero value')
+
+        # Check that hammerd wrote to WRITE_SYSFS_PATH
+        sysfspath = utils.read_one_line(self.WRITE_SYSFS_PATH)
+
+        if not sysfspath:
+            raise error.TestFail('%s is empty' % (self.WRITE_SYSFS_PATH))
+
+        # Check that autosuspend is enabled
+        power = utils.read_one_line(sysfspath + '/' +
+                                    self.SYSFS_POWER_CONTROL_PATH)
+        if power != 'auto':
+            raise error.TestFail('Autosuspend not enabled on hammer port')

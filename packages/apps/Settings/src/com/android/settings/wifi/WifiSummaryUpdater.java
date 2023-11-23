@@ -24,8 +24,9 @@ import android.net.ConnectivityManager;
 import android.net.NetworkScoreManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.R;
 import com.android.settings.widget.SummaryUpdater;
@@ -73,6 +74,7 @@ public final class WifiSummaryUpdater extends SummaryUpdater {
     @Override
     public void register(boolean register) {
         if (register) {
+            notifyChangeIfNeeded();
             mContext.registerReceiver(mReceiver, INTENT_FILTER);
         } else {
             mContext.unregisterReceiver(mReceiver);

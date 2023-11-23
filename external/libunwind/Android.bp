@@ -120,14 +120,9 @@ cc_defaults {
 // libunwind shared and static library
 //-----------------------------------------------------------------------
 
-cc_library {
-    name: "libunwind",
+cc_defaults {
+    name: "libunwind_core_defaults",
     defaults: ["libunwind_defaults"],
-    vendor_available: false,
-    vndk: {
-        enabled: true,
-        support_system_process: true,
-    },
     sdk_version: "21",
     stl: "none",
 
@@ -414,11 +409,20 @@ cc_library {
 
     export_include_dirs: ["include"],
 
-    shared_libs: ["liblzma"],
-
     debug: {
         //shared_libs: ["liblog"],
     },
+}
+
+cc_library_shared {
+    name: "libunwind",
+    defaults: ["libunwind_core_defaults"],
+}
+
+cc_library_static {
+    name: "libunwind_static",
+    defaults: ["libunwind_core_defaults"],
+    vendor_available: true,
 }
 
 //-----------------------------------------------------------------------

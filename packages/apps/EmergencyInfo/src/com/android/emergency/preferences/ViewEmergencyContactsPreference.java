@@ -16,8 +16,14 @@
 package com.android.emergency.preferences;
 
 import android.content.Context;
-import android.support.v7.preference.Preference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
+
 import android.util.AttributeSet;
+import android.view.View;
+
+import com.android.emergency.R;
+import com.android.emergency.util.PreferenceUtils;
 
 /**
  * Sets a listener to be called the contacts when tapping on the preference.
@@ -25,6 +31,16 @@ import android.util.AttributeSet;
 public class ViewEmergencyContactsPreference extends EmergencyContactsPreference {
     public ViewEmergencyContactsPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
+    }
+
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+        // Hide preference title if has at least one medical info preference is set.
+        if (PreferenceUtils.hasAtLeastOnePreferenceSet(getContext())) {
+            View preferenceCategoryTitle = holder.findViewById(R.id.emergency_preference_category);
+            preferenceCategoryTitle.setVisibility(View.GONE);
+        }
     }
 
     @Override

@@ -33,6 +33,8 @@
 #include "vkPlatform.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkPrograms.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "vkWsiUtil.hpp"
 
@@ -131,7 +133,9 @@ deUint32 chooseQueueFamilyIndex (const vk::InstanceInterface& vki, vk::VkPhysica
 	return supportedFamilyIndices[0];
 }
 
-vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::InstanceInterface&		vki,
+vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
+											vk::VkInstance						instance,
+											const vk::InstanceInterface&		vki,
 											vk::VkPhysicalDevice				physicalDevice,
 											const Extensions&					supportedExtensions,
 											const deUint32						queueFamilyIndex,
@@ -177,7 +181,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::InstanceInterface&		vki,
 			TCU_THROW(NotSupportedError, (string(extensions[ndx]) + " is not supported").c_str());
 	}
 
-	return createDevice(vki, physicalDevice, &deviceParams, pAllocator);
+	return createDevice(vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
 }
 
 de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
@@ -190,7 +194,8 @@ de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
 	}
 	catch (const tcu::NotSupportedError& e)
 	{
-		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))))
+		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))) &&
+		    platform.hasDisplay(wsiType))
 		{
 			// If VK_KHR_{platform}_surface was supported, vk::Platform implementation
 			// must support creating native display & window for that WSI type.
@@ -324,12 +329,7 @@ void cmdRenderFrame (const vk::DeviceInterface&	vkd,
 
 	if (frameNdx == 0)
 	{
-		const vk::VkRect2D	scissor	=
-		{
-			{ 0u, 0u },
-			{ imageWidth, imageHeight }
-		};
-
+		const vk::VkRect2D	scissor	= vk::makeRect2D(imageWidth, imageHeight);
 		vkd.cmdSetScissor(commandBuffer, 0u, 1u, &scissor);
 		const vk::VkClearAttachment	attachment	=
 		{
@@ -380,16 +380,9 @@ vk::Move<vk::VkCommandBuffer> createCommandBuffer (const vk::DeviceInterface&	vk
 		vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		1
 	};
-	const vk::VkCommandBufferBeginInfo	beginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		DE_NULL,
-		0u,
-		DE_NULL
-	};
 
 	vk::Move<vk::VkCommandBuffer>	commandBuffer	(vk::allocateCommandBuffer(vkd, device, &allocateInfo));
-	VK_CHECK(vkd.beginCommandBuffer(*commandBuffer, &beginInfo));
+	beginCommandBuffer(vkd, *commandBuffer, 0u);
 
 	{
 		const vk::VkImageSubresourceRange subRange =
@@ -416,32 +409,14 @@ vk::Move<vk::VkCommandBuffer> createCommandBuffer (const vk::DeviceInterface&	vk
 		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, DE_NULL, 0, DE_NULL, 1, &barrier);
 	}
 
-	{
-		const vk::VkClearValue			clearValue			= vk::makeClearValueColorF32(0.25f, 0.50f, 0.75f, 1.00f);
-		const vk::VkRenderPassBeginInfo	renderPassBeginInfo	=
-		{
-			vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			DE_NULL,
-
-			renderPass,
-			framebuffer,
-
-			{
-				{ (deInt32)0, (deInt32)0 },
-				{ imageWidth, imageHeight }
-			},
-			1u,
-			&clearValue
-		};
-		vkd.cmdBeginRenderPass(*commandBuffer, &renderPassBeginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
-	}
+	beginRenderPass(vkd, *commandBuffer, renderPass, framebuffer, vk::makeRect2D(imageWidth, imageHeight), tcu::Vec4(0.25f, 0.5f, 0.75f, 1.0f));
 
 	for (size_t frameNdx = imageNextFrame; frameNdx <= currentFrame; frameNdx++)
 		cmdRenderFrame(vkd, *commandBuffer, pipelineLayout, pipeline, frameNdx, imageWidth, imageHeight);
 
-	vkd.cmdEndRenderPass(*commandBuffer);
+	endRenderPass(vkd, *commandBuffer);
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
+	endCommandBuffer(vkd, *commandBuffer);
 	return commandBuffer;
 }
 
@@ -587,65 +562,7 @@ vk::Move<vk::VkRenderPass> createRenderPass (const vk::DeviceInterface&	vkd,
 											 vk::VkDevice				device,
 											 vk::VkFormat				format)
 {
-	const vk::VkAttachmentDescription	attachments[]			=
-	{
-		{
-			0u,
-			format,
-			vk::VK_SAMPLE_COUNT_1_BIT,
-
-			vk::VK_ATTACHMENT_LOAD_OP_LOAD,
-			vk::VK_ATTACHMENT_STORE_OP_STORE,
-
-			vk::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			vk::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-
-			vk::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			vk::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-		}
-	};
-	const vk::VkAttachmentReference		colorAttachmentRefs[]	=
-	{
-		{
-			0u,
-			vk::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		}
-	};
-	const vk::VkSubpassDescription		subpasses[]				=
-	{
-		{
-			0u,
-			vk::VK_PIPELINE_BIND_POINT_GRAPHICS,
-			0u,
-			DE_NULL,
-
-			DE_LENGTH_OF_ARRAY(colorAttachmentRefs),
-			colorAttachmentRefs,
-			DE_NULL,
-
-			DE_NULL,
-			0u,
-			DE_NULL
-		}
-	};
-
-	const vk::VkRenderPassCreateInfo	createInfo				=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		DE_LENGTH_OF_ARRAY(attachments),
-		attachments,
-
-		DE_LENGTH_OF_ARRAY(subpasses),
-		subpasses,
-
-		0u,
-		DE_NULL
-	};
-
-	return vk::createRenderPass(vkd, device, &createInfo);
+	return vk::makeRenderPass(vkd, device, format, vk::VK_FORMAT_UNDEFINED, vk::VK_ATTACHMENT_LOAD_OP_LOAD, vk::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
@@ -657,35 +574,7 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 										 deUint32					width,
 										 deUint32					height)
 {
-	const vk::VkSpecializationInfo				shaderSpecialization	=
-	{
-		0u,
-		DE_NULL,
-		0,
-		DE_NULL
-	};
-	const vk::VkPipelineShaderStageCreateInfo		stages[]			=
-	{
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			0u,
-			vk::VK_SHADER_STAGE_VERTEX_BIT,
-			vertexShaderModule,
-			"main",
-			&shaderSpecialization
-		},
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			0u,
-			vk::VK_SHADER_STAGE_FRAGMENT_BIT,
-			fragmentShaderModule,
-			"main",
-			&shaderSpecialization
-		}
-	};
-	const vk::VkPipelineVertexInputStateCreateInfo	vertexInputState	=
+	const vk::VkPipelineVertexInputStateCreateInfo		vertexInputState	=
 	{
 		vk::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		DE_NULL,
@@ -695,163 +584,24 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 		0u,
 		DE_NULL
 	};
-	const vk::VkPipelineInputAssemblyStateCreateInfo	inputAssemblyState	=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		VK_FALSE
-	};
-	const vk::VkViewport viewports[] =
-	{
-		{
-			0.0f, 0.0f,
-			(float)width, (float)height,
-			0.0f, 1.0f
-		}
-	};
-	const vk::VkRect2D scissors[] =
-	{
-		{
-			{ 0u, 0u },
-			{ width, height }
-		}
-	};
-	const vk::VkPipelineViewportStateCreateInfo			viewportState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
+	const std::vector<vk::VkViewport>					viewports			(1, vk::makeViewport(tcu::UVec2(width, height)));
+	const std::vector<vk::VkRect2D>						noScissors;
 
-		DE_LENGTH_OF_ARRAY(viewports),
-		viewports,
-		DE_LENGTH_OF_ARRAY(scissors),
-		scissors
-	};
-	const vk::VkPipelineRasterizationStateCreateInfo	rasterizationState	=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		DE_NULL,
-		0u,
-		VK_TRUE,
-		VK_FALSE,
-		vk::VK_POLYGON_MODE_FILL,
-		vk::VK_CULL_MODE_NONE,
-		vk::VK_FRONT_FACE_CLOCKWISE,
-		VK_FALSE,
-		0.0f,
-		0.0f,
-		0.0f,
-		1.0f
-	};
-	const vk::VkSampleMask								sampleMask			= ~0u;
-	const vk::VkPipelineMultisampleStateCreateInfo		multisampleState	=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		vk::VK_SAMPLE_COUNT_1_BIT,
-		VK_FALSE,
-		0.0f,
-		&sampleMask,
-		VK_FALSE,
-		VK_FALSE
-	};
-	const vk::VkPipelineDepthStencilStateCreateInfo	depthStencilState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		DE_FALSE,
-		DE_FALSE,
-		vk::VK_COMPARE_OP_ALWAYS,
-		DE_FALSE,
-		DE_FALSE,
-		{
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_COMPARE_OP_ALWAYS,
-			0u,
-			0u,
-			0u,
-		},
-		{
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_COMPARE_OP_ALWAYS,
-			0u,
-			0u,
-			0u,
-		},
-		0.0f,
-		1.0f
-	};
-	const vk::VkPipelineColorBlendAttachmentState	attachmentBlendState			=
-	{
-		VK_FALSE,
-		vk::VK_BLEND_FACTOR_ONE,
-		vk::VK_BLEND_FACTOR_ZERO,
-		vk::VK_BLEND_OP_ADD,
-		vk::VK_BLEND_FACTOR_ONE,
-		vk::VK_BLEND_FACTOR_ZERO,
-		vk::VK_BLEND_OP_ADD,
-		(vk::VK_COLOR_COMPONENT_R_BIT|
-		 vk::VK_COLOR_COMPONENT_G_BIT|
-		 vk::VK_COLOR_COMPONENT_B_BIT|
-		 vk::VK_COLOR_COMPONENT_A_BIT),
-	};
-	const vk::VkPipelineColorBlendStateCreateInfo	blendState				=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		DE_FALSE,
-		vk::VK_LOGIC_OP_COPY,
-		1u,
-		&attachmentBlendState,
-		{ 0.0f, 0.0f, 0.0f, 0.0f }
-	};
-	const vk::VkDynamicState							dynamicStates[]		=
-	{
-		vk::VK_DYNAMIC_STATE_SCISSOR
-	};
-	const vk::VkPipelineDynamicStateCreateInfo			dynamicState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		DE_LENGTH_OF_ARRAY(dynamicStates),
-		dynamicStates
-	};
-	const vk::VkGraphicsPipelineCreateInfo				createInfo			=
-	{
-		vk::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		DE_LENGTH_OF_ARRAY(stages),
-		stages,
-		&vertexInputState,
-		&inputAssemblyState,
-		DE_NULL,
-		&viewportState,
-		&rasterizationState,
-		&multisampleState,
-		&depthStencilState,
-		&blendState,
-		&dynamicState,
-		layout,
-		renderPass,
-		0u,
-		DE_NULL,
-		0u
-	};
-
-	return vk::createGraphicsPipeline(vkd, device, DE_NULL,  &createInfo);
+	return vk::makeGraphicsPipeline(vkd,										// const DeviceInterface&                        vk
+									device,										// const VkDevice                                device
+									layout,										// const VkPipelineLayout                        pipelineLayout
+									vertexShaderModule,							// const VkShaderModule                          vertexShaderModule
+									DE_NULL,									// const VkShaderModule                          tessellationControlShaderModule
+									DE_NULL,									// const VkShaderModule                          tessellationEvalShaderModule
+									DE_NULL,									// const VkShaderModule                          geometryShaderModule
+									fragmentShaderModule,						// const VkShaderModule                          fragmentShaderModule
+									renderPass,									// const VkRenderPass                            renderPass
+									viewports,									// const std::vector<VkViewport>&                viewports
+									noScissors,									// const std::vector<VkRect2D>&                  scissors
+									vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,	// const VkPrimitiveTopology                     topology
+									0u,											// const deUint32                                subpass
+									0u,											// const deUint32                                patchControlPoints
+									&vertexInputState);							// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
 }
 
 vk::Move<vk::VkPipelineLayout> createPipelineLayout (const vk::DeviceInterface&	vkd,
@@ -883,10 +633,12 @@ vk::Move<vk::VkPipelineLayout> createPipelineLayout (const vk::DeviceInterface&	
 
 struct TestConfig
 {
-	vk::wsi::Type			wsiType;
-	Scaling					scaling;
-	bool					useIncrementalPresent;
-	vk::VkPresentModeKHR	presentMode;
+	vk::wsi::Type					wsiType;
+	Scaling							scaling;
+	bool							useIncrementalPresent;
+	vk::VkPresentModeKHR			presentMode;
+	vk::VkSurfaceTransformFlagsKHR	transform;
+	vk::VkCompositeAlphaFlagsKHR	alpha;
 };
 
 class IncrementalPresentTestInstance : public TestInstance
@@ -959,33 +711,39 @@ private:
 };
 
 std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainConfigs (vk::VkSurfaceKHR						surface,
-																	deUint32								queueFamilyIndex,
+																	const deUint32							*queueFamilyIndex,
 																	Scaling									scaling,
 																	const vk::VkSurfaceCapabilitiesKHR&		properties,
 																	const vector<vk::VkSurfaceFormatKHR>&	formats,
 																	const vector<vk::VkPresentModeKHR>&		presentModes,
-																	vk::VkPresentModeKHR					presentMode)
+																	vk::VkPresentModeKHR					presentMode,
+																	const vk::VkSurfaceTransformFlagsKHR	transform,
+																	const vk::VkCompositeAlphaFlagsKHR		alpha)
 {
 	const deUint32							imageLayers			= 1u;
-	const vk::VkImageUsageFlags				imageUsage			= properties.supportedUsageFlags;
+	const vk::VkImageUsageFlags				imageUsage			= vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	const vk::VkBool32						clipped				= VK_FALSE;
 	vector<vk::VkSwapchainCreateInfoKHR>	createInfos;
 
+	const deUint32				currentWidth		= properties.currentExtent.width != 0xFFFFFFFFu
+												? properties.currentExtent.width
+												: de::min(1024u, properties.minImageExtent.width + ((properties.maxImageExtent.width - properties.minImageExtent.width) / 2));
+	const deUint32				currentHeight		= properties.currentExtent.height != 0xFFFFFFFFu
+												? properties.currentExtent.height
+												: de::min(1024u, properties.minImageExtent.height + ((properties.maxImageExtent.height - properties.minImageExtent.height) / 2));
+
 	const deUint32				imageWidth		= scaling == SCALING_NONE
-												? (properties.currentExtent.width != 0xFFFFFFFFu
-													? properties.currentExtent.width
-													: de::min(1024u, properties.minImageExtent.width + ((properties.maxImageExtent.width - properties.minImageExtent.width) / 2)))
+												? currentWidth
 												: (scaling == SCALING_UP
 													? de::max(31u, properties.minImageExtent.width)
-													: properties.maxImageExtent.width);
+													: de::min(deSmallestGreaterOrEquallPowerOfTwoU32(currentWidth+1), properties.maxImageExtent.width));
 	const deUint32				imageHeight		= scaling == SCALING_NONE
-												? (properties.currentExtent.height != 0xFFFFFFFFu
-													? properties.currentExtent.height
-													: de::min(1024u, properties.minImageExtent.height + ((properties.maxImageExtent.height - properties.minImageExtent.height) / 2)))
+												? currentHeight
 												: (scaling == SCALING_UP
 													? de::max(31u, properties.minImageExtent.height)
-													: properties.maxImageExtent.height);
+													: de::min(deSmallestGreaterOrEquallPowerOfTwoU32(currentHeight+1), properties.maxImageExtent.height));
 	const vk::VkExtent2D		imageSize		= { imageWidth, imageHeight };
+	const vk::VkExtent2D		dummySize		= { de::max(31u, properties.minImageExtent.width), de::max(31u, properties.minImageExtent.height) };
 
 	{
 		size_t presentModeNdx;
@@ -998,49 +756,69 @@ std::vector<vk::VkSwapchainCreateInfoKHR> generateSwapchainConfigs (vk::VkSurfac
 
 		if (presentModeNdx == presentModes.size())
 			TCU_THROW(NotSupportedError, "Present mode not supported");
+
+		if ((properties.supportedTransforms & transform) == 0)
+			TCU_THROW(NotSupportedError, "Transform not supported");
+
+		if ((properties.supportedCompositeAlpha & alpha) == 0)
+			TCU_THROW(NotSupportedError, "Composite alpha not supported");
 	}
 
 	for (size_t formatNdx = 0; formatNdx < formats.size(); formatNdx++)
 	{
-		for (vk::VkSurfaceTransformFlagsKHR transform = 1u; transform <= properties.supportedTransforms; transform = transform << 1u)
+
+		const vk::VkSurfaceTransformFlagBitsKHR	preTransform	= (vk::VkSurfaceTransformFlagBitsKHR)transform;
+		const vk::VkCompositeAlphaFlagBitsKHR	compositeAlpha	= (vk::VkCompositeAlphaFlagBitsKHR)alpha;
+		const vk::VkFormat						imageFormat		= formats[formatNdx].format;
+		const vk::VkColorSpaceKHR				imageColorSpace	= formats[formatNdx].colorSpace;
+		const vk::VkSwapchainCreateInfoKHR		createInfo		=
 		{
-			if ((properties.supportedTransforms & transform) == 0)
-				continue;
+			vk::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+			DE_NULL,
+			0u,
+			surface,
+			properties.minImageCount,
+			imageFormat,
+			imageColorSpace,
+			imageSize,
+			imageLayers,
+			imageUsage,
+			vk::VK_SHARING_MODE_EXCLUSIVE,
+			1u,
+			queueFamilyIndex,
+			preTransform,
+			compositeAlpha,
+			presentMode,
+			clipped,
+			(vk::VkSwapchainKHR)0
+		};
 
-			for (vk::VkCompositeAlphaFlagsKHR alpha = 1u; alpha <= properties.supportedCompositeAlpha; alpha = alpha << 1u)
-			{
-				if ((alpha & properties.supportedCompositeAlpha) == 0)
-					continue;
+		createInfos.push_back(createInfo);
 
-				const vk::VkSurfaceTransformFlagBitsKHR	preTransform	= (vk::VkSurfaceTransformFlagBitsKHR)transform;
-				const vk::VkCompositeAlphaFlagBitsKHR	compositeAlpha	= (vk::VkCompositeAlphaFlagBitsKHR)alpha;
-				const vk::VkFormat						imageFormat		= formats[formatNdx].format;
-				const vk::VkColorSpaceKHR				imageColorSpace	= formats[formatNdx].colorSpace;
-				const vk::VkSwapchainCreateInfoKHR		createInfo		=
-				{
-					vk::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-					DE_NULL,
-					0u,
-					surface,
-					properties.minImageCount,
-					imageFormat,
-					imageColorSpace,
-					imageSize,
-					imageLayers,
-					imageUsage,
-					vk::VK_SHARING_MODE_EXCLUSIVE,
-					1u,
-					&queueFamilyIndex,
-					preTransform,
-					compositeAlpha,
-					presentMode,
-					clipped,
-					(vk::VkSwapchainKHR)0
-				};
+		// add an extra dummy swapchain
+		const vk::VkSwapchainCreateInfoKHR		dummyInfo		=
+		{
+			vk::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+			DE_NULL,
+			0u,
+			surface,
+			properties.minImageCount,
+			imageFormat,
+			imageColorSpace,
+			dummySize,
+			imageLayers,
+			imageUsage,
+			vk::VK_SHARING_MODE_EXCLUSIVE,
+			1u,
+			queueFamilyIndex,
+			preTransform,
+			compositeAlpha,
+			presentMode,
+			clipped,
+			(vk::VkSwapchainKHR)0
+		};
 
-				createInfos.push_back(createInfo);
-			}
-		}
+		createInfos.push_back(dummyInfo);
 	}
 
 	return createInfos;
@@ -1061,8 +839,8 @@ IncrementalPresentTestInstance::IncrementalPresentTestInstance (Context& context
 
 	, m_queueFamilyIndex		(chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
 	, m_deviceExtensions		(vk::enumerateDeviceExtensionProperties(m_vki, m_physicalDevice, DE_NULL))
-	, m_device					(createDeviceWithWsi(m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useIncrementalPresent))
-	, m_vkd						(m_vki, *m_device)
+	, m_device					(createDeviceWithWsi(m_vkp, *m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useIncrementalPresent))
+	, m_vkd						(m_vkp, *m_instance, *m_device)
 	, m_queue					(getDeviceQueue(m_vkd, *m_device, m_queueFamilyIndex, 0u))
 
 	, m_commandPool				(createCommandPool(m_vkd, *m_device, m_queueFamilyIndex))
@@ -1077,7 +855,7 @@ IncrementalPresentTestInstance::IncrementalPresentTestInstance (Context& context
 	, m_freeAcquireSemaphore	((vk::VkSemaphore)0)
 	, m_freeRenderSemaphore		((vk::VkSemaphore)0)
 
-	, m_swapchainConfigs		(generateSwapchainConfigs(*m_surface, m_queueFamilyIndex, testConfig.scaling, m_surfaceProperties, m_surfaceFormats, m_presentModes, testConfig.presentMode))
+	, m_swapchainConfigs		(generateSwapchainConfigs(*m_surface, &m_queueFamilyIndex, testConfig.scaling, m_surfaceProperties, m_surfaceFormats, m_presentModes, testConfig.presentMode, testConfig.transform, testConfig.alpha))
 	, m_swapchainConfigNdx		(0u)
 
 	, m_frameCount				(60u * 5u)
@@ -1249,8 +1027,8 @@ void IncrementalPresentTestInstance::render (void)
 			&result
 		};
 
-		VK_CHECK(m_vkd.queuePresentKHR(m_queue, &presentInfo));
-		VK_CHECK(result);
+		VK_CHECK_WSI(m_vkd.queuePresentKHR(m_queue, &presentInfo));
+		VK_CHECK_WSI(result);
 	}
 	else
 	{
@@ -1267,8 +1045,8 @@ void IncrementalPresentTestInstance::render (void)
 			&result
 		};
 
-		VK_CHECK(m_vkd.queuePresentKHR(m_queue, &presentInfo));
-		VK_CHECK(result);
+		VK_CHECK_WSI(m_vkd.queuePresentKHR(m_queue, &presentInfo));
+		VK_CHECK_WSI(result);
 	}
 
 	{
@@ -1300,7 +1078,7 @@ tcu::TestStatus IncrementalPresentTestInstance::iterate (void)
 	{
 		if (error.getError() == vk::VK_ERROR_OUT_OF_DATE_KHR)
 		{
-			m_swapchainConfigs = generateSwapchainConfigs(*m_surface, m_queueFamilyIndex, m_testConfig.scaling, m_surfaceProperties, m_surfaceFormats, m_presentModes, m_testConfig.presentMode);
+			m_swapchainConfigs = generateSwapchainConfigs(*m_surface, &m_queueFamilyIndex, m_testConfig.scaling, m_surfaceProperties, m_surfaceFormats, m_presentModes, m_testConfig.presentMode, m_testConfig.transform, m_testConfig.alpha);
 
 			if (m_outOfDateCount < m_maxOutOfDateCount)
 			{
@@ -1417,6 +1195,33 @@ void createIncrementalPresentTests (tcu::TestCaseGroup* testGroup, vk::wsi::Type
 		{ vk::VK_PRESENT_MODE_FIFO_KHR,			"fifo"			},
 		{ vk::VK_PRESENT_MODE_FIFO_RELAXED_KHR,	"fifo_relaxed"	}
 	};
+	const struct
+	{
+		vk::VkSurfaceTransformFlagsKHR	transform;
+		const char*						name;
+	} transforms[] =
+	{
+		{ vk::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,						"identity"						},
+		{ vk::VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR,						"rotate_90"						},
+		{ vk::VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR,						"rotate_180"					},
+		{ vk::VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR,						"rotate_270"					},
+		{ vk::VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR,				"horizontal_mirror"				},
+		{ vk::VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR,		"horizontal_mirror_rotate_90"	},
+		{ vk::VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR,	"horizontal_mirror_rotate_180"	},
+		{ vk::VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR,	"horizontal_mirror_rotate_270"	},
+		{ vk::VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR,							"inherit"						}
+	};
+	const struct
+	{
+		vk::VkCompositeAlphaFlagsKHR	alpha;
+		const char*						name;
+	} alphas[] =
+	{
+		{ vk::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,			"opaque"			},
+		{ vk::VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,	"pre_multiplied"	},
+		{ vk::VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,	"post_multiplied"	},
+		{ vk::VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,			"inherit"			}
+	};
 
 	for (size_t scalingNdx = 0; scalingNdx < DE_LENGTH_OF_ARRAY(scaling); scalingNdx++)
 	{
@@ -1434,18 +1239,34 @@ void createIncrementalPresentTests (tcu::TestCaseGroup* testGroup, vk::wsi::Type
 			{
 				de::MovePtr<tcu::TestCaseGroup>	presentModeGroup	(new tcu::TestCaseGroup(testGroup->getTestContext(), presentModes[presentModeNdx].name, presentModes[presentModeNdx].name));
 
-				for (size_t ref = 0; ref < 2; ref++)
+				for (size_t transformNdx = 0; transformNdx < DE_LENGTH_OF_ARRAY(transforms); transformNdx++)
 				{
-					const bool						isReference	= (ref == 0);
-					const char* const				name		= isReference ? "reference" : "incremental_present";
-					TestConfig						config;
+					de::MovePtr<tcu::TestCaseGroup>	transformGroup	(new tcu::TestCaseGroup(testGroup->getTestContext(), transforms[transformNdx].name, transforms[transformNdx].name));
 
-					config.wsiType					= wsiType;
-					config.scaling					= scaling[scalingNdx].scaling;
-					config.useIncrementalPresent	= !isReference;
-					config.presentMode				= presentModes[presentModeNdx].mode;
+					for (size_t alphaNdx = 0; alphaNdx < DE_LENGTH_OF_ARRAY(alphas); alphaNdx++)
+					{
+						de::MovePtr<tcu::TestCaseGroup>	alphaGroup	(new tcu::TestCaseGroup(testGroup->getTestContext(), alphas[alphaNdx].name, alphas[alphaNdx].name));
 
-					presentModeGroup->addChild(new vkt::InstanceFactory1<IncrementalPresentTestInstance, TestConfig, Programs>(testGroup->getTestContext(), tcu::NODETYPE_SELF_VALIDATE, name, name, Programs(), config));
+						for (size_t ref = 0; ref < 2; ref++)
+						{
+							const bool						isReference	= (ref == 0);
+							const char* const				name		= isReference ? "reference" : "incremental_present";
+							TestConfig						config;
+
+							config.wsiType					= wsiType;
+							config.scaling					= scaling[scalingNdx].scaling;
+							config.useIncrementalPresent	= !isReference;
+							config.presentMode				= presentModes[presentModeNdx].mode;
+							config.transform				= transforms[transformNdx].transform;
+							config.alpha					= alphas[alphaNdx].alpha;
+
+							alphaGroup->addChild(new vkt::InstanceFactory1<IncrementalPresentTestInstance, TestConfig, Programs>(testGroup->getTestContext(), tcu::NODETYPE_SELF_VALIDATE, name, name, Programs(), config));
+						}
+
+						transformGroup->addChild(alphaGroup.release());
+					}
+
+					presentModeGroup->addChild(transformGroup.release());
 				}
 
 				scaleGroup->addChild(presentModeGroup.release());

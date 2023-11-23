@@ -16,7 +16,7 @@ class AdbExecutor(libcxx.test.executor.RemoteExecutor):
 
     def _remote_temp(self, is_dir):
         dir_arg = '-d' if is_dir else ''
-        cmd = 'mktemp -q {} /data/local/tmp/libcxx.XXXXXXXXXX'.format(dir_arg)
+        cmd = 'mktemp -q {} /data/local/tmp/libcxx/temp.XXXXXX'.format(dir_arg)
         _, temp_path, err, exitCode = self._execute_command_remote([cmd])
         temp_path = temp_path.strip()
         if exitCode != 0:
@@ -32,7 +32,7 @@ class AdbExecutor(libcxx.test.executor.RemoteExecutor):
             adb_cmd.extend(['-s', self.serial])
 
         delimiter = 'x'
-        probe_cmd = ' '.join(cmd) + '; echo {}$?'.format(delimiter)
+        probe_cmd = 'su shell {}; echo {}$?'.format(' '.join(cmd), delimiter)
 
         env_cmd = []
         if env is not None:

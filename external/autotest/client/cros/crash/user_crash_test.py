@@ -28,6 +28,12 @@ class UserCrashTest(crash_test.CrashTest):
     """
 
 
+    # Every crash report needs one of these to be valid.
+    REPORT_REQUIRED_FILETYPES = {'meta'}
+    # Reports might have these and that's OK!
+    REPORT_OPTIONAL_FILETYPES = {'dmp', 'log', 'proclog'}
+
+
     def setup(self):
         """Copy the crasher source code under |srcdir| and build it."""
         src = os.path.join(os.path.dirname(__file__), 'crasher')
@@ -139,10 +145,13 @@ class UserCrashTest(crash_test.CrashTest):
 
 
     def _verify_stack(self, stack, basename, from_crash_reporter):
+        # Should identify cause as SIGSEGV at address 0x16.
         logging.debug('minidump_stackwalk output:\n%s', stack)
 
-        # Should identify cause as SIGSEGV at address 0x16
-        match = re.search(r'Crash reason:\s+(.*)', stack)
+        # Look for a line like:
+        # Crash reason:  SIGSEGV
+        # Crash reason:  SIGSEGV /0x00000000
+        match = re.search(r'Crash reason:\s+([^\s]*)', stack)
         expected_address = '0x16'
         if from_crash_reporter:
             # We cannot yet determine the crash address when coming
@@ -174,8 +183,8 @@ class UserCrashTest(crash_test.CrashTest):
 
     def _run_crasher_process(self, username, cause_crash=True, consent=True,
                              crasher_path=None, run_crasher=None,
-                             expected_uid=None, expected_exit_code=None,
-                             expected_reason=None):
+                             expected_uid=None, expected_gid=None,
+                             expected_exit_code=None, expected_reason=None):
         """Runs the crasher process.
 
         Will wait up to 10 seconds for crash_reporter to report the crash.
@@ -197,7 +206,8 @@ class UserCrashTest(crash_test.CrashTest):
                 ...
                 return (exit_code, output, pid)
 
-        @param expected_uid:
+        @param expected_uid: The uid the crash happens under.
+        @param expected_gid: The gid the crash happens under.
         @param expected_exit_code:
         @param expected_reason:
             Expected information in crash_reporter log message.
@@ -261,14 +271,19 @@ class UserCrashTest(crash_test.CrashTest):
             pid = int(match.group(1))
 
         if expected_uid is None:
-            expected_uid = pwd.getpwnam(username)[2]
+            expected_uid = pwd.getpwnam(username).pw_uid
+
+        if expected_gid is None:
+            expected_gid = pwd.getpwnam(username).pw_gid
 
         if expected_reason is None:
             expected_reason = 'handling' if consent else 'ignoring - no consent'
 
         expected_message = (
-            '[%s] Received crash notification for %s[%d] sig 11, user %d (%s)' %
-            (self._expected_tag, basename, pid, expected_uid, expected_reason))
+            ('[%s] Received crash notification for %s[%d] sig 11, user %d '
+             'group %d (%s)') %
+            (self._expected_tag, basename, pid, expected_uid, expected_gid,
+             expected_reason))
 
         # Wait until no crash_reporter is running.
         utils.poll_for_condition(
@@ -299,18 +314,17 @@ class UserCrashTest(crash_test.CrashTest):
 
     def _check_crash_directory_permissions(self, crash_dir):
         stat_info = os.stat(crash_dir)
-        user = pwd.getpwuid(stat_info.st_uid)[0]
-        group = grp.getgrgid(stat_info.st_gid)[0]
+        user = pwd.getpwuid(stat_info.st_uid).pw_name
+        group = grp.getgrgid(stat_info.st_gid).gr_name
         mode = stat.S_IMODE(stat_info.st_mode)
 
+        expected_mode = 0o700
         if crash_dir == '/var/spool/crash':
             expected_user = 'root'
             expected_group = 'root'
-            expected_mode = 01755
         else:
             expected_user = 'chronos'
             expected_group = 'chronos'
-            expected_mode = 0755
 
         if user != expected_user or group != expected_group:
             raise error.TestFail(
@@ -343,9 +357,11 @@ class UserCrashTest(crash_test.CrashTest):
         if result['report_kind'] != report_kind:
             raise error.TestFail('Expected a %s report' % report_kind)
         if result['report_payload'] != payload_path:
-            raise error.TestFail('Sent the wrong minidump payload')
+            raise error.TestFail('Sent the wrong minidump payload %s vs %s' % (
+                result['report_payload'], payload_path))
         if result['meta_path'] != meta_path:
-            raise error.TestFail('Used the wrong meta file')
+            raise error.TestFail('Used the wrong meta file %s vs %s' % (
+               result['meta_path'], meta_path))
         if expected_sig is None:
             if result['sig'] is not None:
                 raise error.TestFail('Report should not have signature')
@@ -367,14 +383,15 @@ class UserCrashTest(crash_test.CrashTest):
     def _run_crasher_process_and_analyze(self, username,
                                          cause_crash=True, consent=True,
                                          crasher_path=None, run_crasher=None,
-                                         expected_uid=None,
+                                         expected_uid=None, expected_gid=None,
                                          expected_exit_code=None):
         self._log_reader.set_start_by_current()
 
         result = self._run_crasher_process(
             username, cause_crash=cause_crash, consent=consent,
             crasher_path=crasher_path, run_crasher=run_crasher,
-            expected_uid=expected_uid, expected_exit_code=expected_exit_code)
+            expected_uid=expected_uid, expected_gid=expected_gid,
+            expected_exit_code=expected_exit_code)
 
         if not result['crashed'] or not result['crash_reporter_caught']:
             return result
@@ -392,55 +409,59 @@ class UserCrashTest(crash_test.CrashTest):
         crash_contents = os.listdir(crash_dir)
         basename = os.path.basename(crasher_path or self._crasher_path)
 
-        breakpad_minidump = None
-        crash_reporter_minidump = None
-        crash_reporter_meta = None
-        crash_reporter_log = None
+        # A dict tracking files for each crash report.
+        crash_report_files = {}
 
         self._check_crash_directory_permissions(crash_dir)
 
         logging.debug('Contents in %s: %s', crash_dir, crash_contents)
 
+        # Variables and their typical contents:
+        # basename: crasher_nobreakpad
+        # filename: crasher_nobreakpad.20181023.135339.16890.dmp
+        # ext: dmp
         for filename in crash_contents:
             if filename.endswith('.core'):
                 # Ignore core files.  We'll test them later.
                 pass
-            elif (filename.startswith(basename) and
-                  filename.endswith('.dmp')):
-                # This appears to be a minidump created by the crash reporter.
-                if not crash_reporter_minidump is None:
-                    raise error.TestFail('Crash reporter wrote multiple '
-                                         'minidumps')
-                crash_reporter_minidump = os.path.join(
-                    self._canonicalize_crash_dir(crash_dir), filename)
-            elif (filename.startswith(basename) and
-                  filename.endswith('.meta')):
-                if not crash_reporter_meta is None:
-                    raise error.TestFail('Crash reporter wrote multiple '
-                                         'meta files')
-                crash_reporter_meta = os.path.join(crash_dir, filename)
-            elif (filename.startswith(basename) and
-                  filename.endswith('.log')):
-                if not crash_reporter_log is None:
-                    raise error.TestFail('Crash reporter wrote multiple '
-                                         'log files')
-                crash_reporter_log = os.path.join(crash_dir, filename)
+            elif filename.startswith(basename + '.'):
+                ext = filename.rsplit('.', 1)[1]
+                logging.debug('Found crash report file (%s): %s', ext, filename)
+                if ext in crash_report_files:
+                    raise error.TestFail(
+                            'Found multiple files with .%s: %s and %s' %
+                            (ext, filename, crash_report_files[ext]))
+                crash_report_files[ext] = filename
             else:
-                # This appears to be a breakpad created minidump.
-                if not breakpad_minidump is None:
-                    raise error.TestFail('Breakpad wrote multiple minidumps')
-                breakpad_minidump = os.path.join(crash_dir, filename)
+                # Flag all unknown files.
+                raise error.TestFail('Crash reporter created an unknown file: '
+                                     '%s' % (filename,))
 
-        if breakpad_minidump:
-            raise error.TestFail('%s did generate breakpad minidump' % basename)
+        # Make sure we generated the exact set of files we expected.
+        found_filetypes = set(crash_report_files.keys())
+        missing_filetypes = self.REPORT_REQUIRED_FILETYPES - found_filetypes
+        unknown_filetypes = (found_filetypes - self.REPORT_REQUIRED_FILETYPES -
+                             self.REPORT_OPTIONAL_FILETYPES)
+        if missing_filetypes:
+            raise error.TestFail('crash report is missing files: %s' % (
+                    ['.' + x for x in missing_filetypes],))
+        if unknown_filetypes:
+            raise error.TestFail('crash report includes unknown files: %s' % (
+                    [crash_report_files[x] for x in unknown_filetypes],))
 
-        if not crash_reporter_meta:
-            raise error.TestFail('crash reporter did not generate meta')
+        # Create full paths for the logging code below.
+        for key in (self.REPORT_REQUIRED_FILETYPES |
+                    self.REPORT_OPTIONAL_FILETYPES):
+            if key in crash_report_files:
+                crash_report_files[key] = os.path.join(
+                        crash_dir, crash_report_files[key])
+            else:
+                crash_report_files[key] = None
 
-        result['minidump'] = crash_reporter_minidump
+        result['minidump'] = crash_report_files['dmp']
         result['basename'] = basename
-        result['meta'] = crash_reporter_meta
-        result['log'] = crash_reporter_log
+        result['meta'] = crash_report_files['meta']
+        result['log'] = crash_report_files['log']
         return result
 
 
@@ -457,12 +478,14 @@ class UserCrashTest(crash_test.CrashTest):
 
     def _check_crashing_process(self, username, consent=True,
                                 crasher_path=None, run_crasher=None,
-                                expected_uid=None, expected_exit_code=None):
+                                expected_uid=None, expected_gid=None,
+                                expected_exit_code=None):
         result = self._run_crasher_process_and_analyze(
             username, consent=consent,
             crasher_path=crasher_path,
             run_crasher=run_crasher,
             expected_uid=expected_uid,
+            expected_gid=expected_gid,
             expected_exit_code=expected_exit_code)
 
         self._check_crashed_and_caught(result)

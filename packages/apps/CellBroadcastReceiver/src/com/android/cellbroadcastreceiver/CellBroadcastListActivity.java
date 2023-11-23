@@ -44,6 +44,7 @@ import android.view.View.OnCreateContextMenuListener;
 import android.view.ViewGroup;
 import android.widget.CursorAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 
@@ -166,6 +167,7 @@ public class CellBroadcastListActivity extends Activity {
             // old cursor once we return.)
             mAdapter.swapCursor(data);
             getActivity().invalidateOptionsMenu();
+            updateNoAlertTextVisibility();
         }
 
         @Override
@@ -205,6 +207,21 @@ public class CellBroadcastListActivity extends Activity {
                         menu.add(0, MENU_DELETE, 0, R.string.menu_delete);
                     }
                 };
+
+        private void updateNoAlertTextVisibility() {
+            TextView noAlertsTextView = getActivity().findViewById(R.id.empty);
+            if (noAlertsTextView != null) {
+                noAlertsTextView.setVisibility(!hasAlertsInHistory()
+                        ? View.VISIBLE : View.INVISIBLE);
+            }
+        }
+
+        /**
+         * @return {@code true} if the alert history database has any item
+         */
+        private boolean hasAlertsInHistory() {
+            return mAdapter.getCursor().getCount() > 0;
+        }
 
         @Override
         public boolean onContextItemSelected(MenuItem item) {

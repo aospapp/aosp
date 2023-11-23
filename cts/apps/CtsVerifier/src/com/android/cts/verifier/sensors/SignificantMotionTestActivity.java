@@ -55,6 +55,7 @@ import junit.framework.Assert;
 public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity {
     public SignificantMotionTestActivity() {
         super(SignificantMotionTestActivity.class);
+        mEnableRetry = true;
     }
 
     // acceptable time difference between event time and system time
@@ -141,8 +142,10 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
     @SuppressWarnings("unused")
     public String testTriggerDeactivation() throws Throwable {
         SensorTestLogger logger = getTestLogger();
-        logger.logInstructions(R.string.snsr_significant_motion_test_deactivation);
-        waitForUserToBegin();
+        if (!mShouldRetry) {
+            logger.logInstructions(R.string.snsr_significant_motion_test_deactivation);
+            waitForUserToBegin();
+        }
 
         TriggerVerifier verifier = new TriggerVerifier();
         mSensorManager.requestTriggerSensor(verifier, mSensorSignificantMotion);
@@ -190,8 +193,10 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
     @SuppressWarnings("unused")
     public String testAPWakeUpOnSMDTrigger() throws Throwable {
         SensorTestLogger logger = getTestLogger();
-        logger.logInstructions(R.string.snsr_significant_motion_ap_suspend);
-        waitForUserToBegin();
+        if (!mShouldRetry) {
+            logger.logInstructions(R.string.snsr_significant_motion_ap_suspend);
+            waitForUserToBegin();
+        }
         mVerifier = new TriggerVerifier();
         mSensorManager.requestTriggerSensor(mVerifier, mSensorSignificantMotion);
         long testStartTimeNs = SystemClock.elapsedRealtimeNanos();
@@ -243,8 +248,10 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
             boolean cancelEventNotification,
             boolean vibrate) throws Throwable {
         SensorTestLogger logger = getTestLogger();
-        logger.logInstructions(instructionsResId);
-        waitForUserToBegin();
+        if (!mShouldRetry) {
+            logger.logInstructions(instructionsResId);
+            waitForUserToBegin();
+        }
 
         if (vibrate) {
             vibrate(VIBRATE_DURATION_MILLIS);

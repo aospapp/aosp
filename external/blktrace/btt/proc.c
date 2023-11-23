@@ -238,9 +238,8 @@ void pip_foreach_out(void (*f)(struct p_info *, void *), void *arg)
 		__foreach(root_name.rb_node, f, arg);
 	else {
 		struct p_info *pip;
-		char *exe, *p, *next, *exes_save = strdup(exes);
+		char *exe, *next, *exes_save = strdup(exes);
 
-		p = exes_save;
 		while (exes_save != NULL) {
 			exe = exes_save;
 			if ((next = strchr(exes_save, ',')) != NULL) {

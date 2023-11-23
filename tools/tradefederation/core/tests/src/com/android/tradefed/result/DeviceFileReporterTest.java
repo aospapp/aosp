@@ -15,22 +15,25 @@
  */
 package com.android.tradefed.result;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.util.ArrayUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Unit tests for {@link DeviceFileReporter}
- */
-public class DeviceFileReporterTest extends TestCase {
+/** Unit tests for {@link DeviceFileReporter}. */
+@RunWith(JUnit4.class)
+public class DeviceFileReporterTest {
     DeviceFileReporter dfr = null;
     ITestDevice mDevice = null;
     ITestInvocationListener mListener = null;
@@ -58,7 +61,7 @@ public class DeviceFileReporterTest extends TestCase {
         }
     }
 
-    @Override
+    @Before
     public void setUp() throws Exception {
         mDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mDevice.getSerialNumber()).andStubReturn("serial");
@@ -73,6 +76,7 @@ public class DeviceFileReporterTest extends TestCase {
                 };
     }
 
+    @Test
     public void testSimple() throws Exception {
         final String result = "/data/tombstones/tombstone_00\r\n";
         final String filename = "/data/tombstones/tombstone_00";
@@ -95,7 +99,8 @@ public class DeviceFileReporterTest extends TestCase {
         verifyMocks();
     }
 
-    // Files' paths should be trimmed to remove white spaces at the end of the lines.
+    /** Files' paths should be trimmed to remove white spaces at the end of the lines. */
+    @Test
     public void testTrim() throws Exception {
         // Result with trailing white spaces.
         final String result = "/data/tombstones/tombstone_00  \r\n";
@@ -120,6 +125,43 @@ public class DeviceFileReporterTest extends TestCase {
         verifyMocks();
     }
 
+    @Test
+    public void testLine_containingSpace() throws Exception {
+        final String filename = "/data/tombstones/tombstone_00";
+        final String filename1 = "/data/tombstones/tomb1";
+        final String filename2 = "/data/tombstones/tomb2";
+        final String tombstone = "What do you want on your tombstone?";
+        // Result with trailing white spaces.
+        final String result = "/data/tombstones/tombstone_00  \r\n" + filename1 + "   " + filename2;
+        dfr.addPatterns("/data/tombstones/*");
+
+        EasyMock.expect(mDevice.executeShellCommand(EasyMock.eq("ls /data/tombstones/*")))
+                .andReturn(result);
+        // This gets passed verbatim to createIssForFile above
+        EasyMock.expect(mDevice.pullFile(EasyMock.eq(filename)))
+                .andReturn(new FakeFile(filename, tombstone.length()));
+        EasyMock.expect(mDevice.pullFile(EasyMock.eq(filename1)))
+                .andReturn(new FakeFile(filename1, tombstone.length()));
+        EasyMock.expect(mDevice.pullFile(EasyMock.eq(filename2)))
+                .andReturn(new FakeFile(filename2, tombstone.length()));
+
+        mDfrIss = new ByteArrayInputStreamSource(tombstone.getBytes());
+        mListener.testLog(
+                EasyMock.eq(filename), EasyMock.eq(LogDataType.UNKNOWN), EasyMock.eq(mDfrIss));
+        mListener.testLog(
+                EasyMock.eq(filename1), EasyMock.eq(LogDataType.UNKNOWN), EasyMock.eq(mDfrIss));
+        mListener.testLog(
+                EasyMock.eq(filename2), EasyMock.eq(LogDataType.UNKNOWN), EasyMock.eq(mDfrIss));
+
+        replayMocks();
+        List<String> filenames = dfr.run();
+        assertEquals(filename, filenames.get(0));
+        assertEquals(filename1, filenames.get(1));
+        assertEquals(filename2, filenames.get(2));
+        verifyMocks();
+    }
+
+    @Test
     public void testLineEnding_LF() throws Exception {
         final String[] filenames = {"/data/tombstones/tombstone_00",
                 "/data/tombstones/tombstone_01",
@@ -147,6 +189,7 @@ public class DeviceFileReporterTest extends TestCase {
         verifyMocks();
     }
 
+    @Test
     public void testLineEnding_CRLF() throws Exception {
         final String[] filenames = {"/data/tombstones/tombstone_00",
                 "/data/tombstones/tombstone_01",
@@ -177,6 +220,7 @@ public class DeviceFileReporterTest extends TestCase {
     /**
      * Make sure that the Reporter behaves as expected when a file is matched by multiple patterns
      */
+    @Test
     public void testRepeat_skip() throws Exception {
         final String result1 = "/data/files/file.png\r\n";
         final String result2 = "/data/files/file.png\r\n/data/files/file.xml\r\n";
@@ -232,6 +276,7 @@ public class DeviceFileReporterTest extends TestCase {
     /**
      * Make sure that the Reporter behaves as expected when a file is matched by multiple patterns
      */
+    @Test
     public void testRepeat_noSkip() throws Exception {
         final String result1 = "/data/files/file.png\r\n";
         final String result2 = "/data/files/file.png\r\n/data/files/file.xml\r\n";
@@ -294,11 +339,12 @@ public class DeviceFileReporterTest extends TestCase {
     /**
      * Make sure that we correctly handle the case where a file doesn't exist while matching the
      * exact name.
-     * <p />
-     * This verifies a fix for a bug where we would mistakenly treat the
-     * "file.txt: No such file or directory" message as a filename.  This would happen when we tried
-     * to match an exact filename that doesn't exist, rather than using a shell glob.
+     *
+     * <p>This verifies a fix for a bug where we would mistakenly treat the "file.txt: No such file
+     * or directory" message as a filename. This would happen when we tried to match an exact
+     * filename that doesn't exist, rather than using a shell glob.
      */
+    @Test
     public void testNoExist() throws Exception {
         final String file = "/data/traces.txt";
         final String result = file + ": No such file or directory\r\n";
@@ -313,6 +359,7 @@ public class DeviceFileReporterTest extends TestCase {
         verifyMocks();
     }
 
+    @Test
     public void testTwoFiles() throws Exception {
         final String result = "/data/tombstones/tombstone_00\r\n/data/tombstones/tombstone_01\r\n";
         final String filename1 = "/data/tombstones/tombstone_00";
@@ -346,9 +393,8 @@ public class DeviceFileReporterTest extends TestCase {
         verifyMocks();
     }
 
-    /**
-     * Make sure that data type inference works as expected
-     */
+    /** Make sure that data type inference works as expected */
+    @Test
     public void testInferDataTypes() throws Exception {
         final String result = "/data/files/file.png\r\n/data/files/file.xml\r\n" +
                 "/data/files/file.zip\r\n";

@@ -16,11 +16,11 @@
 
 package com.android.documentsui.dirlist;
 
-import android.app.PendingIntent;
 import android.content.Context;
 import android.database.Cursor;
-import android.support.test.filters.MediumTest;
 import android.test.AndroidTestCase;
+
+import androidx.test.filters.MediumTest;
 
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.Model;

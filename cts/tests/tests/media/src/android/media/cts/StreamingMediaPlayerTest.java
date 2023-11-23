@@ -15,7 +15,6 @@
  */
 package android.media.cts;
 
-import android.media.BufferingParams;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.TrackInfo;
@@ -34,16 +33,24 @@ import com.android.compatibility.common.util.DynamicConfigDeviceSide;
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.HttpCookie;
+import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.http.impl.DefaultHttpServerConnection;
+import org.apache.http.impl.io.SocketOutputBuffer;
+import org.apache.http.io.SessionOutputBuffer;
+import org.apache.http.params.HttpParams;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tests of MediaPlayer streaming capabilities.
  */
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
+
     private static final String TAG = "StreamingMediaPlayerTest";
 
     private static final String HTTP_H263_AMR_VIDEO_1_KEY =
@@ -59,6 +66,9 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
     private static final String HTTP_MPEG4_SP_AAC_VIDEO_2_KEY =
             "streaming_media_player_test_http_mpeg4_sp_aac_video2";
     private static final String MODULE_NAME = "CtsMediaTestCases";
+
+    private static final int LOCAL_HLS_BITS_PER_MS = 100 * 1000;
+
     private DynamicConfigDeviceSide dynamicConfig;
 
     private CtsTestServer mServer;
@@ -169,33 +179,21 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         playVideoTest(urlString, 640, 360);
     }
 
-    // Streaming HLS video from YouTube
+    // Streaming HLS video downloaded from YouTube
     public void testHLS() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
 
         // Play stream for 60 seconds
-        playLiveVideoTest("http://www.youtube.com/api/manifest/hls_variant/id/"
-                + "0168724d02bd9945/itag/5/source/youtube/playlist_type/DVR/ip/"
-                + "0.0.0.0/ipbits/0/expire/19000000000/sparams/ip,ipbits,expire"
-                + ",id,itag,source,playlist_type/signature/773AB8ACC68A96E5AA48"
-                + "1996AD6A1BBCB70DCB87.95733B544ACC5F01A1223A837D2CF04DF85A336"
-                + "0/key/ik0/file/m3u8", 60 * 1000);
+        // limit rate to workaround multiplication overflow in framework
+        localHlsTest("hls_variant/index.m3u8", 60 * 1000, LOCAL_HLS_BITS_PER_MS, false /*isAudioOnly*/);
     }
 
     public void testHlsWithHeadersCookies() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
-
-        final Uri uri = Uri.parse(
-                "http://www.youtube.com/api/manifest/hls_variant/id/"
-                + "0168724d02bd9945/itag/5/source/youtube/playlist_type/DVR/ip/"
-                + "0.0.0.0/ipbits/0/expire/19000000000/sparams/ip,ipbits,expire"
-                + ",id,itag,source,playlist_type/signature/773AB8ACC68A96E5AA48"
-                + "1996AD6A1BBCB70DCB87.95733B544ACC5F01A1223A837D2CF04DF85A336"
-                + "0/key/ik0/file/m3u8");
 
         // TODO: dummy values for headers/cookies till we find a server that actually needs them
         HashMap<String, String> headers = new HashMap<>();
@@ -216,7 +214,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         cookies.add(cookie);
 
         // Play stream for 60 seconds
-        playLiveVideoTest(uri, headers, cookies, 60 * 1000);
+        // limit rate to workaround multiplication overflow in framework
+        localHlsTest("hls_variant/index.m3u8", 60 * 1000, LOCAL_HLS_BITS_PER_MS, false /*isAudioOnly*/);
     }
 
     public void testHlsSampleAes_bbb_audio_only_overridable() throws Exception {
@@ -224,28 +223,29 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        String defaultUrl = "http://storage.googleapis.com/wvmedia/cenc/hls/sample_aes/" +
-                            "bbb_1080p_30fps_11min/audio_only/prog_index.m3u8";
-
-        // if url override provided
-        String testUrl = (mInputUrl != null) ? mInputUrl : defaultUrl;
-
         // Play stream for 60 seconds
-        playLiveAudioOnlyTest(
-                testUrl,
-                60 * 1000);
+        if (mInputUrl != null) {
+            // if url override provided
+            playLiveAudioOnlyTest(mInputUrl, 60 * 1000);
+        } else {
+            localHlsTest("audio_only/index.m3u8", 60 * 1000, -1, true /*isAudioOnly*/);
+        }
+
     }
 
     public void testHlsSampleAes_bbb_unmuxed_1500k() throws Exception {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
+        MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 1920, 1080);
+        String[] decoderNames = MediaUtils.getDecoderNames(false, format);
 
-        // Play stream for 60 seconds
-        playLiveVideoTest(
-                "http://storage.googleapis.com/wvmedia/cenc/hls/sample_aes/" +
-                "bbb_1080p_30fps_11min/unmuxed_1500k/prog_index.m3u8",
-                60 * 1000);
+        if (decoderNames.length == 0) {
+            MediaUtils.skipTest("No decoders for " + format);
+        } else {
+            // Play stream for 60 seconds
+            localHlsTest("unmuxed_1500k/index.m3u8", 60 * 1000, -1, false /*isAudioOnly*/);
+        }
     }
 
 
@@ -381,100 +381,25 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         }
     }
 
-    // TODO: unhide this test when we sort out how to expose buffering control API.
-    private void doTestBuffering() throws Throwable {
-        final String name = "ringer.mp3";
-        mServer = new CtsTestServer(mContext);
-        try {
-            String stream_url = mServer.getAssetUrl(name);
-
-            if (!MediaUtils.checkCodecsForPath(mContext, stream_url)) {
-                Log.w(TAG, "can not find stream " + stream_url + ", skipping test");
-                return; // skip
-            }
-
-            // getBufferingParams should be called after setDataSource.
-            try {
-                BufferingParams params = mMediaPlayer.getBufferingParams();
-                fail("MediaPlayer failed to check state for getBufferingParams");
-            } catch (IllegalStateException e) {
-                // expected
-            }
-
-            // setBufferingParams should be called after setDataSource.
-            try {
-                BufferingParams params = new BufferingParams.Builder()
-                        .setInitialMarkMs(2)
-                        .setResumePlaybackMarkMs(3)
-                        .build();
-                mMediaPlayer.setBufferingParams(params);
-                fail("MediaPlayer failed to check state for setBufferingParams");
-            } catch (IllegalStateException e) {
-                // expected
-            }
-
-            mMediaPlayer.setDataSource(stream_url);
-
-            mMediaPlayer.setDisplay(getActivity().getSurfaceHolder());
-            mMediaPlayer.setScreenOnWhilePlaying(true);
-
-            mOnBufferingUpdateCalled.reset();
-            mMediaPlayer.setOnBufferingUpdateListener(new MediaPlayer.OnBufferingUpdateListener() {
-                @Override
-                public void onBufferingUpdate(MediaPlayer mp, int percent) {
-                    mOnBufferingUpdateCalled.signal();
-                }
-            });
-            mMediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-                @Override
-                public boolean onError(MediaPlayer mp, int what, int extra) {
-                    fail("Media player had error " + what + " playing " + name);
-                    return true;
-                }
-            });
-
-            assertFalse(mOnBufferingUpdateCalled.isSignalled());
-
-            BufferingParams params = mMediaPlayer.getBufferingParams();
-
-            int newMark = params.getInitialMarkMs() + 2;
-            BufferingParams newParams =
-                    new BufferingParams.Builder(params).setInitialMarkMs(newMark).build();
-
-            mMediaPlayer.setBufferingParams(newParams);
-
-            int checkMark = -1;
-            BufferingParams checkParams = mMediaPlayer.getBufferingParams();
-            checkMark = checkParams.getInitialMarkMs();
-            assertEquals("marks do not match", newMark, checkMark);
-
-            // TODO: add more dynamic checking, e.g., buffering shall not exceed pre-set mark.
-
-            mMediaPlayer.reset();
-        } finally {
-            mServer.shutdown();
-        }
-    }
-
     public void testPlayHlsStream() throws Throwable {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
-        localHlsTest("hls.m3u8", false, false);
+        localHlsTest("hls.m3u8", false, false, false /*isAudioOnly*/);
     }
 
     public void testPlayHlsStreamWithQueryString() throws Throwable {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
-        localHlsTest("hls.m3u8", true, false);
+        localHlsTest("hls.m3u8", true, false, false /*isAudioOnly*/);
     }
 
     public void testPlayHlsStreamWithRedirect() throws Throwable {
         if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
             return; // skip
         }
-        localHlsTest("hls.m3u8", false, true);
+        localHlsTest("hls.m3u8", false, true, false /*isAudioOnly*/);
     }
 
     public void testPlayHlsStreamWithTimedId3() throws Throwable {
@@ -657,9 +582,29 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         worker.quit();
     }
 
-    private void localHlsTest(final String name, boolean appendQueryString, boolean redirect)
-            throws Throwable {
-        mServer = new CtsTestServer(mContext);
+    private void localHlsTest(final String name, boolean appendQueryString,
+            boolean redirect, boolean isAudioOnly) throws Exception {
+        localHlsTest(name, null, null, appendQueryString, redirect, 10, -1, isAudioOnly);
+    }
+
+    private void localHlsTest(final String name, int playTime, int bitsPerMs, boolean isAudioOnly)
+            throws Exception {
+        localHlsTest(name, null, null, false, false, playTime, bitsPerMs, isAudioOnly);
+    }
+
+    private void localHlsTest(String name, Map<String, String> headers, List<HttpCookie> cookies,
+            boolean appendQueryString, boolean redirect, int playTime, int bitsPerMs,
+            boolean isAudioOnly) throws Exception {
+        if (bitsPerMs >= 0) {
+            mServer = new CtsTestServer(mContext) {
+                @Override
+                protected DefaultHttpServerConnection createHttpServerConnection() {
+                    return new RateLimitHttpServerConnection(bitsPerMs);
+                }
+            };
+        } else {
+            mServer = new CtsTestServer(mContext);
+        }
         try {
             String stream_url = null;
             if (redirect) {
@@ -670,10 +615,67 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             if (appendQueryString) {
                 stream_url += "?foo=bar/baz";
             }
-
-            playLiveVideoTest(stream_url, 10);
+            if (isAudioOnly) {
+                playLiveAudioOnlyTest(Uri.parse(stream_url), headers, cookies, playTime);
+            } else {
+                playLiveVideoTest(Uri.parse(stream_url), headers, cookies, playTime);
+            }
         } finally {
             mServer.shutdown();
         }
     }
+
+    private static final class RateLimitHttpServerConnection extends DefaultHttpServerConnection {
+
+        private final int mBytesPerMs;
+        private int mBytesWritten;
+
+        public RateLimitHttpServerConnection(int bitsPerMs) {
+            mBytesPerMs = bitsPerMs / 8;
+        }
+
+        @Override
+        protected SessionOutputBuffer createHttpDataTransmitter(
+                Socket socket, int buffersize, HttpParams params) throws IOException {
+            return createSessionOutputBuffer(socket, buffersize, params);
+        }
+
+        SessionOutputBuffer createSessionOutputBuffer(
+                Socket socket, int buffersize, HttpParams params) throws IOException {
+            return new SocketOutputBuffer(socket, buffersize, params) {
+                @Override
+                public void write(int b) throws IOException {
+                    write(new byte[] {(byte)b});
+                }
+
+                @Override
+                public void write(byte[] b) throws IOException {
+                    write(b, 0, b.length);
+                }
+
+                @Override
+                public synchronized void write(byte[] b, int off, int len) throws IOException {
+                    mBytesWritten += len;
+                    if (mBytesWritten >= mBytesPerMs * 10) {
+                        int r = mBytesWritten % mBytesPerMs;
+                        int nano = 999999 * r / mBytesPerMs;
+                        delay(mBytesWritten / mBytesPerMs, nano);
+                        mBytesWritten = 0;
+                    }
+                    super.write(b, off, len);
+                }
+
+                private void delay(long millis, int nanos) throws IOException {
+                    try {
+                        Thread.sleep(millis, nanos);
+                        flush();
+                    } catch (InterruptedException e) {
+                        throw new InterruptedIOException();
+                    }
+                }
+
+            };
+        }
+    }
+
 }

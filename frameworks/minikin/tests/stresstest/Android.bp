@@ -32,7 +32,7 @@ cc_test {
 
         "libft2",
         "libharfbuzz_ng",
-        "libicuuc",
+        "libandroidicu",
         "liblog",
         "libutils",
         "libz",

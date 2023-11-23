@@ -16,11 +16,11 @@
 
 package android.content.sync.cts;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.net.Uri;
 
 public class StubProvider extends ContentProvider {

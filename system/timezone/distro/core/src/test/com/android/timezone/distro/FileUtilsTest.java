@@ -21,6 +21,8 @@ import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStat;
 
+import libcore.testing.io.TestIoUtils;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -30,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import libcore.io.IoUtils;
 
 /**
  * Tests for {@link FileUtils}.
@@ -344,7 +345,7 @@ public class FileUtilsTest extends TestCase {
 
     private File createTempDir() {
         final String tempPrefix = getClass().getSimpleName();
-        File tempDir = IoUtils.createTemporaryDirectory(tempPrefix);
+        File tempDir = TestIoUtils.createTemporaryDirectory(tempPrefix);
         testFiles.add(tempDir);
         return tempDir;
     }

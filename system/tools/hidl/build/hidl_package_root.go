@@ -17,6 +17,8 @@ package hidl
 import (
 	"sync"
 
+	"github.com/google/blueprint/proptools"
+
 	"android/soong/android"
 )
 
@@ -28,12 +30,37 @@ type hidlPackageRoot struct {
 	android.ModuleBase
 
 	properties struct {
-		// path to this module from root
-		Path string
+		// Path to the package root from android build root. It is recommended not to set this and
+		// use the current path. This will be deprecated in the future.
+		Path *string
+
+		// True to require a current.txt API file here.
+		//
+		// When false, it uses the file only when it exists.
+		Use_current *bool
 	}
+
+	currentPath android.OptionalPath
+}
+
+func (r *hidlPackageRoot) getFullPackageRoot() string {
+	return "-r" + r.Name() + ":" + *r.properties.Path
+}
+
+func (r *hidlPackageRoot) getCurrentPath() android.OptionalPath {
+	return r.currentPath
 }
 
 func (r *hidlPackageRoot) GenerateAndroidBuildActions(ctx android.ModuleContext) {
+	if r.properties.Path == nil {
+		r.properties.Path = proptools.StringPtr(ctx.ModuleDir())
+	}
+
+	if proptools.BoolDefault(r.properties.Use_current, false) {
+		r.currentPath = android.OptionalPathForPath(android.PathForModuleSrc(ctx, "current.txt"))
+	} else {
+		r.currentPath = android.ExistentPathForSource(ctx, ctx.ModuleDir(), "current.txt")
+	}
 }
 func (r *hidlPackageRoot) DepsMutator(ctx android.BottomUpMutatorContext) {
 }

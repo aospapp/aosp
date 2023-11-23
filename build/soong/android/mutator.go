@@ -74,11 +74,12 @@ type RegisterMutatorFunc func(RegisterMutatorsContext)
 
 var preArch = []RegisterMutatorFunc{
 	func(ctx RegisterMutatorsContext) {
-		ctx.TopDown("load_hooks", loadHookMutator).Parallel()
+		ctx.TopDown("load_hooks", LoadHookMutator).Parallel()
 	},
 	RegisterNamespaceMutator,
 	RegisterPrebuiltsPreArchMutators,
 	RegisterDefaultsPreArchMutators,
+	RegisterOverridePreArchMutators,
 }
 
 func registerArchMutator(ctx RegisterMutatorsContext) {
@@ -91,6 +92,7 @@ var preDeps = []RegisterMutatorFunc{
 }
 
 var postDeps = []RegisterMutatorFunc{
+	registerPathDepsMutator,
 	RegisterPrebuiltsPostDepsMutators,
 	registerNeverallowMutator,
 }
@@ -132,11 +134,15 @@ type TopDownMutatorContext interface {
 	VisitDepsDepthFirst(visit func(Module))
 	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
 	WalkDeps(visit func(Module, Module) bool)
+	// GetWalkPath is supposed to be called in visit function passed in WalkDeps()
+	// and returns a top-down dependency path from a start module to current child module.
+	GetWalkPath() []Module
 }
 
 type androidTopDownMutatorContext struct {
 	blueprint.TopDownMutatorContext
 	androidBaseContextImpl
+	walkPath []Module
 }
 
 type AndroidBottomUpMutator func(BottomUpMutatorContext)
@@ -205,7 +211,7 @@ func (mutator *mutator) Parallel() MutatorHandle {
 }
 
 func depsMutator(ctx BottomUpMutatorContext) {
-	if m, ok := ctx.Module().(Module); ok {
+	if m, ok := ctx.Module().(Module); ok && m.Enabled() {
 		m.DepsMutator(ctx)
 	}
 }
@@ -282,15 +288,25 @@ func (a *androidTopDownMutatorContext) VisitDepsDepthFirstIf(pred func(Module) b
 }
 
 func (a *androidTopDownMutatorContext) WalkDeps(visit func(Module, Module) bool) {
+	a.walkPath = []Module{a.Module()}
 	a.TopDownMutatorContext.WalkDeps(func(child, parent blueprint.Module) bool {
 		childAndroidModule, _ := child.(Module)
 		parentAndroidModule, _ := parent.(Module)
 		if childAndroidModule != nil && parentAndroidModule != nil {
+			// record walkPath before visit
+			for a.walkPath[len(a.walkPath)-1] != parentAndroidModule {
+				a.walkPath = a.walkPath[0 : len(a.walkPath)-1]
+			}
+			a.walkPath = append(a.walkPath, childAndroidModule)
 			return visit(childAndroidModule, parentAndroidModule)
 		} else {
 			return false
 		}
 	})
+}
+
+func (a *androidTopDownMutatorContext) GetWalkPath() []Module {
+	return a.walkPath
 }
 
 func (a *androidTopDownMutatorContext) AppendProperties(props ...interface{}) {

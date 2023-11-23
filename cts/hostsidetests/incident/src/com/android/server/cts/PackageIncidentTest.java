@@ -105,7 +105,7 @@ public class PackageIncidentTest extends ProtoDumpTestCase {
 
         PackageServiceDumpProto.SharedUserProto systemUser = null;
         for (PackageServiceDumpProto.SharedUserProto user : dump.getSharedUsersList()) {
-            if (user.getUserId() == 1000) {
+            if (user.getUid() == 1000) {
                 systemUser = user;
                 break;
             }

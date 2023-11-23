@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,6 +37,9 @@ typedef enum
 extern MagickExport CacheType
   GetImagePixelCacheType(const Image *);
 
+extern MagickExport const char
+  *GetPixelCacheFilename(const Image *);
+
 extern MagickExport const Quantum
   *GetVirtualPixels(const Image *,const ssize_t,const ssize_t,const size_t,
     const size_t,ExceptionInfo *) magick_hot_spot,
@@ -67,7 +70,9 @@ extern MagickExport Quantum
     const size_t,ExceptionInfo *) magick_hot_spot;
 
 extern MagickExport void
-  *GetAuthenticMetacontent(const Image *);
+  *AcquirePixelCachePixels(const Image *,size_t *,ExceptionInfo *),
+  *GetAuthenticMetacontent(const Image *),
+  *GetPixelCachePixels(Image *,MagickSizeType *,ExceptionInfo *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

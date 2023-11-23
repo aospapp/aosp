@@ -62,8 +62,10 @@ public class VtsRetryFilterHelper extends RetryFilterHelper {
         String currentVendorFingerprint = device.getProperty("ro.vendor.build.fingerprint");
         if (!oldVendorFingerprint.equals(currentVendorFingerprint)) {
             throw new IllegalArgumentException(
-                    String.format("Device vendor fingerprint must match %s to retry session %d",
-                            oldVendorFingerprint, mSessionId));
+                    String.format("Device vendor fingerprint must match %s to retry session %d. "
+                                    + "Found %s instead on %s",
+                            oldVendorFingerprint, mSessionId, currentVendorFingerprint,
+                            device.getSerialNumber()));
         }
     }
 }

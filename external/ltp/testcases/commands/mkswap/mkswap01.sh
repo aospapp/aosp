@@ -29,7 +29,7 @@ setup()
 {
 	UUID=`uuidgen`
 
-	PAGE_SIZE=`getconf PAGE_SIZE`
+	PAGE_SIZE=`tst_getconf PAGESIZE`
 
 	# Here get the size of the device and align it down to be the
 	# multiple of $PAGE_SIZE and use that as the size for testing.
@@ -37,25 +37,14 @@ setup()
 	DEVICE_SIZE=$((($real_size/$PAGE_SIZE * $PAGE_SIZE)/1024))
 }
 
-wait_for_file()
+check_for_file()
 {
 	local path="$1"
-	local retries=10
 
-	if [ -z "$path" ]; then
+	if [ -z "$path" -o -e "$path" ]; then
 		return
 	fi
-
-	while [ $retries -gt 0 ]; do
-		if [ -e "$path" ]; then
-			return
-		fi
-		tst_res TINFO "Waiting for $path to appear"
-		retries=$((retries - 1))
-		tst_sleep 10ms
-	done
-
-	tst_res TINFO "The file $path haven't appeared"
+	return 1
 }
 
 mkswap_verify()
@@ -75,7 +64,12 @@ mkswap_verify()
 		local pagesize=$PAGE_SIZE
 	fi
 
-	wait_for_file "$dev_file"
+	if tst_kvcmp -lt "2.6.35" && [ -n "$dev_file" ]; then
+		tst_res TINFO "Waiting for $dev_file to appear"
+		tst_sleep 100ms
+	else
+		TST_RETRY_FUNC "check_for_file $dev_file" 0
+	fi
 
 	swapon $swapfile 2>/dev/null
 

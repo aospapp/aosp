@@ -33,7 +33,7 @@
             android:id="@+id/username_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@+string/username_string" />
+            android:text="@string/username_string" />
 
         <EditText
             android:id="@+id/username"
@@ -50,7 +50,7 @@
             android:id="@+id/password_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@+string/password_string" />
+            android:text="@string/password_string" />
 
         <EditText
             android:id="@+id/password"

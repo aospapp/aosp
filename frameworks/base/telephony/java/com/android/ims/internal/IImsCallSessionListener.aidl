@@ -16,6 +16,7 @@
 
 package com.android.ims.internal;
 
+import android.telephony.CallQuality;
 import android.telephony.ims.ImsStreamMediaProfile;
 import android.telephony.ims.ImsCallProfile;
 import android.telephony.ims.ImsReasonInfo;
@@ -33,33 +34,47 @@ oneway interface IImsCallSessionListener {
     /**
      * Notifies the result of the basic session operation (setup / terminate).
      */
+    @UnsupportedAppUsage
     void callSessionProgressing(in IImsCallSession session, in ImsStreamMediaProfile profile);
+    @UnsupportedAppUsage
     void callSessionStarted(in IImsCallSession session, in ImsCallProfile profile);
+    @UnsupportedAppUsage
     void callSessionStartFailed(in IImsCallSession session, in ImsReasonInfo reasonInfo);
+    @UnsupportedAppUsage
     void callSessionTerminated(in IImsCallSession session, in ImsReasonInfo reasonInfo);
 
     /**
      * Notifies the result of the call hold/resume operation.
      */
+    @UnsupportedAppUsage
     void callSessionHeld(in IImsCallSession session, in ImsCallProfile profile);
+    @UnsupportedAppUsage
     void callSessionHoldFailed(in IImsCallSession session, in ImsReasonInfo reasonInfo);
+    @UnsupportedAppUsage
     void callSessionHoldReceived(in IImsCallSession session, in ImsCallProfile profile);
+    @UnsupportedAppUsage
     void callSessionResumed(in IImsCallSession session, in ImsCallProfile profile);
+    @UnsupportedAppUsage
     void callSessionResumeFailed(in IImsCallSession session, in ImsReasonInfo reasonInfo);
+    @UnsupportedAppUsage
     void callSessionResumeReceived(in IImsCallSession session, in ImsCallProfile profile);
 
     /**
      * Notifies the result of call merge operation.
      */
+    @UnsupportedAppUsage
     void callSessionMergeStarted(in IImsCallSession session,
             in IImsCallSession newSession, in ImsCallProfile profile);
+    @UnsupportedAppUsage
     void callSessionMergeComplete(in IImsCallSession session);
+    @UnsupportedAppUsage
     void callSessionMergeFailed(in IImsCallSession session,
             in ImsReasonInfo reasonInfo);
 
     /**
      * Notifies the result of call upgrade / downgrade or any other call updates.
      */
+    @UnsupportedAppUsage
     void callSessionUpdated(in IImsCallSession session,
             in ImsCallProfile profile);
     void callSessionUpdateFailed(in IImsCallSession session,
@@ -80,7 +95,9 @@ oneway interface IImsCallSessionListener {
     /**
      * Notifies the result of the participant invitation / removal to/from the conference session.
      */
+    @UnsupportedAppUsage
     void callSessionInviteParticipantsRequestDelivered(in IImsCallSession session);
+    @UnsupportedAppUsage
     void callSessionInviteParticipantsRequestFailed(in IImsCallSession session,
             in ImsReasonInfo reasonInfo);
     void callSessionRemoveParticipantsRequestDelivered(in IImsCallSession session);
@@ -90,6 +107,7 @@ oneway interface IImsCallSessionListener {
     /**
      * Notifies the changes of the conference info. in the conference session.
      */
+    @UnsupportedAppUsage
     void callSessionConferenceStateUpdated(in IImsCallSession session,
             in ImsConferenceState state);
 
@@ -102,8 +120,10 @@ oneway interface IImsCallSessionListener {
     /**
      * Notifies of handover information for this call
      */
+    @UnsupportedAppUsage
     void callSessionHandover(in IImsCallSession session,
             in int srcAccessTech, in int targetAccessTech, in ImsReasonInfo reasonInfo);
+    @UnsupportedAppUsage
     void callSessionHandoverFailed(in IImsCallSession session,
             in int srcAccessTech, in int targetAccessTech, in ImsReasonInfo reasonInfo);
     void callSessionMayHandover(in IImsCallSession session,
@@ -117,6 +137,7 @@ oneway interface IImsCallSessionListener {
      * - {@link com.android.internal.telephony.Phone#TTY_MODE_HCO}
      * - {@link com.android.internal.telephony.Phone#TTY_MODE_VCO}
      */
+    @UnsupportedAppUsage
     void callSessionTtyModeReceived(in IImsCallSession session, in int mode);
 
     /**
@@ -125,11 +146,13 @@ oneway interface IImsCallSessionListener {
      * @param session The call session.
      * @param isMultiParty {@code true} if the session became multiparty, {@code false} otherwise.
      */
+    @UnsupportedAppUsage
     void callSessionMultipartyStateChanged(in IImsCallSession session, in boolean isMultiParty);
 
     /**
      * Notifies the supplementary service information for the current session.
      */
+    @UnsupportedAppUsage
     void callSessionSuppServiceReceived(in IImsCallSession session,
          in ImsSuppServiceNotification suppSrvNotification);
 
@@ -140,16 +163,29 @@ oneway interface IImsCallSessionListener {
     void callSessionRttModifyRequestReceived(in IImsCallSession session,
             in ImsCallProfile callProfile);
 
-    /* Device issued RTT modify request and inturn received response
+    /**
+     * Device issued RTT modify request and inturn received response
      * from Remote UE
      * @param status Will be one of the following values from:
      * - {@link Connection.RttModifyStatus}
      */
     void callSessionRttModifyResponseReceived(in int status);
 
-    /*
+    /**
      * While in call, device received RTT message from Remote UE
      * @param rttMessage Received RTT message
      */
     void callSessionRttMessageReceived(in String rttMessage);
+
+    /**
+     * While in call, there has been a change in RTT audio indicator.
+     * @param profile updated ImsStreamMediaProfile
+     */
+    void callSessionRttAudioIndicatorChanged(in ImsStreamMediaProfile profile);
+
+    /**
+     * Notifies of a change to the call quality.
+     * @param callQuality then updated call quality
+     */
+    void callQualityChanged(in CallQuality callQuality);
 }

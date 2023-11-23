@@ -43,12 +43,10 @@ class FakeIoDelegate : public IoDelegate {
   std::unique_ptr<LineReader> GetLineReader(
       const std::string& file_path) const override;
   bool FileIsReadable(const std::string& path) const override;
-  bool CreatedNestedDirs(
-      const std::string& base_dir,
-      const std::vector<std::string>& nested_subdirs) const override;
   std::unique_ptr<CodeWriter> GetCodeWriter(
       const std::string& file_path) const override;
   void RemovePath(const std::string& file_path) const override;
+  std::vector<std::string> ListFiles(const std::string& dir) const override;
 
   // Methods added to facilitate testing.
   void SetFileContents(const std::string& filename,

@@ -5,8 +5,8 @@
 	<classpathentry kind="src" path="tests/src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/json-prebuilt_intermediates/javalib.jar"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/guavalib_intermediates/classes.jar"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/kxml2-2.3.0_intermediates/javalib.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/tradefederation"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/kxml2/kxml2-2.3.0.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/guava/guava/linux_glibc_common/combined/guava.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

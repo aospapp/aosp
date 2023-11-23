@@ -89,7 +89,6 @@ uname 122
 adjtimex 124
 mprotect 125
 sigprocmask 126
-create_module 127
 init_module 128
 delete_module 129
 get_kernel_syms 130
@@ -107,6 +106,7 @@ readv 145
 writev 146
 getsid 147
 fdatasync 148
+_sysctl 149
 mlock 150
 munlock 151
 mlockall 152
@@ -121,7 +121,6 @@ sched_get_priority_min 160
 sched_rr_get_interval 161
 nanosleep 162
 mremap 163
-query_module 167
 poll 168
 nfsservctl 169
 prctl 172
@@ -324,10 +323,17 @@ setgid 214
 setfsuid 215
 setfsgid 216
 newfstatat 293
+process_vm_readv 340
+process_vm_writev 341
 kcmp 343
 sched_setattr 345
 sched_getattr 346
 renameat2 347
 getrandom 349
 memfd_create 350
+membarrier 356
+execveat 354
+mlock2 374
 copy_file_range 375
+preadv2 376
+pwritev2 377

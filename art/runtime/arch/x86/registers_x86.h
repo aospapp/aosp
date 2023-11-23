@@ -19,10 +19,7 @@
 
 #include <iosfwd>
 
-#include <android-base/logging.h>
-
 #include "base/macros.h"
-#include "globals.h"
 
 namespace art {
 namespace x86 {
@@ -41,6 +38,20 @@ enum Register {
   kNoRegister = -1  // Signals an illegal register.
 };
 std::ostream& operator<<(std::ostream& os, const Register& rhs);
+
+enum XmmRegister {
+  XMM0 = 0,
+  XMM1 = 1,
+  XMM2 = 2,
+  XMM3 = 3,
+  XMM4 = 4,
+  XMM5 = 5,
+  XMM6 = 6,
+  XMM7 = 7,
+  kNumberOfXmmRegisters = 8,
+  kNoXmmRegister = -1  // Signals an illegal register.
+};
+std::ostream& operator<<(std::ostream& os, const XmmRegister& reg);
 
 }  // namespace x86
 }  // namespace art

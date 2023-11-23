@@ -18,7 +18,7 @@
  * you of Gary Larson.)
  */
 
-#define WORD_BITS	16	/* sizeof(uword) * CHAR_BIT on the 
+#define WORD_BITS	16	/* sizeof(uword) * CHAR_BIT on the
 				 * target architecture---if this isn't 16,
 				 * you're in trouble with this library anyway.
 				 */

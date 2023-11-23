@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\'<xliff:g id="RECIPIENT">%1$s</xliff:g>\'님에게 파일을 보내는 중"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\'<xliff:g id="RECIPIENT">%2$s</xliff:g>\'에 <xliff:g id="NUMBER">%1$s</xliff:g>개 파일을 보내는 중"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\'<xliff:g id="RECIPIENT">%1$s</xliff:g>\'님에게 파일 보내기가 중지되었습니다."</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"USB 저장소 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"SD 카드 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB 저장소 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD 카드 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"필요한 공간: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"처리 중인 요청이 너무 많습니다. 잠시 후에 다시 시도해 주세요."</string>
     <string name="status_pending" msgid="2503691772030877944">"파일 전송을 시작하지 않았습니다."</string>
@@ -95,12 +95,12 @@
     <string name="status_forbidden" msgid="613956401054050725">"상대 기기에서 전송을 금지했습니다."</string>
     <string name="status_canceled" msgid="6664490318773098285">"사용자가 전송을 취소했습니다."</string>
     <string name="status_file_error" msgid="3671917770630165299">"저장용량 문제"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USB 저장소가 없습니다."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD 카드가 없습니다. 전송된 파일을 저장할 SD 카드를 삽입하세요."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB 저장소가 없습니다."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD 카드가 없습니다. 전송된 파일을 저장할 SD 카드를 삽입하세요."</string>
     <string name="status_connection_error" msgid="947681831523219891">"연결하지 못했습니다."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"요청을 제대로 처리할 수 없습니다."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"알 수 없는 오류입니다."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"블루투스 수신함"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"블루투스로 받은 파일"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"블루투스 공유"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> 수신을 완료했습니다."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> 전송을 완료했습니다."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"열기"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"목록에서 지우기"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"지우기"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"지금 재생 중"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"저장"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"취소"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"블루투스를 통해 공유하려는 계정을 선택하세요. 연결할 때 계정에 대한 모든 액세스를 수락해야 합니다."</string>

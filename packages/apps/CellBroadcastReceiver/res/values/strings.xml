@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- The name of the Cell Broadcast Receiver app. [CHAR LIMIT=NONE] -->
-    <string name="app_label">Cell Broadcasts</string>
+    <string name="app_label">Emergency alerts</string>
 
     <!-- Label for settings screen. [CHAR LIMIT=NONE] -->
     <string name="sms_cb_settings">Emergency alerts</string>
@@ -30,7 +30,7 @@
     <string name="button_dismiss">OK</string>
 
     <!-- Text for list view when empty (no broadcasts). [CHAR LIMIT=200] -->
-    <string name="no_cell_broadcasts">There are no active alerts in your area. You can change the Alert settings using the Settings menu option.</string>
+    <string name="no_cell_broadcasts">No previous alerts</string>
 
     <!-- Menu item for deleting all broadcasts. [CHAR LIMIT=30] -->
     <string name="menu_delete_all">Delete broadcasts</string>
@@ -90,6 +90,8 @@
     <string name="cb_other_message_identifiers">Broadcast messages</string>
     <!-- Dialog title for all public safety message broadcasts. [CHAR LIMIT=50] -->
     <string name="public_safety_message">Public safety message</string>
+    <!-- Dialog title for all state/local test alerts. [CHAR LIMIT=50] -->
+    <string name="state_local_test_alert">State/Local test</string>
 
     <!-- Dialog title or menu title of emergency alert. [CHAR LIMIT=50] -->
     <string name="emergency_alert">Emergency alert</string>
@@ -145,6 +147,10 @@
     <string name="enable_public_safety_messages_title">Public safety messages</string>
     <!-- Preference summary for enable public safety messages checkbox. [CHAR LIMIT=100] -->
     <string name="enable_public_safety_messages_summary">Recommended actions that can save lives or property</string>
+    <!-- Preference title for enable state/local test alerts checkbox. [CHAR LIMIT=100] -->
+    <string name="enable_state_local_test_alerts_title">State and local tests</string>
+    <!-- Preference summary for enable state/local test alerts checkbox. [CHAR LIMIT=100] -->
+    <string name="enable_state_local_test_alerts_summary">Receive test messages from state and local authorities</string>
     <!-- Preference title for enable emergency alerts messages checkbox. [CHAR LIMIT=100] -->
     <string name="enable_emergency_alerts_message_title">Emergency alerts</string>
     <!-- Preference summary for enable emergency alerts messages checkbox. [CHAR LIMIT=100] -->
@@ -156,7 +162,7 @@
     <string name="enable_cmas_test_alerts_summary">Receive test messages for the safety alert system</string>
 
     <!-- Preference title for CMAS vibration on/off. [CHAR LIMIT=50] -->
-    <string name="enable_alert_vibrate_title">Vibrate</string>
+    <string name="enable_alert_vibrate_title">Vibration</string>
 
     <!-- Preference title for use full volume option. [CHAR LIMIT=50] -->
     <string name="use_full_volume_title">Use full volume</string>

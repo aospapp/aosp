@@ -20,22 +20,7 @@
   <option name="vts-plan-result:plan-name" value="vts-fuzz" />
 
   <option name="compatibility:primary-abi-only" value="true" />
-  <option name="compatibility:include-filter" value="VtsHalAudioV2_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalAudioEffectV2_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalConfigstoreV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalDumpstateV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalGatekeeperV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalGraphicsAllocatorV2_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalLightV2_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalMemtrackV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalPowerV1_1IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalRadioDeprecatedV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalThermalV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalThermalV1_1IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_1IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalVrV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0IfaceFuzzer" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_1IfaceFuzzer" />
+
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-fuzz" />
+
 </configuration>

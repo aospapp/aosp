@@ -18,15 +18,13 @@
     package="com.android.cts.splitapp"
     android:targetSandboxVersion="2">
 
-    <!-- TODO(b/73365611) Remove targetSdkVersion once EncryptionApp tests
-         are fixed to no longer access SplitApp's data by path. -->
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="4" android:targetSdkVersion="27" />
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <application android:label="SplitApp">
-        <activity android:name=".MyActivity" android:visibleToInstantApps="true">
+    <application android:label="SplitApp" android:multiArch="true">
+        <activity android:name=".MyActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -53,7 +51,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.splitapp" />
 
 </manifest>

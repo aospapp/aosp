@@ -86,10 +86,8 @@ class network_WiFi_TDLSPing(wifi_cell_test_base.WiFiCellTestBase):
 
         dut_icmp_display_filter = ' and '.join(
                 [client_mac_filter, icmp_filter, tdls_filter])
-        frames = tcpdump_analyzer.get_frames(
-                pcap_result.local_pcap_path,
-                dut_icmp_display_filter,
-                bad_fcs='include')
+        frames = tcpdump_analyzer.get_frames(pcap_result.local_pcap_path,
+                dut_icmp_display_filter, reject_bad_fcs=False)
         if expected and not frames:
             raise error.TestFail('Packet capture did not contain any IBSS '
                                  'frames from the DUT!')

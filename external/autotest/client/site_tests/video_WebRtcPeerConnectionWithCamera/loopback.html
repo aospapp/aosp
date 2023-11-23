@@ -9,8 +9,25 @@
 <script src="ssim.js"></script>
 <script>
 
+var isVideoInputFound = false;
 var results = {};
 var testStatus = 'running';
+
+// Check if a video input device exists
+function checkVideoInput() {
+  navigator.mediaDevices.enumerateDevices()
+      .then(findVideoInput)
+      .catch(gotEnumerateDevicesError);
+}
+
+function findVideoInput(devices) {
+  isVideoInputFound = devices.some(dev => dev.kind == 'videoinput');
+}
+
+function gotEnumerateDevicesError(error) {
+  console.log('navigator.mediaDevices.enumerateDevices error: ', error);
+  results.cameraErrors.push('EnumerateDevices error: ' + error.toString());
+}
 
 // Starts the test.
 function testWebRtcLoopbackCall(videoCodec) {
@@ -88,14 +105,9 @@ WebRtcLoopbackCallTest.prototype = {
 
   triggerGetUserMedia: function() {
     var constraints = {audio: false, video: true};
-    try {
-      navigator.getUserMedia = navigator.getUserMedia ||
-          navigator.webkitGetUserMedia;
-      navigator.getUserMedia(constraints, this.gotLocalStream.bind(this),
-          this.onGetUserMediaError.bind(this));
-    } catch (exception) {
-      this.reportError('getUserMedia exception: ' + exception.toString());
-    }
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(this.gotLocalStream.bind(this))
+        .catch(this.onGetUserMediaError.bind(this));
   },
 
   reportError: function(message) {
@@ -118,7 +130,7 @@ WebRtcLoopbackCallTest.prototype = {
     this.localPeerConnection.addStream(this.localStream);
     this.localPeerConnection.createOffer(this.gotOffer.bind(this),
         function(error) {});
-    this.localVideo.src = URL.createObjectURL(stream);
+    this.localVideo.srcObject = stream;
 
     this.results.cameraType = stream.getVideoTracks()[0].label;
   },
@@ -222,7 +234,7 @@ WebRtcLoopbackCallTest.prototype = {
   },
 
   gotRemoteStream: function(event) {
-    this.remoteVideo.src = URL.createObjectURL(event.stream);
+    this.remoteVideo.srcObject = event.stream;
   },
 
   gotOffer: function(description) {

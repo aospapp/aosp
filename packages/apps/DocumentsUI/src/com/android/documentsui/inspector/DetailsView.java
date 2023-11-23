@@ -43,7 +43,9 @@ public class DetailsView extends TableView implements DetailsDisplay {
     }
 
     @Override
-    public void accept(DocumentInfo doc) {
+    public void accept(DocumentInfo doc, String displayName) {
+
+        putTitle(displayName, false);
 
         Lookup<String, String> fileTypeLookup =
                 DocumentsApplication.getFileTypeLookup(getContext());

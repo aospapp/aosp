@@ -13,102 +13,122 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "code_writer.h"
 
-#include <iostream>
 #include <stdarg.h>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <vector>
 
+#include <android-base/logging.h>
 #include <android-base/stringprintf.h>
-
-using std::cerr;
-using std::endl;
 
 namespace android {
 namespace aidl {
 
-namespace {
+CodeWriter::CodeWriter(std::unique_ptr<std::ostream> ostream) : ostream_(std::move(ostream)) {}
 
-class StringCodeWriter : public CodeWriter {
- public:
-  explicit StringCodeWriter(std::string* output_buffer) : output_(output_buffer) {}
-  virtual ~StringCodeWriter() = default;
-
-  bool Write(const char* format, ...) override {
-    va_list ap;
-    va_start(ap, format);
-    android::base::StringAppendV(output_, format, ap);
-    va_end(ap);
-    return true;
-  }
-
-  bool Close() override { return true; }
-
- private:
-  std::string* output_;
-};  // class StringCodeWriter
-
-class FileCodeWriter : public CodeWriter {
- public:
-  FileCodeWriter(FILE* output_file, bool close_on_destruction)
-      : output_(output_file),
-        close_on_destruction_(close_on_destruction) {}
-  virtual ~FileCodeWriter() {
-    if (close_on_destruction_ && output_ != nullptr) {
-      fclose(output_);
-    }
-  }
-
-  bool Write(const char* format, ...) override {
-    bool success;
-    va_list ap;
-    va_start(ap, format);
-    success = vfprintf(output_, format, ap) >= 0;
-    va_end(ap);
-    no_error_ = no_error_ && success;
-    return success;
-  }
-
-  bool Close() override {
-    if (output_ != nullptr) {
-      no_error_ = fclose(output_) == 0 && no_error_;
-      output_ = nullptr;
-    }
-    return no_error_;
-  }
-
- private:
-  bool no_error_ = true;
-  FILE* output_;
-  bool close_on_destruction_;
-};  // class StringCodeWriter
-
-}  // namespace
-
-CodeWriterPtr GetFileWriter(const std::string& output_file) {
-  CodeWriterPtr result;
-  FILE* to = nullptr;
-  bool close_on_destruction = true;
-  if (output_file == "-") {
-    to = stdout;
-    close_on_destruction = false;
+std::string CodeWriter::ApplyIndent(const std::string& str) {
+  std::string output;
+  if (!start_of_line_ || str == "\n") {
+    output = str;
   } else {
-    // open file in binary mode to ensure that the tool produces the
-    // same output on all platforms !!
-    to = fopen(output_file.c_str(), "wb");
+    output = std::string(indent_level_ * 2, ' ') + str;
   }
-
-  if (to != nullptr) {
-    result.reset(new FileCodeWriter(to, close_on_destruction));
-  } else {
-    cerr << "unable to open " << output_file << " for write" << endl;
-  }
-
-  return result;
+  start_of_line_ = !output.empty() && output.back() == '\n';
+  return output;
 }
 
-CodeWriterPtr GetStringWriter(std::string* output_buffer) {
-  return CodeWriterPtr(new StringCodeWriter(output_buffer));
+bool CodeWriter::Write(const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  std::string formatted;
+  android::base::StringAppendV(&formatted, format, ap);
+  va_end(ap);
+
+  // extract lines. empty line is preserved.
+  std::vector<std::string> lines;
+  size_t pos = 0;
+  while (pos < formatted.size()) {
+    size_t line_end = formatted.find('\n', pos);
+    if (line_end != std::string::npos) {
+      lines.push_back(formatted.substr(pos, (line_end - pos) + 1));
+      pos = line_end + 1;
+    } else {
+      lines.push_back(formatted.substr(pos));
+      break;
+    }
+  }
+
+  std::string indented;
+  for (const auto& line : lines) {
+    indented.append(ApplyIndent(line));
+  }
+
+  (*ostream_) << indented;
+  return !ostream_->fail();
+}
+
+void CodeWriter::Indent() {
+  indent_level_++;
+}
+void CodeWriter::Dedent() {
+  CHECK(indent_level_ > 0);
+
+  indent_level_--;
+}
+
+bool CodeWriter::Close() {
+  if (ostream_.get()->rdbuf() != std::cout.rdbuf()) {
+    // if the steam is for file (not stdout), do the close.
+    static_cast<std::fstream*>(ostream_.get())->close();
+    return !ostream_->fail();
+  }
+  return true;
+}
+
+CodeWriter& CodeWriter::operator<<(const char* s) {
+  Write(s);
+  return *this;
+}
+
+CodeWriter& CodeWriter::operator<<(const std::string& str) {
+  Write(str.c_str());
+  return *this;
+}
+
+CodeWriterPtr CodeWriter::ForFile(const std::string& filename) {
+  std::unique_ptr<std::ostream> stream;
+  if (filename == "-") {
+    stream = std::unique_ptr<std::ostream>(new std::ostream(std::cout.rdbuf()));
+  } else {
+    stream = std::unique_ptr<std::ostream>(
+        new std::fstream(filename, std::fstream::out | std::fstream::binary));
+  }
+  return CodeWriterPtr(new CodeWriter(std::move(stream)));
+}
+
+CodeWriterPtr CodeWriter::ForString(std::string* buf) {
+  // This class is defined inside this static function of CodeWriter
+  // in order to have access to private constructor and private member
+  // ostream_.
+  class StringCodeWriter : public CodeWriter {
+   public:
+    StringCodeWriter(std::string* buf)
+        : CodeWriter(std::unique_ptr<std::ostream>(new std::stringstream())), buf_(buf) {}
+    ~StringCodeWriter() override { Close(); }
+    bool Close() override {
+      // extract whats written to the stringstream to the external buffer.
+      // we are sure that ostream_ is indeed stringstream.
+      *buf_ = static_cast<std::stringstream*>(ostream_.get())->str();
+      return true;
+    }
+
+   private:
+    std::string* buf_;
+  };
+  return CodeWriterPtr(new StringCodeWriter(buf));
 }
 
 }  // namespace aidl

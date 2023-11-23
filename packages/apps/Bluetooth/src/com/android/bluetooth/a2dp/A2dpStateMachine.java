@@ -53,10 +53,11 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.os.Looper;
 import android.os.Message;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
@@ -88,7 +89,8 @@ final class A2dpStateMachine extends StateMachine {
 
     private A2dpService mA2dpService;
     private A2dpNativeInterface mA2dpNativeInterface;
-    private boolean mA2dpOffloadEnabled = false;
+    @VisibleForTesting
+    boolean mA2dpOffloadEnabled = false;
     private final BluetoothDevice mDevice;
     private boolean mIsPlaying = false;
     private BluetoothCodecStatus mCodecStatus;
@@ -130,7 +132,6 @@ final class A2dpStateMachine extends StateMachine {
             // Stop if auido is still playing
             log("doQuit: stopped playing " + mDevice);
             mIsPlaying = false;
-            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING);
             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                 BluetoothA2dp.STATE_PLAYING);
         }
@@ -158,7 +159,6 @@ final class A2dpStateMachine extends StateMachine {
                 if (mIsPlaying) {
                     Log.i(TAG, "Disconnected: stopped playing: " + mDevice);
                     mIsPlaying = false;
-                    mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING);
                     broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                         BluetoothA2dp.STATE_PLAYING);
                 }
@@ -468,6 +468,10 @@ final class A2dpStateMachine extends StateMachine {
 
             removeDeferredMessages(CONNECT);
 
+            // Each time a device connects, we want to re-check if it supports optional
+            // codecs (perhaps it's had a firmware update, etc.) and save that state if
+            // it differs from what we had saved before.
+            mA2dpService.updateOptionalCodecsSupport(mDevice);
             broadcastConnectionState(mConnectionState, mLastConnectionState);
             // Upon connected, the audio starts out as stopped
             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
@@ -559,7 +563,6 @@ final class A2dpStateMachine extends StateMachine {
                         if (!mIsPlaying) {
                             Log.i(TAG, "Connected: started playing: " + mDevice);
                             mIsPlaying = true;
-                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_PLAYING);
                             broadcastAudioState(BluetoothA2dp.STATE_PLAYING,
                                                 BluetoothA2dp.STATE_NOT_PLAYING);
                         }
@@ -571,7 +574,6 @@ final class A2dpStateMachine extends StateMachine {
                         if (mIsPlaying) {
                             Log.i(TAG, "Connected: stopped playing: " + mDevice);
                             mIsPlaying = false;
-                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING);
                             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                                 BluetoothA2dp.STATE_PLAYING);
                         }
@@ -611,8 +613,11 @@ final class A2dpStateMachine extends StateMachine {
     }
 
     // NOTE: This event is processed in any state
-    private void processCodecConfigEvent(BluetoothCodecStatus newCodecStatus) {
+    @VisibleForTesting
+    void processCodecConfigEvent(BluetoothCodecStatus newCodecStatus) {
         BluetoothCodecConfig prevCodecConfig = null;
+        BluetoothCodecStatus prevCodecStatus = mCodecStatus;
+
         synchronized (this) {
             if (mCodecStatus != null) {
                 prevCodecConfig = mCodecStatus.getCodecConfig();
@@ -633,6 +638,12 @@ final class A2dpStateMachine extends StateMachine {
             }
         }
 
+        if (isConnected() && !sameSelectableCodec(prevCodecStatus, mCodecStatus)) {
+            // Remote selectable codec could be changed if codec config changed
+            // in connected state, we need to re-check optional codec status
+            // for this codec change event.
+            mA2dpService.updateOptionalCodecsSupport(mDevice);
+        }
         if (mA2dpOffloadEnabled) {
             boolean update = false;
             BluetoothCodecConfig newCodecConfig = mCodecStatus.getCodecConfig();
@@ -676,7 +687,7 @@ final class A2dpStateMachine extends StateMachine {
     private void broadcastAudioState(int newState, int prevState) {
         log("A2DP Playing state : device: " + mDevice + " State:" + audioStateToString(prevState)
                 + "->" + audioStateToString(newState));
-
+        StatsLog.write(StatsLog.BLUETOOTH_A2DP_PLAYBACK_STATE_CHANGED, newState);
         Intent intent = new Intent(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
@@ -697,6 +708,16 @@ final class A2dpStateMachine extends StateMachine {
                 .append(", obj=")
                 .append(msg.obj);
         return builder.toString();
+    }
+
+    private static boolean sameSelectableCodec(BluetoothCodecStatus prevCodecStatus,
+            BluetoothCodecStatus newCodecStatus) {
+        if (prevCodecStatus == null) {
+            return false;
+        }
+        return BluetoothCodecStatus.sameCapabilities(
+                prevCodecStatus.getCodecsSelectableCapabilities(),
+                newCodecStatus.getCodecsSelectableCapabilities());
     }
 
     private static String messageWhatToString(int what) {
@@ -752,7 +773,6 @@ final class A2dpStateMachine extends StateMachine {
                 ProfileService.println(sb, "  mCodecConfig: " + mCodecStatus.getCodecConfig());
             }
         }
-        ProfileService.println(sb, "  StateMachine: " + this);
         // Dump the state machine logs
         StringWriter stringWriter = new StringWriter();
         PrintWriter printWriter = new PrintWriter(stringWriter);

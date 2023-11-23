@@ -1,0 +1,3 @@
+type hisi_prop, property_type;
+
+get_prop(domain, hisi_prop)

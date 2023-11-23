@@ -29,7 +29,7 @@ public final class DbTestingUtils {
         while (cursor.moveToNext()) {
             List<String> row = new ArrayList<>(colCount);
             for (int i = 0; i < colCount; i++) {
-                row.add(cursor.getString(i));
+                row.add(cursor.isNull(i) ? "null" : cursor.getString(i));
             }
             result.add(row);
         }

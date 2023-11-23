@@ -82,6 +82,11 @@ class C2SoftOpusDec::IntfImpl : public C2InterfaceHelper {
                 .withFields({C2F(mBitrate, value).inRange(6000, 510000)})
                 .withSetter(Setter<decltype(*mBitrate)>::NonStrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mInputMaxBufSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withConstValue(new C2StreamMaxBufferSizeInfo::input(0u, 960 * 6))
+                .build());
     }
 
    private:
@@ -92,6 +97,7 @@ class C2SoftOpusDec::IntfImpl : public C2InterfaceHelper {
     std::shared_ptr<C2StreamSampleRateInfo::output> mSampleRate;
     std::shared_ptr<C2StreamChannelCountInfo::output> mChannelCount;
     std::shared_ptr<C2BitrateTuning::input> mBitrate;
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mInputMaxBufSize;
 };
 
 C2SoftOpusDec::C2SoftOpusDec(const char *name, c2_node_id_t id,
@@ -294,9 +300,12 @@ static uint64_t ns_to_samples(uint64_t ns, int rate) {
 void C2SoftOpusDec::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
+    // Initialize output work
     work->result = C2_OK;
-    work->workletsProcessed = 0u;
+    work->workletsProcessed = 1u;
     work->worklets.front()->output.configUpdate.clear();
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError || mSignalledOutputEos) {
         work->result = C2_BAD_VALUE;
         return;

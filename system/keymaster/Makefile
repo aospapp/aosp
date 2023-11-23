@@ -42,8 +42,8 @@ ifdef USE_GCC
 CXXFLAGS +=-std=c++14 -fprofile-arcs -ftest-coverage
 CFLAGS += -fprofile-arcs -ftest-coverage
 else
-CC=$(BASE)/prebuilts/clang/host/linux-x86/clang-4053586/bin/clang
-CXX=$(BASE)/prebuilts/clang/host/linux-x86/clang-4053586/bin/clang++
+CC=$(BASE)/prebuilts/clang/host/linux-x86/clang-r339409b/bin/clang
+CXX=$(BASE)/prebuilts/clang/host/linux-x86/clang-r339409b/bin/clang++
 CXXFLAGS +=-std=c++14 -DKEYMASTER_CLANG_TEST_BUILD
 CFLAGS += -DKEYMASTER_CLANG_TEST_BUILD
 endif

@@ -191,13 +191,15 @@ static void init(ConfigReader &config)
 //
 int perfprofd_main(int argc, char** argv, Config* config)
 {
-  ConfigReader config_reader;
-
   LOG(INFO) << "starting Android Wide Profiling daemon";
 
   parse_args(argc, argv);
-  init(config_reader);
-  config_reader.FillConfig(config);
+  {
+    ConfigReader config_reader;
+    init(config_reader);
+    config_reader.FillConfig(config);
+  }
+  GlobalInit(config->perf_path);
 
   if (!perf_file_to_convert.empty()) {
     std::string encoded_path = perf_file_to_convert + ".encoded";
@@ -214,11 +216,12 @@ int perfprofd_main(int argc, char** argv, Config* config)
   auto config_fn = [config]() {
     return config;
   };
-  auto reread_config = [&config_reader, config]() {
-    // Reread config file -- the uploader may have rewritten it as a result
-    // of a gservices change
-    config_reader.readFile();
-    config_reader.FillConfig(config);
+  auto reread_config = [config]() {
+    // Reread config file -- the uploader may have rewritten it.
+    ConfigReader config_reader;
+    if (config_reader.readFile()) {
+      config_reader.FillConfig(config);
+    }
   };
   int seq = 0;
   auto handler = [&seq](android::perfprofd::PerfprofdRecord* proto, Config* handler_config) {

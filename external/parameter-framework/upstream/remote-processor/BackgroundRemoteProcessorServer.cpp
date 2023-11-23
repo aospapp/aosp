@@ -31,8 +31,8 @@
 #include "RemoteProcessorServer.h"
 
 BackgroundRemoteProcessorServer::BackgroundRemoteProcessorServer(
-    uint16_t uiPort, std::unique_ptr<IRemoteCommandHandler> &&commandHandler)
-    : _server(new CRemoteProcessorServer(uiPort)), mCommandHandler(std::move(commandHandler))
+    std::string bindAddress, std::unique_ptr<IRemoteCommandHandler> &&commandHandler)
+    : _server(new CRemoteProcessorServer(bindAddress)), mCommandHandler(std::move(commandHandler))
 {
 }
 

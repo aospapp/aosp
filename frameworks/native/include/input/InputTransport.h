@@ -17,6 +17,8 @@
 #ifndef _LIBINPUT_INPUT_TRANSPORT_H
 #define _LIBINPUT_INPUT_TRANSPORT_H
 
+#pragma GCC system_header
+
 /**
  * Native input transport.
  *
@@ -27,6 +29,9 @@
  * The InputConsumer is used by the application to receive events from the input dispatcher.
  */
 
+#include <string>
+
+#include <binder/IBinder.h>
 #include <input/Input.h>
 #include <utils/Errors.h>
 #include <utils/Timers.h>
@@ -35,12 +40,20 @@
 #include <utils/BitSet.h>
 
 namespace android {
+class Parcel;
 
 /*
  * Intermediate representation used to send input events and related signals.
  *
  * Note that this structure is used for IPCs so its layout must be identical
  * on 64 and 32 bit processes. This is tested in StructLayout_test.cpp.
+ *
+ * Since the struct must be aligned to an 8-byte boundary, there could be uninitialized bytes
+ * in-between the defined fields. This padding data should be explicitly accounted for by adding
+ * "empty" fields into the struct. This data is memset to zero before sending the struct across
+ * the socket. Adding the explicit fields ensures that the memset is not optimized away by the
+ * compiler. When a new field is added to the struct, the corresponding change
+ * in StructLayout_test should be made.
  */
 struct InputMessage {
     enum {
@@ -61,6 +74,7 @@ struct InputMessage {
     union Body {
         struct Key {
             uint32_t seq;
+            uint32_t empty1;
             nsecs_t eventTime __attribute__((aligned(8)));
             int32_t deviceId;
             int32_t source;
@@ -71,6 +85,7 @@ struct InputMessage {
             int32_t scanCode;
             int32_t metaState;
             int32_t repeatCount;
+            uint32_t empty2;
             nsecs_t downTime __attribute__((aligned(8)));
 
             inline size_t size() const {
@@ -80,6 +95,7 @@ struct InputMessage {
 
         struct Motion {
             uint32_t seq;
+            uint32_t empty1;
             nsecs_t eventTime __attribute__((aligned(8)));
             int32_t deviceId;
             int32_t source;
@@ -89,6 +105,8 @@ struct InputMessage {
             int32_t flags;
             int32_t metaState;
             int32_t buttonState;
+            MotionClassification classification; // base type: uint8_t
+            uint8_t empty2[3];
             int32_t edgeFlags;
             nsecs_t downTime __attribute__((aligned(8)));
             float xOffset;
@@ -96,6 +114,7 @@ struct InputMessage {
             float xPrecision;
             float yPrecision;
             uint32_t pointerCount;
+            uint32_t empty3;
             // Note that PointerCoords requires 8 byte alignment.
             struct Pointer {
                 PointerProperties properties;
@@ -126,6 +145,7 @@ struct InputMessage {
 
     bool isValid(size_t actualSize) const;
     size_t size() const;
+    void getSanitizedCopy(InputMessage* msg) const;
 };
 
 /*
@@ -141,6 +161,7 @@ protected:
     virtual ~InputChannel();
 
 public:
+    InputChannel() = default;
     InputChannel(const std::string& name, int fd);
 
     /* Creates a pair of input channels.
@@ -181,9 +202,19 @@ public:
     /* Returns a new object that has a duplicate of this channel's fd. */
     sp<InputChannel> dup() const;
 
+    status_t write(Parcel& out) const;
+    status_t read(const Parcel& from);
+
+    sp<IBinder> getToken() const;
+    void setToken(const sp<IBinder>& token);
+
 private:
+    void setFd(int fd);
+
     std::string mName;
-    int mFd;
+    int mFd = -1;
+
+    sp<IBinder> mToken = nullptr;
 };
 
 /*
@@ -212,6 +243,7 @@ public:
             uint32_t seq,
             int32_t deviceId,
             int32_t source,
+            int32_t displayId,
             int32_t action,
             int32_t flags,
             int32_t keyCode,
@@ -240,6 +272,7 @@ public:
             int32_t edgeFlags,
             int32_t metaState,
             int32_t buttonState,
+            MotionClassification classification,
             float xOffset,
             float yOffset,
             float xPrecision,
@@ -305,7 +338,7 @@ public:
      * Other errors probably indicate that the channel is broken.
      */
     status_t consume(InputEventFactoryInterface* factory, bool consumeBatches,
-            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent, int32_t* displayId);
+            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent);
 
     /* Sends a finished signal to the publisher to inform it that the message
      * with the specified sequence number has finished being process and whether
@@ -460,10 +493,9 @@ private:
     Vector<SeqChain> mSeqChains;
 
     status_t consumeBatch(InputEventFactoryInterface* factory,
-            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent, int32_t* displayId);
+            nsecs_t frameTime, uint32_t* outSeq, InputEvent** outEvent);
     status_t consumeSamples(InputEventFactoryInterface* factory,
-            Batch& batch, size_t count, uint32_t* outSeq, InputEvent** outEvent,
-            int32_t* displayId);
+            Batch& batch, size_t count, uint32_t* outSeq, InputEvent** outEvent);
 
     void updateTouchState(InputMessage& msg);
     void resampleTouchState(nsecs_t frameTime, MotionEvent* event,

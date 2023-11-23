@@ -83,7 +83,14 @@ public class BaseCustomization {
                             ? 0
                             : res.getIdentifier(resourceName, RES_TYPE_BOOLEAN, packageName);
             if (DEBUG) {
-                Log.d(TAG, "Boolean resource  " + resourceName + " has  " + resId);
+                Log.d(
+                        TAG,
+                        "Boolean resource  "
+                                + resourceName
+                                + " has  "
+                                + resId
+                                + " with value "
+                                + (resId == 0 ? "missing" : res.getBoolean(resId)));
             }
             return resId == 0 ? Optional.empty() : Optional.of(res.getBoolean(resId));
         } catch (PackageManager.NameNotFoundException e) {

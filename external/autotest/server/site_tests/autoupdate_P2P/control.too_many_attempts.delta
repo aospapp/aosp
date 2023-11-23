@@ -9,7 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:au-perbuild"
 SYNC_COUNT = 2
 DOC = """
 This tests autoupdate between two devices via peer to peer is disabled when

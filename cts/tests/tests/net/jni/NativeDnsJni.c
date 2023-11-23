@@ -120,8 +120,8 @@ JNIEXPORT jboolean Java_android_net_cts_DnsTest_testNativeDns(JNIEnv* env, jclas
             gai_strerror(res));
         return JNI_FALSE;
     }
-    if (strstr(buf, "google.com") == NULL) {
-        ALOGD("getnameinfo(%s (GoogleDNS) ) didn't return google.com: %s",
+    if (strstr(buf, "google.com") == NULL && strstr(buf, "dns.google") == NULL) {
+        ALOGD("getnameinfo(%s (GoogleDNS) ) didn't return google.com or dns.google: %s",
             GoogleDNSIpV4Address, buf);
         return JNI_FALSE;
     }
@@ -133,8 +133,9 @@ JNIEXPORT jboolean Java_android_net_cts_DnsTest_testNativeDns(JNIEnv* env, jclas
             res, gai_strerror(res));
         return JNI_FALSE;
     }
-    if (strstr(buf, "google.com") == NULL) {
-        ALOGD("getnameinfo(%s) didn't return google.com: %s", GoogleDNSIpV6Address2, buf);
+    if (strstr(buf, "google.com") == NULL && strstr(buf, "dns.google") == NULL) {
+        ALOGD("getnameinfo(%s (GoogleDNS) ) didn't return google.com or dns.google: %s",
+            GoogleDNSIpV6Address2, buf);
         return JNI_FALSE;
     }
 

@@ -47,7 +47,7 @@ template <class CDefaultElementBuilder>
 class CDefaultElementLibrary : public CElementLibrary
 {
 public:
-    virtual ~CDefaultElementLibrary() = default;
+    ~CDefaultElementLibrary() override = default;
 
     /** Set the default builder used in fallback mechanism.
       * @see createElement() for more detail on this mechanism.
@@ -81,14 +81,14 @@ CElement *CDefaultElementLibrary<CDefaultElementBuilder>::createElement(
 {
     CElement *builtElement = CElementLibrary::createElement(xmlElement);
 
-    if (builtElement != NULL) {
+    if (builtElement != nullptr) {
         // The element was created, return it
         return builtElement;
     }
 
     if (_defaultBuilder == nullptr) {
         // The default builder mechanism is not enabled
-        return NULL;
+        return nullptr;
     }
 
     // Use the default builder

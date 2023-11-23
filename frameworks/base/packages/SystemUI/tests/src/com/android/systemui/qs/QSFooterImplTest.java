@@ -20,12 +20,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.support.test.filters.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.testing.TestableLooper.RunWithLooper;
 import android.view.LayoutInflater;
 import android.view.View;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.systemui.R;
 import com.android.systemui.R.id;
@@ -41,7 +42,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidTestingRunner.class)
 @RunWithLooper
 @SmallTest
-@Ignore("failing")
 public class QSFooterImplTest extends LeakCheckedTest {
 
     private QSFooterImpl mFooter;
@@ -60,6 +60,7 @@ public class QSFooterImplTest extends LeakCheckedTest {
     }
 
     @Test
+    @Ignore("failing")
     public void testSettings_UserNotSetup() {
         View settingsButton = mFooter.findViewById(id.settings_button);
         when(mDeviceProvisionedController.isCurrentUserSetup()).thenReturn(false);

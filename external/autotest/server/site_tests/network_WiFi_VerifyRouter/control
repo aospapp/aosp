@@ -7,6 +7,7 @@ NAME = 'network_WiFi_VerifyRouter'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
+ATTRIBUTES = 'suite:wifi_update_router'
 
 DOC = """
 This test is designed to check as quickly as possible that a dual radio

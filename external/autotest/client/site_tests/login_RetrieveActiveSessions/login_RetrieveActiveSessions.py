@@ -25,7 +25,8 @@ class login_RetrieveActiveSessions(test.test):
         bus_loop = DBusGMainLoop(set_as_default=True)
         sm = session_manager.connect(bus_loop)
 
-        cryptohome_proxy = cryptohome.CryptohomeProxy(bus_loop)
+        cryptohome_proxy = cryptohome.CryptohomeProxy(
+            bus_loop, self.autodir, self.job)
         users = ['first_user@nowhere.com', 'second_user@nowhere.com']
         for user in users:
             cryptohome_proxy.ensure_clean_cryptohome_for(user)

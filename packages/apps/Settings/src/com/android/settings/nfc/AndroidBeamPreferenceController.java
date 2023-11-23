@@ -16,9 +16,10 @@
 package com.android.settings.nfc;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.nfc.NfcAdapter;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.core.BasePreferenceController;
 import com.android.settingslib.RestrictedPreference;
@@ -26,15 +27,12 @@ import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.core.lifecycle.events.OnPause;
 import com.android.settingslib.core.lifecycle.events.OnResume;
 
-import java.util.List;
-
 public class AndroidBeamPreferenceController extends BasePreferenceController
         implements LifecycleObserver, OnResume, OnPause {
 
     public static final String KEY_ANDROID_BEAM_SETTINGS = "android_beam_settings";
     private final NfcAdapter mNfcAdapter;
     private AndroidBeamEnabler mAndroidBeamEnabler;
-    private NfcAirplaneModeObserver mAirplaneModeObserver;
 
     public AndroidBeamPreferenceController(Context context, String key) {
         super(context, key);
@@ -49,20 +47,17 @@ public class AndroidBeamPreferenceController extends BasePreferenceController
             return;
         }
 
-        final RestrictedPreference restrictedPreference =
-                (RestrictedPreference) screen.findPreference(getPreferenceKey());
+        final RestrictedPreference restrictedPreference = screen.findPreference(getPreferenceKey());
         mAndroidBeamEnabler = new AndroidBeamEnabler(mContext, restrictedPreference);
-
-        // Manually set dependencies for NFC when not toggleable.
-        if (!NfcPreferenceController.isToggleableInAirplaneMode(mContext)) {
-            mAirplaneModeObserver = new NfcAirplaneModeObserver(mContext, mNfcAdapter,
-                    (Preference) restrictedPreference);
-        }
     }
 
     @Override
     @AvailabilityStatus
     public int getAvailabilityStatus() {
+        PackageManager pm = mContext.getPackageManager();
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_NFC_BEAM)) {
+            return UNSUPPORTED_ON_DEVICE;
+        }
         return mNfcAdapter != null
                 ? AVAILABLE
                 : UNSUPPORTED_ON_DEVICE;
@@ -70,9 +65,6 @@ public class AndroidBeamPreferenceController extends BasePreferenceController
 
     @Override
     public void onResume() {
-        if (mAirplaneModeObserver != null) {
-            mAirplaneModeObserver.register();
-        }
         if (mAndroidBeamEnabler != null) {
             mAndroidBeamEnabler.resume();
         }
@@ -80,9 +72,6 @@ public class AndroidBeamPreferenceController extends BasePreferenceController
 
     @Override
     public void onPause() {
-        if (mAirplaneModeObserver != null) {
-            mAirplaneModeObserver.unregister();
-        }
         if (mAndroidBeamEnabler != null) {
             mAndroidBeamEnabler.pause();
         }

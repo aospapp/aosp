@@ -6,8 +6,7 @@ AUTHOR = "malmnas@google.com, chromeos-meetings@google.com"
 NAME = "webrtc_PausePlayPeerConnections.audio"
 PURPOSE = "Ensures frequent pause and plays of peer connection streams work"
 CRITERIA = "Fails if the tab freezes during the test"
-ATTRIBUTES = ("suite:hotrod, suite:bluestreak, suite:bluestreak-release, "
-        "suite:bluestreak-perbuild, suite:bluestreak-pre-cq")
+ATTRIBUTES = "suite:hotrod, suite:bluestreak-pre-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "audio"
@@ -16,6 +15,7 @@ BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Audio"],
 }
+JOB_RETRIES = 2
 
 DOC = """
 This test starts 10 peer connections with audio streams.

@@ -16,7 +16,6 @@ ATTRIBUTES = "suite:crosbolt_perf_perbuild"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_enc_h264"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -29,5 +28,5 @@ and report the frame processing time and CPU usages of both.
 """
 
 job.run_test('video_MediaRecorderPerf', codec='h264', fps=30,
-    video_file='crowd720_25frames.y4m', tag='h264')
-
+    video_file='crowd720_25frames.y4m', tag='h264',
+    capability='hw_enc_h264_1080_30')

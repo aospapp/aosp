@@ -43,13 +43,17 @@ import java.util.Map;
  * @author Naoto Sato
  */
 public class CalendarDataUtility {
+    // Android-note: This class has been rewritten from scratch and is effectively forked.
+    // The API (names of public constants, method signatures etc.) generally derives
+    // from OpenJDK so that other OpenJDK code that refers to this class doesn't need to
+    // be changed, but the implementation has been rewritten; logic / identifiers
+    // that weren't used from anywhere else have been dropped altogether.
 
-    // Android-note: This class has been rewritten from scratch, keeping its API the same.
-    // Since Android gets its calendar related data from ICU, the implementation of this class is
-    // effectively independent of the upstream class, with the only similarity being is API in
-    // order to keep the necessary modifications outside of this class to a minimum.
+    // Android-removed: Dead code, unused on Android.
+    // public final static String FIRST_DAY_OF_WEEK = "firstDayOfWeek";
+    // public final static String MINIMAL_DAYS_IN_FIRST_WEEK = "minimalDaysInFirstWeek";
 
-    // Android-added: calendar name constants for use in retrievFieldValueName.
+    // Android-added: Calendar name constants for use in retrievFieldValueName.
     private static final String ISLAMIC_CALENDAR = "islamic";
     private static final String GREGORIAN_CALENDAR = "gregorian";
     private static final String BUDDHIST_CALENDAR = "buddhist";
@@ -62,18 +66,42 @@ public class CalendarDataUtility {
             NARROW_FORMAT, NARROW_STANDALONE
     };
 
-    // Android-removed: unused FIRST_DAY_OF_WEEK and MINIMAL_DAYS_IN_FIRST_WEEK constants.
-
     // No instantiation
     private CalendarDataUtility() {
     }
 
-    // Android-removed: retrieveFirstDayOfWeek and retrieveMinimalDaysInFirstWeek.
-    // Android-note: use libcore.icu.LocaleData or android.icu.util.Calendar.WeekData instead.
+    // BEGIN Android-removed: Dead code, unused on Android.
+    // Clients should use libcore.icu.LocaleData or android.icu.util.Calendar.WeekData instead.
+    /*
+    public static int retrieveFirstDayOfWeek(Locale locale) {
+        LocaleServiceProviderPool pool =
+                LocaleServiceProviderPool.getPool(CalendarDataProvider.class);
+        Integer value = pool.getLocalizedObject(CalendarWeekParameterGetter.INSTANCE,
+                                                locale, FIRST_DAY_OF_WEEK);
+        return (value != null && (value >= SUNDAY && value <= SATURDAY)) ? value : SUNDAY;
+    }
 
+    public static int retrieveMinimalDaysInFirstWeek(Locale locale) {
+        LocaleServiceProviderPool pool =
+                LocaleServiceProviderPool.getPool(CalendarDataProvider.class);
+        Integer value = pool.getLocalizedObject(CalendarWeekParameterGetter.INSTANCE,
+                                                locale, MINIMAL_DAYS_IN_FIRST_WEEK);
+        return (value != null && (value >= 1 && value <= 7)) ? value : 1;
+    }
+    */
+    // END Android-removed: Dead code, unused on Android.
+
+    // BEGIN Android-changed: Implement on top of ICU.
+    /*
+    public static String retrieveFieldValueName(String id, int field, int value, int style, Locale locale) {
+        LocaleServiceProviderPool pool =
+                LocaleServiceProviderPool.getPool(CalendarNameProvider.class);
+        return pool.getLocalizedObject(CalendarFieldValueNameGetter.INSTANCE, locale, normalizeCalendarType(id),
+                                       field, value, style, false);
+    }
+    */
     public static String retrieveFieldValueName(String id, int field, int value, int style,
             Locale locale) {
-        // Android-changed: delegate to ICU.
         if (field == Calendar.ERA) {
             // For era the field value does not always equal the index into the names array.
             switch (normalizeCalendarType(id)) {
@@ -102,16 +130,41 @@ public class CalendarDataUtility {
         }
         return names[value];
     }
+    // END Android-changed: Implement on top of ICU.
 
+    // BEGIN Android-changed: Implement on top of ICU.
+    /*
+    public static String retrieveJavaTimeFieldValueName(String id, int field, int value, int style, Locale locale) {
+        LocaleServiceProviderPool pool =
+                LocaleServiceProviderPool.getPool(CalendarNameProvider.class);
+        String name;
+        name = pool.getLocalizedObject(CalendarFieldValueNameGetter.INSTANCE, locale, normalizeCalendarType(id),
+                                       field, value, style, true);
+        if (name == null) {
+            name = pool.getLocalizedObject(CalendarFieldValueNameGetter.INSTANCE, locale, normalizeCalendarType(id),
+                                           field, value, style, false);
+        }
+        return name;
+    }
+    */
     public static String retrieveJavaTimeFieldValueName(String id, int field, int value, int style,
             Locale locale) {
-        // Android-changed: don't distinguish between retrieve* and retrieveJavaTime* methods.
+        // Don't distinguish between retrieve* and retrieveJavaTime* methods.
         return retrieveFieldValueName(id, field, value, style, locale);
     }
+    // END Android-changed: Implement on top of ICU.
 
+    // BEGIN Android-changed: Implement on top of ICU.
+    /*
+    public static Map<String, Integer> retrieveFieldValueNames(String id, int field, int style, Locale locale) {
+        LocaleServiceProviderPool pool =
+            LocaleServiceProviderPool.getPool(CalendarNameProvider.class);
+        return pool.getLocalizedObject(CalendarFieldValueNamesMapGetter.INSTANCE, locale,
+                                       normalizeCalendarType(id), field, style, false);
+    }
+    */
     public static Map<String, Integer> retrieveFieldValueNames(String id, int field, int style,
             Locale locale) {
-        // Android-changed: delegate to ICU.
         Map<String, Integer> names;
         if (style == ALL_STYLES) {
             names = retrieveFieldValueNamesImpl(id, field, SHORT_FORMAT, locale);
@@ -124,17 +177,40 @@ public class CalendarDataUtility {
         }
         return names.isEmpty() ? null : names;
     }
+    // END Android-changed: Implement on top of ICU.
 
+    // BEGIN Android-changed: Implement on top of ICU.
+    /*
+    public static Map<String, Integer> retrieveJavaTimeFieldValueNames(String id, int field, int style, Locale locale) {
+        LocaleServiceProviderPool pool =
+            LocaleServiceProviderPool.getPool(CalendarNameProvider.class);
+        Map<String, Integer> map;
+        map = pool.getLocalizedObject(CalendarFieldValueNamesMapGetter.INSTANCE, locale,
+                                       normalizeCalendarType(id), field, style, true);
+        if (map == null) {
+            map = pool.getLocalizedObject(CalendarFieldValueNamesMapGetter.INSTANCE, locale,
+                                           normalizeCalendarType(id), field, style, false);
+        }
+        return map;
+    }
+    */
     public static Map<String, Integer> retrieveJavaTimeFieldValueNames(String id, int field,
             int style, Locale locale) {
-        // Android-changed: don't distinguish between retrieve* and retrieveJavaTime* methods.
+        // Don't distinguish between retrieve* and retrieveJavaTime* methods.
         return retrieveFieldValueNames(id, field, style, locale);
     }
+    // END Android-changed: Implement on top of ICU.
 
+    // Android-changed: Added private modifier for normalizeCalendarType().
+    // static String normalizeCalendarType(String requestID) {
     private static String normalizeCalendarType(String requestID) {
         String type;
         // Android-changed: normalize "gregory" to "gregorian", not the other way around.
         // See android.icu.text.DateFormatSymbols.CALENDAR_CLASSES for reference.
+        // if (requestID.equals("gregorian") || requestID.equals("iso8601")) {
+        //    type = "gregory";
+        // } else if (requestID.startsWith("islamic")) {
+        //    type = "islamic";
         if (requestID.equals("gregory") || requestID.equals("iso8601")) {
             type = GREGORIAN_CALENDAR;
         } else if (requestID.startsWith(ISLAMIC_CALENDAR)) {
@@ -145,7 +221,7 @@ public class CalendarDataUtility {
         return type;
     }
 
-    // BEGIN Android-added: various private helper methods.
+    // BEGIN Android-added: Various private helper methods.
     private static Map<String, Integer> retrieveFieldValueNamesImpl(String id, int field, int style,
             Locale locale) {
         String[] names = getNames(id, field, style, locale);
@@ -250,8 +326,101 @@ public class CalendarDataUtility {
                 throw new IllegalArgumentException("Invalid style: " + style);
         }
     }
-    // END Android-added: various private helper methods.
+    // END Android-added: Various private helper methods.
 
-    // Android-removed: CalendarFieldValueNameGetter, CalendarFieldValueNamesMapGetter
-    // Android-removed: CalendarWeekParameterGetter
+    // BEGIN Android-removed: Dead code, unused on Android.
+    /*
+    /**
+     * Obtains a localized field value string from a CalendarDataProvider
+     * implementation.
+     *
+    private static class CalendarFieldValueNameGetter
+        implements LocaleServiceProviderPool.LocalizedObjectGetter<CalendarNameProvider,
+                                                                   String> {
+        private static final CalendarFieldValueNameGetter INSTANCE =
+            new CalendarFieldValueNameGetter();
+
+        @Override
+        public String getObject(CalendarNameProvider calendarNameProvider,
+                                Locale locale,
+                                String requestID, // calendarType
+                                Object... params) {
+            assert params.length == 4;
+            int field = (int) params[0];
+            int value = (int) params[1];
+            int style = (int) params[2];
+            boolean javatime = (boolean) params[3];
+
+            // If javatime is true, resources from CLDR have precedence over JRE
+            // native resources.
+            if (javatime && calendarNameProvider instanceof CalendarNameProviderImpl) {
+                String name;
+                name = ((CalendarNameProviderImpl)calendarNameProvider)
+                        .getJavaTimeDisplayName(requestID, field, value, style, locale);
+                return name;
+            }
+            return calendarNameProvider.getDisplayName(requestID, field, value, style, locale);
+        }
+    }
+
+    /**
+     * Obtains a localized field-value pairs from a CalendarDataProvider
+     * implementation.
+     *
+    private static class CalendarFieldValueNamesMapGetter
+        implements LocaleServiceProviderPool.LocalizedObjectGetter<CalendarNameProvider,
+                                                                   Map<String, Integer>> {
+        private static final CalendarFieldValueNamesMapGetter INSTANCE =
+            new CalendarFieldValueNamesMapGetter();
+
+        @Override
+        public Map<String, Integer> getObject(CalendarNameProvider calendarNameProvider,
+                                              Locale locale,
+                                              String requestID, // calendarType
+                                              Object... params) {
+            assert params.length == 3;
+            int field = (int) params[0];
+            int style = (int) params[1];
+            boolean javatime = (boolean) params[2];
+
+            // If javatime is true, resources from CLDR have precedence over JRE
+            // native resources.
+            if (javatime && calendarNameProvider instanceof CalendarNameProviderImpl) {
+                Map<String, Integer> map;
+                map = ((CalendarNameProviderImpl)calendarNameProvider)
+                        .getJavaTimeDisplayNames(requestID, field, style, locale);
+                return map;
+            }
+            return calendarNameProvider.getDisplayNames(requestID, field, style, locale);
+        }
+    }
+
+     private static class CalendarWeekParameterGetter
+        implements LocaleServiceProviderPool.LocalizedObjectGetter<CalendarDataProvider,
+                                                                   Integer> {
+        private static final CalendarWeekParameterGetter INSTANCE =
+            new CalendarWeekParameterGetter();
+
+        @Override
+        public Integer getObject(CalendarDataProvider calendarDataProvider,
+                                 Locale locale,
+                                 String requestID,    // resource key
+                                 Object... params) {
+            assert params.length == 0;
+            int value;
+            switch (requestID) {
+            case FIRST_DAY_OF_WEEK:
+                value = calendarDataProvider.getFirstDayOfWeek(locale);
+                break;
+            case MINIMAL_DAYS_IN_FIRST_WEEK:
+                value = calendarDataProvider.getMinimalDaysInFirstWeek(locale);
+                break;
+            default:
+                throw new InternalError("invalid requestID: " + requestID);
+            }
+            return (value != 0) ? value : null;
+        }
+    }
+    */
+    // END Android-removed: Dead code, unused on Android.
 }

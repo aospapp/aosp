@@ -15,7 +15,10 @@
  */
 package com.android.tradefed.invoker.shard;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 
@@ -39,6 +42,7 @@ import com.android.tradefed.suite.checker.KeyguardStatusChecker;
 import com.android.tradefed.testtype.HostTest;
 import com.android.tradefed.testtype.HostTestTest.SuccessTestCase;
 import com.android.tradefed.testtype.HostTestTest.TestMetricTestCase;
+import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.StubTest;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.keystore.IKeyStoreClient;
@@ -57,6 +61,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /** Unit tests for {@link ShardHelper}. */
 @RunWith(JUnit4.class)
@@ -87,6 +92,12 @@ public class ShardHelperTest {
                         } catch (ConfigurationException e) {
                             throw new RuntimeException(e);
                         }
+                    }
+
+                    @Override
+                    protected void validateOptions(IConfiguration config)
+                            throws ConfigurationException {
+                        // Skip to avoid call to global configuration
                     }
                 };
         mConfig = new Configuration("fake_sharding_config", "desc");
@@ -325,6 +336,12 @@ public class ShardHelperTest {
                             throw new RuntimeException(e);
                         }
                     }
+
+                    @Override
+                    protected void validateOptions(IConfiguration config)
+                            throws ConfigurationException {
+                        // Skip to avoid call to global configuration
+                    }
                 };
         CommandOptions options = new CommandOptions();
         HostTest stubTest = new HostTest();
@@ -408,5 +425,49 @@ public class ShardHelperTest {
         } catch (RuntimeException expected) {
             // expected
         }
+    }
+
+    /**
+     * Test split when a token test is present. The token pool of each shard should be populated.
+     */
+    @Test
+    public void testSplitWithTokens() throws Exception {
+        CommandOptions options = new CommandOptions();
+        OptionSetter setter = new OptionSetter(options);
+        // shard-count is the number of shards we are requesting
+        setter.setOptionValue("shard-count", "3");
+        // Enable token sharding
+        setter.setOptionValue("enable-token-sharding", "true");
+
+        mConfig.setCommandOptions(options);
+        mConfig.setCommandLine(new String[] {"empty"});
+        List<IRemoteTest> tests = new ArrayList<>();
+        StubTest test = new StubTest();
+        setter = new OptionSetter(test);
+        // num-shards is a {@link StubTest} option that specify how many tests can stubtest split
+        // into.
+        setter.setOptionValue("num-shards", "5");
+        tests.add(test);
+        // Add a token test
+        tests.add(new TokenTestClass());
+        mConfig.setTests(tests);
+        assertEquals(2, mConfig.getTests().size());
+        assertTrue(mHelper.shardConfig(mConfig, mContext, mRescheduler));
+        // Ensure that we did split 1 tests per shard rescheduled.
+        Mockito.verify(mRescheduler, Mockito.times(3))
+                .scheduleConfig(
+                        Mockito.argThat(
+                                new ArgumentMatcher<IConfiguration>() {
+                                    @Override
+                                    public boolean matches(IConfiguration argument) {
+                                        assertEquals(1, argument.getTests().size());
+                                        IRemoteTest test = argument.getTests().get(0);
+                                        assertTrue(test instanceof TestsPoolPoller);
+                                        TestsPoolPoller poller = (TestsPoolPoller) test;
+                                        // Token pool has the test
+                                        assertEquals(1, poller.getTokenPool().size());
+                                        return true;
+                                    }
+                                }));
     }
 }

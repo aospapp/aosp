@@ -49,10 +49,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.provider.BaseColumns;
-import android.support.v4.app.RemoteInput;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.view.ActionMode;
+import androidx.core.app.RemoteInput;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.view.ActionMode;
 import android.text.Editable;
 import android.text.Html;
 import android.text.SpanWatcher;
@@ -148,7 +148,8 @@ public class ComposeActivity extends AppCompatActivity
      * An {@link Intent} action that launches {@link ComposeActivity}, but is handled as if the
      * {@link Activity} were launched with no special action.
      */
-    private static final String ACTION_LAUNCH_COMPOSE =
+    @VisibleForTesting
+    static final String ACTION_LAUNCH_COMPOSE =
             "com.android.mail.intent.action.LAUNCH_COMPOSE";
 
     // Identifiers for which type of composition this is
@@ -170,9 +171,9 @@ public class ComposeActivity extends AppCompatActivity
 
     private static final String MAIL_TO = "mailto";
 
-    private static final String EXTRA_SUBJECT = "subject";
+    public static final String EXTRA_SUBJECT = "subject";
 
-    private static final String EXTRA_BODY = "body";
+    public static final String EXTRA_BODY = "body";
     private static final String EXTRA_TEXT_CHANGED ="extraTextChanged";
 
     private static final String EXTRA_SKIP_PARSING_BODY = "extraSkipParsingBody";
@@ -188,9 +189,9 @@ public class ComposeActivity extends AppCompatActivity
 
     // Extra that we can get passed from other activities
     @VisibleForTesting
-    protected static final String EXTRA_TO = "to";
-    private static final String EXTRA_CC = "cc";
-    private static final String EXTRA_BCC = "bcc";
+    public static final String EXTRA_TO = "to";
+    public static final String EXTRA_CC = "cc";
+    public static final String EXTRA_BCC = "bcc";
 
     public static final String ANALYTICS_CATEGORY_ERRORS = "compose_errors";
 
@@ -510,6 +511,11 @@ public class ComposeActivity extends AppCompatActivity
         context.startActivity(intent);
     }
 
+    /** Returns true if activity is started from an intent from an external application. */
+    public boolean isExternal() {
+        return false;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -527,6 +533,16 @@ public class ComposeActivity extends AppCompatActivity
         mInnerSavedState = (savedInstanceState != null) ?
                 savedInstanceState.getBundle(KEY_INNER_SAVED_STATE) : null;
         checkValidAccounts();
+    }
+
+    /** Used for escaping plaintext. If the input is null, then it will return an empty String. */
+    private static String escapeAndReplaceHtml(CharSequence text) {
+      if (text == null) {
+        return "";
+      }
+      String body = Html.escapeHtml(text);
+      // Replace \r\n and \n with <br> tags
+      return body.replaceAll("(&#13;&#10;|&#10;)", "<br>");
     }
 
     private void finishCreate() {
@@ -567,6 +583,9 @@ public class ComposeActivity extends AppCompatActivity
             message = intent.getParcelableExtra(ORIGINAL_DRAFT_MESSAGE);
             previews = intent.getParcelableArrayListExtra(EXTRA_ATTACHMENT_PREVIEWS);
             mRefMessage = intent.getParcelableExtra(EXTRA_IN_REFERENCE_TO_MESSAGE);
+            if (isExternal() && mRefMessage != null && !TextUtils.isEmpty(mRefMessage.bodyHtml)) {
+                mRefMessage.bodyHtml = escapeAndReplaceHtml(mRefMessage.bodyHtml);
+            }
             mRefMessageUri = intent.getParcelableExtra(EXTRA_IN_REFERENCE_TO_MESSAGE_URI);
             quotedText = null;
 
@@ -1533,6 +1552,9 @@ public class ComposeActivity extends AppCompatActivity
                 }
                 String body = intent.getStringExtra(EXTRA_BODY);
                 if (body != null) {
+                    if (isExternal()) {
+                        body = escapeAndReplaceHtml(body);
+                    }
                     setBody(body, false /* withSignature */);
                 }
             }
@@ -1696,7 +1718,10 @@ public class ComposeActivity extends AppCompatActivity
                 } else if (EXTRA_BODY.equals(extra)) {
                     setBody(value, true /* with signature */);
                 } else if (EXTRA_QUOTED_TEXT.equals(extra)) {
-                    initQuotedText(value, true /* shouldQuoteText */);
+                     if (isExternal()) {
+                         value = escapeAndReplaceHtml(value);
+                     }
+                     initQuotedText(value, true /* shouldQuoteText */);
                 }
             }
         }

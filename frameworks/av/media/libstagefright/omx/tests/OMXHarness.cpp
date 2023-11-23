@@ -17,6 +17,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "OMXHarness"
 #include <inttypes.h>
+#include <android-base/macros.h>
 #include <utils/Log.h>
 
 #include "OMXHarness.h"
@@ -28,7 +29,6 @@
 #include <cutils/properties.h>
 #include <media/DataSource.h>
 #include <media/IMediaHTTPService.h>
-#include <media/MediaExtractor.h>
 #include <media/MediaSource.h>
 #include <media/OMXBuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -40,9 +40,8 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
+#include <media/stagefright/OMXClient.h>
 #include <media/stagefright/SimpleDecodingSource.h>
-#include <android/hardware/media/omx/1.0/IOmx.h>
-#include <media/omx/1.0/WOmx.h>
 #include <system/window.h>
 
 #define DEFAULT_TIMEOUT         500000
@@ -81,12 +80,13 @@ status_t Harness::initCheck() const {
 }
 
 status_t Harness::initOMX() {
-    using namespace ::android::hardware::media::omx::V1_0;
-    sp<IOmx> tOmx = IOmx::getService();
-    if (tOmx == nullptr) {
+    OMXClient client;
+    if (client.connect() != OK) {
+        ALOGE("Failed to connect to OMX to create persistent input surface.");
         return NO_INIT;
     }
-    mOMX = new utils::LWOmx(tOmx);
+
+    mOMX = client.interface();
 
     return mOMX != 0 ? OK : NO_INIT;
 }
@@ -844,7 +844,7 @@ int main(int argc, char **argv) {
 
             case '?':
                 fprintf(stderr, "\n");
-                // fall through
+                FALLTHROUGH_INTENDED;
 
             case 'h':
             default:

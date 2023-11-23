@@ -148,6 +148,11 @@ public class ResultHandlerTest extends TestCase {
             "          </Metric>\n" +
             "        </Summary>\n" +
             "      </Test>\n";
+    private static final String NEW_XML_TEST_RESULT =
+            "      <Test result=\"pass\" name=\"%s\">\n"
+                    + "        <Metric key=\"%s\">%s</Metric>\n"
+                    + "      </Test>\n";
+
     private File resultsDir = null;
     private File resultDir = null;
 
@@ -208,49 +213,59 @@ public class ResultHandlerTest extends TestCase {
                 COMMAND_LINE_ARGS);
 
         // Parse the results and assert correctness
-        checkResult(ResultHandler.getResultFromDir(resultDir));
+        checkResult(ResultHandler.getResultFromDir(resultDir), false);
     }
 
     public void testParsing() throws Exception {
-        File resultDir = writeResultDir(resultsDir);
+        File resultDir = writeResultDir(resultsDir, false);
         // Parse the results and assert correctness
-        checkResult(ResultHandler.getResultFromDir(resultDir));
+        checkResult(ResultHandler.getResultFromDir(resultDir), false);
+    }
+
+    public void testParsing_newTestFormat() throws Exception {
+        File resultDir = writeResultDir(resultsDir, true);
+        // Parse the results and assert correctness
+        checkResult(ResultHandler.getResultFromDir(resultDir), true);
     }
 
     public void testParsing_usesUnalteredBuildFingerprintWhenPresent() throws Exception {
         String buildInfo = String.format(XML_BUILD_INFO_WITH_UNALTERED_BUILD_FINGERPRINT,
                 EXAMPLE_BUILD_FINGERPRINT, EXAMPLE_BUILD_FINGERPRINT_UNALTERED,
                 EXAMPLE_BUILD_ID, EXAMPLE_BUILD_PRODUCT);
-        File resultDir = writeResultDir(resultsDir, buildInfo);
-        checkResult(ResultHandler.getResultFromDir(resultDir), EXAMPLE_BUILD_FINGERPRINT_UNALTERED);
+        File resultDir = writeResultDir(resultsDir, buildInfo, false);
+        checkResult(
+                ResultHandler.getResultFromDir(resultDir),
+                EXAMPLE_BUILD_FINGERPRINT_UNALTERED,
+                false);
     }
 
     public void testParsing_whenUnalteredBuildFingerprintIsEmpty_usesRegularBuildFingerprint() throws Exception {
         String buildInfo = String.format(XML_BUILD_INFO_WITH_UNALTERED_BUILD_FINGERPRINT,
                 EXAMPLE_BUILD_FINGERPRINT, "", EXAMPLE_BUILD_ID, EXAMPLE_BUILD_PRODUCT);
-        File resultDir = writeResultDir(resultsDir, buildInfo);
-        checkResult(ResultHandler.getResultFromDir(resultDir), EXAMPLE_BUILD_FINGERPRINT);
+        File resultDir = writeResultDir(resultsDir, buildInfo, false);
+        checkResult(ResultHandler.getResultFromDir(resultDir), EXAMPLE_BUILD_FINGERPRINT, false);
     }
 
     public void testGetLightResults() throws Exception {
-        File resultDir = writeResultDir(resultsDir);
+        File resultDir = writeResultDir(resultsDir, false);
         List<IInvocationResult> lightResults = ResultHandler.getLightResults(resultsDir);
         assertEquals("Expected one result", 1, lightResults.size());
         IInvocationResult lightResult = lightResults.get(0);
         checkLightResult(lightResult);
     }
 
-    static File writeResultDir(File resultsDir) throws IOException {
+    static File writeResultDir(File resultsDir, boolean newTestFormat) throws IOException {
         String buildInfo = String.format(XML_BUILD_INFO, EXAMPLE_BUILD_FINGERPRINT,
                 EXAMPLE_BUILD_ID, EXAMPLE_BUILD_PRODUCT);
-        return writeResultDir(resultsDir, buildInfo);
+        return writeResultDir(resultsDir, buildInfo, newTestFormat);
     }
 
     /*
      * Helper to write a result to the results dir, for testing.
      * @return the written resultDir
      */
-    static File writeResultDir(File resultsDir, String buildInfo) throws IOException {
+    static File writeResultDir(File resultsDir, String buildInfo, boolean newTestFormat)
+            throws IOException {
         File resultDir = null;
         FileWriter writer = null;
         try {
@@ -265,9 +280,26 @@ public class ResultHandlerTest extends TestCase {
                     moduleACases);
             String moduleBTest3 = String.format(XML_TEST_FAIL, METHOD_3, MESSAGE, STACK_TRACE,
                     BUG_REPORT, LOGCAT, SCREENSHOT);
-            String moduleBTest4 = String.format(XML_TEST_RESULT, METHOD_4, SUMMARY_SOURCE,
-                    SUMMARY_MESSAGE, ResultType.HIGHER_BETTER.toReportString(),
-                    ResultUnit.SCORE.toReportString(), Double.toString(SUMMARY_VALUE));
+            String moduleBTest4 = "";
+            if (newTestFormat) {
+                moduleBTest4 =
+                        String.format(
+                                NEW_XML_TEST_RESULT,
+                                METHOD_4,
+                                SUMMARY_MESSAGE,
+                                Double.toString(SUMMARY_VALUE));
+            } else {
+                moduleBTest4 =
+                        String.format(
+                                XML_TEST_RESULT,
+                                METHOD_4,
+                                SUMMARY_SOURCE,
+                                SUMMARY_MESSAGE,
+                                ResultType.HIGHER_BETTER.toReportString(),
+                                ResultUnit.SCORE.toReportString(),
+                                Double.toString(SUMMARY_VALUE));
+            }
+
             String moduleBTest5 = String.format(XML_TEST_SKIP, METHOD_5);
             String moduleBTests = String.join("", moduleBTest3, moduleBTest4, moduleBTest5);
             String moduleBCases = String.format(XML_CASE, CLASS_B, moduleBTests);
@@ -314,11 +346,13 @@ public class ResultHandlerTest extends TestCase {
         assertEquals("Expected 2 total modules", 2, modules.size());
     }
 
-    static void checkResult(IInvocationResult result) throws Exception {
-        checkResult(result, EXAMPLE_BUILD_FINGERPRINT);
+    static void checkResult(IInvocationResult result, boolean newTestFormat) throws Exception {
+        checkResult(result, EXAMPLE_BUILD_FINGERPRINT, newTestFormat);
     }
 
-    static void checkResult(IInvocationResult result, String expectedBuildFingerprint) throws Exception {
+    static void checkResult(
+            IInvocationResult result, String expectedBuildFingerprint, boolean newTestFormat)
+            throws Exception {
         assertEquals("Expected 3 passes", 3, result.countResults(TestStatus.PASS));
         assertEquals("Expected 1 failure", 1, result.countResults(TestStatus.FAIL));
 
@@ -392,16 +426,19 @@ public class ResultHandlerTest extends TestCase {
         assertNull("Unexpected screenshot", moduleBTest4.getScreenshot());
         assertNull("Unexpected message", moduleBTest4.getMessage());
         assertNull("Unexpected stack trace", moduleBTest4.getStackTrace());
-        ReportLog report = moduleBTest4.getReportLog();
-        assertNotNull("Expected report", report);
-        ReportLog.Metric summary = report.getSummary();
-        assertNotNull("Expected report summary", summary);
-        assertEquals("Incorrect source", SUMMARY_SOURCE, summary.getSource());
-        assertEquals("Incorrect message", SUMMARY_MESSAGE, summary.getMessage());
-        assertEquals("Incorrect type", ResultType.HIGHER_BETTER, summary.getType());
-        assertEquals("Incorrect unit", ResultUnit.SCORE, summary.getUnit());
-        assertTrue("Incorrect values", Arrays.equals(new double[] { SUMMARY_VALUE },
-                summary.getValues()));
+        if (!newTestFormat) {
+            ReportLog report = moduleBTest4.getReportLog();
+            assertNotNull("Expected report", report);
+            ReportLog.Metric summary = report.getSummary();
+            assertNotNull("Expected report summary", summary);
+            assertEquals("Incorrect source", SUMMARY_SOURCE, summary.getSource());
+            assertEquals("Incorrect message", SUMMARY_MESSAGE, summary.getMessage());
+            assertEquals("Incorrect type", ResultType.HIGHER_BETTER, summary.getType());
+            assertEquals("Incorrect unit", ResultUnit.SCORE, summary.getUnit());
+            assertTrue(
+                    "Incorrect values",
+                    Arrays.equals(new double[] {SUMMARY_VALUE}, summary.getValues()));
+        }
         ITestResult moduleBTest5 = moduleBResults.get(2);
         assertEquals("Incorrect name", METHOD_5, moduleBTest5.getName());
         assertEquals("Incorrect result", TestStatus.PASS, moduleBTest5.getResultStatus());

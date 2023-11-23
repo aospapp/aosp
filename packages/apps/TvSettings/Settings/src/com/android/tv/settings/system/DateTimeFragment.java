@@ -24,11 +24,13 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.SystemProperties;
 import android.provider.Settings;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
+
+import androidx.annotation.Keep;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.datetime.ZoneGetter;
@@ -41,6 +43,7 @@ import java.util.Date;
 /**
  * The date and time screen in TV settings.
  */
+@Keep
 public class DateTimeFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
 

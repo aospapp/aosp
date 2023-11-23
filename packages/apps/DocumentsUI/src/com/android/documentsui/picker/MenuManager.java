@@ -16,23 +16,31 @@
 
 package com.android.documentsui.picker;
 
+import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.State.ACTION_CREATE;
 import static com.android.documentsui.base.State.ACTION_GET_CONTENT;
 import static com.android.documentsui.base.State.ACTION_OPEN;
 import static com.android.documentsui.base.State.ACTION_OPEN_TREE;
 import static com.android.documentsui.base.State.ACTION_PICK_COPY_DESTINATION;
 
+import android.database.Cursor;
+import android.provider.DocumentsContract.Document;
 import android.view.KeyboardShortcutGroup;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.android.documentsui.Model;
+import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.State;
 import com.android.documentsui.queries.SearchViewManager;
 
 import java.util.List;
 import java.util.function.IntFunction;
+import com.android.documentsui.R;
 
 public final class MenuManager extends com.android.documentsui.MenuManager {
+
+    private boolean mOnlyDirectory;
 
     public MenuManager(SearchViewManager searchManager, State displayState, DirectoryDetails dirDetails) {
         super(searchManager, displayState, dirDetails);
@@ -62,6 +70,19 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     }
 
     @Override
+    public void updateModel(Model model) {
+        for (String id : model.getModelIds()) {
+            Cursor cursor = model.getItem(id);
+            String docMimeType = getCursorString(cursor, Document.COLUMN_MIME_TYPE);
+            if (!MimeTypes.mimeMatches(Document.MIME_TYPE_DIR, docMimeType)) {
+                mOnlyDirectory = false;
+                return;
+            }
+        }
+        mOnlyDirectory = true;
+    }
+
+    @Override
     protected void updateModePicker(MenuItem grid, MenuItem list) {
         // No display options in recent directories
         if (picking() && mDirDetails.isInRecents()) {
@@ -74,8 +95,9 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateSelectAll(MenuItem selectAll) {
-        boolean enabled = mState.allowMultiple;
-        selectAll.setVisible(enabled);
+        boolean visible = mState.allowMultiple;
+        boolean enabled = visible && !mOnlyDirectory;
+        selectAll.setVisible(visible);
         selectAll.setEnabled(enabled);
     }
 
@@ -86,18 +108,10 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     }
 
     @Override
-    protected void updateOpenInActionMode(MenuItem open, SelectionDetails selectionDetails) {
-        updateOpen(open, selectionDetails);
-    }
-
-    @Override
-    protected void updateOpenInContextMenu(MenuItem open, SelectionDetails selectionDetails) {
-        updateOpen(open, selectionDetails);
-    }
-
-    private void updateOpen(MenuItem open, SelectionDetails selectionDetails) {
-        open.setVisible(mState.action == ACTION_GET_CONTENT
+    protected void updateSelect(MenuItem select, SelectionDetails selectionDetails) {
+        select.setVisible(mState.action == ACTION_GET_CONTENT
                 || mState.action == ACTION_OPEN);
-        open.setEnabled(selectionDetails.size() > 0);
+        select.setEnabled(selectionDetails.size() > 0);
+        select.setTitle(R.string.menu_select);
     }
 }

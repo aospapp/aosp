@@ -156,6 +156,7 @@ class SourceChannelImpl
     }
 
     public int read(ByteBuffer dst) throws IOException {
+        // Android-added: Throw NPE if null ByteBuffer passed to read().
         if (dst == null) {
             throw new NullPointerException();
         }

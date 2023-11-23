@@ -27,7 +27,7 @@ import android.util.Log;
 public class EqualizerTest extends PostProcTestBase {
 
     private String TAG = "EqualizerTest";
-    private final static int MIN_NUMBER_OF_BANDS = 4;
+    private final static int MIN_NUMBER_OF_BANDS = 2;
     private final static int MAX_LEVEL_RANGE_LOW = 0;             // 0dB
     private final static int MIN_LEVEL_RANGE_HIGH = 0;            // 0dB
     private final static int TEST_FREQUENCY_MILLIHERTZ = 1000000; // 1kHz

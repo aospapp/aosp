@@ -476,6 +476,19 @@ public class ConfigurationFactoryTest extends TestCase {
         assertEquals("valueFromTemplateIncludeConfig", fromTemplateIncludeConfig.mOption);
     }
 
+    public void testCreateConfigurationFromArgs_repeatedTemplate() throws Exception {
+        try {
+            mFactory.createConfigurationFromArgs(
+                    new String[] {"repeated-template", "--template:map", "target", "empty"});
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            assertEquals(
+                    "Failed to parse config xml 'repeated-template'. Reason: Template named "
+                            + "'target' appeared more than once.",
+                    expected.getMessage());
+        }
+    }
+
     /** Test loading a config that uses template-include to include another config. */
     public void testCreateConfigurationFromArgs_templateInclude_multiKey() throws Exception {
         try {
@@ -759,7 +772,8 @@ public class ConfigurationFactoryTest extends TestCase {
         final String configName = "template-collision-include-config";
         final String depTargetName = "template-include-config-with-default";
         final String expError =
-                "Only one config object allowed for logger, but multiple were specified.";
+                "Failed to parse config xml 'template-collision-include-config'. Reason: "
+                        + "Template named 'target' appeared more than once.";
         try {
             mFactory.createConfigurationFromArgs(new String[]{configName,
                     "--template:map", "target-col", depTargetName,
@@ -872,8 +886,6 @@ public class ConfigurationFactoryTest extends TestCase {
         final String configName = "template-include-config-with-default";
         final String targetName = "local-config";
         final String nameTemplate = "target";
-        Map<String, String> expected = new HashMap<String,String>();
-        expected.put(nameTemplate, targetName);
         IConfiguration tmp = null;
         try {
             tmp = mFactory.createConfigurationFromArgs(new String[]{configName,
@@ -1615,6 +1627,53 @@ public class ConfigurationFactoryTest extends TestCase {
 
         assertFalse(config.isDeviceConfiguredFake("device1"));
         assertTrue(config.isDeviceConfiguredFake("device2"));
+    }
+
+    /**
+     * Test when a single device configuration (standard flat) add a fake device. Configuration
+     * objects should be added to the default device.
+     */
+    public void testCreateConfiguration_singleDeviceConfig_withFake() throws Exception {
+        IConfiguration config =
+                mFactory.createConfigurationFromArgs(
+                        new String[] {
+                            "single-config-and-fake",
+                            "--no-test-boolean-option",
+                            "--test-boolean-option-false",
+                            // testing with namespace too
+                            "--stub-preparer:no-test-boolean-option",
+                            "--stub-preparer:test-boolean-option-false"
+                        });
+        assertEquals(2, config.getDeviceConfig().size());
+        // Ensure the first device is the default one.
+        assertEquals(
+                ConfigurationDef.DEFAULT_DEVICE_NAME,
+                config.getDeviceConfig().get(0).getDeviceName());
+
+        IDeviceConfiguration device1 =
+                config.getDeviceConfigByName(ConfigurationDef.DEFAULT_DEVICE_NAME);
+        // One target preparer from inside the device tag, one from outside.
+        assertEquals(2, device1.getTargetPreparers().size());
+        StubTargetPreparer deviceSetup1 = (StubTargetPreparer) device1.getTargetPreparers().get(0);
+        // default value of test-boolean-option is true, we set it to false
+        assertFalse(deviceSetup1.getTestBooleanOption());
+        // default value of test-boolean-option-false is false, we set it to true.
+        assertTrue(deviceSetup1.getTestBooleanOptionFalse());
+        assertTrue(device1.getDeviceRequirements().tcpDeviceRequested());
+        assertFalse(device1.getDeviceRequirements().nullDeviceRequested());
+
+        // Check that the second preparer, outside device1 can still receive option as {device1}.
+        StubTargetPreparer deviceSetup2 = (StubTargetPreparer) device1.getTargetPreparers().get(1);
+        // default value of test-boolean-option is true, we set it to false
+        assertFalse(deviceSetup2.getTestBooleanOption());
+        // default value of test-boolean-option-false is false, we set it to true.
+        assertTrue(deviceSetup2.getTestBooleanOptionFalse());
+
+        assertFalse(config.isDeviceConfiguredFake(ConfigurationDef.DEFAULT_DEVICE_NAME));
+        assertTrue(config.isDeviceConfiguredFake("device2"));
+        IDeviceConfiguration device2 = config.getDeviceConfigByName("device2");
+        assertFalse(device2.getDeviceRequirements().tcpDeviceRequested());
+        assertTrue(device2.getDeviceRequirements().nullDeviceRequested());
     }
 
     /** Test that a configuration with all the device marked as isReal=false will be rejected. */

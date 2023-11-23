@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <unistd.h>
+#include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
 #include <fts.h>
-#include <dirent.h>
-#include <ctype.h>
-#include <pwd.h>
-#include <stdlib.h>
 #include <poll.h>
-#include <sys/stat.h>
+#include <pwd.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <fstream>
 #include <unordered_set>
 
 #include <android-base/file.h>
-#include <android-base/parseint.h>
-#include <android-base/strings.h>
-#include <android-base/stringprintf.h>
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "Process.h"
 
@@ -46,18 +46,27 @@ namespace vold {
 
 static bool checkMaps(const std::string& path, const std::string& prefix) {
     bool found = false;
-    std::ifstream infile(path);
-    std::string line;
-    while (std::getline(infile, line)) {
+    auto file = std::unique_ptr<FILE, decltype(&fclose)>{fopen(path.c_str(), "re"), fclose};
+    if (!file) {
+        return false;
+    }
+
+    char* buf = nullptr;
+    size_t len = 0;
+    while (getline(&buf, &len, file.get()) != -1) {
+        std::string line(buf);
         std::string::size_type pos = line.find('/');
         if (pos != std::string::npos) {
             line = line.substr(pos);
             if (android::base::StartsWith(line, prefix)) {
                 LOG(WARNING) << "Found map " << path << " referencing " << line;
                 found = true;
+                break;
             }
         }
     }
+    free(buf);
+
     return found;
 }
 

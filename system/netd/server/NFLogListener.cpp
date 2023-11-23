@@ -22,7 +22,7 @@
 #include <arpa/inet.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <netdutils/Misc.h>
 #include <netdutils/Netfilter.h>
 #include <netdutils/Syscalls.h>
@@ -32,16 +32,14 @@
 namespace android {
 namespace net {
 
+using netdutils::extract;
+using netdutils::findWithDefault;
+using netdutils::makeSlice;
 using netdutils::Slice;
+using netdutils::sSyscalls;
 using netdutils::Status;
 using netdutils::StatusOr;
-using netdutils::UniqueFd;
-using netdutils::Status;
-using netdutils::makeSlice;
-using netdutils::sSyscalls;
-using netdutils::findWithDefault;
 using netdutils::status::ok;
-using netdutils::extract;
 
 constexpr int kNFLogConfigMsgType = (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG;
 constexpr int kNFLogPacketMsgType = (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET;
@@ -149,7 +147,7 @@ NFLogListener::NFLogListener(std::shared_ptr<NetlinkListenerInterface> listener)
     const auto rxHandler = [this](const nlmsghdr& nlmsg, const Slice msg) {
         nfgenmsg nfmsg = {};
         extract(msg, nfmsg);
-        std::lock_guard<std::mutex> guard(mMutex);
+        std::lock_guard guard(mMutex);
         const auto& fn = findWithDefault(mDispatchMap, ntohs(nfmsg.res_id), kDefaultDispatchFn);
         fn(nlmsg, nfmsg, drop(msg, sizeof(nfmsg)));
     };
@@ -169,8 +167,8 @@ NFLogListener::~NFLogListener() {
     expectOk(mListener->unsubscribe(kNFLogPacketMsgType));
     expectOk(mListener->unsubscribe(kNetlinkDoneMsgType));
     const auto sendFn = [this](const Slice msg) { return mListener->send(msg); };
-    for (auto pair : mDispatchMap) {
-        expectOk(cfgCmdUnbind(sendFn, pair.first));
+    for (const auto& [key, value] : mDispatchMap) {
+        expectOk(cfgCmdUnbind(sendFn, key));
     }
 }
 
@@ -183,7 +181,7 @@ Status NFLogListener::subscribe(
     const auto sendFn = [this](const Slice msg) { return mListener->send(msg); };
     // Install fn into the dispatch map BEFORE requesting delivery of messages
     {
-        std::lock_guard<std::mutex> guard(mMutex);
+        std::lock_guard guard(mMutex);
         mDispatchMap[nfLogGroup] = fn;
     }
     RETURN_IF_NOT_OK(cfgCmdBind(sendFn, nfLogGroup));
@@ -198,7 +196,7 @@ Status NFLogListener::unsubscribe(uint16_t nfLogGroup) {
     RETURN_IF_NOT_OK(cfgCmdUnbind(sendFn, nfLogGroup));
     // Remove from the dispatch map AFTER stopping message delivery.
     {
-        std::lock_guard<std::mutex> guard(mMutex);
+        std::lock_guard guard(mMutex);
         mDispatchMap.erase(nfLogGroup);
     }
     return ok;
@@ -216,7 +214,7 @@ StatusOr<std::unique_ptr<NFLogListener>> makeNFLogListener() {
     RETURN_IF_NOT_OK(sys.setsockopt<int32_t>(sock, SOL_SOCKET, SO_TIMESTAMP, 1));
 
     std::shared_ptr<NetlinkListenerInterface> listener =
-        std::make_unique<NetlinkListener>(std::move(event), std::move(sock));
+            std::make_unique<NetlinkListener>(std::move(event), std::move(sock), "NFLogListener");
     const auto sendFn = [&listener](const Slice msg) { return listener->send(msg); };
     RETURN_IF_NOT_OK(cfgCmdPfUnbind(sendFn));
     return std::unique_ptr<NFLogListener>(new NFLogListener(std::move(listener)));

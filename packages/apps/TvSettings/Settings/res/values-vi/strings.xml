@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Hiệu chỉnh"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Chọn các định dạng"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Âm thanh vòm"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -146,7 +146,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Hỗ trợ tiếp cận"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Tùy chọn nhà phát triển"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Không có"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"Sử dụng và chẩn đoán"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Thông tin sử dụng và chẩn đoán"</string>
     <string name="tutorials" msgid="3731493987558093244">"Hướng dẫn"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Bản cập nhật hệ thống"</string>
     <string name="about_preference" msgid="4131396784531360434">"Giới thiệu"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Một số ứng dụng sẽ không khả dụng hoặc không hoạt động bình thường cho đến khi ổ được kết nối lại."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Không đủ dung lượng lưu trữ."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Ứng dụng không tồn tại."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Ứng dụng được bảo vệ bản sao."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Vị trí cài đặt không hợp lệ."</string>
     <string name="system_package" msgid="9200255718634512790">"Không thể cài đặt bản cập nhật hệ thống trên phương tiện bên ngoài."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Không thể cài đặt Quản trị viên thiết bị trên phương tiện bên ngoài."</string>
@@ -454,13 +453,13 @@
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> có thể thu thập tất cả văn bản bạn nhập, ngoại trừ mật khẩu, bao gồm dữ liệu cá nhân như số thẻ tín dụng."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Ngừng <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Chọn OK sẽ ngừng <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
-    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Chuyển văn bản thành giọng nói"</string>
+    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Chuyển văn bản sang lời nói"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Cấu hình công cụ"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Nói mật khẩu"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Công cụ ưu tiên"</string>
-    <string name="system_speech_rate" msgid="8099856582088545576">"Tốc độ tiếng nói"</string>
+    <string name="system_speech_rate" msgid="8099856582088545576">"Tốc độ lời nói"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"Phát mẫu"</string>
-    <string name="system_install_voice_data" msgid="8920883886563714355">"Cài đặt dữ liệu thoại"</string>
+    <string name="system_install_voice_data" msgid="8920883886563714355">"Cài đặt dữ liệu giọng nói"</string>
     <string name="system_general" msgid="3535958631591158282">"Chung"</string>
     <string name="system_debugging" msgid="7204447785851191331">"Gỡ lỗi"</string>
     <string name="system_input" msgid="6164987320529039626">"Nhập"</string>
@@ -505,7 +504,7 @@
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Chỉ dùng cho nội dung DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Tối ưu hóa hiển thị để có độ phân giải tối đa hoặc tốc độ khung hình tối đa. Thao tác này chỉ ảnh hưởng đến màn hình có độ phân giải siêu cao. Thay đổi cài đặt này sẽ khởi động lại thiết bị của bạn."</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"Bật ghi nhật ký theo dõi HCI Bluetooth"</string>
-    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"Chế độ gỡ lỗi khi kết nối USB"</string>
+    <string name="system_desc_usb_debugging" msgid="5168830368191788731">"Bật chế độ gỡ lỗi khi kết nối USB"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"Ứng dụng được gỡ lỗi chờ trình gỡ lỗi đính kèm trước khi thực hiện"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"Hiển thị giới hạn đoạn video, lề, v.v."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"Chuyển nhanh chế độ xem trong cửa sổ khi được vẽ bằng GPU"</string>
@@ -658,7 +657,7 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Bộ nhớ đã sử dụng"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"Đã sử dụng <xliff:g id="SIZE">%1$s</xliff:g> trong <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Xóa dữ liệu"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tất cả dữ liệu của ứng dụng này sẽ bị xóa vĩnh viễn bao gồm tất cả các tệp, cài đặt, tài khoản, cơ sở dữ liệu, v.v...\n"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Tất cả dữ liệu của ứng dụng này sẽ bị xóa vĩnh viễn, bao gồm tất cả các tệp, các tùy chọn cài đặt, tài khoản, cơ sở dữ liệu, v.v.\n"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Xóa mặc định"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Đặt khởi chạy ƯD này cho một số tác vụ"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Chưa đặt mặc định"</string>
@@ -707,7 +706,7 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"Quyền của ứng dụng"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Đã cho phép <xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> ứng dụng"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Yêu cầu cấp quyền Bluetooth"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Mức bản vá bảo mật của Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Cấp bản vá bảo mật của Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Chọn ứng dụng"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Thử nghiệm)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Khởi động lại ở chế độ an toàn"</string>
@@ -729,10 +728,13 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Quyền truy cập thông báo"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Không có ứng dụng đã cài đặt nào yêu cầu quyền truy cập thông báo."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Các ứng dụng này sẽ có thể đọc tất cả thông báo, bao gồm cả thông tin cá nhân như tên liên hệ và nội dung của thông báo bạn nhận được. Các ứng dụng này cũng có thể loại bỏ thông báo hoặc kích hoạt nút hành động trong các thông báo đó."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Quyền truy cập vào thư mục"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Các ứng dụng này có quyền truy cập vào một số thư mục nhất định."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Hiển thị trên các ứng dụng khác"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Cho phép hiển thị trên các ứng dụng khác"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Cho phép một ứng dụng hiển thị trên các ứng dụng khác mà bạn đang sử dụng. Điều này có thể ảnh hưởng đến cách bạn sử dụng các ứng dụng đó hoặc thay đổi cách chúng xuất hiện hoặc hoạt động."</string>
-    <string name="write_system_settings" msgid="2730923656857824907">"Sửa đổi cài đặt hệ thống"</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"Sửa đổi các tùy chọn cài đặt hệ thống"</string>
     <string name="write_settings_title" msgid="8750406725746598710">"Có thể sửa đổi cài đặt hệ thống"</string>
     <string name="write_settings_description" msgid="2765037074460395437">"Quyền này cho phép ứng dụng sửa đổi cài đặt hệ thống."</string>
     <string name="write_settings_on" msgid="3312616037931341656">"Có"</string>

@@ -15,14 +15,16 @@
  */
 package com.android.server.wifi.util;
 
+import static org.mockito.Matchers.contains;
+import static org.mockito.Mockito.verify;
+
 import android.os.Looper;
 import android.os.Message;
 import android.os.test.TestLooper;
 
-import com.android.server.wifi.FakeWifiLog;
+import androidx.test.filters.SmallTest;
 
-import static org.mockito.Matchers.contains;
-import static org.mockito.Mockito.verify;
+import com.android.server.wifi.FakeWifiLog;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -33,6 +35,7 @@ import org.mockito.Spy;
 
 /** Unit tests for {@link WifiHandler}. */
 @RunWith(JUnit4.class)
+@SmallTest
 public class WifiHandlerTest {
     private static final String TAG = "WifiHandlerTest";
     private WifiHandler mCodeUnderTest;

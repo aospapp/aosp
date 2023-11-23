@@ -16,6 +16,8 @@
 
 package com.android.documentsui.services;
 
+import static android.content.ContentResolver.wrap;
+
 import static com.android.documentsui.DocumentsApplication.acquireUnstableProviderOrThrow;
 import static com.android.documentsui.services.FileOperationService.EXTRA_CANCEL;
 import static com.android.documentsui.services.FileOperationService.EXTRA_DIALOG_TYPE;
@@ -25,9 +27,9 @@ import static com.android.documentsui.services.FileOperationService.EXTRA_JOB_ID
 import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION_TYPE;
 import static com.android.documentsui.services.FileOperationService.OPERATION_UNKNOWN;
 
-import android.annotation.DrawableRes;
-import android.annotation.IntDef;
-import android.annotation.PluralsRes;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.IntDef;
+import androidx.annotation.PluralsRes;
 import android.app.Notification;
 import android.app.Notification.Builder;
 import android.app.PendingIntent;
@@ -37,6 +39,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.provider.DocumentsContract;
@@ -53,6 +56,7 @@ import com.android.documentsui.clipping.UrisSupplier;
 import com.android.documentsui.files.FilesActivity;
 import com.android.documentsui.services.FileOperationService.OpType;
 
+import java.io.FileNotFoundException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -159,7 +163,7 @@ abstract public class Job implements Runnable {
             // No exceptions should be thrown here, as all calls to the provider must be
             // handled within Job implementations. However, just in case catch them here.
             Log.e(TAG, "Operation failed due to an unhandled runtime exception.", e);
-            Metrics.logFileOperationErrors(service, operationType, failedDocs, failedUris);
+            Metrics.logFileOperationErrors(operationType, failedDocs, failedUris);
         } finally {
             mState = (mState == STATE_STARTED || mState == STATE_SET_UP) ? STATE_COMPLETED : mState;
             finish();
@@ -209,7 +213,7 @@ abstract public class Job implements Runnable {
 
     final void cleanup() {
         for (ContentProviderClient client : mClients.values()) {
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
     }
 
@@ -220,7 +224,7 @@ abstract public class Job implements Runnable {
     final void cancel() {
         mState = STATE_CANCELED;
         mSignal.cancel();
-        Metrics.logFileOperationCancelled(service, operationType);
+        Metrics.logFileOperationCancelled(operationType);
     }
 
     final boolean isCanceled() {
@@ -257,14 +261,15 @@ abstract public class Job implements Runnable {
             throws ResourceException {
         try {
             if (parent != null && doc.isRemoveSupported()) {
-                DocumentsContract.removeDocument(getClient(doc), doc.derivedUri, parent.derivedUri);
+                DocumentsContract.removeDocument(wrap(getClient(doc)), doc.derivedUri,
+                        parent.derivedUri);
             } else if (doc.isDeleteSupported()) {
-                DocumentsContract.deleteDocument(getClient(doc), doc.derivedUri);
+                DocumentsContract.deleteDocument(wrap(getClient(doc)), doc.derivedUri);
             } else {
                 throw new ResourceException("Unable to delete source document. "
                         + "File is not deletable or removable: %s.", doc.derivedUri);
             }
-        } catch (RemoteException | RuntimeException e) {
+        } catch (FileNotFoundException | RemoteException | RuntimeException e) {
             throw new ResourceException("Failed to delete file %s due to an exception.",
                     doc.derivedUri, e);
         }
@@ -366,5 +371,15 @@ abstract public class Job implements Runnable {
     interface Listener {
         void onStart(Job job);
         void onFinished(Job job);
+    }
+
+    /**
+     * Interface for tracking job progress.
+     */
+    interface ProgressTracker {
+        default double getProgress() {  return -1; }
+        default long getRemainingTimeEstimate() {
+            return -1;
+        }
     }
 }

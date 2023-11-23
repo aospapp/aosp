@@ -29,8 +29,13 @@ public class StatsdCtsBackgroundService extends IntentService {
     public static final String KEY_ACTION = "action";
     public static final String ACTION_BACKGROUND_SLEEP = "action.background_sleep";
     public static final String ACTION_END_IMMEDIATELY = "action.end_immediately";
+    public static final String ACTION_LMK = "action.lmk";
 
     public static final int SLEEP_OF_ACTION_BACKGROUND_SLEEP = 2_000;
+
+    static {
+        System.loadLibrary("lmkhelper");
+    }
 
     public StatsdCtsBackgroundService() {
         super(StatsdCtsBackgroundService.class.getName());
@@ -47,8 +52,16 @@ public class StatsdCtsBackgroundService extends IntentService {
                 break;
             case ACTION_END_IMMEDIATELY:
                 break;
+            case ACTION_LMK:
+                new Thread(this::cmain).start();
+                break;
             default:
                 Log.e(TAG, "Intent had invalid action");
         }
     }
+
+    /**
+     *  Keep allocating memory until the process is killed by LMKD.
+     **/
+    public native void cmain();
 }

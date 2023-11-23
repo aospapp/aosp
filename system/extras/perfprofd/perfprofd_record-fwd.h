@@ -18,9 +18,13 @@
 #ifndef SYSTEM_EXTRAS_PERFPROFD_PERFPROFD_RECORD_FWD_H_
 #define SYSTEM_EXTRAS_PERFPROFD_PERFPROFD_RECORD_FWD_H_
 
+namespace quipper {
+class PerfDataProto;
+}  // namespace quipper
+
 namespace android {
 namespace perfprofd {
-class PerfprofdRecord;
+using PerfprofdRecord = ::quipper::PerfDataProto;
 }  // namespace perfprofd
 }  // namespace android
 

@@ -23,61 +23,68 @@ import android.os.RegistrantList;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneSwitcher;
+import com.android.internal.telephony.SubscriptionController;
 
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PhoneSwitcherMock extends PhoneSwitcher {
-    private final int mNumPhones;
-    private final RegistrantList mActivePhoneRegistrants[];
+    private final RegistrantList mActivePhoneRegistrants;
     private final AtomicBoolean mIsActive[];
 
-    public PhoneSwitcherMock(int numPhones, Looper looper) {
-        super(looper);
+    public PhoneSwitcherMock(int numPhones, Looper looper, SubscriptionController subController)
+            throws Exception {
+        super(numPhones, looper);
 
-        mNumPhones = numPhones;
-        mActivePhoneRegistrants = new RegistrantList[numPhones];
+        mActivePhoneRegistrants = new RegistrantList();
         mIsActive = new AtomicBoolean[numPhones];
         for(int i = 0; i < numPhones; i++) {
-            mActivePhoneRegistrants[i] = new RegistrantList();
             mIsActive[i] = new AtomicBoolean(false);
+        }
+
+        if (subController != null) {
+            Field subControllerField =
+                this.getClass().getSuperclass().getDeclaredField("mSubscriptionController");
+            subControllerField.setAccessible(true);
+            subControllerField.set(this, subController);
         }
     }
 
     @Override
-    public void resendDataAllowed(int phoneId) {
+    public void onRadioCapChanged(int phoneId) {
         throw new RuntimeException("resendPhone not implemented");
     }
 
     @Override
-    public boolean isPhoneActive(int phoneId) {
+    protected boolean isPhoneActive(int phoneId) {
         return mIsActive[phoneId].get();
     }
 
     @Override
-    public void registerForActivePhoneSwitch(int phoneId, Handler h, int what, Object o) {
-        validatePhoneId(phoneId);
+    public void registerForActivePhoneSwitch(Handler h, int what, Object o) {
         Registrant r = new Registrant(h, what, o);
-        mActivePhoneRegistrants[phoneId].add(r);
+        mActivePhoneRegistrants.add(r);
         r.notifyRegistrant();
     }
 
     @Override
-    public void unregisterForActivePhoneSwitch(int phoneId, Handler h) {
-        validatePhoneId(phoneId);
-        mActivePhoneRegistrants[phoneId].remove(h);
-    }
-
-    private void validatePhoneId(int phoneId) {
-        if (phoneId < 0 || phoneId >= mNumPhones) {
-            throw new IllegalArgumentException("Invalid PhoneId");
-        }
+    public void unregisterForActivePhoneSwitch(Handler h) {
+        mActivePhoneRegistrants.remove(h);
     }
 
     @VisibleForTesting
     public void setPhoneActive(int phoneId, boolean active) {
         validatePhoneId(phoneId);
         if (mIsActive[phoneId].getAndSet(active) != active) {
-            mActivePhoneRegistrants[phoneId].notifyRegistrants();
+            notifyActivePhoneChange(phoneId);
         }
+    }
+
+    public void setPreferredDataPhoneId(int preferredDataPhoneId) {
+        mPreferredDataPhoneId = preferredDataPhoneId;
+    }
+
+    public void notifyActivePhoneChange(int phoneId) {
+        mActivePhoneRegistrants.notifyRegistrants();
     }
 }

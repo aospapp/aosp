@@ -16,6 +16,3 @@
 
 include ':multidex'
 project(':multidex').projectDir = new File(rootDir, 'library')
-
-include ':multidex-instrumentation'
-project(':multidex-instrumentation').projectDir = new File(rootDir, 'instrumentation')

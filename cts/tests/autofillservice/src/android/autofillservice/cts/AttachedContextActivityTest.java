@@ -18,24 +18,25 @@ package android.autofillservice.cts;
 
 import android.autofillservice.cts.AttachedContextActivity.FillExpectation;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /**
  * Makes sure activity with attached context can be autofilled.
  */
-public class AttachedContextActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<AttachedContextActivity> mActivityRule =
-            new AutofillActivityTestRule<>(AttachedContextActivity.class);
+public class AttachedContextActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<AttachedContextActivity> {
 
     private AttachedContextActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<AttachedContextActivity> getActivityRule() {
+        return new AutofillActivityTestRule<AttachedContextActivity>(
+                AttachedContextActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test

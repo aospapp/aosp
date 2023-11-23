@@ -22,8 +22,9 @@ import static org.testng.Assert.assertThrows;
 
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.TextValueSanitizer;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.autofill.AutofillValue;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,7 +32,7 @@ import org.junit.runner.RunWith;
 import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class TextValueSanitizerTest {
 
     @Test
@@ -92,5 +93,39 @@ public class TextValueSanitizerTest {
                 new TextValueSanitizer(Pattern.compile("\\s*(\\d*)\\s*"), "$1");
         assertThat(sanitizer.sanitize(AutofillValue.forText("  42 ")).getTextValue())
                 .isEqualTo("42");
+    }
+
+    @Test
+    public void testSanitize_groupSubstitutionMatch_withOptionalGroup() {
+        final TextValueSanitizer sanitizer =
+                new TextValueSanitizer(Pattern.compile("(\\d*)\\s?(\\d*)?"), "$1$2");
+        assertThat(sanitizer.sanitize(AutofillValue.forText("42 108")).getTextValue())
+                .isEqualTo("42108");
+        assertThat(sanitizer.sanitize(AutofillValue.forText("42108")).getTextValue())
+                .isEqualTo("42108");
+        assertThat(sanitizer.sanitize(AutofillValue.forText("42")).getTextValue())
+                .isEqualTo("42");
+        final TextValueSanitizer ccSanitizer = new TextValueSanitizer(Pattern.compile(
+                "^(\\d{4,5})-?\\s?(\\d{4,6})-?\\s?(\\d{4,5})" // first 3 are required
+                        + "-?\\s?((?:\\d{4,5})?)-?\\s?((?:\\d{3,5})?)$"), // last 2 are optional
+                "$1$2$3$4$5");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("1111 2222 3333 4444 5555")).getTextValue())
+                        .isEqualTo("11112222333344445555");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("11111-222222-33333-44444-55555")).getTextValue())
+                        .isEqualTo("11111222222333334444455555");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("1111 2222 3333 4444")).getTextValue())
+                        .isEqualTo("1111222233334444");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("11111-222222-33333-44444-")).getTextValue())
+                        .isEqualTo("111112222223333344444");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("1111 2222 3333")).getTextValue())
+                        .isEqualTo("111122223333");
+        assertThat(ccSanitizer.sanitize(AutofillValue
+                .forText("11111-222222-33333 ")).getTextValue())
+                        .isEqualTo("1111122222233333");
     }
 }

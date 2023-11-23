@@ -23,21 +23,21 @@ class touch_TouchscreenZoom(touch_playback_test_base.touch_playback_test_base):
 
     def _check_zoom_in_one_direction(self, direction):
         logging.info('Starting to zoom %s', direction)
-        start_level = self._events.get_page_width()
+        start_level = self._events.get_page_zoom()
         self._events.clear_previous_events()
 
         self._playback(self._filepaths[direction], 'touchscreen')
 
         self._events.wait_for_events_to_complete()
-        end_level = self._events.get_page_width()
+        end_level = self._events.get_page_zoom()
         delta = end_level - start_level
 
         if delta == 0:
             self._events.log_events()
             raise error.TestFail('No page zoom occurred!')
 
-        if ((delta > 0 and direction == 'in') or
-            (delta < 0 and direction == 'out')):
+        if ((delta < 0 and direction == 'in') or
+            (delta > 0 and direction == 'out')):
             self._events.log_events()
             raise error.TestFail('Zoom was in the wrong direction!')
 

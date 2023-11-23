@@ -63,6 +63,7 @@ ${entry.deprecation_description | javadoc(metadata)}
   % endif
   % if entry.applied_visibility in ('public', 'java_public'):
     @PublicKey
+    @NonNull
   % endif
   % if entry.synthetic:
     @SyntheticKey

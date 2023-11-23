@@ -16,26 +16,57 @@
 
 package android.view.accessibility.cts;
 
+import static android.accessibility.cts.common.InstrumentedAccessibilityService.TIMEOUT_SERVICE_ENABLE;
+import static android.view.accessibility.cts.ServiceControlUtils.getEnabledServices;
+import static android.view.accessibility.cts.ServiceControlUtils.waitForConditionWithServiceStateChange;
+
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.Instrumentation;
 import android.app.Service;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.ServiceInfo;
 import android.os.Handler;
-import android.test.InstrumentationTestCase;
+import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
 import android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener;
 
-import com.android.compatibility.common.util.PollingCheck;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class for testing {@link AccessibilityManager}.
  */
-public class AccessibilityManagerTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityManagerTest {
+
+    private static final Instrumentation sInstrumentation =
+            InstrumentationRegistry.getInstrumentation();
 
     private static final String SPEAKING_ACCESSIBLITY_SERVICE_NAME =
         "android.view.accessibility.cts.SpeakingAccessibilityService";
@@ -46,28 +77,35 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
     private static final String MULTIPLE_FEEDBACK_TYPES_ACCESSIBILITY_SERVICE_NAME =
         "android.view.accessibility.cts.SpeakingAndVibratingAccessibilityService";
 
+    public static final String ACCESSIBILITY_NON_INTERACTIVE_UI_TIMEOUT_MS =
+            "accessibility_non_interactive_ui_timeout_ms";
+
+    public static final String ACCESSIBILITY_INTERACTIVE_UI_TIMEOUT_MS =
+            "accessibility_interactive_ui_timeout_ms";
+
     private AccessibilityManager mAccessibilityManager;
 
     private Context mTargetContext;
 
     private Handler mHandler;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
         mAccessibilityManager = (AccessibilityManager)
-                getInstrumentation().getContext().getSystemService(Service.ACCESSIBILITY_SERVICE);
-        mTargetContext = getInstrumentation().getTargetContext();
+                sInstrumentation.getContext().getSystemService(Service.ACCESSIBILITY_SERVICE);
+        mTargetContext = sInstrumentation.getTargetContext();
         mHandler = new Handler(mTargetContext.getMainLooper());
         // In case the test runner started a UiAutomation, destroy it to start with a clean slate.
-        getInstrumentation().getUiAutomation().destroy();
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        sInstrumentation.getUiAutomation().destroy();
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
     }
 
+    @Test
     public void testAddAndRemoveAccessibilityStateChangeListener() throws Exception {
         AccessibilityStateChangeListener listener = (state) -> {
                 /* do nothing */
@@ -77,6 +115,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         assertFalse(mAccessibilityManager.removeAccessibilityStateChangeListener(listener));
     }
 
+    @Test
     public void testAddAndRemoveTouchExplorationStateChangeListener() throws Exception {
         TouchExplorationStateChangeListener listener = (boolean enabled) -> {
             // Do nothing.
@@ -86,8 +125,10 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         assertFalse(mAccessibilityManager.removeTouchExplorationStateChangeListener(listener));
     }
 
+    @Test
     public void testIsTouchExplorationEnabled() throws Exception {
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         new PollingCheck() {
             @Override
             protected boolean check() {
@@ -96,6 +137,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         }.run();
     }
 
+    @Test
     public void testGetInstalledAccessibilityServicesList() throws Exception {
         List<AccessibilityServiceInfo> installedServices =
             mAccessibilityManager.getInstalledAccessibilityServiceList();
@@ -119,8 +161,10 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         assertTrue("The vibrating service should be installed.", vibratingServiceInstalled);
     }
 
+    @Test
     public void testGetEnabledAccessibilityServiceList() throws Exception {
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         List<AccessibilityServiceInfo> enabledServices =
             mAccessibilityManager.getEnabledAccessibilityServiceList(
                     AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
@@ -143,8 +187,10 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         assertTrue("The vibrating service should be enabled.", vibratingServiceEnabled);
     }
 
+    @Test
     public void testGetEnabledAccessibilityServiceListForType() throws Exception {
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         List<AccessibilityServiceInfo> enabledServices =
             mAccessibilityManager.getEnabledAccessibilityServiceList(
                     AccessibilityServiceInfo.FEEDBACK_SPOKEN);
@@ -161,10 +207,12 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         fail("The speaking service is not enabled.");
     }
 
+    @Test
     public void testGetEnabledAccessibilityServiceListForTypes() throws Exception {
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         // For this test, also enable a service with multiple feedback types
-        ServiceControlUtils.enableMultipleFeedbackTypesService(getInstrumentation());
+        SpeakingAndVibratingAccessibilityService.enableSelf(sInstrumentation);
 
         List<AccessibilityServiceInfo> enabledServices =
                 mAccessibilityManager.getEnabledAccessibilityServiceList(
@@ -199,6 +247,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetAccessibilityServiceList() throws Exception {
         List<ServiceInfo> services = mAccessibilityManager.getAccessibilityServiceList();
         boolean speakingServiceInstalled = false;
@@ -219,23 +268,28 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         assertTrue("The vibrating service should be installed.", vibratingServiceInstalled);
     }
 
+    @Test
     public void testInterrupt() throws Exception {
         // The APIs are heavily tested in the android.accessibilityservice package.
         // This just makes sure the call does not throw an exception.
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         waitForAccessibilityEnabled();
         mAccessibilityManager.interrupt();
     }
 
+    @Test
     public void testSendAccessibilityEvent() throws Exception {
         // The APIs are heavily tested in the android.accessibilityservice package.
         // This just makes sure the call does not throw an exception.
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         waitForAccessibilityEnabled();
         mAccessibilityManager.sendAccessibilityEvent(AccessibilityEvent.obtain(
                 AccessibilityEvent.TYPE_VIEW_CLICKED));
     }
 
+    @Test
     public void testTouchExplorationListenerNoHandler() throws Exception {
         final Object waitObject = new Object();
         final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
@@ -247,12 +301,13 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
             }
         };
         mAccessibilityManager.addTouchExplorationStateChangeListener(listener);
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, true, waitObject,
                 "Touch exploration state listener not called when services enabled");
         assertTrue("Listener told that touch exploration is enabled, but manager says disabled",
                 mAccessibilityManager.isTouchExplorationEnabled());
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, false, waitObject,
                 "Touch exploration state listener not called when services disabled");
         assertFalse("Listener told that touch exploration is disabled, but manager says it enabled",
@@ -260,6 +315,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         mAccessibilityManager.removeTouchExplorationStateChangeListener(listener);
     }
 
+    @Test
     public void testTouchExplorationListenerWithHandler() throws Exception {
         final Object waitObject = new Object();
         final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
@@ -271,12 +327,13 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
             }
         };
         mAccessibilityManager.addTouchExplorationStateChangeListener(listener, mHandler);
-        ServiceControlUtils.enableSpeakingAndVibratingServices(getInstrumentation());
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, true, waitObject,
                 "Touch exploration state listener not called when services enabled");
         assertTrue("Listener told that touch exploration is enabled, but manager says disabled",
                 mAccessibilityManager.isTouchExplorationEnabled());
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, false, waitObject,
                 "Touch exploration state listener not called when services disabled");
         assertFalse("Listener told that touch exploration is disabled, but manager says it enabled",
@@ -284,6 +341,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         mAccessibilityManager.removeTouchExplorationStateChangeListener(listener);
     }
 
+    @Test
     public void testAccessibilityStateListenerNoHandler() throws Exception {
         final Object waitObject = new Object();
         final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
@@ -295,12 +353,12 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
             }
         };
         mAccessibilityManager.addAccessibilityStateChangeListener(listener);
-        ServiceControlUtils.enableMultipleFeedbackTypesService(getInstrumentation());
+        SpeakingAndVibratingAccessibilityService.enableSelf(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, true, waitObject,
                 "Accessibility state listener not called when services enabled");
         assertTrue("Listener told that accessibility is enabled, but manager says disabled",
                 mAccessibilityManager.isEnabled());
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, false, waitObject,
                 "Accessibility state listener not called when services disabled");
         assertFalse("Listener told that accessibility is disabled, but manager says enabled",
@@ -308,6 +366,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         mAccessibilityManager.removeAccessibilityStateChangeListener(listener);
     }
 
+    @Test
     public void testAccessibilityStateListenerWithHandler() throws Exception {
         final Object waitObject = new Object();
         final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
@@ -319,12 +378,12 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
             }
         };
         mAccessibilityManager.addAccessibilityStateChangeListener(listener, mHandler);
-        ServiceControlUtils.enableMultipleFeedbackTypesService(getInstrumentation());
+        SpeakingAndVibratingAccessibilityService.enableSelf(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, true, waitObject,
                 "Accessibility state listener not called when services enabled");
         assertTrue("Listener told that accessibility is enabled, but manager says disabled",
                 mAccessibilityManager.isEnabled());
-        ServiceControlUtils.turnAccessibilityOff(getInstrumentation());
+        InstrumentedAccessibilityService.disableAllServices(sInstrumentation);
         assertAtomicBooleanBecomes(atomicBoolean, false, waitObject,
                 "Accessibility state listener not called when services disabled");
         assertFalse("Listener told that accessibility is disabled, but manager says enabled",
@@ -332,11 +391,100 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         mAccessibilityManager.removeAccessibilityStateChangeListener(listener);
     }
 
+    @Test
+    public void testGetRecommendedTimeoutMillis() throws Exception {
+        SpeakingAccessibilityService.enableSelf(sInstrumentation);
+        VibratingAccessibilityService.enableSelf(sInstrumentation);
+        waitForAccessibilityEnabled();
+        UiAutomation automan = sInstrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        try {
+            // SpeakingA11yService interactive/nonInteractive timeout is 6000/1000
+            // vibratingA11yService interactive/nonInteractive timeout is 5000/2000
+            turnOffRecommendedUiTimoutSettings(automan);
+            PollingCheck.waitFor(() -> sameRecommendedTimeout(6000, 2000));
+            turnOnRecommendedUiTimoutSettings(automan, 7000, 0);
+            PollingCheck.waitFor(() -> sameRecommendedTimeout(7000, 2000));
+            turnOnRecommendedUiTimoutSettings(automan, 0, 4000);
+            PollingCheck.waitFor(() -> sameRecommendedTimeout(6000, 4000));
+            turnOnRecommendedUiTimoutSettings(automan, 9000, 8000);
+            PollingCheck.waitFor(() -> sameRecommendedTimeout(9000, 8000));
+            turnOffRecommendedUiTimoutSettings(automan);
+            PollingCheck.waitFor(() -> sameRecommendedTimeout(6000, 2000));
+            assertEquals("Should return original timeout", 3000,
+                    mAccessibilityManager.getRecommendedTimeoutMillis(3000,
+                            AccessibilityManager.FLAG_CONTENT_ICONS));
+            assertEquals("Should return original timeout", 7000,
+                    mAccessibilityManager.getRecommendedTimeoutMillis(7000,
+                            AccessibilityManager.FLAG_CONTENT_CONTROLS));
+        } finally {
+            automan.destroy();
+        }
+    }
+
+    @AppModeFull
+    @Test
+    public void performShortcut_withoutPermission_fails() {
+        UiAutomation uiAutomation = sInstrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+
+        String originalShortcut = configureShortcut(
+                uiAutomation, SpeakingAccessibilityService.COMPONENT_NAME.flattenToString());
+        try {
+            mAccessibilityManager.performAccessibilityShortcut();
+            fail("No security exception thrown when performing shortcut without permission");
+        } catch (SecurityException e) {
+            // Expected
+        } finally {
+            configureShortcut(uiAutomation, originalShortcut);
+            uiAutomation.destroy();
+        }
+        assertTrue(TextUtils.isEmpty(getEnabledServices(mTargetContext.getContentResolver())));
+    }
+
+    @AppModeFull
+    @Test
+    public void performShortcut_withPermission_succeeds() {
+        UiAutomation uiAutomation = sInstrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+
+        String originalShortcut = configureShortcut(
+                uiAutomation, SpeakingAccessibilityService.COMPONENT_NAME.flattenToString());
+        try {
+            runWithShellPermissionIdentity(uiAutomation,
+                    () -> mAccessibilityManager.performAccessibilityShortcut());
+            // Make sure the service starts up
+            final SpeakingAccessibilityService service =
+                    SpeakingAccessibilityService.getInstanceForClass(
+                    SpeakingAccessibilityService.class, TIMEOUT_SERVICE_ENABLE);
+            assertTrue("Speaking accessibility service starts up", service != null);
+        } finally {
+            configureShortcut(uiAutomation, originalShortcut);
+            uiAutomation.destroy();
+        }
+    }
+
+    private String configureShortcut(UiAutomation uiAutomation, String shortcutService) {
+        String currentService = Settings.Secure.getString(mTargetContext.getContentResolver(),
+                Settings.Secure.ACCESSIBILITY_SHORTCUT_TARGET_SERVICE);
+        putSecureSetting(uiAutomation, Settings.Secure.ACCESSIBILITY_SHORTCUT_TARGET_SERVICE,
+                shortcutService);
+        if (shortcutService != null) {
+            runWithShellPermissionIdentity(uiAutomation, () ->
+                    waitForConditionWithServiceStateChange(mTargetContext, () -> TextUtils.equals(
+                            mAccessibilityManager.getAccessibilityShortcutService(),
+                            shortcutService),
+                            TIMEOUT_SERVICE_ENABLE,
+                            "accessibility shortcut set to test service"));
+        }
+        return currentService;
+    }
+
     private void assertAtomicBooleanBecomes(AtomicBoolean atomicBoolean,
             boolean expectedValue, Object waitObject, String message)
             throws Exception {
         long timeoutTime =
-                System.currentTimeMillis() + ServiceControlUtils.TIMEOUT_FOR_SERVICE_ENABLE;
+                System.currentTimeMillis() + TIMEOUT_SERVICE_ENABLE;
         synchronized (waitObject) {
             while ((atomicBoolean.get() != expectedValue)
                     && (System.currentTimeMillis() < timeoutTime)) {
@@ -356,7 +504,7 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         };
         mAccessibilityManager.addAccessibilityStateChangeListener(listener);
         long timeoutTime =
-                System.currentTimeMillis() + ServiceControlUtils.TIMEOUT_FOR_SERVICE_ENABLE;
+                System.currentTimeMillis() + TIMEOUT_SERVICE_ENABLE;
         synchronized (waitObject) {
             while (!mAccessibilityManager.isEnabled()
                     && (System.currentTimeMillis() < timeoutTime)) {
@@ -365,5 +513,39 @@ public class AccessibilityManagerTest extends InstrumentationTestCase {
         }
         mAccessibilityManager.removeAccessibilityStateChangeListener(listener);
         assertTrue("Timed out enabling accessibility", mAccessibilityManager.isEnabled());
+    }
+
+    private void turnOffRecommendedUiTimoutSettings(UiAutomation automan) {
+        putSecureSetting(automan, ACCESSIBILITY_INTERACTIVE_UI_TIMEOUT_MS, null);
+        putSecureSetting(automan, ACCESSIBILITY_NON_INTERACTIVE_UI_TIMEOUT_MS, null);
+    }
+
+    private void turnOnRecommendedUiTimoutSettings(UiAutomation automan,
+            int interactiveUiTimeout, int nonInteractiveUiTimeout) {
+        putSecureSetting(automan, ACCESSIBILITY_INTERACTIVE_UI_TIMEOUT_MS,
+                Integer.toString(interactiveUiTimeout));
+        putSecureSetting(automan, ACCESSIBILITY_NON_INTERACTIVE_UI_TIMEOUT_MS,
+                Integer.toString(nonInteractiveUiTimeout));
+    }
+
+    private boolean sameRecommendedTimeout(int interactiveUiTimeout,
+            int nonInteractiveUiTimeout) {
+        final int currentInteractiveUiTimeout = mAccessibilityManager
+                .getRecommendedTimeoutMillis(0, AccessibilityManager.FLAG_CONTENT_CONTROLS);
+        final int currentNonInteractiveUiTimeout = mAccessibilityManager
+                .getRecommendedTimeoutMillis(0, AccessibilityManager.FLAG_CONTENT_ICONS);
+        return (currentInteractiveUiTimeout == interactiveUiTimeout
+                && currentNonInteractiveUiTimeout == nonInteractiveUiTimeout);
+    }
+
+    private void putSecureSetting(UiAutomation automan, String name, String value) {
+        final StringBuilder cmd = new StringBuilder("settings put secure ")
+                .append(name).append(" ")
+                .append(value);
+        try {
+            SystemUtil.runShellCommand(automan, cmd.toString());
+        } catch (IOException e) {
+            fail("Fail to run shell command");
+        }
     }
 }

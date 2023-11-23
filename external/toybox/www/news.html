@@ -8,7 +8,414 @@ a development environment. See the links on the left for details.</p>
 
 <h2>News</h2>
 
-<a name="12-10-2017" /><a href="#03-10-2017"><hr><h2><b>October 12, 2017</b></h2></a>
+<a name="08-02-2019" /><a href="#08-02-2019"><hr><h2><b>February 8, 2019</b></h2></a>
+<blockquote>
+<p>"Most readers get as far as the Future Semiconditionally Modified
+Subinverted Plagal Past Subjunctive Intentional before giving up; and
+in fact in later editions of the book all pages beyond this point have
+been left blank to save on printing costs."</p>
+<p>- The Hitchhiker's Guide to the Galaxy</p>
+</blockquote>
+
+<p><a href=downloads/toybox-0.8.0.tar.gz>Toybox 0.8.0</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.8.0>git commit</a>)
+is out.</p>
+
+<p>Toybox now builds on MacOS and FreeBSD, thanks to the efforts of Elliott
+Hughes and Ed Maste respectively. Use the "make macos_defconfig" and "make
+freebsd_defconfig" targets to enable the set of commands that compile on
+each so far.</p>
+
+<p><u>New commands</u>: Added an <b>sntp</b> client/server (RFC 4330 Simple Network Time
+Protocol, a compatible subset of ntp). The <b>test</b> command was rewritten
+and promoted out of pending.</p>
+
+<p><u>New options</u>: <b>grep</b> now has --color, supports embedded NUL bytes in its input,
+recognizes binary files, and passes all of grep.test (in case you
+needed the middle numerical field of -bB, etc).
+Josh Gao added ipv6 and UDP support to <b>netcat</b>.
+Volodymyr Medvid reported that install -d doesn't honor -o or -g.
+Elliott Hughes did a lot of work to support hermetic Android/AOSP builds:
+<b>mkdir</b> accepts both --parent and --parents as synonyms for -p, <b>touch</b> ignores -f,
+<b>basename</b> added -s to remove a trailing suffix, <b>dirname</b> now supports multiple
+arguments, <b>cmp</b> accepts --quiet and --silent as synonyms for -s, <b>hostname</b>
+added -sfd, <b>head</b> added --bytes as a synonym for -c and --lines as a synonym
+for -n, <b>mktemp</b> added -t and fixed -u, <b>sed</b> added -z and -iEXT to keep backup files,
+<b>md5sum</b> and sha1sum added --status and --check as synonyms -s and -c,
+<b>readlink</b> added --canonicalize as a synonym for -f, <b>sort</b> grew -V,
+<b>patch</b> added -s its synonym --quiet, <b>stat</b> added --format as
+a synonym for -c, <b>xargs</b> added -p -t -r,
+Eduardas Meile asked
+that <b>umount</b> ignore -c. Reverend Homer added a small optimization to file.c,
+and Elliott taught <b>file</b> to recognize riscv ELF binaries. Peter Collingbourne
+taught <b>ls</b> -t to use the nanoseconds field.
+<b>patch</b> has better support for patching a file with a tab in the name.</p>
+
+<p><u>Bugfixes</u>:
+<b>cp</b> --preserve was segfaulting when you didn't specify _what_ to
+preserve (it now correctly defaults to "mot") and didn't get the permissions
+right when copying a symlink's contents as a regular file,
+<b>sort</b> -x didn't work when
+attached to a key, <b>host</b> didn't allocate a big enough buffer for worst
+case ipv6 address size, <b>sed</b> needed a ; between b and } when other
+implementations don't (we're already well past what posix says but a script
+out in the field broke...),
+and several fixes to <b>hostname</b> in a container, <b>ps</b>/<b>top</b> were
+misreading the VIRT and SHM fields.</p>
+
+<p><u>Pending</u>: Gavin Howard updated <b>bc</b> and added more tests,
+Marius Adaskevicius pointed out <b>mdev</b> -s should follow symlinks,
+Yangchun Fu reported a <b>dhcp</b> checksum bug, <b>modprobe</b> needed errno reset
+to avoid reporting spurious errors in verbose mode and no longer
+exits with status 1 if it can't find /etc/modprobe.conf, the <b>more</b> command
+wasn't always flushing stdout when it exited.</p>
+
+<p><u>Build</u>:
+<b>chrt</b> no longer #warns about the musl sched_get_priority_min() bug, but
+instead works around it.
+We were mixing setjmp/siglongjmp (harmless in some contexts but it kind
+of annoyed FreeBSD), and
+make install_airlock now adds sha256sum (because the Linux 4.20 build now
+needs that for the s390x target).</p>
+
+<p><u>Coding style</u>:
+Rob converted the rest of the option GLOBALS() to the new single letter
+coding style, and the new FLAG(x) macro is a slightly tidier way to say
+"toys.optflags&FLAG_x".
+Removed CFG_SORT_BIG (the sort command always
+has the full functionality now. The general future direction or toybox
+is to either have a command or not have it; multiple versions of the
+same command aren't worth the complexity in testing, documentation,
+or system adminstration).</p>
+
+<p><u>Library code</u>:
+The mkflags plumbing can now support arbitrary punctuation as option
+names via an escape syntax (because mkfs.vfat specifies an offset with -@),
+and lib/args.c now only sets FLAGS_NODASH when the first argument
+didn't have a dash (allowing "ps ax" and "ps -ax" to behave differently).</p>
+
+<p>Added an xrename() function,
+xchdir() has better error reporting, xconnect()/xbind() had their
+implementations merged, xsendto() moved from ping to lib, xpoll() now
+measures elapsed time and only waits for the remaining period when restarted,
+and Eduardas Meile converted several error_exit() to error_exit_raw() (because
+yocto 2.6 buils with -Werror=format-security by default).</p>
+
+<p>There's a scripts/portability.sh now which lets the build use gsed and gmake
+(when available) in more places to avoid broken host versions on MacOS and FreeBSD.
+The syntax of the "noreturn" attribute
+changed slightly, some calls to strnstr() were replaced with strcasestr(),
+we work around MacOS' lack of features.h, portability.h can now do Apple's
+endianness macros, and so on.</p>
+
+<p>Following the <a href=faq.html#support_horizon>seven year rule</a>
+Elliott removed support or glibc 2.10, and also
+reformatted a lot of --help text for consistency (removing trailing
+periods and such).</p>
+
+<p><u>Test suite</u>:
+The test suite now has its own version of "pending", specifically "make tests"
+skips test files without the executable bit set (unless you export $TEST_ALL).
+This eliminates "expected failures" (I.E. files with unresolved todo items)
+from the global regression test. Additional tests can be added to the global
+regression test with chmod +x as the todo items they document get resolved.</p>
+
+<p>Several places the test suite got fluffed out, including guards to skip
+root-only tests when run as a normal user. The testcmd function prints the
+short name instead of the full path to the command.
+The tests for the test command
+("test.test") no longer test the shell builtin but correctly test the
+toybox command. (Now say that ten times fast.)</p>
+
+<p>Bash version skew required replacing "continue" with "return" to stop
+tests early in bash 4.4 (for VERBOSE=fail).</p>
+
+
+<a name="31-10-2018" /><a href="#31-10-2018"><hr><h2><b>October 31, 2018</b></h2></a>
+<blockquote><p>
+"In the beginning the Universe was created.
+This has made a lot of people very angry and been widely regarded as a bad move." - The Hitchhiker's Guide to the Galaxy.
+</p>
+</blockquote>
+
+<p><a href=downloads/toybox-0.7.8.tar.gz>Toybox 0.7.8</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.7.8>git commit</a>)
+is out (a month late).</p>
+
+<p>Toybox <a href=http://lists.landley.net/pipermail/toybox-landley.net/2018-October/009769.html>now builds</a> with the Android NDK (r18 release), almost out of the box.
+You have to add an "llvm-cc" symlink to "clang", then use CROSS_COMPILE=llvm-
+with the appropriate $PATH (or absolute path in CROSS_COMPILE) for the
+target you want to build for. (To run it on a non-android host, you probably
+want "LDFLAGS=--static" too.)</p>
+
+<p><u>New commands</u>: <b>i2cdetect</b>, <b>i2cdump</b>, <b>i2cget</b>, and <b>i2cset</b>
+courtesy of Elliott/Android. The <b>watch</b> command got a complete (tty-aware)
+rewrite, and was promoted out of pending. The <b>prlimit</b> command is back
+(a configuration bug was always disabling it), and <b>ascii</b> now defaults y
+in defconfig (an oversight).</p>
+
+<p><u>New options</u>: 
+The <b>ifconfig</b> command added -S (short view) giving one line of
+information per interface, in "name ipv4/mask macaddr [ipv6/mask@type...]"
+format. <b>grep</b> grew binary file detection, with -I and -a options to
+ignore them or force treating them as ascii (really utf8).
+Zach Van Rijn asked for <b>find -empty</b>.
+In the <b>file</b> command, Elliott improved java
+.class support and added .wav, .bmp, and android .dex.
+Elliott also added "getconf -a" and a lot of missing getconf symbols the
+AOSP build uses, including support for pathconf(3) symbols requiring two
+arguments. This means getconf's arguments work more like ubuntu's
+now (one or two arguments, not iterating through the supplied list and
+processing each like last release), and -l grew section identifiers (so
+the "getconf -l" output is no longer a directly consumable list of symbols
+it takes).
+Command line options specifying durations (like top -d or ping -i) can
+now use fractions and units, like "1.5" and ".1m". See "toybox --help" for
+details.
+Toybox now dereferences one layer of symlinks if it doesn't recognize the
+name it's called under (so if you "ln -s $(which sleep) blah" and then
+"./blah 30", it should figure out you mean sleep 30).</p>
+
+<p><u>Pending</u>:
+Gavin Howard contributed a large new <b>bc</b> implementation to pending,
+which covers everything the kernel build needs (and more) but is going to
+take a while to review.
+In <b>diff</b> the android guys added --color and timestamps on the
++++/--- lines. In <b>mdev</b> Faustas Azuolas Bagdonas added support
+for mdev.conf's fourth field. Reverend Homer suggested an error message
+improvement in <b>wget</b>, Kevin Spiteri did a cleanup pass on test.c,
+and there was a cleanup pass on the passwd command.</p>
+
+<p><u>Bugfixes</u>:
+Elliott responded to a bug in <b>getconf</b>'s sed-based header generation by
+replacing it with a more conventional array of #defined symbols, with #ifdefs
+for missing symbols on the three libc implementations (glibc, bionic, musl)
+we've tested so far. (This requires portability.h work to add new supported
+build environments, but at least it works on bionic now.)
+The <b>file</b> command now fails gracefully when reading pathologically
+broken ELF files (the tests for integer overflow missed one), and
+<b>date</b> no longer shows a meaningless errno when it can't parse the
+date format.
+Several fixes in <b>ping</b> (-w and -W didn't work, -c kept sending packets
+while waiting for replies, and when no reply packets were received the summary
+data was printed twice).
+Elliott fixed <b>wc</b> column widths (traditional reality doesn't match
+posix), fixed <b>modprobe</b>'s error handling (reported by Wen Xie), and
+also fixed the units on blockdev --blkraget (reported by Martijn Coenen).
+Several small fixes to the <b>stat</b> command's output (help text, quoting
+style, leading zeroes, switch -f from %t to %T), <b>oneit</b> no longer
+reboots the system when it's not called as PID 1.
+Last release's commit letting $STRIP be redefined had a typo.
+Nick Kralevich added an istty() check before calling TIOCGWINSZ (which
+triggered Android's strict ioctl filtering on non-filesystem fifos).
+An unstripped build (where the "strip" command fails for a given
+CROSS_COMPILE) will now overwrite the (read-only) output file instead of
+failing a rebuild. The dirtree plumbing no longer prints a "No" on front
+of the filename in error messages (such as "permission denied").</p>
+
+<p><u>Docmentation</u>
+Elliott updated the roadmap with Android AOSP status, towards turning that
+into a hermetic build (hopefully with an eventual self-hosting option, work
+is <a href=b33d37d6f735>already underway</a> on the airlock step).
+Rob added a little more context for LSB and described the move from Aboriginal
+Linux to mkroot.
+The <b>ps</b> help text changed: now "ps -o help" shows the fields and the normal
+--help is much more manageable. Ifconfig's --help text also got tidied up.
+Our LICENSE file has the SPDX identifier (0BSD) now, and the note about
+the kconfig/ subdirectory still having (build only, non-shipping) GPL code
+in it moved into the kconfig subdirectory.</p>
+
+<p><u>Coding style change:</u>
+GLOBALS() now uses the argument letter as the variable
+name for variables automatically set by command line arguments via lib/args.c,
+and no longer requires they be one per line.
+Removed use of the gcc
+\e extension in string constants, replacing it with \033.</p>
+
+<p><u>Library code:</u>
+lib/interestingtimes.c was renamed to lib/tty.c.
+The deflate code from toys/pending/compress.c moved to lib/deflate.c,
+which gunzip.c now uses when it's not configured to use zlib. (This reduces
+the bootstrap dependencies for the "airlock" step of a hermetic build.)
+The compression side remains a todo item.
+Added "%" to lib/args.c reading seconds (including fractions/units) into a
+long milliseconds argument. Redid xparsetime() to not need floating point,
+added xparsemillitime() for milliseconds common case, and
+parsetime() now treats leading garbage as an error instead of returning zero.
+The bufgetpwuid()/pufgetgrgid() functons can now handle more than 4k of group
+data. The set_terminal() function can now set serial speed, and microcom.c
+uses it. Added xsignal_flags(), and more consistently use xsignal() (which wraps
+sigaction()) instead of signal().
+A new xgetrandom() function calls the new getrandom() system call, falling
+back to /dev/urandom on older kernel/libc (made to actually _work_ by
+Patrick Oppenlander).</p>
+
+<p><u>Build infrastructure:</u>
+Updated dependency detection so "make distclean defconfig toybox" now works
+all on the same command line. (This is nice when $CROSS_COMPILE changes).
+scripts/config2help.c no longer includes parts of lib/ and just copies what
+it needs into itself, improving build portability.
+The build now checks the specified cross compiler exists, hopefully providing
+a more informative error message when it doesn't. Similarly, when .config is
+missing the error message suggests running make defconfig.</p>
+
+<a name="23-06-2018" /><a href="#23-06-2018"><hr><h2><b>June 23, 2018</b></h2></a>
+<blockquote>
+<p>There is a theory which states that if ever anyone discovers exactly what
+the Universe is for and why it is here, it will instantly disappear and be
+replaced by something even more bizarre and inexplicable. There is another
+theory which states that this has already happened.</p>
+<p> - The Hitchhiker's Guide to the Galaxy</p>
+</blockquote>
+
+<p><a href=downloads/toybox-0.7.7.tar.gz>Toybox 0.7.7</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.7.7>git commit</a>)
+is out.</p>
+
+<p><u>New commands</u>: Rob Landley added <b>getconf</b>, Elliott Hughes added
+<b>uuidgen</b>, and <b>ping</b> and <b>fmt</b> were promoted out of pending.</p>
+
+<p><u>New options</u>: The <b>cp</b> command added the --parents option,
+<b>readlink</b> now has -m to show where a missing path would be,
+<b>netstat</b> got some updates (better nommu support, it can use /etc/services
+names, more command line options are bounds checked),
+Ng Zhi An added --getra and --setra (get/set readahead) to <b>blockdev</b>,
+Elliott Hughes added <b>xxd</b> -o and made <b>top</b> -d understand fractional
+sections (because the Linux Test Project uses that), and
+Minghui Liu added <b>watch</b> -b.</p>
+
+<p><u>Bugfixes</u>: Several fixes to <b>vmstat</b>: Elliott Hughes made it work on a
+48-core machine
+and fixed a glitch with -n, Haroon Maqsood pointed out "vmstat 1 1" didn't
+stop and "vmstat -n" didn't print the first theader line.
+Minghui Liu fixed a bug where <b>cp</b> -p didn't preserve
+timestamps, and pointed out the b, c, and d suffixes on numbers weren't
+working. Ryan Pritchard pointed out that <b>du</b> -d0 should act like du -s.
+Filip Perich made an RFC2347 OACK compliance fix to <b>tftp</b> in pending.
+Zach van Rijn fixed a bug in <b>xxd</b> causing incorrect translation of
+uppercase characters.
+Elliott fixed several things in <b>top</b> (removed spurious '\r' characters from -b
+output, removed interactive flicker, made running processes bold), and
+pushed Rob to make <b>file</b> work better recognizing things on stdin
+("cat /bin/ls | file -" still won't work but "file - < /bin/ls" should).
+Rob fixed a bug in <b>netstat</b> on 64 bit big endian systems,
+and fixed <b>cut</b> -DF
+(a posix compliance fix broke its ability to act as a decent awk replacment
+because outputting all delimiterless lines isn't what you want there, -D
+now disables that too).</p>
+</u></p>
+
+<p><u>Documentation</u>: Rob added a buildroot section to the roadmap with the
+prequisites that needs to run, and reformatted more of the ps --help text
+to two columns.</p>
+
+<p><u>Library</u>:
+FLAGS_NODASH is now set in toys.optargs when an optstring starting
+with & has no dash in its first argument. (This lets "ps -ax" and "ps ax"
+behave differently.) Factored out xtestfile() into lib/.
+The comma-separated-list parsing infrastructure moved to lib/commas.c.
+Added mkpath() for the common case of mkpathat() and #defined MKPATHAT_*
+constants for the uncommon cases. Elliott added better error checking
+to xparsetime() and fixed a bug in names_to_pid() (used in <b>pidof</b>
+and <b>killall</b> and such).
+Rob inlined the old toys/e2fs.h into pending's mke2fs,
+and removed a rogue semicolon from the WOULD_EXIT() macro that screwed
+up if() statement levels. The do_lines() semantics changed adding a
+callback(0,0) at the end of each file.</p>
+
+<p><u>Tests</u>:
+The test_* commands under toys/example were all renamed demo_* so
+they don't share a namespace with running a standalone command
+through the test suite (ala "make test_sed"), then
+demo_human_readable became demo_number so it can also test atolx()
+suffixes. The readlink.test was getting confused by a
+behavior difference between toybox and ubuntu (Ubuntu's ln -sf wouldn't
+replace a symlink that pointed to itself, toybox's would), now there's
+an explicit rm so it works on ubuntu too. The test suite plumbing's
+error message for a test with the wrong number of arguments now
+correctly identifies which test it's complaining about, and it can now
+run a test on a command name beginning with "-" (none yet but it
+comes up in toysh).</p>
+
+<p><u>Building</u>: You can now override strip with $STRIP. The set of
+"make install_airlock" commands got tweaked for the 4.17 kernel (which
+needs bison and flex because the new kconfig plumbing doesn't have _shipped
+versions of those generated files like the old kconfig did), and for
+the new release (remove ping, toybox provides it now).
+$LDFLAGS now applies to library probing (the android NDK provides
+dynamic libraries without corresponding --static versions).
+Elliott took a CFG_TOYBOX_DEBUG check out of an error_exit() to make
+clang stop complaining about an error that should never happen.</p>
+
+<a name="24-02-2018" /><a href="#24-02-2018"><hr><h2><b>February 24, 2018</b></h2></a>
+<blockquote><p>
+"Arthur," said Ford.<br />
+"Hello? Yes?" said Arthur.<br />
+"Just believe everything I tell you, and it will all be very, very simple."<br />
+"Ah, well, I'm not sure I believe that."<br />
+</p>
+<p> - The Hitchhiker's Guide to the Galaxy</p>
+</blockquote>
+
+<p><a href=downloads/toybox-0.7.6.tar.gz>Toybox 0.7.6</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.7.6>git commit</a>)
+is out, a month and change late.</p>
+
+<p>This release adds a <b>crc32</b> command and
+cleans up and promotes <b>iconv</b>, <b>logger</b>, and <b>setfattr</b>.
+Pending added <b>stty</b> and <b>fmt</b>, the other half of <b>ping</b>,
+and got a lot of cleanup on <b>gzip</b>/<b>gunzip</b>/<b>zcat</b>.</p>
+
+<p>The <b>cut</b> command got a complete rewrite adding support for multiple
+ranges, utf8/unicode characters, and new -CDFO options. Use -C to measure
+columns rather than characters (for double width chars), and "cut -DF 3-5"
+selects words (like "awk '{print $3 $4 $5}'").</p>
+
+<p>This release adds <b>top -m</b> and <b>iotop -H</b> (and fixed top width truncating for narrow terminal windows),
+added <b>iconv -c</b>, fixed <b>ps -T 1234</b> to show threads belonging to
+that PID, improved <b>file</b>'s executable identification (properly recognizing
+both endiannesses and adding sh/frv fdpic, bpf, and new microblaze
+identifiers), and <b>blkid</b> now only shows LABEL= when it isn't blank.</p>
+
+<p>Running ./configure now does "make defconfig", help_exit() now shows the
+"See %s --help" message on the same line, and several web pages
+(about, code, roadmap, cleanup) got updates.</p>
+
+<p>Elliott and the Android devs added <b>df -i</b>, <b>uptime -p</b>,
+<b>time -v</b>, and <b>xxd -i -ri</b>,
+fixed <b>id -G</b> to only output the group IDs, fixed the <b>xargs -0 -n</b>
+combination, made <b>find -exec +</b> obey ARG_MAX (just like xargs), made
+<b>killall</b> kill scripts too, fixed an off by one error in <b>pidof</b>
+that could cause false positive matches in 15 character names, added
+gzip/gunzip/zcat tests, and taught <b>file</b> to identify more stuff
+(ogg, TrueType font, LLVM bitcode, PEM certs, and PE executables), and
+for some reason needed TOYBOX_VENDOR in the version stuff.
+Android <b>getprop</b>/<b>setprop</b> now allows ro. properties to have
+arbitrary lengths, <b>losetup</b> can now find loop devices under /dev/block (where android puts
+them for historical reasons), and Andreas Gampe pointed out a thinko in
+<b>top</b> that triggered llvm's address sanitizer checks.</p>
+
+<p>Gael PORTAY asked for mdev to work when Linux has the
+block layer configured out, Patrick Oppenlander pointed out a problem
+with make bloatcheck's build dependencies, and
+xuphung on github fixed config2help building on MacOS X.</p>
+
+<p>Commands with locale support now setlocale(LC_TYPE, "C.UTF-8") for more
+targeted locale support (enable character parsing with
+utf8 support, use "C" semantics otherwise). The toys/example/test_*.c
+commands got renamed demo_*.c.</p>
+
+<p>In lib.c the millitime() function returns current unix time in milliseconds
+(which as a 64 bit number is good for + or - 292 million years from
+midnight Jan 1 1970), and the old xgetty() function became tty_fd() returning
+-1 instead of erroring out.</p>
+
+<p>The "make help" text moved from the Makefile to scripts/help.txt,
+ls.c now lists some of its deviations from posix, and work is underway
+to make ps.c more intelligible (and figure out how to break it up into
+multiple files).</p>
+
+<a name="12-10-2017" /><a href="#12-10-2017"><hr><h2><b>October 12, 2017</b></h2></a>
 <blockquote><p>Would it save you a lot of time if I just gave up and went
 mad now?</p>
 <p> - The Hitchhiker's Guide to the Galaxy</p>
@@ -674,7 +1081,7 @@ for arrays of structures starting with a name string.</p></li>
 and so on), and for tracking multiple lines of text
 (vi, less, shell history) that need wordwrapping and scrolling up/down.</p></li>
 <li><p>Upgrades to lib/interestingtimes.c: scan_key() now has a timeout
-in miliseconds and recognizes more sequences including ANSI
+in milliseconds and recognizes more sequences including ANSI
 window size probes. New utf8 test files in tests/files/utf8 including
 sequence reversing, stacked combining chars, and all three types of
 unprintable sequences (low ascii <32 ala ^X, invalid utf8 sequences ala

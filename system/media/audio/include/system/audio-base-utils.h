@@ -36,7 +36,7 @@ enum {
    /** Total number of stream. */
     AUDIO_STREAM_CNT          = AUDIO_STREAM_PATCH + 1,
 
-    AUDIO_SOURCE_MAX          = AUDIO_SOURCE_UNPROCESSED,
+    AUDIO_SOURCE_MAX          = AUDIO_SOURCE_VOICE_PERFORMANCE,
     AUDIO_SOURCE_CNT          = AUDIO_SOURCE_MAX + 1,
 
     AUDIO_MODE_MAX            = AUDIO_MODE_IN_COMMUNICATION,
@@ -66,7 +66,9 @@ enum {
                                 AUDIO_CHANNEL_OUT_TOP_BACK_CENTER |
                                 AUDIO_CHANNEL_OUT_TOP_BACK_RIGHT |
                                 AUDIO_CHANNEL_OUT_TOP_SIDE_LEFT |
-                                AUDIO_CHANNEL_OUT_TOP_SIDE_RIGHT,
+                                AUDIO_CHANNEL_OUT_TOP_SIDE_RIGHT |
+                                AUDIO_CHANNEL_OUT_HAPTIC_B |
+                                AUDIO_CHANNEL_OUT_HAPTIC_A,
 
     AUDIO_CHANNEL_IN_ALL      = AUDIO_CHANNEL_IN_LEFT |
                                 AUDIO_CHANNEL_IN_RIGHT |
@@ -88,6 +90,9 @@ enum {
                                 AUDIO_CHANNEL_IN_LOW_FREQUENCY |
                                 AUDIO_CHANNEL_IN_TOP_LEFT |
                                 AUDIO_CHANNEL_IN_TOP_RIGHT,
+
+    AUDIO_CHANNEL_HAPTIC_ALL  = AUDIO_CHANNEL_OUT_HAPTIC_B |
+                                AUDIO_CHANNEL_OUT_HAPTIC_A,
 
     AUDIO_DEVICE_OUT_ALL      = AUDIO_DEVICE_OUT_EARPIECE |
                                 AUDIO_DEVICE_OUT_SPEAKER |
@@ -156,6 +161,8 @@ enum {
                                 AUDIO_DEVICE_IN_PROXY |
                                 AUDIO_DEVICE_IN_USB_HEADSET |
                                 AUDIO_DEVICE_IN_BLUETOOTH_BLE |
+                                AUDIO_DEVICE_IN_HDMI_ARC |
+                                AUDIO_DEVICE_IN_ECHO_REFERENCE |
                                 AUDIO_DEVICE_IN_DEFAULT,
 
     AUDIO_DEVICE_IN_ALL_SCO   = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
@@ -173,5 +180,17 @@ enum {
                                 AUDIO_PORT_CONFIG_GAIN,
 }; // enum
 
+// Add new aliases
+enum {
+    AUDIO_CHANNEL_OUT_TRI                   = 0x7u,     // OUT_FRONT_LEFT | OUT_FRONT_RIGHT | OUT_FRONT_CENTER
+    AUDIO_CHANNEL_OUT_TRI_BACK              = 0x103u,   // OUT_FRONT_LEFT | OUT_FRONT_RIGHT | OUT_BACK_CENTER
+    AUDIO_CHANNEL_OUT_3POINT1               = 0xFu,     // OUT_FRONT_LEFT | OUT_FRONT_RIGHT | OUT_FRONT_CENTER | OUT_LOW_FREQUENCY
+};
+
+// Microphone Field Dimension Constants
+#define MIC_FIELD_DIMENSION_WIDE (-1.0f)
+#define MIC_FIELD_DIMENSION_NORMAL (0.0f)
+#define MIC_FIELD_DIMENSION_NARROW (1.0f)
+#define MIC_FIELD_DIMENSION_DEFAULT MIC_FIELD_DIMENSION_NORMAL
 
 #endif  // ANDROID_AUDIO_BASE_UTILS_H

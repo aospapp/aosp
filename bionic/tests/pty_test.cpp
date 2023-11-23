@@ -31,7 +31,7 @@ TEST(pty, openpty) {
   int master, slave;
   char name[32];
   struct winsize w = { 123, 456, 9999, 999 };
-  ASSERT_EQ(0, openpty(&master, &slave, name, NULL, &w));
+  ASSERT_EQ(0, openpty(&master, &slave, name, nullptr, &w));
   ASSERT_NE(-1, master);
   ASSERT_NE(-1, slave);
   ASSERT_NE(master, slave);
@@ -55,7 +55,7 @@ TEST(pty, forkpty) {
   pid_t sid = getsid(0);
 
   int master;
-  pid_t pid = forkpty(&master, NULL, NULL, NULL);
+  pid_t pid = forkpty(&master, nullptr, nullptr, nullptr);
   ASSERT_NE(-1, pid);
 
   if (pid == 0) {
@@ -109,8 +109,7 @@ TEST(pty, bug_28979140) {
   cpu_set_t cpus;
   ASSERT_EQ(0, sched_getaffinity(0, sizeof(cpu_set_t), &cpus));
   if (CPU_COUNT(&cpus) < 2) {
-    GTEST_LOG_(INFO) << "This test tests bug happens only on multiprocessors.";
-    return;
+    GTEST_SKIP() << "This bug only happens on multiprocessors";
   }
   constexpr uint32_t TEST_DATA_COUNT = 2000000;
 

@@ -29,9 +29,11 @@
 #include <string>
 #include <thread>
 
+#include <android-base/file.h>
 #include <android-base/scopeguard.h>
 
 #include "gtest_globals.h"
+#include "gtest_utils.h"
 #include "dlfcn_symlink_support.h"
 #include "utils.h"
 
@@ -46,6 +48,12 @@
 
 #pragma clang diagnostic pop
 #endif //  defined(__ANDROID__) && (defined(__arm__) || defined(__i386__))
+
+// Declared manually because the macro definitions in <elf.h> conflict with LLVM headers.
+#ifdef __arm__
+typedef uintptr_t _Unwind_Ptr;
+extern "C" _Unwind_Ptr dl_unwind_find_exidx(_Unwind_Ptr, int*);
+#endif
 
 #define ASSERT_SUBSTR(needle, haystack) \
     ASSERT_PRED_FORMAT2(::testing::IsSubstring, needle, haystack)
@@ -72,9 +80,9 @@ extern "C" void ctor_function(int argc, char** argv, char** envp) {
 
 TEST(dlfcn, ctor_function_call) {
   ASSERT_EQ(17, g_ctor_function_called);
-  ASSERT_TRUE(g_ctor_argc = get_argc());
-  ASSERT_TRUE(g_ctor_argv = get_argv());
-  ASSERT_TRUE(g_ctor_envp = get_envp());
+  ASSERT_TRUE(g_ctor_argc = GetArgc());
+  ASSERT_TRUE(g_ctor_argv = GetArgv());
+  ASSERT_TRUE(g_ctor_envp = GetEnvp());
 }
 
 TEST(dlfcn, dlsym_in_executable) {
@@ -252,8 +260,7 @@ TEST(dlfcn, dlopen_by_soname) {
 TEST(dlfcn, dlopen_vdso) {
 #if __has_include(<sys/auxv.h>)
   if (getauxval(AT_SYSINFO_EHDR) == 0) {
-    GTEST_LOG_(INFO) << "getauxval(AT_SYSINFO_EHDR) == 0, skipping this test.";
-    return;
+    GTEST_SKIP() << "getauxval(AT_SYSINFO_EHDR) == 0, skipping this test";
   }
 #endif
 
@@ -928,7 +935,7 @@ TEST(dlfcn, dladdr_executable) {
   ASSERT_NE(rc, 0); // Zero on error, non-zero on success.
 
   // Get the name of this executable.
-  const std::string& executable_path = get_executable_path();
+  const std::string executable_path = android::base::GetExecutablePath();
 
   // The filename should be that of this executable.
   char dli_realpath[PATH_MAX];
@@ -962,15 +969,15 @@ TEST(dlfcn, dlopen_executable_by_absolute_path) {
   void* handle1 = dlopen(nullptr, RTLD_NOW);
   ASSERT_TRUE(handle1 != nullptr) << dlerror();
 
-  void* handle2 = dlopen(get_executable_path().c_str(), RTLD_NOW);
+  void* handle2 = dlopen(android::base::GetExecutablePath().c_str(), RTLD_NOW);
   ASSERT_TRUE(handle2 != nullptr) << dlerror();
 
 #if defined(__BIONIC__)
   ASSERT_EQ(handle1, handle2);
 #else
-  GTEST_LOG_(INFO) << "Skipping ASSERT_EQ(handle1, handle2) for glibc: "
-                      "it loads a separate copy of the main executable "
-                      "on dlopen by absolute path.";
+  GTEST_SKIP() << "Skipping ASSERT_EQ(handle1, handle2) for glibc: "
+                  "it loads a separate copy of the main executable "
+                  "on dlopen by absolute path";
 #endif
 }
 
@@ -995,7 +1002,10 @@ TEST(dlfcn, dlopen_executable_by_absolute_path) {
 #define ALTERNATE_PATH_TO_LIBC ALTERNATE_PATH_TO_SYSTEM_LIB "libc.so"
 
 TEST(dlfcn, dladdr_libc) {
-#if defined(__BIONIC__)
+#if defined(__GLIBC__)
+  GTEST_SKIP() << "glibc returns libc.so's ldconfig path, which is a symlink (not a realpath)";
+#endif
+
   Dl_info info;
   void* addr = reinterpret_cast<void*>(puts); // well-known libc function
   ASSERT_TRUE(dladdr(addr, &info) != 0);
@@ -1017,10 +1027,6 @@ TEST(dlfcn, dladdr_libc) {
   // TODO: add check for dfi_fbase
   ASSERT_STREQ("puts", info.dli_sname);
   ASSERT_EQ(addr, info.dli_saddr);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing for glibc. Glibc returns path from ldconfig "
-      "for libc.so, which is symlink itself (not a realpath).\n";
-#endif
 }
 
 TEST(dlfcn, dladdr_invalid) {
@@ -1058,7 +1064,7 @@ TEST(dlfcn, dlopen_library_with_only_gnu_hash) {
   ASSERT_STREQ("getRandomNumber", dlinfo.dli_sname);
   ASSERT_SUBSTR("libgnu-hash-table-library.so", dlinfo.dli_fname);
 #else
-  GTEST_LOG_(INFO) << "This test does nothing for mips/mips64; mips toolchain does not support '--hash-style=gnu'\n";
+  GTEST_SKIP() << "mips toolchain does not support '--hash-style=gnu'";
 #endif
 }
 
@@ -1078,13 +1084,6 @@ TEST(dlfcn, dlopen_library_with_only_sysv_hash) {
   ASSERT_TRUE(fn == dlinfo.dli_saddr);
   ASSERT_STREQ("getRandomNumber", dlinfo.dli_sname);
   ASSERT_SUBSTR("libsysv-hash-table-library.so", dlinfo.dli_fname);
-}
-
-TEST(dlfcn, dlopen_library_with_ELF_TLS) {
-  dlerror(); // Clear any pending errors.
-  void* handle = dlopen("libelf-tls-library.so", RTLD_NOW);
-  ASSERT_TRUE(handle == nullptr);
-  ASSERT_SUBSTR("unsupported ELF TLS", dlerror());
 }
 
 TEST(dlfcn, dlopen_bad_flags) {
@@ -1183,13 +1182,13 @@ TEST(dlfcn, dlopen_symlink) {
 // that calls dlopen(libc...). This is to test the situation
 // described in b/7941716.
 TEST(dlfcn, dlopen_dlopen_from_ctor) {
-#if defined(__BIONIC__)
+#if defined(__GLIBC__)
+  GTEST_SKIP() << "glibc segfaults if you try to call dlopen from a constructor";
+#endif
+
   void* handle = dlopen("libtest_dlopen_from_ctor_main.so", RTLD_NOW);
   ASSERT_TRUE(handle != nullptr) << dlerror();
   dlclose(handle);
-#else
-  GTEST_LOG_(INFO) << "This test is disabled for glibc (glibc segfaults if you try to call dlopen from a constructor).\n";
-#endif
 }
 
 static std::string g_fini_call_order_str;
@@ -1315,7 +1314,7 @@ TEST(dlfcn, dt_runpath_smoke) {
 }
 
 TEST(dlfcn, dt_runpath_absolute_path) {
-  std::string libpath = get_testlib_root() + "/libtest_dt_runpath_d.so";
+  std::string libpath = GetTestlibRoot() + "/libtest_dt_runpath_d.so";
   void* handle = dlopen(libpath.c_str(), RTLD_NOW);
   ASSERT_TRUE(handle != nullptr) << dlerror();
 
@@ -1329,7 +1328,7 @@ TEST(dlfcn, dt_runpath_absolute_path) {
   dlclose(handle);
 }
 
-TEST(dlfcn, dlclose_after_thread_local_dtor) {
+static void test_dlclose_after_thread_local_dtor(const char* library_name) {
   bool is_dtor_triggered = false;
 
   auto f = [](void* handle, bool* is_dtor_triggered) {
@@ -1342,10 +1341,10 @@ TEST(dlfcn, dlclose_after_thread_local_dtor) {
     ASSERT_TRUE(!*is_dtor_triggered);
   };
 
-  void* handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  void* handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
   ASSERT_TRUE(handle == nullptr);
 
-  handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW);
+  handle = dlopen(library_name, RTLD_NOW);
   ASSERT_TRUE(handle != nullptr) << dlerror();
 
   std::thread t(f, handle, &is_dtor_triggered);
@@ -1354,18 +1353,26 @@ TEST(dlfcn, dlclose_after_thread_local_dtor) {
   ASSERT_TRUE(is_dtor_triggered);
   dlclose(handle);
 
-  handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
   ASSERT_TRUE(handle == nullptr);
 }
 
-TEST(dlfcn, dlclose_before_thread_local_dtor) {
+TEST(dlfcn, dlclose_after_thread_local_dtor) {
+  test_dlclose_after_thread_local_dtor("libtest_thread_local_dtor.so");
+}
+
+TEST(dlfcn, dlclose_after_thread_local_dtor_indirect) {
+  test_dlclose_after_thread_local_dtor("libtest_indirect_thread_local_dtor.so");
+}
+
+static void test_dlclose_before_thread_local_dtor(const char* library_name) {
   bool is_dtor_triggered = false;
 
-  auto f = [](bool* is_dtor_triggered) {
-    void* handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  auto f = [library_name](bool* is_dtor_triggered) {
+    void* handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
     ASSERT_TRUE(handle == nullptr);
 
-    handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW);
+    handle = dlopen(library_name, RTLD_NOW);
     ASSERT_TRUE(handle != nullptr) << dlerror();
 
     typedef void (*fn_t)(bool*);
@@ -1380,16 +1387,16 @@ TEST(dlfcn, dlclose_before_thread_local_dtor) {
 
     // Since we have thread_atexit dtors associated with handle - the library should
     // still be availabe.
-    handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+    handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
     ASSERT_TRUE(handle != nullptr) << dlerror();
     dlclose(handle);
   };
 
-  void* handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW);
+  void* handle = dlopen(library_name, RTLD_NOW);
   ASSERT_TRUE(handle != nullptr) << dlerror();
   dlclose(handle);
 
-  handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
   ASSERT_TRUE(handle == nullptr);
 
   std::thread t(f, &is_dtor_triggered);
@@ -1397,12 +1404,126 @@ TEST(dlfcn, dlclose_before_thread_local_dtor) {
 #if defined(__BIONIC__)
   // ld-android.so unloads unreferenced libraries on pthread_exit()
   ASSERT_TRUE(is_dtor_triggered);
-  handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
   ASSERT_TRUE(handle == nullptr);
 #else
   // GLIBC does not unload libraries with ref_count = 0 on pthread_exit
   ASSERT_TRUE(is_dtor_triggered);
-  handle = dlopen("libtest_thread_local_dtor.so", RTLD_NOW | RTLD_NOLOAD);
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+#endif
+}
+
+TEST(dlfcn, dlclose_before_thread_local_dtor) {
+  test_dlclose_before_thread_local_dtor("libtest_thread_local_dtor.so");
+}
+
+TEST(dlfcn, dlclose_before_thread_local_dtor_indirect) {
+  test_dlclose_before_thread_local_dtor("libtest_indirect_thread_local_dtor.so");
+}
+
+TEST(dlfcn, dlclose_before_thread_local_dtor_multiple_dsos) {
+  const constexpr char* library_name = "libtest_indirect_thread_local_dtor.so";
+
+  bool is_dtor1_triggered = false;
+  bool is_dtor2_triggered = false;
+
+  std::mutex mtx;
+  std::condition_variable cv;
+  void* library_handle = nullptr;
+  bool thread1_dlopen_complete = false;
+  bool thread2_thread_local_dtor_initialized = false;
+  bool thread1_complete = false;
+
+  auto f1 = [&]() {
+    void* handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+    ASSERT_TRUE(handle == nullptr);
+
+    handle = dlopen(library_name, RTLD_NOW);
+    ASSERT_TRUE(handle != nullptr) << dlerror();
+    std::unique_lock<std::mutex> lock(mtx);
+    thread1_dlopen_complete = true;
+    library_handle = handle;
+    lock.unlock();
+    cv.notify_one();
+
+    typedef void (*fn_t)(bool*);
+    fn_t fn = reinterpret_cast<fn_t>(dlsym(handle, "init_thread_local_variable"));
+    ASSERT_TRUE(fn != nullptr) << dlerror();
+
+    fn(&is_dtor1_triggered);
+
+    lock.lock();
+    cv.wait(lock, [&] { return thread2_thread_local_dtor_initialized; });
+    lock.unlock();
+
+    dlclose(handle);
+
+    ASSERT_TRUE(!is_dtor1_triggered);
+
+    // Since we have thread_atexit dtors associated with handle - the library should
+    // still be availabe.
+    handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+    ASSERT_TRUE(handle != nullptr) << dlerror();
+    dlclose(handle);
+  };
+
+  auto f2 = [&]() {
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, [&] { return thread1_dlopen_complete; });
+    void* handle = library_handle;
+    lock.unlock();
+
+    typedef void (*fn_t)(bool*);
+    fn_t fn = reinterpret_cast<fn_t>(dlsym(handle, "init_thread_local_variable2"));
+    ASSERT_TRUE(fn != nullptr) << dlerror();
+
+    fn(&is_dtor2_triggered);
+
+    lock.lock();
+    thread2_thread_local_dtor_initialized = true;
+    lock.unlock();
+    cv.notify_one();
+
+    lock.lock();
+    cv.wait(lock, [&] { return thread1_complete; });
+    lock.unlock();
+
+    ASSERT_TRUE(!is_dtor2_triggered);
+  };
+
+  void* handle = dlopen(library_name, RTLD_NOW);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+  dlclose(handle);
+
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+  ASSERT_TRUE(handle == nullptr);
+
+  std::thread t1(f1);
+  std::thread t2(f2);
+  t1.join();
+  ASSERT_TRUE(is_dtor1_triggered);
+  ASSERT_TRUE(!is_dtor2_triggered);
+
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+  dlclose(handle);
+
+  std::unique_lock<std::mutex> lock(mtx);
+  thread1_complete = true;
+  lock.unlock();
+  cv.notify_one();
+
+  t2.join();
+  ASSERT_TRUE(is_dtor2_triggered);
+
+#if defined(__BIONIC__)
+  // ld-android.so unloads unreferenced libraries on pthread_exit()
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
+  ASSERT_TRUE(handle == nullptr);
+#else
+  // GLIBC does not unload libraries with ref_count = 0 on pthread_exit
+  handle = dlopen(library_name, RTLD_NOW | RTLD_NOLOAD);
   ASSERT_TRUE(handle != nullptr) << dlerror();
 #endif
 }
@@ -1432,10 +1553,13 @@ const llvm::ELF::Elf32_Dyn* to_dynamic_table(const char* p) {
 }
 
 // Duplicate these definitions here because they are android specific
-// note that we cannot include <elf.h> because #defines conflict with
-// enum names provided by LLVM.
-#define DT_ANDROID_REL (llvm::ELF::DT_LOOS + 2)
-#define DT_ANDROID_RELA (llvm::ELF::DT_LOOS + 4)
+//  - note that we cannot include <elf.h> because #defines conflict with
+//    enum names provided by LLVM.
+//  - we also don't use llvm::ELF::DT_LOOS because its value is 0x60000000
+//    rather than the 0x6000000d we expect
+#define DT_LOOS 0x6000000d
+#define DT_ANDROID_REL (DT_LOOS + 2)
+#define DT_ANDROID_RELA (DT_LOOS + 4)
 
 template<typename ELFT>
 void validate_compatibility_of_native_library(const std::string& soname,
@@ -1510,7 +1634,7 @@ TEST(dlext, compat_elf_hash_and_relocation_tables) {
 #endif //  defined(__arm__)
 
 TEST(dlfcn, dlopen_invalid_rw_load_segment) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-rw_load_segment.so";
   void* handle = dlopen(libpath.c_str(), RTLD_NOW);
@@ -1520,7 +1644,7 @@ TEST(dlfcn, dlopen_invalid_rw_load_segment) {
 }
 
 TEST(dlfcn, dlopen_invalid_unaligned_shdr_offset) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-unaligned_shdr_offset.so";
 
@@ -1531,7 +1655,7 @@ TEST(dlfcn, dlopen_invalid_unaligned_shdr_offset) {
 }
 
 TEST(dlfcn, dlopen_invalid_zero_shentsize) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-zero_shentsize.so";
 
@@ -1542,7 +1666,7 @@ TEST(dlfcn, dlopen_invalid_zero_shentsize) {
 }
 
 TEST(dlfcn, dlopen_invalid_zero_shstrndx) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-zero_shstrndx.so";
 
@@ -1553,7 +1677,7 @@ TEST(dlfcn, dlopen_invalid_zero_shstrndx) {
 }
 
 TEST(dlfcn, dlopen_invalid_empty_shdr_table) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-empty_shdr_table.so";
 
@@ -1564,7 +1688,7 @@ TEST(dlfcn, dlopen_invalid_empty_shdr_table) {
 }
 
 TEST(dlfcn, dlopen_invalid_zero_shdr_table_offset) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-zero_shdr_table_offset.so";
 
@@ -1575,7 +1699,7 @@ TEST(dlfcn, dlopen_invalid_zero_shdr_table_offset) {
 }
 
 TEST(dlfcn, dlopen_invalid_zero_shdr_table_content) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-zero_shdr_table_content.so";
 
@@ -1586,7 +1710,7 @@ TEST(dlfcn, dlopen_invalid_zero_shdr_table_content) {
 }
 
 TEST(dlfcn, dlopen_invalid_textrels) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-textrels.so";
 
@@ -1597,7 +1721,7 @@ TEST(dlfcn, dlopen_invalid_textrels) {
 }
 
 TEST(dlfcn, dlopen_invalid_textrels2) {
-  const std::string libpath = get_testlib_root() +
+  const std::string libpath = GetTestlibRoot() +
                               "/" + kPrebuiltElfDir +
                               "/libtest_invalid-textrels2.so";
 
@@ -1610,6 +1734,30 @@ TEST(dlfcn, dlopen_invalid_textrels2) {
 TEST(dlfcn, dlopen_df_1_global) {
   void* handle = dlopen("libtest_dlopen_df_1_global.so", RTLD_NOW);
   ASSERT_TRUE(handle != nullptr) << dlerror();
+}
+
+TEST(dlfcn, segment_gap) {
+  void* handle = dlopen("libsegment_gap_outer.so", RTLD_NOW);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+
+  auto get_inner = reinterpret_cast<void* (*)()>(dlsym(handle, "get_inner"));
+  void* inner = get_inner();
+  (void)inner;
+
+#if __arm__
+  int count;
+  _Unwind_Ptr outer_exidx = dl_unwind_find_exidx(reinterpret_cast<_Unwind_Ptr>(get_inner), &count);
+  _Unwind_Ptr inner_exidx = dl_unwind_find_exidx(reinterpret_cast<_Unwind_Ptr>(inner), &count);
+  EXPECT_NE(0u, outer_exidx);
+  EXPECT_NE(0u, inner_exidx);
+  EXPECT_NE(inner_exidx, outer_exidx);
+#endif
+
+  Dl_info info;
+  int rc = dladdr(inner, &info);
+  ASSERT_NE(rc, 0);
+
+  EXPECT_NE(nullptr, strstr(info.dli_fname, "libsegment_gap_inner.so"));
 }
 
 #endif

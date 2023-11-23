@@ -78,6 +78,7 @@ map_create_list (int map_create_type, pid_t pid)
       /* If this is a readable executable map, and not a stack map or an
          empty map, find the load_base.  */
       if (cur_map->path[0] != '\0' && strncmp ("[stack:", cur_map->path, 7) != 0
+          && strncmp ("[vsyscall]", cur_map->path, 10) != 0
           && (flags & (PROT_EXEC | PROT_READ)) == (PROT_EXEC | PROT_READ)
           && !(cur_map->flags & MAP_FLAGS_DEVICE_MEM))
         {

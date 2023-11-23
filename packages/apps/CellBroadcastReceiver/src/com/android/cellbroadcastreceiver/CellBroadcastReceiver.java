@@ -22,17 +22,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.content.res.Configuration;
-import android.os.RemoteException;
+import android.os.Bundle;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
 import android.provider.Telephony.CellBroadcasts;
 import android.telephony.CarrierConfigManager;
+import android.telephony.ServiceState;
+import android.telephony.SubscriptionManager;
 import android.telephony.cdma.CdmaSmsCbProgramData;
 import android.util.Log;
 
-import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 
 public class CellBroadcastReceiver extends BroadcastReceiver {
@@ -71,34 +71,12 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                                     deliveryTime);
                         }
                     });
-        } else if (TelephonyIntents.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED.equals(action)
-                || CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)
-                || Intent.ACTION_BOOT_COMPLETED.equals(action)
-                || CELLBROADCAST_START_CONFIG_ACTION.equals(action)) {
-            // Set default values for preferences.
-            if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)) {
-                try {
-                    Configuration configuration = ActivityManager.getService().getConfiguration();
-                    if (configuration.mcc != 0 && configuration.mnc != 0) {
-                        PreferenceManager.setDefaultValues(context, R.xml.preferences, false);
-                    }
-                } catch (RemoteException e) {
-                }
-            }
-            // Todo: Add the service state check once the new get service state API is done.
-            // Do not rely on mServiceState as it gets reset to -1 time to time because
-            // the process of CellBroadcastReceiver gets killed every time once the job is done.
-            if (UserManager.get(context).isSystemUser()) {
-                startConfigService(context.getApplicationContext());
-
-                // Whenever carrier changes, we need to adjust the emergency alert
-                // reminder interval list because it might change since different
-                // countries/carriers might have different interval settings.
-                adjustReminderInterval(context);
-            }
-            else {
-                Log.e(TAG, "Not system user. Ignored the intent " + action);
-            }
+        } else if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)) {
+            initializeSharedPreference(context.getApplicationContext());
+            startConfigService(context.getApplicationContext());
+        } else if (CELLBROADCAST_START_CONFIG_ACTION.equals(action)
+                || SubscriptionManager.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED.equals(action)) {
+            startConfigService(context.getApplicationContext());
         } else if (Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION.equals(action) ||
                 Telephony.Sms.Intents.SMS_CB_RECEIVED_ACTION.equals(action)) {
             // If 'privileged' is false, it means that the intent was delivered to the base
@@ -127,6 +105,15 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
         } else if (Intent.ACTION_LOCALE_CHANGED.equals(action)) {
             // rename registered notification channels on locale change
             CellBroadcastAlertService.createNotificationChannels(context);
+        } else if (Intent.ACTION_SERVICE_STATE.equals(action)) {
+            if (CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context).getBoolean(
+                    R.bool.reset_duplicate_detection_on_airplane_mode)) {
+                Bundle extras = intent.getExtras();
+                ServiceState ss = ServiceState.newFromBundle(extras);
+                if (ss.getState() == ServiceState.STATE_POWER_OFF) {
+                    CellBroadcastAlertService.resetMessageDuplicateDetection();
+                }
+            }
         } else {
             Log.w(TAG, "onReceive() unexpected action " + action);
         }
@@ -137,8 +124,9 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
         String currentIntervalDefault = sp.getString(CURRENT_INTERVAL_DEFAULT, "0");
 
         // If interval default changes, reset the interval to the new default value.
-        String newIntervalDefault = context.getResources().getString(
-                R.string.alert_reminder_interval_default_value);
+        String newIntervalDefault =
+                CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context)
+                        .getString(R.string.alert_reminder_interval_default_value);
         if (!newIntervalDefault.equals(currentIntervalDefault)) {
             Log.d(TAG, "Default interval changed from " + currentIntervalDefault + " to " +
                     newIntervalDefault);
@@ -152,6 +140,31 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
             editor.commit();
         } else {
             if (DBG) Log.d(TAG, "Default interval " + currentIntervalDefault + " did not change.");
+        }
+    }
+
+    private void initializeSharedPreference(Context context) {
+        if (UserManager.get(context).isSystemUser()) {
+            Log.d(TAG, "initializeSharedPreference");
+            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+            if (!sp.getBoolean(PreferenceManager.KEY_HAS_SET_DEFAULT_VALUES, false)) {
+                // Sets the default values of the shared preference if there isn't any.
+                PreferenceManager.setDefaultValues(context, R.xml.preferences, false);
+
+                // If the device is in test harness mode, we need to disable emergency alert by
+                // default.
+                if (ActivityManager.isRunningInUserTestHarness()) {
+                    Log.d(TAG, "In test harness mode. Turn off emergency alert by default.");
+                    sp.edit().putBoolean(CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE,
+                            false).apply();
+                }
+            } else {
+                Log.d(TAG, "Skip setting default values of shared preference.");
+            }
+
+            adjustReminderInterval(context);
+        } else {
+            Log.e(TAG, "initializeSharedPreference: Not system user.");
         }
     }
 
@@ -228,10 +241,14 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
      * @param context the broadcast receiver context
      */
     static void startConfigService(Context context) {
-        Intent serviceIntent = new Intent(CellBroadcastConfigService.ACTION_ENABLE_CHANNELS,
-                null, context, CellBroadcastConfigService.class);
-        Log.d(TAG, "Start Cell Broadcast configuration.");
-        context.startService(serviceIntent);
+        if (UserManager.get(context).isSystemUser()) {
+            Intent serviceIntent = new Intent(CellBroadcastConfigService.ACTION_ENABLE_CHANNELS,
+                    null, context, CellBroadcastConfigService.class);
+            Log.d(TAG, "Start Cell Broadcast configuration.");
+            context.startService(serviceIntent);
+        } else {
+            Log.e(TAG, "startConfigService: Not system user.");
+        }
     }
 
     private static void log(String msg) {

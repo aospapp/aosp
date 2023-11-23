@@ -1,5 +1,5 @@
 /* Compress or decompress a section.
-   Copyright (C) 2015 Red Hat, Inc.
+   Copyright (C) 2015, 2016 Red Hat, Inc.
    This file is part of elfutils.
 
    This file is free software; you can redistribute it and/or modify
@@ -31,34 +31,30 @@
 #endif
 
 #include <libelf.h>
+#include <system.h>
 #include "libelfP.h"
 #include "common.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
 #include <unistd.h>
 #include <zlib.h>
-
-#ifndef MAX
-# define MAX(a, b) ((a) > (b) ? (a) : (b))
-#endif
 
 /* Cleanup and return result.  Don't leak memory.  */
 static void *
 do_deflate_cleanup (void *result, z_stream *z, void *out_buf,
-                    int ei_data, Elf_Data *cdatap)
+                    Elf_Data *cdatap)
 {
   deflateEnd (z);
   free (out_buf);
-  if (ei_data != MY_ELFDATA)
+  if (cdatap != NULL)
     free (cdatap->d_buf);
   return result;
 }
 
-#define deflate_cleanup(result) \
-    do_deflate_cleanup(result, &z, out_buf, ei_data, &cdata)
+#define deflate_cleanup(result, cdata) \
+    do_deflate_cleanup(result, &z, out_buf, cdata)
 
 /* Given a section, uses the (in-memory) Elf_Data to extract the
    original data size (including the given header size) and data
@@ -117,6 +113,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
   int zrc = deflateInit (&z, Z_BEST_COMPRESSION);
   if (zrc != Z_OK)
     {
+      free (out_buf);
       __libelf_seterrno (ELF_E_COMPRESS_ERROR);
       return NULL;
     }
@@ -130,7 +127,8 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
     {
       /* Convert to raw if different endianess.  */
       cdata = *data;
-      if (ei_data != MY_ELFDATA)
+      bool convert = ei_data != MY_ELFDATA && data->d_size > 0;
+      if (convert)
 	{
 	  /* Don't do this conversion in place, we might want to keep
 	     the original data around, caller decides.  */
@@ -138,10 +136,10 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
 	  if (cdata.d_buf == NULL)
 	    {
 	      __libelf_seterrno (ELF_E_NOMEM);
-	      return deflate_cleanup (NULL);
+	      return deflate_cleanup (NULL, NULL);
 	    }
 	  if (gelf_xlatetof (scn->elf, &cdata, data, ei_data) == NULL)
-	    return deflate_cleanup (NULL);
+	    return deflate_cleanup (NULL, &cdata);
 	}
 
       z.avail_in = cdata.d_size;
@@ -167,7 +165,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
 	  if (zrc == Z_STREAM_ERROR)
 	    {
 	      __libelf_seterrno (ELF_E_COMPRESS_ERROR);
-	      return deflate_cleanup (NULL);
+	      return deflate_cleanup (NULL, convert ? &cdata : NULL);
 	    }
 	  used += (out_size - used) - z.avail_out;
 
@@ -175,7 +173,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
 	     compression forced and we are using more compressed data
 	     than original data.  */
 	  if (!force && flush == Z_FINISH && used >= *orig_size)
-	    return deflate_cleanup ((void *) -1);
+	    return deflate_cleanup ((void *) -1, convert ? &cdata : NULL);
 
 	  if (z.avail_out == 0)
 	    {
@@ -183,7 +181,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
 	      if (bigger == NULL)
 		{
 		  __libelf_seterrno (ELF_E_NOMEM);
-		  return deflate_cleanup (NULL);
+		  return deflate_cleanup (NULL, convert ? &cdata : NULL);
 		}
 	      out_buf = bigger;
 	      out_size += block;
@@ -191,7 +189,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
 	}
       while (z.avail_out == 0); /* Need more output buffer.  */
 
-      if (ei_data != MY_ELFDATA)
+      if (convert)
 	{
 	  free (cdata.d_buf);
 	  cdata.d_buf = NULL;
@@ -203,7 +201,7 @@ __libelf_compress (Elf_Scn *scn, size_t hsize, int ei_data,
   if (zrc != Z_OK)
     {
       __libelf_seterrno (ELF_E_COMPRESS_ERROR);
-      return deflate_cleanup (NULL);
+      return deflate_cleanup (NULL, NULL);
     }
 
   *new_size = used;
@@ -214,7 +212,20 @@ void *
 internal_function
 __libelf_decompress (void *buf_in, size_t size_in, size_t size_out)
 {
-  void *buf_out = malloc (size_out);
+  /* Catch highly unlikely compression ratios so we don't allocate
+     some giant amount of memory for nothing. The max compression
+     factor 1032:1 comes from http://www.zlib.net/zlib_tech.html  */
+  if (unlikely (size_out / 1032 > size_in))
+    {
+      __libelf_seterrno (ELF_E_INVALID_DATA);
+      return NULL;
+    }
+
+  /* Malloc might return NULL when requestion zero size.  This is highly
+     unlikely, it would only happen when the compression was forced.
+     But we do need a non-NULL buffer to return and set as result.
+     Just make sure to always allocate at least 1 byte.  */
+  void *buf_out = malloc (size_out ?: 1);
   if (unlikely (buf_out == NULL))
     {
       __libelf_seterrno (ELF_E_NOMEM);
@@ -294,6 +305,7 @@ __libelf_decompress_elf (Elf_Scn *scn, size_t *size_out, size_t *addralign)
   return buf_out;
 }
 
+/* Assumes buf is a malloced buffer.  */
 void
 internal_function
 __libelf_reset_rawdata (Elf_Scn *scn, void *buf, size_t size, size_t align,
@@ -301,7 +313,7 @@ __libelf_reset_rawdata (Elf_Scn *scn, void *buf, size_t size, size_t align,
 {
   /* This is the new raw data, replace and possibly free old data.  */
   scn->rawdata.d.d_off = 0;
-  scn->rawdata.d.d_version = __libelf_version;
+  scn->rawdata.d.d_version = EV_CURRENT;
   scn->rawdata.d.d_buf = buf;
   scn->rawdata.d.d_size = size;
   scn->rawdata.d.d_align = align;
@@ -313,10 +325,18 @@ __libelf_reset_rawdata (Elf_Scn *scn, void *buf, size_t size, size_t align,
     free (scn->data_base);
   scn->data_base = NULL;
   if (scn->elf->map_address == NULL
-      || scn->rawdata_base == scn->zdata_base)
+      || scn->rawdata_base == scn->zdata_base
+      || (scn->flags & ELF_F_MALLOCED) != 0)
     free (scn->rawdata_base);
 
   scn->rawdata_base = buf;
+  scn->flags |= ELF_F_MALLOCED;
+
+  /* Pretend we (tried to) read the data from the file and setup the
+     data (might have to convert the Chdr to native format).  */
+  scn->data_read = 1;
+  scn->flags |= ELF_F_FILEDATA;
+  __libelf_set_data_list_rdlock (scn, 1);
 }
 
 int
@@ -440,14 +460,14 @@ elf_compress (Elf_Scn *scn, int type, unsigned int flags)
 	{
 	  Elf32_Shdr *shdr = elf32_getshdr (scn);
 	  shdr->sh_size = new_size;
-	  shdr->sh_addralign = 1;
+	  shdr->sh_addralign = __libelf_type_align (ELFCLASS32, ELF_T_CHDR);
 	  shdr->sh_flags |= SHF_COMPRESSED;
 	}
       else
 	{
 	  Elf64_Shdr *shdr = elf64_getshdr (scn);
 	  shdr->sh_size = new_size;
-	  shdr->sh_addralign = 1;
+	  shdr->sh_addralign = __libelf_type_align (ELFCLASS64, ELF_T_CHDR);
 	  shdr->sh_flags |= SHF_COMPRESSED;
 	}
 
@@ -504,7 +524,8 @@ elf_compress (Elf_Scn *scn, int type, unsigned int flags)
 
       __libelf_reset_rawdata (scn, scn->zdata_base,
 			      scn->zdata_size, scn->zdata_align,
-			      __libelf_data_type (elf, sh_type));
+			      __libelf_data_type (elf, sh_type,
+						  scn->zdata_align));
 
       return 1;
     }

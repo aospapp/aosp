@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="5128188288358721369">"Айдарлар"</string>
+    <string name="app_name" msgid="5128188288358721369">"Тэгтер"</string>
     <string name="title_scanned_tag" msgid="4347835407095551450">"Жаңа айдар жинақталды"</string>
     <string name="title_existing_tag" msgid="5656560272594190244">"Айдар"</string>
     <string name="tag_unknown" msgid="2897956823877728783">"Белгісіз айдар түрі"</string>

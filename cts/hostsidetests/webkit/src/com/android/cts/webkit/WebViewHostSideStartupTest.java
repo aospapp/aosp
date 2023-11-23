@@ -16,6 +16,7 @@
 package com.android.cts.webkit;
 
 import android.platform.test.annotations.AppModeFull;
+
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -27,7 +28,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import java.util.Collection;
 
 public class WebViewHostSideStartupTest extends DeviceTestCase {
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     private static final String DEVICE_WEBVIEW_STARTUP_PKG = "com.android.cts.webkit";
     private static final String DEVICE_WEBVIEW_STARTUP_TEST_CLASS = "WebViewDeviceSideStartupTest";

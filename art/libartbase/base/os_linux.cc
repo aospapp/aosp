@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "base/os.h"
+#include "os.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -25,7 +25,7 @@
 
 #include <android-base/logging.h>
 
-#include "base/unix_file/fd_file.h"
+#include "unix_file/fd_file.h"
 
 namespace art {
 
@@ -50,14 +50,20 @@ File* OS::CreateEmptyFile(const char* name) {
 }
 
 File* OS::CreateEmptyFileWriteOnly(const char* name) {
-  return art::CreateEmptyFile(name, O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC);
+#ifdef _WIN32
+  int flags = O_WRONLY | O_TRUNC;
+#else
+  int flags = O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC;
+#endif
+  return art::CreateEmptyFile(name, flags);
 }
 
 File* OS::OpenFileWithFlags(const char* name, int flags, bool auto_flush) {
   CHECK(name != nullptr);
   bool read_only = ((flags & O_ACCMODE) == O_RDONLY);
   bool check_usage = !read_only && auto_flush;
-  std::unique_ptr<File> file(new File(name, flags, 0666, check_usage));
+  std::unique_ptr<File> file(
+      new File(name, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, check_usage));
   if (!file->IsOpened()) {
     return nullptr;
   }

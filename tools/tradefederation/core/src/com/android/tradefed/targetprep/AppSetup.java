@@ -61,9 +61,8 @@ public class AppSetup extends BaseTargetPreparer implements ITargetCleaner {
             "force retention of this package when --uninstall-all is set.")
     private Set<String> mSkipUninstallPkgs = new HashSet<String>();
 
-    @Option(name = "install-flag", description =
-            "optional flag(s) to provide when installing apks.")
-    private ArrayList<String> mInstallFlags = new ArrayList<>();
+    @Option(name = "install-arg", description = "optional flag(s) to provide when installing apks.")
+    private ArrayList<String> mInstallArgs = new ArrayList<>();
 
     @Option(name = "post-install-cmd", description =
             "optional post-install adb shell commands; can be repeated.")
@@ -120,8 +119,10 @@ public class AppSetup extends BaseTargetPreparer implements ITargetCleaner {
                         continue;
                     }
                 }
-                String result = device.installPackage(apkFile.getFile(), true,
-                        mInstallFlags.toArray(new String[mInstallFlags.size()]));
+                List<String> args = new ArrayList<>(mInstallArgs);
+                String result =
+                        device.installPackage(
+                                apkFile.getFile(), true, args.toArray(new String[args.size()]));
                 if (result != null) {
                     // typically install failures means something is wrong with apk.
                     // TODO: in future add more logic to throw targetsetup vs build vs

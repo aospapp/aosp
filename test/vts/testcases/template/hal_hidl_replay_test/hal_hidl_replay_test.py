@@ -25,6 +25,7 @@ from vts.testcases.template.binary_test import binary_test
 from vts.utils.python.hal import hal_service_name_utils
 from vts.utils.python.os import path_utils
 
+_HAL_TEST_NAME_PATTERN = ".*\(.*\).*"
 
 class HalHidlReplayTest(binary_test.BinaryTest):
     """Base class to run a HAL HIDL replay test on a target device.
@@ -47,6 +48,12 @@ class HalHidlReplayTest(binary_test.BinaryTest):
 
         if self.isSkipAllTests():
             return
+
+        # Extend timeout if there are multiple service instance combinations.
+        if (len(self.trace_paths) and
+                len(self.testcases) > len(self.trace_paths)):
+            self.resetTimeout(self.timeout * len(self.testcases) /
+                              float(len(self.trace_paths)))
 
         if self.coverage.enabled and self._test_hal_services is not None:
             self.coverage.SetHalNames(self._test_hal_services)
@@ -81,6 +88,7 @@ class HalHidlReplayTest(binary_test.BinaryTest):
             service_instance_combinations = self._GetServiceInstanceCombinations(
                 target_trace_path)
 
+            appendix_list = []
             if service_instance_combinations:
                 for instance_combination in service_instance_combinations:
                     test_case = self.CreateReplayTestCase(
@@ -93,6 +101,8 @@ class HalHidlReplayTest(binary_test.BinaryTest):
                     name_appendix = "({0})".format(",".join(service_name_list))
                     test_case.name_appendix = name_appendix
                     self.testcases.append(test_case)
+                    appendix_list.append(name_appendix)
+                self.test_filter.ExpandAppendix(appendix_list, _HAL_TEST_NAME_PATTERN)
             else:
                 test_case = self.CreateReplayTestCase(trace_file_name,
                                                       target_trace_path)
@@ -128,7 +138,7 @@ class HalHidlReplayTest(binary_test.BinaryTest):
         for stdout in command_results[const.STDOUT]:
             if stdout and stdout.strip():
                 for line in stdout.split('\n'):
-                    logging.info(line)
+                    logging.debug(line)
 
         if any(command_results[const.EXIT_CODE]):
             # print stderr only when test fails.

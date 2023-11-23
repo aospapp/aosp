@@ -21,14 +21,13 @@
 
 #include <android-base/logging.h>
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedStringChars.h>
+#include <nativehelper/jni_macros.h>
 
 #include "IcuUtilities.h"
 #include "JniException.h"
 #include "ScopedJavaUnicodeString.h"
-#include "jni.h"
 #include "unicode/parseerr.h"
 #include "unicode/regex.h"
 
@@ -158,28 +157,26 @@ static jlong Matcher_getNativeFinalizer(JNIEnv*, jclass) {
     return reinterpret_cast<jlong>(&Matcher_free);
 }
 
-// Return a guess of the amount of native memory to be deallocated by a typical call to
-// Matcher_free().
-static jint Matcher_nativeSize(JNIEnv*, jclass) {
-    return 200;  // Very rough guess based on a quick look at the implementation.
-}
-
-static jint Matcher_findImpl(JNIEnv* env, jclass, jlong addr, jint startIndex, jintArray offsets) {
+static jboolean Matcher_findImpl(JNIEnv* env, jclass, jlong addr, jint startIndex, jintArray offsets) {
     MatcherState* state = toMatcherState(addr);
     UBool result = state->matcher()->find(startIndex, state->status());
     if (result) {
         state->updateOffsets(env, offsets);
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
     }
-    return result;
 }
 
-static jint Matcher_findNextImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
+static jboolean Matcher_findNextImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
     MatcherState* state = toMatcherState(addr);
     UBool result = state->matcher()->find();
     if (result) {
         state->updateOffsets(env, offsets);
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
     }
-    return result;
 }
 
 static jint Matcher_groupCountImpl(JNIEnv*, jclass, jlong addr) {
@@ -187,27 +184,35 @@ static jint Matcher_groupCountImpl(JNIEnv*, jclass, jlong addr) {
     return state->matcher()->groupCount();
 }
 
-static jint Matcher_hitEndImpl(JNIEnv*, jclass, jlong addr) {
+static jboolean Matcher_hitEndImpl(JNIEnv*, jclass, jlong addr) {
     MatcherState* state = toMatcherState(addr);
-    return state->matcher()->hitEnd();
+    if (state->matcher()->hitEnd() != 0) {
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
+    }
 }
 
-static jint Matcher_lookingAtImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
+static jboolean Matcher_lookingAtImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
     MatcherState* state = toMatcherState(addr);
     UBool result = state->matcher()->lookingAt(state->status());
     if (result) {
         state->updateOffsets(env, offsets);
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
     }
-    return result;
 }
 
-static jint Matcher_matchesImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
+static jboolean Matcher_matchesImpl(JNIEnv* env, jclass, jlong addr, jintArray offsets) {
     MatcherState* state = toMatcherState(addr);
     UBool result = state->matcher()->matches(state->status());
     if (result) {
         state->updateOffsets(env, offsets);
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
     }
-    return result;
 }
 
 static jlong Matcher_openImpl(JNIEnv* env, jclass, jlong patternAddr) {
@@ -221,9 +226,13 @@ static jlong Matcher_openImpl(JNIEnv* env, jclass, jlong patternAddr) {
     return reinterpret_cast<uintptr_t>(new MatcherState(result));
 }
 
-static jint Matcher_requireEndImpl(JNIEnv*, jclass, jlong addr) {
+static jboolean Matcher_requireEndImpl(JNIEnv*, jclass, jlong addr) {
     MatcherState* state = toMatcherState(addr);
-    return state->matcher()->requireEnd();
+    if (state->matcher()->requireEnd() != 0) {
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
+    }
 }
 
 static void Matcher_setInputImpl(JNIEnv* env, jclass, jlong addr, jstring javaText, jint start, jint end) {
@@ -269,7 +278,6 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Matcher, hitEndImpl, "(J)Z"),
     NATIVE_METHOD(Matcher, lookingAtImpl, "(J[I)Z"),
     NATIVE_METHOD(Matcher, matchesImpl, "(J[I)Z"),
-    NATIVE_METHOD(Matcher, nativeSize, "()I"),
     NATIVE_METHOD(Matcher, openImpl, "(J)J"),
     NATIVE_METHOD(Matcher, requireEndImpl, "(J)Z"),
     NATIVE_METHOD(Matcher, setInputImpl, "(JLjava/lang/String;II)V"),

@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import time
+import json
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils as common_utils
@@ -91,6 +92,78 @@ class DisplayFacadeNative(object):
         return extension.EvaluateJavaScript("window.__window_info")
 
 
+    @facade_resource.retry_chrome_call
+    def create_window(self, url='chrome://newtab'):
+        """Creates a new window from chrome.windows.create API.
+
+        @param url: Optional URL for the new window.
+
+        @return Identifier for the new window.
+
+        @raise TimeoutException if it fails.
+        """
+        extension = self._resource.get_extension()
+
+        extension.ExecuteJavaScript(
+                """
+                var __new_window_id = null;
+                chrome.windows.create(
+                        {url: '%s'},
+                        function(win) {
+                            __new_window_id = win.id});
+                """ % (url)
+        )
+        extension.WaitForJavaScriptCondition(
+                "__new_window_id !== null",
+                timeout=web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT)
+
+        return extension.EvaluateJavaScript("__new_window_id")
+
+
+    @facade_resource.retry_chrome_call
+    def update_window(self, window_id, state=None, bounds=None):
+        """Updates an existing window using the chrome.windows.update API.
+
+        @param window_id: Identifier for the window to update.
+        @param state: Optional string to set the state such as 'normal',
+                      'maximized', or 'fullscreen'.
+        @param bounds: Optional dictionary with keys top, left, width, and
+                       height to reposition the window.
+
+        @return True if success.
+
+        @raise TimeoutException if it fails.
+        """
+        extension = self._resource.get_extension()
+        params = {}
+
+        if state:
+            params['state'] = state
+        if bounds:
+            params['top'] = bounds['top']
+            params['left'] = bounds['left']
+            params['width'] = bounds['width']
+            params['height'] = bounds['height']
+
+        if not params:
+            logging.info('Nothing to update for window_id={}'.format(window_id))
+            return True
+
+        extension.ExecuteJavaScript(
+                """
+                var __status = 'Running';
+                chrome.windows.update(%d, %s,
+                        function(win) {
+                            __status = 'Done'});
+                """ % (window_id, json.dumps(params))
+        )
+        extension.WaitForJavaScriptCondition(
+                "__status == 'Done'",
+                timeout=web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT)
+
+        return True
+
+
     def _get_display_by_id(self, display_id):
         """Gets a display by ID.
 
@@ -124,6 +197,18 @@ class DisplayFacadeNative(object):
         """
         display = self._get_display_by_id(display_id)
         return display['rotation']
+
+
+    def get_display_notifications(self):
+        """Gets the display notifications
+
+        @return: Returns a list of display related notifications only.
+        """
+        display_notifications = []
+        for notification in self._resource.get_visible_notifications():
+            if notification['id'] == 'chrome://settings/display':
+                display_notifications.append(notification)
+        return display_notifications
 
 
     def set_display_rotation(self, display_id, rotation,

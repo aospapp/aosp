@@ -52,6 +52,7 @@ public class ScanFilterTest extends AndroidTestCase {
                 0x02, 0x0A, (byte) 0xec, // tx power level
                 0x05, 0x16, 0x0b, 0x11, 0x50, 0x64, // service data
                 0x05, (byte) 0xff, (byte) 0xe0, 0x00, 0x02, 0x15, // manufacturer specific data
+                0x05, 0x14, 0x0c, 0x11, 0x0a, 0x11, // 16 bit service solicitation uuids
                 0x03, 0x50, 0x01, 0x02, // an unknown data type won't cause trouble
         };
 
@@ -114,6 +115,28 @@ public class ScanFilterTest extends AndroidTestCase {
                         mask)
                 .build();
         assertEquals(mask.toString(), filter.getServiceUuidMask().toString());
+        assertTrue("uuid filter fails", filter.matches(mScanResult));
+    }
+
+    @SmallTest
+    public void testsetServiceSolicitationUuidFilter() {
+        if (mFilterBuilder == null) return;
+
+        ScanFilter filter = mFilterBuilder.setServiceSolicitationUuid(
+                ParcelUuid.fromString(UUID1)).build();
+        assertEquals(UUID1, filter.getServiceSolicitationUuid().toString());
+        assertTrue("uuid filter fails", filter.matches(mScanResult));
+
+        filter = mFilterBuilder.setServiceSolicitationUuid(
+                ParcelUuid.fromString(UUID2)).build();
+        assertEquals(UUID2, filter.getServiceSolicitationUuid().toString());
+        assertFalse("uuid filter fails", filter.matches(mScanResult));
+
+        ParcelUuid mask = ParcelUuid.fromString("FFFFFFF0-FFFF-FFFF-FFFF-FFFFFFFFFFFF");
+        filter = mFilterBuilder
+                .setServiceSolicitationUuid(ParcelUuid.fromString(UUID3), mask)
+                .build();
+        assertEquals(mask.toString(), filter.getServiceSolicitationUuidMask().toString());
         assertTrue("uuid filter fails", filter.matches(mScanResult));
     }
 

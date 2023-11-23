@@ -90,7 +90,7 @@ public final class UCaseProps {
     private final static class IsAcceptable implements ICUBinary.Authenticate {
         @Override
         public boolean isDataVersionAcceptable(byte version[]) {
-            return version[0]==3;
+            return version[0]==4;
         }
     }
 
@@ -119,7 +119,7 @@ public final class UCaseProps {
         return props>>EXC_SHIFT;
     }
 
-    private static final boolean propsHasException(int props) {
+    static final boolean propsHasException(int props) {
         return (props&EXCEPTION)!=0;
     }
 
@@ -191,12 +191,16 @@ public final class UCaseProps {
     public final int tolower(int c) {
         int props=trie.get(c);
         if(!propsHasException(props)) {
-            if(getTypeFromProps(props)>=UPPER) {
+            if(isUpperOrTitleFromProps(props)) {
                 c+=getDelta(props);
             }
         } else {
             int excOffset=getExceptionsOffset(props);
             int excWord=exceptions.charAt(excOffset++);
+            if(hasSlot(excWord, EXC_DELTA) && isUpperOrTitleFromProps(props)) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             if(hasSlot(excWord, EXC_LOWER)) {
                 c=getSlotValue(excWord, EXC_LOWER, excOffset);
             }
@@ -213,6 +217,10 @@ public final class UCaseProps {
         } else {
             int excOffset=getExceptionsOffset(props);
             int excWord=exceptions.charAt(excOffset++);
+            if(hasSlot(excWord, EXC_DELTA) && getTypeFromProps(props)==LOWER) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             if(hasSlot(excWord, EXC_UPPER)) {
                 c=getSlotValue(excWord, EXC_UPPER, excOffset);
             }
@@ -229,6 +237,10 @@ public final class UCaseProps {
         } else {
             int excOffset=getExceptionsOffset(props);
             int excWord=exceptions.charAt(excOffset++);
+            if(hasSlot(excWord, EXC_DELTA) && getTypeFromProps(props)==LOWER) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             int index;
             if(hasSlot(excWord, EXC_TITLE)) {
                 index=EXC_TITLE;
@@ -308,6 +320,11 @@ public final class UCaseProps {
                     c=getSlotValue(excWord, index, excOffset);
                     set.add(c);
                 }
+            }
+            if(hasSlot(excWord, EXC_DELTA)) {
+                excOffset=excOffset0;
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset);
+                set.add((excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta);
             }
 
             /* get the closure string pointer & length */
@@ -483,7 +500,12 @@ public final class UCaseProps {
     }
 
     public final boolean isCaseSensitive(int c) {
-        return (trie.get(c)&SENSITIVE)!=0;
+        int props=trie.get(c);
+        if(!propsHasException(props)) {
+            return (props&SENSITIVE)!=0;
+        } else {
+            return (exceptions.charAt(getExceptionsOffset(props))&EXC_SENSITIVE)!=0;
+        }
     }
 
     // string casing ------------------------------------------------------- ***
@@ -577,6 +599,7 @@ public final class UCaseProps {
      *
      * The code point being case-mapped itself is never returned by
      * this iterator.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public interface ContextIterator {
         /**
@@ -593,6 +616,153 @@ public final class UCaseProps {
          * @return Next code point, or <0 when the iteration is done.
          */
         public int next();
+    }
+
+    /**
+     * Fast case mapping data for ASCII/Latin.
+     * Linear arrays of delta bytes: 0=no mapping; EXC=exception.
+     * Deltas must not cross the ASCII boundary, or else they cannot be easily used
+     * in simple UTF-8 code.
+     */
+    static final class LatinCase {
+        /** Case mapping/folding data for code points up to U+017F. */
+        static final char LIMIT = 0x180;
+        /** U+017F case-folds and uppercases crossing the ASCII boundary. */
+        static final char LONG_S = 0x17f;
+        /** Exception: Complex mapping, or too-large delta. */
+        static final byte EXC = -0x80;
+
+        /** Deltas for lowercasing for most locales, and default case folding. */
+        static final byte[] TO_LOWER_NORMAL = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, EXC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 0, 32, 32, 32, 32, 32, 32, 32, EXC,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            EXC, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1,
+
+            0, 1, 0, 1, 0, 1, 0, 1, 0, EXC, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, -121, 1, 0, 1, 0, 1, 0, EXC
+        };
+
+        /** Deltas for lowercasing for tr/az/lt, and Turkic case folding. */
+        static final byte[] TO_LOWER_TR_LT = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 32, 32, 32, 32, 32, 32, 32, 32, EXC, EXC, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, EXC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, EXC, EXC, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 0, 32, 32, 32, 32, 32, 32, 32, EXC,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, EXC, 0, 1, 0, 1, 0, EXC, 0,
+            EXC, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1,
+
+            0, 1, 0, 1, 0, 1, 0, 1, 0, EXC, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+            1, 0, 1, 0, 1, 0, 1, 0, -121, 1, 0, 1, 0, 1, 0, EXC
+        };
+
+        /** Deltas for uppercasing for most locales. */
+        static final byte[] TO_UPPER_NORMAL = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32,
+            -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, EXC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EXC,
+            -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32,
+            -32, -32, -32, -32, -32, -32, -32, 0, -32, -32, -32, -32, -32, -32, -32, 121,
+
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, EXC, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0,
+
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, EXC, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, EXC
+        };
+
+        /** Deltas for uppercasing for tr/az. */
+        static final byte[] TO_UPPER_TR = {
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, -32, -32, -32, -32, -32, -32, -32, -32, EXC, -32, -32, -32, -32, -32, -32,
+            -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, EXC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, EXC,
+            -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32, -32,
+            -32, -32, -32, -32, -32, -32, -32, 0, -32, -32, -32, -32, -32, -32, -32, 121,
+
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, EXC, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0,
+
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, EXC, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, EXC
+        };
     }
 
     /**
@@ -613,8 +783,8 @@ public final class UCaseProps {
 
     //ivate static final int LOC_UNKNOWN=0;
     public static final int LOC_ROOT=1;
-    private static final int LOC_TURKISH=2;
-    private static final int LOC_LITHUANIAN=3;
+    static final int LOC_TURKISH=2;
+    static final int LOC_LITHUANIAN=3;
     static final int LOC_GREEK=4;
     public static final int LOC_DUTCH=5;
 
@@ -827,7 +997,7 @@ public final class UCaseProps {
         result=c;
         props=trie.get(c);
         if(!propsHasException(props)) {
-            if(getTypeFromProps(props)>=UPPER) {
+            if(isUpperOrTitleFromProps(props)) {
                 result=c+getDelta(props);
             }
         } else {
@@ -966,6 +1136,10 @@ public final class UCaseProps {
                 }
             }
 
+            if(hasSlot(excWord, EXC_DELTA) && isUpperOrTitleFromProps(props)) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset2);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             if(hasSlot(excWord, EXC_LOWER)) {
                 result=getSlotValue(excWord, EXC_LOWER, excOffset2);
             }
@@ -1058,6 +1232,10 @@ public final class UCaseProps {
                 }
             }
 
+            if(hasSlot(excWord, EXC_DELTA) && getTypeFromProps(props)==LOWER) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset2);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             if(!upperNotTitle && hasSlot(excWord, EXC_TITLE)) {
                 index=EXC_TITLE;
             } else if(hasSlot(excWord, EXC_UPPER)) {
@@ -1136,13 +1314,13 @@ public final class UCaseProps {
      *
      * @hide draft / provisional / internal are hidden on Android
      */
-    private static final int FOLD_CASE_OPTIONS_MASK = 7;
+    static final int FOLD_CASE_OPTIONS_MASK = 7;
 
     /* return the simple case folding mapping for c */
     public final int fold(int c, int options) {
         int props=trie.get(c);
         if(!propsHasException(props)) {
-            if(getTypeFromProps(props)>=UPPER) {
+            if(isUpperOrTitleFromProps(props)) {
                 c+=getDelta(props);
             }
         } else {
@@ -1170,6 +1348,13 @@ public final class UCaseProps {
                         return 0x69;
                     }
                 }
+            }
+            if((excWord&EXC_NO_SIMPLE_CASE_FOLDING)!=0) {
+                return c;
+            }
+            if(hasSlot(excWord, EXC_DELTA) && isUpperOrTitleFromProps(props)) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
             }
             if(hasSlot(excWord, EXC_FOLD)) {
                 index=EXC_FOLD;
@@ -1205,7 +1390,7 @@ public final class UCaseProps {
         result=c;
         props=trie.get(c);
         if(!propsHasException(props)) {
-            if(getTypeFromProps(props)>=UPPER) {
+            if(isUpperOrTitleFromProps(props)) {
                 result=c+getDelta(props);
             }
         } else {
@@ -1265,6 +1450,13 @@ public final class UCaseProps {
                 }
             }
 
+            if((excWord&EXC_NO_SIMPLE_CASE_FOLDING)!=0) {
+                return ~c;
+            }
+            if(hasSlot(excWord, EXC_DELTA) && isUpperOrTitleFromProps(props)) {
+                int delta=getSlotValue(excWord, EXC_DELTA, excOffset2);
+                return (excWord&EXC_DELTA_IS_NEGATIVE)==0 ? c+delta : c-delta;
+            }
             if(hasSlot(excWord, EXC_FOLD)) {
                 index=EXC_FOLD;
             } else if(hasSlot(excWord, EXC_LOWER)) {
@@ -1365,6 +1557,10 @@ public final class UCaseProps {
 
     // definitions for 16-bit case properties word ------------------------- ***
 
+    static Trie2_16 getTrie() {
+        return INSTANCE.trie;
+    }
+
     /* 2-bit constants for types of cased characters */
     public static final int TYPE_MASK=3;
     public static final int NONE=0;
@@ -1373,7 +1569,7 @@ public final class UCaseProps {
     public static final int TITLE=3;
 
     /** @return NONE, LOWER, UPPER, TITLE */
-    private static final int getTypeFromProps(int props) {
+    static final int getTypeFromProps(int props) {
         return props&TYPE_MASK;
     }
 
@@ -1382,9 +1578,13 @@ public final class UCaseProps {
         return props&7;
     }
 
+    static final boolean isUpperOrTitleFromProps(int props) {
+        return (props & 2) != 0;
+    }
+
     static final int IGNORABLE=4;
-    private static final int SENSITIVE=     8;
-    private static final int EXCEPTION=     0x10;
+    private static final int EXCEPTION=     8;
+    private static final int SENSITIVE=     0x10;
 
     private static final int DOT_MASK=      0x60;
     //private static final int NO_DOT=        0;      /* normal characters with cc=0 */
@@ -1398,13 +1598,13 @@ public final class UCaseProps {
     //private static final int MAX_DELTA=     0xff;
     //private static final int MIN_DELTA=     (-MAX_DELTA-1);
 
-    private static final int getDelta(int props) {
+    static final int getDelta(int props) {
         return (short)props>>DELTA_SHIFT;
     }
 
-    /* exception: bits 15..5 are an unsigned 11-bit index into the exceptions array */
-    private static final int EXC_SHIFT=     5;
-    //private static final int EXC_MASK=      0xffe0;
+    /* exception: bits 15..4 are an unsigned 12-bit index into the exceptions array */
+    private static final int EXC_SHIFT=     4;
+    //private static final int EXC_MASK=      0xfff0;
     //private static final int MAX_EXCEPTIONS=((EXC_MASK>>EXC_SHIFT)+1);
 
     /* definitions for 16-bit main exceptions word ------------------------------ */
@@ -1414,7 +1614,7 @@ public final class UCaseProps {
     private static final int EXC_FOLD=1;
     private static final int EXC_UPPER=2;
     private static final int EXC_TITLE=3;
-    //private static final int EXC_4=4;           /* reserved */
+    private static final int EXC_DELTA=4;
     //private static final int EXC_5=5;           /* reserved */
     private static final int EXC_CLOSURE=6;
     private static final int EXC_FULL_MAPPINGS=7;
@@ -1423,7 +1623,9 @@ public final class UCaseProps {
     /* each slot is 2 uint16_t instead of 1 */
     private static final int EXC_DOUBLE_SLOTS=          0x100;
 
-    /* reserved: exception bits 11..9 */
+    private static final int EXC_NO_SIMPLE_CASE_FOLDING=0x200;
+    private static final int EXC_DELTA_IS_NEGATIVE=0x400;
+    private static final int EXC_SENSITIVE=0x800;
 
     /* EXC_DOT_MASK=DOT_MASK<<EXC_DOT_SHIFT */
     private static final int EXC_DOT_SHIFT=7;

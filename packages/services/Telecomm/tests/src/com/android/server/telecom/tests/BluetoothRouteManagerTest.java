@@ -18,6 +18,7 @@ package com.android.server.telecom.tests;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHearingAid;
 import android.content.ContentResolver;
 import android.os.Parcel;
 import android.telecom.Log;
@@ -37,13 +38,14 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 
 import java.util.Arrays;
-import java.util.Objects;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -55,9 +57,11 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
     static final BluetoothDevice DEVICE1 = makeBluetoothDevice("00:00:00:00:00:01");
     static final BluetoothDevice DEVICE2 = makeBluetoothDevice("00:00:00:00:00:02");
     static final BluetoothDevice DEVICE3 = makeBluetoothDevice("00:00:00:00:00:03");
+    static final BluetoothDevice HEARING_AID_DEVICE = makeBluetoothDevice("00:00:00:00:00:04");
 
     @Mock private BluetoothDeviceManager mDeviceManager;
     @Mock private BluetoothHeadsetProxy mHeadsetProxy;
+    @Mock private BluetoothHearingAid mBluetoothHearingAid;
     @Mock private Timeouts.Adapter mTimeoutsAdapter;
     @Mock private BluetoothRouteManager.BluetoothStateListener mListener;
 
@@ -72,7 +76,7 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
     public void testConnectHfpRetryWhileNotConnected() {
         BluetoothRouteManager sm = setupStateMachine(
                 BluetoothRouteManager.AUDIO_OFF_STATE_NAME, null);
-        setupConnectedDevices(new BluetoothDevice[]{DEVICE1}, null);
+        setupConnectedDevices(new BluetoothDevice[]{DEVICE1}, null, null, null);
         when(mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
                 nullable(ContentResolver.class))).thenReturn(0L);
         when(mHeadsetProxy.connectAudio()).thenReturn(false);
@@ -91,10 +95,45 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
 
     @SmallTest
     @Test
+    public void testAmbiguousActiveDevice() {
+        BluetoothRouteManager sm = setupStateMachine(
+                BluetoothRouteManager.AUDIO_CONNECTED_STATE_NAME_PREFIX, DEVICE1);
+        setupConnectedDevices(new BluetoothDevice[]{DEVICE1},
+                new BluetoothDevice[]{HEARING_AID_DEVICE}, DEVICE1, HEARING_AID_DEVICE);
+        sm.onActiveDeviceChanged(DEVICE1, false);
+        sm.onActiveDeviceChanged(HEARING_AID_DEVICE, true);
+        executeRoutingAction(sm, BluetoothRouteManager.BT_AUDIO_LOST, DEVICE1.getAddress());
+
+        verifyConnectionAttempt(HEARING_AID_DEVICE, 0);
+        verifyConnectionAttempt(DEVICE1, 0);
+        assertEquals(BluetoothRouteManager.AUDIO_CONNECTED_STATE_NAME_PREFIX
+                        + ":" + HEARING_AID_DEVICE.getAddress(),
+                sm.getCurrentState().getName());
+        sm.quitNow();
+    }
+
+    @SmallTest
+    @Test
+    public void testAudioOnDeviceWithScoOffActiveDevice() {
+        BluetoothRouteManager sm = setupStateMachine(
+                BluetoothRouteManager.AUDIO_CONNECTED_STATE_NAME_PREFIX, DEVICE1);
+        setupConnectedDevices(new BluetoothDevice[]{DEVICE1}, null, DEVICE1, null);
+        when(mHeadsetProxy.getAudioState(DEVICE1))
+                .thenReturn(BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
+        executeRoutingAction(sm, BluetoothRouteManager.BT_AUDIO_LOST, DEVICE1.getAddress());
+
+        verifyConnectionAttempt(DEVICE1, 0);
+        assertEquals(BluetoothRouteManager.AUDIO_OFF_STATE_NAME,
+                sm.getCurrentState().getName());
+        sm.quitNow();
+    }
+
+    @SmallTest
+    @Test
     public void testConnectHfpRetryWhileConnectedToAnotherDevice() {
         BluetoothRouteManager sm = setupStateMachine(
                 BluetoothRouteManager.AUDIO_CONNECTED_STATE_NAME_PREFIX, DEVICE1);
-        setupConnectedDevices(new BluetoothDevice[]{DEVICE1, DEVICE2}, null);
+        setupConnectedDevices(new BluetoothDevice[]{DEVICE1, DEVICE2}, null, null, null);
         when(mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
                 nullable(ContentResolver.class))).thenReturn(0L);
         when(mHeadsetProxy.connectAudio()).thenReturn(false);
@@ -126,22 +165,28 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
         return sm;
     }
 
-    private void setupConnectedDevices(BluetoothDevice[] devices, BluetoothDevice activeDevice) {
-        when(mDeviceManager.getNumConnectedDevices()).thenReturn(devices.length);
-        when(mDeviceManager.getConnectedDevices()).thenReturn(Arrays.asList(devices));
-        when(mHeadsetProxy.getConnectedDevices()).thenReturn(Arrays.asList(devices));
-        if (activeDevice != null) {
-            when(mHeadsetProxy.getAudioState(eq(activeDevice)))
-                    .thenReturn(BluetoothHeadset.STATE_AUDIO_CONNECTED);
-        }
-        doAnswer(invocation -> {
-            BluetoothDevice first = getFirstExcluding(devices,
-                    (String) invocation.getArguments()[0]);
-            return first == null ? null : first.getAddress();
-        }).when(mDeviceManager).getMostRecentlyConnectedDevice(nullable(String.class));
-        for (BluetoothDevice device : devices) {
-            when(mDeviceManager.getDeviceFromAddress(device.getAddress())).thenReturn(device);
-        }
+    private void setupConnectedDevices(BluetoothDevice[] hfpDevices,
+            BluetoothDevice[] hearingAidDevices,
+            BluetoothDevice hfpActiveDevice, BluetoothDevice hearingAidActiveDevice) {
+        if (hfpDevices == null) hfpDevices = new BluetoothDevice[]{};
+        if (hearingAidDevices == null) hearingAidDevices = new BluetoothDevice[]{};
+
+        when(mDeviceManager.getNumConnectedDevices()).thenReturn(
+                hfpDevices.length + hearingAidDevices.length);
+        List<BluetoothDevice> allDevices = Stream.concat(
+                Arrays.stream(hfpDevices), Arrays.stream(hearingAidDevices))
+                .collect(Collectors.toList());
+
+        when(mDeviceManager.getConnectedDevices()).thenReturn(allDevices);
+        when(mHeadsetProxy.getConnectedDevices()).thenReturn(Arrays.asList(hfpDevices));
+        when(mHeadsetProxy.getActiveDevice()).thenReturn(hfpActiveDevice);
+        when(mHeadsetProxy.getAudioState(hfpActiveDevice))
+                .thenReturn(BluetoothHeadset.STATE_AUDIO_CONNECTED);
+
+        when(mBluetoothHearingAid.getConnectedDevices())
+                .thenReturn(Arrays.asList(hearingAidDevices));
+        when(mBluetoothHearingAid.getActiveDevices())
+                .thenReturn(Arrays.asList(hearingAidActiveDevice, null));
     }
 
     static void executeRoutingAction(BluetoothRouteManager brm, int message, String
@@ -165,6 +210,7 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
     private void resetMocks() {
         reset(mDeviceManager, mListener, mHeadsetProxy, mTimeoutsAdapter);
         when(mDeviceManager.getHeadsetService()).thenReturn(mHeadsetProxy);
+        when(mDeviceManager.getHearingAidService()).thenReturn(mBluetoothHearingAid);
         when(mHeadsetProxy.connectAudio()).thenReturn(true);
         when(mHeadsetProxy.setActiveDevice(nullable(BluetoothDevice.class))).thenReturn(true);
         when(mTimeoutsAdapter.getRetryBluetoothConnectAudioBackoffMillis(
@@ -174,17 +220,6 @@ public class BluetoothRouteManagerTest extends TelecomTestCase {
     }
 
     private void verifyConnectionAttempt(BluetoothDevice device, int numTimes) {
-        verify(mHeadsetProxy, times(numTimes)).setActiveDevice(device);
-        verify(mHeadsetProxy, atLeast(numTimes)).connectAudio();
-    }
-
-    private static BluetoothDevice getFirstExcluding(
-            BluetoothDevice[] devices, String excludeAddress) {
-        for (BluetoothDevice x : devices) {
-            if (!Objects.equals(excludeAddress, x.getAddress())) {
-                return x;
-            }
-        }
-        return null;
+        verify(mDeviceManager, times(numTimes)).connectAudio(device.getAddress());
     }
 }

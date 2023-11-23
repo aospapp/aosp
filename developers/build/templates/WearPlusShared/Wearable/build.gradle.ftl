@@ -15,20 +15,20 @@
 -->
 buildscript {
     repositories {
-        jcenter()
         google()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.3.2'
     }
 }
 
 apply plugin: 'com.android.application'
 
 repositories {
-    jcenter()
     google()
+    jcenter()
 <#if sample.repository?has_content>
     <#list sample.repository as rep>
     ${rep}
@@ -42,22 +42,26 @@ dependencies {
     needs the latest version number attached. -->
     <@update_play_services_dependency dep="${dep}" />
 </#list>
-    compile ${play_services_wearable_dependency}
-    compile ${android_support_v13_dependency}
+    implementation ${play_services_wearable_dependency}
+
+  <#-- TODO (jewalker): Revise once androidX is released to production. -->
+  <#if !sample.androidX?? || !sample.androidX?has_content || sample.androidX == "false">
+    implementation ${android_support_v13_dependency}
+  </#if>
 
     <#if sample.preview_wearable_support_provided_dependency?? && sample.preview_wearable_support_provided_dependency?has_content>
-    provided '${sample.preview_wearable_support_provided_dependency}'
+    compileOnly '${sample.preview_wearable_support_provided_dependency}'
     <#else>
-    provided ${wearable_support_provided_dependency}
+    compileOnly ${wearable_support_provided_dependency}
     </#if>
 
     <#if sample.preview_wearable_support_dependency?? && sample.preview_wearable_support_dependency?has_content>
-    compile '${sample.preview_wearable_support_dependency}'
+    implementation '${sample.preview_wearable_support_dependency}'
     <#else>
-    compile ${wearable_support_dependency}
+    implementation ${wearable_support_dependency}
     </#if>
 
-    compile project(':Shared')
+    implementation project(':Shared')
 }
 
 // The sample build uses multiple directories to

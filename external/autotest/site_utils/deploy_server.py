@@ -7,6 +7,7 @@ import logging
 import multiprocessing
 import subprocess
 import sys
+from multiprocessing.pool import ThreadPool
 
 import common
 from autotest_lib.server import frontend
@@ -124,7 +125,7 @@ def _update_in_parallel(servers, extra_args=[]):
     # The update actions run in parallel. If any update failed, we should wait
     # for other running updates being finished. Abort in the middle of an update
     # may leave the server in a bad state.
-    pool = multiprocessing.pool.ThreadPool(POOL_SIZE)
+    pool = ThreadPool(POOL_SIZE)
     try:
         results = pool.map_async(do_server, servers)
         pool.close()

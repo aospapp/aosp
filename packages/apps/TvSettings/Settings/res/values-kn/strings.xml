@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"ಕ್ಯಾಲಿಬರೇಶನ್"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ಸ್ವರೂಪಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"ಸರೌಂಡ್ ಶಬ್ದ"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (ಡಾಲ್‌ಬೈ ಡಿಜಿಟಲ್)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (ಡಾಲ್‌ಬೈ ಡಿಜಿಟಲ್ ಪ್ಲಸ್‌/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"ಡಾಲ್‌ಬೈ ಡಿಜಿಟಲ್"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"ಡಾಲ್‌ಬೈ ಡಿಜಿಟಲ್ ಪ್ಲಸ್"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"ಡ್ರೈವ್ ಮರುಸಂಪರ್ಕಪಡಿಸುವವರೆಗೆ ಕೆಲವು ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಲಭ್ಯವಿರುವುದಿಲ್ಲ ಅಥವಾ ಸರಿಯಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸುವುದಿಲ್ಲ."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"ಸಾಕಷ್ಟು ಸಂಗ್ರಹಣೆ ಸ್ಥಳ ಇಲ್ಲ"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ಅಪ್ಲಿಕೇಶನ್ ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"ಅಪ್ಲಿಕೇಶನ್ ನಕಲು-ರಕ್ಷಿತವಾಗಿದೆ."</string>
     <string name="invalid_location" msgid="5269044848535157307">"ಸ್ಥಾಪನೆ ಸ್ಥಾನವು ಮಾನ್ಯವಾಗಿಲ್ಲ."</string>
     <string name="system_package" msgid="9200255718634512790">"ಸಿಸ್ಟಂ ನವೀಕರಣಗಳನ್ನು ಬಾಹ್ಯ ಮಾಧ್ಯಮದಲ್ಲಿ ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"ಸಾಧನ ನಿರ್ವಾಹಕವನ್ನು ಬಾಹ್ಯ ಮಾಧ್ಯಮದಲ್ಲಿ ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
@@ -371,7 +370,7 @@
     <string name="system_set_time" msgid="4661804115501057452">"ಸಮಯವನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"ಸಮಯದ ವಲಯವನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
-    <string name="system_set_time_format" msgid="4447882066895090612">"24-ಗಂಟೆ ಫಾರ್ಮ್ಯಾಟ್‌ ಬಳಸು"</string>
+    <string name="system_set_time_format" msgid="4447882066895090612">"24-ಗಂಟೆ ಫಾರ್ಮ್ಯಾಟ್‌ ಬಳಸಿ"</string>
     <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"ಸ್ವಯಂಚಾಲಿತ ದಿನಾಂಕ &amp; ಸಮಯ"</string>
   <string-array name="auto_date_time_entries">
@@ -487,7 +486,7 @@
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Wi‑Fi ವೆರ್ಬೋಸ್ ಲಾಗಿಂಗ್ ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"ಸ್ಪರ್ಶಗಳನ್ನು ತೋರಿಸು"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"ಪಾಯಿಂಟರ್ ಸ್ಥಳ"</string>
-    <string name="system_show_layout_bounds" msgid="645732439882291943">"ಲೇಔಟ್ ಪರಿಮಿತಿಗಳನ್ನು ತೋರಿಸು"</string>
+    <string name="system_show_layout_bounds" msgid="645732439882291943">"ಲೇಔಟ್ ಪರಿಮಿತಿಗಳನ್ನು ತೋರಿಸಿ"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"GPU ವೀಕ್ಷಣೆ ಅಪ್‌ಡೇಟ್‌"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"ಹಾರ್ಡ್‌ವೇರ್‌ ಲೇಯರ್ ತೋರಿಸು"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"GPU ಓವರ್‌ಡ್ರಾ ತೋರಿಸು"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"ಅಧಿಸೂಚನೆ ಪ್ರವೇಶ"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ಯಾವುದೇ ಸ್ಥಾಪಿಸಿದ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಅಧಿಸೂಚನೆ ಪ್ರವೇಶವನ್ನು ವಿನಂತಿಸಿಲ್ಲ."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ಸಂಪರ್ಕ ಹೆಸರುಗಳು ಮತ್ತು ನೀವು ಸ್ವೀಕರಿಸುವ ಸಂದೇಶಗಳ ಪಠ್ಯದಂತಹ ವೈಯಕ್ತಿಕ ಮಾಹಿತಿ ಸೇರಿದಂತೆ ಈ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ ಎಲ್ಲ ಅಧಿಸೂಚನೆಗಳನ್ನು ಓದಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ. ಇವುಗಳಿಗೆ ಅಧಿಸೂಚನೆಗಳನ್ನು ವಜಾ ಮಾಡಲು ಅಥವಾ ಅವುಗಳು ಹೊಂದಿರುವಂತಹ ಕ್ರಿಯೆ ಬಟನ್‌ಗಳನ್ನು ಟ್ರಿಗ್ಗರ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ."</string>
+    <string name="directory_access" msgid="7439168599298598101">"ಡೈರೆಕ್ಟರಿ ಪ್ರವೇಶ"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"ಕೆಲವು ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಪ್ರವೇಶಿಸಲು ಈ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ ಅನುಮತಿ ಇದೆ."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"ಇತರ ಅಪ್ಲಿಕೇಶನ್ ಮೇಲೆ ಡಿಸ್‌ಪ್ಲೇ"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"‍ಇತರ ಅಪ್ಲಿಕೇಶನ್ ಮೇಲೆ ಡಿಸ್‌ಪ್ಲೇ ಮಾಡಲು ಅನುಮತಿಸಿ"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"ನೀವು ಬಳಸುತ್ತಿರುವ ಇತರ ಅಪ್ಲಿಕೇಶನ್‌ಗಳ ಮೇಲೆ ಪ್ರದರ್ಶಿಸಲು ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಅನುಮತಿ ನೀಡಿ. ನೀವು ಆ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಬಳಸುವುದರ ಮೇಲೆ ಇದು ಪರಿಣಾಮ ಬೀರಬಹುದು ಅಥವಾ ಅವು ಕಾಣಿಸುವ ಅಥವಾ ವರ್ತಿಸುವ ರೀತಿಯನ್ನು ಬದಲಾಯಿಸಬಹುದು."</string>

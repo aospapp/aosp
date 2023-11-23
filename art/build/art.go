@@ -16,8 +16,10 @@ package art
 
 import (
 	"android/soong/android"
+	"android/soong/apex"
 	"android/soong/cc"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/google/blueprint/proptools"
@@ -53,6 +55,9 @@ func globalFlags(ctx android.BaseContext) ([]string, []string) {
 		cflags = append(cflags, "-DART_HEAP_POISONING=1")
 		asflags = append(asflags, "-DART_HEAP_POISONING=1")
 	}
+	if envTrue(ctx, "ART_USE_CXX_INTERPRETER") {
+		cflags = append(cflags, "-DART_USE_CXX_INTERPRETER=1")
+	}
 
 	if !envFalse(ctx, "ART_USE_READ_BARRIER") && ctx.AConfig().ArtUseReadBarrier() {
 		// Used to change the read barrier type. Valid values are BAKER, BROOKS,
@@ -66,8 +71,12 @@ func globalFlags(ctx android.BaseContext) ([]string, []string) {
 			"-DART_READ_BARRIER_TYPE_IS_"+barrierType+"=1")
 	}
 
-  cdexLevel := envDefault(ctx, "ART_DEFAULT_COMPACT_DEX_LEVEL", "fast")
-  cflags = append(cflags, "-DART_DEFAULT_COMPACT_DEX_LEVEL="+cdexLevel)
+	if !envFalse(ctx, "ART_USE_GENERATIONAL_CC") {
+		cflags = append(cflags, "-DART_USE_GENERATIONAL_CC=1")
+	}
+
+	cdexLevel := envDefault(ctx, "ART_DEFAULT_COMPACT_DEX_LEVEL", "fast")
+	cflags = append(cflags, "-DART_DEFAULT_COMPACT_DEX_LEVEL="+cdexLevel)
 
 	// We need larger stack overflow guards for ASAN, as the compiled code will have
 	// larger frame sizes. For simplicity, just use global not-target-specific cflags.
@@ -244,8 +253,10 @@ func prefer32Bit(ctx android.LoadHookContext) {
 	ctx.AppendProperties(p)
 }
 
+var testMapKey = android.NewOnceKey("artTests")
+
 func testMap(config android.Config) map[string][]string {
-	return config.Once("artTests", func() interface{} {
+	return config.Once(testMapKey, func() interface{} {
 		return make(map[string][]string)
 	}).(map[string][]string)
 }
@@ -273,13 +284,45 @@ var artTestMutex sync.Mutex
 
 func init() {
 	android.RegisterModuleType("art_cc_library", artLibrary)
-	android.RegisterModuleType("art_cc_static_library", artStaticLibrary)
+	android.RegisterModuleType("art_cc_library_static", artStaticLibrary)
 	android.RegisterModuleType("art_cc_binary", artBinary)
 	android.RegisterModuleType("art_cc_test", artTest)
 	android.RegisterModuleType("art_cc_test_library", artTestLibrary)
 	android.RegisterModuleType("art_cc_defaults", artDefaultsFactory)
+	android.RegisterModuleType("libart_cc_defaults", libartDefaultsFactory)
+	android.RegisterModuleType("libart_static_cc_defaults", libartStaticDefaultsFactory)
 	android.RegisterModuleType("art_global_defaults", artGlobalDefaultsFactory)
 	android.RegisterModuleType("art_debug_defaults", artDebugDefaultsFactory)
+
+	// TODO: This makes the module disable itself for host if HOST_PREFER_32_BIT is
+	// set. We need this because the multilib types of binaries listed in the apex
+	// rule must match the declared type. This is normally not difficult but HOST_PREFER_32_BIT
+	// changes this to 'prefer32' on all host binaries. Since HOST_PREFER_32_BIT is
+	// only used for testing we can just disable the module.
+	// See b/120617876 for more information.
+	android.RegisterModuleType("art_apex_test", artTestApexBundleFactory)
+}
+
+func artTestApexBundleFactory() android.Module {
+	module := apex.ApexBundleFactory( /*testApex*/ true)
+	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
+		if envTrue(ctx, "HOST_PREFER_32_BIT") {
+			type props struct {
+				Target struct {
+					Host struct {
+						Enabled *bool
+					}
+				}
+			}
+
+			p := &props{}
+			p.Target.Host.Enabled = proptools.BoolPtr(false)
+			ctx.AppendProperties(p)
+			log.Print("Disabling host build of " + ctx.ModuleName() + " for HOST_PREFER_32_BIT=true")
+		}
+	})
+
+	return module
 }
 
 func artGlobalDefaultsFactory() android.Module {
@@ -297,6 +340,22 @@ func artDebugDefaultsFactory() android.Module {
 }
 
 func artDefaultsFactory() android.Module {
+	c := &codegenProperties{}
+	module := cc.DefaultsFactory(c)
+	android.AddLoadHook(module, func(ctx android.LoadHookContext) { codegen(ctx, c, true) })
+
+	return module
+}
+
+func libartDefaultsFactory() android.Module {
+	c := &codegenProperties{}
+	module := cc.DefaultsFactory(c)
+	android.AddLoadHook(module, func(ctx android.LoadHookContext) { codegen(ctx, c, true) })
+
+	return module
+}
+
+func libartStaticDefaultsFactory() android.Module {
 	c := &codegenProperties{}
 	module := cc.DefaultsFactory(c)
 	android.AddLoadHook(module, func(ctx android.LoadHookContext) { codegen(ctx, c, true) })

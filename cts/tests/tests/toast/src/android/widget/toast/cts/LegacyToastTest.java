@@ -16,12 +16,14 @@
 
 package android.widget.toast.cts;
 
-import android.support.test.runner.AndroidJUnit4;
+import static org.junit.Assert.fail;
+
 import android.view.WindowManager;
+
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.fail;
 
 /**
  * Test whether toasts are properly shown. For apps targeting API 25+

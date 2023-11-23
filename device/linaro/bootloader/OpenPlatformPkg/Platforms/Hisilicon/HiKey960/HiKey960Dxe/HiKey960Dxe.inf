@@ -39,6 +39,7 @@
   NonDiscoverableDeviceRegistrationLib
   PcdLib
   PrintLib
+  SerialPortLib
   TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint

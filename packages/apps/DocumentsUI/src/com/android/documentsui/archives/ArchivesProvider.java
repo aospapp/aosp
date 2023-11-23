@@ -30,14 +30,13 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
-import android.provider.MetadataReader;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Log;
 
 import com.android.documentsui.R;
-import com.android.internal.annotations.GuardedBy;
+import androidx.annotation.GuardedBy;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,6 +44,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Provides basic implementation for creating, extracting and accessing
@@ -62,9 +62,7 @@ public class ArchivesProvider extends DocumentsProvider {
     private static final String TAG = "ArchivesProvider";
     private static final String METHOD_ACQUIRE_ARCHIVE = "acquireArchive";
     private static final String METHOD_RELEASE_ARCHIVE = "releaseArchive";
-    private static final String[] ZIP_MIME_TYPES = {
-            "application/zip", "application/x-zip", "application/x-zip-compressed"
-    };
+    private static final Set<String> ZIP_MIME_TYPES = ArchiveRegistry.getSupportList();
 
     @GuardedBy("mArchives")
     private final Map<Key, Loader> mArchives = new HashMap<>();
@@ -170,7 +168,7 @@ public class ArchivesProvider extends DocumentsProvider {
             Log.e(TAG, "An error occurred retrieving the metadata.", e);
             return null;
         } finally {
-            IoUtils.closeQuietly(stream);
+            FileUtils.closeQuietly(stream);
         }
     }
 

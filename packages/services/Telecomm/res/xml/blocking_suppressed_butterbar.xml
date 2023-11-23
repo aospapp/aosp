@@ -19,7 +19,7 @@
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/blocked_numbers_butter_bar_color">
+        android:background="@color/background_color">
 
     <ImageView
             android:id="@+id/icon"
@@ -39,7 +39,7 @@
             android:paddingTop="@dimen/blocked_numbers_large_padding"
             android:paddingRight="@dimen/blocked_numbers_large_padding"
             android:text="@string/blocked_numbers_butter_bar_title"
-            style="@style/BlockedNumbersTitleText" />
+            style="@style/BlockedNumbersTextPrimary2" />
 
     <TextView
             android:id="@+id/description"
@@ -51,7 +51,7 @@
             android:paddingBottom="@dimen/blocked_numbers_large_padding"
             android:paddingRight="@dimen/blocked_numbers_large_padding"
             android:text="@string/blocked_numbers_butter_bar_body"
-            style="@style/BlockedNumbersSecondaryText" />
+            style="@style/BlockedNumbersTextSecondary" />
 
     <TextView
             android:id="@+id/reenable_button"

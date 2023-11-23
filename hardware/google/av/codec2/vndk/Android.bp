@@ -27,7 +27,6 @@ cc_library_shared {
         "util/C2InterfaceHelper.cpp",
         "util/C2InterfaceUtils.cpp",
         "util/C2ParamUtils.cpp",
-        "v4l2/C2VdaBqBlockPool.cpp",
     ],
 
     export_include_dirs: [
@@ -37,6 +36,7 @@ cc_library_shared {
     export_shared_lib_headers: [
         "libbase",
         "android.hardware.media.bufferpool@1.0",
+        "android.hidl.token@1.0-utils",
     ],
 
     local_include_dirs: [
@@ -48,11 +48,16 @@ cc_library_shared {
         "hardware/google/av/codec2/include",
     ],
 
+    header_libs: [
+        "libgui_headers",
+    ],
+
     shared_libs: [
         "android.hardware.graphics.allocator@2.0",
         "android.hardware.graphics.bufferqueue@1.0",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.media.bufferpool@1.0",
+        "android.hidl.token@1.0-utils",
         "libbase",
         "libbinder",
         "libcutils",
@@ -72,7 +77,6 @@ cc_library_shared {
     cflags: [
         "-Werror",
         "-Wall",
-        "-std=c++14",
     ],
 }
 
@@ -102,6 +106,3 @@ cc_defaults {
     // TODO: separate internal headers so they can be exposed here
 }
 
-subdirs = [
-    "bufferpool",
-]

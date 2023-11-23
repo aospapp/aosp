@@ -83,7 +83,7 @@ uz{
         de_CH{"yuqori nemis (Shveytsariya)"}
         dgr{"dogrib"}
         dje{"zarma"}
-        dsb{"quyi sorbcha"}
+        dsb{"quyi sorb"}
         dua{"duala"}
         dv{"divexi"}
         dyo{"diola-fogni"}
@@ -242,7 +242,7 @@ uz{
         min{"minangkabau"}
         mk{"makedon"}
         ml{"malayalam"}
-        mn{"mo‘g‘ul"}
+        mn{"mongol"}
         mni{"manipur"}
         moh{"mohauk"}
         mos{"mossi"}
@@ -269,7 +269,7 @@ uz{
         ng{"ndonga"}
         nia{"nias"}
         niu{"niue"}
-        nl{"golland"}
+        nl{"niderland"}
         nl_BE{"flamand"}
         nmg{"kvasio"}
         nn{"norveg-nyunorsk"}
@@ -316,13 +316,13 @@ uz{
         sad{"sandave"}
         sah{"saxa"}
         saq{"samburu"}
-        sat{"santal"}
+        sat{"santali"}
         sba{"ngambay"}
         sbp{"sangu"}
         sc{"sardin"}
         scn{"sitsiliya"}
         sco{"shotland"}
-        sd{"sindxi"}
+        sd{"sindhi"}
         sdh{"janubiy kurd"}
         se{"shimoliy saam"}
         seh{"sena"}
@@ -546,7 +546,7 @@ uz{
             tibt{"tibet raqamlari"}
         }
     }
-    Version{"2.1.37.1"}
+    Version{"2.1.44.88"}
     characterLabelPattern{
         all{"{0} — hammasi"}
         category-list{"{0}: {1}"}

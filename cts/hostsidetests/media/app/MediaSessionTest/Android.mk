@@ -30,10 +30,11 @@ LOCAL_SRC_FILES := \
 
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
+    androidx.test.rules \
+    compatibility-device-util-axt \
 
 
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 26
 
 include $(BUILD_CTS_PACKAGE)

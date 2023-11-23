@@ -15,11 +15,11 @@ config ID
   bool "id"
   default y
   help
-    usage: id [-nGgru]
+    usage: id [-nGgru] [USER...]
 
     Print user and group ID.
 
-    -n	print names instead of numeric IDs (to be used with -Ggu)
+    -n	Print names instead of numeric IDs (to be used with -Ggu)
     -G	Show only the group IDs
     -g	Show only the effective group ID
     -r	Show real ID instead of effective ID

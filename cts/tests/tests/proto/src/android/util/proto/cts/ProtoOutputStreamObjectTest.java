@@ -17,6 +17,7 @@
 package android.util.proto.cts;
 
 import android.util.proto.ProtoOutputStream;
+import android.util.proto.ProtoStream;
 import android.util.proto.cts.nano.Test;
 
 import com.google.protobuf.nano.MessageNano;
@@ -36,31 +37,31 @@ public class ProtoOutputStreamObjectTest extends TestCase {
      * Test making the tokens for startObject.
      */
     public void testMakeToken() throws Exception {
-        assertEquals(0xe000000000000000L, ProtoOutputStream.makeToken(0xffffffff, false, 0, 0, 0));
-        assertEquals(0x1000000000000000L, ProtoOutputStream.makeToken(0, true, 0, 0, 0));
-        assertEquals(0x0ff8000000000000L, ProtoOutputStream.makeToken(0, false, 0xffffffff, 0, 0));
-        assertEquals(0x0007ffff00000000L, ProtoOutputStream.makeToken(0, false, 0, 0xffffffff, 0));
-        assertEquals(0x00000000ffffffffL, ProtoOutputStream.makeToken(0, false, 0, 0, 0xffffffff));
+        assertEquals(0xe000000000000000L, ProtoStream.makeToken(0xffffffff, false, 0, 0, 0));
+        assertEquals(0x1000000000000000L, ProtoStream.makeToken(0, true, 0, 0, 0));
+        assertEquals(0x0ff8000000000000L, ProtoStream.makeToken(0, false, 0xffffffff, 0, 0));
+        assertEquals(0x0007ffff00000000L, ProtoStream.makeToken(0, false, 0, 0xffffffff, 0));
+        assertEquals(0x00000000ffffffffL, ProtoStream.makeToken(0, false, 0, 0, 0xffffffff));
     }
 
     /**
      * Test decoding the tokens.
      */
     public void testDecodeToken() throws Exception {
-        assertEquals(0x07, ProtoOutputStream.getTagSizeFromToken(0xffffffffffffffffL));
-        assertEquals(0, ProtoOutputStream.getTagSizeFromToken(0x1fffffffffffffffL));
+        assertEquals(0x07, ProtoStream.getTagSizeFromToken(0xffffffffffffffffL));
+        assertEquals(0, ProtoStream.getTagSizeFromToken(0x1fffffffffffffffL));
 
-        assertEquals(true, ProtoOutputStream.getRepeatedFromToken(0xffffffffffffffffL));
-        assertEquals(false, ProtoOutputStream.getRepeatedFromToken(0xefffffffffffffffL));
+        assertEquals(true, ProtoStream.getRepeatedFromToken(0xffffffffffffffffL));
+        assertEquals(false, ProtoStream.getRepeatedFromToken(0xefffffffffffffffL));
 
-        assertEquals(0x01ff, ProtoOutputStream.getDepthFromToken(0xffffffffffffffffL));
-        assertEquals(0, ProtoOutputStream.getDepthFromToken(0xf005ffffffffffffL));
+        assertEquals(0x01ff, ProtoStream.getDepthFromToken(0xffffffffffffffffL));
+        assertEquals(0, ProtoStream.getDepthFromToken(0xf005ffffffffffffL));
 
-        assertEquals(0x07ffff, ProtoOutputStream.getObjectIdFromToken(0xffffffffffffffffL));
-        assertEquals(0, ProtoOutputStream.getObjectIdFromToken(0xfff80000ffffffffL));
+        assertEquals(0x07ffff, ProtoStream.getObjectIdFromToken(0xffffffffffffffffL));
+        assertEquals(0, ProtoStream.getObjectIdFromToken(0xfff80000ffffffffL));
 
-        assertEquals(0xffffffff, ProtoOutputStream.getSizePosFromToken(0xffffffffffffffffL));
-        assertEquals(0, ProtoOutputStream.getSizePosFromToken(0xffffffff00000000L));
+        assertEquals(0xffffffff, ProtoStream.getOffsetFromToken(0xffffffffffffffffL));
+        assertEquals(0, ProtoStream.getOffsetFromToken(0xffffffff00000000L));
     }
 
     /**
@@ -617,9 +618,9 @@ public class ProtoOutputStreamObjectTest extends TestCase {
             // Check this, because it's really useful, and if we lose the message it'll be
             // harder to debug typos.
             assertEquals("Mismatched startObject/endObject calls. Current depth 2"
-                    + " token=Token(val=0x2017fffd0000000a depth=2 object=2 tagSize=1 sizePos=10)"
+                    + " token=Token(val=0x2017fffd0000000a depth=2 object=2 tagSize=1 offset=10)"
                     + " expectedToken=Token(val=0x2017fffc0000000a depth=2 object=3 tagSize=1"
-                    + " sizePos=10)", ex.getMessage());
+                    + " offset=10)", ex.getMessage());
         }
     }
 

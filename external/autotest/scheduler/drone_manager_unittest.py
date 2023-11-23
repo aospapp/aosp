@@ -17,7 +17,7 @@ from autotest_lib.server.hosts import ssh_host
 
 class MockDrone(drones._AbstractDrone):
     def __init__(self, name, active_processes=0, max_processes=10,
-                 allowed_users=None, support_ssp=False):
+                 allowed_users=None):
         super(MockDrone, self).__init__()
         self.name = name
         self.hostname = name
@@ -25,7 +25,6 @@ class MockDrone(drones._AbstractDrone):
         self.max_processes = max_processes
         self.allowed_users = allowed_users
         self._host = 'mock_drone'
-        self._support_ssp = support_ssp
         # maps method names list of tuples containing method arguments
         self._recorded_calls = {'queue_call': [],
                                 'send_file_to': []}
@@ -104,20 +103,16 @@ class DroneManager(unittest.TestCase):
 
 
     def _test_choose_drone_for_execution_helper(self, processes_info_list,
-                                                requested_processes,
-                                                require_ssp=False):
+                                                requested_processes):
         for index, process_info in enumerate(processes_info_list):
-            if len(process_info) == 2:
-                active_processes, max_processes = process_info
-                support_ssp = False
-            else:
-                active_processes, max_processes, support_ssp = process_info
-            self.manager._enqueue_drone(MockDrone(
-                    index, active_processes, max_processes, allowed_users=None,
-                    support_ssp=support_ssp))
+            active_processes, max_processes = process_info
+            self.manager._enqueue_drone(
+                    MockDrone(index, active_processes, max_processes,
+                              allowed_users=None)
+                    )
 
         return self.manager._choose_drone_for_execution(
-                requested_processes, self._USERNAME, None, require_ssp)
+                requested_processes, self._USERNAME, None)
 
 
     def test_choose_drone_for_execution(self):
@@ -141,19 +136,6 @@ class DroneManager(unittest.TestCase):
     def test_choose_drone_for_execution_all_full_same_percentage_capacity(self):
         drone = self._test_choose_drone_for_execution_helper([(5, 3), (10, 6)],
                                                              1)
-        self.assertEquals(drone.name, 1)
-
-
-    def test_choose_drone_for_execution_no_ssp_support(self):
-        drone = self._test_choose_drone_for_execution_helper(
-                [(0, 1), (1, 3)], 1, True)
-        self.assertEquals(drone.name, 0)
-
-
-    def test_choose_drone_for_execution_with_ssp_support(self):
-        self.mock_drone._support_ssp = True
-        drone = self._test_choose_drone_for_execution_helper(
-                [(0, 1), (1, 3, True)], 1, True)
         self.assertEquals(drone.name, 1)
 
 

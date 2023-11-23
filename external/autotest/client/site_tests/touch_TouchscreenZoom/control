@@ -9,7 +9,7 @@ CRITERIA = """
 This test will fail if, after playback of touch events, no zoom is detected
 or if zoom behaves irregularly.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

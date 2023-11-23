@@ -17,16 +17,17 @@
 package com.android.settings.development;
 
 import android.content.Context;
-import android.hardware.usb.IUsbManager;
+import android.debug.IAdbManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.SystemProperties;
 import android.os.UserManager;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
+import android.sysprop.AdbProperties;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.Utils;
 import com.android.settings.core.PreferenceControllerMixin;
@@ -38,10 +39,7 @@ public class ClearAdbKeysPreferenceController extends DeveloperOptionsPreference
     private static final String TAG = "ClearAdbPrefCtrl";
     private static final String CLEAR_ADB_KEYS = "clear_adb_keys";
 
-    @VisibleForTesting
-    static final String RO_ADB_SECURE_PROPERTY_KEY = "ro.adb.secure";
-
-    private final IUsbManager mUsbManager;
+    private final IAdbManager mAdbManager;
     private final DevelopmentSettingsDashboardFragment mFragment;
 
     public ClearAdbKeysPreferenceController(Context context,
@@ -49,12 +47,12 @@ public class ClearAdbKeysPreferenceController extends DeveloperOptionsPreference
         super(context);
 
         mFragment = fragment;
-        mUsbManager = IUsbManager.Stub.asInterface(ServiceManager.getService(Context.USB_SERVICE));
+        mAdbManager = IAdbManager.Stub.asInterface(ServiceManager.getService(Context.ADB_SERVICE));
     }
 
     @Override
     public boolean isAvailable() {
-        return SystemProperties.getBoolean(RO_ADB_SECURE_PROPERTY_KEY, false /* default */);
+        return AdbProperties.secure().orElse(false);
     }
 
     @Override
@@ -93,7 +91,7 @@ public class ClearAdbKeysPreferenceController extends DeveloperOptionsPreference
 
     public void onClearAdbKeysConfirmed() {
         try {
-            mUsbManager.clearUsbDebuggingKeys();
+            mAdbManager.clearDebuggingKeys();
         } catch (RemoteException e) {
             Log.e(TAG, "Unable to clear adb keys", e);
         }

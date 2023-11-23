@@ -20,6 +20,10 @@ import com.android.tradefed.build.BuildSerializedVersion;
 import com.google.common.base.Objects;
 
 import java.io.Serializable;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -34,6 +38,14 @@ public class MultiMap<K, V> implements Serializable {
 
     public MultiMap() {
         mInternalMap = new HashMap<K, List<V>>();
+    }
+
+    public MultiMap(MultiMap<K, V> map) {
+        this();
+        for (K key : map.keySet()) {
+            List<V> value = map.get(key);
+            mInternalMap.put(key, value);
+        }
     }
 
     /**
@@ -80,11 +92,23 @@ public class MultiMap<K, V> implements Serializable {
         return mInternalMap.isEmpty();
     }
 
-    /**
-     * Check if map is empty.
-     */
+    /** Returns a collection of all distinct keys contained in this multimap. */
     public Set<K> keySet() {
         return mInternalMap.keySet();
+    }
+
+    /**
+     * Returns a collection of all key-value pairs in this MultiMap as <code>Map.Entry</code>
+     * instances.
+     */
+    public Collection<Map.Entry<K, V>> entries() {
+        ArrayList<Map.Entry<K, V>> entries = new ArrayList<>();
+        for (K key : keySet()) {
+            for (V value : get(key)) {
+                entries.add(new AbstractMap.SimpleImmutableEntry<>(key, value));
+            }
+        }
+        return Collections.unmodifiableList(entries);
     }
 
     /**

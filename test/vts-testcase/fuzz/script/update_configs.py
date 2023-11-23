@@ -24,12 +24,23 @@ Config Files:
 
 
 Usage:
-    python test/vts-testcase/fuzz/update_makefiles.py
+    python test/vts-testcase/fuzz/script/update_configs.py
 """
+
+import os
+import sys
 
 from config.config_gen import ConfigGen
 
+ANDROID_BUILD_TOP = os.environ.get('ANDROID_BUILD_TOP')
+if not ANDROID_BUILD_TOP:
+    print 'Run "lunch" command first.'
+    sys.exit(1)
+
 if __name__ == '__main__':
     print 'Updating config files.'
+    HAL_SCRIPT_DIR = os.path.join(ANDROID_BUILD_TOP, 'test', 'vts-testcase',
+                                  'hal', 'script')
+    sys.path.append(HAL_SCRIPT_DIR)
     config_gen = ConfigGen()
     config_gen.UpdateFuzzerConfigs()

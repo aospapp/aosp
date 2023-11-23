@@ -54,7 +54,7 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
     }
 
     public void testSynthesizeToFile() throws Exception {
-        File sampleFile = new File(Environment.getExternalStorageDirectory(), SAMPLE_FILE_NAME);
+        File sampleFile = new File(getContext().getExternalFilesDir(null), SAMPLE_FILE_NAME);
         try {
             assertFalse(sampleFile.exists());
 
@@ -83,6 +83,32 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
             assertEquals(Integer.valueOf(i * 5 + 5), timePointsEnd.get("mocktofile").get(i));
             assertEquals(Integer.valueOf(i * 10), timePointsFrame.get("mocktofile").get(i));
         }
+    }
+
+    public void testMaxSpeechInputLength() {
+      File sampleFile = new File(getContext().getExternalFilesDir(null), SAMPLE_FILE_NAME);
+      try {
+          assertFalse(sampleFile.exists());
+          TextToSpeech tts = getTts();
+
+          int maxLength = tts.getMaxSpeechInputLength();
+          StringBuilder sb = new StringBuilder();
+          for (int i = 0; i < maxLength; i++) {
+            sb.append("c");
+          }
+          String valid = sb.toString();
+          sb.append("c");
+          String invalid = sb.toString();
+
+          assertEquals(maxLength, valid.length());
+          assertTrue(invalid.length() > maxLength);
+          assertEquals(TextToSpeech.ERROR,
+                  tts.synthesizeToFile(invalid, createParams("mockToFile"), sampleFile.getPath()));
+          assertEquals(TextToSpeech.SUCCESS,
+                  tts.synthesizeToFile(valid, createParams("mockToFile"), sampleFile.getPath()));
+      } finally {
+          sampleFile.delete();
+      }
     }
 
     public void testSpeak() throws Exception {
@@ -140,7 +166,7 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
     }
 
     public void testMediaPlayerFails() throws Exception {
-        File sampleFile = new File(Environment.getExternalStorageDirectory(), "notsound.wav");
+        File sampleFile = new File(getContext().getExternalFilesDir(null), "notsound.wav");
         try {
             assertFalse(TextToSpeechWrapper.isSoundFile(sampleFile.getPath()));
             FileOutputStream out = new FileOutputStream(sampleFile);

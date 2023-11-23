@@ -100,7 +100,6 @@ class BasicSensorTestBase : public Test {
   // If some external user changes the sampling status of our sensor,
   // we shouldn't perform some of the checking, because it will be flaky.
   bool mExternalSamplingStatusChange;
-  bool mDoneWithPassiveConfigure;
   State mState;
   uint32_t mInstanceId;
   uint32_t mSensorHandle;

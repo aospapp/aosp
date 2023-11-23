@@ -25,8 +25,8 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Camera"
-#include <cutils/log.h>
- #include <stdio.h>
+#include <log/log.h>
+#include <stdio.h>
 #include "EmulatedCamera.h"
 //#include "EmulatedFakeCameraDevice.h"
 #include "Converters.h"
@@ -56,17 +56,6 @@ static void PrintParamDiff(const CameraParameters& current, const char* new_par)
 #else
 #define PrintParamDiff(current, new_par)   (void(0))
 #endif  /* DEBUG_PARAM */
-
-/* A helper routine that adds a value to the camera parameter.
- * Param:
- *  param - Camera parameter to add a value to.
- *  val - Value to add.
- * Return:
- *  A new string containing parameter with the added value on success, or NULL on
- *  a failure. If non-NULL string is returned, the caller is responsible for
- *  freeing it with 'free'.
- */
-static char* AddValue(const char* param, const char* val);
 
 /*
  * Check if a given string |value| equals at least one of the strings in |list|
@@ -495,7 +484,6 @@ status_t EmulatedCamera::takePicture()
 {
     ALOGV("%s", __FUNCTION__);
 
-    status_t res;
     int width, height;
     uint32_t org_fmt;
 
@@ -617,6 +605,26 @@ status_t EmulatedCamera::setParameters(const char* parms)
     int new_frame_rate = new_param.getPreviewFrameRate();
     if (old_frame_rate != new_frame_rate) {
         getCameraDevice()->setPreviewFrameRate(new_frame_rate);
+    }
+
+    // Validate KEY_PREVIEW_FPS_RANGE i.e., "preview-fps-range"
+    const char* preview_fps_range = new_param.get(CameraParameters::KEY_PREVIEW_FPS_RANGE);
+    if (preview_fps_range) {
+        char tmp[1024];
+        snprintf(tmp, sizeof(tmp), "%s", preview_fps_range);
+        int low=-1, high=-1;
+        if (sscanf(tmp, "%d,%d", &low, &high) != 2) {
+            ALOGE("incorrect preview-fps-range %s", tmp);
+            return BAD_VALUE;
+        }
+        if (low < 0 || high < 0) {
+            ALOGE("negative preview_fps_range in %s", tmp);
+            return BAD_VALUE;
+        }
+        if (low > high) {
+            ALOGE("invalid preview_fps_range in %s", tmp);
+            return BAD_VALUE;
+        }
     }
 
     // Validate focus mode
@@ -1234,25 +1242,6 @@ const char EmulatedCamera::RECORDING_HINT_KEY[] = "recording-hint";
 
 const char EmulatedCamera::FACING_BACK[]      = "back";
 const char EmulatedCamera::FACING_FRONT[]     = "front";
-
-/****************************************************************************
- * Helper routines
- ***************************************************************************/
-
-static char* AddValue(const char* param, const char* val)
-{
-    const size_t len1 = strlen(param);
-    const size_t len2 = strlen(val);
-    char* ret = reinterpret_cast<char*>(malloc(len1 + len2 + 2));
-    ALOGE_IF(ret == NULL, "%s: Memory failure", __FUNCTION__);
-    if (ret != NULL) {
-        memcpy(ret, param, len1);
-        ret[len1] = ',';
-        memcpy(ret + len1 + 1, val, len2);
-        ret[len1 + len2 + 1] = '\0';
-    }
-    return ret;
-}
 
 /****************************************************************************
  * Parameter debugging helpers

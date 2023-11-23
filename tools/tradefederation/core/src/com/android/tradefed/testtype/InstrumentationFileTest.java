@@ -21,8 +21,8 @@ import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.FilteredResultForwarder;
 import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
 
@@ -48,6 +48,8 @@ class InstrumentationFileTest implements IRemoteTest {
 
     // on device test folder location where the test file should be saved
     private static final String ON_DEVICE_TEST_DIR_LOCATION = "/data/local/tmp/";
+    /** Key that matches the -e package option for instrumentation. */
+    private static final String PACKAGE_ARG_KEY = "package";
 
     private InstrumentationTest mInstrumentationTest = null;
 
@@ -84,6 +86,7 @@ class InstrumentationFileTest implements IRemoteTest {
         mInstrumentationTest.setReRunUsingTestFile(true);
         // no need to rerun when executing tests one by one
         mInstrumentationTest.setRerunMode(false);
+        mInstrumentationTest.setIsRerun(true);
         // keep local copy of tests to be run
         mTests = testsToRun;
         mAttemps = 0;
@@ -154,6 +157,11 @@ class InstrumentationFileTest implements IRemoteTest {
             // push test file to the device and run
             mFilePathOnDevice = ON_DEVICE_TEST_DIR_LOCATION + testFile.getName();
             if (pushFileToTestDevice(testFile, mFilePathOnDevice)) {
+                // Unset package name if any just in case to avoid conflict with classname.
+                // Since at that point we explicitly request the class to rerun there is no need to
+                // keep any of the original package options.
+                mInstrumentationTest.setTestPackageName(null);
+                mInstrumentationTest.removeFromInstrumentationArg(PACKAGE_ARG_KEY);
                 mInstrumentationTest.setTestFilePathOnDevice(mFilePathOnDevice);
                 CLog.d("Test file %s was successfully pushed to %s on device",
                         testFile.getAbsolutePath(), mFilePathOnDevice);
@@ -188,7 +196,7 @@ class InstrumentationFileTest implements IRemoteTest {
             throws DeviceNotAvailableException {
         CollectingTestListener testTracker = new CollectingTestListener();
         try {
-            runner.run(new ResultForwarder(listener, testTracker));
+            runner.run(new FilteredResultForwarder(mTests, listener, testTracker));
         } finally {
             deleteTestFileFromDevice(mFilePathOnDevice);
             Collection<TestDescription> completedTests =

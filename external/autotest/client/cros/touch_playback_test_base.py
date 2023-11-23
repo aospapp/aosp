@@ -176,7 +176,6 @@ class touch_playback_test_base(test.test):
         if not self._has_mouse:
             raise error.TestError('Mouse emulation failed!')
 
-
     def _playback(self, filepath, touch_type='touchpad'):
         """Playback a given input file on the given input."""
         self.player.playback(filepath, touch_type)
@@ -305,6 +304,7 @@ class touch_playback_test_base(test.test):
 
 
     def cleanup(self):
+        """ clean up """
         self.player.close()
 
 
@@ -538,9 +538,10 @@ class TestPage(object):
                 timeout=30)
 
 
-    def get_page_width(self):
+    def get_page_zoom(self):
         """Return window.innerWidth for this page."""
-        return int(self._tab.EvaluateJavaScript('window.innerWidth'))
+        return float(self._tab.EvaluateJavaScript(
+                            'window.visualViewport.scale'))
 
 
 class EventsPage(TestPage):

@@ -52,12 +52,20 @@ public class MobileDataPreference extends DialogPreference {
 
     public int mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     public boolean mChecked;
+    // Whether to show the dialog to ask switching default data subscription.
+    // Should be true only when a multi-sim phone only supports data connection on a single phone,
+    // and user is enabling data on the non-default phone.
     public boolean mMultiSimDialog;
     private TelephonyManager mTelephonyManager;
     private SubscriptionManager mSubscriptionManager;
 
     public MobileDataPreference(Context context, AttributeSet attrs) {
         super(context, attrs, com.android.internal.R.attr.switchPreferenceStyle);
+    }
+
+    // Must be called to avoid binder leakage.
+    void dispose() {
+        mListener.setListener(false, mSubId, getContext());
     }
 
     @Override
@@ -123,47 +131,46 @@ public class MobileDataPreference extends DialogPreference {
         final SubscriptionInfo currentSir = mSubscriptionManager.getActiveSubscriptionInfo(
                 mSubId);
         final SubscriptionInfo nextSir = mSubscriptionManager.getDefaultDataSubscriptionInfo();
-        boolean isMultiSim = (mTelephonyManager.getSimCount() > 1);
+        final boolean isMultiSim = (mTelephonyManager.getSimCount() > 1);
+        final boolean isMultipleDataOnCapable =
+                (mTelephonyManager.getNumberOfModemsWithSimultaneousDataConnections() > 1);
+        final boolean isDefaultDataSubscription = (nextSir != null && currentSir != null
+                && currentSir.getSubscriptionId() == nextSir.getSubscriptionId());
         if (mChecked) {
-            // If the device is single SIM or is enabling data on the active data SIM then forgo
-            // the pop-up.
-            if (isMultiSim || (nextSir != null && currentSir != null
-                    && currentSir.getSubscriptionId() == nextSir.getSubscriptionId())) {
-                setMobileDataEnabled(false);
-                if (nextSir != null && currentSir != null
-                        && currentSir.getSubscriptionId() == nextSir.getSubscriptionId()) {
-                    disableDataForOtherSubscriptions(mSubId);
-                }
-                return;
-            }
-            // disabling data; show confirmation dialog which eventually
-            // calls setMobileDataEnabled() once user confirms.
-            mMultiSimDialog = false;
-            super.performClick(preferenceScreen);
-        } else {
-            // If we are showing the Sim Card tile then we are a Multi-Sim device.
-            if (isMultiSim) {
-                mMultiSimDialog = true;
-                if (nextSir != null && currentSir != null
-                        && currentSir.getSubscriptionId() == nextSir.getSubscriptionId()) {
-                    setMobileDataEnabled(true);
-                    disableDataForOtherSubscriptions(mSubId);
-                    return;
-                }
+            if (!isMultiSim) {
+                // disabling data; show confirmation dialog which eventually
+                // calls setMobileDataEnabled() once user confirms.
+                mMultiSimDialog = false;
                 super.performClick(preferenceScreen);
             } else {
-                setMobileDataEnabled(true);
+                // Don't show any dialog.
+                setMobileDataEnabled(false /* enabled */, false /* disableOtherSubscriptions */);
+            }
+        } else {
+            if (isMultiSim && !isMultipleDataOnCapable && !isDefaultDataSubscription) {
+                // enabling data and setting to default; show confirmation dialog which eventually
+                // calls setMobileDataEnabled() once user confirms.
+                mMultiSimDialog = true;
+                super.performClick(preferenceScreen);
+            } else {
+                // Don't show any dialog.
+                setMobileDataEnabled(true /* enabled */, false /* disableOtherSubscriptions */);
             }
         }
     }
 
-    private void setMobileDataEnabled(boolean enabled) {
+    private void setMobileDataEnabled(boolean enabled, boolean disableOtherSubscriptions) {
         if (DBG) Log.d(TAG, "setMobileDataEnabled(" + enabled + "," + mSubId + ")");
 
         MetricsLogger.action(getContext(), MetricsEvent.ACTION_MOBILE_NETWORK_MOBILE_DATA_TOGGLE,
                 enabled);
 
         mTelephonyManager.setDataEnabled(mSubId, enabled);
+
+        if (disableOtherSubscriptions) {
+            disableDataForOtherSubscriptions(mSubId);
+        }
+
         setChecked(enabled);
     }
 
@@ -232,11 +239,10 @@ public class MobileDataPreference extends DialogPreference {
         }
         if (mMultiSimDialog) {
             mSubscriptionManager.setDefaultDataSubId(mSubId);
-            setMobileDataEnabled(true);
-            disableDataForOtherSubscriptions(mSubId);
+            setMobileDataEnabled(true /* enabled */, true /* disableOtherSubscriptions */);
         } else {
             // TODO: extend to modify policy enabled flag.
-            setMobileDataEnabled(false);
+            setMobileDataEnabled(false /* enabled */, false /* disableOtherSubscriptions */);
         }
     }
 

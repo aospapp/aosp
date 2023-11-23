@@ -78,6 +78,7 @@ const unsigned kQRegSizeInBytes = kQRegSize / 8;
 const unsigned kQRegSizeInBytesLog2 = kQRegSizeLog2 - 3;
 const uint64_t kWRegMask = UINT64_C(0xffffffff);
 const uint64_t kXRegMask = UINT64_C(0xffffffffffffffff);
+const uint64_t kHRegMask = UINT64_C(0xffff);
 const uint64_t kSRegMask = UINT64_C(0xffffffff);
 const uint64_t kDRegMask = UINT64_C(0xffffffffffffffff);
 const uint64_t kSSignMask = UINT64_C(0x80000000);
@@ -89,10 +90,15 @@ const uint64_t kHalfWordMask = UINT64_C(0xffff);
 const uint64_t kWordMask = UINT64_C(0xffffffff);
 const uint64_t kXMaxUInt = UINT64_C(0xffffffffffffffff);
 const uint64_t kWMaxUInt = UINT64_C(0xffffffff);
+const uint64_t kHMaxUInt = UINT64_C(0xffff);
+// Define k*MinInt with "-k*MaxInt - 1", because the hexadecimal representation
+// (e.g. "INT32_C(0x80000000)") has implementation-defined behaviour.
 const int64_t kXMaxInt = INT64_C(0x7fffffffffffffff);
-const int64_t kXMinInt = INT64_C(0x8000000000000000);
+const int64_t kXMinInt = -kXMaxInt - 1;
 const int32_t kWMaxInt = INT32_C(0x7fffffff);
-const int32_t kWMinInt = INT32_C(0x80000000);
+const int32_t kWMinInt = -kWMaxInt - 1;
+const int16_t kHMaxInt = INT16_C(0x7fff);
+const int16_t kHMinInt = -kHMaxInt - 1;
 const unsigned kFpRegCode = 29;
 const unsigned kLinkRegCode = 30;
 const unsigned kSpRegCode = 31;
@@ -106,26 +112,27 @@ const uint64_t kAddressTagMask = ((UINT64_C(1) << kAddressTagWidth) - 1)
                                  << kAddressTagOffset;
 VIXL_STATIC_ASSERT(kAddressTagMask == UINT64_C(0xff00000000000000));
 
-// AArch64 floating-point specifics. These match IEEE-754.
-const unsigned kDoubleMantissaBits = 52;
-const unsigned kDoubleExponentBits = 11;
-const unsigned kFloatMantissaBits = 23;
-const unsigned kFloatExponentBits = 8;
-const unsigned kFloat16MantissaBits = 10;
-const unsigned kFloat16ExponentBits = 5;
+const uint64_t kTTBRMask = UINT64_C(1) << 55;
 
-// Floating-point infinity values.
-extern const float16 kFP16PositiveInfinity;
-extern const float16 kFP16NegativeInfinity;
-extern const float kFP32PositiveInfinity;
-extern const float kFP32NegativeInfinity;
-extern const double kFP64PositiveInfinity;
-extern const double kFP64NegativeInfinity;
+// Make these moved float constants backwards compatible
+// with explicit vixl::aarch64:: namespace references.
+using vixl::kDoubleMantissaBits;
+using vixl::kDoubleExponentBits;
+using vixl::kFloatMantissaBits;
+using vixl::kFloatExponentBits;
+using vixl::kFloat16MantissaBits;
+using vixl::kFloat16ExponentBits;
 
-// The default NaN values (for FPCR.DN=1).
-extern const float16 kFP16DefaultNaN;
-extern const float kFP32DefaultNaN;
-extern const double kFP64DefaultNaN;
+using vixl::kFP16PositiveInfinity;
+using vixl::kFP16NegativeInfinity;
+using vixl::kFP32PositiveInfinity;
+using vixl::kFP32NegativeInfinity;
+using vixl::kFP64PositiveInfinity;
+using vixl::kFP64NegativeInfinity;
+
+using vixl::kFP16DefaultNaN;
+using vixl::kFP32DefaultNaN;
+using vixl::kFP64DefaultNaN;
 
 unsigned CalcLSDataSize(LoadStoreOp op);
 unsigned CalcLSPairDataSize(LoadStorePairOp op);
@@ -139,19 +146,6 @@ enum ImmBranchType {
 };
 
 enum AddrMode { Offset, PreIndex, PostIndex };
-
-enum FPRounding {
-  // The first four values are encodable directly by FPCR<RMode>.
-  FPTieEven = 0x0,
-  FPPositiveInfinity = 0x1,
-  FPNegativeInfinity = 0x2,
-  FPZero = 0x3,
-
-  // The final rounding modes are only available when explicitly specified by
-  // the instruction (such as with fcvta). It cannot be set in FPCR.
-  FPTieAway,
-  FPRoundOdd
-};
 
 enum Reg31Mode { Reg31IsStackPointer, Reg31IsZeroRegister };
 
@@ -191,7 +185,10 @@ class Instruction {
     return ExtractSignedBits(msb, lsb);
   }
 
-  Instr Mask(uint32_t mask) const { return GetInstructionBits() & mask; }
+  Instr Mask(uint32_t mask) const {
+    VIXL_ASSERT(mask != 0);
+    return GetInstructionBits() & mask;
+  }
 
 #define DEFINE_GETTER(Name, HighBit, LowBit, Func)                  \
   int32_t Get##Name() const { return this->Func(HighBit, LowBit); } \
@@ -220,11 +217,15 @@ class Instruction {
     return GetImmNEONabcdefgh();
   }
 
+  Float16 GetImmFP16() const;
+
   float GetImmFP32() const;
   VIXL_DEPRECATED("GetImmFP32", float ImmFP32() const) { return GetImmFP32(); }
 
   double GetImmFP64() const;
   VIXL_DEPRECATED("GetImmFP64", double ImmFP64() const) { return GetImmFP64(); }
+
+  Float16 GetImmNEONFP16() const;
 
   float GetImmNEONFP32() const;
   VIXL_DEPRECATED("GetImmNEONFP32", float ImmNEONFP32() const) {
@@ -463,6 +464,7 @@ class Instruction {
     return GetLiteralFP64();
   }
 
+  Instruction* GetNextInstruction() { return this + kInstructionSize; }
   const Instruction* GetNextInstruction() const {
     return this + kInstructionSize;
   }
@@ -494,6 +496,7 @@ class Instruction {
  private:
   int GetImmBranch() const;
 
+  static Float16 Imm8ToFloat16(uint32_t imm8);
   static float Imm8ToFP32(uint32_t imm8);
   static double Imm8ToFP64(uint32_t imm8);
 
@@ -522,7 +525,10 @@ enum VectorFormat {
   kFormatB = NEON_B | NEONScalar,
   kFormatH = NEON_H | NEONScalar,
   kFormatS = NEON_S | NEONScalar,
-  kFormatD = NEON_D | NEONScalar
+  kFormatD = NEON_D | NEONScalar,
+
+  // A value invented solely for FP16 scalar pairwise simulator trace tests.
+  kFormat2H = 0xfffffffe
 };
 
 const int kMaxLanesPerVector = 16;
@@ -616,7 +622,7 @@ class NEONFormatDecoder {
     formats_[2] = (format2 == NULL) ? formats_[1] : format2;
   }
   void SetFormatMap(unsigned index, const NEONFormatMap* format) {
-    VIXL_ASSERT(index <= (sizeof(formats_) / sizeof(formats_[0])));
+    VIXL_ASSERT(index <= ArrayLength(formats_));
     VIXL_ASSERT(format != NULL);
     formats_[index] = format;
   }
@@ -669,7 +675,7 @@ class NEONFormatDecoder {
                                          kFormatH,
                                          kFormatS,
                                          kFormatD};
-    VIXL_ASSERT(GetNEONFormat(format_map) < (sizeof(vform) / sizeof(vform[0])));
+    VIXL_ASSERT(GetNEONFormat(format_map) < ArrayLength(vform));
     return vform[GetNEONFormat(format_map)];
   }
 
@@ -699,6 +705,13 @@ class NEONFormatDecoder {
     // NEON FP vector formats: NF_2S, NF_4S, NF_2D.
     static const NEONFormatMap map = {{22, 30},
                                       {NF_2S, NF_4S, NF_UNDEF, NF_2D}};
+    return &map;
+  }
+
+  // The FP16 format map uses one bit (Q) to encode the NEON vector format:
+  // NF_4H, NF_8H.
+  static const NEONFormatMap* FP16FormatMap() {
+    static const NEONFormatMap map = {{30}, {NF_4H, NF_8H}};
     return &map;
   }
 
@@ -753,6 +766,13 @@ class NEONFormatDecoder {
     return &map;
   }
 
+  // The FP scalar pairwise format map assumes two bits (U, size<0>) are used to
+  // encode the NEON FP scalar formats: NF_H, NF_S, NF_D.
+  static const NEONFormatMap* FPScalarPairwiseFormatMap() {
+    static const NEONFormatMap map = {{29, 22}, {NF_H, NF_UNDEF, NF_S, NF_D}};
+    return &map;
+  }
+
   // The triangular scalar format map uses between one and four bits to encode
   // the NEON FP scalar formats:
   // xxx1->B, xx10->H, x100->S, 1000->D, all others undefined.
@@ -803,7 +823,7 @@ class NEONFormatDecoder {
       "b", "h", "s", "d"
     };
     // clang-format on
-    VIXL_ASSERT(format < (sizeof(formats) / sizeof(formats[0])));
+    VIXL_ASSERT(format < ArrayLength(formats));
     return formats[format];
   }
 

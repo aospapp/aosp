@@ -32,6 +32,8 @@ public class PackageDeviceInfo extends DeviceInfo {
     private static final String VERSION_NAME = "version_name";
     private static final String SYSTEM_PRIV = "system_priv";
     private static final String PRIV_APP_DIR = "/system/priv-app";
+    private static final String MIN_SDK = "min_sdk";
+    private static final String TARGET_SDK = "target_sdk";
 
     @Override
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
@@ -45,6 +47,9 @@ public class PackageDeviceInfo extends DeviceInfo {
             if (pkg.applicationInfo != null) {
                 String dir = pkg.applicationInfo.sourceDir;
                 store.addResult(SYSTEM_PRIV, dir != null && dir.startsWith(PRIV_APP_DIR));
+
+                store.addResult(MIN_SDK, pkg.applicationInfo.minSdkVersion);
+                store.addResult(TARGET_SDK, pkg.applicationInfo.targetSdkVersion);
             }
             store.endGroup();
         }

@@ -15,7 +15,7 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
-import android.support.v7.preference.PreferenceViewHolder;
+import androidx.preference.PreferenceViewHolder;
 import android.text.format.DateUtils;
 import com.android.storagemanager.R;
 import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;

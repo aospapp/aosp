@@ -25,6 +25,8 @@
 #include "vktDynamicStateBaseClass.hpp"
 
 #include "vkPrograms.hpp"
+#include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 namespace vkt
 {
@@ -55,49 +57,10 @@ void DynamicStateBaseClass::initialize (void)
 	const ImageCreateInfo targetImageCreateInfo(vk::VK_IMAGE_TYPE_2D, m_colorAttachmentFormat, targetImageExtent, 1, 1, vk::VK_SAMPLE_COUNT_1_BIT,
 												vk::VK_IMAGE_TILING_OPTIMAL, vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-	m_colorTargetImage = Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator());
+	m_colorTargetImage = Image::createAndAlloc(m_vk, device, targetImageCreateInfo, m_context.getDefaultAllocator(), m_context.getUniversalQueueFamilyIndex());
 
 	const ImageViewCreateInfo colorTargetViewInfo(m_colorTargetImage->object(), vk::VK_IMAGE_VIEW_TYPE_2D, m_colorAttachmentFormat);
 	m_colorTargetView = vk::createImageView(m_vk, device, &colorTargetViewInfo);
-
-	RenderPassCreateInfo renderPassCreateInfo;
-	renderPassCreateInfo.addAttachment(AttachmentDescription(m_colorAttachmentFormat,
-															 vk::VK_SAMPLE_COUNT_1_BIT,
-															 vk::VK_ATTACHMENT_LOAD_OP_LOAD,
-															 vk::VK_ATTACHMENT_STORE_OP_STORE,
-															 vk::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-															 vk::VK_ATTACHMENT_STORE_OP_STORE,
-															 vk::VK_IMAGE_LAYOUT_GENERAL,
-															 vk::VK_IMAGE_LAYOUT_GENERAL));
-
-	const vk::VkAttachmentReference colorAttachmentReference =
-	{
-		0,
-		vk::VK_IMAGE_LAYOUT_GENERAL
-	};
-
-	renderPassCreateInfo.addSubpass(SubpassDescription(
-		vk::VK_PIPELINE_BIND_POINT_GRAPHICS,
-		0,
-		0,
-		DE_NULL,
-		1,
-		&colorAttachmentReference,
-		DE_NULL,
-		AttachmentReference(),
-		0,
-		DE_NULL
-		)
-		);
-
-	m_renderPass = vk::createRenderPass(m_vk, device, &renderPassCreateInfo);
-
-	std::vector<vk::VkImageView> colorAttachments(1);
-	colorAttachments[0] = *m_colorTargetView;
-
-	const FramebufferCreateInfo framebufferCreateInfo(*m_renderPass, colorAttachments, WIDTH, HEIGHT, 1);
-
-	m_framebuffer = vk::createFramebuffer(m_vk, device, &framebufferCreateInfo);
 
 	const vk::VkVertexInputBindingDescription vertexInputBindingDescription =
 	{
@@ -135,10 +98,7 @@ void DynamicStateBaseClass::initialize (void)
 	deUint8* ptr = reinterpret_cast<unsigned char *>(m_vertexBuffer->getBoundMemory().getHostPtr());
 	deMemcpy(ptr, &m_data[0], (size_t)dataSize);
 
-	vk::flushMappedMemoryRange(m_vk, device,
-		m_vertexBuffer->getBoundMemory().getMemory(),
-		m_vertexBuffer->getBoundMemory().getOffset(),
-		dataSize);
+	vk::flushAlloc(m_vk, device, m_vertexBuffer->getBoundMemory());
 
 	const CmdPoolCreateInfo cmdPoolCreateInfo(queueFamilyIndex);
 	m_cmdPool = vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -153,7 +113,55 @@ void DynamicStateBaseClass::initialize (void)
 	};
 	m_cmdBuffer = vk::allocateCommandBuffer(m_vk, device, &cmdBufferAllocateInfo);
 
+	initRenderPass(device);
+	initFramebuffer(device);
 	initPipeline(device);
+}
+
+
+void DynamicStateBaseClass::initRenderPass (const vk::VkDevice device)
+{
+	RenderPassCreateInfo renderPassCreateInfo;
+	renderPassCreateInfo.addAttachment(AttachmentDescription(m_colorAttachmentFormat,
+		vk::VK_SAMPLE_COUNT_1_BIT,
+		vk::VK_ATTACHMENT_LOAD_OP_LOAD,
+		vk::VK_ATTACHMENT_STORE_OP_STORE,
+		vk::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		vk::VK_ATTACHMENT_STORE_OP_STORE,
+		vk::VK_IMAGE_LAYOUT_GENERAL,
+		vk::VK_IMAGE_LAYOUT_GENERAL));
+
+	const vk::VkAttachmentReference colorAttachmentReference =
+	{
+		0,
+		vk::VK_IMAGE_LAYOUT_GENERAL
+	};
+
+	renderPassCreateInfo.addSubpass(SubpassDescription(
+		vk::VK_PIPELINE_BIND_POINT_GRAPHICS,
+		0,
+		0,
+		DE_NULL,
+		1,
+		&colorAttachmentReference,
+		DE_NULL,
+		AttachmentReference(),
+		0,
+		DE_NULL
+	)
+	);
+
+	m_renderPass = vk::createRenderPass(m_vk, device, &renderPassCreateInfo);
+}
+
+void DynamicStateBaseClass::initFramebuffer (const vk::VkDevice device)
+{
+	std::vector<vk::VkImageView> colorAttachments(1);
+	colorAttachments[0] = *m_colorTargetView;
+
+	const FramebufferCreateInfo framebufferCreateInfo(*m_renderPass, colorAttachments, WIDTH, HEIGHT, 1);
+
+	m_framebuffer = vk::createFramebuffer(m_vk, device, &framebufferCreateInfo);
 }
 
 void DynamicStateBaseClass::initPipeline (const vk::VkDevice device)
@@ -190,12 +198,15 @@ void DynamicStateBaseClass::beginRenderPass (void)
 	beginRenderPassWithClearColor(clearColor);
 }
 
-void DynamicStateBaseClass::beginRenderPassWithClearColor (const vk::VkClearColorValue& clearColor)
+void DynamicStateBaseClass::beginRenderPassWithClearColor(const vk::VkClearColorValue& clearColor, const bool skipBeginCmdBuffer)
 {
-	const CmdBufferBeginInfo beginInfo;
-	m_vk.beginCommandBuffer(*m_cmdBuffer, &beginInfo);
+	if (!skipBeginCmdBuffer)
+	{
+		beginCommandBuffer(m_vk, *m_cmdBuffer, 0u);
+	}
 
-	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL);
+	initialTransitionColor2DImage(m_vk, *m_cmdBuffer, m_colorTargetImage->object(), vk::VK_IMAGE_LAYOUT_GENERAL,
+								  vk::VK_ACCESS_TRANSFER_WRITE_BIT, vk::VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	const ImageSubresourceRange subresourceRange(vk::VK_IMAGE_ASPECT_COLOR_BIT);
 	m_vk.cmdClearColorImage(*m_cmdBuffer, m_colorTargetImage->object(),
@@ -213,29 +224,15 @@ void DynamicStateBaseClass::beginRenderPassWithClearColor (const vk::VkClearColo
 		vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
-	const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
-	const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
-
-	m_vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBegin, vk::VK_SUBPASS_CONTENTS_INLINE);
+	vk::beginRenderPass(m_vk, *m_cmdBuffer, *m_renderPass, *m_framebuffer, vk::makeRect2D(0, 0, WIDTH, HEIGHT));
 }
 
 void DynamicStateBaseClass::setDynamicViewportState (const deUint32 width, const deUint32 height)
 {
-	vk::VkViewport viewport;
-	viewport.x = 0;
-	viewport.y = 0;
-	viewport.width = static_cast<float>(width);
-	viewport.height = static_cast<float>(height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
+	vk::VkViewport viewport = vk::makeViewport(tcu::UVec2(width, height));
 	m_vk.cmdSetViewport(*m_cmdBuffer, 0, 1, &viewport);
 
-	vk::VkRect2D scissor;
-	scissor.offset.x = 0;
-	scissor.offset.y = 0;
-	scissor.extent.width = width;
-	scissor.extent.height = height;
+	vk::VkRect2D scissor = vk::makeRect2D(tcu::UVec2(width, height));
 	m_vk.cmdSetScissor(*m_cmdBuffer, 0, 1, &scissor);
 }
 

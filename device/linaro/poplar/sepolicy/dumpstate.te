@@ -1,0 +1,7 @@
+# dumpstate
+
+allow dumpstate kernel:system { module_request };
+allow dumpstate proc_slabinfo:file rw_file_perms;
+allow dumpstate incidentd:binder { call };
+allow dumpstate vold:binder { call };
+allow dumpstate sysfs:file { getattr };

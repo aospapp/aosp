@@ -21,6 +21,7 @@ public final class CaseMapImpl {
     /**
      * Implementation of UCaseProps.ContextIterator, iterates over a String.
      * See ustrcase.c/utf16_caseContextIterator().
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class StringContextIterator implements UCaseProps.ContextIterator {
         /**
@@ -32,6 +33,21 @@ public final class CaseMapImpl {
             limit=src.length();
             cpStart=cpLimit=index=0;
             dir=0;
+        }
+
+        /**
+         * Constructor.
+         * @param src String to iterate over.
+         * @param cpStart Start index of the current code point.
+         * @param cpLimit Limit index of the current code point.
+         */
+        public StringContextIterator(CharSequence src, int cpStart, int cpLimit) {
+            s = src;
+            index = 0;
+            limit = src.length();
+            this.cpStart = cpStart;
+            this.cpLimit = cpLimit;
+            dir = 0;
         }
 
         /**
@@ -81,6 +97,11 @@ public final class CaseMapImpl {
             }
         }
 
+        public void setCPStartAndLimit(int s, int l) {
+            cpStart = s;
+            cpLimit = l;
+            dir = 0;
+        }
         /**
          * Returns the start of the code point that was last returned
          * by nextCaseMapCP().
@@ -404,13 +425,162 @@ public final class CaseMapImpl {
         return result.toString();
     }
 
-    private static void internalToLower(int caseLocale, int options, StringContextIterator iter,
+    private static final Trie2_16 CASE_TRIE = UCaseProps.getTrie();
+
+    /**
+     * caseLocale >= 0: Lowercases [srcStart..srcLimit[ but takes context [0..srcLength[ into account.
+     * caseLocale < 0: Case-folds [srcStart..srcLimit[.
+     */
+    private static void internalToLower(int caseLocale, int options,
+            CharSequence src, int srcStart, int srcLimit, StringContextIterator iter,
             Appendable dest, Edits edits) throws IOException {
-        int c;
-        while ((c = iter.nextCaseMapCP()) >= 0) {
-            c = UCaseProps.INSTANCE.toFullLower(c, iter, dest, caseLocale);
-            appendResult(c, dest, iter.getCPLength(), options, edits);
+        byte[] latinToLower;
+        if (caseLocale == UCaseProps.LOC_ROOT ||
+                (caseLocale >= 0 ?
+                    !(caseLocale == UCaseProps.LOC_TURKISH || caseLocale == UCaseProps.LOC_LITHUANIAN) :
+                    (options & UCaseProps.FOLD_CASE_OPTIONS_MASK) == UCharacter.FOLD_CASE_DEFAULT)) {
+            latinToLower = UCaseProps.LatinCase.TO_LOWER_NORMAL;
+        } else {
+            latinToLower = UCaseProps.LatinCase.TO_LOWER_TR_LT;
         }
+        int prev = srcStart;
+        int srcIndex = srcStart;
+        outerLoop:
+        for (;;) {
+            // fast path for simple cases
+            char lead;
+            for (;;) {
+                if (srcIndex >= srcLimit) {
+                    break outerLoop;
+                }
+                lead = src.charAt(srcIndex);
+                int delta;
+                if (lead < UCaseProps.LatinCase.LONG_S) {
+                    byte d = latinToLower[lead];
+                    if (d == UCaseProps.LatinCase.EXC) { break; }
+                    ++srcIndex;
+                    if (d == 0) { continue; }
+                    delta = d;
+                } else if (lead >= 0xd800) {
+                    break;  // surrogate or higher
+                } else {
+                    int props = CASE_TRIE.getFromU16SingleLead(lead);
+                    if (UCaseProps.propsHasException(props)) { break; }
+                    ++srcIndex;
+                    if (!UCaseProps.isUpperOrTitleFromProps(props) ||
+                            (delta = UCaseProps.getDelta(props)) == 0) {
+                        continue;
+                    }
+                }
+                lead += delta;
+                appendUnchanged(src, prev, srcIndex - 1 - prev, dest, options, edits);
+                dest.append(lead);
+                if (edits != null) {
+                    edits.addReplace(1, 1);
+                }
+                prev = srcIndex;
+            }
+            // slow path
+            int cpStart = srcIndex++;
+            char trail;
+            int c;
+            if (Character.isHighSurrogate(lead) && srcIndex < srcLimit &&
+                    Character.isLowSurrogate(trail = src.charAt(srcIndex))) {
+                c = Character.toCodePoint(lead, trail);
+                ++srcIndex;
+            } else {
+                c = lead;
+            }
+            if (caseLocale >= 0) {
+                if (iter == null) {
+                    iter = new StringContextIterator(src, cpStart, srcIndex);
+                } else {
+                    iter.setCPStartAndLimit(cpStart, srcIndex);
+                }
+                c = UCaseProps.INSTANCE.toFullLower(c, iter, dest, caseLocale);
+            } else {
+                c = UCaseProps.INSTANCE.toFullFolding(c, dest, options);
+            }
+            if (c >= 0) {
+                appendUnchanged(src, prev, cpStart - prev, dest, options, edits);
+                appendResult(c, dest, srcIndex - cpStart, options, edits);
+                prev = srcIndex;
+            }
+        }
+        appendUnchanged(src, prev, srcIndex - prev, dest, options, edits);
+    }
+
+    private static void internalToUpper(int caseLocale, int options,
+            CharSequence src, Appendable dest, Edits edits) throws IOException {
+        StringContextIterator iter = null;
+        byte[] latinToUpper;
+        if (caseLocale == UCaseProps.LOC_TURKISH) {
+            latinToUpper = UCaseProps.LatinCase.TO_UPPER_TR;
+        } else {
+            latinToUpper = UCaseProps.LatinCase.TO_UPPER_NORMAL;
+        }
+        int prev = 0;
+        int srcIndex = 0;
+        int srcLength = src.length();
+        outerLoop:
+        for (;;) {
+            // fast path for simple cases
+            char lead;
+            for (;;) {
+                if (srcIndex >= srcLength) {
+                    break outerLoop;
+                }
+                lead = src.charAt(srcIndex);
+                int delta;
+                if (lead < UCaseProps.LatinCase.LONG_S) {
+                    byte d = latinToUpper[lead];
+                    if (d == UCaseProps.LatinCase.EXC) { break; }
+                    ++srcIndex;
+                    if (d == 0) { continue; }
+                    delta = d;
+                } else if (lead >= 0xd800) {
+                    break;  // surrogate or higher
+                } else {
+                    int props = CASE_TRIE.getFromU16SingleLead(lead);
+                    if (UCaseProps.propsHasException(props)) { break; }
+                    ++srcIndex;
+                    if (UCaseProps.getTypeFromProps(props) != UCaseProps.LOWER ||
+                            (delta = UCaseProps.getDelta(props)) == 0) {
+                        continue;
+                    }
+                }
+                lead += delta;
+                appendUnchanged(src, prev, srcIndex - 1 - prev, dest, options, edits);
+                dest.append(lead);
+                if (edits != null) {
+                    edits.addReplace(1, 1);
+                }
+                prev = srcIndex;
+            }
+            // slow path
+            int cpStart = srcIndex++;
+            char trail;
+            int c;
+            if (Character.isHighSurrogate(lead) && srcIndex < srcLength &&
+                    Character.isLowSurrogate(trail = src.charAt(srcIndex))) {
+                c = Character.toCodePoint(lead, trail);
+                ++srcIndex;
+            } else {
+                c = lead;
+            }
+            if (iter == null) {
+                iter = new StringContextIterator(src, cpStart, srcIndex);
+            } else {
+                iter.setCPStartAndLimit(cpStart, srcIndex);
+            }
+            c = UCaseProps.INSTANCE.toFullUpper(c, iter, dest, caseLocale);
+            if (c >= 0) {
+                appendUnchanged(src, prev, cpStart - prev, dest, options, edits);
+                appendResult(c, dest, srcIndex - cpStart, options, edits);
+                prev = srcIndex;
+            }
+        }
+        appendUnchanged(src, prev, srcIndex - prev, dest, options, edits);
     }
 
     public static String toLower(int caseLocale, int options, CharSequence src) {
@@ -436,8 +606,7 @@ public final class CaseMapImpl {
             if (edits != null) {
                 edits.reset();
             }
-            StringContextIterator iter = new StringContextIterator(src);
-            internalToLower(caseLocale, options, iter, dest, edits);
+            internalToLower(caseLocale, options, src, 0, src.length(), null, dest, edits);
             return dest;
         } catch (IOException e) {
             throw new ICUUncheckedIOException(e);
@@ -470,12 +639,7 @@ public final class CaseMapImpl {
             if (caseLocale == UCaseProps.LOC_GREEK) {
                 return GreekUpper.toUpper(options, src, dest, edits);
             }
-            StringContextIterator iter = new StringContextIterator(src);
-            int c;
-            while ((c = iter.nextCaseMapCP()) >= 0) {
-                c = UCaseProps.INSTANCE.toFullUpper(c, iter, dest, caseLocale);
-                appendResult(c, dest, iter.getCPLength(), options, edits);
-            }
+            internalToUpper(caseLocale, options, src, dest, edits);
             return dest;
         } catch (IOException e) {
             throw new ICUUncheckedIOException(e);
@@ -593,12 +757,13 @@ public final class CaseMapImpl {
                         if(titleLimit<index) {
                             if((options&UCharacter.TITLECASE_NO_LOWERCASE)==0) {
                                 // Normal operation: Lowercase the rest of the word.
-                                internalToLower(caseLocale, options, iter, dest, edits);
+                                internalToLower(caseLocale, options,
+                                        src, titleLimit, index, iter, dest, edits);
                             } else {
                                 // Optionally just copy the rest of the word unchanged.
                                 appendUnchanged(src, titleLimit, index-titleLimit, dest, options, edits);
-                                iter.moveToLimit();
                             }
+                            iter.moveToLimit();
                         }
                     }
                 }
@@ -633,14 +798,7 @@ public final class CaseMapImpl {
             if (edits != null) {
                 edits.reset();
             }
-            int length = src.length();
-            for (int i = 0; i < length;) {
-                int c = Character.codePointAt(src, i);
-                int cpLength = Character.charCount(c);
-                i += cpLength;
-                c = UCaseProps.INSTANCE.toFullFolding(c, dest, options);
-                appendResult(c, dest, cpLength, options, edits);
-            }
+            internalToLower(-1, options, src, 0, src.length(), null, dest, edits);
             return dest;
         } catch (IOException e) {
             throw new ICUUncheckedIOException(e);

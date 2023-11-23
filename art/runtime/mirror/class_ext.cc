@@ -20,18 +20,19 @@
 #include "base/casts.h"
 #include "base/enums.h"
 #include "base/utils.h"
+#include "class-alloc-inl.h"
 #include "class-inl.h"
+#include "class_root.h"
 #include "dex/dex_file-inl.h"
 #include "gc/accounting/card_table-inl.h"
 #include "object-inl.h"
-#include "object_array.h"
+#include "object_array-alloc-inl.h"
+#include "object_array-inl.h"
 #include "stack_trace_element.h"
 #include "well_known_classes.h"
 
 namespace art {
 namespace mirror {
-
-GcRoot<Class> ClassExt::dalvik_system_ClassExt_;
 
 uint32_t ClassExt::ClassSize(PointerSize pointer_size) {
   uint32_t vtable_entries = Object::kVTableLength;
@@ -44,8 +45,8 @@ void ClassExt::SetObsoleteArrays(ObjPtr<PointerArray> methods,
   auto obsolete_dex_cache_off = OFFSET_OF_OBJECT_MEMBER(ClassExt, obsolete_dex_caches_);
   auto obsolete_methods_off = OFFSET_OF_OBJECT_MEMBER(ClassExt, obsolete_methods_);
   DCHECK(!Runtime::Current()->IsActiveTransaction());
-  SetFieldObject<false>(obsolete_dex_cache_off, dex_caches.Ptr());
-  SetFieldObject<false>(obsolete_methods_off, methods.Ptr());
+  SetFieldObject<false>(obsolete_dex_cache_off, dex_caches);
+  SetFieldObject<false>(obsolete_methods_off, methods);
 }
 
 // We really need to be careful how we update this. If we ever in the future make it so that
@@ -101,9 +102,8 @@ bool ClassExt::ExtendObsoleteArrays(Thread* self, uint32_t increase) {
   return true;
 }
 
-ClassExt* ClassExt::Alloc(Thread* self) {
-  DCHECK(dalvik_system_ClassExt_.Read() != nullptr);
-  return down_cast<ClassExt*>(dalvik_system_ClassExt_.Read()->AllocObject(self).Ptr());
+ObjPtr<ClassExt> ClassExt::Alloc(Thread* self) {
+  return ObjPtr<ClassExt>::DownCast(GetClassRoot<ClassExt>()->AllocObject(self));
 }
 
 void ClassExt::SetVerifyError(ObjPtr<Object> err) {
@@ -119,18 +119,16 @@ void ClassExt::SetOriginalDexFile(ObjPtr<Object> bytes) {
   SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(ClassExt, original_dex_file_), bytes);
 }
 
-void ClassExt::SetClass(ObjPtr<Class> dalvik_system_ClassExt) {
-  CHECK(dalvik_system_ClassExt != nullptr);
-  dalvik_system_ClassExt_ = GcRoot<Class>(dalvik_system_ClassExt);
+void ClassExt::SetPreRedefineClassDefIndex(uint16_t index) {
+  DCHECK(!Runtime::Current()->IsActiveTransaction());
+  SetField32<false>(OFFSET_OF_OBJECT_MEMBER(ClassExt, pre_redefine_class_def_index_),
+      static_cast<int32_t>(index));
 }
 
-void ClassExt::ResetClass() {
-  CHECK(!dalvik_system_ClassExt_.IsNull());
-  dalvik_system_ClassExt_ = GcRoot<Class>(nullptr);
-}
-
-void ClassExt::VisitRoots(RootVisitor* visitor) {
-  dalvik_system_ClassExt_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
+void ClassExt::SetPreRedefineDexFile(const DexFile* dex_file) {
+  DCHECK(!Runtime::Current()->IsActiveTransaction());
+  SetField64<false>(OFFSET_OF_OBJECT_MEMBER(ClassExt, pre_redefine_dex_file_ptr_),
+      static_cast<int64_t>(reinterpret_cast<uintptr_t>(dex_file)));
 }
 
 }  // namespace mirror

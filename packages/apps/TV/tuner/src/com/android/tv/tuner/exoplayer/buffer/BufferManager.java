@@ -284,6 +284,20 @@ public class BufferManager {
          */
         void writeIndexFile(String trackName, SortedMap<Long, Pair<SampleChunk, Integer>> index)
                 throws IOException;
+
+        /**
+         * Writes to index file to storage.
+         *
+         * @param trackName track name
+         * @param size size of sample
+         * @param position position in micro seconds
+         * @param sampleChunk {@link SampleChunk} chunk to be added
+         * @param offset offset
+         * @throws IOException
+         */
+        void updateIndexFile(
+                String trackName, int size, long position, SampleChunk sampleChunk, int offset)
+                throws IOException;
     }
 
     private static class EvictChunkQueueMap {
@@ -368,7 +382,8 @@ public class BufferManager {
             long positionUs,
             SamplePool samplePool,
             SampleChunk currentChunk,
-            int currentOffset)
+            int currentOffset,
+            boolean updateIndexFile)
             throws IOException {
         if (!maybeEvictChunk()) {
             throw new IOException("Not enough storage space");
@@ -386,9 +401,16 @@ public class BufferManager {
                     mSampleChunkCreator.createSampleChunk(
                             samplePool, file, positionUs, mChunkCallback);
             map.put(positionUs, new Pair(sampleChunk, 0));
+            if (updateIndexFile) {
+                mStorageManager.updateIndexFile(id, map.size(), positionUs, sampleChunk, 0);
+            }
             return sampleChunk;
         } else {
             map.put(positionUs, new Pair(currentChunk, currentOffset));
+            if (updateIndexFile) {
+                mStorageManager.updateIndexFile(
+                        id, map.size(), positionUs, currentChunk, currentOffset);
+            }
             return null;
         }
     }
@@ -584,6 +606,26 @@ public class BufferManager {
                 }
                 mStorageManager.writeIndexFile(trackFormat.trackId, map);
             }
+        }
+    }
+
+    /**
+     * Writes track information for all tracks.
+     *
+     * @param audios list of audio track information
+     * @param videos list of audio track information
+     * @throws IOException
+     */
+    public void writeMetaFilesOnly(List<TrackFormat> audios, List<TrackFormat> videos)
+            throws IOException {
+        if (audios.isEmpty() && videos.isEmpty()) {
+            throw new IOException("No track information to save");
+        }
+        if (!audios.isEmpty()) {
+            mStorageManager.writeTrackInfoFiles(audios, true);
+        }
+        if (!videos.isEmpty()) {
+            mStorageManager.writeTrackInfoFiles(videos, false);
         }
     }
 

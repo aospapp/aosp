@@ -18,7 +18,7 @@ config EXPAND
 
     Specify tab stops, either a single number instead of the default 8,
     or a comma separated list of increasing numbers representing tabstop
-    positions (absolute, not increments) with each additional tab beyound
+    positions (absolute, not increments) with each additional tab beyond
     that becoming one space.
 */
 
@@ -26,7 +26,7 @@ config EXPAND
 #include "toys.h"
 
 GLOBALS(
-  struct arg_list *tabs;
+  struct arg_list *t;
 
   unsigned tabcount, *tab;
 )
@@ -93,7 +93,7 @@ static int parse_tablist(unsigned *tablist)
   struct arg_list *tabs;
   int tabcount = 0;
 
-  for (tabs = TT.tabs; tabs; tabs = tabs->next) {
+  for (tabs = TT.t; tabs; tabs = tabs->next) {
     char *s = tabs->arg;
 
     while (*s) {

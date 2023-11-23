@@ -4,6 +4,7 @@
 
 import logging
 import os
+import stat
 
 from autotest_lib.client.common_lib import log
 from autotest_lib.client.common_lib import error, utils, global_config
@@ -22,7 +23,7 @@ command = base_sysinfo.command
 class logdir(base_sysinfo.loggable):
     """Represents a log directory."""
 
-    DEFAULT_EXCLUDES = ("**autoserv*",)
+    DEFAULT_EXCLUDES = ("**autoserv*", "**.journal",)
 
     def __init__(self, directory, excludes=DEFAULT_EXCLUDES):
         super(logdir, self).__init__(directory, log_in_keyval=False)
@@ -191,7 +192,13 @@ class diffable_logdir(logdir):
             for f in files:
                 if f.startswith('autoserv'):
                     continue
-                yield os.path.join(root, f)
+                if f.endswith('.journal'):
+                    continue
+                full_path = os.path.join(root, f)
+                # Only list regular files or symlinks to those (os.stat follows
+                # symlinks)
+                if stat.S_ISREG(os.stat(full_path).st_mode):
+                    yield full_path
 
 
     def _copy_new_data_in_file(self, file_path, src_dir, dest_dir):
@@ -385,6 +392,12 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
 
 
     def log_test_keyvals(self, test_sysinfodir):
+        """Generate keyval for the sysinfo.
+
+        Collects keyval entries to be written in the test keyval.
+
+        @param test_sysinfodir: The test's system info directory.
+        """
         keyval = super(site_sysinfo, self).log_test_keyvals(test_sysinfodir)
 
         lsb_lines = utils.system_output(

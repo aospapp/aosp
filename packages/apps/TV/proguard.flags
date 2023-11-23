@@ -68,3 +68,6 @@
 
 # Grpc used by epg via reflection
 -keep class io.grpc.internal.DnsNameResolverProvider
+
+# Don't warn about checkerframework in Android proguard
+-dontwarn org.checkerframework.**

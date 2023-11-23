@@ -19,12 +19,15 @@
           package="com.android.traceur"
           android:versionCode="2"
           android:versionName="1.0">
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="26"/>
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Used for adding the Quick Settings tile to the status bar. -->
     <uses-permission android:name="android.permission.STATUS_BAR" />
+
+    <!-- Used for brief periods where the trace service is foregrounded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <!-- Declare Android TV support. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -32,16 +35,15 @@
     <!-- touch screen is not required for TV -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <application android:label="@string/system_tracing"
-        android:theme="@style/Theme.Settings">
+    <application android:label="@string/system_tracing">
 
         <activity android:name=".MainActivity"
                   android:description="@string/record_system_activity"
                   android:label="@string/system_tracing"
+                  android:theme="@style/Theme.Settings"
                   android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.INFO"/>
             </intent-filter>
             <intent-filter>
@@ -56,7 +58,26 @@
               android:value="com.android.settings.category.ia.development" />
             <meta-data android:name="com.android.settings.summary" android:resource="@string/record_system_activity" />
             <meta-data android:name="com.android.settings.order" android:value="10" />
+            <meta-data android:name="com.android.settings.profile" android:value="primary_profile_only" />
         </activity>
+
+        <activity android:name=".MainTvActivity"
+                  android:description="@string/record_system_activity"
+                  android:label="@string/system_tracing"
+                  android:theme="@style/TvTheme"
+                  android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.INFO"/>
+            </intent-filter>
+	</activity>
+
+        <activity android:name=".UserConsentActivityDialog"
+                  android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.Alert"
+                  android:finishOnCloseSystemDialogs="true"
+                  android:excludeFromRecents="true"
+                  android:exported="false"/>
 
         <receiver android:name=".Receiver" android:permission="android.permission.DUMP">
             <intent-filter>
@@ -64,7 +85,11 @@
             </intent-filter>
         </receiver>
 
-        <service android:name=".AtraceService" />
+        <service android:name=".StopTraceService"
+            android:exported="true" />
+
+        <service android:name=".TraceService"
+            android:exported="false" />
 
         <service
             android:name=".QsService"
@@ -78,13 +103,25 @@
         </service>
 
         <provider
-            android:name="android.support.v4.content.FileProvider"
+            android:name="androidx.core.content.FileProvider"
             android:authorities="com.android.traceur.files"
             android:grantUriPermissions="true"
             android:exported="false">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+        </provider>
+
+        <provider
+            android:name=".StorageProvider"
+            android:enabled="false"
+            android:authorities="com.android.traceur.documents"
+            android:grantUriPermissions="true"
+            android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+              <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
         </provider>
 
         <provider

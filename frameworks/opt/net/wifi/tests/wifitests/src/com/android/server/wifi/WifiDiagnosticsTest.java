@@ -36,7 +36,8 @@ import static org.mockito.Mockito.when;
 
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
 import android.content.Context;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.R;
 import com.android.server.am.ActivityManagerService;
@@ -69,15 +70,19 @@ public class WifiDiagnosticsTest {
     @Mock Process mExternalProcess;
     @Mock ActivityManagerService mActivityManagerService;
     @Mock WifiMetrics mWifiMetrics;
+    @Mock Clock mClock;
     WifiDiagnostics mWifiDiagnostics;
 
     private static final String FAKE_RING_BUFFER_NAME = "fake-ring-buffer";
     private static final int SMALL_RING_BUFFER_SIZE_KB = 32;
     private static final int LARGE_RING_BUFFER_SIZE_KB = 1024;
     private static final int BYTES_PER_KBYTE = 1024;
-    private static final long FAKE_CONNECTION_ID = 1;
     private static final int ALERT_REASON_CODE = 1;
     private static final byte[] ALERT_DATA = {0 , 4, 5};
+    /** Mock resource for fatal firmware alert list */
+    private static final int[] FATAL_FW_ALART_LIST = {256, 257, 258};
+    /** Mock a non fatal firmware alert */
+    private static final int NON_FATAL_FW_ALART = 0;
 
     private WifiNative.RingBufferStatus mFakeRbs;
     /**
@@ -116,6 +121,8 @@ public class WifiDiagnosticsTest {
                 SMALL_RING_BUFFER_SIZE_KB);
         resources.setInteger(R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb,
                 LARGE_RING_BUFFER_SIZE_KB);
+        resources.setIntArray(R.array.config_wifi_fatal_firmware_alert_error_code_list,
+                FATAL_FW_ALART_LIST);
         when(mContext.getResources()).thenReturn(resources);
         when(mWifiInjector.makeLog(anyString())).thenReturn(mLog);
         when(mWifiInjector.getJavaRuntime()).thenReturn(mJavaRuntime);
@@ -123,7 +130,7 @@ public class WifiDiagnosticsTest {
         when(mWifiInjector.getWifiMetrics()).thenReturn(mWifiMetrics);
 
         mWifiDiagnostics = new WifiDiagnostics(
-                mContext, mWifiInjector, mWifiNative, mBuildProperties, mLastMileLogger);
+                mContext, mWifiInjector, mWifiNative, mBuildProperties, mLastMileLogger, mClock);
         mWifiNative.enableVerboseLogging(0);
     }
 
@@ -314,8 +321,7 @@ public class WifiDiagnosticsTest {
     public void reportConnectionFailureIsIgnoredWithoutVerboseMode() {
         final boolean verbosityToggle = false;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
     }
@@ -327,8 +333,7 @@ public class WifiDiagnosticsTest {
     public void reportConnectionFailureFetchesFatesInVerboseMode() {
         final boolean verbosityToggle = true;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
     }
@@ -337,30 +342,35 @@ public class WifiDiagnosticsTest {
     public void reportConnectionEventPropagatesStartToLastMileLogger() {
         final boolean verbosityToggle = false;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_STARTED);
-        verify(mLastMileLogger).reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_STARTED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_STARTED);
+        verify(mLastMileLogger).reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_STARTED);
     }
 
     @Test
     public void reportConnectionEventPropagatesSuccessToLastMileLogger() {
         final boolean verbosityToggle = false;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_SUCCEEDED);
-        verify(mLastMileLogger).reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_SUCCEEDED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_SUCCEEDED);
+        verify(mLastMileLogger).reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_SUCCEEDED);
     }
 
     @Test
     public void reportConnectionEventPropagatesFailureToLastMileLogger() {
         final boolean verbosityToggle = false;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
-        verify(mLastMileLogger).reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        verify(mLastMileLogger).reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
+    }
+
+    /**
+     * Verifies that we are propagating the CONNECTION_EVENT_TIMEOUT event to LastMileLogger.
+     */
+    @Test
+    public void reportConnectionEventPropagatesTimeoutToLastMileLogger() {
+        final boolean verbosityToggle = true;
+        mWifiDiagnostics.startLogging(verbosityToggle);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_TIMEOUT);
+        verify(mLastMileLogger).reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_TIMEOUT);
     }
 
     /**
@@ -371,8 +381,7 @@ public class WifiDiagnosticsTest {
         final boolean verbosityToggle = true;
         when(mWifiNative.getRxPktFates(any(), anyObject())).thenReturn(false);
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
     }
@@ -385,8 +394,7 @@ public class WifiDiagnosticsTest {
         final boolean verbosityToggle = true;
         when(mWifiNative.getTxPktFates(any(), anyObject())).thenReturn(false);
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
     }
@@ -428,8 +436,7 @@ public class WifiDiagnosticsTest {
     public void dumpSucceedsWhenFatesHaveBeenFetchedButAreEmpty() {
         final boolean verbosityToggle = true;
         mWifiDiagnostics.startLogging(verbosityToggle);
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
 
@@ -473,8 +480,7 @@ public class WifiDiagnosticsTest {
                 return true;
             }
         });
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
 
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
@@ -599,8 +605,7 @@ public class WifiDiagnosticsTest {
                 return true;
             }
         });
-        mWifiDiagnostics.reportConnectionEvent(
-                FAKE_CONNECTION_ID, WifiDiagnostics.CONNECTION_EVENT_FAILED);
+        mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED);
         verify(mWifiNative).getTxPktFates(any(), anyObject());
         verify(mWifiNative).getRxPktFates(any(), anyObject());
 
@@ -707,7 +712,7 @@ public class WifiDiagnosticsTest {
      * the alert callback.
      */
     @Test
-    public void onWifiAlertCapturesBugreportAndIncrementsMetrics() throws Exception {
+    public void onWifiAlertCapturesBugreportAndLogsMetrics() throws Exception {
         mWifiDiagnostics.onWifiAlert(ALERT_REASON_CODE, ALERT_DATA);
 
         assertEquals(1, mWifiDiagnostics.getAlertReports().size());
@@ -715,7 +720,7 @@ public class WifiDiagnosticsTest {
         assertEquals(ALERT_REASON_CODE, alertReport.errorCode);
         assertArrayEquals(ALERT_DATA, alertReport.alertData);
 
-        verify(mWifiMetrics).incrementAlertReasonCount(ALERT_REASON_CODE);
+        verify(mWifiMetrics).logFirmwareAlert(ALERT_REASON_CODE);
     }
 
     /** Verifies that we skip the firmware and driver dumps if verbose is not enabled. */
@@ -855,5 +860,34 @@ public class WifiDiagnosticsTest {
         when(mBuildProperties.isUserBuild()).thenReturn(true);
         mWifiDiagnostics.takeBugReport("", "");
         verify(mActivityManagerService, never()).requestWifiBugReport(anyString(), anyString());
+    }
+
+    /** Verifies that we flush HAL ringbuffer when capture bugreport. */
+    @Test
+    public void captureBugReportFlushRingBufferData() {
+        when(mBuildProperties.isUserBuild()).thenReturn(false);
+        when(mWifiNative.flushRingBufferData()).thenReturn(true);
+        mWifiDiagnostics.captureBugReportData(WifiDiagnostics.REPORT_REASON_NONE);
+        verify(mWifiNative).flushRingBufferData();
+    }
+
+    /** Verifies that we flush HAL ringbuffer when detecting fatal firmware alert. */
+    @Test
+    public void captureAlertFlushRingBufferData() {
+        when(mBuildProperties.isUserBuild()).thenReturn(false);
+        when(mWifiNative.flushRingBufferData()).thenReturn(true);
+        /** captureAlertData with mock fatal firmware alert*/
+        mWifiDiagnostics.captureAlertData(FATAL_FW_ALART_LIST[0], ALERT_DATA);
+        verify(mWifiNative).flushRingBufferData();
+    }
+
+    /** Verifies that we don't flush HAL ringbuffer when detecting non fatal firmware alert. */
+    @Test
+    public void captureNonAlertFlushRingBufferData() {
+        when(mBuildProperties.isUserBuild()).thenReturn(false);
+        when(mWifiNative.flushRingBufferData()).thenReturn(true);
+        /** captureAlertData with mock non fatal firmware alert*/
+        mWifiDiagnostics.captureAlertData(NON_FATAL_FW_ALART, ALERT_DATA);
+        verify(mWifiNative, never()).flushRingBufferData();
     }
 }

@@ -16,63 +16,47 @@
 
 package com.android.car;
 
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
-import java.util.Arrays;
-import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
 
-@SmallTest
-public class VmsPublishersInfoTest extends AndroidTestCase {
+public class VmsPublishersInfoTest {
     public static final byte[] MOCK_INFO_0 = new byte[]{2, 3, 5, 7, 11, 13, 17};
     public static final byte[] SAME_MOCK_INFO_0 = new byte[]{2, 3, 5, 7, 11, 13, 17};
     public static final byte[] MOCK_INFO_1 = new byte[]{2, 3, 5, 7, 11, 13, 17, 19};
 
     private VmsPublishersInfo mVmsPublishersInfo;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mVmsPublishersInfo = new VmsPublishersInfo();
     }
 
-    // Test one info sanity
+    @Test
     public void testSingleInfo() throws Exception {
         int id = mVmsPublishersInfo.getIdForInfo(MOCK_INFO_0);
         assertEquals(0, id);
-
-        byte[] info = mVmsPublishersInfo.getPublisherInfo(id);
-        assertTrue(Arrays.equals(MOCK_INFO_0, info));
+        assertArrayEquals(MOCK_INFO_0, mVmsPublishersInfo.getPublisherInfo(id));
     }
 
-    // Test one info sanity - wrong ID fails.
-    public void testSingleInfoWrongId() throws Exception {
-        int id = mVmsPublishersInfo.getIdForInfo(MOCK_INFO_0);
-        assertEquals(0, id);
-
-        try {
-            byte[] info = mVmsPublishersInfo.getPublisherInfo(id + 1);
-        }
-        catch (NullPointerException e) {
-            return;
-        }
-        fail();
+    @Test
+    public void testSingleInfo_NoSuchId() throws Exception {
+        assertEquals(0, mVmsPublishersInfo.getPublisherInfo(12345).length);
     }
 
-    // Test two infos.
+    @Test
     public void testTwoInfos() throws Exception {
         int id0 = mVmsPublishersInfo.getIdForInfo(MOCK_INFO_0);
         int id1 = mVmsPublishersInfo.getIdForInfo(MOCK_INFO_1);
         assertEquals(0, id0);
         assertEquals(1, id1);
-
-        byte[] info0 = mVmsPublishersInfo.getPublisherInfo(id0);
-        byte[] info1 = mVmsPublishersInfo.getPublisherInfo(id1);
-        assertTrue(Arrays.equals(MOCK_INFO_0, info0));
-        assertTrue(Arrays.equals(MOCK_INFO_1, info1));
+        assertArrayEquals(MOCK_INFO_0, mVmsPublishersInfo.getPublisherInfo(id0));
+        assertArrayEquals(MOCK_INFO_1, mVmsPublishersInfo.getPublisherInfo(id1));
     }
 
-    // Test same info twice get the same ID.
+    @Test
     public void testSingleInfoInsertedTwice() throws Exception {
         int id = mVmsPublishersInfo.getIdForInfo(MOCK_INFO_0);
         assertEquals(0, id);

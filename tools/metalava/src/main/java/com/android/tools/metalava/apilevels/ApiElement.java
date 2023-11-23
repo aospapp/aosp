@@ -37,7 +37,7 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param version    an API version for which the API element existed
      * @param deprecated whether the API element was deprecated in the API version in question
      */
-    public ApiElement(String name, int version, boolean deprecated) {
+    ApiElement(String name, int version, boolean deprecated) {
         assert name != null;
         assert version > 0;
         mName = name;
@@ -52,11 +52,11 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param name    the name of the API element
      * @param version an API version for which the API element existed
      */
-    public ApiElement(String name, int version) {
+    ApiElement(String name, int version) {
         this(name, version, false);
     }
 
-    protected ApiElement(String name) {
+    ApiElement(String name) {
         assert name != null;
         mName = name;
     }
@@ -68,13 +68,17 @@ public class ApiElement implements Comparable<ApiElement> {
         return mName;
     }
 
+    public int getSince() {
+        return mSince;
+    }
+
     /**
      * Checks if this API element was introduced not later than another API element.
      *
      * @param other the API element to compare to
      * @return true if this API element was introduced not later than {@code other}
      */
-    public final boolean introducedNotLaterThan(ApiElement other) {
+    final boolean introducedNotLaterThan(ApiElement other) {
         return mSince <= other.mSince;
     }
 
@@ -84,7 +88,7 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param version    an API version for which the API element existed
      * @param deprecated whether the API element was deprecated in the API version in question
      */
-    public void update(int version, boolean deprecated) {
+    void update(int version, boolean deprecated) {
         assert version > 0;
         if (mSince > version) {
             mSince = version;
@@ -124,7 +128,7 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param indent        the whitespace prefix to insert before the XML element
      * @param stream        the stream to print the XML element to
      */
-    public void print(String tag, ApiElement parentElement, String indent, PrintStream stream) {
+    void print(String tag, ApiElement parentElement, String indent, PrintStream stream) {
         print(tag, true, parentElement, indent, stream);
     }
 
@@ -140,8 +144,8 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param stream        the stream to print the XML element to
      * @see #printClosingTag(String, String, PrintStream)
      */
-    protected void print(String tag, boolean closeTag, ApiElement parentElement, String indent,
-                         PrintStream stream) {
+    void print(String tag, boolean closeTag, ApiElement parentElement, String indent,
+               PrintStream stream) {
         stream.print(indent);
         stream.print('<');
         stream.print(tag);
@@ -175,7 +179,7 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param indent   the whitespace prefix to insert before each XML element
      * @param stream   the stream to print the XML elements to
      */
-    protected void print(Collection<? extends ApiElement> elements, String tag, String indent, PrintStream stream) {
+    void print(Collection<? extends ApiElement> elements, String tag, String indent, PrintStream stream) {
         for (ApiElement element : sortedList(elements)) {
             element.print(tag, this, indent, stream);
         }
@@ -194,14 +198,14 @@ public class ApiElement implements Comparable<ApiElement> {
      * @param indent the whitespace prefix to insert before the closing tag
      * @param stream the stream to print the XML element to
      */
-    protected static void printClosingTag(String tag, String indent, PrintStream stream) {
+    static void printClosingTag(String tag, String indent, PrintStream stream) {
         stream.print(indent);
         stream.print("</");
         stream.print(tag);
         stream.println('>');
     }
 
-    protected static String encodeAttribute(String attribute) {
+    private static String encodeAttribute(String attribute) {
         StringBuilder sb = new StringBuilder();
         int n = attribute.length();
         // &, ", ' and < are illegal in attributes; see http://www.w3.org/TR/REC-xml/#NT-AttValue

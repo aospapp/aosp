@@ -19,11 +19,12 @@
 
 #include "thread.h"
 
+#include "arch/instruction_set.h"
 #include "base/aborting.h"
 #include "base/casts.h"
 #include "base/mutex-inl.h"
 #include "base/time_utils.h"
-#include "jni_env_ext.h"
+#include "jni/jni_env_ext.h"
 #include "managed_stack-inl.h"
 #include "obj_ptr.h"
 #include "thread-current-inl.h"
@@ -251,6 +252,7 @@ inline ThreadState Thread::TransitionFromSuspendedToRunnable() {
       union StateAndFlags new_state_and_flags;
       new_state_and_flags.as_int = old_state_and_flags.as_int;
       new_state_and_flags.as_struct.state = kRunnable;
+
       // CAS the value with a memory barrier.
       if (LIKELY(tls32_.state_and_flags.as_atomic_int.CompareAndSetWeakAcquire(
                                                  old_state_and_flags.as_int,
@@ -384,11 +386,32 @@ inline bool Thread::ModifySuspendCount(Thread* self,
 }
 
 inline ShadowFrame* Thread::PushShadowFrame(ShadowFrame* new_top_frame) {
+  new_top_frame->CheckConsistentVRegs();
   return tlsPtr_.managed_stack.PushShadowFrame(new_top_frame);
 }
 
 inline ShadowFrame* Thread::PopShadowFrame() {
   return tlsPtr_.managed_stack.PopShadowFrame();
+}
+
+inline uint8_t* Thread::GetStackEndForInterpreter(bool implicit_overflow_check) const {
+  uint8_t* end = tlsPtr_.stack_end + (implicit_overflow_check
+      ? GetStackOverflowReservedBytes(kRuntimeISA)
+          : 0);
+  if (kIsDebugBuild) {
+    // In a debuggable build, but especially under ASAN, the access-checks interpreter has a
+    // potentially humongous stack size. We don't want to take too much of the stack regularly,
+    // so do not increase the regular reserved size (for compiled code etc) and only report the
+    // virtually smaller stack to the interpreter here.
+    end += GetStackOverflowReservedBytes(kRuntimeISA);
+  }
+  return end;
+}
+
+inline void Thread::ResetDefaultStackEnd() {
+  // Our stacks grow down, so we want stack_end_ to be near there, but reserving enough room
+  // to throw a StackOverflowError.
+  tlsPtr_.stack_end = tlsPtr_.stack_begin + GetStackOverflowReservedBytes(kRuntimeISA);
 }
 
 }  // namespace art

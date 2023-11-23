@@ -245,6 +245,7 @@ SLresult android_audioRecorder_checkSourceSink(CAudioRecorder* ar) {
             // checkDataFormat() already checked representation
             df_representation = &df_pcm->representation;
         } // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
+            FALLTHROUGH_INTENDED;
         case SL_DATAFORMAT_PCM: {
             const SLDataFormat_PCM *df_pcm = (const SLDataFormat_PCM *) pAudioSnk->pFormat;
             // checkDataFormat already checked sample rate, channels, and mask
@@ -618,7 +619,7 @@ static void checkAndSetPerformanceModePost(CAudioRecorder* ar)
             break;
         }
         ar->mPerformanceMode = ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS;
-        /* FALL THROUGH */
+        FALLTHROUGH_INTENDED;
     case ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS:
         if ((flags & AUDIO_INPUT_FLAG_FAST) == 0) {
             ar->mPerformanceMode = ANDROID_PERFORMANCE_MODE_NONE;

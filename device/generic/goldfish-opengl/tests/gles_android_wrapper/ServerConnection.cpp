@@ -18,7 +18,7 @@
 #include "ServerConnection.h"
 #include "TcpStream.h"
 #include "QemuPipeStream.h"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "ThreadInfo.h"
 
 gl_client_context_t *ServerConnection::s_getGlContext()

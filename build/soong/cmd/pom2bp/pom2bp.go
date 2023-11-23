@@ -15,6 +15,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"encoding/xml"
@@ -103,6 +104,24 @@ func (e Exclude) Set(v string) error {
 
 var excludes = make(Exclude)
 
+type HostModuleNames map[string]bool
+
+func (n HostModuleNames) IsHostModule(groupId string, artifactId string) bool {
+	_, found := n[groupId+":"+artifactId]
+	return found
+}
+
+func (n HostModuleNames) String() string {
+	return ""
+}
+
+func (n HostModuleNames) Set(v string) error {
+	n[v] = true
+	return nil
+}
+
+var hostModuleNames = HostModuleNames{}
+
 var sdkVersion string
 var useVersion string
 
@@ -138,9 +157,10 @@ func (d Dependency) BpName() string {
 type Pom struct {
 	XMLName xml.Name `xml:"http://maven.apache.org/POM/4.0.0 project"`
 
-	PomFile      string `xml:"-"`
-	ArtifactFile string `xml:"-"`
-	BpTarget     string `xml:"-"`
+	PomFile       string `xml:"-"`
+	ArtifactFile  string `xml:"-"`
+	BpTarget      string `xml:"-"`
+	MinSdkVersion string `xml:"-"`
 
 	GroupId    string `xml:"groupId"`
 	ArtifactId string `xml:"artifactId"`
@@ -156,6 +176,42 @@ func (p Pom) IsAar() bool {
 
 func (p Pom) IsJar() bool {
 	return p.Packaging == "jar"
+}
+
+func (p Pom) IsHostModule() bool {
+	return hostModuleNames.IsHostModule(p.GroupId, p.ArtifactId)
+}
+
+func (p Pom) IsDeviceModule() bool {
+	return !p.IsHostModule()
+}
+
+func (p Pom) ModuleType() string {
+	if p.IsAar() {
+		return "android_library"
+	} else if p.IsHostModule() {
+		return "java_library_host"
+	} else {
+		return "java_library_static"
+	}
+}
+
+func (p Pom) ImportModuleType() string {
+	if p.IsAar() {
+		return "android_library_import"
+	} else if p.IsHostModule() {
+		return "java_import_host"
+	} else {
+		return "java_import"
+	}
+}
+
+func (p Pom) ImportProperty() string {
+	if p.IsAar() {
+		return "aars"
+	} else {
+		return "jars"
+	}
 }
 
 func (p Pom) BpName() string {
@@ -215,26 +271,93 @@ func (p *Pom) FixDeps(modules map[string]*Pom) {
 	}
 }
 
-var bpTemplate = template.Must(template.New("bp").Parse(`
-{{if .IsAar}}android_library_import{{else}}java_import{{end}} {
-    name: "{{.BpName}}-nodeps",
-    {{if .IsAar}}aars{{else}}jars{{end}}: ["{{.ArtifactFile}}"],
-    sdk_version: "{{.SdkVersion}}",{{if .IsAar}}
-    static_libs: [{{range .BpAarDeps}}
-        "{{.}}",{{end}}{{range .BpExtraDeps}}
-        "{{.}}",{{end}}
-    ],{{end}}
+// ExtractMinSdkVersion extracts the minSdkVersion from the AndroidManifest.xml file inside an aar file, or sets it
+// to "current" if it is not present.
+func (p *Pom) ExtractMinSdkVersion() error {
+	aar, err := zip.OpenReader(p.ArtifactFile)
+	if err != nil {
+		return err
+	}
+	defer aar.Close()
+
+	var manifest *zip.File
+	for _, f := range aar.File {
+		if f.Name == "AndroidManifest.xml" {
+			manifest = f
+			break
+		}
+	}
+
+	if manifest == nil {
+		return fmt.Errorf("failed to find AndroidManifest.xml in %s", p.ArtifactFile)
+	}
+
+	r, err := manifest.Open()
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	decoder := xml.NewDecoder(r)
+
+	manifestData := struct {
+		XMLName  xml.Name `xml:"manifest"`
+		Uses_sdk struct {
+			MinSdkVersion string `xml:"http://schemas.android.com/apk/res/android minSdkVersion,attr"`
+		} `xml:"uses-sdk"`
+	}{}
+
+	err = decoder.Decode(&manifestData)
+	if err != nil {
+		return err
+	}
+
+	p.MinSdkVersion = manifestData.Uses_sdk.MinSdkVersion
+	if p.MinSdkVersion == "" {
+		p.MinSdkVersion = "current"
+	}
+
+	return nil
 }
 
-{{if .IsAar}}android_library{{else}}java_library_static{{end}} {
-    name: "{{.BpName}}",
-    sdk_version: "{{.SdkVersion}}",{{if .IsAar}}
-    manifest: "manifests/{{.BpName}}/AndroidManifest.xml",{{end}}
+var bpTemplate = template.Must(template.New("bp").Parse(`
+{{.ImportModuleType}} {
+    name: "{{.BpName}}-nodeps",
+    {{.ImportProperty}}: ["{{.ArtifactFile}}"],
+    sdk_version: "{{.SdkVersion}}",
+    {{- if .IsAar}}
+    min_sdk_version: "{{.MinSdkVersion}}",
     static_libs: [
-        "{{.BpName}}-nodeps",{{range .BpJarDeps}}
-        "{{.}}",{{end}}{{range .BpAarDeps}}
-        "{{.}}",{{end}}{{range .BpExtraDeps}}
-        "{{.}}",{{end}}
+        {{- range .BpAarDeps}}
+        "{{.}}",
+        {{- end}}
+        {{- range .BpExtraDeps}}
+        "{{.}}",
+        {{- end}}
+    ],
+    {{- end}}
+}
+
+{{.ModuleType}} {
+    name: "{{.BpName}}",
+    {{- if .IsDeviceModule}}
+    sdk_version: "{{.SdkVersion}}",
+    {{- if .IsAar}}
+    min_sdk_version: "{{.MinSdkVersion}}",
+    manifest: "manifests/{{.BpName}}/AndroidManifest.xml",
+    {{- end}}
+    {{- end}}
+    static_libs: [
+        "{{.BpName}}-nodeps",
+         {{- range .BpJarDeps}}
+        "{{.}}",
+        {{- end}}
+        {{- range .BpAarDeps}}
+        "{{.}}",
+        {{- end}}
+        {{- range .BpExtraDeps}}
+        "{{.}}",
+        {{- end}}
     ],
     java_version: "1.7",
 }
@@ -302,7 +425,7 @@ func rerunForRegen(filename string) error {
 
 	// Append all current command line args except -regen <file> to the ones from the file
 	for i := 1; i < len(os.Args); i++ {
-		if os.Args[i] == "-regen" {
+		if os.Args[i] == "-regen" || os.Args[i] == "--regen" {
 			i++
 		} else {
 			args = append(args, os.Args[i])
@@ -369,6 +492,7 @@ Usage: %s [--rewrite <regex>=<replace>] [-exclude <module>] [--extra-deps <modul
 	flag.Var(&excludes, "exclude", "Exclude module")
 	flag.Var(&extraDeps, "extra-deps", "Extra dependencies needed when depending on a module")
 	flag.Var(&rewriteNames, "rewrite", "Regex(es) to rewrite artifact names")
+	flag.Var(&hostModuleNames, "host", "Specifies that the corresponding module (specified in the form 'module.group:module.artifact') is a host module")
 	flag.StringVar(&sdkVersion, "sdk-version", "", "What to write to LOCAL_SDK_VERSION")
 	flag.StringVar(&useVersion, "use-version", "", "Only read artifacts of a specific version")
 	flag.Bool("static-deps", false, "Ignored")
@@ -468,13 +592,20 @@ Usage: %s [--rewrite <regex>=<replace>] [-exclude <module>] [--extra-deps <modul
 	}
 
 	for _, pom := range poms {
+		if pom.IsAar() {
+			err := pom.ExtractMinSdkVersion()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading manifest for %s: %s", pom.ArtifactFile, err)
+				os.Exit(1)
+			}
+		}
 		pom.FixDeps(modules)
 	}
 
 	buf := &bytes.Buffer{}
 
 	fmt.Fprintln(buf, "// Automatically generated with:")
-	fmt.Fprintln(buf, "// pom2bp", strings.Join(proptools.ShellEscape(os.Args[1:]), " "))
+	fmt.Fprintln(buf, "// pom2bp", strings.Join(proptools.ShellEscapeList(os.Args[1:]), " "))
 
 	for _, pom := range poms {
 		var err error

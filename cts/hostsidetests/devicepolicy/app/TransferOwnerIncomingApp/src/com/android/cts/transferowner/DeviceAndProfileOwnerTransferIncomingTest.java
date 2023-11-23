@@ -19,14 +19,19 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 
+import android.app.Service;
 import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.IBinder;
 import android.os.PersistableBundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -44,23 +49,41 @@ public class DeviceAndProfileOwnerTransferIncomingTest {
         }
     }
 
+    public static class BasicAdminService extends Service {
+        @Override
+        public void onCreate() {
+            super.onCreate();
+            putBooleanPref(getApplicationContext(), KEY_TRANSFER_ADMIN_SERVICE_BOUND, true);
+        }
+
+        @Override
+        public IBinder onBind(Intent intent) {
+            return null;
+        }
+    }
+
     public static class BasicAdminReceiverNoMetadata extends DeviceAdminReceiver {
         public BasicAdminReceiverNoMetadata() {}
     }
 
     private final static String SHARED_PREFERENCE_NAME = "shared-preference-name";
     private final static String KEY_TRANSFER_COMPLETED_CALLED = "key-transfer-completed-called";
+    private final static String KEY_TRANSFER_ADMIN_SERVICE_BOUND =
+        "key-transfer-admin-service-bound";
     private final static String ARE_PARAMETERS_SAVED = "ARE_PARAMETERS_SAVED";
 
     protected Context mContext;
     protected ComponentName mIncomingComponentName;
     protected DevicePolicyManager mDevicePolicyManager;
+    protected boolean mHasSecureLockScreen;
 
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
         mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
         mIncomingComponentName = new ComponentName(mContext, BasicAdminReceiver.class.getName());
+        mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SECURE_LOCK_SCREEN);
     }
 
     @Test
@@ -95,6 +118,11 @@ public class DeviceAndProfileOwnerTransferIncomingTest {
         PersistableBundle bundle = mDevicePolicyManager.getTransferOwnershipBundle();
         assertNotNull(bundle);
         assertTrue(bundle.isEmpty());
+    }
+
+    @Test
+    public void testAdminServiceIsBound() {
+        assertTrue(getBooleanPref(mContext, KEY_TRANSFER_ADMIN_SERVICE_BOUND));
     }
 
     private static SharedPreferences getPrefs(Context context) {

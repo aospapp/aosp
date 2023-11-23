@@ -1,14 +1,18 @@
 #include "android_common.h"
 #include <packagelistparser/packagelistparser.h>
 
-// For 'system', 'vendor' (mandatory) and/or 'odm' (optional).
-#define MAX_FILE_CONTEXT_SIZE 3
+// For 'system', 'product' (optional), 'vendor' (mandatory) and/or 'odm' (optional).
+#define MAX_FILE_CONTEXT_SIZE 4
 
 static const char *const sepolicy_file = "/sepolicy";
 
 static const struct selinux_opt seopts_file_plat[] = {
     { SELABEL_OPT_PATH, "/system/etc/selinux/plat_file_contexts" },
     { SELABEL_OPT_PATH, "/plat_file_contexts" }
+};
+static const struct selinux_opt seopts_file_product[] = {
+    { SELABEL_OPT_PATH, "/product/etc/selinux/product_file_contexts" },
+    { SELABEL_OPT_PATH, "/product_file_contexts" }
 };
 static const struct selinux_opt seopts_file_vendor[] = {
     { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_file_contexts" },
@@ -25,6 +29,10 @@ static const struct selinux_opt seopts_file_odm[] = {
 static const struct selinux_opt seopts_prop_plat[] = {
     { SELABEL_OPT_PATH, "/system/etc/selinux/plat_property_contexts" },
     { SELABEL_OPT_PATH, "/plat_property_contexts" }
+};
+static const struct selinux_opt seopts_prop_product[] = {
+    { SELABEL_OPT_PATH, "/product/etc/selinux/product_property_contexts" },
+    { SELABEL_OPT_PATH, "/product_property_contexts" }
 };
 static const struct selinux_opt seopts_prop_vendor[] = {
     { SELABEL_OPT_PATH, "/vendor/etc/selinux/vendor_property_contexts" },
@@ -47,6 +55,10 @@ static const struct selinux_opt seopts_prop_odm[] = {
 static char const * const seapp_contexts_plat[] = {
 	"/system/etc/selinux/plat_seapp_contexts",
 	"/plat_seapp_contexts"
+};
+static char const * const seapp_contexts_product[] = {
+	"/product/etc/selinux/product_seapp_contexts",
+	"/product_seapp_contexts"
 };
 static char const * const seapp_contexts_vendor[] = {
 	"/vendor/etc/selinux/vendor_seapp_contexts",
@@ -167,6 +179,12 @@ struct selabel_handle* selinux_android_file_context_handle(void)
             break;
         }
     }
+    for (i = 0; i < ARRAY_SIZE(seopts_file_product); i++) {
+        if (access(seopts_file_product[i].value, R_OK) != -1) {
+            seopts_file[size++] = seopts_file_product[i];
+            break;
+        }
+    }
     for (i = 0; i < ARRAY_SIZE(seopts_file_vendor); i++) {
         if (access(seopts_file_vendor[i].value, R_OK) != -1) {
             seopts_file[size++] = seopts_file_vendor[i];
@@ -191,6 +209,12 @@ struct selabel_handle* selinux_android_prop_context_handle(void)
     for (i = 0; i < ARRAY_SIZE(seopts_prop_plat); i++) {
         if (access(seopts_prop_plat[i].value, R_OK) != -1) {
             seopts_prop[size++] = seopts_prop_plat[i];
+            break;
+        }
+    }
+    for (i = 0; i < ARRAY_SIZE(seopts_prop_product); i++) {
+        if (access(seopts_prop_product[i].value, R_OK) != -1) {
+            seopts_prop[size++] = seopts_prop_product[i];
             break;
         }
     }
@@ -264,6 +288,7 @@ struct seapp_context {
 	bool isPrivAppSet;
 	bool isPrivApp;
 	int32_t minTargetSdkVersion;
+	bool fromRunAs;
 	/* outputs */
 	char *domain;
 	char *type;
@@ -379,6 +404,10 @@ static int seapp_context_cmp(const void *A, const void *B)
 	else if (s1->minTargetSdkVersion < s2->minTargetSdkVersion)
 		return 1;
 
+	/* Give precedence to fromRunAs=true. */
+	if (s1->fromRunAs != s2->fromRunAs)
+		return (s1->fromRunAs ? -1 : 1);
+
 	/*
 	 * Check for a duplicated entry on the input selectors.
 	 * We already compared isSystemServer, isOwnerSet, and isOwner above.
@@ -459,6 +488,12 @@ int selinux_android_seapp_context_reload(void)
 			break;
 		}
 	}
+	for (i = 0; i < ARRAY_SIZE(seapp_contexts_product); i++) {
+		if (access(seapp_contexts_product[i], R_OK) != -1) {
+			seapp_contexts_files[files_len++] = seapp_contexts_product[i];
+			break;
+		}
+	}
 	for (i = 0; i < ARRAY_SIZE(seapp_contexts_vendor); i++) {
 		if (access(seapp_contexts_vendor[i], R_OK) != -1) {
 			seapp_contexts_files[files_len++] = seapp_contexts_vendor[i];
@@ -509,6 +544,10 @@ int selinux_android_seapp_context_reload(void)
 		}
 		while (fgets(line_buf, sizeof line_buf - 1, fp)) {
 			len = strlen(line_buf);
+			if (len == 0) {
+				// line contains a NUL byte as its first entry
+				goto err;
+			}
 			if (line_buf[len - 1] == '\n')
 				line_buf[len - 1] = 0;
 			p = line_buf;
@@ -704,6 +743,15 @@ int selinux_android_seapp_context_reload(void)
 						free_seapp_context(cur);
 						goto err;
 					}
+				} else if (!strcasecmp(name, "fromRunAs")) {
+					if (!strcasecmp(value, "true"))
+						cur->fromRunAs = true;
+					else if (!strcasecmp(value, "false"))
+						cur->fromRunAs = false;
+					else {
+						free_seapp_context(cur);
+						goto err;
+					}
 				} else {
 					free_seapp_context(cur);
 					goto err;
@@ -742,7 +790,7 @@ int selinux_android_seapp_context_reload(void)
 		for (i = 0; i < nspec; i++) {
 			cur = seapp_contexts[i];
 			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s  isEphemeralApp=%s isV2App=%s isOwner=%s user=%s seinfo=%s "
-					"name=%s path=%s isPrivApp=%s minTargetSdkVersion=%d -> domain=%s type=%s level=%s levelFrom=%s",
+					"name=%s path=%s isPrivApp=%s minTargetSdkVersion=%d fromRunAs=%s -> domain=%s type=%s level=%s levelFrom=%s",
 				__FUNCTION__,
 				cur->isSystemServer ? "true" : "false",
 				cur->isEphemeralAppSet ? (cur->isEphemeralApp ? "true" : "false") : "null",
@@ -752,6 +800,7 @@ int selinux_android_seapp_context_reload(void)
 				cur->seinfo, cur->name.str, cur->path.str,
 				cur->isPrivAppSet ? (cur->isPrivApp ? "true" : "false") : "null",
 				cur->minTargetSdkVersion,
+				cur->fromRunAs ? "true" : "false",
 				cur->domain, cur->type, cur->level,
 				levelFromName[cur->levelFrom]);
 		}
@@ -789,6 +838,10 @@ static void seapp_context_init(void)
 
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 
+void selinux_android_seapp_context_init(void) {
+	__selinux_once(once, seapp_context_init);
+}
+
 /*
  * Max id that can be mapped to category set uniquely
  * using the current scheme.
@@ -804,6 +857,7 @@ enum seapp_kind {
 #define EPHEMERAL_APP_STR ":ephemeralapp"
 #define V2_APP_STR ":v2"
 #define TARGETSDKVERSION_STR ":targetSdkVersion="
+#define FROM_RUNAS_STR ":fromRunAs"
 static int32_t get_app_targetSdkVersion(const char *seinfo)
 {
 	char *substr = strstr(seinfo, TARGETSDKVERSION_STR);
@@ -862,9 +916,10 @@ static int seapp_context_lookup(enum seapp_kind kind,
 	bool isEphemeralApp = false;
 	int32_t targetSdkVersion = 0;
 	bool isV2App = false;
+	bool fromRunAs = false;
 	char parsedseinfo[BUFSIZ];
 
-	__selinux_once(once, seapp_context_init);
+	selinux_android_seapp_context_init();
 
 	if (seinfo) {
 		if (seinfo_parse(parsedseinfo, seinfo, BUFSIZ))
@@ -872,6 +927,7 @@ static int seapp_context_lookup(enum seapp_kind kind,
 		isPrivApp = strstr(seinfo, PRIVILEGED_APP_STR) ? true : false;
 		isEphemeralApp = strstr(seinfo, EPHEMERAL_APP_STR) ? true : false;
 		isV2App = strstr(seinfo, V2_APP_STR) ? true : false;
+		fromRunAs = strstr(seinfo, FROM_RUNAS_STR) ? true : false;
 		targetSdkVersion = get_app_targetSdkVersion(seinfo);
 		if (targetSdkVersion < 0) {
 			selinux_log(SELINUX_ERROR,
@@ -957,6 +1013,9 @@ static int seapp_context_lookup(enum seapp_kind kind,
 			continue;
 
 		if (cur->minTargetSdkVersion > targetSdkVersion)
+			continue;
+
+		if (cur->fromRunAs != fromRunAs)
 			continue;
 
 		if (cur->path.str) {
@@ -1265,6 +1324,7 @@ struct pkg_info *package_info_lookup(const char *name)
  * to delay restorecon of those until vold explicitly requests it. */
 // NOTE: these paths need to be kept in sync with vold
 #define DATA_SYSTEM_CE_PREFIX "/data/system_ce/"
+#define DATA_VENDOR_CE_PREFIX "/data/vendor_ce/"
 #define DATA_MISC_CE_PREFIX "/data/misc_ce/"
 
 /* The path prefixes of package data directories. */
@@ -1388,7 +1448,7 @@ err:
     goto out;
 }
 
-#define RESTORECON_LAST "security.restorecon_last"
+#define RESTORECON_PARTIAL_MATCH_DIGEST  "security.sehash"
 
 static int restorecon_sb(const char *pathname, const struct stat *sb,
                          bool nochange, bool verbose,
@@ -1447,6 +1507,57 @@ err:
 #define SYS_PATH "/sys"
 #define SYS_PREFIX SYS_PATH "/"
 
+struct dir_hash_node {
+    char* path;
+    uint8_t digest[SHA1_HASH_SIZE];
+    struct dir_hash_node *next;
+};
+
+// Returns true if the digest of all partial matched contexts is the same as the one
+// saved by setxattr. Otherwise returns false and constructs a dir_hash_node with the
+// newly calculated digest.
+static bool check_context_match_for_dir(const char *pathname, struct dir_hash_node **new_node,
+                                        bool force, int error) {
+    uint8_t read_digest[SHA1_HASH_SIZE];
+    ssize_t read_size = getxattr(pathname, RESTORECON_PARTIAL_MATCH_DIGEST,
+                     read_digest, SHA1_HASH_SIZE);
+    uint8_t calculated_digest[SHA1_HASH_SIZE];
+    bool status = selabel_hash_all_partial_matches(fc_sehandle, pathname,
+                               calculated_digest);
+
+    if (!new_node) {
+        return false;
+    }
+    *new_node = NULL;
+    if (!force && status && read_size == SHA1_HASH_SIZE &&
+        memcmp(read_digest, calculated_digest, SHA1_HASH_SIZE) == 0) {
+        return true;
+    }
+
+    // Save the digest of all matched contexts for the current directory.
+    if (!error && status) {
+        *new_node = calloc(1, sizeof(struct dir_hash_node));
+        if (*new_node == NULL) {
+            selinux_log(SELINUX_ERROR,
+                        "SELinux: %s: Out of memory\n", __func__);
+            return false;
+        }
+
+        (*new_node)->path = strdup(pathname);
+        if ((*new_node)->path == NULL) {
+            selinux_log(SELINUX_ERROR,
+                        "SELinux: %s: Out of memory\n", __func__);
+            free(*new_node);
+            *new_node = NULL;
+            return false;
+        }
+        memcpy((*new_node)->digest, calculated_digest, SHA1_HASH_SIZE);
+        (*new_node)->next = NULL;
+    }
+
+    return false;
+}
+
 static int selinux_android_restorecon_common(const char* pathname_orig,
                                              const char *seinfo,
                                              uid_t uid,
@@ -1459,8 +1570,8 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     bool datadata = (flags & SELINUX_ANDROID_RESTORECON_DATADATA) ? true : false;
     bool skipce = (flags & SELINUX_ANDROID_RESTORECON_SKIPCE) ? true : false;
     bool cross_filesystems = (flags & SELINUX_ANDROID_RESTORECON_CROSS_FILESYSTEMS) ? true : false;
+    bool setrestoreconlast = (flags & SELINUX_ANDROID_RESTORECON_SKIP_SEHASH) ? false : true;
     bool issys;
-    bool setrestoreconlast = true;
     struct stat sb;
     struct statfs sfsb;
     FTS *fts;
@@ -1469,8 +1580,8 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     char * paths[2] = { NULL , NULL };
     int ftsflags = FTS_NOCHDIR | FTS_PHYSICAL;
     int error, sverrno;
-    char xattr_value[FC_DIGEST_SIZE];
-    ssize_t size;
+    struct dir_hash_node *current = NULL;
+    struct dir_hash_node *head = NULL;
 
     if (!cross_filesystems) {
         ftsflags |= FTS_XDEV;
@@ -1521,7 +1632,7 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     }
 
     /*
-     * Ignore restorecon_last on /data/data or /data/user
+     * Ignore saved partial match digest on /data/data or /data/user
      * since their labeling is based on seapp_contexts and seinfo
      * assignments rather than file_contexts and is managed by
      * installd rather than init.
@@ -1541,17 +1652,6 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     if (statfs(pathname, &sfsb) == 0) {
         if (sfsb.f_type == RAMFS_MAGIC || sfsb.f_type == TMPFS_MAGIC)
             setrestoreconlast = false;
-    }
-
-    if (setrestoreconlast) {
-        size = getxattr(pathname, RESTORECON_LAST, xattr_value, sizeof fc_digest);
-        if (!force && size == sizeof fc_digest && memcmp(fc_digest, xattr_value, sizeof fc_digest) == 0) {
-            selinux_log(SELINUX_INFO,
-                        "SELinux: Skipping restorecon_recursive(%s)\n",
-                        pathname);
-            error = 0;
-            goto cleanup;
-        }
     }
 
     fts = fts_open(paths, ftsflags, NULL);
@@ -1592,9 +1692,30 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
                 continue;
             }
 
+            if (setrestoreconlast) {
+                struct dir_hash_node* new_node = NULL;
+                if (check_context_match_for_dir(ftsent->fts_path, &new_node, force, error)) {
+                    selinux_log(SELINUX_INFO,
+                                "SELinux: Skipping restorecon on directory(%s)\n",
+                                ftsent->fts_path);
+                    fts_set(fts, ftsent, FTS_SKIP);
+                    continue;
+                }
+                if (new_node) {
+                    if (!current) {
+                        current = new_node;
+                        head = current;
+                    } else {
+                        current->next = new_node;
+                        current = current->next;
+                    }
+                }
+            }
+
             if (skipce &&
                 (!strncmp(ftsent->fts_path, DATA_SYSTEM_CE_PREFIX, sizeof(DATA_SYSTEM_CE_PREFIX)-1) ||
-                 !strncmp(ftsent->fts_path, DATA_MISC_CE_PREFIX, sizeof(DATA_MISC_CE_PREFIX)-1))) {
+                 !strncmp(ftsent->fts_path, DATA_MISC_CE_PREFIX, sizeof(DATA_MISC_CE_PREFIX)-1) ||
+                 !strncmp(ftsent->fts_path, DATA_VENDOR_CE_PREFIX, sizeof(DATA_VENDOR_CE_PREFIX)-1))) {
                 // Don't label anything below this directory.
                 fts_set(fts, ftsent, FTS_SKIP);
                 // but fall through and make sure we label the directory itself
@@ -1617,9 +1738,21 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
         }
     }
 
-    // Labeling successful. Mark the top level directory as completed.
-    if (setrestoreconlast && !nochange && !error)
-        setxattr(pathname, RESTORECON_LAST, fc_digest, sizeof fc_digest, 0);
+    // Labeling successful. Write the partial match digests for subdirectories.
+    // TODO: Write the digest upon FTS_DP if no error occurs in its descents.
+    if (setrestoreconlast && !nochange && !error) {
+        current = head;
+        while (current != NULL) {
+            if (setxattr(current->path, RESTORECON_PARTIAL_MATCH_DIGEST, current->digest,
+                    SHA1_HASH_SIZE, 0) < 0) {
+                selinux_log(SELINUX_ERROR,
+                            "SELinux:  setxattr failed: %s:  %s\n",
+                            current->path,
+                            strerror(errno));
+            }
+            current = current->next;
+        }
+    }
 
 out:
     sverrno = errno;
@@ -1628,6 +1761,13 @@ out:
 cleanup:
     free(pathdnamer);
     free(pathname);
+    current = head;
+    while (current != NULL) {
+        struct dir_hash_node *next = current->next;
+        free(current->path);
+        free(current);
+        current = next;
+    }
     return error;
 oom:
     sverrno = errno;

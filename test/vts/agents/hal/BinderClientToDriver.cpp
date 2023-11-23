@@ -16,9 +16,9 @@
 
 #include <iostream>
 
-#include <utils/RefBase.h>
 #define LOG_TAG "VtsFuzzerBinderClient"
-#include <utils/Log.h>
+#include <log/log.h>
+#include <utils/RefBase.h>
 
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>

@@ -59,10 +59,11 @@ import (
 func init() {
 	android.RegisterModuleType("ndk_headers", ndkHeadersFactory)
 	android.RegisterModuleType("ndk_library", ndkLibraryFactory)
+	android.RegisterModuleType("versioned_ndk_headers", versionedNdkHeadersFactory)
 	android.RegisterModuleType("preprocessed_ndk_headers", preprocessedNdkHeadersFactory)
 	android.RegisterSingletonType("ndk", NdkSingleton)
 
-	pctx.Import("android/soong/common")
+	pctx.Import("android/soong/android")
 }
 
 func getNdkInstallBase(ctx android.PathContext) android.OutputPath {
@@ -103,17 +104,38 @@ func (n *ndkSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 		}
 
 		if m, ok := module.(*headerModule); ok {
+			if ctx.Config().ExcludeDraftNdkApis() && m.properties.Draft {
+				return
+			}
+
 			installPaths = append(installPaths, m.installPaths...)
 			licensePaths = append(licensePaths, m.licensePath)
 		}
 
-		if m, ok := module.(*preprocessedHeaderModule); ok {
+		if m, ok := module.(*versionedHeaderModule); ok {
+			if ctx.Config().ExcludeDraftNdkApis() && m.properties.Draft {
+				return
+			}
+
+			installPaths = append(installPaths, m.installPaths...)
+			licensePaths = append(licensePaths, m.licensePath)
+		}
+
+		if m, ok := module.(*preprocessedHeadersModule); ok {
+			if ctx.Config().ExcludeDraftNdkApis() && m.properties.Draft {
+				return
+			}
+
 			installPaths = append(installPaths, m.installPaths...)
 			licensePaths = append(licensePaths, m.licensePath)
 		}
 
 		if m, ok := module.(*Module); ok {
 			if installer, ok := m.installer.(*stubDecorator); ok {
+				if ctx.Config().ExcludeDraftNdkApis() &&
+					installer.properties.Draft {
+					return
+				}
 				installPaths = append(installPaths, installer.installPath)
 			}
 
@@ -125,6 +147,10 @@ func (n *ndkSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			}
 		}
 	})
+
+	// Include only a single copy of each license file. The Bionic NOTICE is
+	// long and is referenced by multiple Bionic modules.
+	licensePaths = android.FirstUniquePaths(licensePaths)
 
 	combinedLicense := getNdkInstallBase(ctx).Join(ctx, "NOTICE")
 	ctx.Build(pctx, android.BuildParams{

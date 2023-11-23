@@ -31,14 +31,14 @@ import android.view.MenuItem;
  */
 public class NetworkSelectSettingActivity extends Activity {
     private static final String TAG = "NetworkSelectSettingActivity";
-    public static final String KEY_PHONE_ID = "phone_id";
+    public static final String KEY_SUBSCRIPTION_ID = "subscription_id";
 
     /**
      * Returns the Android Intent that led to this Activity being created.
      */
-    public static Intent getIntent(Context context, int phoneId) {
+    public static Intent getIntent(Context context, int subId) {
         Intent intent = new Intent(context, NetworkSelectSettingActivity.class);
-        intent.putExtra(KEY_PHONE_ID, phoneId);
+        intent.putExtra(KEY_SUBSCRIPTION_ID, subId);
         return intent;
     }
 
@@ -46,7 +46,7 @@ public class NetworkSelectSettingActivity extends Activity {
     public void onCreate(Bundle savedState) {
         Log.d(TAG, "onCreate()");
         super.onCreate(savedState);
-        int phoneId = getIntent().getExtras().getInt(KEY_PHONE_ID);
+        int subId = getIntent().getExtras().getInt(KEY_SUBSCRIPTION_ID);
         setContentView(R.layout.choose_network);
 
         FragmentManager fragmentManager = getFragmentManager();
@@ -54,7 +54,7 @@ public class NetworkSelectSettingActivity extends Activity {
         if (fragment == null) {
             fragmentManager.beginTransaction()
                     .add(R.id.choose_network_content,
-                            NetworkSelectSetting.newInstance(phoneId), TAG)
+                            NetworkSelectSetting.newInstance(subId), TAG)
                     .commit();
         }
     }

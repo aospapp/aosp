@@ -16,16 +16,20 @@
 
 package android.cts.backup.successnotificationapp;
 
-import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static androidx.test.InstrumentationRegistry.getTargetContext;
+
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull
 public class SuccessNotificationTest {
     protected static final String PREFS_FILE = "android.cts.backup.successnotificationapp.PREFS";
     private static final String KEY_VALUE_RESTORE_APP_PACKAGE =

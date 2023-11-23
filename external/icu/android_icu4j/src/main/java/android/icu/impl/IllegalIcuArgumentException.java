@@ -17,6 +17,7 @@ package android.icu.impl;
 public class IllegalIcuArgumentException extends IllegalArgumentException {
     private static final long serialVersionUID = 3789261542830211225L;
 
+    @dalvik.annotation.compat.UnsupportedAppUsage
     public IllegalIcuArgumentException(String errorMessage) {
         super(errorMessage);
     }

@@ -17,16 +17,14 @@
 package com.android.server.telecom;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
-import com.android.internal.os.SomeArgs;
-import com.android.internal.telephony.SmsApplication;
-
-import android.content.ComponentName;
+import android.app.Activity;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
 import android.telecom.Connection;
 import android.telecom.Log;
 import android.telecom.Response;
@@ -45,29 +43,36 @@ import java.util.List;
  * Helper class to manage the "Respond via Message" feature for incoming calls.
  */
 public class RespondViaSmsManager extends CallsManagerListenerBase {
-    private static final int MSG_SHOW_SENT_TOAST = 2;
+    private static final String ACTION_MESSAGE_SENT = "com.android.server.telecom.MESSAGE_SENT";
+
+    private static final class MessageSentReceiver extends BroadcastReceiver {
+        private final String mContactName;
+        private final int mNumMessageParts;
+        private int mNumMessagesSent = 0;
+        MessageSentReceiver(String contactName, int numMessageParts) {
+            mContactName = contactName;
+            mNumMessageParts = numMessageParts;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (getResultCode() == Activity.RESULT_OK) {
+                mNumMessagesSent++;
+                if (mNumMessagesSent == mNumMessageParts) {
+                    showMessageResultToast(mContactName, context, true);
+                    context.unregisterReceiver(this);
+                }
+            } else {
+                context.unregisterReceiver(this);
+                showMessageResultToast(mContactName, context, false);
+                Log.w(RespondViaSmsManager.class.getSimpleName(),
+                        "Message failed with error %s", getResultCode());
+            }
+        }
+    }
 
     private final CallsManager mCallsManager;
     private final TelecomSystem.SyncRoot mLock;
-
-    private final Handler mHandler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_SHOW_SENT_TOAST: {
-                    SomeArgs args = (SomeArgs) msg.obj;
-                    try {
-                        String toastMessage = (String) args.arg1;
-                        Context context = (Context) args.arg2;
-                        showMessageSentToast(toastMessage, context);
-                    } finally {
-                        args.recycle();
-                    }
-                    break;
-                }
-            }
-        }
-    };
 
     public RespondViaSmsManager(CallsManager callsManager, TelecomSystem.SyncRoot lock) {
         mCallsManager = callsManager;
@@ -105,6 +110,11 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                 final ArrayList<String> textMessages = new ArrayList<>(
                         QuickResponseUtils.NUM_CANNED_RESPONSES);
 
+                // Where the user has changed a quick response back to the same text as the
+                // original text, clear the shared pref.  This ensures we always load the resource
+                // in the current active language.
+                QuickResponseUtils.maybeResetQuickResponses(context, prefs);
+
                 // Note the default values here must agree with the corresponding
                 // android:defaultValue attributes in respond_via_sms_settings.xml.
                 textMessages.add(0, prefs.getString(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_1,
@@ -139,13 +149,15 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
         }
     }
 
-    private void showMessageSentToast(final String phoneNumber, final Context context) {
+    private static void showMessageResultToast(final String phoneNumber,
+            final Context context, boolean success) {
         // ...and show a brief confirmation to the user (since
         // otherwise it's hard to be sure that anything actually
         // happened.)
         final Resources res = context.getResources();
-        final String formatString = res.getString(
-                R.string.respond_via_sms_confirmation_format);
+        final String formatString = res.getString(success
+                ? R.string.respond_via_sms_confirmation_format
+                : R.string.respond_via_sms_failure_format);
         final String confirmationMsg = String.format(formatString, phoneNumber);
         int startingPosition = confirmationMsg.indexOf(phoneNumber);
         int endingPosition = startingPosition + phoneNumber.length();
@@ -187,13 +199,20 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
 
         SmsManager smsManager = SmsManager.getSmsManagerForSubscriptionId(subId);
         try {
-            smsManager.sendTextMessage(phoneNumber, null, textMessage, null /*sentIntent*/,
-                    null /*deliveryIntent*/);
-
-            SomeArgs args = SomeArgs.obtain();
-            args.arg1 = !TextUtils.isEmpty(contactName) ? contactName : phoneNumber;
-            args.arg2 = context;
-            mHandler.obtainMessage(MSG_SHOW_SENT_TOAST, args).sendToTarget();
+            ArrayList<String> messageParts = smsManager.divideMessage(textMessage);
+            ArrayList<PendingIntent> sentIntents = new ArrayList<>(messageParts.size());
+            for (int i = 0; i < messageParts.size(); i++) {
+                Intent intent = new Intent(ACTION_MESSAGE_SENT);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(context, i, intent,
+                        PendingIntent.FLAG_ONE_SHOT);
+                sentIntents.add(pendingIntent);
+            }
+            MessageSentReceiver receiver = new MessageSentReceiver(
+                    !TextUtils.isEmpty(contactName) ? contactName : phoneNumber,
+                    messageParts.size());
+            context.registerReceiver(receiver, new IntentFilter(ACTION_MESSAGE_SENT));
+            smsManager.sendMultipartTextMessageExternal(phoneNumber, null, messageParts,
+                    sentIntents/*sentIntent*/, null /*deliveryIntent*/, context.getOpPackageName());
         } catch (IllegalArgumentException e) {
             Log.w(RespondViaSmsManager.this, "Couldn't send SMS message: " +
                     e.getMessage());

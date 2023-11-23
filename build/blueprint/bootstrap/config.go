@@ -69,10 +69,11 @@ type ConfigInterface interface {
 }
 
 type ConfigRemoveAbandonedFilesUnder interface {
-	// RemoveAbandonedFilesUnder should return a slice of path prefixes that
-	// will be cleaned of files that are no longer active targets, but are
-	// listed in the .ninja_log.
-	RemoveAbandonedFilesUnder() []string
+	// RemoveAbandonedFilesUnder should return two slices:
+	// - a slice of path prefixes that will be cleaned of files that are no
+	//   longer active targets, but are listed in the .ninja_log.
+	// - a slice of paths that are exempt from cleaning
+	RemoveAbandonedFilesUnder() (under, except []string)
 }
 
 type ConfigBlueprintToolLocation interface {
@@ -104,6 +105,7 @@ type Config struct {
 
 	topLevelBlueprintsFile string
 
+	emptyNinjaFile bool
 	runGoTests     bool
 	moduleListFile string
 }

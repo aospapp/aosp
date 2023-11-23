@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "dunno@chromium.org"
-NAME = "video_YouTubeMseEme"
+NAME = "video_YouTubeMseEme.attach_source"
 PURPOSE = "Verify Chrome MSE/EME works for YouTube."
 CRITERIA = """
 This test will fail if Media Source can not be attached.

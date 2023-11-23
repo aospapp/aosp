@@ -15,6 +15,7 @@ import java.util.HashMap;
 import android.icu.impl.Assert;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
+import android.icu.lang.UProperty;
 
 /**
   *  This class is part of the Rule Based Break Iterator rule compiler.
@@ -285,14 +286,14 @@ class RBBIRuleScanner {
             // All rule expressions are ORed together.
             // The ';' that terminates an expression really just functions as a
             // '|' with
-            //   a low operator prededence.
+            //   a low operator precedence.
             //
             // Each of the four sets of rules are collected separately.
             //  (forward, reverse, safe_forward, safe_reverse)
             //  OR this rule into the appropriate group of them.
             //
 
-            int destRules = (fReverseRule ? RBBIRuleBuilder.fReverseTree : fRB.fDefaultTree);
+            int destRules = (fReverseRule ? RBBIRuleBuilder.fSafeRevTree : fRB.fDefaultTree);
 
             if (fRB.fTreeRoots[destRules] != null) {
                 // This is not the first rule encountered.
@@ -697,17 +698,16 @@ class RBBIRuleScanner {
     static String stripRules(String rules) {
         StringBuilder strippedRules = new StringBuilder();
         int rulesLength = rules.length();
-        for (int idx = 0; idx < rulesLength;) {
-            char ch = rules.charAt(idx++);
-            if (ch == '#') {
-                while (idx < rulesLength
-                        && ch != '\r' && ch != '\n' && ch != chNEL) {
-                    ch = rules.charAt(idx++);
-                }
+        boolean skippingSpaces = false;
+
+        for (int idx = 0; idx < rulesLength; idx = rules.offsetByCodePoints(idx, 1)) {
+            int cp = rules.codePointAt(idx);
+            boolean whiteSpace = UCharacter.hasBinaryProperty(cp, UProperty.PATTERN_WHITE_SPACE);
+            if (skippingSpaces && whiteSpace) {
+                continue;
             }
-            if (!UCharacter.isISOControl(ch)) {
-                strippedRules.append(ch);
-            }
+            strippedRules.appendCodePoint(cp);
+            skippingSpaces = whiteSpace;
         }
         return strippedRules.toString();
     }
@@ -801,6 +801,7 @@ class RBBIRuleScanner {
                 //  It will be treated as white-space, and serves to break up anything
                 //    that might otherwise incorrectly clump together with a comment in
                 //    the middle (a variable name, for example.)
+                int commentStart = fScanIndex;
                 for (;;) {
                     c.fChar = nextCharLL();
                     if (c.fChar == -1 || // EOF
@@ -811,6 +812,9 @@ class RBBIRuleScanner {
                     {
                         break;
                     }
+                }
+                for (int i=commentStart; i<fNextIndex-1; ++i) {
+                    fRB.fStrippedRules.setCharAt(i, ' ');
                 }
             }
             if (c.fChar == -1) {
@@ -967,18 +971,6 @@ class RBBIRuleScanner {
         //
         if (fRB.fTreeRoots[RBBIRuleBuilder.fForwardTree] == null) {
             error(RBBIRuleBuilder.U_BRK_RULE_SYNTAX);
-        }
-
-        //
-        // If there were NO user specified reverse rules, set up the equivalent of ".*;"
-        //
-        if (fRB.fTreeRoots[RBBIRuleBuilder.fReverseTree] == null) {
-            fRB.fTreeRoots[RBBIRuleBuilder.fReverseTree] = pushNewNode(RBBINode.opStar);
-            RBBINode operand = pushNewNode(RBBINode.setRef);
-            findSetFor(kAny, operand, null);
-            fRB.fTreeRoots[RBBIRuleBuilder.fReverseTree].fLeftChild = operand;
-            operand.fParent = fRB.fTreeRoots[RBBIRuleBuilder.fReverseTree];
-            fNodeStackPtr -= 2;
         }
 
         //

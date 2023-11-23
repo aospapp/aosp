@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #define LOG_TAG "VtsSelfTestZeroTestCaseBinaryTest"
-#include <utils/Log.h>
+#include <log/log.h>
 
 class VtsSelfTestFlakyTest : public ::testing::Test {
  public:

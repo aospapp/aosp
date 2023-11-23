@@ -15,10 +15,8 @@
  */
 package com.android.dialer.assisteddialing.ui;
 
-import android.annotation.TargetApi;
 import android.icu.util.ULocale;
 import android.icu.util.ULocale.Builder;
-import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
@@ -29,7 +27,7 @@ import com.android.dialer.assisteddialing.AssistedDialingMediator;
 import com.android.dialer.assisteddialing.ConcreteCreator;
 import com.android.dialer.assisteddialing.CountryCodeProvider;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.google.auto.value.AutoValue;
@@ -38,8 +36,6 @@ import java.util.List;
 import java.util.Optional;
 
 /** The setting for Assisted Dialing */
-@TargetApi(VERSION_CODES.N)
-@SuppressWarnings("AndroidApiChecker") // Java 8 APIs
 public class AssistedDialingSettingFragment extends PreferenceFragment {
 
   private CountryCodeProvider countryCodeProvider;
@@ -70,7 +66,8 @@ public class AssistedDialingSettingFragment extends PreferenceFragment {
             getContext().getSystemService(TelephonyManager.class), getContext());
 
     countryCodeProvider =
-        ConcreteCreator.getCountryCodeProvider(ConfigProviderBindings.get(getContext()));
+        ConcreteCreator.getCountryCodeProvider(
+            ConfigProviderComponent.get(getContext()).getConfigProvider());
 
     // Load the preferences from an XML resource
     addPreferencesFromResource(R.xml.assisted_dialing_setting);

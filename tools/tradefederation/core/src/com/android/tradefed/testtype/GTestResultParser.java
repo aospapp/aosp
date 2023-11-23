@@ -18,15 +18,17 @@ package com.android.tradefed.testtype;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.MultiLineReceiver;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.metrics.proto.MetricMeasurement.Measurements;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
-import com.android.tradefed.testtype.testdefs.XmlDefsTest;
+
+import com.google.common.base.Joiner;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -103,14 +105,26 @@ public class GTestResultParser extends MultiLineReceiver {
     /** True if start of test has already been reported to listener. */
     private boolean mTestRunStartReported = false;
 
+    /** True if at least one testRunStart has been reported. */
+    private boolean mSeenOneTestRunStart = false;
+    /**
+     * Track all the log lines before the testRunStart is made, it is helpful on an early failure to
+     * report those logs.
+     */
+    private List<String> mTrackLogsBeforeRunStart = new ArrayList<>();
+
     /** True if current test run has been canceled by user. */
     private boolean mIsCancelled = false;
-
-    private String mCoverageTarget = null;
 
     /** Whether or not to prepend filename to classname. */
     private boolean mPrependFileName = false;
 
+    /** The final status of the test. */
+    enum TestStatus {
+        OK,
+        FAILED,
+        SKIPPED
+    }
 
     public void setPrependFileName(boolean prepend) {
         mPrependFileName = prepend;
@@ -201,13 +215,12 @@ public class GTestResultParser extends MultiLineReceiver {
         private static final String TEST_RUN_MARKER = "[==========]";
         private static final String START_TEST_MARKER = "[ RUN      ]"; // GTest format
         private static final String OK_TEST_MARKER = "[       OK ]"; // GTest format
+        private static final String SKIPPED_TEST_MARKER = "[  SKIPPED ]"; // GTest format
         private static final String FAILED_TEST_MARKER = "[  FAILED  ]";
         // Alternative non GTest format can be generated from Google Test AOSP and respond to
         // different needs (parallelism of tests) that the GTest format can't describe well.
         private static final String ALT_OK_MARKER = "[    OK    ]"; // Non GTest format
         private static final String TIMEOUT_MARKER = "[ TIMEOUT  ]"; // Non GTest format
-        // Native test failures: shared library link failure.
-        private static final String LINK_FAILURE_MARKER = "CANNOT LINK EXECUTABLE ";
     }
 
     /**
@@ -260,22 +273,14 @@ public class GTestResultParser extends MultiLineReceiver {
      */
     @Override
     public void processNewLines(String[] lines) {
-        if (lines.length != 0 && lines[0].startsWith(Prefixes.LINK_FAILURE_MARKER)) {
-            for (String line : lines) {
-                // in verbose mode, dump all adb output to log
-                CLog.v(line);
-            }
-            for (ITestInvocationListener listener : mTestListeners) {
-                listener.testRunStarted(mTestRunName, 0);
-                listener.testRunFailed(lines[0]);
-                listener.testRunEnded(0, new HashMap<String, Metric>());
-            }
-        } else {
-            for (String line : lines) {
-                parse(line);
-                // in verbose mode, dump all adb output to log
-                CLog.v(line);
-            }
+        if (!mSeenOneTestRunStart) {
+            mTrackLogsBeforeRunStart.addAll(Arrays.asList(lines));
+        }
+
+        for (String line : lines) {
+            parse(line);
+            // in verbose mode, dump all adb output to log
+            CLog.v(line);
         }
     }
 
@@ -292,6 +297,20 @@ public class GTestResultParser extends MultiLineReceiver {
                 // Individual test started
                 message = line.substring(Prefixes.START_TEST_MARKER.length()).trim();
                 processTestStartedTag(message);
+            } else if (line.contains(Prefixes.SKIPPED_TEST_MARKER)) {
+                // Individual test was skipped.
+                // Logs from test could offset the SKIPPED marker
+                message =
+                        line.substring(
+                                        line.indexOf(Prefixes.SKIPPED_TEST_MARKER)
+                                                + Prefixes.SKIPPED_TEST_MARKER.length())
+                                .trim();
+                if (!testInProgress()) {
+                    // Alternative format does not have a RUN tag, so we fake it.
+                    fakeRunMarker(message);
+                }
+                processSkippedTag(message);
+                clearCurrentTestResult();
             }
             else if (line.contains(Prefixes.OK_TEST_MARKER)) {
                 // Individual test completed successfully
@@ -418,6 +437,7 @@ public class GTestResultParser extends MultiLineReceiver {
                 listener.testRunStarted(mTestRunName, mNumTestsExpected);
             }
             mTestRunStartReported = true;
+            mSeenOneTestRunStart = true;
         }
     }
 
@@ -438,12 +458,6 @@ public class GTestResultParser extends MultiLineReceiver {
      */
     private HashMap<String, Metric> getRunMetrics() {
         HashMap<String, Metric> metricsMap = new HashMap<>();
-        if (mCoverageTarget != null) {
-            Measurements measure =
-                    Measurements.newBuilder().setSingleString(mCoverageTarget).build();
-            Metric m = Metric.newBuilder().setMeasurements(measure).build();
-            metricsMap.put(XmlDefsTest.COVERAGE_TARGET_KEY, m);
-        }
         return metricsMap;
     }
 
@@ -577,12 +591,11 @@ public class GTestResultParser extends MultiLineReceiver {
     /**
      * Helper method to do the work necessary when a test has ended.
      *
-     * @param identifier Raw log output of the form "classname.testname" with an optional (XX ms)
-     *          at the end indicating the running time.
-     * @param testPassed Indicates whether the test passed or failed (set to true if passed, false
-     *          if failed)
+     * @param identifier Raw log output of the form "classname.testname" with an optional (XX ms) at
+     *     the end indicating the running time.
+     * @param testStatus Indicates the final test status.
      */
-    private void doTestEnded(String identifier, boolean testPassed) {
+    private void doTestEnded(String identifier, TestStatus testStatus) {
         ParsedTestInfo parsedResults = parseTestDescription(identifier);
         TestResult testResult = getCurrentTestResult();
         TestDescription testId = null;
@@ -637,12 +650,16 @@ public class GTestResultParser extends MultiLineReceiver {
             for (ITestInvocationListener listener : mTestListeners) {
                 listener.testFailed(testId, mCurrentTestResult.getTrace());
             }
-        }
-        else if (!testPassed) {  // test failed
+        } else if (TestStatus.FAILED.equals(testStatus)) { // test failed
             for (ITestInvocationListener listener : mTestListeners) {
                 listener.testFailed(testId, mCurrentTestResult.getTrace());
             }
+        } else if (TestStatus.SKIPPED.equals(testStatus)) { // test was skipped
+            for (ITestInvocationListener listener : mTestListeners) {
+                listener.testIgnored(testId);
+            }
         }
+
         // For all cases (pass or fail), we ultimately need to report test has ended
         HashMap<String, Metric> emptyMap = new HashMap<>();
         for (ITestInvocationListener listener : mTestListeners) {
@@ -661,7 +678,7 @@ public class GTestResultParser extends MultiLineReceiver {
      *          at the end indicating the running time.
      */
     private void processOKTag(String identifier) {
-        doTestEnded(identifier, true);
+        doTestEnded(identifier, TestStatus.OK);
     }
 
     /**
@@ -671,8 +688,19 @@ public class GTestResultParser extends MultiLineReceiver {
      *          at the end indicating the running time.
      */
     private void processFailedTag(String identifier) {
-        doTestEnded(identifier, false);
+        doTestEnded(identifier, TestStatus.FAILED);
     }
+
+    /**
+     * Processes and informs listener when we encounter the SKIPPED tag.
+     *
+     * @param identifier Raw log output of the form "classname.testname" with an optional (XX ms) at
+     *     the end indicating the running time.
+     */
+    private void processSkippedTag(String identifier) {
+        doTestEnded(identifier, TestStatus.SKIPPED);
+    }
+
 
     /**
      * Appends the test output to the current TestResult.
@@ -737,20 +765,17 @@ public class GTestResultParser extends MultiLineReceiver {
         if (mNumTestsExpected > mNumTestsRun) {
             handleTestRunFailed(String.format("Test run incomplete. Expected %d tests, received %d",
                     mNumTestsExpected, mNumTestsRun));
-        }
-        else if (mTestRunInProgress) {
+        } else if (mTestRunInProgress) {
             handleTestRunFailed("No test results");
+        } else if (!mSeenOneTestRunStart) {
+            for (ITestInvocationListener listener : mTestListeners) {
+                listener.testRunStarted(mTestRunName, 0);
+                listener.testRunFailed(
+                        String.format(
+                                "%s did not report any run:\n%s",
+                                mTestRunName, Joiner.on("\n").join(mTrackLogsBeforeRunStart)));
+                listener.testRunEnded(0L, new HashMap<String, Metric>());
+            }
         }
-    }
-
-    /**
-     * Sets the coverage target for this test.
-     * <p/>
-     * Will be sent as a metric to test listeners.
-     *
-     * @param coverageTarget the coverage target
-     */
-    public void setCoverageTarget(String coverageTarget) {
-        mCoverageTarget = coverageTarget;
     }
 }

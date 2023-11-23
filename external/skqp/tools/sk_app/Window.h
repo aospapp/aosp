@@ -10,12 +10,13 @@
 
 #include "DisplayParams.h"
 #include "SkRect.h"
-#include "SkTouchGesture.h"
+#include "SkTDArray.h"
 #include "SkTypes.h"
 
 class GrContext;
 class SkCanvas;
 class SkSurface;
+class SkSurfaceProps;
 
 namespace sk_app {
 
@@ -149,6 +150,7 @@ public:
         virtual void onUIStateChanged(const SkString& stateName, const SkString& stateValue) {}
         virtual void onPrePaint() {}
         virtual void onPaint(SkCanvas*) {}
+        virtual void onResize(int width, int height) {}
 
     private:
         friend class Window;
@@ -157,7 +159,7 @@ public:
 
     void pushLayer(Layer* layer) {
         layer->onAttach(this);
-        fLayers.push(layer);
+        fLayers.push_back(layer);
     }
 
     void onBackendCreated();
@@ -181,7 +183,7 @@ public:
     int stencilBits() const;
 
     // Returns null if there is not a GPU backend or if the backend is not yet created.
-    const GrContext* getGrContext() const;
+    GrContext* getGrContext() const;
 
 protected:
     Window();

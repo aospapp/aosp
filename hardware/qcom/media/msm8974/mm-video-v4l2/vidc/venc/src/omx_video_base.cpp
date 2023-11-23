@@ -1050,10 +1050,10 @@ OMX_ERRORTYPE  omx_video::send_command_proxy(OMX_IN OMX_HANDLETYPE hComp,
     /* Current State is Invalid */
     /*******************************/
     else if (m_state == OMX_StateInvalid) {
-        /* State Transition from Inavlid to any state */
-        if (eState == (OMX_StateLoaded || OMX_StateWaitForResources
-                    || OMX_StateIdle || OMX_StateExecuting
-                    || OMX_StatePause || OMX_StateInvalid)) {
+        /* State Transition from Invalid to any state */
+        if (eState == OMX_StateLoaded || eState == OMX_StateWaitForResources ||
+            eState == OMX_StateIdle || eState == OMX_StateExecuting ||
+            eState == OMX_StatePause || eState == OMX_StateInvalid) {
             DEBUG_PRINT_ERROR("ERROR: OMXCORE-SM: Invalid -->Loaded");
             post_event(OMX_EventError,OMX_ErrorInvalidState,\
                     OMX_COMPONENT_GENERATE_EVENT);

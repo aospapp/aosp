@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"መዘወግ"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ቅርጸቶችን ይምረጡ"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"የዙሪያ ድምጽ"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"ዶልባይዲጂታል"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"የDolby Digital ተጨማሪ"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"እንፃፊው ዳግም እስኪገናኝ ድረስ ጥቂት መተግበሪያዎች አይገኙም ወይም በትክክል አይሰሩም።"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"በቂ ማከማቻ ቦታ የለም።"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"መተግበሪያ አይገኝም።"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"መተግበሪያው ቅጂ-ጥብቅ ነው።"</string>
     <string name="invalid_location" msgid="5269044848535157307">"የተጠቀሰው መጫኛ ስፍራ ትክክል አይደለም።"</string>
     <string name="system_package" msgid="9200255718634512790">"በውጪ ሚዲያ ላይ የስርዓት ማዘመኛዎች መጫን አይችሉም።"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"የመሣሪያ አስተዳዳሪ በውጫዊ ሚዲያ ላይ ሊጫን አይችልም።"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"የማሳወቂያ መዳረሻ"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ምንም የተጫኑ መተግበሪያዎች የማሳወቂያ መዳረሻ አልጠየቁም።"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"እነዚህ መተግበሪያዎች እንደ የእውቂያ ስሞች እና የሚቀበሏቸው የመልዕክቶች ጽሑፍም ያሉ የግል መረጃንም ጨምሮ ሁሉንም ማሳወቂያዎች ማንበብ ይችላሉ። እንዲሁም ማሳወቂያዎችን ማሰናበት ወይም ሊይዟቸው የሚችሏቸው የእርምጃ አዝራሮችን ሊቀሰቅሱ ይችላሉ።"</string>
+    <string name="directory_access" msgid="7439168599298598101">"የማውጫ መዳረሻ"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"እነዚህ መተግበሪያዎች የተወሰኑ ማውጫዎችን የመድረስ ፈቃድ አላቸው።"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"በሌሎች መተግበሪያዎች ላይ አሳይ"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"በሌሎች መተግበሪያዎች ላይ ማሳየትን ፍቀድ"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"አንድ መተግበሪያ እርስዎ እየተጠቀሙ ባሉ ሌሎች መተግበሪያዎች ላይ እንዲያሳይ ይፍቀዱለት። በእነዚያ መተግበሪያዎች አጠቃቀምዎ ላይ ጣልቃ ሊገባ፣ ወይም መልካቸውን ወይም ባህሪያቸው ሊቀይር ይችላል።"</string>

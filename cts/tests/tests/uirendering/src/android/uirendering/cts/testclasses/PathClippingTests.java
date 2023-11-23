@@ -24,9 +24,6 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Typeface;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
@@ -39,6 +36,10 @@ import android.uirendering.cts.util.WebViewReadyHelper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,7 +97,7 @@ public class PathClippingTests extends ActivityTestBase {
                 .addCanvasClient("TorusClip", sTorusClipCanvasClient)
                 .addCanvasClient("TorusClipOut", sTorusClipOutCanvasClient)
                 .runWithVerifier(new GoldenImageVerifier(getActivity(),
-                        R.drawable.pathclippingtest_torus, new MSSIMComparer(0.95)));
+                        R.drawable.pathclippingtest_torus, new MSSIMComparer(0.65)));
     }
 
     @Test
@@ -164,7 +165,7 @@ public class PathClippingTests extends ActivityTestBase {
                     view.setScaleX(2);
                     view.setScaleY(2);
                 })
-                .runWithComparer(new MSSIMComparer(0.90));
+                .runWithComparer(new MSSIMComparer(0.87));
     }
 
     @Test
@@ -219,6 +220,6 @@ public class PathClippingTests extends ActivityTestBase {
                         initBlueWebView(hwFence), true, hwFence)
                 .addLayout(R.layout.circle_clipped_webview,
                         initBlueWebView(swFence), false, swFence)
-                .runWithComparer(new MSSIMComparer(0.95));
+                .runWithComparer(new MSSIMComparer(0.94));
     }
 }

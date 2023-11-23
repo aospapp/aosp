@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,238 +16,177 @@
 
 package com.android.car.radio.storage;
 
-import android.annotation.NonNull;
-import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.Observer;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.radio.ProgramSelector;
-import android.hardware.radio.RadioManager;
+import android.net.Uri;
 import android.os.AsyncTask;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
 
 import com.android.car.broadcastradio.support.Program;
-import com.android.car.radio.utils.ProgramSelectorUtils;
+import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
+import com.android.car.radio.bands.ProgramType;
+import com.android.car.radio.util.Log;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
- * Class that manages persistent storage of various radio options.
+ * Manages persistent storage for broadcast radio application.
  */
 public class RadioStorage {
-    private static final String TAG = "Em.RadioStorage";
-    private static final String PREF_NAME = "com.android.car.radio.RadioStorage";
+    private static final String TAG = "BcRadioApp.storage";
+    private static final String PREF_NAME = "RadioAppPrefs";
 
-    // Keys used for storage in the SharedPreferences.
-    private static final String PREF_KEY_RADIO_BAND = "radio_band";
-    private static final String PREF_KEY_RADIO_CHANNEL_AM = "radio_channel_am";
-    private static final String PREF_KEY_RADIO_CHANNEL_FM = "radio_channel_fm";
+    private static final String PREF_KEY_RECENT_TYPE = "recentProgramType";
+    private static final String PREF_KEY_RECENT_PROGRAM_PREFIX = "recentProgram-";
 
-    public static final int INVALID_RADIO_CHANNEL = -1;
-    public static final int INVALID_RADIO_BAND = -1;
-
-    private static SharedPreferences sSharedPref;
     private static RadioStorage sInstance;
-    private static RadioDatabase sRadioDatabase;
 
-    /**
-     * Listener that will be called when something in the radio storage changes.
-     */
-    public interface PresetsChangeListener {
-        /**
-         * Called when favorite list has changed.
-         */
-        void onPresetsRefreshed();
-    }
-
+    private final SharedPreferences mPrefs;
+    private final RadioDatabase mDatabase;
     private final LiveData<List<Program>> mFavorites;
 
-    // TODO(b/73950974): use Observer<> directly
-    private final Map<PresetsChangeListener, Observer<List<Program>>> mPresetListeners =
-            new HashMap<>();
-
     private RadioStorage(Context context) {
-        if (sSharedPref == null) {
-            sSharedPref = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        }
+        mPrefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        mDatabase = RadioDatabase.buildInstance(context);
 
-        if (sRadioDatabase == null) {
-            sRadioDatabase = RadioDatabase.buildInstance(context);
-        }
-
-        mFavorites = sRadioDatabase.getAllFavorites();
+        mFavorites = mDatabase.getAllFavorites();
     }
 
     /**
      * Returns singleton instance of {@link RadioStorage}.
      */
-    public static RadioStorage getInstance(Context context) {
-        if (sInstance == null) {
+    public static @NonNull RadioStorage getInstance(Context context) {
+        if (sInstance != null) return sInstance;
+        synchronized (RadioStorage.class) {
+            if (sInstance != null) return sInstance;
             sInstance = new RadioStorage(context.getApplicationContext());
+            return sInstance;
         }
-
-        return sInstance;
     }
 
     /**
-     * Registers the given {@link PresetsChangeListener} to be notified when any radio preset state
-     * has changed.
+     * Returns a list of all favorites added previously by the user.
      */
-    public void addPresetsChangeListener(PresetsChangeListener listener) {
-        Observer<List<Program>> observer = list -> listener.onPresetsRefreshed();
-        synchronized (mPresetListeners) {
-            mFavorites.observeForever(observer);
-            mPresetListeners.put(listener, observer);
-        }
+    @NonNull
+    public LiveData<List<Program>> getFavorites() {
+        return mFavorites;
     }
 
     /**
-     * Unregisters the given {@link PresetsChangeListener}.
-     */
-    public void removePresetsChangeListener(PresetsChangeListener listener) {
-        Observer<List<Program>> observer;
-        synchronized (mPresetListeners) {
-            observer = mPresetListeners.remove(listener);
-            mFavorites.removeObserver(observer);
-        }
-    }
-
-    /**
-     * Returns all currently loaded presets. If there are no stored presets, this method will
-     * return an empty {@link List}.
+     * Checks, if a given program is favorite.
      *
-     * <p>Register as a {@link PresetsChangeListener} to be notified of any changes in the
-     * preset list.
+     * @param favorites List of favorites.
+     * @param selector Program to check.
      */
-    public @NonNull List<Program> getPresets() {
+    public static boolean isFavorite(@NonNull List<Program> favorites,
+            @NonNull ProgramSelector selector) {
+        return favorites.contains(new Program(selector, ""));
+    }
+
+    /**
+     * Checks, if a given program is favorite.
+     *
+     * @param selector Program to check.
+     */
+    public boolean isFavorite(@NonNull ProgramSelector selector) {
         List<Program> favorites = mFavorites.getValue();
-        if (favorites != null) return favorites;
-
-        // It won't be a problem when we use Observer<> directly.
-        Log.w(TAG, "Database is not ready yet");
-        return new ArrayList<>();
-    }
-
-    /**
-     * Returns {@code true} if the given {@link ProgramSelector} is a user saved favorite.
-     */
-    public boolean isPreset(@NonNull ProgramSelector selector) {
-        return mFavorites.getValue().contains(new Program(selector, ""));
-    }
-
-    /**
-     * Stores that given {@link Program} as a preset. This operation will override any
-     * previously stored preset that matches the given preset.
-     *
-     * <p>Upon a successful store, the presets list will be refreshed via a call to
-     * {@link #refreshPresets()}.
-     *
-     * @see #refreshPresets()
-     */
-    public void storePreset(@NonNull Program preset) {
-        new StorePresetAsyncTask().execute(Objects.requireNonNull(preset));
-    }
-
-    /**
-     * Removes the given {@link Program} as a preset.
-     *
-     * <p>Upon a successful removal, the presets list will be refreshed via a call to
-     * {@link #refreshPresets()}.
-     *
-     * @see #refreshPresets()
-     */
-    public void removePreset(@NonNull ProgramSelector preset) {
-        new RemovePresetAsyncTask().execute(Objects.requireNonNull(preset));
-    }
-
-    /**
-     * Returns the stored radio band that was set in {@link #storeRadioChannel}. If a radio band
-     * has not previously been stored, then {@link RadioManager#BAND_FM} is returned.
-     *
-     * @return One of {@link RadioManager#BAND_FM} or {@link RadioManager#BAND_AM}.
-     */
-    public int getStoredRadioBand() {
-        return sSharedPref.getInt(PREF_KEY_RADIO_BAND, RadioManager.BAND_FM);
-    }
-
-    /**
-     * Returns the stored radio channel that was set in {@link #storeRadioChannel(int, int)}. If a
-     * radio channel for the given band has not been previously stored, then
-     * {@link #INVALID_RADIO_CHANNEL} is returned.
-     *
-     * @param band One of the BAND_* values from {@link RadioManager}. For example,
-     *             {@link RadioManager#BAND_AM}.
-     */
-    public long getStoredRadioChannel(int band) {
-        switch (band) {
-            case RadioManager.BAND_AM:
-                return sSharedPref.getLong(PREF_KEY_RADIO_CHANNEL_AM, INVALID_RADIO_CHANNEL);
-
-            case RadioManager.BAND_FM:
-                return sSharedPref.getLong(PREF_KEY_RADIO_CHANNEL_FM, INVALID_RADIO_CHANNEL);
-
-            default:
-                return INVALID_RADIO_CHANNEL;
+        if (favorites == null) {
+            Log.w(TAG, "Database is not ready yet");
+            return false;
         }
+        return isFavorite(favorites, selector);
     }
 
-    /**
-     * Stores a radio channel (i.e. the radio frequency) for a particular band so it can be later
-     * retrieved via {@link #getStoredRadioChannel(int band)}.
-     */
-    public void storeRadioChannel(@NonNull ProgramSelector sel) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "storeRadioChannel(" + sel + ")");
-        }
-
-        // TODO(b/73950974): don't store if it's already the same
-
-        int band = ProgramSelectorUtils.getRadioBand(sel);
-        if (band != RadioManager.BAND_AM && band != RadioManager.BAND_FM) return;
-
-        SharedPreferences.Editor editor = sSharedPref.edit();
-        editor.putInt(PREF_KEY_RADIO_BAND, band);
-
-        long freq = sel.getFirstId(ProgramSelector.IDENTIFIER_TYPE_AMFM_FREQUENCY);
-        if (band == RadioManager.BAND_AM) {
-            editor.putLong(PREF_KEY_RADIO_CHANNEL_AM, freq);
-        }
-        if (band == RadioManager.BAND_FM) {
-            editor.putLong(PREF_KEY_RADIO_CHANNEL_FM, freq);
-        }
-
-        editor.apply();
-    }
-
-    /**
-     * {@link AsyncTask} that will store a single {@link Program} that is passed to its
-     * {@link AsyncTask#execute(Object[])}.
-     */
-    private class StorePresetAsyncTask extends AsyncTask<Program, Void, Boolean> {
-        private static final String TAG = "Em.StorePresetAT";
-
+    private class AddFavoriteTask extends AsyncTask<Program, Void, Void> {
         @Override
-        protected Boolean doInBackground(Program... programs) {
-            sRadioDatabase.insertFavorite(programs[0]);
-            return true;
+        protected Void doInBackground(Program... programs) {
+            mDatabase.insertFavorite(programs[0]);
+            return null;
+        }
+    }
+
+    private class RemoveFavoriteTask extends AsyncTask<ProgramSelector, Void, Void> {
+        @Override
+        protected Void doInBackground(ProgramSelector... selectors) {
+            mDatabase.removeFavorite(selectors[0]);
+            return null;
         }
     }
 
     /**
-     * {@link AsyncTask} that will remove a single {@link Program} that is passed to its
-     * {@link AsyncTask#execute(Object[])}.
+     * Adds a new program to the favorites list.
+     *
+     * After the operation succeeds, the list is refreshed via live object returned
+     * from {@link #getFavorites}.
+     *
+     * @param favorite A program to add.
      */
-    private class RemovePresetAsyncTask extends AsyncTask<ProgramSelector, Void, Boolean> {
-        private static final String TAG = "Em.RemovePresetAT";
+    public void addFavorite(@NonNull Program favorite) {
+        new AddFavoriteTask().execute(Objects.requireNonNull(favorite));
+    }
 
-        @Override
-        protected Boolean doInBackground(ProgramSelector... selectors) {
-            sRadioDatabase.removeFavorite(selectors[0]);
-            return true;
+    /**
+     * Removes a program from the favorites list.
+     *
+     * After the operation succeeds, the list is refreshed via live object returned
+     * from {@link #getFavorites}.
+     *
+     * @param favorite A program to remove.
+     */
+    public void removeFavorite(@NonNull ProgramSelector favorite) {
+        new RemoveFavoriteTask().execute(Objects.requireNonNull(favorite));
+    }
+
+    /**
+     * Stores recently selected program so it can be recalled on next app launch.
+     *
+     * @param sel Program to store as recently selected.
+     */
+    public void setRecentlySelected(@NonNull ProgramSelector sel) {
+        ProgramType pt = ProgramType.fromSelector(sel);
+        int ptid = pt == null ? 0 : pt.id;
+
+        SharedPreferences.Editor editor = mPrefs.edit();
+        boolean hasChanges = false;
+
+        String prefName = PREF_KEY_RECENT_PROGRAM_PREFIX + ptid;
+        Uri selUri = ProgramSelectorExt.toUri(sel);
+        if (selUri == null) return;
+        String selUriStr = selUri.toString();
+        if (!mPrefs.getString(prefName, "").equals(selUriStr)) {
+            editor.putString(prefName, selUriStr);
+            hasChanges = true;
         }
+
+        if (mPrefs.getInt(PREF_KEY_RECENT_TYPE, -1) != ptid) {
+            editor.putInt(PREF_KEY_RECENT_TYPE, ptid);
+            hasChanges = true;
+        }
+
+        if (hasChanges) editor.apply();
+    }
+
+    /**
+     * Retrieves recently selected program.
+     *
+     * This function can either retrieve the recently selected program for a specific
+     * {@link ProgramType} (band) or just the recently selected program in general.
+     *
+     * @param pt Program type to filter the result on, or {@code null} for general check
+     * @return Selector of the recent program or {@code null}, if there was none saved
+     */
+    public @Nullable ProgramSelector getRecentlySelected(@Nullable ProgramType pt) {
+        int ptid = pt != null ? pt.id : mPrefs.getInt(PREF_KEY_RECENT_TYPE, -1);
+        if (ptid == -1) return null;
+
+        String selUriStr = mPrefs.getString(PREF_KEY_RECENT_PROGRAM_PREFIX + ptid, "");
+        if (selUriStr.equals("")) return null;
+
+        return ProgramSelectorExt.fromUri(Uri.parse(selUriStr));
     }
 }

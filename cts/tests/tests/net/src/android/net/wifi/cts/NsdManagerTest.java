@@ -19,6 +19,7 @@ package android.net.wifi.cts;
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -29,6 +30,7 @@ import java.util.Random;
 import java.util.List;
 import java.util.ArrayList;
 
+@AppModeFull(reason = "Socket cannot bind in instant app mode")
 public class NsdManagerTest extends AndroidTestCase {
 
     private static final String TAG = "NsdManagerTest";

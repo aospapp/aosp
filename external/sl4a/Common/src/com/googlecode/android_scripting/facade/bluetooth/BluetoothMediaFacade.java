@@ -61,9 +61,10 @@ import java.util.Map;
  * The idea is for the BluetoothMediaFacade to create a BluetoothSL4AMBS MediaSession on the
  * Phone (Bluetooth Audio source/Avrcp Target) and use it intercept the Media commands coming
  * from the CarKitt (Bluetooth Audio Sink / Avrcp Controller).
- * On the Carkitt side, we just create and connect a MediaBrowser to the A2dpMediaBrowserService
- * that is part of the Carkitt's Bluetooth Audio App.  We use this browser to send media commands
- * to the Phone side and intercept the commands with the BluetoothSL4AMBS.
+ * On the Carkitt side, we just create and connect a MediaBrowser to the
+ * BluetoothMediaBrowserService that is part of the Carkitt's Bluetooth Audio App.  We use this
+ * browser to send media commands to the Phone side and intercept the commands with the
+ * BluetoothSL4AMBS.
  * This set up helps to instrument tests that can test various Bluetooth Media usecases.
  */
 
@@ -94,8 +95,8 @@ public class BluetoothMediaFacade extends RpcReceiver {
 
     private static final String BLUETOOTH_PKG_NAME = "com.android.bluetooth";
     private static final String BROWSER_SERVICE_NAME =
-            "com.android.bluetooth.a2dpsink.mbs.A2dpMediaBrowserService";
-    private static final String A2DP_MBS_TAG = "A2dpMediaBrowserService";
+            "com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService";
+    private static final String BLUETOOTH_MBS_TAG = "BluetoothMediaBrowserService";
 
     // MediaMetadata keys
     private static final String MEDIA_KEY_TITLE = "keyTitle";
@@ -145,7 +146,7 @@ public class BluetoothMediaFacade extends RpcReceiver {
         /**
          * On the Phone side, it listens to the BluetoothSL4AAudioSrcMBS (that the SL4A app runs)
          * becoming active.
-         * On the Car side, it listens to the A2dpMediaBrowserService (associated with the
+         * On the Car side, it listens to the BluetoothMediaBrowserService (associated with the
          * Bluetooth Audio App) becoming active.
          * The idea is to get a handle to the MediaController appropriate for the device, so
          * that we can send and receive Media commands.
@@ -161,11 +162,11 @@ public class BluetoothMediaFacade extends RpcReceiver {
                 }
             }
             // As explained above, looking for the BluetoothSL4AAudioSrcMBS (when running on Phone)
-            // or A2dpMediaBrowserService (when running on Carkitt).
+            // or BluetoothMediaBrowserService (when running on Carkitt).
             for (int i = 0; i < controllers.size(); i++) {
                 MediaController controller = (MediaController) controllers.get(i);
                 if ((controller.getTag().contains(BluetoothSL4AAudioSrcMBS.getTag()))
-                        || (controller.getTag().contains(A2DP_MBS_TAG))) {
+                        || (controller.getTag().contains(BLUETOOTH_MBS_TAG))) {
                     setCurrentMediaController(controller);
                     return;
                 }
@@ -193,7 +194,7 @@ public class BluetoothMediaFacade extends RpcReceiver {
     /**
      * Callback on <code>MediaBrowser.connect()</code>
      * This is relevant only on the Carkitt side, since the intent is to connect a MediaBrowser
-     * to the A2dpMediaBrowser Service that is run by the Car's Bluetooth Audio App.
+     * to the BluetoothMediaBrowserService that is run by the Car's Bluetooth Audio App.
      * On successful connection, we obtain the handle to the corresponding MediaController,
      * so we can imitate sending media commands via the Bluetooth Audio App.
      */
@@ -219,7 +220,7 @@ public class BluetoothMediaFacade extends RpcReceiver {
     /**
      * Update the Current MediaController.
      * As has been commented above, we need the MediaController handles to the
-     * BluetoothSL4AAudioSrcMBS on Phone and A2dpMediaBrowserService on Car to send and receive
+     * BluetoothSL4AAudioSrcMBS on Phone and BluetoothMediaBrowserService on Car to send and receive
      * media commands.
      *
      * @param controller - Controller to update with
@@ -365,14 +366,36 @@ public class BluetoothMediaFacade extends RpcReceiver {
     }
 
     /**
+     * Relevance - Phone and Car.
+     * Returns the currently playing media's playback state.
+     * Can be queried on the car and the phone in the middle of a streaming session to
+     * verify they are in sync.
+     *
+     * @return Currently playing Media's playback state
+     */
+    @Rpc(description = "Gets the state of current playback")
+    public PlaybackState bluetoothMediaGetCurrentPlaybackState() throws Exception {
+        if (mMediaController == null) {
+            Log.e(TAG + "MediaController not set");
+            throw new Exception("MediaController not set");
+        }
+        PlaybackState playbackState = mMediaController.getPlaybackState();
+        if (playbackState == null) {
+            Log.d("No playback state available.");
+            return null;
+        }
+        return playbackState;
+    }
+
+    /**
      * Relevance - Phone and Car
      * Returns the current active media sessions for the device. This is useful to see if a
      * Media Session we are interested in is currently active.
      * In the Bluetooth Media tests, this is indirectly used to determine if audio is being
      * played via BT.  For ex., when the Car and Phone are connected via BT and audio is being
-     * streamed, A2dpMediaBrowserService will be active on the Car side.  If the connection is
-     * terminated in the middle, A2dpMediaBrowserService will no longer be active on the Carkitt,
-     * whereas BluetoothSL4AAudioSrcMBS will still be active.
+     * streamed, BluetoothMediaBrowserService will be active on the Car side.  If the connection is
+     * terminated in the middle, BluetoothMediaBrowserService will no longer be active on the
+     * Carkitt, whereas BluetoothSL4AAudioSrcMBS will still be active.
      *
      * @return A list of names of the active media sessions
      */
@@ -389,13 +412,13 @@ public class BluetoothMediaFacade extends RpcReceiver {
     /**
      * Relevance - Car Only
      * Called from the Carkitt to connect a MediaBrowser to the Bluetooth Audio App's
-     * A2dpMediaBrowserService.  The callback on successful connection gives the handle to
+     * BluetoothMediaBrowserService.  The callback on successful connection gives the handle to
      * the MediaController through which we can send media commands.
      */
-    @Rpc(description = "Connect a MediaBrowser to the A2dpMediaBrowserservice in the Carkitt")
+    @Rpc(description = "Connect a MediaBrowser to the BluetoothMediaBrowserService in the Carkitt")
     public void bluetoothMediaConnectToCarMBS() {
         ComponentName compName;
-        // Create a MediaBrowser to connect to the A2dpMBS
+        // Create a MediaBrowser to connect to the BluetoothMediaBrowserService
         if (mBrowser == null) {
             compName = new ComponentName(BLUETOOTH_PKG_NAME, BROWSER_SERVICE_NAME);
             // Note - MediaBrowser connect needs to be done on the Main Thread's handler,

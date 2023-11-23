@@ -191,7 +191,18 @@ static tA2DP_STATUS A2DP_ParseInfoAac(tA2DP_AAC_CIE* p_ie,
                   (*(p_codec_info + 2) & A2DP_AAC_BIT_RATE_MASK2);
   p_codec_info += 3;
 
-  if (is_capability) return A2DP_SUCCESS;
+  if (is_capability) {
+    // NOTE: The checks here are very liberal. We should be using more
+    // pedantic checks specific to the SRC or SNK as specified in the spec.
+    if (A2DP_BitsSet(p_ie->objectType) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_OBJ_TYPE;
+    if (A2DP_BitsSet(p_ie->sampleRate) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_SAMP_FREQ;
+    if (A2DP_BitsSet(p_ie->channelMode) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_CH_MODE;
+
+    return A2DP_SUCCESS;
+  }
 
   if (A2DP_BitsSet(p_ie->objectType) != A2DP_SET_ONE_BIT)
     return A2DP_BAD_OBJ_TYPE;
@@ -389,6 +400,21 @@ int A2DP_GetTrackSampleRateAac(const uint8_t* p_codec_info) {
   }
 
   return -1;
+}
+
+int A2DP_GetTrackBitsPerSampleAac(const uint8_t* p_codec_info) {
+  tA2DP_AAC_CIE aac_cie;
+
+  // Check whether the codec info contains valid data
+  tA2DP_STATUS a2dp_status = A2DP_ParseInfoAac(&aac_cie, p_codec_info, false);
+  if (a2dp_status != A2DP_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s: cannot decode codec information: %d", __func__,
+              a2dp_status);
+    return -1;
+  }
+
+  // NOTE: The bits per sample never changes for AAC
+  return 16;
 }
 
 int A2DP_GetTrackChannelCountAac(const uint8_t* p_codec_info) {
@@ -1324,6 +1350,7 @@ fail:
          sizeof(ota_codec_peer_config_));
   return false;
 }
+
 bool A2dpCodecConfigAacBase::setPeerCodecCapabilities(
     const uint8_t* p_peer_codec_capabilities) {
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
@@ -1415,7 +1442,7 @@ bool A2dpCodecConfigAacSink::init() {
   return true;
 }
 
-period_ms_t A2dpCodecConfigAacSink::encoderIntervalMs() const {
+uint64_t A2dpCodecConfigAacSink::encoderIntervalMs() const {
   // TODO: This method applies only to Source codecs
   return 0;
 }

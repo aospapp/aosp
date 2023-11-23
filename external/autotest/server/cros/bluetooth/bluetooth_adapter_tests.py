@@ -26,7 +26,8 @@ Event = recorder.Event
 # Delay binding the methods since host is only available at run time.
 SUPPORTED_DEVICE_TYPES = {
     'MOUSE': lambda host: host.chameleon.get_bluetooth_hid_mouse,
-    'LE_MOUSE': lambda host: host.chameleon.get_bluetooth_hog_mouse
+    'LE_MOUSE': lambda host: host.chameleon.get_bluetooth_hog_mouse,
+    'BLE_MOUSE': lambda host: host.chameleon.get_ble_mouse,
 }
 
 
@@ -175,8 +176,10 @@ def get_bluetooth_emulated_device(host, device_type):
     device.device_type = _retry_device_method('GetHIDDeviceType')
     logging.info('device type: %s', device.device_type)
 
-    device.authenticaiton_mode = _retry_device_method('GetAuthenticationMode')
-    logging.info('authentication mode: %s', device.authenticaiton_mode)
+    device.authentication_mode = None
+    if not device._is_le_only:
+      device.authentication_mode = _retry_device_method('GetAuthenticationMode')
+      logging.info('authentication mode: %s', device.authentication_mode)
 
     device.port = _retry_device_method('GetPort')
     logging.info('serial port: %s\n', device.port)
@@ -430,6 +433,9 @@ class BluetoothAdapterTests(test.test):
     ADAPTER_DISCOVER_TIMEOUT_SECS = 60          # 30 seconds too short sometimes
     ADAPTER_DISCOVER_POLLING_SLEEP_SECS = 1
     ADAPTER_DISCOVER_NAME_TIMEOUT_SECS = 30
+    # TODO(shijinabraham@) Remove when crbug/905374 is fixed
+    ADAPTER_STOP_DISCOVERY_TIMEOUT_SECS = 180
+
     ADAPTER_WAIT_DEFAULT_TIMEOUT_SECS = 10
     ADAPTER_POLLING_DEFAULT_SLEEP_SECS = 1
 
@@ -514,7 +520,7 @@ class BluetoothAdapterTests(test.test):
             utils.poll_for_condition(condition=func,
                                      timeout=timeout,
                                      sleep_interval=sleep_interval,
-                                     desc=('Waiting %s', method_name))
+                                     desc=('Waiting %s' % method_name))
             return True
         except utils.TimeoutError as e:
             logging.error('%s: %s', method_name, e)
@@ -654,7 +660,8 @@ class BluetoothAdapterTests(test.test):
         stop_discovery = self.bluetooth_facade.stop_discovery()
         is_not_discovering = self._wait_for_condition(
                 lambda: not self.bluetooth_facade.is_discovering(),
-                method_name())
+                method_name(),
+                timeout=self.ADAPTER_STOP_DISCOVERY_TIMEOUT_SECS)
 
         self.results = {
                 'stop_discovery': stop_discovery,
@@ -2080,6 +2087,7 @@ class BluetoothAdapterTests(test.test):
         (cr) $ test_that --args "chameleon_host=$CHAMELEON_IP" "$DUT_IP" <test>
 
         """
+        logging.debug('labels: %s', self.host.get_labels())
         if self.host.chameleon is None:
             raise error.TestError('Have to specify chameleon_host IP.')
 

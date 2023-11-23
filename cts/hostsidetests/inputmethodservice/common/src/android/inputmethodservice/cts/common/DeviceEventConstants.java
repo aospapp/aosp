@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.common;
@@ -71,7 +71,7 @@ public final class DeviceEventConstants {
      */
     public enum DeviceEventType {
         /**
-         * {@link android.inputmethodservice.InputMethodService#onCreate() onCreate()} callback.
+         * {@link android.inputmethodservice.InputMethodService#onCreate()} callback.
          */
         ON_CREATE,
 
@@ -81,13 +81,15 @@ public final class DeviceEventConstants {
         ON_BIND_INPUT,
 
         /**
-         * {@link android.inputmethodservice.InputMethodService#onStartInput(android.view.inputmethod.EditorInfo,boolean) onStartInput(EditorInfo,boolean}
+         * {@link android.inputmethodservice.InputMethodService#onStartInput(
+         * android.view.inputmethod.EditorInfo, boolean)}
          * callback.
          */
         ON_START_INPUT,
 
         /**
-         * {@link android.inputmethodservice.InputMethodService#onStartInputView(android.view.inputmethod.EditorInfo, boolean) onStartInputView(EditorInfo,boolean}
+         * {@link android.inputmethodservice.InputMethodService#onStartInputView(
+         * android.view.inputmethod.EditorInfo, boolean)}
          */
         ON_START_INPUT_VIEW,
 
@@ -97,19 +99,19 @@ public final class DeviceEventConstants {
         ON_UNBIND_INPUT,
 
         /**
-         * {@link android.inputmethodservice.InputMethodService#onFinishInputView(boolean) onFinishInputView(boolean)}
+         * {@link android.inputmethodservice.InputMethodService#onFinishInputView(boolean)}
          * callback.
          */
         ON_FINISH_INPUT_VIEW,
 
         /**
-         * {@link android.inputmethodservice.InputMethodService#onFinishInput() onFinishInput()}
+         * {@link android.inputmethodservice.InputMethodService#onFinishInput()}
          * callback.
          */
         ON_FINISH_INPUT,
 
         /**
-         * {@link android.inputmethodservice.InputMethodService#onDestroy() onDestroy()} callback.
+         * {@link android.inputmethodservice.InputMethodService#onDestroy()} callback.
          */
         ON_DESTROY,
 

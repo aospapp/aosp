@@ -21,7 +21,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.support.annotation.DrawableRes;
+import androidx.annotation.DrawableRes;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;

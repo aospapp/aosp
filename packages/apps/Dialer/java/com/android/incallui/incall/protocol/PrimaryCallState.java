@@ -17,14 +17,15 @@
 package com.android.incallui.incall.protocol;
 
 import android.graphics.drawable.Drawable;
+import android.support.annotation.ColorInt;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.telecom.DisconnectCause;
 import android.text.TextUtils;
 import com.android.dialer.assisteddialing.TransformationInfo;
 import com.android.dialer.common.Assert;
-import com.android.incallui.call.DialerCall;
-import com.android.incallui.call.DialerCall.State;
+import com.android.dialer.preferredsim.suggestion.SuggestionProvider;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.videotech.utils.SessionModificationState;
 import com.google.auto.value.AutoValue;
 import java.lang.annotation.Retention;
@@ -58,6 +59,11 @@ public abstract class PrimaryCallState {
 
   @Nullable
   public abstract String connectionLabel();
+
+  public abstract @ColorInt int primaryColor();
+
+  @Nullable
+  public abstract SuggestionProvider.Reason simSuggestionReason();
 
   @Nullable
   public abstract Drawable connectionIcon();
@@ -107,7 +113,7 @@ public abstract class PrimaryCallState {
 
   public static Builder builder() {
     return new AutoValue_PrimaryCallState.Builder()
-        .setState(DialerCall.State.IDLE)
+        .setState(DialerCallState.IDLE)
         .setIsVideoCall(false)
         .setSessionModificationState(SessionModificationState.NO_REQUEST)
         .setDisconnectCause(new DisconnectCause(DisconnectCause.UNKNOWN))
@@ -124,7 +130,8 @@ public abstract class PrimaryCallState {
         .setIsBusinessNumber(false)
         .setSupportsCallOnHold(true)
         .setSwapToSecondaryButtonState(ButtonState.NOT_SUPPORT)
-        .setIsAssistedDialed(false);
+        .setIsAssistedDialed(false)
+        .setPrimaryColor(0);
   }
 
   /** Builder class for primary call state info. */
@@ -141,7 +148,11 @@ public abstract class PrimaryCallState {
 
     public abstract Builder setConnectionLabel(String connectionLabel);
 
+    public abstract Builder setSimSuggestionReason(SuggestionProvider.Reason reason);
+
     public abstract Builder setConnectionIcon(Drawable connectionIcon);
+
+    public abstract Builder setPrimaryColor(@ColorInt int color);
 
     public abstract Builder setGatewayNumber(String gatewayNumber);
 
@@ -187,7 +198,7 @@ public abstract class PrimaryCallState {
     public PrimaryCallState build() {
       PrimaryCallState primaryCallState = autoBuild();
       if (!TextUtils.isEmpty(primaryCallState.customLabel())) {
-        Assert.checkArgument(primaryCallState.state() == State.CALL_PENDING);
+        Assert.checkArgument(primaryCallState.state() == DialerCallState.CALL_PENDING);
       }
       return primaryCallState;
     }

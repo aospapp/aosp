@@ -41,6 +41,7 @@ public interface IModuleDef extends Comparable<IModuleDef>, IBuildReceiver, IDev
     // literals and making it easier to converge IModuleDef and ModuleDefinition later
     public static String MODULE_NAME = ModuleDefinition.MODULE_NAME;
     public static String MODULE_ABI = ModuleDefinition.MODULE_ABI;
+    public static String MODULE_ID = ModuleDefinition.MODULE_ID;
 
     /**
      * @return The name of this module.

@@ -33,17 +33,17 @@
 #define ART_OPENJDKJVMTI_DEOPT_MANAGER_H_
 
 #include <atomic>
+#include <iosfwd>
 #include <unordered_map>
-
-#include "jni.h"
-#include "jvmti.h"
 
 #include "base/mutex.h"
 #include "runtime_callbacks.h"
-#include "ti_breakpoint.h"
+
+#include <jvmti.h>
 
 namespace art {
 class ArtMethod;
+class ScopedObjectAccessUnchecked;
 namespace mirror {
 class Class;
 }  // namespace mirror
@@ -58,13 +58,13 @@ struct JvmtiMethodInspectionCallback : public art::MethodInspectionCallback {
   explicit JvmtiMethodInspectionCallback(DeoptManager* manager) : manager_(manager) {}
 
   bool IsMethodBeingInspected(art::ArtMethod* method)
-      OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_);
+      override REQUIRES_SHARED(art::Locks::mutator_lock_);
 
   bool IsMethodSafeToJit(art::ArtMethod* method)
-      OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_);
+      override REQUIRES_SHARED(art::Locks::mutator_lock_);
 
   bool MethodNeedsDebugVersion(art::ArtMethod* method)
-      OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_);
+      override REQUIRES_SHARED(art::Locks::mutator_lock_);
 
  private:
   DeoptManager* manager_;
@@ -78,6 +78,8 @@ class DeoptManager {
 
   void Setup();
   void Shutdown();
+
+  void DumpDeoptInfo(art::Thread* self, std::ostream& stream);
 
   void RemoveDeoptimizationRequester() REQUIRES(!deoptimization_status_lock_,
                                                 !art::Roles::uninterruptible_);
@@ -102,12 +104,22 @@ class DeoptManager {
       REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_)
       REQUIRES_SHARED(art::Locks::mutator_lock_);
 
-  void DeoptimizeThread(art::Thread* target) REQUIRES_SHARED(art::Locks::mutator_lock_);
+  jvmtiError AddDeoptimizeThreadMethods(art::ScopedObjectAccessUnchecked& soa, jthread thread)
+      REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_)
+      REQUIRES_SHARED(art::Locks::mutator_lock_);
+
+  jvmtiError RemoveDeoptimizeThreadMethods(art::ScopedObjectAccessUnchecked& soa, jthread thread)
+      REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_)
+      REQUIRES_SHARED(art::Locks::mutator_lock_);
+
+  void DeoptimizeThread(art::Thread* target)
+      REQUIRES(!art::Locks::thread_list_lock_)
+      REQUIRES_SHARED(art::Locks::mutator_lock_);
   void DeoptimizeAllThreads() REQUIRES_SHARED(art::Locks::mutator_lock_);
 
   void FinishSetup()
       REQUIRES(!deoptimization_status_lock_, !art::Roles::uninterruptible_)
-      REQUIRES_SHARED(art::Locks::mutator_lock_);
+      REQUIRES(art::Locks::mutator_lock_);
 
   static DeoptManager* Get();
 

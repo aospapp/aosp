@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Context;
@@ -37,19 +40,13 @@ import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Insets;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import androidx.annotation.NonNull;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
@@ -60,11 +57,14 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
+import android.view.PointerIcon;
 import android.view.View;
 import android.view.View.BaseSavedState;
 import android.view.View.MeasureSpec;
+import android.view.View.OnApplyWindowInsetsListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -72,13 +72,24 @@ import android.view.animation.Animation.AnimationListener;
 import android.view.animation.LayoutAnimationController;
 import android.view.animation.RotateAnimation;
 import android.view.animation.Transformation;
+import android.view.cts.util.EventUtils;
+import android.view.cts.util.ScrollBarUtils;
 import android.view.cts.util.XmlUtils;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CTSResult;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -759,18 +770,6 @@ public class ViewGroupTest implements CTSResult {
         assertSame(mMockViewGroup, mMockViewGroup.findFocus());
     }
 
-    @UiThreadTest
-    @Test
-    public void testFitSystemWindows() {
-        Rect rect = new Rect(1, 1, 100, 100);
-        assertFalse(mMockViewGroup.fitSystemWindows(rect));
-
-        mMockViewGroup = new MockViewGroup(mContext, null, 0);
-        MockView mv = new MockView(mContext);
-        mMockViewGroup.addView(mv);
-        assertTrue(mMockViewGroup.fitSystemWindows(rect));
-    }
-
     static class MockView extends ViewGroup {
 
         public int mWidthMeasureSpec;
@@ -782,11 +781,6 @@ public class ViewGroupTest implements CTSResult {
 
         @Override
         public void onLayout(boolean changed, int l, int t, int r, int b) {
-        }
-
-        @Override
-        public boolean fitSystemWindows(Rect insets) {
-            return true;
         }
 
         @Override
@@ -1004,6 +998,180 @@ public class ViewGroupTest implements CTSResult {
         waitForResult();
         assertEquals(CTSResult.RESULT_OK, mResultCode);
     }
+
+    @Test
+    public void onInterceptHoverEvent_verticalCanScroll_intercepts() {
+        onInterceptHoverEvent_scrollabilityAffectsResult(true, true, true);
+    }
+
+    @Test
+    public void onInterceptHoverEvent_verticalCantScroll_doesntIntercept() {
+        onInterceptHoverEvent_scrollabilityAffectsResult(true, false, false);
+    }
+
+    @Test
+    public void onInterceptHoverEvent_horizontalCanScroll_intercepts() {
+        onInterceptHoverEvent_scrollabilityAffectsResult(false, true, true);
+    }
+
+    @Test
+    public void onInterceptHoverEvent_horizontalCantScroll_doesntIntercept() {
+        onInterceptHoverEvent_scrollabilityAffectsResult(false, false, false);
+    }
+
+    private void onInterceptHoverEvent_scrollabilityAffectsResult(boolean vertical,
+            boolean canScroll, boolean intercepts) {
+
+        // Arrange
+
+        int range = canScroll ? 101 : 100;
+
+        final ScrollTestView viewGroup = spy(new ScrollTestView(mContext));
+        viewGroup.setVerticalScrollbarPosition(View.SCROLLBAR_POSITION_RIGHT);
+        viewGroup.setHorizontalScrollBarEnabled(true);
+        viewGroup.setVerticalScrollBarEnabled(true);
+        viewGroup.setScrollBarSize(10);
+        viewGroup.layout(0, 0, 100, 100);
+
+        when(viewGroup.computeVerticalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeVerticalScrollRange()).thenReturn(range);
+        when(viewGroup.computeHorizontalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeHorizontalScrollRange()).thenReturn(range);
+
+        int touchX = vertical ? 95 : 50;
+        int touchY = vertical ? 50 : 95;
+        MotionEvent event =
+                EventUtils.generateMouseEvent(touchX, touchY, MotionEvent.ACTION_HOVER_ENTER, 0);
+
+        // Act
+
+        boolean actualResult = viewGroup.onInterceptHoverEvent(event);
+        event.recycle();
+
+        // Assert
+
+        assertEquals(actualResult, intercepts);
+    }
+
+    @Test
+    public void onInterceptTouchEvent_verticalCanScroll_intercepts() {
+        onInterceptTouchEvent_scrollabilityAffectsResult(true, true, true);
+    }
+
+    @Test
+    public void onInterceptTouchEvent_verticalCantScroll_doesntIntercept() {
+        onInterceptTouchEvent_scrollabilityAffectsResult(true, false, false);
+    }
+
+    @Test
+    public void onInterceptTouchEvent_horizontalCanScroll_intercepts() {
+        onInterceptTouchEvent_scrollabilityAffectsResult(false, true, true);
+    }
+
+    @Test
+    public void onInterceptTouchEvent_horizontalCantScroll_doesntIntercept() {
+        onInterceptTouchEvent_scrollabilityAffectsResult(false, false, false);
+    }
+
+    private void onInterceptTouchEvent_scrollabilityAffectsResult(boolean vertical,
+            boolean canScroll, boolean intercepts) {
+        int range = canScroll ? 101 : 100;
+        int thumbLength = ScrollBarUtils.getThumbLength(1, 10, 100, range);
+
+        PointerIcon expectedPointerIcon = PointerIcon.getSystemIcon(mContext,
+                PointerIcon.TYPE_HAND);
+
+        final ScrollTestView viewGroup = spy(new ScrollTestView(mContext));
+        viewGroup.setVerticalScrollbarPosition(View.SCROLLBAR_POSITION_RIGHT);
+        viewGroup.setHorizontalScrollBarEnabled(true);
+        viewGroup.setVerticalScrollBarEnabled(true);
+        viewGroup.setScrollBarSize(10);
+        viewGroup.setPointerIcon(expectedPointerIcon);
+        viewGroup.layout(0, 0, 100, 100);
+
+        when(viewGroup.computeVerticalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeVerticalScrollRange()).thenReturn(range);
+        when(viewGroup.computeHorizontalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeHorizontalScrollRange()).thenReturn(range);
+
+        int touchX = vertical ? 95 : thumbLength / 2;
+        int touchY = vertical ? thumbLength / 2 : 95;
+        MotionEvent event = EventUtils.generateMouseEvent(touchX, touchY, MotionEvent.ACTION_DOWN,
+                MotionEvent.BUTTON_PRIMARY);
+
+        // Act
+
+        boolean actualResult = viewGroup.onInterceptTouchEvent(event);
+        event.recycle();
+
+        // Assert
+
+        assertEquals(intercepts, actualResult);
+    }
+
+    @Test
+    public void onResolvePointerIcon_verticalCanScroll_pointerIsArrow() {
+        onResolvePointerIcon_scrollabilityAffectsPointerIcon(true, true, true);
+    }
+
+    @Test
+    public void onResolvePointerIcon_verticalCantScroll_pointerIsProperty() {
+        onResolvePointerIcon_scrollabilityAffectsPointerIcon(true, false, false);
+    }
+
+    @Test
+    public void onResolvePointerIcon_horizontalCanScroll_pointerIsArrow() {
+        onResolvePointerIcon_scrollabilityAffectsPointerIcon(false, true, true);
+    }
+
+    @Test
+    public void onResolvePointerIcon_horizontalCantScroll_pointerIsProperty() {
+        onResolvePointerIcon_scrollabilityAffectsPointerIcon(false, false, false);
+    }
+
+    private void onResolvePointerIcon_scrollabilityAffectsPointerIcon(boolean vertical,
+            boolean canScroll, boolean pointerIsSystemArrow) {
+
+        // Arrange
+
+        int range = canScroll ? 101 : 100;
+        int thumbLength = ScrollBarUtils.getThumbLength(1, 10, 100, range);
+
+        PointerIcon expectedPointerIcon = PointerIcon.getSystemIcon(mContext,
+                PointerIcon.TYPE_HAND);
+
+        final ScrollTestView viewGroup = spy(new ScrollTestView(mContext));
+        viewGroup.setVerticalScrollbarPosition(View.SCROLLBAR_POSITION_RIGHT);
+        viewGroup.setHorizontalScrollBarEnabled(true);
+        viewGroup.setVerticalScrollBarEnabled(true);
+        viewGroup.setScrollBarSize(10);
+        viewGroup.setPointerIcon(expectedPointerIcon);
+        viewGroup.layout(0, 0, 100, 100);
+
+        when(viewGroup.computeVerticalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeVerticalScrollRange()).thenReturn(range);
+        when(viewGroup.computeHorizontalScrollExtent()).thenReturn(100);
+        when(viewGroup.computeHorizontalScrollRange()).thenReturn(range);
+
+        int touchX = vertical ? 95 : thumbLength / 2;
+        int touchY = vertical ? thumbLength / 2 : 95;
+        MotionEvent event =
+                EventUtils.generateMouseEvent(touchX, touchY, MotionEvent.ACTION_HOVER_ENTER, 0);
+
+        // Act
+
+        PointerIcon actualResult = viewGroup.onResolvePointerIcon(event, 0);
+        event.recycle();
+
+        // Assert
+
+        if (pointerIsSystemArrow) {
+            assertEquals(PointerIcon.getSystemIcon(mContext, PointerIcon.TYPE_ARROW), actualResult);
+        } else {
+            assertEquals(expectedPointerIcon, actualResult);
+        }
+    }
+
 
     @Test
     public void testOnDescendantInvalidated() throws Throwable {
@@ -1926,7 +2094,6 @@ public class ViewGroupTest implements CTSResult {
 
     class MockCanvas extends Canvas {
 
-        public boolean mIsSaveCalled;
         public int mLeft;
         public int mTop;
         public int mRight;
@@ -1945,18 +2112,6 @@ public class ViewGroupTest implements CTSResult {
                 float bottom, EdgeType type) {
             super.quickReject(left, top, right, bottom, type);
             return false;
-        }
-
-        @Override
-        public int save() {
-            mIsSaveCalled = true;
-            return super.save();
-        }
-
-        @Override
-        public int save(int saveFlags) {
-            mIsSaveCalled = true;
-            return super.save(saveFlags);
         }
 
         @Override
@@ -1987,7 +2142,6 @@ public class ViewGroupTest implements CTSResult {
         mMockViewGroup.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);
         mMockViewGroup.dispatchDraw(canvas);
         //check that the clip region does not contain the padding area
-        assertTrue(canvas.mIsSaveCalled);
         assertEquals(10, canvas.mLeft);
         assertEquals(20, canvas.mTop);
         assertEquals(-frameLeft, canvas.mRight);
@@ -1996,7 +2150,6 @@ public class ViewGroupTest implements CTSResult {
         mMockViewGroup.setClipToPadding(false);
         canvas = new MockCanvas();
         mMockViewGroup.dispatchDraw(canvas);
-        assertFalse(canvas.mIsSaveCalled);
         assertEquals(0, canvas.mLeft);
         assertEquals(0, canvas.mTop);
         assertEquals(0, canvas.mRight);
@@ -2613,6 +2766,128 @@ public class ViewGroupTest implements CTSResult {
         assertEquals(5, resetResolvedDrawablesCount);
     }
 
+    @UiThreadTest
+    @Test
+    public void testLayoutNotCalledWithSuppressLayoutTrue() {
+        mMockViewGroup.isRequestLayoutCalled = false;
+        mMockViewGroup.suppressLayout(true);
+        mMockViewGroup.layout(0, 0, 100, 100);
+
+        assertTrue(mMockViewGroup.isLayoutSuppressed());
+        assertFalse(mMockViewGroup.isOnLayoutCalled);
+        assertFalse(mMockViewGroup.isRequestLayoutCalled);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testLayoutCalledAfterSettingBackSuppressLayoutToFalseTrue() {
+        mMockViewGroup.suppressLayout(true);
+        mMockViewGroup.suppressLayout(false);
+        mMockViewGroup.layout(0, 0, 100, 100);
+
+        assertFalse(mMockViewGroup.isLayoutSuppressed());
+        assertTrue(mMockViewGroup.isOnLayoutCalled);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testRequestLayoutCalledAfterSettingSuppressToFalseWhenItWasCalledWithTrue() {
+        mMockViewGroup.isRequestLayoutCalled = false;
+        mMockViewGroup.suppressLayout(true);
+        // now we call layout while in suppressed state
+        mMockViewGroup.layout(0, 0, 100, 100);
+        // then we undo suppressing. it should call requestLayout as we swallowed one layout call
+        mMockViewGroup.suppressLayout(false);
+
+        assertTrue(mMockViewGroup.isRequestLayoutCalled);
+    }
+
+    @UiThreadTest
+    @Ignore("Turn on once ViewRootImpl.USE_NEW_INSETS is switched to true")
+    @Test
+    public void testDispatchInsets_affectsChildren() {
+        View v1 = new View(mContext);
+        mMockViewGroup.addView(v1);
+
+        mMockViewGroup.setOnApplyWindowInsetsListener((v, insets) -> insets.inset(0, 0, 0, 10));
+
+        OnApplyWindowInsetsListener listenerMock = mock(OnApplyWindowInsetsListener.class);
+        v1.setOnApplyWindowInsetsListener(listenerMock);
+
+        WindowInsets insets = new WindowInsets.Builder().setSystemWindowInsets(
+                Insets.of(10, 10, 10, 10)).build();
+        mMockViewGroup.dispatchApplyWindowInsets(insets);
+        verify(listenerMock).onApplyWindowInsets(any(),
+                eq(new WindowInsets.Builder()
+                        .setSystemWindowInsets(Insets.of(10, 10, 10, 0)).build()));
+    }
+
+    @UiThreadTest
+    @Ignore("Turn on once ViewRootImpl.USE_NEW_INSETS is switched to true")
+    @Test
+    public void testDispatchInsets_doesntAffectSiblings() {
+        View v1 = new View(mContext);
+        View v2 = new View(mContext);
+        mMockViewGroup.addView(v1);
+        mMockViewGroup.addView(v2);
+
+        v1.setOnApplyWindowInsetsListener((v, insets) -> insets.inset(0, 0, 0, 10));
+
+        OnApplyWindowInsetsListener listenerMock = mock(OnApplyWindowInsetsListener.class);
+        v2.setOnApplyWindowInsetsListener(listenerMock);
+
+        WindowInsets insets = new WindowInsets.Builder().setSystemWindowInsets(
+                Insets.of(10, 10, 10, 10)).build();
+        mMockViewGroup.dispatchApplyWindowInsets(insets);
+        verify(listenerMock).onApplyWindowInsets(any(),
+                eq(new WindowInsets.Builder()
+                        .setSystemWindowInsets(Insets.of(10, 10, 10, 10)).build()));
+    }
+
+    @UiThreadTest
+    @Ignore("Turn on once ViewRootImpl.USE_NEW_INSETS is switched to true")
+    @Test
+    public void testDispatchInsets_doesntAffectParentSiblings() {
+        ViewGroup v1 = new MockViewGroup(mContext);
+        View v11 = new View(mContext);
+        View v2 = new View(mContext);
+        mMockViewGroup.addView(v1);
+        v1.addView(v11);
+        mMockViewGroup.addView(v2);
+
+        v11.setOnApplyWindowInsetsListener((v, insets) -> insets.inset(0, 0, 0, 10));
+
+        OnApplyWindowInsetsListener listenerMock = mock(OnApplyWindowInsetsListener.class);
+        v2.setOnApplyWindowInsetsListener(listenerMock);
+
+        WindowInsets insets = new WindowInsets.Builder().setSystemWindowInsets(
+                Insets.of(10, 10, 10, 10)).build();
+        mMockViewGroup.dispatchApplyWindowInsets(insets);
+        verify(listenerMock).onApplyWindowInsets(any(),
+                eq(new WindowInsets.Builder()
+                        .setSystemWindowInsets(Insets.of(10, 10, 10, 10)).build()));
+    }
+
+    @UiThreadTest
+    @Ignore("Turn on once ViewRootImpl.USE_NEW_INSETS is switched to true")
+    @Test
+    public void testDispatchInsets_consumeDoesntStopDispatch() {
+        View v1 = new View(mContext);
+        mMockViewGroup.addView(v1);
+
+        mMockViewGroup.setOnApplyWindowInsetsListener(
+                (v, insets) -> insets.consumeSystemWindowInsets());
+
+        OnApplyWindowInsetsListener listenerMock = mock(OnApplyWindowInsetsListener.class);
+        v1.setOnApplyWindowInsetsListener(listenerMock);
+
+        WindowInsets insets = new WindowInsets.Builder().setSystemWindowInsets(
+                Insets.of(10, 10, 10, 10)).build();
+        mMockViewGroup.dispatchApplyWindowInsets(insets);
+        verify(listenerMock).onApplyWindowInsets(any(),
+                eq(new WindowInsets.Builder().build()));
+    }
+
     static class MockTextView extends TextView {
 
         public boolean isClearFocusCalled;
@@ -3062,8 +3337,9 @@ public class ViewGroupTest implements CTSResult {
         }
 
         @Override
-        public boolean setFrame(int left, int top, int right, int bottom) {
-            return super.setFrame(left, top, right, bottom);
+        public void onDescendantInvalidated(@NonNull View child, @NonNull View target) {
+            isOnDescendantInvalidatedCalled = true;
+            super.onDescendantInvalidated(child, target);
         }
 
         @Override
@@ -3074,12 +3350,6 @@ public class ViewGroupTest implements CTSResult {
         @Override
         public boolean isChildrenDrawnWithCacheEnabled() {
             return super.isChildrenDrawnWithCacheEnabled();
-        }
-
-        @Override
-        public void onDescendantInvalidated(@NonNull View child, @NonNull View target) {
-            isOnDescendantInvalidatedCalled = true;
-            super.onDescendantInvalidated(child, target);
         }
     }
 
@@ -3182,6 +3452,47 @@ public class ViewGroupTest implements CTSResult {
 
         public int getOnFinishTemporaryDetachCount() {
             return mOnFinishTemporaryDetachCount;
+        }
+    }
+
+    public static class ScrollTestView extends ViewGroup {
+        public ScrollTestView(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+
+        }
+
+        @Override
+        public boolean awakenScrollBars() {
+            return super.awakenScrollBars();
+        }
+
+        @Override
+        public int computeHorizontalScrollRange() {
+            return super.computeHorizontalScrollRange();
+        }
+
+        @Override
+        public int computeHorizontalScrollExtent() {
+            return super.computeHorizontalScrollExtent();
+        }
+
+        @Override
+        public int computeVerticalScrollRange() {
+            return super.computeVerticalScrollRange();
+        }
+
+        @Override
+        public int computeVerticalScrollExtent() {
+            return super.computeVerticalScrollExtent();
+        }
+
+        @Override
+        protected int getHorizontalScrollbarHeight() {
+            return super.getHorizontalScrollbarHeight();
         }
     }
 

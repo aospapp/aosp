@@ -17,4 +17,4 @@ class platform_OpenSSLActual(test.test):
 
     def run_once(self):
         self.curl('https://www.google.com')
-        self.curl('--capath /var/empty https://www.google.com; [ $? != 0 ]')
+        self.curl('--capath /mnt/empty https://www.google.com; [ $? != 0 ]')

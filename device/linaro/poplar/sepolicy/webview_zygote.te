@@ -1,0 +1,6 @@
+allow webview_zygote zygote:unix_dgram_socket { write };
+allow webview_zygote tombstoned:unix_stream_socket { connectto };
+allow webview_zygote tombstoned:fd { use };
+allow webview_zygote tombstone_data_file:file { append };
+allow webview_zygote tombstoned_crash_socket:sock_file { write };
+allow webview_zygote zygote_exec:file { read open getattr };

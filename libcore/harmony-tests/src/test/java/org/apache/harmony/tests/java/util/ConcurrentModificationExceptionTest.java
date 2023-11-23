@@ -91,6 +91,23 @@ public class ConcurrentModificationExceptionTest extends
         fail("Failed to throw expected ConcurrentModificationException");
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
+    public void test_messageAndCause() {
+        Throwable cause = new Throwable("cause msg");
+        assertMessageAndCause(null, null, new ConcurrentModificationException());
+        assertMessageAndCause("msg", null, new ConcurrentModificationException("msg"));
+        assertMessageAndCause("msg", cause, new ConcurrentModificationException("msg", cause));
+        assertMessageAndCause("msg", null, new ConcurrentModificationException("msg", null));
+        assertMessageAndCause(null, null, new ConcurrentModificationException((Throwable) null));
+        // cause.toString() is something like "java.lang.Throwable: cause msg"
+        assertMessageAndCause(cause.toString(), cause, new ConcurrentModificationException(cause));
+    }
+
+    private static void assertMessageAndCause(String message, Throwable cause, Exception e) {
+        assertEquals(message, e.getMessage());
+        assertEquals(cause, e.getCause());
+    }
+
     /**
      * Sets up the fixture, for example, open a network connection. This method
      * is called before a test is executed.

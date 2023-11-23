@@ -17,10 +17,15 @@
 #include "sysdeps/network.h"
 
 #include <errno.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
 #include <string>
+
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <cutils/sockets.h>
 
 #include "adb_unique_fd.h"
 
@@ -123,4 +128,22 @@ int network_loopback_server(int port, int type, std::string* error) {
         return _network_loopback_server(true, port, type, error);
     }
     return rc;
+}
+
+int network_connect(const std::string& host, int port, int type, int timeout, std::string* error) {
+    int getaddrinfo_error = 0;
+    int fd = socket_network_client_timeout(host.c_str(), port, type, timeout, &getaddrinfo_error);
+    if (fd != -1) {
+        return fd;
+    }
+    if (getaddrinfo_error != 0) {
+        *error = android::base::StringPrintf("failed to resolve host: '%s': %s", host.c_str(),
+                                             gai_strerror(getaddrinfo_error));
+        LOG(WARNING) << *error;
+    } else {
+        *error = android::base::StringPrintf("failed to connect to '%s:%d': %s", host.c_str(), port,
+                                             strerror(errno));
+        LOG(WARNING) << *error;
+    }
+    return -1;
 }

@@ -77,10 +77,9 @@ static void calculate_rounds(uint64_t size, image *ctx)
     ctx->rounds = fec_div_round_up(ctx->blocks, ctx->rs_n);
 }
 
-static int process_chunk(void *priv, const void *data, int len)
+static int process_chunk(void *priv, const void *data, size_t len)
 {
     image *ctx = (image *)priv;
-    assert(len % FEC_BLOCKSIZE == 0);
 
     if (data) {
         memcpy(&ctx->input[ctx->pos], data, len);
@@ -135,6 +134,8 @@ static void file_image_load(const std::vector<int>& fds, image *ctx)
         sparse_file_callback(file, false, false, process_chunk, ctx);
         sparse_file_destroy(file);
     }
+
+    assert(ctx->pos % FEC_BLOCKSIZE == 0);
 
     for (auto fd : fds) {
         close(fd);
@@ -346,7 +347,7 @@ static void * process(void *cookie)
 {
     image_proc_ctx *ctx = (image_proc_ctx *)cookie;
     ctx->func(ctx);
-    return NULL;
+    return nullptr;
 }
 
 bool image_process(image_proc_func func, image *ctx)
@@ -417,7 +418,7 @@ bool image_process(image_proc_func func, image *ctx)
         assert(args[i].start < args[i].end);
         assert((args[i].end - args[i].start) % ctx->rs_n == 0);
 
-        if (pthread_create(&pthreads[i], NULL, process, &args[i]) != 0) {
+        if (pthread_create(&pthreads[i], nullptr, process, &args[i]) != 0) {
             FATAL("failed to create thread %d\n", i);
         }
 
@@ -427,7 +428,7 @@ bool image_process(image_proc_func func, image *ctx)
     ctx->rv = 0;
 
     for (int i = 0; i < threads; ++i) {
-        if (pthread_join(pthreads[i], NULL) != 0) {
+        if (pthread_join(pthreads[i], nullptr) != 0) {
             FATAL("failed to join thread %d: %s\n", i, strerror(errno));
         }
 
@@ -435,7 +436,7 @@ bool image_process(image_proc_func func, image *ctx)
 
         if (args[i].rs) {
             free_rs_char(args[i].rs);
-            args[i].rs = NULL;
+            args[i].rs = nullptr;
         }
     }
 

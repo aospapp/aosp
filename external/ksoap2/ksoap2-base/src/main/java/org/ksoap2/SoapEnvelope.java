@@ -54,10 +54,8 @@ public class SoapEnvelope {
     /** Namespace constant: http://www.w3.org/1999/XMLSchema */
     public static final String XSI1999 = "http://www.w3.org/1999/XMLSchema-instance";
 
-    //public static final String NS20 = "http://www.wi-fi-org/specifications/hotspot2dot0/spp/1.0/";
     public static final String NS20 = "http://www.wi-fi.org/specifications/hotspot2dot0/v1.0/spp";
 
-    //public static final String OMADM12 = "http://www.openmobilealliance.org/tech/DTD/dm_ddf-v1_2.dtd";
 
     /**
      * Returns true for the string values "1" and "true", ignoring upper/lower
@@ -105,9 +103,8 @@ public class SoapEnvelope {
     /** Xml Schema data namespace, set by the constructor */
     public String xsd;
 
-    ///M: HS20 Add by Jungo
+    // HS20 change
     public String ns;
-    public String omadm;
 
     /**
      * Initializes a SOAP Envelope. The version parameter must be set to one of
@@ -129,10 +126,8 @@ public class SoapEnvelope {
             enc = SoapEnvelope.ENC2003;
             env = SoapEnvelope.ENV2003;
         }
-
+        // HS20 change
         ns = SoapEnvelope.NS20;
-        //omadm = SoapEnvelope.OMADM12;
-
     }
 
     /** Parses the SOAP envelope from the given parser */
@@ -206,13 +201,9 @@ public class SoapEnvelope {
      * given XML writer.
      */
     public void write(XmlSerializer writer) throws IOException {
-        ///M: HS20 modify by Jungo
-        //writer.setPrefix("i", xsi);
-        //writer.setPrefix("d", xsd);
-        //writer.setPrefix("c", enc);
-        writer.setPrefix("soap", env);//the prefix for namespace env in xml output
+        // HS 2.0 changes
+        writer.setPrefix("soap", env); //the prefix for namespace env in xml output
         writer.setPrefix("spp", ns);
-        //writer.setPrefix("omadm", omadm);
 
         writer.startTag(env, "Envelope");
         writer.startTag(env, "Header");

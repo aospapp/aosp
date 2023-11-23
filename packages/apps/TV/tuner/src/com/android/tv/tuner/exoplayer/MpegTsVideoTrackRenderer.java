@@ -19,7 +19,7 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.os.Handler;
 import android.util.Log;
-import com.android.tv.tuner.TunerFeatures;
+import com.android.tv.tuner.features.TunerFeatures;
 import com.google.android.exoplayer.DecoderInfo;
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.MediaCodecSelector;

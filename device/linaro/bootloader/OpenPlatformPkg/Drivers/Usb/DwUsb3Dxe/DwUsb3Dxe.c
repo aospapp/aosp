@@ -226,7 +226,7 @@ DwUsb3SetFifoSize (
   IN UINT32              FifoNum
   )
 {
-  UINT32                 Reg;
+  UINT32                 Reg = 0;
 
   if (Dir == FIFO_DIR_TX) {
     Reg = GTXFIFOSIZ (FifoNum);
@@ -1219,7 +1219,7 @@ DwUsb3HandleEndPoint0 (
   )
 {
   usb3_pcd_ep_t       *ep0 = &pcd->ep0;
-  usb3_dma_desc_t     *desc;
+  usb3_dma_desc_t     *desc = NULL;
   UINT32              byte_count, len;
 
   switch (pcd->ep0state) {

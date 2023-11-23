@@ -5,17 +5,20 @@
 import logging
 import os
 import re
+import time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
 
 EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream']
 
 # Variables from the getusermedia.html page.
 IS_TEST_DONE = 'isTestDone'
+IS_VIDEO_INPUT_FOUND = 'isVideoInputFound'
 
 # Polling timeout.
 SEVERAL_MINUTES_IN_SECS = 240
@@ -24,6 +27,17 @@ SEVERAL_MINUTES_IN_SECS = 240
 class video_WebRtcCamera(test.test):
     """Local getUserMedia test with webcam at VGA (and 720p, if supported)."""
     version = 1
+
+    def cleanup(self):
+        """Autotest cleanup function
+
+        It is run by common_lib/test.py.
+        """
+        if utils.is_virtual_machine():
+            try:
+                utils.run('sudo modprobe -r vivid')
+            except Exception as e:
+                raise error.TestFail('Failed to unload vivid', e)
 
     def start_getusermedia(self, cr):
         """Opens the test page.
@@ -37,6 +51,25 @@ class video_WebRtcCamera(test.test):
                 os.path.join(self.bindir, 'getusermedia.html')))
         self.tab.WaitForDocumentReadyStateToBeComplete()
 
+        if utils.is_virtual_machine():
+            # Before calling 'getUserMedia()' again, make sure if Chrome has
+            # already recognized vivid as an external camera.
+            self.wait_camera_detected()
+
+            # Reload the page to run 'getUserMedia()' again
+            self.tab.EvaluateJavaScript('location.reload()')
+            self.tab.WaitForDocumentReadyStateToBeComplete()
+
+    def wait_camera_detected(self):
+        """Waits until a camera is detected.
+        """
+        for _ in range(10):
+            self.tab.EvaluateJavaScript('checkVideoInput()')
+            if self.tab.EvaluateJavaScript(IS_VIDEO_INPUT_FOUND):
+                return
+            time.sleep(1)
+
+        raise error.TestFail('Can not find video input device')
 
     def webcam_supports_720p(self):
         """Checks if 720p capture supported.
@@ -70,8 +103,7 @@ class video_WebRtcCamera(test.test):
         @raises TestError on timeout, or javascript eval fails.
         """
         def _test_done():
-            is_test_done = self.tab.EvaluateJavaScript(IS_TEST_DONE)
-            return is_test_done == 1
+            return self.tab.EvaluateJavaScript(IS_TEST_DONE)
 
         utils.poll_for_condition(
             _test_done, timeout=timeout_secs, sleep_interval=1,
@@ -79,12 +111,26 @@ class video_WebRtcCamera(test.test):
                   'complete successfully.'))
 
     @helper_logger.video_log_wrapper
-    def run_once(self):
-        """Runs the test."""
+    def run_once(self, capability):
+        """Runs the test.
+
+        @param capability: Capability required for executing this test.
+        """
+        device_capability.DeviceCapability().ensure_capability(capability)
+
         self.board = utils.get_current_board()
         with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS +\
                            [helper_logger.chrome_vmodule_flag()],
                            init_network_controller=True) as cr:
+
+            # TODO(keiichiw): vivid should be loaded in self.setup() after
+            # crbug.com/871185 is fixed
+            if utils.is_virtual_machine():
+                try:
+                    utils.run('sudo modprobe vivid n_devs=1 node_types=0x1')
+                except Exception as e:
+                    raise error.TestFail('Failed to load vivid', e)
+
             self.start_getusermedia(cr)
             self.print_perf_results()
 
@@ -120,17 +166,24 @@ class video_WebRtcCamera(test.test):
                 errors.append('Frame Stats is empty '
                               'for resolution: %s' % resolution)
                 continue
+
+            total_num_frames = data['frameStats']['numFrames']
+            num_black_frames = data['frameStats']['numBlackFrames']
+            num_frozen_frames = data['frameStats']['numFrozenFrames']
+
+            def _percent(num, total):
+                if total == 0:
+                    return 1.0
+                return float(num) / float(total)
+
             self.output_perf_value(
-                    description='black_frames_%s' % resolution,
-                    value=data['frameStats']['numBlackFrames'],
-                    units='frames', higher_is_better=False)
+                    description='black_frames_percentage_%s' % resolution,
+                    value=_percent(num_black_frames, total_num_frames),
+                    units='percent', higher_is_better=False)
             self.output_perf_value(
-                    description='frozen_frames_%s' % resolution,
-                    value=data['frameStats']['numFrozenFrames'],
-                    units='frames', higher_is_better=False)
-            self.output_perf_value(
-                    description='total_num_frames_%s' % resolution,
-                    value=data['frameStats']['numFrames'],
-                    units='frames', higher_is_better=True)
+                    description='frozen_frames_percentage_%s' % resolution,
+                    value=_percent(num_frozen_frames, total_num_frames),
+                    units='percent', higher_is_better=False)
+
         if errors:
             raise error.TestFail('Found errors: %s' % ', '.join(errors))

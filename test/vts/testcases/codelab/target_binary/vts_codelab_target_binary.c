@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #define LOG_TAG "VtsCodelabTargetBinary"
-#include <utils/Log.h>
+#include <log/log.h>
 
 int main() {
   printf("hello Android");

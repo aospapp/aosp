@@ -34,5 +34,6 @@ typedef __u32 __bitwise __wsum;
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #define __aligned_be64 __be64 __attribute__((aligned(8)))
 #define __aligned_le64 __le64 __attribute__((aligned(8)))
+typedef unsigned __bitwise __poll_t;
 #endif
 #endif

@@ -18,26 +18,14 @@ package com.android.tv.settings.system;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 public class LanguageActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final LanguageFragment fragment = LanguageFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(LanguageFragment.class.getName(), null);
     }
 }

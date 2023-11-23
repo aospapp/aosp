@@ -305,6 +305,7 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                 return;
             }
 
+            // Switch Only Necessary for Old implementation. Left in for backwards compatability.
             int profile = -1;
             switch (action) {
                 case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED:
@@ -337,11 +338,18 @@ public class BluetoothConnectionFacade extends RpcReceiver {
                 Log.e("Action does not match any given profiles " + action);
             }
 
+            // The newer implementation will just post the Bundle with the literal event
+            // intead of the old implemenatation of posting BluetoothProfileConnectionStateChanged
+            // with the action inside of the Bundle. This makes for cleaner connection handling
+            // from test frameworks. Left the old implemenation in for backwards compatability.
+
             // Post an event to Facade.
             Bundle news = new Bundle();
-            news.putInt("profile", profile);
             news.putInt("state", state);
             news.putString("addr", device.getAddress());
+            mEventFacade.postEvent(action, news);
+
+            news.putInt("profile", profile);
             news.putString("action", action);
             mEventFacade.postEvent("BluetoothProfileConnectionStateChanged", news);
         }
@@ -513,6 +521,25 @@ public class BluetoothConnectionFacade extends RpcReceiver {
             }
         }
         return results;
+    }
+
+    /**
+     * Return a list of service UUIDS supported by the bonded device.
+     * @param macAddress the String mac address of the bonded device.
+     *
+     * @return the String list of supported UUIDS.
+     * @throws Exception
+     */
+    @Rpc(description = "Return a list of service UUIDS supported by the bonded device")
+    public List<String> bluetoothGetBondedDeviceUuids(
+        @RpcParameter(name = "macAddress") String macAddress) throws Exception {
+        BluetoothDevice mDevice = BluetoothFacade.getDevice(mBluetoothAdapter.getBondedDevices(),
+                macAddress);
+        ArrayList<String> uuidStrings = new ArrayList<>();
+        for (ParcelUuid parcelUuid : mDevice.getUuids()) {
+            uuidStrings.add(parcelUuid.toString());
+        }
+        return uuidStrings;
     }
 
     @Rpc(description = "Return a list of devices connected through bluetooth LE")

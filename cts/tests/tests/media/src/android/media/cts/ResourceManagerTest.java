@@ -19,8 +19,9 @@ package android.media.cts;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
-import android.support.test.filters.SmallTest;
 import android.test.ActivityInstrumentationTestCase2;
+
+import androidx.test.filters.SmallTest;
 
 @SmallTest
 @RequiresDevice

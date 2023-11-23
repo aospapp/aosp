@@ -6,6 +6,7 @@ java_library_static {
     },
     srcs: ["src/**/*.proto"],
     no_framework_libs: true,
+    sdk_version: "9",
     // Pin java_version until jarjar is certified to support later versions. http://b/72703434
     java_version: "1.8",
     target: {
@@ -16,4 +17,15 @@ java_library_static {
             static_libs: ["libprotobuf-java-nano"],
         },
     },
+}
+
+java_library_static {
+    name: "metrics-constants-protos",
+    host_supported: true,
+    proto: {
+        type: "nano",
+    },
+    srcs: ["src/metrics_constants/metrics_constants.proto"],
+    no_framework_libs: true,
+    sdk_version: "system_current",
 }

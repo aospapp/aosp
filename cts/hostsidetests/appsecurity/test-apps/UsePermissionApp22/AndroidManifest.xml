@@ -19,6 +19,9 @@
 
     <uses-sdk android:minSdkVersion="22" android:targetSdkVersion="22" />
 
+    <!-- Make sure permission code can handle invalid permissions -->
+    <uses-permission android:name="com.android.cts.usepermission.INVALID_PERMISSION_NAME"/>
+
     <!-- Request two different permissions within the same group -->
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -68,10 +71,12 @@
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:name=".BasePermissionActivity" />
+        <activity android:name=".AutoClosingActivity" android:exported="true" />
+        <service android:name=".PermissionCheckerService" android:exported="true" />
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.usepermission" />
 
 </manifest>

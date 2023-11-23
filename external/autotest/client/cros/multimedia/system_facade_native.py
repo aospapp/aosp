@@ -129,3 +129,9 @@ class SystemFacadeNative(object):
         Returns the number of currently allocated file handles.
         """
         return utils.get_num_allocated_file_handles()
+
+    def get_storage_statistics(self, device=None):
+        """
+        Fetches statistics for a storage device.
+        """
+        return utils.get_storage_statistics(device)

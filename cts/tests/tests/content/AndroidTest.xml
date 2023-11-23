@@ -17,9 +17,16 @@
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
 
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+
+    <!-- The framework has some native code involved. -->
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/content" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
+        <option name="run-command" value="cmd thermalservice override-status 0" />
+        <option name="teardown-command" value="cmd thermalservice reset" />
     </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
@@ -31,10 +38,14 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsContentTestCases.apk" />
+        <option name="test-file-name" value="CtsContentDirectBootUnawareTestApp.apk" />
+        <option name="test-file-name" value="CtsContentPartiallyDirectBootAwareTestApp.apk" />
         <option name="test-file-name" value="CtsSyncAccountAccessStubs.apk" />
+        <option name="test-file-name" value="CtsBinderPermissionTestService.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="package" value="android.content.cts" />
         <option name="runtime-hint" value="21m30s" />
         <option name="hidden-api-checks" value="false" />

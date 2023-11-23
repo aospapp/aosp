@@ -35,10 +35,6 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class SingleStepThroughReflectionTest extends JDWPEventTestCase {
 
-    private static final String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/Events/SingleStepThroughReflectionDebuggee;";
-
-    private static final String DEBUGGEE_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.Events.SingleStepThroughReflectionDebuggee";
-
     // The method where we set a breakpoint to suspend execution.
     private static final String BREAKPOINT_METHOD = "breakpointTest";
 
@@ -47,7 +43,7 @@ public class SingleStepThroughReflectionTest extends JDWPEventTestCase {
 
     @Override
     protected String getDebuggeeClassName() {
-        return DEBUGGEE_CLASS_NAME;
+        return SingleStepThroughReflectionDebuggee.class.getName();
     }
 
     /**
@@ -65,7 +61,7 @@ public class SingleStepThroughReflectionTest extends JDWPEventTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Find debuggee class id.
-        long refTypeID = getClassIDBySignature(DEBUGGEE_SIGNATURE);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);
         logWriter.println("=> Send ReferenceType::Methods command and get methodIDs ");

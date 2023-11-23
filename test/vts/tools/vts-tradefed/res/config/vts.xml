@@ -27,6 +27,8 @@
   <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-treble" />
   <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-vndk" />
 
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:ltp-number-of-threads:1" />
+
   <!-- Unapproved vts-security Tests -->
   <option name="compatibility:exclude-filter" value="SecurityPoCKernelTest" />
   <option name="compatibility:exclude-filter" value="VtsSecuritySelinuxPolicyHost" />
@@ -36,6 +38,5 @@
   <option name="compatibility:exclude-filter" value="VtsTrebleVintfTestOMr1" />
 
   <!-- Tests for libraries not on GSI -->
-  <option name="compatibility:exclude-filter" value="VtsVndkHidlBufferpoolV1_0Target" />
-
+  <option name="compatibility:exclude-filter" value="VtsHalBufferHubV1_0Target" />
 </configuration>

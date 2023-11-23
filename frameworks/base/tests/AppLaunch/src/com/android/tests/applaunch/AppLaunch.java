@@ -30,16 +30,16 @@ import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.support.test.rule.logging.AtraceLogger;
 import android.test.InstrumentationTestCase;
 import android.test.InstrumentationTestRunner;
 import android.util.Log;
+
+import androidx.test.rule.logging.AtraceLogger;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 /**
  * This test is intended to measure the time it takes for the apps to start.
  * Names of the applications are passed in command line, and the
@@ -77,6 +78,7 @@ public class AppLaunch extends InstrumentationTestCase {
     private static final String KEY_SIMPLEPERF_CMD = "simpleperf_cmd";
     private static final String KEY_SIMPLEPERF_APP = "simpleperf_app";
     private static final String KEY_CYCLE_CLEAN = "cycle_clean";
+    private static final String KEY_TRACE_ALL = "trace_all";
     private static final String KEY_TRACE_ITERATIONS = "trace_iterations";
     private static final String KEY_LAUNCH_DIRECTORY = "launch_directory";
     private static final String KEY_TRACE_DIRECTORY = "trace_directory";
@@ -92,7 +94,9 @@ public class AppLaunch extends InstrumentationTestCase {
             "com.google.android.wearable.action.GOOGLE";
     private static final int INITIAL_LAUNCH_IDLE_TIMEOUT = 5000; // 5s to allow app to idle
     private static final int POST_LAUNCH_IDLE_TIMEOUT = 750; // 750ms idle for non initial launches
-    private static final int BETWEEN_LAUNCH_SLEEP_TIMEOUT = 5000; // 5s between launching apps
+    private static final int BEFORE_FORCE_STOP_SLEEP_TIMEOUT = 1000; // 1s before force stopping
+    private static final int BEFORE_KILL_APP_SLEEP_TIMEOUT = 1000; // 1s before killing
+    private static final int BETWEEN_LAUNCH_SLEEP_TIMEOUT = 3000; // 3s between launching apps
     private static final int PROFILE_SAVE_SLEEP_TIMEOUT = 1000; // Allow 1s for the profile to save
     private static final String LAUNCH_SUB_DIRECTORY = "launch_logs";
     private static final String LAUNCH_FILE = "applaunch.txt";
@@ -106,10 +110,9 @@ public class AppLaunch extends InstrumentationTestCase {
     private static final String DROP_CACHE_SCRIPT = "/data/local/tmp/dropCache.sh";
     private static final String APP_LAUNCH_CMD = "am start -W -n";
     private static final String SUCCESS_MESSAGE = "Status: ok";
-    private static final String WARNING_MESSAGE = "Warning:";
+    private static final String TOTAL_TIME_MESSAGE = "TotalTime:";
     private static final String COMPILE_SUCCESS = "Success";
-    private static final String THIS_TIME = "ThisTime:";
-    private static final String LAUNCH_ITERATION = "LAUNCH_ITERATION - %d";
+    private static final String LAUNCH_ITERATION = "LAUNCH_ITERATION-%d";
     private static final String TRACE_ITERATION = "TRACE_ITERATION-%d";
     private static final String LAUNCH_ITERATION_PREFIX = "LAUNCH_ITERATION";
     private static final String TRACE_ITERATION_PREFIX = "TRACE_ITERATION";
@@ -140,6 +143,7 @@ public class AppLaunch extends InstrumentationTestCase {
     private String[] mCompilerFilters = null;
     private String mLastAppName = "";
     private boolean mCycleCleanUp = false;
+    private boolean mTraceAll = false;
     private boolean mIterationCycle = false;
     private long mCycleTime = 0;
     private StringBuilder mCycleTimes = new StringBuilder();
@@ -184,7 +188,8 @@ public class AppLaunch extends InstrumentationTestCase {
         if (null != launchDirectory && !launchDirectory.isEmpty()) {
             launchRootDir = new File(launchDirectory);
             if (!launchRootDir.exists() && !launchRootDir.mkdirs()) {
-                throw new IOException("Unable to create the destination directory");
+                throw new IOException("Unable to create the destination directory "
+                    + launchRootDir + ". Try disabling selinux.");
             }
         }
 
@@ -192,7 +197,8 @@ public class AppLaunch extends InstrumentationTestCase {
             File launchSubDir = new File(launchRootDir, LAUNCH_SUB_DIRECTORY);
 
             if (!launchSubDir.exists() && !launchSubDir.mkdirs()) {
-                throw new IOException("Unable to create the lauch file sub directory");
+                throw new IOException("Unable to create the lauch file sub directory "
+                    + launchSubDir + ". Try disabling selinux.");
             }
             File file = new File(launchSubDir, LAUNCH_FILE);
             FileOutputStream outputStream = new FileOutputStream(file);
@@ -245,8 +251,14 @@ public class AppLaunch extends InstrumentationTestCase {
                     mIterationCycle = false;
                     // In the "applaunch.txt" file, trail launches is referenced using
                     // "TRIAL_LAUNCH"
-                    String appPkgName = mNameToIntent.get(launch.getApp())
-                        .getComponent().getPackageName();
+                    Intent startIntent = mNameToIntent.get(launch.getApp());
+                    if (startIntent == null) {
+                        Log.w(TAG, "App does not exist: " + launch.getApp());
+                        mResult.putString(mNameToResultKey.get(launch.getApp()),
+                            "App does not exist");
+                        continue;
+                    }
+                    String appPkgName = startIntent.getComponent().getPackageName();
                     if (SPEED_PROFILE_FILTER.equals(launch.getCompilerFilter())) {
                         assertTrue(String.format("Not able to compile the app : %s", appPkgName),
                               compileApp(VERIFY_FILTER, appPkgName));
@@ -286,18 +298,40 @@ public class AppLaunch extends InstrumentationTestCase {
                         // skip if the app has failures while launched first
                         continue;
                     }
-                    // In the "applaunch.txt" file app launches are referenced using
-                    // "LAUNCH_ITERATION - ITERATION NUM"
-                    launchResults = startApp(launch.getApp(), launch.getLaunchReason());
-                    if (launchResults.mLaunchTime < 0) {
-                        addLaunchResult(launch, new AppLaunchResult());
-                        // if it fails once, skip the rest of the launches
-                        continue;
-                    } else {
-                        mCycleTime += launchResults.mLaunchTime;
-                        addLaunchResult(launch, launchResults);
+                    AtraceLogger atraceLogger = null;
+                    if (mTraceAll) {
+                        Log.i(TAG, "Started tracing " + launch.getApp());
+                        atraceLogger = AtraceLogger
+                                .getAtraceLoggerInstance(getInstrumentation());
                     }
-                    sleep(POST_LAUNCH_IDLE_TIMEOUT);
+                    try {
+                        // Start the trace
+                        if (atraceLogger != null) {
+                            atraceLogger.atraceStart(traceCategoriesSet, traceBufferSize,
+                                    traceDumpInterval, rootTraceSubDir,
+                                    String.format("%s-%s-%s", launch.getApp(),
+                                            launch.getCompilerFilter(), launch.getLaunchReason()));
+                        }
+                        // In the "applaunch.txt" file app launches are referenced using
+                        // "LAUNCH_ITERATION - ITERATION NUM"
+                        launchResults = startApp(launch.getApp(), launch.getLaunchReason());
+                        if (launchResults.mLaunchTime < 0) {
+                            addLaunchResult(launch, new AppLaunchResult());
+                            // if it fails once, skip the rest of the launches
+                            continue;
+                        } else {
+                            mCycleTime += launchResults.mLaunchTime;
+                            addLaunchResult(launch, launchResults);
+                        }
+                        sleep(POST_LAUNCH_IDLE_TIMEOUT);
+                    } finally {
+                        // Stop the trace
+                        if (atraceLogger != null) {
+                            Log.i(TAG, "Stopped tracing " + launch.getApp());
+                            atraceLogger.atraceStop();
+                        }
+                    }
+
                 }
 
                 // App launch times for trace launch will not be used for final
@@ -320,7 +354,14 @@ public class AppLaunch extends InstrumentationTestCase {
                     }
                 }
                 if(mForceStopApp) {
-                    closeApp(launch.getApp());
+                    sleep(BEFORE_FORCE_STOP_SLEEP_TIMEOUT);
+                    forceStopApp(launch.getApp());
+                    sleep(BEFORE_KILL_APP_SLEEP_TIMEOUT);
+                    // Close again for good measure (just in case).
+                    forceStopApp(launch.getApp());
+                    // Kill the backgrounded process in the case forceStopApp only sent it to
+                    // background.
+                    killBackgroundApp(launch.getApp());
                 } else {
                     startHomeIntent();
                 }
@@ -517,6 +558,7 @@ public class AppLaunch extends InstrumentationTestCase {
         mLaunchOrder = args.getString(KEY_LAUNCH_ORDER, LAUNCH_ORDER_CYCLIC);
         mSimplePerfAppOnly = Boolean.parseBoolean(args.getString(KEY_SIMPLEPERF_APP));
         mCycleCleanUp = Boolean.parseBoolean(args.getString(KEY_CYCLE_CLEAN));
+        mTraceAll = Boolean.parseBoolean(args.getString(KEY_TRACE_ALL));
         mTrialLaunch = mTrialLaunch || Boolean.parseBoolean(args.getString(KEY_TRIAL_LAUNCH));
 
         if (mSimplePerfCmd != null && mSimplePerfAppOnly) {
@@ -631,7 +673,7 @@ public class AppLaunch extends InstrumentationTestCase {
         // Kill all the apps
         for (String appName : mNameToIntent.keySet()) {
             Log.w(TAG, String.format("killing %s", appName));
-            closeApp(appName);
+            forceStopApp(appName);
         }
         // Drop all the cache.
         assertNotNull("Issue in dropping the cache",
@@ -639,12 +681,24 @@ public class AppLaunch extends InstrumentationTestCase {
                         .executeShellCommand(DROP_CACHE_SCRIPT));
     }
 
-    private void closeApp(String appName) {
+    private void forceStopApp(String appName) {
         Intent startIntent = mNameToIntent.get(appName);
         if (startIntent != null) {
             String packageName = startIntent.getComponent().getPackageName();
             try {
                 mAm.forceStopPackage(packageName, UserHandle.USER_CURRENT);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Error closing app", e);
+            }
+        }
+    }
+
+    private void killBackgroundApp(String appName) {
+        Intent startIntent = mNameToIntent.get(appName);
+        if (startIntent != null) {
+            String packageName = startIntent.getComponent().getPackageName();
+            try {
+                mAm.killBackgroundProcesses(packageName, UserHandle.USER_CURRENT);
             } catch (RemoteException e) {
                 Log.w(TAG, "Error closing app", e);
             }
@@ -769,6 +823,8 @@ public class AppLaunch extends InstrumentationTestCase {
                              BufferedWriter writer =
                                 new BufferedWriter(new OutputStreamWriter(stream))) {
                             String cmd = String.format(SIMPLEPERF_APP_CMD, packageName, launchCmd);
+                            // In the file, we need to escape any "$".
+                            cmd = cmd.replace("$", "\\$");
                             writer.write(cmd);
                         }
                         launchCmd = launchFile.getAbsolutePath();
@@ -804,15 +860,14 @@ public class AppLaunch extends InstrumentationTestCase {
             String launchTime = "-1";
             String cpuCycles = "-1";
             String majorFaults = "-1";
-            boolean coldLaunchSuccess = false;
-            boolean hotLaunchSuccess = false;
+            boolean launchSuccess = false;
             try {
                 InputStream inputStream = new FileInputStream(parcelDesc.getFileDescriptor());
                 /* SAMPLE OUTPUT : Cold launch
                 Starting: Intent { cmp=com.google.android.calculator/com.android.calculator2.Calculator }
                 Status: ok
+                LaunchState: COLD
                 Activity: com.google.android.calculator/com.android.calculator2.Calculator
-                ThisTime: 357
                 TotalTime: 357
                 WaitTime: 377
                 Complete*/
@@ -820,8 +875,8 @@ public class AppLaunch extends InstrumentationTestCase {
                 Starting: Intent { cmp=com.google.android.calculator/com.android.calculator2.Calculator }
                 Warning: Activity not started, its current task has been brought to the front
                 Status: ok
+                LaunchState: HOT
                 Activity: com.google.android.calculator/com.android.calculator2.CalculatorGoogle
-                ThisTime: 60
                 TotalTime: 60
                 WaitTime: 67
                 Complete*/
@@ -832,54 +887,37 @@ public class AppLaunch extends InstrumentationTestCase {
                 Total test time,1.462129,seconds,*/
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(
                         inputStream));
-                String line = null;
-                int lineCount = 1;
+                String line;
                 mBufferedWriter.newLine();
                 mBufferedWriter.write(headerInfo);
                 mBufferedWriter.newLine();
                 while ((line = bufferedReader.readLine()) != null) {
-                    if (lineCount == 2 && line.startsWith(SUCCESS_MESSAGE)) {
-                        coldLaunchSuccess = true;
+                    mBufferedWriter.write(line);
+                    mBufferedWriter.newLine();
+                    if (line.startsWith(SUCCESS_MESSAGE)) {
+                        launchSuccess = true;
                     }
-                    if (lineCount == 2 && line.startsWith(WARNING_MESSAGE)) {
-                        hotLaunchSuccess = true;
+                    if (!launchSuccess) {
+                        continue;
                     }
                     // Parse TotalTime which is the launch time
-                    if (coldLaunchSuccess && lineCount == 5) {
-                        String launchSplit[] = line.split(":");
-                        launchTime = launchSplit[1].trim();
-                    }
-                    if (hotLaunchSuccess && lineCount == 6) {
+                    if (line.startsWith(TOTAL_TIME_MESSAGE)) {
                         String launchSplit[] = line.split(":");
                         launchTime = launchSplit[1].trim();
                     }
 
                     if (mSimplePerfAppOnly) {
-                        // Parse simpleperf output.
-                        if ((lineCount == 9 && coldLaunchSuccess)
-                                || (lineCount == 10 && hotLaunchSuccess)) {
-                            if (!line.contains("cpu-cycles")) {
-                                Log.e(TAG, "Error in simpleperf output");
-                            } else {
-                                cpuCycles = line.split(",")[0].trim();
-                            }
-                        } else if ((lineCount == 10 && coldLaunchSuccess)
-                                || (lineCount == 11 && hotLaunchSuccess)) {
-                            if (!line.contains("major-faults")) {
-                                Log.e(TAG, "Error in simpleperf output");
-                            } else {
-                                majorFaults = line.split(",")[0].trim();
-                            }
+                        if (line.contains(",cpu-cycles,")) {
+                            cpuCycles = line.split(",")[0].trim();
+                        } else if (line.contains(",major-faults,")) {
+                            majorFaults = line.split(",")[0].trim();
                         }
                     }
-                    mBufferedWriter.write(line);
-                    mBufferedWriter.newLine();
-                    lineCount++;
                 }
                 mBufferedWriter.flush();
                 inputStream.close();
             } catch (IOException e) {
-                Log.w(TAG, "Error writing the launch file", e);
+                Log.w(TAG, "Error parsing launch time and writing to file", e);
             }
             return new AppLaunchResult(launchTime, cpuCycles, majorFaults);
         }

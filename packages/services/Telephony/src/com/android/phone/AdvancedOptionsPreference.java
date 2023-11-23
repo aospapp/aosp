@@ -34,7 +34,7 @@ public class AdvancedOptionsPreference extends Preference {
     protected void onBindView(View view) {
         super.onBindView(view);
 
-        setIcon(R.drawable.ic_expand_more);
+        setIcon(com.android.internal.R.drawable.ic_expand_more);
         setTitle(R.string.advanced_options_title);
         TextView summary = view.findViewById(android.R.id.summary);
         summary.setMaxLines(1);

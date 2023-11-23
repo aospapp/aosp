@@ -18,8 +18,8 @@ package com.android.tv.util.images;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.graphics.Bitmap;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.util.images.BitmapUtils.ScaledBitmapInfo;
 import org.junit.Test;
 import org.junit.runner.RunWith;

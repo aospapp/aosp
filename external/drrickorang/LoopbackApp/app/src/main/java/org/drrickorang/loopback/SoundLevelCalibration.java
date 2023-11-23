@@ -18,6 +18,7 @@ package org.drrickorang.loopback;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -26,8 +27,8 @@ class SoundLevelCalibration {
     private static final int SECONDS_PER_LEVEL = 1;
     private static final int MAX_STEPS = 15; // The maximum number of levels that should be tried
     private static final double CRITICAL_RATIO = 0.41; // Ratio of input over output amplitude at
-                                                      // which the feedback loop neither decays nor
-                                                      // grows (determined experimentally)
+                                                       // which the feedback loop neither decays nor
+                                                       // grows (determined experimentally)
     private static final String TAG = "SoundLevelCalibration";
 
     private NativeAudioThread mNativeAudioThread = null;
@@ -51,15 +52,15 @@ class SoundLevelCalibration {
         }
     }
 
-    SoundLevelCalibration(int samplingRate, int playerBufferSizeInBytes,
-                                 int recorderBufferSizeInBytes, int micSource, int performanceMode, Context context) {
+    SoundLevelCalibration(int threadType, int samplingRate, int playerBufferSizeInBytes,
+            int recorderBufferSizeInBytes, int micSource, int performanceMode, Context context) {
 
         // TODO: Allow capturing wave data without doing glitch detection.
         CaptureHolder captureHolder = new CaptureHolder(0, "", false, false, false, context,
                 samplingRate);
         // TODO: Run for less than 1 second.
-        mNativeAudioThread = new NativeAudioThread(samplingRate, playerBufferSizeInBytes,
-                recorderBufferSizeInBytes, micSource, performanceMode,
+        mNativeAudioThread = new NativeAudioThread(threadType, samplingRate,
+                playerBufferSizeInBytes, recorderBufferSizeInBytes, micSource, performanceMode,
                 Constant.LOOPBACK_PLUG_AUDIO_THREAD_TEST_TYPE_BUFFER_PERIOD, SECONDS_PER_LEVEL,
                 SECONDS_PER_LEVEL, 0, captureHolder);
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
@@ -70,7 +71,16 @@ class SoundLevelCalibration {
         final int maxLevel = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int levelBottom = 0;
         int levelTop = maxLevel + 1;
-        while(levelTop - levelBottom > 1) {
+
+        // The ratio of 0.36 seems to correctly calibrate with the Mir dongle on Taimen and Walleye,
+        // but it does not work with the Mir dongle on devices with a 3.5mm jack. Using
+        // CRITICAL_RATIO leads tp a correct calibration when plugging the loopback dongle into
+        // a 3.5mm jack directly.
+        // TODO: Find a better solution that, if possible, doesn't involve querying device names.
+        final double ratio = (Build.DEVICE.equals("walleye")
+                              || Build.DEVICE.equals("taimen")) ? 0.36 : CRITICAL_RATIO;
+
+        while (levelTop - levelBottom > 1) {
             int level = (levelBottom + levelTop) / 2;
             Log.d(TAG, "setting level to " + level);
             setVolume(level);
@@ -79,7 +89,7 @@ class SoundLevelCalibration {
             mNativeAudioThread = new NativeAudioThread(mNativeAudioThread); // generate fresh thread
             Log.d(TAG, "calibrate: at sound level " + level + " volume was " + amplitude);
 
-            if (amplitude < Constant.SINE_WAVE_AMPLITUDE * CRITICAL_RATIO) {
+            if (amplitude < Constant.SINE_WAVE_AMPLITUDE * ratio) {
                 levelBottom = level;
             } else {
                 levelTop = level;
@@ -104,6 +114,7 @@ class SoundLevelCalibration {
     }
 
     // TODO: Only gives accurate results for an undistorted sine wave. Check for distortion.
+    // TODO move to audio_utils
     private static double averageAmplitude(double[] data) {
         if (data == null || data.length == 0) {
             return 0; // no data is present

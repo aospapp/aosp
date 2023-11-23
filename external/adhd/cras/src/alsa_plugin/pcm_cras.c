@@ -143,7 +143,8 @@ static int pcm_cras_process_cb(struct cras_client *client,
 	sample_bytes = snd_pcm_format_physical_width(io->format) / 8;
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-		if (io->state != SND_PCM_STATE_RUNNING) {
+		if (io->state != SND_PCM_STATE_RUNNING &&
+		    io->state != SND_PCM_STATE_DRAINING) {
 			memset(samples, 0, nframes * frame_bytes);
 			return nframes;
 		}
@@ -228,29 +229,6 @@ static int snd_pcm_cras_prepare(snd_pcm_ioplug_t *io)
 	return cras_client_connect(pcm_cras->client);
 }
 
-/* Get the pcm boundary value. */
-static int get_boundary(snd_pcm_t *pcm, snd_pcm_uframes_t *boundary)
-{
-	snd_pcm_sw_params_t *sw_params;
-	int rc;
-
-	snd_pcm_sw_params_alloca(&sw_params);
-
-	rc = snd_pcm_sw_params_current(pcm, sw_params);
-	if (rc < 0) {
-		fprintf(stderr, "sw_params_current: %s\n", snd_strerror(rc));
-		return rc;
-	}
-
-	rc = snd_pcm_sw_params_get_boundary(sw_params, boundary);
-	if (rc < 0) {
-		fprintf(stderr, "get_boundary: %s\n", snd_strerror(rc));
-		return rc;
-	}
-
-	return 0;
-}
-
 /* Called when an ALSA stream is started. */
 static int snd_pcm_cras_start(snd_pcm_ioplug_t *io)
 {
@@ -300,71 +278,8 @@ error_out:
 	return rc;
 }
 
-static int snd_pcm_cras_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delayp)
-{
-	snd_pcm_uframes_t limit;
-	int rc;
-	struct snd_pcm_cras *pcm_cras;
-	struct timespec latency;
-
-	pcm_cras = (struct snd_pcm_cras *)io->private_data;
-
-	rc = get_boundary(io->pcm, &limit);
-	if ((rc < 0) || (limit == 0)) {
-		*delayp = 0;
-		return -EINVAL;
-	}
-
-	/* To get the delay, first calculate the latency between now and the
-	 * playback/capture sample time for the old hw_ptr we tracked, note that
-	 * for playback path this latency could be negative. Then add it up with
-	 * the difference between appl_ptr and the old hw_ptr.
-	 */
-	if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-		/* Do not compute latency if playback_sample_time is not set */
-		if (pcm_cras->playback_sample_time.tv_sec == 0 &&
-		    pcm_cras->playback_sample_time.tv_nsec == 0) {
-			latency.tv_sec = 0;
-			latency.tv_nsec = 0;
-		} else {
-			cras_client_calc_playback_latency(
-					&pcm_cras->playback_sample_time,
-					&latency);
-		}
-
-		*delayp = limit +
-			  io->appl_ptr -
-			  pcm_cras->playback_sample_index +
-			  latency.tv_sec * io->rate +
-			  latency.tv_nsec / (1000000000L / (long)io->rate);
-	} else {
-		/* Do not compute latency if capture_sample_time is not set */
-		if (pcm_cras->capture_sample_time.tv_sec == 0 &&
-		    pcm_cras->capture_sample_time.tv_nsec == 0) {
-			latency.tv_sec = 0;
-			latency.tv_nsec = 0;
-		} else {
-			cras_client_calc_capture_latency(
-					&pcm_cras->capture_sample_time,
-					&latency);
-		}
-
-		*delayp = limit +
-			  pcm_cras->capture_sample_index -
-			  io->appl_ptr +
-			  latency.tv_sec * io->rate +
-			  latency.tv_nsec / (1000000000L / (long)io->rate);
-	}
-
-	/* Both appl and hw pointers wrap at the pcm boundary. */
-	*delayp %= limit;
-
-	return 0;
-}
-
 static snd_pcm_ioplug_callback_t cras_pcm_callback = {
 	.close = snd_pcm_cras_close,
-	.delay = snd_pcm_cras_delay,
 	.start = snd_pcm_cras_start,
 	.stop = snd_pcm_cras_stop,
 	.pointer = snd_pcm_cras_pointer,

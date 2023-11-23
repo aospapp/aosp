@@ -20,81 +20,73 @@
     <PreferenceCategory
             android:key="medical_info"
             android:title="@string/medical_info_title">
-        <com.android.emergency.preferences.NameAutoCompletePreference
-            android:enabled="false"
-            android:focusable="true"
+        <com.android.emergency.preferences.EmergencyNamePreference
             android:icon="@drawable/ic_account_circle_filled_24dp"
-            android:inputType="textCapWords|textPersonName"
             android:key="name"
-            android:selectable="false"
-            android:shouldDisableView="false"
-            android:singleLine="true"
-            android:title="@string/name" />
+            android:title="@string/name"
+            android:summary="@string/unknown_name" />
 
         <com.android.emergency.preferences.EmergencyEditTextPreference
-            android:enabled="false"
-            android:focusable="true"
             android:icon="@drawable/ic_home_24dp"
             android:key="address"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:singleLine="false"
+            android:inputType="textCapWords|textPostalAddress|textMultiLine"
             android:title="@string/address" />
 
         <com.android.emergency.preferences.EmergencyListPreference
             xmlns:app="http://schemas.android.com/apk/res/com.android.emergency"
-            android:enabled="false"
-            android:focusable="true"
             android:icon="@drawable/ic_bloodtype_24dp"
             android:entries="@array/blood_type_entries"
             android:entryValues="@array/blood_type_values"
             android:key="blood_type"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
             android:title="@string/blood_type"
             app:entryContentDescriptions="@array/blood_type_content_description" />
 
         <com.android.emergency.preferences.EmergencyEditTextPreference
-            android:enabled="false"
-            android:focusable="true"
+            android:capitalize="sentences"
             android:icon="@drawable/ic_allergies_black_24dp"
+            android:hint="@string/allergies_hint"
+            android:textColorHint="@color/hint_text_color"
             android:key="allergies"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:inputType="textMultiLine"
+            android:singleLine="false"
             android:title="@string/allergies" />
 
         <com.android.emergency.preferences.EmergencyEditTextPreference
-            android:enabled="false"
-            android:focusable="true"
+            android:capitalize="sentences"
             android:icon="@drawable/ic_medication_24dp"
+            android:hint="@string/medications_hint"
+            android:textColorHint="@color/hint_text_color"
             android:key="medications"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:inputType="textMultiLine"
+            android:singleLine="false"
             android:title="@string/medications" />
 
         <com.android.emergency.preferences.EmergencyListPreference
-            android:enabled="false"
-            android:focusable="true"
             android:icon="@drawable/ic_favorite_border_24dp"
             android:entries="@array/organ_donor_entries"
             android:entryValues="@array/organ_donor_values"
             android:key="organ_donor"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
             android:title="@string/organ_donor" />
 
         <com.android.emergency.preferences.EmergencyEditTextPreference
-            android:enabled="false"
-            android:focusable="true"
+            android:capitalize="sentences"
+            android:hint="@string/medical_conditions_hint"
+            android:textColorHint="@color/hint_text_color"
             android:icon="@drawable/ic_note_alt_24dp"
             android:key="medical_conditions"
-            android:selectable="false"
-            android:shouldDisableView="false"
+            android:inputType="textMultiLine"
+            android:singleLine="false"
             android:title="@string/medical_conditions" />
 
         <Preference
             android:key="edit_medical_info"
-            android:icon="@drawable/ic_mode_edit"
-            android:title="@string/edit_medical_info">
+            android:icon="@drawable/ic_add_24dp"
+            android:title="@string/add_medical_info">
             <intent android:action="android.emergency.EDIT_MEDICAL_INFO"/>
         </Preference>
     </PreferenceCategory>

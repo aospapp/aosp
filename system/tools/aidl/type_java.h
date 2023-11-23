@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef AIDL_TYPE_JAVA_H_
-#define AIDL_TYPE_JAVA_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -34,29 +33,24 @@ class Type : public ValidatableType {
   // WriteToParcel flags
   enum { PARCELABLE_WRITE_RETURN_VALUE = 0x0001 };
 
-  Type(const JavaTypeNamespace* types, const std::string& name, int kind,
-       bool canWriteToParcel, bool canBeOut);
-  Type(const JavaTypeNamespace* types, const std::string& package,
-       const std::string& name, int kind, bool canWriteToParcel, bool canBeOut,
-       const std::string& declFile = "", int declLine = -1);
+  // defaultValue is by default set to "null" because that is the default value
+  // for most of the types like class and array. default values for built-in
+  // types like int, double, boolean, etc. are explicitly set via BasicType
+  Type(const JavaTypeNamespace* types, const std::string& name, int kind, bool canWriteToParcel);
+  Type(const JavaTypeNamespace* types, const std::string& package, const std::string& name,
+       int kind, bool canWriteToParcel, const std::string& declFile = "", int declLine = -1);
   virtual ~Type() = default;
 
-  bool CanBeOutParameter() const override { return m_canBeOut; }
   bool CanWriteToParcel() const override { return m_canWriteToParcel; }
 
   const ValidatableType* ArrayType() const override { return m_array_type.get(); }
   const ValidatableType* NullableType() const override { return nullptr; }
 
   virtual std::string JavaType() const { return m_javaType; }
-  virtual std::string CreatorName() const;
   virtual std::string InstantiableName() const;
 
-  virtual void WriteToParcel(StatementBlock* addTo, Variable* v,
-                             Variable* parcel, int flags) const;
-  virtual void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                                Variable* parcel, Variable** cl) const;
-  virtual void ReadFromParcel(StatementBlock* addTo, Variable* v,
-                              Variable* parcel, Variable** cl) const;
+  // The namespace where this type is defined in
+  const JavaTypeNamespace* GetTypeNamespace() const { return m_types; }
 
  protected:
   Expression* BuildWriteToParcelFlags(int flags) const;
@@ -72,7 +66,6 @@ class Type : public ValidatableType {
   std::string m_javaType;
   std::string m_declFile;
   bool m_canWriteToParcel;
-  bool m_canBeOut;
 };
 
 class BasicArrayType : public Type {
@@ -82,12 +75,6 @@ class BasicArrayType : public Type {
                  const std::string& createArrayParcel,
                  const std::string& readArrayParcel);
 
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 
  private:
@@ -99,16 +86,9 @@ class BasicArrayType : public Type {
 class BasicType : public Type {
  public:
   BasicType(const JavaTypeNamespace* types, const std::string& name,
-            const std::string& marshallParcel,
-            const std::string& unmarshallParcel,
-            const std::string& writeArrayParcel,
-            const std::string& createArrayParcel,
+            const std::string& marshallParcel, const std::string& unmarshallParcel,
+            const std::string& writeArrayParcel, const std::string& createArrayParcel,
             const std::string& readArrayParcel);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 
  private:
   std::string m_marshallParcel;
@@ -119,83 +99,54 @@ class FileDescriptorArrayType : public Type {
  public:
   explicit FileDescriptorArrayType(const JavaTypeNamespace* types);
 
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class FileDescriptorType : public Type {
  public:
   explicit FileDescriptorType(const JavaTypeNamespace* types);
+};
 
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
+class ParcelFileDescriptorArrayType : public Type {
+ public:
+  explicit ParcelFileDescriptorArrayType(const JavaTypeNamespace* types);
+
+  const ValidatableType* NullableType() const override { return this; }
+};
+
+class ParcelFileDescriptorType : public Type {
+ public:
+  explicit ParcelFileDescriptorType(const JavaTypeNamespace* types);
+
+  const ValidatableType* NullableType() const override { return this; }
 };
 
 class BooleanArrayType : public Type {
  public:
   explicit BooleanArrayType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class BooleanType : public Type {
  public:
   explicit BooleanType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class CharArrayType : public Type {
  public:
   explicit CharArrayType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class CharType : public Type {
  public:
   explicit CharType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class StringArrayType : public Type {
  public:
   explicit StringArrayType(const JavaTypeNamespace* types);
 
-  std::string CreatorName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
@@ -205,132 +156,65 @@ class StringType : public Type {
              const std::string& class_name);
 
   std::string JavaType() const override { return "java.lang.String"; }
-  std::string CreatorName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class CharSequenceType : public Type {
  public:
   explicit CharSequenceType(const JavaTypeNamespace* types);
-
-  std::string CreatorName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class RemoteExceptionType : public Type {
  public:
   explicit RemoteExceptionType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class RuntimeExceptionType : public Type {
  public:
   explicit RuntimeExceptionType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class IBinderArrayType : public Type {
  public:
   explicit IBinderArrayType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class IBinderType : public Type {
  public:
   explicit IBinderType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class IInterfaceType : public Type {
  public:
   explicit IInterfaceType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class BinderType : public Type {
  public:
   explicit BinderType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class BinderProxyType : public Type {
  public:
   explicit BinderProxyType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class ParcelType : public Type {
  public:
   explicit ParcelType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class ParcelableInterfaceType : public Type {
  public:
   explicit ParcelableInterfaceType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
 };
 
 class MapType : public Type {
  public:
   explicit MapType(const JavaTypeNamespace* types);
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
@@ -339,13 +223,6 @@ class ListType : public Type {
   explicit ListType(const JavaTypeNamespace* types);
 
   std::string InstantiableName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
@@ -356,14 +233,6 @@ class UserDataArrayType : public Type {
                     bool canWriteToParcel, const std::string& declFile = "",
                     int declLine = -1);
 
-  std::string CreatorName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v,
-                        Variable* parcel, Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
@@ -373,38 +242,24 @@ class UserDataType : public Type {
                const std::string& name, bool builtIn, bool canWriteToParcel,
                const std::string& declFile = "", int declLine = -1);
 
-  std::string CreatorName() const override;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 };
 
 class InterfaceType : public Type {
  public:
-  InterfaceType(const JavaTypeNamespace* types, const std::string& package,
-                const std::string& name, bool builtIn, bool oneway,
-                const std::string& declFile, int declLine, const Type* stub,
-                const Type* proxy);
+  InterfaceType(const JavaTypeNamespace* types, const std::string& package, const std::string& name,
+                bool builtIn, const std::string& declFile, int declLine, const Type* stub,
+                const Type* proxy, const Type* defaultImpl);
 
-  bool OneWay() const;
-
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
   const Type* GetStub() const { return stub_; }
   const Type* GetProxy() const { return proxy_; }
+  const Type* GetDefaultImpl() const { return defaultImpl_; }
 
  private:
-  bool m_oneway;
   const Type* stub_;
   const Type* proxy_;
+  const Type* defaultImpl_;
 };
 
 class ClassLoaderType : public Type {
@@ -416,23 +271,15 @@ class GenericListType : public Type {
  public:
   GenericListType(const JavaTypeNamespace* types, const Type* arg);
 
-  std::string CreatorName() const override;
   std::string InstantiableName() const override;
   std::string JavaType() const override {
     return "java.util.List<" + m_contained_type->JavaType() + ">";
   }
 
-  void WriteToParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                     int flags) const override;
-  void CreateFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                        Variable** cl) const override;
-  void ReadFromParcel(StatementBlock* addTo, Variable* v, Variable* parcel,
-                      Variable** cl) const override;
   const ValidatableType* NullableType() const override { return this; }
 
  private:
   const Type* m_contained_type;
-  const std::string m_creator;
 };
 
 class JavaTypeNamespace : public LanguageTypeNamespace<Type> {
@@ -494,5 +341,3 @@ extern Expression* FALSE_VALUE;
 }  // namespace java
 }  // namespace aidl
 }  // namespace android
-
-#endif  // AIDL_TYPE_JAVA_H_

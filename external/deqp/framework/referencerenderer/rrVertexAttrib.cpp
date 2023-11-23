@@ -314,6 +314,7 @@ void readFloat (tcu::Vec4& dst, const VertexAttribType type, const int size, con
 		case VERTEXATTRIBTYPE_PURE_INT16:
 		case VERTEXATTRIBTYPE_PURE_INT32:
 			DE_FATAL("Invalid read");
+			break;
 
 		default:
 			DE_ASSERT(false);
@@ -360,6 +361,7 @@ void readInt (tcu::IVec4& dst, const VertexAttribType type, const int size, cons
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:
 			DE_FATAL("Invalid read");
+			break;
 
 		default:
 			DE_ASSERT(false);
@@ -406,6 +408,7 @@ void readUint (tcu::UVec4& dst, const VertexAttribType type, const int size, con
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_CLAMP_BGRA:
 		case VERTEXATTRIBTYPE_NONPURE_SNORM_2_10_10_10_REV_SCALE_BGRA:
 			DE_FATAL("Invalid read");
+			break;
 
 		default:
 			DE_ASSERT(false);
@@ -485,13 +488,13 @@ bool isValidVertexAttrib (const VertexAttrib& vertexAttrib)
 	return true;
 }
 
-void readVertexAttrib (tcu::Vec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx)
+void readVertexAttrib (tcu::Vec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx, const int baseInstanceNdx)
 {
 	DE_ASSERT(isValidVertexAttrib(vertexAttrib));
 
 	if (vertexAttrib.pointer)
 	{
-		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
+		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? baseInstanceNdx + (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
 		const int	compSize		= getComponentSize(vertexAttrib.type);
 		const int	stride			= (vertexAttrib.stride != 0) ? (vertexAttrib.stride) : (vertexAttrib.size*compSize);
 		const int	byteOffset		= elementNdx*stride;
@@ -505,13 +508,13 @@ void readVertexAttrib (tcu::Vec4& dst, const VertexAttrib& vertexAttrib, const i
 	}
 }
 
-void readVertexAttrib (tcu::IVec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx)
+void readVertexAttrib (tcu::IVec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx, const int baseInstanceNdx)
 {
 	DE_ASSERT(isValidVertexAttrib(vertexAttrib));
 
 	if (vertexAttrib.pointer)
 	{
-		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
+		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? baseInstanceNdx + (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
 		const int	compSize		= getComponentSize(vertexAttrib.type);
 		const int	stride			= (vertexAttrib.stride != 0) ? (vertexAttrib.stride) : (vertexAttrib.size*compSize);
 		const int	byteOffset		= elementNdx*stride;
@@ -525,13 +528,13 @@ void readVertexAttrib (tcu::IVec4& dst, const VertexAttrib& vertexAttrib, const 
 	}
 }
 
-void readVertexAttrib (tcu::UVec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx)
+void readVertexAttrib (tcu::UVec4& dst, const VertexAttrib& vertexAttrib, const int instanceNdx, const int vertexNdx, const int baseInstanceNdx)
 {
 	DE_ASSERT(isValidVertexAttrib(vertexAttrib));
 
 	if (vertexAttrib.pointer)
 	{
-		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
+		const int	elementNdx		= (vertexAttrib.instanceDivisor != 0) ? baseInstanceNdx + (instanceNdx / vertexAttrib.instanceDivisor) : vertexNdx;
 		const int	compSize		= getComponentSize(vertexAttrib.type);
 		const int	stride			= (vertexAttrib.stride != 0) ? (vertexAttrib.stride) : (vertexAttrib.size*compSize);
 		const int	byteOffset		= elementNdx*stride;

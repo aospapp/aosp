@@ -31,9 +31,7 @@ public class InputBannerView extends LinearLayout implements TvTransitionManager
     private final long mShowDurationMillis;
 
     private final Runnable mHideRunnable =
-            new Runnable() {
-                @Override
-                public void run() {
+            () ->
                     ((MainActivity) getContext())
                             .getOverlayManager()
                             .hideOverlays(
@@ -42,9 +40,6 @@ public class InputBannerView extends LinearLayout implements TvTransitionManager
                                             | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE
                                             | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_MENU
                                             | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
-                }
-            };
-
     private TextView mInputLabelTextView;
     private TextView mSecondaryInputLabelTextView;
 

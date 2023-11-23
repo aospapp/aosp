@@ -16,54 +16,74 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore.Audio.Genres;
-import android.provider.MediaStore.Audio.Media;
 import android.provider.MediaStore.Audio.Genres.Members;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio1;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-public class MediaStore_Audio_GenresTest extends InstrumentationTestCase {
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_GenresTest {
+    private Context mContext;
     private ContentResolver mContentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Parameter(0)
+    public String mVolumeName;
 
-        mContentResolver = getInstrumentation().getContext().getContentResolver();
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+    }
+
+    @Test
     public void testGetContentUri() {
         Cursor c = null;
         assertNotNull(c = mContentResolver.query(
-                Genres.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME), null, null,
+                Genres.getContentUri(mVolumeName), null, null,
                     null, null));
         c.close();
-        try {
-            assertNotNull(c = mContentResolver.query(
-                    Genres.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null,
-                        null, null, null));
-            c.close();
-            fail("Should throw SQLException as the internal datatbase has no genre");
-        } catch (SQLException e) {
-            // expected
-        }
-
-        // can not accept any other volume names
-        String volume = "fakeVolume";
-        assertNull(mContentResolver.query(Genres.getContentUri(volume), null, null, null, null));
     }
 
+    @Test
     public void testStoreAudioGenresExternal() {
         // insert
         ContentValues values = new ContentValues();
         values.put(Genres.NAME, "POP");
-        Uri uri = mContentResolver.insert(Genres.EXTERNAL_CONTENT_URI, values);
+        Uri uri = mContentResolver.insert(Genres.getContentUri(mVolumeName), values);
         assertNotNull(uri);
 
         try {
@@ -74,57 +94,38 @@ public class MediaStore_Audio_GenresTest extends InstrumentationTestCase {
             assertEquals("POP", c.getString(c.getColumnIndex(Genres.NAME)));
             assertTrue(c.getLong(c.getColumnIndex(Genres._ID)) > 0);
             c.close();
-
-            // update
-            values.clear();
-            values.put(Genres.NAME, "ROCK");
-            assertEquals(1, mContentResolver.update(uri, values, null, null));
-            c = mContentResolver.query(uri, null, null, null, null);
-            c.moveToFirst();
-            assertEquals("ROCK", c.getString(c.getColumnIndex(Genres.NAME)));
-            c.close();
         } finally {
             assertEquals(1, mContentResolver.delete(uri, null, null));
         }
     }
 
-    public void testStoreAudioGenresInternal() {
-        // the internal database does not have genres
-        ContentValues values = new ContentValues();
-        values.put(Genres.NAME, "POP");
-        Uri uri = mContentResolver.insert(Genres.INTERNAL_CONTENT_URI, values);
-        assertNull(uri);
-    }
-
+    @Test
     public void testGetContentUriForAudioId() {
         // Insert an audio file into the content provider.
-        ContentValues values = Audio1.getInstance().getContentValues(true);
-        Uri audioUri = mContentResolver.insert(Media.EXTERNAL_CONTENT_URI, values);
+        Uri audioUri = Audio1.getInstance().insert(mContentResolver, mVolumeName);
         assertNotNull(audioUri);
         long audioId = ContentUris.parseId(audioUri);
         assertTrue(audioId != -1);
 
         // Insert a genre into the content provider.
-        values.clear();
+        ContentValues values = new ContentValues();
         values.put(Genres.NAME, "Soda Pop");
-        Uri genreUri = mContentResolver.insert(Genres.EXTERNAL_CONTENT_URI, values);
+        Uri genreUri = mContentResolver.insert(Genres.getContentUri(mVolumeName), values);
         assertNotNull(genreUri);
         long genreId = ContentUris.parseId(genreUri);
         assertTrue(genreId != -1);
 
         Cursor cursor = null;
         try {
-            String volumeName = MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME;
-
             // Check that the audio file has no genres yet.
-            Uri audioGenresUri = Genres.getContentUriForAudioId(volumeName, (int) audioId);
+            Uri audioGenresUri = Genres.getContentUriForAudioId(mVolumeName, (int) audioId);
             cursor = mContentResolver.query(audioGenresUri, null, null, null, null);
             assertFalse(cursor.moveToNext());
 
             // Link the audio file to the genre.
             values.clear();
             values.put(Members.AUDIO_ID, audioId);
-            Uri membersUri = Members.getContentUri(volumeName, genreId);
+            Uri membersUri = Members.getContentUri(mVolumeName, genreId);
             assertNotNull(mContentResolver.insert(membersUri, values));
 
             // Check that the audio file has the genre it was linked to.

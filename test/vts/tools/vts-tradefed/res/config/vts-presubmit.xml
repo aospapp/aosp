@@ -14,12 +14,17 @@
      limitations under the License.
 -->
 <configuration description="VTS Presubmit Test Plan">
-  <include name="vts-base" />
-  <option name="compatibility:primary-abi-only" value="true" />
-  <option name="plan" value="vts" />
-  <option name="test-tag" value="vts-star" />
+  <include name="vts-base-presubmit" />
+
   <option name="vts-plan-result:plan-name" value="vts-presubmit" />
 
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:max-retry-count:2" />
+
+  <include name="vts-presubmit-exclude" />
+
   <option name="compatibility:include-filter" value="SampleShellTest" />
+  <option name="compatibility:include-filter" value="VtsHalAudioV4_0Target" />
+  <option name="compatibility:include-filter" value="VtsHalGraphicsComposerV2_1Target" />
+  <option name="compatibility:include-filter" value="VtsHalMediaOmxV1_0Host" />
 
 </configuration>

@@ -26,6 +26,8 @@ LOCAL_USE_AAPT2 := true
 
 LOCAL_PACKAGE_NAME := Gallery2
 
+LOCAL_PRODUCT_MODULE := true
+
 LOCAL_OVERRIDES_PACKAGES := Gallery Gallery3D GalleryNew3D
 
 LOCAL_SDK_VERSION := current

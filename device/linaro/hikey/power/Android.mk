@@ -20,8 +20,27 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_SHARED_LIBRARIES := liblog libcutils
-LOCAL_SRC_FILES := power_hikey.c
-LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
-include $(BUILD_SHARED_LIBRARY)
+
+LOCAL_MODULE := android.hardware.power@1.1-service.hikey-common
+LOCAL_INIT_RC := android.hardware.power@1.1-service.hikey-common.rc
+LOCAL_SRC_FILES := service.cpp Power.cpp power_hikey.c
+
+#LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
+#LOCAL_SRC_FILES := power_hikey.c
+
+LOCAL_HEADER_LIBRARIES += libhardware_headers
+
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+
+LOCAL_SHARED_LIBRARIES := \
+    libbase \
+    libcutils \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libutils \
+    android.hardware.power@1.1 \
+
+include $(BUILD_EXECUTABLE)

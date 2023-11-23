@@ -17,10 +17,10 @@
 package com.android.incallui.incall.impl;
 
 import android.Manifest.permission;
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.ColorInt;
@@ -31,10 +31,13 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
 import android.telecom.CallAudioState;
 import android.telephony.TelephonyManager;
+import android.transition.TransitionManager;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnAttachStateChangeListener;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -42,18 +45,17 @@ import android.widget.Toast;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.compat.ActivityCompat;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.multimedia.MultimediaData;
 import com.android.dialer.strictmode.StrictModeUtils;
-import com.android.dialer.util.ViewUtil;
 import com.android.dialer.widget.LockableViewPager;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment.AudioRouteSelectorPresenter;
 import com.android.incallui.contactgrid.ContactGridManager;
 import com.android.incallui.hold.OnHoldFragment;
 import com.android.incallui.incall.impl.ButtonController.SpeakerButtonController;
+import com.android.incallui.incall.impl.ButtonController.UpgradeToRttButtonController;
 import com.android.incallui.incall.impl.InCallButtonGridFragment.OnButtonGridCreatedListener;
 import com.android.incallui.incall.protocol.InCallButtonIds;
 import com.android.incallui.incall.protocol.InCallButtonIdsExtension;
@@ -114,7 +116,8 @@ public class InCallFragment extends Fragment
         || id == InCallButtonIds.BUTTON_ADD_CALL
         || id == InCallButtonIds.BUTTON_MERGE
         || id == InCallButtonIds.BUTTON_MANAGE_VOICE_CONFERENCE
-        || id == InCallButtonIds.BUTTON_SWAP_SIM;
+        || id == InCallButtonIds.BUTTON_SWAP_SIM
+        || id == InCallButtonIds.BUTTON_UPGRADE_TO_RTT;
   }
 
   @Override
@@ -139,11 +142,13 @@ public class InCallFragment extends Fragment
 
   @Nullable
   @Override
+  @SuppressLint("MissingPermission")
   public View onCreateView(
       @NonNull LayoutInflater layoutInflater,
       @Nullable ViewGroup viewGroup,
       @Nullable Bundle bundle) {
     LogUtil.i("InCallFragment.onCreateView", null);
+    getActivity().setTheme(R.style.Theme_InCallScreen);
     // Bypass to avoid StrictModeResourceMismatchViolation
     final View view =
         StrictModeUtils.bypass(
@@ -154,7 +159,7 @@ public class InCallFragment extends Fragment
             (ImageView) view.findViewById(R.id.contactgrid_avatar),
             getResources().getDimensionPixelSize(R.dimen.incall_avatar_size),
             true /* showAnonymousAvatar */);
-    contactGridManager.onMultiWindowModeChanged(ActivityCompat.isInMultiWindowMode(getActivity()));
+    contactGridManager.onMultiWindowModeChanged(getActivity().isInMultiWindowMode());
 
     paginator = (InCallPaginator) view.findViewById(R.id.incall_paginator);
     pager = (LockableViewPager) view.findViewById(R.id.incall_pager);
@@ -171,17 +176,30 @@ public class InCallFragment extends Fragment
         != PackageManager.PERMISSION_GRANTED) {
       voiceNetworkType = TelephonyManager.NETWORK_TYPE_UNKNOWN;
     } else {
-
       voiceNetworkType =
-          VERSION.SDK_INT >= VERSION_CODES.N
-              ? getContext().getSystemService(TelephonyManager.class).getVoiceNetworkType()
-              : TelephonyManager.NETWORK_TYPE_UNKNOWN;
+          getContext().getSystemService(TelephonyManager.class).getVoiceNetworkType();
     }
     // TODO(a bug): Change to use corresponding phone type used for current call.
     phoneType = getContext().getSystemService(TelephonyManager.class).getPhoneType();
-    View space = view.findViewById(R.id.navigation_bar_background);
-    space.getLayoutParams().height = ViewUtil.getNavigationBarHeight(getContext());
 
+    // Workaround to adjust padding for status bar and navigation bar since fitsSystemWindows
+    // doesn't work well when switching with other fragments.
+    view.addOnAttachStateChangeListener(
+        new OnAttachStateChangeListener() {
+          @Override
+          public void onViewAttachedToWindow(View v) {
+            View container = v.findViewById(R.id.incall_ui_container);
+            int topInset = v.getRootWindowInsets().getSystemWindowInsetTop();
+            int bottomInset = v.getRootWindowInsets().getSystemWindowInsetBottom();
+            if (topInset != container.getPaddingTop()) {
+              TransitionManager.beginDelayedTransition(((ViewGroup) container.getParent()));
+              container.setPadding(0, topInset, 0, bottomInset);
+            }
+          }
+
+          @Override
+          public void onViewDetachedFromWindow(View v) {}
+        });
     return view;
   }
 
@@ -210,6 +228,7 @@ public class InCallFragment extends Fragment
     buttonControllers.add(new ButtonController.SwapSimButtonController(inCallButtonUiDelegate));
     buttonControllers.add(
         new ButtonController.UpgradeToVideoButtonController(inCallButtonUiDelegate));
+    buttonControllers.add(new UpgradeToRttButtonController(inCallButtonUiDelegate));
     buttonControllers.add(
         new ButtonController.ManageConferenceButtonController(inCallScreenDelegate));
     buttonControllers.add(
@@ -376,6 +395,11 @@ public class InCallFragment extends Fragment
       // Update the Android Button's state to isShowing.
       inCallButtonGridFragment.onInCallScreenDialpadVisibilityChange(isShowing);
     }
+    Activity activity = getActivity();
+    Window window = activity.getWindow();
+    window.setNavigationBarColor(
+        activity.getColor(
+            isShowing ? android.R.color.background_dark : android.R.color.transparent));
   }
 
   @Override

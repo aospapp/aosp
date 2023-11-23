@@ -18,6 +18,8 @@
 
 #include <stdint.h>
 
+#include <vector>
+
 #include <base/location.h>
 #include <base/logging.h>
 #include <base/time/time.h>
@@ -33,6 +35,7 @@ using chromeos_update_engine::ConnectionType;
 using policy::DevicePolicy;
 using std::set;
 using std::string;
+using std::vector;
 
 namespace {
 
@@ -100,10 +103,9 @@ void RealDevicePolicyProvider::RefreshDevicePolicyAndReschedule() {
       TimeDelta::FromMinutes(kDevicePolicyRefreshRateInMinutes));
 }
 
-template<typename T>
+template <typename T>
 void RealDevicePolicyProvider::UpdateVariable(
-    AsyncCopyVariable<T>* var,
-    bool (DevicePolicy::*getter_method)(T*) const) {
+    AsyncCopyVariable<T>* var, bool (DevicePolicy::*getter_method)(T*) const) {
   T new_value;
   if (policy_provider_->device_policy_is_loaded() &&
       (policy_provider_->GetDevicePolicy().*getter_method)(&new_value)) {
@@ -113,7 +115,7 @@ void RealDevicePolicyProvider::UpdateVariable(
   }
 }
 
-template<typename T>
+template <typename T>
 void RealDevicePolicyProvider::UpdateVariable(
     AsyncCopyVariable<T>* var,
     bool (RealDevicePolicyProvider::*getter_method)(T*) const) {
@@ -126,11 +128,28 @@ void RealDevicePolicyProvider::UpdateVariable(
   }
 }
 
+bool RealDevicePolicyProvider::ConvertRollbackToTargetVersion(
+    RollbackToTargetVersion* rollback_to_target_version) const {
+  int rollback_to_target_version_int;
+  if (!policy_provider_->GetDevicePolicy().GetRollbackToTargetVersion(
+          &rollback_to_target_version_int)) {
+    return false;
+  }
+  if (rollback_to_target_version_int < 0 ||
+      rollback_to_target_version_int >=
+          static_cast<int>(RollbackToTargetVersion::kMaxValue)) {
+    return false;
+  }
+  *rollback_to_target_version =
+      static_cast<RollbackToTargetVersion>(rollback_to_target_version_int);
+  return true;
+}
+
 bool RealDevicePolicyProvider::ConvertAllowedConnectionTypesForUpdate(
-      set<ConnectionType>* allowed_types) const {
+    set<ConnectionType>* allowed_types) const {
   set<string> allowed_types_str;
-  if (!policy_provider_->GetDevicePolicy()
-      .GetAllowedConnectionTypesForUpdate(&allowed_types_str)) {
+  if (!policy_provider_->GetDevicePolicy().GetAllowedConnectionTypesForUpdate(
+          &allowed_types_str)) {
     return false;
   }
   allowed_types->clear();
@@ -150,7 +169,7 @@ bool RealDevicePolicyProvider::ConvertScatterFactor(
     TimeDelta* scatter_factor) const {
   int64_t scatter_factor_in_seconds;
   if (!policy_provider_->GetDevicePolicy().GetScatterFactorInSeconds(
-      &scatter_factor_in_seconds)) {
+          &scatter_factor_in_seconds)) {
     return false;
   }
   if (scatter_factor_in_seconds < 0) {
@@ -159,6 +178,23 @@ bool RealDevicePolicyProvider::ConvertScatterFactor(
     return false;
   }
   *scatter_factor = TimeDelta::FromSeconds(scatter_factor_in_seconds);
+  return true;
+}
+
+bool RealDevicePolicyProvider::ConvertDisallowedTimeIntervals(
+    WeeklyTimeIntervalVector* disallowed_intervals_out) const {
+  vector<DevicePolicy::WeeklyTimeInterval> parsed_intervals;
+  if (!policy_provider_->GetDevicePolicy().GetDisallowedTimeIntervals(
+          &parsed_intervals)) {
+    return false;
+  }
+
+  disallowed_intervals_out->clear();
+  for (const auto& interval : parsed_intervals) {
+    disallowed_intervals_out->emplace_back(
+        WeeklyTime(interval.start_day_of_week, interval.start_time),
+        WeeklyTime(interval.end_day_of_week, interval.end_time));
+  }
   return true;
 }
 
@@ -176,6 +212,14 @@ void RealDevicePolicyProvider::RefreshDevicePolicy() {
   UpdateVariable(&var_update_disabled_, &DevicePolicy::GetUpdateDisabled);
   UpdateVariable(&var_target_version_prefix_,
                  &DevicePolicy::GetTargetVersionPrefix);
+  UpdateVariable(&var_rollback_to_target_version_,
+                 &RealDevicePolicyProvider::ConvertRollbackToTargetVersion);
+  UpdateVariable(&var_rollback_allowed_milestones_,
+                 &DevicePolicy::GetRollbackAllowedMilestones);
+  if (policy_provider_->IsConsumerDevice()) {
+    // For consumer devices (which won't ever have policy), set value to 0.
+    var_rollback_allowed_milestones_.SetValue(0);
+  }
   UpdateVariable(&var_scatter_factor_,
                  &RealDevicePolicyProvider::ConvertScatterFactor);
   UpdateVariable(
@@ -187,6 +231,10 @@ void RealDevicePolicyProvider::RefreshDevicePolicy() {
   UpdateVariable(&var_au_p2p_enabled_, &DevicePolicy::GetAuP2PEnabled);
   UpdateVariable(&var_allow_kiosk_app_control_chrome_version_,
                  &DevicePolicy::GetAllowKioskAppControlChromeVersion);
+  UpdateVariable(&var_auto_launched_kiosk_app_id_,
+                 &DevicePolicy::GetAutoLaunchedKioskAppId);
+  UpdateVariable(&var_disallowed_time_intervals_,
+                 &RealDevicePolicyProvider::ConvertDisallowedTimeIntervals);
 }
 
 }  // namespace chromeos_update_manager

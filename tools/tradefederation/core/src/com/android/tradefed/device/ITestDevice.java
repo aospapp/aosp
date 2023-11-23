@@ -86,6 +86,37 @@ public interface ITestDevice extends INativeDevice {
         }
     }
 
+    /** A simple struct class to store information about a single APEX */
+    public static class ApexInfo {
+        public final String name;
+        public final long versionCode;
+
+        public ApexInfo(String name, long versionCode) {
+            this.name = name;
+            this.versionCode = versionCode;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (other != null && other instanceof ApexInfo) {
+                ApexInfo ai = (ApexInfo) other;
+                return name.equals(ai.name) && versionCode == ai.versionCode;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            // no need to consider versionCode here.
+            return name.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return "packageName: " + name + ", versionCode: " + versionCode;
+        }
+    }
+
     /**
      * Install an Android package on device.
      *
@@ -164,6 +195,160 @@ public interface ITestDevice extends INativeDevice {
     public String uninstallPackage(String packageName) throws DeviceNotAvailableException;
 
     /**
+     * Install an Android application made of several APK files (one main and extra split packages).
+     * See "https://developer.android.com/studio/build/configure-apk-splits" on how to split
+     * apk to several files.
+     *
+     * @param packageFiles the local apk files
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installPackages(
+            List<File> packageFiles, boolean reinstall, String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+    /**
+     * Install an Android application made of several APK files (one main and extra split packages)
+     * that are sitting on the android device. See
+     * "https://developer.android.com/studio/build/configure-apk-splits" on how to split apk to
+     * several files.
+     *
+     * <p>Note: Only use cases that requires explicit control of granting runtime permission at
+     * install time should call this function.
+     *
+     * @param packageFiles the remote apk file paths to install
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param grantPermissions if all runtime permissions should be granted at install time
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installPackages(
+            List<File> packageFiles,
+            boolean reinstall,
+            boolean grantPermissions,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+    /**
+     * Install an Android application made of several APK files (one main and extra split packages)
+     * for a given user. See "https://developer.android.com/studio/build/configure-apk-splits" on
+     * how to split apk to several files.
+     *
+     * @param packageFiles the local apk files
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param userId the integer user id to install for.
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installPackagesForUser(
+            List<File> packageFiles, boolean reinstall, int userId, String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+    /**
+     * Install an Android application made of several APK files (one main and extra split packages)
+     * for a given user. See "https://developer.android.com/studio/build/configure-apk-splits" on
+     * how to split apk to several files.
+     *
+     * <p>Note: Only use cases that requires explicit control of granting runtime permission at
+     * install time should call this function.
+     *
+     * @param packageFiles the local apk files
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param grantPermissions if all runtime permissions should be granted at install time
+     * @param userId the integer user id to install for.
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installPackagesForUser(
+            List<File> packageFiles,
+            boolean reinstall,
+            boolean grantPermissions,
+            int userId,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+    /**
+     * Install an Android application made of several APK files (one main and extra split packages)
+     * that are sitting on the android device. See
+     * "https://developer.android.com/studio/build/configure-apk-splits" on how to split apk to
+     * several files.
+     *
+     * <p>Note: Only use cases that requires explicit control of granting runtime permission at
+     * install time should call this function.
+     *
+     * @param remoteApkPaths the remote apk file paths
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param grantPermissions if all runtime permissions should be granted at install time
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installRemotePackages(
+            List<String> remoteApkPaths,
+            boolean reinstall,
+            boolean grantPermissions,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+    /**
+     * Install an Android application made of several APK files (one main and extra split packages)
+     * that are sitting on the android device. See
+     * "https://developer.android.com/studio/build/configure-apk-splits" on how to split apk to
+     * several files.
+     *
+     * @param remoteApkPaths the remote apk file paths
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return a {@link String} with an error code, or <code>null</code> if success.
+     * @throws DeviceNotAvailableException if connection with device is lost and cannot be
+     *     recovered.
+     * @throws UnsupportedOperationException if runtime permission is not supported by the platform
+     *     on device.
+     */
+    public default String installRemotePackages(
+            List<String> remoteApkPaths, boolean reinstall, String... extraArgs)
+            throws DeviceNotAvailableException {
+        throw new UnsupportedOperationException("No support for Package Manager's features");
+    }
+
+
+    /**
      * Grabs a screenshot from the device.
      *
      * @return a {@link InputStreamSource} of the screenshot in png format, or <code>null</code> if
@@ -194,6 +379,18 @@ public interface ITestDevice extends INativeDevice {
      */
     public InputStreamSource getScreenshot(String format, boolean rescale)
             throws DeviceNotAvailableException;
+
+    /**
+     * Grabs a screenshot from the device given display id. Format is PNG.
+     *
+     * <p>TODO: extend the implementations above to support 'format' and 'rescale'
+     *
+     * @param displayId the display id of the screen to get screenshot from.
+     * @return a {@link InputStreamSource} of the screenshot in format, or <code>null</code> if the
+     *     screenshot was not successful.
+     * @throws DeviceNotAvailableException
+     */
+    public InputStreamSource getScreenshot(int displayId) throws DeviceNotAvailableException;
 
     /**
      * Clears the last connected wifi network. This should be called when starting a new invocation
@@ -364,6 +561,35 @@ public interface ITestDevice extends INativeDevice {
     public Set<String> getInstalledPackageNames() throws DeviceNotAvailableException;
 
     /**
+     * Query the device for a given package name to check if it's currently installed or not.
+     *
+     * @return True if the package is reported as installed. False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean isPackageInstalled(String packageName) throws DeviceNotAvailableException;
+
+    /**
+     * Query the device for a given package name and given user id to check if it's currently
+     * installed or not for that user.
+     *
+     * @param packageName the package we are checking if it's installed.
+     * @param userId The user id we are checking the package is installed for. If null, primary user
+     *     zero will be used.
+     * @return True if the package is reported as installed. False otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean isPackageInstalled(String packageName, String userId)
+            throws DeviceNotAvailableException;
+
+    /**
+     * Fetch the information about APEXes activated on the device.
+     *
+     * @return {@link Set} of {@link ApexInfo} currently activated on the device
+     * @throws DeviceNotAvailableException
+     */
+    public Set<ApexInfo> getActiveApexes() throws DeviceNotAvailableException;
+
+    /**
      * Fetch the application package names that can be uninstalled. This is presently defined as
      * non-system packages, and updated system packages.
      *
@@ -397,6 +623,15 @@ public interface ITestDevice extends INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public int createUser(String name) throws DeviceNotAvailableException, IllegalStateException;
+
+    /**
+     * Create a user with a given name and default flags 0.
+     *
+     * @param name of the user to create on the device
+     * @return the integer for the user id created or -1 for error.
+     * @throws DeviceNotAvailableException
+     */
+    public int createUserNoThrow(String name) throws DeviceNotAvailableException;
 
     /**
      * Create a user with a given name and the provided flags
@@ -455,6 +690,18 @@ public interface ITestDevice extends INativeDevice {
     public boolean startUser(int userId) throws DeviceNotAvailableException;
 
     /**
+     * Starts a given user in the background if it is currently stopped. If the user is already
+     * running in the background, this method is a NOOP. Possible to provide extra flag to wait for
+     * the operation to have effect.
+     *
+     * @param userId of the user to start in the background
+     * @param waitFlag will make the command wait until user is started and unlocked.
+     * @return true if the user was successfully started in the background.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean startUser(int userId, boolean waitFlag) throws DeviceNotAvailableException;
+
+    /**
      * Stops a given user. If the user is already stopped, this method is a NOOP.
      * Cannot stop current and system user.
      *
@@ -491,7 +738,7 @@ public interface ITestDevice extends INativeDevice {
      *
      * @throws DeviceNotAvailableException
      */
-    public int getCurrentUser() throws DeviceNotAvailableException;
+    public int getCurrentUser() throws DeviceNotAvailableException, DeviceRuntimeException;
 
     /**
      * Find and return the flags of a given user.
@@ -501,6 +748,14 @@ public interface ITestDevice extends INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public int getUserFlags(int userId) throws DeviceNotAvailableException;
+
+    /**
+     * Return whether the specified user is a secondary user according to it's flags.
+     *
+     * @return true if the user is secondary, false otherwise.
+     * @throws DeviceNotAvailableException
+     */
+    public boolean isUserSecondary(int userId) throws DeviceNotAvailableException;
 
     /**
      * Return the serial number associated to the userId if found, -10000 in any other cases.
@@ -560,6 +815,15 @@ public interface ITestDevice extends INativeDevice {
      */
     public String getSetting(int userId, String namespace, String key)
             throws DeviceNotAvailableException;
+
+    /**
+     * Return key value pairs of requested namespace.
+     *
+     * @param namespace must be one of {"system", "secure", "global"}
+     * @return the map of key value pairs. Null if namespace is not supported.
+     * @throws DeviceNotAvailableException
+     */
+    public Map<String, String> getAllSettings(String namespace) throws DeviceNotAvailableException;
 
     /**
      * See {@link #setSetting(int, String, String, String)} and performed on system user.
@@ -645,4 +909,13 @@ public interface ITestDevice extends INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public File dumpHeap(String process, String devicePath) throws DeviceNotAvailableException;
+
+    /**
+     * Collect the list of available displays id on the device as reported by "dumpsys
+     * SurfaceFlinger".
+     *
+     * @return The list of displays. Default always returns the default display 0.
+     * @throws DeviceNotAvailableException
+     */
+    public Set<Integer> listDisplayIds() throws DeviceNotAvailableException;
 }

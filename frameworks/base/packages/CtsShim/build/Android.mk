@@ -66,6 +66,8 @@ LOCAL_FULL_MANIFEST_FILE := $(gen)
 LOCAL_MULTILIB := both
 LOCAL_JNI_SHARED_LIBRARIES := libshim_jni
 
+LOCAL_USE_AAPT2 := true
+
 include $(BUILD_PACKAGE)
 
 ###########################################################
@@ -105,6 +107,8 @@ LOCAL_DEX_PREOPT := false
 LOCAL_PACKAGE_NAME := CtsShim
 
 LOCAL_MANIFEST_FILE := shim/AndroidManifest.xml
+
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_PACKAGE)
 

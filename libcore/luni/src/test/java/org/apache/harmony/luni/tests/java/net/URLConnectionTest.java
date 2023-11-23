@@ -469,9 +469,7 @@ public class URLConnectionTest extends TestCaseWithRules {
 
         URLConnection htmlFileCon = openHTMLFile();
         String contentType = htmlFileCon.getContentType();
-        if (contentType != null) {
-            assertTrue(contentType.equalsIgnoreCase("text/html"));
-        }
+        assertEquals("text/html", contentType);
     }
 
     /**
@@ -1234,6 +1232,7 @@ public class URLConnectionTest extends TestCaseWithRules {
         URL fUrl1 = new URL("file://" + tmpDir.getPath()
                 + "/Harmony.GIF");
         URLConnection con1 = fUrl1.openConnection();
+        assertEquals("file", con1.getURL().getProtocol()); // http://b/119607552
         return con1;
     }
 
@@ -1252,9 +1251,10 @@ public class URLConnectionTest extends TestCaseWithRules {
         String cts = System.getProperty("java.io.tmpdir");
         File tmpDir = new File(cts);
         Support_Resources.copyFile(tmpDir, null, "hyts_htmltest.html");
-        URL fUrl1 = new URL("file:/" + tmpDir.getPath()
+        URL fUrl1 = new URL("file://" + tmpDir.getPath()
                 + "/hyts_htmltest.html");
         URLConnection con1 = fUrl1.openConnection();
+        assertEquals("file", con1.getURL().getProtocol()); // http://b/119607552
         return con1;
     }
 

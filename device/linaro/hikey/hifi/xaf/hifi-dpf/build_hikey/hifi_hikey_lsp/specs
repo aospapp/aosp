@@ -1,0 +1,22 @@
+# Customer ID=9470; Build=0x42f97; Copyright (c) 2001-2010 by Tensilica Inc.  ALL RIGHTS RESERVED.
+# These coded instructions, statements, and computer programs are the
+# copyrighted works and confidential proprietary information of Tensilica Inc.
+# They may not be modified, copied, reproduced, distributed, or disclosed to
+# third parties in any manner, medium, or form, in whole or in part, without
+# the prior written consent of Tensilica Inc.
+
+
+# The %O suffix on the start and end files indicates that the system's
+# standard suffix for object files (e.g., ".o") should be appended.
+# The %s suffix tells the compiler driver to search for the file in the
+# list of known locations for startfiles.
+
+*startfile:
+crt1-boards%O%s crti%O%s crtbegin%O%s _sharedvectors%O%s _vectors%O%s
+
+*endfile:
+crtend%O%s crtn%O%s
+
+*lib:
+-lc -lgloss -lminrt -lc -lhandler-reset -lhandlers-board -lminrt -lhal -lc
+

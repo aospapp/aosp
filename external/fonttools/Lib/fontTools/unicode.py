@@ -18,8 +18,11 @@ class _UnicodeCustom(object):
 
 	def __init__(self, f):
 		if isinstance(f, basestring):
-			f = open(f)
-		self.codes = _makeunicodes(f)
+			with open(f) as fd:
+				codes = _makeunicodes(fd)
+		else:
+			codes = _makeunicodes(f)
+		self.codes = codes
 
 	def __getitem__(self, charCode):
 		try:
@@ -30,7 +33,12 @@ class _UnicodeCustom(object):
 class _UnicodeBuiltin(object):
 
 	def __getitem__(self, charCode):
-		import unicodedata
+		try:
+			# use unicodedata backport to python2, if available:
+			# https://github.com/mikekap/unicodedata2
+			import unicodedata2 as unicodedata
+		except ImportError: 
+			import unicodedata
 		try:
 			return unicodedata.name(unichr(charCode))
 		except ValueError:

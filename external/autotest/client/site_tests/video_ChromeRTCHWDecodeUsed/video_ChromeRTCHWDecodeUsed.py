@@ -2,13 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import os
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, file_utils, utils
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros.video import histogram_verifier
+from autotest_lib.client.cros.video import device_capability
 from autotest_lib.client.cros.video import helper_logger
+from autotest_lib.client.cros.video import histogram_verifier
 
 
 # Chrome flags to use fake camera and skip camera permission.
@@ -59,9 +61,14 @@ class video_ChromeRTCHWDecodeUsed(test.test):
         tab.WaitForDocumentReadyStateToBeComplete()
 
     @helper_logger.video_log_wrapper
-    def run_once(self, video_name, histogram_name, histogram_bucket_val):
+    def run_once(self, video_name, histogram_name, histogram_bucket_val,
+                 capability):
         if self.is_skipping_test():
             raise error.TestNAError('Skipping test run on this board.')
+
+        if not device_capability.DeviceCapability().have_capability(capability):
+            logging.warning("Missing Capability: %s" % capability)
+            return
 
         # Download test video.
         url = DOWNLOAD_BASE + video_name
@@ -73,9 +80,12 @@ class video_ChromeRTCHWDecodeUsed(test.test):
         EXTRA_BROWSER_ARGS.append(helper_logger.chrome_vmodule_flag())
         with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
                            init_network_controller=True) as cr:
+            histogram_differ = histogram_verifier.HistogramDiffer(
+                cr, histogram_name)
             # Open WebRTC loopback page.
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             self.start_loopback(cr)
 
             # Make sure decode is hardware accelerated.
-            histogram_verifier.verify(cr, histogram_name, histogram_bucket_val)
+            histogram_verifier.expect_sole_bucket(
+                histogram_differ, histogram_bucket_val, histogram_bucket_val)

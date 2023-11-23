@@ -22,6 +22,7 @@ libbrillo_core_sources = [
     "brillo/errors/error.cc",
     "brillo/errors/error_codes.cc",
     "brillo/flag_helper.cc",
+    "brillo/imageloader/manifest.cc",
     "brillo/key_value_store.cc",
     "brillo/message_loops/base_message_loop.cc",
     "brillo/message_loops/message_loop.cc",
@@ -97,6 +98,7 @@ libbrillo_test_sources = [
     "brillo/http/http_request_unittest.cc",
     "brillo/http/http_transport_curl_unittest.cc",
     "brillo/http/http_utils_unittest.cc",
+    "brillo/imageloader/manifest_unittest.cc",
     "brillo/key_value_store_unittest.cc",
     "brillo/map_utils_unittest.cc",
     "brillo/message_loops/base_message_loop_unittest.cc",
@@ -132,6 +134,7 @@ libbrillo_shared_libraries = ["libchrome"]
 cc_library {
     name: "libbrillo",
     host_supported: true,
+    recovery_available: true,
     srcs: libbrillo_core_sources,
     shared_libs: libbrillo_shared_libraries,
     static_libs: [
@@ -201,6 +204,7 @@ cc_library {
     export_include_dirs: ["."],
 
     host_supported: true,
+    recovery_available: true,
     target: {
         darwin: {
             enabled: false,
@@ -274,12 +278,12 @@ cc_library_static {
 cc_test {
     name: "libbrillo_test",
     srcs: libbrillo_test_sources,
+    isolated: true,
     static_libs: [
         "libgtest",
         "libchrome_test_helpers",
         "libbrillo-test-helpers",
         "libgmock",
-        "libBionicGtestMain",
     ],
     shared_libs: libbrillo_shared_libraries + [
         "libbrillo",
@@ -292,4 +296,3 @@ cc_test {
     cflags: libbrillo_CFLAGS,
     cppflags: ["-Wno-sign-compare"],
 }
-

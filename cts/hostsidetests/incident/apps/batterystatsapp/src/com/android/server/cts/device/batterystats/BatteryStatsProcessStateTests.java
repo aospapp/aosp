@@ -15,11 +15,10 @@
  */
 package com.android.server.cts.device.batterystats;
 
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.content.Intent;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

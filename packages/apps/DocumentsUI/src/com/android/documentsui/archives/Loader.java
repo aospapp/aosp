@@ -16,18 +16,19 @@
 
 package com.android.documentsui.archives;
 
-import com.android.internal.annotations.GuardedBy;
-
+import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.util.Log;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import androidx.annotation.GuardedBy;
+
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
+
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.compressors.CompressorException;
 
 /**
  * Loads an instance of Archive lazily.
@@ -79,11 +80,13 @@ public class Loader {
 
         try {
             if (ReadableArchive.supportsAccessMode(mAccessMode)) {
+                final ContentResolver contentResolver = mContext.getContentResolver();
+                final String archiveMimeType = contentResolver.getType(mArchiveUri);
                 mArchive = ReadableArchive.createForParcelFileDescriptor(
                         mContext,
-                        mContext.getContentResolver().openFileDescriptor(
+                        contentResolver.openFileDescriptor(
                                 mArchiveUri, "r", null /* signal */),
-                        mArchiveUri, mAccessMode, mNotificationUri);
+                        mArchiveUri, archiveMimeType, mAccessMode, mNotificationUri);
             } else if (WriteableArchive.supportsAccessMode(mAccessMode)) {
                 mArchive = WriteableArchive.createForParcelFileDescriptor(
                         mContext,
@@ -101,7 +104,7 @@ public class Loader {
                     mStatus = STATUS_OPENED;
                 }
             }
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | RuntimeException | ArchiveException | CompressorException e) {
             Log.e(TAG, "Failed to open the archive.", e);
             synchronized (mLock) {
                 mStatus = STATUS_FAILED;

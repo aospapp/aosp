@@ -7,13 +7,13 @@
 
 #include "gm.h"
 #include "sk_tool_utils.h"
-#if SK_SUPPORT_GPU
+#include "GrCaps.h"
 #include "GrContext.h"
 #include "GrRenderTargetContextPriv.h"
 #include "SkRRect.h"
 #include "effects/GrRRectEffect.h"
 #include "ops/GrDrawOp.h"
-#include "ops/GrRectOpFactory.h"
+#include "ops/GrFillRectOp.h"
 
 namespace skiagm {
 
@@ -56,6 +56,11 @@ protected:
             return;
         }
 
+        GrContext* context = canvas->getGrContext();
+        if (!context) {
+            return;
+        }
+
         SkPaint paint;
 
         int y = kPad;
@@ -82,7 +87,7 @@ protected:
                 SkASSERT(fp);
                 if (fp) {
                     GrPaint grPaint;
-                    grPaint.setColor4f(GrColor4f(0, 0, 0, 1.f));
+                    grPaint.setColor4f({ 0, 0, 0, 1.f });
                     grPaint.setXPFactory(GrPorterDuffXPFactory::Get(SkBlendMode::kSrc));
                     grPaint.addCoverageFragmentProcessor(std::move(fp));
 
@@ -90,8 +95,8 @@ protected:
                     bounds.offset(SkIntToScalar(x), SkIntToScalar(y));
 
                     renderTargetContext->priv().testingOnly_addDrawOp(
-                            GrRectOpFactory::MakeNonAAFill(std::move(grPaint), SkMatrix::I(),
-                                                           bounds, GrAAType::kNone));
+                            GrFillRectOp::Make(context, std::move(grPaint), GrAAType::kNone,
+                                               SkMatrix::I(), bounds));
                 }
             canvas->restore();
             x = x + fTestOffsetX;
@@ -128,4 +133,3 @@ DEF_GM( return new BigRRectAAEffectGM (SkRRect::MakeRectXY(SkRect::MakeIWH(kSize
 DEF_GM( return new BigRRectAAEffectGM (SkRRect::MakeRectXY(SkRect::MakeIWH(kSize - 1, kSize - 10), kSize/2.f - 10.f, kSize/2.f - 15.f), "elliptical_corner"); )
 
 }
-#endif

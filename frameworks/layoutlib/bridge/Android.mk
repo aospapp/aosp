@@ -17,16 +17,19 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under,src)
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 LOCAL_JAVA_RESOURCE_DIRS := resources
 
 LOCAL_JAVA_LIBRARIES := \
 	layoutlib_api-prebuilt \
-	tools-common-prebuilt
+	tools-common-prebuilt \
+	guava-prebuilt-host-jar
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	temp_layoutlib \
 	ninepatch-prebuilt \
 	layoutlib-common
+
 
 LOCAL_MODULE := layoutlib
 
@@ -34,6 +37,27 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 
 $(call dist-for-goals, layoutlib, $(LOCAL_INSTALLED_MODULE))
 
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := $(call all-java-files-under,src)
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
+LOCAL_JAVA_RESOURCE_DIRS := resources
+
+LOCAL_JAVA_LIBRARIES := temp_layoutlib \
+	guava-prebuilt-host-jar \
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+	layoutlib_create \
+	layoutlib_api-prebuilt \
+	tools-common-prebuilt \
+	ninepatch-prebuilt \
+	layoutlib-common
+
+LOCAL_MODULE := layoutlib-no-framework
+
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+$(call dist-for-goals, layoutlib, $(LOCAL_INSTALLED_MODULE))
+
 # Build all sub-directories
 include $(call all-makefiles-under,$(LOCAL_PATH))
-

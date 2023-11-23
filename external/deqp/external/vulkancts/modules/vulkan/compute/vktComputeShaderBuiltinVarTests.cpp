@@ -33,10 +33,12 @@
 #include "vkStrUtil.hpp"
 #include "vkRefUtil.hpp"
 #include "vkQueryUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkDeviceUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkBuilderUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuFormatUtil.hpp"
@@ -143,7 +145,7 @@ private:
 class ComputeBuiltinVarCase : public vkt::TestCase
 {
 public:
-							ComputeBuiltinVarCase	(tcu::TestContext& context, const char* name, const char* varName, glu::DataType varType);
+							ComputeBuiltinVarCase	(tcu::TestContext& context, const string& name, const char* varName, glu::DataType varType, bool readByComponent);
 							~ComputeBuiltinVarCase	(void);
 
 	TestInstance*			createInstance			(Context& context) const
@@ -155,7 +157,7 @@ public:
 	virtual UVec3			computeReference		(const UVec3& numWorkGroups, const UVec3& workGroupSize, const UVec3& workGroupID, const UVec3& localInvocationID) const = 0;
 
 protected:
-	string					genBuiltinVarSource		(const string& varName, glu::DataType varType, const UVec3& localSize) const;
+	string					genBuiltinVarSource		(const string& varName, glu::DataType varType, const UVec3& localSize, bool readByComponent) const;
 	vector<SubCase>			m_subCases;
 
 private:
@@ -164,16 +166,18 @@ private:
 	const string			m_varName;
 	const glu::DataType		m_varType;
 	int						m_subCaseNdx;
+	bool					m_readByComponent;
 
 	ComputeBuiltinVarCase (const ComputeBuiltinVarCase& other);
 	ComputeBuiltinVarCase& operator= (const ComputeBuiltinVarCase& other);
 };
 
-ComputeBuiltinVarCase::ComputeBuiltinVarCase (tcu::TestContext& context, const char* name, const char* varName, glu::DataType varType)
-	: TestCase		(context, name, varName)
-	, m_varName		(varName)
-	, m_varType		(varType)
-	, m_subCaseNdx	(0)
+ComputeBuiltinVarCase::ComputeBuiltinVarCase (tcu::TestContext& context, const string& name, const char* varName, glu::DataType varType, bool readByComponent)
+	: TestCase			(context, name + (readByComponent ? "_component" : ""), varName)
+	, m_varName			(varName)
+	, m_varType			(varType)
+	, m_subCaseNdx		(0)
+	, m_readByComponent	(readByComponent)
 {
 }
 
@@ -189,17 +193,23 @@ void ComputeBuiltinVarCase::initPrograms (SourceCollections& programCollection) 
 		const SubCase&	subCase = m_subCases[i];
 		std::ostringstream name;
 		name << s_prefixProgramName << i;
-		programCollection.glslSources.add(name.str()) << glu::ComputeSource(genBuiltinVarSource(m_varName, m_varType, subCase.localSize()).c_str());
+		programCollection.glslSources.add(name.str()) << glu::ComputeSource(genBuiltinVarSource(m_varName, m_varType, subCase.localSize(), m_readByComponent).c_str());
 	}
 }
 
-string ComputeBuiltinVarCase::genBuiltinVarSource (const string& varName, glu::DataType varType, const UVec3& localSize) const
+string ComputeBuiltinVarCase::genBuiltinVarSource (const string& varName, glu::DataType varType, const UVec3& localSize, bool readByComponent) const
 {
 	std::ostringstream src;
 
 	src << "#version 310 es\n"
-		<< "layout (local_size_x = " << localSize.x() << ", local_size_y = " << localSize.y() << ", local_size_z = " << localSize.z() << ") in;\n"
-		<< "layout(set = 0, binding = 0) uniform Stride\n"
+		<< "layout (local_size_x = " << localSize.x() << ", local_size_y = " << localSize.y() << ", local_size_z = " << localSize.z() << ") in;\n";
+
+	// For the gl_WorkGroupSize case, force it to be specialized so that
+	// Glslang can't just bypass the read of the builtin variable.
+	// We will not override these spec constants.
+	src << "layout (local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;\n";
+
+	src << "layout(set = 0, binding = 0) uniform Stride\n"
 		<< "{\n"
 		<< "	uvec2 u_stride;\n"
 		<< "}stride;\n"
@@ -210,9 +220,29 @@ string ComputeBuiltinVarCase::genBuiltinVarSource (const string& varName, glu::D
 		<< "\n"
 		<< "void main (void)\n"
 		<< "{\n"
-		<< "	highp uint offset = stride.u_stride.x*gl_GlobalInvocationID.z + stride.u_stride.y*gl_GlobalInvocationID.y + gl_GlobalInvocationID.x;\n"
-		<< "	sb_out.result[offset] = " << varName << ";\n"
-		<< "}\n";
+		<< "	highp uint offset = stride.u_stride.x*gl_GlobalInvocationID.z + stride.u_stride.y*gl_GlobalInvocationID.y + gl_GlobalInvocationID.x;\n";
+
+	if (readByComponent && varType != glu::TYPE_UINT) {
+		switch(varType)
+		{
+			case glu::TYPE_UINT_VEC4:
+				src << "	sb_out.result[offset].w = " << varName << ".w;\n";
+				// Fall through
+			case glu::TYPE_UINT_VEC3:
+				src << "	sb_out.result[offset].z = " << varName << ".z;\n";
+				// Fall through
+			case glu::TYPE_UINT_VEC2:
+				src << "	sb_out.result[offset].y = " << varName << ".y;\n"
+					<< "	sb_out.result[offset].x = " << varName << ".x;\n";
+				break;
+			default:
+				DE_FATAL("Illegal data type");
+				break;
+		}
+	} else {
+		src << "	sb_out.result[offset] = " << varName << ";\n";
+	}
+	src << "}\n";
 
 	return src.str();
 }
@@ -220,8 +250,8 @@ string ComputeBuiltinVarCase::genBuiltinVarSource (const string& varName, glu::D
 class NumWorkGroupsCase : public ComputeBuiltinVarCase
 {
 public:
-	NumWorkGroupsCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "num_work_groups", "gl_NumWorkGroups", glu::TYPE_UINT_VEC3)
+	NumWorkGroupsCase (tcu::TestContext& context, bool readByCompnent)
+		: ComputeBuiltinVarCase(context, "num_work_groups", "gl_NumWorkGroups", glu::TYPE_UINT_VEC3, readByCompnent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(52, 1, 1)));
@@ -244,8 +274,8 @@ public:
 class WorkGroupSizeCase : public ComputeBuiltinVarCase
 {
 public:
-	WorkGroupSizeCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "work_group_size", "gl_WorkGroupSize", glu::TYPE_UINT_VEC3)
+	WorkGroupSizeCase (tcu::TestContext& context, bool readByComponent)
+		: ComputeBuiltinVarCase(context, "work_group_size", "gl_WorkGroupSize", glu::TYPE_UINT_VEC3, readByComponent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(2, 7, 3)));
@@ -271,8 +301,8 @@ public:
 class WorkGroupIDCase : public ComputeBuiltinVarCase
 {
 public:
-	WorkGroupIDCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "work_group_id", "gl_WorkGroupID", glu::TYPE_UINT_VEC3)
+	WorkGroupIDCase (tcu::TestContext& context, bool readbyComponent)
+		: ComputeBuiltinVarCase(context, "work_group_id", "gl_WorkGroupID", glu::TYPE_UINT_VEC3, readbyComponent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(52, 1, 1)));
@@ -294,8 +324,8 @@ public:
 class LocalInvocationIDCase : public ComputeBuiltinVarCase
 {
 public:
-	LocalInvocationIDCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "local_invocation_id", "gl_LocalInvocationID", glu::TYPE_UINT_VEC3)
+	LocalInvocationIDCase (tcu::TestContext& context, bool readByComponent)
+		: ComputeBuiltinVarCase(context, "local_invocation_id", "gl_LocalInvocationID", glu::TYPE_UINT_VEC3, readByComponent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(2, 7, 3)));
@@ -320,8 +350,8 @@ public:
 class GlobalInvocationIDCase : public ComputeBuiltinVarCase
 {
 public:
-	GlobalInvocationIDCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "global_invocation_id", "gl_GlobalInvocationID", glu::TYPE_UINT_VEC3)
+	GlobalInvocationIDCase (tcu::TestContext& context, bool readByComponent)
+		: ComputeBuiltinVarCase(context, "global_invocation_id", "gl_GlobalInvocationID", glu::TYPE_UINT_VEC3, readByComponent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(52, 1, 1)));
@@ -343,8 +373,8 @@ public:
 class LocalInvocationIndexCase : public ComputeBuiltinVarCase
 {
 public:
-	LocalInvocationIndexCase (tcu::TestContext& context)
-		: ComputeBuiltinVarCase(context, "local_invocation_index", "gl_LocalInvocationIndex", glu::TYPE_UINT)
+	LocalInvocationIndexCase (tcu::TestContext& context, bool readByComponent)
+		: ComputeBuiltinVarCase(context, "local_invocation_index", "gl_LocalInvocationIndex", glu::TYPE_UINT, readByComponent)
 	{
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 1, 1)));
 		m_subCases.push_back(SubCase(UVec3(1, 1, 1), UVec3(1, 39, 1)));
@@ -404,7 +434,7 @@ tcu::TestStatus	ComputeBuiltinVarInstance::iterate (void)
 			resultBufferStride = sizeof(tcu::UVec4);
 			break;
 		default:
-			DE_ASSERT("Illegal data type");
+			DE_FATAL("Illegal data type");
 	}
 
 	const deUint32				resultBufferSize	= numInvocations * resultBufferStride;
@@ -416,7 +446,7 @@ tcu::TestStatus	ComputeBuiltinVarInstance::iterate (void)
 	{
 		const Allocation& alloc = uniformBuffer.getAllocation();
 		memcpy(alloc.getHostPtr(), &stride, sizeOfUniformBuffer);
-		flushMappedMemoryRange(m_vki, m_device, alloc.getMemory(), alloc.getOffset(), sizeOfUniformBuffer);
+		flushAlloc(m_vki, m_device, alloc);
 	}
 
 	// Create descriptorSetLayout
@@ -475,7 +505,7 @@ tcu::TestStatus	ComputeBuiltinVarInstance::iterate (void)
 	submitCommandsAndWait(m_vki, m_device, m_queue, *cmdBuffer);
 
 	const Allocation& resultAlloc = resultBuffer.getAllocation();
-	invalidateMappedMemoryRange(m_vki, m_device, resultAlloc.getMemory(), resultAlloc.getOffset(), resultBufferSize);
+	invalidateAlloc(m_vki, m_device, resultAlloc);
 
 	const deUint8*	 ptr = reinterpret_cast<deUint8*>(resultAlloc.getHostPtr());
 
@@ -546,12 +576,18 @@ ComputeShaderBuiltinVarTests::ComputeShaderBuiltinVarTests (tcu::TestContext& co
 
 void ComputeShaderBuiltinVarTests::init (void)
 {
-	addChild(new NumWorkGroupsCase(this->getTestContext()));
-	addChild(new WorkGroupSizeCase(this->getTestContext()));
-	addChild(new WorkGroupIDCase(this->getTestContext()));
-	addChild(new LocalInvocationIDCase(this->getTestContext()));
-	addChild(new GlobalInvocationIDCase(this->getTestContext()));
-	addChild(new LocalInvocationIndexCase(this->getTestContext()));
+	// Builtin variables with vector values should be read whole and by component.
+	for (int i = 0; i < 2; i++)
+	{
+		const bool readByComponent = (i != 0);
+		addChild(new NumWorkGroupsCase(this->getTestContext(), readByComponent));
+		addChild(new WorkGroupSizeCase(this->getTestContext(), readByComponent));
+		addChild(new WorkGroupIDCase(this->getTestContext(), readByComponent));
+		addChild(new LocalInvocationIDCase(this->getTestContext(), readByComponent));
+		addChild(new GlobalInvocationIDCase(this->getTestContext(), readByComponent));
+	}
+	// Local invocation index is already just a scalar.
+	addChild(new LocalInvocationIndexCase(this->getTestContext(), false));
 }
 
 } // anonymous

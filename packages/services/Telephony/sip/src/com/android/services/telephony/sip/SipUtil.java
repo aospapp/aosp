@@ -134,7 +134,7 @@ public class SipUtil {
                 .setAddress(sipUri)
                 .setShortDescription(sipAddress)
                 .setIcon(Icon.createWithResource(
-                        context.getResources(), R.drawable.ic_dialer_sip_black_24dp))
+                        context, R.drawable.ic_dialer_sip_black_24dp))
                 .setExtras(phoneAccountExtras)
                 .setSupportedUriSchemes(supportedUriSchemes);
 

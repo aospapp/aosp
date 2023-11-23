@@ -33,3 +33,33 @@ def get_bluetooth_metrics(ad, bluetooth_proto_module):
     proto_native_str = base64.b64decode(proto_native_str_64)
     bluetooth_log.MergeFromString(proto_native_str)
     return bluetooth_log
+
+def get_bluetooth_profile_connection_stats_map(bluetooth_log):
+    return project_pairs_list_to_map(bluetooth_log.profile_connection_stats,
+                                     lambda stats : stats.profile_id,
+                                     lambda stats : stats.num_times_connected,
+                                     lambda a, b : a + b)
+
+def get_bluetooth_headset_profile_connection_stats_map(bluetooth_log):
+    return project_pairs_list_to_map(bluetooth_log.headset_profile_connection_stats,
+                                     lambda stats : stats.profile_id,
+                                     lambda stats : stats.num_times_connected,
+                                     lambda a, b : a + b)
+
+def project_pairs_list_to_map(pairs_list, get_key, get_value, merge_value):
+    """
+    Project a list of pairs (A, B) into a map of [A] --> B
+    :param pairs_list:  list of pairs (A, B)
+    :param get_key: function used to get key from pair (A, B)
+    :param get_value: function used to get value from pair (A, B)
+    :param merge_value: function used to merge values of B
+    :return: a map of [A] --> B
+    """
+    result = {}
+    for item in pairs_list:
+        my_key = get_key(item)
+        if my_key in result:
+            result[my_key] = merge_value(result[my_key], get_value(item))
+        else:
+            result[my_key] = get_value(item)
+    return result

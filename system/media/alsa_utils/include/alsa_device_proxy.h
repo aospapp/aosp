@@ -40,6 +40,8 @@ int proxy_open(alsa_device_proxy * proxy);
 void proxy_close(alsa_device_proxy * proxy);
 int proxy_get_presentation_position(const alsa_device_proxy * proxy,
         uint64_t *frames, struct timespec *timestamp);
+int proxy_get_capture_position(const alsa_device_proxy * proxy,
+        int64_t *frames, int64_t *time);
 
 /* Attributes */
 unsigned proxy_get_sample_rate(const alsa_device_proxy * proxy);
@@ -58,7 +60,7 @@ int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[]);
 
 /* I/O */
 int proxy_write(alsa_device_proxy * proxy, const void *data, unsigned int count);
-int proxy_read(const alsa_device_proxy * proxy, void *data, unsigned int count);
+int proxy_read(alsa_device_proxy * proxy, void *data, unsigned int count);
 
 /* Debugging */
 void proxy_dump(const alsa_device_proxy * proxy, int fd);

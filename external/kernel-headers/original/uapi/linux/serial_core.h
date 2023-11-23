@@ -76,6 +76,9 @@
 #define PORT_SUNZILOG	38
 #define PORT_SUNSAB	39
 
+/* Nuvoton UART */
+#define PORT_NPCM	40
+
 /* Intel EG20 */
 #define PORT_PCH_8LINE	44
 #define PORT_PCH_2LINE	45
@@ -277,5 +280,8 @@
 
 /* MediaTek BTIF */
 #define PORT_MTK_BTIF	117
+
+/* RDA UART */
+#define PORT_RDA	118
 
 #endif /* _UAPILINUX_SERIAL_CORE_H */

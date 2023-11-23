@@ -31,6 +31,9 @@ type TidyProperties struct {
 
 	// Extra checks to enable or disable in clang-tidy
 	Tidy_checks []string
+
+	// Checks that should be treated as errors.
+	Tidy_checks_as_errors []string
 }
 
 type tidyFeature struct {
@@ -62,16 +65,16 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 		return flags
 	}
 
-	// Clang-tidy requires clang
-	if !flags.Clang {
-		return flags
-	}
-
 	flags.Tidy = true
 
-	esc := proptools.NinjaAndShellEscape
-
+	// Add global WITH_TIDY_FLAGS and local tidy_flags.
+	withTidyFlags := ctx.Config().Getenv("WITH_TIDY_FLAGS")
+	if len(withTidyFlags) > 0 {
+		flags.TidyFlags = append(flags.TidyFlags, withTidyFlags)
+	}
+	esc := proptools.NinjaAndShellEscapeList
 	flags.TidyFlags = append(flags.TidyFlags, esc(tidy.Properties.Tidy_flags)...)
+	// If TidyFlags is empty, add default header filter.
 	if len(flags.TidyFlags) == 0 {
 		headerFilter := "-header-filter=\"(" + ctx.ModuleDir() + "|${config.TidyDefaultHeaderDirs})\""
 		flags.TidyFlags = append(flags.TidyFlags, headerFilter)
@@ -83,9 +86,21 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 		flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before=-fno-caret-diagnostics")
 	}
 
-	// We might be using the static analyzer through clang tidy.
-	// https://bugs.llvm.org/show_bug.cgi?id=32914
-	flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before=-D__clang_analyzer__")
+	extraArgFlags := []string{
+		// We might be using the static analyzer through clang tidy.
+		// https://bugs.llvm.org/show_bug.cgi?id=32914
+		"-D__clang_analyzer__",
+
+		// A recent change in clang-tidy (r328258) enabled destructor inlining, which
+		// appears to cause a number of false positives. Until that's resolved, this turns
+		// off the effects of r328258.
+		// https://bugs.llvm.org/show_bug.cgi?id=37459
+		"-Xclang", "-analyzer-config", "-Xclang", "c++-temp-dtor-inlining=false",
+	}
+
+	for _, f := range extraArgFlags {
+		flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before="+f)
+	}
 
 	tidyChecks := "-checks="
 	if checks := ctx.Config().TidyChecks(); len(checks) > 0 {
@@ -96,7 +111,17 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 	if len(tidy.Properties.Tidy_checks) > 0 {
 		tidyChecks = tidyChecks + "," + strings.Join(esc(tidy.Properties.Tidy_checks), ",")
 	}
+	if ctx.Windows() {
+		// https://b.corp.google.com/issues/120614316
+		// mingw32 has cert-dcl16-c warning in NO_ERROR,
+		// which is used in many Android files.
+		tidyChecks = tidyChecks + ",-cert-dcl16-c"
+	}
 	flags.TidyFlags = append(flags.TidyFlags, tidyChecks)
 
+	if len(tidy.Properties.Tidy_checks_as_errors) > 0 {
+		tidyChecksAsErrors := "-warnings-as-errors=" + strings.Join(esc(tidy.Properties.Tidy_checks_as_errors), ",")
+		flags.TidyFlags = append(flags.TidyFlags, tidyChecksAsErrors)
+	}
 	return flags
 }

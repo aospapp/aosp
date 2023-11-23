@@ -57,8 +57,9 @@ void PostinstallRunnerAction::PerformAction() {
   CHECK(HasInputObject());
   install_plan_ = GetInputObject();
 
-  if (install_plan_.powerwash_required) {
-    if (hardware_->SchedulePowerwash()) {
+  // Currently we're always powerwashing when rolling back.
+  if (install_plan_.powerwash_required || install_plan_.is_rollback) {
+    if (hardware_->SchedulePowerwash(install_plan_.is_rollback)) {
       powerwash_scheduled_ = true;
     } else {
       return CompletePostinstall(ErrorCode::kPostinstallPowerwashError);
@@ -264,7 +265,7 @@ bool PostinstallRunnerAction::ProcessProgressLine(const string& line) {
 void PostinstallRunnerAction::ReportProgress(double frac) {
   if (!delegate_)
     return;
-  if (current_partition_ >= partition_weight_.size()) {
+  if (current_partition_ >= partition_weight_.size() || total_weight_ == 0) {
     delegate_->ProgressUpdate(1.);
     return;
   }

@@ -35,10 +35,15 @@
 #include <unistd.h>
 #include <errno.h>
 
+// Android-changed: Fuchsia: Fix poll.h include location
+// #include <sys/poll.h>
+#if !defined(__Fuchsia__)
 #include <sys/poll.h>
+#else
+#include <poll.h>
+#endif
 
-
-#include <nativehelper/AsynchronousCloseMonitor.h>
+#include <AsynchronousCloseMonitor.h>
 
 extern "C" {
 

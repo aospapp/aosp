@@ -18,9 +18,11 @@ include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsSystemApiAnnotationTestCases
 LOCAL_SRC_FILES := $(call all-java-files-under,src)
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt
 LOCAL_SIGNATURE_API_FILES := \
     system-current.api \
     system-removed.api \
+    car-system-current.api \
+    car-system-removed.api \
 
 include $(LOCAL_PATH)/../build_signature_apk.mk

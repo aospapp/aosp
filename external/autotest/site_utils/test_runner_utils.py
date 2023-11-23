@@ -110,6 +110,62 @@ def add_common_args(parser):
                         'added to ssh commands.')
 
 
+class LocalSuite(suite.Suite):
+    """Subclass of Suite with methods for running locally"""
+
+    def handle_local_result(self, job_id, results_dir, record):
+        """
+        Handle recording and/or retrying a completed job run locally.
+
+        @param job_id: int ID of job
+        @param results_dir: absolute path where test results were stored.
+        @param record: callable that records job status
+
+        @returns: new job_id if a job was scheduled for retry, None otherwise.
+        """
+        logging.debug('Parsing test results for job %s',job_id)
+        code = generate_report(results_dir, just_status_code=True)
+        logging.debug('Handling result of job %s',job_id)
+        logging.debug(self._retry_handler._retry_map)
+        if code == 0:
+            logging.debug('All tests for job %s succeeded, no retry', job_id)
+            if self._retry_handler.job_present(job_id):
+                self._retry_handler.set_attempted(job_id)
+            return None
+
+        new_job_id = None
+        go_ahead = (self._job_retry and
+                    self._retry_handler._should_retry_local_job(job_id))
+        if go_ahead:
+            new_job_id = self._retry_local_result(job_id, record)
+        return new_job_id
+
+    def _retry_local_result(self, job_id, record):
+        """
+        Retry a test job by id.
+
+        @param job_id: int ID of job
+        @param record: callable that records job status.
+                 prototype:
+                   record(base_job.status_log_entry)
+
+        @returns: new job_id if a job was scheduled for retry, None otherwise.
+        """
+        test = self._jobs_to_tests[job_id]
+        logging.debug('Attempting to retry job %s, test %s', job_id, test.name)
+        test.fast = False
+        new_job = self._schedule_test(
+                record=record, test=test, retry_for=job_id)
+        if new_job:
+            return new_job.id
+        return None
+
+    def test_name_from_job(self, job_id):
+        """Find the name of the test run by a job with a given job ID."""
+        if self._jobs_to_tests[job_id]:
+            return self._jobs_to_tests[job_id].name
+
+
 
 def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
                       build=NO_BUILD, board=NO_BOARD,
@@ -139,17 +195,21 @@ def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
     @param no_experimental: Skip experimental tests when scheduling a suite.
     @param ignore_deps: If True, test dependencies will be ignored.
 
-    @returns: A suite.Suite object.
+    @returns: A LocalSuite object.
 
     """
     fs_getter = suite.create_fs_getter(autotest_path)
     devserver = dev_server.ImageServer('')
-    my_suite = suite.Suite.create_from_predicates([suite_predicate],
-            {provision.CROS_VERSION_PREFIX: build},
-            constants.BOARD_PREFIX + board,
-            devserver, fs_getter, afe=afe,
-            ignore_deps=ignore_deps,
-            results_dir=results_directory, forgiving_parser=False)
+    my_suite = LocalSuite.create_from_predicates(
+        [suite_predicate],
+        {provision.CROS_VERSION_PREFIX: build},
+        constants.BOARD_PREFIX + board,
+        devserver, fs_getter, afe=afe,
+        ignore_deps=ignore_deps,
+        results_dir=results_directory,
+        forgiving_parser=False,
+        job_retry=True
+    )
     if len(my_suite.tests) == 0:
         (similarity_predicate, similarity_description) = (
                 get_predicate_for_possible_test_arg(test_arg))
@@ -476,6 +536,7 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     @returns: A list of return codes each job that has run. Or [1] if
               provision failed prior to running any jobs.
     """
+    args = _set_default_servo_args(args)
     # Create host in afe, add board and build labels.
     cros_version_label = labellib.format_keyval_label(
         labellib.KeyvalLabel(labellib.Key.CROS_VERSION, build))
@@ -514,6 +575,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
                                   ignore_deps=ignore_deps)
         suites_and_descriptions.append((suite, description))
 
+    jobs_to_suites = {}
+    null_logger = lambda log_entry, log_in_subdir=False: None
     # Schedule the suites, looping over iterations if necessary.
     for iteration in range(iterations):
         if iteration > 0:
@@ -521,9 +584,14 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
 
         for suite, description in suites_and_descriptions:
             logging.info('Scheduling suite for %s...', description)
-            ntests = suite.schedule(
-                    lambda log_entry, log_in_subdir=False: None)
+            ntests = suite.schedule(null_logger)
+            logging.debug('jobs: %s nonzero job_retries: %s',
+                          len(suite._jobs_to_tests),
+                          len([True for (job_id, test) in
+                               suite._jobs_to_tests.items()]))
             logging.info('... scheduled %s job(s).', ntests)
+            for job in suite.jobs:
+                jobs_to_suites[job.id] = suite
 
     if not afe.get_jobs():
         logging.info('No jobs scheduled. End of local run.')
@@ -535,16 +603,57 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     job_queue = afe.get_jobs()
     completed_job_ids = set()
     while job_queue:
+      logging.info('%s jobs in job queue', len(job_queue))
       for job in job_queue:
-          code, _ = run_job(job, remote, autotest_path, results_directory,
+          suite = jobs_to_suites.get(job.id)
+          if not suite:
+              logging.error('Job %s not run, no associated suite.', job.id)
+          else:
+              logging.debug('Running job %s of test %s',
+                            job.id, suite.test_name_from_job(job.id))
+              code, abs_dir = run_job(
+                  job, remote, autotest_path, results_directory,
                   fast_mode, job_id_digits, ssh_verbosity, ssh_options, args,
                   pretend, autoserv_verbose, host_attributes)
+              codes.append(code)
+              logging.debug("Code: %s, Results in %s", code, abs_dir)
+              new_id = suite.handle_local_result(job.id, abs_dir, null_logger)
+              if new_id:
+                  jobs_to_suites[new_id] = jobs_to_suites[job.id]
           completed_job_ids.add(job.id)
-          codes.append(code)
-      new_jobs = set(job for job in afe.get_jobs(not_yet_run=True, running=True)
-                     if job.id not in completed_job_ids)
+      all_jobs = afe.get_jobs(not_yet_run=True, running=True)
+      new_jobs = set(job for job in all_jobs if job.id not in completed_job_ids)
+      logging.debug('%s incomplete jobs, %s jobs total',
+                    len(new_jobs), len(all_jobs))
       job_queue = list(new_jobs)
     return codes
+
+
+def _set_default_servo_args(args):
+    """Add default servo arguments for backward compatibitlity.
+
+    See crbug.com/881006 for context.  Some servo related defaults were baked
+    into the autotest ServoHost code. These have now been deleted. A side effect
+    was that users of test_that relied on these defaults for some tests to work
+    magically in the chroot environment.
+
+    Current plan is to add back these defaults to test_that invocations for
+    backwards compatibility of these use cases. There is no planned removal date
+    for this hack.
+
+    @return modified args str.
+    """
+    # args is a str with whitespace separated key=value arguments.
+    # Avoid parsing args here (to avoid adding another implicit constraint on
+    # the exact args format) by adding defaults only in the obvious cases where
+    # relevant keys are entirely missing.
+    if args is None:
+        args = ''
+    if 'servo_host' not in args:
+        args += ' servo_host=localhost'
+    if 'servo_port' not in args:
+        args += ' servo_port=9999'
+    return args
 
 
 def sigint_handler(signum, stack_frame):
@@ -581,7 +690,7 @@ def sigint_handler(signum, stack_frame):
         sys.exit(1)
 
 
-def create_results_directory(results_directory=None):
+def create_results_directory(results_directory=None, board_name=None):
     """Create a results directory.
 
     If no directory is specified this method will create and return a
@@ -595,7 +704,10 @@ def create_results_directory(results_directory=None):
     """
     if results_directory is None:
         # Create a results_directory as subdir of /tmp
-        results_directory = tempfile.mkdtemp(prefix='test_that_results_')
+        dirname_prefix='test_that_results_'
+        if board_name is not None:
+            dirname_prefix += (board_name + '_')
+        results_directory = tempfile.mkdtemp(prefix=dirname_prefix)
     else:
         # Delete results_directory if it already exists.
         try:
@@ -611,6 +723,36 @@ def create_results_directory(results_directory=None):
             if e.errno != errno.EEXIST:
                 raise
     return results_directory
+
+def generate_report(directory,
+                    whitelist_chrome_crashes=False,
+                    just_status_code=False, html_report=False):
+    """Parse the test result files in the given directory into a report
+
+    @param directory: string, the absolute path of the directory to look in
+    @param whitelist_chrome_crashes: boolean, ignore Chrome crashes in the
+    report. Default: False, report Chrome crashes.
+    @param just_status_code: boolean, skip the report and only parse the files
+    to determine whether there were failures. Default: False, generate report.
+    """
+    test_report_command = [os.path.join(os.path.dirname(__file__),
+                                        'generate_test_report')]
+    # Experimental test results do not influence the exit code.
+    test_report_command.append('--ignore_experimental_tests')
+    if html_report:
+        test_report_command.append('--html')
+        test_report_command.append('--html-report-dir=%s' % directory)
+    if whitelist_chrome_crashes:
+        test_report_command.append('--whitelist_chrome_crashes')
+    if just_status_code:
+        test_report_command.append('--just_status_code')
+    test_report_command.append(directory)
+    status_code = subprocess.call(test_report_command)
+    if not just_status_code:
+        with open(os.path.join(directory, 'test_report.log'),
+                  'w') as report_log:
+            subprocess.call(test_report_command, stdout=report_log)
+    return status_code
 
 
 def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
@@ -635,7 +777,7 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
                   should be formed like "suite:smoke".
     @param remote: Remote hostname.
     @param build: String specifying build for local run.
-    @param board: String specifyinb board for local run.
+    @param board: String specifying board for local run.
     @param args: String that should be passed as args parameter to autoserv,
                  and then ultimitely to test itself.
     @param pretend: If True, will print out autoserv commands rather than
@@ -691,17 +833,9 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
         logging.info('Finished pretend run. Exiting.')
         return 0
 
-    test_report_command = [os.path.join(os.path.dirname(__file__),
-                                        'generate_test_report')]
-    # Experimental test results do not influence the exit code.
-    test_report_command.append('--ignore_experimental_tests')
-    if whitelist_chrome_crashes:
-        test_report_command.append('--whitelist_chrome_crashes')
-    test_report_command.append(results_directory)
-    final_result = subprocess.call(test_report_command)
-    with open(os.path.join(results_directory, 'test_report.log'),
-              'w') as report_log:
-        subprocess.call(test_report_command, stdout=report_log)
+    final_result = generate_report(
+        results_directory,
+        whitelist_chrome_crashes=whitelist_chrome_crashes, html_report=True)
     try:
         os.unlink(_LATEST_RESULTS_DIRECTORY)
     except OSError:

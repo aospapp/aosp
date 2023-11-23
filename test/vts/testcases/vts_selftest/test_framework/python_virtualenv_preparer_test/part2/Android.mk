@@ -17,5 +17,4 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := VtsSelfTestPythonVirtualenvPreparerTestPart2
-VTS_CONFIG_SRC_DIR := testcases/vts_selftest/test_framework/python_virtualenv_preparer_test/part2
 include test/vts/tools/build/Android.host_config.mk

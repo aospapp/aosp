@@ -16,14 +16,21 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.seccomp.cts.app">
+    package="android.seccomp.cts.app"
+    android:targetSandboxVersion="2">
 
-    <application>
+    <application android:zygotePreloadName=".ZygotePreload">
         <uses-library android:name="android.test.runner" />
+        <service
+            android:name=".IsolatedService"
+            android:isolatedProcess="true"
+            android:exported="false"
+            android:useAppZygote="true">
+        </service>
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.seccomp.cts.app" />
 
 </manifest>

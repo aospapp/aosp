@@ -31,12 +31,13 @@ from autotest_lib.server.cros.dynamic_suite import control_file_getter
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite import suite as SuiteBase
+from autotest_lib.server.cros.dynamic_suite import suite_common
 from autotest_lib.server.cros.dynamic_suite.comparators import StatusContains
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeControlData
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeJob
+from autotest_lib.server.cros.dynamic_suite.fakes import FakeMultiprocessingPool
 from autotest_lib.server.cros.dynamic_suite.suite import RetryHandler
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
-
 
 class SuiteTest(mox.MoxTestBase):
     """Unit tests for dynamic_suite Suite class.
@@ -58,8 +59,8 @@ class SuiteTest(mox.MoxTestBase):
         """Setup."""
         super(SuiteTest, self).setUp()
         self.maxDiff = None
-        self.use_batch = SuiteBase.ENABLE_CONTROLS_IN_BATCH
-        SuiteBase.ENABLE_CONTROLS_IN_BATCH = False
+        self.use_batch = suite_common.ENABLE_CONTROLS_IN_BATCH
+        suite_common.ENABLE_CONTROLS_IN_BATCH = False
         self.afe = self.mox.CreateMock(frontend.AFE)
         self.tko = self.mox.CreateMock(frontend.TKO)
 
@@ -94,7 +95,7 @@ class SuiteTest(mox.MoxTestBase):
 
     def tearDown(self):
         """Teardown."""
-        SuiteBase.ENABLE_CONTROLS_IN_BATCH = self.use_batch
+        suite_common.ENABLE_CONTROLS_IN_BATCH = self.use_batch
         super(SuiteTest, self).tearDown()
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
@@ -122,6 +123,11 @@ class SuiteTest(mox.MoxTestBase):
         if not already_stubbed:
             self.mox.StubOutWithMock(control_data, 'parse_control_string')
 
+        self.mox.StubOutWithMock(suite_common.multiprocessing, 'Pool')
+        suite_common.multiprocessing.Pool(
+            processes=suite_common.get_process_limit()).AndReturn(
+                FakeMultiprocessingPool())
+
         self.getter.get_control_file_list(
                 suite_name=suite_name).AndReturn(file_list)
         for file, data in files_to_parse.iteritems():
@@ -141,6 +147,12 @@ class SuiteTest(mox.MoxTestBase):
         """
         self.getter = self.mox.CreateMock(control_file_getter.DevServerGetter)
         self.mox.StubOutWithMock(control_data, 'parse_control_string')
+
+        self.mox.StubOutWithMock(suite_common.multiprocessing, 'Pool')
+        suite_common.multiprocessing.Pool(
+            processes=suite_common.get_process_limit()).AndReturn(
+                FakeMultiprocessingPool())
+
         suite_info = {}
         for k, v in self.files.iteritems():
             suite_info[k] = v.string
@@ -158,9 +170,9 @@ class SuiteTest(mox.MoxTestBase):
     def testFindAllTestInBatch(self):
         """Test switch on enable_getting_controls_in_batch for function
         find_all_test."""
-        self.use_batch = SuiteBase.ENABLE_CONTROLS_IN_BATCH
+        self.use_batch = suite_common.ENABLE_CONTROLS_IN_BATCH
         self.expect_control_file_parsing_in_batch()
-        SuiteBase.ENABLE_CONTROLS_IN_BATCH = True
+        suite_common.ENABLE_CONTROLS_IN_BATCH = True
 
         self.mox.ReplayAll()
 
@@ -175,7 +187,7 @@ class SuiteTest(mox.MoxTestBase):
         self.assertTrue(self.files['five'] in tests)
         self.assertTrue(self.files['six'] in tests)
         self.assertTrue(self.files['seven'] in tests)
-        SuiteBase.ENABLE_CONTROLS_IN_BATCH = self.use_batch
+        suite_common.ENABLE_CONTROLS_IN_BATCH = self.use_batch
 
 
     def testFindAndParseStableTests(self):
@@ -324,7 +336,6 @@ class SuiteTest(mox.MoxTestBase):
                 max_runtime_mins=24*60,
                 timeout_mins=1440,
                 parent_job_id=None,
-                test_retry=0,
                 reboot_before=mox.IgnoreArg(),
                 run_reset=mox.IgnoreArg(),
                 priority=priorities.Priority.DEFAULT,

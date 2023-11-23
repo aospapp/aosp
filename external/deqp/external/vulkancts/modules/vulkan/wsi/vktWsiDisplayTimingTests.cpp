@@ -29,7 +29,10 @@
 #include "vkPlatform.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkPrograms.hpp"
+#include "vkCmdUtil.hpp"
 #include "vkWsiUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "vktWsiDisplayTimingTests.hpp"
 #include "vktTestCaseUtil.hpp"
@@ -128,7 +131,9 @@ deUint32 chooseQueueFamilyIndex (const vk::InstanceInterface& vki, vk::VkPhysica
 	return supportedFamilyIndices[0];
 }
 
-vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::InstanceInterface&		vki,
+vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
+											const vk::VkInstance				instance,
+											const vk::InstanceInterface&		vki,
 											vk::VkPhysicalDevice				physicalDevice,
 											const Extensions&					supportedExtensions,
 											const deUint32						queueFamilyIndex,
@@ -174,7 +179,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::InstanceInterface&		vki,
 			TCU_THROW(NotSupportedError, (string(extensions[ndx]) + " is not supported").c_str());
 	}
 
-	return createDevice(vki, physicalDevice, &deviceParams, pAllocator);
+	return createDevice(vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
 }
 
 de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
@@ -187,7 +192,8 @@ de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
 	}
 	catch (const tcu::NotSupportedError& e)
 	{
-		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))))
+		if (isExtensionSupported(supportedExtensions, vk::RequiredExtension(getExtensionName(wsiType))) &&
+		    platform.hasDisplay(wsiType))
 		{
 			// If VK_KHR_{platform}_surface was supported, vk::Platform implementation
 			// must support creating native display & window for that WSI type.
@@ -293,42 +299,17 @@ vk::Move<vk::VkCommandBuffer> createCommandBuffer (const vk::DeviceInterface&	vk
 		vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		1
 	};
-	const vk::VkCommandBufferBeginInfo	beginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		DE_NULL,
-		0u,
-		DE_NULL
-	};
 
 	vk::Move<vk::VkCommandBuffer>	commandBuffer	(vk::allocateCommandBuffer(vkd, device, &allocateInfo));
-	VK_CHECK(vkd.beginCommandBuffer(*commandBuffer, &beginInfo));
+	beginCommandBuffer(vkd, *commandBuffer, 0u);
 
-	{
-		const vk::VkClearValue			clearValue			= vk::makeClearValueColorF32(0.25f, 0.50f, 0.75f, 1.00f);
-		const vk::VkRenderPassBeginInfo	renderPassBeginInfo	=
-		{
-			vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-			DE_NULL,
-
-			renderPass,
-			framebuffer,
-
-			{
-				{ (deInt32)0, (deInt32)0 },
-				{ imageWidth, imageHeight }
-			},
-			1u,
-			&clearValue
-		};
-		vkd.cmdBeginRenderPass(*commandBuffer, &renderPassBeginInfo, vk::VK_SUBPASS_CONTENTS_INLINE);
-	}
+	beginRenderPass(vkd, *commandBuffer, renderPass, framebuffer, vk::makeRect2D(0, 0, imageWidth, imageHeight), tcu::Vec4(0.25f, 0.5f, 0.75f, 1.0f));
 
 	cmdRenderFrame(vkd, *commandBuffer, pipelineLayout, pipeline, frameNdx, quadCount);
 
-	vkd.cmdEndRenderPass(*commandBuffer);
+	endRenderPass(vkd, *commandBuffer);
 
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
+	endCommandBuffer(vkd, *commandBuffer);
 	return commandBuffer;
 }
 
@@ -474,65 +455,7 @@ vk::Move<vk::VkRenderPass> createRenderPass (const vk::DeviceInterface&	vkd,
 											 vk::VkDevice				device,
 											 vk::VkFormat				format)
 {
-	const vk::VkAttachmentDescription	attachments[]			=
-	{
-		{
-			0u,
-			format,
-			vk::VK_SAMPLE_COUNT_1_BIT,
-
-			vk::VK_ATTACHMENT_LOAD_OP_LOAD,
-			vk::VK_ATTACHMENT_STORE_OP_STORE,
-
-			vk::VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			vk::VK_ATTACHMENT_STORE_OP_DONT_CARE,
-
-			vk::VK_IMAGE_LAYOUT_UNDEFINED,
-			vk::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-		}
-	};
-	const vk::VkAttachmentReference		colorAttachmentRefs[]	=
-	{
-		{
-			0u,
-			vk::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		}
-	};
-	const vk::VkSubpassDescription		subpasses[]				=
-	{
-		{
-			0u,
-			vk::VK_PIPELINE_BIND_POINT_GRAPHICS,
-			0u,
-			DE_NULL,
-
-			DE_LENGTH_OF_ARRAY(colorAttachmentRefs),
-			colorAttachmentRefs,
-			DE_NULL,
-
-			DE_NULL,
-			0u,
-			DE_NULL
-		}
-	};
-
-	const vk::VkRenderPassCreateInfo	createInfo				=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		DE_LENGTH_OF_ARRAY(attachments),
-		attachments,
-
-		DE_LENGTH_OF_ARRAY(subpasses),
-		subpasses,
-
-		0u,
-		DE_NULL
-	};
-
-	return vk::createRenderPass(vkd, device, &createInfo);
+	return vk::makeRenderPass(vkd, device, format, vk::VK_FORMAT_UNDEFINED, vk::VK_ATTACHMENT_LOAD_OP_LOAD, vk::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
@@ -544,34 +467,6 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 										 deUint32					width,
 										 deUint32					height)
 {
-	const vk::VkSpecializationInfo				shaderSpecialization	=
-	{
-		0u,
-		DE_NULL,
-		0,
-		DE_NULL
-	};
-	const vk::VkPipelineShaderStageCreateInfo		stages[]			=
-	{
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			0u,
-			vk::VK_SHADER_STAGE_VERTEX_BIT,
-			vertexShaderModule,
-			"main",
-			&shaderSpecialization
-		},
-		{
-			vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-			DE_NULL,
-			0u,
-			vk::VK_SHADER_STAGE_FRAGMENT_BIT,
-			fragmentShaderModule,
-			"main",
-			&shaderSpecialization
-		}
-	};
 	const vk::VkPipelineVertexInputStateCreateInfo	vertexInputState	=
 	{
 		vk::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -582,159 +477,24 @@ vk::Move<vk::VkPipeline> createPipeline (const vk::DeviceInterface&	vkd,
 		0u,
 		DE_NULL
 	};
-	const vk::VkPipelineInputAssemblyStateCreateInfo	inputAssemblyState	=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		VK_FALSE
-	};
-	const vk::VkViewport viewports[] =
-	{
-		{
-			0.0f, 0.0f,
-			(float)width, (float)height,
-			0.0f, 1.0f
-		}
-	};
-	const vk::VkRect2D scissors[] =
-	{
-		{
-			{ 0u, 0u },
-			{ width, height }
-		}
-	};
-	const vk::VkPipelineViewportStateCreateInfo			viewportState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
+	const std::vector<vk::VkViewport>				viewports			(1, vk::makeViewport(tcu::UVec2(width, height)));
+	const std::vector<vk::VkRect2D>					scissors			(1, vk::makeRect2D(tcu::UVec2(width, height)));
 
-		DE_LENGTH_OF_ARRAY(viewports),
-		viewports,
-		DE_LENGTH_OF_ARRAY(scissors),
-		scissors
-	};
-	const vk::VkPipelineRasterizationStateCreateInfo	rasterizationState	=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-		DE_NULL,
-		0u,
-		VK_TRUE,
-		VK_FALSE,
-		vk::VK_POLYGON_MODE_FILL,
-		vk::VK_CULL_MODE_NONE,
-		vk::VK_FRONT_FACE_CLOCKWISE,
-		VK_FALSE,
-		0.0f,
-		0.0f,
-		0.0f,
-		1.0f
-	};
-	const vk::VkSampleMask								sampleMask			= ~0u;
-	const vk::VkPipelineMultisampleStateCreateInfo		multisampleState	=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		vk::VK_SAMPLE_COUNT_1_BIT,
-		VK_FALSE,
-		0.0f,
-		&sampleMask,
-		VK_FALSE,
-		VK_FALSE
-	};
-	const vk::VkPipelineDepthStencilStateCreateInfo	depthStencilState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		DE_FALSE,
-		DE_FALSE,
-		vk::VK_COMPARE_OP_ALWAYS,
-		DE_FALSE,
-		DE_FALSE,
-		{
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_COMPARE_OP_ALWAYS,
-			0u,
-			0u,
-			0u,
-		},
-		{
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_STENCIL_OP_KEEP,
-			vk::VK_COMPARE_OP_ALWAYS,
-			0u,
-			0u,
-			0u,
-		},
-		0.0f,
-		1.0f
-	};
-	const vk::VkPipelineColorBlendAttachmentState	attachmentBlendState			=
-	{
-		VK_FALSE,
-		vk::VK_BLEND_FACTOR_ONE,
-		vk::VK_BLEND_FACTOR_ZERO,
-		vk::VK_BLEND_OP_ADD,
-		vk::VK_BLEND_FACTOR_ONE,
-		vk::VK_BLEND_FACTOR_ZERO,
-		vk::VK_BLEND_OP_ADD,
-		(vk::VK_COLOR_COMPONENT_R_BIT|
-		 vk::VK_COLOR_COMPONENT_G_BIT|
-		 vk::VK_COLOR_COMPONENT_B_BIT|
-		 vk::VK_COLOR_COMPONENT_A_BIT),
-	};
-	const vk::VkPipelineColorBlendStateCreateInfo	blendState				=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-		DE_FALSE,
-		vk::VK_LOGIC_OP_COPY,
-		1u,
-		&attachmentBlendState,
-		{ 0.0f, 0.0f, 0.0f, 0.0f }
-	};
-	const vk::VkPipelineDynamicStateCreateInfo			dynamicState		=
-	{
-		vk::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		0u,
-		DE_NULL
-	};
-	const vk::VkGraphicsPipelineCreateInfo				createInfo			=
-	{
-		vk::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-		DE_NULL,
-		0u,
-
-		DE_LENGTH_OF_ARRAY(stages),
-		stages,
-		&vertexInputState,
-		&inputAssemblyState,
-		DE_NULL,
-		&viewportState,
-		&rasterizationState,
-		&multisampleState,
-		&depthStencilState,
-		&blendState,
-		&dynamicState,
-		layout,
-		renderPass,
-		0u,
-		DE_NULL,
-		0u
-	};
-
-	return vk::createGraphicsPipeline(vkd, device, DE_NULL,  &createInfo);
+	return vk::makeGraphicsPipeline(vkd,										// const DeviceInterface&                        vk
+									device,										// const VkDevice                                device
+									layout,										// const VkPipelineLayout                        pipelineLayout
+									vertexShaderModule,							// const VkShaderModule                          vertexShaderModule
+									DE_NULL,									// const VkShaderModule                          tessellationControlShaderModule
+									DE_NULL,									// const VkShaderModule                          tessellationEvalShaderModule
+									DE_NULL,									// const VkShaderModule                          geometryShaderModule
+									fragmentShaderModule,						// const VkShaderModule                          fragmentShaderModule
+									renderPass,									// const VkRenderPass                            renderPass
+									viewports,									// const std::vector<VkViewport>&                viewports
+									scissors,									// const std::vector<VkRect2D>&                  scissors
+									vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,	// const VkPrimitiveTopology                     topology
+									0u,											// const deUint32                                subpass
+									0u,											// const deUint32                                patchControlPoints
+									&vertexInputState);							// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
 }
 
 vk::Move<vk::VkPipelineLayout> createPipelineLayout (const vk::DeviceInterface&	vkd,
@@ -940,8 +700,8 @@ DisplayTimingTestInstance::DisplayTimingTestInstance (Context& context, const Te
 
 	, m_queueFamilyIndex		(chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
 	, m_deviceExtensions		(vk::enumerateDeviceExtensionProperties(m_vki, m_physicalDevice, DE_NULL))
-	, m_device					(createDeviceWithWsi(m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useDisplayTiming))
-	, m_vkd						(m_vki, *m_device)
+	, m_device					(createDeviceWithWsi(m_vkp, *m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useDisplayTiming))
+	, m_vkd						(m_vkp, *m_instance, *m_device)
 	, m_queue					(getDeviceQueue(m_vkd, *m_device, m_queueFamilyIndex, 0u))
 
 	, m_commandPool				(createCommandPool(m_vkd, *m_device, m_queueFamilyIndex))
@@ -1276,8 +1036,8 @@ void DisplayTimingTestInstance::render (void)
 			&result
 		};
 
-		VK_CHECK(m_vkd.queuePresentKHR(m_queue, &presentInfo));
-		VK_CHECK(result);
+		VK_CHECK_WSI(m_vkd.queuePresentKHR(m_queue, &presentInfo));
+		VK_CHECK_WSI(result);
 	}
 	else
 	{
@@ -1294,8 +1054,8 @@ void DisplayTimingTestInstance::render (void)
 			&result
 		};
 
-		VK_CHECK(m_vkd.queuePresentKHR(m_queue, &presentInfo));
-		VK_CHECK(result);
+		VK_CHECK_WSI(m_vkd.queuePresentKHR(m_queue, &presentInfo));
+		VK_CHECK_WSI(result);
 	}
 
 	{

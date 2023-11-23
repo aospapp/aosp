@@ -78,7 +78,8 @@ public final class BluetoothPairingService extends Service {
             if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
                 int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,
                         BluetoothDevice.ERROR);
-                if ((bondState != BluetoothDevice.BOND_NONE) && (bondState != BluetoothDevice.BOND_BONDED)) {
+                if ((bondState != BluetoothDevice.BOND_NONE) && (bondState
+                        != BluetoothDevice.BOND_BONDED)) {
                     return;
                 }
             } else if (action.equals(ACTION_DISMISS_PAIRING)) {
@@ -98,13 +99,13 @@ public final class BluetoothPairingService extends Service {
 
     @Override
     public void onCreate() {
-      NotificationManager mgr = (NotificationManager)this
-         .getSystemService(Context.NOTIFICATION_SERVICE);
-      NotificationChannel notificationChannel = new NotificationChannel(
-         BLUETOOTH_NOTIFICATION_CHANNEL,
-         this.getString(R.string.bluetooth),
-         NotificationManager.IMPORTANCE_HIGH);
-      mgr.createNotificationChannel(notificationChannel);
+        NotificationManager mgr = (NotificationManager) this
+                .getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel notificationChannel = new NotificationChannel(
+                BLUETOOTH_NOTIFICATION_CHANNEL,
+                this.getString(R.string.bluetooth_settings_title),
+                NotificationManager.IMPORTANCE_HIGH);
+        mgr.createNotificationChannel(notificationChannel);
     }
 
     @Override
@@ -117,7 +118,7 @@ public final class BluetoothPairingService extends Service {
 
         Resources res = getResources();
         Notification.Builder builder = new Notification.Builder(this,
-            BLUETOOTH_NOTIFICATION_CHANNEL)
+                BLUETOOTH_NOTIFICATION_CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setTicker(res.getString(R.string.bluetooth_notif_ticker))
                 .setLocalOnly(true);
@@ -139,7 +140,8 @@ public final class BluetoothPairingService extends Service {
         String name = intent.getStringExtra(BluetoothDevice.EXTRA_NAME);
         if (TextUtils.isEmpty(name)) {
             BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            name = device != null ? device.getAliasName() : res.getString(android.R.string.unknownName);
+            name = device != null ? device.getAliasName() : res.getString(
+                    android.R.string.unknownName);
         }
 
         LOG.d("Show pairing notification for " + mDevice.getAddress() + " (" + name + ")");

@@ -33,13 +33,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.method.MetaKeyKeyListener;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyCharacterMap.KeyData;
 import android.view.KeyEvent;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.Assert;
 
@@ -95,6 +96,10 @@ public class KeyEventTest {
         assertEquals(KeyEvent.ACTION_MULTIPLE, mKeyEvent.getAction());
         assertEquals(KeyEvent.KEYCODE_UNKNOWN, mKeyEvent.getKeyCode());
         assertEquals(characters, mKeyEvent.getCharacters());
+
+        // Make sure mCharacters survives after serialization / deserialization
+        KeyEvent keyEvent = parcelUnparcel(mKeyEvent);
+        assertEquals(mKeyEvent.getCharacters(), keyEvent.getCharacters());
 
         mKeyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0);
         assertNull(mKeyEvent.getCharacters());
@@ -618,12 +623,7 @@ public class KeyEventTest {
 
     @Test
     public void testWriteToParcel() {
-        Parcel parcel = Parcel.obtain();
-        mKeyEvent.writeToParcel(parcel, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-        parcel.setDataPosition(0);
-
-        KeyEvent keyEvent = KeyEvent.CREATOR.createFromParcel(parcel);
-        parcel.recycle();
+        KeyEvent keyEvent = parcelUnparcel(mKeyEvent);
 
         assertEquals(mKeyEvent.getAction(), keyEvent.getAction());
         assertEquals(mKeyEvent.getKeyCode(), keyEvent.getKeyCode());
@@ -634,6 +634,7 @@ public class KeyEventTest {
         assertEquals(mKeyEvent.getFlags(), keyEvent.getFlags());
         assertEquals(mKeyEvent.getDownTime(), keyEvent.getDownTime());
         assertEquals(mKeyEvent.getEventTime(), keyEvent.getEventTime());
+        assertEquals(mKeyEvent.getCharacters(), keyEvent.getCharacters());
     }
 
     @Test
@@ -759,5 +760,49 @@ public class KeyEventTest {
         mKeyEvent = new KeyEvent(mDownTime, mEventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A,
                 1, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_TOUCHSCREEN);
         assertFalse(mKeyEvent.isLongPress());
+    }
+
+    @Test
+    public void testKeyCodeFromString() {
+        assertEquals(KeyEvent.KEYCODE_A, KeyEvent.keyCodeFromString("KEYCODE_A"));
+        assertEquals(KeyEvent.KEYCODE_A, KeyEvent.keyCodeFromString("A"));
+        assertEquals(KeyEvent.KEYCODE_A,
+                KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.KEYCODE_A)));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("keycode_a"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("a"));
+        assertEquals(0, KeyEvent.keyCodeFromString("0"));
+        assertEquals(1, KeyEvent.keyCodeFromString("1"));
+        assertEquals(KeyEvent.KEYCODE_HOME, KeyEvent.keyCodeFromString("3"));
+        assertEquals(KeyEvent.KEYCODE_POWER,
+                KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.KEYCODE_POWER)));
+        assertEquals(KeyEvent.KEYCODE_MENU,
+                KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.KEYCODE_MENU)));
+        assertEquals(KeyEvent.KEYCODE_BACK, KeyEvent.keyCodeFromString("BACK"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("back"));
+
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN,
+                KeyEvent.keyCodeFromString("KEYCODE_NOT_A_REAL_KEYCODE"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("NOT_A_REAL_KEYCODE"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("-1"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("1001"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("KEYCODE_123"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("KEYCODE"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString("KEYCODE_"));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyEvent.keyCodeFromString(""));
+        assertEquals(KeyEvent.LAST_KEYCODE,
+                KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.LAST_KEYCODE)));
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN,
+                KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.LAST_KEYCODE + 1)));
+    }
+
+    // Parcel a KeyEvent, then create a new KeyEvent from this parcel. Return the new KeyEvent
+    private KeyEvent parcelUnparcel(KeyEvent keyEvent) {
+        Parcel parcel = Parcel.obtain();
+        keyEvent.writeToParcel(parcel, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+        parcel.setDataPosition(0);
+
+        KeyEvent keyEventFromParcel = KeyEvent.CREATOR.createFromParcel(parcel);
+        parcel.recycle();
+        return keyEventFromParcel;
     }
 }

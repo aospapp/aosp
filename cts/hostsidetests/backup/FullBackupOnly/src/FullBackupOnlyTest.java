@@ -16,14 +16,16 @@
 
 package android.cts.backup.fullbackuponlyapp;
 
-import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static androidx.test.InstrumentationRegistry.getTargetContext;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -41,6 +43,7 @@ import java.util.Random;
  * test.
  */
 @RunWith(AndroidJUnit4.class)
+@AppModeFull
 public class FullBackupOnlyTest {
     private static final String TAG = "FullBackupOnlyTest";
 

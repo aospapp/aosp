@@ -79,7 +79,7 @@ class KeepFileTest : DriverTest() {
                     <init>();
                 }
                 """,
-            extraArguments = arrayOf("--hide", "KotlinKeyword")
+            extraArguments = arrayOf(ARG_HIDE, "KotlinKeyword")
         )
     }
 }

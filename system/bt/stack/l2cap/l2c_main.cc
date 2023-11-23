@@ -33,6 +33,7 @@
 #include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
+#include "hci/include/btsnoop.h"
 #include "hcimsgs.h"
 #include "l2c_api.h"
 #include "l2c_int.h"
@@ -79,8 +80,8 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
 
   uint16_t hci_len;
   STREAM_TO_UINT16(hci_len, p);
-  if (hci_len < L2CAP_PKT_OVERHEAD) {
-    /* Must receive at least the L2CAP length and CID */
+  if (hci_len < L2CAP_PKT_OVERHEAD || hci_len != p_msg->len - 4) {
+    /* Remote-declared packet size must match HCI_ACL size - ACL header (4) */
     L2CAP_TRACE_WARNING("L2CAP - got incorrect hci header");
     osi_free(p_msg);
     return;
@@ -173,9 +174,6 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
 
   if (rcv_cid == L2CAP_CONNECTIONLESS_CID) {
     /* process_connectionless_data (p_lcb); */
-    uint16_t psm;
-    STREAM_TO_UINT16(psm, p);
-    L2CAP_TRACE_DEBUG("GOT CONNECTIONLESS DATA PSM:%d", psm);
     osi_free(p_msg);
     return;
   }
@@ -399,6 +397,14 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         p_ccb->p_rcb = p_rcb;
         p_ccb->remote_cid = rcid;
 
+        if (p_rcb->psm == BT_PSM_RFCOMM) {
+          btsnoop_get_interface()->add_rfc_l2c_channel(
+              p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
+        } else if (p_rcb->log_packets) {
+          btsnoop_get_interface()->whitelist_l2c_channel(
+              p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
+        }
+
         l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_REQ, &con_info);
         break;
       }
@@ -430,6 +436,15 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         else
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_NEG, &con_info);
 
+        tL2C_RCB* p_rcb = p_ccb->p_rcb;
+        if (p_rcb->psm == BT_PSM_RFCOMM) {
+          btsnoop_get_interface()->add_rfc_l2c_channel(
+              p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
+        } else if (p_rcb->log_packets) {
+          btsnoop_get_interface()->whitelist_l2c_channel(
+              p_lcb->handle, p_ccb->local_cid, p_ccb->remote_cid);
+        }
+
         break;
       }
 
@@ -458,19 +473,40 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           switch (cfg_code & 0x7F) {
             case L2CAP_CFG_TYPE_MTU:
               cfg_info.mtu_present = true;
-              if (p + 2 > p_next_cmd) return;
+              if (cfg_len != 2) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT16(cfg_info.mtu, p);
               break;
 
             case L2CAP_CFG_TYPE_FLUSH_TOUT:
               cfg_info.flush_to_present = true;
-              if (p + 2 > p_next_cmd) return;
+              if (cfg_len != 2) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT16(cfg_info.flush_to, p);
               break;
 
             case L2CAP_CFG_TYPE_QOS:
               cfg_info.qos_present = true;
-              if (p + 2 + 5 * 4 > p_next_cmd) return;
+              if (cfg_len != 2 + 5 * 4) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
               STREAM_TO_UINT8(cfg_info.qos.service_type, p);
               STREAM_TO_UINT32(cfg_info.qos.token_rate, p);
@@ -482,7 +518,14 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCR:
               cfg_info.fcr_present = true;
-              if (p + 3 + 3 * 2 > p_next_cmd) return;
+              if (cfg_len != 3 + 3 * 2) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT8(cfg_info.fcr.mode, p);
               STREAM_TO_UINT8(cfg_info.fcr.tx_win_sz, p);
               STREAM_TO_UINT8(cfg_info.fcr.max_transmit, p);
@@ -493,13 +536,27 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCS:
               cfg_info.fcs_present = true;
-              if (p + 1 > p_next_cmd) return;
+              if (cfg_len != 1) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT8(cfg_info.fcs, p);
               break;
 
             case L2CAP_CFG_TYPE_EXT_FLOW:
               cfg_info.ext_flow_spec_present = true;
-              if (p + 2 + 2 + 3 * 4 > p_next_cmd) return;
+              if (cfg_len != 2 + 2 + 3 * 4) {
+                android_errorWriteLog(0x534e4554, "119870451");
+                return;
+              }
+              if (p + cfg_len > p_next_cmd) {
+                android_errorWriteLog(0x534e4554, "74202041");
+                return;
+              }
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.id, p);
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.stype, p);
               STREAM_TO_UINT16(cfg_info.ext_flow_spec.max_sdu_size, p);
@@ -511,6 +568,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             default:
               /* sanity check option length */
               if ((cfg_len + L2CAP_CFG_OPTION_OVERHEAD) <= cmd_len) {
+                if (p + cfg_len > p_next_cmd) return;
                 p += cfg_len;
                 if ((cfg_code & 0x80) == 0) {
                   cfg_rej_len += cfg_len + L2CAP_CFG_OPTION_OVERHEAD;
@@ -723,6 +781,10 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
         if (info_type == L2CAP_FIXED_CHANNELS_INFO_TYPE) {
           if (result == L2CAP_INFO_RESP_RESULT_SUCCESS) {
+            if (p + L2CAP_FIXED_CHNL_ARRAY_SIZE > p_next_cmd) {
+              android_errorWriteLog(0x534e4554, "111215173");
+              return;
+            }
             memcpy(p_lcb->peer_chnl_mask, p, L2CAP_FIXED_CHNL_ARRAY_SIZE);
           }
 

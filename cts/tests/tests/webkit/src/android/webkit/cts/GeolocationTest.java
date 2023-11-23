@@ -23,6 +23,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
+import android.platform.test.annotations.AppModeFull;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -35,8 +36,8 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
-import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
 
 import com.android.compatibility.common.util.LocationUtils;
 import com.android.compatibility.common.util.NullWebViewUtils;
@@ -56,6 +57,7 @@ import java.util.TreeSet;
 
 import junit.framework.Assert;
 
+@AppModeFull(reason = "Instant apps do not have access to location information")
 public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
 
     // TODO Write additional tests to cover:
@@ -146,7 +148,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
         if (webview != null) {
             // Set up a WebView with JavaScript and Geolocation enabled
             final String GEO_DIR = "geo_test";
-            mOnUiThread = new WebViewOnUiThread(this, webview);
+            mOnUiThread = new WebViewOnUiThread(webview);
             mOnUiThread.getSettings().setJavaScriptEnabled(true);
             mOnUiThread.getSettings().setGeolocationEnabled(true);
             mOnUiThread.getSettings().setGeolocationDatabasePath(
@@ -453,8 +455,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
         // Load the same URL again
         loadUrlAndUpdateLocation(URL_1);
         PollingCheck.check("JS didn't get position", POLLING_TIMEOUT, receivedLocation);
-        // Assert prompt for geolocation permission is not called the second time
-        assertFalse(chromeClientAcceptAlways.mReceivedRequest);
+        assertFalse("Prompt for geolocation permission should not be called the second time",
+                chromeClientAcceptAlways.mReceivedRequest);
         // Check that the permission is in GeolocationPermissions
         BooleanCheck trueCheck = new BooleanCheck(true);
         GeolocationPermissions.getInstance().getAllowed(URL_1, trueCheck);
@@ -616,8 +618,8 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
             }
         };
         PollingCheck.check("JS got position", POLLING_TIMEOUT, locationDenied);
-        // The geolocation permission prompt should not be called
-        assertFalse(chromeClientAcceptAlways.mReceivedRequest);
+        assertFalse("The geolocation permission prompt should not be called",
+                chromeClientAcceptAlways.mReceivedRequest);
     }
 
     // Object added to the page via AddJavascriptInterface() that is used by the test Javascript to

@@ -1,6 +1,6 @@
---- android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2017-10-13 00:22:50.443313485 -0700
-+++ android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2017-10-13 00:23:10.931536336 -0700
-@@ -202,7 +202,6 @@
+--- android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2018-10-22 05:12:28.204618072 +0100
++++ android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2018-10-22 05:12:45.596675565 +0100
+@@ -200,7 +200,6 @@
      /**
       * Returns the character used for zero. Different for Arabic, etc.
       * @return the character
@@ -8,7 +8,7 @@
       */
      public char getZeroDigit() {
          return zeroDigit;
-@@ -211,8 +210,6 @@
+@@ -209,8 +208,6 @@
      /**
       * Returns the array of characters used as digits, in order from 0 through 9
       * @return The array
@@ -17,7 +17,7 @@
       */
      public char[] getDigits() {
          return digits.clone();
-@@ -225,7 +222,6 @@
+@@ -223,7 +220,6 @@
       * digit 9 by incrementing code point one by one.
       *
       * @param zeroDigit the zero character.
@@ -25,7 +25,7 @@
       */
      public void setZeroDigit(char zeroDigit) {
          this.zeroDigit = zeroDigit;
-@@ -385,7 +381,6 @@
+@@ -383,7 +379,6 @@
      /**
       * Returns the character used for grouping separator. Different for French, etc.
       * @return the thousands character
@@ -33,7 +33,7 @@
       */
      public char getGroupingSeparator() {
          return groupingSeparator;
-@@ -394,7 +389,6 @@
+@@ -392,7 +387,6 @@
      /**
       * Sets the character used for grouping separator. Different for French, etc.
       * @param groupingSeparator the thousands character
@@ -41,7 +41,7 @@
       */
      public void setGroupingSeparator(char groupingSeparator) {
          this.groupingSeparator = groupingSeparator;
-@@ -437,7 +431,6 @@
+@@ -435,7 +429,6 @@
      /**
       * Returns the character used for decimal sign. Different for French, etc.
       * @return the decimal character
@@ -49,7 +49,7 @@
       */
      public char getDecimalSeparator() {
          return decimalSeparator;
-@@ -488,7 +481,6 @@
+@@ -486,7 +479,6 @@
      /**
       * Returns the character used for mille percent sign. Different for Arabic, etc.
       * @return the mille percent character
@@ -57,7 +57,7 @@
       */
      public char getPerMill() {
          return perMill;
-@@ -539,7 +531,6 @@
+@@ -537,7 +529,6 @@
      /**
       * Returns the character used for percent sign. Different for Arabic, etc.
       * @return the percent character
@@ -65,7 +65,7 @@
       */
      public char getPercent() {
          return percent;
-@@ -665,7 +656,6 @@
+@@ -663,7 +654,6 @@
       * negative format is specified, one is formed by prefixing
       * minusSign to the positive format.
       * @return the minus sign character
@@ -73,7 +73,7 @@
       */
      public char getMinusSign() {
          return minusSign;
-@@ -722,7 +712,6 @@
+@@ -720,7 +710,6 @@
       * @see #setPlusSign
       * @see #setMinusSign
       * @see #getMinusSign
@@ -81,7 +81,7 @@
       */
      public char getPlusSign() {
          return plusSign;
-@@ -842,7 +831,6 @@
+@@ -840,7 +829,6 @@
      /**
       * Returns the monetary decimal separator.
       * @return the monetary decimal separator character
@@ -89,7 +89,7 @@
       */
      public char getMonetaryDecimalSeparator() {
          return monetarySeparator;
-@@ -893,7 +881,6 @@
+@@ -891,7 +879,6 @@
      /**
       * <strong>[icu]</strong> Returns the monetary grouping separator.
       * @return the monetary grouping separator character

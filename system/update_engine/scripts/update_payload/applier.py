@@ -1,6 +1,18 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
+#
+# Copyright (C) 2013 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 """Applying a Chrome OS update payload.
 
@@ -18,6 +30,20 @@ import array
 import bz2
 import hashlib
 import itertools
+# Not everywhere we can have the lzma library so we ignore it if we didn't have
+# it because it is not going to be used. For example, 'cros flash' uses
+# devserver code which eventually loads this file, but the lzma library is not
+# included in the client test devices, and it is not necessary to do so. But
+# lzma is not used in 'cros flash' so it should be fine. Python 3.x include
+# lzma, but for backward compatibility with Python 2.7, backports-lzma is
+# needed.
+try:
+  import lzma
+except ImportError:
+  try:
+    from backports import lzma
+  except ImportError:
+    pass
 import os
 import shutil
 import subprocess
@@ -216,7 +242,7 @@ class PayloadApplier(object):
     self.truncate_to_expected_size = truncate_to_expected_size
 
   def _ApplyReplaceOperation(self, op, op_name, out_data, part_file, part_size):
-    """Applies a REPLACE{,_BZ} operation.
+    """Applies a REPLACE{,_BZ,_XZ} operation.
 
     Args:
       op: the operation object
@@ -234,6 +260,10 @@ class PayloadApplier(object):
     # Decompress data if needed.
     if op.type == common.OpType.REPLACE_BZ:
       out_data = bz2.decompress(out_data)
+      data_length = len(out_data)
+    elif op.type == common.OpType.REPLACE_XZ:
+      # pylint: disable=no-member
+      out_data = lzma.decompress(out_data)
       data_length = len(out_data)
 
     # Write data to blocks specified in dst extents.
@@ -508,7 +538,8 @@ class PayloadApplier(object):
       # Read data blob.
       data = self.payload.ReadDataBlob(op.data_offset, op.data_length)
 
-      if op.type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):
+      if op.type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ,
+                     common.OpType.REPLACE_XZ):
         self._ApplyReplaceOperation(op, op_name, data, new_part_file, part_size)
       elif op.type == common.OpType.MOVE:
         self._ApplyMoveOperation(op, op_name, new_part_file)
@@ -555,10 +586,7 @@ class PayloadApplier(object):
       if self.minor_version == common.INPLACE_MINOR_PAYLOAD_VERSION:
         # Copy the src partition to the dst one; make sure we don't truncate it.
         shutil.copyfile(old_part_file_name, new_part_file_name)
-      elif (self.minor_version == common.SOURCE_MINOR_PAYLOAD_VERSION or
-            self.minor_version == common.OPSRCHASH_MINOR_PAYLOAD_VERSION or
-            self.minor_version == common.BROTLI_BSDIFF_MINOR_PAYLOAD_VERSION or
-            self.minor_version == common.PUFFDIFF_MINOR_PAYLOAD_VERSION):
+      elif self.minor_version >= common.SOURCE_MINOR_PAYLOAD_VERSION:
         # In minor version >= 2, we don't want to copy the partitions, so
         # instead just make the new partition file.
         open(new_part_file_name, 'w').close()
@@ -591,46 +619,63 @@ class PayloadApplier(object):
       _VerifySha256(new_part_file, new_part_info.hash,
                     'new ' + part_name, length=new_part_info.size)
 
-  def Run(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
-          old_rootfs_part=None):
+  def Run(self, new_parts, old_parts=None):
     """Applier entry point, invoking all update operations.
 
     Args:
-      new_kernel_part: name of dest kernel partition file
-      new_rootfs_part: name of dest rootfs partition file
-      old_kernel_part: name of source kernel partition file (optional)
-      old_rootfs_part: name of source rootfs partition file (optional)
+      new_parts: map of partition name to dest partition file
+      old_parts: map of partition name to source partition file (optional)
 
     Raises:
       PayloadError if payload application failed.
     """
+    if old_parts is None:
+      old_parts = {}
+
     self.payload.ResetFile()
 
-    # Make sure the arguments are sane and match the payload.
-    if not (new_kernel_part and new_rootfs_part):
-      raise PayloadError('missing dst {kernel,rootfs} partitions')
+    new_part_info = {}
+    old_part_info = {}
+    install_operations = []
 
-    if not (old_kernel_part or old_rootfs_part):
-      if not self.payload.IsFull():
-        raise PayloadError('trying to apply a non-full update without src '
-                           '{kernel,rootfs} partitions')
-    elif old_kernel_part and old_rootfs_part:
-      if not self.payload.IsDelta():
-        raise PayloadError('trying to apply a non-delta update onto src '
-                           '{kernel,rootfs} partitions')
+    manifest = self.payload.manifest
+    if self.payload.header.version == 1:
+      for real_name, proto_name in common.CROS_PARTITIONS:
+        new_part_info[real_name] = getattr(manifest, 'new_%s_info' % proto_name)
+        old_part_info[real_name] = getattr(manifest, 'old_%s_info' % proto_name)
+
+      install_operations.append((common.ROOTFS, manifest.install_operations))
+      install_operations.append((common.KERNEL,
+                                 manifest.kernel_install_operations))
+    else:
+      for part in manifest.partitions:
+        name = part.partition_name
+        new_part_info[name] = part.new_partition_info
+        old_part_info[name] = part.old_partition_info
+        install_operations.append((name, part.operations))
+
+    part_names = set(new_part_info.keys())  # Equivalently, old_part_info.keys()
+
+    # Make sure the arguments are sane and match the payload.
+    new_part_names = set(new_parts.keys())
+    if new_part_names != part_names:
+      raise PayloadError('missing dst partition(s) %s' %
+                         ', '.join(part_names - new_part_names))
+
+    old_part_names = set(old_parts.keys())
+    if part_names - old_part_names:
+      if self.payload.IsDelta():
+        raise PayloadError('trying to apply a delta update without src '
+                           'partition(s) %s' %
+                           ', '.join(part_names - old_part_names))
+    elif old_part_names == part_names:
+      if self.payload.IsFull():
+        raise PayloadError('trying to apply a full update onto src partitions')
     else:
       raise PayloadError('not all src partitions provided')
 
-    # Apply update to rootfs.
-    self._ApplyToPartition(
-        self.payload.manifest.install_operations, 'rootfs',
-        'install_operations', new_rootfs_part,
-        self.payload.manifest.new_rootfs_info, old_rootfs_part,
-        self.payload.manifest.old_rootfs_info)
-
-    # Apply update to kernel update.
-    self._ApplyToPartition(
-        self.payload.manifest.kernel_install_operations, 'kernel',
-        'kernel_install_operations', new_kernel_part,
-        self.payload.manifest.new_kernel_info, old_kernel_part,
-        self.payload.manifest.old_kernel_info)
+    for name, operations in install_operations:
+      # Apply update to partition.
+      self._ApplyToPartition(
+          operations, name, '%s_install_operations' % name, new_parts[name],
+          new_part_info[name], old_parts.get(name, None), old_part_info[name])

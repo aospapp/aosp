@@ -26,7 +26,6 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -94,13 +93,12 @@ public class RadioOnHelper implements RadioOnStateListener.Callback {
      * get an onServiceStateChanged() callback when the radio successfully comes up.
      */
     private void powerOnRadio() {
-        Log.d(this, "powerOnRadio().");
 
         // If airplane mode is on, we turn it off the same way that the Settings activity turns it
         // off.
         if (Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.AIRPLANE_MODE_ON, 0) > 0) {
-            Log.d(this, "==> Turning off airplane mode.");
+            Log.d(this, "==> Turning off airplane mode for emergency call.");
 
             // Change the system setting
             Settings.Global.putInt(mContext.getContentResolver(),

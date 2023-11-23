@@ -4,25 +4,33 @@
 
 #include "policy/device_policy_impl.h"
 
+#include <algorithm>
 #include <memory>
+#include <set>
+#include <string>
 
 #include <base/containers/adapters.h>
 #include <base/files/file_util.h>
+#include <base/json/json_reader.h>
 #include <base/logging.h>
 #include <base/macros.h>
 #include <base/memory/ptr_util.h>
+#include <base/time/time.h>
+#include <base/values.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
-
-#include <set>
-#include <string>
 
 #include "bindings/chrome_device_policy.pb.h"
 #include "bindings/device_management_backend.pb.h"
 #include "policy/policy_util.h"
 #include "policy/resilient_policy_util.h"
 
+namespace em = enterprise_management;
+
 namespace policy {
+
+// Maximum value of RollbackAllowedMilestones policy.
+const int kMaxRollbackAllowedMilestones = 4;
 
 namespace {
 const char kPolicyPath[] = "/var/lib/whitelist/policy";
@@ -93,12 +101,76 @@ std::string DecodeConnectionType(int type) {
   return kConnectionTypes[type];
 }
 
+// TODO(adokar): change type to base::Optional<int> when available.
+int ConvertDayOfWeekStringToInt(const std::string& day_of_week_str) {
+  if (day_of_week_str == "Sunday") return 0;
+  if (day_of_week_str == "Monday") return 1;
+  if (day_of_week_str == "Tuesday") return 2;
+  if (day_of_week_str == "Wednesday") return 3;
+  if (day_of_week_str == "Thursday") return 4;
+  if (day_of_week_str == "Friday") return 5;
+  if (day_of_week_str == "Saturday") return 6;
+  return -1;
+}
+
+bool DecodeWeeklyTimeFromValue(const base::DictionaryValue& dict_value,
+                               int* day_of_week_out,
+                               base::TimeDelta* time_out) {
+  std::string day_of_week_str;
+  if (!dict_value.GetString("day_of_week", &day_of_week_str)) {
+    LOG(ERROR) << "Day of the week is absent.";
+    return false;
+  }
+  *day_of_week_out = ConvertDayOfWeekStringToInt(day_of_week_str);
+  if (*day_of_week_out == -1) {
+    LOG(ERROR) << "Undefined day of the week: " << day_of_week_str;
+    return false;
+  }
+
+  int hours;
+  if (!dict_value.GetInteger("hours", &hours) || hours < 0 || hours > 23) {
+    LOG(ERROR) << "Hours are absent or are outside of the range [0, 24).";
+    return false;
+  }
+
+  int minutes;
+  if (!dict_value.GetInteger("minutes", &minutes) || minutes < 0 ||
+      minutes > 59) {
+    LOG(ERROR) << "Minutes are absent or are outside the range [0, 60)";
+    return false;
+  }
+
+  *time_out =
+      base::TimeDelta::FromMinutes(minutes) + base::TimeDelta::FromHours(hours);
+  return true;
+}
+
+std::unique_ptr<base::ListValue> DecodeListValueFromJSON(
+    const std::string& json_string) {
+  std::string error;
+  std::unique_ptr<base::Value> decoded_json =
+      base::JSONReader::ReadAndReturnError(json_string,
+                                           base::JSON_ALLOW_TRAILING_COMMAS,
+                                           nullptr, &error);
+  if (!decoded_json) {
+    LOG(ERROR) << "Invalid JSON string: " << error;
+    return nullptr;
+  }
+
+  std::unique_ptr<base::ListValue> list_val =
+      base::ListValue::From(std::move(decoded_json));
+  if (!list_val) {
+    LOG(ERROR) << "JSON string is not a list";
+    return nullptr;
+  }
+
+  return list_val;
+}
+
 }  // namespace
 
 DevicePolicyImpl::DevicePolicyImpl()
-    : policy_path_(kPolicyPath),
-      keyfile_path_(kPublicKeyPath),
-      verify_root_ownership_(true) {}
+    : policy_path_(kPolicyPath), keyfile_path_(kPublicKeyPath) {}
 
 DevicePolicyImpl::~DevicePolicyImpl() {}
 
@@ -136,8 +208,7 @@ bool DevicePolicyImpl::GetUserWhitelist(
     std::vector<std::string>* user_whitelist) const {
   if (!device_policy_.has_user_whitelist())
     return false;
-  const enterprise_management::UserWhitelistProto& proto =
-      device_policy_.user_whitelist();
+  const em::UserWhitelistProto& proto = device_policy_.user_whitelist();
   user_whitelist->clear();
   for (int i = 0; i < proto.user_whitelist_size(); i++)
     user_whitelist->push_back(proto.user_whitelist(i));
@@ -192,8 +263,7 @@ bool DevicePolicyImpl::GetReportVersionInfo(bool* report_version_info) const {
   if (!device_policy_.has_device_reporting())
     return false;
 
-  const enterprise_management::DeviceReportingProto& proto =
-      device_policy_.device_reporting();
+  const em::DeviceReportingProto& proto = device_policy_.device_reporting();
   if (!proto.has_report_version_info())
     return false;
 
@@ -206,8 +276,7 @@ bool DevicePolicyImpl::GetReportActivityTimes(
   if (!device_policy_.has_device_reporting())
     return false;
 
-  const enterprise_management::DeviceReportingProto& proto =
-      device_policy_.device_reporting();
+  const em::DeviceReportingProto& proto = device_policy_.device_reporting();
   if (!proto.has_report_activity_times())
     return false;
 
@@ -219,8 +288,7 @@ bool DevicePolicyImpl::GetReportBootMode(bool* report_boot_mode) const {
   if (!device_policy_.has_device_reporting())
     return false;
 
-  const enterprise_management::DeviceReportingProto& proto =
-      device_policy_.device_reporting();
+  const em::DeviceReportingProto& proto = device_policy_.device_reporting();
   if (!proto.has_report_boot_mode())
     return false;
 
@@ -241,8 +309,7 @@ bool DevicePolicyImpl::GetReleaseChannel(std::string* release_channel) const {
   if (!device_policy_.has_release_channel())
     return false;
 
-  const enterprise_management::ReleaseChannelProto& proto =
-      device_policy_.release_channel();
+  const em::ReleaseChannelProto& proto = device_policy_.release_channel();
   if (!proto.has_release_channel())
     return false;
 
@@ -255,8 +322,7 @@ bool DevicePolicyImpl::GetReleaseChannelDelegated(
   if (!device_policy_.has_release_channel())
     return false;
 
-  const enterprise_management::ReleaseChannelProto& proto =
-      device_policy_.release_channel();
+  const em::ReleaseChannelProto& proto = device_policy_.release_channel();
   if (!proto.has_release_channel_delegated())
     return false;
 
@@ -268,7 +334,7 @@ bool DevicePolicyImpl::GetUpdateDisabled(bool* update_disabled) const {
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
   if (!proto.has_update_disabled())
     return false;
@@ -282,7 +348,7 @@ bool DevicePolicyImpl::GetTargetVersionPrefix(
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
   if (!proto.has_target_version_prefix())
     return false;
@@ -291,12 +357,58 @@ bool DevicePolicyImpl::GetTargetVersionPrefix(
   return true;
 }
 
+bool DevicePolicyImpl::GetRollbackToTargetVersion(
+    int* rollback_to_target_version) const {
+  if (!device_policy_.has_auto_update_settings())
+    return false;
+
+  const em::AutoUpdateSettingsProto& proto =
+      device_policy_.auto_update_settings();
+  if (!proto.has_rollback_to_target_version())
+    return false;
+
+  *rollback_to_target_version = proto.rollback_to_target_version();
+  return true;
+}
+
+bool DevicePolicyImpl::GetRollbackAllowedMilestones(
+    int* rollback_allowed_milestones) const {
+  // This policy can be only set for devices which are enterprise enrolled.
+  if (!install_attributes_reader_->IsLocked())
+    return false;
+  if (install_attributes_reader_->GetAttribute(
+          InstallAttributesReader::kAttrMode) !=
+          InstallAttributesReader::kDeviceModeEnterprise &&
+      install_attributes_reader_->GetAttribute(
+          InstallAttributesReader::kAttrMode) !=
+          InstallAttributesReader::kDeviceModeEnterpriseAD)
+    return false;
+
+  if (device_policy_.has_auto_update_settings()) {
+    const em::AutoUpdateSettingsProto& proto =
+        device_policy_.auto_update_settings();
+    if (proto.has_rollback_allowed_milestones()) {
+      // Policy is set, enforce minimum and maximum constraints.
+      *rollback_allowed_milestones = proto.rollback_allowed_milestones();
+      if (*rollback_allowed_milestones < 0)
+        *rollback_allowed_milestones = 0;
+      if (*rollback_allowed_milestones > kMaxRollbackAllowedMilestones)
+        *rollback_allowed_milestones = kMaxRollbackAllowedMilestones;
+      return true;
+    }
+  }
+  // Policy is not present, use default for enterprise devices.
+  VLOG(1) << "RollbackAllowedMilestones policy is not set, using default 0.";
+  *rollback_allowed_milestones = 0;
+  return true;
+}
+
 bool DevicePolicyImpl::GetScatterFactorInSeconds(
     int64_t* scatter_factor_in_seconds) const {
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
   if (!proto.has_scatter_factor_in_seconds())
     return false;
@@ -310,7 +422,7 @@ bool DevicePolicyImpl::GetAllowedConnectionTypesForUpdate(
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
   if (proto.allowed_connection_types_size() <= 0)
     return false;
@@ -328,7 +440,7 @@ bool DevicePolicyImpl::GetOpenNetworkConfiguration(
   if (!device_policy_.has_open_network_configuration())
     return false;
 
-  const enterprise_management::DeviceOpenNetworkConfigurationProto& proto =
+  const em::DeviceOpenNetworkConfigurationProto& proto =
       device_policy_.open_network_configuration();
   if (!proto.has_open_network_configuration())
     return false;
@@ -338,11 +450,11 @@ bool DevicePolicyImpl::GetOpenNetworkConfiguration(
 }
 
 bool DevicePolicyImpl::GetOwner(std::string* owner) const {
-  // The device is enterprise enrolled iff a request token exists.
-  if (policy_data_.has_request_token()) {
+  if (IsEnterpriseManaged()) {
     *owner = "";
     return true;
   }
+
   if (!policy_data_.has_username())
     return false;
   *owner = policy_data_.username();
@@ -354,7 +466,7 @@ bool DevicePolicyImpl::GetHttpDownloadsEnabled(
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
 
   if (!proto.has_http_downloads_enabled())
@@ -368,7 +480,7 @@ bool DevicePolicyImpl::GetAuP2PEnabled(bool* au_p2p_enabled) const {
   if (!device_policy_.has_auto_update_settings())
     return false;
 
-  const enterprise_management::AutoUpdateSettingsProto& proto =
+  const em::AutoUpdateSettingsProto& proto =
       device_policy_.auto_update_settings();
 
   if (!proto.has_p2p_enabled())
@@ -383,7 +495,7 @@ bool DevicePolicyImpl::GetAllowKioskAppControlChromeVersion(
   if (!device_policy_.has_allow_kiosk_app_control_chrome_version())
     return false;
 
-  const enterprise_management::AllowKioskAppControlChromeVersionProto& proto =
+  const em::AllowKioskAppControlChromeVersionProto& proto =
       device_policy_.allow_kiosk_app_control_chrome_version();
 
   if (!proto.has_allow_kiosk_app_control_chrome_version())
@@ -398,11 +510,11 @@ bool DevicePolicyImpl::GetUsbDetachableWhitelist(
     std::vector<UsbDeviceId>* usb_whitelist) const {
   if (!device_policy_.has_usb_detachable_whitelist())
     return false;
-  const enterprise_management::UsbDetachableWhitelistProto& proto =
+  const em::UsbDetachableWhitelistProto& proto =
       device_policy_.usb_detachable_whitelist();
   usb_whitelist->clear();
   for (int i = 0; i < proto.id_size(); i++) {
-    const ::enterprise_management::UsbDeviceIdProto& id = proto.id(i);
+    const em::UsbDeviceIdProto& id = proto.id(i);
     UsbDeviceId dev_id;
     dev_id.vendor_id = id.has_vendor_id() ? id.vendor_id() : 0;
     dev_id.product_id = id.has_product_id() ? id.product_id() : 0;
@@ -411,12 +523,46 @@ bool DevicePolicyImpl::GetUsbDetachableWhitelist(
   return true;
 }
 
+bool DevicePolicyImpl::GetDeviceUpdateStagingSchedule(
+    std::vector<DayPercentagePair>* staging_schedule_out) const {
+  staging_schedule_out->clear();
+
+  if (!device_policy_.has_auto_update_settings())
+    return false;
+
+  const em::AutoUpdateSettingsProto &proto =
+      device_policy_.auto_update_settings();
+
+  if (!proto.has_staging_schedule())
+    return false;
+
+  std::unique_ptr<base::ListValue> list_val =
+      DecodeListValueFromJSON(proto.staging_schedule());
+  if (!list_val)
+    return false;
+
+  for (base::Value* const& pair_value : *list_val) {
+    base::DictionaryValue* day_percentage_pair;
+    if (!pair_value->GetAsDictionary(&day_percentage_pair))
+      return false;
+    int days, percentage;
+    if (!day_percentage_pair->GetInteger("days", &days) ||
+        !day_percentage_pair->GetInteger("percentage", &percentage))
+      return false;
+    // Limit the percentage to [0, 100] and days to [1, 28];
+    staging_schedule_out->push_back({std::max(std::min(days, 28), 1),
+                                     std::max(std::min(percentage, 100), 0)});
+  }
+
+  return true;
+}
+
 bool DevicePolicyImpl::GetAutoLaunchedKioskAppId(
     std::string* app_id_out) const {
   if (!device_policy_.has_device_local_accounts())
     return false;
 
-  const enterprise_management::DeviceLocalAccountsProto& local_accounts =
+  const em::DeviceLocalAccountsProto& local_accounts =
       device_policy_.device_local_accounts();
 
   // For auto-launched kiosk apps, the delay needs to be 0.
@@ -424,7 +570,7 @@ bool DevicePolicyImpl::GetAutoLaunchedKioskAppId(
       local_accounts.auto_login_delay() != 0)
     return false;
 
-  for (const enterprise_management::DeviceLocalAccountInfoProto& account :
+  for (const em::DeviceLocalAccountInfoProto& account :
        local_accounts.account()) {
     // If this isn't an auto-login account, move to the next one.
     if (account.account_id() != local_accounts.auto_login_id())
@@ -433,8 +579,7 @@ bool DevicePolicyImpl::GetAutoLaunchedKioskAppId(
     // If the auto-launched account is not a kiosk app, bail out, we aren't
     // running in auto-launched kiosk mode.
     if (account.type() !=
-            enterprise_management::DeviceLocalAccountInfoProto::
-                ACCOUNT_TYPE_KIOSK_APP) {
+        em::DeviceLocalAccountInfoProto::ACCOUNT_TYPE_KIOSK_APP) {
       return false;
     }
 
@@ -444,6 +589,74 @@ bool DevicePolicyImpl::GetAutoLaunchedKioskAppId(
 
   // No auto-launched account found.
   return false;
+}
+
+bool DevicePolicyImpl::IsEnterpriseManaged() const {
+  if (policy_data_.has_management_mode())
+    return policy_data_.management_mode() == em::PolicyData::ENTERPRISE_MANAGED;
+  // Fall back to checking the request token, see management_mode documentation
+  // in device_management_backend.proto.
+  return policy_data_.has_request_token();
+}
+
+bool DevicePolicyImpl::GetSecondFactorAuthenticationMode(int* mode_out) const {
+  if (!device_policy_.has_device_second_factor_authentication())
+    return false;
+
+  const em::DeviceSecondFactorAuthenticationProto& proto =
+      device_policy_.device_second_factor_authentication();
+
+  if (!proto.has_mode())
+    return false;
+
+  *mode_out = proto.mode();
+  return true;
+}
+
+bool DevicePolicyImpl::GetDisallowedTimeIntervals(
+    std::vector<WeeklyTimeInterval>* intervals_out) const {
+  intervals_out->clear();
+
+  if (!device_policy_.has_auto_update_settings()) {
+    return false;
+  }
+
+  const em::AutoUpdateSettingsProto& proto =
+      device_policy_.auto_update_settings();
+
+  if (!proto.has_disallowed_time_intervals()) {
+    return false;
+  }
+
+  std::unique_ptr<base::ListValue> list_val =
+      DecodeListValueFromJSON(proto.disallowed_time_intervals());
+  if (!list_val)
+    return false;
+
+  for (base::Value* const& interval_value : *list_val) {
+    base::DictionaryValue* interval_dict;
+    if (!interval_value->GetAsDictionary(&interval_dict)) {
+      LOG(ERROR) << "Invalid JSON string given. Interval is not a dict.";
+      return false;
+    }
+    base::DictionaryValue* start;
+    base::DictionaryValue* end;
+    if (!interval_dict->GetDictionary("start", &start) ||
+        !interval_dict->GetDictionary("end", &end)) {
+      LOG(ERROR) << "Interval is missing start/end.";
+      return false;
+    }
+    WeeklyTimeInterval weekly_interval;
+    if (!DecodeWeeklyTimeFromValue(*start, &weekly_interval.start_day_of_week,
+                                   &weekly_interval.start_time) ||
+        !DecodeWeeklyTimeFromValue(*end, &weekly_interval.end_day_of_week,
+                                   &weekly_interval.end_time)) {
+      return false;
+    }
+
+    intervals_out->push_back(weekly_interval);
+  }
+  return true;
 }
 
 bool DevicePolicyImpl::VerifyPolicyFile(const base::FilePath& policy_path) {
@@ -506,7 +719,7 @@ bool DevicePolicyImpl::LoadPolicyFromFile(const base::FilePath& policy_path) {
     return false;
   }
 
-  bool verify_policy = true;
+  bool verify_policy = verify_policy_;
   if (!install_attributes_reader_) {
     install_attributes_reader_ = std::make_unique<InstallAttributesReader>();
   }

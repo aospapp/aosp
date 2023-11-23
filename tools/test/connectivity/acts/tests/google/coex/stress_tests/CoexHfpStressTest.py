@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -41,7 +41,7 @@ class CoexHfpStressTest(CoexBaseTest):
 
     def setup_test(self):
         CoexBaseTest.setup_test(self)
-        self.audio_receiver.pairing_mode()
+        self.audio_receiver.enter_pairing_mode()
         if not pair_and_connect_headset(
                 self.pri_ad, self.audio_receiver.mac_address,
                 set([BtEnum.BluetoothProfile.HEADSET.value])):
@@ -88,10 +88,10 @@ class CoexHfpStressTest(CoexBaseTest):
             True if successful, False otherwise.
         """
         for i in range(self.iterations):
-            if not self.audio_receiver.initiate_call_from_hf():
+            if not self.audio_receiver.press_initiate_call():
                 self.log.error("Failed to initiate call.")
                 return False
-            time.sleep(5)
+            time.sleep(5) #Wait time for intiating call.
             if not hangup_call(self.log, self.pri_ad):
                 self.log.error("Failed to hang up the call.")
                 return False
@@ -109,7 +109,7 @@ class CoexHfpStressTest(CoexBaseTest):
         Returns:
             True if successful, False otherwise.
         """
-        if not self.audio_receiver.initiate_call_from_hf():
+        if not self.audio_receiver.press_initiate_call():
             self.log.error("Failed to initiate call.")
             return False
         for i in range(self.iterations):

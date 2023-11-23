@@ -24,3 +24,6 @@ fun:_ZNSt3__19addressof*
 # Windows C++ stdlib headers that contain bad unrelated casts.
 src:*xmemory0
 src:*xstddef
+
+# b/119127110
+fun:*internal_default_instance*

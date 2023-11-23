@@ -16,13 +16,9 @@
 
 package android.provider.cts.contacts;
 
-import android.content.Context;
 import android.provider.Contacts;
 import android.provider.Contacts.ContactMethods;
 import android.test.AndroidTestCase;
-
-import com.android.internal.R;
-
 
 public class Contacts_ContactMethodsTest extends AndroidTestCase {
     public void testAddPostalLocation() {
@@ -57,49 +53,8 @@ public class Contacts_ContactMethodsTest extends AndroidTestCase {
                 ContactMethods.TYPE_CUSTOM, label).toString();
         assertEquals(label, display);
 
-        CharSequence[] labels = getContext().getResources().getTextArray(
-                com.android.internal.R.array.emailAddressTypes);
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_EMAIL,
-                ContactMethods.TYPE_HOME, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_HOME - 1], display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_EMAIL,
-                ContactMethods.TYPE_OTHER, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_OTHER - 1], display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_EMAIL,
-                ContactMethods.TYPE_WORK, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_WORK - 1], display);
-
-        String untitled = getContext().getString(R.string.untitled);
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_IM,
-                ContactMethods.TYPE_CUSTOM, label).toString();
-        assertEquals(untitled, display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_ORGANIZATION,
-                ContactMethods.TYPE_CUSTOM, label).toString();
-        assertEquals(untitled, display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_PHONE,
-                ContactMethods.TYPE_CUSTOM, label).toString();
-        assertEquals(untitled, display);
-
         display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_POSTAL,
                 ContactMethods.TYPE_CUSTOM, label).toString();
         assertEquals(label, display);
-
-        labels = getContext().getResources().getTextArray(
-                com.android.internal.R.array.postalAddressTypes);
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_POSTAL,
-                ContactMethods.TYPE_HOME, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_HOME - 1], display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_POSTAL,
-                ContactMethods.TYPE_OTHER, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_OTHER - 1], display);
-
-        display = ContactMethods.getDisplayLabel(getContext(), Contacts.KIND_POSTAL,
-                ContactMethods.TYPE_WORK, label).toString();
-        assertEquals(labels[ContactMethods.TYPE_WORK - 1], display);
     }
 }

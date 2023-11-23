@@ -201,12 +201,8 @@ test_flow_control = {
                      'report': True
 }
 
-
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
-
-
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=None)
+    host = hosts.create_host(machine)
     run_test_only = test_flow_control['run_test_only']
     job.run_test('enterprise_CFM_Test', host=host,
                   run_test_only=run_test_only,

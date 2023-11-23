@@ -1,4 +1,4 @@
-/* more.c - View FILE (or stdin) one screenful at a time.
+/* more.c - View FILE (or stdin) one screenfull at a time.
  *
  * Copyright 2013 Bilal Qureshi <bilal.jmi@gmail.com>
  *
@@ -12,7 +12,7 @@ config MORE
   help
     usage: more [FILE...]
 
-    View FILE(s) (or stdin) one screenful at a time.
+    View FILE(s) (or stdin) one screenfull at a time.
 */
 
 #define FOR_more
@@ -28,13 +28,13 @@ static void signal_handler(int sig)
   // Reset the terminal whether we were signalled or exited normally.
   tcsetattr(TT.cin_fd, TCSANOW, &TT.inf);
 
-  if (sig == 0) _exit(0);
-
-  // We were actually signalled, so move to a new line and re-raise the signal.
-  xputc('\n');
-  signal(sig, SIG_DFL);
-  raise(sig);
-  _exit(sig | 128);
+  // If we were actually signalled, move to a new line and re-raise the signal.
+  if (sig != 0) {
+    xputc('\n');
+    signal(sig, SIG_DFL);
+    raise(sig);
+    _exit(sig | 128);
+  }
 }
 
 static void show_file_header(const char *name)

@@ -27,6 +27,7 @@
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="exclude-filter" value="r(.*\(default\).*)" />
+        <option name="exclude-over-include" value="true" />
         <option name="test-timeout" value="5m"/>
     </test>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
@@ -37,8 +38,8 @@
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalGraphicsComposerV2_1TargetTest/VtsHalGraphicsComposerV2_1TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
-        <option name="binary-test-stop-native-servers" value="true"/>
         <option name="exclude-filter" value="r(.*\(vr\).*)" />
+        <option name="exclude-over-include" value="true" />
         <option name="test-timeout" value="5m"/>
     </test>
 </configuration>

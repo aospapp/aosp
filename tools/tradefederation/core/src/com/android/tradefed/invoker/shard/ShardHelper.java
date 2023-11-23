@@ -17,6 +17,7 @@ package com.android.tradefed.invoker.shard;
 
 import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.GlobalConfiguration;
@@ -26,6 +27,7 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.ShardListener;
 import com.android.tradefed.invoker.ShardMasterResultForwarder;
+import com.android.tradefed.invoker.shard.token.ITokenRequest;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.IShardableListener;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -43,6 +45,7 @@ import com.android.tradefed.util.keystore.KeyStoreException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
@@ -60,6 +63,10 @@ public class ShardHelper implements IShardHelper {
         CONFIG_OBJ_TO_CLONE.add(Configuration.DEVICE_METRICS_COLLECTOR_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.TARGET_PREPARER_TYPE_NAME);
         CONFIG_OBJ_TO_CLONE.add(Configuration.MULTI_PREPARER_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.CMD_OPTIONS_TYPE_NAME);
+        CONFIG_OBJ_TO_CLONE.add(Configuration.LOGGER_TYPE_NAME);
+        // Deep clone of log_saver to ensure each shard manages its own logs
+        CONFIG_OBJ_TO_CLONE.add(Configuration.LOG_SAVER_TYPE_NAME);
     }
 
     /**
@@ -99,6 +106,7 @@ public class ShardHelper implements IShardHelper {
         ShardMasterResultForwarder resultCollector =
                 new ShardMasterResultForwarder(buildMasterShardListeners(config), expectedShard);
 
+        config.getLogSaver().invocationStarted(context);
         resultCollector.invocationStarted(context);
         synchronized (shardableTests) {
             // When shardCount is available only create 1 poller per shard
@@ -110,22 +118,36 @@ public class ShardHelper implements IShardHelper {
                 Collections.shuffle(shardableTests);
                 int maxShard = Math.min(shardCount, shardableTests.size());
                 CountDownLatch tracker = new CountDownLatch(maxShard);
+                Collection<ITokenRequest> tokenPool = null;
+                if (config.getCommandOptions().shouldUseTokenSharding()) {
+                    tokenPool = extractTokenTests(shardableTests);
+                }
                 for (int i = 0; i < maxShard; i++) {
                     IConfiguration shardConfig = config.clone();
-                    shardConfig.setTest(new TestsPoolPoller(shardableTests, tracker));
-                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector);
+                    TestsPoolPoller poller =
+                            new TestsPoolPoller(shardableTests, tokenPool, tracker);
+                    shardConfig.setTest(poller);
+                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector, i);
                 }
             } else {
                 CountDownLatch tracker = new CountDownLatch(shardableTests.size());
+                Collection<ITokenRequest> tokenPool = null;
+                if (config.getCommandOptions().shouldUseTokenSharding()) {
+                    tokenPool = extractTokenTests(shardableTests);
+                }
+                int i = 0;
                 for (IRemoteTest testShard : shardableTests) {
-                    CLog.i("Rescheduling sharded config...");
+                    CLog.d("Rescheduling sharded config...");
                     IConfiguration shardConfig = config.clone();
                     if (config.getCommandOptions().shouldUseDynamicSharding()) {
-                        shardConfig.setTest(new TestsPoolPoller(shardableTests, tracker));
+                        TestsPoolPoller poller =
+                                new TestsPoolPoller(shardableTests, tokenPool, tracker);
+                        shardConfig.setTest(poller);
                     } else {
                         shardConfig.setTest(testShard);
                     }
-                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector);
+                    rescheduleConfig(shardConfig, config, context, rescheduler, resultCollector, i);
+                    i++;
                 }
             }
         }
@@ -138,20 +160,30 @@ public class ShardHelper implements IShardHelper {
         return true;
     }
 
-    public void rescheduleConfig(
+    private void rescheduleConfig(
             IConfiguration shardConfig,
             IConfiguration config,
             IInvocationContext context,
             IRescheduler rescheduler,
-            ShardMasterResultForwarder resultCollector) {
+            ShardMasterResultForwarder resultCollector,
+            int index) {
         cloneConfigObject(config, shardConfig);
         ShardBuildCloner.cloneBuildInfos(config, shardConfig, context);
 
         shardConfig.setTestInvocationListeners(
                 buildShardListeners(resultCollector, config.getTestInvocationListeners()));
-        shardConfig.setLogOutput(config.getLogOutput().clone());
-        shardConfig.setCommandOptions(config.getCommandOptions().clone());
-        // use the same {@link ITargetPreparer}, {@link IDeviceRecovery} etc as original config
+
+        // Set the host_log suffix to avoid similar names
+        String suffix = String.format("_shard_index_%s", index);
+        if (shardConfig.getCommandOptions().getHostLogSuffix() != null) {
+            suffix = shardConfig.getCommandOptions().getHostLogSuffix() + suffix;
+        }
+        shardConfig.getCommandOptions().setHostLogSuffix(suffix);
+
+        // Use the same {@link ITargetPreparer}, {@link IDeviceRecovery} etc as original config
+        // Make sure we don't run as sandboxed in shards, only parent invocation needs to
+        // run as sandboxed
+        shardConfig.getConfigurationDescription().setSandboxed(false);
         rescheduler.scheduleConfig(shardConfig);
     }
 
@@ -159,6 +191,12 @@ public class ShardHelper implements IShardHelper {
     @VisibleForTesting
     protected IGlobalConfiguration getGlobalConfiguration() {
         return GlobalConfiguration.getInstance();
+    }
+
+    /** Runs the {@link IConfiguration#validateOptions(boolean)} on the config. */
+    @VisibleForTesting
+    protected void validateOptions(IConfiguration config) throws ConfigurationException {
+        config.validateOptions(true);
     }
 
     /**
@@ -186,6 +224,13 @@ public class ShardHelper implements IShardHelper {
                 clonedConfig.setConfigurationObjectList(
                         objType, deepCopy.getConfigurationObjectList(objType));
             }
+            // Sharding was done, no need for children to look into it.
+            clonedConfig.getCommandOptions().setShardCount(null);
+            clonedConfig
+                    .getConfigurationDescription()
+                    .addMetadata(ConfigurationDescriptor.LOCAL_SHARDED_KEY, "true");
+            // Validate and download the dynamic options
+            validateOptions(clonedConfig);
         } catch (ConfigurationException e) {
             // should not happen
             throw new RuntimeException(
@@ -274,4 +319,17 @@ public class ShardHelper implements IShardHelper {
         return shardListeners;
     }
 
+    private Collection<ITokenRequest> extractTokenTests(Collection<IRemoteTest> shardableTests) {
+        List<ITokenRequest> tokenPool = new ArrayList<>();
+        Iterator<IRemoteTest> itr = new ArrayList<>(shardableTests).iterator();
+
+        while (itr.hasNext()) {
+            IRemoteTest test = itr.next();
+            if (test instanceof ITokenRequest) {
+                tokenPool.add((ITokenRequest) test);
+                shardableTests.remove(test);
+            }
+        }
+        return tokenPool;
+    }
 }

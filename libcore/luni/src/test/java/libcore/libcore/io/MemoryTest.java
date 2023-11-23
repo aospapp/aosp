@@ -22,7 +22,6 @@ import java.util.Arrays;
 import junit.framework.TestCase;
 
 import libcore.io.Memory;
-import libcore.io.SizeOf;
 
 public class MemoryTest extends TestCase {
     public void testSetIntArray() {
@@ -32,7 +31,7 @@ public class MemoryTest extends TestCase {
             swappedValues[i] = Integer.reverseBytes(values[i]);
         }
 
-        int scale = SizeOf.INT;
+        int scale = Integer.BYTES;
         VMRuntime runtime = VMRuntime.getRuntime();
         byte[] array = (byte[]) runtime.newNonMovableArray(byte.class, scale * values.length + 1);
         long base_ptr = runtime.addressOf(array);
@@ -62,7 +61,7 @@ public class MemoryTest extends TestCase {
 
     private void assertIntsEqual(int[] expectedValues, long ptr, boolean swap) {
         for (int i = 0; i < expectedValues.length; ++i) {
-            assertEquals(expectedValues[i], Memory.peekInt(ptr + SizeOf.INT * i, swap));
+            assertEquals(expectedValues[i], Memory.peekInt(ptr + Integer.BYTES * i, swap));
         }
     }
 
@@ -73,7 +72,7 @@ public class MemoryTest extends TestCase {
             swappedValues[i] = Long.reverseBytes(values[i]);
         }
 
-        int scale = SizeOf.LONG;
+        int scale = Long.BYTES;
         VMRuntime runtime = VMRuntime.getRuntime();
         byte[] array = (byte[]) runtime.newNonMovableArray(byte.class, scale * values.length + 1);
         long base_ptr = runtime.addressOf(array);
@@ -103,7 +102,7 @@ public class MemoryTest extends TestCase {
 
     private void assertLongsEqual(long[] expectedValues, long ptr, boolean swap) {
       for (int i = 0; i < expectedValues.length; ++i) {
-        assertEquals(expectedValues[i], Memory.peekLong(ptr + SizeOf.LONG * i, swap));
+        assertEquals(expectedValues[i], Memory.peekLong(ptr + Long.BYTES * i, swap));
       }
     }
 
@@ -111,7 +110,7 @@ public class MemoryTest extends TestCase {
         short[] values = { 0x0001, 0x0020, 0x0300, 0x4000 };
         short[] swappedValues = { 0x0100, 0x2000, 0x0003, 0x0040 };
 
-        int scale = SizeOf.SHORT;
+        int scale = Short.BYTES;
         VMRuntime runtime = VMRuntime.getRuntime();
         byte[] array = (byte[]) runtime.newNonMovableArray(byte.class, scale * values.length + 1);
         long base_ptr = runtime.addressOf(array);
@@ -141,7 +140,7 @@ public class MemoryTest extends TestCase {
 
     private void assertShortsEqual(short[] expectedValues, long ptr, boolean swap) {
         for (int i = 0; i < expectedValues.length; ++i) {
-            assertEquals(expectedValues[i], Memory.peekShort(ptr + SizeOf.SHORT * i, swap));
+            assertEquals(expectedValues[i], Memory.peekShort(ptr + Short.BYTES * i, swap));
         }
     }
 }

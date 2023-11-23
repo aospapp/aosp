@@ -6,16 +6,17 @@
  */
 
 #define _GNU_SOURCE
+#include <limits.h>
+#include <linux/icmp.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/resource.h>
 #include <sys/sysmacros.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
-#include <linux/icmp.h>
+#include <unistd.h>
 
 #define __GLIBC_PREREQ(a, b) 1
 
@@ -27,6 +28,17 @@
 #define S_IWRITE S_IWUSR
 #define _UTSNAME_DOMAIN_LENGTH SYS_NMLN
 #define _UTSNAME_LENGTH SYS_NMLN
+#define LINE_MAX _POSIX2_LINE_MAX
+/* Bionic doesn't support extended patterns and
+ * as of LTP20180515, this only used by read_all.c
+ * which is run from runtest/fs.
+ *
+ * LTP does not pass the argument that will end up
+ * going down the extended pattern match call, so
+ * we are safe here. This is for *build* purposes only
+ * and we don't alter behavior
+ */
+#define FNM_EXTMATCH 0
 
 enum __ptrace_request { ENUM_PTRACE_UNUSED };
 typedef unsigned long ulong;

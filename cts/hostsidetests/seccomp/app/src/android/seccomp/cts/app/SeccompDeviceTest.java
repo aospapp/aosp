@@ -16,24 +16,36 @@
 
 package android.seccomp.cts.app;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Iterator;
-
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.res.AssetManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-import com.android.compatibility.common.util.CpuFeatures;
-import org.json.JSONObject;
-import org.json.JSONException;
+import android.os.ConditionVariable;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
+import android.util.Log;
 
-import org.junit.After;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CpuFeatures;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Iterator;
 
 /**
  * Device-side tests for CtsSeccompHostTestCases
@@ -44,19 +56,39 @@ public class SeccompDeviceTest {
         System.loadLibrary("ctsseccomp_jni");
     }
 
+    static final String TAG = "SeccompDeviceTest";
+
+    protected Context mContext;
+
+    // This is flagged whenever we have obtained the test result from the isolated
+    // service; it allows us to block the test until the results are in.
+    private final ConditionVariable mResultCondition = new ConditionVariable();
+
+    private boolean mAppZygoteResult;
+    private Messenger mMessenger;
+    private HandlerThread mHandlerThread;
+
+    // The service start can take a long time, because seccomp denials will
+    // cause process crashes and dumps, which we waitpid() for sequentially.
+    private static final int SERVICE_START_TIMEOUT_MS = 120000;
+
     private JSONObject mAllowedSyscallMap;
     private JSONObject mBlockedSyscallMap;
 
     @Before
     public void initializeSyscallMap() throws IOException, JSONException {
-        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        AssetManager manager = context.getAssets();
+        mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AssetManager manager = mContext.getAssets();
         try (InputStream is = manager.open("syscalls_allowed.json")) {
             mAllowedSyscallMap = new JSONObject(readInputStreamFully(is));
         }
         try (InputStream is = manager.open("syscalls_blocked.json")) {
             mBlockedSyscallMap = new JSONObject(readInputStreamFully(is));
         }
+        mHandlerThread = new HandlerThread("HandlerThread");
+        mHandlerThread.start();
+        Looper looper = mHandlerThread.getLooper();
+        mMessenger = new Messenger(new IncomingHandler(looper));
     }
 
     @Test
@@ -77,6 +109,84 @@ public class SeccompDeviceTest {
             String syscallName = iter.next();
             testBlocked(map.getInt(syscallName));
         }
+    }
+
+    class IncomingHandler extends Handler {
+        IncomingHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case IsolatedService.MSG_SECCOMP_RESULT:
+                    mAppZygoteResult = (msg.arg1 == 1);
+                    mResultCondition.open();
+                default:
+                    super.handleMessage(msg);
+            }
+        }
+	}
+
+    class IsolatedConnection implements ServiceConnection {
+        private final ConditionVariable mConnectedCondition = new ConditionVariable();
+        private Messenger mService;
+
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            mService = new Messenger(binder);
+            mConnectedCondition.open();
+        }
+
+        public void onServiceDisconnected(ComponentName name) {
+            mConnectedCondition.close();
+        }
+
+        public boolean getTestResult() {
+            boolean connected = mConnectedCondition.block(SERVICE_START_TIMEOUT_MS);
+            if (!connected) {
+               Log.e(TAG, "Failed to wait for IsolatedService to bind.");
+               return false;
+            }
+            Message msg = Message.obtain(null, IsolatedService.MSG_GET_SECCOMP_RESULT);
+            msg.replyTo = mMessenger;
+            try {
+                mService.send(msg);
+            } catch (RemoteException e) {
+                Log.e(TAG, "Failed to send message to IsolatedService to get test result.", e);
+                return false;
+            }
+
+            // Wait for result and return it
+            mResultCondition.block();
+
+            return mAppZygoteResult;
+        }
+    }
+
+    private IsolatedConnection bindService(Class<?> cls) {
+        Intent intent = new Intent();
+        intent.setClass(mContext, cls);
+        IsolatedConnection conn = new IsolatedConnection();
+        mContext.bindService(intent, conn, Context.BIND_AUTO_CREATE);
+
+        return conn;
+    }
+
+    @Test
+    public void testAppZygoteSyscalls() {
+        // Isolated services that spawn from the application Zygote are allowed
+        // to preload code in a security context that is allowed to use
+        // setresuid() / setresgid() in a limited range; this test enforces
+        // we allow calls within the range, and reject those outside them.
+        // This is done from the ZygotePreload class (which runs in the app zygote
+        // context); here we just wait for the service to come up, and ask it
+        // whether the tests were executed successfully. We have to ask the service
+        // because that is the only process that we can talk to that shares the
+        // same address space as the ZygotePreload class, which holds the test
+        // result.
+        IsolatedConnection conn = bindService(IsolatedService.class);
+        boolean testResult = conn.getTestResult();
+        Assert.assertTrue("seccomp tests in application zygote failed; see logs.", testResult);
     }
 
     private static String getCurrentArch() {
@@ -120,4 +230,6 @@ public class SeccompDeviceTest {
     }
 
     private static final native boolean testSyscallBlocked(int nr);
+    protected static final native boolean testSetresuidBlocked(int ruid, int euid, int suid);
+    protected static final native boolean testSetresgidBlocked(int rgid, int egid, int sgid);
 }

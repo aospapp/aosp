@@ -22,7 +22,7 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     development/sys-img/advancedFeatures.ini:advancedFeatures.ini \
     device/generic/goldfish/data/etc/encryptionkey.img:encryptionkey.img \
-    prebuilts/qemu-kernel/x86_64/4.4/kernel-qemu2:kernel-ranchu-64
+    prebuilts/qemu-kernel/x86_64/4.14/kernel-qemu2:kernel-ranchu-64
 
 # TODO: separate out a common base for arm/x86 atv SDK build.
 $(call inherit-product, device/google/atv/products/sdk_atv_armv7.mk)

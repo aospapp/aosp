@@ -69,6 +69,7 @@ cc_defaults {
                 "src/mapping.c",
                 "src/policyvers.c",
                 "src/procattr.c",
+                "src/reject_unknown.c",
                 "src/sestatus.c",
                 "src/setenforce.c",
                 "src/setfilecon.c",
@@ -86,9 +87,6 @@ cc_defaults {
             cflags: [
                 "-DAUDITD_LOG_TAG=1003",
             ],
-
-            // mapping.c has redundant check of array p_in->perms.
-            clang_cflags: ["-Wno-pointer-bool-conversion"],
         }
     },
 
@@ -104,6 +102,8 @@ cc_library {
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
+    recovery_available: true,
 
     host_supported: true,
     cflags: ["-DUSE_PCRE2"],
@@ -124,15 +124,22 @@ cc_library {
                 "src/compute_create.c",
                 "src/compute_member.c",
                 "src/context.c",
+                "src/deny_unknown.c",
                 "src/enabled.c",
+                "src/fgetfilecon.c",
                 "src/getenforce.c",
                 "src/getfilecon.c",
                 "src/get_initial_context.c",
                 "src/init.c",
+                "src/lgetfilecon.c",
                 "src/load_policy.c",
+                "src/lsetfilecon.c",
                 "src/mapping.c",
                 "src/procattr.c",
+                "src/reject_unknown.c",
+                "src/setenforce.c",
                 "src/setexecfilecon.c",
+                "src/setfilecon.c",
                 "src/stringrep.c",
             ],
         },
@@ -147,6 +154,7 @@ cc_library {
                 "src/compute_create.c",
                 "src/compute_member.c",
                 "src/context.c",
+                "src/deny_unknown.c",
                 "src/enabled.c",
                 "src/getenforce.c",
                 "src/getfilecon.c",
@@ -155,6 +163,7 @@ cc_library {
                 "src/load_policy.c",
                 "src/mapping.c",
                 "src/procattr.c",
+                "src/reject_unknown.c",
                 "src/setexecfilecon.c",
                 "src/stringrep.c",
             ],

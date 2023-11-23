@@ -18,7 +18,7 @@ package com.android.documentsui.prefs;
 
 import static com.android.documentsui.base.State.MODE_UNKNOWN;
 
-import android.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;

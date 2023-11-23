@@ -37,7 +37,7 @@ Differences are :
   * `lz4 file.lz4` will default to decompression (use `-z` to force compression)
   * `lz4` shows real-time notification statistics
      during compression or decompression of a single file
-     (use `-q` to silent them)
+     (use `-q` to silence them)
   * If no destination name is provided, result is sent to `stdout`
     _except if stdout is the console_.
   * If no destination name is provided, __and__ if `stdout` is the console,
@@ -45,6 +45,9 @@ Differences are :
   * As a consequence of previous rules, note the following example :
     `lz4 file | consumer` sends compressed data to `consumer` through `stdout`,
     hence it does _not_ create `file.lz4`.
+  * Another consequence of those rules is that to run `lz4` under `nohup`,
+    you should provide a destination file: `nohup lz4 file file.lz4`,
+    because `nohup` writes the specified command's output to a file.
 
 Default behaviors can be modified by opt-in commands, detailed below.
 
@@ -63,15 +66,11 @@ Default behaviors can be modified by opt-in commands, detailed below.
 It is possible to concatenate `.lz4` files as is.
 `lz4` will decompress such files as if they were a single `.lz4` file.
 For example:
+
     lz4 file1  > foo.lz4
     lz4 file2 >> foo.lz4
 
-then
-    lz4cat foo.lz4
-
-is equivalent to :
-    cat file1 file2
-
+Then `lz4cat foo.lz4` is equivalent to `cat file1 file2`.
 
 OPTIONS
 -------
@@ -118,13 +117,26 @@ only the latest one will be applied.
 ### Operation modifiers
 
 * `-#`:
-  Compression level, with # being any value from 1 to 16.
+  Compression level, with # being any value from 1 to 12.
   Higher values trade compression speed for compression ratio.
-  Values above 16 are considered the same as 16.
+  Values above 12 are considered the same as 12.
   Recommended values are 1 for fast compression (default),
   and 9 for high compression.
   Speed/compression trade-off will vary depending on data to compress.
   Decompression speed remains fast at all settings.
+
+* `--fast[=#]`:
+  switch to ultra-fast compression levels.
+  The higher the value, the faster the compression speed, at the cost of some compression ratio.
+  If `=#` is not present, it defaults to `1`.
+  This setting overrides compression level if one was set previously.
+  Similarly, if a compression level is set after `--fast`, it overrides it.
+
+* `-D dictionaryName`:
+  Compress, decompress or benchmark using dictionary _dictionaryName_.
+  Compression and decompression must use the same dictionary to be compatible.
+  Using a different dictionary during decompression will either
+  abort due to decompression error, or generate a checksum error.
 
 * `-f` `--[no-]force`:
   This option has several effects:
@@ -194,6 +206,9 @@ only the latest one will be applied.
 * `--rm` :
   Delete source files on successful compression or decompression
 
+* `--` :
+  Treat all subsequent arguments as files
+
 
 ### Benchmark mode
 
@@ -204,7 +219,7 @@ only the latest one will be applied.
   Benchmark multiple compression levels, from b# to e# (included)
 
 * `-i#`:
-  Minimum evaluation in seconds \[1-9\] (default : 3)
+  Minimum evaluation time in seconds \[1-9\] (default : 3)
 
 
 BUGS

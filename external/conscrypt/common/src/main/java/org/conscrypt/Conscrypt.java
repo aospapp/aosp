@@ -15,10 +15,14 @@
  */
 package org.conscrypt;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
 import java.security.PrivateKey;
 import java.security.Provider;
+import java.util.Properties;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLContextSpi;
 import javax.net.ssl.SSLEngine;
@@ -28,6 +32,7 @@ import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 /**
@@ -47,6 +52,54 @@ public final class Conscrypt {
         } catch (Throwable e) {
             return false;
         }
+    }
+
+    public static class Version {
+        private final int major;
+        private final int minor;
+        private final int patch;
+
+        private Version(int major, int minor, int patch) {
+            this.major = major;
+            this.minor = minor;
+            this.patch = patch;
+        }
+
+        public int major() { return major; }
+        public int minor() { return minor; }
+        public int patch() { return patch; }
+    }
+
+    private static final Version VERSION;
+
+    static {
+        int major = -1;
+        int minor = -1;
+        int patch = -1;
+        try {
+            InputStream stream = Conscrypt.class.getResourceAsStream("conscrypt.properties");
+            if (stream != null) {
+                Properties props = new Properties();
+                props.load(stream);
+                major = Integer.parseInt(props.getProperty("org.conscrypt.version.major", "-1"));
+                minor = Integer.parseInt(props.getProperty("org.conscrypt.version.minor", "-1"));
+                patch = Integer.parseInt(props.getProperty("org.conscrypt.version.patch", "-1"));
+            }
+        } catch (IOException e) {
+        }
+        if ((major >= 0) && (minor >= 0) && (patch >= 0)) {
+            VERSION = new Version(major, minor, patch);
+        } else {
+            VERSION = null;
+        }
+    }
+
+    /**
+     * Returns the version of this distribution of Conscrypt.  If version information is
+     * unavailable, returns {@code null}.
+     */
+    public static Version version() {
+        return VERSION;
     }
 
     /**
@@ -75,10 +128,55 @@ public final class Conscrypt {
 
     /**
      * Constructs a new {@link Provider} with the given name.
+     *
+     * @deprecated Use {@link #newProviderBuilder()} instead.
      */
+    @Deprecated
     public static Provider newProvider(String providerName) {
         checkAvailability();
-        return new OpenSSLProvider(providerName);
+        return new OpenSSLProvider(providerName, Platform.provideTrustManagerByDefault());
+    }
+
+    public static class ProviderBuilder {
+        private String name = Platform.getDefaultProviderName();
+        private boolean provideTrustManager = Platform.provideTrustManagerByDefault();
+
+        private ProviderBuilder() {}
+
+        /**
+         * Sets the name of the Provider to be built.
+         */
+        public ProviderBuilder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        /**
+         * Causes the returned provider to provide an implementation of
+         * {@link javax.net.ssl.TrustManagerFactory}.
+         * @deprecated Use provideTrustManager(true)
+         */
+        @Deprecated
+        public ProviderBuilder provideTrustManager() {
+            return provideTrustManager(true);
+        }
+
+        /**
+         * Specifies whether the returned provider will provide an implementation of
+         * {@link javax.net.ssl.TrustManagerFactory}.
+         */
+        public ProviderBuilder provideTrustManager(boolean provide) {
+            this.provideTrustManager = provide;
+            return this;
+        }
+
+        public Provider build() {
+            return new OpenSSLProvider(name, provideTrustManager);
+        }
+    }
+
+    public static ProviderBuilder newProviderBuilder() {
+        return new ProviderBuilder();
     }
 
     /**
@@ -210,7 +308,8 @@ public final class Conscrypt {
 
     /**
      * This method enables Server Name Indication (SNI) and overrides the hostname supplied
-     * during socket creation.
+     * during socket creation.  If the hostname is not a valid SNI hostname, the SNI extension
+     * will be omitted from the handshake.
      *
      * @param socket the socket
      * @param hostname the desired SNI hostname, or null to disable
@@ -348,6 +447,24 @@ public final class Conscrypt {
     }
 
     /**
+     * Exports a value derived from the TLS master secret as described in RFC 5705.
+     *
+     * @param label the label to use in calculating the exported value.  This must be
+     * an ASCII-only string.
+     * @param context the application-specific context value to use in calculating the
+     * exported value.  This may be {@code null} to use no application context, which is
+     * treated differently than an empty byte array.
+     * @param length the number of bytes of keying material to return.
+     * @return a value of the specified length, or {@code null} if the handshake has not yet
+     * completed or the connection has been closed.
+     * @throws SSLException if the value could not be exported.
+     */
+    public static byte[] exportKeyingMaterial(SSLSocket socket, String label, byte[] context,
+            int length) throws SSLException {
+        return toConscrypt(socket).exportKeyingMaterial(label, context, length);
+    }
+
+    /**
      * Indicates whether the given {@link SSLEngine} was created by this distribution of Conscrypt.
      */
     public static boolean isConscrypt(SSLEngine engine) {
@@ -364,10 +481,35 @@ public final class Conscrypt {
 
     /**
      * Provides the given engine with the provided bufferAllocator.
+     * @throws IllegalArgumentException if the provided engine is not a Conscrypt engine.
+     * @throws IllegalStateException if the provided engine has already begun its handshake.
      */
     @ExperimentalApi
     public static void setBufferAllocator(SSLEngine engine, BufferAllocator bufferAllocator) {
         toConscrypt(engine).setBufferAllocator(bufferAllocator);
+    }
+
+    /**
+     * Provides the given socket with the provided bufferAllocator.  If the given socket is a
+     * Conscrypt socket but does not use buffer allocators, this method does nothing.
+     * @throws IllegalArgumentException if the provided socket is not a Conscrypt socket.
+     * @throws IllegalStateException if the provided socket has already begun its handshake.
+     */
+    @ExperimentalApi
+    public static void setBufferAllocator(SSLSocket socket, BufferAllocator bufferAllocator) {
+        AbstractConscryptSocket s = toConscrypt(socket);
+        if (s instanceof ConscryptEngineSocket) {
+            ((ConscryptEngineSocket) s).setBufferAllocator(bufferAllocator);
+        }
+    }
+
+    /**
+     * Configures the default {@link BufferAllocator} to be used by all future
+     * {@link SSLEngine} instances from this provider.
+     */
+    @ExperimentalApi
+    public static void setDefaultBufferAllocator(BufferAllocator bufferAllocator) {
+        ConscryptEngine.setDefaultBufferAllocator(bufferAllocator);
     }
 
     /**
@@ -547,4 +689,83 @@ public final class Conscrypt {
     public static byte[] getTlsUnique(SSLEngine engine) {
         return toConscrypt(engine).getTlsUnique();
     }
+
+    /**
+     * Exports a value derived from the TLS master secret as described in RFC 5705.
+     *
+     * @param label the label to use in calculating the exported value.  This must be
+     * an ASCII-only string.
+     * @param context the application-specific context value to use in calculating the
+     * exported value.  This may be {@code null} to use no application context, which is
+     * treated differently than an empty byte array.
+     * @param length the number of bytes of keying material to return.
+     * @return a value of the specified length, or {@code null} if the handshake has not yet
+     * completed or the connection has been closed.
+     * @throws SSLException if the value could not be exported.
+     */
+    public static byte[] exportKeyingMaterial(SSLEngine engine, String label, byte[] context,
+            int length) throws SSLException {
+        return toConscrypt(engine).exportKeyingMaterial(label, context, length);
+    }
+
+    /**
+     * Indicates whether the given {@link TrustManager} was created by this distribution of
+     * Conscrypt.
+     */
+    public static boolean isConscrypt(TrustManager trustManager) {
+        return trustManager instanceof TrustManagerImpl;
+    }
+
+    private static TrustManagerImpl toConscrypt(TrustManager trustManager) {
+        if (!isConscrypt(trustManager)) {
+            throw new IllegalArgumentException(
+                "Not a Conscrypt trust manager: " + trustManager.getClass().getName());
+        }
+        return (TrustManagerImpl) trustManager;
+    }
+
+    /**
+     * Set the default hostname verifier that will be used for HTTPS endpoint identification by
+     * Conscrypt trust managers.  If {@code null} (the default), endpoint identification will use
+     * the default hostname verifier set in
+     * {@link HttpsURLConnection#setDefaultHostnameVerifier(javax.net.ssl.HostnameVerifier)}.
+     */
+    public synchronized static void setDefaultHostnameVerifier(ConscryptHostnameVerifier verifier) {
+        TrustManagerImpl.setDefaultHostnameVerifier(verifier);
+    }
+
+    /**
+     * Returns the currently-set default hostname verifier for Conscrypt trust managers.
+     *
+     * @see #setDefaultHostnameVerifier(ConscryptHostnameVerifier)
+     */
+    public synchronized static ConscryptHostnameVerifier getDefaultHostnameVerifier(TrustManager trustManager) {
+        return TrustManagerImpl.getDefaultHostnameVerifier();
+    }
+
+    /**
+     * Set the hostname verifier that will be used for HTTPS endpoint identification by the
+     * given trust manager.  If {@code null} (the default), endpoint identification will use the
+     * default hostname verifier set in {@link #setDefaultHostnameVerifier(ConscryptHostnameVerifier)}.
+     *
+     * @throws IllegalArgumentException if the provided trust manager is not a Conscrypt trust
+     * manager per {@link #isConscrypt(TrustManager)}
+     */
+    public static void setHostnameVerifier(TrustManager trustManager, ConscryptHostnameVerifier verifier) {
+        toConscrypt(trustManager).setHostnameVerifier(verifier);
+    }
+
+    /**
+     * Returns the currently-set hostname verifier for the given trust manager.
+     *
+     * @throws IllegalArgumentException if the provided trust manager is not a Conscrypt trust
+     * manager per {@link #isConscrypt(TrustManager)}
+     *
+     * @see #setHostnameVerifier(TrustManager, ConscryptHostnameVerifier)
+     */
+    public static ConscryptHostnameVerifier getHostnameVerifier(TrustManager trustManager) {
+        return toConscrypt(trustManager).getHostnameVerifier();
+    }
+
+
 }

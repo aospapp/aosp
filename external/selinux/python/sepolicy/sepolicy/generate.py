@@ -1,5 +1,3 @@
-#!/usr/bin/python -Es
-#
 # Copyright (C) 2007-2012 Red Hat
 # see file 'COPYING' for use and warranty information
 #
@@ -28,7 +26,6 @@ import re
 import sepolicy
 from sepolicy import get_all_types, get_all_attributes, get_all_roles
 import time
-import types
 import platform
 
 from .templates import executable
@@ -105,12 +102,12 @@ def get_all_ports():
                 p['type'] == "port_t" or \
                 p['type'] == "hi_reserved_port_t":
             continue
-        dict[(p['low'], p['high'], p['protocol'])] = (p['type'], p['range'])
+        dict[(p['low'], p['high'], p['protocol'])] = (p['type'], p.get('range'))
     return dict
 
 
 def get_all_users():
-    users = map(lambda x: x['name'], sepolicy.info(sepolicy.USER))
+    users = [x['name'] for x in sepolicy.info(sepolicy.USER)]
     users.remove("system_u")
     users.remove("root")
     users.sort()
@@ -191,14 +188,14 @@ def verify_ports(ports):
                 temp.append(p)
         return temp
     except ValueError:
-        raise ValueError(_("Ports must be numbers or ranges of numbers from 1 to %d " % max_port))
+        raise ValueError(_("Ports must be numbers or ranges of numbers from 1 to %d ") % max_port)
 
 
 class policy:
 
     def __init__(self, name, type):
         self.rpms = []
-        self.ports = []
+        self.ports = {}
         self.all_roles = get_all_roles()
         self.types = []
 
@@ -459,25 +456,25 @@ class policy:
         self.out_udp = [all, False, False, verify_ports(ports)]
 
     def set_use_resolve(self, val):
-        if not isinstance(val, types.BooleanType):
+        if type(val) is not bool:
             raise ValueError(_("use_resolve must be a boolean value "))
 
         self.use_resolve = val
 
     def set_use_syslog(self, val):
-        if not isinstance(val, types.BooleanType):
+        if type(val) is not bool:
             raise ValueError(_("use_syslog must be a boolean value "))
 
         self.use_syslog = val
 
     def set_use_kerberos(self, val):
-        if not isinstance(val, types.BooleanType):
+        if type(val) is not bool:
             raise ValueError(_("use_kerberos must be a boolean value "))
 
         self.use_kerberos = val
 
     def set_manage_krb5_rcache(self, val):
-        if not isinstance(val, types.BooleanType):
+        if type(val) is not bool:
             raise ValueError(_("manage_krb5_rcache must be a boolean value "))
 
         self.manage_krb5_rcache = val
@@ -644,7 +641,7 @@ allow %s_t %s_t:%s_socket name_%s;
 
     def __find_path(self, file):
         for d in self.DEFAULT_DIRS:
-            if file.find(d) is 0:
+            if file.find(d) == 0:
                 self.DEFAULT_DIRS[d][1].append(file)
                 return self.DEFAULT_DIRS[d]
         self.DEFAULT_DIRS["rw"][1].append(file)
@@ -1347,7 +1344,7 @@ allow %s_t %s_t:%s_socket name_%s;
                 else:
                     continue
 
-            if len(temp_dirs) is not 0:
+            if len(temp_dirs) != 0:
                 for i in temp_dirs:
                     if i in self.dirs.keys():
                         del(self.dirs[i])

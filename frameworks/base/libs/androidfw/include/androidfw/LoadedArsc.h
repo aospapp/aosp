@@ -20,6 +20,8 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "android-base/macros.h"
 
@@ -76,8 +78,63 @@ struct TypeSpec {
 // TypeSpecPtr is a managed pointer that knows how to delete itself.
 using TypeSpecPtr = util::unique_cptr<TypeSpec>;
 
+struct OverlayableInfo {
+  std::string name;
+  std::string actor;
+  uint32_t policy_flags;
+};
+
 class LoadedPackage {
  public:
+  class iterator {
+   public:
+    iterator& operator=(const iterator& rhs) {
+      loadedPackage_ = rhs.loadedPackage_;
+      typeIndex_ = rhs.typeIndex_;
+      entryIndex_ = rhs.entryIndex_;
+      return *this;
+    }
+
+    bool operator==(const iterator& rhs) const {
+      return loadedPackage_ == rhs.loadedPackage_ &&
+             typeIndex_ == rhs.typeIndex_ &&
+             entryIndex_ == rhs.entryIndex_;
+    }
+
+    bool operator!=(const iterator& rhs) const {
+      return !(*this == rhs);
+    }
+
+    iterator operator++(int) {
+      size_t prevTypeIndex_ = typeIndex_;
+      size_t prevEntryIndex_ = entryIndex_;
+      operator++();
+      return iterator(loadedPackage_, prevTypeIndex_, prevEntryIndex_);
+    }
+
+    iterator& operator++();
+
+    uint32_t operator*() const;
+
+   private:
+    friend class LoadedPackage;
+
+    iterator(const LoadedPackage* lp, size_t ti, size_t ei);
+
+    const LoadedPackage* loadedPackage_;
+    size_t typeIndex_;
+    size_t entryIndex_;
+    const size_t typeIndexEnd_;  // STL style end, so one past the last element
+  };
+
+  iterator begin() const {
+    return iterator(this, 0, 0);
+  }
+
+  iterator end() const {
+    return iterator(this, resource_ids_.size() + 1, 0);
+  }
+
   static std::unique_ptr<const LoadedPackage> Load(const Chunk& chunk,
                                                    const LoadedIdmap* loaded_idmap, bool system,
                                                    bool load_as_shared_library);
@@ -167,6 +224,29 @@ class LoadedPackage {
     }
   }
 
+  // Retrieves the overlayable properties of the specified resource. If the resource is not
+  // overlayable, this will return a null pointer.
+  const OverlayableInfo* GetOverlayableInfo(uint32_t resid) const {
+    for (const std::pair<OverlayableInfo, std::unordered_set<uint32_t>>& overlayable_info_ids
+        : overlayable_infos_) {
+      if (overlayable_info_ids.second.find(resid) != overlayable_info_ids.second.end()) {
+        return &overlayable_info_ids.first;
+      }
+    }
+    return nullptr;
+  }
+
+  // Retrieves whether or not the package defines overlayable resources.
+  // TODO(123905379): Remove this when the enforcement of overlayable is turned on for all APK and
+  // not just those that defined overlayable resources.
+  bool DefinesOverlayable() const {
+    return defines_overlayable_;
+  }
+
+  const std::unordered_map<std::string, std::string>& GetOverlayableMap() const {
+    return overlayable_map_;
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(LoadedPackage);
 
@@ -180,9 +260,13 @@ class LoadedPackage {
   bool dynamic_ = false;
   bool system_ = false;
   bool overlay_ = false;
+  bool defines_overlayable_ = false;
 
   ByteBucketArray<TypeSpecPtr> type_specs_;
+  ByteBucketArray<uint32_t> resource_ids_;
   std::vector<DynamicPackageEntry> dynamic_package_map_;
+  std::vector<const std::pair<OverlayableInfo, std::unordered_set<uint32_t>>> overlayable_infos_;
+  std::unordered_map<std::string, std::string> overlayable_map_;
 };
 
 // Read-only view into a resource table. This class validates all data

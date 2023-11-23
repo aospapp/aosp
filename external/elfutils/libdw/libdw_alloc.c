@@ -31,11 +31,10 @@
 # include <config.h>
 #endif
 
-#include <error.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/param.h>
 #include "libdwP.h"
+#include "system.h"
 
 
 void *
@@ -70,7 +69,7 @@ dwarf_new_oom_handler (Dwarf *dbg, Dwarf_OOM handler)
 
 
 void
-__attribute ((noreturn, visibility ("hidden")))
+__attribute ((noreturn)) attribute_hidden
 __libdw_oom (void)
 {
   while (1)

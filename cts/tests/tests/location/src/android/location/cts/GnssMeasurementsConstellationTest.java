@@ -23,8 +23,6 @@ import android.util.Log;
 
 import java.util.List;
 
-import junit.framework.Assert;
-
 /**
  * Test for {@link GnssMeasurement}s without location registration.
  *
@@ -75,8 +73,8 @@ public class GnssMeasurementsConstellationTest extends GnssTestCase {
     public void testGnssMultiConstellationSupported() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
         // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-                TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, isCtsVerifierTest())) {
+        if (!TestMeasurementUtil
+                .canTestRunOnCurrentDevice(mTestLocationManager, isCtsVerifierTest())) {
             return;
         }
 
@@ -89,18 +87,18 @@ public class GnssMeasurementsConstellationTest extends GnssTestCase {
         mTestLocationManager.requestLocationUpdates(mLocationListener);
 
         mMeasurementListener.await();
-        if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
+        if (!mMeasurementListener.verifyStatus()) {
             return;
         }
 
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GnssMeasurement events received = " + events.size());
 
-        SoftAssert.failOrWarning(isMeasurementTestStrict(),
+        SoftAssert softAssert = new SoftAssert(TAG);
+        softAssert.assertTrue(
                 "Did not receive any GnssMeasurement events.  Retry outdoors?",
                 !events.isEmpty());
 
-        SoftAssert softAssert = new SoftAssert(TAG);
         for (GnssMeasurementsEvent event : events) {
             // Verify Gps Event mandatory fields are in required ranges
             assertNotNull("GnssMeasurementEvent cannot be null.", event);

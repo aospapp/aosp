@@ -82,6 +82,37 @@ bool DvbManager::isFeLocked() {
     return false;
 }
 
+// This function gets the signal strength from tuner.
+// Output can be:
+// -3 means File Descriptor invalid,
+//    or DVB version is not supported,
+//    or ERROR while communicate with hardware via ioctl.
+// int signal returns the raw signal strength value.
+int DvbManager::getSignalStrength() {
+    // TODO(b/74197177): add support for DVB V5.
+    if (mFeFd == -1 || mDvbApiVersion != DVB_API_VERSION3) {
+        return -3;
+    }
+    uint16_t strength = 0;
+    // ERROR code from ioctl can be:
+    // EBADF means fd is not a valid open file descriptor
+    // EFAULT means status points to invalid address
+    // ENOSIGNAL means there is no signal, thus no meaningful signal strength
+    // ENOSYS means function not available for this device
+    //
+    // The function used to communicate with tuner in DVB v3 is
+    // ioctl(fd, request, &strength)
+    // int fd is the File Descriptor, can't be -1
+    // int request is the request type,
+    // FE_READ_SIGNAL_STRENGTH for getting signal strength
+    // uint16_t *strength stores the strength value returned from tuner
+    if (ioctl(mFeFd, FE_READ_SIGNAL_STRENGTH, &strength) == -1) {
+        ALOGD("FE_READ_SIGNAL_STRENGTH failed, %s", strerror(errno));
+        return -3;
+    }
+    return strength;
+}
+
 int DvbManager::tune(JNIEnv *env, jobject thiz,
         const int frequency, const char *modulationStr, int timeout_ms) {
     resetExceptFe();

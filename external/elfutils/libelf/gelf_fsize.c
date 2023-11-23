@@ -38,10 +38,8 @@
 
 
 /* These are the sizes for all the known types.  */
-const size_t __libelf_type_sizes[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] =
+const size_t __libelf_type_sizes[ELFCLASSNUM - 1][ELF_T_NUM] =
 {
-  /* We have no entry for EV_NONE since we have to set an error.  */
-  [EV_CURRENT - 1] = {
     [ELFCLASS32 - 1] = {
 #define TYPE_SIZES(LIBELFBITS) \
       [ELF_T_ADDR]	= ELFW2(LIBELFBITS, FSZ_ADDR),			      \
@@ -64,6 +62,8 @@ const size_t __libelf_type_sizes[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] =
       [ELF_T_VNEED]	= sizeof (ElfW2(LIBELFBITS, Ext_Verneed)),	      \
       [ELF_T_VNAUX]	= sizeof (ElfW2(LIBELFBITS, Ext_Vernaux)),	      \
       [ELF_T_NHDR]	= sizeof (ElfW2(LIBELFBITS, Ext_Nhdr)),		      \
+      /* Note the header size is the same, but padding is different.  */      \
+      [ELF_T_NHDR8]	= sizeof (ElfW2(LIBELFBITS, Ext_Nhdr)),		      \
       [ELF_T_SYMINFO]	= sizeof (ElfW2(LIBELFBITS, Ext_Syminfo)),	      \
       [ELF_T_MOVE]	= sizeof (ElfW2(LIBELFBITS, Ext_Move)),		      \
       [ELF_T_LIB]	= sizeof (ElfW2(LIBELFBITS, Ext_Lib)),		      \
@@ -75,7 +75,6 @@ const size_t __libelf_type_sizes[EV_NUM - 1][ELFCLASSNUM - 1][ELF_T_NUM] =
     [ELFCLASS64 - 1] = {
       TYPE_SIZES (64)
     }
-  }
 };
 
 
@@ -87,7 +86,7 @@ gelf_fsize (Elf *elf, Elf_Type type, size_t count, unsigned int version)
   if (elf == NULL)
     return 0;
 
-  if (version == EV_NONE || version >= EV_NUM)
+  if (version != EV_CURRENT)
     {
       __libelf_seterrno (ELF_E_UNKNOWN_VERSION);
       return 0;
@@ -99,10 +98,6 @@ gelf_fsize (Elf *elf, Elf_Type type, size_t count, unsigned int version)
       return 0;
     }
 
-#if EV_NUM != 2
-  return count * __libelf_type_sizes[version - 1][elf->class - 1][type];
-#else
-  return count * __libelf_type_sizes[0][elf->class - 1][type];
-#endif
+  return count * __libelf_type_sizes[elf->class - 1][type];
 }
 INTDEF(gelf_fsize)

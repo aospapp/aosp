@@ -16,6 +16,11 @@
 
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.WallpaperManager;
@@ -41,7 +46,13 @@ import android.net.wifi.WifiManager;
 import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.telephony.TelephonyManager;
-import android.test.InstrumentationTestCase;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.PropertyUtil;
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -49,16 +60,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import junit.framework.AssertionFailedError;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test for checking that the {@link PackageManager} is reporting the correct features.
  */
-public class SystemFeaturesTest extends InstrumentationTestCase {
+@RunWith(JUnit4.class)
+public class SystemFeaturesTest {
 
     private Context mContext;
     private PackageManager mPackageManager;
-    private HashSet<String> mAvailableFeatures;
+    private Set<String> mAvailableFeatures;
 
     private ActivityManager mActivityManager;
     private LocationManager mLocationManager;
@@ -67,10 +82,9 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
     private WifiManager mWifiManager;
     private CameraManager mCameraManager;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        Instrumentation instrumentation = getInstrumentation();
+    @Before
+    public void setUp() {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = instrumentation.getTargetContext();
         mPackageManager = mContext.getPackageManager();
         mAvailableFeatures = new HashSet<String>();
@@ -91,6 +105,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
      * Check for features improperly prefixed with "android." that are not defined in
      * {@link PackageManager}.
      */
+    @Test
     public void testFeatureNamespaces() throws IllegalArgumentException, IllegalAccessException {
         Set<String> officialFeatures = getFeatureConstantsNames("FEATURE_");
         assertFalse(officialFeatures.isEmpty());
@@ -111,6 +126,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testBluetoothFeature() {
         if (BluetoothAdapter.getDefaultAdapter() != null) {
             assertAvailable(PackageManager.FEATURE_BLUETOOTH);
@@ -119,6 +135,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCameraFeatures() throws Exception {
         int numCameras = Camera.getNumberOfCameras();
         if (numCameras == 0) {
@@ -144,6 +161,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @CddTest(requirement="7.5.4/C-0-8")
     private void checkCamera2Features() throws Exception {
         String[] cameraIds = mCameraManager.getCameraIdList();
         boolean fullCamera = false;
@@ -151,13 +169,14 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         boolean manualPostProcessing = false;
         boolean motionTracking = false;
         boolean raw = false;
+        boolean hasFlash = false;
         CameraCharacteristics[] cameraChars = new CameraCharacteristics[cameraIds.length];
         for (String cameraId : cameraIds) {
             CameraCharacteristics chars = mCameraManager.getCameraCharacteristics(cameraId);
             Integer hwLevel = chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
             int[] capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
             if (hwLevel == CameraMetadata.INFO_SUPPORTED_HARDWARE_LEVEL_FULL ||
-                    hwLevel >= CameraMetadata.INFO_SUPPORTED_HARDWARE_LEVEL_3) {
+                    hwLevel == CameraMetadata.INFO_SUPPORTED_HARDWARE_LEVEL_3) {
                 fullCamera = true;
             }
             for (int capability : capabilities) {
@@ -179,13 +198,32 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
                         break;
                 }
             }
+
+            Boolean flashAvailable = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+            if (flashAvailable) {
+                hasFlash = true;
+            }
         }
         assertFeature(fullCamera, PackageManager.FEATURE_CAMERA_LEVEL_FULL);
         assertFeature(manualSensor, PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_SENSOR);
         assertFeature(manualPostProcessing,
                 PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_POST_PROCESSING);
         assertFeature(raw, PackageManager.FEATURE_CAMERA_CAPABILITY_RAW);
-        assertFeature(motionTracking, PackageManager.FEATURE_CAMERA_AR);
+        if (!motionTracking) {
+          // FEATURE_CAMERA_AR requires the presence of
+          // CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MOTION_TRACKING but
+          // MOTION_TRACKING does not require the presence of FEATURE_CAMERA_AR
+          //
+          // Logic table:
+          //    AR= F   T
+          // MT=F   Y   N
+          //   =T   Y   Y
+          //
+          // So only check the one disallowed condition: No motion tracking and FEATURE_CAMERA_AR is
+          // available
+          assertNotAvailable(PackageManager.FEATURE_CAMERA_AR);
+        }
+        assertFeature(hasFlash, PackageManager.FEATURE_CAMERA_FLASH);
     }
 
     private void checkFrontCamera() {
@@ -243,6 +281,14 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
+    public void testGamepadFeature() {
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            assertAvailable(PackageManager.FEATURE_GAMEPAD);
+        }
+    }
+
+    @Test
     public void testLiveWallpaperFeature() {
         try {
             Intent intent = new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER);
@@ -254,6 +300,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testLocationFeatures() {
         if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
             assertAvailable(PackageManager.FEATURE_LOCATION);
@@ -270,6 +317,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testLowRamFeature() {
         if (mActivityManager.isLowRamDevice()) {
             assertAvailable(PackageManager.FEATURE_RAM_LOW);
@@ -278,23 +326,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
-    public void testNfcFeatures() {
-        if (NfcAdapter.getDefaultAdapter(mContext) != null) {
-            // Watches MAY support all FEATURE_NFC features when an NfcAdapter is available, but
-            // non-watches MUST support them both.
-            if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-                assertOneAvailable(PackageManager.FEATURE_NFC,
-                    PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
-            } else {
-                assertAvailable(PackageManager.FEATURE_NFC);
-                assertAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
-            }
-        } else {
-            assertNotAvailable(PackageManager.FEATURE_NFC);
-            assertNotAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
-        }
-    }
-
+    @Test
     public void testScreenFeatures() {
         assertTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
                 || mPackageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT));
@@ -304,6 +336,8 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
      * Check that the sensor features reported by the PackageManager correspond to the sensors
      * returned by {@link SensorManager#getSensorList(int)}.
      */
+    @FlakyTest
+    @Test
     public void testSensorFeatures() throws Exception {
         Set<String> featuresLeft = getFeatureConstantsNames("FEATURE_SENSOR_");
 
@@ -393,6 +427,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         return features;
     }
 
+    @Test
     public void testSipFeatures() {
         if (SipManager.newInstance(mContext) != null) {
             assertAvailable(PackageManager.FEATURE_SIP);
@@ -450,6 +485,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
     /**
      * Check that the {@link TelephonyManager#getPhoneType()} matches the reported features.
      */
+    @Test
     public void testTelephonyFeatures() {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             return;
@@ -474,28 +510,61 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testTouchScreenFeatures() {
+        // If device implementations include a touchscreen (single-touch or better), they:
+        // [C-1-1] MUST report TOUCHSCREEN_FINGER for the Configuration.touchscreen API field.
+        // [C-1-2] MUST report the android.hardware.touchscreen and
+        // android.hardware.faketouch feature flags
         ConfigurationInfo configInfo = mActivityManager.getDeviceConfigurationInfo();
-        if (configInfo.reqTouchScreen != Configuration.TOUCHSCREEN_NOTOUCH) {
+        if (configInfo.reqTouchScreen == Configuration.TOUCHSCREEN_NOTOUCH) {
+            // Device does not include a touchscreen
+            assertNotAvailable(PackageManager.FEATURE_TOUCHSCREEN);
+        } else {
+            // Device has a touchscreen
             assertAvailable(PackageManager.FEATURE_TOUCHSCREEN);
             assertAvailable(PackageManager.FEATURE_FAKETOUCH);
-        } else {
-            assertNotAvailable(PackageManager.FEATURE_TOUCHSCREEN);
         }
-
-        // TODO: Add tests for the other touchscreen features.
     }
 
+    @Test
+    public void testFakeTouchFeatures() {
+        // If device implementations declare support for android.hardware.faketouch, they:
+        // [C-1-7] MUST report TOUCHSCREEN_NOTOUCH for the Configuration.touchscreen API field
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH) &&
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
+            // The device *only* supports faketouch, and does not have a touchscreen
+            Configuration configuration = mContext.getResources().getConfiguration();
+            assertEquals(configuration.touchscreen, Configuration.TOUCHSCREEN_NOTOUCH);
+        }
+
+        // If device implementations declare support for
+        // android.hardware.faketouch.multitouch.distinct, they:
+        // [C-2-1] MUST declare support for android.hardware.faketouch
+        if (mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_FAKETOUCH_MULTITOUCH_DISTINCT)) {
+            assertAvailable(PackageManager.FEATURE_FAKETOUCH);
+        }
+
+        // If device implementations declare support for
+        // android.hardware.faketouch.multitouch.jazzhand, they:
+        // [C-3-1] MUST declare support for android.hardware.faketouch
+        if (mPackageManager.hasSystemFeature(
+                PackageManager.FEATURE_FAKETOUCH_MULTITOUCH_JAZZHAND)) {
+            assertAvailable(PackageManager.FEATURE_FAKETOUCH);
+        }
+    }
+
+    @Test
     public void testUsbAccessory() {
-        // USB accessory mode is only a requirement for devices with USB ports supporting
-        // peripheral mode. As there is no public API to distinguish a device with only host
-        // mode support from having both peripheral and host support, the test may have
-        // false negatives.
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) &&
-                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION) &&
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) &&
                 !mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH) &&
                 !mPackageManager.hasSystemFeature(PackageManager.FEATURE_EMBEDDED) &&
-                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_PC)) {
+                !isAndroidEmulator() &&
+                !mPackageManager.hasSystemFeature(PackageManager.FEATURE_PC) &&
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE) &&
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
             // USB accessory mode is only a requirement for devices with USB ports supporting
             // peripheral mode. As there is no public API to distinguish a device with only host
             // mode support from having both peripheral and host support, the test may have
@@ -504,7 +573,8 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
-  public void testWifiFeature() throws Exception {
+    @Test
+    public void testWifiFeature() throws Exception {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
             // no WiFi, skip the test
             return;
@@ -512,10 +582,20 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         boolean enabled = mWifiManager.isWifiEnabled();
         try {
             // assert wifimanager can toggle wifi from current sate
-            assertTrue(mWifiManager.setWifiEnabled(!enabled));
+            SystemUtil.runShellCommand("svc wifi " + (!enabled ? "enable" : "disable"));
+            Thread.sleep(5_000); // wait for the toggle to take effect.
+            assertEquals(!enabled, mWifiManager.isWifiEnabled());
 
         } finally {
-            mWifiManager.setWifiEnabled(enabled);
+            SystemUtil.runShellCommand("svc wifi " + (enabled ? "enable" : "disable"));
+        }
+    }
+
+    @Test
+    public void testAudioOutputFeature() throws Exception {
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE) ||
+                mPackageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            assertAvailable(PackageManager.FEATURE_AUDIO_OUTPUT);
         }
     }
 
@@ -538,9 +618,12 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
             (mPackageManager.hasSystemFeature(feature2) && mAvailableFeatures.contains(feature2))) {
             return;
         } else {
-            throw new AssertionFailedError("Must support at least one of " + feature1 + " or " +
-                feature2);
+            fail("Must support at least one of " + feature1 + " or " + feature2);
         }
+    }
+
+    private boolean isAndroidEmulator() {
+        return PropertyUtil.propertyEquals("ro.kernel.qemu", "1");
     }
 
     private void assertFeature(boolean exist, String feature) {

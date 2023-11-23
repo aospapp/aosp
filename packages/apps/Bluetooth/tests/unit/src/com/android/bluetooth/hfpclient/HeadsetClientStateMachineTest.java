@@ -14,12 +14,13 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.media.AudioManager;
 import android.os.HandlerThread;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.espresso.intent.matcher.IntentMatchers;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.espresso.intent.matcher.IntentMatchers;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 
@@ -68,7 +69,7 @@ public class HeadsetClientStateMachineTest {
         when(mAudioManager.getStreamVolume(anyInt())).thenReturn(2);
         when(mAudioManager.getStreamMaxVolume(anyInt())).thenReturn(10);
         when(mAudioManager.getStreamMinVolume(anyInt())).thenReturn(1);
-        when(mHeadsetClientService.getSystemService(Context.AUDIO_SERVICE)).thenReturn(
+        when(mHeadsetClientService.getAudioManager()).thenReturn(
                 mAudioManager);
         when(mHeadsetClientService.getResources()).thenReturn(mMockHfpResources);
         when(mMockHfpResources.getBoolean(R.bool.hfp_clcc_poll_during_call)).thenReturn(true);

@@ -27,14 +27,16 @@ LOCAL_JAVA_LIBRARIES := \
     android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ctstestserver \
     mockito-target-minus-junit4 \
-    android-support-test \
+    androidx.test.rules \
+    androidx.test.ext.junit \
     platform-test-annotations \
-    cts-amwm-util \
-    android-support-test
+    cts-wm-util \
+    androidx.test.rules \
+    platformprotosnano
 
 LOCAL_SRC_FILES := \
     $(call all-java-files-under, src)
@@ -47,6 +49,7 @@ LOCAL_PACKAGE_NAME := CtsAppTestCases
 LOCAL_INSTRUMENTATION_FOR := CtsAppTestStubs
 
 LOCAL_SDK_VERSION := test_current
+LOCAL_MIN_SDK_VERSION := 11
 
 include $(BUILD_CTS_PACKAGE)
 

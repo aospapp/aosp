@@ -27,9 +27,11 @@ import (
 var (
 	pctx = android.NewPackageContext("android/soong/java/config")
 
-	DefaultBootclasspathLibraries = []string{"core-oj", "core-libart"}
-	DefaultSystemModules          = "core-system-modules"
-	DefaultLibraries              = []string{"ext", "framework", "okhttp"}
+	DefaultBootclasspathLibraries = []string{"core.platform.api.stubs", "core-lambda-stubs"}
+	DefaultSystemModules          = "core-platform-api-stubs-system-modules"
+	DefaultLibraries              = []string{"ext", "framework", "updatable_media_stubs"}
+	DefaultLambdaStubsLibrary     = "core-lambda-stubs"
+	SdkLambdaStubsPath            = "prebuilts/sdk/tools/core-lambda-stubs.jar"
 
 	DefaultJacocoExcludeFilter = []string{"org.junit.*", "org.jacoco.*", "org.mockito.*"}
 
@@ -39,8 +41,10 @@ var (
 		"services",
 		"android.car",
 		"android.car7",
+		"conscrypt",
 		"core-oj",
 		"core-libart",
+		"updatable-media",
 	}
 )
 
@@ -49,6 +53,7 @@ func init() {
 
 	pctx.StaticVariable("JavacHeapSize", "2048M")
 	pctx.StaticVariable("JavacHeapFlags", "-J-Xmx${JavacHeapSize}")
+	pctx.StaticVariable("DexFlags", "-JXX:+TieredCompilation -JXX:TieredStopAtLevel=1")
 
 	pctx.StaticVariable("CommonJdkFlags", strings.Join([]string{
 		`-Xmaxerrs 9999999`,
@@ -87,25 +92,16 @@ func init() {
 	pctx.SourcePathVariable("GenKotlinBuildFileCmd", "build/soong/scripts/gen-kotlin-build-file.sh")
 
 	pctx.SourcePathVariable("JarArgsCmd", "build/soong/scripts/jar-args.sh")
+	pctx.SourcePathVariable("PackageCheckCmd", "build/soong/scripts/package-check.sh")
 	pctx.HostBinToolVariable("ExtractJarPackagesCmd", "extract_jar_packages")
 	pctx.HostBinToolVariable("SoongZipCmd", "soong_zip")
 	pctx.HostBinToolVariable("MergeZipsCmd", "merge_zips")
 	pctx.HostBinToolVariable("Zip2ZipCmd", "zip2zip")
 	pctx.HostBinToolVariable("ZipSyncCmd", "zipsync")
-	pctx.VariableFunc("DxCmd", func(ctx android.PackageVarContext) string {
-		config := ctx.Config()
-		if config.IsEnvFalse("USE_D8") {
-			if config.UnbundledBuild() || config.IsPdkBuild() {
-				return "prebuilts/build-tools/common/bin/dx"
-			} else {
-				return pctx.HostBinToolPath(ctx, "dx").String()
-			}
-		} else {
-			return pctx.HostBinToolPath(ctx, "d8-compat-dx").String()
-		}
-	})
+	pctx.HostBinToolVariable("ApiCheckCmd", "apicheck")
 	pctx.HostBinToolVariable("D8Cmd", "d8")
 	pctx.HostBinToolVariable("R8Cmd", "r8-compat-proguard")
+	pctx.HostBinToolVariable("HiddenAPICmd", "hiddenapi")
 
 	pctx.VariableFunc("TurbineJar", func(ctx android.PackageVarContext) string {
 		turbine := "turbine.jar"
@@ -117,11 +113,14 @@ func init() {
 	})
 
 	pctx.HostJavaToolVariable("JarjarCmd", "jarjar.jar")
-	pctx.HostJavaToolVariable("DesugarJar", "desugar.jar")
 	pctx.HostJavaToolVariable("JsilverJar", "jsilver.jar")
 	pctx.HostJavaToolVariable("DoclavaJar", "doclava.jar")
+	pctx.HostJavaToolVariable("MetalavaJar", "metalava.jar")
+	pctx.HostJavaToolVariable("DokkaJar", "dokka.jar")
+	pctx.HostJavaToolVariable("JetifierJar", "jetifier.jar")
 
 	pctx.HostBinToolVariable("SoongJavacWrapper", "soong_javac_wrapper")
+	pctx.HostBinToolVariable("DexpreoptGen", "dexpreopt_gen")
 
 	pctx.VariableFunc("JavacWrapper", func(ctx android.PackageVarContext) string {
 		if override := ctx.Config().Getenv("JAVAC_WRAPPER"); override != "" {
@@ -143,4 +142,13 @@ func init() {
 	}
 
 	hostBinToolVariableWithPrebuilt("Aapt2Cmd", "prebuilts/sdk/tools", "aapt2")
+
+	pctx.SourcePathVariable("ManifestFixerCmd", "build/soong/scripts/manifest_fixer.py")
+
+	pctx.HostBinToolVariable("ManifestMergerCmd", "manifest-merger")
+
+	pctx.HostBinToolVariable("ZipAlign", "zipalign")
+
+	pctx.HostBinToolVariable("Class2Greylist", "class2greylist")
+	pctx.HostBinToolVariable("HiddenAPI", "hiddenapi")
 }

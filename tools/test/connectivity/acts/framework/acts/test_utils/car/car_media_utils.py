@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -35,6 +35,9 @@ MEDIA_KEY_ARTIST = "keyArtist"
 MEDIA_KEY_DURATION = "keyDuration"
 MEDIA_KEY_NUM_TRACKS = "keyNumTracks"
 
+class PlaybackState:
+    PAUSE = 2
+    PLAY = 3
 
 def verifyEventReceived(log, device, event, timeout):
     """

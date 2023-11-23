@@ -29,7 +29,9 @@ import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer.BufferReason;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.SampleHolder;
 import com.google.android.exoplayer.util.MimeTypes;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -52,6 +54,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private static final int MSG_READ = 5;
     private static final int MSG_WRITE = 6;
     private static final int MSG_RELEASE = 7;
+    private static final int MSG_UPDATE_INDEX = 8;
 
     private final long mSampleChunkDurationUs;
     private final int mTrackCount;
@@ -61,6 +64,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private final BufferManager mBufferManager;
     private final SamplePool mSamplePool;
     private final IoCallback mIoCallback;
+    private final ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
 
     private Handler mIoHandler;
     private final ConcurrentLinkedQueue<SampleHolder> mReadSampleBuffers[];
@@ -70,6 +74,8 @@ public class SampleChunkIoHelper implements Handler.Callback {
     private final SampleChunk.IoState[] mReadIoStates;
     private final SampleChunk.IoState[] mWriteIoStates;
     private final Set<Integer> mSelectedTracks = new ArraySet<>();
+    private final long[] mReadChunkOffset;
+    private final long[] mReadChunkPositionUs;
     private long mBufferDurationUs = 0;
     private boolean mWriteEnded;
     private boolean mErrorNotified;
@@ -115,6 +121,7 @@ public class SampleChunkIoHelper implements Handler.Callback {
      * @param bufferManager manager of {@link SampleChunk} collections
      * @param samplePool allocator for a sample
      * @param ioCallback listeners for I/O events
+     * @param concurrentDvrPlaybackFlags
      */
     public SampleChunkIoHelper(
             List<String> ids,
@@ -122,7 +129,8 @@ public class SampleChunkIoHelper implements Handler.Callback {
             @BufferReason int bufferReason,
             BufferManager bufferManager,
             SamplePool samplePool,
-            IoCallback ioCallback) {
+            IoCallback ioCallback,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
         mTrackCount = ids.size();
         mIds = ids;
         mMediaFormats = mediaFormats;
@@ -130,11 +138,14 @@ public class SampleChunkIoHelper implements Handler.Callback {
         mBufferManager = bufferManager;
         mSamplePool = samplePool;
         mIoCallback = ioCallback;
+        mConcurrentDvrPlaybackFlags = concurrentDvrPlaybackFlags;
 
         mReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
         mHandlerReadSampleBuffers = new ConcurrentLinkedQueue[mTrackCount];
         mWriteIndexEndPositionUs = new long[mTrackCount];
         mWriteChunkEndPositionUs = new long[mTrackCount];
+        mReadChunkOffset = new long[mTrackCount];
+        mReadChunkPositionUs = new long[mTrackCount];
         mReadIoStates = new SampleChunk.IoState[mTrackCount];
         mWriteIoStates = new SampleChunk.IoState[mTrackCount];
 
@@ -170,6 +181,29 @@ public class SampleChunkIoHelper implements Handler.Callback {
             for (int i = 0; i < mTrackCount; ++i) {
                 mIoHandler.sendMessage(mIoHandler.obtainMessage(MSG_OPEN_WRITE, i));
             }
+        }
+
+        try {
+            if (mConcurrentDvrPlaybackFlags.enabled()
+                    && mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING
+                    && mTrackCount > 0) {
+                // Saves meta information for recording.
+                List<BufferManager.TrackFormat> audios = new ArrayList<>(mTrackCount);
+                List<BufferManager.TrackFormat> videos = new ArrayList<>(mTrackCount);
+                for (int i = 0; i < mTrackCount; ++i) {
+                    android.media.MediaFormat format =
+                            mMediaFormats.get(i).getFrameworkMediaFormatV16();
+                    format.setLong(android.media.MediaFormat.KEY_DURATION, mBufferDurationUs);
+                    if (MimeTypes.isAudio(mMediaFormats.get(i).mimeType)) {
+                        audios.add(new BufferManager.TrackFormat(mIds.get(i), format));
+                    } else if (MimeTypes.isVideo(mMediaFormats.get(i).mimeType)) {
+                        videos.add(new BufferManager.TrackFormat(mIds.get(i), format));
+                    }
+                }
+                mBufferManager.writeMetaFilesOnly(audios, videos);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Unable to write Meta files for DVR recording.", e);
         }
     }
 
@@ -214,6 +248,18 @@ public class SampleChunkIoHelper implements Handler.Callback {
         mReadSampleBuffers[index] = new ConcurrentLinkedQueue<>();
         IoParams params = new IoParams(index, positionUs, null, null, mReadSampleBuffers[index]);
         mIoHandler.sendMessage(mIoHandler.obtainMessage(MSG_OPEN_READ, params));
+    }
+
+    /**
+     * Update Index from the specified offset.
+     *
+     * @param index track index
+     * @param offset of the specified position
+     */
+    private void updateIndex(int index, long offset) {
+        IoParams params =
+                new IoParams(index, offset, null, null, null); // mReadSampleBuffers[index]);
+        mIoHandler.sendMessage(mIoHandler.obtainMessage(MSG_UPDATE_INDEX, params));
     }
 
     /**
@@ -300,6 +346,9 @@ public class SampleChunkIoHelper implements Handler.Callback {
                 case MSG_RELEASE:
                     doRelease((ConditionVariable) message.obj);
                     return true;
+                case MSG_UPDATE_INDEX:
+                    doUpdateIndex((IoParams) message.obj);
+                    return true;
             }
         } catch (IOException e) {
             mIoCallback.onIoError();
@@ -334,8 +383,15 @@ public class SampleChunkIoHelper implements Handler.Callback {
     }
 
     private void doOpenWrite(int index) throws IOException {
+        boolean updateIndexFile =
+                mConcurrentDvrPlaybackFlags.enabled()
+                        && (mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
+                        && (MimeTypes.isVideo(mMediaFormats.get(index).mimeType)
+                                || MimeTypes.isAudio(mMediaFormats.get(index).mimeType));
+
         SampleChunk chunk =
-                mBufferManager.createNewWriteFileIfNeeded(mIds.get(index), 0, mSamplePool, null, 0);
+                mBufferManager.createNewWriteFileIfNeeded(
+                        mIds.get(index), 0, mSamplePool, null, 0, updateIndexFile);
         mWriteIoStates[index].openWrite(chunk);
     }
 
@@ -370,13 +426,43 @@ public class SampleChunkIoHelper implements Handler.Callback {
             SampleHolder sample = mReadIoStates[index].read();
             if (sample != null) {
                 mHandlerReadSampleBuffers[index].offer(sample);
+                if (mConcurrentDvrPlaybackFlags.enabled()) {
+                    mReadChunkOffset[index] = mReadIoStates[index].getOffset();
+                    mReadChunkPositionUs[index] = sample.timeUs;
+                }
             } else {
+                if (mConcurrentDvrPlaybackFlags.enabled()
+                        && mBufferReason == RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK) {
+                    // Update Index, to load new Samples
+                    updateIndex(index, mReadChunkOffset[index]);
+                }
                 // Read reached write but write is not finished yet --- wait a few moments to
                 // see if another sample is written.
                 mIoHandler.sendMessageDelayed(
                         mIoHandler.obtainMessage(MSG_READ, index), READ_RESCHEDULING_DELAY_MS);
             }
         }
+    }
+
+    public void doUpdateIndex(IoParams params) throws IOException {
+        int index = params.index;
+        mIoHandler.removeMessages(MSG_READ, index);
+        // Update Track from Storage to load new Samples
+        mBufferManager.loadTrackFromStorage(mIds.get(index), mSamplePool);
+        Pair<SampleChunk, Integer> readPosition =
+                mBufferManager.getReadFile(mIds.get(index), mReadChunkPositionUs[index]);
+        if (readPosition == null) {
+            String errorMessage =
+                    "Chunk ID:"
+                            + mIds.get(index)
+                            + " pos:"
+                            + mReadChunkPositionUs[index]
+                            + "is not found";
+            SoftPreconditions.checkNotNull(readPosition, TAG, errorMessage);
+            throw new IOException(errorMessage);
+        }
+        mReadIoStates[index].openRead(readPosition.first, params.positionUs);
+        mIoHandler.sendMessage(mIoHandler.obtainMessage(MSG_READ, index));
     }
 
     private void doWrite(IoParams params) throws IOException {
@@ -398,13 +484,22 @@ public class SampleChunkIoHelper implements Handler.Callback {
                                     ? null
                                     : mWriteIoStates[params.index].getChunk();
                     int currentOffset = (int) mWriteIoStates[params.index].getOffset();
+                    boolean updateIndexFile =
+                            mConcurrentDvrPlaybackFlags.enabled()
+                                    && (mBufferReason
+                                            == RecordingSampleBuffer.BUFFER_REASON_RECORDING)
+                                    && (MimeTypes.isVideo(mMediaFormats.get(index).mimeType)
+                                            || MimeTypes.isAudio(
+                                                    mMediaFormats.get(index).mimeType));
+
                     nextChunk =
                             mBufferManager.createNewWriteFileIfNeeded(
                                     mIds.get(index),
                                     mWriteIndexEndPositionUs[index],
                                     mSamplePool,
                                     currentChunk,
-                                    currentOffset);
+                                    currentOffset,
+                                    updateIndexFile);
                     mWriteIndexEndPositionUs[index] =
                             ((sample.timeUs / RecordingSampleBuffer.MIN_SEEK_DURATION_US) + 1)
                                     * RecordingSampleBuffer.MIN_SEEK_DURATION_US;

@@ -24,7 +24,20 @@
 #include <linux/types.h>
 #include "input-event-codes.h"
 struct input_event {
+#if __BITS_PER_LONG != 32 || !defined(__USE_TIME_BITS64)
   struct timeval time;
+#define input_event_sec time.tv_sec
+#define input_event_usec time.tv_usec
+#else
+  __kernel_ulong_t __sec;
+#if defined(__sparc__) && defined(__arch64__)
+  unsigned int __usec;
+#else
+  __kernel_ulong_t __usec;
+#endif
+#define input_event_sec __sec
+#define input_event_usec __usec
+#endif
   __u16 type;
   __u16 code;
   __s32 value;
@@ -111,10 +124,11 @@ struct input_mask {
 #define BUS_RMI 0x1D
 #define BUS_CEC 0x1E
 #define BUS_INTEL_ISHTP 0x1F
-#define MT_TOOL_FINGER 0
-#define MT_TOOL_PEN 1
-#define MT_TOOL_PALM 2
-#define MT_TOOL_MAX 2
+#define MT_TOOL_FINGER 0x00
+#define MT_TOOL_PEN 0x01
+#define MT_TOOL_PALM 0x02
+#define MT_TOOL_DIAL 0x0a
+#define MT_TOOL_MAX 0x0f
 #define FF_STATUS_STOPPED 0x00
 #define FF_STATUS_PLAYING 0x01
 #define FF_STATUS_MAX 0x01

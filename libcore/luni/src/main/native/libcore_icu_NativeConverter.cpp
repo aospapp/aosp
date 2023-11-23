@@ -23,14 +23,15 @@
 
 #include <android/log.h>
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedStringChars.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
 #include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
+#include "JniConstants.h"
 #include "JniException.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
@@ -351,7 +352,7 @@ static jfloat NativeConverter_getAveBytesPerChar(JNIEnv*, jclass, jlong address)
 
 static jobjectArray NativeConverter_getAvailableCharsetNames(JNIEnv* env, jclass) {
     int32_t num = ucnv_countAvailable();
-    jobjectArray result = env->NewObjectArray(num, JniConstants::stringClass, NULL);
+    jobjectArray result = env->NewObjectArray(num, JniConstants::GetStringClass(env), NULL);
     if (result == NULL) {
         return NULL;
     }
@@ -645,7 +646,7 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
     }
 
     // Construct the CharsetICU object.
-    static jmethodID charsetConstructor = env->GetMethodID(JniConstants::charsetICUClass, "<init>",
+    static jmethodID charsetConstructor = env->GetMethodID(JniConstants::GetCharsetICUClass(env), "<init>",
             "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V");
     if (env->ExceptionCheck()) {
         return NULL;
@@ -657,7 +658,7 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
         return NULL;
     }
 
-    return env->NewObject(JniConstants::charsetICUClass, charsetConstructor,
+    return env->NewObject(JniConstants::GetCharsetICUClass(env), charsetConstructor,
             javaCanonicalName, versionedIcuCanonicalNameStr, javaAliases);
 }
 
@@ -669,8 +670,7 @@ static jlong NativeConverter_getNativeFinalizer(JNIEnv*, jclass) {
     return reinterpret_cast<jlong>(&FreeNativeConverter);
 }
 
-
-static jlong NativeConverter_getNativeSize(JNIEnv*, jclass, jstring) {
+static jlong NativeConverter_getNativeSize(JNIEnv*, jclass) {
     // TODO: Improve estimate.
     return 200;
 }

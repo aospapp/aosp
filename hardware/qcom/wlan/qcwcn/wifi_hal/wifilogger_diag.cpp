@@ -1238,6 +1238,17 @@ static void process_wlan_log_complete_event(hal_info *info,
     }
 }
 
+static void process_wlan_data_stall_event(hal_info *info,
+                                          u8* buf,
+                                          int length)
+{
+   wlan_data_stall_event_t *event;
+
+   ALOGV("Received Data Stall Event from Driver");
+   event = (wlan_data_stall_event_t *)buf;
+   ALOGE("Received Data Stall event, sending alert %d", event->reason);
+   send_alert(info, DATA_STALL_OFFSET_REASON_CODE + event->reason);
+}
 
 static void process_wlan_low_resource_failure(hal_info *info,
                                               u8* buf,
@@ -1298,7 +1309,7 @@ static wifi_error update_stats_to_ring_buf(hal_info *info,
     pRingBufferEntry->timestamp = time.tv_usec + time.tv_sec * 1000 * 1000;
 
     // Write if verbose and handler is set
-    if ((info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_DEBUG_PROBLEM)
+    if ((info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_REPRO_PROBLEM)
         && info->on_ring_buffer_data) {
         ring_buffer_write(&info->rb_infos[PKT_STATS_RB_ID],
                           (u8*)pRingBufferEntry,
@@ -1308,6 +1319,117 @@ static wifi_error update_stats_to_ring_buf(hal_info *info,
     }
 
     return WIFI_SUCCESS;
+}
+
+static u8 cck_ratecode_mapping(u8 rate)
+{
+   u8 rate_code = 0;
+
+   switch (rate) {
+      case 0x1:
+           rate_code = 0x3;
+           break;
+      case 0x2:
+      case 0x5:
+           rate_code = 0x2;
+           break;
+      case 0x3:
+      case 0x6:
+           rate_code = 0x1;
+           break;
+      case 0x4:
+      case 0x7:
+           rate_code = 0x0;
+           break;
+   }
+   return rate_code;
+}
+
+static u8 ofdm_ratecode_mapping(u8 rate)
+{
+   u8 rate_code = 0;
+
+   rate_code = rate - 8;
+   return rate_code;
+}
+
+static u16 get_rate_v1(u16 mcs_r)
+{
+    MCS mcs;
+    int index = 0;
+    u16 tx_rate = 0;
+    u8 nss;
+
+    mcs.mcs = mcs_r;
+    nss = mcs.mcs_s.nss + 1;
+
+    switch (mcs.mcs_s.preamble) {
+      case WIFI_HW_RATECODE_PREAM_OFDM:
+           for (index = 0; index < MAX_OFDM_MCS_IDX; index++) {
+               if ((mcs.mcs_s.rate & 0xF) == index)
+                  tx_rate = (u16) ofdm_mcs_nss1[index].ofdm_rate[mcs.mcs_s.short_gi] / 1000;
+           }
+           break;
+      case WIFI_HW_RATECODE_PREAM_CCK:
+           for (index = 0; index < MAX_CCK_MCS_IDX; index++) {
+               if ((mcs.mcs_s.rate & 0xF) == index)
+                  tx_rate = (u16) cck_mcs_nss1[index].cck_rate[mcs.mcs_s.short_gi] / 1000;
+           }
+           break;
+      case WIFI_HW_RATECODE_PREAM_HT:
+           if (nss == 1) {
+              for (index = 0; index < MAX_HT_MCS_IDX; index++) {
+                  if (mcs.mcs_s.rate == index) {
+                     if (mcs.mcs_s.bw == BW_20MHZ)
+                        tx_rate = (u16) mcs_nss1[index].ht20_rate[mcs.mcs_s.short_gi] / 10;
+                     if (mcs.mcs_s.bw == BW_40MHZ)
+                        tx_rate = (u16) mcs_nss1[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                  }
+              }
+           } else if (nss == 2) {
+               for (index = 0; index < MAX_HT_MCS_IDX; index++) {
+                   if (mcs.mcs_s.rate == index) {
+                      if (mcs.mcs_s.bw == BW_20MHZ)
+                         tx_rate = (u16) mcs_nss2[index].ht20_rate[mcs.mcs_s.short_gi] / 10;
+                      if (mcs.mcs_s.bw == BW_40MHZ)
+                         tx_rate = (u16) mcs_nss2[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                   }
+               }
+           } else {
+               ALOGE("Unexpected nss %d", nss);
+           }
+           break;
+      case WIFI_HW_RATECODE_PREAM_VHT:
+           if (nss == 1) {
+              for (index = 0; index < MAX_VHT_MCS_IDX; index++) {
+                  if (mcs.mcs_s.rate == index) {
+                     if (mcs.mcs_s.bw == BW_20MHZ)
+                        tx_rate = (u16) vht_mcs_nss1[index].ht20_rate[mcs.mcs_s.short_gi] / 10;
+                     if (mcs.mcs_s.bw == BW_40MHZ)
+                        tx_rate = (u16) vht_mcs_nss1[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                     if (mcs.mcs_s.bw == BW_80MHZ)
+                        tx_rate = (u16) vht_mcs_nss1[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                  }
+              }
+           } else if (nss == 2) {
+               for (index = 0; index < MAX_VHT_MCS_IDX; index++) {
+                   if (mcs.mcs_s.rate == index) {
+                      if (mcs.mcs_s.bw == BW_20MHZ)
+                          tx_rate = (u16) vht_mcs_nss2[index].ht20_rate[mcs.mcs_s.short_gi] / 10;
+                      if (mcs.mcs_s.bw == BW_40MHZ)
+                          tx_rate = (u16) vht_mcs_nss2[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                      if (mcs.mcs_s.bw == BW_80MHZ)
+                          tx_rate = (u16) vht_mcs_nss2[index].ht40_rate[mcs.mcs_s.short_gi] / 10;
+                   }
+               }
+           } else {
+               ALOGE("Unexpected nss %d", nss);
+           }
+           break;
+      default:
+           ALOGE("Unexpected preamble %d", mcs.mcs_s.preamble);
+    }
+    return tx_rate;
 }
 
 static u16 get_rate(u16 mcs_r)
@@ -1414,6 +1536,136 @@ static wifi_error populate_rx_aggr_stats(hal_info *info)
     info->rx_buf_size_occupied = 0;
 
     return WIFI_SUCCESS;
+}
+
+static wifi_error parse_rx_stats_v2(hal_info *info, u8 *buf, u16 size)
+{
+    wifi_error status = WIFI_SUCCESS;
+    rb_pkt_stats_t_v1 *rx_stats_rcvd = (rb_pkt_stats_t_v1 *)buf;
+    wifi_ring_buffer_entry *pRingBufferEntry;
+    u32 len_ring_buffer_entry = 0;
+
+    if (size < sizeof(rb_pkt_stats_t)) {
+        ALOGE("%s Unexpected rx stats event length: %d", __FUNCTION__, size);
+        memset(info->rx_aggr_pkts, 0, info->rx_buf_size_occupied);
+        memset(&info->aggr_stats, 0, sizeof(rx_aggr_stats));
+        info->rx_buf_size_occupied = 0;
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    len_ring_buffer_entry = sizeof(wifi_ring_buffer_entry)
+                            + sizeof(wifi_ring_per_packet_status_entry)
+                            + RX_HTT_HDR_STATUS_LEN_V1;
+
+    if (len_ring_buffer_entry + info->rx_buf_size_occupied
+            > info->rx_buf_size_allocated) {
+        wifi_ring_buffer_entry *temp;
+        temp = (wifi_ring_buffer_entry *)realloc(info->rx_aggr_pkts,
+                len_ring_buffer_entry + info->rx_buf_size_occupied);
+        if (temp == NULL) {
+            ALOGE("%s: Failed to reallocate memory", __FUNCTION__);
+            free(info->rx_aggr_pkts);
+            info->rx_aggr_pkts = NULL;
+            return WIFI_ERROR_OUT_OF_MEMORY;
+        }
+        info->rx_aggr_pkts = temp;
+        memset((u8 *)info->rx_aggr_pkts + info->rx_buf_size_allocated, 0,
+                len_ring_buffer_entry + info->rx_buf_size_occupied
+                - info->rx_buf_size_allocated);
+        info->rx_buf_size_allocated =
+            len_ring_buffer_entry + info->rx_buf_size_occupied;
+    }
+
+    pRingBufferEntry = (wifi_ring_buffer_entry *)((u8 *)info->rx_aggr_pkts
+            + info->rx_buf_size_occupied);
+
+    info->rx_buf_size_occupied += len_ring_buffer_entry;
+
+    /* Fill size of the entry in rb entry which can be used while populating
+     * the data. Actual size that needs to be sent to ring buffer is only pps
+     * entry size
+     */
+    pRingBufferEntry->entry_size = len_ring_buffer_entry;
+    wifi_ring_per_packet_status_entry *rb_pkt_stats =
+        (wifi_ring_per_packet_status_entry *)(pRingBufferEntry + 1);
+
+    memset(rb_pkt_stats, 0, sizeof(wifi_ring_per_packet_status_entry));
+
+    /* Peer tx packet and it is an Rx packet for us */
+    rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_DIRECTION_TX;
+
+    if (!((rx_stats_rcvd->mpdu_end.overflow_err) ||
+          (rx_stats_rcvd->attention.fcs_err) ||
+          (rx_stats_rcvd->attention.mpdu_length_err) ||
+          (rx_stats_rcvd->attention.msdu_length_err) ||
+          (rx_stats_rcvd->attention.tkip_mic_err) ||
+          (rx_stats_rcvd->attention.decrypt_err)))
+        rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_TX_SUCCESS;
+
+    rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_80211_HEADER;
+
+    if (rx_stats_rcvd->mpdu_start.encrypted)
+        rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_PROTECTED;
+
+    if (rx_stats_rcvd->attention.first_mpdu) {
+        MCS *mcs = &info->aggr_stats.RxMCS;
+        u32 ht_vht_sig;
+
+        /* Flush the cached stats as this is the first MPDU. */
+        memset(&info->aggr_stats, 0, sizeof(rx_aggr_stats));
+        if (rx_stats_rcvd->ppdu_start.preamble_type == PREAMBLE_L_SIG_RATE) {
+            if (rx_stats_rcvd->ppdu_start.l_sig_rate_select) {
+                mcs->mcs_s.preamble = WIFI_HW_RATECODE_PREAM_CCK;
+                mcs->mcs_s.rate = cck_ratecode_mapping(rx_stats_rcvd->ppdu_start.l_sig_rate);
+            } else {
+                mcs->mcs_s.preamble = WIFI_HW_RATECODE_PREAM_OFDM;
+                mcs->mcs_s.rate = ofdm_ratecode_mapping(rx_stats_rcvd->ppdu_start.l_sig_rate);
+            }
+            /*BW is 0 for legacy cases*/
+        } else if (rx_stats_rcvd->ppdu_start.preamble_type ==
+                   PREAMBLE_VHT_SIG_A_1) {
+            ht_vht_sig = rx_stats_rcvd->ppdu_start.ht_sig_vht_sig_a_1;
+            mcs->mcs_s.nss = ((ht_vht_sig >> 3) & 0x3);
+            //mcs->mcs_s.nss = (ht_vht_sig & BITMASK(7)) >> 3;
+            mcs->mcs_s.preamble = WIFI_HW_RATECODE_PREAM_HT;
+            mcs->mcs_s.rate = ((ht_vht_sig & BITMASK(7)) % 8) & 0xF;
+            mcs->mcs_s.bw = ((ht_vht_sig >> 7) & 1);
+            mcs->mcs_s.short_gi =
+                    ((rx_stats_rcvd->ppdu_start.ht_sig_vht_sig_a_2 >> 7) & 1);
+        } else if (rx_stats_rcvd->ppdu_start.preamble_type ==
+                   PREAMBLE_VHT_SIG_A_2) {
+            ht_vht_sig = rx_stats_rcvd->ppdu_start.ht_sig_vht_sig_a_1;
+            mcs->mcs_s.nss = ((ht_vht_sig >> 10) & 0x3);
+            mcs->mcs_s.preamble = WIFI_HW_RATECODE_PREAM_VHT;
+            mcs->mcs_s.rate =
+                (rx_stats_rcvd->ppdu_start.ht_sig_vht_sig_a_2 >> 4) & BITMASK(4);
+            mcs->mcs_s.bw = (ht_vht_sig & 3);
+            mcs->mcs_s.short_gi =
+                             (rx_stats_rcvd->ppdu_start.ht_sig_vht_sig_a_2 & 1);
+        }
+
+        info->aggr_stats.last_transmit_rate
+            = get_rate_v1(info->aggr_stats.RxMCS.mcs);
+
+        info->aggr_stats.rssi = rx_stats_rcvd->ppdu_start.rssi_comb;
+        info->aggr_stats.tid = rx_stats_rcvd->mpdu_start.tid;
+    }
+    rb_pkt_stats->link_layer_transmit_sequence
+        = rx_stats_rcvd->mpdu_start.seq_num;
+
+    memcpy(&rb_pkt_stats->data[0], &rx_stats_rcvd->rx_hdr_status[0],
+        RX_HTT_HDR_STATUS_LEN_V1);
+
+    if ((rx_stats_rcvd->attention.last_mpdu
+         && rx_stats_rcvd->msdu_end.last_msdu)
+        || (rx_stats_rcvd->attention.first_mpdu
+         && rx_stats_rcvd->attention.last_mpdu)) {
+        info->aggr_stats.timestamp = rx_stats_rcvd->ppdu_end.wb_timestamp_lower_32;
+
+        status = populate_rx_aggr_stats(info);
+    }
+
+    return status;
 }
 
 static wifi_error parse_rx_stats(hal_info *info, u8 *buf, u16 size)
@@ -1538,6 +1790,25 @@ static wifi_error parse_rx_stats(hal_info *info, u8 *buf, u16 size)
     }
 
     return status;
+}
+
+static u16 get_tx_mcs_v1(u8 *data)
+{
+    MCS mcs;
+    RATE_CODE rate_code;
+    u16 extended_flags;
+    mcs.mcs = 0;
+
+    rate_code = *((RATE_CODE*)(data + RATE_CODE_OFFSET));
+    extended_flags = *((u16*)(data + EXT_FLAGS_OFFSET));
+
+    mcs.mcs_s.rate      = rate_code.rateCode & 0xF;
+    mcs.mcs_s.nss       = (rate_code.rateCode >> 4) & 0x3;
+    mcs.mcs_s.preamble  = (rate_code.rateCode >> 6) & 0x3;
+    mcs.mcs_s.short_gi  = (((extended_flags >> 12) & 0x1) == 1) ? 1 : 0;
+    mcs.mcs_s.bw        = (rate_code.flags >> 5) & 0x3;
+
+    return mcs.mcs;
 }
 
 static u16 get_tx_mcs(u8 series,
@@ -1839,7 +2110,7 @@ wifi_error write_per_packet_stats_to_rb(hal_info *info, u8 *buf, u16 length)
     rb_entry_hdr.timestamp = time.tv_usec + time.tv_sec * 1000 * 1000;
 
     /* Write if verbose and handler is set */
-    if (info->rb_infos[PKT_STATS_RB_ID].verbose_level >= 3 &&
+    if (info->rb_infos[PKT_STATS_RB_ID].verbose_level >= VERBOSE_REPRO_PROBLEM &&
         info->on_ring_buffer_data) {
         /* Write header and payload separately to avoid
          * complete payload memcpy */
@@ -2001,8 +2272,155 @@ static wifi_error parse_pkt_fate_stats(hal_info *info, u8 *buf, u16 size)
     return WIFI_SUCCESS;
 }
 
+/*
+ *  ---------------------------------------------------------------------------------
+ *  | pkt log    |              packet log data contain sub packet log info         |
+ *  |  header    |------------------------------------------------------------------|
+ *  |            | sub pkt log |  sub pkt log | sub pkt log | sub pkt log |         |
+ *  |            |   header    |    data      |  header     |   data      |.....    |
+ *  |--------------------------------------------------------------------------------
+ */
+static wifi_error parse_stats_sw_event(hal_info *info,
+                                       wh_pktlog_hdr_v2_t *pkt_stats_header)
+{
+    u32 pkt_stats_len;
+    int num_of_node = 0;
+    u8 *data;
+    u8 *node_pkt_data;
+    wh_pktlog_hdr_v2_t *pkt_stats_node_header;
+    int node_pkt_type,pkt_sub_type,node_pkt_len,i;
+    wifi_error status = WIFI_SUCCESS;
+    node_pkt_stats node_pkt_t;
+    wifi_ring_buffer_entry *pRingBufferEntry =
+        (wifi_ring_buffer_entry *)info->pkt_stats->tx_stats;
 
-static wifi_error parse_stats_record(hal_info *info,
+    wifi_ring_per_packet_status_entry *rb_pkt_stats =
+        (wifi_ring_per_packet_status_entry *)(pRingBufferEntry + 1);
+
+    pkt_stats_len = pkt_stats_header->size;
+    data = ((u8 *)pkt_stats_header + sizeof(wh_pktlog_hdr_v2_t));
+    num_of_node = (pkt_stats_header->reserved >> 16) & 0xFFFF;
+    pkt_sub_type = pkt_stats_header->reserved & 0xFFFF;
+
+    do {
+        if (pkt_stats_len < sizeof(wh_pktlog_hdr_v2_t)) {
+            status = WIFI_ERROR_INVALID_ARGS;
+            break;
+        }
+        if (pkt_sub_type == 1) {
+           pkt_stats_node_header = (wh_pktlog_hdr_v2_t *)data;
+           if (pkt_stats_node_header) {
+              node_pkt_type = pkt_stats_node_header->log_type;
+              node_pkt_len = pkt_stats_node_header->size;
+              node_pkt_data = ((u8 *)pkt_stats_node_header + sizeof(wh_pktlog_hdr_v2_t));
+              switch (node_pkt_type) {
+                 case PKTLOG_TYPE_TX_CTRL:
+                       info->pkt_stats->tx_stats_events |=  BIT(PKTLOG_TYPE_TX_CTRL);
+                 break;
+                 case PKTLOG_TYPE_TX_STAT:
+                      {
+                       memset(rb_pkt_stats, 0, sizeof(wifi_ring_per_packet_status_entry));
+                       memset(&node_pkt_t, 0, sizeof(node_pkt_stats));
+                       node_pkt_t.frm_ctrl = *((u16*)(node_pkt_data + FRAME_CTRL_OFFSET));
+                       if (node_pkt_t.frm_ctrl & BIT(DATA_PROTECTED))
+                           rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_PROTECTED;
+                       rb_pkt_stats->transmit_success_timestamp =
+                                        *((u64*)(node_pkt_data + TX_SUCCESS_TMS_OFFSET));
+                       rb_pkt_stats->link_layer_transmit_sequence =
+                                        *((u16*)(node_pkt_data + LINK_LAYER_TX_SQN_OFFSET));
+                       node_pkt_t.tx_ok = *((u8*)(node_pkt_data + TX_STATUS_OFFSET));
+                       if (node_pkt_t.tx_ok == 0)
+                          rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_TX_SUCCESS;
+                       rb_pkt_stats->rssi = *((u8*)(node_pkt_data + TX_RSSI_OFFSET));
+                       rb_pkt_stats->num_retries = *((u8*)(node_pkt_data + NO_RETRIES_OFFSET));
+                       node_pkt_t.qos_ctrl = *((u8*)(node_pkt_data + QOS_CTRL_OFFSET));
+                       rb_pkt_stats->tid = node_pkt_t.qos_ctrl & 0xF;
+                       rb_pkt_stats->MCS = get_tx_mcs_v1(node_pkt_data);
+                       rb_pkt_stats->last_transmit_rate = get_rate_v1(rb_pkt_stats->MCS);
+                       node_pkt_t.bmap_failed = *((u64*)(node_pkt_data + BMAP_FAILED_OFFSET));
+                       node_pkt_t.bmap_enqueued = *((u64*)(node_pkt_data + BMAP_ENQUEUED_OFFSET));
+
+                       info->pkt_stats->tx_stats_events |=  BIT(PKTLOG_TYPE_TX_STAT);
+                       rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_80211_HEADER;
+                      }
+                 break;
+              }
+              if (info->pkt_stats->tx_stats_events &  BIT(PKTLOG_TYPE_TX_STAT)) {
+                 /* if bmap_enqueued is 1 ,Handle non aggregated cases */
+                 if (node_pkt_t.bmap_enqueued == 1) {
+                    status = update_stats_to_ring_buf(info,
+                                             (u8 *)pRingBufferEntry,
+                                             sizeof(wifi_ring_buffer_entry) +
+                                             sizeof(wifi_ring_per_packet_status_entry));
+                    if (status != WIFI_SUCCESS) {
+                        ALOGE("Failed to write into the ring buffer : %d", node_pkt_type);
+                    }
+                 } else {
+                     /* if bmap_enqueued is more than 1 ,Handle aggregated cases */
+                     for (i = 0; i < MAX_BA_WINDOW_SIZE; i++) {
+                        if (((node_pkt_t.bmap_enqueued >> i) & 0x1) == 1) {
+                           if (((node_pkt_t.bmap_failed >> i) & 0x1) == 1) {
+                              rb_pkt_stats->flags &= ~PER_PACKET_ENTRY_FLAGS_TX_SUCCESS;
+                           } else {
+                              rb_pkt_stats->flags |= PER_PACKET_ENTRY_FLAGS_TX_SUCCESS;
+                           }
+                           status = update_stats_to_ring_buf(info,
+                                                    (u8 *)pRingBufferEntry,
+                                                    sizeof(wifi_ring_buffer_entry) +
+                                                    sizeof(wifi_ring_per_packet_status_entry));
+                           if (status != WIFI_SUCCESS) {
+                              ALOGE("Failed to write into the ring buffer : %d", node_pkt_type);
+                              break;
+                           }
+                           rb_pkt_stats->link_layer_transmit_sequence += 1;
+                        }
+                     }
+                 }
+              }
+           }
+           pkt_stats_len = (pkt_stats_len - (sizeof(wh_pktlog_hdr_v2_t) + node_pkt_len));
+           data = (u8*) (data + sizeof(wh_pktlog_hdr_v2_t) + node_pkt_len);
+           info->pkt_stats->tx_stats_events = 0;
+        }
+    } while (pkt_stats_len > 0);
+    return status;
+}
+
+/* Added This function to parse stats based on PKT_LOG_V2 Version */
+static wifi_error parse_stats_record_v2(hal_info *info,
+                                     wh_pktlog_hdr_v2_t *pkt_stats_header)
+{
+    wifi_error status = WIFI_SUCCESS;
+
+    if (pkt_stats_header->log_type == PKTLOG_TYPE_RX_STAT) {
+        /* Ignore the event if it doesn't carry RX descriptor */
+        if (pkt_stats_header->flags & PKT_INFO_FLG_RX_RXDESC_MASK)
+            status = parse_rx_stats_v2(info,
+                                    (u8 *)(pkt_stats_header + 1),
+                                    pkt_stats_header->size);
+        else
+            status = WIFI_SUCCESS;
+    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_DUMP_V2) {
+        pthread_mutex_lock(&info->pkt_fate_stats_lock);
+        if (info->fate_monitoring_enabled) {
+            if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2)
+                status = parse_pkt_fate_stats(info,
+                                              (u8 *)pkt_stats_header + sizeof(wh_pktlog_hdr_v2_t),
+                                              pkt_stats_header->size);
+            else
+                status = WIFI_SUCCESS;
+        } else
+            status = WIFI_SUCCESS;
+        pthread_mutex_unlock(&info->pkt_fate_stats_lock);
+    } else if (pkt_stats_header->log_type == PKTLOG_TYPE_PKT_SW_EVENT) {
+        status = parse_stats_sw_event(info, pkt_stats_header);
+    } else
+        ALOGE("%s: invalid log_type %d",__FUNCTION__, pkt_stats_header->log_type);
+
+    return status;
+}
+
+static wifi_error parse_stats_record_v1(hal_info *info,
                                      wh_pktlog_hdr_t *pkt_stats_header)
 {
     wifi_error status;
@@ -2045,6 +2463,7 @@ static wifi_error parse_stats_record(hal_info *info,
 static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
 {
     wh_pktlog_hdr_t *pkt_stats_header;
+    wh_pktlog_hdr_v2_t *pkt_stats_header_t;
     wifi_error status = WIFI_SUCCESS;
 
     do {
@@ -2059,18 +2478,36 @@ static wifi_error parse_stats(hal_info *info, u8 *data, u32 buflen)
             status = WIFI_ERROR_INVALID_ARGS;
             break;
         }
-        status = parse_stats_record(info, pkt_stats_header);
-        if (status != WIFI_SUCCESS) {
-            ALOGE("Failed to parse the stats type : %d",
-                  pkt_stats_header->log_type);
-            return status;
+        /* Pkt_log_V2 based packet parsing */
+        if (info->pkt_log_ver == PKT_LOG_V2) {
+           pkt_stats_header_t = (wh_pktlog_hdr_v2_t *)data;
+           status = parse_stats_record_v2(info, pkt_stats_header_t);
+           if (status != WIFI_SUCCESS) {
+               ALOGE("Failed to parse the stats type : %d",
+                     pkt_stats_header_t->log_type);
+               return status;
+           }
+        /* Pkt_log_V1 based packet parsing */
+        } else {
+           status = parse_stats_record_v1(info, pkt_stats_header);
+           if (status != WIFI_SUCCESS) {
+               ALOGE("Failed to parse the stats type : %d",
+                     pkt_stats_header->log_type);
+               return status;
+           }
         }
-        if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2){
+
+        if (info->pkt_log_ver == PKT_LOG_V2) {
             data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
             buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
         } else {
-            data += (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
-            buflen -= (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
+           if (pkt_stats_header->flags & PKT_INFO_FLG_PKT_DUMP_V2){
+               data += (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
+               buflen -= (sizeof(wh_pktlog_hdr_v2_t) + pkt_stats_header->size);
+           } else {
+               data += (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
+               buflen -= (sizeof(wh_pktlog_hdr_t) + pkt_stats_header->size);
+           }
         }
     } while (buflen > 0);
 
@@ -2198,6 +2635,9 @@ wifi_error diag_message_handler(hal_info *info, nl_msg *msg)
                         break;
                     case EVENT_WLAN_LOW_RESOURCE_FAILURE:
                         process_wlan_low_resource_failure(info, buf, event_hdr->length);
+                        break;
+                    case EVENT_WLAN_STA_DATA_STALL:
+                        process_wlan_data_stall_event(info, buf, event_hdr->length);
                         break;
                     default:
                         return WIFI_SUCCESS;

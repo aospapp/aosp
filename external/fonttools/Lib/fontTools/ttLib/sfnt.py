@@ -4,10 +4,10 @@ Defines two public classes:
 	SFNTReader
 	SFNTWriter
 
-(Normally you don't have to use these classes explicitly; they are 
+(Normally you don't have to use these classes explicitly; they are
 used automatically by ttLib.TTFont.)
 
-The reading and writing of sfnt files is separated in two distinct 
+The reading and writing of sfnt files is separated in two distinct
 classes, since whenever to number of tables changes or whenever
 a table's length chages you need to rewrite the whole file anyway.
 """
@@ -15,12 +15,33 @@ a table's length chages you need to rewrite the whole file anyway.
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
-from fontTools.ttLib import getSearchRange
+from fontTools.ttLib import TTLibError
 import struct
+from collections import OrderedDict
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 class SFNTReader(object):
-	
+
+	def __new__(cls, *args, **kwargs):
+		""" Return an instance of the SFNTReader sub-class which is compatible
+		with the input file type.
+		"""
+		if args and cls is SFNTReader:
+			infile = args[0]
+			infile.seek(0)
+			sfntVersion = Tag(infile.read(4))
+			infile.seek(0)
+			if sfntVersion == "wOF2":
+				# return new WOFF2Reader object
+				from fontTools.ttLib.woff2 import WOFF2Reader
+				return object.__new__(WOFF2Reader)
+		# return default object
+		return object.__new__(cls)
+
 	def __init__(self, file, checkChecksums=1, fontNumber=-1):
 		self.file = file
 		self.checkChecksums = checkChecksums
@@ -28,35 +49,43 @@ class SFNTReader(object):
 		self.flavor = None
 		self.flavorData = None
 		self.DirectoryEntry = SFNTDirectoryEntry
+		self.file.seek(0)
 		self.sfntVersion = self.file.read(4)
 		self.file.seek(0)
 		if self.sfntVersion == b"ttcf":
-			sstruct.unpack(ttcHeaderFormat, self.file.read(ttcHeaderSize), self)
-			assert self.Version == 0x00010000 or self.Version == 0x00020000, "unrecognized TTC version 0x%08x" % self.Version
-			if not 0 <= fontNumber < self.numFonts:
-				from fontTools import ttLib
-				raise ttLib.TTLibError("specify a font number between 0 and %d (inclusive)" % (self.numFonts - 1))
-			offsetTable = struct.unpack(">%dL" % self.numFonts, self.file.read(self.numFonts * 4))
-			if self.Version == 0x00020000:
-				pass # ignoring version 2.0 signatures
-			self.file.seek(offsetTable[fontNumber])
-			sstruct.unpack(sfntDirectoryFormat, self.file.read(sfntDirectorySize), self)
+			header = readTTCHeader(self.file)
+			numFonts = header.numFonts
+			if not 0 <= fontNumber < numFonts:
+				raise TTLibError("specify a font number between 0 and %d (inclusive)" % (numFonts - 1))
+			self.numFonts = numFonts
+			self.file.seek(header.offsetTable[fontNumber])
+			data = self.file.read(sfntDirectorySize)
+			if len(data) != sfntDirectorySize:
+				raise TTLibError("Not a Font Collection (not enough data)")
+			sstruct.unpack(sfntDirectoryFormat, data, self)
 		elif self.sfntVersion == b"wOFF":
 			self.flavor = "woff"
 			self.DirectoryEntry = WOFFDirectoryEntry
-			sstruct.unpack(woffDirectoryFormat, self.file.read(woffDirectorySize), self)
+			data = self.file.read(woffDirectorySize)
+			if len(data) != woffDirectorySize:
+				raise TTLibError("Not a WOFF font (not enough data)")
+			sstruct.unpack(woffDirectoryFormat, data, self)
 		else:
-			sstruct.unpack(sfntDirectoryFormat, self.file.read(sfntDirectorySize), self)
+			data = self.file.read(sfntDirectorySize)
+			if len(data) != sfntDirectorySize:
+				raise TTLibError("Not a TrueType or OpenType font (not enough data)")
+			sstruct.unpack(sfntDirectoryFormat, data, self)
 		self.sfntVersion = Tag(self.sfntVersion)
 
 		if self.sfntVersion not in ("\x00\x01\x00\x00", "OTTO", "true"):
-			from fontTools import ttLib
-			raise ttLib.TTLibError("Not a TrueType or OpenType font (bad sfntVersion)")
-		self.tables = {}
+			raise TTLibError("Not a TrueType or OpenType font (bad sfntVersion)")
+		tables = {}
 		for i in range(self.numTables):
 			entry = self.DirectoryEntry()
 			entry.fromFile(self.file)
-			self.tables[Tag(entry.tag)] = entry
+			tag = Tag(entry.tag)
+			tables[tag] = entry
+		self.tables = OrderedDict(sorted(tables.items(), key=lambda i: i[1].offset))
 
 		# Load flavor data if any
 		if self.flavor == "woff":
@@ -66,10 +95,10 @@ class SFNTReader(object):
 		return tag in self.tables
 
 	__contains__ = has_key
-	
+
 	def keys(self):
 		return self.tables.keys()
-	
+
 	def __getitem__(self, tag):
 		"""Fetch the raw table data."""
 		entry = self.tables[Tag(tag)]
@@ -82,23 +111,104 @@ class SFNTReader(object):
 				checksum = calcChecksum(data)
 			if self.checkChecksums > 1:
 				# Be obnoxious, and barf when it's wrong
-				assert checksum == entry.checksum, "bad checksum for '%s' table" % tag
+				assert checksum == entry.checkSum, "bad checksum for '%s' table" % tag
 			elif checksum != entry.checkSum:
-				# Be friendly, and just print a warning.
-				print("bad checksum for '%s' table" % tag)
+				# Be friendly, and just log a warning.
+				log.warning("bad checksum for '%s' table", tag)
 		return data
-	
+
 	def __delitem__(self, tag):
 		del self.tables[Tag(tag)]
-	
+
 	def close(self):
 		self.file.close()
 
+	def __deepcopy__(self, memo):
+		"""Overrides the default deepcopy of SFNTReader object, to make it work
+		in the case when TTFont is loaded with lazy=True, and thus reader holds a
+		reference to a file object which is not pickleable.
+		We work around it by manually copying the data into a in-memory stream.
+		"""
+		from copy import deepcopy
+
+		cls = self.__class__
+		obj = cls.__new__(cls)
+		for k, v in self.__dict__.items():
+			if k == "file":
+				pos = v.tell()
+				v.seek(0)
+				buf = BytesIO(v.read())
+				v.seek(pos)
+				buf.seek(pos)
+				if hasattr(v, "name"):
+					buf.name = v.name
+				obj.file = buf
+			else:
+				obj.__dict__[k] = deepcopy(v, memo)
+		return obj
+
+
+# default compression level for WOFF 1.0 tables and metadata
+ZLIB_COMPRESSION_LEVEL = 6
+
+# if set to True, use zopfli instead of zlib for compressing WOFF 1.0.
+# The Python bindings are available at https://pypi.python.org/pypi/zopfli
+USE_ZOPFLI = False
+
+# mapping between zlib's compression levels and zopfli's 'numiterations'.
+# Use lower values for files over several MB in size or it will be too slow
+ZOPFLI_LEVELS = {
+	# 0: 0,  # can't do 0 iterations...
+	1: 1,
+	2: 3,
+	3: 5,
+	4: 8,
+	5: 10,
+	6: 15,
+	7: 25,
+	8: 50,
+	9: 100,
+}
+
+
+def compress(data, level=ZLIB_COMPRESSION_LEVEL):
+	""" Compress 'data' to Zlib format. If 'USE_ZOPFLI' variable is True,
+	zopfli is used instead of the zlib module.
+	The compression 'level' must be between 0 and 9. 1 gives best speed,
+	9 gives best compression (0 gives no compression at all).
+	The default value is a compromise between speed and compression (6).
+	"""
+	if not (0 <= level <= 9):
+		raise ValueError('Bad compression level: %s' % level)
+	if not USE_ZOPFLI or level == 0:
+		from zlib import compress
+		return compress(data, level)
+	else:
+		from zopfli.zlib import compress
+		return compress(data, numiterations=ZOPFLI_LEVELS[level])
+
 
 class SFNTWriter(object):
-	
+
+	def __new__(cls, *args, **kwargs):
+		""" Return an instance of the SFNTWriter sub-class which is compatible
+		with the specified 'flavor'.
+		"""
+		flavor = None
+		if kwargs and 'flavor' in kwargs:
+			flavor = kwargs['flavor']
+		elif args and len(args) > 3:
+			flavor = args[3]
+		if cls is SFNTWriter:
+			if flavor == "woff2":
+				# return new WOFF2Writer object
+				from fontTools.ttLib.woff2 import WOFF2Writer
+				return object.__new__(WOFF2Writer)
+		# return default object
+		return object.__new__(cls)
+
 	def __init__(self, file, numTables, sfntVersion="\000\001\000\000",
-		     flavor=None, flavorData=None):
+			flavor=None, flavorData=None):
 		self.file = file
 		self.numTables = numTables
 		self.sfntVersion = Tag(sfntVersion)
@@ -111,67 +221,72 @@ class SFNTWriter(object):
 			self.DirectoryEntry = WOFFDirectoryEntry
 
 			self.signature = "wOFF"
+
+			# to calculate WOFF checksum adjustment, we also need the original SFNT offsets
+			self.origNextTableOffset = sfntDirectorySize + numTables * sfntDirectoryEntrySize
 		else:
-			assert not self.flavor,  "Unknown flavor '%s'" % self.flavor
+			assert not self.flavor, "Unknown flavor '%s'" % self.flavor
 			self.directoryFormat = sfntDirectoryFormat
 			self.directorySize = sfntDirectorySize
 			self.DirectoryEntry = SFNTDirectoryEntry
 
+			from fontTools.ttLib import getSearchRange
 			self.searchRange, self.entrySelector, self.rangeShift = getSearchRange(numTables, 16)
 
-		self.nextTableOffset = self.directorySize + numTables * self.DirectoryEntry.formatSize
+		self.directoryOffset = self.file.tell()
+		self.nextTableOffset = self.directoryOffset + self.directorySize + numTables * self.DirectoryEntry.formatSize
 		# clear out directory area
 		self.file.seek(self.nextTableOffset)
 		# make sure we're actually where we want to be. (old cStringIO bug)
 		self.file.write(b'\0' * (self.nextTableOffset - self.file.tell()))
-		self.tables = {}
-	
+		self.tables = OrderedDict()
+
+	def setEntry(self, tag, entry):
+		if tag in self.tables:
+			raise TTLibError("cannot rewrite '%s' table" % tag)
+
+		self.tables[tag] = entry
+
 	def __setitem__(self, tag, data):
 		"""Write raw table data to disk."""
-		reuse = False
 		if tag in self.tables:
-			# We've written this table to file before. If the length
-			# of the data is still the same, we allow overwriting it.
-			entry = self.tables[tag]
-			assert not hasattr(entry.__class__, 'encodeData')
-			if len(data) != entry.length:
-				from fontTools import ttLib
-				raise ttLib.TTLibError("cannot rewrite '%s' table: length does not match directory entry" % tag)
-			reuse = True
-		else:
-			entry = self.DirectoryEntry()
-			entry.tag = tag
+			raise TTLibError("cannot rewrite '%s' table" % tag)
 
+		entry = self.DirectoryEntry()
+		entry.tag = tag
+		entry.offset = self.nextTableOffset
 		if tag == 'head':
 			entry.checkSum = calcChecksum(data[:8] + b'\0\0\0\0' + data[12:])
 			self.headTable = data
 			entry.uncompressed = True
 		else:
 			entry.checkSum = calcChecksum(data)
+		entry.saveData(self.file, data)
 
-		entry.offset = self.nextTableOffset
-		entry.saveData (self.file, data)
+		if self.flavor == "woff":
+			entry.origOffset = self.origNextTableOffset
+			self.origNextTableOffset += (entry.origLength + 3) & ~3
 
-		if not reuse:
-			self.nextTableOffset = self.nextTableOffset + ((entry.length + 3) & ~3)
-
+		self.nextTableOffset = self.nextTableOffset + ((entry.length + 3) & ~3)
 		# Add NUL bytes to pad the table data to a 4-byte boundary.
 		# Don't depend on f.seek() as we need to add the padding even if no
 		# subsequent write follows (seek is lazy), ie. after the final table
 		# in the font.
 		self.file.write(b'\0' * (self.nextTableOffset - self.file.tell()))
 		assert self.nextTableOffset == self.file.tell()
-		
-		self.tables[tag] = entry
-	
+
+		self.setEntry(tag, entry)
+
+	def __getitem__(self, tag):
+		return self.tables[tag]
+
 	def close(self):
 		"""All tables must have been written to disk. Now write the
 		directory.
 		"""
 		tables = sorted(self.tables.items())
 		if len(tables) != self.numTables:
-			from fontTools import ttLib
-			raise ttLib.TTLibError("wrong number of tables; expected %d, found %d" % (self.numTables, len(tables)))
+			raise TTLibError("wrong number of tables; expected %d, found %d" % (self.numTables, len(tables)))
 
 		if self.flavor == "woff":
 			self.signature = b"wOFF"
@@ -195,8 +310,7 @@ class SFNTWriter(object):
 				self.metaOrigLength = len(data.metaData)
 				self.file.seek(0,2)
 				self.metaOffset = self.file.tell()
-				import zlib
-				compressedMetaData = zlib.compress(data.metaData)
+				compressedMetaData = compress(data.metaData)
 				self.metaLength = len(compressedMetaData)
 				self.file.write(compressedMetaData)
 			else:
@@ -216,12 +330,12 @@ class SFNTWriter(object):
 			self.length = self.file.tell()
 
 		else:
-			assert not self.flavor,  "Unknown flavor '%s'" % self.flavor
+			assert not self.flavor, "Unknown flavor '%s'" % self.flavor
 			pass
-		
+
 		directory = sstruct.pack(self.directoryFormat, self)
-		
-		self.file.seek(self.directorySize)
+
+		self.file.seek(self.directoryOffset + self.directorySize)
 		seenHead = 0
 		for tag, entry in tables:
 			if tag == "head":
@@ -229,7 +343,7 @@ class SFNTWriter(object):
 			directory = directory + entry.toString()
 		if seenHead:
 			self.writeMasterChecksum(directory)
-		self.file.seek(0)
+		self.file.seek(self.directoryOffset)
 		self.file.write(directory)
 
 	def _calcMasterChecksum(self, directory):
@@ -239,17 +353,18 @@ class SFNTWriter(object):
 		for i in range(len(tags)):
 			checksums.append(self.tables[tags[i]].checkSum)
 
-		# TODO(behdad) I'm fairly sure the checksum for woff is not working correctly.
-		# Haven't debugged.
 		if self.DirectoryEntry != SFNTDirectoryEntry:
 			# Create a SFNT directory for checksum calculation purposes
+			from fontTools.ttLib import getSearchRange
 			self.searchRange, self.entrySelector, self.rangeShift = getSearchRange(self.numTables, 16)
 			directory = sstruct.pack(sfntDirectoryFormat, self)
 			tables = sorted(self.tables.items())
 			for tag, entry in tables:
 				sfntEntry = SFNTDirectoryEntry()
-				for item in ['tag', 'checkSum', 'offset', 'length']:
-					setattr(sfntEntry, item, getattr(entry, item))
+				sfntEntry.tag = entry.tag
+				sfntEntry.checkSum = entry.checkSum
+				sfntEntry.offset = entry.origOffset
+				sfntEntry.length = entry.origLength
 				directory = directory + sfntEntry.toString()
 
 		directory_end = sfntDirectorySize + len(self.tables) * sfntDirectoryEntrySize
@@ -266,6 +381,9 @@ class SFNTWriter(object):
 		# write the checksum to the file
 		self.file.seek(self.tables['head'].offset + 8)
 		self.file.write(struct.pack(">L", checksumadjustment))
+
+	def reordersTables(self):
+		return False
 
 
 # -- sfnt directory helpers and cruft
@@ -336,19 +454,19 @@ woffDirectoryEntrySize = sstruct.calcsize(woffDirectoryEntryFormat)
 
 
 class DirectoryEntry(object):
-	
+
 	def __init__(self):
 		self.uncompressed = False # if True, always embed entry raw
 
 	def fromFile(self, file):
 		sstruct.unpack(self.format, file.read(self.formatSize), self)
-	
+
 	def fromString(self, str):
 		sstruct.unpack(self.format, str, self)
-	
+
 	def toString(self):
 		return sstruct.pack(self.format, self)
-	
+
 	def __repr__(self):
 		if hasattr(self, "tag"):
 			return "<%s '%s' at %x>" % (self.__class__.__name__, self.tag, id(self))
@@ -385,7 +503,17 @@ class WOFFDirectoryEntry(DirectoryEntry):
 
 	format = woffDirectoryEntryFormat
 	formatSize = woffDirectoryEntrySize
-	zlibCompressionLevel = 6
+
+	def __init__(self):
+		super(WOFFDirectoryEntry, self).__init__()
+		# With fonttools<=3.1.2, the only way to set a different zlib
+		# compression level for WOFF directory entries was to set the class
+		# attribute 'zlibCompressionLevel'. This is now replaced by a globally
+		# defined `ZLIB_COMPRESSION_LEVEL`, which is also applied when
+		# compressing the metadata. For backward compatibility, we still
+		# use the class attribute if it was already set.
+		if not hasattr(WOFFDirectoryEntry, 'zlibCompressionLevel'):
+			self.zlibCompressionLevel = ZLIB_COMPRESSION_LEVEL
 
 	def decodeData(self, rawData):
 		import zlib
@@ -394,14 +522,13 @@ class WOFFDirectoryEntry(DirectoryEntry):
 		else:
 			assert self.length < self.origLength
 			data = zlib.decompress(rawData)
-			assert len (data) == self.origLength
+			assert len(data) == self.origLength
 		return data
 
 	def encodeData(self, data):
-		import zlib
 		self.origLength = len(data)
 		if not self.uncompressed:
-			compressedData = zlib.compress(data, self.zlibCompressionLevel)
+			compressedData = compress(data, self.zlibCompressionLevel)
 		if self.uncompressed or len(compressedData) >= self.origLength:
 			# Encode uncompressed
 			rawData = data
@@ -443,13 +570,13 @@ def calcChecksum(data):
 	Optionally takes a 'start' argument, which allows you to
 	calculate a checksum in chunks by feeding it a previous
 	result.
-	
-	If the data length is not a multiple of four, it assumes
-	it is to be padded with null byte. 
 
-		>>> print calcChecksum(b"abcd")
+	If the data length is not a multiple of four, it assumes
+	it is to be padded with null byte.
+
+		>>> print(calcChecksum(b"abcd"))
 		1633837924
-		>>> print calcChecksum(b"abcdxyz")
+		>>> print(calcChecksum(b"abcdxyz"))
 		3655064932
 	"""
 	remainder = len(data) % 4
@@ -464,7 +591,33 @@ def calcChecksum(data):
 		value = (value + sum(longs)) & 0xffffffff
 	return value
 
+def readTTCHeader(file):
+	file.seek(0)
+	data = file.read(ttcHeaderSize)
+	if len(data) != ttcHeaderSize:
+		raise TTLibError("Not a Font Collection (not enough data)")
+	self = SimpleNamespace()
+	sstruct.unpack(ttcHeaderFormat, data, self)
+	if self.TTCTag != "ttcf":
+		raise TTLibError("Not a Font Collection")
+	assert self.Version == 0x00010000 or self.Version == 0x00020000, "unrecognized TTC version 0x%08x" % self.Version
+	self.offsetTable = struct.unpack(">%dL" % self.numFonts, file.read(self.numFonts * 4))
+	if self.Version == 0x00020000:
+		pass # ignoring version 2.0 signatures
+	return self
+
+def writeTTCHeader(file, numFonts):
+	self = SimpleNamespace()
+	self.TTCTag = 'ttcf'
+	self.Version = 0x00010000
+	self.numFonts = numFonts
+	file.seek(0)
+	file.write(sstruct.pack(ttcHeaderFormat, self))
+	offset = file.tell()
+	file.write(struct.pack(">%dL" % self.numFonts, *([0] * self.numFonts)))
+	return offset
 
 if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+	import sys
+	import doctest
+	sys.exit(doctest.testmod().failed)

@@ -40,7 +40,7 @@ LOCAL_RENDERSCRIPT_INCLUDES_OVERRIDE := \
     $(TOPDIR)external/clang/lib/Headers \
     $(TOPDIR)frameworks/rs/script_api/include
 
-LOCAL_RENDERSCRIPT_FLAGS := -rs-package-name=android.support.v8.renderscript
+LOCAL_RENDERSCRIPT_FLAGS := -rs-package-name=androidx.renderscript
 LOCAL_JNI_SHARED_LIBRARIES := librsjni
 LOCAL_32_BIT_ONLY := true
 

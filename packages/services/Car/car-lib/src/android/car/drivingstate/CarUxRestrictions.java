@@ -24,30 +24,32 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Car UX Restrictions event.  This contains information on the set of UX restrictions
- * that is in place due to the car's driving state.
+ * Car UX Restrictions event.  This contains information on the set of UX restrictions that is in
+ * place due to the car's driving state.
  * <p>
  * The restriction information is organized as follows:
  * <ul>
  * <li> When there are no restrictions in place, for example when the car is parked,
  * <ul>
- * <li> {@link #mRequiresDistractionOptimization} is set to false.  Apps can display activities
+ * <li> {@link #isRequiresDistractionOptimization()} returns false.  Apps can display activities
  * that are not distraction optimized.
- * <li> {@link #mActiveRestrictions} should contain UX_RESTRICTIONS_UNRESTRICTED.  Apps don't
- * have to check for this since {@code mRequiresDistractionOptimization} is false.
+ * <li> When {@link #isRequiresDistractionOptimization()} returns false, apps don't have to call
+ * {@link #getActiveRestrictions()}, since there is no distraction optimization required.
  * </ul>
  * <li> When the driving state changes, causing the UX restrictions to come in effect,
  * <ul>
- * <li> {@code mRequiresDistractionOptimization} is set to true.  Apps can only display
- * activities that are distraction optimized.  Distraction optimized activities follow the base
- * design guidelines that provide a distraction free driving user experience.
- * <li> In addition, apps will have to check for the content of mActiveRestrictions.
- * {@code mActiveRestrictions} will have additional granular information on the set of UX
- * restrictions that are in place for the current driving state.  The content of
- * {@code mActiveRestrictions}, for the same driving state of the vehicle, could vary depending
- * on the car maker and the market.  For example, when the car is idling, the set of active
- * UX restrictions contained in the {@code mActiveRestrictions} will depend on the car maker
- * and the safety standards of the market that the vehicle is deployed in.
+ * <li> {@link #isRequiresDistractionOptimization()} returns true.  Apps can only display activities
+ * that are distraction optimized.  Distraction optimized activities must follow the base design
+ * guidelines to ensure a distraction free driving experience for the user.
+ * <li> When {@link #isRequiresDistractionOptimization()} returns true, apps must call
+ * {@link #getActiveRestrictions()}, to get the currently active UX restrictions to adhere to.
+ * {@link #getActiveRestrictions()} provides additional information on the set of UX
+ * restrictions that are in place for the current driving state.
+ * <p>
+ * The UX restrictions returned by {@link #getActiveRestrictions()}, for the same driving state of
+ * the vehicle, could vary depending on the OEM and the market.  For example, when the car is
+ * idling, the set of active UX restrictions will depend on the car maker and the safety standards
+ * of the market that the vehicle is deployed in.
  * </ul>
  * </ul>
  * <p>
@@ -59,7 +61,7 @@ import java.lang.annotation.RetentionPolicy;
  * and not to the absolute driving state.
  * </ul>
  */
-public class CarUxRestrictions implements Parcelable {
+public final class CarUxRestrictions implements Parcelable {
 
     // Default fallback values for the restriction related parameters if the information is
     // not available from the underlying service.
@@ -80,7 +82,10 @@ public class CarUxRestrictions implements Parcelable {
     public static final int UX_RESTRICTIONS_NO_DIALPAD = 1;
 
     /**
-     * No filtering a list.
+     * No filtering a list with alpha-numeric character via the use of a character entry method.
+     *
+     * For example, do not allow entering a letter to filter the content of a list down to
+     * items only containing that letter.
      */
     public static final int UX_RESTRICTIONS_NO_FILTERING = 0x1 << 1;
 
@@ -91,7 +96,7 @@ public class CarUxRestrictions implements Parcelable {
     public static final int UX_RESTRICTIONS_LIMIT_STRING_LENGTH = 0x1 << 2;
 
     /**
-     * No text entry for the purpose of searching etc.
+     * No text entry for the purpose of searching or other manual text string entry actvities.
      */
     public static final int UX_RESTRICTIONS_NO_KEYBOARD = 0x1 << 3;
 
@@ -101,8 +106,9 @@ public class CarUxRestrictions implements Parcelable {
     public static final int UX_RESTRICTIONS_NO_VIDEO = 0x1 << 4;
 
     /**
-     * Limit the number of items displayed on the screen.
-     * Refer to {@link #getMaxCumulativeContentItems()} and
+     * Limit the number of items user can browse through in total in a single task.
+     *
+     * <p>Refer to {@link #getMaxCumulativeContentItems()} and
      * {@link #getMaxContentDepth()} for the upper bounds on content
      * serving.
      */
@@ -123,9 +129,8 @@ public class CarUxRestrictions implements Parcelable {
      */
     public static final int UX_RESTRICTIONS_NO_VOICE_TRANSCRIPTION = 0x1 << 8;
 
-
     /**
-     * All the above restrictions are in effect.
+     * All restrictions are in effect.
      */
     public static final int UX_RESTRICTIONS_FULLY_RESTRICTED =
             UX_RESTRICTIONS_NO_DIALPAD | UX_RESTRICTIONS_NO_FILTERING
@@ -218,6 +223,8 @@ public class CarUxRestrictions implements Parcelable {
      * Time at which this UX restriction event was deduced based on the car's driving state.
      *
      * @return Elapsed time in nanoseconds since system boot.
+     *
+     * @hide
      */
     public long getTimeStamp() {
         return mTimeStamp;
@@ -326,12 +333,14 @@ public class CarUxRestrictions implements Parcelable {
         dest.writeInt(mMaxContentDepth);
     }
 
-    public static final Parcelable.Creator<CarUxRestrictions> CREATOR
-            = new Parcelable.Creator<CarUxRestrictions>() {
+    public static final Parcelable.Creator<CarUxRestrictions> CREATOR =
+            new Parcelable.Creator<CarUxRestrictions>() {
+        @Override
         public CarUxRestrictions createFromParcel(Parcel in) {
             return new CarUxRestrictions(in);
         }
 
+        @Override
         public CarUxRestrictions[] newArray(int size) {
             return new CarUxRestrictions[size];
         }

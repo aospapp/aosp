@@ -18,13 +18,13 @@
 %                              September 1993                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -1107,7 +1107,7 @@ static void XEditText(Display *display,XWidgetInfo *text_info,
       if (text_info->cursor != text_info->text)
         {
           text_info->cursor--;
-          (void) CopyMagickString(text_info->cursor,text_info->cursor+1,
+          (void) memmove(text_info->cursor,text_info->cursor+1,
             MagickPathExtent);
           text_info->highlight=MagickFalse;
           break;
@@ -1504,7 +1504,7 @@ static void XSetMatteColor(Display *display,const XWindowInfo *window_info,
   else
     if (raised)
       (void) XSetForeground(display,window_info->widget_context,
-        window_info->pixel_info->alpha_color.pixel);
+        window_info->pixel_info->matte_color.pixel);
     else
       (void) XSetForeground(display,window_info->widget_context,
         window_info->pixel_info->depth_color.pixel);
@@ -1560,7 +1560,7 @@ static void XSetTextColor(Display *display,const XWindowInfo *window_info,
     }
   foreground=(ssize_t) XPixelIntensity(
     &window_info->pixel_info->foreground_color);
-  matte=(ssize_t) XPixelIntensity(&window_info->pixel_info->alpha_color);
+  matte=(ssize_t) XPixelIntensity(&window_info->pixel_info->matte_color);
   if (MagickAbsoluteValue((int) (foreground-matte)) > (65535L >> 3))
     (void) XSetForeground(display,window_info->widget_context,
       window_info->pixel_info->foreground_color.pixel);
@@ -2084,19 +2084,19 @@ MagickPrivate void XColorBrowserWidget(Display *display,XWindows *windows,
         /*
           Display the selected color in a drawing area.
         */
-        color=windows->widget.pixel_info->alpha_color;
+        color=windows->widget.pixel_info->matte_color;
         (void) XParseColor(display,windows->widget.map_info->colormap,
-          reply_info.text,&windows->widget.pixel_info->alpha_color);
+          reply_info.text,&windows->widget.pixel_info->matte_color);
         XBestPixel(display,windows->widget.map_info->colormap,(XColor *) NULL,
           (unsigned int) windows->widget.visual_info->colormap_size,
-          &windows->widget.pixel_info->alpha_color);
+          &windows->widget.pixel_info->matte_color);
         mode_info.text=colorname;
-        (void) FormatLocaleString(mode_info.text,MagickPathExtent,"#%02x%02x%02x",
-          windows->widget.pixel_info->alpha_color.red,
-          windows->widget.pixel_info->alpha_color.green,
-          windows->widget.pixel_info->alpha_color.blue);
+        (void) FormatLocaleString(mode_info.text,MagickPathExtent,
+          "#%02x%02x%02x",windows->widget.pixel_info->matte_color.red,
+          windows->widget.pixel_info->matte_color.green,
+          windows->widget.pixel_info->matte_color.blue);
         XDrawBeveledButton(display,&windows->widget,&mode_info);
-        windows->widget.pixel_info->alpha_color=color;
+        windows->widget.pixel_info->matte_color=color;
         state&=(~RedrawActionState);
       }
     /*
@@ -4963,6 +4963,8 @@ MagickPrivate void XFileBrowserWidget(Display *display,XWindows *windows,
                 exception=AcquireExceptionInfo();
                 formats=GetMagickList("*",&number_formats,exception);
                 exception=DestroyExceptionInfo(exception);
+                if (formats == (char **) NULL)
+                  break;
                 (void) XCheckDefineCursor(display,windows->widget.id,
                   windows->widget.busy_cursor);
                 windows->popup.x=windows->widget.x+60;

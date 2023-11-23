@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"அவசரத் தகவல்"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"மருத்துவத் தகவல்"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"தகவலைத் திருத்து"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"தகவலைச் சேர்த்தல்"</string>
     <string name="edit_info" msgid="5973929805855224805">"அவசரத் தகவலைத் திருத்தும் ஐகான்"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"தகவல்"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"தொடர்புகள்"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"மருத்துவத் தகவலையும் அவசரகாலத் தொடர்புகளையும் சேர்ப்பதால், அவசரகாலத்தில் முதலில் உதவ முன்வருபவர்களுக்கு அந்தத் தகவல் உதவலாம்.\n\nஉங்கள் மொபைலைத் திறக்காமலேயே, லாக் ஸ்கிரீனிலிருந்து இந்தத் தகவலை எவரும் பார்க்க முடியும். அத்துடன் உங்கள் தொடர்புகளின் பெயர்களைத் தட்டி, அவர்களை அழைக்க முடியும்."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"அவசரத் தகவலைச் சேர்க்கவும்"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"முதலில் உதவுபவர்கள், உங்கள் தகவலைப் பார்க்கும்படி செய்க"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"படமெடு"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"படத்தைத் தேர்வுசெய்க"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"படத்தைத் தேர்ந்தெடுக்கும்"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"புனைப்பெயர்"</string>
 </resources>

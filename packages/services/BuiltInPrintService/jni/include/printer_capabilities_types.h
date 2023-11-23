@@ -22,6 +22,7 @@
 #define MAX_MEDIA_TRAYS_SUPPORTED 10
 #define MAX_MEDIA_TYPES_SUPPORTED 20
 #define MAX_RESOLUTIONS_SUPPORTED 10
+#define MAX_QUALITY_SUPPORTED 3
 #define MAX_URI_LENGTH 1024
 #define MAX_STRING 256
 #define MAX_UUID 46
@@ -43,6 +44,8 @@ typedef struct {
     char location[MAX_STRING];
     unsigned char canRotateDuplexBackPage;
     unsigned char color;
+    int supportedQuality[MAX_QUALITY_SUPPORTED];
+    unsigned int numSupportedQuality;
     unsigned char faceDownTray;
     media_size_t supportedMediaSizes[MAX_SIZES_SUPPORTED];
     unsigned int numSupportedMediaSizes;

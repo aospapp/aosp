@@ -23,26 +23,29 @@ import android.content.Context;
 import android.media.tv.TvInputService;
 import android.util.Log;
 import com.android.tv.common.feature.CommonFeatures;
-import com.google.android.exoplayer.audio.AudioCapabilities;
-import com.google.android.exoplayer.audio.AudioCapabilitiesReceiver;
+import com.android.tv.tuner.source.TsDataSourceManager;
+import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactory;
+import dagger.android.AndroidInjection;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
+import javax.inject.Inject;
 
 /** {@link BaseTunerTvInputService} serves TV channels coming from a tuner device. */
-public class BaseTunerTvInputService extends TvInputService
-        implements AudioCapabilitiesReceiver.Listener {
+public class BaseTunerTvInputService extends TvInputService {
     private static final String TAG = "BaseTunerTvInputService";
     private static final boolean DEBUG = false;
 
     private static final int DVR_STORAGE_CLEANUP_JOB_ID = 100;
 
-    // WeakContainer for {@link TvInputSessionImpl}
-    private final Set<TunerSession> mTunerSessions = Collections.newSetFromMap(new WeakHashMap<>());
+    private final Set<Session> mTunerSessions = Collections.newSetFromMap(new WeakHashMap<>());
     private ChannelDataManager mChannelDataManager;
-    private AudioCapabilitiesReceiver mAudioCapabilitiesReceiver;
-    private AudioCapabilities mAudioCapabilities;
+    @Inject ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
+    @Inject TsDataSourceManager.Factory mTsDataSourceManagerFactory;
+    @Inject TunerSessionFactory mTunerSessionFactory;
 
     @Override
     public void onCreate() {
@@ -51,11 +54,10 @@ public class BaseTunerTvInputService extends TvInputService
             this.stopSelf();
             return;
         }
+        AndroidInjection.inject(this);
         super.onCreate();
         if (DEBUG) Log.d(TAG, "onCreate");
         mChannelDataManager = new ChannelDataManager(getApplicationContext());
-        mAudioCapabilitiesReceiver = new AudioCapabilitiesReceiver(getApplicationContext(), this);
-        mAudioCapabilitiesReceiver.register();
         if (CommonFeatures.DVR.isEnabled(this)) {
             JobScheduler jobScheduler =
                     (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -80,12 +82,16 @@ public class BaseTunerTvInputService extends TvInputService
         if (DEBUG) Log.d(TAG, "onDestroy");
         super.onDestroy();
         mChannelDataManager.release();
-        mAudioCapabilitiesReceiver.unregister();
     }
 
     @Override
     public RecordingSession onCreateRecordingSession(String inputId) {
-        return new TunerRecordingSession(this, inputId, mChannelDataManager);
+        return new TunerRecordingSession(
+                this,
+                inputId,
+                mChannelDataManager,
+                mConcurrentDvrPlaybackFlags,
+                mTsDataSourceManagerFactory);
     }
 
     @Override
@@ -93,13 +99,13 @@ public class BaseTunerTvInputService extends TvInputService
         if (DEBUG) Log.d(TAG, "onCreateSession");
         try {
             // TODO(b/65445352): Support multiple TunerSessions for multiple tuners
-            if (!allSessionsReleased()) {
+            if (!mTunerSessions.isEmpty()) {
                 Log.d(TAG, "abort creating an session");
                 return null;
             }
-            final TunerSession session = new TunerSession(this, mChannelDataManager);
+            final Session session =
+                    mTunerSessionFactory.create(this, mChannelDataManager, this::onReleased);
             mTunerSessions.add(session);
-            session.setAudioCapabilities(mAudioCapabilities);
             session.setOverlayViewEnabled(true);
             return session;
         } catch (RuntimeException e) {
@@ -109,22 +115,7 @@ public class BaseTunerTvInputService extends TvInputService
         }
     }
 
-    @Override
-    public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
-        mAudioCapabilities = audioCapabilities;
-        for (TunerSession session : mTunerSessions) {
-            if (!session.isReleased()) {
-                session.setAudioCapabilities(audioCapabilities);
-            }
-        }
-    }
-
-    private boolean allSessionsReleased() {
-        for (TunerSession session : mTunerSessions) {
-            if (!session.isReleased()) {
-                return false;
-            }
-        }
-        return true;
+    private void onReleased(Session session) {
+        mTunerSessions.remove(session);
     }
 }

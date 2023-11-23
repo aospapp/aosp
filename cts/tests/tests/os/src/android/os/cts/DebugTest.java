@@ -17,21 +17,25 @@ package android.os.cts;
 
 import android.content.Context;
 import android.os.Debug;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.TestThread;
 
-import dalvik.system.VMDebug;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.Map;
 
 public class DebugTest extends AndroidTestCase {
     private static final Logger Log = Logger.getLogger(DebugTest.class.getName());
+
+    // Static list here to avoid R8 optimizations in #testGetAndReset causing wrong alloc counts
+    private static final List<int[]> TEST_ALLOC = new ArrayList<>();
 
     @Override
     public void tearDown() throws Exception {
@@ -51,11 +55,7 @@ public class DebugTest extends AndroidTestCase {
         final String traceName = getFileName();
 
         final int bufSize = 1024 * 1024 * 2;
-        final int debug_flag = VMDebug.TRACE_COUNT_ALLOCS;
-
-        Debug.startMethodTracing();
-        Thread.sleep(debugTime);
-        Debug.stopMethodTracing();
+        final int debug_flag = Debug.TRACE_COUNT_ALLOCS;
 
         Debug.startMethodTracing(traceName);
         Thread.sleep(debugTime);
@@ -66,6 +66,17 @@ public class DebugTest extends AndroidTestCase {
         Debug.stopMethodTracing();
 
         Debug.startMethodTracing(traceName, bufSize, debug_flag);
+        Thread.sleep(debugTime);
+        Debug.stopMethodTracing();
+    }
+
+    @AppModeFull(
+            reason = "Default trace in Context#getExternalFilesDir not accessible by instant apps"
+    )
+    public void testStartMethodTracingDefaultExternalStorage() throws InterruptedException {
+        final long debugTime = 3000;
+
+        Debug.startMethodTracing();
         Thread.sleep(debugTime);
         Debug.stopMethodTracing();
     }
@@ -123,7 +134,8 @@ public class DebugTest extends AndroidTestCase {
         final int MIN_GLOBAL_ALLOC_SIZE = MIN_GLOBAL_ALLOC_COUNT * ARRAY_SIZE;
         for(int i = 0; i < MIN_GLOBAL_ALLOC_COUNT; i++){
             // for test alloc huge memory
-            int[] test = new int[ARRAY_SIZE];
+            TEST_ALLOC.add(new int[ARRAY_SIZE]);
+            TEST_ALLOC.clear();
         }
 
         assertTrue(Debug.getGlobalAllocCount() >= MIN_GLOBAL_ALLOC_COUNT);

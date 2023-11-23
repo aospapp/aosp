@@ -16,8 +16,10 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.splitapp"
-        android:revisionCode="12"
-        android:targetSandboxVersion="2">
+        android:targetSandboxVersion="2"
+        android:revisionCode="12">
+
+    <uses-sdk android:targetSdkVersion="27" />
 
     <uses-permission android:name="android.permission.CAMERA" />
 
@@ -39,7 +41,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.splitapp" />
 
 </manifest>

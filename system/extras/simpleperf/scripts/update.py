@@ -34,7 +34,7 @@ class InstallEntry(object):
         self.need_strip = need_strip
 
 
-install_list = [
+INSTALL_LIST = [
     # simpleperf on device
     InstallEntry('sdk_arm64-sdk', 'simpleperf', 'android/arm64/simpleperf'),
     InstallEntry('sdk_arm64-sdk', 'simpleperf32', 'android/arm/simpleperf'),
@@ -51,18 +51,24 @@ install_list = [
     InstallEntry('sdk', 'simpleperf32.exe', 'windows/x86/simpleperf.exe', True),
 
     # libsimpleperf_report.so on host
-    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report.so', 'linux/x86_64/libsimpleperf_report.so', True),
-    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report32.so', 'linux/x86/libsimpleperf_report.so', True),
-    InstallEntry('sdk_mac', 'libsimpleperf_report.dylib', 'darwin/x86_64/libsimpleperf_report.dylib'),
+    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report.so', 'linux/x86_64/libsimpleperf_report.so',
+                 True),
+    InstallEntry('sdk_arm64-sdk', 'libsimpleperf_report32.so', 'linux/x86/libsimpleperf_report.so',
+                 True),
+    InstallEntry('sdk_mac', 'libsimpleperf_report.dylib',
+                 'darwin/x86_64/libsimpleperf_report.dylib'),
     InstallEntry('sdk_mac', 'libsimpleperf_report32.so', 'darwin/x86/libsimpleperf_report.dylib'),
-    InstallEntry('sdk', 'libsimpleperf_report.dll', 'windows/x86_64/libsimpleperf_report.dll', True),
+    InstallEntry('sdk', 'libsimpleperf_report.dll', 'windows/x86_64/libsimpleperf_report.dll',
+                 True),
     InstallEntry('sdk', 'libsimpleperf_report32.dll', 'windows/x86/libsimpleperf_report.dll', True),
 
     # libwinpthread-1.dll on windows host
-    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/bin/libwinpthread-1.dll',
-                 'libwinpthread-1.dll', 'windows/x86_64/libwinpthread-1.dll', False),
-    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8/x86_64-w64-mingw32/lib32/libwinpthread-1.dll',
-                 'libwinpthread-1_32.dll', 'windows/x86/libwinpthread-1.dll', False),
+    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8' +
+                 '/x86_64-w64-mingw32/bin/libwinpthread-1.dll', 'libwinpthread-1.dll',
+                 'windows/x86_64/libwinpthread-1.dll', False),
+    InstallEntry('local:../../../../prebuilts/gcc/linux-x86/host/x86_64-w64-mingw32-4.8' +
+                 '/x86_64-w64-mingw32/lib32/libwinpthread-1.dll', 'libwinpthread-1_32.dll',
+                 'windows/x86/libwinpthread-1.dll', False),
 ]
 
 
@@ -123,7 +129,7 @@ def remove_old_release(install_dir):
 
 def install_new_release(branch, build, install_dir):
     """Installs the new release."""
-    for entry in install_list:
+    for entry in INSTALL_LIST:
         install_entry(branch, build, install_dir, entry)
 
 
@@ -139,9 +145,9 @@ def install_entry(branch, build, install_dir, entry):
     os.chmod(name, exe_stat.st_mode | stat.S_IEXEC)
     if need_strip:
         check_call(['strip', name])
-    dir = os.path.dirname(install_path)
-    if not os.path.isdir(dir):
-        os.makedirs(dir)
+    dirname = os.path.dirname(install_path)
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
     shutil.move(name, install_path)
 
 

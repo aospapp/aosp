@@ -20,18 +20,26 @@ import android.content.Context;
 import android.database.AbstractCursor;
 import android.database.CharArrayBuffer;
 import android.database.ContentObserver;
+import android.database.Cursor;
 import android.database.CursorIndexOutOfBoundsException;
 import android.database.CursorWindow;
 import android.database.DataSetObserver;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 
+import org.junit.Assert;
+
 import java.io.File;
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test {@link AbstractCursor}.
@@ -52,6 +60,9 @@ public class AbstractCursorTest extends InstrumentationTestCase {
     private SQLiteDatabase mDatabase;
     private File mDatabaseFile;
     private AbstractCursor mDatabaseCursor;
+    private Context mContext;
+
+    private static final long ON_CHANGE_TIMEOUT_MS = 5000;
 
     @Override
     protected void setUp() throws Exception {
@@ -60,6 +71,7 @@ public class AbstractCursorTest extends InstrumentationTestCase {
         setupDatabase();
         ArrayList<ArrayList> list = createTestList(ROW_MAX, COLUMN_NAMES.length);
         mTestAbstractCursor = new TestAbstractCursor(COLUMN_NAMES, list);
+        mContext = getInstrumentation().getContext();
     }
 
     @Override
@@ -139,6 +151,48 @@ public class AbstractCursorTest extends InstrumentationTestCase {
                 testUri);
     }
 
+    public void testSetNotificationUris_selfNotify() throws Exception {
+        final Uri testUri1 = Settings.System.getUriFor(Settings.System.TIME_12_24);
+        final Uri testUri2 = Settings.Global.getUriFor(
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED);
+        mDatabaseCursor.setNotificationUris(mContext.getContentResolver(),
+                Arrays.asList(testUri1, testUri2));
+        final MockContentObserver observer = new MockContentObserver();
+        mDatabaseCursor.registerContentObserver(observer);
+
+        mContext.getContentResolver().notifyChange(testUri1, null);
+        observer.waitForOnChange(ON_CHANGE_TIMEOUT_MS);
+        observer.resetOnChangeWatch();
+        mContext.getContentResolver().notifyChange(testUri2, null);
+        observer.waitForOnChange(ON_CHANGE_TIMEOUT_MS);
+    }
+
+    @AppModeFull
+    public void testSetNotificationsUris() throws Exception {
+        final Uri queryUri = Uri.parse("content://com.android.cts.providerapp");
+        try (Cursor cursor = mContext.getContentResolver().query(queryUri, null, null, null)) {
+            final MockContentObserver observer = new MockContentObserver();
+            cursor.registerContentObserver(observer);
+
+            mContext.getContentResolver().call(queryUri, "notify", "1", null);
+            observer.waitForOnChange(ON_CHANGE_TIMEOUT_MS);
+            observer.resetOnChangeWatch();
+            mContext.getContentResolver().call(queryUri, "notify", "2", null);
+            observer.waitForOnChange(ON_CHANGE_TIMEOUT_MS);
+        }
+    }
+
+    public void testGetNotificationUris() throws Exception {
+        final Uri[] notificationUris = new Uri[] {
+                Settings.Global.getUriFor(Settings.Global.MODE_RINGER),
+                Settings.Global.getUriFor(Settings.Global.BOOT_COUNT)
+        };
+        mDatabaseCursor.setNotificationUris(mContext.getContentResolver(),
+                Arrays.asList(notificationUris));
+        final List<Uri> actualNotificationUris = mDatabaseCursor.getNotificationUris();
+        Assert.assertArrayEquals(notificationUris, actualNotificationUris.toArray(new Uri[0]));
+    }
+
     public void testRespond() {
         Bundle b = new Bundle();
         Bundle bundle = mDatabaseCursor.respond(b);
@@ -159,14 +213,8 @@ public class AbstractCursorTest extends InstrumentationTestCase {
     public void testOnChange() throws InterruptedException {
         MockContentObserver mock = new MockContentObserver();
         mTestAbstractCursor.registerContentObserver(mock);
-        assertFalse(mock.hadCalledOnChange());
         mTestAbstractCursor.onChange(true);
-        synchronized(mLockObj) {
-            if ( !mock.hadCalledOnChange() ) {
-                mLockObj.wait(5000);
-            }
-        }
-        assertTrue(mock.hadCalledOnChange());
+        mock.waitForOnChange(ON_CHANGE_TIMEOUT_MS);
     }
 
     public void testOnMove() {
@@ -588,19 +636,18 @@ public class AbstractCursorTest extends InstrumentationTestCase {
     }
 
     private class MockContentObserver extends ContentObserver {
-        public boolean mHadCalledOnChange;
+        private CountDownLatch mCountDownLatch;
 
         public MockContentObserver() {
             super(null);
+
+            mCountDownLatch = new CountDownLatch(1);
         }
 
         @Override
         public void onChange(boolean selfChange) {
             super.onChange(selfChange);
-            mHadCalledOnChange = true;
-            synchronized(mLockObj) {
-                mLockObj.notify();
-            }
+            mCountDownLatch.countDown();
         }
 
         @Override
@@ -608,8 +655,14 @@ public class AbstractCursorTest extends InstrumentationTestCase {
             return true;
         }
 
-        public boolean hadCalledOnChange() {
-            return mHadCalledOnChange;
+        public void resetOnChangeWatch() {
+            mCountDownLatch = new CountDownLatch(1);
+        }
+
+        public void waitForOnChange(long timeoutMs) throws InterruptedException {
+            if (!mCountDownLatch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+                fail("Timed out waiting for onChange() to get called");
+            }
         }
     }
 

@@ -126,10 +126,6 @@ static const struct argument kArguments[] = {
         "file to read from for early data.",
     },
     {
-        "-tls13-variant", kOptionalArgument,
-        "Enable the specified experimental TLS 1.3 variant",
-    },
-    {
         "-ed25519", kBooleanArgument, "Advertise Ed25519 support",
     },
     {
@@ -181,7 +177,7 @@ static int NewSessionCallback(SSL *ssl, SSL_SESSION *session) {
     if (!PEM_write_bio_SSL_SESSION(session_out.get(), session) ||
         BIO_flush(session_out.get()) <= 0) {
       fprintf(stderr, "Error while saving session:\n");
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      ERR_print_errors_fp(stderr);
       return 0;
     }
   }
@@ -221,8 +217,7 @@ static bool WaitForSession(SSL *ssl, int sock) {
       if (ssl_err == SSL_ERROR_WANT_READ) {
         continue;
       }
-      fprintf(stderr, "Error while reading: %d\n", ssl_err);
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      PrintSSLError(stderr, "Error while reading", ssl_err, ssl_ret);
       return false;
     }
   }
@@ -267,14 +262,14 @@ static bool DoConnection(SSL_CTX *ctx,
                                          "rb"));
     if (!in) {
       fprintf(stderr, "Error reading session\n");
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      ERR_print_errors_fp(stderr);
       return false;
     }
     bssl::UniquePtr<SSL_SESSION> session(PEM_read_bio_SSL_SESSION(in.get(),
                                          nullptr, nullptr, nullptr));
     if (!session) {
       fprintf(stderr, "Error reading session\n");
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      ERR_print_errors_fp(stderr);
       return false;
     }
     SSL_set_session(ssl.get(), session.get());
@@ -294,8 +289,7 @@ static bool DoConnection(SSL_CTX *ctx,
   int ret = SSL_connect(ssl.get());
   if (ret != 1) {
     int ssl_err = SSL_get_error(ssl.get(), ret);
-    fprintf(stderr, "Error while connecting: %d\n", ssl_err);
-    ERR_print_errors_cb(PrintErrorCallback, stderr);
+    PrintSSLError(stderr, "Error while connecting", ssl_err, ret);
     return false;
   }
 
@@ -315,8 +309,7 @@ static bool DoConnection(SSL_CTX *ctx,
     int ssl_ret = SSL_write(ssl.get(), early_data.data(), ed_size);
     if (ssl_ret <= 0) {
       int ssl_err = SSL_get_error(ssl.get(), ssl_ret);
-      fprintf(stderr, "Error while writing: %d\n", ssl_err);
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      PrintSSLError(stderr, "Error while writing", ssl_err, ssl_ret);
       return false;
     } else if (ssl_ret != ed_size) {
       fprintf(stderr, "Short write from SSL_write.\n");
@@ -329,14 +322,6 @@ static bool DoConnection(SSL_CTX *ctx,
   PrintConnectionInfo(bio_stderr.get(), ssl.get());
 
   return cb(ssl.get(), sock);
-}
-
-static bool GetTLS13Variant(tls13_variant_t *out, const std::string &in) {
-  if (in == "draft23") {
-    *out = tls13_default;
-    return true;
-  }
-  return false;
 }
 
 static void InfoCallback(const SSL *ssl, int type, int value) {
@@ -496,7 +481,7 @@ bool Client(const std::vector<std::string> &args) {
     if (!session_out) {
       fprintf(stderr, "Error while opening %s:\n",
               args_map["-session-out"].c_str());
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      ERR_print_errors_fp(stderr);
       return false;
     }
   }
@@ -509,7 +494,7 @@ bool Client(const std::vector<std::string> &args) {
     if (!SSL_CTX_load_verify_locations(
             ctx.get(), args_map["-root-certs"].c_str(), nullptr)) {
       fprintf(stderr, "Failed to load root certificates.\n");
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      ERR_print_errors_fp(stderr);
       return false;
     }
     SSL_CTX_set_verify(ctx.get(), SSL_VERIFY_PEER, nullptr);
@@ -517,16 +502,6 @@ bool Client(const std::vector<std::string> &args) {
 
   if (args_map.count("-early-data") != 0) {
     SSL_CTX_set_early_data_enabled(ctx.get(), 1);
-  }
-
-  if (args_map.count("-tls13-variant") != 0) {
-    tls13_variant_t variant;
-    if (!GetTLS13Variant(&variant, args_map["-tls13-variant"])) {
-      fprintf(stderr, "Unknown TLS 1.3 variant: %s\n",
-              args_map["-tls13-variant"].c_str());
-      return false;
-    }
-    SSL_CTX_set_tls13_variant(ctx.get(), variant);
   }
 
   if (args_map.count("-ed25519") != 0) {

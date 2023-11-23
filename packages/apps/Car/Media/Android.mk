@@ -23,7 +23,10 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PACKAGE_NAME := CarMediaApp
+
 LOCAL_PRIVATE_PLATFORM_APIS := true
+
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.media
 
 LOCAL_CERTIFICATE := platform
 
@@ -33,19 +36,26 @@ LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_USE_AAPT2 := true
 
+LOCAL_JAVA_LIBRARIES += android.car
+
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
 
+LOCAL_JAVA_LIBRARIES += android.car
+
+LOCAL_STATIC_JAVA_LIBRARIES += \
+    androidx-constraintlayout_constraintlayout-solver
+
 LOCAL_STATIC_ANDROID_LIBRARIES += \
-    android-support-car \
-    android-support-constraint-layout \
-    android-support-design-widget \
+    androidx-constraintlayout_constraintlayout \
     car-apps-common \
     car-media-common
 
-LOCAL_STATIC_JAVA_LIBRARIES += \
-    android-support-constraint-layout-solver
+# Including the resources for the static android libraries allows to pick up their static overlays.
+LOCAL_RESOURCE_DIR += \
+    $(LOCAL_PATH)/../libs/car-apps-common/res \
+    $(LOCAL_PATH)/../libs/car-media-common/res
 
 include $(BUILD_PACKAGE)
 

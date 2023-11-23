@@ -21,7 +21,7 @@
 
 #include <gtest/gtest.h>
 #define LOG_TAG "VtsSelfTestFlakyTest"
-#include <utils/Log.h>
+#include <log/log.h>
 
 class VtsSelfTestFlakyTest : public ::testing::Test {
  public:

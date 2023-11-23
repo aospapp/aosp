@@ -38,7 +38,7 @@ public final class RetrieveFilesTask extends Task {
     }
 
     /**
-     * Scans {@code dir} for files to grab.
+     * Scans directory {@code source} for files to grab.
      */
     private void retrieveFiles(File destination, File source, FileFilter filenameFilter)
             throws FileNotFoundException {

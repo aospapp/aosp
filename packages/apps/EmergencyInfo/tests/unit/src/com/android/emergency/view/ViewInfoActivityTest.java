@@ -17,13 +17,9 @@ package com.android.emergency.view;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.app.Fragment;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
-import android.support.v7.preference.PreferenceManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Pair;
 import android.view.Surface;
@@ -31,17 +27,22 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
+import androidx.fragment.app.Fragment;
+import androidx.preference.PreferenceManager;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.emergency.ContactTestUtils;
 import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;
 import com.android.emergency.edit.EditInfoActivity;
 
-import java.util.ArrayList;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
 
 /** Unit tests for {@link ViewInfoActivity}. */
 @RunWith(AndroidJUnit4.class)

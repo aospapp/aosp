@@ -15,7 +15,7 @@
  */
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -27,25 +27,26 @@ import android.provider.Settings;
 import android.support.test.uiautomator.UiObject2;
 
 import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
-@AppModeFull // Service-specific test
-public class SettingsIntentTest extends AutoFillServiceTestCase {
+@AppModeFull(reason = "Service-specific test")
+public class SettingsIntentTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<TrampolineForResultActivity> {
 
     private static final int MY_REQUEST_CODE = 42;
 
-    @Rule
-    public final AutofillActivityTestRule<TrampolineForResultActivity> mActivityRule =
-            new AutofillActivityTestRule<TrampolineForResultActivity>(
-                    TrampolineForResultActivity.class);
 
     protected TrampolineForResultActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<TrampolineForResultActivity> getActivityRule() {
+        return new AutofillActivityTestRule<TrampolineForResultActivity>(
+                TrampolineForResultActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @After

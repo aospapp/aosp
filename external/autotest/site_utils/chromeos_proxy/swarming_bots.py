@@ -43,6 +43,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -89,6 +90,10 @@ class DuplicateBotError(BotManagementError):
     """Raised when multiple processes are detected for the same bot id."""
 
 
+def get_hostname():
+    return socket.getfqdn().split(u'.', 1)[0]
+
+
 class SwarmingBot(object):
     """Class represent a swarming bot."""
 
@@ -101,7 +106,8 @@ class SwarmingBot(object):
     BOT_CMD_PATTERN = 'swarming_bot.*zip start_bot'
 
 
-    def __init__(self, bot_id, parent_dir, swarming_proxy):
+    def __init__(self, bot_id, parent_dir, swarming_proxy,
+                 specify_bot_id=False):
         """Initialize.
 
         @param bot_id: An integer.
@@ -112,6 +118,10 @@ class SwarmingBot(object):
         @param swarming_proxy: URL to the swarming instance.
         """
         self.bot_id = bot_id
+        self.specify_bot_id = specify_bot_id
+        if specify_bot_id:
+            self.bot_id = '%s-%s' % (get_hostname(), str(self.bot_id))
+
         self.swarming_proxy = swarming_proxy
         self.parent_dir = os.path.abspath(os.path.expanduser(parent_dir))
         self.bot_dir = os.path.join(self.parent_dir,
@@ -202,14 +212,23 @@ class SwarmingBot(object):
             shutil.rmtree(self.bot_dir)
         os.makedirs(self.bot_dir)
         dest = os.path.join(self.bot_dir, self.BOT_FILENAME)
+        new_env = dict(os.environ)
+        new_env['SWARMING_EXTERNAL_BOT_SETUP'] = '1'
         logging.debug('[Bot %s] Getting bot code from: %s/bot_code',
                       self.bot_id, self.swarming_proxy)
-        urllib.urlretrieve('%s/bot_code' % self.swarming_proxy, dest)
+        if self.specify_bot_id:
+            url = '%s/bot_code?bot_id=%s' % (self.swarming_proxy, self.bot_id)
+            new_env['SWARMING_BOT_ID'] = self.bot_id
+        else:
+            url = '%s/bot_code' % self.swarming_proxy
+
+        logging.info('Download bot code from %s', url)
+        urllib.urlretrieve(url, dest)
         cmd = [sys.executable, self.BOT_FILENAME]
         logging.debug('[Bot %s] Calling command: %s', self. bot_id, cmd)
         process = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                cwd=self.bot_dir)
+                cwd=self.bot_dir, env=new_env)
         self.pid = process.pid
         self._write_pid()
         logging.info('[Bot %s] Created bot (pid: %d)', self.bot_id, self.pid)
@@ -253,7 +272,8 @@ class BotManager(object):
     CHECK_BOTS_PATTERN = '{executable} {working_dir}.*{bot_cmd_pattern}'
 
 
-    def __init__(self, bot_ids, working_dir, swarming_proxy):
+    def __init__(self, bot_ids, working_dir, swarming_proxy,
+                 specify_bot_id=False):
         """Initialize.
 
         @param bot_ids: a set of integers.
@@ -263,7 +283,8 @@ class BotManager(object):
         """
         self.bot_ids = bot_ids
         self.working_dir = os.path.abspath(os.path.expanduser(working_dir))
-        self.bots = [SwarmingBot(bid, self.working_dir, swarming_proxy)
+        self.bots = [SwarmingBot(bid, self.working_dir, swarming_proxy,
+                                 specify_bot_id)
                      for bid in bot_ids]
 
     def launch(self):

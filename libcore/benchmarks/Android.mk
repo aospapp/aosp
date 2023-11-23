@@ -27,10 +27,7 @@ LOCAL_JAVA_LIBRARIES := \
   caliper-api-target \
   core-oj \
   core-libart \
-  conscrypt \
-  android.test.base \
-  bouncycastle \
-  framework
+  android.test.base
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(PRODUCT_OUT)/data/caliperperf
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk

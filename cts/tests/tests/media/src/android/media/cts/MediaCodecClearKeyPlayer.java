@@ -32,12 +32,14 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.util.Log;
-import android.view.SurfaceHolder;
-
+import android.view.Surface;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -51,6 +53,8 @@ import java.util.UUID;
  */
 public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
     private static final String TAG = MediaCodecClearKeyPlayer.class.getSimpleName();
+
+    private static final String FILE_SCHEME = "file://";
 
     private static final int STATE_IDLE = 1;
     private static final int STATE_PREPARING = 2;
@@ -78,10 +82,11 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
     private Map<UUID, byte[]> mPsshInitData;
     private MediaCrypto mCrypto;
     private MediaCas mMediaCas;
-    private MediaDescrambler mDescrambler;
+    private MediaDescrambler mAudioDescrambler;
+    private MediaDescrambler mVideoDescrambler;
     private MediaExtractor mAudioExtractor;
     private MediaExtractor mVideoExtractor;
-    private SurfaceHolder mSurfaceHolder;
+    private Deque<Surface> mSurfaces;
     private Thread mThread;
     private Uri mAudioUri;
     private Uri mVideoUri;
@@ -114,6 +119,9 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
             "  \"track_types\": [ ]                              " +
             "}                                                   " ;
 
+    // ClearKey private data (0-bytes of length 4)
+    private static final byte[] sCasPrivateInfo = hexStringToByteArray("00000000");
+
     /**
      * Convert a hex string into byte array.
      */
@@ -131,15 +139,16 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
      * Media player class to stream CENC content using MediaCodec class.
      */
     public MediaCodecClearKeyPlayer(
-            SurfaceHolder holder, byte[] sessionId, boolean scrambled, Resources resources) {
+            List<Surface> surfaces, byte[] sessionId, boolean scrambled, Resources resources) {
         mSessionId = sessionId;
         mScrambled = scrambled;
-        mSurfaceHolder = holder;
+        mSurfaces = new ArrayDeque<>(surfaces);
         mResources = resources;
         mState = STATE_IDLE;
         mThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                int n = 0;
                 while (mThreadStarted == true) {
                     doSomeWork();
                     if (mAudioTrackState != null) {
@@ -149,6 +158,9 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                         Thread.sleep(5);
                     } catch (InterruptedException ex) {
                         Log.d(TAG, "Thread interrupted");
+                    }
+                    if(++n % 1000 == 0) {
+                        cycleSurfaces();
                     }
                 }
                 if (mAudioTrackState != null) {
@@ -193,7 +205,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         return PSSH;
     }
 
-    private void prepareAudio() throws IOException {
+    private void prepareAudio() throws IOException, MediaCasException {
         boolean hasAudio = false;
         for (int i = mAudioExtractor.getTrackCount(); i-- > 0;) {
             MediaFormat format = mAudioExtractor.getTrackFormat(i);
@@ -207,6 +219,14 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                   " Sample rate:" + getMediaFormatInteger(format, MediaFormat.KEY_SAMPLE_RATE) +
                   " Channel count:" +
                   getMediaFormatInteger(format, MediaFormat.KEY_CHANNEL_COUNT));
+
+            if (mScrambled) {
+                MediaExtractor.CasInfo casInfo = mAudioExtractor.getCasInfo(i);
+                if (casInfo != null && casInfo.getSession() != null) {
+                    mAudioDescrambler = new MediaDescrambler(casInfo.getSystemId());
+                    mAudioDescrambler.setMediaCasSession(casInfo.getSession());
+                }
+            }
 
             if (!hasAudio) {
                 mAudioExtractor.selectTrack(i);
@@ -230,7 +250,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         }
     }
 
-    private void prepareVideo() throws IOException {
+    private void prepareVideo() throws IOException, MediaCasException {
         boolean hasVideo = false;
 
         for (int i = mVideoExtractor.getTrackCount(); i-- > 0;) {
@@ -245,10 +265,11 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
             Log.d(TAG, "video track #" + i + " " + format + " " + mime +
                   " Width:" + mMediaFormatWidth + ", Height:" + mMediaFormatHeight);
 
-            if (mScrambled && mime.startsWith("video/")) {
+            if (mScrambled) {
                 MediaExtractor.CasInfo casInfo = mVideoExtractor.getCasInfo(i);
                 if (casInfo != null && casInfo.getSession() != null) {
-                    mDescrambler.setMediaCasSession(casInfo.getSession());
+                    mVideoDescrambler = new MediaDescrambler(casInfo.getSystemId());
+                    mVideoDescrambler.setMediaCasSession(casInfo.getSession());
                 }
             }
 
@@ -280,6 +301,8 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         String scheme = uri.getScheme();
         if (scheme.startsWith("http")) {
             extractor.setDataSource(uri.toString(), headers);
+        } else if (scheme.startsWith(FILE_SCHEME)) {
+            extractor.setDataSource(uri.toString().substring(FILE_SCHEME.length()), headers);
         } else if (scheme.equals("android.resource")) {
             int res = Integer.parseInt(uri.getLastPathSegment());
             AssetFileDescriptor fd = mResources.openRawResourceFd(res);
@@ -295,13 +318,17 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
             android.media.MediaFormat format = extractor.getTrackFormat(trackId);
             String mime = format.getString(android.media.MediaFormat.KEY_MIME);
             Log.d(TAG, "track "+ trackId + ": " + mime);
-            if ("video/scrambled".equals(mime) || "audio/scrambled".equals(mime)) {
+            if (MediaFormat.MIMETYPE_VIDEO_SCRAMBLED.equals(mime) ||
+                    MediaFormat.MIMETYPE_AUDIO_SCRAMBLED.equals(mime)) {
                 MediaExtractor.CasInfo casInfo = extractor.getCasInfo(trackId);
                 if (casInfo != null) {
+                    if (!Arrays.equals(sCasPrivateInfo, casInfo.getPrivateData())) {
+                        throw new Error("Cas private data mismatch");
+                    }
                     mMediaCas = new MediaCas(casInfo.getSystemId());
-                    mDescrambler = new MediaDescrambler(casInfo.getSystemId());
                     mMediaCas.provision(sProvisionStr);
                     extractor.setMediaCas(mMediaCas);
+                    break;
                 }
             }
         }
@@ -381,15 +408,15 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         if (!mScrambled) {
             codec.configure(
                     format,
-                    isVideo ? mSurfaceHolder.getSurface() : null,
+                    isVideo ? mSurfaces.getFirst() : null,
                     mCrypto,
                     0);
         } else {
             codec.configure(
                     format,
-                    isVideo ? mSurfaceHolder.getSurface() : null,
+                    isVideo ? mSurfaces.getFirst() : null,
                     0,
-                    isVideo ? mDescrambler : null);
+                    isVideo ? mVideoDescrambler : mAudioDescrambler);
         }
 
         CodecState state;
@@ -414,7 +441,11 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         return format.containsKey(key) ? format.getInteger(key) : 0;
     }
 
+    // Find first secure decoder for media type. If none found, return
+    // the name of the first regular codec with ".secure" suffix added.
+    // If all else fails, return null.
     protected String getSecureDecoderNameForMime(String mime) {
+        String firstDecoderName = null;
         int n = MediaCodecList.getCodecCount();
         for (int i = 0; i < n; ++i) {
             MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
@@ -427,9 +458,17 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
 
             for (int j = 0; j < supportedTypes.length; ++j) {
                 if (supportedTypes[j].equalsIgnoreCase(mime)) {
-                    return info.getName() + ".secure";
+                    if (info.getCapabilitiesForType(mime).isFeatureSupported(
+                            MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback)) {
+                        return info.getName();
+                    } else if (firstDecoderName == null) {
+                        firstDecoderName = info.getName();
+                    }
                 }
             }
+        }
+        if (firstDecoderName != null) {
+            return firstDecoderName + ".secure";
         }
         return null;
     }
@@ -549,9 +588,14 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
             mMediaCas = null;
         }
 
-        if (mDescrambler != null) {
-            mDescrambler.close();
-            mDescrambler = null;
+        if (mAudioDescrambler != null) {
+            mAudioDescrambler.close();
+            mAudioDescrambler = null;
+        }
+
+        if (mVideoDescrambler != null) {
+            mVideoDescrambler.close();
+            mVideoDescrambler = null;
         }
 
         mDurationUs = -1;
@@ -596,7 +640,23 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         } catch (IllegalStateException e) {
             throw new Error("Aduio CodecState.feedInputBuffer IllegalStateException " + e);
         }
+    }
 
+    private void cycleSurfaces() {
+        if (mSurfaces.size() > 1) {
+            final Surface s = mSurfaces.removeFirst();
+            mSurfaces.addLast(s);
+            for (CodecState c : mVideoCodecStates.values()) {
+                c.setOutputSurface(mSurfaces.getFirst());
+                /*
+                 * Calling InputSurface.clearSurface on an old `output` surface because after
+                 * MediaCodec has rendered to the old output surface, we need `edit`
+                 * (i.e. draw black on) the old output surface.
+                 */
+                InputSurface.clearSurface(s);
+                break;
+            }
+        }
     }
 
     public long getNowUs() {

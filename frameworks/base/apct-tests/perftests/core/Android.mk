@@ -9,7 +9,8 @@ LOCAL_SRC_FILES := \
   src/android/os/ISomeService.aidl
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
+    androidx.annotation_annotation \
     apct-perftests-utils \
     guava
 
@@ -26,5 +27,3 @@ LOCAL_ASSET_DIR := $(TOP)/external/google-fonts/dancing-script
 LOCAL_COMPATIBILITY_SUITE += device-tests
 
 include $(BUILD_PACKAGE)
-
-include $(call all-makefiles-under, $(LOCAL_PATH))

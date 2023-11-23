@@ -5,14 +5,24 @@
 #ifndef LIBBRILLO_BRILLO_SECURE_BLOB_H_
 #define LIBBRILLO_BRILLO_SECURE_BLOB_H_
 
+#include <initializer_list>
 #include <string>
 #include <vector>
 
+#include <brillo/asan.h>
 #include <brillo/brillo_export.h>
 
 namespace brillo {
 
 using Blob = std::vector<uint8_t>;
+
+// Conversion of Blob to/from std::string, where the string holds raw byte
+// contents.
+BRILLO_EXPORT std::string BlobToString(const Blob& blob);
+BRILLO_EXPORT Blob BlobFromString(const std::string& bytes);
+
+// Returns a concatenation of given Blobs.
+BRILLO_EXPORT Blob CombineBlobs(const std::initializer_list<Blob>& blobs);
 
 // SecureBlob erases the contents on destruction.  It does not guarantee erasure
 // on resize, assign, etc.
@@ -20,6 +30,7 @@ class BRILLO_EXPORT SecureBlob : public Blob {
  public:
   SecureBlob() = default;
   using Blob::vector;  // Inherit standard constructors from vector.
+  explicit SecureBlob(const Blob& blob);
   explicit SecureBlob(const std::string& data);
   ~SecureBlob();
 
@@ -33,6 +44,8 @@ class BRILLO_EXPORT SecureBlob : public Blob {
     return reinterpret_cast<const char*>(data());
   }
   static SecureBlob Combine(const SecureBlob& blob1, const SecureBlob& blob2);
+  static bool HexStringToSecureBlob(const std::string& input,
+                                    SecureBlob* output);
 };
 
 // Secure memset(). This function is guaranteed to fill in the whole buffer
@@ -46,7 +59,10 @@ class BRILLO_EXPORT SecureBlob : public Blob {
 // While memset() can be optimized out in certain situations (since most
 // compilers implement this function as intrinsic and know of its side effects),
 // this function will not be optimized out.
-BRILLO_EXPORT void* SecureMemset(void* v, int c, size_t n);
+//
+// SecureMemset is used to write beyond the size() in several functions.
+// Since this is intentional, disable address sanitizer from analying it.
+BRILLO_EXPORT BRILLO_DISABLE_ASAN void* SecureMemset(void* v, int c, size_t n);
 
 // Compare [n] bytes starting at [s1] with [s2] and return 0 if they match,
 // 1 if they don't. Time taken to perform the comparison is only dependent on

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <set>
 
+#include "BadPatternFinder.h"
 #include "CheckDispatchVisitor.h"
 #include "CheckFieldsVisitor.h"
 #include "CheckFinalizerVisitor.h"
@@ -75,9 +76,6 @@ BlinkGCPluginConsumer::BlinkGCPluginConsumer(
 
   // Ignore GC implementation files.
   options_.ignored_directories.push_back("/heap/");
-
-  if (!options_.use_chromium_style_naming)
-    Config::UseLegacyNames();
 }
 
 void BlinkGCPluginConsumer::HandleTranslationUnit(ASTContext& context) {
@@ -125,6 +123,8 @@ void BlinkGCPluginConsumer::HandleTranslationUnit(ASTContext& context) {
     delete json_;
     json_ = 0;
   }
+
+  FindBadPatterns(context, reporter_);
 }
 
 void BlinkGCPluginConsumer::ParseFunctionTemplates(TranslationUnitDecl* decl) {
@@ -181,6 +181,8 @@ void BlinkGCPluginConsumer::CheckClass(RecordInfo* info) {
     return;
 
   if (CXXMethodDecl* trace = info->GetTraceMethod()) {
+    if (info->IsStackAllocated())
+      reporter_.TraceMethodForStackAllocatedClass(info, trace);
     if (trace->isPure())
       reporter_.ClassDeclaresPureVirtualTrace(info, trace);
   } else if (info->RequiresTraceMethod()) {
@@ -196,7 +198,7 @@ void BlinkGCPluginConsumer::CheckClass(RecordInfo* info) {
   }
 
   {
-    CheckFieldsVisitor visitor;
+    CheckFieldsVisitor visitor(options_);
     if (visitor.ContainsInvalidFields(info))
       reporter_.ClassContainsInvalidFields(info, visitor.invalid_fields());
   }
@@ -361,7 +363,7 @@ void BlinkGCPluginConsumer::CheckLeftMostDerived(RecordInfo* info) {
   CXXRecordDecl* left_most = GetLeftMostBase(info->record());
   if (!left_most)
     return;
-  if (!Config::IsGCBase(left_most->getName()))
+  if (!Config::IsGCBase(left_most->getName()) || Config::IsGCMixinBase(left_most->getName()))
     reporter_.ClassMustLeftMostlyDeriveGC(info);
 }
 
@@ -528,7 +530,6 @@ void BlinkGCPluginConsumer::CheckTraceOrDispatchMethod(
     CXXMethodDecl* method) {
   Config::TraceMethodType trace_type = Config::GetTraceMethodType(method);
   if (trace_type == Config::TRACE_AFTER_DISPATCH_METHOD ||
-      trace_type == Config::TRACE_AFTER_DISPATCH_IMPL_METHOD ||
       !parent->GetTraceDispatchMethod()) {
     CheckTraceMethod(parent, method, trace_type);
   }
@@ -548,12 +549,6 @@ void BlinkGCPluginConsumer::CheckTraceMethod(
 
   CheckTraceVisitor visitor(trace, parent, &cache_);
   visitor.TraverseCXXMethodDecl(trace);
-
-  // Skip reporting if this trace method is a just delegate to
-  // traceImpl (or traceAfterDispatchImpl) method. We will report on
-  // CheckTraceMethod on traceImpl method.
-  if (visitor.delegates_to_traceimpl())
-    return;
 
   for (auto& base : parent->GetBases())
     if (!base.second.IsProperlyTraced())
@@ -598,7 +593,6 @@ void BlinkGCPluginConsumer::DumpClass(RecordInfo* info) {
                        (static_cast<RawPtr*>(Parent())->HasReferenceType() ?
                         "reference" : "raw") :
                    Parent()->IsRefPtr() ? "ref" :
-                   Parent()->IsOwnPtr() ? "own" :
                    Parent()->IsUniquePtr() ? "unique" :
                    (Parent()->IsMember() || Parent()->IsWeakMember()) ? "mem" :
                    "val");
@@ -689,7 +683,7 @@ bool BlinkGCPluginConsumer::InIgnoredDirectory(RecordInfo* info) {
   std::string filename;
   if (!GetFilename(info->record()->getLocStart(), &filename))
     return false;  // TODO: should we ignore non-existing file locations?
-#if defined(LLVM_ON_WIN32)
+#if defined(_WIN32)
   std::replace(filename.begin(), filename.end(), '\\', '/');
 #endif
   for (const auto& dir : options_.ignored_directories)

@@ -31,7 +31,7 @@
     <string name="header_category_accessories" msgid="823295909353025991">"Afstandsbediening en accessoires"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Persoonlijk"</string>
     <string name="connect_to_network" msgid="2209125715907353369">"Verbinding maken met netwerk"</string>
-    <string name="add_an_account" msgid="1123478843971990449">"Een account toevoegen"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"Account toevoegen"</string>
     <string name="accounts_category_title" msgid="7839427428921349418">"Accounts en inloggen"</string>
     <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"Geen accounts"</string>
     <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibratie"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Indelingen selecteren"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Surround sound"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -193,7 +193,7 @@
     <string name="copyright_title" msgid="5564228453228549353">"Auteursrecht"</string>
     <string name="license_title" msgid="4482927105870812604">"Licentie"</string>
     <string name="terms_title" msgid="8480859222932736291">"Algemene voorwaarden"</string>
-    <string name="webview_license_title" msgid="8843666223583780825">"Systeemlicentie voor webweergave"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"Systeemlicentie voor WebView"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Slecht"</item>
     <item msgid="5986166866411161790">"Redelijk"</item>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Sommige apps zijn niet beschikbaar of functioneren niet correct totdat de schijf opnieuw wordt aangesloten."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Niet voldoende opslagruimte."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"App bestaat niet."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"App is beveiligd tegen kopiëren."</string>
     <string name="invalid_location" msgid="5269044848535157307">"De installatielocatie is niet geldig."</string>
     <string name="system_package" msgid="9200255718634512790">"Systeemupdates kunnen niet worden geïnstalleerd op externe media."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Apparaatbeheerder kan niet worden geïnstalleerd op externe media."</string>
@@ -396,7 +395,7 @@
     <string name="location_services" msgid="5441085185119797200">"Locatieservices"</string>
     <string name="on" msgid="6683600681314500652">"Aan"</string>
     <string name="off" msgid="5264189545064767245">"Uit"</string>
-    <string name="google_location_services_title" msgid="3382840371861269146">"Locatieservices van Google"</string>
+    <string name="google_location_services_title" msgid="3382840371861269146">"Google-locatieservices"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Locatieservices van derden"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Locatiemelding"</string>
     <string name="location_history" msgid="2946680949724247804">"Locatiegeschiedenis"</string>
@@ -429,9 +428,9 @@
     <string name="captions_edgecolor" msgid="845125757332620884">"Randkleur"</string>
     <string name="captions_backgroundshow" msgid="9177987321551275698">"Achtergrond weergeven"</string>
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Achtergrondkleur"</string>
-    <string name="captions_backgroundopacity" msgid="2643722493273126220">"Transparantie van achtergrond"</string>
+    <string name="captions_backgroundopacity" msgid="2643722493273126220">"Ondoorzichtigheid van achtergrond"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Ondertiteling ziet er zo uit"</string>
-    <string name="captions_textopacity" msgid="5536765490446288641">"Transparantie van tekst"</string>
+    <string name="captions_textopacity" msgid="5536765490446288641">"Ondoorzichtigheid van tekst"</string>
     <string name="captions_windowshow" msgid="5716898740522196707">"Venster weergeven"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Vensterkleur"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Venstertransparantie"</string>
@@ -451,7 +450,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"Inschakelen"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"Configuratie"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g> gebruiken?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan alle tekst registreren die je typt, behalve wachtwoorden. Dit omvat ook persoonlijke gegevens zoals creditcardnummers."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan alle tekst registreren die je typt, behalve wachtwoorden. Dit omvat ook persoonsgegevens zoals creditcardnummers."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g> beëindigen?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Als je \'OK\' selecteert, wordt <xliff:g id="SERVICE">%1$s</xliff:g> beëindigd."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Tekst naar spraak"</string>
@@ -523,7 +522,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Onbekende bronnen"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Toestaan dat apps uit andere bronnen dan de Play Store worden geïnstalleerd"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Onbekende bronnen toestaan"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Je apparaat en persoonlijke gegevens worden door apps van onbekende bronnen gevoeliger voor aanvallen. Je gaat ermee akkoord dat alleen jij verantwoordelijk bent voor enige schade aan je apparaat of verlies van gegevens die voortkomen uit het gebruik van deze apps."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Je apparaat en persoonsgegevens worden door apps van onbekende bronnen gevoeliger voor aanvallen. Je gaat ermee akkoord dat alleen jij verantwoordelijk bent voor enige schade aan je apparaat of verlies van gegevens die voortkomen uit het gebruik van deze apps."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Apps verifiëren"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"De installatie van apps die schade kunnen veroorzaken, niet toestaan of eerst waarschuwen"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Nooit"</string>
@@ -686,7 +685,7 @@
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatisch terugzetten"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Apparaat opnieuw instellen"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Hiermee worden alle gegevens in de interne opslagruimte van je apparaat gewist, waaronder je Google-account, gegevens en instellingen voor het systeem en de apps en gedownloade apps"</string>
-    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Wil je al je persoonlijke gegevens en gedownloade apps verwijderen? Je kunt deze actie niet ongedaan maken."</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Wil je al je persoonlijke informatie en gedownloade apps verwijderen? Je kunt deze actie niet ongedaan maken."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Alles wissen"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Kies een naam voor je <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="select_device_name_description" msgid="4939767901420114190">"Geef je apparaat een naam zodat je dit kunt identificeren tijdens het casten of wanneer je vanaf andere apparaten verbinding met dit apparaat maakt."</string>
@@ -728,7 +727,10 @@
     <string name="high_power_system" msgid="7815843517656137656">"Energieoptimalisatie niet beschikbaar"</string>
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Toegang tot meldingen"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Er zijn geen geïnstalleerde apps die toegang tot meldingen hebben aangevraagd."</string>
-    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Deze apps kunnen alle meldingen lezen, waaronder persoonlijke gegevens zoals contactnamen en de tekst van berichten die je ontvangt. De apps kunnen meldingen ook sluiten of actieknoppen in de meldingen activeren."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Deze apps kunnen alle meldingen lezen, waaronder persoonlijke informatie zoals contactnamen en de tekst van berichten die je ontvangt. De apps kunnen meldingen ook sluiten of actieknoppen in de meldingen activeren."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Toegang tot map"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Deze apps hebben toegang tot bepaalde mappen."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Weergeven vóór andere apps"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Weergeven vóór andere apps toestaan"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Een app toestaan op de voorgrond te worden weergegeven vóór andere apps die je gebruikt. Dit kan je gebruik van die apps verstoren of de manier wijzigen waarop die apps worden weergegeven of zich gedragen."</string>

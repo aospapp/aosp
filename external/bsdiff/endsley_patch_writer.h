@@ -42,8 +42,10 @@ class EndsleyPatchWriter : public PatchWriterInterface {
   // compressed using the compressor type |type|.
   EndsleyPatchWriter(std::vector<uint8_t>* patch,
                      CompressorType type,
-                     int quality)
-      : patch_(patch), compressor_type_(type), quality_(quality) {}
+                     int brotli_quality)
+      : patch_(patch),
+        compressor_type_(type),
+        brotli_quality_(brotli_quality) {}
 
   // PatchWriterInterface overrides.
   bool Init(size_t new_size) override;
@@ -67,7 +69,7 @@ class EndsleyPatchWriter : public PatchWriterInterface {
 
   // The compressor type to use and its quality (if any).
   CompressorType compressor_type_;
-  int quality_;
+  int brotli_quality_;
 
   std::unique_ptr<CompressorInterface> compressor_;
 

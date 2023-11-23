@@ -33,6 +33,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.ServiceManager;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Contacts.People;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
@@ -60,6 +61,8 @@ public class IntentTest extends AndroidTestCase {
     private ComponentName mAnotherComponentName;
     private static final String TEST_TYPE = "testType";
     private static final String ANOTHER_TEST_TYPE = "anotherTestType";
+    private static final String TEST_IDENTIFIER = "testIdentifier";
+    private static final String ANOTHER_TEST_IDENTIFIER = "anotherTestIdentifier";
     private static final String TEST_CATEGORY = "testCategory";
     private static final String ANOTHER_TEST_CATEGORY = "testAnotherCategory";
     private static final String TEST_PACKAGE = "android.content.cts";
@@ -124,6 +127,7 @@ public class IntentTest extends AndroidTestCase {
         mIntent.setAction(TEST_ACTION);
         mIntent.setData(TEST_URI);
         mIntent.setType(TEST_TYPE);
+        mIntent.setIdentifier(TEST_IDENTIFIER);
         mIntent.setFlags(0);
         mIntent.setComponent(mComponentName);
         mIntent.addCategory(TEST_CATEGORY);
@@ -134,6 +138,7 @@ public class IntentTest extends AndroidTestCase {
         target.readFromParcel(parcel);
         assertEquals(mIntent.getAction(), target.getAction());
         assertEquals(mIntent.getData(), target.getData());
+        assertEquals(mIntent.getIdentifier(), target.getIdentifier());
         assertEquals(mIntent.getFlags(), target.getFlags());
         assertEquals(mIntent.getComponent(), target.getComponent());
         assertEquals(mIntent.getCategories(), target.getCategories());
@@ -288,6 +293,12 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(TEST_URI.toString(), mIntent.getDataString());
     }
 
+    public void testGetIdentifer() {
+        assertNull(mIntent.getIdentifier());
+        mIntent.setIdentifier(TEST_IDENTIFIER);
+        assertEquals(TEST_IDENTIFIER, mIntent.getIdentifier());
+    }
+
     public void testHasCategory() {
         assertFalse(mIntent.hasCategory(TEST_CATEGORY));
         mIntent.addCategory(TEST_CATEGORY);
@@ -315,7 +326,7 @@ public class IntentTest extends AndroidTestCase {
 
         ai = mContext.getPackageManager().getActivityInfo(mComponentName,
                 PackageManager.GET_META_DATA);
-        parser = ai.loadXmlMetaData(mContext.getPackageManager(), "android.app.alias");
+        parser = ai.loadXmlMetaData(mContext.getPackageManager(), "android.app.intent");
 
         attrs = Xml.asAttributeSet(parser);
         int type;
@@ -346,6 +357,19 @@ public class IntentTest extends AndroidTestCase {
         assertNotNull(mIntent);
         assertEquals("android.intent.action.MAIN", mIntent.getAction());
         assertEquals(Uri.parse("http://www.google.com/"), mIntent.getData());
+        assertEquals("something/something", mIntent.getType());
+        assertEquals("testIdentifier", mIntent.getIdentifier());
+        assertEquals(2, mIntent.getCategories().size());
+        assertTrue(mIntent.hasCategory("some.category"));
+        assertTrue(mIntent.hasCategory("some.other.category"));
+        assertEquals(1, mIntent.getIntExtra("an_int", 0));
+        assertEquals(2, mIntent.getIntExtra("another_int", 0));
+        assertEquals(true, mIntent.getBooleanExtra("an_boolean", false));
+        assertEquals(false, mIntent.getBooleanExtra("another_boolean", true));
+        assertEquals(1.1f, mIntent.getFloatExtra("an_float", 0), Float.MIN_NORMAL);
+        assertEquals(2.2f, mIntent.getFloatExtra("another_float", 0), Float.MIN_NORMAL);
+        assertEquals("one", mIntent.getStringExtra("an_string"));
+        assertEquals("two", mIntent.getStringExtra("another_string"));
     }
 
     public void testSetClass() {
@@ -621,6 +645,7 @@ public class IntentTest extends AndroidTestCase {
         mIntent.setClass(mContext, MockActivity.class);
         mIntent.setComponent(mComponentName);
         mIntent.setDataAndType(TEST_URI, TEST_TYPE);
+        mIntent.setIdentifier(TEST_IDENTIFIER);
         mIntent.addCategory(TEST_CATEGORY);
         final String key = "testkey";
         final String excepted = "testValue";
@@ -631,6 +656,7 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(mComponentName, actual.getComponent());
         assertEquals(TEST_URI, actual.getData());
         assertEquals(TEST_TYPE, actual.getType());
+        assertEquals(TEST_IDENTIFIER, actual.getIdentifier());
         assertEquals(TEST_CATEGORY, (String) (actual.getCategories().toArray()[0]));
         assertEquals(excepted, actual.getStringExtra(key));
     }
@@ -647,6 +673,7 @@ public class IntentTest extends AndroidTestCase {
         mIntent.setClass(mContext, MockActivity.class);
         mIntent.setComponent(mComponentName);
         mIntent.setDataAndType(TEST_URI, TEST_TYPE);
+        mIntent.setIdentifier(TEST_IDENTIFIER);
         mIntent.addCategory(TEST_CATEGORY);
         final String key = "testkey";
         mIntent.putExtra(key, "testValue");
@@ -656,6 +683,7 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(mComponentName, actual.getComponent());
         assertEquals(TEST_URI, actual.getData());
         assertEquals(TEST_TYPE, actual.getType());
+        assertEquals(TEST_IDENTIFIER, actual.getIdentifier());
         assertEquals(TEST_CATEGORY, (String) (actual.getCategories().toArray()[0]));
         assertNull(actual.getStringExtra(key));
     }
@@ -742,6 +770,7 @@ public class IntentTest extends AndroidTestCase {
         assertEquals("android.content.cts.MockActivity2", target.getClassName());
     }
 
+    @AppModeFull
     public void testResolveActivityMultipleMatch() {
         final Intent intent = new Intent("android.content.cts.action.TEST_ACTION");
 
@@ -773,7 +802,7 @@ public class IntentTest extends AndroidTestCase {
 
         try {
             String uri = "#Intent;action=android.content.IntentTest_test;"
-                    + "category=testCategory;type=testtype;launchFlags=0x1;"
+                    + "category=testCategory;type=testtype;identifier=testident;launchFlags=0x1;"
                     + "component=com.android/.app.MockActivity;K.testExtraName=1;end";
             mIntent = Intent.getIntent(uri);
             fail("should throw URISyntaxException.");
@@ -811,6 +840,11 @@ public class IntentTest extends AndroidTestCase {
         uri = mIntent.toURI();
         target = Intent.getIntent(uri);
         assertEquals(TEST_TYPE, target.getType());
+
+        mIntent.setIdentifier(TEST_IDENTIFIER);
+        uri = mIntent.toURI();
+        target = Intent.getIntent(uri);
+        assertEquals(TEST_IDENTIFIER, target.getIdentifier());
 
         mIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -885,8 +919,10 @@ public class IntentTest extends AndroidTestCase {
         assertTrue(mIntent.toURI().indexOf("category=") != -1);
 
         mIntent.setType(TEST_TYPE);
-
         assertTrue(mIntent.toURI().indexOf("type=" + TEST_TYPE) != -1);
+
+        mIntent.setIdentifier(TEST_IDENTIFIER);
+        assertTrue(mIntent.toURI().indexOf("identifier=" + TEST_IDENTIFIER) != -1);
 
         mIntent.setFlags(1);
         assertFalse(mIntent.toURI().indexOf("launchFlags=" + Integer.toHexString(1)) != -1);
@@ -1165,6 +1201,9 @@ public class IntentTest extends AndroidTestCase {
         if (!Objects.equals(expected.getType(), actual.getType())) {
             return false;
         }
+        if (!Objects.equals(expected.getIdentifier(), actual.getIdentifier())) {
+            return false;
+        }
         if (!Objects.equals(expected.getPackage(), actual.getPackage())) {
             return false;
         }
@@ -1276,6 +1315,7 @@ public class IntentTest extends AndroidTestCase {
         final String title = "title String";
         target = Intent.createChooser(mIntent, title);
         assertEquals(title, target.getStringExtra(Intent.EXTRA_TITLE));
+        assertNotNull(target.resolveActivity(mPm));
     }
 
     public void testGetFloatArrayExtra() {
@@ -1440,6 +1480,42 @@ public class IntentTest extends AndroidTestCase {
         destIntent.setType(ANOTHER_TEST_TYPE);
         assertEquals(Intent.FILL_IN_DATA, destIntent.fillIn(sourceIntent, Intent.FILL_IN_DATA));
         assertEquals(TEST_TYPE, destIntent.getType());
+    }
+
+    /**
+     * Test that fillIn copies identifier.
+     */
+    public void testFillIn_identifier() {
+        Intent sourceIntent = new Intent();
+        Intent destIntent = new Intent();
+        sourceIntent.setIdentifier(TEST_IDENTIFIER);
+        assertEquals(Intent.FILL_IN_IDENTIFIER, destIntent.fillIn(sourceIntent, 0));
+        assertEquals(TEST_IDENTIFIER, destIntent.getIdentifier());
+    }
+
+    /**
+     * Test that fillIn does not copy identifier when already its already set in target Intent.
+     */
+    public void testFillIn_identifierSet() {
+        Intent sourceIntent = new Intent();
+        Intent destIntent = new Intent();
+        sourceIntent.setIdentifier(TEST_IDENTIFIER);
+        destIntent.setIdentifier(ANOTHER_TEST_IDENTIFIER);
+        assertEquals(0, destIntent.fillIn(sourceIntent, 0));
+        assertEquals(ANOTHER_TEST_IDENTIFIER, destIntent.getIdentifier());
+    }
+
+    /**
+     * Test that fillIn overrides identifier when {@link Intent#FILL_IN_IDENTIFIER} flag is set.
+     */
+    public void testFillIn_identifierOverride() {
+        Intent sourceIntent = new Intent();
+        Intent destIntent = new Intent();
+        sourceIntent.setIdentifier(TEST_IDENTIFIER);
+        destIntent.setIdentifier(TEST_IDENTIFIER);
+        assertEquals(Intent.FILL_IN_IDENTIFIER, destIntent.fillIn(sourceIntent,
+                Intent.FILL_IN_IDENTIFIER));
+        assertEquals(TEST_IDENTIFIER, destIntent.getIdentifier());
     }
 
     /**
@@ -1672,6 +1748,15 @@ public class IntentTest extends AndroidTestCase {
         mIntent.setType(null);
         assertFalse(mIntent.filterEquals(target));
         mIntent.setType(TEST_TYPE);
+        assertTrue(mIntent.filterEquals(target));
+
+        target.setIdentifier(TEST_IDENTIFIER);
+        assertFalse(mIntent.filterEquals(target));
+        mIntent.setIdentifier(TEST_IDENTIFIER + "test");
+        assertFalse(mIntent.filterEquals(target));
+        mIntent.setIdentifier(null);
+        assertFalse(mIntent.filterEquals(target));
+        mIntent.setIdentifier(TEST_IDENTIFIER);
         assertTrue(mIntent.filterEquals(target));
 
         target.setComponent(mComponentName);

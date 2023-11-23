@@ -126,7 +126,7 @@ class PlatformAudio : public PlatformAudioBase,
    * @param audioSource the chreAudioSource to populate with details of the
    *     audio source. This pointer must never be null.
    */
-  bool getAudioSource(uint32_t handle, chreAudioSource *audioSource);
+  bool getAudioSource(uint32_t handle, chreAudioSource *audioSource) const;
 };
 
 }  // namespace chre

@@ -115,7 +115,7 @@ public class ValidateTestsAbi {
             if (!result.getNativeCode().isEmpty()) {
                 List<String> supportedAbiApk = result.getNativeCode();
                 Set<String> buildTarget = AbiUtils.getAbisForArch(
-                        TestSuiteInfo.getInstance().getTargetArch());
+                        TestSuiteInfo.getInstance().getTargetArchs().get(0));
                 // first check, all the abis are supported
                 for (String abi : supportedAbiApk) {
                     if (!buildTarget.contains(abi)) {
@@ -176,7 +176,7 @@ public class ValidateTestsAbi {
         // characters of their name with be the bitness (32 or 64).
         Collections.sort(orderedList);
         Set<String> buildTarget = AbiUtils.getAbisForArch(
-                TestSuiteInfo.getInstance().getTargetArch());
+                TestSuiteInfo.getInstance().getTargetArchs().get(0));
         // We expect one binary per abi of CTS, they should be appended with 32 or 64
         for (int i = 0; i < orderedList.size(); i=i + buildTarget.size()) {
             List<String> subSet = orderedList.subList(i, i + buildTarget.size());

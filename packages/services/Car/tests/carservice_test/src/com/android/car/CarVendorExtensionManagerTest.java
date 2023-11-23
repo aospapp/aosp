@@ -32,10 +32,11 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.SystemClock;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.util.SparseArray;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.test.MockedVehicleHal;
 import com.android.car.vehiclehal.test.VehiclePropConfigBuilder;
@@ -72,6 +73,15 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
     private static final int CUSTOM_STRING_PROP_ID =
             0x5 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.STRING | VehicleArea.GLOBAL;
 
+    private static final int CUSTOM_GLOBAL_LONG_PROP_ID =
+            0x6 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT64 | VehicleArea.GLOBAL;
+
+    private static final int CUSTOM_INT_ARRAY_PROP_ID =
+            0x7 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT32_VEC | VehicleArea.GLOBAL;
+
+    private static final int CUSTOM_LONG_ARRAY_PROP_ID =
+            0x8 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT64_VEC | VehicleArea.GLOBAL;
+
     private static final float EPS = 1e-9f;
     private static final int MILLION = 1000 * 1000;
 
@@ -80,9 +90,6 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
 
     private static final float MIN_PROP_FLOAT = 10.42f;
     private static final float MAX_PROP_FLOAT = 42.10f;
-
-//    private static final MockedVehicleHal mVehicleHal = new MockedVehicleHal();
-
     private static final VehiclePropConfig mConfigs[] = new VehiclePropConfig[] {
             VehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_INT_PROP_ID)
                     .addAreaConfig(0, MIN_PROP_INT32, MAX_PROP_INT32)
@@ -97,6 +104,9 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
                     .build(),
             VehiclePropConfigBuilder.newBuilder(CUSTOM_BYTES_PROP_ID_2).build(),
             VehiclePropConfigBuilder.newBuilder(CUSTOM_STRING_PROP_ID).build(),
+            VehiclePropConfigBuilder.newBuilder(CUSTOM_GLOBAL_LONG_PROP_ID).build(),
+            VehiclePropConfigBuilder.newBuilder(CUSTOM_INT_ARRAY_PROP_ID).build(),
+            VehiclePropConfigBuilder.newBuilder(CUSTOM_LONG_ARRAY_PROP_ID).build(),
     };
 
     private CarVendorExtensionManager mManager;
@@ -218,6 +228,49 @@ public class CarVendorExtensionManagerTest extends MockedCarTestBase {
                 CUSTOM_STRING_PROP_ID);
 
         assertEquals(expectedString, actualString);
+    }
+
+    @Test
+    public void testLongProperty() throws Exception {
+        final Long expectedValue = 100L;
+        mManager.setGlobalProperty(
+                Long.class,
+                CUSTOM_GLOBAL_LONG_PROP_ID,
+                expectedValue);
+
+        Long actualValue = mManager.getGlobalProperty(
+                Long.class,
+                CUSTOM_GLOBAL_LONG_PROP_ID);
+
+        assertEquals(expectedValue, actualValue);
+    }
+
+    @Test
+    public void testIntArrayProperty() throws Exception {
+        final Integer[] expectedIntArray = new Integer[]{1, 2, 3};
+
+        mManager.setGlobalProperty(
+                Integer[].class,
+                CUSTOM_INT_ARRAY_PROP_ID,
+                expectedIntArray);
+        Integer[] actualIntArray = mManager.getGlobalProperty(
+                Integer[].class,
+                CUSTOM_INT_ARRAY_PROP_ID);
+        Assert.assertArrayEquals(expectedIntArray, actualIntArray);
+    }
+
+    @Test
+    public void testLongArrayProperty() throws Exception {
+        final Long[] expectedLongArray = new Long[]{1L, 2L};
+
+        mManager.setGlobalProperty(
+                Long[].class,
+                CUSTOM_LONG_ARRAY_PROP_ID,
+                expectedLongArray);
+        Long[] actualLongArray = mManager.getGlobalProperty(
+                Long[].class,
+                CUSTOM_LONG_ARRAY_PROP_ID);
+        Assert.assertArrayEquals(expectedLongArray, actualLongArray);
     }
 
     private static String generateRandomString(int length, String allowedSymbols) {

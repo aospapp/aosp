@@ -23,7 +23,7 @@
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"<xliff:g id="DAYS">%1$d</xliff:g> (na) araw ang nakalipas"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
-    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Hindi nagamit sa nakalipas na taon"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Hindi nagamit noong nakalipas na taon"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Hindi sigurado kung kailan huling ginamit"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Magbakante ng <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Mga naka-back up na larawan at video"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Pinamamahalaan na ngayon ng storage manager ang iyong storage"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Walang maaaring alisin"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Suriin ang mga kamakailang item"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"Walang lumang file na maaaring alisin. Upang magbakante ng espasyo, mag-alis ng mga kamakailang larawan, video, at app."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"Walang lumang file na maaalis. Para magbakante ng espasyo, mag-alis ng mga kamakailang larawan, video, at app."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"Kailangan ng <xliff:g id="APP">%1$s</xliff:g> ng <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> na espasyo"</string>
 </resources>

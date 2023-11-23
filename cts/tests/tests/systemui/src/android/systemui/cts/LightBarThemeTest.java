@@ -16,22 +16,22 @@
 
 package android.systemui.cts;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeFalse;
 
-import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
+import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
 import android.view.View;
+
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -48,6 +48,9 @@ public class LightBarThemeTest extends LightBarTestBase {
     public ActivityTestRule<LightBarThemeActivity> mActivityRule = new ActivityTestRule<>(
             LightBarThemeActivity.class);
 
+    @Rule
+    public TestName mTestName = new TestName();
+
     @Before
     public void setUp() {
         mDevice = UiDevice.getInstance(getInstrumentation());
@@ -61,21 +64,27 @@ public class LightBarThemeTest extends LightBarTestBase {
     }
 
     @Test
-    public void testGetNavigationBarDividerColor() throws Exception {
-        assumeHasColorNavigationBar();
+    public void testGetNavigationBarDividerColor() throws Throwable {
+        assumeHasColoredNavigationBar(mActivityRule);
 
         assertEquals(getInstrumentation().getContext().getColor(R.color.navigationBarDividerColor),
                 mActivityRule.getActivity().getWindow().getNavigationBarDividerColor());
     }
 
     @Test
-    public void testNavigationBarDividerColor() throws Exception {
-        assumeHasColorNavigationBar();
+    public void testNavigationBarDividerColor() throws Throwable {
+        assumeHasColoredNavigationBar(mActivityRule);
 
         // Wait until the activity is fully visible
         mDevice.waitForIdle();
 
+        // Wait until window animation is finished
+        Thread.sleep(WAIT_TIME);
+
+        final Context instrumentationContext = getInstrumentation().getContext();
         checkNavigationBarDivider(mActivityRule.getActivity(),
-                getInstrumentation().getContext().getColor(R.color.navigationBarDividerColor));
+                instrumentationContext.getColor(R.color.navigationBarDividerColor),
+                instrumentationContext.getColor(R.color.navigationBarColor),
+                mTestName.getMethodName());
     }
 }

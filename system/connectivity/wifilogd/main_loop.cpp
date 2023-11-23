@@ -44,7 +44,7 @@ MainLoop::MainLoop(const std::string& socket_name, std::unique_ptr<Os> os,
   Os::Errno err;
   std::tie(sock_fd_, err) = os_->GetControlSocket(socket_name);
   if (err) {
-    LOG(FATAL) << "Failed to get control socket: " << std::strerror(errno);
+    PLOG(FATAL) << "Failed to get control socket";
   }
 }
 
@@ -80,7 +80,7 @@ void MainLoop::ProcessError(Os::Errno err) {
   // Any other error is unexpected, and assumed to be non-recoverable.
   // (If, e.g., our socket is in a bad state, then we won't be able to receive
   // any new log messages.)
-  LOG(FATAL) << "Unexpected error: " << std::strerror(err);
+  PLOG(FATAL) << "Unexpected error";
 }
 
 }  // namespace wifilogd

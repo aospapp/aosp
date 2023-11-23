@@ -17,7 +17,7 @@
 package com.android.settings.accounts;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.Matchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -29,33 +29,35 @@ import android.accounts.AuthenticatorDescription;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.UserHandle;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceManager;
-import android.support.v7.preference.PreferenceScreen;
 
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceManager;
+import androidx.preference.PreferenceScreen;
+
 import com.android.settings.testutils.shadow.ShadowAccountManager;
 import com.android.settings.testutils.shadow.ShadowContentResolver;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 
-@RunWith(SettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class AccountTypePreferenceLoaderTest {
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private AccountManager mAccountManager;
     @Mock(answer = RETURNS_DEEP_STUBS)
-    private PreferenceFragment mPreferenceFragment;
+    private PreferenceFragmentCompat mPreferenceFragment;
     @Mock
     private PackageManager mPackageManager;
 
@@ -78,6 +80,11 @@ public class AccountTypePreferenceLoaderTest {
             null /* OnAccountsUpdateListener */);
         mPrefLoader = spy(new AccountTypePreferenceLoader(mPreferenceFragment, helper,
             UserHandle.CURRENT));
+    }
+
+    @After
+    public void tearDown() {
+        ShadowContentResolver.reset();
     }
 
     @Test

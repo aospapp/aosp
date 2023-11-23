@@ -5,10 +5,8 @@
 // This test evaluates the speed of updating a single texture and using it to
 // draw after each upload.
 
-#include "base/logging.h"
-
-#include "texturetest.h"
 #include "main.h"
+#include "texturetest.h"
 
 namespace glbench {
 
@@ -30,8 +28,8 @@ bool TextureUpdateTest::TestFunc(uint64_t iterations) {
   for (uint64_t i = 0; i < iterations; ++i) {
     switch (flavor_) {
       case TEX_IMAGE:
-        glTexImage2D(GL_TEXTURE_2D, 0, texel_gl_format_, width_, height_,
-                     0, texel_gl_format_, GL_UNSIGNED_BYTE,
+        glTexImage2D(GL_TEXTURE_2D, 0, texel_gl_format_, width_, height_, 0,
+                     texel_gl_format_, GL_UNSIGNED_BYTE,
                      pixels_[i % kNumberOfTextures].get());
         break;
       case TEX_SUBIMAGE:
@@ -49,4 +47,4 @@ TestBase* GetTextureUpdateTest() {
   return new TextureUpdateTest;
 }
 
-} // namespace glbench
+}  // namespace glbench

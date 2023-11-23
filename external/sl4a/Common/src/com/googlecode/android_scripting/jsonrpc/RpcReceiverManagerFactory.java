@@ -19,7 +19,26 @@ package com.googlecode.android_scripting.jsonrpc;
 import java.util.Map;
 
 public interface RpcReceiverManagerFactory {
-  public RpcReceiverManager create(Integer UID);
 
-  public Map<Integer, RpcReceiverManager> getRpcReceiverManagers();
+    /**
+     * Creates an {@code RpcReceiverManager} with the key {@param id}.
+     *
+     * @param sessionId the session id for the new RpcReceiverManager
+     * @return the newly created RpcReceiverManager
+     */
+    RpcReceiverManager create(String sessionId);
+
+    /**
+     * Destroys the RpcReceiverManager that corresponds to the given id.
+     *
+     * @param sessionId the session id
+     * @return true if the RpcReceiverManager existed, false otherwise
+     */
+    boolean destroy(String sessionId);
+
+    /**
+     * Returns the map of Session Id -> RpcReceiverManagers.
+     * @return
+     */
+    Map<String, RpcReceiverManager> getRpcReceiverManagers();
 }

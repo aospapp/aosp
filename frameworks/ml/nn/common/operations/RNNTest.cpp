@@ -166,7 +166,7 @@ class BasicRNNOpModel {
     inputs.push_back(model_.addOperand(&BiasTy));
     OperandType HiddenStateTy(Type::TENSOR_FLOAT32, {batches_, units_});
     inputs.push_back(model_.addOperand(&HiddenStateTy));
-    OperandType ActionParamTy(Type::INT32, {1});
+    OperandType ActionParamTy(Type::INT32, {});
     inputs.push_back(model_.addOperand(&ActionParamTy));
 
     std::vector<uint32_t> outputs;

@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Dein Speicher wird jetzt vom Speichermanager verwaltet"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Keine Elemente vorhanden"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Aktuelle Elemente prüfen"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"Es sind keine älteren Dateien zum Entfernen vorhanden. Entferne aktuelle Fotos, Videos und Apps, um Speicherplatz freizugeben."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"Es gibt keine älteren Dateien, die entfernt werden könnten. Wenn du mehr Speicherplatz benötigst, entferne aktuelle Fotos, Videos und Apps."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> benötigt <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> Speicherplatz"</string>
 </resources>

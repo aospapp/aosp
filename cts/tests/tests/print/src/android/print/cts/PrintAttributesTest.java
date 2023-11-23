@@ -38,8 +38,9 @@ import android.print.test.services.PrinterDiscoverySessionCallbacks;
 import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -321,7 +322,7 @@ public class PrintAttributesTest extends BasePrintTest {
     }
 
     @Before
-    public void setUpServicesAndAdapter() throws Exception {
+    public void setUpServicesAndAdapter() throws Throwable {
         if (!sHasBeenSetup) {
             // Set up printer with supported and default attributes
             PrintDocumentAdapter adapter =

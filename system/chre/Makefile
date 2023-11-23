@@ -21,6 +21,8 @@ OUTPUT_NAME = libchre
 # Symbols required by the runtime for conditional compilation.
 COMMON_CFLAGS += -DCHRE_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
+COMMON_CFLAGS += -DCHRE_ENABLE_DEBUG_DUMP
+COMMON_CFLAGS += -DCHRE_INCLUDE_DEFAULT_STATIC_NANOAPPS
 
 ifneq ($(CHRE_ASSERTIONS_ENABLED), false)
 COMMON_CFLAGS += -DCHRE_ASSERTIONS_ENABLED
@@ -34,6 +36,21 @@ COMMON_CFLAGS += -DCHRE_NANOAPP_INTERNAL
 # Optional audio support.
 ifeq ($(CHRE_AUDIO_SUPPORT_ENABLED), true)
 COMMON_CFLAGS += -DCHRE_AUDIO_SUPPORT_ENABLED
+endif
+
+# Optional GNSS support.
+ifeq ($(CHRE_GNSS_SUPPORT_ENABLED), true)
+COMMON_CFLAGS += -DCHRE_GNSS_SUPPORT_ENABLED
+endif
+
+# Optional Wi-Fi support.
+ifeq ($(CHRE_WIFI_SUPPORT_ENABLED), true)
+COMMON_CFLAGS += -DCHRE_WIFI_SUPPORT_ENABLED
+endif
+
+# Optional WWAN support.
+ifeq ($(CHRE_WWAN_SUPPORT_ENABLED), true)
+COMMON_CFLAGS += -DCHRE_WWAN_SUPPORT_ENABLED
 endif
 
 # Determine the CHRE_HOST_OS to resolve build discrepancies across Darwin and
@@ -81,7 +98,11 @@ include $(CHRE_PREFIX)/build/variant/google_hexagonv55_slpi-see.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv60_slpi.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi-uimg.mk
+include $(CHRE_PREFIX)/build/variant/google_hexagonv65_adsp-see.mk
+include $(CHRE_PREFIX)/build/variant/google_hexagonv65_adsp-see-uimg.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv65_slpi-see.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv65_slpi-see-uimg.mk
+include $(CHRE_PREFIX)/build/variant/google_hexagonv66_slpi-see.mk
+include $(CHRE_PREFIX)/build/variant/google_hexagonv66_slpi-see-uimg.mk
 include $(CHRE_PREFIX)/build/variant/google_x86_linux.mk
 include $(CHRE_PREFIX)/build/variant/google_x86_googletest.mk

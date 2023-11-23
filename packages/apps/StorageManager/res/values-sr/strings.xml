@@ -60,7 +60,7 @@
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Сакриј недавне ставке"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> садржаја ће се уклонити са уређаја"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Меморијским простором сада управља Менаџер меморијског простора"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Нема за уклањање"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Ништа за уклањање"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Прегледајте недавне ставке"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Нема старијих датотека за уклањање. Да бисте ослободили простор, уклоните недавне слике, видео снимке и апликације."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> тражи <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> простора"</string>

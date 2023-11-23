@@ -165,6 +165,9 @@ public final class AsciiUtil {
         return b;
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static class CaseInsensitiveKey {
         private String _key;
         private int _hash;

@@ -126,7 +126,7 @@ public class LockHoldingService extends Service {
         ChannelType channelType = (ChannelType) intent.getSerializableExtra(CHANNEL_TYPE_KEY);
 
         // Acquire the lock based on the information contained in the intent received.
-        this.fileLock = FileChannelInterProcessLockTest.acquire(lockType, channelType);
+        this.fileLock = FileChannelInterProcessLockTest.acquire(this, lockType, channelType);
         Intent responseIntent = new Intent()
                 .setPackage("android.libcorefileio.cts")
                 .putExtra(NOTIFICATION_KEY, NOTIFICATION_LOCK_HELD)
@@ -145,7 +145,7 @@ public class LockHoldingService extends Service {
         // Acquire the lock.
         LockType lockType = (LockType) intent.getSerializableExtra(LOCK_TYPE_KEY);
         ChannelType channelType = (ChannelType) intent.getSerializableExtra(CHANNEL_TYPE_KEY);
-        this.fileLock = FileChannelInterProcessLockTest.acquire(lockType, channelType);
+        this.fileLock = FileChannelInterProcessLockTest.acquire(this, lockType, channelType);
 
         // Signal the lock is now held.
         Intent heldIntent = new Intent()

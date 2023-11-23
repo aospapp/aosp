@@ -31,9 +31,6 @@ cc_defaults {
         "libbase",
     ],
     target: {
-        android: {
-            shared_libs: ["libcutils"],
-        },
         host: {
             shared_libs: ["libziparchive"],
         },
@@ -57,6 +54,7 @@ art_cc_binary {
     defaults: ["imgdiag-defaults"],
     shared_libs: [
         "libart",
+        "libartbase",
         "libart-compiler",
     ],
 }
@@ -69,6 +67,7 @@ art_cc_binary {
     ],
     shared_libs: [
         "libartd",
+        "libartbased",
         "libartd-compiler",
     ],
 }

@@ -148,11 +148,8 @@ class graphics_VTSwitch(graphics_utils.GraphicsTest):
         @returns the path of the screenshot file.
 
         """
-        extension = 'png'
-
         return graphics_utils.take_screenshot(self.resultsdir,
-                                              'graphics_VTSwitch_VT%d' % current_vt,
-                                              extension)
+                                              'graphics_VTSwitch_VT%d' % current_vt)
 
     def cleanup(self):
         # Return to VT1 when done.  Ideally, the screen should already be in VT1

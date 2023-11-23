@@ -32,13 +32,15 @@
 #include "ti_class_definition.h"
 
 #include "base/array_slice.h"
+#include "base/logging.h"
 #include "class_linker-inl.h"
+#include "class_root.h"
 #include "dex/dex_file.h"
 #include "fixed_up_dex_file.h"
 #include "handle.h"
 #include "handle_scope-inl.h"
 #include "mirror/class-inl.h"
-#include "mirror/class_ext.h"
+#include "mirror/class_ext-inl.h"
 #include "mirror/object-inl.h"
 #include "reflection.h"
 #include "thread.h"
@@ -48,26 +50,27 @@ namespace openjdkjvmti {
 void ArtClassDefinition::InitializeMemory() const {
   DCHECK(art::MemMap::kCanReplaceMapping);
   VLOG(signals) << "Initializing de-quickened memory for dex file of " << name_;
-  CHECK(dex_data_mmap_ != nullptr);
-  CHECK(temp_mmap_ != nullptr);
-  CHECK_EQ(dex_data_mmap_->GetProtect(), PROT_NONE);
-  CHECK_EQ(temp_mmap_->GetProtect(), PROT_READ | PROT_WRITE);
+  CHECK(dex_data_mmap_.IsValid());
+  CHECK(temp_mmap_.IsValid());
+  CHECK_EQ(dex_data_mmap_.GetProtect(), PROT_NONE);
+  CHECK_EQ(temp_mmap_.GetProtect(), PROT_READ | PROT_WRITE);
 
   std::string desc = std::string("L") + name_ + ";";
   std::unique_ptr<FixedUpDexFile>
       fixed_dex_file(FixedUpDexFile::Create(*initial_dex_file_unquickened_, desc.c_str()));
   CHECK(fixed_dex_file.get() != nullptr);
-  CHECK_LE(fixed_dex_file->Size(), temp_mmap_->Size());
-  CHECK_EQ(temp_mmap_->Size(), dex_data_mmap_->Size());
+  CHECK_LE(fixed_dex_file->Size(), temp_mmap_.Size());
+  CHECK_EQ(temp_mmap_.Size(), dex_data_mmap_.Size());
   // Copy the data to the temp mmap.
-  memcpy(temp_mmap_->Begin(), fixed_dex_file->Begin(), fixed_dex_file->Size());
+  memcpy(temp_mmap_.Begin(), fixed_dex_file->Begin(), fixed_dex_file->Size());
 
   // Move the mmap atomically.
-  art::MemMap* source = temp_mmap_.release();
+  art::MemMap source;
+  source.swap(temp_mmap_);
   std::string error;
-  CHECK(dex_data_mmap_->ReplaceWith(&source, &error)) << "Failed to replace mmap for "
-                                                      << name_ << " because " << error;
-  CHECK(dex_data_mmap_->Protect(PROT_READ));
+  CHECK(dex_data_mmap_.ReplaceWith(&source, &error)) << "Failed to replace mmap for "
+                                                     << name_ << " because " << error;
+  CHECK(dex_data_mmap_.Protect(PROT_READ));
 }
 
 bool ArtClassDefinition::IsModified() const {
@@ -84,13 +87,13 @@ bool ArtClassDefinition::IsModified() const {
   }
 
   // The dex_data_ was never touched by the agents.
-  if (dex_data_mmap_ != nullptr && dex_data_mmap_->GetProtect() == PROT_NONE) {
-    if (current_dex_file_.data() == dex_data_mmap_->Begin()) {
+  if (dex_data_mmap_.IsValid() && dex_data_mmap_.GetProtect() == PROT_NONE) {
+    if (current_dex_file_.data() == dex_data_mmap_.Begin()) {
       // the dex_data_ looks like it changed (not equal to current_dex_file_) but we never
       // initialized the dex_data_mmap_. This means the new_dex_data was filled in without looking
       // at the initial dex_data_.
       return true;
-    } else if (dex_data_.data() == dex_data_mmap_->Begin()) {
+    } else if (dex_data_.data() == dex_data_mmap_.Begin()) {
       // The dex file used to have modifications but they were not added again.
       return true;
     } else {
@@ -133,7 +136,8 @@ static void DequickenDexFile(const art::DexFile* dex_file,
                              const char* descriptor,
                              /*out*/std::vector<unsigned char>* dex_data)
     REQUIRES_SHARED(art::Locks::mutator_lock_) {
-  std::unique_ptr<FixedUpDexFile> fixed_dex_file(FixedUpDexFile::Create(*dex_file, descriptor));
+  std::unique_ptr<FixedUpDexFile> fixed_dex_file(
+      FixedUpDexFile::Create(*dex_file, descriptor));
   dex_data->resize(fixed_dex_file->Size());
   memcpy(dex_data->data(), fixed_dex_file->Begin(), fixed_dex_file->Size());
 }
@@ -150,8 +154,7 @@ static void GetDexDataForRetransformation(art::Handle<art::mirror::Class> klass,
     if (!orig_dex.IsNull()) {
       if (orig_dex->IsArrayInstance()) {
         DCHECK(orig_dex->GetClass()->GetComponentType()->IsPrimitiveByte());
-        art::Handle<art::mirror::ByteArray> orig_dex_bytes(
-            hs.NewHandle(art::down_cast<art::mirror::ByteArray*>(orig_dex->AsArray())));
+        art::Handle<art::mirror::ByteArray> orig_dex_bytes(hs.NewHandle(orig_dex->AsByteArray()));
         dex_data->resize(orig_dex_bytes->GetLength());
         memcpy(dex_data->data(), orig_dex_bytes->GetData(), dex_data->size());
         return;
@@ -162,8 +165,7 @@ static void GetDexDataForRetransformation(art::Handle<art::mirror::Class> klass,
             << "Expected java/lang/Long but found object of type "
             << orig_dex->GetClass()->PrettyClass();
         art::ObjPtr<art::mirror::Class> prim_long_class(
-            art::Runtime::Current()->GetClassLinker()->GetClassRoot(
-                art::ClassLinker::kPrimitiveLong));
+            art::GetClassRoot(art::ClassRoot::kPrimitiveLong));
         art::JValue val;
         if (!art::UnboxPrimitiveForResult(orig_dex.Get(), prim_long_class, &val)) {
           // This should never happen.
@@ -226,8 +228,7 @@ static const art::DexFile* GetQuickenedDexFile(art::Handle<art::mirror::Class> k
       << "Expected java/lang/Long but found object of type "
       << orig_dex->GetClass()->PrettyClass();
   art::ObjPtr<art::mirror::Class> prim_long_class(
-      art::Runtime::Current()->GetClassLinker()->GetClassRoot(
-          art::ClassLinker::kPrimitiveLong));
+      art::GetClassRoot(art::ClassRoot::kPrimitiveLong));
   art::JValue val;
   if (!art::UnboxPrimitiveForResult(orig_dex.Ptr(), prim_long_class, &val)) {
     LOG(FATAL) << "Unable to unwrap a long value!";
@@ -245,26 +246,22 @@ void ArtClassDefinition::InitWithDex(GetOriginalDexFile get_original,
     std::string mmap_name("anon-mmap-for-redefine: ");
     mmap_name += name_;
     std::string error;
-    dex_data_mmap_.reset(art::MemMap::MapAnonymous(mmap_name.c_str(),
-                                                   nullptr,
-                                                   dequick_size,
-                                                   PROT_NONE,
-                                                   /*low_4gb*/ false,
-                                                   /*reuse*/ false,
-                                                   &error));
-    mmap_name += "-TEMP";
-    temp_mmap_.reset(art::MemMap::MapAnonymous(mmap_name.c_str(),
-                                               nullptr,
+    dex_data_mmap_ = art::MemMap::MapAnonymous(mmap_name.c_str(),
                                                dequick_size,
-                                               PROT_READ | PROT_WRITE,
-                                               /*low_4gb*/ false,
-                                               /*reuse*/ false,
-                                               &error));
-    if (UNLIKELY(dex_data_mmap_ != nullptr && temp_mmap_ != nullptr)) {
+                                               PROT_NONE,
+                                               /*low_4gb=*/ false,
+                                               &error);
+    mmap_name += "-TEMP";
+    temp_mmap_ = art::MemMap::MapAnonymous(mmap_name.c_str(),
+                                           dequick_size,
+                                           PROT_READ | PROT_WRITE,
+                                           /*low_4gb=*/ false,
+                                           &error);
+    if (UNLIKELY(dex_data_mmap_.IsValid() && temp_mmap_.IsValid())) {
       // Need to save the initial dexfile so we don't need to search for it in the fault-handler.
       initial_dex_file_unquickened_ = quick_dex;
-      dex_data_ = art::ArrayRef<const unsigned char>(dex_data_mmap_->Begin(),
-                                                     dex_data_mmap_->Size());
+      dex_data_ = art::ArrayRef<const unsigned char>(dex_data_mmap_.Begin(),
+                                                     dex_data_mmap_.Size());
       if (from_class_ext_) {
         // We got initial from class_ext so the current one must have undergone redefinition so no
         // cdex or quickening stuff.
@@ -276,14 +273,14 @@ void ArtClassDefinition::InitWithDex(GetOriginalDexFile get_original,
         // This class hasn't been redefined before. The dequickened current data is the same as the
         // dex_data_mmap_ when it's filled it. We don't need to copy anything because the mmap will
         // not be cleared until after everything is done.
-        current_dex_file_ = art::ArrayRef<const unsigned char>(dex_data_mmap_->Begin(),
+        current_dex_file_ = art::ArrayRef<const unsigned char>(dex_data_mmap_.Begin(),
                                                                dequick_size);
       }
       return;
     }
   }
-  dex_data_mmap_.reset(nullptr);
-  temp_mmap_.reset(nullptr);
+  dex_data_mmap_.Reset();
+  temp_mmap_.Reset();
   // Failed to mmap a large enough area (or on-demand dequickening was disabled). This is
   // unfortunate. Since currently the size is just a guess though we might as well try to do it
   // manually.

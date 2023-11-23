@@ -16,14 +16,30 @@
 
 package android.theme.app.modifiers;
 
-import android.theme.app.LayoutModifier;
+import android.view.View;
 
 /**
- * {@link LayoutModifier} that does nothing in {@link #prepare()}.
+ * {@link AbstractLayoutModifier} that does nothing.
  */
-abstract class AbstractLayoutModifier implements LayoutModifier {
+public abstract class AbstractLayoutModifier {
 
-    @Override
-    public void prepare() {
+    /**
+     * Modifies the view before it has been added to a parent. Useful for avoiding animations in
+     * response to setter calls.
+     *
+     * @param view the view inflated by the test activity
+     */
+    public void modifyViewBeforeAdd(View view) {
+
+    }
+
+    /**
+     * Modifies the view after it has been added to a parent. Useful for running animations in
+     * response to setter calls.
+     *
+     * @param view the view inflated by the test activity
+     */
+    public void modifyViewAfterAdd(View view) {
+
     }
 }

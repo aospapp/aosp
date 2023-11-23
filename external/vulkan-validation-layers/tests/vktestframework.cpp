@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2015-2016 The Khronos Group Inc.
- * Copyright (c) 2015-2016 Valve Corporation
- * Copyright (c) 2015-2016 LunarG, Inc.
+ * Copyright (c) 2015-2019 The Khronos Group Inc.
+ * Copyright (c) 2015-2019 Valve Corporation
+ * Copyright (c) 2015-2019 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -315,6 +315,15 @@ static const char *DefaultConfig =
     "MaxCullDistances 8\n"
     "MaxCombinedClipAndCullDistances 8\n"
     "MaxSamples 4\n"
+    "MaxMeshOutputVerticesNV 256\n"
+    "MaxMeshOutputPrimitivesNV 512\n"
+    "MaxMeshWorkGroupSizeX_NV 32\n"
+    "MaxMeshWorkGroupSizeY_NV 1\n"
+    "MaxMeshWorkGroupSizeZ_NV 1\n"
+    "MaxTaskWorkGroupSizeX_NV 32\n"
+    "MaxTaskWorkGroupSizeY_NV 1\n"
+    "MaxTaskWorkGroupSizeZ_NV 1\n"
+    "MaxMeshViewCountNV 4\n"
 
     "nonInductiveForLoops 1\n"
     "whileLoops 1\n"
@@ -536,6 +545,24 @@ void VkTestFramework::ProcessConfigFile() {
             Resources.maxCombinedClipAndCullDistances = value;
         else if (strcmp(token, "MaxSamples") == 0)
             Resources.maxSamples = value;
+        else if (strcmp(token, "MaxMeshOutputVerticesNV") == 0)
+            Resources.maxMeshOutputVerticesNV = value;
+        else if (strcmp(token, "MaxMeshOutputPrimitivesNV") == 0)
+            Resources.maxMeshOutputPrimitivesNV = value;
+        else if (strcmp(token, "MaxMeshWorkGroupSizeX_NV") == 0)
+            Resources.maxMeshWorkGroupSizeX_NV = value;
+        else if (strcmp(token, "MaxMeshWorkGroupSizeY_NV") == 0)
+            Resources.maxMeshWorkGroupSizeY_NV = value;
+        else if (strcmp(token, "MaxMeshWorkGroupSizeZ_NV") == 0)
+            Resources.maxMeshWorkGroupSizeZ_NV = value;
+        else if (strcmp(token, "MaxTaskWorkGroupSizeX_NV") == 0)
+            Resources.maxTaskWorkGroupSizeX_NV = value;
+        else if (strcmp(token, "MaxTaskWorkGroupSizeY_NV") == 0)
+            Resources.maxTaskWorkGroupSizeY_NV = value;
+        else if (strcmp(token, "MaxTaskWorkGroupSizeZ_NV") == 0)
+            Resources.maxTaskWorkGroupSizeZ_NV = value;
+        else if (strcmp(token, "MaxMeshViewCountNV") == 0)
+            Resources.maxMeshViewCountNV = value;
 
         else if (strcmp(token, "nonInductiveForLoops") == 0)
             Resources.limits.nonInductiveForLoops = (value != 0);
@@ -694,6 +721,30 @@ EShLanguage VkTestFramework::FindLanguage(const VkShaderStageFlagBits shader_typ
         case VK_SHADER_STAGE_COMPUTE_BIT:
             return EShLangCompute;
 
+        case VK_SHADER_STAGE_RAYGEN_BIT_NV:
+            return EShLangRayGenNV;
+
+        case VK_SHADER_STAGE_ANY_HIT_BIT_NV:
+            return EShLangAnyHitNV;
+
+        case VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV:
+            return EShLangClosestHitNV;
+
+        case VK_SHADER_STAGE_MISS_BIT_NV:
+            return EShLangMissNV;
+
+        case VK_SHADER_STAGE_INTERSECTION_BIT_NV:
+            return EShLangIntersectNV;
+
+        case VK_SHADER_STAGE_CALLABLE_BIT_NV:
+            return EShLangCallableNV;
+
+        case VK_SHADER_STAGE_TASK_BIT_NV:
+            return EShLangTaskNV;
+
+        case VK_SHADER_STAGE_MESH_BIT_NV:
+            return EShLangMeshNV;
+
         default:
             return EShLangVertex;
     }
@@ -703,7 +754,8 @@ EShLanguage VkTestFramework::FindLanguage(const VkShaderStageFlagBits shader_typ
 // Compile a given string containing GLSL into SPV for use by VK
 // Return value of false means an error was encountered.
 //
-bool VkTestFramework::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spirv) {
+bool VkTestFramework::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spirv,
+                                bool debug) {
     glslang::TProgram program;
     const char *shaderStrings[1];
 
@@ -716,6 +768,9 @@ bool VkTestFramework::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const c
     EShMessages messages = EShMsgDefault;
     SetMessageOptions(messages);
     messages = static_cast<EShMessages>(messages | EShMsgSpvRules | EShMsgVulkanRules);
+    if (debug) {
+        messages = static_cast<EShMessages>(messages | EShMsgDebugInfo);
+    }
 
     EShLanguage stage = FindLanguage(shader_type);
     glslang::TShader *shader = new glslang::TShader(stage);
@@ -752,7 +807,11 @@ bool VkTestFramework::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const c
         program.dumpReflection();
     }
 
-    glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
+    glslang::SpvOptions spv_options;
+    if (debug) {
+        spv_options.generateDebugInfo = true;
+    }
+    glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &spv_options);
 
     //
     // Test the different modes of SPIR-V modification
@@ -770,6 +829,28 @@ bool VkTestFramework::GLSLtoSPV(const VkShaderStageFlagBits shader_type, const c
     }
 
     delete shader;
+
+    return true;
+}
+
+//
+// Compile a given string containing SPIR-V assembly into SPV for use by VK
+// Return value of false means an error was encountered.
+//
+bool VkTestFramework::ASMtoSPV(const spv_target_env target_env, const uint32_t options, const char *pasm,
+                               std::vector<unsigned int> &spv) {
+    spv_binary binary;
+    spv_diagnostic diagnostic = nullptr;
+    spv_context context = spvContextCreate(target_env);
+    spv_result_t error = spvTextToBinaryWithOptions(context, pasm, strlen(pasm), options, &binary, &diagnostic);
+    spvContextDestroy(context);
+    if (error) {
+        spvDiagnosticPrint(diagnostic);
+        spvDiagnosticDestroy(diagnostic);
+        return false;
+    }
+    spv.insert(spv.end(), binary->code, binary->code + binary->wordCount);
+    spvBinaryDestroy(binary);
 
     return true;
 }

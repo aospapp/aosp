@@ -20,10 +20,15 @@ import static com.android.compatibility.common.util.BatteryUtils.runDumpsysBatte
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.os.PowerManager;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,5 +72,23 @@ public class BatterySaverTest extends BatterySavingTestBase {
         waitUntilAlarmForceAppStandby(false);
         waitUntilJobForceAppStandby(false);
         waitUntilForceBackgroundCheck(false);
+    }
+
+    @Test
+    public void testSetBatterySaver_powerManager() {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            PowerManager manager = BatteryUtils.getPowerManager();
+            assertFalse(manager.isPowerSaveMode());
+
+            // Unplug the charger.
+            runDumpsysBatteryUnplug();
+
+            // Verify battery saver gets toggled.
+            manager.setPowerSaveModeEnabled(true);
+            assertTrue(manager.isPowerSaveMode());
+
+            manager.setPowerSaveModeEnabled(false);
+            assertFalse(manager.isPowerSaveMode());
+        });
     }
 }

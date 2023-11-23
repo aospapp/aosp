@@ -107,6 +107,7 @@
     <option name="compatibility:include-filter" value="CtsJvmtiRunTest1941HostTestCases" />
     <option name="compatibility:include-filter" value="CtsJvmtiRunTest1942HostTestCases" />
     <option name="compatibility:include-filter" value="CtsJvmtiRunTest1943HostTestCases" />
+    <option name="compatibility:include-filter" value="CtsJvmtiRunTest1953HostTestCases" />
     <option name="compatibility:include-filter" value="CtsJvmtiTaggingHostTestCases" />
     <option name="compatibility:include-filter" value="CtsJvmtiTrackingHostTestCases" />
 

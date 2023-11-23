@@ -57,3 +57,14 @@ RANGING_FAIL_CODE_RTT_NOT_AVAILABLE = 2
 ######################################################
 
 SCAN_RESULT_KEY_RTT_RESPONDER = "is80211McRTTResponder"
+
+######################################################
+# Capabilities keys
+######################################################
+
+CAP_RTT_ONE_SIDED_SUPPORTED = "rttOneSidedSupported"
+CAP_FTM_SUPPORTED = "rttFtmSupported"
+CAP_LCI_SUPPORTED = "lciSupported"
+CAP_LCR_SUPPORTED = "lcrSupported"
+CAP_RESPONDER_SUPPORTED = "responderSupported"
+CAP_MC_VERSION = "mcVersion"

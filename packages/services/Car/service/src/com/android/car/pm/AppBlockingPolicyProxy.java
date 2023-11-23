@@ -80,7 +80,7 @@ public class AppBlockingPolicyProxy implements ServiceConnection {
         Intent intent = new Intent();
         intent.setComponent(mServiceInfo.getComponentName());
         mContext.bindServiceAsUser(intent, this, Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT,
-                UserHandle.SYSTEM);
+                UserHandle.CURRENT_OR_SELF);
         synchronized (this) {
             mBound = true;
         }

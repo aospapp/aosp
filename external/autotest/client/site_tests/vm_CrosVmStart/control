@@ -12,7 +12,7 @@ PURPOSE = "Regression and integration tests of crosvm."
 CRITERIA = """
 Fail the VM fails to start or run a command.
 """
-ATTRIBUTES = "suite:bvt-cq"
+ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

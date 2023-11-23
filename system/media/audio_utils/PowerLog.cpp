@@ -24,8 +24,10 @@
 #include <sstream>
 #include <stdint.h>
 #include <unistd.h>
+#include <vector>
 
 #include <audio_utils/clock.h>
+#include <audio_utils/LogPlot.h>
 #include <audio_utils/power.h>
 #include <audio_utils/PowerLog.h>
 
@@ -165,6 +167,9 @@ std::string PowerLog::dumpToString(const char *prefix, size_t lines, int64_t lim
     if (nonzeros == 0) {
         ss << prefix << "Signal power history: (none)\n";
     } else {
+        // First value is power, second value is whether value is start of
+        // a new time stamp.
+        std::vector<std::pair<float, bool>> plotEntries;
         ss << prefix << "Signal power history:\n";
 
         size_t column = 0;
@@ -179,6 +184,12 @@ std::string PowerLog::dumpToString(const char *prefix, size_t lines, int64_t lim
             if (energy == 0.f) {
                 if (!first) {
                     ss << " ] sum(" << audio_utils_power_from_energy(cumulative) << ")";
+                    // Add an entry to denote the start of a new time stamp series.
+                    if (!plotEntries.empty()) {
+                        // First value should be between min and max of all graph entries
+                        // so that it doesn't mess with y-axis scaling.
+                        plotEntries.emplace_back(plotEntries.back().first, true);
+                    }
                 }
                 cumulative = 0.f;
                 column = 0;
@@ -207,7 +218,11 @@ std::string PowerLog::dumpToString(const char *prefix, size_t lines, int64_t lim
                     audio_utils_power_from_energy(energy / (mChannelCount * mFramesPerEntry));
             ss << std::setw(6) << power;
             ALOGV("state: %d %lld %f", state, (long long)time, power);
+            // Add an entry to the ASCII art power log graph.
+            // false indicates the value doesn't have a new series time stamp.
+            plotEntries.emplace_back(power, false);
         }
+        ss << "\n" << audio_utils_log_plot(plotEntries.begin(), plotEntries.end());
         ss << "\n";
     }
     return ss.str();

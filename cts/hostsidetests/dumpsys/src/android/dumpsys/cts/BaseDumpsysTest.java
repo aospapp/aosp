@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
 public class BaseDumpsysTest extends DeviceTestCase implements IBuildReceiver {
     protected static final String TAG = "DumpsysHostTest";
 
-    private static final String TEST_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String TEST_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     /**
      * A reference to the device under test.

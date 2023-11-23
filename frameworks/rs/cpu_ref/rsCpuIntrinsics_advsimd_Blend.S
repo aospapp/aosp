@@ -591,7 +591,8 @@
  *          size_t xend);       // x4
  */
 ENTRY(rsdIntrinsicBlend_K)
-    adr     x5, 2f
+    adrp    x5, blendtable
+    add     x5, x5, :lo12:blendtable
     cmp     w2, tablesize >> 1
     bhs     1f
     ldrsh   x6, [x5, w2, uxtw #1]
@@ -600,16 +601,18 @@ ENTRY(rsdIntrinsicBlend_K)
     sub     w2, w4, w3
     ubfiz   x2, x2, #2, #32 /* TODO: fix */
     cbz     x6, 1f
+    adr     x5, 2f
     add     x6, x5, x6
-    br      x6
+2:  br      x6
 1:  mov     x0, #-1
     ret
 
-2:
+END(rsdIntrinsicBlend_K)
+
+.rodata
 .set off,0
+blendtable:
 #define BLEND_X(d, n) .rept d-off ; .hword 0 ; .endr ; .hword blend_line_##n - 2b ; .set off, d+1 ;
         BLEND_LIST(BLEND_X)
 #undef BLEND_X
-3:
 
-END(rsdIntrinsicBlend_K)

@@ -18,8 +18,8 @@
 // they correspond to features not used by our host development tools
 // which are also hard or even impossible to port to native Win32
 libcutils_nonwindows_sources = [
-    "android_get_control_file.cpp",
     "fs.cpp",
+    "hashmap.cpp",
     "multiuser.cpp",
     "socket_inaddr_any_server_unix.cpp",
     "socket_local_client_unix.cpp",
@@ -32,6 +32,7 @@ libcutils_nonwindows_sources = [
 cc_library_headers {
     name: "libcutils_headers",
     vendor_available: true,
+    recovery_available: true,
     host_supported: true,
     export_include_dirs: ["include"],
     target: {
@@ -54,18 +55,15 @@ cc_library {
         enabled: true,
         support_system_process: true,
     },
+    recovery_available: true,
     host_supported: true,
     srcs: [
         "config_utils.cpp",
-        "fs_config.cpp",
         "canned_fs_config.cpp",
-        "hashmap.cpp",
         "iosched_policy.cpp",
         "load_file.cpp",
         "native_handle.cpp",
-        "open_memstream.c",
         "record_stream.cpp",
-        "sched_policy.cpp",
         "sockets.cpp",
         "strdup16to8.cpp",
         "strdup8to16.cpp",
@@ -80,20 +78,21 @@ cc_library {
         not_windows: {
             srcs: libcutils_nonwindows_sources + [
                 "ashmem-host.cpp",
+                "fs_config.cpp",
                 "trace-host.cpp",
             ],
         },
         windows: {
+            host_ldlibs: ["-lws2_32"],
+
             srcs: [
                 "socket_inaddr_any_server_windows.cpp",
                 "socket_network_client_windows.cpp",
                 "sockets_windows.cpp",
+                "trace-host.cpp",
             ],
 
             enabled: true,
-            shared: {
-                enabled: false,
-            },
             cflags: [
                 "-D_GNU_SOURCE",
             ],
@@ -101,8 +100,10 @@ cc_library {
 
         android: {
             srcs: libcutils_nonwindows_sources + [
+                "android_get_control_file.cpp",
                 "android_reboot.cpp",
                 "ashmem-dev.cpp",
+                "fs_config.cpp",
                 "klog.cpp",
                 "partition_utils.cpp",
                 "properties.cpp",
@@ -171,12 +172,20 @@ cc_library {
         }
     },
 
-    shared_libs: ["liblog"],
+    shared_libs: [
+        "liblog",
+        "libbase",
+    ],
     header_libs: [
+        "libbase_headers",
         "libcutils_headers",
         "libutils_headers",
+        "libprocessgroup_headers",
     ],
-    export_header_lib_headers: ["libcutils_headers"],
+    export_header_lib_headers: [
+        "libcutils_headers",
+        "libprocessgroup_headers",
+    ],
     local_include_dirs: ["include"],
 
     cflags: [
@@ -186,4 +195,75 @@ cc_library {
     ],
 }
 
-subdirs = ["tests"]
+cc_defaults {
+    name: "libcutils_test_default",
+    srcs: ["sockets_test.cpp"],
+
+    target: {
+        android: {
+            srcs: [
+                "android_get_control_file_test.cpp",
+                "android_get_control_socket_test.cpp",
+                "ashmem_test.cpp",
+                "fs_config_test.cpp",
+                "memset_test.cpp",
+                "multiuser_test.cpp",
+                "properties_test.cpp",
+                "sched_policy_test.cpp",
+                "str_parms_test.cpp",
+                "trace-dev_test.cpp",
+            ],
+        },
+
+        not_windows: {
+            srcs: [
+                "str_parms_test.cpp",
+            ],
+        },
+    },
+
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+}
+
+test_libraries = [
+    "libcutils",
+    "liblog",
+    "libbase",
+    "libjsoncpp",
+    "libprocessgroup",
+    "libcgrouprc",
+]
+
+cc_test {
+    name: "libcutils_test",
+    test_suites: ["device-tests"],
+    defaults: ["libcutils_test_default"],
+    host_supported: true,
+    shared_libs: test_libraries,
+}
+
+cc_test {
+    name: "libcutils_test_static",
+    test_suites: ["device-tests"],
+    defaults: ["libcutils_test_default"],
+    static_libs: [
+        "libc",
+        "libcgrouprc_format",
+    ] + test_libraries,
+    stl: "libc++_static",
+
+    target: {
+        android: {
+            static_executable: true,
+        },
+        windows: {
+            host_ldlibs: ["-lws2_32"],
+
+            enabled: true,
+        },
+    },
+}

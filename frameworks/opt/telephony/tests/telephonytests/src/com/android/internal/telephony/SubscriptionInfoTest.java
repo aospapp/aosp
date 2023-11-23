@@ -15,17 +15,21 @@
  */
 package com.android.internal.telephony;
 
-import android.telephony.SubscriptionManager;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+
+import android.os.Parcel;
+import android.telephony.SubscriptionInfo;
 import android.test.suitebuilder.annotation.SmallTest;
-import static org.junit.Assert.*;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import android.telephony.SubscriptionInfo;
-
 public class SubscriptionInfoTest {
     private SubscriptionInfo mSubscriptionInfoUT;
+    private static final String[] EHPLMNS = new String[] {"310999", "310998"};
+    private static final String[] HPLMNS = new String[] {"310001"};
 
     @After
     public void tearDown() throws Exception {
@@ -35,7 +39,8 @@ public class SubscriptionInfoTest {
     @Before
     public void setUp() throws Exception {
         mSubscriptionInfoUT = new SubscriptionInfo(1, "890126042XXXXXXXXXXX", 0, "T-mobile",
-                "T-mobile", 0, 255, "12345", 0, null, 310, 260, "156");
+                "T-mobile", 0, 255, "12345", 0, null, "310", "260", "156", false, null, null);
+        mSubscriptionInfoUT.setAssociatedPlmns(EHPLMNS, HPLMNS);
     }
 
     @Test
@@ -77,5 +82,34 @@ public class SubscriptionInfoTest {
         assertEquals(255, mSubscriptionInfoUT.getIconTint());
         mSubscriptionInfoUT.setIconTint(0);
         assertEquals(0, mSubscriptionInfoUT.getIconTint());
+    }
+
+    @Test
+    @SmallTest
+    public void testParcelUnparcel() {
+        Parcel p = Parcel.obtain();
+        mSubscriptionInfoUT.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        SubscriptionInfo copy = SubscriptionInfo.CREATOR.createFromParcel(p);
+        assertEquals(mSubscriptionInfoUT, copy);
+    }
+
+    @Test
+    @SmallTest
+    public void testEquals() {
+        SubscriptionInfo copiedInfo = new SubscriptionInfo(1, "890126042XXXXXXXXXXX", 0,
+                "T-mobile", "T-mobile", 0, 255, "12345", 0, null,
+                "310", "260", "156", false, null, null);
+        copiedInfo.setAssociatedPlmns(EHPLMNS, HPLMNS);
+        SubscriptionInfo differentDisplayName = new SubscriptionInfo(1, "890126042XXXXXXXXXXX", 0,
+                "AT&T", "T-mobile", 0, 255, "12345", 0, null,
+                "310", "260", "156", false, null, null);
+        SubscriptionInfo differentSubId = new SubscriptionInfo(2, "890126042XXXXXXXXXXX", 0,
+                "AT&T", "T-mobile", 0, 255, "12345", 0, null,
+                "310", "260", "156", false, null, null);
+
+        assertEquals(mSubscriptionInfoUT, copiedInfo);
+        assertNotEquals(mSubscriptionInfoUT, differentDisplayName);
+        assertNotEquals(mSubscriptionInfoUT, differentSubId);
     }
 }

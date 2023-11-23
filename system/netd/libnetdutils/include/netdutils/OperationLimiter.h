@@ -60,7 +60,7 @@ public:
     // Note: each successful start(key) must be matched by exactly one call to
     // finish(key).
     bool start(KeyType key) EXCLUDES(mMutex) {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock(mMutex);
         auto& cnt = mCounters[key];  // operator[] creates new entries as needed.
         if (cnt >= mLimitPerKey) {
             // Oh, no!
@@ -73,7 +73,7 @@ public:
     // Decrements the number of operations in progress accounted to |key|.
     // See usage notes on start().
     void finish(KeyType key) EXCLUDES(mMutex) {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::lock_guard lock(mMutex);
         auto it = mCounters.find(key);
         if (it == mCounters.end()) {
             LOG(FATAL_WITHOUT_ABORT) << "Decremented non-existent counter for key=" << key;

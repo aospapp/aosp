@@ -102,7 +102,7 @@ int32_t mm_stream_calc_offset_snapshot(cam_format_t fmt,
                                        cam_dimension_t *dim,
                                        cam_padding_info_t *padding,
                                        cam_stream_buf_plane_info_t *buf_planes);
-int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
+int32_t mm_stream_calc_offset_raw(cam_stream_info_t *stream_info,
                                   cam_dimension_t *dim,
                                   cam_padding_info_t *padding,
                                   cam_stream_buf_plane_info_t *buf_planes);
@@ -3653,6 +3653,27 @@ int32_t mm_stream_calc_offset_snapshot(cam_format_t fmt,
         rc = -1;
 #endif
         break;
+    case CAM_FORMAT_Y_ONLY:
+    case CAM_FORMAT_Y_ONLY_10_BPP:
+    case CAM_FORMAT_Y_ONLY_12_BPP:
+    case CAM_FORMAT_Y_ONLY_14_BPP:
+        buf_planes->plane_info.num_planes = 1;
+
+        buf_planes->plane_info.mp[0].len =
+                PAD_TO_SIZE((uint32_t)(stride * scanline),
+                padding->plane_padding);
+        buf_planes->plane_info.mp[0].offset =
+                PAD_TO_SIZE((uint32_t)(offset_x + stride * offset_y),
+                padding->plane_padding);
+        buf_planes->plane_info.mp[0].offset_x = offset_x;
+        buf_planes->plane_info.mp[0].offset_y = offset_y;
+        buf_planes->plane_info.mp[0].stride = stride;
+        buf_planes->plane_info.mp[0].scanline = scanline;
+        buf_planes->plane_info.mp[0].width = dim->width;
+        buf_planes->plane_info.mp[0].height = dim->height;
+        buf_planes->plane_info.frame_len =
+                PAD_TO_SIZE(buf_planes->plane_info.mp[0].len, CAM_PAD_TO_4K);
+        break;
     default:
         LOGE("Invalid cam_format for snapshot %d",
                     fmt);
@@ -3669,7 +3690,7 @@ int32_t mm_stream_calc_offset_snapshot(cam_format_t fmt,
  * DESCRIPTION: calculate raw frame offset based on format and padding information
  *
  * PARAMETERS :
- *   @fmt     : image format
+ *   @stream_info : stream info
  *   @dim     : image dimension
  *   @padding : padding information
  *   @buf_planes : [out] buffer plane information
@@ -3678,17 +3699,17 @@ int32_t mm_stream_calc_offset_snapshot(cam_format_t fmt,
  *              0  -- success
  *              -1 -- failure
  *==========================================================================*/
-int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
+int32_t mm_stream_calc_offset_raw(cam_stream_info_t *stream_info,
                                   cam_dimension_t *dim,
                                   cam_padding_info_t *padding,
                                   cam_stream_buf_plane_info_t *buf_planes)
 {
     int32_t rc = 0;
 
-    if ((NULL == dim) || (NULL == padding) || (NULL == buf_planes)) {
+    if ((NULL == dim) || (NULL == padding) || (NULL == buf_planes) || (NULL == stream_info)) {
         return -1;
     }
-
+    cam_format_t fmt = stream_info->fmt;
     int32_t stride = PAD_TO_SIZE(dim->width, (int32_t)padding->width_padding);
     int32_t stride_in_bytes = stride;
     int32_t scanline = PAD_TO_SIZE(dim->height, (int32_t)padding->height_padding);
@@ -3882,8 +3903,26 @@ int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
     case CAM_FORMAT_META_RAW_10BIT:
     case CAM_FORMAT_BAYER_IDEAL_RAW_MIPI_10BPP_GREY:
         /* Every 64 pixels occupy 80 bytes */
+        /* For raw stream, buf_stride is the actual gralloc buffer stride. */
         stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_4);
         stride_in_bytes = PAD_TO_SIZE(stride * 5 / 4, CAM_PAD_TO_8);
+
+        if (stream_info->buf_stride > 0) {
+            if ((uint32_t)stride_in_bytes != stream_info->buf_stride) {
+                /* Update the stride in bytes with actual buffer stride. */
+                stride_in_bytes = stream_info->buf_stride;
+                /* Update the stream plane info stride with actual buffer stride. */
+                /* Convert from bytes to pixels every 4 pixels take 5 bytes */
+                stride = stride_in_bytes / 5 * 4;
+            } else {
+                /* If actual gralloc stride is same with plane stride, do framebased. */
+                stream_info->buf_stride = 0;
+            }
+            ALOGV("%s:stream_type:%d, output_stride:%d, stride_in_bytes:%d",__FUNCTION__,
+                   stream_info->stream_type,
+                   stride,
+                   stride_in_bytes);
+        }
         buf_planes->plane_info.num_planes = 1;
         buf_planes->plane_info.mp[0].offset = 0;
         buf_planes->plane_info.mp[0].len =
@@ -4628,7 +4667,7 @@ int32_t mm_stream_calc_offset_postproc(cam_stream_info_t *stream_info,
                 &stream_info->dim, plns);
         break;
     case CAM_STREAM_TYPE_RAW:
-        rc = mm_stream_calc_offset_raw(stream_info->fmt,
+        rc = mm_stream_calc_offset_raw(stream_info,
                                        &stream_info->dim,
                                        padding,
                                        plns);
@@ -4756,7 +4795,7 @@ int32_t mm_stream_calc_offset(mm_stream_t *my_obj)
                 &dim, &my_obj->stream_info->buf_planes);
         break;
     case CAM_STREAM_TYPE_RAW:
-        rc = mm_stream_calc_offset_raw(my_obj->stream_info->fmt,
+        rc = mm_stream_calc_offset_raw(my_obj->stream_info,
                                        &dim,
                                        &my_obj->padding_info,
                                        &my_obj->stream_info->buf_planes);

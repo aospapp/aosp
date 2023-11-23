@@ -18,15 +18,13 @@ package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.detector.api.getInternalName
 import com.android.tools.metalava.compatibility
-import com.android.tools.metalava.doclava1.ApiPredicate
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
-import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MemberItem
+import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterItem
-import com.android.tools.metalava.model.text.TextTypeItem
 import com.intellij.psi.JavaTokenType
 import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiCapturedWildcardType
@@ -52,9 +50,14 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.PsiWildcardType
 import com.intellij.psi.util.PsiTypesUtil
 import com.intellij.psi.util.TypeConversionUtil
+import org.jetbrains.kotlin.asJava.elements.KtLightTypeParameter
+import java.util.function.Predicate
 
 /** Represents a type backed by PSI */
-class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, private val psiType: PsiType) : TypeItem {
+class PsiTypeItem private constructor(
+    private val codebase: PsiBasedCodebase,
+    var psiType: PsiType
+) : TypeItem {
     private var toString: String? = null
     private var toAnnotatedString: String? = null
     private var toInnerAnnotatedString: String? = null
@@ -68,53 +71,102 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
     override fun toTypeString(
         outerAnnotations: Boolean,
         innerAnnotations: Boolean,
-        erased: Boolean
+        erased: Boolean,
+        kotlinStyleNulls: Boolean,
+        context: Item?,
+        filter: Predicate<Item>?
     ): String {
         assert(innerAnnotations || !outerAnnotations) // Can't supply outer=true,inner=false
 
+        if (filter != null) {
+            // No caching when specifying filter.
+            // TODO: When we support type use annotations, here we need to deal with markRecent
+            //  and clearAnnotations not really having done their job.
+            return toTypeString(
+                codebase = codebase,
+                type = psiType,
+                outerAnnotations = outerAnnotations,
+                innerAnnotations = innerAnnotations,
+                erased = erased,
+                kotlinStyleNulls = kotlinStyleNulls,
+                context = context,
+                filter = filter
+            )
+        }
+
         return if (erased) {
-            if (innerAnnotations || outerAnnotations) {
+            if (kotlinStyleNulls && (innerAnnotations || outerAnnotations)) {
                 // Not cached: Not common
-                toTypeString(codebase, psiType, outerAnnotations, innerAnnotations, erased)
+                toTypeString(
+                    codebase = codebase,
+                    type = psiType,
+                    outerAnnotations = outerAnnotations,
+                    innerAnnotations = innerAnnotations,
+                    erased = erased,
+                    kotlinStyleNulls = kotlinStyleNulls,
+                    context = context,
+                    filter = filter
+                )
             } else {
                 if (toErasedString == null) {
-                    toErasedString = toTypeString(codebase, psiType, outerAnnotations, innerAnnotations, erased)
+                    toErasedString = toTypeString(
+                        codebase = codebase,
+                        type = psiType,
+                        outerAnnotations = outerAnnotations,
+                        innerAnnotations = innerAnnotations,
+                        erased = erased,
+                        kotlinStyleNulls = kotlinStyleNulls,
+                        context = context,
+                        filter = filter
+                    )
                 }
                 toErasedString!!
             }
         } else {
             when {
-                outerAnnotations -> {
+                kotlinStyleNulls && outerAnnotations -> {
                     if (toAnnotatedString == null) {
-                        toAnnotatedString = TypeItem.formatType(
-                            toTypeString(
-                                codebase,
-                                psiType,
-                                outerAnnotations,
-                                innerAnnotations,
-                                erased
-                            )
+                        toAnnotatedString = toTypeString(
+                            codebase = codebase,
+                            type = psiType,
+                            outerAnnotations = outerAnnotations,
+                            innerAnnotations = innerAnnotations,
+                            erased = erased,
+                            kotlinStyleNulls = kotlinStyleNulls,
+                            context = context,
+                            filter = filter
                         )
                     }
                     toAnnotatedString!!
                 }
-                innerAnnotations -> {
+                kotlinStyleNulls && innerAnnotations -> {
                     if (toInnerAnnotatedString == null) {
-                        toInnerAnnotatedString = TypeItem.formatType(
-                            toTypeString(
-                                codebase,
-                                psiType,
-                                outerAnnotations,
-                                innerAnnotations,
-                                erased
-                            )
+                        toInnerAnnotatedString = toTypeString(
+                            codebase = codebase,
+                            type = psiType,
+                            outerAnnotations = outerAnnotations,
+                            innerAnnotations = innerAnnotations,
+                            erased = erased,
+                            kotlinStyleNulls = kotlinStyleNulls,
+                            context = context,
+                            filter = filter
                         )
                     }
                     toInnerAnnotatedString!!
                 }
                 else -> {
                     if (toString == null) {
-                        toString = TypeItem.formatType(getCanonicalText(psiType, annotated = false))
+                        toString = TypeItem.formatType(
+                            getCanonicalText(
+                                codebase = codebase,
+                                owner = context,
+                                type = psiType,
+                                annotated = false,
+                                mapAnnotations = false,
+                                kotlinStyleNulls = kotlinStyleNulls,
+                                filter = filter
+                            )
+                        )
                     }
                     toString!!
                 }
@@ -122,8 +174,14 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
         }
     }
 
-    override fun toErasedTypeString(): String {
-        return toTypeString(outerAnnotations = false, innerAnnotations = false, erased = true)
+    override fun toErasedTypeString(context: Item?): String {
+        return toTypeString(
+            outerAnnotations = false,
+            innerAnnotations = false,
+            erased = true,
+            kotlinStyleNulls = false,
+            context = context
+        )
     }
 
     override fun arrayDimensions(): Int {
@@ -146,12 +204,15 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
         if (this === other) return true
 
         return when (other) {
-            is TypeItem -> toTypeString().replace(" ", "") == other.toTypeString().replace(" ", "")
+            is TypeItem -> TypeItem.equalsWithoutSpace(toTypeString(), other.toTypeString())
             else -> false
         }
     }
 
     override fun asClass(): PsiClassItem? {
+        if (primitive) {
+            return null
+        }
         if (asClass == null) {
             asClass = codebase.findClass(psiType)
         }
@@ -263,11 +324,23 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
         return create(codebase, codebase.createPsiType(s, owner?.psi()))
     }
 
-    override fun hasTypeArguments(): Boolean = psiType is PsiClassType && psiType.hasParameters()
+    override fun hasTypeArguments(): Boolean {
+        val type = psiType
+        return type is PsiClassType && type.hasParameters()
+    }
 
     override fun markRecent() {
-        toAnnotatedString = toTypeString(false, true, false).replace(".NonNull", ".RecentlyNonNull")
-        toInnerAnnotatedString = toTypeString(true, true, false).replace(".NonNull", ".RecentlyNonNull")
+        val source = toTypeString(outerAnnotations = true, innerAnnotations = true)
+            .replace(".NonNull", ".RecentlyNonNull")
+        // TODO: Pass in a context!
+        psiType = codebase.createPsiType(source)
+        toAnnotatedString = null
+        toInnerAnnotatedString = null
+    }
+
+    override fun scrubAnnotations() {
+        toAnnotatedString = toTypeString(outerAnnotations = false, innerAnnotations = false)
+        toInnerAnnotatedString = toAnnotatedString
     }
 
     companion object {
@@ -321,13 +394,15 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
         }
 
         fun toTypeString(
-            codebase: Codebase,
+            codebase: PsiBasedCodebase,
             type: PsiType,
             outerAnnotations: Boolean,
             innerAnnotations: Boolean,
-            erased: Boolean
+            erased: Boolean,
+            kotlinStyleNulls: Boolean,
+            context: Item?,
+            filter: Predicate<Item>?
         ): String {
-
             if (erased) {
                 // Recurse with raw type and erase=false
                 return toTypeString(
@@ -335,119 +410,91 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
                     TypeConversionUtil.erasure(type),
                     outerAnnotations,
                     innerAnnotations,
-                    false
+                    false,
+                    kotlinStyleNulls,
+                    context,
+                    filter
                 )
             }
 
-            if (outerAnnotations || innerAnnotations) {
-                val typeString = mapAnnotations(codebase, getCanonicalText(type, true))
-                if (!outerAnnotations && typeString.contains("@")) {
-                    // Temporary hack: should use PSI type visitor instead
-                    return TextTypeItem.eraseAnnotations(typeString, false, true)
-                }
-                return typeString
-            } else {
-                return type.canonicalText
-            }
-        }
-
-        /**
-         * Replace annotations in the given type string with the mapped qualified names
-         * to [AnnotationItem.mapName]
-         */
-        private fun mapAnnotations(codebase: Codebase, string: String): String {
-            var s = string
-            var offset = s.length
-            while (true) {
-                val start = s.lastIndexOf('@', offset)
-                if (start == -1) {
-                    return s
-                }
-                var index = start + 1
-                val length = string.length
-                while (index < length) {
-                    val c = string[index]
-                    if (c != '.' && !Character.isJavaIdentifierPart(c)) {
-                        break
-                    }
-                    index++
-                }
-                val annotation = string.substring(start + 1, index)
-
-                val mapped = AnnotationItem.mapName(codebase, annotation, ApiPredicate(codebase))
-                if (mapped != null) {
-                    if (mapped != annotation) {
-                        s = string.substring(0, start + 1) + mapped + s.substring(index)
+            val typeString =
+                if (kotlinStyleNulls && (innerAnnotations || outerAnnotations)) {
+                    try {
+                        getCanonicalText(codebase, context, type, true, true, kotlinStyleNulls, filter)
+                    } catch (ignore: Throwable) {
+                        type.canonicalText
                     }
                 } else {
-                    var balance = 0
-                    // Find annotation end
-                    while (index < length) {
-                        val c = string[index]
-                        if (c == '(') {
-                            balance++
-                        } else if (c == ')') {
-                            balance--
-                            if (balance == 0) {
-                                index++
-                                break
-                            }
-                        } else if (c != ' ' && balance == 0) {
-                            break
-                        }
-                        index++
-                    }
-                    s = string.substring(0, start) + s.substring(index)
+                    type.canonicalText
                 }
-                offset = start - 1
-            }
+
+            return TypeItem.formatType(typeString)
         }
 
-        private fun getCanonicalText(type: PsiType, annotated: Boolean): String {
-            val typeString = type.getCanonicalText(annotated)
-            if (!annotated) {
-                return typeString
-            }
+        private fun getCanonicalText(
+            codebase: PsiBasedCodebase,
+            owner: Item?,
+            type: PsiType,
+            annotated: Boolean,
+            mapAnnotations: Boolean,
+            kotlinStyleNulls: Boolean,
+            filter: Predicate<Item>?
+        ): String {
+            return try {
+                if (annotated && kotlinStyleNulls) {
+                    // Any nullness annotations on the element to merge in? When we have something like
+                    //  @Nullable String foo
+                    // the Nullable annotation can be on the element itself rather than the type,
+                    // so if we print the type without knowing the nullness annotation on the
+                    // element, we'll think it's unannotated and we'll display it as "String!".
+                    val nullness = owner?.modifiers?.annotations()?.firstOrNull { it.isNullnessAnnotation() }
+                    var elementAnnotations = if (nullness != null) { listOf(nullness) } else null
 
-            val index = typeString.indexOf(".@")
-            if (index != -1) {
-                // Work around type bugs in PSI: when you have a type like this:
-                //    @android.support.annotation.NonNull java.lang.Float)
-                // PSI returns
-                //    @android.support.annotation.NonNull java.lang.@android.support.annotation.NonNull Float)
-                //
-                //
-                // ...but sadly it's less predictable; e.g. it can be
-                //    java.util.List<@android.support.annotation.Nullable java.lang.String>
-                // PSI returns
-                //    java.util.List<java.lang.@android.support.annotation.Nullable String>
-
-                // Here we try to reverse this:
-                val end = typeString.indexOf(' ', index)
-                if (end != -1) {
-                    val annotation = typeString.substring(index + 1, end)
-                    if (typeString.lastIndexOf(annotation, index) == -1) {
-                        // Find out where to place it
-                        var ci = index
-                        while (ci > 0) {
-                            val c = typeString[ci]
-                            if (c != '.' && !Character.isJavaIdentifierPart(c)) {
-                                ci++
-                                break
-                            }
-                            ci--
+                    val implicitNullness = if (owner != null) AnnotationItem.getImplicitNullness(owner) else null
+                    val annotatedType = if (implicitNullness != null) {
+                        val provider = if (implicitNullness == true) {
+                            codebase.getNullableAnnotationProvider()
+                        } else {
+                            codebase.getNonNullAnnotationProvider()
                         }
-                        return typeString.substring(0, ci) +
-                            annotation + " " +
-                            typeString.substring(ci, index + 1) +
-                            typeString.substring(end + 1)
-                    } else {
-                        return typeString.substring(0, index + 1) + typeString.substring(end + 1)
-                    }
-                }
-            }
 
-            return typeString
+                        if (implicitNullness == false &&
+                            owner is MethodItem &&
+                            owner.containingClass().isAnnotationType() &&
+                            type is PsiArrayType
+                        ) {
+                            // For arrays in annotations not only is the method itself non null but so
+                            // is the component type
+                            type.componentType.annotate(provider).createArrayType().annotate(provider)
+                        } else {
+                            type.annotate(provider)
+                        }
+                    } else if (nullness != null && owner.modifiers.isVarArg() && owner.isKotlin() && type is PsiEllipsisType) {
+                        // Varargs the annotation applies to the component type instead
+                        val nonNullProvider = codebase.getNonNullAnnotationProvider()
+                        val provider = if (nullness.isNonNull()) {
+                            nonNullProvider
+                        } else codebase.getNullableAnnotationProvider()
+                        val componentType = type.componentType.annotate(provider)
+                        elementAnnotations = null
+                        PsiEllipsisType(componentType, nonNullProvider)
+                    } else {
+                        type
+                    }
+                    val printer = PsiTypePrinter(codebase, filter, mapAnnotations, kotlinStyleNulls)
+
+                    printer.getAnnotatedCanonicalText(
+                        annotatedType,
+                        elementAnnotations
+                    )
+                } else if (annotated) {
+                    type.getCanonicalText(true)
+                } else {
+                    type.getCanonicalText(false)
+                }
+            } catch (e: Throwable) {
+                return type.getCanonicalText(false)
+            }
         }
 
         fun create(codebase: PsiBasedCodebase, psiType: PsiType): PsiTypeItem {
@@ -487,6 +534,9 @@ class PsiTypeItem private constructor(private val codebase: PsiBasedCodebase, pr
                             sb.append(">")
                             return
                         } else if (element is PsiTypeParameter) {
+                            if (element is KtLightTypeParameter && element.kotlinOrigin.text.startsWith("reified")) {
+                                sb.append("reified ")
+                            }
                             sb.append(element.name)
                             // TODO: How do I get super -- e.g. "Comparable<? super T>"
                             val extendsList = element.extendsList

@@ -18,8 +18,8 @@ package com.android.tv.settings.system;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Controls location settings.
@@ -28,18 +28,7 @@ public class LocationActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            startPreferenceFragment(LocationFragment.newInstance());
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(LocationFragment.class.getName(), null);
     }
 }

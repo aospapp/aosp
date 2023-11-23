@@ -19,34 +19,36 @@ package android.backup.cts;
 import android.app.Instrumentation;
 import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
 
+import com.android.compatibility.common.util.BackupUtils;
 import com.android.compatibility.common.util.LogcatInspector;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Base class for backup instrumentation tests.
  *
  * Ensures that backup is enabled and local transport selected, and provides some utility methods.
  */
+@AppModeFull
 public class BaseBackupCtsTest extends InstrumentationTestCase {
     private static final String APP_LOG_TAG = "BackupCTSApp";
 
-    private static final String LOCAL_TRANSPORT =
-            "android/com.android.internal.backup.LocalTransport";
-
-    private boolean isBackupSupported;
+    private boolean mIsBackupSupported;
     private LogcatInspector mLogcatInspector =
             new LogcatInspector() {
                 @Override
-                protected InputStream executeShellCommand(String command) throws IOException {
-                    return executeStreamedShellCommand(getInstrumentation(), command);
+                protected InputStream executeShellCommand(String command) {
+                    return executeInstrumentationShellCommand(getInstrumentation(), command);
+                }
+            };
+    private BackupUtils mBackupUtils =
+            new BackupUtils() {
+                @Override
+                protected InputStream executeShellCommand(String command) {
+                    return executeInstrumentationShellCommand(getInstrumentation(), command);
                 }
             };
 
@@ -54,28 +56,24 @@ public class BaseBackupCtsTest extends InstrumentationTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         PackageManager packageManager = getInstrumentation().getContext().getPackageManager();
-        isBackupSupported = packageManager != null
-                && packageManager.hasSystemFeature(PackageManager.FEATURE_BACKUP);
+        mIsBackupSupported =
+                packageManager != null
+                        && packageManager.hasSystemFeature(PackageManager.FEATURE_BACKUP);
 
-        if (isBackupSupported) {
-            assertTrue("Backup not enabled", isBackupEnabled());
-            assertTrue("LocalTransport not selected", isLocalTransportSelected());
-            exec("setprop log.tag." + APP_LOG_TAG +" VERBOSE");
+        if (mIsBackupSupported) {
+            assertTrue("Backup not enabled", mBackupUtils.isBackupEnabled());
+            assertTrue("LocalTransport not selected", mBackupUtils.isLocalTransportSelected());
+            getBackupUtils()
+                    .executeShellCommandSync("setprop log.tag." + APP_LOG_TAG +" VERBOSE");
         }
     }
 
-    public boolean isBackupSupported() {
-        return isBackupSupported;
+    protected BackupUtils getBackupUtils() {
+        return mBackupUtils;
     }
 
-    private boolean isBackupEnabled() throws Exception {
-        String output = exec("bmgr enabled");
-        return output.contains("currently enabled");
-    }
-
-    private boolean isLocalTransportSelected() throws Exception {
-        String output = exec("bmgr list transports");
-        return output.contains("* " + LOCAL_TRANSPORT);
+    protected boolean isBackupSupported() {
+        return mIsBackupSupported;
     }
 
     /** See {@link LogcatInspector#mark(String)}. */
@@ -91,51 +89,20 @@ public class BaseBackupCtsTest extends InstrumentationTestCase {
     }
 
     protected void createTestFileOfSize(String packageName, int size) throws Exception {
-        exec("am start -a android.intent.action.MAIN " +
-            "-c android.intent.category.LAUNCHER " +
-            "-n " + packageName + "/android.backup.app.MainActivity " +
-            "-e file_size " + size);
+        getBackupUtils().executeShellCommandSync(
+                "am start -a android.intent.action.MAIN "
+                        + "-c android.intent.category.LAUNCHER "
+                        + "-n "
+                        + packageName
+                        + "/android.backup.app.MainActivity "
+                        + "-e file_size " + size);
         waitForLogcat(30, "File created!");
     }
 
-    protected String exec(String command) throws Exception {
-        try (InputStream in = executeStreamedShellCommand(getInstrumentation(), command)) {
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(in, StandardCharsets.UTF_8));
-            String str;
-            StringBuilder out = new StringBuilder();
-            while ((str = br.readLine()) != null) {
-                out.append(str);
-            }
-            return out.toString();
-        }
-    }
-
-    private static FileInputStream executeStreamedShellCommand(
-            Instrumentation instrumentation, String command) throws IOException {
+    private static InputStream executeInstrumentationShellCommand(
+            Instrumentation instrumentation, String command) {
         final ParcelFileDescriptor pfd =
                 instrumentation.getUiAutomation().executeShellCommand(command);
         return new ParcelFileDescriptor.AutoCloseInputStream(pfd);
-    }
-
-    private static void drainAndClose(BufferedReader reader) {
-        try {
-            while (reader.read() >= 0) {
-                // do nothing.
-            }
-        } catch (IOException ignored) {
-        }
-        closeQuietly(reader);
-    }
-
-    private static void closeQuietly(AutoCloseable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (RuntimeException rethrown) {
-                throw rethrown;
-            } catch (Exception ignored) {
-            }
-        }
     }
 }

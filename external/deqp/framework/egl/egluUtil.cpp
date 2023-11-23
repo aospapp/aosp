@@ -85,7 +85,16 @@ bool hasExtension (const Library& egl, EGLDisplay display, const string& str)
 
 vector<string> getClientExtensions (const Library& egl)
 {
-	return getExtensions(egl, EGL_NO_DISPLAY);
+	const char*	const extensionStr = egl.queryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+	const EGLint		eglError			= egl.getError();
+	if (eglError == EGL_BAD_DISPLAY && extensionStr == DE_NULL) {
+		// We do not support client extensions
+		TCU_THROW(NotSupportedError, "EGL_EXT_client_extensions not supported");
+	}
+
+	EGLU_CHECK_MSG(egl, "Querying extensions failed");
+
+	return de::splitString(extensionStr, ' ');
 }
 
 vector<string> getDisplayExtensions (const Library& egl, EGLDisplay display)
@@ -228,20 +237,38 @@ EGLDisplay getDisplay (NativeDisplay& nativeDisplay)
 {
 	const Library&	egl								= nativeDisplay.getLibrary();
 	const bool		supportsLegacyGetDisplay		= (nativeDisplay.getCapabilities() & NativeDisplay::CAPABILITY_GET_DISPLAY_LEGACY) != 0;
-	const bool		supportsPlatformGetDisplay		= (nativeDisplay.getCapabilities() & NativeDisplay::CAPABILITY_GET_DISPLAY_PLATFORM) != 0;
+	bool			maySupportPlatformGetDisplay	= (nativeDisplay.getCapabilities() & NativeDisplay::CAPABILITY_GET_DISPLAY_PLATFORM) != 0;
+	bool			maySupportPlatformGetDisplayEXT	= (nativeDisplay.getCapabilities() & NativeDisplay::CAPABILITY_GET_DISPLAY_PLATFORM_EXT) != 0;
 	bool			usePlatformExt					= false;
 	EGLDisplay		display							= EGL_NO_DISPLAY;
 
-	TCU_CHECK_INTERNAL(supportsLegacyGetDisplay || supportsPlatformGetDisplay);
+	TCU_CHECK_INTERNAL(supportsLegacyGetDisplay || maySupportPlatformGetDisplay);
 
-	if (supportsPlatformGetDisplay)
+	if (maySupportPlatformGetDisplayEXT)
 	{
-		const vector<string> platformExts = getClientExtensions(egl);
-		usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
-						 de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+		try
+		{
+			const vector<string> platformExts = eglu::getClientExtensions(egl);
+			usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
+				de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+
+		}
+		catch (const tcu::NotSupportedError& error)
+		{
+			// If we can't get the client extension string we must not have EGL 1.5 support or the appropriate extensions.
+			maySupportPlatformGetDisplay = false;
+			maySupportPlatformGetDisplayEXT = false;
+			usePlatformExt = false;
+		}
 	}
 
-	if (usePlatformExt)
+	if (maySupportPlatformGetDisplay)
+	{
+		display = egl.getPlatformDisplay(nativeDisplay.getPlatformType(), nativeDisplay.getPlatformNative(), nativeDisplay.getPlatformAttributes());
+		EGLU_CHECK_MSG(egl, "eglGetPlatformDisplay()");
+		TCU_CHECK(display != EGL_NO_DISPLAY);
+	}
+	else if (usePlatformExt)
 	{
 		const vector<EGLint>	legacyAttribs	= toLegacyAttribList(nativeDisplay.getPlatformAttributes());
 
@@ -276,30 +303,51 @@ EGLDisplay getAndInitDisplay (NativeDisplay& nativeDisplay, Version* version)
 	return display;
 }
 
-//! Create EGL window surface using eglCreateWindowSurface() or eglCreatePlatformWindowSurfaceEXT()
+void terminateDisplay(const Library& egl, EGLDisplay display)
+{
+	EGLU_CHECK_CALL(egl, terminate(display));
+}
+
+//! Create EGL window surface using eglCreatePlatformWindowSurface, eglCreateWindowSurface() or eglCreatePlatformWindowSurfaceEXT()
 EGLSurface createWindowSurface (NativeDisplay& nativeDisplay, NativeWindow& window, EGLDisplay display, EGLConfig config, const EGLAttrib* attribList)
 {
-	const Library&	egl							= nativeDisplay.getLibrary();
-	const bool		supportsLegacyCreate		= (window.getCapabilities() & NativeWindow::CAPABILITY_CREATE_SURFACE_LEGACY) != 0;
-	const bool		supportsPlatformCreate		= (window.getCapabilities() & NativeWindow::CAPABILITY_CREATE_SURFACE_PLATFORM) != 0;
-	bool			usePlatformExt				= false;
-	EGLSurface		surface						= EGL_NO_SURFACE;
+	const Library&	egl									= nativeDisplay.getLibrary();
+	const bool		supportsLegacyCreate				= (window.getCapabilities() & NativeWindow::CAPABILITY_CREATE_SURFACE_LEGACY) != 0;
+	bool			maySupportPlatformCreate				= ((window.getCapabilities() & NativeWindow::CAPABILITY_CREATE_SURFACE_PLATFORM) != 0
+														   && eglu::getVersion(egl, display) >= eglu::Version(1, 5));
+	bool			maySupportPlatformCreateExtension		= (window.getCapabilities() & NativeWindow::CAPABILITY_CREATE_SURFACE_PLATFORM_EXTENSION) != 0;
+	bool			usePlatformExt						= false;
+	EGLSurface		surface								= EGL_NO_SURFACE;
 
-	TCU_CHECK_INTERNAL(supportsLegacyCreate || supportsPlatformCreate);
+	TCU_CHECK_INTERNAL(supportsLegacyCreate || maySupportPlatformCreateExtension || maySupportPlatformCreate);
 
-	if (supportsPlatformCreate)
+	if (maySupportPlatformCreateExtension)
 	{
-		const vector<string> platformExts = getClientExtensions(egl);
-		usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
-						 de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+		try
+		{
+			const vector<string> platformExts = eglu::getClientExtensions(egl);
+			usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
+				de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+
+		}
+		catch (const tcu::NotSupportedError& error)
+		{
+			maySupportPlatformCreate = false;
+			maySupportPlatformCreateExtension = false;
+			usePlatformExt = false;
+		}
 	}
 
-	// \todo [2014-03-13 pyry] EGL 1.5 core support
-	if (usePlatformExt)
+	if (maySupportPlatformCreate)
+	{
+		surface = egl.createPlatformWindowSurface(display, config, window.getPlatformNative(), attribList);
+		EGLU_CHECK_MSG(egl, "eglCreatePlatformWindowSurface()");
+		TCU_CHECK(surface != EGL_NO_SURFACE);
+	}
+	else if (usePlatformExt)
 	{
 		const vector<EGLint>	legacyAttribs	= toLegacyAttribList(attribList);
-
-		surface = egl.createPlatformWindowSurfaceEXT(display, config, window.getPlatformNative(), &legacyAttribs[0]);
+		surface = egl.createPlatformWindowSurfaceEXT(display, config, window.getPlatformExtension(), &legacyAttribs[0]);
 		EGLU_CHECK_MSG(egl, "eglCreatePlatformWindowSurfaceEXT()");
 		TCU_CHECK(surface != EGL_NO_SURFACE);
 	}
@@ -320,26 +368,44 @@ EGLSurface createWindowSurface (NativeDisplay& nativeDisplay, NativeWindow& wind
 //! Create EGL pixmap surface using eglCreatePixmapSurface() or eglCreatePlatformPixmapSurfaceEXT()
 EGLSurface createPixmapSurface (NativeDisplay& nativeDisplay, NativePixmap& pixmap, EGLDisplay display, EGLConfig config, const EGLAttrib* attribList)
 {
-	const Library&	egl							= nativeDisplay.getLibrary();
-	const bool		supportsLegacyCreate		= (pixmap.getCapabilities() & NativePixmap::CAPABILITY_CREATE_SURFACE_LEGACY) != 0;
-	const bool		supportsPlatformCreate		= (pixmap.getCapabilities() & NativePixmap::CAPABILITY_CREATE_SURFACE_PLATFORM) != 0;
-	bool			usePlatformExt				= false;
-	EGLSurface		surface						= EGL_NO_SURFACE;
+	const Library&	egl									= nativeDisplay.getLibrary();
+	const bool		supportsLegacyCreate				= (pixmap.getCapabilities() & NativePixmap::CAPABILITY_CREATE_SURFACE_LEGACY) != 0;
+	bool			maySupportPlatformCreateExtension	= (pixmap.getCapabilities() & NativePixmap::CAPABILITY_CREATE_SURFACE_PLATFORM_EXTENSION) != 0;
+	bool			maySupportPlatformCreate			= ((pixmap.getCapabilities() & NativePixmap::CAPABILITY_CREATE_SURFACE_PLATFORM) != 0
+														   && eglu::getVersion(egl, display) >= eglu::Version(1, 5));
+	bool			usePlatformExt						= false;
+	EGLSurface		surface								= EGL_NO_SURFACE;
 
-	TCU_CHECK_INTERNAL(supportsLegacyCreate || supportsPlatformCreate);
+	TCU_CHECK_INTERNAL(supportsLegacyCreate || maySupportPlatformCreateExtension || maySupportPlatformCreate);
 
-	if (supportsPlatformCreate)
+	if (maySupportPlatformCreateExtension)
 	{
-		const vector<string> platformExts = getClientExtensions(egl);
-		usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
-						 de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+		try
+		{
+			const vector<string> platformExts = eglu::getClientExtensions(egl);
+			usePlatformExt = de::contains(platformExts.begin(), platformExts.end(), string("EGL_EXT_platform_base")) &&
+				de::contains(platformExts.begin(), platformExts.end(), string(nativeDisplay.getPlatformExtensionName()));
+
+		}
+		catch (const tcu::NotSupportedError& error)
+		{
+			maySupportPlatformCreate = false;
+			maySupportPlatformCreateExtension = false;
+			usePlatformExt = false;
+		}
 	}
 
-	if (usePlatformExt)
+	if (maySupportPlatformCreate)
+	{
+		surface = egl.createPlatformPixmapSurface(display, config, pixmap.getPlatformNative(), attribList);
+		EGLU_CHECK_MSG(egl, "eglCreatePlatformPixmapSurface()");
+		TCU_CHECK(surface != EGL_NO_SURFACE);
+	}
+	else if (usePlatformExt)
 	{
 		const vector<EGLint>	legacyAttribs	= toLegacyAttribList(attribList);
 
-		surface = egl.createPlatformPixmapSurfaceEXT(display, config, pixmap.getPlatformNative(), &legacyAttribs[0]);
+		surface = egl.createPlatformPixmapSurfaceEXT(display, config, pixmap.getPlatformExtension(), &legacyAttribs[0]);
 		EGLU_CHECK_MSG(egl, "eglCreatePlatformPixmapSurfaceEXT()");
 		TCU_CHECK(surface != EGL_NO_SURFACE);
 	}

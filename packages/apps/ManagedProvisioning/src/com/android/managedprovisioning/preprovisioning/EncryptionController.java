@@ -18,10 +18,6 @@ package com.android.managedprovisioning.preprovisioning;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -30,8 +26,8 @@ import android.os.Looper;
 import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.Globals;
+import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
@@ -48,17 +44,11 @@ import java.io.File;
  * sent. The reminder can be cancelled using {@link #cancelEncryptionReminder}.
  */
 public class EncryptionController {
-
-    @VisibleForTesting
-    public static final String CHANNEL_ID = "encrypt";
-    @VisibleForTesting
-    public static final int NOTIFICATION_ID = 1;
-
     private final Context mContext;
     private final Utils mUtils;
     private final SettingsFacade mSettingsFacade;
     private final ComponentName mHomeReceiver;
-    private final ResumeNotificationHelper mResumeNotificationHelper;
+    private final NotificationHelper mNotificationHelper;
     private final int mUserId;
 
     private boolean mProvisioningResumed = false;
@@ -82,7 +72,7 @@ public class EncryptionController {
                 new Utils(),
                 new SettingsFacade(),
                 new ComponentName(context, PostEncryptionActivity.class),
-                new ResumeNotificationHelper(context),
+                new NotificationHelper(context),
                 UserHandle.myUserId());
     }
 
@@ -91,13 +81,13 @@ public class EncryptionController {
             Utils utils,
             SettingsFacade settingsFacade,
             ComponentName homeReceiver,
-            ResumeNotificationHelper resumeNotificationHelper,
+            NotificationHelper resumeNotificationHelper,
             int userId) {
         mContext = checkNotNull(context, "Context must not be null").getApplicationContext();
         mSettingsFacade = checkNotNull(settingsFacade);
         mUtils = checkNotNull(utils, "Utils must not be null");
         mHomeReceiver = checkNotNull(homeReceiver, "HomeReceiver must not be null");
-        mResumeNotificationHelper = checkNotNull(resumeNotificationHelper,
+        mNotificationHelper = checkNotNull(resumeNotificationHelper,
                 "ResumeNotificationHelper must not be null");
         mUserId = userId;
 
@@ -173,7 +163,7 @@ public class EncryptionController {
 
             if (mUtils.isProfileOwnerAction(action)) {
                 if (mSettingsFacade.isUserSetupCompleted(mContext)) {
-                    mResumeNotificationHelper.showResumeNotification(resumeIntent);
+                    mNotificationHelper.showResumeNotification(resumeIntent);
                 } else {
                     mContext.startActivity(resumeIntent);
                 }
@@ -189,38 +179,5 @@ public class EncryptionController {
     @VisibleForTesting
     File getProvisioningParamsFile(Context context) {
         return new File(context.getFilesDir(), PROVISIONING_PARAMS_FILE_NAME);
-    }
-
-    @VisibleForTesting
-    public static class ResumeNotificationHelper {
-        private final Context mContext;
-
-        public ResumeNotificationHelper(Context context) {
-            mContext = context;
-        }
-
-        /** Create and show the provisioning reminder notification. */
-        public void showResumeNotification(Intent intent) {
-            NotificationManager notificationManager = (NotificationManager)
-                    mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                    mContext.getString(R.string.encrypt), NotificationManager.IMPORTANCE_HIGH);
-            notificationManager.createNotificationChannel(channel);
-
-            final PendingIntent resumePendingIntent = PendingIntent.getActivity(
-                    mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-            final Notification.Builder notify = new Notification.Builder(mContext)
-                    .setChannel(CHANNEL_ID)
-                    .setContentIntent(resumePendingIntent)
-                    .setContentTitle(mContext
-                            .getString(R.string.continue_provisioning_notify_title))
-                    .setContentText(mContext.getString(R.string.continue_provisioning_notify_text))
-                    .setSmallIcon(com.android.internal.R.drawable.ic_corp_statusbar_icon)
-                    .setVisibility(Notification.VISIBILITY_PUBLIC)
-                    .setColor(mContext.getResources().getColor(
-                            com.android.internal.R.color.system_notification_accent_color))
-                    .setAutoCancel(true);
-            notificationManager.notify(NOTIFICATION_ID, notify.build());
-        }
     }
 }

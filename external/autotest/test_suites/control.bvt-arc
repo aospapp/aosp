@@ -33,6 +33,8 @@ Requirements for a test to be in this suite:
      * The failure may block ordinary development tasks for ARC.
  3. A test failure must reliably indicate a bug in the product, and
     not a bug in the test.
+ 4. The test must be hermetic.  That is, the test should have no
+    dependencies on external network resources.
 
 @param build: The name of the image to test.
               Ex: veyron_minnie-release/R60-9575.0.0
@@ -41,7 +43,6 @@ Requirements for a test to be in this suite:
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 
@@ -59,7 +60,6 @@ _BUG_TEMPLATE = {
 args_dict['max_runtime_mins'] = 60
 args_dict['name'] = 'bvt-arc'
 args_dict['job'] = job
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

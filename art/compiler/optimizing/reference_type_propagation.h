@@ -40,7 +40,7 @@ class ReferenceTypePropagation : public HOptimization {
   // Visit a single instruction.
   void Visit(HInstruction* instruction);
 
-  void Run() OVERRIDE;
+  bool Run() override;
 
   // Returns true if klass is admissible to the propagation: non-null and resolved.
   // For an array type, we also check if the component type is admissible.
@@ -75,6 +75,8 @@ class ReferenceTypePropagation : public HOptimization {
 
     ReferenceTypeInfo::TypeHandle GetObjectClassHandle();
     ReferenceTypeInfo::TypeHandle GetClassClassHandle();
+    ReferenceTypeInfo::TypeHandle GetMethodHandleClassHandle();
+    ReferenceTypeInfo::TypeHandle GetMethodTypeClassHandle();
     ReferenceTypeInfo::TypeHandle GetStringClassHandle();
     ReferenceTypeInfo::TypeHandle GetThrowableClassHandle();
 
@@ -83,6 +85,8 @@ class ReferenceTypePropagation : public HOptimization {
 
     ReferenceTypeInfo::TypeHandle object_class_handle_;
     ReferenceTypeInfo::TypeHandle class_class_handle_;
+    ReferenceTypeInfo::TypeHandle method_handle_class_handle_;
+    ReferenceTypeInfo::TypeHandle method_type_class_handle_;
     ReferenceTypeInfo::TypeHandle string_class_handle_;
     ReferenceTypeInfo::TypeHandle throwable_class_handle_;
   };

@@ -24,6 +24,9 @@ public final class CollationKeys /* all methods are static */ {
     // Java porting note: C++ SortKeyByteSink class extends a common class ByteSink,
     // which is not available in Java. We don't need a super class created for implementing
     // collation features.
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static abstract class SortKeyByteSink {
         protected byte[] buffer_;
         // protected int capacity_; == buffer_.length
@@ -133,6 +136,9 @@ public final class CollationKeys /* all methods are static */ {
         protected abstract boolean Resize(int appendCapacity, int length);
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static class LevelCallback {
         /**
          * @param level

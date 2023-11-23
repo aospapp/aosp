@@ -26,7 +26,7 @@ class ScreenUtilityFactory(object):
     # Comparing to the calibration image directly allows more margin due to
     # anti-aliasing.
     _PIXEL_DIFF_MARGIN_FOR_CALIBRATION = 30
-    _WRONG_PIXELS_MARGIN_FOR_CALIBRATION = 0.01  # 1%
+    _WRONG_PIXELS_MARGIN_FOR_CALIBRATION = 0.03  # 3% due to crbug/937346
 
 
     def __init__(self, chameleon_port, display_facade):

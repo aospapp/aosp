@@ -32,8 +32,17 @@ oneway interface IRecentsAnimationRunner {
      * Called when the system needs to cancel the current animation. This can be due to the
      * wallpaper not drawing in time, or the handler not finishing the animation within a predefined
      * amount of time.
+     *
+     * @param deferredWithScreenshot If set to {@code true}, the contents of the task will be
+     *                               replaced with a screenshot, such that the runner's leash is
+     *                               still active. As soon as the runner doesn't need the leash
+     *                               anymore, it can call
+     *                               {@link IRecentsAnimationController#cleanupScreenshot).
+     *
+     * @see {@link RecentsAnimationController#cleanupScreenshot}
      */
-    void onAnimationCanceled() = 1;
+    @UnsupportedAppUsage
+    void onAnimationCanceled(boolean deferredWithScreenshot) = 1;
 
     /**
      * Called when the system is ready for the handler to start animating all the visible tasks.
@@ -42,6 +51,7 @@ oneway interface IRecentsAnimationRunner {
      * @param minimizedHomeBounds Specifies the bounds of the minimized home app, will be
      *                            {@code null} if the device is not currently in split screen
      */
+    @UnsupportedAppUsage
     void onAnimationStart(in IRecentsAnimationController controller,
             in RemoteAnimationTarget[] apps, in Rect homeContentInsets,
             in Rect minimizedHomeBounds) = 2;

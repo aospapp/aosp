@@ -14,28 +14,46 @@
 
 cc_library {
     name: "libnetd_client",
-
     srcs: [
         "FwmarkClient.cpp",
         "NetdClient.cpp",
     ],
-
-    header_libs: ["libnetd_client_headers"],
+    header_libs: [
+        "libnetd_client_headers",
+        "libbase_headers", // for unique_fd.h
+    ],
     export_header_lib_headers: ["libnetd_client_headers"],
-
     include_dirs: [
-        "bionic/libc/dns/include",
-        "system/netd/include",
+        "system/netd/resolv",
+        "system/netd/libnetdutils/include",
     ],
-
-    cflags: [
-        "-Wall",
-        "-Werror",
-    ],
-
+    defaults: ["netd_defaults"],
     product_variables: {
         debuggable: {
             cflags: ["-DNETD_CLIENT_DEBUGGABLE_BUILD"],
         }
     }
+}
+
+cc_test {
+    name: "netdclient_test",
+    srcs: [
+        "NetdClientTest.cpp",
+    ],
+    defaults: ["netd_defaults"],
+    test_suites: ["device-tests"],
+    include_dirs: [
+        "system/netd/resolv",
+        "system/netd/include",
+        "system/netd/libnetdutils/include",
+    ],
+    static_libs: [
+        "libgmock",
+        "libbase",
+        "libnetd_client",
+    ],
+    sanitize: {
+        address: true,
+        recover: [ "all" ],
+    },
 }

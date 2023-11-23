@@ -23,7 +23,7 @@
     <string name="header_category_suggestions" msgid="6732367439328586933">"Sugerencias"</string>
     <string name="header_category_quick_settings" msgid="6626141045575946920">"Ajustes rápidos"</string>
     <string name="header_category_general_settings" msgid="1208946854116876918">"Ajustes generales"</string>
-    <string name="dismiss_suggestion" msgid="8288127823132069828">"Ignorar la sugerencia"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"Cerrar la sugerencia"</string>
     <string name="hotwording_title" msgid="1984130766527626626">"Detección de \"Ok Google\""</string>
     <string name="hotwording_summary" msgid="2863751845299261441">"Habla con el Asistente de Google cuando quieras"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Dispositivo"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Calibración"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Seleccionar formatos"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Sonido envolvente"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -176,7 +176,7 @@
     <string name="device_status" msgid="4379924151946190768">"Estado"</string>
     <string name="device_status_summary" msgid="180586140242936323">"Red, números de serie y otra información"</string>
     <string name="manual" msgid="4957388668881541669">"Manual"</string>
-    <string name="regulatory_information" msgid="5448865708097003189">"Normativa"</string>
+    <string name="regulatory_information" msgid="5448865708097003189">"Información normativa"</string>
     <string name="device_feedback" msgid="209146642122579479">"Enviar opinión sobre el dispositivo"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"ID de equipo"</string>
     <string name="baseband_version" msgid="2229081246529676107">"Versión de banda base"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Algunas aplicaciones no estarán disponibles o no funcionarán correctamente hasta que se vuelva a conectar la unidad."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"No hay suficiente espacio de almacenamiento."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"La aplicación no existe."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"La aplicación está protegida contra copias."</string>
     <string name="invalid_location" msgid="5269044848535157307">"La ubicación de instalación no es válida."</string>
     <string name="system_package" msgid="9200255718634512790">"Las actualizaciones del sistema no se pueden instalar en ubicaciones externas."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"El administrador de dispositivos no se puede instalar en ubicaciones externas."</string>
@@ -493,7 +492,7 @@
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Mostrar sobredibujo de GPU"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Cambios de superficie"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Escala de animación ventana"</string>
-    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Escala de transición-animación"</string>
+    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Escala de animación de transición"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Escala de duración del animador"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Modo estricto"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Representación GPU perfil"</string>
@@ -715,7 +714,7 @@
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Se inhabilitarán todas las aplicaciones externas que hayas instalado. Estas se restaurarán la próxima vez que reinicies."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"Capturando informe de errores"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuales disponibles"</string>
-    <string name="manage_keyboards" msgid="1905379263117016795">"Administrar teclados"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Gestionar teclados"</string>
     <string name="app_permission_summary_allowed" msgid="1618833359547333078">"Permitido"</string>
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"No permitido"</string>
     <string name="usage_access" msgid="1914242907684452328">"Acceso a datos de uso"</string>
@@ -729,9 +728,12 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Acceso a notificaciones"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Ninguna aplicación instalada ha solicitado acceso a las notificaciones."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Estas aplicaciones podrán leer todas las notificaciones, incluidas las relativas a información personal, como nombres de contactos y texto de mensajes que hayas recibido. También podrán ignorar las notificaciones o utilizar los botones de acción que incluyan."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Acceso al directorio"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Estas aplicaciones tienen permiso para acceder a determinados directorios."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Mostrar sobre otras aplicaciones"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Permitir mostrar sobre otras aplicaciones"</string>
-    <string name="allow_overlay_description" msgid="1946279120428813474">"Permite que una aplicación se muestre sobre otras aplicaciones que estés utilizando. Esto puede interferir en el uso de esas aplicaciones o cambiar el modo en que se muestran o se comportan."</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"Permite que una aplicación se muestre sobre otras aplicaciones que estés utilizando. Esto puede interferir en el uso de esas aplicaciones o cambiar el modo en el que se muestran o se comportan."</string>
     <string name="write_system_settings" msgid="2730923656857824907">"Modificar ajustes del sistema"</string>
     <string name="write_settings_title" msgid="8750406725746598710">"Permite modificar ajustes del sistema"</string>
     <string name="write_settings_description" msgid="2765037074460395437">"Cuando se concede este permiso, la aplicación puede modificar los ajustes del sistema."</string>

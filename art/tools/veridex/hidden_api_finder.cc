@@ -16,6 +16,7 @@
 
 #include "hidden_api_finder.h"
 
+#include "dex/class_accessor-inl.h"
 #include "dex/code_item_accessors-inl.h"
 #include "dex/dex_instruction-inl.h"
 #include "dex/dex_file.h"
@@ -34,7 +35,7 @@ void HiddenApiFinder::CheckMethod(uint32_t method_id,
   // Note: we always query whether a method is in a list, as the app
   // might define blacklisted APIs (which won't be used at runtime).
   std::string name = HiddenApi::GetApiMethodName(resolver->GetDexFile(), method_id);
-  if (hidden_api_.IsInRestrictionList(name)) {
+  if (hidden_api_.IsInAnyList(name)) {
     method_locations_[name].push_back(ref);
   }
 }
@@ -45,7 +46,7 @@ void HiddenApiFinder::CheckField(uint32_t field_id,
   // Note: we always query whether a field is in a list, as the app
   // might define blacklisted APIs (which won't be used at runtime).
   std::string name = HiddenApi::GetApiFieldName(resolver->GetDexFile(), field_id);
-  if (hidden_api_.IsInRestrictionList(name)) {
+  if (hidden_api_.IsInAnyList(name)) {
     field_locations_[name].push_back(ref);
   }
 }
@@ -56,29 +57,15 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
   // types can lead to being used through reflection.
   for (uint32_t i = 0; i < dex_file.NumTypeIds(); ++i) {
     std::string name(dex_file.StringByTypeIdx(dex::TypeIndex(i)));
-    if (hidden_api_.IsInRestrictionList(name)) {
+    if (hidden_api_.IsInAnyList(name)) {
       classes_.insert(name);
     }
   }
   // Note: we collect strings constants only referenced in code items as the string table
   // contains other kind of strings (eg types).
-  size_t class_def_count = dex_file.NumClassDefs();
-  for (size_t class_def_index = 0; class_def_index < class_def_count; ++class_def_index) {
-    const DexFile::ClassDef& class_def = dex_file.GetClassDef(class_def_index);
-    const uint8_t* class_data = dex_file.GetClassData(class_def);
-    if (class_data == nullptr) {
-      // Empty class.
-      continue;
-    }
-    ClassDataItemIterator it(dex_file, class_data);
-    it.SkipAllFields();
-    for (; it.HasNextMethod(); it.Next()) {
-      const DexFile::CodeItem* code_item = it.GetMethodCodeItem();
-      if (code_item == nullptr) {
-        continue;
-      }
-      CodeItemDataAccessor code_item_accessor(dex_file, code_item);
-      for (const DexInstructionPcPair& inst : code_item_accessor) {
+  for (ClassAccessor accessor : dex_file.GetClasses()) {
+    for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+      for (const DexInstructionPcPair& inst : method.GetInstructions()) {
         switch (inst->Opcode()) {
           case Instruction::CONST_STRING: {
             dex::StringIndex string_index(inst->VRegB_21c());
@@ -94,17 +81,16 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
               // private methods and fields in them.
               // We don't add class names to the `strings_` set as we know method/field names
               // don't have '.' or '/'. All hidden API class names have a '/'.
-              if (hidden_api_.IsInRestrictionList(str)) {
+              if (hidden_api_.IsInAnyList(str)) {
                 classes_.insert(str);
-              } else if (hidden_api_.IsInRestrictionList(name)) {
+              } else if (hidden_api_.IsInAnyList(name)) {
                 // Could be something passed to JNI.
                 classes_.insert(name);
               } else {
                 // We only keep track of the location for strings, as these will be the
                 // field/method names the user is interested in.
                 strings_.insert(name);
-                reflection_locations_[name].push_back(
-                    MethodReference(&dex_file, it.GetMemberIndex()));
+                reflection_locations_[name].push_back(method.GetReference());
               }
             }
             break;
@@ -114,8 +100,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::INVOKE_STATIC:
           case Instruction::INVOKE_SUPER:
           case Instruction::INVOKE_VIRTUAL: {
-            CheckMethod(
-                inst->VRegB_35c(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckMethod(inst->VRegB_35c(), resolver, method.GetReference());
             break;
           }
 
@@ -124,8 +109,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::INVOKE_STATIC_RANGE:
           case Instruction::INVOKE_SUPER_RANGE:
           case Instruction::INVOKE_VIRTUAL_RANGE: {
-            CheckMethod(
-                inst->VRegB_3rc(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckMethod(inst->VRegB_3rc(), resolver, method.GetReference());
             break;
           }
 
@@ -136,8 +120,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::IGET_BYTE:
           case Instruction::IGET_CHAR:
           case Instruction::IGET_SHORT: {
-            CheckField(
-                inst->VRegC_22c(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckField(inst->VRegC_22c(), resolver, method.GetReference());
             break;
           }
 
@@ -148,8 +131,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::IPUT_BYTE:
           case Instruction::IPUT_CHAR:
           case Instruction::IPUT_SHORT: {
-            CheckField(
-                inst->VRegC_22c(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckField(inst->VRegC_22c(), resolver, method.GetReference());
             break;
           }
 
@@ -160,8 +142,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::SGET_BYTE:
           case Instruction::SGET_CHAR:
           case Instruction::SGET_SHORT: {
-            CheckField(
-                inst->VRegB_21c(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckField(inst->VRegB_21c(), resolver, method.GetReference());
             break;
           }
 
@@ -172,8 +153,7 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver) {
           case Instruction::SPUT_BYTE:
           case Instruction::SPUT_CHAR:
           case Instruction::SPUT_SHORT: {
-            CheckField(
-                inst->VRegB_21c(), resolver, MethodReference(&dex_file, it.GetMemberIndex()));
+            CheckField(inst->VRegB_21c(), resolver, method.GetReference());
             break;
           }
 
@@ -194,30 +174,29 @@ void HiddenApiFinder::Run(const std::vector<std::unique_ptr<VeridexResolver>>& r
 void HiddenApiFinder::Dump(std::ostream& os,
                            HiddenApiStats* stats,
                            bool dump_reflection) {
-  static const char* kPrefix = "       ";
   stats->linking_count = method_locations_.size() + field_locations_.size();
 
   // Dump methods from hidden APIs linked against.
-  for (const std::pair<std::string, std::vector<MethodReference>>& pair : method_locations_) {
-    HiddenApiAccessFlags::ApiList api_list = hidden_api_.GetApiList(pair.first);
-    stats->api_counts[api_list]++;
+  for (const std::pair<const std::string,
+                       std::vector<MethodReference>>& pair : method_locations_) {
+    hiddenapi::ApiList api_list = hidden_api_.GetApiList(pair.first);
+    CHECK(api_list.IsValid());
+    stats->api_counts[api_list.GetIntValue()]++;
     os << "#" << ++stats->count << ": Linking " << api_list << " " << pair.first << " use(s):";
     os << std::endl;
-    for (const MethodReference& ref : pair.second) {
-      os << kPrefix << HiddenApi::GetApiMethodName(ref) << std::endl;
-    }
+    HiddenApiFinder::DumpReferences(os, pair.second);
     os << std::endl;
   }
 
   // Dump fields from hidden APIs linked against.
-  for (const std::pair<std::string, std::vector<MethodReference>>& pair : field_locations_) {
-    HiddenApiAccessFlags::ApiList api_list = hidden_api_.GetApiList(pair.first);
-    stats->api_counts[api_list]++;
+  for (const std::pair<const std::string,
+                       std::vector<MethodReference>>& pair : field_locations_) {
+    hiddenapi::ApiList api_list = hidden_api_.GetApiList(pair.first);
+    CHECK(api_list.IsValid());
+    stats->api_counts[api_list.GetIntValue()]++;
     os << "#" << ++stats->count << ": Linking " << api_list << " " << pair.first << " use(s):";
     os << std::endl;
-    for (const MethodReference& ref : pair.second) {
-      os << kPrefix << HiddenApi::GetApiMethodName(ref) << std::endl;
-    }
+    HiddenApiFinder::DumpReferences(os, pair.second);
     os << std::endl;
   }
 
@@ -226,20 +205,41 @@ void HiddenApiFinder::Dump(std::ostream& os,
     for (const std::string& cls : classes_) {
       for (const std::string& name : strings_) {
         std::string full_name = cls + "->" + name;
-        HiddenApiAccessFlags::ApiList api_list = hidden_api_.GetApiList(full_name);
-        stats->api_counts[api_list]++;
-        if (api_list != HiddenApiAccessFlags::kWhitelist) {
+        hiddenapi::ApiList api_list = hidden_api_.GetApiList(full_name);
+        if (api_list.IsValid()) {
+          stats->api_counts[api_list.GetIntValue()]++;
           stats->reflection_count++;
           os << "#" << ++stats->count << ": Reflection " << api_list << " " << full_name
              << " potential use(s):";
           os << std::endl;
-          for (const MethodReference& ref : reflection_locations_[name]) {
-            os << kPrefix << HiddenApi::GetApiMethodName(ref) << std::endl;
-          }
+          HiddenApiFinder::DumpReferences(os, reflection_locations_[name]);
           os << std::endl;
         }
       }
     }
+  }
+}
+
+void HiddenApiFinder::DumpReferences(std::ostream& os,
+                                     const std::vector<MethodReference>& references) {
+  static const char* kPrefix = "       ";
+
+  // Count number of occurrences of each reference, to make the output clearer.
+  std::map<std::string, size_t> counts;
+  for (const MethodReference& ref : references) {
+    std::string ref_string = HiddenApi::GetApiMethodName(ref);
+    if (!counts.count(ref_string)) {
+      counts[ref_string] = 0;
+    }
+    counts[ref_string]++;
+  }
+
+  for (const std::pair<const std::string, size_t>& pair : counts) {
+    os << kPrefix << pair.first;
+    if (pair.second > 1) {
+       os << " (" << pair.second << " occurrences)";
+    }
+    os << std::endl;
   }
 }
 

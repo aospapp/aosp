@@ -21,8 +21,8 @@
 #include <stdint.h>
 
 #include "base/callee_save_type.h"
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
 #include "dex/dex_file_types.h"
 #include "dex/dex_instruction.h"
 #include "gc/allocator_type.h"
@@ -34,6 +34,8 @@ namespace art {
 namespace mirror {
 class Array;
 class Class;
+class MethodHandle;
+class MethodType;
 class Object;
 class String;
 }  // namespace mirror
@@ -48,35 +50,36 @@ class Thread;
 // Given the context of a calling Method, use its DexCache to resolve a type to a Class. If it
 // cannot be resolved, throw an error. If it can, use it to create an instance.
 template <bool kInstrumented>
-ALWAYS_INLINE inline mirror::Object* AllocObjectFromCode(mirror::Class* klass,
-                                                         Thread* self,
-                                                         gc::AllocatorType allocator_type)
+ALWAYS_INLINE inline ObjPtr<mirror::Object> AllocObjectFromCode(ObjPtr<mirror::Class> klass,
+                                                                Thread* self,
+                                                                gc::AllocatorType allocator_type)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
 // Given the context of a calling Method and a resolved class, create an instance.
 template <bool kInstrumented>
-ALWAYS_INLINE inline mirror::Object* AllocObjectFromCodeResolved(mirror::Class* klass,
-                                                                 Thread* self,
-                                                                 gc::AllocatorType allocator_type)
+ALWAYS_INLINE
+inline ObjPtr<mirror::Object> AllocObjectFromCodeResolved(ObjPtr<mirror::Class> klass,
+                                                          Thread* self,
+                                                          gc::AllocatorType allocator_type)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
 // Given the context of a calling Method and an initialized class, create an instance.
 template <bool kInstrumented>
-ALWAYS_INLINE inline mirror::Object* AllocObjectFromCodeInitialized(
-    mirror::Class* klass,
-    Thread* self,
-    gc::AllocatorType allocator_type)
+ALWAYS_INLINE
+inline ObjPtr<mirror::Object> AllocObjectFromCodeInitialized(ObjPtr<mirror::Class> klass,
+                                                             Thread* self,
+                                                             gc::AllocatorType allocator_type)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
 
 template <bool kAccessCheck>
-ALWAYS_INLINE inline mirror::Class* CheckArrayAlloc(dex::TypeIndex type_idx,
-                                                    int32_t component_count,
-                                                    ArtMethod* method,
-                                                    bool* slow_path)
+ALWAYS_INLINE inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_idx,
+                                                           int32_t component_count,
+                                                           ArtMethod* method,
+                                                           bool* slow_path)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
@@ -85,32 +88,42 @@ ALWAYS_INLINE inline mirror::Class* CheckArrayAlloc(dex::TypeIndex type_idx,
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
 template <bool kAccessCheck, bool kInstrumented>
-ALWAYS_INLINE inline mirror::Array* AllocArrayFromCode(dex::TypeIndex type_idx,
-                                                       int32_t component_count,
-                                                       ArtMethod* method,
-                                                       Thread* self,
-                                                       gc::AllocatorType allocator_type)
+ALWAYS_INLINE inline ObjPtr<mirror::Array> AllocArrayFromCode(dex::TypeIndex type_idx,
+                                                              int32_t component_count,
+                                                              ArtMethod* method,
+                                                              Thread* self,
+                                                              gc::AllocatorType allocator_type)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
 template <bool kInstrumented>
-ALWAYS_INLINE inline mirror::Array* AllocArrayFromCodeResolved(mirror::Class* klass,
-                                                               int32_t component_count,
-                                                               Thread* self,
-                                                               gc::AllocatorType allocator_type)
+ALWAYS_INLINE
+inline ObjPtr<mirror::Array> AllocArrayFromCodeResolved(ObjPtr<mirror::Class> klass,
+                                                        int32_t component_count,
+                                                        Thread* self,
+                                                        gc::AllocatorType allocator_type)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
+enum FindFieldFlags {
+  InstanceBit = 1 << 0,
+  StaticBit = 1 << 1,
+  ObjectBit = 1 << 2,
+  PrimitiveBit = 1 << 3,
+  ReadBit = 1 << 4,
+  WriteBit = 1 << 5,
+};
+
 // Type of find field operation for fast and slow case.
 enum FindFieldType {
-  InstanceObjectRead,
-  InstanceObjectWrite,
-  InstancePrimitiveRead,
-  InstancePrimitiveWrite,
-  StaticObjectRead,
-  StaticObjectWrite,
-  StaticPrimitiveRead,
-  StaticPrimitiveWrite,
+  InstanceObjectRead = InstanceBit | ObjectBit | ReadBit,
+  InstanceObjectWrite = InstanceBit | ObjectBit | WriteBit,
+  InstancePrimitiveRead = InstanceBit | PrimitiveBit | ReadBit,
+  InstancePrimitiveWrite = InstanceBit | PrimitiveBit | WriteBit,
+  StaticObjectRead = StaticBit | ObjectBit | ReadBit,
+  StaticObjectWrite = StaticBit | ObjectBit | WriteBit,
+  StaticPrimitiveRead = StaticBit | PrimitiveBit | ReadBit,
+  StaticPrimitiveWrite = StaticBit | PrimitiveBit | WriteBit,
 };
 
 template<FindFieldType type, bool access_check>
@@ -151,8 +164,12 @@ inline ObjPtr<mirror::Class> ResolveVerifyAndClinit(dex::TypeIndex type_idx,
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
-inline ObjPtr<mirror::String> ResolveStringFromCode(ArtMethod* referrer,
-                                                    dex::StringIndex string_idx)
+ObjPtr<mirror::MethodHandle> ResolveMethodHandleFromCode(ArtMethod* referrer,
+                                                         uint32_t method_handle_idx)
+    REQUIRES_SHARED(Locks::mutator_lock_)
+    REQUIRES(!Roles::uninterruptible_);
+
+ObjPtr<mirror::MethodType> ResolveMethodTypeFromCode(ArtMethod* referrer, dex::ProtoIndex proto_idx)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
@@ -164,8 +181,10 @@ void CheckReferenceResult(Handle<mirror::Object> o, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);
 
-JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa, const char* shorty,
-                                    jobject rcvr_jobj, jobject interface_art_method_jobj,
+JValue InvokeProxyInvocationHandler(ScopedObjectAccessAlreadyRunnable& soa,
+                                    const char* shorty,
+                                    jobject rcvr_jobj,
+                                    jobject interface_art_method_jobj,
                                     std::vector<jvalue>& args)
     REQUIRES_SHARED(Locks::mutator_lock_)
     REQUIRES(!Roles::uninterruptible_);

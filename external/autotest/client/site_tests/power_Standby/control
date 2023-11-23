@@ -30,26 +30,16 @@ Test must meet the following criteria:
   test_hours > sample_hours
 """
 
-opts = {}
-sample_hours = 1.0
-test_hours = 12.0
+SAMPLE_HOURS = 1.0
+TEST_HOURS = 12.0
 max_milliwatts_standby = 500.0
 
-for arg in args:
-    match = re.search("^(\w+)=(.+)", arg)
-    if match:
-        opts[match.group(1)] = match.group(2)
+args_dict = utils.args_to_dict(args)
 
-if 'test_hours' in opts:
-    test_hours = float(opts['test_hours'])
-
-if 'sample_hours' in opts:
-    sample_hours = float(opts['sample_hours'])
-
-
-constraints = []
-constraints.append("milliwatts_standby_power <= %.2f" % max_milliwatts_standby)
+sample_hours = float(args_dict.get('sample_hours', SAMPLE_HOURS))
+test_hours = float(args_dict.get('test_hours', TEST_HOURS))
+pdash_note = args_dict.get('pdash_note', '')
 
 job.run_test('power_Standby', sample_hours=sample_hours, test_hours=test_hours,
-             constraints=constraints,
-             max_milliwatts_standby=max_milliwatts_standby)
+             max_milliwatts_standby=max_milliwatts_standby,
+             pdash_note=pdash_note)

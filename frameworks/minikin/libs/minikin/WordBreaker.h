@@ -26,8 +26,9 @@
 #include <list>
 #include <mutex>
 
-#include <unicode/brkiter.h>
+#include <unicode/ubrk.h>
 
+#include "minikin/IcuUtils.h"
 #include "minikin/Macros.h"
 #include "minikin/Range.h"
 
@@ -41,7 +42,7 @@ class ICULineBreakerPool {
 public:
     struct Slot {
         Slot() : localeId(0), breaker(nullptr) {}
-        Slot(uint64_t localeId, std::unique_ptr<icu::BreakIterator>&& breaker)
+        Slot(uint64_t localeId, IcuUbrkUniquePtr&& breaker)
                 : localeId(localeId), breaker(std::move(breaker)) {}
 
         Slot(Slot&& other) = default;
@@ -52,7 +53,7 @@ public:
         Slot& operator=(const Slot&) = delete;
 
         uint64_t localeId;
-        std::unique_ptr<icu::BreakIterator> breaker;
+        IcuUbrkUniquePtr breaker;
     };
     virtual ~ICULineBreakerPool() {}
     virtual Slot acquire(const Locale& locale) = 0;

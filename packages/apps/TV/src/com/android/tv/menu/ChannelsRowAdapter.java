@@ -20,6 +20,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.tv.TvInputInfo;
 import android.view.View;
+import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
+import com.android.tv.ChannelChanger;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
@@ -34,9 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** An adapter of the Channels row. */
-public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<ChannelsRowItem> {
-    // There are four special cards: guide, setup, dvr, applink.
-    private static final int SIZE_OF_VIEW_TYPE = 5;
+public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<ChannelsRowItem>
+        implements AccessibilityStateChangeListener {
 
     private final Context mContext;
     private final Tracker mTracker;
@@ -44,58 +46,9 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     private final DvrDataManager mDvrDataManager;
     private final int mMaxCount;
     private final int mMinCount;
+    private final ChannelChanger mChannelChanger;
 
-    private final View.OnClickListener mGuideOnClickListener =
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    mTracker.sendMenuClicked(R.string.channels_item_program_guide);
-                    getMainActivity().getOverlayManager().showProgramGuide();
-                }
-            };
-
-    private final View.OnClickListener mSetupOnClickListener =
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    mTracker.sendMenuClicked(R.string.channels_item_setup);
-                    getMainActivity().getOverlayManager().showSetupFragment();
-                }
-            };
-
-    private final View.OnClickListener mDvrOnClickListener =
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    mTracker.sendMenuClicked(R.string.channels_item_dvr);
-                    getMainActivity().getOverlayManager().showDvrManager();
-                }
-            };
-
-    private final View.OnClickListener mAppLinkOnClickListener =
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    mTracker.sendMenuClicked(R.string.channels_item_app_link);
-                    Intent intent = ((AppLinkCardView) view).getIntent();
-                    if (intent != null) {
-                        getMainActivity().startActivitySafe(intent);
-                    }
-                }
-            };
-
-    private final View.OnClickListener mChannelOnClickListener =
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    // Always send the label "Channels" because the channel ID or name or number
-                    // might be
-                    // sensitive.
-                    mTracker.sendMenuClicked(R.string.menu_title_channels);
-                    getMainActivity().tuneToChannel((Channel) view.getTag());
-                    getMainActivity().hideOverlaysForTune();
-                }
-            };
+    private boolean mShowChannelUpDown;
 
     public ChannelsRowAdapter(
             Context context, Recommender recommender, int minCount, int maxCount) {
@@ -112,6 +65,11 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         mMinCount = minCount;
         mMaxCount = maxCount;
         setHasStableIds(true);
+        mChannelChanger = (ChannelChanger) (context);
+        AccessibilityManager accessibilityManager =
+                context.getSystemService(AccessibilityManager.class);
+        mShowChannelUpDown = accessibilityManager.isEnabled();
+        accessibilityManager.addAccessibilityStateChangeListener(this);
     }
 
     @Override
@@ -133,18 +91,22 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
     public void onBindViewHolder(MyViewHolder viewHolder, int position) {
         int viewType = getItemViewType(position);
         if (viewType == R.layout.menu_card_guide) {
-            viewHolder.itemView.setOnClickListener(mGuideOnClickListener);
+            viewHolder.itemView.setOnClickListener(this::onGuideClicked);
+        } else if (viewType == R.layout.menu_card_up) {
+            viewHolder.itemView.setOnClickListener(this::onChannelUpClicked);
+        } else if (viewType == R.layout.menu_card_down) {
+            viewHolder.itemView.setOnClickListener(this::onChannelDownClicked);
         } else if (viewType == R.layout.menu_card_setup) {
-            viewHolder.itemView.setOnClickListener(mSetupOnClickListener);
+            viewHolder.itemView.setOnClickListener(this::onSetupClicked);
         } else if (viewType == R.layout.menu_card_app_link) {
-            viewHolder.itemView.setOnClickListener(mAppLinkOnClickListener);
+            viewHolder.itemView.setOnClickListener(this::onAppLinkClicked);
         } else if (viewType == R.layout.menu_card_dvr) {
-            viewHolder.itemView.setOnClickListener(mDvrOnClickListener);
+            viewHolder.itemView.setOnClickListener(this::onDvrClicked);
             SimpleCardView view = (SimpleCardView) viewHolder.itemView;
             view.setText(R.string.channels_item_dvr);
         } else {
             viewHolder.itemView.setTag(getItemList().get(position).getChannel());
-            viewHolder.itemView.setOnClickListener(mChannelOnClickListener);
+            viewHolder.itemView.setOnClickListener(this::onChannelClicked);
         }
         super.onBindViewHolder(viewHolder, position);
     }
@@ -158,9 +120,53 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         }
     }
 
+    private void onGuideClicked(View unused) {
+        mTracker.sendMenuClicked(R.string.channels_item_program_guide);
+        getMainActivity().getOverlayManager().showProgramGuide();
+    }
+
+    private void onChannelDownClicked(View unused) {
+        mChannelChanger.channelDown();
+    }
+
+    private void onChannelUpClicked(View unused) {
+        mChannelChanger.channelUp();
+    }
+
+    private void onSetupClicked(View unused) {
+        mTracker.sendMenuClicked(R.string.channels_item_setup);
+        getMainActivity().getOverlayManager().showSetupFragment();
+    }
+
+    private void onDvrClicked(View unused) {
+        mTracker.sendMenuClicked(R.string.channels_item_dvr);
+        getMainActivity().getOverlayManager().showDvrManager();
+    }
+
+    private void onAppLinkClicked(View view) {
+        mTracker.sendMenuClicked(R.string.channels_item_app_link);
+        Intent intent = ((AppLinkCardView) view).getIntent();
+        if (intent != null) {
+            getMainActivity().startActivitySafe(intent);
+        }
+    }
+
+    private void onChannelClicked(View view) {
+        // Always send the label "Channels" because the channel ID or name or number might be
+        // sensitive.
+        mTracker.sendMenuClicked(R.string.menu_title_channels);
+        getMainActivity().tuneToChannel((Channel) view.getTag());
+        getMainActivity().hideOverlaysForTune();
+    }
+
     private void createItems() {
         List<ChannelsRowItem> items = new ArrayList<>();
         items.add(ChannelsRowItem.GUIDE_ITEM);
+        if (mShowChannelUpDown) {
+            items.add(ChannelsRowItem.UP_ITEM);
+            items.add(ChannelsRowItem.DOWN_ITEM);
+        }
+
         if (needToShowSetupItem()) {
             items.add(ChannelsRowItem.SETUP_ITEM);
         }
@@ -183,6 +189,12 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         // The current index of the item list to iterate. It starts from 1 because the first item
         // (GUIDE) is always visible and not updated.
         int currentIndex = 1;
+        if (updateItem(mShowChannelUpDown, ChannelsRowItem.UP_ITEM, currentIndex)) {
+            ++currentIndex;
+        }
+        if (updateItem(mShowChannelUpDown, ChannelsRowItem.DOWN_ITEM, currentIndex)) {
+            ++currentIndex;
+        }
         if (updateItem(needToShowSetupItem(), ChannelsRowItem.SETUP_ITEM, currentIndex)) {
             ++currentIndex;
         }
@@ -297,5 +309,11 @@ public class ChannelsRowAdapter extends ItemListRowView.ItemListAdapter<Channels
         }
         channelList.add(channel);
         return true;
+    }
+
+    @Override
+    public void onAccessibilityStateChanged(boolean enabled) {
+        mShowChannelUpDown = enabled;
+        update();
     }
 }

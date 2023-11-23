@@ -18,6 +18,7 @@ package android.content.pm.cts.shortcutmanager;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.assertExpectException;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.assertWith;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.list;
+import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.locusId;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.parceled;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.set;
@@ -128,6 +129,13 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
 
         assertExpectException(NullPointerException.class, "action must be set",
                 () -> new ShortcutInfo.Builder(getTestContext(), "id").setIntent(new Intent()));
+
+        assertExpectException(
+                RuntimeException.class,
+                "locusId cannot be null",
+                () -> new ShortcutInfo.Builder(getTestContext(), "id").setLocusId(null));
+
+        setCurrentCaller(getTestContext());
 
         assertExpectException(
                 IllegalArgumentException.class, "Short label must be provided", () -> {
@@ -374,6 +382,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     .setIntents(new Intent[]{new Intent("view").putExtra("k1", "v1")})
                     .setExtras(makePersistableBundle("ek1", "ev1"))
                     .setCategories(set("cat1"))
+                    .setLocusId(locusId("4815162342"))
                     .build();
 
             assertTrue(getManager().setDynamicShortcuts(list(source)));
@@ -390,6 +399,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -416,6 +426,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("yyy", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals(null, si.getExtras());
                         assertEquals(null, si.getCategories());
+                        assertEquals(null, si.getLocusId());
                     });
             assertNull(
                     getIconAsLauncher(mLauncherContext1, mPackageContext1.getPackageName(), "s1"));
@@ -431,6 +442,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     .setIntents(new Intent[]{new Intent("view").putExtra("k1", "v1")})
                     .setExtras(makePersistableBundle("ek1", "ev1"))
                     .setCategories(set("cat1"))
+                    .setLocusId(locusId("4815162342"))
                     .build();
 
             assertTrue(getManager().setDynamicShortcuts(list(source)));
@@ -447,6 +459,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -726,6 +739,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     .setIntents(new Intent[]{new Intent("view").putExtra("k1", "v1")})
                     .setExtras(makePersistableBundle("ek1", "ev1"))
                     .setCategories(set("cat1"))
+                    .setLocusId(locusId("4815162342"))
                     .build();
 
             assertTrue(getManager().addDynamicShortcuts(list(source)));
@@ -742,6 +756,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -768,6 +783,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("yyy", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals(null, si.getExtras());
                         assertEquals(null, si.getCategories());
+                        assertEquals(null, si.getLocusId());
                     });
             assertNull(
                     getIconAsLauncher(mLauncherContext1, mPackageContext1.getPackageName(), "s1"));
@@ -783,6 +799,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     .setIntents(new Intent[]{new Intent("view").putExtra("k1", "v1")})
                     .setExtras(makePersistableBundle("ek1", "ev1"))
                     .setCategories(set("cat1"))
+                    .setLocusId(locusId("4815162342"))
                     .build();
 
             assertTrue(getManager().addDynamicShortcuts(list(source)));
@@ -799,6 +816,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1060,6 +1078,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     .setIntents(new Intent[]{new Intent("view").putExtra("k1", "v1")})
                     .setExtras(makePersistableBundle("ek1", "ev1"))
                     .setCategories(set("cat1"))
+                    .setLocusId(locusId("4815162342"))
                     .build();
 
             assertTrue(getManager().setDynamicShortcuts(list(source)));
@@ -1076,6 +1095,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1100,6 +1120,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1124,6 +1145,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1148,6 +1170,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1172,6 +1195,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1196,6 +1220,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals("v1", si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1220,6 +1245,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals(null, si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("ev1", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1244,6 +1270,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals(null, si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("X", si.getExtras().getString("ek1"));
                         assertEquals(set("cat1"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1268,6 +1295,7 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals(null, si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("X", si.getExtras().getString("ek1"));
                         assertEquals(set("dog"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon1);
@@ -1292,6 +1320,32 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                         assertEquals(null, si.getIntents()[0].getStringExtra("k1"));
                         assertEquals("X", si.getExtras().getString("ek1"));
                         assertEquals(set("dog"), si.getCategories());
+                        assertEquals(locusId("4815162342"), si.getLocusId());
+                    });
+            assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
+                    icon2);
+        });
+
+        runWithCallerWithStrictMode(mPackageContext1, () -> {
+            final ShortcutInfo updated = makeShortcutBuilder("s1")
+                    .setLocusId(locusId("108"))
+                    .build();
+
+            assertTrue(getManager().updateShortcuts(list(updated)));
+
+            // Check each field.
+            assertWith(getManager().getDynamicShortcuts())
+                    .forShortcutWithId("s1", si ->{
+                        assertEquals("x", si.getShortLabel());
+                        assertEquals("y", si.getLongLabel());
+                        assertEquals(getActivity("Launcher2"), si.getActivity());
+                        assertEquals("z", si.getDisabledMessage());
+                        assertEquals(1, si.getIntents().length);
+                        assertEquals("main", si.getIntents()[0].getAction());
+                        assertEquals(null, si.getIntents()[0].getStringExtra("k1"));
+                        assertEquals("X", si.getExtras().getString("ek1"));
+                        assertEquals(set("dog"), si.getCategories());
+                        assertEquals(locusId("108"), si.getLocusId());
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon2);

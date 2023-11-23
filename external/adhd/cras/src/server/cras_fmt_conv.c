@@ -69,7 +69,7 @@ static void convert_u8_to_s16le(const uint8_t *in, size_t in_samples,
 	uint16_t *_out = (uint16_t *)out;
 
 	for (i = 0; i < in_samples; i++, in++, _out++)
-		*_out = ((int16_t)*in - 0x80) << 8;
+		*_out = (uint16_t)((int16_t)*in - 0x80) << 8;
 }
 
 /* Converts from S24 to S16. */
@@ -131,7 +131,7 @@ static void convert_s16le_to_s24le(const uint8_t *in, size_t in_samples,
 	uint32_t *_out = (uint32_t *)out;
 
 	for (i = 0; i < in_samples; i++, _in++, _out++)
-		*_out = ((int32_t)*_in << 8);
+		*_out = ((uint32_t)(int32_t)*_in << 8);
 }
 
 /* Converts from S16 to S32. */
@@ -143,7 +143,7 @@ static void convert_s16le_to_s32le(const uint8_t *in, size_t in_samples,
 	uint32_t *_out = (uint32_t *)out;
 
 	for (i = 0; i < in_samples; i++, _in++, _out++)
-		*_out = ((int32_t)*_in << 16);
+		*_out = ((uint32_t)(int32_t)*_in << 16);
 }
 
 /* Converts from S16 to S24_3LE. */
@@ -289,6 +289,79 @@ static size_t s16_51_to_stereo(struct cras_fmt_conv *conv,
 	return in_frames;
 }
 
+/* Converts S16 stereo to quad (front L/R, rear L/R). Fit left/right of input
+ * to the front left/right of output respectively and fill others
+ * with zero.
+ */
+static size_t s16_stereo_to_quad(struct cras_fmt_conv *conv,
+				 const int16_t *in, size_t in_frames,
+				 int16_t *out)
+{
+	size_t i, front_left, front_right, rear_left, rear_right;
+
+	front_left = conv->out_fmt.channel_layout[CRAS_CH_FL];
+	front_right = conv->out_fmt.channel_layout[CRAS_CH_FR];
+	rear_left = conv->out_fmt.channel_layout[CRAS_CH_RL];
+	rear_right = conv->out_fmt.channel_layout[CRAS_CH_RR];
+
+	if (front_left != -1 && front_right != -1 &&
+	    rear_left != -1 && rear_right != -1)
+		for (i = 0; i < in_frames; i++) {
+			out[4 * i + front_left] = in[2 * i];
+			out[4 * i + front_right] = in[2 * i + 1];
+			out[4 * i + rear_left] = in[2 * i];
+			out[4 * i + rear_right] = in[2 * i + 1];
+		}
+	else
+		/* Select the first four channels to convert to as the
+		 * default behavior.
+		 */
+		for (i = 0; i < in_frames; i++) {
+			out[4 * i] = in[2 * i];
+			out[4 * i + 1] = in[2 * i + 1];
+			out[4 * i + 2] = in[2 * i];
+			out[4 * i + 3] = in[2 * i + 1];
+		}
+
+	return in_frames;
+}
+
+/* Converts S16 quad (front L/R, rear L/R) to S16 stereo. The out buffer
+ * can have room for just stereo samples.
+ */
+static size_t s16_quad_to_stereo(struct cras_fmt_conv *conv,
+			       const int16_t *in, size_t in_frames,
+			       int16_t *out)
+{
+	size_t i;
+	unsigned int left_idx =
+			conv->in_fmt.channel_layout[CRAS_CH_FL];
+	unsigned int right_idx =
+			conv->in_fmt.channel_layout[CRAS_CH_FR];
+	unsigned int left_rear_idx =
+			conv->in_fmt.channel_layout[CRAS_CH_RL];
+	unsigned int right_rear_idx =
+			conv->in_fmt.channel_layout[CRAS_CH_RR];
+
+	if (left_idx == -1 || right_idx == -1 ||
+	    left_rear_idx == -1 || right_rear_idx == -1) {
+		left_idx = 0;
+		right_idx = 1;
+		left_rear_idx = 2;
+		right_rear_idx = 3;
+	}
+
+	for (i = 0; i < in_frames; i++) {
+		out[2 * i] = s16_add_and_clip(
+		    in[4 * i + left_idx],
+		    in[4 * i + left_rear_idx] / 4);
+		out[2 * i + 1] = s16_add_and_clip(
+		    in[4 * i + right_idx],
+		    in[4 * i + right_rear_idx] / 4);
+	}
+	return in_frames;
+}
+
 /* Converts S16 N channels to S16 M channels.  The out buffer must have room for
  * M channel. This convert function is used as the default behavior when channel
  * layout is not set from the client side. */
@@ -300,8 +373,7 @@ static size_t s16_default_all_to_all(struct cras_fmt_conv *conv,
 	unsigned int num_out_ch = conv->out_fmt.num_channels;
 	unsigned int in_ch, out_ch, i;
 
-	memset(out, 0, num_out_ch * in_frames *
-				cras_get_format_bytes(&conv->out_fmt));
+	memset(out, 0, in_frames * cras_get_format_bytes(&conv->out_fmt));
 	for (out_ch = 0; out_ch < num_out_ch; out_ch++) {
 		for (in_ch = 0; in_ch < num_in_ch; in_ch++) {
 			for (i = 0; i < in_frames; i++) {
@@ -456,7 +528,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			break;
 		default:
 			syslog(LOG_WARNING, "Invalid format %d", in->format);
-			cras_fmt_conv_destroy(conv);
+			cras_fmt_conv_destroy(&conv);
 			return NULL;
 		}
 	}
@@ -479,7 +551,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			break;
 		default:
 			syslog(LOG_WARNING, "Invalid format %d", out->format);
-			cras_fmt_conv_destroy(conv);
+			cras_fmt_conv_destroy(&conv);
 			return NULL;
 		}
 	}
@@ -498,6 +570,10 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			conv->channel_converter = s16_mono_to_51;
 		} else if (in->num_channels == 2 && out->num_channels == 1) {
 			conv->channel_converter = s16_stereo_to_mono;
+		} else if (in->num_channels == 2 && out->num_channels == 4) {
+			conv->channel_converter = s16_stereo_to_quad;
+		} else if (in->num_channels == 4 && out->num_channels == 2) {
+			conv->channel_converter = s16_quad_to_stereo;
 		} else if (in->num_channels == 2 && out->num_channels == 6) {
 			conv->channel_converter = s16_stereo_to_51;
 		} else if (in->num_channels == 6 && out->num_channels == 2) {
@@ -516,7 +592,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 						in->num_channels,
 						out->num_channels);
 				if (conv->ch_conv_mtx == NULL) {
-					cras_fmt_conv_destroy(conv);
+					cras_fmt_conv_destroy(&conv);
 					return NULL;
 				}
 				conv->channel_converter = convert_channels;
@@ -538,7 +614,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 		conv->ch_conv_mtx = cras_channel_conv_matrix_create(in, out);
 		if (conv->ch_conv_mtx == NULL) {
 			syslog(LOG_ERR, "Failed to create channel conversion matrix");
-			cras_fmt_conv_destroy(conv);
+			cras_fmt_conv_destroy(&conv);
 			return NULL;
 		}
 		conv->channel_converter = convert_channels;
@@ -559,7 +635,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			       in->frame_rate,
 			       out->frame_rate,
 			       rc);
-			cras_fmt_conv_destroy(conv);
+			cras_fmt_conv_destroy(&conv);
 			return NULL;
 		}
 	}
@@ -573,7 +649,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			out->frame_rate);
 	if (conv->resampler == NULL) {
 		syslog(LOG_ERR, "Fail to create linear resampler");
-		cras_fmt_conv_destroy(conv);
+		cras_fmt_conv_destroy(&conv);
 		return NULL;
 	}
 
@@ -585,7 +661,7 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 			4 * /* width in bytes largest format. */
 			MAX(in->num_channels, out->num_channels));
 		if (conv->tmp_bufs[i] == NULL) {
-			cras_fmt_conv_destroy(conv);
+			cras_fmt_conv_destroy(&conv);
 			return NULL;
 		}
 	}
@@ -595,9 +671,11 @@ struct cras_fmt_conv *cras_fmt_conv_create(const struct cras_audio_format *in,
 	return conv;
 }
 
-void cras_fmt_conv_destroy(struct cras_fmt_conv *conv)
+void cras_fmt_conv_destroy(struct cras_fmt_conv **convp)
 {
 	unsigned i;
+	struct cras_fmt_conv *conv = *convp;
+
 	if (conv->ch_conv_mtx)
 		cras_channel_conv_matrix_destroy(conv->ch_conv_mtx,
 						 conv->out_fmt.num_channels);
@@ -608,6 +686,7 @@ void cras_fmt_conv_destroy(struct cras_fmt_conv *conv)
 	for (i = 0; i < MAX_NUM_CONVERTERS - 1; i++)
 		free(conv->tmp_bufs[i]);
 	free(conv);
+	*convp = NULL;
 }
 
 struct cras_fmt_conv *cras_channel_remix_conv_create(
@@ -736,6 +815,7 @@ size_t cras_fmt_conv_convert_frames(struct cras_fmt_conv *conv,
 	unsigned int linear_resample_fr = 0;
 
 	assert(conv);
+	assert(*in_frames <= conv->tmp_buf_frames);
 
 	if (linear_resampler_needed(conv->resampler)) {
 		post_linear_resample = !conv->pre_linear_resample;
@@ -778,9 +858,19 @@ size_t cras_fmt_conv_convert_frames(struct cras_fmt_conv *conv,
 		 * resample limit and round it to the lower bound in order
 		 * not to convert too many frames in the pre linear resampler.
 		 */
-		if (conv->speex_state != NULL)
-			resample_limit = resample_limit * conv->in_fmt.frame_rate /
+		if (conv->speex_state != NULL) {
+			resample_limit = resample_limit *
+					conv->in_fmt.frame_rate /
 					conv->out_fmt.frame_rate;
+			/*
+			 * However if the limit frames count is less than
+			 * |out_rate / in_rate|, the final limit value could be
+			 * rounded to zero so it confuses linear resampler to
+			 * do nothing. Make sure it's non-zero in that case.
+			 */
+			if (resample_limit == 0)
+				resample_limit = 1;
+		}
 
 		resample_limit = MIN(resample_limit, conv->tmp_buf_frames);
 		fr_in = linear_resampler_resample(
@@ -857,10 +947,23 @@ size_t cras_fmt_conv_convert_frames(struct cras_fmt_conv *conv,
 		buf_idx++;
 	}
 
-	if (pre_linear_resample)
+	if (pre_linear_resample) {
 		*in_frames = linear_resample_fr;
-	else
+
+		/* When buffer sizes are small, there's a corner case that
+		 * speex library resamples 0 frame to N-1 frames, where N
+		 * is the integer ratio of output and input rate. For example,
+		 * 16KHz to 48KHz. In this case fmt_conv should claim zero
+		 * frames processed, instead of using the linear resampler
+		 * processed frames count. Otherwise there will be a frame
+		 * leak and, if accumulated, causes delay in multiple devices
+		 * use case.
+		 */
+		if (conv->speex_state && (fr_in == 0))
+			*in_frames = 0;
+	} else {
 		*in_frames = fr_in;
+	}
 	return fr_out;
 }
 

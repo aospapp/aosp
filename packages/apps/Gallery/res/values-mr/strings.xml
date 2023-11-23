@@ -28,11 +28,11 @@
     <string name="view_label" msgid="4450531507947335704">"चित्र पहा"</string>
     <string name="preferences_label" msgid="5955678162525051163">"कॅमेरा सेटिंग्ज"</string>
     <string name="wait" msgid="8600187532323801552">"कृपया प्रतीक्षा करा..."</string>
-    <string name="no_storage" product="nosdcard" msgid="4006727786803418058">"कॅमेरा वापरण्यापूर्वी आपल्याला सामायिक केलेले संचयन माउंट करण्याची आवश्यकता आहे."</string>
+    <string name="no_storage" product="nosdcard" msgid="4006727786803418058">"कॅमेरा वापरण्यापूर्वी तुम्हाला शेअर केलेले संचयन माउंट करण्याची आवश्यकता आहे."</string>
     <string name="no_storage" product="default" msgid="6680362958795677723">"कॅमेरा वापरण्यापूर्वी आपल्‍याला एक SD कार्ड घालण्‍याची आवश्‍यकता आहे."</string>
-    <string name="not_enough_space" product="nosdcard" msgid="7966388882416357252">"तुमचे सामायिक संचयन पूर्ण भरले."</string>
+    <string name="not_enough_space" product="nosdcard" msgid="7966388882416357252">"तुमचे शेअर संचयन पूर्ण भरले."</string>
     <string name="not_enough_space" product="default" msgid="6655334407957844653">"तुमचे SD कार्ड पूर्ण भरले."</string>
-    <string name="preparing_sd" product="nosdcard" msgid="183917364005592061">"सामायिक केलेले संचयन तयार करत आहे…"</string>
+    <string name="preparing_sd" product="nosdcard" msgid="183917364005592061">"शेअर केलेले संचयन तयार करत आहे…"</string>
     <string name="preparing_sd" product="default" msgid="2914969119574812666">"SD कार्ड तयार करत आहे..."</string>
     <string name="wallpaper" msgid="140165383777262070">"वॉलपेपर सेट करत आहे…"</string>
     <string name="savingImage" msgid="3051745378545909260">"चित्र सेव्ह करत आहे..."</string>
@@ -60,9 +60,9 @@
     <string name="camera_attach" msgid="4048659554893435232">"संलग्न करा"</string>
     <string name="camera_cancel" msgid="8203341746672085747">"रद्द करा"</string>
     <string name="camera_crop" msgid="5584000454518174632">"क्रॉप करा"</string>
-    <string name="no_way_to_share_image" msgid="7980215622010396797">"चित्र सामायिक करण्यासाठी कोणताही अॅप उपलब्ध नाही."</string>
-    <string name="no_way_to_share_video" msgid="4506167265329982928">"व्‍हिडिओ सामायिक करण्यासाठी कोणताही अॅप उपलब्ध नाही."</string>
-    <string name="no_way_to_share" msgid="5276805314940059662">"मीडिया फाईल(फायली) सामायिक करण्यासाठी कोणताही अॅप उपलब्ध नाही."</string>
+    <string name="no_way_to_share_image" msgid="7980215622010396797">"चित्र शेअर करण्यासाठी कोणताही अ‍ॅप उपलब्ध नाही."</string>
+    <string name="no_way_to_share_video" msgid="4506167265329982928">"व्‍हिडिओ शेअर करण्यासाठी कोणताही अ‍ॅप उपलब्ध नाही."</string>
+    <string name="no_way_to_share" msgid="5276805314940059662">"मीडिया फाईल(फायली) शेअर करण्यासाठी कोणताही अ‍ॅप उपलब्ध नाही."</string>
     <string name="video_play" msgid="5287787282508002895">"प्ले करा"</string>
     <string name="camera_pick_wallpaper" msgid="7026385960511811641">"चित्रे"</string>
     <string name="camera_setas_wallpaper" msgid="797463183863414289">"वॉलपेपर"</string>
@@ -149,7 +149,7 @@
     <string name="resume_playing_restart" msgid="5471008499835769292">"येथून प्रारंभ करा"</string>
     <string name="gadget_title" msgid="259405922673466798">"चित्र फ्रेम"</string>
     <string name="file_info_title" msgid="1628963357466012538">"फाईल माहिती:"</string>
-    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"MMS द्वारे पाठविण्यासाठी आपण रेकॉर्ड केलेला व्हिडिओ खूप मोठा आहे. एक लहान लांबीची क्लिप रेकॉर्ड करण्‍याचा प्रयत्न करा."</string>
+    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"MMS द्वारे पाठविण्यासाठी तुम्ही रेकॉर्ड केलेला व्हिडिओ खूप मोठा आहे. एक लहान लांबीची क्लिप रेकॉर्ड करण्‍याचा प्रयत्न करा."</string>
     <string name="multiselect_share" msgid="5261644537749253581">"शेअर करा"</string>
     <string name="multiselect_delete" msgid="9113461994546744603">"हटवा"</string>
     <string name="multiselect_cancel" msgid="5969428692864002165">"रद्द करा"</string>

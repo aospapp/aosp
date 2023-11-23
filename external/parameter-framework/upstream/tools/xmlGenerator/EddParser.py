@@ -34,8 +34,12 @@
 import re
 import sys
 import copy
-from itertools import izip
-from itertools import imap
+# For Python 2.x/3.x compatibility
+try:
+    from itertools import izip as zip
+    from itertools import imap as map
+except:
+    pass
 
 # =====================================================================
 """ Context classes, used during propagation and the "to PFW script" step """
@@ -113,13 +117,13 @@ class PropagationContext() :
 class Options () :
     """handle element options"""
     def __init__(self, options=[], optionNames=[]) :
-        self.options = dict(izip(optionNames, options))
+        self.options = dict(zip(optionNames, options))
         # print(options,optionNames,self.options)
 
 
     def __str__(self) :
         ops2str = []
-        for name, argument in self.options.items() :
+        for name, argument in list(self.options.items()) :
             ops2str.append(str(name) + "=\"" + str(argument) + "\"")
 
         return " ".join(ops2str)
@@ -176,7 +180,7 @@ class Element(object):
         options = line.split(self.optionDelimiter, len(self.optionNames) - 1)
 
         # get ride of leftover spaces
-        optionsStrip = list(imap(str.strip, options))
+        optionsStrip = list(map(str.strip, options))
 
         return optionsStrip
 
@@ -877,12 +881,12 @@ the rest is the rest of the line."""
                 context.append(myelement)
                 context[-2].addChild(myelement)
 
-            except MySyntaxWarning, ex:
+            except MySyntaxWarning as ex:
                 ex.setLine(line, num + 1)
                 if verbose :
-                    print >>sys.stderr, ex
+                    sys.stderr.write("{}\n".format(ex))
 
-            except MySyntaxError, ex :
+            except MySyntaxError as  ex :
                 ex.setLine(line, num + 1)
                 raise
 

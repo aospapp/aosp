@@ -46,6 +46,7 @@
 #include "rb_wrapper.h"
 #include "pkt_stats.h"
 #include "wifihal_internal.h"
+#include "qca-vendor_copy.h"
 
 #define SOCKET_BUFFER_SIZE      (32768U)
 #define RECV_BUF_SIZE           (4096)
@@ -88,6 +89,18 @@ typedef struct {
     wifi_roaming_capabilities roaming_capa;
 } wifi_capa;
 
+typedef struct {
+    u8 *flags;
+    size_t flags_len;
+} features_info;
+
+enum pkt_log_version {
+    PKT_LOG_V0          = 0,     // UNSPECIFIED Target
+    PKT_LOG_V1          = 1,     // ROME Base Target
+    PKT_LOG_V2          = 2,     // HELIUM Base Target
+    PKT_LOG_V3          = 3,     // LETHIUM Base target
+};
+
 struct gscan_event_handlers_s;
 struct rssi_monitor_event_handler_s;
 struct cld80211_ctx;
@@ -114,9 +127,13 @@ typedef struct hal_info_s {
     int num_interfaces;                             // number of interfaces
 
     feature_set supported_feature_set;
+    /* driver supported features defined by enum qca_wlan_vendor_features that
+       can be queried by vendor command QCA_NL80211_VENDOR_SUBCMD_GET_FEATURES */
+    features_info driver_supported_features;
     u32 supported_logger_feature_set;
     // add other details
     int user_sock_arg;
+    int event_sock_arg;
     struct rb_info rb_infos[NUM_RING_BUFS];
     void (*on_ring_buffer_data) (char *ring_name, char *buffer, int buffer_size,
           wifi_ring_buffer_status *status);
@@ -145,6 +162,7 @@ typedef struct hal_info_s {
     wifi_capa capa;
     struct cld80211_ctx *cldctx;
     bool apf_enabled;
+    pkt_log_version  pkt_log_ver;
 } hal_info;
 
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -168,8 +186,8 @@ wifi_error cleanupRSSIMonitorHandler(hal_info *info);
 lowi_cb_table_t *getLowiCallbackTable(u32 requested_lowi_capabilities);
 
 wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
-        wifi_interface_handle iface, u8 *ip_packet, u16 ip_packet_len,
-        u8 *src_mac_addr, u8 *dst_mac_addr, u32 period_msec);
+        wifi_interface_handle iface, u16 ether_type, u8 *ip_packet,
+        u16 ip_packet_len, u8 *src_mac_addr, u8 *dst_mac_addr, u32 period_msec);
 wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id id,
         wifi_interface_handle iface);
 wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle

@@ -42,8 +42,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <limits_ltp.h>
-
 #ifdef PATH_MAX
 char fullpath[PATH_MAX];
 #else

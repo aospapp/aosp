@@ -24,8 +24,12 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -43,15 +47,19 @@ public class SetDevicePolicyTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams params,
             Callback callback) {
-        this(new Utils(), context, params, callback);
+        this(new Utils(), context, params, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
     SetDevicePolicyTask(Utils utils,
                         Context context,
                         ProvisioningParams params,
-                        Callback callback) {
-        super(context, params, callback);
+                        Callback callback,
+                        ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, params, callback, provisioningAnalyticsTracker);
 
         mUtils = checkNotNull(utils);
         mPackageManager = mContext.getPackageManager();

@@ -48,40 +48,40 @@ The module defines the following exception and functions:
    is wrong.
 
 
-.. function:: pack(fmt, v1, v2, ...)
+.. function:: pack(format, v1, v2, ...)
 
    Return a bytes object containing the values *v1*, *v2*, ... packed according
-   to the format string *fmt*.  The arguments must match the values required by
+   to the format string *format*.  The arguments must match the values required by
    the format exactly.
 
 
-.. function:: pack_into(fmt, buffer, offset, v1, v2, ...)
+.. function:: pack_into(format, buffer, offset, v1, v2, ...)
 
-   Pack the values *v1*, *v2*, ... according to the format string *fmt* and
+   Pack the values *v1*, *v2*, ... according to the format string *format* and
    write the packed bytes into the writable buffer *buffer* starting at
    position *offset*.  Note that *offset* is a required argument.
 
 
-.. function:: unpack(fmt, buffer)
+.. function:: unpack(format, buffer)
 
-   Unpack from the buffer *buffer* (presumably packed by ``pack(fmt, ...)``)
-   according to the format string *fmt*.  The result is a tuple even if it
+   Unpack from the buffer *buffer* (presumably packed by ``pack(format, ...)``)
+   according to the format string *format*.  The result is a tuple even if it
    contains exactly one item.  The buffer's size in bytes must match the
    size required by the format, as reflected by :func:`calcsize`.
 
 
-.. function:: unpack_from(fmt, buffer, offset=0)
+.. function:: unpack_from(format, buffer, offset=0)
 
    Unpack from *buffer* starting at position *offset*, according to the format
-   string *fmt*.  The result is a tuple even if it contains exactly one
+   string *format*.  The result is a tuple even if it contains exactly one
    item.  The buffer's size in bytes, minus *offset*, must be at least
    the size required by the format, as reflected by :func:`calcsize`.
 
 
-.. function:: iter_unpack(fmt, buffer)
+.. function:: iter_unpack(format, buffer)
 
    Iteratively unpack from the buffer *buffer* according to the format
-   string *fmt*.  This function returns an iterator which will read
+   string *format*.  This function returns an iterator which will read
    equally-sized chunks from the buffer until all its contents have been
    consumed.  The buffer's size in bytes must be a multiple of the size
    required by the format, as reflected by :func:`calcsize`.
@@ -91,10 +91,11 @@ The module defines the following exception and functions:
    .. versionadded:: 3.4
 
 
-.. function:: calcsize(fmt)
+.. function:: calcsize(format)
 
    Return the size of the struct (and hence of the bytes object produced by
-   ``pack(fmt, ...)``) corresponding to the format string *fmt*.
+   ``pack(format, ...)``) corresponding to the format string *format*.
+
 
 .. _struct-format-strings:
 
@@ -115,6 +116,13 @@ Byte Order, Size, and Alignment
 By default, C types are represented in the machine's native format and byte
 order, and properly aligned by skipping pad bytes if necessary (according to the
 rules used by the C compiler).
+
+.. index::
+   single: @ (at); in struct format strings
+   single: = (equals); in struct format strings
+   single: < (less); in struct format strings
+   single: > (greater); in struct format strings
+   single: ! (exclamation); in struct format strings
 
 Alternatively, the first character of the format string can be used to indicate
 the byte order, size and alignment of the packed data, according to the
@@ -239,6 +247,8 @@ platform-dependent.
 Notes:
 
 (1)
+   .. index:: single: ? (question mark); in struct format strings
+
    The ``'?'`` conversion code corresponds to the :c:type:`_Bool` type defined by
    C99. If this type is not available, it is simulated using a :c:type:`char`. In
    standard mode, it is always represented by one byte.
@@ -320,6 +330,8 @@ smaller.  The bytes of the string follow.  If the string passed in to
 are used.  Note that for :func:`unpack`, the ``'p'`` format character consumes
 ``count`` bytes, but that the string returned can never contain more than 255
 bytes.
+
+.. index:: single: ? (question mark); in struct format strings
 
 For the ``'?'`` format character, the return value is either :const:`True` or
 :const:`False`. When packing, the truth value of the argument object is used.
@@ -404,6 +416,12 @@ The :mod:`struct` module also defines the following type:
    methods is more efficient than calling the :mod:`struct` functions with the
    same format since the format string only needs to be compiled once.
 
+   .. note::
+
+      The compiled versions of the most recent format strings passed to
+      :class:`Struct` and the module-level functions are cached, so programs
+      that use only a few format strings needn't worry about reusing a single
+      :class:`Struct` instance.
 
    Compiled Struct objects support the following methods and attributes:
 
@@ -441,6 +459,9 @@ The :mod:`struct` module also defines the following type:
    .. attribute:: format
 
       The format string used to construct this Struct object.
+
+      .. versionchanged:: 3.7
+         The format string type is now :class:`str` instead of :class:`bytes`.
 
    .. attribute:: size
 

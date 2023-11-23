@@ -23,35 +23,59 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.os.SystemClock;
 import android.util.Log;
-import android.util.SparseLongArray;
+import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 
 import com.android.car.CarLog;
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.LongSupplier;
 
 public class InputHalService extends HalServiceBase {
 
     public static final int DISPLAY_MAIN = VehicleDisplay.MAIN;
     public static final int DISPLAY_INSTRUMENT_CLUSTER = VehicleDisplay.INSTRUMENT_CLUSTER;
     private final VehicleHal mHal;
+    /** A function to retrieve the current system uptime - replaceable for testing. */
+    private final LongSupplier mUptimeSupplier;
 
     public interface InputListener {
         void onKeyEvent(KeyEvent event, int targetDisplay);
     }
 
+    /** The current press state of a key. */
+    private static class KeyState {
+        /** The timestamp (uptimeMillis) of the last ACTION_DOWN event for this key. */
+        public long mLastKeyDownTimestamp = -1;
+        /** The number of ACTION_DOWN events that have been sent for this keypress. */
+        public int mRepeatCount = 0;
+    }
+
     private static final boolean DBG = false;
 
+    @GuardedBy("this")
     private boolean mKeyInputSupported = false;
+
+    @GuardedBy("this")
     private InputListener mListener;
-    private final SparseLongArray mKeyDownTimes = new SparseLongArray();
+
+    @GuardedBy("mKeyStates")
+    private final SparseArray<KeyState> mKeyStates = new SparseArray<>();
 
     public InputHalService(VehicleHal hal) {
+        this(hal, SystemClock::uptimeMillis);
+    }
+
+    @VisibleForTesting
+    InputHalService(VehicleHal hal, LongSupplier uptimeSupplier) {
         mHal = hal;
+        mUptimeSupplier = uptimeSupplier;
     }
 
     public void setInputListener(InputListener listener) {
@@ -116,33 +140,60 @@ public class InputHalService extends HalServiceBase {
                             KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
             int code = v.value.int32Values.get(1);
             int display = v.value.int32Values.get(2);
+            int indentsCount = v.value.int32Values.size() < 4 ? 1 : v.value.int32Values.get(3);
             if (DBG) {
-                Log.i(CarLog.TAG_INPUT, "hal event code:" + code + ", action:" + action +
-                        ", display:" + display);
+                Log.i(CarLog.TAG_INPUT, new StringBuilder()
+                                        .append("hal event code:").append(code)
+                                        .append(", action:").append(action)
+                                        .append(", display: ").append(display)
+                                        .append(", number of indents: ").append(indentsCount)
+                                        .toString());
             }
-
-            dispatchKeyEvent(listener, action, code, display);
+            while (indentsCount > 0) {
+                indentsCount--;
+                dispatchKeyEvent(listener, action, code, display);
+            }
         }
     }
 
     private void dispatchKeyEvent(InputListener listener, int action, int code, int display) {
-        long eventTime = SystemClock.uptimeMillis();
+        long eventTime = mUptimeSupplier.getAsLong();
 
-        if (action == KeyEvent.ACTION_DOWN) {
-            mKeyDownTimes.put(code, eventTime);
+        long downTime;
+        int repeat;
+
+        synchronized (mKeyStates) {
+            KeyState state = mKeyStates.get(code);
+            if (state == null) {
+                state = new KeyState();
+                mKeyStates.put(code, state);
+            }
+
+            if (action == KeyEvent.ACTION_DOWN) {
+                downTime = eventTime;
+                repeat = state.mRepeatCount++;
+                state.mLastKeyDownTimestamp = eventTime;
+            } else {
+                // Handle key up events without any matching down event by setting the down time to
+                // the event time. This shouldn't happen in practice - keys should be pressed
+                // before they can be released! - but this protects us against HAL weirdness.
+                downTime =
+                        (state.mLastKeyDownTimestamp == -1)
+                                ? eventTime
+                                : state.mLastKeyDownTimestamp;
+                repeat = 0;
+                state.mRepeatCount = 0;
+            }
         }
-
-        long downTime = action == KeyEvent.ACTION_UP
-                ? mKeyDownTimes.get(code, eventTime) : eventTime;
 
         KeyEvent event = KeyEvent.obtain(
                 downTime,
                 eventTime,
                 action,
                 code,
-                0 /* repeat */,
+                repeat,
                 0 /* meta state */,
-                0 /* deviceId*/,
+                0 /* deviceId */,
                 0 /* scancode */,
                 0 /* flags */,
                 InputDevice.SOURCE_CLASS_BUTTON,

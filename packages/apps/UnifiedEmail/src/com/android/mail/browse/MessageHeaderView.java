@@ -23,7 +23,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
 import android.graphics.Bitmap;
-import android.support.v4.text.BidiFormatter;
+import androidx.core.text.BidiFormatter;
 import android.text.Html;
 import android.text.Spannable;
 import android.text.Spanned;

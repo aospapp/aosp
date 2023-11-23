@@ -17,13 +17,13 @@
 %                                October 1994                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -196,7 +196,7 @@ struct dirent *readdir(DIR *directory)
   buffer[sizeof(buffer)-1]='\0';
   for (p=buffer; *p; p++)
     if (isupper((int) ((unsigned char) *p)))
-      *p=tolower(*p);
+      *p=LocaleLowercase(*p);
   /*
     Skip any directory component and just copy the name.
   */
@@ -261,7 +261,7 @@ MagickExport MagickBooleanType VMSIsMagickConflict(const char *magick)
   item_list[0].ile3$w_code=DVI$_DEVCLASS;
   item_list[0].ile3$ps_bufaddr=&device_class;
   item_list[0].ile3$ps_retlen_addr=NULL;
-  (void) ResetMagickMemory(&item_list[1],0,sizeof(item_list[1]));
+  (void) memset(&item_list[1],0,sizeof(item_list[1]));
   status=sys$getdviw(0,0,&device,&item_list,0,0,0,0);
   if ((status == SS$_NONLOCAL) ||
       ((status & 0x01) && (device_class & (DC$_DISK | DC$_TAPE))))

@@ -4,9 +4,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-  
+
           http://www.apache.org/licenses/LICENSE-2.0
-  
+
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,6 +27,7 @@
     <string name="credential_info" msgid="2436768402308470397">"पैकेज में शामिल है:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 कीस्‍टोर में प्रमाणपत्र."</string>
     <string name="one_userkey" msgid="3500697912370644881">"एक उपयोगकर्ता कुंजी"</string>
+    <string name="userkey_type" msgid="6214833257030657106">"एल्गोरिदम:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"एक उपयोगकर्ता प्रमाणपत्र"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"एक CA प्रमाणपत्र"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA प्रमाणपत्र"</string>
@@ -38,14 +39,12 @@
     <string name="cert_not_saved" msgid="4037698479662830270">"प्रमाणपत्र इंस्‍टॉल नहीं हुआ."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"इंस्‍टॉल करने के लिए कोई प्रमाणपत्र नहीं है."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"प्रमाणपत्र अमान्य है."</string>
+    <string name="action_missing_private_key" msgid="7543470057312920042">"प्रमाणपत्र इंस्टॉल करने के लिए निजी कुंजी ज़रूरी है"</string>
+    <string name="action_missing_user_cert" msgid="3727411730202316771">"निजी कुंजी इंस्टॉल करने के लिए प्रमाणपत्र ज़रूरी है"</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> इंस्‍टॉल किया हुआ है."</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"प्रमाणपत्र का आकार बहुत बड़ा होने के कारण इंस्‍टॉल नहीं कर सका."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"प्रमाणपत्र फ़ाइल नहीं मिल सकने के ‍कारण इंस्टॉल नहीं कर सका."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"प्रमाणपत्र फ़ाइल नहीं पढ़ी जा सकने के कारण इंस्‍टॉल नहीं कर सका."</string>
-    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"USB मेमोरी में कोई प्रमाणपत्र फ़ाइल नहीं मिली."</string>
-    <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"SD कार्ड में कोई प्रमाणपत्र फ़ाइल नहीं मिली."</string>
-    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USB मेमोरी उपलब्‍ध नहीं है."</string>
-    <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD कार्ड मौजूद नहीं है."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"केवल इस डिवाइस का स्वामी ही प्रमाणपत्रों को इंस्टॉल कर सकता है."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"प्रमाणिकता उपयोग:"</string>
   <string-array name="credential_usage">
@@ -70,7 +69,7 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> की प्रमाणिकता को वाई-फ़ाई द्वारा सहेजे गए नेटवर्क में जोड़ा गया है."</string>
     <string name="done_label" msgid="5597425930652904250">"हो गया"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> के द्वारा उपलब्ध नेटवर्क से कनेक्ट करने के लिए वाई-फ़ाई प्रमाणिकता इंस्टॉल करें."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड की गई फ़ाइल में समस्या है और उसे इंस्टॉल नहीं किया जा सकता. सुनिश्चित करें कि आपने सही स्रोत से फ़ाइल डाउनलोड की है."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"डाउनलोड की गई फ़ाइल में समस्या है और उसे इंस्टॉल नहीं किया जा सकता. पक्का करें कि आपने सही स्रोत से फ़ाइल डाउनलोड की है."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"वाई-फ़ाई प्रमाणिकता को इंस्टॉल नहीं कर सकते. फ़ाइल को पुनः डाउनलोड करने का प्रयास करें."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"इंस्‍टॉलेशन रोका गया"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"इंस्‍टॉल नहीं किया जा सकता"</string>

@@ -13,10 +13,12 @@
 #include "GrSurface.h"
 #include "GrTexturePriv.h"
 #include "GrVkCommandBuffer.h"
+#include "GrVkCommandPool.h"
 #include "GrVkCopyPipeline.h"
 #include "GrVkDescriptorSet.h"
 #include "GrVkGpu.h"
 #include "GrVkImageView.h"
+#include "GrVkPipelineLayout.h"
 #include "GrVkRenderTarget.h"
 #include "GrVkResourceProvider.h"
 #include "GrVkSampler.h"
@@ -30,7 +32,7 @@
 GrVkCopyManager::GrVkCopyManager()
     : fVertShaderModule(VK_NULL_HANDLE)
     , fFragShaderModule(VK_NULL_HANDLE)
-    , fPipelineLayout(VK_NULL_HANDLE) {}
+    , fPipelineLayout(nullptr) {}
 
 GrVkCopyManager::~GrVkCopyManager() {}
 
@@ -74,16 +76,19 @@ bool GrVkCopyManager::createCopyProgram(GrVkGpu* gpu) {
     );
 
     SkSL::Program::Settings settings;
+    SkSL::String spirv;
     SkSL::Program::Inputs inputs;
     if (!GrCompileVkShaderModule(gpu, vertShaderText.c_str(), VK_SHADER_STAGE_VERTEX_BIT,
-                                 &fVertShaderModule, &fShaderStageInfo[0], settings, &inputs)) {
+                                 &fVertShaderModule, &fShaderStageInfo[0], settings, &spirv,
+                                 &inputs)) {
         this->destroyResources(gpu);
         return false;
     }
     SkASSERT(inputs.isEmpty());
 
     if (!GrCompileVkShaderModule(gpu, fragShaderText.c_str(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                 &fFragShaderModule, &fShaderStageInfo[1], settings, &inputs)) {
+                                 &fFragShaderModule, &fShaderStageInfo[1], settings, &spirv,
+                                 &inputs)) {
         this->destroyResources(gpu);
         return false;
     }
@@ -114,14 +119,17 @@ bool GrVkCopyManager::createCopyProgram(GrVkGpu* gpu) {
     layoutCreateInfo.pushConstantRangeCount = 0;
     layoutCreateInfo.pPushConstantRanges = nullptr;
 
+    VkPipelineLayout pipelineLayout;
     VkResult err = GR_VK_CALL(gpu->vkInterface(), CreatePipelineLayout(gpu->device(),
                                                                        &layoutCreateInfo,
                                                                        nullptr,
-                                                                       &fPipelineLayout));
+                                                                       &pipelineLayout));
     if (err) {
         this->destroyResources(gpu);
         return false;
     }
+
+    fPipelineLayout = new GrVkPipelineLayout(pipelineLayout);
 
     static const float vdata[] = {
         0, 0,
@@ -129,7 +137,7 @@ bool GrVkCopyManager::createCopyProgram(GrVkGpu* gpu) {
         1, 0,
         1, 1
     };
-    fVertexBuffer.reset(GrVkVertexBuffer::Create(gpu, sizeof(vdata), false));
+    fVertexBuffer = GrVkVertexBuffer::Make(gpu, sizeof(vdata), false);
     SkASSERT(fVertexBuffer.get());
     fVertexBuffer->updateData(vdata, sizeof(vdata));
 
@@ -152,11 +160,6 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
         return false;
     }
 
-    if (gpu->vkCaps().newCBOnPipelineChange()) {
-        // We bind a new pipeline here for the copy so we must start a new command buffer.
-        gpu->finishFlush(0, nullptr);
-    }
-
     GrVkRenderTarget* rt = static_cast<GrVkRenderTarget*>(dst->asRenderTarget());
     if (!rt) {
         return false;
@@ -169,7 +172,7 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
 
     if (VK_NULL_HANDLE == fVertShaderModule) {
         SkASSERT(VK_NULL_HANDLE == fFragShaderModule &&
-                 VK_NULL_HANDLE == fPipelineLayout &&
+                 nullptr == fPipelineLayout &&
                  nullptr == fVertexBuffer.get() &&
                  nullptr == fUniformBuffer.get());
         if (!this->createCopyProgram(gpu)) {
@@ -177,12 +180,13 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
             return false;
         }
     }
+    SkASSERT(fPipelineLayout);
 
     GrVkResourceProvider& resourceProv = gpu->resourceProvider();
 
     GrVkCopyPipeline* pipeline = resourceProv.findOrCreateCopyPipeline(rt,
                                                                        fShaderStageInfo,
-                                                                       fPipelineLayout);
+                                                                       fPipelineLayout->layout());
     if (!pipeline) {
         return false;
     }
@@ -257,12 +261,12 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
     GrSamplerState samplerState = GrSamplerState::ClampNearest();
 
     GrVkSampler* sampler = resourceProv.findOrCreateCompatibleSampler(
-            samplerState, srcTex->texturePriv().maxMipMapLevel());
+            samplerState, GrVkYcbcrConversionInfo());
 
     VkDescriptorImageInfo imageInfo;
     memset(&imageInfo, 0, sizeof(VkDescriptorImageInfo));
     imageInfo.sampler = sampler->sampler();
-    imageInfo.imageView = srcTex->textureView(true)->imageView();
+    imageInfo.imageView = srcTex->textureView()->imageView();
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet writeInfo;
@@ -287,37 +291,45 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
 
     GrVkRenderTarget* texRT = static_cast<GrVkRenderTarget*>(srcTex->asRenderTarget());
     if (texRT) {
-        gpu->onResolveRenderTarget(texRT, srcOrigin);
+        gpu->resolveRenderTargetNoFlush(texRT);
     }
-
-    GrVkPrimaryCommandBuffer* cmdBuffer = gpu->currentCommandBuffer();
 
     // TODO: Make tighter bounds and then adjust bounds for origin and granularity if we see
     //       any perf issues with using the whole bounds
     SkIRect bounds = SkIRect::MakeWH(rt->width(), rt->height());
 
-    // Change layouts of rt and texture
+    // Change layouts of rt and texture. We aren't blending so we don't need color attachment read
+    // access for blending.
     GrVkImage* targetImage = rt->msaaImage() ? rt->msaaImage() : rt;
+    VkAccessFlags dstAccessFlags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    if (!canDiscardOutsideDstRect) {
+        // We need to load the color attachment so need to be able to read it.
+        dstAccessFlags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    }
     targetImage->setImageLayout(gpu,
                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                                VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+                                dstAccessFlags,
+                                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                                 false);
 
     srcTex->setImageLayout(gpu,
                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                            VK_ACCESS_SHADER_READ_BIT,
-                           VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+                           VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                            false);
 
     GrStencilAttachment* stencil = rt->renderTargetPriv().getStencilAttachment();
     if (stencil) {
         GrVkStencilAttachment* vkStencil = (GrVkStencilAttachment*)stencil;
+        // We aren't actually using the stencil but we still load and store it so we need
+        // appropriate barriers.
+        // TODO: Once we refactor surface and how we conntect stencil to RTs, we should not even
+        // have the stencil on this render pass if possible.
         vkStencil->setImageLayout(gpu,
                                   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                  VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-                                  VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-                                  VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+                                  VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                  VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                                   false);
     }
 
@@ -340,9 +352,16 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
 
     SkASSERT(renderPass->isCompatible(*rt->simpleRenderPass()));
 
+    GrVkPrimaryCommandBuffer* cmdBuffer = gpu->currentCommandBuffer();
+    cmdBuffer->beginRenderPass(gpu, renderPass, nullptr, *rt, bounds, true);
 
-    cmdBuffer->beginRenderPass(gpu, renderPass, nullptr, *rt, bounds, false);
-    cmdBuffer->bindPipeline(gpu, pipeline);
+    GrVkSecondaryCommandBuffer* secondary = gpu->cmdPool()->findOrCreateSecondaryCommandBuffer(gpu);
+    if (!secondary) {
+        return false;
+    }
+    secondary->begin(gpu, rt->framebuffer(), renderPass);
+
+    secondary->bindPipeline(gpu, pipeline);
 
     // Uniform DescriptorSet, Sampler DescriptorSet, and vertex shader uniformBuffer
     SkSTArray<3, const GrVkRecycledResource*> descriptorRecycledResources;
@@ -353,10 +372,10 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
     // One sampler, texture view, and texture
     SkSTArray<3, const GrVkResource*> descriptorResources;
     descriptorResources.push_back(sampler);
-    descriptorResources.push_back(srcTex->textureView(true));
+    descriptorResources.push_back(srcTex->textureView());
     descriptorResources.push_back(srcTex->resource());
 
-    cmdBuffer->bindDescriptorSets(gpu,
+    secondary->bindDescriptorSets(gpu,
                                   descriptorRecycledResources,
                                   descriptorResources,
                                   fPipelineLayout,
@@ -375,7 +394,7 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
     viewport.height = SkIntToScalar(rt->height());
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    cmdBuffer->setViewport(gpu, 0, 1, &viewport);
+    secondary->setViewport(gpu, 0, 1, &viewport);
 
     // We assume the scissor is not enabled so just set it to the whole RT
     VkRect2D scissor;
@@ -383,11 +402,14 @@ bool GrVkCopyManager::copySurfaceAsDraw(GrVkGpu* gpu,
     scissor.extent.height = rt->height();
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    cmdBuffer->setScissor(gpu, 0, 1, &scissor);
+    secondary->setScissor(gpu, 0, 1, &scissor);
 
-    cmdBuffer->bindInputBuffer(gpu, 0, fVertexBuffer.get());
-    cmdBuffer->draw(gpu, 4, 1, 0, 0);
+    secondary->bindInputBuffer(gpu, 0, fVertexBuffer.get());
+    secondary->draw(gpu, 4, 1, 0, 0);
+    secondary->end(gpu);
+    cmdBuffer->executeCommands(gpu, secondary);
     cmdBuffer->endRenderPass(gpu);
+    secondary->unref(gpu);
 
     // Release all temp resources which should now be reffed by the cmd buffer
     pipeline->unref(gpu);
@@ -412,10 +434,9 @@ void GrVkCopyManager::destroyResources(GrVkGpu* gpu) {
         fFragShaderModule = VK_NULL_HANDLE;
     }
 
-    if (VK_NULL_HANDLE != fPipelineLayout) {
-        GR_VK_CALL(gpu->vkInterface(), DestroyPipelineLayout(gpu->device(), fPipelineLayout,
-                                                             nullptr));
-        fPipelineLayout = VK_NULL_HANDLE;
+    if (fPipelineLayout) {
+        fPipelineLayout->unref(gpu);
+        fPipelineLayout = nullptr;
     }
 
     if (fUniformBuffer) {
@@ -427,7 +448,10 @@ void GrVkCopyManager::destroyResources(GrVkGpu* gpu) {
 void GrVkCopyManager::abandonResources() {
     fVertShaderModule = VK_NULL_HANDLE;
     fFragShaderModule = VK_NULL_HANDLE;
-    fPipelineLayout = VK_NULL_HANDLE;
+    if (fPipelineLayout) {
+        fPipelineLayout->unrefAndAbandon();
+        fPipelineLayout = nullptr;
+    }
 
     if (fUniformBuffer) {
         fUniformBuffer->abandon();

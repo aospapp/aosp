@@ -16,12 +16,14 @@
 
 package com.android.tv;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.media.tv.TvContract;
@@ -31,6 +33,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
+import android.util.Log;
 import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
 import com.android.tv.util.Utils;
@@ -41,9 +44,12 @@ import com.android.tv.util.images.ImageLoader;
  * {@link MainActivity}.
  */
 class MediaSessionWrapper {
+    private static final String TAG = "MediaSessionWrapper";
+    private static final boolean DEBUG = false;
     private static final String MEDIA_SESSION_TAG = "com.android.tv.mediasession";
 
-    private static final PlaybackState MEDIA_SESSION_STATE_PLAYING =
+    @VisibleForTesting
+    static final PlaybackState MEDIA_SESSION_STATE_PLAYING =
             new PlaybackState.Builder()
                     .setState(
                             PlaybackState.STATE_PLAYING,
@@ -51,7 +57,8 @@ class MediaSessionWrapper {
                             1.0f)
                     .build();
 
-    private static final PlaybackState MEDIA_SESSION_STATE_STOPPED =
+    @VisibleForTesting
+    static final PlaybackState MEDIA_SESSION_STATE_STOPPED =
             new PlaybackState.Builder()
                     .setState(
                             PlaybackState.STATE_STOPPED,
@@ -61,6 +68,20 @@ class MediaSessionWrapper {
 
     private final Context mContext;
     private final MediaSession mMediaSession;
+    private final MediaController.Callback mMediaControllerCallback =
+            new MediaController.Callback() {
+                @Override
+                public void onPlaybackStateChanged(@Nullable PlaybackState state) {
+                    super.onPlaybackStateChanged(state);
+                    if (DEBUG) {
+                        Log.d(TAG, "onPlaybackStateChanged: " + state);
+                    }
+                    if (isMediaSessionStateStop(state)) {
+                        mMediaSession.setActive(false);
+                    }
+                }
+            };
+    private MediaController mMediaController;
     private int mNowPlayingCardWidth;
     private int mNowPlayingCardHeight;
 
@@ -79,6 +100,8 @@ class MediaSessionWrapper {
                 MediaSession.FLAG_HANDLES_MEDIA_BUTTONS
                         | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
         mMediaSession.setSessionActivity(pendingIntent);
+
+        initMediaController();
         mNowPlayingCardWidth =
                 mContext.getResources().getDimensionPixelSize(R.dimen.notif_card_img_max_width);
         mNowPlayingCardHeight =
@@ -97,7 +120,6 @@ class MediaSessionWrapper {
             mMediaSession.setPlaybackState(MEDIA_SESSION_STATE_PLAYING);
         } else if (mMediaSession.isActive()) {
             mMediaSession.setPlaybackState(MEDIA_SESSION_STATE_STOPPED);
-            mMediaSession.setActive(false);
         }
     }
 
@@ -150,6 +172,7 @@ class MediaSessionWrapper {
      * @see MediaSession#release()
      */
     void release() {
+        unregisterMediaControllerCallback();
         mMediaSession.release();
     }
 
@@ -221,6 +244,30 @@ class MediaSessionWrapper {
     @VisibleForTesting
     MediaSession getMediaSession() {
         return mMediaSession;
+    }
+
+    @VisibleForTesting
+    MediaController.Callback getMediaControllerCallback() {
+        return mMediaControllerCallback;
+    }
+
+    @VisibleForTesting
+    void initMediaController() {
+        mMediaController = new MediaController(mContext, mMediaSession.getSessionToken());
+        ((Activity) mContext).setMediaController(mMediaController);
+        mMediaController.registerCallback(mMediaControllerCallback);
+    }
+
+    @VisibleForTesting
+    void unregisterMediaControllerCallback() {
+        mMediaController.unregisterCallback(mMediaControllerCallback);
+    }
+
+    private static boolean isMediaSessionStateStop(PlaybackState state) {
+        return state != null
+                && state.getState() == MEDIA_SESSION_STATE_STOPPED.getState()
+                && state.getPosition() == MEDIA_SESSION_STATE_STOPPED.getPosition()
+                && state.getPlaybackSpeed() == MEDIA_SESSION_STATE_STOPPED.getPlaybackSpeed();
     }
 
     private static class ProgramPosterArtCallback

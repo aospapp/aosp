@@ -18,6 +18,7 @@ package com.android.server.telecom.testapps;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.telecom.Call;
 import android.util.Log;
@@ -25,6 +26,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 public class CallListAdapter extends BaseAdapter {
@@ -90,9 +92,14 @@ public class CallListAdapter extends BaseAdapter {
             convertView = mLayoutInflater.inflate(R.layout.call_list_item, parent, false);
         }
 
-        TextView phoneNumber = (TextView) convertView.findViewById(R.id.phoneNumber);
-        TextView duration = (TextView) convertView.findViewById(R.id.duration);
-        TextView state = (TextView) convertView.findViewById(R.id.callState);
+        TextView phoneNumber = convertView.findViewById(R.id.phoneNumber);
+        TextView duration = convertView.findViewById(R.id.duration);
+        TextView state = convertView.findViewById(R.id.callState);
+        TextView callIdName = convertView.findViewById(R.id.callIdName);
+        TextView callIdDescription = convertView.findViewById(R.id.callIdDescription);
+        TextView callIdDetails = convertView.findViewById(R.id.callIdDetails);
+        TextView callIdType = convertView.findViewById(R.id.callIdType);
+        ImageView callIdPhoto = convertView.findViewById(R.id.callIdPhoto);
 
         Call call = mCallList.getCall(position);
         Uri handle = call.getDetails().getHandle();
@@ -105,8 +112,22 @@ public class CallListAdapter extends BaseAdapter {
 
         Log.i(TAG, "Call found: " + ((handle == null) ? "null" : handle.getSchemeSpecificPart())
                 + ", " + durationMs);
+        Log.i(TAG, "Call extras: " + extrasToString(call.getDetails().getExtras()));
+        Log.i(TAG, "Call intent extras: " + extrasToString(call.getDetails().getIntentExtras()));
 
         return convertView;
+    }
+
+    private String extrasToString(Bundle bundle) {
+        StringBuilder sb = new StringBuilder("[");
+        for (String key : bundle.keySet()) {
+            sb.append(key);
+            sb.append(": ");
+            sb.append(bundle.get(key));
+            sb.append("\n");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     private static String getStateString(Call call) {

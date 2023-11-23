@@ -1,9 +1,9 @@
 package com.android.rs.refocus.f32;
 
 import android.graphics.Bitmap;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.RenderScript;
 import android.util.Log;
 
 import com.android.rs.refocus.renderscript.ScriptC_layered_filter_fast_f32;

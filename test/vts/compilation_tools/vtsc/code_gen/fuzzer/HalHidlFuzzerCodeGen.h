@@ -25,7 +25,7 @@ namespace vts {
 // Generates fuzzer code for HIDL HALs.
 class HalHidlFuzzerCodeGen : public FuzzerCodeGenBase {
  public:
-  HalHidlFuzzerCodeGen(const ComponentSpecificationMessage &comp_spec)
+  explicit HalHidlFuzzerCodeGen(const ComponentSpecificationMessage &comp_spec)
       : FuzzerCodeGenBase(comp_spec) {}
 
   void GenerateSourceIncludeFiles(Formatter &out) override;

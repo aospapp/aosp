@@ -20,6 +20,7 @@ cc_binary_host {
         "frame_buffer_watcher.cpp",
         "jpeg_compressor.cpp",
         "main.cpp",
+        "screen_connector.cpp",
         "simulated_hw_composer.cpp",
         "virtual_inputs.cpp",
         "vnc_client_connection.cpp",
@@ -31,6 +32,7 @@ cc_binary_host {
     shared_libs: [
         "vsoc_lib",
         "libcuttlefish_fs",
+        "libcuttlefish_utils",
         "cuttlefish_tcp_socket",
         "cuttlefish_auto_resources",
         "libbase",

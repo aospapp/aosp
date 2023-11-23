@@ -55,12 +55,12 @@ class RemoteCli(object):
         sys_cmd = self.platform_command + [cmd]
         if args is not None:
             sys_cmd += args
-        print "CMD  : %s" % sys_cmd
+        print("CMD  : %s" % sys_cmd)
 
         try:
             p = subprocess.Popen(sys_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except Exception as (errno, strerror):
-            return None, strerror
+        except OSError as error:
+            return None, error.strerror
         out, err = p.communicate()
         out = out.rstrip('\r\n')
 
@@ -74,18 +74,18 @@ class Pfw(RemoteCli):
 
 class Hal(RemoteCli):
     # Arbitrary choosen port, try to avoid conflicting with IANA registered ports
-    testPlatformPort = 18444
-    platform_command = ["remote-process", "localhost", str(testPlatformPort)]
+    testPlatformBindAddress = "18444"
+    platform_command = ["remote-process", "localhost", testPlatformBindAddress]
 
     def __init__(self, pfw):
         self.pfw = pfw
 
     # Starts the HAL exe
     def startHal(self):
-        cmd= ["test-platform", os.environ["PFW_TEST_CONFIGURATION"], str(self.testPlatformPort)]
+        cmd= ["test-platform", os.environ["PFW_TEST_CONFIGURATION"], self.testPlatformBindAddress]
         self.setRemoteProcess(subprocess.Popen(cmd))
         # Wait for the test-platform listening socket
-        while socket.socket().connect_ex(("localhost", self.testPlatformPort)) != 0:
+        while socket.socket().connect_ex(("localhost", int(self.testPlatformBindAddress))) != 0:
             assert self.remoteProcess.poll() == None, "Test platform has failed to start. Return code: %s" % self.remoteProcess.returncode
             time.sleep(0.01)
 

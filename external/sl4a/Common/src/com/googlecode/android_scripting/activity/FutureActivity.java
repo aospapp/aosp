@@ -25,6 +25,7 @@ import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 
 import com.googlecode.android_scripting.BaseApplication;
@@ -144,6 +145,22 @@ public class FutureActivity extends Activity {
   public boolean onKeyDown(int keyCode, KeyEvent event) {
     if (mTask != null) {
       return mTask.onKeyDown(keyCode, event);
+    }
+    return false;
+  }
+
+  @Override
+  public boolean onKeyUp(int keyCode, KeyEvent event) {
+    if (mTask != null) {
+      return mTask.onKeyUp(keyCode, event);
+    }
+    return false;
+  }
+
+  @Override
+  public boolean onGenericMotionEvent(MotionEvent event) {
+    if (mTask != null) {
+      return mTask.onGenericMotionEvent(event);
     }
     return false;
   }

@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Du har modtaget et link på din tablet via NFC:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Du har modtaget et link på din telefon via NFC:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Åbn link"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC-læsefejl. Prøv igen."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"Der er ingen understøttede apps til dette NFC-tag"</string>
 </resources>

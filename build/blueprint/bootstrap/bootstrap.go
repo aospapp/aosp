@@ -17,6 +17,8 @@ package bootstrap
 import (
 	"fmt"
 	"go/build"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -55,18 +57,22 @@ var (
 
 	compile = pctx.StaticRule("compile",
 		blueprint.RuleParams{
-			Command: "GOROOT='$goRoot' $compileCmd $parallelCompile -o $out " +
-				"-p $pkgPath -complete $incFlags -pack $in",
+			Command: "GOROOT='$goRoot' $compileCmd $parallelCompile -o $out.tmp " +
+				"-p $pkgPath -complete $incFlags -pack $in && " +
+				"if cmp --quiet $out.tmp $out; then rm $out.tmp; else mv -f $out.tmp $out; fi",
 			CommandDeps: []string{"$compileCmd"},
 			Description: "compile $out",
+			Restat:      true,
 		},
 		"pkgPath", "incFlags")
 
 	link = pctx.StaticRule("link",
 		blueprint.RuleParams{
-			Command:     "GOROOT='$goRoot' $linkCmd -o $out $libDirFlags $in",
+			Command: "GOROOT='$goRoot' $linkCmd -o $out.tmp $libDirFlags $in && " +
+				"if cmp --quiet $out.tmp $out; then rm $out.tmp; else mv -f $out.tmp $out; fi",
 			CommandDeps: []string{"$linkCmd"},
 			Description: "link $out",
+			Restat:      true,
 		},
 		"libDirFlags")
 
@@ -118,14 +124,14 @@ var (
 
 	generateBuildNinja = pctx.StaticRule("build.ninja",
 		blueprint.RuleParams{
-			Command:     "$builder $extra -b $buildDir -n $ninjaBuildDir -d $out.d -o $out $in",
+			Command:     "$builder $extra -b $buildDir -n $ninjaBuildDir -d $out.d -globFile $globFile -o $out $in",
 			CommandDeps: []string{"$builder"},
 			Description: "$builder $out",
 			Deps:        blueprint.DepsGCC,
 			Depfile:     "$out.d",
 			Restat:      true,
 		},
-		"builder", "extra", "generator")
+		"builder", "extra", "generator", "globFile")
 
 	// Work around a Ninja issue.  See https://github.com/martine/ninja/pull/634
 	phony = pctx.StaticRule("phony",
@@ -356,7 +362,7 @@ type goBinary struct {
 			TestSrcs []string
 		}
 
-		Tool_dir bool `blueprint:mutated`
+		Tool_dir bool `blueprint:"mutated"`
 	}
 
 	installPath string
@@ -433,10 +439,12 @@ func (g *goBinary) GenerateBuildActions(ctx blueprint.ModuleContext) {
 
 	buildGoPackage(ctx, objDir, name, archiveFile, srcs, genSrcs)
 
+	var linkDeps []string
 	var libDirFlags []string
 	ctx.VisitDepsDepthFirstIf(isGoPackageProducer,
 		func(module blueprint.Module) {
 			dep := module.(goPackageProducer)
+			linkDeps = append(linkDeps, dep.GoPackageTarget())
 			libDir := dep.GoPkgRoot()
 			libDirFlags = append(libDirFlags, "-L "+libDir)
 			deps = append(deps, dep.GoTestTargets()...)
@@ -448,11 +456,12 @@ func (g *goBinary) GenerateBuildActions(ctx blueprint.ModuleContext) {
 	}
 
 	ctx.Build(pctx, blueprint.BuildParams{
-		Rule:     link,
-		Outputs:  []string{aoutFile},
-		Inputs:   []string{archiveFile},
-		Args:     linkArgs,
-		Optional: true,
+		Rule:      link,
+		Outputs:   []string{aoutFile},
+		Inputs:    []string{archiveFile},
+		Implicits: linkDeps,
+		Args:      linkArgs,
+		Optional:  true,
 	})
 
 	ctx.Build(pctx, blueprint.BuildParams{
@@ -552,11 +561,13 @@ func buildGoTest(ctx blueprint.ModuleContext, testRoot, testPkgArchive,
 		Optional: true,
 	})
 
+	linkDeps := []string{testPkgArchive}
 	libDirFlags := []string{"-L " + testRoot}
 	testDeps := []string{}
 	ctx.VisitDepsDepthFirstIf(isGoPackageProducer,
 		func(module blueprint.Module) {
 			dep := module.(goPackageProducer)
+			linkDeps = append(linkDeps, dep.GoPackageTarget())
 			libDir := dep.GoPkgRoot()
 			libDirFlags = append(libDirFlags, "-L "+libDir)
 			testDeps = append(testDeps, dep.GoTestTargets()...)
@@ -575,9 +586,10 @@ func buildGoTest(ctx blueprint.ModuleContext, testRoot, testPkgArchive,
 	})
 
 	ctx.Build(pctx, blueprint.BuildParams{
-		Rule:    link,
-		Outputs: []string{testFile},
-		Inputs:  []string{testArchive},
+		Rule:      link,
+		Outputs:   []string{testFile},
+		Inputs:    []string{testArchive},
+		Implicits: linkDeps,
 		Args: map[string]string{
 			"libDirFlags": strings.Join(libDirFlags, " "),
 		},
@@ -638,6 +650,9 @@ func (s *singleton) GenerateBuildActions(ctx blueprint.SingletonContext) {
 	if s.config.moduleListFile != "" {
 		extraSharedFlagArray = append(extraSharedFlagArray, "-l", s.config.moduleListFile)
 	}
+	if s.config.emptyNinjaFile {
+		extraSharedFlagArray = append(extraSharedFlagArray, "--empty-ninja-file")
+	}
 	extraSharedFlagString := strings.Join(extraSharedFlagArray, " ")
 
 	var primaryBuilderName, primaryBuilderExtraFlags string
@@ -668,32 +683,33 @@ func (s *singleton) GenerateBuildActions(ctx blueprint.SingletonContext) {
 	topLevelBlueprints := filepath.Join("$srcDir",
 		filepath.Base(s.config.topLevelBlueprintsFile))
 
-	mainNinjaFile := filepath.Join("$buildDir", "build.ninja")
-	primaryBuilderNinjaFile := filepath.Join(bootstrapDir, "build.ninja")
-
 	ctx.SetNinjaBuildDir(pctx, "${ninjaBuildDir}")
 
-	// Build the main build.ninja
-	ctx.Build(pctx, blueprint.BuildParams{
-		Rule:    generateBuildNinja,
-		Outputs: []string{mainNinjaFile},
-		Inputs:  []string{topLevelBlueprints},
-		Args: map[string]string{
-			"builder": primaryBuilderFile,
-			"extra":   primaryBuilderExtraFlags,
-		},
-	})
+	if s.config.stage == StagePrimary {
+		mainNinjaFile := filepath.Join("$buildDir", "build.ninja")
+		primaryBuilderNinjaGlobFile := filepath.Join(BuildDir, bootstrapSubDir, "build-globs.ninja")
 
-	// Add a way to rebuild the primary build.ninja so that globs works
-	ctx.Build(pctx, blueprint.BuildParams{
-		Rule:    generateBuildNinja,
-		Outputs: []string{primaryBuilderNinjaFile},
-		Inputs:  []string{topLevelBlueprints},
-		Args: map[string]string{
-			"builder": minibpFile,
-			"extra":   extraSharedFlagString,
-		},
-	})
+		if _, err := os.Stat(primaryBuilderNinjaGlobFile); os.IsNotExist(err) {
+			err = ioutil.WriteFile(primaryBuilderNinjaGlobFile, nil, 0666)
+			if err != nil {
+				ctx.Errorf("Failed to create empty ninja file: %s", err)
+			}
+		}
+
+		ctx.AddSubninja(primaryBuilderNinjaGlobFile)
+
+		// Build the main build.ninja
+		ctx.Build(pctx, blueprint.BuildParams{
+			Rule:    generateBuildNinja,
+			Outputs: []string{mainNinjaFile},
+			Inputs:  []string{topLevelBlueprints},
+			Args: map[string]string{
+				"builder":  primaryBuilderFile,
+				"extra":    primaryBuilderExtraFlags,
+				"globFile": primaryBuilderNinjaGlobFile,
+			},
+		})
+	}
 
 	if s.config.stage == StageMain {
 		if primaryBuilderName == "minibp" {

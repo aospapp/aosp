@@ -27,7 +27,7 @@ class PlatformPal {
    /**
     * Routine to be performed before any call to a platform PAL API.
     */
-  void prePalApiCall();
+  void prePalApiCall() const;
 };
 
 }  // namespace chre

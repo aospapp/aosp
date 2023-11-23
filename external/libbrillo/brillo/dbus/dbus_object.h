@@ -372,6 +372,9 @@ class BRILLO_EXPORT DBusInterface final {
   void AddProperty(const std::string& property_name,
                    ExportedPropertyBase* prop_base);
 
+  // Unregisters a D-Bus property.
+  void RemoveProperty(const std::string& property_name);
+
   // Registers a D-Bus signal that has a specified number and types (|Args|) of
   // arguments. Returns a weak pointer to the DBusSignal object which can be
   // used to send the signal on this interface when needed:
@@ -507,6 +510,9 @@ class BRILLO_EXPORT DBusInterface final {
 // by this object.
 class BRILLO_EXPORT DBusObject {
  public:
+  using PropertyHandlerSetupCallback = base::Callback<void(
+      DBusInterface* prop_interface, ExportedPropertySet* property_set)>;
+
   // object_manager - ExportedObjectManager instance that notifies D-Bus
   //                  listeners of a new interface being claimed and property
   //                  changes on those interfaces.
@@ -514,6 +520,17 @@ class BRILLO_EXPORT DBusObject {
   DBusObject(ExportedObjectManager* object_manager,
              const scoped_refptr<dbus::Bus>& bus,
              const dbus::ObjectPath& object_path);
+
+  // property_handler_setup_callback - To be called when setting up property
+  //                                   method handlers. Clients can register
+  //                                   their own custom property method handlers
+  //                                   (GetAll/Get/Set) by passing in this
+  //                                   callback.
+  DBusObject(ExportedObjectManager* object_manager,
+             const scoped_refptr<dbus::Bus>& bus,
+             const dbus::ObjectPath& object_path,
+             PropertyHandlerSetupCallback property_handler_setup_callback);
+
   virtual ~DBusObject();
 
   // Returns an proxy handler for the interface |interface_name|. If the
@@ -523,6 +540,16 @@ class BRILLO_EXPORT DBusObject {
   // Finds an interface with the given name. Returns nullptr if there is no
   // interface registered by this name.
   DBusInterface* FindInterface(const std::string& interface_name) const;
+
+  // Removes the previously added proxy handler for the interface
+  // |interface_name|.
+  void RemoveInterface(const std::string& interface_name);
+
+  // Exports a proxy handler for the interface |interface_name|. If the
+  // interface proxy does not exist yet, it will be automatically created.
+  void ExportInterfaceAsync(
+      const std::string& interface_name,
+      const AsyncEventSequencer::CompletionAction& completion_callback);
 
   // Registers the object instance with D-Bus. This is an asynchronous call
   // that will call |completion_callback| when the object and all of its
@@ -555,6 +582,9 @@ class BRILLO_EXPORT DBusObject {
   scoped_refptr<dbus::Bus> GetBus() { return bus_; }
 
  private:
+  // Add the org.freedesktop.DBus.Properties interface to the object.
+  void RegisterPropertiesInterface();
+
   // A map of all the interfaces added to this object.
   std::map<std::string, std::unique_ptr<DBusInterface>> interfaces_;
   // Exported property set for properties registered with the interfaces
@@ -568,6 +598,8 @@ class BRILLO_EXPORT DBusObject {
   dbus::ObjectPath object_path_;
   // D-Bus object instance once this object is successfully exported.
   dbus::ExportedObject* exported_object_ = nullptr;  // weak; owned by |bus_|.
+  // Sets up property method handlers.
+  PropertyHandlerSetupCallback property_handler_setup_callback_;
 
   friend class DBusInterface;
   DISALLOW_COPY_AND_ASSIGN(DBusObject);

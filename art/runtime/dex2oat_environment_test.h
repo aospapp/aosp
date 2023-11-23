@@ -42,7 +42,7 @@ namespace art {
 // Test class that provides some helpers to set a test up for compilation using dex2oat.
 class Dex2oatEnvironmentTest : public CommonRuntimeTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  void SetUp() override {
     CommonRuntimeTest::SetUp();
     const ArtDexFileLoader dex_file_loader;
 
@@ -87,7 +87,7 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     std::vector<std::unique_ptr<const DexFile>> multi1;
     ASSERT_TRUE(dex_file_loader.Open(GetMultiDexSrc1().c_str(),
                                      GetMultiDexSrc1().c_str(),
-                                     /* verify */ true,
+                                     /* verify= */ true,
                                      kVerifyChecksum,
                                      &error_msg,
                                      &multi1)) << error_msg;
@@ -96,7 +96,7 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     std::vector<std::unique_ptr<const DexFile>> multi2;
     ASSERT_TRUE(dex_file_loader.Open(GetMultiDexSrc2().c_str(),
                                      GetMultiDexSrc2().c_str(),
-                                     /* verify */ true,
+                                     /* verify= */ true,
                                      kVerifyChecksum,
                                      &error_msg,
                                      &multi2)) << error_msg;
@@ -106,7 +106,7 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     ASSERT_NE(multi1[1]->GetLocationChecksum(), multi2[1]->GetLocationChecksum());
   }
 
-  virtual void SetUpRuntimeOptions(RuntimeOptions* options) OVERRIDE {
+  void SetUpRuntimeOptions(RuntimeOptions* options) override {
     // options->push_back(std::make_pair("-verbose:oat", nullptr));
 
     // Set up the image location.
@@ -117,7 +117,7 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     callbacks_.reset();
   }
 
-  virtual void TearDown() OVERRIDE {
+  void TearDown() override {
     ClearDirectory(odex_dir_.c_str());
     ASSERT_EQ(0, rmdir(odex_dir_.c_str()));
 

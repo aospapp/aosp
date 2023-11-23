@@ -2,15 +2,11 @@ msgctl01 msgctl01
 msgctl02 msgctl02
 msgctl03 msgctl03
 msgctl04 msgctl04
-msgctl05 msgctl05
-msgctl06 msgctl06
-msgctl07 msgctl07
-msgctl08 msgctl08
-msgctl09 msgctl09
-msgctl10 msgctl10
-msgctl11 msgctl11
+msgstress01 msgstress01
+msgstress02 msgstress02
+msgstress03 msgstress03
+msgstress04 msgstress04
 msgctl12 msgctl12
-msgctl13 msgctl13
 
 msgget01 msgget01
 msgget02 msgget02
@@ -57,6 +53,7 @@ shmctl01 shmctl01
 shmctl02 shmctl02
 shmctl03 shmctl03
 shmctl04 shmctl04
+shmctl05 shmctl05
 
 shmdt01 shmdt01
 shmdt02 shmdt02

@@ -40,6 +40,7 @@
             android:theme="@style/Theme.Settings.NoActionBar">
             <intent-filter priority="-1">
                 <action android:name="com.android.settings.action.SETTINGS_SEARCH" />
+                <action android:name="android.settings.APP_SEARCH_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

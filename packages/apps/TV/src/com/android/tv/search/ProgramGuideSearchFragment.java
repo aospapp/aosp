@@ -84,7 +84,7 @@ public class ProgramGuideSearchFragment extends SearchFragment {
                                 createImageLoaderCallback(cardView));
                     } else {
                         cardView.setMainImage(
-                                mMainActivity.getDrawable(R.drawable.ic_live_channels_96x96));
+                                mMainActivity.getDrawable(R.drawable.ic_tv_app_96x96));
                     }
                 }
 
@@ -171,7 +171,7 @@ public class ProgramGuideSearchFragment extends SearchFragment {
         View v = super.onCreateView(inflater, container, savedInstanceState);
         v.setBackgroundResource(R.color.program_guide_scrim);
 
-        setBadgeDrawable(mMainActivity.getDrawable(R.drawable.ic_live_channels_96x96));
+        setBadgeDrawable(mMainActivity.getDrawable(R.drawable.ic_tv_app_96x96));
         setSearchResultProvider(mSearchResultProvider);
         setOnItemViewClickedListener(mItemClickedListener);
         return v;

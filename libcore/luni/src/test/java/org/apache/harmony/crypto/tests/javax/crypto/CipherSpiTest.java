@@ -121,6 +121,16 @@ public class CipherSpiTest extends TestCase {
         }
 
         @Override
+        protected void engineUpdateAAD(byte[] src, int offset, int len) {
+            super.engineUpdateAAD(src, offset, len);
+        }
+
+        @Override
+        protected void engineUpdateAAD(ByteBuffer buf) {
+            super.engineUpdateAAD(buf);
+        }
+
+        @Override
         protected int engineGetKeySize(Key key) throws InvalidKeyException {
             return super.engineGetKeySize(key);
         }
@@ -299,6 +309,32 @@ public class CipherSpiTest extends TestCase {
         bb1.position(pos);
         bb2.position(0);
         assertTrue("Incorrect result", cSpi.engineDoFinal(bb1, bb2) > 0);
+    }
+
+    /**
+     * Test for <code>engineUpdateAAD(ByteBuffer)</code> method
+     * Assertion: It throws UnsupportedOperationException if it is not overridden
+     */
+    public void testCipherSpi07() {
+        Mock_CipherSpi cSpi = new Mock_CipherSpi();
+        try {
+            cSpi.engineUpdateAAD(ByteBuffer.wrap(new byte[] { 0x00, 0x01}));
+            fail("UnsupportedOperationException must be thrown");
+        } catch (UnsupportedOperationException e) {
+        }
+    }
+
+    /**
+     * Test for <code>engineUpdateAAD(byte[], int, int)</code> method
+     * Assertion: It throws UnsupportedOperationException if it is not overridden
+     */
+    public void testCipherSpi08() {
+        Mock_CipherSpi cSpi = new Mock_CipherSpi();
+        try {
+            cSpi.engineUpdateAAD(new byte[] { 0x00, 0x01}, 0, 2);
+            fail("UnsupportedOperationException must be thrown");
+        } catch (UnsupportedOperationException e) {
+        }
     }
 
     public void testCrypt_doNotCallPositionInNonArrayBackedInputBuffer() throws Exception {

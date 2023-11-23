@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -13,20 +13,14 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import time
 import enum
-import logging
-from acts.controllers.relay_lib.generic_relay_device import GenericRelayDevice
-from acts.controllers.relay_lib.relay import SynchronizeRelays
-from acts.controllers.relay_lib.errors import RelayConfigError
-from acts.controllers.relay_lib.helpers import validate_key
+import time
+
+from acts.controllers.relay_lib.devices.bluetooth_relay_device import BluetoothRelayDevice
 
 PAIRING_MODE_WAIT_TIME = 5
 POWER_ON_WAIT_TIME = 2
 POWER_OFF_WAIT_TIME = 6
-MISSING_RELAY_MSG = 'Relay config for Ak XB10 "%s" missing relay "%s".'
-
-log = logging
 
 
 class Buttons(enum.Enum):
@@ -34,24 +28,15 @@ class Buttons(enum.Enum):
     PAIR = 'Pair'
 
 
-class AkXB10Speaker(GenericRelayDevice):
+class AkXB10Speaker(BluetoothRelayDevice):
     """A&K XB10 Bluetooth Speaker model
 
     Wraps the button presses, as well as the special features like pairing.
     """
 
     def __init__(self, config, relay_rig):
-        GenericRelayDevice.__init__(self, config, relay_rig)
-
-        self.mac_address = validate_key('mac_address', config, str, 'ak_xb10')
-
-        for button in Buttons:
-            self.ensure_config_contains_relay(button.value)
-
-    def ensure_config_contains_relay(self, relay_name):
-        """Throws an error if the relay does not exist."""
-        if relay_name not in self.relays:
-            raise RelayConfigError(MISSING_RELAY_MSG % (self.name, relay_name))
+        BluetoothRelayDevice.__init__(self, config, relay_rig)
+        self._ensure_config_contains_relays(button.value for button in Buttons)
 
     def _hold_button(self, button, seconds):
         self.hold_down(button.value)
@@ -69,8 +54,8 @@ class AkXB10Speaker(GenericRelayDevice):
 
     def setup(self):
         """Sets all relays to their default state (off)."""
-        GenericRelayDevice.setup(self)
+        BluetoothRelayDevice.setup(self)
 
     def clean_up(self):
         """Sets all relays to their default state (off)."""
-        GenericRelayDevice.clean_up(self)
+        BluetoothRelayDevice.clean_up(self)

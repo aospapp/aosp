@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (C) 1995, 1996, 1997 Wolfgang Solfrank
  * Copyright (c) 1995 Martin Husemann
  *
@@ -10,13 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by Martin Husemann
- *	and Wolfgang Solfrank.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -33,14 +28,13 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: check.c,v 1.10 2000/04/25 23:02:51 jdolecek Exp $");
+__RCSID("$NetBSD: check.c,v 1.14 2006/06/05 16:51:18 christos Exp $");
 static const char rcsid[] =
-  "$FreeBSD: src/sbin/fsck_msdosfs/check.c,v 1.10 2004/02/05 15:47:46 bde Exp $";
+  "$FreeBSD$";
 #endif /* not lint */
 
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -48,27 +42,19 @@ static const char rcsid[] =
 #include "ext.h"
 #include "fsutil.h"
 
-/*
- * If the FAT > this size then skip comparing, lest we risk
- * OOMing the framework. in the future we need to just re-write
- * this whole thing and optimize for less memory
- */
-#define FAT_COMPARE_MAX_KB 4096
-
 int
 checkfilesys(const char *fname)
 {
 	int dosfs;
 	struct bootblock boot;
 	struct fatEntry *fat = NULL;
-	int i, finish_dosdirsection=0;
+	int finish_dosdirsection=0;
+	u_int i;
 	int mod = 0;
 	int ret = 8;
-        int quiet = 0;
-        int skip_fat_compare = 0;
 
 	rdonly = alwaysno;
-	if (!quiet)
+	if (!preen)
 		printf("** %s", fname);
 
 	dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR, 0);
@@ -76,14 +62,15 @@ checkfilesys(const char *fname)
 		dosfs = open(fname, O_RDONLY, 0);
 		if (dosfs >= 0)
 			pwarn(" (NO WRITE)\n");
-		else if (!quiet)
+		else if (!preen)
 			printf("\n");
 		rdonly = 1;
-	} else if (!quiet)
+	} else if (!preen)
 		printf("\n");
 
 	if (dosfs < 0) {
-		perror("Can't open");
+		perr("Can't open `%s'", fname);
+		printf("\n");
 		return 8;
 	}
 
@@ -100,13 +87,8 @@ checkfilesys(const char *fname)
 		goto out;
 	}
 
-        if (((boot.FATsecs * boot.BytesPerSec) / 1024) > FAT_COMPARE_MAX_KB)
-            skip_fat_compare = 1;
-
-	if (!quiet)  {
-                if (skip_fat_compare) 
-                        printf("** Phase 1 - Read FAT (compare skipped)\n");
-		else if (boot.ValidFat < 0)
+	if (!preen)  {
+		if (boot.ValidFat < 0)
 			printf("** Phase 1 - Read and Compare FATs\n");
 		else
 			printf("** Phase 1 - Read FAT\n");
@@ -114,56 +96,47 @@ checkfilesys(const char *fname)
 
 	mod |= readfat(dosfs, &boot, boot.ValidFat >= 0 ? boot.ValidFat : 0, &fat);
 	if (mod & FSFATAL) {
-		printf("Fatal error during readfat()\n");
 		close(dosfs);
 		return 8;
 	}
 
-	if (!skip_fat_compare && boot.ValidFat < 0)
-		for (i = 1; i < (int)boot.FATs; i++) {
+	if (boot.ValidFat < 0)
+		for (i = 1; i < boot.bpbFATs; i++) {
 			struct fatEntry *currentFat;
 
 			mod |= readfat(dosfs, &boot, i, &currentFat);
 
-			if (mod & FSFATAL) {
-				printf("Fatal error during readfat() for comparison\n");
+			if (mod & FSFATAL)
 				goto out;
-			}
 
 			mod |= comparefat(&boot, fat, currentFat, i);
 			free(currentFat);
-			if (mod & FSFATAL) {
-				printf("Fatal error during FAT comparison\n");
+			if (mod & FSFATAL)
 				goto out;
-			}
 		}
 
-	if (!quiet)
+	if (!preen)
 		printf("** Phase 2 - Check Cluster Chains\n");
 
 	mod |= checkfat(&boot, fat);
-	if (mod & FSFATAL) {
-		printf("Fatal error during FAT check\n");
+	if (mod & FSFATAL)
 		goto out;
-	}
 	/* delay writing FATs */
 
-	if (!quiet)
+	if (!preen)
 		printf("** Phase 3 - Checking Directories\n");
 
 	mod |= resetDosDirSection(&boot, fat);
 	finish_dosdirsection = 1;
-	if (mod & FSFATAL) {
-		printf("Fatal error during resetDosDirSection()\n");
+	if (mod & FSFATAL)
 		goto out;
-	}
 	/* delay writing FATs */
 
 	mod |= handleDirTree(dosfs, &boot, fat);
 	if (mod & FSFATAL)
 		goto out;
 
-	if (!quiet)
+	if (!preen)
 		printf("** Phase 4 - Checking for Lost Files\n");
 
 	mod |= checklost(dosfs, &boot, fat);
@@ -171,13 +144,11 @@ checkfilesys(const char *fname)
 		goto out;
 
 	/* now write the FATs */
-	if (mod & FSFATMOD) {
+	if (mod & (FSFATMOD|FSFIXFAT)) {
 		if (ask(1, "Update FATs")) {
 			mod |= writefat(dosfs, &boot, fat, mod & FSFIXFAT);
-			if (mod & FSFATAL) {
-				printf("Fatal error during writefat()\n");
+			if (mod & FSFATAL)
 				goto out;
-			}
 		} else
 			mod |= FSERROR;
 	}
@@ -218,10 +189,8 @@ checkfilesys(const char *fname)
 	free(fat);
 	close(dosfs);
 
-	if (mod & (FSFATMOD|FSDIRMOD)) {
+	if (mod & (FSFATMOD|FSDIRMOD))
 		pwarn("\n***** FILE SYSTEM WAS MODIFIED *****\n");
-		return 4; 
-	}
 
 	return ret;
 }

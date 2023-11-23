@@ -16,11 +16,12 @@
 
 package com.android.car.radio.storage;
 
-import android.annotation.Nullable;
-import android.arch.persistence.room.Entity;
 import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.ProgramSelector.IdentifierType;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.room.Entity;
 
 @Entity
 class IdentifierEntity {

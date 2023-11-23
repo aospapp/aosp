@@ -17,13 +17,13 @@
 %                               September 2014                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -141,7 +141,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
     *object;
 
   char
-    *p;
+    *c;
 
   const char
     *artifact;
@@ -185,7 +185,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
   assert(exception->signature == MagickCoreSignature);
   if (objects != (CCObjectInfo **) NULL)
     *objects=(CCObjectInfo *) NULL;
-  component_image=CloneImage(image,image->columns,image->rows,MagickTrue,
+  component_image=CloneImage(image,0,0,MagickTrue,
     exception);
   if (component_image == (Image *) NULL)
     return((Image *) NULL);
@@ -219,7 +219,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
       component_image=DestroyImage(component_image);
       ThrowImageException(ResourceLimitError,"MemoryAllocationFailed");
     }
-  (void) ResetMagickMemory(object,0,MaxColormapSize*sizeof(*object));
+  (void) memset(object,0,MaxColormapSize*sizeof(*object));
   for (i=0; i < (ssize_t) MaxColormapSize; i++)
   {
     object[i].id=i;
@@ -270,7 +270,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
 
         ssize_t
           neighbor_offset,
-          object,
+          obj,
           offset,
           ox,
           oy,
@@ -280,12 +280,16 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
           Is neighbor an authentic pixel and a different color than the pixel?
         */
         GetPixelInfoPixel(image,p,&pixel);
+        if (((x+dx) < 0) || ((x+dx) >= (ssize_t) image->columns) ||
+            ((y+dy) < 0) || ((y+dy) >= (ssize_t) image->rows))
+          {
+            p+=GetPixelChannels(image);
+            continue;
+          }
         neighbor_offset=dy*(GetPixelChannels(image)*image->columns)+dx*
           GetPixelChannels(image);
         GetPixelInfoPixel(image,p+neighbor_offset,&target);
-        if (((x+dx) < 0) || ((x+dx) >= (ssize_t) image->columns) ||
-            ((y+dy) < 0) || ((y+dy) >= (ssize_t) image->rows) ||
-            (IsFuzzyEquivalencePixelInfo(&pixel,&target) == MagickFalse))
+        if (IsFuzzyEquivalencePixelInfo(&pixel,&target) == MagickFalse)
           {
             p+=GetPixelChannels(image);
             continue;
@@ -296,18 +300,18 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
         offset=y*image->columns+x;
         neighbor_offset=dy*image->columns+dx;
         ox=offset;
-        status=GetMatrixElement(equivalences,ox,0,&object);
-        while (object != ox)
+        status=GetMatrixElement(equivalences,ox,0,&obj);
+        while (obj != ox)
         {
-          ox=object;
-          status=GetMatrixElement(equivalences,ox,0,&object);
+          ox=obj;
+          status=GetMatrixElement(equivalences,ox,0,&obj);
         }
         oy=offset+neighbor_offset;
-        status=GetMatrixElement(equivalences,oy,0,&object);
-        while (object != oy)
+        status=GetMatrixElement(equivalences,oy,0,&obj);
+        while (obj != oy)
         {
-          oy=object;
-          status=GetMatrixElement(equivalences,oy,0,&object);
+          oy=obj;
+          status=GetMatrixElement(equivalences,oy,0,&obj);
         }
         if (ox < oy)
           {
@@ -320,17 +324,17 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
             root=oy;
           }
         ox=offset;
-        status=GetMatrixElement(equivalences,ox,0,&object);
-        while (object != root)
+        status=GetMatrixElement(equivalences,ox,0,&obj);
+        while (obj != root)
         {
-          status=GetMatrixElement(equivalences,ox,0,&object);
+          status=GetMatrixElement(equivalences,ox,0,&obj);
           status=SetMatrixElement(equivalences,ox,0,&root);
         }
         oy=offset+neighbor_offset;
-        status=GetMatrixElement(equivalences,oy,0,&object);
-        while (object != root)
+        status=GetMatrixElement(equivalences,oy,0,&obj);
+        while (obj != root)
         {
-          status=GetMatrixElement(equivalences,oy,0,&object);
+          status=GetMatrixElement(equivalences,oy,0,&obj);
           status=SetMatrixElement(equivalences,oy,0,&root);
         }
         status=SetMatrixElement(equivalences,y*image->columns+x,0,&root);
@@ -374,31 +378,30 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
 
       offset=y*image->columns+x;
       status=GetMatrixElement(equivalences,offset,0,&id);
-      if (id == offset)
-        {
-          id=n++;
-          if (n > (ssize_t) MaxColormapSize)
-            break;
-          status=SetMatrixElement(equivalences,offset,0,&id);
-        }
+      if (id != offset)
+        status=GetMatrixElement(equivalences,id,0,&id);
       else
         {
-          status=GetMatrixElement(equivalences,id,0,&id);
-          status=SetMatrixElement(equivalences,offset,0,&id);
+          id=n++;
+          if (id >= (ssize_t) MaxColormapSize)
+            break;
         }
+      status=SetMatrixElement(equivalences,offset,0,&id);
       if (x < object[id].bounding_box.x)
         object[id].bounding_box.x=x;
-      if (x > (ssize_t) object[id].bounding_box.width)
+      if (x >= (ssize_t) object[id].bounding_box.width)
         object[id].bounding_box.width=(size_t) x;
       if (y < object[id].bounding_box.y)
         object[id].bounding_box.y=y;
-      if (y > (ssize_t) object[id].bounding_box.height)
+      if (y >= (ssize_t) object[id].bounding_box.height)
         object[id].bounding_box.height=(size_t) y;
-      object[id].color.red+=GetPixelRed(image,p);
-      object[id].color.green+=GetPixelGreen(image,p);
-      object[id].color.blue+=GetPixelBlue(image,p);
-      object[id].color.black+=GetPixelBlack(image,p);
-      object[id].color.alpha+=GetPixelAlpha(image,p);
+      object[id].color.red+=QuantumScale*GetPixelRed(image,p);
+      object[id].color.green+=QuantumScale*GetPixelGreen(image,p);
+      object[id].color.blue+=QuantumScale*GetPixelBlue(image,p);
+      if (image->alpha_trait != UndefinedPixelTrait)
+        object[id].color.alpha+=QuantumScale*GetPixelAlpha(image,p);
+      if (image->colorspace == CMYKColorspace)
+        object[id].color.black+=QuantumScale*GetPixelBlack(image,p);
       object[id].centroid.x+=x;
       object[id].centroid.y+=y;
       object[id].area++;
@@ -415,7 +418,11 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
         MagickBooleanType
           proceed;
 
-        proceed=SetImageProgress(image,ConnectedComponentsImageTag,progress++,
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,ConnectedComponentsImageTag,progress,
           image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
@@ -435,11 +442,13 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
   {
     object[i].bounding_box.width-=(object[i].bounding_box.x-1);
     object[i].bounding_box.height-=(object[i].bounding_box.y-1);
-    object[i].color.red=object[i].color.red/object[i].area;
-    object[i].color.green=object[i].color.green/object[i].area;
-    object[i].color.blue=object[i].color.blue/object[i].area;
-    object[i].color.alpha=object[i].color.alpha/object[i].area;
-    object[i].color.black=object[i].color.black/object[i].area;
+    object[i].color.red=QuantumRange*(object[i].color.red/object[i].area);
+    object[i].color.green=QuantumRange*(object[i].color.green/object[i].area);
+    object[i].color.blue=QuantumRange*(object[i].color.blue/object[i].area);
+    if (image->alpha_trait != UndefinedPixelTrait)
+      object[i].color.alpha=QuantumRange*(object[i].color.alpha/object[i].area);
+    if (image->colorspace == CMYKColorspace)
+      object[i].color.black=QuantumRange*(object[i].color.black/object[i].area);
     object[i].centroid.x=object[i].centroid.x/object[i].area;
     object[i].centroid.y=object[i].centroid.y/object[i].area;
   }
@@ -496,6 +505,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
             j=(ssize_t) GetPixelIndex(component_image,p);
             if (j != i)
               object[j].census++;
+            p+=GetPixelChannels(component_image);
           }
         }
         census=0;
@@ -527,13 +537,14 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
           for (x=0; x < (ssize_t) bounding_box.width; x++)
           {
             if ((ssize_t) GetPixelIndex(component_image,q) == i)
-              SetPixelIndex(image,(Quantum) id,q);
+              SetPixelIndex(component_image,(Quantum) id,q);
             q+=GetPixelChannels(component_image);
           }
           if (SyncCacheViewAuthenticPixels(component_view,exception) == MagickFalse)
             status=MagickFalse;
         }
       }
+      component_view=DestroyCacheView(component_view);
       (void) SyncImage(component_image,exception);
     }
   artifact=GetImageArtifact(image,"connected-components:mean-color");
@@ -553,23 +564,24 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
       */
       for (i=0; i < (ssize_t) component_image->colors; i++)
         object[i].census=0;
-      for (p=(char *) artifact; *p != '\0';)
+      for (c=(char *) artifact; *c != '\0';)
       {
-        while ((isspace((int) ((unsigned char) *p)) != 0) || (*p == ','))
-          p++;
-        first=strtol(p,&p,10);
+        while ((isspace((int) ((unsigned char) *c)) != 0) || (*c == ','))
+          c++;
+        first=(ssize_t) strtol(c,&c,10);
         if (first < 0)
-          first+=(long) component_image->colors;
+          first+=(ssize_t) component_image->colors;
         last=first;
-        while (isspace((int) ((unsigned char) *p)) != 0)
-          p++;
-        if (*p == '-')
+        while (isspace((int) ((unsigned char) *c)) != 0)
+          c++;
+        if (*c == '-')
           {
-            last=strtol(p+1,&p,10);
+            last=(ssize_t) strtol(c+1,&c,10);
             if (last < 0)
-              last+=(long) component_image->colors;
+              last+=(ssize_t) component_image->colors;
           }
-        for (step=first > last ? -1 : 1; first != (last+step); first+=step)
+        step=(ssize_t) (first > last ? -1 : 1);
+        for ( ; first != (last+step); first+=step)
           object[first].census++;
       }
       for (i=0; i < (ssize_t) component_image->colors; i++)
@@ -577,7 +589,8 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
         if (object[i].census != 0)
           continue;
         component_image->alpha_trait=BlendPixelTrait;
-        component_image->colormap[i].alpha=TransparentAlpha;
+        component_image->colormap[i].alpha_trait=BlendPixelTrait;
+        component_image->colormap[i].alpha=(MagickRealType) TransparentAlpha;
       }
     }
   artifact=GetImageArtifact(image,"connected-components:remove");
@@ -586,26 +599,29 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
       /*
         Remove these object (make them transparent).
       */
-      for (p=(char *) artifact; *p != '\0';)
+      for (c=(char *) artifact; *c != '\0';)
       {
-        while ((isspace((int) ((unsigned char) *p)) != 0) || (*p == ','))
-          p++;
-        first=strtol(p,&p,10);
+        while ((isspace((int) ((unsigned char) *c)) != 0) || (*c == ','))
+          c++;
+        first=(ssize_t) strtol(c,&c,10);
         if (first < 0)
-          first+=(long) component_image->colors;
+          first+=(ssize_t) component_image->colors;
         last=first;
-        while (isspace((int) ((unsigned char) *p)) != 0)
-          p++;
-        if (*p == '-')
+        while (isspace((int) ((unsigned char) *c)) != 0)
+          c++;
+        if (*c == '-')
           {
-            last=strtol(p+1,&p,10);
+            last=(ssize_t) strtol(c+1,&c,10);
             if (last < 0)
-              last+=(long) component_image->colors;
+              last+=(ssize_t) component_image->colors;
           }
-        for (step=first > last ? -1 : 1; first != (last+step); first+=step)
+        step=(ssize_t) (first > last ? -1 : 1);
+        for ( ; first != (last+step); first+=step)
         {
           component_image->alpha_trait=BlendPixelTrait;
-          component_image->colormap[first].alpha=TransparentAlpha;
+          component_image->colormap[first].alpha_trait=BlendPixelTrait;
+          component_image->colormap[first].alpha=(MagickRealType)
+            TransparentAlpha;
         }
       }
     }
@@ -638,8 +654,8 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
 
         if (status == MagickFalse)
           continue;
-        p=GetCacheViewVirtualPixels(component_view,0,y,
-          component_image->columns,1,exception);
+        p=GetCacheViewVirtualPixels(component_view,0,y,component_image->columns,
+          1,exception);
         if (p == (const Quantum *) NULL)
           {
             status=MagickFalse;
@@ -686,7 +702,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
 
             if (status == MagickFalse)
               break;
-            if (object[i].area < MagickEpsilon)
+            if (object[i].area <= area_threshold)
               continue;
             GetColorTuple(&object[i].color,MagickFalse,mean_color);
             (void) fprintf(stdout,

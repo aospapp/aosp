@@ -38,7 +38,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
+import libcore.testing.io.TestIoUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -88,7 +88,7 @@ public class AbstractPreferencesTest extends TestCase {
 
     @Override
     protected void setUp() throws Exception {
-        File tmpDir = IoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
+        File tmpDir = TestIoUtils.createTemporaryDirectory("OldAbstractPreferencesTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new TestPreferencesFactory(tmpDir.getAbsolutePath()));
         root = (AbstractPreferences) Preferences.userRoot();

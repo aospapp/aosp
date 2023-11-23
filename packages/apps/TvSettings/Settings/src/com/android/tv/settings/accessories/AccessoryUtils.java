@@ -18,8 +18,9 @@ package com.android.tv.settings.accessories;
 
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 
 import com.android.tv.settings.R;
 

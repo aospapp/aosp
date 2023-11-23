@@ -40,11 +40,10 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class MonitorInfoTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ObjectReference.MonitorInfo command";
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/MonitorInfoDebuggee;";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.MonitorInfoDebuggee";
+        return MonitorInfoDebuggee.class.getName();
     }
 
     /**
@@ -67,7 +66,7 @@ public class MonitorInfoTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         finalSyncMessage = "TO_FINISH";
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);

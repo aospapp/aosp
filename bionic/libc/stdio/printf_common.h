@@ -48,6 +48,8 @@
 #include <unistd.h>
 #include <wchar.h>
 
+#include <private/bionic_macros.h>
+
 #include "fvwrite.h"
 #include "gdtoa.h"
 #include "local.h"
@@ -472,7 +474,7 @@ static int __find_arguments(const CHAR_TYPE* fmt0, va_list ap, union arg** argta
         goto rflag;
       case 'C':
         flags |= LONGINT;
-        /*FALLTHROUGH*/
+        __BIONIC_FALLTHROUGH;
       case 'c':
         if (flags & LONGINT)
           ADDTYPE(T_WINT);
@@ -481,7 +483,7 @@ static int __find_arguments(const CHAR_TYPE* fmt0, va_list ap, union arg** argta
         break;
       case 'D':
         flags |= LONGINT;
-        /*FALLTHROUGH*/
+        __BIONIC_FALLTHROUGH;
       case 'd':
       case 'i':
         ADDSARG();
@@ -499,27 +501,11 @@ static int __find_arguments(const CHAR_TYPE* fmt0, va_list ap, union arg** argta
         else
           ADDTYPE(T_DOUBLE);
         break;
-#ifndef NO_PRINTF_PERCENT_N
       case 'n':
-        if (flags & LLONGINT)
-          ADDTYPE(TP_LLONG);
-        else if (flags & LONGINT)
-          ADDTYPE(TP_LONG);
-        else if (flags & SHORTINT)
-          ADDTYPE(TP_SHORT);
-        else if (flags & PTRINT)
-          ADDTYPE(TP_PTRINT);
-        else if (flags & SIZEINT)
-          ADDTYPE(TP_SSIZEINT);
-        else if (flags & MAXINT)
-          ADDTYPE(TP_MAXINT);
-        else
-          ADDTYPE(TP_INT);
-        continue; /* no output */
-#endif            /* NO_PRINTF_PERCENT_N */
+        __fortify_fatal("%%n not allowed on Android");
       case 'O':
         flags |= LONGINT;
-        /*FALLTHROUGH*/
+        __BIONIC_FALLTHROUGH;
       case 'o':
         ADDUARG();
         break;
@@ -528,13 +514,13 @@ static int __find_arguments(const CHAR_TYPE* fmt0, va_list ap, union arg** argta
         break;
       case 'S':
         flags |= LONGINT;
-        /*FALLTHROUGH*/
+        __BIONIC_FALLTHROUGH;
       case 's':
         ADDTYPE((flags & LONGINT) ? TP_WCHAR : TP_CHAR);
         break;
       case 'U':
         flags |= LONGINT;
-        /*FALLTHROUGH*/
+        __BIONIC_FALLTHROUGH;
       case 'u':
       case 'X':
       case 'x':
@@ -551,7 +537,7 @@ done:
    */
   if (tablemax >= STATIC_ARG_TBL_SIZE) {
     *argtablesiz = sizeof(union arg) * (tablemax + 1);
-    *argtable = static_cast<arg*>(mmap(NULL, *argtablesiz,
+    *argtable = static_cast<arg*>(mmap(nullptr, *argtablesiz,
                                        PROT_WRITE | PROT_READ,
                                        MAP_ANON | MAP_PRIVATE, -1, 0));
     if (*argtable == MAP_FAILED) return -1;
@@ -645,9 +631,9 @@ overflow:
   ret = -1;
 
 finish:
-  if (typetable != NULL && typetable != stattypetable) {
+  if (typetable != nullptr && typetable != stattypetable) {
     munmap(typetable, *argtablesiz);
-    typetable = NULL;
+    typetable = nullptr;
   }
   return (ret);
 }
@@ -662,13 +648,13 @@ static int __grow_type_table(unsigned char** typetable, int* tablesize) {
   if (new_size < getpagesize()) new_size = getpagesize();
 
   if (*tablesize == STATIC_ARG_TBL_SIZE) {
-    *typetable = static_cast<unsigned char*>(mmap(NULL, new_size,
+    *typetable = static_cast<unsigned char*>(mmap(nullptr, new_size,
                                                   PROT_WRITE | PROT_READ,
                                                   MAP_ANON | MAP_PRIVATE, -1, 0));
     if (*typetable == MAP_FAILED) return -1;
     bcopy(old_table, *typetable, *tablesize);
   } else {
-    unsigned char* new_table = static_cast<unsigned char*>(mmap(NULL, new_size,
+    unsigned char* new_table = static_cast<unsigned char*>(mmap(nullptr, new_size,
                                                                 PROT_WRITE | PROT_READ,
                                                                 MAP_ANON | MAP_PRIVATE, -1, 0));
     if (new_table == MAP_FAILED) return -1;
@@ -711,8 +697,8 @@ struct helpers {
     if (prec < 0) {
       memset(&mbs, 0, sizeof(mbs));
       p = wcsarg;
-      nbytes = wcsrtombs(NULL, (const wchar_t**)&p, 0, &mbs);
-      if (nbytes == (size_t)-1) return NULL;
+      nbytes = wcsrtombs(nullptr, (const wchar_t**)&p, 0, &mbs);
+      if (nbytes == (size_t)-1) return nullptr;
     } else {
       // Optimisation: if the output precision is small enough,
       // just allocate enough memory for the maximum instead of
@@ -728,17 +714,17 @@ struct helpers {
           if (clen == 0 || clen == (size_t)-1 || nbytes + clen > (size_t)prec) break;
           nbytes += clen;
         }
-        if (clen == (size_t)-1) return NULL;
+        if (clen == (size_t)-1) return nullptr;
       }
     }
-    if ((convbuf = static_cast<char*>(malloc(nbytes + 1))) == NULL) return NULL;
+    if ((convbuf = static_cast<char*>(malloc(nbytes + 1))) == nullptr) return nullptr;
 
     // Fill the output buffer.
     p = wcsarg;
     memset(&mbs, 0, sizeof(mbs));
     if ((nbytes = wcsrtombs(convbuf, (const wchar_t**)&p, nbytes, &mbs)) == (size_t)-1) {
       free(convbuf);
-      return NULL;
+      return nullptr;
     }
     convbuf[nbytes] = '\0';
     return convbuf;
@@ -780,7 +766,7 @@ struct helpers {
     const char* p;
     size_t insize, nchars, nconv;
 
-    if (mbsarg == NULL) return NULL;
+    if (mbsarg == nullptr) return nullptr;
 
     // Supplied argument is a multibyte string; convert it to wide characters first.
     if (prec >= 0) {
@@ -795,7 +781,7 @@ struct helpers {
         nchars++;
         insize += nconv;
       }
-      if (nconv == (size_t)-1 || nconv == (size_t)-2) return (NULL);
+      if (nconv == (size_t)-1 || nconv == (size_t)-2) return (nullptr);
     } else {
       insize = strlen(mbsarg);
     }
@@ -804,7 +790,7 @@ struct helpers {
     // converting at most `size' bytes of the input multibyte string to
     // wide characters for printing.
     wchar_t* convbuf = static_cast<wchar_t*>(calloc(insize + 1, sizeof(*convbuf)));
-    if (convbuf == NULL) return NULL;
+    if (convbuf == nullptr) return nullptr;
     wchar_t* wcp = convbuf;
     p = mbsarg;
     bzero(&mbs, sizeof(mbs));
@@ -818,7 +804,7 @@ struct helpers {
     }
     if (nconv == (size_t)-1 || nconv == (size_t)-2) {
       free(convbuf);
-      return NULL;
+      return nullptr;
     }
     *wcp = '\0';
 

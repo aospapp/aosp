@@ -1219,8 +1219,8 @@ int NanCommand::handleEvent(WifiEvent &event)
     } else if (mSubcmd == QCA_NL80211_VENDOR_SUBCMD_NDP) {
         // Parse the vendordata and get the NAN attribute
         u32 ndpCmdType;
-        struct nlattr *tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_AFTER_LAST + 1];
-        nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_NDP_MAX,
+        struct nlattr *tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
+        nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX,
                   (struct nlattr *)mVendorData,
                   mDataLen, NULL);
 
@@ -1245,7 +1245,7 @@ int NanCommand::handleEvent(WifiEvent &event)
                 case QCA_WLAN_VENDOR_ATTR_NDP_END_RESPONSE:
                     handleNdpResponse(NAN_DP_END, tb_vendor);
                     break;
-                case QCA_WLAN_VENDOR_ATTR_NDP_DATA_REQUEST_IND:
+                case QCA_WLAN_VENDOR_ATTR_NDP_REQUEST_IND:
                 case QCA_WLAN_VENDOR_ATTR_NDP_CONFIRM_IND:
                 case QCA_WLAN_VENDOR_ATTR_NDP_END_IND:
                 case QCA_WLAN_VENDOR_ATTR_NDP_SCHEDULE_UPDATE_IND:

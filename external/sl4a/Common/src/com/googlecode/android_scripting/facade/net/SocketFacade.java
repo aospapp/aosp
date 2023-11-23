@@ -56,6 +56,7 @@ public class SocketFacade extends RpcReceiver {
     private static HashMap<String, FileDescriptor> sFileDescriptorHashMap =
             new HashMap<String, FileDescriptor>();
     public static int MAX_BUF_SZ = 2048;
+    public static int SOCK_TIMEOUT = 1500;
 
     public SocketFacade(FacadeManager manager) {
         super(manager);
@@ -231,6 +232,24 @@ public class SocketFacade extends RpcReceiver {
     }
 
     /**
+     * Get the local port on which the ServerSocket is listening. Useful when the server socket
+     * is initialized with 0 port (i.e. selects an available port)
+     *
+     * @param id : Hash key of ServerSocket (returned by
+     * {@link #openTcpServerSocket(String, Integer)}.
+     * @return An integer - the port number (0 in case of an error).
+     */
+    @Rpc(description = "Get the TCP Server socket port number")
+    public Integer getTcpServerSocketPort(String id) {
+        ServerSocket socket = sServerSocketHashMap.get(id);
+        if (socket == null) {
+            Log.e("Socket: Server socket does not exist for the requested id");
+            return 0;
+        }
+        return socket.getLocalPort();
+    }
+
+    /**
      * Accept TCP connection
      * @param id : Hash key of ServerSocket
      * @return Hash key of Socket returned by accept()
@@ -312,6 +331,7 @@ public class SocketFacade extends RpcReceiver {
         InetAddress localAddr = NetworkUtils.numericToInetAddress(addr);
         try {
             DatagramSocket socket = new DatagramSocket(port.intValue(), localAddr);
+            socket.setSoTimeout(SOCK_TIMEOUT);
             String id = getDatagramSocketId(socket);
             sDatagramSocketHashMap.put(id, socket);
             return id;

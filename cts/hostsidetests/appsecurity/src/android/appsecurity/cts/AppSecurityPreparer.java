@@ -71,8 +71,10 @@ public class AppSecurityPreparer implements ITargetPreparer, ITargetCleaner, ITe
     private void removeSecondaryUsers(ITestDevice device) throws DeviceNotAvailableException {
         final int[] userIds = Utils.getAllUsers(device);
         for (int i = 1; i < userIds.length; i++) {
-            device.removeUser(userIds[i]);
-            CLog.logAndDisplay(LogLevel.INFO, "Destroyed secondary user " + userIds[i]);
+            if (device.getCurrentUser() != userIds[i]) {
+                device.removeUser(userIds[i]);
+                CLog.logAndDisplay(LogLevel.INFO, "Destroyed secondary user " + userIds[i]);
+            }
         }
     }
 

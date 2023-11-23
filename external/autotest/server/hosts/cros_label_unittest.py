@@ -10,7 +10,7 @@ import common
 from autotest_lib.server import utils
 from autotest_lib.server.hosts.cros_label import BoardLabel
 from autotest_lib.server.hosts.cros_label import ModelLabel
-from autotest_lib.server.hosts.cros_label import SparseCoverageLabel
+from autotest_lib.server.hosts import host_info
 
 # pylint: disable=missing-docstring
 
@@ -83,10 +83,19 @@ class MockHost(object):
     def __init__(self, labels, *args):
         self._afe_host = MockAFEHost(labels)
         self.mock_cmds = {c.cmd: c for c in args}
+        info = host_info.HostInfo(labels=labels)
+        self.host_info_store = host_info.InMemoryHostInfoStore(info)
 
     def run(self, command, **kwargs):
         """Finds the matching result by command value"""
         return self.mock_cmds[command]
+
+
+class MockHostWithoutAFE(MockHost):
+
+    def __init__(self, labels, *args):
+        super(MockHostWithoutAFE, self).__init__(labels, *args)
+        self._afe_host = utils.EmptyAFEHost()
 
 
 class ModelLabelTests(unittest.TestCase):
@@ -140,6 +149,10 @@ CHROMEOS_RELEASE_BOARD=pyro
         host = MockHost(['model:existing'])
         self.assertEqual(ModelLabel().generate_labels(host), ['existing'])
 
+    def test_existing_label_in_host_info_store(self):
+        host = MockHostWithoutAFE(['model:existing'])
+        self.assertEqual(ModelLabel().generate_labels(host), ['existing'])
+
 
 class BoardLabelTests(unittest.TestCase):
     """Unit tests for BoardLabel"""
@@ -153,82 +166,9 @@ class BoardLabelTests(unittest.TestCase):
         host = MockHost(['board:existing'])
         self.assertEqual(BoardLabel().generate_labels(host), ['existing'])
 
-
-SPARSE_COVERAGE_TEMPLATE = """
-CHROMEOS_RELEASE_APPID={{01906EA2-3EB2-41F1-8F62-F0B7120EFD2E}}
-CHROMEOS_BOARD_APPID={{01906EA2-3EB2-41F1-8F62-F0B7120EFD2E}}
-CHROMEOS_CANARY_APPID={{90F229CE-83E2-4FAF-8479-E368A34938B1}}
-DEVICETYPE=CHROMEBOOK
-CHROMEOS_ARC_VERSION=4473730
-CHROMEOS_ARC_ANDROID_SDK_VERSION=25
-GOOGLE_RELEASE={build}.{branch}.{patch}
-CHROMEOS_DEVSERVER=
-CHROMEOS_RELEASE_BUILDER_PATH=eve-{builder}/R64-{build}.{branch}.{patch}
-CHROMEOS_RELEASE_BUILD_NUMBER={build}
-CHROMEOS_RELEASE_BRANCH_NUMBER={branch}
-CHROMEOS_RELEASE_CHROME_MILESTONE=64
-CHROMEOS_RELEASE_PATCH_NUMBER={patch}
-CHROMEOS_RELEASE_TRACK=testimage-channel
-CHROMEOS_RELEASE_DESCRIPTION={build}.{branch}.{patch} (Official Build) dev-channel eve test
-CHROMEOS_RELEASE_BUILD_TYPE=Official Build
-CHROMEOS_RELEASE_NAME=Chrome OS
-CHROMEOS_RELEASE_BOARD=eve
-CHROMEOS_RELEASE_VERSION={build}.{branch}.{patch}
-CHROMEOS_AUSERVER=https://tools.google.com/service/update2
-"""
-
-
-def _cat_output(builder, build, branch, patch):
-    return SPARSE_COVERAGE_TEMPLATE.format(
-        builder=builder, build=build, branch=branch, patch=patch)
-
-
-class SparseCoverageLabelTests(unittest.TestCase):
-    """Unit tests for SparseCoverageLabel"""
-
-    _mock_data = [
-        # Master canary build - sparse.
-        (('release', '60000', '0', '0'), {2, 3, 5}),
-        (('release', '60001', '0', '0'), {}),
-        (('release', '60002', '0', '0'), {2}),
-        (('release', '60003', '0', '0'), {3}),
-        (('release', '60004', '0', '0'), {2}),
-        (('release', '60005', '0', '0'), {5}),
-        (('release', '60006', '0', '0'), {2, 3}),
-        # Branch canary build - not sparse.
-        (('release', '60000', '1', '0'), {2, 3, 5}),
-        (('release', '60001', '1', '0'), {2, 3, 5}),
-        (('release', '60002', '1', '0'), {2, 3, 5}),
-        (('release', '60003', '1', '0'), {2, 3, 5}),
-        (('release', '60004', '1', '0'), {2, 3, 5}),
-        (('release', '60005', '1', '0'), {2, 3, 5}),
-        (('release', '60006', '1', '0'), {2, 3, 5}),
-        # A CQ/PFQ like build - not sparse.
-        (('release', '60000', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60001', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60002', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60003', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60004', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60005', '0', '0-rc4'), {2, 3, 5}),
-        (('release', '60006', '0', '0-rc4'), {2, 3, 5}),
-        # Not a release build - not sparse.
-        (('chrome-pfq', '60000', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60001', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60002', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60003', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60004', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60005', '0', '0'), {2, 3, 5}),
-        (('chrome-pfq', '60006', '0', '0'), {2, 3, 5}),
-    ]
-
-    def test_coverage_label(self):
-        cat_cmd = 'cat /etc/lsb-release'
-        for release, short_labels in self._mock_data:
-            host = MockHost([], MockCmd(cat_cmd, 0, _cat_output(*release)))
-            expected_labels = set(
-                'sparse_coverage_%d' % l for l in short_labels)
-            generated_labels = set(SparseCoverageLabel().generate_labels(host))
-            self.assertEqual(expected_labels, generated_labels)
+    def test_existing_label_in_host_info_store(self):
+        host = MockHostWithoutAFE(['board:existing'])
+        self.assertEqual(BoardLabel().generate_labels(host), ['existing'])
 
 
 if __name__ == '__main__':

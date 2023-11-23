@@ -19,10 +19,20 @@ package com.android.tv.common;
 /** Constants for common use in apps and tests. */
 public final class CommonConstants {
 
+    @Deprecated // TODO(b/121158110) refactor so this is not needed.
     public static final String BASE_PACKAGE =
+// AOSP_Comment_Out             !BuildConfig.AOSP
+// AOSP_Comment_Out                     ? "com.google.android.tv"
+// AOSP_Comment_Out                     :
                     "com.android.tv";
     /** A constant for the key of the extra data for the app linking intent. */
     public static final String EXTRA_APP_LINK_CHANNEL_URI = "app_link_channel_uri";
+
+    /**
+     * Video is unavailable because the source is not physically connected, for example the HDMI
+     * cable is not connected.
+     */
+    public static final int VIDEO_UNAVAILABLE_REASON_NOT_CONNECTED = 5;
 
     private CommonConstants() {}
 }

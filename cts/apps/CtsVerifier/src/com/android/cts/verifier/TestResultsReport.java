@@ -102,7 +102,7 @@ class TestResultsReport {
 
         DevicePropertyInfo devicePropertyInfo = new DevicePropertyInfo(Build.CPU_ABI,
                 Build.CPU_ABI2, abis, abis32, abis64, Build.BOARD, Build.BRAND, Build.DEVICE,
-                Build.FINGERPRINT, Build.ID, Build.MANUFACTURER, Build.MODEL, Build.PRODUCT,
+                Build.FINGERPRINT, null, Build.ID, Build.MANUFACTURER, Build.MODEL, Build.PRODUCT,
                 referenceFingerprint, Build.getSerial(), Build.TAGS, Build.TYPE, versionBaseOs,
                 Build.VERSION.RELEASE, Integer.toString(Build.VERSION.SDK_INT),
                 versionSecurityPatch, Build.VERSION.INCREMENTAL);

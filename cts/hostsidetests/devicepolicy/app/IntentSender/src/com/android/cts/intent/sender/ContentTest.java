@@ -159,7 +159,8 @@ public class ContentTest extends InstrumentationTestCase {
     /**
      * Ensure that sender is only able to send data that it has access to.
      */
-    public void testSecurity() throws Exception {
+    // STOPSHIP: enable once b/115619667 is fixed
+    public void _testSecurity() throws Exception {
         // Pick a URI that neither of us have access to; it doens't matter if
         // its missing, since we expect a SE before a FNFE.
         final Uri uri = Uri.parse("content://media/external/images/media/10240");

@@ -27,6 +27,7 @@
  */
 
 #include <private/bionic_asm.h>
+#include <private/bionic_asm_tls.h>
 #include <asm/signal.h>
 #include <linux/sched.h>
 
@@ -34,7 +35,7 @@ ENTRY(vfork)
 __BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(vfork)
     // __get_tls()[TLS_SLOT_THREAD_ID]->cached_pid_ = 0
     mrs     x0, tpidr_el0
-    ldr     x0, [x0, #8]
+    ldr     x0, [x0, #(TLS_SLOT_THREAD_ID * 8)]
     str     wzr, [x0, #20]
 
     mov     x0, #(CLONE_VM | CLONE_VFORK | SIGCHLD)
@@ -50,5 +51,26 @@ __BIONIC_WEAK_ASM_FOR_NATIVE_BRIDGE(vfork)
     cneg    x0, x0, hi
     b.hi    __set_errno_internal
 
+#if __has_feature(hwaddress_sanitizer)
+    cbz x0, .L_exit
+
+    // Clean up stack shadow in the parent process.
+    // https://github.com/google/sanitizers/issues/925
+    stp x0, x30, [sp, #-16]!
+    .cfi_adjust_cfa_offset 16
+    .cfi_rel_offset x0, 0
+    .cfi_rel_offset x30, 8
+
+    add x0, sp, #16
+    bl __hwasan_handle_vfork
+
+    ldp x0, x30, [sp], #16
+    .cfi_adjust_cfa_offset -16
+    .cfi_restore x0
+    .cfi_restore x30
+
+#endif
+
+.L_exit:
     ret
 END(vfork)

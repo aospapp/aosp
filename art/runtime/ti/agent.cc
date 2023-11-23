@@ -20,8 +20,9 @@
 #include "nativehelper/scoped_local_ref.h"
 #include "nativeloader/native_loader.h"
 
+#include "base/logging.h"
 #include "base/strlcpy.h"
-#include "java_vm_ext.h"
+#include "jni/java_vm_ext.h"
 #include "runtime.h"
 #include "thread-current-inl.h"
 #include "scoped_thread_state_change-inl.h"
@@ -117,24 +118,29 @@ std::unique_ptr<Agent> AgentSpec::DoDlOpen(JNIEnv* env,
                                            : JavaVMExt::GetLibrarySearchPath(env, class_loader));
 
   bool needs_native_bridge = false;
-  std::string nativeloader_error_msg;
+  char* nativeloader_error_msg = nullptr;
   void* dlopen_handle = android::OpenNativeLibrary(env,
                                                    Runtime::Current()->GetTargetSdkVersion(),
                                                    name_.c_str(),
                                                    class_loader,
+                                                   nullptr,
                                                    library_path.get(),
                                                    &needs_native_bridge,
                                                    &nativeloader_error_msg);
   if (dlopen_handle == nullptr) {
     *error_msg = StringPrintf("Unable to dlopen %s: %s",
                               name_.c_str(),
-                              nativeloader_error_msg.c_str());
+                              nativeloader_error_msg);
+    android::NativeLoaderFreeErrorMessage(nativeloader_error_msg);
     *error = kLoadingError;
     return nullptr;
   }
   if (needs_native_bridge) {
     // TODO: Consider support?
-    android::CloseNativeLibrary(dlopen_handle, needs_native_bridge);
+    // The result of this call and error_msg is ignored because the most
+    // relevant error is that native bridge is unsupported.
+    android::CloseNativeLibrary(dlopen_handle, needs_native_bridge, &nativeloader_error_msg);
+    android::NativeLoaderFreeErrorMessage(nativeloader_error_msg);
     *error_msg = StringPrintf("Native-bridge agents unsupported: %s", name_.c_str());
     *error = kLoadingError;
     return nullptr;
@@ -174,7 +180,7 @@ void Agent::Unload() {
   }
 }
 
-Agent::Agent(Agent&& other)
+Agent::Agent(Agent&& other) noexcept
     : dlopen_handle_(nullptr),
       onload_(nullptr),
       onattach_(nullptr),
@@ -182,7 +188,7 @@ Agent::Agent(Agent&& other)
   *this = std::move(other);
 }
 
-Agent& Agent::operator=(Agent&& other) {
+Agent& Agent::operator=(Agent&& other) noexcept {
   if (this != &other) {
     if (dlopen_handle_ != nullptr) {
       Unload();

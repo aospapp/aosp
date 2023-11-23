@@ -31,7 +31,6 @@
 #include <argp.h>
 #include <assert.h>
 #include <errno.h>
-#include <error.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libintl.h>
@@ -49,13 +48,15 @@
 #include <libebl.h>
 #include <libdwfl.h>
 #include "system.h"
+#include "libdwelf.h"
+#include "libeu.h"
+#include "printversion.h"
 
 #ifndef _
 # define _(str) gettext (str)
 #endif
 
 /* Name and version of program.  */
-static void print_version (FILE *stream, struct argp_state *state);
 ARGP_PROGRAM_VERSION_HOOK_DEF = print_version;
 
 /* Bug report address.  */
@@ -223,19 +224,6 @@ parse_opt (int key, char *arg, struct argp_state *state)
     }
   return 0;
 }
-
-/* Print the version information.  */
-static void
-print_version (FILE *stream, struct argp_state *state __attribute__ ((unused)))
-{
-  fprintf (stream, "unstrip (%s) %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-  fprintf (stream, _("\
-Copyright (C) %s Red Hat, Inc.\n\
-This is free software; see the source for copying conditions.  There is NO\n\
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
-"), "2012");
-  fprintf (stream, gettext ("Written by %s.\n"), "Roland McGrath");
-}
 
 #define ELF_CHECK(call, msg)						      \
   do									      \
@@ -251,8 +239,28 @@ copy_elf (Elf *outelf, Elf *inelf)
   ELF_CHECK (gelf_newehdr (outelf, gelf_getclass (inelf)),
 	     _("cannot create ELF header: %s"));
 
+  size_t shstrndx;
+  ELF_CHECK (elf_getshdrstrndx (inelf, &shstrndx) == 0,
+	     _("cannot get shdrstrndx:%s"));
+
   GElf_Ehdr ehdr_mem;
   GElf_Ehdr *ehdr = gelf_getehdr (inelf, &ehdr_mem);
+  ELF_CHECK (ehdr != NULL, _("cannot get ELF header: %s"));
+  if (shstrndx < SHN_LORESERVE)
+    ehdr->e_shstrndx = shstrndx;
+  else
+    {
+      ehdr->e_shstrndx = SHN_XINDEX;
+      Elf_Scn *scn0 = elf_getscn (outelf, 0);
+      GElf_Shdr shdr0_mem;
+      GElf_Shdr *shdr0 = gelf_getshdr (scn0, &shdr0_mem);
+      ELF_CHECK (shdr0 != NULL,
+		 _("cannot get new zero section: %s"));
+      shdr0->sh_link = shstrndx;
+      ELF_CHECK (gelf_update_shdr (scn0, shdr0),
+		 _("cannot update new zero section: %s"));
+    }
+
   ELF_CHECK (gelf_update_ehdr (outelf, ehdr),
 	     _("cannot copy ELF header: %s"));
 
@@ -439,6 +447,9 @@ adjust_relocs (Elf_Scn *outscn, Elf_Scn *inscn, const GElf_Shdr *shdr,
   switch (shdr->sh_type)
     {
     case SHT_REL:
+      if (shdr->sh_entsize == 0)
+	error (EXIT_FAILURE, 0, "REL section cannot have zero sh_entsize");
+
       for (size_t i = 0; i < shdr->sh_size / shdr->sh_entsize; ++i)
 	{
 	  GElf_Rel rel_mem;
@@ -450,6 +461,9 @@ adjust_relocs (Elf_Scn *outscn, Elf_Scn *inscn, const GElf_Shdr *shdr,
       break;
 
     case SHT_RELA:
+      if (shdr->sh_entsize == 0)
+	error (EXIT_FAILURE, 0, "RELA section cannot have zero sh_entsize");
+
       for (size_t i = 0; i < shdr->sh_size / shdr->sh_entsize; ++i)
 	{
 	  GElf_Rela rela_mem;
@@ -476,6 +490,10 @@ adjust_relocs (Elf_Scn *outscn, Elf_Scn *inscn, const GElf_Shdr *shdr,
     case SHT_HASH:
       /* We must expand the table and rejigger its contents.  */
       {
+	if (shdr->sh_entsize == 0)
+	  error (EXIT_FAILURE, 0, "HASH section cannot have zero sh_entsize");
+	if (symshdr->sh_entsize == 0)
+	  error (EXIT_FAILURE, 0, "Symbol table cannot have zero sh_entsize");
 	const size_t nsym = symshdr->sh_size / symshdr->sh_entsize;
 	const size_t onent = shdr->sh_size / shdr->sh_entsize;
 	assert (data->d_size == shdr->sh_size);
@@ -531,6 +549,11 @@ adjust_relocs (Elf_Scn *outscn, Elf_Scn *inscn, const GElf_Shdr *shdr,
     case SHT_GNU_versym:
       /* We must expand the table and move its elements around.  */
       {
+	if (shdr->sh_entsize == 0)
+	  error (EXIT_FAILURE, 0,
+		 "GNU_versym section cannot have zero sh_entsize");
+	if (symshdr->sh_entsize == 0)
+	  error (EXIT_FAILURE, 0, "Symbol table cannot have zero sh_entsize");
 	const size_t nent = symshdr->sh_size / symshdr->sh_entsize;
 	const size_t onent = shdr->sh_size / shdr->sh_entsize;
 	assert (nent >= onent);
@@ -575,7 +598,11 @@ adjust_all_relocs (Elf *elf, Elf_Scn *symtab, const GElf_Shdr *symshdr,
 	GElf_Shdr shdr_mem;
 	GElf_Shdr *shdr = gelf_getshdr (scn, &shdr_mem);
 	ELF_CHECK (shdr != NULL, _("cannot get section header: %s"));
-	if (shdr->sh_type != SHT_NOBITS && shdr->sh_link == new_sh_link)
+	/* Don't redo SHT_GROUP, groups are in both the stripped and debug,
+	   it will already have been done by adjust_relocs for the
+	   stripped_symtab.  */
+	if (shdr->sh_type != SHT_NOBITS && shdr->sh_type != SHT_GROUP
+	    && shdr->sh_link == new_sh_link)
 	  adjust_relocs (scn, scn, shdr, map, symshdr);
       }
 }
@@ -592,6 +619,8 @@ add_new_section_symbols (Elf_Scn *old_symscn, size_t old_shnum,
   GElf_Shdr shdr_mem;
   GElf_Shdr *shdr = gelf_getshdr (symscn, &shdr_mem);
   ELF_CHECK (shdr != NULL, _("cannot get section header: %s"));
+  if (shdr->sh_entsize == 0)
+    error (EXIT_FAILURE, 0, "Symbol table section cannot have zero sh_entsize");
 
   const size_t nsym = shdr->sh_size / shdr->sh_entsize;
   size_t symndx_map[nsym - 1];
@@ -685,8 +714,9 @@ struct section
 {
   Elf_Scn *scn;
   const char *name;
+  const char *sig;
   Elf_Scn *outscn;
-  struct Ebl_Strent *strent;
+  Dwelf_Strent *strent;
   GElf_Shdr shdr;
 };
 
@@ -709,13 +739,24 @@ compare_alloc_sections (const struct section *s1, const struct section *s2,
 
 static int
 compare_unalloc_sections (const GElf_Shdr *shdr1, const GElf_Shdr *shdr2,
-			  const char *name1, const char *name2)
+			  const char *name1, const char *name2,
+			  const char *sig1, const char *sig2)
 {
   /* Sort by sh_flags as an arbitrary ordering.  */
   if (shdr1->sh_flags < shdr2->sh_flags)
     return -1;
   if (shdr1->sh_flags > shdr2->sh_flags)
     return 1;
+
+  /* Sizes should be the same.  */
+  if (shdr1->sh_size < shdr2->sh_size)
+    return -1;
+  if (shdr1->sh_size > shdr2->sh_size)
+    return 1;
+
+  /* Are they both SHT_GROUP sections? Then compare signatures.  */
+  if (sig1 != NULL && sig2 != NULL)
+    return strcmp (sig1, sig2);
 
   /* Sort by name as last resort.  */
   return strcmp (name1, name2);
@@ -734,7 +775,8 @@ compare_sections (const void *a, const void *b, bool rel)
   return ((s1->shdr.sh_flags & SHF_ALLOC)
 	  ? compare_alloc_sections (s1, s2, rel)
 	  : compare_unalloc_sections (&s1->shdr, &s2->shdr,
-				      s1->name, s2->name));
+				      s1->name, s2->name,
+				      s1->sig, s2->sig));
 }
 
 static int
@@ -757,7 +799,7 @@ struct symbol
   union
   {
     const char *name;
-    struct Ebl_Strent *strent;
+    Dwelf_Strent *strent;
   };
   union
   {
@@ -969,6 +1011,44 @@ get_section_name (size_t ndx, const GElf_Shdr *shdr, const Elf_Data *shstrtab)
   return shstrtab->d_buf + shdr->sh_name;
 }
 
+/* Returns the signature of a group section, or NULL if the given
+   section isn't a group.  */
+static const char *
+get_group_sig (Elf *elf, GElf_Shdr *shdr)
+{
+  if (shdr->sh_type != SHT_GROUP)
+    return NULL;
+
+  Elf_Scn *symscn = elf_getscn (elf, shdr->sh_link);
+  if (symscn == NULL)
+    error (EXIT_FAILURE, 0, _("bad sh_link for group section: %s"),
+	   elf_errmsg (-1));
+
+  GElf_Shdr symshdr_mem;
+  GElf_Shdr *symshdr = gelf_getshdr (symscn, &symshdr_mem);
+  if (symshdr == NULL)
+    error (EXIT_FAILURE, 0, _("couldn't get shdr for group section: %s"),
+	   elf_errmsg (-1));
+
+  Elf_Data *symdata = elf_getdata (symscn, NULL);
+  if (symdata == NULL)
+    error (EXIT_FAILURE, 0, _("bad data for group symbol section: %s"),
+	   elf_errmsg (-1));
+
+  GElf_Sym sym_mem;
+  GElf_Sym *sym = gelf_getsym (symdata, shdr->sh_info, &sym_mem);
+  if (sym == NULL)
+    error (EXIT_FAILURE, 0, _("couldn't get symbol for group section: %s"),
+	   elf_errmsg (-1));
+
+  const char *sig = elf_strptr (elf, symshdr->sh_link, sym->st_name);
+  if (sig == NULL)
+    error (EXIT_FAILURE, 0, _("bad symbol name for group section: %s"),
+	   elf_errmsg (-1));
+
+  return sig;
+}
+
 /* Fix things up when prelink has moved some allocated sections around
    and the debuginfo file's section headers no longer match up.
    This fills in SECTIONS[0..NALLOC-1].outscn or exits.
@@ -1027,7 +1107,7 @@ find_alloc_sections_prelink (Elf *debug, Elf_Data *debug_shstrtab,
 		 _("cannot read '.gnu.prelink_undo' section: %s"));
 
       uint_fast16_t phnum;
-      uint_fast16_t shnum;
+      uint_fast16_t shnum;  /* prelink doesn't handle > SHN_LORESERVE.  */
       if (ehdr.e32.e_ident[EI_CLASS] == ELFCLASS32)
 	{
 	  phnum = ehdr.e32.e_phnum;
@@ -1039,21 +1119,24 @@ find_alloc_sections_prelink (Elf *debug, Elf_Data *debug_shstrtab,
 	  shnum = ehdr.e64.e_shnum;
 	}
 
+      bool class32 = ehdr.e32.e_ident[EI_CLASS] == ELFCLASS32;
+      size_t shsize = class32 ? sizeof (Elf32_Shdr) : sizeof (Elf64_Shdr);
+      if (unlikely (shnum == 0 || shnum > SIZE_MAX / shsize + 1))
+	error (EXIT_FAILURE, 0, _("overflow with shnum = %zu in '%s' section"),
+	       (size_t) shnum, ".gnu.prelink_undo");
+
+      --shnum;
+
       size_t phsize = gelf_fsize (main, ELF_T_PHDR, phnum, EV_CURRENT);
       src.d_buf += src.d_size + phsize;
-      src.d_size = gelf_fsize (main, ELF_T_SHDR, shnum - 1, EV_CURRENT);
+      src.d_size = gelf_fsize (main, ELF_T_SHDR, shnum, EV_CURRENT);
       src.d_type = ELF_T_SHDR;
       if ((size_t) (src.d_buf - undodata->d_buf) > undodata->d_size
 	  || undodata->d_size - (src.d_buf - undodata->d_buf) != src.d_size)
 	error (EXIT_FAILURE, 0, _("invalid contents in '%s' section"),
 	       ".gnu.prelink_undo");
 
-      bool class32 = ehdr.e32.e_ident[EI_CLASS] == ELFCLASS32;
-      size_t shsize = class32 ? sizeof (Elf32_Shdr) : sizeof (Elf64_Shdr);
-      if (unlikely ((shnum - 1) > SIZE_MAX / shsize))
-	error (EXIT_FAILURE, 0, _("overflow with shnum = %zu in '%s' section"),
-	       (size_t) shnum, ".gnu.prelink_undo");
-      const size_t shdr_bytes = (shnum - 1) * shsize;
+      const size_t shdr_bytes = shnum * shsize;
       void *shdr = xmalloc (shdr_bytes);
       dst.d_buf = shdr;
       dst.d_size = shdr_bytes;
@@ -1061,12 +1144,12 @@ find_alloc_sections_prelink (Elf *debug, Elf_Data *debug_shstrtab,
 				main_ehdr->e_ident[EI_DATA]) != NULL,
 		 _("cannot read '.gnu.prelink_undo' section: %s"));
 
-      undo_sections = xmalloc ((shnum - 1) * sizeof undo_sections[0]);
-      for (size_t i = 0; i < shnum - 1; ++i)
+      undo_sections = xmalloc (shnum * sizeof undo_sections[0]);
+      for (size_t i = 0; i < shnum; ++i)
 	{
 	  struct section *sec = &undo_sections[undo_nalloc];
-	  Elf32_Shdr (*s32)[shnum - 1] = shdr;
-	  Elf64_Shdr (*s64)[shnum - 1] = shdr;
+	  Elf32_Shdr (*s32)[shnum] = shdr;
+	  Elf64_Shdr (*s64)[shnum] = shdr;
 	  if (class32)
 	    {
 #define COPY(field) sec->shdr.field = (*s32)[i].field
@@ -1091,6 +1174,7 @@ find_alloc_sections_prelink (Elf *debug, Elf_Data *debug_shstrtab,
 	      sec->scn = elf_getscn (main, i + 1); /* Really just for ndx.  */
 	      sec->outscn = NULL;
 	      sec->strent = NULL;
+	      sec->sig = get_group_sig (main, &sec->shdr);
 	      ++undo_nalloc;
 	    }
 	}
@@ -1214,12 +1298,12 @@ static Elf_Data *
 new_shstrtab (Elf *unstripped, size_t unstripped_shnum,
 	      Elf_Data *shstrtab, size_t unstripped_shstrndx,
 	      struct section *sections, size_t stripped_shnum,
-	      struct Ebl_Strtab *strtab)
+	      Dwelf_Strtab *strtab)
 {
   if (strtab == NULL)
     return NULL;
 
-  struct Ebl_Strent *unstripped_strent[unstripped_shnum - 1];
+  Dwelf_Strent *unstripped_strent[unstripped_shnum - 1];
   memset (unstripped_strent, 0, sizeof unstripped_strent);
   for (struct section *sec = sections;
        sec < &sections[stripped_shnum - 1];
@@ -1228,7 +1312,7 @@ new_shstrtab (Elf *unstripped, size_t unstripped_shnum,
       {
 	if (sec->strent == NULL)
 	  {
-	    sec->strent = ebl_strtabadd (strtab, sec->name, 0);
+	    sec->strent = dwelf_strtab_add (strtab, sec->name);
 	    ELF_CHECK (sec->strent != NULL,
 		       _("cannot add section name to string table: %s"));
 	  }
@@ -1243,7 +1327,7 @@ new_shstrtab (Elf *unstripped, size_t unstripped_shnum,
 	GElf_Shdr shdr_mem;
 	GElf_Shdr *shdr = gelf_getshdr (scn, &shdr_mem);
 	const char *name = get_section_name (i + 1, shdr, shstrtab);
-	unstripped_strent[i] = ebl_strtabadd (strtab, name, 0);
+	unstripped_strent[i] = dwelf_strtab_add (strtab, name);
 	ELF_CHECK (unstripped_strent[i] != NULL,
 		   _("cannot add section name to string table: %s"));
       }
@@ -1255,7 +1339,8 @@ new_shstrtab (Elf *unstripped, size_t unstripped_shnum,
 						   unstripped_shstrndx), NULL);
   ELF_CHECK (elf_flagdata (strtab_data, ELF_C_SET, ELF_F_DIRTY),
 	     _("cannot update section header string table data: %s"));
-  ebl_strtabfinalize (strtab, strtab_data);
+  if (dwelf_strtab_finalize (strtab, strtab_data) == NULL)
+    error (EXIT_FAILURE, 0, "Not enough memory to create string table");
 
   /* Update the sh_name fields of sections we aren't modifying later.  */
   for (size_t i = 0; i < unstripped_shnum - 1; ++i)
@@ -1264,7 +1349,7 @@ new_shstrtab (Elf *unstripped, size_t unstripped_shnum,
 	Elf_Scn *scn = elf_getscn (unstripped, i + 1);
 	GElf_Shdr shdr_mem;
 	GElf_Shdr *shdr = gelf_getshdr (scn, &shdr_mem);
-	shdr->sh_name = ebl_strtaboffset (unstripped_strent[i]);
+	shdr->sh_name = dwelf_strent_off (unstripped_strent[i]);
 	if (i + 1 == unstripped_shstrndx)
 	  shdr->sh_size = strtab_data->d_size;
 	update_shdr (scn, shdr);
@@ -1315,6 +1400,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
       sections[i].scn = scn;
       sections[i].outscn = NULL;
       sections[i].strent = NULL;
+      sections[i].sig = get_group_sig (stripped, shdr);
     }
 
   const struct section *stripped_symtab = NULL;
@@ -1333,7 +1419,8 @@ more sections in stripped file than debug file -- arguments reversed?"));
 
   /* Locate a matching unallocated section in SECTIONS.  */
   inline struct section *find_unalloc_section (const GElf_Shdr *shdr,
-					       const char *name)
+					       const char *name,
+					       const char *sig)
     {
       size_t l = nalloc, u = stripped_shnum - 1;
       while (l < u)
@@ -1341,7 +1428,8 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	  size_t i = (l + u) / 2;
 	  struct section *sec = &sections[i];
 	  int cmp = compare_unalloc_sections (shdr, &sec->shdr,
-					      name, sec->name);
+					      name, sec->name,
+					      sig, sec->sig);
 	  if (cmp < 0)
 	    u = i;
 	  else if (cmp > 0)
@@ -1360,6 +1448,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
   /* Match each debuginfo section with its corresponding stripped section.  */
   bool check_prelink = false;
   Elf_Scn *unstripped_symtab = NULL;
+  size_t unstripped_strndx = 0;
   size_t alloc_avail = 0;
   scn = NULL;
   while ((scn = elf_nextscn (unstripped, scn)) != NULL)
@@ -1371,11 +1460,12 @@ more sections in stripped file than debug file -- arguments reversed?"));
       if (shdr->sh_type == SHT_SYMTAB)
 	{
 	  unstripped_symtab = scn;
+	  unstripped_strndx = shdr->sh_link;
 	  continue;
 	}
 
       const size_t ndx = elf_ndxscn (scn);
-      if (ndx == unstripped_shstrndx)
+      if (ndx == unstripped_shstrndx || ndx == unstripped_strndx)
 	continue;
 
       const char *name = get_section_name (ndx, shdr, shstrtab);
@@ -1412,7 +1502,8 @@ more sections in stripped file than debug file -- arguments reversed?"));
       else
 	{
 	  /* Look for the section that matches.  */
-	  sec = find_unalloc_section (shdr, name);
+	  sec = find_unalloc_section (shdr, name,
+				      get_group_sig (unstripped, shdr));
 	  if (sec == NULL)
 	    {
 	      /* An additional unallocated section is fine if not SHT_NOBITS.
@@ -1456,7 +1547,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
   const struct section *stripped_dynsym = NULL;
   size_t debuglink = SHN_UNDEF;
   size_t ndx_section[stripped_shnum - 1];
-  struct Ebl_Strtab *strtab = NULL;
+  Dwelf_Strtab *strtab = NULL;
   for (struct section *sec = sections;
        sec < &sections[stripped_shnum - 1];
        ++sec)
@@ -1482,13 +1573,11 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	    }
 
 	  if (unstripped_symtab != NULL && stripped_symtab != NULL
-	      && secndx == stripped_symtab->shdr.sh_link)
+	      && secndx == stripped_symtab->shdr.sh_link
+	      && unstripped_strndx != 0)
 	    {
 	      /* ... nor its string table.  */
-	      GElf_Shdr shdr_mem;
-	      GElf_Shdr *shdr = gelf_getshdr (unstripped_symtab, &shdr_mem);
-	      ELF_CHECK (shdr != NULL, _("cannot get section header: %s"));
-	      ndx_section[secndx - 1] = shdr->sh_link;
+	      ndx_section[secndx - 1] = unstripped_strndx;
 	      continue;
 	    }
 
@@ -1508,8 +1597,8 @@ more sections in stripped file than debug file -- arguments reversed?"));
 		     _("cannot add new section: %s"));
 
 	  if (strtab == NULL)
-	    strtab = ebl_strtabinit (true);
-	  sec->strent = ebl_strtabadd (strtab, sec->name, 0);
+	    strtab = dwelf_strtab_init (true);
+	  sec->strent = dwelf_strtab_add (strtab, sec->name);
 	  ELF_CHECK (sec->strent != NULL,
 		     _("cannot add section name to string table: %s"));
 	}
@@ -1570,7 +1659,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	  shdr_mem.sh_info = ndx_section[sec->shdr.sh_info - 1];
 
 	if (strtab != NULL)
-	  shdr_mem.sh_name = ebl_strtaboffset (sec->strent);
+	  shdr_mem.sh_name = dwelf_strent_off (sec->strent);
 
 	Elf_Data *indata = elf_getdata (sec->scn, NULL);
 	ELF_CHECK (indata != NULL, _("cannot get section data: %s"));
@@ -1600,6 +1689,9 @@ more sections in stripped file than debug file -- arguments reversed?"));
 
 	    Elf_Data *shndxdata = NULL;	/* XXX */
 
+	    if (shdr_mem.sh_entsize == 0)
+	      error (EXIT_FAILURE, 0,
+		     "SYMTAB section cannot have zero sh_entsize");
 	    for (size_t i = 1; i < shdr_mem.sh_size / shdr_mem.sh_entsize; ++i)
 	      {
 		GElf_Sym sym_mem;
@@ -1637,11 +1729,25 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	    if (shdr_mem.sh_type == SHT_DYNSYM)
 	      stripped_dynsym = sec;
 	  }
+
+	if (shdr_mem.sh_type == SHT_GROUP)
+	  {
+	    /* We must adjust all the section indices in the group.
+	       Skip the first word, which is the section group flag.
+	       Everything else is a section index.  */
+	    Elf32_Word *shndx = (Elf32_Word *) outdata->d_buf;
+	    for (size_t i = 1; i < shdr_mem.sh_size / sizeof (Elf32_Word); ++i)
+	      if (shndx[i]  == SHN_UNDEF || shndx[i] >= stripped_shnum)
+		error (EXIT_FAILURE, 0,
+		       _("group has invalid section index [%zd]"), i);
+	      else
+		shndx[i] = ndx_section[shndx[i] - 1];
+	  }
       }
 
   /* We may need to update the symbol table.  */
   Elf_Data *symdata = NULL;
-  struct Ebl_Strtab *symstrtab = NULL;
+  Dwelf_Strtab *symstrtab = NULL;
   Elf_Data *symstrdata = NULL;
   if (unstripped_symtab != NULL && (stripped_symtab != NULL
 				    || check_prelink /* Section adjustments. */
@@ -1651,11 +1757,16 @@ more sections in stripped file than debug file -- arguments reversed?"));
       /* Merge the stripped file's symbol table into the unstripped one.  */
       const size_t stripped_nsym = (stripped_symtab == NULL ? 1
 				    : (stripped_symtab->shdr.sh_size
-				       / stripped_symtab->shdr.sh_entsize));
+				       / (stripped_symtab->shdr.sh_entsize == 0
+					  ? 1
+					  : stripped_symtab->shdr.sh_entsize)));
 
       GElf_Shdr shdr_mem;
       GElf_Shdr *shdr = gelf_getshdr (unstripped_symtab, &shdr_mem);
       ELF_CHECK (shdr != NULL, _("cannot get section header: %s"));
+      if (shdr->sh_entsize == 0)
+	error (EXIT_FAILURE, 0,
+	       "unstripped SYMTAB section cannot have zero sh_entsize");
       const size_t unstripped_nsym = shdr->sh_size / shdr->sh_entsize;
 
       /* First collect all the symbols from both tables.  */
@@ -1721,13 +1832,13 @@ more sections in stripped file than debug file -- arguments reversed?"));
 
       /* Now a final pass updates the map with the final order,
 	 and builds up the new string table.  */
-      symstrtab = ebl_strtabinit (true);
+      symstrtab = dwelf_strtab_init (true);
       for (size_t i = 0; i < nsym; ++i)
 	{
 	  assert (symbols[i].name != NULL);
 	  assert (*symbols[i].map != 0);
 	  *symbols[i].map = 1 + i;
-	  symbols[i].strent = ebl_strtabadd (symstrtab, symbols[i].name, 0);
+	  symbols[i].strent = dwelf_strtab_add (symstrtab, symbols[i].name);
 	}
 
       /* Scan the discarded symbols too, just to update their slots
@@ -1752,7 +1863,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
       /* If symtab and the section header table share the string table
 	 add the section names to the strtab and then (after finalizing)
 	 fixup the section header sh_names.  Also dispose of the old data.  */
-      struct Ebl_Strent *unstripped_strent[unstripped_shnum - 1];
+      Dwelf_Strent *unstripped_strent[unstripped_shnum - 1];
       if (unstripped_shstrndx == elf_ndxscn (unstripped_strtab))
 	{
 	  for (size_t i = 0; i < unstripped_shnum - 1; ++i)
@@ -1761,20 +1872,22 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	      GElf_Shdr mem;
 	      GElf_Shdr *hdr = gelf_getshdr (sec, &mem);
 	      const char *name = get_section_name (i + 1, hdr, shstrtab);
-	      unstripped_strent[i + 1] = ebl_strtabadd (symstrtab, name, 0);
-	      ELF_CHECK (unstripped_strent[i + 1] != NULL,
+	      unstripped_strent[i] = dwelf_strtab_add (symstrtab, name);
+	      ELF_CHECK (unstripped_strent[i] != NULL,
 			 _("cannot add section name to string table: %s"));
 	    }
 
 	  if (strtab != NULL)
 	    {
-	      ebl_strtabfree (strtab);
+	      dwelf_strtab_free (strtab);
 	      free (strtab_data->d_buf);
 	      strtab = NULL;
 	    }
 	}
 
-      ebl_strtabfinalize (symstrtab, symstrdata);
+      if (dwelf_strtab_finalize (symstrtab, symstrdata) == NULL)
+	error (EXIT_FAILURE, 0, "Not enough memory to create symbol table");
+
       elf_flagdata (symstrdata, ELF_C_SET, ELF_F_DIRTY);
 
       /* And update the section header names if necessary.  */
@@ -1785,7 +1898,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	      Elf_Scn *sec = elf_getscn (unstripped, i + 1);
 	      GElf_Shdr mem;
 	      GElf_Shdr *hdr = gelf_getshdr (sec, &mem);
-	      shdr->sh_name = ebl_strtaboffset (unstripped_strent[i + 1]);
+	      shdr->sh_name = dwelf_strent_off (unstripped_strent[i]);
 	      update_shdr (sec, hdr);
 	    }
 	}
@@ -1810,7 +1923,7 @@ more sections in stripped file than debug file -- arguments reversed?"));
 	  struct symbol *s = &symbols[i];
 
 	  /* Fill in the symbol details.  */
-	  sym.st_name = ebl_strtaboffset (s->strent);
+	  sym.st_name = dwelf_strent_off (s->strent);
 	  sym.st_value = s->value; /* Already biased to output address.  */
 	  sym.st_size = s->size;
 	  sym.st_shndx = s->shndx; /* Already mapped to output index.  */
@@ -1959,13 +2072,13 @@ more sections in stripped file than debug file -- arguments reversed?"));
 
   if (strtab != NULL)
     {
-      ebl_strtabfree (strtab);
+      dwelf_strtab_free (strtab);
       free (strtab_data->d_buf);
     }
 
   if (symstrtab != NULL)
     {
-      ebl_strtabfree (symstrtab);
+      dwelf_strtab_free (symstrtab);
       free (symstrdata->d_buf);
     }
   free_new_data ();
@@ -2389,7 +2502,8 @@ main (int argc, char **argv)
       .children = argp_children,
       .args_doc = N_("STRIPPED-FILE DEBUG-FILE\n[MODULE...]"),
       .doc = N_("\
-Combine stripped files with separate symbols and debug information.\v\
+Combine stripped files with separate symbols and debug information.\n\
+\n\
 The first form puts the result in DEBUG-FILE if -o was not given.\n\
 \n\
 MODULE arguments give file name patterns matching modules to process.\n\

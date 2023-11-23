@@ -16,24 +16,24 @@
 
 #define ATRACE_TAG ATRACE_TAG_PACKAGE_MANAGER
 
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
-#include <sys/mount.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <linux/kdev_t.h>
 
 #include <android-base/logging.h>
-#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <utils/Trace.h>
 
@@ -45,6 +45,7 @@ using android::base::StringPrintf;
 using android::base::unique_fd;
 
 static const char* kVoldPrefix = "vold:";
+static constexpr size_t kLoopDeviceRetryAttempts = 3u;
 
 int Loop::create(const std::string& target, std::string& out_device) {
     unique_fd ctl_fd(open("/dev/loop-control", O_RDWR | O_CLOEXEC));
@@ -61,7 +62,14 @@ int Loop::create(const std::string& target, std::string& out_device) {
 
     out_device = StringPrintf("/dev/block/loop%d", num);
 
-    unique_fd target_fd(open(target.c_str(), O_RDWR | O_CLOEXEC));
+    unique_fd target_fd;
+    for (size_t i = 0; i != kLoopDeviceRetryAttempts; ++i) {
+        target_fd.reset(open(target.c_str(), O_RDWR | O_CLOEXEC));
+        if (target_fd.get() != -1) {
+            break;
+        }
+        usleep(50000);
+    }
     if (target_fd.get() == -1) {
         PLOG(ERROR) << "Failed to open " << target;
         return -errno;
@@ -79,7 +87,7 @@ int Loop::create(const std::string& target, std::string& out_device) {
 
     struct loop_info64 li;
     memset(&li, 0, sizeof(li));
-    strlcpy((char*) li.lo_crypt_name, kVoldPrefix, LO_NAME_SIZE);
+    strlcpy((char*)li.lo_crypt_name, kVoldPrefix, LO_NAME_SIZE);
     if (ioctl(device_fd.get(), LOOP_SET_STATUS64, &li) == -1) {
         PLOG(ERROR) << "Failed to LOOP_SET_STATUS64";
         return -errno;
@@ -88,7 +96,7 @@ int Loop::create(const std::string& target, std::string& out_device) {
     return 0;
 }
 
-int Loop::destroyByDevice(const char *loopDevice) {
+int Loop::destroyByDevice(const char* loopDevice) {
     int device_fd;
 
     device_fd = open(loopDevice, O_RDONLY | O_CLOEXEC);
@@ -138,7 +146,7 @@ int Loop::destroyAll() {
             continue;
         }
 
-        auto id = std::string((char*) li.lo_crypt_name);
+        auto id = std::string((char*)li.lo_crypt_name);
         if (android::base::StartsWith(id, kVoldPrefix)) {
             LOG(DEBUG) << "Tearing down stale loop device at " << path << " named " << id;
 
@@ -146,14 +154,14 @@ int Loop::destroyAll() {
                 PLOG(WARNING) << "Failed to LOOP_CLR_FD " << path;
             }
         } else {
-            LOG(VERBOSE) << "Found unmanaged loop device at " << path << " named " << id;
+            LOG(DEBUG) << "Found unmanaged loop device at " << path << " named " << id;
         }
     }
 
     return 0;
 }
 
-int Loop::createImageFile(const char *file, unsigned long numSectors) {
+int Loop::createImageFile(const char* file, unsigned long numSectors) {
     unique_fd fd(open(file, O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC, 0600));
     if (fd.get() == -1) {
         PLOG(ERROR) << "Failed to create image " << file;
@@ -169,7 +177,7 @@ int Loop::createImageFile(const char *file, unsigned long numSectors) {
     return 0;
 }
 
-int Loop::resizeImageFile(const char *file, unsigned long numSectors) {
+int Loop::resizeImageFile(const char* file, unsigned long numSectors) {
     int fd;
 
     if ((fd = open(file, O_RDWR | O_CLOEXEC)) < 0) {

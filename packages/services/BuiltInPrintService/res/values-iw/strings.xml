@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"דלת המדפסת פתוחה"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"חסימה"</string>
     <string name="printer_offline" msgid="9196864753298645066">"המדפסת לא מחוברת"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"אישור פגום"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"ללא הצפנה"</string>
     <string name="printer_check" msgid="6428369671197132828">"בדוק את המדפסת"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"ממתין לשליחה"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"לא ניתן היה לקרוא את המסמך"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"המדפסת לא נתמכת"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"‏‫Wi-Fi ישיר"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"‏איתור מדפסות Wi-Fi ישיר"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"‏הדפסה דרך Wi-Fi ישיר"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"‏מדפסות Wi-Fi ישיר"</string>
     <string name="searching" msgid="2114018057619514587">"מחפש…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"ייתכן שיהיה עליך לאשר את החיבור הזה בלוח הקדמי שבמדפסת"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"מחיקה"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"‏מתחבר דרך Wi-Fi ישיר"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"מתחבר דרך הרשת הנוכחית בכתובת <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"אבטחה"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"המדפסת הזו סיפקה אישור אבטחה חדש, או שמכשיר אחר מתחזה לה. האם לקבל את האישור החדש?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"מדפסת זו כבר לא מקבלת משימות מוצפנות. האם להמשיך בהדפסה?"</string>
+    <string name="accept" msgid="4426153292469698134">"אישור"</string>
+    <string name="reject" msgid="24751635160440693">"דחייה"</string>
+    <string name="connections" msgid="8895413761760117180">"חיבורים"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"לשירות ההדפסה המוגדר כברירת מחדל נדרשת הרשאת מיקום כדי למצוא מכשירים בקרבת מקום."</string>
+    <string name="fix" msgid="7784394272611365393">"בדיקת ההרשאות"</string>
 </resources>

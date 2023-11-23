@@ -28,7 +28,7 @@ export TST_COUNT=1
 
 . cpuset_funcs.sh
 
-check
+check 2 1
 
 exit_status=0
 
@@ -86,7 +86,7 @@ root_cpu_hotplug_test()
 		return 1
 	fi
 
-	root_cpus="`cat $CPUSET/cpus`"
+	root_cpus="`cat $CPUSET/cpuset.cpus`"
 
 	task_cpus="`cat /proc/$tst_pid/status | grep Cpus_allowed_list`"
 	task_cpus="`echo $task_cpus | sed -e 's/Cpus_allowed_list: //'`"
@@ -155,7 +155,7 @@ general_cpu_hotplug_test()
 		return 1
 	fi
 
-	cpus="`cat $path/cpus`"
+	cpus="`cat $path/cpuset.cpus`"
 
 	task_cpus="`cat /proc/$tst_pid/status | grep Cpus_allowed_list`"
 	task_cpus="`echo $task_cpus | sed -e 's/Cpus_allowed_list: //'`"

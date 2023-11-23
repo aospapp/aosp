@@ -28,12 +28,6 @@
 #include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
-#if HAVE_NUMA_H
-#include <numa.h>
-#endif
-#if HAVE_NUMAIF_H
-#include <numaif.h>
-#endif
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -42,7 +36,8 @@
 #include "mem.h"
 #include "numa_helper.h"
 
-#if defined(HAVE_NUMA_V2) && defined(HAVE_LINUX_MEMPOLICY_H)
+#ifdef HAVE_NUMA_V2
+#include <numaif.h>
 
 static int run = -1;
 static int sleep_millisecs = -1;
@@ -53,6 +48,11 @@ static char *n_opt;
 static struct tst_option ksm_options[] = {
 	{"n:", &n_opt,  "-n x    Allocate x pages memory per node"},
 	{NULL, NULL, NULL}
+};
+
+static const char * const save_restore[] = {
+	"?/sys/kernel/mm/ksm/max_page_sharing",
+	NULL,
 };
 
 static void test_ksm(void)
@@ -69,8 +69,6 @@ static void setup(void)
 {
 	if (access(PATH_KSM "merge_across_nodes", F_OK) == -1)
 		tst_brk(TCONF, "no merge_across_nodes sysfs knob");
-
-	save_max_page_sharing();
 
 	if (!is_numa(NULL, NH_MEMS, 2))
 		tst_brk(TCONF, "The case needs a NUMA system.");
@@ -95,8 +93,6 @@ static void cleanup(void)
 
 	if (run != -1)
 		FILE_PRINTF(PATH_KSM "run", "%d", run);
-
-	restore_max_page_sharing();
 }
 
 static struct tst_test test = {
@@ -104,9 +100,10 @@ static struct tst_test test = {
 	.options = ksm_options,
 	.setup = setup,
 	.cleanup = cleanup,
+	.save_restore = save_restore,
 	.test_all = test_ksm,
 };
 
 #else
-	TST_TEST_TCONF("test requires libnuma >= 2 and it's development packages");
+	TST_TEST_TCONF(NUMA_ERROR_MSG);
 #endif

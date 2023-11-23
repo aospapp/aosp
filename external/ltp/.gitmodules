@@ -1,3 +1,0 @@
-[submodule "testcases/kernel/mce-test"]
-	path = testcases/kernel/mce-test
-	url = git://git.kernel.org/pub/scm/linux/kernel/git/gong.chen/mce-test.git

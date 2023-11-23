@@ -1,7 +1,9 @@
 import json
 import os
 
+from autotest_lib.server.hosts import file_store
 from autotest_lib.client.common_lib import utils
+from autotest_lib.tko import tast
 from autotest_lib.tko import utils as tko_utils
 
 
@@ -28,7 +30,11 @@ class job(object):
         self.build_version = None
         self.suite = None
         self.board = None
-
+        self.job_idx = None
+        # id of the corresponding tko_task_references entry.
+        # This table is used to refer to skylab task / afe job corresponding to
+        # this tko_job.
+        self.task_reference_id = None
 
     @staticmethod
     def read_keyval(dir):
@@ -161,7 +167,11 @@ class test(object):
         """
         tko_utils.dprint("parsing test %s %s" % (subdir, testname))
 
-        if subdir:
+        if tast.is_tast_test(testname):
+            attributes, perf_values = tast.load_tast_test_aux_results(job,
+                                                                      testname)
+            iterations = []
+        elif subdir:
             # Grab iterations from the results keyval.
             iteration_keyval = os.path.join(job.dir, subdir,
                                             'results', 'keyval')
@@ -283,9 +293,17 @@ class test(object):
         @return A dictionary representing the host keyvals.
 
         """
+        keyval_path = os.path.join('host_keyvals', hostname)
         # The host keyval is <job_dir>/host_keyvals/<hostname> if it exists.
-        return test._parse_keyval(job_dir,
-                                  os.path.join('host_keyvals', hostname))
+        # Otherwise we're running on Skylab which uses hostinfo.
+        if not os.path.exists(os.path.join(job_dir, keyval_path)):
+            tko_utils.dprint("trying to use hostinfo")
+            try:
+                return _parse_hostinfo_keyval(job_dir, hostname)
+            except Exception as e:
+                # If anything goes wrong, log it and just use the old flow.
+                tko_utils.dprint("tried using hostinfo: %s" % e)
+        return test._parse_keyval(job_dir, keyval_path)
 
 
     @staticmethod
@@ -300,6 +318,30 @@ class test(object):
         """
         # The job keyval is <job_dir>/keyval if it exists.
         return test._parse_keyval(job_dir, 'keyval')
+
+
+def _parse_hostinfo_keyval(job_dir, hostname):
+    """
+    Parse host keyvals from hostinfo.
+
+    @param job_dir: The string directory name of the associated job.
+    @param hostname: The string hostname.
+
+    @return A dictionary representing the host keyvals.
+
+    """
+    # The hostinfo path looks like:
+    # host_info_store/chromeos6-row4-rack11-host6.store
+    #
+    # TODO(ayatane): We should pass hostinfo path explicitly.
+    subdir = 'host_info_store'
+    hostinfo_path = os.path.join(job_dir, subdir, hostname + '.store')
+    store = file_store.FileStore(hostinfo_path)
+    hostinfo = store.get()
+    # TODO(ayatane): Investigate if urllib.quote is better.
+    label_string = ','.join(label.replace(':', '%3A')
+                            for label in hostinfo.labels)
+    return {'labels': label_string, 'platform': hostinfo.model}
 
 
 class patch(object):
@@ -407,4 +449,3 @@ class perf_value_iteration(object):
 
         """
         raise NotImplementedError
-

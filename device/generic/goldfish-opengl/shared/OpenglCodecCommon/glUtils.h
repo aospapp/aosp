@@ -16,6 +16,12 @@
 #ifndef __GL_UTILS_H__
 #define __GL_UTILS_H__
 
+#if PLATFORM_SDK_VERSION < 26
+#include <cutils/log.h>
+#else
+#include <log/log.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 

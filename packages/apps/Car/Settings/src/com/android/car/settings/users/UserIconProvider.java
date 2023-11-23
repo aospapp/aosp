@@ -16,15 +16,16 @@
 
 package com.android.car.settings.users;
 
-import android.car.user.CarUserManagerHelper;
+import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.support.v4.graphics.drawable.RoundedBitmapDrawable;
-import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
+
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
 import com.android.car.settings.R;
 
@@ -43,7 +44,6 @@ public class UserIconProvider {
      * If icon has not been assigned to this user, it defaults to a generic user icon.
      *
      * @param userInfo User for which the icon is requested.
-     *
      * @return Drawable representing the icon for the user.
      */
     public Drawable getUserIcon(UserInfo userInfo, Context context) {
@@ -54,7 +54,7 @@ public class UserIconProvider {
         }
         Resources res = context.getResources();
         BitmapDrawable scaledIcon = (BitmapDrawable) mCarUserManagerHelper.scaleUserIcon(icon, res
-                .getDimensionPixelSize(R.dimen.car_primary_icon_size));
+                .getDimensionPixelSize(R.dimen.icon_size));
 
         // Enforce that the icon is circular
         RoundedBitmapDrawable circleIcon = RoundedBitmapDrawableFactory
@@ -64,15 +64,24 @@ public class UserIconProvider {
     }
 
     /**
+     * Gets the default icon for guest user.
+     *
+     * @return Drawable representing the default guest icon.
+     */
+    public Drawable getDefaultGuestIcon(Context context) {
+        return UserIconProvider.scaleUserIcon(mCarUserManagerHelper.getGuestDefaultIcon(),
+                mCarUserManagerHelper, context);
+    }
+
+    /**
      * Scales passed in bitmap to the appropriate user icon size.
      *
      * @param bitmap Bitmap to scale.
-     *
      * @return Drawable scaled to the user icon size.
      */
     public static Drawable scaleUserIcon(Bitmap bitmap, CarUserManagerHelper userManagerHelper,
             Context context) {
         return userManagerHelper.scaleUserIcon(bitmap, context.getResources()
-                .getDimensionPixelSize(R.dimen.car_primary_icon_size));
+                .getDimensionPixelSize(R.dimen.icon_size));
     }
 }

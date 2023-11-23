@@ -122,6 +122,23 @@ TEST(UniquePtr, Reset) {
     EXPECT_EQ(Value::constructionCounter, 1);
     EXPECT_EQ(myInt.get()->value, 0xface);
     EXPECT_EQ(myInt2.get(), nullptr);
+
+    myInt.reset();
+    EXPECT_EQ(myInt.get(), nullptr);
+  }
+
+  EXPECT_EQ(Value::constructionCounter, 0);
+}
+
+TEST(UniquePtr, EqualityOperator) {
+  Value::constructionCounter = 0;
+
+  {
+    UniquePtr<Value> myInt = MakeUnique<Value>(0xcafe);
+    EXPECT_TRUE(myInt != nullptr);
+
+    myInt.reset();
+    EXPECT_TRUE(myInt == nullptr);
   }
 
   EXPECT_EQ(Value::constructionCounter, 0);

@@ -18,18 +18,60 @@ java_binary_host {
         "src/main/java/**/*.java",
         "src/main/java/**/*.kt",
     ],
-    java_resources: ["src/main/resources/**/*"],
+    java_resource_dirs: ["src/main/resources/"],
     static_libs: [
         "kotlin-reflect",
         "metalava-tools-common-m2-deps",
         "metalava-gradle-plugin-deps",
     ],
     manifest: "manifest.txt",
+    dist: {
+        targets: ["sdk"],
+    },
 }
 
-java_library_host {
+java_library {
     name: "stub-annotations",
+    host_supported: true,
     srcs: [
         "stub-annotations/src/main/java/**/*.java",
     ],
+    sdk_version: "core_current",
+    target: {
+        host: {
+            dist: {
+                targets: ["sdk"],
+            },
+        },
+    },
+}
+
+genrule {
+    name: "private-stub-annotations",
+    tools: [
+        "soong_zip",
+        "metalava",
+    ],
+    srcs: [
+        "stub-annotations/src/main/java/**/*.java",
+    ],
+    cmd: "($(location metalava) --no-banner --copy-annotations tools/metalava/stub-annotations " +
+        "$(genDir)/private-stub-annotations) && ($(location soong_zip) -o $(out) -C $(genDir) -D $(genDir))",
+    out: [
+        "private-stub-annotations.srcjar",
+    ],
+}
+
+java_library {
+    name: "private-stub-annotations-jar",
+    host_supported: true,
+    srcs: [
+        ":private-stub-annotations",
+    ],
+    sdk_version: "core_current",
+}
+
+droiddoc_exported_dir {
+    name: "metalava-manual",
+    path: "manual",
 }

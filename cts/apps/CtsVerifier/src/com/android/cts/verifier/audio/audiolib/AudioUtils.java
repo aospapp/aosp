@@ -32,9 +32,6 @@ public class AudioUtils {
     }
 
     public static int countToIndexMask(int chanCount) {
-        // From the documentation for AudioFormat:
-        // The canonical channel index masks by channel count are given by the formula
-        // (1 << channelCount) - 1.
         return (1 << chanCount) - 1;
     }
 

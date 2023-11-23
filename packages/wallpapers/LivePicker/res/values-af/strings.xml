@@ -24,6 +24,8 @@
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Aktiewe muurpapiere"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Aktiewe muurpapier se voorskou"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Instellings…"</string>
+    <string name="delete_live_wallpaper" msgid="5127205073129449497">"Vee uit"</string>
+    <string name="preview" msgid="5553971347768345401">"Voorskou"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"Stel muurpapier"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"Geen aktiewe muurpapier nie."</string>
     <string name="set_live_wallpaper" msgid="2381437614949033266">"Stel muurpapier"</string>
@@ -31,6 +33,10 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Laai tans aktiewe muurpapier…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Tuisskerm"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Tuisskerm en sluitskerm"</string>
+    <string name="explore_further" msgid="2891466461738034935">"Verken"</string>
+    <string name="tab_info" msgid="2612717074705274392">"Inligting"</string>
+    <string name="tab_customize" msgid="5282247400178296263">"Pasmaak"</string>
+    <string name="delete_wallpaper_confirmation" msgid="6449356646369781400">"Vee hierdie muurpapier uit op jou foon?"</string>
     <string name="collapse_attribution_panel" msgid="4998500891743118630">"Vou muurpapierinligtingpaneel in"</string>
     <string name="expand_attribution_panel" msgid="3151357815478885438">"Vou muurpapierinligtingpaneel uit"</string>
 </resources>

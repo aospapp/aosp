@@ -40,6 +40,7 @@
 #include <unistd.h>
 
 #include "common/libs/auto_resources/auto_resources.h"
+#include "vm_sockets.h"
 
 /**
  * Classes to to enable safe access to files.
@@ -137,8 +138,10 @@ class SharedFD {
   static SharedFD Accept(const FileInstance& listener);
   static SharedFD Dup(int unmanaged_fd);
   static SharedFD GetControlSocket(const char* name);
-  // Returns false on failure, true on success.
+  // All SharedFDs have the O_CLOEXEC flag after creation. To remove use the
+  // Fcntl or Dup functions.
   static SharedFD Open(const char* pathname, int flags, mode_t mode = 0);
+  static SharedFD Creat(const char* pathname, mode_t mode);
   static bool Pipe(SharedFD* fd0, SharedFD* fd1);
   static SharedFD Event(int initval = 0, int flags = 0);
   static SharedFD Epoll(int flags = 0);
@@ -153,6 +156,8 @@ class SharedFD {
   static SharedFD SocketLocalServer(int port, int type);
   static SharedFD SocketSeqPacketServer(const char* name, mode_t mode);
   static SharedFD SocketSeqPacketClient(const char* name);
+  static SharedFD VsockServer(unsigned int port, int type);
+  static SharedFD VsockClient(unsigned int cid, unsigned int port, int type);
   static SharedFD TimerFD(int clock, int flags);
 
   bool operator==(const SharedFD& rhs) const { return value_ == rhs.value_; }
@@ -174,6 +179,8 @@ class SharedFD {
   cvd::FileInstance& operator*() { return *value_; }
 
  private:
+  static SharedFD ErrorFD(int error);
+
   std::shared_ptr<FileInstance> value_;
 };
 
@@ -223,10 +230,18 @@ class FileInstance {
   // The non-const reference is needed to avoid binding this to a particular
   // reference type.
   bool CopyFrom(FileInstance& in);
+  bool CopyFrom(FileInstance& in, size_t length);
 
   int UNMANAGED_Dup() {
     errno = 0;
     int rval = TEMP_FAILURE_RETRY(dup(fd_));
+    errno_ = errno;
+    return rval;
+  }
+
+  int UNMANAGED_Dup2(int newfd) {
+    errno = 0;
+    int rval = TEMP_FAILURE_RETRY(dup2(fd_, newfd));
     errno_ = errno;
     return rval;
   }
@@ -497,6 +512,9 @@ class FileInstance {
 
  private:
   FileInstance(int fd, int in_errno) : fd_(fd), errno_(in_errno) {
+    // Ensure every file descriptor managed by a FileInstance has the CLOEXEC
+    // flag
+    TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, FD_CLOEXEC));
     identity_.PrintF("fd=%d @%p", fd, this);
   }
 
@@ -518,7 +536,7 @@ class FileInstance {
 /* Methods that need both a fully defined SharedFD and a fully defined
    FileInstance. */
 
-SharedFD::SharedFD() : value_(FileInstance::ClosedInstance()) {}
+inline SharedFD::SharedFD() : value_(FileInstance::ClosedInstance()) {}
 
 }  // namespace cvd
 

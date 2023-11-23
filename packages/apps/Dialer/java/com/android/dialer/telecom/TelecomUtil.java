@@ -50,7 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * perform the required check and return the fallback default if the permission is missing,
  * otherwise return the value from TelecomManager.
  */
-@SuppressWarnings("MissingPermission")
+@SuppressWarnings({"MissingPermission", "Guava"})
 public abstract class TelecomUtil {
 
   private static final String TAG = "TelecomUtil";
@@ -145,7 +145,8 @@ public abstract class TelecomUtil {
 
   public static List<PhoneAccountHandle> getCallCapablePhoneAccounts(Context context) {
     if (hasReadPhoneStatePermission(context)) {
-      return getTelecomManager(context).getCallCapablePhoneAccounts();
+      return Optional.fromNullable(getTelecomManager(context).getCallCapablePhoneAccounts())
+          .or(new ArrayList<>());
     }
     return new ArrayList<>();
   }
@@ -274,15 +275,21 @@ public abstract class TelecomUtil {
             && hasPermission(context, Manifest.permission.WRITE_VOICEMAIL));
   }
 
+  /** @deprecated use {@link com.android.dialer.util.PermissionsUtil} */
+  @Deprecated
   public static boolean hasModifyPhoneStatePermission(Context context) {
     return isDefaultDialer(context)
         || hasPermission(context, Manifest.permission.MODIFY_PHONE_STATE);
   }
 
+  /** @deprecated use {@link com.android.dialer.util.PermissionsUtil} */
+  @Deprecated
   public static boolean hasReadPhoneStatePermission(Context context) {
     return isDefaultDialer(context) || hasPermission(context, Manifest.permission.READ_PHONE_STATE);
   }
 
+  /** @deprecated use {@link com.android.dialer.util.PermissionsUtil} */
+  @Deprecated
   public static boolean hasCallPhonePermission(Context context) {
     return isDefaultDialer(context) || hasPermission(context, Manifest.permission.CALL_PHONE);
   }
@@ -311,6 +318,9 @@ public abstract class TelecomUtil {
     TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
     for (PhoneAccountHandle phoneAccountHandle : telecomManager.getCallCapablePhoneAccounts()) {
       PhoneAccount phoneAccount = telecomManager.getPhoneAccount(phoneAccountHandle);
+      if (phoneAccount == null) {
+        continue;
+      }
       if (phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
           && !phoneAccountHandle.equals(currentAccount)) {
         return phoneAccountHandle;

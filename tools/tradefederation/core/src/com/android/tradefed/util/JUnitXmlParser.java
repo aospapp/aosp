@@ -22,6 +22,8 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.xml.AbstractXmlParser;
 
+import com.google.common.base.Strings;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -36,6 +38,7 @@ import java.util.HashMap;
  * @see XmlTestRunListener
  */
 public class JUnitXmlParser extends AbstractXmlParser {
+    private final String mRunName;
     private final ITestInvocationListener mTestListener;
 
     /**
@@ -64,10 +67,9 @@ public class JUnitXmlParser extends AbstractXmlParser {
         private static final String SKIPPED_TAG = "skipped";
         private static final String TESTSUITE_TAG = "testsuite";
         private static final String TESTCASE_TAG = "testcase";
-        private static final String TIME_TAG = "time";
         private TestDescription mCurrentTest = null;
         private StringBuffer mFailureContent = null;
-        private long mRunTime = 0L;
+        private long mRunTimeMillis = 0L;
 
         /**
         * {@inheritDoc}
@@ -80,14 +82,18 @@ public class JUnitXmlParser extends AbstractXmlParser {
                 // top level tag - maps to a test run in TF terminology
                 String testSuiteName = getMandatoryAttribute(name, "name", attributes);
                 String testCountString = getMandatoryAttribute(name, "tests", attributes);
-                mRunTime = getTimeAttribute(name, TIME_TAG, attributes);
+                mRunTimeMillis = getTimeMillis(name, attributes);
                 int testCount = Integer.parseInt(testCountString);
-                mTestListener.testRunStarted(testSuiteName, testCount);
+                String runName = (mRunName != null) ? mRunName : testSuiteName;
+                mTestListener.testRunStarted(runName, testCount);
             }
             if (TESTCASE_TAG.equalsIgnoreCase(name)) {
                 // start of description of an individual test method - extract out test name and
                 // store it
-                String testClassName = getMandatoryAttribute(name, "classname", attributes);
+                String testClassName = Strings.nullToEmpty(attributes.getValue("classname"));
+                testClassName = "".equals(testClassName)  // TODO(b/120500865): remove this kludge
+                        ? JUnitXmlParser.class.getSimpleName()
+                        : testClassName;
                 String methodName = getMandatoryAttribute(name, "name", attributes);
                 mCurrentTest = new TestDescription(testClassName, methodName);
                 mTestListener.testStarted(mCurrentTest);
@@ -98,19 +104,8 @@ public class JUnitXmlParser extends AbstractXmlParser {
                 }
             }
             if (FAILURE_TAG.equalsIgnoreCase(name) || ERROR_TAG.equalsIgnoreCase(name)) {
-                // current testcase has a failure - extract out message and type and store it
-                // detailed stack is CDATA, will be extracted in characters() callback
+                // current testcase has a failure - will be extracted in characters() callback
                 mFailureContent = new StringBuffer();
-                String message = attributes.getValue("message");
-                String type = attributes.getValue("type");
-                if (message != null) {
-                    mFailureContent.append(message);
-                    mFailureContent.append("\n");
-                }
-                if (type != null) {
-                    mFailureContent.append(type);
-                    mFailureContent.append("\n");
-                }
             }
         }
 
@@ -131,7 +126,7 @@ public class JUnitXmlParser extends AbstractXmlParser {
         @Override
         public void endElement(String uri, String localName, String name) {
             if (TESTSUITE_TAG.equalsIgnoreCase(name)) {
-                mTestListener.testRunEnded(mRunTime, new HashMap<String, Metric>());
+                mTestListener.testRunEnded(mRunTimeMillis, new HashMap<String, Metric>());
             }
             if (TESTCASE_TAG.equalsIgnoreCase(name)) {
                 mTestListener.testEnded(mCurrentTest, new HashMap<String, Metric>());
@@ -161,14 +156,10 @@ public class JUnitXmlParser extends AbstractXmlParser {
         /**
          * Parse the time attributes from the xml, and put it in milliseconds instead of seconds.
          */
-        Long getTimeAttribute(String tagName, String attrName, Attributes attributes)
-                throws SAXException {
-            String value = attributes.getValue(attrName);
+        long getTimeMillis(String tagName, Attributes attributes) throws SAXException {
+            String value = attributes.getValue("time");
             if (value == null) {
-                throw new SAXException(
-                        String.format(
-                                "Malformed XML, could not find '%s' attribute in '%s'",
-                                attrName, tagName));
+                return 0L;
             }
             NumberFormat f = NumberFormat.getInstance();
             Number n;
@@ -176,9 +167,7 @@ public class JUnitXmlParser extends AbstractXmlParser {
                 n = f.parse(value);
             } catch (java.text.ParseException e) {
                 throw new SAXException(
-                        String.format(
-                                "Malformed XML, attribute '%s' in '%s' is not a time: '%s'",
-                                attrName, tagName, value));
+                        String.format("%s.time value '%s' is not a number", tagName, value), e);
             }
             return (long) (n.floatValue() * 1000L);
         }
@@ -190,6 +179,16 @@ public class JUnitXmlParser extends AbstractXmlParser {
      * @param listener the {@link ITestInvocationListener} to forward results to
      */
     public JUnitXmlParser(ITestInvocationListener listener) {
+        mRunName = null;
+        mTestListener = listener;
+    }
+
+    /**
+     * Creates a {@code JUnitXmlParser} that notifies {@code listener}, passing {@code runName}
+     * to {@link ITestInvocationListener#testRunStarted}.
+     */
+    public JUnitXmlParser(String runName, ITestInvocationListener listener) {
+        mRunName = runName;
         mTestListener = listener;
     }
 

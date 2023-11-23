@@ -17,27 +17,24 @@
 package android.cts.backup.restoreanyversionapp;
 
 import static android.content.Context.MODE_PRIVATE;
-import static android.support.test.InstrumentationRegistry.getTargetContext;
+
+import static androidx.test.InstrumentationRegistry.getTargetContext;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Device side routines to be invoked by the host side RestoreAnyVersionHostSideTest. These
@@ -45,6 +42,7 @@ import java.util.concurrent.TimeUnit;
  * test.
  */
 @RunWith(AndroidJUnit4.class)
+@AppModeFull
 public class RestoreAnyVersionTest {
     private static final String TAG = "BackupTestRestoreAnyVer";
 

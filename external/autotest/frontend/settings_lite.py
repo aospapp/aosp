@@ -15,6 +15,10 @@ INSTALLED_APPS = (
 #    'frontend.tko',
 )
 
+# Use UTC, and let the logging module handle local time.
+USE_TZ = False
+TIME_ZONE = None
+
 # Required for Django to start, even though not used.
 SECRET_KEY = 'Three can keep a secret if two are dead.'
 

@@ -17,8 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="automatic_storage_management_days">
-    <item msgid="4262697175462957945">"Älter als 30 Tage"</item>
-    <item msgid="2920779420892632946">"Älter als 60 Tage"</item>
-    <item msgid="1402081670011072896">"Älter als 90 Tage"</item>
+    <item msgid="4262697175462957945">"Nach 30 Tagen"</item>
+    <item msgid="2920779420892632946">"Nach 60 Tagen"</item>
+    <item msgid="1402081670011072896">"Nach 90 Tagen"</item>
   </string-array>
 </resources>

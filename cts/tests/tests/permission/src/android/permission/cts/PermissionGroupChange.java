@@ -20,6 +20,8 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED;
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -29,14 +31,16 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.platform.test.annotations.SecurityTest;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.widget.ScrollView;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.compatibility.common.util.SystemUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -97,7 +101,7 @@ public class PermissionGroupChange {
 
     protected void clickAllowButton() throws Exception {
         mUiDevice.findObject(new UiSelector().resourceId(
-                "com.android.packageinstaller:id/permission_allow_button")).click();
+                "com.android.permissioncontroller:id/permission_allow_button")).click();
     }
 
     private void grantPermissionViaUi() throws Throwable {
@@ -139,6 +143,11 @@ public class PermissionGroupChange {
         startApp.setFlags(FLAG_ACTIVITY_NEW_TASK);
 
         mContext.startActivity(startApp);
+    }
+
+    @After
+    public void uninstallTestApp() {
+        runShellCommand("pm uninstall android.permission.cts.appthatrequestpermission");
     }
 
     @SecurityTest

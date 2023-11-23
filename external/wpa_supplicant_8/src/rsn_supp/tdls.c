@@ -35,6 +35,7 @@
 #define TDLS_TESTING_DECLINE_RESP BIT(9)
 #define TDLS_TESTING_IGNORE_AP_PROHIBIT BIT(10)
 #define TDLS_TESTING_WRONG_MIC BIT(11)
+#define TDLS_TESTING_DOUBLE_TPK_M2 BIT(12)
 unsigned int tdls_testing = 0;
 #endif /* CONFIG_TDLS_TESTING */
 
@@ -1593,7 +1594,7 @@ static int copy_supp_rates(const struct wpa_eapol_ie_parse *kde,
 		peer->supp_rates, sizeof(peer->supp_rates),
 		kde->supp_rates + 2, kde->supp_rates_len - 2,
 		kde->ext_supp_rates ? kde->ext_supp_rates + 2 : NULL,
-		kde->ext_supp_rates_len - 2);
+		kde->ext_supp_rates ? kde->ext_supp_rates_len - 2 : 0);
 	return 0;
 }
 
@@ -2124,6 +2125,13 @@ skip_add_peer:
 		goto error;
 	}
 
+#ifdef CONFIG_TDLS_TESTING
+	if (tdls_testing & TDLS_TESTING_DOUBLE_TPK_M2) {
+		wpa_printf(MSG_INFO, "TDLS: Testing - Send another TPK M2");
+		wpa_tdls_send_tpk_m2(sm, src_addr, dtoken, lnkid, peer);
+	}
+#endif /* CONFIG_TDLS_TESTING */
+
 	return 0;
 
 error:
@@ -2151,11 +2159,11 @@ static int wpa_tdls_enable_link(struct wpa_sm *sm, struct wpa_tdls_peer *peer)
 		eloop_register_timeout(lifetime, 0, wpa_tdls_tpk_timeout,
 				       sm, peer);
 #ifdef CONFIG_TDLS_TESTING
-	if (tdls_testing & TDLS_TESTING_NO_TPK_EXPIRATION) {
-		wpa_printf(MSG_DEBUG, "TDLS: Testing - disable TPK "
-			   "expiration");
-		eloop_cancel_timeout(wpa_tdls_tpk_timeout, sm, peer);
-	}
+		if (tdls_testing & TDLS_TESTING_NO_TPK_EXPIRATION) {
+			wpa_printf(MSG_DEBUG,
+				   "TDLS: Testing - disable TPK expiration");
+			eloop_cancel_timeout(wpa_tdls_tpk_timeout, sm, peer);
+		}
 #endif /* CONFIG_TDLS_TESTING */
 	}
 

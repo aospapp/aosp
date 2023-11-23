@@ -1,5 +1,16 @@
-# TODO:  Find a better way to separate build configs for ADP vs non-ADP devices
-ifneq ($(BOARD_IS_AUTOMOTIVE),true)
+#set TARGET_USES_HARDWARE_QCOM_GPS to false to disable this project.
+
+ifeq ($(TARGET_USES_HARDWARE_QCOM_GPS),)
+  ifneq ($(filter sdm845 sdm710, $(TARGET_BOARD_PLATFORM)),)
+    TARGET_USES_HARDWARE_QCOM_GPS := false
+  else ifeq ($(BOARD_IS_AUTOMOTIVE),true)
+    TARGET_USES_HARDWARE_QCOM_GPS := false
+  else
+    TARGET_USES_HARDWARE_QCOM_GPS := true
+  endif
+endif
+
+ifeq ($(TARGET_USES_HARDWARE_QCOM_GPS),true)
   ifneq ($(BOARD_VENDOR_QCOM_GPS_LOC_API_HARDWARE),)
     LOCAL_PATH := $(call my-dir)
     ifeq ($(BOARD_VENDOR_QCOM_LOC_PDK_FEATURE_SET),true)
@@ -10,8 +21,7 @@ ifneq ($(BOARD_IS_AUTOMOTIVE),true)
       else ifneq ($(filter msm8992,$(TARGET_BOARD_PLATFORM)),)
         #For msm8992 use msm8994
         include $(call all-named-subdir-makefiles,msm8994)
-      else ifneq ($(filter msm8960 msm8084 msm8994 msm8996 msm8998 sdm845,$(TARGET_BOARD_PLATFORM)),)
-        #For these, use their platform name as the subdirectory
+      else ifneq ($(filter msm8960 msm8084 msm8994 msm8996 msm8998,$(TARGET_BOARD_PLATFORM)),)
         include $(call all-named-subdir-makefiles,$(TARGET_BOARD_PLATFORM))
       else ifeq ($(filter msm8916,$(TARGET_BOARD_PLATFORM)),)
         #For all other targets besides msm8916
@@ -20,9 +30,7 @@ ifneq ($(BOARD_IS_AUTOMOTIVE),true)
       endif #TARGET_BOARD_PLATFORM
 
     else
-      ifneq ($(filter sdm845,$(TARGET_BOARD_PLATFORM)),)
-        include $(call all-named-subdir-makefiles,$(TARGET_BOARD_PLATFORM))
-      else ifneq ($(filter msm8909 msm8226 ,$(TARGET_BOARD_PLATFORM)),)
+      ifneq ($(filter msm8909 msm8226 ,$(TARGET_BOARD_PLATFORM)),)
         ifeq ($(TARGET_SUPPORTS_QCOM_3100),true)
           # For SD3100.
           include $(call all-named-subdir-makefiles,msm8909w_3100)

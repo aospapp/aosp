@@ -48,6 +48,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     private static final int intSize = 4;
 
     //Testing security bug: 32436341
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamCenterFreq() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -57,6 +58,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32588352
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamCenterFreq_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -65,6 +67,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32438598
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamBandLevel() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -73,6 +76,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32584034
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamBandLevel_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -81,6 +85,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32247948
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamFreqRange() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -90,6 +95,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32588756
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamFreqRange_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -99,6 +105,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32448258
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamPresetName() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -107,6 +114,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 32588016
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_getParamPresetName_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -147,6 +155,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 32095626
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_setParamBandLevel() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -162,6 +171,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 32585400
+    @SecurityTest(minPatchLevel = "2017-01")
     public void testEqualizer_setParamBandLevel_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -177,6 +187,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 32705438
+    @SecurityTest(minPatchLevel = "2017-02")
     public void testEqualizer_getParamFreqRangeCommand_short() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -186,6 +197,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 32703959
+    @SecurityTest(minPatchLevel = "2017-02")
     public void testEqualizer_getParamFreqRangeCommand_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -195,6 +207,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 37563371 (short media)
+    @SecurityTest(minPatchLevel = "2017-09")
     public void testEqualizer_setParamProperties_short() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -204,6 +217,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //testing security bug: 37563371 (long media)
+    @SecurityTest(minPatchLevel = "2017-09")
     public void testEqualizer_setParamProperties_long() throws Exception {
         if (!hasEqualizer()) {
             return;
@@ -213,7 +227,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 63662938
-    @SecurityTest
+    @SecurityTest(minPatchLevel = "2017-10")
     public void testDownmix_setParameter() throws Exception {
         verifyZeroPVSizeRejectedForSetParameter(
                 EFFECT_TYPE_DOWNMIX, new int[] { DOWNMIX_PARAM_TYPE });
@@ -229,7 +243,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     private static final int DOWNMIX_PARAM_TYPE = 0;
 
     //Testing security bug: 63526567
-    @SecurityTest
+    @SecurityTest(minPatchLevel = "2017-10")
     public void testEnvironmentalReverb_setParameter() throws Exception {
         verifyZeroPVSizeRejectedForSetParameter(
                 AudioEffect.EFFECT_TYPE_ENV_REVERB, new int[] {
@@ -249,7 +263,7 @@ public class EffectBundleTest extends InstrumentationTestCase {
     }
 
     //Testing security bug: 67647856
-    @SecurityTest
+    @SecurityTest(minPatchLevel = "2018-01")
     public void testPresetReverb_setParameter() throws Exception {
         verifyZeroPVSizeRejectedForSetParameter(
                 AudioEffect.EFFECT_TYPE_PRESET_REVERB, new int[] {

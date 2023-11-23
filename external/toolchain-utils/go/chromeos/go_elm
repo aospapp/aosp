@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Invoke the Go cross compiler for elm.
+# Uses ../go_target to add PIE flags.
+#
+# This is just an example for an arm64 board.
+
+GOOS="linux" GOARCH="arm64" CGO_ENABLED="1" \
+	CC="aarch64-cros-linux-gnu-clang" \
+	CXX="aarch64-cros-linux-gnu-clang++" \
+	exec go_target "$@"

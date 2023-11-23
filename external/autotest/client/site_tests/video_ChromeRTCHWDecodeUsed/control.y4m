@@ -10,7 +10,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_vp8"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,4 +24,4 @@ job.run_test('video_ChromeRTCHWDecodeUsed',
              video_name='crowd720_25frames.y4m',
              histogram_name='Media.RTCVideoDecoderInitDecodeSucces',
              histogram_bucket_val=1,
-             tag='vp8')
+             tag='vp8', capability='hw_dec_vp8_1080_30')

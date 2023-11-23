@@ -32,14 +32,21 @@ static constexpr const uint32_t kMinNewClassesPercentChangeForCompilation = 2;
 ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
         const std::vector<ScopedFlock>& profile_files,
         const ScopedFlock& reference_profile_file,
-        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn) {
+        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
+        bool store_aggregation_counters) {
   DCHECK(!profile_files.empty());
 
   ProfileCompilationInfo info;
   // Load the reference profile.
-  if (!info.Load(reference_profile_file->Fd(), /*merge_classes*/ true, filter_fn)) {
+  if (!info.Load(reference_profile_file->Fd(), /*merge_classes=*/ true, filter_fn)) {
     LOG(WARNING) << "Could not load reference profile file";
     return kErrorBadProfiles;
+  }
+
+  // If we need to store aggregation counters (e.g. for the boot image profile),
+  // prepare the reference profile now.
+  if (store_aggregation_counters) {
+    info.PrepareForAggregationCounters();
   }
 
   // Store the current state of the reference profile before merging with the current profiles.
@@ -49,7 +56,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
   // Merge all current profiles.
   for (size_t i = 0; i < profile_files.size(); i++) {
     ProfileCompilationInfo cur_info;
-    if (!cur_info.Load(profile_files[i]->Fd(), /*merge_classes*/ true, filter_fn)) {
+    if (!cur_info.Load(profile_files[i]->Fd(), /*merge_classes=*/ true, filter_fn)) {
       LOG(WARNING) << "Could not load profile file at index " << i;
       return kErrorBadProfiles;
     }
@@ -92,7 +99,7 @@ class ScopedFlockList {
   // Will block until all the locks are acquired.
   bool Init(const std::vector<std::string>& filenames, /* out */ std::string* error) {
     for (size_t i = 0; i < filenames.size(); i++) {
-      flocks_[i] = LockedFile::Open(filenames[i].c_str(), O_RDWR, /* block */ true, error);
+      flocks_[i] = LockedFile::Open(filenames[i].c_str(), O_RDWR, /* block= */ true, error);
       if (flocks_[i].get() == nullptr) {
         *error += " (index=" + std::to_string(i) + ")";
         return false;
@@ -106,7 +113,7 @@ class ScopedFlockList {
     for (size_t i = 0; i < fds.size(); i++) {
       DCHECK_GE(fds[i], 0);
       flocks_[i] = LockedFile::DupOf(fds[i], "profile-file",
-                                     true /* read_only_mode */, error);
+                                     /* read_only_mode= */ true, error);
       if (flocks_[i].get() == nullptr) {
         *error += " (index=" + std::to_string(i) + ")";
         return false;
@@ -124,7 +131,8 @@ class ScopedFlockList {
 ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
         const std::vector<int>& profile_files_fd,
         int reference_profile_file_fd,
-        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn) {
+        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
+        bool store_aggregation_counters) {
   DCHECK_GE(reference_profile_file_fd, 0);
 
   std::string error;
@@ -138,7 +146,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
   // cleared after processing.
   ScopedFlock reference_profile_file = LockedFile::DupOf(reference_profile_file_fd,
                                                          "reference-profile",
-                                                         false /* read_only_mode */,
+                                                         /* read_only_mode= */ false,
                                                          &error);
   if (reference_profile_file.get() == nullptr) {
     LOG(WARNING) << "Could not lock reference profiled files: " << error;
@@ -147,13 +155,15 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
 
   return ProcessProfilesInternal(profile_files.Get(),
                                  reference_profile_file,
-                                 filter_fn);
+                                 filter_fn,
+                                 store_aggregation_counters);
 }
 
 ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
         const std::vector<std::string>& profile_files,
         const std::string& reference_profile_file,
-        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn) {
+        const ProfileCompilationInfo::ProfileLoadFilterFn& filter_fn,
+        bool store_aggregation_counters) {
   std::string error;
 
   ScopedFlockList profile_files_list(profile_files.size());
@@ -163,7 +173,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
   }
 
   ScopedFlock locked_reference_profile_file = LockedFile::Open(
-      reference_profile_file.c_str(), O_RDWR, /* block */ true, &error);
+      reference_profile_file.c_str(), O_RDWR, /* block= */ true, &error);
   if (locked_reference_profile_file.get() == nullptr) {
     LOG(WARNING) << "Could not lock reference profile files: " << error;
     return kErrorCannotLock;
@@ -171,7 +181,8 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfiles(
 
   return ProcessProfilesInternal(profile_files_list.Get(),
                                  locked_reference_profile_file,
-                                 filter_fn);
+                                 filter_fn,
+                                 store_aggregation_counters);
 }
 
 }  // namespace art

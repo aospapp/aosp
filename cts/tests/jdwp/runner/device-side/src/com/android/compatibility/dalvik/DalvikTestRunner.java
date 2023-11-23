@@ -29,6 +29,8 @@ import junit.framework.TestSuite;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -39,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Runs tests against the Dalvik VM.
@@ -120,33 +123,59 @@ public class DalvikTestRunner {
         System.out.println(String.format("end-run:%d", end - start));
     }
 
+    private static void iterateTests(Test test, Set<String> includes, Set<String> excludes,
+            Consumer<Test> sink) {
+        if (test instanceof TestSuite) {
+            // If the test is a suite it could contain multiple tests, these need to be split
+            // out into separate tests so they can be filtered
+            TestSuite suite = (TestSuite) test;
+            Enumeration<Test> enumerator = suite.tests();
+            while (enumerator.hasMoreElements()) {
+                iterateTests(enumerator.nextElement(), includes, excludes, sink);
+            }
+            return;
+        }
+        if (shouldRun(test, includes, excludes)) {
+            sink.accept(test);
+        }
+    }
+
     /* Recursively collect tests, since Test elements of the TestSuite may also be TestSuite
      * objects containing Tests. */
     private static void collectTests(TestSuite suite, TestListener listener,
             Set<String> includes, Set<String> excludes) {
-
-        Enumeration<Test> tests = suite.tests();
-        while (tests.hasMoreElements()) {
-            Test test = tests.nextElement();
-            if (test instanceof TestSuite) {
-                collectTests((TestSuite) test, listener, includes, excludes);
-            } else if (shouldCollect(test, includes, excludes)) {
-                listener.startTest(test);
-                listener.endTest(test);
-            }
-        }
+        iterateTests(suite, includes, excludes, test -> {
+            listener.startTest(test);
+            listener.endTest(test);
+        });
     }
 
-    /* Copied from FilterableTestSuite.shouldRun(), which is private */
-    private static boolean shouldCollect(Test test, Set<String> includes, Set<String> excludes) {
+    private static boolean packageFilterApplies(String className, Set<String> filters) {
+      // Traditional meaning: equality.
+      int index = className.lastIndexOf('.');
+      String packageName = index < 0 ? "" : className.substring(0, index);
+      if (filters.contains(packageName)) {
+        return true;
+      }
+
+      // See if it's a name prefix, for JarJared names.
+      for (String filter : filters) {
+        if (className.startsWith(filter) && className.length() > filter.length() &&
+                className.charAt(filter.length()) == '_') {
+            return true;
+        }
+      }
+
+      return false;
+    }
+
+    private static boolean shouldRun(Test test, Set<String> includes, Set<String> excludes) {
         String fullName = test.toString();
         String[] parts = fullName.split("[\\(\\)]");
         String className = parts[1];
         String methodName = String.format("%s#%s", className, parts[0]);
-        int index = className.lastIndexOf('.');
-        String packageName = index < 0 ? "" : className.substring(0, index);
 
-        if (excludes.contains(packageName)) {
+        if (packageFilterApplies(className, excludes)) {
             // Skip package because it was excluded
             return false;
         }
@@ -161,7 +190,7 @@ public class DalvikTestRunner {
         return includes.isEmpty()
                 || includes.contains(methodName)
                 || includes.contains(className)
-                || includes.contains(packageName);
+                || packageFilterApplies(className, includes);
     }
 
     private static void loadFilters(String filename, Set<String> filters) {
@@ -308,7 +337,20 @@ public class DalvikTestRunner {
         }
 
         public static String stringify(Throwable error) {
-            return Arrays.toString(error.getStackTrace()).replaceAll("\n", " ");
+            String output = null;
+            try {
+              try (StringWriter sw = new StringWriter()) {
+                try (PrintWriter pw = new PrintWriter(sw)) {
+                  error.printStackTrace(pw);
+                }
+                output = sw.toString();
+              }
+            } catch (Exception e) {
+              if (output == null) {
+                output = error.toString() + Arrays.toString(error.getStackTrace());
+              }
+            }
+            return output.replace("\n", "^~^");
         }
     }
 
@@ -337,77 +379,25 @@ public class DalvikTestRunner {
             mExcludes = excludes;
         }
 
-        /**
-         * {@inheritDoc}
-         */
+        private static class CountConsumer implements Consumer<Test> {
+            public int count = 0;
+
+            @Override
+            public void accept(Test t) {
+                count++;
+            }
+        }
+
         @Override
         public int countTestCases() {
-            return countTests(this);
+            CountConsumer counter = new CountConsumer();
+            iterateTests(this, mIncludes, mExcludes, counter);
+            return counter.count;
         }
 
-        private int countTests(Test test) {
-            if (test instanceof TestSuite) {
-                // If the test is a suite it could contain multiple tests, these need to be split
-                // out into separate tests so they can be filtered
-                TestSuite suite = (TestSuite) test;
-                Enumeration<Test> enumerator = suite.tests();
-                int count = 0;
-                while (enumerator.hasMoreElements()) {
-                    count += countTests(enumerator.nextElement());
-                }
-                return count;
-            } else if (shouldRun(test)) {
-                return 1;
-            }
-            return 0;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void runTest(Test test, TestResult result) {
-            runTests(test, result);
-        }
-
-        private void runTests(Test test, TestResult result) {
-            if (test instanceof TestSuite) {
-                // If the test is a suite it could contain multiple tests, these need to be split
-                // out into separate tests so they can be filtered
-                TestSuite suite = (TestSuite) test;
-                Enumeration<Test> enumerator = suite.tests();
-                while (enumerator.hasMoreElements()) {
-                    runTests(enumerator.nextElement(), result);
-                }
-            } else if (shouldRun(test)) {
-                test.run(result);
-            }
-        }
-
-        private boolean shouldRun(Test test) {
-            String fullName = test.toString();
-            String[] parts = fullName.split("[\\(\\)]");
-            String className = parts[1];
-            String methodName = String.format("%s#%s", className, parts[0]);
-            int index = className.lastIndexOf('.');
-            String packageName = index < 0 ? "" : className.substring(0, index);
-
-            if (mExcludes.contains(packageName)) {
-                // Skip package because it was excluded
-                return false;
-            }
-            if (mExcludes.contains(className)) {
-                // Skip class because it was excluded
-                return false;
-            }
-            if (mExcludes.contains(methodName)) {
-                // Skip method because it was excluded
-                return false;
-            }
-            return mIncludes.isEmpty()
-                    || mIncludes.contains(methodName)
-                    || mIncludes.contains(className)
-                    || mIncludes.contains(packageName);
+            iterateTests(test, mIncludes, mExcludes, t -> t.run(result));
         }
     }
 }

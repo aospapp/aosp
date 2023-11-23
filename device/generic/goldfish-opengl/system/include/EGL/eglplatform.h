@@ -102,6 +102,12 @@ typedef Display *EGLNativeDisplayType;
 typedef Pixmap   EGLNativePixmapType;
 typedef Window   EGLNativeWindowType;
 
+#elif defined(__Fuchsia__)
+
+typedef void* EGLNativeWindowType;
+typedef void* EGLNativePixmapType;
+typedef void* EGLNativeDisplayType;
+
 #else
 #error "Platform not recognized"
 #endif

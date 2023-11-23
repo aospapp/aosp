@@ -14,6 +14,7 @@ NAME = 'platform_CryptohomeFio.stress'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
+ATTRIBUTES = "suite:bvt-perbuild"
 
 RUNTIME=60  # seconds.
 

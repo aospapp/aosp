@@ -14,7 +14,9 @@
 # limitations under the License.
 
 APP_ABI := armeabi-v7a arm64-v8a x86 x86_64
-APP_PLATFORM := android-22
+# APP_ABI := arm64-v8a   # just build for pixel2  (don't check in)
+APP_PLATFORM := android-26
 APP_STL := c++_static
+APP_MODULES := VkLayer_core_validation VkLayer_parameter_validation VkLayer_object_tracker VkLayer_threading VkLayer_unique_objects
 NDK_TOOLCHAIN_VERSION := clang
 NDK_MODULE_PATH := .

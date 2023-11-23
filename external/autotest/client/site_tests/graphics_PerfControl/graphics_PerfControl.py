@@ -37,7 +37,7 @@ class graphics_PerfControl(graphics_utils.GraphicsTest):
     # behavior more consistent.
     with perf.PerfControl() as pc:
       if not pc.verify_is_valid():
-        raise error.TestFailure('Failed: %s' % pc.get_error_reason())
+        raise error.TestFail('Failed: %s' % pc.get_error_reason())
       # Do nothing for a short while so the PerfControl thread is collecting
       # real data.
       time.sleep(10)

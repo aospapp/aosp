@@ -11,8 +11,7 @@
 
 class GLXInterface : public GLInterface {
  public:
-  GLXInterface() : context_(NULL),
-                   fb_config_(NULL) {}
+  GLXInterface() : context_(NULL), fb_config_(NULL) {}
   virtual ~GLXInterface() {}
 
   virtual bool Init();
@@ -27,17 +26,13 @@ class GLXInterface : public GLInterface {
   virtual bool MakeCurrent(const GLContext& context);
   virtual const GLContext CreateContext();
   virtual void DeleteContext(const GLContext& context);
-  virtual const GLContext& GetMainContext() {
-    return context_;
-  }
+  virtual const GLContext& GetMainContext() { return context_; }
 
-  const GLXFBConfig fb_config() const {
-    return fb_config_;
-  }
+  const GLXFBConfig fb_config() const { return fb_config_; }
 
  private:
   GLXContext context_;
   GLXFBConfig fb_config_;
 };
 
-#endif // BENCH_GL_GLX_STUFF_H_
+#endif  // BENCH_GL_GLX_STUFF_H_

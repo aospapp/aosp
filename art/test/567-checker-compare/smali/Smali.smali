@@ -15,13 +15,12 @@
 .class public LSmali;
 .super Ljava/lang/Object;
 
-##  CHECK-START: int Smali.compareBooleans(boolean, boolean) intrinsics_recognition (after)
-##  CHECK-DAG:     <<Method:[ij]\d+>> CurrentMethod
+##  CHECK-START: int Smali.compareBooleans(boolean, boolean) builder (after)
 ##  CHECK-DAG:     <<Zero:i\d+>>   IntConstant 0
 ##  CHECK-DAG:     <<One:i\d+>>    IntConstant 1
 ##  CHECK-DAG:     <<PhiX:i\d+>>   Phi [<<One>>,<<Zero>>]
 ##  CHECK-DAG:     <<PhiY:i\d+>>   Phi [<<One>>,<<Zero>>]
-##  CHECK-DAG:     <<Result:i\d+>> InvokeStaticOrDirect [<<PhiX>>,<<PhiY>>,<<Method>>] intrinsic:IntegerCompare
+##  CHECK-DAG:     <<Result:i\d+>> InvokeStaticOrDirect [<<PhiX>>,<<PhiY>>{{(,[ij]\d+)?}}] intrinsic:IntegerCompare
 ##  CHECK-DAG:                     Return [<<Result>>]
 
 ##  CHECK-START: int Smali.compareBooleans(boolean, boolean) instruction_simplifier (after)

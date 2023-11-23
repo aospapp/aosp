@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informasi darurat"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Informasi medis"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Edit informasi"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Tambahkan informasi"</string>
     <string name="edit_info" msgid="5973929805855224805">"Edit informasi darurat"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Info"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontak"</string>
@@ -103,7 +103,11 @@
     <string name="clear_all" msgid="8899013032870561633">"Hapus semua"</string>
     <string name="clear" msgid="3648880442502887163">"Hapus"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Hapus semua informasi dan kontak?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Menambahkan informasi medis dan kontak darurat dapat membantu penolong pertama dalam situasi darurat.\n\nSemua orang dapat membaca informasi ini dari layar kunci dan menelepon kontak dengan menge-tap nama, tanpa harus membuka kunci ponsel."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Menambahkan informasi medis dan kontak darurat dapat membantu penolong pertama dalam situasi darurat.\n\nSemua orang dapat membaca informasi ini dari layar kunci dan menelepon kontak dengan mengetuk nama, tanpa harus membuka kunci ponsel."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Menambahkan informasi darurat"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Biarkan petugas pertolongan pertama melihat informasi"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Ambil foto"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Pilih gambar"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Pilih foto"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Nama"</string>
 </resources>

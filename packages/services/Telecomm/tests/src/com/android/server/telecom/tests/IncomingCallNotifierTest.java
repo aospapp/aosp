@@ -98,7 +98,7 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testIncomingDuringOngoingCall() {
-        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(false);
+        when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(false);
         mIncomingCallNotifier.onCallAdded(mRingingCall);
         verify(mNotificationManager, never()).notify(eq(IncomingCallNotifier.NOTIFICATION_TAG),
                 eq(IncomingCallNotifier.NOTIFICATION_INCOMING_CALL), any());
@@ -110,8 +110,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testIncomingDuringOngoingCall2() {
-        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(false);
-        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(0);
+        when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(false);
+        when(mCallsManagerProxy.getNumUnholdableCallsForOtherConnectionService(any())).thenReturn(0);
         when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
 
         mIncomingCallNotifier.onCallAdded(mAudioCall);
@@ -126,8 +126,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testCallRemoved() {
-        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
-        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
+        when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(true);
+        when(mCallsManagerProxy.getNumUnholdableCallsForOtherConnectionService(any())).thenReturn(1);
         when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
 
         mIncomingCallNotifier.onCallAdded(mAudioCall);
@@ -145,8 +145,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testDontShowDuringHandover1() {
-        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
-        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
+        when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(true);
+        when(mCallsManagerProxy.getNumUnholdableCallsForOtherConnectionService(any())).thenReturn(1);
         when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
         when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_FROM_STARTED);
 
@@ -164,8 +164,8 @@ public class IncomingCallNotifierTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testDontShowDuringHandover2() {
-        when(mCallsManagerProxy.hasCallsForOtherPhoneAccount(any())).thenReturn(true);
-        when(mCallsManagerProxy.getNumCallsForOtherPhoneAccount(any())).thenReturn(1);
+        when(mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(any())).thenReturn(true);
+        when(mCallsManagerProxy.getNumUnholdableCallsForOtherConnectionService(any())).thenReturn(1);
         when(mCallsManagerProxy.getActiveCall()).thenReturn(mAudioCall);
         when(mRingingCall.getHandoverState()).thenReturn(HandoverState.HANDOVER_COMPLETE);
 

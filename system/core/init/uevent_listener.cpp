@@ -39,6 +39,7 @@ static void ParseEvent(const char* msg, Uevent* uevent) {
     uevent->firmware.clear();
     uevent->partition_name.clear();
     uevent->device_name.clear();
+    uevent->modalias.clear();
     // currently ignoring SEQNUM
     while (*msg) {
         if (!strncmp(msg, "ACTION=", 7)) {
@@ -68,6 +69,9 @@ static void ParseEvent(const char* msg, Uevent* uevent) {
         } else if (!strncmp(msg, "DEVNAME=", 8)) {
             msg += 8;
             uevent->device_name = msg;
+        } else if (!strncmp(msg, "MODALIAS=", 9)) {
+            msg += 9;
+            uevent->modalias = msg;
         }
 
         // advance to after the next \0
@@ -82,9 +86,8 @@ static void ParseEvent(const char* msg, Uevent* uevent) {
     }
 }
 
-UeventListener::UeventListener() {
-    // is 2MB enough? udev uses 128MB!
-    device_fd_.reset(uevent_open_socket(2 * 1024 * 1024, true));
+UeventListener::UeventListener(size_t uevent_socket_rcvbuf_size) {
+    device_fd_.reset(uevent_open_socket(uevent_socket_rcvbuf_size, true));
     if (device_fd_ == -1) {
         LOG(FATAL) << "Could not open uevent socket";
     }

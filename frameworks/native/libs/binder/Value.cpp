@@ -97,7 +97,7 @@ public:
 template<typename T> class Value::Content : public Value::ContentBase {
 public:
     Content() = default;
-    Content(const T & value) : mValue(value) { }
+    explicit Content(const T & value) : mValue(value) { }
 
     virtual ~Content() = default;
 
@@ -143,12 +143,12 @@ template<typename T> bool Value::ContentBase::get(T* out) const
 
 // ====================================================================
 
-Value::Value() : mContent(NULL)
+Value::Value() : mContent(nullptr)
 {
 }
 
 Value::Value(const Value& value)
-    : mContent(value.mContent ? value.mContent->clone() : NULL)
+    : mContent(value.mContent ? value.mContent->clone() : nullptr)
 {
 }
 
@@ -165,8 +165,8 @@ bool Value::operator==(const Value& rhs) const
         return true;
     }
 
-    if ( (lhs.mContent == NULL)
-      || (rhs.mContent == NULL)
+    if ( (lhs.mContent == nullptr)
+      || (rhs.mContent == nullptr)
     ) {
         return false;
     }
@@ -186,25 +186,25 @@ Value& Value::operator=(const Value& rhs)
         delete mContent;
         mContent = rhs.mContent
             ? rhs.mContent->clone()
-            : NULL;
+            : nullptr;
     }
     return *this;
 }
 
 bool Value::empty() const
 {
-    return mContent == NULL;
+    return mContent == nullptr;
 }
 
 void Value::clear()
 {
     delete mContent;
-    mContent = NULL;
+    mContent = nullptr;
 }
 
 int32_t Value::parcelType() const
 {
-    const void* t_info(mContent ? mContent->type_ptr() : NULL);
+    const void* t_info(mContent ? mContent->type_ptr() : nullptr);
 
     if (t_info == internal_type_ptr<bool>()) return VAL_BOOLEAN;
     if (t_info == internal_type_ptr<uint8_t>()) return VAL_BYTE;
@@ -229,7 +229,7 @@ int32_t Value::parcelType() const
 #ifdef LIBBINDER_VALUE_SUPPORTS_TYPE_INFO
 const std::type_info& Value::type() const
 {
-    return mContent != NULL
+    return mContent != nullptr
         ? mContent->type()
         : typeid(void);
 }
@@ -306,7 +306,7 @@ status_t Value::writeToParcel(Parcel* parcel) const
 
 #define BEGIN_HANDLE_WRITE()                                                                      \
     do {                                                                                          \
-        const void* t_info(mContent?mContent->type_ptr():NULL);                                   \
+        const void* t_info(mContent?mContent->type_ptr():nullptr);                                \
         if (false) { }
 #define HANDLE_WRITE_TYPE(T, TYPEVAL, TYPEMETHOD)                                                 \
     else if (t_info == internal_type_ptr<T>()) {                                                  \
@@ -381,7 +381,7 @@ status_t Value::readFromParcel(const Parcel* parcel)
     int32_t value_type = VAL_NULL;
 
     delete mContent;
-    mContent = NULL;
+    mContent = nullptr;
 
     RETURN_IF_FAILED(parcel->readInt32(&value_type));
 

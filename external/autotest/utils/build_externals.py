@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Please keep this code python 2.4 compatible and stand alone.
+# Please keep this code python 2.4 compatible and standalone.
 
 """
 Fetch, build and install external Python library dependancies.
@@ -41,7 +41,10 @@ INSTALL_ALL = False
 
 
 class BuildExternalsLoggingConfig(logging_config.LoggingConfig):
+    """Logging manager config."""
+
     def configure_logging(self, results_dir=None, verbose=False):
+        """Configure logging."""
         super(BuildExternalsLoggingConfig, self).configure_logging(
                                                                use_console=True,
                                                                verbose=verbose)
@@ -92,6 +95,11 @@ def main():
     for error_msg in errors:
         logging.error(error_msg)
 
+    if not errors:
+      logging.info("Syntax errors from pylint above are expected, not "
+                   "problematic. SUCCESS.")
+    else:
+      logging.info("Problematic errors encountered. FAILURE.")
     return len(errors)
 
 

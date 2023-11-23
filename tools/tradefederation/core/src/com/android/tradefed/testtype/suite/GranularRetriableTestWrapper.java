@@ -19,22 +19,34 @@ package com.android.tradefed.testtype.suite;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
-
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.device.metric.CollectorHelper;
 import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogSaverResultForwarder;
+import com.android.tradefed.result.MergeStrategy;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.suite.ITestSuite.RetryStrategy;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -58,43 +70,46 @@ import java.util.Set;
  *   <li> X is customized max retry number.
  * </ul>
  */
-public class GranularRetriableTestWrapper implements IRemoteTest {
+public class GranularRetriableTestWrapper implements IRemoteTest, ITestCollector {
 
-    private boolean mIsGranulatedTestCaseRetriable;
     private IRemoteTest mTest;
-    private boolean mSkipTestCases;
     private List<IMetricCollector> mRunMetricCollectors;
-    private ITestInvocationListener mMainListener;
     private TestFailureListener mFailureListener;
     private IInvocationContext mModuleInvocationContext;
     private IConfiguration mModuleConfiguration;
-    private List<TestRunResult> mTestRunResultCollector;
-    private List<ModuleListener> mModuleListenerCollector;
+    private ModuleListener mMainGranularRunListener;
+    private RetryLogSaverResultForwarder mRetryAttemptForwarder;
     private List<ITestInvocationListener> mModuleLevelListeners;
     private ILogSaver mLogSaver;
     private String mModuleId;
-    private boolean mIsMetricCollectorInitialized;
     private int mMaxRunLimit;
+
+    private boolean mCollectTestsOnly = false;
+
+    // Tracking of the metrics
+    /** How much time are we spending doing the retry attempts */
+    private long mRetryTime = 0L;
+    /** The number of test cases that passed after a failed attempt */
+    private long mSuccessRetried = 0L;
+    /** The number of test cases that remained failed after all retry attempts */
+    private long mFailedRetried = 0L;
+    /** Store the test that successfully re-run and at which attempt they passed */
+    private Map<String, Integer> mAttemptSuccess = new HashMap<>();
+
+    private RetryStrategy mRetryStrategy = RetryStrategy.RETRY_TEST_CASE_FAILURE;
+    private boolean mRebootAtLastRetry = false;
 
     public GranularRetriableTestWrapper(
             IRemoteTest test,
+            ITestInvocationListener mainListener,
             TestFailureListener failureListener,
             List<ITestInvocationListener> moduleLevelListeners,
             int maxRunLimit) {
         mTest = test;
-        mTestRunResultCollector = new ArrayList<TestRunResult>();
+        mMainGranularRunListener = new ModuleListener(mainListener);
         mFailureListener = failureListener;
-        mModuleListenerCollector = new ArrayList<ModuleListener>();
-        mIsMetricCollectorInitialized = false;
         mModuleLevelListeners = moduleLevelListeners;
         mMaxRunLimit = maxRunLimit;
-        // TODO(b/77548917): Right now we only support ITestFilterReciever. We should expect to
-        // support ITestFile*Filter*Receiver in the future.
-        if (test instanceof ITestFilterReceiver) {
-            mIsGranulatedTestCaseRetriable = true;
-        } else {
-            mIsGranulatedTestCaseRetriable = false;
-        }
     }
 
     /**
@@ -113,7 +128,7 @@ public class GranularRetriableTestWrapper implements IRemoteTest {
      * @param skipTestCases whether the testcases should be skipped.
      */
     public void setMarkTestsSkipped(boolean skipTestCases) {
-        mSkipTestCases = skipTestCases;
+        mMainGranularRunListener.setMarkTestsSkipped(skipTestCases);
     }
 
     /**
@@ -155,9 +170,14 @@ public class GranularRetriableTestWrapper implements IRemoteTest {
         mLogSaver = logSaver;
     }
 
-    @VisibleForTesting
-    ModuleListener createModuleListener() {
-        return new ModuleListener(mMainListener);
+    /** Sets the {@link RetryStrategy} to be used when retrying. */
+    public final void setRetryStrategy(RetryStrategy retryStrategy) {
+        mRetryStrategy = retryStrategy;
+    }
+
+    /** Sets the flag to reboot devices at the last intra-module retry. */
+    public final void setRebootAtLastRetry(boolean rebootAtLastRetry) {
+        mRebootAtLastRetry = rebootAtLastRetry;
     }
 
     /**
@@ -168,83 +188,188 @@ public class GranularRetriableTestWrapper implements IRemoteTest {
      *     TestFailureListener}, and wrapped by RunMetricsCollector and Module MetricCollector (if
      *     not initialized).
      */
-    private ITestInvocationListener prepareRunListener() {
-        ModuleListener moduleListener = createModuleListener();
-        mModuleListenerCollector.add(moduleListener);
-        moduleListener.setMarkTestsSkipped(mSkipTestCases);
+    private ITestInvocationListener initializeListeners() {
         List<ITestInvocationListener> currentTestListener = new ArrayList<>();
         // Add all the module level listeners, including TestFailureListener
         if (mModuleLevelListeners != null) {
             currentTestListener.addAll(mModuleLevelListeners);
         }
-        currentTestListener.add(moduleListener);
+        currentTestListener.add(mMainGranularRunListener);
 
-        ITestInvocationListener runListener =
-                new LogSaverResultForwarder(mLogSaver, currentTestListener);
+        mRetryAttemptForwarder = new RetryLogSaverResultForwarder(mLogSaver, currentTestListener);
+        ITestInvocationListener runListener = mRetryAttemptForwarder;
         if (mFailureListener != null) {
-            mFailureListener.setLogger(runListener);
+            mFailureListener.setLogger(mRetryAttemptForwarder);
             currentTestListener.add(mFailureListener);
         }
 
-        // TODO: For RunMetricCollector and moduleMetricCollector, we only gather the
-        // metrics in the first run. This part can be improved if we want to gather metrics for
-        // every run.
-        if (!mIsMetricCollectorInitialized) {
-            if (mRunMetricCollectors != null) {
-                // Module only init the collectors here to avoid triggering the collectors when
-                // replaying the cached events at the end. This ensure metrics are capture at
-                // the proper time in the invocation.
-                for (IMetricCollector collector : mRunMetricCollectors) {
-                    runListener = collector.init(mModuleInvocationContext, runListener);
-                }
-            }
-            // The module collectors itself are added: this list will be very limited.
-            for (IMetricCollector collector : mModuleConfiguration.getMetricCollectors()) {
+        // The module collectors itself are added: this list will be very limited.
+        for (IMetricCollector collector : mModuleConfiguration.getMetricCollectors()) {
+            if (collector.isDisabled()) {
+                CLog.d("%s has been disabled. Skipping.", collector);
+            } else {
                 runListener = collector.init(mModuleInvocationContext, runListener);
             }
-            mIsMetricCollectorInitialized = true;
         }
+
         return runListener;
     }
 
     /**
-     * Schedule a series of {@link IRemoteTest} "run". TODO: Customize the retry strategy; Each run
-     * is granularized to a subset of the whole testcases.
+     * Schedule a series of {@link IRemoteTest#run(ITestInvocationListener)}.
      *
      * @param listener The ResultForwarder listener which contains a new moduleListener for each
      *     run.
      */
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        mMainListener = listener;
-        int count = 0;
-        while (count < mMaxRunLimit) {
-            intraModuleRun();
-            count += 1;
-            ModuleListener previousTestRunListener =
-                    mModuleListenerCollector.get(mModuleListenerCollector.size() - 1);
-            if (!previousTestRunListener.hasFailedTests()) {
-                CLog.d("The test has no failed testcases. No need to retry.");
-                break;
-            }
-            if (count == mMaxRunLimit) {
-                CLog.d(
-                        "The test has reached its max number of run attempt: %d time(s)",
-                        mMaxRunLimit);
-                break;
-            }
-            if (mIsGranulatedTestCaseRetriable) {
-                Set<TestDescription> failedTests =
-                        previousTestRunListener.getCurrentRunResults().getFailedTests();
-                addRetriedTestsToIncludeFilters(failedTests);
-            } else {
-                // If the IRemoteTest can't support running a single testcase, we retry the whole
-                // testcase list.
-                CLog.d(
-                        "The test is not supported to run testcases in intra-module level. Trying "
-                                + "to run the whole test again...");
+        mMainGranularRunListener.setCollectTestsOnly(mCollectTestsOnly);
+        ITestInvocationListener allListeners = initializeListeners();
+        // First do the regular run, not retried.
+        intraModuleRun(allListeners);
+
+        if (mMaxRunLimit <= 1) {
+            return;
+        }
+
+        // If the very first attempt failed, then don't proceed.
+        if (RetryStrategy.RERUN_UNTIL_FAILURE.equals(mRetryStrategy)) {
+            Set<TestDescription> lastRun = getFailedTestCases(0);
+            // If we encountered a failure
+            if (!lastRun.isEmpty() || mMainGranularRunListener.hasRunCrashedAtAttempt(0)) {
+                CLog.w("%s failed after the first run. Stopping.", lastRun);
+                return;
             }
         }
+
+        // Deal with retried attempted
+        long startTime = System.currentTimeMillis();
+        Set<TestDescription> previousFailedTests = null;
+        Set<String> originalFilters = new HashSet<>();
+
+        // TODO(b/77548917): Right now we only support ITestFilterReceiver. We should expect to
+        // support ITestFile*Filter*Receiver in the future.
+        if (mTest instanceof ITestFilterReceiver) {
+            ITestFilterReceiver test = (ITestFilterReceiver) mTest;
+            originalFilters = new LinkedHashSet<>(test.getIncludeFilters());
+        } else if (!shouldHandleFailure(mRetryStrategy)) {
+            // TODO: improve this for test run failures, since they rerun the full run we should
+            // be able to rerun even non-ITestFilterReceiver
+            CLog.d("RetryStrategy does not involved moving filters proceeding with retry.");
+        } else {
+            CLog.d(
+                    "%s does not implement ITestFilterReceiver, thus cannot work with "
+                            + "intra-module retry.",
+                    mTest);
+            return;
+        }
+
+        try {
+            CLog.d("Starting intra-module retry.");
+            for (int attemptNumber = 1; attemptNumber < mMaxRunLimit; attemptNumber++) {
+                CLog.d("Retry attempt number %s", attemptNumber);
+                // Reset the filters to original.
+                if (mTest instanceof ITestFilterReceiver) {
+                    ((ITestFilterReceiver) mTest).clearIncludeFilters();
+                    ((ITestFilterReceiver) mTest).addAllIncludeFilters(originalFilters);
+                }
+                // TODO: sort out the collection of metrics for each strategy
+                if (shouldHandleFailure(mRetryStrategy)) {
+                    boolean shouldContinue = false;
+                    // In case of test run failure and we should retry test runs
+                    if (RetryStrategy.RETRY_TEST_RUN_FAILURE.equals(mRetryStrategy)
+                            || RetryStrategy.RETRY_ANY_FAILURE.equals(mRetryStrategy)) {
+                        if (mMainGranularRunListener.hasRunCrashedAtAttempt(attemptNumber - 1)) {
+                            CLog.d("Retrying the run failure.");
+                            shouldContinue = true;
+                        }
+                    }
+
+                    if (RetryStrategy.RETRY_TEST_CASE_FAILURE.equals(mRetryStrategy)
+                            || RetryStrategy.RETRY_ANY_FAILURE.equals(mRetryStrategy)) {
+                        // In case of test case failure, we retry with filters.
+                        previousFailedTests = getFailedTestCases(attemptNumber - 1);
+                        if (previousFailedTests.size() > 0 && !shouldContinue) {
+                            CLog.d("Retrying the test case failure.");
+                            shouldContinue = true;
+                            addRetriedTestsToIncludeFilters(mTest, previousFailedTests);
+                        }
+                    }
+
+                    if (!shouldContinue) {
+                        CLog.d("No test run or test case failures. No need to retry.");
+                        break;
+                    }
+                }
+                // Reboot device at the last intra-module retry if reboot-at-last-retry is set.
+                if (mRebootAtLastRetry && (attemptNumber == (mMaxRunLimit-1))) {
+                    for (ITestDevice device : mModuleInvocationContext.getDevices()) {
+                        if (!(device.getIDevice() instanceof StubDevice)) {
+                            CLog.i("Rebooting device: %s at the last intra-module retry.",
+                                    device.getSerialNumber());
+                            device.reboot();
+                        }
+                    }
+                }
+                // Run the tests again
+                intraModuleRun(allListeners);
+
+                Set<TestDescription> lastRun = getFailedTestCases(attemptNumber);
+                if (shouldHandleFailure(mRetryStrategy)) {
+                    // Evaluate success from what we just ran
+                    if (previousFailedTests != null) {
+                        Set<TestDescription> diff = Sets.difference(previousFailedTests, lastRun);
+                        mSuccessRetried += diff.size();
+                        final int currentAttempt = attemptNumber;
+                        diff.forEach(
+                                (desc) -> mAttemptSuccess.put(desc.toString(), currentAttempt));
+                        previousFailedTests = lastRun;
+                    }
+                }
+
+                if (RetryStrategy.RERUN_UNTIL_FAILURE.equals(mRetryStrategy)) {
+                    // If we encountered a failure do not proceed
+                    if (!lastRun.isEmpty()
+                            || mMainGranularRunListener.hasRunCrashedAtAttempt(attemptNumber)) {
+                        CLog.w("%s failed at iteration %s. Stopping.", lastRun, attemptNumber);
+                        break;
+                    }
+                }
+            }
+        } finally {
+            if (previousFailedTests != null) {
+                mFailedRetried += previousFailedTests.size();
+            }
+            // Track how long we spend in retry
+            mRetryTime = System.currentTimeMillis() - startTime;
+        }
+    }
+
+    /**
+     * If the strategy needs to handle some failures return True. If it needs to retry no matter
+     * what like {@link RetryStrategy#ITERATIONS} returns False.
+     */
+    private boolean shouldHandleFailure(RetryStrategy retryStrategy) {
+        return RetryStrategy.RETRY_ANY_FAILURE.equals(retryStrategy)
+                || RetryStrategy.RETRY_TEST_RUN_FAILURE.equals(retryStrategy)
+                || RetryStrategy.RETRY_TEST_CASE_FAILURE.equals(retryStrategy);
+    }
+
+    /**
+     * Collect failed test cases from listener.
+     *
+     * @param attemptNumber the 0-indexed integer indicating which attempt to gather failed cases.
+     */
+    private Set<TestDescription> getFailedTestCases(int attemptNumber) {
+        Set<TestDescription> failedTestCases = new HashSet<TestDescription>();
+        for (String runName : mMainGranularRunListener.getTestRunNames()) {
+            TestRunResult run =
+                    mMainGranularRunListener.getTestRunAtAttempt(runName, attemptNumber);
+            if (run != null) {
+                failedTestCases.addAll(run.getFailedTests());
+            }
+        }
+        return failedTestCases;
     }
 
     /**
@@ -252,29 +377,42 @@ public class GranularRetriableTestWrapper implements IRemoteTest {
      * implemented differently for each IRemoteTest testtype in the overridden
      * ITestFilterReceiver.addIncludeFilter method.
      *
+     * @param test The {@link IRemoteTest} to evaluate as ITestFilterReceiver.
      * @param testDescriptions The set of failed testDescriptions to retry.
      */
-    private void addRetriedTestsToIncludeFilters(Set<TestDescription> testDescriptions) {
-        // TODO(b/77548917): Right now we only support ITestFilterReciever. We should expect to
-        // support ITestFile*Filter*Receiver in the future.
-        if (mTest instanceof ITestFilterReceiver) {
+    private void addRetriedTestsToIncludeFilters(
+            IRemoteTest test, Set<TestDescription> testDescriptions) {
+        if (test instanceof ITestFilterReceiver) {
             for (TestDescription testCase : testDescriptions) {
                 String filter = testCase.toString();
-                ((ITestFilterReceiver) mTest).addIncludeFilter(filter);
+                ((ITestFilterReceiver) test).addIncludeFilter(filter);
             }
         }
     }
 
-    /**
-     * The workflow for each individual {@link IRemoteTest} run. TODO: When this function is called,
-     * the IRemoteTest should already has the subset of testcases identified.
-     */
-    @VisibleForTesting
-    final void intraModuleRun() throws DeviceNotAvailableException, DeviceUnresponsiveException {
-        ITestInvocationListener runListener = prepareRunListener();
+    /** The workflow for each individual {@link IRemoteTest} run. */
+    private final void intraModuleRun(ITestInvocationListener runListener)
+            throws DeviceNotAvailableException {
         try {
-            mTest.run(runListener);
-        } catch (RuntimeException re) {
+            List<IMetricCollector> clonedCollectors = cloneCollectors(mRunMetricCollectors);
+            if (mTest instanceof IMetricCollectorReceiver) {
+                ((IMetricCollectorReceiver) mTest).setMetricCollectors(clonedCollectors);
+                // If test can receive collectors then let it handle how to set them up
+                mTest.run(runListener);
+            } else {
+                // Module only init the collectors here to avoid triggering the collectors when
+                // replaying the cached events at the end. This ensures metrics are capture at
+                // the proper time in the invocation.
+                for (IMetricCollector collector : clonedCollectors) {
+                    if (collector.isDisabled()) {
+                        CLog.d("%s has been disabled. Skipping.", collector);
+                    } else {
+                        runListener = collector.init(mModuleInvocationContext, runListener);
+                    }
+                }
+                mTest.run(runListener);
+            }
+        } catch (RuntimeException | AssertionError re) {
             CLog.e("Module '%s' - test '%s' threw exception:", mModuleId, mTest.getClass());
             CLog.e(re);
             CLog.e("Proceeding to the next test.");
@@ -289,42 +427,128 @@ public class GranularRetriableTestWrapper implements IRemoteTest {
             CLog.w("Proceeding to the next test.");
             runListener.testRunFailed(due.getMessage());
         } catch (DeviceNotAvailableException dnae) {
+            // TODO: See if it's possible to report IReportNotExecuted
+            runListener.testRunFailed(
+                    "Run in progress was not completed due to: " + dnae.getMessage());
+            // Device Not Available Exception are rethrown.
             throw dnae;
         } finally {
-            ModuleListener currentModuleListener =
-                    mModuleListenerCollector.get(mModuleListenerCollector.size() - 1);
-            mTestRunResultCollector.addAll(currentModuleListener.getRunResults());
+            mRetryAttemptForwarder.incrementAttempt();
         }
     }
 
     /** Get the merged TestRunResults from each {@link IRemoteTest} run. */
-    public TestRunResult getFinalTestRunResult() {
-        return TestRunResult.merge(mTestRunResultCollector);
+    public final List<TestRunResult> getFinalTestRunResults() {
+        // TODO: Once we are ready to report break-down of results and option will override this.
+        MergeStrategy strategy = MergeStrategy.ONE_TESTCASE_PASS_IS_PASS;
+        switch (mRetryStrategy) {
+            case ITERATIONS:
+                strategy = MergeStrategy.ANY_FAIL_IS_FAIL;
+                break;
+            case RERUN_UNTIL_FAILURE:
+                strategy = MergeStrategy.ANY_FAIL_IS_FAIL;
+                break;
+            case RETRY_ANY_FAILURE:
+                strategy = MergeStrategy.ANY_PASS_IS_PASS;
+                break;
+            case RETRY_TEST_CASE_FAILURE:
+                strategy = MergeStrategy.ONE_TESTCASE_PASS_IS_PASS;
+                break;
+            case RETRY_TEST_RUN_FAILURE:
+                strategy = MergeStrategy.ONE_TESTRUN_PASS_IS_PASS;
+                break;
+        }
+
+        mMainGranularRunListener.setMergeStrategy(strategy);
+        return mMainGranularRunListener.getMergedTestRunResults();
     }
 
     @VisibleForTesting
-    List<TestRunResult> getTestRunResultCollector() {
-        return mTestRunResultCollector;
+    Map<String, List<TestRunResult>> getTestRunResultCollected() {
+        Map<String, List<TestRunResult>> runResultMap = new LinkedHashMap<>();
+        for (String runName : mMainGranularRunListener.getTestRunNames()) {
+            runResultMap.put(runName, mMainGranularRunListener.getTestRunAttempts(runName));
+        }
+        return runResultMap;
     }
 
-    /** Check if any testRunResult has ever failed. */
+    @VisibleForTesting
+    List<IMetricCollector> cloneCollectors(List<IMetricCollector> originalCollectors) {
+        return CollectorHelper.cloneCollectors(originalCollectors);
+    }
+
+    /** Check if any testRunResult has ever failed. This check is used for bug report only. */
     public boolean hasFailed() {
-        for (ModuleListener listener : mModuleListenerCollector) {
-            if (listener.hasFailed()) {
-                return true;
-            }
-        }
-        return false;
+        return mMainGranularRunListener.hasFailed();
     }
 
     /**
      * Calculate the number of testcases in the {@link IRemoteTest}. This value distincts the same
      * testcases that are rescheduled multiple times.
      */
-    public int getNumIndividualTests() {
-        if (mModuleListenerCollector.isEmpty()) {
-            return 0;
+    public final int getExpectedTestsCount() {
+        return mMainGranularRunListener.getExpectedTests();
+    }
+
+    /** Returns the elapsed time in retry attempts. */
+    public final long getRetryTime() {
+        return mRetryTime;
+    }
+
+    /** Returns the number of tests we managed to change status from failed to pass. */
+    public final long getRetrySuccess() {
+        return mSuccessRetried;
+    }
+
+    /** Returns the number of tests we couldn't change status from failed to pass. */
+    public final long getRetryFailed() {
+        return mFailedRetried;
+    }
+
+    /** Returns the listener containing all the results. */
+    public ModuleListener getResultListener() {
+        return mMainGranularRunListener;
+    }
+
+    /** Returns the attempts that turned into success. */
+    public Map<String, Integer> getAttemptSuccessStats() {
+        return mAttemptSuccess;
+    }
+
+    /** Forwarder that also handles passing the current attempt we are at. */
+    private class RetryLogSaverResultForwarder extends LogSaverResultForwarder {
+
+        private int mAttemptNumber = 0;
+
+        public RetryLogSaverResultForwarder(
+                ILogSaver logSaver, List<ITestInvocationListener> listeners) {
+            super(logSaver, listeners);
         }
-        return mModuleListenerCollector.get(0).getNumTotalTests();
+
+        @Override
+        public void testRunStarted(String runName, int testCount) {
+            super.testRunStarted(runName, testCount, mAttemptNumber);
+        }
+
+        @Override
+        public void testRunStarted(String runName, int testCount, int attemptNumber) {
+            if (attemptNumber != mAttemptNumber) {
+                CLog.w(
+                        "Test reported an attempt %s, while the suite is at attempt %s",
+                        attemptNumber, mAttemptNumber);
+            }
+            // We enforce our attempt number
+            super.testRunStarted(runName, testCount, mAttemptNumber);
+        }
+
+        /** Increment the attempt number. */
+        public void incrementAttempt() {
+            mAttemptNumber++;
+        }
+    }
+
+    @Override
+    public void setCollectTestsOnly(boolean shouldCollectTest) {
+        mCollectTestsOnly = shouldCollectTest;
     }
 }

@@ -42,6 +42,8 @@
 #include "asio/error_code.hpp"
 #include "asio/io_service.hpp"
 #include "asio/ip/tcp.hpp"
+#include "asio/generic/stream_protocol.hpp"
+#include "asio/local/stream_protocol.hpp"
 #include "asio/read.hpp"
 #include "asio/socket_base.hpp"
 #include "asio/system_error.hpp"

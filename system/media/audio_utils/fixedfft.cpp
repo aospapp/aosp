@@ -24,7 +24,6 @@
  * it even faster or smaller, it costs too much on one of the aspects.
  */
 
-#include <stdio.h>
 #include <stdint.h>
 
 #include <audio_utils/fixedfft.h>

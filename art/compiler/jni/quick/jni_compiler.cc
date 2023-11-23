@@ -27,16 +27,16 @@
 #include "base/enums.h"
 #include "base/logging.h"  // For VLOG.
 #include "base/macros.h"
+#include "base/malloc_arena_pool.h"
+#include "base/memory_region.h"
 #include "base/utils.h"
 #include "calling_convention.h"
 #include "class_linker.h"
-#include "debug/dwarf/debug_frame_opcode_writer.h"
+#include "dwarf/debug_frame_opcode_writer.h"
 #include "dex/dex_file-inl.h"
-#include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
 #include "entrypoints/quick/quick_entrypoints.h"
-#include "jni_env_ext.h"
-#include "memory_region.h"
+#include "jni/jni_env_ext.h"
 #include "thread.h"
 #include "utils/arm/managed_register_arm.h"
 #include "utils/arm64/managed_register_arm64.h"
@@ -114,7 +114,7 @@ static ThreadOffset<kPointerSize> GetJniEntrypointThreadOffset(JniEntrypoint whi
 //   convention.
 //
 template <PointerSize kPointerSize>
-static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
+static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& compiler_options,
                                                      uint32_t access_flags,
                                                      uint32_t method_idx,
                                                      const DexFile& dex_file) {
@@ -123,8 +123,9 @@ static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
   const bool is_static = (access_flags & kAccStatic) != 0;
   const bool is_synchronized = (access_flags & kAccSynchronized) != 0;
   const char* shorty = dex_file.GetMethodShorty(dex_file.GetMethodId(method_idx));
-  InstructionSet instruction_set = driver->GetInstructionSet();
-  const InstructionSetFeatures* instruction_set_features = driver->GetInstructionSetFeatures();
+  InstructionSet instruction_set = compiler_options.GetInstructionSet();
+  const InstructionSetFeatures* instruction_set_features =
+      compiler_options.GetInstructionSetFeatures();
 
   // i.e. if the method was annotated with @FastNative
   const bool is_fast_native = (access_flags & kAccFastNative) != 0u;
@@ -150,7 +151,7 @@ static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
     // Don't allow both @FastNative and @CriticalNative. They are mutually exclusive.
     if (UNLIKELY(is_fast_native && is_critical_native)) {
       LOG(FATAL) << "JniCompile: Method cannot be both @CriticalNative and @FastNative"
-                 << dex_file.PrettyMethod(method_idx, /* with_signature */ true);
+                 << dex_file.PrettyMethod(method_idx, /* with_signature= */ true);
     }
 
     // @CriticalNative - extra checks:
@@ -161,20 +162,20 @@ static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
       CHECK(is_static)
           << "@CriticalNative functions cannot be virtual since that would"
           << "require passing a reference parameter (this), which is illegal "
-          << dex_file.PrettyMethod(method_idx, /* with_signature */ true);
+          << dex_file.PrettyMethod(method_idx, /* with_signature= */ true);
       CHECK(!is_synchronized)
           << "@CriticalNative functions cannot be synchronized since that would"
           << "require passing a (class and/or this) reference parameter, which is illegal "
-          << dex_file.PrettyMethod(method_idx, /* with_signature */ true);
+          << dex_file.PrettyMethod(method_idx, /* with_signature= */ true);
       for (size_t i = 0; i < strlen(shorty); ++i) {
         CHECK_NE(Primitive::kPrimNot, Primitive::GetType(shorty[i]))
             << "@CriticalNative methods' shorty types must not have illegal references "
-            << dex_file.PrettyMethod(method_idx, /* with_signature */ true);
+            << dex_file.PrettyMethod(method_idx, /* with_signature= */ true);
       }
     }
   }
 
-  ArenaPool pool;
+  MallocArenaPool pool;
   ArenaAllocator allocator(&pool);
 
   // Calling conventions used to iterate over parameters to method
@@ -215,15 +216,8 @@ static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
   // Assembler that holds generated instructions
   std::unique_ptr<JNIMacroAssembler<kPointerSize>> jni_asm =
       GetMacroAssembler<kPointerSize>(&allocator, instruction_set, instruction_set_features);
-  const CompilerOptions& compiler_options = driver->GetCompilerOptions();
   jni_asm->cfi().SetEnabled(compiler_options.GenerateAnyDebugInfo());
   jni_asm->SetEmitRunTimeChecksInDebugMode(compiler_options.EmitRunTimeChecksInDebugMode());
-
-  // Offsets into data structures
-  // TODO: if cross compiling these offsets are for the host not the target
-  const Offset functions(OFFSETOF_MEMBER(JNIEnvExt, functions));
-  const Offset monitor_enter(OFFSETOF_MEMBER(JNINativeInterface, MonitorEnter));
-  const Offset monitor_exit(OFFSETOF_MEMBER(JNINativeInterface, MonitorExit));
 
   // 1. Build the frame saving all callee saves, Method*, and PC return address.
   const size_t frame_size(main_jni_conv->FrameSize());  // Excludes outgoing args.
@@ -638,7 +632,7 @@ static JniCompiledMethod ArtJniCompileMethodInternal(CompilerDriver* driver,
   __ DecreaseFrameSize(current_out_arg_size);
 
   // 15. Process pending exceptions from JNI call or monitor exit.
-  __ ExceptionPoll(main_jni_conv->InterproceduralScratchRegister(), 0 /* stack_adjust */);
+  __ ExceptionPoll(main_jni_conv->InterproceduralScratchRegister(), 0 /* stack_adjust= */);
 
   // 16. Remove activation - need to restore callee save registers since the GC may have changed
   //     them.
@@ -770,16 +764,16 @@ static void SetNativeParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
   }
 }
 
-JniCompiledMethod ArtQuickJniCompileMethod(CompilerDriver* compiler,
+JniCompiledMethod ArtQuickJniCompileMethod(const CompilerOptions& compiler_options,
                                            uint32_t access_flags,
                                            uint32_t method_idx,
                                            const DexFile& dex_file) {
-  if (Is64BitInstructionSet(compiler->GetInstructionSet())) {
+  if (Is64BitInstructionSet(compiler_options.GetInstructionSet())) {
     return ArtJniCompileMethodInternal<PointerSize::k64>(
-        compiler, access_flags, method_idx, dex_file);
+        compiler_options, access_flags, method_idx, dex_file);
   } else {
     return ArtJniCompileMethodInternal<PointerSize::k32>(
-        compiler, access_flags, method_idx, dex_file);
+        compiler_options, access_flags, method_idx, dex_file);
   }
 }
 

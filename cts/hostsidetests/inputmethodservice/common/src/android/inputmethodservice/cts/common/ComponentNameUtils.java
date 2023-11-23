@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.common;
@@ -31,7 +31,7 @@ final class ComponentNameUtils {
      * @return a component of {@code packageName/className} that can be used to specify component,
      *         for example, for {@code android.content.Intent}.
      */
-    static String buildComponentName(final String packageName, final String className) {
+    static String buildComponentName(String packageName, String className) {
         return packageName + "/" + (className.startsWith(packageName)
                 ? className.substring(packageName.length()) : className);
     }

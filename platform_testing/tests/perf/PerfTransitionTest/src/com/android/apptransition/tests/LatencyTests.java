@@ -16,26 +16,23 @@
 package com.android.apptransition.tests;
 
 import static android.support.test.InstrumentationRegistry.getInstrumentation;
-import static android.system.helpers.OverviewHelper.isRecentsInLauncher;
 
+import android.app.Instrumentation;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.rule.logging.AtraceLogger;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
 import android.system.helpers.LockscreenHelper;
 import android.system.helpers.OverviewHelper;
 import android.system.helpers.SettingsHelper;
 import android.view.IWindowManager;
 import android.view.Surface;
 import android.view.WindowManagerGlobal;
+
+import com.android.launcher3.tapl.LauncherInstrumentation;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -47,7 +44,7 @@ import java.util.Set;
 /**
  * Tests to test various latencies in the system.
  */
-public class LatencyTests {
+public class LatencyTests extends Instrumentation {
 
     private static final int DEFAULT_ITERATION_COUNT = 10;
     private static final String KEY_ITERATION_COUNT = "iteration_count";
@@ -74,11 +71,8 @@ public class LatencyTests {
     private static final String TEST_APPTORECENTS = "testAppToRecents";
     private static final String TEST_ROTATION_LATENCY = "testRotationLatency";
     private static final String TEST_SETTINGS_SEARCH = "testSettingsSearch";
-    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
-    private static final BySelector RECENTS = By.res(SYSTEMUI_PACKAGE, "recents_view");
 
     private String mTraceDirectoryStr = null;
-    private Bundle mArgs;
     private File mRootTrace = null;
     private int mTraceBufferSize = 0;
     private int mTraceDumpInterval = 0;
@@ -86,10 +80,12 @@ public class LatencyTests {
     private AtraceLogger mAtraceLogger = null;
 
     private UiDevice mDevice;
+    private LauncherInstrumentation mLauncher;
     private int mIterationCount;
 
     @Before
     public void setUp() throws Exception {
+        androidx.test.InstrumentationRegistry.registerInstance(this, new Bundle());
         mDevice = UiDevice.getInstance(getInstrumentation());
         Bundle mArgs = InstrumentationRegistry.getArguments();
         mIterationCount = Integer.parseInt(mArgs.getString(KEY_ITERATION_COUNT,
@@ -113,6 +109,9 @@ public class LatencyTests {
                 }
             }
         }
+        // Need to run strategy initialization code as a precondition for tests.
+        LauncherStrategyFactory.getInstance(mDevice);
+        mLauncher = new LauncherInstrumentation(getInstrumentation());
     }
 
     /**
@@ -320,7 +319,7 @@ public class LatencyTests {
                         mTraceDumpInterval, mRootTrace,
                         String.format("%s-%d", TEST_APPTORECENTS, i));
             }
-            pressUiRecentApps();
+            mLauncher.getBackground().switchToOverview();
 
             // Make sure all the animations are really done.
             SystemClock.sleep(200);
@@ -354,41 +353,6 @@ public class LatencyTests {
             mDevice.pressHome();
             mDevice.waitForIdle();
         }
-    }
-
-    private BySelector getLauncherOverviewSelector() {
-        return By.res(mDevice.getLauncherPackageName(), "overview_panel");
-    }
-
-    /**
-     * Shows and returns the recents view.
-     *
-     * @throws RemoteException if press recents is not successful
-     */
-    private UiObject2 pressUiRecentApps() throws RemoteException {
-        final UiObject2 recentsButton = mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "recent_apps"));
-        if (recentsButton == null) {
-            int height = mDevice.getDisplayHeight();
-            UiObject2 navBar = mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "navigation_bar_frame"));
-
-            // Swipe from nav bar to 2/3rd down the screen.
-            mDevice.swipe(
-                    navBar.getVisibleBounds().centerX(), navBar.getVisibleBounds().centerY(),
-                    navBar.getVisibleBounds().centerX(), height * 2 / 3,
-                    (navBar.getVisibleBounds().centerY() - height * 2 / 3) / 100); // 100 px/step
-        } else {
-            recentsButton.click();
-        }
-
-        final UiObject2 recentsView = mDevice.wait(
-                Until.findObject(isRecentsInLauncher() ? getLauncherOverviewSelector() : RECENTS),
-                5000);
-
-        if (recentsView == null) {
-            throw new RuntimeException("Recents didn't appear");
-        }
-        mDevice.waitForIdle();
-        return recentsView;
     }
 
     /**

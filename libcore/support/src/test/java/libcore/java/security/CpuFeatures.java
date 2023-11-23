@@ -26,24 +26,37 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class CpuFeatures {
+import dalvik.system.VMRuntime;
+
+class CpuFeatures {
     private CpuFeatures() {
     }
 
-    public static boolean isAESHardwareAccelerated() {
-        List<String> features = getListFromCpuinfo("Features");
-        if (features != null && features.contains("aes")) {
-            return true;
+    static boolean isAESHardwareAccelerated() {
+        // Expectations based on CPU type: If these aren't met then Conscrypt
+        // integration tests will fail and the cause should be investigated.
+        String instructionSet = VMRuntime.getCurrentInstructionSet();
+        if (instructionSet.startsWith("arm")) {
+            // All ARM CPUs with the "aes" feature should have hardware AES.
+            List<String> features = getListFromCpuinfo("Features");
+            if (features != null && features.contains("aes")) {
+                return true;
+            }
+        } else if (instructionSet.startsWith("x86")) {
+            // x86 CPUs with the "aes" flag and running in 64bit mode should have hardware AES.
+            if (VMRuntime.is64BitInstructionSet(instructionSet)) {
+                List<String> flags = getListFromCpuinfo("flags");
+                if (flags != null && flags.contains("aes")) {
+                    return true;
+                }
+            } else {
+                // Hardware AES not supported in 32bit mode.
+                return false;
+            }
         }
 
-        List<String> flags = getListFromCpuinfo("flags");
-        if (flags != null && flags.contains("aes")) {
-            return true;
-        }
-
-        // If we're in an emulated ABI, Conscrypt's NativeCrypto might bridge to
-        // a library that has accelerated AES instructions. See if Conscrypt
-        // detects that condition.
+        // Otherwise trust Conscrypt NativeCrypto's own checks, for example if we're in an
+        // emulated ABI, it might bridge to a library that has accelerated AES instructions.
         try {
             Class<?> nativeCrypto = Class.forName("com.android.org.conscrypt.NativeCrypto");
             Method EVP_has_aes_hardware = nativeCrypto.getDeclaredMethod("EVP_has_aes_hardware");

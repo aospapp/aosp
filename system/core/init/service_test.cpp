@@ -46,7 +46,6 @@ TEST(service, pod_initialized) {
     EXPECT_EQ(0U, service_in_old_memory->uid());
     EXPECT_EQ(0U, service_in_old_memory->gid());
     EXPECT_EQ(0U, service_in_old_memory->namespace_flags());
-    EXPECT_EQ(0, service_in_old_memory->keychord_id());
     EXPECT_EQ(IoSchedClass_NONE, service_in_old_memory->ioprio_class());
     EXPECT_EQ(0, service_in_old_memory->ioprio_pri());
     EXPECT_EQ(0, service_in_old_memory->priority());
@@ -58,7 +57,7 @@ TEST(service, pod_initialized) {
     }
 
     Service* service_in_old_memory2 = new (old_memory) Service(
-        "test_old_memory", 0U, 0U, 0U, std::vector<gid_t>(), CapSet(), 0U, "", nullptr, dummy_args);
+            "test_old_memory", 0U, 0U, 0U, std::vector<gid_t>(), 0U, "", nullptr, dummy_args);
 
     EXPECT_EQ(0U, service_in_old_memory2->flags());
     EXPECT_EQ(0, service_in_old_memory2->pid());
@@ -66,7 +65,6 @@ TEST(service, pod_initialized) {
     EXPECT_EQ(0U, service_in_old_memory2->uid());
     EXPECT_EQ(0U, service_in_old_memory2->gid());
     EXPECT_EQ(0U, service_in_old_memory2->namespace_flags());
-    EXPECT_EQ(0, service_in_old_memory2->keychord_id());
     EXPECT_EQ(IoSchedClass_NONE, service_in_old_memory2->ioprio_class());
     EXPECT_EQ(0, service_in_old_memory2->ioprio_pri());
     EXPECT_EQ(0, service_in_old_memory2->priority());

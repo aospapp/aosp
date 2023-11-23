@@ -8,13 +8,13 @@
 
 
 /* struct module */
-PyObject *structmodule = NULL;
-PyObject *Struct = NULL;
-PyObject *calcsize = NULL;
+static PyObject *structmodule = NULL;
+static PyObject *Struct = NULL;
+static PyObject *calcsize = NULL;
 
 /* cache simple format string */
 static const char *simple_fmt = "B";
-PyObject *simple_format = NULL;
+static PyObject *simple_format = NULL;
 #define SIMPLE_FORMAT(fmt) (fmt == NULL || strcmp(fmt, "B") == 0)
 #define FIX_FORMAT(fmt) (fmt == NULL ? "B" : fmt)
 
@@ -1531,7 +1531,7 @@ ndarray_getbuf(NDArrayObject *self, Py_buffer *view, int flags)
     return 0;
 }
 
-static int
+static void
 ndarray_releasebuf(NDArrayObject *self, Py_buffer *view)
 {
     if (!ND_IS_CONSUMER(self)) {
@@ -1539,8 +1539,6 @@ ndarray_releasebuf(NDArrayObject *self, Py_buffer *view)
         if (--ndbuf->exports == 0 && ndbuf != self->head)
             ndbuf_delete(self, ndbuf);
     }
-
-    return 0;
 }
 
 static PyBufferProcs ndarray_as_buffer = {
@@ -1715,10 +1713,10 @@ init_slice(Py_buffer *base, PyObject *key, int dim)
 {
     Py_ssize_t start, stop, step, slicelength;
 
-    if (PySlice_GetIndicesEx(key, base->shape[dim],
-                             &start, &stop, &step, &slicelength) < 0) {
+    if (PySlice_Unpack(key, &start, &stop, &step) < 0) {
         return -1;
     }
+    slicelength = PySlice_AdjustIndices(base->shape[dim], &start, &stop, step);
 
 
     if (base->suboffsets == NULL || dim == 0) {
@@ -1935,9 +1933,10 @@ slice_indices(PyObject *self, PyObject *args)
             "first argument must be a slice object");
         return NULL;
     }
-    if (PySlice_GetIndicesEx(key, len, &s[0], &s[1], &s[2], &s[3]) < 0) {
+    if (PySlice_Unpack(key, &s[0], &s[1], &s[2]) < 0) {
         return NULL;
     }
+    s[3] = PySlice_AdjustIndices(len, &s[0], &s[1], s[2]);
 
     ret = PyTuple_New(4);
     if (ret == NULL)

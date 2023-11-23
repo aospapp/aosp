@@ -37,10 +37,6 @@
  *       the mode has been programmed, along with possible test patterns.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -79,6 +75,7 @@ static const struct type_name encoder_type_names[] = {
 	{ DRM_MODE_ENCODER_VIRTUAL, "Virtual" },
 	{ DRM_MODE_ENCODER_DSI, "DSI" },
 	{ DRM_MODE_ENCODER_DPMST, "DPMST" },
+	{ DRM_MODE_ENCODER_DPI, "DPI" },
 };
 
 const char *util_lookup_encoder_type_name(unsigned int type)
@@ -117,6 +114,7 @@ static const struct type_name connector_type_names[] = {
 	{ DRM_MODE_CONNECTOR_eDP, "eDP" },
 	{ DRM_MODE_CONNECTOR_VIRTUAL, "Virtual" },
 	{ DRM_MODE_CONNECTOR_DSI, "DSI" },
+	{ DRM_MODE_CONNECTOR_DPI, "DPI" },
 };
 
 const char *util_lookup_connector_type_name(unsigned int type)
@@ -145,6 +143,7 @@ static const char * const modules[] = {
 	"virtio_gpu",
 	"mediatek",
 	"meson",
+	"pl111",
 };
 
 int util_open(const char *device, const char *module)

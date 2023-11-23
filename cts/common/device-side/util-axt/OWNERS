@@ -1,0 +1,16 @@
+#  Android EngProd Approvers
+guangzhu@google.com
+fdeng@google.com
+moonk@google.com
+jdesprez@google.com
+sbasi@google.com
+
+# Android Partner Eng Approvers
+aaronholden@google.com
+yuji@google.com
+nickrose@google.com
+
+# Android Framework Eng Approvers
+felipeal@google.com
+
+per-file *Android.bp=*

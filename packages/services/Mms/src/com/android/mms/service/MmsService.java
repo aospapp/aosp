@@ -33,15 +33,19 @@ import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.provider.Telephony;
 import android.service.carrier.CarrierMessagingService;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.data.ApnSetting;
 import android.text.TextUtils;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.IMms;
+
 import com.google.android.mms.MmsException;
 import com.google.android.mms.pdu.DeliveryInd;
 import com.google.android.mms.pdu.GenericPdu;
@@ -100,6 +104,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     // A cache of MmsNetworkManager for SIMs
     private final SparseArray<MmsNetworkManager> mNetworkManagerCache = new SparseArray<>();
 
+    // The default TelephonyManager and a cache of TelephonyManagers for individual subscriptions
+    private TelephonyManager mDefaultTelephonyManager;
+    private final SparseArray<TelephonyManager> mTelephonyManagerCache = new SparseArray<>();
+
     // The current SIM ID for the running requests. Only one SIM can send/download MMS at a time.
     private int mCurrentSubId;
     // The current running MmsRequest count.
@@ -121,6 +129,23 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         }
     }
 
+    private TelephonyManager getTelephonyManager(int subId) {
+        synchronized (mTelephonyManagerCache) {
+            if (mDefaultTelephonyManager == null) {
+                mDefaultTelephonyManager = (TelephonyManager) this.getSystemService(
+                        Context.TELEPHONY_SERVICE);
+            }
+
+            TelephonyManager subSpecificTelephonyManager = mTelephonyManagerCache.get(subId);
+            if (subSpecificTelephonyManager == null) {
+                subSpecificTelephonyManager = mDefaultTelephonyManager.createForSubscriptionId(
+                        subId);
+                mTelephonyManagerCache.put(subId, subSpecificTelephonyManager);
+            }
+            return subSpecificTelephonyManager;
+        }
+    }
+
     private void enforceSystemUid() {
         if (Binder.getCallingUid() != Process.SYSTEM_UID) {
             throw new SecurityException("Only system can call this service");
@@ -138,11 +163,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     }
 
     @Nullable
-    private String getCarrierMessagingServicePackageIfExists() {
+    private String getCarrierMessagingServicePackageIfExists(int subId) {
         Intent intent = new Intent(CarrierMessagingService.SERVICE_INTERFACE);
-        TelephonyManager telephonyManager =
-                (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
-        List<String> carrierPackages = telephonyManager.getCarrierPackageNamesForIntent(intent);
+        TelephonyManager telephonyManager = getTelephonyManager(subId);
+        List<String> carrierPackages = telephonyManager.getCarrierPackageNamesForIntentAndPhone(
+                intent, SubscriptionManager.getPhoneId(subId));
 
         if (carrierPackages == null || carrierPackages.size() != 1) {
             return null;
@@ -154,8 +179,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     private IMms.Stub mStub = new IMms.Stub() {
         @Override
         public void sendMessage(int subId, String callingPkg, Uri contentUri,
-                String locationUrl, Bundle configOverrides, PendingIntent sentIntent)
-                        throws RemoteException {
+                String locationUrl, Bundle configOverrides, PendingIntent sentIntent) {
             LogUtil.d("sendMessage");
             enforceSystemUid();
 
@@ -168,11 +192,21 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 return;
             }
 
+            // Make sure subId has MMS data
+            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
+                LogUtil.w("Subscription with id: " + subId
+                        + " cannot send MMS, data connection is not available");
+                sendSettingsIntentForFailedMms(/*isIncoming=*/ false, subId);
+                sendErrorInPendingIntent(sentIntent);
+                return;
+            }
+
             final SendRequest request = new SendRequest(MmsService.this, subId, contentUri,
                     locationUrl, sentIntent, callingPkg, configOverrides, MmsService.this);
 
             final String carrierMessagingServicePackage =
-                    getCarrierMessagingServicePackageIfExists();
+                    getCarrierMessagingServicePackageIfExists(subId);
+
             if (carrierMessagingServicePackage != null) {
                 LogUtil.d(request.toString(), "sending message by carrier app");
                 request.trySendingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
@@ -184,12 +218,21 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public void downloadMessage(int subId, String callingPkg, String locationUrl,
                 Uri contentUri, Bundle configOverrides,
-                PendingIntent downloadedIntent) throws RemoteException {
+                PendingIntent downloadedIntent) {
             LogUtil.d("downloadMessage: " + MmsHttpClient.redactUrlForNonVerbose(locationUrl));
             enforceSystemUid();
 
             // Make sure the subId is correct
             subId = checkSubId(subId);
+
+            // Make sure subId has MMS data
+            if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
+                LogUtil.w("Subscription with id: " + subId
+                        + " cannot download MMS, data connection is not available");
+                sendSettingsIntentForFailedMms(/*isIncoming=*/ true, subId);
+                sendErrorInPendingIntent(downloadedIntent);
+                return;
+            }
 
             // If the subId is no longer active it could be caused by
             // an MVNO using multiple subIds, so we should try to
@@ -199,7 +242,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
                     contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this);
             final String carrierMessagingServicePackage =
-                    getCarrierMessagingServicePackageIfExists();
+                    getCarrierMessagingServicePackageIfExists(subId);
+
             if (carrierMessagingServicePackage != null) {
                 LogUtil.d(request.toString(), "downloading message by carrier app");
                 request.tryDownloadingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
@@ -394,6 +438,19 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 addToRunningRequestQueueSynchronized(request);
             }
         }
+    }
+
+    private void sendSettingsIntentForFailedMms(boolean isIncoming, int subId) {
+        Intent intent = new Intent(Settings.ACTION_ENABLE_MMS_DATA_REQUEST);
+
+        intent.putExtra(Settings.EXTRA_ENABLE_MMS_DATA_REQUEST_REASON,
+                isIncoming ? Settings.ENABLE_MMS_DATA_REQUEST_REASON_INCOMING_MMS
+                        : Settings.ENABLE_MMS_DATA_REQUEST_REASON_OUTGOING_MMS);
+
+        intent.putExtra(Settings.EXTRA_SUB_ID, subId);
+
+        this.sendBroadcastAsUser(intent, UserHandle.SYSTEM,
+                android.Manifest.permission.NETWORK_SETTINGS);
     }
 
     private void addToRunningRequestQueueSynchronized(final MmsRequest request) {
@@ -645,6 +702,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     }
 
     private static final String ARCHIVE_CONVERSATION_SELECTION = Telephony.Threads._ID + "=?";
+
     private boolean archiveConversation(long conversationId, boolean archived) {
         final ContentValues values = new ContentValues(1);
         values.put(Telephony.Threads.ARCHIVED, archived ? 1 : 0);
@@ -657,7 +715,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     Telephony.Threads.CONTENT_URI,
                     values,
                     ARCHIVE_CONVERSATION_SELECTION,
-                    new String[] { Long.toString(conversationId)}) != 1) {
+                    new String[] {Long.toString(conversationId)}) != 1) {
                 LogUtil.e("archiveConversation: failed to update database");
                 return false;
             }
@@ -779,8 +837,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
     /**
      * Read pdu from content provider uri
+     *
      * @param contentUri content provider uri from which to read
-     * @param maxSize maximum number of bytes to read
+     * @param maxSize    maximum number of bytes to read
      * @return pdu bytes if succeeded else null
      */
     public byte[] readPduFromContentUri(final Uri contentUri, final int maxSize) {
@@ -795,8 +854,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     ParcelFileDescriptor pduFd = cr.openFileDescriptor(contentUri, "r");
                     inStream = new ParcelFileDescriptor.AutoCloseInputStream(pduFd);
                     // Request one extra byte to make sure file not bigger than maxSize
-                    byte[] tempBody = new byte[maxSize+1];
-                    int bytesRead = inStream.read(tempBody, 0, maxSize+1);
+                    byte[] tempBody = new byte[maxSize + 1];
+                    int bytesRead = inStream.read(tempBody, 0, maxSize + 1);
                     if (bytesRead == 0) {
                         LogUtil.e("Read empty PDU");
                         return null;
@@ -832,8 +891,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
     /**
      * Write pdu bytes to content provider uri
+     *
      * @param contentUri content provider uri to which bytes should be written
-     * @param pdu Bytes to write
+     * @param pdu        Bytes to write
      * @return true if all bytes successfully written else false
      */
     public boolean writePduToContentUri(final Uri contentUri, final byte[] pdu) {

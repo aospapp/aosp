@@ -18,9 +18,13 @@ package com.android.tradefed.result;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
+import com.google.common.base.Joiner;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Container for a result of a single test. */
@@ -39,6 +43,7 @@ public class TestResult {
         mStatus = TestStatus.INCOMPLETE;
         mStartTime = System.currentTimeMillis();
         mLoggedFiles = new LinkedHashMap<String, LogFile>();
+        mMetrics = new HashMap<>();
         mProtoMetrics = new HashMap<>();
     }
 
@@ -152,23 +157,106 @@ public class TestResult {
     }
 
     /**
-     * Create an exact copy of given TestResult.
+     * Merge the attempts for a same test case based on the merging strategy.
      *
-     * @param result The TestResult to copy from.
+     * @param results List of {@link TestResult} that will be merged
+     * @param strategy the {@link MergeStrategy} to be used to determine the merging outcome.
+     * @return the merged {@link TestResult} or null if there is nothing to merge.
      */
-    public static TestResult clone(TestResult result) {
-        TestResult newResult = new TestResult();
-        newResult.setStatus(result.getStatus());
-        newResult.setStackTrace(result.getStackTrace());
-        newResult.setMetrics(result.getMetrics());
-        newResult.setProtoMetrics(result.getProtoMetrics());
-        newResult.setStartTime(result.getStartTime());
-        newResult.setEndTime(result.getEndTime());
-        // The LoggedFiles map contains the log file info whenever testLogSaved is called.
-        // e.g. testLogSaved("coverage", new LogFile("/fake/path", "fake//url", LogDataType.TEXT))
-        for (Map.Entry<String, LogFile> logFile : result.getLoggedFiles().entrySet()) {
-            newResult.addLoggedFile(logFile.getKey(), logFile.getValue());
+    public static TestResult merge(List<TestResult> results, MergeStrategy strategy) {
+        if (results.isEmpty()) {
+            return null;
         }
-        return newResult;
+        if (MergeStrategy.NO_MERGE.equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "TestResult#merge cannot be called with NO_MERGE strategy.");
+        }
+        TestResult mergedResult = new TestResult();
+
+        long earliestStartTime = Long.MAX_VALUE;
+        long latestEndTime = Long.MIN_VALUE;
+
+        List<String> errorMsg = new ArrayList<>();
+        int pass = 0;
+        int fail = 0;
+        int assumption_failure = 0;
+        int ignored = 0;
+        int incomplete = 0;
+
+        for (TestResult attempt : results) {
+            mergedResult.mProtoMetrics.putAll(attempt.getProtoMetrics());
+            mergedResult.mMetrics.putAll(attempt.getMetrics());
+            mergedResult.mLoggedFiles.putAll(attempt.getLoggedFiles());
+            earliestStartTime = Math.min(attempt.getStartTime(), earliestStartTime);
+            latestEndTime = Math.max(attempt.getEndTime(), latestEndTime);
+            switch (attempt.getStatus()) {
+                case PASSED:
+                    pass++;
+                    break;
+                case FAILURE:
+                    fail++;
+                    if (attempt.getStackTrace() != null) {
+                        errorMsg.add(attempt.getStackTrace());
+                    }
+                    break;
+                case INCOMPLETE:
+                    incomplete++;
+                    errorMsg.add("incomplete test case result.");
+                    break;
+                case ASSUMPTION_FAILURE:
+                    assumption_failure++;
+                    if (attempt.getStackTrace() != null) {
+                        errorMsg.add(attempt.getStackTrace());
+                    }
+                    break;
+                case IGNORED:
+                    ignored++;
+                    break;
+            }
+        }
+
+        switch (strategy) {
+            case ANY_PASS_IS_PASS:
+            case ONE_TESTCASE_PASS_IS_PASS:
+                // We prioritize passing the test due to the merging strategy.
+                if (pass > 0) {
+                    mergedResult.setStatus(TestStatus.PASSED);
+                } else if (fail == 0) {
+                    if (ignored > 0) {
+                        mergedResult.setStatus(TestStatus.IGNORED);
+                    } else if (assumption_failure > 0) {
+                        mergedResult.setStatus(TestStatus.ASSUMPTION_FAILURE);
+                    } else if (incomplete > 0) {
+                        mergedResult.setStatus(TestStatus.INCOMPLETE);
+                    }
+                } else {
+                    mergedResult.setStatus(TestStatus.FAILURE);
+                }
+                break;
+            default:
+                // We keep a sane default of one failure is a failure that should be reported.
+                if (fail > 0) {
+                    mergedResult.setStatus(TestStatus.FAILURE);
+                } else {
+                    if (ignored > 0) {
+                        mergedResult.setStatus(TestStatus.IGNORED);
+                    } else if (assumption_failure > 0) {
+                        mergedResult.setStatus(TestStatus.ASSUMPTION_FAILURE);
+                    } else if (incomplete > 0) {
+                        mergedResult.setStatus(TestStatus.INCOMPLETE);
+                    } else {
+                        mergedResult.setStatus(TestStatus.PASSED);
+                    }
+                }
+                break;
+        }
+        if (errorMsg.isEmpty()) {
+            mergedResult.mStackTrace = null;
+        } else {
+            mergedResult.mStackTrace = Joiner.on("\n\n").join(errorMsg);
+        }
+        mergedResult.setStartTime(earliestStartTime);
+        mergedResult.setEndTime(latestEndTime);
+        return mergedResult;
     }
 }

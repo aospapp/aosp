@@ -18,64 +18,75 @@
 #define _INTERFACE_CONTROLLER_H
 
 #include <functional>
+#include <map>
 #include <string>
 
+#include <android/net/InterfaceConfigurationParcel.h>
 #include <netdutils/Status.h>
 #include <netdutils/StatusOr.h>
 
-// TODO: move InterfaceController into android::net namespace.
 namespace android {
 namespace net {
+
 class StablePrivacyTest;
-}  // namespace net
-}  // namespace android
 
 class InterfaceController {
 public:
     static void initializeAll();
 
-    static int setEnableIPv6(const char *interface, const int on);
-    static android::netdutils::Status setIPv6AddrGenMode(const std::string& interface, int mode);
-    static int setAcceptIPv6Ra(const char *interface, const int on);
-    static int setAcceptIPv6Dad(const char *interface, const int on);
-    static int setIPv6DadTransmits(const char *interface, const char *value);
-    static int setIPv6PrivacyExtensions(const char *interface, const int on);
-    static int setMtu(const char *interface, const char *mtu);
-    static int addAddress(const char *interface, const char *addrString, int prefixLength);
-    static int delAddress(const char *interface, const char *addrString, int prefixLength);
+    static int setEnableIPv6(const char* ifName, const int on);
+    static android::netdutils::Status setIPv6AddrGenMode(const std::string& ifName, int mode);
+    static int setAcceptIPv6Ra(const char* ifName, const int on);
+    static int setAcceptIPv6Dad(const char* ifName, const int on);
+    static int setIPv6DadTransmits(const char* ifName, const char* value);
+    static int setIPv6PrivacyExtensions(const char* ifName, const int on);
+    static int setMtu(const char* ifName, const char* mtu);
+    static int addAddress(const char* ifName, const char* addrString, int prefixLength);
+    static int delAddress(const char* ifName, const char* addrString, int prefixLength);
+    static int disableIcmpRedirects();
+    static android::netdutils::Status setCfg(const InterfaceConfigurationParcel& cfg);
+    static android::netdutils::StatusOr<InterfaceConfigurationParcel> getCfg(
+            const std::string& ifName);
+    static int clearAddrs(const std::string& ifName);
 
     // Read and write values in files of the form:
-    //     /proc/sys/net/<family>/<which>/<interface>/<parameter>
-    static int getParameter(
-            const char *family, const char *which, const char *interface, const char *parameter,
-            std::string *value);
-    static int setParameter(
-            const char *family, const char *which, const char *interface, const char *parameter,
-            const char *value);
+    //     /proc/sys/net/<family>/<which>/<ifName>/<parameter>
+    //
+    // NOTE: getParameter() trims whitespace so the caller does not need extra
+    // code to crop trailing newlines, for example.
+    static int getParameter(const char* family, const char* which, const char* ifName,
+                            const char* parameter, std::string* value);
+    static int setParameter(const char* family, const char* which, const char* ifName,
+                            const char* parameter, const char* value);
 
     static android::netdutils::StatusOr<std::vector<std::string>> getIfaceNames();
     static android::netdutils::StatusOr<std::map<std::string, uint32_t>> getIfaceList();
 
-private:
-  friend class android::net::StablePrivacyTest;
+    static std::mutex mutex;
 
-  using GetPropertyFn =
-      std::function<std::string(const std::string& key, const std::string& dflt)>;
-  using SetPropertyFn =
-      std::function<android::netdutils::Status(const std::string& key, const std::string& val)>;
+  private:
+    friend class android::net::StablePrivacyTest;
 
-  // Helper function exported from this compilation unit for testing.
-  static android::netdutils::Status enableStablePrivacyAddresses(const std::string& iface,
-                                                                 GetPropertyFn getProperty,
-                                                                 SetPropertyFn setProperty);
+    using GetPropertyFn =
+            std::function<std::string(const std::string& key, const std::string& dflt)>;
+    using SetPropertyFn = std::function<android::netdutils::Status(const std::string& key,
+                                                                   const std::string& val)>;
 
-  static void setAcceptRA(const char* value);
-  static void setAcceptRARouteTable(int tableOrOffset);
-  static void setBaseReachableTimeMs(unsigned int millis);
-  static void setIPv6OptimisticMode(const char* value);
+    // Helper function exported from this compilation unit for testing.
+    static android::netdutils::Status enableStablePrivacyAddresses(
+            const std::string& ifName, const GetPropertyFn& getProperty,
+            const SetPropertyFn& setProperty);
 
-  InterfaceController() = delete;
-  ~InterfaceController() = delete;
+    static void setAcceptRA(const char* value);
+    static void setAcceptRARouteTable(int tableOrOffset);
+    static void setBaseReachableTimeMs(unsigned int millis);
+    static void setIPv6OptimisticMode(const char* value);
+
+    InterfaceController() = delete;
+    ~InterfaceController() = delete;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif

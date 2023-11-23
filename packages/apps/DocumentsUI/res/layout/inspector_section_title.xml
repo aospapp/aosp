@@ -23,17 +23,23 @@
     android:paddingStart="10dp"
     android:paddingEnd="10dp">
 
+    <!--Empty view for keeping divider when title is gone-->
+    <android.widget.Space
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content">
+    </android.widget.Space >
+
     <TextView
         android:layout_height="match_parent"
         android:layout_width="match_parent"
         android:id="@+id/inspector_header_title"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="5dp"
-        android:paddingBottom="5dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="25dp"
+        android:paddingBottom="25dp"
         android:layout_gravity="center_vertical"
-        android:fontFamily="sans-serif-medium"
-        android:textSize="15sp"
+        android:clickable="false"
+        android:textAppearance="@style/ToolbarTitle"
         android:textAlignment="viewStart"
-        android:textColor="@color/inspector_section_title"/>
+        android:textIsSelectable="true"/>
 </LinearLayout>

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/callback.h"
-
 #include "testbase.h"
 #include "utils.h"
 
@@ -11,11 +9,12 @@ namespace glbench {
 
 class GLInterfaceTest : public TestBase {
  public:
-  GLInterfaceTest() : index_buffer_object_(0),
-               vertex_buffer_object_(0),
-               num_indices_(0),
-               shader_program_(0),
-               attribute_index_(0) {}
+  GLInterfaceTest()
+      : index_buffer_object_(0),
+        vertex_buffer_object_(0),
+        num_indices_(0),
+        shader_program_(0),
+        attribute_index_(0) {}
   virtual ~GLInterfaceTest() {}
   virtual bool TestFunc(uint64_t iterations) = 0;
   virtual bool Run();
@@ -25,7 +24,7 @@ class GLInterfaceTest : public TestBase {
 
  protected:
   // Callback for GL rendering function to be run before GLX/EGL calls.
-  base::Callback<void(void)> render_func_;
+  Callback render_func_;
   void SetupGLRendering();
 
  private:
@@ -43,4 +42,4 @@ class GLInterfaceTest : public TestBase {
   DISALLOW_COPY_AND_ASSIGN(GLInterfaceTest);
 };
 
-} // namespace glbench
+}  // namespace glbench

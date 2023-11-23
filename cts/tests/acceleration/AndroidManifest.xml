@@ -15,7 +15,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.acceleration.cts">
+          package="android.acceleration.cts"
+          android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
@@ -28,7 +29,7 @@
                 android:hardwareAccelerated="false" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.acceleration.cts"
             android:label="Tests for the Hardware Acceleration APIs." >
         <meta-data android:name="listener"

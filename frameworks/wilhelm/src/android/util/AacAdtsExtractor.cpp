@@ -128,7 +128,7 @@ AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
     MakeAACCodecSpecificData(*mMeta, profile, sf_index, channel);
 
     // Round up and get the duration of each frame
-    mFrameDurationUs = (1024 * 1000000ll + (sr - 1)) / sr;
+    mFrameDurationUs = (1024 * 1000000LL + (sr - 1)) / sr;
 
     off64_t streamSize;
     if (mDataSource->getSize(&streamSize) == OK) {

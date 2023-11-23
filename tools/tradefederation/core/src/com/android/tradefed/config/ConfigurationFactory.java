@@ -254,7 +254,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
 
             if (def == null || def.isStale()) {
                 def = new ConfigurationDef(configName);
-                loadConfiguration(configName, def, null, templateMap);
+                loadConfiguration(configName, def, null, templateMap, null);
                 mConfigDefMap.put(configId, def);
             } else {
                 if (templateMap != null) {
@@ -359,7 +359,8 @@ public class ConfigurationFactory implements IConfigurationFactory {
                 String parentName,
                 String name,
                 String deviceTagObject,
-                Map<String, String> templateMap)
+                Map<String, String> templateMap,
+                Set<String> templateSeen)
                 throws ConfigurationException {
 
             String config_name = findConfigName(name, parentName);
@@ -371,7 +372,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
                         "Circular configuration include: config '%s' is already included",
                         config_name));
             }
-            loadConfiguration(config_name, def, deviceTagObject, templateMap);
+            loadConfiguration(config_name, def, deviceTagObject, templateMap, templateSeen);
         }
 
         /**
@@ -384,6 +385,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
          *     inside an <include>. Null otherwise.
          * @param templateMap map from template-include names to their respective concrete
          *     configuration files
+         * @param templateSeen set of template placeholder name already encountered
          * @throws ConfigurationException if a configuration with given name/file path cannot be
          *     loaded or parsed
          */
@@ -391,12 +393,12 @@ public class ConfigurationFactory implements IConfigurationFactory {
                 String name,
                 ConfigurationDef def,
                 String deviceTagObject,
-                Map<String, String> templateMap)
+                Map<String, String> templateMap,
+                Set<String> templateSeen)
                 throws ConfigurationException {
-            //Log.d(LOG_TAG, String.format("Loading configuration '%s'", name));
             BufferedInputStream bufStream = getConfigStream(name);
             ConfigurationXmlParser parser = new ConfigurationXmlParser(this, deviceTagObject);
-            parser.parse(def, name, bufStream, templateMap);
+            parser.parse(def, name, bufStream, templateMap, templateSeen);
             trackConfig(name, def);
         }
 
@@ -605,7 +607,9 @@ public class ConfigurationFactory implements IConfigurationFactory {
         // first arg is config name
         final String configName = optionArgsRef.remove(0);
         ConfigurationDef configDef = getConfigurationDef(configName, true, null);
-        return configDef.createGlobalConfiguration();
+        IGlobalConfiguration config = configDef.createGlobalConfiguration();
+        config.setOriginalConfig(configName);
+        return config;
     }
 
     /**

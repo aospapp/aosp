@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include "arch/x86/instruction_set_features_x86.h"
 #include "base/arena_allocator.h"
 #include "builder.h"
 #include "code_generator.h"
-#include "code_generator_x86.h"
 #include "dex/dex_file.h"
 #include "dex/dex_instruction.h"
 #include "driver/compiler_options.h"
@@ -49,11 +47,9 @@ static void DumpBitVector(BitVector* vector,
 void LivenessTest::TestCode(const std::vector<uint16_t>& data, const char* expected) {
   HGraph* graph = CreateCFG(data);
   // `Inline` conditions into ifs.
-  PrepareForRegisterAllocation(graph).Run();
-  std::unique_ptr<const X86InstructionSetFeatures> features_x86(
-      X86InstructionSetFeatures::FromCppDefines());
-  x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
-  SsaLivenessAnalysis liveness(graph, &codegen, GetScopedAllocator());
+  PrepareForRegisterAllocation(graph, *compiler_options_).Run();
+  std::unique_ptr<CodeGenerator> codegen = CodeGenerator::Create(graph, *compiler_options_);
+  SsaLivenessAnalysis liveness(graph, codegen.get(), GetScopedAllocator());
   liveness.Analyze();
 
   std::ostringstream buffer;

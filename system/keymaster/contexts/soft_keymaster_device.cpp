@@ -32,7 +32,7 @@
 
 #include <hardware/keymaster1.h>
 #define LOG_TAG "SoftKeymasterDevice"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <keymaster/android_keymaster.h>
 #include <keymaster/android_keymaster_messages.h>
@@ -54,7 +54,7 @@ struct keystore_module soft_keymaster1_device_module = {
             .name = "OpenSSL-based SoftKeymaster HAL",
             .author = "The Android Open Source Project",
             .methods = nullptr,
-            .dso = 0,
+            .dso = nullptr,
             .reserved = {},
         },
 };
@@ -69,7 +69,7 @@ struct keystore_module soft_keymaster2_device_module = {
             .name = "OpenSSL-based SoftKeymaster HAL",
             .author = "The Android Open Source Project",
             .methods = nullptr,
-            .dso = 0,
+            .dso = nullptr,
             .reserved = {},
         },
 };
@@ -89,6 +89,7 @@ template <typename T> std::vector<T> make_vector(const T* array, size_t len) {
 // size of a set intersection.
 struct PushbackCounter {
     struct value_type {
+        // NOLINTNEXTLINE(google-explicit-constructor)
         template <typename T> value_type(const T&) {}
     };
     void push_back(const value_type&) { ++count; }

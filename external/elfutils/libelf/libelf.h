@@ -64,6 +64,30 @@
  #define ELFCOMPRESS_HIPROC     0x7fffffff /* End of processor-specific.  */
 #endif
 
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)
+# define __nonnull_attribute__(...) __attribute__ ((__nonnull__ (__VA_ARGS__)))
+# define __deprecated_attribute__ __attribute__ ((__deprecated__))
+# define __pure_attribute__ __attribute__ ((__pure__))
+# define __const_attribute__ __attribute__ ((__const__))
+#else
+# define __nonnull_attribute__(...)
+# define __deprecated_attribute__
+# define __pure_attribute__
+# define __const_attribute__
+#endif
+
+#if __GNUC__ < 4
+#define __noreturn_attribute__
+#else
+#define __noreturn_attribute__ __attribute__ ((noreturn))
+#endif
+
+#ifdef __GNUC_STDC_INLINE__
+# define __libdw_extern_inline extern __inline __attribute__ ((__gnu_inline__))
+#else
+# define __libdw_extern_inline extern __inline
+#endif
+
 /* Known translation types.  */
 typedef enum
 {
@@ -93,6 +117,8 @@ typedef enum
   ELF_T_GNUHASH,		/* GNU-style hash section.  */
   ELF_T_AUXV,			/* Elf32_auxv_t, Elf64_auxv_t, ... */
   ELF_T_CHDR,			/* Compressed, Elf32_Chdr, Elf64_Chdr, ... */
+  ELF_T_NHDR8,			/* Special GNU Properties note.  Same as Nhdr,
+				   except padding.  */
   /* Keep this the last entry.  */
   ELF_T_NUM
 } Elf_Type;
@@ -216,7 +242,7 @@ extern int elf_end (Elf *__elf);
 extern int64_t elf_update (Elf *__elf, Elf_Cmd __cmd);
 
 /* Determine what kind of file is associated with ELF.  */
-extern Elf_Kind elf_kind (Elf *__elf) __attribute__ ((__pure__));
+extern Elf_Kind elf_kind (Elf *__elf) __pure_attribute__;
 
 /* Get the base offset for an object file.  */
 extern int64_t elf_getbase (Elf *__elf);
@@ -282,19 +308,19 @@ extern int elf_getshdrnum (Elf *__elf, size_t *__dst);
    It was agreed to make the same functionality available under a different
    name and obsolete the old name.  */
 extern int elf_getshnum (Elf *__elf, size_t *__dst)
-     __attribute__ ((__deprecated__));
+     __deprecated_attribute__;
 
 
 /* Get the section index of the section header string table in the ELF
-   file.  If the index cannot be represented in the e_shnum field of
+   file.  If the index cannot be represented in the e_shstrndx field of
    the ELF header the information from the sh_link field in the zeroth
    section header is used.  */
 extern int elf_getshdrstrndx (Elf *__elf, size_t *__dst);
-/* Sun messed up the implementation of 'elf_getshnum' in their implementation.
-   It was agreed to make the same functionality available under a different
-   name and obsolete the old name.  */
+/* Sun messed up the implementation of 'elf_getshstrndx' in their
+   implementation.  It was agreed to make the same functionality available
+   under a different name and obsolete the old name.  */
 extern int elf_getshstrndx (Elf *__elf, size_t *__dst)
-     __attribute__ ((__deprecated__));
+     __deprecated_attribute__;
 
 
 /* Retrieve section header of ELFCLASS32 binary.  */
@@ -342,6 +368,11 @@ extern Elf64_Chdr *elf64_getchdr (Elf_Scn *__scn);
    It is an error to request compression for a section that already
    has SHF_COMPRESSED set, or (for elf_compress) to request
    decompression for an section that doesn't have SHF_COMPRESSED set.
+   If a section has SHF_COMPRESSED set then calling elf_compress_gnu
+   will result in an error.  The section has to be decompressed first
+   using elf_compress.  Calling elf_compress on a section compressed
+   with elf_compress_gnu is fine, but probably useless.
+
    It is always an error to call these functions on SHT_NOBITS
    sections or if the section has the SHF_ALLOC flag set.
    elf_compress_gnu will not check whether the section name starts
@@ -429,11 +460,11 @@ extern char *elf_rawfile (Elf *__elf, size_t *__nbytes);
    The result is based on version VERSION of the ELF standard.  */
 extern size_t elf32_fsize (Elf_Type __type, size_t __count,
 			   unsigned int __version)
-       __attribute__ ((__const__));
+       __const_attribute__;
 /* Similar but this time the binary calls is ELFCLASS64.  */
 extern size_t elf64_fsize (Elf_Type __type, size_t __count,
 			   unsigned int __version)
-       __attribute__ ((__const__));
+       __const_attribute__;
 
 
 /* Convert data structure from the representation in the file represented
@@ -472,11 +503,11 @@ extern void elf_fill (int __fill);
 
 /* Compute hash value.  */
 extern unsigned long int elf_hash (const char *__string)
-       __attribute__ ((__pure__));
+       __pure_attribute__;
 
 /* Compute hash value using the GNU-specific hash function.  */
 extern unsigned long int elf_gnu_hash (const char *__string)
-       __attribute__ ((__pure__));
+       __pure_attribute__;
 
 
 /* Compute simple checksum from permanent parts of the ELF file.  */

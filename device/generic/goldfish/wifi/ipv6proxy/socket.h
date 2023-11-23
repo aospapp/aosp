@@ -50,14 +50,14 @@ public:
     // Move construct a socket, The constructed socket will be in the same state
     // that |other| is. After this |other| will be in an undefined state and
     // should no longer be used.
-    Socket(Socket&& other);
+    Socket(Socket&& other) noexcept;
     ~Socket();
 
     // Move the |other| socket object into this one. If this object has an open
     // socket it will be closed first. After that this object will have the
     // same state that |other| did. |other| will be left in an undefined state
     // and should not be used.
-    Socket& operator=(Socket&& other);
+    Socket& operator=(Socket&& other) noexcept;
 
     int get() const { return mSocket; }
 

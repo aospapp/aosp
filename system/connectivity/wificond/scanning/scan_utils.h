@@ -56,6 +56,12 @@ struct SchedScanIntervalSetting {
   uint32_t final_interval_ms{0};
 };
 
+struct SchedScanReqFlags {
+  bool request_random_mac;
+  bool request_low_power;
+  bool request_sched_scan_relative_rssi;
+};
+
 // Provides scanning helper functions.
 class ScanUtils {
  public:
@@ -111,6 +117,9 @@ class ScanUtils {
   // - |request_low_power|: If true, prioritize power consumption over
   // other scan performance attributes.
   // Requires |supports_low_power_oneshot_scan|.
+  // - |request_sched_scan_relative_rssi| is sched_scan flag for better BSS's from connected BSS.
+  // If |request_sched_scan_relative_rssi| is true, it will fill scan rssi adjust to
+  // get BSS's with better RSSI from connected BSS.
   // - |scan_ssids| is the list of ssids to actively scan for.
   // If |scan_ssids| is an empty vector, it will do a passive scan.
   // If |scan_ssids| contains an empty string, it will a scan for all ssids.
@@ -126,8 +135,7 @@ class ScanUtils {
       const SchedScanIntervalSetting& interval_setting,
       int32_t rssi_threshold_2g,
       int32_t rssi_threshold_5g,
-      bool request_random_mac,
-      bool request_low_power,
+      const SchedScanReqFlags& req_flags,
       const std::vector<std::vector<uint8_t>>& scan_ssids,
       const std::vector<std::vector<uint8_t>>& match_ssids,
       const std::vector<uint32_t>& freqs,

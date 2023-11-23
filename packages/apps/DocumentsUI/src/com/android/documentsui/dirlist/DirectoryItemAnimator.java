@@ -20,9 +20,11 @@ import android.animation.Animator;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.content.Context;
-import android.support.v4.util.ArrayMap;
-import android.support.v7.widget.DefaultItemAnimator;
-import android.support.v7.widget.RecyclerView;
+import androidx.collection.ArrayMap;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.RecyclerView;
+
+import android.content.res.TypedArray;
 import android.util.TypedValue;
 
 import com.android.documentsui.R;
@@ -41,13 +43,6 @@ class DirectoryItemAnimator extends DefaultItemAnimator {
     private final List<ColorAnimation> mPendingAnimations = new ArrayList<>();
     private final Map<RecyclerView.ViewHolder, ColorAnimation> mRunningAnimations =
             new ArrayMap<>();
-    private final Integer mDefaultColor;
-    private final Integer mSelectedColor;
-
-    public DirectoryItemAnimator(Context context) {
-        mDefaultColor = context.getResources().getColor(R.color.item_doc_background);
-        mSelectedColor = context.getResources().getColor(R.color.item_doc_background_selected);
-    }
 
     @Override
     public void runPendingAnimations() {

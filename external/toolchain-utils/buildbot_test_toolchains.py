@@ -41,7 +41,7 @@ NIGHTLY_TESTS_DIR = os.path.join(CROSTC_ROOT, 'nightly_test_reports')
 IMAGE_DIR = '{board}-{image_type}'
 IMAGE_VERSION_STR = r'{chrome_version}-{tip}\.{branch}\.{branch_branch}'
 IMAGE_FS = IMAGE_DIR + '/' + IMAGE_VERSION_STR
-TRYBOT_IMAGE_FS = 'trybot-' + IMAGE_FS + '-{build_id}'
+TRYBOT_IMAGE_FS = IMAGE_FS + '-{build_id}'
 PFQ_IMAGE_FS = IMAGE_FS + '-rc1'
 IMAGE_RE_GROUPS = {
     'board': r'(?P<board>\S+)',
@@ -71,7 +71,7 @@ class ToolchainComparator(object):
     self._base_dir = os.getcwd()
     self._ce = command_executer.GetCommandExecuter()
     self._l = logger.GetLogger()
-    self._build = '%s-release' % board
+    self._build = '%s-release-tryjob' % board
     self._patches = patches.split(',') if patches else []
     self._patches_string = '_'.join(str(p) for p in self._patches)
     self._noschedv2 = noschedv2
@@ -84,19 +84,22 @@ class ToolchainComparator(object):
                                            '%Y-%m-%d_%H:%M:%S')
     self._reports_dir = os.path.join(
         NIGHTLY_TESTS_DIR,
-        '%s.%s' % (timestamp, board),)
+        '%s.%s' % (timestamp, board),
+    )
 
   def _GetVanillaImageName(self, trybot_image):
     """Given a trybot artifact name, get latest vanilla image name.
 
     Args:
       trybot_image: artifact name such as
-          'trybot-daisy-release/R40-6394.0.0-b1389'
+          'daisy-release-tryjob/R40-6394.0.0-b1389'
 
     Returns:
       Latest official image name, e.g. 'daisy-release/R57-9089.0.0'.
     """
-    mo = re.search(TRYBOT_IMAGE_RE, trybot_image)
+    # We need to filter out -tryjob in the trybot_image.
+    trybot = re.sub('-tryjob', '', trybot_image)
+    mo = re.search(TRYBOT_IMAGE_RE, trybot)
     assert mo
     dirname = IMAGE_DIR.replace('\\', '').format(**mo.groupdict())
     return buildbot_utils.GetLatestImage(self._chromeos_root, dirname)
@@ -114,13 +117,14 @@ class ToolchainComparator(object):
 
     Args:
       trybot_image: artifact name such as
-          'trybot-daisy-release/R40-6394.0.0-b1389'
+          'daisy-release-tryjob/R40-6394.0.0-b1389'
 
     Returns:
       Corresponding chrome PFQ image name, e.g.
       'daisy-chrome-pfq/R40-6393.0.0-rc1'.
     """
-    mo = re.search(TRYBOT_IMAGE_RE, trybot_image)
+    trybot = re.sub('-tryjob', '', trybot_image)
+    mo = re.search(TRYBOT_IMAGE_RE, trybot)
     assert mo
     image_dict = mo.groupdict()
     image_dict['image_type'] = 'chrome-pfq'
@@ -130,16 +134,6 @@ class ToolchainComparator(object):
       if buildbot_utils.DoesImageExist(self._chromeos_root, nonafdo_image):
         return nonafdo_image
     return ''
-
-  def _FinishSetup(self):
-    """Make sure testing_rsa file is properly set up."""
-    # Fix protections on ssh key
-    command = ('chmod 600 /var/cache/chromeos-cache/distfiles/target'
-               '/chrome-src-internal/src/third_party/chromite/ssh_keys'
-               '/testing_rsa')
-    ret_val = self._ce.ChrootRunCommand(self._chromeos_root, command)
-    if ret_val != 0:
-      raise RuntimeError('chmod for testing_rsa failed')
 
   def _TestImages(self, trybot_image, vanilla_image, nonafdo_image):
     """Create crosperf experiment file.
@@ -165,6 +159,7 @@ class ToolchainComparator(object):
     benchmark: all_toolchain_perf {
       suite: telemetry_Crosperf
       iterations: 0
+      run_local: False
     }
 
     benchmark: page_cycler_v2.typical_25 {
@@ -251,23 +246,19 @@ class ToolchainComparator(object):
     Launch trybot, get image names, create crosperf experiment file, run
     crosperf, and copy images into seven-day report directories.
     """
-    date_str = datetime.date.today()
-    description = 'master_%s_%s_%s' % (self._patches_string, self._build,
-                                       date_str)
-    build_id, trybot_image = buildbot_utils.GetTrybotImage(
+    buildbucket_id, trybot_image = buildbot_utils.GetTrybotImage(
         self._chromeos_root,
         self._build,
         self._patches,
-        description,
-        other_flags=['--notests'],
+        tryjob_flags=['--notests'],
         build_toolchain=True)
 
     print('trybot_url: \
-       https://uberchromegw.corp.google.com/i/chromiumos.tryserver/builders/release/builds/%s'
-          % build_id)
+          http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbucketId=%s'
+          % buildbucket_id)
     if len(trybot_image) == 0:
-      self._l.LogError('Unable to find trybot_image for %s!' % description)
-      return 1
+      self._l.LogError('Unable to find trybot_image!')
+      return 2
 
     vanilla_image = self._GetVanillaImageName(trybot_image)
     nonafdo_image = self._GetNonAFDOImageName(trybot_image)
@@ -275,9 +266,6 @@ class ToolchainComparator(object):
     print('trybot_image: %s' % trybot_image)
     print('vanilla_image: %s' % vanilla_image)
     print('nonafdo_image: %s' % nonafdo_image)
-
-    if os.getlogin() == ROLE_ACCOUNT:
-      self._FinishSetup()
 
     self._TestImages(trybot_image, vanilla_image, nonafdo_image)
     self._SendEmail()

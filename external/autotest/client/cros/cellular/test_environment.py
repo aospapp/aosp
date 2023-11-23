@@ -14,7 +14,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import backchannel
 from autotest_lib.client.cros.cellular import mm
 from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem_context
-from autotest_lib.client.cros.cellular.wardmodem import wardmodem
 from autotest_lib.client.cros.networking import cellular_proxy
 from autotest_lib.client.cros.networking import shill_context
 from autotest_lib.client.cros.networking import shill_proxy
@@ -48,15 +47,10 @@ class CellularTestEnvironment(object):
                 pseudomm_args=({'family': '3GPP'})) as test_env:
             # Test body
 
-    Setup for wardmodem tests:
-        with CellularWardModemTestEnvironment(
-                wardmodem_modem='e362') as test_env:
-            # Test body
-
     """
 
     def __init__(self, use_backchannel=True, shutdown_other_devices=True,
-                 modem_pattern=''):
+                 modem_pattern='', skip_modem_reset=False):
         """
         @param use_backchannel: Set up the backchannel that can be used to
                 communicate with the DUT.
@@ -76,6 +70,7 @@ class CellularTestEnvironment(object):
         self._backchannel = None
 
         self._modem_pattern = modem_pattern
+        self._skip_modem_reset = skip_modem_reset
 
         self._nested = None
         self._context_managers = []
@@ -207,7 +202,8 @@ class CellularTestEnvironment(object):
         # Enable modem first so shill initializes the modemmanager proxies so
         # we can call reset on it.
         self._enable_modem()
-        self._reset_modem()
+        if not self._skip_modem_reset:
+            self._reset_modem()
 
         # PickOneModem() makes sure there's a modem manager and that there is
         # one and only one modem.
@@ -335,20 +331,8 @@ class CellularPseudoMMTestEnvironment(CellularTestEnvironment):
                 tuple: (flags_map, block_output, bus)
 
         """
+        kwargs["skip_modem_reset"] = True
         super(CellularPseudoMMTestEnvironment, self).__init__(**kwargs)
         self._context_managers.append(
                 pseudomodem_context.PseudoModemManagerContext(
                         True, bus=self.bus, *pseudomm_args))
-
-
-class CellularWardModemTestEnvironment(CellularTestEnvironment):
-    """Setup and verify cellular ward modem test environment. """
-    def __init__(self, wardmodem_modem=None, **kwargs):
-        """
-        @param wardmodem_modem: Customized ward modem to use instead of the
-                default implementation, see wardmodem.py.
-
-        """
-        super(CellularWardModemTestEnvironment, self).__init__(**kwargs)
-        self._context_managers.append(
-                wardmodem.WardModemContext(args=['--modem', wardmodem_modem]))

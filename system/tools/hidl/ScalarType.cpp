@@ -83,7 +83,7 @@ std::string ScalarType::getJavaType(bool /* forInitializer */) const {
     return kName[mKind];
 }
 
-std::string ScalarType::getJavaWrapperType() const {
+std::string ScalarType::getJavaTypeClass() const {
     static const char *const kName[] = {
         "Boolean",
         "Byte",
@@ -225,7 +225,7 @@ void ScalarType::emitConvertToJavaHexString(
         case KIND_INT16:    // fallthrough
         case KIND_UINT16: {
             // Because Byte and Short doesn't have toHexString, we have to use Integer.toHexString.
-            out << "Integer.toHexString(" << getJavaWrapperType() << ".toUnsignedInt(("
+            out << "Integer.toHexString(" << getJavaTypeClass() << ".toUnsignedInt(("
                 << getJavaType(false /* forInitializer */) << ")(" << name << ")))";
             break;
         }
@@ -233,7 +233,7 @@ void ScalarType::emitConvertToJavaHexString(
         case KIND_UINT32:   // fallthrough
         case KIND_INT64:    // fallthrough
         case KIND_UINT64: {
-            out << getJavaWrapperType() << ".toHexString(" << name << ")";
+            out << getJavaTypeClass() << ".toHexString(" << name << ")";
             break;
         }
         case KIND_FLOAT:    // fallthrough

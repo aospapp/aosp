@@ -126,12 +126,14 @@ public abstract class AbstractCalendar extends CalendarSystem {
             // BEGIN Android-changed: Android doesn't have sun.util.calendar.ZoneInfo.
             // if (zi instanceof ZoneInfo) {
             //    zoneOffset = ((ZoneInfo)zi).getOffsets(millis, offsets);
-            // } else {
+            if (zi instanceof libcore.util.ZoneInfo) {
+                zoneOffset = ((libcore.util.ZoneInfo) zi).getOffsetsByUtcTime(millis, offsets);
+            // END Android-changed: Android doesn't have sun.util.calendar.ZoneInfo.
+            } else {
                 zoneOffset = zi.getOffset(millis);
                 offsets[0] = zi.getRawOffset();
                 offsets[1] = zoneOffset - offsets[0];
-            // }
-            // END Android-changed: Android doesn't have sun.util.calendar.ZoneInfo.
+            }
 
             // We need to calculate the given millis and time zone
             // offset separately for java.util.GregorianCalendar

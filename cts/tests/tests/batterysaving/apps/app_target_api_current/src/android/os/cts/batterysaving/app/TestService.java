@@ -52,13 +52,10 @@ public class TestService extends Service {
                             .setContentTitle("FgService")
                             .setSmallIcon(android.R.drawable.ic_popup_sync)
                             .build();
-
             startForeground(1, notification);
         }
 
         LastStartIntent.set(intent);
-
-        stopSelf();
 
         return START_NOT_STICKY;
     }

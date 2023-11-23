@@ -1,5 +1,5 @@
 #!/bin/sh
-srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.731 2018/01/13 21:38:06 tg Exp $'
+srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.734 2019/03/01 16:18:13 tg Exp $'
 #-
 # Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
 #		2011, 2012, 2013, 2014, 2015, 2016, 2017
@@ -418,6 +418,7 @@ ac_flags() {
 			#include <unistd.h>
 			int main(void) { return (isatty(0)); }
 		EOF
+		#'
 	fi
 	eval fv=\$HAVE_CAN_`upper $vn`
 	if test -n "$fl"; then
@@ -1060,11 +1061,12 @@ AIX)
 Darwin)
 	vv '|' "hwprefs machine_type os_type os_class >&2"
 	vv '|' "sw_vers >&2"
-	vv '|' "system_profiler SPSoftwareDataType SPHardwareDataType >&2"
+	vv '|' "system_profiler -detailLevel mini SPSoftwareDataType SPHardwareDataType >&2"
 	vv '|' "/bin/sh --version >&2"
 	vv '|' "xcodebuild -version >&2"
 	vv '|' "uname -a >&2"
-	vv '|' "sysctl kern.version hw.machine hw.model hw.memsize hw.availcpu hw.cpufrequency hw.byteorder hw.cpu64bit_capable >&2"
+	vv '|' "sysctl kern.version hw.machine hw.model hw.memsize hw.availcpu hw.ncpu hw.cpufrequency hw.byteorder hw.cpu64bit_capable >&2"
+	vv '|' "sysctl hw.cpufrequency hw.byteorder hw.cpu64bit_capable hw.ncpu >&2"
 	;;
 IRIX*)
 	vv '|' "uname -a >&2"
@@ -2427,7 +2429,7 @@ addsrcs '!' HAVE_STRLCPY strlcpy.c
 addsrcs USE_PRINTF_BUILTIN printf.c
 test 1 = "$USE_PRINTF_BUILTIN" && add_cppflags -DMKSH_PRINTF_BUILTIN
 test 1 = "$HAVE_CAN_VERB" && CFLAGS="$CFLAGS -verbose"
-add_cppflags -DMKSH_BUILD_R=563
+add_cppflags -DMKSH_BUILD_R=571
 
 $e $bi$me: Finished configuration testing, now producing output.$ao
 

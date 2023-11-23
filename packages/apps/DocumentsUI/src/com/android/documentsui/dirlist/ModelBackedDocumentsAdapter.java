@@ -23,16 +23,18 @@ import static com.android.documentsui.base.State.MODE_LIST;
 
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.ViewGroup;
+
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.Model;
 import com.android.documentsui.Model.Update;
 import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.Lookup;
+import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
-import com.android.documentsui.selection.SelectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,7 +93,9 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
                         holder = new GridDirectoryHolder(mEnv.getContext(), parent);
                         break;
                     case ITEM_TYPE_DOCUMENT:
-                        holder = new GridDocumentHolder(mEnv.getContext(), parent, mIconHelper);
+                        holder = state.isPhotoPicking()
+                                ? new GridPhotoHolder(mEnv.getContext(), parent, mIconHelper)
+                                : new GridDocumentHolder(mEnv.getContext(), parent, mIconHelper);
                         break;
                     default:
                         throw new IllegalStateException("Unsupported layout type.");
@@ -111,7 +115,7 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
 
     @Override
     public void onBindViewHolder(DocumentHolder holder, int position, List<Object> payload) {
-        if (payload.contains(SelectionHelper.SELECTION_CHANGED_MARKER)) {
+        if (payload.contains(SelectionTracker.SELECTION_CHANGED_MARKER)) {
             final boolean selected = mEnv.isSelected(mModelIds.get(position));
             holder.setSelected(selected, true);
         } else {
@@ -135,6 +139,10 @@ final class ModelBackedDocumentsAdapter extends DocumentsAdapter {
         }
         holder.setEnabled(enabled);
         holder.setSelected(mEnv.isSelected(modelId), false);
+        holder.setAction(mEnv.getDisplayState().action);
+        holder.bindPreviewIcon(Shared.hasQuickViewer(mEnv.getContext())
+                        && mEnv.getDisplayState().shouldShowPreview() && enabled,
+                view -> mEnv.getActionHandler().previewItem(holder.getItemDetails()));
 
         mEnv.onBindDocumentHolder(holder, cursor);
     }

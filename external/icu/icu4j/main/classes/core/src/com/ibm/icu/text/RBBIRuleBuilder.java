@@ -20,6 +20,7 @@ import java.util.Set;
 import com.ibm.icu.impl.Assert;
 import com.ibm.icu.impl.ICUBinary;
 import com.ibm.icu.impl.ICUDebug;
+import com.ibm.icu.impl.RBBIDataWrapper;
 
 class RBBIRuleBuilder {
     //   This is the main class for building (compiling) break rules into the tables
@@ -28,13 +29,17 @@ class RBBIRuleBuilder {
 
     String fDebugEnv;              // controls debug trace output
     String fRules;                 // The rule string that we are compiling
+    StringBuilder fStrippedRules;  // The rule string, with comments stripped.
     RBBIRuleScanner fScanner;      // The scanner.
 
 
     //
     //  There are four separate parse trees generated, one for each of the
     //    forward rules, reverse rules, safe forward rules and safe reverse rules.
-    //  This array references the root of each of the trees.
+    //    This array references the root of each of the trees.
+    //    Only fForwardTree data is actually used to generate a state table.
+    //    The other three are retained for back compatibility with old rule files,
+    //    which may have safe and reverse rules. These are still parsed.
     //
     RBBINode[]         fTreeRoots = new RBBINode[4];
     static final int   fForwardTree = 0;  // Indexes into the above fTreeRoots array
@@ -55,11 +60,8 @@ class RBBIRuleBuilder {
                                           // longest match.
 
     RBBISetBuilder fSetBuilder;           // Set and Character Category builder.
-    List<RBBINode> fUSetNodes;            // Vector of all uset nodes.
-    RBBITableBuilder fForwardTables;      // State transition tables
-    RBBITableBuilder fReverseTables;
-    RBBITableBuilder fSafeFwdTables;
-    RBBITableBuilder fSafeRevTables;
+    List<RBBINode> fUSetNodes;            // Vector of all used nodes.
+    RBBITableBuilder fForwardTable;       // State transition tables
 
     //
     // Status {tag} values.   These structures are common to all of the rule sets (Forward, Reverse, etc.).
@@ -98,7 +100,7 @@ class RBBIRuleBuilder {
     /**< Syntax error in RBBI rule.                        */
 
     static final int U_BRK_UNCLOSED_SET = 0x10205;
-    /**< UnicodeSet witing an RBBI rule missing a closing ']'.  */
+    /**< UnicodeSet writing an RBBI rule missing a closing ']'.  */
 
     static final int U_BRK_ASSIGN_ERROR = 0x10206;
     /**< Syntax error in RBBI rule assignment statement.   */
@@ -142,6 +144,7 @@ class RBBIRuleBuilder {
         fDebugEnv       = ICUDebug.enabled("rbbi") ?
                             ICUDebug.value("rbbi") : null;
         fRules          = rules;
+        fStrippedRules  = new StringBuilder(rules);
         fUSetNodes      = new ArrayList<RBBINode>();
         fRuleStatusVals = new ArrayList<Integer>();
         fScanner        = new RBBIRuleScanner(this);
@@ -165,28 +168,25 @@ class RBBIRuleBuilder {
         DataOutputStream dos = new DataOutputStream(os);
         int i;
 
-        //  Remove comments and whitespace from the rules to make it smaller.
-        String strippedRules = RBBIRuleScanner.stripRules(fRules);
+        //  Remove whitespace from the rules to make it smaller.
+        //  The rule parser has already removed comments.
+        String strippedRules = RBBIRuleScanner.stripRules(fStrippedRules.toString());
 
         // Calculate the size of each section in the data in bytes.
         //   Sizes here are padded up to a multiple of 8 for better memory alignment.
         //   Sections sizes actually stored in the header are for the actual data
         //     without the padding.
         //
-        int headerSize       = 24 * 4;     // align8(sizeof(RBBIDataHeader));
-        int forwardTableSize = align8(fForwardTables.getTableSize());
-        int reverseTableSize = align8(fReverseTables.getTableSize());
-        // int safeFwdTableSize = align8(fSafeFwdTables.getTableSize());
-        int safeRevTableSize = align8(fSafeRevTables.getTableSize());
+        int headerSize       = RBBIDataWrapper.DH_SIZE * 4;     // align8(sizeof(RBBIDataHeader));
+        int forwardTableSize = align8(fForwardTable.getTableSize());
+        int reverseTableSize = align8(fForwardTable.getSafeTableSize());
         int trieSize         = align8(fSetBuilder.getTrieSize());
         int statusTableSize  = align8(fRuleStatusVals.size() * 4);
         int rulesSize        = align8((strippedRules.length()) * 2);
 
         int totalSize = headerSize
                 + forwardTableSize
-                + /* reverseTableSize */ 0
-                + /* safeFwdTableSize */ 0
-                + (safeRevTableSize > 0 ? safeRevTableSize : reverseTableSize)
+                + reverseTableSize
                 + statusTableSize + trieSize + rulesSize;
         int outputPos = 0;               // Track stream position, starting from RBBIDataHeader.
 
@@ -204,39 +204,14 @@ class RBBIRuleBuilder {
         header[RBBIDataWrapper.DH_LENGTH]        = totalSize;            // fLength, the total size of all rule sections.
         header[RBBIDataWrapper.DH_CATCOUNT]      = fSetBuilder.getNumCharCategories(); // fCatCount.
 
-        // Only save the forward table and the safe reverse table,
-        // because these are the only ones used at run-time.
-        //
-        // For the moment, we still build the other tables if they are present in the rule source files,
-        // for backwards compatibility. Old rule files need to work, and this is the simplest approach.
-        //
-        // Additional backwards compatibility consideration: if no safe rules are provided, consider the
-        // reverse rules to actually be the safe reverse rules.
-
         header[RBBIDataWrapper.DH_FTABLE]        = headerSize;           // fFTable
         header[RBBIDataWrapper.DH_FTABLELEN]     = forwardTableSize;     // fTableLen
 
-        // Do not save Reverse Table.
         header[RBBIDataWrapper.DH_RTABLE]        = header[RBBIDataWrapper.DH_FTABLE] + forwardTableSize; // fRTable
-        header[RBBIDataWrapper.DH_RTABLELEN]     = 0;                    // fRTableLen
+        header[RBBIDataWrapper.DH_RTABLELEN]     = reverseTableSize;     // fRTableLen
 
-        // Do not save the Safe Forward table.
-        header[RBBIDataWrapper.DH_SFTABLE]       = header[RBBIDataWrapper.DH_RTABLE]
-                                                     + 0;                // fSTable
-        header[RBBIDataWrapper.DH_SFTABLELEN]    = 0;                    // fSTableLen
-
-        // Safe reverse table. Use if present, otherwise save regular reverse table as the safe reverse.
-        header[RBBIDataWrapper.DH_SRTABLE]       = header[RBBIDataWrapper.DH_SFTABLE]
-                                                     + 0;                // fSRTable
-        if (safeRevTableSize > 0) {
-            header[RBBIDataWrapper.DH_SRTABLELEN] = safeRevTableSize;
-        } else {
-            assert reverseTableSize > 0;
-            header[RBBIDataWrapper.DH_SRTABLELEN] = reverseTableSize;
-        }
-
-        header[RBBIDataWrapper.DH_TRIE]          = header[RBBIDataWrapper.DH_SRTABLE]
-                                                     + header[RBBIDataWrapper.DH_SRTABLELEN]; // fTrie
+        header[RBBIDataWrapper.DH_TRIE]          = header[RBBIDataWrapper.DH_RTABLE]
+                                                     + header[RBBIDataWrapper.DH_RTABLELEN]; // fTrie
         header[RBBIDataWrapper.DH_TRIELEN]       = fSetBuilder.getTrieSize(); // fTrieLen
         header[RBBIDataWrapper.DH_STATUSTABLE]   = header[RBBIDataWrapper.DH_TRIE]
                                                      + header[RBBIDataWrapper.DH_TRIELEN];
@@ -250,56 +225,25 @@ class RBBIRuleBuilder {
         }
 
         // Write out the actual state tables.
-        short[] tableData;
-        tableData = fForwardTables.exportTable();
-        Assert.assrt(outputPos == header[4]);
-        for (i = 0; i < tableData.length; i++) {
-            dos.writeShort(tableData[i]);
-            outputPos += 2;
-        }
+        RBBIDataWrapper.RBBIStateTable table = fForwardTable.exportTable();
+        assert(outputPos == header[RBBIDataWrapper.DH_FTABLE]);
+        outputPos += table.put(dos);
 
-        /* do not write the reverse table
-        tableData = fReverseTables.exportTable();
-        Assert.assrt(outputPos == header[6]);
-        for (i = 0; i < tableData.length; i++) {
-            dos.writeShort(tableData[i]);
-            outputPos += 2;
-        }
-        */
-
-        /* do not write safe forwards table
-        Assert.assrt(outputPos == header[8]);
-        tableData = fSafeFwdTables.exportTable();
-        for (i = 0; i < tableData.length; i++) {
-            dos.writeShort(tableData[i]);
-            outputPos += 2;
-        }
-        */
-
-        // Write the safe reverse table.
-        // If not present, write the plain reverse table (old style rule compatibility)
-        Assert.assrt(outputPos == header[10]);
-        if (safeRevTableSize > 0) {
-            tableData = fSafeRevTables.exportTable();
-        } else {
-            tableData = fReverseTables.exportTable();
-        }
-        for (i = 0; i < tableData.length; i++) {
-            dos.writeShort(tableData[i]);
-            outputPos += 2;
-        }
+        table = fForwardTable.exportSafeTable();
+        Assert.assrt(outputPos == header[RBBIDataWrapper.DH_RTABLE]);
+        outputPos += table.put(dos);
 
         // write out the Trie table
-        Assert.assrt(outputPos == header[12]);
+        Assert.assrt(outputPos == header[RBBIDataWrapper.DH_TRIE]);
         fSetBuilder.serializeTrie(os);
-        outputPos += header[13];
+        outputPos += header[RBBIDataWrapper.DH_TRIELEN];
         while (outputPos % 8 != 0) { // pad to an 8 byte boundary
             dos.write(0);
             outputPos += 1;
         }
 
         // Write out the status {tag} table.
-        Assert.assrt(outputPos == header[16]);
+        Assert.assrt(outputPos == header[RBBIDataWrapper.DH_STATUSTABLE]);
         for (Integer val : fRuleStatusVals) {
             dos.writeInt(val.intValue());
             outputPos += 4;
@@ -312,7 +256,7 @@ class RBBIRuleBuilder {
 
         // Write out the stripped rules (rules with extra spaces removed
         //   These go last in the data area, even though they are not last in the header.
-        Assert.assrt(outputPos == header[14]);
+        Assert.assrt(outputPos == header[RBBIDataWrapper.DH_RULESOURCE]);
         dos.writeChars(strippedRules);
         outputPos += strippedRules.length() * 2;
         while (outputPos % 8 != 0) { // pad to an 8 byte boundary
@@ -334,36 +278,74 @@ class RBBIRuleBuilder {
         // and list of all Unicode Sets referenced by the rules.
         //
         RBBIRuleBuilder builder = new RBBIRuleBuilder(rules);
-        builder.fScanner.parse();
+        builder.build(os);
+    }
+
+    /**
+     * Compile rules to the binary form, write that to an ouput stream.
+     *
+     */
+    void build(OutputStream os) throws IOException {
+        fScanner.parse();
 
         //
         // UnicodeSet processing.
         //    Munge the Unicode Sets to create a set of character categories.
-        //    Generate the mapping tables (TRIE) from input 32-bit characters to
+        //    Generate the mapping tables (TRIE) from input code points to
         //    the character categories.
         //
-        builder.fSetBuilder.build();
+        fSetBuilder.buildRanges();
 
         //
         //   Generate the DFA state transition table.
         //
-        builder.fForwardTables = new RBBITableBuilder(builder, fForwardTree);
-        builder.fReverseTables = new RBBITableBuilder(builder, fReverseTree);
-        builder.fSafeFwdTables = new RBBITableBuilder(builder, fSafeFwdTree);
-        builder.fSafeRevTables = new RBBITableBuilder(builder, fSafeRevTree);
-        builder.fForwardTables.build();
-        builder.fReverseTables.build();
-        builder.fSafeFwdTables.build();
-        builder.fSafeRevTables.build();
-        if (builder.fDebugEnv != null
-                && builder.fDebugEnv.indexOf("states") >= 0) {
-            builder.fForwardTables.printRuleStatusTable();
+        fForwardTable = new RBBITableBuilder(this, fForwardTree);
+        fForwardTable.buildForwardTable();
+        optimizeTables();
+        fForwardTable.buildSafeReverseTable();
+
+
+        if (fDebugEnv != null
+                && fDebugEnv.indexOf("states") >= 0) {
+            fForwardTable.printStates();
+            fForwardTable.printRuleStatusTable();
+            fForwardTable.printReverseTable();
         }
 
+        fSetBuilder.buildTrie();
         //
         //   Package up the compiled data, writing it to an output stream
         //      in the serialization format.  This is the same as the ICU4C runtime format.
         //
-        builder.flattenData(os);
+        flattenData(os);
+    }
+
+    static class IntPair {
+        int first = 0;
+        int second = 0;
+        IntPair() {};
+        IntPair(int f, int s) {
+            first = f;
+            second = s;
+        }
+    }
+
+    void optimizeTables() {
+        boolean didSomething;
+        do {
+            didSomething = false;
+            // Begin looking for duplicates with char class 3.
+            // Classes 0, 1 and 2 are special; they are unused, {bof} and {eof} respectively,
+            // and should not have other categories merged into them.
+            IntPair duplPair = new IntPair(3, 0);
+            while (fForwardTable.findDuplCharClassFrom(duplPair)) {
+                fSetBuilder.mergeCategories(duplPair);
+                fForwardTable.removeColumn(duplPair.second);
+                didSomething = true;
+            }
+            while (fForwardTable.removeDuplicateStates() > 0) {
+                didSomething = true;
+            };
+        } while (didSomething);
     }
 }

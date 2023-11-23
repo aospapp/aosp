@@ -22,6 +22,9 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.DatePicker;
 
+import androidx.annotation.LayoutRes;
+import androidx.annotation.StringRes;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
 
@@ -35,14 +38,22 @@ public class DatePickerFragment extends BaseFragment {
 
     private DatePicker mDatePicker;
 
-    public static DatePickerFragment getInstance() {
-        DatePickerFragment datePickerFragment = new DatePickerFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.date_picker_title);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.date_picker);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        datePickerFragment.setArguments(bundle);
-        return datePickerFragment;
+    @Override
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar_with_button;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getLayoutId() {
+        return R.layout.date_picker;
+    }
+
+    @Override
+    @StringRes
+    protected int getTitleId() {
+        return R.string.date_picker_title;
     }
 
     @Override

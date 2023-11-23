@@ -19,8 +19,8 @@ package android.alarmmanager.cts;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.alarmmanager.alarmtestapp.cts.TestAlarmScheduler;
 import android.alarmmanager.alarmtestapp.cts.TestAlarmReceiver;
+import android.alarmmanager.alarmtestapp.cts.TestAlarmScheduler;
 import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -28,11 +28,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -45,6 +47,7 @@ import java.io.IOException;
  * Tests that apps put in forced app standby by the user do not get to run alarms while in the
  * background
  */
+@AppModeFull
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class BackgroundRestrictedAlarmsTest {
@@ -136,7 +139,7 @@ public class BackgroundRestrictedAlarmsTest {
     @Test
     public void testAlarmClockNotBlocked() throws Exception {
         final long nowRTC = System.currentTimeMillis();
-        final long waitInterval = 10_000;
+        final long waitInterval = 3_000;
         final long triggerRTC = nowRTC + waitInterval;
         scheduleAlarmClock(triggerRTC);
         Thread.sleep(waitInterval);
@@ -158,7 +161,7 @@ public class BackgroundRestrictedAlarmsTest {
     }
 
     private void updateAlarmManagerConstants() throws IOException {
-        String cmd = "settings put global alarm_manager_constants min_interval="
+        String cmd = "settings put global alarm_manager_constants min_futurity=0,min_interval="
                 + MIN_REPEATING_INTERVAL;
         mUiDevice.executeShellCommand(cmd);
     }

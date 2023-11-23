@@ -15,24 +15,67 @@
  */
 package com.android.server.wifi;
 
+import static android.net.wifi.WifiManager.DEVICE_MOBILITY_STATE_HIGH_MVMT;
+import static android.net.wifi.WifiManager.DEVICE_MOBILITY_STATE_LOW_MVMT;
+import static android.net.wifi.WifiManager.DEVICE_MOBILITY_STATE_STATIONARY;
+import static android.net.wifi.WifiManager.DEVICE_MOBILITY_STATE_UNKNOWN;
+
+import static com.android.server.wifi.WifiMetricsTestUtil.assertDeviceMobilityStatePnoScanStatsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.assertExperimentProbeCountsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.assertHistogramBucketsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.assertKeyCountsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.assertLinkProbeFailureReasonCountsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.assertLinkProbeStaEventsEqual;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildDeviceMobilityStatePnoScanStats;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildExperimentProbeCounts;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildHistogramBucketInt32;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildInt32Count;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildLinkProbeFailureReasonCount;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildLinkProbeFailureStaEvent;
+import static com.android.server.wifi.WifiMetricsTestUtil.buildLinkProbeSuccessStaEvent;
+import static com.android.server.wifi.nano.WifiMetricsProto.StaEvent.TYPE_LINK_PROBE;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.net.NetworkAgent;
+import android.net.wifi.EAPConstants;
+import android.net.wifi.IOnWifiUsabilityStatsListener;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
+import android.net.wifi.hotspot2.PasspointConfiguration;
+import android.net.wifi.hotspot2.ProvisioningCallback;
+import android.net.wifi.hotspot2.pps.Credential;
 import android.os.Handler;
+import android.os.IBinder;
+import android.os.RemoteException;
 import android.os.test.TestLooper;
-import android.support.test.filters.SmallTest;
+import android.provider.Settings;
+import android.telephony.TelephonyManager;
 import android.util.Base64;
 import android.util.Pair;
+import android.util.SparseIntArray;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.aware.WifiAwareMetrics;
 import com.android.server.wifi.hotspot2.NetworkDetail;
@@ -41,14 +84,30 @@ import com.android.server.wifi.hotspot2.PasspointMatch;
 import com.android.server.wifi.hotspot2.PasspointProvider;
 import com.android.server.wifi.nano.WifiMetricsProto;
 import com.android.server.wifi.nano.WifiMetricsProto.ConnectToNetworkNotificationAndActionCount;
+import com.android.server.wifi.nano.WifiMetricsProto.DeviceMobilityStatePnoScanStats;
+import com.android.server.wifi.nano.WifiMetricsProto.HistogramBucketInt32;
+import com.android.server.wifi.nano.WifiMetricsProto.Int32Count;
+import com.android.server.wifi.nano.WifiMetricsProto.LinkProbeStats;
+import com.android.server.wifi.nano.WifiMetricsProto.LinkProbeStats.ExperimentProbeCounts;
+import com.android.server.wifi.nano.WifiMetricsProto.LinkProbeStats.LinkProbeFailureReasonCount;
+import com.android.server.wifi.nano.WifiMetricsProto.NetworkSelectionExperimentDecisions;
+import com.android.server.wifi.nano.WifiMetricsProto.PasspointProfileTypeCount;
+import com.android.server.wifi.nano.WifiMetricsProto.PasspointProvisionStats;
 import com.android.server.wifi.nano.WifiMetricsProto.PnoScanMetrics;
 import com.android.server.wifi.nano.WifiMetricsProto.SoftApConnectedClientsEvent;
 import com.android.server.wifi.nano.WifiMetricsProto.StaEvent;
+import com.android.server.wifi.nano.WifiMetricsProto.WifiIsUnusableEvent;
+import com.android.server.wifi.nano.WifiMetricsProto.WifiRadioUsage;
+import com.android.server.wifi.nano.WifiMetricsProto.WifiUsabilityStats;
+import com.android.server.wifi.nano.WifiMetricsProto.WifiUsabilityStatsEntry;
 import com.android.server.wifi.nano.WifiMetricsProto.WpsMetrics;
+import com.android.server.wifi.p2p.WifiP2pMetrics;
 import com.android.server.wifi.rtt.RttMetrics;
+import com.android.server.wifi.util.ExternalCallbackTracker;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -57,8 +116,12 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -71,24 +134,41 @@ public class WifiMetricsTest {
     WifiMetrics mWifiMetrics;
     WifiMetricsProto.WifiLog mDecodedProto;
     TestLooper mTestLooper;
+    Random mRandom = new Random();
+    private static final int TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER = 2;
+    private static final int TEST_NETWORK_ID = 42;
+    @Mock Context mContext;
+    @Mock FrameworkFacade mFacade;
     @Mock Clock mClock;
     @Mock ScoringParams mScoringParams;
     @Mock WifiConfigManager mWcm;
     @Mock PasspointManager mPpm;
     @Mock WifiNetworkSelector mWns;
+    @Mock WifiPowerMetrics mWifiPowerMetrics;
+    @Mock WifiDataStall mWifiDataStall;
+    @Mock IBinder mAppBinder;
+    @Mock IOnWifiUsabilityStatsListener mOnWifiUsabilityStatsListener;
+    @Mock ExternalCallbackTracker<IOnWifiUsabilityStatsListener> mListenerTracker;
+    @Mock WifiP2pMetrics mWifiP2pMetrics;
+    @Mock DppMetrics mDppMetrics;
+    @Mock CellularLinkLayerStatsCollector mCellularLinkLayerStatsCollector;
+    @Mock CellularLinkLayerStats mCellularLinkLayerStats;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         mDecodedProto = null;
         when(mClock.getElapsedSinceBootMillis()).thenReturn((long) 0);
+        when(mCellularLinkLayerStatsCollector.update()).thenReturn(mCellularLinkLayerStats);
         mTestLooper = new TestLooper();
-        mWifiMetrics = new WifiMetrics(mClock, mTestLooper.getLooper(),
-                new WifiAwareMetrics(mClock), new RttMetrics(mClock));
+        mWifiMetrics = new WifiMetrics(mContext, mFacade, mClock, mTestLooper.getLooper(),
+                new WifiAwareMetrics(mClock), new RttMetrics(mClock), mWifiPowerMetrics,
+                mWifiP2pMetrics, mDppMetrics, mCellularLinkLayerStatsCollector);
         mWifiMetrics.setWifiConfigManager(mWcm);
         mWifiMetrics.setPasspointManager(mPpm);
         mWifiMetrics.setScoringParams(mScoringParams);
         mWifiMetrics.setWifiNetworkSelector(mWns);
+        mWifiMetrics.setWifiDataStall(mWifiDataStall);
     }
 
     /**
@@ -102,11 +182,13 @@ public class WifiMetricsTest {
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
-                WifiMetricsProto.ConnectionEvent.HLF_DHCP);
+                WifiMetricsProto.ConnectionEvent.HLF_DHCP,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         //end Connection event without starting one
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
-                WifiMetricsProto.ConnectionEvent.HLF_DHCP);
+                WifiMetricsProto.ConnectionEvent.HLF_DHCP,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         //start two ConnectionEvents in a row
         mWifiMetrics.startConnectionEvent(null, "BLUE",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
@@ -123,11 +205,10 @@ public class WifiMetricsTest {
     public void dumpProtoAndDeserialize() throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(stream);
-        String[] args = new String[0];
 
         when(mClock.getElapsedSinceBootMillis()).thenReturn(TEST_RECORD_DURATION_MILLIS);
         //Test proto dump, by passing in proto arg option
-        args = new String[]{WifiMetrics.PROTO_DUMP_ARG};
+        String[] args = {WifiMetrics.PROTO_DUMP_ARG};
         mWifiMetrics.dump(null, writer, args);
         writer.flush();
         Pattern pattern = Pattern.compile(
@@ -147,11 +228,10 @@ public class WifiMetricsTest {
     public void cleanDumpProtoAndDeserialize() throws Exception {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(stream);
-        String[] args = new String[0];
 
         when(mClock.getElapsedSinceBootMillis()).thenReturn(TEST_RECORD_DURATION_MILLIS);
         //Test proto dump, by passing in proto arg option
-        args = new String[]{WifiMetrics.PROTO_DUMP_ARG, WifiMetrics.CLEAN_DUMP_ARG};
+        String[] args = {WifiMetrics.PROTO_DUMP_ARG, WifiMetrics.CLEAN_DUMP_ARG};
         mWifiMetrics.dump(null, writer, args);
         writer.flush();
         String protoByteString = stream.toString();
@@ -174,16 +254,16 @@ public class WifiMetricsTest {
     /** Verifies that dump() includes correct alert count when there is one alert. */
     @Test
     public void stateDumpAlertCountIsCorrectWithOneAlert() throws Exception {
-        mWifiMetrics.incrementAlertReasonCount(1);
+        mWifiMetrics.logFirmwareAlert(1);
         assertStringContains(getStateDump(), "mWifiLogProto.alertReasonCounts=(1,1)");
     }
 
     /** Verifies that dump() includes correct alert count when there are multiple alerts. */
     @Test
     public void stateDumpAlertCountIsCorrectWithMultipleAlerts() throws Exception {
-        mWifiMetrics.incrementAlertReasonCount(1);
-        mWifiMetrics.incrementAlertReasonCount(1);
-        mWifiMetrics.incrementAlertReasonCount(16);
+        mWifiMetrics.logFirmwareAlert(1);
+        mWifiMetrics.logFirmwareAlert(1);
+        mWifiMetrics.logFirmwareAlert(16);
         assertStringContains(getStateDump(), "mWifiLogProto.alertReasonCounts=(1,2),(16,1)");
     }
 
@@ -191,16 +271,21 @@ public class WifiMetricsTest {
     public void testDumpProtoAndDeserialize() throws Exception {
         setAndIncrementMetrics();
         dumpProtoAndDeserialize();
+        verify(mWifiP2pMetrics).consolidateProto();
         assertDeserializedMetricsCorrect();
     }
 
     private static final int NUM_OPEN_NETWORKS = 2;
-    private static final int NUM_PERSONAL_NETWORKS = 3;
-    private static final int NUM_ENTERPRISE_NETWORKS = 5;
-    private static final int NUM_SAVED_NETWORKS = NUM_OPEN_NETWORKS + NUM_PERSONAL_NETWORKS
-            + NUM_ENTERPRISE_NETWORKS;
+    private static final int NUM_LEGACY_PERSONAL_NETWORKS = 3;
+    private static final int NUM_LEGACY_ENTERPRISE_NETWORKS = 5;
+    private static final int NUM_ENHANCED_OPEN_NETWORKS = 1;
+    private static final int NUM_WPA3_PERSONAL_NETWORKS = 4;
+    private static final int NUM_WPA3_ENTERPRISE_NETWORKS = 6;
+    private static final int NUM_SAVED_NETWORKS = NUM_OPEN_NETWORKS + NUM_LEGACY_PERSONAL_NETWORKS
+            + NUM_LEGACY_ENTERPRISE_NETWORKS + NUM_ENHANCED_OPEN_NETWORKS
+            + NUM_WPA3_PERSONAL_NETWORKS + NUM_WPA3_ENTERPRISE_NETWORKS;
     private static final int NUM_HIDDEN_NETWORKS = NUM_OPEN_NETWORKS;
-    private static final int NUM_PASSPOINT_NETWORKS = NUM_ENTERPRISE_NETWORKS;
+    private static final int NUM_PASSPOINT_NETWORKS = NUM_LEGACY_ENTERPRISE_NETWORKS;
     private static final int NUM_NETWORKS_ADDED_BY_USER = 1;
     private static final int NUM_NETWORKS_ADDED_BY_APPS = NUM_SAVED_NETWORKS
             - NUM_NETWORKS_ADDED_BY_USER;
@@ -234,10 +319,12 @@ public class WifiMetricsTest {
     private static final int WATCHDOG_TOTAL_CONNECTION_FAILURE_COUNT_AFTER_TRIGGER = 6;
     private static final int RSSI_POLL_FREQUENCY = 5150;
     private static final int NUM_RSSI_LEVELS_TO_INCREMENT = 20;
-    private static final int FIRST_RSSI_LEVEL = -80;
     private static final int NUM_OPEN_NETWORK_SCAN_RESULTS = 1;
-    private static final int NUM_PERSONAL_NETWORK_SCAN_RESULTS = 4;
-    private static final int NUM_ENTERPRISE_NETWORK_SCAN_RESULTS = 3;
+    private static final int NUM_LEGACY_PERSONAL_NETWORK_SCAN_RESULTS = 4;
+    private static final int NUM_LEGACY_ENTERPRISE_NETWORK_SCAN_RESULTS = 3;
+    private static final int NUM_ENHANCED_OPEN_NETWORK_SCAN_RESULTS = 1;
+    private static final int NUM_WPA3_PERSONAL_NETWORK_SCAN_RESULTS = 2;
+    private static final int NUM_WPA3_ENTERPRISE_NETWORK_SCAN_RESULTS = 1;
     private static final int NUM_HIDDEN_NETWORK_SCAN_RESULTS = 1;
     private static final int NUM_HOTSPOT2_R1_NETWORK_SCAN_RESULTS = 1;
     private static final int NUM_HOTSPOT2_R2_NETWORK_SCAN_RESULTS = 2;
@@ -246,7 +333,11 @@ public class WifiMetricsTest {
     private static final int NUM_EXTERNAL_APP_ONESHOT_SCAN_REQUESTS = 15;
     private static final int NUM_EXTERNAL_FOREGROUND_APP_ONESHOT_SCAN_REQUESTS_THROTTLED = 10;
     private static final int NUM_EXTERNAL_BACKGROUND_APP_ONESHOT_SCAN_REQUESTS_THROTTLED = 16;
-    private static final int NUM_TOTAL_SCAN_RESULTS = 8;
+    // Look at buildMockScanDetailList, this number needs to match the mocked results
+    private static final int NUM_TOTAL_SCAN_RESULTS = NUM_OPEN_NETWORK_SCAN_RESULTS
+            + NUM_LEGACY_PERSONAL_NETWORK_SCAN_RESULTS + NUM_LEGACY_ENTERPRISE_NETWORK_SCAN_RESULTS
+            + NUM_ENHANCED_OPEN_NETWORK_SCAN_RESULTS + NUM_WPA3_PERSONAL_NETWORK_SCAN_RESULTS
+            + NUM_WPA3_ENTERPRISE_NETWORK_SCAN_RESULTS;
     private static final int MIN_RSSI_LEVEL = -127;
     private static final int MAX_RSSI_LEVEL = 0;
     private static final int WIFI_SCORE_RANGE_MIN = 0;
@@ -269,12 +360,26 @@ public class WifiMetricsTest {
     private static final int NUM_SOFTAP_ON_FAILURE_DUE_TO_HOSTAPD = 31;
     private static final int NUM_SOFTAP_INTERFACE_DOWN = 65;
     private static final int NUM_CLIENT_INTERFACE_DOWN = 12;
-    private static final int NUM_PASSPOINT_PROVIDERS = 4;
+    private static final int NUM_PASSPOINT_PROVIDERS = 7;
     private static final int NUM_PASSPOINT_PROVIDER_INSTALLATION = 5;
     private static final int NUM_PASSPOINT_PROVIDER_INSTALL_SUCCESS = 4;
     private static final int NUM_PASSPOINT_PROVIDER_UNINSTALLATION = 3;
     private static final int NUM_PASSPOINT_PROVIDER_UNINSTALL_SUCCESS = 2;
     private static final int NUM_PASSPOINT_PROVIDERS_SUCCESSFULLY_CONNECTED = 1;
+    private static final int NUM_EAP_SIM_TYPE = 1;
+    private static final int NUM_EAP_TTLS_TYPE = 2;
+    private static final int NUM_EAP_TLS_TYPE = 3;
+    private static final int NUM_EAP_AKA_TYPE = 4;
+    private static final int NUM_EAP_AKA_PRIME_TYPE = 5;
+    private static final SparseIntArray SAVED_PASSPOINT_PROVIDERS_TYPE = new SparseIntArray();
+    static {
+        SAVED_PASSPOINT_PROVIDERS_TYPE.put(EAPConstants.EAP_SIM, NUM_EAP_SIM_TYPE);
+        SAVED_PASSPOINT_PROVIDERS_TYPE.put(EAPConstants.EAP_TTLS, NUM_EAP_TTLS_TYPE);
+        SAVED_PASSPOINT_PROVIDERS_TYPE.put(EAPConstants.EAP_TLS, NUM_EAP_TLS_TYPE);
+        SAVED_PASSPOINT_PROVIDERS_TYPE.put(EAPConstants.EAP_AKA, NUM_EAP_AKA_TYPE);
+        SAVED_PASSPOINT_PROVIDERS_TYPE.put(EAPConstants.EAP_AKA_PRIME, NUM_EAP_AKA_PRIME_TYPE);
+    }
+
     private static final int NUM_PARTIAL_SCAN_RESULTS = 73;
     private static final int NUM_PNO_SCAN_ATTEMPTS = 20;
     private static final int NUM_PNO_SCAN_FAILED = 5;
@@ -295,6 +400,16 @@ public class WifiMetricsTest {
     private static final int NUM_RADIO_MODE_CHANGE_TO_DBS = 34;
     private static final int NUM_SOFTAP_USER_BAND_PREFERENCE_UNSATISFIED = 14;
     private static final long NUM_WATCHDOG_SUCCESS_DURATION_MS = 65;
+    private static final long WIFI_POWER_METRICS_LOGGING_DURATION = 280;
+    private static final long WIFI_POWER_METRICS_SCAN_TIME = 33;
+    private static final boolean WIFI_IS_UNUSABLE_EVENT_LOGGING_SETTING = true;
+    private static final boolean LINK_SPEED_COUNTS_LOGGING_SETTING = true;
+    private static final int DATA_STALL_MIN_TX_BAD_SETTING = 5;
+    private static final int DATA_STALL_MIN_TX_SUCCESS_WITHOUT_RX_SETTING = 75;
+    private static final int NUM_SAR_SENSOR_LISTENER_REGISTRATION_FAILURES = 5;
+    private static final int NUM_ONESHOT_SCAN_REQUESTS_WITH_DFS_CHANNELS = 4;
+    private static final int NUM_ADD_OR_UPDATE_NETWORK_CALLS = 5;
+    private static final int NUM_ENABLE_NETWORK_CALLS = 6;
 
     /** Number of notifications per "Connect to Network" notification type. */
     private static final int[] NUM_CONNECT_TO_NETWORK_NOTIFICATIONS = {0, 10, 20, 30, 40};
@@ -316,6 +431,8 @@ public class WifiMetricsTest {
     private static final int SOFT_AP_CHANNEL_FREQUENCY = 2437;
     private static final int SOFT_AP_CHANNEL_BANDWIDTH = SoftApConnectedClientsEvent.BANDWIDTH_20;
     private static final boolean IS_MAC_RANDOMIZATION_ON = true;
+    private static final int NUM_LINK_SPEED_LEVELS_TO_INCREMENT = 30;
+    private static final int TEST_RSSI_LEVEL = -80;
 
     private ScanDetail buildMockScanDetail(boolean hidden, NetworkDetail.HSRelease hSRelease,
             String capabilities) {
@@ -377,8 +494,12 @@ public class WifiMetricsTest {
         mockScanDetails.add(buildMockScanDetail(true, null, "[ESS]"));
         mockScanDetails.add(buildMockScanDetail(false, null, "[WPA2-PSK-CCMP][ESS]"));
         mockScanDetails.add(buildMockScanDetail(false, null, "[WPA-PSK-CCMP]"));
+        mockScanDetails.add(buildMockScanDetail(false, null, "[WPA2-SAE-CCMP]"));
         mockScanDetails.add(buildMockScanDetail(false, null, "[WPA-PSK-CCMP]"));
         mockScanDetails.add(buildMockScanDetail(false, null, "[WEP]"));
+        mockScanDetails.add(buildMockScanDetail(false, null, "[WPA2-SAE-CCMP]"));
+        mockScanDetails.add(buildMockScanDetail(false, null, "[WPA2-OWE-CCMP]"));
+        mockScanDetails.add(buildMockScanDetail(false, null, "[WPA2-EAP-SUITE-B-192]"));
         mockScanDetails.add(buildMockScanDetail(false, NetworkDetail.HSRelease.R2,
                 "[WPA-EAP-CCMP]"));
         mockScanDetails.add(buildMockScanDetail(false, NetworkDetail.HSRelease.R2,
@@ -393,24 +514,73 @@ public class WifiMetricsTest {
         for (int i = 0; i < NUM_OPEN_NETWORKS; i++) {
             testSavedNetworks.add(WifiConfigurationTestUtil.createOpenHiddenNetwork());
         }
-        for (int i = 0; i < NUM_PERSONAL_NETWORKS; i++) {
+        for (int i = 0; i < NUM_LEGACY_PERSONAL_NETWORKS; i++) {
             testSavedNetworks.add(WifiConfigurationTestUtil.createPskNetwork());
         }
-        for (int i = 0; i < NUM_ENTERPRISE_NETWORKS; i++) {
+        for (int i = 0; i < NUM_LEGACY_ENTERPRISE_NETWORKS; i++) {
             // Passpoint networks are counted in both Passpoint and Enterprise counters
             testSavedNetworks.add(WifiConfigurationTestUtil.createPasspointNetwork());
         }
+        for (int i = 0; i < NUM_ENHANCED_OPEN_NETWORKS; i++) {
+            testSavedNetworks.add(WifiConfigurationTestUtil.createOweNetwork());
+        }
+        for (int i = 0; i < NUM_WPA3_PERSONAL_NETWORKS; i++) {
+            testSavedNetworks.add(WifiConfigurationTestUtil.createSaeNetwork());
+        }
+        for (int i = 0; i < NUM_WPA3_ENTERPRISE_NETWORKS; i++) {
+            testSavedNetworks.add(WifiConfigurationTestUtil.createEapSuiteBNetwork());
+        }
         testSavedNetworks.get(0).selfAdded = true;
+        testSavedNetworks.get(0).macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
         return testSavedNetworks;
+    }
+
+    private PasspointProvider createMockProvider(int eapType, boolean validateForR2) {
+        PasspointProvider provider = mock(PasspointProvider.class);
+        PasspointConfiguration config = mock(PasspointConfiguration.class);
+        Credential credential = new Credential();
+
+        switch (eapType) {
+            case EAPConstants.EAP_TLS:
+                credential.setCertCredential(new Credential.CertificateCredential());
+                break;
+            case EAPConstants.EAP_TTLS:
+                credential.setUserCredential(new Credential.UserCredential());
+                break;
+            case EAPConstants.EAP_AKA:
+            case EAPConstants.EAP_AKA_PRIME:
+            case EAPConstants.EAP_SIM:
+                Credential.SimCredential simCredential = new Credential.SimCredential();
+                simCredential.setEapType(eapType);
+                credential.setSimCredential(simCredential);
+                break;
+        }
+        when(provider.getConfig()).thenReturn(config);
+        when(config.getCredential()).thenReturn(credential);
+        when(config.validateForR2()).thenReturn(validateForR2);
+        return provider;
     }
 
     /**
      * Set simple metrics, increment others
      */
     public void setAndIncrementMetrics() throws Exception {
+        Map<String, PasspointProvider> providers = new HashMap<>();
         mWifiMetrics.updateSavedNetworks(buildSavedNetworkList());
         mWifiMetrics.updateSavedPasspointProfiles(NUM_PASSPOINT_PROVIDERS,
                 NUM_PASSPOINT_PROVIDERS_SUCCESSFULLY_CONNECTED);
+        for (int i = 0; i < SAVED_PASSPOINT_PROVIDERS_TYPE.size(); i++) {
+            int eapType = SAVED_PASSPOINT_PROVIDERS_TYPE.keyAt(i);
+            int count = SAVED_PASSPOINT_PROVIDERS_TYPE.valueAt(i);
+            for (int j = 0; j < count; j++) {
+                providers.put(Integer.toString(eapType) + j, createMockProvider(eapType, false));
+            }
+            for (int j = count; j < count * 2; j++) {
+                providers.put(Integer.toString(eapType) + j, createMockProvider(eapType, true));
+            }
+        }
+        mWifiMetrics.updateSavedPasspointProfilesInfo(providers);
+
         mWifiMetrics.setIsLocationEnabled(TEST_VAL_IS_LOCATION_ENABLED);
         mWifiMetrics.setIsScanningAlwaysEnabled(IS_SCANNING_ALWAYS_ENABLED);
 
@@ -502,13 +672,13 @@ public class WifiMetricsTest {
         }
 
         // Test alert-reason clamping.
-        mWifiMetrics.incrementAlertReasonCount(WifiLoggerHal.WIFI_ALERT_REASON_MIN - 1);
-        mWifiMetrics.incrementAlertReasonCount(WifiLoggerHal.WIFI_ALERT_REASON_MAX + 1);
+        mWifiMetrics.logFirmwareAlert(WifiLoggerHal.WIFI_ALERT_REASON_MIN - 1);
+        mWifiMetrics.logFirmwareAlert(WifiLoggerHal.WIFI_ALERT_REASON_MAX + 1);
         // Simple cases for alert reason.
-        mWifiMetrics.incrementAlertReasonCount(1);
-        mWifiMetrics.incrementAlertReasonCount(1);
-        mWifiMetrics.incrementAlertReasonCount(1);
-        mWifiMetrics.incrementAlertReasonCount(2);
+        mWifiMetrics.logFirmwareAlert(1);
+        mWifiMetrics.logFirmwareAlert(1);
+        mWifiMetrics.logFirmwareAlert(1);
+        mWifiMetrics.logFirmwareAlert(2);
         List<ScanDetail> mockScanDetails = buildMockScanDetailList();
         for (int i = 0; i < NUM_SCANS; i++) {
             mWifiMetrics.countScanResults(mockScanDetails);
@@ -526,7 +696,7 @@ public class WifiMetricsTest {
         for (int i = 0; i < NUM_EXTERNAL_BACKGROUND_APP_ONESHOT_SCAN_REQUESTS_THROTTLED; i++) {
             mWifiMetrics.incrementExternalBackgroundAppOneshotScanRequestsThrottledCount();
         }
-        for (int score = WIFI_SCORE_RANGE_MIN; score < NUM_WIFI_SCORES_TO_INCREMENT; score++) {
+        for (int score = 0; score < NUM_WIFI_SCORES_TO_INCREMENT; score++) {
             for (int offset = 0; offset <= score; offset++) {
                 mWifiMetrics.incrementWifiScoreCount(WIFI_SCORE_RANGE_MIN + score);
             }
@@ -536,6 +706,17 @@ public class WifiMetricsTest {
         }
         for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
             mWifiMetrics.incrementWifiScoreCount(WIFI_SCORE_RANGE_MAX + i);
+        }
+        for (int score = 0; score < NUM_WIFI_SCORES_TO_INCREMENT; score++) {
+            for (int offset = 0; offset <= score; offset++) {
+                mWifiMetrics.incrementWifiUsabilityScoreCount(1, WIFI_SCORE_RANGE_MIN + score, 15);
+            }
+        }
+        for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
+            mWifiMetrics.incrementWifiUsabilityScoreCount(1, WIFI_SCORE_RANGE_MIN - i, 15);
+        }
+        for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
+            mWifiMetrics.incrementWifiUsabilityScoreCount(1, WIFI_SCORE_RANGE_MAX + i, 15);
         }
 
         // increment soft ap start return codes
@@ -685,9 +866,35 @@ public class WifiMetricsTest {
         for (int i = 0; i < NUM_WPS_CANCELLATION; i++) {
             mWifiMetrics.incrementWpsCancellationCount();
         }
+        for (int i = 0; i < NUM_SAR_SENSOR_LISTENER_REGISTRATION_FAILURES; i++) {
+            mWifiMetrics.incrementNumSarSensorRegistrationFailures();
+        }
+        for (int i = 0; i < NUM_ONESHOT_SCAN_REQUESTS_WITH_DFS_CHANNELS; i++) {
+            mWifiMetrics.incrementOneshotScanWithDfsCount();
+        }
+        for (int i = 0; i < NUM_ADD_OR_UPDATE_NETWORK_CALLS; i++) {
+            mWifiMetrics.incrementNumAddOrUpdateNetworkCalls();
+        }
+        for (int i = 0; i < NUM_ENABLE_NETWORK_CALLS; i++) {
+            mWifiMetrics.incrementNumEnableNetworkCalls();
+        }
 
         mWifiMetrics.setWatchdogSuccessTimeDurationMs(NUM_WATCHDOG_SUCCESS_DURATION_MS);
         mWifiMetrics.setIsMacRandomizationOn(IS_MAC_RANDOMIZATION_ON);
+
+        addWifiPowerMetrics();
+
+        mWifiMetrics.setWifiIsUnusableLoggingEnabled(WIFI_IS_UNUSABLE_EVENT_LOGGING_SETTING);
+        mWifiMetrics.setLinkSpeedCountsLoggingEnabled(LINK_SPEED_COUNTS_LOGGING_SETTING);
+        mWifiMetrics.setWifiDataStallMinTxBad(DATA_STALL_MIN_TX_BAD_SETTING);
+        mWifiMetrics.setWifiDataStallMinRxWithoutTx(DATA_STALL_MIN_TX_SUCCESS_WITHOUT_RX_SETTING);
+    }
+
+    private void addWifiPowerMetrics() {
+        WifiRadioUsage wifiRadioUsage = new WifiRadioUsage();
+        wifiRadioUsage.loggingDurationMs = WIFI_POWER_METRICS_LOGGING_DURATION;
+        wifiRadioUsage.scanTimeMs = WIFI_POWER_METRICS_SCAN_TIME;
+        when(mWifiPowerMetrics.buildWifiRadioUsageProto()).thenReturn(wifiRadioUsage);
     }
 
     private void addSoftApEventsToMetrics() {
@@ -745,27 +952,36 @@ public class WifiMetricsTest {
      */
     public void assertDeserializedMetricsCorrect() throws Exception {
         assertEquals("mDecodedProto.numSavedNetworks == NUM_SAVED_NETWORKS",
-                mDecodedProto.numSavedNetworks, NUM_SAVED_NETWORKS);
+                NUM_SAVED_NETWORKS, mDecodedProto.numSavedNetworks);
+        assertEquals("mDecodedProto.numSavedNetworksWithMacRandomization == NUM_SAVED_NETWORKS-1",
+                NUM_SAVED_NETWORKS - 1, mDecodedProto.numSavedNetworksWithMacRandomization);
         assertEquals("mDecodedProto.numOpenNetworks == NUM_OPEN_NETWORKS",
-                mDecodedProto.numOpenNetworks, NUM_OPEN_NETWORKS);
-        assertEquals("mDecodedProto.numPersonalNetworks == NUM_PERSONAL_NETWORKS",
-                mDecodedProto.numPersonalNetworks, NUM_PERSONAL_NETWORKS);
-        assertEquals("mDecodedProto.numEnterpriseNetworks == NUM_ENTERPRISE_NETWORKS",
-                mDecodedProto.numEnterpriseNetworks, NUM_ENTERPRISE_NETWORKS);
+                NUM_OPEN_NETWORKS, mDecodedProto.numOpenNetworks);
+        assertEquals("mDecodedProto.numLegacyPersonalNetworks == NUM_LEGACY_PERSONAL_NETWORKS",
+                NUM_LEGACY_PERSONAL_NETWORKS, mDecodedProto.numLegacyPersonalNetworks);
+        assertEquals(
+                "mDecodedProto.numLegacyEnterpriseNetworks == NUM_LEGACY_ENTERPRISE_NETWORKS",
+                NUM_LEGACY_ENTERPRISE_NETWORKS, mDecodedProto.numLegacyEnterpriseNetworks);
+        assertEquals("mDecodedProto.numEnhancedOpenNetworks == NUM_ENHANCED_OPEN_NETWORKS",
+                NUM_ENHANCED_OPEN_NETWORKS, mDecodedProto.numEnhancedOpenNetworks);
+        assertEquals("mDecodedProto.numWpa3PersonalNetworks == NUM_WPA3_PERSONAL_NETWORKS",
+                NUM_WPA3_PERSONAL_NETWORKS, mDecodedProto.numWpa3PersonalNetworks);
+        assertEquals("mDecodedProto.numWpa3EnterpriseNetworks == NUM_WPA3_ENTERPRISE_NETWORKS",
+                NUM_WPA3_ENTERPRISE_NETWORKS, mDecodedProto.numWpa3EnterpriseNetworks);
         assertEquals("mDecodedProto.numNetworksAddedByUser == NUM_NETWORKS_ADDED_BY_USER",
-                mDecodedProto.numNetworksAddedByUser, NUM_NETWORKS_ADDED_BY_USER);
+                NUM_NETWORKS_ADDED_BY_USER, mDecodedProto.numNetworksAddedByUser);
         assertEquals(NUM_HIDDEN_NETWORKS, mDecodedProto.numHiddenNetworks);
         assertEquals(NUM_PASSPOINT_NETWORKS, mDecodedProto.numPasspointNetworks);
         assertEquals("mDecodedProto.numNetworksAddedByApps == NUM_NETWORKS_ADDED_BY_APPS",
-                mDecodedProto.numNetworksAddedByApps, NUM_NETWORKS_ADDED_BY_APPS);
+                NUM_NETWORKS_ADDED_BY_APPS, mDecodedProto.numNetworksAddedByApps);
         assertEquals("mDecodedProto.isLocationEnabled == TEST_VAL_IS_LOCATION_ENABLED",
-                mDecodedProto.isLocationEnabled, TEST_VAL_IS_LOCATION_ENABLED);
+                TEST_VAL_IS_LOCATION_ENABLED, mDecodedProto.isLocationEnabled);
         assertEquals("mDecodedProto.isScanningAlwaysEnabled == IS_SCANNING_ALWAYS_ENABLED",
-                mDecodedProto.isScanningAlwaysEnabled, IS_SCANNING_ALWAYS_ENABLED);
+                IS_SCANNING_ALWAYS_ENABLED, mDecodedProto.isScanningAlwaysEnabled);
         assertEquals("mDecodedProto.numEmptyScanResults == NUM_EMPTY_SCAN_RESULTS",
-                mDecodedProto.numEmptyScanResults, NUM_EMPTY_SCAN_RESULTS);
+                NUM_EMPTY_SCAN_RESULTS, mDecodedProto.numEmptyScanResults);
         assertEquals("mDecodedProto.numNonEmptyScanResults == NUM_NON_EMPTY_SCAN_RESULTS",
-                mDecodedProto.numNonEmptyScanResults, NUM_NON_EMPTY_SCAN_RESULTS);
+                NUM_NON_EMPTY_SCAN_RESULTS, mDecodedProto.numNonEmptyScanResults);
         assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_UNKNOWN, NUM_SCAN_UNKNOWN);
         assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_SUCCESS, NUM_SCAN_SUCCESS);
         assertScanReturnEntryEquals(WifiMetricsProto.WifiLog.SCAN_FAILURE_INTERRUPTED,
@@ -780,14 +996,14 @@ public class WifiMetricsTest {
                 WifiMetricsProto.WifiLog.WIFI_ASSOCIATED, false, NUM_WIFI_ASSOCIATED_SCREEN_OFF);
         assertSystemStateEntryEquals(WifiMetricsProto.WifiLog.WIFI_ASSOCIATED, true,
                 NUM_WIFI_ASSOCIATED_SCREEN_ON);
-        assertEquals(mDecodedProto.numConnectivityWatchdogPnoGood,
-                NUM_CONNECTIVITY_WATCHDOG_PNO_GOOD);
-        assertEquals(mDecodedProto.numConnectivityWatchdogPnoBad,
-                NUM_CONNECTIVITY_WATCHDOG_PNO_BAD);
-        assertEquals(mDecodedProto.numConnectivityWatchdogBackgroundGood,
-                NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_GOOD);
-        assertEquals(mDecodedProto.numConnectivityWatchdogBackgroundBad,
-                NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_BAD);
+        assertEquals(NUM_CONNECTIVITY_WATCHDOG_PNO_GOOD,
+                mDecodedProto.numConnectivityWatchdogPnoGood);
+        assertEquals(NUM_CONNECTIVITY_WATCHDOG_PNO_BAD,
+                mDecodedProto.numConnectivityWatchdogPnoBad);
+        assertEquals(NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_GOOD,
+                mDecodedProto.numConnectivityWatchdogBackgroundGood);
+        assertEquals(NUM_CONNECTIVITY_WATCHDOG_BACKGROUND_BAD,
+                mDecodedProto.numConnectivityWatchdogBackgroundBad);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_TRIGGERS,
                 mDecodedProto.numLastResortWatchdogTriggers);
         assertEquals(NUM_LAST_RESORT_WATCHDOG_BAD_ASSOCIATION_NETWORKS_TOTAL,
@@ -832,10 +1048,16 @@ public class WifiMetricsTest {
                 mDecodedProto.numTotalScanResults);
         assertEquals(NUM_OPEN_NETWORK_SCAN_RESULTS * NUM_SCANS,
                 mDecodedProto.numOpenNetworkScanResults);
-        assertEquals(NUM_PERSONAL_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDecodedProto.numPersonalNetworkScanResults);
-        assertEquals(NUM_ENTERPRISE_NETWORK_SCAN_RESULTS * NUM_SCANS,
-                mDecodedProto.numEnterpriseNetworkScanResults);
+        assertEquals(NUM_LEGACY_PERSONAL_NETWORK_SCAN_RESULTS * NUM_SCANS,
+                mDecodedProto.numLegacyPersonalNetworkScanResults);
+        assertEquals(NUM_LEGACY_ENTERPRISE_NETWORK_SCAN_RESULTS * NUM_SCANS,
+                mDecodedProto.numLegacyEnterpriseNetworkScanResults);
+        assertEquals(NUM_ENHANCED_OPEN_NETWORK_SCAN_RESULTS * NUM_SCANS,
+                mDecodedProto.numEnhancedOpenNetworkScanResults);
+        assertEquals(NUM_WPA3_PERSONAL_NETWORK_SCAN_RESULTS * NUM_SCANS,
+                mDecodedProto.numWpa3PersonalNetworkScanResults);
+        assertEquals(NUM_WPA3_ENTERPRISE_NETWORK_SCAN_RESULTS * NUM_SCANS,
+                mDecodedProto.numWpa3EnterpriseNetworkScanResults);
         assertEquals(NUM_HIDDEN_NETWORK_SCAN_RESULTS * NUM_SCANS,
                 mDecodedProto.numHiddenNetworkScanResults);
         assertEquals(NUM_HOTSPOT2_R1_NETWORK_SCAN_RESULTS * NUM_SCANS,
@@ -856,8 +1078,12 @@ public class WifiMetricsTest {
         for (int score_index = 0; score_index < NUM_WIFI_SCORES_TO_INCREMENT; score_index++) {
             assertEquals(WIFI_SCORE_RANGE_MIN + score_index,
                     mDecodedProto.wifiScoreCount[score_index].score);
-            assertEquals(score_index + 1,
+            assertEquals(WIFI_SCORE_RANGE_MIN + score_index + 1,
                     mDecodedProto.wifiScoreCount[score_index].count);
+            assertEquals(WIFI_SCORE_RANGE_MIN + score_index,
+                    mDecodedProto.wifiUsabilityScoreCount[score_index].score);
+            assertEquals(WIFI_SCORE_RANGE_MIN + score_index + 1,
+                    mDecodedProto.wifiUsabilityScoreCount[score_index].count);
         }
         StringBuilder sb_wifi_score = new StringBuilder();
         sb_wifi_score.append("Number of wifi_scores = " + mDecodedProto.wifiScoreCount.length);
@@ -865,6 +1091,15 @@ public class WifiMetricsTest {
                 <= (WIFI_SCORE_RANGE_MAX - WIFI_SCORE_RANGE_MIN + 1)));
         StringBuilder sb_wifi_limits = new StringBuilder();
         sb_wifi_limits.append("Wifi Score limit is " +  NetworkAgent.WIFI_BASE_SCORE
+                + ">= " + WIFI_SCORE_RANGE_MAX);
+        assertTrue(sb_wifi_limits.toString(), NetworkAgent.WIFI_BASE_SCORE <= WIFI_SCORE_RANGE_MAX);
+        StringBuilder sb_wifi_usability_score = new StringBuilder();
+        sb_wifi_usability_score.append("Number of wifi_usability_scores = "
+                + mDecodedProto.wifiUsabilityScoreCount.length);
+        assertTrue(sb_wifi_usability_score.toString(), (mDecodedProto.wifiUsabilityScoreCount.length
+                <= (WIFI_SCORE_RANGE_MAX - WIFI_SCORE_RANGE_MIN + 1)));
+        StringBuilder sb_wifi_usablity_limits = new StringBuilder();
+        sb_wifi_limits.append("Wifi Usability Score limit is " +  NetworkAgent.WIFI_BASE_SCORE
                 + ">= " + WIFI_SCORE_RANGE_MAX);
         assertTrue(sb_wifi_limits.toString(), NetworkAgent.WIFI_BASE_SCORE <= WIFI_SCORE_RANGE_MAX);
         assertEquals(MAX_NUM_SOFTAP_RETURN_CODES, mDecodedProto.softApReturnCode.length);
@@ -898,6 +1133,8 @@ public class WifiMetricsTest {
         assertEquals(NUM_CLIENT_INTERFACE_DOWN, mDecodedProto.numClientInterfaceDown);
         assertEquals(NUM_SOFTAP_INTERFACE_DOWN, mDecodedProto.numSoftApInterfaceDown);
         assertEquals(NUM_PASSPOINT_PROVIDERS, mDecodedProto.numPasspointProviders);
+        assertPasspointProfileTypeCount(mDecodedProto.installedPasspointProfileTypeForR1);
+        assertPasspointProfileTypeCount(mDecodedProto.installedPasspointProfileTypeForR2);
         assertEquals(NUM_PASSPOINT_PROVIDER_INSTALLATION,
                 mDecodedProto.numPasspointProviderInstallation);
         assertEquals(NUM_PASSPOINT_PROVIDER_INSTALL_SUCCESS,
@@ -965,6 +1202,25 @@ public class WifiMetricsTest {
         assertEquals(NUM_WATCHDOG_SUCCESS_DURATION_MS,
                 mDecodedProto.watchdogTriggerToConnectionSuccessDurationMs);
         assertEquals(IS_MAC_RANDOMIZATION_ON, mDecodedProto.isMacRandomizationOn);
+        assertEquals(WIFI_POWER_METRICS_LOGGING_DURATION,
+                mDecodedProto.wifiRadioUsage.loggingDurationMs);
+        assertEquals(WIFI_POWER_METRICS_SCAN_TIME,
+                mDecodedProto.wifiRadioUsage.scanTimeMs);
+        assertEquals(WIFI_IS_UNUSABLE_EVENT_LOGGING_SETTING,
+                mDecodedProto.experimentValues.wifiIsUnusableLoggingEnabled);
+        assertEquals(LINK_SPEED_COUNTS_LOGGING_SETTING,
+                mDecodedProto.experimentValues.linkSpeedCountsLoggingEnabled);
+        assertEquals(DATA_STALL_MIN_TX_BAD_SETTING,
+                mDecodedProto.experimentValues.wifiDataStallMinTxBad);
+        assertEquals(DATA_STALL_MIN_TX_SUCCESS_WITHOUT_RX_SETTING,
+                mDecodedProto.experimentValues.wifiDataStallMinTxSuccessWithoutRx);
+
+        assertEquals(NUM_SAR_SENSOR_LISTENER_REGISTRATION_FAILURES,
+                mDecodedProto.numSarSensorRegistrationFailures);
+        assertEquals(NUM_ONESHOT_SCAN_REQUESTS_WITH_DFS_CHANNELS,
+                mDecodedProto.numOneshotHasDfsChannelScans);
+        assertEquals(NUM_ADD_OR_UPDATE_NETWORK_CALLS, mDecodedProto.numAddOrUpdateNetworkCalls);
+        assertEquals(NUM_ENABLE_NETWORK_CALLS, mDecodedProto.numEnableNetworkCalls);
     }
 
     /**
@@ -973,7 +1229,7 @@ public class WifiMetricsTest {
     public void assertScanReturnEntryEquals(int returnCode, int count) {
         for (int i = 0; i < mDecodedProto.scanReturnEntries.length; i++) {
             if (mDecodedProto.scanReturnEntries[i].scanReturnCode == returnCode) {
-                assertEquals(mDecodedProto.scanReturnEntries[i].scanResultsCount, count);
+                assertEquals(count, mDecodedProto.scanReturnEntries[i].scanResultsCount);
                 return;
             }
         }
@@ -987,13 +1243,46 @@ public class WifiMetricsTest {
         for (int i = 0; i < mDecodedProto.wifiSystemStateEntries.length; i++) {
             if (mDecodedProto.wifiSystemStateEntries[i].wifiState == state
                     && mDecodedProto.wifiSystemStateEntries[i].isScreenOn == screenOn) {
-                assertEquals(mDecodedProto.wifiSystemStateEntries[i].wifiStateCount,
-                        count);
+                assertEquals(count, mDecodedProto.wifiSystemStateEntries[i].wifiStateCount);
                 return;
             }
         }
         assertEquals(null, count);
     }
+
+    /**
+     * Test the number of Passpoint provision with the failure code are collected correctly
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testPasspointProvisionMetrics() throws Exception {
+        //Increment count for provisioning success.
+        mWifiMetrics.incrementPasspointProvisionSuccess();
+
+        // Increment count for provisioning unavailable
+        mWifiMetrics.incrementPasspointProvisionFailure(
+                ProvisioningCallback.OSU_FAILURE_PROVISIONING_NOT_AVAILABLE);
+        mWifiMetrics.incrementPasspointProvisionFailure(
+                ProvisioningCallback.OSU_FAILURE_PROVISIONING_NOT_AVAILABLE);
+
+        // Increment count for server connection failure
+        mWifiMetrics.incrementPasspointProvisionFailure(
+                ProvisioningCallback.OSU_FAILURE_AP_CONNECTION);
+
+        // Dump proto and deserialize
+        dumpProtoAndDeserialize();
+
+        assertEquals(mDecodedProto.passpointProvisionStats.numProvisionSuccess, 1);
+        assertEquals(mDecodedProto.passpointProvisionStats.provisionFailureCount.length, 2);
+        assertEquals(mDecodedProto.passpointProvisionStats.provisionFailureCount[0].failureCode,
+                PasspointProvisionStats.OSU_FAILURE_AP_CONNECTION);
+        assertEquals(mDecodedProto.passpointProvisionStats.provisionFailureCount[0].count, 1);
+        assertEquals(mDecodedProto.passpointProvisionStats.provisionFailureCount[1].failureCode,
+                PasspointProvisionStats.OSU_FAILURE_PROVISIONING_NOT_AVAILABLE);
+        assertEquals(mDecodedProto.passpointProvisionStats.provisionFailureCount[1].count, 2);
+    }
+
     /**
      * Combination of all other WifiMetrics unit tests, an internal-integration test, or functional
      * test
@@ -1036,6 +1325,35 @@ public class WifiMetricsTest {
         assertEquals(upper, mDecodedProto.staEventList[1].lastScore);
     }
 
+    /**
+     * Test that Wifi usability score breach events are properly generated
+     */
+    @Test
+    public void testWifiUsabilityScoreBreachEvents() throws Exception {
+        int upper = WifiMetrics.LOW_WIFI_USABILITY_SCORE + 7;
+        int mid = WifiMetrics.LOW_WIFI_USABILITY_SCORE;
+        int lower = WifiMetrics.LOW_WIFI_USABILITY_SCORE - 8;
+        mWifiMetrics.setWifiState(WifiMetricsProto.WifiLog.WIFI_ASSOCIATED);
+        for (int score = upper; score >= mid; score--) {
+            mWifiMetrics.incrementWifiUsabilityScoreCount(1, score, 15);
+        }
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, mid + 1, 15);
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, lower, 15); // First breach
+        for (int score = lower; score <= mid; score++) {
+            mWifiMetrics.incrementWifiUsabilityScoreCount(1, score, 15);
+        }
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, mid - 1, 15);
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, upper, 15); // Second breach
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(2, mDecodedProto.staEventList.length);
+        assertEquals(StaEvent.TYPE_WIFI_USABILITY_SCORE_BREACH, mDecodedProto.staEventList[0].type);
+        assertEquals(lower, mDecodedProto.staEventList[0].lastWifiUsabilityScore);
+        assertEquals(StaEvent.TYPE_WIFI_USABILITY_SCORE_BREACH, mDecodedProto.staEventList[1].type);
+        assertEquals(upper, mDecodedProto.staEventList[1].lastWifiUsabilityScore);
+    }
+
     private static final String SSID = "red";
     private static final int CONFIG_DTIM = 3;
     private static final int NETWORK_DETAIL_WIFIMODE = 5;
@@ -1056,6 +1374,7 @@ public class WifiMetricsTest {
         WifiConfiguration config = mock(WifiConfiguration.class);
         config.SSID = "\"" + SSID + "\"";
         config.dtimInterval = CONFIG_DTIM;
+        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
         WifiConfiguration.NetworkSelectionStatus networkSelectionStat =
                 mock(WifiConfiguration.NetworkSelectionStatus.class);
         when(networkSelectionStat.getCandidate()).thenReturn(scanResult);
@@ -1064,35 +1383,89 @@ public class WifiMetricsTest {
         when(scanDetail.getNetworkDetail()).thenReturn(networkDetail);
         when(scanDetail.getScanResult()).thenReturn(scanResult);
 
+        config.networkId = TEST_NETWORK_ID;
+        mWifiMetrics.setNominatorForNetwork(TEST_NETWORK_ID,
+                WifiMetricsProto.ConnectionEvent.NOMINATOR_MANUAL);
+
         //Create a connection event using only the config
         mWifiMetrics.startConnectionEvent(config, "Red",
                 WifiMetricsProto.ConnectionEvent.ROAM_NONE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
 
+        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
         //Create a connection event using the config and a scan detail
         mWifiMetrics.startConnectionEvent(config, "Green",
                 WifiMetricsProto.ConnectionEvent.ROAM_NONE);
         mWifiMetrics.setConnectionScanDetail(scanDetail);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
 
         //Dump proto from mWifiMetrics and deserialize it to mDecodedProto
         dumpProtoAndDeserialize();
 
         //Check that the correct values are being flowed through
-        assertEquals(mDecodedProto.connectionEvent.length, 2);
-        assertEquals(mDecodedProto.connectionEvent[0].routerFingerprint.dtim,
-                CONFIG_DTIM);
-        assertEquals(mDecodedProto.connectionEvent[0].signalStrength, SCAN_RESULT_LEVEL);
-        assertEquals(mDecodedProto.connectionEvent[1].routerFingerprint.dtim,
-                NETWORK_DETAIL_DTIM);
-        assertEquals(mDecodedProto.connectionEvent[1].signalStrength,
-                SCAN_RESULT_LEVEL);
-        assertEquals(mDecodedProto.connectionEvent[1].routerFingerprint.routerTechnology,
-                NETWORK_DETAIL_WIFIMODE);
+        assertEquals(2, mDecodedProto.connectionEvent.length);
+        assertEquals(CONFIG_DTIM, mDecodedProto.connectionEvent[0].routerFingerprint.dtim);
+        assertEquals(SCAN_RESULT_LEVEL, mDecodedProto.connectionEvent[0].signalStrength);
+        assertEquals(NETWORK_DETAIL_DTIM, mDecodedProto.connectionEvent[1].routerFingerprint.dtim);
+        assertEquals(SCAN_RESULT_LEVEL, mDecodedProto.connectionEvent[1].signalStrength);
+        assertEquals(NETWORK_DETAIL_WIFIMODE,
+                mDecodedProto.connectionEvent[1].routerFingerprint.routerTechnology);
+        assertTrue(mDecodedProto.connectionEvent[0].useRandomizedMac);
+        assertFalse(mDecodedProto.connectionEvent[1].useRandomizedMac);
+        assertEquals(WifiMetricsProto.ConnectionEvent.NOMINATOR_MANUAL,
+                mDecodedProto.connectionEvent[0].connectionNominator);
+    }
+
+    /**
+     * Tests that the mapping from networkId to nominatorId is not cleared.
+     */
+    @Test
+    public void testNetworkToNominatorNotCleared() throws Exception {
+        //Setup mock configs and scan details
+        NetworkDetail networkDetail = mock(NetworkDetail.class);
+        when(networkDetail.getWifiMode()).thenReturn(NETWORK_DETAIL_WIFIMODE);
+        when(networkDetail.getSSID()).thenReturn(SSID);
+        when(networkDetail.getDtimInterval()).thenReturn(NETWORK_DETAIL_DTIM);
+        ScanResult scanResult = mock(ScanResult.class);
+        scanResult.level = SCAN_RESULT_LEVEL;
+        WifiConfiguration config = mock(WifiConfiguration.class);
+        config.SSID = "\"" + SSID + "\"";
+        config.dtimInterval = CONFIG_DTIM;
+        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_PERSISTENT;
+        WifiConfiguration.NetworkSelectionStatus networkSelectionStat =
+                mock(WifiConfiguration.NetworkSelectionStatus.class);
+        when(networkSelectionStat.getCandidate()).thenReturn(scanResult);
+        when(config.getNetworkSelectionStatus()).thenReturn(networkSelectionStat);
+        ScanDetail scanDetail = mock(ScanDetail.class);
+        when(scanDetail.getNetworkDetail()).thenReturn(networkDetail);
+        when(scanDetail.getScanResult()).thenReturn(scanResult);
+
+        config.networkId = TEST_NETWORK_ID;
+        mWifiMetrics.setNominatorForNetwork(TEST_NETWORK_ID,
+                WifiMetricsProto.ConnectionEvent.NOMINATOR_CARRIER);
+
+        // dump() calls clear() internally
+        mWifiMetrics.dump(null, new PrintWriter(new StringWriter()),
+                new String[]{WifiMetrics.PROTO_DUMP_ARG});
+
+        // Create a connection event using only the config
+        mWifiMetrics.startConnectionEvent(config, "Red",
+                WifiMetricsProto.ConnectionEvent.ROAM_NONE);
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(WifiMetricsProto.ConnectionEvent.NOMINATOR_CARRIER,
+                mDecodedProto.connectionEvent[0].connectionNominator);
     }
 
     /**
@@ -1104,15 +1477,42 @@ public class WifiMetricsTest {
                 WifiMetricsProto.ConnectionEvent.ROAM_NONE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_TIMED_OUT,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
 
         //Dump proto and deserialize
         //This should clear all the metrics in mWifiMetrics,
         dumpProtoAndDeserialize();
         //Check there is only 1 connection events
-        assertEquals(mDecodedProto.connectionEvent.length, 1);
-        assertEquals(mDecodedProto.connectionEvent[0].level2FailureCode,
-                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_TIMED_OUT);
+        assertEquals(1, mDecodedProto.connectionEvent.length);
+        assertEquals(WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_TIMED_OUT,
+                mDecodedProto.connectionEvent[0].level2FailureCode);
+        assertEquals(WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN,
+                mDecodedProto.connectionEvent[0].level2FailureReason);
+    }
+
+    /**
+     * Test that WifiMetrics is serializing/deserializing authentication failure events.
+     */
+    @Test
+    public void testMetricsAuthenticationFailureReason() throws Exception {
+        mWifiMetrics.startConnectionEvent(null, "RED",
+                WifiMetricsProto.ConnectionEvent.ROAM_NONE);
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.AUTH_FAILURE_WRONG_PSWD);
+
+        //Dump proto and deserialize
+        //This should clear all the metrics in mWifiMetrics,
+        dumpProtoAndDeserialize();
+        //Check there is only 1 connection events
+        assertEquals(1, mDecodedProto.connectionEvent.length);
+        assertEquals(WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
+                mDecodedProto.connectionEvent[0].level2FailureCode);
+        //Check the authentication failure reason
+        assertEquals(WifiMetricsProto.ConnectionEvent.AUTH_FAILURE_WRONG_PSWD,
+                mDecodedProto.connectionEvent[0].level2FailureReason);
     }
 
     /**
@@ -1125,47 +1525,90 @@ public class WifiMetricsTest {
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         mWifiMetrics.startConnectionEvent(null, "YELLOW",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         mWifiMetrics.startConnectionEvent(null, "GREEN",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         mWifiMetrics.startConnectionEvent(null, "ORANGE",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
 
         //Dump proto and deserialize
         //This should clear all the metrics in mWifiMetrics,
         dumpProtoAndDeserialize();
-        //Check there are only 3 connection events
-        assertEquals(mDecodedProto.connectionEvent.length, 4);
-        assertEquals(mDecodedProto.rssiPollRssiCount.length, 0);
-        assertEquals(mDecodedProto.alertReasonCount.length, 0);
+        //Check there are 4 connection events
+        assertEquals(4, mDecodedProto.connectionEvent.length);
+        assertEquals(0, mDecodedProto.rssiPollRssiCount.length);
+        assertEquals(0, mDecodedProto.alertReasonCount.length);
 
         // Create 2 ConnectionEvents
         mWifiMetrics.startConnectionEvent(null,  "BLUE",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
         mWifiMetrics.startConnectionEvent(null, "RED",
                 WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
         mWifiMetrics.endConnectionEvent(
                 WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
 
         //Dump proto and deserialize
         dumpProtoAndDeserialize();
         //Check there are only 2 connection events
-        assertEquals(mDecodedProto.connectionEvent.length, 2);
+        assertEquals(2, mDecodedProto.connectionEvent.length);
+    }
+
+    /**
+     * Test that current ongoing ConnectionEvent is not cleared and logged
+     * when proto is dumped
+     */
+    @Test
+    public void testCurrentConnectionEventNotClearedAfterProtoRequested() throws Exception {
+        // Create 2 complete ConnectionEvents and 1 ongoing un-ended ConnectionEvent
+        mWifiMetrics.startConnectionEvent(null, "RED",
+                WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
+        mWifiMetrics.startConnectionEvent(null, "YELLOW",
+                WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
+        mWifiMetrics.startConnectionEvent(null, "GREEN",
+                WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
+
+        // Dump proto and deserialize
+        // This should clear the metrics in mWifiMetrics,
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.connectionEvent.length);
+
+        // End the ongoing ConnectionEvent
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
+
+        dumpProtoAndDeserialize();
+        assertEquals(1, mDecodedProto.connectionEvent.length);
     }
 
     /**
@@ -1334,7 +1777,7 @@ public class WifiMetricsTest {
     private static final int ASSOC_TIMEOUT = 1;
     private static final int LOCAL_GEN = 1;
     private static final int AUTH_FAILURE_REASON = WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD;
-    private static final int NUM_TEST_STA_EVENTS = 16;
+    private static final int NUM_TEST_STA_EVENTS = 19;
     private static final String   sSSID = "\"SomeTestSsid\"";
     private static final WifiSsid sWifiSsid = WifiSsid.createFromAsciiEncoded(sSSID);
     private static final String   sBSSID = "01:02:03:04:05:06";
@@ -1356,8 +1799,8 @@ public class WifiMetricsTest {
         {WifiMonitor.NETWORK_CONNECTION_EVENT,      0,                   0},
         {WifiMonitor.NETWORK_DISCONNECTION_EVENT,   LOCAL_GEN,           DEAUTH_REASON},
         {WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, 0,                   0},
-        {WifiStateMachine.CMD_ASSOCIATED_BSSID,     0,                   0},
-        {WifiStateMachine.CMD_TARGET_BSSID,         0,                   0},
+        {ClientModeImpl.CMD_ASSOCIATED_BSSID,       0,                   0},
+        {ClientModeImpl.CMD_TARGET_BSSID,           0,                   0},
         {WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, 0,                   0},
         {WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, 0,                   0}
     };
@@ -1372,7 +1815,7 @@ public class WifiMetricsTest {
         mStateDisconnected,
         mStateCompleted
     };
-    // Values used to generate the StaEvent log calls from WifiStateMachine
+    // Values used to generate the StaEvent log calls from ClientModeImpl
     // <StaEvent.Type>, <StaEvent.FrameworkDisconnectReason>, <1|0>(testWifiConfiguration, null)
     private int[][] mTestStaLogInts = {
         {StaEvent.TYPE_CMD_IP_CONFIGURATION_SUCCESSFUL, 0,                          0},
@@ -1384,7 +1827,10 @@ public class WifiMetricsTest {
         {StaEvent.TYPE_NETWORK_AGENT_VALID_NETWORK,     0,                          0},
         {StaEvent.TYPE_FRAMEWORK_DISCONNECT,            StaEvent.DISCONNECT_API,    0},
         {StaEvent.TYPE_SCORE_BREACH,                    0,                          0},
-        {StaEvent.TYPE_MAC_CHANGE,                      0,                          1}
+        {StaEvent.TYPE_MAC_CHANGE,                      0,                          1},
+        {StaEvent.TYPE_WIFI_ENABLED,                    0,                          0},
+        {StaEvent.TYPE_WIFI_DISABLED,                   0,                          0},
+        {StaEvent.TYPE_WIFI_USABILITY_SCORE_BREACH,     0,                          0}
     };
     // Values used to generate the StaEvent log calls from WifiMonitor
     // <type>, <reason>, <status>, <local_gen>,
@@ -1421,7 +1867,13 @@ public class WifiMetricsTest {
         {StaEvent.TYPE_SCORE_BREACH,                    -1,            -1,         0,
             /**/                               0,             0,        0, 0},    /**/
         {StaEvent.TYPE_MAC_CHANGE,                      -1,            -1,         0,
-            /**/                               0,             0,        0, 1}     /**/
+            /**/                               0,             0,        0, 1},    /**/
+        {StaEvent.TYPE_WIFI_ENABLED,                    -1,            -1,         0,
+            /**/                               0,             0,        0, 0},    /**/
+        {StaEvent.TYPE_WIFI_DISABLED,                   -1,            -1,         0,
+            /**/                               0,             0,        0, 0},     /**/
+        {StaEvent.TYPE_WIFI_USABILITY_SCORE_BREACH,     -1,            -1,         0,
+            /**/                               0,             0,        0, 0}    /**/
     };
 
     /**
@@ -1503,6 +1955,29 @@ public class WifiMetricsTest {
     }
 
     /**
+     * Tests that link probe StaEvents do not exceed
+     * {@link WifiMetrics#MAX_LINK_PROBE_STA_EVENTS}.
+     */
+    @Test
+    public void testLinkProbeStaEventBounding() throws Exception {
+        for (int i = 0; i < WifiMetrics.MAX_LINK_PROBE_STA_EVENTS; i++) {
+            mWifiMetrics.logLinkProbeSuccess(0, 0, 0, 0);
+            mWifiMetrics.logLinkProbeFailure(0, 0, 0, 0);
+        }
+        for (int i = 0; i < 10; i++) {
+            mWifiMetrics.logStaEvent(StaEvent.TYPE_CMD_START_CONNECT);
+        }
+
+        dumpProtoAndDeserialize();
+
+        long numLinkProbeStaEvents = Arrays.stream(mDecodedProto.staEventList)
+                .filter(event -> event.type == TYPE_LINK_PROBE)
+                .count();
+        assertEquals(WifiMetrics.MAX_LINK_PROBE_STA_EVENTS, numLinkProbeStaEvents);
+        assertEquals(WifiMetrics.MAX_LINK_PROBE_STA_EVENTS + 10, mDecodedProto.staEventList.length);
+    }
+
+    /**
      * Ensure WifiMetrics doesn't cause a null pointer exception when called with null args
      */
     @Test
@@ -1514,6 +1989,7 @@ public class WifiMetricsTest {
      * Test the generation of 'NumConnectableNetwork' histograms from two scans of different
      * ScanDetails produces the correct histogram values, and relevant bounds are observed
      */
+    @MediumTest
     @Test
     public void testNumConnectableNetworksGeneration() throws Exception {
         List<ScanDetail> scan = new ArrayList<ScanDetail>();
@@ -1744,6 +2220,23 @@ public class WifiMetricsTest {
     }
 
     /**
+     * Check network selector id
+     */
+    @Test
+    public void testNetworkSelectorExperimentId() throws Exception {
+        final int id = 42888888;
+        mWifiMetrics.setNetworkSelectorExperimentId(id);
+        mWifiMetrics.startConnectionEvent(mTestWifiConfig, "TestNetwork",
+                WifiMetricsProto.ConnectionEvent.ROAM_ENTERPRISE);
+        mWifiMetrics.endConnectionEvent(
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
+        dumpProtoAndDeserialize();
+        assertEquals(id, mDecodedProto.connectionEvent[0].networkSelectorExperimentId);
+    }
+
+    /**
      * Check ScoringParams
      */
     @Test
@@ -1810,11 +2303,13 @@ public class WifiMetricsTest {
             if (successfulConnectionEvent) {
                 mWifiMetrics.endConnectionEvent(
                         WifiMetrics.ConnectionEvent.FAILURE_NONE,
-                        WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                        WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                        WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
             } else {
                 mWifiMetrics.endConnectionEvent(
                         WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
-                        WifiMetricsProto.ConnectionEvent.HLF_NONE);
+                        WifiMetricsProto.ConnectionEvent.HLF_NONE,
+                        WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN);
             }
         }
         when(mClock.getElapsedSinceBootMillis()).thenReturn(interArrivalTime);
@@ -1897,5 +2392,1643 @@ public class WifiMetricsTest {
             if ((mask & 1) != 0) bitSet.set(bitIndex);
         }
         return bitSet;
+    }
+
+    private static final int NUM_UNUSABLE_EVENT = 5;
+    private static final int NUM_UNUSABLE_EVENT_TIME_THROTTLE = 3;
+
+    /**
+     * Values used to generate WifiIsUnusableEvent
+     * <WifiIsUnusableEvent.TriggerType>, <last_score>, <tx_success_delta>, <tx_retries_delta>,
+     * <tx_bad_delta>, <rx_success_delta>, <packet_update_time_delta>, <firmware_alert_code>,
+     * <last_wifi_usability_score>
+     */
+    private int[][] mTestUnusableEvents = {
+        {WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX,        60,  60,  50,  40,  30,  1000,  -1, 51},
+        {WifiIsUnusableEvent.TYPE_DATA_STALL_TX_WITHOUT_RX, 55,  40,  30,  0,   0,   500,   -1, 52},
+        {WifiIsUnusableEvent.TYPE_DATA_STALL_BOTH,          60,  90,  30,  30,  0,   1000,  -1, 53},
+        {WifiIsUnusableEvent.TYPE_FIRMWARE_ALERT,           55,  55,  30,  15,  10,  1000,   4, 54},
+        {WifiIsUnusableEvent.TYPE_IP_REACHABILITY_LOST,     50,  56,  28,  17,  12,  1000,  -1, 45}
+    };
+
+    /**
+     * Generate all WifiIsUnusableEvents from mTestUnusableEvents
+     */
+    private void generateAllUnusableEvents(WifiMetrics wifiMetrics) {
+        for (int i = 0; i < mTestUnusableEvents.length; i++) {
+            generateUnusableEventAtGivenTime(i, i * (WifiMetrics.MIN_DATA_STALL_WAIT_MS + 1000));
+        }
+    }
+
+    /**
+     * Generate a WifiIsUnusableEvent at the given timestamp with data from
+     * mTestUnusableEvents[index]
+     */
+    private void generateUnusableEventAtGivenTime(int index, long eventTime) {
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(eventTime);
+        int[] trigger = mTestUnusableEvents[index];
+        mWifiMetrics.incrementWifiScoreCount(trigger[1]);
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, trigger[8], 15);
+        mWifiMetrics.updateWifiIsUnusableLinkLayerStats(trigger[2], trigger[3], trigger[4],
+                trigger[5], trigger[6]);
+        mWifiMetrics.setScreenState(true);
+        switch(trigger[0]) {
+            case WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX:
+            case WifiIsUnusableEvent.TYPE_DATA_STALL_TX_WITHOUT_RX:
+            case WifiIsUnusableEvent.TYPE_DATA_STALL_BOTH:
+                mWifiMetrics.logWifiIsUnusableEvent(trigger[0]);
+                break;
+            case WifiIsUnusableEvent.TYPE_FIRMWARE_ALERT:
+                mWifiMetrics.logWifiIsUnusableEvent(trigger[0], trigger[7]);
+                break;
+            case WifiIsUnusableEvent.TYPE_IP_REACHABILITY_LOST:
+                mWifiMetrics.logWifiIsUnusableEvent(trigger[0]);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Verify that WifiIsUnusableEvent in wifiLog matches mTestUnusableEvents
+     */
+    private void verifyDeserializedUnusableEvents(WifiMetricsProto.WifiLog wifiLog) {
+        assertEquals(NUM_UNUSABLE_EVENT, wifiLog.wifiIsUnusableEventList.length);
+        for (int i = 0; i < mTestUnusableEvents.length; i++) {
+            WifiIsUnusableEvent event = wifiLog.wifiIsUnusableEventList[i];
+            verifyUnusableEvent(event, i);
+        }
+    }
+
+    /**
+     * Verify that the given WifiIsUnusableEvent matches mTestUnusableEvents
+     * at given index
+     */
+    private void verifyUnusableEvent(WifiIsUnusableEvent event, int index) {
+        int[] expectedValues = mTestUnusableEvents[index];
+        assertEquals(expectedValues[0], event.type);
+        assertEquals(expectedValues[1], event.lastScore);
+        assertEquals(expectedValues[2], event.txSuccessDelta);
+        assertEquals(expectedValues[3], event.txRetriesDelta);
+        assertEquals(expectedValues[4], event.txBadDelta);
+        assertEquals(expectedValues[5], event.rxSuccessDelta);
+        assertEquals(expectedValues[6], event.packetUpdateTimeDelta);
+        assertEquals(expectedValues[7], event.firmwareAlertCode);
+        assertEquals(expectedValues[8], event.lastWifiUsabilityScore);
+        assertEquals(true, event.screenOn);
+    }
+
+    /**
+     * Verify that no WifiIsUnusableEvent is generated when it is disabled in the settings
+     */
+    @Test
+    public void testNoUnusableEventLogWhenDisabled() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_IS_UNUSABLE_EVENT_METRICS_ENABLED),
+                anyInt())).thenReturn(0);
+        mWifiMetrics.loadSettings();
+        generateAllUnusableEvents(mWifiMetrics);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiIsUnusableEventList.length);
+    }
+
+    /**
+     * Generate WifiIsUnusableEvent and verify that they are logged correctly
+     */
+    @Test
+    public void testUnusableEventLogSerializeDeserialize() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_IS_UNUSABLE_EVENT_METRICS_ENABLED),
+                anyInt())).thenReturn(1);
+        mWifiMetrics.loadSettings();
+        generateAllUnusableEvents(mWifiMetrics);
+        dumpProtoAndDeserialize();
+        verifyDeserializedUnusableEvents(mDecodedProto);
+    }
+
+    /**
+     * Verify that the number of WifiIsUnusableEvents does not exceed MAX_UNUSABLE_EVENTS
+     */
+    @Test
+    public void testUnusableEventBounding() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_IS_UNUSABLE_EVENT_METRICS_ENABLED),
+                anyInt())).thenReturn(1);
+        mWifiMetrics.loadSettings();
+        for (int i = 0; i < (WifiMetrics.MAX_UNUSABLE_EVENTS + 2); i++) {
+            generateAllUnusableEvents(mWifiMetrics);
+        }
+        dumpProtoAndDeserialize();
+        assertEquals(WifiMetrics.MAX_UNUSABLE_EVENTS, mDecodedProto.wifiIsUnusableEventList.length);
+    }
+
+    /**
+     * Verify that we don't generate new WifiIsUnusableEvent from data stalls
+     * until MIN_DATA_STALL_WAIT_MS has passed since the last data stall WifiIsUnusableEvent
+     */
+    @Test
+    public void testUnusableEventTimeThrottleForDataStall() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_IS_UNUSABLE_EVENT_METRICS_ENABLED),
+                anyInt())).thenReturn(1);
+        mWifiMetrics.loadSettings();
+        generateUnusableEventAtGivenTime(0, 0);
+        // should be time throttled
+        generateUnusableEventAtGivenTime(1, 1);
+        generateUnusableEventAtGivenTime(2, WifiMetrics.MIN_DATA_STALL_WAIT_MS + 1000);
+        // no time throttle for firmware alert
+        generateUnusableEventAtGivenTime(3, WifiMetrics.MIN_DATA_STALL_WAIT_MS + 1001);
+        dumpProtoAndDeserialize();
+        assertEquals(NUM_UNUSABLE_EVENT_TIME_THROTTLE,
+                mDecodedProto.wifiIsUnusableEventList.length);
+        verifyUnusableEvent(mDecodedProto.wifiIsUnusableEventList[0], 0);
+        verifyUnusableEvent(mDecodedProto.wifiIsUnusableEventList[1], 2);
+        verifyUnusableEvent(mDecodedProto.wifiIsUnusableEventList[2], 3);
+    }
+
+    /**
+     * Verify that LinkSpeedCounts is correctly logged in metrics
+     */
+    @Test
+    public void testLinkSpeedCounts() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_LINK_SPEED_METRICS_ENABLED), anyInt())).thenReturn(1);
+        mWifiMetrics.loadSettings();
+        for (int i = 0; i < NUM_LINK_SPEED_LEVELS_TO_INCREMENT; i++) {
+            for (int j = 0; j <= i; j++) {
+                mWifiMetrics.incrementLinkSpeedCount(
+                        WifiMetrics.MIN_LINK_SPEED_MBPS + i, TEST_RSSI_LEVEL);
+            }
+        }
+        dumpProtoAndDeserialize();
+        assertEquals(NUM_LINK_SPEED_LEVELS_TO_INCREMENT, mDecodedProto.linkSpeedCounts.length);
+        for (int i = 0; i < NUM_LINK_SPEED_LEVELS_TO_INCREMENT; i++) {
+            assertEquals("Incorrect link speed", WifiMetrics.MIN_LINK_SPEED_MBPS + i,
+                    mDecodedProto.linkSpeedCounts[i].linkSpeedMbps);
+            assertEquals("Incorrect count of link speed",
+                    i + 1, mDecodedProto.linkSpeedCounts[i].count);
+            assertEquals("Incorrect sum of absolute values of rssi values",
+                    Math.abs(TEST_RSSI_LEVEL) * (i + 1),
+                    mDecodedProto.linkSpeedCounts[i].rssiSumDbm);
+            assertEquals("Incorrect sum of squares of rssi values",
+                    TEST_RSSI_LEVEL * TEST_RSSI_LEVEL * (i + 1),
+                    mDecodedProto.linkSpeedCounts[i].rssiSumOfSquaresDbmSq);
+        }
+    }
+
+    /**
+     * Verify that LinkSpeedCounts is not logged when disabled in settings
+     */
+    @Test
+    public void testNoLinkSpeedCountsWhenDisabled() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_LINK_SPEED_METRICS_ENABLED), anyInt())).thenReturn(0);
+        mWifiMetrics.loadSettings();
+        for (int i = 0; i < NUM_LINK_SPEED_LEVELS_TO_INCREMENT; i++) {
+            for (int j = 0; j <= i; j++) {
+                mWifiMetrics.incrementLinkSpeedCount(
+                        WifiMetrics.MIN_LINK_SPEED_MBPS + i, TEST_RSSI_LEVEL);
+            }
+        }
+        dumpProtoAndDeserialize();
+        assertEquals("LinkSpeedCounts should not be logged when disabled in settings",
+                0, mDecodedProto.linkSpeedCounts.length);
+    }
+
+    /**
+     * Verify that LinkSpeedCounts is not logged when the link speed value is lower than
+     * MIN_LINK_SPEED_MBPS or when the rssi value is outside of
+     * [MIN_RSSI_LEVEL, MAX_RSSI_LEVEL]
+     */
+    @Test
+    public void testNoLinkSpeedCountsForOutOfBoundValues() throws Exception {
+        when(mFacade.getIntegerSetting(eq(mContext),
+                eq(Settings.Global.WIFI_LINK_SPEED_METRICS_ENABLED), anyInt())).thenReturn(1);
+        mWifiMetrics.loadSettings();
+        for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
+            mWifiMetrics.incrementLinkSpeedCount(
+                    WifiMetrics.MIN_LINK_SPEED_MBPS - i, MIN_RSSI_LEVEL);
+        }
+        for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
+            mWifiMetrics.incrementLinkSpeedCount(
+                    WifiMetrics.MIN_LINK_SPEED_MBPS, MIN_RSSI_LEVEL - i);
+        }
+        for (int i = 1; i < NUM_OUT_OF_BOUND_ENTRIES; i++) {
+            mWifiMetrics.incrementLinkSpeedCount(
+                    WifiMetrics.MIN_LINK_SPEED_MBPS, MAX_RSSI_LEVEL + i);
+        }
+        dumpProtoAndDeserialize();
+        assertEquals("LinkSpeedCounts should not be logged for out of bound values",
+                0, mDecodedProto.linkSpeedCounts.length);
+    }
+
+    private int nextRandInt() {
+        return mRandom.nextInt(1000);
+    }
+
+    private WifiLinkLayerStats nextRandomStats(WifiLinkLayerStats current) {
+        WifiLinkLayerStats out = new WifiLinkLayerStats();
+        out.timeStampInMs = current.timeStampInMs + nextRandInt();
+
+        out.rxmpdu_be = current.rxmpdu_be + nextRandInt();
+        out.txmpdu_be = current.txmpdu_be + nextRandInt();
+        out.lostmpdu_be = current.lostmpdu_be + nextRandInt();
+        out.retries_be = current.retries_be + nextRandInt();
+
+        out.rxmpdu_bk = current.rxmpdu_bk + nextRandInt();
+        out.txmpdu_bk = current.txmpdu_bk + nextRandInt();
+        out.lostmpdu_bk = current.lostmpdu_bk + nextRandInt();
+        out.retries_bk = current.retries_bk + nextRandInt();
+
+        out.rxmpdu_vi = current.rxmpdu_vi + nextRandInt();
+        out.txmpdu_vi = current.txmpdu_vi + nextRandInt();
+        out.lostmpdu_vi = current.lostmpdu_vi + nextRandInt();
+        out.retries_vi = current.retries_vi + nextRandInt();
+
+        out.rxmpdu_vo = current.rxmpdu_vo + nextRandInt();
+        out.txmpdu_vo = current.txmpdu_vo + nextRandInt();
+        out.lostmpdu_vo = current.lostmpdu_vo + nextRandInt();
+        out.retries_vo = current.retries_vo + nextRandInt();
+
+        out.on_time = current.on_time + nextRandInt();
+        out.tx_time = current.tx_time + nextRandInt();
+        out.rx_time = current.rx_time + nextRandInt();
+        out.on_time_scan = current.on_time_scan + nextRandInt();
+        out.on_time_nan_scan = current.on_time_nan_scan + nextRandInt();
+        out.on_time_background_scan = current.on_time_background_scan + nextRandInt();
+        out.on_time_roam_scan = current.on_time_roam_scan + nextRandInt();
+        out.on_time_pno_scan = current.on_time_pno_scan + nextRandInt();
+        out.on_time_hs20_scan = current.on_time_hs20_scan + nextRandInt();
+        return out;
+    }
+
+    private void assertWifiLinkLayerUsageHasDiff(WifiLinkLayerStats oldStats,
+            WifiLinkLayerStats newStats) {
+        assertEquals(newStats.timeStampInMs - oldStats.timeStampInMs,
+                mDecodedProto.wifiLinkLayerUsageStats.loggingDurationMs);
+        assertEquals(newStats.on_time - oldStats.on_time,
+                mDecodedProto.wifiLinkLayerUsageStats.radioOnTimeMs);
+        assertEquals(newStats.tx_time - oldStats.tx_time,
+                mDecodedProto.wifiLinkLayerUsageStats.radioTxTimeMs);
+        assertEquals(newStats.rx_time - oldStats.rx_time,
+                mDecodedProto.wifiLinkLayerUsageStats.radioRxTimeMs);
+        assertEquals(newStats.on_time_scan - oldStats.on_time_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioScanTimeMs);
+        assertEquals(newStats.on_time_nan_scan - oldStats.on_time_nan_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioNanScanTimeMs);
+        assertEquals(newStats.on_time_background_scan - oldStats.on_time_background_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioBackgroundScanTimeMs);
+        assertEquals(newStats.on_time_roam_scan - oldStats.on_time_roam_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioRoamScanTimeMs);
+        assertEquals(newStats.on_time_pno_scan - oldStats.on_time_pno_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioPnoScanTimeMs);
+        assertEquals(newStats.on_time_hs20_scan - oldStats.on_time_hs20_scan,
+                mDecodedProto.wifiLinkLayerUsageStats.radioHs20ScanTimeMs);
+
+    }
+
+    /**
+     * Verify that WifiMetrics is counting link layer usage correctly when given a series of
+     * valid input.
+     * @throws Exception
+     */
+    @Test
+    public void testWifiLinkLayerUsageStats() throws Exception {
+        WifiLinkLayerStats stat1 = nextRandomStats(new WifiLinkLayerStats());
+        WifiLinkLayerStats stat2 = nextRandomStats(stat1);
+        WifiLinkLayerStats stat3 = nextRandomStats(stat2);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat1);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat2);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat3);
+        dumpProtoAndDeserialize();
+
+        // After 2 increments, the counters should have difference between |stat1| and |stat3|
+        assertWifiLinkLayerUsageHasDiff(stat1, stat3);
+    }
+
+    /**
+     * Verify that null input is handled and wifi link layer usage stats are not incremented.
+     * @throws Exception
+     */
+    @Test
+    public void testWifiLinkLayerUsageStatsNullInput() throws Exception {
+        WifiLinkLayerStats stat1 = nextRandomStats(new WifiLinkLayerStats());
+        WifiLinkLayerStats stat2 = null;
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat1);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat2);
+        dumpProtoAndDeserialize();
+
+        // Counter should be zero
+        assertWifiLinkLayerUsageHasDiff(stat1, stat1);
+    }
+
+    /**
+     * Verify that when the new data appears to be bad link layer usage stats are not being
+     * incremented and the buffered WifiLinkLayerStats get cleared.
+     * @throws Exception
+     */
+    @Test
+    public void testWifiLinkLayerUsageStatsChipReset() throws Exception {
+        WifiLinkLayerStats stat1 = nextRandomStats(new WifiLinkLayerStats());
+        WifiLinkLayerStats stat2 = nextRandomStats(stat1);
+        stat2.on_time = stat1.on_time - 1;
+        WifiLinkLayerStats stat3 = nextRandomStats(stat2);
+        WifiLinkLayerStats stat4 = nextRandomStats(stat3);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat1);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat2);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat3);
+        mWifiMetrics.incrementWifiLinkLayerUsageStats(stat4);
+        dumpProtoAndDeserialize();
+
+        // Should only count the difference between |stat3| and |stat4|
+        assertWifiLinkLayerUsageHasDiff(stat3, stat4);
+    }
+
+    private void assertUsabilityStatsAssignment(WifiInfo info, WifiLinkLayerStats stats,
+            WifiUsabilityStatsEntry usabilityStats) {
+        assertEquals(info.getRssi(), usabilityStats.rssi);
+        assertEquals(info.getLinkSpeed(), usabilityStats.linkSpeedMbps);
+        assertEquals(info.getRxLinkSpeedMbps(), usabilityStats.rxLinkSpeedMbps);
+        assertEquals(stats.timeStampInMs, usabilityStats.timeStampMs);
+        assertEquals(stats.txmpdu_be + stats.txmpdu_bk + stats.txmpdu_vi + stats.txmpdu_vo,
+                usabilityStats.totalTxSuccess);
+        assertEquals(stats.retries_be + stats.retries_bk + stats.retries_vi + stats.retries_vo,
+                usabilityStats.totalTxRetries);
+        assertEquals(stats.lostmpdu_be + stats.lostmpdu_bk + stats.lostmpdu_vi + stats.lostmpdu_vo,
+                usabilityStats.totalTxBad);
+        assertEquals(stats.rxmpdu_be + stats.rxmpdu_bk + stats.rxmpdu_vi + stats.rxmpdu_vo,
+                usabilityStats.totalRxSuccess);
+        assertEquals(stats.on_time, usabilityStats.totalRadioOnTimeMs);
+        assertEquals(stats.tx_time, usabilityStats.totalRadioTxTimeMs);
+        assertEquals(stats.rx_time, usabilityStats.totalRadioRxTimeMs);
+        assertEquals(stats.on_time_scan, usabilityStats.totalScanTimeMs);
+        assertEquals(stats.on_time_nan_scan, usabilityStats.totalNanScanTimeMs);
+        assertEquals(stats.on_time_background_scan, usabilityStats.totalBackgroundScanTimeMs);
+        assertEquals(stats.on_time_roam_scan, usabilityStats.totalRoamScanTimeMs);
+        assertEquals(stats.on_time_pno_scan, usabilityStats.totalPnoScanTimeMs);
+        assertEquals(stats.on_time_hs20_scan, usabilityStats.totalHotspot2ScanTimeMs);
+        assertEquals(stats.beacon_rx, usabilityStats.totalBeaconRx);
+    }
+
+    // Simulate adding a LABEL_GOOD WifiUsabilityStats
+    private WifiLinkLayerStats addGoodWifiUsabilityStats(WifiLinkLayerStats start) {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats = start;
+        for (int i = 0; i < WifiMetrics.NUM_WIFI_USABILITY_STATS_ENTRIES_PER_WIFI_GOOD; i++) {
+            mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats);
+            stats = nextRandomStats(stats);
+        }
+        return stats;
+    }
+
+    // Simulate adding a LABEL_BAD WifiUsabilityStats
+    private WifiLinkLayerStats addBadWifiUsabilityStats(WifiLinkLayerStats start) {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats1 = start;
+        WifiLinkLayerStats stats2 = nextRandomStats(stats1);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+        return nextRandomStats(stats2);
+    }
+
+    /**
+     * Verify that updateWifiUsabilityStatsEntries correctly converts the inputs into
+     * a WifiUsabilityStatsEntry Object and then stores it.
+     *
+     * Verify that the converted metrics proto contains pairs of WifiUsabilityStats with
+     * LABEL_GOOD and LABEL_BAD
+     * @throws Exception
+     */
+    @Test
+    public void testUpdateWifiUsabilityStatsEntries() throws Exception {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        when(info.getRxLinkSpeedMbps()).thenReturn(nextRandInt());
+        when(info.getBSSID()).thenReturn("Wifi");
+        when(info.getFrequency()).thenReturn(5745);
+
+        int signalStrengthDbm = -50;
+        int signalStrengthDb = -10;
+        boolean isSameRegisteredCell = true;
+        CellularLinkLayerStats cellularStats =  new CellularLinkLayerStats();
+        cellularStats.setIsSameRegisteredCell(isSameRegisteredCell);
+        cellularStats.setDataNetworkType(TelephonyManager.NETWORK_TYPE_LTE);
+        cellularStats.setSignalStrengthDbm(signalStrengthDbm);
+        cellularStats.setSignalStrengthDb(signalStrengthDb);
+        when(mCellularLinkLayerStatsCollector.update()).thenReturn(cellularStats);
+
+        WifiLinkLayerStats stats1 = nextRandomStats(new WifiLinkLayerStats());
+        WifiLinkLayerStats stats2 = nextRandomStats(stats1);
+        mWifiMetrics.incrementWifiScoreCount(60);
+        mWifiMetrics.incrementWifiUsabilityScoreCount(2, 55, 15);
+        mWifiMetrics.logLinkProbeSuccess(nextRandInt(), nextRandInt(), nextRandInt(), 12);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+        mWifiMetrics.incrementWifiScoreCount(58);
+        mWifiMetrics.incrementWifiUsabilityScoreCount(3, 56, 15);
+        mWifiMetrics.logLinkProbeFailure(nextRandInt(), nextRandInt(),
+                nextRandInt(), nextRandInt());
+        mWifiMetrics.enterDeviceMobilityState(DEVICE_MOBILITY_STATE_HIGH_MVMT);
+
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+
+        // Add 2 LABEL_GOOD but only 1 should remain in the converted proto
+        WifiLinkLayerStats statsGood = addGoodWifiUsabilityStats(nextRandomStats(stats2));
+        statsGood.timeStampInMs += WifiMetrics.MIN_WIFI_GOOD_USABILITY_STATS_PERIOD_MS;
+        addGoodWifiUsabilityStats(statsGood);
+
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+        assertEquals(WifiUsabilityStats.LABEL_GOOD, mDecodedProto.wifiUsabilityStatsList[0].label);
+        assertEquals(WifiUsabilityStats.LABEL_BAD, mDecodedProto.wifiUsabilityStatsList[1].label);
+        assertUsabilityStatsAssignment(info, stats1,
+                mDecodedProto.wifiUsabilityStatsList[1].stats[0]);
+        assertUsabilityStatsAssignment(info, stats2,
+                mDecodedProto.wifiUsabilityStatsList[1].stats[1]);
+
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList[1].stats[0].seqNumToFramework);
+        assertEquals(3, mDecodedProto.wifiUsabilityStatsList[1].stats[1].seqNumToFramework);
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList[1].stats[0].seqNumInsideFramework);
+        assertEquals(1, mDecodedProto.wifiUsabilityStatsList[1].stats[1].seqNumInsideFramework);
+        assertEquals(60, mDecodedProto.wifiUsabilityStatsList[1].stats[0].wifiScore);
+        assertEquals(58, mDecodedProto.wifiUsabilityStatsList[1].stats[1].wifiScore);
+        assertEquals(55, mDecodedProto.wifiUsabilityStatsList[1].stats[0].wifiUsabilityScore);
+        assertEquals(56, mDecodedProto.wifiUsabilityStatsList[1].stats[1].wifiUsabilityScore);
+        assertEquals(15, mDecodedProto.wifiUsabilityStatsList[1].stats[0].predictionHorizonSec);
+        assertEquals(true, mDecodedProto.wifiUsabilityStatsList[1].stats[0].isSameBssidAndFreq);
+        assertEquals(android.net.wifi.WifiUsabilityStatsEntry.PROBE_STATUS_SUCCESS,
+                mDecodedProto.wifiUsabilityStatsList[1].stats[0].probeStatusSinceLastUpdate);
+        assertEquals(android.net.wifi.WifiUsabilityStatsEntry.PROBE_STATUS_FAILURE,
+                mDecodedProto.wifiUsabilityStatsList[1].stats[1].probeStatusSinceLastUpdate);
+        assertEquals(android.net.wifi.WifiUsabilityStatsEntry.PROBE_STATUS_NO_PROBE,
+                mDecodedProto.wifiUsabilityStatsList[0].stats[0].probeStatusSinceLastUpdate);
+        assertEquals(12,
+                mDecodedProto.wifiUsabilityStatsList[1].stats[0].probeElapsedTimeSinceLastUpdateMs);
+        assertEquals(Integer.MAX_VALUE, mDecodedProto.wifiUsabilityStatsList[1]
+                .stats[1].probeElapsedTimeSinceLastUpdateMs);
+        assertEquals(-1, mDecodedProto.wifiUsabilityStatsList[0]
+                .stats[0].probeElapsedTimeSinceLastUpdateMs);
+        assertEquals(WifiUsabilityStatsEntry.NETWORK_TYPE_LTE,
+                mDecodedProto.wifiUsabilityStatsList[0].stats[0].cellularDataNetworkType);
+        assertEquals(signalStrengthDbm,
+                mDecodedProto.wifiUsabilityStatsList[0].stats[0].cellularSignalStrengthDbm);
+        assertEquals(signalStrengthDb,
+                mDecodedProto.wifiUsabilityStatsList[0].stats[0].cellularSignalStrengthDb);
+        assertEquals(isSameRegisteredCell,
+                mDecodedProto.wifiUsabilityStatsList[0].stats[0].isSameRegisteredCell);
+        assertEquals(DEVICE_MOBILITY_STATE_HIGH_MVMT, mDecodedProto.wifiUsabilityStatsList[1]
+                .stats[mDecodedProto.wifiUsabilityStatsList[1].stats.length - 1]
+                .deviceMobilityState);
+    }
+
+    /**
+     * Verify that when there are no WifiUsability events the generated proto also contains no
+     * such information.
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsZeroEvents() throws Exception {
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that we discard a WifiUsabilityStats with LABEL_GOOD if there is no corresponding
+     * LABEL_BAD
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsIgnoreSingleLabelGood() throws Exception {
+        addGoodWifiUsabilityStats(new WifiLinkLayerStats());
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that we discard a WifiUsabilityStats with LABEL_BAD if there is no corresponding
+     * LABEL_GOOD
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsIgnoreSingleLabelBad() throws Exception {
+        addBadWifiUsabilityStats(new WifiLinkLayerStats());
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that the buffer for WifiUsabilityStats does not exceed the max length.
+     * Do this by trying to add more WifiUsabilityStats than the max length and then
+     * verifying that the decoded proto's length does not exceed the max length.
+     *
+     * Also verify that the length for the list of WifiUsabilityStatsEntry is capped.
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsBufferSizeIsCapped() throws Exception {
+        // simulate adding LABEL_GOOD WifiUsabilityStats 1 time over the max limit
+        WifiLinkLayerStats stats = new WifiLinkLayerStats();
+        for (int j = 0; j < WifiMetrics.MAX_WIFI_USABILITY_STATS_LIST_SIZE_PER_TYPE + 1; j++) {
+            stats = addGoodWifiUsabilityStats(stats);
+            stats = addBadWifiUsabilityStats(stats);
+            stats.timeStampInMs += WifiMetrics.MIN_WIFI_GOOD_USABILITY_STATS_PERIOD_MS;
+        }
+        dumpProtoAndDeserialize();
+        assertEquals(2 * WifiMetrics.MAX_WIFI_USABILITY_STATS_PER_TYPE_TO_UPLOAD,
+                mDecodedProto.wifiUsabilityStatsList.length);
+        for (int i = 0; i < mDecodedProto.wifiUsabilityStatsList.length; i++) {
+            assertEquals(WifiMetrics.MAX_WIFI_USABILITY_STATS_ENTRIES_LIST_SIZE,
+                    mDecodedProto.wifiUsabilityStatsList[i].stats.length);
+        }
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated more frequently than
+     * |MIN_WIFI_GOOD_USABILITY_STATS_PERIOD_MS|
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsLabelGoodHasMinimumPeriod() throws Exception {
+        // simulate adding LABEL_GOOD WifiUsabilityStats 1 time over the max limit
+        WifiLinkLayerStats stats = new WifiLinkLayerStats();
+        for (int j = 0; j < 2; j++) {
+            stats = addGoodWifiUsabilityStats(stats);
+            stats = addBadWifiUsabilityStats(stats);
+        }
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_BAD stats are not generated more frequently than |MIN_DATA_STALL_WAIT_MS|
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsLabelBadNotGeneratedGapLessThanMinimum() throws Exception {
+        // simulate adding two LABEL_GOOD WifiUsabilityStats
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats1 = new WifiLinkLayerStats();
+        WifiLinkLayerStats stats2 = new WifiLinkLayerStats();
+        stats1 = addGoodWifiUsabilityStats(stats1);
+        stats2.timeStampInMs = stats1.timeStampInMs
+                + WifiMetrics.MIN_WIFI_GOOD_USABILITY_STATS_PERIOD_MS;
+        addGoodWifiUsabilityStats(stats2);
+
+        WifiLinkLayerStats stats3 = new WifiLinkLayerStats();
+        WifiLinkLayerStats stats4 = new WifiLinkLayerStats();
+        for (int i = 0; i < WifiMetrics.MAX_WIFI_USABILITY_STATS_ENTRIES_LIST_SIZE - 1; i++) {
+            mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats3);
+            stats3 = nextRandomStats(stats3);
+        }
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats3);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+        for (int i = 0; i < WifiMetrics.MAX_WIFI_USABILITY_STATS_ENTRIES_LIST_SIZE - 1; i++) {
+            mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats4);
+            stats4 = nextRandomStats(stats4);
+        }
+        stats4.timeStampInMs = stats3.timeStampInMs - 1 + WifiMetrics.MIN_DATA_STALL_WAIT_MS;
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats4);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_BAD stats are generated if timestamp gap is larger than
+     * |MIN_DATA_STALL_WAIT_MS|
+     * @throws Exception
+     */
+    @Test
+    public void testWifiUsabilityStatsLabelBadGeneratedGapLargerThanMinimum() throws Exception {
+        // simulate adding two LABEL_GOOD WifiUsabilityStats
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats1 = new WifiLinkLayerStats();
+        WifiLinkLayerStats stats2 = new WifiLinkLayerStats();
+        stats1 = addGoodWifiUsabilityStats(stats1);
+        stats2.timeStampInMs = stats1.timeStampInMs
+                + WifiMetrics.MIN_WIFI_GOOD_USABILITY_STATS_PERIOD_MS;
+        addGoodWifiUsabilityStats(stats2);
+
+        WifiLinkLayerStats stats3 = new WifiLinkLayerStats();
+        WifiLinkLayerStats stats4 = new WifiLinkLayerStats();
+        for (int i = 0; i < WifiMetrics.MAX_WIFI_USABILITY_STATS_ENTRIES_LIST_SIZE - 1; i++) {
+            mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats3);
+            stats3 = nextRandomStats(stats3);
+        }
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats3);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+        for (int i = 0; i < WifiMetrics.MAX_WIFI_USABILITY_STATS_ENTRIES_LIST_SIZE - 1; i++) {
+            mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats4);
+            stats4 = nextRandomStats(stats4);
+        }
+        stats4.timeStampInMs = stats3.timeStampInMs + 1 + WifiMetrics.MIN_DATA_STALL_WAIT_MS;
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats4);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+        dumpProtoAndDeserialize();
+        assertEquals(4, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Tests device mobility state metrics as states are changed.
+     */
+    @Test
+    public void testDeviceMobilityStateMetrics_changeState() throws Exception {
+        // timeMs is initialized to 0 by the setUp() method
+        long timeMs = 1000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.enterDeviceMobilityState(DEVICE_MOBILITY_STATE_STATIONARY);
+
+        timeMs += 2000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.enterDeviceMobilityState(DEVICE_MOBILITY_STATE_LOW_MVMT);
+
+        dumpProtoAndDeserialize();
+
+        DeviceMobilityStatePnoScanStats[] expected = {
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_UNKNOWN, 1, 1000, 0),
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_STATIONARY, 1, 2000, 0),
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_LOW_MVMT, 1, 0, 0)
+        };
+
+        assertDeviceMobilityStatePnoScanStatsEqual(
+                expected, mDecodedProto.mobilityStatePnoStatsList);
+    }
+
+    /**
+     * Tests device mobility state metrics as PNO scans are started and stopped.
+     */
+    @Test
+    public void testDeviceMobilityStateMetrics_startStopPnoScans() throws Exception {
+        long timeMs = 1000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStart();
+
+        timeMs += 2000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStop();
+        mWifiMetrics.enterDeviceMobilityState(DEVICE_MOBILITY_STATE_STATIONARY);
+        mWifiMetrics.logPnoScanStart();
+
+        timeMs += 4000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStop();
+
+        timeMs += 8000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.enterDeviceMobilityState(DEVICE_MOBILITY_STATE_HIGH_MVMT);
+
+        dumpProtoAndDeserialize();
+
+        DeviceMobilityStatePnoScanStats[] expected = {
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_UNKNOWN,
+                        1, 1000 + 2000, 2000),
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_STATIONARY,
+                        1, 4000 + 8000, 4000),
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_HIGH_MVMT, 1, 0, 0)
+        };
+
+        assertDeviceMobilityStatePnoScanStatsEqual(
+                expected, mDecodedProto.mobilityStatePnoStatsList);
+    }
+
+    /**
+     * Tests that the initial state is set up correctly.
+     */
+    @Test
+    public void testDeviceMobilityStateMetrics_initialState() throws Exception {
+        dumpProtoAndDeserialize();
+
+        DeviceMobilityStatePnoScanStats[] expected = {
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_UNKNOWN, 1, 0, 0)
+        };
+
+        assertDeviceMobilityStatePnoScanStatsEqual(
+                expected, mDecodedProto.mobilityStatePnoStatsList);
+    }
+
+    /**
+     * Tests that logPnoScanStart() updates the total duration in addition to the PNO duration.
+     */
+    @Test
+    public void testDeviceMobilityStateMetrics_startPnoScansUpdatesTotalDuration()
+            throws Exception {
+        long timeMs = 1000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStart();
+
+        dumpProtoAndDeserialize();
+
+        DeviceMobilityStatePnoScanStats[] expected = {
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_UNKNOWN, 1, 1000, 0)
+        };
+
+        assertDeviceMobilityStatePnoScanStatsEqual(
+                expected, mDecodedProto.mobilityStatePnoStatsList);
+    }
+
+    /**
+     * Tests that logPnoScanStop() updates the total duration in addition to the PNO duration.
+     */
+    @Test
+    public void testDeviceMobilityStateMetrics_stopPnoScansUpdatesTotalDuration()
+            throws Exception {
+        long timeMs = 1000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStart();
+
+        timeMs += 2000;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        mWifiMetrics.logPnoScanStop();
+
+        dumpProtoAndDeserialize();
+
+        DeviceMobilityStatePnoScanStats[] expected = {
+                buildDeviceMobilityStatePnoScanStats(DEVICE_MOBILITY_STATE_UNKNOWN,
+                        1, 1000 + 2000, 2000)
+        };
+
+        assertDeviceMobilityStatePnoScanStatsEqual(
+                expected, mDecodedProto.mobilityStatePnoStatsList);
+    }
+
+    /**
+     * Verify that clients should be notified of activity in case Wifi stats get updated.
+     */
+    @Test
+    public void testClientNotification() throws RemoteException {
+        // Register Client for verification.
+        ArgumentCaptor<android.net.wifi.WifiUsabilityStatsEntry> usabilityStats =
+                ArgumentCaptor.forClass(android.net.wifi.WifiUsabilityStatsEntry.class);
+        mWifiMetrics.addOnWifiUsabilityListener(mAppBinder, mOnWifiUsabilityStatsListener,
+                TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER);
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+
+        CellularLinkLayerStats cellularStats = new CellularLinkLayerStats();
+        cellularStats.setIsSameRegisteredCell(false);
+        cellularStats.setDataNetworkType(TelephonyManager.NETWORK_TYPE_UMTS);
+        cellularStats.setSignalStrengthDbm(-100);
+        cellularStats.setSignalStrengthDb(-20);
+        when(mCellularLinkLayerStatsCollector.update()).thenReturn(cellularStats);
+
+        WifiLinkLayerStats linkLayerStats = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, linkLayerStats);
+
+        // Client should get the stats.
+        verify(mOnWifiUsabilityStatsListener).onWifiUsabilityStats(anyInt(), anyBoolean(),
+                usabilityStats.capture());
+        assertEquals(usabilityStats.getValue().getTotalRadioOnTimeMillis(), linkLayerStats.on_time);
+        assertEquals(usabilityStats.getValue().getTotalTxBad(), linkLayerStats.lostmpdu_be
+                + linkLayerStats.lostmpdu_bk + linkLayerStats.lostmpdu_vi
+                + linkLayerStats.lostmpdu_vo);
+        assertEquals(usabilityStats.getValue().getTimeStampMillis(), linkLayerStats.timeStampInMs);
+        assertEquals(usabilityStats.getValue().getTotalRoamScanTimeMillis(),
+                linkLayerStats.on_time_roam_scan);
+        assertEquals(usabilityStats.getValue().getCellularDataNetworkType(),
+                TelephonyManager.NETWORK_TYPE_UMTS);
+        assertEquals(usabilityStats.getValue().getCellularSignalStrengthDbm(), -100);
+        assertEquals(usabilityStats.getValue().getCellularSignalStrengthDb(), -20);
+    }
+
+    /**
+     * Verify that remove client should be handled
+     */
+    @Test
+    public void testRemoveClient() throws RemoteException {
+        // Register Client for verification.
+        mWifiMetrics.addOnWifiUsabilityListener(mAppBinder, mOnWifiUsabilityStatsListener,
+                TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER);
+        mWifiMetrics.removeOnWifiUsabilityListener(TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER);
+        verify(mAppBinder).unlinkToDeath(any(), anyInt());
+
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats linkLayerStats = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, linkLayerStats);
+
+        verify(mOnWifiUsabilityStatsListener, never()).onWifiUsabilityStats(anyInt(),
+                anyBoolean(), any());
+    }
+
+    /**
+     * Verify that WifiMetrics adds for death notification on adding client.
+     */
+    @Test
+    public void testAddsForBinderDeathOnAddClient() throws Exception {
+        mWifiMetrics.addOnWifiUsabilityListener(mAppBinder, mOnWifiUsabilityStatsListener,
+                TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER);
+        verify(mAppBinder).linkToDeath(any(IBinder.DeathRecipient.class), anyInt());
+    }
+
+    /**
+     * Verify that client fails to get message when listener add failed.
+     */
+    @Test
+    public void testAddsListenerFailureOnLinkToDeath() throws Exception {
+        doThrow(new RemoteException())
+                .when(mAppBinder).linkToDeath(any(IBinder.DeathRecipient.class), anyInt());
+        mWifiMetrics.addOnWifiUsabilityListener(mAppBinder, mOnWifiUsabilityStatsListener,
+                TEST_WIFI_USABILITY_STATS_LISTENER_IDENTIFIER);
+        verify(mAppBinder).linkToDeath(any(IBinder.DeathRecipient.class), anyInt());
+
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats linkLayerStats = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, linkLayerStats);
+
+        // Client should not get any message listener add failed.
+        verify(mOnWifiUsabilityStatsListener, never()).onWifiUsabilityStats(anyInt(),
+                anyBoolean(), any());
+    }
+
+    /**
+     * Verify that the label and the triggerType of Wifi usability stats are saved correctly
+     * during firmware alert is triggered.
+     * @throws Exception
+     */
+    @Test
+    public void verifyFirmwareAlertUpdatesWifiUsabilityMetrics() throws Exception {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        long eventTimeMs = nextRandInt();
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(eventTimeMs);
+        WifiLinkLayerStats stats1 = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+
+        // Add 1 LABEL_GOOD
+        WifiLinkLayerStats statsGood = addGoodWifiUsabilityStats(nextRandomStats(stats1));
+        // Firmware alert occurs
+        mWifiMetrics.logFirmwareAlert(2);
+
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+
+        WifiUsabilityStats[] statsList = mDecodedProto.wifiUsabilityStatsList;
+        assertEquals(WifiUsabilityStats.LABEL_GOOD, statsList[0].label);
+        assertEquals(WifiUsabilityStats.LABEL_BAD, statsList[1].label);
+        assertEquals(WifiIsUnusableEvent.TYPE_FIRMWARE_ALERT, statsList[1].triggerType);
+        assertEquals(eventTimeMs, statsList[1].timeStampMs);
+        assertEquals(2, statsList[1].firmwareAlertCode);
+    }
+
+    /**
+     * Verify that the label and the triggerType of Wifi usability stats are saved correctly
+     * during Wifi data stall is triggered.
+     * @throws Exception
+     */
+    @Test
+    public void verifyWifiDataStallUpdatesWifiUsabilityMetrics() throws Exception {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        long eventTimeMs = nextRandInt();
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(eventTimeMs);
+        WifiLinkLayerStats stats1 = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+
+        // Add 1 LABEL_GOOD
+        WifiLinkLayerStats statsGood = addGoodWifiUsabilityStats(nextRandomStats(stats1));
+        // Wifi data stall occurs
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX, -1);
+
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+        WifiUsabilityStats[] statsList = mDecodedProto.wifiUsabilityStatsList;
+        assertEquals(WifiUsabilityStats.LABEL_BAD, statsList[1].label);
+        assertEquals(WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX, statsList[1].triggerType);
+        assertEquals(-1, statsList[1].firmwareAlertCode);
+        assertEquals(eventTimeMs, statsList[1].timeStampMs);
+    }
+
+    /**
+     * Test the generation of 'WifiConfigStoreIODuration' read histograms.
+     */
+    @Test
+    public void testWifiConfigStoreReadDurationsHistogramGeneration() throws Exception {
+        mWifiMetrics.noteWifiConfigStoreReadDuration(10);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(20);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(100);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(90);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(130);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(250);
+        mWifiMetrics.noteWifiConfigStoreReadDuration(600);
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(5, mDecodedProto.wifiConfigStoreIo.readDurations.length);
+        assertEquals(0, mDecodedProto.wifiConfigStoreIo.writeDurations.length);
+
+        assertEquals(Integer.MIN_VALUE,
+                mDecodedProto.wifiConfigStoreIo.readDurations[0].rangeStartMs);
+        assertEquals(50, mDecodedProto.wifiConfigStoreIo.readDurations[0].rangeEndMs);
+        assertEquals(2, mDecodedProto.wifiConfigStoreIo.readDurations[0].count);
+
+        assertEquals(50, mDecodedProto.wifiConfigStoreIo.readDurations[1].rangeStartMs);
+        assertEquals(100, mDecodedProto.wifiConfigStoreIo.readDurations[1].rangeEndMs);
+        assertEquals(1, mDecodedProto.wifiConfigStoreIo.readDurations[1].count);
+
+        assertEquals(100, mDecodedProto.wifiConfigStoreIo.readDurations[2].rangeStartMs);
+        assertEquals(150, mDecodedProto.wifiConfigStoreIo.readDurations[2].rangeEndMs);
+        assertEquals(2, mDecodedProto.wifiConfigStoreIo.readDurations[2].count);
+
+        assertEquals(200, mDecodedProto.wifiConfigStoreIo.readDurations[3].rangeStartMs);
+        assertEquals(300, mDecodedProto.wifiConfigStoreIo.readDurations[3].rangeEndMs);
+        assertEquals(1, mDecodedProto.wifiConfigStoreIo.readDurations[3].count);
+
+        assertEquals(300, mDecodedProto.wifiConfigStoreIo.readDurations[4].rangeStartMs);
+        assertEquals(Integer.MAX_VALUE,
+                mDecodedProto.wifiConfigStoreIo.readDurations[4].rangeEndMs);
+        assertEquals(1, mDecodedProto.wifiConfigStoreIo.readDurations[4].count);
+    }
+
+    /**
+     * Test the generation of 'WifiConfigStoreIODuration' write histograms.
+     */
+    @Test
+    public void testWifiConfigStoreWriteDurationsHistogramGeneration() throws Exception {
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(10);
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(40);
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(60);
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(90);
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(534);
+        mWifiMetrics.noteWifiConfigStoreWriteDuration(345);
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(0, mDecodedProto.wifiConfigStoreIo.readDurations.length);
+        assertEquals(3, mDecodedProto.wifiConfigStoreIo.writeDurations.length);
+
+        assertEquals(Integer.MIN_VALUE,
+                mDecodedProto.wifiConfigStoreIo.writeDurations[0].rangeStartMs);
+        assertEquals(50, mDecodedProto.wifiConfigStoreIo.writeDurations[0].rangeEndMs);
+        assertEquals(2, mDecodedProto.wifiConfigStoreIo.writeDurations[0].count);
+
+        assertEquals(50, mDecodedProto.wifiConfigStoreIo.writeDurations[1].rangeStartMs);
+        assertEquals(100, mDecodedProto.wifiConfigStoreIo.writeDurations[1].rangeEndMs);
+        assertEquals(2, mDecodedProto.wifiConfigStoreIo.writeDurations[1].count);
+
+        assertEquals(300, mDecodedProto.wifiConfigStoreIo.writeDurations[2].rangeStartMs);
+        assertEquals(Integer.MAX_VALUE,
+                mDecodedProto.wifiConfigStoreIo.writeDurations[2].rangeEndMs);
+        assertEquals(2, mDecodedProto.wifiConfigStoreIo.writeDurations[2].count);
+    }
+
+    /**
+     * Test link probe metrics.
+     */
+    @Test
+    public void testLogLinkProbeMetrics() throws Exception {
+        mWifiMetrics.logLinkProbeSuccess(10000, -75, 50, 5);
+        mWifiMetrics.logLinkProbeFailure(30000, -80, 10,
+                WifiNative.SEND_MGMT_FRAME_ERROR_NO_ACK);
+        mWifiMetrics.logLinkProbeSuccess(3000, -71, 160, 12);
+        mWifiMetrics.logLinkProbeFailure(40000, -80, 6,
+                WifiNative.SEND_MGMT_FRAME_ERROR_NO_ACK);
+        mWifiMetrics.logLinkProbeSuccess(5000, -73, 160, 10);
+        mWifiMetrics.logLinkProbeFailure(2000, -78, 6,
+                WifiNative.SEND_MGMT_FRAME_ERROR_TIMEOUT);
+
+        dumpProtoAndDeserialize();
+
+        StaEvent[] expected = {
+                buildLinkProbeSuccessStaEvent(5),
+                buildLinkProbeFailureStaEvent(LinkProbeStats.LINK_PROBE_FAILURE_REASON_NO_ACK),
+                buildLinkProbeSuccessStaEvent(12),
+                buildLinkProbeFailureStaEvent(LinkProbeStats.LINK_PROBE_FAILURE_REASON_NO_ACK),
+                buildLinkProbeSuccessStaEvent(10),
+                buildLinkProbeFailureStaEvent(LinkProbeStats.LINK_PROBE_FAILURE_REASON_TIMEOUT)
+        };
+        assertLinkProbeStaEventsEqual(expected, mDecodedProto.staEventList);
+
+        LinkProbeStats linkProbeStats = mDecodedProto.linkProbeStats;
+
+        Int32Count[] expectedSuccessRssiHistogram = {
+                buildInt32Count(-75, 1),
+                buildInt32Count(-73, 1),
+                buildInt32Count(-71, 1),
+        };
+        assertKeyCountsEqual(expectedSuccessRssiHistogram,
+                linkProbeStats.successRssiCounts);
+
+        Int32Count[] expectedFailureRssiHistogram = {
+                buildInt32Count(-80, 2),
+                buildInt32Count(-78, 1),
+        };
+        assertKeyCountsEqual(expectedFailureRssiHistogram,
+                linkProbeStats.failureRssiCounts);
+
+        Int32Count[] expectedSuccessLinkSpeedHistogram = {
+                buildInt32Count(50, 1),
+                buildInt32Count(160, 2)
+        };
+        assertKeyCountsEqual(expectedSuccessLinkSpeedHistogram,
+                linkProbeStats.successLinkSpeedCounts);
+
+        Int32Count[] expectedFailureLinkSpeedHistogram = {
+                buildInt32Count(6, 2),
+                buildInt32Count(10, 1)
+        };
+        assertKeyCountsEqual(expectedFailureLinkSpeedHistogram,
+                linkProbeStats.failureLinkSpeedCounts);
+
+        HistogramBucketInt32[] expectedSuccessTimeSinceLastTxSuccessSecondsHistogram = {
+                buildHistogramBucketInt32(Integer.MIN_VALUE, 5, 1),
+                buildHistogramBucketInt32(5, 15, 2)
+        };
+        assertHistogramBucketsEqual(expectedSuccessTimeSinceLastTxSuccessSecondsHistogram,
+                linkProbeStats.successSecondsSinceLastTxSuccessHistogram);
+
+        HistogramBucketInt32[] expectedFailureTimeSinceLastTxSuccessSecondsHistogram = {
+                buildHistogramBucketInt32(Integer.MIN_VALUE, 5, 1),
+                buildHistogramBucketInt32(15, 45, 2)
+        };
+        assertHistogramBucketsEqual(expectedFailureTimeSinceLastTxSuccessSecondsHistogram,
+                linkProbeStats.failureSecondsSinceLastTxSuccessHistogram);
+
+        HistogramBucketInt32[] expectedSuccessElapsedTimeMsHistogram = {
+                buildHistogramBucketInt32(5, 10, 1),
+                buildHistogramBucketInt32(10, 15, 2),
+        };
+        assertHistogramBucketsEqual(expectedSuccessElapsedTimeMsHistogram,
+                linkProbeStats.successElapsedTimeMsHistogram);
+
+        LinkProbeFailureReasonCount[] expectedFailureReasonCount = {
+                buildLinkProbeFailureReasonCount(
+                        LinkProbeStats.LINK_PROBE_FAILURE_REASON_NO_ACK, 2),
+                buildLinkProbeFailureReasonCount(
+                        LinkProbeStats.LINK_PROBE_FAILURE_REASON_TIMEOUT, 1),
+        };
+        assertLinkProbeFailureReasonCountsEqual(expectedFailureReasonCount,
+                linkProbeStats.failureReasonCounts);
+    }
+
+    /**
+     * Tests counting the number of link probes triggered per day for each experiment.
+     */
+    @Test
+    public void testIncrementLinkProbeExperimentProbeCount() throws Exception {
+        String experimentId1 = "screenOnDelay=6000,noTxDelay=3000,delayBetweenProbes=9000,"
+                + "rssiThreshold=-70,linkSpeedThreshold=15,";
+        mWifiMetrics.incrementLinkProbeExperimentProbeCount(experimentId1);
+
+        String experimentId2 = "screenOnDelay=9000,noTxDelay=12000,delayBetweenProbes=15000,"
+                + "rssiThreshold=-72,linkSpeedThreshold=20,";
+        mWifiMetrics.incrementLinkProbeExperimentProbeCount(experimentId2);
+        mWifiMetrics.incrementLinkProbeExperimentProbeCount(experimentId2);
+
+        dumpProtoAndDeserialize();
+
+        ExperimentProbeCounts[] actual = mDecodedProto.linkProbeStats.experimentProbeCounts;
+
+        ExperimentProbeCounts[] expected = {
+                buildExperimentProbeCounts(experimentId1, 1),
+                buildExperimentProbeCounts(experimentId2, 2)
+        };
+
+        assertExperimentProbeCountsEqual(expected, actual);
+    }
+
+    /**
+     * Tests logNetworkSelectionDecision()
+     */
+    @Test
+    public void testLogNetworkSelectionDecision() throws Exception {
+        mWifiMetrics.logNetworkSelectionDecision(1, 2, true, 6);
+        mWifiMetrics.logNetworkSelectionDecision(1, 2, false, 1);
+        mWifiMetrics.logNetworkSelectionDecision(1, 2, true, 6);
+        mWifiMetrics.logNetworkSelectionDecision(1, 2, true, 2);
+        mWifiMetrics.logNetworkSelectionDecision(3, 2, false, 15);
+        mWifiMetrics.logNetworkSelectionDecision(1, 2, false, 6);
+        mWifiMetrics.logNetworkSelectionDecision(1, 4, true, 2);
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(3, mDecodedProto.networkSelectionExperimentDecisionsList.length);
+
+        NetworkSelectionExperimentDecisions exp12 =
+                findUniqueNetworkSelectionExperimentDecisions(1, 2);
+        Int32Count[] exp12SameExpected = {
+                buildInt32Count(2, 1),
+                buildInt32Count(6, 2)
+        };
+        assertKeyCountsEqual(exp12SameExpected, exp12.sameSelectionNumChoicesCounter);
+        Int32Count[] exp12DiffExpected = {
+                buildInt32Count(1, 1),
+                buildInt32Count(6, 1)
+        };
+        assertKeyCountsEqual(exp12DiffExpected, exp12.differentSelectionNumChoicesCounter);
+
+        NetworkSelectionExperimentDecisions exp32 =
+                findUniqueNetworkSelectionExperimentDecisions(3, 2);
+        Int32Count[] exp32SameExpected = {};
+        assertKeyCountsEqual(exp32SameExpected, exp32.sameSelectionNumChoicesCounter);
+        Int32Count[] exp32DiffExpected = {
+                buildInt32Count(
+                        WifiMetrics.NetworkSelectionExperimentResults.MAX_CHOICES, 1)
+        };
+        assertKeyCountsEqual(exp32DiffExpected, exp32.differentSelectionNumChoicesCounter);
+
+        NetworkSelectionExperimentDecisions exp14 =
+                findUniqueNetworkSelectionExperimentDecisions(1, 4);
+        Int32Count[] exp14SameExpected = {
+                buildInt32Count(2, 1)
+        };
+        assertKeyCountsEqual(exp14SameExpected, exp14.sameSelectionNumChoicesCounter);
+        Int32Count[] exp14DiffExpected = {};
+        assertKeyCountsEqual(exp14DiffExpected, exp14.differentSelectionNumChoicesCounter);
+    }
+
+    /**
+     * Test the generation of 'WifiNetworkRequestApiLog' message.
+     */
+    @Test
+    public void testWifiNetworkRequestApiLog() throws Exception {
+        mWifiMetrics.incrementNetworkRequestApiNumRequest();
+        mWifiMetrics.incrementNetworkRequestApiNumRequest();
+        mWifiMetrics.incrementNetworkRequestApiNumRequest();
+
+        mWifiMetrics.incrementNetworkRequestApiMatchSizeHistogram(7);
+        mWifiMetrics.incrementNetworkRequestApiMatchSizeHistogram(0);
+        mWifiMetrics.incrementNetworkRequestApiMatchSizeHistogram(1);
+
+        mWifiMetrics.incrementNetworkRequestApiNumConnectSuccess();
+
+        mWifiMetrics.incrementNetworkRequestApiNumUserApprovalBypass();
+        mWifiMetrics.incrementNetworkRequestApiNumUserApprovalBypass();
+
+        mWifiMetrics.incrementNetworkRequestApiNumUserReject();
+
+        mWifiMetrics.incrementNetworkRequestApiNumApps();
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(3, mDecodedProto.wifiNetworkRequestApiLog.numRequest);
+        assertEquals(1, mDecodedProto.wifiNetworkRequestApiLog.numConnectSuccess);
+        assertEquals(2, mDecodedProto.wifiNetworkRequestApiLog.numUserApprovalBypass);
+        assertEquals(1, mDecodedProto.wifiNetworkRequestApiLog.numUserReject);
+        assertEquals(1, mDecodedProto.wifiNetworkRequestApiLog.numApps);
+
+        HistogramBucketInt32[] expectedNetworkMatchSizeHistogram = {
+                buildHistogramBucketInt32(0, 1, 1),
+                buildHistogramBucketInt32(1, 5, 1),
+                buildHistogramBucketInt32(5, 10, 1)
+        };
+        assertHistogramBucketsEqual(expectedNetworkMatchSizeHistogram,
+                mDecodedProto.wifiNetworkRequestApiLog.networkMatchSizeHistogram);
+    }
+
+    /**
+     * Test the generation of 'WifiNetworkSuggestionApiLog' message.
+     */
+    @Test
+    public void testWifiNetworkSuggestionApiLog() throws Exception {
+        mWifiMetrics.incrementNetworkSuggestionApiNumModification();
+        mWifiMetrics.incrementNetworkSuggestionApiNumModification();
+        mWifiMetrics.incrementNetworkSuggestionApiNumModification();
+        mWifiMetrics.incrementNetworkSuggestionApiNumModification();
+
+        mWifiMetrics.incrementNetworkSuggestionApiNumConnectSuccess();
+        mWifiMetrics.incrementNetworkSuggestionApiNumConnectSuccess();
+
+        mWifiMetrics.incrementNetworkSuggestionApiNumConnectFailure();
+
+        mWifiMetrics.noteNetworkSuggestionApiListSizeHistogram(new ArrayList<Integer>() {{
+                add(5);
+                add(100);
+                add(50);
+                add(120);
+            }});
+        // Second update should overwrite the prevous write.
+        mWifiMetrics.noteNetworkSuggestionApiListSizeHistogram(new ArrayList<Integer>() {{
+                add(7);
+                add(110);
+                add(40);
+                add(60);
+            }});
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(4, mDecodedProto.wifiNetworkSuggestionApiLog.numModification);
+        assertEquals(2, mDecodedProto.wifiNetworkSuggestionApiLog.numConnectSuccess);
+        assertEquals(1, mDecodedProto.wifiNetworkSuggestionApiLog.numConnectFailure);
+
+        HistogramBucketInt32[] expectedNetworkListSizeHistogram = {
+                buildHistogramBucketInt32(5, 20, 1),
+                buildHistogramBucketInt32(20, 50, 1),
+                buildHistogramBucketInt32(50, 100, 1),
+                buildHistogramBucketInt32(100, 500, 1),
+        };
+        assertHistogramBucketsEqual(expectedNetworkListSizeHistogram,
+                mDecodedProto.wifiNetworkSuggestionApiLog.networkListSizeHistogram);
+    }
+
+    private NetworkSelectionExperimentDecisions findUniqueNetworkSelectionExperimentDecisions(
+            int experiment1Id, int experiment2Id) {
+        NetworkSelectionExperimentDecisions result = null;
+        for (NetworkSelectionExperimentDecisions d
+                : mDecodedProto.networkSelectionExperimentDecisionsList) {
+            if (d.experiment1Id == experiment1Id && d.experiment2Id == experiment2Id) {
+                assertNull("duplicate found!", result);
+                result = d;
+            }
+        }
+        assertNotNull("not found!", result);
+        return result;
+    }
+
+    /**
+     * Verify that the label and the triggerType of Wifi usability stats are saved correctly
+     * during IP reachability lost message is received.
+     * @throws Exception
+     */
+    @Test
+    public void verifyIpReachabilityLostUpdatesWifiUsabilityMetrics() throws Exception {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        long eventTimeMs = nextRandInt();
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(eventTimeMs);
+        WifiLinkLayerStats stats1 = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+
+        // Add 1 LABEL_GOOD
+        WifiLinkLayerStats statsGood = addGoodWifiUsabilityStats(nextRandomStats(stats1));
+        // IP reachability lost occurs
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_IP_REACHABILITY_LOST, -1);
+
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+        WifiUsabilityStats[] statsList = mDecodedProto.wifiUsabilityStatsList;
+        assertEquals(WifiUsabilityStats.LABEL_BAD, statsList[1].label);
+        assertEquals(WifiUsabilityStats.TYPE_IP_REACHABILITY_LOST, statsList[1].triggerType);
+        assertEquals(eventTimeMs, statsList[1].timeStampMs);
+    }
+
+    /**
+     * Test the WifiLock active session statistics
+     */
+    @Test
+    public void testWifiLockActiveSession() throws Exception {
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 100000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 10000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 10000000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 1000);
+
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 90000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 900000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 9000);
+        mWifiMetrics.addWifiLockActiveSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 20000000);
+
+        dumpProtoAndDeserialize();
+
+        assertEquals(10111000, mDecodedProto.wifiLockStats.highPerfActiveTimeMs);
+        assertEquals(20999000, mDecodedProto.wifiLockStats.lowLatencyActiveTimeMs);
+
+        HistogramBucketInt32[] expectedHighPerfHistogram = {
+                buildHistogramBucketInt32(1, 10, 1),
+                buildHistogramBucketInt32(10, 60, 1),
+                buildHistogramBucketInt32(60, 600, 1),
+                buildHistogramBucketInt32(3600, Integer.MAX_VALUE, 1),
+        };
+
+        HistogramBucketInt32[] expectedLowLatencyHistogram = {
+                buildHistogramBucketInt32(1, 10, 1),
+                buildHistogramBucketInt32(60, 600, 1),
+                buildHistogramBucketInt32(600, 3600, 1),
+                buildHistogramBucketInt32(3600, Integer.MAX_VALUE, 1),
+        };
+
+        assertHistogramBucketsEqual(expectedHighPerfHistogram,
+                mDecodedProto.wifiLockStats.highPerfActiveSessionDurationSecHistogram);
+
+        assertHistogramBucketsEqual(expectedLowLatencyHistogram,
+                mDecodedProto.wifiLockStats.lowLatencyActiveSessionDurationSecHistogram);
+    }
+
+    /**
+     * Test the WifiLock acquisition session statistics
+     */
+    @Test
+    public void testWifiLockAcqSession() throws Exception {
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 100000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 10000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 10000000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_HIGH_PERF, 1000);
+
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 90000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 900000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 9000);
+        mWifiMetrics.addWifiLockAcqSession(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, 20000000);
+
+        dumpProtoAndDeserialize();
+
+        HistogramBucketInt32[] expectedHighPerfHistogram = {
+                buildHistogramBucketInt32(1, 10, 1),
+                buildHistogramBucketInt32(10, 60, 1),
+                buildHistogramBucketInt32(60, 600, 1),
+                buildHistogramBucketInt32(3600, Integer.MAX_VALUE, 1),
+        };
+
+        HistogramBucketInt32[] expectedLowLatencyHistogram = {
+                buildHistogramBucketInt32(1, 10, 1),
+                buildHistogramBucketInt32(60, 600, 1),
+                buildHistogramBucketInt32(600, 3600, 1),
+                buildHistogramBucketInt32(3600, Integer.MAX_VALUE, 1),
+        };
+
+        assertHistogramBucketsEqual(expectedHighPerfHistogram,
+                mDecodedProto.wifiLockStats.highPerfLockAcqDurationSecHistogram);
+
+        assertHistogramBucketsEqual(expectedLowLatencyHistogram,
+                mDecodedProto.wifiLockStats.lowLatencyLockAcqDurationSecHistogram);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are generated if Wifi score breaches low and there
+     * is no WifiIsUnusableEvent in MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreGeneratedByWifiScoreBreachLow() throws Exception {
+        // The elapsed time falls into the interval for adding good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS + 1,
+                false, true);
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi score breaches low and the checking
+     * time is less than MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedByWifiScoreBreachLow() throws Exception {
+        // The elapsed time is shorter than necessary to add good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS - 1,
+                false, true);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi score breaches low and the checking
+     * time is greater than VALIDITY_PERIOD_OF_SCORE_BREACH_LOW_MS
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedIfWifiScoreBreachExpires() throws Exception {
+        // The Wifi score breaching expires for adding good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.VALIDITY_PERIOD_OF_SCORE_BREACH_LOW_MS + 1,
+                false, true);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi score breaches low and there is
+     * WifiIsUnusableEvent occured within MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedIfBadEventOccured() throws Exception {
+        // The elapsed time falls into the interval for adding good stats and bad event occurs
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS + 1,
+                true, true);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are generated if Wifi usability score breaches low and there
+     * is no WifiIsUnusableEvent in MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreGeneratedByWifiUsabilityScoreBreachLow() throws Exception {
+        // The elapsed time falls into the interval for adding good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS + 1,
+                false, false);
+        dumpProtoAndDeserialize();
+        assertEquals(2, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi usability score breaches low and
+     * the checking time is less than MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedByWifiUsabilityScoreBreachLow() throws Exception {
+        // The elapsed time is shorter than necessary to add good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS - 1,
+                false, false);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi usability score breaches low and
+     * the checking time is greater than VALIDITY_PERIOD_OF_SCORE_BREACH_LOW_MS
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedIfWifiUsabilityScoreBreachExpires() throws Exception {
+        // The Wifi usability score breaching expires for adding good stats
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.VALIDITY_PERIOD_OF_SCORE_BREACH_LOW_MS + 1,
+                false, false);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that LABEL_GOOD stats are not generated if Wifi usability score breaches low and there
+     * is WifiIsUnusableEvent occured within MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS millis
+     * @throws Exception
+     */
+    @Test
+    public void testGoodStatsAreNotGeneratedIfBadEventOccuredForUsabilityScore() throws Exception {
+        // The elapsed time falls into the interval for adding good stats and bad event occurs
+        createTestForDataCollectionByScoreBreach(
+                WifiMetrics.MIN_SCORE_BREACH_TO_GOOD_STATS_WAIT_TIME_MS + 1,
+                true, false);
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
+    }
+
+    /**
+     * Verify that incrementNumWifiToggles increments the corrects fields based on input.
+     */
+    @Test
+    public void testIncrementNumWifiToggles() throws Exception {
+        mWifiMetrics.incrementNumWifiToggles(true, true);
+        for (int i = 0; i < 2; i++) {
+            mWifiMetrics.incrementNumWifiToggles(true, false);
+        }
+        for (int i = 0; i < 3; i++) {
+            mWifiMetrics.incrementNumWifiToggles(false, true);
+        }
+        for (int i = 0; i < 4; i++) {
+            mWifiMetrics.incrementNumWifiToggles(false, false);
+        }
+        dumpProtoAndDeserialize();
+        assertEquals(1, mDecodedProto.wifiToggleStats.numToggleOnPrivileged);
+        assertEquals(2, mDecodedProto.wifiToggleStats.numToggleOffPrivileged);
+        assertEquals(3, mDecodedProto.wifiToggleStats.numToggleOnNormal);
+        assertEquals(4, mDecodedProto.wifiToggleStats.numToggleOffNormal);
+    }
+
+
+    /**
+     * Create a test to verify data collection logic triggered by score breaching low
+     * @param elapsedTimeAfterBreach The elapsed time after score breaches low
+     * @param isThereBadEvent Whether there is a bad event happened after score breaches low
+     * @param isWifiScore Whether it is Wifi score or not that breaches the threshold
+     */
+    private void createTestForDataCollectionByScoreBreach(
+            long elapsedTimeAfterBreach, boolean isThereBadEvent, boolean isWifiScore) {
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats2 = new WifiLinkLayerStats();
+        mWifiMetrics.setWifiState(WifiMetricsProto.WifiLog.WIFI_ASSOCIATED);
+
+        addOneBadWifiUsabilityStats(info);
+        if (isWifiScore) {
+            stats2 = wifiScoreBreachesLow(info, stats2);
+        } else {
+            stats2 = wifiUsabilityScoreBreachesLow(info, stats2);
+        }
+        if (isThereBadEvent) {
+            mWifiMetrics.logWifiIsUnusableEvent(WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX, -1);
+        }
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(elapsedTimeAfterBreach);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+    }
+
+    // Simulate adding one LABEL_BAD WifiUsabilityStats
+    private void addOneBadWifiUsabilityStats(WifiInfo info) {
+        WifiLinkLayerStats stats1 = new WifiLinkLayerStats();
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_DATA_STALL_BAD_TX, -1);
+    }
+
+    // Simulate that Wifi score breaches low
+    private WifiLinkLayerStats wifiScoreBreachesLow(WifiInfo info, WifiLinkLayerStats stats2) {
+        int upper = WifiMetrics.LOW_WIFI_SCORE + 7;
+        int lower = WifiMetrics.LOW_WIFI_SCORE - 8;
+        mWifiMetrics.incrementWifiScoreCount(upper);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        stats2 = nextRandomStats(stats2);
+        long timeMs = 0;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        // Wifi score breaches low
+        mWifiMetrics.incrementWifiScoreCount(lower);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        stats2 = nextRandomStats(stats2);
+        return stats2;
+    }
+
+    // Simulate that Wifi usability score breaches low
+    private WifiLinkLayerStats wifiUsabilityScoreBreachesLow(WifiInfo info,
+            WifiLinkLayerStats stats2) {
+        int upper = WifiMetrics.LOW_WIFI_USABILITY_SCORE + 7;
+        int lower = WifiMetrics.LOW_WIFI_USABILITY_SCORE - 8;
+        mWifiMetrics.incrementWifiUsabilityScoreCount(1, upper, 30);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        stats2 = nextRandomStats(stats2);
+        long timeMs = 0;
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(timeMs);
+        // Wifi usability score breaches low
+        mWifiMetrics.incrementWifiUsabilityScoreCount(2, lower, 30);
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats2);
+        stats2 = nextRandomStats(stats2);
+        return stats2;
+    }
+
+    /**
+     * Verify the counts of passpoint profile type are correct.
+     * @param profileTypes type and count of installed passpoint profiles
+     */
+    private void assertPasspointProfileTypeCount(PasspointProfileTypeCount[] profileTypes) {
+        for (PasspointProfileTypeCount passpointProfileType : profileTypes) {
+            switch(passpointProfileType.eapMethodType) {
+                case PasspointProfileTypeCount.TYPE_EAP_AKA:
+                    assertEquals(NUM_EAP_AKA_TYPE, passpointProfileType.count);
+                    break;
+                case PasspointProfileTypeCount.TYPE_EAP_AKA_PRIME:
+                    assertEquals(NUM_EAP_AKA_PRIME_TYPE, passpointProfileType.count);
+                    break;
+                case PasspointProfileTypeCount.TYPE_EAP_SIM:
+                    assertEquals(NUM_EAP_SIM_TYPE, passpointProfileType.count);
+                    break;
+                case PasspointProfileTypeCount.TYPE_EAP_TLS:
+                    assertEquals(NUM_EAP_TLS_TYPE, passpointProfileType.count);
+                    break;
+                case PasspointProfileTypeCount.TYPE_EAP_TTLS:
+                    assertEquals(NUM_EAP_TTLS_TYPE, passpointProfileType.count);
+                    break;
+                default:
+                    fail("unknown type counted");
+            }
+        }
+    }
+
+    /**
+     * Verify that the LABEL_BAD Wifi usability stats are not saved if screen state is off.
+     * @throws Exception
+     */
+    @Test
+    public void verifyLabelBadStatsAreNotSavedIfScreenIsOff() throws Exception {
+        mWifiMetrics.setScreenState(false);
+        WifiInfo info = mock(WifiInfo.class);
+        when(info.getRssi()).thenReturn(nextRandInt());
+        when(info.getLinkSpeed()).thenReturn(nextRandInt());
+        WifiLinkLayerStats stats1 = nextRandomStats(new WifiLinkLayerStats());
+        mWifiMetrics.updateWifiUsabilityStatsEntries(info, stats1);
+
+        // Add 1 LABEL_GOOD
+        WifiLinkLayerStats statsGood = addGoodWifiUsabilityStats(nextRandomStats(stats1));
+        // IP reachability lost occurs
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiUsabilityStats.TYPE_IP_REACHABILITY_LOST, -1);
+        // Wifi data stall occurs
+        mWifiMetrics.addToWifiUsabilityStatsList(WifiUsabilityStats.LABEL_BAD,
+                WifiIsUnusableEvent.TYPE_DATA_STALL_BAD_TX, -1);
+        // Firmware alert occurs
+        mWifiMetrics.logFirmwareAlert(2);
+
+        dumpProtoAndDeserialize();
+        assertEquals(0, mDecodedProto.wifiUsabilityStatsList.length);
     }
 }

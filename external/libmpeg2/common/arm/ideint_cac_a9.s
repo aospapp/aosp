@@ -66,6 +66,7 @@
 ideint_cac_8x8_a9:
 
     stmfd       sp!,    {r4-r10, lr}
+    vpush      {d9}
 
     @ Load first row of top
     vld1.u8     d28,    [r0],   r2
@@ -210,4 +211,5 @@ ideint_cac_8x8_a9:
     vmov.u32    r0,     d0[0]
     cmp         r0,     #0
     movne       r0,     #1
+    vpop        {d9}
     ldmfd       sp!,    {r4-r10, pc}

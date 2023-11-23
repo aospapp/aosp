@@ -57,12 +57,14 @@ import android.icu.util.VersionInfo;
  * @author Ram Viswanadha
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.CorePlatformApi
 public final class StringPrep {
     /** 
      * Option to prohibit processing of unassigned code points in the input
      * 
      * @see   #prepare
      */
+    @libcore.api.CorePlatformApi
     public static final int DEFAULT = 0x0000;
 
     /** 
@@ -124,6 +126,7 @@ public final class StringPrep {
      * Profile type: RFC3920 XMPP Resourceprep
      * @see #getInstance(int)
      */
+    @libcore.api.CorePlatformApi
     public static final int RFC3920_RESOURCEPREP = 8;
 
     /**
@@ -292,6 +295,7 @@ public final class StringPrep {
      * 
      * @param profile The profile passed to find the StringPrep instance.
      */
+    @libcore.api.CorePlatformApi
     public static StringPrep getInstance(int profile) {
         if (profile < 0 || profile > MAX_PROFILE) {
             throw new IllegalArgumentException("Bad profile type");
@@ -577,6 +581,7 @@ public final class StringPrep {
      * @return String A String containing the output
      * @throws StringPrepParseException An exception when parsing or preparing a string is invalid.
      */
+    @libcore.api.CorePlatformApi
     public String prepare(String src, int options)
         throws StringPrepParseException{
         StringBuffer result = prepare(UCharacterIterator.getInstance(src), options);

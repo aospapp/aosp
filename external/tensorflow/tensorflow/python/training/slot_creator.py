@@ -39,8 +39,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from tensorflow.python.distribute import distribution_strategy_context
 from tensorflow.python.eager import context
-from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import resource_variable_ops
@@ -58,10 +58,19 @@ def _create_slot_var(primary, val, scope, validate_shape, shape, dtype):
   # When init from val instead of callable initializer, the shape is expected to
   # be None, not <unknown> or any fully defined shape.
   shape = shape if callable(val) else None
+  if resource_variable_ops.is_resource_variable(primary):
+    use_resource = True
+  elif isinstance(primary, variables.RefVariable):
+    use_resource = False
+  else:
+    use_resource = None
   slot = variable_scope.get_variable(
-      scope, initializer=val, trainable=False,
-      use_resource=resource_variable_ops.is_resource_variable(primary),
-      shape=shape, dtype=dtype,
+      scope,
+      initializer=val,
+      trainable=False,
+      use_resource=use_resource,
+      shape=shape,
+      dtype=dtype,
       validate_shape=validate_shape)
   variable_scope.get_variable_scope().set_partitioner(current_partitioner)
 
@@ -106,10 +115,14 @@ def create_slot(primary, val, name, colocate_with_primary=True):
   # and the same name has been previously used, the scope name will add '_N'
   # as suffix for unique identifications.
   validate_shape = val.get_shape().is_fully_defined()
-  prefix = primary.op.name if context.in_graph_mode() else primary._shared_name  # pylint: disable=protected-access
+  if context.executing_eagerly():
+    prefix = primary._shared_name  # pylint: disable=protected-access
+  else:
+    prefix = primary.op.name
   with variable_scope.variable_scope(None, prefix + "/" + name):
     if colocate_with_primary:
-      with ops.colocate_with(primary):
+      distribution_strategy = distribution_strategy_context.get_strategy()
+      with distribution_strategy.extended.colocate_vars_with(primary):
         return _create_slot_var(primary, val, "", validate_shape, None, None)
     else:
       return _create_slot_var(primary, val, "", validate_shape, None, None)
@@ -139,10 +152,14 @@ def create_slot_with_initializer(primary, initializer, shape, dtype, name,
   # and the same name has been previously used, the scope name will add '_N'
   # as suffix for unique identifications.
   validate_shape = shape.is_fully_defined()
-  prefix = primary.op.name if context.in_graph_mode() else primary._shared_name  # pylint: disable=protected-access
+  if context.executing_eagerly():
+    prefix = primary._shared_name  # pylint: disable=protected-access
+  else:
+    prefix = primary.op.name
   with variable_scope.variable_scope(None, prefix + "/" + name):
     if colocate_with_primary:
-      with ops.colocate_with(primary):
+      distribution_strategy = distribution_strategy_context.get_strategy()
+      with distribution_strategy.extended.colocate_vars_with(primary):
         return _create_slot_var(primary, initializer, "", validate_shape, shape,
                                 dtype)
     else:

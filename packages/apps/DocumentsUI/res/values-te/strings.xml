@@ -33,9 +33,11 @@
     <string name="menu_open_with" msgid="5507647065467520229">"దీనితో తెరువు"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"కొత్త విండోలో తెరువు"</string>
     <string name="menu_save" msgid="5195367497138965168">"సేవ్ చేయి"</string>
-    <string name="menu_share" msgid="4307140947108068356">"భాగస్వామ్యం చేయి"</string>
+    <string name="menu_share" msgid="4307140947108068356">"షేర్ చేయి"</string>
     <string name="menu_delete" msgid="1022254131543256626">"తొలగించు"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"అన్నింటినీ ఎంచుకోండి"</string>
+    <string name="menu_select" msgid="1366061076507142387">"ఎంచుకోండి"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"దీన్ని బట్టి వర్గీకరించు…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"ఇక్కడికి కాపీ చేయి…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ఇక్కడికి తరలించు..."</string>
     <string name="menu_compress" msgid="37539111904724188">"కుదించు"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"రకం"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"పరిమాణం"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"సవరించిన సమయం"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ఫైల్ పేరు (A నుండి Zకు)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"రకం (A నుండి Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"పరిమాణం (మొదట చిన్నవి)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"సవరించబడినవి (మొదట పాతవి)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ఫైల్ పేరు (Z నుండి Aకు)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"రకం (Z నుండి A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"పరిమాణం (మొదట పెద్దవి)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"సవరించబడినవి (మొదట సరికొత్తవి)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"దీని ఆధారంగా వర్గీకరించు"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g> ద్వారా క్రమీకరించబడింది"</string>
     <string name="directory_items" msgid="6645621978998614003">"అంశాల సంఖ్య"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ఆరోహణ"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"అవరోహణ"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g>ని తెరువు"</string>
     <string name="drawer_open" msgid="8071673398187261741">"మూలాలను చూపు"</string>
     <string name="drawer_close" msgid="4263880768630848848">"మూలాలను దాచు"</string>
     <string name="save_error" msgid="8631128801982095782">"పత్రాన్ని సేవ్ చేయడంలో విఫలమైంది"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>కి <xliff:g id="STORAGE"><i>^3</i></xliff:g>లో <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> డైరెక్టరీ ప్రాప్యతను మంజూరు చేయాలా?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>కి <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> డైరెక్టరీ ప్రాప్యతను మంజూరు చేయాలా?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g>లోని ఫోటోలు మరియు వీడియోలతో సహా మీ డేటా ప్రాప్యతను <xliff:g id="APPNAME"><b>^1</b></xliff:g>కి మంజూరు చేయాలా?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"మళ్లీ అడగవద్దు"</string>
     <string name="allow" msgid="1275746941353040309">"అనుమతించు"</string>
     <string name="deny" msgid="5127201668078153379">"తిరస్కరించు"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"ఆర్కైవ్ చేయి<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>ని భర్తీ చేయాలా?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"నేపథ్యంలో కొనసాగించు"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ఎంచుకోబడ్డాయి</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> ఎంచుకోబడింది</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ఫోన్‌లో తాజా ఫైల్‌లు"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ఫోన్‌లో ఫైల్‌లు"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"ఫోన్‌లోని <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g>లోని ఫైల్‌లు"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>లోని ఫైల్‌లు"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>లోని ఫైల్‌లు"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ఫోన్‌లోని తాజా ఫోటోలు"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ఫోన్‌లోని ఫోటోలు"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>లోని ఫోటోలు"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>లోని ఫోటోలు"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g>లోని ఫోటోలు / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"చిత్రాలు"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ఆడియో"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"వీడియోలు"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"పత్రాలు"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ఫోల్డర్ పేరు"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"కొత్త పేరు"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g>ని ప్రివ్యూ చేయండి"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ఇతర యాప్‌లలో ఫైల్స్‌ని బ్రౌజ్ చేయి"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"తెలియనిది"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"కి యాక్సెస్ ఇవ్వు"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\"లో \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"కు యాక్సెస్‌ను అనుమతించాలా?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ఇది ప్రస్తుతం ఈ స్థానం కింద నిల్వ చేయబడి ఉన్న మొత్తం ఫైల్‌లను మరియు భవిష్యత్తులో నిల్వ చేయబోయే కంటెంట్‌ను యాక్సెస్ చేసుకోవడానికి \"<xliff:g id="APPNAME">%1$s</xliff:g>\" యాప్‌కు పూర్తిగా అనుమతిస్తుంది."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ఈ ఫోన్‌లో వెతకండి"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"శోధన చరిత్ర <xliff:g id="TEXT">%1$s</xliff:g>ను తొలగించండి"</string>
 </resources>

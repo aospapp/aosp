@@ -65,7 +65,8 @@ import android.os.UserManager;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -76,6 +77,7 @@ import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -252,9 +254,11 @@ public class SecurityLoggingTest extends BaseDeviceOwnerTest {
     }
 
     private void verifyAdminEventsPresent(List<SecurityEvent> events) {
-        verifyPasswordComplexityEventsPresent(events);
-        verifyUserRestrictionEventsPresent(events);
+        if (mHasSecureLockScreen) {
+            verifyPasswordComplexityEventsPresent(events);
+        }
         verifyLockingPolicyEventsPresent(events);
+        verifyUserRestrictionEventsPresent(events);
     }
 
     /**
@@ -279,9 +283,11 @@ public class SecurityLoggingTest extends BaseDeviceOwnerTest {
     }
 
     private void generateAdminEvents() {
-        generatePasswordComplexityEvents();
-        generateUserRestrictionEvents();
+        if (mHasSecureLockScreen) {
+            generatePasswordComplexityEvents();
+        }
         generateLockingPolicyEvents();
+        generateUserRestrictionEvents();
     }
 
     /**
@@ -398,10 +404,15 @@ public class SecurityLoggingTest extends BaseDeviceOwnerTest {
 
     private void verifyOsStartupEventPresent(List<SecurityEvent> events) {
         final SecurityEvent event = findEvent("os startup", events, TAG_OS_STARTUP);
-        // Verified boot state
-        assertTrue(ImmutableSet.of("green", "yellow", "orange").contains(getString(event, 0)));
-        // dm-verity mode
-        assertTrue(ImmutableSet.of("enforcing", "eio").contains(getString(event, 1)));
+        // Verified boot state, empty if running on emulator
+        assertOneOf(ImmutableSet.of("", "green", "yellow", "orange"), getString(event, 0));
+        // dm-verity mode, empty if it is disabled
+        assertOneOf(ImmutableSet.of("", "enforcing", "eio", "disabled"), getString(event, 1));
+    }
+
+    private void assertOneOf(Set<String> allowed, String s) {
+        assertTrue(String.format("\"%s\" is not one of [%s]", s, String.join(", ", allowed)),
+                allowed.contains(s));
     }
 
     private void verifyCryptoSelfTestEventPresent(List<SecurityEvent> events) {
@@ -600,9 +611,12 @@ public class SecurityLoggingTest extends BaseDeviceOwnerTest {
     }
 
     private void generateLockingPolicyEvents() {
-        mDevicePolicyManager.setPasswordExpirationTimeout(getWho(), TEST_PWD_EXPIRATION_TIMEOUT);
-        mDevicePolicyManager.setPasswordHistoryLength(getWho(), TEST_PWD_HISTORY_LENGTH);
-        mDevicePolicyManager.setMaximumFailedPasswordsForWipe(getWho(), TEST_PWD_MAX_ATTEMPTS);
+        if (mHasSecureLockScreen) {
+            mDevicePolicyManager.setPasswordExpirationTimeout(getWho(),
+                    TEST_PWD_EXPIRATION_TIMEOUT);
+            mDevicePolicyManager.setPasswordHistoryLength(getWho(), TEST_PWD_HISTORY_LENGTH);
+            mDevicePolicyManager.setMaximumFailedPasswordsForWipe(getWho(), TEST_PWD_MAX_ATTEMPTS);
+        }
         mDevicePolicyManager.setKeyguardDisabledFeatures(getWho(), KEYGUARD_DISABLE_FINGERPRINT);
         mDevicePolicyManager.setMaximumTimeToLock(getWho(), TEST_MAX_TIME_TO_LOCK);
         mDevicePolicyManager.lockNow();
@@ -611,26 +625,28 @@ public class SecurityLoggingTest extends BaseDeviceOwnerTest {
     private void verifyLockingPolicyEventsPresent(List<SecurityEvent> events) {
         final int userId = Process.myUserHandle().getIdentifier();
 
-        findEvent("set password expiration", events,
-                e -> e.getTag() == TAG_PASSWORD_EXPIRATION_SET &&
-                        getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
-                        getInt(e, ADMIN_USER_INDEX) == userId &&
-                        getInt(e, TARGET_USER_INDEX) == userId &&
-                        getLong(e, PWD_EXPIRATION_INDEX) == TEST_PWD_EXPIRATION_TIMEOUT);
+        if (mHasSecureLockScreen) {
+            findEvent("set password expiration", events,
+                    e -> e.getTag() == TAG_PASSWORD_EXPIRATION_SET &&
+                            getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
+                            getInt(e, ADMIN_USER_INDEX) == userId &&
+                            getInt(e, TARGET_USER_INDEX) == userId &&
+                            getLong(e, PWD_EXPIRATION_INDEX) == TEST_PWD_EXPIRATION_TIMEOUT);
 
-        findEvent("set password history length", events,
-                e -> e.getTag() == TAG_PASSWORD_HISTORY_LENGTH_SET &&
-                        getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
-                        getInt(e, ADMIN_USER_INDEX) == userId &&
-                        getInt(e, TARGET_USER_INDEX) == userId &&
-                        getInt(e, PWD_HIST_LEN_INDEX) == TEST_PWD_HISTORY_LENGTH);
+            findEvent("set password history length", events,
+                    e -> e.getTag() == TAG_PASSWORD_HISTORY_LENGTH_SET &&
+                            getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
+                            getInt(e, ADMIN_USER_INDEX) == userId &&
+                            getInt(e, TARGET_USER_INDEX) == userId &&
+                            getInt(e, PWD_HIST_LEN_INDEX) == TEST_PWD_HISTORY_LENGTH);
 
-        findEvent("set password attempts", events,
-                e -> e.getTag() == TAG_MAX_PASSWORD_ATTEMPTS_SET &&
-                        getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
-                        getInt(e, ADMIN_USER_INDEX) == userId &&
-                        getInt(e, TARGET_USER_INDEX) == userId &&
-                        getInt(e, MAX_PWD_ATTEMPTS_INDEX) == TEST_PWD_MAX_ATTEMPTS);
+            findEvent("set password attempts", events,
+                    e -> e.getTag() == TAG_MAX_PASSWORD_ATTEMPTS_SET &&
+                            getString(e, ADMIN_PKG_INDEX).equals(getWho().getPackageName()) &&
+                            getInt(e, ADMIN_USER_INDEX) == userId &&
+                            getInt(e, TARGET_USER_INDEX) == userId &&
+                            getInt(e, MAX_PWD_ATTEMPTS_INDEX) == TEST_PWD_MAX_ATTEMPTS);
+        }
 
         findEvent("set keyguard disabled features", events,
                 e -> e.getTag() == TAG_KEYGUARD_DISABLED_FEATURES_SET &&

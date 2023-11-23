@@ -32,6 +32,7 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+#include <build/version.h>
 
 #include <7zCrc.h>
 #include <Xz.h>
@@ -46,7 +47,7 @@ void OneTimeFreeAllocator::Clear() {
   end_ = nullptr;
 }
 
-const char* OneTimeFreeAllocator::AllocateString(const std::string& s) {
+const char* OneTimeFreeAllocator::AllocateString(std::string_view s) {
   size_t size = s.size() + 1;
   if (cur_ + size > end_) {
     size_t alloc_size = std::max(size, unit_size_);
@@ -55,42 +56,97 @@ const char* OneTimeFreeAllocator::AllocateString(const std::string& s) {
     cur_ = p;
     end_ = p + alloc_size;
   }
-  strcpy(cur_, s.c_str());
+  strcpy(cur_, s.data());
   const char* result = cur_;
   cur_ += size;
   return result;
 }
 
 
-FileHelper FileHelper::OpenReadOnly(const std::string& filename) {
+android::base::unique_fd FileHelper::OpenReadOnly(const std::string& filename) {
     int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_RDONLY | O_BINARY));
-    return FileHelper(fd);
+    return android::base::unique_fd(fd);
 }
 
-FileHelper FileHelper::OpenWriteOnly(const std::string& filename) {
+android::base::unique_fd FileHelper::OpenWriteOnly(const std::string& filename) {
     int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_WRONLY | O_BINARY | O_CREAT, 0644));
-    return FileHelper(fd);
+    return android::base::unique_fd(fd);
 }
 
-FileHelper::~FileHelper() {
-  if (fd_ != -1) {
-    close(fd_);
+std::unique_ptr<ArchiveHelper> ArchiveHelper::CreateInstance(const std::string& filename) {
+  android::base::unique_fd fd = FileHelper::OpenReadOnly(filename);
+  if (fd == -1) {
+    return nullptr;
   }
-}
-
-ArchiveHelper::ArchiveHelper(int fd, const std::string& debug_filename) : valid_(false) {
-  int rc = OpenArchiveFd(fd, "", &handle_, false);
-  if (rc == 0) {
-    valid_ = true;
-  } else {
-    LOG(ERROR) << "Failed to open archive " << debug_filename << ": " << ErrorCodeString(rc);
+  // Simpleperf relies on ArchiveHelper to check if a file is zip file. We expect much more elf
+  // files than zip files in a process map. In order to detect invalid zip files fast, we add a
+  // check of magic number here. Note that OpenArchiveFd() detects invalid zip files in a thorough
+  // way, but it usually needs reading at least 64K file data.
+  static const char zip_preamble[] = {0x50, 0x4b, 0x03, 0x04 };
+  char buf[4];
+  if (!android::base::ReadFully(fd, buf, 4) || memcmp(buf, zip_preamble, 4) != 0) {
+    return nullptr;
   }
+  if (lseek(fd, 0, SEEK_SET) == -1) {
+    return nullptr;
+  }
+  ZipArchiveHandle handle;
+  int result = OpenArchiveFd(fd.release(), filename.c_str(), &handle);
+  if (result != 0) {
+    LOG(ERROR) << "Failed to open archive " << filename << ": " << ErrorCodeString(result);
+    return nullptr;
+  }
+  return std::unique_ptr<ArchiveHelper>(new ArchiveHelper(handle, filename));
 }
 
 ArchiveHelper::~ArchiveHelper() {
-  if (valid_) {
-    CloseArchive(handle_);
+  CloseArchive(handle_);
+}
+
+bool ArchiveHelper::IterateEntries(
+    const std::function<bool(ZipEntry&, const std::string&)>& callback) {
+  void* iteration_cookie;
+  if (StartIteration(handle_, &iteration_cookie, nullptr, nullptr) < 0) {
+    LOG(ERROR) << "Failed to iterate " << filename_;
+    return false;
   }
+  ZipEntry zentry;
+  ZipString zname;
+  int result;
+  while ((result = Next(iteration_cookie, &zentry, &zname)) == 0) {
+    std::string name(zname.name, zname.name + zname.name_length);
+    if (!callback(zentry, name)) {
+      break;
+    }
+  }
+  EndIteration(iteration_cookie);
+  if (result == -2) {
+    LOG(ERROR) << "Failed to iterate " << filename_;
+    return false;
+  }
+  return true;
+}
+
+bool ArchiveHelper::FindEntry(const std::string& name, ZipEntry* entry) {
+  int result = ::FindEntry(handle_, ZipString(name.c_str()), entry);
+  if (result != 0) {
+    LOG(ERROR) << "Failed to find " << name << " in " << filename_;
+    return false;
+  }
+  return true;
+}
+
+bool ArchiveHelper::GetEntryData(ZipEntry& entry, std::vector<uint8_t>* data) {
+  data->resize(entry.uncompressed_length);
+  if (ExtractToMemory(handle_, &entry, data->data(), data->size()) != 0) {
+    LOG(ERROR) << "Failed to extract entry at " << entry.offset << " in " << filename_;
+    return false;
+  }
+  return true;
+}
+
+int ArchiveHelper::GetFd() {
+  return GetFileDescriptor(handle_);
 }
 
 void PrintIndented(size_t indent, const char* fmt, ...) {
@@ -135,7 +191,7 @@ std::vector<std::string> GetSubDirs(const std::string& dirpath) {
   std::vector<std::string> entries = GetEntriesInDir(dirpath);
   std::vector<std::string> result;
   for (size_t i = 0; i < entries.size(); ++i) {
-    if (IsDir(dirpath + "/" + entries[i])) {
+    if (IsDir(dirpath + OS_PATH_SEPARATOR + entries[i])) {
       result.push_back(std::move(entries[i]));
     }
   }
@@ -194,11 +250,11 @@ bool MkdirWithParents(const std::string& path) {
   return true;
 }
 
-static void* xz_alloc(void*, size_t size) {
+static void* xz_alloc(ISzAllocPtr, size_t size) {
   return malloc(size);
 }
 
-static void xz_free(void*, void* address) {
+static void xz_free(ISzAllocPtr, void* address) {
   free(address);
 }
 
@@ -221,7 +277,7 @@ bool XzDecompress(const std::string& compressed_data, std::string* decompressed_
     size_t dst_remaining = dst.size() - dst_offset;
     int res = XzUnpacker_Code(&state, reinterpret_cast<Byte*>(&dst[dst_offset]), &dst_remaining,
                               reinterpret_cast<const Byte*>(&compressed_data[src_offset]),
-                              &src_remaining, CODER_FINISH_ANY, &status);
+                              &src_remaining, true, CODER_FINISH_ANY, &status);
     if (res != SZ_OK) {
       LOG(ERROR) << "LZMA decompression failed with error " << res;
       XzUnpacker_Free(&state);
@@ -352,5 +408,6 @@ timeval SecondToTimeval(double time_in_sec) {
 constexpr int SIMPLEPERF_VERSION = 1;
 
 std::string GetSimpleperfVersion() {
-  return android::base::StringPrintf("%d.%s", SIMPLEPERF_VERSION, SIMPLEPERF_REVISION);
+  return android::base::StringPrintf("%d.build.%s", SIMPLEPERF_VERSION,
+                                     android::build::GetBuildNumber().c_str());
 }

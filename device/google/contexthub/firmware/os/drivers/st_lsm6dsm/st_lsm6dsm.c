@@ -38,7 +38,7 @@
 #include <plat/rtc.h>
 #include <calibration/accelerometer/accel_cal.h>
 #include <calibration/gyroscope/gyro_cal.h>
-#include <calibration/magnetometer/mag_cal.h>
+#include <calibration/magnetometer/mag_cal/mag_cal.h>
 #include <calibration/over_temp/over_temp_cal.h>
 #include <algos/time_sync.h>
 
@@ -47,7 +47,7 @@
 #include "st_lsm6dsm_ak09916_slave.h"
 #include "st_lsm6dsm_lps22hb_slave.h"
 
-#define LSM6DSM_APP_VERSION 1
+#define LSM6DSM_APP_VERSION 2
 
 #if defined(LSM6DSM_I2C_MASTER_MAGNETOMETER_ENABLED) || defined(LSM6DSM_I2C_MASTER_BAROMETER_ENABLED)
 #define LSM6DSM_I2C_MASTER_ENABLED                      1
@@ -3734,9 +3734,8 @@ static bool lsm6dsm_magnCfgData(void *data, void *cookie)
                 (int)(d->inclination * 180 / M_PI + 0.5f));
 
         // Passing local field information to mag calibration routine
-#ifdef DIVERSITY_CHECK_ENABLED
         diversityCheckerLocalFieldUpdate(&T(magnCal).diversity_checker, d->strength);
-#endif
+
         // TODO: pass local field information to rotation vector sensor.
     } else {
         ERROR_PRINT("lsm6dsm_magnCfgData: unknown type 0x%04x, size %d", p->type, p->size);
@@ -3850,7 +3849,8 @@ static bool lsm6dsm_gyroCfgData(void *data, void *cookie)
     struct LSM6DSMAccelGyroCfgData *cfgData = data;
 
 #ifdef LSM6DSM_GYRO_CALIB_ENABLED
-    gyroCalSetBias(&T(gyroCal), cfgData->sw[0], cfgData->sw[1], cfgData->sw[2], sensorGetTime());
+    const float dummy_temperature_celsius = 25.0f;
+    gyroCalSetBias(&T(gyroCal), cfgData->sw[0], cfgData->sw[1], cfgData->sw[2], dummy_temperature_celsius, sensorGetTime());
 #endif /* LSM6DSM_GYRO_CALIB_ENABLED */
 
     DEBUG_PRINT("Gyro hw bias data [LSB]: %ld %ld %ld\n", cfgData->hw[0], cfgData->hw[1], cfgData->hw[2]);
@@ -4263,8 +4263,9 @@ static bool lsm6dsm_processSensorThreeAxisData(struct LSM6DSMSensor *mSensor, ui
 
         if (gyroCalNewBiasAvailable(&T(gyroCal))) {
             float biasTemperature, gyroOffset[3] = { 0.0f, 0.0f, 0.0f };
+            uint64_t calTime;
 
-            gyroCalGetBias(&T(gyroCal), &gyroOffset[0], &gyroOffset[1], &gyroOffset[2], &biasTemperature);
+            gyroCalGetBias(&T(gyroCal), &gyroOffset[0], &gyroOffset[1], &gyroOffset[2], &biasTemperature, &calTime);
 
             if (!samples->firstSample.biasCurrent) {
                 samples->firstSample.biasCurrent = true;
@@ -5089,73 +5090,95 @@ static bool lsm6dsm_startTask(uint32_t taskId)
 #endif /* LSM6DSM_I2C_MASTER_MAGNETOMETER_ENABLED */
 
 #ifdef LSM6DSM_ACCEL_CALIB_ENABLED
-    accelCalInit(&T(accelCal),
-            800000000,                  /* stillness period [ns] */
-            5,                          /* minimum sample number */
-            0.00025,                    /* threshold */
-            15,                         /* nx bucket count */
-            15,                         /* nxb bucket count */
-            15,                         /* ny bucket count */
-            15,                         /* nyb bucket count */
-            15,                         /* nz bucket count */
-            15,                         /* nzb bucket count */
-            15);                        /* nle bucket count */
+    // Initializes the accelerometer offset calibration algorithm.
+    const struct AccelCalParameters accelCalParameters = {
+        MSEC_TO_NANOS(800),  // t0
+        5,                   // n_s
+        15,                  // fx
+        15,                  // fxb
+        15,                  // fy
+        15,                  // fyb
+        15,                  // fz
+        15,                  // fzb
+        15,                  // fle
+        0.00025f             // th
+    };
+    accelCalInit(&T(accelCal), &accelCalParameters);
 #endif /* LSM6DSM_ACCEL_CALIB_ENABLED */
 
 #ifdef LSM6DSM_GYRO_CALIB_ENABLED
-    gyroCalInit(&T(gyroCal),
-            5e9,                        /* min stillness period [ns] */
-            6e9,                        /* max stillness period [ns] */
-            0, 0, 0,                    /* initial bias offset calibration values [rad/sec] */
-            0,                          /* timestamp of initial bias calibration [ns] */
-            1.5e9,                      /* analysis window length = 1.5 seconds [ns] */
-            5e-5f,                      /* gyroscope variance threshold [(rad/sec)^2] */
-            1e-5f,                      /* gyroscope confidence delta [(rad/sec)^2] */
-            8e-3f,                      /* accelerometer variance threshold [(m/sec^2)^2] */
-            1.6e-3f,                    /* accelerometer confidence delta [(m/sec^2)^2] */
-            1.4f,                       /* magnetometer variance threshold [uT^2] */
-            0.25,                       /* magnetometer confidence delta [uT^2] */
-            0.95f,                      /* stillness threshold [0, 1] */
-            40.0e-3f * M_PI / 180.0f,   /* stillness mean variation limit [rad/sec] */
-            1.5f,                       /* maximum temperature deviation during stillness */
-            true);                      /* gyro calibration enable */
+    const struct GyroCalParameters gyroCalParameters = {
+        SEC_TO_NANOS(5),      // min_still_duration_nanos
+        SEC_TO_NANOS(5.9f),   // max_still_duration_nanos [see, NOTE 1]
+        0,                    // calibration_time_nanos
+        SEC_TO_NANOS(1.5f),   // window_time_duration_nanos
+        0,                    // bias_x
+        0,                    // bias_y
+        0,                    // bias_z
+        0.95f,                // stillness_threshold
+        MDEG_TO_RAD * 40.0f,  // stillness_mean_delta_limit [rad/sec]
+        5e-5f,                // gyro_var_threshold [rad/sec]^2
+        1e-5f,                // gyro_confidence_delta [rad/sec]^2
+        8e-3f,                // accel_var_threshold [m/sec^2]^2
+        1.6e-3f,              // accel_confidence_delta [m/sec^2]^2
+        1.4f,                 // mag_var_threshold [uTesla]^2
+        0.25f,                // mag_confidence_delta [uTesla]^2
+        1.5f,                 // temperature_delta_limit_celsius
+        true                  // gyro_calibration_enable
+    };
+    // [NOTE 1]: 'max_still_duration_nanos' is set to 5.9 seconds to achieve a
+    // max stillness period of 6.0 seconds and avoid buffer boundary conditions
+    // that could push the max stillness to the next multiple of the analysis
+    // window length (i.e., 7.5 seconds).
+    gyroCalInit(&T(gyroCal), &gyroCalParameters);
 #endif /* LSM6DSM_GYRO_CALIB_ENABLED */
 
 #ifdef LSM6DSM_OVERTEMP_CALIB_ENABLED
-    overTempCalInit(&T(overTempCal),
-            5,                          /* min num of points to enable model update */
-            5000000000,                 /* min model update interval [ns] */
-            0.75f,                      /* temperature span of bin method [C] */
-            50.0e-3f * M_PI / 180.0f,   /* model fit tolerance [rad/sec/] */
-            172800000000000,            /* model data point age limit [ns] */
-            50.0e-3f * M_PI / 180.0f,   /* limit for temperature sensitivity [(rad/sec)/C] */
-            3.0f * M_PI / 180.0f,       /* limit for model intercept parameter [rad/sec] */
-            true);                      /* over temperature compensation enable */
+    // Initializes the gyroscope over-temperature offset compensation algorithm.
+    const struct OverTempCalParameters gyroOtcParameters = {
+        MSEC_TO_NANOS(500),    // min_temp_update_period_nanos
+        DAYS_TO_NANOS(2),      // age_limit_nanos
+        0.75f,                 // delta_temp_per_bin
+        40.0f * MDEG_TO_RAD,   // jump_tolerance
+        50.0f * MDEG_TO_RAD,   // outlier_limit
+        80.0f * MDEG_TO_RAD,   // temp_sensitivity_limit
+        3.0e3f * MDEG_TO_RAD,  // sensor_intercept_limit
+        0.1f * MDEG_TO_RAD,    // significant_offset_change
+        5,                     // min_num_model_pts
+        true                   // over_temp_enable
+    };
+    overTempCalInit(&T(overTempCal), &gyroOtcParameters);
 #endif /* LSM6DSM_OVERTEMP_CALIB_ENABLED */
 
 #ifdef LSM6DSM_MAGN_CALIB_ENABLED
-#ifdef DIVERSITY_CHECK_ENABLED
-    initMagCal(&T(magnCal),
-            0.0f, 0.0f, 0.0f,           /* magn offset x - y - z */
-            1.0f, 0.0f, 0.0f,           /* magn scale matrix c00 - c01 - c02 */
-            0.0f, 1.0f, 0.0f,           /* magn scale matrix c10 - c11 - c12 */
-            0.0f, 0.0f, 1.0f,           /* magn scale matrix c20 - c21 - c22 */
-            3000000,                    /* min_batch_window_in_micros */
-            8,                          /* min_num_diverse_vectors */
-            1,                          /* max_num_max_distance */
-            6.0f,                       /* var_threshold */
-            10.0f,                      /* max_min_threshold */
-            48.f,                       /* local_field */
-            0.5f,                       /* threshold_tuning_param */
-            2.552f);                    /* max_distance_tuning_param */
-#else
-    initMagCal(&T(magnCal),
-            0.0f, 0.0f, 0.0f,           /* magn offset x - y - z */
-            1.0f, 0.0f, 0.0f,           /* magn scale matrix c00 - c01 - c02 */
-            0.0f, 1.0f, 0.0f,           /* magn scale matrix c10 - c11 - c12 */
-            0.0f, 0.0f, 1.0f,           /* magn scale matrix c20 - c21 - c22 */
-            3000000);                   /* min_batch_window_in_micros */
-#endif
+    const struct MagCalParameters magCalParameters = {
+        3000000,  // min_batch_window_in_micros
+        0.0f,     // x_bias
+        0.0f,     // y_bias
+        0.0f,     // z_bias
+        1.0f,     // c00
+        0.0f,     // c01
+        0.0f,     // c02
+        0.0f,     // c10
+        1.0f,     // c11
+        0.0f,     // c12
+        0.0f,     // c20
+        0.0f,     // c21
+        1.0f      // c22
+    };
+
+    // Initializes the magnetometer offset calibration algorithm with diversity
+    // checker.
+    const struct DiversityCheckerParameters magDiversityParameters = {
+        6.0f,    // var_threshold
+        10.0f,   // max_min_threshold
+        48.0f,   // local_field
+        0.5f,    // threshold_tuning_param
+        2.552f,  // max_distance_tuning_param
+        8,       // min_num_diverse_vectors
+        1        // max_num_max_distance
+    };
+    initMagCal(&T(magnCal), &magCalParameters, &magDiversityParameters);
 #endif /* LSM6DSM_MAGN_CALIB_ENABLED */
 
     /* Initialize index used to fill/get data from buffer */

@@ -17,6 +17,7 @@ import argparse
 import os
 import re
 import subprocess
+import socket
 import sys
 import time
 
@@ -43,6 +44,7 @@ _RESTART_SERVICES_FILE = os.path.join(os.environ['HOME'],
 AFE = frontend_wrappers.RetryingAFE(
         server=server_utils.get_global_afe_hostname(), timeout_min=5,
         delay_sec=10)
+HOSTNAME = socket.gethostname()
 
 class DirtyTreeException(Exception):
     """Raised when the tree has been modified in an unexpected way."""
@@ -91,14 +93,13 @@ def verify_repo_clean():
     @raises DirtyTreeException if the repo is still not clean.
     @raises subprocess.CalledProcessError on a repo command failure.
     """
-    subprocess.check_output(['git', 'reset', '--hard'])
-    # Forcefully blow away any non-gitignored files in the tree.
-    subprocess.check_output(['git', 'clean', '-fd'])
+    subprocess.check_output(['git', 'stash', '-u'])
+    subprocess.check_output(['git', 'stash', 'clear'])
     out = subprocess.check_output(['repo', 'status'], stderr=subprocess.STDOUT)
     out = strip_terminal_codes(out).strip()
 
-    if not 'working directory clean' in out:
-        raise DirtyTreeException(out)
+    if not 'working directory clean' in out and not 'working tree clean' in out:
+        raise DirtyTreeException('%s repo not clean: %s' % (HOSTNAME, out))
 
 
 def _clean_externals():
@@ -175,7 +176,7 @@ def repo_sync(update_push_servers=False):
                                 Otherwise, update server to prod branch.
     @raises subprocess.CalledProcessError on a repo command failure.
     """
-    subprocess.check_output(['repo', 'sync'])
+    subprocess.check_output(['repo', 'sync', '--force-sync'])
     if update_push_servers:
         print('Updating push servers, checkout cros/master')
         subprocess.check_output(['git', 'checkout', 'cros/master'],
@@ -236,22 +237,22 @@ def update_command(cmd_tag, dryrun=False, use_chromite_master=False):
     if cmd_tag not in cmds:
         raise UnknownCommandException(cmd_tag, cmds)
 
-    expanded_command = cmds[cmd_tag].replace('AUTOTEST_REPO',
-                                              common.autotest_dir)
+    command = cmds[cmd_tag]
     # When updating push servers, pass an arg to build_externals to update
     # chromite to master branch for testing
     if use_chromite_master and cmd_tag == BUILD_EXTERNALS_COMMAND:
-        expanded_command += ' --use_chromite_master'
+        command += ' --use_chromite_master'
 
-    print('Running: %s: %s' % (cmd_tag, expanded_command))
+    print('Running: %s: %s' % (cmd_tag, command))
     if dryrun:
-        print('Skip: %s' % expanded_command)
+        print('Skip: %s' % command)
     else:
         try:
-            subprocess.check_output(expanded_command, shell=True,
+            subprocess.check_output(command, shell=True,
+                                    cwd=common.autotest_dir,
                                     stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print('FAILED:')
+            print('FAILED %s :' % HOSTNAME)
             print(e.output)
             raise
 
@@ -332,7 +333,8 @@ def restart_services(service_names, dryrun=False, skip_service_status=False):
 
     # Report any services having issues.
     if unstable_services:
-        raise UnstableServices(unstable_services)
+      raise UnstableServices('%s service restart failed: %s' %
+                             (HOSTNAME, unstable_services))
 
 
 def run_deploy_actions(cmds_skip=set(), dryrun=False,
@@ -486,7 +488,8 @@ def _sync_chromiumos_repo():
     """Update ~chromeos-test/chromiumos repo."""
     print('Updating ~chromeos-test/chromiumos')
     with ChangeDir(os.path.expanduser('~chromeos-test/chromiumos')):
-        ret = subprocess.call(['repo', 'sync'], stderr=subprocess.STDOUT)
+        ret = subprocess.call(['repo', 'sync', '--force-sync'],
+                              stderr=subprocess.STDOUT)
         _clean_pyc_files()
     if ret != 0:
         print('Update failed, exited with status: %d' % ret)
@@ -494,11 +497,15 @@ def _sync_chromiumos_repo():
 
 def main(args):
     """Main method."""
+    # Be careful before you change this call to `os.chdir()`:
+    # We make several calls to `subprocess.check_output()` and
+    # friends that depend on this directory, most notably calls to
+    # the 'repo' command from `verify_repo_clean()`.
     os.chdir(common.autotest_dir)
     global_config.global_config.parse_config_file()
 
     behaviors = parse_arguments(args)
-
+    print('Updating server: %s' % HOSTNAME)
     if behaviors.verify:
         print('Checking tree status:')
         verify_repo_clean()

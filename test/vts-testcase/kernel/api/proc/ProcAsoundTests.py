@@ -27,9 +27,17 @@ class ProcAsoundCardsTest(KernelProcFileTestBase.KernelProcFileTestBase):
     t_LBRACKET = literal_token(r'\[')
     t_RBRACKET = literal_token(r'\]')
 
+    t_NO = literal_token(r'no')
+    t_SOUNDCARDS = literal_token(r'soundcards')
+
     t_ignore = ' '
 
-    start = 'drivers'
+    start = 'soundcards'
+
+    def p_soundcards(self, p):
+        '''soundcards : DASH DASH DASH NO SOUNDCARDS DASH DASH DASH NEWLINE
+                      | drivers'''
+        p[0] = [p[4], p[5]] if len(p) == 10 else p[1]
 
     p_drivers = repeat_rule('driver')
 
@@ -38,9 +46,19 @@ class ProcAsoundCardsTest(KernelProcFileTestBase.KernelProcFileTestBase):
         p[0] = [p[1], p[2], p[4], p[6], p[8]]
 
     def p_description(self, p):
-        '''description : description STRING
-                       | STRING'''
-        p[0] = [p[1]] if len(p) == 2 else p[1].append(p[2])
+        '''description : description word
+                       | word'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[2]]
+
+    def p_word(self, p):
+        '''word : NUMBER
+                | STRING
+                | COMMA
+                | PERIOD
+                | FLOAT
+                | DASH
+                | HEX_LITERAL'''
+        p[0] = p[1]
 
     def p_id(self, p):
         'id : LBRACKET STRING RBRACKET'

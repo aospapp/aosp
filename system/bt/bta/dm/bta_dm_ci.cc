@@ -21,11 +21,12 @@
  *  This is the API implementation file for the BTA device manager.
  *
  ******************************************************************************/
+#include "bta_dm_ci.h"
 #include "bt_common.h"
 #include "bta_api.h"
-#include "bta_dm_ci.h"
 #include "bta_dm_int.h"
 #include "bta_sys.h"
+#include "stack/include/btu.h"
 
 #include <base/bind.h>
 #include <memory>
@@ -45,8 +46,8 @@ void bta_dm_ci_io_req(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
                       tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req)
 
 {
-  do_in_bta_thread(FROM_HERE, base::Bind(bta_dm_ci_io_req_act, bd_addr, io_cap,
-                                         oob_data, auth_req));
+  do_in_main_thread(FROM_HERE, base::Bind(bta_dm_ci_io_req_act, bd_addr, io_cap,
+                                          oob_data, auth_req));
 }
 
 /*******************************************************************************
@@ -60,17 +61,17 @@ void bta_dm_ci_io_req(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
  * Returns          void
  *
  ******************************************************************************/
-void bta_dm_ci_rmt_oob(bool accept, const RawAddress& bd_addr, BT_OCTET16 c,
-                       BT_OCTET16 r) {
+void bta_dm_ci_rmt_oob(bool accept, const RawAddress& bd_addr, const Octet16& c,
+                       const Octet16& r) {
   std::unique_ptr<tBTA_DM_CI_RMT_OOB> msg =
       std::make_unique<tBTA_DM_CI_RMT_OOB>();
 
   msg->bd_addr = bd_addr;
   msg->accept = accept;
-  memcpy(msg->c, c, BT_OCTET16_LEN);
-  memcpy(msg->r, r, BT_OCTET16_LEN);
+  msg->c = c;
+  msg->r = r;
 
-  do_in_bta_thread(FROM_HERE,
-                   base::Bind(bta_dm_ci_rmt_oob_act, base::Passed(&msg)));
+  do_in_main_thread(FROM_HERE,
+                    base::Bind(bta_dm_ci_rmt_oob_act, base::Passed(&msg)));
 }
 

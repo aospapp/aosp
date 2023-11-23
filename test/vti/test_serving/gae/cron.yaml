@@ -8,3 +8,6 @@ cron:
 - description: "job_heartbeat"
   url: /tasks/job_heartbeat
   schedule: every 1 minutes
+- description: "remove_outdated_devices"
+  url: /tasks/remove_outdated_devices
+  schedule: every 1 hours

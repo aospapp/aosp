@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.invoker;
 
+import static org.junit.Assert.assertEquals;
+
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
@@ -31,12 +33,14 @@ import com.android.tradefed.invoker.shard.IShardHelper;
 import com.android.tradefed.invoker.shard.ShardHelper;
 import com.android.tradefed.log.ILeveledLogOutput;
 import com.android.tradefed.log.ILogRegistry;
+import com.android.tradefed.postprocessor.IPostProcessor;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
 
+import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,10 +68,15 @@ public class TestInvocationMultiTest {
     private IBuildProvider mProvider1;
     private IBuildProvider mProvider2;
 
+    private List<IPostProcessor> mPostProcessors;
+
     @Before
     public void setUp() {
         mContext = new InvocationContext();
+        mPostProcessors = new ArrayList<>();
+
         mMockConfig = EasyMock.createMock(IConfiguration.class);
+        EasyMock.expect(mMockConfig.getPostProcessors()).andReturn(mPostProcessors);
         mMockRescheduler = EasyMock.createMock(IRescheduler.class);
         mMockTestListener = EasyMock.createMock(ITestInvocationListener.class);
         mMockLogSaver = EasyMock.createMock(ILogSaver.class);
@@ -82,7 +91,7 @@ public class TestInvocationMultiTest {
                     }
 
                     @Override
-                    public IInvocationExecution createInvocationExec(boolean isSandboxed) {
+                    public IInvocationExecution createInvocationExec(RunMode mode) {
                         return new InvocationExecution() {
                             @Override
                             protected IShardHelper createShardHelper() {
@@ -113,6 +122,7 @@ public class TestInvocationMultiTest {
         mProvider1 = EasyMock.createMock(IBuildProvider.class);
         holder1.addSpecificConfig(mProvider1);
         EasyMock.expect(mMockConfig.getDeviceConfigByName("device1")).andStubReturn(holder1);
+        EasyMock.expect(mMockConfig.isDeviceConfiguredFake("device1")).andReturn(false);
         mDevice1.setOptions(EasyMock.anyObject());
         mDevice1.setRecovery(EasyMock.anyObject());
 
@@ -144,24 +154,45 @@ public class TestInvocationMultiTest {
                 .andReturn(configListener)
                 .times(2);
         EasyMock.expect(mMockConfig.getLogSaver()).andReturn(mMockLogSaver);
-        EasyMock.expect(mMockConfig.getLogOutput()).andReturn(mMockLogger).times(4);
+        EasyMock.expect(mMockConfig.getLogOutput()).andStubReturn(mMockLogger);
         EasyMock.expect(mMockConfig.getConfigurationDescription()).andReturn(mConfigDesc);
         mMockLogger.init();
+        EasyMock.expect(mMockLogger.getLog())
+                .andReturn(new ByteArrayInputStreamSource("fake".getBytes()));
         mMockLogger.closeLog();
+        EasyMock.expectLastCall().times(2);
 
         mMockLogRegistry.registerLogger(mMockLogger);
         mMockLogRegistry.dumpToGlobalLog(mMockLogger);
         mMockLogRegistry.unregisterLogger();
+        EasyMock.expectLastCall().times(2);
 
         EasyMock.expect(mMockConfig.getCommandLine()).andStubReturn("empty");
         EasyMock.expect(mMockConfig.getCommandOptions()).andStubReturn(new CommandOptions());
         EasyMock.expect(mMockConfig.getTests()).andStubReturn(new ArrayList<>());
+        mMockConfig.cleanDynamicOptionFiles();
         IBuildInfo build1 = new BuildInfo();
         EasyMock.expect(mProvider1.getBuild()).andReturn(build1);
         // Second build is not found
         EasyMock.expect(mProvider2.getBuild()).andReturn(null);
         // The downloaded build is cleaned
         mProvider1.cleanUp(build1);
+
+        Capture<IBuildInfo> captured = new Capture<>();
+        mProvider2.cleanUp(EasyMock.capture(captured));
+
+        mMockTestListener.invocationStarted(mContext);
+        EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
+        mMockLogSaver.invocationStarted(mContext);
+        mMockTestListener.invocationFailed(EasyMock.anyObject());
+        mMockTestListener.testLog(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject());
+        EasyMock.expect(
+                        mMockLogSaver.saveLogData(
+                                EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject()))
+                .andReturn(new LogFile("", "", LogDataType.TEXT));
+        mMockTestListener.invocationEnded(EasyMock.anyLong());
+        EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
+        mMockLogSaver.invocationEnded(EasyMock.anyLong());
 
         EasyMock.replay(
                 mMockConfig,
@@ -187,6 +218,10 @@ public class TestInvocationMultiTest {
                 mDevice2,
                 mProvider1,
                 mProvider2);
+
+        IBuildInfo stubBuild = captured.getValue();
+        assertEquals(BuildInfo.UNKNOWN_BUILD_ID, stubBuild.getBuildId());
+        stubBuild.cleanUp();
     }
 
     @Test
@@ -215,8 +250,10 @@ public class TestInvocationMultiTest {
         EasyMock.expect(mMockConfig.getCommandLine()).andStubReturn("empty");
         EasyMock.expect(mMockConfig.getCommandOptions()).andStubReturn(new CommandOptions());
         EasyMock.expect(mMockConfig.getTests()).andStubReturn(new ArrayList<>());
+        mMockConfig.cleanDynamicOptionFiles();
 
         mMockTestListener.invocationStarted(mContext);
+        EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
         mMockLogSaver.invocationStarted(mContext);
         mMockTestListener.invocationFailed(EasyMock.anyObject());
         mMockTestListener.testLog(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject());
@@ -293,8 +330,10 @@ public class TestInvocationMultiTest {
         EasyMock.expect(mMockConfig.getCommandLine()).andStubReturn("empty");
         EasyMock.expect(mMockConfig.getCommandOptions()).andStubReturn(new CommandOptions());
         EasyMock.expect(mMockConfig.getTests()).andStubReturn(new ArrayList<>());
+        mMockConfig.cleanDynamicOptionFiles();
 
         mMockTestListener.invocationStarted(mContext);
+        EasyMock.expect(mMockTestListener.getSummary()).andReturn(null);
         mMockLogSaver.invocationStarted(mContext);
         mMockTestListener.invocationFailed(EasyMock.anyObject());
         mMockTestListener.testLog(EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.anyObject());

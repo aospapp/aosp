@@ -10,7 +10,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := TVJankTests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.runner \
     tv-test-common \
     ub-janktesthelper \
     ub-uiautomator \

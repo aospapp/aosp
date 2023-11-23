@@ -40,6 +40,7 @@ public class DmesgParserTest extends TestCase {
     private static final String NETD = "netd";
     private static final String[] LINES =
             new String[] {
+                "[    2.471163] init: Wait for property 'apexd.status=ready' took 403ms",
                 "[    3.786943] ueventd: Coldboot took 0.701291 seconds",
                 "[   22.962730] init: starting service 'bootanim'...",
                 "[   23.252321] init: starting service 'netd'...",
@@ -96,7 +97,7 @@ public class DmesgParserTest extends TestCase {
 
         assertEquals("Service info items list size should be 2", 2,
                 dmesgParser.getServiceInfoItems().size());
-        assertEquals("Stage info items list size should be 2",2,
+        assertEquals("Stage info items list size should be 3",3,
                 dmesgParser.getStageInfoItems().size());
         assertEquals("Action info items list size should be 9",9,
                 dmesgParser.getActionInfoItems().size());
@@ -116,7 +117,7 @@ public class DmesgParserTest extends TestCase {
             dmesgParser.parseInfo(bufferedReader);
             assertEquals("Service info items list size should be 2", 2,
                     dmesgParser.getServiceInfoItems().size());
-            assertEquals("Stage info items list size should be 2", 2,
+            assertEquals("Stage info items list size should be 3", 3,
                     dmesgParser.getStageInfoItems().size());
             assertEquals("Action info items list size should be 9",9,
                     dmesgParser.getActionInfoItems().size());
@@ -197,7 +198,7 @@ public class DmesgParserTest extends TestCase {
             dmesgParser.parseStageInfo(line);
         }
         List<DmesgStageInfoItem> stageInfoItems = dmesgParser.getStageInfoItems();
-        assertEquals(2, stageInfoItems.size());
+        assertEquals(3, stageInfoItems.size());
         assertEquals(EXPECTED_STAGE_INFO_ITEMS, stageInfoItems);
     }
 
@@ -234,6 +235,7 @@ public class DmesgParserTest extends TestCase {
 
     private static List<DmesgStageInfoItem> getExpectedStageInfoItems() {
         return Arrays.asList(
+                new DmesgStageInfoItem("init_Wait for property 'apexd.status=ready'", null, 403L),
                 new DmesgStageInfoItem("ueventd_Coldboot", null, 701L),
                 new DmesgStageInfoItem("first", 41665L, null));
     }

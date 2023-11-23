@@ -16,15 +16,45 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := CtsMockInputMethod
+LOCAL_MODULE := CtsMockInputMethodLib
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
+# TODO: ideally we should split MockIme source files into three categories
+#       1) common, 2) common + IME-only, and 3) common + client-only.
+#       Currently, both MockIme APK and test APKs that use MockIme contain
+#       all the Java classes, which is inefficient.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_JAVA_LIBRARIES := junit
 LOCAL_STATIC_JAVA_LIBRARIES := \
    androidx.annotation_annotation \
-   compatibility-device-util
+   compatibility-device-util-axt
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
+
+# -----------
+include $(CLEAR_VARS)
+
+# Don't include this package in any target
+LOCAL_MODULE_TAGS := tests
+
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+
+LOCAL_PACKAGE_NAME := CtsMockInputMethod
+
+LOCAL_DEX_PREOPT := false
+
+LOCAL_PROGUARD_ENABLED := disabled
+
+LOCAL_SDK_VERSION := test_current
+LOCAL_MIN_SDK_VERSION := 19
+
+# tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+   androidx.annotation_annotation \
+   CtsMockInputMethodLib
+
+include $(BUILD_PACKAGE)

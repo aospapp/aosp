@@ -26,7 +26,8 @@ namespace vts {
 bool IsElidableType(const VariableType& type);
 // Returns true if a HIDL type uses 'const' in its native C/C++ form.
 bool IsConstType(const VariableType& type);
-
+// Returns true iff type is a user defined type
+bool IsUserDefinedType(const VariableType& type);
 }  // namespace vts
 }  // namespace android
 

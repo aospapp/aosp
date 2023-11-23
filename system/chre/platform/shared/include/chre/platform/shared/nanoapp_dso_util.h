@@ -28,13 +28,11 @@ namespace chre {
  * @param expectedAppId The app ID passed alongside the binary
  * @param expectedAppVersion The app version number passed alongside the binary
  * @param appInfo App info structure included in the nanoapp binary
- * @param skipVersionValidation if true, ignore the expectedAppVersion parameter
  *
  * @return true if validation was successful
  */
 bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
-                     const struct chreNslNanoappInfo *appInfo,
-                     bool skipVersionValidation = false);
+                     const struct chreNslNanoappInfo *appInfo);
 
 }  // namespace chre
 

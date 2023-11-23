@@ -16,16 +16,18 @@
 
 package android.opengl.cts;
 
-import android.support.test.filters.SmallTest;
+import static android.opengl.GLES20.glDeleteBuffers;
+import static android.opengl.GLES30.glGenBuffers;
+
+import static org.junit.Assert.assertTrue;
+
+import androidx.test.filters.SmallTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
 
 import java.nio.IntBuffer;
-
-import static android.opengl.GLES20.glDeleteBuffers;
-import static android.opengl.GLES30.glGenBuffers;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for parameters validation.

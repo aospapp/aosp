@@ -31,6 +31,7 @@ nb{
         151{"Øst-Europa"}
         154{"Nord-Europa"}
         155{"Vest-Europa"}
+        202{"Afrika sør for Sahara"}
         419{"Latin-Amerika"}
         AC{"Ascension"}
         AD{"Andorra"}
@@ -219,7 +220,7 @@ nb{
         PK{"Pakistan"}
         PL{"Polen"}
         PM{"Saint-Pierre-et-Miquelon"}
-        PN{"Pitcairn"}
+        PN{"Pitcairnøyene"}
         PR{"Puerto Rico"}
         PS{"Palestina"}
         PT{"Portugal"}
@@ -303,5 +304,5 @@ nb{
         CD{"Den demokratiske republikken Kongo"}
         CG{"Republikken Kongo"}
     }
-    Version{"2.1.37.5"}
+    Version{"2.1.44.2"}
 }

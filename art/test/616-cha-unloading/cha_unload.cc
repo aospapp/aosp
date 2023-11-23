@@ -19,6 +19,8 @@
 #include <iostream>
 
 #include "art_method.h"
+#include "base/casts.h"
+#include "class_linker.h"
 #include "jit/jit.h"
 #include "linear_alloc.h"
 #include "nativehelper/ScopedUtfChars.h"
@@ -29,24 +31,57 @@
 namespace art {
 namespace {
 
+class FindPointerAllocatorVisitor : public AllocatorVisitor {
+ public:
+  explicit FindPointerAllocatorVisitor(void* ptr) : is_found(false), ptr_(ptr) {}
+
+  bool Visit(LinearAlloc* alloc)
+      REQUIRES_SHARED(Locks::classlinker_classes_lock_, Locks::mutator_lock_) override {
+    is_found = alloc->Contains(ptr_);
+    return !is_found;
+  }
+
+  bool is_found;
+
+ private:
+  void* ptr_;
+};
+
 extern "C" JNIEXPORT jlong JNICALL Java_Main_getArtMethod(JNIEnv* env,
                                                           jclass,
                                                           jobject java_method) {
   ScopedObjectAccess soa(env);
   ArtMethod* method = ArtMethod::FromReflectedMethod(soa, java_method);
-  return static_cast<jlong>(reinterpret_cast<uintptr_t>(method));
+  return reinterpret_cast64<jlong>(method);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_Main_reuseArenaOfMethod(JNIEnv*,
                                                                jclass,
                                                                jlong art_method) {
-  // Create a new allocation and use it to request a specified amount of arenas.
-  // Hopefully one of them is a reused one, the one that covers the art_method pointer.
+  void* ptr = reinterpret_cast64<void*>(art_method);
+
+  ReaderMutexLock mu(Thread::Current(), *Locks::mutator_lock_);
+  ReaderMutexLock mu2(Thread::Current(), *Locks::classlinker_classes_lock_);
+  // Check if the arena was already implicitly reused by boot classloader.
+  if (Runtime::Current()->GetLinearAlloc()->Contains(ptr)) {
+    return;
+  }
+
+  // Check if the arena was already implicitly reused by some other classloader.
+  FindPointerAllocatorVisitor visitor(ptr);
+  Runtime::Current()->GetClassLinker()->VisitAllocators(&visitor);
+  if (visitor.is_found) {
+    return;
+  }
+
+  // The arena was not reused yet. Do it explicitly.
+  // Create a new allocation and use it to request new arenas until one of them is
+  // a reused one that covers the art_method pointer.
   std::unique_ptr<LinearAlloc> alloc(Runtime::Current()->CreateLinearAlloc());
   do {
-    // Ask for a byte - it's sufficient to get an arena and not have issues with size.
+    // Ask for a byte - it's sufficient to get an arena.
     alloc->Alloc(Thread::Current(), 1);
-  } while (!alloc->Contains(reinterpret_cast<void*>(static_cast<uintptr_t>(art_method))));
+  } while (!alloc->Contains(ptr));
 }
 
 }  // namespace

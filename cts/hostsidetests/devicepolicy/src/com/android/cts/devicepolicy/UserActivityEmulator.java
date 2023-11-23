@@ -30,7 +30,15 @@ class UserActivityEmulator {
     public UserActivityEmulator(ITestDevice device) throws DeviceNotAvailableException {
         // Figure out screen size. Output is something like "Physical size: 1440x2880".
         mDevice = device;
-        final String output = mDevice.executeShellCommand("wm size");
+        String outputString = mDevice.executeShellCommand  ("wm size");
+
+        // In case that "Override size" follows by separator like 
+        // "Physical size: 1440x2960\nOverride size: 1080x2220"
+        if (outputString.contains("Override")) {
+            outputString = outputString.split(System.getProperty("line.separator"))[1];
+        }
+
+        final String output = outputString;
         final String[] sizes = output.split(" ")[2].split("x");
         mWidth = Integer.valueOf(sizes[0].trim());
         mHeight = Integer.valueOf(sizes[1].trim());

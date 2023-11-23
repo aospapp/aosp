@@ -5,7 +5,7 @@
  *
  * Author: Robert Swiecki <swiecki@google.com>
  *
- * Copyright 2010-2015 by Google Inc. All Rights Reserved.
+ * Copyright 2010-2018 by Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
  * not use this file except in compliance with the License. You may obtain
@@ -26,12 +26,14 @@
 
 #include "honggfuzz.h"
 
+extern void input_setSize(run_t* run, size_t sz);
 extern bool input_getNext(run_t* run, char* fname, bool rewind);
-
 extern bool input_init(honggfuzz_t* hfuzz);
-
 extern bool input_parseDictionary(honggfuzz_t* hfuzz);
-
 extern bool input_parseBlacklist(honggfuzz_t* hfuzz);
+extern bool input_prepareDynamicInput(run_t* run);
+extern bool input_prepareStaticFile(run_t* run, bool rewind);
+extern bool input_prepareExternalFile(run_t* run);
+extern bool input_postProcessFile(run_t* run);
 
 #endif /* ifndef _HF_INPUT_H_ */

@@ -29,7 +29,6 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -51,15 +50,11 @@ import java.util.Set;
  * Note that most of the tests in this class don't require camera open.
  * </p>
  */
-@AppModeFull
 public class StaticMetadataTest extends Camera2AndroidTestCase {
     private static final String TAG = "StaticMetadataTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final float MIN_FPS_FOR_FULL_DEVICE = 20.0f;
     private String mCameraId;
-
-    // Last defined capability enum, for iterating over all of them
-    private static final int LAST_CAPABILITY_ENUM = REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME;
 
     /**
      * Test the available capability for different hardware support level devices.
@@ -68,7 +63,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
         Key<StreamConfigurationMap> key =
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
         final float SIZE_ERROR_MARGIN = 0.03f;
-        for (String id : mCameraIds) {
+        for (String id : mAllCameraIds) {
             initStaticMetadata(id);
             StreamConfigurationMap configs = mStaticInfo.getValueFromKeyNonNull(key);
             Rect activeRect = mStaticInfo.getActiveArraySizeChecked();
@@ -141,7 +136,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
      * Test max number of output stream reported by device
      */
     public void testMaxNumOutputStreams() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mAllCameraIds) {
             initStaticMetadata(id);
             int maxNumStreamsRaw = mStaticInfo.getMaxNumOutputStreamsRawChecked();
             int maxNumStreamsProc = mStaticInfo.getMaxNumOutputStreamsProcessedChecked();
@@ -169,12 +164,12 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
      * Test advertised capability does match available keys and vice versa
      */
     public void testCapabilities() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mAllCameraIds) {
             initStaticMetadata(id);
             List<Integer> availableCaps = mStaticInfo.getAvailableCapabilitiesChecked();
 
             for (Integer capability = REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE;
-                    capability <= LAST_CAPABILITY_ENUM; capability++) {
+                    capability <= StaticMetadata.LAST_CAPABILITY_ENUM; capability++) {
                 boolean isCapabilityAvailable = availableCaps.contains(capability);
                 validateCapability(capability, isCapabilityAvailable);
             }
@@ -426,6 +421,9 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
             case REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME:
                 // Tested in ExtendedCameraCharacteristicsTest
                 return;
+            case REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA:
+                // No other restrictions with other metadata keys which  are reliably testable.
+                return;
             default:
                 capabilityName = "Unknown";
                 assertTrue(String.format("Unknown capability set: %d", capability),
@@ -488,19 +486,23 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
         Set<CameraCharacteristics.Key<?>> characteristicsKeys = new HashSet<>();
         characteristicsKeys.add(HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES);
         characteristicsKeys.add(SENSOR_BLACK_LEVEL_PATTERN);
-        characteristicsKeys.add(SENSOR_CALIBRATION_TRANSFORM1);
-        characteristicsKeys.add(SENSOR_COLOR_TRANSFORM1);
-        characteristicsKeys.add(SENSOR_FORWARD_MATRIX1);
         characteristicsKeys.add(SENSOR_INFO_ACTIVE_ARRAY_SIZE);
         characteristicsKeys.add(SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
         characteristicsKeys.add(SENSOR_INFO_WHITE_LEVEL);
-        characteristicsKeys.add(SENSOR_REFERENCE_ILLUMINANT1);
         characteristicsKeys.add(STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES);
+        if (!mStaticInfo.isMonochromeCamera()) {
+            characteristicsKeys.add(SENSOR_CALIBRATION_TRANSFORM1);
+            characteristicsKeys.add(SENSOR_COLOR_TRANSFORM1);
+            characteristicsKeys.add(SENSOR_FORWARD_MATRIX1);
+            characteristicsKeys.add(SENSOR_REFERENCE_ILLUMINANT1);
+        }
 
         Set<CaptureResult.Key<?>> resultKeys = new HashSet<>();
-        resultKeys.add(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
-        resultKeys.add(CaptureResult.SENSOR_GREEN_SPLIT);
         resultKeys.add(CaptureResult.SENSOR_NOISE_PROFILE);
+        if (!mStaticInfo.isMonochromeCamera()) {
+            resultKeys.add(CaptureResult.SENSOR_GREEN_SPLIT);
+            resultKeys.add(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
+        }
 
         boolean rawOutputSupported = mStaticInfo.getRawOutputSizesChecked().length > 0;
         boolean requestKeysPresent = mStaticInfo.areRequestKeysAvailable(requestKeys);
@@ -532,7 +534,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
      * Test lens facing.
      */
     public void testLensFacing() throws Exception {
-        for (String id : mCameraIds) {
+        for (String id : mAllCameraIds) {
             initStaticMetadata(id);
             mStaticInfo.getLensFacingChecked();
         }

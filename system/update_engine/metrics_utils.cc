@@ -68,6 +68,7 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kDownloadWriteError:
     case ErrorCode::kFilesystemCopierError:
     case ErrorCode::kFilesystemVerifierError:
+    case ErrorCode::kVerityCalculationError:
       return metrics::AttemptResult::kOperationExecutionError;
 
     case ErrorCode::kDownloadMetadataSignatureMismatch:
@@ -83,6 +84,7 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
 
     case ErrorCode::kNewRootfsVerificationError:
     case ErrorCode::kNewKernelVerificationError:
+    case ErrorCode::kRollbackNotPossible:
       return metrics::AttemptResult::kVerificationFailed;
 
     case ErrorCode::kPostinstallRunnerError:
@@ -114,6 +116,9 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kPostinstallPowerwashError:
     case ErrorCode::kUpdateCanceledByChannelChange:
     case ErrorCode::kOmahaRequestXMLHasEntityDecl:
+    case ErrorCode::kOmahaUpdateIgnoredOverCellular:
+    case ErrorCode::kNoUpdate:
+    case ErrorCode::kFirstActiveOmahaPingSentPersistenceError:
       return metrics::AttemptResult::kInternalError;
 
     // Special flags. These can't happen (we mask them out above) but
@@ -214,8 +219,13 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kOmahaRequestXMLHasEntityDecl:
     case ErrorCode::kFilesystemVerifierError:
     case ErrorCode::kUserCanceled:
+    case ErrorCode::kOmahaUpdateIgnoredOverCellular:
     case ErrorCode::kPayloadTimestampError:
     case ErrorCode::kUpdatedButNotActive:
+    case ErrorCode::kNoUpdate:
+    case ErrorCode::kRollbackNotPossible:
+    case ErrorCode::kFirstActiveOmahaPingSentPersistenceError:
+    case ErrorCode::kVerityCalculationError:
       break;
 
     // Special flags. These can't happen (we mask them out above) but
@@ -240,6 +250,9 @@ metrics::ConnectionType GetConnectionType(ConnectionType type,
   switch (type) {
     case ConnectionType::kUnknown:
       return metrics::ConnectionType::kUnknown;
+
+    case ConnectionType::kDisconnected:
+      return metrics::ConnectionType::kDisconnected;
 
     case ConnectionType::kEthernet:
       if (tethering == ConnectionTethering::kConfirmed)
@@ -358,8 +371,17 @@ void SetUpdateTimestampStart(const Time& update_start_time,
   CHECK(prefs);
   prefs->SetInt64(kPrefsUpdateTimestampStart,
                   update_start_time.ToInternalValue());
-  LOG(INFO) << "Update Timestamp Start = "
+  LOG(INFO) << "Update Monotonic Timestamp Start = "
             << utils::ToString(update_start_time);
+}
+
+void SetUpdateBootTimestampStart(const base::Time& update_start_boot_time,
+                                 PrefsInterface* prefs) {
+  CHECK(prefs);
+  prefs->SetInt64(kPrefsUpdateBootTimestampStart,
+                  update_start_boot_time.ToInternalValue());
+  LOG(INFO) << "Update Boot Timestamp Start = "
+            << utils::ToString(update_start_boot_time);
 }
 
 bool LoadAndReportTimeToReboot(MetricsReporterInterface* metrics_reporter,

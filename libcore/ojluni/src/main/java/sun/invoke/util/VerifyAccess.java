@@ -185,29 +185,75 @@ public class VerifyAccess {
         return false;
     }
 
+    // Android-removed: Unused method.
+    /*
     /**
      * Decide if the given method type, attributed to a member or symbolic
      * reference of a given reference class, is really visible to that class.
      * @param type the supposed type of a member or symbolic reference of refc
      * @param refc the class attempting to make the reference
-     */
+     *
     public static boolean isTypeVisible(Class<?> type, Class<?> refc) {
-        if (type == refc)  return true;  // easy check
+        if (type == refc) {
+            return true;  // easy check
+        }
         while (type.isArray())  type = type.getComponentType();
-        if (type.isPrimitive() || type == Object.class)  return true;
-        ClassLoader parent = type.getClassLoader();
-        if (parent == null)  return true;
-        ClassLoader child  = refc.getClassLoader();
-        if (child == null)  return false;
-        if (parent == child || loadersAreRelated(parent, child, true))
+        if (type.isPrimitive() || type == Object.class) {
             return true;
-        // Do it the hard way:  Look up the type name from the refc loader.
-        try {
-            Class<?> res = child.loadClass(type.getName());
-            return (type == res);
-        } catch (ClassNotFoundException ex) {
+        }
+        ClassLoader typeLoader = type.getClassLoader();
+        ClassLoader refcLoader = refc.getClassLoader();
+        if (typeLoader == refcLoader) {
+            return true;
+        }
+        if (refcLoader == null && typeLoader != null) {
             return false;
         }
+        if (typeLoader == null && type.getName().startsWith("java.")) {
+            // Note:  The API for actually loading classes, ClassLoader.defineClass,
+            // guarantees that classes with names beginning "java." cannot be aliased,
+            // because class loaders cannot load them directly.
+            return true;
+        }
+
+        // Do it the hard way:  Look up the type name from the refc loader.
+        //
+        // Force the refc loader to report and commit to a particular binding for this type name (type.getName()).
+        //
+        // In principle, this query might force the loader to load some unrelated class,
+        // which would cause this query to fail (and the original caller to give up).
+        // This would be wasted effort, but it is expected to be very rare, occurring
+        // only when an attacker is attempting to create a type alias.
+        // In the normal case, one class loader will simply delegate to the other,
+        // and the same type will be visible through both, with no extra loading.
+        //
+        // It is important to go through Class.forName instead of ClassLoader.loadClass
+        // because Class.forName goes through the JVM system dictionary, which records
+        // the class lookup once for all. This means that even if a not-well-behaved class loader
+        // would "change its mind" about the meaning of the name, the Class.forName request
+        // will use the result cached in the JVM system dictionary. Note that the JVM system dictionary
+        // will record the first successful result. Unsuccessful results are not stored.
+        //
+        // We use doPrivileged in order to allow an unprivileged caller to ask an arbitrary
+        // class loader about the binding of the proposed name (type.getName()).
+        // The looked up type ("res") is compared for equality against the proposed
+        // type ("type") and then is discarded.  Thus, the worst that can happen to
+        // the "child" class loader is that it is bothered to load and report a class
+        // that differs from "type"; this happens once due to JVM system dictionary
+        // memoization.  And the caller never gets to look at the alternate type binding
+        // ("res"), whether it exists or not.
+        final String name = type.getName();
+        Class<?> res = java.security.AccessController.doPrivileged(
+                new java.security.PrivilegedAction<Class>() {
+                    public Class<?> run() {
+                        try {
+                            return Class.forName(name, false, refcLoader);
+                        } catch (ClassNotFoundException | LinkageError e) {
+                            return null; // Assume the class is not found
+                        }
+                    }
+            });
+        return (type == res);
     }
 
     /**
@@ -215,7 +261,7 @@ public class VerifyAccess {
      * reference of a given reference class, is really visible to that class.
      * @param type the supposed type of a member or symbolic reference of refc
      * @param refc the class attempting to make the reference
-     */
+     *
     public static boolean isTypeVisible(java.lang.invoke.MethodType type, Class<?> refc) {
         for (int n = -1, max = type.parameterCount(); n < max; n++) {
             Class<?> ptype = (n < 0 ? type.returnType() : type.parameterType(n));
@@ -224,6 +270,7 @@ public class VerifyAccess {
         }
         return true;
     }
+    */
 
     /**
      * Test if two classes have the same class loader and package qualifier.
@@ -253,8 +300,10 @@ public class VerifyAccess {
         return true;
     }
 
+    // Android-removed: Unused method.
+    /*
     /** Return the package name for this class.
-     */
+     *
     public static String getPackageName(Class<?> cls) {
         assert(!cls.isArray());
         String name = cls.getName();
@@ -262,6 +311,7 @@ public class VerifyAccess {
         if (dot < 0)  return "";
         return name.substring(0, dot);
     }
+    */
 
     /**
      * Test if two classes are defined as part of the same package member (top-level class).
@@ -287,6 +337,8 @@ public class VerifyAccess {
         return pkgmem;
     }
 
+    // Android-removed: Unused method.
+    /*
     private static boolean loadersAreRelated(ClassLoader loader1, ClassLoader loader2,
                                              boolean loader1MustBeParent) {
         if (loader1 == loader2 || loader1 == null
@@ -305,15 +357,19 @@ public class VerifyAccess {
         }
         return false;
     }
+    */
 
+    // Android-removed: Unused method.
+    /*
     /**
      * Is the class loader of parentClass identical to, or an ancestor of,
      * the class loader of childClass?
      * @param parentClass a class
      * @param childClass another class, which may be a descendent of the first class
      * @return whether parentClass precedes or equals childClass in class loader order
-     */
+     *
     public static boolean classLoaderIsAncestor(Class<?> parentClass, Class<?> childClass) {
         return loadersAreRelated(parentClass.getClassLoader(), childClass.getClassLoader(), true);
     }
+    */
 }

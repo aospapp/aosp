@@ -20,7 +20,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt \
+	compatibility-device-util-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
@@ -29,6 +30,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := CtsUsbSerialTestApp
 
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 27
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant

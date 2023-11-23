@@ -15,9 +15,14 @@
  */
 package android.cts.statsd.atom;
 
+import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_APK;
+import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE;
+
 import android.os.BatteryStatsProto;
+import android.os.StatsDataDumpProto;
+import android.service.battery.BatteryServiceDumpProto;
 import android.service.batterystats.BatteryStatsServiceDumpProto;
-import android.view.DisplayStateEnum;
+import android.service.procstats.ProcessStatsServiceDumpProto;
 
 import com.android.annotations.Nullable;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
@@ -33,16 +38,24 @@ import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.internal.os.StatsdConfigProto.TimeUnit;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
-import com.android.os.AtomsProto.ScreenStateChanged;
+import com.android.os.AtomsProto.ProcessStatsPackageProto;
+import com.android.os.AtomsProto.ProcessStatsProto;
+import com.android.os.AtomsProto.ProcessStatsStateProto;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
+import com.android.os.StatsLog.DurationMetricData;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.os.StatsLog.GaugeMetricData;
+import com.android.os.StatsLog.CountMetricData;
 import com.android.os.StatsLog.StatsLogReport;
+import com.android.os.StatsLog.ValueMetricData;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 
 import com.google.common.io.Files;
+import com.google.protobuf.ByteString;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -54,24 +67,42 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import perfetto.protos.PerfettoConfig.DataSourceConfig;
-import perfetto.protos.PerfettoConfig.TraceConfig;
-import perfetto.protos.PerfettoConfig.TraceConfig.BufferConfig;
-import perfetto.protos.PerfettoConfig.TraceConfig.DataSource;
-
 /**
  * Base class for testing Statsd atoms.
  * Validates reporting of statsd logging based on different events
  */
 public class AtomTestCase extends BaseTestCase {
 
+    /**
+     * Run tests that are optional; they are not valid CTS tests per se, since not all devices can
+     * be expected to pass them, but can be run, if desired, to ensure they work when appropriate.
+     */
+    public static final boolean OPTIONAL_TESTS_ENABLED = false;
+
     public static final String UPDATE_CONFIG_CMD = "cmd stats config update";
     public static final String DUMP_REPORT_CMD = "cmd stats dump-report";
+    public static final String DUMP_BATTERY_CMD = "dumpsys battery";
     public static final String DUMP_BATTERYSTATS_CMD = "dumpsys batterystats";
+    public static final String DUMPSYS_STATS_CMD = "dumpsys stats";
+    public static final String DUMP_PROCSTATS_CMD = "dumpsys procstats";
     public static final String REMOVE_CONFIG_CMD = "cmd stats config remove";
-    public static final String CONFIG_UID = "1000";
     /** ID of the config, which evaluates to -1572883457. */
     public static final long CONFIG_ID = "cts_config".hashCode();
+
+    public static final String FEATURE_AUDIO_OUTPUT = "android.hardware.audio.output";
+    public static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
+    public static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
+    public static final String FEATURE_BLUETOOTH_LE = "android.hardware.bluetooth_le";
+    public static final String FEATURE_CAMERA = "android.hardware.camera";
+    public static final String FEATURE_CAMERA_FLASH = "android.hardware.camera.flash";
+    public static final String FEATURE_CAMERA_FRONT = "android.hardware.camera.front";
+    public static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
+    public static final String FEATURE_LOCATION_GPS = "android.hardware.location.gps";
+    public static final String FEATURE_PC = "android.hardware.type.pc";
+    public static final String FEATURE_PICTURE_IN_PICTURE = "android.software.picture_in_picture";
+    public static final String FEATURE_TELEPHONY = "android.hardware.telephony";
+    public static final String FEATURE_WATCH = "android.hardware.type.watch";
+    public static final String FEATURE_WIFI = "android.hardware.wifi";
 
     protected static final int WAIT_TIME_SHORT = 500;
     protected static final int WAIT_TIME_LONG = 2_000;
@@ -86,11 +117,6 @@ public class AtomTestCase extends BaseTestCase {
         if (statsdDisabled()) {
             return;
         }
-        // TODO: need to do these before running real test:
-        // 1. compile statsd and push to device
-        // 2. make sure StatsCompanionService and incidentd is running
-        // 3. start statsd
-        // These should go away once we have statsd properly set up.
 
         // Uninstall to clear the history in case it's still on the device.
         removeConfig(CONFIG_ID);
@@ -100,6 +126,7 @@ public class AtomTestCase extends BaseTestCase {
     @Override
     protected void tearDown() throws Exception {
         removeConfig(CONFIG_ID);
+        getDevice().uninstallPackage(DEVICE_SIDE_TEST_PACKAGE);
         super.tearDown();
     }
 
@@ -116,24 +143,64 @@ public class AtomTestCase extends BaseTestCase {
         return log.contains(INCIDENTD_STARTED_STRING);
     }
 
+    protected boolean checkDeviceFor(String methodName) throws Exception {
+        try {
+            installPackage(DEVICE_SIDE_TEST_APK, true);
+            runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".Checkers", methodName);
+            // Test passes, meaning that the answer is true.
+            LogUtil.CLog.d(methodName + "() indicates true.");
+            return true;
+        } catch (AssertionError e) {
+            // Method is designed to fail if the answer is false.
+            LogUtil.CLog.d(methodName + "() indicates false.");
+            return false;
+        }
+    }
+
     /**
-     * Determines whether logcat indicates that perfetto fired since the given device date.
+     * Returns a protobuf-encoded perfetto config that enables the kernel
+     * ftrace tracer with sched_switch for 10 seconds.
+     * See https://android.googlesource.com/platform/external/perfetto/+/master/docs/trace-config.md
+     * for details on how to generate this.
      */
-    protected boolean didPerfettoStartSince(String date) throws Exception {
-        final String PERFETTO_TAG = "perfetto";
-        final String PERFETTO_STARTED_STRING = "Enabled tracing";
-        final String PERFETTO_STARTED_REGEX = ".*" + PERFETTO_STARTED_STRING + ".*";
-        // TODO: Do something more robust than this in case of delayed logging.
-        Thread.sleep(1000);
-        String log = getLogcatSince(date, String.format(
-                "-s %s -e %s", PERFETTO_TAG, PERFETTO_STARTED_REGEX));
-        return log.contains(PERFETTO_STARTED_STRING);
+    protected ByteString getPerfettoConfig() {
+        return ByteString.copyFrom(new byte[] { 0xa, 0x3, 0x8, (byte) 0x80, 0x1, 0x12, 0x23, 0xa,
+                        0x21, 0xa, 0xc, 0x6c, 0x69, 0x6e, 0x75, 0x78, 0x2e, 0x66, 0x74, 0x72, 0x61,
+                        0x63, 0x65, 0x10, 0x0, (byte) 0xa2, 0x6, 0xe, 0xa, 0xc, 0x73, 0x63, 0x68,
+                        0x65, 0x64, 0x5f, 0x73, 0x77, 0x69, 0x74, 0x63, 0x68, 0x18, (byte) 0x90,
+                        0x4e, (byte) 0x98, 0x01, 0x01 });
+    }
+
+    /**
+     * Resets the state of the Perfetto guardrails. This avoids that the test fails if it's
+     * run too close of for too many times and hits the upload limit.
+     */
+    protected void resetPerfettoGuardrails() throws Exception {
+        final String cmd = "perfetto --reset-guardrails";
+        CommandResult cr = getDevice().executeShellV2Command(cmd);
+        if (cr.getStatus() != CommandStatus.SUCCESS)
+            throw new Exception(String.format("Error while executing %s: %s %s", cmd, cr.getStdout(), cr.getStderr()));
+    }
+
+    /**
+     * Determines whether perfetto enabled the kernel ftrace tracer.
+     */
+    protected boolean isSystemTracingEnabled() throws Exception {
+        final String path = "/sys/kernel/debug/tracing/tracing_on";
+        String tracing_on = getDevice().executeShellCommand("cat " + path);
+        if (tracing_on.startsWith("0"))
+            return false;
+        if (tracing_on.startsWith("1"))
+            return true;
+        throw new Exception(String.format("Unexpected state for %s = %s", path, tracing_on));
     }
 
     protected static StatsdConfig.Builder createConfigBuilder() {
         return StatsdConfig.newBuilder().setId(CONFIG_ID)
                 .addAllowedLogSource("AID_SYSTEM")
                 .addAllowedLogSource("AID_BLUETOOTH")
+                // TODO(b/134091167): Fix bluetooth source name issue in Auto platform.
+                .addAllowedLogSource("com.android.bluetooth")
                 .addAllowedLogSource(DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE);
     }
 
@@ -168,6 +235,15 @@ public class AtomTestCase extends BaseTestCase {
     /** Gets the statsd report and sorts it. Note that this also deletes that report from statsd. */
     protected List<EventMetricData> getEventMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
+        return getEventMetricDataList(reportList);
+    }
+
+    /**
+     * Extracts and sorts the EventMetricData from the given ConfigMetricsReportList (which must
+     * contain a single report).
+     */
+    protected List<EventMetricData> getEventMetricDataList(ConfigMetricsReportList reportList)
+            throws Exception {
         assertTrue("Expected one report", reportList.getReportsCount() == 1);
         ConfigMetricsReport report = reportList.getReports(0);
 
@@ -186,13 +262,15 @@ public class AtomTestCase extends BaseTestCase {
 
     protected List<Atom> getGaugeMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue(reportList.getReportsCount() == 1);
+        assertTrue("Expected one report.", reportList.getReportsCount() == 1);
         // only config
         ConfigMetricsReport report = reportList.getReports(0);
+        assertEquals("Expected one metric in the report.", 1, report.getMetricsCount());
 
         List<Atom> data = new ArrayList<>();
         for (GaugeMetricData gaugeMetricData :
                 report.getMetrics(0).getGaugeMetrics().getDataList()) {
+            assertTrue("Expected one bucket.", gaugeMetricData.getBucketInfoCount() == 1);
             for (Atom atom : gaugeMetricData.getBucketInfo(0).getAtomList()) {
                 data.add(atom);
             }
@@ -205,13 +283,80 @@ public class AtomTestCase extends BaseTestCase {
         return data;
     }
 
-    protected StatsLogReport getStatsLogReport() throws Exception {
+    /**
+     * Gets the statsd report and extract duration metric data.
+     * Note that this also deletes that report from statsd.
+     */
+    protected List<DurationMetricData> getDurationMetricDataList() throws Exception {
         ConfigMetricsReportList reportList = getReportList();
-        assertTrue(reportList.getReportsCount() == 1);
+        assertTrue("Expected one report", reportList.getReportsCount() == 1);
         ConfigMetricsReport report = reportList.getReports(0);
+
+        List<DurationMetricData> data = new ArrayList<>();
+        for (StatsLogReport metric : report.getMetricsList()) {
+            data.addAll(metric.getDurationMetrics().getDataList());
+        }
+
+        LogUtil.CLog.d("Got DurationMetricDataList as following:\n");
+        for (DurationMetricData d : data) {
+            LogUtil.CLog.d("Duration " + d);
+        }
+        return data;
+    }
+
+    /**
+     * Gets the statsd report and extract count metric data.
+     * Note that this also deletes that report from statsd.
+     */
+    protected List<CountMetricData> getCountMetricDataList() throws Exception {
+        ConfigMetricsReportList reportList = getReportList();
+        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        ConfigMetricsReport report = reportList.getReports(0);
+
+        List<CountMetricData> data = new ArrayList<>();
+        for (StatsLogReport metric : report.getMetricsList()) {
+            data.addAll(metric.getCountMetrics().getDataList());
+        }
+
+        LogUtil.CLog.d("Got CountMetricDataList as following:\n");
+        for (CountMetricData d : data) {
+            LogUtil.CLog.d("Count " + d);
+        }
+        return data;
+    }
+
+    /**
+     * Gets the statsd report and extract value metric data.
+     * Note that this also deletes that report from statsd.
+     */
+    protected List<ValueMetricData> getValueMetricDataList() throws Exception {
+        ConfigMetricsReportList reportList = getReportList();
+        assertTrue("Expected one report", reportList.getReportsCount() == 1);
+        ConfigMetricsReport report = reportList.getReports(0);
+
+        List<ValueMetricData> data = new ArrayList<>();
+        for (StatsLogReport metric : report.getMetricsList()) {
+            data.addAll(metric.getValueMetrics().getDataList());
+        }
+
+        LogUtil.CLog.d("Got ValueMetricDataList as following:\n");
+        for (ValueMetricData d : data) {
+            LogUtil.CLog.d("Value " + d);
+        }
+        return data;
+    }
+
+    protected StatsLogReport getStatsLogReport() throws Exception {
+        ConfigMetricsReport report = getConfigMetricsReport();
         assertTrue(report.hasUidMap());
         assertEquals(1, report.getMetricsCount());
         return report.getMetrics(0);
+    }
+
+    protected ConfigMetricsReport getConfigMetricsReport() throws Exception {
+        ConfigMetricsReportList reportList = getReportList();
+        assertEquals(1, reportList.getReportsCount());
+        return reportList.getReports(0);
     }
 
     /** Gets the statsd report. Note that this also deletes that report from statsd. */
@@ -219,12 +364,12 @@ public class AtomTestCase extends BaseTestCase {
         try {
             ConfigMetricsReportList reportList = getDump(ConfigMetricsReportList.parser(),
                     String.join(" ", DUMP_REPORT_CMD, String.valueOf(CONFIG_ID),
-                            "--proto"));
+                            "--include_current_bucket", "--proto"));
             return reportList;
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
             LogUtil.CLog.e("Failed to fetch and parse the statsd output report. "
                     + "Perhaps there is not a valid statsd config for the requested "
-                    + "uid=" + CONFIG_UID + ", id=" + CONFIG_ID + ".");
+                    + "uid=" + getHostUid() + ", id=" + CONFIG_ID + ".");
             throw (e);
         }
     }
@@ -242,22 +387,94 @@ public class AtomTestCase extends BaseTestCase {
         }
     }
 
+    /** Gets reports from the statsd data incident section from the stats dumpsys. */
+    protected List<ConfigMetricsReportList> getReportsFromStatsDataDumpProto() throws Exception {
+        try {
+            StatsDataDumpProto statsProto = getDump(StatsDataDumpProto.parser(),
+                    String.join(" ", DUMPSYS_STATS_CMD, "--proto"));
+            // statsProto holds repeated bytes, which we must parse into ConfigMetricsReportLists.
+            List<ConfigMetricsReportList> reports
+                    = new ArrayList<>(statsProto.getConfigMetricsReportListCount());
+            for (ByteString reportListBytes : statsProto.getConfigMetricsReportListList()) {
+                reports.add(ConfigMetricsReportList.parseFrom(reportListBytes));
+            }
+            LogUtil.CLog.d("Got dumpsys stats output:\n " + reports.toString());
+            return reports;
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            LogUtil.CLog.e("Failed to dumpsys stats proto");
+            throw (e);
+        }
+    }
+
+    protected List<ProcessStatsProto> getProcStatsProto() throws Exception {
+        try {
+
+            List<ProcessStatsProto> processStatsProtoList =
+                new ArrayList<ProcessStatsProto>();
+            android.service.procstats.ProcessStatsSectionProto sectionProto = getDump(
+                    ProcessStatsServiceDumpProto.parser(),
+                    String.join(" ", DUMP_PROCSTATS_CMD,
+                            "--proto")).getProcstatsNow();
+            for (android.service.procstats.ProcessStatsProto stats :
+                    sectionProto.getProcessStatsList()) {
+                ProcessStatsProto procStats = ProcessStatsProto.parser().parseFrom(
+                    stats.toByteArray());
+                processStatsProtoList.add(procStats);
+            }
+            LogUtil.CLog.d("Got procstats:\n ");
+            for (ProcessStatsProto processStatsProto : processStatsProtoList) {
+                LogUtil.CLog.d(processStatsProto.toString());
+            }
+            return processStatsProtoList;
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            LogUtil.CLog.e("Failed to dump procstats proto");
+            throw (e);
+        }
+    }
+
+    /*
+     * Get all procstats package data in proto
+     */
+    protected List<ProcessStatsPackageProto> getAllProcStatsProto() throws Exception {
+        try {
+            android.service.procstats.ProcessStatsSectionProto sectionProto = getDump(
+                    ProcessStatsServiceDumpProto.parser(),
+                    String.join(" ", DUMP_PROCSTATS_CMD,
+                            "--proto")).getProcstatsOver24Hrs();
+            List<ProcessStatsPackageProto> processStatsProtoList =
+                new ArrayList<ProcessStatsPackageProto>();
+            for (android.service.procstats.ProcessStatsPackageProto pkgStast :
+                sectionProto.getPackageStatsList()) {
+              ProcessStatsPackageProto pkgAtom =
+                  ProcessStatsPackageProto.parser().parseFrom(pkgStast.toByteArray());
+                processStatsProtoList.add(pkgAtom);
+            }
+            LogUtil.CLog.d("Got procstats:\n ");
+            for (ProcessStatsPackageProto processStatsProto : processStatsProtoList) {
+                LogUtil.CLog.d(processStatsProto.toString());
+            }
+            return processStatsProtoList;
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            LogUtil.CLog.e("Failed to dump procstats proto");
+            throw (e);
+        }
+    }
+
+    protected boolean hasBattery() throws Exception {
+        try {
+            BatteryServiceDumpProto batteryProto = getDump(BatteryServiceDumpProto.parser(),
+                    String.join(" ", DUMP_BATTERY_CMD, "--proto"));
+            LogUtil.CLog.d("Got battery service dump:\n " + batteryProto.toString());
+            return batteryProto.getIsPresent();
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            LogUtil.CLog.e("Failed to dump batteryservice proto");
+            throw (e);
+        }
+    }
+
     /** Creates a FieldValueMatcher.Builder corresponding to the given field. */
     protected static FieldValueMatcher.Builder createFvm(int field) {
         return FieldValueMatcher.newBuilder().setField(field);
-    }
-
-    protected static TraceConfig createPerfettoTraceConfig() {
-        return TraceConfig.newBuilder()
-            .addBuffers(BufferConfig.newBuilder().setSizeKb(32))
-            .addDataSources(DataSource.newBuilder()
-                .setConfig(DataSourceConfig.newBuilder()
-                    .setName("linux.ftrace")
-                    .setTargetBuffer(0)
-                    .build()
-                )
-            )
-            .build();
     }
 
     protected void addAtomEvent(StatsdConfig.Builder conf, int atomTag) throws Exception {
@@ -307,29 +524,28 @@ public class AtomTestCase extends BaseTestCase {
     /**
      * Adds an atom to a gauge metric of a config
      *
-     * @param conf      configuration
-     * @param atomId    atom id (from atoms.proto)
-     * @param dimension dimension is needed for most pulled atoms
+     * @param conf        configuration
+     * @param atomId      atom id (from atoms.proto)
+     * @param gaugeMetric the gauge metric to add
      */
     protected void addGaugeAtom(StatsdConfig.Builder conf, int atomId,
-            @Nullable FieldMatcher.Builder dimension) throws Exception {
+            GaugeMetric.Builder gaugeMetric) throws Exception {
         final String atomName = "Atom" + System.nanoTime();
         final String gaugeName = "Gauge" + System.nanoTime();
-        final String predicateName = "SCREEN_IS_ON";
+        final String predicateName = "APP_BREADCRUMB";
         SimpleAtomMatcher.Builder sam = SimpleAtomMatcher.newBuilder().setAtomId(atomId);
         conf.addAtomMatcher(AtomMatcher.newBuilder()
                 .setId(atomName.hashCode())
                 .setSimpleAtomMatcher(sam));
-        // TODO: change this predicate to something simpler and easier
-        final String predicateTrueName = "SCREEN_TURNED_ON";
-        final String predicateFalseName = "SCREEN_TURNED_OFF";
+        final String predicateTrueName = "APP_BREADCRUMB_1";
+        final String predicateFalseName = "APP_BREADCRUMB_2";
         conf.addAtomMatcher(AtomMatcher.newBuilder()
                 .setId(predicateTrueName.hashCode())
                 .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                        .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                        .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
                         .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                                .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                                .setEqInt(DisplayStateEnum.DISPLAY_STATE_ON_VALUE)
+                                .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER)
+                                .setEqInt(1)
                         )
                 )
         )
@@ -337,10 +553,10 @@ public class AtomTestCase extends BaseTestCase {
                 .addAtomMatcher(AtomMatcher.newBuilder()
                         .setId(predicateFalseName.hashCode())
                         .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
-                                .setAtomId(Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER)
+                                .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
                                 .addFieldValueMatcher(FieldValueMatcher.newBuilder()
-                                        .setField(ScreenStateChanged.STATE_FIELD_NUMBER)
-                                        .setEqInt(DisplayStateEnum.DISPLAY_STATE_OFF_VALUE)
+                                        .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER)
+                                        .setEqInt(2)
                                 )
                         )
                 );
@@ -352,17 +568,31 @@ public class AtomTestCase extends BaseTestCase {
                         .setCountNesting(false)
                 )
         );
-        GaugeMetric.Builder gaugeMetric = GaugeMetric.newBuilder()
+        gaugeMetric
                 .setId(gaugeName.hashCode())
                 .setWhat(atomName.hashCode())
-                .setGaugeFieldsFilter(FieldFilter.newBuilder().setIncludeAll(true).build())
-                .setSamplingType(GaugeMetric.SamplingType.ALL_CONDITION_CHANGES)
-                .setBucket(TimeUnit.CTS)
                 .setCondition(predicateName.hashCode());
+        conf.addGaugeMetric(gaugeMetric.build());
+    }
+
+    /**
+     * Adds an atom to a gauge metric of a config
+     *
+     * @param conf      configuration
+     * @param atomId    atom id (from atoms.proto)
+     * @param dimension dimension is needed for most pulled atoms
+     */
+    protected void addGaugeAtomWithDimensions(StatsdConfig.Builder conf, int atomId,
+            @Nullable FieldMatcher.Builder dimension) throws Exception {
+        GaugeMetric.Builder gaugeMetric = GaugeMetric.newBuilder()
+                .setGaugeFieldsFilter(FieldFilter.newBuilder().setIncludeAll(true).build())
+                .setSamplingType(GaugeMetric.SamplingType.CONDITION_CHANGE_TO_TRUE)
+                .setMaxNumGaugeAtomsPerBucket(10000)
+                .setBucket(TimeUnit.CTS);
         if (dimension != null) {
             gaugeMetric.setDimensionsInWhat(dimension.build());
         }
-        conf.addGaugeMetric(gaugeMetric.build());
+        addGaugeAtom(conf, atomId, gaugeMetric);
     }
 
     /**
@@ -478,6 +708,10 @@ public class AtomTestCase extends BaseTestCase {
         }
     }
 
+    protected String getProperty(String prop) throws Exception {
+        return getDevice().executeShellCommand("getprop " + prop).replace("\n", "");
+    }
+
     protected void turnScreenOn() throws Exception {
         getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
         getDevice().executeShellCommand("wm dismiss-keyguard");
@@ -492,6 +726,14 @@ public class AtomTestCase extends BaseTestCase {
     }
 
     protected void unplugDevice() throws Exception {
+        // On batteryless devices on Android P or above, the 'unplug' command
+        // alone does not simulate the really unplugged state.
+        //
+        // This is because charging state is left as "unknown". Unless a valid
+        // state like 3 = BatteryManager.BATTERY_STATUS_DISCHARGING is set,
+        // framework does not consider the device as running on battery.
+        setChargingState(3);
+
         getDevice().executeShellCommand("cmd battery unplug");
     }
 
@@ -507,12 +749,62 @@ public class AtomTestCase extends BaseTestCase {
         getDevice().executeShellCommand("cmd battery set wireless 1");
     }
 
+    protected void enableLooperStats() throws Exception {
+        getDevice().executeShellCommand("cmd looper_stats enable");
+    }
+
+    protected void resetLooperStats() throws Exception {
+        getDevice().executeShellCommand("cmd looper_stats reset");
+    }
+
+    protected void disableLooperStats() throws Exception {
+        getDevice().executeShellCommand("cmd looper_stats disable");
+    }
+
+    protected void enableBinderStats() throws Exception {
+        getDevice().executeShellCommand("dumpsys binder_calls_stats --enable");
+    }
+
+    protected void resetBinderStats() throws Exception {
+        getDevice().executeShellCommand("dumpsys binder_calls_stats --reset");
+    }
+
+    protected void disableBinderStats() throws Exception {
+        getDevice().executeShellCommand("dumpsys binder_calls_stats --disable");
+    }
+
+    protected void binderStatsNoSampling() throws Exception {
+        getDevice().executeShellCommand("dumpsys binder_calls_stats --no-sampling");
+    }
+
+    protected void setUpLooperStats() throws Exception {
+        getDevice().executeShellCommand("cmd looper_stats enable");
+        getDevice().executeShellCommand("cmd looper_stats sampling_interval 1");
+        getDevice().executeShellCommand("cmd looper_stats reset");
+    }
+
+    protected void cleanUpLooperStats() throws Exception {
+        getDevice().executeShellCommand("cmd looper_stats disable");
+    }
+
+    public void setAppBreadcrumbPredicate() throws Exception {
+        doAppBreadcrumbReportedStart(1);
+    }
+
+    public void clearAppBreadcrumbPredicate() throws Exception {
+        doAppBreadcrumbReportedStart(2);
+    }
+
     public void doAppBreadcrumbReportedStart(int label) throws Exception {
         doAppBreadcrumbReported(label, AppBreadcrumbReported.State.START.ordinal());
     }
 
     public void doAppBreadcrumbReportedStop(int label) throws Exception {
         doAppBreadcrumbReported(label, AppBreadcrumbReported.State.STOP.ordinal());
+    }
+
+    public void doAppBreadcrumbReported(int label) throws Exception {
+        doAppBreadcrumbReported(label, AppBreadcrumbReported.State.UNSPECIFIED.ordinal());
     }
 
     public void doAppBreadcrumbReported(int label, int state) throws Exception {
@@ -535,6 +827,16 @@ public class AtomTestCase extends BaseTestCase {
 
     protected void setScreenBrightness(int brightness) throws Exception {
         getDevice().executeShellCommand("settings put system screen_brightness " + brightness);
+    }
+
+    // Gets whether "Always on Display" setting is enabled.
+    // In rare cases, this is different from whether the device can enter SCREEN_STATE_DOZE.
+    protected String getAodState() throws Exception {
+        return getDevice().executeShellCommand("settings get secure doze_always_on");
+    }
+
+    protected void setAodState(String state) throws Exception {
+        getDevice().executeShellCommand("settings put secure doze_always_on " + state);
     }
 
     protected boolean isScreenBrightnessModeManual() throws Exception {
@@ -562,7 +864,7 @@ public class AtomTestCase extends BaseTestCase {
     }
 
     protected void turnBatterySaverOn() throws Exception {
-        getDevice().executeShellCommand("cmd battery unplug");
+        unplugDevice();
         getDevice().executeShellCommand("settings put global low_power 1");
     }
 
@@ -626,4 +928,18 @@ public class AtomTestCase extends BaseTestCase {
         return hasIt == requiredAnswer;
     }
 
+    /**
+     * Determines if the device has |file|.
+     */
+    protected boolean doesFileExist(String file) throws Exception {
+        return getDevice().doesFileExist(file);
+    }
+
+    protected void turnOnAirplaneMode() throws Exception {
+        getDevice().executeShellCommand("cmd connectivity airplane-mode enable");
+    }
+
+    protected void turnOffAirplaneMode() throws Exception {
+        getDevice().executeShellCommand("cmd connectivity airplane-mode disable");
+    }
 }

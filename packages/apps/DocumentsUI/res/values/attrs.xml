@@ -14,11 +14,21 @@
      limitations under the License.
 -->
 <resources>
-    <declare-styleable name="HighlightedItemView">
-        <attr name="state_highlighted" format="boolean"/>
-    </declare-styleable>
+
     <declare-styleable name="DropBadgeView">
         <attr name="state_reject_drop" format="boolean"/>
         <attr name="state_copy" format="boolean"/>
     </declare-styleable>
+
+    <declare-styleable name="GridItem">
+        <attr name="gridItemTint" format="reference" />
+        <attr name="gridItemColor" format="reference" />
+        <attr name="gridItemSelectedColor" format="reference" />
+        <attr name="gridItemDisableColor" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="HighlightedItemView">
+        <attr name="state_highlighted" format="boolean"/>
+    </declare-styleable>
+
 </resources>

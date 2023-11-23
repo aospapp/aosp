@@ -396,6 +396,44 @@ TC_SEC_AUT_BV_24_C
   Note: PTS LIES, send GATT_SUCCESS
   gatts_send_response GATT_SUCCESS
 
+TC_SEC_SEM_BV_04
+  Note: Set PSM value to 0003 in IXIT
+  config_set_nonbond
+  bta_set_scan_mode connectable_discoverable
+
+TC_SEC_SEM_BV_05
+  Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+  bta_bond
+  bta_disable
+
+TC_SEC_SEM_BV_06
+Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+  bta_bond
+  bta_disable
+
+TC_SEC_SEM_BV_07
+  Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+  bta_bond
+  bta_disable
+
+TC_SEC_SEM_BV_08
+  Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+  bta_bond
+  bta_disable
+
+TC_SEC_SEM_BV_09
+  Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+
+TC_SEC_SEM_BV_10
+  Note: Set PSM value to 0001 in IXIT
+  config_set_nonbond
+  bta_set_scan_mode connectable_discoverable
+
 TC_ADV_BV_02_C
   ble_adv_data_include_local_name true
   ble_start_generic_connectable_advertisement

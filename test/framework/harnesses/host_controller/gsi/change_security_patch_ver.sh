@@ -37,7 +37,12 @@ function unmount() {
 }
 
 SCRIPT_NAME=$(basename $0)
-SUPPORTED_VENDOR_VERSIONS="8.1.0"
+
+declare -a SUPPORTED_VENDOR_VERSIONS=(
+  8.1.0
+  9
+)
+SUPPORTED_VENDOR_VERSIONS="${SUPPORTED_VENDOR_VERSIONS[@]}"
 
 param_count=0
 while [[ $# -gt 0 ]]
@@ -97,29 +102,59 @@ if [ "$VENDOR_VERSION" != "" ] && [ "$OUTPUT_SYSTEM_IMG" == "" ]; then
   exit 1
 fi
 
-# First, check whether environment is set by lunch.
-if [ -d "${ANDROID_HOST_OUT}" ]; then
-  BIN_PATH="${ANDROID_HOST_OUT}/bin"
+REQUIRED_BINARIES_LIST=(
+  "img2simg"
+  "simg2img"
+)
+if [ ! -z "${FILE_CONTEXTS_BIN}" ]; then
+  REQUIRED_BINARIES_LIST+=("mkuserimg_mke2fs")
 fi
 
-# If BIN_PATH is not a directory, or cannot find simg2img binary then
-# try to get bin path from the current location.
-if [ ! -d "${BIN_PATH}" ] || [ ! -f "${BIN_PATH}/simg2img" ]; then
-  BASE="${PWD##*/}"
-  if [ "${BASE}" == "testcases" ]; then
-    # If shell is executed through 'run', its base path is "testcases"
-    BIN_PATH="${PWD}/host/bin"
-  elif [ "${BASE}" == "gsi" ]; then
-    # If current path is "gsi" then we assume current path is
-    # testcases/host_controller/gsi
-    BIN_PATH="${PWD}/../../host/bin"
+# number of binaries to find.
+BIN_COUNT=${#REQUIRED_BINARIES_LIST[@]}
+
+# use an associative array to store binary path
+declare -A BIN_PATH
+for bin in ${REQUIRED_BINARIES_LIST[@]}; do
+  BIN_PATH[${bin}]=""
+done
+
+# check current PATH environment first
+for bin in ${REQUIRED_BINARIES_LIST[@]}; do
+  if command -v ${bin} >/dev/null 2>&1; then
+    echo "found ${bin} in PATH."
+    BIN_PATH[${bin}]=${bin}
+    ((BIN_COUNT--))
   fi
+done
+
+if [ ${BIN_COUNT} -gt 0 ]; then
+  # listed in the recommended order.
+  PATH_LIST=("${PWD}")
+  if [ "${PWD##*/}" == "testcases" ] && [ -d "${PWD}/../bin" ]; then
+    PATH_LIST+=("${PWD}/../bin")
+  fi
+  if [ -d "${ANDROID_HOST_OUT}" ]; then
+    PATH_LIST+=("${ANDROID_HOST_OUT}/bin")
+  fi
+
+  for dir in ${PATH_LIST[@]}; do
+    for bin in ${REQUIRED_BINARIES_LIST[@]}; do
+      if [ -z "${BIN_PATH[${bin}]}" ] && [ -f "${dir}/${bin}" ]; then
+        echo "found ${bin} in ${dir}."
+        BIN_PATH[${bin}]=${dir}/${bin}
+        ((BIN_COUNT--))
+        if [ ${BIN_COUNT} -eq 0 ]; then break; fi
+      fi
+    done
+  done
 fi
 
-if [ ! -d "${BIN_PATH}" ] || [ ! -f "${BIN_PATH}/simg2img" ]; then
-  echo "Cannot find the required binaries. Need lunch; or run in a correct path"
+if [ ${BIN_COUNT} -gt 0 ]; then
+  echo "Cannot find the required binaries. Need lunch; or run in a correct path."
   exit 1
 fi
+echo "Found all binaries."
 
 MOUNT_POINT="${PWD}/temp_mnt"
 SPL_PROPERTY_NAME="ro.build.version.security_patch"
@@ -131,7 +166,7 @@ UNSPARSED_SYSTEM_IMG="${SYSTEM_IMG}.raw"
 SYSTEM_IMG_MAGIC="$(xxd -g 4 -l 4 "$SYSTEM_IMG" | head -n1 | awk '{print $2}')"
 if [ "$SYSTEM_IMG_MAGIC" = "3aff26ed" ]; then
   echo "Unsparsing ${SYSTEM_IMG}..."
-  $BIN_PATH/simg2img "$SYSTEM_IMG" "$UNSPARSED_SYSTEM_IMG"
+  ${BIN_PATH["simg2img"]} "$SYSTEM_IMG" "$UNSPARSED_SYSTEM_IMG"
 else
   echo "Copying unsparse input system image ${SYSTEM_IMG}..."
   cp "$SYSTEM_IMG" "$UNSPARSED_SYSTEM_IMG"
@@ -150,7 +185,6 @@ BUILD_PROP_PATH_LIST=(
 )
 BUILD_PROP_MOUNT_PATH=""
 BUILD_PROP_PATH=""
-PROP_DEFAULT_PATH="/system/etc/prop.default"
 
 echo "Finding build.prop..."
 for path in ${BUILD_PROP_PATH_LIST[@]}; do
@@ -161,6 +195,11 @@ for path in ${BUILD_PROP_PATH_LIST[@]}; do
     break
   fi
 done
+
+PROP_DEFAULT_PATH_LIST=(
+  "/system/etc/prop.default"  # layout of A/B support
+  "/etc/prop.default"         # layout of non-A/B support
+)
 
 if [ "$BUILD_PROP_MOUNT_PATH" != "" ]; then
   if [ "$OUTPUT_SYSTEM_IMG" != "" ]; then
@@ -194,7 +233,16 @@ if [ "$BUILD_PROP_MOUNT_PATH" != "" ]; then
 
     if [[ "$VENDOR_VERSION" == "8.1.0" ]]; then
       # add ro.vndk.version for O-MR1
-      if [ -f "${MOUNT_POINT}${PROP_DEFAULT_PATH}" ]; then
+      echo "Finding prop.default..."
+      for path in ${PROP_DEFAULT_PATH_LIST[@]}; do
+        if [ -f "${MOUNT_POINT}${path}" ]; then
+          PROP_DEFAULT_PATH=${path}
+          echo "  ${path}"
+          break
+        fi
+      done
+
+      if [[ "$PROP_DEFAULT_PATH" != "" ]]; then
         CURRENT_VNDK_VERSION=`sudo sed -n -r "s/^${VNDK_VERSION_PROPERTY}=(.*)$/\1/p" ${MOUNT_POINT}${PROP_DEFAULT_PATH}`
         if [[ "$CURRENT_VNDK_VERSION" != "" ]]; then
           echo "WARNING: ${VNDK_VERSION_PROPERTY} is already set to ${CURRENT_VNDK_VERSION} in ${PROP_DEFAULT_PATH}"
@@ -203,7 +251,7 @@ if [ "$BUILD_PROP_MOUNT_PATH" != "" ]; then
           sudo sed -i -e "\$a\#\n\# FOR O-MR1 DEVICES\n\#\n${VNDK_VERSION_PROPERTY_OMR1}" ${MOUNT_POINT}${PROP_DEFAULT_PATH}
         fi
       else
-        echo "ERROR: Cannot find $(basename ${PROP_DEFAULT_PATH})"
+        echo "ERROR: Cannot find prop.default."
       fi
     fi
   fi
@@ -216,14 +264,14 @@ if [ "$OUTPUT_SYSTEM_IMG" != "" ]; then
     echo "Writing ${OUTPUT_SYSTEM_IMG}..."
 
     (cd $ANDROID_BUILD_TOP
-     if [[ "$(whereis mkuserimg_mke2fs.sh | wc -w)" < 2 ]]; then
-       make mkuserimg_mke2fs.sh -j
+     if [[ "$(whereis mkuserimg_mke2fs | wc -w)" < 2 ]]; then
+       make mkuserimg_mke2fs -j
      fi
      NON_AB=$(expr "$BUILD_PROP_PATH" == "/build.prop")
      if [ $NON_AB -eq 1 ]; then
-       sudo /bin/bash -c "PATH=out/host/linux-x86/bin/:\$PATH mkuserimg_mke2fs.sh -s ${MOUNT_POINT} $OUTPUT_SYSTEM_IMG ext4 system $IMG_SIZE -D ${MOUNT_POINT} -L system $FILE_CONTEXTS_BIN"
+       sudo /bin/bash -c "PATH=out/host/linux-x86/bin/:\$PATH mkuserimg_mke2fs -s ${MOUNT_POINT} $OUTPUT_SYSTEM_IMG ext4 system $IMG_SIZE -D ${MOUNT_POINT} -L system $FILE_CONTEXTS_BIN"
      else
-       sudo /bin/bash -c "PATH=out/host/linux-x86/bin/:\$PATH mkuserimg_mke2fs.sh -s ${MOUNT_POINT} $OUTPUT_SYSTEM_IMG ext4 / $IMG_SIZE -D ${MOUNT_POINT}/system -L / $FILE_CONTEXTS_BIN"
+       sudo /bin/bash -c "PATH=out/host/linux-x86/bin/:\$PATH mkuserimg_mke2fs -s ${MOUNT_POINT} $OUTPUT_SYSTEM_IMG ext4 / $IMG_SIZE -D ${MOUNT_POINT}/system -L / $FILE_CONTEXTS_BIN"
      fi)
 
     unmount
@@ -231,7 +279,7 @@ if [ "$OUTPUT_SYSTEM_IMG" != "" ]; then
     unmount
 
     echo "Writing ${OUTPUT_SYSTEM_IMG}..."
-    $BIN_PATH/img2simg "$UNSPARSED_SYSTEM_IMG" "$OUTPUT_SYSTEM_IMG"
+    ${BIN_PATH["img2simg"]} "$UNSPARSED_SYSTEM_IMG" "$OUTPUT_SYSTEM_IMG"
   fi
 else
   unmount

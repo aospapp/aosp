@@ -43,13 +43,7 @@ public class SendChannelStatusRunnable implements Runnable {
         final SendChannelStatusRunnable sendChannelStatusRunnable =
                 new SendChannelStatusRunnable(channelDataManager, tracker);
 
-        Runnable onStopRunnable =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        sendChannelStatusRunnable.setDbLoadListener(null);
-                    }
-                };
+        Runnable onStopRunnable = () -> sendChannelStatusRunnable.setDbLoadListener(null);
         final RecurringRunner recurringRunner =
                 new RecurringRunner(
                         context,
@@ -70,14 +64,7 @@ public class SendChannelStatusRunnable implements Runnable {
                             // done
                             // via a post on the main thread
                             new Handler(Looper.getMainLooper())
-                                    .post(
-                                            new Runnable() {
-                                                @Override
-                                                public void run() {
-                                                    sendChannelStatusRunnable.setDbLoadListener(
-                                                            null);
-                                                }
-                                            });
+                                    .post(() -> sendChannelStatusRunnable.setDbLoadListener(null));
                             recurringRunner.start();
                         }
 

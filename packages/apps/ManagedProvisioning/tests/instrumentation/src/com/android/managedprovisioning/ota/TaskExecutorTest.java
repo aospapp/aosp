@@ -16,8 +16,11 @@
 
 package com.android.managedprovisioning.ota;
 
+import static org.mockito.Mockito.verify;
+
 import android.content.Context;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 
@@ -25,8 +28,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import static org.mockito.Mockito.verify;
 
 /**
  * Unit tests for {@link TaskExecutor}.

@@ -19,10 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -59,7 +57,6 @@ import java.util.Map;
 public class JarHostTestTest {
 
     private static final String TEST_JAR1 = "/testtype/testJar1.jar";
-    private static final String TEST_JAR2 = "/testtype/testJar2.jar";
     private JarHostTest mTest;
     private DeviceBuildInfo mStubBuildInfo;
     private File mTestDir = null;
@@ -169,69 +166,6 @@ public class JarHostTestTest {
         assertTrue(res.get(1) instanceof JarHostTest);
         assertEquals("[android.ui.cts.InstallTimeTest]",
                 ((JarHostTest)res.get(1)).getClassNames().toString());
-    }
-
-    /**
-     * Test that {@link JarHostTest#getTestShard(int, int)} can split classes coming from a jar.
-     */
-    @Test
-    public void testGetTestShard_withJar() throws Exception {
-        File testJar = getJarResource(TEST_JAR2, mTestDir);
-        mTest = new JarHostTestLoader(mTestDir, testJar);
-        mTest.setBuild(mStubBuildInfo);
-        ITestDevice device = EasyMock.createNiceMock(ITestDevice.class);
-        mTest.setDevice(device);
-        OptionSetter setter = new OptionSetter(mTest);
-        setter.setOptionValue("enable-pretty-logs", "false");
-        setter.setOptionValue("jar", testJar.getName());
-        // full class count without sharding
-        assertEquals(238, mTest.countTestCases());
-
-        // only one shard
-        IRemoteTest oneShard = mTest.getTestShard(1, 0);
-        assertTrue(oneShard instanceof JarHostTest);
-        ((JarHostTest)oneShard).setBuild(new BuildInfo());
-        ((JarHostTest)oneShard).setDevice(device);
-        assertEquals(238, ((JarHostTest)oneShard).countTestCases());
-
-        // 5 shards total the number of tests.
-        int total = 0;
-        IRemoteTest shard1 = mTest.getTestShard(5, 0);
-        assertTrue(shard1 instanceof JarHostTest);
-        ((JarHostTest)shard1).setBuild(new BuildInfo());
-        ((JarHostTest)shard1).setDevice(device);
-        assertEquals(58, ((JarHostTest)shard1).countTestCases());
-        total += ((JarHostTest)shard1).countTestCases();
-
-        IRemoteTest shard2 = mTest.getTestShard(5, 1);
-        assertTrue(shard2 instanceof JarHostTest);
-        ((JarHostTest)shard2).setBuild(new BuildInfo());
-        ((JarHostTest)shard2).setDevice(device);
-        assertEquals(60, ((JarHostTest)shard2).countTestCases());
-        total += ((JarHostTest)shard2).countTestCases();
-
-        IRemoteTest shard3 = mTest.getTestShard(5, 2);
-        assertTrue(shard3 instanceof JarHostTest);
-        ((JarHostTest)shard3).setBuild(new BuildInfo());
-        ((JarHostTest)shard3).setDevice(device);
-        assertEquals(60, ((JarHostTest)shard3).countTestCases());
-        total += ((JarHostTest)shard3).countTestCases();
-
-        IRemoteTest shard4 = mTest.getTestShard(5, 3);
-        assertTrue(shard4 instanceof JarHostTest);
-        ((JarHostTest)shard4).setBuild(new BuildInfo());
-        ((JarHostTest)shard4).setDevice(device);
-        assertEquals(30, ((JarHostTest)shard4).countTestCases());
-        total += ((JarHostTest)shard4).countTestCases();
-
-        IRemoteTest shard5 = mTest.getTestShard(5, 4);
-        assertTrue(shard5 instanceof JarHostTest);
-        ((JarHostTest)shard5).setBuild(new BuildInfo());
-        ((JarHostTest)shard5).setDevice(device);
-        assertEquals(30, ((JarHostTest)shard5).countTestCases());
-        total += ((JarHostTest)shard5).countTestCases();
-
-        assertEquals(238, total);
     }
 
     /**

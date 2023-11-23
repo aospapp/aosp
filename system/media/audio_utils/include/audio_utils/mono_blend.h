@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_AUDIO_CONVERSION_H
-#define ANDROID_AUDIO_CONVERSION_H
+#ifndef ANDROID_AUDIO_MONO_BLEND_H
+#define ANDROID_AUDIO_MONO_BLEND_H
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <system/audio.h>
@@ -47,4 +47,4 @@ void mono_blend(void *buf, audio_format_t format, size_t channelCount, size_t fr
 __END_DECLS
 /** \endcond */
 
-#endif
+#endif // !ANDROID_AUDIO_MONO_BLEND_H

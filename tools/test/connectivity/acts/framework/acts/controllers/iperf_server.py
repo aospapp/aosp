@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -18,13 +18,21 @@ import json
 import logging
 import math
 import os
+import threading
+
+from acts import context
 from acts import utils
-from acts.controllers import android_device
+from acts.controllers.android_device import AndroidDevice
 from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
+from acts.event import event_bus
+from acts.event.decorators import subscribe_static
+from acts.event.event import TestClassBeginEvent
+from acts.event.event import TestClassEndEvent
+from acts.libs.proc import job
 
-ACTS_CONTROLLER_CONFIG_NAME = "IPerfServer"
-ACTS_CONTROLLER_REFERENCE_NAME = "iperf_servers"
+ACTS_CONTROLLER_CONFIG_NAME = 'IPerfServer'
+ACTS_CONTROLLER_REFERENCE_NAME = 'iperf_servers'
 
 
 def create(configs):
@@ -36,39 +44,34 @@ def create(configs):
     remote iperf servers will be started on those devices
 
     Args:
-        config: config parameters for the iperf server
+        configs: config parameters for the iperf server
     """
     results = []
     for c in configs:
-        if type(c) is dict and "AndroidDevice" in c:
-            try:
-                results.append(IPerfServerOverAdb(c, logging.log_path))
-            except:
-                pass
-        elif type(c) is dict and "ssh_config" in c:
-            try:
-                results.append(IPerfServerOverSsh(c, logging.log_path))
-            except:
-                pass
+        if type(c) in (str, int) and str(c).isdigit():
+            results.append(IPerfServer(int(c)))
+        elif type(c) is dict and 'AndroidDevice' in c and 'port' in c:
+            results.append(IPerfServerOverAdb(c['AndroidDevice'], c['port']))
+        elif type(c) is dict and 'ssh_config' in c and 'port' in c:
+            results.append(IPerfServerOverSsh(c['ssh_config'], c['port']))
         else:
-            try:
-                results.append(IPerfServer(c, logging.log_path))
-            except:
-                pass
+            raise ValueError(
+                'Config entry %s in %s is not a valid IPerfServer '
+                'config.' % (repr(c), configs))
     return results
 
 
-def destroy(objs):
-    for ipf in objs:
+def destroy(iperf_server_list):
+    for iperf_server in iperf_server_list:
         try:
-            ipf.stop()
-        except:
-            pass
+            iperf_server.stop()
+        except Exception:
+            logging.exception('Unable to properly clean up %s.' % iperf_server)
 
 
 class IPerfResult(object):
     def __init__(self, result_path):
-        """ Loads iperf result from file.
+        """Loads iperf result from file.
 
         Loads iperf result from JSON formatted server log. File can be accessed
         before or after server is stopped. Note that only the first JSON object
@@ -78,11 +81,10 @@ class IPerfResult(object):
         try:
             with open(result_path, 'r') as f:
                 iperf_output = f.readlines()
-                if "}\n" in iperf_output:
-                    iperf_output = iperf_output[0:
-                                                iperf_output.index("}\n") + 1]
+                if '}\n' in iperf_output:
+                    iperf_output = iperf_output[:iperf_output.index('}\n') + 1]
                 iperf_string = ''.join(iperf_output)
-                iperf_string = iperf_string.replace("-nan", '0')
+                iperf_string = iperf_string.replace('nan', '0')
                 self.result = json.loads(iperf_string)
         except ValueError:
             with open(result_path, 'r') as f:
@@ -97,21 +99,16 @@ class IPerfResult(object):
         Returns:
             True if the result contains throughput data. False otherwise.
         """
-        return ('end' in self.result) and ('sum_received' in self.result["end"]
-                                           or 'sum' in self.result["end"])
+        return ('end' in self.result) and ('sum_received' in self.result['end']
+                                           or 'sum' in self.result['end'])
 
     def get_json(self):
-        """
-        Returns:
-            The raw json output from iPerf.
-        """
+        """Returns the raw json output from iPerf."""
         return self.result
 
     @property
     def error(self):
-        if 'error' not in self.result:
-            return None
-        return self.result['error']
+        return self.result.get('error', None)
 
     @property
     def avg_rate(self):
@@ -162,8 +159,8 @@ class IPerfResult(object):
         if not self._has_data():
             return None
         intervals = [
-            interval["sum"]["bits_per_second"] / 8 / 1024 / 1024
-            for interval in self.result["intervals"]
+            interval['sum']['bits_per_second'] / 8 / 1024 / 1024
+            for interval in self.result['intervals']
         ]
         return intervals
 
@@ -188,6 +185,9 @@ class IPerfResult(object):
         Args:
             iperf_ignored_interval: number of iperf interval to ignored in
             calculating standard deviation
+
+        Returns:
+            The standard deviation.
         """
         if not self._has_data():
             return None
@@ -200,21 +200,96 @@ class IPerfResult(object):
         return std_dev
 
 
-class IPerfServer():
-    """Class that handles iperf3 operations.
+class IPerfServerBase(object):
+    # Keeps track of the number of IPerfServer logs to prevent file name
+    # collisions.
+    __log_file_counter = 0
 
-    """
+    __log_file_lock = threading.Lock()
 
-    def __init__(self, config, log_path):
-        self.server_type = "local"
-        self.port = config
-        self.log_path = os.path.join(log_path, "iPerf{}".format(self.port))
-        utils.create_dir(self.log_path)
-        self.iperf_str = "iperf3 -s -J -p {}".format(self.port)
+    def __init__(self, port):
+        self._port = port
+        # TODO(markdr): Remove this after migration to the new iperf APIs.
         self.log_files = []
-        self.started = False
 
-    def start(self, extra_args="", tag=""):
+    @property
+    def port(self):
+        raise NotImplementedError('port must be specified.')
+
+    @property
+    def started(self):
+        raise NotImplementedError('started must be specified.')
+
+    def start(self, extra_args='', tag=''):
+        """Starts an iperf3 server.
+
+        Args:
+            extra_args: A string representing extra arguments to start iperf
+                server with.
+            tag: Appended to log file name to identify logs from different
+                iperf runs.
+        """
+        raise NotImplementedError('start() must be specified.')
+
+    def stop(self):
+        """Stops the iperf server.
+
+        Returns:
+            The name of the log file generated from the terminated session.
+        """
+        raise NotImplementedError('stop() must be specified.')
+
+    def _get_full_file_path(self, tag=None):
+        """Returns the full file path for the IPerfServer log file.
+
+        Note: If the directory for the file path does not exist, it will be
+        created.
+
+        Args:
+            tag: The tag passed in to the server run.
+        """
+        out_dir = self.log_path
+
+        with IPerfServerBase.__log_file_lock:
+            tags = [tag, IPerfServerBase.__log_file_counter]
+            out_file_name = 'IPerfServer,%s.log' % (','.join(
+                [str(x) for x in tags if x != '' and x is not None]))
+            IPerfServerBase.__log_file_counter += 1
+
+        file_path = os.path.join(out_dir, out_file_name)
+        self.log_files.append(file_path)
+        return file_path
+
+    @property
+    def log_path(self):
+        current_context = context.get_current_context()
+        full_out_dir = os.path.join(current_context.get_full_output_path(),
+                                    'IPerfServer%s' % self.port)
+
+        # Ensure the directory exists.
+        utils.create_dir(full_out_dir)
+
+        return full_out_dir
+
+
+class IPerfServer(IPerfServerBase):
+    """Class that handles iperf server commands on localhost."""
+
+    def __init__(self, port):
+        super().__init__(port)
+        self._iperf_command = 'iperf3 -s -J -p {}'.format(self.port)
+        self._current_log_file = None
+        self._iperf_process = None
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def started(self):
+        return self._iperf_process is not None
+
+    def start(self, extra_args='', tag=''):
         """Starts iperf server on local machine.
 
         Args:
@@ -223,46 +298,57 @@ class IPerfServer():
             tag: Appended to log file name to identify logs from different
                 iperf runs.
         """
-        if self.started:
+        if self._iperf_process is not None:
             return
-        if tag:
-            tag = tag + ','
-        out_file_name = "IPerfServer,{},{}{}.log".format(
-            self.port, tag, len(self.log_files))
-        self.full_out_path = os.path.join(self.log_path, out_file_name)
-        cmd = "{} {} > {}".format(self.iperf_str, extra_args,
-                                  self.full_out_path)
-        self.iperf_process = utils.start_standing_subprocess(cmd)
-        self.log_files.append(self.full_out_path)
-        self.started = True
+
+        self._current_log_file = self._get_full_file_path(tag)
+
+        cmd = '{cmd} {extra_flags} > {log_file}'.format(
+            cmd=self._iperf_command,
+            extra_flags=extra_args,
+            log_file=self._current_log_file)
+
+        self._iperf_process = utils.start_standing_subprocess(cmd)
 
     def stop(self):
-        """ Stops iperf server running.
+        """Stops the iperf server.
 
+        Returns:
+            The name of the log file generated from the terminated session.
         """
-        if not self.started:
+        if self._iperf_process is None:
             return
-        utils.stop_standing_subprocess(self.iperf_process)
-        self.started = False
+
+        utils.stop_standing_subprocess(self._iperf_process)
+
+        self._iperf_process = None
+        return self._current_log_file
 
 
-class IPerfServerOverSsh():
-    """Class that handles iperf3 operations on remote machines.
+class IPerfServerOverSsh(IPerfServerBase):
+    """Class that handles iperf3 operations on remote machines."""
 
-    """
+    def __init__(self, ssh_config, port):
+        super().__init__(port)
+        ssh_settings = settings.from_config(ssh_config)
+        self._ssh_session = connection.SshConnection(ssh_settings)
 
-    def __init__(self, config, log_path):
-        self.server_type = "remote"
-        self.ssh_settings = settings.from_config(config["ssh_config"])
-        self.ssh_session = connection.SshConnection(self.ssh_settings)
-        self.port = config["port"]
-        self.log_path = os.path.join(log_path, "iPerf{}".format(self.port))
-        utils.create_dir(self.log_path)
-        self.iperf_str = "iperf3 -s -J -p {}".format(self.port)
-        self.log_files = []
-        self.started = False
+        self._iperf_command = 'iperf3 -s -J -p {}'.format(self.port)
+        self._iperf_pid = None
+        self._current_tag = None
 
-    def start(self, extra_args="", tag=""):
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def started(self):
+        return self._iperf_pid is not None
+
+    def _get_remote_log_path(self):
+        return 'iperf_server_port%s.log' % self.port
+
+    def start(self, extra_args='', tag=''):
         """Starts iperf server on specified machine and port.
 
         Args:
@@ -273,56 +359,105 @@ class IPerfServerOverSsh():
         """
         if self.started:
             return
-        if tag:
-            tag = tag + ','
-        out_file_name = "IPerfServer,{},{}{}.log".format(
-            self.port, tag, len(self.log_files))
-        self.full_out_path = os.path.join(self.log_path, out_file_name)
-        cmd = "{} {} > {}".format(self.iperf_str, extra_args,
-                                  "iperf_server_port{}.log".format(self.port))
-        job_result = self.ssh_session.run_async(cmd)
-        self.iperf_process = job_result.stdout
-        self.log_files.append(self.full_out_path)
-        self.started = True
+
+        cmd = '{cmd} {extra_flags} > {log_file}'.format(
+            cmd=self._iperf_command,
+            extra_flags=extra_args,
+            log_file=self._get_remote_log_path())
+
+        job_result = self._ssh_session.run_async(cmd)
+        self._iperf_pid = job_result.stdout
+        self._current_tag = tag
 
     def stop(self):
-        """ Stops iperf server running and gets output.
+        """Stops the iperf server.
 
+        Returns:
+            The name of the log file generated from the terminated session.
         """
         if not self.started:
             return
-        self.ssh_session.run_async("kill -9 {}".format(
-            str(self.iperf_process)))
-        iperf_result = self.ssh_session.run(
-            "cat iperf_server_port{}.log".format(self.port))
-        with open(self.full_out_path, 'w') as f:
+
+        self._ssh_session.run_async('kill -9 {}'.format(str(self._iperf_pid)))
+        iperf_result = self._ssh_session.run('cat {}'.format(
+            self._get_remote_log_path()))
+
+        log_file = self._get_full_file_path(self._current_tag)
+        with open(log_file, 'w') as f:
             f.write(iperf_result.stdout)
-        self.ssh_session.run_async("rm iperf_server_port{}.log".format(
-            self.port))
-        self.started = False
+
+        self._ssh_session.run_async('rm {}'.format(
+            self._get_remote_log_path()))
+        self._iperf_pid = None
+        return log_file
 
 
-class IPerfServerOverAdb():
-    """Class that handles iperf3 operations over ADB devices.
+# TODO(markdr): Remove this after automagic controller creation has been
+# removed.
+class _AndroidDeviceBridge(object):
+    """A helper class for connecting serial numbers to AndroidDevices."""
 
-    """
+    # A dict of serial -> AndroidDevice, where AndroidDevice is a device found
+    # in the current TestClass's controllers.
+    android_devices = {}
 
-    def __init__(self, config, log_path):
+    @staticmethod
+    @subscribe_static(TestClassBeginEvent)
+    def on_test_begin(event):
+        for device in getattr(event.test_class, 'android_devices', []):
+            _AndroidDeviceBridge.android_devices[device.serial] = device
 
-        # Note: skip_sl4a must be set to True in iperf server config since
-        # ACTS may have already initialized and started services on device
-        self.server_type = "adb"
-        self.adb_device = android_device.create(config["AndroidDevice"])
-        self.adb_device = self.adb_device[0]
-        self.adb_log_path = "~/data"
-        self.port = config["port"]
-        self.log_path = os.path.join(log_path, "iPerf{}".format(self.port))
-        utils.create_dir(self.log_path)
-        self.iperf_str = "iperf3 -s -J -p {}".format(self.port)
-        self.log_files = []
-        self.started = False
+    @staticmethod
+    @subscribe_static(TestClassEndEvent)
+    def on_test_end(_):
+        _AndroidDeviceBridge.android_devices = {}
 
-    def start(self, extra_args="", tag=""):
+
+event_bus.register_subscription(
+    _AndroidDeviceBridge.on_test_begin.subscription)
+event_bus.register_subscription(_AndroidDeviceBridge.on_test_end.subscription)
+
+
+class IPerfServerOverAdb(IPerfServerBase):
+    """Class that handles iperf3 operations over ADB devices."""
+
+    def __init__(self, android_device_or_serial, port):
+        """Creates a new IPerfServerOverAdb object.
+
+        Args:
+            android_device_or_serial: Either an AndroidDevice object, or the
+                serial that corresponds to the AndroidDevice. Note that the
+                serial must be present in an AndroidDevice entry in the ACTS
+                config.
+            port: The port number to open the iperf server on.
+        """
+        super().__init__(port)
+        self._android_device_or_serial = android_device_or_serial
+
+        self._iperf_command = 'iperf3 -s -J -p {}'.format(self.port)
+        self._iperf_process = None
+        self._current_tag = ''
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def started(self):
+        return self._iperf_process is not None
+
+    @property
+    def _android_device(self):
+        if isinstance(self._android_device_or_serial, AndroidDevice):
+            return self._android_device_or_serial
+        else:
+            return _AndroidDeviceBridge.android_devices[
+                self._android_device_or_serial]
+
+    def _get_device_log_path(self):
+        return '~/data/iperf_server_port%s.log' % self.port
+
+    def start(self, extra_args='', tag=''):
         """Starts iperf server on an ADB device.
 
         Args:
@@ -331,32 +466,50 @@ class IPerfServerOverAdb():
             tag: Appended to log file name to identify logs from different
                 iperf runs.
         """
-        if self.started:
+        if self._iperf_process is not None:
             return
-        if tag:
-            tag = tag + ','
-        out_file_name = "IPerfServer,{},{}{}.log".format(
-            self.port, tag, len(self.log_files))
-        self.full_out_path = os.path.join(self.log_path, out_file_name)
-        cmd = "{} {} > {}/iperf_server_port{}.log".format(
-            self.iperf_str, extra_args, self.adb_log_path, self.port)
-        self.adb_device.adb.shell_nb(cmd)
-        self.iperf_process = self.adb_device.adb.shell("pgrep iperf3")
-        self.log_files.append(self.full_out_path)
-        self.started = True
+
+        self._iperf_process = self._android_device.adb.shell_nb(
+            '{cmd} {extra_flags} > {log_file}'.format(
+                cmd=self._iperf_command,
+                extra_flags=extra_args,
+                log_file=self._get_device_log_path()))
+        self._iperf_process_adb_pid = ''
+        while len(self._iperf_process_adb_pid) == 0:
+            self._iperf_process_adb_pid = self._android_device.adb.shell(
+                'pgrep iperf3 -n')
+
+        self._current_tag = tag
 
     def stop(self):
-        """ Stops iperf server running and gets output.
+        """Stops the iperf server.
 
+        Returns:
+            The name of the log file generated from the terminated session.
         """
-        if not self.started:
+        if self._iperf_process is None:
             return
-        self.adb_device.adb.shell("kill -9 {}".format(self.iperf_process))
-        iperf_result = self.adb_device.adb.shell(
-            "cat {}/iperf_server_port{}.log".format(self.adb_log_path,
-                                                    self.port))
-        with open(self.full_out_path, 'w') as f:
+
+        job.run('kill -9 {}'.format(self._iperf_process.pid))
+
+        #TODO(markdr): update with definitive kill method
+        while True:
+            iperf_process_list = self._android_device.adb.shell('pgrep iperf3')
+            if iperf_process_list.find(self._iperf_process_adb_pid) == -1:
+                break
+            else:
+                self._android_device.adb.shell("kill -9 {}".format(
+                    self._iperf_process_adb_pid))
+
+        iperf_result = self._android_device.adb.shell('cat {}'.format(
+            self._get_device_log_path()))
+
+        log_file = self._get_full_file_path(self._current_tag)
+        with open(log_file, 'w') as f:
             f.write(iperf_result)
-        self.adb_device.adb.shell("rm {}/iperf_server_port{}.log".format(
-            self.adb_log_path, self.port))
-        self.started = False
+
+        self._android_device.adb.shell('rm {}'.format(
+            self._get_device_log_path()))
+
+        self._iperf_process = None
+        return log_file

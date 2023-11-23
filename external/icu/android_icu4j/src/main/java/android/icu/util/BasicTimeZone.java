@@ -28,6 +28,7 @@ import android.icu.impl.Grego;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.CorePlatformApi
 public abstract class BasicTimeZone extends TimeZone {
 
     private static final long serialVersionUID = -3204278532246180932L;
@@ -45,6 +46,7 @@ public abstract class BasicTimeZone extends TimeZone {
      *          after the given base time, or null if no time zone transitions
      *          are available after the base time.
      */
+    @libcore.api.CorePlatformApi
     public abstract TimeZoneTransition getNextTransition(long base, boolean inclusive);
 
     /**

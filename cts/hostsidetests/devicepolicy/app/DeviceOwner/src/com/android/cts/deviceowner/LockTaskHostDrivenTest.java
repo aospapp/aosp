@@ -20,15 +20,18 @@ import static junit.framework.Assert.assertTrue;
 
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,6 +48,8 @@ public class LockTaskHostDrivenTest {
 
     private static final String TAG = LockTaskHostDrivenTest.class.getName();
 
+    private static final int ACTIVITY_RESUMED_TIMEOUT_MILLIS = 20000;  // 20 seconds
+
     private static final String LOCK_TASK_ACTIVITY
             = LockTaskUtilityActivityIfWhitelisted.class.getName();
 
@@ -53,14 +58,45 @@ public class LockTaskHostDrivenTest {
     private ActivityManager mActivityManager;
     private DevicePolicyManager mDevicePolicyManager;
 
+    private volatile boolean mIsActivityResumed;
+    private final Object mActivityResumedLock = new Object();
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            Log.d(TAG, "onReceive: " + action);
+            if (LockTaskUtilityActivity.RESUME_ACTION.equals(action)) {
+                synchronized (mActivityResumedLock) {
+                    mIsActivityResumed = true;
+                    mActivityResumedLock.notify();
+                }
+            } else if (LockTaskUtilityActivity.PAUSE_ACTION.equals(action)) {
+                synchronized (mActivityResumedLock) {
+                    mIsActivityResumed = false;
+                    mActivityResumedLock.notify();
+                }
+            }
+        }
+    };
+
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getContext();
         mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
         mActivityManager = mContext.getSystemService(ActivityManager.class);
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(LockTaskUtilityActivity.RESUME_ACTION);
+        filter.addAction(LockTaskUtilityActivity.PAUSE_ACTION);
+        mContext.registerReceiver(mReceiver, filter);
     }
 
+    @After
+    public void tearDown() {
+        mContext.unregisterReceiver(mReceiver);
+    }
+  
     @Test
     public void startLockTask() throws Exception {
         Log.d(TAG, "startLockTask on host-driven test (no cleanup)");
@@ -69,10 +105,21 @@ public class LockTaskHostDrivenTest {
         mUiDevice.waitForIdle();
     }
 
+    /**
+     * On low-RAM devices, this test can take too long to finish, so the test runner can incorrectly
+     * assume it's finished. Therefore, only use it once in a given test.
+     */
     @Test
     public void testLockTaskIsActiveAndCantBeInterrupted() throws Exception {
         mUiDevice.waitForIdle();
 
+        // We need to wait until the LockTaskActivity is ready
+        // since com.android.cts.deviceowner can be killed by AMS for reason "start instr".
+        synchronized (mActivityResumedLock) {
+            if (!mIsActivityResumed) {
+                mActivityResumedLock.wait(ACTIVITY_RESUMED_TIMEOUT_MILLIS);
+            }
+        }
         checkLockedActivityIsRunning();
 
         mUiDevice.pressBack();

@@ -16,9 +16,9 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.rootlessgpudebug.app">>
+    package="android.rootlessgpudebug.app">
 
-    <application>
+    <application android:extractNativeLibs="true" >
         <activity android:name=".RootlessGpuDebugDeviceActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

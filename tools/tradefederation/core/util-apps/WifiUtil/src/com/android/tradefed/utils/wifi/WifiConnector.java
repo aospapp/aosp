@@ -22,15 +22,16 @@ import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.SystemClock;
 import android.util.Log;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -88,12 +89,12 @@ public class WifiConnector {
             throw new WifiException(
                 String.format("Failed %s due to invalid timeout (%d ms)", description, timeout));
         }
-        long startTime = System.currentTimeMillis();
+        long startTime = SystemClock.uptimeMillis();
         long endTime = startTime + timeout;
         try {
-            while (System.currentTimeMillis() < endTime) {
+            while (SystemClock.uptimeMillis() < endTime) {
                 if (checker.call()) {
-                    long elapsed = System.currentTimeMillis() - startTime;
+                    long elapsed = SystemClock.uptimeMillis() - startTime;
                     Log.i(TAG, String.format(
                         "Time elapsed waiting for %s: %d ms", description, elapsed));
                     return elapsed;
@@ -193,12 +194,23 @@ public class WifiConnector {
      * @param urlToCheck URL to send a test request to
      * @return <code>true</code> if the test request succeeds. Otherwise <code>false</code>.
      */
-    public boolean checkConnectivity(final String urlToCheck) {
-        final HttpClient httpclient = new DefaultHttpClient();
+    public static boolean checkConnectivity(final String urlToCheck) {
+        URL url = null;
         try {
-            httpclient.execute(new HttpGet(urlToCheck));
+            url = new URL(urlToCheck);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("Malformed URL", e);
+        }
+        HttpURLConnection urlConnection = null;
+        try {
+            urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.connect();
         } catch (final IOException e) {
             return false;
+        } finally {
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
         }
         return true;
     }
@@ -217,8 +229,8 @@ public class WifiConnector {
     public void connectToNetwork(final String ssid, final String psk, final String urlToCheck,
             long connectTimeout, final boolean scanSsid)
             throws WifiException {
-        if (!mWifiManager.setWifiEnabled(true)) {
-            throw new WifiException("failed to enable wifi");
+        if (!mWifiManager.isWifiEnabled()) {
+            throw new WifiException("wifi not enabled");
         }
 
         updateLastNetwork(ssid, psk, scanSsid);
@@ -248,7 +260,7 @@ public class WifiConnector {
             throw new WifiException(String.format("failed to enable network %s", ssid));
         }
         if (!mWifiManager.saveConfiguration()) {
-            throw new WifiException(String.format("failed to save configuration %s", ssid));
+            Log.w(TAG, String.format("failed to save configuration %s", ssid));
         }
         connectTimeout = calculateTimeLeft(connectTimeout, timeSpent);
         timeSpent = waitForCallable(new Callable<Boolean>() {
@@ -316,15 +328,6 @@ public class WifiConnector {
     public void disconnectFromNetwork() throws WifiException {
         if (mWifiManager.isWifiEnabled()) {
             removeAllNetworks(false);
-            if (!mWifiManager.setWifiEnabled(false)) {
-                throw new WifiException("failed to disable wifi");
-            }
-            waitForCallable(new Callable<Boolean>() {
-                    @Override
-                    public Boolean call() throws Exception {
-                        return !mWifiManager.isWifiEnabled();
-                    }
-                }, "disabling wifi");
         }
     }
 

@@ -18,11 +18,11 @@ package android.view.cts;
 
 import static org.junit.Assert.fail;
 
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.FlakyTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -37,6 +37,13 @@ public class ChoreographerNativeTest {
     private static native boolean nativePrepareChoreographerTests(long ptr);
     private static native void nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks(long ptr);
     private static native void nativeTestPostCallbackWithDelayEventuallyRunsCallbacks(long ptr);
+    private static native void nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks(
+            long ptr);
+    private static native void nativeTestPostCallback64WithDelayEventuallyRunsCallbacks(long ptr);
+    private static native void nativeTestPostCallbackMixedWithoutDelayEventuallyRunsCallbacks(
+            long ptr);
+    private static native void nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks(
+            long ptr);
 
     static {
         System.loadLibrary("ctsview_jni");
@@ -53,6 +60,18 @@ public class ChoreographerNativeTest {
 
     @MediumTest
     @Test
+    public void testPostCallback64WithoutDelayEventuallyRunsCallbacks() {
+        nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
+    }
+
+    @MediumTest
+    @Test
+    public void testPostCallback64WithDelayEventuallyRunsCallbacks() {
+        nativeTestPostCallback64WithDelayEventuallyRunsCallbacks(mChoreographerPtr);
+    }
+
+    @MediumTest
+    @Test
     public void testPostCallbackWithoutDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }
@@ -61,5 +80,17 @@ public class ChoreographerNativeTest {
     @Test
     public void testPostCallbackWithDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithDelayEventuallyRunsCallbacks(mChoreographerPtr);
+    }
+
+    @SmallTest
+    @Test
+    public void testPostCallbackMixedWithoutDelayEventuallyRunsCallbacks() {
+        nativeTestPostCallbackMixedWithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
+    }
+
+    @SmallTest
+    @Test
+    public void testPostCallbackMixedWithDelayEventuallyRunsCallbacks() {
+        nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }
 }

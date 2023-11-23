@@ -17,12 +17,27 @@
 #ifndef _INIT_FIRMWARE_HANDLER_H
 #define _INIT_FIRMWARE_HANDLER_H
 
+#include <string>
+#include <vector>
+
 #include "uevent.h"
+#include "uevent_handler.h"
 
 namespace android {
 namespace init {
 
-void HandleFirmwareEvent(const Uevent& uevent);
+class FirmwareHandler : public UeventHandler {
+  public:
+    explicit FirmwareHandler(std::vector<std::string> firmware_directories);
+    virtual ~FirmwareHandler() = default;
+
+    void HandleUevent(const Uevent& uevent) override;
+
+  private:
+    void ProcessFirmwareEvent(const Uevent& uevent);
+
+    std::vector<std::string> firmware_directories_;
+};
 
 }  // namespace init
 }  // namespace android

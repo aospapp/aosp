@@ -16,18 +16,16 @@
 
 package com.android.tv.common.feature;
 
-import static com.android.tv.common.feature.FeatureUtils.AND;
+import static com.android.tv.common.feature.BuildTypeFeature.ENG_ONLY_FEATURE;
+import static com.android.tv.common.feature.FeatureUtils.and;
+import static com.android.tv.common.feature.FeatureUtils.or;
 import static com.android.tv.common.feature.TestableFeature.createTestableFeature;
 
 import android.content.Context;
-import android.os.Build;
-import android.text.TextUtils;
 import android.util.Log;
-import com.android.tv.common.config.api.RemoteConfig.HasRemoteConfig;
-import com.android.tv.common.experiments.Experiments;
-
-import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.flags.has.HasCloudEpgFlags;
 import com.android.tv.common.util.LocationUtils;
+import com.android.tv.common.flags.CloudEpgFlags;
 
 /**
  * List of {@link Feature} that affect more than just the Live TV app.
@@ -46,7 +44,7 @@ public class CommonFeatures {
      * <p>DVR API is introduced in N, it only works when app runs as a system app.
      */
     public static final TestableFeature DVR =
-            createTestableFeature(AND(Sdk.AT_LEAST_N, SystemAppFeature.SYSTEM_APP_FEATURE));
+            createTestableFeature(and(Sdk.AT_LEAST_N, SystemAppFeature.SYSTEM_APP_FEATURE));
 
     /**
      * ENABLE_RECORDING_REGARDLESS_OF_STORAGE_STATUS
@@ -56,44 +54,32 @@ public class CommonFeatures {
     public static final Feature FORCE_RECORDING_UNTIL_NO_SPACE =
             PropertyFeature.create("force_recording_until_no_space", false);
 
-    public static final Feature TUNER =
-            new Feature() {
-                @Override
-                public boolean isEnabled(Context context) {
-
-                    if (CommonUtils.isDeveloper()) {
-                        // we enable tuner for developers to test tuner in any platform.
-                        return true;
-                    }
-
-                    // This is special handling just for USB Tuner.
-                    // It does not require any N API's but relies on a improvements in N for AC3
-                    // support
-                    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
-                }
-            };
-
     /** Show postal code fragment before channel scan. */
     public static final Feature ENABLE_CLOUD_EPG_REGION =
-            new Feature() {
-                private final String[] supportedRegions = {
-                };
+            or(
+                    FlagFeature.from(HasCloudEpgFlags::fromContext, CloudEpgFlags::supportedRegion),
+                    new Feature() {
+                        private final String[] supportedRegions = {
+// AOSP_Comment_Out                             "US", "GB"
+                        };
 
-
-                @Override
-                public boolean isEnabled(Context context) {
-                    if (!Experiments.CLOUD_EPG.get()) {
-                        if (DEBUG) Log.d(TAG, "Experiments.CLOUD_EPG is false");
-                        return false;
-                    }
-                    String country = LocationUtils.getCurrentCountry(context);
-                    for (int i = 0; i < supportedRegions.length; i++) {
-                        if (supportedRegions[i].equalsIgnoreCase(country)) {
-                            return true;
+                        @Override
+                        public boolean isEnabled(Context context) {
+                            String country = LocationUtils.getCurrentCountry(context);
+                            for (int i = 0; i < supportedRegions.length; i++) {
+                                if (supportedRegions[i].equalsIgnoreCase(country)) {
+                                    return true;
+                                }
+                            }
+                            if (DEBUG) Log.d(TAG, "EPG flag false after country check");
+                            return false;
                         }
-                    }
-                    if (DEBUG) Log.d(TAG, "EPG flag false after country check");
-                    return false;
-                }
-            };
+                    });
+
+    // TODO(b/74197177): remove when UI and API finalized.
+    /** Show channel signal strength. */
+    public static final Feature TUNER_SIGNAL_STRENGTH = ENG_ONLY_FEATURE;
+
+    /** Use AudioOnlyTvService for audio-only inputs. */
+    public static final Feature ENABLE_TV_SERVICE = ENG_ONLY_FEATURE;
 }

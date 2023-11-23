@@ -15,14 +15,14 @@
  */
 package com.android.tv;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.widget.TextView;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.data.api.Channel;
 import com.android.tv.testing.activities.BaseMainActivityTestCase;
 import com.android.tv.testing.testinput.TvTestInputConstants;

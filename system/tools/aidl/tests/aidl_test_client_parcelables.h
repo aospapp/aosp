@@ -29,6 +29,7 @@ namespace client {
 
 bool ConfirmSimpleParcelables(const sp<ITestService>& s);
 bool ConfirmPersistableBundles(const sp<ITestService>& s);
+bool ConfirmStructuredParcelables(const sp<ITestService>& s);
 
 }  // namespace client
 }  // namespace tests

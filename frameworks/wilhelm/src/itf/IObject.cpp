@@ -534,7 +534,7 @@ void IObject_Destroy(SLObjectItf self)
             break;
         case predestroy_error:
             SL_LOGE("Object::Destroy(%p) not allowed", thiz);
-            // fall through
+            FALLTHROUGH_INTENDED;
         case predestroy_again:
             object_unlock_exclusive(thiz);
             // unfortunately Destroy doesn't return a result
@@ -601,7 +601,7 @@ void IObject_Destroy(SLObjectItf self)
             }
             *interfaceStateP = INTERFACE_INITIALIZED;
             }
-            // fall through
+            FALLTHROUGH_INTENDED;
         case INTERFACE_INITIALIZED:
             {
             VoidHook deinit = MPH_init_table[x->mMPH].mDeinit;
@@ -629,11 +629,10 @@ void IObject_Destroy(SLObjectItf self)
     // The mutex is unlocked and destroyed by IObject_deinit, which is the last deinitializer
     memset(thiz, 0x55, clazz->mSize); // catch broken applications that continue using interfaces
                                         // was ifdef USE_DEBUG but safer to do this unconditionally
-    free(thiz);
-
     if (SL_OBJECTID_ENGINE == clazz->mSLObjectID) {
         CEngine_Destroyed((CEngine *) thiz);
     }
+    free(thiz);
 
     SL_LEAVE_INTERFACE_VOID
 }

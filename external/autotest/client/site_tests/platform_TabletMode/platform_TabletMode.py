@@ -70,17 +70,15 @@ class platform_TabletMode(test.test):
 
     def _take_screenshot(self, suffix):
         """
-        Captures a screenshot of the current VT screen in BMP format.
+        Captures a screenshot of the current VT screen in PNG format.
 
         @param suffixcurrent_vt: desired vt for screenshot.
 
         @returns the path of the screenshot file.
 
         """
-        extension = 'bmp'
         return graphics_utils.take_screenshot(self.resultsdir,
-                                              suffix + '_tablet_mode',
-                                              extension)
+                                              suffix + '_tablet_mode')
 
     def _verify_difference(self, screenshot1, screenshot2,
                            difference_percent_threshold=5):

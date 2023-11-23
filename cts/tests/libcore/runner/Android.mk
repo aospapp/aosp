@@ -20,7 +20,7 @@ LOCAL_PACKAGE_NAME := CtsLibcoreTestRunner
 LOCAL_SDK_VERSION := current
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    cts-core-test-runner
+    cts-core-test-runner-axt
 
 # Don't include this package in any target
 LOCAL_MODULE_TAGS := tests

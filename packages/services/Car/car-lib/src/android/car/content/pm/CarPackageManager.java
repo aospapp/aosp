@@ -19,15 +19,12 @@ package android.car.content.pm;
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.car.CarApiUtil;
 import android.car.CarManagerBase;
-import android.car.CarNotConnectedException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
-import android.util.Log;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -108,9 +105,8 @@ public final class CarPackageManager implements CarManagerBase {
      * @hide
      */
     @SystemApi
-    public void setAppBlockingPolicy(String packageName, CarAppBlockingPolicy policy,
-            @SetPolicyFlags int flags) throws CarNotConnectedException, SecurityException,
-            IllegalArgumentException {
+    public void setAppBlockingPolicy(
+            String packageName, CarAppBlockingPolicy policy, @SetPolicyFlags int flags) {
         if ((flags & FLAG_SET_POLICY_WAIT_FOR_CHANGE) != 0 &&
                 Looper.getMainLooper().isCurrentThread()) {
             throw new IllegalStateException(
@@ -118,10 +114,8 @@ public final class CarPackageManager implements CarManagerBase {
         }
         try {
             mService.setAppBlockingPolicy(packageName, policy, flags);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            // Ignore as CarApi will handle disconnection anyway.
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -134,8 +128,7 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             mService.restartTask(taskId);
         } catch (RemoteException e) {
-            // Ignore as CarApi will handle disconnection anyway.
-            Log.e(TAG, "Could not restart task " + taskId, e);
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -154,16 +147,12 @@ public final class CarPackageManager implements CarManagerBase {
      * @hide
      */
     @SystemApi
-    public boolean isActivityBackedBySafeActivity(ComponentName activityName)
-            throws CarNotConnectedException {
+    public boolean isActivityBackedBySafeActivity(ComponentName activityName) {
         try {
             return mService.isActivityBackedBySafeActivity(activityName);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            //ignore as CarApi will handle disconnection anyway.
+            throw e.rethrowFromSystemServer();
         }
-        return true;
     }
 
     /**
@@ -176,7 +165,7 @@ public final class CarPackageManager implements CarManagerBase {
         try {
             mService.setEnableActivityBlocking(enable);
         } catch (RemoteException e) {
-            //ignore as CarApi will handle disconnection anyway.
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -188,16 +177,12 @@ public final class CarPackageManager implements CarManagerBase {
      * @param className
      * @return
      */
-    public boolean isActivityDistractionOptimized(String packageName, String className)
-            throws CarNotConnectedException {
+    public boolean isActivityDistractionOptimized(String packageName, String className) {
         try {
             return mService.isActivityDistractionOptimized(packageName, className);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            //ignore as CarApi will handle disconnection anyway.
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
@@ -208,15 +193,11 @@ public final class CarPackageManager implements CarManagerBase {
      * @param className
      * @return
      */
-    public boolean isServiceDistractionOptimized(String packageName, String className)
-            throws CarNotConnectedException {
+    public boolean isServiceDistractionOptimized(String packageName, String className) {
         try {
             return mService.isServiceDistractionOptimized(packageName, className);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            //ignore as CarApi will handle disconnection anyway.
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 }

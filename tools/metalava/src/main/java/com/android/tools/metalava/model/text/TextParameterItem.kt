@@ -30,20 +30,15 @@ class TextParameterItem(
     private var publicName: String?,
     private var defaultValue: String? = NO_DEFAULT_VALUE,
     override val parameterIndex: Int,
-    var typeName: String,
     private var type: TextTypeItem,
-    vararg: Boolean,
-    position: SourcePositionInfo,
-    annotations: List<String>?
+    modifiers: TextModifiers,
+    position: SourcePositionInfo
 )
 // TODO: We need to pass in parameter modifiers here (synchronized etc)
-    : TextItem(
-    codebase, position,
-    modifiers = TextModifiers(codebase = codebase, annotationStrings = annotations, vararg = vararg)
-), ParameterItem {
+    : TextItem(codebase, position, modifiers = modifiers), ParameterItem {
 
     init {
-        (modifiers as TextModifiers).owner = this
+        modifiers.setOwner(this)
     }
 
     override fun isVarArgs(): Boolean {

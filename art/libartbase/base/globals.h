@@ -38,17 +38,6 @@ static constexpr size_t kStackAlignment = 16;
 // compile-time constant so the compiler can generate better code.
 static constexpr int kPageSize = 4096;
 
-// Returns whether the given memory offset can be used for generating
-// an implicit null check.
-static inline bool CanDoImplicitNullCheckOn(uintptr_t offset) {
-  return offset < kPageSize;
-}
-
-// Required object alignment
-static constexpr size_t kObjectAlignmentShift = 3;
-static constexpr size_t kObjectAlignment = 1u << kObjectAlignmentShift;
-static constexpr size_t kLargeObjectAlignment = kPageSize;
-
 // Clion, clang analyzer, etc can falsely believe that "if (kIsDebugBuild)" always
 // returns the same value. By wrapping into a call to another constexpr function, we force it
 // to realize that is not actually always evaluating to the same value.
@@ -71,7 +60,9 @@ static constexpr bool kIsPGOInstrumentation = false;
 // ART_TARGET - Defined for target builds of ART.
 // ART_TARGET_LINUX - Defined for target Linux builds of ART.
 // ART_TARGET_ANDROID - Defined for target Android builds of ART.
-// Note: Either ART_TARGET_LINUX or ART_TARGET_ANDROID need to be set when ART_TARGET is set.
+// ART_TARGET_FUCHSIA - Defined for Fuchsia builds of ART.
+// Note: Either ART_TARGET_LINUX, ART_TARGET_ANDROID or ART_TARGET_FUCHSIA
+//       need to be set when ART_TARGET is set.
 // Note: When ART_TARGET_LINUX is defined mem_map.h will not be using Ashmem for memory mappings
 // (usually only available on Android kernels).
 #if defined(ART_TARGET)
@@ -79,10 +70,16 @@ static constexpr bool kIsPGOInstrumentation = false;
 static constexpr bool kIsTargetBuild = true;
 # if defined(ART_TARGET_LINUX)
 static constexpr bool kIsTargetLinux = true;
+static constexpr bool kIsTargetFuchsia = false;
 # elif defined(ART_TARGET_ANDROID)
 static constexpr bool kIsTargetLinux = false;
+static constexpr bool kIsTargetFuchsia = false;
+# elif defined(ART_TARGET_FUCHSIA)
+static constexpr bool kIsTargetLinux = false;
+static constexpr bool kIsTargetFuchsia = true;
 # else
-# error "Either ART_TARGET_LINUX or ART_TARGET_ANDROID needs to be defined for target builds."
+# error "Either ART_TARGET_LINUX, ART_TARGET_ANDROID or ART_TARGET_FUCHSIA " \
+        "needs to be defined for target builds."
 # endif
 #else
 static constexpr bool kIsTargetBuild = false;
@@ -90,8 +87,11 @@ static constexpr bool kIsTargetBuild = false;
 # error "ART_TARGET_LINUX defined for host build."
 # elif defined(ART_TARGET_ANDROID)
 # error "ART_TARGET_ANDROID defined for host build."
+# elif defined(ART_TARGET_FUCHSIA)
+# error "ART_TARGET_FUCHSIA defined for host build."
 # else
 static constexpr bool kIsTargetLinux = false;
+static constexpr bool kIsTargetFuchsia = false;
 # endif
 #endif
 
@@ -102,37 +102,6 @@ static constexpr bool kHostStaticBuildEnabled = true;
 #else
 static constexpr bool kHostStaticBuildEnabled = false;
 #endif
-
-// Garbage collector constants.
-static constexpr bool kMovingCollector = true;
-static constexpr bool kMarkCompactSupport = false && kMovingCollector;
-// True if we allow moving classes.
-static constexpr bool kMovingClasses = !kMarkCompactSupport;
-
-// If true, enable the tlab allocator by default.
-#ifdef ART_USE_TLAB
-static constexpr bool kUseTlab = true;
-#else
-static constexpr bool kUseTlab = false;
-#endif
-
-// Kinds of tracing clocks.
-enum class TraceClockSource {
-  kThreadCpu,
-  kWall,
-  kDual,  // Both wall and thread CPU clocks.
-};
-
-#if defined(__linux__)
-static constexpr TraceClockSource kDefaultTraceClockSource = TraceClockSource::kDual;
-#else
-static constexpr TraceClockSource kDefaultTraceClockSource = TraceClockSource::kWall;
-#endif
-
-static constexpr bool kDefaultMustRelocate = true;
-
-// Size of a heap reference.
-static constexpr size_t kHeapReferenceSize = sizeof(uint32_t);
 
 }  // namespace art
 

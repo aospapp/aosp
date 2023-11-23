@@ -71,8 +71,8 @@ def main(argv):
         if e.errno == errno.ENOENT:
             print('%s: unable to run `%s`: %s' % (__file__, cmd[0], e),
                   file=sys.stderr)
-            print('%s: Try installing pylint: sudo apt-get install pylint' %
-                  (__file__,), file=sys.stderr)
+            print('%s: Try installing pylint: sudo apt-get install %s' %
+                  (__file__, os.path.basename(cmd[0])), file=sys.stderr)
             return 1
         else:
             raise

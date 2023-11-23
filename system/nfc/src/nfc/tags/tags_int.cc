@@ -93,7 +93,7 @@ const char* const t1t_cmd_str[] = {
 const char* const t2t_cmd_str[] = {"T2T_CMD_READ", "T2T_CMD_WRITE",
                                    "T2T_CMD_SEC_SEL"};
 
-static unsigned int tags_ones32(register unsigned int x);
+static unsigned int tags_ones32(unsigned int x);
 
 /*******************************************************************************
 **
@@ -105,7 +105,7 @@ static unsigned int tags_ones32(register unsigned int x);
 **
 *******************************************************************************/
 const tT1T_CMD_RSP_INFO* t1t_cmd_to_rsp_info(uint8_t opcode) {
-  const tT1T_CMD_RSP_INFO *p_ret = NULL, *p;
+  const tT1T_CMD_RSP_INFO *p_ret = nullptr, *p;
   int xx;
 
   for (xx = 0, p = &t1t_cmd_rsp_infos[0]; xx < T1T_MAX_NUM_OPCODES; xx++, p++) {
@@ -129,7 +129,7 @@ const tT1T_CMD_RSP_INFO* t1t_cmd_to_rsp_info(uint8_t opcode) {
 **
 *******************************************************************************/
 const tT1T_INIT_TAG* t1t_tag_init_data(uint8_t tag_model) {
-  const tT1T_INIT_TAG *p_ret = NULL, *p;
+  const tT1T_INIT_TAG *p_ret = nullptr, *p;
   int xx;
 
   for (xx = 0, p = &t1t_init_content[0]; xx < T1T_MAX_TAG_MODELS; xx++, p++) {
@@ -154,7 +154,7 @@ const tT1T_INIT_TAG* t1t_tag_init_data(uint8_t tag_model) {
 *******************************************************************************/
 const tT2T_INIT_TAG* t2t_tag_init_data(uint8_t manufacturer_id,
                                        bool b_valid_ver, uint16_t version_no) {
-  const tT2T_INIT_TAG *p_ret = NULL, *p;
+  const tT2T_INIT_TAG *p_ret = nullptr, *p;
   int xx;
 
   for (xx = 0, p = &t2t_init_content[0]; xx < T2T_MAX_TAG_MODELS; xx++, p++) {
@@ -180,7 +180,7 @@ const tT2T_INIT_TAG* t2t_tag_init_data(uint8_t manufacturer_id,
 **
 *******************************************************************************/
 const tT2T_CMD_RSP_INFO* t2t_cmd_to_rsp_info(uint8_t opcode) {
-  const tT2T_CMD_RSP_INFO *p_ret = NULL, *p;
+  const tT2T_CMD_RSP_INFO *p_ret = nullptr, *p;
   int xx;
 
   for (xx = 0, p = &t2t_cmd_rsp_infos[0]; xx < T2T_MAX_NUM_OPCODES; xx++, p++) {
@@ -284,7 +284,7 @@ int tags_pow(int x, int y) {
 ** Returns          int
 **
 *******************************************************************************/
-static unsigned int tags_ones32(register unsigned int x) {
+static unsigned int tags_ones32(unsigned int x) {
   /* 32-bit recursive reduction using SWAR...
      but first step is mapping 2-bit values
      into sum of 2 1-bit values in sneaky way
@@ -306,7 +306,7 @@ static unsigned int tags_ones32(register unsigned int x) {
 ** Returns          int
 **
 *******************************************************************************/
-unsigned int tags_log2(register unsigned int x) {
+unsigned int tags_log2(unsigned int x) {
   x |= (x >> 1);
   x |= (x >> 2);
   x |= (x >> 4);

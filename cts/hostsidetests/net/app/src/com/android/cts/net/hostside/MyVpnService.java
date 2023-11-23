@@ -17,6 +17,8 @@
 package com.android.cts.net.hostside;
 
 import android.content.Intent;
+import android.net.Network;
+import android.net.ProxyInfo;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -26,11 +28,16 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 
 public class MyVpnService extends VpnService {
 
     private static String TAG = "MyVpnService";
     private static int MTU = 1799;
+
+    public static final String ACTION_ESTABLISHED = "com.android.cts.net.hostside.ESTABNLISHED";
+    public static final String EXTRA_ALWAYS_ON = "is-always-on";
+    public static final String EXTRA_LOCKDOWN_ENABLED = "is-lockdown-enabled";
 
     private ParcelFileDescriptor mFd = null;
     private PacketReflector mPacketReflector = null;
@@ -113,6 +120,20 @@ public class MyVpnService extends VpnService {
             }
         }
 
+        ArrayList<Network> underlyingNetworks =
+                intent.getParcelableArrayListExtra(packageName + ".underlyingNetworks");
+        if (underlyingNetworks == null) {
+            // VPN tracks default network
+            builder.setUnderlyingNetworks(null);
+        } else {
+            builder.setUnderlyingNetworks(underlyingNetworks.toArray(new Network[0]));
+        }
+
+        boolean isAlwaysMetered = intent.getBooleanExtra(packageName + ".isAlwaysMetered", false);
+        builder.setMetered(isAlwaysMetered);
+
+        ProxyInfo vpnProxy = intent.getParcelableExtra(packageName + ".httpProxy");
+        builder.setHttpProxy(vpnProxy);
         builder.setMtu(MTU);
         builder.setBlocking(true);
         builder.setSession("MyVpnService");
@@ -126,8 +147,17 @@ public class MyVpnService extends VpnService {
         mFd = builder.establish();
         Log.i(TAG, "Established, fd=" + (mFd == null ? "null" : mFd.getFd()));
 
+        broadcastEstablished();
+
         mPacketReflector = new PacketReflector(mFd.getFileDescriptor(), MTU);
         mPacketReflector.start();
+    }
+
+    private void broadcastEstablished() {
+        final Intent bcIntent = new Intent(ACTION_ESTABLISHED);
+        bcIntent.putExtra(EXTRA_ALWAYS_ON, isAlwaysOn());
+        bcIntent.putExtra(EXTRA_LOCKDOWN_ENABLED, isLockdownEnabled());
+        sendBroadcast(bcIntent);
     }
 
     private void stop() {

@@ -25,12 +25,9 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
+import android.content.res.Configuration;
 import android.text.Editable;
+import android.text.Layout;
 import android.text.TextUtils;
 import android.text.method.ArrowKeyMovementMethod;
 import android.text.method.MovementMethod;
@@ -40,6 +37,12 @@ import android.util.TypedValue;
 import android.util.Xml;
 import android.widget.EditText;
 import android.widget.TextView.BufferType;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -336,6 +339,31 @@ public class EditTextTest {
 
         assertEquals(mEditText1.getSelectionStart(), mEditText2.getSelectionStart());
         assertEquals(mEditText1.getSelectionEnd(), mEditText2.getSelectionEnd());
+    }
+
+    private boolean isWatch() {
+        return (mActivity.getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
+    }
+
+    @Test
+    public void testHyphenationFrequencyDefaultValue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final EditText editText = new EditText(context);
+
+        // Hypenation is enabled by default on watches to fit more text on their tiny screens.
+        if (isWatch()) {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, editText.getHyphenationFrequency());
+        } else {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, editText.getHyphenationFrequency());
+        }
+    }
+
+    @Test
+    public void testBreakStrategyDefaultValue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final EditText editText = new EditText(context);
+        assertEquals(Layout.BREAK_STRATEGY_SIMPLE, editText.getBreakStrategy());
     }
 
     private class MockEditText extends EditText {

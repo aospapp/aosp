@@ -47,7 +47,9 @@
 #include "zip_util.h"
 #include <zlib.h>
 
-#ifdef _ALLBSD_SOURCE
+// Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
+// #ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
 #define off64_t off_t
 #define mmap64 mmap
 #endif

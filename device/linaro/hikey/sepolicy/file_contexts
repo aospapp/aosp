@@ -11,11 +11,36 @@
 /dev/ttyAMA1           u:object_r:hci_attach_dev:s0
 /dev/ttyAMA4           u:object_r:hci_attach_dev:s0
 /dev/hifi_misc         u:object_r:audio_device:s0
+/dev/hi_vdec	       u:object_r:video_device:s0
+/dev/hi_venc	       u:object_r:video_device:s0
+
+/dev/graphics/fb0      u:object_r:graphics_device:s0
 
 # files in /vendor
 /(vendor|system/vendor)/bin/uim  u:object_r:hci_attach_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.bluetooth@1\.0-service\.hikey      u:object_r:hal_bluetooth_hikey_exec:s0
 /(vendor|system/vendor)/bin/nanoapp_cmd  u:object_r:nanoapp_cmd_exec:s0
 
+/(vendor|system/vendor)/lib(64)?/hw/gralloc\.hikey960\.so u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib(64)?/hw/gralloc\.hikey\.so u:object_r:same_process_hal_file:s0
+
 # /data
 /data/vendor/sensor(/.*)?        u:object_r:sensor_vendor_data_file:s0
+
+/sys/devices/platform/ddr_devfreq/devfreq/ddr_devfreq/min_freq		u:object_r:sysfs_power:s0
+/sys/devices/platform/e82c0000\.mali/devfreq/e82c0000\.mali/min_freq	u:object_r:sysfs_power:s0
+
+/dev/block/platform/soc/f723d000\.dwmmc0/by-name/cache u:object_r:cache_block_device:s0
+/dev/block/platform/soc/f723d000\.dwmmc0/by-name/userdata u:object_r:userdata_block_device:s0
+
+
+/vendor/bin/hw/android\.hardware\.power@1\.1-service\.hikey-common          u:object_r:hal_power_default_exec:s0
+
+/vendor/lib(64)?/libRSDriverArm\.so u:object_r:same_process_hal_file:s0
+/vendor/lib64/libbccArm\.so u:object_r:same_process_hal_file:s0
+/vendor/lib64/libbcc\.so u:object_r:same_process_hal_file:s0
+/vendor/lib64/libLLVM_android\.so u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/libclcore\.bc u:object_r:same_process_hal_file:s0
+/vendor/lib(64)?/libmalicore\.bc u:object_r:same_process_hal_file:s0
+/vendor/lib/libclcore_neon\.bc u:object_r:same_process_hal_file:s0
+/vendor/bin/bcc                u:object_r:same_process_hal_file:s0

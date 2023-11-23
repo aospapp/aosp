@@ -39,9 +39,9 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.Collections;
 import java.util.List;
-
-import androidx.car.widget.PagedListView;
 
 /**
  * Activity that allows user to search in apps.
@@ -100,7 +100,7 @@ public final class AppSearchActivity extends Activity {
                 });
         findViewById(R.id.exit_button_container).setOnClickListener(view -> finish());
 
-        PagedListView searchResultView = findViewById(R.id.search_result);
+        RecyclerView searchResultView = findViewById(R.id.search_result);
         searchResultView.setClipToOutline(true);
         mSearchResultAdapter = new SearchResultAdapter(this);
         searchResultView.setAdapter(mSearchResultAdapter);
@@ -167,8 +167,10 @@ public final class AppSearchActivity extends Activity {
     }
 
     private List<AppMetaData> getAllApps() {
-        return AppLauncherUtils.getAllLaunchableApps(
-                getSystemService(LauncherApps.class), mCarPackageManager, mPackageManager);
+        AppLauncherUtils.LauncherAppsInfo appsInfo = AppLauncherUtils.getAllLauncherApps(
+                Collections.emptySet(), getSystemService(LauncherApps.class), mCarPackageManager,
+                mPackageManager);
+        return appsInfo.getApplicationsList();
     }
 
     public void hideKeyboard() {

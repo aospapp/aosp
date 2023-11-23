@@ -309,7 +309,7 @@ public class BleEncryptedClientService extends Service {
                             mBluetoothGatt.discoverServices();
                         }
                     }, 1000);
-                } else if (status == BluetoothProfile.STATE_DISCONNECTED) {
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     showMessage("Bluetooth LE disconnected");
                     mTaskQueue.addTask(new Runnable() {
                         @Override

@@ -25,7 +25,6 @@
 #include "wificond/scanning/offload/scan_stats.h"
 #include "wificond/scanning/scan_result.h"
 
-using ::android::hardware::hidl_vec;
 using android::hardware::wifi::offload::V1_0::IOffload;
 using android::hardware::wifi::offload::V1_0::ScanResult;
 using android::hardware::wifi::offload::V1_0::ScanFilter;
@@ -34,7 +33,6 @@ using android::hardware::wifi::offload::V1_0::ScanStats;
 using android::hardware::wifi::offload::V1_0::OffloadStatus;
 using android::hardware::wifi::offload::V1_0::OffloadStatusCode;
 
-using android::wificond::OffloadCallback;
 using ::com::android::server::wifi::wificond::NativeScanResult;
 using ::com::android::server::wifi::wificond::NativeScanStats;
 using std::vector;

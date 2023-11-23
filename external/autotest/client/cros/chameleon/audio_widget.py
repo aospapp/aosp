@@ -96,6 +96,19 @@ class AudioInputWidget(AudioWidget):
         self._remote_rec_path, self._rec_format = self.handler.stop_recording()
 
 
+    def start_listening(self):
+        """Starts listening."""
+        self._remote_rec_path = None
+        self._rec_binary = None
+        self._rec_format = None
+        self.handler.start_listening()
+
+
+    def stop_listening(self):
+        """Stops listening."""
+        self._remote_rec_path, self._rec_format = self.handler.stop_listening()
+
+
     def read_recorded_binary(self):
         """Gets recorded file from handler and fills _rec_binary."""
         self._rec_binary = self.handler.get_recorded_binary(
@@ -257,9 +270,12 @@ class AudioOutputWidget(AudioWidget):
 
         @param test_data: An AudioTestData object.
 
+        @returns: path to the remote playback data
+
         """
         self._remote_playback_path = self.handler.set_playback_data(test_data)
 
+        return self._remote_playback_path
 
     def start_playback(self, blocking=False):
         """Starts playing audio specified in previous set_playback_data call.
@@ -268,6 +284,16 @@ class AudioOutputWidget(AudioWidget):
 
         """
         self.handler.start_playback(self._remote_playback_path, blocking)
+
+    def start_playback_with_path(self, remote_playback_path, blocking=False):
+        """Starts playing audio specified in previous set_playback_data call
+           and the remote_playback_path returned by set_playback_data function.
+
+        @param remote_playback_path: Path returned by set_playback_data.
+        @param blocking: Blocks this call until playback finishes.
+
+        """
+        self.handler.start_playback(remote_playback_path, blocking)
 
 
     def stop_playback(self):
@@ -801,6 +827,41 @@ class CrosIntMicInputWidgetHandler(CrosInputWidgetHandler):
         """Starts recording audio with proper gain."""
         self.set_proper_gain()
         self._audio_facade.start_recording(self._DEFAULT_DATA_FORMAT)
+
+
+class CrosHotwordingWidgetHandler(CrosInputWidgetHandler):
+    """
+    This class abstracts a Cros device audio input widget handler on hotwording.
+
+    """
+    _DEFAULT_DATA_FORMAT = dict(file_type='raw',
+                                sample_format='S16_LE',
+                                channel=1,
+                                rate=16000)
+
+    def __init__(self, audio_facade, plug_handler, system_facade):
+        """Initializes a CrosWidgetHandler.
+
+        @param audio_facade: An AudioFacadeRemoteAdapter to access Cros device
+                             audio functionality.
+        @param plug_handler: A PlugHandler object for plug and unplug.
+        @param system_facade: A SystemFacadeRemoteAdapter to access Cros device
+                             system functionality.
+
+        """
+        super(CrosHotwordingWidgetHandler, self).__init__(
+                audio_facade, plug_handler)
+        self._system_facade = system_facade
+
+
+    def start_listening(self):
+        """Start listening to hotword."""
+        self._audio_facade.start_listening(self._DEFAULT_DATA_FORMAT)
+
+
+    def stop_listening(self):
+        """Stops listening to hotword."""
+        return self._audio_facade.stop_listening(), self._DEFAULT_DATA_FORMAT
 
 
 class CrosOutputWidgetHandlerError(Exception):

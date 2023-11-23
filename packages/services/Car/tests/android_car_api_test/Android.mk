@@ -35,9 +35,10 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_STATIC_JAVA_LIBRARIES := junit
 LOCAL_STATIC_JAVA_LIBRARIES += \
-        android-support-test \
+        androidx.test.rules \
         android.hidl.base-V1.0-java \
         android.hardware.automotive.vehicle-V2.0-java \
+        android.car.cluster.navigation \
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner android.test.base
 

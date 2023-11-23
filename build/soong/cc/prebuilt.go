@@ -29,11 +29,20 @@ type prebuiltLinkerInterface interface {
 	prebuilt() *android.Prebuilt
 }
 
+type prebuiltLinkerProperties struct {
+
+	// a prebuilt library or binary. Can reference a genrule module that generates an executable file.
+	Srcs []string `android:"path,arch_variant"`
+
+	// Check the prebuilt ELF files (e.g. DT_SONAME, DT_NEEDED, resolution of undefined
+	// symbols, etc), default true.
+	Check_elf_files *bool
+}
+
 type prebuiltLinker struct {
 	android.Prebuilt
-	properties struct {
-		Srcs []string `android:"arch_variant"`
-	}
+
+	properties prebuiltLinkerProperties
 }
 
 func (p *prebuiltLinker) prebuilt() *android.Prebuilt {
@@ -44,12 +53,33 @@ func (p *prebuiltLinker) PrebuiltSrcs() []string {
 	return p.properties.Srcs
 }
 
+type prebuiltLibraryInterface interface {
+	libraryInterface
+	prebuiltLinkerInterface
+	disablePrebuilt()
+}
+
 type prebuiltLibraryLinker struct {
 	*libraryDecorator
 	prebuiltLinker
 }
 
 var _ prebuiltLinkerInterface = (*prebuiltLibraryLinker)(nil)
+var _ prebuiltLibraryInterface = (*prebuiltLibraryLinker)(nil)
+
+func (p *prebuiltLibraryLinker) linkerInit(ctx BaseModuleContext) {}
+
+func (p *prebuiltLibraryLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
+	return p.libraryDecorator.linkerDeps(ctx, deps)
+}
+
+func (p *prebuiltLibraryLinker) linkerFlags(ctx ModuleContext, flags Flags) Flags {
+	return flags
+}
+
+func (p *prebuiltLibraryLinker) linkerProps() []interface{} {
+	return p.libraryDecorator.linkerProps()
+}
 
 func (p *prebuiltLibraryLinker) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
@@ -58,13 +88,47 @@ func (p *prebuiltLibraryLinker) link(ctx ModuleContext,
 		p.libraryDecorator.exportIncludes(ctx, "-I")
 		p.libraryDecorator.reexportFlags(deps.ReexportedFlags)
 		p.libraryDecorator.reexportDeps(deps.ReexportedFlagsDeps)
-		// TODO(ccross): .toc optimization, stripping, packing
-		return p.Prebuilt.SingleSourcePath(ctx)
+
+		builderFlags := flagsToBuilderFlags(flags)
+
+		in := p.Prebuilt.SingleSourcePath(ctx)
+
+		if p.shared() {
+			p.unstrippedOutputFile = in
+			libName := ctx.baseModuleName() + flags.Toolchain.ShlibSuffix()
+			if p.needsStrip(ctx) {
+				stripped := android.PathForModuleOut(ctx, "stripped", libName)
+				p.strip(ctx, in, stripped, builderFlags)
+				in = stripped
+			}
+
+			// Optimize out relinking against shared libraries whose interface hasn't changed by
+			// depending on a table of contents file instead of the library itself.
+			tocFile := android.PathForModuleOut(ctx, libName+".toc")
+			p.tocFile = android.OptionalPathForPath(tocFile)
+			TransformSharedObjectToToc(ctx, in, tocFile, builderFlags)
+		}
+
+		return in
 	}
 
 	return nil
 }
 
+func (p *prebuiltLibraryLinker) shared() bool {
+	return p.libraryDecorator.shared()
+}
+
+func (p *prebuiltLibraryLinker) nativeCoverage() bool {
+	return false
+}
+
+func (p *prebuiltLibraryLinker) disablePrebuilt() {
+	p.properties.Srcs = nil
+}
+
+// cc_prebuilt_library_shared installs a precompiled shared library that are
+// listed in the srcs property in the device's directory.
 func prebuiltSharedLibraryFactory() android.Module {
 	module, _ := NewPrebuiltSharedLibrary(android.HostAndDeviceSupported)
 	return module.Init()
@@ -83,9 +147,15 @@ func NewPrebuiltSharedLibrary(hod android.HostOrDeviceSupported) (*Module, *libr
 	module.AddProperties(&prebuilt.properties)
 
 	android.InitPrebuiltModule(module, &prebuilt.properties.Srcs)
+
+	// Prebuilt libraries can be included in APEXes
+	android.InitApexModule(module)
+
 	return module, library
 }
 
+// cc_prebuilt_library_static installs a precompiled static library that are
+// listed in the srcs property in the device's directory.
 func prebuiltStaticLibraryFactory() android.Module {
 	module, _ := NewPrebuiltStaticLibrary(android.HostAndDeviceSupported)
 	return module.Init()
@@ -118,17 +188,26 @@ func (p *prebuiltBinaryLinker) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 	// TODO(ccross): verify shared library dependencies
 	if len(p.properties.Srcs) > 0 {
-		// TODO(ccross): .toc optimization, stripping, packing
+		builderFlags := flagsToBuilderFlags(flags)
+
+		fileName := p.getStem(ctx) + flags.Toolchain.ExecutableSuffix()
+		in := p.Prebuilt.SingleSourcePath(ctx)
+
+		p.unstrippedOutputFile = in
+
+		if p.needsStrip(ctx) {
+			stripped := android.PathForModuleOut(ctx, "stripped", fileName)
+			p.strip(ctx, in, stripped, builderFlags)
+			in = stripped
+		}
 
 		// Copy binaries to a name matching the final installed name
-		fileName := p.getStem(ctx) + flags.Toolchain.ExecutableSuffix()
 		outputFile := android.PathForModuleOut(ctx, fileName)
-
 		ctx.Build(pctx, android.BuildParams{
 			Rule:        android.CpExecutable,
 			Description: "prebuilt",
 			Output:      outputFile,
-			Input:       p.Prebuilt.SingleSourcePath(ctx),
+			Input:       in,
 		})
 
 		return outputFile
@@ -137,6 +216,8 @@ func (p *prebuiltBinaryLinker) link(ctx ModuleContext,
 	return nil
 }
 
+// cc_prebuilt_binary installs a precompiled executable in srcs property in the
+// device's directory.
 func prebuiltBinaryFactory() android.Module {
 	module, _ := NewPrebuiltBinary(android.HostAndDeviceSupported)
 	return module.Init()

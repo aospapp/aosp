@@ -62,11 +62,11 @@ void
 print_dirfd(struct tcb *tcp, int fd)
 {
 	if (fd == AT_FDCWD)
-		tprints("AT_FDCWD, ");
-	else {
+		print_xlat_d(AT_FDCWD);
+	else
 		printfd(tcp, fd);
-		tprints(", ");
-	}
+
+	tprints(", ");
 }
 
 /*
@@ -113,15 +113,9 @@ sprint_open_modes(unsigned int flags)
 void
 tprint_open_modes(unsigned int flags)
 {
-	tprints(sprint_open_modes(flags) + sizeof("flags"));
+	print_xlat_ex(flags, sprint_open_modes(flags) + sizeof("flags"),
+		      XLAT_STYLE_DEFAULT);
 }
-
-#ifdef O_TMPFILE
-/* The kernel & C libraries often inline O_DIRECTORY. */
-# define STRACE_O_TMPFILE (O_TMPFILE & ~O_DIRECTORY)
-#else /* !O_TMPFILE */
-# define STRACE_O_TMPFILE 0
-#endif
 
 static int
 decode_open(struct tcb *tcp, int offset)
@@ -130,7 +124,7 @@ decode_open(struct tcb *tcp, int offset)
 	tprints(", ");
 	/* flags */
 	tprint_open_modes(tcp->u_arg[offset + 1]);
-	if (tcp->u_arg[offset + 1] & (O_CREAT | STRACE_O_TMPFILE)) {
+	if (tcp->u_arg[offset + 1] & (O_CREAT | __O_TMPFILE)) {
 		/* mode */
 		tprints(", ");
 		print_numeric_umode_t(tcp->u_arg[offset + 2]);

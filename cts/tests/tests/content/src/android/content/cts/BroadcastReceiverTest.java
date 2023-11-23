@@ -28,6 +28,7 @@ import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 
 /**
@@ -185,6 +186,7 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         activity.unregisterReceiver(internalReceiver);
     }
 
+    @AppModeFull
     public void testManifestReceiverPackage() throws InterruptedException {
         MockReceiverInternal internalReceiver = new MockReceiverInternal();
 
@@ -212,6 +214,7 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
     }
 
+    @AppModeFull
     public void testManifestReceiverComponent() throws InterruptedException {
         MockReceiverInternal internalReceiver = new MockReceiverInternal();
 
@@ -240,6 +243,7 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
     }
 
+    @AppModeFull
     public void testManifestReceiverPermission() throws InterruptedException {
         MockReceiverInternal internalReceiver = new MockReceiverInternal();
 
@@ -293,6 +297,7 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
                 resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
     }
 
+    @AppModeFull
     public void testAbortBroadcast() throws InterruptedException {
         MockReceiverInternalOrder internalOrderReceiver = new MockReceiverInternalOrder();
 

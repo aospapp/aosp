@@ -15,15 +15,13 @@
  */
 package android.assist.testapp;
 
-import android.app.Activity;
 import android.assist.common.Utils;
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
-public class ScreenshotActivity extends Activity {
+public class ScreenshotActivity extends BaseThirdPartyActivity {
     static final String TAG = "ScreenshotActivity";
 
     @Override
@@ -31,27 +29,10 @@ public class ScreenshotActivity extends Activity {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "ScreenshotActivity created");
         setContentView(R.layout.screenshot_activity);
-    }
 
-    @Override
-    public void onResume() {
-        Log.i(TAG, " in onResume");
-        super.onResume();
         int backgroundColor = getIntent().getIntExtra(Utils.SCREENSHOT_COLOR_KEY, Color.WHITE);
         View view = findViewById(R.id.screenshot_activity);
         view.setBackgroundColor(backgroundColor);
         view.requestLayout();
-
-        // Tell service activity is in foreground.
-        Intent intent = new Intent(Utils.APP_3P_HASRESUMED);
-        sendBroadcast(intent);
-        Log.i(TAG, "Resumed broadcast sent.");
-    }
-
-    @Override
-    public void onPause() {
-        Log.i(TAG, "onPause");
-        finish();
-        super.onPause();
     }
 }

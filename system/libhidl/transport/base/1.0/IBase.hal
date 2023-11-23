@@ -87,7 +87,10 @@ interface IBase {
     linkToDeath(death_recipient recipient, uint64_t cookie) generates (bool success);
 
     /*
-     * Unregisters a previously registered death recipient.
+     * Unregisters the registered death recipient. If this service was registered
+     * multiple times with the same exact death recipient, this unlinks the most
+     * recently registered one.
+     *
      * @param recipient a previously registered hidl_death_recipient callback
      * @return success whether the death recipient was unregistered successfully.
      */

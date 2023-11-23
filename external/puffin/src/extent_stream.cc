@@ -7,11 +7,11 @@
 #include <algorithm>
 #include <utility>
 
-#include "puffin/src/set_errors.h"
-
-namespace puffin {
+#include "puffin/src/logging.h"
 
 using std::vector;
+
+namespace puffin {
 
 UniqueStreamPtr ExtentStream::CreateForWrite(
     UniqueStreamPtr stream, const vector<ByteExtent>& extents) {

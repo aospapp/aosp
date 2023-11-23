@@ -156,26 +156,24 @@ TEST_F(HttpRequestTest, GetResponse) {
     return true;
   };
 
-  auto success_callback = [](decltype(this) test,
-                             const std::string& resp_data,
-                             RequestID request_id,
-                             std::unique_ptr<Response> resp) {
+  auto success_callback = base::Bind(
+      [](MockConnection* connection, const std::string& resp_data,
+         RequestID request_id, std::unique_ptr<Response> resp) {
     EXPECT_EQ(23, request_id);
-    EXPECT_CALL(*test->connection_, GetResponseStatusCode())
+    EXPECT_CALL(*connection, GetResponseStatusCode())
         .WillOnce(Return(status_code::Partial));
     EXPECT_EQ(status_code::Partial, resp->GetStatusCode());
 
-    EXPECT_CALL(*test->connection_, GetResponseStatusText())
+    EXPECT_CALL(*connection, GetResponseStatusText())
         .WillOnce(Return("Partial completion"));
     EXPECT_EQ("Partial completion", resp->GetStatusText());
 
-    EXPECT_CALL(*test->connection_,
-                GetResponseHeader(response_header::kContentType))
+    EXPECT_CALL(*connection, GetResponseHeader(response_header::kContentType))
         .WillOnce(Return(mime::text::kHtml));
     EXPECT_EQ(mime::text::kHtml, resp->GetContentType());
 
     EXPECT_EQ(resp_data, resp->ExtractDataAsString());
-  };
+  }, connection_.get(), resp_data);
 
   auto finish_request_async =
       [this, &read_data](const SuccessCallback& success_callback) {
@@ -198,10 +196,7 @@ TEST_F(HttpRequestTest, GetResponse) {
   EXPECT_CALL(*connection_, FinishRequestAsync(_, _))
       .WillOnce(DoAll(WithArg<0>(Invoke(finish_request_async)), Return(23)));
 
-  EXPECT_EQ(
-      23,
-      request.GetResponse(
-          base::Bind(success_callback, base::Unretained(this), resp_data), {}));
+  EXPECT_EQ(23, request.GetResponse(success_callback, {}));
 }
 
 }  // namespace http

@@ -32,11 +32,14 @@
 #ifndef ART_OPENJDKJVMTI_TI_THREAD_H_
 #define ART_OPENJDKJVMTI_TI_THREAD_H_
 
+#include <unordered_map>
+
 #include "jni.h"
 #include "jvmti.h"
 
 #include "base/macros.h"
 #include "base/mutex.h"
+#include "thread.h"
 
 namespace art {
 class ArtField;
@@ -48,6 +51,29 @@ class Closure;
 namespace openjdkjvmti {
 
 class EventHandler;
+
+// Gains the user_code_suspension_lock_ and ensures that the code will not suspend for user-code.
+class SCOPED_CAPABILITY ScopedNoUserCodeSuspension {
+ public:
+  explicit ScopedNoUserCodeSuspension(art::Thread* self)
+      ACQUIRE(art::Locks::user_code_suspension_lock_);
+  ~ScopedNoUserCodeSuspension() RELEASE(art::Locks::user_code_suspension_lock_);
+
+ private:
+  art::Thread* self_;
+};
+
+// The struct that we store in the art::Thread::custom_tls_ that maps the jvmtiEnvs to the data
+// stored with that thread. This is needed since different jvmtiEnvs are not supposed to share TLS
+// data but we only have a single slot in Thread objects to store data.
+struct JvmtiGlobalTLSData : public art::TLSData {
+  std::unordered_map<jvmtiEnv*, const void*> data GUARDED_BY(art::Locks::thread_list_lock_);
+
+  // The depth of the last frame where popping using PopFrame it is not allowed. It is set to
+  // kNoDisallowedPopFrame if all frames can be popped. See b/117615146 for more information.
+  static constexpr size_t kNoDisallowedPopFrame = -1;
+  size_t disable_pop_frame_depth = kNoDisallowedPopFrame;
+};
 
 class ThreadUtil {
  public:
@@ -133,6 +159,11 @@ class ThreadUtil {
   static bool WouldSuspendForUserCode(art::Thread* self)
     REQUIRES(!art::Locks::user_code_suspension_lock_,
              !art::Locks::thread_suspend_count_lock_);
+
+  static JvmtiGlobalTLSData* GetGlobalTLSData(art::Thread* thread)
+      REQUIRES(art::Locks::thread_list_lock_);
+  static JvmtiGlobalTLSData* GetOrCreateGlobalTLSData(art::Thread* thread)
+      REQUIRES(art::Locks::thread_list_lock_);
 
  private:
   // We need to make sure only one thread tries to suspend threads at a time so we can get the

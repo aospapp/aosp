@@ -33,10 +33,10 @@ public class RawContactUtil {
 
     private static final Uri URI = ContactsContract.RawContacts.CONTENT_URI;
 
-    public static void update(ContentResolver resolver, long rawContactId,
+    public static int update(ContentResolver resolver, long rawContactId,
             ContentValues values) {
         Uri uri = ContentUris.withAppendedId(URI, rawContactId);
-        resolver.update(uri, values, null, null);
+        return resolver.update(uri, values, null, null);
     }
 
     public static long createRawContactWithName(ContentResolver resolver, Account account,

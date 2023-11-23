@@ -20,7 +20,9 @@
 #include "chre/core/init.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/static_nanoapps.h"
+#ifdef CHRE_AUDIO_SUPPORT_ENABLED
 #include "chre/platform/platform_audio.h"
+#endif  // CHRE_AUDIO_SUPPORT_ENABLED
 #include "chre/platform/context.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
@@ -95,6 +97,8 @@ int main(int argc, char **argv) {
 
     // Load any static nanoapps and start the event loop.
     std::thread chreThread([&]() {
+      EventLoopManagerSingleton::get()->lateInit();
+
       // Load static nanoapps unless they are disabled by a command-line flag.
       if (!noStaticNanoappsArg.getValue()) {
         chre::loadStaticNanoapps();

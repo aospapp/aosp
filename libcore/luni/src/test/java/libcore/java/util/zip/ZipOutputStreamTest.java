@@ -16,10 +16,12 @@
 
 package libcore.java.util.zip;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -72,22 +74,20 @@ public final class ZipOutputStreamTest extends TestCaseWithRules {
     }
 
     /**
-     * Reference implementation does NOT allow writing of an empty zip using a
-     * {@link ZipOutputStream}.
+     * Reference implementation does allow writing of an empty zip using a {@link ZipOutputStream}.
+     *
+     * See JDK-6440786.
      */
-    @DisableResourceLeakageDetection(
-            why = "InflaterOutputStream.close() does not work properly if finish() throws an"
-                    + " exception; finish() throws an exception if the output is invalid.",
-            bug = "31797037")
     public void testCreateEmpty() throws IOException {
         File result = File.createTempFile("ZipFileTest", "zip");
         ZipOutputStream out =
                 new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(result)));
-        try {
-            out.close();
-            fail("Close on empty stream failed to throw exception");
-        } catch (ZipException e) {
-            // expected
+        out.close();
+
+        // Verify that the empty zip file can be read back using ZipInputStream.
+        try (ZipInputStream in = new ZipInputStream(
+            new BufferedInputStream(new FileInputStream(result)))) {
+            assertNull(in.getNextEntry());
         }
     }
 

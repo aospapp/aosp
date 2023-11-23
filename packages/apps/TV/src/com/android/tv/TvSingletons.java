@@ -22,6 +22,7 @@ import com.android.tv.analytics.Tracker;
 import com.android.tv.common.BaseApplication;
 import com.android.tv.common.BaseSingletons;
 import com.android.tv.common.experiments.ExperimentLoader;
+import com.android.tv.common.flags.has.HasUiFlags;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.ProgramDataManager;
@@ -33,17 +34,23 @@ import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.recorder.RecordingScheduler;
 import com.android.tv.perf.PerformanceMonitor;
-import com.android.tv.tuner.TunerInputController;
+import com.android.tv.tunerinputcontroller.HasBuiltInTunerManager;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.account.AccountHelper;
+import com.android.tv.common.flags.BackendKnobsFlags;
 import java.util.concurrent.Executor;
 import javax.inject.Provider;
 
 /** Interface with getters for application scoped singletons. */
-public interface TvSingletons extends BaseSingletons {
+public interface TvSingletons extends BaseSingletons, HasBuiltInTunerManager, HasUiFlags {
 
-    /** Returns the @{@link TvSingletons} using the application context. */
+    /**
+     * Returns the @{@link TvSingletons} using the application context.
+     *
+     * @deprecated use injection instead.
+     */
+    @Deprecated
     static TvSingletons getSingletons(Context context) {
         return (TvSingletons) BaseApplication.getSingletons(context);
     }
@@ -52,6 +59,7 @@ public interface TvSingletons extends BaseSingletons {
 
     void handleInputCountChanged();
 
+    @Deprecated
     ChannelDataManager getChannelDataManager();
 
     /**
@@ -60,6 +68,8 @@ public interface TvSingletons extends BaseSingletons {
      */
     boolean isChannelDataManagerLoadFinished();
 
+    /** @deprecated use injection instead. */
+    @Deprecated
     ProgramDataManager getProgramDataManager();
 
     /**
@@ -92,17 +102,23 @@ public interface TvSingletons extends BaseSingletons {
 
     PerformanceMonitor getPerformanceMonitor();
 
+    /** @deprecated use injection instead. */
+    @Deprecated
     TvInputManagerHelper getTvInputManagerHelper();
 
     Provider<EpgReader> providesEpgReader();
 
     EpgFetcher getEpgFetcher();
 
+    /** @deprecated use injection instead. */
+    @Deprecated
     SetupUtils getSetupUtils();
-
-    TunerInputController getTunerInputController();
 
     ExperimentLoader getExperimentLoader();
 
+    /** @deprecated use injection instead. */
+    @Deprecated
     Executor getDbExecutor();
+
+    BackendKnobsFlags getBackendKnobs();
 }

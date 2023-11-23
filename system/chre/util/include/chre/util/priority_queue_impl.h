@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_PRIORITY_QUEUE_IMPL_H_
 #define CHRE_UTIL_PRIORITY_QUEUE_IMPL_H_
 
+#include "chre/util/priority_queue.h"
+
 #include <utility>
 
 #include "chre/platform/assert.h"

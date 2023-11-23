@@ -17,6 +17,7 @@
 package com.android.tradefed.config.gcs;
 
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.util.StreamUtil;
 
 import org.junit.Assert;
@@ -43,20 +44,27 @@ public class GCSConfigurationServerTest {
                     + "\n"
                     + "[cluster]\n"
                     + "\n"
-                    + "hostname,,host-config.xml,\n";
+                    + "hostname,,host-config.xml,\n"
+                    + "[presubmit]\n"
+                    + "\n"
+                    + "presubmit,,presubmit-host-config.xml,\n"
+                    + "presubmit_vts,,presubmit-vts-host-config.xml,\n";
 
     private GCSConfigurationServer mConfigServer;
     private String mHostname;
 
     @Before
     public void setUp() {
-        mHostname = "hostname";
+        mHostname = "hostname.mtv.com";
         mConfigServer =
                 new GCSConfigurationServer() {
                     @Override
-                    InputStream downloadFile(String name) throws ConfigurationException {
+                    InputStream downloadFileToInputStream(String name)
+                            throws ConfigurationException {
                         String content = null;
                         if (name.equals("host-config.xml")) {
+                            content = CONFIG;
+                        } else if (name.equals("presubmit-host-config.xml")) {
                             content = CONFIG;
                         } else if (name.equals("host-config.txt")) {
                             content = HOST_CONFIG_MAPPING;
@@ -99,6 +107,22 @@ public class GCSConfigurationServerTest {
     }
 
     @Test
+    public void testGetCurrentHostConfig_cluster() throws Exception {
+        OptionSetter setter = new OptionSetter(mConfigServer);
+        setter.setOptionValue("cluster", "presubmit_vts");
+        String configName = mConfigServer.getCurrentHostConfig();
+        Assert.assertEquals("presubmit-vts-host-config.xml", configName);
+    }
+
+    @Test
+    public void testGetCurrentHostConfig_configPath() throws Exception {
+        OptionSetter setter = new OptionSetter(mConfigServer);
+        setter.setOptionValue("config-path", "/config/path.xml");
+        String configName = mConfigServer.getCurrentHostConfig();
+        Assert.assertEquals("/config/path.xml", configName);
+    }
+
+    @Test
     public void testGetCurrentHostConfig_noHostConfig() throws Exception {
         mHostname = "invalid_hostname";
         try {
@@ -106,7 +130,7 @@ public class GCSConfigurationServerTest {
             Assert.fail("Should throw ConfigurationException.");
         } catch (ConfigurationException e) {
             // Expect to throw ConfigurationException.
-            Assert.assertEquals("Host invalid_hostname doesn't have configure.", e.getMessage());
+            Assert.assertEquals("There is no config for invalid_hostname.", e.getMessage());
         }
     }
 }

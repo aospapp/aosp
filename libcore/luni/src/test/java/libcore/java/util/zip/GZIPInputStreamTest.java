@@ -202,6 +202,16 @@ public final class GZIPInputStreamTest extends TestCaseWithRules {
         }
     }
 
+    public void testNonGzipData() {
+        byte[] data = new byte[100];
+        try (InputStream is = new GZIPInputStream(new ByteArrayInputStream(data), data.length)) {
+            fail();
+        } catch (IOException expected) {
+            // Zeroes do not match the GZIPInputStream.GZIP_MAGIC number.
+            assertEquals("Not in GZIP format", expected.getMessage());
+        }
+    }
+
     /**
      * Test a openJdk8 fix for case where GZIPInputStream.readTrailer may accidently
      * close the input stream if trailing bytes looks "close" enough. Wrapping GZIP in

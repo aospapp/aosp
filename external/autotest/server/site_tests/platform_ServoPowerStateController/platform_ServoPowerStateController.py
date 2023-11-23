@@ -1,13 +1,106 @@
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+"""Tests for the servo `power_state` control.
+
+## Purpose
+This test exists to ensure that servo's `power_state` control provides a
+consistent, hardware-independent implementation across all models of
+Chrome hardware.
+
+    ==== NOTE NOTE NOTE ====
+    YOU ARE NOT ALLOWED TO CHANGE THIS TEST TO TREAT DIFFERENT HARDWARE
+    DIFFERENTLY.
+
+In particular, importing from `faft.config` in order to customize this
+test for different hardware is never allowed.  This has been tried twice
+before; anyone making a third attempt is liable to be taken out and
+shot.  Or at least, be given a good talking to.
+
+This test is intended to enforce a contract between hardware-independent
+parts of Autotest (especially the repair code) and hardware-dependent
+implementations of servo in `hdctools`.  The contract imposes requirements
+and limitations on both sides.
+
+## Requirements on the servo implementation in `hdctools`
+### Setting `power_state:off`
+Setting `power_state:off` must turn the DUT "off" unconditionally.  The
+operation must have the same effect regardless of the state of the DUT
+prior to the operation.  The operation is not allowed to fail.
+
+The meaning of "off" does not require any specific component to be
+actually powered off, provided that the DUT does not respond on the
+network, and does not respond to USB devices being plugged or unplugged.
+Some examples of "off" that are acceptable:
+  * A system in ACPI power state S5.
+  * A system held in reset indefinitely by asserting `cold_reset:on`.
+  * In general, any system where power is not supplied to the AP.
+
+While a DUT is turned off, it is allowed to respond to the power button,
+the lid, and to the reset signals in ways that are hardware dependent.
+The signals may be ignored, or they may have any other effect that's
+appropriate to the hardware, such as turning the DUT on.
+
+### Setting `power_state:on` and `power_state:rec`
+After applying `power_state:off` to turn a DUT off, setting
+`power_state:on` or `power_state:rec` will turn the DUT on.
+  * Setting "on" turns the DUT on in normal mode.  The DUT will
+    boot normally as for a cold start.
+  * Setting "rec" turns the DUT on in recovery mode.  The DUT
+    will go to the recovery screen and wait for a USB stick to be
+    inserted.
+
+If a DUT is not off because of setting `power_state:off`, the response
+to "on" and "rec" may be hardware dependent.  The settings may turn the
+device on as specified, they may have no effect, or they may provide any
+other response that's appropriate to the hardware.
+
+### Setting `power_state:reset`
+Applying `power_state:reset` has the same visible effects as setting
+`power_state:off` followed by `power_state:on`.  The operation must have
+the same effect regardless of the state of the DUT prior to the
+operation.  The operation is not allowed to fail.
+
+Additionally, applying reset will assert and deassert `cold_reset` to
+ensure a full hardware reset.
+
+### Timing Constraints
+The servo implementation for `power_state` cannot impose timing
+constraints on Autotest.  If the hardware imposes constraints, the servo
+implemention must provide the necessary time delays by sleeping.
+
+In particular:
+  * After `power_state:off`, it is allowed to immediately apply either
+    `on` or `rec`.
+  * After `rec`, USB stick insertion must be recognized immediately.
+  * Setting `power_state:reset` twice in a row must work reliably.
+
+### Requirements on Autotest
+### Setting `power_state:off`
+Once a DUT has been turned "off", changing signals such as the power
+button, the lid, or reset signals isn't allowed.  The only allowed
+state changes are these:
+  * USB muxes may be switched at will.
+  * The `power_state` control can be set to any valid setting.
+
+Any other operation may cause the DUT to change state unpredictably
+(e.g. by powering the DUT on).
+
+## Setting `power_state:on` and `power_state:rec`
+Autotest can only apply `power_state:on` or `power_state:rec` if the DUT
+was previously turned off with `power_state:off`.
+
+"""
+
 import logging
 import time
 
+# STOP!  You are not allowed to import anything from FAFT.  Read the
+# comments above.
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
-from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
-from autotest_lib.server.cros.faft.config.config import Config as FAFTConfig
+
 
 class platform_ServoPowerStateController(test.test):
     """Test servo can power on and off DUT in recovery and non-recovery mode."""
@@ -16,10 +109,8 @@ class platform_ServoPowerStateController(test.test):
 
     def initialize(self, host):
         """Initialize DUT for testing."""
-        self.faft_client=RPCProxy(host)
-        self.faft_config=FAFTConfig(self.faft_client.system.get_platform_name())
-        self.ec_capability=self.faft_config.ec_capability
-        self.no_reset_in_off = ('no_reset_in_off' in self.ec_capability)
+        pass
+
 
     def cleanup(self):
         """Clean up DUT after servo actions."""
@@ -130,19 +221,10 @@ class platform_ServoPowerStateController(test.test):
         self.assert_dut_off('power_state:off failed after boot from '
                             'internal storage.')
 
-        # Seperate test cases for box/base and book
-        if self.no_reset_in_off or not self.ec_capability:
-            logging.info('Power DUT off and reset. DUT should not be on after '
+        logging.info('Power DUT off and reset. DUT should be on after '
                      'reset is completed.')
-            self.controller.reset()
-            self.assert_dut_off('DUT should not be on after '
-                                'asserting reset signal')
-            self.controller.power_on(self.controller.REC_OFF)
-        else:
-            logging.info('Power DUT off and reset. DUT should be on after '
-                     'reset is completed.')
-            self.controller.reset()
-            self.assert_dut_on(rec_on=False)
+        self.controller.reset()
+        self.assert_dut_on(rec_on=False)
 
         logging.info('Reset DUT when it\'s on. DUT should be on after '
                      'reset is completed.')

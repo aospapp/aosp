@@ -18,6 +18,7 @@
 #define UPDATE_ENGINE_COMMON_HTTP_FETCHER_H_
 
 #include <deque>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -27,7 +28,7 @@
 #include <brillo/message_loops/message_loop.h>
 
 #include "update_engine/common/http_common.h"
-#include "update_engine/proxy_resolver.h"
+#include "update_engine/common/proxy_resolver.h"
 
 // This class is a simple wrapper around an HTTP library (libcurl). We can
 // easily mock out this interface for testing.
@@ -72,9 +73,7 @@ class HttpFetcher {
   void SetProxies(const std::deque<std::string>& proxies) {
     proxies_ = proxies;
   }
-  const std::string& GetCurrentProxy() const {
-    return proxies_.front();
-  }
+  const std::string& GetCurrentProxy() const { return proxies_.front(); }
   bool HasProxy() const { return !proxies_.empty(); }
   void PopProxy() { proxies_.pop_front(); }
 
@@ -186,8 +185,9 @@ class HttpFetcherDelegate {
  public:
   virtual ~HttpFetcherDelegate() = default;
 
-  // Called every time bytes are received.
-  virtual void ReceivedBytes(HttpFetcher* fetcher,
+  // Called every time bytes are received. Returns false if this call causes the
+  // transfer be terminated or completed otherwise it returns true.
+  virtual bool ReceivedBytes(HttpFetcher* fetcher,
                              const void* bytes,
                              size_t length) = 0;
 

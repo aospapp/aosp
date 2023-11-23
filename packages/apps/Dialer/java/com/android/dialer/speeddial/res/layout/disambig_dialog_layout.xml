@@ -16,6 +16,7 @@
  -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
@@ -25,42 +26,43 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:gravity="center_vertical"
-      android:minHeight="64dp"
+      android:minHeight="56dp"
       android:paddingStart="24dp"
       android:paddingEnd="24dp"
       android:elevation="1dp"
       android:text="@string/speed_dial_disambig_dialog_title"
-      android:textSize="20sp"
-      android:textColor="@color/dialer_primary_text_color"
-      android:fontFamily="sans-serif-medium"
-      android:background="@android:color/white"/>
+      android:background="?android:attr/colorBackgroundFloating"
+      style="@style/Dialer.TextAppearance.Header2"/>
 
-  <ScrollView
+  <com.android.dialer.widget.MaxHeightScrollView
       android:id="@+id/disambig_scrollview"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content">
+      android:layout_height="wrap_content"
+      android:minHeight="168dp"
+      app:maxHeight="256dp">
 
     <LinearLayout
         android:id="@+id/communication_avenue_container"
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
-  </ScrollView>
+  </com.android.dialer.widget.MaxHeightScrollView>
 
   <FrameLayout
       android:id="@+id/remember_this_choice_container"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:layout_gravity="bottom"
-      android:minHeight="56dp"
-      android:padding="12dp"
+      android:minHeight="64dp"
       android:elevation="4dp"
-      android:background="@android:color/white">
+      android:background="?android:attr/colorBackgroundFloating">
 
     <CheckBox
         android:id="@+id/remember_this_choice_checkbox"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/speed_dial_remember_this_choice"/>
+        android:layout_height="48dp"
+        android:textSize="14sp"
+        android:text="@string/speed_dial_remember_this_choice"
+        style="@style/DialerCheckboxStyle"/>
   </FrameLayout>
 </LinearLayout>

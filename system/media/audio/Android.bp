@@ -16,7 +16,7 @@ cc_library_headers {
             enabled: true,
         },
         vendor: {
-            cflags: ["AUDIO_NO_SYSTEM_DECLARATIONS"],
+            cflags: ["-DAUDIO_NO_SYSTEM_DECLARATIONS"],
         },
     }
 }

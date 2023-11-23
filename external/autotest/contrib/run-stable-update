@@ -8,31 +8,11 @@ cd ${SCRIPT_DIR}/..
 
 LOGDIR=logs/stable-version
 ASSIGN_STABLE=site_utils/stable_images/assign_stable_images.py
-OPTIONS=()
 
-# STATUS is part hack, part safety valve.  The cron job that invokes
-# this script may be installed and enabled on both a primary and backup
-# server.  We skip running on the backup, but really, the backup
-# shouldn't have invoked this script in the first place...
-#
-# If we're not invoked on an autotest server at all, we assume this is
-# for testing, and invoke a dry run instead.
-#
-SERVER_STATUS=$(cli/atest server list $(hostname) 2>&1 |
-                  awk '/^Status *:/ { print $NF }')
-if [ "${SERVER_STATUS}" = "primary" ]; then
-  mkdir -p ${LOGDIR}
-  NOTIFY=(
-    chromeos-infra-eng@grotations.appspotmail.com
-  )
-else
-  if [ -n "${SERVER_STATUS}" ]; then
-    # must be backup
-    exit 0
-  fi
-  OPTIONS=( --dry-run )
-  NOTIFY=( ${LOGNAME}@google.com )
-fi
+mkdir -p ${LOGDIR}
+NOTIFY=(
+  chromeos-test-monitors@google.com
+)
 
 # Redirect onto a log file.  For debug purposes, skip redirection if
 # there's a command line argument (we ignore what the argument is), or
@@ -48,7 +28,7 @@ trap 'rm -f ${TMPFILE}' EXIT
 TMPFILE=$(mktemp)
 
 date
-$ASSIGN_STABLE "${OPTIONS[@]}" 2>&1 | tee ${TMPFILE}
+$ASSIGN_STABLE --web localhost 2>&1 | tee ${TMPFILE}
 echo
 
 # If we have a log directory, clean it up, and send e-mail notification.

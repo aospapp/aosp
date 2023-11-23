@@ -381,7 +381,6 @@ bool FakeStream::WaitForDataBlocking(AccessMode in_mode,
                                      base::TimeDelta timeout,
                                      AccessMode* out_mode,
                                      ErrorPtr* error) {
-  const base::TimeDelta zero_delay;
   bool read_requested = stream_utils::IsReadAccessMode(in_mode);
   bool write_requested = stream_utils::IsWriteAccessMode(in_mode);
 

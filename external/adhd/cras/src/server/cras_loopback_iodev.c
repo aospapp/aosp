@@ -64,7 +64,7 @@ static int sample_hook(const uint8_t *frames, unsigned int nframes,
 	if (!edev || !edev->streams)
 		return 0;
 
-	frames_to_copy = MIN(buf_writable_bytes(sbuf) / frame_bytes, nframes);
+	frames_to_copy = MIN(buf_writable(sbuf) / frame_bytes, nframes);
 	if (!frames_to_copy)
 		return 0;
 
@@ -91,8 +91,7 @@ static void register_loopback_hook(enum CRAS_LOOPBACK_TYPE loopback_type,
 		cras_iodev_register_post_dsp_hook(iodev, hook, cb_data);
 }
 
-static void device_enabled_hook(struct cras_iodev *iodev, int enabled,
-				void *cb_data)
+static void device_enabled_hook(struct cras_iodev *iodev, void *cb_data)
 {
 	struct loopback_iodev *loopdev = (struct loopback_iodev *)cb_data;
 	struct cras_iodev *edev;
@@ -100,17 +99,23 @@ static void device_enabled_hook(struct cras_iodev *iodev, int enabled,
 	if (iodev->direction != CRAS_STREAM_OUTPUT)
 		return;
 
-	if (!enabled) {
-		/* Unregister loopback hook from disabled iodev. */
-		register_loopback_hook(loopdev->loopback_type, iodev, NULL,
-				       NULL);
-	} else {
-		/* Register loopback hook onto first enabled iodev. */
-		edev = cras_iodev_list_get_first_enabled_iodev(
-				CRAS_STREAM_OUTPUT);
-		register_loopback_hook(loopdev->loopback_type, edev,
-				       sample_hook, cb_data);
-	}
+	/* Register loopback hook onto first enabled iodev. */
+	edev = cras_iodev_list_get_first_enabled_iodev(
+			CRAS_STREAM_OUTPUT);
+	register_loopback_hook(loopdev->loopback_type, edev,
+			       sample_hook, cb_data);
+}
+
+static void device_disabled_hook(struct cras_iodev *iodev, void *cb_data)
+{
+	struct loopback_iodev *loopdev = (struct loopback_iodev *)cb_data;
+
+	if (iodev->direction != CRAS_STREAM_OUTPUT)
+		return;
+
+	/* Unregister loopback hook from disabled iodev. */
+	register_loopback_hook(loopdev->loopback_type, iodev, NULL,
+			       NULL);
 }
 
 /*
@@ -132,7 +137,7 @@ static int frames_queued(const struct cras_iodev *iodev,
 		frames_since_last = cras_frames_since_time(
 				&loopdev->last_filled,
 				iodev->format->frame_rate);
-		frames_to_fill = MIN(buf_writable_bytes(sbuf) / frame_bytes,
+		frames_to_fill = MIN(buf_writable(sbuf) / frame_bytes,
 				     frames_since_last);
 		if (frames_to_fill > 0) {
 			bytes_to_fill = frames_to_fill * frame_bytes;
@@ -143,7 +148,7 @@ static int frames_queued(const struct cras_iodev *iodev,
 		}
 	}
 	*hw_tstamp = loopdev->last_filled;
-	return buf_queued_bytes(sbuf) / frame_bytes;
+	return buf_queued(sbuf) / frame_bytes;
 }
 
 static int delay_frames(const struct cras_iodev *iodev)
@@ -165,12 +170,12 @@ static int close_record_dev(struct cras_iodev *iodev)
 
 	edev = cras_iodev_list_get_first_enabled_iodev(CRAS_STREAM_OUTPUT);
 	register_loopback_hook(loopdev->loopback_type, edev, NULL, NULL);
-	cras_iodev_list_set_device_enabled_callback(NULL, NULL);
+	cras_iodev_list_set_device_enabled_callback(NULL, NULL, (void *)iodev);
 
 	return 0;
 }
 
-static int open_record_dev(struct cras_iodev *iodev)
+static int configure_record_dev(struct cras_iodev *iodev)
 {
 	struct loopback_iodev *loopdev = (struct loopback_iodev *)iodev;
 	struct cras_iodev *edev;
@@ -182,6 +187,7 @@ static int open_record_dev(struct cras_iodev *iodev)
 	register_loopback_hook(loopdev->loopback_type, edev, sample_hook,
 			       (void *)iodev);
 	cras_iodev_list_set_device_enabled_callback(device_enabled_hook,
+						    device_disabled_hook,
 						    (void *)iodev);
 
 	return 0;
@@ -194,7 +200,7 @@ static int get_record_buffer(struct cras_iodev *iodev,
 	struct loopback_iodev *loopdev = (struct loopback_iodev *)iodev;
 	struct byte_buffer *sbuf = loopdev->sample_buffer;
 	unsigned int frame_bytes = cras_get_format_bytes(iodev->format);
-	unsigned int avail_frames = buf_readable_bytes(sbuf) / frame_bytes;
+	unsigned int avail_frames = buf_readable(sbuf) / frame_bytes;
 
 	*frames = MIN(avail_frames, *frames);
 	iodev->area->frames = *frames;
@@ -220,7 +226,7 @@ static int flush_record_buffer(struct cras_iodev *iodev)
 {
 	struct loopback_iodev *loopdev = (struct loopback_iodev *)iodev;
 	struct byte_buffer *sbuf = loopdev->sample_buffer;
-	unsigned int queued_bytes = buf_queued_bytes(sbuf);
+	unsigned int queued_bytes = buf_queued(sbuf);
 	buf_increment_read(sbuf, queued_bytes);
 	return 0;
 }
@@ -265,7 +271,7 @@ static struct cras_iodev *create_loopback_iodev(enum CRAS_LOOPBACK_TYPE type)
 	iodev->frames_queued = frames_queued;
 	iodev->delay_frames = delay_frames;
 	iodev->update_active_node = update_active_node;
-	iodev->open_dev = open_record_dev;
+	iodev->configure_dev = configure_record_dev;
 	iodev->close_dev = close_record_dev;
 	iodev->get_buffer = get_record_buffer;
 	iodev->put_buffer = put_record_buffer;
@@ -324,7 +330,8 @@ void loopback_iodev_destroy(struct cras_iodev *iodev)
 	struct byte_buffer *sbuf = loopdev->sample_buffer;
 
 	cras_iodev_list_rm_input(iodev);
+        free(iodev->nodes);
 
-	byte_buffer_destroy(sbuf);
+	byte_buffer_destroy(&sbuf);
 	free(loopdev);
 }

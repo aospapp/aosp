@@ -21,8 +21,14 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <map>
 #include <memory>
+#include <string>
+#include <thread>
 
+#include <android-base/chrono_utils.h>
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
@@ -31,19 +37,22 @@
 #include <selinux/selinux.h>
 
 #include "selinux.h"
-#include "ueventd.h"
 #include "util.h"
 
 #ifdef _INIT_INIT_H
-#error "Do not include init.h in files used by ueventd or watchdogd; it will expose init's globals"
+#error "Do not include init.h in files used by ueventd; it will expose init's globals"
 #endif
+
+using namespace std::chrono_literals;
 
 using android::base::Basename;
 using android::base::Dirname;
+using android::base::ReadFileToString;
 using android::base::Readlink;
 using android::base::Realpath;
 using android::base::StartsWith;
 using android::base::StringPrintf;
+using android::base::Trim;
 
 namespace android {
 namespace init {
@@ -99,6 +108,31 @@ static bool FindVbdDevicePrefix(const std::string& path, std::string* result) {
     if (length == 0) return false;
 
     *result = path.substr(start, length);
+    return true;
+}
+
+// Given a path that may start with a virtual dm block device, populate
+// the supplied buffer with the dm module's instantiated name.
+// If it doesn't start with a virtual block device, or there is some
+// error, return false.
+static bool FindDmDevicePartition(const std::string& path, std::string* result) {
+    result->clear();
+    if (!StartsWith(path, "/devices/virtual/block/dm-")) return false;
+    if (getpid() == 1) return false;  // first_stage_init has no sepolicy needs
+
+    static std::map<std::string, std::string> cache;
+    // wait_for_file will not work, the content is also delayed ...
+    for (android::base::Timer t; t.duration() < 200ms; std::this_thread::sleep_for(10ms)) {
+        if (ReadFileToString("/sys" + path + "/dm/name", result) && !result->empty()) {
+            // Got it, set cache with result, when node arrives
+            cache[path] = *result = Trim(*result);
+            return true;
+        }
+    }
+    auto it = cache.find(path);
+    if ((it == cache.end()) || (it->second.empty())) return false;
+    // Return cached results, when node goes away
+    *result = it->second;
     return true;
 }
 
@@ -294,6 +328,7 @@ void SanitizePartitionName(std::string* string) {
 std::vector<std::string> DeviceHandler::GetBlockDeviceSymlinks(const Uevent& uevent) const {
     std::string device;
     std::string type;
+    std::string partition;
 
     if (FindPlatformDevice(uevent.path, &device)) {
         // Skip /devices/platform or /devices/ if present
@@ -311,6 +346,8 @@ std::vector<std::string> DeviceHandler::GetBlockDeviceSymlinks(const Uevent& uev
         type = "pci";
     } else if (FindVbdDevicePrefix(uevent.path, &device)) {
         type = "vbd";
+    } else if (FindDmDevicePartition(uevent.path, &partition)) {
+        return {"/dev/block/mapper/" + partition};
     } else {
         return {};
     }
@@ -321,6 +358,7 @@ std::vector<std::string> DeviceHandler::GetBlockDeviceSymlinks(const Uevent& uev
 
     auto link_path = "/dev/block/" + type + "/" + device;
 
+    bool is_boot_device = boot_devices_.find(device) != boot_devices_.end();
     if (!uevent.partition_name.empty()) {
         std::string partition_name_sanitized(uevent.partition_name);
         SanitizePartitionName(&partition_name_sanitized);
@@ -330,9 +368,13 @@ std::vector<std::string> DeviceHandler::GetBlockDeviceSymlinks(const Uevent& uev
         }
         links.emplace_back(link_path + "/by-name/" + partition_name_sanitized);
         // Adds symlink: /dev/block/by-name/<partition_name>.
-        if (boot_devices_.find(device) != boot_devices_.end()) {
+        if (is_boot_device) {
             links.emplace_back("/dev/block/by-name/" + partition_name_sanitized);
         }
+    } else if (is_boot_device) {
+        // If we don't have a partition name but we are a partition on a boot device, create a
+        // symlink of /dev/block/by-name/<device_name> for symmetry.
+        links.emplace_back("/dev/block/by-name/" + uevent.device_name);
     }
 
     auto last_slash = uevent.path.rfind('/');
@@ -373,7 +415,7 @@ void DeviceHandler::HandleDevice(const std::string& action, const std::string& d
     }
 }
 
-void DeviceHandler::HandleDeviceEvent(const Uevent& uevent) {
+void DeviceHandler::HandleUevent(const Uevent& uevent) {
     if (uevent.action == "add" || uevent.action == "change" || uevent.action == "online") {
         FixupSysPermissions(uevent.path, uevent.subsystem);
     }
@@ -417,6 +459,10 @@ void DeviceHandler::HandleDeviceEvent(const Uevent& uevent) {
     mkdir_recursive(Dirname(devpath), 0755);
 
     HandleDevice(uevent.action, devpath, block, uevent.major, uevent.minor, links);
+}
+
+void DeviceHandler::ColdbootDone() {
+    skip_restorecon_ = false;
 }
 
 DeviceHandler::DeviceHandler(std::vector<Permissions> dev_permissions,

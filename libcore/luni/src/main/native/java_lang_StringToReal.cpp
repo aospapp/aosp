@@ -18,10 +18,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
+
 #include "cbigint.h"
+
 #include "JniException.h"
 
 /* ************************* Defines ************************* */

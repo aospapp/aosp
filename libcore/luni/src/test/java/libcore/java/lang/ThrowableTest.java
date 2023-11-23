@@ -16,13 +16,22 @@
 
 package libcore.java.lang;
 
+import java.io.ObjectStreamClass;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
 import libcore.libcore.util.SerializationTester;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class ThrowableTest extends TestCase {
+public class ThrowableTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
+
     private static class NoStackTraceException extends Exception {
         @Override
         public synchronized Throwable fillInStackTrace() {
@@ -313,6 +322,32 @@ public class ThrowableTest extends TestCase {
                 assertSuppressed(deserialized, suppressed);
             }
         }.test();
+    }
+
+    /**
+     * Detect issue that caused b/109930347
+     *
+     * <p>Due to a bug in the default serialVersionUID calculation that is used for apps with
+     * targetSdkVersion <= 23 changes in {@link Throwable} can affect the default SUID for
+     * subclasses of {@link Throwable}.
+     *
+     * <p>This test protects against changes in Throwable (e.g. removing Android specific patches)
+     * that would cause a change in the default SUID of Throwable subclasses in apps with
+     * targetSdkVersion <= 23. It does so by checking the default SUID for a Throwable subclass,
+     * computed as by an app with targetSdkVersion <= 23, against a known good value.
+     */
+    @TargetSdkVersion(23)
+    public void testThrowableSubclassSerialVersionUIDComputation_target23() {
+        ObjectStreamClass objectStreamClass = ObjectStreamClass.lookup(ThrowableSubclass.class);
+        assertEquals(
+            "SerialVersionUID computation for Throwable subclass is broken for targetSdkVersion 23",
+            -1036450421582688704L, objectStreamClass.getSerialVersionUID());
+    }
+
+    public static class ThrowableSubclass extends Throwable {
+        public ThrowableSubclass(String message) {
+            super(message);
+        }
     }
 
     private void assertSerialized(final Throwable throwable, String golden) {

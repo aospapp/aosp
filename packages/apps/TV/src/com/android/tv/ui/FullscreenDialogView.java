@@ -83,13 +83,7 @@ public class FullscreenDialogView extends FrameLayout
 
     /** Dismisses the host {@link Dialog}. */
     protected void dismiss() {
-        startExitAnimation(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        mDialog.dismiss();
-                    }
-                });
+        startExitAnimation(() -> mDialog.dismiss());
     }
 
     @Override
@@ -110,9 +104,7 @@ public class FullscreenDialogView extends FrameLayout
         v.mSkipEnterAlphaAnimation = true;
         v.initialize(mActivity, mDialog);
         startExitAnimation(
-                new Runnable() {
-                    @Override
-                    public void run() {
+                () ->
                         new Handler()
                                 .postDelayed(
                                         new Runnable() {
@@ -122,9 +114,7 @@ public class FullscreenDialogView extends FrameLayout
                                                 getDialog().setContentView(v);
                                             }
                                         },
-                                        TRANSITION_INTERVAL_MS);
-                    }
-                });
+                                        TRANSITION_INTERVAL_MS));
     }
 
     /** Called when an enter animation starts. Sub-view specific animation can be implemented. */

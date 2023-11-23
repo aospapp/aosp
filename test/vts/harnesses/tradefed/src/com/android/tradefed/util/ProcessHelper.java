@@ -31,6 +31,10 @@ public class ProcessHelper {
     // Timeout values of destroying the process.
     private static final int DESTROY_PROCESS_MAX_POLL_COUNT = 3;
     private static final long DESTROY_PROCESS_POLL_INTERVAL_MSECS = 500;
+    private static final String DEBUG = "DEBUG";
+    private static final String INFO = "INFO";
+    private static final String WARN = "WARN";
+    private static final String ERROR = "ERROR";
 
     // Timeout value of joining the stdout and stderr threads.
     private static final int THREAD_JOIN_TIMEOUT_MSECS = 1000;
@@ -89,6 +93,7 @@ public class ProcessHelper {
             char[] charBuffer = new char[BUF_SIZE];
             // reader will be closed in cleanUp()
             try {
+                String currentLogLevel = INFO;
                 while (true) {
                     int readCount = mReader.read(charBuffer, 0, charBuffer.length);
                     if (readCount < 0) {
@@ -106,9 +111,46 @@ public class ProcessHelper {
                     String newReadPrint = newRead.substring(0, newRead.length() - newLineLen);
                     switch (mLogType) {
                         case STDOUT:
-                            CLog.i(newReadPrint);
+                            // Logs coming from stdout for the process, which may contain
+                            // python DEBUG and ERROR logs.
+                            String[] tokens = newReadPrint.split("\\s+");
+                            if (tokens.length >= 4) {
+                                String level = tokens[3];
+                                switch (tokens[3]) {
+                                    case DEBUG:
+                                    case INFO:
+                                    case WARN:
+                                    case ERROR:
+                                        currentLogLevel = level;
+                                        break;
+                                    default:
+                                        // Use the last known log level
+                                }
+                            }
+
+                            switch (currentLogLevel) {
+                                case DEBUG:
+                                    CLog.d(newReadPrint);
+                                    break;
+                                case INFO:
+                                    CLog.i(newReadPrint);
+                                    break;
+                                case WARN:
+                                    CLog.w(newReadPrint);
+                                    break;
+                                case ERROR:
+                                    CLog.e(newReadPrint);
+                                    break;
+                                default:
+                                    // This case should never happen
+                                    CLog.e("Error in current log level state.");
+                                    CLog.i(newReadPrint);
+                            }
+
                             break;
                         case STDERR:
+                            // Logs coming from stderr for the process, which is always
+                            // ERROR level
                             CLog.e(newReadPrint);
                             break;
                     }
@@ -139,17 +181,17 @@ public class ProcessHelper {
             synchronized (mLock) {
                 mExecutionThread = Thread.currentThread();
                 if (mCancelled) {
-                    CLog.i("Process was cancelled before being awaited.");
+                    CLog.w("Process was cancelled before being awaited.");
                     return false;
                 }
             }
             boolean success;
             try {
                 success = (mProcess.waitFor() == 0);
-                CLog.i("Process terminates normally.");
+                CLog.d("Process terminates normally.");
             } catch (InterruptedException e) {
                 success = false;
-                CLog.i("Process is interrupted.");
+                CLog.e("Process is interrupted.");
             }
             return success;
         }
@@ -161,17 +203,17 @@ public class ProcessHelper {
          */
         @Override
         public void cancel() {
-            CLog.i("Attempt to interrupt execution thread.");
+            CLog.w("Attempt to interrupt execution thread.");
             synchronized (mLock) {
                 if (!mCancelled) {
                     mCancelled = true;
                     if (mExecutionThread != null) {
                         mExecutionThread.interrupt();
                     } else {
-                        CLog.i("Execution thread has not started.");
+                        CLog.d("Execution thread has not started.");
                     }
                 } else {
-                    CLog.i("Execution thread has been cancelled.");
+                    CLog.e("Execution thread has been cancelled.");
                 }
             }
         }

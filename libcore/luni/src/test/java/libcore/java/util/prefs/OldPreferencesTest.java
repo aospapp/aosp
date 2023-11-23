@@ -28,7 +28,8 @@ import java.util.prefs.PreferenceChangeListener;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
+
+import libcore.testing.io.TestIoUtils;
 
 public final class OldPreferencesTest extends TestCase {
 
@@ -56,7 +57,7 @@ public final class OldPreferencesTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        final File tmpDir = IoUtils.createTemporaryDirectory("OldPreferenceTest");
+        final File tmpDir = TestIoUtils.createTemporaryDirectory("OldPreferenceTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new PreferencesTest.TestPreferencesFactory(tmpDir.getAbsolutePath()));
 

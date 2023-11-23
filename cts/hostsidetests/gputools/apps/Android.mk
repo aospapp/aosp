@@ -19,8 +19,9 @@ LOCAL_MODULE := libctsgputools_jni
 LOCAL_SRC_FILES := \
     jni/CtsGpuToolsJniOnLoad.cpp \
     jni/android_gputools_cts_RootlessGpuDebug.cpp
-LOCAL_CFLAGS += -std=c++14 -Wall -Werror
+LOCAL_CFLAGS += -Wall -Werror
 LOCAL_SHARED_LIBRARIES := libandroid libvulkan liblog
+LOCAL_SHARED_LIBRARIES := libandroid libvulkan libEGL libGLESv3 liblog
 LOCAL_NDK_STL_VARIANT := c++_static
 LOCAL_SDK_VERSION := current
 include $(BUILD_SHARED_LIBRARY)
@@ -44,7 +45,8 @@ LOCAL_AAPT_FLAGS := \
 --rename-manifest-package android.rootlessgpudebug.DEBUG.app \
 --debug-mode
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
+LOCAL_USE_EMBEDDED_NATIVE_LIBS := false
+
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 
@@ -61,11 +63,14 @@ LOCAL_MULTILIB := both
 
 LOCAL_JNI_SHARED_LIBRARIES := \
 libctsgputools_jni \
-libVkLayer_nullLayerC
+libVkLayer_nullLayerC \
+libGLES_glesLayerC
 
 LOCAL_AAPT_FLAGS := \
 --rename-manifest-package android.rootlessgpudebug.RELEASE.app
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
+LOCAL_USE_EMBEDDED_NATIVE_LIBS := false
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

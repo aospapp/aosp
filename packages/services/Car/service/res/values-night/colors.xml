@@ -18,17 +18,17 @@
 -->
 <resources>
     <!-- Semi-transparent background color of blocking activity. -->
-    <!-- In Call background scrim: black @ 80% -->
-    <color name="activity_blocking_activity_background">#cc000000</color>
+    <!-- In Call background scrim: black -->
+    <color name="activity_blocking_activity_background">@android:color/black</color>
 
     <!-- Color of text in blocking activity. -->
     <color name="blocking_text">#fff5f5f5</color>
 
-    <!-- Background color of exit button. -->
-    <color name="exit_button_background">#ff80cbc4</color>
+    <!-- Background color of button. -->
+    <color name="button_background">#ff80cbc4</color>
 
-    <!-- Color of exit button text. -->
-    <color name="exit_button_text">#ff212121</color>
+    <!-- Color of button text. -->
+    <color name="button_text">#ff212121</color>
 
     <!-- Ripple color. -->
     <color name="ripple_background">#3dffffff</color>

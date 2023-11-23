@@ -17,6 +17,8 @@
 package libcore.javax.net.ssl;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.function.BiFunction;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
@@ -24,34 +26,39 @@ import junit.framework.TestCase;
 
 public class SSLSocketTest extends TestCase {
 
+    /**
+     * A basic SSLSocket that has no behavior beyond that of the base class.
+     */
+    private static class PlainSSLSocket extends SSLSocket {
+        @Override public String[] getSupportedCipherSuites() { return new String[0]; }
+        @Override public String[] getEnabledCipherSuites() { return new String[0]; }
+        @Override public void setEnabledCipherSuites(String[] strings) { }
+        @Override public String[] getSupportedProtocols() { return new String[0]; }
+        @Override public String[] getEnabledProtocols() { return new String[0]; }
+        @Override public void setEnabledProtocols(String[] strings) { }
+        @Override public SSLSession getSession() { return null; }
+        @Override public void addHandshakeCompletedListener(
+            HandshakeCompletedListener handshakeCompletedListener) { }
+        @Override public void removeHandshakeCompletedListener(
+            HandshakeCompletedListener handshakeCompletedListener) { }
+        @Override public void startHandshake() throws IOException { }
+        @Override public void setUseClientMode(boolean b) { }
+        @Override public boolean getUseClientMode() { return false; }
+        @Override public void setNeedClientAuth(boolean b) { }
+        @Override public boolean getNeedClientAuth() { return false; }
+        @Override public void setWantClientAuth(boolean b) { }
+        @Override public boolean getWantClientAuth() { return false; }
+        @Override public void setEnableSessionCreation(boolean b) { }
+        @Override public boolean getEnableSessionCreation() { return false; }
+    }
+
     // We modified the toString() of SSLSocket, and it's based on the output
     // of Socket.toString(), so we want to make sure that a change in
     // Socket.toString() doesn't cause us to output nonsense.
     public void test_SSLSocket_toString() throws Exception {
         // The actual implementation from a security provider might do something
         // special for its toString(), so we create our own implementation
-        SSLSocket socket = new SSLSocket() {
-            @Override public String[] getSupportedCipherSuites() { return new String[0]; }
-            @Override public String[] getEnabledCipherSuites() { return new String[0]; }
-            @Override public void setEnabledCipherSuites(String[] strings) { }
-            @Override public String[] getSupportedProtocols() { return new String[0]; }
-            @Override public String[] getEnabledProtocols() { return new String[0]; }
-            @Override public void setEnabledProtocols(String[] strings) { }
-            @Override public SSLSession getSession() { return null; }
-            @Override public void addHandshakeCompletedListener(
-                    HandshakeCompletedListener handshakeCompletedListener) { }
-            @Override public void removeHandshakeCompletedListener(
-                    HandshakeCompletedListener handshakeCompletedListener) { }
-            @Override public void startHandshake() throws IOException { }
-            @Override public void setUseClientMode(boolean b) { }
-            @Override public boolean getUseClientMode() { return false; }
-            @Override public void setNeedClientAuth(boolean b) { }
-            @Override public boolean getNeedClientAuth() { return false; }
-            @Override public void setWantClientAuth(boolean b) { }
-            @Override public boolean getWantClientAuth() { return false; }
-            @Override public void setEnableSessionCreation(boolean b) { }
-            @Override public boolean getEnableSessionCreation() { return false; }
-        };
+        SSLSocket socket = new PlainSSLSocket();
         assertTrue(socket.toString().startsWith("SSLSocket["));
     }
 
@@ -77,6 +84,36 @@ public class SSLSocketTest extends TestCase {
             */
             // test.close();
 
+        }
+    }
+
+    public void test_Alpn() throws Exception {
+        SSLSocket socket = new PlainSSLSocket();
+        try {
+            socket.getApplicationProtocol();
+            fail();
+        } catch (UnsupportedOperationException expected) {
+        }
+        try {
+            socket.getHandshakeApplicationProtocol();
+            fail();
+        } catch (UnsupportedOperationException expected) {
+        }
+        try {
+            socket.setHandshakeApplicationProtocolSelector(
+                new BiFunction<SSLSocket, List<String>, String>() {
+                    @Override
+                    public String apply(SSLSocket sslSocket, List<String> strings) {
+                        return "";
+                    }
+                });
+            fail();
+        } catch (UnsupportedOperationException expected) {
+        }
+        try {
+            socket.getHandshakeApplicationProtocolSelector();
+            fail();
+        } catch (UnsupportedOperationException expected) {
         }
     }
 

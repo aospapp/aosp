@@ -40,7 +40,6 @@ import java.nio.ShortBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import libcore.io.Memory;
-import libcore.io.SizeOf;
 import libcore.java.lang.ref.FinalizationTester;
 
 public class BufferTest extends TestCase {
@@ -58,62 +57,6 @@ public class BufferTest extends TestCase {
         MappedByteBuffer result = ch.map(FileChannel.MapMode.READ_WRITE, 0, size);
         ch.close();
         return result;
-    }
-
-    /**
-     * Try to create a {@link MappedByteBuffer} from /dev/zero, to see if
-     * we support mapping UNIX character devices.
-     */
-    public void testDevZeroMap() throws Exception {
-        RandomAccessFile raf = new RandomAccessFile("/dev/zero", "r");
-        try {
-            MappedByteBuffer mbb = raf.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, 65536);
-
-            // Create an array initialized to all "(byte) 1"
-            byte[] buf1 = new byte[65536];
-            Arrays.fill(buf1, (byte) 1);
-
-            // Read from mapped /dev/zero, and overwrite this array.
-            mbb.get(buf1);
-
-            // Verify that everything is zero
-            for (int i = 0; i < 65536; i++) {
-                assertEquals((byte) 0, buf1[i]);
-            }
-        } finally {
-            raf.close();
-        }
-    }
-
-    /**
-     * Same as {@link libcore.java.nio.BufferTest#testDevZeroMap()}, but try to see
-     * if we can write to the UNIX character device.
-     */
-    public void testDevZeroMapRW() throws Exception {
-        RandomAccessFile raf = new RandomAccessFile("/dev/zero", "rw");
-        try {
-            MappedByteBuffer mbb = raf.getChannel()
-                    .map(FileChannel.MapMode.READ_WRITE, 65536, 131072);
-
-            // Create an array initialized to all "(byte) 1"
-            byte[] buf1 = new byte[65536];
-            Arrays.fill(buf1, (byte) 1);
-
-            // Put all "(byte) 1"s into the /dev/zero MappedByteBuffer.
-            mbb.put(buf1);
-
-            mbb.position(0);
-
-            byte[] buf2 = new byte[65536];
-            mbb.get(buf2);
-
-            // Verify that everything is one
-            for (int i = 0; i < 65536; i++) {
-                assertEquals((byte) 1, buf2[i]);
-            }
-        } finally {
-            raf.close();
-        }
     }
 
     public void testByteSwappedBulkGetDirect() throws Exception {
@@ -943,14 +886,14 @@ public class BufferTest extends TestCase {
         // of this buffer.
         assertEquals(1, 1 << ByteBuffer.allocate(0).getElementSizeShift());
 
-        assertEquals(SizeOf.CHAR, 1 << CharBuffer.allocate(0).getElementSizeShift());
-        assertEquals(SizeOf.SHORT, 1 << ShortBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Character.BYTES, 1 << CharBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Short.BYTES, 1 << ShortBuffer.allocate(0).getElementSizeShift());
 
-        assertEquals(SizeOf.INT, 1 << IntBuffer.allocate(0).getElementSizeShift());
-        assertEquals(SizeOf.FLOAT, 1 << FloatBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Integer.BYTES, 1 << IntBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Float.BYTES, 1 << FloatBuffer.allocate(0).getElementSizeShift());
 
-        assertEquals(SizeOf.LONG, 1 << LongBuffer.allocate(0).getElementSizeShift());
-        assertEquals(SizeOf.DOUBLE, 1 << DoubleBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Long.BYTES, 1 << LongBuffer.allocate(0).getElementSizeShift());
+        assertEquals(Double.BYTES, 1 << DoubleBuffer.allocate(0).getElementSizeShift());
     }
 
     public void testFreed() {

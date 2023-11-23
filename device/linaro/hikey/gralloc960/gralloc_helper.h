@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2017 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -20,12 +20,32 @@
 #define GRALLOC_HELPER_H_
 
 #include <sys/mman.h>
+#include <android/log.h>
 
-#define GRALLOC_UNUSED(x) ((void) x)
+#ifndef AWAR
+#define AWAR(fmt, args...) \
+	__android_log_print(ANDROID_LOG_WARN, "[Gralloc-Warning]", "%s:%d " fmt, __func__, __LINE__, ##args)
+#endif
+#ifndef AINF
+#define AINF(fmt, args...) __android_log_print(ANDROID_LOG_INFO, "[Gralloc]", fmt, ##args)
+#endif
+#ifndef AERR
+#define AERR(fmt, args...) \
+	__android_log_print(ANDROID_LOG_ERROR, "[Gralloc-ERROR]", "%s:%d " fmt, __func__, __LINE__, ##args)
+#endif
+#ifndef AERR_IF
+#define AERR_IF(eq, fmt, args...) \
+	if ((eq))                     \
+	AERR(fmt, args)
+#endif
+
+#define GRALLOC_ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
+
+#define GRALLOC_UNUSED(x) ((void)x)
 
 static inline size_t round_up_to_page_size(size_t x)
 {
-    return (x + (PAGE_SIZE-1)) & ~(PAGE_SIZE-1);
+	return (x + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
 }
 
 #endif /* GRALLOC_HELPER_H_ */

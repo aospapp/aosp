@@ -17,8 +17,10 @@
 #ifndef WIFICOND_LOGGING_UTILS_H_
 #define WIFICOND_LOGGING_UTILS_H_
 
-#include <vector>
+#include <array>
 #include <sstream>
+
+#include <linux/if_ether.h>
 
 #include <android-base/macros.h>
 
@@ -30,7 +32,7 @@ namespace wificond {
 class LoggingUtils {
  public:
   LoggingUtils() = default;
-  static std::string GetMacString(const std::vector<uint8_t>& mac_address);
+  static std::string GetMacString(const std::array<uint8_t, ETH_ALEN>& mac_address);
   static std::string GetBandwidthString(ChannelBandwidth bandwidth);
 
  private:

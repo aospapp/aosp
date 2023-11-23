@@ -29,8 +29,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import libcore.util.TimeZoneFinder;
-import libcore.util.ZoneInfoDB;
+import libcore.timezone.TzDataSetVersion;
+import libcore.timezone.TzDataSetVersion.TzDataSetException;
+import libcore.timezone.TimeZoneFinder;
+import libcore.timezone.ZoneInfoDB;
 
 /**
  * A distro-validation / extraction class. Separate from the services code that uses it for easier
@@ -110,15 +112,15 @@ public class TimeZoneDistroInstaller {
     public static final String UNINSTALL_TOMBSTONE_FILE_NAME = "STAGED_UNINSTALL_TOMBSTONE";
 
     private final String logTag;
-    private final File systemTzDataFile;
+    private final File baseVersionFile;
     private final File oldStagedDataDir;
     private final File stagedTzDataDir;
     private final File currentTzDataDir;
     private final File workingDir;
 
-    public TimeZoneDistroInstaller(String logTag, File systemTzDataFile, File installDir) {
+    public TimeZoneDistroInstaller(String logTag, File baseVersionFile, File installDir) {
         this.logTag = logTag;
-        this.systemTzDataFile = systemTzDataFile;
+        this.baseVersionFile = baseVersionFile;
         oldStagedDataDir = new File(installDir, OLD_TZ_DATA_DIR_NAME);
         stagedTzDataDir = new File(installDir, STAGED_TZ_DATA_DIR_NAME);
         currentTzDataDir = new File(installDir, CURRENT_TZ_DATA_DIR_NAME);
@@ -175,7 +177,19 @@ public class TimeZoneDistroInstaller {
                 Slog.i(logTag, "Update not applied: Distro version could not be loaded");
                 return INSTALL_FAIL_BAD_DISTRO_STRUCTURE;
             }
-            if (!DistroVersion.isCompatibleWithThisDevice(distroVersion)) {
+
+            // The TzDataSetVersion class replaces the DistroVersion class after P. Convert to the
+            // new class so we can use the isCompatibleWithThisDevice() method.
+            TzDataSetVersion distroTzDataSetVersion;
+            try {
+                distroTzDataSetVersion = new TzDataSetVersion(
+                        distroVersion.formatMajorVersion, distroVersion.formatMinorVersion,
+                        distroVersion.rulesVersion, distroVersion.revision);
+            } catch (TzDataSetException e) {
+                Slog.i(logTag, "Update not applied: Distro version could not be converted", e);
+                return INSTALL_FAIL_BAD_DISTRO_STRUCTURE;
+            }
+            if (!TzDataSetVersion.isCompatibleWithThisDevice(distroTzDataSetVersion)) {
                 Slog.i(logTag, "Update not applied: Distro format version check failed: "
                         + distroVersion);
                 return INSTALL_FAIL_BAD_DISTRO_FORMAT_VERSION;
@@ -186,7 +200,7 @@ public class TimeZoneDistroInstaller {
                 return INSTALL_FAIL_BAD_DISTRO_STRUCTURE;
             }
 
-            if (!checkDistroRulesNewerThanSystem(systemTzDataFile, distroVersion)) {
+            if (!checkDistroRulesNewerThanBase(baseVersionFile, distroVersion)) {
                 Slog.i(logTag, "Update not applied: Distro rules version check failed");
                 return INSTALL_FAIL_RULES_TOO_OLD;
             }
@@ -251,7 +265,7 @@ public class TimeZoneDistroInstaller {
 
     /**
      * Stage an uninstall of the current timezone update in /data which, on reboot, will return the
-     * device to using data from /system. If there was something else already staged it will be
+     * device to using the base data. If there was something else already staged it will be
      * removed by this call.
      *
      * Returns {@link #UNINSTALL_SUCCESS} if staging the uninstallation was
@@ -339,13 +353,26 @@ public class TimeZoneDistroInstaller {
     }
 
     /**
-     * Reads the timezone rules version present in /system. i.e. the version that would be present
-     * after a factory reset.
+     * Reads the base time zone rules version. i.e. the version that would be present after an
+     * installed update is removed.
      *
      * @throws IOException if there was a problem reading data
      */
-    public String getSystemRulesVersion() throws IOException {
-        return readSystemRulesVersion(systemTzDataFile);
+    public TzDataSetVersion readBaseVersion() throws IOException {
+        return readBaseVersion(baseVersionFile);
+    }
+
+    private TzDataSetVersion readBaseVersion(File baseVersionFile) throws IOException {
+        if (!baseVersionFile.exists()) {
+            Slog.i(logTag, "version file cannot be found in " + baseVersionFile);
+            throw new FileNotFoundException(
+                    "base version file does not exist: " + baseVersionFile);
+        }
+        try {
+            return TzDataSetVersion.readFromFile(baseVersionFile);
+        } catch (TzDataSetException e) {
+            throw new IOException("Unable to read: " + baseVersionFile, e);
+        }
     }
 
     private void deleteBestEffort(File dir) {
@@ -384,34 +411,27 @@ public class TimeZoneDistroInstaller {
     }
 
     /**
-     * Returns true if the the distro IANA rules version is >= system IANA rules version.
+     * Returns true if the the distro IANA rules version is >= base IANA rules version.
      */
-    private boolean checkDistroRulesNewerThanSystem(
-            File systemTzDataFile, DistroVersion distroVersion) throws IOException {
+    private boolean checkDistroRulesNewerThanBase(
+            File baseVersionFile, DistroVersion distroVersion) throws IOException {
 
-        // We only check the /system tzdata file and assume that other data like ICU is in sync.
-        // There is a CTS test that checks ICU and bionic/libcore are in sync.
-        Slog.i(logTag, "Reading /system rules version");
-        String systemRulesVersion = readSystemRulesVersion(systemTzDataFile);
+        // We only check the base tz_version file and assume that data like ICU is in sync.
+        // There is a CTS test that checks tz_version, ICU and bionic/libcore are in sync.
+        Slog.i(logTag, "Reading base time zone rules version");
+        TzDataSetVersion baseVersion = readBaseVersion(baseVersionFile);
 
+        String baseRulesVersion = baseVersion.rulesVersion;
         String distroRulesVersion = distroVersion.rulesVersion;
-        // canApply = distroRulesVersion >= systemRulesVersion
-        boolean canApply = distroRulesVersion.compareTo(systemRulesVersion) >= 0;
+        // canApply = distroRulesVersion >= baseRulesVersion
+        boolean canApply = distroRulesVersion.compareTo(baseRulesVersion) >= 0;
         if (!canApply) {
             Slog.i(logTag, "Failed rules version check: distroRulesVersion="
-                    + distroRulesVersion + ", systemRulesVersion=" + systemRulesVersion);
+                    + distroRulesVersion + ", baseRulesVersion=" + baseRulesVersion);
         } else {
             Slog.i(logTag, "Passed rules version check: distroRulesVersion="
-                    + distroRulesVersion + ", systemRulesVersion=" + systemRulesVersion);
+                    + distroRulesVersion + ", baseRulesVersion=" + baseRulesVersion);
         }
         return canApply;
-    }
-
-    private String readSystemRulesVersion(File systemTzDataFile) throws IOException {
-        if (!systemTzDataFile.exists()) {
-            Slog.i(logTag, "tzdata file cannot be found in /system");
-            throw new FileNotFoundException("system tzdata does not exist: " + systemTzDataFile);
-        }
-        return ZoneInfoDB.TzData.getRulesVersion(systemTzDataFile);
     }
 }

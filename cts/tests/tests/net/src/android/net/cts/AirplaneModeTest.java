@@ -18,13 +18,14 @@ package android.net.cts;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import java.lang.Thread;
 
+@AppModeFull(reason = "WRITE_SECURE_SETTINGS permission can't be granted to instant apps")
 public class AirplaneModeTest extends AndroidTestCase {
     private static final String TAG = "AirplaneModeTest";
     private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";

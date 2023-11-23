@@ -26,8 +26,8 @@
 #include "gc/heap.h"
 #include "gc_root-inl.h"
 #include "java_frame_root_info.h"
-#include "jni_env_ext.h"
-#include "jni_internal.h"
+#include "jni/jni_env_ext.h"
+#include "jni/jni_internal.h"
 #include "jvmti_weak_table-inl.h"
 #include "mirror/class.h"
 #include "mirror/object-inl.h"
@@ -653,6 +653,70 @@ void HeapUtil::Unregister() {
   art::Runtime::Current()->RemoveSystemWeakHolder(&gIndexCachingTable);
 }
 
+jvmtiError HeapUtil::IterateOverInstancesOfClass(jvmtiEnv* env,
+                                                 jclass klass,
+                                                 jvmtiHeapObjectFilter filter,
+                                                 jvmtiHeapObjectCallback cb,
+                                                 const void* user_data) {
+  if (cb == nullptr || klass == nullptr) {
+    return ERR(NULL_POINTER);
+  }
+
+  art::Thread* self = art::Thread::Current();
+  art::ScopedObjectAccess soa(self);      // Now we know we have the shared lock.
+  art::StackHandleScope<1> hs(self);
+
+  art::ObjPtr<art::mirror::Object> klass_ptr(soa.Decode<art::mirror::Class>(klass));
+  if (!klass_ptr->IsClass()) {
+    return ERR(INVALID_CLASS);
+  }
+  art::Handle<art::mirror::Class> filter_klass(hs.NewHandle(klass_ptr->AsClass()));
+  if (filter_klass->IsInterface()) {
+    // nothing is an 'instance' of an interface so just return without walking anything.
+    return OK;
+  }
+
+  ObjectTagTable* tag_table = ArtJvmTiEnv::AsArtJvmTiEnv(env)->object_tag_table.get();
+  bool stop_reports = false;
+  auto visitor = [&](art::mirror::Object* obj) REQUIRES_SHARED(art::Locks::mutator_lock_) {
+    // Early return, as we can't really stop visiting.
+    if (stop_reports) {
+      return;
+    }
+
+    art::ScopedAssertNoThreadSuspension no_suspension("IterateOverInstancesOfClass");
+
+    art::ObjPtr<art::mirror::Class> klass = obj->GetClass();
+
+    if (filter_klass != nullptr && !filter_klass->IsAssignableFrom(klass)) {
+      return;
+    }
+
+    jlong tag = 0;
+    tag_table->GetTag(obj, &tag);
+    if ((filter != JVMTI_HEAP_OBJECT_EITHER) &&
+        ((tag == 0 && filter == JVMTI_HEAP_OBJECT_TAGGED) ||
+         (tag != 0 && filter == JVMTI_HEAP_OBJECT_UNTAGGED))) {
+      return;
+    }
+
+    jlong class_tag = 0;
+    tag_table->GetTag(klass.Ptr(), &class_tag);
+
+    jlong saved_tag = tag;
+    jint ret = cb(class_tag, obj->SizeOf(), &tag, const_cast<void*>(user_data));
+
+    stop_reports = (ret == JVMTI_ITERATION_ABORT);
+
+    if (tag != saved_tag) {
+      tag_table->Set(obj, tag);
+    }
+  };
+  art::Runtime::Current()->GetHeap()->VisitObjects(visitor);
+
+  return OK;
+}
+
 template <typename T>
 static jvmtiError DoIterateThroughHeap(T fn,
                                        jvmtiEnv* env,
@@ -760,7 +824,7 @@ jvmtiError HeapUtil::IterateThroughHeap(jvmtiEnv* env,
                               user_data);
 }
 
-class FollowReferencesHelper FINAL {
+class FollowReferencesHelper final {
  public:
   FollowReferencesHelper(HeapUtil* h,
                          jvmtiEnv* jvmti_env,
@@ -828,7 +892,7 @@ class FollowReferencesHelper FINAL {
   }
 
  private:
-  class CollectAndReportRootsVisitor FINAL : public art::RootVisitor {
+  class CollectAndReportRootsVisitor final : public art::RootVisitor {
    public:
     CollectAndReportRootsVisitor(FollowReferencesHelper* helper,
                                  ObjectTagTable* tag_table,
@@ -841,7 +905,7 @@ class FollowReferencesHelper FINAL {
           stop_reports_(false) {}
 
     void VisitRoots(art::mirror::Object*** roots, size_t count, const art::RootInfo& info)
-        OVERRIDE
+        override
         REQUIRES_SHARED(art::Locks::mutator_lock_)
         REQUIRES(!*helper_->tag_table_->GetAllowDisallowLock()) {
       for (size_t i = 0; i != count; ++i) {
@@ -852,7 +916,7 @@ class FollowReferencesHelper FINAL {
     void VisitRoots(art::mirror::CompressedReference<art::mirror::Object>** roots,
                     size_t count,
                     const art::RootInfo& info)
-        OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_)
+        override REQUIRES_SHARED(art::Locks::mutator_lock_)
         REQUIRES(!*helper_->tag_table_->GetAllowDisallowLock()) {
       for (size_t i = 0; i != count; ++i) {
         AddRoot(roots[i]->AsMirrorPtr(), info);
@@ -917,7 +981,9 @@ class FollowReferencesHelper FINAL {
           // TODO: We don't have this info.
           if (thread != nullptr) {
             ref_info->jni_local.depth = 0;
-            art::ArtMethod* method = thread->GetCurrentMethod(nullptr, false /* abort_on_error */);
+            art::ArtMethod* method = thread->GetCurrentMethod(nullptr,
+                                                              /* check_suspended= */ true,
+                                                              /* abort_on_error= */ false);
             if (method != nullptr) {
               ref_info->jni_local.method = art::jni::EncodeArtMethod(method);
             }
@@ -948,7 +1014,7 @@ class FollowReferencesHelper FINAL {
           ref_info->stack_local.slot = static_cast<jint>(java_info.GetVReg());
           const art::StackVisitor* visitor = java_info.GetVisitor();
           ref_info->stack_local.location =
-              static_cast<jlocation>(visitor->GetDexPc(false /* abort_on_failure */));
+              static_cast<jlocation>(visitor->GetDexPc(/* abort_on_failure= */ false));
           ref_info->stack_local.depth = static_cast<jint>(visitor->GetFrameDepth());
           art::ArtMethod* method = visitor->GetMethod();
           if (method != nullptr) {
@@ -1007,7 +1073,7 @@ class FollowReferencesHelper FINAL {
       REQUIRES_SHARED(art::Locks::mutator_lock_)
       REQUIRES(!*tag_table_->GetAllowDisallowLock()) {
     if (obj->IsClass()) {
-      VisitClass(obj->AsClass());
+      VisitClass(obj->AsClass().Ptr());
       return;
     }
     if (obj->IsArrayInstance()) {
@@ -1072,18 +1138,18 @@ class FollowReferencesHelper FINAL {
     }
 
     if (array->IsObjectArray()) {
-      art::mirror::ObjectArray<art::mirror::Object>* obj_array =
+      art::ObjPtr<art::mirror::ObjectArray<art::mirror::Object>> obj_array =
           array->AsObjectArray<art::mirror::Object>();
       int32_t length = obj_array->GetLength();
       for (int32_t i = 0; i != length; ++i) {
-        art::mirror::Object* elem = obj_array->GetWithoutChecks(i);
+        art::ObjPtr<art::mirror::Object> elem = obj_array->GetWithoutChecks(i);
         if (elem != nullptr) {
           jvmtiHeapReferenceInfo reference_info;
           reference_info.array.index = i;
           stop_reports_ = !ReportReferenceMaybeEnqueue(JVMTI_HEAP_REFERENCE_ARRAY_ELEMENT,
                                                        &reference_info,
                                                        array,
-                                                       elem);
+                                                       elem.Ptr());
           if (stop_reports_) {
             break;
           }
@@ -1109,7 +1175,7 @@ class FollowReferencesHelper FINAL {
     stop_reports_ = !ReportReferenceMaybeEnqueue(JVMTI_HEAP_REFERENCE_SUPERCLASS,
                                                  nullptr,
                                                  klass,
-                                                 klass->GetSuperClass());
+                                                 klass->GetSuperClass().Ptr());
     if (stop_reports_) {
       return;
     }
@@ -1143,7 +1209,7 @@ class FollowReferencesHelper FINAL {
       stop_reports_ = !ReportReferenceMaybeEnqueue(JVMTI_HEAP_REFERENCE_CLASS_LOADER,
                                                    nullptr,
                                                    klass,
-                                                   klass->GetClassLoader());
+                                                   klass->GetClassLoader().Ptr());
       if (stop_reports_) {
         return;
       }
@@ -1347,7 +1413,7 @@ jvmtiError HeapUtil::GetLoadedClasses(jvmtiEnv* env,
     explicit ReportClassVisitor(art::Thread* self) : self_(self) {}
 
     bool operator()(art::ObjPtr<art::mirror::Class> klass)
-        OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+        override REQUIRES_SHARED(art::Locks::mutator_lock_) {
       if (klass->IsLoaded() || klass->IsErroneous()) {
         classes_.push_back(self_->GetJniEnv()->AddLocalReference<jclass>(klass));
       }
@@ -1383,7 +1449,7 @@ jvmtiError HeapUtil::GetLoadedClasses(jvmtiEnv* env,
 }
 
 jvmtiError HeapUtil::ForceGarbageCollection(jvmtiEnv* env ATTRIBUTE_UNUSED) {
-  art::Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  art::Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
 
   return ERR(NONE);
 }

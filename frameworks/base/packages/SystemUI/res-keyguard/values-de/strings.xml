@@ -29,11 +29,12 @@
     <string name="keyguard_password_enter_password_code" msgid="595980919238127672">"Bitte gib das Passwort zum Entsperren ein"</string>
     <string name="keyguard_password_enter_pin_password_code" msgid="7504123374204446086">"Bitte gib die PIN zum Entsperren ein"</string>
     <string name="keyguard_enter_your_pin" msgid="7152989016739952871">"Gib deine PIN ein"</string>
-    <string name="keyguard_enter_your_pattern" msgid="3915717164691787047">"Gib dein Muster ein"</string>
-    <string name="keyguard_enter_your_password" msgid="5761514484663983731">"Gib dein Passwort ein"</string>
+    <string name="keyguard_enter_your_pattern" msgid="4297890206109830353">"Muster eingeben"</string>
+    <string name="keyguard_enter_your_password" msgid="5397328359341314506">"Passwort eingeben"</string>
     <string name="keyguard_password_wrong_pin_code" msgid="6535018036285012028">"Falscher PIN-Code."</string>
     <string name="keyguard_sim_error_message_short" msgid="592109500618448312">"Ungültige Karte."</string>
-    <string name="keyguard_charged" msgid="2222329688813033109">"Aufgeladen"</string>
+    <string name="keyguard_charged" msgid="3316115607283493413">"Vollständig aufgeladen"</string>
+    <string name="keyguard_plugged_in_wireless" msgid="8404159927155454732">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Kabelloses Laden"</string>
     <string name="keyguard_plugged_in" msgid="3161102098900158923">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Wird geladen"</string>
     <string name="keyguard_plugged_in_charging_fast" msgid="3684592786276709342">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Wird schnell geladen"</string>
     <string name="keyguard_plugged_in_charging_slowly" msgid="509533586841478405">"<xliff:g id="PERCENTAGE">%s</xliff:g> • Wird langsam geladen"</string>
@@ -54,15 +55,15 @@
     <string name="keyguard_accessibility_password" msgid="7695303207740941101">"Gerätepasswort"</string>
     <string name="keyguard_accessibility_sim_pin_area" msgid="912702510825058921">"SIM-PIN-Bereich"</string>
     <string name="keyguard_accessibility_sim_puk_area" msgid="136979425761438705">"SIM-PUK-Bereich"</string>
-    <string name="keyguard_accessibility_next_alarm" msgid="5835196989158584991">"Nächster Wecker gestellt für <xliff:g id="ALARM">%1$s</xliff:g>"</string>
+    <string name="keyguard_accessibility_next_alarm" msgid="5835196989158584991">"Nächster Weckruf eingerichtet für <xliff:g id="ALARM">%1$s</xliff:g>"</string>
     <string name="keyboardview_keycode_delete" msgid="6883116827512721630">"Löschen"</string>
     <string name="disable_carrier_button_text" msgid="6914341927421916114">"eSIM deaktivieren"</string>
     <string name="error_disable_esim_title" msgid="4852978431156228006">"Die eSIM kann nicht deaktiviert werden"</string>
     <string name="error_disable_esim_msg" msgid="676694908770135639">"Die eSim kann aufgrund eines Fehlers nicht deaktiviert werden."</string>
     <string name="keyboardview_keycode_enter" msgid="4505833604411016668">"Eingabe"</string>
     <string name="kg_forgot_pattern_button_text" msgid="534245177645252620">"Muster vergessen"</string>
-    <string name="kg_wrong_pattern" msgid="7620081431514773802">"Falsches Muster"</string>
-    <string name="kg_wrong_password" msgid="4580683060277329277">"Falsches Passwort"</string>
+    <string name="kg_wrong_pattern" msgid="2873443744087746812">"Falsches Muster"</string>
+    <string name="kg_wrong_password" msgid="8060364776224836597">"Falsches Passwort"</string>
     <string name="kg_wrong_pin" msgid="4785660766909463466">"Falsche PIN"</string>
     <plurals name="kg_too_many_failed_attempts_countdown" formatted="false" msgid="4368805541257003755">
       <item quantity="other">In <xliff:g id="NUMBER">%d</xliff:g> Sekunden noch einmal versuchen.</item>
@@ -140,7 +141,8 @@
       <item quantity="other">Das Gerät wurde seit <xliff:g id="NUMBER_1">%d</xliff:g> Stunden nicht mehr entsperrt. Bitte bestätige das Passwort.</item>
       <item quantity="one">Das Gerät wurde seit <xliff:g id="NUMBER_0">%d</xliff:g> Stunde nicht mehr entsperrt. Bitte bestätige das Passwort.</item>
     </plurals>
-    <string name="fingerprint_not_recognized" msgid="348813995267914625">"Nicht erkannt"</string>
+    <string name="kg_fingerprint_not_recognized" msgid="7854413849848459418">"Nicht erkannt"</string>
+    <string name="kg_face_not_recognized" msgid="6382535088345875294">"Nicht erkannt"</string>
     <plurals name="kg_password_default_pin_message" formatted="false" msgid="3739658416797652781">
       <item quantity="other">Gib die PIN für die SIM-Karte ein. Du hast noch <xliff:g id="NUMBER_1">%d</xliff:g> Versuche.</item>
       <item quantity="one">Gib die PIN für die SIM-Karte ein. Du hast noch <xliff:g id="NUMBER_0">%d</xliff:g> Versuch, bevor das Gerät nur noch vom Mobilfunkanbieter entsperrt werden kann.</item>

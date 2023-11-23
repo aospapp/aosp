@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -54,6 +54,7 @@
 #include "MagickCore/memory_.h"
 #include "MagickCore/property.h"
 #include "MagickCore/quantum-private.h"
+#include "MagickCore/resource_.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
@@ -91,9 +92,6 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
 {
   char
     geometry[MagickPathExtent],
-    *property;
-
-  const char
     *label;
 
   DrawInfo
@@ -124,15 +122,23 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
   assert(exception->signature == MagickCoreSignature);
   image=AcquireImage(image_info,exception);
   (void) ResetImagePage(image,"0x0+0+0");
-  property=InterpretImageProperties((ImageInfo *) image_info,image,
+  if ((image->columns != 0) && (image->rows != 0))
+    (void) SetImageBackgroundColor(image,exception);
+  label=InterpretImageProperties((ImageInfo *) image_info,image,
     image_info->filename,exception);
-  (void) SetImageProperty(image,"label",property,exception);
-  property=DestroyString(property);
-  label=GetImageProperty(image,"label",exception);
+  if (label == (char *) NULL)
+    return(DestroyImageList(image));
+  (void) SetImageProperty(image,"label",label,exception);
   draw_info=CloneDrawInfo(image_info,(DrawInfo *) NULL);
+  width=(size_t) floor(draw_info->pointsize*strlen(label)+0.5);
+  if (AcquireMagickResource(WidthResource,width) == MagickFalse)
+    {
+      label=DestroyString(label);
+      draw_info=DestroyDrawInfo(draw_info);
+      ThrowReaderException(ImageError,"WidthOrHeightExceedsLimit");
+    }
   draw_info->text=ConstantString(label);
-  metrics.width=0;
-  metrics.ascent=0.0;
+  (void) memset(&metrics,0,sizeof(metrics));
   status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
   if ((image->columns == 0) && (image->rows == 0))
     {
@@ -140,7 +146,7 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
       image->rows=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
     }
   else
-    if ((strlen(label) > 0) &&
+    if ((status != MagickFalse) && (strlen(label) > 0) &&
         (((image->columns == 0) || (image->rows == 0)) ||
          (fabs(image_info->pointsize) < MagickEpsilon)))
       {
@@ -148,16 +154,21 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
           high,
           low;
 
+        ssize_t
+          n;
+
         /*
           Auto fit text into bounding box.
         */
-        for ( ; ; draw_info->pointsize*=2.0)
+        for (n=0; n < 32; n++, draw_info->pointsize*=2.0)
         {
           (void) FormatLocaleString(geometry,MagickPathExtent,"%+g%+g",
             -metrics.bounds.x1,metrics.ascent);
           if (draw_info->gravity == UndefinedGravity)
             (void) CloneString(&draw_info->geometry,geometry);
           status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
+          if (status == MagickFalse)
+            break;
           width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
           height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
           if ((image->columns != 0) && (image->rows != 0))
@@ -170,6 +181,13 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
                 ((image->rows != 0) && (height >= image->rows)))
               break;
         }
+        if (status == MagickFalse)
+          {
+            label=DestroyString(label);
+            draw_info=DestroyDrawInfo(draw_info);
+            image=DestroyImageList(image);
+            return((Image *) NULL);
+          }
         high=draw_info->pointsize;
         for (low=1.0; (high-low) > 0.5; )
         {
@@ -179,6 +197,8 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
           if (draw_info->gravity == UndefinedGravity)
             (void) CloneString(&draw_info->geometry,geometry);
           status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
+          if (status == MagickFalse)
+            break;
           width=(size_t) floor(metrics.width+draw_info->stroke_width+0.5);
           height=(size_t) floor(metrics.height+draw_info->stroke_width+0.5);
           if ((image->columns != 0) && (image->rows != 0))
@@ -195,9 +215,13 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
             else
               high=draw_info->pointsize-0.5;
         }
-        draw_info->pointsize=(low+high)/2.0-0.5;
+        if (status != MagickFalse)
+          {
+            draw_info->pointsize=(low+high)/2.0-0.5;
+            status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
+          }
       }
-   status=GetMultilineTypeMetrics(image,draw_info,&metrics,exception);
+   label=DestroyString(label);
    if (status == MagickFalse)
      {
        draw_info=DestroyDrawInfo(draw_info);
@@ -231,10 +255,10 @@ static Image *ReadLABELImage(const ImageInfo *image_info,
     Draw label.
   */
   (void) FormatLocaleString(geometry,MagickPathExtent,"%+g%+g",
-    draw_info->direction == RightToLeftDirection ? image->columns-
+    draw_info->direction == RightToLeftDirection ? (double) image->columns-
     metrics.bounds.x2 : 0.0,draw_info->gravity == UndefinedGravity ?
-    metrics.ascent : 0.0);
-  draw_info->geometry=AcquireString(geometry);
+    MagickMax(metrics.ascent,metrics.bounds.y2) : 0.0);
+  (void) CloneString(&draw_info->geometry,geometry);
   status=AnnotateImage(image,draw_info,exception);
   if (image_info->pointsize == 0.0)
     {

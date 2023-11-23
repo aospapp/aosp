@@ -152,7 +152,7 @@ public class CellBroadcastAlertServiceTest extends
     // Test if we ignore the duplicate message
     public void testDuplicateMessage() throws Exception {
         sendMessage(4321);
-        waitForMs(200);
+        waitForMs(500);
 
         assertEquals(SHOW_NEW_ALERT_ACTION, mServiceIntentToVerify.getAction());
 
@@ -171,7 +171,7 @@ public class CellBroadcastAlertServiceTest extends
         intent.putExtra("message", m);
 
         startService(intent);
-        waitForMs(200);
+        waitForMs(500);
 
         // If the duplicate detection is working, the service should not pop-up the dialog and
         // play the alert tones.
@@ -228,7 +228,7 @@ public class CellBroadcastAlertServiceTest extends
         doReturn(b).when(mMockedCarrierConfigManager).getConfigForSubId(anyInt());
 
         sendMessage(91924);
-        waitForMs(100);
+        waitForMs(500);
 
         CellBroadcastMessage cbmTest =
                 (CellBroadcastMessage) mServiceIntentToVerify.getExtras().get("message");

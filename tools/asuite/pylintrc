@@ -1,0 +1,21 @@
+[MESSAGES CONTROL]
+
+disable=
+    # TODO(patricktu@):Remove "too-few-public-methods" when project_info.py ok.
+    too-few-public-methods,
+    # TODO(albaltai@):Remove "fixme" when each module implement finished.
+    fixme,
+    # More than 7 variables is reasonable in ModuleData class.
+    too-many-instance-attributes
+
+[TYPECHECK]
+
+ignored-modules=
+    # For sharing modules from atest project.
+    atest,
+    metrics
+
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=80

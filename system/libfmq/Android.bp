@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-subdirs = [
-    "tests",
-]
-
-cc_library_shared {
+cc_library {
     name: "libfmq",
     shared_libs: [
         "libbase",
@@ -42,4 +38,5 @@ cc_library_shared {
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
 }

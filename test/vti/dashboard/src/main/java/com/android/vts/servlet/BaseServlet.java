@@ -16,31 +16,42 @@
 
 package com.android.vts.servlet;
 
+import com.android.vts.entity.CoverageEntity;
+import com.android.vts.entity.TestSuiteResultEntity;
+import com.android.vts.entity.UserEntity;
+import com.android.vts.util.EmailHelper;
+import com.android.vts.util.GcsHelper;
 import com.google.appengine.api.users.User;
 import com.google.appengine.api.users.UserService;
 import com.google.appengine.api.users.UserServiceFactory;
 import com.google.gson.Gson;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
+import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 public abstract class BaseServlet extends HttpServlet {
+
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
+    protected String ERROR_MESSAGE_JSP = "WEB-INF/jsp/error_msg.jsp";
+
     // Environment variables
-    protected static final String GERRIT_URI = System.getProperty("GERRIT_URI");
-    protected static final String GERRIT_SCOPE = System.getProperty("GERRIT_SCOPE");
-    protected static final String CLIENT_ID = System.getProperty("CLIENT_ID");
-    protected static final String ANALYTICS_ID = System.getProperty("ANALYTICS_ID");
+    protected static String GERRIT_URI;
+    protected static String GERRIT_SCOPE;
+    protected static String CLIENT_ID;
+    protected static String ANALYTICS_ID;
 
     protected static final String TREE_DEFAULT_PARAM = "treeDefault";
 
@@ -68,6 +79,7 @@ public abstract class BaseServlet extends HttpServlet {
     }
 
     public static class Page {
+
         private final PageType type;
         private final String name;
         private final String url;
@@ -81,6 +93,12 @@ public abstract class BaseServlet extends HttpServlet {
         public Page(PageType type, String name, String url) {
             this.type = type;
             this.name = type.defaultName + name;
+            this.url = type.defaultUrl + url;
+        }
+
+        public Page(PageType type, String name, String url, Boolean withoutDefault) {
+            this.type = type;
+            this.name = name;
             this.url = type.defaultUrl + url;
         }
 
@@ -119,6 +137,27 @@ public abstract class BaseServlet extends HttpServlet {
      * @return a list of Page entries.
      */
     public abstract List<Page> getBreadcrumbLinks(HttpServletRequest request);
+
+    /** System Configuration Property class */
+    protected static Properties systemConfigProp = new Properties();
+
+    @Override
+    public void init(ServletConfig cfg) throws ServletException {
+        super.init(cfg);
+
+        systemConfigProp =
+                Properties.class.cast(cfg.getServletContext().getAttribute("systemConfigProp"));
+
+        GERRIT_URI = systemConfigProp.getProperty("gerrit.uri");
+        GERRIT_SCOPE = systemConfigProp.getProperty("gerrit.scope");
+        CLIENT_ID = systemConfigProp.getProperty("appengine.clientID");
+        ANALYTICS_ID = systemConfigProp.getProperty("analytics.id");
+
+        CoverageEntity.setPropertyValues(systemConfigProp);
+        TestSuiteResultEntity.setPropertyValues(systemConfigProp);
+        EmailHelper.setPropertyValues(systemConfigProp);
+        GcsHelper.setGcsProjectId(systemConfigProp.getProperty("gcs.projectID"));
+    }
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -166,7 +205,8 @@ public abstract class BaseServlet extends HttpServlet {
             request.setAttribute("activeIndex", activeIndex);
             response.setContentType("text/html");
 
-            if (currentUserEmail.endsWith("@google.com")) {
+            if (currentUserEmail.endsWith("@google.com")
+                    || UserEntity.getUserList().contains(currentUserEmail)) {
                 doGetHandler(request, response);
             } else {
                 RequestDispatcher dispatcher =
@@ -187,7 +227,6 @@ public abstract class BaseServlet extends HttpServlet {
      *
      * @param request The HttpServletRequest object.
      * @param response The HttpServletResponse object.
-     * @throws IOException
      */
     public abstract void doGetHandler(HttpServletRequest request, HttpServletResponse response)
             throws IOException;

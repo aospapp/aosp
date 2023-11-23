@@ -17,6 +17,15 @@ fw_tried               = B                              #
 fw_try_count           = 0                              #
 '''
 
+NON_UNI_LSB_RELEASE_OUTPUT = '''
+CHROMEOS_RELEASE_BOARD=reef
+'''
+
+UNI_LSB_RELEASE_OUTPUT = '''
+CHROMEOS_RELEASE_BOARD=coral
+CHROMEOS_RELEASE_UNIBUILD=1
+'''
+
 class MockCmd(object):
     """Simple mock command with base command and results"""
 
@@ -45,18 +54,32 @@ class GetPlatformModelTests(unittest.TestCase):
     """Unit tests for CrosHost.get_platform_model"""
 
     def test_mosys_succeeds(self):
-        host = MockHost(MockCmd('mosys platform model', 0, 'coral\n'))
+        host = MockHost(
+                MockCmd('cat /etc/lsb-release', 0, UNI_LSB_RELEASE_OUTPUT),
+                MockCmd('mosys platform model', 0, 'coral\n'))
         self.assertEqual(host.get_platform(), 'coral')
 
     def test_mosys_fails(self):
         host = MockHost(
-            MockCmd('mosys platform model', 1, ''),
-            MockCmd('crossystem', 0, CROSSYSTEM_RESULT))
+                MockCmd('cat /etc/lsb-release', 0, UNI_LSB_RELEASE_OUTPUT),
+                MockCmd('mosys platform model', 1, ''),
+                MockCmd('crossystem', 0, CROSSYSTEM_RESULT))
+        self.assertEqual(host.get_platform(), 'reef')
+
+    def test_non_unibuild(self):
+        host = MockHost(
+                MockCmd('cat /etc/lsb-release', 0, NON_UNI_LSB_RELEASE_OUTPUT),
+                MockCmd('crossystem', 0, CROSSYSTEM_RESULT))
+        self.assertEqual(host.get_platform(), 'reef')
+
+    def test_cat_lsb_fails(self):
+        host = MockHost(
+                MockCmd('cat /etc/lsb-release', 1, ''),
+                MockCmd('crossystem', 0, CROSSYSTEM_RESULT))
         self.assertEqual(host.get_platform(), 'reef')
 
 
 class DictFilteringTestCase(unittest.TestCase):
-
     """Tests for dict filtering methods on CrosHost."""
 
     def test_get_chameleon_arguments(self):
@@ -83,3 +106,4 @@ class DictFilteringTestCase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

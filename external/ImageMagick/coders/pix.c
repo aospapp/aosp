@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -159,6 +159,9 @@ static Image *ReadPIXImage(const ImageInfo *image_info,ExceptionInfo *exception)
     status=SetImageExtent(image,image->columns,image->rows,exception);
     if (status == MagickFalse)
       return(DestroyImageList(image));
+    status=ResetImagePixels(image,exception);
+    if (status == MagickFalse)
+      return(DestroyImageList(image));
     /*
       Convert PIX raster image to pixel packets.
     */
@@ -176,7 +179,13 @@ static Image *ReadPIXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       {
         if (length == 0)
           {
-            length=(size_t) ReadBlobByte(image);
+            int
+              c;
+
+            c=ReadBlobByte(image);
+            if ((c == 0) || (c == EOF))
+              break;
+            length=(size_t) c;
             if (bits_per_pixel == 8)
               index=ScaleCharToQuantum((unsigned char) ReadBlobByte(image));
             else
@@ -194,6 +203,8 @@ static Image *ReadPIXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         length--;
         q+=GetPixelChannels(image);
       }
+      if (x < (ssize_t) image->columns)
+        break;
       if (SyncAuthenticPixels(image,exception) == MagickFalse)
         break;
       if (image->previous == (Image *) NULL)
@@ -233,8 +244,8 @@ static Image *ReadPIXImage(const ImageInfo *image_info,ExceptionInfo *exception)
         AcquireNextImage(image_info,image,exception);
         if (GetNextImageInList(image) == (Image *) NULL)
           {
-            image=DestroyImageList(image);
-            return((Image *) NULL);
+            status=MagickFalse;
+            break;
           }
         image=SyncNextImageInList(image);
         status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
@@ -244,6 +255,8 @@ static Image *ReadPIXImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
   } while (status != MagickFalse);
   (void) CloseBlob(image);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
   return(GetFirstImageInList(image));
 }
 

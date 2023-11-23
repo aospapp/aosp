@@ -16,12 +16,13 @@
 
 package com.android.tools.metalava.model.text
 
+import com.android.tools.metalava.doclava1.ApiFile
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class TextTypeItemTest {
     @Test
-    fun testTypeString() {
+    fun `test typeString()`() {
         val full =
             "@android.support.annotation.Nullable java.util.List<@android.support.annotation.Nullable java.lang.String>"
         assertThat(TextTypeItem.toTypeString(full, false, false, false)).isEqualTo(
@@ -59,5 +60,118 @@ class TextTypeItemTest {
                 erased = true
             )
         ).isEqualTo("java.util.List[]")
+    }
+
+    @Test
+    fun `check erasure`() {
+        // When a type variable is on a member and the type variable is defined on the surrounding
+        // class, look up the bound on the class type parameter:
+        val codebase = ApiFile.parseApi(
+            "test", """
+            package androidx.navigation {
+              public final class NavDestination {
+                ctor public NavDestination();
+              }
+              public class NavDestinationBuilder<D extends androidx.navigation.NavDestination> {
+                ctor public NavDestinationBuilder(int id);
+                method public D build();
+              }
+            }
+        """.trimIndent(), false
+        )
+        val cls = codebase.findClass("androidx.navigation.NavDestinationBuilder")
+        val method = cls?.findMethod("build", "") as TextMethodItem
+        assertThat(method).isNotNull()
+        assertThat(
+            TextTypeParameterItem.bounds(
+                "D",
+                method
+            ).toString()
+        ).isEqualTo("[androidx.navigation.NavDestination]")
+
+        assertThat(
+            TextTypeItem.toTypeString(
+                "D[]",
+                false,
+                false,
+                erased = true,
+                context = method
+            )
+        ).isEqualTo("androidx.navigation.NavDestination[]") // it doesn't know any better
+
+        // TODO: Test that in an enum, "T" becomes "java.lang.Enum"; elsewhere it's "java.lang.Object", etc.
+    }
+
+    @Test
+    fun `check erasure from object`() {
+        // When a type variable is on a member and the type variable is defined on the surrounding
+        // class, look up the bound on the class type parameter:
+        val codebase = ApiFile.parseApi(
+            "test", """
+            package test.pkg {
+              public final class TestClass<D> {
+                method public D build();
+              }
+            }
+        """.trimIndent(), false
+        )
+        val cls = codebase.findClass("test.pkg.TestClass")
+        val method = cls?.findMethod("build", "") as TextMethodItem
+        assertThat(method).isNotNull()
+
+        @Suppress("ConstantConditionIf")
+        if (ASSUME_TYPE_VARS_EXTEND_OBJECT) {
+            assertThat(
+                TextTypeItem.toTypeString(
+                    "D[]",
+                    false,
+                    false,
+                    erased = true,
+                    context = method
+                )
+            ).isEqualTo("java.lang.Object[]")
+        }
+    }
+
+    @Test
+    fun `check erasure from enums`() {
+        // When a type variable is on a member and the type variable is defined on the surrounding
+        // class, look up the bound on the class type parameter:
+        val codebase = ApiFile.parseApi(
+            "test", """
+            package test.pkg {
+              public class EnumMap<K extends java.lang.Enum<K>, V> extends java.util.AbstractMap implements java.lang.Cloneable java.io.Serializable {
+                method public java.util.EnumMap<K, V> clone();
+                method public java.util.Set<java.util.Map.Entry<K, V>> entrySet();
+              }
+            }
+        """.trimIndent(), false
+        )
+        val cls = codebase.findClass("test.pkg.EnumMap")
+        val method = cls?.findMethod("clone", "") as TextMethodItem
+        assertThat(method).isNotNull()
+
+        assertThat(
+            TextTypeItem.toTypeString(
+                "K",
+                false,
+                false,
+                erased = true,
+                context = method
+            )
+        ).isEqualTo("java.lang.Enum")
+
+        @Suppress("ConstantConditionIf")
+        if (ASSUME_TYPE_VARS_EXTEND_OBJECT) {
+            assertThat(
+                TextTypeItem.toTypeString(
+                    "V",
+                    false,
+                    false,
+                    erased = true,
+                    context = method
+                )
+            ).isEqualTo("java.lang.Object")
+        }
     }
 }

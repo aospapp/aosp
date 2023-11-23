@@ -33,7 +33,11 @@ import android.media.IVolumeController;
 import android.media.PlayerBase;
 import android.media.VolumePolicy;
 import android.media.audiopolicy.AudioPolicyConfig;
+import android.media.audiopolicy.AudioProductStrategy;
+import android.media.audiopolicy.AudioVolumeGroup;
 import android.media.audiopolicy.IAudioPolicyCallback;
+import android.media.projection.IMediaProjection;
+import android.net.Uri;
 
 /**
  * {@hide}
@@ -56,6 +60,12 @@ interface IAudioService {
 
     oneway void releasePlayer(in int piid);
 
+    int trackRecorder(in IBinder recorder);
+
+    oneway void recorderEvent(in int riid, in int event);
+
+    oneway void releaseRecorder(in int riid);
+
     // Java-only methods below.
 
     oneway void adjustSuggestedStreamVolume(int direction, int suggestedStreamType, int flags,
@@ -63,6 +73,7 @@ interface IAudioService {
 
     void adjustStreamVolume(int streamType, int direction, int flags, String callingPackage);
 
+    @UnsupportedAppUsage
     void setStreamVolume(int streamType, int index, int flags, String callingPackage);
 
     boolean isStreamMute(int streamType);
@@ -73,13 +84,27 @@ interface IAudioService {
 
     void setMasterMute(boolean mute, int flags, String callingPackage, int userId);
 
+    @UnsupportedAppUsage
     int getStreamVolume(int streamType);
 
     int getStreamMinVolume(int streamType);
 
+    @UnsupportedAppUsage
     int getStreamMaxVolume(int streamType);
 
+    List<AudioVolumeGroup> getAudioVolumeGroups();
+
+    void setVolumeIndexForAttributes(in AudioAttributes aa, int index, int flags, String callingPackage);
+
+    int getVolumeIndexForAttributes(in AudioAttributes aa);
+
+    int getMaxVolumeIndexForAttributes(in AudioAttributes aa);
+
+    int getMinVolumeIndexForAttributes(in AudioAttributes aa);
+
     int getLastAudibleStreamVolume(int streamType);
+
+    List<AudioProductStrategy> getAudioProductStrategies();
 
     void setMicrophoneMute(boolean on, String callingPackage, int userId);
 
@@ -151,12 +176,9 @@ interface IAudioService {
     void setWiredDeviceConnectionState(int type, int state, String address, String name,
             String caller);
 
-    void setHearingAidDeviceConnectionState(in BluetoothDevice device, int state);
-
-    int setBluetoothA2dpDeviceConnectionState(in BluetoothDevice device, int state, int profile);
-
     void handleBluetoothA2dpDeviceConfigChange(in BluetoothDevice device);
 
+    @UnsupportedAppUsage
     AudioRoutesInfo startWatchingRoutes(in IAudioRoutesObserver observer);
 
     boolean isCameraSoundForced();
@@ -177,9 +199,12 @@ interface IAudioService {
 
     String registerAudioPolicy(in AudioPolicyConfig policyConfig,
             in IAudioPolicyCallback pcb, boolean hasFocusListener, boolean isFocusPolicy,
-            boolean isVolumeController);
+            boolean isTestFocusPolicy,
+            boolean isVolumeController, in IMediaProjection projection);
 
     oneway void unregisterAudioPolicyAsync(in IAudioPolicyCallback pcb);
+
+    void unregisterAudioPolicy(in IAudioPolicyCallback pcb);
 
     int addMixForPolicy(in AudioPolicyConfig policyConfig, in IAudioPolicyCallback pcb);
 
@@ -188,6 +213,8 @@ interface IAudioService {
     int setFocusPropertiesForPolicy(int duckingBehavior, in IAudioPolicyCallback pcb);
 
     void setVolumePolicy(in VolumePolicy policy);
+
+    boolean hasRegisteredDynamicPolicy();
 
     void registerRecordingCallback(in IRecordingConfigDispatcher rcdb);
 
@@ -210,7 +237,10 @@ interface IAudioService {
 
     oneway void playerHasOpPlayAudio(in int piid, in boolean hasOpPlayAudio);
 
-    int setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(in BluetoothDevice device,
+    void setBluetoothHearingAidDeviceConnectionState(in BluetoothDevice device,
+            int state, boolean suppressNoisyIntent, int musicDevice);
+
+    void setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(in BluetoothDevice device,
             int state, int profile, boolean suppressNoisyIntent, int a2dpVolume);
 
     oneway void setFocusRequestResultFromExtPolicy(in AudioFocusInfo afi, int requestResult,
@@ -221,6 +251,13 @@ interface IAudioService {
     oneway void unregisterAudioServerStateDispatcher(IAudioServerStateDispatcher asd);
 
     boolean isAudioServerRunning();
+
+    int setUidDeviceAffinity(in IAudioPolicyCallback pcb, in int uid, in int[] deviceTypes,
+             in String[] deviceAddresses);
+
+    int removeUidDeviceAffinity(in IAudioPolicyCallback pcb, in int uid);
+
+    boolean hasHapticChannels(in Uri uri);
 
     // WARNING: read warning at top of file, new methods that need to be used by native
     // code via IAudioManager.h need to be added to the top section.

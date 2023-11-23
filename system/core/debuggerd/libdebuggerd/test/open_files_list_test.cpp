@@ -20,9 +20,8 @@
 
 #include <string>
 
+#include <android-base/file.h>
 #include <gtest/gtest.h>
-
-#include "android-base/test_utils.h"
 
 #include "libdebuggerd/open_files_list.h"
 
@@ -34,13 +33,13 @@ TEST(OpenFilesListTest, BasicTest) {
 
   // Get the list of open files for this process.
   OpenFilesList list;
-  populate_open_files_list(getpid(), &list);
+  populate_open_files_list(&list, getpid());
 
   // Verify our open file is in the list.
   bool found = false;
-  for (auto&  file : list) {
+  for (auto& file : list) {
     if (file.first == tf.fd) {
-      EXPECT_EQ(file.second, std::string(tf.path));
+      EXPECT_EQ(file.second.path.value_or(""), std::string(tf.path));
       found = true;
       break;
     }

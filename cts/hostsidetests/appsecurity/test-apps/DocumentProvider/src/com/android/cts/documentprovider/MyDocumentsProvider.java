@@ -33,6 +33,7 @@ import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
+import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -86,7 +87,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
 
         RowBuilder row = result.newRow();
         row.add(Root.COLUMN_ROOT_ID, "local");
-        row.add(Root.COLUMN_FLAGS, Root.FLAG_LOCAL_ONLY);
+        row.add(Root.COLUMN_FLAGS, Root.FLAG_LOCAL_ONLY | Root.FLAG_SUPPORTS_SEARCH);
         row.add(Root.COLUMN_TITLE, "CtsLocal");
         row.add(Root.COLUMN_SUMMARY, "CtsLocalSummary");
         row.add(Root.COLUMN_DOCUMENT_ID, "doc:local");
@@ -331,6 +332,20 @@ public class MyDocumentsProvider extends DocumentsProvider {
             rootId = currentDocId.equals(mLocalRoot.docId) ? "local" : "create";
         }
         return new Path(rootId, path);
+    }
+
+    @Override
+    public Cursor querySearchDocuments(String rootId, String query, String[] projection)
+            throws FileNotFoundException {
+        final MatrixCursor result = new MatrixCursor(resolveDocumentProjection(projection));
+        final String lowerCaseQuery = query.toLowerCase();
+        for (Doc doc : mDocs.values()) {
+            if (!TextUtils.isEmpty(doc.displayName) && doc.displayName.toLowerCase().contains(
+                    lowerCaseQuery)) {
+                doc.include(result);
+            }
+        }
+        return result;
     }
 
     @Override

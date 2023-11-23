@@ -33,6 +33,7 @@ import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
+import android.util.Log;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.util.PermissionUtils;
@@ -52,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Manages teh data need to make recommendations. */
 public class RecommendationDataManager implements WatchedHistoryManager.Listener {
+    private static final String TAG = "RecommendationDataManag";
     private static final int MSG_START = 1000;
     private static final int MSG_STOP = 1001;
     private static final int MSG_UPDATE_CHANNELS = 1002;
@@ -187,13 +189,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         mMainHandler = new RecommendationMainHandler(Looper.getMainLooper(), this);
         mContentObserver = new RecommendationContentObserver(mHandler);
         mChannelDataManager = TvSingletons.getSingletons(mContext).getChannelDataManager();
-        runOnMainThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        start();
-                    }
-                });
+        runOnMainThread(this::start);
     }
 
     /**
@@ -202,13 +198,10 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
      */
     public void release(@NonNull final Listener listener) {
         runOnMainThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        removeListener(listener);
-                        if (mListeners.size() == 0) {
-                            stop();
-                        }
+                () -> {
+                    removeListener(listener);
+                    if (mListeners.size() == 0) {
+                        stop();
                     }
                 });
     }
@@ -257,13 +250,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     }
 
     private void addListener(Listener listener) {
-        runOnMainThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        mListeners.add(listener);
-                    }
-                });
+        runOnMainThread(() -> mListeners.add(listener));
     }
 
     @MainThread
@@ -347,18 +334,18 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                     history.add(createWatchedProgramFromWatchedProgramCursor(cursor));
                 } while (cursor.moveToPrevious());
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error trying to load watch history from " + uri, e);
+            return;
         }
         for (WatchedProgram watchedProgram : history) {
             final ChannelRecord channelRecord =
                     updateChannelRecordFromWatchedProgram(watchedProgram);
             if (mChannelRecordMapLoaded && channelRecord != null) {
                 runOnMainThread(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                for (Listener l : mListeners) {
-                                    l.onNewWatchLog(channelRecord);
-                                }
+                        () -> {
+                            for (Listener l : mListeners) {
+                                l.onNewWatchLog(channelRecord);
                             }
                         });
             }
@@ -397,12 +384,9 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                         convertFromWatchedHistoryManagerRecords(watchedRecord));
         if (mChannelRecordMapLoaded && channelRecord != null) {
             runOnMainThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            for (Listener l : mListeners) {
-                                l.onNewWatchLog(channelRecord);
-                            }
+                    () -> {
+                        for (Listener l : mListeners) {
+                            l.onNewWatchLog(channelRecord);
                         }
                     });
         }
@@ -441,24 +425,18 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     private void onNotifyChannelRecordMapLoaded() {
         mChannelRecordMapLoaded = true;
         runOnMainThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        for (Listener l : mListeners) {
-                            l.onChannelRecordLoaded();
-                        }
+                () -> {
+                    for (Listener l : mListeners) {
+                        l.onChannelRecordLoaded();
                     }
                 });
     }
 
     private void onNotifyChannelRecordMapChanged() {
         runOnMainThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        for (Listener l : mListeners) {
-                            l.onChannelRecordChanged();
-                        }
+                () -> {
+                    for (Listener l : mListeners) {
+                        l.onChannelRecordChanged();
                     }
                 });
     }

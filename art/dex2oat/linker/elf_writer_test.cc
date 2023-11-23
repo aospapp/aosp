@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
+#include <sys/mman.h>  // For the PROT_NONE constant.
+
 #include "elf_file.h"
 
 #include "base/file_utils.h"
+#include "base/mem_map.h"
 #include "base/unix_file/fd_file.h"
 #include "base/utils.h"
-#include "common_compiler_test.h"
+#include "common_compiler_driver_test.h"
+#include "elf/elf_builder.h"
 #include "elf_file.h"
 #include "elf_file_impl.h"
 #include "elf_writer_quick.h"
-#include "linker/elf_builder.h"
 #include "oat.h"
 
 namespace art {
 namespace linker {
 
-class ElfWriterTest : public CommonCompilerTest {
+class ElfWriterTest : public CommonCompilerDriverTest {
  protected:
-  virtual void SetUp() {
+  void SetUp() override {
     ReserveImageSpace();
     CommonCompilerTest::SetUp();
   }
@@ -65,9 +68,9 @@ TEST_F(ElfWriterTest, dlsym) {
   {
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
-                                              false,
-                                              false,
-                                              /*low_4gb*/false,
+                                              /*writable=*/ false,
+                                              /*program_header_only=*/ false,
+                                              /*low_4gb=*/false,
                                               &error_msg));
     CHECK(ef.get() != nullptr) << error_msg;
     EXPECT_ELF_FILE_ADDRESS(ef, dl_oatdata, "oatdata", false);
@@ -77,9 +80,9 @@ TEST_F(ElfWriterTest, dlsym) {
   {
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
-                                              false,
-                                              false,
-                                              /*low_4gb*/false,
+                                              /*writable=*/ false,
+                                              /*program_header_only=*/ false,
+                                              /*low_4gb=*/ false,
                                               &error_msg));
     CHECK(ef.get() != nullptr) << error_msg;
     EXPECT_ELF_FILE_ADDRESS(ef, dl_oatdata, "oatdata", true);
@@ -87,16 +90,27 @@ TEST_F(ElfWriterTest, dlsym) {
     EXPECT_ELF_FILE_ADDRESS(ef, dl_oatlastword, "oatlastword", true);
   }
   {
-    uint8_t* base = reinterpret_cast<uint8_t*>(ART_BASE_ADDRESS);
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
-                                              false,
-                                              true,
-                                              /*low_4gb*/false,
-                                              &error_msg,
-                                              base));
+                                              /*writable=*/ false,
+                                              /*program_header_only=*/ true,
+                                              /*low_4gb=*/ false,
+                                              &error_msg));
     CHECK(ef.get() != nullptr) << error_msg;
-    CHECK(ef->Load(file.get(), false, /*low_4gb*/false, &error_msg)) << error_msg;
+    size_t size;
+    bool success = ef->GetLoadedSize(&size, &error_msg);
+    CHECK(success) << error_msg;
+    MemMap reservation = MemMap::MapAnonymous("ElfWriterTest#dlsym reservation",
+                                              RoundUp(size, kPageSize),
+                                              PROT_NONE,
+                                              /*low_4gb=*/ true,
+                                              &error_msg);
+    CHECK(reservation.IsValid()) << error_msg;
+    uint8_t* base = reservation.Begin();
+    success =
+        ef->Load(file.get(), /*executable=*/ false, /*low_4gb=*/ false, &reservation, &error_msg);
+    CHECK(success) << error_msg;
+    CHECK(!reservation.IsValid());
     EXPECT_EQ(reinterpret_cast<uintptr_t>(dl_oatdata) + reinterpret_cast<uintptr_t>(base),
         reinterpret_cast<uintptr_t>(ef->FindDynamicSymbolAddress("oatdata")));
     EXPECT_EQ(reinterpret_cast<uintptr_t>(dl_oatexec) + reinterpret_cast<uintptr_t>(base),
@@ -116,50 +130,12 @@ TEST_F(ElfWriterTest, CheckBuildIdPresent) {
   {
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
-                                              false,
-                                              false,
-                                              /*low_4gb*/false,
+                                              /*writable=*/ false,
+                                              /*program_header_only=*/ false,
+                                              /*low_4gb=*/ false,
                                               &error_msg));
     CHECK(ef.get() != nullptr) << error_msg;
     EXPECT_TRUE(ef->HasSection(".note.gnu.build-id"));
-  }
-}
-
-TEST_F(ElfWriterTest, EncodeDecodeOatPatches) {
-  const std::vector<std::vector<uintptr_t>> test_data {
-      { 0, 4, 8, 15, 128, 200 },
-      { 8, 8 + 127 },
-      { 8, 8 + 128 },
-      { },
-  };
-  for (const auto& patch_locations : test_data) {
-    constexpr int32_t delta = 0x11235813;
-
-    // Encode patch locations.
-    std::vector<uint8_t> oat_patches;
-    ElfBuilder<ElfTypes32>::EncodeOatPatches(ArrayRef<const uintptr_t>(patch_locations),
-                                             &oat_patches);
-
-    // Create buffer to be patched.
-    std::vector<uint8_t> initial_data(256);
-    for (size_t i = 0; i < initial_data.size(); i++) {
-      initial_data[i] = i;
-    }
-
-    // Patch manually.
-    std::vector<uint8_t> expected = initial_data;
-    for (uintptr_t location : patch_locations) {
-      typedef __attribute__((__aligned__(1))) uint32_t UnalignedAddress;
-      *reinterpret_cast<UnalignedAddress*>(expected.data() + location) += delta;
-    }
-
-    // Decode and apply patch locations.
-    std::vector<uint8_t> actual = initial_data;
-    ElfFileImpl32::ApplyOatPatches(
-        oat_patches.data(), oat_patches.data() + oat_patches.size(), delta,
-        actual.data(), actual.data() + actual.size());
-
-    EXPECT_EQ(expected, actual);
   }
 }
 

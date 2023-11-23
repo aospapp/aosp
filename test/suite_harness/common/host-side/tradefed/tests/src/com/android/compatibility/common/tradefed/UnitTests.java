@@ -21,6 +21,7 @@ import com.android.compatibility.common.tradefed.command.CompatibilityConsoleTes
 import com.android.compatibility.common.tradefed.config.ConfigurationFactoryTest;
 import com.android.compatibility.common.tradefed.presubmit.ApkPackageNameCheck;
 import com.android.compatibility.common.tradefed.presubmit.CtsConfigLoadingTest;
+import com.android.compatibility.common.tradefed.presubmit.DupFileTest;
 import com.android.compatibility.common.tradefed.presubmit.IntegrationTest;
 import com.android.compatibility.common.tradefed.presubmit.PresubmitSetupValidation;
 import com.android.compatibility.common.tradefed.presubmit.ValidateTestsAbi;
@@ -31,6 +32,9 @@ import com.android.compatibility.common.tradefed.result.ResultReporterBuildInfoT
 import com.android.compatibility.common.tradefed.result.ResultReporterTest;
 import com.android.compatibility.common.tradefed.result.SubPlanHelperTest;
 import com.android.compatibility.common.tradefed.result.suite.CertificationChecksumHelperTest;
+import com.android.compatibility.common.tradefed.result.suite.PreviousResultLoaderTest;
+import com.android.compatibility.common.tradefed.result.suite.PreviousSessionFileCopierTest;
+import com.android.compatibility.common.tradefed.targetprep.BusinessLogicPreparerTest;
 import com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusherTest;
 import com.android.compatibility.common.tradefed.targetprep.MediaPreparerTest;
 import com.android.compatibility.common.tradefed.targetprep.PropertyCheckTest;
@@ -53,8 +57,8 @@ import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * A test suite for all compatibility tradefed unit tests.
- * <p/>
- * All tests listed here should be self-contained, and do not require any external dependencies.
+ *
+ * <p>All tests listed here should be self-contained, and do not require any external dependencies.
  */
 @RunWith(Suite.class)
 @SuiteClasses({
@@ -71,6 +75,7 @@ import org.junit.runners.Suite.SuiteClasses;
     // presubmit
     ApkPackageNameCheck.class,
     CtsConfigLoadingTest.class,
+    DupFileTest.class,
     IntegrationTest.class,
     PresubmitSetupValidation.class,
     ValidateTestsAbi.class,
@@ -85,8 +90,11 @@ import org.junit.runners.Suite.SuiteClasses;
 
     // result.suite
     CertificationChecksumHelperTest.class,
+    PreviousResultLoaderTest.class,
+    PreviousSessionFileCopierTest.class,
 
     // targetprep
+    BusinessLogicPreparerTest.class,
     DynamicConfigPusherTest.class,
     MediaPreparerTest.class,
     PropertyCheckTest.class,

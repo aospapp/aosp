@@ -14,7 +14,6 @@ import java.text.ParsePosition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -24,18 +23,19 @@ import java.util.MissingResourceException;
 import java.util.Set;
 
 import com.ibm.icu.impl.CacheBase;
-import com.ibm.icu.impl.CurrencyData.CurrencyDisplayInfo;
 import com.ibm.icu.impl.ICUCache;
 import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUDebug;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.SimpleCache;
 import com.ibm.icu.impl.SoftCache;
+import com.ibm.icu.impl.StaticUnicodeSets;
 import com.ibm.icu.impl.TextTrieMap;
 import com.ibm.icu.text.CurrencyDisplayNames;
 import com.ibm.icu.text.CurrencyMetaInfo;
 import com.ibm.icu.text.CurrencyMetaInfo.CurrencyDigits;
 import com.ibm.icu.text.CurrencyMetaInfo.CurrencyFilter;
+import com.ibm.icu.text.UnicodeSet;
 import com.ibm.icu.util.ULocale.Category;
 
 /**
@@ -64,7 +64,7 @@ public class Currency extends MeasureUnit {
 
     // Cache to save currency name trie
     private static ICUCache<ULocale, List<TextTrieMap<CurrencyStringInfo>>> CURRENCY_NAME_CACHE =
-        new SimpleCache<ULocale, List<TextTrieMap<CurrencyStringInfo>>>();
+        new SimpleCache<>();
 
     /**
      * Selector for getName() indicating a symbolic name for a
@@ -92,23 +92,12 @@ public class Currency extends MeasureUnit {
      * Selector for getName() indicating the narrow currency symbol.
      * The narrow currency symbol is similar to the regular currency
      * symbol, but it always takes the shortest form: for example,
-     * "$" instead of "US$".
+     * "$" instead of "US$" for USD in en-CA.
      *
-     * This method assumes that the currency data provider is the ICU4J
-     * built-in data provider. If it is not, an exception is thrown.
-     *
-     * @internal
-     * @deprecated ICU 60: This API is ICU internal only.
+     * @draft ICU 61
+     * @provisional This API might change or be removed in a future release.
      */
-    @Deprecated
     public static final int NARROW_SYMBOL_NAME = 3;
-
-    private static final EquivalenceRelation<String> EQUIVALENT_CURRENCY_SYMBOLS =
-            new EquivalenceRelation<String>()
-            .add("\u00a5", "\uffe5")
-            .add("$", "\ufe69", "\uff04")
-            .add("\u20a8", "\u20b9")
-            .add("\u00a3", "\u20a4");
 
     /**
      * Currency Usage used for Decimal Format
@@ -240,7 +229,7 @@ public class Currency extends MeasureUnit {
     public static Set<Currency> getAvailableCurrencies() {
         CurrencyMetaInfo info = CurrencyMetaInfo.getInstance();
         List<String> list = info.currencies(CurrencyFilter.all());
-        HashSet<Currency> resultSet = new HashSet<Currency>(list.size());
+        HashSet<Currency> resultSet = new HashSet<>(list.size());
         for (String code : list) {
             resultSet.add(getInstance(code));
         }
@@ -339,7 +328,7 @@ public class Currency extends MeasureUnit {
      *
      * @param currency The Java currency object to convert.
      * @return An equivalent ICU currency object.
-     * @draft ICU 60
+     * @stable ICU 60
      */
     public static Currency fromJavaCurrency(java.util.Currency currency) {
         return getInstance(currency.getCurrencyCode());
@@ -349,7 +338,7 @@ public class Currency extends MeasureUnit {
      * Returns a java.util.Currency object based on the currency represented by this Currency.
      *
      * @return An equivalent Java currency object.
-     * @draft ICU 60
+     * @stable ICU 60
      */
     public java.util.Currency toJavaCurrency() {
         return java.util.Currency.getInstance(getCurrencyCode());
@@ -546,7 +535,7 @@ public class Currency extends MeasureUnit {
      * @stable ICU 3.4
      */
     public String getSymbol(ULocale uloc) {
-        return getName(uloc, SYMBOL_NAME, new boolean[1]);
+        return getName(uloc, SYMBOL_NAME, null);
     }
 
     /**
@@ -568,8 +557,8 @@ public class Currency extends MeasureUnit {
      * currency object in the en_US locale is "$".
      * @param locale locale in which to display currency
      * @param nameStyle selector for which kind of name to return.
-     *                  The nameStyle should be either SYMBOL_NAME or
-     *                  LONG_NAME. Otherwise, throw IllegalArgumentException.
+     *                  The nameStyle should be SYMBOL_NAME, NARROW_SYMBOL_NAME,
+     *                  or LONG_NAME. Otherwise, throw IllegalArgumentException.
      * @param isChoiceFormat fill-in; isChoiceFormat[0] is set to true
      * if the returned value is a ChoiceFormat pattern; otherwise it
      * is set to false
@@ -597,13 +586,7 @@ public class Currency extends MeasureUnit {
         case SYMBOL_NAME:
             return names.getSymbol(subType);
         case NARROW_SYMBOL_NAME:
-            // CurrencyDisplayNames is the public interface.
-            // CurrencyDisplayInfo is ICU's standard implementation.
-            if (!(names instanceof CurrencyDisplayInfo)) {
-                throw new UnsupportedOperationException(
-                        "Cannot get narrow symbol from custom currency display name provider");
-            }
-            return ((CurrencyDisplayInfo) names).getNarrowSymbol(subType);
+            return names.getNarrowSymbol(subType);
         case LONG_NAME:
             return names.getName(subType);
         default:
@@ -674,7 +657,6 @@ public class Currency extends MeasureUnit {
      * @see #getName(Locale, int, boolean[])
      * @stable ICU 49
      */
-    @SuppressWarnings("javadoc")    // java.util.Currency#getDisplayName() is introduced in Java 7
     public String getDisplayName() {
         return getName(Locale.getDefault(), LONG_NAME, null);
     }
@@ -694,7 +676,6 @@ public class Currency extends MeasureUnit {
      * @see #getName(Locale, int, boolean[])
      * @stable ICU 49
      */
-    @SuppressWarnings("javadoc")    // java.util.Currency#getDisplayName() is introduced in Java 7
     public String getDisplayName(Locale locale) {
         return getName(locale, LONG_NAME, null);
     }
@@ -752,13 +733,12 @@ public class Currency extends MeasureUnit {
      * @deprecated This API is ICU internal only.
      */
     @Deprecated
-    public static TextTrieMap<CurrencyStringInfo>.ParseState openParseState(
-        ULocale locale, int startingCp, int type) {
+    public static TextTrieMap<CurrencyStringInfo> getParsingTrie(ULocale locale, int type) {
         List<TextTrieMap<CurrencyStringInfo>> currencyTrieVec = getCurrencyTrieVec(locale);
         if (type == Currency.LONG_NAME) {
-            return currencyTrieVec.get(0).openParseState(startingCp);
+            return currencyTrieVec.get(1);
         } else {
-            return currencyTrieVec.get(1).openParseState(startingCp);
+            return currencyTrieVec.get(0);
         }
     }
 
@@ -766,10 +746,10 @@ public class Currency extends MeasureUnit {
         List<TextTrieMap<CurrencyStringInfo>> currencyTrieVec = CURRENCY_NAME_CACHE.get(locale);
         if (currencyTrieVec == null) {
             TextTrieMap<CurrencyStringInfo> currencyNameTrie =
-                new TextTrieMap<CurrencyStringInfo>(true);
+                new TextTrieMap<>(true);
             TextTrieMap<CurrencyStringInfo> currencySymbolTrie =
-                new TextTrieMap<CurrencyStringInfo>(false);
-            currencyTrieVec = new ArrayList<TextTrieMap<CurrencyStringInfo>>();
+                new TextTrieMap<>(false);
+            currencyTrieVec = new ArrayList<>();
             currencyTrieVec.add(currencySymbolTrie);
             currencyTrieVec.add(currencyNameTrie);
             setupCurrencyTrieVec(locale, currencyTrieVec);
@@ -790,8 +770,16 @@ public class Currency extends MeasureUnit {
             String isoCode = e.getValue();
             // Register under not just symbol, but under every equivalent symbol as well
             // e.g short width yen and long width yen.
-            for (String equivalentSymbol : EQUIVALENT_CURRENCY_SYMBOLS.get(symbol)) {
-                symTrie.put(equivalentSymbol, new CurrencyStringInfo(isoCode, symbol));
+            StaticUnicodeSets.Key key = StaticUnicodeSets.chooseCurrency(symbol);
+            CurrencyStringInfo value = new CurrencyStringInfo(isoCode, symbol);
+            if (key != null) {
+                UnicodeSet equivalents = StaticUnicodeSets.get(key);
+                // The symbol itself is included in the UnicodeSet
+                for (String equivalentSymbol : equivalents) {
+                    symTrie.put(equivalentSymbol, value);
+                }
+            } else {
+                symTrie.put(symbol, value);
             }
         }
         for (Map.Entry<String, String> e : names.nameMap().entrySet()) {
@@ -981,7 +969,7 @@ public class Currency extends MeasureUnit {
             //CurrencyFilter filter = CurrencyFilter.onDateRange(null, new Date(253373299200000L));
             CurrencyFilter filter = CurrencyFilter.all();
             all = Collections.unmodifiableList(getTenderCurrencies(filter));
-            ALL_TENDER_CODES = new SoftReference<List<String>>(all);
+            ALL_TENDER_CODES = new SoftReference<>(all);
         }
         return all;
     }
@@ -991,8 +979,8 @@ public class Currency extends MeasureUnit {
         if (all == null) {
             CurrencyMetaInfo info = CurrencyMetaInfo.getInstance();
             all = Collections.unmodifiableSet(
-                    new HashSet<String>(info.currencies(CurrencyFilter.all())));
-            ALL_CODES_AS_SET = new SoftReference<Set<String>>(all);
+                    new HashSet<>(info.currencies(CurrencyFilter.all())));
+            ALL_CODES_AS_SET = new SoftReference<>(all);
         }
         return all;
     }
@@ -1049,34 +1037,6 @@ public class Currency extends MeasureUnit {
     private static List<String> getTenderCurrencies(CurrencyFilter filter) {
         CurrencyMetaInfo info = CurrencyMetaInfo.getInstance();
         return info.currencies(filter.withTender());
-    }
-
-    private static final class EquivalenceRelation<T> {
-
-        private Map<T, Set<T>> data = new HashMap<T, Set<T>>();
-
-        @SuppressWarnings("unchecked")  // See ticket #11395, this is safe.
-        public EquivalenceRelation<T> add(T... items) {
-            Set<T> group = new HashSet<T>();
-            for (T item : items) {
-                if (data.containsKey(item)) {
-                    throw new IllegalArgumentException("All groups passed to add must be disjoint.");
-                }
-                group.add(item);
-            }
-            for (T item : items) {
-                data.put(item, group);
-            }
-            return this;
-        }
-
-        public Set<T> get(T item) {
-            Set<T> result = data.get(item);
-            if (result == null) {
-                return Collections.singleton(item);
-            }
-            return Collections.unmodifiableSet(result);
-        }
     }
 
     private Object writeReplace() throws ObjectStreamException {

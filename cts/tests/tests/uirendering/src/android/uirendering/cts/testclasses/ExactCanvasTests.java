@@ -16,24 +16,29 @@
 
 package android.uirendering.cts.testclasses;
 
+import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorSpace;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Picture;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.NinePatchDrawable;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
+import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+import android.uirendering.cts.util.CompareUtils;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -196,6 +201,14 @@ public class ExactCanvasTests extends ActivityTestBase {
     }
 
     @Test
+    public void testBasicColorBlendMode() {
+        createTest().addCanvasClient((canvas, width, height) -> {
+            canvas.drawColor(Color.GRAY);
+            canvas.drawColor(Color.BLUE, BlendMode.MULTIPLY);
+        }).runWithComparer(mExactComparer);
+    }
+
+    @Test
     public void testBluePaddedSquare() {
         final NinePatchDrawable ninePatchDrawable = (NinePatchDrawable)
             getActivity().getResources().getDrawable(R.drawable.blue_padded_square);
@@ -252,5 +265,101 @@ public class ExactCanvasTests extends ActivityTestBase {
                 })
                 .runWithVerifier(new RectVerifier(Color.WHITE, Color.BLACK,
                         new Rect(20, 20, 70, 70)));
+    }
+
+    @Test
+    public void testBlackTriangleVertices() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    float[] vertices = new float[6];
+                    vertices[0] = width / 2.0f;
+                    vertices[1] = 0;
+                    vertices[2] = width;
+                    vertices[3] = height;
+                    vertices[4] = 0;
+                    vertices[5] = height;
+                    int[] colors = new int[] { Color.BLACK, Color.BLACK, Color.BLACK };
+                    canvas.drawVertices(Canvas.VertexMode.TRIANGLES, vertices.length, vertices, 0,
+                            null, 0, colors, 0, null, 0, 0,
+                            new Paint());
+                })
+                .runWithComparer(mExactComparer);
+    }
+
+    @Test
+    public void testBlackTriangleVertices2() {
+        BitmapVerifier verifier = new PerPixelBitmapVerifier() {
+            @Override
+            protected boolean verifyPixel(int x, int y, int observedColor) {
+                // The CanvasClient will draw the following black triangle on a white
+                // background:
+                //               (40, 0)
+                //
+                //
+                //
+                //
+                // (0, 80)                      (80, 0)
+                if (y >= 80) {
+                    // Below the triangle is white.
+                    return CompareUtils.verifyPixelWithThreshold(observedColor, Color.WHITE, 0);
+                } else if (x < 40) {
+                    // The line on the left is
+                    //    y = -2x + 80
+                    // Above is white, below is black. Give some leeway for
+                    // antialiasing.
+                    if (y < -2 * x + 80 - 1) {
+                        return CompareUtils.verifyPixelWithThreshold(observedColor, Color.WHITE, 0);
+                    } else if (y > -2 * x + 80 + 1) {
+                        return CompareUtils.verifyPixelWithThreshold(observedColor, Color.BLACK, 0);
+                    }
+                } else {
+                    // The line on the right is
+                    //    y = 2x - 80
+                    // Above is white, below is black. Give some leeway for
+                    // antialiasing.
+                    if (y < 2 * x - 80 - 1) {
+                        return CompareUtils.verifyPixelWithThreshold(observedColor, Color.WHITE, 0);
+                    } else if (y > 2 * x - 80 + 1) {
+                        return CompareUtils.verifyPixelWithThreshold(observedColor, Color.BLACK, 0);
+                    }
+                }
+                // Ignore points very close to the line.
+                return true;
+            }
+        };
+
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.WHITE);
+
+                    float[] vertices = new float[6];
+                    vertices[0] = 40;
+                    vertices[1] = 0;
+                    vertices[2] = 80;
+                    vertices[3] = 80;
+                    vertices[4] = 0;
+                    vertices[5] = 80;
+                    int[] colors = new int[] { Color.BLACK, Color.BLACK, Color.BLACK };
+                    canvas.drawVertices(Canvas.VertexMode.TRIANGLES, vertices.length, vertices, 0,
+                            null, 0, colors, 0, null, 0, 0,
+                            new Paint());
+                })
+                .runWithVerifier(verifier);
+    }
+
+    @Test
+    public void testColorLongs() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.drawColor(Color.pack(0.5f, 0.3f, 0.1f, 1.0f,
+                                ColorSpace.get(ColorSpace.Named.DISPLAY_P3)));
+                    canvas.drawColor(Color.pack(0.2f, 0.2f, 0.2f, 1.0f,
+                                ColorSpace.get(ColorSpace.Named.DISPLAY_P3)), BlendMode.PLUS);
+                    Paint p = new Paint();
+                    p.setColor(Color.pack(0.7f, 0.9f, 0.4f, 1.0f,
+                                ColorSpace.get(ColorSpace.Named.DISPLAY_P3)));
+                    canvas.drawRect(20, 20, 70, 70, p);
+                })
+                .runWithComparer(mExactComparer);
     }
 }

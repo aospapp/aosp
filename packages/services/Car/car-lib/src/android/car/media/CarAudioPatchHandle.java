@@ -16,6 +16,7 @@
 
 package android.car.media;
 
+import android.annotation.SystemApi;
 import android.media.AudioDevicePort;
 import android.media.AudioPatch;
 import android.os.Parcel;
@@ -27,7 +28,9 @@ import com.android.internal.util.Preconditions;
  * A class to encapsulate the handle for a system level audio patch. This is used
  * to provide a "safe" way for permitted applications to route automotive audio sources
  * outside of android.
+ * @hide
  */
+@SystemApi
 public final class CarAudioPatchHandle implements Parcelable {
 
     // This is enough information to uniquely identify a patch to the system

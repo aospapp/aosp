@@ -8,6 +8,11 @@ LOCAL_MODULE := init.rc
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT)
+LOCAL_REQUIRED_MODULES := fsverity_init
+
+# The init symlink must be a post install command of a file that is to TARGET_ROOT_OUT.
+# Since init.rc is required for init and satisfies that requirement, we hijack it to create the symlink.
+LOCAL_POST_INSTALL_CMD := ln -sf /system/bin/init $(TARGET_ROOT_OUT)/init
 
 include $(BUILD_PREBUILT)
 
@@ -18,7 +23,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := init-debug.rc
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
 LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)/init
 
 include $(BUILD_PREBUILT)
@@ -54,6 +58,15 @@ endif
 endif
 
 #######################################
+# fsverity_init
+
+include $(CLEAR_VARS)
+LOCAL_MODULE:= fsverity_init
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_SRC_FILES := fsverity_init.sh
+include $(BUILD_PREBUILT)
+
+#######################################
 # init.environ.rc
 
 include $(CLEAR_VARS)
@@ -67,6 +80,13 @@ ifneq ($(filter address,$(SANITIZE_TARGET)),)
   LOCAL_REQUIRED_MODULES := asan.options $(ASAN_OPTIONS_FILES) $(ASAN_EXTRACT_FILES)
 endif
 
+EXPORT_GLOBAL_HWASAN_OPTIONS :=
+ifneq ($(filter hwaddress,$(SANITIZE_TARGET)),)
+  ifneq ($(HWADDRESS_SANITIZER_GLOBAL_OPTIONS),)
+    EXPORT_GLOBAL_HWASAN_OPTIONS := export HWASAN_OPTIONS $(HWADDRESS_SANITIZER_GLOBAL_OPTIONS)
+  endif
+endif
+
 EXPORT_GLOBAL_GCOV_OPTIONS :=
 ifeq ($(NATIVE_COVERAGE),true)
   EXPORT_GLOBAL_GCOV_OPTIONS := export GCOV_PREFIX /data/misc/gcov
@@ -77,7 +97,7 @@ endif
 #
 # create some directories (some are mount points) and symlinks
 LOCAL_POST_INSTALL_CMD := mkdir -p $(addprefix $(TARGET_ROOT_OUT)/, \
-    sbin dev proc sys system data odm oem acct config storage mnt $(BOARD_ROOT_EXTRA_FOLDERS)); \
+    sbin dev proc sys system data odm oem acct config storage mnt apex debug_ramdisk $(BOARD_ROOT_EXTRA_FOLDERS)); \
     ln -sf /system/bin $(TARGET_ROOT_OUT)/bin; \
     ln -sf /system/etc $(TARGET_ROOT_OUT)/etc; \
     ln -sf /data/user_de/0/com.android.shell/files/bugreports $(TARGET_ROOT_OUT)/bugreports; \
@@ -92,6 +112,11 @@ ifdef BOARD_USES_PRODUCTIMAGE
   LOCAL_POST_INSTALL_CMD += ; mkdir -p $(TARGET_ROOT_OUT)/product
 else
   LOCAL_POST_INSTALL_CMD += ; ln -sf /system/product $(TARGET_ROOT_OUT)/product
+endif
+ifdef BOARD_USES_PRODUCT_SERVICESIMAGE
+  LOCAL_POST_INSTALL_CMD += ; mkdir -p $(TARGET_ROOT_OUT)/product_services
+else
+  LOCAL_POST_INSTALL_CMD += ; ln -sf /system/product_services $(TARGET_ROOT_OUT)/product_services
 endif
 ifdef BOARD_USES_METADATA_PARTITION
   LOCAL_POST_INSTALL_CMD += ; mkdir -p $(TARGET_ROOT_OUT)/metadata
@@ -112,6 +137,7 @@ LOCAL_POST_INSTALL_CMD += ; ln -sf /vendor/odm/lib $(TARGET_ROOT_OUT)/odm/lib
 LOCAL_POST_INSTALL_CMD += ; ln -sf /vendor/odm/lib64 $(TARGET_ROOT_OUT)/odm/lib64
 LOCAL_POST_INSTALL_CMD += ; ln -sf /vendor/odm/overlay $(TARGET_ROOT_OUT)/odm/overlay
 LOCAL_POST_INSTALL_CMD += ; ln -sf /vendor/odm/priv-app $(TARGET_ROOT_OUT)/odm/priv-app
+LOCAL_POST_INSTALL_CMD += ; ln -sf /vendor/odm/usr $(TARGET_ROOT_OUT)/odm/usr
 
 ifdef BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE
   LOCAL_POST_INSTALL_CMD += ; mkdir -p $(TARGET_ROOT_OUT)/cache
@@ -133,22 +159,15 @@ endif
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
-# Regenerate init.environ.rc if PRODUCT_BOOTCLASSPATH has changed.
-bcp_md5 := $(word 1, $(shell echo $(PRODUCT_BOOTCLASSPATH) $(PRODUCT_SYSTEM_SERVER_CLASSPATH) | $(MD5SUM)))
-bcp_dep := $(intermediates)/$(bcp_md5).bcp.dep
-$(bcp_dep) :
-	$(hide) mkdir -p $(dir $@) && rm -rf $(dir $@)*.bcp.dep && touch $@
-
-$(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/init.environ.rc.in $(bcp_dep)
+$(LOCAL_BUILT_MODULE): $(LOCAL_PATH)/init.environ.rc.in
 	@echo "Generate: $< -> $@"
 	@mkdir -p $(dir $@)
 	$(hide) sed -e 's?%BOOTCLASSPATH%?$(PRODUCT_BOOTCLASSPATH)?g' $< >$@
+	$(hide) sed -i -e 's?%DEX2OATBOOTCLASSPATH%?$(PRODUCT_DEX2OAT_BOOTCLASSPATH)?g' $@
 	$(hide) sed -i -e 's?%SYSTEMSERVERCLASSPATH%?$(PRODUCT_SYSTEM_SERVER_CLASSPATH)?g' $@
 	$(hide) sed -i -e 's?%EXPORT_GLOBAL_ASAN_OPTIONS%?$(EXPORT_GLOBAL_ASAN_OPTIONS)?g' $@
 	$(hide) sed -i -e 's?%EXPORT_GLOBAL_GCOV_OPTIONS%?$(EXPORT_GLOBAL_GCOV_OPTIONS)?g' $@
-
-bcp_md5 :=
-bcp_dep :=
+	$(hide) sed -i -e 's?%EXPORT_GLOBAL_HWASAN_OPTIONS%?$(EXPORT_GLOBAL_HWASAN_OPTIONS)?g' $@
 
 # Append PLATFORM_VNDK_VERSION to base name.
 define append_vndk_version
@@ -156,65 +175,6 @@ $(strip \
   $(basename $(1)).$(PLATFORM_VNDK_VERSION)$(suffix $(1)) \
 )
 endef
-
-# Update namespace configuration file with library lists and VNDK version
-#
-# $(1): Input source file (ld.config.txt)
-# $(2): Output built module
-# $(3): VNDK version suffix
-# $(4): true if libz must be included in llndk not in vndk-sp
-define update_and_install_ld_config
-# If $(4) is true, move libz to llndk from vndk-sp.
-$(if $(filter true,$(4)),\
-  $(eval llndk_libraries_list := $(LLNDK_LIBRARIES) libz) \
-  $(eval vndksp_libraries_list := $(filter-out libz,$(VNDK_SAMEPROCESS_LIBRARIES))),\
-  $(eval llndk_libraries_list := $(LLNDK_LIBRARIES)) \
-  $(eval vndksp_libraries_list := $(VNDK_SAMEPROCESS_LIBRARIES)))
-
-llndk_libraries := $(call normalize-path-list,$(addsuffix .so,\
-  $(filter-out $(VNDK_PRIVATE_LIBRARIES),$(llndk_libraries_list))))
-private_llndk_libraries := $(call normalize-path-list,$(addsuffix .so,\
-  $(filter $(VNDK_PRIVATE_LIBRARIES),$(llndk_libraries_list))))
-vndk_sameprocess_libraries := $(call normalize-path-list,$(addsuffix .so,\
-  $(filter-out $(VNDK_PRIVATE_LIBRARIES),$(vndksp_libraries_list))))
-vndk_core_libraries := $(call normalize-path-list,$(addsuffix .so,\
-  $(filter-out $(VNDK_PRIVATE_LIBRARIES),$(VNDK_CORE_LIBRARIES))))
-sanitizer_runtime_libraries := $(call normalize-path-list,$(addsuffix .so,\
-  $(ADDRESS_SANITIZER_RUNTIME_LIBRARY) \
-  $(UBSAN_RUNTIME_LIBRARY) \
-  $(TSAN_RUNTIME_LIBRARY) \
-  $(2ND_ADDRESS_SANITIZER_RUNTIME_LIBRARY) \
-  $(2ND_UBSAN_RUNTIME_LIBRARY) \
-  $(2ND_TSAN_RUNTIME_LIBRARY)))
-# If BOARD_VNDK_VERSION is not defined, VNDK version suffix will not be used.
-vndk_version_suffix := $(if $(strip $(3)),-$(strip $(3)))
-
-$(2): PRIVATE_LLNDK_LIBRARIES := $$(llndk_libraries)
-$(2): PRIVATE_PRIVATE_LLNDK_LIBRARIES := $$(private_llndk_libraries)
-$(2): PRIVATE_VNDK_SAMEPROCESS_LIBRARIES := $$(vndk_sameprocess_libraries)
-$(2): PRIVATE_VNDK_CORE_LIBRARIES := $$(vndk_core_libraries)
-$(2): PRIVATE_SANITIZER_RUNTIME_LIBRARIES := $$(sanitizer_runtime_libraries)
-$(2): PRIVATE_VNDK_VERSION := $$(vndk_version_suffix)
-$(2): $(1)
-	@echo "Generate: $$< -> $$@"
-	@mkdir -p $$(dir $$@)
-	$$(hide) sed -e 's?%LLNDK_LIBRARIES%?$$(PRIVATE_LLNDK_LIBRARIES)?g' $$< >$$@
-	$$(hide) sed -i -e 's?%PRIVATE_LLNDK_LIBRARIES%?$$(PRIVATE_PRIVATE_LLNDK_LIBRARIES)?g' $$@
-	$$(hide) sed -i -e 's?%VNDK_SAMEPROCESS_LIBRARIES%?$$(PRIVATE_VNDK_SAMEPROCESS_LIBRARIES)?g' $$@
-	$$(hide) sed -i -e 's?%VNDK_CORE_LIBRARIES%?$$(PRIVATE_VNDK_CORE_LIBRARIES)?g' $$@
-	$$(hide) sed -i -e 's?%SANITIZER_RUNTIME_LIBRARIES%?$$(PRIVATE_SANITIZER_RUNTIME_LIBRARIES)?g' $$@
-	$$(hide) sed -i -e 's?%VNDK_VER%?$$(PRIVATE_VNDK_VERSION)?g' $$@
-	$$(hide) sed -i -e 's?%PRODUCT%?$$(TARGET_COPY_OUT_PRODUCT)?g' $$@
-
-llndk_libraries_list :=
-vndksp_libraries_list :=
-llndk_libraries :=
-private_llndk_libraries :=
-vndk_sameprocess_libraries :=
-vndk_core_libraries :=
-sanitizer_runtime_libraries :=
-vndk_version_suffix :=
-endef # update_and_install_ld_config
 
 
 #######################################
@@ -254,26 +214,64 @@ LOCAL_MODULE := ld.config.txt
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
 
+# Start of runtime APEX compatibility.
+#
+# Meta-comment:
+# The placing of this section is somewhat arbitrary. The LOCAL_POST_INSTALL_CMD
+# entries need to be associated with something that goes into /system.
+# ld.config.txt qualifies but it could be anything else in /system until soong
+# supports creation of symlinks. http://b/123333111
+#
+# Keeping the appearance of files/dirs having old locations for apps that have
+# come to rely on them.
+
+# http://b/121248172 - create a link from /system/usr/icu to
+# /apex/com.android.runtime/etc/icu so that apps can find the ICU .dat file.
+# A symlink can't overwrite a directory and the /system/usr/icu directory once
+# existed so the required structure must be created whatever we find.
+LOCAL_POST_INSTALL_CMD = mkdir -p $(TARGET_OUT)/usr && rm -rf $(TARGET_OUT)/usr/icu
+LOCAL_POST_INSTALL_CMD += && ln -sf /apex/com.android.runtime/etc/icu $(TARGET_OUT)/usr/icu
+
+# TODO(b/124106384): Clean up compat symlinks for ART binaries.
+ART_BINARIES := \
+  dalvikvm \
+  dalvikvm32 \
+  dalvikvm64 \
+  dex2oat \
+  dexdiag \
+  dexdump \
+  dexlist \
+  dexoptanalyzer \
+  oatdump \
+  profman \
+
+LOCAL_POST_INSTALL_CMD += && mkdir -p $(TARGET_OUT)/bin
+$(foreach b,$(ART_BINARIES), \
+  $(eval LOCAL_POST_INSTALL_CMD += \
+    && ln -sf /apex/com.android.runtime/bin/$(b) $(TARGET_OUT)/bin/$(b)) \
+)
+
+# End of runtime APEX compatibilty.
+
 ifeq ($(_enforce_vndk_at_runtime),true)
 
 # for VNDK enforced devices
 LOCAL_MODULE_STEM := $(call append_vndk_version,$(LOCAL_MODULE))
 include $(BUILD_SYSTEM)/base_rules.mk
-$(eval $(call update_and_install_ld_config,\
-  $(LOCAL_PATH)/etc/ld.config.txt,\
-  $(LOCAL_BUILT_MODULE),\
-  $(PLATFORM_VNDK_VERSION)))
+ld_config_template := $(LOCAL_PATH)/etc/ld.config.txt
+check_backward_compatibility := true
+vndk_version := $(PLATFORM_VNDK_VERSION)
+include $(LOCAL_PATH)/update_and_install_ld_config.mk
 
 else ifeq ($(_enforce_vndk_lite_at_runtime),true)
 
 # for treblized but VNDK lightly enforced devices
 LOCAL_MODULE_STEM := ld.config.vndk_lite.txt
 include $(BUILD_SYSTEM)/base_rules.mk
-$(eval $(call update_and_install_ld_config,\
-  $(LOCAL_PATH)/etc/ld.config.vndk_lite.txt,\
-  $(LOCAL_BUILT_MODULE),\
-  $(PLATFORM_VNDK_VERSION),\
-  true))
+ld_config_template := $(LOCAL_PATH)/etc/ld.config.vndk_lite.txt
+vndk_version := $(PLATFORM_VNDK_VERSION)
+libz_is_llndk := true
+include $(LOCAL_PATH)/update_and_install_ld_config.mk
 
 else
 
@@ -284,6 +282,35 @@ include $(BUILD_PREBUILT)
 
 endif  # ifeq ($(_enforce_vndk_at_runtime),true)
 
+# ld.config.txt for VNDK versions older than PLATFORM_VNDK_VERSION
+# are built with the VNDK libraries lists under /prebuilts/vndk.
+#
+# ld.config.$(VER).txt is built and installed for all VNDK versions
+# listed in PRODUCT_EXTRA_VNDK_VERSIONS.
+#
+# $(1): VNDK version
+define build_versioned_ld_config
+include $(CLEAR_VARS)
+LOCAL_MODULE := ld.config.$(1).txt
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
+LOCAL_MODULE_STEM := $$(LOCAL_MODULE)
+include $(BUILD_SYSTEM)/base_rules.mk
+ld_config_template := $(LOCAL_PATH)/etc/ld.config.txt
+check_backward_compatibility := true
+vndk_version := $(1)
+lib_list_from_prebuilts := true
+include $(LOCAL_PATH)/update_and_install_ld_config.mk
+endef
+
+vndk_snapshots := $(wildcard prebuilts/vndk/*)
+supported_vndk_snapshot_versions := \
+  $(strip $(patsubst prebuilts/vndk/v%,%,$(vndk_snapshots)))
+$(foreach ver,$(supported_vndk_snapshot_versions),\
+  $(eval $(call build_versioned_ld_config,$(ver))))
+
+vndk_snapshots :=
+supported_vndk_snapshot_versions :=
 
 #######################################
 # ld.config.vndk_lite.txt
@@ -298,16 +325,25 @@ LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
 LOCAL_MODULE_STEM := $(LOCAL_MODULE)
 include $(BUILD_SYSTEM)/base_rules.mk
-$(eval $(call update_and_install_ld_config,\
-  $(LOCAL_PATH)/etc/ld.config.vndk_lite.txt,\
-  $(LOCAL_BUILT_MODULE),\
-  $(PLATFORM_VNDK_VERSION),\
-  true))
+ld_config_template := $(LOCAL_PATH)/etc/ld.config.vndk_lite.txt
+vndk_version := $(PLATFORM_VNDK_VERSION)
+libz_is_llndk := true
+include $(LOCAL_PATH)/update_and_install_ld_config.mk
 
 endif  # ifeq ($(_enforce_vndk_lite_at_runtime),false)
 
 _enforce_vndk_at_runtime :=
 _enforce_vndk_lite_at_runtime :=
+
+#######################################
+# ld.config.txt for recovery
+include $(CLEAR_VARS)
+LOCAL_MODULE := ld.config.recovery.txt
+LOCAL_MODULE_CLASS := ETC
+LOCAL_SRC_FILES := etc/ld.config.recovery.txt
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/system/etc
+LOCAL_MODULE_STEM := ld.config.txt
+include $(BUILD_PREBUILT)
 
 #######################################
 # llndk.libraries.txt
@@ -340,3 +376,14 @@ $(LOCAL_BUILT_MODULE):
 	$(hide) echo -n > $@
 	$(hide) $(foreach lib,$(PRIVATE_VNDK_SAMEPROCESS_LIBRARIES), \
 		echo $(lib).so >> $@;)
+
+#######################################
+# adb_debug.prop in debug ramdisk
+include $(CLEAR_VARS)
+LOCAL_MODULE := adb_debug.prop
+LOCAL_SRC_FILES := $(LOCAL_MODULE)
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_DEBUG_RAMDISK_OUT)
+include $(BUILD_PREBUILT)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -69,4 +69,7 @@
                           android:summary="@string/enable_area_update_info_alerts_summary"
                           android:title="@string/enable_area_update_info_alerts_title" />
 
+        <Preference android:key="emergency_alert_history"
+                            android:title="@string/emergency_alert_history_title" />
+
 </PreferenceScreen>

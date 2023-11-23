@@ -70,18 +70,20 @@ TEST_F(OpenmpSettingsTest, TestThreaded) {
     for (int i = 0; i < 10; i++) {
         const int sleepFor = rand(randGen);
         threads.push_back(std::thread([sleepFor]() {
-            const int blocktimeSet1 = kmp_get_blocktime();
-            ASSERT_EQ(blocktimeSet1, kOpenmpDefaultBlockTime);
+            const int blocktimeInitial = kmp_get_blocktime();
+            // kmp_get_blocktime() in a new thread returns 0 instead of 200
+            // about 10% of time on-device
+            ASSERT_TRUE(blocktimeInitial == 0 || blocktimeInitial == kOpenmpDefaultBlockTime);
 
             ScopedOpenmpSettings s;
 
-            const int blocktimeSet2 = kmp_get_blocktime();
-            ASSERT_EQ(blocktimeSet2, kPreferredBlockTime);
+            const int blocktimeSet1 = kmp_get_blocktime();
+            ASSERT_EQ(blocktimeSet1, kPreferredBlockTime);
 
             usleep(sleepFor);
 
-            const int blocktimeSet3 = kmp_get_blocktime();
-            ASSERT_EQ(blocktimeSet3, kPreferredBlockTime);
+            const int blocktimeSet2 = kmp_get_blocktime();
+            ASSERT_EQ(blocktimeSet2, kPreferredBlockTime);
         }));
     }
     std::for_each(threads.begin(), threads.end(), [](std::thread& t) {

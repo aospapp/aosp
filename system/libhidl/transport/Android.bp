@@ -14,32 +14,45 @@
 
 hidl_package_root {
     name: "android.hidl",
-    path: "system/libhidl/transport",
 }
 
-cc_library {
-    name: "libhidltransport",
-    vendor_available: true,
-    vndk: {
-        enabled: true,
-        support_system_process: true,
-    },
-    defaults: [
-        "libhidl-defaults",
-        "hidl-module-defaults",
-    ],
+cc_defaults {
+    name: "libhidltransport-impl-shared-libs",
     shared_libs: [
         "libbase",
         "liblog",
         "libutils",
-        "libhidlbase",
         "libhwbinder",
         "libcutils",
-        "libvndksupport",
+        "libvndksupport"
     ],
     export_shared_lib_headers: [
         "libutils",
-        "libhidlbase",
+    ],
+
+    target: {
+        recovery: {
+            exclude_shared_libs: ["libvndksupport"],
+        },
+    },
+}
+
+cc_library_static {
+    name: "libhidltransport-impl-internal",
+    vendor_available: true,
+    recovery_available: true,
+
+    defaults: [
+        "hidl-module-defaults",
+        "libhidl-defaults",
+        "libhidltransport-impl-shared-libs",
+    ],
+
+    static_libs: [
+        "libhidlbase-impl-internal",
+    ],
+    export_static_lib_headers: [
+        "libhidlbase-impl-internal",
     ],
 
     export_include_dirs: ["include"],
@@ -47,21 +60,25 @@ cc_library {
     generated_sources: [
         "android.hidl.manager@1.0_genc++",
         "android.hidl.manager@1.1_genc++",
+        "android.hidl.manager@1.2_genc++",
         "android.hidl.base@1.0_genc++"
     ],
     generated_headers: [
         "android.hidl.manager@1.0_genc++_headers",
         "android.hidl.manager@1.1_genc++_headers",
+        "android.hidl.manager@1.2_genc++_headers",
         "android.hidl.base@1.0_genc++_headers"
     ],
     export_generated_headers: [
         "android.hidl.manager@1.0_genc++_headers",
         "android.hidl.manager@1.1_genc++_headers",
+        "android.hidl.manager@1.2_genc++_headers",
         "android.hidl.base@1.0_genc++_headers"
     ],
 
     srcs: [
         "HidlBinderSupport.cpp",
+        "HidlLazyUtils.cpp",
         "HidlPassthroughSupport.cpp",
         "HidlTransportSupport.cpp",
         "HidlTransportUtils.cpp",

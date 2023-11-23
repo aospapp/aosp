@@ -19,9 +19,9 @@
 #include <type_traits>
 
 #include "android-base/logging.h"
-#include "base/bit_utils.h"
-#include "base/macros.h"
-#include "common_runtime_test.h"
+#include "bit_utils.h"
+#include "gtest/gtest.h"
+#include "macros.h"
 #include "runtime_debug.h"
 
 namespace art {
@@ -31,9 +31,9 @@ static void SimpleAborter(const char* msg) {
   _exit(1);
 }
 
-class LoggingTest : public CommonRuntimeTest {
+class LoggingTest : public testing::Test {
  protected:
-  void PostRuntimeCreate() OVERRIDE {
+  LoggingTest() {
     // In our abort tests we really don't want the runtime to create a real dump.
     android::base::SetAborter(SimpleAborter);
   }

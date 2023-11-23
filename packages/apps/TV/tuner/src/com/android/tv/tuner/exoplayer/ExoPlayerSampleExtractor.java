@@ -23,13 +23,14 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.util.Pair;
 import com.android.tv.tuner.exoplayer.audio.MpegTsDefaultAudioTrackRenderer;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer;
 import com.android.tv.tuner.exoplayer.buffer.SimpleSampleBuffer;
-import com.android.tv.tuner.tvinput.PlaybackBufferListener;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.MediaFormatHolder;
 import com.google.android.exoplayer.SampleHolder;
@@ -49,6 +50,8 @@ import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
+import com.google.android.exoplayer2.upstream.TransferListener;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,6 +72,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
     private final long mId;
 
     private final Handler.Callback mSourceReaderWorker;
+    private final ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
 
     private BufferManager.SampleBuffer mSampleBuffer;
     private Handler mSourceReaderHandler;
@@ -90,7 +94,8 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             final DataSource source,
             BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
-            boolean isRecording) {
+            boolean isRecording,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlagsoncurrentDvrPlaybackFlags) {
         this(
                 uri,
                 source,
@@ -98,10 +103,12 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 bufferListener,
                 isRecording,
                 Looper.myLooper(),
-                new HandlerThread("SourceReaderThread"));
+                new HandlerThread("SourceReaderThread"),
+                concurrentDvrPlaybackFlagsoncurrentDvrPlaybackFlags);
     }
 
     @VisibleForTesting
+    @SuppressWarnings("MissingOverride")
     public ExoPlayerSampleExtractor(
             Uri uri,
             DataSource source,
@@ -109,9 +116,11 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             PlaybackBufferListener bufferListener,
             boolean isRecording,
             Looper workerLooper,
-            HandlerThread sourceReaderThread) {
+            HandlerThread sourceReaderThread,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
         // It'll be used as a timeshift file chunk name's prefix.
         mId = System.currentTimeMillis();
+        mConcurrentDvrPlaybackFlags = concurrentDvrPlaybackFlags;
 
         EventListener eventListener =
                 new EventListener() {
@@ -134,8 +143,19 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                                         // DataSource interface.
                                         return new com.google.android.exoplayer2.upstream
                                                 .DataSource() {
+
+                                            private @Nullable Uri uri;
+
+                                            // TODO: uncomment once this is part of the public API.
+                                            // @Override
+                                            public void addTransferListener(
+                                                    TransferListener transferListener) {
+                                                // Do nothing. Unsupported in V1.
+                                            }
+
                                             @Override
                                             public long open(DataSpec dataSpec) throws IOException {
+                                                this.uri = dataSpec.uri;
                                                 return source.open(
                                                         new com.google.android.exoplayer.upstream
                                                                 .DataSpec(
@@ -156,13 +176,14 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                                             }
 
                                             @Override
-                                            public Uri getUri() {
-                                                return null;
+                                            public @Nullable Uri getUri() {
+                                                return uri;
                                             }
 
                                             @Override
                                             public void close() throws IOException {
                                                 source.close();
+                                                uri = null;
                                             }
                                         };
                                     }
@@ -176,6 +197,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                             bufferManager,
                             bufferListener,
                             false,
+                            mConcurrentDvrPlaybackFlags,
                             RecordingSampleBuffer.BUFFER_REASON_RECORDING);
         } else {
             if (bufferManager == null) {
@@ -186,6 +208,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                                 bufferManager,
                                 bufferListener,
                                 true,
+                                mConcurrentDvrPlaybackFlags,
                                 RecordingSampleBuffer.BUFFER_REASON_LIVE_PLAYBACK);
             }
         }
@@ -204,6 +227,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
         private static final int RETRY_INTERVAL_MS = 50;
 
         private final MediaSource mSampleSource;
+        private final MediaSource.SourceInfoRefreshListener mSampleSourceListener;
         private MediaPeriod mMediaPeriod;
         private SampleStream[] mStreams;
         private boolean[] mTrackMetEos;
@@ -215,17 +239,16 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
 
         public SourceReaderWorker(MediaSource sampleSource) {
             mSampleSource = sampleSource;
-            mSampleSource.prepareSource(
-                    null,
-                    false,
-                    new MediaSource.Listener() {
+            mSampleSourceListener =
+                    new MediaSource.SourceInfoRefreshListener() {
                         @Override
                         public void onSourceInfoRefreshed(
                                 MediaSource source, Timeline timeline, Object manifest) {
                             // Dynamic stream change is not supported yet. b/28169263
                             // For now, this will cause EOS and playback reset.
                         }
-                    });
+                    };
+            mSampleSource.prepareSource(null, false, mSampleSourceListener, null);
             mDecoderInputBuffer =
                     new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
             mSampleHolder = new SampleHolder(SampleHolder.BUFFER_REPLACEMENT_MODE_NORMAL);
@@ -283,11 +306,10 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 // This instance is already released while the extractor is preparing.
                 return;
             }
-            TrackSelection.Factory selectionFactory = new FixedTrackSelection.Factory();
             TrackGroupArray trackGroupArray = mMediaPeriod.getTrackGroups();
             TrackSelection[] selections = new TrackSelection[trackGroupArray.length];
             for (int i = 0; i < selections.length; ++i) {
-                selections[i] = selectionFactory.createTrackSelection(trackGroupArray.get(i), 0);
+                selections[i] = new FixedTrackSelection(trackGroupArray.get(i), 0);
             }
             boolean[] retain = new boolean[trackGroupArray.length];
             boolean[] reset = new boolean[trackGroupArray.length];
@@ -343,7 +365,9 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                         mMediaPeriod =
                                 mSampleSource.createPeriod(
                                         new MediaSource.MediaPeriodId(0),
-                                        new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE));
+                                        new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE)
+// AOSP_Comment_Out                                         , 0
+                                );
                         mMediaPeriod.prepare(this, 0);
                         try {
                             mMediaPeriod.maybeThrowPrepareError();
@@ -382,7 +406,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
                 case MSG_RELEASE:
                     if (mMediaPeriod != null) {
                         mSampleSource.releasePeriod(mMediaPeriod);
-                        mSampleSource.releaseSource();
+                        mSampleSource.releaseSource(mSampleSourceListener);
                         mMediaPeriod = null;
                     }
                     cleanUp();
@@ -607,12 +631,7 @@ public class ExoPlayerSampleExtractor implements SampleExtractor {
             final long lastExtractedPositionUs = getLastExtractedPositionUs();
             if (mOnCompletionListenerHandler != null && mOnCompletionListener != null) {
                 mOnCompletionListenerHandler.post(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                listener.onCompletion(result, lastExtractedPositionUs);
-                            }
-                        });
+                        () -> listener.onCompletion(result, lastExtractedPositionUs));
             }
         }
     }

@@ -114,7 +114,7 @@
 #include <android-base/stringprintf.h>
 
 #define LOG_TAG "IdletimerController"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <logwrap/logwrap.h>
 
 #include "IdletimerController.h"
@@ -138,29 +138,6 @@ bool IdletimerController::setupIptablesHooks() {
     return true;
 }
 
-int IdletimerController::setDefaults() {
-    std::vector<std::string> cmds = {
-        "*raw",
-        StringPrintf(":%s -", LOCAL_RAW_PREROUTING),
-        "COMMIT",
-        "*mangle",
-        StringPrintf(":%s -", LOCAL_MANGLE_POSTROUTING),
-        "COMMIT\n",
-    };
-
-    return execIptablesRestore(V4V6, Join(cmds, '\n'));
-}
-
-int IdletimerController::enableIdletimerControl() {
-    int res = setDefaults();
-    return res;
-}
-
-int IdletimerController::disableIdletimerControl() {
-    int res = setDefaults();
-    return res;
-}
-
 int IdletimerController::modifyInterfaceIdletimer(IptOp op, const char *iface,
                                                   uint32_t timeout,
                                                   const char *classLabel) {
@@ -181,7 +158,7 @@ int IdletimerController::modifyInterfaceIdletimer(IptOp op, const char *iface,
         "COMMIT\n",
     };
 
-    return execIptablesRestore(V4V6, Join(cmds, '\n'));
+    return (execIptablesRestore(V4V6, Join(cmds, '\n')) == 0) ? 0 : -EREMOTEIO;
 }
 
 int IdletimerController::addInterfaceIdletimer(const char *iface,

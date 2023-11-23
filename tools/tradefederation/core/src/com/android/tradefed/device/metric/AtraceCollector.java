@@ -28,6 +28,7 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
@@ -39,7 +40,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A {@link IMetricCollector} that runs atrace during a test and collects the result and log
@@ -106,6 +108,26 @@ public class AtraceCollector extends BaseDeviceMetricCollector {
                         + "postprocessing subprocess to finish"
     )
     private long mLogProcessingTimeoutMilliseconds = 0;
+
+    /* If the tool is producing files to upload, this can be used to key in to which files are
+     * produced and upload them.
+     * The first matching group in the regex is treated as a file and uploaded.
+     * Eg, if this output is produced by the postprocessing binary:
+     *
+     * my-metric-name /tmp/a.txt
+     *
+     * then setting this option to: "my-metric-name (.*txt)" will upload /tmp/a.txt
+     *
+     * If not set, or the file cannot be found, the tool will still upload its stdout and stderr.
+     * Can be specified multiple times.
+     */
+    @Option(
+            name = "post-process-output-file-regex",
+            description =
+                    "A regex that will be applied to the stdout of the post processing program."
+                            + "the first matching group will be treated as a file and uploaded as "
+                            + "a test log.")
+    private List<String> mLogProcessingOutputRegex = new ArrayList<>();
 
     private IRunUtil mRunUtil = RunUtil.getDefault();
 
@@ -189,6 +211,36 @@ public class AtraceCollector extends BaseDeviceMetricCollector {
         CLog.v(
                 "Trace postprocessing status: %s\nstdout: %s\nstderr: ",
                 result.getStatus(), result.getStdout(), result.getStderr());
+        if (result.getStdout() == null) {
+            return;
+        }
+
+        for (String regex : mLogProcessingOutputRegex) {
+            Pattern pattern = Pattern.compile(regex);
+            for (String line : result.getStdout().split("\n")) {
+                Matcher m = pattern.matcher(line);
+                if (m.find() && m.groupCount() == 1) {
+                    File f = new File(m.group(1));
+                    if (f.exists() && !f.isDirectory()) {
+                        LogDataType type;
+                        switch (FileUtil.getExtension(f.getName())) {
+                            case ".png":
+                                type = LogDataType.PNG;
+                                break;
+                            case ".txt":
+                                type = LogDataType.TEXT;
+                                break;
+                            default:
+                                type = LogDataType.UNKNOWN;
+                                break;
+                        }
+                        try (FileInputStreamSource stream = new FileInputStreamSource(f)) {
+                            testLog(FileUtil.getBaseName(f.getName()), type, stream);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -205,6 +257,7 @@ public class AtraceCollector extends BaseDeviceMetricCollector {
                 File trace = device.pullFile(fullLogPath());
                 if (trace != null) {
                     CLog.i("Log size: %s bytes", String.valueOf(trace.length()));
+
                     try (FileInputStreamSource streamSource = new FileInputStreamSource(trace)) {
                         testLog(
                                 mLogFilename + device.getSerialNumber(),
@@ -219,7 +272,7 @@ public class AtraceCollector extends BaseDeviceMetricCollector {
                 }
 
                 if (!mPreserveOndeviceLog) {
-                    device.executeShellCommand("rm -f " + fullLogPath());
+                    device.deleteFile(fullLogPath());
                 }
                 else {
                     CLog.w("preserving ondevice atrace log: %s", fullLogPath());

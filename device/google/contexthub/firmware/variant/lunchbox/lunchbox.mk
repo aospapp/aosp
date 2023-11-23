@@ -30,22 +30,25 @@ SRCS_os += $(VARIANT_PATH)/src/os/i2c.c
 SRCS_os += $(VARIANT_PATH)/src/os/spi.c
 #keys
 
+SRCS_os += \
+    os/algos/calibration/magnetometer/mag_cal/mag_cal.c \
+    os/algos/calibration/diversity_checker/diversity_checker.c \
+    os/algos/common/math/kasa.c \
+    os/algos/common/math/mat.c \
+    os/algos/common/math/quat.c \
+    os/algos/common/math/vec.c \
+    os/algos/fusion.c \
+    os/algos/time_sync.c
+
 #drivers
-# ROHM ALS/prox
-SRCS_os += os/drivers/rohm_rpr0521/rohm_rpr0521.c
-
-# Fusion algorithms
-SRCS_os += os/algos/fusion.c \
-	os/algos/common/math/mat.c \
-	os/algos/common/math/quat.c \
-	os/algos/common/math/vec.c
-
 # BMI160 accel and gyro, BMM150 mag drivers
 FLAGS += -DUSE_BMM150 -DMAG_SLAVE_PRESENT
-SRCS_os += os/drivers/bosch_bmi160/bosch_bmi160.c \
-	os/drivers/bosch_bmi160/bosch_bmm150_slave.c \
-	os/algos/calibration/magnetometer/mag_cal.c \
-	os/algos/time_sync.c
+SRCS_os += \
+    os/drivers/bosch_bmi160/bosch_bmi160.c \
+    os/drivers/bosch_bmi160/bosch_bmm150_slave.c
+
+# ROHM ALS/prox
+SRCS_os += os/drivers/rohm_rpr0521/rohm_rpr0521.c
 
 # Orientation sensor driver
 SRCS_os += os/drivers/orientation/orientation.c

@@ -16,6 +16,8 @@
 <configuration description="Config for CTS View test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsViewTestCases.apk" />
@@ -24,5 +26,6 @@
         <option name="package" value="android.view.cts" />
         <option name="runtime-hint" value="6m47s" />
         <option name="hidden-api-checks" value="false" />
+        <option name="isolated-storage" value="false" />
     </test>
 </configuration>

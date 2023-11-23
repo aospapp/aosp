@@ -16,12 +16,13 @@
 
 package com.android.documentsui.roots;
 
-import android.content.AsyncTaskLoader;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.v4.content.LocalBroadcastManager;
+
+import androidx.loader.content.AsyncTaskLoader;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;

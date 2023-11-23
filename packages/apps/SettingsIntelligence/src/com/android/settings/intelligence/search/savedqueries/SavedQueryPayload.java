@@ -17,7 +17,7 @@
 package com.android.settings.intelligence.search.savedqueries;
 
 import android.os.Parcel;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.intelligence.search.ResultPayload;
 

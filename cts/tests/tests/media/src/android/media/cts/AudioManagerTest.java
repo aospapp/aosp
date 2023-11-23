@@ -46,6 +46,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -55,8 +56,12 @@ import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.provider.Settings.System;
 import android.test.InstrumentationTestCase;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.SoundEffectConstants;
+
+import com.android.compatibility.common.util.CddTest;
+import com.android.internal.annotations.GuardedBy;
 
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +70,7 @@ import java.util.Map;
 public class AudioManagerTest extends InstrumentationTestCase {
     private final static String TAG = "AudioManagerTest";
 
-    private final static long MUTE_DELAY = 50;
+    private final static long ASYNC_TIMING_TOLERANCE_MS = 50;
     private final static int MP3_TO_PLAY = R.raw.testmp3;
     private final static long TIME_TO_PLAY = 2000;
     private final static String APPOPS_OP_STR = "android:write_settings";
@@ -84,7 +89,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
     // These tests are migrated to CTS verifier tests to ensure test coverage.
     private boolean mSupportNotificationPolicyAccess;
     private Context mContext;
-    private final static int ASYNC_TIMING_TOLERANCE_MS = 50;
     private int mOriginalRingerMode;
     private Map<Integer, Integer> mOriginalStreamVolumes = new HashMap<>();
     private NotificationManager.Policy mOriginalNotificationPolicy;
@@ -174,7 +178,15 @@ public class AudioManagerTest extends InstrumentationTestCase {
 
     @AppModeFull(reason = "Instant apps cannot hold android.permission.MODIFY_AUDIO_SETTINGS")
     public void testMicrophoneMuteIntent() throws Exception {
-        final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver();
+        // Skip this test for automotive.
+        // This tests listens for ACTION_MICROPHONE_MUTE_CHANGED which AudioService only broadcasts
+        // to system user. Automotive devices, which runs in secondary user, will fail this test.
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            return;
+        }
+
+        final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver(
+                AudioManager.ACTION_MICROPHONE_MUTE_CHANGED);
         final boolean initialMicMute = mAudioManager.isMicrophoneMute();
         try {
             mContext.registerReceiver(receiver,
@@ -182,7 +194,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // change the mic mute state
             mAudioManager.setMicrophoneMute(!initialMicMute);
             // verify a change was reported
-            final boolean intentFired = receiver.waitForMicMuteChanged(500/*ms*/);
+            final boolean intentFired = receiver.waitForExpectedAction(500/*ms*/);
             assertTrue("ACTION_MICROPHONE_MUTE_CHANGED wasn't fired", intentFired);
             // verify the mic mute state is expected
             final boolean newMicMute = mAudioManager.isMicrophoneMute();
@@ -194,43 +206,54 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
-    // helper class to simplify that abstracts out the handling of spurious wakeups in Object.wait()
-    private static final class SafeWaitObject {
-        private boolean mQuit = false;
-
-        public void safeNotify() {
-            synchronized (this) {
-                mQuit = true;
-                this.notify();
-            }
-        }
-
-        public void safeWait(long millis) throws InterruptedException {
-            final long timeOutTime = java.lang.System.currentTimeMillis() + millis;
-            synchronized (this) {
-                while (!mQuit) {
-                    final long timeToWait = timeOutTime - java.lang.System.currentTimeMillis();
-                    if (timeToWait < 0) { break; }
-                    this.wait(timeToWait);
-                }
-            }
+    @AppModeFull(reason = "Instant apps cannot hold android.permission.MODIFY_AUDIO_SETTINGS")
+    public void testSpeakerphoneIntent() throws Exception {
+        final MyBlockingIntentReceiver receiver = new MyBlockingIntentReceiver(
+                AudioManager.ACTION_SPEAKERPHONE_STATE_CHANGED);
+        final boolean initialSpeakerphoneState = mAudioManager.isSpeakerphoneOn();
+        try {
+            mContext.registerReceiver(receiver,
+                    new IntentFilter(AudioManager.ACTION_SPEAKERPHONE_STATE_CHANGED));
+            // change the speakerphone state
+            mAudioManager.setSpeakerphoneOn(!initialSpeakerphoneState);
+            // verify a change was reported
+            final boolean intentFired = receiver.waitForExpectedAction(500/*ms*/);
+            assertTrue("ACTION_SPEAKERPHONE_STATE_CHANGED wasn't fired", intentFired);
+            // verify the speakerphon state is expected
+            final boolean newSpeakerphoneState = mAudioManager.isSpeakerphoneOn();
+            assertTrue("new mic mute state not as expected ("
+                    + !initialSpeakerphoneState + ")",
+                    newSpeakerphoneState == !initialSpeakerphoneState);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+            mAudioManager.setSpeakerphoneOn(initialSpeakerphoneState);
         }
     }
 
     private static final class MyBlockingIntentReceiver extends BroadcastReceiver {
         private final SafeWaitObject mLock = new SafeWaitObject();
-        // state protected by mLock
+        // the action for the intent to check
+        private final String mAction;
+        @GuardedBy("mLock")
         private boolean mIntentReceived = false;
+
+        MyBlockingIntentReceiver(String action) {
+            mAction = action;
+        }
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            if (!TextUtils.equals(intent.getAction(), mAction)) {
+                // move along, this is not the action we're looking for
+                return;
+            }
             synchronized (mLock) {
                 mIntentReceived = true;
                 mLock.safeNotify();
             }
         }
 
-        public boolean waitForMicMuteChanged(long timeOutMs) {
+        public boolean waitForExpectedAction(long timeOutMs) {
             synchronized (mLock) {
                 try {
                     mLock.safeWait(timeOutMs);
@@ -580,46 +603,6 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.setRingerMode(RINGER_MODE_VIBRATE);
             assertEquals(RINGER_MODE_VIBRATE, mAudioManager.getRingerMode());
         }
-    }
-
-    public void testVolumeDndAffectedStream() throws Exception {
-        if (mHasVibrator || mSkipRingerTests || !mSupportNotificationPolicyAccess) {
-            return;
-        }
-        Utils.toggleNotificationPolicyAccess(
-                mContext.getPackageName(), getInstrumentation(), true);
-        mAudioManager.setStreamVolume(
-                AudioManager.STREAM_SYSTEM, 7, AudioManager.FLAG_ALLOW_RINGER_MODES);
-        mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-        Utils.toggleNotificationPolicyAccess(
-                mContext.getPackageName(), getInstrumentation(), false);
-        // 7 to 0, fail.
-        try {
-            mAudioManager.setStreamVolume(
-                    AudioManager.STREAM_SYSTEM, 0, AudioManager.FLAG_ALLOW_RINGER_MODES);
-            fail("Apps without notification policy access cannot change ringer mode");
-        } catch (SecurityException e) {}
-
-        // 7 to 1: success
-        mAudioManager.setStreamVolume(
-                AudioManager.STREAM_SYSTEM, 1, AudioManager.FLAG_ALLOW_RINGER_MODES);
-        assertEquals("setStreamVolume did not change volume",
-                1, mAudioManager.getStreamVolume(AudioManager.STREAM_SYSTEM));
-
-        // 0 to non-zero: fail.
-        Utils.toggleNotificationPolicyAccess(
-                mContext.getPackageName(), getInstrumentation(), true);
-        mAudioManager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
-        mAudioManager.setStreamVolume(
-                AudioManager.STREAM_SYSTEM, 0, AudioManager.FLAG_ALLOW_RINGER_MODES);
-        Utils.toggleNotificationPolicyAccess(
-                mContext.getPackageName(), getInstrumentation(), false);
-
-        try {
-            mAudioManager.setStreamVolume(
-                    AudioManager.STREAM_SYSTEM, 6, AudioManager.FLAG_ALLOW_RINGER_MODES);
-            fail("Apps without notification policy access cannot change ringer mode");
-        } catch (SecurityException e) {}
     }
 
     public void testVolume() throws Exception {
@@ -1024,10 +1007,11 @@ public class AudioManagerTest extends InstrumentationTestCase {
                     mContext.getPackageName(), getInstrumentation(), true);
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
-
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             int musicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
             mAudioManager.adjustStreamVolume(
                     AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             assertEquals(musicVolume, mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
 
         } finally {
@@ -1045,9 +1029,11 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
 
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALARMS);
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             int musicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
             mAudioManager.adjustStreamVolume(
                     AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0);
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             int volumeDelta =
                     getVolumeDelta(mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
             assertEquals(musicVolume + volumeDelta,
@@ -1069,6 +1055,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
 
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+            // delay for streams to get into correct volume states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
             int musicVolume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 7, 0);
@@ -1090,6 +1078,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 1, 0);
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 1, 0);
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALARMS);
+            // delay for streams to get into correct volume states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 3, 0);
             assertEquals(3, mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
@@ -1120,7 +1110,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // disallow all sounds in priority only, turn on priority only DND, try to change volume
             mNm.setNotificationPolicy(new NotificationManager.Policy(0, 0 , 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
-            Thread.sleep(MUTE_DELAY); // delay for streams to get into correct mute states
+            // delay for streams to get into correct volume states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 3, 0);
             mAudioManager.setStreamVolume(AudioManager.STREAM_ALARM, 5, 0);
             mAudioManager.setStreamVolume(AudioManager.STREAM_RING, testRingerVol, 0);
@@ -1128,6 +1119,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // Turn off zen and make sure stream levels are still the same prior to zen
             // aside from ringer since ringer can exit dnd
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS); // delay for streams to get into correct states
             assertEquals(musicVolume, mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
             assertEquals(alarmVolume, mAudioManager.getStreamVolume(AudioManager.STREAM_ALARM));
             assertEquals(testRingerVol, mAudioManager.getStreamVolume(AudioManager.STREAM_RING));
@@ -1156,7 +1148,8 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // disallow all sounds in priority only, turn on priority only DND, try to change volume
             mNm.setNotificationPolicy(new NotificationManager.Policy(0, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
-            Thread.sleep(MUTE_DELAY); // delay for streams to be get into correct mute states
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
             mAudioManager.adjustStreamVolume(
                     AudioManager.STREAM_RING, AudioManager.ADJUST_RAISE, 0);
             mAudioManager.adjustStreamVolume(
@@ -1167,6 +1160,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // Turn off zen and make sure stream levels are still the same prior to zen
             // aside from ringer since ringer can exit dnd
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS); // delay for streams to get into correct states
             assertEquals(musicVolume, mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC));
             assertEquals(alarmVolume, mAudioManager.getStreamVolume(AudioManager.STREAM_ALARM));
 
@@ -1196,8 +1190,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // disallow all sounds in priority only, turn on priority only DND
             mNm.setNotificationPolicy(new NotificationManager.Policy(0, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be get into correct mute states
             assertTrue("Music (media) stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertTrue("System stream should be muted",
@@ -1230,8 +1225,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mNm.setNotificationPolicy(new NotificationManager.Policy(
                     NotificationManager.Policy.PRIORITY_CATEGORY_MEDIA, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be get into correct mute states
             assertFalse("Music (media) stream should not be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertTrue("System stream should be muted",
@@ -1265,8 +1261,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mNm.setNotificationPolicy(new NotificationManager.Policy(
                     NotificationManager.Policy.PRIORITY_CATEGORY_SYSTEM, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be get into correct mute states
             assertTrue("Music (media) stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertFalse("System stream should not be muted",
@@ -1300,8 +1297,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mNm.setNotificationPolicy(new NotificationManager.Policy(
                     NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be get into correct mute states
             assertTrue("Music (media) stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertTrue("System stream should be muted",
@@ -1335,8 +1333,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             mNm.setNotificationPolicy(new NotificationManager.Policy(
                     NotificationManager.Policy.PRIORITY_CATEGORY_REMINDERS, 0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be muted
             assertTrue("Music (media) stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertTrue("System stream should be muted",
@@ -1375,8 +1374,9 @@ public class AudioManagerTest extends InstrumentationTestCase {
             // allow nothing
             mNm.setNotificationPolicy(new NotificationManager.Policy(0,0, 0));
             setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY);
+            // delay for streams to get into correct mute states
+            Thread.sleep(ASYNC_TIMING_TOLERANCE_MS);
 
-            Thread.sleep(MUTE_DELAY); // delay for streams to be muted
             assertTrue("Music (media) stream should be muted",
                     mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC));
             assertTrue("System stream should be muted",
@@ -1495,6 +1495,7 @@ public class AudioManagerTest extends InstrumentationTestCase {
         mAudioManager.adjustSuggestedStreamVolume(AudioManager.ADJUST_RAISE, 66747, 0);
     }
 
+    @CddTest(requirement="5.4.4/C-4-1")
     public void testGetMicrophones() throws Exception {
         if (!mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_MICROPHONE)) {
@@ -1526,6 +1527,11 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testIsHapticPlaybackSupported() throws Exception {
+        // Calling the API to make sure it doesn't crash.
+        Log.i(TAG, "isHapticPlaybackSupported: " + AudioManager.isHapticPlaybackSupported());
+    }
+
     private void setInterruptionFilter(int filter) throws Exception {
         mNm.setInterruptionFilter(filter);
         for (int i = 0; i < 5; i++) {
@@ -1550,4 +1556,16 @@ public class AudioManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testAllowedCapturePolicy() throws Exception {
+        final int policy = mAudioManager.getAllowedCapturePolicy();
+        assertEquals("Wrong default capture policy", AudioAttributes.ALLOW_CAPTURE_BY_ALL, policy);
+
+        for (int setPolicy : new int[] { AudioAttributes.ALLOW_CAPTURE_BY_NONE,
+                                      AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM,
+                                      AudioAttributes.ALLOW_CAPTURE_BY_ALL}) {
+            mAudioManager.setAllowedCapturePolicy(setPolicy);
+            final int getPolicy = mAudioManager.getAllowedCapturePolicy();
+            assertEquals("Allowed capture policy doesn't match", setPolicy, getPolicy);
+        }
+    }
 }

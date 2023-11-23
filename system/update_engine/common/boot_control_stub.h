@@ -27,7 +27,7 @@ namespace chromeos_update_engine {
 // typically used when e.g. an underlying HAL implementation cannot be
 // loaded or doesn't exist.
 //
-// You are gauranteed that the implementation of GetNumSlots() method
+// You are guaranteed that the implementation of GetNumSlots() method
 // always returns 0. This can be used to identify that this
 // implementation is in use.
 class BootControlStub : public BootControlInterface {
@@ -45,6 +45,10 @@ class BootControlStub : public BootControlInterface {
   bool MarkSlotUnbootable(BootControlInterface::Slot slot) override;
   bool SetActiveBootSlot(BootControlInterface::Slot slot) override;
   bool MarkBootSuccessfulAsync(base::Callback<void(bool)> callback) override;
+  bool InitPartitionMetadata(Slot slot,
+                             const PartitionMetadata& partition_metadata,
+                             bool update_metadata) override;
+  void Cleanup() override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BootControlStub);

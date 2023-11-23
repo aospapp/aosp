@@ -71,7 +71,7 @@ public class DvrAlreadyRecordedFragment extends DvrGuidedStepFragment {
     public Guidance onCreateGuidance(Bundle savedInstanceState) {
         String title = getString(R.string.dvr_already_recorded_dialog_title);
         String description = getString(R.string.dvr_already_recorded_dialog_description);
-        Drawable image = getResources().getDrawable(R.drawable.ic_warning_white_96dp, null);
+        Drawable image = getResources().getDrawable(R.drawable.quantum_ic_warning_white_96, null);
         return new Guidance(title, description, null, image);
     }
 

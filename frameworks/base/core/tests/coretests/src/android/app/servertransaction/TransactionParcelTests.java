@@ -21,14 +21,16 @@ import static android.app.servertransaction.TestUtils.mergedConfig;
 import static android.app.servertransaction.TestUtils.referrerIntentList;
 import static android.app.servertransaction.TestUtils.resultInfoList;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.app.IApplicationThread;
 import android.app.IInstrumentationWatcher;
 import android.app.IUiAutomationConnection;
 import android.app.ProfilerInfo;
+import android.content.AutofillOptions;
 import android.content.ComponentName;
+import android.content.ContentCaptureOptions;
 import android.content.IIntentReceiver;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -38,7 +40,6 @@ import android.content.pm.ProviderInfo;
 import android.content.pm.ServiceInfo;
 import android.content.res.CompatibilityInfo;
 import android.content.res.Configuration;
-import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Debug;
@@ -47,10 +48,12 @@ import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
+import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.app.IVoiceInteractor;
 
@@ -61,7 +64,15 @@ import org.junit.runner.RunWith;
 import java.util.List;
 import java.util.Map;
 
-/** Test parcelling and unparcelling of transactions and transaction items. */
+/**
+ * Test parcelling and unparcelling of transactions and transaction items.
+ *
+ * <p>Build/Install/Run:
+ *  atest FrameworksCoreTests:TransactionParcelTests
+ *
+ * <p>This test class is a part of Window Manager Service tests and specified in
+ * {@link com.android.server.wm.test.filters.FrameworksTestsFilter}.
+ */
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 @Presubmit
@@ -117,7 +128,7 @@ public class TransactionParcelTests {
     @Test
     public void testNewIntent() {
         // Write to parcel
-        NewIntentItem item = NewIntentItem.obtain(referrerIntentList(), true /* pause */);
+        NewIntentItem item = NewIntentItem.obtain(referrerIntentList(), false);
         writeAndPrepareForReading(item);
 
         // Read from parcel and assert
@@ -231,7 +242,7 @@ public class TransactionParcelTests {
         LaunchActivityItem item = LaunchActivityItem.obtain(intent, ident, activityInfo,
                 config(), overrideConfig, compat, referrer, null /* voiceInteractor */,
                 procState, bundle, persistableBundle, resultInfoList(), referrerIntentList(),
-                true /* isForward */, null /* profilerInfo */);
+                true /* isForward */, null /* profilerInfo */, new Binder());
         writeAndPrepareForReading(item);
 
         // Read from parcel and assert
@@ -405,7 +416,7 @@ public class TransactionParcelTests {
                 IUiAutomationConnection iUiAutomationConnection, int i, boolean b, boolean b1,
                 boolean b2, boolean b3, Configuration configuration,
                 CompatibilityInfo compatibilityInfo, Map map, Bundle bundle1, String s1,
-                boolean autofillCompatEnabled) throws RemoteException {
+                AutofillOptions ao, ContentCaptureOptions co) throws RemoteException {
         }
 
         @Override
@@ -464,12 +475,12 @@ public class TransactionParcelTests {
 
         @Override
         public void scheduleCreateBackupAgent(ApplicationInfo applicationInfo,
-                CompatibilityInfo compatibilityInfo, int i) throws RemoteException {
+                CompatibilityInfo compatibilityInfo, int i, int userId) throws RemoteException {
         }
 
         @Override
         public void scheduleDestroyBackupAgent(ApplicationInfo applicationInfo,
-                CompatibilityInfo compatibilityInfo) throws RemoteException {
+                CompatibilityInfo compatibilityInfo, int userId) throws RemoteException {
         }
 
         @Override
@@ -499,7 +510,7 @@ public class TransactionParcelTests {
         }
 
         @Override
-        public void setHttpProxy(String s, String s1, String s2, Uri uri) throws RemoteException {
+        public void updateHttpProxy() throws RemoteException {
         }
 
         @Override
@@ -609,11 +620,21 @@ public class TransactionParcelTests {
 
         @Override
         public void dumpHeap(boolean managed, boolean mallocInfo, boolean runGc, String path,
-                ParcelFileDescriptor fd) {
+                ParcelFileDescriptor fd, RemoteCallback finishCallback) {
         }
 
         @Override
         public final void runIsolatedEntryPoint(String entryPoint, String[] entryPointArgs) {
+        }
+
+        @Override
+        public void requestDirectActions(IBinder activityToken, IVoiceInteractor interactor,
+                RemoteCallback cancellationCallback, RemoteCallback resultCallback) {
+        }
+
+        @Override
+        public void performDirectAction(IBinder activityToken, String actionId, Bundle arguments,
+                RemoteCallback cancellationCallback, RemoteCallback resultCallback) {
         }
     }
 }

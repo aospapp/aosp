@@ -19,14 +19,14 @@
 #include <memory>
 
 #include "arch/instruction_set.h"
-#include "common_runtime_test.h"
+#include "base/common_art_test.h"
 
 namespace art {
 
-class ParsedOptionsTest : public ::testing::Test {
+class ParsedOptionsTest : public CommonArtTest {
  public:
   static void SetUpTestCase() {
-    CommonRuntimeTest::SetUpAndroidRoot();
+    CommonArtTest::SetUpAndroidRootEnvVars();
   }
 };
 
@@ -40,8 +40,7 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   boot_class_path += "-Xbootclasspath:";
 
   bool first_dex_file = true;
-  for (const std::string &dex_file_name :
-           CommonRuntimeTest::GetLibCoreDexFileNames()) {
+  for (const std::string& dex_file_name : GetLibCoreDexFileNames()) {
     if (!first_dex_file) {
       class_path += ":";
     } else {
@@ -50,6 +49,8 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
     class_path += dex_file_name;
   }
   boot_class_path += class_path;
+  std::vector<std::string> expected_boot_class_path;
+  Split(class_path, ':', &expected_boot_class_path);
 
   RuntimeOptions options;
   options.push_back(std::make_pair(boot_class_path.c_str(), nullptr));
@@ -78,9 +79,11 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   using Opt = RuntimeArgumentMap;
 
 #define EXPECT_PARSED_EQ(expected, actual_key) EXPECT_EQ(expected, map.GetOrDefault(actual_key))
+#define EXPECT_PARSED_EQ_AS_STRING_VECTOR(expected, actual_key) \
+  EXPECT_EQ(expected, static_cast<std::vector<std::string>>(map.GetOrDefault(actual_key)))
 #define EXPECT_PARSED_EXISTS(actual_key) EXPECT_TRUE(map.Exists(actual_key))
 
-  EXPECT_PARSED_EQ(class_path, Opt::BootClassPath);
+  EXPECT_PARSED_EQ_AS_STRING_VECTOR(expected_boot_class_path, Opt::BootClassPath);
   EXPECT_PARSED_EQ(class_path, Opt::ClassPath);
   EXPECT_PARSED_EQ(std::string("boot_image"), Opt::Image);
   EXPECT_PARSED_EXISTS(Opt::CheckJni);
@@ -112,7 +115,7 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
 
 TEST_F(ParsedOptionsTest, ParsedOptionsGc) {
   RuntimeOptions options;
-  options.push_back(std::make_pair("-Xgc:MC", nullptr));
+  options.push_back(std::make_pair("-Xgc:SS", nullptr));
 
   RuntimeArgumentMap map;
   bool parsed = ParsedOptions::Parse(options, false, &map);
@@ -124,7 +127,24 @@ TEST_F(ParsedOptionsTest, ParsedOptionsGc) {
   EXPECT_TRUE(map.Exists(Opt::GcOption));
 
   XGcOption xgc = map.GetOrDefault(Opt::GcOption);
-  EXPECT_EQ(gc::kCollectorTypeMC, xgc.collector_type_);
+  EXPECT_EQ(gc::kCollectorTypeSS, xgc.collector_type_);
+}
+
+TEST_F(ParsedOptionsTest, ParsedOptionsGenerationalCC) {
+  RuntimeOptions options;
+  options.push_back(std::make_pair("-Xgc:generational_cc", nullptr));
+
+  RuntimeArgumentMap map;
+  bool parsed = ParsedOptions::Parse(options, false, &map);
+  ASSERT_TRUE(parsed);
+  ASSERT_NE(0u, map.Size());
+
+  using Opt = RuntimeArgumentMap;
+
+  EXPECT_TRUE(map.Exists(Opt::GcOption));
+
+  XGcOption xgc = map.GetOrDefault(Opt::GcOption);
+  ASSERT_TRUE(xgc.generational_cc);
 }
 
 TEST_F(ParsedOptionsTest, ParsedOptionsInstructionSet) {

@@ -79,7 +79,7 @@ bool ScriptC::createCacheDir(const char *cacheDir) {
          * The character at currPos should be a path separator.  We need to look
          * for the next one.
          */
-        int nextPos = cacheDirString.find(OS_PATH_SEPARATOR_STR, currPos + 1);
+        int nextPos = cacheDirString.find(OS_PATH_SEPARATOR, currPos + 1);
 
         if (nextPos > 0) {
             // A new path separator has been found.
@@ -273,7 +273,7 @@ static bool dumpBitcodeFile(const char *cacheDir, const char *resName,
         return false;
     }
 
-    FILE *fp = fopen(f.c_str(), "w");
+    FILE *fp = fopen(f.c_str(), "we");
     if (!fp) {
         ALOGE("Could not open %s", f.c_str());
         return false;

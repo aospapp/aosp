@@ -82,7 +82,7 @@ def _clean_up_hosts(host_ids):
         (models.Host.objects
          .filter(id__in=host_ids)
          .exclude(id__in=active_hosts)
-         .update(status=None))
+         .update(status=models.Host.Status.READY))
 
 
 def mark_complete(job_ids):

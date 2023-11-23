@@ -49,6 +49,10 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
 
     private WaveScopeView mWaveView = null;
 
+    public USBAudioPeripheralRecordActivity() {
+        super(false); // Mandated peripheral is NOT required
+    }
+
     private void connectWaveView() {
         // Log.i(TAG, "connectWaveView() rec:" + (mRecorder != null));
         if (mRecorder != null) {
@@ -73,7 +77,12 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
             mRecorder.stop();
         }
 
+        // no reason to do more than 2
         int numChans = USBDeviceInfoHelper.calcMaxChannelCount(mInputDevInfo);
+        if (numChans > 2) {
+            numChans = 2;
+        }
+        Log.i(TAG, "  numChans:" + numChans);
 
         if (mRecorder.open(numChans, mSystemSampleRate, mSystemBufferSize)) {
             connectWaveView();  // Setup the WaveView
@@ -136,9 +145,9 @@ public class USBAudioPeripheralRecordActivity extends USBAudioPeripheralPlayerAc
     // USBAudioPeripheralActivity
     //
     public void updateConnectStatus() {
-        mRecordBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
-        mRecordLoopbackBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
-        getPassButton().setEnabled(mSelectedProfile != null && mOutputDevInfo != null);
+        mRecordBtn.setEnabled(mIsPeripheralAttached);
+        mRecordLoopbackBtn.setEnabled(mIsPeripheralAttached);
+        getPassButton().setEnabled(mIsPeripheralAttached);
     }
 
     public class LocalClickListener implements View.OnClickListener {

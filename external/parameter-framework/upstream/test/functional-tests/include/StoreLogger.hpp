@@ -70,7 +70,7 @@ public:
 
     const Logs &getLogs() const { return logs; }
 
-    const Logs filter(Log::Level level) const
+    Logs filter(Log::Level level) const
     {
         return filter([&level](const Log &log) { return log.level == level; });
     };
@@ -115,4 +115,4 @@ std::ostream &operator<<(std::ostream &os, const StoreLogger::Log &log)
     return os << log.level << log.msg << std::endl;
 }
 
-} // parameterFramework
+} // namespace parameterFramework

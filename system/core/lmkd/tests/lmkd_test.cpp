@@ -39,7 +39,7 @@ using namespace android::base;
 #define LMKDTEST_RESPAWN_FLAG "LMKDTEST_RESPAWN"
 
 #define LMKD_LOGCAT_MARKER "lowmemorykiller"
-#define LMKD_KILL_MARKER_TEMPLATE LMKD_LOGCAT_MARKER ": Killing '%s'"
+#define LMKD_KILL_MARKER_TEMPLATE LMKD_LOGCAT_MARKER ": Kill '%s'"
 #define OOM_MARKER "Out of memory"
 #define OOM_KILL_MARKER "Killed process"
 #define MIN_LOG_SIZE 100
@@ -215,6 +215,13 @@ void runMemStressTest() {
     pid_t pid;
     uid_t uid = getuid();
 
+    // check if in-kernel LMK driver is present
+    if (!access(INKERNEL_MINFREE_PATH, W_OK)) {
+        GTEST_LOG_(INFO) << "Must not have kernel lowmemorykiller driver,"
+                         << " terminating test";
+        return;
+    }
+
     ASSERT_FALSE((sock = lmkd_connect()) < 0)
         << "Failed to connect to lmkd process, err=" << strerror(errno);
 
@@ -285,12 +292,6 @@ TEST(lmkd, check_for_oom) {
     //   userdebug build
     if (!__android_log_is_debuggable()) {
         GTEST_LOG_(INFO) << "Must be userdebug build, terminating test";
-        return;
-    }
-    // check if in-kernel LMK driver is present
-    if (!access(INKERNEL_MINFREE_PATH, W_OK)) {
-        GTEST_LOG_(INFO) << "Must not have kernel lowmemorykiller driver,"
-                         << " terminating test";
         return;
     }
 

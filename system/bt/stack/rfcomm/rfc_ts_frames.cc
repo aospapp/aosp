@@ -26,6 +26,7 @@
 #include "bt_common.h"
 #include "bt_target.h"
 #include "l2c_api.h"
+#include "log/log.h"
 #include "port_api.h"
 #include "port_int.h"
 #include "rfc_int.h"
@@ -153,14 +154,19 @@ void rfc_send_buf_uih(tRFC_MCB* p_mcb, uint8_t dlci, BT_HDR* p_buf) {
   uint8_t credits;
 
   p_buf->offset -= RFCOMM_CTRL_FRAME_LEN;
-  if (p_buf->len > 127) p_buf->offset--;
+  if (p_buf->len > 127) {
+    p_buf->offset--;
+  }
 
-  if (dlci)
+  if (dlci) {
     credits = (uint8_t)p_buf->layer_specific;
-  else
+  } else {
     credits = 0;
+  }
 
-  if (credits) p_buf->offset--;
+  if (credits) {
+    p_buf->offset--;
+  }
 
   p_data = (uint8_t*)(p_buf + 1) + p_buf->offset;
 
@@ -218,11 +224,11 @@ void rfc_send_pn(tRFC_MCB* p_mcb, uint8_t dlci, bool is_command, uint16_t mtu,
   ** We will use the fact that we reply in the same context so rx_frame can
   *still be used.
   */
-  if (is_command)
+  if (is_command) {
     *p_data++ = RFCOMM_PN_PRIORITY_0;
-  else
+  } else {
     *p_data++ = rfc_cb.rfc.rx_frame.u.pn.priority;
-
+  }
   *p_data++ = RFCOMM_T1_DSEC;
   *p_data++ = mtu & 0xFF;
   *p_data++ = mtu >> 8;
@@ -516,19 +522,38 @@ uint8_t rfc_parse_data(tRFC_MCB* p_mcb, MX_FRAME* p_frame, BT_HDR* p_buf) {
     return (RFC_EVENT_BAD_FRAME);
   }
   RFCOMM_PARSE_TYPE_FIELD(p_frame->type, p_frame->pf, p_data);
-  RFCOMM_PARSE_LEN_FIELD(eal, len, p_data);
 
+  eal = *(p_data)&RFCOMM_EA;
+  len = *(p_data)++ >> RFCOMM_SHIFT_LENGTH1;
+  if (eal == 0 && p_buf->len > RFCOMM_CTRL_FRAME_LEN) {
+    len += (*(p_data)++ << RFCOMM_SHIFT_LENGTH2);
+  } else if (eal == 0) {
+    RFCOMM_TRACE_ERROR("Bad Length when EAL = 0: %d", p_buf->len);
+    android_errorWriteLog(0x534e4554, "78288018");
+    return RFC_EVENT_BAD_FRAME;
+  }
+
+  if (p_buf->len < (3 + !ead + !eal + 1)) {
+    android_errorWriteLog(0x534e4554, "120255805");
+    RFCOMM_TRACE_ERROR("Bad Length: %d", p_buf->len);
+    return RFC_EVENT_BAD_FRAME;
+  }
   p_buf->len -= (3 + !ead + !eal + 1); /* Additional 1 for FCS */
   p_buf->offset += (3 + !ead + !eal);
 
   /* handle credit if credit based flow control */
   if ((p_mcb->flow == PORT_FC_CREDIT) && (p_frame->type == RFCOMM_UIH) &&
       (p_frame->dlci != RFCOMM_MX_DLCI) && (p_frame->pf == 1)) {
+    if (p_buf->len < sizeof(uint8_t)) {
+      RFCOMM_TRACE_ERROR("Bad Length in flow control: %d", p_buf->len);
+      return RFC_EVENT_BAD_FRAME;
+    }
     p_frame->credit = *p_data++;
     p_buf->len--;
     p_buf->offset++;
-  } else
+  } else {
     p_frame->credit = 0;
+  }
 
   if (p_buf->len != len) {
     RFCOMM_TRACE_ERROR("Bad Length2 %d %d", p_buf->len, len);
@@ -589,8 +614,9 @@ uint8_t rfc_parse_data(tRFC_MCB* p_mcb, MX_FRAME* p_frame, BT_HDR* p_buf) {
         /* we assume that this is ok to allow bad implementations to work */
         RFCOMM_TRACE_ERROR("Bad UIH - response");
         return (RFC_EVENT_UIH);
-      } else
+      } else {
         return (RFC_EVENT_UIH);
+      }
   }
 
   return (RFC_EVENT_BAD_FRAME);
@@ -609,8 +635,15 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
   MX_FRAME* p_rx_frame = &rfc_cb.rfc.rx_frame;
   uint16_t length = p_buf->len;
   uint8_t ea, cr, mx_len;
-  bool is_command;
 
+  if (length < 2) {
+    RFCOMM_TRACE_ERROR(
+        "%s: Illegal MX Frame len when reading EA, C/R. len:%d < 2", __func__,
+        length);
+    android_errorWriteLog(0x534e4554, "111937065");
+    osi_free(p_buf);
+    return;
+  }
   p_rx_frame->ea = *p_data & RFCOMM_EA;
   p_rx_frame->cr = (*p_data & RFCOMM_CR_MASK) >> RFCOMM_SHIFT_CR;
   p_rx_frame->type = *p_data++ & ~(RFCOMM_CR_MASK | RFCOMM_EA_MASK);
@@ -625,7 +658,7 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
 
   length--;
 
-  is_command = p_rx_frame->cr;
+  bool is_command = p_rx_frame->cr;
 
   ea = *p_data & RFCOMM_EA;
 
@@ -633,6 +666,13 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
   length--;
 
   if (!ea) {
+    if (length < 1) {
+      RFCOMM_TRACE_ERROR("%s: Illegal MX Frame when EA = 0. len:%d < 1",
+                         __func__, length);
+      android_errorWriteLog(0x534e4554, "111937065");
+      osi_free(p_buf);
+      return;
+    }
     mx_len += *p_data++ << RFCOMM_SHIFT_LENGTH2;
     length--;
   }
@@ -644,8 +684,8 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
     return;
   }
 
-  RFCOMM_TRACE_DEBUG("%s: type=%d, p_mcb=%p", __func__, p_rx_frame->type,
-                     p_mcb);
+  RFCOMM_TRACE_DEBUG("%s: type=0x%02x, bd_addr=%s", __func__, p_rx_frame->type,
+                     p_mcb->bd_addr.ToString().c_str());
   switch (p_rx_frame->type) {
     case RFCOMM_MX_PN:
       if (length != RFCOMM_MX_PN_LEN) {
@@ -709,7 +749,13 @@ void rfc_process_mx_message(tRFC_MCB* p_mcb, BT_HDR* p_buf) {
       return;
 
     case RFCOMM_MX_MSC:
-
+      if (length != RFCOMM_MX_MSC_LEN_WITH_BREAK &&
+          length != RFCOMM_MX_MSC_LEN_NO_BREAK) {
+        RFCOMM_TRACE_ERROR("%s: Illegal MX MSC Frame len:%d", __func__, length);
+        android_errorWriteLog(0x534e4554, "111937065");
+        osi_free(p_buf);
+        return;
+      }
       ea = *p_data & RFCOMM_EA;
       cr = (*p_data & RFCOMM_CR_MASK) >> RFCOMM_SHIFT_CR;
       p_rx_frame->dlci = *p_data++ >> RFCOMM_SHIFT_DLCI;

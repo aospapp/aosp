@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BASE_UTF8_H
-#define ANDROID_BASE_UTF8_H
+#pragma once
 
 #ifdef _WIN32
+#include <sys/types.h>
 #include <string>
 #else
 // Bring in prototypes for standard APIs so that we can import them into the utf8 namespace.
@@ -102,5 +102,3 @@ using ::unlink;
 }  // namespace utf8
 }  // namespace base
 }  // namespace android
-
-#endif  // ANDROID_BASE_UTF8_H

@@ -1,0 +1,47 @@
+// Copyright (C) 2018 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Defaults shared between real and test versions of the APEX.
+apex_defaults {
+    name: "com.android.conscrypt-defaults",
+    androidManifest: ":com.android.conscrypt-androidManifest",
+    compile_multilib: "both",
+    java_libs: ["conscrypt"],
+    native_shared_libs: ["libjavacrypto"],
+    key: "apex.conscrypt.key",
+    certificate: ":com.android.conscrypt.certificate",
+}
+
+filegroup {
+    name: "com.android.conscrypt-androidManifest",
+    srcs: ["AndroidManifest.xml"],
+}
+
+apex_key {
+    name: "apex.conscrypt.key",
+    public_key: "com.android.conscrypt.avbpubkey",
+    private_key: "com.android.conscrypt.pem",
+}
+
+android_app_certificate {
+    name: "com.android.conscrypt.certificate",
+    certificate: "com.android.conscrypt",
+}
+
+// Production APEX
+apex {
+    name: "com.android.conscrypt",
+    defaults: ["com.android.conscrypt-defaults"],
+    manifest: "apex_manifest.json",
+}

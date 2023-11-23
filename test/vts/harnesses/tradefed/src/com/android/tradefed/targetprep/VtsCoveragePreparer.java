@@ -114,14 +114,14 @@ public class VtsCoveragePreparer implements ITargetPreparer, ITargetCleaner {
         boolean gcovEnabled = (coverageProperty != null) && coverageProperty.equals("1");
 
         if (!sancovEnabled && !gcovEnabled) {
-            CLog.i("Coverage disabled.");
+            CLog.d("Coverage disabled.");
             return;
         }
         if (sancovEnabled) {
-            CLog.i("Sanitizer coverage processing enabled.");
+            CLog.d("Sanitizer coverage processing enabled.");
         }
         if (gcovEnabled) {
-            CLog.i("Gcov coverage processing enabled.");
+            CLog.d("Gcov coverage processing enabled.");
         }
 
         if (mRunUtil == null) {

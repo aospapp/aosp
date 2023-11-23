@@ -55,7 +55,7 @@ Interface::Interface(Netlink& netlink, const char* name)
     , mInterfaceIndex(0) {
 }
 
-Interface::Interface(Interface&& other)
+Interface::Interface(Interface&& other) noexcept
     : mNetlink(other.mNetlink)
     , mName(std::move(other.mName))
     , mInterfaceIndex(other.mInterfaceIndex) {
@@ -74,7 +74,7 @@ wifi_error Interface::getSupportedFeatureSet(feature_set* set) {
     if (set == nullptr) {
         return WIFI_ERROR_INVALID_ARGS;
     }
-    *set = WIFI_FEATURE_LINK_LAYER_STATS;
+    *set = 0;
     return WIFI_SUCCESS;
 }
 

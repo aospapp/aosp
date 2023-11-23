@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 gl->activeShaderProgram								= glActiveShaderProgram;
 gl->activeTexture									= glActiveTexture;
@@ -220,6 +220,7 @@ gl->framebufferRenderbuffer							= glFramebufferRenderbuffer;
 gl->framebufferTexture								= glFramebufferTexture;
 gl->framebufferTexture1D							= glFramebufferTexture1D;
 gl->framebufferTexture2D							= glFramebufferTexture2D;
+gl->framebufferTexture2DMultisampleEXT				= glFramebufferTexture2DMultisampleEXT;
 gl->framebufferTexture3D							= glFramebufferTexture3D;
 gl->framebufferTexture3DOES							= glFramebufferTexture3DOES;
 gl->framebufferTextureLayer							= glFramebufferTextureLayer;
@@ -496,6 +497,17 @@ gl->multiTexRenderbufferEXT							= glMultiTexRenderbufferEXT;
 gl->multiTexSubImage1DEXT							= glMultiTexSubImage1DEXT;
 gl->multiTexSubImage2DEXT							= glMultiTexSubImage2DEXT;
 gl->multiTexSubImage3DEXT							= glMultiTexSubImage3DEXT;
+gl->multicastBarrierNV								= glMulticastBarrierNV;
+gl->multicastBlitFramebufferNV						= glMulticastBlitFramebufferNV;
+gl->multicastBufferSubDataNV						= glMulticastBufferSubDataNV;
+gl->multicastCopyBufferSubDataNV					= glMulticastCopyBufferSubDataNV;
+gl->multicastCopyImageSubDataNV						= glMulticastCopyImageSubDataNV;
+gl->multicastFramebufferSampleLocationsfvNV			= glMulticastFramebufferSampleLocationsfvNV;
+gl->multicastGetQueryObjecti64vNV					= glMulticastGetQueryObjecti64vNV;
+gl->multicastGetQueryObjectivNV						= glMulticastGetQueryObjectivNV;
+gl->multicastGetQueryObjectui64vNV					= glMulticastGetQueryObjectui64vNV;
+gl->multicastGetQueryObjectuivNV					= glMulticastGetQueryObjectuivNV;
+gl->multicastWaitSyncNV								= glMulticastWaitSyncNV;
 gl->namedBufferData									= glNamedBufferData;
 gl->namedBufferDataEXT								= glNamedBufferDataEXT;
 gl->namedBufferPageCommitmentARB					= glNamedBufferPageCommitmentARB;
@@ -632,8 +644,10 @@ gl->readBuffer										= glReadBuffer;
 gl->readPixels										= glReadPixels;
 gl->readnPixels										= glReadnPixels;
 gl->releaseShaderCompiler							= glReleaseShaderCompiler;
+gl->renderGpuMaskNV									= glRenderGpuMaskNV;
 gl->renderbufferStorage								= glRenderbufferStorage;
 gl->renderbufferStorageMultisample					= glRenderbufferStorageMultisample;
+gl->renderbufferStorageMultisampleEXT				= glRenderbufferStorageMultisampleEXT;
 gl->resumeTransformFeedback							= glResumeTransformFeedback;
 gl->sampleCoverage									= glSampleCoverage;
 gl->sampleMaski										= glSampleMaski;

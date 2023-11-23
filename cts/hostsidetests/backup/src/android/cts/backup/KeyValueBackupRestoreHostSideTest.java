@@ -16,7 +16,11 @@
 
 package android.cts.backup;
 
+import static com.android.compatibility.common.util.BackupUtils.LOCAL_TRANSPORT_TOKEN;
+
 import static org.junit.Assert.assertNull;
+
+import android.platform.test.annotations.AppModeFull;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -35,6 +39,7 @@ import org.junit.runner.RunWith;
  * NB: The tests use "bmgr backupnow" for backup, which works on N+ devices.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull
 public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
 
     /** The name of the package of the app under test */
@@ -103,7 +108,7 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
 
         checkDeviceTest("saveSharedPreferencesAndNotifyBackupManager");
 
-        backupNowAndAssertSuccess(KEY_VALUE_RESTORE_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(KEY_VALUE_RESTORE_APP_PACKAGE);
 
         assertNull(uninstallPackage(KEY_VALUE_RESTORE_APP_PACKAGE));
 
@@ -145,11 +150,12 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
 
         checkDeviceTest("launchSharedPrefActivity");
 
-        backupNowAndAssertSuccess(SHARED_PREFERENCES_RESTORE_APP_PACKAGE);
+        getBackupUtils().backupNowAndAssertSuccess(SHARED_PREFERENCES_RESTORE_APP_PACKAGE);
 
         checkDeviceTest("updateSharedPrefActivity");
 
-        restoreAndAssertSuccess(SHARED_PREFERENCES_RESTORE_APP_PACKAGE);
+        getBackupUtils().restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN,
+                SHARED_PREFERENCES_RESTORE_APP_PACKAGE);
 
         checkDeviceTest("checkSharedPrefActivity");
     }

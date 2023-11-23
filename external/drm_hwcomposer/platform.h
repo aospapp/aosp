@@ -28,7 +28,7 @@
 
 namespace android {
 
-class DrmResources;
+class DrmDevice;
 
 class Importer {
  public:
@@ -36,11 +36,7 @@ class Importer {
   }
 
   // Creates a platform-specific importer instance
-  static Importer *CreateInstance(DrmResources *drm);
-
-  // Imports EGLImage for glcompositor, since NV handles this in non-standard
-  // way, and fishing out the details is specific to the gralloc used.
-  virtual EGLImageKHR ImportImage(EGLDisplay egl_display, buffer_handle_t handle) = 0;
+  static Importer *CreateInstance(DrmDevice *drm);
 
   // Imports the buffer referred to by handle into bo.
   //
@@ -53,6 +49,9 @@ class Importer {
   // Note: This can be called from a different thread than ImportBuffer. The
   //       implementation is responsible for ensuring thread safety.
   virtual int ReleaseBuffer(hwc_drm_bo_t *bo) = 0;
+
+  // Checks if importer can import the buffer.
+  virtual bool CanImportBuffer(buffer_handle_t handle) = 0;
 };
 
 class Planner {
@@ -77,60 +76,50 @@ class Planner {
       return plane;
     }
 
-    // Finds and returns the squash layer from the composition
-    static DrmCompositionPlane *GetPrecomp(
-        std::vector<DrmCompositionPlane> *composition) {
-      auto l = GetPrecompIter(composition);
-      if (l == composition->end())
-        return NULL;
-      return &(*l);
-    }
+    static int ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
 
-    // Inserts the given layer:plane in the composition right before the precomp
-    // layer
+    // Inserts the given layer:plane in the composition at the back
     static int Emplace(std::vector<DrmCompositionPlane> *composition,
                        std::vector<DrmPlane *> *planes,
                        DrmCompositionPlane::Type type, DrmCrtc *crtc,
-                       size_t source_layer) {
+                       std::pair<size_t, DrmHwcLayer *> layer) {
       DrmPlane *plane = PopPlane(planes);
-      if (!plane)
-        return -ENOENT;
+      std::vector<DrmPlane *> unused_planes;
+      int ret = -ENOENT;
+      while (plane) {
+        ret = ValidatePlane(plane, layer.second);
+        if (!ret)
+          break;
+        if (!plane->zpos_property().is_immutable())
+          unused_planes.push_back(plane);
+        plane = PopPlane(planes);
+      }
 
-      auto precomp = GetPrecompIter(composition);
-      composition->emplace(precomp, type, plane, crtc, source_layer);
-      return 0;
-    }
+      if (!ret) {
+        composition->emplace_back(type, plane, crtc, layer.first);
+        planes->insert(planes->begin(), unused_planes.begin(),
+                       unused_planes.end());
+      }
 
-   private:
-    static std::vector<DrmCompositionPlane>::iterator GetPrecompIter(
-        std::vector<DrmCompositionPlane> *composition) {
-      return std::find_if(composition->begin(), composition->end(),
-                          [](const DrmCompositionPlane &p) {
-        return p.type() == DrmCompositionPlane::Type::kPrecomp;
-      });
+      return ret;
     }
   };
 
   // Creates a planner instance with platform-specific planning stages
-  static std::unique_ptr<Planner> CreateInstance(DrmResources *drm);
+  static std::unique_ptr<Planner> CreateInstance(DrmDevice *drm);
 
   // Takes a stack of layers and provisions hardware planes for them. If the
-  // entire stack can't fit in hardware, the Planner may place the remaining
-  // layers in a PRECOMP plane. Layers in the PRECOMP plane will be composited
-  // using GL. PRECOMP planes should be placed above any 1:1 layer:plane
-  // compositions. If use_squash_fb is true, the Planner should try to reserve a
-  // plane at the highest z-order with type SQUASH.
+  // entire stack can't fit in hardware, FIXME
   //
   // @layers: a map of index:layer of layers to composite
-  // @use_squash_fb: reserve a squash framebuffer
   // @primary_planes: a vector of primary planes available for this frame
   // @overlay_planes: a vector of overlay planes available for this frame
   //
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
   std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
-      std::map<size_t, DrmHwcLayer *> &layers, bool use_squash_fb,
-      DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
+      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+      std::vector<DrmPlane *> *primary_planes,
       std::vector<DrmPlane *> *overlay_planes);
 
   template <typename T, typename... A>
@@ -156,18 +145,6 @@ class PlanStageProtected : public Planner::PlanStage {
                       std::vector<DrmPlane *> *planes);
 };
 
-// This plan stage provisions the precomp plane with any remaining layers that
-// are on top of the current precomp layers. This stage should be included in
-// all platforms before loosely allocating layers (i.e. PlanStageGreedy) if
-// any previous plan could have modified the precomp plane layers
-// (ex. PlanStageProtected).
-class PlanStagePrecomp : public Planner::PlanStage {
- public:
-  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes);
-};
-
 // This plan stage places as many layers on dedicated planes as possible (first
 // come first serve), and then sticks the rest in a precomposition plane (if
 // needed).
@@ -177,5 +154,5 @@ class PlanStageGreedy : public Planner::PlanStage {
                       std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
                       std::vector<DrmPlane *> *planes);
 };
-}
+}  // namespace android
 #endif

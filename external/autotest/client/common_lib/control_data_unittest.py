@@ -23,7 +23,6 @@ TIME='short'
 TEST_CLASS=u'Kernel'
 TEST_CATEGORY='Stress'
 TEST_TYPE='client'
-RETRIES = 5
 REQUIRE_SSP = False
 ATTRIBUTES = "suite:smoke, suite:bvt"
 SUITE = "suite-listed-only-in-suite-line"
@@ -47,7 +46,6 @@ def step0():
     TEST_CLASS=u'Kernel'
     TEST_CATEGORY='Stress'
     TEST_TYPE='client'
-    RETRIES = 5
     REQUIRE_SSP = False
     ATTRIBUTES = "suite:smoke, suite:bvt"
     SUITE = "suite-listed-only-in-suite-line"
@@ -102,7 +100,6 @@ class ParseControlTest(unittest.TestCase):
         self.assertEquals(cd.test_class, "kernel")
         self.assertEquals(cd.test_category, "stress")
         self.assertEquals(cd.test_type, "client")
-        self.assertEquals(cd.retries, 5)
         self.assertEquals(cd.require_ssp, False)
         self.assertEquals(cd.attributes,
                           set(["suite:smoke","suite:bvt","subsystem:default"]))
@@ -135,7 +132,6 @@ class ParseWrappedControlTest(unittest.TestCase):
         self.assertEquals(cd.test_class, "kernel")
         self.assertEquals(cd.test_category, "stress")
         self.assertEquals(cd.test_type, "client")
-        self.assertEquals(cd.retries, 5)
         self.assertEquals(cd.require_ssp, False)
         self.assertEquals(cd.attributes,
                           set(["suite:smoke","suite:bvt","subsystem:default"]))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,54 +16,43 @@
 
 package com.android.car.settings.accounts;
 
-import android.os.Bundle;
-import android.os.UserHandle;
+import android.content.Context;
+import android.provider.Settings;
 
-import androidx.car.widget.ListItemProvider;
+import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.ListItemSettingsFragment;
-import com.android.car.settings.common.Logger;
-import com.android.settingslib.accounts.AuthenticatorHelper;
+import com.android.car.settings.common.SettingsFragment;
+
+import java.util.Arrays;
+import java.util.HashSet;
 
 /**
- * Activity asking a user to select an account to be set up.
- *
- * <p>An extra {@link UserHandle} can be specified in the intent as {@link EXTRA_USER},
- * if the user for which the action needs to be performed is different to the one the
- * Settings App will run in.
+ * Lists accounts the user can add.
  */
-public class ChooseAccountFragment extends ListItemSettingsFragment
-        implements AuthenticatorHelper.OnAccountsUpdateListener {
-    private static final Logger LOG = new Logger(ChooseAccountFragment.class);
-
-    private ChooseAccountItemProvider mItemProvider;
-
-    public static ChooseAccountFragment newInstance() {
-        ChooseAccountFragment
-                chooseAccountFragment = new ChooseAccountFragment();
-        Bundle bundle = ListItemSettingsFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.add_an_account);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        chooseAccountFragment.setArguments(bundle);
-        return chooseAccountFragment;
+public class ChooseAccountFragment extends SettingsFragment {
+    @Override
+    @XmlRes
+    protected int getPreferenceScreenResId() {
+        return R.xml.choose_account_fragment;
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        mItemProvider = new ChooseAccountItemProvider(getContext(), this);
-        super.onActivityCreated(savedInstanceState);
-    }
+    public void onAttach(Context context) {
+        super.onAttach(context);
 
-    @Override
-    public void onAccountsUpdate(UserHandle userHandle) {
-        LOG.v("Accounts changed, refreshing the account list.");
-        mItemProvider.refreshItems();
-        refreshList();
-    }
+        String[] authorities = requireActivity().getIntent().getStringArrayExtra(
+                Settings.EXTRA_AUTHORITIES);
+        if (authorities != null) {
+            use(ChooseAccountPreferenceController.class, R.string.pk_add_account)
+                    .setAuthorities(Arrays.asList(authorities));
+        }
 
-    @Override
-    public ListItemProvider getItemProvider() {
-        return mItemProvider;
+        String[] accountTypesForFilter = requireActivity().getIntent().getStringArrayExtra(
+                Settings.EXTRA_ACCOUNT_TYPES);
+        if (accountTypesForFilter != null) {
+            use(ChooseAccountPreferenceController.class, R.string.pk_add_account)
+                    .setAccountTypesFilter(new HashSet<>(Arrays.asList(accountTypesForFilter)));
+        }
     }
 }

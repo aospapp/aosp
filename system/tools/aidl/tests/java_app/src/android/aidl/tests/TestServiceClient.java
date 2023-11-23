@@ -17,6 +17,7 @@
 package android.aidl.tests;
 
 import android.aidl.tests.SimpleParcelable;
+import android.aidl.tests.StructuredParcelable;
 import android.aidl.tests.TestFailException;
 import android.aidl.tests.TestLogger;
 import android.app.Activity;
@@ -25,6 +26,7 @@ import android.content.Intent;
 import android.os.ServiceSpecificException;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -67,7 +69,7 @@ public class TestServiceClient extends Activity {
     }
 
     private ITestService getService() throws TestFailException {
-        IBinder service = new ServiceManager().getService(
+        IBinder service = ServiceManager.getService(
                 ITestService.class.getName());
         if (service == null) {
             mLog.logAndThrow("Failed to obtain binder...");
@@ -603,6 +605,41 @@ public class TestServiceClient extends Activity {
         mLog.log("...service can receive and return file descriptors.");
     }
 
+    private void checkParcelFileDescriptorPassing(ITestService service)
+            throws TestFailException {
+        mLog.log("Checking that service can receive and return parcel file descriptors...");
+        try {
+            ParcelFileDescriptor descriptor = ParcelFileDescriptor.open(
+                    getFileStreamPath("test-dummy"), ParcelFileDescriptor.MODE_CREATE |
+                        ParcelFileDescriptor.MODE_WRITE_ONLY);
+            ParcelFileDescriptor journeyed = service.RepeatParcelFileDescriptor(descriptor);
+
+            FileOutputStream journeyedStream = new ParcelFileDescriptor.AutoCloseOutputStream(journeyed);
+
+            String testData = "FrazzleSnazzleFlimFlamFlibbityGumboChops";
+            byte[] output = testData.getBytes();
+            journeyedStream.write(output);
+            journeyedStream.close();
+
+            FileInputStream fileInputStream = openFileInput("test-dummy");
+            byte[] input = new byte[output.length];
+            if (fileInputStream.read(input) != input.length) {
+                mLog.logAndThrow("Read short count from file");
+            }
+
+            if (!Arrays.equals(input, output)) {
+                mLog.logAndThrow("Read incorrect data");
+            }
+        } catch (RemoteException ex) {
+            mLog.log(ex.toString());
+            mLog.logAndThrow("Service failed to repeat a file descriptor.");
+        } catch (IOException ex) {
+            mLog.log(ex.toString());
+            mLog.logAndThrow("Exception while operating on temporary file");
+        }
+        mLog.log("...service can receive and return file descriptors.");
+    }
+
     private void checkServiceSpecificExceptions(
                 ITestService service) throws TestFailException {
         mLog.log("Checking application exceptions...");
@@ -699,6 +736,98 @@ public class TestServiceClient extends Activity {
         mLog.log("...UTF8 annotations work.");
     }
 
+    private void checkStructuredParcelable(ITestService service) throws TestFailException {
+      final int kDesiredFValue = 17;
+
+      StructuredParcelable parcelable = new StructuredParcelable();
+      parcelable.shouldContainThreeFs = new int[0];
+      parcelable.f = kDesiredFValue;
+      parcelable.shouldBeJerry = "";
+
+      if (!parcelable.stringDefaultsToFoo.equals("foo")) {
+        mLog.logAndThrow(
+            "stringDefaultsToFoo should be 'foo' but is " + parcelable.stringDefaultsToFoo);
+      }
+      if (parcelable.byteDefaultsToFour != 4) {
+        mLog.logAndThrow("byteDefaultsToFour should be 4 but is " + parcelable.byteDefaultsToFour);
+      }
+      if (parcelable.intDefaultsToFive != 5) {
+        mLog.logAndThrow("intDefaultsToFive should be 5 but is " + parcelable.intDefaultsToFive);
+      }
+      if (parcelable.longDefaultsToNegativeSeven != -7) {
+        mLog.logAndThrow("longDefaultsToNegativeSeven should be -7 but is "
+            + parcelable.longDefaultsToNegativeSeven);
+      }
+      if (!parcelable.booleanDefaultsToTrue) {
+        mLog.logAndThrow("booleanDefaultsToTrue should be true");
+      }
+      if (parcelable.charDefaultsToC != 'C') {
+        mLog.logAndThrow("charDefaultsToC is " + parcelable.charDefaultsToC);
+      }
+      if (parcelable.floatDefaultsToPi != 3.14f) {
+        mLog.logAndThrow("floatDefaultsToPi is " + parcelable.floatDefaultsToPi);
+      }
+      if (parcelable.doubleWithDefault != -3.14e17) {
+        mLog.logAndThrow(
+            "doubleWithDefault is " + parcelable.doubleWithDefault + " but should be -3.14e17");
+      }
+      if (!Arrays.equals(parcelable.arrayDefaultsTo123, new int[] {1, 2, 3})) {
+        mLog.logAndThrow("arrayDefaultsTo123 should be [1,2,3] but is "
+            + Arrays.toString(parcelable.arrayDefaultsTo123));
+      }
+      if (parcelable.arrayDefaultsToEmpty.length != 0) {
+        mLog.logAndThrow("arrayDefaultsToEmpty should be empty but is "
+            + Arrays.toString(parcelable.arrayDefaultsToEmpty));
+      }
+
+      try {
+        service.FillOutStructuredParcelable(parcelable);
+      } catch (RemoteException ex) {
+        mLog.log(ex.toString());
+        mLog.logAndThrow("Service failed to handle structured parcelable.");
+      }
+
+      if (!Arrays.equals(parcelable.shouldContainThreeFs,
+              new int[] {kDesiredFValue, kDesiredFValue, kDesiredFValue})) {
+        mLog.logAndThrow(
+            "shouldContainThreeFs is " + Arrays.toString(parcelable.shouldContainThreeFs));
+      }
+
+      if (!parcelable.shouldBeJerry.equals("Jerry")) {
+        mLog.logAndThrow("shouldBeJerry should be 'Jerry' but is " + parcelable.shouldBeJerry);
+      }
+    }
+
+    private void checkDefaultImpl(ITestService service) throws TestFailException {
+      final int expectedArg = 100;
+      final int expectedReturnValue = 200;
+
+      boolean success = ITestService.Stub.setDefaultImpl(new ITestService.Default() {
+        @Override
+        public int UnimplementedMethod(int arg) throws RemoteException {
+          if (arg != expectedArg) {
+            throw new RemoteException("Argument for UnimplementedMethod is expected "
+                + " to be " + expectedArg + ", but got " + arg);
+          }
+          return expectedReturnValue;
+        }
+      });
+      if (!success) {
+        mLog.logAndThrow("Failed to set default impl for ITestService");
+      }
+
+      try {
+        int ret = service.UnimplementedMethod(expectedArg);
+        if (ret != expectedReturnValue) {
+          mLog.logAndThrow("Return value from UnimplementedMethod is expected "
+              + " to be " + expectedReturnValue + ", but got " + ret);
+        }
+      } catch (RemoteException ex) {
+        mLog.log(ex.toString());
+        mLog.logAndThrow("Failed to call UnimplementedMethod");
+      }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -713,9 +842,12 @@ public class TestServiceClient extends Activity {
           checkSimpleParcelables(service);
           checkPersistableBundles(service);
           checkFileDescriptorPassing(service);
+          checkParcelFileDescriptorPassing(service);
           checkServiceSpecificExceptions(service);
           checkUtf8Strings(service);
+          checkStructuredParcelable(service);
           new NullableTests(service, mLog).runTests();
+          checkDefaultImpl(service);
 
           mLog.log(mSuccessSentinel);
         } catch (TestFailException e) {

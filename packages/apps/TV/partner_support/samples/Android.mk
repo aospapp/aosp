@@ -16,7 +16,7 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-core-ui \
     android-support-v7-recyclerview \
     android-support-v17-leanback \
-    android-support-tv-provider
+    androidx.tvprovider_tvprovider
 
 LOCAL_USE_AAPT2 := true
 

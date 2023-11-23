@@ -59,11 +59,11 @@
                 <item>bus5_alarm_out</item>
                 <item>bus6_notification_out</item>
                 <item>bus7_system_sound_out</item>
+                <item>bus100_rear_seat</item>
                 <item>Built-In Mic</item>
                 <item>Built-In Back Mic</item>
-                <item>bus0_mic1_in</item>
-                <!-- Test input device port for audio patch -->
-                <item>bus1_audio_patch_test_in</item>
+                <item>Echo-Reference Mic</item>
+                <item>FM Tuner</item>
             </attachedDevices>
             <defaultOutputDevice>bus0_media_out</defaultOutputDevice>
             <mixPorts>
@@ -115,21 +115,18 @@
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
+                <mixPort name="mixport_bus100_rear_seat" role="source"
+                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                             samplingRates="48000"
+                             channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+                </mixPort>
                 <mixPort name="primary input" role="sink">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="8000,11025,12000,16000,22050,24000,32000,44100,48000"
                              channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO,AUDIO_CHANNEL_IN_FRONT_BACK"/>
                 </mixPort>
-                <mixPort name="mixport_bus0_mic1_in" role="sink">
-                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
-                             samplingRates="48000"
-                             channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
-                </mixPort>
-                <!--
-                  Test mixport for audio patch,
-                  this needs to be present to work around the framework limitation
-                -->
-                <mixPort name="mixport_audio_patch_in" role="sink">
+                <mixPort name="mixport_tuner0" role="sink">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
@@ -208,6 +205,15 @@
                                 minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
                     </gains>
                 </devicePort>
+                <devicePort tagName="bus100_rear_seat" role="sink" type="AUDIO_DEVICE_OUT_BUS"
+                        address="bus100_rear_seat">
+                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                            samplingRates="48000" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+                    <gains>
+                        <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
+                                minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
+                    </gains>
+                </devicePort>
                 <devicePort tagName="Built-In Mic" type="AUDIO_DEVICE_IN_BUILTIN_MIC" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                             samplingRates="8000,11025,12000,16000,22050,24000,32000,44100,48000"
@@ -218,18 +224,13 @@
                             samplingRates="8000,11025,12000,16000,22050,24000,32000,44100,48000"
                             channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO,AUDIO_CHANNEL_IN_FRONT_BACK"/>
                 </devicePort>
-                <devicePort tagName="bus0_mic1_in" type="AUDIO_DEVICE_IN_BUS" role="source"
-                        address="bus0_mic1_in">
+                <devicePort tagName="Echo-Reference Mic" type="AUDIO_DEVICE_IN_ECHO_REFERENCE" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
-                            samplingRates="48000" channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
-                    <gains>
-                        <gain name="" mode="AUDIO_GAIN_MODE_JOINT"
-                                minValueMB="-3200" maxValueMB="600" defaultValueMB="0" stepValueMB="100"/>
-                    </gains>
+                            samplingRates="8000,11025,12000,16000,22050,24000,32000,44100,48000"
+                            channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO,AUDIO_CHANNEL_IN_FRONT_BACK"/>
                 </devicePort>
-                <!-- Test input device ports for audio patch -->
-                <devicePort tagName="bus1_audio_patch_test_in" type="AUDIO_DEVICE_IN_BUS" role="source"
-                        address="bus1_audio_patch_test_in">
+                <devicePort tagName="FM Tuner" type="AUDIO_DEVICE_IN_FM_TUNER" role="source"
+                        address="tuner0">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                             samplingRates="48000" channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
                     <gains>
@@ -248,13 +249,9 @@
                 <route type="mix" sink="bus5_alarm_out" sources="mixport_bus5_alarm_out"/>
                 <route type="mix" sink="bus6_notification_out" sources="mixport_bus6_notification_out"/>
                 <route type="mix" sink="bus7_system_sound_out" sources="mixport_bus7_system_sound_out"/>
-                <route type="mix" sink="primary input" sources="Built-In Mic,Built-In Back Mic"/>
-                <route type="mix" sink="mixport_bus0_mic1_in" sources="bus0_mic1_in"/>
-                <!--
-                  Listed source device ports will be routed to desired sinks via audio patch,
-                  this route needs to be present to work around framework limitation for now
-                -->
-                <route type="mix" sink="mixport_audio_patch_in" sources="bus1_audio_patch_test_in"/>
+                <route type="mix" sink="bus100_rear_seat" sources="mixport_bus100_rear_seat"/>
+                <route type="mix" sink="primary input" sources="Built-In Mic,Built-In Back Mic,Echo-Reference Mic"/>
+                <route type="mix" sink="mixport_tuner0" sources="FM Tuner"/>
             </routes>
 
         </module>

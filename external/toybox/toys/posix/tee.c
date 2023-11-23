@@ -15,8 +15,8 @@ config TEE
     Copy stdin to each listed file, and also to stdout.
     Filename "-" is a synonym for stdout.
 
-    -a	append to files
-    -i	ignore SIGINT
+    -a	Append to files
+    -i	Ignore SIGINT
 */
 
 #define FOR_tee
@@ -45,11 +45,11 @@ static void do_tee_open(int fd, char *name)
 
 void tee_main(void)
 {
-  if (toys.optflags & FLAG_i) xsignal(SIGINT, SIG_IGN);
+  if (FLAG(i)) xsignal(SIGINT, SIG_IGN);
 
   // Open output files
   loopfiles_rw(toys.optargs,
-    O_RDWR|O_CREAT|WARN_ONLY|((toys.optflags & FLAG_a)?O_APPEND:O_TRUNC),
+    O_RDWR|O_CREAT|WARN_ONLY|(FLAG(a)?O_APPEND:O_TRUNC),
     0666, do_tee_open);
 
   for (;;) {

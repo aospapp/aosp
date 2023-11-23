@@ -1,8 +1,9 @@
 // Copyright 2017 The Android Open Source Project
 
-cc_library_static {
+cc_library {
     name: "libfec_rs",
     host_supported: true,
+    recovery_available: true,
     srcs: [
         "encode_rs_char.c",
         "decode_rs_char.c",

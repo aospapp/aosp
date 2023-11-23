@@ -47,53 +47,48 @@ static const char* UNINSTALL_TOMBSTONE_FILE_NAME = "/STAGED_UNINSTALL_TOMBSTONE"
 // See also com.android.timezone.distro.TimeZoneDistro / com.android.timezone.distro.DistroVersion.
 static const char* DISTRO_VERSION_FILENAME = "/distro_version";
 
-// distro_version is an ASCII file consisting of 17 bytes in the form: AAA.BBB|CCCCC|DDD
-// AAA.BBB is the major/minor version of the distro format (e.g. 001.001),
-// CCCCC is the rules version (e.g. 2016g)
-// DDD is the android revision for this rules version to allow for distro corrections (e.g. 001)
-// We only need the first 13 to determine if it is suitable for the device.
-static const int DISTRO_VERSION_LENGTH = 13;
+// The name of the file containing the base tz data set version information.
+// See also libcore.timezone.TzDataSetVersion.
+static const char* BASE_VERSION_FILENAME = "/tz_version";
 
-// The major version of the distro format supported by this code as a null-terminated char[].
-// See also com.android.timezone.distro.TimeZoneDistro / com.android.timezone.distro.DistroVersion.
-static const char SUPPORTED_DISTRO_MAJOR_VERSION[] = "002";
+// distro_version / tz_version are ASCII files consisting of at least 17 bytes in the
+// form: AAA.BBB|CCCCC|DDD
+// AAA.BBB is the major/minor version of the format (e.g. 004.001),
+// CCCCC is the rules version (e.g. 2016g),
+// DDD is the android revision for this rules version to allow for data corrections (e.g. 001),
+// We only use the first 13 to determine suitability of format / data.
+static const int READ_DATA_LENGTH = 13;
 
-// The length of the distro format major version excluding the \0
-static const size_t SUPPORTED_DISTRO_MAJOR_VERSION_LEN = sizeof(SUPPORTED_DISTRO_MAJOR_VERSION) - 1;
+// Version bytes are: AAA.BBB|CCCCC - the format version is AAA.BBB
+// The length of the format version,  e.g. "004.001" == 7 bytes
+static const size_t FORMAT_VERSION_LEN = 7;
 
-// The minor version of the distro format supported by this code as a null-terminated char[].
-// See also com.android.timezone.distro.TimeZoneDistro / com.android.timezone.distro.DistroVersion.
-static const char SUPPORTED_DISTRO_MINOR_VERSION[] = "001";
+// Version bytes are: AAA.BBB|CCCCC - the format major version is AAA
+static const size_t FORMAT_MAJOR_VERSION_LEN = 3;
 
-// The length of the distro format minor version excluding the \0
-static const size_t SUPPORTED_DISTRO_MINOR_VERSION_LEN = sizeof(SUPPORTED_DISTRO_MINOR_VERSION) - 1;
+// Version bytes are: AAA.BBB|CCCCC - the format major version is AAA
+static const size_t FORMAT_MAJOR_VERSION_IDX = 0;
 
-// The length of the distro format version. e.g. 001.001
-static const size_t SUPPORTED_DISTRO_VERSION_LEN =
-        SUPPORTED_DISTRO_MAJOR_VERSION_LEN + SUPPORTED_DISTRO_MINOR_VERSION_LEN + 1;
+// Version bytes are: AAA.BBB|CCCCC - the format major version is AAA
+static const size_t FORMAT_MINOR_VERSION_LEN = 3;
 
-// The length of the IANA rules version bytes. e.g. 2016a
+// Version bytes are: AAA.BBB|CCCCC - the format minor version is BBB
+static const size_t FORMAT_MINOR_VERSION_IDX = 4;
+
+// Version bytes are: AAA.BBB|CCCCC - the IANA rules version is CCCCC
+// The length of the IANA rules version bytes, e.g. 2016a
 static const size_t RULES_VERSION_LEN = 5;
 
-// Distro version bytes are: AAA.BBB|CCCCC - the rules version is CCCCC
-static const size_t DISTRO_VERSION_RULES_IDX = 8;
+// Version bytes are: AAA.BBB|CCCCC - the rules version is CCCCC
+static const size_t VERSION_RULES_IDX = 8;
 
-// See also com.android.timezone.distro.TimeZoneDistro.
-static const char* TZDATA_FILENAME = "/tzdata";
-
-// tzdata file header (as much as we need for the version):
-// byte[11] tzdata_version  -- e.g. "tzdata2012f"
-static const int TZ_HEADER_LENGTH = 11;
-
-static const char TZ_DATA_HEADER_PREFIX[] = "tzdata";
-static const size_t TZ_DATA_HEADER_PREFIX_LEN = sizeof(TZ_DATA_HEADER_PREFIX) - 1; // exclude \0
 
 static void usage() {
-    std::cerr << "Usage: tzdatacheck SYSTEM_TZ_DIR DATA_TZ_DIR\n"
+    std::cerr << "Usage: tzdatacheck BASE_TZ_DIR DATA_TZ_DIR\n"
             "\n"
             "Checks whether any timezone update distro in DATA_TZ_DIR is compatible with the\n"
-            "current Android release and better than or the same as base system timezone rules in\n"
-            "SYSTEM_TZ_DIR. If the timezone rules in SYSTEM_TZ_DIR are a higher version than the\n"
+            "current Android release and better than or the same as base timezone rules in\n"
+            "BASE_TZ_DIR. If the timezone rules in BASE_TZ_DIR are a higher version than the\n"
             "one in DATA_TZ_DIR the DATA_TZ_DIR is renamed and then deleted.\n";
     exit(1);
 }
@@ -120,18 +115,6 @@ static bool readBytes(const std::string& fileName, char* buffer, size_t byteCoun
     return true;
 }
 
-/*
- * Checks the contents of headerBytes. Returns true if it is valid (starts with "tzdata"), false
- * otherwise.
- */
-static bool checkValidTzDataHeader(const std::string& fileName, const char* headerBytes) {
-    if (strncmp("tzdata", headerBytes, 6) != 0) {
-        LOG(WARNING) << fileName << " does not start with the expected bytes (tzdata)";
-        return false;
-    }
-    return true;
-}
-
 static bool checkDigits(const char* buffer, const size_t count, size_t* i) {
     for (size_t j = 0; j < count; j++) {
       char toCheck = buffer[(*i)++];
@@ -142,8 +125,8 @@ static bool checkDigits(const char* buffer, const size_t count, size_t* i) {
     return true;
 }
 
-static bool checkValidDistroVersion(const char* buffer) {
-    // See DISTRO_VERSION_LENGTH comments above for a description of the format.
+static bool checkValidVersionBytes(const char* buffer) {
+    // See READ_DATA_LENGTH comments above for a description of the format.
     size_t i = 0;
     if (!checkDigits(buffer, 3, &i)) {
       return false;
@@ -167,8 +150,10 @@ static bool checkValidDistroVersion(const char* buffer) {
 
 /* Return the parent directory of dirName. */
 static std::string getParentDir(const std::string& dirName) {
-    std::unique_ptr<char> mutable_dirname(strdup(dirName.c_str()));
-    return dirname(mutable_dirname.get());
+    char *cMutableDirName = strdup(dirName.c_str());
+    std::string parentDir = dirname(cMutableDirName);
+    free(cMutableDirName);
+    return parentDir;
 }
 
 /* Deletes a single file, symlink or directory. Called from nftw(). */
@@ -285,21 +270,6 @@ static bool deleteDir(const std::string& dirToDelete) {
         LOG(INFO) << "Could not delete directory: " << &tempDirName[0];
     }
     return true;
-}
-
-/*
- * Deletes the ConfigInstaller metadata directory.
- * TODO(nfuller). http://b/31008728 Remove this when ConfigInstaller is no longer used.
- */
-static void deleteConfigUpdaterMetadataDir(const char* dataZoneInfoDir) {
-    // Delete the update metadata
-    std::string dataUpdatesDirName(dataZoneInfoDir);
-    dataUpdatesDirName += "/updates";
-    LOG(INFO) << "Removing: " << dataUpdatesDirName;
-    if (!deleteDir(dataUpdatesDirName)) {
-        LOG(WARNING) << "Deletion of install metadata " << dataUpdatesDirName
-                << " was not successful";
-    }
 }
 
 /*
@@ -451,7 +421,7 @@ static void processStagedOperation(const std::string& dataStagedDirName,
 }
 
 /*
- * After a platform update it is likely that timezone data found on the system partition will be
+ * After a platform update it is likely that the "base" timezone data found on the device will be
  * newer than the version found in the data partition. This tool detects this case and removes the
  * version in /data.
  *
@@ -459,7 +429,7 @@ static void processStagedOperation(const std::string& dataStagedDirName,
  * paths for the metadata and current timezone data must match.
  *
  * Typically on device the two args will be:
- *   /system/usr/share/zoneinfo /data/misc/zoneinfo
+ *   /apex/com.google.runtime/etc/tz /data/misc/zoneinfo
  *
  * See usage() for usage notes.
  */
@@ -469,7 +439,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const char* systemZoneInfoDir = argv[1];
+    const char* baseZoneInfoDir = argv[1];
     const char* dataZoneInfoDir = argv[2];
 
     std::string dataStagedDirName(dataZoneInfoDir);
@@ -504,86 +474,84 @@ int main(int argc, char* argv[]) {
     std::string distroVersionFileName(dataCurrentDirName);
     distroVersionFileName += DISTRO_VERSION_FILENAME;
     std::vector<char> distroVersion;
-    distroVersion.reserve(DISTRO_VERSION_LENGTH);
+    distroVersion.reserve(READ_DATA_LENGTH);
     bool distroVersionReadOk =
-            readBytes(distroVersionFileName, distroVersion.data(), DISTRO_VERSION_LENGTH);
+            readBytes(distroVersionFileName, distroVersion.data(), READ_DATA_LENGTH);
     if (!distroVersionReadOk) {
         LOG(WARNING) << "distro version file " << distroVersionFileName
                 << " does not exist or is too short. Deleting distro dir.";
         // Implies the contents of the data partition is corrupt in some way. Try to clean up.
-        deleteConfigUpdaterMetadataDir(dataZoneInfoDir);
         deleteUpdateDistroDir(dataCurrentDirName);
         return 3;
     }
 
-    if (!checkValidDistroVersion(distroVersion.data())) {
+    if (!checkValidVersionBytes(distroVersion.data())) {
         LOG(WARNING) << "distro version file " << distroVersionFileName
                 << " is not valid. Deleting distro dir.";
         // Implies the contents of the data partition is corrupt in some way. Try to clean up.
-        deleteConfigUpdaterMetadataDir(dataZoneInfoDir);
         deleteUpdateDistroDir(dataCurrentDirName);
         return 4;
     }
 
-    std::string actualDistroVersion =
-            std::string(distroVersion.data(), SUPPORTED_DISTRO_VERSION_LEN);
-    // Check the first 3 bytes of the distro version: these are the major version (e.g. 001).
+    // Check the base tz data set version.
+    std::string baseVersionFileName(baseZoneInfoDir);
+    baseVersionFileName += BASE_VERSION_FILENAME;
+    std::vector<char> baseVersion;
+    baseVersion.reserve(READ_DATA_LENGTH);
+    bool baseVersionReadOk =
+            readBytes(baseVersionFileName, baseVersion.data(), READ_DATA_LENGTH);
+    if (!baseVersionReadOk) {
+        // Implies the contents of the system partition is corrupt in some way. Nothing we can do.
+        LOG(WARNING) << baseVersionFileName << " does not exist or could not be opened";
+        return 6;
+    }
+
+    if (!checkValidVersionBytes(baseVersion.data())) {
+        // Implies the contents of the system partition is corrupt in some way. Nothing we can do.
+        LOG(WARNING) << baseVersionFileName << " is not valid.";
+        return 7;
+    }
+
+    std::string actualDistroVersion = std::string(distroVersion.data(), FORMAT_VERSION_LEN);
+    std::string baseTzVersion = std::string(baseVersion.data(), FORMAT_VERSION_LEN);
+
+    // Check the first 3 bytes of the format version: these are the major version (e.g. 001).
     // It must match the one we support exactly to be ok.
     if (strncmp(
-            &distroVersion[0],
-            SUPPORTED_DISTRO_MAJOR_VERSION,
-            SUPPORTED_DISTRO_MAJOR_VERSION_LEN) != 0) {
+            &distroVersion[FORMAT_MAJOR_VERSION_IDX],
+            &baseTzVersion[FORMAT_MAJOR_VERSION_IDX],
+            FORMAT_MAJOR_VERSION_LEN) != 0) {
 
         LOG(INFO) << "distro version file " << distroVersionFileName
-                << " major version is not the required version " << SUPPORTED_DISTRO_MAJOR_VERSION
+                << " major version is not the required version " << baseTzVersion
                 << ", was \"" << actualDistroVersion << "\". Deleting distro dir.";
-        // This implies there has been an OTA and the installed distro is not compatible with the
+        // This implies there has been an OTA and the installed distro is not compatible with a
         // new version of Android. Remove the installed distro.
-        deleteConfigUpdaterMetadataDir(dataZoneInfoDir);
         deleteUpdateDistroDir(dataCurrentDirName);
         return 5;
     }
 
-    // Check the last 3 bytes of the distro version: these are the minor version (e.g. 001).
+    // Check the last 3 bytes of the format version: these are the minor version (e.g. 001).
     // If the version in the distro is < the minor version required by this device it cannot be
     // used.
     if (strncmp(
-            &distroVersion[4],
-            SUPPORTED_DISTRO_MINOR_VERSION,
-            SUPPORTED_DISTRO_MINOR_VERSION_LEN) < 0) {
+            &distroVersion[FORMAT_MINOR_VERSION_IDX],
+            &baseTzVersion[FORMAT_MINOR_VERSION_IDX],
+            FORMAT_MINOR_VERSION_LEN) < 0) {
 
         LOG(INFO) << "distro version file " << distroVersionFileName
-                << " minor version is not the required version " << SUPPORTED_DISTRO_MINOR_VERSION
+                << " minor version is not the required version " << baseTzVersion
                 << ", was \"" << actualDistroVersion << "\". Deleting distro dir.";
-        // This implies there has been an OTA and the installed distro is not compatible with the
+        // This implies there has been an OTA and the installed distro is not compatible with a
         // new version of Android. Remove the installed distro.
-        deleteConfigUpdaterMetadataDir(dataZoneInfoDir);
         deleteUpdateDistroDir(dataCurrentDirName);
         return 5;
-    }
-
-    // Read the system rules version out of the /system tzdata file.
-    std::string systemTzDataFileName(systemZoneInfoDir);
-    systemTzDataFileName += TZDATA_FILENAME;
-    std::vector<char> systemTzDataHeader;
-    systemTzDataHeader.reserve(TZ_HEADER_LENGTH);
-    bool systemFileExists =
-            readBytes(systemTzDataFileName, systemTzDataHeader.data(), TZ_HEADER_LENGTH);
-    if (!systemFileExists) {
-        // Implies the contents of the system partition is corrupt in some way. Nothing we can do.
-        LOG(WARNING) << systemTzDataFileName << " does not exist or could not be opened";
-        return 6;
-    }
-    if (!checkValidTzDataHeader(systemTzDataFileName, systemTzDataHeader.data())) {
-        // Implies the contents of the system partition is corrupt in some way. Nothing we can do.
-        LOG(WARNING) << systemTzDataFileName << " does not have a valid header.";
-        return 7;
     }
 
     // Compare the distro rules version against the system rules version.
     if (strncmp(
-            &systemTzDataHeader[TZ_DATA_HEADER_PREFIX_LEN],
-            &distroVersion[DISTRO_VERSION_RULES_IDX],
+            &baseVersion[VERSION_RULES_IDX],
+            &distroVersion[VERSION_RULES_IDX],
             RULES_VERSION_LEN) <= 0) {
         LOG(INFO) << "Found an installed distro but it is valid. No action taken.";
         // Implies there is an installed update, but it is good.
@@ -593,9 +561,8 @@ int main(int argc, char* argv[]) {
     // Implies there has been an OTA and the system version of the timezone rules is now newer
     // than the version installed in /data. Remove the installed distro.
     LOG(INFO) << "timezone distro in " << dataCurrentDirName << " is older than data in "
-            << systemTzDataFileName << "; fixing...";
+            << baseVersionFileName << "; fixing...";
 
-    deleteConfigUpdaterMetadataDir(dataZoneInfoDir);
     deleteUpdateDistroDir(dataCurrentDirName);
     return 0;
 }

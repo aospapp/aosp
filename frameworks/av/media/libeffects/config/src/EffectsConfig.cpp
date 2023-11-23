@@ -115,6 +115,7 @@ constexpr std::pair<audio_source_t, const char*> STREAM_NAME_MAP<audio_source_t>
         {AUDIO_SOURCE_VOICE_RECOGNITION, "voice_recognition"},
         {AUDIO_SOURCE_VOICE_COMMUNICATION, "voice_communication"},
         {AUDIO_SOURCE_UNPROCESSED, "unprocessed"},
+        {AUDIO_SOURCE_VOICE_PERFORMANCE, "voice_performance"},
 };
 
 /** Find the stream type enum corresponding to the stream type name or return false */
@@ -250,14 +251,14 @@ bool parseStream(const XMLElement& xmlStream, Effects& effects, std::vector<Stre
     return true;
 }
 
-/** Internal version of the public parse(const char* path) with precondition `path != nullptr`. */
-ParsingResult parseWithPath(const char* path) {
+/** Internal version of the public parse(const char* path) where path always exist. */
+ParsingResult parseWithPath(std::string&& path) {
     XMLDocument doc;
-    doc.LoadFile(path);
+    doc.LoadFile(path.c_str());
     if (doc.Error()) {
-        ALOGE("Failed to parse %s: Tinyxml2 error (%d): %s", path,
+        ALOGE("Failed to parse %s: Tinyxml2 error (%d): %s", path.c_str(),
               doc.ErrorID(), doc.ErrorStr());
-        return {nullptr, 0, path};
+        return {nullptr, 0, std::move(path)};
     }
 
     auto config = std::make_unique<Config>();
@@ -295,7 +296,7 @@ ParsingResult parseWithPath(const char* path) {
             }
         }
     }
-    return {std::move(config), nbSkippedElements, path};
+    return {std::move(config), nbSkippedElements, std::move(path)};
 }
 
 }; // namespace
@@ -305,19 +306,19 @@ ParsingResult parse(const char* path) {
         return parseWithPath(path);
     }
 
-    for (std::string location : DEFAULT_LOCATIONS) {
+    for (const std::string& location : DEFAULT_LOCATIONS) {
         std::string defaultPath = location + '/' + DEFAULT_NAME;
         if (access(defaultPath.c_str(), R_OK) != 0) {
             continue;
         }
-        auto result = parseWithPath(defaultPath.c_str());
+        auto result = parseWithPath(std::move(defaultPath));
         if (result.parsedConfig != nullptr) {
             return result;
         }
     }
 
     ALOGE("Could not parse effect configuration in any of the default locations.");
-    return {nullptr, 0, nullptr};
+    return {nullptr, 0, ""};
 }
 
 } // namespace effectsConfig

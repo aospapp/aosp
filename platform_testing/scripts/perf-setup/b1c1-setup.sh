@@ -16,10 +16,9 @@
 
 # performance test setup for 2018 devices
 
-stop thermal-engine
-stop perfd
 stop vendor.thermal-engine
-stop vendor.perfd
+setprop vendor.powerhal.init 0
+setprop ctl.interface_restart android.hardware.power@1.0::IPower/default
 
 cpubase=/sys/devices/system/cpu
 gov=cpufreq/scaling_governor
@@ -27,15 +26,17 @@ gov=cpufreq/scaling_governor
 cpu=4
 top=8
 
-# Enable the gold cores at max frequency.
+cpufreq=2092800
+# Set the golden cores at 2092800.
 # 825600 902400 979200 1056000 1209600 1286400 1363200 1459200 1536000
 # 1612800 1689600 1766400 1843200 1920000 1996800 2092800 2169600
 # 2246400 2323200 2400000 2476800 2553600 2649600
 while [ $((cpu < $top)) -eq 1 ]; do
   echo 1 > $cpubase/cpu${cpu}/online
   echo performance > $cpubase/cpu${cpu}/$gov
+  echo $cpufreq > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq
   S=`cat $cpubase/cpu${cpu}/cpufreq/scaling_cur_freq`
-  echo "setting cpu $cpu to max at $S kHz"
+  echo "set cpu $cpu to $S kHz"
   cpu=$(($cpu + 1))
 done
 
@@ -49,19 +50,22 @@ while [ $((cpu < $top)) -eq 1 ]; do
   cpu=$(($cpu + 1))
 done
 
-echo "setting GPU bus split"
+echo "disable GPU bus split"
 echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split
-echo "setting GPU force clocks"
+echo "enable GPU force clock on"
 echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on
-echo "setting GPU idle timer"
+echo "set GPU idle timer to 10000"
 echo 10000 > /sys/class/kgsl/kgsl-3d0/idle_timer
 
 # 0 381 572 762 1144 1571 2086 2597 2929 3879 4943 5931 6881
 echo performance > /sys/class/devfreq/soc:qcom,gpubw/governor
-echo -n "setting GPU bus frequency to max at "
+echo -n "set GPU bus frequency to max at "
 cat /sys/class/devfreq/soc:qcom,gpubw/cur_freq
 
 # 257000000 342000000 414000000 520000000 596000000 675000000 710000000
+G=596000000
 echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor
-echo -n "setting GPU frequency to max at "
+echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+echo $G > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+echo -n "set GPU frequency to "
 cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq

@@ -17,18 +17,23 @@
 package android.view.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import android.app.Instrumentation;
+import android.content.Context;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
 import android.view.MotionEvent;
+import android.view.TouchDelegate;
+import android.view.View;
+import android.view.accessibility.AccessibilityManager;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -78,9 +83,9 @@ public class TouchDelegateTest {
     public void testCancelEvent() {
         // Ensure events with ACTION_CANCEL are received by the TouchDelegate
         final long downTime = SystemClock.uptimeMillis();
-        dispatchMotionEventToActivity(MotionEvent.ACTION_DOWN, mActivity.touchDelegateY,
+        dispatchTouchEventToActivity(MotionEvent.ACTION_DOWN, mActivity.touchDelegateY,
                 downTime);
-        dispatchMotionEventToActivity(MotionEvent.ACTION_CANCEL, mActivity.touchDelegateY,
+        dispatchTouchEventToActivity(MotionEvent.ACTION_CANCEL, mActivity.touchDelegateY,
                 downTime);
         mInstrumentation.waitForIdleSync();
 
@@ -97,8 +102,8 @@ public class TouchDelegateTest {
         // Ensure ACTION_POINTER_DOWN and ACTION_POINTER_UP are forwarded to the target view
         // by the TouchDelegate
         final long downTime = SystemClock.uptimeMillis();
-        dispatchMotionEventToActivity(MotionEvent.ACTION_DOWN, mActivity.touchDelegateY, downTime);
-        dispatchMotionEventToActivity(MotionEvent.ACTION_MOVE, mActivity.touchDelegateY, downTime);
+        dispatchTouchEventToActivity(MotionEvent.ACTION_DOWN, mActivity.touchDelegateY, downTime);
+        dispatchTouchEventToActivity(MotionEvent.ACTION_MOVE, mActivity.touchDelegateY, downTime);
         int actionPointer1Down =
                 (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT) + MotionEvent.ACTION_POINTER_DOWN;
         dispatchMultiTouchMotionEventToActivity(actionPointer1Down, 2,
@@ -109,7 +114,7 @@ public class TouchDelegateTest {
                 (1 << MotionEvent.ACTION_POINTER_INDEX_SHIFT) + MotionEvent.ACTION_POINTER_UP;
         dispatchMultiTouchMotionEventToActivity(actionPointer1Up, 2,
                 mActivity.touchDelegateY, downTime);
-        dispatchMotionEventToActivity(MotionEvent.ACTION_UP, mActivity.touchDelegateY, downTime);
+        dispatchTouchEventToActivity(MotionEvent.ACTION_UP, mActivity.touchDelegateY, downTime);
         mInstrumentation.waitForIdleSync();
 
         ensureOldestActionEquals(MotionEvent.ACTION_DOWN);
@@ -118,6 +123,42 @@ public class TouchDelegateTest {
         ensureOldestActionEquals(MotionEvent.ACTION_MOVE);
         ensureOldestActionEquals(MotionEvent.ACTION_POINTER_UP);
         ensureOldestActionEquals(MotionEvent.ACTION_UP);
+    }
+
+    @Test
+    public void testGetTouchDelegateInfo_withNullBounds_noException() {
+        final View view = mActivity.findViewById(R.id.layout);
+        final TouchDelegate touchDelegate = new TouchDelegate(null, view);
+        touchDelegate.getTouchDelegateInfo();
+    }
+
+    @Test
+    public void testOnTouchExplorationHoverEvent_withNullBounds_noException() {
+        final long downTime = SystemClock.uptimeMillis();
+        final MotionEvent event = MotionEvent.obtain(downTime, downTime,
+                MotionEvent.ACTION_HOVER_MOVE, mActivity.x, mActivity.touchDelegateY, 0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        final View view = mActivity.findViewById(R.id.button);
+        final TouchDelegate touchDelegate = new TouchDelegate(null, view);
+
+        touchDelegate.onTouchExplorationHoverEvent(event);
+    }
+
+    @Test
+    public void testOnTouchExplorationHoverEvent_whenA11yEbtDisabled_receiveNoEvent() {
+        final long downTime = SystemClock.uptimeMillis();
+        final AccessibilityManager manager = (AccessibilityManager) mInstrumentation.getContext()
+                .getSystemService(Context.ACCESSIBILITY_SERVICE);
+        assertFalse("Touch exploration should not be enabled",
+                manager.isEnabled() && manager.isTouchExplorationEnabled());
+
+        dispatchHoverEventToActivity(MotionEvent.ACTION_HOVER_MOVE, mActivity.touchDelegateY,
+                downTime);
+        dispatchHoverEventToActivity(MotionEvent.ACTION_HOVER_MOVE, mActivity.parentViewY,
+                downTime);
+        mInstrumentation.waitForIdleSync();
+
+        assertNull(mActivity.removeOldestButtonEvent());
     }
 
     private void ensureOldestActionEquals(int action) {
@@ -139,18 +180,29 @@ public class TouchDelegateTest {
 
     private void click(int y) {
         final long downTime = SystemClock.uptimeMillis();
-        dispatchMotionEventToActivity(MotionEvent.ACTION_DOWN, y, downTime);
-        dispatchMotionEventToActivity(MotionEvent.ACTION_UP, y, downTime);
+        dispatchTouchEventToActivity(MotionEvent.ACTION_DOWN, y, downTime);
+        dispatchTouchEventToActivity(MotionEvent.ACTION_UP, y, downTime);
         mInstrumentation.waitForIdleSync();
     }
 
-    private void dispatchMotionEventToActivity(int action, int y, long downTime) {
+    private void dispatchTouchEventToActivity(int action, int y, long downTime) {
+        dispatchMotionEventToActivity(action, y, downTime, InputDevice.SOURCE_TOUCHSCREEN,
+                mActivity::dispatchTouchEvent);
+    }
+
+    private void dispatchHoverEventToActivity(int action, int y, long downTime) {
+        dispatchMotionEventToActivity(action, y, downTime, InputDevice.SOURCE_MOUSE,
+                mActivity::dispatchGenericMotionEvent);
+    }
+
+    private void dispatchMotionEventToActivity(int action, int y, long downTime, int source,
+            Dispatcher dispatcher) {
         mActivity.runOnUiThread(() -> {
             final long eventTime = SystemClock.uptimeMillis();
             final MotionEvent event = MotionEvent.obtain(downTime, eventTime, action,
                     mActivity.x, y, 0);
-            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
-            mActivity.dispatchTouchEvent(event);
+            event.setSource(source);
+            dispatcher.dispatchMotionEvent(event);
             event.recycle();
         });
     }
@@ -179,5 +231,9 @@ public class TouchDelegateTest {
             mActivity.dispatchTouchEvent(event);
             event.recycle();
         });
+    }
+
+    interface Dispatcher {
+        void dispatchMotionEvent(MotionEvent event);
     }
 }

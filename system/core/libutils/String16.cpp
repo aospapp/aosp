@@ -24,29 +24,16 @@
 
 namespace android {
 
-static SharedBuffer* gEmptyStringBuf = NULL;
-static char16_t* gEmptyString = NULL;
+static inline char16_t* getEmptyString() {
+    static SharedBuffer* gEmptyStringBuf = [] {
+        SharedBuffer* buf = SharedBuffer::alloc(sizeof(char16_t));
+        char16_t* str = static_cast<char16_t*>(buf->data());
+        *str = 0;
+        return buf;
+    }();
 
-static inline char16_t* getEmptyString()
-{
     gEmptyStringBuf->acquire();
-   return gEmptyString;
-}
-
-void initialize_string16()
-{
-    SharedBuffer* buf = SharedBuffer::alloc(sizeof(char16_t));
-    char16_t* str = (char16_t*)buf->data();
-    *str = 0;
-    gEmptyStringBuf = buf;
-    gEmptyString = str;
-}
-
-void terminate_string16()
-{
-    SharedBuffer::bufferFromData(gEmptyString)->release();
-    gEmptyStringBuf = NULL;
-    gEmptyString = NULL;
+    return static_cast<char16_t*>(gEmptyStringBuf->data());
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +91,7 @@ String16::String16()
 }
 
 String16::String16(StaticLinkage)
-    : mString(0)
+    : mString(nullptr)
 {
     // this constructor is used when we can't rely on the static-initializers
     // having run. In this case we always allocate an empty string. It's less
@@ -170,12 +157,12 @@ status_t String16::setTo(const String16& other, size_t len, size_t begin)
     if (begin >= N) {
         SharedBuffer::bufferFromData(mString)->release();
         mString = getEmptyString();
-        return NO_ERROR;
+        return OK;
     }
     if ((begin+len) > N) len = N-begin;
     if (begin == 0 && len == N) {
         setTo(other);
-        return NO_ERROR;
+        return OK;
     }
 
     if (&other == this) {
@@ -204,7 +191,7 @@ status_t String16::setTo(const char16_t* other, size_t len)
         memmove(str, other, len*sizeof(char16_t));
         str[len] = 0;
         mString = str;
-        return NO_ERROR;
+        return OK;
     }
     return NO_MEMORY;
 }
@@ -215,9 +202,9 @@ status_t String16::append(const String16& other)
     const size_t otherLen = other.size();
     if (myLen == 0) {
         setTo(other);
-        return NO_ERROR;
+        return OK;
     } else if (otherLen == 0) {
-        return NO_ERROR;
+        return OK;
     }
 
     if (myLen >= SIZE_MAX / sizeof(char16_t) - otherLen) {
@@ -231,7 +218,7 @@ status_t String16::append(const String16& other)
         char16_t* str = (char16_t*)buf->data();
         memcpy(str+myLen, other, (otherLen+1)*sizeof(char16_t));
         mString = str;
-        return NO_ERROR;
+        return OK;
     }
     return NO_MEMORY;
 }
@@ -241,9 +228,9 @@ status_t String16::append(const char16_t* chrs, size_t otherLen)
     const size_t myLen = size();
     if (myLen == 0) {
         setTo(chrs, otherLen);
-        return NO_ERROR;
+        return OK;
     } else if (otherLen == 0) {
-        return NO_ERROR;
+        return OK;
     }
 
     if (myLen >= SIZE_MAX / sizeof(char16_t) - otherLen) {
@@ -258,7 +245,7 @@ status_t String16::append(const char16_t* chrs, size_t otherLen)
         memcpy(str+myLen, chrs, otherLen*sizeof(char16_t));
         str[myLen+otherLen] = 0;
         mString = str;
-        return NO_ERROR;
+        return OK;
     }
     return NO_MEMORY;
 }
@@ -273,9 +260,9 @@ status_t String16::insert(size_t pos, const char16_t* chrs, size_t len)
     const size_t myLen = size();
     if (myLen == 0) {
         return setTo(chrs, len);
-        return NO_ERROR;
+        return OK;
     } else if (len == 0) {
-        return NO_ERROR;
+        return OK;
     }
 
     if (pos > myLen) pos = myLen;
@@ -299,7 +286,7 @@ status_t String16::insert(size_t pos, const char16_t* chrs, size_t len)
         #if 0
         printf("Result (%d chrs): %s\n", size(), String8(*this).string());
         #endif
-        return NO_ERROR;
+        return OK;
     }
     return NO_MEMORY;
 }
@@ -355,7 +342,7 @@ status_t String16::makeLower()
 {
     const size_t N = size();
     const char16_t* str = string();
-    char16_t* edit = NULL;
+    char16_t* edit = nullptr;
     for (size_t i=0; i<N; i++) {
         const char16_t v = str[i];
         if (v >= 'A' && v <= 'Z') {
@@ -370,14 +357,14 @@ status_t String16::makeLower()
             edit[i] = tolower((char)v);
         }
     }
-    return NO_ERROR;
+    return OK;
 }
 
 status_t String16::replaceAll(char16_t replaceThis, char16_t withThis)
 {
     const size_t N = size();
     const char16_t* str = string();
-    char16_t* edit = NULL;
+    char16_t* edit = nullptr;
     for (size_t i=0; i<N; i++) {
         if (str[i] == replaceThis) {
             if (!edit) {
@@ -391,7 +378,7 @@ status_t String16::replaceAll(char16_t replaceThis, char16_t withThis)
             edit[i] = withThis;
         }
     }
-    return NO_ERROR;
+    return OK;
 }
 
 status_t String16::remove(size_t len, size_t begin)
@@ -400,11 +387,11 @@ status_t String16::remove(size_t len, size_t begin)
     if (begin >= N) {
         SharedBuffer::bufferFromData(mString)->release();
         mString = getEmptyString();
-        return NO_ERROR;
+        return OK;
     }
     if ((begin+len) > N) len = N-begin;
     if (begin == 0 && len == N) {
-        return NO_ERROR;
+        return OK;
     }
 
     if (begin > 0) {
@@ -423,7 +410,7 @@ status_t String16::remove(size_t len, size_t begin)
         char16_t* str = (char16_t*)buf->data();
         str[len] = 0;
         mString = str;
-        return NO_ERROR;
+        return OK;
     }
     return NO_MEMORY;
 }

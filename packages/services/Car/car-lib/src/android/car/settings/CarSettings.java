@@ -32,19 +32,50 @@ public class CarSettings {
      */
     public static final class Global {
         /**
-         * Key for when to wake up to run garage mode.
+         * DEPRECATED. Will be removed in Q. Key for when to wake up to run garage mode.
+         * @deprecated not used by GarageMode anymore. Will be removed in Q.
          */
+        @Deprecated
         public static final String KEY_GARAGE_MODE_WAKE_UP_TIME =
                 "android.car.GARAGE_MODE_WAKE_UP_TIME";
         /**
-         * Key for whether garage mode is enabled.
+         * DEPRECATED. Will be removed in Q. Key for whether garage mode is enabled.
+         * @deprecated not used by GarageMode anymore. Will be removed in Q.
          */
+        @Deprecated
         public static final String KEY_GARAGE_MODE_ENABLED = "android.car.GARAGE_MODE_ENABLED";
+
         /**
-         * Key for garage mode maintenance window.
+         * DEPRECATED. Will be removed in Q. Key for garage mode maintenance window.
+         * @deprecated not used by GarageMode anymore. Will be removed in Q.
          */
+        @Deprecated
         public static final String KEY_GARAGE_MODE_MAINTENANCE_WINDOW =
                 "android.car.GARAGE_MODE_MAINTENANCE_WINDOW";
+
+        /**
+         * Key for default user id to boot into.
+         *
+         * @hide
+         */
+        public static final String DEFAULT_USER_ID_TO_BOOT_INTO =
+                "android.car.DEFAULT_BOOT_INTO_USER_ID";
+
+        /**
+         * Key for user id that is last logged in to.
+         *
+         * @hide
+         */
+        public static final String LAST_ACTIVE_USER_ID =
+                "android.car.LAST_ACTIVE_USER_ID";
+
+        /**
+         * Whether default restrictions for users have been set.
+         *
+         * @hide
+         */
+        public static final String DEFAULT_USER_RESTRICTIONS_SET =
+                "android.car.DEFAULT_USER_RESTRICTIONS_SET";
     }
 
     /**
@@ -62,128 +93,56 @@ public class CarSettings {
     public static final int DEFAULT_GARAGE_MODE_MAINTENANCE_WINDOW = 10 * 60 * 1000; // 10 mins
 
     /**
-     * Id for user that is set as default to boot into.
-     *
-     * @hide
-     */
-    public static final int DEFAULT_USER_ID_TO_BOOT_INTO = 10; // Default to first created user.
-
-    /**
-     * Id for user that is last logged in to.
-     *
-     * @hide
-     */
-    public static final int LAST_ACTIVE_USER_ID = 10; // Default to first created user.
-
-    /**
      * @hide
      */
     public static final class Secure {
 
         /**
-         * Key for a list of devices to automatically connect on Bluetooth A2dp/Avrcp profiles
+         * Key for a list of devices to automatically connect on Bluetooth A2DP Sink profile
          * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MUSIC_DEVICES =
-                "android.car.BLUETOOTH_AUTOCONNECT_MUSIC_DEVICES";
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth HFP & PBAP profiles
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         *
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICES =
-                "android.car.BLUETOOTH_AUTOCONNECT_PHONE_DEVICES";
-
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth MAP profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICES =
-                "android.car.BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICES";
+        public static final String KEY_BLUETOOTH_A2DP_SINK_DEVICES =
+                "android.car.KEY_BLUETOOTH_A2DP_SINK_DEVICES";
 
         /**
          * Key for a list of devices to automatically connect on Bluetooth PAN profile
          * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICES =
-                "android.car.BLUETOOTH_AUTOCONNECT_NETWORK_DEVICES";
+        public static final String KEY_BLUETOOTH_PAN_DEVICES =
+                "android.car.KEY_BLUETOOTH_PAN_DEVICES";
 
         /**
-         * Key for setting primary Music Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
+         * Key for a list of devices to automatically connect on Bluetooth HFP Client profile
+         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MUSIC_DEVICE_PRIORITY_0 =
-                "android.car.BLUETOOTH_AUTOCONNECT_MUSIC_DEVICE_PRIORITY_0";
+        public static final String KEY_BLUETOOTH_HFP_CLIENT_DEVICES =
+                "android.car.KEY_BLUETOOTH_HFP_CLIENT_DEVICES";
 
         /**
-         * Key for setting secondary Music Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
+         * Key for a list of devices to automatically connect on Bluetooth MAP Client profile
+         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MUSIC_DEVICE_PRIORITY_1 =
-                "android.car.BLUETOOTH_AUTOCONNECT_MUSIC_DEVICE_PRIORITY_1";
+        public static final String KEY_BLUETOOTH_MAP_CLIENT_DEVICES =
+                "android.car.KEY_BLUETOOTH_MAP_CLIENT_DEVICES";
 
         /**
-         * Key for setting Primary Phone Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
+         * Key for a list of devices to automatically connect on Bluetooth PBAP Client profile
+         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_0 =
-                "android.car.BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_0";
+        public static final String KEY_BLUETOOTH_PBAP_CLIENT_DEVICES =
+                "android.car.KEY_BLUETOOTH_PBAP_CLIENT_DEVICES";
 
         /**
-         * Key for setting Secondary Phone Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
+         * Key for storing temporarily-disconnected devices and profiles.
+         * Read and written by {@link com.android.car.BluetoothDeviceConnectionPolicy}.
          * @hide
          */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_1 =
-                "android.car.BLUETOOTH_AUTOCONNECT_PHONE_DEVICE_PRIORITY_1";
-
-        /**
-         * Key for setting Primary Messaging Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_0 =
-                "android.car.BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_0";
-
-        /**
-         * Key for setting Secondary Messaging Device
-         * Written to by a client with {@link android.Manifest.permission#BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_1 =
-                "android.car.BLUETOOTH_AUTOCONNECT_MESSAGING_DEVICE_PRIORITY_1";
-
-        /**
-         * Key for setting Primary Network Device
-         * Written to by a client with {@link com.android.car.Manifest.permission.BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_0 =
-                "android.car.BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_0";
-
-        /**
-         * Key for setting Secondary Network Device
-         * Written to by a client with {@link com.android.car.Manifest.permission.BLUETOOTH_ADMIN}
-         * Read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_1 =
-                "android.car.BLUETOOTH_AUTOCONNECT_NETWORK_DEVICE_PRIORITY_1";
-
-
+        public static final String KEY_BLUETOOTH_PROFILES_INHIBITED =
+                "android.car.BLUETOOTH_PROFILES_INHIBITED";
     }
 }

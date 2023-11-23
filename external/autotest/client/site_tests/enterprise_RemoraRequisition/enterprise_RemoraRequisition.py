@@ -15,14 +15,19 @@ class enterprise_RemoraRequisition(test.test):
 
 
     def run_once(self):
+        """
+        Runs the test.
+        """
         user_id, password = utils.get_signin_credentials(os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), 'credentials.txt'))
         if not (user_id and password):
             logging.warn('No credentials found - exiting test.')
             return
 
-        with chrome.Chrome(auto_login=False,
-                           disable_gaia_services=False) as cr:
+        with chrome.Chrome(
+                auto_login=False,
+                disable_gaia_services=False,
+                extra_browser_args="--force-devtools-available") as cr:
             enrollment.RemoraEnrollment(cr.browser, user_id, password)
             self.cfm_facade = cfm_facade_native.CFMFacadeNative(cr, 'hotrod')
             self.cfm_facade.check_hangout_extension_context()

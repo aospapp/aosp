@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPTestConstants;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -123,7 +124,7 @@ public class ValueTest extends JDWPSyncTestCase {
         logWriter.println("testStringReferenceValueTest001_InvalidString started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        String signature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
+        String signature = getClassSignature(HelloWorld.class);
         long debuggeeClassID = getClassIDBySignature(signature);
         checkCommandError(debuggeeClassID, JDWPConstants.Error.INVALID_STRING);
 

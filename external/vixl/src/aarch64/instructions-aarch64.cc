@@ -30,24 +30,6 @@
 namespace vixl {
 namespace aarch64 {
 
-
-// Floating-point infinity values.
-const float16 kFP16PositiveInfinity = 0x7c00;
-const float16 kFP16NegativeInfinity = 0xfc00;
-const float kFP32PositiveInfinity = RawbitsToFloat(0x7f800000);
-const float kFP32NegativeInfinity = RawbitsToFloat(0xff800000);
-const double kFP64PositiveInfinity =
-    RawbitsToDouble(UINT64_C(0x7ff0000000000000));
-const double kFP64NegativeInfinity =
-    RawbitsToDouble(UINT64_C(0xfff0000000000000));
-
-
-// The default NaN values (for FPCR.DN=1).
-const double kFP64DefaultNaN = RawbitsToDouble(UINT64_C(0x7ff8000000000000));
-const float kFP32DefaultNaN = RawbitsToFloat(0x7fc00000);
-const float16 kFP16DefaultNaN = 0x7e00;
-
-
 static uint64_t RepeatBitsAcrossReg(unsigned reg_size,
                                     uint64_t value,
                                     unsigned width) {
@@ -180,8 +162,21 @@ uint32_t Instruction::GetImmNEONabcdefgh() const {
 }
 
 
+Float16 Instruction::Imm8ToFloat16(uint32_t imm8) {
+  // Imm8: abcdefgh (8 bits)
+  // Half: aBbb.cdef.gh00.0000 (16 bits)
+  // where B is b ^ 1
+  uint32_t bits = imm8;
+  uint16_t bit7 = (bits >> 7) & 0x1;
+  uint16_t bit6 = (bits >> 6) & 0x1;
+  uint16_t bit5_to_0 = bits & 0x3f;
+  uint16_t result = (bit7 << 15) | ((4 - bit6) << 12) | (bit5_to_0 << 6);
+  return RawbitsToFloat16(result);
+}
+
+
 float Instruction::Imm8ToFP32(uint32_t imm8) {
-  //   Imm8: abcdefgh (8 bits)
+  // Imm8: abcdefgh (8 bits)
   // Single: aBbb.bbbc.defg.h000.0000.0000.0000.0000 (32 bits)
   // where B is b ^ 1
   uint32_t bits = imm8;
@@ -194,11 +189,14 @@ float Instruction::Imm8ToFP32(uint32_t imm8) {
 }
 
 
+Float16 Instruction::GetImmFP16() const { return Imm8ToFloat16(GetImmFP()); }
+
+
 float Instruction::GetImmFP32() const { return Imm8ToFP32(GetImmFP()); }
 
 
 double Instruction::Imm8ToFP64(uint32_t imm8) {
-  //   Imm8: abcdefgh (8 bits)
+  // Imm8: abcdefgh (8 bits)
   // Double: aBbb.bbbb.bbcd.efgh.0000.0000.0000.0000
   //         0000.0000.0000.0000.0000.0000.0000.0000 (64 bits)
   // where B is b ^ 1
@@ -213,6 +211,11 @@ double Instruction::Imm8ToFP64(uint32_t imm8) {
 
 
 double Instruction::GetImmFP64() const { return Imm8ToFP64(GetImmFP()); }
+
+
+Float16 Instruction::GetImmNEONFP16() const {
+  return Imm8ToFloat16(GetImmNEONabcdefgh());
+}
 
 
 float Instruction::GetImmNEONFP32() const {
@@ -545,6 +548,7 @@ unsigned RegisterSizeInBitsFromFormat(VectorFormat vform) {
     case kFormatH:
       return kHRegSize;
     case kFormatS:
+    case kFormat2H:
       return kSRegSize;
     case kFormatD:
       return kDRegSize;
@@ -572,6 +576,7 @@ unsigned LaneSizeInBitsFromFormat(VectorFormat vform) {
     case kFormat16B:
       return 8;
     case kFormatH:
+    case kFormat2H:
     case kFormat4H:
     case kFormat8H:
       return 16;
@@ -603,6 +608,7 @@ int LaneSizeInBytesLog2FromFormat(VectorFormat vform) {
     case kFormat16B:
       return 0;
     case kFormatH:
+    case kFormat2H:
     case kFormat4H:
     case kFormat8H:
       return 1;
@@ -632,6 +638,7 @@ int LaneCountFromFormat(VectorFormat vform) {
     case kFormat4H:
     case kFormat4S:
       return 4;
+    case kFormat2H:
     case kFormat2S:
     case kFormat2D:
       return 2;

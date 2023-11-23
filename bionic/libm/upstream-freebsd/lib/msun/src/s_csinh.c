@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2005 Bruce D. Evans and Steven G. Kargl
  * All rights reserved.
  *
@@ -37,7 +39,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/lib/msun/src/s_csinh.c 284426 2015-06-15 20:16:53Z tijl $");
+__FBSDID("$FreeBSD: head/lib/msun/src/s_csinh.c 336362 2018-07-17 07:42:14Z bde $");
 
 #include <complex.h>
 #include <math.h>
@@ -143,7 +145,8 @@ csinh(double complex z)
 	 * Optionally raises the invalid floating-point exception for finite
 	 * nonzero y.  Choice = don't raise (except for signaling NaNs).
 	 */
-	return (CMPLX((x + x) * (y - y), (x * x) * (y - y)));
+	return (CMPLX(((long double)x + x) * (y - y),
+	    ((long double)x * x) * (y - y)));
 }
 
 double complex

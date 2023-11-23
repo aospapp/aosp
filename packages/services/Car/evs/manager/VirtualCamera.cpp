@@ -45,7 +45,9 @@ void VirtualCamera::shutdown() {
         // Note that if we hit this case, no terminating frame will be sent to the client,
         // but they're probably already dead anyway.
         ALOGW("Virtual camera being shutdown while stream is running");
-        mStreamState = STOPPED;
+
+        // Tell the frame delivery pipeline we don't want any more frames
+        mStreamState = STOPPING;
 
         if (mFramesHeld.size() > 0) {
             ALOGW("VirtualCamera destructing with frames in flight.");
@@ -57,6 +59,9 @@ void VirtualCamera::shutdown() {
             }
             mFramesHeld.clear();
         }
+
+        // Give the underlying hardware camera the heads up that it might be time to stop
+        mHalCamera->clientStreamEnding();
     }
 
     // Drop our reference to our associated hardware camera

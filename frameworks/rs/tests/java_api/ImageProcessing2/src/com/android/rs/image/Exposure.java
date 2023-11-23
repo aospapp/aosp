@@ -18,7 +18,7 @@ package com.android.rs.image2;
 
 import java.lang.Math;
 
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 
 public class Exposure extends TestBase {
     private ScriptC_exposure mScript;

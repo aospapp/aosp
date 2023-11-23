@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-droiddoc_template {
+droiddoc_exported_dir {
     name: "droiddoc-templates-sdk",
     path: "res/assets/templates-sdk",
 }
@@ -24,13 +24,31 @@ java_library_host {
     ],
     static_libs: [
         "jsilver",
-        "guavalib",
+        "guava",
         "antlr-runtime",
         "tagsoup",
     ],
     use_tools_jar: true,
     java_resource_dirs: ["res"],
 }
+
+java_library_host {
+    name: "doclava-no-guava",
+    srcs: [
+        "src/**/*.java",
+    ],
+    libs: [
+        "guava",
+    ],
+    static_libs: [
+        "jsilver",
+        "antlr-runtime",
+        "tagsoup",
+    ],
+    use_tools_jar: true,
+    java_resource_dirs: ["res"],
+}
+
 
 // TODO: add a test target.
 // For now, you can run the unit tests thus:

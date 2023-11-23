@@ -16,6 +16,7 @@
 
 package android.platform.helpers;
 
+/** An App Helper interface for the Phone. */
 public interface IPhoneHelper extends IAppHelper {
     /**
      * Setup expectation: Phone app is open
@@ -30,4 +31,29 @@ public interface IPhoneHelper extends IAppHelper {
      * Hang up
      */
     public void hangUp();
+
+    /**
+     * Setup expectations: Phone app is open.
+     * <p>
+     * Goes to the Contacts tab.
+     */
+    public void navigateToContacts();
+
+    /**
+     * Setup expectations: in Contacts tab.
+     * <p>
+     * Clicks search field and inputs contact to search.
+     *
+     * @param contact The contact to search.
+     */
+    public void searchForContact(String contact);
+
+    /**
+     * Setup expectations: The search results of contact showed.
+     * <p>
+     * Selects the contact by the specific index to make a phone call.
+     *
+     * @param index The index of contact to select.
+     */
+    public void callContactbyIndex(int index);
 }

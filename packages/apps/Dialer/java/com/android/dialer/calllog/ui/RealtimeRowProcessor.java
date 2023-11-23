@@ -24,7 +24,7 @@ import android.support.annotation.VisibleForTesting;
 import android.util.ArrayMap;
 import com.android.dialer.DialerPhoneNumber;
 import com.android.dialer.calllog.model.CoalescedRow;
-import com.android.dialer.calllogutils.NumberAttributesConverter;
+import com.android.dialer.calllogutils.NumberAttributesBuilder;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.Annotations.BackgroundExecutor;
@@ -97,22 +97,22 @@ public final class RealtimeRowProcessor {
   @MainThread
   ListenableFuture<CoalescedRow> applyRealtimeProcessing(final CoalescedRow row) {
     // Cp2DefaultDirectoryPhoneLookup can not always efficiently process all rows.
-    if (!row.numberAttributes().getIsCp2InfoIncomplete()) {
+    if (!row.getNumberAttributes().getIsCp2InfoIncomplete()) {
       return Futures.immediateFuture(row);
     }
 
-    PhoneLookupInfo cachedPhoneLookupInfo = cache.get(row.number());
+    PhoneLookupInfo cachedPhoneLookupInfo = cache.get(row.getNumber());
     if (cachedPhoneLookupInfo != null) {
       return Futures.immediateFuture(applyPhoneLookupInfoToRow(cachedPhoneLookupInfo, row));
     }
 
     ListenableFuture<PhoneLookupInfo> phoneLookupInfoFuture =
-        compositePhoneLookup.lookup(row.number());
+        compositePhoneLookup.lookup(row.getNumber());
     return Futures.transform(
         phoneLookupInfoFuture,
         phoneLookupInfo -> {
-          queuePhoneLookupHistoryWrite(row.number(), phoneLookupInfo);
-          cache.put(row.number(), phoneLookupInfo);
+          queuePhoneLookupHistoryWrite(row.getNumber(), phoneLookupInfo);
+          cache.put(row.getNumber(), phoneLookupInfo);
           return applyPhoneLookupInfoToRow(phoneLookupInfo, row);
         },
         uiExecutor /* ensures the cache is updated on a single thread */);
@@ -198,8 +198,14 @@ public final class RealtimeRowProcessor {
 
   private CoalescedRow applyPhoneLookupInfoToRow(
       PhoneLookupInfo phoneLookupInfo, CoalescedRow row) {
+    // Force the "cp2_info_incomplete" value to the original value so that it is not used when
+    // comparing the original row to the updated row.
+    // TODO(linyuh): Improve the comparison instead.
     return row.toBuilder()
-        .setNumberAttributes(NumberAttributesConverter.fromPhoneLookupInfo(phoneLookupInfo).build())
+        .setNumberAttributes(
+            NumberAttributesBuilder.fromPhoneLookupInfo(phoneLookupInfo)
+                .setIsCp2InfoIncomplete(row.getNumberAttributes().getIsCp2InfoIncomplete())
+                .build())
         .build();
   }
 }

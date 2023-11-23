@@ -54,7 +54,6 @@
 
 #include "bt_common.h"
 #include "bta_api.h"
-#include "bta_closure_api.h"
 #include "bta_pan_api.h"
 #include "btif_common.h"
 #include "btif_pan_internal.h"
@@ -65,6 +64,7 @@
 #include "device/include/controller.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "stack/include/btu.h"
 
 #define FORWARD_IGNORE 1
 #define FORWARD_SUCCESS 0
@@ -369,8 +369,8 @@ void btpan_set_flow_control(bool enable) {
   btpan_cb.flow = enable;
   if (enable) {
     btsock_thread_add_fd(pan_pth, btpan_cb.tap_fd, 0, SOCK_THREAD_FD_RD, 0);
-    do_in_bta_thread(FROM_HERE,
-                     base::Bind(btu_exec_tap_fd_read, btpan_cb.tap_fd));
+    do_in_main_thread(FROM_HERE,
+                      base::Bind(btu_exec_tap_fd_read, btpan_cb.tap_fd));
   }
 }
 
@@ -773,6 +773,6 @@ static void btpan_tap_fd_signaled(int fd, int type, int flags,
     btpan_tap_close(fd);
     btif_pan_close_all_conns();
   } else if (flags & SOCK_THREAD_FD_RD) {
-    do_in_bta_thread(FROM_HERE, base::Bind(btu_exec_tap_fd_read, fd));
+    do_in_main_thread(FROM_HERE, base::Bind(btu_exec_tap_fd_read, fd));
   }
 }

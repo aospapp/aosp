@@ -394,8 +394,8 @@ def direct_main(argv):
         opts.dir = os.path.dirname(os.path.abspath(git_dir))
     elif not os.path.isdir(opts.dir):
         parser.error('Invalid dir: %s' % opts.dir)
-    elif not os.path.isdir(os.path.join(opts.dir, '.git')):
-        parser.error('Not a git directory: %s' % opts.dir)
+    elif not rh.git.is_git_repository(opts.dir):
+        parser.error('Not a git repository: %s' % opts.dir)
 
     # Identify the project if it wasn't specified; this _requires_ the repo
     # tool to be installed and for the project to be part of a repo checkout.

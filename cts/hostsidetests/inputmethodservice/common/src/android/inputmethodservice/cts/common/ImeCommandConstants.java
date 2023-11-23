@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.common;
@@ -35,7 +35,8 @@ public final class ImeCommandConstants {
     public static final String EXTRA_ARG_INT1 = "arg_int1";
 
     /**
-     * This command has the mock IME call {@link android.view.inputmethod.InputConnection#commitText(CharSequence,int) InputConnection#commitText(CharSequence text, int newCursorPosition)}.
+     * This command has the mock IME call {@link
+     * android.view.inputmethod.InputConnection#commitText(CharSequence,int).
      * <ul>
      * <li>argument {@code text} needs to be specified by {@link #EXTRA_ARG_CHARSEQUENCE1}.</li>
      * <li>argument {@code newCursorPosition} needs to be specified by {@link #EXTRA_ARG_INT1}.</li>
@@ -44,7 +45,8 @@ public final class ImeCommandConstants {
     public static final String COMMAND_COMMIT_TEXT = "commitText";
 
     /**
-     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchInputMethod(String)} InputMethodService#switchInputMethod(String imeId)}.
+     * This command has the mock IME call {@link
+     * android.inputmethodservice.InputMethodService#switchInputMethod(String)}.
      * <ul>
      * <li>argument {@code imeId} needs to be specified by {@link #EXTRA_ARG_STRING1}.</li>
      * </ul>
@@ -52,25 +54,31 @@ public final class ImeCommandConstants {
     public static final String COMMAND_SWITCH_INPUT_METHOD = "switchInputMethod";
 
     /**
-     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchInputMethod(String, InputMethodSubtype)} InputMethodService#switchInputMethod(String imeId, InputMethodSubtype subtype)}.
+     * This command has the mock IME call {@link
+     * android.inputmethodservice.InputMethodService#switchInputMethod(String,
+     * android.view.inputmethod.InputMethodSubtype)}.
      * <ul>
      * <li>argument {@code imeId} needs to be specified by {@link #EXTRA_ARG_STRING1}.</li>
      * </ul>
      */
-    public static final String COMMAND_SWITCH_INPUT_METHOD_WITH_SUBTYPE = "switchInputMethodWithSubtype";
+    public static final String COMMAND_SWITCH_INPUT_METHOD_WITH_SUBTYPE =
+            "switchInputMethodWithSubtype";
 
     /**
-     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchToNextInputMethod(boolean)} InputMethodService#switchToNextInputMethod(boolean onlyCurrentIme)}.
+     * This command has the mock IME call {@link
+     * android.inputmethodservice.InputMethodService#switchToNextInputMethod(boolean)}.
      */
     public static final String COMMAND_SWITCH_TO_NEXT_INPUT = "switchToNextInput";
 
     /**
-     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#switchToPreviousInputMethod()} InputMethodService#switchToPreviousInputMethod()}.
+     * This command has the mock IME call {@link
+     * android.inputmethodservice.InputMethodService#switchToPreviousInputMethod()}.
      */
     public static final String COMMAND_SWITCH_TO_PREVIOUS_INPUT = "switchToPreviousInputMethod";
 
     /**
-     * This command has the mock IME call {@link android.inputmethodservice.InputMethodService#requestHideSelf(int)} InputMethodService#requestHideSelf(int flags)}.
+     * This command has the mock IME call {@link
+     * android.inputmethodservice.InputMethodService#requestHideSelf(int)}.
      * <ul>
      * <li>argument {@code flags} needs to be specified by {@link #EXTRA_ARG_INT1}.</li>
      * </ul>

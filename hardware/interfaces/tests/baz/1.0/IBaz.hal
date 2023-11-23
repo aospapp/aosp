@@ -36,6 +36,17 @@ interface IBaz extends IBase {
     typedef SomeOtherEnum thisIsAnAlias;
     typedef IBaz anIBazByAnyOtherName;
 
+    struct NastyNester {
+        struct NestersNasty {
+            struct NestersNastyNester {
+                IBaz baz;
+                vec<NestersNasty> nasties;
+            };
+        };
+
+        IBaz baz;
+    };
+
     enum SomeEnum : SomeOtherEnum {
         quux = 33,
         goober = 192,
@@ -68,8 +79,16 @@ interface IBaz extends IBase {
         bitfield<BitField> bf;
     };
 
+    struct MyHandle {
+        handle h;
+        int32_t guard;
+    };
+
     struct StructWithInterface {
         int32_t number;
+        int8_t[7] array;
+        string oneString;
+        vec<string> vectorOfStrings;
         IBase dummy;
     };
     oneway doThis(float param);

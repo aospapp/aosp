@@ -16,7 +16,7 @@
 #include "Ala.h"
 #include "AlaLib.h"
 #include <data_types.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <dirent.h>
 
 static INT16 alaHandle;

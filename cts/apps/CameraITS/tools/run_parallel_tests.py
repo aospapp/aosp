@@ -63,7 +63,7 @@ def main():
     if scenes is None:
         scenes = auto_scenes
 
-    print ">>> Start the at %s" % time.strftime('%Y/%m/%d %H:%M:%S')
+    print ">>> Start the test at %s" % time.strftime('%Y/%m/%d %H:%M:%S')
     for scene in scenes:
         cmds = []
         cmds.append(build_cmd(device0_id, chart_host_id, device1_id, 0, scene))

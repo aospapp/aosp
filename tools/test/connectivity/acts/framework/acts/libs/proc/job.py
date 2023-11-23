@@ -58,7 +58,8 @@ class Result(object):
     def stdout(self):
         """String representation of standard output."""
         if not self._stdout_str:
-            self._stdout_str = self._raw_stdout.decode(encoding=self._encoding)
+            self._stdout_str = self._raw_stdout.decode(encoding=self._encoding,
+                                                       errors='replace')
             self._stdout_str = self._stdout_str.strip()
         return self._stdout_str
 
@@ -66,7 +67,8 @@ class Result(object):
     def stderr(self):
         """String representation of standard error."""
         if not self._stderr_str:
-            self._stderr_str = self._raw_stderr.decode(encoding=self._encoding)
+            self._stderr_str = self._raw_stderr.decode(encoding=self._encoding,
+                                                       errors='replace')
             self._stderr_str = self._stderr_str.strip()
         return self._stderr_str
 

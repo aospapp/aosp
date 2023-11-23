@@ -19,7 +19,6 @@ package com.android.tools.metalava.model.text
 import com.android.tools.metalava.doclava1.SourcePositionInfo
 import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.DefaultItem
-import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.MutableModifierList
 
 abstract class TextItem(
@@ -27,25 +26,20 @@ abstract class TextItem(
     val position: SourcePositionInfo,
     override var docOnly: Boolean = false,
     override var documentation: String = "",
-    override var modifiers: ModifierList
+    override var modifiers: TextModifiers
 ) : DefaultItem() {
 
+    override var originallyHidden = false
     override var hidden = false
     override var removed = false
 
     override fun findTagDocumentation(tag: String): String? = null
     override fun appendDocumentation(comment: String, tagSection: String?, append: Boolean) = codebase.unsupported()
-    override fun mutableModifiers(): MutableModifierList = modifiers as MutableModifierList
+    override fun mutableModifiers(): MutableModifierList = modifiers
     override fun isJava(): Boolean = codebase.unsupported() // source language not recorded in signature files
     override fun isKotlin(): Boolean = codebase.unsupported() // source language not recorded in signature files
 
-    private var mutableDeprecated = false
-    override val deprecated
-        get() = mutableDeprecated
+    override var deprecated = false
 
     override fun isCloned(): Boolean = false
-
-    fun setDeprecated(deprecated: Boolean) {
-        mutableDeprecated = deprecated
-    }
 }

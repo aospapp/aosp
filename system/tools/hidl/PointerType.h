@@ -45,6 +45,19 @@ struct PointerType : public Type {
             bool isReader,
             ErrorMode mode) const override;
 
+    void emitReaderWriterEmbedded(
+            Formatter &out,
+            size_t depth,
+            const std::string &name,
+            const std::string &sanitizedName,
+            bool nameIsPointer,
+            const std::string &parcelObj,
+            bool parcelObjIsPointer,
+            bool isReader,
+            ErrorMode mode,
+            const std::string &parentName,
+            const std::string &offsetText) const override;
+
     bool needsEmbeddedReadWrite() const override;
     bool resultNeedsDeref() const override;
 

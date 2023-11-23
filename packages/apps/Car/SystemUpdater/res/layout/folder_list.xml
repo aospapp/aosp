@@ -26,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:textAppearance="@style/TextAppearance.Car.Body2"
-        android:layout_marginStart="@dimen/car_gutter_size"
+        android:layout_marginStart="@dimen/car_gutter_width"
         android:layout_marginEnd="@dimen/car_margin"/>
 
     <androidx.car.widget.PagedListView

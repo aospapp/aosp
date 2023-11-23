@@ -16,13 +16,12 @@
 
 package com.google.turbine.deps;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.turbine.binder.Binder.BindingResult;
+import com.google.turbine.binder.ClassPath;
 import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bytecode.BytecodeBoundClass;
 import com.google.turbine.binder.env.CompoundEnv;
@@ -40,16 +39,14 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 
 /** Support for Bazel jdeps dependency output. */
 public class Dependencies {
   /** Creates a jdeps proto for the current compilation. */
   public static DepsProto.Dependencies collectDeps(
-      Optional<String> targetLabel,
-      ImmutableSet<String> bootClassPath,
-      BindingResult bound,
-      Lowered lowered) {
+      Optional<String> targetLabel, ClassPath bootclasspath, BindingResult bound, Lowered lowered) {
     DepsProto.Dependencies.Builder deps = DepsProto.Dependencies.newBuilder();
     Set<ClassSymbol> closure = superTypeClosure(bound, lowered);
     addPackageInfos(closure, bound);
@@ -61,7 +58,7 @@ public class Dependencies {
         continue;
       }
       String jarFile = info.jarFile();
-      if (bootClassPath.contains(jarFile)) {
+      if (bootclasspath.env().get(sym) != null) {
         // bootclasspath deps are not tracked
         continue;
       }
@@ -133,13 +130,13 @@ public class Dependencies {
    */
   public static Collection<String> reduceClasspath(
       ImmutableList<String> transitiveClasspath,
-      ImmutableMap<String, String> directJarsToTargets,
+      ImmutableSet<String> directJars,
       ImmutableList<String> depsArtifacts) {
-    if (directJarsToTargets.isEmpty()) {
+    if (directJars.isEmpty()) {
       // the compilation doesn't support strict deps (e.g. proto libraries)
       return transitiveClasspath;
     }
-    Set<String> reduced = new HashSet<>(directJarsToTargets.keySet());
+    Set<String> reduced = new HashSet<>(directJars);
     for (String path : depsArtifacts) {
       DepsProto.Dependencies.Builder deps = DepsProto.Dependencies.newBuilder();
       try (InputStream is = new BufferedInputStream(Files.newInputStream(Paths.get(path)))) {

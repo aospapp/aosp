@@ -23,6 +23,7 @@ import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
+import android.content.pm.PackageManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -65,13 +66,23 @@ public class MeanVerification extends AbstractMeanVerification {
      * @return the verification or null if the verification does not apply to the sensor.
      */
     public static MeanVerification getDefault(TestSensorEnvironment environment) {
+
+        Map<Integer, ExpectedValuesAndThresholds> currentDefaults =
+                new HashMap<Integer, ExpectedValuesAndThresholds>(DEFAULTS);
+
+        // For automotive flag, add car default tests.
+        if(environment.getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE)) {
+            addCarDefaultTests(currentDefaults);
+        }
+
         int sensorType = environment.getSensor().getType();
-        if (!DEFAULTS.containsKey(sensorType)) {
+        if (!currentDefaults.containsKey(sensorType)) {
             return null;
         }
-        float[] expected = DEFAULTS.get(sensorType).mExpectedValues;
-        float[] upperThresholds = DEFAULTS.get(sensorType).mUpperThresholds;
-        float[] lowerThresholds = DEFAULTS.get(sensorType).mLowerThresholds;
+        float[] expected = currentDefaults.get(sensorType).mExpectedValues;
+        float[] upperThresholds = currentDefaults.get(sensorType).mUpperThresholds;
+        float[] lowerThresholds = currentDefaults.get(sensorType).mLowerThresholds;
         return new MeanVerification(expected, upperThresholds, lowerThresholds);
     }
 
@@ -184,6 +195,20 @@ public class MeanVerification extends AbstractMeanVerification {
                                                         Float.MAX_VALUE,
                                                         Float.MAX_VALUE,
                                                         Float.MAX_VALUE}));
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void addCarDefaultTests(Map<Integer, ExpectedValuesAndThresholds> defaults) {
+        // Sensors that are being tested for mean verification for the car.
+        // Accelerometer axes should be aligned to car axes: X right, Y forward, Z up.
+        // Refer for car axes: https://source.android.com/devices/sensors/sensor-types
+        // Verifying Z axis is Gravity, X and Y is zero as car is expected to be stationary.
+        // Tolerance set to 1.95 as used in CTS Verifier tests.
+        defaults.put(Sensor.TYPE_ACCELEROMETER,
+                new ExpectedValuesAndThresholds(
+                        new float[]{0.0f, 0.0f, SensorManager.STANDARD_GRAVITY},
+                        new float[]{1.95f, 1.95f, 1.95f} /* m / s^2 */,
+                        new float[]{1.95f, 1.95f, 1.95f} /* m / s^2 */));
     }
 
     private static final class ExpectedValuesAndThresholds {

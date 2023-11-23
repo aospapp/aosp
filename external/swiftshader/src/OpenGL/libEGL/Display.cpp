@@ -30,7 +30,7 @@
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 #include <fcntl.h>
-#elif defined(__linux__)
+#elif defined(USE_X11)
 #include "Main/libX11.hpp"
 #elif defined(__APPLE__)
 #include "OSXUtils.hpp"
@@ -66,7 +66,7 @@ Display *Display::get(EGLDisplay dpy)
 
 	static void *nativeDisplay = nullptr;
 
-	#if defined(__linux__) && !defined(__ANDROID__)
+	#if defined(USE_X11)
 		// Even if the application provides a native display handle, we open (and close) our own connection
 		if(!nativeDisplay && dpy != HEADLESS_DISPLAY && libX11 && libX11->XOpenDisplay)
 		{
@@ -89,7 +89,7 @@ Display::~Display()
 {
 	terminate();
 
-	#if defined(__linux__) && !defined(__ANDROID__)
+	#if defined(USE_X11)
 		if(nativeDisplay && libX11->XCloseDisplay)
 		{
 			libX11->XCloseDisplay((::Display*)nativeDisplay);
@@ -105,6 +105,7 @@ Display::~Display()
 	#define __x86_64__ 1
 #endif
 
+#if defined(__i386__) || defined(__x86_64__)
 static void cpuid(int registers[4], int info)
 {
 	#if defined(__i386__) || defined(__x86_64__)
@@ -127,6 +128,7 @@ static bool detectSSE()
 	cpuid(registers, 1);
 	return (registers[3] & 0x02000000) != 0;
 }
+#endif
 
 bool Display::initialize()
 {
@@ -183,14 +185,10 @@ bool Display::initialize()
 
 	for(unsigned int samplesIndex = 0; samplesIndex < sizeof(samples) / sizeof(int); samplesIndex++)
 	{
-		for(unsigned int formatIndex = 0; formatIndex < sizeof(renderTargetFormats) / sizeof(sw::Format); formatIndex++)
+		for(sw::Format renderTargetFormat : renderTargetFormats)
 		{
-			sw::Format renderTargetFormat = renderTargetFormats[formatIndex];
-
-			for(unsigned int depthStencilIndex = 0; depthStencilIndex < sizeof(depthStencilFormats) / sizeof(sw::Format); depthStencilIndex++)
+			for(sw::Format depthStencilFormat : depthStencilFormats)
 			{
-				sw::Format depthStencilFormat = depthStencilFormats[depthStencilIndex];
-
 				configSet.add(currentDisplayFormat, mMinSwapInterval, mMaxSwapInterval, renderTargetFormat, depthStencilFormat, samples[samplesIndex]);
 			}
 		}
@@ -288,7 +286,7 @@ bool Display::getConfigAttrib(EGLConfig config, EGLint attribute, EGLint *value)
 	return true;
 }
 
-EGLSurface Display::createWindowSurface(EGLNativeWindowType window, EGLConfig config, const EGLint *attribList)
+EGLSurface Display::createWindowSurface(EGLNativeWindowType window, EGLConfig config, const EGLAttrib *attribList)
 {
 	const Config *configuration = mConfigSet.get(config);
 
@@ -426,7 +424,8 @@ EGLSurface Display::createPBufferSurface(EGLConfig config, const EGLint *attribL
 			case EGL_MIPMAP_TEXTURE:
 				if(attribList[1] != EGL_FALSE)
 				{
-					return error(EGL_BAD_ATTRIBUTE, EGL_NO_SURFACE);
+					UNIMPLEMENTED();
+					return error(EGL_BAD_MATCH, EGL_NO_SURFACE);
 				}
 				break;
 			case EGL_VG_COLORSPACE:
@@ -579,7 +578,7 @@ EGLContext Display::createContext(EGLConfig configHandle, const egl::Context *sh
 	{
 		if(libGLESv2)
 		{
-			context = libGLESv2->es2CreateContext(this, shareContext, clientVersion, config);
+			context = libGLESv2->es2CreateContext(this, shareContext, config);
 		}
 	}
 	else
@@ -671,16 +670,16 @@ bool Display::isValidWindow(EGLNativeWindowType window)
 	#elif defined(__ANDROID__)
 		if(!window)
 		{
-			ALOGE("%s called with window==NULL %s:%d", __FUNCTION__, __FILE__, __LINE__);
+			ERR("%s called with window==NULL %s:%d", __FUNCTION__, __FILE__, __LINE__);
 			return false;
 		}
 		if(static_cast<ANativeWindow*>(window)->common.magic != ANDROID_NATIVE_WINDOW_MAGIC)
 		{
-			ALOGE("%s called with window==%p bad magic %s:%d", __FUNCTION__, window, __FILE__, __LINE__);
+			ERR("%s called with window==%p bad magic %s:%d", __FUNCTION__, window, __FILE__, __LINE__);
 			return false;
 		}
 		return true;
-	#elif defined(__linux__)
+	#elif defined(USE_X11)
 		if(nativeDisplay)
 		{
 			XWindowAttributes windowAttributes;
@@ -689,6 +688,8 @@ bool Display::isValidWindow(EGLNativeWindowType window)
 			return status != 0;
 		}
 		return false;
+	#elif defined(__linux__)
+		return false;  // Non X11 linux is headless only
 	#elif defined(__APPLE__)
 		return sw::OSX::IsValidWindow(window);
 	#elif defined(__Fuchsia__)
@@ -846,7 +847,7 @@ sw::Format Display::getDisplayFormat() const
 
 		// No framebuffer device found, or we're in user space
 		return sw::FORMAT_X8B8G8R8;
-	#elif defined(__linux__)
+	#elif defined(USE_X11)
 		if(nativeDisplay)
 		{
 			Screen *screen = libX11->XDefaultScreenOfDisplay((::Display*)nativeDisplay);
@@ -864,6 +865,8 @@ sw::Format Display::getDisplayFormat() const
 		{
 			return sw::FORMAT_X8R8G8B8;
 		}
+	#elif defined(__linux__)  // Non X11 linux is headless only
+		return sw::FORMAT_A8B8G8R8;
 	#elif defined(__APPLE__)
 		return sw::FORMAT_A8B8G8R8;
 	#elif defined(__Fuchsia__)

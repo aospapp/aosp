@@ -8,10 +8,7 @@
 #include <string.h>
 #include <ctime>
 
-#include "base/logging.h"
-#include "base/strings/string_split.h"
-#include "base/strings/string_util.h"
-
+#include "arraysize.h"
 #include "glinterface.h"
 #include "main.h"
 #include "utils.h"
@@ -22,14 +19,19 @@
 using std::string;
 using std::vector;
 
-DEFINE_int32(duration, 0,
-             "Run all tests again and again in a loop for at least this many seconds.");
-DEFINE_string(tests, "",
+DEFINE_int32(
+    duration,
+    0,
+    "Run all tests again and again in a loop for at least this many seconds.");
+DEFINE_string(tests,
+              "",
               "Colon-separated list of tests to run; all tests if omitted.");
 DEFINE_string(blacklist, "", "colon-separated list of tests to disable");
-DEFINE_bool(hasty, false,
-            "Run a smaller set of tests with less accurate results. "
-            "Useful for running in BVT or debugging a failure.  Implies notemp");
+DEFINE_bool(
+    hasty,
+    false,
+    "Run a smaller set of tests with less accurate results. "
+    "Useful for running in BVT or debugging a failure.  Implies notemp");
 DEFINE_bool(list, false, "List available tests");
 DEFINE_bool(notemp, false, "Skip temperature checking");
 DEFINE_bool(verbose, false, "Print extra debugging messages");
@@ -57,7 +59,7 @@ bool test_is_enabled(glbench::TestBase* test,
 }
 
 bool test_is_disabled(glbench::TestBase* test,
-                     const vector<string>& disabled_tests) {
+                      const vector<string>& disabled_tests) {
   if (disabled_tests.empty())
     return false;
 
@@ -74,11 +76,11 @@ bool test_is_disabled(glbench::TestBase* test,
 }
 
 void printDateTime(void) {
-  struct tm *ttime;
+  struct tm* ttime;
   time_t tm = time(0);
   char time_string[64];
   ttime = localtime(&tm);
-  strftime(time_string, 63, "%c",ttime);
+  strftime(time_string, 63, "%c", ttime);
   printf("# DateTime: %s\n", time_string);
 }
 
@@ -87,15 +89,14 @@ bool PassesSanityCheck(void) {
   glGetIntegerv(GL_MAX_VIEWPORT_DIMS, size);
   printf("# MAX_VIEWPORT_DIMS=(%d, %d)\n", size[0], size[1]);
   if (size[0] < g_width || size[1] < g_height) {
-    printf("# Error: MAX_VIEWPORT_DIMS=(%d, %d) are too small.\n",
-           size[0], size[1]);
+    printf("# Error: MAX_VIEWPORT_DIMS=(%d, %d) are too small.\n", size[0],
+           size[1]);
     return false;
   }
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, size);
   printf("# GL_MAX_TEXTURE_SIZE=%d\n", size[0]);
   if (size[0] < g_width || size[0] < g_height) {
-    printf("# Error: MAX_TEXTURE_SIZE=%d is too small.\n",
-           size[0]);
+    printf("# Error: MAX_TEXTURE_SIZE=%d is too small.\n", size[0]);
     return false;
   }
   g_max_texture_size = size[0];
@@ -103,7 +104,7 @@ bool PassesSanityCheck(void) {
   return true;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   SetBasePathFromArgv0(argv[0], "src");
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
@@ -115,17 +116,19 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  printf("# board_id: %s - %s\n",
-         glGetString(GL_VENDOR), glGetString(GL_RENDERER));
+  printf("# board_id: %s - %s\n", glGetString(GL_VENDOR),
+         glGetString(GL_RENDERER));
   if (!PassesSanityCheck())
     return 1;
   g_main_gl_interface->Cleanup();
 
   if (argc == 1) {
-    printf("# Usage: %s [-save [-outdir=<directory>]] to save images\n", argv[0]);
+    printf("# Usage: %s [-save [-outdir=<directory>]] to save images\n",
+           argv[0]);
   } else {
     printf("# Running: ");
-    for (int i = 0; i < argc; i++) printf("%s ", argv[i]);
+    for (int i = 0; i < argc; i++)
+      printf("%s ", argv[i]);
     printf("\n");
   }
   printDateTime();
@@ -136,33 +139,33 @@ int main(int argc, char *argv[]) {
   if (!g_notemp)
     g_initial_temperature = GetMachineTemperature();
 
-  vector<string> enabled_tests =
-      base::SplitString(FLAGS_tests, ":", base::TRIM_WHITESPACE,
-                        base::SPLIT_WANT_ALL);
-  vector<string> disabled_tests =
-      base::SplitString(FLAGS_blacklist, ":", base::TRIM_WHITESPACE,
-                        base::SPLIT_WANT_ALL);
+  vector<string> enabled_tests = SplitString(FLAGS_tests, ":", true);
+  vector<string> disabled_tests = SplitString(FLAGS_blacklist, ":", true);
 
   glbench::TestBase* tests[] = {
-    // Please add new tests at the end of this list as tests are known to bleed
-    // state. Reordering them or inserting a new test may cause a change in the
-    // output images and MD5 causing graphics_GLBench failures.
-    // TODO(ihf): Fix this.
-    glbench::GetSwapTest(),
-    glbench::GetContextTest(),
-    glbench::GetClearTest(),
-    glbench::GetFillRateTest(),
-    glbench::GetWindowManagerCompositingTest(false),
-    glbench::GetWindowManagerCompositingTest(true),
-    glbench::GetTriangleSetupTest(),
-    glbench::GetYuvToRgbTest(),
-    glbench::GetReadPixelTest(),
-    glbench::GetAttributeFetchShaderTest(),
-    glbench::GetVaryingsAndDdxyShaderTest(),
-    glbench::GetTextureReuseTest(),
-    glbench::GetTextureUpdateTest(),
-    glbench::GetTextureUploadTest(),
-    glbench::GetFboFillRateTest(),
+      // Please add new tests at the end of this list as tests are known to
+      // bleed state. Reordering them or inserting a new test may cause a
+      // change in the output images and MD5 causing graphics_GLBench failures.
+      // TODO(ihf): Fix this.
+      glbench::GetSwapTest(),
+      glbench::GetContextTest(),
+      glbench::GetClearTest(),
+      glbench::GetFillRateTest(),
+      glbench::GetWindowManagerCompositingTest(false),
+      glbench::GetWindowManagerCompositingTest(true),
+      glbench::GetTriangleSetupTest(),
+      glbench::GetYuvToRgbTest(),
+      glbench::GetReadPixelTest(),
+      glbench::GetAttributeFetchShaderTest(),
+      glbench::GetVaryingsAndDdxyShaderTest(),
+      glbench::GetTextureReuseTest(),
+      glbench::GetTextureUpdateTest(),
+      glbench::GetTextureUploadTest(),
+      glbench::GetFboFillRateTest(),
+      glbench::GetDrawSizeTest(),
+      glbench::GetTextureRebindTest(),
+      glbench::GetBufferUploadTest(),
+      glbench::GetBufferUploadSubTest(),
   };
 
   if (FLAGS_list) {

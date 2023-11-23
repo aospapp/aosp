@@ -20,8 +20,12 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
+import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioRouting;
+import android.os.Build;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 public class AudioNativeTest extends CtsAndroidTestCase {
@@ -240,11 +244,20 @@ public class AudioNativeTest extends CtsAndroidTestCase {
 
         AudioManager audioManager =
                 (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        AudioDeviceInfo[] inputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
+
+        if (ApiLevelUtil.isAfter(Build.VERSION_CODES.P)) {
+            testInputChannelMasksPostQ(inputDevices);
+        } else {
+            testInputChannelMasksPreQ(inputDevices);
+        }
+    }
+
+    private void testInputChannelMasksPreQ(AudioDeviceInfo[] inputDevices) {
         AudioRecordNative recorder = new AudioRecordNative();
 
         int maxInputChannels = 0;
-        for (AudioDeviceInfo deviceInfo :
-                audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
+        for (AudioDeviceInfo deviceInfo : inputDevices) {
             for (int channels : deviceInfo.getChannelCounts()) {
                 maxInputChannels = Math.max(channels, maxInputChannels);
             }
@@ -263,6 +276,55 @@ public class AudioNativeTest extends CtsAndroidTestCase {
             boolean ok = recorder.open(channelCount,
                 mask | CHANNEL_INDEX_MASK_MAGIC, 48000, false, 2);
             recorder.close();
+            assertEquals(expectSuccess, ok);
+        }
+    }
+
+    private void testInputChannelMasksPostQ(AudioDeviceInfo[] inputDevices) {
+        AudioRecordNative recorder = new AudioRecordNative();
+
+        // first determine device selected for capture with channel index mask.
+        boolean res = recorder.open(1, 1 | CHANNEL_INDEX_MASK_MAGIC, 16000, false, 2);
+        // capture one channel at 16kHz is mandated by CDD
+        assertTrue(res);
+        AudioRouting router = recorder.getRoutingInterface();
+        AudioDeviceInfo device = router.getRoutedDevice();
+        assertNotNull(device);
+        recorder.close();
+
+        int indexChannelMasks[] = device.getChannelIndexMasks();
+        int posChannelMasks[] = device.getChannelMasks();
+        int bestEquivIndexMask = 0;
+
+        // Capture must succeed if the device supports index channel masks or less than
+        // two positional channels
+        boolean defaultExpectSuccess = false;
+        if (indexChannelMasks.length != 0) {
+            defaultExpectSuccess = true;
+        } else {
+            for (int mask : posChannelMasks) {
+                int channelCount = AudioFormat.channelCountFromInChannelMask(mask);
+                if (channelCount <= 2) {
+                     defaultExpectSuccess = true;
+                     break;
+                }
+                int equivIndexMask = (1 << channelCount) - 1;
+                if (equivIndexMask > bestEquivIndexMask) {
+                    bestEquivIndexMask = equivIndexMask;
+                }
+            }
+        }
+
+        for (int mask = 1; mask <= MAX_INDEX_MASK; ++mask) {
+            // Capture must succeed if the number of positional channels is enough to include
+            // one of the requested index channels
+            boolean expectSuccess = defaultExpectSuccess || ((mask & bestEquivIndexMask) != 0);
+
+            int channelCount = Long.bitCount(mask);
+            boolean ok = recorder.open(channelCount,
+                mask | CHANNEL_INDEX_MASK_MAGIC, 48000, false, 2);
+            recorder.close();
+
             assertEquals(expectSuccess, ok);
         }
     }

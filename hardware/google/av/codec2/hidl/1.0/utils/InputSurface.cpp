@@ -129,15 +129,15 @@ Return<void> InputSurface::connectToComponent(
     } else {
         std::shared_ptr<C2Component> comp = mStore->findC2Component(component);
         if (!comp) {
-            status = Status::BAD_VALUE;
+            conn = new InputSurfaceConnection(mSource, component);
         } else {
             conn = new InputSurfaceConnection(mSource, comp);
-            if (!conn->init()) {
-                conn = nullptr;
-                status = Status::BAD_VALUE;
-            } else {
-                status = Status::OK;
-            }
+        }
+        if (!conn->init()) {
+            conn = nullptr;
+            status = Status::BAD_VALUE;
+        } else {
+            status = Status::OK;
         }
     }
     _hidl_cb(status, conn);
@@ -287,13 +287,13 @@ Return<void> InputSurface::getUniqueId(
 // Constructor is exclusive to ComponentStore.
 InputSurface::InputSurface(
         const sp<ComponentStore>& store,
+        const std::shared_ptr<C2ReflectorHelper>& reflector,
         const sp<HGraphicBufferProducer>& base,
         const sp<GraphicBufferSource>& source) :
     mStore(store),
     mBase(base),
     mSource(source),
-    mHelper(std::make_shared<ConfigurableImpl>(
-            std::static_pointer_cast<C2ReflectorHelper>(store->mParamReflector))),
+    mHelper(std::make_shared<ConfigurableImpl>(reflector)),
     mConfigurable(new CachedConfigurable(
             std::make_unique<ConfigurableWrapper>(mHelper, source))) {
 

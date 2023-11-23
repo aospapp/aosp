@@ -9,6 +9,7 @@ cc_binary(
     name = "runtests",
     srcs = [
         "src/aes-cmac-tests.cc",
+        "src/faceauth_tests.cc",
         "src/gtest_with_gflags_main.cc",
         "src/keymaster-import-key-tests.cc",
         "src/keymaster-import-wrapped-key-tests.cc",
@@ -17,16 +18,19 @@ cc_binary(
         "src/runtests.cc",
         "src/weaver_tests.cc",
         "src/avb_tests.cc",
+        "src/transport_tests.cc",
     ],
     copts = COPTS,
     deps = [
         ":dcrypto_test_data",
         ":km_test_lib",
+        ":reset_key_data_lib",
         ":util",
         "@boringssl//:ssl",
         "@com_github_gflags_gflags//:gflags",
         "@gtest//:gtest",
         "@nugget_core_nugget//:config_chip",
+        "@nugget_core_nugget//:faceauth_common",
         "@nugget_host_generic_libnos//:libnos",
         "@nugget_host_generic_nugget_proto//:keymaster_client_proto",
         "@nugget_host_generic_nugget_proto//:nugget_app_keymaster_keymaster_cc_proto",
@@ -81,7 +85,6 @@ cc_library(
         "src/util.cc",
     ],
     hdrs = [
-        "src/blob.h",
         "src/macros.h",
         "src/util.h",
     ],
@@ -92,6 +95,16 @@ cc_library(
         "@nugget_host_generic_nugget_proto//:nugget_app_protoapi_testing_api_cc_proto",
         "@nugget_test_systemtestharness_tools//:nugget_tools",
         "@nugget_thirdparty_ahdlc//:ahdlc",
+    ],
+)
+
+cc_library(
+    name = "reset_key_data_lib",
+    srcs = [
+        "src/test-data/test-keys/reset_key_data.cc",
+    ],
+    hdrs = [
+        "src/test-data/test-keys/reset_key_data.h",
     ],
 )
 

@@ -20,14 +20,17 @@ import android.car.storagemonitoring.IoStatsEntry;
 import android.car.storagemonitoring.UidIoRecord;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.SparseArray;
+
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.systeminterface.SystemStateInterface;
+
+import junit.framework.TestCase;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import junit.framework.TestCase;
 
 /**
  * Tests IoStatsTracker functionality.
@@ -299,7 +302,7 @@ public class IoStatsTrackerTest extends TestCase {
         }
 
         @Override
-        public boolean enterDeepSleep(int wakeupTimeSec) {
+        public boolean enterDeepSleep() {
             return true;
         }
 

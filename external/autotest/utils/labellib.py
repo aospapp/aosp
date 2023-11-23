@@ -23,8 +23,6 @@ class Key(object):
     """Enum for keyval label keys."""
     CROS_VERSION = 'cros-version'
     CROS_ANDROID_VERSION = 'cheets-version'
-    ANDROID_BUILD_VERSION = 'ab-version'
-    TESTBED_VERSION = 'testbed-version'
     FIRMWARE_RW_VERSION = 'fwrw-version'
     FIRMWARE_RO_VERSION = 'fwro-version'
 

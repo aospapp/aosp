@@ -11,6 +11,7 @@
 #ifndef V4L2_DEVICE_H_
 #define V4L2_DEVICE_H_
 
+#include <linux/videodev2.h>
 #include <map>
 #include <stddef.h>
 #include <stdint.h>
@@ -21,7 +22,6 @@
 #include "video_codecs.h"
 #include "video_decode_accelerator.h"
 #include "video_pixel_format.h"
-#include "videodev2.h"
 
 // TODO(posciak): remove this once V4L2 headers are updated.
 #define V4L2_PIX_FMT_MT21 v4l2_fourcc('M', 'T', '2', '1')
@@ -40,8 +40,7 @@ class V4L2Device : public base::RefCountedThreadSafe<V4L2Device> {
   // Utility format conversion functions
   static VideoPixelFormat V4L2PixFmtToVideoPixelFormat(uint32_t format);
   static uint32_t VideoPixelFormatToV4L2PixFmt(VideoPixelFormat format);
-  static uint32_t VideoCodecProfileToV4L2PixFmt(VideoCodecProfile profile,
-                                                bool slice_based);
+  static uint32_t VideoCodecProfileToV4L2PixFmt(VideoCodecProfile profile);
   std::vector<VideoCodecProfile> V4L2PixFmtToVideoCodecProfiles(
       uint32_t pix_fmt,
       bool is_encoder);

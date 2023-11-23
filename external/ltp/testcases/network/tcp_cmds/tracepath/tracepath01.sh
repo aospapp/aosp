@@ -18,7 +18,8 @@
 
 TCID=tracepath01
 TST_TOTAL=1
-. test_net.sh
+TST_USE_LEGACY_API=1
+. tst_net.sh
 
 test_tracepath()
 {
@@ -27,7 +28,7 @@ test_tracepath()
 	local output=
 	local ret=0
 	local rhost="$2"
-	tst_check_cmds "$cmd"
+	tst_test_cmds "$cmd"
 
 	tst_resm TINFO "test $cmd with $rhost, pmtu is $len"
 

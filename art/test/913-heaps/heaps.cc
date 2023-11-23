@@ -41,9 +41,11 @@ namespace Test913Heaps {
 
 using android::base::StringPrintf;
 
-#define FINAL final
-#define OVERRIDE override
 #define UNREACHABLE  __builtin_unreachable
+
+// The tag value used on the Java side to tag the current thread.
+static constexpr jlong kThreadTag = 3000;
+static constexpr const char* kThreadReferree = "3000@0";
 
 extern "C" JNIEXPORT void JNICALL Java_art_Test913_forceGarbageCollection(
     JNIEnv* env, jclass klass ATTRIBUTE_UNUSED) {
@@ -144,7 +146,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
     jint stop_after,
     jint follow_set,
     jobject jniRef) {
-  class PrintIterationConfig FINAL : public IterationConfig {
+  class PrintIterationConfig final : public IterationConfig {
    public:
     PrintIterationConfig(jint _stop_after, jint _follow_set)
         : counter_(0),
@@ -160,7 +162,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
                 jlong* tag_ptr,
                 jlong* referrer_tag_ptr,
                 jint length,
-                void* user_data ATTRIBUTE_UNUSED) OVERRIDE {
+                void* user_data ATTRIBUTE_UNUSED) override {
       jlong tag = *tag_ptr;
 
       // Ignore any jni-global roots with untagged classes. These can be from the environment,
@@ -168,14 +170,20 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
       if (reference_kind == JVMTI_HEAP_REFERENCE_JNI_GLOBAL && class_tag == 0) {
         return 0;
       }
+      // Ignore HEAP_REFERENCE_OTHER roots because these are vm-internal roots and can vary
+      // depending on the configuration of the runtime (notably having trampoline tracing will add a
+      // lot of these).
+      if (reference_kind == JVMTI_HEAP_REFERENCE_OTHER) {
+        return 0;
+      }
       // Ignore classes (1000 <= tag < 3000) for thread objects. These can be held by the JIT.
       if (reference_kind == JVMTI_HEAP_REFERENCE_THREAD && class_tag == 0 &&
-              (1000 <= *tag_ptr &&  *tag_ptr < 3000)) {
+              (1000 <= *tag_ptr &&  *tag_ptr < kThreadTag)) {
         return 0;
       }
       // Ignore stack-locals of untagged threads. That is the environment.
       if (reference_kind == JVMTI_HEAP_REFERENCE_STACK_LOCAL &&
-          reference_info->stack_local.thread_tag != 3000) {
+          reference_info->stack_local.thread_tag != kThreadTag) {
         return 0;
       }
       // Ignore array elements with an untagged source. These are from the environment.
@@ -297,7 +305,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
       }
 
      protected:
-      std::string PrintArrowType() const OVERRIDE {
+      std::string PrintArrowType() const override {
         char* name = nullptr;
         if (info_.jni_local.method != nullptr) {
           jvmti_env->GetMethodName(info_.jni_local.method, &name, nullptr, nullptr);
@@ -343,7 +351,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
       }
 
      protected:
-      std::string PrintArrowType() const OVERRIDE {
+      std::string PrintArrowType() const override {
         char* name = nullptr;
         if (info_.stack_local.method != nullptr) {
           jvmti_env->GetMethodName(info_.stack_local.method, &name, nullptr, nullptr);
@@ -385,7 +393,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
           : Elem(referrer, referree, size, length), string_(string) {}
 
      protected:
-      std::string PrintArrowType() const OVERRIDE {
+      std::string PrintArrowType() const override {
         return string_;
       }
 
@@ -418,7 +426,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
           jint index = reference_info->array.index;
           // Normalize if it's "0@0" -> "3000@1".
           // TODO: A pre-pass could probably give us this index to check explicitly.
-          if (referrer == "0@0" && referree == "3000@0") {
+          if (referrer == "0@0" && referree == kThreadReferree) {
             index = 0;
           }
           std::string tmp = StringPrintf("array-element@%d", index);
@@ -641,7 +649,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_art_Test913_followReferencesPrimitiveA
                                            const void* elements,
                                            void* user_data) {
       FindArrayCallbacks* p = reinterpret_cast<FindArrayCallbacks*>(user_data);
-      if (*tag_ptr != 0) {
+      // The thread object may be reachable from the starting value because of setup in the
+      // framework (when this test runs as part of CTS). Ignore, we're not testing the thread
+      // here.)
+      if (*tag_ptr != 0 && *tag_ptr != kThreadTag) {
         std::ostringstream oss;
         oss << *tag_ptr
             << '@'
@@ -754,7 +765,10 @@ extern "C" JNIEXPORT jstring JNICALL Java_art_Test913_followReferencesPrimitiveF
                                                     jvmtiPrimitiveType value_type,
                                                     void* user_data) {
       FindFieldCallbacks* p = reinterpret_cast<FindFieldCallbacks*>(user_data);
-      if (*tag_ptr != 0) {
+      // The thread object may be reachable from the starting value because of setup in the
+      // framework (when this test runs as part of CTS). Ignore, we're not testing the thread
+      // here.)
+      if (*tag_ptr != 0 && *tag_ptr != kThreadTag) {
         std::ostringstream oss;
         oss << *tag_ptr
             << '@'

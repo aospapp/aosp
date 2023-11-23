@@ -323,7 +323,7 @@ public class ScanManager {
             }
 
             final boolean locationEnabled = mLocationManager.isLocationEnabled();
-            if (!locationEnabled && !isFiltered && !client.legacyForegroundApp) {
+            if (!locationEnabled && !isFiltered) {
                 Log.i(TAG, "Cannot start unfiltered scan in location-off. This scan will be"
                         + " resumed when location is on: " + client.scannerId);
                 mSuspendedScanClients.add(client);
@@ -416,7 +416,7 @@ public class ScanManager {
         void handleSuspendScans() {
             for (ScanClient client : mRegularScanClients) {
                 if (!mScanNative.isOpportunisticScanClient(client) && (client.filters == null
-                        || client.filters.isEmpty()) && !client.legacyForegroundApp) {
+                        || client.filters.isEmpty())) {
                     /*Suspend unfiltered scans*/
                     if (client.stats != null) {
                         client.stats.recordScanSuspend(client.scannerId);

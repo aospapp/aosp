@@ -52,19 +52,30 @@ class HeapWalker {
         allocation_bytes_(0),
         roots_(allocator),
         root_vals_(allocator),
-        segv_handler_(allocator),
-        walking_ptr_(0) {
+        sigsegv_handler_(allocator),
+        sigbus_handler_(allocator),
+        walking_ptr_(0),
+        walking_range_{0, 0},
+        segv_logged_(false),
+        segv_page_count_(0) {
     valid_allocations_range_.end = 0;
     valid_allocations_range_.begin = ~valid_allocations_range_.end;
+    valid_mappings_range_.end = 0;
+    valid_mappings_range_.begin = ~valid_allocations_range_.end;
 
-    segv_handler_.install(
+    sigsegv_handler_.install(
         SIGSEGV, [=](ScopedSignalHandler& handler, int signal, siginfo_t* siginfo, void* uctx) {
+          this->HandleSegFault(handler, signal, siginfo, uctx);
+        });
+    sigbus_handler_.install(
+        SIGBUS, [=](ScopedSignalHandler& handler, int signal, siginfo_t* siginfo, void* uctx) {
           this->HandleSegFault(handler, signal, siginfo, uctx);
         });
   }
 
   ~HeapWalker() {}
   bool Allocation(uintptr_t begin, uintptr_t end);
+  void Mapping(uintptr_t begin, uintptr_t end);
   void Root(uintptr_t begin, uintptr_t end);
   void Root(const allocator::vector<uintptr_t>& vals);
 
@@ -95,12 +106,17 @@ class HeapWalker {
   AllocationMap allocations_;
   size_t allocation_bytes_;
   Range valid_allocations_range_;
+  Range valid_mappings_range_;
 
   allocator::vector<Range> roots_;
   allocator::vector<uintptr_t> root_vals_;
 
-  ScopedSignalHandler segv_handler_;
-  uintptr_t walking_ptr_;
+  ScopedSignalHandler sigsegv_handler_;
+  ScopedSignalHandler sigbus_handler_;
+  volatile uintptr_t walking_ptr_;
+  Range walking_range_;
+  bool segv_logged_;
+  size_t segv_page_count_;
 };
 
 template <class F>

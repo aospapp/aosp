@@ -25,21 +25,22 @@ from acts import base_test
 from acts import test_runner
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
-from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts.test_utils.tel.tel_test_utils import stop_adb_tcpdump
-from acts.test_utils.tel.tel_test_utils import verify_http_connection
+from acts.test_utils.net import net_test_utils as nutils
+from acts.test_utils.net.net_test_utils import start_tcpdump
+from acts.test_utils.net.net_test_utils import stop_tcpdump
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 from scapy.all import TCP
 from scapy.all import UDP
 from scapy.all import rdpcap
+from scapy.all import Scapy_Exception
 
 DNS_QUAD9 = "dns.quad9.net"
 PRIVATE_DNS_MODE_OFF = "off"
 PRIVATE_DNS_MODE_OPPORTUNISTIC = "opportunistic"
 PRIVATE_DNS_MODE_STRICT = "hostname"
 RST = 0x04
+WLAN = "wlan0"
 
 class DnsOverTlsTest(base_test.BaseTestClass):
     """ Tests for Wifi Tethering """
@@ -48,17 +49,14 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         """ Setup devices for tethering and unpack params """
 
         self.dut = self.android_devices[0]
-        wutils.reset_wifi(self.dut)
-        self.dut.droid.telephonyToggleDataConnection(True)
-        wait_for_cell_data_connection(self.log, self.dut, True)
-        asserts.assert_true(
-            verify_http_connection(self.log, self.dut),
-            "HTTP verification failed on cell data connection")
+        nutils.verify_lte_data_and_tethering_supported(self.dut)
         req_params = ("wifi_network_with_dns_tls", "wifi_network_no_dns_tls",
                       "ping_hosts")
         self.unpack_userparams(req_params)
         self.tcpdump_pid = None
-        self.tcpdump_file = None
+
+    def on_fail(self, test_name, begin_time):
+        self.dut.take_bug_report(test_name, begin_time)
 
     """ Helper functions """
 
@@ -68,9 +66,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         Args:
             1. ad: dut to run tcpdump on
         """
-        if self.tcpdump_pid:
-            stop_adb_tcpdump(ad, self.tcpdump_pid, pull_tcpdump=False)
-        self.tcpdump_pid = start_adb_tcpdump(ad, self.test_name, mask='all')
+        self.tcpdump_pid = start_tcpdump(ad, self.test_name)
 
     def _stop_tcp_dump(self, ad):
         """ Stop tcpdump and pull it to the test run logs
@@ -78,13 +74,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         Args:
             1. ad: dut to pull tcpdump from
         """
-        file_name = ad.adb.shell("ls /sdcard/tcpdump")
-        file_name = os.path.join(ad.log_path, "TCPDUMP_%s" % ad.serial,
-                                 file_name.split('/')[-1])
-        if self.tcpdump_pid:
-            stop_adb_tcpdump(ad, self.tcpdump_pid, pull_tcpdump=True)
-            self.tcpdump_pid = None
-        return os.path.join(ad.log_path, file_name)
+        return stop_tcpdump(ad, self.tcpdump_pid, self.test_name)
 
     def _verify_dns_queries_over_tls(self, pcap_file, tls=True):
         """ Verify if DNS queries were over TLS or not
@@ -136,6 +126,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
         mode = self.dut.droid.getPrivateDnsMode()
         asserts.assert_true(mode == dns_mode,
                             "Failed to set private DNS mode to %s" % dns_mode)
+        time.sleep(2)
 
         # ping hosts should pass
         for host in self.ping_hosts:
@@ -296,8 +287,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
 
         # DNS server in link properties for wifi network
         link_prop = self.dut.droid.connectivityGetActiveLinkProperties()
-        dns_servers = link_prop['DnsServers']
-        wifi_dns_servers = [each for lst in dns_servers for each in lst]
+        wifi_dns_servers = link_prop['PrivateDnsServerName']
         self.log.info("Link prop: %s" % wifi_dns_servers)
 
         # DUT is on LTE data
@@ -308,8 +298,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
 
         # DNS server in link properties for cell network
         link_prop = self.dut.droid.connectivityGetActiveLinkProperties()
-        dns_servers = link_prop['DnsServers']
-        lte_dns_servers = [each for lst in dns_servers for each in lst]
+        lte_dns_servers = link_prop['PrivateDnsServerName']
         self.log.info("Link prop: %s" % lte_dns_servers)
 
         # stop tcpdump on device
@@ -323,7 +312,7 @@ class DnsOverTlsTest(base_test.BaseTestClass):
                             "Hostname not in link properites - cell network")
 
     @test_tracker_info(uuid="525a6f2d-9751-474e-a004-52441091e427")
-    def test_dns_over_tls_no_reset_packets(self):
+    def dns_over_tls_no_reset_packets(self):
         """ Verify there are no TCP packets with RST flags
 
         Steps:

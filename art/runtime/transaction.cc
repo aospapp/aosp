@@ -18,6 +18,7 @@
 
 #include <android-base/logging.h>
 
+#include "base/mutex-inl.h"
 #include "base/stl_util.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc_root-inl.h"
@@ -320,7 +321,7 @@ void Transaction::VisitRoots(RootVisitor* visitor) {
 
 void Transaction::VisitObjectLogs(RootVisitor* visitor) {
   // List of moving roots.
-  typedef std::pair<mirror::Object*, mirror::Object*> ObjectPair;
+  using ObjectPair = std::pair<mirror::Object*, mirror::Object*>;
   std::list<ObjectPair> moving_roots;
 
   // Visit roots.
@@ -348,7 +349,7 @@ void Transaction::VisitObjectLogs(RootVisitor* visitor) {
 
 void Transaction::VisitArrayLogs(RootVisitor* visitor) {
   // List of moving roots.
-  typedef std::pair<mirror::Array*, mirror::Array*> ArrayPair;
+  using ArrayPair = std::pair<mirror::Array*, mirror::Array*>;
   std::list<ArrayPair> moving_roots;
 
   for (auto& it : array_logs_) {
@@ -530,7 +531,7 @@ void Transaction::ObjectLog::UndoFieldWrite(mirror::Object* obj,
       break;
     default:
       LOG(FATAL) << "Unknown value kind " << static_cast<int>(field_value.kind);
-      break;
+      UNREACHABLE();
   }
 }
 
@@ -557,7 +558,7 @@ void Transaction::InternStringLog::Undo(InternTable* intern_table) const {
           break;
         default:
           LOG(FATAL) << "Unknown interned string kind";
-          break;
+          UNREACHABLE();
       }
       break;
     }
@@ -571,13 +572,13 @@ void Transaction::InternStringLog::Undo(InternTable* intern_table) const {
           break;
         default:
           LOG(FATAL) << "Unknown interned string kind";
-          break;
+          UNREACHABLE();
       }
       break;
     }
     default:
       LOG(FATAL) << "Unknown interned string op";
-      break;
+      UNREACHABLE();
   }
 }
 
@@ -668,9 +669,10 @@ void Transaction::ArrayLog::UndoArrayWrite(mirror::Array* array,
       break;
     case Primitive::kPrimNot:
       LOG(FATAL) << "ObjectArray should be treated as Object";
-      break;
+      UNREACHABLE();
     default:
       LOG(FATAL) << "Unsupported type " << array_type;
+      UNREACHABLE();
   }
 }
 

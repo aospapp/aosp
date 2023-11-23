@@ -19,6 +19,7 @@
 
 import time
 from queue import Empty
+from acts import signals
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import AUDIO_ROUTE_EARPIECE
@@ -29,6 +30,7 @@ from acts.test_utils.tel.tel_defines import CALL_CAPABILITY_MANAGE_CONFERENCE
 from acts.test_utils.tel.tel_defines import CALL_CAPABILITY_MERGE_CONFERENCE
 from acts.test_utils.tel.tel_defines import CALL_CAPABILITY_SWAP_CONFERENCE
 from acts.test_utils.tel.tel_defines import CALL_PROPERTY_CONFERENCE
+from acts.test_utils.tel.tel_defines import CAPABILITY_VT
 from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_VIDEO_SESSION_EVENT
 from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_VOLTE_ENABLED
 from acts.test_utils.tel.tel_defines import VT_STATE_AUDIO_ONLY
@@ -43,12 +45,15 @@ from acts.test_utils.tel.tel_defines import EVENT_VIDEO_SESSION_EVENT
 from acts.test_utils.tel.tel_defines import EventTelecomVideoCallSessionEvent
 from acts.test_utils.tel.tel_defines import SESSION_EVENT_RX_PAUSE
 from acts.test_utils.tel.tel_defines import SESSION_EVENT_RX_RESUME
+from acts.test_utils.tel.tel_lookup_tables import operator_capabilities
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import disconnect_call_by_id
+from acts.test_utils.tel.tel_test_utils import get_model_name
+from acts.test_utils.tel.tel_test_utils import get_operator_name
 from acts.test_utils.tel.tel_test_utils import hangup_call
 from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import num_active_calls
-from acts.test_utils.tel.tel_test_utils import verify_http_connection
+from acts.test_utils.tel.tel_test_utils import verify_internet_connection
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_test_utils import wait_for_video_enabled
 from acts.test_utils.tel.tel_video_utils import get_call_id_in_video_state
@@ -75,12 +80,17 @@ class TelLiveVideoTest(TelephonyBaseTest):
         TelephonyBaseTest.__init__(self, controllers)
 
         self.stress_test_number = self.get_stress_test_number()
-        self.wifi_network_ssid = self.user_params.get("wifi_network_ssid")
-        self.wifi_network_pass = self.user_params.get("wifi_network_pass")
 
         self.long_duration_call_total_duration = self.user_params.get(
             "long_duration_call_total_duration",
             DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION)
+
+    def setup_class(self):
+        TelephonyBaseTest.setup_class(self)
+        for ad in self.android_devices:
+            if CAPABILITY_VT not in ad.telephony.get("capabilities", []):
+                ad.log.error("Video calling is not supported")
+                raise signals.TestAbortClass("Video calling is not supported")
 
     """ Tests Begin """
 
@@ -1263,10 +1273,10 @@ class TelLiveVideoTest(TelephonyBaseTest):
         ads[0].droid.telecomCallHold(call_id_voice)
         time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
         for ad in [ads[0], ads[1]]:
-            if get_audio_route(self.log, ad) != AUDIO_ROUTE_SPEAKER:
-                self.log.error("{} Audio is not on speaker.".format(ad.serial))
+            if get_audio_route(self.log, ad) != AUDIO_ROUTE_EARPIECE:
+                self.log.error("{} Audio is not on earpiece.".format(
+                    ad.serial))
                 # TODO: b/26337892 Define expected audio route behavior.
-            set_audio_route(self.log, ad, AUDIO_ROUTE_EARPIECE)
 
         time.sleep(WAIT_TIME_IN_CALL)
         if not verify_incall_state(self.log, [ads[0], ads[1], ads[2]], True):
@@ -2588,7 +2598,7 @@ class TelLiveVideoTest(TelephonyBaseTest):
         try:
             self.log.info("Step2 Turn off data and verify not connected.")
             ads[0].droid.telephonyToggleDataConnection(False)
-            if verify_http_connection(self.log, ads[0]):
+            if verify_internet_connection(self.log, ads[0]):
                 self.log.error("Internet Accessible when Disabled")
                 return False
 

@@ -15,7 +15,7 @@ config MAKEDEVS
 
     Create a range of special files as specified in a device table.
 
-    -d	file containing device table (default reads from stdin)
+    -d	File containing device table (default reads from stdin)
 
     Each line of of the device table has the fields:
     <name> <type> <mode> <uid> <gid> <major> <minor> <start> <increment> <count>
@@ -90,7 +90,7 @@ void makedevs_main()
       } else ptr = node;
 
       if (type == 'd') {
-        if (mkpathat(AT_FDCWD, ptr, mode, 3))  {
+        if (mkpathat(AT_FDCWD, ptr, mode, MKPATHAT_MKLAST | MKPATHAT_MAKE))  {
           perror_msg("can't create directory '%s'", ptr);
           continue;
         }

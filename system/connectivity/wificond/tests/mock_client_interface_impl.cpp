@@ -18,8 +18,9 @@
 
 #include <vector>
 
+#include <linux/if_ether.h>
+
 #include <wifi_system/interface_tool.h>
-#include <wifi_system/supplicant_manager.h>
 
 #include "wificond/net/netlink_utils.h"
 #include "wificond/scanning/scan_utils.h"
@@ -28,7 +29,7 @@ namespace android {
 namespace wificond {
 
 const char kTestInterfaceName[] = "testwifi0";
-const uint8_t kTestInterfaceMacAddress[] = {0x10, 0x20, 0xfe, 0xae, 0x2d, 0xc2};
+const std::array<uint8_t, ETH_ALEN> kTestInterfaceMacAddress = {0x10, 0x20, 0xfe, 0xae, 0x2d, 0xc2};
 const uint32_t kTestInterfaceIndex = 42;
 const uint32_t kTestWiphyIndex = 2;
 
@@ -40,9 +41,7 @@ MockClientInterfaceImpl::MockClientInterfaceImpl(
         kTestWiphyIndex,
         kTestInterfaceName,
         kTestInterfaceIndex,
-        std::vector<uint8_t>(
-            kTestInterfaceMacAddress,
-            kTestInterfaceMacAddress + arraysize(kTestInterfaceMacAddress)),
+        std::array<uint8_t, ETH_ALEN>(kTestInterfaceMacAddress),
         interface_tool,
         netlink_utils,
         scan_utils) {}

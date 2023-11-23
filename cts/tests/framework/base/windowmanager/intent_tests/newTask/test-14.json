@@ -1,0 +1,58 @@
+{
+    "setup": {
+        "initialIntents": [
+            {
+                "flags": "FLAG_ACTIVITY_NEW_TASK",
+                "class": "android.server.wm.intent.Activities$SingleTaskActivity",
+                "package": "android.server.wm.cts",
+                "startForResult": false
+            }
+        ],
+        "act": [
+            {
+                "flags": "",
+                "class": "android.server.wm.intent.Activities$RegularActivity",
+                "package": "android.server.wm.cts",
+                "startForResult": false
+            }
+        ]
+    },
+    "initialState": {
+        "stacks": [
+            {
+                "tasks": [
+                    {
+                        "activities": [
+                            {
+                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity",
+                                "state": "RESUMED"
+                            }
+                        ]
+                    }
+                ],
+                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity"
+            }
+        ]
+    },
+    "endState": {
+        "stacks": [
+            {
+                "tasks": [
+                    {
+                        "activities": [
+                            {
+                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity",
+                                "state": "RESUMED"
+                            },
+                            {
+                                "name": "android.server.wm.cts\/android.server.wm.intent.Activities$SingleTaskActivity",
+                                "state": "STOPPED"
+                            }
+                        ]
+                    }
+                ],
+                "resumedActivity": "android.server.wm.cts\/android.server.wm.intent.Activities$RegularActivity"
+            }
+        ]
+    }
+}

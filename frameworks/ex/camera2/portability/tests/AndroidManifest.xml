@@ -22,6 +22,6 @@
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.ex.camera2.portability.tests" />
 </manifest>

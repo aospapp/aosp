@@ -54,33 +54,43 @@ class StackVisitor;
 class Thread;
 
 struct DebuggerActiveMethodInspectionCallback : public MethodInspectionCallback {
-  bool IsMethodBeingInspected(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool IsMethodSafeToJit(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool MethodNeedsDebugVersion(ArtMethod* method) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsMethodBeingInspected(ArtMethod* method) override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsMethodSafeToJit(ArtMethod* method) override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool MethodNeedsDebugVersion(ArtMethod* method) override REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
 struct DebuggerDdmCallback : public DdmCallback {
   void DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+      override REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
 struct InternalDebuggerControlCallback : public DebuggerControlCallback {
-  void StartDebugger() OVERRIDE;
-  void StopDebugger() OVERRIDE;
-  bool IsDebuggerConfigured() OVERRIDE;
+  void StartDebugger() override;
+  void StopDebugger() override;
+  bool IsDebuggerConfigured() override;
 };
 
 /*
  * Invoke-during-breakpoint support.
  */
 struct DebugInvokeReq {
-  DebugInvokeReq(uint32_t invoke_request_id, JDWP::ObjectId invoke_thread_id,
-                 mirror::Object* invoke_receiver, mirror::Class* invoke_class,
-                 ArtMethod* invoke_method, uint32_t invoke_options,
-                 uint64_t args[], uint32_t args_count)
-      : request_id(invoke_request_id), thread_id(invoke_thread_id), receiver(invoke_receiver),
-        klass(invoke_class), method(invoke_method), arg_count(args_count), arg_values(args),
-        options(invoke_options), reply(JDWP::expandBufAlloc()) {
+  DebugInvokeReq(uint32_t invoke_request_id,
+                 JDWP::ObjectId invoke_thread_id,
+                 ObjPtr<mirror::Object> invoke_receiver,
+                 ObjPtr<mirror::Class> invoke_class,
+                 ArtMethod* invoke_method,
+                 uint32_t invoke_options,
+                 uint64_t args[],
+                 uint32_t args_count)
+      : request_id(invoke_request_id),
+        thread_id(invoke_thread_id),
+        receiver(invoke_receiver),
+        klass(invoke_class),
+        method(invoke_method),
+        arg_count(args_count),
+        arg_values(args),
+        options(invoke_options),
+        reply(JDWP::expandBufAlloc()) {
   }
 
   ~DebugInvokeReq() {
@@ -285,7 +295,7 @@ class Dbg {
    */
   static std::string GetClassName(JDWP::RefTypeId id)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  static std::string GetClassName(mirror::Class* klass)
+  static std::string GetClassName(ObjPtr<mirror::Class> klass)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static JDWP::JdwpError GetClassObject(JDWP::RefTypeId id, JDWP::ObjectId* class_object_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -319,7 +329,9 @@ class Dbg {
 
   static JDWP::JdwpError GetArrayLength(JDWP::ObjectId array_id, int32_t* length)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  static JDWP::JdwpError OutputArray(JDWP::ObjectId array_id, int offset, int count,
+  static JDWP::JdwpError OutputArray(JDWP::ObjectId array_id,
+                                     int offset,
+                                     int count,
                                      JDWP::ExpandBuf* pReply)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static JDWP::JdwpError SetArrayElements(JDWP::ObjectId array_id, int offset, int count,
@@ -709,7 +721,8 @@ class Dbg {
     return gRegistry;
   }
 
-  static JDWP::JdwpTag TagFromObject(const ScopedObjectAccessUnchecked& soa, mirror::Object* o)
+  static JDWP::JdwpTag TagFromObject(const ScopedObjectAccessUnchecked& soa,
+                                     ObjPtr<mirror::Object> o)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static JDWP::JdwpTypeTag GetTypeTag(ObjPtr<mirror::Class> klass)
@@ -831,15 +844,15 @@ class Dbg {
 
   class DbgThreadLifecycleCallback : public ThreadLifecycleCallback {
    public:
-    void ThreadStart(Thread* self) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-    void ThreadDeath(Thread* self) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+    void ThreadStart(Thread* self) override REQUIRES_SHARED(Locks::mutator_lock_);
+    void ThreadDeath(Thread* self) override REQUIRES_SHARED(Locks::mutator_lock_);
   };
 
   class DbgClassLoadCallback : public ClassLoadCallback {
    public:
-    void ClassLoad(Handle<mirror::Class> klass) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+    void ClassLoad(Handle<mirror::Class> klass) override REQUIRES_SHARED(Locks::mutator_lock_);
     void ClassPrepare(Handle<mirror::Class> temp_klass,
-                      Handle<mirror::Class> klass) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+                      Handle<mirror::Class> klass) override REQUIRES_SHARED(Locks::mutator_lock_);
   };
 
   static DbgThreadLifecycleCallback thread_lifecycle_callback_;

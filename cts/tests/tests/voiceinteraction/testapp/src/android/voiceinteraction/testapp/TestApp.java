@@ -26,11 +26,9 @@ import android.app.VoiceInteractor.PickOptionRequest;
 import android.app.VoiceInteractor.PickOptionRequest.Option;
 import android.app.VoiceInteractor.Prompt;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.service.voice.VoiceInteractionService;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -71,43 +69,43 @@ public class TestApp extends Activity {
         mTestInProgress = (Utils.TestCaseType.values())[mIndex++];
         testSetup();
         switch (mTestInProgress) {
-          case ABORT_REQUEST_TEST:
-          case ABORT_REQUEST_CANCEL_TEST:
-              abortRequest();
-              break;
+            case ABORT_REQUEST_TEST:
+            case ABORT_REQUEST_CANCEL_TEST:
+                abortRequest();
+                break;
 
-          case COMPLETION_REQUEST_TEST:
-          case COMPLETION_REQUEST_CANCEL_TEST:
-              completionRequest();
-              break;
+            case COMPLETION_REQUEST_TEST:
+            case COMPLETION_REQUEST_CANCEL_TEST:
+                completionRequest();
+                break;
 
-          case CONFIRMATION_REQUEST_TEST:
-          case CONFIRMATION_REQUEST_CANCEL_TEST:
-              confirmationRequest();
-              break;
+            case CONFIRMATION_REQUEST_TEST:
+            case CONFIRMATION_REQUEST_CANCEL_TEST:
+                confirmationRequest();
+                break;
 
-          case PICKOPTION_REQUEST_TEST:
-          case PICKOPTION_REQUEST_CANCEL_TEST:
-              pickOptionRequest();
-              break;
+            case PICKOPTION_REQUEST_TEST:
+            case PICKOPTION_REQUEST_CANCEL_TEST:
+                pickOptionRequest();
+                break;
 
-          case COMMANDREQUEST_TEST:
-          case COMMANDREQUEST_CANCEL_TEST:
-              commandRequest();
-              break;
+            case COMMANDREQUEST_TEST:
+            case COMMANDREQUEST_CANCEL_TEST:
+                commandRequest();
+                break;
 
-          case SUPPORTS_COMMANDS_TEST:
-              String[] commands = {Utils.TEST_COMMAND};
-              boolean[] supported = mInteractor.supportsCommands(commands);
-              Log.i(TAG, "from supportsCommands: " + Arrays.toString(supported));
-              if (supported.length == 1 && supported[0]) {
-                addTestResult(Utils.SUPPORTS_COMMANDS_SUCCESS);
-              } else {
-                addTestResult(Utils.TEST_ERROR + " supported commands failure!");
-              }
-              saveTestResults();
-              continueTests();
-              break;
+            case SUPPORTS_COMMANDS_TEST:
+                String[] commands = {Utils.TEST_COMMAND};
+                boolean[] supported = mInteractor.supportsCommands(commands);
+                Log.i(TAG, "from supportsCommands: " + Arrays.toString(supported));
+                if (supported.length == 1 && supported[0]) {
+                    addTestResult(Utils.SUPPORTS_COMMANDS_SUCCESS);
+                } else {
+                    addTestResult(Utils.TEST_ERROR + " supported commands failure!");
+                }
+                saveTestResults();
+                continueTests();
+                break;
         }
     }
 
@@ -134,12 +132,12 @@ public class TestApp extends Activity {
     }
 
     private void broadcastResults() {
-        Intent intent = new Intent(Utils.BROADCAST_INTENT);
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.putExtras(mTotalInfo);
-        Log.i(TAG, "broadcasting: " + intent.toString() + ", Bundle = " + mTotalInfo.toString());
+        Intent intent = new Intent(Utils.BROADCAST_INTENT)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND | Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                .putExtras(mTotalInfo);
+        Log.i(TAG, "broadcasting: " + intent + ", Bundle = " + mTotalInfo);
         sendOrderedBroadcast(intent, null, new DoneReceiver(),
-                             null, Activity.RESULT_OK, null, null);
+                null, Activity.RESULT_OK, null, null);
     }
 
     private void confirmationRequest() {
@@ -235,7 +233,7 @@ public class TestApp extends Activity {
                         ", selections = " + Utils.toOptionsString(selections) +
                         ", recvd bundle =" + Utils.toBundleString(result));
                 if ((selections.length != 1) ||
-                    !selections[0].getLabel().toString().equals(Utils.PICKOPTON_3)) {
+                        !selections[0].getLabel().toString().equals(Utils.PICKOPTON_3)) {
                     Utils.addErrorResult(result,
                             "Pickoption Selections Not received correctly in TestApp.");
                 } else {

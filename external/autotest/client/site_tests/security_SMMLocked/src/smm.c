@@ -82,6 +82,45 @@ int guess_offset(struct pci_dev *northbridge)
         printf("Detected Broadwell ULT\n");
         offset = 0x88;
         break;
+    case 0x1904:
+    case 0x190c:
+    case 0x1910:
+    case 0x1918:
+    case 0x1924:
+        printf("Detected Sky lake\n");
+        offset = 0x88;
+        break;
+    case 0x31f0:
+        printf("Detected Gemini lake(uses SMRR).. skipping test\n");
+        exit(EXIT_SUCCESS);
+        break;
+    case 0x3e34:
+    case 0x3e35:
+        printf("Detected Whiskey lake\n");
+        offset = 0x88;
+        break;
+    case 0x3ed0:
+        printf("Detected Coffee lake\n");
+        offset = 0x88;
+        break;
+    case 0x5904:
+    case 0x590c:
+    case 0x590f:
+    case 0x5910:
+    case 0x5914:
+    case 0x591f:
+        printf("Detected Kaby lake\n");
+        offset = 0x88;
+        break;
+    case 0x5a02:
+    case 0x5a04:
+        printf("Detected Cannon lake\n");
+        offset = 0x88;
+        break;
+    case 0x5af0:
+        printf("Detected Apollo lake(uses SMRR).. skipping test\n");
+        exit(EXIT_SUCCESS);
+        break;
     default:
         fprintf(stderr, "FAIL: unknown Northbridge 0x%04x\n", id);
         exit(1);

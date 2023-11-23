@@ -72,6 +72,9 @@ public class ProgramRow extends TimelineGridView {
 
     public ProgramRow(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        ProgramRowAccessibilityDelegate rowAccessibilityDelegate =
+                new ProgramRowAccessibilityDelegate(this);
+        this.setAccessibilityDelegateCompat(rowAccessibilityDelegate);
     }
 
     /** Registers a listener focus events occurring on children to the {@code ProgramRow}. */
@@ -126,13 +129,26 @@ public class ProgramRow extends TimelineGridView {
                 : direction == View.FOCUS_LEFT;
     }
 
+    // When Accessibility is enabled, this API will keep next node visible
+    void focusSearchAccessibility(View focused, int direction) {
+        TableEntry focusedEntry = ((ProgramItemView) focused).getTableEntry();
+        long toMillis = mProgramManager.getToUtcMillis();
+
+        if (isDirectionEnd(direction) || direction == View.FOCUS_FORWARD) {
+            if (focusedEntry.entryEndUtcMillis >= toMillis) {
+                scrollByTime(focusedEntry.entryEndUtcMillis - toMillis + HALF_HOUR_MILLIS);
+            }
+        }
+    }
+
     @Override
     public View focusSearch(View focused, int direction) {
         TableEntry focusedEntry = ((ProgramItemView) focused).getTableEntry();
         long fromMillis = mProgramManager.getFromUtcMillis();
         long toMillis = mProgramManager.getToUtcMillis();
 
-        if (isDirectionStart(direction) || direction == View.FOCUS_BACKWARD) {
+        if (!mProgramGuide.isAccessibilityEnabled()
+                && (isDirectionStart(direction) || direction == View.FOCUS_BACKWARD)) {
             if (focusedEntry.entryStartUtcMillis < fromMillis) {
                 // The current entry starts outside of the view; Align or scroll to the left.
                 scrollByTime(
@@ -162,7 +178,9 @@ public class ProgramRow extends TimelineGridView {
         TableEntry targetEntry = ((ProgramItemView) target).getTableEntry();
 
         if (isDirectionStart(direction) || direction == View.FOCUS_BACKWARD) {
-            if (targetEntry.entryStartUtcMillis < fromMillis
+            if (mProgramGuide.isAccessibilityEnabled()) {
+                scrollByTime(targetEntry.entryStartUtcMillis - fromMillis);
+            } else if (targetEntry.entryStartUtcMillis < fromMillis
                     && targetEntry.entryEndUtcMillis < fromMillis + HALF_HOUR_MILLIS) {
                 // The target entry starts outside the view; Align or scroll to the left.
                 scrollByTime(

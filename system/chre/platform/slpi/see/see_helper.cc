@@ -24,10 +24,15 @@
 #include "sns_proximity.pb.h"
 #include "sns_rc.h"
 #include "sns_remote_proc_state.pb.h"
+#include "sns_resampler.pb.h"
 #include "sns_std.pb.h"
 #include "sns_std_sensor.pb.h"
 #include "stringl.h"
 #include "timer.h"
+
+#ifdef CHRE_SLPI_UIMG_ENABLED
+#include "sns_qmi_client.h"
+#endif
 
 #include <algorithm>
 #include <cfloat>
@@ -46,6 +51,9 @@
 
 #define LOG_NANOPB_ERROR(stream) \
     LOGE("Nanopb error: %s:%d", PB_GET_ERROR(stream), __LINE__)
+
+#define LOG_UNHANDLED_MSG(message) \
+    LOGW("Unhandled msg ID %" PRIu32 ": line %d", message, __LINE__)
 
 namespace chre {
 namespace {
@@ -93,7 +101,7 @@ struct SeeDataArg {
   size_t totalSamples;
   UniquePtr<uint8_t> event;
   UniquePtr<SeeHelperCallbackInterface::SamplingStatusData> status;
-  SeeCalData *cal;
+  UniquePtr<struct chreSensorThreeAxisData> bias;
   SensorType sensorType;
   bool isHostWakeSuspendEvent;
   bool isHostAwake;
@@ -108,7 +116,7 @@ struct SeeInfoArg {
   SeeDataArg *data;
   bool decodeMsgIdOnly;
   Optional<sns_std_suid> *remoteProcSuid;
-  SeeCalInfo *calInfo;
+  SeeCalHelper *calHelper;
 };
 
 //! A struct to facilitate decoding sensor attributes.
@@ -124,48 +132,6 @@ struct SeeAttrArg {
   };
   bool initialized;
 };
-
-size_t getCalIndexFromSensorType(SensorType sensorType) {
-  SeeCalSensor index;
-  switch (sensorType) {
-    case SensorType::Accelerometer:
-      index = SeeCalSensor::AccelCal;
-      break;
-    case SensorType::Gyroscope:
-      index = SeeCalSensor::GyroCal;
-      break;
-    case SensorType::GeomagneticField:
-      index = SeeCalSensor::MagCal;
-      break;
-    default:
-      index = SeeCalSensor::NumCalSensors;
-  }
-  return static_cast<size_t>(index);
-}
-
-size_t getCalIndexFromDataType(const char *dataType) {
-  SensorType sensorType = SensorType::Unknown;
-  if (strcmp(dataType, "accel_cal") == 0) {
-    sensorType = SensorType::Accelerometer;
-  } else if (strcmp(dataType, "gyro_cal") == 0) {
-    sensorType = SensorType::Gyroscope;
-  } else if (strcmp(dataType, "mag_cal") == 0) {
-    sensorType = SensorType::GeomagneticField;
-  }
-  return getCalIndexFromSensorType(sensorType);
-}
-
-size_t getCalIndexFromSuid(const sns_std_suid& suid,
-                           const SeeCalInfo *calInfo) {
-  size_t i = 0;
-  for (; i < kNumSeeCalSensors; i++) {
-    if (calInfo[i].suid.has_value()
-        && suidsMatch(suid, calInfo[i].suid.value())) {
-      break;
-    }
-  }
-  return i;
-}
 
 /**
  * Copy an encoded pb message to a wrapper proto's field.
@@ -272,6 +238,55 @@ bool encodeSnsSuidReq(const char *dataType,
 }
 
 /**
+ * Encodes sns_resampler_config pb message.
+ *
+ * @param request The request to be encoded.
+ * @param suid The SUID of the physical sensor to be resampled.
+ * @param msg A non-null pointer to the pb message unique pointer whose object
+ *            will be assigned here.
+ * @param msgLen A non-null pointer to the size of the encoded pb message.
+ *
+ * @return true if the pb message and length were obtained.
+ */
+bool encodeSnsResamplerConfig(const SeeSensorRequest& request,
+                              const sns_std_suid& suid,
+                              UniquePtr<pb_byte_t> *msg, size_t *msgLen) {
+  CHRE_ASSERT(msg);
+  CHRE_ASSERT(msgLen);
+  bool success = false;
+
+  // Initialize the pb message
+  sns_resampler_config req = {
+    .sensor_uid = suid,
+    .resampled_rate = request.samplingRateHz,
+    .rate_type = SNS_RESAMPLER_RATE_FIXED,
+    .filter = true,
+    .has_axis_cnt = true,
+    .axis_cnt = 3,  // TODO: set this properly.
+  };
+
+  if (!pb_get_encoded_size(msgLen, sns_resampler_config_fields, &req)) {
+    LOGE("pb_get_encoded_size failed for sns_resampler_config");
+  } else if (*msgLen == 0) {
+    LOGE("Invalid pb encoded size for sns_resampler_config");
+  } else {
+    UniquePtr<pb_byte_t> buf(static_cast<pb_byte_t *>(memoryAlloc(*msgLen)));
+    *msg = std::move(buf);
+    if (msg->isNull()) {
+      LOG_OOM();
+    } else {
+      pb_ostream_t stream = pb_ostream_from_buffer(msg->get(), *msgLen);
+
+      success = pb_encode(&stream, sns_resampler_config_fields, &req);
+      if (!success) {
+        LOG_NANOPB_ERROR(&stream);
+      }
+    }
+  }
+  return success;
+}
+
+/**
  * Encodes sns_std_sensor_config pb message.
  *
  * @param request The request to be encoded.
@@ -363,6 +378,9 @@ bool prepSnsClientReq(sns_std_suid suid, uint32_t msgId,
     req->susp_config.delivery_type = SNS_CLIENT_DELIVERY_WAKEUP;
     req->request.has_batching = batchValid;
     req->request.batching.batch_period = batchPeriodUs;
+    // TODO: remove flush_period setting after resolving b/110823194.
+    req->request.batching.has_flush_period = true;
+    req->request.batching.flush_period = batchPeriodUs + 3000000;
     req->request.payload.funcs.encode = copyPayload;
     req->request.payload.arg = data;
     req->request.has_is_passive = true,
@@ -466,7 +484,7 @@ bool decodeSnsSuidProtoEvent(pb_istream_t *stream, const pb_field_t *field,
       break;
 
     default:
-      LOGW("Unhandled sns_suid.proto msg ID: %" PRIu32, info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
       break;
   }
   return success;
@@ -722,25 +740,13 @@ bool decodeSnsStdProtoEvent(pb_istream_t *stream, const pb_field_t *field,
     }
 
     default:
-      LOGW("Unhandled sns_std.proto msg ID %" PRIu32, info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
   }
   return success;
 }
 
-// TODO: Support compensation matrix and scaling factor calibration
-void applyThreeAxisCalibration(
-    chreSensorThreeAxisData::chreSensorThreeAxisSampleData *sample,
-    const float *val, const SeeCalData *cal) {
-  float bias[3] = {};
-  if (cal != nullptr && cal->hasBias) {
-    memcpy(bias, cal->bias, sizeof(bias));
-  }
-  sample->x = val[0] - bias[0];
-  sample->y = val[1] - bias[1];
-  sample->z = val[2] - bias[2];
-}
-
-void populateEventSample(SeeDataArg *data, const float *val) {
+void populateEventSample(SeeInfoArg *info, const float *val) {
+  SeeDataArg *data = info->data;
   size_t index = data->sampleIndex;
   if (!data->event.isNull() && index < data->totalSamples) {
     SensorSampleType sampleType = getSensorSampleTypeFromSensorType(
@@ -751,7 +757,8 @@ void populateEventSample(SeeDataArg *data, const float *val) {
       case SensorSampleType::ThreeAxis: {
         auto *event = reinterpret_cast<chreSensorThreeAxisData *>(
             data->event.get());
-        applyThreeAxisCalibration(&event->readings[index], val, data->cal);
+        info->calHelper->applyCalibration(
+            data->sensorType, val, event->readings[index].values);
         timestampDelta = &event->readings[index].timestampDelta;
         break;
       }
@@ -802,6 +809,59 @@ void populateEventSample(SeeDataArg *data, const float *val) {
         auto *event = reinterpret_cast<chrexSensorVendor2Data *>(
             data->event.get());
         event->readings[index].value = *val;
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor3: {
+        auto *event = reinterpret_cast<chrexSensorVendor3Data *>(
+            data->event.get());
+        memcpy(event->readings[index].values, val,
+               sizeof(event->readings[index].values));
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor4: {
+        auto *event = reinterpret_cast<chrexSensorVendor4Data *>(
+            data->event.get());
+        memcpy(event->readings[index].values, val,
+               sizeof(event->readings[index].values));
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor5: {
+        auto *event = reinterpret_cast<chrexSensorVendor5Data *>(
+            data->event.get());
+        event->readings[index].value = *val;
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor6: {
+        auto *event = reinterpret_cast<chrexSensorVendor6Data *>(
+            data->event.get());
+        memcpy(event->readings[index].values, val,
+               sizeof(event->readings[index].values));
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor7: {
+        auto *event = reinterpret_cast<chrexSensorVendor7Data *>(
+            data->event.get());
+        memcpy(event->readings[index].values, val,
+               sizeof(event->readings[index].values));
+        timestampDelta = &event->readings[index].timestampDelta;
+        break;
+      }
+
+      case SensorSampleType::Vendor8: {
+        auto *event = reinterpret_cast<chrexSensorVendor8Data *>(
+            data->event.get());
+        memcpy(event->readings[index].values, val,
+               sizeof(event->readings[index].values));
         timestampDelta = &event->readings[index].timestampDelta;
         break;
       }
@@ -912,7 +972,7 @@ bool decodeSnsStdSensorEvent(pb_istream_t *stream, const pb_field_t *field,
     LOG_NANOPB_ERROR(stream);
   } else {
     auto *info = static_cast<SeeInfoArg *>(*arg);
-    populateEventSample(info->data, sample.val);
+    populateEventSample(info, sample.val);
   }
   return success;
 }
@@ -935,9 +995,34 @@ bool decodeSnsStdSensorProtoEvent(pb_istream_t *stream, const pb_field_t *field,
       break;
 
     default:
-      LOGW("Unhandled sns_std_sensor.proto msg ID %" PRIu32, info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
   }
   return success;
+}
+
+/**
+ * Helper function to convert sns_std_sensor_sample_status to
+ * CHRE_SENSOR_ACCURACY_* values.
+ *
+ * @param status the SEE sensor sample status
+ *
+ * @return the corresponding CHRE_SENSOR_ACCURACY_* value,
+ * CHRE_SENSOR_ACCURACY_UNKNOWN if invalid
+ */
+uint8_t getChreSensorAccuracyFromSeeSampleStatus(
+    sns_std_sensor_sample_status status) {
+  switch (status) {
+    case SNS_STD_SENSOR_SAMPLE_STATUS_UNRELIABLE:
+      return CHRE_SENSOR_ACCURACY_UNRELIABLE;
+    case SNS_STD_SENSOR_SAMPLE_STATUS_ACCURACY_LOW:
+      return CHRE_SENSOR_ACCURACY_LOW;
+    case SNS_STD_SENSOR_SAMPLE_STATUS_ACCURACY_MEDIUM:
+      return CHRE_SENSOR_ACCURACY_MEDIUM;
+    case SNS_STD_SENSOR_SAMPLE_STATUS_ACCURACY_HIGH:
+      return CHRE_SENSOR_ACCURACY_HIGH;
+    default:
+      return CHRE_SENSOR_ACCURACY_UNKNOWN;
+  }
 }
 
 bool decodeSnsCalEvent(pb_istream_t *stream, const pb_field_t *field,
@@ -959,30 +1044,23 @@ bool decodeSnsCalEvent(pb_istream_t *stream, const pb_field_t *field,
     LOG_NANOPB_ERROR(stream);
   } else {
     auto *info = static_cast<SeeInfoArg *>(*arg);
-    SeeCalInfo *calInfo = info->calInfo;
-    size_t calIndex = getCalIndexFromSuid(info->suid, calInfo);
-    if (calIndex >= kNumSeeCalSensors) {
-      LOGW("Cal sensor index out of bounds 0x%" PRIx64 " %" PRIx64,
-           info->suid.suid_high, info->suid.suid_low);
-    } else {
-      SeeCalData *cal = &calInfo[calIndex].cal;
+    SeeCalHelper *calHelper = info->calHelper;
 
-      cal->hasBias = (offset.index == 3);
-      if (cal->hasBias) {
-        memcpy(cal->bias, offset.val, sizeof(cal->bias));
-      }
+    bool hasBias = (offset.index == 3);
+    bool hasScale = (scale.index == 3);
+    bool hasMatrix = (matrix.index == 9);
+    uint8_t accuracy = getChreSensorAccuracyFromSeeSampleStatus(event.status);
 
-      cal->hasScale = (scale.index == 3);
-      if (cal->hasScale) {
-        memcpy(cal->scale, scale.val, sizeof(cal->scale));
-      }
+    calHelper->updateCalibration(
+        info->suid, hasBias, offset.val, hasScale, scale.val,
+        hasMatrix, matrix.val, accuracy, info->data->timeNs);
 
-      cal->hasMatrix = (matrix.index == 9);
-      if (cal->hasScale) {
-        memcpy(cal->matrix, matrix.val, sizeof(cal->matrix));
-      }
-
-      cal->accuracy = static_cast<uint8_t>(event.status);
+    SensorType sensorType = calHelper->getSensorTypeFromSuid(info->suid);
+    auto biasData = MakeUniqueZeroFill<struct chreSensorThreeAxisData>();
+    if (biasData.isNull()) {
+      LOG_OOM();
+    } else if (calHelper->getBias(sensorType, biasData.get())) {
+      info->data->bias = std::move(biasData);
     }
   }
   return success;
@@ -1002,7 +1080,7 @@ bool decodeSnsCalProtoEvent(pb_istream_t *stream, const pb_field_t *field,
       break;
 
     default:
-      LOGW("Unhandled sns_cal.proto msg ID %" PRIu32, info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
   }
   return success;
 }
@@ -1017,7 +1095,7 @@ bool decodeSnsProximityEvent(pb_istream_t *stream, const pb_field_t *field,
   } else {
     float value = static_cast<float>(event.proximity_event_type);
     auto *info = static_cast<SeeInfoArg *>(*arg);
-    populateEventSample(info->data, &value);
+    populateEventSample(info, &value);
   }
   return success;
 }
@@ -1036,7 +1114,42 @@ bool decodeSnsProximityProtoEvent(pb_istream_t *stream, const pb_field_t *field,
       break;
 
     default:
-      LOGW("Unhandled sns_proximity.proto msg ID %" PRIu32, info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
+  }
+  return success;
+}
+
+bool decodeSnsResamplerConfigEvent(pb_istream_t *stream,
+                                   const pb_field_t *field, void **arg) {
+  sns_resampler_config_event event = {};
+
+  bool success = pb_decode(stream, sns_resampler_config_event_fields, &event);
+  if (!success) {
+    LOG_NANOPB_ERROR(stream);
+  } else {
+    auto *info = static_cast<SeeInfoArg *>(*arg);
+    LOGD("SensorType %" PRIu8 " resampler quality %" PRIu8,
+         static_cast<uint8_t>(info->data->sensorType),
+         static_cast<uint8_t>(event.quality));
+  }
+  return success;
+}
+
+/**
+ * Decode messages defined in sns_resampler.proto
+ */
+bool decodeSnsResamplerProtoEvent(pb_istream_t *stream, const pb_field_t *field,
+                                  void **arg) {
+  bool success = false;
+
+  auto *info = static_cast<SeeInfoArg *>(*arg);
+  switch (info->msgId) {
+    case SNS_RESAMPLER_MSGID_SNS_RESAMPLER_CONFIG_EVENT:
+      success = decodeSnsResamplerConfigEvent(stream, field, arg);
+      break;
+
+    default:
+      LOG_UNHANDLED_MSG(info->msgId);
   }
   return success;
 }
@@ -1069,8 +1182,7 @@ bool decodeSnsRemoteProcProtoEvent(
       break;
 
     default:
-      LOGW("Unhandled sns_remote_proc_state.proto msg ID %" PRIu32,
-           info->msgId);
+      LOG_UNHANDLED_MSG(info->msgId);
   }
   return success;
 }
@@ -1107,9 +1219,13 @@ bool assignPayloadCallback(const SeeInfoArg *info, pb_callback_t *payload) {
         payload->funcs.decode = decodeSnsProximityProtoEvent;
         break;
 
+      case SNS_RESAMPLER_MSGID_SNS_RESAMPLER_CONFIG_EVENT:
+        payload->funcs.decode = decodeSnsResamplerProtoEvent;
+        break;
+
       default:
         success = false;
-        LOGW("Unhandled msg ID %" PRIu32, info->msgId);
+        LOG_UNHANDLED_MSG(info->msgId);
     }
   }
   return success;
@@ -1192,12 +1308,6 @@ SensorType getSensorTypeFromSensorInfo(
   if (suidFound) {
     LOGE("Unmatched client: %p, SUID 0x%016" PRIx64 " %016" PRIx64,
              client, suid.suid_high, suid.suid_low);
-    // TODO: remove after b/79993302 is resolved.
-    for (const auto& sensorInfo : sensorInfos) {
-      LOGE("  %p, 0x%016" PRIx64 " %016" PRIx64,
-           sensorInfo.client,
-           sensorInfo.suid.suid_high, sensorInfo.suid.suid_low);
-    }
 
     // Return SensorType in the other sns_client that matches the SUID as a
     // backup plan.
@@ -1245,6 +1355,30 @@ void *allocateEvent(SensorType sensorType, size_t numSamples) {
     case SensorSampleType::Vendor2:
       sampleSize = sizeof(chrexSensorVendor2SampleData);
       break;
+
+    case SensorSampleType::Vendor3:
+      sampleSize = sizeof(chrexSensorVendor3SampleData);
+      break;
+
+    case SensorSampleType::Vendor4:
+      sampleSize = sizeof(chrexSensorVendor4SampleData);
+      break;
+
+    case SensorSampleType::Vendor5:
+      sampleSize = sizeof(chrexSensorVendor5SampleData);
+      break;
+
+    case SensorSampleType::Vendor6:
+      sampleSize = sizeof(chrexSensorVendor6SampleData);
+      break;
+
+    case SensorSampleType::Vendor7:
+      sampleSize = sizeof(chrexSensorVendor7SampleData);
+      break;
+
+    case SensorSampleType::Vendor8:
+      sampleSize = sizeof(chrexSensorVendor8SampleData);
+      break;
 #endif  // CHREX_SENSOR_SUPPORT
 
     default:
@@ -1277,10 +1411,11 @@ bool prepareSensorEvent(SeeInfoArg& info) {
 
     auto *header = reinterpret_cast<chreSensorDataHeader *>(
         info.data->event.get());
-    memset(header->reserved, 0, sizeof(header->reserved));
+    header->reserved = 0;
     header->sensorHandle = getSensorHandleFromSensorType(
         info.data->sensorType);
     header->readingCount = info.data->sampleIndex;
+    header->accuracy = CHRE_SENSOR_ACCURACY_UNKNOWN;
 
     // Protect against out of bounds access in data decoding.
     info.data->totalSamples = info.data->sampleIndex;
@@ -1300,12 +1435,36 @@ const SeeHelper::SnsClientApi SeeHelper::kDefaultApi = {
   .sns_client_send   = sns_client_send,
 };
 
+#ifdef CHRE_SLPI_UIMG_ENABLED
+const SeeHelper::SnsClientApi BigImageSeeHelper::kQmiApi = {
+  .sns_client_init   = sns_qmi_client_init,
+  .sns_client_deinit = sns_qmi_client_deinit,
+  .sns_client_send   = sns_qmi_client_send,
+};
+#endif  // CHRE_SLPI_UIMG_ENABLED
+
+SeeHelper::SeeHelper() {
+  mCalHelper = memoryAlloc<SeeCalHelper>();
+  if (mCalHelper == nullptr) {
+    FATAL_ERROR("Failed to allocate SeeCalHelper");
+  }
+  mOwnsCalHelper = true;
+}
+
+SeeHelper::SeeHelper(SeeCalHelper *calHelper)
+    : mCalHelper(calHelper), mOwnsCalHelper(false) {}
+
 SeeHelper::~SeeHelper() {
   for (auto *client : mSeeClients) {
     int status = mSnsClientApi->sns_client_deinit(client);
     if (status != 0) {
       LOGE("Failed to release sensor client: %d", status);
     }
+  }
+
+  if (mOwnsCalHelper) {
+    mCalHelper->~SeeCalHelper();
+    memoryFree(mCalHelper);
   }
 }
 
@@ -1336,7 +1495,7 @@ void SeeHelper::handleSnsClientEventMsg(
     data->info.data = &data->dataArg;
     data->info.decodeMsgIdOnly = true;
     data->info.remoteProcSuid = &mRemoteProcSuid;
-    data->info.calInfo = &mCalInfo[0];
+    data->info.calHelper = mCalHelper;
     data->event.events.funcs.decode = decodeSnsClientEventMsg;
     data->event.events.arg = &data->info;
 
@@ -1346,7 +1505,6 @@ void SeeHelper::handleSnsClientEventMsg(
     } else {
       data->info.suid = data->event.suid;
       data->info.decodeMsgIdOnly = false;
-      data->info.data->cal = getCalDataFromSuid(data->info.suid);
       data->info.data->sensorType = getSensorTypeFromSensorInfo(
           data->info.client, data->info.suid, mSensorInfos);
 
@@ -1377,12 +1535,18 @@ void SeeHelper::handleSnsClientEventMsg(
         mWaitingOnInd = false;
         mCond.notify_one();
       } else {
+        if (data->info.msgId == SNS_STD_MSGID_SNS_STD_FLUSH_EVENT) {
+          mCbIf->onFlushCompleteEvent(data->info.data->sensorType);
+        }
         if (data->info.data->isHostWakeSuspendEvent) {
           mCbIf->onHostWakeSuspendEvent(data->info.data->isHostAwake);
         }
         if (!data->info.data->event.isNull()) {
           mCbIf->onSensorDataEvent(
               data->info.data->sensorType, std::move(data->info.data->event));
+        }
+        if (!data->info.data->bias.isNull()) {
+          mCbIf->onSensorBiasEvent(std::move(data->info.data->bias));
         }
         if (!data->info.data->status.isNull()) {
           if (data->info.data->sensorType == SensorType::Unknown) {
@@ -1448,9 +1612,9 @@ bool SeeHelper::findSuidSync(const char *dataType,
         mHaveTimedOutOnSuidLookup = true;
       }
       if (trialCount > 1) {
-        LOGD("Waited %" PRIu32 " ms for %s (found: %d)",
+        LOGD("Waited %" PRIu32 " ms for %s (found %zu, required %" PRIu8 ")",
              static_cast<uint32_t>(trialCount * retryDelay.getMilliseconds()),
-             dataType, success);
+             dataType, suids->size(), minNumSuids);
       }
     }
   }
@@ -1480,7 +1644,8 @@ bool SeeHelper::getAttributesSync(const sns_std_suid& suid,
   return success;
 }
 
-bool SeeHelper::init(SeeHelperCallbackInterface *cbIf, Microseconds timeout) {
+bool SeeHelper::init(SeeHelperCallbackInterface *cbIf, Microseconds timeout,
+                     bool skipDefaultSensorInit) {
   CHRE_ASSERT(cbIf);
 
   mCbIf = cbIf;
@@ -1489,8 +1654,10 @@ bool SeeHelper::init(SeeHelperCallbackInterface *cbIf, Microseconds timeout) {
   // Initialize cal/remote_proc_state sensors before making sensor data request.
   return (waitForService(&client, timeout)
           && mSeeClients.push_back(client)
-          && initCalSensors()
-          && initRemoteProcSensor());
+          && initResamplerSensor()
+          && (skipDefaultSensorInit
+              || (mCalHelper->registerForCalibrationUpdates(*this)
+                  && initRemoteProcSensor())));
 }
 
 bool SeeHelper::makeRequest(const SeeSensorRequest& request) {
@@ -1505,20 +1672,25 @@ bool SeeHelper::makeRequest(const SeeSensorRequest& request) {
     UniquePtr<pb_byte_t> msg;
     size_t msgLen = 0;
 
+    bool encodeSuccess = true;
     if (!request.enable) {
       // An empty message
       msgId = SNS_CLIENT_MSGID_SNS_CLIENT_DISABLE_REQ;
-      success = true;
     } else if (sensorTypeIsContinuous(request.sensorType)) {
-      msgId = SNS_STD_SENSOR_MSGID_SNS_STD_SENSOR_CONFIG;
-      success = encodeSnsStdSensorConfig(request, &msg, &msgLen);
+      if (suidsMatch(sensorInfo->suid, mResamplerSuid.value())) {
+        msgId = SNS_RESAMPLER_MSGID_SNS_RESAMPLER_CONFIG;
+        encodeSuccess = encodeSnsResamplerConfig(
+            request, sensorInfo->physicalSuid, &msg, &msgLen);
+      } else {
+        msgId = SNS_STD_SENSOR_MSGID_SNS_STD_SENSOR_CONFIG;
+        encodeSuccess = encodeSnsStdSensorConfig(request, &msg, &msgLen);
+      }
     } else {
       msgId = SNS_STD_SENSOR_MSGID_SNS_STD_ON_CHANGE_CONFIG;
       // No sample rate needed to configure on-change or one-shot sensors.
-      success = true;
     }
 
-    if (success) {
+    if (encodeSuccess) {
       success = sendReq(sensorInfo->client, sensorInfo->suid,
                         nullptr /* syncData */, nullptr /* syncDataType */,
                         msgId, msg.get(), msgLen,
@@ -1529,15 +1701,33 @@ bool SeeHelper::makeRequest(const SeeSensorRequest& request) {
   return success;
 }
 
-const sns_std_suid& SeeHelper::getCalSuidFromSensorType(
-    SensorType sensorType) const {
-  static sns_std_suid suid = sns_suid_sensor_init_zero;
+bool SeeHelper::flush(SensorType sensorType) {
+  bool success = false;
 
-  size_t calIndex = getCalIndexFromSensorType(sensorType);
-  if (calIndex < kNumSeeCalSensors && mCalInfo[calIndex].suid.has_value()) {
-    suid = mCalInfo[calIndex].suid.value();
+  const SensorInfo *sensorInfo = getSensorInfo(sensorType);
+  if (sensorInfo == nullptr) {
+    LOGE("SensorType %" PRIu8 " hasn't been registered",
+         static_cast<uint8_t>(sensorType));
+  } else {
+    uint32_t msgId = SNS_STD_MSGID_SNS_STD_FLUSH_REQ;
+    success = sendReq(sensorInfo->client, sensorInfo->suid,
+                      nullptr /* syncData */, nullptr /* syncDataType */,
+                      msgId, nullptr /* msg */, 0 /* msgLen */,
+                      false /* batchValid */, 0 /* batchPeriodUs */,
+                      false /* passive */, false /* waitForIndication */);
   }
-  return suid;
+  return success;
+}
+
+bool SeeHelper::configureOnChangeSensor(const sns_std_suid& suid, bool enable) {
+  uint32_t msgId = (enable)
+      ? SNS_STD_SENSOR_MSGID_SNS_STD_ON_CHANGE_CONFIG
+      : SNS_CLIENT_MSGID_SNS_CLIENT_DISABLE_REQ;
+  return sendReq(
+      suid, nullptr /* syncData */, nullptr /* syncDataType */,
+      msgId, nullptr /* msg */, 0 /* msgLen */,
+      false /* batchValid */, 0 /* batchPeriodUs */,
+      false /* passive */, false /* waitForIndication */);
 }
 
 /**
@@ -1582,11 +1772,19 @@ bool SeeHelper::sendSeeReqSync(
         if (!waitSuccess) {
           LOGE("SEE resp timed out after %" PRIu64 " ms",
                Milliseconds(timeoutResp).getMilliseconds());
-        } else if (mRespError != SNS_STD_ERROR_NO_ERROR) {
-          LOGE("SEE txn ID %" PRIu32 " failed with error %d",
-               mCurrentTxnId, mRespError);
+
+          if (++mNumMissingResp >= kSeeNumMissingResp) {
+            FATAL_ERROR("%" PRIu32 " consecutive missing responses",
+                        mNumMissingResp);
+          }
         } else {
-          success = true;
+          mNumMissingResp = 0;
+          if (mRespError != SNS_STD_ERROR_NO_ERROR) {
+            LOGE("SEE txn ID %" PRIu32 " failed with error %d",
+                 mCurrentTxnId, mRespError);
+          } else {
+            success = true;
+          }
         }
       }
       mWaitingOnResp = false;
@@ -1674,44 +1872,54 @@ void SeeHelper::seeRespCb(sns_client *client, sns_std_error error,
 }
 
 bool SeeHelper::registerSensor(
-    SensorType sensorType, const sns_std_suid& suid, bool *prevRegistered) {
+    SensorType sensorType, const sns_std_suid& suid, bool resample,
+    bool *prevRegistered) {
   CHRE_ASSERT(sensorType != SensorType::Unknown);
   CHRE_ASSERT(prevRegistered != nullptr);
   bool success = false;
 
-  // Check whether the SUID/SensorType pair has been previously registered.
-  // Also count how many other SensorTypes the SUID has been registered with.
-  *prevRegistered = false;
-  size_t suidRegCount = 0;
-  for (const auto& sensorInfo : mSensorInfos) {
-    if (suidsMatch(suid, sensorInfo.suid)) {
-      suidRegCount++;
-      if (sensorInfo.sensorType == sensorType) {
-        *prevRegistered = true;
+  bool doResample = resample && sensorTypeIsContinuous(sensorType);
+  if (doResample && !mResamplerSuid.has_value()) {
+    LOGE("Unable to use resampler without its SUID");
+  } else {
+    // The SUID to make request to.
+    const sns_std_suid& reqSuid = doResample ? mResamplerSuid.value() : suid;
+
+    // Check whether the SUID/SensorType pair has been previously registered.
+    // Also count how many other SensorTypes the SUID has been registered with.
+    *prevRegistered = false;
+    size_t suidRegCount = 0;
+    for (const auto& sensorInfo : mSensorInfos) {
+      if (suidsMatch(reqSuid, sensorInfo.suid)) {
+        suidRegCount++;
+        if (sensorInfo.sensorType == sensorType) {
+          *prevRegistered = true;
+        }
       }
     }
-  }
 
-  // Initialize another SEE client if the SUID has been previously
-  // registered with more SensorTypes than the number of SEE clients can
-  // disambiguate.
-  bool clientAvailable = true;
-  if (mSeeClients.size() <= suidRegCount) {
-    sns_client *client;
-    clientAvailable = waitForService(&client);
-    if (clientAvailable) {
-      clientAvailable = mSeeClients.push_back(client);
+    // Initialize another SEE client if the SUID has been previously
+    // registered with more SensorTypes than the number of SEE clients can
+    // disambiguate.
+    bool clientAvailable = true;
+    if (mSeeClients.size() <= suidRegCount) {
+      sns_client *client;
+      clientAvailable = waitForService(&client);
+      if (clientAvailable) {
+        clientAvailable = mSeeClients.push_back(client);
+      }
     }
-  }
 
-  // Add a new entry only if this SUID/SensorType pair hasn't been registered.
-  if (!*prevRegistered && clientAvailable) {
-    SensorInfo sensorInfo = {
-      .suid = suid,
-      .sensorType = sensorType,
-      .client = mSeeClients[suidRegCount],
-    };
-    success = mSensorInfos.push_back(sensorInfo);
+    // Add a new entry only if this SUID/SensorType pair hasn't been registered.
+    if (!*prevRegistered && clientAvailable) {
+      SensorInfo sensorInfo = {
+        .suid = reqSuid,
+        .sensorType = sensorType,
+        .client = mSeeClients[suidRegCount],
+        .physicalSuid = suid,
+      };
+      success = mSensorInfos.push_back(sensorInfo);
+    }
   }
   return success;
 }
@@ -1734,50 +1942,6 @@ bool SeeHelper::waitForService(sns_client **client,
   if (!success) {
     LOGE("Failed to initialize the sensor client: %d", status);
   }
-  return success;
-}
-
-bool SeeHelper::initCalSensors() {
-  bool success = true;
-
-  // Zero out mCalInfo to avoid accidental suid and data match.
-  memset(mCalInfo, 0, sizeof(mCalInfo));
-
-  const char *kCalTypes[] = {
-    "accel_cal",
-    "gyro_cal",
-    "mag_cal",
-  };
-
-  // Find the cal sensor's SUID, assign it to mCalInfo, and make cal sensor data
-  // request.
-  DynamicVector<sns_std_suid> suids;
-  for (size_t i = 0; i < ARRAY_SIZE(kCalTypes); i++) {
-    const char *calType = kCalTypes[i];
-    if (!findSuidSync(calType, &suids)) {
-      success = false;
-      LOGE("Failed to find sensor '%s'", calType);
-    } else {
-      size_t index = getCalIndexFromDataType(calType);
-      if (index >= kNumSeeCalSensors) {
-        success = false;
-        LOGE("Cal sensor '%s' index out of bounds", calType);
-      } else {
-        mCalInfo[index].suid = suids[0];
-
-        if (!sendReq(suids[0], nullptr /* syncData */,
-                     nullptr /* syncDataType */,
-                     SNS_STD_SENSOR_MSGID_SNS_STD_ON_CHANGE_CONFIG,
-                     nullptr /* msg */, 0 /* msgLen */,
-                     false /* batchValid */, 0 /* batchPeriodUs */,
-                     false /* passive */, false /* waitForIndication */)) {
-          success = false;
-          LOGE("Failed to request '%s' data", calType);
-        }
-      }
-    }
-  }
-
   return success;
 }
 
@@ -1811,9 +1975,18 @@ bool SeeHelper::initRemoteProcSensor() {
   return success;
 }
 
-SeeCalData *SeeHelper::getCalDataFromSuid(const sns_std_suid& suid) {
-  size_t calIndex = getCalIndexFromSuid(suid, mCalInfo);
-  return (calIndex < kNumSeeCalSensors) ? &mCalInfo[calIndex].cal : nullptr;
+bool SeeHelper::initResamplerSensor() {
+  bool success = false;
+
+  const char *kResamplerType = "resampler";
+  DynamicVector<sns_std_suid> suids;
+  if (!findSuidSync(kResamplerType, &suids)) {
+    LOGE("Failed to find sensor '%s'", kResamplerType);
+  } else {
+    mResamplerSuid = suids[0];
+    success = true;
+  }
+  return success;
 }
 
 const SeeHelper::SensorInfo *SeeHelper::getSensorInfo(

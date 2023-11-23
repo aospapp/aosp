@@ -75,17 +75,38 @@ abstract public class TestFmwk extends AbstractTestLog {
     }
 
     @Before
-    public void testInitialize() {
+    public final void testInitialize() {
         Locale.setDefault(defaultLocale);
         TimeZone.setDefault(defaultTimeZone);
 
         if (getParams().testSecurityManager != null) {
             System.setSecurityManager(getParams().testSecurityManager);
         }
+
+        localTestInitialize();
+    }
+
+    /**
+     * This method is called at the end of {@link #testInitialize()}.
+     * Because JUnit does not guarantee the order of multiple Before
+     * methods, TestFmwk implementation class should override this
+     * method, instead of annotating Before.
+     */
+    protected void localTestInitialize() {
+    }
+
+    /**
+     * This method is called at the beginning of {@link #testTeardown()}.
+     * TestFmwk implementation class hould override this method, instead
+     * of annotating After.
+     */
+    protected void localTestTeardown() {
     }
 
     @After
-    public void testTeardown() {
+    public final void testTeardown() {
+        localTestTeardown();
+
         if (getParams().testSecurityManager != null) {
             System.setSecurityManager(getParams().originalSecurityManager);
         }
@@ -168,6 +189,9 @@ abstract public class TestFmwk extends AbstractTestLog {
         if (!getBooleanProperty("logKnownIssue", true)) {
             return false;
         }
+
+        // TODO: This method currently does not do very much.
+        // See http://bugs.icu-project.org/trac/ticket/12589
 
         StringBuffer descBuf = new StringBuffer();
         // TODO(junit) : what to do about this?

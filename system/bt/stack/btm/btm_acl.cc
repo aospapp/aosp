@@ -45,6 +45,7 @@
 #include "btm_api.h"
 #include "btm_int.h"
 #include "btu.h"
+#include "common/metrics.h"
 #include "device/include/controller.h"
 #include "device/include/interop.h"
 #include "hcidefs.h"
@@ -163,8 +164,8 @@ bool btm_ble_get_acl_remote_addr(tBTM_SEC_DEV_REC* p_dev_rec,
       break;
 
     case BTM_BLE_ADDR_STATIC:
-      conn_addr = p_dev_rec->ble.static_addr;
-      *p_addr_type = p_dev_rec->ble.static_addr_type;
+      conn_addr = p_dev_rec->ble.identity_addr;
+      *p_addr_type = p_dev_rec->ble.identity_addr_type;
       break;
 
     default:
@@ -537,9 +538,7 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
                            tBTM_CMPL_CB* p_cb) {
   tACL_CONN* p;
   tBTM_SEC_DEV_REC* p_dev_rec = NULL;
-#if (BTM_SCO_INCLUDED == TRUE)
   bool is_sco_active;
-#endif
   tBTM_STATUS status;
   tBTM_PM_MODE pwr_mode;
   tBTM_PM_PWR_MD settings;
@@ -567,12 +566,10 @@ tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
   if (interop_match_addr(INTEROP_DISABLE_ROLE_SWITCH, &remote_bd_addr))
     return BTM_DEV_BLACKLISTED;
 
-#if (BTM_SCO_INCLUDED == TRUE)
   /* Check if there is any SCO Active on this BD Address */
   is_sco_active = btm_is_sco_active_by_bdaddr(remote_bd_addr);
 
   if (is_sco_active) return (BTM_NO_RESOURCES);
-#endif
 
   /* Ignore role switch request if the previous request was not completed */
   if (p->switch_role_state != BTM_ACL_SWKEY_STATE_IDLE) {
@@ -892,6 +889,11 @@ void btm_read_remote_version_complete(uint8_t* p) {
         if (p_acl_cb->transport == BT_TRANSPORT_BR_EDR) {
           btm_read_remote_features(p_acl_cb->hci_handle);
         }
+        bluetooth::common::LogRemoteVersionInfo(
+            handle, status, p_acl_cb->lmp_version, p_acl_cb->manufacturer,
+            p_acl_cb->lmp_subversion);
+      } else {
+        bluetooth::common::LogRemoteVersionInfo(handle, status, 0, 0, 0);
       }
 
       if (p_acl_cb->transport == BT_TRANSPORT_LE) {

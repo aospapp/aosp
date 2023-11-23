@@ -16,6 +16,7 @@
 
 package com.google.turbine.options;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.CharMatcher;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import javax.annotation.Nullable;
 
 /** A command line options parser for {@link TurbineOptions}. */
@@ -52,31 +54,6 @@ public class TurbineOptionsParser {
     parse(builder, argumentDeque);
   }
 
-  private static final Splitter ARG_SPLITTER =
-      Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().trimResults();
-
-  /**
-   * Pre-processes an argument list, expanding arguments of the form {@code @filename} by reading
-   * the content of the file and appending whitespace-delimited options to {@code argumentDeque}.
-   */
-  private static void expandParamsFiles(Deque<String> argumentDeque, Iterable<String> args)
-      throws IOException {
-    for (String arg : args) {
-      if (arg.isEmpty()) {
-        continue;
-      }
-      if (arg.startsWith("@@")) {
-        argumentDeque.addLast(arg.substring(1));
-      } else if (arg.startsWith("@")) {
-        Path paramsPath = Paths.get(arg.substring(1));
-        expandParamsFiles(
-            argumentDeque, ARG_SPLITTER.split(new String(Files.readAllBytes(paramsPath), UTF_8)));
-      } else {
-        argumentDeque.addLast(arg);
-      }
-    }
-  }
-
   private static void parse(TurbineOptions.Builder builder, Deque<String> argumentDeque) {
     while (!argumentDeque.isEmpty()) {
       String next = argumentDeque.pollFirst();
@@ -95,45 +72,44 @@ public class TurbineOptionsParser {
           builder.addProcessors(readList(argumentDeque));
           break;
         case "--processorpath":
-          builder.addProcessorPathEntries(splitClasspath(readList(argumentDeque)));
+          builder.addProcessorPathEntries(readList(argumentDeque));
           break;
         case "--classpath":
-          builder.addClassPathEntries(splitClasspath(readList(argumentDeque)));
+          builder.addClassPathEntries(readList(argumentDeque));
           break;
         case "--bootclasspath":
-          builder.addBootClassPathEntries(splitClasspath(readList(argumentDeque)));
+          builder.addBootClassPathEntries(readList(argumentDeque));
+          break;
+        case "--release":
+          builder.setRelease(readOne(argumentDeque));
+          break;
+        case "--system":
+          builder.setSystem(readOne(argumentDeque));
           break;
         case "--javacopts":
-          builder.addAllJavacOpts(readList(argumentDeque));
-          break;
+          {
+            ImmutableList<String> javacopts = readJavacopts(argumentDeque);
+            setReleaseFromJavacopts(builder, javacopts);
+            builder.addAllJavacOpts(javacopts);
+            break;
+          }
         case "--sources":
           builder.addSources(readList(argumentDeque));
           break;
         case "--output_deps":
           builder.setOutputDeps(readOne(argumentDeque));
           break;
-        case "--direct_dependency":
-          {
-            String jar = readOne(argumentDeque);
-            String target = readOne(argumentDeque);
-            builder.addDirectJarToTarget(jar, target);
-            break;
-          }
-        case "--indirect_dependency":
-          {
-            String jar = readOne(argumentDeque);
-            String target = readOne(argumentDeque);
-            builder.addIndirectJarToTarget(jar, target);
-            break;
-          }
+        case "--direct_dependencies":
+          builder.addDirectJars(readList(argumentDeque));
+          break;
         case "--deps_artifacts":
           builder.addAllDepsArtifacts(readList(argumentDeque));
           break;
         case "--target_label":
           builder.setTargetLabel(readOne(argumentDeque));
           break;
-        case "--rule_kind":
-          builder.setRuleKind(readOne(argumentDeque));
+        case "--injecting_rule_kind":
+          builder.setInjectingRuleKind(readOne(argumentDeque));
           break;
         case "--javac_fallback":
           builder.setJavacFallback(true);
@@ -141,10 +117,52 @@ public class TurbineOptionsParser {
         case "--nojavac_fallback":
           builder.setJavacFallback(false);
           break;
+        case "--reduce_classpath":
+          builder.setShouldReduceClassPath(true);
+          break;
+        case "--noreduce_classpath":
+          builder.setShouldReduceClassPath(false);
+          break;
+        case "--help":
+          builder.setHelp(true);
+          break;
         default:
-          if (next.isEmpty() && !argumentDeque.isEmpty()) {
-            throw new IllegalArgumentException("unknown option: " + next);
-          }
+          throw new IllegalArgumentException("unknown option: " + next);
+      }
+    }
+  }
+
+  private static final Splitter ARG_SPLITTER =
+      Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().trimResults();
+
+  /**
+   * Pre-processes an argument list, expanding arguments of the form {@code @filename} by reading
+   * the content of the file and appending whitespace-delimited options to {@code argumentDeque}.
+   */
+  private static void expandParamsFiles(Deque<String> argumentDeque, Iterable<String> args)
+      throws IOException {
+    for (String arg : args) {
+      if (arg.isEmpty()) {
+        continue;
+      }
+      if (arg.charAt(0) == '\'') {
+        // perform best-effort unescaping as a concession to ninja, see:
+        // https://android.googlesource.com/platform/external/ninja/+/6f903faaf5488dc052ffc4e3e0b12757b426e088/src/util.cc#274
+        checkArgument(arg.charAt(arg.length() - 1) == '\'', arg);
+        arg = arg.substring(1, arg.length() - 1);
+        checkArgument(!arg.contains("'"), arg);
+      }
+      if (arg.startsWith("@@")) {
+        argumentDeque.addLast(arg.substring(1));
+      } else if (arg.startsWith("@")) {
+        Path paramsPath = Paths.get(arg.substring(1));
+        if (!Files.exists(paramsPath)) {
+          throw new AssertionError("params file does not exist: " + paramsPath);
+        }
+        expandParamsFiles(
+            argumentDeque, ARG_SPLITTER.split(new String(Files.readAllBytes(paramsPath), UTF_8)));
+      } else {
+        argumentDeque.addLast(arg);
       }
     }
   }
@@ -167,15 +185,33 @@ public class TurbineOptionsParser {
     return result.build();
   }
 
-  private static final Splitter CLASSPATH_SPLITTER =
-      Splitter.on(':').trimResults().omitEmptyStrings();
-
-  // TODO(cushon): stop splitting classpaths once cl/127006119 is released
-  private static ImmutableList<String> splitClasspath(Iterable<String> paths) {
-    ImmutableList.Builder<String> classpath = ImmutableList.builder();
-    for (String path : paths) {
-      classpath.addAll(CLASSPATH_SPLITTER.split(path));
+  /**
+   * Returns a list of javacopts. Reads options until a terminating {@code "--"} is reached, to
+   * support parsing javacopts that start with {@code --} (e.g. --release).
+   */
+  private static ImmutableList<String> readJavacopts(Deque<String> argumentDeque) {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    while (!argumentDeque.isEmpty()) {
+      String arg = argumentDeque.pollFirst();
+      if (arg.equals("--")) {
+        return result.build();
+      }
+      result.add(arg);
     }
-    return classpath.build();
+    throw new IllegalArgumentException("javacopts should be terminated by `--`");
+  }
+
+  /**
+   * Parses the given javacopts for {@code --release}, and if found sets turbine's {@code --release}
+   * flag.
+   */
+  private static void setReleaseFromJavacopts(
+      TurbineOptions.Builder builder, ImmutableList<String> javacopts) {
+    Iterator<String> it = javacopts.iterator();
+    while (it.hasNext()) {
+      if (it.next().equals("--release") && it.hasNext()) {
+        builder.setRelease(it.next());
+      }
+    }
   }
 }

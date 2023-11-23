@@ -28,6 +28,7 @@ import android.media.MediaFormat;
 import android.media.cts.CodecImage;
 import android.media.cts.CodecUtils;
 import android.media.cts.YUVImage;
+import android.os.Build;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
@@ -45,6 +46,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Random;
+import java.util.Scanner;
 
 /**
  * This tries to test video encoder / decoder performance by running encoding / decoding
@@ -140,6 +142,33 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
     }
 
     private TestConfig mTestConfig;
+
+    // Performance numbers only make sense on real devices, so skip on non-real devices
+    public static boolean frankenDevice() throws IOException {
+        String systemBrand = getProperty("ro.product.system.brand");
+        String systemModel = getProperty("ro.product.system.model");
+        String systemProduct = getProperty("ro.product.system.name");
+        if (("Android".equals(systemBrand) || "generic".equals(systemBrand)) &&
+            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_"))) {
+            return true;
+        }
+        return false;
+    }
+
+    private static String getProperty(String property) throws IOException {
+        Process process = new ProcessBuilder("getprop", property).start();
+        Scanner scanner = null;
+        String line = "";
+        try {
+            scanner = new Scanner(process.getInputStream());
+            line = scanner.nextLine();
+        } finally {
+            if (scanner != null) {
+                scanner.close();
+            }
+        }
+        return line;
+    }
 
     @Override
     protected void setUp() throws Exception {
@@ -696,6 +725,10 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         mTestConfig.mMaxTimeMs = Math.min(
                 mTestConfig.mMaxTimeMs, MAX_TEST_TIMEOUT_MS / 5 * 4 / codingPasses
                         / mTestConfig.mNumberOfRepeat);
+        // reduce test-run on non-real devices
+        if (frankenDevice()) {
+            mTestConfig.mMaxTimeMs /= 10;
+        }
 
         mVideoWidth = w;
         mVideoHeight = h;
@@ -729,6 +762,8 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             format = new MediaFormat();
             format.setString(MediaFormat.KEY_MIME, mimeType);
             format.setInteger(MediaFormat.KEY_BIT_RATE, infoEnc.mBitRate);
+            format.setInteger(MediaFormat.KEY_BITRATE_MODE,
+                    MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
             format.setInteger(MediaFormat.KEY_WIDTH, w);
             format.setInteger(MediaFormat.KEY_HEIGHT, h);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, mSrcColorFormat);
@@ -802,7 +837,12 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         if (isPerf) {
             String error = MediaPerfUtils.verifyAchievableFrameRates(
                     encoderName, mimeType, w, h, measuredFps);
-            assertNull(error, error);
+            if (frankenDevice() && error != null) {
+                // ensure there is data, but don't insist that it is correct
+                assertFalse(error, error.startsWith("Failed to get "));
+            } else {
+                assertNull(error, error);
+            }
         }
         assertTrue(success);
     }

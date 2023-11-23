@@ -34,7 +34,8 @@
               android:accessibilityTraversalAfter="@+id/buttonWithTooltip">
     </EditText>
 
-    <LinearLayout android:layout_width="fill_parent"
+    <LinearLayout android:id="@+id/buttonLayout"
+              android:layout_width="fill_parent"
               android:layout_height="wrap_content"
               android:gravity="center">
         <Button android:id="@+id/button"
@@ -42,6 +43,7 @@
                 android:accessibilityPaneTitle="@string/paneTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginRight="60dp"
                 android:bufferType="normal">
         </Button>
         <Button android:id="@id/buttonWithTooltip"
@@ -54,4 +56,18 @@
         </Button>
     </LinearLayout>
 
+    <LinearLayout android:layout_width="fill_parent"
+                  android:layout_height="wrap_content"
+                  android:gravity="center">
+        <TextView android:id="@+id/delegateText"
+                  android:text="@string/text_input_blah"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content">
+        </TextView>
+        <Button android:id="@+id/buttonDelegated"
+                android:text="@string/button_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+        </Button>
+    </LinearLayout>
 </LinearLayout>

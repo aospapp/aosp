@@ -103,6 +103,7 @@ static const uint32_t format_list[] = {
 struct plane_info {
 	uint32_t bits_per_pixel;
 	uint32_t subsample_rate;
+	uint32_t data_mask;
 };
 
 #define MAX_PLANES 3
@@ -114,52 +115,52 @@ struct format_info {
 
 /* Bits per pixel for each. */
 static const struct format_info format_info_list[] = {
-	{GBM_FORMAT_C8, 1, {{8, 1}}},
-	{GBM_FORMAT_RGB332, 1, {{8, 1}}},
-	{GBM_FORMAT_BGR233, 1, {{8, 1}}},
-	{GBM_FORMAT_XRGB4444, 1, {{16, 1}}},
-	{GBM_FORMAT_XBGR4444, 1, {{16, 1}}},
-	{GBM_FORMAT_RGBX4444, 1, {{16, 1}}},
-	{GBM_FORMAT_BGRX4444, 1, {{16, 1}}},
-	{GBM_FORMAT_ARGB4444, 1, {{16, 1}}},
-	{GBM_FORMAT_ABGR4444, 1, {{16, 1}}},
-	{GBM_FORMAT_RGBA4444, 1, {{16, 1}}},
-	{GBM_FORMAT_BGRA4444, 1, {{16, 1}}},
-	{GBM_FORMAT_XRGB1555, 1, {{16, 1}}},
-	{GBM_FORMAT_XBGR1555, 1, {{16, 1}}},
-	{GBM_FORMAT_RGBX5551, 1, {{16, 1}}},
-	{GBM_FORMAT_BGRX5551, 1, {{16, 1}}},
-	{GBM_FORMAT_ARGB1555, 1, {{16, 1}}},
-	{GBM_FORMAT_ABGR1555, 1, {{16, 1}}},
-	{GBM_FORMAT_RGBA5551, 1, {{16, 1}}},
-	{GBM_FORMAT_BGRA5551, 1, {{16, 1}}},
-	{GBM_FORMAT_RGB565, 1, {{16, 1}}},
-	{GBM_FORMAT_BGR565, 1, {{16, 1}}},
-	{GBM_FORMAT_RGB888, 1, {{24, 1}}},
-	{GBM_FORMAT_BGR888, 1, {{24, 1}}},
-	{GBM_FORMAT_XRGB8888, 1, {{32, 1}}},
-	{GBM_FORMAT_XBGR8888, 1, {{32, 1}}},
-	{GBM_FORMAT_RGBX8888, 1, {{32, 1}}},
-	{GBM_FORMAT_BGRX8888, 1, {{32, 1}}},
-	{GBM_FORMAT_ARGB8888, 1, {{32, 1}}},
-	{GBM_FORMAT_ABGR8888, 1, {{32, 1}}},
-	{GBM_FORMAT_RGBA8888, 1, {{32, 1}}},
-	{GBM_FORMAT_BGRA8888, 1, {{32, 1}}},
-	{GBM_FORMAT_XRGB2101010, 1, {{32, 1}}},
-	{GBM_FORMAT_XBGR2101010, 1, {{32, 1}}},
-	{GBM_FORMAT_RGBX1010102, 1, {{32, 1}}},
-	{GBM_FORMAT_BGRX1010102, 1, {{32, 1}}},
-	{GBM_FORMAT_ARGB2101010, 1, {{32, 1}}},
-	{GBM_FORMAT_ABGR2101010, 1, {{32, 1}}},
-	{GBM_FORMAT_RGBA1010102, 1, {{32, 1}}},
-	{GBM_FORMAT_BGRA1010102, 1, {{32, 1}}},
-	{GBM_FORMAT_YUYV, 1, {{16, 1}}},
-	{GBM_FORMAT_YVYU, 1, {{16, 1}}},
-	{GBM_FORMAT_UYVY, 1, {{16, 1}}},
-	{GBM_FORMAT_VYUY, 1, {{16, 1}}},
-	{GBM_FORMAT_AYUV, 1, {{32, 1}}},
-	{GBM_FORMAT_NV12, 2, {{8, 1}, {16, 2}}},
-	{GBM_FORMAT_YVU420, 3, {{8, 1}, {8, 2}, {8,2}}},
+	{GBM_FORMAT_C8, 1, {{8, 1, 0xFF}}},
+	{GBM_FORMAT_RGB332, 1, {{8, 1, 0xFF}}},
+	{GBM_FORMAT_BGR233, 1, {{8, 1, 0xFF}}},
+	{GBM_FORMAT_XRGB4444, 1, {{16, 1, 0x0FFF}}},
+	{GBM_FORMAT_XBGR4444, 1, {{16, 1, 0x0FFF}}},
+	{GBM_FORMAT_RGBX4444, 1, {{16, 1, 0xFFF0}}},
+	{GBM_FORMAT_BGRX4444, 1, {{16, 1, 0xFFF0}}},
+	{GBM_FORMAT_ARGB4444, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_ABGR4444, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_RGBA4444, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_BGRA4444, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_XRGB1555, 1, {{16, 1, 0x7FFF}}},
+	{GBM_FORMAT_XBGR1555, 1, {{16, 1, 0x7FFF}}},
+	{GBM_FORMAT_RGBX5551, 1, {{16, 1, 0xFFFE}}},
+	{GBM_FORMAT_BGRX5551, 1, {{16, 1, 0xFFFE}}},
+	{GBM_FORMAT_ARGB1555, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_ABGR1555, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_RGBA5551, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_BGRA5551, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_RGB565, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_BGR565, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_RGB888, 1, {{24, 1, 0xFFFFFF}}},
+	{GBM_FORMAT_BGR888, 1, {{24, 1, 0xFFFFFF}}},
+	{GBM_FORMAT_XRGB8888, 1, {{32, 1, 0x00FFFFFF}}},
+	{GBM_FORMAT_XBGR8888, 1, {{32, 1, 0x00FFFFFF}}},
+	{GBM_FORMAT_RGBX8888, 1, {{32, 1, 0xFFFFFF00}}},
+	{GBM_FORMAT_BGRX8888, 1, {{32, 1, 0xFFFFFF00}}},
+	{GBM_FORMAT_ARGB8888, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_ABGR8888, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_RGBA8888, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_BGRA8888, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_XRGB2101010, 1, {{32, 1, 0x3FFFFFFF}}},
+	{GBM_FORMAT_XBGR2101010, 1, {{32, 1, 0x3FFFFFFF}}},
+	{GBM_FORMAT_RGBX1010102, 1, {{32, 1, 0xFFFFFFFC}}},
+	{GBM_FORMAT_BGRX1010102, 1, {{32, 1, 0xFFFFFFFC}}},
+	{GBM_FORMAT_ARGB2101010, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_ABGR2101010, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_RGBA1010102, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_BGRA1010102, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_YUYV, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_YVYU, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_UYVY, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_VYUY, 1, {{16, 1, 0xFFFF}}},
+	{GBM_FORMAT_AYUV, 1, {{32, 1, 0xFFFFFFFF}}},
+	{GBM_FORMAT_NV12, 2, {{8, 1, 0xFF}, {16, 2, 0xFFFF}}},
+	{GBM_FORMAT_YVU420, 3, {{8, 1, 0xFF}, {8, 2, 0xFF}, {8,2, 0xFF}}},
 };
 
 static const uint32_t usage_list[] = {
@@ -208,7 +209,7 @@ static int check_bo(struct gbm_bo *bo)
 			break;
 	CHECK(i < ARRAY_SIZE(format_list));
 
-	num_planes = gbm_bo_get_num_planes(bo);
+	num_planes = gbm_bo_get_plane_count(bo);
 	if (format == GBM_FORMAT_NV12)
 		CHECK(num_planes == 2);
 	else if (format == GBM_FORMAT_YVU420)
@@ -216,23 +217,23 @@ static int check_bo(struct gbm_bo *bo)
 	else
 		CHECK(num_planes == 1);
 
-	CHECK(gbm_bo_get_plane_handle(bo, 0).u32 == gbm_bo_get_handle(bo).u32);
+	CHECK(gbm_bo_get_handle_for_plane(bo, 0).u32 == gbm_bo_get_handle(bo).u32);
 
-	CHECK(gbm_bo_get_plane_offset(bo, 0) == 0);
+	CHECK(gbm_bo_get_offset(bo, 0) == 0);
 	CHECK(gbm_bo_get_plane_size(bo, 0) >=
 		gbm_bo_get_width(bo) * gbm_bo_get_height(bo));
-	CHECK(gbm_bo_get_plane_stride(bo, 0) == gbm_bo_get_stride(bo));
+	CHECK(gbm_bo_get_stride_for_plane(bo, 0) == gbm_bo_get_stride(bo));
 
 	for (plane = 0; plane < num_planes; plane++) {
-		CHECK(gbm_bo_get_plane_handle(bo, plane).u32);
+		CHECK(gbm_bo_get_handle_for_plane(bo, plane).u32);
 
 		fd = gbm_bo_get_plane_fd(bo, plane);
 		CHECK(fd > 0);
 		close(fd);
 
-		gbm_bo_get_plane_offset(bo, plane);
+		gbm_bo_get_offset(bo, plane);
 		CHECK(gbm_bo_get_plane_size(bo, plane));
-		CHECK(gbm_bo_get_plane_stride(bo, plane));
+		CHECK(gbm_bo_get_stride_for_plane(bo, plane));
 	}
 
 	return 1;
@@ -651,11 +652,11 @@ static int test_import_dmabuf()
 
 
 /*
- * Tests GBM_BO_IMPORT_FD_PLANAR entry point.
+ * Tests GBM_BO_IMPORT_FD_MODIFIER entry point.
  */
-static int test_import_planar()
+static int test_import_modifier()
 {
-	struct gbm_import_fd_planar_data fd_data;
+	struct gbm_import_fd_modifier_data fd_data;
 	struct gbm_bo *bo1, *bo2;
 	const int width = 567;
 	const int height = 891;
@@ -668,35 +669,35 @@ static int test_import_planar()
 			bo1 = gbm_bo_create(gbm, width, height, format, GBM_BO_USE_RENDERING);
 			CHECK(check_bo(bo1));
 
-			num_planes = gbm_bo_get_num_planes(bo1);
+			num_planes = gbm_bo_get_plane_count(bo1);
+			fd_data.num_fds = num_planes;
+
 			for (p = 0; p < num_planes; p++) {
 				fd_data.fds[p] = gbm_bo_get_plane_fd(bo1, p);
 				CHECK(fd_data.fds[p] >= 0);
 
-				fd_data.strides[p] = gbm_bo_get_plane_stride(bo1, p);
-				fd_data.offsets[p] = gbm_bo_get_plane_offset(bo1, p);
-				fd_data.format_modifiers[p] =
-					gbm_bo_get_plane_format_modifier(bo1, p);
+				fd_data.strides[p] = gbm_bo_get_stride_for_plane(bo1, p);
+				fd_data.offsets[p] = gbm_bo_get_offset(bo1, p);
 			}
 
+			fd_data.modifier = gbm_bo_get_modifier(bo1);
 			fd_data.width = width;
 			fd_data.height = height;
 			fd_data.format = format;
 
 			gbm_bo_destroy(bo1);
 
-			bo2 = gbm_bo_import(gbm, GBM_BO_IMPORT_FD_PLANAR, &fd_data,
+			bo2 = gbm_bo_import(gbm, GBM_BO_IMPORT_FD_MODIFIER, &fd_data,
 					    GBM_BO_USE_RENDERING);
 
 			CHECK(check_bo(bo2));
 			CHECK(fd_data.width == gbm_bo_get_width(bo2));
 			CHECK(fd_data.height == gbm_bo_get_height(bo2));
+			CHECK(fd_data.modifier == gbm_bo_get_modifier(bo2));
 
 			for (p = 0; p < num_planes; p++) {
-				CHECK(fd_data.strides[p] == gbm_bo_get_plane_stride(bo2, p));
-				CHECK(fd_data.offsets[p] == gbm_bo_get_plane_offset(bo2, p));
-				CHECK(fd_data.format_modifiers[p] ==
-				      gbm_bo_get_plane_format_modifier(bo2, p));
+				CHECK(fd_data.strides[p] == gbm_bo_get_stride_for_plane(bo2, p));
+				CHECK(fd_data.offsets[p] == gbm_bo_get_offset(bo2, p));
 			}
 
 			gbm_bo_destroy(bo2);
@@ -920,7 +921,8 @@ static int test_gem_map_format(int format_index,
 	uint8_t *pixel;
 	struct gbm_bo *bo;
 	void *map_data, *addr;
-	uint32_t x, y, p, w, h, b, planes, bytes_per_pixel, idx;
+	uint32_t x, y, p, w, h, b, planes, bytes_per_pixel, pixel_data_mask, idx;
+	uint8_t byte_mask;
 	uint32_t stride = 0;
 	const int width = 333;
 	const int height = 444;
@@ -932,7 +934,7 @@ static int test_gem_map_format(int format_index,
 
 	bo = gbm_bo_create(gbm, width, height, pixel_format, buffer_create_flag);
 	CHECK(check_bo(bo));
-	planes = gbm_bo_get_num_planes(bo);
+	planes = gbm_bo_get_plane_count(bo);
 	CHECK(planes == format_info_list[format_index].num_planes);
 
 	for (p = 0; p < planes; ++p) {
@@ -972,11 +974,14 @@ static int test_gem_map_format(int format_index,
 
 		pixel = (uint8_t *)addr;
 		bytes_per_pixel = format_info_list[format_index].planes[p].bits_per_pixel / 8;
+		pixel_data_mask = format_info_list[format_index].planes[p].data_mask;
 		for (y = 0; y < h; ++y) {
 			for (x = 0; x < w; ++x) {
 				idx = y * stride + x * bytes_per_pixel;
-				for (b = 0; b < bytes_per_pixel; ++b)
-					CHECK(pixel[idx + b] == (uint8_t)(y ^ x ^ b));
+				for (b = 0; b < bytes_per_pixel; ++b) {
+					byte_mask = pixel_data_mask >> (8 * b);
+					CHECK((pixel[idx + b] & byte_mask) == ((uint8_t)(y ^ x ^ b) & byte_mask));
+				}
 			}
 		}
 		gbm_bo_unmap(bo, map_data);
@@ -1011,7 +1016,7 @@ int main(int argc, char *argv[])
 	result &= test_export();
 	result &= test_import_vgem();
 	result &= test_import_dmabuf();
-	result &= test_import_planar();
+	result &= test_import_modifier();
 	result &= test_gem_map();
 
 	// TODO(crbug.com/752669)

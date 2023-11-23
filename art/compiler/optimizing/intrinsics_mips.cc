@@ -58,6 +58,10 @@ inline bool IntrinsicCodeGeneratorMIPS::Is32BitFPU() const {
   return codegen_->GetInstructionSetFeatures().Is32BitFloatingPoint();
 }
 
+inline bool IntrinsicCodeGeneratorMIPS::HasMsa() const {
+  return codegen_->GetInstructionSetFeatures().HasMsa();
+}
+
 #define __ codegen->GetAssembler()->
 
 static void MoveFromReturnRegister(Location trg,
@@ -104,7 +108,7 @@ class IntrinsicSlowPathMIPS : public SlowPathCodeMIPS {
  public:
   explicit IntrinsicSlowPathMIPS(HInvoke* invoke) : SlowPathCodeMIPS(invoke), invoke_(invoke) { }
 
-  void EmitNativeCode(CodeGenerator* codegen_in) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen_in) override {
     CodeGeneratorMIPS* codegen = down_cast<CodeGeneratorMIPS*>(codegen_in);
 
     __ Bind(GetEntryLabel());
@@ -133,7 +137,7 @@ class IntrinsicSlowPathMIPS : public SlowPathCodeMIPS {
     __ B(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE { return "IntrinsicSlowPathMIPS"; }
+  const char* GetDescription() const override { return "IntrinsicSlowPathMIPS"; }
 
  private:
   // The instruction where this slow path is happening.
@@ -181,7 +185,7 @@ void IntrinsicLocationsBuilderMIPS::VisitDoubleDoubleToRawLongBits(HInvoke* invo
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitDoubleDoubleToRawLongBits(HInvoke* invoke) {
-  MoveFPToInt(invoke->GetLocations(), /* is64bit */ true, GetAssembler());
+  MoveFPToInt(invoke->GetLocations(), /* is64bit= */ true, GetAssembler());
 }
 
 // int java.lang.Float.floatToRawIntBits(float)
@@ -190,7 +194,7 @@ void IntrinsicLocationsBuilderMIPS::VisitFloatFloatToRawIntBits(HInvoke* invoke)
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitFloatFloatToRawIntBits(HInvoke* invoke) {
-  MoveFPToInt(invoke->GetLocations(), /* is64bit */ false, GetAssembler());
+  MoveFPToInt(invoke->GetLocations(), /* is64bit= */ false, GetAssembler());
 }
 
 static void CreateIntToFPLocations(ArenaAllocator* allocator, HInvoke* invoke) {
@@ -222,7 +226,7 @@ void IntrinsicLocationsBuilderMIPS::VisitDoubleLongBitsToDouble(HInvoke* invoke)
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitDoubleLongBitsToDouble(HInvoke* invoke) {
-  MoveIntToFP(invoke->GetLocations(), /* is64bit */ true, GetAssembler());
+  MoveIntToFP(invoke->GetLocations(), /* is64bit= */ true, GetAssembler());
 }
 
 // float java.lang.Float.intBitsToFloat(int)
@@ -231,7 +235,7 @@ void IntrinsicLocationsBuilderMIPS::VisitFloatIntBitsToFloat(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitFloatIntBitsToFloat(HInvoke* invoke) {
-  MoveIntToFP(invoke->GetLocations(), /* is64bit */ false, GetAssembler());
+  MoveIntToFP(invoke->GetLocations(), /* is64bit= */ false, GetAssembler());
 }
 
 static void CreateIntToIntLocations(ArenaAllocator* allocator,
@@ -407,7 +411,7 @@ void IntrinsicCodeGeneratorMIPS::VisitIntegerReverseBytes(HInvoke* invoke) {
              DataType::Type::kInt32,
              IsR2OrNewer(),
              IsR6(),
-             /* reverseBits */ false,
+             /* reverseBits= */ false,
              GetAssembler());
 }
 
@@ -421,7 +425,7 @@ void IntrinsicCodeGeneratorMIPS::VisitLongReverseBytes(HInvoke* invoke) {
              DataType::Type::kInt64,
              IsR2OrNewer(),
              IsR6(),
-             /* reverseBits */ false,
+             /* reverseBits= */ false,
              GetAssembler());
 }
 
@@ -435,7 +439,7 @@ void IntrinsicCodeGeneratorMIPS::VisitShortReverseBytes(HInvoke* invoke) {
              DataType::Type::kInt16,
              IsR2OrNewer(),
              IsR6(),
-             /* reverseBits */ false,
+             /* reverseBits= */ false,
              GetAssembler());
 }
 
@@ -475,7 +479,7 @@ void IntrinsicLocationsBuilderMIPS::VisitIntegerNumberOfLeadingZeros(HInvoke* in
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitIntegerNumberOfLeadingZeros(HInvoke* invoke) {
-  GenNumberOfLeadingZeroes(invoke->GetLocations(), /* is64bit */ false, IsR6(), GetAssembler());
+  GenNumberOfLeadingZeroes(invoke->GetLocations(), /* is64bit= */ false, IsR6(), GetAssembler());
 }
 
 // int java.lang.Long.numberOfLeadingZeros(long i)
@@ -484,7 +488,7 @@ void IntrinsicLocationsBuilderMIPS::VisitLongNumberOfLeadingZeros(HInvoke* invok
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitLongNumberOfLeadingZeros(HInvoke* invoke) {
-  GenNumberOfLeadingZeroes(invoke->GetLocations(), /* is64bit */ true, IsR6(), GetAssembler());
+  GenNumberOfLeadingZeroes(invoke->GetLocations(), /* is64bit= */ true, IsR6(), GetAssembler());
 }
 
 static void GenNumberOfTrailingZeroes(LocationSummary* locations,
@@ -562,7 +566,7 @@ void IntrinsicLocationsBuilderMIPS::VisitIntegerNumberOfTrailingZeros(HInvoke* i
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitIntegerNumberOfTrailingZeros(HInvoke* invoke) {
-  GenNumberOfTrailingZeroes(invoke->GetLocations(), /* is64bit */ false, IsR6(), GetAssembler());
+  GenNumberOfTrailingZeroes(invoke->GetLocations(), /* is64bit= */ false, IsR6(), GetAssembler());
 }
 
 // int java.lang.Long.numberOfTrailingZeros(long i)
@@ -571,7 +575,7 @@ void IntrinsicLocationsBuilderMIPS::VisitLongNumberOfTrailingZeros(HInvoke* invo
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitLongNumberOfTrailingZeros(HInvoke* invoke) {
-  GenNumberOfTrailingZeroes(invoke->GetLocations(), /* is64bit */ true, IsR6(), GetAssembler());
+  GenNumberOfTrailingZeroes(invoke->GetLocations(), /* is64bit= */ true, IsR6(), GetAssembler());
 }
 
 // int java.lang.Integer.reverse(int)
@@ -584,7 +588,7 @@ void IntrinsicCodeGeneratorMIPS::VisitIntegerReverse(HInvoke* invoke) {
              DataType::Type::kInt32,
              IsR2OrNewer(),
              IsR6(),
-             /* reverseBits */ true,
+             /* reverseBits= */ true,
              GetAssembler());
 }
 
@@ -598,7 +602,7 @@ void IntrinsicCodeGeneratorMIPS::VisitLongReverse(HInvoke* invoke) {
              DataType::Type::kInt64,
              IsR2OrNewer(),
              IsR6(),
-             /* reverseBits */ true,
+             /* reverseBits= */ true,
              GetAssembler());
 }
 
@@ -612,6 +616,7 @@ static void CreateFPToFPLocations(ArenaAllocator* allocator, HInvoke* invoke) {
 static void GenBitCount(LocationSummary* locations,
                         DataType::Type type,
                         bool isR6,
+                        bool hasMsa,
                         MipsAssembler* assembler) {
   Register out = locations->Out().AsRegister<Register>();
 
@@ -637,85 +642,102 @@ static void GenBitCount(LocationSummary* locations,
   // instructions compared to a loop-based algorithm which required 47
   // instructions.
 
-  if (type == DataType::Type::kInt32) {
-    Register in = locations->InAt(0).AsRegister<Register>();
-
-    __ Srl(TMP, in, 1);
-    __ LoadConst32(AT, 0x55555555);
-    __ And(TMP, TMP, AT);
-    __ Subu(TMP, in, TMP);
-    __ LoadConst32(AT, 0x33333333);
-    __ And(out, TMP, AT);
-    __ Srl(TMP, TMP, 2);
-    __ And(TMP, TMP, AT);
-    __ Addu(TMP, out, TMP);
-    __ Srl(out, TMP, 4);
-    __ Addu(out, out, TMP);
-    __ LoadConst32(AT, 0x0F0F0F0F);
-    __ And(out, out, AT);
-    __ LoadConst32(TMP, 0x01010101);
-    if (isR6) {
-      __ MulR6(out, out, TMP);
+  if (hasMsa) {
+    if (type == DataType::Type::kInt32) {
+      Register in = locations->InAt(0).AsRegister<Register>();
+      __ Mtc1(in, FTMP);
+      __ PcntW(static_cast<VectorRegister>(FTMP), static_cast<VectorRegister>(FTMP));
+      __ Mfc1(out, FTMP);
     } else {
-      __ MulR2(out, out, TMP);
+      DCHECK_EQ(type, DataType::Type::kInt64);
+      Register in_lo = locations->InAt(0).AsRegisterPairLow<Register>();
+      Register in_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
+      __ Mtc1(in_lo, FTMP);
+      __ Mthc1(in_hi, FTMP);
+      __ PcntD(static_cast<VectorRegister>(FTMP), static_cast<VectorRegister>(FTMP));
+      __ Mfc1(out, FTMP);
     }
-    __ Srl(out, out, 24);
   } else {
-    DCHECK_EQ(type, DataType::Type::kInt64);
-    Register in_lo = locations->InAt(0).AsRegisterPairLow<Register>();
-    Register in_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
-    Register tmp_hi = locations->GetTemp(0).AsRegister<Register>();
-    Register out_hi = locations->GetTemp(1).AsRegister<Register>();
-    Register tmp_lo = TMP;
-    Register out_lo = out;
+    if (type == DataType::Type::kInt32) {
+      Register in = locations->InAt(0).AsRegister<Register>();
 
-    __ Srl(tmp_lo, in_lo, 1);
-    __ Srl(tmp_hi, in_hi, 1);
-
-    __ LoadConst32(AT, 0x55555555);
-
-    __ And(tmp_lo, tmp_lo, AT);
-    __ Subu(tmp_lo, in_lo, tmp_lo);
-
-    __ And(tmp_hi, tmp_hi, AT);
-    __ Subu(tmp_hi, in_hi, tmp_hi);
-
-    __ LoadConst32(AT, 0x33333333);
-
-    __ And(out_lo, tmp_lo, AT);
-    __ Srl(tmp_lo, tmp_lo, 2);
-    __ And(tmp_lo, tmp_lo, AT);
-    __ Addu(tmp_lo, out_lo, tmp_lo);
-
-    __ And(out_hi, tmp_hi, AT);
-    __ Srl(tmp_hi, tmp_hi, 2);
-    __ And(tmp_hi, tmp_hi, AT);
-    __ Addu(tmp_hi, out_hi, tmp_hi);
-
-    // Here we deviate from the original algorithm a bit. We've reached
-    // the stage where the bitfields holding the subtotals are large
-    // enough to hold the combined subtotals for both the low word, and
-    // the high word. This means that we can add the subtotals for the
-    // the high, and low words into a single word, and compute the final
-    // result for both the high, and low words using fewer instructions.
-    __ LoadConst32(AT, 0x0F0F0F0F);
-
-    __ Addu(TMP, tmp_hi, tmp_lo);
-
-    __ Srl(out, TMP, 4);
-    __ And(out, out, AT);
-    __ And(TMP, TMP, AT);
-    __ Addu(out, out, TMP);
-
-    __ LoadConst32(AT, 0x01010101);
-
-    if (isR6) {
-      __ MulR6(out, out, AT);
+      __ Srl(TMP, in, 1);
+      __ LoadConst32(AT, 0x55555555);
+      __ And(TMP, TMP, AT);
+      __ Subu(TMP, in, TMP);
+      __ LoadConst32(AT, 0x33333333);
+      __ And(out, TMP, AT);
+      __ Srl(TMP, TMP, 2);
+      __ And(TMP, TMP, AT);
+      __ Addu(TMP, out, TMP);
+      __ Srl(out, TMP, 4);
+      __ Addu(out, out, TMP);
+      __ LoadConst32(AT, 0x0F0F0F0F);
+      __ And(out, out, AT);
+      __ LoadConst32(TMP, 0x01010101);
+      if (isR6) {
+        __ MulR6(out, out, TMP);
+      } else {
+        __ MulR2(out, out, TMP);
+      }
+      __ Srl(out, out, 24);
     } else {
-      __ MulR2(out, out, AT);
-    }
+      DCHECK_EQ(type, DataType::Type::kInt64);
+      Register in_lo = locations->InAt(0).AsRegisterPairLow<Register>();
+      Register in_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
+      Register tmp_hi = locations->GetTemp(0).AsRegister<Register>();
+      Register out_hi = locations->GetTemp(1).AsRegister<Register>();
+      Register tmp_lo = TMP;
+      Register out_lo = out;
 
-    __ Srl(out, out, 24);
+      __ Srl(tmp_lo, in_lo, 1);
+      __ Srl(tmp_hi, in_hi, 1);
+
+      __ LoadConst32(AT, 0x55555555);
+
+      __ And(tmp_lo, tmp_lo, AT);
+      __ Subu(tmp_lo, in_lo, tmp_lo);
+
+      __ And(tmp_hi, tmp_hi, AT);
+      __ Subu(tmp_hi, in_hi, tmp_hi);
+
+      __ LoadConst32(AT, 0x33333333);
+
+      __ And(out_lo, tmp_lo, AT);
+      __ Srl(tmp_lo, tmp_lo, 2);
+      __ And(tmp_lo, tmp_lo, AT);
+      __ Addu(tmp_lo, out_lo, tmp_lo);
+
+      __ And(out_hi, tmp_hi, AT);
+      __ Srl(tmp_hi, tmp_hi, 2);
+      __ And(tmp_hi, tmp_hi, AT);
+      __ Addu(tmp_hi, out_hi, tmp_hi);
+
+      // Here we deviate from the original algorithm a bit. We've reached
+      // the stage where the bitfields holding the subtotals are large
+      // enough to hold the combined subtotals for both the low word, and
+      // the high word. This means that we can add the subtotals for the
+      // the high, and low words into a single word, and compute the final
+      // result for both the high, and low words using fewer instructions.
+      __ LoadConst32(AT, 0x0F0F0F0F);
+
+      __ Addu(TMP, tmp_hi, tmp_lo);
+
+      __ Srl(out, TMP, 4);
+      __ And(out, out, AT);
+      __ And(TMP, TMP, AT);
+      __ Addu(out, out, TMP);
+
+      __ LoadConst32(AT, 0x01010101);
+
+      if (isR6) {
+        __ MulR6(out, out, AT);
+      } else {
+        __ MulR2(out, out, AT);
+      }
+
+      __ Srl(out, out, 24);
+    }
   }
 }
 
@@ -725,7 +747,7 @@ void IntrinsicLocationsBuilderMIPS::VisitIntegerBitCount(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitIntegerBitCount(HInvoke* invoke) {
-  GenBitCount(invoke->GetLocations(), DataType::Type::kInt32, IsR6(), GetAssembler());
+  GenBitCount(invoke->GetLocations(), DataType::Type::kInt32, IsR6(), HasMsa(), GetAssembler());
 }
 
 // int java.lang.Long.bitCount(int)
@@ -739,575 +761,7 @@ void IntrinsicLocationsBuilderMIPS::VisitLongBitCount(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitLongBitCount(HInvoke* invoke) {
-  GenBitCount(invoke->GetLocations(), DataType::Type::kInt64, IsR6(), GetAssembler());
-}
-
-static void MathAbsFP(LocationSummary* locations,
-                      bool is64bit,
-                      bool isR2OrNewer,
-                      bool isR6,
-                      MipsAssembler* assembler) {
-  FRegister in = locations->InAt(0).AsFpuRegister<FRegister>();
-  FRegister out = locations->Out().AsFpuRegister<FRegister>();
-
-  // Note, as a "quality of implementation", rather than pure "spec compliance", we require that
-  // Math.abs() clears the sign bit (but changes nothing else) for all numbers, including NaN
-  // (signaling NaN may become quiet though).
-  //
-  // The ABS.fmt instructions (abs.s and abs.d) do exactly that when NAN2008=1 (R6). For this case,
-  // both regular floating point numbers and NAN values are treated alike, only the sign bit is
-  // affected by this instruction.
-  // But when NAN2008=0 (R2 and before), the ABS.fmt instructions can't be used. For this case, any
-  // NaN operand signals invalid operation. This means that other bits (not just sign bit) might be
-  // changed when doing abs(NaN). Because of that, we clear sign bit in a different way.
-  if (isR6) {
-    if (is64bit) {
-      __ AbsD(out, in);
-    } else {
-      __ AbsS(out, in);
-    }
-  } else {
-    if (is64bit) {
-      if (in != out) {
-        __ MovD(out, in);
-      }
-      __ MoveFromFpuHigh(TMP, in);
-      // ins instruction is not available for R1.
-      if (isR2OrNewer) {
-        __ Ins(TMP, ZERO, 31, 1);
-      } else {
-        __ Sll(TMP, TMP, 1);
-        __ Srl(TMP, TMP, 1);
-      }
-      __ MoveToFpuHigh(TMP, out);
-    } else {
-      __ Mfc1(TMP, in);
-      // ins instruction is not available for R1.
-      if (isR2OrNewer) {
-        __ Ins(TMP, ZERO, 31, 1);
-      } else {
-        __ Sll(TMP, TMP, 1);
-        __ Srl(TMP, TMP, 1);
-      }
-      __ Mtc1(TMP, out);
-    }
-  }
-}
-
-// double java.lang.Math.abs(double)
-void IntrinsicLocationsBuilderMIPS::VisitMathAbsDouble(HInvoke* invoke) {
-  CreateFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathAbsDouble(HInvoke* invoke) {
-  MathAbsFP(invoke->GetLocations(), /* is64bit */ true, IsR2OrNewer(), IsR6(), GetAssembler());
-}
-
-// float java.lang.Math.abs(float)
-void IntrinsicLocationsBuilderMIPS::VisitMathAbsFloat(HInvoke* invoke) {
-  CreateFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathAbsFloat(HInvoke* invoke) {
-  MathAbsFP(invoke->GetLocations(), /* is64bit */ false, IsR2OrNewer(), IsR6(), GetAssembler());
-}
-
-static void GenAbsInteger(LocationSummary* locations, bool is64bit, MipsAssembler* assembler) {
-  if (is64bit) {
-    Register in_lo = locations->InAt(0).AsRegisterPairLow<Register>();
-    Register in_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
-    Register out_lo = locations->Out().AsRegisterPairLow<Register>();
-    Register out_hi = locations->Out().AsRegisterPairHigh<Register>();
-
-    // The comments in this section show the analogous operations which would
-    // be performed if we had 64-bit registers "in", and "out".
-    // __ Dsra32(AT, in, 31);
-    __ Sra(AT, in_hi, 31);
-    // __ Xor(out, in, AT);
-    __ Xor(TMP, in_lo, AT);
-    __ Xor(out_hi, in_hi, AT);
-    // __ Dsubu(out, out, AT);
-    __ Subu(out_lo, TMP, AT);
-    __ Sltu(TMP, out_lo, TMP);
-    __ Addu(out_hi, out_hi, TMP);
-  } else {
-    Register in = locations->InAt(0).AsRegister<Register>();
-    Register out = locations->Out().AsRegister<Register>();
-
-    __ Sra(AT, in, 31);
-    __ Xor(out, in, AT);
-    __ Subu(out, out, AT);
-  }
-}
-
-// int java.lang.Math.abs(int)
-void IntrinsicLocationsBuilderMIPS::VisitMathAbsInt(HInvoke* invoke) {
-  CreateIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathAbsInt(HInvoke* invoke) {
-  GenAbsInteger(invoke->GetLocations(), /* is64bit */ false, GetAssembler());
-}
-
-// long java.lang.Math.abs(long)
-void IntrinsicLocationsBuilderMIPS::VisitMathAbsLong(HInvoke* invoke) {
-  CreateIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathAbsLong(HInvoke* invoke) {
-  GenAbsInteger(invoke->GetLocations(), /* is64bit */ true, GetAssembler());
-}
-
-static void GenMinMaxFP(LocationSummary* locations,
-                        bool is_min,
-                        DataType::Type type,
-                        bool is_R6,
-                        MipsAssembler* assembler) {
-  FRegister out = locations->Out().AsFpuRegister<FRegister>();
-  FRegister a = locations->InAt(0).AsFpuRegister<FRegister>();
-  FRegister b = locations->InAt(1).AsFpuRegister<FRegister>();
-
-  if (is_R6) {
-    MipsLabel noNaNs;
-    MipsLabel done;
-    FRegister ftmp = ((out != a) && (out != b)) ? out : FTMP;
-
-    // When Java computes min/max it prefers a NaN to a number; the
-    // behavior of MIPSR6 is to prefer numbers to NaNs, i.e., if one of
-    // the inputs is a NaN and the other is a valid number, the MIPS
-    // instruction will return the number; Java wants the NaN value
-    // returned. This is why there is extra logic preceding the use of
-    // the MIPS min.fmt/max.fmt instructions. If either a, or b holds a
-    // NaN, return the NaN, otherwise return the min/max.
-    if (type == DataType::Type::kFloat64) {
-      __ CmpUnD(FTMP, a, b);
-      __ Bc1eqz(FTMP, &noNaNs);
-
-      // One of the inputs is a NaN
-      __ CmpEqD(ftmp, a, a);
-      // If a == a then b is the NaN, otherwise a is the NaN.
-      __ SelD(ftmp, a, b);
-
-      if (ftmp != out) {
-        __ MovD(out, ftmp);
-      }
-
-      __ B(&done);
-
-      __ Bind(&noNaNs);
-
-      if (is_min) {
-        __ MinD(out, a, b);
-      } else {
-        __ MaxD(out, a, b);
-      }
-    } else {
-      DCHECK_EQ(type, DataType::Type::kFloat32);
-      __ CmpUnS(FTMP, a, b);
-      __ Bc1eqz(FTMP, &noNaNs);
-
-      // One of the inputs is a NaN
-      __ CmpEqS(ftmp, a, a);
-      // If a == a then b is the NaN, otherwise a is the NaN.
-      __ SelS(ftmp, a, b);
-
-      if (ftmp != out) {
-        __ MovS(out, ftmp);
-      }
-
-      __ B(&done);
-
-      __ Bind(&noNaNs);
-
-      if (is_min) {
-        __ MinS(out, a, b);
-      } else {
-        __ MaxS(out, a, b);
-      }
-    }
-
-    __ Bind(&done);
-  } else {
-    MipsLabel ordered;
-    MipsLabel compare;
-    MipsLabel select;
-    MipsLabel done;
-
-    if (type == DataType::Type::kFloat64) {
-      __ CunD(a, b);
-    } else {
-      DCHECK_EQ(type, DataType::Type::kFloat32);
-      __ CunS(a, b);
-    }
-    __ Bc1f(&ordered);
-
-    // a or b (or both) is a NaN. Return one, which is a NaN.
-    if (type == DataType::Type::kFloat64) {
-      __ CeqD(b, b);
-    } else {
-      __ CeqS(b, b);
-    }
-    __ B(&select);
-
-    __ Bind(&ordered);
-
-    // Neither is a NaN.
-    // a == b? (-0.0 compares equal with +0.0)
-    // If equal, handle zeroes, else compare further.
-    if (type == DataType::Type::kFloat64) {
-      __ CeqD(a, b);
-    } else {
-      __ CeqS(a, b);
-    }
-    __ Bc1f(&compare);
-
-    // a == b either bit for bit or one is -0.0 and the other is +0.0.
-    if (type == DataType::Type::kFloat64) {
-      __ MoveFromFpuHigh(TMP, a);
-      __ MoveFromFpuHigh(AT, b);
-    } else {
-      __ Mfc1(TMP, a);
-      __ Mfc1(AT, b);
-    }
-
-    if (is_min) {
-      // -0.0 prevails over +0.0.
-      __ Or(TMP, TMP, AT);
-    } else {
-      // +0.0 prevails over -0.0.
-      __ And(TMP, TMP, AT);
-    }
-
-    if (type == DataType::Type::kFloat64) {
-      __ Mfc1(AT, a);
-      __ Mtc1(AT, out);
-      __ MoveToFpuHigh(TMP, out);
-    } else {
-      __ Mtc1(TMP, out);
-    }
-    __ B(&done);
-
-    __ Bind(&compare);
-
-    if (type == DataType::Type::kFloat64) {
-      if (is_min) {
-        // return (a <= b) ? a : b;
-        __ ColeD(a, b);
-      } else {
-        // return (a >= b) ? a : b;
-        __ ColeD(b, a);  // b <= a
-      }
-    } else {
-      if (is_min) {
-        // return (a <= b) ? a : b;
-        __ ColeS(a, b);
-      } else {
-        // return (a >= b) ? a : b;
-        __ ColeS(b, a);  // b <= a
-      }
-    }
-
-    __ Bind(&select);
-
-    if (type == DataType::Type::kFloat64) {
-      __ MovtD(out, a);
-      __ MovfD(out, b);
-    } else {
-      __ MovtS(out, a);
-      __ MovfS(out, b);
-    }
-
-    __ Bind(&done);
-  }
-}
-
-static void CreateFPFPToFPLocations(ArenaAllocator* allocator, HInvoke* invoke) {
-  LocationSummary* locations =
-      new (allocator) LocationSummary(invoke, LocationSummary::kNoCall, kIntrinsified);
-  locations->SetInAt(0, Location::RequiresFpuRegister());
-  locations->SetInAt(1, Location::RequiresFpuRegister());
-  locations->SetOut(Location::RequiresFpuRegister(), Location::kOutputOverlap);
-}
-
-// double java.lang.Math.min(double, double)
-void IntrinsicLocationsBuilderMIPS::VisitMathMinDoubleDouble(HInvoke* invoke) {
-  CreateFPFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMinDoubleDouble(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
-              /* is_min */ true,
-              DataType::Type::kFloat64,
-              IsR6(),
-              GetAssembler());
-}
-
-// float java.lang.Math.min(float, float)
-void IntrinsicLocationsBuilderMIPS::VisitMathMinFloatFloat(HInvoke* invoke) {
-  CreateFPFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMinFloatFloat(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
-              /* is_min */ true,
-              DataType::Type::kFloat32,
-              IsR6(),
-              GetAssembler());
-}
-
-// double java.lang.Math.max(double, double)
-void IntrinsicLocationsBuilderMIPS::VisitMathMaxDoubleDouble(HInvoke* invoke) {
-  CreateFPFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMaxDoubleDouble(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
-              /* is_min */ false,
-              DataType::Type::kFloat64,
-              IsR6(),
-              GetAssembler());
-}
-
-// float java.lang.Math.max(float, float)
-void IntrinsicLocationsBuilderMIPS::VisitMathMaxFloatFloat(HInvoke* invoke) {
-  CreateFPFPToFPLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMaxFloatFloat(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
-              /* is_min */ false,
-              DataType::Type::kFloat32,
-              IsR6(),
-              GetAssembler());
-}
-
-static void CreateIntIntToIntLocations(ArenaAllocator* allocator, HInvoke* invoke) {
-  LocationSummary* locations =
-      new (allocator) LocationSummary(invoke, LocationSummary::kNoCall, kIntrinsified);
-  locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetInAt(1, Location::RequiresRegister());
-  locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
-}
-
-static void GenMinMax(LocationSummary* locations,
-                      bool is_min,
-                      DataType::Type type,
-                      bool is_R6,
-                      MipsAssembler* assembler) {
-  if (is_R6) {
-    // Some architectures, such as ARM and MIPS (prior to r6), have a
-    // conditional move instruction which only changes the target
-    // (output) register if the condition is true (MIPS prior to r6 had
-    // MOVF, MOVT, MOVN, and MOVZ). The SELEQZ and SELNEZ instructions
-    // always change the target (output) register.  If the condition is
-    // true the output register gets the contents of the "rs" register;
-    // otherwise, the output register is set to zero. One consequence
-    // of this is that to implement something like "rd = c==0 ? rs : rt"
-    // MIPS64r6 needs to use a pair of SELEQZ/SELNEZ instructions.
-    // After executing this pair of instructions one of the output
-    // registers from the pair will necessarily contain zero. Then the
-    // code ORs the output registers from the SELEQZ/SELNEZ instructions
-    // to get the final result.
-    //
-    // The initial test to see if the output register is same as the
-    // first input register is needed to make sure that value in the
-    // first input register isn't clobbered before we've finished
-    // computing the output value. The logic in the corresponding else
-    // clause performs the same task but makes sure the second input
-    // register isn't clobbered in the event that it's the same register
-    // as the output register; the else clause also handles the case
-    // where the output register is distinct from both the first, and the
-    // second input registers.
-    if (type == DataType::Type::kInt64) {
-      Register a_lo = locations->InAt(0).AsRegisterPairLow<Register>();
-      Register a_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
-      Register b_lo = locations->InAt(1).AsRegisterPairLow<Register>();
-      Register b_hi = locations->InAt(1).AsRegisterPairHigh<Register>();
-      Register out_lo = locations->Out().AsRegisterPairLow<Register>();
-      Register out_hi = locations->Out().AsRegisterPairHigh<Register>();
-
-      MipsLabel compare_done;
-
-      if (a_lo == b_lo) {
-        if (out_lo != a_lo) {
-          __ Move(out_lo, a_lo);
-          __ Move(out_hi, a_hi);
-        }
-      } else {
-        __ Slt(TMP, b_hi, a_hi);
-        __ Bne(b_hi, a_hi, &compare_done);
-
-        __ Sltu(TMP, b_lo, a_lo);
-
-        __ Bind(&compare_done);
-
-        if (is_min) {
-          __ Seleqz(AT, a_lo, TMP);
-          __ Selnez(out_lo, b_lo, TMP);  // Safe even if out_lo == a_lo/b_lo
-                                         // because at this point we're
-                                         // done using a_lo/b_lo.
-        } else {
-          __ Selnez(AT, a_lo, TMP);
-          __ Seleqz(out_lo, b_lo, TMP);  // ditto
-        }
-        __ Or(out_lo, out_lo, AT);
-        if (is_min) {
-          __ Seleqz(AT, a_hi, TMP);
-          __ Selnez(out_hi, b_hi, TMP);  // ditto but for out_hi & a_hi/b_hi
-        } else {
-          __ Selnez(AT, a_hi, TMP);
-          __ Seleqz(out_hi, b_hi, TMP);  // ditto but for out_hi & a_hi/b_hi
-        }
-        __ Or(out_hi, out_hi, AT);
-      }
-    } else {
-      DCHECK_EQ(type, DataType::Type::kInt32);
-      Register a = locations->InAt(0).AsRegister<Register>();
-      Register b = locations->InAt(1).AsRegister<Register>();
-      Register out = locations->Out().AsRegister<Register>();
-
-      if (a == b) {
-        if (out != a) {
-          __ Move(out, a);
-        }
-      } else {
-        __ Slt(AT, b, a);
-        if (is_min) {
-          __ Seleqz(TMP, a, AT);
-          __ Selnez(AT, b, AT);
-        } else {
-          __ Selnez(TMP, a, AT);
-          __ Seleqz(AT, b, AT);
-        }
-        __ Or(out, TMP, AT);
-      }
-    }
-  } else {
-    if (type == DataType::Type::kInt64) {
-      Register a_lo = locations->InAt(0).AsRegisterPairLow<Register>();
-      Register a_hi = locations->InAt(0).AsRegisterPairHigh<Register>();
-      Register b_lo = locations->InAt(1).AsRegisterPairLow<Register>();
-      Register b_hi = locations->InAt(1).AsRegisterPairHigh<Register>();
-      Register out_lo = locations->Out().AsRegisterPairLow<Register>();
-      Register out_hi = locations->Out().AsRegisterPairHigh<Register>();
-
-      MipsLabel compare_done;
-
-      if (a_lo == b_lo) {
-        if (out_lo != a_lo) {
-          __ Move(out_lo, a_lo);
-          __ Move(out_hi, a_hi);
-        }
-      } else {
-        __ Slt(TMP, a_hi, b_hi);
-        __ Bne(a_hi, b_hi, &compare_done);
-
-        __ Sltu(TMP, a_lo, b_lo);
-
-        __ Bind(&compare_done);
-
-        if (is_min) {
-          if (out_lo != a_lo) {
-            __ Movn(out_hi, a_hi, TMP);
-            __ Movn(out_lo, a_lo, TMP);
-          }
-          if (out_lo != b_lo) {
-            __ Movz(out_hi, b_hi, TMP);
-            __ Movz(out_lo, b_lo, TMP);
-          }
-        } else {
-          if (out_lo != a_lo) {
-            __ Movz(out_hi, a_hi, TMP);
-            __ Movz(out_lo, a_lo, TMP);
-          }
-          if (out_lo != b_lo) {
-            __ Movn(out_hi, b_hi, TMP);
-            __ Movn(out_lo, b_lo, TMP);
-          }
-        }
-      }
-    } else {
-      DCHECK_EQ(type, DataType::Type::kInt32);
-      Register a = locations->InAt(0).AsRegister<Register>();
-      Register b = locations->InAt(1).AsRegister<Register>();
-      Register out = locations->Out().AsRegister<Register>();
-
-      if (a == b) {
-        if (out != a) {
-          __ Move(out, a);
-        }
-      } else {
-        __ Slt(AT, a, b);
-        if (is_min) {
-          if (out != a) {
-            __ Movn(out, a, AT);
-          }
-          if (out != b) {
-            __ Movz(out, b, AT);
-          }
-        } else {
-          if (out != a) {
-            __ Movz(out, a, AT);
-          }
-          if (out != b) {
-            __ Movn(out, b, AT);
-          }
-        }
-      }
-    }
-  }
-}
-
-// int java.lang.Math.min(int, int)
-void IntrinsicLocationsBuilderMIPS::VisitMathMinIntInt(HInvoke* invoke) {
-  CreateIntIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMinIntInt(HInvoke* invoke) {
-  GenMinMax(invoke->GetLocations(),
-            /* is_min */ true,
-            DataType::Type::kInt32,
-            IsR6(),
-            GetAssembler());
-}
-
-// long java.lang.Math.min(long, long)
-void IntrinsicLocationsBuilderMIPS::VisitMathMinLongLong(HInvoke* invoke) {
-  CreateIntIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMinLongLong(HInvoke* invoke) {
-  GenMinMax(invoke->GetLocations(),
-            /* is_min */ true,
-            DataType::Type::kInt64,
-            IsR6(),
-            GetAssembler());
-}
-
-// int java.lang.Math.max(int, int)
-void IntrinsicLocationsBuilderMIPS::VisitMathMaxIntInt(HInvoke* invoke) {
-  CreateIntIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMaxIntInt(HInvoke* invoke) {
-  GenMinMax(invoke->GetLocations(),
-            /* is_min */ false,
-            DataType::Type::kInt32,
-            IsR6(),
-            GetAssembler());
-}
-
-// long java.lang.Math.max(long, long)
-void IntrinsicLocationsBuilderMIPS::VisitMathMaxLongLong(HInvoke* invoke) {
-  CreateIntIntToIntLocations(allocator_, invoke);
-}
-
-void IntrinsicCodeGeneratorMIPS::VisitMathMaxLongLong(HInvoke* invoke) {
-  GenMinMax(invoke->GetLocations(),
-            /* is_min */ false,
-            DataType::Type::kInt64,
-            IsR6(),
-            GetAssembler());
+  GenBitCount(invoke->GetLocations(), DataType::Type::kInt64, IsR6(), HasMsa(), GetAssembler());
 }
 
 // double java.lang.Math.sqrt(double)
@@ -1601,11 +1055,11 @@ static void GenUnsafeGet(HInvoke* invoke,
           codegen->GenerateReferenceLoadWithBakerReadBarrier(invoke,
                                                              trg_loc,
                                                              base,
-                                                             /* offset */ 0U,
-                                                             /* index */ offset_loc,
+                                                             /* offset= */ 0U,
+                                                             /* index= */ offset_loc,
                                                              TIMES_1,
                                                              temp,
-                                                             /* needs_null_check */ false);
+                                                             /* needs_null_check= */ false);
           if (is_volatile) {
             __ Sync(0);
           }
@@ -1623,8 +1077,8 @@ static void GenUnsafeGet(HInvoke* invoke,
                                            trg_loc,
                                            trg_loc,
                                            base_loc,
-                                           /* offset */ 0U,
-                                           /* index */ offset_loc);
+                                           /* offset= */ 0U,
+                                           /* index= */ offset_loc);
         }
       } else {
         if (is_R6) {
@@ -1653,7 +1107,7 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafeGet(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitUnsafeGet(HInvoke* invoke) {
-  GenUnsafeGet(invoke, DataType::Type::kInt32, /* is_volatile */ false, IsR6(), codegen_);
+  GenUnsafeGet(invoke, DataType::Type::kInt32, /* is_volatile= */ false, IsR6(), codegen_);
 }
 
 // int sun.misc.Unsafe.getIntVolatile(Object o, long offset)
@@ -1662,7 +1116,7 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafeGetVolatile(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitUnsafeGetVolatile(HInvoke* invoke) {
-  GenUnsafeGet(invoke, DataType::Type::kInt32, /* is_volatile */ true, IsR6(), codegen_);
+  GenUnsafeGet(invoke, DataType::Type::kInt32, /* is_volatile= */ true, IsR6(), codegen_);
 }
 
 // long sun.misc.Unsafe.getLong(Object o, long offset)
@@ -1671,7 +1125,7 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafeGetLong(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitUnsafeGetLong(HInvoke* invoke) {
-  GenUnsafeGet(invoke, DataType::Type::kInt64, /* is_volatile */ false, IsR6(), codegen_);
+  GenUnsafeGet(invoke, DataType::Type::kInt64, /* is_volatile= */ false, IsR6(), codegen_);
 }
 
 // Object sun.misc.Unsafe.getObject(Object o, long offset)
@@ -1680,7 +1134,7 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafeGetObject(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitUnsafeGetObject(HInvoke* invoke) {
-  GenUnsafeGet(invoke, DataType::Type::kReference, /* is_volatile */ false, IsR6(), codegen_);
+  GenUnsafeGet(invoke, DataType::Type::kReference, /* is_volatile= */ false, IsR6(), codegen_);
 }
 
 // Object sun.misc.Unsafe.getObjectVolatile(Object o, long offset)
@@ -1689,7 +1143,7 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafeGetObjectVolatile(HInvoke* invoke
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitUnsafeGetObjectVolatile(HInvoke* invoke) {
-  GenUnsafeGet(invoke, DataType::Type::kReference, /* is_volatile */ true, IsR6(), codegen_);
+  GenUnsafeGet(invoke, DataType::Type::kReference, /* is_volatile= */ true, IsR6(), codegen_);
 }
 
 static void CreateIntIntIntIntToVoidLocations(ArenaAllocator* allocator, HInvoke* invoke) {
@@ -1771,8 +1225,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePut(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePut(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kInt32,
-               /* is_volatile */ false,
-               /* is_ordered */ false,
+               /* is_volatile= */ false,
+               /* is_ordered= */ false,
                IsR6(),
                codegen_);
 }
@@ -1785,8 +1239,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutOrdered(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutOrdered(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kInt32,
-               /* is_volatile */ false,
-               /* is_ordered */ true,
+               /* is_volatile= */ false,
+               /* is_ordered= */ true,
                IsR6(),
                codegen_);
 }
@@ -1799,8 +1253,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutVolatile(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutVolatile(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kInt32,
-               /* is_volatile */ true,
-               /* is_ordered */ false,
+               /* is_volatile= */ true,
+               /* is_ordered= */ false,
                IsR6(),
                codegen_);
 }
@@ -1813,8 +1267,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutObject(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutObject(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kReference,
-               /* is_volatile */ false,
-               /* is_ordered */ false,
+               /* is_volatile= */ false,
+               /* is_ordered= */ false,
                IsR6(),
                codegen_);
 }
@@ -1827,8 +1281,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutObjectOrdered(HInvoke* invoke)
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutObjectOrdered(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kReference,
-               /* is_volatile */ false,
-               /* is_ordered */ true,
+               /* is_volatile= */ false,
+               /* is_ordered= */ true,
                IsR6(),
                codegen_);
 }
@@ -1841,8 +1295,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutObjectVolatile(HInvoke* invoke
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutObjectVolatile(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kReference,
-               /* is_volatile */ true,
-               /* is_ordered */ false,
+               /* is_volatile= */ true,
+               /* is_ordered= */ false,
                IsR6(),
                codegen_);
 }
@@ -1855,8 +1309,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutLong(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutLong(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kInt64,
-               /* is_volatile */ false,
-               /* is_ordered */ false,
+               /* is_volatile= */ false,
+               /* is_ordered= */ false,
                IsR6(),
                codegen_);
 }
@@ -1869,8 +1323,8 @@ void IntrinsicLocationsBuilderMIPS::VisitUnsafePutLongOrdered(HInvoke* invoke) {
 void IntrinsicCodeGeneratorMIPS::VisitUnsafePutLongOrdered(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(),
                DataType::Type::kInt64,
-               /* is_volatile */ false,
-               /* is_ordered */ true,
+               /* is_volatile= */ false,
+               /* is_ordered= */ true,
                IsR6(),
                codegen_);
 }
@@ -1934,12 +1388,12 @@ static void GenCas(HInvoke* invoke, DataType::Type type, CodeGeneratorMIPS* code
           invoke,
           out_loc,  // Unused, used only as a "temporary" within the read barrier.
           base,
-          /* offset */ 0u,
-          /* index */ offset_loc,
+          /* offset= */ 0u,
+          /* index= */ offset_loc,
           ScaleFactor::TIMES_1,
           temp,
-          /* needs_null_check */ false,
-          /* always_update_field */ true);
+          /* needs_null_check= */ false,
+          /* always_update_field= */ true);
     }
   }
 
@@ -2062,13 +1516,6 @@ void IntrinsicCodeGeneratorMIPS::VisitStringCompareTo(HInvoke* invoke) {
 
 // boolean java.lang.String.equals(Object anObject)
 void IntrinsicLocationsBuilderMIPS::VisitStringEquals(HInvoke* invoke) {
-  if (kEmitCompilerReadBarrier &&
-      !StringEqualsOptimizations(invoke).GetArgumentIsString() &&
-      !StringEqualsOptimizations(invoke).GetNoReadBarrierForStringClass()) {
-    // No support for this odd case (String class is moveable, not in the boot image).
-    return;
-  }
-
   LocationSummary* locations =
       new (allocator_) LocationSummary(invoke, LocationSummary::kNoCall, kIntrinsified);
   locations->SetInAt(0, Location::RequiresRegister());
@@ -2128,8 +1575,16 @@ void IntrinsicCodeGeneratorMIPS::VisitStringEquals(HInvoke* invoke) {
     // All string objects must have the same type since String cannot be subclassed.
     // Receiver must be a string object, so its class field is equal to all strings' class fields.
     // If the argument is a string object, its class field must be equal to receiver's class field.
+    //
+    // As the String class is expected to be non-movable, we can read the class
+    // field from String.equals' arguments without read barriers.
+    AssertNonMovableStringClass();
+    // /* HeapReference<Class> */ temp1 = str->klass_
     __ Lw(temp1, str, class_offset);
+    // /* HeapReference<Class> */ temp2 = arg->klass_
     __ Lw(temp2, arg, class_offset);
+    // Also, because we use the previously loaded class references only in the
+    // following comparison, we don't need to unpoison them.
     __ Bne(temp1, temp2, &return_false);
   }
 
@@ -2259,7 +1714,7 @@ void IntrinsicLocationsBuilderMIPS::VisitStringIndexOf(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitStringIndexOf(HInvoke* invoke) {
-  GenerateStringIndexOf(invoke, /* start_at_zero */ true, GetAssembler(), codegen_);
+  GenerateStringIndexOf(invoke, /* start_at_zero= */ true, GetAssembler(), codegen_);
 }
 
 // int java.lang.String.indexOf(int ch, int fromIndex)
@@ -2280,7 +1735,7 @@ void IntrinsicLocationsBuilderMIPS::VisitStringIndexOfAfter(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitStringIndexOfAfter(HInvoke* invoke) {
-  GenerateStringIndexOf(invoke, /* start_at_zero */ false, GetAssembler(), codegen_);
+  GenerateStringIndexOf(invoke, /* start_at_zero= */ false, GetAssembler(), codegen_);
 }
 
 // java.lang.StringFactory.newStringFromBytes(byte[] data, int high, int offset, int byteCount)
@@ -3147,59 +2602,50 @@ void IntrinsicLocationsBuilderMIPS::VisitIntegerValueOf(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorMIPS::VisitIntegerValueOf(HInvoke* invoke) {
-  IntrinsicVisitor::IntegerValueOfInfo info = IntrinsicVisitor::ComputeIntegerValueOfInfo();
+  IntrinsicVisitor::IntegerValueOfInfo info =
+      IntrinsicVisitor::ComputeIntegerValueOfInfo(invoke, codegen_->GetCompilerOptions());
   LocationSummary* locations = invoke->GetLocations();
   MipsAssembler* assembler = GetAssembler();
   InstructionCodeGeneratorMIPS* icodegen =
       down_cast<InstructionCodeGeneratorMIPS*>(codegen_->GetInstructionVisitor());
 
   Register out = locations->Out().AsRegister<Register>();
-  InvokeRuntimeCallingConvention calling_convention;
   if (invoke->InputAt(0)->IsConstant()) {
     int32_t value = invoke->InputAt(0)->AsIntConstant()->GetValue();
-    if (value >= info.low && value <= info.high) {
+    if (static_cast<uint32_t>(value - info.low) < info.length) {
       // Just embed the j.l.Integer in the code.
-      ScopedObjectAccess soa(Thread::Current());
-      mirror::Object* boxed = info.cache->Get(value + (-info.low));
-      DCHECK(boxed != nullptr && Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(boxed));
-      uint32_t address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(boxed));
-      __ LoadConst32(out, address);
+      DCHECK_NE(info.value_boot_image_reference, IntegerValueOfInfo::kInvalidReference);
+      codegen_->LoadBootImageAddress(out, info.value_boot_image_reference);
     } else {
+      DCHECK(locations->CanCall());
       // Allocate and initialize a new j.l.Integer.
       // TODO: If we JIT, we could allocate the j.l.Integer now, and store it in the
       // JIT object table.
-      uint32_t address =
-          dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.integer));
-      __ LoadConst32(calling_convention.GetRegisterAt(0), address);
-      codegen_->InvokeRuntime(kQuickAllocObjectInitialized, invoke, invoke->GetDexPc());
-      CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
+      codegen_->AllocateInstanceForIntrinsic(invoke->AsInvokeStaticOrDirect(),
+                                             info.integer_boot_image_offset);
       __ StoreConstToOffset(kStoreWord, value, out, info.value_offset, TMP);
       // `value` is a final field :-( Ideally, we'd merge this memory barrier with the allocation
       // one.
       icodegen->GenerateMemoryBarrier(MemBarrierKind::kStoreStore);
     }
   } else {
+    DCHECK(locations->CanCall());
     Register in = locations->InAt(0).AsRegister<Register>();
     MipsLabel allocate, done;
-    int32_t count = static_cast<uint32_t>(info.high) - info.low + 1;
 
-    // Is (info.low <= in) && (in <= info.high)?
     __ Addiu32(out, in, -info.low);
-    // As unsigned quantities is out < (info.high - info.low + 1)?
-    if (IsInt<16>(count)) {
-      __ Sltiu(AT, out, count);
+    // As unsigned quantities is out < info.length ?
+    if (IsUint<15>(info.length)) {
+      __ Sltiu(AT, out, info.length);
     } else {
-      __ LoadConst32(AT, count);
+      __ LoadConst32(AT, info.length);
       __ Sltu(AT, out, AT);
     }
-    // Branch if out >= (info.high - info.low + 1).
-    // This means that "in" is outside of the range [info.low, info.high].
+    // Branch if out >= info.length. This means that "in" is outside of the valid range.
     __ Beqz(AT, &allocate);
 
     // If the value is within the bounds, load the j.l.Integer directly from the array.
-    uint32_t data_offset = mirror::Array::DataOffset(kHeapReferenceSize).Uint32Value();
-    uint32_t address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.cache));
-    __ LoadConst32(TMP, data_offset + address);
+    codegen_->LoadBootImageAddress(TMP, info.array_data_boot_image_reference);
     __ ShiftAndAdd(out, out, TMP, TIMES_4);
     __ Lw(out, out, 0);
     __ MaybeUnpoisonHeapReference(out);
@@ -3207,10 +2653,8 @@ void IntrinsicCodeGeneratorMIPS::VisitIntegerValueOf(HInvoke* invoke) {
 
     __ Bind(&allocate);
     // Otherwise allocate and initialize a new j.l.Integer.
-    address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.integer));
-    __ LoadConst32(calling_convention.GetRegisterAt(0), address);
-    codegen_->InvokeRuntime(kQuickAllocObjectInitialized, invoke, invoke->GetDexPc());
-    CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
+    codegen_->AllocateInstanceForIntrinsic(invoke->AsInvokeStaticOrDirect(),
+                                           info.integer_boot_image_offset);
     __ StoreToOffset(kStoreWord, in, out, info.value_offset);
     // `value` is a final field :-( Ideally, we'd merge this memory barrier with the allocation
     // one.
@@ -3259,6 +2703,10 @@ UNIMPLEMENTED_INTRINSIC(MIPS, UnsafeCASLong)
 
 UNIMPLEMENTED_INTRINSIC(MIPS, ReferenceGetReferent)
 UNIMPLEMENTED_INTRINSIC(MIPS, SystemArrayCopy)
+
+UNIMPLEMENTED_INTRINSIC(MIPS, CRC32Update)
+UNIMPLEMENTED_INTRINSIC(MIPS, CRC32UpdateBytes)
+UNIMPLEMENTED_INTRINSIC(MIPS, CRC32UpdateByteBuffer)
 
 UNIMPLEMENTED_INTRINSIC(MIPS, StringStringIndexOf);
 UNIMPLEMENTED_INTRINSIC(MIPS, StringStringIndexOfAfter);

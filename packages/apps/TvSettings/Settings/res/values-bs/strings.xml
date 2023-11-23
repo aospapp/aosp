@@ -24,7 +24,7 @@
     <string name="header_category_quick_settings" msgid="6626141045575946920">"Brze postavke"</string>
     <string name="header_category_general_settings" msgid="1208946854116876918">"Opće postavke"</string>
     <string name="dismiss_suggestion" msgid="8288127823132069828">"Odbaci prijedlog"</string>
-    <string name="hotwording_title" msgid="1984130766527626626">"Prepoznavanje izraza \"OK Google\""</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Prepoznavanje izraza \"Ok Google\""</string>
     <string name="hotwording_summary" msgid="2863751845299261441">"Razgovarajte s Google Asistentom bilo kada"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Uređaj"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Postavke"</string>
@@ -62,7 +62,7 @@
     <skip />
     <string name="sync_one_time_sync" msgid="3575080833667908804">"Sinhroniziraj sada<xliff:g id="LAST_SYNC_TIME">
 %1$s</xliff:g>"</string>
-    <string name="sync_failed" msgid="5514824149810480551">"Sinhroniziranje nije uspjelo"</string>
+    <string name="sync_failed" msgid="5514824149810480551">"Sinhronizacija nije uspjela"</string>
     <string name="sync_active" msgid="6891115263481154378">"Sinhroniziranje je aktivno"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"WiFi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
@@ -94,8 +94,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibracija"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Odabir formata"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Prostorno ozvučenje"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby digitalni)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -212,7 +212,7 @@
     <string name="not_connected" msgid="6858480380326923017">"Nije povezano"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Ostale opcije"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Prikaži sve"</string>
-    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Vidi manje"</string>
+    <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Prikaži manje"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Dostupne mreže"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Dodaj novu mrežu"</string>
     <string name="security_type" msgid="524443802004143058">"Vrsta sigurnosti"</string>
@@ -363,7 +363,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Neke aplikacije će biti nedostupne ili neće ispravno raditi dok ponovo ne povežete disk."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Nema dovoljno prostora za pohranu."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Aplikacija ne postoji."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikacija je zaštićena od kopiranja."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Lokacija za instaliranje nije važeća."</string>
     <string name="system_package" msgid="9200255718634512790">"Ažuriranja sistema se ne mogu instalirati na vanjske medije."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Administrator uređaja se ne može instalirati na vanjski medij."</string>
@@ -371,7 +370,7 @@
     <string name="system_date" msgid="2767108116769558081">"Datum"</string>
     <string name="system_time" msgid="6726022312605226285">"Vrijeme"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Postavljanje datuma"</string>
-    <string name="system_set_time" msgid="4661804115501057452">"Postavljanje sata"</string>
+    <string name="system_set_time" msgid="4661804115501057452">"Postavite vrijeme"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Postavljanje vremenske zone"</string>
     <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Korištenje 24-satnog formata"</string>
@@ -434,10 +433,10 @@
     <string name="captions_backgroundcolor" msgid="448518890988125453">"Boja pozadine"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Zatamnjenost pozadine"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Titlovi će izgledati ovako"</string>
-    <string name="captions_textopacity" msgid="5536765490446288641">"Neprozirnost teksta"</string>
+    <string name="captions_textopacity" msgid="5536765490446288641">"Prozirnost teksta"</string>
     <string name="captions_windowshow" msgid="5716898740522196707">"Prikaz prozora"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Boja prozora"</string>
-    <string name="captions_windowopacity" msgid="2784473496224936703">"Neprozirnost prozora"</string>
+    <string name="captions_windowopacity" msgid="2784473496224936703">"Prozirnost prozora"</string>
     <string name="captions_style_0" msgid="2068865433439146533">"Bijelo na crnoj podlozi"</string>
     <string name="captions_style_1" msgid="8878565905353923498">"Crno na bijeloj podlozi"</string>
     <string name="captions_style_2" msgid="1486695984924671199">"Žuto na crnoj podlozi"</string>
@@ -556,11 +555,11 @@
     <string name="app_process_limit_two" msgid="1067649339026655778">"Najviše 2 procesa"</string>
     <string name="app_process_limit_three" msgid="7234034351975161398">"Najviše 3 procesa"</string>
     <string name="app_process_limit_four" msgid="8907156918309381955">"Najviše 4 procesa"</string>
-    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Veoma spor"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Veoma sporo"</string>
     <string name="tts_rate_slow" msgid="4826007209157112605">"Spor"</string>
     <string name="tts_rate_normal" msgid="362011908545519639">"Normalan"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"Brz"</string>
-    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Veoma brz"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Veoma brzo"</string>
     <string name="title_settings" msgid="5433841477518010243">"Postavke za <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Aktuelna tastatura"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfiguracija"</string>
@@ -711,7 +710,7 @@
     <string name="change_setting" msgid="2047402388786162246">"Promijeni"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ne mijenjaj"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Odobrenja"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"Odobrenja za aplikacije"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Odobrenja za aplikaciju"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Aplikacije s odobrenjem: <xliff:g id="COUNT_0">%1$d</xliff:g> od <xliff:g id="COUNT_1">%2$d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Zahtjev za odobrenje za Bluetooth"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivo sigurnosne zakrpe Androida"</string>
@@ -736,9 +735,12 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Pristup obavještenjima"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Nijedna instalirana aplikacija nije zatražila pristup obavještenjima."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Ove aplikacije će moći čitati sva obavještenja, uključujući lične informacije kao što su imena kontakata i tekst primljenih poruka. Također će moći odbaciti obavještenja ili aktivirati dugmad sadržanu u njima."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Pristup direktorijima"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Ove aplikacije imaju odobrenje za pristup određenim direktorijima."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Prikaz preko drugih aplikacija"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Dozvoli prikaz preko drugih aplikacija"</string>
-    <string name="allow_overlay_description" msgid="1946279120428813474">"Dozvolite aplikaciji da prekrije ostale aplikacije koje koristite. Može vas ometati u korištenju tih aplikacija ili promijeniti način na koji se one prikazuju ili ponašaju."</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"family link da prekrije ostale aplikacije koje koristite. Može vas ometati u korištenju tih aplikacija ili promijeniti način na koji se one prikazuju ili ponašaju."</string>
     <string name="write_system_settings" msgid="2730923656857824907">"Izmjena postavki sistema"</string>
     <string name="write_settings_title" msgid="8750406725746598710">"Mogu mijenjati postavke sistema"</string>
     <string name="write_settings_description" msgid="2765037074460395437">"Ovo odobrenje omogućava aplikaciji izmjenu postavki sistema."</string>

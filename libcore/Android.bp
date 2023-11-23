@@ -3,19 +3,15 @@ build = [
     "NativeCode.bp",
 ]
 
-python_binary_host {
-    name: "gen-annotated-java-files-bp",
-    main: "annotations/generate_annotated_java_files.py",
-    srcs: [
-        "annotations/generate_annotated_java_files.py",
+genrule {
+    name: "notices-for-framework-stubs",
+    tool_files: [
+        "NOTICE",
+        "ojluni/NOTICE",
     ],
-    version: {
-        py2: {
-            enabled: true,
-            embedded_launcher: true,
-        },
-        py3: {
-            enabled: false,
-        },
-    },
+    cmd: "cp -f $(location NOTICE) $(genDir)/NOTICES/libcore-NOTICE && cp -f $(location ojluni/NOTICE) $(genDir)/NOTICES/ojluni-NOTICE",
+    out: [
+        "NOTICES/libcore-NOTICE",
+        "NOTICES/ojluni-NOTICE",
+    ],
 }

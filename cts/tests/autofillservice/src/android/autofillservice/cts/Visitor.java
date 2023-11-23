@@ -22,13 +22,12 @@ package android.autofillservice.cts;
  * the UI thread. Example:
  * <pre><code>
  * void onUsername(ViewVisitor<EditText> v) {
- *     runOnUiThread(() -> {
- *         v.visit(mUsername);
- *     });
+ *     runOnUiThread(() -> v.visit(mUsername));
  * }
  * </code></pre>
  */
-interface Visitor<T> {
+// TODO: move to common code
+public interface Visitor<T> {
 
-    void visit(T view);
+    void visit(T object);
 }

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Төтенше жағдайға арналған ақпарат"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Медициналық ақпарат"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Ақпаратты өзгерту"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Ақпарат енгізу"</string>
     <string name="edit_info" msgid="5973929805855224805">"Төтенше жағдайға арналған ақпаратты өзгерту"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Ақпарат"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Контактілер"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналық ақпарат пен төтенше жағдай контактілері алғашқы жәрдем берушілерге көмектеседі.\n\nБұл ақпаратты кез келген адам құлыптау экранынан оқи алады және телефон құлпын ашпастан аттарды түрте отырып, контактілерге хабарласа алады."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Төтенше жағдайға арналған ақпаратты енгізу"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Алдымен жауап берушілерге ақпаратты көруге мүмкіндік беріңіз"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Суретке түсіру"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Кескін таңдау"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Сурет таңдау"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Лақап ат"</string>
 </resources>

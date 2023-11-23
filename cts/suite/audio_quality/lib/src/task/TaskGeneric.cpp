@@ -124,7 +124,7 @@ void TaskGeneric::registerSupportedStringAttributes(const android::String8* keys
 
 bool TaskGeneric::addStringAttribute(const android::String8& key, const android::String8& value)
 {
-    std::set<android::String8, android::String8>::iterator it = mAllowedStringAttributes.find(key);
+    auto it = mAllowedStringAttributes.find(key);
     if (it == mAllowedStringAttributes.end()) {
         return false; // not allowed
     }
@@ -134,7 +134,7 @@ bool TaskGeneric::addStringAttribute(const android::String8& key, const android:
 
 bool TaskGeneric::findStringAttribute(const android::String8& key, android::String8& value) const
 {
-    std::map<android::String8, android::String8>::const_iterator it = mStringAttributes.find(key);
+    auto it = mStringAttributes.find(key);
     if (it == mStringAttributes.end()) {
         return false; // not found
     }

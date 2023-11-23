@@ -23,8 +23,8 @@
 
 #include "gmock/gmock.h"
 #include "perfetto/tracing/core/producer.h"
-#include "perfetto/tracing/core/service.h"
 #include "perfetto/tracing/core/trace_writer.h"
+#include "perfetto/tracing/core/tracing_service.h"
 
 namespace perfetto {
 
@@ -37,43 +37,61 @@ class MockProducer : public Producer {
   struct EnabledDataSource {
     DataSourceInstanceID id;
     BufferID target_buffer;
+    TracingSessionID session_id;
   };
 
   explicit MockProducer(base::TestTaskRunner*);
   ~MockProducer() override;
 
-  void Connect(Service* svc,
+  void Connect(TracingService* svc,
                const std::string& producer_name,
                uid_t uid = 42,
                size_t shared_memory_size_hint_bytes = 0);
-  void RegisterDataSource(const std::string& name);
+  void RegisterDataSource(const std::string& name,
+                          bool ack_stop = false,
+                          bool ack_start = false,
+                          bool handle_incremental_state_clear = false);
   void UnregisterDataSource(const std::string& name);
+  void RegisterTraceWriter(uint32_t writer_id, uint32_t target_buffer);
+  void UnregisterTraceWriter(uint32_t writer_id);
   void WaitForTracingSetup();
+  void WaitForDataSourceSetup(const std::string& name);
   void WaitForDataSourceStart(const std::string& name);
   void WaitForDataSourceStop(const std::string& name);
+  DataSourceInstanceID GetDataSourceInstanceId(const std::string& name);
+  const EnabledDataSource* GetDataSourceInstance(const std::string& name);
   std::unique_ptr<TraceWriter> CreateTraceWriter(
       const std::string& data_source_name);
 
-  // If |writer_to_flush| != nullptr does NOT reply to the flush request.
-  // If |writer_to_flush| == nullptr does NOT reply to the flush request.
-  void WaitForFlush(TraceWriter* writer_to_flush);
+  // Expect a flush. Flushes |writer_to_flush| if non-null. If |reply| is true,
+  // replies to the flush request, otherwise ignores it and doesn't reply.
+  void WaitForFlush(TraceWriter* writer_to_flush, bool reply = true);
+  // Same as above, but with a vector of writers.
+  void WaitForFlush(std::vector<TraceWriter*> writers_to_flush,
+                    bool reply = true);
 
-  Service::ProducerEndpoint* endpoint() { return service_endpoint_.get(); }
+  TracingService::ProducerEndpoint* endpoint() {
+    return service_endpoint_.get();
+  }
 
   // Producer implementation.
   MOCK_METHOD0(OnConnect, void());
   MOCK_METHOD0(OnDisconnect, void());
-  MOCK_METHOD2(CreateDataSourceInstance,
+  MOCK_METHOD2(SetupDataSource,
                void(DataSourceInstanceID, const DataSourceConfig&));
-  MOCK_METHOD1(TearDownDataSourceInstance, void(DataSourceInstanceID));
+  MOCK_METHOD2(StartDataSource,
+               void(DataSourceInstanceID, const DataSourceConfig&));
+  MOCK_METHOD1(StopDataSource, void(DataSourceInstanceID));
   MOCK_METHOD0(OnTracingSetup, void());
   MOCK_METHOD3(Flush,
                void(FlushRequestID, const DataSourceInstanceID*, size_t));
+  MOCK_METHOD2(ClearIncrementalState,
+               void(const DataSourceInstanceID*, size_t));
 
  private:
   base::TestTaskRunner* const task_runner_;
   std::string producer_name_;
-  std::unique_ptr<Service::ProducerEndpoint> service_endpoint_;
+  std::unique_ptr<TracingService::ProducerEndpoint> service_endpoint_;
   std::map<std::string, EnabledDataSource> data_source_instances_;
 };
 

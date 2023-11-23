@@ -1,0 +1,18 @@
+name: "jsmn"
+description: "jsmn (pronounced like \'jasmine\') is a minimalistic JSON parser in C."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://zserge.com/jsmn.html"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://github.com/zserge/jsmn/archive/18e9fe42cbfe21d65076f5c77ae2be379ad1270f.zip"
+  }
+  version: "18e9fe42cbfe21d65076f5c77ae2be379ad1270f"
+  last_upgrade_date {
+    year: 2019
+    month: 2
+    day: 1
+  }
+}

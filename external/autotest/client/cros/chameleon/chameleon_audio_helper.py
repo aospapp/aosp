@@ -15,7 +15,6 @@ from autotest_lib.server.cros.bluetooth import bluetooth_device
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
 from autotest_lib.client.cros.chameleon import chameleon_info
 
-
 class AudioPort(object):
     """
     This class abstracts an audio port in audio test framework. A port is
@@ -175,21 +174,17 @@ class AudioLinkFactory(object):
             # To connect bluetooth adapter on Cros device to bluetooth module on
             # chameleon board, we need to access bluetooth adapter on Cros host
             # using BluetoothDevice, and access bluetooth module on
-            # audio board using BluetoothController. Finally, the MAC address
-            # of bluetooth module is queried through chameleon_info because
-            # it is not probeable on Chameleon board.
+            # audio board using BluetoothController.
 
             # Initializes a BluetoothDevice object if needed. And reuse this
             # object for future bluetooth link usage.
             if not self._bluetooth_device:
                 self._bluetooth_device = bluetooth_device.BluetoothDevice(
                         self._cros_host)
-
             link = link_type(
                     self._bluetooth_device,
-                    self._audio_board.get_bluetooth_controller(),
-                    chameleon_info.get_bluetooth_mac_address(
-                            self._chameleon_board))
+                    self._chameleon_board.get_bluetooth_ref_controller(),
+                    self._chameleon_board.get_bluetooth_a2dp_sink().GetLocalBluetoothAddress())
         elif issubclass(link_type, audio_widget_link.USBWidgetLink):
             # Aside from managing connection between USB audio gadget driver on
             # Chameleon with Cros device, USBWidgetLink also handles changing
@@ -301,6 +296,7 @@ class AudioWidgetFactory(object):
             is_audio_jack = audio_port.port_id in [ids.CrosIds.HEADPHONE,
                                                    ids.CrosIds.EXTERNAL_MIC]
             is_internal_mic = audio_port.port_id == ids.CrosIds.INTERNAL_MIC
+            is_hotwording = audio_port.port_id == ids.CrosIds.HOTWORDING
 
             # Determines the plug handler to be used.
             # By default, the plug handler is DummyPlugHandler.
@@ -326,6 +322,10 @@ class AudioWidgetFactory(object):
                             self._audio_facade, plug_handler)
                 elif is_internal_mic:
                     return audio_widget.CrosIntMicInputWidgetHandler(
+                            self._audio_facade, plug_handler,
+                            self._system_facade)
+                elif is_hotwording:
+                    return audio_widget.CrosHotwordingWidgetHandler(
                             self._audio_facade, plug_handler,
                             self._system_facade)
                 else:

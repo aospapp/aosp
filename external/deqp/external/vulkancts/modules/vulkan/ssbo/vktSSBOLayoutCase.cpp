@@ -36,6 +36,7 @@
 #include "deString.h"
 #include "deMath.h"
 #include "deSharedPtr.hpp"
+#include "deFloat16.h"
 
 #include "vkBuilderUtil.hpp"
 #include "vkMemUtil.hpp"
@@ -44,6 +45,7 @@
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 namespace vkt
 {
@@ -73,6 +75,7 @@ std::ostream& operator<< (std::ostream& str, const LayoutFlagsFmt& fmt)
 	{
 		{ LAYOUT_STD140,		"std140"		},
 		{ LAYOUT_STD430,		"std430"		},
+		{ LAYOUT_SCALAR,		"scalar"		},
 		{ LAYOUT_ROW_MAJOR,		"row_major"		},
 		{ LAYOUT_COLUMN_MAJOR,	"column_major"	}
 	};
@@ -241,7 +244,18 @@ namespace // Utilities
 
 int getDataTypeByteSize (glu::DataType type)
 {
-	return glu::getDataTypeScalarSize(type)*(int)sizeof(deUint32);
+	if (deInRange32(type, glu::TYPE_UINT8, glu::TYPE_UINT8_VEC4) || deInRange32(type, glu::TYPE_INT8, glu::TYPE_INT8_VEC4))
+	{
+		return glu::getDataTypeScalarSize(type)*(int)sizeof(deUint8);
+	}
+	else if (deInRange32(type, glu::TYPE_UINT16, glu::TYPE_UINT16_VEC4) || deInRange32(type, glu::TYPE_INT16, glu::TYPE_INT16_VEC4) || deInRange32(type, glu::TYPE_FLOAT16, glu::TYPE_FLOAT16_VEC4))
+	{
+		return glu::getDataTypeScalarSize(type)*(int)sizeof(deUint16);
+	}
+	else
+	{
+		return glu::getDataTypeScalarSize(type)*(int)sizeof(deUint32);
+	}
 }
 
 int getDataTypeByteAlignment (glu::DataType type)
@@ -267,6 +281,34 @@ int getDataTypeByteAlignment (glu::DataType type)
 		case glu::TYPE_INT_VEC4:
 		case glu::TYPE_UINT_VEC4:
 		case glu::TYPE_BOOL_VEC4:	return 4*(int)sizeof(deUint32);
+
+		case glu::TYPE_UINT8:
+		case glu::TYPE_INT8	:			return 1*(int)sizeof(deUint8);
+
+		case glu::TYPE_UINT8_VEC2:
+		case glu::TYPE_INT8_VEC2:		return 2*(int)sizeof(deUint8);
+
+		case glu::TYPE_UINT8_VEC3:
+		case glu::TYPE_INT8_VEC3:		// Fall-through to vec4
+
+		case glu::TYPE_UINT8_VEC4:
+		case glu::TYPE_INT8_VEC4:		return 4*(int)sizeof(deUint8);
+
+		case glu::TYPE_UINT16:
+		case glu::TYPE_INT16:
+		case glu::TYPE_FLOAT16:			return 1*(int)sizeof(deUint16);
+
+		case glu::TYPE_UINT16_VEC2:
+		case glu::TYPE_INT16_VEC2:
+		case glu::TYPE_FLOAT16_VEC2:	return 2*(int)sizeof(deUint16);
+
+		case glu::TYPE_UINT16_VEC3:
+		case glu::TYPE_INT16_VEC3:
+		case glu::TYPE_FLOAT16_VEC3:	// Fall-through to vec4
+
+		case glu::TYPE_UINT16_VEC4:
+		case glu::TYPE_INT16_VEC4:
+		case glu::TYPE_FLOAT16_VEC4:	return 4*(int)sizeof(deUint16);
 
 		default:
 			DE_ASSERT(false);
@@ -364,7 +406,7 @@ int computeRelaxedBlockBaseAlignment (const VarType& type, deUint32 layoutFlags)
 		glu::DataType basicType = type.getBasicType();
 
 		if (glu::isDataTypeVector(basicType))
-			return 4;
+			return getDataTypeByteAlignment(glu::getDataTypeScalarType(basicType));
 
 		if (glu::isDataTypeMatrix(basicType))
 		{
@@ -391,9 +433,29 @@ int computeRelaxedBlockBaseAlignment (const VarType& type, deUint32 layoutFlags)
 	}
 }
 
+int computeScalarBlockAlignment (const VarType& type, deUint32 layoutFlags)
+{
+	if (type.isBasicType())
+	{
+		return getDataTypeByteAlignment(glu::getDataTypeScalarType(type.getBasicType()));
+	}
+	else if (type.isArrayType())
+		return computeScalarBlockAlignment(type.getElementType(), layoutFlags);
+	else
+	{
+		DE_ASSERT(type.isStructType());
+
+		int maxBaseAlignment = 0;
+		for (StructType::ConstIterator memberIter = type.getStructPtr()->begin(); memberIter != type.getStructPtr()->end(); memberIter++)
+			maxBaseAlignment = de::max(maxBaseAlignment, computeScalarBlockAlignment(memberIter->getType(), layoutFlags));
+
+		return maxBaseAlignment;
+	}
+}
+
 inline deUint32 mergeLayoutFlags (deUint32 prevFlags, deUint32 newFlags)
 {
-	const deUint32	packingMask		= LAYOUT_STD430|LAYOUT_STD140|LAYOUT_RELAXED;
+	const deUint32	packingMask		= LAYOUT_STD430|LAYOUT_STD140|LAYOUT_RELAXED|LAYOUT_SCALAR;
 	const deUint32	matrixMask		= LAYOUT_ROW_MAJOR|LAYOUT_COLUMN_MAJOR;
 
 	deUint32 mergedFlags = 0;
@@ -402,21 +464,6 @@ inline deUint32 mergeLayoutFlags (deUint32 prevFlags, deUint32 newFlags)
 	mergedFlags |= ((newFlags & matrixMask)		? newFlags : prevFlags) & matrixMask;
 
 	return mergedFlags;
-}
-
-template <class T>
-bool isPow2(T powerOf2)
-{
-	if (powerOf2 <= 0)
-		return false;
-	return (powerOf2 & (powerOf2 - (T)1)) == (T)0;
-}
-
-template <class T>
-T roundToPow2(T number, int powerOf2)
-{
-	DE_ASSERT(isPow2(powerOf2));
-	return (number + (T)powerOf2 - (T)1) & (T)(~(powerOf2 - 1));
 }
 
 //! Appends all child elements to layout, returns value that should be appended to offset.
@@ -430,7 +477,8 @@ int computeReferenceLayout (
 {
 	// Reference layout uses std430 rules by default. std140 rules are
 	// choosen only for blocks that have std140 layout.
-	const int	baseAlignment		= (layoutFlags & LAYOUT_STD140)  != 0 ? computeStd140BaseAlignment(type, layoutFlags)		:
+	const int	baseAlignment		= (layoutFlags & LAYOUT_SCALAR)  != 0 ? computeScalarBlockAlignment(type, layoutFlags)			:
+									  (layoutFlags & LAYOUT_STD140)  != 0 ? computeStd140BaseAlignment(type, layoutFlags)		:
 									  (layoutFlags & LAYOUT_RELAXED) != 0 ? computeRelaxedBlockBaseAlignment(type, layoutFlags)	:
 									  computeStd430BaseAlignment(type, layoutFlags);
 	int			curOffset			= deAlign32(baseOffset, baseAlignment);
@@ -455,19 +503,24 @@ int computeReferenceLayout (
 		{
 			// Array of vectors as specified in rules 5 & 7.
 			const bool	isRowMajor			= !!(layoutFlags & LAYOUT_ROW_MAJOR);
+			const int	vecSize				= isRowMajor ? glu::getDataTypeMatrixNumColumns(basicType)
+														 : glu::getDataTypeMatrixNumRows(basicType);
+			const glu::DataType	vecType		= glu::getDataTypeFloatVec(vecSize);
 			const int	numVecs				= isRowMajor ? glu::getDataTypeMatrixNumRows(basicType)
 														 : glu::getDataTypeMatrixNumColumns(basicType);
+			const int	vecStride			= (layoutFlags & LAYOUT_SCALAR) ? getDataTypeByteSize(vecType) : baseAlignment;
 
 			entry.offset		= curOffset;
-			entry.matrixStride	= baseAlignment;
+			entry.matrixStride	= vecStride;
 			entry.isRowMajor	= isRowMajor;
 
-			curOffset += numVecs*baseAlignment;
+			curOffset += numVecs*entry.matrixStride;
 		}
 		else
 		{
-			if (glu::isDataTypeVector(basicType) && (getDataTypeByteSize(basicType) <= 16 ? curOffset / 16 != (curOffset +  getDataTypeByteSize(basicType) - 1) / 16 : curOffset % 16 != 0) && (layoutFlags & LAYOUT_RELAXED))
-				curOffset = roundToPow2(curOffset, 16);
+			if (!(layoutFlags & LAYOUT_SCALAR) && (layoutFlags & LAYOUT_RELAXED) &&
+				glu::isDataTypeVector(basicType) && (getDataTypeByteSize(basicType) <= 16 ? curOffset / 16 != (curOffset +  getDataTypeByteSize(basicType) - 1) / 16 : curOffset % 16 != 0))
+				curOffset = deIntRoundToPow2(curOffset, 16);
 
 			// Scalar or vector.
 			entry.offset = curOffset;
@@ -485,7 +538,7 @@ int computeReferenceLayout (
 		{
 			// Array of scalars or vectors.
 			const glu::DataType		elemBasicType	= elemType.getBasicType();
-			const int				stride			= baseAlignment;
+			const int				stride			= (layoutFlags & LAYOUT_SCALAR) ? getDataTypeByteSize(elemBasicType) : baseAlignment;
 			BufferVarLayoutEntry	entry;
 
 			entry.name					= curPrefix + "[0]"; // Array variables are always postfixed with [0]
@@ -507,9 +560,12 @@ int computeReferenceLayout (
 			// Array of matrices.
 			const glu::DataType			elemBasicType	= elemType.getBasicType();
 			const bool					isRowMajor		= !!(layoutFlags & LAYOUT_ROW_MAJOR);
+			const int					vecSize			= isRowMajor ? glu::getDataTypeMatrixNumColumns(elemBasicType)
+																	 : glu::getDataTypeMatrixNumRows(elemBasicType);
+			const glu::DataType			vecType			= glu::getDataTypeFloatVec(vecSize);
 			const int					numVecs			= isRowMajor ? glu::getDataTypeMatrixNumRows(elemBasicType)
 																	 : glu::getDataTypeMatrixNumColumns(elemBasicType);
-			const int					vecStride		= baseAlignment;
+			const int					vecStride		= (layoutFlags & LAYOUT_SCALAR) ? getDataTypeByteSize(vecType) : baseAlignment;
 			BufferVarLayoutEntry		entry;
 
 			entry.name					= curPrefix + "[0]"; // Array variables are always postfixed with [0]
@@ -523,7 +579,7 @@ int computeReferenceLayout (
 			entry.topLevelArraySize		= topLevelArraySize;
 			entry.topLevelArrayStride	= topLevelArrayStride;
 
-			curOffset += numVecs*vecStride*type.getArraySize();
+			curOffset += entry.arrayStride*type.getArraySize();
 
 			layout.bufferVars.push_back(entry);
 		}
@@ -542,7 +598,8 @@ int computeReferenceLayout (
 		for (StructType::ConstIterator memberIter = type.getStructPtr()->begin(); memberIter != type.getStructPtr()->end(); memberIter++)
 			curOffset += computeReferenceLayout(layout, curBlockNdx, curOffset, curPrefix + "." + memberIter->getName(), memberIter->getType(), layoutFlags);
 
-		curOffset = deAlign32(curOffset, baseAlignment);
+		if (!(layoutFlags & LAYOUT_SCALAR))
+			curOffset = deAlign32(curOffset, baseAlignment);
 	}
 
 	return curOffset-baseOffset;
@@ -561,7 +618,8 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 		const string	prefix				= blockPrefix + bufVar.getName() + "[0]";
 		const bool		isStd140			= (blockLayoutFlags & LAYOUT_STD140) != 0;
 		const int		vec4Align			= (int)sizeof(deUint32)*4;
-		const int		baseAlignment		= isStd140									? computeStd140BaseAlignment(varType, combinedFlags)		:
+		const int		baseAlignment		= (blockLayoutFlags & LAYOUT_SCALAR)  != 0 ? computeScalarBlockAlignment(varType, combinedFlags)			:
+											isStd140									? computeStd140BaseAlignment(varType, combinedFlags)		:
 											(blockLayoutFlags & LAYOUT_RELAXED) != 0	? computeRelaxedBlockBaseAlignment(varType, combinedFlags)	:
 											computeStd430BaseAlignment(varType, combinedFlags);
 		int				curOffset			= deAlign32(baseOffset, baseAlignment);
@@ -572,7 +630,10 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 			// Array of scalars or vectors.
 			const glu::DataType		elemBasicType	= elemType.getBasicType();
 			const int				elemBaseAlign	= getDataTypeByteAlignment(elemBasicType);
-			const int				stride			= isStd140 ? deAlign32(elemBaseAlign, vec4Align) : elemBaseAlign;
+			const int				stride			= (blockLayoutFlags & LAYOUT_SCALAR) ? getDataTypeByteSize(elemBasicType) :
+													  isStd140 ? deAlign32(elemBaseAlign, vec4Align) :
+													  elemBaseAlign;
+
 			BufferVarLayoutEntry	entry;
 
 			entry.name					= prefix;
@@ -600,7 +661,10 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 																 : glu::getDataTypeMatrixNumColumns(elemBasicType);
 			const glu::DataType		vecType			= glu::getDataTypeFloatVec(vecSize);
 			const int				vecBaseAlign	= getDataTypeByteAlignment(vecType);
-			const int				stride			= isStd140 ? deAlign32(vecBaseAlign, vec4Align) : vecBaseAlign;
+			const int				stride			= (blockLayoutFlags & LAYOUT_SCALAR) ? getDataTypeByteSize(vecType) :
+													  isStd140 ? deAlign32(vecBaseAlign, vec4Align) :
+													  vecBaseAlign;
+
 			BufferVarLayoutEntry	entry;
 
 			entry.name					= prefix;
@@ -616,7 +680,7 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 
 			layout.bufferVars.push_back(entry);
 
-			curOffset += stride*numVecs*topLevelArraySize;
+			curOffset += entry.arrayStride*topLevelArraySize;
 		}
 		else
 		{
@@ -630,7 +694,9 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 			// the layout computation twice. Instead we fix stride to child elements afterwards.
 
 			const int	firstChildNdx	= (int)layout.bufferVars.size();
-			const int	stride			= computeReferenceLayout(layout, curBlockNdx, curOffset, prefix, varType.getElementType(), combinedFlags);
+
+			const int size = computeReferenceLayout(layout, curBlockNdx, deAlign32(curOffset, baseAlignment), prefix, varType.getElementType(), combinedFlags);
+			const int stride = deAlign32(size, baseAlignment);
 
 			for (int childNdx = firstChildNdx; childNdx < (int)layout.bufferVars.size(); childNdx++)
 			{
@@ -638,7 +704,8 @@ int computeReferenceLayout (BufferLayout& layout, int curBlockNdx, const std::st
 				layout.bufferVars[childNdx].topLevelArrayStride	= stride;
 			}
 
-			curOffset += stride*topLevelArraySize;
+			if (topLevelArraySize != 0)
+				curOffset += stride*(topLevelArraySize - 1) + size;
 		}
 
 		return curOffset-baseOffset;
@@ -710,7 +777,7 @@ void generateValue (const BufferVarLayoutEntry& entry, int unsizedArraySize, voi
 	const bool			isMatrix		= glu::isDataTypeMatrix(entry.type);
 	const int			numVecs			= isMatrix ? (entry.isRowMajor ? glu::getDataTypeMatrixNumRows(entry.type) : glu::getDataTypeMatrixNumColumns(entry.type)) : 1;
 	const int			vecSize			= scalarSize / numVecs;
-	const int			compSize		= sizeof(deUint32);
+	const size_t		compSize		= getDataTypeByteSize(scalarType);
 
 	DE_ASSERT(scalarSize%numVecs == 0);
 	DE_ASSERT(topLevelSize >= 0);
@@ -737,6 +804,11 @@ void generateValue (const BufferVarLayoutEntry& entry, int unsizedArraySize, voi
 						case glu::TYPE_FLOAT:	*((float*)compPtr)		= (float)rnd.getInt(-9, 9);						break;
 						case glu::TYPE_INT:		*((int*)compPtr)		= rnd.getInt(-9, 9);							break;
 						case glu::TYPE_UINT:	*((deUint32*)compPtr)	= (deUint32)rnd.getInt(0, 9);					break;
+						case glu::TYPE_INT8:	*((deInt8*)compPtr)		= (deInt8)rnd.getInt(-9, 9);					break;
+						case glu::TYPE_UINT8:	*((deUint8*)compPtr)	= (deUint8)rnd.getInt(0, 9);					break;
+						case glu::TYPE_INT16:	*((deInt16*)compPtr)	= (deInt16)rnd.getInt(-9, 9);					break;
+						case glu::TYPE_UINT16:	*((deUint16*)compPtr)	= (deUint16)rnd.getInt(0, 9);					break;
+						case glu::TYPE_FLOAT16:	*((deFloat16*)compPtr)	= deFloat32To16((float)rnd.getInt(-9, 9));		break;
 						// \note Random bit pattern is used for true values. Spec states that all non-zero values are
 						//       interpreted as true but some implementations fail this.
 						case glu::TYPE_BOOL:	*((deUint32*)compPtr)	= rnd.getBool() ? rnd.getUint32()|1u : 0u;		break;
@@ -803,6 +875,26 @@ const char* getCompareFuncForType (glu::DataType type)
 		case glu::TYPE_BOOL_VEC2:		return "bool compare_bvec2    (bvec2 a, bvec2 b)              { return a == b; }\n";
 		case glu::TYPE_BOOL_VEC3:		return "bool compare_bvec3    (bvec3 a, bvec3 b)              { return a == b; }\n";
 		case glu::TYPE_BOOL_VEC4:		return "bool compare_bvec4    (bvec4 a, bvec4 b)              { return a == b; }\n";
+		case glu::TYPE_FLOAT16:			return "bool compare_float16_t(highp float a, highp float b)  { return abs(a - b) < 0.05; }\n";
+		case glu::TYPE_FLOAT16_VEC2:	return "bool compare_f16vec2  (highp vec2 a, highp vec2 b)    { return compare_float(a.x, b.x)&&compare_float(a.y, b.y); }\n";
+		case glu::TYPE_FLOAT16_VEC3:	return "bool compare_f16vec3  (highp vec3 a, highp vec3 b)    { return compare_float(a.x, b.x)&&compare_float(a.y, b.y)&&compare_float(a.z, b.z); }\n";
+		case glu::TYPE_FLOAT16_VEC4:	return "bool compare_f16vec4  (highp vec4 a, highp vec4 b)    { return compare_float(a.x, b.x)&&compare_float(a.y, b.y)&&compare_float(a.z, b.z)&&compare_float(a.w, b.w); }\n";
+		case glu::TYPE_INT8:			return "bool compare_int8_t   (highp int a, highp int b)      { return a == b; }\n";
+		case glu::TYPE_INT8_VEC2:		return "bool compare_i8vec2   (highp ivec2 a, highp ivec2 b)  { return a == b; }\n";
+		case glu::TYPE_INT8_VEC3:		return "bool compare_i8vec3   (highp ivec3 a, highp ivec3 b)  { return a == b; }\n";
+		case glu::TYPE_INT8_VEC4:		return "bool compare_i8vec4   (highp ivec4 a, highp ivec4 b)  { return a == b; }\n";
+		case glu::TYPE_UINT8:			return "bool compare_uint8_t  (highp uint a, highp uint b)    { return a == b; }\n";
+		case glu::TYPE_UINT8_VEC2:		return "bool compare_u8vec2   (highp uvec2 a, highp uvec2 b)  { return a == b; }\n";
+		case glu::TYPE_UINT8_VEC3:		return "bool compare_u8vec3   (highp uvec3 a, highp uvec3 b)  { return a == b; }\n";
+		case glu::TYPE_UINT8_VEC4:		return "bool compare_u8vec4   (highp uvec4 a, highp uvec4 b)  { return a == b; }\n";
+		case glu::TYPE_INT16:			return "bool compare_int16_t  (highp int a, highp int b)      { return a == b; }\n";
+		case glu::TYPE_INT16_VEC2:		return "bool compare_i16vec2  (highp ivec2 a, highp ivec2 b)  { return a == b; }\n";
+		case glu::TYPE_INT16_VEC3:		return "bool compare_i16vec3  (highp ivec3 a, highp ivec3 b)  { return a == b; }\n";
+		case glu::TYPE_INT16_VEC4:		return "bool compare_i16vec4  (highp ivec4 a, highp ivec4 b)  { return a == b; }\n";
+		case glu::TYPE_UINT16:			return "bool compare_uint16_t (highp uint a, highp uint b)    { return a == b; }\n";
+		case glu::TYPE_UINT16_VEC2:		return "bool compare_u16vec2  (highp uvec2 a, highp uvec2 b)  { return a == b; }\n";
+		case glu::TYPE_UINT16_VEC3:		return "bool compare_u16vec3  (highp uvec3 a, highp uvec3 b)  { return a == b; }\n";
+		case glu::TYPE_UINT16_VEC4:		return "bool compare_u16vec4  (highp uvec4 a, highp uvec4 b)  { return a == b; }\n";
 		default:
 			DE_ASSERT(false);
 			return DE_NULL;
@@ -816,6 +908,9 @@ void getCompareDependencies (std::set<glu::DataType>& compareFuncs, glu::DataTyp
 		case glu::TYPE_FLOAT_VEC2:
 		case glu::TYPE_FLOAT_VEC3:
 		case glu::TYPE_FLOAT_VEC4:
+		case glu::TYPE_FLOAT16_VEC2:
+		case glu::TYPE_FLOAT16_VEC3:
+		case glu::TYPE_FLOAT16_VEC4:
 			compareFuncs.insert(glu::TYPE_FLOAT);
 			compareFuncs.insert(basicType);
 			break;
@@ -900,6 +995,39 @@ bool usesRelaxedLayout (const ShaderInterface& interface)
 	return false;
 }
 
+bool uses16BitStorage (const ShaderInterface& interface)
+{
+	// If any of blocks has LAYOUT_16BIT_STORAGE flag
+	for (int ndx = 0; ndx < interface.getNumBlocks(); ++ndx)
+	{
+		if (interface.getBlock(ndx).getFlags() & LAYOUT_16BIT_STORAGE)
+			return true;
+	}
+	return false;
+}
+
+bool uses8BitStorage (const ShaderInterface& interface)
+{
+	// If any of blocks has LAYOUT_8BIT_STORAGE flag
+	for (int ndx = 0; ndx < interface.getNumBlocks(); ++ndx)
+	{
+		if (interface.getBlock(ndx).getFlags() & LAYOUT_8BIT_STORAGE)
+			return true;
+	}
+	return false;
+}
+
+bool usesScalarLayout (const ShaderInterface& interface)
+{
+	// If any of blocks has LAYOUT_SCALAR flag
+	for (int ndx = 0; ndx < interface.getNumBlocks(); ++ndx)
+	{
+		if (interface.getBlock(ndx).getFlags() & LAYOUT_SCALAR)
+			return true;
+	}
+	return false;
+}
+
 struct Indent
 {
 	int level;
@@ -911,6 +1039,34 @@ std::ostream& operator<< (std::ostream& str, const Indent& indent)
 	for (int i = 0; i < indent.level; i++)
 		str << "\t";
 	return str;
+}
+
+glu::DataType getPromoteType(glu::DataType type)
+{
+	switch (type)
+	{
+	case glu::TYPE_UINT8:			return glu::TYPE_UINT;
+	case glu::TYPE_UINT8_VEC2:		return glu::TYPE_UINT_VEC2;
+	case glu::TYPE_UINT8_VEC3:		return glu::TYPE_UINT_VEC3;
+	case glu::TYPE_UINT8_VEC4:		return glu::TYPE_UINT_VEC4;
+	case glu::TYPE_INT8:			return glu::TYPE_INT;
+	case glu::TYPE_INT8_VEC2:		return glu::TYPE_INT_VEC2;
+	case glu::TYPE_INT8_VEC3:		return glu::TYPE_INT_VEC3;
+	case glu::TYPE_INT8_VEC4:		return glu::TYPE_INT_VEC4;
+	case glu::TYPE_UINT16:			return glu::TYPE_UINT;
+	case glu::TYPE_UINT16_VEC2:		return glu::TYPE_UINT_VEC2;
+	case glu::TYPE_UINT16_VEC3:		return glu::TYPE_UINT_VEC3;
+	case glu::TYPE_UINT16_VEC4:		return glu::TYPE_UINT_VEC4;
+	case glu::TYPE_INT16:			return glu::TYPE_INT;
+	case glu::TYPE_INT16_VEC2:		return glu::TYPE_INT_VEC2;
+	case glu::TYPE_INT16_VEC3:		return glu::TYPE_INT_VEC3;
+	case glu::TYPE_INT16_VEC4:		return glu::TYPE_INT_VEC4;
+	case glu::TYPE_FLOAT16:			return glu::TYPE_FLOAT;
+	case glu::TYPE_FLOAT16_VEC2:	return glu::TYPE_FLOAT_VEC2;
+	case glu::TYPE_FLOAT16_VEC3:	return glu::TYPE_FLOAT_VEC3;
+	case glu::TYPE_FLOAT16_VEC4:	return glu::TYPE_FLOAT_VEC4;
+	default: return type;
+	}
 }
 
 void generateDeclaration (std::ostream& src, const BufferVar& bufferVar, int indentLevel)
@@ -1036,14 +1192,15 @@ void generateImmScalarVectorSrc (std::ostream& src, glu::DataType basicType, con
 	DE_ASSERT(glu::isDataTypeFloatOrVec(basicType)	||
 			  glu::isDataTypeIntOrIVec(basicType)	||
 			  glu::isDataTypeUintOrUVec(basicType)	||
-			  glu::isDataTypeBoolOrBVec(basicType));
+			  glu::isDataTypeBoolOrBVec(basicType)  ||
+			  glu::isDataTypeExplicitPrecision(basicType));
 
 	const glu::DataType		scalarType		= glu::getDataTypeScalarType(basicType);
 	const int				scalarSize		= glu::getDataTypeScalarSize(basicType);
-	const int				compSize		= sizeof(deUint32);
+	const size_t			compSize		= getDataTypeByteSize(scalarType);
 
 	if (scalarSize > 1)
-		src << glu::getDataTypeName(basicType) << "(";
+		src << glu::getDataTypeName(getPromoteType(basicType)) << "(";
 
 	for (int scalarNdx = 0; scalarNdx < scalarSize; scalarNdx++)
 	{
@@ -1054,8 +1211,13 @@ void generateImmScalarVectorSrc (std::ostream& src, glu::DataType basicType, con
 
 		switch (scalarType)
 		{
+			case glu::TYPE_FLOAT16:	src << de::floatToString(deFloat16To32(*((const deFloat16*)compPtr)), 1);	break;
 			case glu::TYPE_FLOAT:	src << de::floatToString(*((const float*)compPtr), 1);			break;
+			case glu::TYPE_INT8:	src << (deUint32)*((const deInt8*)compPtr);						break;
+			case glu::TYPE_INT16:	src << *((const deInt16*)compPtr);								break;
 			case glu::TYPE_INT:		src << *((const int*)compPtr);									break;
+			case glu::TYPE_UINT8:	src << (deUint32)*((const deUint8*)compPtr) << "u";				break;
+			case glu::TYPE_UINT16:	src << *((const deUint16*)compPtr) << "u";						break;
 			case glu::TYPE_UINT:	src << *((const deUint32*)compPtr) << "u";						break;
 			case glu::TYPE_BOOL:	src << (*((const deUint32*)compPtr) != 0u ? "true" : "false");	break;
 			default:
@@ -1200,7 +1362,12 @@ void generateCompareSrc (
 			}
 			else
 			{
-				src << "\t" << resultVar << " = " << resultVar << " && compare_" << typeName << "(" << shaderName << ", ";
+				const char* castName = "";
+				glu::DataType promoteType = getPromoteType(basicType);
+				if (basicType != promoteType)
+					castName = glu::getDataTypeName(promoteType);
+
+				src << "\t" << resultVar << " = " << resultVar << " && compare_" << typeName << "(" << castName << "(" << shaderName << "), ";
 				generateImmScalarVectorSrc(src, basicType, valuePtr);
 				src << ");\n";
 			}
@@ -1279,14 +1446,19 @@ void generateWriteSrc (
 			const bool					isMatrix		= glu::isDataTypeMatrix(basicType);
 			const void*					valuePtr		= (const deUint8*)blockPtr.ptr + computeOffset(varLayout, accessPath.getPath());
 
-			src << "\t" << shaderName << " = ";
+			const char* castName = "";
+			glu::DataType promoteType = getPromoteType(basicType);
+			if (basicType != promoteType)
+				castName = glu::getDataTypeName(basicType);
+
+			src << "\t" << shaderName << " = " << castName << "(";
 
 			if (isMatrix)
 				generateImmMatrixSrc(src, basicType, varLayout.matrixStride, varLayout.isRowMajor, valuePtr);
 			else
 				generateImmScalarVectorSrc(src, basicType, valuePtr);
 
-			src << ";\n";
+			src << ");\n";
 		}
 	}
 }
@@ -1324,11 +1496,14 @@ string generateComputeShader (const ShaderInterface& interface, const BufferLayo
 {
 	std::ostringstream src;
 
-	if (usesRelaxedLayout(interface))
+	if (uses16BitStorage(interface) || uses8BitStorage(interface) || usesRelaxedLayout(interface) || usesScalarLayout(interface))
 		src << "#version 450\n";
 	else
 		src << "#version 310 es\n";
 
+	src << "#extension GL_EXT_shader_16bit_storage : enable\n";
+	src << "#extension GL_EXT_shader_8bit_storage : enable\n";
+	src << "#extension GL_EXT_scalar_block_layout : enable\n";
 	src << "layout(local_size_x = 1) in;\n";
 	src << "\n";
 
@@ -1383,7 +1558,8 @@ void copyBufferVarData (const BufferVarLayoutEntry& dstEntry, const BlockDataPtr
 	const deUint8* const	srcBasePtr			= (const deUint8*)srcBlockPtr.ptr + srcEntry.offset;
 	const int				scalarSize			= glu::getDataTypeScalarSize(dstEntry.type);
 	const bool				isMatrix			= glu::isDataTypeMatrix(dstEntry.type);
-	const int				compSize			= sizeof(deUint32);
+	glu::DataType			scalarType			= glu::getDataTypeScalarType(dstEntry.type);
+	const size_t			compSize			= getDataTypeByteSize(scalarType);
 	const int				dstArraySize		= dstEntry.arraySize == 0 ? dstBlockPtr.lastUnsizedArraySize : dstEntry.arraySize;
 	const int				dstArrayStride		= dstEntry.arrayStride;
 	const int				dstTopLevelSize		= dstEntry.topLevelArraySize == 0 ? dstBlockPtr.lastUnsizedArraySize : dstEntry.topLevelArraySize;
@@ -1561,18 +1737,19 @@ bool compareComponents (glu::DataType scalarType, const void* ref, const void* r
 				return false;
 		}
 	}
+	else if (scalarType == glu::TYPE_INT8 || scalarType == glu::TYPE_UINT8)
+	{
+		return deMemCmp(ref, res, numComps*sizeof(deUint8)) == 0;
+	}
+	else if (scalarType == glu::TYPE_INT16 || scalarType == glu::TYPE_UINT16 || scalarType == glu::TYPE_FLOAT16)
+	{
+		return deMemCmp(ref, res, numComps*sizeof(deUint16)) == 0;
+	}
 	else
 	{
 		DE_ASSERT(scalarType == glu::TYPE_INT || scalarType == glu::TYPE_UINT);
 
-		for (int ndx = 0; ndx < numComps; ndx++)
-		{
-			const deUint32	refVal		= *((const deUint32*)ref + ndx);
-			const deUint32	resVal		= *((const deUint32*)res + ndx);
-
-			if (refVal != resVal)
-				return false;
-		}
+		return deMemCmp(ref, res, numComps*sizeof(deUint32)) == 0;
 	}
 
 	return true;
@@ -1590,7 +1767,7 @@ bool compareBufferVarData (tcu::TestLog& log, const BufferVarLayoutEntry& refEnt
 	const glu::DataType		scalarType			= glu::getDataTypeScalarType(refEntry.type);
 	const int				scalarSize			= glu::getDataTypeScalarSize(resEntry.type);
 	const bool				isMatrix			= glu::isDataTypeMatrix(resEntry.type);
-	const int				compSize			= sizeof(deUint32);
+	const size_t			compSize			= getDataTypeByteSize(scalarType);
 	const int				maxPrints			= 3;
 	int						numFailed			= 0;
 
@@ -1827,11 +2004,15 @@ void initRefDataStorage (const ShaderInterface& interface, const BufferLayout& l
 {
 	DE_ASSERT(storage.data.empty() && storage.pointers.empty());
 
-	const vector<int>	bufferSizes = computeBufferSizes(interface, layout);
-	int					totalSize	= 0;
+	const vector<int>	bufferSizes		= computeBufferSizes(interface, layout);
+	int					totalSize		= 0;
+	const int			vec4Alignment	= (int)sizeof(deUint32)*4;
 
 	for (vector<int>::const_iterator sizeIter = bufferSizes.begin(); sizeIter != bufferSizes.end(); ++sizeIter)
-		totalSize += *sizeIter;
+	{
+		// Include enough space for alignment of individual blocks
+		totalSize += deRoundUp32(*sizeIter, vec4Alignment);
+	}
 
 	storage.data.resize(totalSize);
 
@@ -1852,7 +2033,8 @@ void initRefDataStorage (const ShaderInterface& interface, const BufferLayout& l
 
 			storage.pointers[blockNdx] = getBlockDataPtr(layout, blockLayout, basePtr + curOffset, bufferSize);
 
-			curOffset += bufferSize;
+			// Ensure each new block starts fully aligned to avoid unaligned host accesses
+			curOffset += deRoundUp32(bufferSize, vec4Alignment);
 		}
 	}
 }
@@ -2159,14 +2341,7 @@ tcu::TestStatus SSBOLayoutCaseInstance::iterate (void)
 	vk::Move<vk::VkCommandPool> cmdPool (createCommandPool(vk, device, vk::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndex));
 	vk::Move<vk::VkCommandBuffer> cmdBuffer (allocateCommandBuffer(vk, device, *cmdPool, vk::VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
-	const vk::VkCommandBufferBeginInfo cmdBufBeginParams =
-	{
-		vk::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	//	VkStructureType				sType;
-		DE_NULL,											//	const void*					pNext;
-		0u,													//	VkCmdBufferOptimizeFlags	flags;
-		(const vk::VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-	VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufBeginParams));
+	beginCommandBuffer(vk, *cmdBuffer, 0u);
 
 	vk.cmdBindPipeline(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
 	vk.cmdBindDescriptorSets(*cmdBuffer, vk::VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &descriptorSet.get(), 0u, DE_NULL);
@@ -2221,25 +2396,9 @@ tcu::TestStatus SSBOLayoutCaseInstance::iterate (void)
 	vk.cmdPipelineBarrier(*cmdBuffer, vk::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, vk::VK_PIPELINE_STAGE_HOST_BIT, (vk::VkDependencyFlags)0,
 						  0u, DE_NULL, static_cast<deUint32>(barriers.size()), &barriers[0], 0u, DE_NULL);
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
-	vk::Move<vk::VkFence> fence (createFence(vk, device));
-
-	const vk::VkSubmitInfo  submitInfo  =
-	{
-		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		DE_NULL,
-		0u,
-		(const vk::VkSemaphore*)DE_NULL,
-		(const vk::VkPipelineStageFlags*)DE_NULL,
-		1u,
-		&cmdBuffer.get(),
-		0u,
-		(const vk::VkSemaphore*)DE_NULL,
-	};
-
-	VK_CHECK(vk.queueSubmit(queue, 1u, &submitInfo, *fence));
-	VK_CHECK(vk.waitForFences(device, 1u, &fence.get(), DE_TRUE, ~0ull));
+	submitCommandsAndWait(vk, device, queue, cmdBuffer.get());
 
 	// Read back ac_numPassed data
 	bool counterOk;
@@ -2294,10 +2453,16 @@ void SSBOLayoutCase::initPrograms (vk::SourceCollections& programCollection) con
 {
 	DE_ASSERT(!m_computeShaderSrc.empty());
 
-	if (usesRelaxedLayout(m_interface))
+	// Valid scalar layouts are a superset of valid relaxed layouts.  So check scalar layout first.
+	if (usesScalarLayout(m_interface))
 	{
 		programCollection.glslSources.add("compute") << glu::ComputeSource(m_computeShaderSrc)
-			<< vk::ShaderBuildOptions(vk::SPIRV_VERSION_1_0, vk::ShaderBuildOptions::FLAG_ALLOW_RELAXED_OFFSETS);
+			<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, vk::ShaderBuildOptions::FLAG_ALLOW_SCALAR_OFFSETS);
+	}
+	else if (usesRelaxedLayout(m_interface))
+	{
+		programCollection.glslSources.add("compute") << glu::ComputeSource(m_computeShaderSrc)
+			<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, vk::ShaderBuildOptions::FLAG_ALLOW_RELAXED_OFFSETS);
 	}
 	else
 		programCollection.glslSources.add("compute") << glu::ComputeSource(m_computeShaderSrc);
@@ -2307,6 +2472,13 @@ TestInstance* SSBOLayoutCase::createInstance (Context& context) const
 {
 	if (!vk::isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_relaxed_block_layout") && usesRelaxedLayout(m_interface))
 		TCU_THROW(NotSupportedError, "VK_KHR_relaxed_block_layout not supported");
+	if (!context.get16BitStorageFeatures().storageBuffer16BitAccess && uses16BitStorage(m_interface))
+		TCU_THROW(NotSupportedError, "storageBuffer16BitAccess not supported");
+	if (!context.get8BitStorageFeatures().storageBuffer8BitAccess && uses8BitStorage(m_interface))
+		TCU_THROW(NotSupportedError, "storageBuffer8BitAccess not supported");
+	if (!context.getScalarBlockLayoutFeatures().scalarBlockLayout && usesScalarLayout(m_interface))
+		TCU_THROW(NotSupportedError, "scalarBlockLayout not supported");
+
 	return new SSBOLayoutCaseInstance(context, m_bufferMode, m_interface, m_refLayout, m_initialData, m_writeData);
 }
 

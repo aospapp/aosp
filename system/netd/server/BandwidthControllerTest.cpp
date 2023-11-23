@@ -35,22 +35,85 @@
 #include "Fwmark.h"
 #include "IptablesBaseTest.h"
 #include "bpf/BpfUtils.h"
+#include "netdbpf/bpf_shared.h"
 #include "tun_interface.h"
 
+using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::StrictMock;
-using ::testing::Test;
-using ::testing::_;
 
 using android::base::Join;
 using android::base::StringPrintf;
-using android::bpf::XT_BPF_EGRESS_PROG_PATH;
-using android::bpf::XT_BPF_INGRESS_PROG_PATH;
 using android::net::TunInterface;
-using android::netdutils::status::ok;
 using android::netdutils::UniqueFile;
+using android::netdutils::status::ok;
+
+const std::string ACCOUNT_RULES_WITHOUT_BPF =
+        "*filter\n"
+        "-A bw_INPUT -j bw_global_alert\n"
+        "-A bw_INPUT -p esp -j RETURN\n"
+        "-A bw_INPUT -m mark --mark 0x100000/0x100000 -j RETURN\n"
+        "-A bw_INPUT -m owner --socket-exists\n"
+        "-A bw_INPUT -j MARK --or-mark 0x100000\n"
+        "-A bw_OUTPUT -j bw_global_alert\n"
+        "-A bw_OUTPUT -o ipsec+ -j RETURN\n"
+        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
+        "-A bw_OUTPUT -m owner --socket-exists\n"
+        "-A bw_costly_shared --jump bw_penalty_box\n"
+        "\n"
+        "-A bw_penalty_box --jump bw_happy_box\n"
+        "-A bw_happy_box --jump bw_data_saver\n"
+        "-A bw_data_saver -j RETURN\n"
+        "-I bw_happy_box -m owner --uid-owner 0-9999 --jump RETURN\n"
+        "COMMIT\n"
+        "*raw\n"
+        "-A bw_raw_PREROUTING -i ipsec+ -j RETURN\n"
+        "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN\n"
+        "-A bw_raw_PREROUTING -m owner --socket-exists\n"
+        "COMMIT\n"
+        "*mangle\n"
+        "-A bw_mangle_POSTROUTING -o ipsec+ -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n"
+        "-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x100000\n"
+        "\n"
+        "COMMIT\n";
+
+const std::string ACCOUNT_RULES_WITH_BPF =
+        "*filter\n"
+        "-A bw_INPUT -j bw_global_alert\n"
+        "-A bw_INPUT -p esp -j RETURN\n"
+        "-A bw_INPUT -m mark --mark 0x100000/0x100000 -j RETURN\n"
+        "\n"
+        "-A bw_INPUT -j MARK --or-mark 0x100000\n"
+        "-A bw_OUTPUT -j bw_global_alert\n"
+        "-A bw_OUTPUT -o ipsec+ -j RETURN\n"
+        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
+        "\n"
+        "-A bw_costly_shared --jump bw_penalty_box\n" +
+        StringPrintf("-I bw_penalty_box -m bpf --object-pinned %s -j REJECT\n",
+                     XT_BPF_BLACKLIST_PROG_PATH) +
+        "-A bw_penalty_box --jump bw_happy_box\n"
+        "-A bw_happy_box --jump bw_data_saver\n"
+        "-A bw_data_saver -j RETURN\n" +
+        StringPrintf("-I bw_happy_box -m bpf --object-pinned %s -j RETURN\n",
+                     XT_BPF_WHITELIST_PROG_PATH) +
+        "COMMIT\n"
+        "*raw\n"
+        "-A bw_raw_PREROUTING -i ipsec+ -j RETURN\n"
+        "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN\n" +
+        StringPrintf("-A bw_raw_PREROUTING -m bpf --object-pinned %s\n", XT_BPF_INGRESS_PROG_PATH) +
+        "COMMIT\n"
+        "*mangle\n"
+        "-A bw_mangle_POSTROUTING -o ipsec+ -j RETURN\n"
+        "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
+        "\n"
+        "-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x100000\n" +
+        StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s\n",
+                     XT_BPF_EGRESS_PROG_PATH) +
+        "COMMIT\n";
 
 class BandwidthControllerTest : public IptablesBaseTest {
 protected:
@@ -68,28 +131,30 @@ protected:
         mTun.destroy();
     }
 
-    void expectSetupCommands(const std::string& expectedClean, std::string expectedAccounting) {
+    void expectSetupCommands(const std::string& expectedClean,
+                             const std::string& expectedAccounting) {
         std::string expectedList =
             "*filter\n"
             "-S\n"
             "COMMIT\n";
 
         std::string expectedFlush =
-            "*filter\n"
-            ":bw_INPUT -\n"
-            ":bw_OUTPUT -\n"
-            ":bw_FORWARD -\n"
-            ":bw_happy_box -\n"
-            ":bw_penalty_box -\n"
-            ":bw_data_saver -\n"
-            ":bw_costly_shared -\n"
-            "COMMIT\n"
-            "*raw\n"
-            ":bw_raw_PREROUTING -\n"
-            "COMMIT\n"
-            "*mangle\n"
-            ":bw_mangle_POSTROUTING -\n"
-            "COMMIT\n";
+                "*filter\n"
+                ":bw_INPUT -\n"
+                ":bw_OUTPUT -\n"
+                ":bw_FORWARD -\n"
+                ":bw_happy_box -\n"
+                ":bw_penalty_box -\n"
+                ":bw_data_saver -\n"
+                ":bw_costly_shared -\n"
+                ":bw_global_alert -\n"
+                "COMMIT\n"
+                "*raw\n"
+                ":bw_raw_PREROUTING -\n"
+                "COMMIT\n"
+                "*mangle\n"
+                ":bw_mangle_POSTROUTING -\n"
+                "COMMIT\n";
 
         ExpectedIptablesCommands expected = {{ V4, expectedList }};
         if (expectedClean.size()) {
@@ -105,21 +170,15 @@ protected:
 
     using IptOp = BandwidthController::IptOp;
 
-    int runIptablesAlertCmd(IptOp a, const char *b, int64_t c) {
+    int runIptablesAlertCmd(IptOp a, const char* b, int64_t c) {
         return mBw.runIptablesAlertCmd(a, b, c);
     }
 
-    int runIptablesAlertFwdCmd(IptOp a, const char *b, int64_t c) {
-        return mBw.runIptablesAlertFwdCmd(a, b, c);
-    }
-
-    int setCostlyAlert(const std::string a, int64_t b, int64_t *c) {
+    int setCostlyAlert(const std::string& a, int64_t b, int64_t* c) {
         return mBw.setCostlyAlert(a, b, c);
     }
 
-    int removeCostlyAlert(const std::string a, int64_t *b) {
-        return mBw.removeCostlyAlert(a, b);
-    }
+    int removeCostlyAlert(const std::string& a, int64_t* b) { return mBw.removeCostlyAlert(a, b); }
 
     void expectUpdateQuota(uint64_t quota) {
         uintptr_t dummy;
@@ -132,6 +191,23 @@ protected:
                 return 0;
             }));
         EXPECT_CALL(mSyscalls, fclose(dummyFile)).WillOnce(Return(ok));
+    }
+
+    void checkBandwithControl(bool useBpf) {
+        // Pretend no bw_costly_shared_<iface> rules already exist...
+        addIptablesRestoreOutput(
+                "-P OUTPUT ACCEPT\n"
+                "-N bw_costly_shared\n"
+                "-N unrelated\n");
+
+        // ... so none are flushed or deleted.
+        std::string expectedClean = "";
+
+        std::string expectedAccounting =
+                useBpf ? ACCOUNT_RULES_WITH_BPF : ACCOUNT_RULES_WITHOUT_BPF;
+        mBw.setBpfEnabled(useBpf);
+        mBw.enableBandwidthControl();
+        expectSetupCommands(expectedClean, expectedAccounting);
     }
 
     StrictMock<android::netdutils::ScopedMockSyscalls> mSyscalls;
@@ -169,60 +245,12 @@ TEST_F(BandwidthControllerTest, TestCheckUidBillingMask) {
     EXPECT_TRUE(isPowerOfTwo);
 }
 
-TEST_F(BandwidthControllerTest, TestEnableBandwidthControl) {
-    // Pretend no bw_costly_shared_<iface> rules already exist...
-    addIptablesRestoreOutput(
-        "-P OUTPUT ACCEPT\n"
-        "-N bw_costly_shared\n"
-        "-N unrelated\n");
+TEST_F(BandwidthControllerTest, TestEnableBandwidthControlWithBpf) {
+    checkBandwithControl(true);
+}
 
-    // ... so none are flushed or deleted.
-    std::string expectedClean = "";
-
-    uint32_t uidBillingMask = Fwmark::getUidBillingMask();
-    bool useBpf = BandwidthController::getBpfStatsStatus();
-    std::string expectedAccounting =
-        "*filter\n"
-        "-A bw_INPUT -p esp -j RETURN\n" +
-        StringPrintf("-A bw_INPUT -m mark --mark 0x%x/0x%x -j RETURN\n",
-                    uidBillingMask, uidBillingMask) +
-        "-A bw_INPUT -m owner --socket-exists\n" +
-        StringPrintf("-A bw_INPUT -j MARK --or-mark 0x%x\n", uidBillingMask) +
-        "-A bw_OUTPUT -o " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
-        "-A bw_OUTPUT -m policy --pol ipsec --dir out -j RETURN\n"
-        "-A bw_OUTPUT -m owner --socket-exists\n"
-        "-A bw_costly_shared --jump bw_penalty_box\n"
-        "-A bw_penalty_box --jump bw_happy_box\n"
-        "-A bw_happy_box --jump bw_data_saver\n"
-        "-A bw_data_saver -j RETURN\n"
-        "-I bw_happy_box -m owner --uid-owner 0-9999 --jump RETURN\n"
-        "COMMIT\n"
-        "*raw\n"
-        "-A bw_raw_PREROUTING -i " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
-        "-A bw_raw_PREROUTING -m policy --pol ipsec --dir in -j RETURN\n"
-        "-A bw_raw_PREROUTING -m owner --socket-exists\n";
-    if (useBpf) {
-        expectedAccounting += StringPrintf("-A bw_raw_PREROUTING -m bpf --object-pinned %s\n",
-                                           XT_BPF_INGRESS_PROG_PATH);
-    } else {
-        expectedAccounting += "\n";
-    }
-    expectedAccounting +=
-        "COMMIT\n"
-        "*mangle\n"
-        "-A bw_mangle_POSTROUTING -o " IPSEC_IFACE_PREFIX "+ -j RETURN\n"
-        "-A bw_mangle_POSTROUTING -m policy --pol ipsec --dir out -j RETURN\n"
-        "-A bw_mangle_POSTROUTING -m owner --socket-exists\n" +
-        StringPrintf("-A bw_mangle_POSTROUTING -j MARK --set-mark 0x0/0x%x\n", uidBillingMask);
-    if (useBpf) {
-        expectedAccounting += StringPrintf("-A bw_mangle_POSTROUTING -m bpf --object-pinned %s\n",
-                                           XT_BPF_EGRESS_PROG_PATH);
-    } else {
-        expectedAccounting += "\n";
-    }
-    expectedAccounting += "COMMIT\n";
-    mBw.enableBandwidthControl(false);
-    expectSetupCommands(expectedClean, expectedAccounting);
+TEST_F(BandwidthControllerTest, TestEnableBandwidthControlWithoutBpf) {
+    checkBandwithControl(false);
 }
 
 TEST_F(BandwidthControllerTest, TestDisableBandwidthControl) {
@@ -440,39 +468,17 @@ TEST_F(BandwidthControllerTest, TestSetInterfaceSharedQuotaTwoInterfaces) {
 
 TEST_F(BandwidthControllerTest, IptablesAlertCmd) {
     std::vector<std::string> expected = {
-        "*filter\n"
-        "-I bw_INPUT -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "-I bw_OUTPUT -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            "-I bw_global_alert -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
+            "COMMIT\n"};
     EXPECT_EQ(0, runIptablesAlertCmd(IptOp::IptOpInsert, "MyWonderfulAlert", 123456));
     expectIptablesRestoreCommands(expected);
 
     expected = {
-        "*filter\n"
-        "-D bw_INPUT -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "-D bw_OUTPUT -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            "-D bw_global_alert -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
+            "COMMIT\n"};
     EXPECT_EQ(0, runIptablesAlertCmd(IptOp::IptOpDelete, "MyWonderfulAlert", 123456));
-    expectIptablesRestoreCommands(expected);
-}
-
-TEST_F(BandwidthControllerTest, IptablesAlertFwdCmd) {
-    std::vector<std::string> expected = {
-        "*filter\n"
-        "-I bw_FORWARD -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "COMMIT\n"
-    };
-    EXPECT_EQ(0, runIptablesAlertFwdCmd(IptOp::IptOpInsert, "MyWonderfulAlert", 123456));
-    expectIptablesRestoreCommands(expected);
-
-    expected = {
-        "*filter\n"
-        "-D bw_FORWARD -m quota2 ! --quota 123456 --name MyWonderfulAlert\n"
-        "COMMIT\n"
-    };
-    EXPECT_EQ(0, runIptablesAlertFwdCmd(IptOp::IptOpDelete, "MyWonderfulAlert", 123456));
     expectIptablesRestoreCommands(expected);
 }
 

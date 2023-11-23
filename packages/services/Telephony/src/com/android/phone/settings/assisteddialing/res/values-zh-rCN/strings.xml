@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"辅助拨号"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"当您在国外的旅途中拨打电话时，预测并添加国家/地区代码"</string>

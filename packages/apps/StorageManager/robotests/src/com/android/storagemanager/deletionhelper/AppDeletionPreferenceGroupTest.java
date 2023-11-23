@@ -18,9 +18,8 @@ package com.android.storagemanager.deletionhelper;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
-import com.android.storagemanager.testing.TestingConstants;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -31,15 +30,13 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestingConstants.MANIFEST, sdk = TestingConstants.SDK_VERSION)
 public class AppDeletionPreferenceGroupTest {
     @Mock private AppsAsyncLoader.PackageInfo mPackage1;
     @Mock private AppDeletionType mBackend;

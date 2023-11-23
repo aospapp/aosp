@@ -107,7 +107,7 @@ typedef struct
 
 struct _dec_mb_params_t;
 
-typedef UWORD8 pf_inv_quant_t (WORD16 *blk,
+typedef WORD32 pf_inv_quant_t (WORD16 *blk,
                                 UWORD8 *weighting_matrix,
                                 UWORD8 quant_scale,
                                 WORD32 intra_flag,

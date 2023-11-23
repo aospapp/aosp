@@ -22,23 +22,25 @@
 #include "base/utils.h"
 #include "common_runtime_test.h"
 #include "dex/descriptors_names.h"
+#include "dex/type_reference.h"
 #include "exec_utils.h"
-#include "jit/profile_compilation_info.h"
 #include "linear_alloc.h"
 #include "mirror/class-inl.h"
 #include "obj_ptr-inl.h"
+#include "profile/profile_compilation_info.h"
 #include "profile_assistant.h"
 #include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
 using Hotness = ProfileCompilationInfo::MethodHotness;
+using TypeReferenceSet = std::set<TypeReference, TypeReferenceValueComparator>;
 
 static constexpr size_t kMaxMethodIds = 65535;
 
 class ProfileAssistantTest : public CommonRuntimeTest {
  public:
-  void PostRuntimeCreate() OVERRIDE {
+  void PostRuntimeCreate() override {
     allocator_.reset(new ArenaAllocator(Runtime::Current()->GetArenaPool()));
   }
 
@@ -100,7 +102,7 @@ class ProfileAssistantTest : public CommonRuntimeTest {
       }
     }
     for (uint16_t i = 0; i < number_of_classes; i++) {
-      ASSERT_TRUE(info->AddClassIndex(dex_location1,
+      ASSERT_TRUE(info->AddClassIndex(ProfileCompilationInfo::GetProfileDexFileKey(dex_location1),
                                       dex_location_checksum1,
                                       dex::TypeIndex(i),
                                       number_of_methods1));
@@ -114,9 +116,9 @@ class ProfileAssistantTest : public CommonRuntimeTest {
   void SetupBasicProfile(const std::string& id,
                          uint32_t checksum,
                          uint16_t number_of_methods,
-                         const std::vector<uint32_t> hot_methods,
-                         const std::vector<uint32_t> startup_methods,
-                         const std::vector<uint32_t> post_startup_methods,
+                         const std::vector<uint32_t>& hot_methods,
+                         const std::vector<uint32_t>& startup_methods,
+                         const std::vector<uint32_t>& post_startup_methods,
                          const ScratchFile& profile,
                          ProfileCompilationInfo* info) {
     std::string dex_location = "location1" + id;
@@ -308,25 +310,24 @@ class ProfileAssistantTest : public CommonRuntimeTest {
     return true;
   }
 
-  mirror::Class* GetClass(jobject class_loader, const std::string& clazz) {
+  ObjPtr<mirror::Class> GetClass(ScopedObjectAccess& soa,
+                                 jobject class_loader,
+                                 const std::string& clazz) REQUIRES_SHARED(Locks::mutator_lock_) {
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-    Thread* self = Thread::Current();
-    ScopedObjectAccess soa(self);
-    StackHandleScope<1> hs(self);
-    Handle<mirror::ClassLoader> h_loader(
-        hs.NewHandle(ObjPtr<mirror::ClassLoader>::DownCast(self->DecodeJObject(class_loader))));
-    return class_linker->FindClass(self, clazz.c_str(), h_loader);
+    StackHandleScope<1> hs(soa.Self());
+    Handle<mirror::ClassLoader> h_loader(hs.NewHandle(
+        ObjPtr<mirror::ClassLoader>::DownCast(soa.Self()->DecodeJObject(class_loader))));
+    return class_linker->FindClass(soa.Self(), clazz.c_str(), h_loader);
   }
 
   ArtMethod* GetVirtualMethod(jobject class_loader,
                               const std::string& clazz,
                               const std::string& name) {
-    mirror::Class* klass = GetClass(class_loader, clazz);
+    ScopedObjectAccess soa(Thread::Current());
+    ObjPtr<mirror::Class> klass = GetClass(soa, class_loader, clazz);
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
     const auto pointer_size = class_linker->GetImagePointerSize();
     ArtMethod* method = nullptr;
-    Thread* self = Thread::Current();
-    ScopedObjectAccess soa(self);
     for (auto& m : klass->GetVirtualMethods(pointer_size)) {
       if (name == m.GetName()) {
         EXPECT_TRUE(method == nullptr);
@@ -336,9 +337,14 @@ class ProfileAssistantTest : public CommonRuntimeTest {
     return method;
   }
 
+  static TypeReference MakeTypeReference(ObjPtr<mirror::Class> klass)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    return TypeReference(&klass->GetDexFile(), klass->GetDexTypeIndex());
+  }
+
   // Verify that given method has the expected inline caches and nothing else.
   void AssertInlineCaches(ArtMethod* method,
-                          const std::set<mirror::Class*>& expected_clases,
+                          const TypeReferenceSet& expected_clases,
                           const ProfileCompilationInfo& info,
                           bool is_megamorphic,
                           bool is_missing_types)
@@ -355,12 +361,11 @@ class ProfileAssistantTest : public CommonRuntimeTest {
     ASSERT_EQ(dex_pc_data.is_missing_types, is_missing_types);
     ASSERT_EQ(expected_clases.size(), dex_pc_data.classes.size());
     size_t found = 0;
-    for (mirror::Class* it : expected_clases) {
+    for (const TypeReference& type_ref : expected_clases) {
       for (const auto& class_ref : dex_pc_data.classes) {
         ProfileCompilationInfo::DexReference dex_ref =
             pmi->dex_references[class_ref.dex_profile_index];
-        if (dex_ref.MatchesDex(&(it->GetDexFile())) &&
-            class_ref.type_index == it->GetDexTypeIndex()) {
+        if (dex_ref.MatchesDex(type_ref.dex_file) && class_ref.type_index == type_ref.TypeIndex()) {
           found++;
         }
       }
@@ -715,7 +720,7 @@ TEST_F(ProfileAssistantTest, TestProfileCreationGenerateMethods) {
   ASSERT_TRUE(info.Load(GetFd(profile_file)));
   // Verify that the profile has matching methods.
   ScopedObjectAccess soa(Thread::Current());
-  ObjPtr<mirror::Class> klass = GetClass(nullptr, "Ljava/lang/Math;");
+  ObjPtr<mirror::Class> klass = GetClass(soa, /* class_loader= */ nullptr, "Ljava/lang/Math;");
   ASSERT_TRUE(klass != nullptr);
   size_t method_count = 0;
   for (ArtMethod& method : klass->GetMethods(kRuntimePointerSize)) {
@@ -907,9 +912,10 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
   jobject class_loader = LoadDex("ProfileTestMultiDex");
   ASSERT_NE(class_loader, nullptr);
 
-  mirror::Class* sub_a = GetClass(class_loader, "LSubA;");
-  mirror::Class* sub_b = GetClass(class_loader, "LSubB;");
-  mirror::Class* sub_c = GetClass(class_loader, "LSubC;");
+  StackHandleScope<3> hs(soa.Self());
+  Handle<mirror::Class> sub_a = hs.NewHandle(GetClass(soa, class_loader, "LSubA;"));
+  Handle<mirror::Class> sub_b = hs.NewHandle(GetClass(soa, class_loader, "LSubB;"));
+  Handle<mirror::Class> sub_c = hs.NewHandle(GetClass(soa, class_loader, "LSubC;"));
 
   ASSERT_TRUE(sub_a != nullptr);
   ASSERT_TRUE(sub_b != nullptr);
@@ -921,13 +927,13 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
                                                      "LTestInline;",
                                                      "inlineMonomorphic");
     ASSERT_TRUE(inline_monomorphic != nullptr);
-    std::set<mirror::Class*> expected_monomorphic;
-    expected_monomorphic.insert(sub_a);
+    TypeReferenceSet expected_monomorphic;
+    expected_monomorphic.insert(MakeTypeReference(sub_a.Get()));
     AssertInlineCaches(inline_monomorphic,
                        expected_monomorphic,
                        info,
-                       /*megamorphic*/false,
-                       /*missing_types*/false);
+                       /*is_megamorphic=*/false,
+                       /*is_missing_types=*/false);
   }
 
   {
@@ -936,15 +942,15 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
                                                     "LTestInline;",
                                                     "inlinePolymorphic");
     ASSERT_TRUE(inline_polymorhic != nullptr);
-    std::set<mirror::Class*> expected_polymorphic;
-    expected_polymorphic.insert(sub_a);
-    expected_polymorphic.insert(sub_b);
-    expected_polymorphic.insert(sub_c);
+    TypeReferenceSet expected_polymorphic;
+    expected_polymorphic.insert(MakeTypeReference(sub_a.Get()));
+    expected_polymorphic.insert(MakeTypeReference(sub_b.Get()));
+    expected_polymorphic.insert(MakeTypeReference(sub_c.Get()));
     AssertInlineCaches(inline_polymorhic,
                        expected_polymorphic,
                        info,
-                       /*megamorphic*/false,
-                       /*missing_types*/false);
+                       /*is_megamorphic=*/false,
+                       /*is_missing_types=*/false);
   }
 
   {
@@ -953,12 +959,12 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
                                                      "LTestInline;",
                                                      "inlineMegamorphic");
     ASSERT_TRUE(inline_megamorphic != nullptr);
-    std::set<mirror::Class*> expected_megamorphic;
+    TypeReferenceSet expected_megamorphic;
     AssertInlineCaches(inline_megamorphic,
                        expected_megamorphic,
                        info,
-                       /*megamorphic*/true,
-                       /*missing_types*/false);
+                       /*is_megamorphic=*/true,
+                       /*is_missing_types=*/false);
   }
 
   {
@@ -967,12 +973,12 @@ TEST_F(ProfileAssistantTest, TestProfileCreateInlineCache) {
                                                        "LTestInline;",
                                                        "inlineMissingTypes");
     ASSERT_TRUE(inline_missing_types != nullptr);
-    std::set<mirror::Class*> expected_missing_Types;
+    TypeReferenceSet expected_missing_Types;
     AssertInlineCaches(inline_missing_types,
                        expected_missing_Types,
                        info,
-                       /*megamorphic*/false,
-                       /*missing_types*/true);
+                       /*is_megamorphic=*/false,
+                       /*is_missing_types=*/true);
   }
 
   {
@@ -999,7 +1005,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
   const uint16_t kNumberOfMethodsToEnableCompilation = 100;
   ProfileCompilationInfo info1;
   SetupProfile("p1", 1, kNumberOfMethodsToEnableCompilation, 0, profile1, &info1,
-      /*start_method_index*/0, /*reverse_dex_write_order*/false);
+      /*start_method_index=*/0, /*reverse_dex_write_order=*/false);
 
   // The reference profile info will contain the methods with indices 50-150.
   // When setting up the profile reverse the order in which the dex files
@@ -1008,7 +1014,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithDifferentDexOrder) {
   const uint16_t kNumberOfMethodsAlreadyCompiled = 100;
   ProfileCompilationInfo reference_info;
   SetupProfile("p1", 1, kNumberOfMethodsAlreadyCompiled, 0, reference_profile,
-      &reference_info, kNumberOfMethodsToEnableCompilation / 2, /*reverse_dex_write_order*/true);
+      &reference_info, kNumberOfMethodsToEnableCompilation / 2, /*reverse_dex_write_order=*/true);
 
   // We should advise compilation.
   ASSERT_EQ(ProfileAssistant::kCompile,
@@ -1137,18 +1143,18 @@ TEST_F(ProfileAssistantTest, DumpOnly) {
   // Check the actual contents of the dump by looking at the offsets of the methods.
   for (uint32_t m : hot_methods) {
     const size_t pos = output.find(std::to_string(m) + "[],", hot_offset);
-    ASSERT_NE(pos, std::string::npos);
-    EXPECT_LT(pos, startup_offset);
+    ASSERT_NE(pos, std::string::npos) << output;
+    EXPECT_LT(pos, startup_offset) << output;
   }
   for (uint32_t m : startup_methods) {
     const size_t pos = output.find(std::to_string(m) + ",", startup_offset);
-    ASSERT_NE(pos, std::string::npos);
-    EXPECT_LT(pos, post_startup_offset);
+    ASSERT_NE(pos, std::string::npos) << output;
+    EXPECT_LT(pos, post_startup_offset) << output;
   }
   for (uint32_t m : post_startup_methods) {
     const size_t pos = output.find(std::to_string(m) + ",", post_startup_offset);
-    ASSERT_NE(pos, std::string::npos);
-    EXPECT_LT(pos, classes_offset);
+    ASSERT_NE(pos, std::string::npos) << output;
+    EXPECT_LT(pos, classes_offset) << output;
   }
 }
 
@@ -1186,7 +1192,7 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
 
   // Run profman and pass the dex file with --apk-fd.
   android::base::unique_fd apk_fd(
-      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));  // NOLINT
   ASSERT_GE(apk_fd.get(), 0);
 
   std::string profman_cmd = GetProfmanCmd();
@@ -1227,9 +1233,9 @@ TEST_F(ProfileAssistantTest, MergeProfilesWithFilter) {
   ProfileCompilationInfo info2_filter;
   ProfileCompilationInfo expected;
 
-  info2_filter.Load(profile1.GetFd(), /*merge_classes*/ true, filter_fn);
-  info2_filter.Load(profile2.GetFd(), /*merge_classes*/ true, filter_fn);
-  expected.Load(reference_profile.GetFd(), /*merge_classes*/ true, filter_fn);
+  info2_filter.Load(profile1.GetFd(), /*merge_classes=*/ true, filter_fn);
+  info2_filter.Load(profile2.GetFd(), /*merge_classes=*/ true, filter_fn);
+  expected.Load(reference_profile.GetFd(), /*merge_classes=*/ true, filter_fn);
 
   ASSERT_TRUE(expected.MergeWith(info1_filter));
   ASSERT_TRUE(expected.MergeWith(info2_filter));
@@ -1254,17 +1260,17 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
                "fake-location2",
                d2.GetLocationChecksum(),
                num_methods_to_add,
-               /*num_classes*/ 0,
+               /*number_of_classes=*/ 0,
                profile1,
                &info1,
-               /*start_method_index*/ 0,
-               /*reverse_dex_write_order*/ false,
-               /*number_of_methods1*/ d1.NumMethodIds(),
-               /*number_of_methods2*/ d2.NumMethodIds());
+               /*start_method_index=*/ 0,
+               /*reverse_dex_write_order=*/ false,
+               /*number_of_methods1=*/ d1.NumMethodIds(),
+               /*number_of_methods2=*/ d2.NumMethodIds());
 
   // Run profman and pass the dex file with --apk-fd.
   android::base::unique_fd apk_fd(
-      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));
+      open(GetTestDexFileName("ProfileTestMultiDex").c_str(), O_RDONLY));  // NOLINT
   ASSERT_GE(apk_fd.get(), 0);
 
   std::string profman_cmd = GetProfmanCmd();
@@ -1291,6 +1297,59 @@ TEST_F(ProfileAssistantTest, CopyAndUpdateProfileKey) {
 
       ASSERT_TRUE(result.GetMethod("fake-location1", d1.GetLocationChecksum(), i) == nullptr);
       ASSERT_TRUE(result.GetMethod("fake-location2", d2.GetLocationChecksum(), i) == nullptr);
+  }
+}
+
+TEST_F(ProfileAssistantTest, MergeProfilesWithCounters) {
+  ScratchFile profile1;
+  ScratchFile profile2;
+  ScratchFile reference_profile;
+
+  // The new profile info will contain methods with indices 0-100.
+  const uint16_t kNumberOfMethodsToEnableCompilation = 100;
+  const uint16_t kNumberOfClasses = 50;
+
+  std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles("ProfileTestMultiDex");
+  const DexFile& d1 = *dex_files[0];
+  const DexFile& d2 = *dex_files[1];
+  ProfileCompilationInfo info1;
+  SetupProfile(
+      d1.GetLocation(), d1.GetLocationChecksum(),
+      d2.GetLocation(), d2.GetLocationChecksum(),
+      kNumberOfMethodsToEnableCompilation, kNumberOfClasses, profile1, &info1);
+  ProfileCompilationInfo info2;
+  SetupProfile(
+      d1.GetLocation(), d1.GetLocationChecksum(),
+      d2.GetLocation(), d2.GetLocationChecksum(),
+      kNumberOfMethodsToEnableCompilation, kNumberOfClasses, profile2, &info2);
+
+  std::string profman_cmd = GetProfmanCmd();
+  std::vector<std::string> argv_str;
+  argv_str.push_back(profman_cmd);
+  argv_str.push_back("--profile-file-fd=" + std::to_string(profile1.GetFd()));
+  argv_str.push_back("--profile-file-fd=" + std::to_string(profile2.GetFd()));
+  argv_str.push_back("--reference-profile-file-fd=" + std::to_string(reference_profile.GetFd()));
+  argv_str.push_back("--store-aggregation-counters");
+  std::string error;
+
+  EXPECT_EQ(ExecAndReturnCode(argv_str, &error), 0) << error;
+
+  // Verify that we can load the result and that the counters are in place.
+
+  ProfileCompilationInfo result;
+  result.PrepareForAggregationCounters();
+  ASSERT_TRUE(reference_profile.GetFile()->ResetOffset());
+  ASSERT_TRUE(result.Load(reference_profile.GetFd()));
+
+  ASSERT_TRUE(result.StoresAggregationCounters());
+  ASSERT_EQ(2, result.GetAggregationCounter());
+
+  for (uint16_t i = 0; i < kNumberOfMethodsToEnableCompilation; i++) {
+    ASSERT_EQ(1, result.GetMethodAggregationCounter(MethodReference(&d1, i)));
+    ASSERT_EQ(1, result.GetMethodAggregationCounter(MethodReference(&d2, i)));
+  }
+  for (uint16_t i = 0; i < kNumberOfClasses; i++) {
+    ASSERT_EQ(1, result.GetClassAggregationCounter(TypeReference(&d1, dex::TypeIndex(i))));
   }
 }
 

@@ -28,7 +28,8 @@ class ProcDiskstatsTest(KernelProcFileTestBase.KernelProcFileTestBase):
     p_lines = repeat_rule('line')
 
     def p_line(self, p):
-        '''line : NUMBER NUMBER STRING NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NEWLINE'''
+        '''line : NUMBER NUMBER STRING NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NEWLINE
+                | NUMBER NUMBER STRING NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NEWLINE'''
         p[0] = p[1:]
 
     def get_path(self):
@@ -110,6 +111,6 @@ class ProcSwapsTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_path(self):
         return "/proc/swaps"
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # It is not mandatory to have this file present
         return True

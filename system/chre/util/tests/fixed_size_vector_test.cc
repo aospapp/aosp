@@ -99,6 +99,28 @@ TEST(FixedSizeVector, PushBackAndErase) {
   ASSERT_EQ(vector.size(), 3);
 }
 
+TEST(FixedSizeVector, PushBackAndPopBack) {
+  FixedSizeVector<int, 8> vector;
+  vector.push_back(0x1337);
+  vector.push_back(0xcafe);
+  vector.push_back(0xbeef);
+  vector.push_back(0xface);
+
+  ASSERT_EQ(vector.size(), 4);
+  ASSERT_EQ(vector.back(), 0xface);
+  vector.pop_back();
+  ASSERT_EQ(vector.size(), 3);
+  ASSERT_EQ(vector.back(), 0xbeef);
+  vector.pop_back();
+  ASSERT_EQ(vector.size(), 2);
+  ASSERT_EQ(vector.back(), 0xcafe);
+  vector.pop_back();
+  ASSERT_EQ(vector.size(), 1);
+  ASSERT_EQ(vector.back(), 0x1337);
+  vector.pop_back();
+  ASSERT_EQ(vector.size(), 0);
+}
+
 TEST(FixedSizeVector, EraseDestructorCalled) {
   FixedSizeVector<Foo, 4> vector;
   for (size_t i = 0; i < 4; ++i) {

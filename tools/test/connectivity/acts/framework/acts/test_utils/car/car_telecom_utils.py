@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -176,7 +176,7 @@ def hangup_call(log, ad, call_id):
 
     return True
 
-def hangup_conf(log, ad, conf_id):
+def hangup_conf(log, ad, conf_id, timeout=10):
     """Hangup a conference call
 
     Args:
@@ -195,36 +195,18 @@ def hangup_conf(log, ad, conf_id):
         log.info("We are not in-call {}".format(ad.serial))
         return False
 
-    # Get the list of children for this conference.
-    all_calls = get_call_id_children(log, ad, conf_id)
-
-    # All calls that needs disconnecting (Parent + Children)
-    all_calls.add(conf_id)
-
-    # Make sure we are registered with the events.
-    ad.droid.telecomStartListeningForCallRemoved()
-
     # Disconnect call.
     ad.droid.telecomCallDisconnect(conf_id)
 
-    # Wait for removed event.
-    while len(all_calls) > 0:
-        event = None
-        try:
-            event = ad.ed.pop_event(
-                tel_defines.EventTelecomCallRemoved,
-                tel_defines.MAX_WAIT_TIME_CONNECTION_STATE_UPDATE)
-        except queue.Empty:
-            log.info("Did not get TelecomCallRemoved event")
-            ad.droid.telecomStopListeningForCallRemoved()
-            return False
-
-        removed_call_id = event['data']['CallId']
-        all_calls.remove(removed_call_id)
-        log.info("Removed call {} left calls {}".format(removed_call_id, all_calls))
-
-    ad.droid.telecomStopListeningForCallRemoved()
-    return True
+    start_time = time.time()
+    while time.time() < start_time + timeout:
+        call_ids = get_calls_in_states(log, ad, [tel_defines.CALL_STATE_ACTIVE])
+        log.debug("Active calls {}".format(call_ids))
+        if not call_ids:
+            return True
+        time.sleep(1)
+    log.error("Failed to hang up all conference participants")
+    return False
 
 def accept_call(log, ad, call_id):
     """Accept a number
@@ -440,72 +422,34 @@ def wait_for_active(log, ad):
         return False
     return True
 
-def wait_for_conference(log, ad, conf_calls):
+def wait_for_conference(log, ad, participants=2, timeout=10):
     """Wait for the droid to be in a conference with calls specified
     in conf_calls.
 
     Args:
         log: log object
         ad: android device object
-        conf_calls: List of calls that should transition to conference
+        participants: conference participant count
 
     Returns:
         call_id if success, None if fail.
     """
-    conf_calls = set(conf_calls)
+
+    def get_conference_id(callers):
+        for call_id in callers:
+            call_details = ad.droid.telecomCallGetCallById(call_id).get("Details")
+            if set([tel_defines.CALL_PROPERTY_CONFERENCE]).issubset(call_details.get("Properties")):
+                return call_id
+        return None
 
     log.info("waiting for conference {}".format(ad.serial))
-    ad.droid.telecomStartListeningForCallAdded()
-
-    call_ids = ad.droid.telecomCallGetCallIds()
-
-    # Check if we have a conference call and if the children match
-    for call_id in call_ids:
-        call_chld = get_call_id_children(log, ad, call_id)
-        if call_chld == conf_calls:
-            ad.droid.telecomStopListeningForCallAdded()
-            return call_id
-
-    # If not poll for new calls.
-    event = None
-    call_id = None
-    try:
-        event = ad.ed.pop_event(
-            tel_defines.EventTelecomCallAdded,
-            tel_defines.MAX_WAIT_TIME_CALLEE_RINGING)
-        log.info("wait_for_conference event {} droid {}".format(
-            event, ad.serial))
-    except queue.Empty:
-        log.error("Did not get {} droid {}".format(
-            tel_defines.EventTelecomCallAdded,
-            ad.serial))
-        return None
-    finally:
-        ad.droid.telecomStopListeningForCallAdded()
-    call_id = event['data']['CallId']
-
-    # Now poll until the children change.
-    ad.droid.telecomCallStartListeningForEvent(
-        call_id, tel_defines.EVENT_CALL_CHILDREN_CHANGED)
-
-    event = None
-    while True:
-        try:
-            event = ad.ed.pop_event(
-                tel_defines.EventTelecomCallChildrenChanged,
-                tel_defines.MAX_WAIT_TIME_CONNECTION_STATE_UPDATE)
-            call_chld = set(event['data']['Event'])
-            log.info("wait_for_conference children chld event {}".format(call_chld))
-            if call_chld == conf_calls:
-                ad.droid.telecomCallStopListeningForEvent(
-                    call_id, tel_defines.EVENT_CALL_CHILDREN_CHANGED)
-                return call_id
-        except queue.Empty:
-            log.error("Did not get {} droid {}".format(
-                tel_defines.EventTelecomCallChildrenChanged, ad.serial))
-            ad.droid.telecomCallStopListeningForEvent(
-                call_id, tel_defines.EVENT_CALL_CHILDREN_CHANGED)
-            return None
+    start_time = time.time()
+    while time.time() < start_time + timeout:
+        participant_callers = get_calls_in_states(log, ad, [tel_defines.CALL_STATE_ACTIVE])
+        if (len(participant_callers) == participants + 1):
+            return get_conference_id(participant_callers)
+        time.sleep(1)
+    return None
 
 def get_call_id_children(log, ad, call_id):
     """Return the list of calls that are children to call_id

@@ -17,7 +17,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera2_JpegCompressor"
 
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "gralloc_cb.h"
 #include "JpegCompressor.h"
@@ -131,7 +131,7 @@ bool JpegCompressor::threadLoop() {
 status_t JpegCompressor::compress() {
     // Find source and target buffers. Assumes only one buffer matches
     // each condition!
-    bool foundJpeg = false, mFoundAux = false;
+    bool mFoundAux = false;
     int thumbWidth = 0, thumbHeight = 0;
     unsigned char thumbJpegQuality = 90;
     unsigned char jpegQuality = 90;
@@ -223,7 +223,6 @@ bool JpegCompressor::waitForDone(nsecs_t timeout) {
 }
 
 void JpegCompressor::cleanUp() {
-    status_t res;
     Mutex::Autolock lock(mBusyMutex);
 
     if (mFoundAux) {

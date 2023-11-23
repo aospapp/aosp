@@ -17,40 +17,45 @@
 #ifndef _NETLINKHANDLER_H
 #define _NETLINKHANDLER_H
 
+#include <string>
+#include <vector>
+
 #include <sysutils/NetlinkEvent.h>
+// TODO: stop depending on sysutils/NetlinkListener.h
 #include <sysutils/NetlinkListener.h>
 #include "NetlinkManager.h"
 
 namespace android {
 namespace net {
 
-class NetlinkHandler: public NetlinkListener {
+class NetlinkHandler : public ::NetlinkListener {
     NetlinkManager *mNm;
 
 public:
     NetlinkHandler(NetlinkManager *nm, int listenerSocket, int format);
     virtual ~NetlinkHandler();
 
-    int start(void);
-    int stop(void);
+    int start();
+    int stop();
 
-protected:
+  protected:
     virtual void onEvent(NetlinkEvent *evt);
 
-    void notify(int code, const char *format, ...);
-    void notifyInterfaceAdded(const char *name);
-    void notifyInterfaceRemoved(const char *name);
-    void notifyInterfaceChanged(const char *name, bool isUp);
-    void notifyInterfaceLinkChanged(const char *name, bool isUp);
-    void notifyQuotaLimitReached(const char *name, const char *iface);
-    void notifyInterfaceClassActivity(const char *name, bool isActive,
-                                      const char *timestamp, const char *uid);
-    void notifyAddressChanged(NetlinkEvent::Action action, const char *addr, const char *iface,
-                              const char *flags, const char *scope);
-    void notifyInterfaceDnsServers(const char *iface, const char *lifetime,
-                                   const char *servers);
-    void notifyRouteChange(NetlinkEvent::Action action, const char *route, const char *gateway, const char *iface);
-    void notifyStrictCleartext(const char* uid, const char* hex);
+    void notifyInterfaceAdded(const std::string& ifName);
+    void notifyInterfaceRemoved(const std::string& ifName);
+    void notifyInterfaceChanged(const std::string& ifName, bool isUp);
+    void notifyInterfaceLinkChanged(const std::string& ifName, bool isUp);
+    void notifyQuotaLimitReached(const std::string& labelName, const std::string& ifName);
+    void notifyInterfaceClassActivityChanged(int label, bool isActive, int64_t timestamp, int uid);
+    void notifyAddressUpdated(const std::string& addr, const std::string& ifName, int flags,
+                              int scope);
+    void notifyAddressRemoved(const std::string& addr, const std::string& ifName, int flags,
+                              int scope);
+    void notifyInterfaceDnsServers(const std::string& ifName, int64_t lifetime,
+                                   const std::vector<std::string>& servers);
+    void notifyRouteChange(bool updated, const std::string& route, const std::string& gateway,
+                           const std::string& ifName);
+    void notifyStrictCleartext(uid_t uid, const std::string& hex);
 };
 
 }  // namespace net

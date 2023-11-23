@@ -25,24 +25,24 @@ import android.graphics.Rect;
 import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.concurrent.TimeoutException;
 
-public class LoginWithCustomHighlightActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<LoginWithCustomHighlightActivity> mActivityRule =
-            new AutofillActivityTestRule<LoginWithCustomHighlightActivity>(
-            LoginWithCustomHighlightActivity.class);
+public class LoginWithCustomHighlightActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<LoginWithCustomHighlightActivity> {
 
     private LoginWithCustomHighlightActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<LoginWithCustomHighlightActivity> getActivityRule() {
+        return new AutofillActivityTestRule<LoginWithCustomHighlightActivity>(
+                LoginWithCustomHighlightActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test
@@ -84,7 +84,6 @@ public class LoginWithCustomHighlightActivityTest extends AutoFillServiceTestCas
      * Requests focus on username and expect Window event happens.
      */
     protected void requestFocusOnUsername() throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> mActivity.onUsername(View::requestFocus));
     }
 }

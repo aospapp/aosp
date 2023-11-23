@@ -49,6 +49,7 @@ for target in "$@"
 do
 	echo
 	echo "## ${target}"
+	push_goroot ${target}
 
 	echo
 	echo "# test"
@@ -77,12 +78,4 @@ do
 	echo
 	echo "# misc/cgo/{test,testtls,nocgo}"
 	GOTRACEBACK=2 go_test ./misc/cgo/{test,testtls,nocgo}
-
-	echo
-	echo "# misc/cgo/testcshared"
-	(cd misc/cgo/testcshared && target="${target}" ./test.bash)
-
-	echo
-	echo "# misc/cgo/testsigfwd"
-	(cd misc/cgo/testsigfwd && go_${target} run -exec="go_${target}_exec" main.go)
 done

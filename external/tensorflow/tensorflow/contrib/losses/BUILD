@@ -82,10 +82,11 @@ py_library(
 
 py_test(
     name = "metric_loss_ops_test",
-    size = "large",
+    size = "medium",
     srcs = [
         "python/metric_learning/metric_loss_ops_test.py",
     ],
+    shard_count = 4,
     srcs_version = "PY2AND3",
     deps = [
         ":metric_learning_py",
@@ -96,16 +97,4 @@ py_test(
         "//tensorflow/python:sparse_tensor",
         "//third_party/py/numpy",
     ],
-)
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
 )

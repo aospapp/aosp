@@ -144,9 +144,9 @@ BaseRemoteRendezvous::~BaseRemoteRendezvous() {
 // Returns true if "device_name" is a valid full name of local device
 // of the "worker".  This helper is purely based on the worker name
 // and device name and does no lookups in the worker->device_mgr.
-static bool IsLocalDevice(const string& worker_name,
+static bool IsLocalDevice(const StringPiece worker_name,
                           const StringPiece device_name) {
-  return device_name.starts_with(worker_name);
+  return str_util::StartsWith(device_name, worker_name);
 }
 
 Status BaseRemoteRendezvous::Initialize(WorkerSession* session) {
@@ -253,13 +253,13 @@ void BaseRemoteRendezvous::SameWorkerRecvDone(
 
   WorkerSession* sess = session();
   Device* src_device;
-  Status s = sess->device_mgr->LookupDevice(parsed.src_device, &src_device);
+  Status s = sess->device_mgr()->LookupDevice(parsed.src_device, &src_device);
   if (!s.ok()) {
     done(s);
     return;
   }
   Device* dst_device;
-  s = sess->device_mgr->LookupDevice(parsed.dst_device, &dst_device);
+  s = sess->device_mgr()->LookupDevice(parsed.dst_device, &dst_device);
   if (!s.ok()) {
     done(s);
     return;
@@ -281,7 +281,7 @@ void BaseRemoteRendezvous::SameWorkerRecvDone(
   CopyTensor::ViaDMA(parsed.edge_name, send_args.device_context,
                      recv_args.device_context, src_device, dst_device,
                      send_args.alloc_attrs, recv_args.alloc_attrs, &in, out,
-                     std::move(done));
+                     0 /*dev_to_dev_stream_index*/, std::move(done));
 }
 
 bool BaseRemoteRendezvous::IsSameWorker(DeviceNameUtils::ParsedName src,
@@ -293,8 +293,11 @@ void BaseRemoteRendezvous::RecvAsync(const ParsedKey& parsed,
                                      const Rendezvous::Args& recv_args,
                                      DoneCallback done) {
   VLOG(1) << "RemoteRendezvous Recv " << this << " " << parsed.FullKey();
-  CHECK(is_initialized()) << "RecvAsync called when uninitialized.";
   Status s = ValidateDevices(parsed, false /*!is_src*/);
+  if (s.ok() && !is_initialized()) {
+    s.Update(errors::Internal(
+        "RecvAsync called when uninitialized (key:", parsed.FullKey(), ")."));
+  }
   if (!s.ok()) {
     done(s, Args(), recv_args, Tensor(), false);
     return;

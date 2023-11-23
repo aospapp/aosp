@@ -18,6 +18,7 @@ package dot.junit.opcodes.new_instance.d;
 
 public class T_new_instance_3 {
 
+    @SuppressWarnings("ConstantOverflow")
     static int i = 123 / 0;
 
     public static int run() {

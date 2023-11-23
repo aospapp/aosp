@@ -29,7 +29,7 @@
     </application>
 
     <!-- This is a self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.renderscript.cts"
                      android:label="CTS tests of Renderscript component">
         <meta-data android:name="listener"

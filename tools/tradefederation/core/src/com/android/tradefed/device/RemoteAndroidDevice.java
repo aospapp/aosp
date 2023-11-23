@@ -16,9 +16,18 @@
 package com.android.tradefed.device;
 
 import com.android.ddmlib.IDevice;
+import com.android.tradefed.device.TestDeviceOptions.InstanceType;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.IRunUtil;
+import com.android.tradefed.util.RunUtil;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Implementation of a {@link ITestDevice} for a full stack android device connected via
@@ -36,6 +45,11 @@ public class RemoteAndroidDevice extends TestDevice {
     private static final String ADB_ALREADY_CONNECTED_TAG = "already";
     private static final String ADB_CONN_REFUSED = "Connection refused";
 
+    private static final Pattern IP_PATTERN =
+            Pattern.compile(ManagedTestDeviceFactory.IPADDRESS_PATTERN);
+
+    private File mAdbConnectLogs = null;
+
     /**
      * Creates a {@link RemoteAndroidDevice}.
      *
@@ -46,6 +60,12 @@ public class RemoteAndroidDevice extends TestDevice {
     public RemoteAndroidDevice(IDevice device, IDeviceStateMonitor stateMonitor,
             IDeviceMonitor allocationMonitor) {
         super(device, stateMonitor, allocationMonitor);
+    }
+
+    @Override
+    public void postInvocationTearDown() {
+        super.postInvocationTearDown();
+        FileUtil.deleteFile(mAdbConnectLogs);
     }
 
     /**
@@ -70,11 +90,40 @@ public class RemoteAndroidDevice extends TestDevice {
         waitForAdbConnect(WAIT_FOR_ADB_CONNECT);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    protected void postAdbReboot() throws DeviceNotAvailableException {
+        super.postAdbReboot();
+        // A remote nested device does not loose the ssh bridge when rebooted only adb connect is
+        // required.
+        InstanceType type = mOptions.getInstanceType();
+        if (InstanceType.CUTTLEFISH.equals(type)
+                || InstanceType.REMOTE_NESTED_AVD.equals(type)
+                || InstanceType.EMULATOR.equals(type)) {
+            adbTcpConnect(getHostName(), getPortNum());
+            waitForAdbConnect(WAIT_FOR_ADB_CONNECT);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void recoverDevice() throws DeviceNotAvailableException {
+        // If device is not in use (TcpDevice) do not attempt reconnection, it will fail
+        // device in use will not be of the TcpDevice type.
+        if (!(getIDevice() instanceof TcpDevice)) {
+            // Before attempting standard recovery, reconnect the device.
+            adbTcpConnect(getHostName(), getPortNum());
+            waitForAdbConnect(WAIT_FOR_ADB_CONNECT);
+        }
+        // Standard recovery
+        super.recoverDevice();
+    }
+
     /**
      * Return the hostname associated with the device. Extracted from the serial.
      */
     public String getHostName() {
-        if (!checkSerialFormatValid()) {
+        if (!checkSerialFormatValid(getSerialNumber())) {
             throw new RuntimeException(
                     String.format("Serial Format is unexpected: %s "
                             + "should look like <hostname>:<port>", getSerialNumber()));
@@ -86,7 +135,7 @@ public class RemoteAndroidDevice extends TestDevice {
      * Return the port number asociated with the device. Extracted from the serial.
      */
     public String getPortNum() {
-        if (!checkSerialFormatValid()) {
+        if (!checkSerialFormatValid(getSerialNumber())) {
             throw new RuntimeException(
                     String.format("Serial Format is unexpected: %s "
                             + "should look like <hostname>:<port>", getSerialNumber()));
@@ -96,11 +145,18 @@ public class RemoteAndroidDevice extends TestDevice {
 
     /**
      * Check if the format of the serial is as expected <hostname>:port
+     *
      * @return true if the format is valid, false otherwise.
      */
-    private boolean checkSerialFormatValid() {
-        String[] serial =  getSerialNumber().split(":");
+    public static boolean checkSerialFormatValid(String serialString) {
+        String[] serial = serialString.split(":");
         if (serial.length == 2) {
+            // Check first part is an IP
+            Matcher match = IP_PATTERN.matcher(serial[0]);
+            if (!match.find()) {
+                return false;
+            }
+            // Check second part if a port
             try {
                 Integer.parseInt(serial[1]);
                 return true;
@@ -121,12 +177,12 @@ public class RemoteAndroidDevice extends TestDevice {
      */
     public boolean adbTcpConnect(String host, String port) {
         for (int i = 0; i < MAX_RETRIES; i++) {
-            CommandResult result = getRunUtil().runTimedCmd(DEFAULT_SHORT_CMD_TIMEOUT, "adb",
-                    "connect", String.format("%s:%s", host, port));
+            CommandResult result = adbConnect(host, port);
             if (CommandStatus.SUCCESS.equals(result.getStatus()) &&
                 result.getStdout().contains(ADB_SUCCESS_CONNECT_TAG)) {
-                CLog.d("adb connect output: status: %s stdout: %s stderr: %s",
-                        result.getStatus(), result.getStdout(), result.getStderr());
+                CLog.d(
+                        "adb connect output: status: %s stdout: %s",
+                        result.getStatus(), result.getStdout());
 
                 // It is possible to get a positive result without it being connected because of
                 // the ssh bridge. Retrying to get confirmation, and expecting "already connected".
@@ -146,13 +202,10 @@ public class RemoteAndroidDevice extends TestDevice {
     }
 
     private boolean confirmAdbTcpConnect(String host, String port) {
-        CommandResult resultConfirmation =
-                getRunUtil().runTimedCmd(DEFAULT_SHORT_CMD_TIMEOUT, "adb", "connect",
-                String.format("%s:%s", host, port));
-        if (CommandStatus.SUCCESS.equals(resultConfirmation.getStatus()) &&
-                resultConfirmation.getStdout().contains(ADB_ALREADY_CONNECTED_TAG)) {
-            CLog.d("adb connect confirmed:\nstdout: %s\nsterr: %s",
-                    resultConfirmation.getStdout(), resultConfirmation.getStderr());
+        CommandResult resultConfirmation = adbConnect(host, port);
+        if (CommandStatus.SUCCESS.equals(resultConfirmation.getStatus())
+                && resultConfirmation.getStdout().contains(ADB_ALREADY_CONNECTED_TAG)) {
+            CLog.d("adb connect confirmed:\nstdout: %s\n", resultConfirmation.getStdout());
             return true;
         } else {
             CLog.d("adb connect confirmation failed:\nstatus:%s\nstdout: %s\nsterr: %s",
@@ -205,10 +258,42 @@ public class RemoteAndroidDevice extends TestDevice {
     }
 
     /**
+     * Give a receiver file where we can store all the adb connection logs for debugging purpose.
+     */
+    public void setAdbLogFile(File adbLogFile) {
+        mAdbConnectLogs = adbLogFile;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     public String getMacAddress() {
         return null;
+    }
+
+    /** Run adb connect. */
+    private CommandResult adbConnect(String host, String port) {
+        IRunUtil runUtil = getRunUtil();
+        if (mAdbConnectLogs != null) {
+            runUtil = new RunUtil();
+            runUtil.setEnvVariable("ADB_TRACE", "1");
+        }
+        CommandResult result =
+                runUtil.runTimedCmd(
+                        DEFAULT_SHORT_CMD_TIMEOUT,
+                        "adb",
+                        "connect",
+                        String.format("%s:%s", host, port));
+        if (mAdbConnectLogs != null) {
+            try {
+                FileUtil.writeToFile(result.getStderr(), mAdbConnectLogs, true);
+                FileUtil.writeToFile(
+                        "\n======= SEPARATOR OF ATTEMPTS =====\n", mAdbConnectLogs, true);
+            } catch (IOException e) {
+                CLog.e(e);
+            }
+        }
+        return result;
     }
 }

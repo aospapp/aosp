@@ -34,12 +34,33 @@ public class HvacPolicy {
         for (CarPropertyConfig config : properties) {
             switch (config.getPropertyId()) {
                 case CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT: {
-                    mMaxHardwareFanSpeed = (int) config.getMaxValue();
+                    // Since we are using one max value to represent all zones, it should find
+                    // the minimum max value for fan speed for all zones.
+                    mMaxHardwareFanSpeed = Integer.MAX_VALUE;
+                    for(int areaId : config.getAreaIds()) {
+                        Integer newValue = (Integer) config.getMaxValue(areaId);
+                        if (newValue != null && newValue < mMaxHardwareFanSpeed) {
+                            mMaxHardwareFanSpeed = newValue;
+                        }
+                    }
                 } break;
 
                 case CarHvacManager.ID_ZONED_TEMP_SETPOINT: {
-                    mMaxHardwareTemp = (float) config.getMaxValue();
-                    mMinHardwareTemp = (float) config.getMinValue();
+                    // Since we are using one max value and one min value to represent all zones,
+                    // it should find the minimum max value and maximum min value for temp for all
+                    // zones.
+                    mMaxHardwareTemp = Float.MAX_VALUE;
+                    mMinHardwareTemp = -Float.MAX_VALUE;
+                    for(int areaId : config.getAreaIds()) {
+                        Float newValue = (Float) config.getMaxValue(areaId);
+                        if (newValue != null && newValue < mMaxHardwareTemp) {
+                            mMaxHardwareTemp = newValue;
+                        }
+                        newValue = (Float) config.getMinValue(areaId);
+                        if (newValue != null && newValue > mMinHardwareTemp) {
+                            mMinHardwareTemp = newValue;
+                        }
+                    }
                 } break;
             }
         }

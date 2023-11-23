@@ -22,7 +22,7 @@
     <skip />
     <!-- no translation found for launcher_label (799410258349837668) -->
     <skip />
-    <string name="title_open" msgid="3165686459158020921">"ಇದರ ಮೂಲಕ ತೆರೆಯಿರಿ"</string>
+    <string name="title_open" msgid="3165686459158020921">"ಇಲ್ಲಿಂದ ತೆರೆಯಿರಿ"</string>
     <string name="title_save" msgid="4384490653102710025">"ಇವುಗಳಲ್ಲಿ ಉಳಿಸಿ"</string>
     <string name="menu_create_dir" msgid="2413624798689091042">"ಹೊಸ ಫೋಲ್ಡರ್"</string>
     <string name="menu_grid" msgid="1453636521731880680">"ಗ್ರಿಡ್ ವೀಕ್ಷಣೆ"</string>
@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"ಹಂಚಿಕೊಳ್ಳಿ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ಅಳಿಸಿ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ಎಲ್ಲವನ್ನೂ ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="menu_select" msgid="1366061076507142387">"ಆಯ್ಕೆಮಾಡಿ"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"ಹೀಗೆ ವಿಂಗಡಿಸಿ..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ಇದಕ್ಕೆ ನಕಲಿಸಿ…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ಇದಕ್ಕೆ ಸರಿಸು…"</string>
     <string name="menu_compress" msgid="37539111904724188">"ಕುಗ್ಗಿಸಿ"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"ಪ್ರಕಾರ"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"ಗಾತ್ರ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"ಮಾರ್ಪಾಡು"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ಫೈಲ್ ಹೆಸರು (A ಯಿಂದ Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ಪ್ರಕಾರ (A ಯಿಂದ Z ವರೆಗೆ)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"ಗಾತ್ರ (ಚಿಕ್ಕದು)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"ಮಾರ್ಪಡಿಸಲಾಗಿದೆ (ಹಳೆಯದು ಮೊದಲು)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ಫೈಲ್ ಹೆಸರು (Z ನಿಂದ A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ಪ್ರಕಾರ (Z ನಿಂದ A ವರೆಗೆ)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"ಗಾತ್ರ (ದೊಡ್ಡದು)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"ಮಾರ್ಪಡಿಸಲಾಗಿದೆ (ಹೊಸತು ಮೊದಲಿಗೆ)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"ಈ ಪ್ರಕಾರ ವಿಂಗಡಿಸಿ"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g> ಪ್ರಕಾರ ವಿಂಗಡಿಸಲಾಗಿದೆ"</string>
     <string name="directory_items" msgid="6645621978998614003">"ಐಟಂಗಳ ಸಂಖ್ಯೆ"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ಆರೋಹಣ"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ಅವರೋಹಣ"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> ತೆರೆಯಿರಿ"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ರೂಟ್‌ಗಳನ್ನು ತೋರಿಸು"</string>
     <string name="drawer_close" msgid="4263880768630848848">"ರೂಟ್‌ಗಳನ್ನು ಮರೆಮಾಡು"</string>
     <string name="save_error" msgid="8631128801982095782">"ಡಾಕ್ಯುಮೆಂಟ್ ಉಳಿಸಲು ವಿಫಲವಾಗಿದೆ"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g> ರಲ್ಲಿ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಪ್ರವೇಶ ನೀಡುವುದೇ?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ಡೈರೆಕ್ಟರಿಗೆ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಗೆ ಪ್ರವೇಶ ನೀಡುವುದೇ?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g> ಸಂಗ್ರಹಣೆಯಲ್ಲಿನ ಪೋಟೋಗಳು ಮತ್ತು ವೀಡಿಯೊಗಳು ಸೇರಿದಂತೆ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಪ್ರವೇಶಿಸಲು <xliff:g id="APPNAME"><b>^1</b></xliff:g> ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಅನುಮತಿಸುವುದೇ?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"ಮತ್ತೆ ಕೇಳಬೇಡಿ"</string>
     <string name="allow" msgid="1275746941353040309">"ಅನುಮತಿಸಿ"</string>
     <string name="deny" msgid="5127201668078153379">"ನಿರಾಕರಿಸಿ"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> ಅನ್ನು ತಿದ್ದಿಬರೆಯಬೇಕೇ?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ಹಿನ್ನೆಲೆಯಲ್ಲಿ ಮುಂದುವರಿಯಿರಿ"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ಫೋನ್‌ನಲ್ಲಿನ ಇತ್ತೀಚಿನ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ಫೋನ್‌ನಲ್ಲಿನ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"ಫೋನ್‌ನಲ್ಲಿನ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> ನಲ್ಲಿನ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g> ನಿಂದ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> ನಿಂದ ಫೈಲ್‌ಗಳು"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ಫೋನ್‌ನಲ್ಲಿ ಇತ್ತೀಚಿನ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ಫೋನ್‌ನಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> ನಲ್ಲಿರುವ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ನಿಂದ ಚಿತ್ರಗಳು"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> ನಿಂದ ಚಿತ್ರಗಳು"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"ಚಿತ್ರಗಳು"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ಆಡಿಯೊ"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"ವೀಡಿಯೊಗಳು"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳು"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ಫೋಲ್ಡರ್ ಹೆಸರು"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"ಹೊಸ ಹೆಸರು"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> ಫೈಲ್‌ ಅನ್ನು ಪೂರ್ವವೀಕ್ಷಿಸಿ"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ಇತರ ಆ್ಯಪ್‌ಗಳಲ್ಲಿರುವ ಫೈಲ್‌ಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"ಅನಾಮಧೇಯ"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ಗೆ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸಿ"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\" ನಲ್ಲಿರುವ \"<xliff:g id="DIRECTORY">%1$s</xliff:g> ಗೆ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸುವುದೇ?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ಇದು ಈ ಸ್ಥಾನದಲ್ಲಿ ಪ್ರಸ್ತುತವಾಗಿ ಸಂಗ್ರಹವಾಗಿರುವ ಎಲ್ಲಾ ಫೈಲ್‌ಗಳಿಗೆ ಮತ್ತು ಭವಿಷ್ಯದಲ್ಲಿ ಸಂಗ್ರಹವಾಗುವ ಎಲ್ಲಾ ವಿಷಯಕ್ಕೆ \"<xliff:g id="APPNAME">%1$s</xliff:g>\" ಪೂರ್ಣ ಪ್ರವೇಶ ನೀಡುತ್ತದೆ."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ಈ ಫೋನ್‍ನಲ್ಲಿ ಹುಡುಕಿ"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"ಹುಡುಕಾಟ ಇತಿಹಾಸವನ್ನು ಅಳಿಸಿ <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

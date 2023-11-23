@@ -18,6 +18,7 @@
 
 #include <android-base/logging.h>
 
+#include "arch/instruction_set.h"
 #include "handle_scope-inl.h"
 #include "utils/arm64/managed_register_arm64.h"
 
@@ -181,7 +182,7 @@ bool Arm64ManagedRuntimeCallingConvention::IsCurrentParamOnStack() {
 
 ManagedRegister Arm64ManagedRuntimeCallingConvention::CurrentParamRegister() {
   LOG(FATAL) << "Should not reach here";
-  return ManagedRegister::NoRegister();
+  UNREACHABLE();
 }
 
 FrameOffset Arm64ManagedRuntimeCallingConvention::CurrentParamStackOffset() {

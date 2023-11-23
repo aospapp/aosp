@@ -141,8 +141,9 @@ static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 		ssid->p2p_persistent_group = 1;
 
 	if ((ssid->group_cipher & WPA_CIPHER_CCMP) &&
-	    !(ssid->pairwise_cipher & WPA_CIPHER_CCMP) &&
-	    !(ssid->pairwise_cipher & WPA_CIPHER_NONE)) {
+	    !(ssid->pairwise_cipher & (WPA_CIPHER_CCMP | WPA_CIPHER_CCMP_256 |
+				       WPA_CIPHER_GCMP | WPA_CIPHER_GCMP_256 |
+				       WPA_CIPHER_NONE))) {
 		/* Group cipher cannot be stronger than the pairwise cipher. */
 		wpa_printf(MSG_DEBUG, "Line %d: removed CCMP from group cipher"
 			   " list since it was not allowed for pairwise "
@@ -158,6 +159,15 @@ static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 			   line);
 		errors++;
 	}
+
+#ifdef CONFIG_OCV
+	if (ssid->ocv && ssid->ieee80211w == NO_MGMT_FRAME_PROTECTION) {
+		wpa_printf(MSG_ERROR,
+			   "Line %d: PMF needs to be enabled whenever using OCV",
+			   line);
+		errors++;
+	}
+#endif /* CONFIG_OCV */
 
 	return errors;
 }
@@ -464,7 +474,8 @@ struct wpa_config * wpa_config_read(const char *name, struct wpa_config *cfgp)
 
 #ifndef WPA_IGNORE_CONFIG_ERRORS
 	if (errors) {
-		wpa_config_free(config);
+		if (config != cfgp)
+			wpa_config_free(config);
 		config = NULL;
 		head = NULL;
 	}
@@ -482,7 +493,7 @@ static void write_str(FILE *f, const char *field, struct wpa_ssid *ssid)
 	if (value == NULL)
 		return;
 	fprintf(f, "\t%s=%s\n", field, value);
-	os_free(value);
+	str_clear_free(value);
 }
 
 
@@ -747,6 +758,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	write_psk(f, ssid);
 	INT(mem_only_psk);
 	STR(sae_password);
+	STR(sae_password_id);
 	write_proto(f, ssid);
 	write_key_mgmt(f, ssid);
 	INT_DEF(bg_scan_period, DEFAULT_BG_SCAN_PERIOD);
@@ -770,6 +782,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	STR(private_key_passwd);
 	STR(dh_file);
 	STR(subject_match);
+	STR(check_cert_subject);
 	STR(altsubject_match);
 	STR(domain_suffix_match);
 	STR(domain_match);
@@ -780,6 +793,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	STR(private_key2_passwd);
 	STR(dh_file2);
 	STR(subject_match2);
+	STR(check_cert_subject2);
 	STR(altsubject_match2);
 	STR(domain_suffix_match2);
 	STR(domain_match2);
@@ -826,7 +840,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT(vht);
 	INT_DEF(ht, 1);
 	INT(ht40);
-	INT(max_oper_chwidth);
+	INT_DEF(max_oper_chwidth, DEFAULT_MAX_OPER_CHWIDTH);
 	INT(vht_center_freq1);
 	INT(vht_center_freq2);
 	INT(pbss);
@@ -850,11 +864,14 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	write_mka_cak(f, ssid);
 	write_mka_ckn(f, ssid);
 	INT(macsec_integ_only);
+	INT(macsec_replay_protect);
+	INT(macsec_replay_window);
 	INT(macsec_port);
 	INT_DEF(mka_priority, DEFAULT_PRIO_NOT_KEY_SERVER);
 #endif /* CONFIG_MACSEC */
 #ifdef CONFIG_HS20
 	INT(update_identifier);
+	STR(roaming_consortium_selection);
 #endif /* CONFIG_HS20 */
 	write_int(f, "mac_addr", ssid->mac_addr, -1);
 #ifdef CONFIG_MESH
@@ -875,12 +892,16 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	STR(dpp_csign);
 #endif /* CONFIG_DPP */
 	INT(owe_group);
+	INT(owe_only);
+	INT(multi_ap_backhaul_sta);
 #ifdef CONFIG_HT_OVERRIDES
 	INT_DEF(disable_ht, DEFAULT_DISABLE_HT);
 	INT_DEF(disable_ht40, DEFAULT_DISABLE_HT40);
 	INT_DEF(disable_sgi, DEFAULT_DISABLE_SGI);
 	INT_DEF(disable_ldpc, DEFAULT_DISABLE_LDPC);
 	INT(ht40_intolerant);
+	INT_DEF(tx_stbc, DEFAULT_TX_STBC);
+	INT_DEF(rx_stbc, DEFAULT_RX_STBC);
 	INT_DEF(disable_max_amsdu, DEFAULT_DISABLE_MAX_AMSDU);
 	INT_DEF(ampdu_factor, DEFAULT_AMPDU_FACTOR);
 	INT_DEF(ampdu_density, DEFAULT_AMPDU_DENSITY);
@@ -1037,6 +1058,20 @@ static void wpa_config_write_cred(FILE *f, struct wpa_cred *cred)
 		fprintf(f, "\n");
 	}
 
+	if (cred->num_roaming_consortiums) {
+		size_t j;
+
+		fprintf(f, "\troaming_consortiums=\"");
+		for (i = 0; i < cred->num_roaming_consortiums; i++) {
+			if (i > 0)
+				fprintf(f, ",");
+			for (j = 0; j < cred->roaming_consortiums_len[i]; j++)
+				fprintf(f, "%02x",
+					cred->roaming_consortiums[i][j]);
+		}
+		fprintf(f, "\"\n");
+	}
+
 	if (cred->sim_num != DEFAULT_USER_SELECTED_SIM)
 		fprintf(f, "\tsim_num=%d\n", cred->sim_num);
 }
@@ -1154,6 +1189,9 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->wps_cred_processing)
 		fprintf(f, "wps_cred_processing=%d\n",
 			config->wps_cred_processing);
+	if (config->wps_cred_add_sae)
+		fprintf(f, "wps_cred_add_sae=%d\n",
+			config->wps_cred_add_sae);
 	if (config->wps_vendor_ext_m1) {
 		int i, len = wpabuf_len(config->wps_vendor_ext_m1);
 		const u8 *p = wpabuf_head_u8(config->wps_vendor_ext_m1);
@@ -1229,6 +1267,8 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 		fprintf(f, "p2p_go_ht40=%d\n", config->p2p_go_ht40);
 	if (config->p2p_go_vht)
 		fprintf(f, "p2p_go_vht=%d\n", config->p2p_go_vht);
+	if (config->p2p_go_he)
+		fprintf(f, "p2p_go_he=%d\n", config->p2p_go_he);
 	if (config->p2p_go_ctwindow != DEFAULT_P2P_GO_CTWINDOW)
 		fprintf(f, "p2p_go_ctwindow=%d\n", config->p2p_go_ctwindow);
 	if (config->p2p_disabled)
@@ -1280,6 +1320,8 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 		fprintf(f, "filter_rssi=%d\n", config->filter_rssi);
 	if (config->max_num_sta != DEFAULT_MAX_NUM_STA)
 		fprintf(f, "max_num_sta=%u\n", config->max_num_sta);
+	if (config->ap_isolate != DEFAULT_AP_ISOLATE)
+		fprintf(f, "ap_isolate=%u\n", config->ap_isolate);
 	if (config->disassoc_low_ack)
 		fprintf(f, "disassoc_low_ack=%d\n", config->disassoc_low_ack);
 #ifdef CONFIG_HS20
@@ -1490,6 +1532,21 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->dpp_config_processing)
 		fprintf(f, "dpp_config_processing=%d\n",
 			config->dpp_config_processing);
+	if (config->coloc_intf_reporting)
+		fprintf(f, "coloc_intf_reporting=%d\n",
+			config->coloc_intf_reporting);
+	if (config->p2p_device_random_mac_addr)
+		fprintf(f, "p2p_device_random_mac_addr=%d\n",
+			config->p2p_device_random_mac_addr);
+	if (!is_zero_ether_addr(config->p2p_device_persistent_mac_addr))
+		fprintf(f, "p2p_device_persistent_mac_addr=" MACSTR "\n",
+			MAC2STR(config->p2p_device_persistent_mac_addr));
+	if (config->p2p_interface_random_mac_addr)
+		fprintf(f, "p2p_interface_random_mac_addr=%d\n",
+			config->p2p_interface_random_mac_addr);
+	if (config->bss_no_flush_when_down)
+		fprintf(f, "bss_no_flush_when_down=%d\n",
+			config->bss_no_flush_when_down);
 
 }
 

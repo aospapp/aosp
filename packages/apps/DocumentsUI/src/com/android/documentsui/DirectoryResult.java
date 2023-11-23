@@ -23,7 +23,7 @@ import android.database.Cursor;
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.DocumentInfo;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 public class DirectoryResult implements AutoCloseable {
 
@@ -34,7 +34,7 @@ public class DirectoryResult implements AutoCloseable {
 
     @Override
     public void close() {
-        IoUtils.closeQuietly(cursor);
+        FileUtils.closeQuietly(cursor);
         if (client != null && doc.isInArchive()) {
             ArchivesProvider.releaseArchive(client, doc.derivedUri);
         }

@@ -19,21 +19,26 @@ pushd ${ANDROID_BUILD_TOP}/test/vts
 
 ## Modifies import statement in proto files.
 sed -i 's/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/import "ComponentSpecificationMessage.proto";/g' proto/AndroidSystemControlMessage.proto
+sed -i 's/import "test\/vts\/proto\/VtsResourceControllerMessage.proto";/import "VtsResourceControllerMessage.proto";/g' proto/AndroidSystemControlMessage.proto
 sed -i 's/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/import "ComponentSpecificationMessage.proto";/g' proto/VtsProfilingMessage.proto
 sed -i 's/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/import "ComponentSpecificationMessage.proto";/g' proto/VtsFuzzTaskMessage.proto
 sed -i 's/import "test\/vts\/proto\/VtsReportMessage.proto";/import "VtsReportMessage.proto";/g' proto/VtsFuzzTaskMessage.proto
+sed -i 's/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/import "ComponentSpecificationMessage.proto";/g' proto/VtsResourceControllerMessage.proto
 
 ## Compiles modified proto files to .py files.
 protoc -I=proto --python_out=proto proto/AndroidSystemControlMessage.proto
 protoc -I=proto --python_out=proto proto/ComponentSpecificationMessage.proto
 protoc -I=proto --python_out=proto proto/VtsProfilingMessage.proto
 protoc -I=proto --python_out=proto proto/VtsFuzzTaskMessage.proto
+protoc -I=proto --python_out=proto proto/VtsResourceControllerMessage.proto
 
 ## Restores import statement in proto files.
 sed -i 's/import "ComponentSpecificationMessage.proto";/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/g' proto/AndroidSystemControlMessage.proto
+sed -i 's/import "VtsResourceControllerMessage.proto";/import "test\/vts\/proto\/VtsResourceControllerMessage.proto";/g' proto/AndroidSystemControlMessage.proto
 sed -i 's/import "ComponentSpecificationMessage.proto";/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/g' proto/VtsProfilingMessage.proto
 sed -i 's/import "ComponentSpecificationMessage.proto";/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/g' proto/VtsFuzzTaskMessage.proto
 sed -i 's/import "VtsReportMessage.proto";/import "test\/vts\/proto\/VtsReportMessage.proto";/g' proto/VtsFuzzTaskMessage.proto
+sed -i 's/import "ComponentSpecificationMessage.proto";/import "test\/vts\/proto\/ComponentSpecificationMessage.proto";/g' proto/VtsResourceControllerMessage.proto
 
 protoc -I=proto --python_out=proto proto/ComponentSpecificationMessage.proto
 protoc -I=proto --python_out=proto proto/TestSchedulingPolicyMessage.proto

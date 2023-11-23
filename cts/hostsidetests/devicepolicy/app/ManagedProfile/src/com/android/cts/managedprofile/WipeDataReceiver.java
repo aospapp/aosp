@@ -32,6 +32,8 @@ public class WipeDataReceiver extends BroadcastReceiver {
     private static final String ACTION_WIPE_DATA = "com.android.cts.managedprofile.WIPE_DATA";
     private static final String ACTION_WIPE_DATA_WITH_REASON =
             "com.android.cts.managedprofile.WIPE_DATA_WITH_REASON";
+    private static final String ACTION_WIPE_DATA_WITHOUT_REASON =
+            "com.android.cts.managedprofile.WIPE_DATA_WITHOUT_REASON";
     private static final String TEST_WIPE_DATA_REASON = "cts test for WipeDataWithReason";
 
     @Override
@@ -41,6 +43,8 @@ public class WipeDataReceiver extends BroadcastReceiver {
             dpm.wipeData(0);
         } else if (ACTION_WIPE_DATA_WITH_REASON.equals(intent.getAction())) {
             dpm.wipeData(0, TEST_WIPE_DATA_REASON);
+        } else if (ACTION_WIPE_DATA_WITHOUT_REASON.equals(intent.getAction())) {
+            dpm.wipeData(DevicePolicyManager.WIPE_SILENTLY);
         }
     }
 }

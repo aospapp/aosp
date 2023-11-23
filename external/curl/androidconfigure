@@ -12,19 +12,17 @@ fi
 cd $(dirname "$0")
 
 HOST="arm-linux-androideabi"
-export CC="${ANDROID_TOOLCHAIN}/${HOST}-gcc"
-export LD="${ANDROID_TOOLCHAIN}/${HOST}-ld"
-
 T="${ANDROID_BUILD_TOP}"
+export CC="${T}/prebuilts/clang/host/linux-x86/clang-r353983/bin/clang"
+export LD="${T}/prebuilts/clang/host/linux-x86/clang-r353983/bin/lld"
+
 CFLAGS=(
   "-isystem ${T}/external/libcxx/include"
   "-isystem ${T}/bionic/libc/include/"
   "-isystem ${T}/bionic/libc/arch-arm/include"
-  "-isystem ${T}/bionic/libc/kernel/android/uapi/"
   "-isystem ${T}/bionic/libc/kernel/uapi/"
-  "-isystem ${T}/bionic/libc/kernel/uapi/asm-arm/"
+  "-isystem ${T}/bionic/libc/kernel/android/uapi/"
   "-isystem ${T}/bionic/libm/include"
-  "-isystem ${T}/build/core/combo/include/arch/linux-arm/"
   "-fno-exceptions"
   "-ffunction-sections"
   "-fdata-sections"
@@ -74,7 +72,7 @@ CONFIGURE_ARGS=(
   --disable-dict
 
 
-  ### Enable HTTP, FTP and FILE explicitly. These are enabled by default but
+  ### Enable HTTP and FILE explicitly. These are enabled by default but
   # listed here as documentation.
   --enable-http
   --enable-file

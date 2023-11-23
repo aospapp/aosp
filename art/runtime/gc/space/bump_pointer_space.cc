@@ -24,27 +24,32 @@ namespace art {
 namespace gc {
 namespace space {
 
-BumpPointerSpace* BumpPointerSpace::Create(const std::string& name, size_t capacity,
-                                           uint8_t* requested_begin) {
+BumpPointerSpace* BumpPointerSpace::Create(const std::string& name, size_t capacity) {
   capacity = RoundUp(capacity, kPageSize);
   std::string error_msg;
-  std::unique_ptr<MemMap> mem_map(MemMap::MapAnonymous(name.c_str(), requested_begin, capacity,
-                                                       PROT_READ | PROT_WRITE, true, false,
-                                                       &error_msg));
-  if (mem_map.get() == nullptr) {
+  MemMap mem_map = MemMap::MapAnonymous(name.c_str(),
+                                        capacity,
+                                        PROT_READ | PROT_WRITE,
+                                        /*low_4gb=*/ true,
+                                        &error_msg);
+  if (!mem_map.IsValid()) {
     LOG(ERROR) << "Failed to allocate pages for alloc space (" << name << ") of size "
         << PrettySize(capacity) << " with message " << error_msg;
     return nullptr;
   }
-  return new BumpPointerSpace(name, mem_map.release());
+  return new BumpPointerSpace(name, std::move(mem_map));
 }
 
-BumpPointerSpace* BumpPointerSpace::CreateFromMemMap(const std::string& name, MemMap* mem_map) {
-  return new BumpPointerSpace(name, mem_map);
+BumpPointerSpace* BumpPointerSpace::CreateFromMemMap(const std::string& name, MemMap&& mem_map) {
+  return new BumpPointerSpace(name, std::move(mem_map));
 }
 
 BumpPointerSpace::BumpPointerSpace(const std::string& name, uint8_t* begin, uint8_t* limit)
-    : ContinuousMemMapAllocSpace(name, nullptr, begin, begin, limit,
+    : ContinuousMemMapAllocSpace(name,
+                                 MemMap::Invalid(),
+                                 begin,
+                                 begin,
+                                 limit,
                                  kGcRetentionPolicyAlwaysCollect),
       growth_end_(limit),
       objects_allocated_(0), bytes_allocated_(0),
@@ -53,10 +58,14 @@ BumpPointerSpace::BumpPointerSpace(const std::string& name, uint8_t* begin, uint
       num_blocks_(0) {
 }
 
-BumpPointerSpace::BumpPointerSpace(const std::string& name, MemMap* mem_map)
-    : ContinuousMemMapAllocSpace(name, mem_map, mem_map->Begin(), mem_map->Begin(), mem_map->End(),
+BumpPointerSpace::BumpPointerSpace(const std::string& name, MemMap&& mem_map)
+    : ContinuousMemMapAllocSpace(name,
+                                 std::move(mem_map),
+                                 mem_map.Begin(),
+                                 mem_map.Begin(),
+                                 mem_map.End(),
                                  kGcRetentionPolicyAlwaysCollect),
-      growth_end_(mem_map->End()),
+      growth_end_(mem_map_.End()),
       objects_allocated_(0), bytes_allocated_(0),
       block_lock_("Block lock", kBumpPointerSpaceBlockLock),
       main_block_size_(0),
@@ -72,8 +81,8 @@ void BumpPointerSpace::Clear() {
   // Reset the end of the space back to the beginning, we move the end forward as we allocate
   // objects.
   SetEnd(Begin());
-  objects_allocated_.StoreRelaxed(0);
-  bytes_allocated_.StoreRelaxed(0);
+  objects_allocated_.store(0, std::memory_order_relaxed);
+  bytes_allocated_.store(0, std::memory_order_relaxed);
   growth_end_ = Limit();
   {
     MutexLock mu(Thread::Current(), block_lock_);
@@ -160,7 +169,7 @@ accounting::ContinuousSpaceBitmap::SweepCallback* BumpPointerSpace::GetSweepCall
 
 uint64_t BumpPointerSpace::GetBytesAllocated() {
   // Start out pre-determined amount (blocks which are not being allocated into).
-  uint64_t total = static_cast<uint64_t>(bytes_allocated_.LoadRelaxed());
+  uint64_t total = static_cast<uint64_t>(bytes_allocated_.load(std::memory_order_relaxed));
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::runtime_shutdown_lock_);
   MutexLock mu2(self, *Locks::thread_list_lock_);
@@ -178,7 +187,7 @@ uint64_t BumpPointerSpace::GetBytesAllocated() {
 
 uint64_t BumpPointerSpace::GetObjectsAllocated() {
   // Start out pre-determined amount (blocks which are not being allocated into).
-  uint64_t total = static_cast<uint64_t>(objects_allocated_.LoadRelaxed());
+  uint64_t total = static_cast<uint64_t>(objects_allocated_.load(std::memory_order_relaxed));
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::runtime_shutdown_lock_);
   MutexLock mu2(self, *Locks::thread_list_lock_);
@@ -195,8 +204,8 @@ uint64_t BumpPointerSpace::GetObjectsAllocated() {
 }
 
 void BumpPointerSpace::RevokeThreadLocalBuffersLocked(Thread* thread) {
-  objects_allocated_.FetchAndAddSequentiallyConsistent(thread->GetThreadLocalObjectsAllocated());
-  bytes_allocated_.FetchAndAddSequentiallyConsistent(thread->GetThreadLocalBytesAllocated());
+  objects_allocated_.fetch_add(thread->GetThreadLocalObjectsAllocated(), std::memory_order_relaxed);
+  bytes_allocated_.fetch_add(thread->GetThreadLocalBytesAllocated(), std::memory_order_relaxed);
   thread->SetTlab(nullptr, nullptr, nullptr);
 }
 

@@ -19,6 +19,9 @@ import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -89,8 +92,11 @@ public class TestSuiteInfo {
     }
 
     /** Gets the target archs supported by the test suite */
-    public String getTargetArch() {
-        return mTestSuiteInfo.getProperty(TARGET_ARCH);
+    public List<String> getTargetArchs() {
+        String testInfoArch = mTestSuiteInfo.getProperty(TARGET_ARCH);
+        List<String> targetArchs = new ArrayList<>();
+        targetArchs.addAll(Arrays.asList(testInfoArch.split(",")));
+        return targetArchs;
     }
 
     /** Gets the short name of the test suite */

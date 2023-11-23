@@ -20,7 +20,7 @@
 
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.vehiclehal.test"
             android:label="Tests for Vehicle HAL APIs"/>
 

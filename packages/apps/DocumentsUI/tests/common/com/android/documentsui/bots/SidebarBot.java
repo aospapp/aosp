@@ -16,10 +16,10 @@
 
 package com.android.documentsui.bots;
 
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.swipeLeft;
-import static android.support.test.espresso.action.ViewActions.swipeRight;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.swipeLeft;
+import static androidx.test.espresso.action.ViewActions.swipeRight;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
@@ -43,11 +43,13 @@ import java.util.List;
  * the roots list drawer.
  */
 public class SidebarBot extends Bots.BaseBot {
-    private static final String ROOTS_LIST_ID = "com.android.documentsui:id/roots_list";
     private static final String TAG = "RootsListBot";
+
+    private final String mRootListId;
 
     public SidebarBot(UiDevice device, Context context, int timeout) {
         super(device, context, timeout);
+        mRootListId = mTargetPackage + ":id/roots_list";
     }
 
     private UiObject findRoot(String label) throws UiObjectNotFoundException {
@@ -55,8 +57,8 @@ public class SidebarBot extends Bots.BaseBot {
         openDrawer();
 
         final UiSelector rootsList = new UiSelector().resourceId(
-                "com.android.documentsui:id/container_roots").childSelector(
-                new UiSelector().resourceId(ROOTS_LIST_ID));
+                mTargetPackage + ":id/container_roots").childSelector(
+                new UiSelector().resourceId(mRootListId));
 
         // Wait for the first list item to appear
         new UiObject(rootsList.childSelector(new UiSelector())).waitForExists(mTimeout);
@@ -74,14 +76,14 @@ public class SidebarBot extends Bots.BaseBot {
 
     public void openDrawer() throws UiObjectNotFoundException {
         final UiSelector rootsList = new UiSelector().resourceId(
-                "com.android.documentsui:id/container_roots").childSelector(
-                new UiSelector().resourceId(ROOTS_LIST_ID));
+                mTargetPackage + ":id/container_roots").childSelector(
+                new UiSelector().resourceId(mRootListId));
 
         // We might need to expand drawer if not visible
         if (!new UiObject(rootsList).waitForExists(mTimeout)) {
             Log.d(TAG, "Failed to find roots list; trying to expand");
             final UiSelector hamburger = new UiSelector().resourceId(
-                    "com.android.documentsui:id/toolbar").childSelector(
+                    mTargetPackage + ":id/toolbar").childSelector(
                     new UiSelector().className("android.widget.ImageButton").clickable(true));
             new UiObject(hamburger).click();
         }
@@ -130,6 +132,6 @@ public class SidebarBot extends Bots.BaseBot {
     }
 
     public void assertHasFocus() {
-        assertHasFocus(ROOTS_LIST_ID);
+        assertHasFocus(mRootListId);
     }
 }

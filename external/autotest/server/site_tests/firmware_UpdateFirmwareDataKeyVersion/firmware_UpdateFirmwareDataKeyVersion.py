@@ -67,6 +67,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
         self.setup_usbkey(usbkey=True)
         self._fwid = self.faft_client.updater.get_fwid()
 
+        self.fw_ver_tpm = self.faft_client.tpm.get_firmware_datakey_version()
         actual_ver = self.faft_client.bios.get_datakey_version('a')
         logging.info('Origin version is %s', actual_ver)
         self._update_version = actual_ver + 1
@@ -80,7 +81,9 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
     def cleanup(self):
         try:
-            self.faft_client.updater.cleanup()
+            if (self.faft_client.tpm.get_firmware_datakey_version() !=
+                                                       self.fw_ver_tpm):
+                self.reboot_and_reset_tpm()
             self.restore_firmware()
             self.invalidate_firmware_setup()
         except Exception as e:

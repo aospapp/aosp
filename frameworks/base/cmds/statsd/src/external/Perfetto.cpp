@@ -39,6 +39,7 @@ namespace os {
 namespace statsd {
 
 bool CollectPerfettoTraceAndUploadToDropbox(const PerfettoDetails& config,
+                                            int64_t subscription_id,
                                             int64_t alert_id,
                                             const ConfigKey& configKey) {
     VLOG("Starting trace collection through perfetto");
@@ -48,9 +49,11 @@ bool CollectPerfettoTraceAndUploadToDropbox(const PerfettoDetails& config,
         return false;
     }
 
-    char alertId[20];
-    char configId[20];
-    char configUid[20];
+    char subscriptionId[25];
+    char alertId[25];
+    char configId[25];
+    char configUid[25];
+    snprintf(subscriptionId, sizeof(subscriptionId), "%" PRId64, subscription_id);
     snprintf(alertId, sizeof(alertId), "%" PRId64, alert_id);
     snprintf(configId, sizeof(configId), "%" PRId64, configKey.GetId());
     snprintf(configUid, sizeof(configUid), "%d", configKey.GetUid());
@@ -94,7 +97,7 @@ bool CollectPerfettoTraceAndUploadToDropbox(const PerfettoDetails& config,
 
         execl("/system/bin/perfetto", "perfetto", "--background", "--config", "-", "--dropbox",
               kDropboxTag, "--alert-id", alertId, "--config-id", configId, "--config-uid",
-              configUid, nullptr);
+              configUid, "--subscription-id", subscriptionId, nullptr);
 
         // execl() doesn't return in case of success, if we get here something
         // failed.
@@ -105,15 +108,15 @@ bool CollectPerfettoTraceAndUploadToDropbox(const PerfettoDetails& config,
 
     readPipe.reset();  // Close the read end (owned by the child process).
 
-    // Using fopen() because fwrite() has the right logic to chunking write()
+    // Using fdopen() because fwrite() has the right logic to chunking write()
     // over a pipe (see __sfvwrite()).
-    FILE* writePipeStream = fdopen(writePipe.get(), "wb");
+    FILE* writePipeStream = android::base::Fdopen(std::move(writePipe), "wb");
     if (!writePipeStream) {
         ALOGE("fdopen() failed while calling the Perfetto client: %s", strerror(errno));
         return false;
     }
 
-    std::string cfgProto = config.trace_config().SerializeAsString();
+    const std::string& cfgProto = config.trace_config();
     size_t bytesWritten = fwrite(cfgProto.data(), 1, cfgProto.size(), writePipeStream);
     fclose(writePipeStream);
     if (bytesWritten != cfgProto.size() || cfgProto.size() == 0) {

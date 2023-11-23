@@ -22,16 +22,17 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Rect;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.FocusFinder;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -121,13 +122,14 @@ public class FocusFinderTest {
          * |   |   |
          * +---+---+
          */
-        Rect rect = new Rect();
-        mTopLeft.getDrawingRect(rect);
-        rect.offset(mTopLeft.getWidth() / 2, 0);
-        rect.inset(mTopLeft.getWidth() / 4, mTopLeft.getHeight() / 4);
+        int buttonHalfWidth = mTopLeft.getWidth() / 2;
+        Rect topRect = new Rect(mTopLeft.getLeft() + buttonHalfWidth,
+                mTopLeft.getTop(),
+                mTopLeft.getRight() + buttonHalfWidth,
+                mTopLeft.getBottom());
 
-        verifytNextFocusFromRect(rect, View.FOCUS_LEFT, mTopLeft);
-        verifytNextFocusFromRect(rect, View.FOCUS_RIGHT, mTopRight);
+        verifytNextFocusFromRect(topRect, View.FOCUS_LEFT, mTopLeft);
+        verifytNextFocusFromRect(topRect, View.FOCUS_RIGHT, mTopRight);
 
         /*
          * Create a small rectangle on the border between the top left and bottom left buttons.
@@ -138,12 +140,14 @@ public class FocusFinderTest {
          * |   |   |
          * +---+---+
          */
-        mTopLeft.getDrawingRect(rect);
-        rect.offset(0, mTopRight.getHeight() / 2);
-        rect.inset(mTopLeft.getWidth() / 4, mTopLeft.getHeight() / 4);
+        int buttonHalfHeight = mTopLeft.getHeight() / 2;
+        Rect leftRect = new Rect(mTopLeft.getLeft(),
+                 mTopLeft.getTop() + buttonHalfHeight,
+                 mTopLeft.getRight(),
+                 mTopLeft.getBottom() + buttonHalfHeight);
 
-        verifytNextFocusFromRect(rect, View.FOCUS_UP, mTopLeft);
-        verifytNextFocusFromRect(rect, View.FOCUS_DOWN, mBottomLeft);
+        verifytNextFocusFromRect(leftRect, View.FOCUS_UP, mTopLeft);
+        verifytNextFocusFromRect(leftRect, View.FOCUS_DOWN, mBottomLeft);
     }
 
     private void verifytNextFocusFromRect(Rect rect, int direction, View expectedNextFocus) {

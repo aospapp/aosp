@@ -32,7 +32,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.android.contacts.common.R;
+import com.android.dialer.contacts.resources.R;
 
 /**
  * Lightweight implementation of ViewPager tabs. This looks similar to traditional actionBar tabs,
@@ -163,7 +163,7 @@ public class ViewPagerTabs extends HorizontalScrollView implements ViewPager.OnP
     } else {
       final TextView textView = new TextView(getContext());
       textView.setText(tabTitle);
-      textView.setBackgroundResource(R.drawable.view_pager_tab_background);
+      textView.setClickable(true);
 
       // Assign various text appearance related attributes to child views.
       if (mTextStyle > 0) {

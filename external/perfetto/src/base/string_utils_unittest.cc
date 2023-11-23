@@ -23,6 +23,8 @@ namespace perfetto {
 namespace base {
 namespace {
 
+using testing::ElementsAre;
+
 TEST(StringUtilsTest, StartsWith) {
   EXPECT_TRUE(StartsWith("", ""));
   EXPECT_TRUE(StartsWith("abc", ""));
@@ -32,6 +34,27 @@ TEST(StringUtilsTest, StartsWith) {
   EXPECT_FALSE(StartsWith("abc", "abcd"));
   EXPECT_FALSE(StartsWith("aa", "ab"));
   EXPECT_FALSE(StartsWith("", "ab"));
+}
+
+TEST(StringUtilsTest, EndsWith) {
+  EXPECT_TRUE(EndsWith("", ""));
+  EXPECT_TRUE(EndsWith("abc", ""));
+  EXPECT_TRUE(EndsWith("abc", "c"));
+  EXPECT_TRUE(EndsWith("abc", "bc"));
+  EXPECT_TRUE(EndsWith("abc", "abc"));
+  EXPECT_FALSE(EndsWith("bcd", "abcd"));
+  EXPECT_FALSE(EndsWith("abc", "abd"));
+  EXPECT_FALSE(EndsWith("", "c"));
+}
+
+TEST(StringUtilsTest, SplitString) {
+  EXPECT_THAT(SplitString("", ":"), ElementsAre(""));
+  EXPECT_THAT(SplitString("a:b:c", ":"), ElementsAre("a", "b", "c"));
+  EXPECT_THAT(SplitString("a::b::c", "::"), ElementsAre("a", "b", "c"));
+  EXPECT_THAT(SplitString("abc", ":"), ElementsAre("abc"));
+  EXPECT_THAT(SplitString("abc", "::"), ElementsAre("abc"));
+  EXPECT_THAT(SplitString("abc", ":"), ElementsAre("abc"));
+  EXPECT_THAT(SplitString("abc", "::"), ElementsAre("abc"));
 }
 
 }  // namespace

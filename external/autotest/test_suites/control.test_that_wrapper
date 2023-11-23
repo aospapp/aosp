@@ -30,7 +30,6 @@ import common
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 from autotest_lib.site_utils import test_runner_utils
 from autotest_lib.site_utils import test_that
-from autotest_lib.server.cros import provision
 
 # Values specified in this bug template will override default values when
 # filing bugs on tests that are a part of this suite. If left unspecified
@@ -42,16 +41,6 @@ _BUG_TEMPLATE = {
     'summary': None,
     'title': None,
 }
-
-# TODO(crbug.com/758427): suite_args needed to support being run by old Autotest
-if 'tests' not in args_dict:
-    try:
-       arguments = test_that.parse_arguments(shlex.split(suite_args))
-    except SystemExit:
-        logging.error('Unable to parse test_that arguments %s, suite aborting',
-                      shlex.split(suite_args))
-        raise
-    args_dict['tests'] = arguments.tests
 
 parsed_test_arguments = [test_runner_utils.get_predicate_for_test_arg(test_arg)
                          for test_arg in args_dict['tests']]
@@ -68,7 +57,6 @@ args_dict.setdefault('max_runtime_mins', 20)
 args_dict['predicate'] = combined_predicate
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

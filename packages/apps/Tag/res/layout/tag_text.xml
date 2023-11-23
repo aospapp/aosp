@@ -27,4 +27,5 @@
     android:maxLines="5"
     android:ellipsize="end"
     android:gravity="center_vertical"
+    android:autoLink="web"
 />

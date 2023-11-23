@@ -26,7 +26,6 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-#include "vendor_definitions.h"
 #include "gscan.h"
 
 #ifdef __cplusplus

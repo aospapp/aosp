@@ -18,7 +18,7 @@ package com.android.storagemanager.deletionhelper;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.annotation.IntDef;
+import androidx.annotation.IntDef;
 
 /**
  * Helper for the Deletion Helper which can query, clear out, and visualize deletable data.

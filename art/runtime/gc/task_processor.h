@@ -21,7 +21,7 @@
 #include <set>
 
 #include "base/mutex.h"
-#include "globals.h"
+#include "runtime_globals.h"
 #include "thread_pool.h"
 
 namespace art {

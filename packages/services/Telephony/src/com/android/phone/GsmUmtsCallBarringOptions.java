@@ -18,12 +18,15 @@ package com.android.phone;
 
 import android.app.ActionBar;
 import android.app.Dialog;
+import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
+import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -360,6 +363,25 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
             Log.d(LOG_TAG, "onCreate, reading callbarring_options.xml file finished!");
         }
 
+        CarrierConfigManager configManager = (CarrierConfigManager)
+                mPhone.getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle carrierConfig;
+        if (mSubscriptionInfoHelper.hasSubId()) {
+            carrierConfig = configManager.getConfigForSubId(mSubscriptionInfoHelper.getSubId());
+        } else {
+            carrierConfig = configManager.getConfig();
+        }
+        boolean isPwChangeButtonVisible = true;
+        boolean isDisableAllButtonVisible = true;
+        if (carrierConfig != null) {
+            isPwChangeButtonVisible = carrierConfig.getBoolean(
+                    CarrierConfigManager.KEY_CALL_BARRING_SUPPORTS_PASSWORD_CHANGE_BOOL, true);
+            isDisableAllButtonVisible = carrierConfig.getBoolean(
+                    CarrierConfigManager.KEY_CALL_BARRING_SUPPORTS_DEACTIVATE_ALL_BOOL, true);
+        } else {
+            Log.w(LOG_TAG, "Couldn't access CarrierConfig bundle");
+        }
+
         // Get UI object references
         PreferenceScreen prefSet = getPreferenceScreen();
         mButtonBAOC = (CallBarringEditPreference) prefSet.findPreference(BUTTON_BAOC_KEY);
@@ -370,6 +392,15 @@ public class GsmUmtsCallBarringOptions extends TimeConsumingPreferenceActivity
         mButtonDisableAll = (CallBarringDeselectAllPreference)
                 prefSet.findPreference(BUTTON_BA_ALL_KEY);
         mButtonChangePW = (EditPinPreference) prefSet.findPreference(BUTTON_BA_CHANGE_PW_KEY);
+
+        // Some carriers do not use PW change and disable all buttons. Hide them if this is the
+        // case.
+        if (!isDisableAllButtonVisible) {
+            prefSet.removePreference(mButtonDisableAll);
+        }
+        if (!isPwChangeButtonVisible) {
+            prefSet.removePreference(mButtonChangePW);
+        }
 
         // Assign click listener and update state
         mButtonBAOC.setOnPinEnteredListener(this);

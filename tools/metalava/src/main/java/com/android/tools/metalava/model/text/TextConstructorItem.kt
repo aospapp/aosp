@@ -24,24 +24,10 @@ class TextConstructorItem(
     codebase: TextCodebase,
     name: String,
     containingClass: TextClassItem,
-    isPublic: Boolean,
-    isProtected: Boolean,
-    isPrivate: Boolean,
-    isInternal: Boolean,
-    isFinal: Boolean,
-    isStatic: Boolean,
-    isAbstract: Boolean,
-    isSynchronized: Boolean,
-    isNative: Boolean,
-    isDefault: Boolean,
+    modifiers: TextModifiers,
     returnType: TextTypeItem?,
-    position: SourcePositionInfo,
-    annotations: List<String>?
-) : TextMethodItem(
-    codebase, name, containingClass, isPublic, isProtected, isPrivate, isInternal,
-    isFinal, isStatic, isAbstract, isSynchronized, isNative, isDefault, false, false, false,
-    returnType, position, annotations
-),
+    position: SourcePositionInfo
+) : TextMethodItem(codebase, name, containingClass, modifiers, returnType, position),
     ConstructorItem {
 
     override var superConstructor: ConstructorItem? = null

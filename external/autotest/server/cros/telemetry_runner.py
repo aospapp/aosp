@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import json
 import logging
 import os
 import StringIO
@@ -22,37 +23,12 @@ SUCCESS_STATUS = 'SUCCESS'
 WARNING_STATUS = 'WARNING'
 FAILED_STATUS = 'FAILED'
 
-# A list of benchmarks with that the telemetry test harness can run on dut.
-ON_DUT_WHITE_LIST = ['cros_ui_smoothness',
-                     'dromaeo.domcoreattr',
-                     'dromaeo.domcoremodify',
-                     'dromaeo.domcorequery',
-                     'dromaeo.domcoretraverse',
-                     'image_decoding.image_decoding_measurement',
-                     'jetstream',
-                     'kraken',
-                     'memory.top_7_stress',
-                     'octane',
-                     'page_cycler.typical_25',
-                     'page_cycler_v2.typical_25',
-                     'robohornet_pro',
-                     'smoothness.top_25_smooth',
-                     'smoothness.tough_animation_cases',
-                     'smoothness.tough_canvas_cases',
-                     'smoothness.tough_filters_cases',
-                     'smoothness.tough_pinch_zoom_cases',
-                     'smoothness.tough_scrolling_cases',
-                     'smoothness.tough_webgl_cases',
-                     'speedometer',
-                     'sunspider',
-                     'tab_switching.top_10',
-                     'tab_switching.typical_25',
-                     'webrtc.peerconnection',
-                     'webrtc.stress']
-
-# BLACK LIST
-#  'session_restore.cold.typical_25', # profile generator not implemented on
-                                      # CrOS.
+# A list of telemetry tests that cannot run on dut.
+ON_DUT_BLACKLIST = [
+    'loading.desktop',              # crbug/882299
+    'rendering.desktop',            # crbug/882291
+    'system_health.memory_desktop', # crbug/874386
+]
 
 class TelemetryResult(object):
     """Class to represent the results of a telemetry run.
@@ -370,7 +346,7 @@ class TelemetryRunner(object):
         """
         logging.debug('Running telemetry benchmark: %s', benchmark)
 
-        if benchmark not in ON_DUT_WHITE_LIST:
+        if benchmark in ON_DUT_BLACKLIST:
             self._telemetry_on_dut = False
 
         if self._telemetry_on_dut:
@@ -401,8 +377,8 @@ class TelemetryRunner(object):
         @param args: additional list of arguments to pass to the telemetry
                      execution script.
 
-         @returns A TelemetryResult instance with the results of this telemetry
-                  execution.
+        @returns A TelemetryResult instance with the results of this telemetry
+                 execution.
         """
         script = os.path.join(DUT_CHROME_ROOT,
                               TELEMETRY_RUN_GPU_TESTS_SCRIPT)
@@ -419,6 +395,10 @@ class TelemetryRunner(object):
         cmd = ' '.join(cmd)
         stdout, stderr, exit_code = self._run_cmd(cmd)
 
+        if exit_code:
+            raise error.TestFail('Gpu Integration Test: %s'
+                                 ' failed to run.' % test)
+
         return TelemetryResult(exit_code=exit_code, stdout=stdout,
                                stderr=stderr)
 
@@ -431,31 +411,33 @@ class TelemetryRunner(object):
         @param test_name: Name of the telemetry test.
         """
         # Get DEPs using host's telemetry.
-        format_string = ('python %s/tools/perf/fetch_benchmark_deps.py %s')
-        command = format_string % (self._telemetry_path, test_name)
-        stdout = StringIO.StringIO()
-        stderr = StringIO.StringIO()
+        # Example output, fetch_benchmark_deps.py --output-deps=deps octane:
+        # {'octane': ['tools/perf/page_sets/data/octane_002.wprgo']}
+        perf_path = os.path.join(self._telemetry_path, 'tools', 'perf')
+        deps_path = os.path.join(perf_path, 'fetch_benchmark_deps_result.json')
+        fetch_path = os.path.join(perf_path, 'fetch_benchmark_deps.py')
+        format_fetch = ('python %s --output-deps=%s %s')
+        command_fetch = format_fetch % (fetch_path, deps_path, test_name)
+        command_get = 'cat %s' % deps_path
 
         if self._devserver:
             devserver_hostname = self._devserver.url().split(
                     'http://')[1].split(':')[0]
-            command = 'ssh %s %s' % (devserver_hostname, command)
+            command_fetch = 'ssh %s %s' % (devserver_hostname, command_fetch)
+            command_get = 'ssh %s %s' % (devserver_hostname, command_get)
 
-        logging.info('Getting DEPs: %s', command)
-        try:
-            result = utils.run(command, stdout_tee=stdout,
-                               stderr_tee=stderr)
-        except error.CmdError as e:
-            logging.debug('Error occurred getting DEPs: %s\n %s\n',
-                          stdout.getvalue(), stderr.getvalue())
+        logging.info('Getting DEPs: %s', command_fetch)
+        _, _, exit_code = self._run_cmd(command_fetch)
+        if exit_code != 0:
+            raise error.TestFail('Error occurred while fetching DEPs.')
+        stdout, _, exit_code = self._run_cmd(command_get)
+        if exit_code != 0:
             raise error.TestFail('Error occurred while getting DEPs.')
 
         # Download DEPs to DUT.
         # send_file() relies on rsync over ssh. Couldn't be better.
-        stdout_str = stdout.getvalue()
-        stdout.close()
-        stderr.close()
-        for dep in stdout_str.split():
+        deps = json.loads(stdout)
+        for dep in deps[test_name]:
             src = os.path.join(self._telemetry_path, dep)
             dst = os.path.join(DUT_CHROME_ROOT, dep)
             if self._devserver:

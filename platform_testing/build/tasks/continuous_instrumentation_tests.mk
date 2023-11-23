@@ -62,7 +62,7 @@ dexdeps_exe := $(HOST_OUT_EXECUTABLES)/dexdeps
 test_apks := $(call intermediates-dir-for,PACKAGING,continuous_instrumentation_tests)/DATA/app/*
 
 # Rule to generate the coverage report
-api_coverage_dep := continuous_instrumentation_tests $(api_coverage_exe) $(dexdeps_exe) $(api_xml)
+api_coverage_dep := $(my_package_zip) $(api_coverage_exe) $(dexdeps_exe) $(api_xml)
 $(coverage_report): PRIVATE_API_COVERAGE_EXE := $(api_coverage_exe)
 $(coverage_report): PRIVATE_DEXDEPS_EXE := $(dexdeps_exe)
 $(coverage_report): PRIVATE_API_XML := $(api_xml)

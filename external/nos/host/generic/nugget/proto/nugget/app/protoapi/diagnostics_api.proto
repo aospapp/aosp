@@ -29,7 +29,7 @@ message DiagnosticSet {
   DiagnosticTest aes_tests = 2;
   DiagnosticTest aes_performance = 3;
   DiagnosticTest ana_batmon = 4;
-  //  TODO (skeys) add remaining applicable tests here
+  // TODO: add remaining applicable tests here
 }
 
 message DiagnosticActions {

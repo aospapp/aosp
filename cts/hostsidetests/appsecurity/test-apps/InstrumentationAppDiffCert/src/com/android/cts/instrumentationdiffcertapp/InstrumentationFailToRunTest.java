@@ -16,6 +16,8 @@
 
 package com.android.cts.instrumentationdiffcertapp;
 
+import static org.junit.Assert.assertFalse;
+
 import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,18 +29,27 @@ import android.test.InstrumentationTestCase;
  */
 public class InstrumentationFailToRunTest extends InstrumentationTestCase {
 
-    public void testInstrumentationNotAllowed() {
-        Context myContext = getInstrumentation().getContext();
+    public void testInstrumentationNotAllowed_exception() {
+        final Context myContext = getInstrumentation().getContext();
         // assumes android.app.Instrumentation has been defined in this app's AndroidManifest.xml
         // as targeting an app with a different cert
-        ComponentName appDiffCertInstrumentation = new ComponentName(myContext,
-                Instrumentation.class);
+        final ComponentName appDiffCertInstrumentation =
+                new ComponentName(myContext, Instrumentation.class);
         try {
-            getInstrumentation().getContext().startInstrumentation(appDiffCertInstrumentation,
-                null, new Bundle());
-            fail("could launch instrumentation");
-        } catch (SecurityException e) {
-            // expected
+            assertFalse("instrumentation started",
+                    myContext.startInstrumentation(appDiffCertInstrumentation, null, new Bundle()));
+            fail("SecurityException not thrown");
+        } catch (SecurityException expected) {
         }
+    }
+
+    public void testInstrumentationNotAllowed_fail() {
+        final Context myContext = getInstrumentation().getContext();
+        // assumes android.app.Instrumentation has been defined in this app's AndroidManifest.xml
+        // as targeting an app with a different cert
+        final ComponentName appDiffCertInstrumentation =
+                new ComponentName(myContext, Instrumentation.class);
+        assertFalse("instrumentation started",
+                myContext.startInstrumentation(appDiffCertInstrumentation, null, new Bundle()));
     }
 }

@@ -4,7 +4,7 @@
 
 AUTHOR = "dkrahn, dpursell"
 NAME = "login_CryptohomeOwnerQuery"
-ATTRIBUTES = "suite:experimental"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"

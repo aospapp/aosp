@@ -16,6 +16,7 @@
 
 package android.webkit.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.WebBackForwardList;
 import android.webkit.WebHistoryItem;
@@ -39,7 +40,7 @@ public class WebBackForwardListTest extends ActivityInstrumentationTestCase2<Web
         super.setUp();
         WebView webview = getActivity().getWebView();
         if (webview != null) {
-            mOnUiThread = new WebViewOnUiThread(this, webview);
+            mOnUiThread = new WebViewOnUiThread(webview);
         }
     }
 
@@ -51,6 +52,7 @@ public class WebBackForwardListTest extends ActivityInstrumentationTestCase2<Web
         super.tearDown();
     }
 
+    @AppModeFull(reason = "Instant apps cannot bind sockets")
     public void testGetCurrentItem() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -106,9 +108,6 @@ public class WebBackForwardListTest extends ActivityInstrumentationTestCase2<Web
             }
 
         }.run();
-    }
-
-    public void testClone() {
     }
 
 }

@@ -26,15 +26,17 @@
 #include <vector>
 
 #include "android-base/logging.h"
-#include "utils/Compat.h"
-#include "utils/Log.h"
 
 #include "entry_name_utils-inl.h"
 #include "zip_archive_common.h"
 
-#if !defined(powerof2)
-#define powerof2(x) ((((x)-1) & (x)) == 0)
-#endif
+#undef powerof2
+#define powerof2(x)                                               \
+  ({                                                              \
+    __typeof__(x) _x = (x);                                       \
+    __typeof__(x) _x2;                                            \
+    __builtin_add_overflow(_x, -1, &_x2) ? 1 : ((_x2 & _x) == 0); \
+  })
 
 /* Zip compression methods we support */
 enum {
@@ -97,7 +99,7 @@ ZipWriter::ZipWriter(FILE* f)
   }
 }
 
-ZipWriter::ZipWriter(ZipWriter&& writer)
+ZipWriter::ZipWriter(ZipWriter&& writer) noexcept
     : file_(writer.file_),
       seekable_(writer.seekable_),
       current_offset_(writer.current_offset_),
@@ -109,7 +111,7 @@ ZipWriter::ZipWriter(ZipWriter&& writer)
   writer.state_ = State::kError;
 }
 
-ZipWriter& ZipWriter::operator=(ZipWriter&& writer) {
+ZipWriter& ZipWriter::operator=(ZipWriter&& writer) noexcept {
   file_ = writer.file_;
   seekable_ = writer.seekable_;
   current_offset_ = writer.current_offset_;
@@ -303,10 +305,10 @@ int32_t ZipWriter::PrepareDeflate() {
 
   if (zerr != Z_OK) {
     if (zerr == Z_VERSION_ERROR) {
-      ALOGE("Installed zlib is not compatible with linked version (%s)", ZLIB_VERSION);
+      LOG(ERROR) << "Installed zlib is not compatible with linked version (" << ZLIB_VERSION << ")";
       return HandleError(kZlibError);
     } else {
-      ALOGE("deflateInit2 failed (zerr=%d)", zerr);
+      LOG(ERROR) << "deflateInit2 failed (zerr=" << zerr << ")";
       return HandleError(kZlibError);
     }
   }

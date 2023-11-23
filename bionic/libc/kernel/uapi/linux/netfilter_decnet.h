@@ -20,10 +20,7 @@
 #define __LINUX_DECNET_NETFILTER_H
 #include <linux/netfilter.h>
 #include <limits.h>
-#define NFC_DN_SRC 0x0001
-#define NFC_DN_DST 0x0002
-#define NFC_DN_IF_IN 0x0004
-#define NFC_DN_IF_OUT 0x0008
+#define NF_DN_NUMHOOKS 7
 #define NF_DN_PRE_ROUTING 0
 #define NF_DN_LOCAL_IN 1
 #define NF_DN_FORWARD 2
@@ -31,7 +28,6 @@
 #define NF_DN_POST_ROUTING 4
 #define NF_DN_HELLO 5
 #define NF_DN_ROUTE 6
-#define NF_DN_NUMHOOKS 7
 enum nf_dn_hook_priorities {
   NF_DN_PRI_FIRST = INT_MIN,
   NF_DN_PRI_CONNTRACK = - 200,

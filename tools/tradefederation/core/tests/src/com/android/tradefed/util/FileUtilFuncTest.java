@@ -15,7 +15,16 @@
  */
 package com.android.tradefed.util;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -26,20 +35,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Functional tests for {@link FileUtil}
- */
-public class FileUtilFuncTest extends TestCase {
+/** Functional tests for {@link FileUtil}. */
+@RunWith(JUnit4.class)
+public class FileUtilFuncTest {
     private static final String PERMS_NONE = "---------";
     private static final String PERMS_GRWX = "rwxrwx---";
+    private static final String ROOT_PERMS_GRWX = "rwxrwxr-x";
     private static final String DPERMS_NONE = "d" + PERMS_NONE;
     private static final String DPERMS_GRWX = "d" + PERMS_GRWX;
+    private static final String ROOT_DPERMS_GRWX = "d" + ROOT_PERMS_GRWX;
 
     private Set<File> mTempFiles = new HashSet<File>();
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
         for (File file : mTempFiles) {
             if (file != null && file.exists()) {
                 if (file.isDirectory()) {
@@ -54,6 +63,7 @@ public class FileUtilFuncTest extends TestCase {
     /**
      * Make sure that {@link FileUtil#mkdirsRWX} works when there are multiple levels of directories
      */
+    @Test
     public void testMkdirsRWX_multiLevel() throws IOException {
         final int subdirCount = 5;
         File tmpParentDir = createTempDir("foo");
@@ -68,26 +78,26 @@ public class FileUtilFuncTest extends TestCase {
 
         for (int i = 0; i < subdirCount; i++) {
             assertTrue(subdirs[i].exists());
-            assertUnixPerms(subdirs[i], DPERMS_GRWX);
+            assertUnixPerms(subdirs[i], DPERMS_GRWX, ROOT_DPERMS_GRWX);
         }
     }
 
-    /**
-     * Make sure that {@link FileUtil#mkdirsRWX} works in the basic case
-     */
+    /** Make sure that {@link FileUtil#mkdirsRWX} works in the basic case */
+    @Test
     public void testMkdirsRWX_singleLevel() throws IOException {
         File tmpParentDir = createTempDir("foo");
         File subdir = new File(tmpParentDir, "subdirectory");
         assertFalse(subdir.exists());
         FileUtil.mkdirsRWX(subdir);
         assertTrue(subdir.exists());
-        assertUnixPerms(subdir, DPERMS_GRWX);
+        assertUnixPerms(subdir, DPERMS_GRWX, ROOT_DPERMS_GRWX);
     }
 
     /**
      * Make sure that {@link FileUtil#mkdirsRWX} works when the directory to be touched already
      * exists
      */
+    @Test
     public void testMkdirsRWX_preExisting() throws IOException {
         File tmpParentDir = createTempDir("foo");
         File subdir = new File(tmpParentDir, "subdirectory");
@@ -96,15 +106,14 @@ public class FileUtilFuncTest extends TestCase {
         subdir.setReadable(false, false);
         subdir.setWritable(false, false);
 
-        assertUnixPerms(subdir, DPERMS_NONE);
+        assertUnixPerms(subdir, DPERMS_NONE, null);
         FileUtil.mkdirsRWX(subdir);
         assertTrue(subdir.exists());
-        assertUnixPerms(subdir, DPERMS_GRWX);
+        assertUnixPerms(subdir, DPERMS_GRWX, null);
     }
 
-    /**
-     * Simple test for {@link FileUtil#chmodGroupRW(File)}.
-     */
+    /** Simple test for {@link FileUtil#chmodGroupRW(File)}. */
+    @Test
     public void testChmodGroupRW() throws IOException {
         File tmpFile = createTempFile("foo", "txt");
         tmpFile.setReadable(false);
@@ -114,18 +123,16 @@ public class FileUtilFuncTest extends TestCase {
         assertTrue(tmpFile.canWrite());
     }
 
-    /**
-     * Simple test for {@link FileUtil#createTempDir(String)}.
-     */
+    /** Simple test for {@link FileUtil#createTempDir(String)}. */
+    @Test
     public void testCreateTempDir() throws IOException {
         File tmpDir = createTempDir("foo");
         assertTrue(tmpDir.exists());
         assertTrue(tmpDir.isDirectory());
     }
 
-    /**
-     * Simple test for {@link FileUtil#createTempDir(String, File)}.
-     */
+    /** Simple test for {@link FileUtil#createTempDir(String, File)}. */
+    @Test
     public void testCreateTempDir_parentFile() throws IOException {
         File tmpParentDir = createTempDir("foo");
         File childDir = createTempDir("foochild", tmpParentDir);
@@ -134,9 +141,8 @@ public class FileUtilFuncTest extends TestCase {
         assertEquals(tmpParentDir.getAbsolutePath(), childDir.getParent());
     }
 
-    /**
-     * Simple test for {@link FileUtil#createTempFile(String, String)}.
-     */
+    /** Simple test for {@link FileUtil#createTempFile(String, String)}. */
+    @Test
     public void testCreateTempFile() throws IOException {
         File tmpFile = createTempFile("foo", ".txt");
         assertTrue(tmpFile.exists());
@@ -145,9 +151,8 @@ public class FileUtilFuncTest extends TestCase {
         assertTrue(tmpFile.getName().endsWith(".txt"));
     }
 
-    /**
-     * Simple test for {@link FileUtil#createTempFile(String, String, File)}.
-     */
+    /** Simple test for {@link FileUtil#createTempFile(String, String, File)}. */
+    @Test
     public void testCreateTempFile_parentDir() throws IOException {
         File tmpParentDir = createTempDir("foo");
 
@@ -159,9 +164,8 @@ public class FileUtilFuncTest extends TestCase {
         assertEquals(tmpParentDir.getAbsolutePath(), tmpFile.getParent());
     }
 
-    /**
-     * Simple test method for {@link FileUtil#writeToFile(InputStream, File)}.
-     */
+    /** Simple test method for {@link FileUtil#writeToFile(InputStream, File)}. */
+    @Test
     public void testWriteToFile() throws IOException {
         final String testContents = "this is the temp file test data";
         InputStream input = new ByteArrayInputStream(testContents.getBytes());
@@ -171,6 +175,7 @@ public class FileUtilFuncTest extends TestCase {
         assertEquals(testContents, readContents);
     }
 
+    @Test
     public void testRecursiveDelete() throws IOException {
         File tmpParentDir = createTempDir("foo");
         File childDir = createTempDir("foochild", tmpParentDir);
@@ -185,6 +190,7 @@ public class FileUtilFuncTest extends TestCase {
      * Test {@link FileUtil#recursiveCopy(File, File)} to recursively copy a directory to an
      * existing, empty directory.
      */
+    @Test
     public void testRecursiveCopy() throws IOException {
         // create source tree
         File tmpParentDir = createTempDir("foo");
@@ -206,6 +212,7 @@ public class FileUtilFuncTest extends TestCase {
      * Test {@link FileUtil#recursiveCopy(File, File)} to recursively copy a directory to a
      * directory that does not exist.
      */
+    @Test
     public void testRecursiveCopyToNonexistentTarget() throws IOException {
         // create source tree
         File tmpParentDir = createTempDir("foo");
@@ -226,6 +233,7 @@ public class FileUtilFuncTest extends TestCase {
         assertTrue(FileUtil.compareFileContents(subFile, subFileCopy));
     }
 
+    @Test
     public void testFindDirsUnder() throws IOException {
         File absRootDir = createTempDir("rootDir");
         File relRootDir = new File(absRootDir.getName());
@@ -256,9 +264,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test method for {@link FileUtil#createTempFileForRemote(String, File)}.
-     */
+    /** Test method for {@link FileUtil#createTempFileForRemote(String, File)}. */
+    @Test
     public void testCreateTempFileForRemote() throws IOException {
         String remoteFilePath = "path/userdata.img";
         File tmpFile = FileUtil.createTempFileForRemote(remoteFilePath, null);
@@ -270,9 +277,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test method for {@link FileUtil#createTempFileForRemote(String, File)} for a nested path.
-     */
+    /** Test method for {@link FileUtil#createTempFileForRemote(String, File)} for a nested path. */
+    @Test
     public void testCreateTempFileForRemote_nested() throws IOException {
         String remoteFilePath = "path/2path/userdata.img";
         File tmpFile = FileUtil.createTempFileForRemote(remoteFilePath, null);
@@ -284,9 +290,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test {@link FileUtil#createTempFileForRemote(String, File)} for file with no extension
-     */
+    /** Test {@link FileUtil#createTempFileForRemote(String, File)} for file with no extension */
+    @Test
     public void testCreateTempFileForRemote_noext() throws IOException {
         String remoteFilePath = "path/2path/userddddmg";
         File tmpFile = FileUtil.createTempFileForRemote(remoteFilePath, null);
@@ -297,9 +302,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test {@link FileUtil#createTempFileForRemote(String, File)} for a too small prefix.
-     */
+    /** Test {@link FileUtil#createTempFileForRemote(String, File)} for a too small prefix. */
+    @Test
     public void testCreateTempFileForRemote_short() throws IOException {
         String remoteFilePath = "path/2path/us.img";
         File tmpFile = FileUtil.createTempFileForRemote(remoteFilePath, null);
@@ -311,9 +315,8 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test {@link FileUtil#createTempFileForRemote(String, File)} for remoteFile in root path.
-     */
+    /** Test {@link FileUtil#createTempFileForRemote(String, File)} for remoteFile in root path. */
+    @Test
     public void testCreateTempFileForRemote_singleFile() throws IOException {
         String remoteFilePath = "userdata.img";
         File tmpFile = FileUtil.createTempFileForRemote(remoteFilePath, null);
@@ -327,8 +330,10 @@ public class FileUtilFuncTest extends TestCase {
 
     /**
      * Verify {@link FileUtil#calculateMd5(File)} works.
+     *
      * @throws IOException
      */
+    @Test
     public void testCalculateMd5() throws IOException {
         final String source = "testtesttesttesttest";
         final String md5 = "f317f682fafe0309c6a423af0b4efa59";
@@ -342,7 +347,27 @@ public class FileUtilFuncTest extends TestCase {
         }
     }
 
+    /**
+     * Verify {@link FileUtil#calculateBase64Md5(File)} works.
+     *
+     * @throws IOException
+     */
+    @Test
+    public void testCalculateBase64Md5() throws IOException {
+        final String source = "testtesttesttesttest";
+        final String base64Md5 = "8xf2gvr+AwnGpCOvC076WQ==";
+        File tmpFile = FileUtil.createTempFile("testCalculateMd5", ".txt");
+        try {
+            FileUtil.writeToFile(source, tmpFile);
+            String actualBase64Md5 = FileUtil.calculateBase64Md5(tmpFile);
+            assertEquals(base64Md5, actualBase64Md5);
+        } finally {
+            FileUtil.deleteFile(tmpFile);
+        }
+    }
+
     /** Test that {@link FileUtil#recursiveSymlink(File, File)} properly simlink files. */
+    @Test
     public void testRecursiveSymlink() throws IOException {
         File dir1 = null;
         File dest = null;
@@ -364,6 +389,7 @@ public class FileUtilFuncTest extends TestCase {
      * Test that when a symlink dir is encountered by {@link FileUtil#recursiveDelete(File)}. The
      * link itself is deleted but not followed.
      */
+    @Test
     public void testSymlinkDeletion() throws IOException {
         File dir1 = null;
         File dest = null;
@@ -388,10 +414,13 @@ public class FileUtilFuncTest extends TestCase {
     }
 
     // Assertions
-    private String assertUnixPerms(File file, String expPerms) {
+    private String assertUnixPerms(File file, String expPerms, String altExpPerms) {
         String perms = ls(file.getPath());
-        assertTrue(String.format("Expected file %s perms to be '%s' but they were '%s'.", file,
-                expPerms, perms), perms.startsWith(expPerms));
+        assertTrue(
+                String.format(
+                        "Expected file %s perms to be '%s' but they were '%s'.",
+                        file, expPerms, perms),
+                perms.startsWith(expPerms) || perms.startsWith(altExpPerms));
         return perms;
     }
 

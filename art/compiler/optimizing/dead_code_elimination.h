@@ -32,7 +32,8 @@ class HDeadCodeElimination : public HOptimization {
   HDeadCodeElimination(HGraph* graph, OptimizingCompilerStats* stats, const char* name)
       : HOptimization(graph, name, stats) {}
 
-  void Run() OVERRIDE;
+  bool Run() override;
+
   static constexpr const char* kDeadCodeEliminationPassName = "dead_code_elimination";
 
  private:

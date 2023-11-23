@@ -20,12 +20,13 @@
 #include "KeyBuffer.h"
 
 #include <android-base/macros.h>
-#include <utils/Errors.h>
 #include <cutils/multiuser.h>
 #include <selinux/selinux.h>
+#include <utils/Errors.h>
 
-#include <vector>
+#include <chrono>
 #include <string>
+#include <vector>
 
 struct DIR;
 
@@ -56,26 +57,36 @@ status_t KillProcessesUsingPath(const std::string& path);
 /* Creates bind mount from source to target */
 status_t BindMount(const std::string& source, const std::string& target);
 
+/** Creates a symbolic link to target */
+status_t Symlink(const std::string& target, const std::string& linkpath);
+
+/** Calls unlink(2) at linkpath */
+status_t Unlink(const std::string& linkpath);
+
+/** Creates the given directory if it is not already available */
+status_t CreateDir(const std::string& dir, mode_t mode);
+
 bool FindValue(const std::string& raw, const std::string& key, std::string* value);
 
 /* Reads filesystem metadata from device at path */
-status_t ReadMetadata(const std::string& path, std::string* fsType,
-        std::string* fsUuid, std::string* fsLabel);
+status_t ReadMetadata(const std::string& path, std::string* fsType, std::string* fsUuid,
+                      std::string* fsLabel);
 
 /* Reads filesystem metadata from untrusted device at path */
-status_t ReadMetadataUntrusted(const std::string& path, std::string* fsType,
-        std::string* fsUuid, std::string* fsLabel);
+status_t ReadMetadataUntrusted(const std::string& path, std::string* fsType, std::string* fsUuid,
+                               std::string* fsLabel);
 
 /* Returns either WEXITSTATUS() status, or a negative errno */
-status_t ForkExecvp(const std::vector<std::string>& args);
-status_t ForkExecvp(const std::vector<std::string>& args, security_context_t context);
-
-status_t ForkExecvp(const std::vector<std::string>& args,
-        std::vector<std::string>& output);
-status_t ForkExecvp(const std::vector<std::string>& args,
-        std::vector<std::string>& output, security_context_t context);
+status_t ForkExecvp(const std::vector<std::string>& args, std::vector<std::string>* output = nullptr,
+                    security_context_t context = nullptr);
 
 pid_t ForkExecvpAsync(const std::vector<std::string>& args);
+
+/* Gets block device size in bytes */
+status_t GetBlockDevSize(int fd, uint64_t* size);
+status_t GetBlockDevSize(const std::string& path, uint64_t* size);
+/* Gets block device size in 512 byte sectors */
+status_t GetBlockDev512Sectors(const std::string& path, uint64_t* nr_sec);
 
 status_t ReadRandomBytes(size_t bytes, std::string& out);
 status_t ReadRandomBytes(size_t bytes, char* buffer);
@@ -125,6 +136,17 @@ bool Readlinkat(int dirfd, const std::string& path, std::string* result);
 /* Checks if Android is running in QEMU */
 bool IsRunningInEmulator();
 
+status_t UnmountTreeWithPrefix(const std::string& prefix);
+status_t UnmountTree(const std::string& mountPoint);
+
+status_t DeleteDirContentsAndDir(const std::string& pathname);
+status_t DeleteDirContents(const std::string& pathname);
+
+status_t WaitForFile(const char* filename, std::chrono::nanoseconds timeout);
+
+bool FsyncDirectory(const std::string& dirname);
+
+bool writeStringToFile(const std::string& payload, const std::string& filename);
 }  // namespace vold
 }  // namespace android
 

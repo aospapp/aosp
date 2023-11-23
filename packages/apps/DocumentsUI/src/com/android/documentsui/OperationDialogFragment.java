@@ -16,22 +16,24 @@
 
 package com.android.documentsui;
 
-import android.annotation.IntDef;
 import android.app.Dialog;
-import android.app.DialogFragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.v7.app.AlertDialog;
 import android.text.Html;
+
+import androidx.annotation.IntDef;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.ui.MessageBuilder;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -92,7 +94,7 @@ public class OperationDialogFragment extends DialogFragment {
         final ArrayList<DocumentInfo> docList = getArguments().getParcelableArrayList(
                 FileOperationService.EXTRA_FAILED_DOCS);
 
-        final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        final MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(getActivity());
         final String message = new MessageBuilder(getContext()).generateListMessage(
                 dialogType, operationType, docList, uriList);
 

@@ -104,7 +104,7 @@ class TlsStream::TlsStreamImpl {
 
  private:
   bool ReportError(ErrorPtr* error,
-                   const tracked_objects::Location& location,
+                   const base::Location& location,
                    const std::string& message);
   void DoHandshake(const base::Closure& success_callback,
                    const Stream::ErrorCallback& error_callback);
@@ -283,7 +283,7 @@ void TlsStream::TlsStreamImpl::CancelPendingAsyncOperations() {
 
 bool TlsStream::TlsStreamImpl::ReportError(
     ErrorPtr* error,
-    const tracked_objects::Location& location,
+    const base::Location& location,
     const std::string& message) {
   const char* file = nullptr;
   int line = 0;
@@ -292,7 +292,7 @@ bool TlsStream::TlsStreamImpl::ReportError(
   while (auto errnum = ERR_get_error_line_data(&file, &line, &data, &flags)) {
     char buf[256];
     ERR_error_string_n(errnum, buf, sizeof(buf));
-    tracked_objects::Location ssl_location{"Unknown", file, line, nullptr};
+    base::Location ssl_location{"Unknown", file, line, nullptr};
     std::string ssl_message = buf;
     if (flags & ERR_TXT_STRING) {
       ssl_message += ": ";

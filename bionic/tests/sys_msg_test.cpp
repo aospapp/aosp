@@ -31,17 +31,16 @@
 #include <errno.h>
 #include <sys/msg.h>
 
-#include "TemporaryFile.h"
+#include <android-base/file.h>
 
 TEST(sys_msg, smoke) {
   if (msgctl(-1, IPC_STAT, nullptr) == -1 && errno == ENOSYS) {
-    GTEST_LOG_(INFO) << "no <sys/msg.h> support in this kernel\n";
-    return;
+    GTEST_SKIP() << "no <sys/msg.h> support in this kernel";
   }
 
   // Create a queue.
   TemporaryDir dir;
-  key_t key = ftok(dir.dirname, 1);
+  key_t key = ftok(dir.path, 1);
   int id = msgget(key, IPC_CREAT|0666);
   ASSERT_NE(id, -1);
 
@@ -71,7 +70,7 @@ TEST(sys_msg, smoke) {
   ASSERT_STREQ("hello world", msg.data);
 
   // Destroy the queue.
-  ASSERT_EQ(0, msgctl(id, IPC_RMID, 0));
+  ASSERT_EQ(0, msgctl(id, IPC_RMID, nullptr));
 }
 
 TEST(sys_msg, msgctl_failure) {

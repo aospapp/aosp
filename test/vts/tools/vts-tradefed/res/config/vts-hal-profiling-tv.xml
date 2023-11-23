@@ -13,14 +13,15 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="VTS Serving Plan for HAL Profiling - TV/x86">
+<configuration description="VTS Profiling Plan for TV HALs">
   <include name="vts-base" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-hal-profiling-tv" />
 
-  <option name="compatibility:include-filter" value="VtsHalTvCecV1_0HostProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalTvInputV1_0HostProfiling" />
-  <option name="compatibility:include-filter" value="VtsHalTvInputV1_0TargetProfiling" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsTraceCollectPreparer" />
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:enable-profiling:true" />
+
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal-tv" />
 
 </configuration>

@@ -21,14 +21,17 @@ extern "C" {
 
 #include "sns_client.h"
 
-} // extern "C"
+}  // extern "C"
+
+#include "sns_suid.pb.h"
 
 #include "chre/core/sensor_type.h"
 #include "chre/platform/condition_variable.h"
 #include "chre/platform/mutex.h"
-#include "chre/platform/slpi/see/see_helper_internal.h"
+#include "chre/platform/slpi/see/see_cal_helper.h"
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/optional.h"
 #include "chre/util/time.h"
 #include "chre/util/unique_ptr.h"
 
@@ -64,6 +67,16 @@ class SeeHelperCallbackInterface {
 
   //! Invoked by the SEE thread to update the AP wake/suspend status.
   virtual void onHostWakeSuspendEvent(bool apAwake) = 0;
+
+  //! Invoked by the SEE thread to provide the sensor bias event.
+  //! The bias is generated with the sensorHandle field set to that of
+  //! runtime-calibrated sensors, regardless of whether the runtime-calibrated
+  //! or uncalibrated versions of the sensor is enabled.
+  virtual void onSensorBiasEvent(
+      UniquePtr<struct chreSensorThreeAxisData>&& biasData) = 0;
+
+  //! Invoked by the SEE thread to notify a flush complete
+  virtual void onFlushCompleteEvent(SensorType sensorType) = 0;
 };
 
 //! Default timeout for waitForService. Have a longer timeout since there may be
@@ -75,6 +88,9 @@ constexpr Nanoseconds kDefaultSeeRespTimeout = Seconds(1);
 
 //! Default timeout for sendReq indication
 constexpr Nanoseconds kDefaultSeeIndTimeout = Seconds(2);
+
+//! Allowed number of consecutive missing responses.
+constexpr uint32_t kSeeNumMissingResp = 5;
 
 //! Length of the char array to store sensor string attributes.
 constexpr size_t kSeeAttrStrValLen = 64;
@@ -114,12 +130,41 @@ class SeeHelper : public NonCopyable {
     sns_std_suid suid;
     SensorType sensorType;
     sns_client *client;
+    //! The SUID of the underlying physical sensor, different from suid if
+    //! resampler is used.
+    sns_std_suid physicalSuid;
   };
+
+  /**
+   * Constructor for a SeeHelper that manages its own SeeCalHelper
+   */
+  SeeHelper();
+
+  /**
+   * Constructor for a SeeHelper that uses the supplied SeeCalHelper object
+   * rather than creating its own. Caller must ensure that the lifetime of the
+   * SeeCalHelper object exceeds the lifetime of this SeeHelper instance.
+   *
+   * TODO: this would be a good case for a shared ptr implementation
+   *
+   * @param calHelper Non-null pointer to a calibration helper object to use
+   */
+  SeeHelper(SeeCalHelper *calHelper);
 
   /**
    * Deinits clients before destructing this object.
    */
   ~SeeHelper();
+
+  /**
+   * Makes a request to SEE to enable an on-change sensor, with no additional
+   * payload. Can be used for registering a calibration sensor, for example.
+   *
+   * @param suid Sensor UID, usually determined via findSuidSync()
+   *
+   * @return true on success
+   */
+  bool configureOnChangeSensor(const sns_std_suid& suid, bool enable);
 
   /**
    * A synchronous call to discover SUID(s) that supports the specified data
@@ -165,6 +210,13 @@ class SeeHelper : public NonCopyable {
   bool getAttributesSync(const sns_std_suid& suid, SeeAttributes *attr);
 
   /**
+   * @return the SeeCalHelper instance used by this SeeHelper
+   */
+  SeeCalHelper *getCalHelper() {
+    return mCalHelper;
+  }
+
+  /**
    * Initializes and waits for the sensor client service to become available,
    * and obtains remote_proc and cal sensors' info for future operations. This
    * function must be called first to initialize the object and be called only
@@ -174,20 +226,33 @@ class SeeHelper : public NonCopyable {
    *             handle all async requests with callback data type defined in
    *             the interface.
    * @param timeout The wait timeout in microseconds.
+   * @param skipDefaultSensorInit If true, don't register remote proc status and
+   *                              calibration sensors (e.g. if another SeeHelper
+   *                              instance will manage these)
    *
    * @return true if all initialization steps succeeded.
    */
   bool init(SeeHelperCallbackInterface *cbIf,
-            Microseconds timeout = kDefaultSeeWaitTimeout);
+            Microseconds timeout = kDefaultSeeWaitTimeout,
+            bool skipDefaultSensorInit = false);
 
   /**
-   * Makes a sensor request to SEE.
+   * Makes a sensor configuration request to SEE.
    *
    * @param request The sensor request to make.
    *
    * @return true if the request has been successfully made.
    */
   bool makeRequest(const SeeSensorRequest& request);
+
+  /**
+   * Makes a sensor flush request to SEE.
+   *
+   * @param sensorType The type of sensor to request the flush.
+   *
+   * @return true if the request has been successfully made.
+   */
+  bool flush(SensorType sensorType);
 
   /**
    * Register a SensorType with the SUID of the SEE sensor/driver.
@@ -201,13 +266,14 @@ class SeeHelper : public NonCopyable {
    *
    * @param sensorType The SensorType to register.
    * @param suid The SUID of the sensor.
+   * @param resample Whether to resample this sensorType.
    * @param prevRegistered A non-null pointer to a boolean that indicates
    *        whether the SUID/SensorType pair has been previously registered.
    *
    * @return true if the SUID/SensorType pair was successfully registered.
    */
   bool registerSensor(SensorType sensorType, const sns_std_suid& suid,
-                      bool *prevRegistered);
+                      bool resample, bool *prevRegistered);
 
   /**
    * Checks whether the given SensorType has been successfully registered
@@ -226,6 +292,9 @@ class SeeHelper : public NonCopyable {
     decltype(sns_client_send)   *sns_client_send;
   };
 
+  //! Contains the API this SeeHelper instance uses to interact with SEE
+  const SnsClientApi *mSnsClientApi = &kDefaultApi;
+
   /**
    * Get the cached SUID of a calibration sensor that corresponds to the
    * specified sensorType.
@@ -235,7 +304,9 @@ class SeeHelper : public NonCopyable {
    * @return A constant reference to the calibration sensor's SUID if present.
    *         Otherwise, a reference to sns_suid_sensor_init_zero is returned.
    */
-  const sns_std_suid& getCalSuidFromSensorType(SensorType sensorType) const;
+  const sns_std_suid& getCalSuidFromSensorType(SensorType sensorType) const {
+    return mCalHelper->getCalSuidFromSensorType(sensorType);
+  }
 
   /**
    * A convenience method to send a request and wait for the indication if it's
@@ -257,10 +328,6 @@ class SeeHelper : public NonCopyable {
                    batchValid, batchPeriodUs, passive,
                    waitForIndication,
                    timeoutResp, timeoutInd);
-  }
-
-  void setSnsClientApi(const SnsClientApi *api) {
-    mSnsClientApi = api;
   }
 
  private:
@@ -308,21 +375,20 @@ class SeeHelper : public NonCopyable {
   //! A transaction ID that increments for each request.
   uint32_t mCurrentTxnId = 0;
 
+  //! The number of consecutive missing responses.
+  uint32_t mNumMissingResp = 0;
+
   //! The SUID for the remote_proc sensor.
   Optional<sns_std_suid> mRemoteProcSuid;
 
-  //! Cal info of all the cal sensors.
-  SeeCalInfo mCalInfo[kNumSeeCalSensors];
+  //! The SUID for the resampler sensor.
+  Optional<sns_std_suid> mResamplerSuid;
 
-  //! Contains the API this SeeHelper instance uses to interact with SEE
-  const SnsClientApi *mSnsClientApi = &kDefaultApi;
+  //! Handles sensor calibration data
+  SeeCalHelper *mCalHelper;
 
-  /**
-   * Initializes SEE calibration sensors and makes data request.
-   *
-   * @return true if cal sensor have been succcessfully initialized.
-   */
-  bool initCalSensors();
+  //! true if we own the memory to mCalHelper and should free it when done
+  bool mOwnsCalHelper;
 
   /**
    * Initializes the SEE remote processor sensor and makes a data request.
@@ -330,6 +396,13 @@ class SeeHelper : public NonCopyable {
    * @return true if the remote proc sensor was successfully initialized.
    */
   bool initRemoteProcSensor();
+
+  /**
+   * Initializes the SEE resampler sensor.
+   *
+   * @return true if the resampler sensor was successfully initialized.
+   */
+  bool initResamplerSensor();
 
   /**
    * Sends a request to SEE and waits for the response.
@@ -431,16 +504,30 @@ class SeeHelper : public NonCopyable {
                       Microseconds timeout = kDefaultSeeWaitTimeout);
 
   /**
-   * Obtains the pointer to cal data by SUID.
-   */
-  SeeCalData *getCalDataFromSuid(const sns_std_suid& suid);
-
-  /**
    * @return SensorInfo instance found in mSensorInfos with the given
    *         SensorType, or nullptr if not found
    */
   const SensorInfo *getSensorInfo(SensorType sensorType) const;
 };
+
+#ifdef CHRE_SLPI_UIMG_ENABLED
+/**
+ * A version of SeeHelper that explicitly uses the QMI API on the bottom edge
+ * and therefore only works in big image (but goes through CM instead of QCM
+ * within SEE).
+ *
+ * @see SeeHelper
+ */
+class BigImageSeeHelper : public SeeHelper {
+ public:
+  BigImageSeeHelper(SeeCalHelper *calHelper) : SeeHelper(calHelper) {
+    mSnsClientApi = &kQmiApi;
+  }
+
+ private:
+  static const SnsClientApi kQmiApi;
+};
+#endif  // CHRE_SLPI_UIMG_ENABLED
 
 }  // namespace chre
 

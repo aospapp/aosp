@@ -20,15 +20,42 @@
     android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <application>
+
+    <!-- Needed permission and android:requestLegacyExternalStorage to dump screenshots in case of
+         failure -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <application android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name="android.preference.cts.PreferenceCtsActivity">
             <meta-data android:name="android.preference"
                     android:resource="@xml/preferences_from_intent" />
         </activity>
+        <activity
+            android:name="PreferenceFragmentActivity" >
+        </activity>
+        <activity
+            android:name="android.preference2.cts.PreferenceStubActivity" >
+        </activity>
+        <activity
+            android:name="PreferenceFromCodeActivity" >
+        </activity>
+        <activity android:name="PreferencesFromXml" />
+        <activity android:name="PreferencesFromXmlNested" />
+        <activity android:name="PreferencesFromXmlRecycle" />
+        <activity android:name="PreferenceWithHeaders" />
+        <!-- Landscape setup of PreferenceWithHeaders -->
+        <activity
+            android:name="PreferenceWithHeadersLandscape"
+            android:screenOrientation="landscape"/>
+        <!-- Portrait setup of PreferenceWithHeaders -->
+        <activity
+            android:name="PreferenceWithHeadersPortrait"
+            android:screenOrientation="portrait"/>
+        <activity android:name="FragmentPreferences" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.preference.cts"
                      android:label="CTS tests of android.preference">
         <meta-data android:name="listener"

@@ -38,33 +38,6 @@ public class ListUtil {
     }
 
     /**
-     * Set the selected position of the list view.
-     * @param pos The desired position.
-     */
-    public final void setSelectedPosition(final int pos) {
-        mListView.post(new Runnable() {
-            public void run() {
-                mListView.setSelection(pos);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-    }
-
-    /**
-     * Get the top of the list.
-     */
-    public final int getListTop() {
-        return mListView.getListPaddingTop();
-    }
-
-    /**
-     * Get the bottom of the list.
-     */
-    public final int getListBottom() {
-        return mListView.getHeight() - mListView.getListPaddingBottom();
-    }
-
-    /**
      * Arrow (up or down as appropriate) to the desired position in the list.
      * @param desiredPos The desired position
      * @throws IllegalStateException if the position can't be reached within 20 presses.

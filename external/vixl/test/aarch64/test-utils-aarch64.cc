@@ -44,10 +44,12 @@ namespace aarch64 {
 // least-significant word).
 const double kFP64SignallingNaN = RawbitsToDouble(UINT64_C(0x7ff000007f800001));
 const float kFP32SignallingNaN = RawbitsToFloat(0x7f800001);
+const Float16 kFP16SignallingNaN = RawbitsToFloat16(0x7c01);
 
 // A similar value, but as a quiet NaN.
 const double kFP64QuietNaN = RawbitsToDouble(UINT64_C(0x7ff800007fc00001));
 const float kFP32QuietNaN = RawbitsToFloat(0x7fc00001);
+const Float16 kFP16QuietNaN = RawbitsToFloat16(0x7e01);
 
 
 bool Equal32(uint32_t expected, const RegisterDump*, uint32_t result) {
@@ -87,11 +89,35 @@ bool Equal128(vec128_t expected, const RegisterDump*, vec128_t result) {
 }
 
 
+bool EqualFP16(Float16 expected, const RegisterDump*, Float16 result) {
+  uint16_t e_rawbits = Float16ToRawbits(expected);
+  uint16_t r_rawbits = Float16ToRawbits(result);
+  if (e_rawbits == r_rawbits) {
+    return true;
+  } else {
+    if (IsNaN(expected) || IsZero(expected)) {
+      printf("Expected 0x%04" PRIx16 "\t Found 0x%04" PRIx16 "\n",
+             e_rawbits,
+             r_rawbits);
+    } else {
+      printf("Expected %.6f (16 bit): (0x%04" PRIx16
+             ")\t "
+             "Found %.6f (0x%04" PRIx16 ")\n",
+             FPToFloat(expected, kIgnoreDefaultNaN),
+             e_rawbits,
+             FPToFloat(result, kIgnoreDefaultNaN),
+             r_rawbits);
+    }
+    return false;
+  }
+}
+
+
 bool EqualFP32(float expected, const RegisterDump*, float result) {
   if (FloatToRawbits(expected) == FloatToRawbits(result)) {
     return true;
   } else {
-    if (std::isnan(expected) || (expected == 0.0)) {
+    if (IsNaN(expected) || (expected == 0.0)) {
       printf("Expected 0x%08" PRIx32 "\t Found 0x%08" PRIx32 "\n",
              FloatToRawbits(expected),
              FloatToRawbits(result));
@@ -114,7 +140,7 @@ bool EqualFP64(double expected, const RegisterDump*, double result) {
     return true;
   }
 
-  if (std::isnan(expected) || (expected == 0.0)) {
+  if (IsNaN(expected) || (expected == 0.0)) {
     printf("Expected 0x%016" PRIx64 "\t Found 0x%016" PRIx64 "\n",
            DoubleToRawbits(expected),
            DoubleToRawbits(result));
@@ -162,6 +188,24 @@ bool Equal128(uint64_t expected_h,
   vec128_t expected = {expected_l, expected_h};
   vec128_t result = core->qreg(vreg.GetCode());
   return Equal128(expected, core, result);
+}
+
+
+bool EqualFP16(Float16 expected,
+               const RegisterDump* core,
+               const FPRegister& fpreg) {
+  VIXL_ASSERT(fpreg.Is16Bits());
+  // Retrieve the corresponding D register so we can check that the upper part
+  // was properly cleared.
+  uint64_t result_64 = core->dreg_bits(fpreg.GetCode());
+  if ((result_64 & 0xfffffffffff0000) != 0) {
+    printf("Expected 0x%04" PRIx16 " (%f)\t Found 0x%016" PRIx64 "\n",
+           Float16ToRawbits(expected),
+           FPToFloat(expected, kIgnoreDefaultNaN),
+           result_64);
+    return false;
+  }
+  return EqualFP16(expected, core, core->hreg(fpreg.GetCode()));
 }
 
 
@@ -407,6 +451,7 @@ void RegisterDump::Dump(MacroAssembler* masm) {
   const int w_offset = offsetof(dump_t, w_);
   const int d_offset = offsetof(dump_t, d_);
   const int s_offset = offsetof(dump_t, s_);
+  const int h_offset = offsetof(dump_t, h_);
   const int q_offset = offsetof(dump_t, q_);
   const int sp_offset = offsetof(dump_t, sp_);
   const int wsp_offset = offsetof(dump_t, wsp_);
@@ -457,6 +502,17 @@ void RegisterDump::Dump(MacroAssembler* masm) {
            FPRegister::GetSRegFromCode(i + 1),
            MemOperand(dump, i * kSRegSizeInBytes));
   }
+
+#ifdef VIXL_INCLUDE_SIMULATOR_AARCH64
+  // Dump H registers. Note: Stp does not support 16 bits.
+  __ Add(dump, dump_base, h_offset);
+  for (unsigned i = 0; i < kNumberOfFPRegisters; i++) {
+    __ Str(FPRegister::GetHRegFromCode(i),
+           MemOperand(dump, i * kHRegSizeInBytes));
+  }
+#else
+  USE(h_offset);
+#endif
 
   // Dump Q registers.
   __ Add(dump, dump_base, q_offset);

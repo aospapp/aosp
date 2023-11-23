@@ -16,7 +16,11 @@
 
 package com.android.server.telecom;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.media.AudioAttributes;
 import android.media.Ringtone;
+import android.media.VolumeShaper;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -26,6 +30,8 @@ import android.telecom.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.SomeArgs;
 import com.android.internal.util.Preconditions;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Plays the default ringtone. Uses {@link Ringtone} in a separate thread so that this class can be
@@ -47,13 +53,62 @@ public class AsyncRingtonePlayer {
     /** The current ringtone. Only used by the ringtone thread. */
     private Ringtone mRingtone;
 
-    /** Plays the ringtone. */
-    public void play(RingtoneFactory factory, Call incomingCall) {
+    /**
+     * CompletableFuture which signals a caller when we know whether a ringtone will play haptics
+     * or not.
+     */
+    private CompletableFuture<Boolean> mHapticsFuture = null;
+
+    /**
+     * Determines if the {@link AsyncRingtonePlayer} should pause between repeats of the ringtone.
+     * When {@code true}, the system will check if the ringtone has stopped every
+     * {@link #RESTART_RINGER_MILLIS} and restart the ringtone if it has stopped.  This does not
+     * guarantee that there is {@link #RESTART_RINGER_MILLIS} between each repeat of the ringtone,
+     * rather it ensures that for short ringtones, or ringtones which are not a multiple of
+     * {@link #RESTART_RINGER_MILLIS} in duration that there will be some pause between repetitions.
+     * When {@code false}, the ringtone will be looped continually with no attempt to pause between
+     * repeats.
+     */
+    private boolean mShouldPauseBetweenRepeat = true;
+
+    public AsyncRingtonePlayer() {
+        // Empty
+    }
+
+    public AsyncRingtonePlayer(boolean shouldPauseBetweenRepeat) {
+        mShouldPauseBetweenRepeat = shouldPauseBetweenRepeat;
+    }
+
+    /**
+     * Plays the appropriate ringtone for the specified call.
+     * If {@link VolumeShaper.Configuration} is specified, it is applied to the ringtone to change
+     * the volume of the ringtone as it plays.
+     *
+     * @param factory The {@link RingtoneFactory}.
+     * @param incomingCall The ringing {@link Call}.
+     * @param volumeShaperConfig An optional {@link VolumeShaper.Configuration} which is applied to
+     *                           the ringtone to change its volume while it rings.
+     * @param isVibrationEnabled {@code true} if the settings and DND configuration of the device
+     *                           is such that the vibrator should be used, {@code false} otherwise.
+     * @return A {@link CompletableFuture} which on completion indicates whether or not the ringtone
+     *         has a haptic track.  {@code True} indicates that a haptic track is present on the
+     *         ringtone; in this case the default vibration in {@link Ringer} should not be played.
+     *         {@code False} indicates that a haptic track is NOT present on the ringtone;
+     *         in this case the default vibration in {@link Ringer} should be trigger if needed.
+     */
+    public @NonNull CompletableFuture<Boolean> play(RingtoneFactory factory, Call incomingCall,
+            @Nullable VolumeShaper.Configuration volumeShaperConfig, boolean isVibrationEnabled) {
         Log.d(this, "Posting play.");
+        if (mHapticsFuture == null) {
+            mHapticsFuture = new CompletableFuture<>();
+        }
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = factory;
         args.arg2 = incomingCall;
+        args.arg3 = volumeShaperConfig;
+        args.arg4 = isVibrationEnabled;
         postMessage(EVENT_PLAY, true /* shouldCreateHandler */, args);
+        return mHapticsFuture;
     }
 
     /** Stops playing the ringtone. */
@@ -116,9 +171,13 @@ public class AsyncRingtonePlayer {
     private void handlePlay(SomeArgs args) {
         RingtoneFactory factory = (RingtoneFactory) args.arg1;
         Call incomingCall = (Call) args.arg2;
+        VolumeShaper.Configuration volumeShaperConfig = (VolumeShaper.Configuration) args.arg3;
+        boolean isVibrationEnabled = (boolean) args.arg4;
         args.recycle();
         // don't bother with any of this if there is an EVENT_STOP waiting.
         if (mHandler.hasMessages(EVENT_STOP)) {
+            mHapticsFuture.complete(false /* ringtoneHasHaptics */);
+            mHapticsFuture = null;
             return;
         }
 
@@ -126,32 +185,68 @@ public class AsyncRingtonePlayer {
         // anything.
         if(Uri.EMPTY.equals(incomingCall.getRingtone())) {
             mRingtone = null;
+            mHapticsFuture.complete(false /* ringtoneHasHaptics */);
+            mHapticsFuture = null;
             return;
         }
 
         ThreadUtil.checkNotOnMainThread();
-        Log.i(this, "Play ringtone.");
+        Log.i(this, "handlePlay: Play ringtone.");
 
         if (mRingtone == null) {
-            mRingtone = factory.getRingtone(incomingCall);
+            mRingtone = factory.getRingtone(incomingCall, volumeShaperConfig);
             if (mRingtone == null) {
                 Uri ringtoneUri = incomingCall.getRingtone();
                 String ringtoneUriString = (ringtoneUri == null) ? "null" :
                         ringtoneUri.toSafeString();
                 Log.addEvent(null, LogUtils.Events.ERROR_LOG, "Failed to get ringtone from " +
                         "factory. Skipping ringing. Uri was: " + ringtoneUriString);
+                mHapticsFuture.complete(false /* ringtoneHasHaptics */);
+                mHapticsFuture = null;
                 return;
+            }
+
+            // With the ringtone to play now known, we can determine if it has haptic channels or
+            // not; we will complete the haptics future so the default vibration code in Ringer
+            // can know whether to trigger the vibrator.
+            if (mHapticsFuture != null && !mHapticsFuture.isDone()) {
+                boolean hasHaptics = factory.hasHapticChannels(mRingtone);
+
+                Log.i(this, "handlePlay: hasHaptics=%b, isVibrationEnabled=%b", hasHaptics,
+                        isVibrationEnabled);
+                if (hasHaptics) {
+                    AudioAttributes attributes = mRingtone.getAudioAttributes();
+                    Log.d(this, "handlePlay: %s haptic channel",
+                            (isVibrationEnabled ? "unmuting" : "muting"));
+                    mRingtone.setAudioAttributes(
+                            new AudioAttributes.Builder(attributes)
+                                    .setHapticChannelsMuted(!isVibrationEnabled)
+                                    .build());
+                }
+                mHapticsFuture.complete(hasHaptics);
+                mHapticsFuture = null;
             }
         }
 
-        handleRepeat();
+        if (mShouldPauseBetweenRepeat) {
+            // We're trying to pause between repeats, so the ringtone will not intentionally loop.
+            // Instead, we'll use a handler message to perform repeats.
+            handleRepeat();
+        } else {
+            mRingtone.setLooping(true);
+            if (mRingtone.isPlaying()) {
+                Log.d(this, "Ringtone already playing.");
+                return;
+            }
+            mRingtone.play();
+            Log.i(this, "Play ringtone, looping.");
+        }
     }
 
     private void handleRepeat() {
         if (mRingtone == null) {
             return;
         }
-
         if (mRingtone.isPlaying()) {
             Log.d(this, "Ringtone already playing.");
         } else {

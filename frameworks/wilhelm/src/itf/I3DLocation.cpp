@@ -87,7 +87,7 @@ static SLresult I3DLocation_Move(SL3DLocationItf self, const SLVec3D *pMovement)
                 break;
             case CARTESIAN_UNKNOWN_SPHERICAL_SET:
                 thiz->mLocationActive = CARTESIAN_REQUESTED_SPHERICAL_SET;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case CARTESIAN_REQUESTED_SPHERICAL_SET:
                 // matched by cond_broadcast in case multiple requesters
 #if 0
@@ -134,7 +134,7 @@ static SLresult I3DLocation_GetLocationCartesian(SL3DLocationItf self, SLVec3D *
                 break;
             case CARTESIAN_UNKNOWN_SPHERICAL_SET:
                 thiz->mLocationActive = CARTESIAN_REQUESTED_SPHERICAL_SET;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case CARTESIAN_REQUESTED_SPHERICAL_SET:
                 // matched by cond_broadcast in case multiple requesters
 #if 0

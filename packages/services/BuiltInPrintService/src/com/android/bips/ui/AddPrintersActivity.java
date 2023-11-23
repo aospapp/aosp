@@ -19,9 +19,10 @@ package com.android.bips.ui;
 
 import android.app.ActionBar;
 import android.app.Activity;
-import android.app.Fragment;
 import android.os.Bundle;
 import android.view.MenuItem;
+
+import com.android.bips.P2pPermissionManager;
 
 /**
  * Launched by system in response to an Add Printer request
@@ -53,14 +54,11 @@ public class AddPrintersActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            int[] grantResults) {
-        Fragment fragment = getFragmentManager().findFragmentById(android.R.id.content);
-        if (fragment != null && fragment instanceof OnPermissionChangeListener) {
-            ((OnPermissionChangeListener) fragment).onPermissionChange();
+                                           int[] grantResults) {
+        // Update permission status on any change requested by a fragment.
+        if (requestCode == P2pPermissionManager.REQUEST_P2P_PERMISSION_CODE) {
+            new P2pPermissionManager(this).applyPermissionChange(true);
         }
-    }
-
-    interface OnPermissionChangeListener {
-        void onPermissionChange();
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 }

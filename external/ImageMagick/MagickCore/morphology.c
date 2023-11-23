@@ -17,13 +17,13 @@
 %                               January 2010                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -238,7 +238,7 @@ static KernelInfo *ParseKernelArray(const char *kernel_string)
   kernel=(KernelInfo *) AcquireQuantumMemory(1,sizeof(*kernel));
   if (kernel == (KernelInfo *) NULL)
     return(kernel);
-  (void) ResetMagickMemory(kernel,0,sizeof(*kernel));
+  (void) memset(kernel,0,sizeof(*kernel));
   kernel->minimum = kernel->maximum = kernel->angle = 0.0;
   kernel->negative_range = kernel->positive_range = 0.0;
   kernel->type = UserDefinedKernel;
@@ -507,7 +507,7 @@ MagickExport KernelInfo *AcquireKernelInfo(const char *kernel_string,
       if (kernel_cache == (char *) NULL)
         return((KernelInfo *) NULL);
       p=(const char *) kernel_cache;
-    }    
+    }
   kernel=NULL;
   while (GetNextToken(p,(const char **) NULL,MagickPathExtent,token), *token != '\0')
   {
@@ -1017,7 +1017,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
       kernel=(KernelInfo *) AcquireMagickMemory(sizeof(*kernel));
       if (kernel == (KernelInfo *) NULL)
         return(kernel);
-      (void) ResetMagickMemory(kernel,0,sizeof(*kernel));
+      (void) memset(kernel,0,sizeof(*kernel));
       kernel->minimum = kernel->maximum = kernel->angle = 0.0;
       kernel->negative_range = kernel->positive_range = 0.0;
       kernel->type = type;
@@ -1081,7 +1081,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
                       kernel->values[i] = exp(-((double)(u*u+v*v))*A)*B;
               }
             else /* limiting case - a unity (normalized Dirac) kernel */
-              { (void) ResetMagickMemory(kernel->values,0, (size_t)
+              { (void) memset(kernel->values,0, (size_t)
                   kernel->width*kernel->height*sizeof(*kernel->values));
                 kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
               }
@@ -1113,7 +1113,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
                     }
               }
             else /* special case - generate a unity kernel */
-              { (void) ResetMagickMemory(kernel->values,0, (size_t)
+              { (void) memset(kernel->values,0, (size_t)
                   kernel->width*kernel->height*sizeof(*kernel->values));
                 kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
               }
@@ -1173,7 +1173,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 
         /* initialize */
         v = (ssize_t) (kernel->width*KernelRank-1)/2; /* start/end points to fit range */
-        (void) ResetMagickMemory(kernel->values,0, (size_t)
+        (void) memset(kernel->values,0, (size_t)
           kernel->width*kernel->height*sizeof(*kernel->values));
         /* Calculate a Positive 1D Gaussian */
         if ( sigma > MagickEpsilon )
@@ -1199,7 +1199,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
               kernel->values[i] = exp(-((double)(u*u))*alpha)*beta;
           }
         else /* special case - generate a unity kernel */
-          { (void) ResetMagickMemory(kernel->values,0, (size_t)
+          { (void) memset(kernel->values,0, (size_t)
               kernel->width*kernel->height*sizeof(*kernel->values));
             kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
           }
@@ -1258,7 +1258,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 #if 1
 #define KernelRank 3
             v = (ssize_t) kernel->width*KernelRank; /* start/end points */
-            (void) ResetMagickMemory(kernel->values,0, (size_t)
+            (void) memset(kernel->values,0, (size_t)
               kernel->width*sizeof(*kernel->values));
             sigma *= KernelRank;            /* simplify the loop expression */
             A = 1.0/(2.0*sigma*sigma);
@@ -1280,7 +1280,7 @@ MagickExport KernelInfo *AcquireKernelBuiltIn(const KernelInfoType type,
 #endif
           }
         else /* special case - generate a unity kernel */
-          { (void) ResetMagickMemory(kernel->values,0, (size_t)
+          { (void) memset(kernel->values,0, (size_t)
               kernel->width*kernel->height*sizeof(*kernel->values));
             kernel->values[kernel->x+kernel->y*kernel->width] = 1.0;
             kernel->positive_range = 1.0;
@@ -2334,16 +2334,22 @@ static void ExpandMirrorKernelInfo(KernelInfo *kernel)
   last = kernel;
 
   clone = CloneKernelInfo(last);
+  if (clone == (KernelInfo *) NULL)
+    return;
   RotateKernelInfo(clone, 180);   /* flip */
   LastKernelInfo(last)->next = clone;
   last = clone;
 
   clone = CloneKernelInfo(last);
+  if (clone == (KernelInfo *) NULL)
+    return;
   RotateKernelInfo(clone, 90);   /* transpose */
   LastKernelInfo(last)->next = clone;
   last = clone;
 
   clone = CloneKernelInfo(last);
+  if (clone == (KernelInfo *) NULL)
+    return;
   RotateKernelInfo(clone, 180);  /* flop */
   LastKernelInfo(last)->next = clone;
 
@@ -2414,21 +2420,24 @@ static MagickBooleanType SameKernelInfo(const KernelInfo *kernel1,
 static void ExpandRotateKernelInfo(KernelInfo *kernel, const double angle)
 {
   KernelInfo
-    *clone,
+    *clone_info,
     *last;
 
-  last = kernel;
+  last=kernel;
 DisableMSCWarning(4127)
-  while(1) {
+  while (1) {
 RestoreMSCWarning
-    clone = CloneKernelInfo(last);
-    RotateKernelInfo(clone, angle);
-    if ( SameKernelInfo(kernel, clone) != MagickFalse )
+    clone_info=CloneKernelInfo(last);
+    if (clone_info == (KernelInfo *) NULL)
       break;
-    LastKernelInfo(last)->next = clone;
-    last = clone;
+    RotateKernelInfo(clone_info,angle);
+    if (SameKernelInfo(kernel,clone_info) != MagickFalse)
+      break;
+    LastKernelInfo(last)->next=clone_info;
+    last=clone_info;
   }
-  clone = DestroyKernelInfo(clone); /* kernel has repeated - junk the clone */
+  if (clone_info != (KernelInfo *) NULL)
+    clone_info=DestroyKernelInfo(clone_info);  /* kernel repeated - junk */
   return;
 }
 
@@ -2642,8 +2651,8 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         vertical kernels (such as a 'BlurKernel')
      */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-     #pragma omp parallel for schedule(static,4) shared(progress,status) \
-       magick_threads(image,morphology_image,image->columns,1)
+     #pragma omp parallel for schedule(static) shared(progress,status) \
+       magick_number_threads(image,morphology_image,image->columns,1)
 #endif
       for (x=0; x < (ssize_t) image->columns; x++)
       {
@@ -2711,8 +2720,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
             if ((traits == UndefinedPixelTrait) ||
                 (morphology_traits == UndefinedPixelTrait))
               continue;
-            if (((traits & CopyPixelTrait) != 0) ||
-                (GetPixelReadMask(image,p+center) == 0))
+            if ((traits & CopyPixelTrait) != 0)
               {
                 SetPixelChannel(morphology_image,channel,p[center+i],q);
                 continue;
@@ -2766,10 +2774,10 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
               proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp critical (MagickCore_MorphologyPrimitive)
+            #pragma omp atomic
 #endif
-            proceed=SetImageProgress(image,MorphologyTag,progress++,
-              image->rows);
+            progress++;
+            proceed=SetImageProgress(image,MorphologyTag,progress,image->rows);
             if (proceed == MagickFalse)
               status=MagickFalse;
           }
@@ -2786,8 +2794,8 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
     Normal handling of horizontal or rectangular kernels (row by row).
   */
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(image,morphology_image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(image,morphology_image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -2862,8 +2870,7 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         if ((traits == UndefinedPixelTrait) ||
             (morphology_traits == UndefinedPixelTrait))
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelReadMask(image,p+center) == 0))
+        if ((traits & CopyPixelTrait) != 0)
           {
             SetPixelChannel(morphology_image,channel,p[center+i],q);
             continue;
@@ -2871,24 +2878,32 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
         pixels=p;
         maximum=0.0;
         minimum=(double) QuantumRange;
-        count=kernel->width*kernel->height;
         switch (method)
         {
-          case ConvolveMorphology: pixel=bias; break;
-          case HitAndMissMorphology: pixel=(double) QuantumRange; break;
-          case ThinningMorphology: pixel=(double) QuantumRange; break;
-          case ThickenMorphology: pixel=(double) QuantumRange; break;
-          case ErodeMorphology: pixel=(double) QuantumRange; break;
-          case DilateMorphology: pixel=0.0; break;
+          case ConvolveMorphology:
+          {
+            pixel=bias;
+            break;
+          }
+          case DilateMorphology:
           case ErodeIntensityMorphology:
-          case DilateIntensityMorphology:
-          case IterativeDistanceMorphology:
+          {
+            pixel=0.0;
+            break;
+          }
+          case HitAndMissMorphology:
+          case ErodeMorphology:
+          {
+            pixel=QuantumRange;
+            break;
+          }
+          default:
           {
             pixel=(double) p[center+i];
             break;
           }
-          default: pixel=0; break;
         }
+        count=0;
         gamma=1.0;
         switch (method)
         {
@@ -2914,7 +2929,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                  http://www.cs.umd.edu/~djacobs/CMSC426/Convolution.pdf
             */
             k=(&kernel->values[kernel->width*kernel->height-1]);
-            count=0;
             if ((morphology_traits & BlendPixelTrait) == 0)
               {
                 /*
@@ -2998,7 +3012,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                added to the real value, this is currently not done, due to the
                nature of the boolean kernels being used.
             */
-            count=0;
             k=(&kernel->values[kernel->width*kernel->height-1]);
             for (v=0; v < (ssize_t) kernel->height; v++)
             {
@@ -3032,7 +3045,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                cause Thinning/Thicken to not work correctly when used against a
                greyscale image.
             */
-            count=0;
             k=kernel->values;
             for (v=0; v < (ssize_t) kernel->height; v++)
             {
@@ -3075,7 +3087,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
 
               The kernel is not reflected for this operation.
             */
-            count=0;
             k=kernel->values;
             for (v=0; v < (ssize_t) kernel->height; v++)
             {
@@ -3105,7 +3116,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
 
               The kernel is not reflected for this operation.
             */
-            count=0;
             k=(&kernel->values[kernel->width*kernel->height-1]);
             for (v=0; v < (ssize_t) kernel->height; v++)
             {
@@ -3153,7 +3163,6 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
                GrayErode, but with negative kernel values, and kernel rotation
                applied.
             */
-            count=0;
             k=(&kernel->values[kernel->width*kernel->height-1]);
             for (v=0; v < (ssize_t) kernel->height; v++)
             {
@@ -3194,9 +3203,10 @@ static ssize_t MorphologyPrimitive(const Image *image,Image *morphology_image,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_MorphologyPrimitive)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(image,MorphologyTag,progress++,image->rows);
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3291,9 +3301,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     register ssize_t
       x;
 
-    ssize_t
-      center;
-
     /*
       Read virtual pixels, and authentic pixels, from the same image!  We read
       using virtual to get virtual pixel handling, but write back into the same
@@ -3313,8 +3320,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         status=MagickFalse;
         continue;
       }
-    center=(ssize_t) (GetPixelChannels(image)*width*offset.y+
-      GetPixelChannels(image)*offset.x);
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       register ssize_t
@@ -3324,6 +3329,9 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       {
         double
           pixel;
+
+        PixelChannel
+          channel;
 
         PixelTrait
           traits;
@@ -3340,11 +3348,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         ssize_t
           v;
 
-        traits=GetPixelChannelTraits(image,(PixelChannel) i);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelReadMask(image,p+center) == 0))
+        if ((traits & CopyPixelTrait) != 0)
           continue;
         pixels=p;
         pixel=(double) QuantumRange;
@@ -3429,7 +3437,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         MagickBooleanType
           proceed;
 
-        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -3452,9 +3464,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
     register ssize_t
       x;
 
-    ssize_t
-      center;
-
     /*
        Read virtual pixels, and authentic pixels, from the same image.  We
        read using virtual to get virtual pixel handling, but write back
@@ -3475,7 +3484,6 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       }
     p+=(image->columns-1)*GetPixelChannels(image);
     q+=(image->columns-1)*GetPixelChannels(image);
-    center=(ssize_t) (offset.x*GetPixelChannels(image));
     for (x=(ssize_t) image->columns-1; x >= 0; x--)
     {
       register ssize_t
@@ -3485,6 +3493,9 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
       {
         double
           pixel;
+
+        PixelChannel
+          channel;
 
         PixelTrait
           traits;
@@ -3501,11 +3512,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         ssize_t
           v;
 
-        traits=GetPixelChannelTraits(image,(PixelChannel) i);
+        channel=GetPixelChannelChannel(image,i);
+        traits=GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
-        if (((traits & CopyPixelTrait) != 0) ||
-            (GetPixelReadMask(image,p+center) == 0))
+        if ((traits & CopyPixelTrait) != 0)
           continue;
         pixels=p;
         pixel=(double) QuantumRange;
@@ -3590,7 +3601,11 @@ static ssize_t MorphologyPrimitiveDirect(Image *image,
         MagickBooleanType
           proceed;
 
-        proceed=SetImageProgress(image,MorphologyTag,progress++,2*image->rows);
+#if defined(MAGICKCORE_OPENMP_SUPPORT)
+        #pragma omp atomic
+#endif
+        progress++;
+        proceed=SetImageProgress(image,MorphologyTag,progress,2*image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -4076,10 +4091,10 @@ exit_cleanup:
 %    * Output Bias for Convolution and correlation ("-define convolve:bias=??")
 %    * Kernel Scale/normalize settings            ("-define convolve:scale=??")
 %      This can also includes the addition of a scaled unity kernel.
-%    * Show Kernel being applied            ("-define morphology:showkernel=1")
+%    * Show Kernel being applied            ("-define morphology:showKernel=1")
 %
 %  Other operators that do not want user supplied options interfering,
-%  especially "convolve:bias" and "morphology:showkernel" should use
+%  especially "convolve:bias" and "morphology:showKernel" should use
 %  MorphologyApply() directly.
 %
 %  The format of the MorphologyImage method is:
@@ -4161,7 +4176,7 @@ MagickExport Image *MorphologyImage(const Image *image,
     }
 
   /* display the (normalized) kernel via stderr */
-  artifact=GetImageArtifact(image,"morphology:showkernel");
+  artifact=GetImageArtifact(image,"morphology:showKernel");
   if (IsStringTrue(artifact) != MagickFalse)
     ShowKernelInfo(curr_kernel);
 
@@ -4615,7 +4630,7 @@ MagickExport void ScaleKernelInfo(KernelInfo *kernel,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %  ShowKernelInfo() outputs the details of the given kernel defination to
-%  standard error, generally due to a users 'morphology:showkernel' option
+%  standard error, generally due to a users 'morphology:showKernel' option
 %  request.
 %
 %  The format of the ShowKernel method is:

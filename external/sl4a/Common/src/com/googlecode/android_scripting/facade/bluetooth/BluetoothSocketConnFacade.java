@@ -688,10 +688,9 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
             try {
                 if (isBle) {
                     if (securedConn) {
-                        tmp = device.createL2capCocSocket(BluetoothDevice.TRANSPORT_LE, psmValue);
+                        tmp = device.createL2capChannel(psmValue);
                     } else {
-                        tmp = device.createInsecureL2capCocSocket(BluetoothDevice.TRANSPORT_LE,
-                                                                  psmValue);
+                        tmp = device.createInsecureL2capChannel(psmValue);
                     }
                 } else {
                     if (securedConn) {
@@ -772,11 +771,9 @@ public class BluetoothSocketConnFacade extends RpcReceiver {
                 if (isBle) {
                     /* Assigned a dynamic LE_PSM Value */
                     if (securedConn) {
-                        tmp = mBluetoothAdapter.listenUsingL2capCoc(
-                            BluetoothDevice.TRANSPORT_LE);
+                        tmp = mBluetoothAdapter.listenUsingL2capChannel();
                     } else {
-                        tmp = mBluetoothAdapter.listenUsingInsecureL2capCoc(
-                            BluetoothDevice.TRANSPORT_LE);
+                        tmp = mBluetoothAdapter.listenUsingInsecureL2capChannel();
                     }
                 } else {
                     if (securedConn) {

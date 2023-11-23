@@ -15,19 +15,49 @@
     limitations under the License.
 -->
 <resources>
+    <!-- CarLauncher Activity values -->
+    <dimen name="launcher_card_corner_radius">6dp</dimen>
+    <item name="maps_screen_percentage" type="dimen" format="float">0.6</item>
+    <!-- Vertical percentage of screen (not occupied by maps to devote to the contextual space
+      (Ex: date time temp) -->
+    <item name="contextual_screen_percentage" type="dimen" format="float">.3</item>
+     <!--Used for the space between the top, and bottom of the screen and the content -->
+    <dimen name="vertical_border_size">@*android:dimen/car_padding_1</dimen>
+    <!-- Used for the space between the start, and end of the screen and the content -->
+    <dimen name="horizontal_border_size">@*android:dimen/car_padding_1</dimen>
+    <!-- Margin surrounding fragments on the main activity -->
+    <dimen name="main_screen_widget_margin">@*android:dimen/car_padding_1</dimen>
+    <!-- Margin between the edge of the card and start of the icon -->
+    <dimen name="icon_start_margin">@*android:dimen/car_padding_4</dimen>
+    <!-- Gap between the end of the icon and the start of the text -->
+    <dimen name="icon_end_margin">@*android:dimen/car_padding_3</dimen>
+    <!-- Gap between text lines -->
+    <dimen name="line_gap_margin">@*android:dimen/car_padding_1</dimen>
+
+    <!-- AppGridActivity -->
     <dimen name="recent_apps_divider_margin">40dp</dimen>
+    <item name="app_icon_opacity_unavailable" type="dimen" format="float">0.5</item>
+    <item name="app_icon_opacity" type="dimen" format="float">1.0</item>
+    <!-- Gap between top of screen (statusbar) and header content -->
+    <dimen name="app_grid_header_margin">@*android:dimen/car_padding_4</dimen>
+    <dimen name="panel_margin">@*android:dimen/car_margin</dimen>
+    <!-- Height of the text and exit button on the app selection screen -->
+    <dimen name="app_bar_height">@*android:dimen/car_app_bar_height</dimen>
+    <dimen name="icon_size">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="recent_apps_row_height">@*android:dimen/car_list_divider_height</dimen>
+    <dimen name="app_grid_touch_target_size">@*android:dimen/car_touch_target_size</dimen>
+    <!-- Padding around the touch target (makes ripple look better) -->
+    <dimen name="app_touch_target_padding">@*android:dimen/car_padding_1</dimen>
+    <dimen name="app_touch_target_margin">@*android:dimen/car_padding_2</dimen>
+    <dimen name="app_grid_row_margin">@*android:dimen/car_padding_4</dimen>
+    <dimen name="app_icon_description_margin">@*android:dimen/car_padding_4</dimen>
+    <dimen name="app_icon_ripple_radius">@*android:dimen/car_radius_2</dimen>
 
+    <!-- AppSearchActivity -->
     <dimen name="search_item_width">760dp</dimen>
+    <dimen name="search_result_margin">@*android:dimen/car_padding_1</dimen>
+    <dimen name="search_result_text_margin">@*android:dimen/car_keyline_3</dimen>
     <dimen name="search_box_height">65dp</dimen>
+    <dimen name="search_bar_margin">@*android:dimen/car_keyline_1</dimen>
     <dimen name="search_bar_drawable_text_padding">46dp</dimen>
-
-    <dimen name="tile_text_size">56sp</dimen>
-    <dimen name="title_text_margin_bottom">96dp</dimen>
-    <dimen name="button_size">96dp</dimen>
-
-    <dimen name="list_item_text_size">32sp</dimen>
-    <dimen name="list_item_icon_size">96dp</dimen>
-    <dimen name="list_item_vertical_padding">32dp</dimen>
-    <dimen name="list_item_marginStart">24dp</dimen>
-    <dimen name="list_item_text_margin_start">105dp</dimen>
 </resources>

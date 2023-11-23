@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
   
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,11 +22,12 @@
 extern "C" {
 #endif
 
+#include "MagickCore/exception-private.h"
 
-#if defined(MAGICK_TARGET_CPU) && (MAGICK_TARGET_CPU == powerpc)
-#  define CACHE_LINE_SIZE  128
+#if defined(__powerpc__)
+#  define CACHE_LINE_SIZE  (16*sizeof(void *))
 #else
-#  define CACHE_LINE_SIZE  64
+#  define CACHE_LINE_SIZE  (8*sizeof(void *))
 #endif
 
 #define CacheAlign(size)  ((size) < CACHE_LINE_SIZE ? CACHE_LINE_SIZE : (size))
@@ -44,6 +45,27 @@ extern "C" {
 
 MagickExport MagickBooleanType 
   HeapOverflowSanityCheck(const size_t,const size_t) magick_alloc_sizes(1,2);
+
+MagickExport size_t
+  GetMaxMemoryRequest(void);
+
+extern MagickPrivate void
+  ResetMaxMemoryRequest(void),
+  ResetVirtualAnonymousMemory(void);
+
+static inline void *AcquireCriticalMemory(const size_t size)
+{
+  register void
+    *memory;
+ 
+  /*
+    Fail if memory request cannot be fulfilled.
+  */
+  memory=AcquireMagickMemory(size);
+  if (memory == (void *) NULL)
+    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  return(memory);
+}
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

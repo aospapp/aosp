@@ -17,8 +17,11 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ItemTable"
 
+#include <unordered_set>
+
 #include <ItemTable.h>
-#include <media/DataSourceBase.h>
+#include <media/MediaExtractorPluginApi.h>
+#include <media/MediaExtractorPluginHelper.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/foundation/ABuffer.h>
@@ -47,7 +50,7 @@ struct ImageItem {
             offset(0), size(0), nextTileIndex(0) {}
 
     bool isGrid() const {
-        return type == FOURCC('g', 'r', 'i', 'd');
+        return type == FOURCC("grid");
     }
 
     status_t getNextTileItemId(uint32_t *nextTileItemId, bool reset) {
@@ -92,7 +95,7 @@ struct ExifItem {
 
 struct Box {
 protected:
-    Box(DataSourceBase *source, uint32_t type) :
+    Box(DataSourceHelper *source, uint32_t type) :
         mDataSource(source), mType(type) {}
 
     virtual ~Box() {}
@@ -104,14 +107,14 @@ protected:
 
     inline uint32_t type() const { return mType; }
 
-    inline DataSourceBase *source() const { return mDataSource; }
+    inline DataSourceHelper *source() const { return mDataSource; }
 
     status_t parseChunk(off64_t *offset);
 
     status_t parseChunks(off64_t offset, size_t size);
 
 private:
-    DataSourceBase *mDataSource;
+    DataSourceHelper *mDataSource;
     uint32_t mType;
 };
 
@@ -186,7 +189,7 @@ status_t Box::parseChunks(off64_t offset, size_t size) {
 
 struct FullBox : public Box {
 protected:
-    FullBox(DataSourceBase *source, uint32_t type) :
+    FullBox(DataSourceHelper *source, uint32_t type) :
         Box(source, type), mVersion(0), mFlags(0) {}
 
     inline uint8_t version() const { return mVersion; }
@@ -221,8 +224,8 @@ status_t FullBox::parseFullBoxHeader(off64_t *offset, size_t *size) {
 //
 
 struct PitmBox : public FullBox {
-    PitmBox(DataSourceBase *source) :
-        FullBox(source, FOURCC('p', 'i', 't', 'm')) {}
+    PitmBox(DataSourceHelper *source) :
+        FullBox(source, FOURCC("pitm")) {}
 
     status_t parse(off64_t offset, size_t size, uint32_t *primaryItemId);
 };
@@ -301,8 +304,8 @@ struct ItemLoc {
 };
 
 struct IlocBox : public FullBox {
-    IlocBox(DataSourceBase *source, KeyedVector<uint32_t, ItemLoc> *itemLocs) :
-        FullBox(source, FOURCC('i', 'l', 'o', 'c')),
+    IlocBox(DataSourceHelper *source, KeyedVector<uint32_t, ItemLoc> *itemLocs) :
+        FullBox(source, FOURCC("iloc")),
         mItemLocs(itemLocs), mHasConstructMethod1(false) {}
 
     status_t parse(off64_t offset, size_t size);
@@ -423,10 +426,8 @@ status_t IlocBox::parse(off64_t offset, size_t size) {
         }
         ALOGV("extent_count %d", extent_count);
 
-        if (extent_count > 1 && (offset_size == 0 || length_size == 0)) {
-            // if the item is dividec into more than one extents, offset and
-            // length must be present.
-            return ERROR_MALFORMED;
+        if (extent_count > 1) {
+            return ERROR_UNSUPPORTED;
         }
         offset += 2;
 
@@ -471,7 +472,7 @@ status_t IlocBox::parse(off64_t offset, size_t size) {
 //
 
 struct ItemReference : public Box, public RefBase {
-    ItemReference(DataSourceBase *source, uint32_t type, uint32_t itemIdSize) :
+    ItemReference(DataSourceHelper *source, uint32_t type, uint32_t itemIdSize) :
         Box(source, type), mItemId(0), mRefIdSize(itemIdSize) {}
 
     status_t parse(off64_t offset, size_t size);
@@ -496,7 +497,7 @@ void ItemReference::apply(
     ALOGV("attach reference type 0x%x to item id %d)", type(), mItemId);
 
     switch(type()) {
-    case FOURCC('d', 'i', 'm', 'g'): {
+    case FOURCC("dimg"): {
         ssize_t itemIndex = itemIdToItemMap.indexOfKey(mItemId);
 
         // ignore non-image items
@@ -524,7 +525,7 @@ void ItemReference::apply(
         }
         break;
     }
-    case FOURCC('t', 'h', 'm', 'b'): {
+    case FOURCC("thmb"): {
         ssize_t itemIndex = itemIdToItemMap.indexOfKey(mItemId);
 
         // ignore non-image items
@@ -553,7 +554,7 @@ void ItemReference::apply(
         }
         break;
     }
-    case FOURCC('c', 'd', 's', 'c'): {
+    case FOURCC("cdsc"): {
         ssize_t itemIndex = itemIdToExifMap.indexOfKey(mItemId);
 
         // ignore non-exif block items
@@ -574,7 +575,7 @@ void ItemReference::apply(
         }
         break;
     }
-    case FOURCC('a', 'u', 'x', 'l'): {
+    case FOURCC("auxl"): {
         ssize_t itemIndex = itemIdToItemMap.indexOfKey(mItemId);
 
         // ignore non-image items
@@ -626,8 +627,8 @@ status_t ItemReference::parse(off64_t offset, size_t size) {
 }
 
 struct IrefBox : public FullBox {
-    IrefBox(DataSourceBase *source, Vector<sp<ItemReference> > *itemRefs) :
-        FullBox(source, FOURCC('i', 'r', 'e', 'f')), mRefIdSize(0), mItemRefs(itemRefs) {}
+    IrefBox(DataSourceHelper *source, Vector<sp<ItemReference> > *itemRefs) :
+        FullBox(source, FOURCC("iref")), mRefIdSize(0), mItemRefs(itemRefs) {}
 
     status_t parse(off64_t offset, size_t size);
 
@@ -688,8 +689,8 @@ private:
 };
 
 struct IspeBox : public FullBox, public ItemProperty {
-    IspeBox(DataSourceBase *source) :
-        FullBox(source, FOURCC('i', 's', 'p', 'e')), mWidth(0), mHeight(0) {}
+    IspeBox(DataSourceHelper *source) :
+        FullBox(source, FOURCC("ispe")), mWidth(0), mHeight(0) {}
 
     status_t parse(off64_t offset, size_t size) override;
 
@@ -724,8 +725,8 @@ status_t IspeBox::parse(off64_t offset, size_t size) {
 }
 
 struct HvccBox : public Box, public ItemProperty {
-    HvccBox(DataSourceBase *source) :
-        Box(source, FOURCC('h', 'v', 'c', 'C')) {}
+    HvccBox(DataSourceHelper *source) :
+        Box(source, FOURCC("hvcC")) {}
 
     status_t parse(off64_t offset, size_t size) override;
 
@@ -757,8 +758,8 @@ status_t HvccBox::parse(off64_t offset, size_t size) {
 }
 
 struct IrotBox : public Box, public ItemProperty {
-    IrotBox(DataSourceBase *source) :
-        Box(source, FOURCC('i', 'r', 'o', 't')), mAngle(0) {}
+    IrotBox(DataSourceHelper *source) :
+        Box(source, FOURCC("irot")), mAngle(0) {}
 
     status_t parse(off64_t offset, size_t size) override;
 
@@ -786,8 +787,8 @@ status_t IrotBox::parse(off64_t offset, size_t size) {
 }
 
 struct ColrBox : public Box, public ItemProperty {
-    ColrBox(DataSourceBase *source) :
-        Box(source, FOURCC('c', 'o', 'l', 'r')) {}
+    ColrBox(DataSourceHelper *source) :
+        Box(source, FOURCC("colr")) {}
 
     status_t parse(off64_t offset, size_t size) override;
 
@@ -811,11 +812,11 @@ status_t ColrBox::parse(off64_t offset, size_t size) {
     }
     offset += 4;
     size -= 4;
-    if (colour_type == FOURCC('n', 'c', 'l', 'x')) {
+    if (colour_type == FOURCC("nclx")) {
         return OK;
     }
-    if ((colour_type != FOURCC('r', 'I', 'C', 'C')) &&
-        (colour_type != FOURCC('p', 'r', 'o', 'f'))) {
+    if ((colour_type != FOURCC("rICC")) &&
+        (colour_type != FOURCC("prof"))) {
         return ERROR_MALFORMED;
     }
 
@@ -834,8 +835,8 @@ status_t ColrBox::parse(off64_t offset, size_t size) {
 }
 
 struct IpmaBox : public FullBox {
-    IpmaBox(DataSourceBase *source, Vector<AssociationEntry> *associations) :
-        FullBox(source, FOURCC('i', 'p', 'm', 'a')), mAssociations(associations) {}
+    IpmaBox(DataSourceHelper *source, Vector<AssociationEntry> *associations) :
+        FullBox(source, FOURCC("ipma")), mAssociations(associations) {}
 
     status_t parse(off64_t offset, size_t size);
 private:
@@ -908,8 +909,8 @@ status_t IpmaBox::parse(off64_t offset, size_t size) {
 }
 
 struct IpcoBox : public Box {
-    IpcoBox(DataSourceBase *source, Vector<sp<ItemProperty> > *properties) :
-        Box(source, FOURCC('i', 'p', 'c', 'o')), mItemProperties(properties) {}
+    IpcoBox(DataSourceHelper *source, Vector<sp<ItemProperty> > *properties) :
+        Box(source, FOURCC("ipco")), mItemProperties(properties) {}
 
     status_t parse(off64_t offset, size_t size);
 protected:
@@ -929,22 +930,22 @@ status_t IpcoBox::parse(off64_t offset, size_t size) {
 status_t IpcoBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
     sp<ItemProperty> itemProperty;
     switch(type) {
-        case FOURCC('h', 'v', 'c', 'C'):
+        case FOURCC("hvcC"):
         {
             itemProperty = new HvccBox(source());
             break;
         }
-        case FOURCC('i', 's', 'p', 'e'):
+        case FOURCC("ispe"):
         {
             itemProperty = new IspeBox(source());
             break;
         }
-        case FOURCC('i', 'r', 'o', 't'):
+        case FOURCC("irot"):
         {
             itemProperty = new IrotBox(source());
             break;
         }
-        case FOURCC('c', 'o', 'l', 'r'):
+        case FOURCC("colr"):
         {
             itemProperty = new ColrBox(source());
             break;
@@ -965,10 +966,10 @@ status_t IpcoBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
 }
 
 struct IprpBox : public Box {
-    IprpBox(DataSourceBase *source,
+    IprpBox(DataSourceHelper *source,
             Vector<sp<ItemProperty> > *properties,
             Vector<AssociationEntry> *associations) :
-        Box(source, FOURCC('i', 'p', 'r', 'p')),
+        Box(source, FOURCC("iprp")),
         mProperties(properties), mAssociations(associations) {}
 
     status_t parse(off64_t offset, size_t size);
@@ -992,12 +993,12 @@ status_t IprpBox::parse(off64_t offset, size_t size) {
 
 status_t IprpBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
     switch(type) {
-        case FOURCC('i', 'p', 'c', 'o'):
+        case FOURCC("ipco"):
         {
             IpcoBox ipcoBox(source(), mProperties);
             return ipcoBox.parse(offset, size);
         }
-        case FOURCC('i', 'p', 'm', 'a'):
+        case FOURCC("ipma"):
         {
             IpmaBox ipmaBox(source(), mAssociations);
             return ipmaBox.parse(offset, size);
@@ -1022,8 +1023,8 @@ struct ItemInfo {
 };
 
 struct InfeBox : public FullBox {
-    InfeBox(DataSourceBase *source) :
-        FullBox(source, FOURCC('i', 'n', 'f', 'e')) {}
+    InfeBox(DataSourceHelper *source) :
+        FullBox(source, FOURCC("infe")) {}
 
     status_t parse(off64_t offset, size_t size, ItemInfo *itemInfo);
 
@@ -1103,7 +1104,7 @@ status_t InfeBox::parse(off64_t offset, size_t size, ItemInfo *itemInfo) {
         }
         ALOGV("item_name %s", item_name.c_str());
 
-        if (item_type == FOURCC('m', 'i', 'm', 'e')) {
+        if (item_type == FOURCC("mime")) {
             String8 content_type;
             if (!parseNullTerminatedString(&offset, &size, &content_type)) {
                 return ERROR_MALFORMED;
@@ -1116,7 +1117,7 @@ status_t InfeBox::parse(off64_t offset, size_t size, ItemInfo *itemInfo) {
                     return ERROR_MALFORMED;
                 }
             }
-        } else if (item_type == FOURCC('u', 'r', 'i', ' ')) {
+        } else if (item_type == FOURCC("uri ")) {
             String8 item_uri_type;
             if (!parseNullTerminatedString(&offset, &size, &item_uri_type)) {
                 return ERROR_MALFORMED;
@@ -1127,20 +1128,19 @@ status_t InfeBox::parse(off64_t offset, size_t size, ItemInfo *itemInfo) {
 }
 
 struct IinfBox : public FullBox {
-    IinfBox(DataSourceBase *source, Vector<ItemInfo> *itemInfos) :
-        FullBox(source, FOURCC('i', 'i', 'n', 'f')),
-        mItemInfos(itemInfos), mHasGrids(false) {}
+    IinfBox(DataSourceHelper *source, Vector<ItemInfo> *itemInfos) :
+        FullBox(source, FOURCC("iinf")), mItemInfos(itemInfos) {}
 
     status_t parse(off64_t offset, size_t size);
 
-    bool hasGrids() { return mHasGrids; }
+    bool hasFourCC(uint32_t type) { return mFourCCSeen.count(type) > 0; }
 
 protected:
     status_t onChunkData(uint32_t type, off64_t offset, size_t size) override;
 
 private:
     Vector<ItemInfo> *mItemInfos;
-    bool mHasGrids;
+    std::unordered_set<uint32_t> mFourCCSeen;
 };
 
 status_t IinfBox::parse(off64_t offset, size_t size) {
@@ -1178,7 +1178,7 @@ status_t IinfBox::parse(off64_t offset, size_t size) {
 }
 
 status_t IinfBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
-    if (type != FOURCC('i', 'n', 'f', 'e')) {
+    if (type != FOURCC("infe")) {
         return OK;
     }
 
@@ -1187,7 +1187,7 @@ status_t IinfBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
     status_t err = infeBox.parse(offset, size, &itemInfo);
     if (err == OK) {
         mItemInfos->push_back(itemInfo);
-        mHasGrids |= (itemInfo.itemType == FOURCC('g', 'r', 'i', 'd'));
+        mFourCCSeen.insert(itemInfo.itemType);
     }
     // InfeBox parse returns ERROR_UNSUPPORTED if the box if an unsupported
     // version. Ignore this error as it's not fatal.
@@ -1196,7 +1196,7 @@ status_t IinfBox::onChunkData(uint32_t type, off64_t offset, size_t size) {
 
 //////////////////////////////////////////////////////////////////
 
-ItemTable::ItemTable(DataSourceBase *source)
+ItemTable::ItemTable(DataSourceHelper *source)
     : mDataSource(source),
       mPrimaryItemId(0),
       mIdatOffset(0),
@@ -1213,31 +1213,31 @@ ItemTable::~ItemTable() {}
 
 status_t ItemTable::parse(uint32_t type, off64_t data_offset, size_t chunk_data_size) {
     switch(type) {
-        case FOURCC('i', 'l', 'o', 'c'):
+        case FOURCC("iloc"):
         {
             return parseIlocBox(data_offset, chunk_data_size);
         }
-        case FOURCC('i', 'i', 'n', 'f'):
+        case FOURCC("iinf"):
         {
             return parseIinfBox(data_offset, chunk_data_size);
         }
-        case FOURCC('i', 'p', 'r', 'p'):
+        case FOURCC("iprp"):
         {
             return parseIprpBox(data_offset, chunk_data_size);
         }
-        case FOURCC('p', 'i', 't', 'm'):
+        case FOURCC("pitm"):
         {
             return parsePitmBox(data_offset, chunk_data_size);
         }
-        case FOURCC('i', 'd', 'a', 't'):
+        case FOURCC("idat"):
         {
             return parseIdatBox(data_offset, chunk_data_size);
         }
-        case FOURCC('i', 'r', 'e', 'f'):
+        case FOURCC("iref"):
         {
             return parseIrefBox(data_offset, chunk_data_size);
         }
-        case FOURCC('i', 'p', 'r', 'o'):
+        case FOURCC("ipro"):
         {
             ALOGW("ipro box not supported!");
             break;
@@ -1276,7 +1276,7 @@ status_t ItemTable::parseIinfBox(off64_t offset, size_t size) {
         return err;
     }
 
-    if (iinfBox.hasGrids()) {
+    if (iinfBox.hasFourCC(FOURCC("grid")) || iinfBox.hasFourCC(FOURCC("Exif"))) {
         mRequiredBoxes.insert('iref');
     }
 
@@ -1354,9 +1354,9 @@ status_t ItemTable::buildImageItemsIfPossible(uint32_t type) {
         //   'grid': derived image from tiles
         //   'hvc1': coded image (or tile)
         //   'Exif': EXIF metadata
-        if (info.itemType != FOURCC('g', 'r', 'i', 'd') &&
-            info.itemType != FOURCC('h', 'v', 'c', '1') &&
-            info.itemType != FOURCC('E', 'x', 'i', 'f')) {
+        if (info.itemType != FOURCC("grid") &&
+            info.itemType != FOURCC("hvc1") &&
+            info.itemType != FOURCC("Exif")) {
             continue;
         }
 
@@ -1379,7 +1379,7 @@ status_t ItemTable::buildImageItemsIfPossible(uint32_t type) {
             return ERROR_MALFORMED;
         }
 
-        if (info.itemType == FOURCC('E', 'x', 'i', 'f')) {
+        if (info.itemType == FOURCC("Exif")) {
             // Only add if the Exif data is non-empty. The first 4 bytes contain
             // the offset to TIFF header, which the Exif parser doesn't use.
             if (size > 4) {
@@ -1476,7 +1476,7 @@ uint32_t ItemTable::countImages() const {
     return mImageItemsValid ? mDisplayables.size() : 0;
 }
 
-sp<MetaData> ItemTable::getImageMeta(const uint32_t imageIndex) {
+AMediaFormat *ItemTable::getImageMeta(const uint32_t imageIndex) {
     if (!mImageItemsValid) {
         return NULL;
     }
@@ -1501,64 +1501,80 @@ sp<MetaData> ItemTable::getImageMeta(const uint32_t imageIndex) {
         }
     }
 
-    sp<MetaData> meta = new MetaData;
-    meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC);
+    AMediaFormat *meta = AMediaFormat_new();
+    AMediaFormat_setString(meta, AMEDIAFORMAT_KEY_MIME, MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC);
 
     if (image->itemId == mPrimaryItemId) {
-        meta->setInt32(kKeyTrackIsDefault, 1);
+        AMediaFormat_setInt32(meta, AMEDIAFORMAT_KEY_IS_DEFAULT, 1);
     }
 
     ALOGV("image[%u]: size %dx%d", imageIndex, image->width, image->height);
 
-    meta->setInt32(kKeyWidth, image->width);
-    meta->setInt32(kKeyHeight, image->height);
+    AMediaFormat_setInt32(meta, AMEDIAFORMAT_KEY_WIDTH, image->width);
+    AMediaFormat_setInt32(meta, AMEDIAFORMAT_KEY_HEIGHT, image->height);
     if (image->rotation != 0) {
         // Rotation angle in HEIF is CCW, convert to CW here to be
         // consistent with the other media formats.
         switch(image->rotation) {
-            case 90: meta->setInt32(kKeyRotation, 270); break;
-            case 180: meta->setInt32(kKeyRotation, 180); break;
-            case 270: meta->setInt32(kKeyRotation, 90); break;
+            case 90:
+            case 180:
+            case 270:
+                AMediaFormat_setInt32(meta, AMEDIAFORMAT_KEY_ROTATION, 360 - image->rotation);
+                break;
             default: break; // don't set if invalid
         }
     }
-    meta->setInt32(kKeyMaxInputSize, image->width * image->height * 1.5);
+    AMediaFormat_setInt32(meta,
+            AMEDIAFORMAT_KEY_MAX_INPUT_SIZE, image->width * image->height * 1.5);
 
     if (!image->thumbnails.empty()) {
         ssize_t thumbItemIndex = mItemIdToItemMap.indexOfKey(image->thumbnails[0]);
         if (thumbItemIndex >= 0) {
             const ImageItem &thumbnail = mItemIdToItemMap[thumbItemIndex];
 
-            meta->setInt32(kKeyThumbnailWidth, thumbnail.width);
-            meta->setInt32(kKeyThumbnailHeight, thumbnail.height);
-            meta->setData(kKeyThumbnailHVCC, kTypeHVCC,
-                    thumbnail.hvcc->data(), thumbnail.hvcc->size());
-            ALOGV("image[%u]: thumbnail: size %dx%d, item index %zd",
-                    imageIndex, thumbnail.width, thumbnail.height, thumbItemIndex);
+            if (thumbnail.hvcc != NULL) {
+                AMediaFormat_setInt32(meta,
+                        AMEDIAFORMAT_KEY_THUMBNAIL_WIDTH, thumbnail.width);
+                AMediaFormat_setInt32(meta,
+                        AMEDIAFORMAT_KEY_THUMBNAIL_HEIGHT, thumbnail.height);
+                AMediaFormat_setBuffer(meta,
+                        AMEDIAFORMAT_KEY_THUMBNAIL_CSD_HEVC,
+                        thumbnail.hvcc->data(), thumbnail.hvcc->size());
+                ALOGV("image[%u]: thumbnail: size %dx%d, item index %zd",
+                        imageIndex, thumbnail.width, thumbnail.height, thumbItemIndex);
+            } else {
+                ALOGW("%s: thumbnail data is missing for image[%u]!", __FUNCTION__, imageIndex);
+            }
         } else {
             ALOGW("%s: Referenced thumbnail does not exist!", __FUNCTION__);
         }
     }
 
     if (image->isGrid()) {
-        meta->setInt32(kKeyGridRows, image->rows);
-        meta->setInt32(kKeyGridCols, image->columns);
-
+        AMediaFormat_setInt32(meta,
+                AMEDIAFORMAT_KEY_GRID_ROWS, image->rows);
+        AMediaFormat_setInt32(meta,
+                AMEDIAFORMAT_KEY_GRID_COLUMNS, image->columns);
         // point image to the first tile for grid size and HVCC
         image = &mItemIdToItemMap.editValueAt(tileItemIndex);
-        meta->setInt32(kKeyTileWidth, image->width);
-        meta->setInt32(kKeyTileHeight, image->height);
-        meta->setInt32(kKeyMaxInputSize, image->width * image->height * 1.5);
+        AMediaFormat_setInt32(meta,
+                AMEDIAFORMAT_KEY_TILE_WIDTH, image->width);
+        AMediaFormat_setInt32(meta,
+                AMEDIAFORMAT_KEY_TILE_HEIGHT, image->height);
+        AMediaFormat_setInt32(meta,
+                AMEDIAFORMAT_KEY_MAX_INPUT_SIZE, image->width * image->height * 1.5);
     }
 
     if (image->hvcc == NULL) {
         ALOGE("%s: hvcc is missing for image[%u]!", __FUNCTION__, imageIndex);
         return NULL;
     }
-    meta->setData(kKeyHVCC, kTypeHVCC, image->hvcc->data(), image->hvcc->size());
+    AMediaFormat_setBuffer(meta,
+            AMEDIAFORMAT_KEY_CSD_HEVC, image->hvcc->data(), image->hvcc->size());
 
     if (image->icc != NULL) {
-        meta->setData(kKeyIccProfile, 0, image->icc->data(), image->icc->size());
+        AMediaFormat_setBuffer(meta,
+                AMEDIAFORMAT_KEY_ICC_PROFILE, image->icc->data(), image->icc->size());
     }
     return meta;
 }
@@ -1671,8 +1687,31 @@ status_t ItemTable::getExifOffsetAndSize(off64_t *offset, size_t *size) {
     }
 
     // skip the first 4-byte of the offset to TIFF header
-    *offset = mItemIdToExifMap[exifIndex].offset + 4;
-    *size = mItemIdToExifMap[exifIndex].size - 4;
+    uint32_t tiffOffset;
+    if (!mDataSource->readAt(
+            mItemIdToExifMap[exifIndex].offset, &tiffOffset, 4)) {
+        return ERROR_IO;
+    }
+
+    // We need 'Exif\0\0' before the tiff header
+    tiffOffset = ntohl(tiffOffset);
+    if (tiffOffset < 6) {
+        return ERROR_MALFORMED;
+    }
+    // The first 4-byte of the item is the offset of the tiff header within the
+    // exif data. The size of the item should be > 4 for a non-empty exif (this
+    // was already checked when the item was added). Also check that the tiff
+    // header offset is valid.
+    if (mItemIdToExifMap[exifIndex].size <= 4 ||
+            tiffOffset > mItemIdToExifMap[exifIndex].size - 4) {
+        return ERROR_MALFORMED;
+    }
+
+    // Offset of 'Exif\0\0' relative to the beginning of 'Exif' item
+    // (first 4-byte is the tiff header offset)
+    uint32_t exifOffset = 4 + tiffOffset - 6;
+    *offset = mItemIdToExifMap[exifIndex].offset + exifOffset;
+    *size = mItemIdToExifMap[exifIndex].size - exifOffset;
     return OK;
 }
 

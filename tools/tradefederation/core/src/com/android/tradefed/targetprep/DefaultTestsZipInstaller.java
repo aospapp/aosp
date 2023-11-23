@@ -195,19 +195,20 @@ public class DefaultTestsZipInstaller implements ITestsZipInstaller {
      */
     private void deleteDir(ITestDevice device, String fullEscapedPath)
             throws DeviceNotAvailableException, TargetSetupError {
-        String result = "unknown";
         for (int i = 1; i <= RM_ATTEMPTS; i++) {
-            result = device.executeShellCommand(String.format("rm -r %s", fullEscapedPath));
+            device.deleteFile(fullEscapedPath);
             if (!device.doesFileExist(fullEscapedPath)) {
                 return;
             }
-            CLog.d("Failed to delete dir %s on device %s on attempt %d of %d: stdout: %s",
-                    fullEscapedPath, device.getSerialNumber(), i, RM_ATTEMPTS, result);
+            CLog.d(
+                    "Failed to delete dir %s on device %s on attempt %d of %d.",
+                    fullEscapedPath, device.getSerialNumber(), i, RM_ATTEMPTS);
             // do exponential backoff
             getRunUtil().sleep(1000 * i * i);
         }
-        throw new TargetSetupError(String.format("Failed to delete dir %s. rm output: %s",
-                fullEscapedPath, result), device.getDeviceDescriptor());
+        throw new TargetSetupError(
+                String.format("Failed to delete dir %s.", fullEscapedPath),
+                device.getDeviceDescriptor());
     }
 
     /**

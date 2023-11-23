@@ -15,8 +15,10 @@
   ~ limitations under the License.
   -->
 <configuration description="Config for Mockito mocking test cases">
-   <option name="test-suite-tag" value="cts" />
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="mocking" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -25,6 +27,6 @@
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.mocking.cts" />
-        <option name="runtime-hint" value="5s" />
+        <option name="runtime-hint" value="120s" />
     </test>
 </configuration>

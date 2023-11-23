@@ -16,8 +16,10 @@
 
 #include "update_engine/connection_manager.h"
 
+#include <memory>
 #include <set>
 #include <string>
+#include <utility>
 
 #include <base/logging.h>
 #include <brillo/any.h>
@@ -38,9 +40,9 @@ using org::chromium::flimflam::ManagerProxyMock;
 using org::chromium::flimflam::ServiceProxyMock;
 using std::set;
 using std::string;
+using testing::_;
 using testing::Return;
 using testing::SetArgPointee;
-using testing::_;
 
 namespace chromeos_update_engine {
 
@@ -69,13 +71,14 @@ class ConnectionManagerTest : public ::testing::Test {
                        const char* physical_technology,
                        const char* service_tethering);
 
-  void TestWithServiceType(
-      const char* service_type,
-      const char* physical_technology,
-      ConnectionType expected_type);
-  void TestWithServiceTethering(
-      const char* service_tethering,
-      ConnectionTethering expected_tethering);
+  void TestWithServiceType(const char* service_type,
+                           const char* physical_technology,
+                           ConnectionType expected_type);
+
+  void TestWithServiceDisconnected(ConnectionType expected_type);
+
+  void TestWithServiceTethering(const char* service_tethering,
+                                ConnectionTethering expected_tethering);
 
   brillo::FakeMessageLoop loop_{nullptr};
   FakeSystemState fake_system_state_;
@@ -135,10 +138,9 @@ void ConnectionManagerTest::SetServiceReply(const string& service_path,
                                        std::move(service_proxy_mock));
 }
 
-void ConnectionManagerTest::TestWithServiceType(
-    const char* service_type,
-    const char* physical_technology,
-    ConnectionType expected_type) {
+void ConnectionManagerTest::TestWithServiceType(const char* service_type,
+                                                const char* physical_technology,
+                                                ConnectionType expected_type) {
   SetManagerReply("/service/guest/network", true);
   SetServiceReply("/service/guest/network",
                   service_type,
@@ -154,8 +156,7 @@ void ConnectionManagerTest::TestWithServiceType(
 }
 
 void ConnectionManagerTest::TestWithServiceTethering(
-    const char* service_tethering,
-    ConnectionTethering expected_tethering) {
+    const char* service_tethering, ConnectionTethering expected_tethering) {
   SetManagerReply("/service/guest/network", true);
   SetServiceReply(
       "/service/guest/network", shill::kTypeWifi, nullptr, service_tethering);
@@ -164,6 +165,18 @@ void ConnectionManagerTest::TestWithServiceTethering(
   ConnectionTethering tethering;
   EXPECT_TRUE(cmut_.GetConnectionProperties(&type, &tethering));
   EXPECT_EQ(expected_tethering, tethering);
+  testing::Mock::VerifyAndClearExpectations(
+      fake_shill_proxy_->GetManagerProxy());
+}
+
+void ConnectionManagerTest::TestWithServiceDisconnected(
+    ConnectionType expected_type) {
+  SetManagerReply("/", true);
+
+  ConnectionType type;
+  ConnectionTethering tethering;
+  EXPECT_TRUE(cmut_.GetConnectionProperties(&type, &tethering));
+  EXPECT_EQ(expected_type, type);
   testing::Mock::VerifyAndClearExpectations(
       fake_shill_proxy_->GetManagerProxy());
 }
@@ -199,6 +212,10 @@ TEST_F(ConnectionManagerTest, TetheringTest) {
 
 TEST_F(ConnectionManagerTest, UnknownTest) {
   TestWithServiceType("foo", nullptr, ConnectionType::kUnknown);
+}
+
+TEST_F(ConnectionManagerTest, DisconnectTest) {
+  TestWithServiceDisconnected(ConnectionType::kDisconnected);
 }
 
 TEST_F(ConnectionManagerTest, AllowUpdatesOverEthernetTest) {
@@ -276,16 +293,24 @@ TEST_F(ConnectionManagerTest, AllowUpdatesOver3GAndOtherTypesPerPolicyTest) {
                                         ConnectionTethering::kConfirmed));
 }
 
-TEST_F(ConnectionManagerTest, BlockUpdatesOverCellularByDefaultTest) {
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
-                                         ConnectionTethering::kUnknown));
+TEST_F(ConnectionManagerTest, AllowUpdatesOverCellularByDefaultTest) {
+  policy::MockDevicePolicy device_policy;
+  // Set an empty device policy.
+  fake_system_state_.set_device_policy(&device_policy);
+
+  EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
+                                        ConnectionTethering::kUnknown));
 }
 
-TEST_F(ConnectionManagerTest, BlockUpdatesOverTetheredNetworkByDefaultTest) {
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kWifi,
-                                         ConnectionTethering::kConfirmed));
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kEthernet,
-                                         ConnectionTethering::kConfirmed));
+TEST_F(ConnectionManagerTest, AllowUpdatesOverTetheredNetworkByDefaultTest) {
+  policy::MockDevicePolicy device_policy;
+  // Set an empty device policy.
+  fake_system_state_.set_device_policy(&device_policy);
+
+  EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kWifi,
+                                        ConnectionTethering::kConfirmed));
+  EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kEthernet,
+                                        ConnectionTethering::kConfirmed));
   EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kWifi,
                                         ConnectionTethering::kSuspected));
 }
@@ -310,62 +335,27 @@ TEST_F(ConnectionManagerTest, BlockUpdatesOver3GPerPolicyTest) {
                                          ConnectionTethering::kUnknown));
 }
 
-TEST_F(ConnectionManagerTest, BlockUpdatesOver3GIfErrorInPolicyFetchTest) {
-  policy::MockDevicePolicy allow_3g_policy;
+TEST_F(ConnectionManagerTest, AllowUpdatesOver3GIfPolicyIsNotSet) {
+  policy::MockDevicePolicy device_policy;
 
-  fake_system_state_.set_device_policy(&allow_3g_policy);
-
-  set<string> allowed_set;
-  allowed_set.insert(StringForConnectionType(ConnectionType::kCellular));
+  fake_system_state_.set_device_policy(&device_policy);
 
   // Return false for GetAllowedConnectionTypesForUpdate and see
-  // that updates are still blocked for 3G despite the value being in
-  // the string set above.
-  EXPECT_CALL(allow_3g_policy, GetAllowedConnectionTypesForUpdate(_))
-      .Times(1)
-      .WillOnce(DoAll(SetArgPointee<0>(allowed_set), Return(false)));
-
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
-                                         ConnectionTethering::kUnknown));
-}
-
-TEST_F(ConnectionManagerTest, UseUserPrefForUpdatesOverCellularIfNoPolicyTest) {
-  policy::MockDevicePolicy no_policy;
-  testing::NiceMock<MockPrefs>* prefs = fake_system_state_.mock_prefs();
-
-  fake_system_state_.set_device_policy(&no_policy);
-
-  // No setting enforced by the device policy, user prefs should be used.
-  EXPECT_CALL(no_policy, GetAllowedConnectionTypesForUpdate(_))
-      .Times(3)
-      .WillRepeatedly(Return(false));
-
-  // No user pref: block.
-  EXPECT_CALL(*prefs, Exists(kPrefsUpdateOverCellularPermission))
+  // that updates are allowed as device policy is not set. Further
+  // check is left to |OmahaRequestAction|.
+  EXPECT_CALL(device_policy, GetAllowedConnectionTypesForUpdate(_))
       .Times(1)
       .WillOnce(Return(false));
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
-                                         ConnectionTethering::kUnknown));
 
-  // Allow per user pref.
-  EXPECT_CALL(*prefs, Exists(kPrefsUpdateOverCellularPermission))
-      .Times(1)
-      .WillOnce(Return(true));
-  EXPECT_CALL(*prefs, GetBoolean(kPrefsUpdateOverCellularPermission, _))
-      .Times(1)
-      .WillOnce(DoAll(SetArgPointee<1>(true), Return(true)));
   EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
                                         ConnectionTethering::kUnknown));
+}
 
-  // Block per user pref.
-  EXPECT_CALL(*prefs, Exists(kPrefsUpdateOverCellularPermission))
-      .Times(1)
-      .WillOnce(Return(true));
-  EXPECT_CALL(*prefs, GetBoolean(kPrefsUpdateOverCellularPermission, _))
-      .Times(1)
-      .WillOnce(DoAll(SetArgPointee<1>(false), Return(true)));
-  EXPECT_FALSE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
-                                         ConnectionTethering::kUnknown));
+TEST_F(ConnectionManagerTest, AllowUpdatesOverCellularIfPolicyFailsToBeLoaded) {
+  fake_system_state_.set_device_policy(nullptr);
+
+  EXPECT_TRUE(cmut_.IsUpdateAllowedOver(ConnectionType::kCellular,
+                                        ConnectionTethering::kUnknown));
 }
 
 TEST_F(ConnectionManagerTest, StringForConnectionTypeTest) {

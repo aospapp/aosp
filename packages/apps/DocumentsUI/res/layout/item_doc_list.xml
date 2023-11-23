@@ -15,7 +15,9 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/item_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/list_item_background"
@@ -29,16 +31,17 @@
         android:baselineAligned="false"
         android:gravity="center_vertical"
         android:minHeight="@dimen/list_item_height"
-        android:orientation="horizontal"
-        android:paddingEnd="@dimen/list_item_padding"
-        android:paddingStart="@dimen/list_item_padding" >
+        android:orientation="horizontal" >
 
         <FrameLayout
             android:id="@android:id/icon"
             android:pointerIcon="hand"
-            android:layout_width="@dimen/list_item_thumbnail_size"
-            android:layout_height="@dimen/list_item_thumbnail_size"
-            android:layout_marginEnd="16dp" >
+            android:layout_width="@dimen/list_item_width"
+            android:layout_height="@dimen/list_item_height"
+            android:paddingBottom="@dimen/list_item_icon_padding"
+            android:paddingTop="@dimen/list_item_icon_padding"
+            android:paddingEnd="16dp"
+            android:paddingStart="@dimen/list_item_padding" >
 
             <ImageView
                 android:id="@+id/icon_mime"
@@ -71,7 +74,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_gravity="center_vertical" >
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="@dimen/list_item_padding" >
 
             <TextView
                 android:id="@android:id/title"
@@ -81,8 +85,7 @@
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:textAlignment="viewStart"
-                android:textAppearance="@android:style/TextAppearance.Material.Subhead"
-                android:textColor="@color/item_title" />
+                android:textAppearance="?android:attr/textAppearanceListItem" />
 
             <LinearLayout
                 android:id="@+id/line2"
@@ -94,49 +97,56 @@
 
                 <TextView
                     android:id="@+id/date"
-                    android:layout_width="90dp"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="0.4"
                     android:ellipsize="end"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"
-                    android:textColor="@color/item_details" />
+                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
 
                 <TextView
                     android:id="@+id/size"
-                    android:layout_width="90dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:ellipsize="end"
-                    android:singleLine="true"
-                    android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"
-                    android:textColor="@color/item_details" />
-
-                <TextView
-                    android:id="@+id/file_type"
-                    android:layout_width="90dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:ellipsize="end"
-                    android:singleLine="true"
-                    android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"
-                    android:textColor="@color/item_details" />
-
-                <TextView
-                    android:id="@android:id/summary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:layout_weight="1"
+                    android:layout_weight="0.3"
                     android:ellipsize="end"
                     android:singleLine="true"
                     android:textAlignment="viewStart"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"
-                    android:textColor="@color/item_details" />
+                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
+
+                <TextView
+                    android:id="@+id/file_type"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="0.3"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textAlignment="viewStart"
+                    android:textAppearance="@android:style/TextAppearance.Material.Caption"/>
             </LinearLayout>
         </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/preview_icon"
+            android:layout_width="@dimen/list_item_width"
+            android:layout_height="@dimen/list_item_height"
+            android:padding="@dimen/list_item_icon_padding"
+            android:focusable="true"
+            android:clickable="true">
+
+            <ImageView
+                android:layout_width="@dimen/check_icon_size"
+                android:layout_height="@dimen/check_icon_size"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:tint="?android:attr/colorControlNormal"
+                android:src="@drawable/ic_zoom_out"/>
+
+        </FrameLayout>
+
     </LinearLayout>
 
 </LinearLayout>

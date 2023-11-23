@@ -44,9 +44,10 @@ common_cflags = [
 //     usually decreases the amount of PSS used, but can increase
 //     fragmentation.
 
-// Default to a single arena for svelte configurations to minimize
-// PSS consumed by jemalloc.
-common_cflags += [
+android_common_cflags = [
+    // Default to a single arena for svelte configurations to minimize
+    // PSS. This will be overridden by android_product_variables for
+    // non-svelte configs.
     "-DANDROID_MAX_ARENAS=1",
     "-DANDROID_LG_TCACHE_MAXCLASS_DEFAULT=16",
 ]
@@ -56,7 +57,7 @@ common_c_local_includes = [
     "include",
 ]
 
-common_product_variables = {
+android_product_variables = {
     // Only enable the tcache on non-svelte configurations, to save PSS.
     malloc_not_svelte: {
         cflags: [
@@ -72,9 +73,23 @@ common_product_variables = {
 cc_defaults {
     name: "jemalloc_defaults",
     defaults: ["linux_bionic_supported"],
+    host_supported: true,
     cflags: common_cflags,
 
-    product_variables: common_product_variables,
+    target: {
+        android: {
+            cflags: android_common_cflags + [
+                "-include android/include/log.h",
+            ],
+            product_variables: android_product_variables,
+        },
+        linux_bionic: {
+            cflags: ["-DJEMALLOC_TCACHE"],
+        },
+        linux_glibc: {
+            enabled: true,
+        },
+    },
 
     multilib: {
         lib32: {
@@ -132,12 +147,19 @@ lib_src_files = [
 //-----------------------------------------------------------------------
 // jemalloc static library
 //-----------------------------------------------------------------------
-cc_library_static {
+cc_library {
     name: "libjemalloc",
+    recovery_available: true,
 
     defaults: ["jemalloc_defaults"],
 
-    cflags: ["-include bionic/libc/async_safe/include/async_safe/log.h"],
+    target: {
+        android: {
+            shared: {
+                enabled: false,
+            },
+        },
+    },
 
     srcs: lib_src_files,
 }
@@ -152,7 +174,6 @@ cc_library_static {
 
     cflags: [
         "-DJEMALLOC_JET",
-        "-include android/include/log.h",
     ],
 
     srcs: lib_src_files,
@@ -179,10 +200,8 @@ cc_library_static {
     name: "libjemalloc_unittest",
 
     defaults: ["jemalloc_defaults"],
-
     cflags: [
         "-DJEMALLOC_UNIT_TEST",
-        "-include android/include/log.h",
     ],
 
     local_include_dirs: [
@@ -193,7 +212,6 @@ cc_library_static {
     srcs: jemalloc_testlib_srcs,
 
     whole_static_libs: ["libjemalloc_jet"],
-
 }
 
 //-----------------------------------------------------------------------
@@ -246,13 +264,12 @@ unit_tests = [
 cc_test {
     name: "jemalloc_unittests",
 
-    gtest: false,
+    defaults: ["jemalloc_defaults"],
 
-    product_variables: common_product_variables,
+    gtest: false,
 
     cflags: common_cflags + [
         "-DJEMALLOC_UNIT_TEST",
-        "-include android/include/log.h",
     ],
 
     local_include_dirs: common_c_local_includes + [
@@ -267,6 +284,15 @@ cc_test {
     shared_libs: ["liblog"],
 
     test_per_src: true,
+
+    target: {
+        linux_glibc: {
+            // The sanitizer does not work for these tests on the host.
+            sanitize: {
+                never: true,
+            },
+        },
+    },
 }
 
 //-----------------------------------------------------------------------
@@ -279,7 +305,6 @@ cc_library_static {
 
     cflags: [
         "-DJEMALLOC_INTEGRATION_TEST",
-        "-include android/include/log.h",
     ],
 
     local_include_dirs: [
@@ -298,7 +323,6 @@ integration_tests = [
     "test/integration/aligned_alloc.c",
     "test/integration/allocated.c",
     "test/integration/chunk.c",
-    "test/integration/iterate.c",
     "test/integration/MALLOCX_ARENA.c",
     "test/integration/mallocx.c",
     "test/integration/overflow.c",
@@ -310,17 +334,19 @@ integration_tests = [
     "test/integration/xallocx.c",
 ]
 
-cc_test {
+android_integration_tests = [
+    "test/integration/iterate.c",
+]
 
+cc_test {
     name: "jemalloc_integrationtests",
+
+    defaults: ["jemalloc_defaults"],
 
     gtest: false,
 
-    product_variables: common_product_variables,
-
     cflags: common_cflags + [
         "-DJEMALLOC_INTEGRATION_TEST",
-        "-include android/include/log.h",
     ],
 
     local_include_dirs: common_c_local_includes + [
@@ -329,6 +355,17 @@ cc_test {
     ],
 
     srcs: integration_tests,
+    target: {
+        android: {
+            srcs: android_integration_tests,
+        },
+        linux_glibc: {
+            // The sanitizer does not work for these tests on the host.
+            sanitize: {
+                never: true,
+            },
+        },
+    },
 
     static_libs: ["libjemalloc_integrationtest"],
 

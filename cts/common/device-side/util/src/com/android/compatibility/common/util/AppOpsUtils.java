@@ -74,6 +74,25 @@ public class AppOpsUtils {
     }
 
     /**
+     * Get the app op mode (e.g. MODE_ALLOWED, MODE_DEFAULT) for a single package and operation.
+     */
+    public static int getOpMode(String packageName, String opStr)
+            throws IOException {
+        String opState = getOpState(packageName, opStr);
+        if (opState.contains(" allow")) {
+            return MODE_ALLOWED;
+        } else if (opState.contains(" deny")) {
+            return MODE_ERRORED;
+        } else if (opState.contains(" ignore")) {
+            return MODE_IGNORED;
+        } else if (opState.contains(" default")) {
+            return MODE_DEFAULT;
+        } else {
+            throw new IllegalStateException("Unexpected app op mode returned " + opState);
+        }
+    }
+
+    /**
      * Returns whether an allowed operation has been logged by the AppOpsManager for a
      * package. Operations are noted when the app attempts to perform them and calls e.g.
      * {@link AppOpsManager#noteOperation}.
@@ -86,7 +105,7 @@ public class AppOpsUtils {
     }
 
     /**
-     * Returns whether an allowed operation has been logged by the AppOpsManager for a
+     * Returns whether a rejected operation has been logged by the AppOpsManager for a
      * package. Operations are noted when the app attempts to perform them and calls e.g.
      * {@link AppOpsManager#noteOperation}.
      *

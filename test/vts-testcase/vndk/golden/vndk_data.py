@@ -14,32 +14,32 @@
 # limitations under the License.
 #
 
-import csv
+import collections
 import logging
 import os
 
-# The tags in VNDK spreadsheet:
+# The tags in VNDK list:
 # Low-level NDK libraries that can be used by framework and vendor modules.
-LL_NDK = "LL-NDK"
+LL_NDK = "LLNDK"
 
 # LL-NDK dependencies that vendor modules cannot directly access.
-LL_NDK_PRIVATE = "LL-NDK-Private"
+LL_NDK_PRIVATE = "LLNDK-private"
 
 # Same-process HAL implementation in vendor partition.
 SP_HAL = "SP-HAL"
 
 # Framework libraries that can be used by vendor modules except same-process HAL
 # and its dependencies in vendor partition.
-VNDK = "VNDK"
+VNDK = "VNDK-core"
 
 # VNDK dependencies that vendor modules cannot directly access.
-VNDK_PRIVATE = "VNDK-Private"
+VNDK_PRIVATE = "VNDK-core-private"
 
 # Same-process HAL dependencies in framework.
 VNDK_SP = "VNDK-SP"
 
 # VNDK-SP dependencies that vendor modules cannot directly access.
-VNDK_SP_PRIVATE = "VNDK-SP-Private"
+VNDK_SP_PRIVATE = "VNDK-SP-private"
 
 # The ABI dump directories. 64-bit comes before 32-bit in order to sequentially
 # search for longest prefix.
@@ -48,6 +48,8 @@ _ABI_NAMES = ("arm64", "arm", "mips64", "mips", "x86_64", "x86")
 # The data directory.
 _GOLDEN_DIR = os.path.join("vts", "testcases", "vndk", "golden")
 
+# Regular expression prefix for library name patterns.
+_REGEX_PREFIX = "[regex]"
 
 def LoadDefaultVndkVersion(data_file_path):
     """Loads the name of the data directory for devices with no VNDK version.
@@ -106,6 +108,52 @@ def GetAbiDumpDirectory(data_file_path, version, binder_bitness, abi_name,
     return dump_dir
 
 
+def _LoadVndkLibraryListsFile(vndk_lists, tags, vndk_lib_list_path):
+    """Load VNDK libraries from the file to the specified tuple.
+
+    Args:
+        vndk_lists: The output tuple of lists containing library names.
+        tags: Strings, the tags of the libraries to find.
+        vndk_lib_list_path: The path to load the VNDK library list.
+    """
+
+    lib_sets = collections.defaultdict(set)
+
+    # Load VNDK tags from the list.
+    with open(vndk_lib_list_path) as vndk_lib_list_file:
+        for line in vndk_lib_list_file:
+            # Ignore comments.
+            if line.startswith('#'):
+                continue
+
+            # Split columns.
+            cells = line.split(': ', 1)
+            if len(cells) < 2:
+                continue
+            tag = cells[0]
+            lib_name = cells[1].strip()
+
+            lib_sets[tag].add(lib_name)
+
+    # Compute VNDK-core-private and VNDK-SP-private.
+    private = lib_sets.get('VNDK-private', set())
+
+    lib_sets[LL_NDK_PRIVATE].update(lib_sets[LL_NDK] & private)
+    lib_sets[VNDK_PRIVATE].update(lib_sets[VNDK] & private)
+    lib_sets[VNDK_SP_PRIVATE].update(lib_sets[VNDK_SP] & private)
+
+    lib_sets[LL_NDK].difference_update(private)
+    lib_sets[VNDK].difference_update(private)
+    lib_sets[VNDK_SP].difference_update(private)
+
+    # Update the output entries.
+    for index, tag in enumerate(tags):
+        for lib_name in lib_sets.get(tag, tuple()):
+            if lib_name.startswith(_REGEX_PREFIX):
+                lib_name = lib_name[len(_REGEX_PREFIX):]
+            vndk_lists[index].append(lib_name)
+
+
 def LoadVndkLibraryLists(data_file_path, version, *tags):
     """Find the VNDK libraries with specific tags.
 
@@ -125,25 +173,20 @@ def LoadVndkLibraryLists(data_file_path, version, *tags):
     if not version_dir:
         return None
 
-    path = os.path.join(
-        data_file_path, _GOLDEN_DIR, version_dir, "eligible-list.csv")
-    if not os.path.isfile(path):
-        logging.warning("Cannot load %s.", path)
+    vndk_lib_list_path = os.path.join(
+        data_file_path, _GOLDEN_DIR, version_dir, "vndk-lib-list.txt")
+    if not os.path.isfile(vndk_lib_list_path):
+        logging.warning("Cannot load %s.", vndk_lib_list_path)
         return None
 
-    dir_suffix = "-" + version if version else ""
+    vndk_lib_extra_list_path = os.path.join(
+        data_file_path, _GOLDEN_DIR, version_dir, "vndk-lib-extra-list.txt")
+    if not os.path.isfile(vndk_lib_extra_list_path):
+        logging.warning("Cannot load %s.", vndk_lib_extra_list_path)
+        return None
+
     vndk_lists = tuple([] for x in tags)
-    with open(path) as csv_file:
-        # Skip header
-        next(csv_file)
-        reader = csv.reader(csv_file)
-        for cells in reader:
-            for tag_index, tag in enumerate(tags):
-                if tag == cells[1]:
-                    lib_name = cells[0].replace("${VNDK_VER}", dir_suffix)
-                    if lib_name.startswith("[regex]"):
-                        lib_name = lib_name[len("[regex]"):]
-                    vndk_lists[tag_index].extend(
-                        lib_name.replace("${LIB}", lib)
-                        for lib in ("lib", "lib64"))
+
+    _LoadVndkLibraryListsFile(vndk_lists, tags, vndk_lib_list_path)
+    _LoadVndkLibraryListsFile(vndk_lists, tags, vndk_lib_extra_list_path)
     return vndk_lists

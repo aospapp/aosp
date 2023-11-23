@@ -29,7 +29,7 @@ public class TestLogClient {
     public static final String EXTRA_KEY = "key";
     public static final String EXTRA_VALUE = "value";
 
-    private static final String TEST_LOGGER_PACKAGE_NAME = "android.server.cts.wm";
+    private static final String TEST_LOGGER_PACKAGE_NAME = "android.server.wm.cts";
     private static final String TEST_LOGGER_SERVICE_NAME = "android.server.wm.TestLogService";
 
     private final Context mContext;

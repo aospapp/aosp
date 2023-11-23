@@ -117,7 +117,8 @@ bool DriverBase::Fuzz(vts::ComponentSpecificationMessage* message,
   LOG(DEBUG) << "Fuzzing target component: "
              << "class " << message->component_class() << " type "
              << message->component_type() << " version "
-             << message->component_type_version();
+             << GetVersionString(message->component_type_version_major(),
+                                 message->component_type_version_minor());
 
   string function_name_prefix = GetFunctionNamePrefix(*message);
   function_name_prefix_ = function_name_prefix.c_str();

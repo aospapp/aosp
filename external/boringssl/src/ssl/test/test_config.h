@@ -18,6 +18,10 @@
 #include <string>
 #include <vector>
 
+#include <openssl/base.h>
+#include <openssl/x509.h>
+
+#include "test_state.h"
 
 struct TestConfig {
   int port = 0;
@@ -28,6 +32,8 @@ struct TestConfig {
   bool fallback_scsv = false;
   std::vector<int> signing_prefs;
   std::vector<int> verify_prefs;
+  std::vector<int> expected_peer_verify_prefs;
+  std::vector<int> curves;
   std::string key_file;
   std::string cert_file;
   std::string expected_server_name;
@@ -45,7 +51,7 @@ struct TestConfig {
   bool no_tls12 = false;
   bool no_tls11 = false;
   bool no_tls1 = false;
-  bool no_ssl3 = false;
+  bool no_ticket = false;
   std::string expected_channel_id;
   bool enable_channel_id = false;
   std::string send_channel_id;
@@ -59,6 +65,7 @@ struct TestConfig {
   std::string expected_advertised_alpn;
   std::string select_alpn;
   bool decline_alpn = false;
+  bool select_empty_alpn = false;
   std::string quic_transport_params;
   std::string expected_quic_transport_params;
   bool expect_session_miss = false;
@@ -79,7 +86,6 @@ struct TestConfig {
   bool fail_early_callback = false;
   bool install_ddos_callback = false;
   bool fail_ddos_callback = false;
-  bool fail_second_ddos_callback = false;
   bool fail_cert_callback = false;
   std::string cipher;
   bool handshake_never_done = false;
@@ -98,7 +104,6 @@ struct TestConfig {
   bool use_ticket_callback = false;
   bool renew_ticket = false;
   bool enable_early_data = false;
-  int tls13_variant = 0;
   bool enable_client_custom_extension = false;
   bool enable_server_custom_extension = false;
   bool custom_extension_skip = false;
@@ -115,8 +120,8 @@ struct TestConfig {
   bool renegotiate_once = false;
   bool renegotiate_freely = false;
   bool renegotiate_ignore = false;
+  bool forbid_renegotiation_after_handshake = false;
   int expect_peer_signature_algorithm = 0;
-  bool p384_only = false;
   bool enable_all_curves = false;
   int expect_curve_id = 0;
   bool use_old_client_cert_callback = false;
@@ -150,13 +155,47 @@ struct TestConfig {
   bool use_custom_verify_callback = false;
   std::string expect_msg_callback;
   bool allow_false_start_without_alpn = false;
-  bool expect_draft_downgrade = false;
-  int dummy_pq_padding_len = 0;
+  bool ignore_tls13_downgrade = false;
+  bool expect_tls13_downgrade = false;
   bool handoff = false;
+  bool no_rsa_pss_rsae_certs = false;
+  bool use_ocsp_callback = false;
+  bool set_ocsp_in_callback = false;
+  bool decline_ocsp_callback = false;
+  bool fail_ocsp_callback = false;
+  bool install_cert_compression_algs = false;
+  bool reverify_on_resume = false;
+  bool enforce_rsa_key_usage = false;
+  bool is_handshaker_supported = false;
+  bool handshaker_resume = false;
+  std::string handshaker_path;
+  bool jdk11_workaround = false;
+  bool server_preference = false;
+  bool export_traffic_secrets = false;
+  bool key_update = false;
+  std::string delegated_credential;
+
+  int argc;
+  char **argv;
+
+  bssl::UniquePtr<SSL_CTX> SetupCtx(SSL_CTX *old_ctx) const;
+
+  bssl::UniquePtr<SSL> NewSSL(SSL_CTX *ssl_ctx, SSL_SESSION *session,
+                              bool is_resume,
+                              std::unique_ptr<TestState> test_state) const;
 };
 
 bool ParseConfig(int argc, char **argv, TestConfig *out_initial,
                  TestConfig *out_resume, TestConfig *out_retry);
 
+bool SetTestConfig(SSL *ssl, const TestConfig *config);
+
+const TestConfig *GetTestConfig(const SSL *ssl);
+
+bool LoadCertificate(bssl::UniquePtr<X509> *out_x509,
+                     bssl::UniquePtr<STACK_OF(X509)> *out_chain,
+                     const std::string &file);
+
+bssl::UniquePtr<EVP_PKEY> LoadPrivateKey(const std::string &file);
 
 #endif  // HEADER_TEST_CONFIG

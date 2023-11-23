@@ -16,7 +16,6 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.JUnitToInvocationResultForwarder;
@@ -33,16 +32,15 @@ import java.util.HashMap;
  */
 public class JUnitRunUtil {
 
-    public static void runTest(ITestInvocationListener listener, Test junitTest)
+    public static boolean runTest(ITestInvocationListener listener, Test junitTest)
             throws DeviceNotAvailableException {
-        runTest(listener, junitTest, junitTest.getClass().getName());
+        return runTest(listener, junitTest, junitTest.getClass().getName());
     }
 
-    public static void runTest(ITestInvocationListener listener, Test junitTest,
-            String runName) throws DeviceNotAvailableException {
+    public static boolean runTest(ITestInvocationListener listener, Test junitTest, String runName)
+            throws DeviceNotAvailableException {
         if (junitTest.countTestCases() == 0) {
-            CLog.v("Skipping empty test case %s", runName);
-            return;
+            return false;
         }
         listener.testRunStarted(runName, junitTest.countTestCases());
         long startTime = System.currentTimeMillis();
@@ -60,5 +58,6 @@ public class JUnitRunUtil {
             listener.testRunEnded(
                     System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         }
+        return true;
     }
 }

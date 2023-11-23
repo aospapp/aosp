@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging
+import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -16,6 +17,9 @@ class firmware_ECBootTime(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECBootTime, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.host = host
@@ -52,12 +56,6 @@ class firmware_ECBootTime(FirmwareTest):
         else:
             ec_ready = ["([0-9.]+) Inits done"]
 
-        # Really before sending the power on console command, we should wait
-        # until the console task is ready to receive input.  The console task
-        # prints a string when it's ready to do so, so let's search for that
-        # too.
-        ec_ready.append("Console is enabled")
-
         power_cmd = "powerbtn" if self.faft_config.ec_has_powerbtn_cmd else \
                     "power on"
         # Try the EC reboot command several times in case the console
@@ -73,16 +71,24 @@ class firmware_ECBootTime(FirmwareTest):
                 logging.info("Unable to parse EC console output, "
                              "%d more attempts", retry)
         if retry == 0:
-            # If the magic string was not found reboot the EC and wait
-            # for the host to come up so it is ready for the next test.
-            self.ec.reboot()
-            self.host.wait_up(timeout=30)
             raise error.TestFail("Unable to reboot EC cleanly, " +
                                  "Please try removing AC power")
         logging.debug("reboot: %r", reboot)
 
+        # The EC console must be available 1 second after startup
+        time.sleep(1)
+
+        version = self.ec.get_version()
+
+        if not version:
+            raise error.TestFail("Unable to get EC console.")
+
+        # Switch on the AP
         power_press = self.ec.send_command_get_output(
             power_cmd, boot_anchors)
+
+        # TODO(crbug.com/847289): reboot_time only measures the time spent in
+        # EC's main function, which is not a good measure of "EC cold boot time"
         reboot_time = float(reboot[0][1])
         power_press_time = float(power_press[0][1])
         firmware_resp_time = float(power_press[1][1])
@@ -95,13 +101,20 @@ class firmware_ECBootTime(FirmwareTest):
             raise error.TestFail("Boot time longer than 1 second.")
 
     def is_arm_legacy_board(self):
+        """Detect whether the board is a legacy ARM board.
+
+        This group of boards prints specific strings on the EC console when the
+        EC and AP come out of reset.
+        """
+
         arm_legacy = ('Snow', 'Spring', 'Pit', 'Pi', 'Big', 'Blaze', 'Kitty')
         output = self.faft_client.system.get_platform_name()
         return output in arm_legacy
 
     def run_once(self):
-        if not self.check_ec_capability():
-            raise error.TestNAError("Nothing needs to be tested on this device")
+        """Execute the main body of the test.
+        """
+
         self._x86 = ('x86' in self.faft_config.ec_capability)
         self._doubleboot = ('doubleboot' in self.faft_config.ec_capability)
         self._arm_legacy = self.is_arm_legacy_board()
@@ -110,9 +123,14 @@ class firmware_ECBootTime(FirmwareTest):
         self.switcher.mode_aware_reboot('custom', self.check_boot_time)
 
     def cleanup(self):
-        # Restore the ec_uart_regexp to None
         try:
+            # Restore the ec_uart_regexp to None
             self.ec.set_uart_regexp('None')
+
+            # Reboot the EC and wait for the host to come up so it is ready for
+            # the next test.
+            self.ec.reboot()
+            self.host.wait_up(timeout=30)
         except Exception as e:
             logging.error("Caught exception: %s", str(e))
         super(firmware_ECBootTime, self).cleanup()

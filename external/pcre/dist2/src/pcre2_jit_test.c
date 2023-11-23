@@ -179,10 +179,12 @@ static struct regression_test_case regression_test_cases[] = {
 	{ PCRE2_CASELESS, 0, 0, 0, "\xff#a", "\xff#\xff\xfe##\xff#A" },
 	{ PCRE2_CASELESS, 0, 0, 0, "\xfe", "\xff\xfc#\xfe\xfe" },
 	{ PCRE2_CASELESS, 0, 0, 0, "a1", "Aa1" },
+#ifndef NEVER_BACKSLASH_C
 	{ M, A, 0, 0, "\\Ca", "cda" },
 	{ CM, A, 0, 0, "\\Ca", "CDA" },
 	{ M, A, 0, 0 | F_NOMATCH, "\\Cx", "cda" },
 	{ CM, A, 0, 0 | F_NOMATCH, "\\Cx", "CDA" },
+#endif
 	{ CMUP, A, 0, 0, "\xf0\x90\x90\x80\xf0\x90\x90\xa8", "\xf0\x90\x90\xa8\xf0\x90\x90\x80" },
 	{ CMUP, A, 0, 0, "\xf0\x90\x90\x80{2}", "\xf0\x90\x90\x80#\xf0\x90\x90\xa8\xf0\x90\x90\x80" },
 	{ CMUP, A, 0, 0, "\xf0\x90\x90\xa8{2}", "\xf0\x90\x90\x80#\xf0\x90\x90\xa8\xf0\x90\x90\x80" },
@@ -258,6 +260,8 @@ static struct regression_test_case regression_test_cases[] = {
 	{ MU, A, 0, 0, "=\xc7\x82|#\xc6\x82", "\xf1\x83\x82\x82=\xc7\x82\xc7\x83" },
 	{ MU, A, 0, 0, "\xc7\x82\xc7\x83|\xc6\x82\xc6\x82", "\xf1\x83\x82\x82\xc7\x82\xc7\x83" },
 	{ MU, A, 0, 0, "\xc6\x82\xc6\x82|\xc7\x83\xc7\x83|\xc8\x84\xc8\x84", "\xf1\x83\x82\x82\xc8\x84\xc8\x84" },
+	{ U, A, 0, 0, "\xe1\x81\x80|\xe2\x82\x80|\xe4\x84\x80", "\xdf\xbf\xc2\x80\xe4\x84\x80" },
+	{ U, A, 0, 0, "(?:\xe1\x81\x80|\xe2\x82\x80|\xe4\x84\x80)#", "\xdf\xbf\xc2\x80#\xe4\x84\x80#" },
 
 	/* Greedy and non-greedy ? operators. */
 	{ MU, A, 0, 0, "(?:a)?a", "laab" },
@@ -707,7 +711,7 @@ static struct regression_test_case regression_test_cases[] = {
 	{ MU, A, 0, 0, "(?1)(((a(*ACCEPT)))b)", "axaa" },
 	{ MU, A, 0, 0, "(?1)(?(DEFINE) (((ac(*ACCEPT)))b) )", "akaac" },
 	{ MU, A, 0, 0, "(a+)b(?1)b\\1", "abaaabaaaaa" },
-	{ MU, A, 0, 0 | F_NOMATCH, "(?(DEFINE)(aa|a))(?1)ab", "aab" },
+	{ MU, A, 0, 0, "(?(DEFINE)(aa|a))(?1)ab", "aab" },
 	{ MU, A, 0, 0, "(?(DEFINE)(a\\Kb))(?1)+ababc", "abababxabababc" },
 	{ MU, A, 0, 0, "(a\\Kb)(?1)+ababc", "abababxababababc" },
 	{ MU, A, 0, 0 | F_NOMATCH, "(a\\Kb)(?1)+ababc", "abababxababababxc" },
@@ -724,6 +728,8 @@ static struct regression_test_case regression_test_cases[] = {
 	{ MU, A, 0, 0, "((?:(?(R)a|(?1))){3})", "XaaaaaaaaaX" },
 	{ MU, A, 0, 0, "((?(R)a|(?1)){1,3})aaaaaa", "aaaaaaaaXaaaaaaaaa" },
 	{ MU, A, 0, 0, "((?(R)a|(?1)){1,3}?)M", "aaaM" },
+	{ MU, A, 0, 0, "((.)(?:.|\\2(?1))){0}#(?1)#", "#aabbccdde# #aabbccddee#" },
+	{ MU, A, 0, 0, "((.)(?:\\2|\\2{4}b)){0}#(?:(?1))+#", "#aaaab# #aaaaab#" },
 
 	/* 16 bit specific tests. */
 	{ CM, A, 0, 0 | F_FORCECONV, "\xc3\xa1", "\xc3\x81\xc3\xa1" },
@@ -842,13 +848,23 @@ static struct regression_test_case regression_test_cases[] = {
 	{ MU, A, 0, 0 | F_NOMATCH, "(?(?=a)a(*THEN)b|ad)", "ad" },
 	{ MU, A, 0, 0, "(?!(?(?=a)ab|b(*THEN)d))bn|bnn", "bnn" },
 
+	/* Recurse and control verbs. */
+	{ MU, A, 0, 0, "(a(*ACCEPT)b){0}a(?1)b", "aacaabb" },
+	{ MU, A, 0, 0, "((a)\\2(*ACCEPT)b){0}a(?1)b", "aaacaaabb" },
+	{ MU, A, 0, 0, "((ab|a(*ACCEPT)x)+|ababababax){0}_(?1)_", "_ababababax_ _ababababa_" },
+	{ MU, A, 0, 0, "((.)(?:A(*ACCEPT)|(?1)\\2)){0}_(?1)_", "_bcdaAdcb_bcdaAdcb_" },
+	{ MU, A, 0, 0, "((*MARK:m)(?:a|a(*COMMIT)b|aa)){0}_(?1)_", "_ab_" },
+	{ MU, A, 0, 0, "((*MARK:m)(?:a|a(*COMMIT)b|aa)){0}_(?1)_|(_aa_)", "_aa_" },
+	{ MU, A, 0, 0, "(a(*COMMIT)(?:b|bb)|c(*ACCEPT)d|dd){0}_(?1)+_", "_ax_ _cd_ _abbb_ _abcd_ _abbcdd_" },
+	{ MU, A, 0, 0, "((.)(?:.|(*COMMIT)\\2{3}(*ACCEPT).*|.*)){0}_(?1){0,4}_", "_aaaabbbbccccddd_ _aaaabbbbccccdddd_" },
+
 	/* Deep recursion. */
 	{ MU, A, 0, 0, "((((?:(?:(?:\\w)+)?)*|(?>\\w)+?)+|(?>\\w)?\?)*)?\\s", "aaaaa+ " },
 	{ MU, A, 0, 0, "(?:((?:(?:(?:\\w*?)+)??|(?>\\w)?|\\w*+)*)+)+?\\s", "aa+ " },
 	{ MU, A, 0, 0, "((a?)+)+b", "aaaaaaaaaaaa b" },
 
 	/* Deep recursion: Stack limit reached. */
-	{ M, A, 0, 0 | F_NOMATCH, "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaa" },
+	{ M, A, 0, 0 | F_NOMATCH, "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaa" },
 	{ M, A, 0, 0 | F_NOMATCH, "(?:a+)+b", "aaaaaaaaaaaaaaaaaaaaaaaa b" },
 	{ M, A, 0, 0 | F_NOMATCH, "(?:a+?)+?b", "aaaaaaaaaaaaaaaaaaaaaaaa b" },
 	{ M, A, 0, 0 | F_NOMATCH, "(?:a*)*b", "aaaaaaaaaaaaaaaaaaaaaaaa b" },
@@ -1309,14 +1325,15 @@ static int regression_tests(void)
 		} else {
 			ovector8_1 = pcre2_get_ovector_pointer_8(mdata8_1);
 			ovector8_2 = pcre2_get_ovector_pointer_8(mdata8_2);
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector8_1[i] = -2;
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector8_2[i] = -2;
 		}
 		if (re8) {
+                        (void)pcre2_set_match_limit_8(mcontext8, 10000000);
 			return_value8[1] = pcre2_match_8(re8, (PCRE2_SPTR8)current->input, strlen(current->input),
-				current->start_offset & OFFSET_MASK, current->match_options, mdata8_2, NULL);
+				current->start_offset & OFFSET_MASK, current->match_options, mdata8_2, mcontext8);
 
 			if (pcre2_jit_compile_8(re8, jit_compile_mode)) {
 				printf("\n8 bit: JIT compiler does not support \"%s\"\n", current->pattern);
@@ -1348,9 +1365,9 @@ static int regression_tests(void)
 		} else {
 			ovector16_1 = pcre2_get_ovector_pointer_16(mdata16_1);
 			ovector16_2 = pcre2_get_ovector_pointer_16(mdata16_2);
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector16_1[i] = -2;
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector16_2[i] = -2;
 		}
 		if (re16) {
@@ -1359,8 +1376,9 @@ static int regression_tests(void)
 			else
 				length16 = copy_char8_to_char16((PCRE2_SPTR8)current->input, regtest_buf16, REGTEST_MAX_LENGTH16);
 
+                        (void)pcre2_set_match_limit_16(mcontext16, 10000000);
 			return_value16[1] = pcre2_match_16(re16, regtest_buf16, length16,
-				current->start_offset & OFFSET_MASK, current->match_options, mdata16_2, NULL);
+				current->start_offset & OFFSET_MASK, current->match_options, mdata16_2, mcontext16);
 
 			if (pcre2_jit_compile_16(re16, jit_compile_mode)) {
 				printf("\n16 bit: JIT compiler does not support \"%s\"\n", current->pattern);
@@ -1392,9 +1410,9 @@ static int regression_tests(void)
 		} else {
 			ovector32_1 = pcre2_get_ovector_pointer_32(mdata32_1);
 			ovector32_2 = pcre2_get_ovector_pointer_32(mdata32_2);
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector32_1[i] = -2;
-			for (i = 0; i < OVECTOR_SIZE * 3; ++i)
+			for (i = 0; i < OVECTOR_SIZE * 2; ++i)
 				ovector32_2[i] = -2;
 		}
 		if (re32) {
@@ -1403,8 +1421,9 @@ static int regression_tests(void)
 			else
 				length32 = copy_char8_to_char32((PCRE2_SPTR8)current->input, regtest_buf32, REGTEST_MAX_LENGTH32);
 
+                        (void)pcre2_set_match_limit_32(mcontext32, 10000000);
 			return_value32[1] = pcre2_match_32(re32, regtest_buf32, length32,
-				current->start_offset & OFFSET_MASK, current->match_options, mdata32_2, NULL);
+				current->start_offset & OFFSET_MASK, current->match_options, mdata32_2, mcontext32);
 
 			if (pcre2_jit_compile_32(re32, jit_compile_mode)) {
 				printf("\n32 bit: JIT compiler does not support \"%s\"\n", current->pattern);

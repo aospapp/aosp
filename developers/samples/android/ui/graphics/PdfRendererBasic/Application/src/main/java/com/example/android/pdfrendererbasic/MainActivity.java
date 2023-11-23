@@ -16,25 +16,29 @@
 
 package com.example.android.pdfrendererbasic;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
+
 public class MainActivity extends AppCompatActivity {
 
-    public static final String FRAGMENT_PDF_RENDERER_BASIC = "pdf_renderer_basic";
+    private static final String FRAGMENT_INFO = "info";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main_real);
+        setContentView(R.layout.main_activity);
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
-                    .add(R.id.container, new PdfRendererBasicFragment(),
-                            FRAGMENT_PDF_RENDERER_BASIC)
-                    .commit();
+                    .add(R.id.container, new PdfRendererBasicFragment())
+                    .commitNow();
         }
     }
 
@@ -48,12 +52,23 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_info:
-                new AlertDialog.Builder(this)
-                        .setMessage(R.string.intro_message)
-                        .setPositiveButton(android.R.string.ok, null)
-                        .show();
+                new InfoDialogFragment().show(getSupportFragmentManager(), FRAGMENT_INFO);
                 return true;
         }
         return super.onOptionsItemSelected(item);
     }
+
+    public static class InfoDialogFragment extends DialogFragment {
+
+        @NonNull
+        @Override
+        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+            return new AlertDialog.Builder(requireContext())
+                    .setMessage(R.string.intro_message)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        }
+
+    }
+
 }

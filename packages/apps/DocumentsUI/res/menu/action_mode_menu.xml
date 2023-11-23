@@ -16,10 +16,6 @@
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/action_menu_open"
-        android:title="@string/menu_open"
-        android:showAsAction="always" />
-    <item
         android:id="@+id/action_menu_open_with"
         android:title="@string/menu_open_with"
         android:showAsAction="never" />
@@ -32,6 +28,14 @@
         android:id="@+id/action_menu_delete"
         android:icon="@drawable/ic_menu_delete"
         android:title="@string/menu_delete"
+        android:showAsAction="always" />
+    <item
+        android:id="@+id/action_menu_sort"
+        android:title="@string/menu_sort"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_menu_select"
+        android:title="@string/menu_select"
         android:showAsAction="always" />
     <item
         android:id="@+id/action_menu_select_all"

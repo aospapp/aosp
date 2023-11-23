@@ -7,12 +7,13 @@
 
 #include <vector>
 
+#include "BlinkGCPluginOptions.h"
 #include "Edge.h"
 
 class FieldPoint;
 
 // This visitor checks that the fields of a class are "well formed".
-// - OwnPtr and RefPtr must not point to a GC derived type.
+// - unique_ptr and RefPtr must not point to a GC derived type.
 // - Part objects must not be a GC derived type.
 // - An on-heap class must never contain GC roots.
 // - Only stack-allocated types may point to stack-allocated types.
@@ -23,7 +24,6 @@ class CheckFieldsVisitor : public RecursiveEdgeVisitor {
     kRawPtrToGCManaged,
     kRefPtrToGCManaged,
     kReferencePtrToGCManaged,
-    kOwnPtrToGCManaged,
     kUniquePtrToGCManaged,
     kMemberToGCUnmanaged,
     kMemberInUnmanaged,
@@ -34,19 +34,22 @@ class CheckFieldsVisitor : public RecursiveEdgeVisitor {
 
   using Errors = std::vector<std::pair<FieldPoint*, Error>>;
 
-  CheckFieldsVisitor();
+  explicit CheckFieldsVisitor(const BlinkGCPluginOptions&);
 
   Errors& invalid_fields();
 
   bool ContainsInvalidFields(RecordInfo* info);
 
-  void AtMember(Member* edge) override;
-  void AtValue(Value* edge) override;
-  void AtCollection(Collection* edge) override;
+  void AtMember(Member*) override;
+  void AtWeakMember(WeakMember*) override;
+  void AtValue(Value*) override;
+  void AtCollection(Collection*) override;
   void AtIterator(Iterator*) override;
 
  private:
   Error InvalidSmartPtr(Edge* ptr);
+
+  const BlinkGCPluginOptions& options_;
 
   FieldPoint* current_;
   bool stack_allocated_host_;

@@ -27,4 +27,6 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_SDK_VERSION := current
 LOCAL_STATIC_JAVA_LIBRARIES := cts-api-signature-test
 
+LOCAL_USE_EMBEDDED_NATIVE_LIBS := false
+
 include $(BUILD_CTS_PACKAGE)

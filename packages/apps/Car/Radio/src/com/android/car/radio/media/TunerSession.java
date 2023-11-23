@@ -16,20 +16,18 @@
 
 package com.android.car.radio.media;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.content.Context;
 import android.hardware.radio.ProgramSelector;
 import android.hardware.radio.RadioManager.ProgramInfo;
+import android.media.Rating;
+import android.media.session.MediaController;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.IBinder;
-import android.os.RemoteException;
-import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.RatingCompat;
-import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.broadcastradio.support.media.BrowseTree;
@@ -37,128 +35,143 @@ import com.android.car.broadcastradio.support.platform.ImageResolver;
 import com.android.car.broadcastradio.support.platform.ProgramInfoExt;
 import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
 import com.android.car.radio.R;
-import com.android.car.radio.audio.IPlaybackStateListener;
-import com.android.car.radio.service.IRadioManager;
-import com.android.car.radio.utils.ThrowingRunnable;
+import com.android.car.radio.service.RadioAppServiceWrapper;
+import com.android.car.radio.service.RadioAppServiceWrapper.ConnectionState;
+import com.android.car.radio.storage.RadioStorage;
+import com.android.car.radio.util.Log;
 
 import java.util.Objects;
 
 /**
  * Implementation of tuner's MediaSession.
  */
-public class TunerSession extends MediaSessionCompat implements IPlaybackStateListener {
-    private static final String TAG = "BcRadioApp.msess";
+public class TunerSession {
+    private static final String TAG = "BcRadioApp.media";
 
     private final Object mLock = new Object();
+    private final MediaSession mSession;
 
     private final Context mContext;
     private final BrowseTree mBrowseTree;
     @Nullable private final ImageResolver mImageResolver;
-    private final IRadioManager mUiSession;
-    private final PlaybackStateCompat.Builder mPlaybackStateBuilder =
-            new PlaybackStateCompat.Builder();
+    private final RadioAppServiceWrapper mAppService;
+
+    private final RadioStorage mRadioStorage;
+
+    private final PlaybackState.Builder mPlaybackStateBuilder =
+            new PlaybackState.Builder();
     @Nullable private ProgramInfo mCurrentProgram;
 
     public TunerSession(@NonNull Context context, @NonNull BrowseTree browseTree,
-            @NonNull IRadioManager uiSession, @Nullable ImageResolver imageResolver) {
-        super(context, TAG);
+            @NonNull RadioAppServiceWrapper appService, @Nullable ImageResolver imageResolver) {
+        mSession = new MediaSession(context, TAG);
 
         mContext = Objects.requireNonNull(context);
         mBrowseTree = Objects.requireNonNull(browseTree);
         mImageResolver = imageResolver;
-        mUiSession = Objects.requireNonNull(uiSession);
+        mAppService = Objects.requireNonNull(appService);
+
+        mRadioStorage = RadioStorage.getInstance(context);
 
         // ACTION_PAUSE is reserved for time-shifted playback
         mPlaybackStateBuilder.setActions(
-                PlaybackStateCompat.ACTION_STOP
-                | PlaybackStateCompat.ACTION_PLAY
-                | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-                | PlaybackStateCompat.ACTION_SET_RATING
-                | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID
-                | PlaybackStateCompat.ACTION_PLAY_FROM_URI);
-        setRatingType(RatingCompat.RATING_HEART);
-        onPlaybackStateChanged(PlaybackStateCompat.STATE_NONE);
-        setCallback(new TunerSessionCallback());
+                PlaybackState.ACTION_STOP
+                | PlaybackState.ACTION_PLAY
+                | PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                | PlaybackState.ACTION_SKIP_TO_NEXT
+                | PlaybackState.ACTION_SET_RATING
+                | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID
+                | PlaybackState.ACTION_PLAY_FROM_URI);
+        mSession.setRatingType(Rating.RATING_HEART);
+        onPlaybackStateChanged(PlaybackState.STATE_NONE);
+        mSession.setCallback(new TunerSessionCallback());
 
-        setActive(true);
+        // TunerSession is a part of RadioAppService, so observeForever is fine here.
+        appService.getPlaybackState().observeForever(this::onPlaybackStateChanged);
+        appService.getCurrentProgram().observeForever(this::updateMetadata);
+        mRadioStorage.getFavorites().observeForever(
+                favorites -> updateMetadata(mAppService.getCurrentProgram().getValue()));
+
+        mSession.setActive(true);
+
+        mAppService.getConnectionState().observeForever(this::onSelfStateChanged);
     }
 
-    private void updateMetadata() {
-        synchronized (mLock) {
-            if (mCurrentProgram == null) return;
-            boolean fav = mBrowseTree.isFavorite(mCurrentProgram.getSelector());
-            setMetadata(MediaMetadataCompat.fromMediaMetadata(
-                    ProgramInfoExt.toMediaMetadata(mCurrentProgram, fav, mImageResolver)));
+    private void onSelfStateChanged(@ConnectionState int state) {
+        if (state == RadioAppServiceWrapper.STATE_ERROR) {
+            mSession.setActive(false);
         }
     }
 
-    public void notifyProgramInfoChanged(@NonNull ProgramInfo info) {
+    private void updateMetadata(@Nullable ProgramInfo info) {
         synchronized (mLock) {
-            mCurrentProgram = info;
-            updateMetadata();
+            if (info == null) return;
+            boolean fav = mRadioStorage.isFavorite(info.getSelector());
+            mSession.setMetadata(ProgramInfoExt.toMediaMetadata(info, fav, mImageResolver));
         }
     }
 
-    @Override
-    public void onPlaybackStateChanged(@PlaybackStateCompat.State int state) {
+    private void onPlaybackStateChanged(@PlaybackState.State int state) {
         synchronized (mPlaybackStateBuilder) {
             mPlaybackStateBuilder.setState(state,
-                    PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f);
-            setPlaybackState(mPlaybackStateBuilder.build());
+                    PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f);
+            mSession.setPlaybackState(mPlaybackStateBuilder.build());
         }
-    }
-
-    public void notifyFavoritesChanged() {
-        updateMetadata();
     }
 
     private void selectionError() {
-        exec(() -> mUiSession.mute());
+        mAppService.setMuted(true);
         mPlaybackStateBuilder.setErrorMessage(mContext.getString(R.string.invalid_selection));
-        onPlaybackStateChanged(PlaybackStateCompat.STATE_ERROR);
+        onPlaybackStateChanged(PlaybackState.STATE_ERROR);
         mPlaybackStateBuilder.setErrorMessage(null);
     }
 
-    private void exec(ThrowingRunnable<RemoteException> func) {
-        try {
-            func.run();
-        } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to execute MediaSession callback", ex);
-        }
+    /** See {@link MediaSession#getSessionToken}. */
+    public MediaSession.Token getSessionToken() {
+        return mSession.getSessionToken();
     }
 
-    private class TunerSessionCallback extends MediaSessionCompat.Callback {
+    /** See {@link MediaSession#getController}. */
+    public MediaController getController() {
+        return mSession.getController();
+    }
+
+    /** See {@link MediaSession#release}. */
+    public void release() {
+        mSession.release();
+    }
+
+    private class TunerSessionCallback extends MediaSession.Callback {
         @Override
         public void onStop() {
-            exec(() -> mUiSession.mute());
+            mAppService.setMuted(true);
         }
 
         @Override
         public void onPlay() {
-            exec(() -> mUiSession.unMute());
+            mAppService.setMuted(false);
         }
 
         @Override
         public void onSkipToNext() {
-            exec(() -> mUiSession.seekForward());
+            mAppService.seek(true);
         }
 
         @Override
         public void onSkipToPrevious() {
-            exec(() -> mUiSession.seekBackward());
+            mAppService.seek(false);
         }
 
         @Override
-        public void onSetRating(RatingCompat rating) {
+        public void onSetRating(Rating rating) {
             synchronized (mLock) {
-                if (mCurrentProgram == null) return;
+                ProgramInfo info = mAppService.getCurrentProgram().getValue();
+                if (info == null) return;
+
                 if (rating.hasHeart()) {
-                    Program fav = Program.fromProgramInfo(mCurrentProgram);
-                    exec(() -> mUiSession.addFavorite(fav));
+                    mRadioStorage.addFavorite(Program.fromProgramInfo(info));
                 } else {
-                    ProgramSelector fav = mCurrentProgram.getSelector();
-                    exec(() -> mUiSession.removeFavorite(fav));
+                    mRadioStorage.removeFavorite(info.getSelector());
                 }
             }
         }
@@ -173,7 +186,7 @@ public class TunerSession extends MediaSessionCompat implements IPlaybackStateLi
 
             ProgramSelector selector = mBrowseTree.parseMediaId(mediaId);
             if (selector != null) {
-                exec(() -> mUiSession.tune(selector));
+                mAppService.tune(selector);
             } else {
                 Log.w(TAG, "Invalid media ID: " + mediaId);
                 selectionError();
@@ -184,16 +197,11 @@ public class TunerSession extends MediaSessionCompat implements IPlaybackStateLi
         public void onPlayFromUri(Uri uri, Bundle extras) {
             ProgramSelector selector = ProgramSelectorExt.fromUri(uri);
             if (selector != null) {
-                exec(() -> mUiSession.tune(selector));
+                mAppService.tune(selector);
             } else {
                 Log.w(TAG, "Invalid URI: " + uri);
                 selectionError();
             }
         }
-    }
-
-    @Override
-    public IBinder asBinder() {
-        throw new UnsupportedOperationException("Not a binder");
     }
 }

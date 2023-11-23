@@ -3,7 +3,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.0.0"
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.8.1"
     }
 }
 
@@ -14,10 +14,6 @@ buildscript {
 // through a "apply from:".
 apply plugin: org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin
 apply plugin: 'maven-publish'
-
-def bintrayInfoFilePath = "$buildDir/outputs/bintray-descriptor.bintray-info.json"
-
-project.ext.version = '1.1.0-SNAPSHOT'
 
 task sourcesJar(type: Jar) {
     classifier = 'sources'
@@ -34,16 +30,6 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
-task bintrayInfoFile {
-    outputs.file(bintrayInfoFilePath)
-    doLast {
-        println 'Creating bintray-info.json'
-        String fileContent = new File("$rootDir/bintray-info-template.json").getText('UTF-8')
-        fileContent = fileContent.replace('$VERSION$', project.ext.version)
-        ((new File(bintrayInfoFilePath))).write(fileContent)
-    }
-}
-
 artifacts {
     archives javadocJar
     archives sourcesJar
@@ -54,7 +40,7 @@ publishing {
         library(MavenPublication) {
             groupId 'com.android.volley'
             artifactId 'volley'
-            version project.ext.version
+            version project.version
             pom {
                 packaging 'aar'
             }
@@ -63,10 +49,6 @@ publishing {
             artifact "$buildDir/outputs/aar/volley-release.aar"
             artifact sourcesJar
             artifact javadocJar
-            artifact(bintrayInfoFilePath) {
-                builtBy bintrayInfoFile
-                extension "bintray-info.json"
-            }
         }
     }
 }

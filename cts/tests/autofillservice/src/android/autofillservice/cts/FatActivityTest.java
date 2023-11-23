@@ -48,25 +48,24 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.app.assist.AssistStructure.ViewNode;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /**
  * Test case for an activity containing useless auto-fill data that should be optimized out.
  */
-public class FatActivityTest extends AutoFillServiceTestCase {
+public class FatActivityTest extends AutoFillServiceTestCase.AutoActivityLaunch<FatActivity> {
 
-    @Rule
-    public final AutofillActivityTestRule<FatActivity> mActivityRule =
-        new AutofillActivityTestRule<FatActivity>(FatActivity.class);
-
-    private FatActivity mFatActivity;
+    private FatActivity mActivity;
     private ViewNode mRoot;
 
-    @Before
-    public void setActivity() {
-        mFatActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<FatActivity> getActivityRule() {
+        return new AutofillActivityTestRule<FatActivity>(FatActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test
@@ -78,7 +77,7 @@ public class FatActivityTest extends AutoFillServiceTestCase {
         sReplier.addResponse(NO_RESPONSE);
 
         // Trigger auto-fill.
-        mFatActivity.onInput((v) -> v.requestFocus());
+        mActivity.onInput((v) -> v.requestFocus());
         final FillRequest fillRequest = sReplier.getNextFillRequest();
         mUiBot.assertNoDatasetsEver();
 
@@ -154,7 +153,7 @@ public class FatActivityTest extends AutoFillServiceTestCase {
         sReplier.addResponse(NO_RESPONSE);
 
         // Trigger autofill.
-        mFatActivity.onInput((v) -> mFatActivity.getAutofillManager().requestAutofill(v));
+        mActivity.onInput((v) -> mActivity.getAutofillManager().requestAutofill(v));
         final FillRequest fillRequest = sReplier.getNextFillRequest();
         mUiBot.assertNoDatasetsEver();
 

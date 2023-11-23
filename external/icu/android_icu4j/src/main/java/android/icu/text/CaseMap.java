@@ -15,13 +15,11 @@ import android.icu.util.ULocale;
  * "Setters" return instances with the union of the current and new options set.
  *
  * This class is not intended for public subclassing.
- *
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public abstract class CaseMap {
     /**
      * @deprecated This API is ICU internal only.
+     * @hide original deprecated declaration
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
@@ -38,22 +36,18 @@ public abstract class CaseMap {
 
     /**
      * @return Lowercasing object with default options.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static Lower toLower() { return Lower.DEFAULT; }
     /**
      * @return Uppercasing object with default options.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static Upper toUpper() { return Upper.DEFAULT; }
     /**
      * @return Titlecasing object with default options.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static Title toTitle() { return Title.DEFAULT; }
     /**
      * @return Case folding object with default options.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static Fold fold() { return Fold.DEFAULT; }
 
@@ -62,7 +56,6 @@ public abstract class CaseMap {
      * omits unchanged text when case-mapping with {@link Edits}.
      *
      * @return an options object with this option.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public abstract CaseMap omitUnchangedText();
 
@@ -70,7 +63,6 @@ public abstract class CaseMap {
      * Lowercasing options and methods. Immutable.
      *
      * @see #toLower()
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final class Lower extends CaseMap {
         private static final Lower DEFAULT = new Lower(0);
@@ -79,7 +71,6 @@ public abstract class CaseMap {
 
         /**
          * {@inheritDoc}
-         * @hide draft / provisional / internal are hidden on Android
          */
         @Override
         public Lower omitUnchangedText() {
@@ -97,7 +88,6 @@ public abstract class CaseMap {
          * @return the result string.
          *
          * @see UCharacter#toLowerCase(Locale, String)
-         * @hide draft / provisional / internal are hidden on Android
          */
         public String apply(Locale locale, CharSequence src) {
             return CaseMapImpl.toLower(getCaseLocale(locale), internalOptions, src);
@@ -118,7 +108,6 @@ public abstract class CaseMap {
          * @return dest with the result string (or only changes) appended.
          *
          * @see UCharacter#toLowerCase(Locale, String)
-         * @hide draft / provisional / internal are hidden on Android
          */
          public <A extends Appendable> A apply(
                  Locale locale, CharSequence src, A dest, Edits edits) {
@@ -130,7 +119,6 @@ public abstract class CaseMap {
      * Uppercasing options and methods. Immutable.
      *
      * @see #toUpper()
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final class Upper extends CaseMap {
         private static final Upper DEFAULT = new Upper(0);
@@ -139,7 +127,6 @@ public abstract class CaseMap {
 
         /**
          * {@inheritDoc}
-         * @hide draft / provisional / internal are hidden on Android
          */
         @Override
         public Upper omitUnchangedText() {
@@ -157,7 +144,6 @@ public abstract class CaseMap {
          * @return the result string.
          *
          * @see UCharacter#toUpperCase(Locale, String)
-         * @hide draft / provisional / internal are hidden on Android
          */
         public String apply(Locale locale, CharSequence src) {
             return CaseMapImpl.toUpper(getCaseLocale(locale), internalOptions, src);
@@ -178,7 +164,6 @@ public abstract class CaseMap {
          * @return dest with the result string (or only changes) appended.
          *
          * @see UCharacter#toUpperCase(Locale, String)
-         * @hide draft / provisional / internal are hidden on Android
          */
          public <A extends Appendable> A apply(
                  Locale locale, CharSequence src, A dest, Edits edits) {
@@ -190,7 +175,6 @@ public abstract class CaseMap {
      * Titlecasing options and methods. Immutable.
      *
      * @see #toTitle()
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final class Title extends CaseMap {
         private static final Title DEFAULT = new Title(0);
@@ -207,7 +191,6 @@ public abstract class CaseMap {
          *
          * @return an options object with this option.
          * @see #adjustToCased()
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Title wholeString() {
             return new Title(CaseMapImpl.addTitleIteratorOption(
@@ -224,7 +207,6 @@ public abstract class CaseMap {
          *
          * @return an options object with this option.
          * @see #adjustToCased()
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Title sentences() {
             return new Title(CaseMapImpl.addTitleIteratorOption(
@@ -233,7 +215,6 @@ public abstract class CaseMap {
 
         /**
          * {@inheritDoc}
-         * @hide draft / provisional / internal are hidden on Android
          */
         @Override
         public Title omitUnchangedText() {
@@ -255,7 +236,6 @@ public abstract class CaseMap {
          * @return an options object with this option.
          * @see UCharacter#TITLECASE_NO_LOWERCASE
          * @see #adjustToCased()
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Title noLowercase() {
             return new Title(internalOptions | UCharacter.TITLECASE_NO_LOWERCASE);
@@ -274,7 +254,6 @@ public abstract class CaseMap {
          *
          * @return an options object with this option.
          * @see UCharacter#TITLECASE_NO_BREAK_ADJUSTMENT
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Title noBreakAdjustment() {
             return new Title(CaseMapImpl.addTitleAdjustmentOption(
@@ -298,7 +277,6 @@ public abstract class CaseMap {
          *
          * @return an options object with this option.
          * @see #noBreakAdjustment()
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Title adjustToCased() {
             return new Title(CaseMapImpl.addTitleAdjustmentOption(
@@ -325,7 +303,6 @@ public abstract class CaseMap {
          * @return the result string.
          *
          * @see UCharacter#toUpperCase(Locale, String)
-         * @hide draft / provisional / internal are hidden on Android
          */
         public String apply(Locale locale, BreakIterator iter, CharSequence src) {
             if (iter == null && locale == null) {
@@ -360,7 +337,6 @@ public abstract class CaseMap {
          * @return dest with the result string (or only changes) appended.
          *
          * @see UCharacter#toTitleCase(Locale, String, BreakIterator, int)
-         * @hide draft / provisional / internal are hidden on Android
          */
          public <A extends Appendable> A apply(
                  Locale locale, BreakIterator iter, CharSequence src, A dest, Edits edits) {
@@ -378,7 +354,6 @@ public abstract class CaseMap {
      * Case folding options and methods. Immutable.
      *
      * @see #fold()
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final class Fold extends CaseMap {
         private static final Fold DEFAULT = new Fold(0);
@@ -390,7 +365,6 @@ public abstract class CaseMap {
 
         /**
          * {@inheritDoc}
-         * @hide draft / provisional / internal are hidden on Android
          */
         @Override
         public Fold omitUnchangedText() {
@@ -408,7 +382,6 @@ public abstract class CaseMap {
          *
          * @return an options object with this option.
          * @see UCharacter#FOLD_CASE_EXCLUDE_SPECIAL_I
-         * @hide draft / provisional / internal are hidden on Android
          */
         public Fold turkic() {
             return (internalOptions & CaseMapImpl.OMIT_UNCHANGED_TEXT) == 0 ?
@@ -427,7 +400,6 @@ public abstract class CaseMap {
          * @return the result string.
          *
          * @see UCharacter#foldCase(String, int)
-         * @hide draft / provisional / internal are hidden on Android
          */
         public String apply(CharSequence src) {
             return CaseMapImpl.fold(internalOptions, src);
@@ -449,7 +421,6 @@ public abstract class CaseMap {
          * @return dest with the result string (or only changes) appended.
          *
          * @see UCharacter#foldCase(String, int)
-         * @hide draft / provisional / internal are hidden on Android
          */
          public <A extends Appendable> A apply(CharSequence src, A dest, Edits edits) {
              return CaseMapImpl.fold(internalOptions, src, dest, edits);

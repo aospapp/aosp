@@ -16,6 +16,9 @@
 <configuration description="Config for the CTS Content host tests">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- This is a test for account data sync and READ_SYNC_SETTINGS/WRITE_SYNC_SETTINGS are required, which instant apps don't have -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsSyncContentHostTestCases.jar" />
         <option name="runtime-hint" value="2m" />

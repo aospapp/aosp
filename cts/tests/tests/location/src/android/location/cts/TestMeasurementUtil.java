@@ -16,21 +16,26 @@
 
 package android.location.cts;
 
-import com.android.compatibility.common.util.ApiLevelUtil;
-
 import android.location.GnssClock;
 import android.location.GnssMeasurement;
+import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.GnssStatus;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.SystemProperties;
 import android.util.Log;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Helper class for GnssMeasurement Tests.
@@ -53,14 +58,18 @@ public final class TestMeasurementUtil {
             " listener has failed, this indicates a platform bug. Please report the issue with" +
             " a full bugreport.";
 
-    private static final int YEAR_2016 = 2016;
-    private static final int YEAR_2017 = 2017;
-    private static final int YEAR_2018 = 2018;
+    private enum GnssBand {
+        GNSS_L1,
+        GNSS_L2,
+        GNSS_L5,
+        GNSS_E6
+    }
 
     // The valid Gnss navigation message type as listed in
     // android/hardware/libhardware/include/hardware/gps.h
     public static final Set<Integer> GNSS_NAVIGATION_MESSAGE_TYPE =
         new HashSet<Integer>(Arrays.asList(
+            GnssNavigationMessage.TYPE_UNKNOWN,
             GnssNavigationMessage.TYPE_GPS_L1CA,
             GnssNavigationMessage.TYPE_GPS_L2CNAV,
             GnssNavigationMessage.TYPE_GPS_L5CNAV,
@@ -80,9 +89,7 @@ public final class TestMeasurementUtil {
      *         device.
      */
     public static boolean canTestRunOnCurrentDevice(TestLocationManager testLocationManager,
-                                                    String testTag,
-                                                    int minHardwareYear,
-                                                    boolean isCtsVerifier) {
+            boolean isCtsVerifier) {
        if (ApiLevelUtil.isBefore(Build.VERSION_CODES.N)) {
             Log.i(TAG, "This test is designed to work on N or newer. " +
                     "Test is being skipped because the platform version is being run in " +
@@ -107,13 +114,6 @@ public final class TestMeasurementUtil {
         if (!isCtsVerifier && !gpsProviderEnabled) {
             return false;
         }
-
-        // TODO - add this to the test info page
-        int gnssYearOfHardware = testLocationManager.getLocationManager().getGnssYearOfHardware();
-        Log.i(testTag, "This device is reporting GNSS hardware from year "
-                + (gnssYearOfHardware == 0 ? "2015 or earlier" : gnssYearOfHardware) + ". "
-                + "Devices " + (gnssYearOfHardware >= minHardwareYear ? "like this one " : "")
-                + "from year " + minHardwareYear + " or newer provide GnssMeasurement support." );
 
         return true;
     }
@@ -158,7 +158,46 @@ public final class TestMeasurementUtil {
                     String.valueOf(gpsTimeInNs),
                     gpsTimeInNs >= GPS_TIME_YEAR_2016_IN_NSEC);
         }
+    }
 
+    /**
+     * Asserts the same FullBiasNanos of multiple GnssMeasurementEvents at the same time epoch.
+     *
+     * <p>FullBiasNanos denotes the receiver clock bias calculated by the GNSS chipset. If multiple
+     * GnssMeasurementEvents are tagged with the same time epoch, their FullBiasNanos should be the
+     * same.
+     *
+     * @param softAssert custom SoftAssert
+     * @param events     GnssMeasurementEvents. Each event includes one GnssClock with a
+     *                   fullBiasNanos.
+     */
+    public static void assertGnssClockHasConsistentFullBiasNanos(SoftAssert softAssert,
+            List<GnssMeasurementsEvent> events) {
+        Map<Long, List<Long>> timeToFullBiasList = new HashMap<>();
+        for (GnssMeasurementsEvent event : events) {
+            long timeNanos = event.getClock().getTimeNanos();
+            long fullBiasNanos = event.getClock().getFullBiasNanos();
+
+            timeToFullBiasList.putIfAbsent(timeNanos, new ArrayList<>());
+            List<Long> fullBiasNanosList = timeToFullBiasList.get(timeNanos);
+            fullBiasNanosList.add(fullBiasNanos);
+        }
+
+        for (Map.Entry<Long, List<Long>> entry : timeToFullBiasList.entrySet()) {
+            long timeNanos = entry.getKey();
+            List<Long> fullBiasNanosList = entry.getValue();
+            if (fullBiasNanosList.size() < 2) {
+                continue;
+            }
+            long fullBiasNanos = fullBiasNanosList.get(0);
+            for (int i = 1; i < fullBiasNanosList.size(); i++) {
+                softAssert.assertTrue("FullBiasNanos are the same at the same timeNanos",
+                        timeNanos,
+                        "fullBiasNanosList.get(i) - fullBiasNanosList.get(0) == 0",
+                        String.valueOf(fullBiasNanosList.get(i) - fullBiasNanos),
+                        fullBiasNanosList.get(i) - fullBiasNanos == 0);
+            }
+        }
     }
 
     /**
@@ -178,7 +217,6 @@ public final class TestMeasurementUtil {
         verifyReceivedSatelliteVehicleTimeInNs(measurement, softAssert, timeInNs);
         verifyAccumulatedDeltaRanges(measurement, softAssert, timeInNs);
 
-        int gnssYearOfHardware = testLocationManager.getLocationManager().getGnssYearOfHardware();
         int state = measurement.getState();
         softAssert.assertTrue("state: Satellite code sync state",
                 timeInNs,
@@ -258,15 +296,6 @@ public final class TestMeasurementUtil {
                     measurement.getSnrInDb() >= 0.0 && measurement.getSnrInDb() <= 63);
         }
 
-        // Check Automatic Gain Control level in dB.
-        // As per CDD 7.3.3 / C-3-3 Year 2107+ should have AGC level present
-        if (gnssYearOfHardware >= YEAR_2017) {
-            softAssert.assertTrue("AGC level in measurement",
-                    timeInNs,
-                    "X == true",
-                    String.valueOf(measurement.hasAutomaticGainControlLevelDb()),
-                    measurement.hasAutomaticGainControlLevelDb());
-        }
         if (measurement.hasAutomaticGainControlLevelDb()) {
             softAssert.assertTrue("Automatic Gain Control level in dB",
                 timeInNs,
@@ -334,7 +363,6 @@ public final class TestMeasurementUtil {
     private static void verifySvid(GnssMeasurement measurement, SoftAssert softAssert,
         long timeInNs) {
 
-        String svidLogMessageFormat = "svid: Space Vehicle ID. Constellation type = %s";
         int constellationType = measurement.getConstellationType();
         int svid = measurement.getSvid();
         validateSvidSub(softAssert, timeInNs, constellationType, svid);
@@ -382,17 +410,17 @@ public final class TestMeasurementUtil {
                 softAssert.assertTrue("svid: Space Vehicle ID. Constellation type " +
                                 "= CONSTELLATION_BEIDOU",
                         timeInNs,
-                        "1 <= X <= 36",
+                        "1 <= X <= 63",
                         svidValue,
-                        svid >= 1 && svid <= 36);
+                        svid >= 1 && svid <= 63);
                 break;
             case GnssStatus.CONSTELLATION_GALILEO:
                 softAssert.assertTrue("svid: Space Vehicle ID. Constellation type " +
                                 "= CONSTELLATION_GALILEO",
                         timeInNs,
-                        "1 <= X <= 37",
+                        "1 <= X <= 36",
                         String.valueOf(svid),
-                        svid >= 1 && svid <= 37);
+                        svid >= 1 && svid <= 36);
                 break;
             default:
                 // Explicit fail if did not receive valid constellation type.
@@ -587,6 +615,15 @@ public final class TestMeasurementUtil {
                             "0 >= X <= 7 days",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 7);
+                } else if ((state & GnssMeasurement.STATE_TOW_KNOWN)
+                        == GnssMeasurement.STATE_TOW_KNOWN) {
+                    softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
+                                    "GNSS_MEASUREMENT_STATE_TOW_KNOWN",
+                                    "GnssStatus.CONSTELLATION_BEIDOU"),
+                            timeInNs,
+                            "0 >= X <= 7 days",
+                            String.valueOf(sv_time_days),
+                            sv_time_days >= 0 && sv_time_days <= 7);
                 } else if ((state & GnssMeasurement.STATE_SUBFRAME_SYNC)
                         == GnssMeasurement.STATE_SUBFRAME_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
@@ -637,7 +674,7 @@ public final class TestMeasurementUtil {
         }
     }
 
-    private static String getReceivedSvTimeNsLogMessage(String constellationType, String state) {
+    private static String getReceivedSvTimeNsLogMessage(String state, String constellationType) {
         return "received_sv_time_ns: Received SV Time-of-Week in ns. Constellation type = "
                 + constellationType + ". State = " + state;
     }
@@ -664,6 +701,15 @@ public final class TestMeasurementUtil {
                 == GnssMeasurement.STATE_TOW_DECODED) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
                             "GNSS_MEASUREMENT_STATE_TOW_DECODED",
+                            constellationType),
+                    timeInNs,
+                    "0 >= X <= 7 days",
+                    String.valueOf(sv_time_days),
+                    sv_time_days >= 0 && sv_time_days <= 7);
+        } else if ((state & GnssMeasurement.STATE_TOW_KNOWN)
+                == GnssMeasurement.STATE_TOW_KNOWN) {
+            softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
+                            "GNSS_MEASUREMENT_STATE_TOW_KNOWN",
                             constellationType),
                     timeInNs,
                     "0 >= X <= 7 days",
@@ -700,6 +746,34 @@ public final class TestMeasurementUtil {
         }
     }
 
+
+    /**
+     * Get a unique string for the SV including the constellation and the default L1 band.
+     *
+     * @param constellationType Gnss Constellation type
+     * @param svId Gnss Sv Identifier
+     */
+    public static String getUniqueSvStringId(int constellationType, int svId) {
+        return getUniqueSvStringId(constellationType, svId, GnssBand.GNSS_L1);
+    }
+
+    /**
+     * Get a unique string for the SV including the constellation and the band.
+     *
+     * @param constellationType Gnss Constellation type
+     * @param svId Gnss Sv Identifier
+     * @param carrierFrequencyHz Carrier Frequency for Sv in Hz
+     */
+    public static String getUniqueSvStringId(int constellationType, int svId,
+        float carrierFrequencyHz) {
+        return getUniqueSvStringId(constellationType, svId,
+            frequencyToGnssBand(carrierFrequencyHz));
+    }
+
+    private static String getUniqueSvStringId(int constellationType, int svId, GnssBand gnssBand) {
+        return gnssBand.toString() + "." + constellationType + "." + svId;
+    }
+
     /**
      * Assert all mandatory fields in Gnss Navigation Message are in expected range.
      * See mandatory fields in {@code gps.h}.
@@ -717,18 +791,14 @@ public final class TestMeasurementUtil {
                 getGnssNavMessageTypes() + "] actual = " + type,
                     GNSS_NAVIGATION_MESSAGE_TYPE.contains(type));
 
-            int gnssYearOfHardware =
-                testLocationManager.getLocationManager().getGnssYearOfHardware();
             int messageType = message.getType();
-            if (gnssYearOfHardware >= YEAR_2016) {
-                softAssert.assertTrue("Message ID cannot be 0", message.getMessageId() != 0);
-                if (messageType == GnssNavigationMessage.TYPE_GAL_I) {
-                    softAssert.assertTrue("Sub Message ID can not be negative.",
-                        message.getSubmessageId() >= 0);
-                } else {
-                    softAssert.assertTrue("Sub Message ID has to be greater than 0.",
-                        message.getSubmessageId() > 0);
-                }
+            softAssert.assertTrue("Message ID cannot be 0", message.getMessageId() != 0);
+            if (messageType == GnssNavigationMessage.TYPE_GAL_I) {
+                softAssert.assertTrue("Sub Message ID can not be negative.",
+                    message.getSubmessageId() >= 0);
+            } else {
+                softAssert.assertTrue("Sub Message ID has to be greater than 0.",
+                    message.getSubmessageId() > 0);
             }
 
             // if message type == TYPE_L1CA, verify PRN & Data Size.
@@ -763,10 +833,10 @@ public final class TestMeasurementUtil {
     public static void verifyGnssCarrierFrequency(SoftAssert softAssert,
         TestLocationManager testLocationManager,
         boolean hasCarrierFrequency, float carrierFrequencyHz) {
-        // Enforcing CarrierFrequencyHz  check only for year 2018+
-        if (testLocationManager.getLocationManager().getGnssYearOfHardware() >= YEAR_2018) {
+        // Enforcing CarrierFrequencyHz present only for devices shipped with P+.
+        if (SystemProperties.getInt("ro.product.first_api_level", 0) >= Build.VERSION_CODES.P) {
             softAssert.assertTrue("Measurement has Carrier Frequency: " + hasCarrierFrequency,
-                hasCarrierFrequency);
+                    hasCarrierFrequency);
         }
 
         if (hasCarrierFrequency) {
@@ -787,5 +857,26 @@ public final class TestMeasurementUtil {
         }
 
         return typesStr.length() > 2 ? typesStr.substring(0, typesStr.length() - 2) : "";
+    }
+
+    /**
+     * The band information is as of 2018, per http://www.navipedia.net/index.php/GNSS_signal
+     * Bands are combined for simplicity as the constellation is also tracked.
+     *
+     * @param frequencyHz Frequency in Hz
+     * @return GnssBand where the frequency lies.
+     */
+    private static GnssBand frequencyToGnssBand(float frequencyHz) {
+        float frequencyMhz = frequencyHz/1e6F;
+        if (frequencyMhz >= 1151 && frequencyMhz <= 1214) {
+            return GnssBand.GNSS_L5;
+        }
+        if (frequencyMhz > 1214 && frequencyMhz <= 1255) {
+            return GnssBand.GNSS_L2;
+        }
+        if (frequencyMhz > 1255 && frequencyMhz <= 1300) {
+            return GnssBand.GNSS_E6;
+        }
+        return GnssBand.GNSS_L1; // default to L1 band
     }
 }

@@ -26,6 +26,7 @@ import java.util.HashMap;
 public abstract class StringTrieBuilder {
     /**
      * Build options for BytesTrieBuilder and CharsTrieBuilder.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum Option {
         /**

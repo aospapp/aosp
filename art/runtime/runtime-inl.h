@@ -19,10 +19,16 @@
 
 #include "runtime.h"
 
+#include "arch/instruction_set.h"
 #include "art_method.h"
 #include "base/callee_save_type.h"
+#include "base/casts.h"
+#include "base/mutex.h"
+#include "entrypoints/quick/callee_save_frame.h"
 #include "gc_root-inl.h"
+#include "interpreter/mterp/mterp.h"
 #include "obj_ptr-inl.h"
+#include "thread_list.h"
 
 namespace art {
 
@@ -38,21 +44,22 @@ inline mirror::Object* Runtime::GetClearedJniWeakGlobal() {
 
 inline QuickMethodFrameInfo Runtime::GetRuntimeMethodFrameInfo(ArtMethod* method) {
   DCHECK(method != nullptr);
+  DCHECK_EQ(instruction_set_, kRuntimeISA);
   // Cannot be imt-conflict-method or resolution-method.
   DCHECK_NE(method, GetImtConflictMethod());
   DCHECK_NE(method, GetResolutionMethod());
   // Don't use GetCalleeSaveMethod(), some tests don't set all callee save methods.
   if (method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveRefsAndArgs)) {
-    return GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
+    return RuntimeCalleeSaveFrame::GetMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
   } else if (method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveAllCalleeSaves)) {
-    return GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveAllCalleeSaves);
+    return RuntimeCalleeSaveFrame::GetMethodFrameInfo(CalleeSaveType::kSaveAllCalleeSaves);
   } else if (method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveRefsOnly)) {
-    return GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsOnly);
+    return RuntimeCalleeSaveFrame::GetMethodFrameInfo(CalleeSaveType::kSaveRefsOnly);
   } else {
     DCHECK(method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveEverything) ||
            method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveEverythingForClinit) ||
            method == GetCalleeSaveMethodUnchecked(CalleeSaveType::kSaveEverythingForSuspendCheck));
-    return GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveEverything);
+    return RuntimeCalleeSaveFrame::GetMethodFrameInfo(CalleeSaveType::kSaveEverything);
   }
 }
 
@@ -79,7 +86,16 @@ inline ArtMethod* Runtime::GetCalleeSaveMethod(CalleeSaveType type)
 
 inline ArtMethod* Runtime::GetCalleeSaveMethodUnchecked(CalleeSaveType type)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return reinterpret_cast<ArtMethod*>(callee_save_methods_[static_cast<size_t>(type)]);
+  return reinterpret_cast64<ArtMethod*>(callee_save_methods_[static_cast<size_t>(type)]);
+}
+
+template<typename Action>
+void Runtime::DoAndMaybeSwitchInterpreter(Action lamda) {
+  MutexLock tll_mu(Thread::Current(), *Locks::thread_list_lock_);
+  lamda();
+  Runtime::Current()->GetThreadList()->ForEach([](Thread* thread, void*) {
+      thread->tls32_.use_mterp.store(interpreter::CanUseMterp());
+  }, nullptr);
 }
 
 }  // namespace art

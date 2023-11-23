@@ -32,7 +32,9 @@ const brillo::Blob::size_type kOutputBufferLength = 16 * 1024;
 const uint32_t kXzMaxDictSize = 64 * 1024 * 1024;
 
 const char* XzErrorString(enum xz_ret error) {
-  #define __XZ_ERROR_STRING_CASE(code) case code: return #code;
+#define __XZ_ERROR_STRING_CASE(code) \
+  case code:                         \
+    return #code;
   switch (error) {
     __XZ_ERROR_STRING_CASE(XZ_OK)
     __XZ_ERROR_STRING_CASE(XZ_STREAM_END)
@@ -46,12 +48,13 @@ const char* XzErrorString(enum xz_ret error) {
     default:
       return "<unknown xz error>";
   }
-  #undef __XZ_ERROR_STRING_CASE
+#undef __XZ_ERROR_STRING_CASE
 }
 }  // namespace
 
 XzExtentWriter::~XzExtentWriter() {
   xz_dec_end(stream_);
+  TEST_AND_RETURN(input_buffer_.empty());
 }
 
 bool XzExtentWriter::Init(FileDescriptorPtr fd,
@@ -108,11 +111,6 @@ bool XzExtentWriter::Write(const void* bytes, size_t count) {
                                 request.in + request.in_size);
   input_buffer_ = std::move(new_input_buffer);
   return true;
-}
-
-bool XzExtentWriter::EndImpl() {
-  TEST_AND_RETURN_FALSE(input_buffer_.empty());
-  return underlying_writer_->End();
 }
 
 }  // namespace chromeos_update_engine

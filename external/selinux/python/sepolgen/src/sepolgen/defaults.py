@@ -22,7 +22,7 @@ import re
 
 # Select the correct location for the development files based on a
 # path variable (optionally read from a configuration file)
-class PathChoooser(object):
+class PathChooser(object):
     def __init__(self, pathname):
         self.config = dict()
         if not os.path.exists(pathname):
@@ -32,12 +32,13 @@ class PathChoooser(object):
         self.config_pathname = pathname
         ignore = re.compile(r"^\s*(?:#.+)?$")
         consider = re.compile(r"^\s*(\w+)\s*=\s*(.+?)\s*$")
-        for lineno, line in enumerate(open(pathname)):
-            if ignore.match(line): continue
-            mo = consider.match(line)
-            if not mo:
-                raise ValueError("%s:%d: line is not in key = value format" % (pathname, lineno+1))
-            self.config[mo.group(1)] = mo.group(2)
+        with open(pathname, "r") as fd:
+            for lineno, line in enumerate(fd):
+                if ignore.match(line): continue
+                mo = consider.match(line)
+                if not mo:
+                    raise ValueError("%s:%d: line is not in key = value format" % (pathname, lineno+1))
+                self.config[mo.group(1)] = mo.group(2)
 
     # We're only exporting one useful function, so why not be a function
     def __call__(self, testfilename, pathset="SELINUX_DEVEL_PATH"):
@@ -68,10 +69,13 @@ def attribute_info():
     return data_dir() + "/attribute_info"
 
 def refpolicy_makefile():
-    chooser = PathChoooser("/etc/selinux/sepolgen.conf")
-    return chooser("Makefile")
+    chooser = PathChooser("/etc/selinux/sepolgen.conf")
+    result = chooser("Makefile")
+    if not os.path.exists(result):
+        result = chooser("include/Makefile")
+    return result
 
 def headers():
-    chooser = PathChoooser("/etc/selinux/sepolgen.conf")
+    chooser = PathChooser("/etc/selinux/sepolgen.conf")
     return chooser("include")
 

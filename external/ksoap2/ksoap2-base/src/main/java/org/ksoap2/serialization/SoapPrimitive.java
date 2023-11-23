@@ -23,7 +23,7 @@ package org.ksoap2.serialization;
 /**
  * A class that is used to encapsulate primitive types (represented by a string
  * in XML serialization).
- * 
+ *
  * Basically, the SoapPrimitive class encapsulates "unknown" primitive types
  * (similar to SoapObject encapsulating unknown complex types). For example, new
  * SoapPrimitive (classMap.xsd, "float", "12.3") allows you to send a float from
@@ -34,11 +34,14 @@ package org.ksoap2.serialization;
  */
 
 public class SoapPrimitive extends AttributeContainer {
-    String namespace;
-    String name;
-    String value;
+    protected String namespace;
+    protected String name;
+    protected Object value;
 
-    public SoapPrimitive(String namespace, String name, String value) {
+    public static final Object NullSkip = new Object();
+    public static final Object NullNilElement = new Object();
+
+    public SoapPrimitive(String namespace, String name, Object value) {
         this.namespace = namespace;
         this.name = name;
         this.value = value;
@@ -60,7 +63,7 @@ public class SoapPrimitive extends AttributeContainer {
     }
 
     public String toString() {
-        return value;
+        return value != null ? value.toString() : null;
     }
 
     public String getNamespace() {
@@ -70,4 +73,9 @@ public class SoapPrimitive extends AttributeContainer {
     public String getName() {
         return name;
     }
+
+    public Object getValue() {
+        return value;
+    }
+
 }

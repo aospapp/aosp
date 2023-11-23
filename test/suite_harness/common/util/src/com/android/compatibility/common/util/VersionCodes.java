@@ -45,5 +45,6 @@ public class VersionCodes {
     public static final int N_MR1 = 25;
     public static final int O = 26;
     public static final int O_MR1 = 27;
-    public static final int P = CUR_DEVELOPMENT;
+    public static final int P = 28;
+    public static final int Q = CUR_DEVELOPMENT;
 }

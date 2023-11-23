@@ -4,21 +4,41 @@
 
 #include "bsdiff/bsdiff_arguments.h"
 
-#include <vector>
-
 #include <gtest/gtest.h>
 
 namespace bsdiff {
 
 TEST(BsdiffArgumentsTest, ParseCompressorTypeTest) {
-  CompressorType type;
-  EXPECT_TRUE(BsdiffArguments::ParseCompressorType("Brotli", &type));
-  EXPECT_EQ(CompressorType::kBrotli, type);
+  std::set<CompressorType> types;
+  EXPECT_TRUE(BsdiffArguments::ParseCompressorTypes("Brotli", &types));
+  EXPECT_EQ(1U, types.size());
+  EXPECT_NE(types.end(), types.find(CompressorType::kBrotli));
 
-  EXPECT_TRUE(BsdiffArguments::ParseCompressorType("bz2", &type));
-  EXPECT_EQ(CompressorType::kBZ2, type);
+  types.clear();
 
-  EXPECT_FALSE(BsdiffArguments::ParseCompressorType("invalid", &type));
+  EXPECT_TRUE(BsdiffArguments::ParseCompressorTypes("bz2", &types));
+  EXPECT_EQ(1U, types.size());
+  EXPECT_NE(types.end(), types.find(CompressorType::kBZ2));
+
+  types.clear();
+
+  EXPECT_FALSE(BsdiffArguments::ParseCompressorTypes("invalid", &types));
+}
+
+TEST(BsdiffArgumentsTest, ParseMultipleCompressorTypeTest) {
+  std::set<CompressorType> types;
+  EXPECT_TRUE(BsdiffArguments::ParseCompressorTypes("bz2:brotli:nocompression",
+                                                    &types));
+  EXPECT_EQ(3U, types.size());
+  EXPECT_NE(types.end(), types.find(CompressorType::kBrotli));
+  EXPECT_NE(types.end(), types.find(CompressorType::kBZ2));
+  EXPECT_NE(types.end(), types.find(CompressorType::kNoCompression));
+
+  types.clear();
+
+  // No space in the type string.
+  EXPECT_FALSE(
+      BsdiffArguments::ParseCompressorTypes("bz2 : nocompression", &types));
 }
 
 TEST(BsdiffArgumentsTest, ParseBsdiffFormatTest) {
@@ -40,13 +60,13 @@ TEST(BsdiffArgumentsTest, ParseBsdiffFormatTest) {
 
 TEST(BsdiffArgumentsTest, ParseQualityTest) {
   int quality;
-  EXPECT_TRUE(BsdiffArguments::ParseQuality("9", &quality));
+  EXPECT_TRUE(BsdiffArguments::ParseQuality("9", &quality, 0, 11));
   EXPECT_EQ(9, quality);
 
   // Check the out of range quality values.
-  EXPECT_FALSE(BsdiffArguments::ParseQuality("30", &quality));
-  EXPECT_FALSE(BsdiffArguments::ParseQuality("1234567890", &quality));
-  EXPECT_FALSE(BsdiffArguments::ParseQuality("aabb", &quality));
+  EXPECT_FALSE(BsdiffArguments::ParseQuality("30", &quality, 0, 11));
+  EXPECT_FALSE(BsdiffArguments::ParseQuality("1234567890", &quality, 0, 1000));
+  EXPECT_FALSE(BsdiffArguments::ParseQuality("aabb", &quality, 0, 1000));
 }
 
 TEST(BsdiffArgumentsTest, ParseMinLengthTest) {
@@ -66,29 +86,35 @@ TEST(BsdiffArgumentsTest, ArgumentsValidTest) {
 
   // brotli is not supported for BsdiffFormat::kLegacy.
   EXPECT_FALSE(
-      BsdiffArguments(BsdiffFormat::kLegacy, CompressorType::kBrotli, -1)
+      BsdiffArguments(BsdiffFormat::kLegacy, {CompressorType::kBrotli}, -1)
           .IsValid());
 
-  EXPECT_TRUE(BsdiffArguments(BsdiffFormat::kBsdf2, CompressorType::kBrotli, 9)
-                  .IsValid());
+  EXPECT_TRUE(
+      BsdiffArguments(BsdiffFormat::kBsdf2, {CompressorType::kBrotli}, 9)
+          .IsValid());
 
   // Compression quality out of range for brotli.
   EXPECT_FALSE(
-      BsdiffArguments(BsdiffFormat::kBsdf2, CompressorType::kBrotli, 20)
+      BsdiffArguments(BsdiffFormat::kBsdf2, {CompressorType::kBrotli}, 20)
           .IsValid());
 }
 
 TEST(BsdiffArgumentsTest, ParseArgumentsSmokeTest) {
-  std::vector<const char*> args = {"bsdiff", "--format=bsdf2", "--type=brotli",
-                                   "--quality=9", "--minlen=12"};
+  std::vector<const char*> args = {"bsdiff", "--format=bsdf2",
+                                   "--type=brotli:bz2", "--brotli_quality=9",
+                                   "--minlen=12"};
 
   BsdiffArguments arguments;
   EXPECT_TRUE(
       arguments.ParseCommandLine(args.size(), const_cast<char**>(args.data())));
 
   EXPECT_EQ(BsdiffFormat::kBsdf2, arguments.format());
-  EXPECT_EQ(CompressorType::kBrotli, arguments.compressor_type());
-  EXPECT_EQ(9, arguments.compression_quality());
+
+  std::vector<CompressorType> types = {CompressorType::kBZ2,
+                                       CompressorType::kBrotli};
+  EXPECT_EQ(types, arguments.compressor_types());
+
+  EXPECT_EQ(9, arguments.brotli_quality());
   EXPECT_EQ(12, arguments.min_length());
 }
 

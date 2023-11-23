@@ -19,17 +19,42 @@
 extern "C" {
 #endif
 
-#if defined(USE_EXIT_ON_DIE)
-#define do_abort() exit(1)
-#else
-#define do_abort() abort()
-#endif
+/*
+ * Silence compiler warnings for unused variables/functions.
+ *
+ * If the definition is actually used, the attribute should be removed, but if
+ * it's forgotten or left in place, it doesn't cause a problem.
+ *
+ * If the definition is actually unused, the compiler is free to remove it from
+ * the output so as to save size.  If you want to make sure the definition is
+ * kept (e.g. for ABI compatibility), look at the "used" attribute instead.
+ */
+#define attribute_unused __attribute__((__unused__))
+
+/*
+ * Mark the symbol as "weak" in the ELF output.  This provides a fallback symbol
+ * that may be overriden at link time.  See this page for more details:
+ * https://en.wikipedia.org/wiki/Weak_symbol
+ */
+#define attribute_weak __attribute__((__weak__))
+
+/*
+ * Mark the function as a printf-style function.
+ * @format_idx The index in the function argument list where the format string
+ *             is passed (where the first argument is "1").
+ * @check_idx The index in the function argument list where the first argument
+ *            used in the format string is passed.
+ * Some examples:
+ *   foo([1] const char *format, [2] ...): format=1 check=2
+ *   foo([1] int, [2] const char *format, [3] ...): format=2 check=3
+ *   foo([1] const char *format, [2] const char *, [3] ...): format=1 check=3
+ */
+#define attribute_printf(format_idx, check_idx) \
+	__attribute__((__format__(__printf__, format_idx, check_idx)))
 
 /* clang-format off */
-#define die(_msg, ...) do { \
-	do_log(LOG_ERR, "libminijail[%d]: " _msg, getpid(), ## __VA_ARGS__); \
-	do_abort(); \
-} while (0)
+#define die(_msg, ...) \
+	do_fatal_log(LOG_ERR, "libminijail[%d]: " _msg, getpid(), ## __VA_ARGS__)
 
 #define pdie(_msg, ...) \
 	die(_msg ": %m", ## __VA_ARGS__)
@@ -57,8 +82,19 @@ enum logging_system_t {
 	LOG_TO_FD,
 };
 
+/*
+ * Even though this function internally calls abort(2)/exit(2), it is
+ * intentionally not marked with the noreturn attribute. When marked as
+ * noreturn, clang coalesces several of the do_fatal_log() calls in methods that
+ * have a large number of such calls (like minijail_enter()), making it
+ * impossible for breakpad to correctly identify the line where it was called,
+ * making the backtrace somewhat useless.
+ */
+extern void do_fatal_log(int priority, const char *format, ...)
+    attribute_printf(2, 3);
+
 extern void do_log(int priority, const char *format, ...)
-    __attribute__((__format__(__printf__, 2, 3)));
+    attribute_printf(2, 3);
 
 static inline int is_android(void)
 {
@@ -69,16 +105,18 @@ static inline int is_android(void)
 #endif
 }
 
-void __asan_init(void) __attribute__((weak));
+void __asan_init(void) attribute_weak;
+void __hwasan_init(void) attribute_weak;
 
 static inline int running_with_asan(void)
 {
-	return &__asan_init != 0;
+	return &__asan_init != 0 || &__hwasan_init != 0;
 }
 
 int lookup_syscall(const char *name);
 const char *lookup_syscall_name(int nr);
 
+long int parse_single_constant(char *constant_str, char **endptr);
 long int parse_constant(char *constant_str, char **endptr);
 int parse_size(size_t *size, const char *sizespec);
 

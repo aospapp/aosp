@@ -18,7 +18,7 @@ class bluetooth_IDCheck(bluetooth_semiauto_helper.BluetoothSemiAutoHelper):
     _BLUETOOTH_3_BOARDS = ['x86-mario', 'x86-zgb']
 
     # Boards which are not shipped to customers and don't need an id.
-    _REFERENCE_ONLY = ['rambi', 'nyan', 'oak', 'reef']
+    _REFERENCE_ONLY = ['rambi', 'nyan', 'oak', 'reef', 'yorp', 'bip']
 
     def warmup(self):
         """Overwrite parent warmup; no need to log in."""
@@ -64,7 +64,7 @@ class bluetooth_IDCheck(bluetooth_semiauto_helper.BluetoothSemiAutoHelper):
         if not self.supports_bluetooth():
             return
 
-        self._device = utils.get_board()
+        self._device = utils.get_platform()
         if self._device in self._REFERENCE_ONLY:
             return
 

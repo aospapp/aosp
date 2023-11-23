@@ -16,7 +16,6 @@
 
 package com.android.tv.common.ui.setup;
 
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.os.Bundle;
@@ -27,10 +26,10 @@ import android.support.annotation.NonNull;
 import android.transition.Transition;
 import android.transition.TransitionInflater;
 import android.view.View;
-import android.view.ViewTreeObserver.OnPreDrawListener;
 import com.android.tv.common.R;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.ui.setup.animation.SetupAnimationHelper;
+import dagger.android.DaggerActivity;
 
 /**
  * Setup activity for onboarding screens or TIS.
@@ -38,7 +37,7 @@ import com.android.tv.common.ui.setup.animation.SetupAnimationHelper;
  * <p>The inherited class should add theme {@code Theme.Setup.GuidedStep} to its definition in
  * AndroidManifest.xml.
  */
-public abstract class SetupActivity extends Activity implements OnActionClickListener {
+public abstract class SetupActivity extends DaggerActivity implements OnActionClickListener {
     private static final int MSG_EXECUTE_ACTION = 1;
 
     private boolean mShowInitialFragment = true;
@@ -55,23 +54,7 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
         // Show initial fragment only when the saved state is not restored, because the last
         // fragment is restored if savesInstanceState is not null.
         if (savedInstanceState == null) {
-            // This is the workaround to show the first fragment with delay to show the fragment
-            // enter transition. See http://b/26255145
-            getWindow()
-                    .getDecorView()
-                    .getViewTreeObserver()
-                    .addOnPreDrawListener(
-                            new OnPreDrawListener() {
-                                @Override
-                                public boolean onPreDraw() {
-                                    getWindow()
-                                            .getDecorView()
-                                            .getViewTreeObserver()
-                                            .removeOnPreDrawListener(this);
-                                    showInitialFragment();
-                                    return true;
-                                }
-                            });
+            showInitialFragment();
         } else {
             mShowInitialFragment = false;
         }

@@ -17,6 +17,7 @@ import subprocess32
 from lucifer import autotest
 
 
+@pytest.mark.skip('crbug.com/787081')
 @pytest.mark.slow
 def test_monkeypatch():
     """Test monkeypatch()."""

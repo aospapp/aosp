@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,92 +18,106 @@ package android.platform.helpers;
 
 public interface IAutoDialHelper extends IAppHelper {
     /**
-     * Setup expectations: The app is open and the drawer is open
+     * Setup expectations: The app is open and the dialpad is open
      *
-     * This method is used to dial the phonenumber on dialpad
+     * <p>This method is used to dial the phonenumber on dialpad
      *
-     * @param phoneNumber  phone number to dial.
+     * @param phoneNumber phone number to dial.
      */
     void dialANumber(String phoneNumber);
 
     /**
      * Setup expectations: The app is open and there is an ongoing call.
      *
-     * This method is used to end call.
+     * <p>This method is used to end call using softkey.
      */
     void endCall();
 
     /**
-     * Setup expectations: The app is open and the drawer is open.
+     * Setup expectations: The app is open.
      *
-     * This method is used to open call history details.
+     * <p>This method is used to open call history details.
      */
     void openCallHistory();
 
     /**
-     * Setup expectations: The app is open and the drawer is open.
+     * Setup expectations: The app is open.
      *
-     * This method is used to open missed call details.
+     * <p>This method dials a contact from the contact list.
+     *
+     * @param contactName to dial.
      */
-    void openMissedCall();
+    void callContact(String contactName);
 
     /**
-     * Setup expectations: The app is open and in "Dial a number" drawer option
+     * Setup expectations: The app is open and in Dialpad.
      *
-     * This method is used to delete the number entered on dialpad using backspace
+     * <p>This method is used to delete the number entered on dialpad using backspace
      */
     void deleteDialedNumber();
 
     /**
-     * Setup expectations: The app is open and in "Dial a number" drawer option
+     * Setup expectations: The app is open and in Dialpad
      *
-     * This method is used to get the number entered on dialpad
+     * <p>This method is used to get the number entered on dialing screen.
      */
     String getDialedNumber();
 
     /**
+     * Setup expectations: The app is open and in Dialpad
+     *
+     * <p>This method is used to get the number entered on dialpad
+     */
+    String getDialInNumber();
+
+    /**
      * Setup expectations: The app is open and there is an ongoing call.
      *
-     * This method is used to get the name of the contact for the ongoing call
+     * <p>This method is used to get the name of the contact for the ongoing call
      */
     String getDialedContactName();
 
     /**
+     * Setup expectations: The app is open and Call History is open.
+     *
+     * <p>This method is used to get the most recent call history.
+     */
+    String getRecentCallHistory();
+
+    /**
      * Setup expectations: The app is open and phonenumber is entered on the dialpad
      *
-     * This method is used to make a call
-     *
+     * <p>This method is used to make/receive a call using softkey
      */
     void makeCall();
 
     /**
      * Setup expectations: The app is open
      *
-     * This method is used to dial a number from call history, missed call[s], recent
-     * call[s] list
+     * <p>This method is used to dial a number from a list (Favorites, Call History, Contact)
      *
-     * @param phoneNumber  phoneNumber to be dialed
+     * @param contact (number or name) dial.
      */
-    void dialNumberFromList(String phoneNumber);
+    void dialFromList(String contact);
 
     /**
      * Setup expectations: The app is open and there is an ongoing call
      *
-     * This method is used to enter number on the in-call dialpad
+     * <p>This method is used to enter number on the in-call dialpad
      */
     void inCallDialPad(String phoneNumber);
 
     /**
      * Setup expectations: The app is open and there is an ongoing call
      *
-     * This method is used to mute the ongoing call
+     * <p>This method is used to mute the ongoing call
      */
     void muteCall();
 
     /**
      * Setup expectations: The app is open and there is an ongoing call
      *
-     * This method is used to unmute the ongoing call
+     * <p>This method is used to unmute the ongoing call
      */
     void unmuteCall();
 }

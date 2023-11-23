@@ -17,7 +17,6 @@
 package com.android.internal.telephony;
 
 import android.os.Parcel;
-import android.telephony.CellIdentity;
 import android.telephony.CellIdentityWcdma;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -32,8 +31,8 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     private static final int CID = 268435455;
     // Primary Scrambling Coderanges from 0 to 511.
     private static final int PSC = 511;
-    // UMTS Absolute RF Channel Number ranges from 0 to 65535.
-    private static final int UARFCN = 65535;
+    // UMTS Absolute RF Channel Number ranges from 0 to 65383.
+    private static final int UARFCN = 16383;
     private static final int MCC = 120;
     private static final int MNC = 260;
     private static final String MCC_STR = "120";
@@ -127,23 +126,6 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
     }
 
     @SmallTest
-    public void testFormerConstructor() {
-        CellIdentityWcdma ci =
-                new CellIdentityWcdma(MCC, MNC, LAC, CID, PSC);
-
-        assertEquals(LAC, ci.getLac());
-        assertEquals(CID, ci.getCid());
-        assertEquals(PSC, ci.getPsc());
-        assertEquals(MCC, ci.getMcc());
-        assertEquals(MNC, ci.getMnc());
-        assertEquals(MCC_STR, ci.getMccString());
-        assertEquals(MNC_STR, ci.getMncString());
-        assertEquals(MCC_STR + MNC_STR, ci.getMobileNetworkOperator());
-        assertNull(ci.getOperatorAlphaLong());
-        assertNull(ci.getOperatorAlphaShort());
-    }
-
-    @SmallTest
     public void testEquals() {
         CellIdentityWcdma ciA = new CellIdentityWcdma(
                 LAC, CID, PSC, UARFCN, MCC_STR, MNC_STR, ALPHA_LONG, ALPHA_SHORT);
@@ -183,15 +165,7 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
 
         Parcel p = Parcel.obtain();
-        p.writeInt(CellIdentity.TYPE_WCDMA);
-        p.writeString(String.valueOf(Integer.MAX_VALUE));
-        p.writeString(String.valueOf(Integer.MAX_VALUE));
-        p.writeString(ALPHA_LONG);
-        p.writeString(ALPHA_SHORT);
-        p.writeInt(LAC);
-        p.writeInt(CID);
-        p.writeInt(PSC);
-        p.writeInt(UARFCN);
+        ci.writeToParcel(p, 0);
         p.setDataPosition(0);
 
         CellIdentityWcdma newCi = CellIdentityWcdma.CREATOR.createFromParcel(p);
@@ -206,15 +180,7 @@ public class CellIdentityWcdmaTest extends AndroidTestCase {
                 new CellIdentityWcdma(LAC, CID, PSC, UARFCN, null, null, ALPHA_LONG, ALPHA_SHORT);
 
         Parcel p = Parcel.obtain();
-        p.writeInt(CellIdentity.TYPE_WCDMA);
-        p.writeString(invalidMcc);
-        p.writeString(invalidMnc);
-        p.writeString(ALPHA_LONG);
-        p.writeString(ALPHA_SHORT);
-        p.writeInt(LAC);
-        p.writeInt(CID);
-        p.writeInt(PSC);
-        p.writeInt(UARFCN);
+        ci.writeToParcel(p, 0);
         p.setDataPosition(0);
 
         CellIdentityWcdma newCi = CellIdentityWcdma.CREATOR.createFromParcel(p);

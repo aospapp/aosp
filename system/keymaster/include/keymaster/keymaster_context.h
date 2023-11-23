@@ -20,15 +20,15 @@
 #include <assert.h>
 
 #include <hardware/keymaster_defs.h>
-#include <keymaster/keymaster_enforcement.h>
 #include <keymaster/android_keymaster_utils.h>
+#include <keymaster/keymaster_enforcement.h>
 
 namespace keymaster {
 
 class AuthorizationSet;
 class KeyFactory;
 class OperationFactory;
-template<typename BlobType> struct TKeymasterBlob;
+template <typename BlobType> struct TKeymasterBlob;
 typedef TKeymasterBlob<keymaster_key_blob_t> KeymasterKeyBlob;
 class Key;
 
@@ -83,10 +83,10 @@ class KeymasterContext {
      */
     virtual void GetSystemVersion(uint32_t* os_version, uint32_t* os_patchlevel) const = 0;
 
-    virtual KeyFactory* GetKeyFactory(keymaster_algorithm_t algorithm) const = 0;
-    virtual OperationFactory* GetOperationFactory(keymaster_algorithm_t algorithm,
-                                                  keymaster_purpose_t purpose) const = 0;
-    virtual keymaster_algorithm_t* GetSupportedAlgorithms(size_t* algorithms_count) const = 0;
+    virtual const KeyFactory* GetKeyFactory(keymaster_algorithm_t algorithm) const = 0;
+    virtual const OperationFactory* GetOperationFactory(keymaster_algorithm_t algorithm,
+                                                        keymaster_purpose_t purpose) const = 0;
+    virtual const keymaster_algorithm_t* GetSupportedAlgorithms(size_t* algorithms_count) const = 0;
 
     /**
      * UpgradeKeyBlob takes an existing blob, parses out key material and constructs a new blob with

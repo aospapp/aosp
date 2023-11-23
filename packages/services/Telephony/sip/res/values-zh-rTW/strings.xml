@@ -24,8 +24,8 @@
     <string name="sip_call_options_title" msgid="8421210494703869806">"使用 SIP 通話功能"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"使用 SIP 通話功能 (僅限 Wi-Fi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"數據網路可用時，適用於所有通話"</string>
-    <string name="sip_call_options_entry_2" msgid="1815335903940609729">"僅適用於 SIP 通話"</string>
-    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"適用於所有通話"</string>
+    <string name="sip_call_options_entry_2" msgid="1815335903940609729">"僅用於 SIP 通話"</string>
+    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"用於所有通話"</string>
     <string name="add_sip_account" msgid="800843669753980091">"新增帳戶"</string>
     <string name="remove_sip_account" msgid="1367664438506503690">"移除帳戶"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"SIP 帳戶"</string>
@@ -65,7 +65,7 @@
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;未設定&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;未設定&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;與使用者名稱相同&gt;"</string>
-    <string name="optional_summary" msgid="2363105560396317624">"&lt;選擇性&gt;"</string>
+    <string name="optional_summary" msgid="2363105560396317624">"&lt;選用&gt;"</string>
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ 輕觸即可全部顯示"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ 輕觸即可全部隱藏"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"請輸入新 SIP 帳戶的詳細資料。"</string>

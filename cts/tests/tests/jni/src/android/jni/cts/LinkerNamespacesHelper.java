@@ -16,12 +16,21 @@
 
 package android.jni.cts;
 
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+
+import androidx.test.InstrumentationRegistry;
+
+import dalvik.system.PathClassLoader;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -29,24 +38,19 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.support.test.InstrumentationRegistry;
-import dalvik.system.PathClassLoader;
-
 class LinkerNamespacesHelper {
     private final static String PUBLIC_CONFIG_DIR = "/system/etc/";
     private final static String PRODUCT_CONFIG_DIR = "/product/etc/";
     private final static String SYSTEM_CONFIG_FILE = PUBLIC_CONFIG_DIR + "public.libraries.txt";
     private final static Pattern EXTENSION_CONFIG_FILE_PATTERN = Pattern.compile(
-            "public\\.libraries-([A-Za-z0-9\\-_]+)\\.txt");
-    private final static Pattern EXTENSION_LIBRARY_FILE_PATTERN = Pattern.compile(
-            "lib[^.]+\\.([A-Za-z0-9\\-_]+)\\.so");
+            "public\\.libraries-([A-Za-z0-9\\-_.]+)\\.txt");
     private final static String VENDOR_CONFIG_FILE = "/vendor/etc/public.libraries.txt";
+    private final static String RUNTIME_APEX_DIR = "/apex/com.android.runtime";
     private final static String[] PUBLIC_SYSTEM_LIBRARIES = {
         "libaaudio.so",
+        "libamidi.so",
         "libandroid.so",
+        "libbinder_ndk.so",
         "libc.so",
         "libcamera2ndk.so",
         "libdl.so",
@@ -54,8 +58,6 @@ class LinkerNamespacesHelper {
         "libGLESv1_CM.so",
         "libGLESv2.so",
         "libGLESv3.so",
-        "libicui18n.so",
-        "libicuuc.so",
         "libjnigraphics.so",
         "liblog.so",
         "libmediandk.so",
@@ -70,6 +72,13 @@ class LinkerNamespacesHelper {
         "libvulkan.so",
         "libz.so"
     };
+
+    // Libraries listed in public.libraries.android.txt, located in RUNTIME_APEX_DIR path
+    private final static String[] PUBLIC_RUNTIME_LIBRARIES = {
+        "libicui18n.so",
+        "libicuuc.so",
+    };
+
     // The grey-list.
     private final static String[] PRIVATE_SYSTEM_LIBRARIES = {
         "libandroid_runtime.so",
@@ -126,8 +135,12 @@ class LinkerNamespacesHelper {
                 // libFoo.acme.so
                 List<String> libNames = readPublicLibrariesFile(configFile);
                 for (String lib : libNames) {
-                    Matcher libMatcher = EXTENSION_LIBRARY_FILE_PATTERN.matcher(lib);
-                    if (libMatcher.matches() && libMatcher.group(1).equals(companyName)) {
+                    int space = lib.lastIndexOf(' ');
+                    if (space != -1) {
+                      // Drop 64 or 32 from 'libFoo.so 64'
+                      lib = lib.substring(0, space);
+                    }
+                    if (lib.endsWith("." + companyName + ".so")) {
                         libs.add(lib);
                     } else {
                         return "Library \"" + lib + "\" in " + configFile.toString()
@@ -141,6 +154,7 @@ class LinkerNamespacesHelper {
 
     public static String runAccessibilityTest() throws IOException {
         List<String> systemLibs = new ArrayList<>();
+        List<String> runtimeApexLibs = new ArrayList<>();
 
         Collections.addAll(systemLibs, PUBLIC_SYSTEM_LIBRARIES);
 
@@ -148,6 +162,8 @@ class LinkerNamespacesHelper {
                 hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             systemLibs.add(WEBVIEW_PLAT_SUPPORT_LIB);
         }
+
+        Collections.addAll(runtimeApexLibs, PUBLIC_RUNTIME_LIBRARIES);
 
         // Check if public.libraries.txt contains libs other than the
         // public system libs (NDK libs).
@@ -181,11 +197,13 @@ class LinkerNamespacesHelper {
         }
 
         return runAccessibilityTestImpl(systemLibs.toArray(new String[systemLibs.size()]),
+                                        runtimeApexLibs.toArray(new String[runtimeApexLibs.size()]),
                                         vendorLibs.toArray(new String[vendorLibs.size()]),
                                         productLibs.toArray(new String[productLibs.size()]));
     }
 
     private static native String runAccessibilityTestImpl(String[] publicSystemLibs,
+                                                          String[] publicRuntimeLibs,
                                                           String[] publicVendorLibs,
                                                           String[] publicProductLibs);
 
@@ -219,6 +237,41 @@ class LinkerNamespacesHelper {
             throw new IllegalStateException("No native path path found for " + packageName);
         }
         return nativePath;
+    }
+
+    private static boolean isAlreadyOpenedError(UnsatisfiedLinkError e, String libFilePath) {
+        // If one of the public system libraries are already opened in the bootclassloader, consider
+        // this try as success, because dlopen to the lib is successful.
+        String baseName = new File(libFilePath).getName();
+        return e.getMessage().contains("Shared library \"" + libFilePath +
+            "\" already opened by ClassLoader") &&
+            Arrays.asList(PUBLIC_SYSTEM_LIBRARIES).contains(baseName);
+    }
+
+    private static String loadWithSystemLoad(String libFilePath) {
+        try {
+            System.load(libFilePath);
+        } catch (UnsatisfiedLinkError e) {
+            // all other exceptions are just thrown
+            if (!isAlreadyOpenedError(e, libFilePath)) {
+                return "System.load() UnsatisfiedLinkError: " + e.getMessage();
+            }
+        }
+        return "";
+    }
+
+    private static String loadWithSystemLoadLibrary(String libFileName) {
+        // Drop 'lib' and '.so' from the base name
+        String libName = libFileName.substring(3, libFileName.length()-3);
+        try {
+            System.loadLibrary(libName);
+        } catch (UnsatisfiedLinkError e) {
+            if (!isAlreadyOpenedError(e, libFileName)) {
+                return "System.loadLibrary(\"" + libName + "\") UnsatisfiedLinkError: " +
+                    e.getMessage();
+            }
+        }
+        return "";
     }
 
     // Verify the behaviour of native library loading in class loaders.
@@ -296,6 +349,18 @@ class LinkerNamespacesHelper {
         // On success we return null.
         return null;
     }
+
+    public static String runDlopenPublicLibrariesInRuntimeNamespace() {
+        for (String lib : PUBLIC_RUNTIME_LIBRARIES) {
+            String error = LinkerNamespacesHelper.tryDlopen(lib);
+            if (error != null) {
+                return error;
+            }
+        }
+        return null;
+    }
+
+    public static native String tryDlopen(String lib);
 }
 
 class ClassNamespaceA1 {

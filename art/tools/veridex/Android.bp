@@ -14,6 +14,7 @@
 
 cc_binary {
     name: "veridex",
+    defaults: ["art_defaults"],
     host_supported: true,
     srcs: [
         "flow_analysis.cc",
@@ -24,8 +25,21 @@ cc_binary {
         "veridex.cc",
     ],
     cflags: ["-Wall", "-Werror"],
-    shared_libs: ["libdexfile", "libbase"],
+    static_libs: [
+        "libdexfile",
+        "libartbase",
+        "libbase",
+        "liblog",
+        "libz",
+        "libziparchive",
+    ],
+    stl: "libc++_static",
     header_libs: [
         "art_libartbase_headers",
     ],
+    target: {
+        darwin: {
+            enabled: true,
+        },
+    },
 }

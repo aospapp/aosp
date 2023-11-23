@@ -1,23 +1,32 @@
 package org.robolectric.shadows;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import android.app.Application;
 import android.widget.RadioGroup;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.Arrays;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowRadioGroupTest {
   private static final int BUTTON_ID = 3245;
+  private Application context;
+  private RadioGroup radioGroup;
+
+  @Before
+  public void setUp() throws Exception {
+    context = ApplicationProvider.getApplicationContext();
+    radioGroup = new RadioGroup(context);
+  }
 
   @Test
   public void checkedRadioButtonId() throws Exception {
-    RadioGroup radioGroup = new RadioGroup(RuntimeEnvironment.application);
     assertThat(radioGroup.getCheckedRadioButtonId()).isEqualTo(-1);
     radioGroup.check(99);
     assertThat(radioGroup.getCheckedRadioButtonId()).isEqualTo(99);
@@ -25,7 +34,6 @@ public class ShadowRadioGroupTest {
 
   @Test
   public void check_shouldCallOnCheckedChangeListener() throws Exception {
-    RadioGroup radioGroup = new RadioGroup(RuntimeEnvironment.application);
     TestOnCheckedChangeListener listener = new TestOnCheckedChangeListener();
     radioGroup.setOnCheckedChangeListener(listener);
 
@@ -37,7 +45,6 @@ public class ShadowRadioGroupTest {
 
   @Test
   public void clearCheck_shouldCallOnCheckedChangeListenerTwice() throws Exception {
-    RadioGroup radioGroup = new RadioGroup(RuntimeEnvironment.application);
     TestOnCheckedChangeListener listener = new TestOnCheckedChangeListener();
 
     radioGroup.check(BUTTON_ID);

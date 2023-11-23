@@ -17,6 +17,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.google.android.tv.partner.support"
     android:versionCode="1">
-  <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="21"/>
+  <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23"/>
   <application />
 </manifest>

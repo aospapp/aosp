@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -31,7 +31,7 @@ XC_OVR_ZZ60
 CURL_OVERRIDE_AUTOCONF
 
 dnl configure script copyright
-AC_COPYRIGHT([Copyright (c) 1998 - 2017 Daniel Stenberg, <daniel@haxx.se>
+AC_COPYRIGHT([Copyright (c) 1998 - 2019 Daniel Stenberg, <daniel@haxx.se>
 This configure script may be copied, distributed and modified under the
 terms of the curl license; see COPYING for more details])
 
@@ -61,6 +61,13 @@ AC_SUBST(CONFIGURE_OPTIONS)
 CURL_CFLAG_EXTRAS=""
 if test X"$want_werror" = Xyes; then
   CURL_CFLAG_EXTRAS="-Werror"
+  if test "$compiler_id" = "GNU_C"; then
+    dnl enable -pedantic-errors for GCC 5 and later,
+    dnl as before that it was the same as -Werror=pedantic
+    if test "$compiler_num" -ge "500"; then
+      CURL_CFLAG_EXTRAS="$CURL_CFLAG_EXTRAS -pedantic-errors"
+    fi
+  fi
 fi
 AC_SUBST(CURL_CFLAG_EXTRAS)
 
@@ -124,11 +131,8 @@ dnl figure out the libcurl version
 CURLVERSION=`$SED -ne 's/^#define LIBCURL_VERSION "\(.*\)".*/\1/p' ${srcdir}/include/curl/curlver.h`
 XC_CHECK_PROG_CC
 
-dnl Check if gcc is being used before adding AX_CODE_COVERAGE
-AS_IF([ test "$GCC" = "yes" ], [AX_CODE_COVERAGE],
-  # not using GCC so pass a test below - CODE_COVERAGE_ENABLED_TRUE is not zero length
-  CODE_COVERAGE_ENABLED_TRUE='#'
-)
+dnl for --enable-code-coverage
+CURL_COVERAGE
 
 XC_AUTOMAKE
 AC_MSG_CHECKING([curl version])
@@ -151,7 +155,7 @@ AC_SUBST(PKGADD_VENDOR)
 
 dnl
 dnl initialize all the info variables
-    curl_ssl_msg="no      (--with-{ssl,gnutls,nss,polarssl,mbedtls,cyassl,axtls,winssl,darwinssl} )"
+    curl_ssl_msg="no      (--with-{ssl,gnutls,nss,polarssl,mbedtls,cyassl,schannel,secure-transport,mesalink,amissl} )"
     curl_ssh_msg="no      (--with-libssh2)"
    curl_zlib_msg="no      (--with-zlib)"
  curl_brotli_msg="no      (--with-brotli)"
@@ -188,7 +192,8 @@ AC_CANONICAL_HOST
 dnl Get system canonical name
 AC_DEFINE_UNQUOTED(OS, "${host}", [cpu-machine-OS])
 
-dnl Checks for programs.
+# Silence warning: ar: 'u' modifier ignored since 'D' is the default
+AC_SUBST(AR_FLAGS, [cr])
 
 dnl This defines _ALL_SOURCE for AIX
 CURL_CHECK_AIX_ALL_SOURCE
@@ -359,6 +364,7 @@ CURL_CHECK_WIN32_LARGEFILE
 
 CURL_MAC_CFLAGS
 CURL_SUPPORTS_BUILTIN_AVAILABLE
+
 
 dnl ************************************************************
 dnl switch off particular protocols
@@ -834,6 +840,28 @@ fi
 
 if test "$HAVE_GETHOSTBYNAME" != "1"
 then
+  dnl This is for AmigaOS with bsdsocket.library - needs testing before -lnet
+  AC_MSG_CHECKING([for gethostbyname for AmigaOS bsdsocket.library])
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[
+#include <proto/bsdsocket.h>
+struct Library *SocketBase = NULL;
+    ]],[[
+      gethostbyname("www.dummysite.com");
+    ]])
+  ],[
+    AC_MSG_RESULT([yes])
+    HAVE_GETHOSTBYNAME="1"
+    HAVE_PROTO_BSDSOCKET_H="1"
+    AC_DEFINE(HAVE_PROTO_BSDSOCKET_H, 1, [if Amiga bsdsocket.library is in use])
+    AC_SUBST(HAVE_PROTO_BSDSOCKET_H, [1])
+  ],[
+    AC_MSG_RESULT([no])
+  ])
+fi
+
+if test "$HAVE_GETHOSTBYNAME" != "1"
+then
   dnl gethostbyname in the network lib - for Haiku OS
   AC_CHECK_LIB(network, gethostbyname,
                [HAVE_GETHOSTBYNAME="1"
@@ -1053,13 +1081,13 @@ if test X"$OPT_BROTLI" != Xno; then
   if test "$HAVE_BROTLI" = "1"; then
     if test -n "$DIR_BROTLI"; then
        dnl when the brotli shared libs were found in a path that the run-time
-       dnl linker doesn't search through, we need to add it to LD_LIBRARY_PATH
+       dnl linker doesn't search through, we need to add it to CURL_LIBRARY_PATH
        dnl to prevent further configure tests to fail due to this
 
        if test "x$cross_compiling" != "xyes"; then
-         LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$DIR_BROTLI"
-         export LD_LIBRARY_PATH
-         AC_MSG_NOTICE([Added $DIR_BROTLI to LD_LIBRARY_PATH])
+         CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$DIR_BROTLI"
+         export CURL_LIBRARY_PATH
+         AC_MSG_NOTICE([Added $DIR_BROTLI to CURL_LIBRARY_PATH])
        fi
     fi
   else
@@ -1230,13 +1258,11 @@ dnl Check if the operating system allows programs to write to their own argv[]
 dnl **********************************************************************
 
 AC_MSG_CHECKING([if argv can be written to])
-AC_RUN_IFELSE([
-  AC_LANG_SOURCE([[
+CURL_RUN_IFELSE([
 int main(int argc, char ** argv) {
     argv[0][0] = ' ';
     return (argv[0][0] == ' ')?0:1;
 }
-  ]])
 ],[
   curl_cv_writable_argv=yes
 ],[
@@ -1477,6 +1503,11 @@ AC_HELP_STRING([--with-winssl],[enable Windows native SSL/TLS])
 AC_HELP_STRING([--without-winssl], [disable Windows native SSL/TLS]),
   OPT_WINSSL=$withval)
 
+AC_ARG_WITH(schannel,dnl
+AC_HELP_STRING([--with-schannel],[enable Windows native SSL/TLS])
+AC_HELP_STRING([--without-schannel], [disable Windows native SSL/TLS]),
+  OPT_WINSSL=$withval)
+
 AC_MSG_CHECKING([whether to enable Windows native SSL/TLS (Windows native builds only)])
 if test -z "$ssl_backends" -o "x$OPT_WINSSL" != xno; then
   ssl_msg=
@@ -1501,27 +1532,61 @@ else
   AC_MSG_RESULT(no)
 fi
 
-OPT_DARWINSSL=no
+OPT_SECURETRANSPORT=no
 AC_ARG_WITH(darwinssl,dnl
 AC_HELP_STRING([--with-darwinssl],[enable Apple OS native SSL/TLS])
 AC_HELP_STRING([--without-darwinssl], [disable Apple OS native SSL/TLS]),
-  OPT_DARWINSSL=$withval)
+  OPT_SECURETRANSPORT=$withval)
 
-AC_MSG_CHECKING([whether to enable Apple OS native SSL/TLS])
-if test -z "$ssl_backends" -o "x$OPT_DARWINSSL" != xno; then
-  if test "x$OPT_DARWINSSL" != "xno" &&
+AC_ARG_WITH(secure-transport,dnl
+AC_HELP_STRING([--with-secure-transport],[enable Apple OS native SSL/TLS])
+AC_HELP_STRING([--without-secure-transport], [disable Apple OS native SSL/TLS]),
+  OPT_SECURETRANSPORT=$withval)
+
+AC_MSG_CHECKING([whether to enable Secure Transport])
+if test -z "$ssl_backends" -o "x$OPT_SECURETRANSPORT" != xno; then
+  if test "x$OPT_SECURETRANSPORT" != "xno" &&
      test -d "/System/Library/Frameworks/Security.framework"; then
     AC_MSG_RESULT(yes)
-    AC_DEFINE(USE_DARWINSSL, 1, [to enable Apple OS native SSL/TLS support])
-    AC_SUBST(USE_DARWINSSL, [1])
-    ssl_msg="Apple OS-native"
-    test darwinssl != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
-    DARWINSSL_ENABLED=1
+    AC_DEFINE(USE_SECTRANSP, 1, [enable Secure Transport])
+    AC_SUBST(USE_SECTRANSP, [1])
+    ssl_msg="Secure Transport"
+    test secure-transport != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
+    SECURETRANSPORT_ENABLED=1
     LDFLAGS="$LDFLAGS -framework CoreFoundation -framework Security"
   else
     AC_MSG_RESULT(no)
   fi
   test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
+else
+  AC_MSG_RESULT(no)
+fi
+
+OPT_AMISSL=no
+AC_ARG_WITH(amissl,dnl
+AC_HELP_STRING([--with-amissl],[enable Amiga native SSL/TLS (AmiSSL)])
+AC_HELP_STRING([--without-amissl], [disable Amiga native SSL/TLS (AmiSSL)]),
+  OPT_AMISSL=$withval)
+
+AC_MSG_CHECKING([whether to enable Amiga native SSL/TLS (AmiSSL)])
+if test "$HAVE_PROTO_BSDSOCKET_H" == "1"; then
+  if test -z "$ssl_backends" -o "x$OPT_AMISSL" != xno; then
+    ssl_msg=
+    if test "x$OPT_AMISSL" != "xno"; then
+      AC_MSG_RESULT(yes)
+      ssl_msg="AmiSSL"
+      test amissl != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
+      AMISSL_ENABLED=1
+      LIBS="-lamisslauto $LIBS"
+      AC_DEFINE(USE_AMISSL, 1, [if AmiSSL is in use])
+      AC_DEFINE(USE_OPENSSL, 1, [if OpenSSL is in use])
+    else
+      AC_MSG_RESULT(no)
+    fi
+    test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
+  else
+    AC_MSG_RESULT(no)
+  fi
 else
   AC_MSG_RESULT(no)
 fi
@@ -1593,9 +1658,11 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
     dnl specify PKG_CONFIG_LIBDIR we're only looking where
     dnl the user told us to look
     OPENSSL_PCDIR="$OPT_SSL/lib/pkgconfig"
-    AC_MSG_NOTICE([PKG_CONFIG_LIBDIR will be set to "$OPENSSL_PCDIR"])
     if test -f "$OPENSSL_PCDIR/openssl.pc"; then
+      AC_MSG_NOTICE([PKG_CONFIG_LIBDIR will be set to "$OPENSSL_PCDIR"])
       PKGTEST="yes"
+    elif test ! -f "$PREFIX_OPENSSL/include/openssl/ssl.h"; then
+      AC_MSG_ERROR([$PREFIX_OPENSSL is a bad --with-ssl prefix!])
     fi
 
     dnl in case pkg-config comes up empty, use what we got
@@ -1615,7 +1682,7 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
 
     if test "$PKGCONFIG" != "no" ; then
       SSL_LIBS=`CURL_EXPORT_PCDIR([$OPENSSL_PCDIR]) dnl
-        $PKGCONFIG --libs-only-l openssl 2>/dev/null`
+        $PKGCONFIG --libs-only-l --libs-only-other openssl 2>/dev/null`
 
       SSL_LDFLAGS=`CURL_EXPORT_PCDIR([$OPENSSL_PCDIR]) dnl
         $PKGCONFIG --libs-only-L openssl 2>/dev/null`
@@ -1649,14 +1716,17 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
      LIBS="-lcrypto $LIBS"
      ],[
      LDFLAGS="$CLEANLDFLAGS -L$LIB_OPENSSL"
-     CPPFLAGS="$CLEANCPPFLAGS -I$PREFIX_OPENSSL/include/openssl -I$PREFIX_OPENSSL/include"
+     if test "$PKGCONFIG" = "no" ; then
+       # only set this if pkg-config wasn't used
+       CPPFLAGS="$CLEANCPPFLAGS -I$PREFIX_OPENSSL/include/openssl -I$PREFIX_OPENSSL/include"
+     fi
      AC_CHECK_LIB(crypto, HMAC_Init_ex,[
        HAVECRYPTO="yes"
        LIBS="-lcrypto $LIBS"], [
 
        dnl still no, but what about with -ldl?
        AC_MSG_CHECKING([OpenSSL linking with -ldl])
-       LIBS="$LIBS -ldl"
+       LIBS="$CLEANLIBS -lcrypto -ldl"
        AC_TRY_LINK(
        [
          #include <openssl/err.h>
@@ -1670,10 +1740,10 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
        ],
        [
          AC_MSG_RESULT(no)
-         dnl ok, so what about bouth -ldl and -lpthread?
+         dnl ok, so what about both -ldl and -lpthread?
 
          AC_MSG_CHECKING([OpenSSL linking with -ldl and -lpthread])
-         LIBS="$LIBS -lpthread"
+         LIBS="$CLEANLIBS -lcrypto -ldl -lpthread"
          AC_TRY_LINK(
          [
            #include <openssl/err.h>
@@ -1755,23 +1825,16 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
   fi
 
   if test X"$OPENSSL_ENABLED" = X"1"; then
-    dnl If the ENGINE library seems to be around, check for the OpenSSL engine
-    dnl stuff, it is kind of "separated" from the main SSL check
-    AC_CHECK_FUNC(ENGINE_init,
-              [
-                AC_CHECK_HEADERS(openssl/engine.h)
-                AC_CHECK_FUNCS( ENGINE_load_builtin_engines )
-              ])
-
     dnl These can only exist if OpenSSL exists
     dnl Older versions of Cyassl (some time before 2.9.4) don't have
     dnl SSL_get_shutdown (but this check won't actually detect it there
     dnl as it's a macro that needs the header files be included)
+    dnl OpenSSL_version is introduced in 3.0.0
 
     AC_CHECK_FUNCS( RAND_egd \
-                    ENGINE_cleanup \
                     SSL_get_shutdown \
-                    SSLv2_client_method )
+                    SSLv2_client_method \
+                    OpenSSL_version )
 
     AC_MSG_CHECKING([for BoringSSL])
     AC_COMPILE_IFELSE([
@@ -1811,15 +1874,16 @@ if test -z "$ssl_backends" -o "x$OPT_SSL" != xno &&
   if test "$OPENSSL_ENABLED" = "1"; then
     if test -n "$LIB_OPENSSL"; then
        dnl when the ssl shared libs were found in a path that the run-time
-       dnl linker doesn't search through, we need to add it to LD_LIBRARY_PATH
+       dnl linker doesn't search through, we need to add it to CURL_LIBRARY_PATH
        dnl to prevent further configure tests to fail due to this
        if test "x$cross_compiling" != "xyes"; then
-         LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LIB_OPENSSL"
-         export LD_LIBRARY_PATH
-         AC_MSG_NOTICE([Added $LIB_OPENSSL to LD_LIBRARY_PATH])
+         CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$LIB_OPENSSL"
+         export CURL_LIBRARY_PATH
+         AC_MSG_NOTICE([Added $LIB_OPENSSL to CURL_LIBRARY_PATH])
        fi
     fi
     CURL_CHECK_OPENSSL_API
+    check_for_ca_bundle=1
   fi
 
   test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
@@ -1870,6 +1934,20 @@ if test "$OPENSSL_ENABLED" = "1"; then
      AC_DEFINE(HAVE_OPENSSL_SRP, 1, [if you have the function SRP_Calc_client_key])
      AC_SUBST(HAVE_OPENSSL_SRP, [1])
    ])
+fi
+
+dnl ---
+dnl Whether the OpenSSL configuration will be loaded automatically
+dnl ---
+if test X"$OPENSSL_ENABLED" = X"1"; then
+AC_ARG_ENABLE(openssl-auto-load-config,
+AC_HELP_STRING([--enable-openssl-auto-load-config],[Enable automatic loading of OpenSSL configuration])
+AC_HELP_STRING([--disable-openssl-auto-load-config],[Disable automatic loading of OpenSSL configuration]),
+[ if test X"$enableval" = X"no"; then
+    AC_MSG_NOTICE([automatic loading of OpenSSL configuration disabled])
+    AC_DEFINE(CURL_DISABLE_OPENSSL_AUTO_LOAD_CONFIG, 1, [if the OpenSSL configuration won't be loaded automatically])
+  fi
+])
 fi
 
 dnl ----------------------------------------------------
@@ -1969,16 +2047,16 @@ if test -z "$ssl_backends" -o "x$OPT_GNUTLS" != xno; then
 
       if test "x$USE_GNUTLS" = "xyes"; then
         AC_MSG_NOTICE([detected GnuTLS version $version])
-
+        check_for_ca_bundle=1
         if test -n "$gtlslib"; then
           dnl when shared libs were found in a path that the run-time
           dnl linker doesn't search through, we need to add it to
-          dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+          dnl CURL_LIBRARY_PATH to prevent further configure tests to fail
           dnl due to this
           if test "x$cross_compiling" != "xyes"; then
-            LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$gtlslib"
-            export LD_LIBRARY_PATH
-            AC_MSG_NOTICE([Added $gtlslib to LD_LIBRARY_PATH])
+            CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$gtlslib"
+            export CURL_LIBRARY_PATH
+            AC_MSG_NOTICE([Added $gtlslib to CURL_LIBRARY_PATH])
           fi
         fi
         AC_CHECK_FUNCS([gnutls_certificate_set_x509_key_file2 gnutls_alpn_set_protocols gnutls_ocsp_req_init])
@@ -2103,18 +2181,18 @@ if test -z "$ssl_backends" -o "x$OPT_POLARSSL" != xno; then
 
     if test "x$USE_POLARSSL" = "xyes"; then
       AC_MSG_NOTICE([detected PolarSSL])
-
+      check_for_ca_bundle=1
       LIBS="-lpolarssl $LIBS"
 
       if test -n "$polarssllib"; then
         dnl when shared libs were found in a path that the run-time
         dnl linker doesn't search through, we need to add it to
-        dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+        dnl CURL_LIBRARY_PATH to prevent further configure tests to fail
         dnl due to this
         if test "x$cross_compiling" != "xyes"; then
-          LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$polarssllib"
-          export LD_LIBRARY_PATH
-          AC_MSG_NOTICE([Added $polarssllib to LD_LIBRARY_PATH])
+          CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$polarssllib"
+          export CURL_LIBRARY_PATH
+          AC_MSG_NOTICE([Added $polarssllib to CURL_LIBRARY_PATH])
         fi
       fi
     fi
@@ -2194,18 +2272,19 @@ if test -z "$ssl_backends" -o "x$OPT_MBEDTLS" != xno; then
 
     if test "x$USE_MBEDTLS" = "xyes"; then
       AC_MSG_NOTICE([detected mbedTLS])
+      check_for_ca_bundle=1
 
       LIBS="-lmbedtls -lmbedx509 -lmbedcrypto $LIBS"
 
       if test -n "$mbedtlslib"; then
         dnl when shared libs were found in a path that the run-time
         dnl linker doesn't search through, we need to add it to
-        dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+        dnl CURL_LIBRARY_PATH to prevent further configure tests to fail
         dnl due to this
         if test "x$cross_compiling" != "xyes"; then
-          LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$mbedtlslib"
-          export LD_LIBRARY_PATH
-          AC_MSG_NOTICE([Added $mbedtlslib to LD_LIBRARY_PATH])
+          CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$mbedtlslib"
+          export CURL_LIBRARY_PATH
+          AC_MSG_NOTICE([Added $mbedtlslib to CURL_LIBRARY_PATH])
         fi
       fi
     fi
@@ -2227,6 +2306,12 @@ _ldflags=$LDFLAGS
 AC_ARG_WITH(cyassl,dnl
 AC_HELP_STRING([--with-cyassl=PATH],[where to look for CyaSSL, PATH points to the installation root (default: system lib default)])
 AC_HELP_STRING([--without-cyassl], [disable CyaSSL detection]),
+  OPT_CYASSL=$withval)
+
+dnl provide --with-wolfssl as an alias for --with-cyassl
+AC_ARG_WITH(wolfssl,dnl
+AC_HELP_STRING([--with-wolfssl=PATH],[where to look for WolfSSL, PATH points to the installation root (default: system lib default)])
+AC_HELP_STRING([--without-wolfssl], [disable WolfSSL detection]),
   OPT_CYASSL=$withval)
 
 if test -z "$ssl_backends" -o "x$OPT_CYASSL" != xno; then
@@ -2339,9 +2424,10 @@ if test -z "$ssl_backends" -o "x$OPT_CYASSL" != xno; then
 
     if test "x$USE_CYASSL" = "xyes"; then
       AC_MSG_NOTICE([detected $cyassllibname])
+      check_for_ca_bundle=1
 
       dnl cyassl/ctaocrypt/types.h needs SIZEOF_LONG_LONG defined!
-      AC_CHECK_SIZEOF(long long)
+      AX_COMPILE_CHECK_SIZEOF(long long)
 
       dnl Versions since at least 2.6.0 may have options.h
       AC_CHECK_HEADERS(cyassl/options.h)
@@ -2355,7 +2441,6 @@ if test -z "$ssl_backends" -o "x$OPT_CYASSL" != xno; then
         dnl Recent WolfSSL versions build without SSLv3 by default
         dnl WolfSSL needs configure --enable-opensslextra to have *get_peer*
         AC_CHECK_FUNCS(wolfSSLv3_client_method \
-                       wolfSSL_CTX_UseSupportedCurve \
                        wolfSSL_get_peer_certificate \
                        wolfSSL_UseALPN)
       else
@@ -2367,18 +2452,110 @@ if test -z "$ssl_backends" -o "x$OPT_CYASSL" != xno; then
       if test -n "$cyassllib"; then
         dnl when shared libs were found in a path that the run-time
         dnl linker doesn't search through, we need to add it to
-        dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+        dnl CURL_LIBRARY_PATH to prevent further configure tests to fail
         dnl due to this
         if test "x$cross_compiling" != "xyes"; then
-          LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$cyassllib"
-          export LD_LIBRARY_PATH
-          AC_MSG_NOTICE([Added $cyassllib to LD_LIBRARY_PATH])
+          CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$cyassllib"
+          export CURL_LIBRARY_PATH
+          AC_MSG_NOTICE([Added $cyassllib to CURL_LIBRARY_PATH])
         fi
       fi
 
     fi
 
   fi dnl CyaSSL not disabled
+
+  test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
+fi
+
+dnl ----------------------------------------------------
+dnl check for MesaLink
+dnl ----------------------------------------------------
+
+dnl Default to compiler & linker defaults for MesaLink files & libraries.
+OPT_MESALINK=no
+
+_cppflags=$CPPFLAGS
+_ldflags=$LDFLAGS
+AC_ARG_WITH(mesalink,dnl
+AC_HELP_STRING([--with-mesalink=PATH],[where to look for MesaLink, PATH points to the installation root])
+AC_HELP_STRING([--without-mesalink], [disable MesaLink detection]),
+  OPT_MESALINK=$withval)
+
+if test -z "$ssl_backends" -o "x$OPT_MESALINK" != xno; then
+  ssl_msg=
+
+  if test X"$OPT_MESALINK" != Xno; then
+
+    if test "$OPT_MESALINK" = "yes"; then
+      OPT_MESALINK=""
+    fi
+
+    if test -z "$OPT_MESALINK" ; then
+      dnl check for lib first without setting any new path
+
+      AC_CHECK_LIB(mesalink, mesalink_library_init,
+      dnl libmesalink found, set the variable
+       [
+         AC_DEFINE(USE_MESALINK, 1, [if MesaLink is enabled])
+         AC_SUBST(USE_MESALINK, [1])
+         MESALINK_ENABLED=1
+         USE_MESALINK="yes"
+         ssl_msg="MesaLink"
+	 test mesalink != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
+        ])
+    fi
+
+    addld=""
+    addlib=""
+    addcflags=""
+    mesalinklib=""
+
+    if test "x$USE_MESALINK" != "xyes"; then
+      dnl add the path and test again
+      addld=-L$OPT_MESALINK/lib$libsuff
+      addcflags=-I$OPT_MESALINK/include
+      mesalinklib=$OPT_MESALINK/lib$libsuff
+
+      LDFLAGS="$LDFLAGS $addld"
+      if test "$addcflags" != "-I/usr/include"; then
+         CPPFLAGS="$CPPFLAGS $addcflags"
+      fi
+
+      AC_CHECK_LIB(mesalink, mesalink_library_init,
+       [
+       AC_DEFINE(USE_MESALINK, 1, [if MesaLink is enabled])
+       AC_SUBST(USE_MESALINK, [1])
+       MESALINK_ENABLED=1
+       USE_MESALINK="yes"
+       ssl_msg="MesaLink"
+       test mesalink != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
+       ],
+       [
+         CPPFLAGS=$_cppflags
+         LDFLAGS=$_ldflags
+       ])
+    fi
+
+    if test "x$USE_MESALINK" = "xyes"; then
+      AC_MSG_NOTICE([detected MesaLink])
+
+      LIBS="-lmesalink $LIBS"
+
+      if test -n "$mesalinklib"; then
+        dnl when shared libs were found in a path that the run-time
+        dnl linker doesn't search through, we need to add it to
+        dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+        dnl due to this
+        if test "x$cross_compiling" != "xyes"; then
+          LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$mesalinklib"
+          export LD_LIBRARY_PATH
+          AC_MSG_NOTICE([Added $mesalinklib to LD_LIBRARY_PATH])
+        fi
+      fi
+    fi
+
+  fi dnl MesaLink not disabled
 
   test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
 fi
@@ -2483,18 +2660,27 @@ if test -z "$ssl_backends" -o "x$OPT_NSS" != xno; then
     if test "x$USE_NSS" = "xyes"; then
       AC_MSG_NOTICE([detected NSS version $version])
 
+      dnl PK11_CreateManagedGenericObject() was introduced in NSS 3.34 because
+      dnl PK11_DestroyGenericObject() does not release resources allocated by
+      dnl PK11_CreateGenericObject() early enough.
+      AC_CHECK_FUNC(PK11_CreateManagedGenericObject,
+        [
+          AC_DEFINE(HAVE_PK11_CREATEMANAGEDGENERICOBJECT, 1,
+                    [if you have the PK11_CreateManagedGenericObject function])
+        ])
+
       dnl needed when linking the curl tool without USE_EXPLICIT_LIB_DEPS
       NSS_LIBS=$addlib
       AC_SUBST([NSS_LIBS])
 
       dnl when shared libs were found in a path that the run-time
       dnl linker doesn't search through, we need to add it to
-      dnl LD_LIBRARY_PATH to prevent further configure tests to fail
+      dnl CURL_LIBRARY_PATH to prevent further configure tests to fail
       dnl due to this
       if test "x$cross_compiling" != "xyes"; then
-        LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$nssprefix/lib$libsuff"
-        export LD_LIBRARY_PATH
-        AC_MSG_NOTICE([Added $nssprefix/lib$libsuff to LD_LIBRARY_PATH])
+        CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$nssprefix/lib$libsuff"
+        export CURL_LIBRARY_PATH
+        AC_MSG_NOTICE([Added $nssprefix/lib$libsuff to CURL_LIBRARY_PATH])
       fi
 
     fi dnl NSS found
@@ -2504,69 +2690,10 @@ if test -z "$ssl_backends" -o "x$OPT_NSS" != xno; then
   test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
 fi
 
-OPT_AXTLS=off
-
-AC_ARG_WITH(axtls,dnl
-AC_HELP_STRING([--with-axtls=PATH],[Where to look for axTLS, PATH points to the axTLS installation prefix (default: /usr/local).  Ignored if another SSL engine is selected.])
-AC_HELP_STRING([--without-axtls], [disable axTLS]),
-  OPT_AXTLS=$withval)
-
-if test -z "$ssl_backends" -o "x$OPT_AXTLS" != xno; then
-  ssl_msg=
-  if test X"$OPT_AXTLS" != Xno; then
-    dnl backup the pre-axtls variables
-    CLEANLDFLAGS="$LDFLAGS"
-    CLEANCPPFLAGS="$CPPFLAGS"
-    CLEANLIBS="$LIBS"
-
-    case "$OPT_AXTLS" in
-    yes)
-      dnl --with-axtls (without path) used
-      PREFIX_AXTLS=/usr/local
-      LIB_AXTLS="$PREFIX_AXTLS/lib"
-      LDFLAGS="$LDFLAGS -L$LIB_AXTLS"
-      CPPFLAGS="$CPPFLAGS -I$PREFIX_AXTLS/include"
-      ;;
-    off)
-      dnl no --with-axtls option given, just check default places
-      PREFIX_AXTLS=
-      ;;
-    *)
-      dnl check the given --with-axtls spot
-      PREFIX_AXTLS=$OPT_AXTLS
-      LIB_AXTLS="$PREFIX_AXTLS/lib"
-      LDFLAGS="$LDFLAGS -L$LIB_AXTLS"
-      CPPFLAGS="$CPPFLAGS -I$PREFIX_AXTLS/include"
-      ;;
-    esac
-
-    AC_CHECK_LIB(axtls, ssl_version,[
-      LIBS="-laxtls $LIBS"
-      AC_DEFINE(USE_AXTLS, 1, [if axTLS is enabled])
-      AC_SUBST(USE_AXTLS, [1])
-      AXTLS_ENABLED=1
-      USE_AXTLS="yes"
-      ssl_msg="axTLS"
-      test axtls != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
-
-      if test "x$cross_compiling" != "xyes"; then
-        LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$LIB_AXTLS"
-        export LD_LIBRARY_PATH
-        AC_MSG_NOTICE([Added $LIB_AXTLS to LD_LIBRARY_PATH])
-      fi
-      ],[
-      LDFLAGS="$CLEANLDFLAGS"
-      CPPFLAGS="$CLEANCPPFLAGS"
-      LIBS="$CLEANLIBS"
-    ])
-  fi
-  test -z "$ssl_msg" || ssl_backends="${ssl_backends:+$ssl_backends, }$ssl_msg"
-fi
-
-case "x$OPENSSL_ENABLED$GNUTLS_ENABLED$NSS_ENABLED$POLARSSL_ENABLED$MBEDTLS_ENABLED$AXTLS_ENABLED$CYASSL_ENABLED$WINSSL_ENABLED$DARWINSSL_ENABLED" in
+case "x$OPENSSL_ENABLED$GNUTLS_ENABLED$NSS_ENABLED$POLARSSL_ENABLED$MBEDTLS_ENABLED$CYASSL_ENABLED$WINSSL_ENABLED$SECURETRANSPORT_ENABLED$MESALINK_ENABLED$AMISSL_ENABLED" in
 x)
   AC_MSG_WARN([SSL disabled, you will not be able to use HTTPS, FTPS, NTLM and more.])
-  AC_MSG_WARN([Use --with-ssl, --with-gnutls, --with-polarssl, --with-cyassl, --with-nss, --with-axtls, --with-winssl, or --with-darwinssl to address this.])
+  AC_MSG_WARN([Use --with-ssl, --with-gnutls, --with-polarssl, --with-cyassl, --with-nss, --with-schannel, --with-secure-transport, --with-mesalink or --with-amissl to address this.])
   ;;
 x1)
   # one SSL backend is enabled
@@ -2606,7 +2733,9 @@ dnl **********************************************************************
 dnl Check for the CA bundle
 dnl **********************************************************************
 
-CURL_CHECK_CA_BUNDLE
+if test "$check_for_ca_bundle" -gt 0; then
+  CURL_CHECK_CA_BUNDLE
+fi
 
 dnl **********************************************************************
 dnl Check for libpsl
@@ -2619,7 +2748,7 @@ AC_ARG_WITH(libpsl,
            with_libpsl=yes)
 if test $with_libpsl != "no"; then
   AC_SEARCH_LIBS(psl_builtin, psl,
-    [curl_psl_msg="yes";
+    [curl_psl_msg="enabled";
      AC_DEFINE([USE_LIBPSL], [1], [PSL support enabled])
      ],
     [curl_psl_msg="no      (libpsl not found)";
@@ -2627,7 +2756,7 @@ if test $with_libpsl != "no"; then
      ]
   )
 fi
-AM_CONDITIONAL([USE_LIBPSL], [test "$curl_psl_msg" = "yes"])
+AM_CONDITIONAL([USE_LIBPSL], [test "$curl_psl_msg" = "enabled"])
 
 dnl **********************************************************************
 dnl Check for libmetalink
@@ -2747,7 +2876,7 @@ if test X"$OPT_LIBSSH2" != Xno; then
     CURL_CHECK_PKGCONFIG(libssh2)
 
     if test "$PKGCONFIG" != "no" ; then
-      LIB_SSH2=`$PKGCONFIG --libs-only-l libssh2`
+      LIB_SSH2=`$PKGCONFIG --libs libssh2`
       LD_SSH2=`$PKGCONFIG --libs-only-L libssh2`
       CPP_SSH2=`$PKGCONFIG --cflags-only-I libssh2`
       version=`$PKGCONFIG --modversion libssh2`
@@ -2793,13 +2922,13 @@ if test X"$OPT_LIBSSH2" != Xno; then
   if test "$LIBSSH2_ENABLED" = "1"; then
     if test -n "$DIR_SSH2"; then
        dnl when the libssh2 shared libs were found in a path that the run-time
-       dnl linker doesn't search through, we need to add it to LD_LIBRARY_PATH
+       dnl linker doesn't search through, we need to add it to CURL_LIBRARY_PATH
        dnl to prevent further configure tests to fail due to this
 
        if test "x$cross_compiling" != "xyes"; then
-         LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$DIR_SSH2"
-         export LD_LIBRARY_PATH
-         AC_MSG_NOTICE([Added $DIR_SSH2 to LD_LIBRARY_PATH])
+         CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$DIR_SSH2"
+         export CURL_LIBRARY_PATH
+         AC_MSG_NOTICE([Added $DIR_SSH2 to CURL_LIBRARY_PATH])
        fi
     fi
   else
@@ -2866,13 +2995,13 @@ elif test X"$OPT_LIBSSH" != Xno; then
   if test "$LIBSSH_ENABLED" = "1"; then
     if test -n "$DIR_SSH"; then
        dnl when the libssh shared libs were found in a path that the run-time
-       dnl linker doesn't search through, we need to add it to LD_LIBRARY_PATH
+       dnl linker doesn't search through, we need to add it to CURL_LIBRARY_PATH
        dnl to prevent further configure tests to fail due to this
 
        if test "x$cross_compiling" != "xyes"; then
-         LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$DIR_SSH"
-         export LD_LIBRARY_PATH
-         AC_MSG_NOTICE([Added $DIR_SSH to LD_LIBRARY_PATH])
+         CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$DIR_SSH"
+         export CURL_LIBRARY_PATH
+         AC_MSG_NOTICE([Added $DIR_SSH to CURL_LIBRARY_PATH])
        fi
     fi
   else
@@ -2992,12 +3121,10 @@ AC_HELP_STRING([--disable-versioned-symbols], [Disable versioned symbols in shar
           versioned_symbols_flavour="POLARSSL_"
         elif test "x$CYASSL_ENABLED" = "x1"; then
           versioned_symbols_flavour="CYASSL_"
-        elif test "x$AXTLS_ENABLED" = "x1"; then
-          versioned_symbols_flavour="AXTLS_"
         elif test "x$WINSSL_ENABLED" = "x1"; then
-          versioned_symbols_flavour="WINSSL_"
-        elif test "x$DARWINSSL_ENABLED" = "x1"; then
-          versioned_symbols_flavour="DARWINSSL_"
+          versioned_symbols_flavour="SCHANNEL_"
+        elif test "x$SECURETRANSPORT_ENABLED" = "x1"; then
+          versioned_symbols_flavour="SECURE_TRANSPORT_"
         else
           versioned_symbols_flavour=""
         fi
@@ -3208,9 +3335,9 @@ if test "$want_idn" = "yes"; then
     AC_SUBST([IDN_ENABLED], [1])
     curl_idn_msg="enabled (libidn2)"
     if test -n "$IDN_DIR" -a "x$cross_compiling" != "xyes"; then
-      LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$IDN_DIR"
-      export LD_LIBRARY_PATH
-      AC_MSG_NOTICE([Added $IDN_DIR to LD_LIBRARY_PATH])
+      CURL_LIBRARY_PATH="$CURL_LIBRARY_PATH:$IDN_DIR"
+      export CURL_LIBRARY_PATH
+      AC_MSG_NOTICE([Added $IDN_DIR to CURL_LIBRARY_PATH])
     fi
   else
     AC_MSG_WARN([Cannot find libraries for IDN support: IDN disabled])
@@ -3222,7 +3349,7 @@ fi
 
 
 dnl Let's hope this split URL remains working:
-dnl http://publibn.boulder.ibm.com/doc_link/en_US/a_doc_lib/aixprggd/ \
+dnl https://www15.software.ibm.com/doc_link/en_US/a_doc_lib/aixprggd/ \
 dnl genprogc/thread_quick_ref.htm
 
 
@@ -3338,6 +3465,31 @@ case "$OPT_ZSH_FPATH" in
 esac
 
 dnl **********************************************************************
+dnl Check for fish completion path
+dnl **********************************************************************
+
+OPT_FISH_FPATH=default
+AC_ARG_WITH(fish-functions-dir,
+AC_HELP_STRING([--with-fish-functions-dir=PATH],[Install fish completions to PATH])
+AC_HELP_STRING([--without-fish-functions-dir],[Do not install fish completions]),
+  [OPT_FISH_FPATH=$withval])
+case "$OPT_FISH_FPATH" in
+  no)
+    dnl --without-fish-functions-dir option used
+    ;;
+  default|yes)
+    dnl --with-fish-functions-dir option used without path
+    FISH_FUNCTIONS_DIR="$datarootdir/fish/completions"
+    AC_SUBST(FISH_FUNCTIONS_DIR)
+    ;;
+  *)
+    dnl --with-fish-functions-dir option used with path
+    FISH_FUNCTIONS_DIR="$withval"
+    AC_SUBST(FISH_FUNCTIONS_DIR)
+    ;;
+esac
+
+dnl **********************************************************************
 dnl Back to "normal" configuring
 dnl **********************************************************************
 
@@ -3422,6 +3574,7 @@ dnl default includes
 ]
 )
 
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 CURL_CHECK_VARIADIC_MACROS
@@ -3430,16 +3583,16 @@ AC_HEADER_TIME
 CURL_CHECK_STRUCT_TIMEVAL
 CURL_VERIFY_RUNTIMELIBS
 
-AC_CHECK_SIZEOF(size_t)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(short)
-AC_CHECK_SIZEOF(time_t)
-AC_CHECK_SIZEOF(off_t)
+AX_COMPILE_CHECK_SIZEOF(size_t)
+AX_COMPILE_CHECK_SIZEOF(long)
+AX_COMPILE_CHECK_SIZEOF(int)
+AX_COMPILE_CHECK_SIZEOF(short)
+AX_COMPILE_CHECK_SIZEOF(time_t)
+AX_COMPILE_CHECK_SIZEOF(off_t)
 
 o=$CPPFLAGS
 CPPFLAGS="-I$srcdir/include $CPPFLAGS"
-AC_CHECK_SIZEOF(curl_off_t, unused , [
+AX_COMPILE_CHECK_SIZEOF(curl_off_t, [
 #include <curl/system.h>
 ])
 CPPFLAGS=$o
@@ -3483,7 +3636,42 @@ AC_CHECK_TYPE([bool],[
 #endif
 ])
 
-CURL_CONFIGURE_CURL_SOCKLEN_T
+# check for sa_family_t
+AC_CHECK_TYPE(sa_family_t,
+   AC_DEFINE(CURL_SA_FAMILY_T, sa_family_t, [IP address type in sockaddr]),
+   [
+   # The windows name?
+   AC_CHECK_TYPE(ADDRESS_FAMILY,
+     AC_DEFINE(CURL_SA_FAMILY_T, ADDRESS_FAMILY, [IP address type in sockaddr]),
+     AC_DEFINE(CURL_SA_FAMILY_T, unsigned short, [IP address type in sockaddr]),
+    [
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+    ])
+   ],
+[
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+])
+
+AC_MSG_CHECKING([if time_t is unsigned])
+CURL_RUN_IFELSE(
+  [
+  #include <time.h>
+  #include <limits.h>
+  time_t t = -1;
+  return (t > 0);
+  ],[
+  AC_MSG_RESULT([yes])
+  AC_DEFINE(HAVE_TIME_T_UNSIGNED, 1, [Define this if time_t is unsigned])
+],[
+  AC_MSG_RESULT([no])
+],[
+  dnl cross-compiling, most systems are unsigned
+  AC_MSG_RESULT([no])
+])
 
 CURL_CONFIGURE_PULL_SYS_POLL
 
@@ -3507,7 +3695,6 @@ CURL_CHECK_FUNC_CLOSESOCKET
 CURL_CHECK_FUNC_CLOSESOCKET_CAMEL
 CURL_CHECK_FUNC_CONNECT
 CURL_CHECK_FUNC_FCNTL
-CURL_CHECK_FUNC_FDOPEN
 CURL_CHECK_FUNC_FREEADDRINFO
 CURL_CHECK_FUNC_FREEIFADDRS
 CURL_CHECK_FUNC_FSETXATTR
@@ -3559,7 +3746,13 @@ case $host in
     ;;
 esac
 
-AC_CHECK_FUNCS([geteuid \
+AC_CHECK_DECLS([getpwuid_r], [], [AC_DEFINE(HAVE_DECL_GETPWUID_R_MISSING, 1, "Set if getpwuid_r() declaration is missing")],
+        [[#include <pwd.h>
+          #include <sys/types.h>]])
+
+
+AC_CHECK_FUNCS([fnmatch \
+  geteuid \
   getpass_r \
   getppid \
   getpwuid \
@@ -3596,17 +3789,12 @@ AC_CHECK_FUNCS([geteuid \
   fi
 ])
 
-dnl Check if the getnameinfo function is available
-dnl and get the types of five of its arguments.
-CURL_CHECK_FUNC_GETNAMEINFO
-
 if test "$ipv6" = "yes"; then
   if test "$curl_cv_func_getaddrinfo" = "yes"; then
     AC_DEFINE(ENABLE_IPV6, 1, [Define if you want to enable IPv6 support])
     IPV6_ENABLED=1
     AC_SUBST(IPV6_ENABLED)
   fi
-  CURL_CHECK_NI_WITHSCOPEID
 fi
 
 CURL_CHECK_NONBLOCKING_SOCKET
@@ -3728,6 +3916,16 @@ if test "$want_pthreads" != "no"; then
 
       dnl first check for function without lib
       AC_CHECK_FUNC(pthread_create, [USE_THREADS_POSIX=1] )
+
+      dnl on HPUX, life is more complicated...
+      case $host in
+      *-hp-hpux*)
+         dnl it doesn't actually work without -lpthread
+         USE_THREADS_POSIX=""
+         ;;
+      *)
+         ;;
+      esac
 
       dnl if it wasn't found without lib, search for it in pthread lib
       if test "$USE_THREADS_POSIX" != "1"
@@ -3918,6 +4116,32 @@ AC_HELP_STRING([--disable-cookies],[Disable cookies support]),
 )
 
 dnl ************************************************************
+dnl switch on/off alt-svc
+dnl
+curl_altsvc_msg="no      (--enable-alt-svc)";
+AC_MSG_CHECKING([whether to support alt-svc])
+AC_ARG_ENABLE(alt-svc,
+AC_HELP_STRING([--enable-alt-svc],[Enable alt-svc support])
+AC_HELP_STRING([--disable-alt-svc],[Disable alt-svc support]),
+[ case "$enableval" in
+  no)
+       AC_MSG_RESULT(no)
+       ;;
+  *) AC_MSG_RESULT(yes)
+       curl_altsvc_msg="enabled";
+       enable_altsvc="yes"
+       experimental="alt-svc"
+       ;;
+  esac ],
+       AC_MSG_RESULT(no)
+)
+
+if test "$enable_altsvc" = "yes"; then
+  AC_DEFINE(USE_ALTSVC, 1, [to enable alt-svc])
+  experimental="alt-svc"
+fi
+
+dnl ************************************************************
 dnl hiding of library internal symbols
 dnl
 CURL_CONFIGURE_SYMBOL_HIDING
@@ -3986,8 +4210,12 @@ if test "x$HAVE_GSSAPI" = "x1"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES GSS-API"
 fi
 
-if test "x$curl_psl_msg" = "xyes"; then
+if test "x$curl_psl_msg" = "xenabled"; then
   SUPPORT_FEATURES="$SUPPORT_FEATURES PSL"
+fi
+
+if test "x$enable_altsvc" = "xyes"; then
+  SUPPORT_FEATURES="$SUPPORT_FEATURES alt-svc"
 fi
 
 if test "x$CURL_DISABLE_CRYPTO_AUTH" != "x1" -a \
@@ -4003,7 +4231,7 @@ fi
 if test "x$CURL_DISABLE_CRYPTO_AUTH" != "x1"; then
   if test "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
       -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
-      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1"; then
+      -o "x$NSS_ENABLED" = "x1" -o "x$SECURETRANSPORT_ENABLED" = "x1"; then
     SUPPORT_FEATURES="$SUPPORT_FEATURES NTLM"
 
     if test "x$CURL_DISABLE_HTTP" != "x1" -a \
@@ -4085,7 +4313,7 @@ if test "x$CURL_DISABLE_SMB" != "x1" \
     -a "x$CURL_DISABLE_CRYPTO_AUTH" != "x1" \
     -a \( "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
       -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
-      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1" \); then
+      -o "x$NSS_ENABLED" = "x1" -o "x$SECURETRANSPORT_ENABLED" = "x1" \); then
   SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMB"
   if test "x$SSL_ENABLED" = "x1"; then
     SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMBS"
@@ -4164,19 +4392,7 @@ AC_CONFIG_FILES([Makefile \
            tests/libtest/Makefile \
            tests/unit/Makefile \
            packages/Makefile \
-           packages/Win32/Makefile \
-           packages/Win32/cygwin/Makefile \
-           packages/Linux/Makefile \
-           packages/Linux/RPM/Makefile \
-           packages/Linux/RPM/curl.spec \
-           packages/Linux/RPM/curl-ssl.spec \
-           packages/Solaris/Makefile \
-           packages/EPM/curl.list \
-           packages/EPM/Makefile \
            packages/vms/Makefile \
-           packages/AIX/Makefile \
-           packages/AIX/RPM/Makefile \
-           packages/AIX/RPM/curl.spec \
            curl-config \
            libcurl.pc
 ])
@@ -4188,34 +4404,47 @@ XC_AMEND_DISTCLEAN([lib src tests/unit tests/server tests/libtest docs/examples]
 
 AC_MSG_NOTICE([Configured to build curl/libcurl:
 
-  curl version:     ${CURLVERSION}
   Host setup:       ${host}
   Install prefix:   ${prefix}
   Compiler:         ${CC}
-  SSL support:      ${curl_ssl_msg}
-  SSH support:      ${curl_ssh_msg}
-  zlib support:     ${curl_zlib_msg}
-  brotli support:   ${curl_brotli_msg}
-  GSS-API support:  ${curl_gss_msg}
-  TLS-SRP support:  ${curl_tls_srp_msg}
+   CFLAGS:          ${CFLAGS}
+   CPPFLAGS:        ${CPPFLAGS}
+   LDFLAGS:         ${LDFLAGS}
+   LIBS:            ${LIBS}
+
+  curl version:     ${CURLVERSION}
+  SSL:              ${curl_ssl_msg}
+  SSH:              ${curl_ssh_msg}
+  zlib:             ${curl_zlib_msg}
+  brotli:           ${curl_brotli_msg}
+  GSS-API:          ${curl_gss_msg}
+  TLS-SRP:          ${curl_tls_srp_msg}
   resolver:         ${curl_res_msg}
-  IPv6 support:     ${curl_ipv6_msg}
-  Unix sockets support: ${curl_unix_sockets_msg}
-  IDN support:      ${curl_idn_msg}
+  IPv6:             ${curl_ipv6_msg}
+  Unix sockets:     ${curl_unix_sockets_msg}
+  IDN:              ${curl_idn_msg}
   Build libcurl:    Shared=${enable_shared}, Static=${enable_static}
   Built-in manual:  ${curl_manual_msg}
   --libcurl option: ${curl_libcurl_msg}
   Verbose errors:   ${curl_verbose_msg}
-  SSPI support:     ${curl_sspi_msg}
+  Code coverage:    ${curl_coverage_msg}
+  SSPI:             ${curl_sspi_msg}
   ca cert bundle:   ${ca}${ca_warning}
   ca cert path:     ${capath}${capath_warning}
   ca fallback:      ${with_ca_fallback}
-  LDAP support:     ${curl_ldap_msg}
-  LDAPS support:    ${curl_ldaps_msg}
-  RTSP support:     ${curl_rtsp_msg}
-  RTMP support:     ${curl_rtmp_msg}
-  metalink support: ${curl_mtlnk_msg}
-  PSL support:      ${curl_psl_msg}
-  HTTP2 support:    ${curl_h2_msg}
+  LDAP:             ${curl_ldap_msg}
+  LDAPS:            ${curl_ldaps_msg}
+  RTSP:             ${curl_rtsp_msg}
+  RTMP:             ${curl_rtmp_msg}
+  Metalink:         ${curl_mtlnk_msg}
+  PSL:              ${curl_psl_msg}
+  Alt-svc:          ${curl_altsvc_msg}
+  HTTP2:            ${curl_h2_msg}
   Protocols:        ${SUPPORT_PROTOCOLS}
+  Features:         ${SUPPORT_FEATURES}
 ])
+if test -n "$experimental"; then
+ cat >&2 << _EOF
+  WARNING: $experimental is enabled but marked EXPERIMENTAL. Use with caution!
+_EOF
+fi

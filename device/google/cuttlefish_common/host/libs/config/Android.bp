@@ -23,12 +23,12 @@ cc_library_host_static {
     ],
     shared_libs: [
         "libcuttlefish_fs",
+        "libcuttlefish_utils",
         "cuttlefish_auto_resources",
         "libbase",
     ],
     static_libs: [
         "libxml2",
-        "libgflags",
         "libjsoncpp",
     ],
     defaults: ["cuttlefish_host_only"],

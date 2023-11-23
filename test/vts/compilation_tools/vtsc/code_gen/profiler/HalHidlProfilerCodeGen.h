@@ -57,6 +57,10 @@ class HalHidlProfilerCodeGen : public ProfilerCodeGenBase {
     const VariableSpecificationMessage& val, const std::string& arg_name,
     const std::string& arg_value) override;
 
+  virtual void GenerateProfilerForSafeUnionVariable(
+      Formatter& out, const VariableSpecificationMessage& val,
+      const std::string& arg_name, const std::string& arg_value) override;
+
   virtual void GenerateProfilerForHidlCallbackVariable(Formatter& out,
     const VariableSpecificationMessage& val, const std::string& arg_name,
     const std::string& arg_value) override;

@@ -9,12 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
-// XFAIL: with_system_cxx_lib=macosx10.12
-// XFAIL: with_system_cxx_lib=macosx10.11
-// XFAIL: with_system_cxx_lib=macosx10.10
-// XFAIL: with_system_cxx_lib=macosx10.9
-// XFAIL: with_system_cxx_lib=macosx10.7
-// XFAIL: with_system_cxx_lib=macosx10.8
+// XFAIL: availability=macosx10.13
+// XFAIL: availability=macosx10.12
+// XFAIL: availability=macosx10.11
+// XFAIL: availability=macosx10.10
+// XFAIL: availability=macosx10.9
+// XFAIL: availability=macosx10.7
+// XFAIL: availability=macosx10.8
 
 // <any>
 
@@ -102,7 +103,7 @@ void test_copy_assign_self() {
     // empty
     {
         any a;
-        a = a;
+        a = (any &)a;
         assertEmpty(a);
         assert(globalMemCounter.checkOutstandingNewEq(0));
     }
@@ -112,7 +113,7 @@ void test_copy_assign_self() {
         any a((small(1)));
         assert(small::count == 1);
 
-        a = a;
+        a = (any &)a;
 
         assert(small::count == 1);
         assertContains<small>(a, 1);
@@ -125,7 +126,7 @@ void test_copy_assign_self() {
         any a(large(1));
         assert(large::count == 1);
 
-        a = a;
+        a = (any &)a;
 
         assert(large::count == 1);
         assertContains<large>(a, 1);

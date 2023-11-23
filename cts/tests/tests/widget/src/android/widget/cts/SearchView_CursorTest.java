@@ -31,11 +31,6 @@ import android.app.Instrumentation;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.provider.BaseColumns;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,6 +38,12 @@ import android.widget.AutoCompleteTextView;
 import android.widget.CursorAdapter;
 import android.widget.SearchView;
 import android.widget.SimpleCursorAdapter;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -214,8 +215,8 @@ public class SearchView_CursorTest {
         // Emulate click on the first suggestion - which should be Dido
         final int suggestionRowHeight = mActivity.getResources().getDimensionPixelSize(
                 R.dimen.search_view_suggestion_row_height);
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mSearchView, mSearchView.getWidth() / 2,
-                mSearchView.getHeight() + suggestionRowHeight / 2);
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mSearchView,
+                mSearchView.getWidth() / 2, mSearchView.getHeight() + suggestionRowHeight / 2);
 
         // At this point we expect the click on the first suggestion to have activated a sequence
         // of events that ends up in our suggestion listener that sets the full suggestion text

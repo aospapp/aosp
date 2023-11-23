@@ -9,12 +9,12 @@ CRITERIA = """
 This test will fail if touchpad device did not check for updates or if there
 were errors.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
+ATTRIBUTES = "suite:touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
-DEPENDENCIES = "touchpad"
+DEPENDENCIES = "touchpad, phase:PVT"
 
 DOC = """
 Search the touch update log entries for errors or failures.

@@ -16,10 +16,14 @@
 
 package com.android.documentsui.sorting;
 
-import android.annotation.Nullable;
-import android.app.Activity;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
+
 import android.view.View;
 
+import com.android.documentsui.BaseActivity;
+import com.android.documentsui.Injector;
+import com.android.documentsui.MetricConsts;
 import com.android.documentsui.Metrics;
 import com.android.documentsui.R;
 import com.android.documentsui.base.State;
@@ -32,72 +36,60 @@ import com.android.documentsui.base.State.ViewMode;
  */
 public final class SortController {
 
-    private final WidgetController mDropdownController;
     private final @Nullable WidgetController mTableHeaderController;
 
-    public SortController(
-            WidgetController dropdownController,
-            @Nullable WidgetController tableHeaderController) {
+    public SortController(@Nullable WidgetController tableHeaderController) {
 
-        assert(dropdownController != null);
-        mDropdownController = dropdownController;
         mTableHeaderController = tableHeaderController;
     }
 
     public void onViewModeChanged(@ViewMode int mode) {
         // in phone layouts we only ever have the dropdown sort controller.
         if (mTableHeaderController == null) {
-            mDropdownController.setVisibility(View.VISIBLE);
             return;
         }
 
         // in tablet mode, we have fancy pants tabular header.
-        switch (mode) {
-            case State.MODE_GRID:
-            case State.MODE_UNKNOWN:
-                mTableHeaderController.setVisibility(View.GONE);
-                mDropdownController.setVisibility(View.VISIBLE);
-                break;
-            case State.MODE_LIST:
-                mTableHeaderController.setVisibility(View.VISIBLE);
-                mDropdownController.setVisibility(View.GONE);
-                break;
-        }
+        mTableHeaderController.setVisibility(mode == State.MODE_LIST ? View.VISIBLE : View.GONE);
     }
 
     public void destroy() {
-        mDropdownController.destroy();
         if (mTableHeaderController != null) {
             mTableHeaderController.destroy();
         }
     }
 
     public static SortController create(
-            Activity activity,
+            FragmentActivity activity,
             @ViewMode int initialMode,
             SortModel sortModel) {
 
+        final Injector<?> injector = ((BaseActivity)activity).getInjector();
         sortModel.setMetricRecorder((SortDimension dimension) -> {
+            int sortType = MetricConsts.USER_ACTION_UNKNOWN;
             switch (dimension.getId()) {
                 case SortModel.SORT_DIMENSION_ID_TITLE:
-                    Metrics.logUserAction(activity, Metrics.USER_ACTION_SORT_NAME);
+                    sortType = MetricConsts.USER_ACTION_SORT_NAME;
                     break;
                 case SortModel.SORT_DIMENSION_ID_SIZE:
-                    Metrics.logUserAction(activity, Metrics.USER_ACTION_SORT_SIZE);
+                    sortType = MetricConsts.USER_ACTION_SORT_SIZE;
                     break;
                 case SortModel.SORT_DIMENSION_ID_DATE:
-                    Metrics.logUserAction(activity, Metrics.USER_ACTION_SORT_DATE);
+                    sortType = MetricConsts.USER_ACTION_SORT_DATE;
                     break;
+                case SortModel.SORT_DIMENSION_ID_FILE_TYPE:
+                    sortType = MetricConsts.USER_ACTION_SORT_TYPE;
+                    break;
+            }
+
+            Metrics.logUserAction(sortType);
+            if (injector.pickResult != null) {
+                injector.pickResult.increaseActionCount();
             }
         });
 
         SortController controller = new SortController(
-                new DropdownSortWidgetController(
-                        sortModel,
-                        activity.findViewById(R.id.dropdown_sort_widget)),
-                TableHeaderController.create(
-                        sortModel,
-                        activity.findViewById(R.id.table_header)));
+                TableHeaderController.create(sortModel, activity.findViewById(R.id.table_header)));
 
         controller.onViewModeChanged(initialMode);
         return controller;

@@ -15,18 +15,19 @@
  */
 package com.android.documentsui.dirlist;
 
-import android.support.annotation.Nullable;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.android.documentsui.selection.ItemDetailsLookup;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
+
+import com.android.documentsui.DocsSelectionHelper.DocDetailsLookup;
 
 /**
  * Access to details of an item associated with a {@link MotionEvent} instance.
  */
-final class DocsItemDetailsLookup extends ItemDetailsLookup {
+final class DocsItemDetailsLookup extends DocDetailsLookup {
 
     private final RecyclerView mRecView;
 
@@ -35,47 +36,7 @@ final class DocsItemDetailsLookup extends ItemDetailsLookup {
     }
 
     @Override
-    public boolean overItem(MotionEvent e) {
-        return getItemPosition(e) != RecyclerView.NO_POSITION;
-    }
-
-    @Override
-    public boolean overStableItem(MotionEvent e) {
-    if (!overItem(e)) {
-        return false;
-    }
-    ItemDetails details = getItemDetails(e);
-    return details != null && details.hasStableId();
-    }
-
-    @Override
-    public boolean inItemDragRegion(MotionEvent e) {
-    if (!overItem(e)) {
-        return false;
-    }
-    ItemDetails details = getItemDetails(e);
-    return details != null && details.inDragRegion(e);
-    }
-
-    @Override
-    public boolean inItemSelectRegion(MotionEvent e) {
-    if (!overItem(e)) {
-        return false;
-    }
-    ItemDetails details = getItemDetails(e);
-    return details != null && details.inSelectionHotspot(e);
-    }
-
-    @Override
-    public int getItemPosition(MotionEvent e) {
-        View child = mRecView.findChildViewUnder(e.getX(), e.getY());
-        return (child != null)
-                ? mRecView.getChildAdapterPosition(child)
-                : RecyclerView.NO_POSITION;
-    }
-
-    @Override
-    public ItemDetails getItemDetails(MotionEvent e) {
+    public DocumentItemDetails getItemDetails(MotionEvent e) {
         @Nullable DocumentHolder holder = getDocumentHolder(e);
         return holder == null ? null : holder.getItemDetails();
     }

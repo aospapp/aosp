@@ -44,6 +44,8 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
     private static final int TEST_NETWORK_TYPE_BITMASK = TelephonyManager.NETWORK_TYPE_CDMA;
     private static final int TEST_MVNO_TYPE = ApnSetting.MVNO_TYPE_GID;
     private static final boolean TEST_ENABLED = true;
+    private static final int TEST_CARRIER_ID = 100;
+    private static final int UPDATE_CARRIER_ID = 101;
 
     private static final ApnSetting testApnFull;
     static {
@@ -51,10 +53,10 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
             .setApnName(TEST_APN_NAME)
             .setEntryName(TEST_ENTRY_NAME)
             .setOperatorNumeric(TEST_OPERATOR_NUMERIC)
-            .setProxyAddress(getProxyInetAddress(TEST_PROXY_ADDRESS))
+            .setProxyAddress(TEST_PROXY_ADDRESS)
             .setProxyPort(TEST_PROXY_PORT)
             .setMmsc(TEST_MMSC)
-            .setMmsProxyAddress(getProxyInetAddress(TEST_PROXY_ADDRESS))
+            .setMmsProxyAddress(TEST_PROXY_ADDRESS)
             .setMmsProxyPort(TEST_PROXY_PORT)
             .setUser(TEST_USER_NAME)
             .setPassword(TEST_PASSWORD)
@@ -65,6 +67,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
             .setNetworkTypeBitmask(TEST_NETWORK_TYPE_BITMASK)
             .setMvnoType(TEST_MVNO_TYPE)
             .setCarrierEnabled(TEST_ENABLED)
+            .setCarrierId(TEST_CARRIER_ID)
             .build();
     }
 
@@ -97,9 +100,11 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(TEST_ENTRY_NAME, apnList.get(0).getEntryName());
         assertEquals(TEST_APN_NAME, apnList.get(0).getApnName());
         assertEquals(getProxyInetAddress(TEST_PROXY_ADDRESS), apnList.get(0).getProxyAddress());
+        assertEquals(TEST_PROXY_ADDRESS, apnList.get(0).getProxyAddressAsString());
         assertEquals(TEST_PROXY_PORT, apnList.get(0).getProxyPort());
         assertEquals(TEST_MMSC, apnList.get(0).getMmsc());
         assertEquals(getProxyInetAddress(TEST_PROXY_ADDRESS), apnList.get(0).getMmsProxyAddress());
+        assertEquals(TEST_PROXY_ADDRESS, apnList.get(0).getMmsProxyAddressAsString());
         assertEquals(TEST_PROXY_PORT, apnList.get(0).getMmsProxyPort());
         assertEquals(TEST_USER_NAME, apnList.get(0).getUser());
         assertEquals(TEST_PASSWORD, apnList.get(0).getPassword());
@@ -110,6 +115,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(TEST_ENABLED, apnList.get(0).isEnabled());
         assertEquals(TEST_MVNO_TYPE, apnList.get(0).getMvnoType());
         assertEquals(TEST_NETWORK_TYPE_BITMASK, apnList.get(0).getNetworkTypeBitmask());
+        assertEquals(TEST_CARRIER_ID, apnList.get(0).getCarrierId());
 
         assertTrue(mDevicePolicyManager.removeOverrideApn(getWho(), insertedId));
         apnList = mDevicePolicyManager.getOverrideApns(getWho());
@@ -148,10 +154,10 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
             .setApnName(UPDATE_APN_NAME)
             .setEntryName(UPDATE_ETNRY_NAME)
             .setOperatorNumeric(TEST_OPERATOR_NUMERIC)
-            .setProxyAddress(getProxyInetAddress(TEST_PROXY_ADDRESS))
+            .setProxyAddress(TEST_PROXY_ADDRESS)
             .setProxyPort(TEST_PROXY_PORT)
             .setMmsc(TEST_MMSC)
-            .setMmsProxyAddress(getProxyInetAddress(TEST_PROXY_ADDRESS))
+            .setMmsProxyAddress(TEST_PROXY_ADDRESS)
             .setMmsProxyPort(TEST_PROXY_PORT)
             .setUser(TEST_USER_NAME)
             .setPassword(TEST_PASSWORD)
@@ -162,6 +168,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
             .setNetworkTypeBitmask(TEST_NETWORK_TYPE_BITMASK)
             .setMvnoType(TEST_MVNO_TYPE)
             .setCarrierEnabled(TEST_ENABLED)
+            .setCarrierId(UPDATE_CARRIER_ID)
             .build();
         assertTrue(mDevicePolicyManager.updateOverrideApn(getWho(), insertedId, updateApn));
 
@@ -172,9 +179,11 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(UPDATE_ETNRY_NAME, apnList.get(0).getEntryName());
         assertEquals(UPDATE_APN_NAME, apnList.get(0).getApnName());
         assertEquals(getProxyInetAddress(TEST_PROXY_ADDRESS), apnList.get(0).getProxyAddress());
+        assertEquals(TEST_PROXY_ADDRESS, apnList.get(0).getProxyAddressAsString());
         assertEquals(TEST_PROXY_PORT, apnList.get(0).getProxyPort());
         assertEquals(TEST_MMSC, apnList.get(0).getMmsc());
         assertEquals(getProxyInetAddress(TEST_PROXY_ADDRESS), apnList.get(0).getMmsProxyAddress());
+        assertEquals(TEST_PROXY_ADDRESS, apnList.get(0).getMmsProxyAddressAsString());
         assertEquals(TEST_PROXY_PORT, apnList.get(0).getMmsProxyPort());
         assertEquals(TEST_USER_NAME, apnList.get(0).getUser());
         assertEquals(TEST_PASSWORD, apnList.get(0).getPassword());
@@ -184,6 +193,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(TEST_PROTOCOL, apnList.get(0).getRoamingProtocol());
         assertEquals(TEST_ENABLED, apnList.get(0).isEnabled());
         assertEquals(TEST_MVNO_TYPE, apnList.get(0).getMvnoType());
+        assertEquals(UPDATE_CARRIER_ID, apnList.get(0).getCarrierId());
 
         assertTrue(mDevicePolicyManager.removeOverrideApn(getWho(), insertedId));
     }
@@ -204,9 +214,11 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(TEST_ENTRY_NAME, apnList.get(0).getEntryName());
         assertEquals(TEST_APN_NAME, apnList.get(0).getApnName());
         assertEquals(null, apnList.get(0).getProxyAddress());
+        assertEquals("", apnList.get(0).getProxyAddressAsString());
         assertEquals(-1, apnList.get(0).getProxyPort());
         assertEquals(null, apnList.get(0).getMmsc());
         assertEquals(null, apnList.get(0).getMmsProxyAddress());
+        assertEquals("", apnList.get(0).getMmsProxyAddressAsString());
         assertEquals(-1, apnList.get(0).getMmsProxyPort());
         assertEquals("", apnList.get(0).getUser());
         assertEquals("", apnList.get(0).getPassword());
@@ -216,6 +228,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertEquals(-1, apnList.get(0).getRoamingProtocol());
         assertEquals(false, apnList.get(0).isEnabled());
         assertEquals(-1, apnList.get(0).getMvnoType());
+        assertEquals(-1, apnList.get(0).getCarrierId());
 
         assertTrue(mDevicePolicyManager.removeOverrideApn(getWho(), insertedId));
     }
@@ -229,7 +242,7 @@ public class OverrideApnTest extends BaseDeviceOwnerTest {
         assertNull(new ApnSetting.Builder()
             .setEntryName(UPDATE_ETNRY_NAME)
             .setApnName(UPDATE_APN_NAME)
-            .setApnTypeBitmask(1 << 20)
+            .setApnTypeBitmask(1 << 30)
             .build());
 
         assertNull(new ApnSetting.Builder()

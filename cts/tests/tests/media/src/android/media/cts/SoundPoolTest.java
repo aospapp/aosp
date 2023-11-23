@@ -71,6 +71,11 @@ abstract class SoundPoolTest extends AndroidTestCase {
         return sounds;
     }
 
+    protected AudioAttributes getAudioAttributes() {
+        return new AudioAttributes.Builder()
+                .setLegacyStreamType(AudioManager.STREAM_MUSIC).build();
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -91,8 +96,8 @@ abstract class SoundPoolTest extends AndroidTestCase {
     }
 
     public void testLoad() throws Exception {
-        int srcQuality = 100;
-        mSoundPool = new SoundPool(SOUNDPOOL_STREAMS, AudioManager.STREAM_MUSIC, srcQuality);
+        mSoundPool = new SoundPool.Builder().setMaxStreams(SOUNDPOOL_STREAMS)
+                .setAudioAttributes(getAudioAttributes()).build();
         int sampleId1 = mSoundPool.load(mContext, getSoundA(), PRIORITY);
         waitUntilLoaded(sampleId1);
         // should return true, but returns false
@@ -140,8 +145,8 @@ abstract class SoundPoolTest extends AndroidTestCase {
     }
 
     public void testSoundPoolOp() throws Exception {
-        int srcQuality = 100;
-        mSoundPool = new SoundPool(SOUNDPOOL_STREAMS, AudioManager.STREAM_MUSIC, srcQuality);
+        mSoundPool = new SoundPool.Builder().setMaxStreams(SOUNDPOOL_STREAMS)
+                .setAudioAttributes(getAudioAttributes()).build();
         int sampleID = loadSampleSync(getSoundA(), PRIORITY);
 
         int waitMsec = 1000;
@@ -183,8 +188,8 @@ abstract class SoundPoolTest extends AndroidTestCase {
     }
 
     public void testMultiSound() throws Exception {
-        int srcQuality = 100;
-        mSoundPool = new SoundPool(SOUNDPOOL_STREAMS, AudioManager.STREAM_MUSIC, srcQuality);
+        mSoundPool = new SoundPool.Builder().setMaxStreams(SOUNDPOOL_STREAMS)
+                .setAudioAttributes(getAudioAttributes()).build();
         int sampleID1 = loadSampleSync(getSoundA(), PRIORITY);
         int sampleID2 = loadSampleSync(getSoundCs(), PRIORITY);
         long waitMsec = 1000;
@@ -213,7 +218,8 @@ abstract class SoundPoolTest extends AndroidTestCase {
     }
 
     public void testLoadMore() throws Exception {
-        mSoundPool = new SoundPool(SOUNDPOOL_STREAMS, AudioManager.STREAM_MUSIC, 0);
+        mSoundPool = new SoundPool.Builder().setMaxStreams(SOUNDPOOL_STREAMS)
+                .setAudioAttributes(getAudioAttributes()).build();
         int[] sounds = getSounds();
         int[] soundIds = new int[sounds.length];
         int[] streamIds = new int[sounds.length];
@@ -248,7 +254,7 @@ abstract class SoundPoolTest extends AndroidTestCase {
         SoundPool soundPool = null;
         try {
             soundPool = new SoundPool.Builder()
-                    .setAudioAttributes(new AudioAttributes.Builder().build())
+                    .setAudioAttributes(getAudioAttributes())
                     .setMaxStreams(TEST_STREAMS)
                     .build();
 

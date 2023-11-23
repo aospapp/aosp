@@ -31,7 +31,7 @@ import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.enrichedcall.Session;
 import com.android.dialer.multimedia.MultimediaData;
 import com.android.incallui.audiomode.AudioModeProvider;
-import com.android.incallui.call.DialerCall.State;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.incall.bindings.InCallBindings;
 import com.android.incallui.incall.protocol.ContactPhotoType;
 import com.android.incallui.incall.protocol.InCallButtonIds;
@@ -148,7 +148,7 @@ public class CallPendingActivity extends FragmentActivity
     inCallScreen.setPrimary(createPrimaryInfo());
     inCallScreen.setCallState(
         PrimaryCallState.builder()
-            .setState(State.CALL_PENDING)
+            .setState(DialerCallState.CALL_PENDING)
             .setCustomLabel(getCallPendingLabel())
             .build());
     inCallScreen.setEndCallButtonEnabled(true, true);
@@ -166,9 +166,9 @@ public class CallPendingActivity extends FragmentActivity
     }
 
     Drawable photo = null;
+    Uri photoUri = getPhotoUri();
     try {
       // TODO(calderwoodra) move to background thread
-      Uri photoUri = getPhotoUri();
       InputStream is = getContentResolver().openInputStream(photoUri);
       photo = Drawable.createFromStream(is, photoUri.toString());
     } catch (FileNotFoundException e) {
@@ -185,6 +185,7 @@ public class CallPendingActivity extends FragmentActivity
         .setNameIsNumber(name != null && name.equals(number))
         .setLabel(getPhoneLabel())
         .setPhoto(photo)
+        .setPhotoUri(photoUri)
         .setPhotoType(ContactPhotoType.CONTACT)
         .setIsSipCall(false)
         .setIsContactPhotoShown(true)
@@ -253,6 +254,9 @@ public class CallPendingActivity extends FragmentActivity
 
           @Override
           public void changeToVideoClicked() {}
+
+          @Override
+          public void changeToRttClicked() {}
 
           @Override
           public void switchCameraClicked(boolean useFrontFacingCamera) {}

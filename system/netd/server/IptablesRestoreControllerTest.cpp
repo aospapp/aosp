@@ -24,14 +24,14 @@
 #include <gtest/gtest.h>
 
 #define LOG_TAG "IptablesRestoreControllerTest"
-#include <cutils/log.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <log/log.h>
 #include <netdutils/MockSyscalls.h>
+#include <netdutils/Stopwatch.h>
 
 #include "IptablesRestoreController.h"
 #include "NetdConstants.h"
-#include "Stopwatch.h"
 #include "bpf/BpfUtils.h"
 
 #define XT_LOCK_NAME "/system/etc/xtables.lock"
@@ -40,10 +40,8 @@
 
 using android::base::Join;
 using android::base::StringPrintf;
-using android::bpf::DOZABLE_UID_MAP_PATH;
-using android::bpf::STANDBY_UID_MAP_PATH;
-using android::bpf::POWERSAVE_UID_MAP_PATH;
 using android::netdutils::ScopedMockSyscalls;
+using android::netdutils::Stopwatch;
 using testing::Return;
 using testing::StrictMock;
 
@@ -81,7 +79,7 @@ public:
     // We can't readlink /proc/PID/exe, because zombie processes don't have it.
     // Parse /proc/PID/stat instead.
     std::string statPath = StringPrintf("/proc/%d/stat", pid);
-    int fd = open(statPath.c_str(), O_RDONLY);
+    int fd = open(statPath.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd == -1) {
       // ENOENT means the process is gone (expected).
       ASSERT_EQ(errno, ENOENT)
@@ -131,7 +129,7 @@ public:
   }
 
   int acquireIptablesLock() {
-    mIptablesLock = open(XT_LOCK_NAME, O_CREAT, 0600);
+    mIptablesLock = open(XT_LOCK_NAME, O_CREAT | O_CLOEXEC, 0600);
     if (mIptablesLock == -1) return mIptablesLock;
     int attempts;
     for (attempts = 0; attempts < XT_LOCK_ATTEMPTS; attempts++) {

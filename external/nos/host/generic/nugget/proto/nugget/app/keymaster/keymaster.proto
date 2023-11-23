@@ -110,6 +110,11 @@ service Keymaster {
   rpc ContinueAttestKey(ContinueAttestKeyRequest) returns (ContinueAttestKeyResponse);
   rpc FinishAttestKey(FinishAttestKeyRequest) returns (FinishAttestKeyResponse);
 
+  /*
+   * More vendor specific methods.
+   */
+  rpc ProvisionCertificates(ProvisionCertificatesRequest) returns (ProvisionCertificatesResponse);
+
   // These are implemented with a enum, so new RPCs must be appended, and
   // deprecated RPCs need placeholders.
 }
@@ -129,6 +134,7 @@ message AddRngEntropyResponse {
 // GenerateKey
 message GenerateKeyRequest {
   KeyParameters params = 1;
+  uint64 creation_time_ms = 2;  // Rough current time (ms since epoch).
 }
 message GenerateKeyResponse {
   ErrorCode error_code = 1;
@@ -153,6 +159,7 @@ message ImportKeyRequest {
   RSAKey rsa = 2;
   ECKey ec = 3;
   SymmetricKey symmetric_key = 4;
+  uint64 creation_time_ms = 5;     // Rough current time (ms since epoch).
 };
 message ImportKeyResponse {
   ErrorCode error_code = 1;
@@ -192,7 +199,8 @@ message StartAttestKeyResponse {
 // ContinueAttestKeyRequest
 message ContinueAttestKeyRequest {
   OperationHandle handle = 1;
-  bytes attestation_app_id = 2;
+  //  bytes attestation_app_id = 2;    // Unused, contained within params
+  KeyParameters params = 3;
 }
 message  ContinueAttestKeyResponse {
   ErrorCode error_code = 1;
@@ -206,6 +214,8 @@ message FinishAttestKeyRequest {
 message  FinishAttestKeyResponse {
   ErrorCode error_code = 1;
   bytes certificate_epilogue = 2;
+  ChipFusing chip_fusing = 3;
+  bool nodelocked_ro = 4;
 }
 
 // UpgradeKey
@@ -306,6 +316,7 @@ message ImportWrappedKeyRequest {
   bytes gcm_tag = 7;                 // Fixed sized array.
   KeyBlob wrapping_key_blob = 8;
   bytes masking_key = 9;             // Fixed sized array.
+  uint64 creation_time_ms = 10;      // Rough current time (ms since epoch).
 }
 // ImportWrappedKey returns a ImportKeyResponse.
 
@@ -346,8 +357,8 @@ message SetBootStateRequest {
   bool is_unlocked = 1;
   bytes public_key = 2;              // This is a SHA256 digest.
   BootColor color = 3;
-  uint32 system_version = 4;
-  uint32 system_security_level = 5;
+  uint32 system_version = 4;         // Deprecated.
+  uint32 system_security_level = 5;  // Patch level of the boot partition.
   bytes boot_hash = 6;               // This is a SHA256 digest.
 }
 message SetBootStateResponse {
@@ -370,6 +381,8 @@ message ProvisionDeviceIdsRequest {
 message ProvisionDeviceIdsResponse {
   // Specified in keymaster_defs.proto:ErrorCode
   ErrorCode error_code = 1;
+  ChipFusing chip_fusing = 2;
+  bool nodelocked_ro = 3;
 }
 
 // ReadTeeBatchCertificate
@@ -430,4 +443,16 @@ message ProvisionPresharedSecretRequest {
 message ProvisionPresharedSecretResponse {
   ErrorCode error_code = 1;
   PresharedSecretStatus status = 2;
+  BootColor color = 3;
+  bytes digest = 4;
+}
+
+message ProvisionCertificatesRequest {
+  uint32 block_number = 1;
+  bytes cert_block = 2;
+  bytes digest = 3;
+}
+message ProvisionCertificatesResponse {
+  ErrorCode error_code = 1;
+  CertificateStatus cert_status = 2;
 }

@@ -13,7 +13,6 @@ ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_enc_vp8"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,4 +24,5 @@ This test verifies VP8 video encode acceleration is used when MediaRecorder
 records a video.
 """
 
-job.run_test('video_MediaRecorderHWEncodeUsed', codec='vp8', tag='vp8')
+job.run_test('video_MediaRecorderHWEncodeUsed', codec='vp8', tag='vp8',
+             capability='hw_enc_vp8_1080_30')

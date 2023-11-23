@@ -54,3 +54,6 @@ AP or between the two test devices (for Aware ranging tests).
 * **stress_test_min_iteration_count**, **stress_test_target_run_time_sec**: Parameters used to
 control the length and duration of the stress tests. The stress test runs for the specified number
 of iterations or for the specified duration - whichever is longer.
+* **dbs_supported_models**: A list of device models which support DBS. Used to determine whether
+RTT will run while a SoftAP (SAP) is enabled. The model name corresponds to the value returned by
+*android_device.model*.

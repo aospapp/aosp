@@ -15,88 +15,64 @@
  */
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.app.ActivityManager;
-import android.graphics.Bitmap;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
 
-public class ActivityManagerRunningTaskInfoTest extends AndroidTestCase {
-    protected ActivityManager.RunningTaskInfo mRunningTaskInfo;
+import androidx.test.runner.AndroidJUnit4;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+/**
+ * atest CtsAppTestCases:ActivityManagerRunningTaskInfoTest
+ */
+@RunWith(AndroidJUnit4.class)
+public class ActivityManagerRunningTaskInfoTest extends ActivityManagerBaseTaskInfoTest {
+
+    private ActivityManager.RunningTaskInfo mRunningTaskInfo;
+
+    @Before
+    public void setUp() throws Exception {
         mRunningTaskInfo = new ActivityManager.RunningTaskInfo();
-
         mRunningTaskInfo.id = 1;
-        mRunningTaskInfo.baseActivity = null;
-        mRunningTaskInfo.topActivity = null;
-        mRunningTaskInfo.thumbnail = null;
-        mRunningTaskInfo.numActivities = 1;
-        mRunningTaskInfo.numRunning = 2;
-        mRunningTaskInfo.description = null;
     }
 
+    @Test
     public void testConstructor() {
         new ActivityManager.RunningTaskInfo();
     }
 
+    @Test
     public void testDescribeContents() {
         assertEquals(0, mRunningTaskInfo.describeContents());
     }
 
-    public void testWriteToParcel() throws Exception {
-
+    @Test
+    public void testWriteToParcel() {
+        fillTaskInfo(mRunningTaskInfo);
         Parcel parcel = Parcel.obtain();
         mRunningTaskInfo.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
-        ActivityManager.RunningTaskInfo values = ActivityManager.RunningTaskInfo.CREATOR
-                .createFromParcel(parcel);
-        assertEquals(1, values.id);
-        assertNull(values.baseActivity);
-        assertNull(values.topActivity);
-        assertNull(values.thumbnail);
-        assertEquals(1, values.numActivities);
-        assertEquals(2, values.numRunning);
-        // test thumbnail is not null
-        mRunningTaskInfo.thumbnail = Bitmap.createBitmap(480, 320,
-                Bitmap.Config.RGB_565);
-        parcel = Parcel.obtain();
-        mRunningTaskInfo.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        values = ActivityManager.RunningTaskInfo.CREATOR
-                .createFromParcel(parcel);
-        assertNotNull(values.thumbnail);
-        assertEquals(320, values.thumbnail.getHeight());
-        assertEquals(480, values.thumbnail.getWidth());
-        assertEquals(Bitmap.Config.RGB_565, values.thumbnail.getConfig());
 
+        ActivityManager.RunningTaskInfo info = ActivityManager.RunningTaskInfo.CREATOR
+                .createFromParcel(parcel);
+        verifyTaskInfo(info, mRunningTaskInfo);
+        assertEquals(1, info.id);
     }
 
-    public void testReadFromParcel() throws Exception {
-
+    @Test
+    public void testReadFromParcel() {
+        fillTaskInfo(mRunningTaskInfo);
         Parcel parcel = Parcel.obtain();
         mRunningTaskInfo.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
-        ActivityManager.RunningTaskInfo values = new ActivityManager.RunningTaskInfo();
-        values.readFromParcel(parcel);
-        assertEquals(1, values.id);
-        assertNull(values.baseActivity);
-        assertNull(values.topActivity);
-        assertNull(values.thumbnail);
-        assertEquals(1, values.numActivities);
-        assertEquals(2, values.numRunning);
-        // test thumbnail is not null
-        mRunningTaskInfo.thumbnail = Bitmap.createBitmap(480, 320,
-                Bitmap.Config.RGB_565);
-        parcel = Parcel.obtain();
-        mRunningTaskInfo.writeToParcel(parcel, 0);
-        parcel.setDataPosition(0);
-        values.readFromParcel(parcel);
-        assertNotNull(values.thumbnail);
-        assertEquals(320, values.thumbnail.getHeight());
-        assertEquals(480, values.thumbnail.getWidth());
-        assertEquals(Bitmap.Config.RGB_565, values.thumbnail.getConfig());
-    }
 
+        ActivityManager.RunningTaskInfo info = new ActivityManager.RunningTaskInfo();
+        info.readFromParcel(parcel);
+        verifyTaskInfo(info, mRunningTaskInfo);
+        assertEquals(1, info.id);
+    }
 }

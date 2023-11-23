@@ -6,8 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_RateControl'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_noservo,'
-              'suite:wifi_matfunc_bcm4371')
+ATTRIBUTES = ('suite:wifi_flaky')
 DEPENDENCIES = 'wificell, conductive:True'
 
 DOC = """

@@ -340,8 +340,8 @@ def check_commit_msg_bug_field(project, commit, desc, _diff, options=None):
             found.append(line)
 
     if not found:
-        error = ('Commit message is missing a "%s:" line.  It must match:\n'
-                 '%s') % (field, regex)
+        error = ('Commit message is missing a "%s:" line.  It must match the\n'
+                 'following case-sensitive regex:\n\n    %s') % (field, regex)
     else:
         return
 
@@ -364,8 +364,8 @@ def check_commit_msg_changeid_field(project, commit, desc, _diff, options=None):
             found.append(line)
 
     if len(found) == 0:
-        error = ('Commit message is missing a "%s:" line.  It must match:\n'
-                 '%s') % (field, regex)
+        error = ('Commit message is missing a "%s:" line.  It must match the\n'
+                 'following case-sensitive regex:\n\n    %s') % (field, regex)
     elif len(found) > 1:
         error = ('Commit message has too many "%s:" lines.  There can be only '
                  'one.') % (field,)
@@ -376,8 +376,67 @@ def check_commit_msg_changeid_field(project, commit, desc, _diff, options=None):
                                   project, commit, error=error)]
 
 
-TEST_MSG = """Commit message is missing a "Test:" line.  It must match:
-%s
+PREBUILT_APK_MSG = """Commit message is missing required prebuilt APK
+information.  To generate the information, use the aapt tool to dump badging
+information of the APKs being uploaded, specify where the APK was built, and
+specify whether the APKs are suitable for release:
+
+    for apk in $(find . -name '*.apk' | sort); do
+        echo "${apk}"
+        ${AAPT} dump badging "${apk}" |
+            grep -iE "(package: |sdkVersion:|targetSdkVersion:)" |
+            sed -e "s/' /'\\n/g"
+        echo
+    done
+
+It must match the following case-sensitive multiline regex searches:
+
+    %s
+
+For more information, see go/platform-prebuilt and go/android-prebuilt.
+
+"""
+
+
+def check_commit_msg_prebuilt_apk_fields(project, commit, desc, diff,
+                                         options=None):
+    """Check that prebuilt APK commits contain the required lines."""
+
+    if options.args():
+        raise ValueError('prebuilt apk check takes no options')
+
+    filtered = _filter_diff(diff, [r'\.apk$'])
+    if not filtered:
+        return
+
+    regexes = [
+        r'^package: .*$',
+        r'^sdkVersion:.*$',
+        r'^targetSdkVersion:.*$',
+        r'^Built here:.*$',
+        (r'^This build IS( NOT)? suitable for'
+         r'( preview|( preview or)? public) release'
+         r'( but IS NOT suitable for public release)?\.$')
+    ]
+
+    missing = []
+    for regex in regexes:
+        if not re.search(regex, desc, re.MULTILINE):
+            missing.append(regex)
+
+    if missing:
+        error = PREBUILT_APK_MSG % '\n    '.join(missing)
+    else:
+        return
+
+    return [rh.results.HookResult('commit msg: "prebuilt apk:" check',
+                                  project, commit, error=error)]
+
+
+TEST_MSG = """Commit message is missing a "Test:" line.  It must match the
+following case-sensitive regex:
+
+    %s
 
 The Test: stanza is free-form and should describe how you tested your change.
 As a CL author, you'll have a consistent place to describe the testing strategy
@@ -537,13 +596,29 @@ def check_xmllint(project, commit, _desc, diff, options=None):
     return _check_cmd('xmllint', project, commit, cmd)
 
 
+def check_android_test_mapping(project, commit, _desc, diff, options=None):
+    """Verify Android TEST_MAPPING files are valid."""
+    if options.args():
+        raise ValueError('Android TEST_MAPPING check takes no options')
+    filtered = _filter_diff(diff, [r'(^|.*/)TEST_MAPPING$'])
+    if not filtered:
+        return
+
+    testmapping_format = options.tool_path('android-test-mapping-format')
+    cmd = [testmapping_format] + options.args(
+        (project.dir, '${PREUPLOAD_FILES}',), filtered)
+    return _check_cmd('android-test-mapping-format', project, commit, cmd)
+
+
 # Hooks that projects can opt into.
 # Note: Make sure to keep the top level README.md up to date when adding more!
 BUILTIN_HOOKS = {
+    'android_test_mapping_format': check_android_test_mapping,
     'checkpatch': check_checkpatch,
     'clang_format': check_clang_format,
     'commit_msg_bug_field': check_commit_msg_bug_field,
     'commit_msg_changeid_field': check_commit_msg_changeid_field,
+    'commit_msg_prebuilt_apk_fields': check_commit_msg_prebuilt_apk_fields,
     'commit_msg_test_field': check_commit_msg_test_field,
     'cpplint': check_cpplint,
     'gofmt': check_gofmt,
@@ -556,6 +631,8 @@ BUILTIN_HOOKS = {
 # Additional tools that the hooks can call with their default values.
 # Note: Make sure to keep the top level README.md up to date when adding more!
 TOOL_PATHS = {
+    'android-test-mapping-format':
+        os.path.join(TOOLS_DIR, 'android_test_mapping_format.py'),
     'clang-format': 'clang-format',
     'cpplint': os.path.join(TOOLS_DIR, 'cpplint.py'),
     'git-clang-format': 'git-clang-format',

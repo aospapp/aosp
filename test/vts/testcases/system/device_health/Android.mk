@@ -19,5 +19,4 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := VtsDeviceHealth
-VTS_CONFIG_SRC_DIR := testcases/system/device_health
 include test/vts/tools/build/Android.host_config.mk

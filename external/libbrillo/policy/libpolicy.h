@@ -10,6 +10,8 @@
 
 #include <base/macros.h>
 
+#include "install_attributes/libinstallattributes.h"
+
 #pragma GCC visibility push(default)
 
 namespace policy {
@@ -22,6 +24,7 @@ class DevicePolicy;
 // its signature.
 class PolicyProvider {
  public:
+  // The default constructor does not load policy.
   PolicyProvider();
   virtual ~PolicyProvider();
 
@@ -37,9 +40,20 @@ class PolicyProvider {
   // Returns a value from the device policy cache.
   virtual const DevicePolicy& GetDevicePolicy() const;
 
+  // Returns true if the device is not an enterprise enrolled device, so it
+  // won't have device policy before the next powerwash. Returns false if device
+  // is still in OOBE (so device mode is not determined yet).
+  virtual bool IsConsumerDevice() const;
+
+  void SetDevicePolicyForTesting(
+      std::unique_ptr<DevicePolicy> device_policy);
+  void SetInstallAttributesReaderForTesting(
+      std::unique_ptr<InstallAttributesReader> install_attributes_reader);
+
  private:
   std::unique_ptr<DevicePolicy> device_policy_;
-  bool device_policy_is_loaded_;
+  bool device_policy_is_loaded_ = false;
+  std::unique_ptr<InstallAttributesReader> install_attributes_reader_;
 
   DISALLOW_COPY_AND_ASSIGN(PolicyProvider);
 };

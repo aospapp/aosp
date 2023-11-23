@@ -108,7 +108,15 @@ status_t PerfProfdNativeService::start() {
 
 status_t PerfProfdNativeService::dump(int fd, const Vector<String16> &args) {
   auto out = std::fstream(base::StringPrintf("/proc/self/fd/%d", fd));
-  out << "Nothing to log, yet!" << std::endl;
+  auto print_config = [&out](bool is_profiling, const Config* config) {
+    if (is_profiling) {
+      out << "Profiling with config: " << ConfigReader::ConfigToString(*config);
+    } else {
+      out << "Not actively profiling.";
+    }
+  };
+  RunOnConfig(print_config);
+  out << std::endl;
 
   return NO_ERROR;
 }
@@ -159,9 +167,11 @@ Status PerfProfdNativeService::startProfilingString(const String16& config) {
   // Split configuration along colon.
   std::vector<std::string> args = base::Split(String8(config).string(), ":");
   for (auto& arg : args) {
-    if (!reader.Read(arg, /* fail_on_error */ true)) {
-      error_msg = base::StringPrintf("Could not parse %s", arg.c_str());
-      return Status::fromExceptionCode(1, error_msg.c_str());
+    if (!reader.Read(arg, /* fail_on_error */ true, &error_msg)) {
+      std::string tmp = base::StringPrintf("Could not parse %s: %s",
+                                           arg.c_str(),
+                                           error_msg.c_str());
+      return Status::fromExceptionCode(1, tmp.c_str());
     }
   }
   auto config_fn = [&](ThreadedConfig& config) {
@@ -184,38 +194,11 @@ template <typename ProtoLoaderFn>
 Status PerfProfdNativeService::StartProfilingProtobuf(ProtoLoaderFn fn) {
   ProfilingConfig proto_config;
   if (!fn(proto_config)) {
-    return binder::Status::fromExceptionCode(2);
+    return binder::Status::fromExceptionCode(2, "Could not read protobuf");
   }
   auto config_fn = [&proto_config](ThreadedConfig& config) {
     config = ThreadedConfig();  // Reset to a default config.
-
-    // Copy proto values.
-#define CHECK_AND_COPY_FROM_PROTO(name)      \
-    if (proto_config.has_ ## name ()) {      \
-      config. name = proto_config. name ();  \
-    }
-    CHECK_AND_COPY_FROM_PROTO(collection_interval_in_s)
-    CHECK_AND_COPY_FROM_PROTO(use_fixed_seed)
-    CHECK_AND_COPY_FROM_PROTO(main_loop_iterations)
-    CHECK_AND_COPY_FROM_PROTO(destination_directory)
-    CHECK_AND_COPY_FROM_PROTO(config_directory)
-    CHECK_AND_COPY_FROM_PROTO(perf_path)
-    CHECK_AND_COPY_FROM_PROTO(sampling_period)
-    CHECK_AND_COPY_FROM_PROTO(sample_duration_in_s)
-    CHECK_AND_COPY_FROM_PROTO(only_debug_build)
-    CHECK_AND_COPY_FROM_PROTO(hardwire_cpus)
-    CHECK_AND_COPY_FROM_PROTO(hardwire_cpus_max_duration_in_s)
-    CHECK_AND_COPY_FROM_PROTO(max_unprocessed_profiles)
-    CHECK_AND_COPY_FROM_PROTO(stack_profile)
-    CHECK_AND_COPY_FROM_PROTO(collect_cpu_utilization)
-    CHECK_AND_COPY_FROM_PROTO(collect_charging_state)
-    CHECK_AND_COPY_FROM_PROTO(collect_booting)
-    CHECK_AND_COPY_FROM_PROTO(collect_camera_active)
-    CHECK_AND_COPY_FROM_PROTO(process)
-    CHECK_AND_COPY_FROM_PROTO(use_elf_symbolizer)
-    CHECK_AND_COPY_FROM_PROTO(send_to_dropbox)
-    CHECK_AND_COPY_FROM_PROTO(compress)
-#undef CHECK_AND_COPY_FROM_PROTO
+    ConfigReader::ProtoToConfig(proto_config, &config);
   };
   std::string error_msg;
   if (!StartProfiling(config_fn, &error_msg)) {
@@ -280,8 +263,9 @@ status_t PerfProfdNativeService::shellCommand(int in,
     } else if (args[0] == String16("startProfiling")) {
       ConfigReader reader;
       for (size_t i = 1; i < args.size(); ++i) {
-        if (!reader.Read(String8(args[i]).string(), /* fail_on_error */ true)) {
-          err_str << base::StringPrintf("Could not parse %s", String8(args[i]).string())
+        std::string error_msg;
+        if (!reader.Read(String8(args[i]).string(), /* fail_on_error */ true, &error_msg)) {
+          err_str << "Could not parse '" << String8(args[i]).string() << "': " << error_msg
                   << std::endl;
           return BAD_VALUE;
         }
@@ -367,6 +351,15 @@ status_t PerfProfdNativeService::onTransact(uint32_t _aidl_code,
 }  // namespace
 
 int Main() {
+  {
+    struct DummyConfig : public Config {
+      void Sleep(size_t seconds) override {}
+      bool IsProfilingEnabled() const override { return false; }
+    };
+    DummyConfig config;
+    GlobalInit(config.perf_path);
+  }
+
   android::status_t ret;
   if ((ret = PerfProfdNativeService::start()) != android::OK) {
     LOG(ERROR) << "Unable to start InstalldNativeService: %d" << ret;

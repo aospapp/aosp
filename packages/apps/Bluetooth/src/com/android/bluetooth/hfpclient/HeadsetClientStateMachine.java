@@ -39,6 +39,7 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
+import android.bluetooth.hfp.BluetoothHfpProtoEnums;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
@@ -48,9 +49,9 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.R;
@@ -58,6 +59,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -185,7 +187,9 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     public void dump(StringBuilder sb) {
-        ProfileService.println(sb, "mCurrentDevice: " + mCurrentDevice);
+        if (mCurrentDevice == null) return;
+        ProfileService.println(sb, "mCurrentDevice: " + mCurrentDevice.getAddress() + "("
+                + mCurrentDevice.getName() + ") " + this.toString());
         ProfileService.println(sb, "mAudioState: " + mAudioState);
         ProfileService.println(sb, "mAudioWbs: " + mAudioWbs);
         ProfileService.println(sb, "mIndicatorNetworkState: " + mIndicatorNetworkState);
@@ -208,9 +212,6 @@ public class HeadsetClientStateMachine extends StateMachine {
                 ProfileService.println(sb, "  " + call);
             }
         }
-
-        ProfileService.println(sb, "State machine stats:");
-        ProfileService.println(sb, this.toString());
     }
 
     private void clearPendingAction() {
@@ -657,6 +658,10 @@ public class HeadsetClientStateMachine extends StateMachine {
                 == HeadsetClientHalConstants.PEER_FEAT_3WAY) {
             b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_3WAY_CALLING, true);
         }
+        if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_VREC)
+                == HeadsetClientHalConstants.PEER_FEAT_VREC) {
+            b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_VOICE_RECOGNITION, true);
+        }
         if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_REJECT)
                 == HeadsetClientHalConstants.PEER_FEAT_REJECT) {
             b.putBoolean(BluetoothHeadsetClient.EXTRA_AG_FEATURE_REJECT_CALL, true);
@@ -777,6 +782,9 @@ public class HeadsetClientStateMachine extends StateMachine {
 
     public void doQuit() {
         Log.d(TAG, "doQuit");
+        if (mCurrentDevice != null) {
+            NativeInterface.disconnectNative(getByteAddress(mCurrentDevice));
+        }
         routeHfpAudio(false);
         returnAudioFocusIfNecessary();
         quitNow();
@@ -1738,6 +1746,11 @@ public class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void broadcastAudioState(BluetoothDevice device, int newState, int prevState) {
+        StatsLog.write(StatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
+                AdapterService.getAdapterService().obfuscateAddress(device),
+                getConnectionStateFromAudioState(newState), mAudioWbs
+                        ? BluetoothHfpProtoEnums.SCO_CODEC_MSBC
+                        : BluetoothHfpProtoEnums.SCO_CODEC_CVSD);
         Intent intent = new Intent(BluetoothHeadsetClient.ACTION_AUDIO_STATE_CHANGED);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
@@ -1772,6 +1785,10 @@ public class HeadsetClientStateMachine extends StateMachine {
             if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_3WAY)
                     == HeadsetClientHalConstants.PEER_FEAT_3WAY) {
                 intent.putExtra(BluetoothHeadsetClient.EXTRA_AG_FEATURE_3WAY_CALLING, true);
+            }
+            if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_VREC)
+                    == HeadsetClientHalConstants.PEER_FEAT_VREC) {
+                intent.putExtra(BluetoothHeadsetClient.EXTRA_AG_FEATURE_VOICE_RECOGNITION, true);
             }
             if ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_REJECT)
                     == HeadsetClientHalConstants.PEER_FEAT_REJECT) {
@@ -1889,5 +1906,17 @@ public class HeadsetClientStateMachine extends StateMachine {
         b.putString(BluetoothHeadsetClient.EXTRA_OPERATOR_NAME, mOperatorName);
         b.putString(BluetoothHeadsetClient.EXTRA_SUBSCRIBER_INFO, mSubscriberInfo);
         return b;
+    }
+
+    private static int getConnectionStateFromAudioState(int audioState) {
+        switch (audioState) {
+            case BluetoothHeadsetClient.STATE_AUDIO_CONNECTED:
+                return BluetoothAdapter.STATE_CONNECTED;
+            case BluetoothHeadsetClient.STATE_AUDIO_CONNECTING:
+                return BluetoothAdapter.STATE_CONNECTING;
+            case BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED:
+                return BluetoothAdapter.STATE_DISCONNECTED;
+        }
+        return BluetoothAdapter.STATE_DISCONNECTED;
     }
 }

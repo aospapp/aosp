@@ -1,0 +1,2167 @@
+Archive member included because of file (symbol)
+
+../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                              objs/hikey/xa-vorbis-decoder.o (xa_vorbis_dec)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+                              objs/hikey/arch_hifi330.o (xthal_window_spill_nw)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+                              objs/hikey/xf-shmem.o (xthal_dcache_region_invalidate)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+                              objs/hikey/xf-shmem.o (xthal_dcache_region_writeback)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid0.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o) (xthals_hw_configid0)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid1.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o) (xthals_hw_configid1)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_major.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o) (xthals_release_major)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_minor.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o) (xthals_release_minor)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+                              objs/hikey/cpu_c.o (xthal_get_intenable)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+                              objs/hikey/cpu_c.o (xthal_set_intenable)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+                              objs/hikey/arch_hifi330.o (xthal_restore_extra_nw)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+                              objs/hikey/arch_hifi330.o (xthal_save_extra_nw)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+                              objs/hikey/xf-main.o (_xtos_ints_on)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+                              objs/hikey/mutex.o (_xtos_ints_off)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o) (_xtos_intstruct)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (memchr)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (memcmp)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+                              objs/hikey/xf-io.o (memcpy)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+                              objs/hikey/xf-io.o (memset)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (qsort)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                              objs/hikey/xa-factory.o (strncmp)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (__divsi3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (__modsi3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+                              objs/hikey/xf-core.o (__adddf3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+                              objs/hikey/dsp_debug.o (__muldf3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+                              objs/hikey/dsp_debug.o (__ltdf2)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+                              objs/hikey/xf-core.o (__fixunsdfsi)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+                              objs/hikey/dsp_debug.o (__fixunsdfdi)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+                              objs/hikey/xf-core.o (__floatunsidf)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+                              objs/hikey/dsp_debug.o (__floatundidf)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (__divdi3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+                              objs/hikey/dsp_debug.o (__udivdi3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+                              objs/hikey/dsp_debug.o (__umoddi3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (__vec_memcpy)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                              ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o) (__vec_memset)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+                              objs/hikey/xf-core.o (__divdf3)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o) (__propagateFloat64NaN)
+/scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                              /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o) (__estimateDiv64To32)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+sram0_seg        0xc0000000         0x00408000
+old_vlpd_seg     0xc0408000         0x00010000
+efr_fr_hr_vlpd_seg 0xc0418000         0x00010000
+amr_vlpd_seg     0xc0428000         0x00010000
+amrwb_vlpd_seg   0xc0438000         0x00010000
+evrc_evrcb_vlpt_seg 0xc0448000         0x00048000
+efr_fr_hr_vlpt_seg 0xc0490000         0x00030000
+amr_vlpt_seg     0xc04c0000         0x00020000
+amrwb_vlpt_seg   0xc04e0000         0x00030000
+vlpt_seg         0xc0510000         0x00048000
+vlpd_seg         0xc0558000         0x00020000
+ulpp_seg         0xc0578000         0x00040000
+dtsv3_seg        0xc05b8000         0x00020000
+dtsv4_seg        0xc05d8000         0x00028000
+dram0_0_seg      0xe8058000         0x00028000
+iram0_0_seg      0xe8080000         0x00000300
+iram0_1_seg      0xe8080300         0x00000100
+iram0_2_seg      0xe8080400         0x00000178
+iram0_3_seg      0xe8080578         0x00000008
+iram0_4_seg      0xe8080580         0x00000038
+iram0_5_seg      0xe80805b8         0x00000008
+iram0_6_seg      0xe80805c0         0x00000038
+iram0_7_seg      0xe80805f8         0x00000008
+iram0_8_seg      0xe8080600         0x00000038
+iram0_9_seg      0xe8080638         0x00000008
+iram0_10_seg     0xe8080640         0x00000038
+iram0_11_seg     0xe8080678         0x00000048
+iram0_12_seg     0xe80806c0         0x00000038
+iram0_13_seg     0xe80806f8         0x00000008
+iram0_14_seg     0xe8080700         0x00000038
+iram0_15_seg     0xe8080738         0x00000008
+iram0_16_seg     0xe8080740         0x00000038
+iram0_17_seg     0xe8080778         0x00000048
+iram0_18_seg     0xe80807c0         0x00000040
+iram0_19_seg     0xe8080800         0x0000b800
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD objs/hikey/cpu_c.o
+LOAD objs/hikey/dsp_debug.o
+LOAD objs/hikey/dsp_comm.o
+LOAD objs/hikey/mutex.o
+LOAD objs/hikey/rbtree.o
+LOAD objs/hikey/xf-core.o
+LOAD objs/hikey/xf-io.o
+LOAD objs/hikey/xf-mem.o
+LOAD objs/hikey/xf-msg.o
+LOAD objs/hikey/xf-sched.o
+LOAD objs/hikey/xa-factory.o
+LOAD objs/hikey/xf-shmem.o
+LOAD objs/hikey/tinyvprintf.o
+LOAD objs/hikey/xf-isr.o
+LOAD objs/hikey/gdbstub.o
+LOAD objs/hikey/xa-class-base.o
+LOAD objs/hikey/xa-class-audio-codec.o
+LOAD objs/hikey/xa-class-mixer.o
+LOAD objs/hikey/xf-main.o
+LOAD objs/hikey/xa-pcm.o
+LOAD objs/hikey/xa-vorbis-decoder.o
+LOAD objs/hikey/xa-mixer.o
+LOAD objs/hikey/reset.o
+LOAD objs/hikey/int_vector.o
+LOAD objs/hikey/arch_hifi330.o
+LOAD objs/hikey/gdbstub-entry.o
+LOAD ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a
+LOAD /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a
+LOAD /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a
+LOAD /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a
+LOAD /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a
+                0xe8080000                _memmap_mem_iram0_start = 0xe8080000
+                0xe808c000                _memmap_mem_iram0_end = 0xe808c000
+                0xe8058000                _memmap_mem_dram0_start = 0xe8058000
+                0xe8080000                _memmap_mem_dram0_end = 0xe8080000
+                0xc0000000                _memmap_mem_sram_start = 0xc0000000
+                0xc0600000                _memmap_mem_sram_end = 0xc0600000
+                0xc0000000                _memmap_seg_sram0_start = 0xc0000000
+                0xc0408000                _memmap_seg_sram0_max = 0xc0408000
+                0xc0408000                _memmap_seg_old_vlpd_start = 0xc0408000
+                0xc0418000                _memmap_seg_old_vlpd_max = 0xc0418000
+                0xc0418000                _memmap_seg_efr_fr_hr_vlpd_start = 0xc0418000
+                0xc0428000                _memmap_seg_efr_fr_hr_vlpd_max = 0xc0428000
+                0xc0428000                _memmap_seg_amr_vlpd_start = 0xc0428000
+                0xc0438000                _memmap_seg_amr_vlpd_max = 0xc0438000
+                0xc0438000                _memmap_seg_amrwb_vlpd_start = 0xc0438000
+                0xc0448000                _memmap_seg_amrwb_vlpd_max = 0xc0448000
+                0xc0448000                _memmap_seg_evrc_evrcb_vlpt_start = 0xc0448000
+                0xc0490000                _memmap_seg_evrc_evrcb_vlpt_max = 0xc0490000
+                0xc0490000                _memmap_seg_efr_fr_hr_vlpt_start = 0xc0490000
+                0xc04c0000                _memmap_seg_efr_fr_hr_vlpt_max = 0xc04c0000
+                0xc04c0000                _memmap_seg_amr_vlpt_start = 0xc04c0000
+                0xc04e0000                _memmap_seg_amr_vlpt_max = 0xc04e0000
+                0xc04e0000                _memmap_seg_amrwb_vlpt_start = 0xc04e0000
+                0xc0510000                _memmap_seg_amrwb_vlpt_max = 0xc0510000
+                0xc0510000                _memmap_seg_vlpt_start = 0xc0510000
+                0xc0558000                _memmap_seg_vlpt_max = 0xc0558000
+                0xc0558000                _memmap_seg_vlpd_start = 0xc0558000
+                0xc0578000                _memmap_seg_vlpd_max = 0xc0578000
+                0xc0578000                _memmap_seg_ulpp_start = 0xc0578000
+                0xc05b8000                _memmap_seg_ulpp_max = 0xc05b8000
+                0xc05b8000                _memmap_seg_dtsv3_start = 0xc05b8000
+                0xc05d8000                _memmap_seg_dtsv3_max = 0xc05d8000
+                0xc05d8000                _memmap_seg_dtsv4_start = 0xc05d8000
+                0xc0600000                _memmap_seg_dtsv4_max = 0xc0600000
+                0xe8058000                _memmap_seg_dram0_0_start = 0xe8058000
+                0xe8080000                _memmap_seg_dram0_0_max = 0xe8080000
+                0xe8080000                _memmap_seg_iram0_0_start = 0xe8080000
+                0xe8080300                _memmap_seg_iram0_0_max = 0xe8080300
+                0xe8080300                _memmap_seg_iram0_1_start = 0xe8080300
+                0xe8080400                _memmap_seg_iram0_1_max = 0xe8080400
+                0xe8080400                _memmap_seg_iram0_2_start = 0xe8080400
+                0xe8080578                _memmap_seg_iram0_2_max = 0xe8080578
+                0xe8080578                _memmap_seg_iram0_3_start = 0xe8080578
+                0xe8080580                _memmap_seg_iram0_3_max = 0xe8080580
+                0xe8080580                _memmap_seg_iram0_4_start = 0xe8080580
+                0xe80805b8                _memmap_seg_iram0_4_max = 0xe80805b8
+                0xe80805b8                _memmap_seg_iram0_5_start = 0xe80805b8
+                0xe80805c0                _memmap_seg_iram0_5_max = 0xe80805c0
+                0xe80805c0                _memmap_seg_iram0_6_start = 0xe80805c0
+                0xe80805f8                _memmap_seg_iram0_6_max = 0xe80805f8
+                0xe80805f8                _memmap_seg_iram0_7_start = 0xe80805f8
+                0xe8080600                _memmap_seg_iram0_7_max = 0xe8080600
+                0xe8080600                _memmap_seg_iram0_8_start = 0xe8080600
+                0xe8080638                _memmap_seg_iram0_8_max = 0xe8080638
+                0xe8080638                _memmap_seg_iram0_9_start = 0xe8080638
+                0xe8080640                _memmap_seg_iram0_9_max = 0xe8080640
+                0xe8080640                _memmap_seg_iram0_10_start = 0xe8080640
+                0xe8080678                _memmap_seg_iram0_10_max = 0xe8080678
+                0xe8080678                _memmap_seg_iram0_11_start = 0xe8080678
+                0xe80806c0                _memmap_seg_iram0_11_max = 0xe80806c0
+                0xe80806c0                _memmap_seg_iram0_12_start = 0xe80806c0
+                0xe80806f8                _memmap_seg_iram0_12_max = 0xe80806f8
+                0xe80806f8                _memmap_seg_iram0_13_start = 0xe80806f8
+                0xe8080700                _memmap_seg_iram0_13_max = 0xe8080700
+                0xe8080700                _memmap_seg_iram0_14_start = 0xe8080700
+                0xe8080738                _memmap_seg_iram0_14_max = 0xe8080738
+                0xe8080738                _memmap_seg_iram0_15_start = 0xe8080738
+                0xe8080740                _memmap_seg_iram0_15_max = 0xe8080740
+                0xe8080740                _memmap_seg_iram0_16_start = 0xe8080740
+                0xe8080778                _memmap_seg_iram0_16_max = 0xe8080778
+                0xe8080778                _memmap_seg_iram0_17_start = 0xe8080778
+                0xe80807c0                _memmap_seg_iram0_17_max = 0xe80807c0
+                0xe80807c0                _memmap_seg_iram0_18_start = 0xe80807c0
+                0xe8080800                _memmap_seg_iram0_18_max = 0xe8080800
+                0xe8080800                _memmap_seg_iram0_19_start = 0xe8080800
+                0xe808c000                _memmap_seg_iram0_19_max = 0xe808c000
+                0x00000000                _rom_store_table = 0x0
+                0xe8080400                PROVIDE (_memmap_vecbase_reset, 0xe8080400)
+                0xe8080000                PROVIDE (_memmap_reset_vector, 0xe8080000)
+                0x44000000                _memmap_cacheattr_wb_base = 0x44000000
+                0x11000000                _memmap_cacheattr_wt_base = 0x11000000
+                0x22000000                _memmap_cacheattr_bp_base = 0x22000000
+                0x00ffffff                _memmap_cacheattr_unused_mask = 0xffffff
+                0x4422222f                _memmap_cacheattr_wb_trapnull = 0x4422222f
+                0x4422222f                _memmap_cacheattr_wba_trapnull = 0x4422222f
+                0x5522222f                _memmap_cacheattr_wbna_trapnull = 0x5522222f
+                0x1122222f                _memmap_cacheattr_wt_trapnull = 0x1122222f
+                0x2222222f                _memmap_cacheattr_bp_trapnull = 0x2222222f
+                0x44ffffff                _memmap_cacheattr_wb_strict = 0x44ffffff
+                0x11ffffff                _memmap_cacheattr_wt_strict = 0x11ffffff
+                0x22ffffff                _memmap_cacheattr_bp_strict = 0x22ffffff
+                0x44222222                _memmap_cacheattr_wb_allvalid = 0x44222222
+                0x11222222                _memmap_cacheattr_wt_allvalid = 0x11222222
+                0x22222222                _memmap_cacheattr_bp_allvalid = 0x22222222
+                0x4422222f                PROVIDE (_memmap_cacheattr_reset, _memmap_cacheattr_wb_trapnull)
+
+.vlpd.rodata    0xc0408000        0x0
+                0xc0408000                _vlpd_rodata_start = ABSOLUTE (.)
+ *(.vlpd.rodata)
+                0xc0408000                _vlpd_rodata_end = ABSOLUTE (.)
+
+.vlpd.data      0xc0408000        0x0
+                0xc0408000                _vlpd_data_start = ABSOLUTE (.)
+ *(.vlpd.data)
+                0xc0408000                _vlpd_data_end = ABSOLUTE (.)
+
+.vlpd.bss       0xc0408000        0x0
+                0xc0408000                . = ALIGN (0x8)
+                0xc0408000                _vlpd_bss_start = ABSOLUTE (.)
+ *(.vlpd.bss)
+                0xc0408000                . = ALIGN (0x8)
+                0xc0408000                _vlpd_bss_end = ABSOLUTE (.)
+                0xc0408000                _memmap_seg_old_vlpd_end = ALIGN (0x8)
+
+.efr_fr_hr_vlpd.rodata
+                0xc0418000        0x0
+                0xc0418000                _efr_fr_hr_vlpd_rodata_start = ABSOLUTE (.)
+ *(.efr_fr_hr_vlpd.rodata)
+                0xc0418000                _efr_fr_hr_vlpd_rodata_end = ABSOLUTE (.)
+
+.efr_fr_hr_vlpd.data
+                0xc0418000        0x0
+                0xc0418000                _efr_fr_hr_vlpd_data_start = ABSOLUTE (.)
+ *(.efr_fr_hr_vlpd.data)
+                0xc0418000                _efr_fr_hr_vlpd_data_end = ABSOLUTE (.)
+
+.efr_fr_hr_vlpd.bss
+                0xc0418000        0x0
+                0xc0418000                . = ALIGN (0x8)
+                0xc0418000                _efr_fr_hr_vlpd_bss_start = ABSOLUTE (.)
+ *(.efr_fr_hr_vlpd.bss)
+                0xc0418000                . = ALIGN (0x8)
+                0xc0418000                _efr_fr_hr_vlpd_bss_end = ABSOLUTE (.)
+                0xc0418000                _memmap_seg_efr_fr_hr_vlpd_end = ALIGN (0x8)
+
+.amr_vlpd.rodata
+                0xc0428000        0x0
+                0xc0428000                _amr_vlpd_rodata_start = ABSOLUTE (.)
+ *(.amr_vlpd.rodata)
+                0xc0428000                _amr_vlpd_rodata_end = ABSOLUTE (.)
+
+.amr_vlpd.data  0xc0428000        0x0
+                0xc0428000                _amr_vlpd_data_start = ABSOLUTE (.)
+ *(.amr_vlpd.data)
+                0xc0428000                _amr_vlpd_data_end = ABSOLUTE (.)
+
+.amr_vlpd.bss   0xc0428000        0x0
+                0xc0428000                . = ALIGN (0x8)
+                0xc0428000                _amr_vlpd_bss_start = ABSOLUTE (.)
+ *(.amr_vlpd.bss)
+                0xc0428000                . = ALIGN (0x8)
+                0xc0428000                _amr_vlpd_bss_end = ABSOLUTE (.)
+                0xc0428000                _memmap_seg_amr_vlpd_end = ALIGN (0x8)
+
+.amrwb_vlpd.rodata
+                0xc0438000        0x0
+                0xc0438000                _amrwb_vlpd_rodata_start = ABSOLUTE (.)
+ *(.amrwb_vlpd.rodata)
+                0xc0438000                _amrwb_vlpd_rodata_end = ABSOLUTE (.)
+
+.amrwb_vlpd.data
+                0xc0438000        0x0
+                0xc0438000                _amrwb_vlpd_data_start = ABSOLUTE (.)
+ *(.amrwb_vlpd.data)
+                0xc0438000                _amrwb_vlpd_data_end = ABSOLUTE (.)
+
+.amrwb_vlpd.bss
+                0xc0438000        0x0
+                0xc0438000                . = ALIGN (0x8)
+                0xc0438000                _amrwb_vlpd_bss_start = ABSOLUTE (.)
+ *(.amrwb_vlpd.bss)
+                0xc0438000                . = ALIGN (0x8)
+                0xc0438000                _amrwb_vlpd_bss_end = ABSOLUTE (.)
+                0xc0438000                _memmap_seg_amrwb_vlpd_end = ALIGN (0x8)
+
+.evrc_evrcb_vlpt.text
+                0xc0448000        0x0
+                0xc0448000                _evrc_evrcb_vlpt_text_start = ABSOLUTE (.)
+ *(.evrc_evrcb_vlpt.literal .evrc_evrcb_vlpt.text)
+                0xc0448000                _evrc_evrcb_vlpt_text_end = ABSOLUTE (.)
+                0xc0448000                _memmap_seg_evrc_evrcb_vlpt_end = ALIGN (0x8)
+
+.efr_fr_hr_vlpt.text
+                0xc0490000        0x0
+                0xc0490000                _efr_fr_hr_vlpt_text_start = ABSOLUTE (.)
+ *(.efr_fr_hr_vlpt.literal .efr_fr_hr_vlpt.text)
+                0xc0490000                _efr_fr_hr_vlpt_text_end = ABSOLUTE (.)
+                0xc0490000                _memmap_seg_efr_fr_hr_vlpt_end = ALIGN (0x8)
+
+.amr_vlpt.text  0xc04c0000        0x0
+                0xc04c0000                _amr_vlpt_text_start = ABSOLUTE (.)
+ *(.amr_vlpt.literal .amr_vlpt.text)
+                0xc04c0000                _amr_vlpt_text_end = ABSOLUTE (.)
+                0xc04c0000                _memmap_seg_amr_vlpt_end = ALIGN (0x8)
+
+.amrwb_vlpt.text
+                0xc04e0000        0x0
+                0xc04e0000                _amrwb_vlpt_text_start = ABSOLUTE (.)
+ *(.amrwb_vlpt.literal .amrwb_vlpt.text)
+                0xc04e0000                _amrwb_vlpt_text_end = ABSOLUTE (.)
+                0xc04e0000                _memmap_seg_amrwb_vlpt_end = ALIGN (0x8)
+
+.vlpt.text      0xc0510000        0x0
+                0xc0510000                _vlpt_text_start = ABSOLUTE (.)
+ *(.vlpt.literal .vlpt.text)
+                0xc0510000                _vlpt_text_end = ABSOLUTE (.)
+                0xc0510000                _memmap_seg_vlpt_end = ALIGN (0x8)
+
+.low_power_dyn_alloc
+                0xc0558000        0x0
+                0xc0558000                _low_power_dyn_alloc_start = ABSOLUTE (.)
+ *(.low_power_dyn_alloc)
+                0xc0558000                _low_power_dyn_alloc_end = ABSOLUTE (.)
+                0xc0558000                _memmap_seg_vlpd_end = ALIGN (0x8)
+
+.ulpp.rodata    0xc0578000        0x0
+                0xc0578000                _ulpp_rodata_start = ABSOLUTE (.)
+ *(.ulpp.rodata)
+                0xc0578000                _ulpp_rodata_end = ABSOLUTE (.)
+
+.ulpp.data      0xc0578000        0x0
+                0xc0578000                _ulpp_data_start = ABSOLUTE (.)
+ *(.ulpp.data)
+                0xc0578000                _ulpp_data_end = ABSOLUTE (.)
+
+.ulpp.text      0xc0578000        0x0
+                0xc0578000                _ulpp_text_start = ABSOLUTE (.)
+ *(.ulpp.literal .ulpp.text)
+                0xc0578000                _ulpp_text_end = ABSOLUTE (.)
+
+.ulpp.bss       0xc0578000        0x0
+                0xc0578000                . = ALIGN (0x8)
+                0xc0578000                _ulpp_bss_start = ABSOLUTE (.)
+ *(.ulpp.bss)
+                0xc0578000                . = ALIGN (0x8)
+                0xc0578000                _ulpp_bss_end = ABSOLUTE (.)
+                0xc0578000                _memmap_seg_ulpp_end = ALIGN (0x8)
+
+.dtsv3.rodata   0xc05b8000        0x0
+                0xc05b8000                _dtsv3_rodata_start = ABSOLUTE (.)
+ *(.dtsv3.rodata)
+                0xc05b8000                _dtsv3_rodata_end = ABSOLUTE (.)
+
+.dtsv3.data     0xc05b8000        0x0
+                0xc05b8000                _dtsv3_data_start = ABSOLUTE (.)
+ *(.dtsv3.data)
+                0xc05b8000                _dtsv3_data_end = ABSOLUTE (.)
+
+.dtsv3.text     0xc05b8000        0x0
+                0xc05b8000                _dtsv3_text_start = ABSOLUTE (.)
+ *(.dtsv3.literal .dtsv3.text)
+                0xc05b8000                _dtsv3_text_end = ABSOLUTE (.)
+
+.dtsv3.bss      0xc05b8000        0x0
+                0xc05b8000                . = ALIGN (0x8)
+                0xc05b8000                _dtsv3_bss_start = ABSOLUTE (.)
+ *(.dtsv3.bss)
+                0xc05b8000                . = ALIGN (0x8)
+                0xc05b8000                _dtsv3_bss_end = ABSOLUTE (.)
+                0xc05b8000                _memmap_seg_dtsv3_end = ALIGN (0x8)
+
+.dtsv4.rodata   0xc05d8000        0x0
+                0xc05d8000                _dtsv4_rodata_start = ABSOLUTE (.)
+ *(.dtsv4.rodata)
+                0xc05d8000                _dtsv4_rodata_end = ABSOLUTE (.)
+
+.dtsv4.data     0xc05d8000        0x0
+                0xc05d8000                _dtsv4_data_start = ABSOLUTE (.)
+ *(.dtsv4.data)
+                0xc05d8000                _dtsv4_data_end = ABSOLUTE (.)
+
+.dtsv4.text     0xc05d8000        0x0
+                0xc05d8000                _dtsv4_text_start = ABSOLUTE (.)
+ *(.dtsv4.literal .dtsv4.text)
+                0xc05d8000                _dtsv4_text_end = ABSOLUTE (.)
+
+.dtsv4.bss      0xc05d8000        0x0
+                0xc05d8000                . = ALIGN (0x8)
+                0xc05d8000                _dtsv4_bss_start = ABSOLUTE (.)
+ *(.dtsv4.bss)
+                0xc05d8000                . = ALIGN (0x8)
+                0xc05d8000                _dtsv4_bss_end = ABSOLUTE (.)
+                0xc05d8000                _memmap_seg_dtsv4_end = ALIGN (0x8)
+
+.dram0.rodata   0xe8058000        0x0
+                0xe8058000                _dram0_rodata_start = ABSOLUTE (.)
+ *(.dram0.rodata)
+ *(.dram.rodata)
+                0xe8058000                _dram0_rodata_end = ABSOLUTE (.)
+
+.dram0.literal  0xe8058000        0x0
+                0xe8058000                _dram0_literal_start = ABSOLUTE (.)
+ *(.dram0.literal)
+ *(.dram.literal)
+                0xe8058000                _dram0_literal_end = ABSOLUTE (.)
+
+.dram0.data     0xe8058000       0x51
+                0xe8058000                _dram0_data_start = ABSOLUTE (.)
+ *(.dram0.data)
+ .dram0.data    0xe8058000       0x50 objs/hikey/int_vector.o
+                0xe8058030                g_awVosCoprocOwnerSa
+                0xe8058038                g_strVosPanicMessage
+ .dram0.data    0xe8058050        0x1 objs/hikey/arch_hifi330.o
+ *(.dram.data)
+                0xe8058051                _dram0_data_end = ABSOLUTE (.)
+
+.dram0.bss      0xe8058058        0x0
+                0xe8058058                . = ALIGN (0x8)
+                0xe8058058                _dram0_bss_start = ABSOLUTE (.)
+ *(.dram0.bss)
+ *(.om.debug.bss)
+ *(.os.stack.bss)
+                0xe8058058                . = ALIGN (0x8)
+                0xe8058058                _dram0_bss_end = ABSOLUTE (.)
+                0xe8058058                _end = ALIGN (0x8)
+                0xe8058058                PROVIDE (end, ALIGN (0x8))
+                0xe8058058                _stack_sentry = ALIGN (0x8)
+                0xe8058058                _memmap_seg_dram0_0_end = ALIGN (0x8)
+                0xe8080000                __stack = 0xe8080000
+                0xe8080000                _heap_sentry = 0xe8080000
+
+.ResetVector.text
+                0xe8080000        0x3
+                0xe8080000                _ResetVector_text_start = ABSOLUTE (.)
+ *(.ResetVector.text)
+ .ResetVector.text
+                0xe8080000        0x3 objs/hikey/reset.o
+                0xe8080000                _ResetVector
+                0xe8080003                _ResetVector_text_end = ABSOLUTE (.)
+                0xe8080008                _memmap_seg_iram0_0_end = ALIGN (0x8)
+
+.Reset.literal  0xe8080300       0x40
+                0xe8080300                _Reset_literal_start = ABSOLUTE (.)
+ *(.Reset.literal)
+ .Reset.literal
+                0xe8080300       0x40 objs/hikey/reset.o
+                0xe8080340                _Reset_literal_end = ABSOLUTE (.)
+                0xe8080340                _memmap_seg_iram0_1_end = ALIGN (0x8)
+
+.WindowVectors.text
+                0xe8080400      0x16a
+                0xe8080400                _WindowVectors_text_start = ABSOLUTE (.)
+ *(.WindowVectors.text)
+ .WindowVectors.text
+                0xe8080400      0x16a objs/hikey/int_vector.o
+                0xe8080400                _WindowOverflow4
+                0xe8080440                _WindowUnderflow4
+                0xe8080450                OS_AllocaException
+                0xe8080480                _WindowOverflow8
+                0xe80804c0                _WindowUnderflow8
+                0xe8080500                _WindowOverflow12
+                0xe8080540                _WindowUnderflow12
+                0xe808056a                _WindowVectors_text_end = ABSOLUTE (.)
+                0xe8080570                _memmap_seg_iram0_2_end = ALIGN (0x8)
+
+.Level2InterruptVector.literal
+                0xe8080578        0x0
+                0xe8080578                _Level2InterruptVector_literal_start = ABSOLUTE (.)
+ *(.Level2InterruptVector.literal)
+ .Level2InterruptVector.literal
+                0xe8080578        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe8080578                _Level2InterruptVector_literal_end = ABSOLUTE (.)
+                0xe8080578                _memmap_seg_iram0_3_end = ALIGN (0x8)
+
+.Level2InterruptVector.text
+                0xe8080580        0x6
+                0xe8080580                _Level2InterruptVector_text_start = ABSOLUTE (.)
+ *(.Level2InterruptVector.text)
+ .Level2InterruptVector.text
+                0xe8080580        0x6 objs/hikey/int_vector.o
+                                  0x9 (size before relaxing)
+                0xe8080580                OS_Level2Vector
+                0xe8080586                _Level2InterruptVector_text_end = ABSOLUTE (.)
+                0xe8080588                _memmap_seg_iram0_4_end = ALIGN (0x8)
+
+.Level3InterruptVector.literal
+                0xe80805b8        0x0
+                0xe80805b8                _Level3InterruptVector_literal_start = ABSOLUTE (.)
+ *(.Level3InterruptVector.literal)
+ .Level3InterruptVector.literal
+                0xe80805b8        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe80805b8                _Level3InterruptVector_literal_end = ABSOLUTE (.)
+                0xe80805b8                _memmap_seg_iram0_5_end = ALIGN (0x8)
+
+.Level3InterruptVector.text
+                0xe80805c0        0x6
+                0xe80805c0                _Level3InterruptVector_text_start = ABSOLUTE (.)
+ *(.Level3InterruptVector.text)
+ .Level3InterruptVector.text
+                0xe80805c0        0x6 objs/hikey/int_vector.o
+                                  0x9 (size before relaxing)
+                0xe80805c0                OS_Level3Vector
+                0xe80805c6                _Level3InterruptVector_text_end = ABSOLUTE (.)
+                0xe80805c8                _memmap_seg_iram0_6_end = ALIGN (0x8)
+
+.Level4InterruptVector.literal
+                0xe80805f8        0x0
+                0xe80805f8                _Level4InterruptVector_literal_start = ABSOLUTE (.)
+ *(.Level4InterruptVector.literal)
+                0xe80805f8                _Level4InterruptVector_literal_end = ABSOLUTE (.)
+                0xe80805f8                _memmap_seg_iram0_7_end = ALIGN (0x8)
+
+.Level4InterruptVector.text
+                0xe8080600        0x0
+                0xe8080600                _Level4InterruptVector_text_start = ABSOLUTE (.)
+ *(.Level4InterruptVector.text)
+                0xe8080600                _Level4InterruptVector_text_end = ABSOLUTE (.)
+                0xe8080600                _memmap_seg_iram0_8_end = ALIGN (0x8)
+
+.DebugExceptionVector.literal
+                0xe8080638        0x0
+                0xe8080638                _DebugExceptionVector_literal_start = ABSOLUTE (.)
+ *(.DebugExceptionVector.literal)
+ .DebugExceptionVector.literal
+                0xe8080638        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe8080638                _DebugExceptionVector_literal_end = ABSOLUTE (.)
+                0xe8080638                _memmap_seg_iram0_9_end = ALIGN (0x8)
+
+.DebugExceptionVector.text
+                0xe8080640       0x16
+                0xe8080640                _DebugExceptionVector_text_start = ABSOLUTE (.)
+ *(.DebugExceptionVector.text)
+ .DebugExceptionVector.text
+                0xe8080640        0x9 objs/hikey/int_vector.o
+                                  0xc (size before relaxing)
+                0xe8080640                OS_DebugExceptionVector
+ *fill*         0xe8080649        0x3 
+ .DebugExceptionVector.text
+                0xe808064c        0xa objs/hikey/gdbstub-entry.o
+                0xe808064c                DebugExceptionVector
+                0xe8080656                _DebugExceptionVector_text_end = ABSOLUTE (.)
+                0xe8080658                _memmap_seg_iram0_10_end = ALIGN (0x8)
+
+.NMIExceptionVector.literal
+                0xe8080678        0x8
+                0xe8080678                _NMIExceptionVector_literal_start = ABSOLUTE (.)
+ *(.NMIExceptionVector.literal)
+ .NMIExceptionVector.literal
+                0xe8080678        0x8 objs/hikey/int_vector.o
+                0xe8080680                _NMIExceptionVector_literal_end = ABSOLUTE (.)
+                0xe8080680                _memmap_seg_iram0_11_end = ALIGN (0x8)
+
+.NMIExceptionVector.text
+                0xe80806c0       0x1b
+                0xe80806c0                _NMIExceptionVector_text_start = ABSOLUTE (.)
+ *(.NMIExceptionVector.text)
+ .NMIExceptionVector.text
+                0xe80806c0       0x1b objs/hikey/int_vector.o
+                0xe80806c0                OS_NMIExceptionVector
+                0xe80806db                _NMIExceptionVector_text_end = ABSOLUTE (.)
+                0xe80806e0                _memmap_seg_iram0_12_end = ALIGN (0x8)
+
+.KernelExceptionVector.literal
+                0xe80806f8        0x0
+                0xe80806f8                _KernelExceptionVector_literal_start = ABSOLUTE (.)
+ *(.KernelExceptionVector.literal)
+ .KernelExceptionVector.literal
+                0xe80806f8        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe80806f8                _KernelExceptionVector_literal_end = ABSOLUTE (.)
+                0xe80806f8                _memmap_seg_iram0_13_end = ALIGN (0x8)
+
+.KernelExceptionVector.text
+                0xe8080700        0x6
+                0xe8080700                _KernelExceptionVector_text_start = ABSOLUTE (.)
+ *(.KernelExceptionVector.text)
+ .KernelExceptionVector.text
+                0xe8080700        0x6 objs/hikey/int_vector.o
+                                  0x9 (size before relaxing)
+                0xe8080700                OS_KernelExceptionVector
+                0xe8080706                _KernelExceptionVector_text_end = ABSOLUTE (.)
+                0xe8080708                _memmap_seg_iram0_14_end = ALIGN (0x8)
+
+.UserExceptionVector.literal
+                0xe8080738        0x0
+                0xe8080738                _UserExceptionVector_literal_start = ABSOLUTE (.)
+ *(.UserExceptionVector.literal)
+ .UserExceptionVector.literal
+                0xe8080738        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe8080738                _UserExceptionVector_literal_end = ABSOLUTE (.)
+                0xe8080738                _memmap_seg_iram0_15_end = ALIGN (0x8)
+
+.UserExceptionVector.text
+                0xe8080740        0x6
+                0xe8080740                _UserExceptionVector_text_start = ABSOLUTE (.)
+ *(.UserExceptionVector.text)
+ .UserExceptionVector.text
+                0xe8080740        0x6 objs/hikey/int_vector.o
+                                  0x9 (size before relaxing)
+                0xe8080740                OS_UserExceptionVector
+                0xe8080746                _UserExceptionVector_text_end = ABSOLUTE (.)
+                0xe8080748                _memmap_seg_iram0_16_end = ALIGN (0x8)
+
+.DoubleExceptionVector.literal
+                0xe8080778        0x0
+                0xe8080778                _DoubleExceptionVector_literal_start = ABSOLUTE (.)
+ *(.DoubleExceptionVector.literal)
+ .DoubleExceptionVector.literal
+                0xe8080778        0x0 objs/hikey/int_vector.o
+                                  0x4 (size before relaxing)
+                0xe8080778                _DoubleExceptionVector_literal_end = ABSOLUTE (.)
+                0xe8080778                _memmap_seg_iram0_17_end = ALIGN (0x8)
+
+.DoubleExceptionVector.text
+                0xe80807c0        0x6
+                0xe80807c0                _DoubleExceptionVector_text_start = ABSOLUTE (.)
+ *(.DoubleExceptionVector.text)
+ .DoubleExceptionVector.text
+                0xe80807c0        0x6 objs/hikey/int_vector.o
+                                  0x9 (size before relaxing)
+                0xe80807c0                OS_DoubleExceptionVector
+                0xe80807c6                _DoubleExceptionVector_text_end = ABSOLUTE (.)
+                0xe80807c8                _memmap_seg_iram0_18_end = ALIGN (0x8)
+
+.Reset.text     0xe8080800      0x23d
+                0xe8080800                _Reset_text_start = ABSOLUTE (.)
+ *(.Reset.text)
+ .Reset.text    0xe8080800      0x23d objs/hikey/reset.o
+                0xe8080800                _Reset
+                0xe8080a3d                _Reset_text_end = ABSOLUTE (.)
+
+.iram0.text     0xe8080a40      0x600
+                0xe8080a40                _iram0_text_start = ABSOLUTE (.)
+ *(.iram0.literal .iram.literal .iram.text.literal .iram0.text .iram.text)
+ .iram0.literal
+                0xe8080a40       0x44 objs/hikey/int_vector.o
+                                 0x88 (size before relaxing)
+ .iram0.literal
+                0xe8080a84       0x2c objs/hikey/arch_hifi330.o
+                                 0x58 (size before relaxing)
+ .iram0.text    0xe8080ab0      0x3b4 objs/hikey/int_vector.o
+                                0x3c0 (size before relaxing)
+                0xe8080ab0                OS_Panic
+                0xe8080ad0                OS_UserExc
+                0xe8080b68                OS_UserExit
+                0xe8080dc4                OS_Medint2Exit
+                0xe8080e50                OS_Medint3Exit
+ .iram0.text    0xe8080e64      0x1dc objs/hikey/arch_hifi330.o
+                0xe8080e64                VOSStartHighRdy
+                0xe8080e7c                VOSCtxSw
+                0xe8080eac                VOSIntCtxSw
+                0xe8080ecc                OSCPUSaveSR
+                0xe8080ed8                OSCPURestoreSR
+                0xe8080ee4                OS_TaskSwitch
+                0xe8080f24                OS_ContextSave
+                0xe8080f90                OS_ContextRestore
+                0xe8080fd8                OS_IntEnter
+                0xe8081008                OS_IntExit
+                0xe8081020                OS_GetTaskCoprocState
+                0xe8081040                _iram0_text_end = ABSOLUTE (.)
+                0xe8081040                _memmap_seg_iram0_19_end = ALIGN (0x8)
+
+.sram.shareaddr
+                0xc0000000        0x0
+                0xc0000000                _sram_shareaddr_start = ABSOLUTE (.)
+ *(.sram.shareaddr)
+                0xc0000000                _sram_shareaddr_end = ABSOLUTE (.)
+
+.sram.rodata    0xc0000000        0x0
+                0xc0000000                _sram_rodata_start = ABSOLUTE (.)
+ *(.sram.rodata)
+                0xc0000000                _sram_rodata_end = ABSOLUTE (.)
+
+.rodata         0xc0000000     0x75a0
+                0xc0000000                _rodata_start = ABSOLUTE (.)
+ *(.rodata)
+ .rodata        0xc0000000       0x84 objs/hikey/dsp_debug.o
+ *fill*         0xc0000084        0xc 
+ .rodata        0xc0000090      0x10f objs/hikey/xf-core.o
+ *fill*         0xc000019f        0x1 
+ .rodata        0xc00001a0      0x197 objs/hikey/xf-io.o
+ *fill*         0xc0000337        0x9 
+ .rodata        0xc0000340       0x1b objs/hikey/xf-mem.o
+ *fill*         0xc000035b        0x5 
+ .rodata        0xc0000360       0x30 objs/hikey/xf-msg.o
+ .rodata        0xc0000390       0x1d objs/hikey/xf-sched.o
+ *fill*         0xc00003ad        0x3 
+ .rodata        0xc00003b0       0x45 objs/hikey/xa-factory.o
+ *fill*         0xc00003f5        0xb 
+ .rodata        0xc0000400       0x4e objs/hikey/xf-shmem.o
+ *fill*         0xc000044e        0x2 
+ .rodata        0xc0000450      0x1ec objs/hikey/tinyvprintf.o
+ *fill*         0xc000063c        0x4 
+ .rodata        0xc0000640      0x120 objs/hikey/gdbstub.o
+                0xc0000640                rx
+                0xc0000644                tx
+ .rodata        0xc0000760      0x140 objs/hikey/xa-class-base.o
+ .rodata        0xc00008a0      0x1e7 objs/hikey/xa-class-audio-codec.o
+ *fill*         0xc0000a87        0x9 
+ .rodata        0xc0000a90      0x1d1 objs/hikey/xa-class-mixer.o
+ *fill*         0xc0000c61        0xf 
+ .rodata        0xc0000c70       0x15 objs/hikey/xf-main.o
+ *fill*         0xc0000c85        0xb 
+ .rodata        0xc0000c90      0x2ed objs/hikey/xa-pcm.o
+ *fill*         0xc0000f7d        0x3 
+ .rodata        0xc0000f80        0xc objs/hikey/xa-vorbis-decoder.o
+ *fill*         0xc0000f8c        0x4 
+ .rodata        0xc0000f90      0x269 objs/hikey/xa-mixer.o
+ *fill*         0xc00011f9        0x7 
+ .rodata        0xc0001200     0x4a54 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+ *(.rodata.*)
+ .rodata.str1.4
+                0xc0005c54        0x7 objs/hikey/dsp_debug.o
+ *fill*         0xc0005c5b        0x1 
+ .rodata.str1.4
+                0xc0005c5c      0x2e1 objs/hikey/xf-core.o
+ *fill*         0xc0005f3d        0x3 
+ .rodata.str1.4
+                0xc0005f40      0x2fb objs/hikey/xf-io.o
+                                0x363 (size before relaxing)
+ *fill*         0xc000623b        0x1 
+ .rodata.str1.4
+                0xc000623c       0x50 objs/hikey/xf-mem.o
+                                 0x8c (size before relaxing)
+ .rodata.str1.4
+                0xc000628c       0x15 objs/hikey/xf-msg.o
+                                 0x49 (size before relaxing)
+ *fill*         0xc00062a1        0x3 
+ .rodata.str1.4
+                0xc00062a4       0x56 objs/hikey/xf-sched.o
+ *fill*         0xc00062fa        0x2 
+ .rodata.str1.4
+                0xc00062fc       0x68 objs/hikey/xa-factory.o
+                                 0x70 (size before relaxing)
+ .rodata.str1.4
+                0xc0006364       0xa8 objs/hikey/xf-shmem.o
+                                 0xe4 (size before relaxing)
+ .rodata.str1.4
+                0xc000640c       0x11 objs/hikey/tinyvprintf.o
+ *fill*         0xc000641d        0x3 
+ .rodata.str1.4
+                0xc0006420       0x3f objs/hikey/gdbstub.o
+ *fill*         0xc000645f        0x1 
+ .rodata.str1.4
+                0xc0006460      0x6b6 objs/hikey/xa-class-base.o
+                                0x6f2 (size before relaxing)
+ *fill*         0xc0006b16        0x2 
+ .rodata.str1.4
+                0xc0006b18      0x41b objs/hikey/xa-class-audio-codec.o
+                                0x517 (size before relaxing)
+ *fill*         0xc0006f33        0x1 
+ .rodata.str1.4
+                0xc0006f34      0x3cf objs/hikey/xa-class-mixer.o
+                                0x58b (size before relaxing)
+ *fill*         0xc0007303        0x1 
+ .rodata.str1.4
+                0xc0007304       0x4c objs/hikey/xf-main.o
+                                 0x8c (size before relaxing)
+ .rodata.str1.4
+                0xc0007350       0x86 objs/hikey/xa-pcm.o
+                                 0xc2 (size before relaxing)
+ *fill*         0xc00073d6        0x2 
+ .rodata.str1.4
+                0xc00073d8      0x129 objs/hikey/xa-mixer.o
+                                0x169 (size before relaxing)
+ *fill*         0xc0007501        0x3 
+ .rodata.str1.4
+                0xc0007504        0x8 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                                  0x7 (size before relaxing)
+ *(.gnu.linkonce.r.*)
+ *(.rodata1)
+                0xc000750c                __XT_EXCEPTION_TABLE__ = ABSOLUTE (.)
+ *(.xt_except_table)
+ *(.gcc_except_table)
+ *(.gnu.linkonce.e.*)
+ *(.gnu.version_r)
+ *(.eh_frame)
+ .eh_frame      0xc000750c       0x24 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .eh_frame      0xc0007530       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+                                 0x24 (size before relaxing)
+ .eh_frame      0xc0007544       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+                                 0x24 (size before relaxing)
+ *crtbegin.o(.ctors)
+ *(EXCLUDE_FILE(*crtend.o) .ctors)
+ *(SORT(.ctors.*))
+ *(.ctors)
+ *crtbegin.o(.dtors)
+ *(EXCLUDE_FILE(*crtend.o) .dtors)
+ *(SORT(.dtors.*))
+ *(.dtors)
+                0xc0007558                __XT_EXCEPTION_DESCS__ = ABSOLUTE (.)
+ *(.xt_except_desc)
+ *(.gnu.linkonce.h.*)
+                0xc0007558                __XT_EXCEPTION_DESCS_END__ = ABSOLUTE (.)
+ *(.xt_except_desc_end)
+ *(.dynamic)
+ *(.gnu.version_d)
+                0xc0007558                . = ALIGN (0x4)
+                0xc0007558                _bss_table_start = ABSOLUTE (.)
+                0xc0007558        0x4 LONG 0xc0408000 _vlpd_bss_start
+                0xc000755c        0x4 LONG 0xc0408000 _vlpd_bss_end
+                0xc0007560        0x4 LONG 0xc0418000 _efr_fr_hr_vlpd_bss_start
+                0xc0007564        0x4 LONG 0xc0418000 _efr_fr_hr_vlpd_bss_end
+                0xc0007568        0x4 LONG 0xc0428000 _amr_vlpd_bss_start
+                0xc000756c        0x4 LONG 0xc0428000 _amr_vlpd_bss_end
+                0xc0007570        0x4 LONG 0xc0438000 _amrwb_vlpd_bss_start
+                0xc0007574        0x4 LONG 0xc0438000 _amrwb_vlpd_bss_end
+                0xc0007578        0x4 LONG 0xc0578000 _ulpp_bss_start
+                0xc000757c        0x4 LONG 0xc0578000 _ulpp_bss_end
+                0xc0007580        0x4 LONG 0xc05b8000 _dtsv3_bss_start
+                0xc0007584        0x4 LONG 0xc05b8000 _dtsv3_bss_end
+                0xc0007588        0x4 LONG 0xc05d8000 _dtsv4_bss_start
+                0xc000758c        0x4 LONG 0xc05d8000 _dtsv4_bss_end
+                0xc0007590        0x4 LONG 0xe8058058 _dram0_bss_start
+                0xc0007594        0x4 LONG 0xe8058058 _dram0_bss_end
+                0xc0007598        0x4 LONG 0xc001a300 _bss_start
+                0xc000759c        0x4 LONG 0xc011b628 _bss_end
+                0xc00075a0                _bss_table_end = ABSOLUTE (.)
+                0xc00075a0                _rodata_end = ABSOLUTE (.)
+
+.sram.text      0xc00075a0        0x0
+                0xc00075a0                _sram_text_start = ABSOLUTE (.)
+ *(.sram.literal .sram.text)
+                0xc00075a0                _sram_text_end = ABSOLUTE (.)
+
+.text           0xc00075a0    0x12b4c
+                0xc00075a0                _stext = .
+                0xc00075a0                _text_start = ABSOLUTE (.)
+ *(.entry.text)
+ *(.init.literal)
+ *(.init)
+ *(.literal .text .literal.* .text.* .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
+ .text          0xc00075a0       0xc3 objs/hikey/cpu_c.o
+                                 0xd9 (size before relaxing)
+                0xc00075a4                OS_EnterIntHook
+                0xc00075bc                OS_ExitIntHook
+                0xc00075d8                OS_UserexecHandler
+                0xc00075f8                OS_InterruptHandler
+                0xc0007610                OS_NmiHook
+                0xc000762c                VOS_ConnectInterrupt
+                0xc000763c                VOS_EnableInterrupt
+                0xc0007658                VOS_DisableInterrupt
+ *fill*         0xc0007663        0x5 
+ .text          0xc0007668      0x59a objs/hikey/dsp_debug.o
+                                0x5da (size before relaxing)
+                0xc0007690                __xprintf
+                0xc0007b60                dsp_debug_init
+                0xc0007bd8                print_log
+ *fill*         0xc0007c02        0x6 
+ .text          0xc0007c08       0x40 objs/hikey/mutex.o
+ .text          0xc0007c48      0x535 objs/hikey/rbtree.o
+                                0x53d (size before relaxing)
+                0xc0007c80                rb_first
+                0xc0007ca0                rb_last
+                0xc0007cc0                rb_next
+                0xc0007d00                rb_prev
+                0xc0007d40                rb_init
+                0xc0007d54                rb_insert
+                0xc0007e84                rb_delete
+                0xc0008138                rb_replace
+ *fill*         0xc000817d        0x3 
+ .text          0xc0008180      0x899 objs/hikey/xf-core.o
+                                0xaa4 (size before relaxing)
+                0xc0008538                xf_msg_submit
+                0xc00085b4                xf_msg_complete
+                0xc0008614                xf_core_init
+                0xc000874c                xf_core_service
+                0xc0008a00                xf_global_init
+ *fill*         0xc0008a19        0x7 
+ .text          0xc0008a20      0x79b objs/hikey/xf-io.o
+                                0x88b (size before relaxing)
+                0xc0008a78                xf_input_port_init
+                0xc0008b0c                xf_input_port_put
+                0xc0008bf4                xf_input_port_fill
+                0xc0008c9c                xf_input_port_pad
+                0xc0008cc8                xf_input_port_consume
+                0xc0008d38                xf_input_port_purge
+                0xc0008da0                xf_input_port_control_save
+                0xc0008de8                xf_input_port_purge_done
+                0xc0008e34                xf_input_port_destroy
+                0xc0008e84                xf_output_port_init
+                0xc0008ec4                xf_output_port_route
+                0xc0008fe0                xf_output_port_unroute_start
+                0xc0008ff4                xf_output_port_unroute_done
+                0xc0009020                xf_output_port_unroute
+                0xc0009088                xf_output_port_put
+                0xc00090ac                xf_output_port_data
+                0xc00090c0                xf_output_port_produce
+                0xc00090f0                xf_output_port_flush
+                0xc0009158                xf_output_port_flush_done
+                0xc000918c                xf_output_port_destroy
+ *fill*         0xc00091bb        0x5 
+ .text          0xc00091c0      0x2e0 objs/hikey/xf-mem.o
+                                0x338 (size before relaxing)
+                0xc000924c                xf_mm_alloc
+                0xc00092ec                xf_mm_free
+                0xc000940c                xf_mm_init
+ .text          0xc00094a0      0x153 objs/hikey/xf-msg.o
+                                0x173 (size before relaxing)
+                0xc00094f0                xf_msg_pool_init
+                0xc000957c                xf_msg_pool_destroy
+                0xc00095b0                xf_msg_pool_get
+                0xc00095e8                xf_msg_pool_put
+ *fill*         0xc00095f3        0x5 
+ .text          0xc00095f8      0x127 objs/hikey/xf-sched.o
+                                0x14a (size before relaxing)
+                0xc0009640                xf_sched_put
+                0xc00096b0                xf_sched_get
+                0xc00096f8                xf_sched_cancel
+                0xc0009714                xf_sched_init
+ *fill*         0xc000971f        0x1 
+ .text          0xc0009720       0x91 objs/hikey/xa-factory.o
+                                 0xa1 (size before relaxing)
+                0xc000976c                xf_component_factory
+ *fill*         0xc00097b1        0x7 
+ .text          0xc00097b8      0x532 objs/hikey/xf-shmem.o
+                                0x61a (size before relaxing)
+                0xc0009a68                xf_shmem_process_queues
+                0xc0009bd4                xf_msg_proxy_complete
+                0xc0009c4c                xf_shmem_init
+ *fill*         0xc0009cea        0x6 
+ .text          0xc0009cf0      0x380 objs/hikey/tinyvprintf.o
+                0xc0009d0c                tiny_vsprintf
+                0xc000a04c                tiny_sprintf
+ .text          0xc000a070      0x108 objs/hikey/xf-isr.o
+                                0x120 (size before relaxing)
+                0xc000a0b4                xf_msg_schedule_isr
+                0xc000a11c                xf_msg_complete_isr
+ .text          0xc000a178      0xe34 objs/hikey/gdbstub.o
+                               0x100c (size before relaxing)
+                0xc000a18c                init_debug_comm
+                0xc000a1d4                poll_debug_ring
+                0xc000a36c                getpacket
+                0xc000aa64                handle_exception
+                0xc000af5c                init_gdbstub
+ *fill*         0xc000afac        0x4 
+ .text          0xc000afb0     0x1622 objs/hikey/xa-class-base.o
+                               0x1cea (size before relaxing)
+                0xc000b0c4                xa_base_set_param
+                0xc000b82c                xa_base_get_param
+                0xc000b968                xa_base_set_param_ext
+                0xc000bb80                xa_base_get_param_ext
+                0xc000c17c                xa_base_schedule
+                0xc000c1d4                xa_base_cancel
+                0xc000c22c                xa_base_destroy
+                0xc000c2a8                xa_base_factory
+ *fill*         0xc000c5d2        0x6 
+ .text          0xc000c5d8     0x14e3 objs/hikey/xa-class-audio-codec.o
+                               0x1afb (size before relaxing)
+                0xc000da44                xa_audio_codec_factory
+ *fill*         0xc000dabb        0x5 
+ .text          0xc000dac0     0x144a objs/hikey/xa-class-mixer.o
+                               0x1aaa (size before relaxing)
+                0xc000ee98                xa_mixer_factory
+ *fill*         0xc000ef0a        0x6 
+ .text          0xc000ef10      0x185 objs/hikey/xf-main.o
+                                0x205 (size before relaxing)
+                0xc000ef6c                xf_ipc_init
+                0xc000efe8                main
+ *fill*         0xc000f095        0x3 
+ .text          0xc000f098      0xf0f objs/hikey/xa-pcm.o
+                               0x13e7 (size before relaxing)
+                0xc000ff3c                xa_pcm_codec
+ *fill*         0xc000ffa7        0x1 
+ .text          0xc000ffa8       0x46 objs/hikey/xa-vorbis-decoder.o
+                                 0x4e (size before relaxing)
+                0xc000ffb0                xa_vorbis_decoder
+ *fill*         0xc000ffee        0x2 
+ .text          0xc000fff0      0xc77 objs/hikey/xa-mixer.o
+                               0x10cf (size before relaxing)
+                0xc0010bfc                xa_mixer
+ *fill*         0xc0010c67        0x1 
+ .literal       0xc0010c68       0x10 objs/hikey/gdbstub-entry.o
+                                 0x2c (size before relaxing)
+ .literal       0xc0010c78        0x4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .literal       0xc0010c7c        0x4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .literal       0xc0010c80        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+                                  0x4 (size before relaxing)
+ .literal       0xc0010c80        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .literal       0xc0010c88        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                                  0x8 (size before relaxing)
+ .literal       0xc0010c88        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+                                  0xc (size before relaxing)
+ .literal       0xc0010c90        0x4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+                                 0x10 (size before relaxing)
+ .literal       0xc0010c94        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+                                 0x18 (size before relaxing)
+ .literal       0xc0010c94        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+                                  0x4 (size before relaxing)
+ .literal       0xc0010c94        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+                                  0x4 (size before relaxing)
+ .literal       0xc0010c94        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                                  0x8 (size before relaxing)
+ .literal       0xc0010c94        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                                  0x4 (size before relaxing)
+ .literal       0xc0010c94        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+                                 0x2c (size before relaxing)
+ .literal       0xc0010c9c        0xc /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+                                 0x1c (size before relaxing)
+ .literal       0xc0010ca8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                                  0xc (size before relaxing)
+ .text          0xc0010ca8      0x138 objs/hikey/gdbstub-entry.o
+                0xc0010ca8                DebugExceptionEntry
+                0xc0010dc8                init_debug_entry
+                0xc0010dd8                breakpoint
+ *fill*         0xc0010de0        0x0 
+ .text          0xc0010de0     0x7321 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                               0x7339 (size before relaxing)
+                0xc0013ef8                xa_vorbis_dec
+ *fill*         0xc0018101        0x3 
+ .text          0xc0018104      0x137 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+                0xc0018104                xthal_window_spill_nw
+                0xc0018104                xthal_spill_registers_into_stack_nw
+                0xc0018218                xthal_window_spill
+ *fill*         0xc001823b        0x1 
+ .text          0xc001823c       0x22 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+                0xc001823c                _xtos_ints_on
+ *fill*         0xc001825e        0x2 
+ .text          0xc0018260       0x25 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+                0xc0018260                _xtos_ints_off
+ *fill*         0xc0018285        0x3 
+ .text          0xc0018288       0x7c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+                0xc0018288                memchr
+ *fill*         0xc0018304        0x4 
+ .text          0xc0018308       0x84 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                0xc0018308                strncmp
+ .text          0xc001838c      0x2fa /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+                0xc00183ac                __adddf3
+                0xc0018500                __subdf3
+ *fill*         0xc0018686        0x2 
+ .text          0xc0018688      0x1ff /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+                0xc0018768                __muldf3
+ *fill*         0xc0018887        0x1 
+ .text          0xc0018888      0x176 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+                0xc0018888                __eqdf2
+                0xc0018888                __nedf2
+                0xc00188bc                __gtdf2
+                0xc00188e4                __ledf2
+                0xc0018948                __gedf2
+                0xc0018970                __ltdf2
+                0xc00189d4                __unorddf2
+ *fill*         0xc00189fe        0x2 
+ .text          0xc0018a00       0x5d /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+                0xc0018a00                __fixunsdfsi
+ *fill*         0xc0018a5d        0x3 
+ .text          0xc0018a60       0x75 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+                0xc0018a60                __fixunsdfdi
+ *fill*         0xc0018ad5        0x3 
+ .text          0xc0018ad8       0xa3 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                0xc0018ad8                __vec_memcpy
+ *fill*         0xc0018b7b        0x5 
+ .text          0xc0018b80       0x71 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                0xc0018b80                __vec_memset
+ *fill*         0xc0018bf1        0x7 
+ .text          0xc0018bf8      0x318 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+                0xc0018bf8                __divdf3
+ .text          0xc0018f10      0x29a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+                0xc0018f10                __propagateFloat64NaN
+                0xc00190c0                __roundAndPackFloat64
+ *fill*         0xc00191aa        0x6 
+ .text          0xc00191b0       0x6d /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                0xc00191b0                __estimateDiv64To32
+ *fill*         0xc001921d        0x3 
+ .literal       0xc0019220        0x0 objs/hikey/cpu_c.o
+ *fill*         0xc0019220        0x0 
+ .literal       0xc0019220        0x0 objs/hikey/dsp_debug.o
+ *fill*         0xc0019220        0x0 
+ *fill*         0xc0019220        0x0 
+ .literal       0xc0019220        0x0 objs/hikey/dsp_comm.o
+ *fill*         0xc0019220        0x0 
+ .text          0xc0019220       0xda objs/hikey/dsp_comm.o
+                0xc0019220                dsp_memcpy
+                0xc00192a0                dsp_memset
+                0xc00192d4                division
+ *fill*         0xc00192fa        0x2 
+ .literal       0xc00192fc        0x0 objs/hikey/mutex.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/rbtree.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-core.o
+ .literal       0xc00192fc        0x0 objs/hikey/xf-io.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-mem.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-msg.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-sched.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-factory.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-shmem.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/tinyvprintf.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-isr.o
+ .literal       0xc00192fc        0x0 objs/hikey/gdbstub.o
+ .literal       0xc00192fc        0x0 objs/hikey/xa-class-base.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-class-audio-codec.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-class-mixer.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xf-main.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-pcm.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-vorbis-decoder.o
+ *fill*         0xc00192fc        0x0 
+ .literal       0xc00192fc        0x0 objs/hikey/xa-mixer.o
+ .text          0xc00192fc        0x0 objs/hikey/reset.o
+ .text          0xc00192fc        0x0 objs/hikey/int_vector.o
+ .text          0xc00192fc        0x0 objs/hikey/arch_hifi330.o
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x0 
+ *fill*         0xc00192fc        0x4 
+ .text          0xc0019300       0x1c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+                0xc0019300                xthal_dcache_region_invalidate
+ *fill*         0xc001931c        0x4 
+ .text          0xc0019320       0x1c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+                0xc0019320                xthal_dcache_region_writeback
+ .text          0xc001933c        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid0.o)
+ .text          0xc001933c        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid1.o)
+ .text          0xc001933c        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_major.o)
+ .text          0xc001933c        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_minor.o)
+ .text          0xc001933c        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+                0xc001933c                xthal_get_intenable
+ .text          0xc0019344        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+                0xc0019344                xthal_set_intenable
+ .text          0xc001934c       0x2a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+                0xc001934c                xthal_restore_extra_nw
+ *fill*         0xc0019376        0x2 
+ .text          0xc0019378       0x2a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+                0xc0019378                xthal_save_extra_nw
+ *fill*         0xc00193a2        0x0 
+ *fill*         0xc00193a2        0x0 
+ *fill*         0xc00193a2        0x2 
+ .text          0xc00193a4        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+                0xc00193a4                _xtos_unhandled_interrupt
+ *fill*         0xc00193ac        0x4 
+ .text          0xc00193b0       0x45 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+                0xc00193b0                memcmp
+ *fill*         0xc00193f5        0x3 
+ .text          0xc00193f8      0x138 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+                0xc001943c                memcpy
+ .text          0xc0019530       0x78 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+                0xc001955c                memset
+ .literal       0xc00195a8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .text          0xc00195a8      0x338 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+                0xc001962c                qsort
+ .text          0xc00198e0        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+                0xc00198e0                __divsi3
+ .text          0xc00198e8        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+                0xc00198e8                __modsi3
+ *fill*         0xc00198f0        0x0 
+ *fill*         0xc00198f0        0x0 
+ *fill*         0xc00198f0        0x0 
+ *fill*         0xc00198f0        0x0 
+ *fill*         0xc00198f0        0x0 
+ .text          0xc00198f0       0x3e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+                0xc00198f0                __floatunsidf
+                0xc00198fc                __floatsidf
+ *fill*         0xc001992e        0x2 
+ .text          0xc0019930       0x84 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+                0xc0019930                __floatundidf
+                0xc0019940                __floatdidf
+ *fill*         0xc00199b4        0x4 
+ .text          0xc00199b8      0x271 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+                0xc00199b8                __divdi3
+ *fill*         0xc0019c29        0x7 
+ .text          0xc0019c30      0x24c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+                0xc0019c30                __udivdi3
+ *fill*         0xc0019e7c        0x4 
+ .text          0xc0019e80      0x26c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+                0xc0019e80                __umoddi3
+ *fill*         0xc001a0ec        0x0 
+ *fill*         0xc001a0ec        0x0 
+ *fill*         0xc001a0ec        0x0 
+ *fill*         0xc001a0ec        0x0 
+ *fill*         0xc001a0ec        0x0 
+ *(.fini.literal)
+ *(.fini)
+ *(.gnu.version)
+                0xc001a0ec                _text_end = ABSOLUTE (.)
+                0xc001a0ec                _etext = .
+
+.sram.data      0xc001a0ec        0x0
+                0xc001a0ec                _sram_data_start = ABSOLUTE (.)
+ *(.sram.data)
+                0xc001a0ec                _sram_data_end = ABSOLUTE (.)
+
+.data           0xc001a0f0      0x208
+                0xc001a0f0                _data_start = ABSOLUTE (.)
+ *(.data)
+ .data          0xc001a0f0        0x0 objs/hikey/cpu_c.o
+ .data          0xc001a0f0        0x0 objs/hikey/dsp_debug.o
+ .data          0xc001a0f0        0x0 objs/hikey/dsp_comm.o
+ .data          0xc001a0f0        0x0 objs/hikey/mutex.o
+ .data          0xc001a0f0        0x0 objs/hikey/rbtree.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-core.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-io.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-mem.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-msg.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-sched.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-factory.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-shmem.o
+ .data          0xc001a0f0        0x0 objs/hikey/tinyvprintf.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-isr.o
+ .data          0xc001a0f0        0x0 objs/hikey/gdbstub.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-class-base.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-class-audio-codec.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-class-mixer.o
+ .data          0xc001a0f0        0x0 objs/hikey/xf-main.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-pcm.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-vorbis-decoder.o
+ .data          0xc001a0f0        0x0 objs/hikey/xa-mixer.o
+ .data          0xc001a0f0        0x0 objs/hikey/reset.o
+ .data          0xc001a0f0        0x0 objs/hikey/int_vector.o
+ .data          0xc001a0f0        0x0 objs/hikey/arch_hifi330.o
+ .data          0xc001a0f0        0x0 objs/hikey/gdbstub-entry.o
+ .data          0xc001a0f0        0x0 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid0.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid1.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_major.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_minor.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .data          0xc001a0f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .data          0xc001a0f0      0x208 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+                0xc001a0f0                _xtos_enabled
+                0xc001a0f0                _xtos_intstruct
+                0xc001a0f4                _xtos_vpri_enabled
+                0xc001a0f8                _xtos_interrupt_table
+                0xc001a1f8                _xtos_interrupt_mask_table
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .data          0xc001a2f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+ *(.data.*)
+ *(.gnu.linkonce.d.*)
+ *(.gnu.linkonce.d.*personality*)
+ *(.data1)
+ *(.sdata)
+ *(.sdata.*)
+ *(.gnu.linkonce.s.*)
+ *(.sdata2)
+ *(.sdata2.*)
+ *(.gnu.linkonce.s2.*)
+ *(.jcr)
+                0xc001a2f8                _data_end = ABSOLUTE (.)
+
+.sram.uninit    0xc001a2f8        0x0
+                0xc001a2f8                _sram_uninit_start = ABSOLUTE (.)
+ *(.sram.uninit)
+                0xc001a2f8                _sram_uninit_end = ABSOLUTE (.)
+
+.bss            0xc001a300   0x101328
+                0xc001a300                . = ALIGN (0x8)
+                0xc001a300                _bss_start = ABSOLUTE (.)
+ *(.dynsbss)
+ *(.sbss)
+ *(.sbss.*)
+ *(.gnu.linkonce.sb.*)
+ *(.scommon)
+ *(.sbss2)
+ *(.sbss2.*)
+ *(.gnu.linkonce.sb2.*)
+ *(.dynbss)
+ *(.bss)
+ .bss           0xc001a300       0xb0 objs/hikey/cpu_c.o
+                0xc001a300                g_ucVosIntNesting
+                0xc001a301                g_ucVosPrioCur
+                0xc001a302                g_ucVosPrioHighRdy
+                0xc001a304                g_bVosRunning
+                0xc001a308                g_pstVosTCBHighRdy
+                0xc001a30c                g_pstVosTCBCur
+                0xc001a310                g_pfVosHookFuncTable
+                0xc001a330                g_pfVosIntrFuncTable
+ .bss           0xc001a3b0        0x4 objs/hikey/dsp_debug.o
+ .bss           0xc001a3b4        0x0 objs/hikey/dsp_comm.o
+ .bss           0xc001a3b4        0x0 objs/hikey/mutex.o
+ .bss           0xc001a3b4        0x0 objs/hikey/rbtree.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-core.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-io.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-mem.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-msg.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-sched.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xa-factory.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-shmem.o
+ .bss           0xc001a3b4        0x0 objs/hikey/tinyvprintf.o
+ .bss           0xc001a3b4        0x0 objs/hikey/xf-isr.o
+ *fill*         0xc001a3b4        0xc 
+ .bss           0xc001a3c0      0xb70 objs/hikey/gdbstub.o
+                0xc001a3c0                mem_err
+                0xc001a530                sregs
+                0xc001aa30                aregs
+                0xc001ab30                stack
+ .bss           0xc001af30        0x0 objs/hikey/xa-class-base.o
+ .bss           0xc001af30        0x0 objs/hikey/xa-class-audio-codec.o
+ .bss           0xc001af30        0x0 objs/hikey/xa-class-mixer.o
+ *fill*         0xc001af30       0x50 
+ .bss           0xc001af80   0x1006a8 objs/hikey/xf-main.o
+                0xc001af80                xf_dsp_local_buffer
+                0xc011b2c0                waitstate
+                0xc011b2c8                prof
+                0xc011b318                xf_ap_shmem_pool
+                0xc011b340                xf_core_data
+                0xc011b500                xf_core_rw_data
+                0xc011b580                xf_core_ro_data
+                0xc011b600                xf_dsp_local_pool
+ .bss           0xc011b628        0x0 objs/hikey/xa-pcm.o
+ .bss           0xc011b628        0x0 objs/hikey/xa-vorbis-decoder.o
+ .bss           0xc011b628        0x0 objs/hikey/xa-mixer.o
+ .bss           0xc011b628        0x0 objs/hikey/reset.o
+ .bss           0xc011b628        0x0 objs/hikey/int_vector.o
+ .bss           0xc011b628        0x0 objs/hikey/arch_hifi330.o
+ .bss           0xc011b628        0x0 objs/hikey/gdbstub-entry.o
+ .bss           0xc011b628        0x0 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid0.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid1.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_major.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_minor.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .bss           0xc011b628        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+ *(.bss.*)
+ *(.gnu.linkonce.b.*)
+ *(COMMON)
+ *(.sram.pool.bss)
+ *(.sram.bss)
+                0xc011b628                . = ALIGN (0x8)
+                0xc011b628                _bss_end = ABSOLUTE (.)
+                0xc011b628                _memmap_seg_sram0_end = ALIGN (0x8)
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x00000000      0x7b0
+ *(.debug_aranges)
+ .debug_aranges
+                0x00000000       0x20 objs/hikey/cpu_c.o
+ .debug_aranges
+                0x00000020       0x20 objs/hikey/dsp_debug.o
+ .debug_aranges
+                0x00000040       0x20 objs/hikey/dsp_comm.o
+ .debug_aranges
+                0x00000060       0x20 objs/hikey/mutex.o
+ .debug_aranges
+                0x00000080       0x20 objs/hikey/rbtree.o
+ .debug_aranges
+                0x000000a0       0x20 objs/hikey/xf-core.o
+ .debug_aranges
+                0x000000c0       0x20 objs/hikey/xf-io.o
+ .debug_aranges
+                0x000000e0       0x20 objs/hikey/xf-mem.o
+ .debug_aranges
+                0x00000100       0x20 objs/hikey/xf-msg.o
+ .debug_aranges
+                0x00000120       0x20 objs/hikey/xf-sched.o
+ .debug_aranges
+                0x00000140       0x20 objs/hikey/xa-factory.o
+ .debug_aranges
+                0x00000160       0x20 objs/hikey/xf-shmem.o
+ .debug_aranges
+                0x00000180       0x20 objs/hikey/tinyvprintf.o
+ .debug_aranges
+                0x000001a0       0x20 objs/hikey/xf-isr.o
+ .debug_aranges
+                0x000001c0       0x20 objs/hikey/gdbstub.o
+ .debug_aranges
+                0x000001e0       0x20 objs/hikey/xa-class-base.o
+ .debug_aranges
+                0x00000200       0x20 objs/hikey/xa-class-audio-codec.o
+ .debug_aranges
+                0x00000220       0x20 objs/hikey/xa-class-mixer.o
+ .debug_aranges
+                0x00000240       0x20 objs/hikey/xf-main.o
+ .debug_aranges
+                0x00000260       0x20 objs/hikey/xa-pcm.o
+ .debug_aranges
+                0x00000280       0x20 objs/hikey/xa-vorbis-decoder.o
+ .debug_aranges
+                0x000002a0       0x20 objs/hikey/xa-mixer.o
+ .debug_aranges
+                0x000002c0       0x28 objs/hikey/reset.o
+ .debug_aranges
+                0x000002e8       0x60 objs/hikey/int_vector.o
+ .debug_aranges
+                0x00000348       0x20 objs/hikey/arch_hifi330.o
+ .debug_aranges
+                0x00000368       0x28 objs/hikey/gdbstub-entry.o
+ .debug_aranges
+                0x00000390       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .debug_aranges
+                0x000003b0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .debug_aranges
+                0x000003d0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .debug_aranges
+                0x000003f0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .debug_aranges
+                0x00000410       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .debug_aranges
+                0x00000430       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .debug_aranges
+                0x00000450       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .debug_aranges
+                0x00000470       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .debug_aranges
+                0x00000490       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .debug_aranges
+                0x000004b0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .debug_aranges
+                0x000004d0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .debug_aranges
+                0x000004f0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .debug_aranges
+                0x00000510       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .debug_aranges
+                0x00000530       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .debug_aranges
+                0x00000550       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .debug_aranges
+                0x00000570       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .debug_aranges
+                0x00000590       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .debug_aranges
+                0x000005b0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .debug_aranges
+                0x000005d0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .debug_aranges
+                0x000005f0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .debug_aranges
+                0x00000610       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .debug_aranges
+                0x00000630       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .debug_aranges
+                0x00000650       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .debug_aranges
+                0x00000670       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .debug_aranges
+                0x00000690       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .debug_aranges
+                0x000006b0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .debug_aranges
+                0x000006d0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .debug_aranges
+                0x000006f0       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .debug_aranges
+                0x00000710       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .debug_aranges
+                0x00000730       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .debug_aranges
+                0x00000750       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .debug_aranges
+                0x00000770       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .debug_aranges
+                0x00000790       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug_pubnames
+                0x00000000      0xb7d
+ *(.debug_pubnames)
+ .debug_pubnames
+                0x00000000      0x16f objs/hikey/cpu_c.o
+ .debug_pubnames
+                0x0000016f       0x41 objs/hikey/dsp_debug.o
+ .debug_pubnames
+                0x000001b0       0x3d objs/hikey/dsp_comm.o
+ .debug_pubnames
+                0x000001ed       0x7a objs/hikey/rbtree.o
+ .debug_pubnames
+                0x00000267       0x70 objs/hikey/xf-core.o
+ .debug_pubnames
+                0x000002d7      0x21d objs/hikey/xf-io.o
+ .debug_pubnames
+                0x000004f4       0x40 objs/hikey/xf-mem.o
+ .debug_pubnames
+                0x00000534       0x67 objs/hikey/xf-msg.o
+ .debug_pubnames
+                0x0000059b       0x5a objs/hikey/xf-sched.o
+ .debug_pubnames
+                0x000005f5       0x2b objs/hikey/xa-factory.o
+ .debug_pubnames
+                0x00000620       0x5a objs/hikey/xf-shmem.o
+ .debug_pubnames
+                0x0000067a       0x35 objs/hikey/tinyvprintf.o
+ .debug_pubnames
+                0x000006af       0x42 objs/hikey/xf-isr.o
+ .debug_pubnames
+                0x000006f1       0xa6 objs/hikey/gdbstub.o
+ .debug_pubnames
+                0x00000797       0xc2 objs/hikey/xa-class-base.o
+ .debug_pubnames
+                0x00000859       0x2d objs/hikey/xa-class-audio-codec.o
+ .debug_pubnames
+                0x00000886       0x27 objs/hikey/xa-class-mixer.o
+ .debug_pubnames
+                0x000008ad       0xbe objs/hikey/xf-main.o
+ .debug_pubnames
+                0x0000096b       0x23 objs/hikey/xa-pcm.o
+ .debug_pubnames
+                0x0000098e       0x28 objs/hikey/xa-vorbis-decoder.o
+ .debug_pubnames
+                0x000009b6       0x1f objs/hikey/xa-mixer.o
+ .debug_pubnames
+                0x000009d5       0x1d /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .debug_pubnames
+                0x000009f2       0x1d /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .debug_pubnames
+                0x00000a0f       0x1c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .debug_pubnames
+                0x00000a2b       0x1e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .debug_pubnames
+                0x00000a49       0x1f /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .debug_pubnames
+                0x00000a68       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .debug_pubnames
+                0x00000a88       0x20 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .debug_pubnames
+                0x00000aa8       0x23 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .debug_pubnames
+                0x00000acb       0x23 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .debug_pubnames
+                0x00000aee       0x1f /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .debug_pubnames
+                0x00000b0d       0x46 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .debug_pubnames
+                0x00000b53       0x2a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug_info     0x00000000    0x18e3c
+ *(.debug_info)
+ .debug_info    0x00000000      0x516 objs/hikey/cpu_c.o
+ .debug_info    0x00000516      0x3c2 objs/hikey/dsp_debug.o
+ .debug_info    0x000008d8      0x208 objs/hikey/dsp_comm.o
+ .debug_info    0x00000ae0      0xbd5 objs/hikey/mutex.o
+ .debug_info    0x000016b5      0xf10 objs/hikey/rbtree.o
+ .debug_info    0x000025c5     0x16ac objs/hikey/xf-core.o
+ .debug_info    0x00003c71     0x1826 objs/hikey/xf-io.o
+ .debug_info    0x00005497      0xef6 objs/hikey/xf-mem.o
+ .debug_info    0x0000638d      0xdc1 objs/hikey/xf-msg.o
+ .debug_info    0x0000714e      0xdf5 objs/hikey/xf-sched.o
+ .debug_info    0x00007f43      0xdfd objs/hikey/xa-factory.o
+ .debug_info    0x00008d40     0x1353 objs/hikey/xf-shmem.o
+ .debug_info    0x0000a093      0x2d0 objs/hikey/tinyvprintf.o
+ .debug_info    0x0000a363      0xc73 objs/hikey/xf-isr.o
+ .debug_info    0x0000afd6      0xa47 objs/hikey/gdbstub.o
+ .debug_info    0x0000ba1d     0x1c9b objs/hikey/xa-class-base.o
+ .debug_info    0x0000d6b8     0x1fe2 objs/hikey/xa-class-audio-codec.o
+ .debug_info    0x0000f69a     0x21c9 objs/hikey/xa-class-mixer.o
+ .debug_info    0x00011863     0x1203 objs/hikey/xf-main.o
+ .debug_info    0x00012a66     0x1841 objs/hikey/xa-pcm.o
+ .debug_info    0x000142a7      0x1f6 objs/hikey/xa-vorbis-decoder.o
+ .debug_info    0x0001449d     0x12e9 objs/hikey/xa-mixer.o
+ .debug_info    0x00015786       0x95 objs/hikey/reset.o
+ .debug_info    0x0001581b       0x9a objs/hikey/int_vector.o
+ .debug_info    0x000158b5       0xa0 objs/hikey/arch_hifi330.o
+ .debug_info    0x00015955       0x9c objs/hikey/gdbstub-entry.o
+ .debug_info    0x000159f1       0xdf /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .debug_info    0x00015ad0       0xd9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .debug_info    0x00015ba9       0xd9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .debug_info    0x00015c82       0xd7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .debug_info    0x00015d59       0xd7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .debug_info    0x00015e30       0xd9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .debug_info    0x00015f09       0xd9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .debug_info    0x00015fe2       0xd9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .debug_info    0x000160bb       0xda /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .debug_info    0x00016195       0xe1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .debug_info    0x00016276      0x22e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .debug_info    0x000164a4      0x20a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .debug_info    0x000166ae      0x11c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .debug_info    0x000167ca      0x11c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .debug_info    0x000168e6      0x399 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .debug_info    0x00016c7f      0x204 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .debug_info    0x00016e83       0xf7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .debug_info    0x00016f7a       0xf7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .debug_info    0x00017071       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .debug_info    0x00017167       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .debug_info    0x0001725d       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .debug_info    0x00017353       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .debug_info    0x00017449       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .debug_info    0x0001753f       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .debug_info    0x00017635       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .debug_info    0x0001772b      0x2b1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .debug_info    0x000179dc      0x26e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .debug_info    0x00017c4a      0x278 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .debug_info    0x00017ec2      0x2c3 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .debug_info    0x00018185      0x28b /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .debug_info    0x00018410      0x3a7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .debug_info    0x000187b7      0x3ae /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .debug_info    0x00018b65      0x2d7 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug_abbrev   0x00000000     0x2ee0
+ *(.debug_abbrev)
+ .debug_abbrev  0x00000000       0xcd objs/hikey/cpu_c.o
+ .debug_abbrev  0x000000cd      0x156 objs/hikey/dsp_debug.o
+ .debug_abbrev  0x00000223       0xa2 objs/hikey/dsp_comm.o
+ .debug_abbrev  0x000002c5      0x140 objs/hikey/mutex.o
+ .debug_abbrev  0x00000405      0x201 objs/hikey/rbtree.o
+ .debug_abbrev  0x00000606      0x28c objs/hikey/xf-core.o
+ .debug_abbrev  0x00000892      0x255 objs/hikey/xf-io.o
+ .debug_abbrev  0x00000ae7      0x1ff objs/hikey/xf-mem.o
+ .debug_abbrev  0x00000ce6      0x1d3 objs/hikey/xf-msg.o
+ .debug_abbrev  0x00000eb9      0x1b2 objs/hikey/xf-sched.o
+ .debug_abbrev  0x0000106b      0x17d objs/hikey/xa-factory.o
+ .debug_abbrev  0x000011e8      0x1f8 objs/hikey/xf-shmem.o
+ .debug_abbrev  0x000013e0       0xf6 objs/hikey/tinyvprintf.o
+ .debug_abbrev  0x000014d6      0x184 objs/hikey/xf-isr.o
+ .debug_abbrev  0x0000165a      0x282 objs/hikey/gdbstub.o
+ .debug_abbrev  0x000018dc      0x269 objs/hikey/xa-class-base.o
+ .debug_abbrev  0x00001b45      0x20b objs/hikey/xa-class-audio-codec.o
+ .debug_abbrev  0x00001d50      0x20b objs/hikey/xa-class-mixer.o
+ .debug_abbrev  0x00001f5b      0x1b3 objs/hikey/xf-main.o
+ .debug_abbrev  0x0000210e      0x1aa objs/hikey/xa-pcm.o
+ .debug_abbrev  0x000022b8       0xa4 objs/hikey/xa-vorbis-decoder.o
+ .debug_abbrev  0x0000235c      0x1cc objs/hikey/xa-mixer.o
+ .debug_abbrev  0x00002528       0x12 objs/hikey/reset.o
+ .debug_abbrev  0x0000253a       0x12 objs/hikey/int_vector.o
+ .debug_abbrev  0x0000254c       0x14 objs/hikey/arch_hifi330.o
+ .debug_abbrev  0x00002560       0x12 objs/hikey/gdbstub-entry.o
+ .debug_abbrev  0x00002572       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .debug_abbrev  0x00002586       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .debug_abbrev  0x0000259a       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .debug_abbrev  0x000025ae       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .debug_abbrev  0x000025c2       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .debug_abbrev  0x000025d6       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .debug_abbrev  0x000025ea       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .debug_abbrev  0x000025fe       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .debug_abbrev  0x00002612       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .debug_abbrev  0x00002626       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .debug_abbrev  0x0000263a       0x8e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .debug_abbrev  0x000026c8       0x85 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .debug_abbrev  0x0000274d       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .debug_abbrev  0x00002761       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .debug_abbrev  0x00002775       0xcf /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .debug_abbrev  0x00002844       0x80 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .debug_abbrev  0x000028c4       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .debug_abbrev  0x000028d8       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .debug_abbrev  0x000028ec       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .debug_abbrev  0x00002900       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .debug_abbrev  0x00002914       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .debug_abbrev  0x00002928       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .debug_abbrev  0x0000293c       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .debug_abbrev  0x00002950       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .debug_abbrev  0x00002964       0x14 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .debug_abbrev  0x00002978       0xbd /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .debug_abbrev  0x00002a35       0xa1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .debug_abbrev  0x00002ad6       0xae /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .debug_abbrev  0x00002b84       0xa3 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .debug_abbrev  0x00002c27       0x82 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .debug_abbrev  0x00002ca9       0xbb /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .debug_abbrev  0x00002d64       0xd0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .debug_abbrev  0x00002e34       0xac /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug_line     0x00000000     0xd0d8
+ *(.debug_line)
+ .debug_line    0x00000000      0x14b objs/hikey/cpu_c.o
+ .debug_line    0x0000014b      0x433 objs/hikey/dsp_debug.o
+ .debug_line    0x0000057e      0x105 objs/hikey/dsp_comm.o
+ .debug_line    0x00000683      0x1fc objs/hikey/mutex.o
+ .debug_line    0x0000087f      0x8f3 objs/hikey/rbtree.o
+ .debug_line    0x00001172      0x8a9 objs/hikey/xf-core.o
+ .debug_line    0x00001a1b      0xb08 objs/hikey/xf-io.o
+ .debug_line    0x00002523      0x4c3 objs/hikey/xf-mem.o
+ .debug_line    0x000029e6      0x2cf objs/hikey/xf-msg.o
+ .debug_line    0x00002cb5      0x32f objs/hikey/xf-sched.o
+ .debug_line    0x00002fe4      0x233 objs/hikey/xa-factory.o
+ .debug_line    0x00003217      0x70b objs/hikey/xf-shmem.o
+ .debug_line    0x00003922      0x268 objs/hikey/tinyvprintf.o
+ .debug_line    0x00003b8a      0x33e objs/hikey/xf-isr.o
+ .debug_line    0x00003ec8      0x9d7 objs/hikey/gdbstub.o
+ .debug_line    0x0000489f      0x92f objs/hikey/xa-class-base.o
+ .debug_line    0x000051ce      0xb85 objs/hikey/xa-class-audio-codec.o
+ .debug_line    0x00005d53      0xcd5 objs/hikey/xa-class-mixer.o
+ .debug_line    0x00006a28      0x2e7 objs/hikey/xf-main.o
+ .debug_line    0x00006d0f      0xbd0 objs/hikey/xa-pcm.o
+ .debug_line    0x000078df      0x145 objs/hikey/xa-vorbis-decoder.o
+ .debug_line    0x00007a24      0x94f objs/hikey/xa-mixer.o
+ .debug_line    0x00008373      0x36b objs/hikey/reset.o
+ .debug_line    0x000086de      0x7f7 objs/hikey/int_vector.o
+ .debug_line    0x00008ed5      0x463 objs/hikey/arch_hifi330.o
+ .debug_line    0x00009338      0x293 objs/hikey/gdbstub-entry.o
+ .debug_line    0x000095cb      0x337 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .debug_line    0x00009902       0x91 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .debug_line    0x00009993       0x91 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .debug_line    0x00009a24       0x8e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .debug_line    0x00009ab2       0x8f /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .debug_line    0x00009b41       0x8a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .debug_line    0x00009bcb       0x8a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .debug_line    0x00009c55       0xc5 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .debug_line    0x00009d1a       0xcc /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .debug_line    0x00009de6       0x98 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .debug_line    0x00009e7e      0x10f /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .debug_line    0x00009f8d       0xf6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .debug_line    0x0000a083      0x363 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .debug_line    0x0000a3e6      0x19a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .debug_line    0x0000a580      0x25a /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .debug_line    0x0000a7da      0x110 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .debug_line    0x0000a8ea       0xa9 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .debug_line    0x0000a993       0xa8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .debug_line    0x0000aa3b      0x6d1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .debug_line    0x0000b10c      0x4c4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .debug_line    0x0000b5d0      0x3bf /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .debug_line    0x0000b98f      0x167 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .debug_line    0x0000baf6      0x191 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .debug_line    0x0000bc87      0x119 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .debug_line    0x0000bda0      0x1af /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .debug_line    0x0000bf4f      0x1e3 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .debug_line    0x0000c132      0x1c4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .debug_line    0x0000c2f6      0x220 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .debug_line    0x0000c516      0x13d /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .debug_line    0x0000c653      0x137 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .debug_line    0x0000c78a      0x46e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .debug_line    0x0000cbf8      0x36e /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .debug_line    0x0000cf66      0x172 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug_frame
+ *(.debug_frame)
+
+.debug_str
+ *(.debug_str)
+
+.debug_loc
+ *(.debug_loc)
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+
+.xt.insn
+ *(.xt.insn)
+ *(.gnu.linkonce.x.*)
+
+.xt.prop        0x00000000     0xe8ec
+ *(.xt.prop)
+ .xt.prop       0x00000000      0x15c objs/hikey/cpu_c.o
+                                0x1ec (size before relaxing)
+ .xt.prop       0x0000015c      0x570 objs/hikey/dsp_debug.o
+                                0x594 (size before relaxing)
+ .xt.prop       0x000006cc       0x84 objs/hikey/dsp_comm.o
+ .xt.prop       0x00000750       0x3c objs/hikey/mutex.o
+                                 0x48 (size before relaxing)
+ .xt.prop       0x0000078c      0x6e4 objs/hikey/rbtree.o
+                                0x6f0 (size before relaxing)
+ .xt.prop       0x00000e70      0x624 objs/hikey/xf-core.o
+                                0x6e4 (size before relaxing)
+ .xt.prop       0x00001494      0x7b0 objs/hikey/xf-io.o
+                                0x894 (size before relaxing)
+ .xt.prop       0x00001c44      0x354 objs/hikey/xf-mem.o
+                                0x390 (size before relaxing)
+ .xt.prop       0x00001f98      0x12c objs/hikey/xf-msg.o
+                                0x15c (size before relaxing)
+ .xt.prop       0x000020c4      0x150 objs/hikey/xf-sched.o
+                                0x18c (size before relaxing)
+ .xt.prop       0x00002214       0x9c objs/hikey/xa-factory.o
+                                 0xb4 (size before relaxing)
+ .xt.prop       0x000022b0      0x36c objs/hikey/xf-shmem.o
+                                0x3a8 (size before relaxing)
+ .xt.prop       0x0000261c      0x498 objs/hikey/tinyvprintf.o
+                                0x4a4 (size before relaxing)
+ .xt.prop       0x00002ab4       0xe4 objs/hikey/xf-isr.o
+                                0x108 (size before relaxing)
+ .xt.prop       0x00002b98      0x9c0 objs/hikey/gdbstub.o
+                                0xa8c (size before relaxing)
+ .xt.prop       0x00003558      0xa80 objs/hikey/xa-class-base.o
+                                0xb28 (size before relaxing)
+ .xt.prop       0x00003fd8      0xbb8 objs/hikey/xa-class-audio-codec.o
+                                0xc84 (size before relaxing)
+ .xt.prop       0x00004b90      0xcf0 objs/hikey/xa-class-mixer.o
+                                0xdd4 (size before relaxing)
+ .xt.prop       0x00005880       0xe4 objs/hikey/xf-main.o
+                                0x18c (size before relaxing)
+ .xt.prop       0x00005964      0xdec objs/hikey/xa-pcm.o
+                                0xef4 (size before relaxing)
+ .xt.prop       0x00006750       0x48 objs/hikey/xa-vorbis-decoder.o
+                                 0x60 (size before relaxing)
+ .xt.prop       0x00006798      0xaa4 objs/hikey/xa-mixer.o
+                                0xb7c (size before relaxing)
+ .xt.prop       0x0000723c       0x6c objs/hikey/reset.o
+ .xt.prop       0x000072a8      0x300 objs/hikey/int_vector.o
+                                0x390 (size before relaxing)
+ .xt.prop       0x000075a8      0x150 objs/hikey/arch_hifi330.o
+                                0x15c (size before relaxing)
+ .xt.prop       0x000076f8       0xf0 objs/hikey/gdbstub-entry.o
+ .xt.prop       0x000077e8     0x5154 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                               0x51d8 (size before relaxing)
+ .xt.prop       0x0000c93c       0xf0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .xt.prop       0x0000ca2c       0x24 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .xt.prop       0x0000ca50       0x24 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .xt.prop       0x0000ca74       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .xt.prop       0x0000ca8c       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .xt.prop       0x0000caa4       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .xt.prop       0x0000cabc       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .xt.prop       0x0000cad4       0x24 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .xt.prop       0x0000caf8       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+                                 0x24 (size before relaxing)
+ .xt.prop       0x0000cb10       0x24 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .xt.prop       0x0000cb34       0x90 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .xt.prop       0x0000cbc4       0x3c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .xt.prop       0x0000cc00      0x144 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .xt.prop       0x0000cd44       0xc0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .xt.prop       0x0000ce04      0x3e4 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+                                0x3f0 (size before relaxing)
+ .xt.prop       0x0000d1e8       0x9c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                                 0xa8 (size before relaxing)
+ .xt.prop       0x0000d284       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .xt.prop       0x0000d29c       0x18 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .xt.prop       0x0000d2b4      0x444 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .xt.prop       0x0000d6f8      0x264 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .xt.prop       0x0000d95c      0x27c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+                                0x288 (size before relaxing)
+ .xt.prop       0x0000dbd8       0x90 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+                                 0x9c (size before relaxing)
+ .xt.prop       0x0000dc68       0xc0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+                                 0xcc (size before relaxing)
+ .xt.prop       0x0000dd28       0x54 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .xt.prop       0x0000dd7c       0x9c /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .xt.prop       0x0000de18      0x150 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .xt.prop       0x0000df68      0x120 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .xt.prop       0x0000e088      0x120 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .xt.prop       0x0000e1a8       0xa8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                                 0xb4 (size before relaxing)
+ .xt.prop       0x0000e250       0x78 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                                 0x84 (size before relaxing)
+ .xt.prop       0x0000e2c8      0x1ec /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .xt.prop       0x0000e4b4      0x3a8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .xt.prop       0x0000e85c       0x90 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                                 0x9c (size before relaxing)
+ *(.xt.prop.*)
+ *(.gnu.linkonce.prop.*)
+
+.xt.lit         0x00000000      0x518
+ *(.xt.lit)
+ .xt.lit        0x00000000       0x18 objs/hikey/cpu_c.o
+                                 0x40 (size before relaxing)
+ .xt.lit        0x00000018       0x20 objs/hikey/dsp_debug.o
+ .xt.lit        0x00000038        0x8 objs/hikey/mutex.o
+ .xt.lit        0x00000040        0x8 objs/hikey/rbtree.o
+ .xt.lit        0x00000048       0x60 objs/hikey/xf-core.o
+                                 0x68 (size before relaxing)
+ .xt.lit        0x000000a8       0x70 objs/hikey/xf-io.o
+                                 0x98 (size before relaxing)
+ .xt.lit        0x00000118       0x18 objs/hikey/xf-mem.o
+                                 0x28 (size before relaxing)
+ .xt.lit        0x00000130       0x20 objs/hikey/xf-msg.o
+ .xt.lit        0x00000150       0x18 objs/hikey/xf-sched.o
+                                 0x28 (size before relaxing)
+ .xt.lit        0x00000168       0x10 objs/hikey/xa-factory.o
+ .xt.lit        0x00000178       0x20 objs/hikey/xf-shmem.o
+                                 0x30 (size before relaxing)
+ .xt.lit        0x00000198        0x8 objs/hikey/tinyvprintf.o
+ .xt.lit        0x000001a0       0x18 objs/hikey/xf-isr.o
+ .xt.lit        0x000001b8       0x60 objs/hikey/gdbstub.o
+                                 0x70 (size before relaxing)
+ .xt.lit        0x00000218       0x58 objs/hikey/xa-class-base.o
+ .xt.lit        0x00000270       0x70 objs/hikey/xa-class-audio-codec.o
+                                 0x78 (size before relaxing)
+ .xt.lit        0x000002e0       0x78 objs/hikey/xa-class-mixer.o
+                                 0x80 (size before relaxing)
+ .xt.lit        0x00000358       0x18 objs/hikey/xf-main.o
+ .xt.lit        0x00000370       0xa8 objs/hikey/xa-pcm.o
+ .xt.lit        0x00000418        0x8 objs/hikey/xa-vorbis-decoder.o
+ .xt.lit        0x00000420       0x80 objs/hikey/xa-mixer.o
+ .xt.lit        0x000004a0        0x8 objs/hikey/reset.o
+ .xt.lit        0x000004a8       0x10 objs/hikey/int_vector.o
+                                 0x40 (size before relaxing)
+ .xt.lit        0x000004b8        0x8 objs/hikey/arch_hifi330.o
+ .xt.lit        0x000004c0        0x8 objs/hikey/gdbstub-entry.o
+ .xt.lit        0x000004c8       0x18 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                                 0x78 (size before relaxing)
+ .xt.lit        0x000004e0        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .xt.lit        0x000004e8        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .xt.lit        0x000004f0        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x000004f0        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .xt.lit        0x000004f8        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x000004f8        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .xt.lit        0x00000500        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .xt.lit        0x00000508        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x00000508        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x00000508        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x00000508        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x00000508        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                                  0x8 (size before relaxing)
+ .xt.lit        0x00000508        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .xt.lit        0x00000510        0x8 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .xt.lit        0x00000518        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                                  0x8 (size before relaxing)
+ *(.xt.lit.*)
+ *(.gnu.linkonce.p.*)
+
+.comment        0x00000000     0x1351
+ .comment       0x00000000       0x59 objs/hikey/cpu_c.o
+                                 0x5a (size before relaxing)
+ .comment       0x00000059       0x5d objs/hikey/dsp_debug.o
+                                 0x5e (size before relaxing)
+ .comment       0x000000b6       0x5c objs/hikey/dsp_comm.o
+                                 0x5d (size before relaxing)
+ .comment       0x00000112       0x50 objs/hikey/mutex.o
+                                 0x51 (size before relaxing)
+ .comment       0x00000162       0x51 objs/hikey/rbtree.o
+                                 0x52 (size before relaxing)
+ .comment       0x000001b3       0x4d objs/hikey/xf-core.o
+                                 0x4e (size before relaxing)
+ .comment       0x00000200       0x4b objs/hikey/xf-io.o
+                                 0x4c (size before relaxing)
+ .comment       0x0000024b       0x4c objs/hikey/xf-mem.o
+                                 0x4d (size before relaxing)
+ .comment       0x00000297       0x4c objs/hikey/xf-msg.o
+                                 0x4d (size before relaxing)
+ .comment       0x000002e3       0x4e objs/hikey/xf-sched.o
+                                 0x4f (size before relaxing)
+ .comment       0x00000331       0x4f objs/hikey/xa-factory.o
+                                 0x50 (size before relaxing)
+ .comment       0x00000380       0x4e objs/hikey/xf-shmem.o
+                                 0x4f (size before relaxing)
+ .comment       0x000003ce       0x56 objs/hikey/tinyvprintf.o
+                                 0x57 (size before relaxing)
+ .comment       0x00000424       0x4c objs/hikey/xf-isr.o
+                                 0x4d (size before relaxing)
+ .comment       0x00000470       0x5a objs/hikey/gdbstub.o
+                                 0x5b (size before relaxing)
+ .comment       0x000004ca       0x54 objs/hikey/xa-class-base.o
+                                 0x55 (size before relaxing)
+ .comment       0x0000051e       0x5b objs/hikey/xa-class-audio-codec.o
+                                 0x5c (size before relaxing)
+ .comment       0x00000579       0x55 objs/hikey/xa-class-mixer.o
+                                 0x56 (size before relaxing)
+ .comment       0x000005ce       0x55 objs/hikey/xf-main.o
+                                 0x56 (size before relaxing)
+ .comment       0x00000623       0x60 objs/hikey/xa-pcm.o
+                                 0x61 (size before relaxing)
+ .comment       0x00000683       0x6d objs/hikey/xa-vorbis-decoder.o
+                                 0x6e (size before relaxing)
+ .comment       0x000006f0       0x5f objs/hikey/xa-mixer.o
+                                 0x60 (size before relaxing)
+ .comment       0x0000074f      0x573 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+                                0x584 (size before relaxing)
+ .comment       0x00000cc2       0xa1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+                                 0xa2 (size before relaxing)
+ .comment       0x00000d63       0xa1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+                                 0xa2 (size before relaxing)
+ .comment       0x00000e04       0xa0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+                                 0xa1 (size before relaxing)
+ .comment       0x00000ea4       0xa2 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+                                 0xa3 (size before relaxing)
+ .comment       0x00000f46       0xa1 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+                                 0xa2 (size before relaxing)
+ .comment       0x00000000       0xa2 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .comment       0x00000000       0xa2 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .comment       0x00000fe7       0xa5 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+                                 0xa6 (size before relaxing)
+ .comment       0x0000108c       0xa5 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+                                 0xa6 (size before relaxing)
+ .comment       0x00001131       0xb5 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+                                 0xb6 (size before relaxing)
+ .comment       0x000011e6       0xb5 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+                                 0xb6 (size before relaxing)
+ .comment       0x0000129b       0xb6 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+                                 0xb7 (size before relaxing)
+
+.xtensa.info    0x00000000      0x1d8
+ .xtensa.info   0x00000000      0x1d8 objs/hikey/cpu_c.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/dsp_debug.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/dsp_comm.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/mutex.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/rbtree.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-core.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-io.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-mem.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-msg.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-sched.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-factory.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-shmem.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/tinyvprintf.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-isr.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/gdbstub.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-class-base.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-class-audio-codec.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-class-mixer.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xf-main.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-pcm.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-vorbis-decoder.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/xa-mixer.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/reset.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/int_vector.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/arch_hifi330.o
+ .xtensa.info   0x00000000        0x0 objs/hikey/gdbstub-entry.o
+ .xtensa.info   0x00000000        0x0 ../plugins/cadence/vorbis_dec/lib/hifi3/xa_vorbis_dec.a(xa_vorbis_dec.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(windowspill_asm.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_invalidate.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--dcache_region_writeback.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid0.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--hw_configid1.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_major.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(cache_asm--release_minor.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--get_intenable.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(int_asm--set_intenable.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--restore_extra_nw.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhal.a(state_asm--save_extra_nw.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-on.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(ints-off.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/arch/lib//libhandlers-board.a(interrupt-table.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memchr.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcmp.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memcpy.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-memset.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-qsort.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib//libc.a(lib_a-strncmp.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divsi3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_modsi3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_addsubdf3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_muldf3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_cmpdf2.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfsi.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_fixunsdfdi.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatsidf.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_floatdidf.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_divdi3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_udivdi3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(_umoddi3.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memcpy.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(vec_memset.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_div_df.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_df.o)
+ .xtensa.info   0x00000000        0x0 /scratch/speacial_projects/sof-sdk/xtensa_tools/tools/XtDevTools/install/builds/RG-2017.5-linux/hifi3_hikey960/xtensa-elf/lib/xcc//libgcc.a(softfloat_cmn_div.o)
+
+.debug.xt.callgraph
+ *(.debug.xt.callgraph .debug.xt.callgraph.* .gnu.linkonce.xt.callgraph.*)
+OUTPUT(objs/hikey/xa_hikey.o elf32-xtensa-le)
+
+.debug_ranges   0x00000000       0x98
+ .debug_ranges  0x00000000       0x20 objs/hikey/reset.o
+ .debug_ranges  0x00000020       0x58 objs/hikey/int_vector.o
+ .debug_ranges  0x00000078       0x20 objs/hikey/gdbstub-entry.o

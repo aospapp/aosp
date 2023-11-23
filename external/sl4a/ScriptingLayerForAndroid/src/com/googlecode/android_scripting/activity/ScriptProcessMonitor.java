@@ -149,10 +149,10 @@ public class ScriptProcessMonitor extends ListActivity {
       Log.v("No script selected.");
       return false;
     }
-
     Intent intent = new Intent(ScriptProcessMonitor.this, ScriptingLayerService.class);
     intent.setAction(Constants.ACTION_KILL_PROCESS);
     intent.putExtra(Constants.EXTRA_PROXY_PORT, script.getPort());
+    Log.i(String.format("Killing process from ScriptProcessMonitor: %s", intent.toUri(0)));
     startService(intent);
 
     return true;

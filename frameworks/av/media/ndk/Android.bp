@@ -31,6 +31,13 @@ ndk_headers {
     license: "NOTICE",
 }
 
+// for use with header_libs
+cc_library_headers {
+    name: "media_ndk_headers",
+    vendor_available: true,
+    export_include_dirs: ["include"]
+}
+
 cc_library_shared {
     name: "libmediandk",
 
@@ -54,9 +61,7 @@ cc_library_shared {
     ],
 
     cflags: [
-        "-fvisibility=hidden",
         "-DEXPORT=__attribute__((visibility(\"default\")))",
-
         "-Werror",
         "-Wall",
     ],
@@ -66,35 +71,111 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "android.hardware.graphics.bufferqueue@1.0",
+        "android.hidl.token@1.0-utils",
+        "libandroid_runtime_lazy",
+        "libbase",
         "libbinder",
         "libmedia",
         "libmedia_omx",
-        "libmedia_jni",
+        "libmedia_jni_utils",
         "libmediadrm",
-        "libmediaextractor",
         "libstagefright",
         "libstagefright_foundation",
         "liblog",
         "libutils",
         "libcutils",
-        "libandroid",
-        "libandroid_runtime",
+        "libnativewindow",
         "libbinder",
+        "libhidlbase",
         "libgui",
         "libui",
+        "libmedia2_jni_core",
+        "libmediandk_utils",
     ],
 
     export_include_dirs: ["include"],
+
+    export_shared_lib_headers: [
+        "libgui",
+    ],
 
     product_variables: {
         pdk: {
             enabled: false,
         },
     },
+    version_script: "libmediandk.map.txt",
+    stubs: {
+        symbol_file: "libmediandk.map.txt",
+        versions: ["29"],
+    },
+
+    // Bug: http://b/124522995 libmediandk has linker errors when built with
+    // coverage
+    native_coverage: false,
 }
 
 llndk_library {
     name: "libmediandk",
     symbol_file: "libmediandk.map.txt",
-    export_include_dirs: ["include"],
+    export_include_dirs: [
+        "include",
+    ],
+}
+
+cc_library {
+    name: "libmediandk_utils",
+
+    srcs: [
+        "NdkMediaDataSourceCallbacks.cpp",
+    ],
+
+    include_dirs: [
+        "frameworks/av/media/libstagefright/include",
+        "frameworks/av/media/ndk/include",
+    ],
+
+    export_include_dirs: [
+        "include",
+    ],
+
+    cflags: [
+        "-Werror",
+        "-Wno-error=deprecated-declarations",
+        "-Wall",
+    ],
+
+    shared_libs: [
+    ],
+
+    sanitize: {
+        misc_undefined: [
+            "unsigned-integer-overflow",
+            "signed-integer-overflow",
+        ],
+        cfi: true,
+    },
+}
+
+cc_test {
+    name: "AImageReaderWindowHandleTest",
+    srcs: ["tests/AImageReaderWindowHandleTest.cpp"],
+    shared_libs: [
+        "libbinder",
+        "libmediandk",
+        "libmediautils",
+        "libnativewindow",
+        "libgui",
+        "libutils",
+        "libui",
+        "libcutils",
+        "android.hardware.graphics.bufferqueue@1.0",
+    ],
+    cflags: [
+        "-D__ANDROID_VNDK__",
+    ],
+    include_dirs: [
+        "frameworks/av/media/ndk/",
+    ],
 }

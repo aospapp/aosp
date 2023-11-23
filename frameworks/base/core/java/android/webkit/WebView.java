@@ -16,10 +16,12 @@
 
 package android.webkit;
 
+import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.annotation.UnsupportedAppUsage;
 import android.annotation.Widget;
 import android.content.Context;
 import android.content.Intent;
@@ -41,7 +43,6 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.os.StrictMode;
 import android.print.PrintDocumentAdapter;
-import android.security.KeyChain;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseArray;
@@ -60,6 +61,7 @@ import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.autofill.AutofillValue;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.view.inspector.InspectableProperty;
 import android.view.textclassifier.TextClassifier;
 import android.widget.AbsoluteLayout;
 
@@ -69,282 +71,28 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
- * <p>A View that displays web pages. This class is the basis upon which you
- * can roll your own web browser or simply display some online content within your Activity.
- * It uses the WebKit rendering engine to display
- * web pages and includes methods to navigate forward and backward
- * through a history, zoom in and out, perform text searches and more.
- *
- * <p>Note that, in order for your Activity to access the Internet and load web pages
- * in a WebView, you must add the {@code INTERNET} permissions to your
- * Android Manifest file:
- *
- * <pre>
- * {@code <uses-permission android:name="android.permission.INTERNET" />}
- * </pre>
- *
- * <p>This must be a child of the <a
- * href="{@docRoot}guide/topics/manifest/manifest-element.html">{@code <manifest>}</a>
- * element.
- *
- * <p>For more information, read
- * <a href="{@docRoot}guide/webapps/webview.html">Building Web Apps in WebView</a>.
+ * A View that displays web pages.
  *
  * <h3>Basic usage</h3>
  *
- * <p>By default, a WebView provides no browser-like widgets, does not
- * enable JavaScript and web page errors are ignored. If your goal is only
- * to display some HTML as a part of your UI, this is probably fine;
- * the user won't need to interact with the web page beyond reading
- * it, and the web page won't need to interact with the user. If you
- * actually want a full-blown web browser, then you probably want to
- * invoke the Browser application with a URL Intent rather than show it
- * with a WebView. For example:
- * <pre>
- * Uri uri = Uri.parse("https://www.example.com");
- * Intent intent = new Intent(Intent.ACTION_VIEW, uri);
- * startActivity(intent);
- * </pre>
- * <p>See {@link android.content.Intent} for more information.
  *
- * <p>To provide a WebView in your own Activity, include a {@code <WebView>} in your layout,
- * or set the entire Activity window as a WebView during {@link
- * android.app.Activity#onCreate(Bundle) onCreate()}:
+ * <p>In most cases, we recommend using a standard web browser, like Chrome, to deliver
+ * content to the user. To learn more about web browsers, read the guide on
+ * <a href="/guide/components/intents-common#Browser">
+ * invoking a browser with an intent</a>.
  *
- * <pre class="prettyprint">
- * WebView webview = new WebView(this);
- * setContentView(webview);
- * </pre>
+ * <p>WebView objects allow you to display web content as part of your activity layout, but
+ * lack some of the features of fully-developed browsers. A WebView is useful when
+ * you need increased control over the UI and advanced configuration options that will allow
+ * you to embed web pages in a specially-designed environment for your app.
  *
- * <p>Then load the desired web page:
- *
- * <pre>
- * // Simplest usage: note that an exception will NOT be thrown
- * // if there is an error loading this page (see below).
- * webview.loadUrl("https://example.com/");
- *
- * // OR, you can also load from an HTML string:
- * String summary = "&lt;html>&lt;body>You scored &lt;b>192&lt;/b> points.&lt;/body>&lt;/html>";
- * webview.loadData(summary, "text/html", null);
- * // ... although note that there are restrictions on what this HTML can do.
- * // See {@link #loadData(String,String,String)} and {@link
- * #loadDataWithBaseURL(String,String,String,String,String)} for more info.
- * // Also see {@link #loadData(String,String,String)} for information on encoding special
- * // characters.
- * </pre>
- *
- * <p>A WebView has several customization points where you can add your
- * own behavior. These are:
- *
- * <ul>
- *   <li>Creating and setting a {@link android.webkit.WebChromeClient} subclass.
- *       This class is called when something that might impact a
- *       browser UI happens, for instance, progress updates and
- *       JavaScript alerts are sent here (see <a
- * href="{@docRoot}guide/developing/debug-tasks.html#DebuggingWebPages">Debugging Tasks</a>).
- *   </li>
- *   <li>Creating and setting a {@link android.webkit.WebViewClient} subclass.
- *       It will be called when things happen that impact the
- *       rendering of the content, eg, errors or form submissions. You
- *       can also intercept URL loading here (via {@link
- * android.webkit.WebViewClient#shouldOverrideUrlLoading(WebView,String)
- * shouldOverrideUrlLoading()}).</li>
- *   <li>Modifying the {@link android.webkit.WebSettings}, such as
- * enabling JavaScript with {@link android.webkit.WebSettings#setJavaScriptEnabled(boolean)
- * setJavaScriptEnabled()}. </li>
- *   <li>Injecting Java objects into the WebView using the
- *       {@link android.webkit.WebView#addJavascriptInterface} method. This
- *       method allows you to inject Java objects into a page's JavaScript
- *       context, so that they can be accessed by JavaScript in the page.</li>
- * </ul>
- *
- * <p>Here's a more complicated example, showing error handling,
- *    settings, and progress notification:
- *
- * <pre class="prettyprint">
- * // Let's display the progress in the activity title bar, like the
- * // browser app does.
- * getWindow().requestFeature(Window.FEATURE_PROGRESS);
- *
- * webview.getSettings().setJavaScriptEnabled(true);
- *
- * final Activity activity = this;
- * webview.setWebChromeClient(new WebChromeClient() {
- *   public void onProgressChanged(WebView view, int progress) {
- *     // Activities and WebViews measure progress with different scales.
- *     // The progress meter will automatically disappear when we reach 100%
- *     activity.setProgress(progress * 1000);
- *   }
- * });
- * webview.setWebViewClient(new WebViewClient() {
- *   public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
- *     Toast.makeText(activity, "Oh no! " + description, Toast.LENGTH_SHORT).show();
- *   }
- * });
- *
- * webview.loadUrl("https://developer.android.com/");
- * </pre>
- *
- * <h3>Zoom</h3>
- *
- * <p>To enable the built-in zoom, set
- * {@link #getSettings() WebSettings}.{@link WebSettings#setBuiltInZoomControls(boolean)}
- * (introduced in API level {@link android.os.Build.VERSION_CODES#CUPCAKE}).
- *
- * <p class="note"><b>Note:</b> Using zoom if either the height or width is set to
- * {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT} may lead to undefined behavior
- * and should be avoided.
- *
- * <h3>Cookie and window management</h3>
- *
- * <p>For obvious security reasons, your application has its own
- * cache, cookie store etc.&mdash;it does not share the Browser
- * application's data.
- *
- * <p>By default, requests by the HTML to open new windows are
- * ignored. This is {@code true} whether they be opened by JavaScript or by
- * the target attribute on a link. You can customize your
- * {@link WebChromeClient} to provide your own behavior for opening multiple windows,
- * and render them in whatever manner you want.
- *
- * <p>The standard behavior for an Activity is to be destroyed and
- * recreated when the device orientation or any other configuration changes. This will cause
- * the WebView to reload the current page. If you don't want that, you
- * can set your Activity to handle the {@code orientation} and {@code keyboardHidden}
- * changes, and then just leave the WebView alone. It'll automatically
- * re-orient itself as appropriate. Read <a
- * href="{@docRoot}guide/topics/resources/runtime-changes.html">Handling Runtime Changes</a> for
- * more information about how to handle configuration changes during runtime.
- *
- *
- * <h3>Building web pages to support different screen densities</h3>
- *
- * <p>The screen density of a device is based on the screen resolution. A screen with low density
- * has fewer available pixels per inch, where a screen with high density
- * has more &mdash; sometimes significantly more &mdash; pixels per inch. The density of a
- * screen is important because, other things being equal, a UI element (such as a button) whose
- * height and width are defined in terms of screen pixels will appear larger on the lower density
- * screen and smaller on the higher density screen.
- * For simplicity, Android collapses all actual screen densities into three generalized densities:
- * high, medium, and low.
- * <p>By default, WebView scales a web page so that it is drawn at a size that matches the default
- * appearance on a medium density screen. So, it applies 1.5x scaling on a high density screen
- * (because its pixels are smaller) and 0.75x scaling on a low density screen (because its pixels
- * are bigger).
- * Starting with API level {@link android.os.Build.VERSION_CODES#ECLAIR}, WebView supports DOM, CSS,
- * and meta tag features to help you (as a web developer) target screens with different screen
- * densities.
- * <p>Here's a summary of the features you can use to handle different screen densities:
- * <ul>
- * <li>The {@code window.devicePixelRatio} DOM property. The value of this property specifies the
- * default scaling factor used for the current device. For example, if the value of {@code
- * window.devicePixelRatio} is "1.0", then the device is considered a medium density (mdpi) device
- * and default scaling is not applied to the web page; if the value is "1.5", then the device is
- * considered a high density device (hdpi) and the page content is scaled 1.5x; if the
- * value is "0.75", then the device is considered a low density device (ldpi) and the content is
- * scaled 0.75x.</li>
- * <li>The {@code -webkit-device-pixel-ratio} CSS media query. Use this to specify the screen
- * densities for which this style sheet is to be used. The corresponding value should be either
- * "0.75", "1", or "1.5", to indicate that the styles are for devices with low density, medium
- * density, or high density screens, respectively. For example:
- * <pre>
- * &lt;link rel="stylesheet" media="screen and (-webkit-device-pixel-ratio:1.5)" href="hdpi.css" /&gt;</pre>
- * <p>The {@code hdpi.css} stylesheet is only used for devices with a screen pixel ratio of 1.5,
- * which is the high density pixel ratio.
- * </li>
- * </ul>
- *
- * <h3>HTML5 Video support</h3>
- *
- * <p>In order to support inline HTML5 video in your application you need to have hardware
- * acceleration turned on.
- *
- * <h3>Full screen support</h3>
- *
- * <p>In order to support full screen &mdash; for video or other HTML content &mdash; you need to set a
- * {@link android.webkit.WebChromeClient} and implement both
- * {@link WebChromeClient#onShowCustomView(View, WebChromeClient.CustomViewCallback)}
- * and {@link WebChromeClient#onHideCustomView()}. If the implementation of either of these two methods is
- * missing then the web contents will not be allowed to enter full screen. Optionally you can implement
- * {@link WebChromeClient#getVideoLoadingProgressView()} to customize the View displayed whilst a video
- * is loading.
- *
- * <h3>HTML5 Geolocation API support</h3>
- *
- * <p>For applications targeting Android N and later releases
- * (API level > {@link android.os.Build.VERSION_CODES#M}) the geolocation api is only supported on
- * secure origins such as https. For such applications requests to geolocation api on non-secure
- * origins are automatically denied without invoking the corresponding
- * {@link WebChromeClient#onGeolocationPermissionsShowPrompt(String, GeolocationPermissions.Callback)}
- * method.
- *
- * <h3>Layout size</h3>
- * <p>
- * It is recommended to set the WebView layout height to a fixed value or to
- * {@link android.view.ViewGroup.LayoutParams#MATCH_PARENT} instead of using
- * {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT}.
- * When using {@link android.view.ViewGroup.LayoutParams#MATCH_PARENT}
- * for the height none of the WebView's parents should use a
- * {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT} layout height since that could result in
- * incorrect sizing of the views.
- *
- * <p>Setting the WebView's height to {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT}
- * enables the following behaviors:
- * <ul>
- * <li>The HTML body layout height is set to a fixed value. This means that elements with a height
- * relative to the HTML body may not be sized correctly. </li>
- * <li>For applications targeting {@link android.os.Build.VERSION_CODES#KITKAT} and earlier SDKs the
- * HTML viewport meta tag will be ignored in order to preserve backwards compatibility. </li>
- * </ul>
- *
- * <p>
- * Using a layout width of {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT} is not
- * supported. If such a width is used the WebView will attempt to use the width of the parent
- * instead.
- *
- * <h3>Metrics</h3>
- *
- * <p>
- * WebView may upload anonymous diagnostic data to Google when the user has consented. This data
- * helps Google improve WebView. Data is collected on a per-app basis for each app which has
- * instantiated a WebView. An individual app can opt out of this feature by putting the following
- * tag in its manifest's {@code <application>} element:
- * <pre>
- * &lt;manifest&gt;
- *     &lt;application&gt;
- *         ...
- *         &lt;meta-data android:name=&quot;android.webkit.WebView.MetricsOptOut&quot;
- *             android:value=&quot;true&quot; /&gt;
- *     &lt;/application&gt;
- * &lt;/manifest&gt;
- * </pre>
- * <p>
- * Data will only be uploaded for a given app if the user has consented AND the app has not opted
- * out.
- *
- * <h3>Safe Browsing</h3>
- *
- * <p>
- * With Safe Browsing, WebView will block malicious URLs and present a warning UI to the user to
- * allow them to navigate back safely or proceed to the malicious page.
- * <p>
- * Safe Browsing is enabled by default on devices which support it. If your app needs to disable
- * Safe Browsing for all WebViews, it can do so in the manifest's {@code <application>} element:
- * <p>
- * <pre>
- * &lt;manifest&gt;
- *     &lt;application&gt;
- *         ...
- *         &lt;meta-data android:name=&quot;android.webkit.WebView.EnableSafeBrowsing&quot;
- *             android:value=&quot;false&quot; /&gt;
- *     &lt;/application&gt;
- * &lt;/manifest&gt;
- * </pre>
- *
- * <p>
- * Otherwise, see {@link WebSettings#setSafeBrowsingEnabled}.
+ * <p>To learn more about WebView and alternatives for serving web content, read the
+ * documentation on
+ * <a href="/guide/webapps/">
+ * Web-based content</a>.
  *
  */
 // Implementation notes.
@@ -363,6 +111,7 @@ public class WebView extends AbsoluteLayout
     // Throwing an exception for incorrect thread usage if the
     // build target is JB MR2 or newer. Defaults to false, and is
     // set in the WebView constructor.
+    @UnsupportedAppUsage
     private static volatile boolean sEnforceThreadChecking = false;
 
     /**
@@ -645,6 +394,7 @@ public class WebView extends AbsoluteLayout
      * @hide This is used internally by dumprendertree, as it requires the JavaScript interfaces to
      *       be added synchronously, before a subsequent loadUrl call takes effect.
      */
+    @UnsupportedAppUsage
     protected WebView(Context context, AttributeSet attrs, int defStyleAttr,
             Map<String, Object> javaScriptInterfaces, boolean privateBrowsing) {
         this(context, attrs, defStyleAttr, 0, javaScriptInterfaces, privateBrowsing);
@@ -654,6 +404,7 @@ public class WebView extends AbsoluteLayout
      * @hide
      */
     @SuppressWarnings("deprecation")  // for super() call into deprecated base class constructor.
+    @UnsupportedAppUsage
     protected WebView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes,
             Map<String, Object> javaScriptInterfaces, boolean privateBrowsing) {
         super(context, attrs, defStyleAttr, defStyleRes);
@@ -731,6 +482,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public int getVisibleTitleHeight() {
         checkThread();
         return mProvider.getVisibleTitleHeight();
@@ -835,6 +587,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public static void enablePlatformNotifications() {
         // noop
     }
@@ -847,6 +600,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public static void disablePlatformNotifications() {
         // noop
     }
@@ -856,6 +610,7 @@ public class WebView extends AbsoluteLayout
      *
      * @hide
      */
+    @UnsupportedAppUsage
     public static void freeMemoryForTests() {
         getFactory().getStatics().freeMemoryForTests();
     }
@@ -900,6 +655,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public boolean savePicture(Bundle b, final File dest) {
         checkThread();
         return mProvider.savePicture(b, dest);
@@ -917,6 +673,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public boolean restorePicture(Bundle b, File src) {
         checkThread();
         return mProvider.restorePicture(b, src);
@@ -1000,7 +757,7 @@ public class WebView extends AbsoluteLayout
      * <p>
      * The {@code encoding} parameter specifies whether the data is base64 or URL
      * encoded. If the data is base64 encoded, the value of the encoding
-     * parameter must be 'base64'. HTML can be encoded with {@link
+     * parameter must be {@code "base64"}. HTML can be encoded with {@link
      * android.util.Base64#encodeToString(byte[],int)} like so:
      * <pre>
      * String unencodedHtml =
@@ -1008,11 +765,15 @@ public class WebView extends AbsoluteLayout
      * String encodedHtml = Base64.encodeToString(unencodedHtml.getBytes(), Base64.NO_PADDING);
      * webView.loadData(encodedHtml, "text/html", "base64");
      * </pre>
-     * <p>
+     * <p class="note">
      * For all other values of {@code encoding} (including {@code null}) it is assumed that the
      * data uses ASCII encoding for octets inside the range of safe URL characters and use the
      * standard %xx hex encoding of URLs for octets outside that range. See <a
      * href="https://tools.ietf.org/html/rfc3986#section-2.2">RFC 3986</a> for more information.
+     * Applications targeting {@link android.os.Build.VERSION_CODES#Q} or later must either use
+     * base64 or encode any {@code #} characters in the content as {@code %23}, otherwise they
+     * will be treated as the end of the content and the remaining text used as a document
+     * fragment identifier.
      * <p>
      * The {@code mimeType} parameter specifies the format of the data.
      * If WebView can't handle the specified MIME type, it will download the data.
@@ -1060,7 +821,8 @@ public class WebView extends AbsoluteLayout
      * <p>
      * If the base URL uses the data scheme, this method is equivalent to
      * calling {@link #loadData(String,String,String) loadData()} and the
-     * historyUrl is ignored, and the data will be treated as part of a data: URL.
+     * historyUrl is ignored, and the data will be treated as part of a data: URL,
+     * including the requirement that the content be URL-encoded or base64 encoded.
      * If the base URL uses any other scheme, then the data will be loaded into
      * the WebView as a plain string (i.e. not part of a data URL) and any URL-encoded
      * entities in the string will not be decoded.
@@ -1093,7 +855,7 @@ public class WebView extends AbsoluteLayout
 
     /**
      * Asynchronously evaluates JavaScript in the context of the currently displayed page.
-     * If non-null, |resultCallback| will be invoked with any result returned from that
+     * If non-null, {@code resultCallback} will be invoked with any result returned from that
      * execution. This method must be called on the UI thread and the callback will
      * be made on the UI thread.
      * <p>
@@ -1330,10 +1092,7 @@ public class WebView extends AbsoluteLayout
      * <p>
      * Note that from {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1} the returned picture
      * should only be drawn into bitmap-backed Canvas - using any other type of Canvas will involve
-     * additional conversion at a cost in memory and performance. Also the
-     * {@link android.graphics.Picture#createFromStream} and
-     * {@link android.graphics.Picture#writeToStream} methods are not supported on the
-     * returned object.
+     * additional conversion at a cost in memory and performance.
      *
      * @deprecated Use {@link #onDraw} to obtain a bitmap snapshot of the WebView, or
      * {@link #saveWebArchive} to save the content to a file.
@@ -1483,6 +1242,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the URL for the current page
      */
+    @InspectableProperty(hasAttributeId = false)
     @ViewDebug.ExportedProperty(category = "webview")
     public String getUrl() {
         checkThread();
@@ -1498,6 +1258,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the URL that was originally requested for the current page
      */
+    @InspectableProperty(hasAttributeId = false)
     @ViewDebug.ExportedProperty(category = "webview")
     public String getOriginalUrl() {
         checkThread();
@@ -1510,6 +1271,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the title for the current page
      */
+    @InspectableProperty(hasAttributeId = false)
     @ViewDebug.ExportedProperty(category = "webview")
     public String getTitle() {
         checkThread();
@@ -1522,6 +1284,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the favicon for the current page
      */
+    @InspectableProperty(hasAttributeId = false)
     public Bitmap getFavicon() {
         checkThread();
         return mProvider.getFavicon();
@@ -1534,6 +1297,7 @@ public class WebView extends AbsoluteLayout
      *
      * @hide
      */
+    @UnsupportedAppUsage
     public String getTouchIconUrl() {
         return mProvider.getTouchIconUrl();
     }
@@ -1543,6 +1307,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the progress for the current page between 0 and 100
      */
+    @InspectableProperty(hasAttributeId = false)
     public int getProgress() {
         checkThread();
         return mProvider.getProgress();
@@ -1553,6 +1318,7 @@ public class WebView extends AbsoluteLayout
      *
      * @return the height of the HTML content
      */
+    @InspectableProperty(hasAttributeId = false)
     @ViewDebug.ExportedProperty(category = "webview")
     public int getContentHeight() {
         checkThread();
@@ -1566,6 +1332,7 @@ public class WebView extends AbsoluteLayout
      * @hide
      */
     @ViewDebug.ExportedProperty(category = "webview")
+    @UnsupportedAppUsage
     public int getContentWidth() {
         return mProvider.getContentWidth();
     }
@@ -1616,6 +1383,7 @@ public class WebView extends AbsoluteLayout
      *
      * @hide
      */
+    @UnsupportedAppUsage
     public boolean isPaused() {
         return mProvider.isPaused();
     }
@@ -1674,9 +1442,8 @@ public class WebView extends AbsoluteLayout
     /**
      * Clears the client certificate preferences stored in response
      * to proceeding/cancelling client cert requests. Note that WebView
-     * automatically clears these preferences when it receives a
-     * {@link KeyChain#ACTION_STORAGE_CHANGED} intent. The preferences are
-     * shared by all the WebViews that are created by the embedder application.
+     * automatically clears these preferences when the system keychain is updated.
+     * The preferences are shared by all the WebViews that are created by the embedder application.
      *
      * @param onCleared  A runnable to be invoked when client certs are cleared.
      *                   The runnable will be called in UI thread.
@@ -1836,9 +1603,9 @@ public class WebView extends AbsoluteLayout
     }
 
     /**
-     * Gets the first substring consisting of the address of a physical
-     * location. Currently, only addresses in the United States are detected,
-     * and consist of:
+     * Gets the first substring which appears to be the address of a physical
+     * location. Only addresses in the United States can be detected, which
+     * must consist of:
      * <ul>
      *   <li>a house number</li>
      *   <li>a street name</li>
@@ -1854,9 +1621,17 @@ public class WebView extends AbsoluteLayout
      * or abbreviated using USPS standards. The house number may not exceed
      * five digits.
      *
+     * <p class="note"><b>Note:</b> This function is deprecated and should be
+     * avoided on all API levels, as it cannot detect addresses outside of the
+     * United States and has a high rate of false positives. On API level
+     * {@link android.os.Build.VERSION_CODES#O_MR1} and earlier, it also causes
+     * the entire WebView implementation to be loaded and initialized, which
+     * can throw {@link android.util.AndroidRuntimeException} or other exceptions
+     * if the WebView implementation is currently being updated.
+     *
      * @param addr the string to search for addresses
      * @return the address, or if no address is found, {@code null}
-     * @deprecated this method is superseded by {@link TextClassifier#generateLinks(
+     * @deprecated This method is superseded by {@link TextClassifier#generateLinks(
      * android.view.textclassifier.TextLinks.Request)}. Avoid using this method even when targeting
      * API levels where no alternative is available.
      */
@@ -1930,6 +1705,87 @@ public class WebView extends AbsoluteLayout
     public WebViewClient getWebViewClient() {
         checkThread();
         return mProvider.getWebViewClient();
+    }
+
+
+    /**
+     * Gets a handle to the WebView renderer process associated with this WebView.
+     *
+     * <p>In {@link android.os.Build.VERSION_CODES#O} and above, WebView may
+     * run in "multiprocess" mode. In multiprocess mode, rendering of web
+     * content is performed by a sandboxed renderer process separate to the
+     * application process.  This renderer process may be shared with other
+     * WebViews in the application, but is not shared with other application
+     * processes.
+     *
+     * <p>If WebView is running in multiprocess mode, this method returns a
+     * handle to the renderer process associated with the WebView, which can
+     * be used to control the renderer process.
+     *
+     * @return the {@link WebViewRenderProcess} renderer handle associated
+     *         with this {@link WebView}, or {@code null} if
+     *         WebView is not runing in multiprocess mode.
+     */
+    @Nullable
+    public WebViewRenderProcess getWebViewRenderProcess() {
+        checkThread();
+        return mProvider.getWebViewRenderProcess();
+    }
+
+    /**
+     * Sets the renderer client object associated with this WebView.
+     *
+     * <p>The renderer client encapsulates callbacks relevant to WebView renderer
+     * state. See {@link WebViewRenderProcessClient} for details.
+     *
+     * <p>Although many WebView instances may share a single underlying
+     * renderer, and renderers may live either in the application
+     * process, or in a sandboxed process that is isolated from the
+     * application process, instances of {@link WebViewRenderProcessClient}
+     * are set per-WebView.  Callbacks represent renderer events from
+     * the perspective of this WebView, and may or may not be correlated
+     * with renderer events affecting other WebViews.
+     *
+     * @param executor the Executor on which {@link WebViewRenderProcessClient}
+     *                 callbacks will execute.
+     * @param webViewRenderProcessClient the {@link WebViewRenderProcessClient}
+     *                                   object.
+     */
+    public void setWebViewRenderProcessClient(
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull WebViewRenderProcessClient webViewRenderProcessClient) {
+        checkThread();
+        mProvider.setWebViewRenderProcessClient(
+                executor, webViewRenderProcessClient);
+    }
+
+    /**
+     * Sets the renderer client object associated with this WebView.
+     *
+     * See {@link #setWebViewRenderProcessClient(Executor,WebViewRenderProcessClient)} for details.
+     *
+     * <p> {@link WebViewRenderProcessClient} callbacks will run on the thread that this WebView was
+     * initialized on.
+     *
+     * @param webViewRenderProcessClient the {@link WebViewRenderProcessClient} object.
+     */
+    public void setWebViewRenderProcessClient(
+            @Nullable WebViewRenderProcessClient webViewRenderProcessClient) {
+        checkThread();
+        mProvider.setWebViewRenderProcessClient(null, webViewRenderProcessClient);
+    }
+
+    /**
+     * Gets the renderer client object associated with this WebView.
+     *
+     * @return the {@link WebViewRenderProcessClient} object associated with this WebView, if one
+     *         has been set via {@link #setWebViewRenderProcessClient(WebViewRenderProcessClient)}
+     *         or {@code null} otherwise.
+     */
+    @Nullable
+    public WebViewRenderProcessClient getWebViewRenderProcessClient() {
+        checkThread();
+        return mProvider.getWebViewRenderProcessClient();
     }
 
     /**
@@ -2126,6 +1982,7 @@ public class WebView extends AbsoluteLayout
      * @hide
      */
     @Deprecated
+    @UnsupportedAppUsage
     public static synchronized PluginList getPluginList() {
         return new PluginList();
     }
@@ -2193,6 +2050,7 @@ public class WebView extends AbsoluteLayout
      * @hide
      */
     @Deprecated
+    @UnsupportedAppUsage
     public void refreshPlugins(boolean reloadOpenPages) {
         checkThread();
     }
@@ -2205,6 +2063,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public void emulateShiftHeld() {
         checkThread();
     }
@@ -2265,6 +2124,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public View getZoomControls() {
         checkThread();
         return mProvider.getZoomControls();
@@ -2340,6 +2200,7 @@ public class WebView extends AbsoluteLayout
      * @hide Since API level {@link android.os.Build.VERSION_CODES#JELLY_BEAN_MR1}
      */
     @Deprecated
+    @UnsupportedAppUsage
     public void debugDump() {
         checkThread();
     }
@@ -2435,6 +2296,11 @@ public class WebView extends AbsoluteLayout
      *
      * @return the requested renderer priority policy.
      */
+    @InspectableProperty(hasAttributeId = false, enumMapping = {
+            @InspectableProperty.EnumEntry(name = "waived", value = RENDERER_PRIORITY_WAIVED),
+            @InspectableProperty.EnumEntry(name = "bound", value = RENDERER_PRIORITY_BOUND),
+            @InspectableProperty.EnumEntry(name = "important", value = RENDERER_PRIORITY_IMPORTANT)
+    })
     @RendererPriority
     public int getRendererRequestedPriority() {
         return mProvider.getRendererRequestedPriority();
@@ -2447,6 +2313,7 @@ public class WebView extends AbsoluteLayout
      * @return whether this WebView requests a priority of
      * {@link #RENDERER_PRIORITY_WAIVED} when not visible.
      */
+    @InspectableProperty(hasAttributeId = false)
     public boolean getRendererPriorityWaivedWhenNotVisible() {
         return mProvider.getRendererPriorityWaivedWhenNotVisible();
     }
@@ -2625,6 +2492,7 @@ public class WebView extends AbsoluteLayout
     }
 
     // Only used by android.webkit.FindActionModeCallback.
+    @UnsupportedAppUsage
     void notifyFindDialogDismissed() {
         checkThread();
         mProvider.notifyFindDialogDismissed();
@@ -2634,6 +2502,7 @@ public class WebView extends AbsoluteLayout
     // Private internal stuff
     //-------------------------------------------------------------------------
 
+    @UnsupportedAppUsage
     private WebViewProvider mProvider;
 
     /**
@@ -2677,12 +2546,15 @@ public class WebView extends AbsoluteLayout
         }
     }
 
+    @UnsupportedAppUsage
     private static WebViewFactoryProvider getFactory() {
         return WebViewFactory.getProvider();
     }
 
+    @UnsupportedAppUsage
     private final Looper mWebViewThread = Looper.myLooper();
 
+    @UnsupportedAppUsage
     private void checkThread() {
         // Ignore mWebViewThread == null because this can be called during in the super class
         // constructor, before this class's own constructor has even started.
@@ -2963,6 +2835,7 @@ public class WebView extends AbsoluteLayout
 
     /** @hide */
     @Override
+    @UnsupportedAppUsage
     protected void onDrawVerticalScrollBar(Canvas canvas, Drawable scrollBar,
             int l, int t, int r, int b) {
         mProvider.getViewDelegate().onDrawVerticalScrollBar(canvas, scrollBar, l, t, r, b);
@@ -3034,6 +2907,7 @@ public class WebView extends AbsoluteLayout
 
     /** @hide */
     @Override
+    @UnsupportedAppUsage
     protected boolean setFrame(int left, int top, int right, int bottom) {
         return mProvider.getViewDelegate().setFrame(left, top, right, bottom);
     }

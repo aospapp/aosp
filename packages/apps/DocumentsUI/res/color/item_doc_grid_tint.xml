@@ -17,7 +17,7 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:state_activated="true"
-        android:color="@color/item_grid_tint"
+        android:color="?android:colorPrimary"
         android:alpha=".15" />
     <item
         android:color="@android:color/transparent" />

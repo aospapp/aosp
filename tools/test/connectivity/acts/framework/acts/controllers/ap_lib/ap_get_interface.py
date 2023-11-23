@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - Google, Inc.
 #
@@ -151,8 +151,7 @@ class ApInterfaces(object):
 
         Returns:
             lan: the only one running LAN interface of the devices
-        Raises:
-            ApInterfacesError: no running LAN can be found
+            None, if nothing was found.
         """
         lan = None
         interfaces_phy = self.get_physical_interface()
@@ -166,11 +165,7 @@ class ApInterfaces(object):
             if 'RUNNING' in output.stdout:
                 lan = iface
                 break
-        if lan:
-            return lan
-
-        raise ApInterfacesError(
-            'No running LAN interface available, check connection')
+        return lan
 
     def check_ping(self, iface):
         """Check the ping status on specific interface to determine the WAN.

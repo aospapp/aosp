@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Lågen er åben"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Papirstop"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Ugyldigt certifikat"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Ikke krypteret"</string>
     <string name="printer_check" msgid="6428369671197132828">"Tjek printeren"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Venter på at sende"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Dokumentet kunne ikke læses"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printeren understøttes ikke"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Find printere med Wi-Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Udskrivning via Wi-Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Printere med Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Søger…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Denne forbindelse skal muligvis godkendes på printerens betjeningspanel"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Glem"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Opretter forbindelse via Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Opretter forbindelse via netværk med adressen <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Sikkerhed"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Denne printer angav et nyt sikkerhedscertifikat, eller en anden enhed efterligner den. Vil du acceptere det nye certifikat?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Denne printer understøtter ikke længere krypterede jobs. Vil du fortsætte med at udskrive?"</string>
+    <string name="accept" msgid="4426153292469698134">"Acceptér"</string>
+    <string name="reject" msgid="24751635160440693">"Afvis"</string>
+    <string name="connections" msgid="8895413761760117180">"Forbindelser"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjenesten til udskrivning skal have adgangstilladelse til din placering for at finde enheder i nærheden."</string>
+    <string name="fix" msgid="7784394272611365393">"Gennemgå tilladelsen"</string>
 </resources>

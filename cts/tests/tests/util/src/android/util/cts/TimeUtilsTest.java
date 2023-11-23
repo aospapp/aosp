@@ -16,15 +16,21 @@
 package android.util.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.TimeUtils;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.List;
 import java.util.TimeZone;
 
 @SmallTest
@@ -142,9 +148,42 @@ public class TimeUtilsTest {
         assertFormatDuration("-15542d1h11m11s555ms", -1342833071555L);
     }
 
-    private void assertFormatDuration(String expected, long duration) {
+    private static void assertFormatDuration(String expected, long duration) {
         StringBuilder sb = new StringBuilder();
         TimeUtils.formatDuration(duration, sb);
         assertEquals("formatDuration(" + duration + ")", expected, sb.toString());
+    }
+
+    @Test
+    public void testGetTimeZoneIdsForCountryCode() {
+        List<String> usTimeZones = TimeUtils.getTimeZoneIdsForCountryCode("us");
+
+        // Sample the content without being too exact.
+        assertCollectionContains(usTimeZones, "America/Los_Angeles");
+        assertCollectionContains(usTimeZones, "America/New_York");
+
+        // Assert we don't care about casing of the country code.
+        assertEquals(usTimeZones, TimeUtils.getTimeZoneIdsForCountryCode("US"));
+        assertEquals(usTimeZones, TimeUtils.getTimeZoneIdsForCountryCode("uS"));
+        assertEquals(usTimeZones, TimeUtils.getTimeZoneIdsForCountryCode("Us"));
+    }
+
+    @Test
+    public void testGetTimeZoneIdsForCountryCode_unknownCountryCode() {
+        String unknownCountryCode = "zx81";
+        assertNull(TimeUtils.getTimeZoneIdsForCountryCode(unknownCountryCode));
+    }
+
+    @Test
+    public void testGetTimeZoneIdsForCountryCode_nullCountryCode() {
+        try {
+            TimeUtils.getTimeZoneIdsForCountryCode(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    private static <T> void assertCollectionContains(Collection<? super T> collection, T value) {
+        assertTrue(collection + " should contain " + value, collection.contains(value));
     }
 }

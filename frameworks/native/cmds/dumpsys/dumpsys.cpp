@@ -65,7 +65,7 @@ static void usage() {
             "         -l: only list services, do not dump them\n"
             "         -t TIMEOUT_SEC: TIMEOUT to use in seconds instead of default 10 seconds\n"
             "         -T TIMEOUT_MS: TIMEOUT to use in milliseconds instead of default 10 seconds\n"
-            "         --proto: filter services that support dumping data in proto format. Dumps"
+            "         --proto: filter services that support dumping data in proto format. Dumps\n"
             "               will be in proto format.\n"
             "         --priority LEVEL: filter services based on specified priority\n"
             "               LEVEL must be one of CRITICAL | HIGH | NORMAL\n"
@@ -389,7 +389,7 @@ status_t Dumpsys::writeDump(int fd, const String16& serviceName, std::chrono::mi
         auto time_left_ms = [end]() {
             auto now = std::chrono::steady_clock::now();
             auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - now);
-            return std::max(diff.count(), 0ll);
+            return std::max(diff.count(), 0LL);
         };
 
         int rc = TEMP_FAILURE_RETRY(poll(&pfd, 1, time_left_ms()));

@@ -22,7 +22,7 @@
 #include "chre_api/chre/event.h"
 #include "chre/core/event_loop.h"
 #include "chre/platform/host_link.h"
-#include "chre/util/dynamic_vector.h"
+#include "chre/util/buffer.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/synchronized_memory_pool.h"
 
@@ -68,7 +68,7 @@ struct HostMessage : public NonCopyable {
   uint64_t appId;
 
   //! Application-defined message data
-  DynamicVector<uint8_t> message;
+  Buffer<uint8_t> message;
 };
 
 typedef HostMessage MessageFromHost;

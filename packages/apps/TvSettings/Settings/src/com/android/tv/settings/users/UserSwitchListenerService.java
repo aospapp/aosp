@@ -23,6 +23,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
@@ -31,7 +32,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
-import com.android.tv.settings.system.SecurityFragment;
+import com.android.internal.widget.LockPatternUtils;
 
 public class UserSwitchListenerService extends Service {
 
@@ -52,22 +53,20 @@ public class UserSwitchListenerService extends Service {
 
             if (isSystemUser) {
                 context.startService(new Intent(context, UserSwitchListenerService.class));
-                int bootUserId = getBootUser(context);
                 if (DEBUG) {
-                    Log.d(TAG,
-                            "boot completed, user is " + UserHandle.myUserId()
-                            + " boot user id: "
-                            + bootUserId);
-                }
-                if (UserHandle.myUserId() != bootUserId) {
-                    switchUserNow(bootUserId);
+                    Log.d(TAG, "boot completed, user is " + UserHandle.myUserId()
+                            + " boot user id: " + getBootUser(context));
                 }
             }
-
-            updateLaunchPoint(context, null != SecurityFragment.findRestrictedUser(
-                    (UserManager) context.getSystemService(Context.USER_SERVICE)));
         }
     }
+
+    private BroadcastReceiver mUserUnlockedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            switchToLastUserIfUnlocked();
+        }
+    };
 
     public static void updateLaunchPoint(Context context, boolean enableLaunchPoint) {
         if (DEBUG) {
@@ -120,6 +119,15 @@ public class UserSwitchListenerService extends Service {
                     }, UserSwitchListenerService.class.getName());
         } catch (RemoteException e) {
         }
+
+        registerReceiver(mUserUnlockedReceiver, new IntentFilter(Intent.ACTION_USER_UNLOCKED));
+        switchToLastUserIfUnlocked();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mUserUnlockedReceiver);
     }
 
     @Override
@@ -130,5 +138,23 @@ public class UserSwitchListenerService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    private void switchToLastUserIfUnlocked() {
+        if (!UserManager.get(this).isUserUnlocked()) return;
+
+        boolean isFbeEnabled = LockPatternUtils.isFileEncryptionEnabled();
+        boolean hasLockscreenSecurity = new LockPatternUtils(this).isSecure(getUserId());
+
+        // If the device is FBE-enabled and has a lockscreen password, the user is asked
+        // to enter the PIN on boot so there is no need to switch back to the last user.
+        if (!isFbeEnabled || !hasLockscreenSecurity) {
+            int bootUserId = getBootUser(this);
+            if (UserHandle.myUserId() != bootUserId) {
+                switchUserNow(bootUserId);
+            }
+        }
+
+        updateLaunchPoint(this, new RestrictedProfileModel(this).getUser() != null);
     }
 }

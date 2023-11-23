@@ -23,10 +23,10 @@
 #include "dex/code_item_accessors.h"
 #include "dex/dex_file.h"
 #include "handle.h"
-#include "jni.h"
 
 namespace art {
 namespace mirror {
+class Class;
 class ClassLoader;
 class DexCache;
 }  // namespace mirror
@@ -38,12 +38,13 @@ class DexCompilationUnit : public DeletableArenaObject<kArenaAllocMisc> {
   DexCompilationUnit(Handle<mirror::ClassLoader> class_loader,
                      ClassLinker* class_linker,
                      const DexFile& dex_file,
-                     const DexFile::CodeItem* code_item,
+                     const dex::CodeItem* code_item,
                      uint16_t class_def_idx,
                      uint32_t method_idx,
                      uint32_t access_flags,
                      const VerifiedMethod* verified_method,
-                     Handle<mirror::DexCache> dex_cache);
+                     Handle<mirror::DexCache> dex_cache,
+                     Handle<mirror::Class> compiling_class = Handle<mirror::Class>());
 
   Handle<mirror::ClassLoader> GetClassLoader() const {
     return class_loader_;
@@ -65,17 +66,17 @@ class DexCompilationUnit : public DeletableArenaObject<kArenaAllocMisc> {
     return dex_method_idx_;
   }
 
-  const DexFile::CodeItem* GetCodeItem() const {
+  const dex::CodeItem* GetCodeItem() const {
     return code_item_;
   }
 
   const char* GetShorty() const {
-    const DexFile::MethodId& method_id = dex_file_->GetMethodId(dex_method_idx_);
+    const dex::MethodId& method_id = dex_file_->GetMethodId(dex_method_idx_);
     return dex_file_->GetMethodShorty(method_id);
   }
 
   const char* GetShorty(uint32_t* shorty_len) const {
-    const DexFile::MethodId& method_id = dex_file_->GetMethodId(dex_method_idx_);
+    const dex::MethodId& method_id = dex_file_->GetMethodId(dex_method_idx_);
     return dex_file_->GetMethodShorty(method_id, shorty_len);
   }
 
@@ -117,6 +118,45 @@ class DexCompilationUnit : public DeletableArenaObject<kArenaAllocMisc> {
     return code_item_accessor_;
   }
 
+  Handle<mirror::Class> GetCompilingClass() const {
+    return compiling_class_;
+  }
+
+  // Does this <init> method require a constructor barrier (prior to the return)?
+  // The answer is "yes", if and only if the class has any instance final fields.
+  // (This must not be called for any non-<init> methods; the answer would be "no").
+  //
+  // ---
+  //
+  // JLS 17.5.1 "Semantics of final fields" mandates that all final fields are frozen at the end
+  // of the invoked constructor. The constructor barrier is a conservative implementation means of
+  // enforcing the freezes happen-before the object being constructed is observable by another
+  // thread.
+  //
+  // Note: This question only makes sense for instance constructors;
+  // static constructors (despite possibly having finals) never need
+  // a barrier.
+  //
+  // JLS 12.4.2 "Detailed Initialization Procedure" approximately describes
+  // class initialization as:
+  //
+  //   lock(class.lock)
+  //     class.state = initializing
+  //   unlock(class.lock)
+  //
+  //   invoke <clinit>
+  //
+  //   lock(class.lock)
+  //     class.state = initialized
+  //   unlock(class.lock)              <-- acts as a release
+  //
+  // The last operation in the above example acts as an atomic release
+  // for any stores in <clinit>, which ends up being stricter
+  // than what a constructor barrier needs.
+  //
+  // See also QuasiAtomic::ThreadFenceForConstructor().
+  bool RequiresConstructorBarrier() const;
+
  private:
   const Handle<mirror::ClassLoader> class_loader_;
 
@@ -124,7 +164,7 @@ class DexCompilationUnit : public DeletableArenaObject<kArenaAllocMisc> {
 
   const DexFile* const dex_file_;
 
-  const DexFile::CodeItem* const code_item_;
+  const dex::CodeItem* const code_item_;
   const uint16_t class_def_idx_;
   const uint32_t dex_method_idx_;
   const uint32_t access_flags_;
@@ -133,6 +173,8 @@ class DexCompilationUnit : public DeletableArenaObject<kArenaAllocMisc> {
   const Handle<mirror::DexCache> dex_cache_;
 
   const CodeItemDataAccessor code_item_accessor_;
+
+  Handle<mirror::Class> compiling_class_;
 
   std::string symbol_;
 };

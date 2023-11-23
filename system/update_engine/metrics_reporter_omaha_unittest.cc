@@ -29,8 +29,9 @@
 #include "update_engine/fake_system_state.h"
 
 using base::TimeDelta;
-using testing::AnyNumber;
 using testing::_;
+using testing::AnyNumber;
+using testing::Return;
 
 namespace chromeos_update_engine {
 class MetricsReporterOmahaTest : public ::testing::Test {
@@ -85,6 +86,14 @@ TEST_F(MetricsReporterOmahaTest, ReportUpdateCheckMetrics) {
                               static_cast<int>(error_code)))
       .Times(2);
 
+  // Not pinned nor rollback
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckTargetVersion, _))
+      .Times(0);
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckRollbackTargetVersion, _))
+      .Times(0);
+
   EXPECT_CALL(
       *mock_metrics_lib_,
       SendToUMA(metrics::kMetricCheckTimeSinceLastCheckMinutes, 1, _, _, _))
@@ -101,6 +110,62 @@ TEST_F(MetricsReporterOmahaTest, ReportUpdateCheckMetrics) {
   // Advance the clock by 1 minute and report the same metrics again.
   fake_clock.SetWallclockTime(base::Time::FromInternalValue(61000000));
   fake_clock.SetMonotonicTime(base::Time::FromInternalValue(61000000));
+  // Allow rollback
+  reporter_.ReportUpdateCheckMetrics(
+      &fake_system_state, result, reaction, error_code);
+}
+
+TEST_F(MetricsReporterOmahaTest, ReportUpdateCheckMetricsPinned) {
+  FakeSystemState fake_system_state;
+
+  OmahaRequestParams params(&fake_system_state);
+  params.set_target_version_prefix("10575.");
+  params.set_rollback_allowed(false);
+  fake_system_state.set_request_params(&params);
+
+  metrics::CheckResult result = metrics::CheckResult::kUpdateAvailable;
+  metrics::CheckReaction reaction = metrics::CheckReaction::kIgnored;
+  metrics::DownloadErrorCode error_code =
+      metrics::DownloadErrorCode::kHttpStatus200;
+
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckDownloadErrorCode, _));
+  // Target version set, but not a rollback.
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckTargetVersion, 10575))
+      .Times(1);
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckRollbackTargetVersion, _))
+      .Times(0);
+
+  reporter_.ReportUpdateCheckMetrics(
+      &fake_system_state, result, reaction, error_code);
+}
+
+TEST_F(MetricsReporterOmahaTest, ReportUpdateCheckMetricsRollback) {
+  FakeSystemState fake_system_state;
+
+  OmahaRequestParams params(&fake_system_state);
+  params.set_target_version_prefix("10575.");
+  params.set_rollback_allowed(true);
+  fake_system_state.set_request_params(&params);
+
+  metrics::CheckResult result = metrics::CheckResult::kUpdateAvailable;
+  metrics::CheckReaction reaction = metrics::CheckReaction::kIgnored;
+  metrics::DownloadErrorCode error_code =
+      metrics::DownloadErrorCode::kHttpStatus200;
+
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckDownloadErrorCode, _));
+  // Rollback.
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricCheckTargetVersion, 10575))
+      .Times(1);
+  EXPECT_CALL(
+      *mock_metrics_lib_,
+      SendSparseToUMA(metrics::kMetricCheckRollbackTargetVersion, 10575))
+      .Times(1);
+
   reporter_.ReportUpdateCheckMetrics(
       &fake_system_state, result, reaction, error_code);
 }
@@ -160,7 +225,6 @@ TEST_F(MetricsReporterOmahaTest, ReportUpdateAttemptMetrics) {
                         _,
                         _))
       .Times(2);
-
 
   // Check the report of attempt result.
   EXPECT_CALL(
@@ -258,6 +322,7 @@ TEST_F(MetricsReporterOmahaTest, ReportSuccessfulUpdateMetrics) {
   num_bytes_downloaded[0] = 200 * kNumBytesInOneMiB;
   int download_overhead_percentage = 20;
   TimeDelta total_duration = TimeDelta::FromMinutes(30);
+  TimeDelta total_duration_uptime = TimeDelta::FromMinutes(20);
   int reboot_count = 2;
   int url_switch_count = 2;
 
@@ -306,6 +371,14 @@ TEST_F(MetricsReporterOmahaTest, ReportSuccessfulUpdateMetrics) {
       .Times(1);
   EXPECT_CALL(
       *mock_metrics_lib_,
+      SendToUMA(metrics::kMetricSuccessfulUpdateTotalDurationUptimeMinutes,
+                20,
+                _,
+                _,
+                _))
+      .Times(1);
+  EXPECT_CALL(
+      *mock_metrics_lib_,
       SendToUMA(
           metrics::kMetricSuccessfulUpdateRebootCount, reboot_count, _, _, _))
       .Times(1);
@@ -333,6 +406,7 @@ TEST_F(MetricsReporterOmahaTest, ReportSuccessfulUpdateMetrics) {
                                           num_bytes_downloaded,
                                           download_overhead_percentage,
                                           total_duration,
+                                          total_duration_uptime,
                                           reboot_count,
                                           url_switch_count);
 }
@@ -345,6 +419,18 @@ TEST_F(MetricsReporterOmahaTest, ReportRollbackMetrics) {
       .Times(1);
 
   reporter_.ReportRollbackMetrics(result);
+}
+
+TEST_F(MetricsReporterOmahaTest, ReportEnterpriseRollbackMetrics) {
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricEnterpriseRollbackSuccess, 10575))
+      .Times(1);
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricEnterpriseRollbackFailure, 10323))
+      .Times(1);
+
+  reporter_.ReportEnterpriseRollbackMetrics(/*success=*/true, "10575.39.2");
+  reporter_.ReportEnterpriseRollbackMetrics(/*success=*/false, "10323.67.7");
 }
 
 TEST_F(MetricsReporterOmahaTest, ReportCertificateCheckMetrics) {
@@ -389,6 +475,67 @@ TEST_F(MetricsReporterOmahaTest, ReportInstallDateProvisioningSource) {
       .Times(1);
 
   reporter_.ReportInstallDateProvisioningSource(source, max);
+}
+
+TEST_F(MetricsReporterOmahaTest, ReportKeyVersionMetrics) {
+  int kernel_min_version = 0x00040002;
+  int kernel_max_rollforward_version = 0xfffffffe;
+  bool kernel_max_rollforward_success = true;
+  EXPECT_CALL(
+      *mock_metrics_lib_,
+      SendSparseToUMA(metrics::kMetricKernelMinVersion, kernel_min_version))
+      .Times(1);
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendSparseToUMA(metrics::kMetricKernelMaxRollforwardVersion,
+                              kernel_max_rollforward_version))
+      .Times(1);
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendBoolToUMA(metrics::kMetricKernelMaxRollforwardSetSuccess,
+                            kernel_max_rollforward_success))
+      .Times(1);
+
+  reporter_.ReportKeyVersionMetrics(kernel_min_version,
+                                    kernel_max_rollforward_version,
+                                    kernel_max_rollforward_success);
+}
+
+TEST_F(MetricsReporterOmahaTest, ReportEnterpriseUpdateSeenToDownloadDays) {
+  constexpr int kDaysToUpdate = 10;
+  constexpr int kMinBucket = 1;
+  constexpr int kMaxBucket = 6 * 30;  // approximately 6 months
+  constexpr int kNumBuckets = 50;
+
+  EXPECT_CALL(*mock_metrics_lib_,
+              SendToUMA(metrics::kMetricSuccessfulUpdateDurationFromSeenDays,
+                        kDaysToUpdate,
+                        kMinBucket,
+                        kMaxBucket,
+                        kNumBuckets))
+      .Times(1);
+
+  reporter_.ReportEnterpriseUpdateSeenToDownloadDays(
+      false /* has_time_restriction_policy */, kDaysToUpdate);
+}
+
+TEST_F(MetricsReporterOmahaTest,
+       ReportEnterpriseTimeRestrictedUpdateSeenToDownloadTime) {
+  const int kDaysToUpdate = 15;
+  constexpr int kMinBucket = 1;
+  constexpr int kMaxBucket = 6 * 30;  // approximately 6 months
+  constexpr int kNumBuckets = 50;
+
+  EXPECT_CALL(
+      *mock_metrics_lib_,
+      SendToUMA(
+          metrics::kMetricSuccessfulUpdateDurationFromSeenTimeRestrictedDays,
+          kDaysToUpdate,
+          kMinBucket,
+          kMaxBucket,
+          kNumBuckets))
+      .Times(1);
+
+  reporter_.ReportEnterpriseUpdateSeenToDownloadDays(
+      true /* has_time_restriction_policy */, kDaysToUpdate);
 }
 
 }  // namespace chromeos_update_engine

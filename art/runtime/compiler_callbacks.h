@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_COMPILER_CALLBACKS_H_
 #define ART_RUNTIME_COMPILER_CALLBACKS_H_
 
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "dex/class_reference.h"
 #include "class_status.h"
 
@@ -50,10 +50,6 @@ class CompilerCallbacks {
   virtual void MethodVerified(verifier::MethodVerifier* verifier)
       REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   virtual void ClassRejected(ClassReference ref) = 0;
-
-  // Return true if we should attempt to relocate to a random base address if we have not already
-  // done so. Return false if relocating in this way would be problematic.
-  virtual bool IsRelocationPossible() = 0;
 
   virtual verifier::VerifierDeps* GetVerifierDeps() const = 0;
   virtual void SetVerifierDeps(verifier::VerifierDeps* deps ATTRIBUTE_UNUSED) {}

@@ -66,6 +66,16 @@ func (p *testDecorator) AndroidMk(base *Module, ret *android.AndroidMkData) {
 			fmt.Fprintln(w, "LOCAL_COMPATIBILITY_SUITE :=",
 				strings.Join(p.binaryDecorator.binaryProperties.Test_suites, " "))
 		}
+		// If the test config has an explicit config specified use it.
+		if p.testProperties.Test_config != nil {
+			fmt.Fprintln(w, "LOCAL_TEST_CONFIG :=",
+				*p.testProperties.Test_config)
+		} else {
+			if p.testConfig != nil {
+				fmt.Fprintln(w, "LOCAL_FULL_TEST_CONFIG :=",
+					p.testConfig.String())
+			}
+		}
 	})
 	base.subAndroidMk(ret, p.binaryDecorator.pythonInstaller)
 }
@@ -77,6 +87,7 @@ func (installer *pythonInstaller) AndroidMk(base *Module, ret *android.AndroidMk
 		ret.OutputFile = android.OptionalPathForPath(installer.path)
 	}
 
+	ret.Required = append(ret.Required, "libc++")
 	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
 		path := installer.path.RelPathString()
 		dir, file := filepath.Split(path)
@@ -85,5 +96,6 @@ func (installer *pythonInstaller) AndroidMk(base *Module, ret *android.AndroidMk
 		fmt.Fprintln(w, "LOCAL_MODULE_SUFFIX := "+filepath.Ext(file))
 		fmt.Fprintln(w, "LOCAL_MODULE_PATH := $(OUT_DIR)/"+filepath.Clean(dir))
 		fmt.Fprintln(w, "LOCAL_MODULE_STEM := "+stem)
+		fmt.Fprintln(w, "LOCAL_SHARED_LIBRARIES := "+strings.Join(installer.androidMkSharedLibs, " "))
 	})
 }

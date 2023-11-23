@@ -19,28 +19,28 @@
  */
 public class Main {
 
-  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_inlining (after)
+  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_gvn (after)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-NOT: InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad1(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-NOT: Abs
   //
   // NOTE: for direct 32-bit operands, this is not an ABS.
   static int sad1(int x, int y) {
     return x >= y ? x - y : y - x;
   }
 
-  /// CHECK-START: int Main.sad2(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad2(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad2(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad2(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad2(int x, int y) {
     int diff = x - y;
@@ -48,36 +48,36 @@ public class Main {
     return diff;
   }
 
-  /// CHECK-START: int Main.sad3(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad3(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad3(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad3(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad3(int x, int y) {
     int diff = x - y;
     return diff >= 0 ? diff : -diff;
   }
 
-  /// CHECK-START: int Main.sad3Alt(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad3Alt(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad3Alt(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad3Alt(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad3Alt(int x, int y) {
     int diff = x - y;
     return 0 <= diff ? diff : -diff;
   }
 
-  /// CHECK-START: long Main.sadL1(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL1(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL1(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL1(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL1(int x, int y) {
     long xl = x;
@@ -85,12 +85,12 @@ public class Main {
     return xl >= yl ? xl - yl : yl - xl;
   }
 
-  /// CHECK-START: long Main.sadL2(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL2(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL2(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL2(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL2(int x, int y) {
     long diff = x - y;
@@ -98,24 +98,24 @@ public class Main {
     return diff;
   }
 
-  /// CHECK-START: long Main.sadL3(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL3(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL3(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL3(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL3(int x, int y) {
     long diff = x - y;
     return diff >= 0L ? diff : -diff;
   }
 
-  /// CHECK-START: long Main.sadL3Alt(int, int) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL3Alt(int, int) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL3Alt(int, int) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL3Alt(int, int) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL3Alt(int x, int y) {
     long diff = x - y;

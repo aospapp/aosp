@@ -16,43 +16,71 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
+import android.platform.test.annotations.Presubmit;
+import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio1;
-import android.provider.cts.MediaStoreAudioTestHelper.Audio2;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-public class MediaStore_Audio_MediaTest extends InstrumentationTestCase {
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+import java.io.File;
+
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_MediaTest {
+    private Context mContext;
     private ContentResolver mContentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private Uri mExternalAudio;
 
-        mContentResolver = getInstrumentation().getContext().getContentResolver();
+    @Parameter(0)
+    public String mVolumeName;
+
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+        mExternalAudio = MediaStore.Audio.Media.getContentUri(mVolumeName);
+    }
+
+    @Test
     public void testGetContentUri() {
         Cursor c = null;
         assertNotNull(c = mContentResolver.query(
-                Media.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null, null,
+                Media.getContentUri(mVolumeName), null, null,
                     null, null));
         c.close();
-        assertNotNull(c = mContentResolver.query(
-                Media.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME), null, null,
-                    null, null));
-        c.close();
-
-        // can not accept any other volume names
-        String volume = "faveVolume";
-        assertNull(mContentResolver.query(Media.getContentUri(volume), null, null, null, null));
     }
 
+    @Test
     public void testGetContentUriForPath() {
         Cursor c = null;
         String externalPath = Environment.getExternalStorageDirectory().getPath();
@@ -60,26 +88,18 @@ public class MediaStore_Audio_MediaTest extends InstrumentationTestCase {
                 null, null));
         c.close();
 
-        String internalPath =
-            getInstrumentation().getTargetContext().getFilesDir().getAbsolutePath();
+        String internalPath = mContext.getFilesDir().getAbsolutePath();
         assertNotNull(c = mContentResolver.query(Media.getContentUriForPath(internalPath), null, null,
                 null, null));
         c.close();
     }
 
-    public void testStoreAudioMediaInternal() {
-        testStoreAudioMedia(true);
-    }
-
-    public void testStoreAudioMediaExternal() {
-        testStoreAudioMedia(false);
-    }
-
-    private void testStoreAudioMedia(boolean isInternal) {
+    @Test
+    public void testStoreAudioMedia() {
         Audio1 audio1 = Audio1.getInstance();
-        ContentValues values = audio1.getContentValues(isInternal);
+        ContentValues values = audio1.getContentValues(mVolumeName);
         //insert
-        Uri mediaUri = isInternal ? Media.INTERNAL_CONTENT_URI : Media.EXTERNAL_CONTENT_URI;
+        Uri mediaUri = Media.getContentUri(mVolumeName);
         Uri uri = mContentResolver.insert(mediaUri, values);
         assertNotNull(uri);
 
@@ -93,12 +113,11 @@ public class MediaStore_Audio_MediaTest extends InstrumentationTestCase {
             c.moveToFirst();
             long id = c.getLong(c.getColumnIndex(Media._ID));
             assertTrue(id > 0);
-            String expected = isInternal ? Audio1.INTERNAL_DATA : Audio1.EXTERNAL_DATA;
+            String expected = audio1.getContentValues(mVolumeName).getAsString(Media.DATA);
             assertEquals(expected, c.getString(c.getColumnIndex(Media.DATA)));
             assertTrue(c.getLong(c.getColumnIndex(Media.DATE_ADDED)) > 0);
             assertEquals(Audio1.DATE_MODIFIED, c.getLong(c.getColumnIndex(Media.DATE_MODIFIED)));
-            assertEquals(Audio1.IS_DRM, c.getInt(c.getColumnIndex(Media.IS_DRM)));
-            assertEquals(Audio1.FILE_NAME, c.getString(c.getColumnIndex(Media.DISPLAY_NAME)));
+            assertEquals(Audio1.DISPLAY_NAME, c.getString(c.getColumnIndex(Media.DISPLAY_NAME)));
             assertEquals(Audio1.MIME_TYPE, c.getString(c.getColumnIndex(Media.MIME_TYPE)));
             assertEquals(Audio1.SIZE, c.getInt(c.getColumnIndex(Media.SIZE)));
             assertEquals(Audio1.TITLE, c.getString(c.getColumnIndex(Media.TITLE)));
@@ -124,48 +143,10 @@ public class MediaStore_Audio_MediaTest extends InstrumentationTestCase {
             assertNotNull(titleKey);
             c.close();
 
-            // update
-            // the column DISPLAY_NAME will not be ignored when updating
-            Audio2 audio2 = Audio2.getInstance();
-            values = audio2.getContentValues(isInternal);
-
-            int result = mContentResolver.update(uri, values, null, null);
-            assertEquals(1, result);
-            c = mContentResolver.query(uri, null, null, null, null);
-            assertEquals(1, c.getCount());
-            c.moveToFirst();
-            long id2 = c.getLong(c.getColumnIndex(Media._ID));
-            assertTrue(id == id2);
-            expected = isInternal ? Audio2.INTERNAL_DATA : Audio2.EXTERNAL_DATA;
-            assertEquals(expected, c.getString(c.getColumnIndex(Media.DATA)));
-            assertEquals(Audio2.DATE_MODIFIED, c.getLong(c.getColumnIndex(Media.DATE_MODIFIED)));
-            assertEquals(Audio2.IS_DRM, c.getInt(c.getColumnIndex(Media.IS_DRM)));
-            assertEquals(Audio2.DISPLAY_NAME, c.getString(c.getColumnIndex(Media.DISPLAY_NAME)));
-            assertEquals(Audio2.MIME_TYPE, c.getString(c.getColumnIndex(Media.MIME_TYPE)));
-            assertEquals(Audio2.SIZE, c.getInt(c.getColumnIndex(Media.SIZE)));
-            assertEquals(Audio2.TITLE, c.getString(c.getColumnIndex(Media.TITLE)));
-            assertEquals(Audio2.ALBUM, c.getString(c.getColumnIndex(Media.ALBUM)));
-            assertFalse(albumKey.equals(c.getString(c.getColumnIndex(Media.ALBUM_KEY))));
-            assertTrue(albumId !=  c.getLong(c.getColumnIndex(Media.ALBUM_ID)));
-            assertEquals(Audio2.ARTIST, c.getString(c.getColumnIndex(Media.ARTIST)));
-            assertFalse(artistKey.equals(c.getString(c.getColumnIndex(Media.ARTIST_KEY))));
-            assertTrue(artistId !=  c.getLong(c.getColumnIndex(Media.ARTIST_ID)));
-            assertEquals(Audio2.COMPOSER, c.getString(c.getColumnIndex(Media.COMPOSER)));
-            assertEquals(Audio2.DURATION, c.getLong(c.getColumnIndex(Media.DURATION)));
-            assertEquals(Audio2.IS_ALARM, c.getInt(c.getColumnIndex(Media.IS_ALARM)));
-            assertEquals(Audio2.IS_MUSIC, c.getInt(c.getColumnIndex(Media.IS_MUSIC)));
-            assertEquals(Audio2.IS_NOTIFICATION,
-                    c.getInt(c.getColumnIndex(Media.IS_NOTIFICATION)));
-            assertEquals(Audio2.IS_RINGTONE, c.getInt(c.getColumnIndex(Media.IS_RINGTONE)));
-            assertEquals(Audio2.TRACK, c.getInt(c.getColumnIndex(Media.TRACK)));
-            assertEquals(Audio2.YEAR, c.getInt(c.getColumnIndex(Media.YEAR)));
-            assertTrue(titleKey.equals(c.getString(c.getColumnIndex(Media.TITLE_KEY))));
-            c.close();
-
             // test filtering
-            Uri baseUri = isInternal ? Media.INTERNAL_CONTENT_URI : Media.EXTERNAL_CONTENT_URI;
+            Uri baseUri = Media.getContentUri(mVolumeName);
             Uri filterUri = baseUri.buildUpon()
-                .appendQueryParameter("filter", Audio2.ARTIST).build();
+                .appendQueryParameter("filter", Audio1.ARTIST).build();
             c = mContentResolver.query(filterUri, null, null, null, null);
             assertEquals(1, c.getCount());
             c.moveToFirst();
@@ -182,5 +163,40 @@ public class MediaStore_Audio_MediaTest extends InstrumentationTestCase {
             int result = mContentResolver.delete(uri, null, null);
             assertEquals(1, result);
         }
+    }
+
+    @Test
+    public void testCanonicalize() throws Exception {
+        // Remove all audio left over from other tests
+        ProviderTestUtils.executeShellCommand(
+                "content delete --uri " + mExternalAudio,
+                InstrumentationRegistry.getInstrumentation().getUiAutomation());
+
+        // Publish some content
+        final File dir = ProviderTestUtils.stageDir(mVolumeName);
+        final Uri a = ProviderTestUtils.scanFileFromShell(
+                ProviderTestUtils.stageFile(R.raw.testmp3_2, new File(dir, "a.mp3")));
+        final Uri b = ProviderTestUtils.scanFileFromShell(
+                ProviderTestUtils.stageFile(R.raw.testmp3, new File(dir, "b.mp3")));
+        final Uri c = ProviderTestUtils.scanFileFromShell(
+                ProviderTestUtils.stageFile(R.raw.testmp3_2, new File(dir, "c.mp3")));
+
+        // Confirm we can canonicalize and recover it
+        final Uri canonicalized = mContentResolver.canonicalize(b);
+        assertNotNull(canonicalized);
+        assertEquals(b, mContentResolver.uncanonicalize(canonicalized));
+
+        // Delete all items above
+        mContentResolver.delete(a, null, null);
+        mContentResolver.delete(b, null, null);
+        mContentResolver.delete(c, null, null);
+
+        // Confirm canonical item isn't found
+        assertNull(mContentResolver.uncanonicalize(canonicalized));
+
+        // Publish data again and confirm we can recover it
+        final Uri d = ProviderTestUtils.scanFileFromShell(
+                ProviderTestUtils.stageFile(R.raw.testmp3, new File(dir, "d.mp3")));
+        assertEquals(d, mContentResolver.uncanonicalize(canonicalized));
     }
 }

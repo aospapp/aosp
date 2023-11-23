@@ -22,15 +22,17 @@ limitations under the License.
 
 #include "third_party/eigen3/Eigen/Core"
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
+
 #include "tensorflow/core/kernels/segment_reduction_ops.h"
 #include <vector>
+
+#include "tensorflow/core/framework/bounds_check.h"
 #include "tensorflow/core/framework/numeric_op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/framework/types.h"
-#include "tensorflow/core/kernels/bounds_check.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/util/util.h"
@@ -40,7 +42,7 @@ limitations under the License.
 #include "tensorflow/core/kernels/cuda_solvers.h"
 #include "tensorflow/core/platform/cuda.h"
 
-using ::perftools::gputools::cuda::ScopedActivateExecutorContext;
+using stream_executor::cuda::ScopedActivateExecutorContext;
 #endif  // GOOGLE_CUDA
 
 namespace tensorflow {
@@ -242,7 +244,7 @@ class SegmentSumGPUOp : public AsyncOpKernel {
       return;
     }
 
-    perftools::gputools::DeviceMemoryBase output_rows_device(
+    se::DeviceMemoryBase output_rows_device(
         const_cast<Tensor&>(segment_ids).template flat<Index>().data() +
         (num_indices - 1));
     ScratchSpace<Index> output_rows_host(context, 1, /* on_host */ true);
@@ -320,7 +322,9 @@ class SegmentSumGPUOp : public AsyncOpKernel {
   REGISTER_CPU_KERNEL_SEGMENT("SegmentSum", Eigen::internal::SumReducer<type>, \
                               type, index_type, 0);                            \
   REGISTER_CPU_KERNEL_SEGMENT(                                                 \
-      "SegmentProd", Eigen::internal::ProdReducer<type>, type, index_type, 1)
+      "SegmentMean", Eigen::internal::MeanReducer<type>, type, index_type, 0); \
+  REGISTER_CPU_KERNEL_SEGMENT(                                                 \
+      "SegmentProd", Eigen::internal::ProdReducer<type>, type, index_type, 1);
 
 #define REGISTER_REAL_CPU_KERNELS_ALL(type) \
   REGISTER_REAL_CPU_KERNELS(type, int32);   \
@@ -679,7 +683,12 @@ class SparseSegmentReductionOpBase : public OpKernel {
     // we need to explicitly set missing indices to the default value.
     Tensor* output = nullptr;
     OP_REQUIRES_OK(context, context->allocate_output(0, output_shape, &output));
-    if (num_indices == 0) return;
+    if (num_indices == 0) {
+      if (output_rows > 0) {
+        output->flat_outer_dims<T>().setConstant(default_value_);
+      }
+      return;
+    }
     OP_REQUIRES(context, output_rows > 0,
                 errors::InvalidArgument("segment ids must be >= 0"));
     auto output_flat = output->flat_outer_dims<T>();

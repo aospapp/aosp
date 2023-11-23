@@ -38,6 +38,7 @@ public class CompatibilityBuildHelperTest extends TestCase {
     private static final String BASE_DIR_NAME = "android-tests";
     private static final String TESTCASES = "testcases";
     private static final String COMMAND_LINE_ARGS = "cts -m CtsModuleTestCases";
+    private static final String BUSINESS_LOGIC_HOST_FILE = "BUSINESS_LOGIC_HOST_FILE";
 
     private File mRoot = null;
     private File mBase = null;
@@ -212,6 +213,159 @@ public class CompatibilityBuildHelperTest extends TestCase {
             }
         } finally {
             FileUtil.deleteFile(tmpDynamicFile);
+        }
+    }
+
+    /**
+     * Test setting business logic host file. When sharding, the contents are the same.
+     */
+    public void testSetBusinessLogicHostFile() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        FileUtil.writeToFile("test string", tmpBLFile);
+        try {
+            mHelper.setBusinessLogicHostFile(tmpBLFile);
+            File currentBLFile = mHelper.getBusinessLogicHostFile();
+            assertNotNull(currentBLFile);
+            assertEquals(tmpBLFile, currentBLFile);
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                File newBLFile = helperShard.getBusinessLogicHostFile();
+                assertNotNull(newBLFile);
+                // content has also followed.
+                assertEquals("test string", FileUtil.readStringFromFile(newBLFile));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
+        }
+    }
+
+    /**
+     * Test setting business logic host file with name. When sharding, the contents are the same.
+     */
+    public void testSetBusinessLogicHostFileWithModuleId() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        FileUtil.writeToFile("test string", tmpBLFile);
+        try {
+            String moduleId = "64MODULE1";
+            mHelper.setBusinessLogicHostFile(tmpBLFile, moduleId);
+            File currentBLFile = mHelper.getBusinessLogicHostFile(moduleId);
+            assertNotNull(currentBLFile);
+            assertEquals(tmpBLFile, currentBLFile);
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                File newBLFile = helperShard.getBusinessLogicHostFile(moduleId);
+                assertNotNull(newBLFile);
+                // content has also followed.
+                assertEquals("test string", FileUtil.readStringFromFile(newBLFile));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
+        }
+    }
+
+    /**
+     * Test checking business logic host file. When sharding, files still exist.
+     */
+    public void testHasBusinessLogicHostFile() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        try {
+            mBuild.setFile(BUSINESS_LOGIC_HOST_FILE, tmpBLFile, tmpBLFile.getName());
+            assertTrue(mHelper.hasBusinessLogicHostFile());
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                assertTrue(helperShard.hasBusinessLogicHostFile());
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
+        }
+    }
+
+    /**
+     * Test checking business logic host file with name. When sharding, files still exist.
+     */
+    public void testHasBusinessLogicHostFileModuleId() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        try {
+            String moduleId = "64MODULE1";
+            mBuild.setFile(BUSINESS_LOGIC_HOST_FILE + moduleId, tmpBLFile, tmpBLFile.getName());
+            assertTrue(mHelper.hasBusinessLogicHostFile(moduleId));
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                assertTrue(helperShard.hasBusinessLogicHostFile(moduleId));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
+        }
+    }
+
+    /**
+     * Test getting business logic host file. When sharding, the contents are the same.
+     */
+    public void testGetBusinessLogicHostFile() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        FileUtil.writeToFile("test string", tmpBLFile);
+        try {
+            mBuild.setFile(BUSINESS_LOGIC_HOST_FILE, tmpBLFile, tmpBLFile.getName());
+            File currentBLFile = mHelper.getBusinessLogicHostFile();
+            assertNotNull(currentBLFile);
+            assertEquals(tmpBLFile, currentBLFile);
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                File newBLFile = helperShard.getBusinessLogicHostFile();
+                assertNotNull(newBLFile);
+                // content has also followed.
+                assertEquals("test string", FileUtil.readStringFromFile(newBLFile));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
+        }
+    }
+
+    /**
+     * Test getting business logic host file with name. When sharding, the contents are the same.
+     */
+    public void testGetBusinessLogicHostFileWithModuleId() throws Exception {
+        File tmpBLFile = FileUtil.createTempFile("businesslogic-test-file", ".bl");
+        FileUtil.writeToFile("test string", tmpBLFile);
+        try {
+            String moduleId = "64MODULE1";
+            mBuild.setFile(BUSINESS_LOGIC_HOST_FILE + moduleId, tmpBLFile, tmpBLFile.getName());
+            File currentBLFile = mHelper.getBusinessLogicHostFile(moduleId);
+            assertNotNull(currentBLFile);
+            assertEquals(tmpBLFile, currentBLFile);
+            // In case of sharding the underlying build info will be cloned, and old build cleaned.
+            IBuildInfo clone = mBuild.clone();
+            try {
+                CompatibilityBuildHelper helperShard = new CompatibilityBuildHelper(clone);
+                File newBLFile = helperShard.getBusinessLogicHostFile(moduleId);
+                assertNotNull(newBLFile);
+                // content has also followed.
+                assertEquals("test string", FileUtil.readStringFromFile(newBLFile));
+            } finally {
+                clone.cleanUp();
+            }
+        } finally {
+            FileUtil.deleteFile(tmpBLFile);
         }
     }
 

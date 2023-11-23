@@ -26,6 +26,7 @@ import android.content.pm.ShortcutInfo;
 import android.content.pm.cts.shortcut.device.common.ShortcutManagerDeviceTestBase;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.test.suitebuilder.annotation.Suppress;
 
 import java.util.List;
 
@@ -96,6 +97,7 @@ public class ShortcutManagerManagedUserTest extends ShortcutManagerDeviceTestBas
                 userOther);
     }
 
+    @Suppress // Having a launcher on managed profile is not supported, so don't run.
     public void test05_getAndLaunch_managed() {
         Launcher.setAsDefaultLauncher(getInstrumentation(), getContext());
 

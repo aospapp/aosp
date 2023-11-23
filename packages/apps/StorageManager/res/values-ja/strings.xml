@@ -36,10 +36,10 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"空き容量を増やす"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"端末から <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 削除します"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"デバイスから <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> のコンテンツを削除します"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"空き容量を増やす"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"ストレージの自動管理"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> を解放しました。ストレージ マネージャはお使いの端末からバックアップ コンテンツを削除して空き容量を自動的に増やします。ストレージ マネージャを有効にしますか？"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> を解放しました。ストレージ マネージャはお使いのデバイスからバックアップ コンテンツを削除して空き容量を自動的に増やします。ストレージ マネージャを有効にしますか？"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"利用しない"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"有効にする"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"ほとんど使われないアプリ"</string>
@@ -58,9 +58,9 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"アイテムを探しています…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"すべてのアイテムを表示"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"最近のアイテムを非表示"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"端末から <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 削除します"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"デバイスから <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> のコンテンツを削除します"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"お使いのストレージの管理はストレージ マネージャが行うようになりました"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"削除できるものがない"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"削除できるアイテムなし"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"最近のアイテムを確認"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"削除できる古いファイルはありません。最近の写真、動画、アプリを削除して、空き容量を確保してください。"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"「<xliff:g id="APP">%1$s</xliff:g>」に必要な容量: <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g>"</string>

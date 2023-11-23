@@ -26,13 +26,13 @@
 
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <log/log.h>
 
 #include "nfc_target.h"
 
 #include "bt_types.h"
 #include "ce_api.h"
 #include "ce_int.h"
-#include "trace_api.h"
 
 using android::base::StringPrintf;
 
@@ -136,7 +136,7 @@ NFC_HDR* ce_t3t_get_rsp_buf(void) {
   NFC_HDR* p_cmd_buf;
 
   p_cmd_buf = (NFC_HDR*)GKI_getpoolbuf(NFC_CE_POOL_ID);
-  if (p_cmd_buf != NULL) {
+  if (p_cmd_buf != nullptr) {
     /* Reserve offset for NCI_DATA_HDR and NFC-F Sod (LEN) field */
     p_cmd_buf->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE + 1;
     p_cmd_buf->len = 0;
@@ -161,12 +161,12 @@ void ce_t3t_send_rsp(tCE_CB* p_ce_cb, uint8_t* p_nfcid2, uint8_t opcode,
   uint8_t *p_dst, *p_rsp_start;
 
   /* If p_nfcid2 is NULL, then used activated NFCID2 */
-  if (p_nfcid2 == NULL) {
+  if (p_nfcid2 == nullptr) {
     p_nfcid2 = p_cb->local_nfcid2;
   }
 
   p_rsp_msg = ce_t3t_get_rsp_buf();
-  if (p_rsp_msg != NULL) {
+  if (p_rsp_msg != nullptr) {
     p_dst = p_rsp_start = (uint8_t*)(p_rsp_msg + 1) + p_rsp_msg->offset;
 
     /* Response Code */
@@ -325,10 +325,10 @@ void ce_t3t_handle_update_cmd(tCE_CB* p_ce_cb, NFC_HDR* p_cmd_msg) {
 
   /* Send appropriate response to reader/writer */
   if (nfc_status == NFC_STATUS_OK) {
-    ce_t3t_send_rsp(p_ce_cb, NULL, T3T_MSG_OPC_UPDATE_RSP,
+    ce_t3t_send_rsp(p_ce_cb, nullptr, T3T_MSG_OPC_UPDATE_RSP,
                     T3T_MSG_RSP_STATUS_OK, T3T_MSG_RSP_STATUS_OK);
   } else {
-    ce_t3t_send_rsp(p_ce_cb, NULL, T3T_MSG_OPC_UPDATE_RSP,
+    ce_t3t_send_rsp(p_ce_cb, nullptr, T3T_MSG_OPC_UPDATE_RSP,
                     T3T_MSG_RSP_STATUS_ERROR, T3T_MSG_RSP_STATUS2_ERROR_MEMORY);
     p_cb->state = CE_T3T_STATE_IDLE;
   }
@@ -336,12 +336,12 @@ void ce_t3t_handle_update_cmd(tCE_CB* p_ce_cb, NFC_HDR* p_cmd_msg) {
   /* Notify the app of what got updated */
   if (update_flags & CE_T3T_UPDATE_FL_NDEF_UPDATE_START) {
     /* NDEF attribute got updated with WriteF=TRUE */
-    p_ce_cb->p_cback(CE_T3T_NDEF_UPDATE_START_EVT, NULL);
+    p_ce_cb->p_cback(CE_T3T_NDEF_UPDATE_START_EVT, nullptr);
   }
 
   if (update_flags & CE_T3T_UPDATE_FL_UPDATE) {
     /* UPDATE message contained at least one non-NDEF block */
-    p_ce_cb->p_cback(CE_T3T_UPDATE_EVT, NULL);
+    p_ce_cb->p_cback(CE_T3T_UPDATE_EVT, nullptr);
   }
 
   if (update_flags & CE_T3T_UPDATE_FL_NDEF_UPDATE_CPLT) {
@@ -378,7 +378,7 @@ void ce_t3t_handle_check_cmd(tCE_CB* p_ce_cb, NFC_HDR* p_cmd_msg) {
   uint16_t block_number, service_code, checksum;
 
   p_rsp_msg = ce_t3t_get_rsp_buf();
-  if (p_rsp_msg != NULL) {
+  if (p_rsp_msg != nullptr) {
     p_dst = p_rsp_start = (uint8_t*)(p_rsp_msg + 1) + p_rsp_msg->offset;
 
     /* Response Code */
@@ -449,8 +449,8 @@ void ce_t3t_handle_check_cmd(tCE_CB* p_ce_cb, NFC_HDR* p_cmd_msg) {
           UINT16_TO_BE_STREAM(p_dst, (ndef_len & 0xFFFF));
 
           checksum = 0;
-          for (i = 0; i < T3T_MSG_NDEF_ATTR_INFO_SIZE; i++) {
-            checksum += p_temp[i];
+          for (int j = 0; j < T3T_MSG_NDEF_ATTR_INFO_SIZE; j++) {
+            checksum += p_temp[j];
           }
           UINT16_TO_BE_STREAM(p_dst, checksum);
         } else {
@@ -527,11 +527,17 @@ void ce_t3t_handle_non_nfc_forum_cmd(tCE_CB* p_mem_cb, uint8_t cmd_id,
   bool send_response = true;
 
   p_rsp_msg = ce_t3t_get_rsp_buf();
-  if (p_rsp_msg != NULL) {
+  if (p_rsp_msg != nullptr) {
     p_dst = p_rsp_start = (uint8_t*)(p_rsp_msg + 1) + p_rsp_msg->offset;
 
     switch (cmd_id) {
       case T3T_MSG_OPC_POLL_CMD:
+        if (p_cmd_msg->len < 5) {
+          LOG(ERROR) << "Received invalid T3t message";
+          android_errorWriteLog(0x534e4554, "121150966");
+          send_response = false;
+          break;
+        }
         /* Get system code and RC */
         /* Skip over sod and cmd_id */
         p += 2;
@@ -620,7 +626,7 @@ void ce_t3t_data_cback(tNFC_DATA_CEVT* p_data) {
   NFC_HDR* p_msg = p_data->p_data;
   tCE_DATA ce_data;
   uint8_t cmd_id, bl0, entry_len, i;
-  uint8_t* p_nfcid2 = NULL;
+  uint8_t* p_nfcid2 = nullptr;
   uint8_t* p = (uint8_t*)(p_msg + 1) + p_msg->offset;
   uint8_t cmd_nfcid2[NCI_RF_F_UID_LEN];
   uint16_t block_list_start_offset, remaining;
@@ -667,95 +673,106 @@ void ce_t3t_data_cback(tNFC_DATA_CEVT* p_data) {
         STREAM_TO_ARRAY(cmd_nfcid2, p, NCI_RF_F_UID_LEN);
         STREAM_TO_UINT8(p_cb->cur_cmd.num_services, p);
 
-        /* Calculate offset of block-list-start */
-        block_list_start_offset =
-            T3T_MSG_CMD_COMMON_HDR_LEN + 2 * p_cb->cur_cmd.num_services + 1;
-
-        if (p_cb->state == CE_T3T_STATE_NOT_ACTIVATED) {
+        /* Validate num_services */
+        if (p_cb->cur_cmd.num_services > T3T_MSG_SERVICE_LIST_MAX) {
           LOG(ERROR) << StringPrintf(
-              "CE: received command 0x%02X while in bad state (%i))", cmd_id,
-              p_cb->state);
-        } else if (memcmp(cmd_nfcid2, p_cb->local_nfcid2, NCI_RF_F_UID_LEN) !=
-                   0) {
-          LOG(ERROR) << StringPrintf(
-              "CE: received invalid T3t message (invalid NFCID2)");
-          p_nfcid2 = cmd_nfcid2; /* respond with ERROR using the NFCID2 from the
-                                    command message */
-        } else if (p_msg->len < block_list_start_offset) {
-          /* Does not have minimum (including number_of_blocks field) */
-          LOG(ERROR) << StringPrintf("CE: incomplete message");
+              "CE: recieved num_services (%i) exceeds maximum (%i)",
+              p_cb->cur_cmd.num_services, T3T_MSG_SERVICE_LIST_MAX);
         } else {
-          /* Parse service code list */
-          for (i = 0; i < p_cb->cur_cmd.num_services; i++) {
-            STREAM_TO_UINT16(p_cb->cur_cmd.service_code_list[i], p);
-          }
+          /* Calculate offset of block-list-start */
+          block_list_start_offset =
+              T3T_MSG_CMD_COMMON_HDR_LEN + 2 * p_cb->cur_cmd.num_services + 1;
 
-          /* Verify that block list */
-          block_list_ok = true;
-          STREAM_TO_UINT8(p_cb->cur_cmd.num_blocks, p);
-          remaining = p_msg->len - block_list_start_offset;
-          p_cb->cur_cmd.p_block_list_start = p;
-          for (i = 0; i < p_cb->cur_cmd.num_blocks; i++) {
-            /* Each entry is at lease 2 bytes long */
-            if (remaining < 2) {
-              /* Unexpected end of message (while reading block-list) */
-              LOG(ERROR) << StringPrintf(
-                  "CE: received invalid T3t message (unexpected end of "
-                  "block-list)");
-              block_list_ok = false;
-              break;
+          if (p_cb->state == CE_T3T_STATE_NOT_ACTIVATED) {
+            LOG(ERROR) << StringPrintf(
+                "CE: received command 0x%02X while in bad state (%i))", cmd_id,
+                p_cb->state);
+          } else if (memcmp(cmd_nfcid2, p_cb->local_nfcid2, NCI_RF_F_UID_LEN) !=
+                     0) {
+            LOG(ERROR) << StringPrintf(
+                "CE: received invalid T3t message (invalid NFCID2)");
+            p_nfcid2 =
+                cmd_nfcid2; /* respond with ERROR using the NFCID2 from the
+                               command message */
+          } else if (p_msg->len < block_list_start_offset) {
+            /* Does not have minimum (including number_of_blocks field) */
+            LOG(ERROR) << StringPrintf("CE: incomplete message");
+          } else {
+            /* Parse service code list */
+            for (i = 0; i < p_cb->cur_cmd.num_services; i++) {
+              STREAM_TO_UINT16(p_cb->cur_cmd.service_code_list[i], p);
             }
 
-            /* Get byte0 of block-list entry */
-            bl0 = *p;
-
-            /* Validate service code index and size of block-list */
-            if ((bl0 & T3T_MSG_SERVICE_LIST_MASK) >=
-                p_cb->cur_cmd.num_services) {
-              /* Invalid service code */
-              LOG(ERROR) << StringPrintf(
-                  "CE: received invalid T3t message (invalid service index: "
-                  "%i)",
-                  (bl0 & T3T_MSG_SERVICE_LIST_MASK));
-              block_list_ok = false;
-              break;
-            } else if ((!(bl0 & T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT)) &&
-                       (remaining < 3)) {
-              /* Unexpected end of message (while reading 3-byte entry) */
-              LOG(ERROR) << StringPrintf(
-                  "CE: received invalid T3t message (unexpected end of "
-                  "block-list)");
-              block_list_ok = false;
-              break;
-            }
-
-            /* Advance pointers to next block-list entry */
-            entry_len = (bl0 & T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT) ? 2 : 3;
-            p += entry_len;
-            remaining -= entry_len;
-          }
-
-          /* Block list is verified. Call CHECK or UPDATE handler */
-          if (block_list_ok) {
-            p_cb->cur_cmd.p_block_data_start = p;
-            if (cmd_id == T3T_MSG_OPC_CHECK_CMD) {
-              /* This is a CHECK command. Sanity check: there shouldn't be any
-               * more data remaining after reading block list */
-              if (remaining) {
+            /* Verify that block list */
+            block_list_ok = true;
+            STREAM_TO_UINT8(p_cb->cur_cmd.num_blocks, p);
+            remaining = p_msg->len - block_list_start_offset;
+            p_cb->cur_cmd.p_block_list_start = p;
+            for (i = 0; i < p_cb->cur_cmd.num_blocks; i++) {
+              /* Each entry is at lease 2 bytes long */
+              if (remaining < 2) {
+                /* Unexpected end of message (while reading block-list) */
                 LOG(ERROR) << StringPrintf(
-                    "CE: unexpected data after after CHECK command (%u bytes)",
-                    (unsigned int)remaining);
+                    "CE: received invalid T3t message (unexpected end of "
+                    "block-list)");
+                block_list_ok = false;
+                break;
               }
-              ce_t3t_handle_check_cmd(p_ce_cb, p_msg);
-              msg_processed = true;
-            } else {
-              /* This is an UPDATE command. See if message contains all the
-               * expected block data */
-              if (remaining < p_cb->cur_cmd.num_blocks * T3T_MSG_BLOCKSIZE) {
-                LOG(ERROR) << StringPrintf("CE: unexpected end of block-data");
-              } else {
-                ce_t3t_handle_update_cmd(p_ce_cb, p_msg);
+
+              /* Get byte0 of block-list entry */
+              bl0 = *p;
+
+              /* Validate service code index and size of block-list */
+              if ((bl0 & T3T_MSG_SERVICE_LIST_MASK) >=
+                  p_cb->cur_cmd.num_services) {
+                /* Invalid service code */
+                LOG(ERROR) << StringPrintf(
+                    "CE: received invalid T3t message (invalid service index: "
+                    "%i)",
+                    (bl0 & T3T_MSG_SERVICE_LIST_MASK));
+                block_list_ok = false;
+                break;
+              } else if ((!(bl0 & T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT)) &&
+                         (remaining < 3)) {
+                /* Unexpected end of message (while reading 3-byte entry) */
+                LOG(ERROR) << StringPrintf(
+                    "CE: received invalid T3t message (unexpected end of "
+                    "block-list)");
+                block_list_ok = false;
+                break;
+              }
+
+              /* Advance pointers to next block-list entry */
+              entry_len =
+                  (bl0 & T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT) ? 2 : 3;
+              p += entry_len;
+              remaining -= entry_len;
+            }
+
+            /* Block list is verified. Call CHECK or UPDATE handler */
+            if (block_list_ok) {
+              p_cb->cur_cmd.p_block_data_start = p;
+              if (cmd_id == T3T_MSG_OPC_CHECK_CMD) {
+                /* This is a CHECK command. Sanity check: there shouldn't be any
+                 * more data remaining after reading block list */
+                if (remaining) {
+                  LOG(ERROR) << StringPrintf(
+                      "CE: unexpected data after after CHECK command (%u "
+                      "bytes)",
+                      (unsigned int)remaining);
+                }
+                ce_t3t_handle_check_cmd(p_ce_cb, p_msg);
                 msg_processed = true;
+              } else {
+                /* This is an UPDATE command. See if message contains all the
+                 * expected block data */
+                if (remaining < p_cb->cur_cmd.num_blocks * T3T_MSG_BLOCKSIZE) {
+                  LOG(ERROR)
+                      << StringPrintf("CE: unexpected end of block-data");
+                } else {
+                  ce_t3t_handle_update_cmd(p_ce_cb, p_msg);
+                  msg_processed = true;
+                }
               }
             }
           }
@@ -804,7 +821,7 @@ void ce_t3t_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
 
     case NFC_DEACTIVATE_CEVT:
       p_cb->state = CE_T3T_STATE_NOT_ACTIVATED;
-      NFC_SetStaticRfCback(NULL);
+      NFC_SetStaticRfCback(nullptr);
       break;
 
     default:
@@ -947,7 +964,7 @@ tNFC_STATUS CE_T3tSendCheckRsp(uint8_t status1, uint8_t status2,
   }
 
   p_rsp_msg = ce_t3t_get_rsp_buf();
-  if (p_rsp_msg != NULL) {
+  if (p_rsp_msg != nullptr) {
     p_dst = p_rsp_start = (uint8_t*)(p_rsp_msg + 1) + p_rsp_msg->offset;
 
     /* Response Code */
@@ -990,7 +1007,7 @@ tNFC_STATUS CE_T3tSendUpdateRsp(uint8_t status1, uint8_t status2) {
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
       "CE_T3tUpdateRsp: status1=0x%02X, status2=0x%02X", status1, status2);
-  ce_t3t_send_rsp(p_ce_cb, NULL, T3T_MSG_OPC_UPDATE_RSP, status1, status2);
+  ce_t3t_send_rsp(p_ce_cb, nullptr, T3T_MSG_OPC_UPDATE_RSP, status1, status2);
 
   return (retval);
 }

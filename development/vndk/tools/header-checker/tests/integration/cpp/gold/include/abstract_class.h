@@ -25,7 +25,7 @@
 #if GOLDEN_ENUM_EXTENSION
 #define LOUD_SUPERLATIVES \
     Loudest = 3, \
-    Lower = 4,\
+    Lower = 0,\
     LouderThanLoudest = 5
 #elif GOLDEN_ENUM_DIFF
 #define LOUD_SUPERLATIVES \
@@ -33,7 +33,7 @@
 #else
 #define LOUD_SUPERLATIVES \
     Loudest = 3, \
-    Lower = 4
+    Lower = 0
 #endif
 
 class SuperSpeaker {
@@ -51,15 +51,15 @@ class SuperSpeaker {
  public:
   VIRTUAL_FUNCTIONS
   Volume SpeakLoud();
-  void SpeakLoudest() { };
-
-  virtual ~SuperSpeaker() { }
+  void SpeakLoudest() {}
+  virtual ~SuperSpeaker() {}
  private:
 #if GOLDEN_CHANGE_MEMBER_NAME_SAME_OFFSET
   int mSpeakderId_;
 #else
   int mSpeakderId;
 #endif
+
 #if GOLDEN_FUNCTION_POINTER
 #if GOLDEN_FUNCTION_POINTER_ADD_PARAM
   SuperSpeaker * (*speaker_fp)(int, char, int);
@@ -67,4 +67,17 @@ class SuperSpeaker {
   SuperSpeaker * (*speaker_fp)(int, char);
 #endif
 #endif
+
+#if GOLDEN_WITH_INTERNAL_STRUCT
+#ifdef GOLDEN_WITH_PUBLIC_INTERNAL_STRUCT
+ public:
+#else
+ private:
+#endif
+  struct InternalStruct {
+    int internal;
+  };
+ private:
+  InternalStruct a;
+#endif  // GOLDEN_WITH_INTERNAL_STRUCT
 };

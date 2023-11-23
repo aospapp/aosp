@@ -110,12 +110,12 @@ int TestPlugIn::onCheckRightsStatus(int uniqueId, const String8& path, int actio
     return rightsStatus;
 }
 
-status_t TestPlugIn::onConsumeRights(int uniqueId, DecryptHandle* decryptHandle,
+status_t TestPlugIn::onConsumeRights(int uniqueId, sp<DecryptHandle>& decryptHandle,
             int action, bool reserve) {
     return DRM_NO_ERROR;
 }
 
-status_t TestPlugIn::onSetPlaybackStatus(int uniqueId, DecryptHandle* decryptHandle,
+status_t TestPlugIn::onSetPlaybackStatus(int uniqueId, sp<DecryptHandle>& decryptHandle,
             int playbackStatus, int64_t position) {
     return DRM_NO_ERROR;
 }
@@ -147,35 +147,35 @@ DrmConvertedStatus* TestPlugIn::onCloseConvertSession(int uniqueId, int convertI
 }
 
 status_t TestPlugIn::onOpenDecryptSession(
-            int uniqueId, DecryptHandle* decryptHandle, int fd, off64_t offset, off64_t length) {
+            int uniqueId, sp<DecryptHandle>& decryptHandle, int fd, off64_t offset, off64_t length) {
     return DRM_ERROR_CANNOT_HANDLE;
 }
 
 status_t TestPlugIn::onOpenDecryptSession(
-            int uniqueId, DecryptHandle* decryptHandle, const char* uri) {
+            int uniqueId, sp<DecryptHandle>& decryptHandle, const char* uri) {
     return DRM_ERROR_CANNOT_HANDLE;
 }
 
-status_t TestPlugIn::onCloseDecryptSession(int uniqueId, DecryptHandle* decryptHandle) {
+status_t TestPlugIn::onCloseDecryptSession(int uniqueId, sp<DecryptHandle>& decryptHandle) {
     return DRM_NO_ERROR;
 }
 
-status_t TestPlugIn::onInitializeDecryptUnit(int uniqueId, DecryptHandle* decryptHandle,
+status_t TestPlugIn::onInitializeDecryptUnit(int uniqueId, sp<DecryptHandle>& decryptHandle,
             int decryptUnitId, const DrmBuffer* headerInfo) {
     return DRM_NO_ERROR;
 }
 
-status_t TestPlugIn::onDecrypt(int uniqueId, DecryptHandle* decryptHandle,
+status_t TestPlugIn::onDecrypt(int uniqueId, sp<DecryptHandle>& decryptHandle,
             int decryptUnitId, const DrmBuffer* encBuffer, DrmBuffer** decBuffer, DrmBuffer* IV) {
     return DRM_NO_ERROR;
 }
 
 status_t TestPlugIn::onFinalizeDecryptUnit(
-            int uniqueId, DecryptHandle* decryptHandle, int decryptUnitId) {
+            int uniqueId, sp<DecryptHandle>& decryptHandle, int decryptUnitId) {
     return DRM_NO_ERROR;
 }
 
-ssize_t TestPlugIn::onPread(int uniqueId, DecryptHandle* decryptHandle,
+ssize_t TestPlugIn::onPread(int uniqueId, sp<DecryptHandle>& decryptHandle,
             void* buffer, ssize_t numBytes, off64_t offset) {
     return 0;
 }

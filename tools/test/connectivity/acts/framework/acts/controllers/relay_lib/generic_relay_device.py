@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -14,8 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from acts.controllers.relay_lib.relay_device import RelayDevice
+from acts.controllers.relay_lib.errors import RelayConfigError
 from acts.controllers.relay_lib.relay import SynchronizeRelays
+from acts.controllers.relay_lib.relay_device import RelayDevice
+
+MISSING_RELAY_MSG = 'Relay config for %s device "%s" missing relay "%s".'
 
 
 class GenericRelayDevice(RelayDevice):
@@ -28,6 +31,20 @@ class GenericRelayDevice(RelayDevice):
 
     def __init__(self, config, relay_rig):
         RelayDevice.__init__(self, config, relay_rig)
+
+    def _ensure_config_contains_relays(self, relay_names):
+        for relay_name in relay_names:
+            self._ensure_config_contains_relay(relay_name)
+
+    def _ensure_config_contains_relay(self, relay_name):
+        """Throws an error if the relay does not exist."""
+        if relay_name not in self.relays:
+            raise RelayConfigError(MISSING_RELAY_MSG % (self.__class__.__name__,
+                                                        self.name, relay_name))
+
+    def get_button_names(self):
+        """Returns the list of all button names."""
+        return list(self.relays.keys())
 
     def setup(self):
         """Sets all relays to their default state (off)."""
@@ -43,13 +60,29 @@ class GenericRelayDevice(RelayDevice):
                     relay.set_no()
 
     def press(self, button_name):
-        """Presses the button with name 'button_name'."""
+        """Presses the button for a short period of time.
+
+        Args:
+            button_name: the name of the button to press.
+        """
         self.relays[button_name].set_nc_for()
 
     def hold_down(self, button_name):
-        """Holds down the button with name 'button_name'."""
+        """Holds down the button until release is called.
+
+        If the button is already being held, the state does not change.
+
+        Args:
+            button_name: the name of the button to hold down.
+        """
         self.relays[button_name].set_nc()
 
     def release(self, button_name):
-        """Releases the held down button with name 'button_name'."""
+        """Releases the held down button with name 'button_name'.
+
+        If the button is already depressed, the state does not change.
+
+        Args:
+            button_name: the name of the button to release.
+        """
         self.relays[button_name].set_no()

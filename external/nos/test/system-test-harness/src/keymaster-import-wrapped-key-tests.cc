@@ -8,7 +8,6 @@
 #include "Keymaster.client.h"
 #include "util.h"
 
-#include "src/blob.h"
 #include "src/macros.h"
 #include "src/test-data/test-keys/rsa.h"
 
@@ -52,6 +51,7 @@ void ImportWrappedKeyTest::SetUpTestCase() {
 
   // Do setup that is normally done by the bootloader.
   keymaster_tools::SetRootOfTrust(client.get());
+  keymaster_tools::SetBootState(client.get());
 }
 
 void ImportWrappedKeyTest::TearDownTestCase() {
@@ -193,41 +193,58 @@ static uint8_t wrapping_key_D[] = {
   0xb6, 0x47, 0x14, 0x43
 };
 
+#if 0
+/* Left here for reference. */
 const uint8_t IMPORTED_KEY[32] = {
   0x8a, 0x28, 0xf1, 0xa8, 0xb8, 0x93, 0x8a, 0x2c, 0x1f, 0x35, 0x72, 0xb0,
   0x4c, 0x48, 0xd5, 0xdf, 0x52, 0x28, 0x1e, 0xe2, 0x11, 0xad, 0x73, 0xf7,
   0x7f, 0x97, 0x04, 0xe6, 0x79, 0x29, 0xff, 0xcf
 };
+#endif
 
 TEST_F(ImportWrappedKeyTest, ImportSuccess) {
+
+  ImportKeyRequest importRequest;
+  ImportKeyResponse importResponse;
+
+  KeyParameters *params = importRequest.mutable_params();
+
+  KeyParameter *param = params->add_params();
+  param->set_tag(Tag::ALGORITHM);
+  param->set_integer((uint32_t)Algorithm::RSA);
+
+  param = params->add_params();
+  param->set_tag(Tag::RSA_PUBLIC_EXPONENT);
+  param->set_long_integer(65537);
+
+  param = params->add_params();
+  param->set_tag(Tag::PURPOSE);
+  param->set_integer((uint32_t)KeyPurpose::WRAP_KEY);
+
+  param = params->add_params();
+  param->set_tag(Tag::PADDING);
+  param->set_integer((uint32_t)PaddingMode::PADDING_RSA_OAEP);
+
+  param = params->add_params();
+  param->set_tag(Tag::KEY_SIZE);
+  param->set_integer(2048);
+
+  importRequest.mutable_rsa()->set_e(65537);
+  importRequest.mutable_rsa()->set_d(
+      string((const char *)wrapping_key_D, sizeof(wrapping_key_D)));
+  importRequest.mutable_rsa()->set_n(
+      string((const char *)wrapping_key_N, sizeof(wrapping_key_N)));
+
+  ASSERT_NO_ERROR(service->ImportKey(importRequest, &importResponse), "");
+  ASSERT_EQ((ErrorCode)importResponse.error_code(), ErrorCode::OK);
+
   ImportWrappedKeyRequest request;
   ImportKeyResponse response;
   const uint8_t masking_key[32] = {};
-  struct km_blob blob;
-
-  /* TODO: do key generation via rpc. */
-  memset(&blob, 0, sizeof(blob));
-  blob.b.algorithm = BLOB_RSA;
-  blob.b.key.rsa.rsa.e = 65537;
-  blob.b.key.rsa.rsa.N.dmax = sizeof(wrapping_key_N) / sizeof(uint32_t);
-  blob.b.key.rsa.rsa.d.dmax = sizeof(wrapping_key_D) / sizeof(uint32_t);
-
-  memcpy(&blob.b.key.rsa.N_bytes, wrapping_key_N, sizeof(wrapping_key_N));
-  memcpy(&blob.b.key.rsa.d_bytes, wrapping_key_D, sizeof(wrapping_key_D));
-
-  blob.b.tee_enforced.params[0].tag = Tag::PADDING;
-  blob.b.tee_enforced.params[0].integer = PaddingMode::PADDING_RSA_OAEP;
-  blob.b.tee_enforced.params_count++;
-  blob.b.tee_enforced.params[1].tag = Tag::PURPOSE;
-  blob.b.tee_enforced.params[1].integer = KeyPurpose::WRAP_KEY;
-  blob.b.tee_enforced.params_count++;
-  SHA256(reinterpret_cast<const uint8_t *>(&blob),
-         sizeof(struct km_blob) - SHA256_DIGEST_LENGTH,
-         reinterpret_cast<uint8_t *>(&blob.hmac));
 
   request.set_key_format(KeyFormat::RAW);
-  KeyParameters *params = request.mutable_params();
-  KeyParameter *param = params->add_params();
+  params = request.mutable_params();
+  param = params->add_params();
   param->set_tag(Tag::ALGORITHM);
   param->set_integer((uint32_t)Algorithm::AES);
 
@@ -238,18 +255,13 @@ TEST_F(ImportWrappedKeyTest, ImportSuccess) {
                                     sizeof(ENCRYPTED_IMPORT_KEY));
   request.set_aad(AAD, sizeof(AAD));
   request.set_gcm_tag(GCM_TAG, sizeof(GCM_TAG));
-  request.mutable_wrapping_key_blob()->set_blob(&blob, sizeof(blob));
+  request.mutable_wrapping_key_blob()->set_blob(importResponse.blob().blob());
   request.set_masking_key(masking_key, sizeof(masking_key));
 
   ASSERT_NO_ERROR(service->ImportWrappedKey(request, &response), "");
   EXPECT_EQ((ErrorCode)response.error_code(), ErrorCode::OK);
 
-  EXPECT_EQ(sizeof(struct km_blob), response.blob().blob().size());
-  const struct km_blob *response_blob =
-      (const struct km_blob *)response.blob().blob().data();
-  EXPECT_EQ(response_blob->b.key.sym.key_bits >> 3, sizeof(IMPORTED_KEY));
-  EXPECT_EQ(memcmp(response_blob->b.key.sym.bytes, IMPORTED_KEY,
-                   sizeof(IMPORTED_KEY)), 0);
+  /* TODO: use the imported key for something. */
 }
 
 } // namespace

@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Pintu terbuka"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Macet"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Sertifikat buruk"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Tidak dienkripsi"</string>
     <string name="printer_check" msgid="6428369671197132828">"Periksa printer"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Menunggu untuk mengirim"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Tidak dapat membaca dokumen"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printer tidak didukung"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Langsung"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Temukan printer Wi-Fi Langsung"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Pencetakan Wi-Fi Langsung"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Printer Wi-Fi Langsung"</string>
     <string name="searching" msgid="2114018057619514587">"Menelusuri…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Anda mungkin perlu menyetujui sambungan ini pada panel depan printer"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Lupakan"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Menghubungkan melalui Wi-Fi Langsung"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Menghubungkan melalui jaringan saat ini di <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Keamanan"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Printer ini menyediakan sertifikat keamanan baru, atau perangkat lain sedang meniru identitasnya. Setujui sertifikat baru?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Printer ini tidak menerima pekerjaan yang terenkripsi lagi. Lanjutkan mencetak?"</string>
+    <string name="accept" msgid="4426153292469698134">"Setuju"</string>
+    <string name="reject" msgid="24751635160440693">"Tolak"</string>
+    <string name="connections" msgid="8895413761760117180">"Koneksi"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Layanan Cetakan Default memerlukan izin akses lokasi untuk menemukan perangkat di sekitar."</string>
+    <string name="fix" msgid="7784394272611365393">"Tinjau izin"</string>
 </resources>

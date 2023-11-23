@@ -34,7 +34,7 @@
 #include <cstring>
 
 using namespace glw;
-using namespace deqp::RobustBufferAccessBehavior;
+using namespace glcts::RobustBufferAccessBehavior;
 
 namespace glcts
 {
@@ -103,16 +103,6 @@ public:
 		if (!robustContext.get())
 			return STOP;
 
-		PFNGLGETGRAPHICSRESETSTATUS pGetGraphicsResetStatus =
-			(PFNGLGETGRAPHICSRESETSTATUS)robustContext->getProcAddress("glGetGraphicsResetStatus");
-
-		if (DE_NULL == pGetGraphicsResetStatus)
-		{
-			m_testCtx.setTestResult(QP_TEST_RESULT_INTERNAL_ERROR,
-									"Pointer to function glGetGraphicsResetStatus is NULL.");
-			return STOP;
-		}
-
 		glw::GLint reset = 0;
 
 		const glw::Functions& gl = robustContext->getFunctions();
@@ -128,7 +118,7 @@ public:
 			return STOP;
 		}
 
-		glw::GLint status = pGetGraphicsResetStatus();
+		glw::GLint status = gl.getGraphicsResetStatus();
 		if (status != GL_NO_ERROR)
 		{
 			m_testCtx.getLog() << tcu::TestLog::Message
@@ -253,26 +243,7 @@ tcu::TestNode::IterateResult GetnUniformTest::iterate()
 	if (!context.get())
 		return STOP;
 
-	/* GL funtion pointers. */
-	typedef void(GLW_APIENTRY * PFNGLGETNUNIFORMFV)(glw::GLuint program, glw::GLint location, glw::GLsizei bufSize,
-													glw::GLfloat * params);
-	typedef void(GLW_APIENTRY * PFNGLGETNUNIFORMIV)(glw::GLuint program, glw::GLint location, glw::GLsizei bufSize,
-													glw::GLint * params);
-	typedef void(GLW_APIENTRY * PFNGLGETNUNIFORMUIV)(glw::GLuint program, glw::GLint location, glw::GLsizei bufSize,
-													 glw::GLuint * params);
-
-	/* Function pointers need to be grabbed only for GL4.5 but it is done also for ES for consistency */
-	glu::RenderContext& renderContext   = context->getRenderContext();
-	PFNGLGETNUNIFORMFV  pGetnUniformfv  = (PFNGLGETNUNIFORMFV)renderContext.getProcAddress("glGetnUniformfv");
-	PFNGLGETNUNIFORMIV  pGetnUniformiv  = (PFNGLGETNUNIFORMIV)renderContext.getProcAddress("glGetnUniformiv");
-	PFNGLGETNUNIFORMUIV pGetnUniformuiv = (PFNGLGETNUNIFORMUIV)renderContext.getProcAddress("glGetnUniformuiv");
-
-	if ((DE_NULL == pGetnUniformfv) || (DE_NULL == pGetnUniformiv) || (DE_NULL == pGetnUniformuiv))
-	{
-		m_testCtx.setTestResult(QP_TEST_RESULT_INTERNAL_ERROR, "Pointer to function glGetnUniform* is NULL.");
-		return STOP;
-	}
-
+	glu::RenderContext& renderContext = context->getRenderContext();
 	const Functions& gl = renderContext.getFunctions();
 
 	const GLfloat input4f[]  = { 1.0f, 5.4f, 3.14159f, 1.28f };
@@ -283,7 +254,7 @@ tcu::TestNode::IterateResult GetnUniformTest::iterate()
 	bool test_result = true;
 
 	/* Iterate over all cases */
-	Program program(*context);
+	Program program(gl);
 
 	/* Compute Shader */
 	bool			   glslES320 = contextSupports(renderContext.getType(), glu::ApiType::es(3, 2));
@@ -293,19 +264,17 @@ tcu::TestNode::IterateResult GetnUniformTest::iterate()
 	program.Init(cs /* cs */, "" /* fs */, "" /* gs */, "" /* tcs */, "" /* tes */, "" /* vs */);
 	program.Use();
 
-	/* For gl4.5 use shader storage buffer */
+	/* Initialize shader storage buffer */
 	GLuint buf;
-	if (!glslES320)
-	{
-		gl.genBuffers(1, &buf);
-		GLU_EXPECT_NO_ERROR(gl.getError(), "GenBuffers");
 
-		gl.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buf);
-		GLU_EXPECT_NO_ERROR(gl.getError(), "BindBufferBase");
+	gl.genBuffers(1, &buf);
+	GLU_EXPECT_NO_ERROR(gl.getError(), "GenBuffers");
 
-		gl.bufferData(GL_SHADER_STORAGE_BUFFER, 16, DE_NULL, GL_STREAM_DRAW);
-		GLU_EXPECT_NO_ERROR(gl.getError(), "BufferData");
-	}
+	gl.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buf);
+	GLU_EXPECT_NO_ERROR(gl.getError(), "BindBufferBase");
+
+	gl.bufferData(GL_SHADER_STORAGE_BUFFER, 16, DE_NULL, GL_STREAM_DRAW);
+	GLU_EXPECT_NO_ERROR(gl.getError(), "BufferData");
 
 	/* passing uniform values */
 	gl.programUniform4fv(program.m_id, 11, 1, input4f);
@@ -325,28 +294,28 @@ tcu::TestNode::IterateResult GetnUniformTest::iterate()
 	GLint   result3i[3];
 	GLuint  result4ui[4];
 
-	pGetnUniformfv(program.m_id, 11, sizeof(GLfloat) * 4, result4f);
+	gl.getnUniformfv(program.m_id, 11, sizeof(GLfloat) * 4, result4f);
 	test_result = test_result &&
 				  verifyResult((void*)input4f, (void*)result4f, sizeof(GLfloat) * 4, "getnUniformfv [false negative]");
 	test_result = test_result && verifyError(gl.getError(), GL_NO_ERROR, "getnUniformfv [false negative]");
 
-	pGetnUniformfv(program.m_id, 11, sizeof(GLfloat) * 3, result4f);
+	gl.getnUniformfv(program.m_id, 11, sizeof(GLfloat) * 3, result4f);
 	test_result = test_result && verifyError(gl.getError(), GL_INVALID_OPERATION, "getnUniformfv [false positive]");
 
-	pGetnUniformiv(program.m_id, 12, sizeof(GLint) * 3, result3i);
+	gl.getnUniformiv(program.m_id, 12, sizeof(GLint) * 3, result3i);
 	test_result = test_result &&
 				  verifyResult((void*)input3i, (void*)result3i, sizeof(GLint) * 3, "getnUniformiv [false negative]");
 	test_result = test_result && verifyError(gl.getError(), GL_NO_ERROR, "getnUniformiv [false negative]");
 
-	pGetnUniformiv(program.m_id, 12, sizeof(GLint) * 2, result3i);
+	gl.getnUniformiv(program.m_id, 12, sizeof(GLint) * 2, result3i);
 	test_result = test_result && verifyError(gl.getError(), GL_INVALID_OPERATION, "getnUniformiv [false positive]");
 
-	pGetnUniformuiv(program.m_id, 13, sizeof(GLuint) * 4, result4ui);
+	gl.getnUniformuiv(program.m_id, 13, sizeof(GLuint) * 4, result4ui);
 	test_result = test_result && verifyResult((void*)input4ui, (void*)result4ui, sizeof(GLuint) * 4,
 											  "getnUniformuiv [false negative]");
 	test_result = test_result && verifyError(gl.getError(), GL_NO_ERROR, "getnUniformuiv [false negative]");
 
-	pGetnUniformuiv(program.m_id, 13, sizeof(GLuint) * 3, result4ui);
+	gl.getnUniformuiv(program.m_id, 13, sizeof(GLuint) * 3, result4ui);
 	test_result = test_result && verifyError(gl.getError(), GL_INVALID_OPERATION, "getnUniformuiv [false positive]");
 
 	/* Set result */
@@ -359,10 +328,7 @@ tcu::TestNode::IterateResult GetnUniformTest::iterate()
 		m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");
 	}
 
-	if (!glslES320)
-	{
-		gl.deleteBuffers(1, &buf);
-	}
+	gl.deleteBuffers(1, &buf);
 
 	/* Done */
 	return tcu::TestNode::STOP;
@@ -373,30 +339,20 @@ std::string GetnUniformTest::getComputeShader(bool glslES320)
 	std::stringstream shader;
 	shader << "#version " << (glslES320 ? "320 es\n" : "450\n");
 	shader << "layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;\n"
-			  "layout (location = 11) uniform vec4 inputf;\n"
-			  "layout (location = 12) uniform ivec3 inputi;\n"
-			  "layout (location = 13) uniform uvec4 inputu;\n";
-	if (glslES320)
-	{
-		shader << "shared float valuef;\n"
-				  "shared int valuei;\n"
-				  "shared uint valueu;\n";
-	}
-	else
-	{
-		shader << "layout (std140, binding = 0) buffer ssbo {"
-				  "   float valuef;\n"
-				  "   int valuei;\n"
-				  "   uint valueu;\n"
-				  "};\n";
-	}
-	shader << "void main()\n"
-			  "{\n"
-			  "   valuef = inputf.r + inputf.g + inputf.b + inputf.a;\n"
-			  "   valuei = inputi.r + inputi.g + inputi.b;\n"
-			  "   valueu = inputu.r + inputu.g + inputu.b + inputu.a;\n"
-			  "}\n";
-
+		  "layout (location = 11) uniform vec4 inputf;\n"
+		  "layout (location = 12) uniform ivec3 inputi;\n"
+		  "layout (location = 13) uniform uvec4 inputu;\n"
+		  "layout (std140, binding = 0) buffer ssbo {\n"
+		  "   float valuef;\n"
+		  "   int valuei;\n"
+		  "   uint valueu;\n"
+		  "};\n"
+		  "void main()\n"
+		  "{\n"
+		  "   valuef = inputf.r + inputf.g + inputf.b + inputf.a;\n"
+		  "   valuei = inputi.r + inputi.g + inputi.b;\n"
+		  "   valueu = inputu.r + inputu.g + inputu.b + inputu.a;\n"
+		  "}\n";
 	return shader.str();
 }
 
@@ -475,19 +431,6 @@ tcu::TestNode::IterateResult ReadnPixelsTest::iterate()
 	if (!context.get())
 		return STOP;
 
-	/* GL funtion pointers. */
-	typedef void(GLW_APIENTRY * PFNGLREADNPIXELS)(glw::GLint x, glw::GLint y, glw::GLsizei width, glw::GLsizei height,
-												  glw::GLenum format, glw::GLenum type, glw::GLsizei bufSize,
-												  glw::GLvoid * data);
-
-	PFNGLREADNPIXELS pReadnPixels = (PFNGLREADNPIXELS)context->getRenderContext().getProcAddress("glReadnPixels");
-
-	if (DE_NULL == pReadnPixels)
-	{
-		m_testCtx.setTestResult(QP_TEST_RESULT_INTERNAL_ERROR, "Pointer to function glReadnPixels is NULL.");
-		return STOP;
-	}
-
 	static const GLuint elements[] = {
 		0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5, 0, 5, 6, 0, 6, 7, 0, 7, 8, 0, 8, 1,
 	};
@@ -533,11 +476,11 @@ tcu::TestNode::IterateResult ReadnPixelsTest::iterate()
 	const Functions& gl = context->getRenderContext().getFunctions();
 
 	/* Test case objects */
-	Program		program(*context);
-	Texture		texture(*context);
-	Buffer		elements_buffer(*context);
-	Buffer		vertices_buffer(*context);
-	VertexArray vao(*context);
+	Program		program(gl);
+	Texture		texture(gl);
+	Buffer		elements_buffer(gl);
+	Buffer		vertices_buffer(gl);
+	VertexArray vao(gl);
 
 	/* Vertex array initialization */
 	VertexArray::Generate(gl, vao.m_id);

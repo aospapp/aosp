@@ -19,21 +19,7 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-host" />
 
-  <!-- For HIDL HALs -->
-  <option name="compatibility:include-filter" value="VtsHalContexthubV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalGnssV1_0HostBinderize" />
-  <option name="compatibility:include-filter" value="VtsHalMediaOmxV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0HostBinderize" />
-  <option name="compatibility:include-filter" value="VtsHalNfcV1_0HostPassthrough" />
-  <option name="compatibility:include-filter" value="VtsHalRadioV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalSensorsV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalUsbGadgetV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalVibratorV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalVrV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalWifiV1_0Host" />
-
-  <!-- For shell-based tests -->
-  <option name="compatibility:include-filter" value="SampleShellTest" />
-  <option name="compatibility:include-filter" value="ShellBinaryCrashTest" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal-host" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-host" />
 
 </configuration>

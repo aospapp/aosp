@@ -1,4 +1,4 @@
-#! /usr/bin/python -Es
+#!/usr/bin/python3 -Es
 # Copyright (C) 2012-2013 Red Hat
 # AUTHOR: Miroslav Grepl <mgrepl@redhat.com>
 # AUTHOR: David Quigley <selinux@davequigley.com>
@@ -53,7 +53,7 @@ usage_fcontext = "semanage fcontext [-h] [-n] [-N] [-S STORE] ["
 usage_fcontext_dict = {' --add': ('(', '-t TYPE', '-f FTYPE', '-r RANGE', '-s SEUSER', '|', '-e EQUAL', ')', 'FILE_SPEC',), ' --delete': ('(', '-t TYPE', '-f FTYPE', '|', '-e EQUAL', ')', 'FILE_SPEC',), ' --modify': ('(', '-t TYPE', '-f FTYPE', '-r RANGE', '-s SEUSER', '|', '-e EQUAL', ')', 'FILE_SPEC',), ' --list': ('[-C]',), ' --extract': ('',), ' --deleteall': ('',)}
 
 usage_user = "semanage user [-h] [-n] [-N] [-S STORE] ["
-usage_user_dict = {' --add': ('(', '-L LEVEL', '-R ROLES', '-r RANGE', '-s SEUSER', 'selinux_name'')'), ' --delete': ('selinux_name',), ' --modify': ('(', '-L LEVEL', '-R ROLES', '-r RANGE', '-s SEUSER', 'selinux_name', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
+usage_user_dict = {' --add': ('(', '-L LEVEL', '-R ROLES', '-r RANGE', 'SEUSER', ')'), ' --delete': ('SEUSER',), ' --modify': ('(', '-L LEVEL', '-R ROLES', '-r RANGE', '-s SEUSER', 'SEUSER', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
 
 usage_port = "semanage port [-h] [-n] [-N] [-S STORE] ["
 usage_port_dict = {' --add': ('-t TYPE', '-p PROTOCOL', '-r RANGE', '(', 'port_name', '|', 'port_range', ')'), ' --modify': ('-t TYPE', '-p PROTOCOL', '-r RANGE', '(', 'port_name', '|', 'port_range', ')'), ' --delete': ('-p PROTOCOL', '(', 'port_name', '|', 'port_range', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
@@ -62,7 +62,7 @@ usage_ibpkey = "semanage ibpkey [-h] [-n] [-N] [-s STORE] ["
 usage_ibpkey_dict = {' --add': ('-t TYPE', '-x SUBNET_PREFIX', '-r RANGE', '(', 'ibpkey_name', '|', 'pkey_range', ')'), ' --modify': ('-t TYPE', '-x SUBNET_PREFIX', '-r RANGE', '(', 'ibpkey_name', '|', 'pkey_range', ')'), ' --delete': ('-x SUBNET_PREFIX', '(', 'ibpkey_name', '|', 'pkey_range', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
 
 usage_ibendport = "semanage ibendport [-h] [-n] [-N] [-s STORE] ["
-usage_ibendport_dict = {' --add': ('-t TYPE', '-z IBDEV_NAME', '-r RANGE', '(', 'port', ')'), ' --modify': ('-t TYPE', '-z IBDEV_NAME', '-r RANGE', '(', 'port', ')'), ' --delete': ('-z IBDEV_NAME', '-r RANGE''(', 'port', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
+usage_ibendport_dict = {' --add': ('-t TYPE', '-z IBDEV_NAME', '-r RANGE', '(', 'port', ')'), ' --modify': ('-t TYPE', '-z IBDEV_NAME', '-r RANGE', '(', 'port', ')'), ' --delete': ('-z IBDEV_NAME', '-r RANGE', '(', 'port', ')'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
 
 usage_node = "semanage node [-h] [-n] [-N] [-S STORE] ["
 usage_node_dict = {' --add': ('-M NETMASK', '-p PROTOCOL', '-t TYPE', '-r RANGE', 'node'), ' --modify': ('-M NETMASK', '-p PROTOCOL', '-t TYPE', '-r RANGE', 'node'), ' --delete': ('-M NETMASK', '-p PROTOCOL', 'node'), ' --list': ('-C',), ' --extract': ('',), ' --deleteall': ('',)}
@@ -73,7 +73,7 @@ usage_interface_dict = {' --add': ('-t TYPE', '-r RANGE', 'interface'), ' --modi
 usage_boolean = "semanage boolean [-h] [-n] [-N] [-S STORE] ["
 usage_boolean_dict = {' --modify': ('(', '--on', '|', '--off', ')', 'boolean'), ' --list': ('-C',), '  --extract': ('',), ' --deleteall': ('',)}
 
-import sepolicy
+
 
 
 class CheckRole(argparse.Action):
@@ -82,7 +82,12 @@ class CheckRole(argparse.Action):
         newval = getattr(namespace, self.dest)
         if not newval:
             newval = []
-        roles = sepolicy.get_all_roles()
+        try:
+            # sepolicy tries to load the SELinux policy and raises ValueError if it fails.
+            import sepolicy
+            roles = sepolicy.get_all_roles()
+        except ValueError:
+            roles = []
         for v in value.split():
             if v not in roles:
                 raise ValueError("%s must be an SELinux role:\nValid roles: %s" % (v, ", ".join(roles)))
@@ -104,7 +109,7 @@ class SetExportFile(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         if values:
-            if values is not "-":
+            if values != "-":
                 try:
                     sys.stdout = open(values, 'w')
                 except:
@@ -116,7 +121,7 @@ class SetExportFile(argparse.Action):
 class SetImportFile(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
-        if values and values is not "-":
+        if values and values != "-":
             try:
                 sys.stdin = open(values, 'r')
             except IOError as e:
@@ -184,17 +189,17 @@ def handleLogin(args):
 
     OBJECT = object_dict['login'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.login, args.seuser, args.range)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.login, args.seuser, args.range)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.login)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("login %s" % (str(i)))
 
@@ -317,26 +322,26 @@ def handleFcontext(args):
 
     OBJECT = object_dict['fcontext'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         if args.equal:
             OBJECT.add_equal(args.file_spec, args.equal)
         else:
             OBJECT.add(args.file_spec, args.type, args.ftype, args.range, args.seuser)
-    if args.action is "modify":
+    if args.action == "modify":
         if args.equal:
             OBJECT.add_equal(args.file_spec, args.equal)
         else:
             OBJECT.modify(args.file_spec, args.type, args.ftype, args.range, args.seuser)
-    if args.action is "delete":
+    if args.action == "delete":
         if args.equal:
             OBJECT.delete(args.file_spec, args.equal)
         else:
             OBJECT.delete(args.file_spec, args.ftype)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("fcontext %s" % str(i))
 
@@ -385,17 +390,17 @@ def handleUser(args):
 
     OBJECT = object_dict['user'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.selinux_name, args.roles, args.level, args.range, args.prefix)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.selinux_name, args.roles, args.level, args.range, args.prefix)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.selinux_name)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("user %s" % str(i))
 
@@ -421,7 +426,7 @@ def setupUserParser(subparsers):
     userParser.add_argument('-R', '--roles', default=[],
                             action=CheckRole,
                             help=_('''
-SELinux Roles.  You must enclose multiple roles within quotes,                  separate by spaces. Or specify -R multiple times.
+SELinux Roles.  You must enclose multiple roles within quotes, separate by spaces. Or specify -R multiple times.
 '''))
     userParser.add_argument('-P', '--prefix', default="user", help=argparse.SUPPRESS)
     userParser.add_argument('selinux_name', nargs='?', default=None, help=_('selinux_name'))
@@ -435,17 +440,17 @@ def handlePort(args):
 
     OBJECT = object_dict['port'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.port, args.proto, args.range, args.type)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.port, args.proto, args.range, args.type)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.port, args.proto)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("port %s" % str(i))
 
@@ -480,17 +485,17 @@ def handlePkey(args):
 
     OBJECT = object_dict['ibpkey'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.ibpkey, args.subnet_prefix, args.range, args.type)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.ibpkey, args.subnet_prefix, args.range, args.type)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.ibpkey, args.subnet_prefix)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("ibpkey %s" % str(i))
 
@@ -523,17 +528,17 @@ def handleIbendport(args):
 
     OBJECT = object_dict['ibendport'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.ibendport, args.ibdev_name, args.range, args.type)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.ibendport, args.ibdev_name, args.range, args.type)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.ibendport, args.ibdev_name)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("ibendport %s" % str(i))
 
@@ -566,17 +571,17 @@ def handleInterface(args):
 
     OBJECT = object_dict['interface'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.interface, args.range, args.type)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.interface, args.range, args.type)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.interface)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("interface %s" % str(i))
 
@@ -604,19 +609,19 @@ def setupInterfaceParser(subparsers):
 
 def handleModule(args):
     OBJECT = seobject.moduleRecords(args)
-    if args.action == "add":
-        OBJECT.add(args.module_name, args.priority)
-    if args.action == "enable":
-        OBJECT.set_enabled(args.module_name, True)
-    if args.action == "disable":
-        OBJECT.set_enabled(args.module_name, False)
-    if args.action == "remove":
-        OBJECT.delete(args.module_name, args.priority)
-    if args.action is "deleteall":
+    if args.action_add:
+        OBJECT.add(args.action_add[0], args.priority)
+    if args.action_enable:
+        OBJECT.set_enabled(" ".join(args.action_enable), True)
+    if args.action_disable:
+        OBJECT.set_enabled(" ".join(args.action_disable), False)
+    if args.action_remove:
+        OBJECT.delete(" ".join(args.action_remove), args.priority)
+    if args.action == "deleteall":
         OBJECT.deleteall()
     if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("module %s" % str(i))
 
@@ -630,14 +635,13 @@ def setupModuleParser(subparsers):
     parser_add_priority(moduleParser, "module")
 
     mgroup = moduleParser.add_mutually_exclusive_group(required=True)
-    parser_add_add(mgroup, "module")
     parser_add_list(mgroup, "module")
     parser_add_extract(mgroup, "module")
     parser_add_deleteall(mgroup, "module")
-    mgroup.add_argument('-r', '--remove', dest='action', action='store_const', const='remove', help=_("Remove a module"))
-    mgroup.add_argument('-d', '--disable', dest='action', action='store_const', const='disable', help=_("Disable a module"))
-    mgroup.add_argument('-e', '--enable', dest='action', action='store_const', const='enable', help=_("Enable a module"))
-    moduleParser.add_argument('module_name', nargs='?', default=None, help=_('Name of the module to act on'))
+    mgroup.add_argument('-a', '--add', dest='action_add', action='store', nargs=1, metavar='module_name', help=_("Add a module"))
+    mgroup.add_argument('-r', '--remove', dest='action_remove', action='store', nargs='+', metavar='module_name', help=_("Remove a module"))
+    mgroup.add_argument('-d', '--disable', dest='action_disable', action='store', nargs='+', metavar='module_name', help=_("Disable a module"))
+    mgroup.add_argument('-e', '--enable', dest='action_enable', action='store', nargs='+', metavar='module_name', help=_("Enable a module"))
     moduleParser.set_defaults(func=handleModule)
 
 
@@ -647,17 +651,17 @@ def handleNode(args):
 
     OBJECT = object_dict['node'](args)
 
-    if args.action is "add":
+    if args.action == "add":
         OBJECT.add(args.node, args.netmask, args.proto, args.range, args.type)
-    if args.action is "modify":
+    if args.action == "modify":
         OBJECT.modify(args.node, args.netmask, args.proto, args.range, args.type)
-    if args.action is "delete":
+    if args.action == "delete":
         OBJECT.delete(args.node, args.netmask, args.proto)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("node %s" % str(i))
 
@@ -693,14 +697,14 @@ def handleBoolean(args):
 
     OBJECT = object_dict['boolean'](args)
 
-    if args.action is "modify":
+    if args.action == "modify":
         if args.boolean:
             OBJECT.modify(args.boolean, args.state, False)
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading, args.locallist)
-    if args.action is "deleteall":
+    if args.action == "deleteall":
         OBJECT.deleteall()
-    if args.action is "extract":
+    if args.action == "extract":
         for i in OBJECT.customized():
             print("boolean %s" % str(i))
 
@@ -731,17 +735,15 @@ def setupBooleanParser(subparsers):
 def handlePermissive(args):
     OBJECT = object_dict['permissive'](args)
 
-    if args.action is "list":
+    if args.action == "list":
         OBJECT.list(args.noheading)
     elif args.type is not None:
-        if args.action is "add":
+        if args.action == "add":
             OBJECT.add(args.type)
-        if args.action is "delete":
+        if args.action == "delete":
             OBJECT.delete(args.type)
     else:
-        args.parser.print_usage(sys.stderr)
-        sys.stderr.write(_('semanage permissive: error: the following argument is required: type\n'))
-        sys.exit(1)
+        args.parser.error(message=_('semanage permissive: error: the following argument is required: type\n'))
 
 
 def setupPermissiveParser(subparsers):
@@ -776,7 +778,7 @@ def setupDontauditParser(subparsers):
 
 
 def handleExport(args):
-    manageditems = ["boolean", "login", "interface", "user", "port", "node", "fcontext", "module"]
+    manageditems = ["boolean", "login", "interface", "user", "port", "node", "fcontext", "module", "ibendport", "ibpkey"]
     for i in manageditems:
         print("%s -D" % i)
     for i in manageditems:

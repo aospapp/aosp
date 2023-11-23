@@ -23,13 +23,18 @@ VERSION=${1}
 SOURCE="https://github.com/linkedin/dexmaker"
 INCLUDE="
     LICENSE
+
     dexmaker
     dexmaker-mockito
-    dexmaker-mockito-tests
     dexmaker-mockito-inline
+    dexmaker-mockito-inline-extended
+
     dexmaker-mockito-inline-dispatcher
-    dexmaker-mockito-inline-tests/src
-    dexmaker-tests/src
+
+    dexmaker-tests
+    dexmaker-mockito-tests
+    dexmaker-mockito-inline-tests
+    dexmaker-mockito-inline-extended-tests
     "
 
 EXCLUDE="
@@ -57,11 +62,6 @@ for exclude in ${EXCLUDE}; do
   echo "Excluding $exclude"
   rm -r $exclude
 done;
-
-# Move the dexmaker-tests AndroidManifest.xml into the correct position.
-mv dexmaker-tests/src/main/AndroidManifest.xml dexmaker-tests/AndroidManifest.xml
-mv dexmaker-mockito-tests/src/main/AndroidManifest.xml dexmaker-mockito-tests/AndroidManifest.xml
-mv dexmaker-mockito-inline-tests/src/main/AndroidManifest.xml dexmaker-mockito-inline-tests/AndroidManifest.xml
 
 # Remove 3rd party code
 rm -r dexmaker-mockito-inline/external

@@ -16,104 +16,184 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_XLA_PYTHON_LOCAL_COMPUTATION_BUILDER_H_
 #define TENSORFLOW_COMPILER_XLA_PYTHON_LOCAL_COMPUTATION_BUILDER_H_
 
-#include "tensorflow/compiler/xla/client/client_library.h"
-#include "tensorflow/compiler/xla/client/computation_builder.h"
+#include <string>
+#include <vector>
+
+#include <Python.h>
+
+#include "absl/types/span.h"
 #include "tensorflow/compiler/xla/client/executable_build_options.h"
 #include "tensorflow/compiler/xla/client/local_client.h"
+#include "tensorflow/compiler/xla/client/xla_builder.h"
+#include "tensorflow/compiler/xla/client/xla_computation.h"
 #include "tensorflow/compiler/xla/service/shaped_buffer.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
-#include "tensorflow/core/lib/gtl/array_slice.h"
 
 namespace xla {
-
 namespace swig {
 
-// Initializes the number of replicas that XLA will be initialized with (when
-// first obtaining a handle to the local XLA service). If this is called after
-// the handle to the local XLA service has been established, then an error is
-// returned.
-Status InitializeReplicaCount(int replica_count);
+// Registers a 'fn_capsule' as a CPU custom call target.
+// 'fn_capsule' is a void* pointer encapsulated in a PyCapsule object, with name
+// "xla._CPU_CUSTOM_CALL_TARGET".
+Status RegisterCpuCustomCallTarget(const string& name, PyObject* fn_capsule);
 
-// Returns the replica count that is currently set, regardless of whether the
-// local XLA service has been instantiated yet or not.
-int GetReplicaCount();
+// Wrapper around an xla::LocalClient.
+class LocalClient {
+ public:
+  // Initializes a local XLA client for `platform_name`. Returns an error if no
+  /// such platform exists, or if the platform has no visible devices.
+  static StatusOr<LocalClient> Get(const string& platform_name);
 
-// Wraps the local client's infeed-transfer function.
-//
-// The default device ordinal (0) is used.
-Status TransferToInfeedLocal(const Literal& literal);
+  // Copyable and moveable; the class is just a wrapper around a
+  // xla::LocalClient pointer for convenient SWIG wrapping.
 
-// Transfers the given literal to the infeed of the given replica.
-//
-// The replica number is resolved to an appropriate device ordinal.
-Status TransferToInfeedLocalReplica(const Literal& literal, int replica_number);
+  // Returns the number of devices known to the XLA client.
+  int DeviceCount() const;
 
-// Transfers a literal of the given shape from the outfeed of the given replica.
-//
-// The replica number is resolved to an appropriate device ordinal.
-StatusOr<std::unique_ptr<Literal> > TransferFromOutfeedLocalReplica(
-    const Shape& shape, int replica_number);
+  // Wraps the local client's infeed-transfer function.
+  //
+  // The default device ordinal (0) is used.
+  Status TransferToInfeed(const Literal& literal, int device_ordinal);
 
-// Wraps a ScopedShapedBuffer produced by copying a literal "to
-// device," i.e. copying a literal to a scoped buffer via the local
-// client.
+  // Transfers a literal of the given shape from the outfeed of the given
+  // replica.
+  StatusOr<Literal> TransferFromOutfeed(const Shape& shape, int device_ordinal);
+
+  xla::LocalClient* client() const { return client_; }
+
+ private:
+  LocalClient(xla::LocalClient* client);
+
+  xla::LocalClient* client_;
+};
+
+class LocalShapedBufferTuple;
+
+// Represents a reference to literals that live in a device-allocated buffer via
+// XLA. Specifically, wraps a ScopedShapedBuffer produced by transferring a
+// literal to device via the local client.
 class LocalShapedBuffer {
  public:
-  static LocalShapedBuffer* FromLiteral(
-      const Literal& argument,
-      const tensorflow::gtl::optional<Shape>& shape_with_layout);
-  LocalShapedBuffer(std::unique_ptr<ScopedShapedBuffer> shaped_buffer);
-  const std::unique_ptr<ScopedShapedBuffer>& shaped_buffer() const;
-  std::unique_ptr<Literal> ToLiteral() const;
+  static StatusOr<LocalShapedBuffer*> FromLiteral(
+      const Literal& argument, const absl::optional<Shape>& shape_with_layout,
+      const LocalClient& client, int device_ordinal);
+
+  LocalShapedBuffer(ScopedShapedBuffer shaped_buffer, xla::LocalClient* client);
+  StatusOr<Literal> ToLiteral() const;
+  const Shape& shape() const;
+  const ScopedShapedBuffer* shaped_buffer() const;
+
+  // Transfers ownership of the encapsulated ShapedBuffer to the caller,
+  // analogous to std::unique_ptr::release().
+  ShapedBuffer Release();
+
+  // Destructures a tuple-valued LocalShapedBuffer into its constituent
+  // elements in LocalShapedBufferTuple form.
+  StatusOr<LocalShapedBufferTuple*> DestructureTuple();
 
  private:
-  std::unique_ptr<ScopedShapedBuffer> shaped_buffer_;
+  ScopedShapedBuffer shaped_buffer_;
+  xla::LocalClient* client_;
 };
 
-// Wraps a LocalExecutable produced by compiling a
-// LocalComputation. The Execute method forwards to that of the
-// underlying LocalExecutable, and additionally handles tranferring
-// arguments and return values in and back out of the client library's
-// local client. This class is intended to be made available to Python
-// via SWIG.
-class CompiledLocalComputation {
+// Result of a tuple destructuring operation on a LocalShapedBuffer -- this
+// appears to be a simpler mechanism for the time being than an alternative like
+// using SWIG to transform std::vectors into Python lists of SWIG objects
+// directly.
+class LocalShapedBufferTuple {
  public:
-  CompiledLocalComputation(std::unique_ptr<LocalExecutable> executable);
+  // Note: any LocalShapedBuffer elements that are not Release()'d will be
+  // deallocated in the destructor.
+  explicit LocalShapedBufferTuple(std::vector<LocalShapedBuffer*> elements);
 
-  // Execute the computation with the given argument literals, and
-  // with optionally-specified argument layouts. The literals will be
-  // re-laid out according to the corresponding elements of
-  // shapes_with_layout.
-  StatusOr<std::unique_ptr<Literal> > Execute(
-      const std::vector<Literal>& arguments,
-      const std::vector<tensorflow::gtl::optional<Shape> >& shapes_with_layout);
+  ~LocalShapedBufferTuple();
 
-  LocalShapedBuffer* ExecuteWithShapedBuffers(
-      tensorflow::gtl::ArraySlice<LocalShapedBuffer*> argument_handles);
+  // Releases the ith element to the caller. Further attempts to release the ith
+  // element will return an invalid argument error.
+  StatusOr<LocalShapedBuffer*> Release(int i);
+
+  // Returns the number of elements in the destructured tuple.
+  int64 size() const;
 
  private:
-  std::unique_ptr<LocalExecutable> executable_;
+  std::vector<LocalShapedBuffer*> elements_;
 };
 
-// Wraps a Computation produced by a LocalComputationBuilder. The
+// Represents a compiled computation that can be executed given handles to
+// device-allocated literals. Specifically, wraps an XLA LocalExecutable.
+class LocalExecutable {
+ public:
+  LocalExecutable(std::unique_ptr<xla::LocalExecutable> executable,
+                  xla::DeviceAssignment device_assignment,
+                  xla::LocalClient* client);
+
+  int num_replicas() const {
+    return executable_->build_options().num_replicas();
+  }
+
+  // Returns the device ordinals to which each replica is assigned.
+  std::vector<int> DeviceOrdinals() const;
+
+  StatusOr<LocalShapedBuffer*> Execute(
+      absl::Span<LocalShapedBuffer* const> argument_handles);
+
+  // Execute on many replicas. Takes a sequence of argument lists (one argument
+  // list per replica) and returns a tuple of results (one result per replica).
+  // The number of argument lists must be equal to the replica count.
+  StatusOr<LocalShapedBufferTuple*> ExecutePerReplica(
+      absl::Span<const std::vector<LocalShapedBuffer*> > argument_handles);
+
+ private:
+  const std::unique_ptr<xla::LocalExecutable> executable_;
+  const xla::DeviceAssignment device_assignment_;
+  xla::LocalClient* const client_;
+};
+
+// Wraps a XlaComputation produced by a ComputationBuilder. The
 // Compile method compiles the computation to a (local) executable via
 // the client library's local client. This class is intended to be
 // made available to Python via SWIG.
-class LocalComputation {
+class Computation {
  public:
-  LocalComputation(Computation computation);
+  Computation(XlaComputation computation);
 
-  StatusOr<CompiledLocalComputation*> Compile(
+  StatusOr<LocalExecutable*> Compile(
       const std::vector<Shape>& argument_shapes,
-      const ExecutableBuildOptions* build_options);
+      const ExecutableBuildOptions* build_options, const LocalClient& client);
 
-  const Computation& computation() const;
+  const XlaComputation& computation() const;
+
+  // Returns the HloModuleProto contained in the XlaComputation in the
+  // serialized binary format. Logs an internal error and returns an empty
+  // string on failure.
+  string GetSerializedProto() const;
+
+  // Returns the computation in human-readable HLO text format.
+  StatusOr<string> GetHloText() const;
+
+  // Returns the computation in graphviz dot format.
+  StatusOr<string> GetHloDotGraph() const;
+
+  // Returns the program shape for this computation.
+  StatusOr<ProgramShape> GetProgramShape() const;
 
   // Returns the return-value shape for this computation.
   StatusOr<Shape> GetReturnValueShape() const;
 
  private:
-  Computation computation_;
+  XlaComputation computation_;
+};
+
+// Wraps a XlaOp produced by a ComputationBuilder. This class is intended
+// to be made available to Python via SWIG.
+class LocalOp {
+ public:
+  LocalOp(const XlaOp& op);
+
+  const XlaOp& op() const;
+
+ private:
+  XlaOp op_;
 };
 
 // Wraps the ComputationBuilder API in order to:
@@ -121,167 +201,199 @@ class LocalComputation {
 //   Python.
 // - Set up the underlying builder to use the client library's
 //   LocalClient.
-// - Wrap Computations in LocalComputations for Python access.
-// - Correspondingly unwrap incoming LocalComputations.
-class LocalComputationBuilder {
+// - Wrap Computations in Computations for Python access.
+// - Correspondingly unwrap incoming Computations.
+class ComputationBuilder {
  public:
-  LocalComputationBuilder(const string& computation_name);
+  ComputationBuilder(const string& computation_name);
 
   void SetOpMetadata(const OpMetadata& metadata);
   void ClearOpMetadata();
 
-  // Returns an owned LocalComputation to the caller on success.
-  StatusOr<LocalComputation*> Build();
+  // Returns an owned Computation to the caller on success.
+  StatusOr<Computation*> Build();
 
-  ComputationDataHandle Parameter(int64 parameter_number, const Shape& shape,
-                                  const string& name);
+  // Returns an owned Computation to the caller on success with given root.
+  StatusOr<Computation*> BuildWithRoot(const LocalOp& root);
 
-  std::unique_ptr<Shape> GetShape(const ComputationDataHandle& operand);
+  LocalOp Parameter(int64 parameter_number, const Shape& shape,
+                    const string& name);
+
+  StatusOr<Shape> GetShape(const LocalOp& operand);
 
   // Returns the shape of the current return value for the computation.
   StatusOr<Shape> GetReturnValueShape();
 
-  ComputationDataHandle Infeed(const Shape& shape);
+  LocalOp ReplicaId();
 
-  void Outfeed(const ComputationDataHandle& operand, const Shape& shape,
+  LocalOp Infeed(const Shape& shape);
+
+  void Outfeed(const LocalOp& operand, const Shape& shape,
                const string& outfeed_config);
 
-  ComputationDataHandle ConstantLiteral(const Literal& literal);
+  LocalOp ConstantLiteral(const Literal& literal);
 
-  ComputationDataHandle Broadcast(
-      const ComputationDataHandle& operand,
-      tensorflow::gtl::ArraySlice<int64> broadcast_sizes);
+  LocalOp Iota(PrimitiveType element_type, int64 size);
 
-  ComputationDataHandle Pad(const ComputationDataHandle& operand,
-                            const ComputationDataHandle& padding_value,
-                            const PaddingConfig& padding_config);
+  LocalOp BroadcastedIota(const Shape& shape, int64 dimension);
 
-  ComputationDataHandle Reshape(const ComputationDataHandle& operand,
-                                tensorflow::gtl::ArraySlice<int64> dimensions,
-                                tensorflow::gtl::ArraySlice<int64> new_sizes);
+  LocalOp Broadcast(const LocalOp& operand,
+                    absl::Span<const int64> broadcast_sizes);
 
-  ComputationDataHandle Collapse(const ComputationDataHandle& operand,
-                                 tensorflow::gtl::ArraySlice<int64> dimensions);
+  LocalOp BroadcastInDim(const LocalOp& operand,
+                         absl::Span<const int64> out_dim_sizes,
+                         absl::Span<const int64> broadcast_dimensions);
 
-  ComputationDataHandle CrossReplicaSum(const ComputationDataHandle& operand);
+  LocalOp Pad(const LocalOp& operand, const LocalOp& padding_value,
+              const PaddingConfig& padding_config);
 
-  ComputationDataHandle Slice(const ComputationDataHandle& operand,
-                              tensorflow::gtl::ArraySlice<int64> start_indices,
-                              tensorflow::gtl::ArraySlice<int64> limit_indices,
-                              tensorflow::gtl::ArraySlice<int64> strides);
+  LocalOp Reshape(const LocalOp& operand, absl::Span<const int64> dimensions,
+                  absl::Span<const int64> new_sizes);
 
-  ComputationDataHandle DynamicSlice(
-      const ComputationDataHandle& operand,
-      const ComputationDataHandle& start_indices,
-      tensorflow::gtl::ArraySlice<int64> slice_sizes);
+  LocalOp Collapse(const LocalOp& operand, absl::Span<const int64> dimensions);
 
-  ComputationDataHandle DynamicUpdateSlice(
-      const ComputationDataHandle& operand, const ComputationDataHandle& update,
-      const ComputationDataHandle& start_indices);
+  LocalOp AllToAll(const LocalOp& operand, int64 split_dimension,
+                   int64 concat_dimension, int64 split_count,
+                   absl::Span<const ReplicaGroup> replica_groups);
 
-  ComputationDataHandle ConcatInDim(
-      tensorflow::gtl::ArraySlice<ComputationDataHandle> operands,
-      int64 dimension);
+  LocalOp CrossReplicaSum(const LocalOp& operand,
+                          absl::Span<const ReplicaGroup> replica_groups);
 
-  ComputationDataHandle SelectAndScatterWithGeneralPadding(
-      const ComputationDataHandle& operand, const LocalComputation& select,
-      tensorflow::gtl::ArraySlice<int64> window_dimensions,
-      tensorflow::gtl::ArraySlice<int64> window_strides,
-      tensorflow::gtl::ArraySlice<std::pair<int64, int64> > padding,
-      const ComputationDataHandle& source,
-      const ComputationDataHandle& init_value, const LocalComputation& scatter);
+  LocalOp Slice(const LocalOp& operand, absl::Span<const int64> start_indices,
+                absl::Span<const int64> limit_indices,
+                absl::Span<const int64> strides);
 
-  ComputationDataHandle Tuple(
-      tensorflow::gtl::ArraySlice<ComputationDataHandle> elements);
+  LocalOp SliceInDim(const LocalOp& operand, int64 start_index,
+                     int64 limit_index, int64 stride, int64 dimno);
 
-  ComputationDataHandle GetTupleElement(const ComputationDataHandle& tuple_data,
-                                        int64 index);
+  LocalOp DynamicSlice(const LocalOp& operand, const LocalOp& start_indices,
+                       absl::Span<const int64> slice_sizes);
 
-  ComputationDataHandle Dot(const ComputationDataHandle& lhs,
-                            const ComputationDataHandle& rhs);
+  LocalOp DynamicUpdateSlice(const LocalOp& operand, const LocalOp& update,
+                             const LocalOp& start_indices);
 
-  ComputationDataHandle DotGeneral(
-      const ComputationDataHandle& lhs, const ComputationDataHandle& rhs,
-      const DotDimensionNumbers& dimension_numbers);
+  LocalOp ConcatInDim(absl::Span<const LocalOp> operands, int64 dimension);
 
-  ComputationDataHandle ConvGeneralDilated(
-      const ComputationDataHandle& lhs, const ComputationDataHandle& rhs,
-      tensorflow::gtl::ArraySlice<int64> window_strides,
-      tensorflow::gtl::ArraySlice<std::pair<int64, int64> > padding,
-      tensorflow::gtl::ArraySlice<int64> lhs_dilation,
-      tensorflow::gtl::ArraySlice<int64> rhs_dilation,
-      const ConvolutionDimensionNumbers& dimension_numbers);
+  LocalOp SelectAndScatterWithGeneralPadding(
+      const LocalOp& operand, const Computation& select,
+      absl::Span<const int64> window_dimensions,
+      absl::Span<const int64> window_strides,
+      absl::Span<const std::pair<int64, int64> > padding, const LocalOp& source,
+      const LocalOp& init_value, const Computation& scatter);
 
-  ComputationDataHandle ConvertElementType(const ComputationDataHandle& operand,
-                                           PrimitiveType new_element_type);
+  LocalOp Tuple(absl::Span<const LocalOp> elements);
 
-  ComputationDataHandle Call(
-      const LocalComputation& local_computation,
-      tensorflow::gtl::ArraySlice<ComputationDataHandle> operands);
+  LocalOp GetTupleElement(const LocalOp& tuple_data, int64 index);
 
-  ComputationDataHandle Transpose(
-      const ComputationDataHandle& operand,
-      tensorflow::gtl::ArraySlice<int64> permutation);
+  LocalOp Dot(const LocalOp& lhs, const LocalOp& rhs);
 
-  ComputationDataHandle Rev(const ComputationDataHandle& operand,
-                            tensorflow::gtl::ArraySlice<int64> dimensions);
+  LocalOp DotGeneral(const LocalOp& lhs, const LocalOp& rhs,
+                     const DotDimensionNumbers& dimension_numbers);
 
-  ComputationDataHandle Map(
-      tensorflow::gtl::ArraySlice<ComputationDataHandle> operands,
-      const LocalComputation& local_computation,
-      tensorflow::gtl::ArraySlice<int64> dimensions,
-      tensorflow::gtl::ArraySlice<ComputationDataHandle> static_operands);
+  LocalOp ConvGeneralDilated(
+      const LocalOp& lhs, const LocalOp& rhs,
+      absl::Span<const int64> window_strides,
+      absl::Span<const std::pair<int64, int64> > padding,
+      absl::Span<const int64> lhs_dilation,
+      absl::Span<const int64> rhs_dilation,
+      const ConvolutionDimensionNumbers& dimension_numbers,
+      int64 feature_group_count);
 
-  ComputationDataHandle Reduce(
-      const ComputationDataHandle& operand,
-      const ComputationDataHandle& init_value,
-      const LocalComputation& local_computation,
-      tensorflow::gtl::ArraySlice<int64> dimensions_to_reduce);
+  LocalOp ConvertElementType(const LocalOp& operand,
+                             PrimitiveType new_element_type);
 
-  ComputationDataHandle ReduceWindowWithGeneralPadding(
-      const ComputationDataHandle& operand,
-      const ComputationDataHandle& init_value,
-      const LocalComputation& local_computation,
-      tensorflow::gtl::ArraySlice<int64> window_dimensions,
-      tensorflow::gtl::ArraySlice<int64> window_strides,
-      tensorflow::gtl::ArraySlice<std::pair<int64, int64> > padding);
+  LocalOp BitcastConvertType(const LocalOp& operand,
+                             PrimitiveType new_element_type);
 
-  ComputationDataHandle RngNormal(const ComputationDataHandle& mu,
-                                  const ComputationDataHandle& sigma,
-                                  const Shape& shape);
+  LocalOp Call(const Computation& local_computation,
+               absl::Span<const LocalOp> operands);
 
-  ComputationDataHandle RngUniform(const ComputationDataHandle& a,
-                                   const ComputationDataHandle& b,
-                                   const Shape& shape);
+  LocalOp CustomCall(const string& call_target_name,
+                     absl::Span<const LocalOp> operands,
+                     const Shape& shape_with_layout,
+                     const std::vector<Shape>& operand_shapes_with_layout,
+                     const string& opaque);
 
-  ComputationDataHandle While(const LocalComputation& condition,
-                              const LocalComputation& body,
-                              const ComputationDataHandle& init);
+  LocalOp Transpose(const LocalOp& operand,
+                    absl::Span<const int64> permutation);
 
-  ComputationDataHandle Conditional(const ComputationDataHandle& predicate,
-                                    const ComputationDataHandle& true_operand,
-                                    const LocalComputation& true_computation,
-                                    const ComputationDataHandle& false_operand,
-                                    const LocalComputation& false_computation);
+  LocalOp Rev(const LocalOp& operand, absl::Span<const int64> dimensions);
+
+  LocalOp Map(absl::Span<const LocalOp> operands,
+              const Computation& local_computation,
+              absl::Span<const int64> dimensions);
+
+  LocalOp Reduce(const LocalOp& operand, const LocalOp& init_value,
+                 const Computation& local_computation,
+                 absl::Span<const int64> dimensions_to_reduce);
+
+  LocalOp ReduceWindowWithGeneralPadding(
+      const LocalOp& operand, const LocalOp& init_value,
+      const Computation& local_computation,
+      absl::Span<const int64> window_dimensions,
+      absl::Span<const int64> window_strides,
+      absl::Span<const int64> base_dilations,
+      absl::Span<const int64> window_dilations,
+      absl::Span<const std::pair<int64, int64> > padding);
+
+  LocalOp RngNormal(const LocalOp& mu, const LocalOp& sigma,
+                    const Shape& shape);
+
+  LocalOp RngUniform(const LocalOp& a, const LocalOp& b, const Shape& shape);
+
+  LocalOp While(const Computation& condition, const Computation& body,
+                const LocalOp& init);
+
+  LocalOp Conditional(const LocalOp& predicate, const LocalOp& true_operand,
+                      const Computation& true_computation,
+                      const LocalOp& false_operand,
+                      const Computation& false_computation);
+
+  StatusOr<bool> IsConstant(const LocalOp& operand);
+
+  LocalOp Sort(const LocalOp& operand, int64 dimension);
+
+  LocalOp SortKeyVal(const LocalOp& keys, const LocalOp& values,
+                     int64 dimension);
+
+  LocalOp QR(const LocalOp& a, bool full_matrices);
+
+  LocalOp Cholesky(const LocalOp& a, bool lower);
+
+  LocalOp Eigh(const LocalOp& a, bool lower);
+
+  LocalOp SVD(const LocalOp& a);
+
+  // `transpose_a` is the integer value of a TriangularSolveOptions::Transpose
+  // enum. We use an integer here so we don't have to teach SWIG about the
+  // enum.
+  LocalOp TriangularSolve(const LocalOp& a, const LocalOp& b, bool left_side,
+                          bool lower, bool unit_diagonal, int transpose_a);
+
+  LocalOp Gather(const LocalOp& input, const LocalOp& start_indices,
+                 const GatherDimensionNumbers& dimension_numbers,
+                 absl::Span<const int64> slice_sizes);
+
+  LocalOp Scatter(const LocalOp& input, const LocalOp& scatter_indices,
+                  const LocalOp& updates, const Computation& update_computation,
+                  const ScatterDimensionNumbers& dimension_numbers);
+
+  StatusOr<Computation*> BuildConstantSubGraph(const LocalOp& operand);
 
 #define _FORWARD(method_name, return_sig, args_sig) \
   return_sig method_name args_sig;
 
-#define _FORWARD_UNOP(method_name)             \
-  _FORWARD(method_name, ComputationDataHandle, \
-           (const ComputationDataHandle& operand))
+#define _FORWARD_UNOP(method_name) \
+  _FORWARD(method_name, LocalOp, (const LocalOp& operand))
 
-#define _FORWARD_BINOP(method_name)                                        \
-  _FORWARD(                                                                \
-      method_name, ComputationDataHandle,                                  \
-      (const ComputationDataHandle& lhs, const ComputationDataHandle& rhs, \
-       tensorflow::gtl::ArraySlice<int64> broadcast_dimensions))
+#define _FORWARD_BINOP(method_name)                 \
+  _FORWARD(method_name, LocalOp,                    \
+           (const LocalOp& lhs, const LocalOp& rhs, \
+            absl::Span<const int64> broadcast_dimensions))
 
-#define _FORWARD_TRIOP(method_name)                                        \
-  _FORWARD(                                                                \
-      method_name, ComputationDataHandle,                                  \
-      (const ComputationDataHandle& lhs, const ComputationDataHandle& rhs, \
-       const ComputationDataHandle& ehs))
+#define _FORWARD_TRIOP(method_name) \
+  _FORWARD(method_name, LocalOp,    \
+           (const LocalOp& lhs, const LocalOp& rhs, const LocalOp& ehs))
 
   _FORWARD_TRIOP(Select)
   _FORWARD_TRIOP(Clamp)
@@ -300,24 +412,50 @@ class LocalComputationBuilder {
   _FORWARD_BINOP(Min)
   _FORWARD_BINOP(And)
   _FORWARD_BINOP(Or)
+  _FORWARD_BINOP(Xor)
+  _FORWARD_BINOP(ShiftLeft)
+  _FORWARD_BINOP(ShiftRightArithmetic)
+  _FORWARD_BINOP(ShiftRightLogical)
+  _FORWARD_BINOP(Atan2)
+  _FORWARD_BINOP(Pow)
+  _FORWARD_BINOP(Complex)
   _FORWARD_UNOP(Not)
+  _FORWARD_UNOP(Clz)
   _FORWARD_UNOP(Abs)
   _FORWARD_UNOP(Exp)
+  _FORWARD_UNOP(Expm1)
   _FORWARD_UNOP(Floor)
   _FORWARD_UNOP(Ceil)
   _FORWARD_UNOP(Round)
   _FORWARD_UNOP(Log)
+  _FORWARD_UNOP(Log1p)
   _FORWARD_UNOP(Sign)
   _FORWARD_UNOP(Cos)
   _FORWARD_UNOP(Sin)
   _FORWARD_UNOP(Tanh)
-  _FORWARD_UNOP(SqrtF32)
-  _FORWARD_UNOP(SquareF32)
-  _FORWARD_BINOP(Pow)
   _FORWARD_UNOP(IsFinite)
-  _FORWARD_UNOP(ReciprocalF32)
   _FORWARD_UNOP(Neg)
-  _FORWARD_UNOP(Sort)
+  _FORWARD_UNOP(Sqrt)
+  _FORWARD_UNOP(Rsqrt)
+  _FORWARD_UNOP(Square)
+  _FORWARD_UNOP(Reciprocal)
+  _FORWARD_UNOP(Erfc)
+  _FORWARD_UNOP(Erf)
+  _FORWARD_UNOP(ErfInv)
+  _FORWARD_UNOP(Lgamma)
+  _FORWARD_UNOP(Digamma)
+  _FORWARD_UNOP(Acos)
+  _FORWARD_UNOP(Asin)
+  _FORWARD_UNOP(Atan)
+  _FORWARD_UNOP(Tan)
+  _FORWARD_UNOP(Acosh)
+  _FORWARD_UNOP(Asinh)
+  _FORWARD_UNOP(Atanh)
+  _FORWARD_UNOP(Cosh)
+  _FORWARD_UNOP(Sinh)
+  _FORWARD_UNOP(Real)
+  _FORWARD_UNOP(Imag)
+  _FORWARD_UNOP(Conj)
 
 #undef _FORWARD
 #undef _FORWARD_UNOP
@@ -325,16 +463,15 @@ class LocalComputationBuilder {
 #undef _FORWARD_TRIOP
 
  private:
-  ComputationBuilder builder_;
+  XlaBuilder builder_;
 };
 
 // Functions for freeing resources from the Python side.
 void DeleteLocalShapedBuffer(LocalShapedBuffer* local_shaped_buffer);
-void DeleteCompiledLocalComputation(CompiledLocalComputation* computation);
-void DeleteLocalComputation(LocalComputation* computation);
+void DeleteLocalExecutable(LocalExecutable* computation);
+void DeleteComputation(Computation* computation);
 
 }  // namespace swig
-
 }  // namespace xla
 
 #endif  // TENSORFLOW_COMPILER_XLA_PYTHON_LOCAL_COMPUTATION_BUILDER_H_

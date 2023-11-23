@@ -38,13 +38,6 @@ import android.content.Context;
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
 import android.graphics.Rect;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.ViewAsserts;
 import android.util.AttributeSet;
 import android.util.Xml;
@@ -60,6 +53,14 @@ import android.widget.Filterable;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.ListAdapter;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.PollingCheck;
@@ -168,14 +169,12 @@ public class GridViewTest {
         mGridView.setOnItemClickListener(mockItemClickListener);
 
         // this test case can not be ran in UI thread.
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new ImageAdapter(mActivity));
             mGridView.setNumColumns(NUM_COLUMNS);
-            mGridView.invalidate();
             mGridView.requestLayout();
             mGridView.requestFocus();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         assertEquals(0, mGridView.getSelectedItemPosition());
         KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT);
@@ -223,41 +222,37 @@ public class GridViewTest {
     public void testSetGravity() throws Throwable {
         final int NUM_COLUMNS = 1;
         // this test case can not be ran in UI thread.
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new ImageAdapter(mActivity));
             mGridView.setNumColumns(NUM_COLUMNS);
             mGridView.setHorizontalSpacing(0);
             mGridView.setVerticalSpacing(0);
         });
-        mInstrumentation.waitForIdleSync();
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setGravity(Gravity.CENTER_HORIZONTAL);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         assertEquals(Gravity.CENTER_HORIZONTAL, mGridView.getGravity());
         ViewAsserts.assertHorizontalCenterAligned(mGridView, mGridView.getChildAt(0));
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setGravity(Gravity.LEFT);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         assertEquals(Gravity.LEFT, mGridView.getGravity());
         ViewAsserts.assertLeftAligned(mGridView, mGridView.getChildAt(0),
                 mGridView.getListPaddingLeft());
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setGravity(Gravity.RIGHT);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         assertEquals(Gravity.RIGHT, mGridView.getGravity());
         ViewAsserts.assertRightAligned(mGridView, mGridView.getChildAt(0),
@@ -281,11 +276,10 @@ public class GridViewTest {
         // horizontal spacing cannot be correctly verified.
         mGridView.setNumColumns(28);
 
-        mActivityRule.runOnUiThread(() ->  {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () ->  {
             mGridView.setAdapter(new MockGridViewAdapter(3));
             mGridView.setHorizontalSpacing(0);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mGridView.getRequestedHorizontalSpacing());
         assertEquals(0, mGridView.getHorizontalSpacing());
@@ -297,8 +291,8 @@ public class GridViewTest {
             assertEquals(0, child0.getLeft() - child1.getRight());
         }
 
-        mActivityRule.runOnUiThread(() -> mGridView.setHorizontalSpacing(5));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setHorizontalSpacing(5));
 
         assertEquals(5, mGridView.getRequestedHorizontalSpacing());
         assertEquals(5, mGridView.getHorizontalSpacing());
@@ -313,19 +307,18 @@ public class GridViewTest {
 
     @Test
     public void testAccessVerticalSpacing() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new MockGridViewAdapter(3));
             mGridView.setVerticalSpacing(0);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mGridView.getVerticalSpacing());
         View child0 = mGridView.getChildAt(0);
         View child1 = mGridView.getChildAt(1);
         assertEquals(0, child1.getTop() - child0.getBottom());
 
-        mActivityRule.runOnUiThread(() -> mGridView.setVerticalSpacing(5));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setVerticalSpacing(5));
 
         assertEquals(5, mGridView.getVerticalSpacing());
         child0 = mGridView.getChildAt(0);
@@ -339,7 +332,7 @@ public class GridViewTest {
 
         final int NUM_COLUMNS = 8;
         // this test case can not be ran in UI thread.
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new ImageAdapter(mActivity));
             mGridView.setColumnWidth(10);
             mGridView.setNumColumns(NUM_COLUMNS);
@@ -347,8 +340,7 @@ public class GridViewTest {
             mGridView.setVerticalSpacing(0);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         int[][] childRight = new int[3][3];
         int STRETCH_SPACING = 0;
@@ -358,13 +350,12 @@ public class GridViewTest {
         int INDEX_0 = 1;
         int INDEX_1 = 2;
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setColumnWidth(15);
             mGridView.setStretchMode(GridView.STRETCH_SPACING);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
         assertEquals(GridView.STRETCH_SPACING, mGridView.getStretchMode());
         child = mGridView.getChildAt(NUM_COLUMNS - 1); // get the rightmost view at the first line.
         childRight[STRETCH_SPACING][INDEX_RIGHTMOST] = child.getRight();
@@ -375,13 +366,12 @@ public class GridViewTest {
         child = mGridView.getChildAt(1);
         childRight[STRETCH_SPACING][INDEX_1] = child.getRight();
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setColumnWidth(15);
             mGridView.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
         assertEquals(GridView.STRETCH_COLUMN_WIDTH, mGridView.getStretchMode());
         child = mGridView.getChildAt(NUM_COLUMNS - 1); // get the rightmost view at the first line.
         childRight[STRETCH_COLUMN_WIDTH][INDEX_RIGHTMOST] = child.getRight();
@@ -392,13 +382,12 @@ public class GridViewTest {
         child = mGridView.getChildAt(1);
         childRight[STRETCH_COLUMN_WIDTH][INDEX_1] = child.getRight();
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGridView, () -> {
             mGridView.setColumnWidth(15);
             mGridView.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
             mGridView.invalidate();
             mGridView.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
         assertEquals(GridView.STRETCH_SPACING_UNIFORM, mGridView.getStretchMode());
         child = mGridView.getChildAt(NUM_COLUMNS - 1); // get the rightmost view at the first line.
         childRight[STRETCH_SPACING_UNIFORM][INDEX_RIGHTMOST] = child.getRight();
@@ -426,28 +415,27 @@ public class GridViewTest {
     @Test
     public void testSetNumColumns() throws Throwable {
         // this test case can not be ran in UI thread.
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new MockGridViewAdapter(10));
             mGridView.setHorizontalSpacing(0);
             mGridView.setVerticalSpacing(0);
             mGridView.setNumColumns(10);
         });
-        mInstrumentation.waitForIdleSync();
 
         View child0 = mGridView.getChildAt(0);
         View child9 = mGridView.getChildAt(9);
         assertEquals(child0.getBottom(), child9.getBottom());
 
-        mActivityRule.runOnUiThread(() -> mGridView.setNumColumns(9));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setNumColumns(9));
 
         child0 = mGridView.getChildAt(0);
         child9 = mGridView.getChildAt(9);
         assertEquals(child0.getBottom(), child9.getTop());
         assertEquals(child0.getLeft(), child9.getLeft());
 
-        mActivityRule.runOnUiThread(() -> mGridView.setNumColumns(1));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setNumColumns(1));
 
         for (int i = 0; i < mGridView.getChildCount(); i++) {
             View child = mGridView.getChildAt(i);
@@ -463,23 +451,22 @@ public class GridViewTest {
 
     @Test
     public void testGetNumColumns() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new MockGridViewAdapter(10));
             mGridView.setNumColumns(10);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(mGridView.getNumColumns(), 10);
 
-        mActivityRule.runOnUiThread(() -> mGridView.setNumColumns(1));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setNumColumns(1));
 
         assertEquals(mGridView.getNumColumns(), 1);
 
-        mActivityRule.runOnUiThread(() -> mGridView.setNumColumns(0));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView,
+                () -> mGridView.setNumColumns(0));
 
-        //although setNumColumns(0) was called, the number of columns should be 1
+        // although setNumColumns(0) was called, the number of columns should be 1
         assertEquals(mGridView.getNumColumns(), 1);
     }
 
@@ -520,14 +507,13 @@ public class GridViewTest {
 
     @Test
     public void testAccessColumnWidth() throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new MockGridViewAdapter(10));
             mGridView.setNumColumns(GridView.AUTO_FIT);
             mGridView.setHorizontalSpacing(0);
             mGridView.setVerticalSpacing(0);
             mGridView.setColumnWidth(0);
         });
-        mInstrumentation.waitForIdleSync();
 
         // Verify whether column number equals 2.
         assertEquals(0, mGridView.getRequestedColumnWidth());
@@ -538,11 +524,10 @@ public class GridViewTest {
         assertEquals(child0.getBottom(), child1.getBottom());
         assertEquals(child0.getLeft(), child2.getLeft());
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setNumColumns(GridView.AUTO_FIT);
             mGridView.setColumnWidth(Integer.MAX_VALUE);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(Integer.MAX_VALUE, mGridView.getRequestedColumnWidth());
         assertEquals(mGridView.getWidth(), mGridView.getColumnWidth());
@@ -632,14 +617,13 @@ public class GridViewTest {
     @Test
     public void testSmoothScrollByOffset() throws Throwable {
         final int itemCount = 300;
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, () -> {
             mGridView.setAdapter(new MockGridViewAdapter(itemCount));
             mGridView.setNumColumns(GridView.AUTO_FIT);
             mGridView.setHorizontalSpacing(0);
             mGridView.setVerticalSpacing(0);
             mGridView.setColumnWidth(Integer.MAX_VALUE);
         });
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mGridView.getFirstVisiblePosition());
 

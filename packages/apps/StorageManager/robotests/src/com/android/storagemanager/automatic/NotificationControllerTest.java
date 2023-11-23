@@ -16,31 +16,36 @@
 
 package com.android.storagemanager.automatic;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
+
+import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
-import com.android.storagemanager.testing.TestingConstants;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
+import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Mockito.*;
-
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest=TestingConstants.MANIFEST, sdk=TestingConstants.SDK_VERSION)
 public class NotificationControllerTest {
     @Mock
     private NotificationManager mNotificationManager;
@@ -56,7 +61,7 @@ public class NotificationControllerTest {
         mController = new NotificationController();
         mClock = new FakeClock();
         mController.setClock(mClock);
-        mContext = application.getApplicationContext();
+        mContext = RuntimeEnvironment.application;
     }
 
     @Test
@@ -83,6 +88,7 @@ public class NotificationControllerTest {
             mClock.time += TimeUnit.DAYS.toMillis(91);
         }
 
+        reset(mNotificationManager);
         // The next time should show nothing.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
@@ -102,6 +108,7 @@ public class NotificationControllerTest {
             mClock.time += TimeUnit.DAYS.toMillis(14);
         }
 
+        reset(mNotificationManager);
         // The next time should show nothing.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
@@ -117,6 +124,7 @@ public class NotificationControllerTest {
                 getNotificationIntent(NotificationController.INTENT_ACTION_DISMISS, 1));
         verify(mNotificationManager).cancel(1);
 
+        reset(mNotificationManager);
         // Another attempt should not show a notification.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
@@ -126,7 +134,7 @@ public class NotificationControllerTest {
         mClock.time = TimeUnit.DAYS.toMillis(14);
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verify(mNotificationManager, times(2)).notify(anyInt(), any(Notification.class));
+        verify(mNotificationManager).notify(anyInt(), any(Notification.class));
     }
 
     @Test
@@ -138,28 +146,33 @@ public class NotificationControllerTest {
                 getNotificationIntent(NotificationController.INTENT_ACTION_NO_THANKS, 1));
         verify(mNotificationManager).cancel(1);
 
+        reset(mNotificationManager);
         // Another attempt should not show a notification.
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verifyZeroInteractions(mNotificationManager);
+        verifyNoMoreInteractions(mNotificationManager);
 
         // The notification should show against after 90 days.
         mClock.time = TimeUnit.DAYS.toMillis(90);
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));
-        verify(mNotificationManager, times(2)).notify(anyInt(), any(Notification.class));
+        verify(mNotificationManager).notify(anyInt(), any(Notification.class));
     }
 
     @Test
     public void testActivateStorageManagerIntent() throws Exception {
-        mController.onReceive(mContext,
-                new Intent(NotificationController.INTENT_ACTION_ACTIVATE_ASM));
-        assertThat(Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED)).isEqualTo(1);
+        final Context activity = Robolectric.buildActivity(Activity.class).get();
+        final Intent intent = new Intent(NotificationController.INTENT_ACTION_ACTIVATE_ASM);
+        mController.onReceive(activity, intent);
+        assertThat(
+                        Settings.Secure.getInt(
+                                activity.getContentResolver(),
+                                Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED))
+                .isEqualTo(1);
     }
 
     @Test
-    public void testNotificationIsLocalOnly(){
+    public void testNotificationIsLocalOnly() {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         mController.onReceive(mContext,
                 new Intent(NotificationController.INTENT_ACTION_SHOW_NOTIFICATION));

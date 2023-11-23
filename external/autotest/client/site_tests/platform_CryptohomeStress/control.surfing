@@ -5,6 +5,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Security"
 TEST_CLASS = "security"
 TEST_TYPE = "client"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 This is a stress test of the file system in Chromium OS. While performing the

@@ -129,7 +129,7 @@ size_t CMessage::getRemainingDataSize() const
 // Send/Receive
 CMessage::Result CMessage::serialize(Socket &&socket, bool bOut, string &strError)
 {
-    asio::ip::tcp::socket &asioSocket = socket.get();
+    auto &asioSocket = socket.get();
 
     if (bOut) {
         asio::error_code ec;

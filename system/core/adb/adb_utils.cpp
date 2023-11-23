@@ -49,19 +49,19 @@
 
 
 #if defined(_WIN32)
-constexpr char kNullFileName[] = "NUL";
+static constexpr char kNullFileName[] = "NUL";
 #else
-constexpr char kNullFileName[] = "/dev/null";
+static constexpr char kNullFileName[] = "/dev/null";
 #endif
 
 void close_stdin() {
     int fd = unix_open(kNullFileName, O_RDONLY);
     if (fd == -1) {
-        fatal_errno("failed to open %s", kNullFileName);
+        PLOG(FATAL) << "failed to open " << kNullFileName;
     }
 
     if (TEMP_FAILURE_RETRY(dup2(fd, STDIN_FILENO)) == -1) {
-        fatal_errno("failed to redirect stdin to %s", kNullFileName);
+        PLOG(FATAL) << "failed to redirect stdin to " << kNullFileName;
     }
     unix_close(fd);
 }
@@ -79,22 +79,24 @@ bool directory_exists(const std::string& path) {
 }
 
 std::string escape_arg(const std::string& s) {
-  std::string result = s;
-
   // Escape any ' in the string (before we single-quote the whole thing).
   // The correct way to do this for the shell is to replace ' with '\'' --- that is,
   // close the existing single-quoted string, escape a single single-quote, and start
   // a new single-quoted string. Like the C preprocessor, the shell will concatenate
   // these pieces into one string.
-  for (size_t i = 0; i < s.size(); ++i) {
-    if (s[i] == '\'') {
-      result.insert(i, "'\\'");
-      i += 2;
-    }
+
+  std::string result;
+  result.push_back('\'');
+
+  size_t base = 0;
+  while (true) {
+    size_t found = s.find('\'', base);
+    result.append(s, base, found - base);
+    if (found == s.npos) break;
+    result.append("'\\''");
+    base = found + 1;
   }
 
-  // Prefix and suffix the whole string with '.
-  result.insert(result.begin(), '\'');
   result.push_back('\'');
   return result;
 }
@@ -184,6 +186,48 @@ std::string dump_hex(const void* data, size_t byte_count) {
     return line;
 }
 
+std::string dump_header(const amessage* msg) {
+    unsigned command = msg->command;
+    int len = msg->data_length;
+    char cmd[9];
+    char arg0[12], arg1[12];
+    int n;
+
+    for (n = 0; n < 4; n++) {
+        int b = (command >> (n * 8)) & 255;
+        if (b < 32 || b >= 127) break;
+        cmd[n] = (char)b;
+    }
+    if (n == 4) {
+        cmd[4] = 0;
+    } else {
+        // There is some non-ASCII name in the command, so dump the hexadecimal value instead
+        snprintf(cmd, sizeof cmd, "%08x", command);
+    }
+
+    if (msg->arg0 < 256U)
+        snprintf(arg0, sizeof arg0, "%d", msg->arg0);
+    else
+        snprintf(arg0, sizeof arg0, "0x%x", msg->arg0);
+
+    if (msg->arg1 < 256U)
+        snprintf(arg1, sizeof arg1, "%d", msg->arg1);
+    else
+        snprintf(arg1, sizeof arg1, "0x%x", msg->arg1);
+
+    return android::base::StringPrintf("[%s] arg0=%s arg1=%s (len=%d) ", cmd, arg0, arg1, len);
+}
+
+std::string dump_packet(const char* name, const char* func, const apacket* p) {
+    std::string result = name;
+    result += ": ";
+    result += func;
+    result += ": ";
+    result += dump_header(&p->msg);
+    result += dump_hex(p->payload.data(), p->payload.size());
+    return result;
+}
+
 std::string perror_str(const char* msg) {
     return android::base::StringPrintf("%s: %s", msg, strerror(errno));
 }
@@ -249,6 +293,9 @@ std::string adb_get_homedir_path() {
     struct passwd pwent;
     struct passwd* result;
     int pwent_max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (pwent_max == -1) {
+        pwent_max = 16384;
+    }
     std::vector<char> buf(pwent_max);
     int rc = getpwuid_r(getuid(), &pwent, buf.data(), buf.size(), &result);
     if (rc == 0 && result) {
@@ -265,27 +312,11 @@ std::string adb_get_android_dir_path() {
     std::string android_dir = user_dir + OS_PATH_SEPARATOR + ".android";
     struct stat buf;
     if (stat(android_dir.c_str(), &buf) == -1) {
-        if (adb_mkdir(android_dir.c_str(), 0750) == -1) {
+        if (adb_mkdir(android_dir, 0750) == -1) {
             PLOG(FATAL) << "Cannot mkdir '" << android_dir << "'";
         }
     }
     return android_dir;
-}
-
-void AdbCloser::Close(int fd) {
-    adb_close(fd);
-}
-
-int syntax_error(const char* fmt, ...) {
-    fprintf(stderr, "adb: usage: ");
-
-    va_list ap;
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-
-    fprintf(stderr, "\n");
-    return 1;
 }
 
 std::string GetLogFilePath() {
@@ -297,13 +328,13 @@ std::string GetLogFilePath() {
     DWORD nchars = GetTempPathW(arraysize(temp_path), temp_path);
     if (nchars >= arraysize(temp_path) || nchars == 0) {
         // If string truncation or some other error.
-        fatal("cannot retrieve temporary file path: %s\n",
-              android::base::SystemErrorCodeToString(GetLastError()).c_str());
+        LOG(FATAL) << "cannot retrieve temporary file path: "
+                   << android::base::SystemErrorCodeToString(GetLastError());
     }
 
     std::string temp_path_utf8;
     if (!android::base::WideToUTF8(temp_path, &temp_path_utf8)) {
-        fatal_errno("cannot convert temporary file path from UTF-16 to UTF-8");
+        PLOG(FATAL) << "cannot convert temporary file path from UTF-16 to UTF-8";
     }
 
     return temp_path_utf8 + log_name;
@@ -312,4 +343,34 @@ std::string GetLogFilePath() {
     if (tmp_dir == nullptr) tmp_dir = "/tmp";
     return android::base::StringPrintf("%s/adb.%u.log", tmp_dir, getuid());
 #endif
+}
+
+[[noreturn]] static void error_exit_va(int error, const char* fmt, va_list va) {
+    fflush(stdout);
+    fprintf(stderr, "%s: ", android::base::Basename(android::base::GetExecutablePath()).c_str());
+
+    vfprintf(stderr, fmt, va);
+
+    if (error != 0) {
+        fprintf(stderr, ": %s", strerror(error));
+    }
+
+    putc('\n', stderr);
+    fflush(stderr);
+
+    exit(EXIT_FAILURE);
+}
+
+void error_exit(const char* fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    error_exit_va(0, fmt, va);
+    va_end(va);
+}
+
+void perror_exit(const char* fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    error_exit_va(errno, fmt, va);
+    va_end(va);
 }

@@ -49,6 +49,7 @@ public class MockListener extends NotificationListenerService {
     public static final String JSON_MATCHES_ZEN_FILTER = "matches_zen_filter";
     public static final String JSON_REASON = "reason";
     public static final String JSON_STATS = "stats";
+    public static final String JSON_LAST_AUDIBLY_ALERTED = "last_audibly_alerted";
 
     ArrayList<String> mPosted = new ArrayList<String>();
     ArrayMap<String, JSONObject> mNotifications = new ArrayMap<>();
@@ -136,6 +137,7 @@ public class MockListener extends NotificationListenerService {
                     note.put(JSON_RANK, rank.getRank());
                     note.put(JSON_AMBIENT, rank.isAmbient());
                     note.put(JSON_MATCHES_ZEN_FILTER, rank.matchesInterruptionFilter());
+                    note.put(JSON_LAST_AUDIBLY_ALERTED, rank.getLastAudiblyAlertedMillis());
                 } catch (JSONException e) {
                     Log.e(TAG, "failed to pack up notification payload", e);
                 }

@@ -25,10 +25,11 @@ cc_defaults {
         "-Wstrict-prototypes",
         "-DPy_BUILD_CORE",
         "-Werror",
-        "-Wno-error=invalid-source-encoding",
-        "-Wno-error=macro-redefined",
+        "-Wno-invalid-source-encoding",
         "-Wno-int-conversion",
         "-Wno-missing-field-initializers",
+        "-Wno-null-pointer-arithmetic",
+        "-Wno-register",
         "-Wno-shift-count-overflow",
         "-Wno-sign-compare",
         "-Wno-tautological-compare",
@@ -47,13 +48,15 @@ cc_defaults {
         android_x86: {
             local_include_dirs: ["android_x86/pyconfig"],
         },
+        linux_bionic: {
+            // NB linux_bionic is a 'host' architecture but it uses the bionic libc like 'android'
+            // targets so use the android pyconfig.
+            local_include_dirs: ["android_x86_64/pyconfig"],
+        },
         android_x86_64: {
             local_include_dirs: ["android_x86_64/pyconfig"],
         },
         // Regenerate include dirs with android_regen.sh
-        darwin_x86: {
-            enabled: false,
-        },
         darwin_x86_64: {
             local_include_dirs: ["darwin_x86_64/pyconfig"],
             cflags: [
@@ -213,21 +216,53 @@ cc_library_static {
     ],
 }
 
-cc_binary {
-    name: "py2-launcher",
+cc_defaults {
+    name: "py2-launcher-defaults",
     defaults: ["py2-interp-defaults"],
     cflags: [
         "-DVERSION=\"2.7\"",
         "-DVPATH=\"\"",
         "-DPREFIX=\"\"",
         "-DEXEC_PREFIX=\"\"",
-        "-DPYTHONPATH=\"\"",
-        "-DDATE=\"xx/xx/xx\"",
-        "-DTIME=\"xx:xx:xx\"",
+        "-DPYTHONPATH=\"..:\"",
+        "-DANDROID_SKIP_ZIP_PATH",
+        "-DANDROID_SKIP_EXEC_PREFIX_PATH",
+        "-DANDROID_LIB_PYTHON_PATH=\"internal/stdlib\"",
+        "-DDATE=\"Dec 31 1969\"",
+        "-DTIME=\"23:59:59\"",
     ],
+    static_libs: [
+        "libbase",
+        "libcrypto",
+        "libexpat",
+        "libssl",
+        "libz",
+    ],
+    target: {
+        linux_glibc_x86_64: {
+            host_ldlibs: ["-lutil"],
+        },
+        darwin: {
+            host_ldlibs: [
+                "-framework SystemConfiguration",
+                "-framework CoreFoundation",
+            ],
+        },
+        host: {
+            static_libs: ["libsqlite"],
+        },
+        // Use shared libsqlite for device side, otherwise
+        // the executable size will be really huge.
+        android: {
+            shared_libs: ["libsqlite"],
+        },
+    },
+}
+
+cc_library_static {
+    name: "py2-launcher-lib",
+    defaults: ["py2-launcher-defaults"],
     srcs: [
-        "Launcher/launcher_main.cpp",
-        "Launcher/launcher_internal.cpp",
         "Modules/gcmodule.c",
         "Modules/getpath.c",
         "Modules/config.c",
@@ -243,13 +278,10 @@ cc_binary {
         "Modules/_weakref.c",
         "Modules/zipimport.c",
         "Modules/symtablemodule.c",
-    ],
-    local_include_dirs: [
-        "Launcher",
+        "Modules/main.c",
     ],
     // NOTE: Please update Modules/config.c if new lib get added in the static_libs.
-    static_libs: [
-        "libbase",
+    whole_static_libs: [
         // Be careful the order of these three static libraries below due to
         // missing symbols issues.
         "py2-interp-object",
@@ -278,6 +310,7 @@ cc_binary {
         "py2-c-module-_csv",
         "py2-c-module-_socket",
         "py2-c-module-termios",
+        "py2-c-module-_ssl",
         "py2-c-module-_md5",
         "py2-c-module-_sha",
         "py2-c-module-_sha256",
@@ -308,27 +341,39 @@ cc_binary {
         "py2-c-module-_sqlite3",
         "py2-c-module-_ctypes_test",
         "py2-c-module-_ctypes",
-        "libz",
-        "libexpat",
     ],
     target: {
-        linux_glibc_x86_64: {
-            host_ldlibs: ["-lutil"],
-            static_libs: [
-                "libsqlite",
-            ],
+        darwin: {
+            whole_static_libs: ["py2-c-module-_scproxy"],
         },
-        darwin_x86_64: {
-            static_libs: [
-                "libsqlite",
-            ],
+    },
+}
+
+cc_binary {
+    name: "py2-launcher",
+    defaults: ["py2-launcher-defaults"],
+    srcs: ["Launcher/launcher_main.cpp"],
+    static_libs: ["py2-launcher-lib"],
+}
+
+cc_binary {
+    name: "py2-launcher-autorun",
+    defaults: ["py2-launcher-defaults"],
+    srcs: ["Launcher/launcher_main.cpp"],
+    static_libs: ["py2-launcher-lib"],
+    cflags: ["-DANDROID_AUTORUN"],
+}
+
+python_binary_host {
+    name: "py2-cmd",
+    autorun: false,
+    version: {
+        py2: {
+            enabled: true,
+            embedded_launcher: true,
         },
-        // Use shared libsqlite for device side, otherwise
-        // the executable size will be really huge.
-        android: {
-            shared_libs: [
-                "libsqlite",
-            ],
+        py3: {
+            enabled: false,
         },
     },
 }
@@ -528,6 +573,17 @@ cc_library_static {
     defaults: ["py2-interp-defaults"],
     srcs: [
         "Modules/termios.c",
+    ],
+}
+
+cc_library_static {
+    name: "py2-c-module-_ssl",
+    defaults: ["py2-interp-defaults"],
+    srcs: ["Modules/_ssl.c"],
+    cflags: ["-Wno-incompatible-pointer-types-discards-qualifiers"],
+    static_libs: [
+        "libssl",
+        "libcrypto",
     ],
 }
 
@@ -783,12 +839,7 @@ cc_library_static {
         "Modules/_sqlite/util.c",
     ],
     target: {
-        linux_glibc_x86_64: {
-            static_libs: [
-                "libsqlite",
-            ],
-        },
-        darwin_x86_64: {
+        host: {
             static_libs: [
                 "libsqlite",
             ],
@@ -796,7 +847,7 @@ cc_library_static {
         android: {
             shared_libs: [
                 "libsqlite",
-            ]
+            ],
         },
     },
 }
@@ -853,7 +904,7 @@ cc_library_static {
                 "Modules/_ctypes/libffi/src/arm/ffi.c",
                 "Modules/_ctypes/libffi/src/arm/sysv.S",
                 "Modules/_ctypes/libffi/src/arm/trampoline.S",
-            ]
+            ],
         },
         arm64: {
             // arithmetic on a pointer in _ctypes/libffi/src/aarch64/ffi.c
@@ -865,7 +916,7 @@ cc_library_static {
             srcs: [
                 "Modules/_ctypes/libffi/src/aarch64/ffi.c",
                 "Modules/_ctypes/libffi/src/aarch64/sysv.S",
-            ]
+            ],
         },
     },
     target: {
@@ -875,6 +926,12 @@ cc_library_static {
             srcs: [
                 "Modules/_ctypes/libffi/src/x86/darwin.S",
                 "Modules/_ctypes/libffi/src/x86/darwin64.S",
+            ],
+        },
+        linux_bionic: {
+            local_include_dirs: ["linux_x86_64/libffi"],
+            srcs: [
+                "Modules/_ctypes/libffi/src/x86/unix64.S",
             ],
         },
         linux_glibc_x86_64: {
@@ -894,6 +951,17 @@ cc_library_static {
             srcs: [
                 "Modules/_ctypes/libffi/src/x86/unix64.S",
             ],
+        },
+    },
+}
+
+cc_library_host_static {
+    name: "py2-c-module-_scproxy",
+    defaults: ["py2-interp-defaults"],
+    srcs: ["Mac/Modules/_scproxy.c"],
+    target: {
+        linux: {
+            enabled: false,
         },
     },
 }

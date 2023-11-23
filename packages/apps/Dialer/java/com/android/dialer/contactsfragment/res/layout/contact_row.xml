@@ -41,7 +41,7 @@
         android:layout_height="@dimen/photo_size"
         android:clickable="false"/>
 
-    <TextView
+    <com.android.dialer.widget.BidiTextView
         android:id="@+id/contact_name"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
@@ -51,7 +51,7 @@
         android:ellipsize="end"
         android:gravity="center_vertical"
         android:textSize="@dimen/text_size"
-        android:textColor="@color/dialer_primary_text_color"
+        android:textColor="?android:attr/textColorPrimary"
         android:fontFamily="sans-serif"/>
   </LinearLayout>
 </FrameLayout>

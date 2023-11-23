@@ -16,12 +16,18 @@
 
 package com.googlecode.android_scripting.facade.telephony;
 
-import org.json.JSONException;
-import org.json.JSONObject;
 import android.telephony.DataConnectionRealTimeInfo;
+import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseCallState;
 import android.telephony.ServiceState;
+
 import com.googlecode.android_scripting.jsonrpc.JsonSerializable;
+
+import java.util.List;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class TelephonyEvents {
 
@@ -228,51 +234,12 @@ public class TelephonyEvents {
         }
 
         public JSONObject toJSON() throws JSONException {
-            JSONObject serviceState = new JSONObject();
-
+            JSONObject serviceState =
+                    com.googlecode.android_scripting.jsonrpc.JsonBuilder.buildServiceState(
+                            mServiceState);
             serviceState.put(
                     TelephonyConstants.ServiceStateContainer.SUBSCRIPTION_ID,
                     mSubscriptionId);
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.VOICE_REG_STATE,
-                    TelephonyUtils.getNetworkStateString(
-                            mServiceState.getVoiceRegState()));
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.VOICE_NETWORK_TYPE,
-                    TelephonyUtils.getNetworkTypeString(
-                            mServiceState.getVoiceNetworkType()));
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.DATA_REG_STATE,
-                    TelephonyUtils.getNetworkStateString(
-                            mServiceState.getDataRegState()));
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.DATA_NETWORK_TYPE,
-                    TelephonyUtils.getNetworkTypeString(
-                            mServiceState.getDataNetworkType()));
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.OPERATOR_NAME,
-                    mServiceState.getOperatorAlphaLong());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.OPERATOR_ID,
-                    mServiceState.getOperatorNumeric());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.IS_MANUAL_NW_SELECTION,
-                    mServiceState.getIsManualSelection());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.ROAMING,
-                    mServiceState.getRoaming());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.IS_EMERGENCY_ONLY,
-                    mServiceState.isEmergencyOnly());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.NETWORK_ID,
-                    mServiceState.getCdmaNetworkId());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.SYSTEM_ID,
-                    mServiceState.getCdmaSystemId());
-            serviceState.put(
-                    TelephonyConstants.ServiceStateContainer.SERVICE_STATE,
-                    mServiceStateString);
 
             return serviceState;
         }
@@ -297,6 +264,34 @@ public class TelephonyEvents {
                     mMessageWaitingIndicator);
 
             return messageWaitingIndicator;
+        }
+    }
+
+    public static class PhysicalChannelConfigChangedEvent implements JsonSerializable {
+        private final List<PhysicalChannelConfig> mConfigs;
+
+        PhysicalChannelConfigChangedEvent(List<PhysicalChannelConfig> configs) {
+            mConfigs = configs;
+        }
+
+        List<PhysicalChannelConfig> getConfigs() {
+            return mConfigs;
+        }
+
+        public JSONObject toJSON() throws JSONException {
+            JSONArray jsonConfigs = new JSONArray();
+            for(PhysicalChannelConfig c : mConfigs) {
+                JSONObject cfg  = new JSONObject();
+                cfg.put(
+                        TelephonyConstants.PhysicalChannelConfigContainer.CELL_BANDWIDTH_DOWNLINK,
+                        c.getCellBandwidthDownlink());
+                cfg.put(
+                        TelephonyConstants.PhysicalChannelConfigContainer.CONNECTION_STATUS,
+                        c.getConnectionStatus());
+               jsonConfigs.put(cfg);
+            }
+            return new JSONObject().put(
+                    TelephonyConstants.PhysicalChannelConfigContainer.CONFIGS, jsonConfigs);
         }
     }
 }

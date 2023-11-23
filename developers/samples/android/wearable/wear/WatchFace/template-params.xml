@@ -23,19 +23,25 @@
     <package>com.example.android.wearable.watchface</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>27</targetSdkVersion>
+    <targetSdkVersion>28</targetSdkVersion>
 
     <minSdkVersionWear>24</minSdkVersionWear>
-    <compileSdkVersionWear>26</compileSdkVersionWear>
-    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <compileSdkVersionWear>28</compileSdkVersionWear>
+    <targetSdkVersionWear>28</targetSdkVersionWear>
 
     <multiDexEnabled>true</multiDexEnabled>
 
+    <androidX>true</androidX>
 
-    <dependency>com.google.android.support:wearable:2.3.0</dependency>
-    <dependency_wearable>com.android.support:palette-v7:27.1.0</dependency_wearable>
-    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
+    <dependency>androidx.legacy:legacy-support-v4:1.0.0</dependency>
+    <dependency>androidx.legacy:legacy-support-v13:1.0.0</dependency>
+    <dependency>androidx.cardview:cardview:1.0.0</dependency>
+    <dependency>androidx.appcompat:appcompat:1.0.2</dependency>
+    <dependency>com.google.android.support:wearable:2.4.0</dependency>
 
+    <dependency_wearable>androidx.palette:palette:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.wear:wear:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.legacy:legacy-support-v13:1.0.0</dependency_wearable>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>

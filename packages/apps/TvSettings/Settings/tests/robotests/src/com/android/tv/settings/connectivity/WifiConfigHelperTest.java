@@ -23,15 +23,15 @@ import static org.junit.Assert.assertEquals;
 import android.net.wifi.WifiConfiguration;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class WifiConfigHelperTest {
     @Mock
     private WifiConfiguration mConfig;

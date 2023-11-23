@@ -17,6 +17,7 @@
 package com.android.car;
 
 import android.annotation.Nullable;
+import android.car.Car;
 import android.car.VehicleAreaType;
 import android.car.drivingstate.CarDrivingStateEvent;
 import android.car.drivingstate.CarDrivingStateEvent.CarDrivingState;
@@ -35,9 +36,9 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A service that infers the current driving state of the vehicle.  It computes the driving state
@@ -52,7 +53,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     private final Context mContext;
     private CarPropertyService mPropertyService;
     // List of clients listening to driving state events.
-    private final List<DrivingStateClient> mDrivingStateClients = new ArrayList<>();
+    private final List<DrivingStateClient> mDrivingStateClients = new CopyOnWriteArrayList<>();
     // Array of properties that the service needs to listen to from CarPropertyService for deriving
     // the driving state.
     private static final int[] REQUIRED_PROPERTIES = {
@@ -153,7 +154,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
         }
         // If a new client is registering, create a new DrivingStateClient and add it to the list
         // of listening clients.
-        DrivingStateClient client = findDrivingStateClientLocked(listener);
+        DrivingStateClient client = findDrivingStateClient(listener);
         if (client == null) {
             client = new DrivingStateClient(listener);
             try {
@@ -174,8 +175,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * @return the {@link DrivingStateClient} if found, null if not
      */
     @Nullable
-    private DrivingStateClient findDrivingStateClientLocked(
-            ICarDrivingStateChangeListener listener) {
+    private DrivingStateClient findDrivingStateClient(ICarDrivingStateChangeListener listener) {
         IBinder binder = listener.asBinder();
         // Find the listener by comparing the binder object they host.
         for (DrivingStateClient client : mDrivingStateClients) {
@@ -199,7 +199,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
             throw new IllegalArgumentException("Listener is null");
         }
 
-        DrivingStateClient client = findDrivingStateClientLocked(listener);
+        DrivingStateClient client = findDrivingStateClient(listener);
         if (client == null) {
             Log.e(TAG, "unregisterDrivingStateChangeListener(): listener was not previously "
                     + "registered");
@@ -218,6 +218,15 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
     @Nullable
     public synchronized CarDrivingStateEvent getCurrentDrivingState() {
         return mCurrentDrivingState;
+    }
+
+    @Override
+    public void injectDrivingState(CarDrivingStateEvent event) {
+        ICarImpl.assertPermission(mContext, Car.PERMISSION_CONTROL_APP_BLOCKING);
+
+        for (DrivingStateClient client : mDrivingStateClients) {
+            client.dispatchEventToClients(event);
+        }
     }
 
     /**
@@ -241,9 +250,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
                 Log.d(TAG, "Binder died " + listenerBinder);
             }
             listenerBinder.unlinkToDeath(this, 0);
-            synchronized (CarDrivingStateService.this) {
-                mDrivingStateClients.remove(this);
-            }
+            mDrivingStateClients.remove(this);
         }
 
         /**
@@ -277,6 +284,7 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
 
     @Override
     public void dump(PrintWriter writer) {
+        writer.println("*CarDrivingStateService*");
         writer.println("Driving state change log:");
         for (Utils.TransitionLog tLog : mTransitionLogs) {
             writer.println(tLog);
@@ -309,81 +317,79 @@ public class CarDrivingStateService extends ICarDrivingState.Stub implements Car
      * the corresponding UX Restrictions and dispatch the events to the registered clients.
      */
     private synchronized void handlePropertyEvent(CarPropertyEvent event) {
-        switch (event.getEventType()) {
-            case CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE:
-                CarPropertyValue value = event.getCarPropertyValue();
-                int propId = value.getPropertyId();
-                long curTimestamp = value.getTimestamp();
-                Log.d(TAG, "Property Changed: propId=" + propId);
-                switch (propId) {
-                    case VehicleProperty.PERF_VEHICLE_SPEED:
-                        float curSpeed = (Float) value.getValue();
-                        if (DBG) {
-                            Log.d(TAG, "Speed: " + curSpeed + "@" + curTimestamp);
-                        }
-                        if (curTimestamp > mLastSpeedTimestamp) {
-                            mLastSpeedTimestamp = curTimestamp;
-                            mLastSpeed = curSpeed;
-                        } else if (DBG) {
-                            Log.d(TAG, "Ignoring speed with older timestamp:" + curTimestamp);
-                        }
-                        break;
-                    case VehicleProperty.GEAR_SELECTION:
-                        if (mSupportedGears == null) {
-                            mSupportedGears = getSupportedGears();
-                        }
-                        int curGear = (Integer) value.getValue();
-                        if (DBG) {
-                            Log.d(TAG, "Gear: " + curGear + "@" + curTimestamp);
-                        }
-                        if (curTimestamp > mLastGearTimestamp) {
-                            mLastGearTimestamp = curTimestamp;
-                            mLastGear = (Integer) value.getValue();
-                        } else if (DBG) {
-                            Log.d(TAG, "Ignoring Gear with older timestamp:" + curTimestamp);
-                        }
-                        break;
-                    case VehicleProperty.PARKING_BRAKE_ON:
-                        boolean curParkingBrake = (boolean) value.getValue();
-                        if (DBG) {
-                            Log.d(TAG, "Parking Brake: " + curParkingBrake + "@" + curTimestamp);
-                        }
-                        if (curTimestamp > mLastParkingBrakeTimestamp) {
-                            mLastParkingBrakeTimestamp = curTimestamp;
-                            mLastParkingBrakeState = curParkingBrake;
-                        } else if (DBG) {
-                            Log.d(TAG, "Ignoring Parking Brake status with an older timestamp:"
-                                    + curTimestamp);
-                        }
-                        break;
-                    default:
-                        Log.e(TAG, "Received property event for unhandled propId=" + propId);
-                        break;
-                }
-
-                int drivingState = inferDrivingStateLocked();
-                // Check if the driving state has changed.  If it has, update our records and
-                // dispatch the new events to the listeners.
+        if (event.getEventType() != CarPropertyEvent.PROPERTY_EVENT_PROPERTY_CHANGE) {
+            return;
+        }
+        CarPropertyValue value = event.getCarPropertyValue();
+        int propId = value.getPropertyId();
+        long curTimestamp = value.getTimestamp();
+        if (DBG) {
+            Log.d(TAG, "Property Changed: propId=" + propId);
+        }
+        switch (propId) {
+            case VehicleProperty.PERF_VEHICLE_SPEED:
+                float curSpeed = (Float) value.getValue();
                 if (DBG) {
-                    Log.d(TAG, "Driving state new->old " + drivingState + "->"
-                            + mCurrentDrivingState.eventValue);
+                    Log.d(TAG, "Speed: " + curSpeed + "@" + curTimestamp);
                 }
-                if (drivingState != mCurrentDrivingState.eventValue) {
-                    addTransitionLog(TAG, mCurrentDrivingState.eventValue, drivingState,
-                            System.currentTimeMillis());
-                    // Update if there is a change in state.
-                    mCurrentDrivingState = createDrivingStateEvent(drivingState);
-                    if (DBG) {
-                        Log.d(TAG, "dispatching to " + mDrivingStateClients.size() + " clients");
-                    }
-                    for (DrivingStateClient client : mDrivingStateClients) {
-                        client.dispatchEventToClients(mCurrentDrivingState);
-                    }
+                if (curTimestamp > mLastSpeedTimestamp) {
+                    mLastSpeedTimestamp = curTimestamp;
+                    mLastSpeed = curSpeed;
+                } else if (DBG) {
+                    Log.d(TAG, "Ignoring speed with older timestamp:" + curTimestamp);
+                }
+                break;
+            case VehicleProperty.GEAR_SELECTION:
+                if (mSupportedGears == null) {
+                    mSupportedGears = getSupportedGears();
+                }
+                int curGear = (Integer) value.getValue();
+                if (DBG) {
+                    Log.d(TAG, "Gear: " + curGear + "@" + curTimestamp);
+                }
+                if (curTimestamp > mLastGearTimestamp) {
+                    mLastGearTimestamp = curTimestamp;
+                    mLastGear = (Integer) value.getValue();
+                } else if (DBG) {
+                    Log.d(TAG, "Ignoring Gear with older timestamp:" + curTimestamp);
+                }
+                break;
+            case VehicleProperty.PARKING_BRAKE_ON:
+                boolean curParkingBrake = (boolean) value.getValue();
+                if (DBG) {
+                    Log.d(TAG, "Parking Brake: " + curParkingBrake + "@" + curTimestamp);
+                }
+                if (curTimestamp > mLastParkingBrakeTimestamp) {
+                    mLastParkingBrakeTimestamp = curTimestamp;
+                    mLastParkingBrakeState = curParkingBrake;
+                } else if (DBG) {
+                    Log.d(TAG, "Ignoring Parking Brake status with an older timestamp:"
+                            + curTimestamp);
                 }
                 break;
             default:
-                // Unhandled event
+                Log.e(TAG, "Received property event for unhandled propId=" + propId);
                 break;
+        }
+
+        int drivingState = inferDrivingStateLocked();
+        // Check if the driving state has changed.  If it has, update our records and
+        // dispatch the new events to the listeners.
+        if (DBG) {
+            Log.d(TAG, "Driving state new->old " + drivingState + "->"
+                    + mCurrentDrivingState.eventValue);
+        }
+        if (drivingState != mCurrentDrivingState.eventValue) {
+            addTransitionLog(TAG, mCurrentDrivingState.eventValue, drivingState,
+                    System.currentTimeMillis());
+            // Update if there is a change in state.
+            mCurrentDrivingState = createDrivingStateEvent(drivingState);
+            if (DBG) {
+                Log.d(TAG, "dispatching to " + mDrivingStateClients.size() + " clients");
+            }
+            for (DrivingStateClient client : mDrivingStateClients) {
+                client.dispatchEventToClients(mCurrentDrivingState);
+            }
         }
     }
 

@@ -88,6 +88,39 @@ void impeg2_buf_mgr_init(
     }
 }
 
+/**
+*******************************************************************************
+*
+* @brief
+*      Buffer manager reset function.
+*
+* @par Description:
+*    Resets the buffer manager structure
+*
+* @param[in] ps_buf_mgr
+*  Pointer to the buffer manager
+*
+* @returns
+*
+* @remarks
+*  None
+*
+*******************************************************************************
+*/
+
+void impeg2_buf_mgr_reset(
+                buf_mgr_t *ps_buf_mgr)
+{
+    WORD32 id;
+
+    ps_buf_mgr->u4_max_buf_cnt = BUF_MGR_MAX_CNT;
+    ps_buf_mgr->u4_active_buf_cnt = 0;
+
+    for(id = 0; id < BUF_MGR_MAX_CNT; id++)
+    {
+        ps_buf_mgr->au4_status[id] = 0;
+    }
+}
 
 /**
 *******************************************************************************

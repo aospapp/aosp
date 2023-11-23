@@ -82,9 +82,12 @@ public class CrossProcessExceptionTest extends AndroidTestCase {
         context.unbindService(greenConn);
         context.stopService(greenIntent);
 
-        final ActivityManager am = (ActivityManager) mContext.getSystemService(
-                Context.ACTIVITY_SERVICE);
-        am.killBackgroundProcesses(context.getPackageName());
+        // Instant Apps don't have the KILL_BACKGROUND_PROCESSES permission
+        if (!context.getPackageManager().isInstantApp()) {
+            final ActivityManager am = (ActivityManager) mContext.getSystemService(
+                    Context.ACTIVITY_SERVICE);
+            am.killBackgroundProcesses(context.getPackageName());
+        }
     }
 
     public void testNone() throws Exception {

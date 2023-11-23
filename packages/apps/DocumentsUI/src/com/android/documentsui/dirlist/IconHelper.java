@@ -27,10 +27,11 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+
+import androidx.annotation.Nullable;
 
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.IconUtils;
@@ -45,7 +46,6 @@ import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ViewMode;
 
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /**
  * A class to assist with loading and managing the Images (i.e. thumbnails and icons) associated
@@ -200,18 +200,14 @@ public class IconHelper {
                         (cachedThumbnail == null ? ThumbnailLoader.ANIM_FADE_IN :
                                 ThumbnailLoader.ANIM_NO_OP);
 
-                Consumer<Bitmap> callback = new Consumer<Bitmap>() {
-                    @Override
-                    public void accept(Bitmap bitmap) {
-                        if (result != null) {
-                            iconThumb.setImageBitmap(bitmap);
-                            animator.accept(iconMime, iconThumb);
-                        }
-                    }
-                };
-
                 final ThumbnailLoader task = new ThumbnailLoader(uri, iconThumb,
-                    mCurrentSize, docLastModified, callback, true);
+                        mCurrentSize, docLastModified,
+                        bitmap -> {
+                            if (bitmap != null) {
+                                iconThumb.setImageBitmap(bitmap);
+                                animator.accept(iconMime, iconThumb);
+                            }
+                        }, true /* addToCache */);
 
                 ProviderExecutor.forAuthority(docAuthority).execute(task);
             }

@@ -19,23 +19,23 @@
  */
 public class Main {
 
-  /// CHECK-START: int Main.sad1(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad1(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad1(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad1(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad1(byte x, byte y) {
     return x >= y ? x - y : y - x;
   }
 
-  /// CHECK-START: int Main.sad2(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad2(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad2(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad2(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad2(byte x, byte y) {
     int diff = x - y;
@@ -43,36 +43,36 @@ public class Main {
     return diff;
   }
 
-  /// CHECK-START: int Main.sad3(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad3(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad3(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad3(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad3(byte x, byte y) {
     int diff = x - y;
     return diff >= 0 ? diff : -diff;
   }
 
-  /// CHECK-START: int Main.sad3Alt(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: int Main.sad3Alt(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:i\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: int Main.sad3Alt(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:i\d+>> InvokeStaticOrDirect intrinsic:MathAbsInt
+  /// CHECK-START: int Main.sad3Alt(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:i\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static int sad3Alt(byte x, byte y) {
     int diff = x - y;
     return 0 <= diff ? diff : -diff;
   }
 
-  /// CHECK-START: long Main.sadL1(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL1(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL1(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL1(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL1(byte x, byte y) {
     long xl = x;
@@ -80,12 +80,12 @@ public class Main {
     return xl >= yl ? xl - yl : yl - xl;
   }
 
-  /// CHECK-START: long Main.sadL2(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL2(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL2(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL2(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL2(byte x, byte y) {
     long diff = x - y;
@@ -93,24 +93,24 @@ public class Main {
     return diff;
   }
 
-  /// CHECK-START: long Main.sadL3(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL3(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL3(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL3(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL3(byte x, byte y) {
     long diff = x - y;
     return diff >= 0L ? diff : -diff;
   }
 
-  /// CHECK-START: long Main.sadL3Alt(byte, byte) instruction_simplifier$after_inlining (before)
+  /// CHECK-START: long Main.sadL3Alt(byte, byte) instruction_simplifier$after_gvn (before)
   /// CHECK-DAG: <<Select:j\d+>> Select
   /// CHECK-DAG:                 Return [<<Select>>]
   //
-  /// CHECK-START: long Main.sadL3Alt(byte, byte) instruction_simplifier$after_inlining (after)
-  /// CHECK-DAG: <<Intrin:j\d+>> InvokeStaticOrDirect intrinsic:MathAbsLong
+  /// CHECK-START: long Main.sadL3Alt(byte, byte) instruction_simplifier$after_gvn (after)
+  /// CHECK-DAG: <<Intrin:j\d+>> Abs
   /// CHECK-DAG:                 Return [<<Intrin>>]
   static long sadL3Alt(byte x, byte y) {
     long diff = x - y;

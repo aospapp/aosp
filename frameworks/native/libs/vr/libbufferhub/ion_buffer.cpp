@@ -49,11 +49,11 @@ IonBuffer::~IonBuffer() {
   FreeHandle();
 }
 
-IonBuffer::IonBuffer(IonBuffer&& other) : IonBuffer() {
+IonBuffer::IonBuffer(IonBuffer&& other) noexcept : IonBuffer() {
   *this = std::move(other);
 }
 
-IonBuffer& IonBuffer::operator=(IonBuffer&& other) {
+IonBuffer& IonBuffer::operator=(IonBuffer&& other) noexcept {
   ALOGD_IF(TRACE, "IonBuffer::operator=: handle_=%p other.handle_=%p", handle(),
            other.handle());
 
@@ -205,7 +205,7 @@ int IonBuffer::Lock(uint32_t usage, int x, int y, int width, int height,
 
   status_t err =
       buffer_->lock(usage, Rect(x, y, x + width, y + height), address);
-  if (err != NO_ERROR)
+  if (err != OK)
     return -EINVAL;
   else
     return 0;
@@ -220,7 +220,7 @@ int IonBuffer::LockYUV(uint32_t usage, int x, int y, int width, int height,
 
   status_t err =
       buffer_->lockYCbCr(usage, Rect(x, y, x + width, y + height), yuv);
-  if (err != NO_ERROR)
+  if (err != OK)
     return -EINVAL;
   else
     return 0;
@@ -231,7 +231,7 @@ int IonBuffer::Unlock() {
   ALOGD_IF(TRACE, "IonBuffer::Unlock: handle=%p", handle());
 
   status_t err = buffer_->unlock();
-  if (err != NO_ERROR)
+  if (err != OK)
     return -EINVAL;
   else
     return 0;

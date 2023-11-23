@@ -46,7 +46,11 @@ public abstract class DeviceFlashPreparer extends BaseTargetPreparer implements 
 
     private static final int BOOT_POLL_TIME_MS = 5 * 1000;
 
-    @Option(name = "device-boot-time", description = "max time in ms to wait for device to boot.")
+    @Option(
+        name = "device-boot-time",
+        description = "max time to wait for device to boot.",
+        isTimeVal = true
+    )
     private long mDeviceBootTime = 5 * 60 * 1000;
 
     @Option(name = "userdata-flash", description =

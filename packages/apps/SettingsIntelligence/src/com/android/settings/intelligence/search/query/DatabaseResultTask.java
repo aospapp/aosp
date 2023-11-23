@@ -23,7 +23,7 @@ import static com.android.settings.intelligence.search.indexing.IndexDatabaseHel
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
 
@@ -63,6 +63,7 @@ public class DatabaseResultTask extends SearchQueryTask.QueryWorker {
             IndexColumns.ICON,
             IndexColumns.INTENT_ACTION,
             IndexColumns.DATA_PACKAGE,
+            IndexColumns.DATA_AUTHORITY,
             IndexColumns.INTENT_TARGET_PACKAGE,
             IndexColumns.INTENT_TARGET_CLASS,
             IndexColumns.DATA_KEY_REF,

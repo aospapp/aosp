@@ -29,12 +29,13 @@
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
     <uses-permission android:name="com.android.tv.permission.RECEIVE_INPUT_EVENT" />
-    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="23"/>
+    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23"/>
     <!--TODO(b/68949299): remove tool hint when we have smaller dependency targets-->
     <application android:label="@string/partner_support_sample_tv_input"
-            tools:replace="android:label,icon,theme"
+            tools:replace="android:label,icon,theme,appComponentFactory"
             android:icon="@mipmap/ic_launcher"
-            android:theme="@android:style/Theme.Holo.Light.NoActionBar" >
+            android:theme="@android:style/Theme.Holo.Light.NoActionBar"
+            android:appComponentFactory="android.support.v4.app.CoreComponentFactory" >
         <activity android:name=".SampleTvInputSetupActivity"
                 android:theme="@style/Theme.Leanback.GuidedStep">
             <intent-filter>

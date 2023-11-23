@@ -24,10 +24,13 @@ import android.support.v17.leanback.widget.OnActionClickedListener;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.DvrWatchedPositionManager;
 import com.android.tv.dvr.data.RecordedProgram;
+import com.android.tv.dvr.ui.DvrUiHelper;
+import com.android.tv.ui.DetailsActivity;
 
 /** {@link android.support.v17.leanback.app.DetailsFragment} for recorded program in DVR. */
 public class RecordedProgramDetailsFragment extends DvrDetailsFragment
@@ -80,7 +83,7 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
 
     @Override
     protected boolean onLoadRecordingDetails(Bundle args) {
-        long recordedProgramId = args.getLong(DvrDetailsActivity.RECORDING_ID);
+        long recordedProgramId = args.getLong(DetailsActivity.RECORDING_ID);
         mRecordedProgram = mDvrDataManager.getRecordedProgram(recordedProgramId);
         return mRecordedProgram != null;
     }
@@ -138,13 +141,22 @@ public class RecordedProgramDetailsFragment extends DvrDetailsFragment
                             mDvrWatchedPositionManager.getWatchedPosition(
                                     mRecordedProgram.getId()));
                 } else if (action.getId() == ACTION_DELETE_RECORDING) {
-                    DvrManager dvrManager =
-                            TvSingletons.getSingletons(getActivity()).getDvrManager();
-                    dvrManager.removeRecordedProgram(mRecordedProgram);
-                    getActivity().finish();
+                    delete();
                 }
             }
         };
+    }
+
+    private void delete() {
+        if (!PermissionUtils.hasWriteExternalStorage(getContext())
+                && DvrManager.isFile(mRecordedProgram.getDataUri())
+                && !DvrManager.isFromBundledInput(mRecordedProgram)) {
+            DvrUiHelper.showWriteStoragePermissionRationaleDialog(getActivity());
+        } else {
+            DvrManager dvrManager = TvSingletons.getSingletons(getActivity()).getDvrManager();
+            dvrManager.removeRecordedProgram(mRecordedProgram, true);
+            getActivity().finish();
+        }
     }
 
     @Override

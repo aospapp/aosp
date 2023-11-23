@@ -29,9 +29,9 @@ import javax.obex.HeaderSet;
 
 final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = Utils.VDBG;
 
-    private static final String TAG = "BluetoothPbapRequestPullPhoneBook";
+    private static final String TAG = "BtPbapReqPullPhoneBook";
 
     private static final String TYPE = "x-bt/phonebook";
 
@@ -93,7 +93,7 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
     @Override
     protected void readResponse(InputStream stream) throws IOException {
-        Log.v(TAG, "readResponse");
+        if (VDBG) Log.v(TAG, "readResponse");
 
         mResponse = new BluetoothPbapVcardList(mAccount, stream, mFormat);
         if (VDBG) {
@@ -103,7 +103,7 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
     @Override
     protected void readResponseHeaders(HeaderSet headerset) {
-        Log.v(TAG, "readResponseHeaders");
+        if (VDBG) Log.v(TAG, "readResponseHeaders");
 
         ObexAppParameters oap = ObexAppParameters.fromHeaderSet(headerset);
 

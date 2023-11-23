@@ -26,6 +26,7 @@
 namespace android {
 namespace nn {
 
+class BurstBuilder;
 class Device;
 class ExecutionBuilder;
 class ModelBuilder;
@@ -34,17 +35,24 @@ class CompilationBuilder {
 public:
     friend class ExecutionBuilder;  // TODO remove this
 
-    CompilationBuilder(const ModelBuilder* model);
+    // explicitDeviceList is true if the list of devices was provided explicitly
+    // via the ANeuralNetworksModel_createForDevices API (which has certain
+    // special semantics) and false otherwise.
+    CompilationBuilder(const ModelBuilder* model,
+                       const std::vector<std::shared_ptr<Device>>& devices,
+                       bool explicitDeviceList = false);
 
     int setPreference(int32_t preference);
 
     int setPartitioning(uint32_t partitioning);
 
+    int setCaching(const std::string& cacheDir, const uint8_t* token);
+
     int finish();
 
-    int finish(const std::vector<std::shared_ptr<Device>>& devices);
-
     int createExecution(ExecutionBuilder** execution);
+
+    int createBurst(BurstBuilder** burst);
 
     const ExecutionPlan& forTest_getExecutionPlan() const { return mPlan; }
 
@@ -64,6 +72,20 @@ private:
     // Once the compilation has been finished, we should not allow further
     // modifications to the compilation.
     bool mFinished = false;
+
+    // The set of devices that the partitioning algorithm operates on when
+    // finish() is called.
+    std::vector<std::shared_ptr<Device>> mDevices;
+
+    // mExplicitDeviceList is true if the list of devices was provided
+    // explicitly via the ANeuralNetworksModel_createForDevices API (which has
+    // certain special semantics) and false otherwise.
+    bool mExplicitDeviceList;
+
+    // Compilation caching information.
+    std::string mCacheDir;
+    uint8_t mToken[ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN];
+    bool mIsCacheInfoProvided = false;
 };
 
 } // namespace nn

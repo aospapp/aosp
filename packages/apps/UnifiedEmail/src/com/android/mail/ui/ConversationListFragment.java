@@ -28,8 +28,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
-import android.support.annotation.IdRes;
-import android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener;
+import androidx.annotation.IdRes;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -1242,7 +1242,7 @@ public final class ConversationListFragment extends Fragment implements
     }
 
     /* (non-Javadoc)
-     * @see android.support.v4.widget.SwipeRefreshLayout.OnRefreshListener#onRefresh()
+     * @see androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener#onRefresh()
      */
     @Override
     public void onRefresh() {

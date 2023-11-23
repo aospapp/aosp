@@ -16,13 +16,14 @@
 
 package com.android.car.settings.users;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
 
-import androidx.car.app.CarAlertDialog;
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
 
 import com.android.car.settings.R;
 
@@ -32,7 +33,8 @@ import com.android.car.settings.R;
  */
 public class ConfirmExitRetailModeDialog extends DialogFragment implements
         DialogInterface.OnClickListener {
-    private static final String DIALOG_TAG = "ConfirmExitRetailModeDialog";
+    @VisibleForTesting
+    static final String DIALOG_TAG = "ConfirmExitRetailModeDialog";
     private ConfirmExitRetailModeListener mListener;
 
     /**
@@ -57,9 +59,9 @@ public class ConfirmExitRetailModeDialog extends DialogFragment implements
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new CarAlertDialog.Builder(getContext())
+        return new AlertDialog.Builder(getContext())
                 .setTitle(R.string.exit_retail_mode_dialog_title)
-                .setBody(R.string.exit_retail_mode_dialog_body)
+                .setMessage(R.string.exit_retail_mode_dialog_body)
                 .setPositiveButton(R.string.exit_retail_mode_dialog_confirmation_button_text, this)
                 .setNegativeButton(android.R.string.cancel, null)
                 .create();

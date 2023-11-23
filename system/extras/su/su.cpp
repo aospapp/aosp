@@ -87,12 +87,12 @@ int main(int argc, char** argv) {
     ++argv;
     if (*argv && (strcmp(*argv, "--help") == 0 || strcmp(*argv, "-h") == 0)) {
         fprintf(stderr,
-                "usage: su [UID[,GID[,GID2]...]] [COMMAND [ARG...]]\n"
+                "usage: su [WHO [COMMAND...]]\n"
                 "\n"
-                "Switch to WHO (default 'root') and run the given command (default sh).\n"
+                "Switch to WHO (default 'root') and run the given COMMAND (default sh).\n"
                 "\n"
-                "where WHO is a comma-separated list of user, group,\n"
-                "and supplementary groups in that order.\n"
+                "WHO is a comma-separated list of user, group, and supplementary groups\n"
+                "in that order.\n"
                 "\n");
         return 0;
     }

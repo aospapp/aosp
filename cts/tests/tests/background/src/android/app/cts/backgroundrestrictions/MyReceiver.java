@@ -19,7 +19,8 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;

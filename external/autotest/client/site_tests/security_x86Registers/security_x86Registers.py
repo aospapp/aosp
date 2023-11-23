@@ -9,21 +9,22 @@ from autotest_lib.client.cros.power import power_utils
 from autotest_lib.client.cros.power import sys_power
 
 MSR_POSITIVE = {
+    # IA32_FEATURE_CONTROL[2:0]
+    #   0 - Lock bit (1 = locked)
+    #   1 - Enable VMX in SMX operation
+    #   2 - Enable VMX outside SMX operation
     'Atom': {
-        # VMX does not exist on Atom (so it reports as disabled).
-        '0x3a':  [('2:0', 1)],
+        # Some CPUs reporting as "Atom" have VMX enabled.
         },
-    'Non-Atom': {
-        # IA32_FEATURE_CONTROL[2:0]
-        #   0 - Lock bit (1 = locked)
-        #   1 - Enable VMX in SMX operation
-        #   2 - Enable VMX outside SMX operation
-        # Want value "1": VMX locked and disabled in all modes.
-        '0x3a':  [('2:0', 1)],
+    'Core M': {
+        # Some CPUs reporting as "Core M" have VMX enabled.
+        },
+    'Core': {
+        # Some CPUs reporting as "Core" have VMX enabled.
         },
     'Stoney': {
         # VM_CR MSR (C001_0114h) with SVMDIS Bit 4
-        # can be used to lock writes to EFER.SVME
+        # can be used to lock writes to EFER.SVME.
         #   0 - writes to EFER.SVME are not blocked
         #   1 - writes to EFER treat EFER.SVME as MBZ
         '0xc0010114':  [('4', 0)],
@@ -32,12 +33,16 @@ MSR_POSITIVE = {
 
 MSR_NEGATIVE = {
     'Atom': {
-        # Inverted from positive case: none of these bits should be set.
-        '0x3a':  [('2:0', 6)],
+        # No board has all bits set so this should fail.
+        '0x3a':  [('2:0', 7)],
         },
-    'Non-Atom': {
-        # Inverted from positive case: none of these bits should be set.
-        '0x3a':  [('2:0', 6)],
+    'Core M': {
+        # No board has all bits set so this should fail.
+        '0x3a':  [('2:0', 7)],
+        },
+    'Core': {
+        # No board has all bits set so this should fail.
+        '0x3a':  [('2:0', 7)],
         },
     'Stoney': {
         # Inverted from positive case: none of these bits should be set.
@@ -51,7 +56,12 @@ RCBA_POSITIVE = {
         # https://code.google.com/p/chromium/issues/detail?id=269633
         '0x3410': [('0', 0)],
         },
-    'Non-Atom': {
+    'Core M': {
+        # GCS (General Control and Status) register, BILD (BIOS Interface
+        # Lock-Down) bit should be set.
+        '0x3410': [('0', 1)],
+        },
+    'Core': {
         # GCS (General Control and Status) register, BILD (BIOS Interface
         # Lock-Down) bit should be set.
         '0x3410': [('0', 1)],
@@ -67,7 +77,11 @@ RCBA_NEGATIVE = {
         # GCS register, BILD bit inverted from positive test.
         '0x3410': [('0', 1)],
         },
-    'Non-Atom': {
+    'Core M': {
+        # GCS register, BILD bit inverted from positive test.
+        '0x3410': [('0', 0)],
+        },
+    'Core': {
         # GCS register, BILD bit inverted from positive test.
         '0x3410': [('0', 0)],
         },
@@ -141,8 +155,10 @@ class security_x86Registers(test.test):
             self._cpu_type = 'Stoney'
         elif cpu_arch == 'Atom':
             self._cpu_type = 'Atom'
+        elif cpu_arch == 'Core M':
+            self._cpu_type = 'Core M'
         else:
-            self._cpu_type = 'Non-Atom'
+            self._cpu_type = 'Core'
 
         self._registers = power_utils.Registers()
 

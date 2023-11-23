@@ -189,7 +189,10 @@ public class Utils {
 //    }
 //  }
 
-  public static class ChineseDigits {
+  /**
+ * @hide Only a subset of ICU is exposed in Android
+ */
+public static class ChineseDigits {
     final char[] digits;
     final char[] units;
     final char[] levels;

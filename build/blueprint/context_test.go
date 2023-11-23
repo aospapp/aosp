@@ -122,9 +122,9 @@ func TestContextParse(t *testing.T) {
 	}
 }
 
-// |---B===D       - represents a non-walkable edge
+// |===B---D       - represents a non-walkable edge
 // A               = represents a walkable edge
-// |===C---E===G
+// |===C===E---G
 //     |       |   A should not be visited because it's the root node.
 //     |===F===|   B, D and E should not be walked.
 func TestWalkDeps(t *testing.T) {
@@ -189,24 +189,114 @@ func TestWalkDeps(t *testing.T) {
 	var outputDown string
 	var outputUp string
 	topModule := ctx.modulesFromName("A", nil)[0]
-	ctx.walkDeps(topModule,
+	ctx.walkDeps(topModule, false,
 		func(dep depInfo, parent *moduleInfo) bool {
+			outputDown += ctx.ModuleName(dep.module.logicModule)
 			if dep.module.logicModule.(Walker).Walk() {
-				outputDown += ctx.ModuleName(dep.module.logicModule)
 				return true
 			}
 			return false
 		},
 		func(dep depInfo, parent *moduleInfo) {
-			if dep.module.logicModule.(Walker).Walk() {
-				outputUp += ctx.ModuleName(dep.module.logicModule)
-			}
+			outputUp += ctx.ModuleName(dep.module.logicModule)
 		})
-	if outputDown != "CFG" {
-		t.Fatalf("unexpected walkDeps behaviour: %s\ndown should be: CFG", outputDown)
+	if outputDown != "BCEFG" {
+		t.Errorf("unexpected walkDeps behaviour: %s\ndown should be: BCEFG", outputDown)
 	}
-	if outputUp != "GFC" {
-		t.Fatalf("unexpected walkDeps behaviour: %s\nup should be: GFC", outputUp)
+	if outputUp != "BEGFC" {
+		t.Errorf("unexpected walkDeps behaviour: %s\nup should be: BEGFC", outputUp)
+	}
+}
+
+// |===B---D           - represents a non-walkable edge
+// A                   = represents a walkable edge
+// |===C===E===\       A should not be visited because it's the root node.
+//     |       |       B, D should not be walked.
+//     |===F===G===H   G should be visited multiple times
+//         \===/       H should only be visited once
+func TestWalkDepsDuplicates(t *testing.T) {
+	ctx := NewContext()
+	ctx.MockFileSystem(map[string][]byte{
+		"Blueprints": []byte(`
+			foo_module {
+			    name: "A",
+			    deps: ["B", "C"],
+			}
+
+			bar_module {
+			    name: "B",
+			    deps: ["D"],
+			}
+
+			foo_module {
+			    name: "C",
+			    deps: ["E", "F"],
+			}
+
+			foo_module {
+			    name: "D",
+			}
+
+			foo_module {
+			    name: "E",
+			    deps: ["G"],
+			}
+
+			foo_module {
+			    name: "F",
+			    deps: ["G", "G"],
+			}
+
+			foo_module {
+			    name: "G",
+				deps: ["H"],
+			}
+
+			foo_module {
+			    name: "H",
+			}
+		`),
+	})
+
+	ctx.RegisterModuleType("foo_module", newFooModule)
+	ctx.RegisterModuleType("bar_module", newBarModule)
+	_, errs := ctx.ParseBlueprintsFiles("Blueprints")
+	if len(errs) > 0 {
+		t.Errorf("unexpected parse errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	_, errs = ctx.ResolveDependencies(nil)
+	if len(errs) > 0 {
+		t.Errorf("unexpected dep errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	var outputDown string
+	var outputUp string
+	topModule := ctx.modulesFromName("A", nil)[0]
+	ctx.walkDeps(topModule, true,
+		func(dep depInfo, parent *moduleInfo) bool {
+			outputDown += ctx.ModuleName(dep.module.logicModule)
+			if dep.module.logicModule.(Walker).Walk() {
+				return true
+			}
+			return false
+		},
+		func(dep depInfo, parent *moduleInfo) {
+			outputUp += ctx.ModuleName(dep.module.logicModule)
+		})
+	if outputDown != "BCEGHFGG" {
+		t.Errorf("unexpected walkDeps behaviour: %s\ndown should be: BCEGHFGG", outputDown)
+	}
+	if outputUp != "BHGEGGFC" {
+		t.Errorf("unexpected walkDeps behaviour: %s\nup should be: BHGEGGFC", outputUp)
 	}
 }
 
@@ -391,4 +481,30 @@ func TestWalkingWithSyntaxError(t *testing.T) {
 		t.Errorf("Incorrect errors; expected:\n%s\ngot:\n%s", expectedErrs, errs)
 	}
 
+}
+
+func TestParseFailsForModuleWithoutName(t *testing.T) {
+	ctx := NewContext()
+	ctx.MockFileSystem(map[string][]byte{
+		"Blueprints": []byte(`
+			foo_module {
+			    name: "A",
+			}
+			
+			bar_module {
+			    deps: ["A"],
+			}
+		`),
+	})
+	ctx.RegisterModuleType("foo_module", newFooModule)
+	ctx.RegisterModuleType("bar_module", newBarModule)
+
+	_, errs := ctx.ParseBlueprintsFiles("Blueprints")
+
+	expectedErrs := []error{
+		errors.New(`Blueprints:6:4: property 'name' is missing from a module`),
+	}
+	if fmt.Sprintf("%s", expectedErrs) != fmt.Sprintf("%s", errs) {
+		t.Errorf("Incorrect errors; expected:\n%s\ngot:\n%s", expectedErrs, errs)
+	}
 }

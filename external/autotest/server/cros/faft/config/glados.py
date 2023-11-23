@@ -11,6 +11,6 @@ class Values(object):
     dark_resume_capable = True
     ec_capability = ['battery', 'charging', 'doubleboot',
                      'keyboard', 'lid', 'x86', 'usbpd_uart' ]
-    wp_voltage = 'pp3300'
     spi_voltage = 'pp3300'
     servo_prog_state_delay = 10
+    smm_store = False

@@ -38,6 +38,7 @@ static void art_heap_usage_error(const char* function, void* p);
 #pragma GCC diagnostic ignored "-Wempty-body"
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Wnull-pointer-arithmetic"
+#pragma GCC diagnostic ignored "-Wexpansion-to-defined"
 #include "../../../external/dlmalloc/malloc.c"
 // Note: malloc.c uses a DEBUG define to drive debug code. This interferes with the DEBUG severity
 //       of libbase, so undefine it now.
@@ -59,8 +60,8 @@ static void art_heap_usage_error(const char* function, void* p) {
 
 #include <sys/mman.h>
 
-#include "base/globals.h"
 #include "base/utils.h"
+#include "runtime_globals.h"
 
 extern "C" void DlmallocMadviseCallback(void* start, void* end, size_t used_bytes, void* arg) {
   // Is this chunk in use?

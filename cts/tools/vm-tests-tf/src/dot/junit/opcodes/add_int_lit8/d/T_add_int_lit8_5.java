@@ -18,6 +18,7 @@ package dot.junit.opcodes.add_int_lit8.d;
 
 public class T_add_int_lit8_5 {
 
+    @SuppressWarnings("ConstantOverflow")
     public int run() {
         return 0x7ffffffe + 2;
     }

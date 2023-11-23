@@ -22,6 +22,7 @@ import android.provider.CallLog.Calls;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.os.BuildCompat;
 import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.text.TextUtils;
 import android.view.View;
@@ -33,15 +34,23 @@ import com.android.dialer.calllogutils.CallLogDurations;
 import com.android.dialer.calllogutils.CallTypeHelper;
 import com.android.dialer.calllogutils.CallTypeIconsView;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.compat.AppCompatConstants;
 import com.android.dialer.enrichedcall.historyquery.proto.HistoryResult;
 import com.android.dialer.enrichedcall.historyquery.proto.HistoryResult.Type;
+import com.android.dialer.glidephotomanager.PhotoInfo;
 import com.android.dialer.oem.MotorolaUtils;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.IntentUtil;
 
-/** ViewHolder for call entries in {@link CallDetailsActivity}. */
+/** ViewHolder for call entries in {@link OldCallDetailsActivity} or {@link CallDetailsActivity}. */
 public class CallDetailsEntryViewHolder extends ViewHolder {
+
+  /** Listener for the call details header */
+  interface CallDetailsEntryListener {
+    /** Shows RTT transcript. */
+    void showRttTranscript(String transcriptId, String primaryText, PhotoInfo photoInfo);
+  }
+
+  private final CallDetailsEntryListener callDetailsEntryListener;
 
   private final CallTypeIconsView callTypeIcon;
   private final TextView callTypeText;
@@ -54,6 +63,7 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
 
   private final TextView multimediaDetails;
   private final TextView postCallNote;
+  private final TextView rttTranscript;
 
   private final ImageView multimediaImage;
 
@@ -63,7 +73,8 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
 
   private final Context context;
 
-  public CallDetailsEntryViewHolder(View container) {
+  public CallDetailsEntryViewHolder(
+      View container, CallDetailsEntryListener callDetailsEntryListener) {
     super(container);
     context = container.getContext();
 
@@ -80,10 +91,14 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
     multimediaImage = (ImageView) container.findViewById(R.id.multimedia_image);
     multimediaAttachmentsNumber =
         (TextView) container.findViewById(R.id.multimedia_attachments_number);
+    rttTranscript = container.findViewById(R.id.rtt_transcript);
+    this.callDetailsEntryListener = callDetailsEntryListener;
   }
 
   void setCallDetails(
       String number,
+      String primaryText,
+      PhotoInfo photoInfo,
       CallDetailsEntry entry,
       CallTypeHelper callTypeHelper,
       boolean showMultimediaDivider) {
@@ -93,6 +108,9 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
         (entry.getFeatures() & Calls.FEATURES_PULLED_EXTERNALLY)
             == Calls.FEATURES_PULLED_EXTERNALLY;
     boolean isDuoCall = entry.getIsDuoCall();
+    boolean isRttCall =
+        BuildCompat.isAtLeastP()
+            && (entry.getFeatures() & Calls.FEATURES_RTT) == Calls.FEATURES_RTT;
 
     callTime.setTextColor(getColorForCallType(context, callType));
     callTypeIcon.clear();
@@ -102,6 +120,9 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
         (entry.getFeatures() & Calls.FEATURES_HD_CALL) == Calls.FEATURES_HD_CALL);
     callTypeIcon.setShowWifi(
         MotorolaUtils.shouldShowWifiIconInCallLog(context, entry.getFeatures()));
+    if (BuildCompat.isAtLeastP()) {
+      callTypeIcon.setShowRtt((entry.getFeatures() & Calls.FEATURES_RTT) == Calls.FEATURES_RTT);
+    }
 
     callTypeText.setText(
         callTypeHelper.getCallTypeText(callType, isVideoCall, isPulledCall, isDuoCall));
@@ -119,6 +140,24 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
               context, entry.getDuration(), entry.getDataUsage()));
     }
     setMultimediaDetails(number, entry, showMultimediaDivider);
+    if (isRttCall) {
+      if (entry.getHasRttTranscript()) {
+        rttTranscript.setText(R.string.rtt_transcript_link);
+        rttTranscript.setTextAppearance(R.style.RttTranscriptLink);
+        rttTranscript.setClickable(true);
+        rttTranscript.setOnClickListener(
+            v ->
+                callDetailsEntryListener.showRttTranscript(
+                    entry.getCallMappingId(), primaryText, photoInfo));
+      } else {
+        rttTranscript.setText(R.string.rtt_transcript_not_available);
+        rttTranscript.setTextAppearance(R.style.RttTranscriptMessage);
+        rttTranscript.setClickable(false);
+      }
+      rttTranscript.setVisibility(View.VISIBLE);
+    } else {
+      rttTranscript.setVisibility(View.GONE);
+    }
   }
 
   private void setMultimediaDetails(String number, CallDetailsEntry entry, boolean showDivider) {
@@ -177,20 +216,20 @@ public class CallDetailsEntryViewHolder extends ViewHolder {
 
   private static @ColorInt int getColorForCallType(Context context, int callType) {
     switch (callType) {
-      case AppCompatConstants.CALLS_OUTGOING_TYPE:
-      case AppCompatConstants.CALLS_VOICEMAIL_TYPE:
-      case AppCompatConstants.CALLS_BLOCKED_TYPE:
-      case AppCompatConstants.CALLS_INCOMING_TYPE:
-      case AppCompatConstants.CALLS_ANSWERED_EXTERNALLY_TYPE:
-      case AppCompatConstants.CALLS_REJECTED_TYPE:
+      case Calls.OUTGOING_TYPE:
+      case Calls.VOICEMAIL_TYPE:
+      case Calls.BLOCKED_TYPE:
+      case Calls.INCOMING_TYPE:
+      case Calls.ANSWERED_EXTERNALLY_TYPE:
+      case Calls.REJECTED_TYPE:
         return ContextCompat.getColor(context, R.color.dialer_secondary_text_color);
-      case AppCompatConstants.CALLS_MISSED_TYPE:
+      case Calls.MISSED_TYPE:
       default:
         // It is possible for users to end up with calls with unknown call types in their
         // call history, possibly due to 3rd party call log implementations (e.g. to
         // distinguish between rejected and missed calls). Instead of crashing, just
         // assume that all unknown call types are missed calls.
-        return ContextCompat.getColor(context, R.color.missed_call);
+        return ContextCompat.getColor(context, R.color.dialer_red);
     }
   }
 }

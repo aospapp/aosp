@@ -25,7 +25,6 @@
 #include <jni.h>
 
 #include "base/utils.h"
-#include "exec_utils.h"
 #include "jvmti.h"
 
 #pragma clang diagnostic push
@@ -57,6 +56,12 @@ struct StressData {
   bool step_stress;
 };
 
+static void DeleteLocalRef(JNIEnv* env, jobject obj) {
+  if (obj != nullptr) {
+    env->DeleteLocalRef(obj);
+  }
+}
+
 static bool DoExtractClassFromData(jvmtiEnv* env,
                                    const std::string& descriptor,
                                    jint in_len,
@@ -87,7 +92,7 @@ static bool DoExtractClassFromData(jvmtiEnv* env,
 
   struct Allocator : public dex::Writer::Allocator {
     explicit Allocator(jvmtiEnv* jvmti_env) : jvmti_env_(jvmti_env) {}
-    virtual void* Allocate(size_t size) {
+    void* Allocate(size_t size) override {
       unsigned char* out = nullptr;
       if (JVMTI_ERROR_NONE != jvmti_env_->Allocate(size, &out)) {
         return nullptr;
@@ -95,7 +100,7 @@ static bool DoExtractClassFromData(jvmtiEnv* env,
         return out;
       }
     }
-    virtual void Free(void* ptr) {
+    void Free(void* ptr) override {
       jvmti_env_->Deallocate(reinterpret_cast<unsigned char*>(ptr));
     }
    private:
@@ -131,8 +136,8 @@ class ScopedThreadInfo {
     if (free_name_) {
       jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(info_.name));
     }
-    env_->DeleteLocalRef(info_.thread_group);
-    env_->DeleteLocalRef(info_.context_class_loader);
+    DeleteLocalRef(env_, info_.thread_group);
+    DeleteLocalRef(env_, info_.context_class_loader);
   }
 
   const char* GetName() const {
@@ -152,14 +157,12 @@ class ScopedClassInfo {
       : jvmtienv_(jvmtienv),
         class_(c),
         name_(nullptr),
-        generic_(nullptr),
         file_(nullptr),
         debug_ext_(nullptr) {}
 
   ~ScopedClassInfo() {
     if (class_ != nullptr) {
       jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(name_));
-      jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(generic_));
       jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(file_));
       jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(debug_ext_));
     }
@@ -168,12 +171,11 @@ class ScopedClassInfo {
   bool Init() {
     if (class_ == nullptr) {
       name_ = const_cast<char*>("<NONE>");
-      generic_ = const_cast<char*>("<NONE>");
       return true;
     } else {
       jvmtiError ret1 = jvmtienv_->GetSourceFileName(class_, &file_);
       jvmtiError ret2 = jvmtienv_->GetSourceDebugExtension(class_, &debug_ext_);
-      return jvmtienv_->GetClassSignature(class_, &name_, &generic_) == JVMTI_ERROR_NONE &&
+      return jvmtienv_->GetClassSignature(class_, &name_, nullptr) == JVMTI_ERROR_NONE &&
           ret1 != JVMTI_ERROR_MUST_POSSESS_CAPABILITY &&
           ret1 != JVMTI_ERROR_INVALID_CLASS &&
           ret2 != JVMTI_ERROR_MUST_POSSESS_CAPABILITY &&
@@ -186,9 +188,6 @@ class ScopedClassInfo {
   }
   const char* GetName() const {
     return name_;
-  }
-  const char* GetGeneric() const {
-    return generic_;
   }
   const char* GetSourceDebugExtension() const {
     if (debug_ext_ == nullptr) {
@@ -209,7 +208,6 @@ class ScopedClassInfo {
   jvmtiEnv* jvmtienv_;
   jclass class_;
   char* name_;
-  char* generic_;
   char* file_;
   char* debug_ext_;
 };
@@ -224,14 +222,12 @@ class ScopedMethodInfo {
         class_info_(nullptr),
         name_(nullptr),
         signature_(nullptr),
-        generic_(nullptr),
         first_line_(-1) {}
 
   ~ScopedMethodInfo() {
-    env_->DeleteLocalRef(declaring_class_);
+    DeleteLocalRef(env_, declaring_class_);
     jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(name_));
     jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(signature_));
-    jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(generic_));
   }
 
   bool Init() {
@@ -252,7 +248,7 @@ class ScopedMethodInfo {
       return false;
     }
     return class_info_->Init() &&
-        (jvmtienv_->GetMethodName(method_, &name_, &signature_, &generic_) == JVMTI_ERROR_NONE);
+        (jvmtienv_->GetMethodName(method_, &name_, &signature_, nullptr) == JVMTI_ERROR_NONE);
   }
 
   const ScopedClassInfo& GetDeclaringClassInfo() const {
@@ -271,10 +267,6 @@ class ScopedMethodInfo {
     return signature_;
   }
 
-  const char* GetGeneric() const {
-    return generic_;
-  }
-
   jint GetFirstLine() const {
     return first_line_;
   }
@@ -287,7 +279,6 @@ class ScopedMethodInfo {
   std::unique_ptr<ScopedClassInfo> class_info_;
   char* name_;
   char* signature_;
-  char* generic_;
   jint first_line_;
 
   friend std::ostream& operator<<(std::ostream &os, ScopedMethodInfo const& m);
@@ -301,20 +292,18 @@ class ScopedFieldInfo {
         field_(field),
         class_info_(nullptr),
         name_(nullptr),
-        type_(nullptr),
-        generic_(nullptr) {}
+        type_(nullptr) {}
 
   ~ScopedFieldInfo() {
     jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(name_));
     jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(type_));
-    jvmtienv_->Deallocate(reinterpret_cast<unsigned char*>(generic_));
   }
 
   bool Init() {
     class_info_.reset(new ScopedClassInfo(jvmtienv_, declaring_class_));
     return class_info_->Init() &&
         (jvmtienv_->GetFieldName(
-            declaring_class_, field_, &name_, &type_, &generic_) == JVMTI_ERROR_NONE);
+            declaring_class_, field_, &name_, &type_, nullptr) == JVMTI_ERROR_NONE);
   }
 
   const ScopedClassInfo& GetDeclaringClassInfo() const {
@@ -333,10 +322,6 @@ class ScopedFieldInfo {
     return type_;
   }
 
-  const char* GetGeneric() const {
-    return generic_;
-  }
-
  private:
   jvmtiEnv* jvmtienv_;
   jclass declaring_class_;
@@ -344,7 +329,6 @@ class ScopedFieldInfo {
   std::unique_ptr<ScopedClassInfo> class_info_;
   char* name_;
   char* type_;
-  char* generic_;
 
   friend std::ostream& operator<<(std::ostream &os, ScopedFieldInfo const& m);
 };
@@ -390,7 +374,7 @@ static std::string GetName(jvmtiEnv* jvmtienv, JNIEnv* jnienv, jobject obj) {
   char *cname, *cgen;
   if (jvmtienv->GetClassSignature(klass, &cname, &cgen) != JVMTI_ERROR_NONE) {
     LOG(ERROR) << "Unable to get class name!";
-    jnienv->DeleteLocalRef(klass);
+    DeleteLocalRef(jnienv, klass);
     return "<UNKNOWN>";
   }
   std::string name(cname);
@@ -408,7 +392,7 @@ static std::string GetName(jvmtiEnv* jvmtienv, JNIEnv* jnienv, jobject obj) {
   }
   jvmtienv->Deallocate(reinterpret_cast<unsigned char*>(cname));
   jvmtienv->Deallocate(reinterpret_cast<unsigned char*>(cgen));
-  jnienv->DeleteLocalRef(klass);
+  DeleteLocalRef(jnienv, klass);
   return name;
 }
 
@@ -469,7 +453,7 @@ void JNICALL FieldAccessHook(jvmtiEnv* jvmtienv,
             << "type \"" << obj_class_info.GetName() << "\" in method \"" << method_info
             << "\" at location 0x" << std::hex << location << ". Thread is \""
             << info.GetName() << "\".";
-  env->DeleteLocalRef(oklass);
+  DeleteLocalRef(env, oklass);
 }
 
 static std::string PrintJValue(jvmtiEnv* jvmtienv, JNIEnv* env, char type, jvalue new_value) {
@@ -487,7 +471,7 @@ static std::string PrintJValue(jvmtiEnv* jvmtienv, JNIEnv* env, char type, jvalu
         } else {
           oss << "of type \"" << nv_class_info.GetName() << "\"";
         }
-        env->DeleteLocalRef(nv_klass);
+        DeleteLocalRef(env, nv_klass);
       }
       break;
     }
@@ -540,7 +524,7 @@ void JNICALL FieldModificationHook(jvmtiEnv* jvmtienv,
             << "\" at location 0x" << std::hex << location << std::dec << ". New value is "
             << PrintJValue(jvmtienv, env, type, new_value) << ". Thread is \""
             << info.GetName() << "\".";
-  env->DeleteLocalRef(oklass);
+  DeleteLocalRef(env, oklass);
 }
 void JNICALL MethodExitHook(jvmtiEnv* jvmtienv,
                             JNIEnv* env,
@@ -715,7 +699,7 @@ static void JNICALL PerformFinalSetupVMInit(jvmtiEnv *jvmti_env,
   } else {
     // GetMethodID is spec'd to cause the class to be initialized.
     jni_env->GetMethodID(klass, "hashCode", "()I");
-    jni_env->DeleteLocalRef(klass);
+    DeleteLocalRef(jni_env, klass);
     data->vm_class_loader_initialized = true;
   }
 }
@@ -762,7 +746,7 @@ static bool WatchAllFields(JavaVM* vm, jvmtiEnv* jvmti) {
       return false;
     }
     jvmti->Deallocate(reinterpret_cast<unsigned char*>(fields));
-    jni->DeleteLocalRef(k);
+    DeleteLocalRef(jni, k);
   }
   jvmti->Deallocate(reinterpret_cast<unsigned char*>(klasses));
   return true;
@@ -918,6 +902,10 @@ extern "C" JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm,
     }
   }
   return 0;
+}
+
+extern "C" JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM* vm, char* options, void* reserved) {
+  return Agent_OnLoad(vm, options, reserved);
 }
 
 }  // namespace art

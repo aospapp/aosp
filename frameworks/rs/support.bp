@@ -181,5 +181,8 @@ cc_library_shared {
         "-DGEMMLOWP_USE_STLPORT",
         // TODO: why isn't this picked up from the host GLOBAL_CFLAGS?
         "-D__STDC_FORMAT_MACROS",
+
+        // Allow implicit fallthrough in rsContext.cpp:414 until it is fixed.
+        "-Wno-error=implicit-fallthrough",
     ],
 }

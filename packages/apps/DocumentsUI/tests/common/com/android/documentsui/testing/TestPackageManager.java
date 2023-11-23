@@ -16,7 +16,6 @@
 
 package com.android.documentsui.testing;
 
-import android.annotation.UserIdInt;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -93,7 +92,7 @@ public abstract class TestPackageManager extends PackageManager {
     }
 
     public final ResolveInfo resolveActivityAsUser(
-            Intent intent, int flags, @UserIdInt int userId) {
+            Intent intent, int flags, int userId) {
         return resolveActivity(intent, flags);
     }
 

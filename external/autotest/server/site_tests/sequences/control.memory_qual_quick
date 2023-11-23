@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.client.common_lib import utils
+
 AUTHOR = "puthik"
 NAME = "MemoryQual.quick"
 ATTRIBUTES = "suite:memory_qual_quick"
@@ -31,6 +33,11 @@ CLIENT_TESTS= [
         'tag' : 'quick', 'num_suspends' : 2}),
 ]
 
+CLIENT_X86_TESTS= [
+    ('hardware_UnsafeMemory', {
+        'tag' : 'quick', 'sec' : 30}),
+]
+
 SERVER_TESTS= [
     ('hardware_MemoryIntegrity', {
         'tag' : 'quick', 'seconds' : 30, 'suspend': False}),
@@ -39,7 +46,9 @@ SERVER_TESTS= [
 def run_client_test(machine):
     client = hosts.create_host(machine)
     client_at = autotest.Autotest(client)
-    for test, argv in CLIENT_TESTS:
+    client_tests = (CLIENT_TESTS + CLIENT_X86_TESTS if client.get_arch() in
+        ('i386', 'i686', 'x86_64') else CLIENT_TESTS)
+    for test, argv in client_tests:
         client.reboot()
         client_at.run_test(test, **argv)
 
@@ -49,6 +58,14 @@ def run_server_test(machine):
         client.reboot()
         job.run_test(test, client_ip=machine, **argv)
 
+keyval = dict()
+try:
+    keyval['bug_id'] = bug_id
+    keyval['part_id'] = part_id
+except NameError:
+    # bug_id and/or part_id variables not defined
+    pass
+utils.write_keyval(job.resultdir, keyval)
 
 job.parallel_on_machines(run_client_test, machines)
 parallel_simple(run_server_test, machines)

@@ -25,11 +25,11 @@ import android.support.v17.leanback.widget.GuidedAction;
 import com.android.tv.common.ui.setup.SetupGuidedStepFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.tuner.R;
-import com.android.tv.tuner.TunerHal;
-import com.android.tv.tuner.TunerPreferences;
+import com.android.tv.tuner.api.Tuner;
+import com.android.tv.tuner.prefs.TunerPreferences;
 import java.util.List;
 
-/** A fragment for initial screen. */
+/** A fragment to show found channels. */
 public class ScanResultFragment extends SetupMultiPaneFragment {
     public static final String ACTION_CATEGORY = "com.android.tv.tuner.setup.ScanResultFragment";
 
@@ -83,10 +83,10 @@ public class ScanResultFragment extends SetupMultiPaneFragment {
                         (args == null ? 0 : args.getInt(BaseTunerSetupActivity.KEY_TUNER_TYPE, 0));
                 title = getString(R.string.ut_result_not_found_title);
                 switch (tunerType) {
-                    case TunerHal.TUNER_TYPE_USB:
+                    case Tuner.TUNER_TYPE_USB:
                         description = getString(R.string.ut_result_not_found_description);
                         break;
-                    case TunerHal.TUNER_TYPE_NETWORK:
+                    case Tuner.TUNER_TYPE_NETWORK:
                         description = getString(R.string.nt_result_not_found_description);
                         break;
                     default:

@@ -18,8 +18,8 @@ package com.google.turbine.parse;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
 import com.google.turbine.model.Const;
@@ -28,8 +28,9 @@ import com.google.turbine.tree.Tree;
 import com.google.turbine.tree.Tree.ClassLiteral;
 import com.google.turbine.tree.Tree.ClassTy;
 import com.google.turbine.tree.Tree.Expression;
+import com.google.turbine.tree.Tree.Ident;
 import com.google.turbine.tree.TurbineOperatorKind;
-import javax.annotation.CheckReturnValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A parser for compile-time constant expressions. */
@@ -220,7 +221,8 @@ public class ConstExpressionParser {
         case NOT:
         case TILDE:
         case IDENT:
-          return new Tree.TypeCast(position, asClassTy(cvar.name()), primary(false));
+          return new Tree.TypeCast(
+              position, asClassTy(cvar.position(), cvar.name()), primary(false));
         default:
           return expr;
       }
@@ -229,12 +231,10 @@ public class ConstExpressionParser {
     }
   }
 
-  private ClassTy asClassTy(ImmutableList<String> names) {
+  private static ClassTy asClassTy(int pos, ImmutableList<Tree.Ident> names) {
     ClassTy cty = null;
-    for (String bit : names) {
-      cty =
-          new ClassTy(
-              position, Optional.fromNullable(cty), bit, ImmutableList.of(), ImmutableList.of());
+    for (Tree.Ident bit : names) {
+      cty = new ClassTy(pos, Optional.ofNullable(cty), bit, ImmutableList.of(), ImmutableList.of());
     }
     return cty;
   }
@@ -278,7 +278,7 @@ public class ConstExpressionParser {
 
   /** Finish hex, decimal, octal, and binary integer literals (see JLS 3.10.1). */
   private Tree.Expression finishLiteral(TurbineConstantTypeKind kind, boolean negate) {
-    String text = lexer.stringValue();
+    String text = ident().value();
     Const.Value value;
     switch (kind) {
       case INT:
@@ -422,28 +422,32 @@ public class ConstExpressionParser {
   @Nullable
   private Tree.Expression qualIdent() {
     int pos = position;
-    ImmutableList.Builder<String> bits = ImmutableList.builder();
-    bits.add(lexer.stringValue());
+    ImmutableList.Builder<Ident> bits = ImmutableList.builder();
+    bits.add(ident());
     eat();
     if (token == Token.LBRACK) {
-      return finishClassLiteral(pos, asClassTy(bits.build()));
+      return finishClassLiteral(pos, asClassTy(pos, bits.build()));
     }
     while (token == Token.DOT) {
       eat();
       switch (token) {
         case IDENT:
-          bits.add(lexer.stringValue());
+          bits.add(ident());
           break;
         case CLASS:
           // TODO(cushon): only allow in annotations?
           eat();
-          return new Tree.ClassLiteral(pos, asClassTy(bits.build()));
+          return new Tree.ClassLiteral(pos, asClassTy(pos, bits.build()));
         default:
           return null;
       }
       eat();
     }
     return new Tree.ConstVarName(pos, bits.build());
+  }
+
+  private Ident ident() {
+    return new Ident(lexer.position(), lexer.stringValue());
   }
 
   private Expression finishClassLiteral(int pos, Tree.Type type) {
@@ -518,12 +522,15 @@ public class ConstExpressionParser {
     if (!(term1 instanceof Tree.ConstVarName)) {
       return null;
     }
-    ImmutableList<String> names = ((Tree.ConstVarName) term1).name();
+    ImmutableList<Ident> names = ((Tree.ConstVarName) term1).name();
     if (names.size() > 1) {
       return null;
     }
-    String name = getOnlyElement(names);
+    Ident name = getOnlyElement(names);
     Tree.Expression rhs = expression(op.prec());
+    if (rhs == null) {
+      return null;
+    }
     return new Tree.Assign(term1.position(), name, rhs);
   }
 
@@ -560,14 +567,15 @@ public class ConstExpressionParser {
       throw new AssertionError();
     }
     eat();
-    ImmutableList<String> name = ((Tree.ConstVarName) qualIdent()).name();
+    ImmutableList<Ident> name = ((Tree.ConstVarName) qualIdent()).name();
     ImmutableList.Builder<Tree.Expression> args = ImmutableList.builder();
     if (token == Token.LPAREN) {
       eat();
       while (token != Token.RPAREN) {
+        int pos = position;
         Tree.Expression expression = expression();
         if (expression == null) {
-          throw new AssertionError("invalid annotation expression");
+          throw TurbineError.format(lexer.source(), pos, ErrorKind.INVALID_ANNOTATION_ARGUMENT);
         }
         args.add(expression);
         if (token != Token.COMMA) {

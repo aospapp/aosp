@@ -342,12 +342,9 @@ public abstract class SideFragment<T extends Item> extends Fragment implements H
             }
             if (view.getBackground() instanceof RippleDrawable) {
                 view.postDelayed(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                if (mItem != null) {
-                                    mItem.onSelected();
-                                }
+                        () -> {
+                            if (mItem != null) {
+                                mItem.onSelected();
                             }
                         },
                         view.getResources().getInteger(R.integer.side_panel_ripple_anim_duration));

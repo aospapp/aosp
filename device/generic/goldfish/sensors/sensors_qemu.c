@@ -128,7 +128,7 @@ _sensorIdFromName( const char*  name )
 /* return the current time in nanoseconds */
 static int64_t now_ns(void) {
     struct timespec  ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    clock_gettime(CLOCK_BOOTTIME, &ts);
     return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
 }
 
@@ -487,6 +487,12 @@ out:
             t = now;
         }
 
+        if (has_guest_event_time) {
+            if (guest_event_time > now) {
+                guest_event_time = now;
+            }
+        }
+
         while (new_sensors) {
             uint32_t i = 31 - __builtin_clz(new_sensors);
             new_sensors &= ~(1U << i);
@@ -706,7 +712,7 @@ static const struct sensor_t sSensorListInit[] = {
           .version    = 1,
           .handle     = ID_ACCELERATION,
           .type       = SENSOR_TYPE_ACCELEROMETER,
-          .maxRange   = 2.8f,
+          .maxRange   = 39.3f,
           .resolution = 1.0f/4032.0f,
           .power      = 3.0f,
           .minDelay   = 10000,
@@ -724,7 +730,7 @@ static const struct sensor_t sSensorListInit[] = {
           .version    = 1,
           .handle     = ID_GYROSCOPE,
           .type       = SENSOR_TYPE_GYROSCOPE,
-          .maxRange   = 11.1111111,
+          .maxRange   = 16.46f,
           .resolution = 1.0f/1000.0f,
           .power      = 3.0f,
           .minDelay   = 10000,
@@ -739,7 +745,7 @@ static const struct sensor_t sSensorListInit[] = {
           .handle     = ID_MAGNETIC_FIELD,
           .type       = SENSOR_TYPE_MAGNETIC_FIELD,
           .maxRange   = 2000.0f,
-          .resolution = 1.0f,
+          .resolution = 0.5f,
           .power      = 6.7f,
           .minDelay   = 10000,
           .maxDelay   = 500 * 1000,
@@ -865,7 +871,7 @@ static const struct sensor_t sSensorListInit[] = {
           .handle     = ID_MAGNETIC_FIELD_UNCALIBRATED,
           .type       = SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED,
           .maxRange   = 2000.0f,
-          .resolution = 1.0f,
+          .resolution = 0.5f,
           .power      = 6.7f,
           .minDelay   = 10000,
           .maxDelay   = 500 * 1000,

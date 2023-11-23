@@ -29,7 +29,7 @@ SkipCutBuffer::SkipCutBuffer(size_t skip, size_t cut, size_t num16BitChannels) {
     mWriteHead = 0;
     mReadHead = 0;
     mCapacity = 0;
-    mCutBuffer = NULL;
+    mCutBuffer = nullptr;
 
     if (num16BitChannels == 0 || num16BitChannels > INT32_MAX / 2) {
         ALOGW("# channels out of range: %zu, using passthrough instead", num16BitChannels);
@@ -57,7 +57,7 @@ SkipCutBuffer::~SkipCutBuffer() {
 }
 
 void SkipCutBuffer::submit(MediaBuffer *buffer) {
-    if (mCutBuffer == NULL) {
+    if (mCutBuffer == nullptr) {
         // passthrough mode
         return;
     }
@@ -90,7 +90,7 @@ void SkipCutBuffer::submit(MediaBuffer *buffer) {
 
 template <typename T>
 void SkipCutBuffer::submitInternal(const sp<T>& buffer) {
-    if (mCutBuffer == NULL) {
+    if (mCutBuffer == nullptr) {
         // passthrough mode
         return;
     }

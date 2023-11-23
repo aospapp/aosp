@@ -17,6 +17,7 @@ package android.security.cts;
 
 import android.os.IBinder;
 import android.platform.test.annotations.SecurityTest;
+
 import junit.framework.TestCase;
 
 @SecurityTest
@@ -27,6 +28,7 @@ public class ActivityManagerTest extends TestCase {
         super.setUp();
     }
 
+    @SecurityTest(minPatchLevel = "2015-03")
     public void testActivityManager_injectInputEvents() throws ClassNotFoundException {
         try {
             /*

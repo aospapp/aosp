@@ -71,10 +71,11 @@ else
         fastboot oem serialno
     fi
 fi
+fastboot getvar partition-size:ptable
 fastboot flash ptable "${INSTALLER_DIR}"/"${PTABLE}"
 fastboot flash fastboot "${FIRMWARE_DIR}"/fip.bin
 fastboot flash nvme "${INSTALLER_DIR}"/nvme.img
 fastboot flash boot "${OUT_IMGDIR}"/boot.img
 fastboot flash system "${OUT_IMGDIR}"/system.img
-fastboot flash cache "${OUT_IMGDIR}"/cache.img
+fastboot flash vendor "${OUT_IMGDIR}"/vendor.img
 fastboot flash userdata "${OUT_IMGDIR}"/userdata.img

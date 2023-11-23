@@ -14,9 +14,9 @@
      limitations under the License.
 -->
 <resources>
-    <!-- The configurable text for a dialpad button. -->
-    <declare-styleable name="DialpadButton">
-        <!-- The dialpad number, such as "1". -->
+    <!-- The configurable text for a keypad button. -->
+    <declare-styleable name="KeypadButton">
+        <!-- The keypad number, such as "1". -->
         <attr name="numberText" format="string" />
 
         <!-- The letters below the number, such as "ABC". -->

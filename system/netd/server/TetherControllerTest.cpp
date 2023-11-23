@@ -56,42 +56,55 @@ protected:
     }
 
     const ExpectedIptablesCommands FLUSH_COMMANDS = {
-        { V4,   "*filter\n"
-                ":tetherctrl_FORWARD -\n"
-                "-A tetherctrl_FORWARD -j DROP\n"
-                "COMMIT\n"
-                "*nat\n"
-                ":tetherctrl_nat_POSTROUTING -\n"
-                "COMMIT\n" },
-        { V6,   "*filter\n"
-                ":tetherctrl_FORWARD -\n"
-                "COMMIT\n"
-                "*raw\n"
-                ":tetherctrl_raw_PREROUTING -\n"
-                "COMMIT\n" },
+            {V4,
+             "*filter\n"
+             ":tetherctrl_FORWARD -\n"
+             "-A tetherctrl_FORWARD -j DROP\n"
+             "COMMIT\n"
+             "*nat\n"
+             ":tetherctrl_nat_POSTROUTING -\n"
+             "COMMIT\n"},
+            {V6,
+             "*filter\n"
+             ":tetherctrl_FORWARD -\n"
+             "COMMIT\n"
+             "*raw\n"
+             ":tetherctrl_raw_PREROUTING -\n"
+             "COMMIT\n"},
     };
 
     const ExpectedIptablesCommands SETUP_COMMANDS = {
-        { V4,   "*filter\n"
-                ":tetherctrl_FORWARD -\n"
-                "-A tetherctrl_FORWARD -j DROP\n"
-                "COMMIT\n"
-                "*nat\n"
-                ":tetherctrl_nat_POSTROUTING -\n"
-                "COMMIT\n" },
-        { V6,   "*filter\n"
-                ":tetherctrl_FORWARD -\n"
-                "COMMIT\n"
-                "*raw\n"
-                ":tetherctrl_raw_PREROUTING -\n"
-                "COMMIT\n" },
-        { V4,   "*mangle\n"
-                "-A tetherctrl_mangle_FORWARD -p tcp --tcp-flags SYN SYN "
-                    "-j TCPMSS --clamp-mss-to-pmtu\n"
-                "COMMIT\n" },
-        { V4V6, "*filter\n"
-                ":tetherctrl_counters -\n"
-                "COMMIT\n" },
+            {V4,
+             "*filter\n"
+             ":tetherctrl_FORWARD -\n"
+             "-A tetherctrl_FORWARD -j DROP\n"
+             "COMMIT\n"
+             "*nat\n"
+             ":tetherctrl_nat_POSTROUTING -\n"
+             "COMMIT\n"},
+            {V6,
+             "*filter\n"
+             ":tetherctrl_FORWARD -\n"
+             "COMMIT\n"
+             "*raw\n"
+             ":tetherctrl_raw_PREROUTING -\n"
+             "COMMIT\n"},
+            {V4,
+             "*mangle\n"
+             "-A tetherctrl_mangle_FORWARD -p tcp --tcp-flags SYN SYN "
+             "-j TCPMSS --clamp-mss-to-pmtu\n"
+             "COMMIT\n"},
+            {V4V6,
+             "*filter\n"
+             ":tetherctrl_counters -\n"
+             "COMMIT\n"},
+    };
+
+    const ExpectedIptablesCommands ALERT_ADD_COMMAND = {
+            {V4V6,
+             "*filter\n"
+             "-I tetherctrl_FORWARD -j bw_global_alert\n"
+             "COMMIT\n"},
     };
 
     ExpectedIptablesCommands firstIPv4UpstreamCommands(const char *extIf) {
@@ -106,9 +119,9 @@ protected:
 
     ExpectedIptablesCommands firstIPv6UpstreamCommands() {
         std::string v6Cmd =
-            "*filter\n"
-            "-A tetherctrl_FORWARD -g tetherctrl_counters\n"
-            "COMMIT\n";
+                "*filter\n"
+                "-A tetherctrl_FORWARD -g tetherctrl_counters\n"
+                "COMMIT\n";
         return {
             { V6, v6Cmd },
         };
@@ -127,13 +140,22 @@ protected:
             "COMMIT\n", intIf);
 
         std::vector<std::string> v4Cmds = {
-            "*filter",
-            StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -m state --state"
-                         " ESTABLISHED,RELATED -g tetherctrl_counters", extIf, intIf),
-            StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
-                         intIf, extIf),
-            StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -g tetherctrl_counters",
-                         intIf, extIf),
+                "*raw",
+                StringPrintf(
+                        "-A tetherctrl_raw_PREROUTING -p tcp --dport 21 -i %s -j CT --helper ftp",
+                        intIf),
+                StringPrintf("-A tetherctrl_raw_PREROUTING -p tcp --dport 1723 -i %s -j CT "
+                             "--helper pptp",
+                             intIf),
+                "COMMIT",
+                "*filter",
+                StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -m state --state"
+                             " ESTABLISHED,RELATED -g tetherctrl_counters",
+                             extIf, intIf),
+                StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
+                             intIf, extIf),
+                StringPrintf("-A tetherctrl_FORWARD -i %s -o %s -g tetherctrl_counters", intIf,
+                             extIf),
         };
 
         std::vector<std::string> v6Cmds = {
@@ -169,10 +191,9 @@ protected:
     constexpr static const bool NO_COUNTERS = false;
     constexpr static const bool WITH_IPV6 = true;
     constexpr static const bool NO_IPV6 = false;
-    ExpectedIptablesCommands allNewNatCommands(
-            const char *intIf, const char *extIf, bool withCounterChainRules,
-            bool withIPv6Upstream) {
-
+    ExpectedIptablesCommands allNewNatCommands(const char* intIf, const char* extIf,
+                                               bool withCounterChainRules, bool withIPv6Upstream,
+                                               bool firstEnableNat) {
         ExpectedIptablesCommands commands;
         ExpectedIptablesCommands setupFirstIPv4Commands = firstIPv4UpstreamCommands(extIf);
         ExpectedIptablesCommands startFirstNatCommands = startNatCommands(intIf, extIf,
@@ -182,6 +203,9 @@ protected:
         if (withIPv6Upstream) {
             ExpectedIptablesCommands setupFirstIPv6Commands = firstIPv6UpstreamCommands();
             appendAll(commands, setupFirstIPv6Commands);
+        }
+        if (firstEnableNat) {
+            appendAll(commands, ALERT_ADD_COMMAND);
         }
         appendAll(commands, startFirstNatCommands);
 
@@ -195,14 +219,23 @@ protected:
             "COMMIT\n", intIf);
 
         std::vector<std::string> v4Cmds = {
-            "*filter",
-            StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -m state --state"
-                         " ESTABLISHED,RELATED -g tetherctrl_counters", extIf, intIf),
-            StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
-                         intIf, extIf),
-            StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -g tetherctrl_counters",
-                         intIf, extIf),
-            "COMMIT\n",
+                "*raw",
+                StringPrintf(
+                        "-D tetherctrl_raw_PREROUTING -p tcp --dport 21 -i %s -j CT --helper ftp",
+                        intIf),
+                StringPrintf("-D tetherctrl_raw_PREROUTING -p tcp --dport 1723 -i %s -j CT "
+                             "--helper pptp",
+                             intIf),
+                "COMMIT",
+                "*filter",
+                StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -m state --state"
+                             " ESTABLISHED,RELATED -g tetherctrl_counters",
+                             extIf, intIf),
+                StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -m state --state INVALID -j DROP",
+                             intIf, extIf),
+                StringPrintf("-D tetherctrl_FORWARD -i %s -o %s -g tetherctrl_counters", intIf,
+                             extIf),
+                "COMMIT\n",
         };
 
         return {
@@ -225,8 +258,8 @@ TEST_F(TetherControllerTest, TestSetDefaults) {
 
 TEST_F(TetherControllerTest, TestAddAndRemoveNat) {
     // Start first NAT on first upstream interface. Expect the upstream and NAT rules to be created.
-    ExpectedIptablesCommands firstNat = allNewNatCommands(
-            "wlan0", "rmnet0", WITH_COUNTERS, WITH_IPV6);
+    ExpectedIptablesCommands firstNat =
+            allNewNatCommands("wlan0", "rmnet0", WITH_COUNTERS, WITH_IPV6, true);
     mTetherCtrl.enableNat("wlan0", "rmnet0");
     expectIptablesRestoreCommands(firstNat);
 
@@ -249,7 +282,7 @@ TEST_F(TetherControllerTest, TestAddAndRemoveNat) {
     expectIptablesRestoreCommands(stopLastNat);
 
     // Re-add a NAT removed previously: tetherctrl_counters chain rules are not re-added
-    firstNat = allNewNatCommands("wlan0", "rmnet0", NO_COUNTERS, WITH_IPV6);
+    firstNat = allNewNatCommands("wlan0", "rmnet0", NO_COUNTERS, WITH_IPV6, true);
     mTetherCtrl.enableNat("wlan0", "rmnet0");
     expectIptablesRestoreCommands(firstNat);
 
@@ -262,15 +295,15 @@ TEST_F(TetherControllerTest, TestAddAndRemoveNat) {
 
 TEST_F(TetherControllerTest, TestMultipleUpstreams) {
     // Start first NAT on first upstream interface. Expect the upstream and NAT rules to be created.
-    ExpectedIptablesCommands firstNat = allNewNatCommands(
-            "wlan0", "rmnet0", WITH_COUNTERS, WITH_IPV6);
+    ExpectedIptablesCommands firstNat =
+            allNewNatCommands("wlan0", "rmnet0", WITH_COUNTERS, WITH_IPV6, true);
     mTetherCtrl.enableNat("wlan0", "rmnet0");
     expectIptablesRestoreCommands(firstNat);
 
     // Start second NAT, on new upstream. Expect the upstream and NAT rules to be created for IPv4,
     // but no counter rules for IPv6.
-    ExpectedIptablesCommands secondNat = allNewNatCommands(
-            "wlan0", "v4-rmnet0", WITH_COUNTERS, NO_IPV6);
+    ExpectedIptablesCommands secondNat =
+            allNewNatCommands("wlan0", "v4-rmnet0", WITH_COUNTERS, NO_IPV6, false);
     mTetherCtrl.enableNat("wlan0", "v4-rmnet0");
     expectIptablesRestoreCommands(secondNat);
 
@@ -395,7 +428,8 @@ TEST_F(TetherControllerTest, TestGetTetherStats) {
 
     // Token unit test of the fact that we return the stats in the error message which the caller
     // ignores.
-    std::string expectedError = counters;
+    // Skip header since we only saved the last line we parsed.
+    std::string expectedError = counterLines[2];
     std::string err = result.status().msg();
     ASSERT_LE(expectedError.size(), err.size());
     EXPECT_TRUE(std::equal(expectedError.rbegin(), expectedError.rend(), err.rbegin()));

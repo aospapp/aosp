@@ -6,7 +6,7 @@ import logging
 import os
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import cr50_utils, tpm_utils
+from autotest_lib.client.common_lib.cros import cr50_utils
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -52,9 +52,10 @@ class firmware_Cr50BID(Cr50Test):
     UNIVERSAL = 'universal'
     # The board id locked can only run on devices with the right chip board id.
     BID_LOCKED = 'board_id_locked'
-    # BID support was added in 0.0.21. Use this as the universal image if the
-    # image running on the device is board id locked.
-    BID_SUPPORT = '0.0.21'
+    # BID support was added in 0.0.21. Support for keeping the rollback state
+    # after AP boot was added in 0.3.4. Any version after 0.3.4 should be ok to
+    # use to detect rollback. Use 0.3.9 to get more bug fixes.
+    BID_SUPPORT = '0.3.9'
 
     # Board id locked debug files will use the board id, mask, and flags in the
     # gs filename
@@ -115,9 +116,9 @@ class firmware_Cr50BID(Cr50Test):
     ]
 
     def initialize(self, host, cmdline_args, dev_path='', bid_path='',
-                   release_ver=None, test_subset=None):
+                   release_ver=None, test_subset=None, full_args={}):
         # Restore the original image, rlz code, and board id during cleanup.
-        super(firmware_Cr50BID, self).initialize(host, cmdline_args,
+        super(firmware_Cr50BID, self).initialize(host, cmdline_args, full_args,
                                                  restore_cr50_state=True,
                                                  cr50_dev_path=dev_path)
         if self.cr50.using_ccd():
@@ -177,31 +178,30 @@ class firmware_Cr50BID(Cr50Test):
         couple of test cases based on the test mask and board id to verify this
         behavior.
         """
-        bid_int = cr50_utils.ConvertSymbolicBoardId(self.test_bid)
         mask_str = bin(self.test_mask).split('b')[1]
         mask_str = '0' + mask_str if len(mask_str) < 32 else mask_str
         mask_str = mask_str[::-1]
         zero_index = mask_str.find('0')
         one_index = mask_str.find('1')
 
-        # The hex version of the symbolic string should be accepted.
-        self.add_test(hex(bid_int), self.test_flags, self.SUCCESS)
+        # The hex version of the board id should be accepted.
+        self.add_test(hex(self.test_bid_int), self.test_flags, self.SUCCESS)
 
         # Flip a bit we don't care about to make sure it is accepted
         if zero_index != -1:
-            test_bid = bid_int ^ (1 << zero_index)
+            test_bid = self.test_bid_int ^ (1 << zero_index)
             self.add_test(hex(test_bid), self.test_flags, self.SUCCESS)
 
 
         if one_index != -1:
             # Flip a bit we care about to make sure it is rejected
-            test_bid = bid_int ^ (1 << one_index)
+            test_bid = self.test_bid_int ^ (1 << one_index)
             self.add_test(hex(test_bid), self.test_flags, self.BID_ERROR)
         else:
             # If there is not a 1 in the board id mask, then we don't care about
             # the board id at all. Flip all the bits and make sure setting the
             # board id still succeeds.
-            test_bid = bid_int ^ self.MAX_BID
+            test_bid = self.test_bid_int ^ self.MAX_BID
             self.add_test(hex(test_bid), self.test_flags, self.SUCCESS)
 
 
@@ -221,17 +221,17 @@ class firmware_Cr50BID(Cr50Test):
         # If we care about any flag bits, setting the flags to 0 should cause
         # a rejection
         if self.test_flags:
-            self.add_test(self.test_bid, 0, self.BID_ERROR)
+            self.add_test(self.test_bid_sym, 0, self.BID_ERROR)
 
         # Flip a 0 to 1 to make sure it is accepted.
         if zero_index != -1:
             test_flags = self.test_flags | (1 << zero_index)
-            self.add_test(self.test_bid, test_flags, self.SUCCESS)
+            self.add_test(self.test_bid_sym, test_flags, self.SUCCESS)
 
         # Flip a 1 to 0 to make sure it is rejected.
         if one_index != -1:
             test_flags = self.test_flags ^ (1 << one_index)
-            self.add_test(self.test_bid, test_flags, self.BID_ERROR)
+            self.add_test(self.test_bid_sym, test_flags, self.BID_ERROR)
 
 
     def build_tests(self):
@@ -255,7 +255,7 @@ class firmware_Cr50BID(Cr50Test):
             rw_ver: The rw release version to use for the universal image.
         """
         # If the original image is not board id locked, use it as universal
-        # image. If it is board id locked, use 0.0.21 as the universal image.
+        # image. If it is board id locked, use 0.3.4 as the universal image.
         if not original_version[2]:
            self.universal_path = self.get_saved_cr50_original_path()
            universal_ver = original_version
@@ -352,16 +352,11 @@ class firmware_Cr50BID(Cr50Test):
         if not image_bid_info:
             raise error.TestError('Need board id locked image to run test')
         # Save the image board id info
-        self.test_bid, self.test_mask, self.test_flags = image_bid_info
+        self.test_bid_int, self.test_mask, self.test_flags = image_bid_info
+        self.test_bid_sym = cr50_utils.GetSymbolicBoardId(self.test_bid_int)
         self.test_bid_str = cr50_utils.GetBoardIdInfoString(ver[2])
         logging.info('Running test with bid locked image %s', ver)
         self.image_versions[self.BID_LOCKED] = ver
-
-
-    def cleanup(self):
-        """Clear the TPM Owner"""
-        super(firmware_Cr50BID, self).cleanup()
-        tpm_utils.ClearTPMOwnerRequest(self.host)
 
 
     def is_running_version(self, rw_ver, bid_str):
@@ -508,7 +503,7 @@ class firmware_Cr50BID(Cr50Test):
             for i, args in enumerate(self.tests):
                 bid, flags, bid_error = args
                 # Replace place holder values with the test values
-                bid = bid if bid != None else self.test_bid
+                bid = bid if bid != None else self.test_bid_sym
                 flags = flags if flags != None else self.test_flags
                 message = '%s %d %s:%x %s' % (test_type, i, bid, flags,
                     bid_error)

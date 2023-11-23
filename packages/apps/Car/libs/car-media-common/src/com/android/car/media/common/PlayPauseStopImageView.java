@@ -17,13 +17,11 @@
 package com.android.car.media.common;
 
 import android.content.Context;
-import android.graphics.PorterDuff;
-import android.support.annotation.IntDef;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.widget.ImageView;
 
-import com.android.car.apps.common.FabDrawable;
+import androidx.annotation.IntDef;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -68,7 +66,6 @@ public class PlayPauseStopImageView extends ImageView {
      */
     public PlayPauseStopImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setBackground(new FabDrawable(context));
     }
 
     /**
@@ -113,17 +110,5 @@ public class PlayPauseStopImageView extends ImageView {
             getBackground().setState(drawableState);
         }
         return drawableState;
-    }
-
-    /**
-     * Updates the primary color of this view.
-     * @param color fill or main color
-     * @param tintColor contrast color
-     */
-    public void setPrimaryActionColor(int color, int tintColor) {
-        ((FabDrawable) getBackground()).setFabAndStrokeColor(color);
-        if (getDrawable() != null) {
-            getDrawable().setColorFilter(tintColor, PorterDuff.Mode.SRC_IN);
-        }
     }
 }

@@ -17,10 +17,10 @@
 package com.android.tv.ui;
 
 import android.content.Context;
-import android.media.tv.TvView;
 import android.util.AttributeSet;
 import android.view.SurfaceView;
 import android.view.View;
+import com.android.tv.common.compat.TvViewCompat;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.common.util.Debug;
 
@@ -31,7 +31,7 @@ import com.android.tv.common.util.Debug;
  * android.media.tv.TvView#setMain()} does not work because its implementation assumes that the app
  * uses only application layer. TODO: remove this class once the TvView.setMain() is revisited.
  */
-public class AppLayerTvView extends TvView {
+public class AppLayerTvView extends TvViewCompat {
     public AppLayerTvView(Context context) {
         super(context);
     }

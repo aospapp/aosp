@@ -16,11 +16,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.os.cts.batterysaving">
 
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"/>
+    <!-- Needed to whitelist package to be able to avoid request throttling. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.os.cts.batterysaving"
         android:label="CTS tests for battery saving features">
         <meta-data android:name="listener"
@@ -28,4 +34,3 @@
     </instrumentation>
 
 </manifest>
-

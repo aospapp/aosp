@@ -40,8 +40,8 @@
     <string name="registration_status_registering" msgid="2677183977796278749">"পঞ্জীয়ন কৰি থকা হৈছে…"</string>
     <string name="registration_status_still_trying" msgid="7648151061205513458">"এতিয়াও চেষ্টা কৰি থকা হৈছে…"</string>
     <string name="registration_status_not_receiving" msgid="7620333886153361090">"কল লাভ কৰি থকা নাই।"</string>
-    <string name="registration_status_no_data" msgid="2541999976218192413">"ইণ্টাৰনেট সংযোগ নথকাৰ বাবে একাউণ্টৰ পঞ্জীয়ন বন্ধ কৰা হ\'ল।"</string>
-    <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"ৱাই-ফাই সংযোগ নথকাৰ বাবে একাউণ্টৰ পঞ্জীয়ন বন্ধ কৰা হ\'ল।"</string>
+    <string name="registration_status_no_data" msgid="2541999976218192413">"ইণ্টাৰনেট সংযোগ নথকাৰ বাবে একাউণ্টৰ পঞ্জীয়ন বন্ধ কৰা হ’ল।"</string>
+    <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"ৱাই-ফাই সংযোগ নথকাৰ বাবে একাউণ্টৰ পঞ্জীয়ন বন্ধ কৰা হ’ল।"</string>
     <string name="registration_status_not_running" msgid="514205414303796800">"একাউণ্টৰ পঞ্জীয়ন বিফল হৈছে।"</string>
     <string name="registration_status_done" msgid="3264961069247314253">"কল লাভ কৰি থকা হৈছে…"</string>
     <string name="registration_status_failed_try_later" msgid="2199970021756384317">"একাউণ্টৰ পঞ্জীয়ন বিফল হৈছে: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); পিছত আকৌ চেষ্টা কৰা হ\'ব"</string>

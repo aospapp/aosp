@@ -20,7 +20,7 @@
     <package>com.example.android.horizontalpaging</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>11</minSdk>
+    <minSdk>14</minSdk>
 
     <strings>
         <intro>

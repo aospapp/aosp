@@ -6,6 +6,6 @@
         <!-- Do not load from the Jar's resources, only from the tests dir -->
         <option name="skip-loading-config-jar" value="true" />
         <!-- Explicitly requests only AndroidTest modules -->
-        <option name="config-patterns" value=".*.config" />
+        <option name="config-patterns" value=".*\.config$" />
     </test>
 </configuration>

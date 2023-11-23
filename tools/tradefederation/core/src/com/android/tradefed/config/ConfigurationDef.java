@@ -16,10 +16,12 @@
 
 package com.android.tradefed.config;
 
+import com.android.tradefed.build.BuildSerializedVersion;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -49,21 +51,35 @@ public class ConfigurationDef {
     /** The set of files (and modification times) that were used to load this config */
     private final Map<File, Long> mSourceFiles = new HashMap<>();
 
-    public static class OptionDef {
-        final String name;
-        final String key;
-        final String value;
-        final String source;
+    /** Holds the details of an option. */
+    public static final class OptionDef implements Serializable {
+        private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
+        public final String name;
+        public final String key;
+        public final String value;
+        public final String source;
+        public final String applicableObjectType;
 
         public OptionDef(String optionName, String optionValue, String source) {
-            this(optionName, null, optionValue, source);
+            this(optionName, null, optionValue, source, null);
         }
 
         public OptionDef(String optionName, String optionKey, String optionValue, String source) {
+            this(optionName, optionKey, optionValue, source, null);
+        }
+
+        public OptionDef(
+                String optionName,
+                String optionKey,
+                String optionValue,
+                String source,
+                String type) {
             this.name = optionName;
             this.key = optionKey;
             this.value = optionValue;
             this.source = source;
+            this.applicableObjectType = type;
         }
     }
 
@@ -142,9 +158,18 @@ public class ConfigurationDef {
      * @param optionName the name of the option
      * @param optionValue the option value
      */
+    void addOptionDef(
+            String optionName,
+            String optionKey,
+            String optionValue,
+            String optionSource,
+            String type) {
+        mOptionList.add(new OptionDef(optionName, optionKey, optionValue, optionSource, type));
+    }
+
     void addOptionDef(String optionName, String optionKey, String optionValue,
             String optionSource) {
-        mOptionList.add(new OptionDef(optionName, optionKey, optionValue, optionSource));
+        mOptionList.add(new OptionDef(optionName, optionKey, optionValue, optionSource, null));
     }
 
     /**
@@ -218,17 +243,27 @@ public class ConfigurationDef {
                             .stream()
                             .filter(value -> (value == true))
                             .collect(Collectors.counting());
-            if (numDut == 0) {
-                throw new ConfigurationException(
-                        "All the <device> where marked with isFake=true. You need at least one "
-                                + "device under test.");
+            if (numDut == 0 && numNonDut == 0) {
+                throw new ConfigurationException("No device detected. Should not happen.");
+            }
+            if (numNonDut > 0 && numDut == 0) {
+                // if we only have fake devices, use the default device as real device, and add it
+                // first.
+                Map<String, Boolean> copy = new LinkedHashMap<>();
+                copy.put(DEFAULT_DEVICE_NAME, false);
+                copy.putAll(mExpectedDevices);
+                mExpectedDevices = copy;
+                numDut++;
             }
             if (numNonDut > 0 && numDut == 1) {
                 // If we have fake device but only a single real device, is the only use case to
                 // handle very differently: object at the root of the xml needs to be associated
                 // with the only DuT.
                 // All the other use cases can be handled the regular way.
-                CLog.d("Only one Device Under Test, using hybrid handling.");
+                CLog.d(
+                        "One device is under tests while config '%s' requires some fake=true "
+                                + "devices. Using hybrid parsing of config.",
+                        getName());
                 hybridMultiDeviceHandling = true;
             }
             for (String name : mExpectedDevices.keySet()) {
@@ -254,6 +289,8 @@ public class ConfigurationDef {
                     cause = e.getCause();
                     rejectedObjects.putAll(e.getRejectedObjects());
                     CLog.e(e);
+                    // Don't add in case of issue
+                    shouldAddToFlatConfig = false;
                     continue;
                 }
                 Matcher matcher = null;
@@ -316,6 +353,18 @@ public class ConfigurationDef {
             }
         }
 
+        checkRejectedObjects(rejectedObjects, cause);
+
+        // We always add the device configuration list so we can rely on it everywhere
+        config.setConfigurationObjectList(Configuration.DEVICE_NAME, deviceObjectList);
+        injectOptions(config, mOptionList);
+
+        return config;
+    }
+
+    /** Evaluate rejected objects map, if any throw an exception. */
+    protected void checkRejectedObjects(Map<String, String> rejectedObjects, Throwable cause)
+            throws ClassNotFoundConfigurationException {
         // Send all the objects that failed the loading.
         if (!rejectedObjects.isEmpty()) {
             throw new ClassNotFoundConfigurationException(
@@ -325,12 +374,11 @@ public class ConfigurationDef {
                     cause,
                     rejectedObjects);
         }
+    }
 
-        // We always add the device configuration list so we can rely on it everywhere
-        config.setConfigurationObjectList(Configuration.DEVICE_NAME, deviceObjectList);
-        config.injectOptionValues(mOptionList);
-
-        return config;
+    protected void injectOptions(IConfiguration config, List<OptionDef> optionList)
+            throws ConfigurationException {
+        config.injectOptionValues(optionList);
     }
 
     /**

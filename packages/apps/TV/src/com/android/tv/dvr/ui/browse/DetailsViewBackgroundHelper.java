@@ -24,7 +24,7 @@ import android.os.Handler;
 import android.support.v17.leanback.app.BackgroundManager;
 
 /** The Background Helper. */
-class DetailsViewBackgroundHelper {
+public class DetailsViewBackgroundHelper {
     // Background delay serves to avoid kicking off expensive bitmap loading
     // in case multiple backgrounds are set in quick succession.
     private static final int SET_BACKGROUND_DELAY_MS = 100;

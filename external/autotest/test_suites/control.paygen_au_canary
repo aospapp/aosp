@@ -34,7 +34,6 @@ Note: this suite only tests deltas from the canary channel.
 
 import common
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 # Needs to be done to generate the control files for the suite.
@@ -57,7 +56,6 @@ args_dict['max_runtime_mins'] = 60
 args_dict['name'] = NAME
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

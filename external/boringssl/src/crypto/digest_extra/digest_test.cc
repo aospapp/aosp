@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include <memory>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -183,6 +184,20 @@ static void TestDigest(const TestVector *test) {
   EXPECT_EQ(EVP_MD_size(test->md.func()), digest_len);
   CompareDigest(test, digest.get(), digest_len);
 
+  // Test with unaligned input.
+  ASSERT_TRUE(EVP_DigestInit_ex(ctx.get(), test->md.func(), NULL));
+  std::vector<char> unaligned(strlen(test->input) + 1);
+  char *ptr = unaligned.data();
+  if ((reinterpret_cast<uintptr_t>(ptr) & 1) == 0) {
+    ptr++;
+  }
+  OPENSSL_memcpy(ptr, test->input, strlen(test->input));
+  for (size_t i = 0; i < test->repeat; i++) {
+    ASSERT_TRUE(EVP_DigestUpdate(ctx.get(), ptr, strlen(test->input)));
+  }
+  ASSERT_TRUE(EVP_DigestFinal_ex(ctx.get(), digest.get(), &digest_len));
+  CompareDigest(test, digest.get(), digest_len);
+
   // Test the one-shot function.
   if (test->md.one_shot_func && test->repeat == 1) {
     uint8_t *out = test->md.one_shot_func((const uint8_t *)test->input,
@@ -257,4 +272,21 @@ TEST(DigestTest, ASN1) {
   // Garbage parameters are not.
   CBS_init(&cbs, kSHA256GarbageParam, sizeof(kSHA256GarbageParam));
   EXPECT_FALSE(EVP_parse_digest_algorithm(&cbs));
+}
+
+TEST(DigestTest, TransformBlocks) {
+  uint8_t blocks[SHA256_CBLOCK * 10];
+  for (size_t i = 0; i < sizeof(blocks); i++) {
+    blocks[i] = i*3;
+  }
+
+  SHA256_CTX ctx1;
+  SHA256_Init(&ctx1);
+  SHA256_Update(&ctx1, blocks, sizeof(blocks));
+
+  SHA256_CTX ctx2;
+  SHA256_Init(&ctx2);
+  SHA256_TransformBlocks(ctx2.h, blocks, sizeof(blocks) / SHA256_CBLOCK);
+
+  EXPECT_TRUE(0 == OPENSSL_memcmp(ctx1.h, ctx2.h, sizeof(ctx1.h)));
 }

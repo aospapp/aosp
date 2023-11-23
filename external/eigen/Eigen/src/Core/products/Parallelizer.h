@@ -10,6 +10,8 @@
 #ifndef EIGEN_PARALLELIZER_H
 #define EIGEN_PARALLELIZER_H
 
+#include <atomic>
+
 namespace Eigen {
 
 namespace internal {
@@ -75,8 +77,8 @@ template<typename Index> struct GemmParallelInfo
 {
   GemmParallelInfo() : sync(-1), users(0), lhs_start(0), lhs_length(0) {}
 
-  Index volatile sync;
-  int volatile users;
+  std::atomic<Index> sync;
+  std::atomic<int> users;
 
   Index lhs_start;
   Index lhs_length;

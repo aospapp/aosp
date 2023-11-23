@@ -22,7 +22,10 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -43,7 +46,7 @@ public class SelfManagedConnection extends Connection {
         public void onConnectionStateChanged(SelfManagedConnection connection) {}
         public void onConnectionRemoved(SelfManagedConnection connection) {}
     }
-
+    public static final String INCOMING_CALL_CHANNEL_ID = "INCOMING_CALL_CHANNEL_ID";
     public static final String EXTRA_PHONE_ACCOUNT_HANDLE =
             "com.android.server.telecom.testapps.extra.PHONE_ACCOUNT_HANDLE";
     public static final String CALL_NOTIFICATION = "com.android.server.telecom.testapps.CALL";
@@ -58,6 +61,7 @@ public class SelfManagedConnection extends Connection {
     private boolean mIsIncomingCallUiShowing;
     private Listener mListener;
     private boolean mIsHandover;
+    private Notification.Builder mNotificationBuilder;
 
     SelfManagedConnection(SelfManagedCallList callList, Context context, boolean isIncoming) {
         mCallList = callList;
@@ -93,7 +97,8 @@ public class SelfManagedConnection extends Connection {
         PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 1, intent, 0);
 
         // Build the notification as an ongoing high priority item.
-        final Notification.Builder builder = new Notification.Builder(mContext);
+        final Notification.Builder builder = new Notification.Builder(mContext,
+                INCOMING_CALL_CHANNEL_ID);
         builder.setOngoing(true);
         builder.setPriority(Notification.PRIORITY_HIGH);
 
@@ -131,9 +136,12 @@ public class SelfManagedConnection extends Connection {
                                 PendingIntent.FLAG_UPDATE_CURRENT))
                         .build());
 
+        Notification notification = builder.build();
+        notification.flags |= Notification.FLAG_INSISTENT;
         NotificationManager notificationManager = mContext.getSystemService(
                 NotificationManager.class);
-        notificationManager.notify(CALL_NOTIFICATION, mCallId, builder.build());
+        mNotificationBuilder = builder;
+        notificationManager.notify(CALL_NOTIFICATION, mCallId, notification);
     }
 
     @Override
@@ -170,6 +178,15 @@ public class SelfManagedConnection extends Connection {
     @Override
     public void onDisconnect() {
         setConnectionDisconnected(DisconnectCause.LOCAL);
+    }
+
+    @Override
+    public void onSilence() {
+        // Re-post our notification without a ringtone.
+        mNotificationBuilder.setOnlyAlertOnce(true);
+        NotificationManager notificationManager = mContext.getSystemService(
+                NotificationManager.class);
+        notificationManager.notify(CALL_NOTIFICATION, mCallId, mNotificationBuilder.build());
     }
 
     public void setConnectionActive() {

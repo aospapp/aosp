@@ -18,20 +18,17 @@ package com.android.documentsui.ui;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Message;
 import android.text.format.DateUtils;
 
+import androidx.annotation.StringRes;
+
 import com.android.documentsui.R;
 import com.android.documentsui.services.FileOperation;
-import com.android.documentsui.services.FileOperationService.MessageType;
-import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperationService;
 import com.android.documentsui.services.FileOperations;
-
-import android.support.annotation.StringRes;
-import android.util.Log;
+import com.android.documentsui.util.FormatUtils;
 
 public class OperationProgressDialog {
 
@@ -74,7 +71,7 @@ public class OperationProgressDialog {
                         }
                         if (message.arg2 > 0) {
                             mDialog.setMessage(mActivity.getString(R.string.copy_remaining,
-                                    DateUtils.formatDuration(message.arg2)));
+                                    FormatUtils.formatDuration(message.arg2)));
                         }
                         return true;
                     case FileOperationService.MESSAGE_FINISH:

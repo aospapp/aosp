@@ -49,4 +49,16 @@ public interface ITestFilterReceiver {
      * Adds the {@link Set} of filters of which tests to exclude.
      */
     void addAllExcludeFilters(Set<String> filters);
+
+    /** Returns the current {@link Set} of include filters. */
+    Set<String> getIncludeFilters();
+
+    /** Returns the current {@link Set} of exclude filters. */
+    Set<String> getExcludeFilters();
+
+    /** Delete all the include filters currently tracked. */
+    void clearIncludeFilters();
+
+    /** Delete all the exclude filters currently tracked. */
+    void clearExcludeFilters();
 }

@@ -25,8 +25,8 @@ android.sourceSets {
         res.srcDirs = ['test/instrumentation/res']
 
         dependencies {
-            androidTestImplementation 'com.android.support.test:rules:1.0.0'
-            androidTestImplementation 'com.android.support.test:runner:1.0.0'
+            androidTestImplementation 'com.android.support.test:rules:1.0.1'
+            androidTestImplementation 'com.android.support.test:runner:1.0.1'
             androidTestImplementation 'com.google.dexmaker:dexmaker:1.2'
             androidTestImplementation 'com.google.dexmaker:dexmaker-mockito:1.2'
             androidTestImplementation 'com.google.truth:truth:0.31'
@@ -51,8 +51,8 @@ android.sourceSets {
         java.srcDirs = ['test/robotest/src']
 
         dependencies {
-            testImplementation 'org.robolectric:robolectric:3.6.1'
-            testImplementation 'org.robolectric:shadows-framework:3.6.1'
+            testImplementation 'org.robolectric:robolectric:4.0-alpha-3'
+            testImplementation 'org.robolectric:shadows-framework:4.0-alpha-3'
             testImplementation 'junit:junit:4.+'
             testImplementation 'com.google.truth:truth:0.31'
             testImplementation 'org.mockito:mockito-core:1.9.5'

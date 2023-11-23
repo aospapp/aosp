@@ -24,12 +24,14 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Process;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.compatibility.common.util.SystemUtil;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Base class for profile and device based tests.
@@ -50,6 +52,14 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
             }
             return uri.getQueryParameter("alias");
         }
+
+        @Override
+        public void onPasswordExpiring(Context context, Intent intent, UserHandle user) {
+            super.onPasswordExpiring(context, intent, user);
+            if (mOnPasswordExpiryTimeoutCalled != null) {
+                mOnPasswordExpiryTimeoutCalled.countDown();
+            }
+        }
     }
 
     public static final String PACKAGE_NAME = BasicAdminReceiver.class.getPackage().getName();
@@ -59,6 +69,7 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected UserManager mUserManager;
     protected Context mContext;
+    static CountDownLatch mOnPasswordExpiryTimeoutCalled;
 
     private final String mTag = getClass().getSimpleName();
 

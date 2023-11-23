@@ -295,7 +295,7 @@ void ShaderAtomicCounterOpsTestBase::ShaderPipeline::executeComputeShader(deqp::
 	GLU_EXPECT_NO_ERROR(gl.getError(), "Uploading image data failed");
 
 	// bind image
-	gl.bindImageTexture(2, *outputTexture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32UI);
+	gl.bindImageTexture(2, *outputTexture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "Image setup failed");
 
 	// dispatch compute
@@ -452,7 +452,7 @@ void ShaderAtomicCounterOpsTestBase::bindBuffers()
 
 bool ShaderAtomicCounterOpsTestBase::validateColor(tcu::Vec4 testedColor, tcu::Vec4 desiredColor)
 {
-	const float epsilon = 0.008f;
+	const float epsilon = 1.1f / 31.0f; // Accommodate framebuffers with 5-bit channels.
 	return de::abs(testedColor.x() - desiredColor.x()) < epsilon &&
 		   de::abs(testedColor.y() - desiredColor.y()) < epsilon &&
 		   de::abs(testedColor.z() - desiredColor.z()) < epsilon;

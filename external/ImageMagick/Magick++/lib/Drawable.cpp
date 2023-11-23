@@ -1,7 +1,7 @@
 // This may look like C code, but it is really -*- C++ -*-
 //
 // Copyright Bob Friesenhahn, 1999, 2000, 2001, 2002, 2003
-// Copyright Dirk Lemstra 2014-2015
+// Copyright Dirk Lemstra 2014-2017
 //
 // Implementation of Drawable (Graphic objects)
 //
@@ -168,37 +168,6 @@ void Magick::VPath::operator()( MagickCore::DrawingWand * context_ ) const
 {
   if(dp)
     dp->operator()( context_ );
-}
-
-MagickPPExport int Magick::operator == ( const Magick::VPath& /*left_*/,
-                                        const Magick::VPath& /*right_*/ )
-{
-  return ( 1 );
-}
-MagickPPExport int Magick::operator != ( const Magick::VPath& /*left_*/,
-                                        const Magick::VPath& /*right_*/ )
-{
-  return ( 0 );
-}
-MagickPPExport int Magick::operator > ( const Magick::VPath& /*left_*/,
-                                       const Magick::VPath& /*right_*/ )
-{
-  return ( 0 );
-}
-MagickPPExport int Magick::operator <  ( const Magick::VPath& /*left_*/,
-                                        const Magick::VPath& /*right_*/ )
-{
-  return  ( 0 );
-}
-MagickPPExport int Magick::operator >= ( const Magick::VPath& left_,
-                                        const Magick::VPath& right_ )
-{
-  return ( ( left_ > right_ ) || ( left_ == right_ ) );
-}
-MagickPPExport int Magick::operator <= ( const Magick::VPath& left_,
-                                        const Magick::VPath& right_ )
-{
-  return ( ( left_ < right_ ) || ( left_ == right_ ) );
 }
 
 //
@@ -1137,8 +1106,8 @@ Magick::DrawableRoundRectangle::~DrawableRoundRectangle ( void )
 void Magick::DrawableRoundRectangle::operator()
   ( MagickCore::DrawingWand * context_ ) const
 {
-  DrawRoundRectangle( context_, _centerX,_centerY, _width,_hight,
-                      _cornerWidth, _cornerHeight);
+  DrawRoundRectangle(context_,_upperLeftX,_upperLeftY,_lowerRightX,
+    _lowerRightY,_cornerWidth, _cornerHeight);
 }
 Magick::DrawableBase* Magick::DrawableRoundRectangle::copy() const
 {
@@ -2094,8 +2063,9 @@ void Magick::PathSmoothCurvetoAbs::operator()
       double x2 = p->x();
       double y2 = p->y();
       p++;
-      if(p != _coordinates.end() )
-        DrawPathCurveToSmoothAbsolute( context_, x2, y2, p->x(), p->y() );
+      if (p == _coordinates.end() )
+        break;
+      DrawPathCurveToSmoothAbsolute( context_, x2, y2, p->x(), p->y() );
     }
 }
 Magick::VPathBase* Magick::PathSmoothCurvetoAbs::copy() const
@@ -2130,8 +2100,9 @@ void Magick::PathSmoothCurvetoRel::operator()
       double x2 = p->x();
       double y2 = p->y();
       p++;
-      if(p != _coordinates.end() )
-        DrawPathCurveToSmoothRelative( context_, x2, y2, p->x(), p->y() );
+      if (p == _coordinates.end() )
+        break;
+      DrawPathCurveToSmoothRelative( context_, x2, y2, p->x(), p->y() );
     }
 }
 Magick::VPathBase* Magick::PathSmoothCurvetoRel::copy() const

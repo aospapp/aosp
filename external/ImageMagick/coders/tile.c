@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -110,6 +110,8 @@ static Image *ReadTILEImage(const ImageInfo *image_info,
   read_info=CloneImageInfo(image_info);
   SetImageInfoBlob(read_info,(void *) NULL,0);
   *read_info->magick='\0';
+  if (read_info->size != (char *) NULL)
+    read_info->size=DestroyString(read_info->size);
   tile_image=ReadImage(read_info,exception);
   read_info=DestroyImageInfo(read_info);
   if (tile_image == (Image *) NULL)
@@ -124,9 +126,8 @@ static Image *ReadTILEImage(const ImageInfo *image_info,
     return(DestroyImageList(image));
   image->colorspace=tile_image->colorspace;
   image->alpha_trait=tile_image->alpha_trait;
-  if (image->alpha_trait != UndefinedPixelTrait)
-    (void) SetImageBackgroundColor(image,exception);
-  (void) CopyMagickString(image->filename,image_info->filename,MagickPathExtent);
+  (void) CopyMagickString(image->filename,image_info->filename,
+    MagickPathExtent);
   if (LocaleCompare(tile_image->magick,"PATTERN") == 0)
     {
       tile_image->tile_offset.x=0;
@@ -134,7 +135,8 @@ static Image *ReadTILEImage(const ImageInfo *image_info,
     }
   (void) TextureImage(image,tile_image,exception);
   tile_image=DestroyImage(tile_image);
-  if (image->colorspace == GRAYColorspace)
+  if ((image->colorspace == LinearGRAYColorspace) ||
+      (image->colorspace == GRAYColorspace))
     image->type=GrayscaleType;
   return(GetFirstImageInList(image));
 }

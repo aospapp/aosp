@@ -24,7 +24,7 @@ interface ParameterItem : Item {
     fun name(): String
 
     /** The type of this field */
-    fun type(): TypeItem
+    override fun type(): TypeItem
 
     /** The containing method */
     fun containingMethod(): MethodItem
@@ -100,6 +100,9 @@ interface ParameterItem : Item {
 
         return modifiers.hasNullnessInfo()
     }
+
+    override fun containingClass(strict: Boolean): ClassItem? = containingMethod().containingClass(false)
+    override fun containingPackage(strict: Boolean): PackageItem? = containingMethod().containingPackage(false)
 
     // TODO: modifier list
 }

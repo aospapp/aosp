@@ -24,8 +24,8 @@
 #include "base/bit_utils.h"
 #include "dex/primitive.h"
 #include "gc_root.h"
-#include "globals.h"
 #include "mirror/dex_cache.h"
+#include "runtime_globals.h"
 
 namespace art {
 

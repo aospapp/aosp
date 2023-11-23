@@ -19,7 +19,8 @@ package com.android.server.wifi.hotspot2.anqp.eap;
 import static org.junit.Assert.assertEquals;
 
 import android.net.wifi.EAPConstants;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 

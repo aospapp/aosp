@@ -4,8 +4,7 @@
 
 AUTHOR = 'quiche, pstew'
 NAME = 'network_DefaultProfileServices'
-# TODO(ihf): Move back to bvt-cq after crbug.com/609840 is fixed.
-ATTRIBUTES = "suite:bvt-perbuild, subsystem:network"
+ATTRIBUTES = "suite:bvt-cq, subsystem:network"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2

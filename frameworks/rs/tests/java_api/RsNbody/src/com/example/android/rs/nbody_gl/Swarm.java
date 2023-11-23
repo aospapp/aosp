@@ -11,7 +11,7 @@ import android.renderscript.Float2;
 import android.renderscript.Float3;
 import android.renderscript.RenderScript;
 import android.renderscript.Type;
-import android.support.v4.view.MotionEventCompat;
+import androidx.core.view.MotionEventCompat;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;

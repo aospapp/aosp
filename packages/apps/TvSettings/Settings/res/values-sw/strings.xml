@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Marekebisho"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Chagua miundo"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Sauti Mzunguko"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -142,7 +142,7 @@
     <string name="system_speech" msgid="8128688499687306982">"Usemi"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vifaa vya kuingiza sauti"</string>
     <string name="system_inputs_devices" msgid="8700905419497948327">"Vifaa vya kuingiza sauti"</string>
-    <string name="system_home_theater_control" msgid="2053198603790384368">"Udhibiti wa vifaa vya burudani vya nyumbani"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"Kudhibiti vifaa vya burudani vya nyumbani"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Ufikiaji"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Chaguo za wasanidi programu"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Hakuna"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Baadhi ya programu hazitapatikana au hazitafanya kazi vizuri hadi hifadhi iunganishwe."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Nafasi ya hifadhi haitoshi."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Programu haipo."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Programu imelindwa isinakiliwe."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Eneo la kusakinisha si sahihi."</string>
     <string name="system_package" msgid="9200255718634512790">"Masasisho ya mfumo hayawezi kusakinisha kwenye hifadhi ya nje."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Huwezi kusakinisha Kidhibiti cha Vifaa kwenye vifaa vya nje."</string>
@@ -419,7 +418,7 @@
     <string name="display_options" msgid="5504549024985225774">"Onyesha chaguo"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Mipangilio"</string>
     <string name="captions_language" msgid="2835554055388996343">"Lugha"</string>
-    <string name="captions_language_default" msgid="8113979489252033676">"Chaguo msingi"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Chaguomsingi"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Ukubwa wa maandishi"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Mtindo wa manukuu"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Chaguo maalum"</string>
@@ -649,7 +648,7 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Ilazimishe ikome"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ukilazimisha programu kuzima, inaweza kutofanya vizuri."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Ondoa"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Sanidua masasisho"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Ondoa masasisho"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Masasisho yote ya programu hii ya mfumo wa Android yataondolewa."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Zima"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Unataka kuzima programu hii?"</string>
@@ -661,7 +660,7 @@
     <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Data yote ya programu hii itafutwa kabisa.\nHii inajumuisha faili, mipangilio, akaunti, hifadhidata zote na mengineyo."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Futa machaguo-msingi"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Imewekwa ifungue programu hii kwa vitendo fulani"</string>
-    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Hakuna chaguo msingi zilizowekwa"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Hakuna chaguomsingi zilizowekwa"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Futa akiba"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Arifa"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Ruhusa"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Kufikia arifa"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Hakuna programu zilizosakinishwa ambazo zimeomba kufikia arifa."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Programu hizi zitaweza kusoma arifa zote ikiwa ni pamoja na maelezo ya kibinafsi kama vile majina ya anwani na SMS unazopokea. Zitaweza pia kuondoa arifa au kusababisha shughuli za vitufe vya vitendo vilivyomo."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Kufikia saraka"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Programu hizi zina ruhusa ya kufikia sakara fulani."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Onyesha juu ya programu nyinginezo"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Ruhusu programu ionekane juu ya nyinginezo"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Ruhusu programu ionekane juu ya programu nyinginezo unazotumia. Huenda hali hii ikaathiri jinsi unavyotumia programu hizo au kubadilisha jinsi zinavyoonekana au kufanya kazi."</string>

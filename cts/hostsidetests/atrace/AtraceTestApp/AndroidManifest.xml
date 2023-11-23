@@ -14,12 +14,13 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.atracetestapp">
+       package="com.android.cts.atracetestapp"
+       android:targetSandboxVersion="2">
     <!--
     A simple app with a tracing section to test that apps tracing signals are
     emitted by atrace.
     -->
-    <application android:debuggable="true"> <!-- Debuggable to enable tracing -->
+    <application>
         <activity android:name=".AtraceTestAppActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -27,5 +28,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Profileable to enable tracing -->
+        <profileable android:shell="true"/>
     </application>
+
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+                     android:targetPackage="com.android.cts.atracetestapp" />
 </manifest>

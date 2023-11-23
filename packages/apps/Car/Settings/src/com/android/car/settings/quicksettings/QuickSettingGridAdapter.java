@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
+
 package com.android.car.settings.quicksettings;
 
 import android.annotation.Nullable;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
 
@@ -70,7 +71,14 @@ public class QuickSettingGridAdapter
          * A state to indicate how we want to render icon, this is independent of what to show
          * in text.
          */
-        enum State {OFF, ON}
+        enum State {
+            OFF, ON
+        }
+
+        /**
+         * Called when activity owning this tile's onStart() gets called.
+         */
+        void start();
 
         /**
          * Called when activity owning this tile's onStop() gets called.
@@ -90,14 +98,19 @@ public class QuickSettingGridAdapter
         boolean isAvailable();
 
         /**
-         * Returns a listener for launching a setting fragment for advanced configuration for this
-         * tile, A.K.A deep dive, if available. {@code null} if deep dive is not available.
+         * Returns a listener to call when this tile is clicked and held. Returns {@code null} if
+         * no action should be performed.
          */
         @Nullable
-        OnClickListener getDeepDiveListener();
+        View.OnLongClickListener getOnLongClickListener();
     }
 
     interface SeekbarTile extends SeekBar.OnSeekBarChangeListener {
+        /**
+         * Called when activity owning this tile's onStart() gets called.
+         */
+        void start();
+
         /**
          * Called when activity owning this tile's onStop() gets called.
          */
@@ -118,6 +131,15 @@ public class QuickSettingGridAdapter
             mTiles.add(tile);
         }
         return this;
+    }
+
+    void start() {
+        for (SeekbarTile tile : mSeekbarTiles) {
+            tile.start();
+        }
+        for (Tile tile : mTiles) {
+            tile.start();
+        }
     }
 
     void stop() {
@@ -158,15 +180,12 @@ public class QuickSettingGridAdapter
             case TILE_VIEWTYPE:
                 Tile tile = mTiles.get(position - mSeekbarTiles.size());
                 TileViewHolder vh = (TileViewHolder) holder;
-                OnClickListener deepDiveListener = tile.getDeepDiveListener();
                 vh.itemView.setOnClickListener(tile);
-                if (deepDiveListener != null) {
-                    vh.mDeepDiveIcon.setVisibility(View.VISIBLE);
-                    vh.mTextContainer.setOnClickListener(deepDiveListener);
+                View.OnLongClickListener onLongClickListener = tile.getOnLongClickListener();
+                if (onLongClickListener != null) {
+                    vh.itemView.setOnLongClickListener(onLongClickListener);
                 } else {
-                    vh.mDeepDiveIcon.setVisibility(View.GONE);
-                    vh.mTextContainer.setClickable(false);
-                    vh.mTextContainer.setOnClickListener(null);
+                    vh.itemView.setOnLongClickListener(null);
                 }
                 vh.mIcon.setImageDrawable(tile.getIcon());
                 switch (tile.getState()) {
@@ -199,28 +218,22 @@ public class QuickSettingGridAdapter
     }
 
     private class TileViewHolder extends RecyclerView.ViewHolder {
-        private final View mIconContainer;
-        private final View mTextContainer;
         private final View mIconBackground;
         private final ImageView mIcon;
-        private final ImageView mDeepDiveIcon;
         private final TextView mText;
 
         TileViewHolder(View view) {
             super(view);
-            mIconContainer = view.findViewById(R.id.icon_container);
-            mTextContainer = view.findViewById(R.id.text_container);
             mIconBackground = view.findViewById(R.id.icon_background);
-            mIcon = (ImageView) view.findViewById(R.id.tile_icon);
-            mDeepDiveIcon = (ImageView) view.findViewById(R.id.deep_dive_icon);
-            mText = (TextView) view.findViewById(R.id.tile_text);
+            mIcon = view.findViewById(R.id.tile_icon);
+            mText = view.findViewById(R.id.tile_text);
         }
     }
 
     class QsSpanSizeLookup extends GridLayoutManager.SpanSizeLookup {
 
         /**
-         * Each line item takes a full row, and each tile takes only 1 span.
+         * Each list item takes a full row, and each tile takes only 1 span.
          */
         @Override
         public int getSpanSize(int position) {

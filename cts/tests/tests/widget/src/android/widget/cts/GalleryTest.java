@@ -26,11 +26,6 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Rect;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.ViewAsserts;
 import android.util.AttributeSet;
 import android.util.Xml;
@@ -45,6 +40,12 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Gallery;
 import android.widget.ImageView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -114,11 +115,10 @@ public class GalleryTest  {
     }
 
     private void setSpacingAndCheck(final int spacing) throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGallery, () -> {
             mGallery.setSpacing(spacing);
             mGallery.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        }, true);
 
         View v0 = mGallery.getChildAt(0);
         View v1 = mGallery.getChildAt(1);
@@ -190,12 +190,8 @@ public class GalleryTest  {
     }
 
     private void setGalleryGravity(final int gravity) throws Throwable {
-        mActivityRule.runOnUiThread(() -> {
-            mGallery.setGravity(gravity);
-            mGallery.invalidate();
-            mGallery.requestLayout();
-        });
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mGallery,
+                () -> mGallery.setGravity(gravity), true);
     }
 
     @Test

@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.instrumentationdiffcertapp">
+       package="com.android.cts.instrumentationdiffcertapp"
+       android:targetSandboxVersion="2">
 
     <!--
     A simple app to test that an instrumentation cannot target an app signed with a different
@@ -34,7 +35,7 @@
     A self-instrumenting test runner, that will try to start the above instrumentation and
     verify it fails.
      -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.instrumentationdiffcertapp"
                      android:label="Test for instrumentation with different cert" />
 </manifest>

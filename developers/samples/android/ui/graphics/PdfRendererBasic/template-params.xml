@@ -33,7 +33,8 @@
         </intro>
     </strings>
 
-    <template src="base"/>
+    <template src="base-build"/>
+    <androidX>true</androidX>
 
     <metadata>
         <status>PUBLISHED</status>

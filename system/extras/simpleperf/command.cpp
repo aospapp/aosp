@@ -22,6 +22,8 @@
 #include <vector>
 
 #include <android-base/logging.h>
+#include <android-base/parsedouble.h>
+#include <android-base/parseint.h>
 #include <android-base/quick_exit.h>
 
 #include "utils.h"
@@ -33,6 +35,18 @@ bool Command::NextArgumentOrError(const std::vector<std::string>& args, size_t* 
     return false;
   }
   ++*pi;
+  return true;
+}
+
+bool Command::GetDoubleOption(const std::vector<std::string>& args, size_t* pi, double* value,
+                              double min, double max) {
+  if (!NextArgumentOrError(args, pi)) {
+    return false;
+  }
+  if (!android::base::ParseDouble(args[*pi].c_str(), value, min, max)) {
+    LOG(ERROR) << "Invalid argument for option " << args[*pi - 1] << ": " << args[*pi];
+    return false;
+  }
   return true;
 }
 
@@ -66,7 +80,7 @@ std::unique_ptr<Command> CreateCommandInstance(const std::string& cmd_name) {
 
 const std::vector<std::string> GetAllCommandNames() {
   std::vector<std::string> names;
-  for (auto pair : CommandMap()) {
+  for (const auto& pair : CommandMap()) {
     names.push_back(pair.first);
   }
   return names;
@@ -81,6 +95,8 @@ extern void RegisterReportCommand();
 extern void RegisterReportSampleCommand();
 extern void RegisterStatCommand();
 extern void RegisterDebugUnwindCommand();
+extern void RegisterTraceSchedCommand();
+extern void RegisterAPICommands();
 
 class CommandRegister {
  public:
@@ -95,6 +111,10 @@ class CommandRegister {
     RegisterRecordCommand();
     RegisterStatCommand();
     RegisterDebugUnwindCommand();
+    RegisterTraceSchedCommand();
+#if defined(__ANDROID__)
+    RegisterAPICommands();
+#endif
 #endif
   }
 };
@@ -127,6 +147,10 @@ bool RunSimpleperfCmd(int argc, char** argv) {
         LOG(ERROR) << "Missing argument for --log option.\n";
         return false;
       }
+#if defined(__ANDROID__)
+    } else if (strcmp(argv[i], "--log-to-android-buffer") == 0) {
+      android::base::SetLogger(android::base::LogdLogger());
+#endif
     } else if (strcmp(argv[i], "--version") == 0) {
       LOG(INFO) << "Simpleperf version " << GetSimpleperfVersion();
       return true;

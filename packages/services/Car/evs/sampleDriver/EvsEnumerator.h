@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2016-2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@
 #include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
 #include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
 
-#include <list>
-
+#include <unordered_map>
+#include <thread>
+#include <atomic>
 
 namespace android {
 namespace hardware {
@@ -33,7 +34,6 @@ namespace implementation {
 
 class EvsV4lCamera;    // from EvsCamera.h
 class EvsGlDisplay;    // from EvsGlDisplay.h
-
 
 class EvsEnumerator : public IEvsEnumerator {
 public:
@@ -48,6 +48,9 @@ public:
     // Implementation details
     EvsEnumerator();
 
+    // Listen to video device uevents
+    static void EvsUeventThread(std::atomic<bool>& running);
+
 private:
     struct CameraRecord {
         CameraDesc          desc;
@@ -56,10 +59,11 @@ private:
         CameraRecord(const char *cameraId) : desc() { desc.cameraId = cameraId; }
     };
 
+    bool checkPermission();
 
     static bool qualifyCaptureDevice(const char* deviceName);
     static CameraRecord* findCameraById(const std::string& cameraId);
-
+    static void enumerateDevices();
 
     // NOTE:  All members values are static so that all clients operate on the same state
     //        That is to say, this is effectively a singleton despite the fact that HIDL
@@ -67,9 +71,14 @@ private:
     //        Because our server has a single thread in the thread pool, these values are
     //        never accessed concurrently despite potentially having multiple instance objects
     //        using them.
-    static std::list<CameraRecord> sCameraList;
+    static std::unordered_map<std::string,
+                              CameraRecord> sCameraList;
 
-    static wp<EvsGlDisplay>          sActiveDisplay; // Weak pointer. Object destructs if client dies.
+    static wp<EvsGlDisplay>                 sActiveDisplay; // Weak pointer.
+                                                            // Object destructs if client dies.
+
+    static std::mutex                       sLock;          // Mutex on shared camera device list.
+    static std::condition_variable          sCameraSignal;  // Signal on camera device addition.
 };
 
 } // namespace implementation

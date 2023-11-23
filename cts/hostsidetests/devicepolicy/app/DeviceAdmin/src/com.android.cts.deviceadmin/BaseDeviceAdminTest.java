@@ -18,6 +18,7 @@ package com.android.cts.deviceadmin;
 import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.test.AndroidTestCase;
 
@@ -28,6 +29,7 @@ public class BaseDeviceAdminTest extends AndroidTestCase {
 
     protected String mPackageName;
     protected ComponentName mAdminComponent;
+    protected boolean mHasSecureLockScreen;
 
     public DevicePolicyManager dpm;
 
@@ -38,6 +40,8 @@ public class BaseDeviceAdminTest extends AndroidTestCase {
         dpm = mContext.getSystemService(DevicePolicyManager.class);
         mPackageName = mContext.getPackageName();
         mAdminComponent = new ComponentName(mContext, AdminReceiver.class);
+        mHasSecureLockScreen = mContext.getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN);
     }
 
     /**

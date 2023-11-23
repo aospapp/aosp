@@ -16,13 +16,13 @@
 %                               March  2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -48,6 +48,7 @@
 #include "MagickCore/linked-list.h"
 #include "MagickCore/list.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/property.h"
@@ -190,10 +191,8 @@ static AESInfo *AcquireAESInfo(void)
   AESInfo
     *aes_info;
 
-  aes_info=(AESInfo *) AcquireMagickMemory(sizeof(*aes_info));
-  if (aes_info == (AESInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(aes_info,0,sizeof(*aes_info));
+  aes_info=(AESInfo *) AcquireCriticalMemory(sizeof(*aes_info));
+  (void) memset(aes_info,0,sizeof(*aes_info));
   aes_info->blocksize=AESBlocksize;
   aes_info->key=AcquireStringInfo(32);
   aes_info->encipher_key=(unsigned int *) AcquireQuantumMemory(60UL,sizeof(
@@ -483,8 +482,8 @@ static void EncipherAESBlock(AESInfo *aes_info,const unsigned char *plaintext,
     Reset registers.
   */
   alpha=0;
-  (void) ResetMagickMemory(key,0,sizeof(key));
-  (void) ResetMagickMemory(text,0,sizeof(text));
+  (void) memset(key,0,sizeof(key));
+  (void) memset(text,0,sizeof(text));
 }
 
 /*
@@ -637,9 +636,9 @@ MagickExport MagickBooleanType PasskeyDecipherImage(Image *image,
   UpdateSignature(signature_info,nonce);
   nonce=DestroyStringInfo(nonce);
   FinalizeSignature(signature_info);
-  (void) ResetMagickMemory(input_block,0,sizeof(input_block));
+  (void) memset(input_block,0,sizeof(input_block));
   digest=GetStringInfoDatum(GetSignatureDigest(signature_info));
-  (void) CopyMagickMemory(input_block,digest,MagickMin(AESBlocksize,
+  (void) memcpy(input_block,digest,MagickMin(AESBlocksize,
     GetSignatureDigestsize(signature_info))*sizeof(*input_block));
   signature_info=DestroySignatureInfo(signature_info);
   /*
@@ -672,7 +671,7 @@ MagickExport MagickBooleanType PasskeyDecipherImage(Image *image,
     p=pixels;
     for (x=0; x < (ssize_t) length; x+=AESBlocksize)
     {
-      (void) CopyMagickMemory(output_block,input_block,AESBlocksize*
+      (void) memcpy(output_block,input_block,AESBlocksize*
         sizeof(*output_block));
       IncrementCipherNonce(AESBlocksize,input_block);
       EncipherAESBlock(aes_info,output_block,output_block);
@@ -680,7 +679,7 @@ MagickExport MagickBooleanType PasskeyDecipherImage(Image *image,
         p[i]^=output_block[i];
       p+=AESBlocksize;
     }
-    (void) CopyMagickMemory(output_block,input_block,AESBlocksize*
+    (void) memcpy(output_block,input_block,AESBlocksize*
       sizeof(*output_block));
     EncipherAESBlock(aes_info,output_block,output_block);
     for (i=0; x < (ssize_t) length; x++)
@@ -707,8 +706,8 @@ MagickExport MagickBooleanType PasskeyDecipherImage(Image *image,
   */
   quantum_info=DestroyQuantumInfo(quantum_info);
   aes_info=DestroyAESInfo(aes_info);
-  (void) ResetMagickMemory(input_block,0,sizeof(input_block));
-  (void) ResetMagickMemory(output_block,0,sizeof(output_block));
+  (void) memset(input_block,0,sizeof(input_block));
+  (void) memset(output_block,0,sizeof(output_block));
   return(y == (ssize_t) image->rows ? MagickTrue : MagickFalse);
 }
 
@@ -857,9 +856,9 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
   (void) SetImageProperty(image,"cipher:mode","CTR",exception);
   (void) SetImageProperty(image,"cipher:nonce",signature,exception);
   signature=DestroyString(signature);
-  (void) ResetMagickMemory(input_block,0,sizeof(input_block));
+  (void) memset(input_block,0,sizeof(input_block));
   digest=GetStringInfoDatum(GetSignatureDigest(signature_info));
-  (void) CopyMagickMemory(input_block,digest,MagickMin(AESBlocksize,
+  (void) memcpy(input_block,digest,MagickMin(AESBlocksize,
     GetSignatureDigestsize(signature_info))*sizeof(*input_block));
   signature_info=DestroySignatureInfo(signature_info);
   /*
@@ -892,7 +891,7 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
     p=pixels;
     for (x=0; x < (ssize_t) length; x+=AESBlocksize)
     {
-      (void) CopyMagickMemory(output_block,input_block,AESBlocksize*
+      (void) memcpy(output_block,input_block,AESBlocksize*
         sizeof(*output_block));
       IncrementCipherNonce(AESBlocksize,input_block);
       EncipherAESBlock(aes_info,output_block,output_block);
@@ -900,7 +899,7 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
         p[i]^=output_block[i];
       p+=AESBlocksize;
     }
-    (void) CopyMagickMemory(output_block,input_block,AESBlocksize*
+    (void) memcpy(output_block,input_block,AESBlocksize*
       sizeof(*output_block));
     EncipherAESBlock(aes_info,output_block,output_block);
     for (i=0; x < (ssize_t) length; x++)
@@ -924,8 +923,8 @@ MagickExport MagickBooleanType PasskeyEncipherImage(Image *image,
   */
   quantum_info=DestroyQuantumInfo(quantum_info);
   aes_info=DestroyAESInfo(aes_info);
-  (void) ResetMagickMemory(input_block,0,sizeof(input_block));
-  (void) ResetMagickMemory(output_block,0,sizeof(output_block));
+  (void) memset(input_block,0,sizeof(input_block));
+  (void) memset(output_block,0,sizeof(output_block));
   return(y == (ssize_t) image->rows ? MagickTrue : MagickFalse);
 }
 
@@ -1030,8 +1029,8 @@ static void SetAESKey(AESInfo *aes_info,const StringInfo *key)
     Generate crypt key.
   */
   datum=GetStringInfoDatum(aes_info->key);
-  (void) ResetMagickMemory(datum,0,GetStringInfoLength(aes_info->key));
-  (void) CopyMagickMemory(datum,GetStringInfoDatum(key),MagickMin(
+  (void) memset(datum,0,GetStringInfoLength(aes_info->key));
+  (void) memcpy(datum,GetStringInfoDatum(key),MagickMin(
     GetStringInfoLength(key),GetStringInfoLength(aes_info->key)));
   for (i=0; i < n; i++)
     aes_info->encipher_key[i]=datum[4*i] | (datum[4*i+1] << 8) |
@@ -1065,7 +1064,7 @@ static void SetAESKey(AESInfo *aes_info,const StringInfo *key)
     Reset registers.
   */
   datum=GetStringInfoDatum(aes_info->key);
-  (void) ResetMagickMemory(datum,0,GetStringInfoLength(aes_info->key));
+  (void) memset(datum,0,GetStringInfoLength(aes_info->key));
   alpha=0;
   beta=0;
 }

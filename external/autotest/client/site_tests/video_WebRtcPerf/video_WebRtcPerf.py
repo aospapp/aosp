@@ -37,11 +37,6 @@ MEASUREMENT_DURATION = 30
 # Time to exclude from calculation after start the loopback [seconds].
 STABILIZATION_DURATION = 10
 
-# List of thermal throttling services that should be disabled.
-# - temp_metrics for link.
-# - thermal for daisy, snow, pit etc.
-THERMAL_SERVICES = ['temp_metrics', 'thermal']
-
 # Time in seconds to wait for cpu idle until giving up.
 WAIT_FOR_IDLE_CPU_TIMEOUT = 60.0
 # Maximum percent of cpu usage considered as idle.
@@ -279,7 +274,7 @@ class video_WebRtcPerf(test.test):
             logging.warning('Could not get cold machine pre login.')
 
         # Stop the thermal service that may change the cpu frequency.
-        self._service_stopper = service_stopper.ServiceStopper(THERMAL_SERVICES)
+        self._service_stopper = service_stopper.get_thermal_service_stopper()
         self._service_stopper.stop_services()
         # Set the scaling governor to performance mode to set the cpu to the
         # highest frequency available.
@@ -323,7 +318,20 @@ class video_WebRtcPerf(test.test):
             time.sleep(MEASUREMENT_DURATION)
             power_logger.checkpoint('result', start_time)
             keyval = power_logger.calc()
-            return keyval['result_' + measurements[0].domain + '_pwr']
+            # save_results() will save <fname_prefix>_raw.txt and
+            # <fname_prefix>_summary.txt, where the former contains raw data.
+            fname_prefix = 'result_%.0f' % time.time()
+            power_logger.save_results(self.resultsdir, fname_prefix)
+            metric_name = 'result_' + measurements[0].domain
+            with open(os.path.join(
+                    self.resultsdir, fname_prefix + '_raw.txt')) as f:
+                for line in f.readlines():
+                    if line.startswith(metric_name):
+                        split_data = line.split('\t')
+                        # split_data[0] is metric_name, [1:] are raw data.
+                        return [float(data) for data in split_data[1:]]
+            # Return a list contains the average power only for fallback.
+            return [keyval[metric_name + '_pwr_avg']]
 
         return self.test_webrtc(local_path, get_power)
 

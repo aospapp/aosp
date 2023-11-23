@@ -5,7 +5,7 @@
   */
 
 /*$Header: /tmp_amd/presto/export/kbs/jutta/src/gsm/RCS/sweet.c,v 1.2 1996/07/02 10:15:53 jutta Exp $*/
- 
+
 /* Generate code to unpack a bit array from name:#bits description */
 
 #include	<stdio.h>
@@ -41,7 +41,7 @@ void write_code P2((s_spex, n_spex), struct spex * s_spex, int n_spex)
 
 		} else if (vars < bits) {
 
-			printf( "(*c >> %d) & 0x%lX;\n", 
+			printf( "(*c >> %d) & 0x%lX;\n",
 				bits - vars,
 				~(0xfffffffe << (vars - 1)));
 

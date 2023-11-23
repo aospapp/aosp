@@ -15,12 +15,12 @@
  */
 package com.android.emergency.view;
 
-import android.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.PreferenceManager;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceManager;
 import android.widget.ListView;
 
 import com.android.emergency.PreferenceKeys;
@@ -30,7 +30,7 @@ import com.android.emergency.preferences.EmergencyContactsPreference;
 /**
  * Fragment that displays emergency contacts.
  */
-public class ViewEmergencyContactsFragment extends PreferenceFragment {
+public class ViewEmergencyContactsFragment extends PreferenceFragmentCompat {
     /** The category that holds the emergency contacts. */
     private EmergencyContactsPreference mEmergencyContactsPreference;
 

@@ -1,0 +1,21 @@
+name: "epid-sdk"
+description:
+    "The Intel(R) Enhanced Privacy ID Software Development Kit"
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://intel-epid-sdk.github.io/"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/Intel-EPID-SDK/epid-sdk.git"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/Intel-EPID-SDK/epid-sdk/tree/v7.0.1/ext/ipp-crypto"
+  }
+  version: "6.0.1"
+  last_upgrade_date { year: 2019 month: 3 day: 26 }
+  local_modifications: "Upgraded IPP library to 2019 update 1 for CVE-2018-12155"
+}

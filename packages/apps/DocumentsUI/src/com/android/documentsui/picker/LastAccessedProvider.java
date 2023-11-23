@@ -31,17 +31,16 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.FileUtils;
 import android.provider.DocumentsContract;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.DurableUtils;
 
-import libcore.io.IoUtils;
-
-import com.google.android.collect.Sets;
-
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -190,10 +189,12 @@ public class LastAccessedProvider extends ContentProvider {
         if (METHOD_PURGE.equals(method)) {
             // Purge references to unknown authorities
             final Intent intent = new Intent(DocumentsContract.PROVIDER_INTERFACE);
-            final Set<String> knownAuth = Sets.newHashSet();
+            final Set<String> knownAuth = new HashSet<>();
             for (ResolveInfo info : getContext()
                     .getPackageManager().queryIntentContentProviders(intent, 0)) {
-                knownAuth.add(info.providerInfo.authority);
+                if (info != null && !TextUtils.isEmpty(info.providerInfo.authority)) {
+                    knownAuth.add(info.providerInfo.authority);
+                }
             }
 
             purgeByAuthority(new Predicate<String>() {
@@ -210,7 +211,7 @@ public class LastAccessedProvider extends ContentProvider {
             // Purge references to authorities in given package
             final Intent intent = new Intent(DocumentsContract.PROVIDER_INTERFACE);
             intent.setPackage(arg);
-            final Set<String> packageAuth = Sets.newHashSet();
+            final Set<String> packageAuth = new HashSet<>();
             for (ResolveInfo info : getContext()
                     .getPackageManager().queryIntentContentProviders(intent, 0)) {
                 packageAuth.add(info.providerInfo.authority);
@@ -259,7 +260,7 @@ public class LastAccessedProvider extends ContentProvider {
                 }
             }
         } finally {
-            IoUtils.closeQuietly(cursor);
+            FileUtils.closeQuietly(cursor);
         }
     }
 }

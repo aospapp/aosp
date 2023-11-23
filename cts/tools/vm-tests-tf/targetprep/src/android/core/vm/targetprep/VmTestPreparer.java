@@ -25,6 +25,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.TargetSetupError;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
@@ -80,21 +82,28 @@ public class VmTestPreparer implements ITargetCleaner {
         // a sigsev thrown by the vm.
         createRemoteDir(device, VM_TEMP_DIR + "/dalvik-cache" );
         try {
-            File tmpDir = new File(System.getProperty("java.io.tmpdir"));
-            File localTmpDir = FileUtil.createTempDir("cts-vm", tmpDir);
             File jarFile = ctsBuild.getTestFile(JAR_FILE);
             if (!jarFile.exists()) {
                 CLog.e("Missing jar file %s", jarFile.getPath());
                 return false;
             }
-            ZipFile zipFile = new ZipFile(jarFile);
-            FileUtil.extractZip(zipFile, localTmpDir);
-            File localTestTmpDir = new File(localTmpDir, "tests");
-            if (!device.pushDir(localTestTmpDir, VM_TEMP_DIR)) {
-                CLog.e("Failed to push vm test files");
+
+            String jarOnDevice = VM_TEMP_DIR + "/" + JAR_FILE;
+            if (!device.pushFile(jarFile, jarOnDevice)) {
+                CLog.e("Failed to push vm test jar");
                 return false;
             }
-            FileUtil.recursiveDelete(localTmpDir);
+
+            // TODO: Only extract tests directory, avoid rm.
+            String cmd = "unzip -d " + VM_TEMP_DIR + " " + jarOnDevice
+                    + " && rm -rf " + VM_TEMP_DIR + "/dot*"
+                    + " && mv " + VM_TEMP_DIR + "/tests/* " + VM_TEMP_DIR + "/"
+                    + " && echo Success";
+            CommandResult result = device.executeShellV2Command(cmd);
+            if (result.getStatus() != CommandStatus.SUCCESS) {
+                CLog.e("Failed to extract and prepare vm tests jar");
+                return false;
+            }
         } catch (IOException e) {
             CLog.e("Failed to extract jar file %s and sync it to device %s.",
                     JAR_FILE, device.getSerialNumber());

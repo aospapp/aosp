@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include <base/files/file_path.h>
 #include <gmock/gmock.h>
 
 #include "brillo/process.h"
@@ -19,6 +20,7 @@ class ProcessMock : public Process {
   virtual ~ProcessMock() {}
 
   MOCK_METHOD1(AddArg, void(const std::string& arg));
+  MOCK_METHOD1(RedirectInput, void(const std::string& input_file));
   MOCK_METHOD1(RedirectOutput, void(const std::string& output_file));
   MOCK_METHOD2(RedirectUsingPipe, void(int child_fd, bool is_input));
   MOCK_METHOD2(BindFd, void(int parent_fd, int child_fd));

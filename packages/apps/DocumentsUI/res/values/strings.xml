@@ -57,6 +57,10 @@
     <string name="menu_delete">Delete</string>
     <!-- Menu item title that selects all documents in the current directory [CHAR LIMIT=28] -->
     <string name="menu_select_all">Select all</string>
+    <!-- Menu item title that selects documents in the current directory [CHAR LIMIT=28] -->
+    <string name="menu_select">Select</string>
+    <!-- Menu item title that sort documents in the current directory [CHAR LIMIT=28] -->
+    <string name="menu_sort">Sort by...</string>
     <!-- Menu item title that copies the selected documents [CHAR LIMIT=28] -->
     <string name="menu_copy">Copy to\u2026</string>
     <!-- Menu item title that moves the selected documents [CHAR LIMIT=28] -->
@@ -121,6 +125,26 @@
     <string name="sort_dimension_size">Size</string>
     <!-- Table header for last modified time. [CHAR_LIMIT=18] -->
     <string name="sort_dimension_date">Modified</string>
+    <!-- Bottom sheet list title for file name ascending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_name_ascending">File name (A to Z)</string>
+    <!-- Bottom sheet list title for file type name ascending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_file_type_ascending">Type (A to Z)</string>
+    <!-- Bottom sheet list title for size ascending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_size_ascending">Size (smallest first)</string>
+    <!-- Bottom sheet list title for date ascending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_date_ascending">Modified (oldest first)</string>
+    <!-- Bottom sheet list title for file name descending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_name_descending">File name (Z to A)</string>
+    <!-- Bottom sheet list title for file type name descending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_file_type_descending">Type (Z to A)</string>
+    <!-- Bottom sheet list title for size descending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_size_descending">Size (largest first)</string>
+    <!-- Bottom sheet list title for date descending [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_date_descending">Modified (newest first)</string>
+    <!-- Bottom sheet dialog title [CHAR_LIMIT=42] -->
+    <string name="sort_dimension_dialog_title">Sort by</string>
+    <!-- Dropdown sort wiget button title. [CHAR_LIMIT=60] -->
+    <string name="sort_dimension_button_title">Sorted by <xliff:g id="label" example="File name (A to Z)">%s</xliff:g></string>
 
     <!--Table header for number of items in a folder.-->
     <string name="directory_items">Number of items</string>
@@ -129,6 +153,9 @@
     <string name="sort_direction_ascending">Ascending</string>
     <!-- content description to describe descending sorting used with downward arrow in table header. -->
     <string name="sort_direction_descending">Descending</string>
+
+    <!-- content description to describe the action icon to open the app on the root item. -->
+    <string name="open_external_app">Open <xliff:g id="appName" example="Drive">%1$s</xliff:g></string>
 
     <!-- Accessibility title to open the drawer showing all roots where documents can be stored [CHAR LIMIT=32] -->
     <string name="drawer_open">Show roots</string>
@@ -303,8 +330,6 @@
     <!-- Text in an alert dialog asking user to grant app access to all data in an external storage volume -->
     <string name="open_external_dialog_root_request">Grant <xliff:g id="appName" example="System Settings"><b>^1</b></xliff:g>
         access to your data, including photos and videos, on <xliff:g id="storage" example="SD Card"><i>^2</i></xliff:g>?</string>
-    <!-- Checkbox that allows user to not be questioned about the directory access request again -->
-    <string name="never_ask_again">Don\'t ask again</string>
     <!-- Text in the button asking user to allow access to a given directory. -->
     <string name="allow">Allow</string>
     <!-- Text in the button asking user to deny access to a given directory. -->
@@ -368,4 +393,68 @@
 
     <!-- Button for continuing a file operation in background, eg. copying, moving or extracting. [CHAR LIMIT=48] -->
     <string name="continue_in_background">Continue in background</string>
+
+    <!-- Label describing the number of selected items [CHAR LIMIT=48] -->
+    <plurals name="selected_count">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> selected</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> selected</item>
+    </plurals>
+
+    <!-- Header title for list of documents in recent root. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_recent">Recent files on phone</string>
+    <!-- Header title for list of documents in global searching. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_global_search">Files on phone</string>
+    <!-- Header title for list of documents in media type root. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_media"><xliff:g id="label" example="images">%1$s</xliff:g> on phone</string>
+    <!-- Header title for list of documents in storage type root. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_storage">Files on <xliff:g id="device" example="Pixel">%1$s</xliff:g></string>
+    <!-- Header title for list of documents 3rd party provider root eg. Drive, Box. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_app">Files from <xliff:g id="label" example="Drive">%1$s</xliff:g></string>
+    <!-- Header title for list of documents 3rd party provider root eg. Drive, Box. with root summary. The summary is usually present by email account[CHAR_LIMIT=60] -->
+    <string name="root_info_header_app_with_summary">Files from <xliff:g id="label" example="Drive">%1$s</xliff:g> / <xliff:g id="summary" example="example@com">%2$s</xliff:g></string>
+    <!-- On photo picking state, the header title for list of documents in recent root. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_image_recent">Recent images on phone</string>
+    <!-- On photo picking state, the header title for list of documents in global searching. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_image_global_search">Images on phone</string>
+    <!-- On photo picking state, the header title for list of documents in storage type root. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_image_storage">Images on <xliff:g id="device" example="Pixel">%1$s</xliff:g></string>
+    <!-- On photo picking state, the header title for list of documents 3rd party provider root eg. Drive, Box. [CHAR_LIMIT=60] -->
+    <string name="root_info_header_image_app">Images from <xliff:g id="label" example="Drive">%1$s</xliff:g></string>
+    <!-- On photo picking state, the header title for list of documents 3rd party provider root eg. Drive, Box. with root summary. The summary is usually present by email account[CHAR_LIMIT=60] -->
+    <string name="root_info_header_image_app_with_summary">Images from <xliff:g id="label" example="Drive">%1$s</xliff:g> / <xliff:g id="summary" example="example@com">%2$s</xliff:g></string>
+
+    <!-- Title for images chip. [CHAR_LIMIT=25] -->
+    <string name="chip_title_images">Images</string>
+    <!-- Title for audio chip. [CHAR_LIMIT=25] -->
+    <string name="chip_title_audio">Audio</string>
+    <!-- Title for videos chip. [CHAR_LIMIT=25] -->
+    <string name="chip_title_videos">Videos</string>
+    <!-- Title for image chip. [CHAR_LIMIT=25] -->
+    <string name="chip_title_documents">Documents</string>
+
+    <!-- Hint on text input field for create new folder. [CHAR_LIMIT=48] -->
+    <string name="input_hint_new_folder">Folder name</string>
+    <!-- Hint on text input field for rename the file or the folder. [CHAR_LIMIT=48] -->
+    <string name="input_hint_rename">New name</string>
+
+    <!-- Content description for preivew function. -->
+    <string name="preview_file">Preview the file <xliff:g id="fileName" example="example.jpg">%1$s</xliff:g></string>
+
+    <!-- Apps row title. [CHAR_LIMIT=60] -->
+    <string name="apps_row_title">Browse files in other apps</string>
+
+    <!-- The default name to present the anonymous application-->
+    <string name="anonymous_application">Anonymous</string>
+    <!-- Button text show on open document tree flow. [CHAR_LIMIT=48] -->
+    <string name="open_tree_button">Allow access to \"<xliff:g id="directory" example="DCIM">%1$s</xliff:g>\"</string>
+    <!-- Confrim dialog title show on open document tree flow. [CHAR_LIMIT=60] -->
+    <string name="open_tree_dialog_title">Allow access to \"<xliff:g id="directory" example="DCIM">%1$s</xliff:g>\" in \"<xliff:g id="root" example="SD card">%2$s</xliff:g>\"?</string>
+    <!-- Confrim dialog message show on open document tree flow.-->
+    <string name="open_tree_dialog_message">It will allow \"<xliff:g id="appName" example="Drive">%1$s</xliff:g>\" to have full access to all files currently stored under this location, and any future content stored here.</string>
+
+    <!-- Search hint on search view. [CHAR LIMIT=48] -->
+    <string name="search_bar_hint">Search this phone</string>
+
+    <!-- Content description for deleting search history. [CHAR_LIMIT=60] -->
+    <string name="delete_search_history">Delete search history <xliff:g id="text" example="image">%1$s</xliff:g></string>
 </resources>

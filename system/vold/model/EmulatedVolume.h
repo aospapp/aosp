@@ -36,22 +36,23 @@ namespace vold {
  * store data local to their app.
  */
 class EmulatedVolume : public VolumeBase {
-public:
+  public:
     explicit EmulatedVolume(const std::string& rawPath);
     EmulatedVolume(const std::string& rawPath, dev_t device, const std::string& fsUuid);
     virtual ~EmulatedVolume();
 
-protected:
+  protected:
     status_t doMount() override;
     status_t doUnmount() override;
 
-private:
+  private:
     std::string mRawPath;
     std::string mLabel;
 
     std::string mFuseDefault;
     std::string mFuseRead;
     std::string mFuseWrite;
+    std::string mFuseFull;
 
     /* PID of FUSE wrapper */
     pid_t mFusePid;

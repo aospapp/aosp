@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Native Media AAudio test cases">
     <option name="config-descriptor:metadata" key="component" value="media" />
     <option name="test-suite-tag" value="cts" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

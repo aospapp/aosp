@@ -28,6 +28,7 @@ LOCAL_PACKAGE_NAME := NotificationBot
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 19
 
 LOCAL_DEX_PREOPT := false
 

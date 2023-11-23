@@ -14,7 +14,9 @@
 
 package android.accessibilityservice.cts;
 
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 
 /**
  * A stub accessibility service to install for testing accessibility button APIs

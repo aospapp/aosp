@@ -57,10 +57,19 @@ cc_library_shared {
         export_aidl_headers: true,
     },
     srcs: [
-        "binder/android/os/IDumpstate.aidl",
+        ":dumpstate_aidl",
+    ],
+    export_include_dirs: ["binder"],
+}
+
+filegroup {
+    name: "dumpstate_aidl",
+    srcs: [
         "binder/android/os/IDumpstateListener.aidl",
         "binder/android/os/IDumpstateToken.aidl",
+        "binder/android/os/IDumpstate.aidl",
     ],
+    path: "binder",
 }
 
 cc_defaults {
@@ -88,8 +97,9 @@ cc_defaults {
         "utils.cpp",
     ],
     static_libs: [
+        "libincidentcompanion",
         "libdumpsys",
-        "libserviceutils"
+        "libserviceutils",
     ],
 }
 
@@ -100,6 +110,31 @@ cc_binary {
         "dumpstate.cpp",
         "main.cpp",
     ],
+    required: [
+        "atrace",
+        "df",
+        "getprop",
+        "ip",
+        "iptables",
+        "ip6tables",
+        "kill",
+        "librank",
+        "logcat",
+        "lsmod",
+        "lsof",
+        "netstat",
+        "parse_radio_log",
+        "printenv",
+        "procrank",
+        "screencap",
+        "showmap",
+        "ss",
+        "storaged",
+        "top",
+        "uptime",
+        "vdc",
+        "vril-dump",
+    ],
     init_rc: ["dumpstate.rc"],
 }
 
@@ -107,6 +142,7 @@ cc_test {
     name: "dumpstate_test",
     defaults: ["dumpstate_defaults"],
     srcs: [
+        "dumpstate.cpp",
         "tests/dumpstate_test.cpp",
     ],
     static_libs: ["libgmock"],
@@ -120,4 +156,23 @@ cc_test {
         "tests/dumpstate_smoke_test.cpp",
     ],
     static_libs: ["libgmock"],
+}
+
+
+// =======================#
+// dumpstate_test_fixture #
+// =======================#
+cc_test {
+
+    name: "dumpstate_test_fixture",
+    test_suites: ["device-tests"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-variable",
+        "-Wunused-parameter",
+    ],
+    srcs: ["tests/dumpstate_test_fixture.cpp"],
+    data: ["tests/testdata/**/*"],
 }

@@ -17,7 +17,9 @@
 package android.net;
 
 import android.app.PendingIntent;
+import android.net.ConnectionInfo;
 import android.net.LinkProperties;
+import android.net.ITetheringEventCallback;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
@@ -25,7 +27,9 @@ import android.net.NetworkMisc;
 import android.net.NetworkQuotaInfo;
 import android.net.NetworkRequest;
 import android.net.NetworkState;
+import android.net.ISocketKeepaliveCallback;
 import android.net.ProxyInfo;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Messenger;
 import android.os.ParcelFileDescriptor;
@@ -45,10 +49,12 @@ interface IConnectivityManager
 {
     Network getActiveNetwork();
     Network getActiveNetworkForUid(int uid, boolean ignoreBlocked);
+    @UnsupportedAppUsage
     NetworkInfo getActiveNetworkInfo();
     NetworkInfo getActiveNetworkInfoForUid(int uid, boolean ignoreBlocked);
     NetworkInfo getNetworkInfo(int networkType);
     NetworkInfo getNetworkInfoForUid(in Network network, int uid, boolean ignoreBlocked);
+    @UnsupportedAppUsage
     NetworkInfo[] getAllNetworkInfo();
     Network getNetworkForType(int networkType);
     Network[] getAllNetworks();
@@ -56,12 +62,14 @@ interface IConnectivityManager
 
     boolean isNetworkSupported(int networkType);
 
+    @UnsupportedAppUsage
     LinkProperties getActiveLinkProperties();
     LinkProperties getLinkPropertiesForType(int networkType);
     LinkProperties getLinkProperties(in Network network);
 
     NetworkCapabilities getNetworkCapabilities(in Network network);
 
+    @UnsupportedAppUsage
     NetworkState[] getAllNetworkState();
 
     NetworkQuotaInfo getActiveNetworkQuotaInfo();
@@ -73,6 +81,7 @@ interface IConnectivityManager
 
     int untether(String iface, String callerPkg);
 
+    @UnsupportedAppUsage
     int getLastTetherError(String iface);
 
     boolean isTetheringSupported(String callerPkg);
@@ -82,16 +91,21 @@ interface IConnectivityManager
 
     void stopTethering(int type, String callerPkg);
 
+    @UnsupportedAppUsage
     String[] getTetherableIfaces();
 
+    @UnsupportedAppUsage
     String[] getTetheredIfaces();
 
+    @UnsupportedAppUsage
     String[] getTetheringErroredIfaces();
 
     String[] getTetheredDhcpRanges();
 
+    @UnsupportedAppUsage
     String[] getTetherableUsbRegexs();
 
+    @UnsupportedAppUsage
     String[] getTetherableWifiRegexs();
 
     String[] getTetherableBluetoothRegexs();
@@ -116,16 +130,18 @@ interface IConnectivityManager
 
     VpnConfig getVpnConfig(int userId);
 
+    @UnsupportedAppUsage
     void startLegacyVpn(in VpnProfile profile);
 
     LegacyVpnInfo getLegacyVpnInfo(int userId);
 
-    VpnInfo[] getAllVpnInfo();
-
     boolean updateLockdownVpn();
     boolean isAlwaysOnVpnPackageSupported(int userId, String packageName);
-    boolean setAlwaysOnVpnPackage(int userId, String packageName, boolean lockdown);
+    boolean setAlwaysOnVpnPackage(int userId, String packageName, boolean lockdown,
+            in List<String> lockdownWhitelist);
     String getAlwaysOnVpnPackage(int userId);
+    boolean isVpnLockdownEnabled(int userId);
+    List<String> getVpnLockdownWhitelist(int userId);
 
     int checkMobileProvisioning(int suggestedTimeOutMs);
 
@@ -135,14 +151,14 @@ interface IConnectivityManager
 
     void setAirplaneMode(boolean enable);
 
-    void registerNetworkFactory(in Messenger messenger, in String name);
+    int registerNetworkFactory(in Messenger messenger, in String name);
 
     boolean requestBandwidthUpdate(in Network network);
 
     void unregisterNetworkFactory(in Messenger messenger);
 
     int registerNetworkAgent(in Messenger messenger, in NetworkInfo ni, in LinkProperties lp,
-            in NetworkCapabilities nc, int score, in NetworkMisc misc);
+            in NetworkCapabilities nc, int score, in NetworkMisc misc, in int factorySerialNumber);
 
     NetworkRequest requestNetwork(in NetworkCapabilities networkCapabilities,
             in Messenger messenger, int timeoutSec, in IBinder binder, int legacy);
@@ -161,10 +177,15 @@ interface IConnectivityManager
     void releaseNetworkRequest(in NetworkRequest networkRequest);
 
     void setAcceptUnvalidated(in Network network, boolean accept, boolean always);
+    void setAcceptPartialConnectivity(in Network network, boolean accept, boolean always);
     void setAvoidUnvalidated(in Network network);
     void startCaptivePortalApp(in Network network);
+    void startCaptivePortalAppInternal(in Network network, in Bundle appExtras);
 
+    boolean shouldAvoidBadWifi();
     int getMultipathPreference(in Network Network);
+
+    NetworkRequest getDefaultRequest();
 
     int getRestoreDefaultNetworkDelay(int networkType);
 
@@ -174,12 +195,31 @@ interface IConnectivityManager
 
     void factoryReset();
 
-    void startNattKeepalive(in Network network, int intervalSeconds, in Messenger messenger,
-            in IBinder binder, String srcAddr, int srcPort, String dstAddr);
+    void startNattKeepalive(in Network network, int intervalSeconds,
+            in ISocketKeepaliveCallback cb, String srcAddr, int srcPort, String dstAddr);
+
+    void startNattKeepaliveWithFd(in Network network, in FileDescriptor fd, int resourceId,
+            int intervalSeconds, in ISocketKeepaliveCallback cb, String srcAddr,
+            String dstAddr);
+
+    void startTcpKeepalive(in Network network, in FileDescriptor fd, int intervalSeconds,
+            in ISocketKeepaliveCallback cb);
 
     void stopKeepalive(in Network network, int slot);
 
     String getCaptivePortalServerUrl();
 
     byte[] getNetworkWatchlistConfigHash();
+
+    int getConnectionOwnerUid(in ConnectionInfo connectionInfo);
+    boolean isCallerCurrentAlwaysOnVpnApp();
+    boolean isCallerCurrentAlwaysOnVpnLockdownApp();
+
+    void getLatestTetheringEntitlementResult(int type, in ResultReceiver receiver,
+            boolean showEntitlementUi, String callerPkg);
+
+    void registerTetheringEventCallback(ITetheringEventCallback callback, String callerPkg);
+    void unregisterTetheringEventCallback(ITetheringEventCallback callback, String callerPkg);
+
+    IBinder startOrGetTestNetworkService();
 }

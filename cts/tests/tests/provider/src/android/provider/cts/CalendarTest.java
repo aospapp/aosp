@@ -2516,8 +2516,8 @@ public class CalendarTest extends InstrumentationTestCase {
         // instances, and it's stored as minutes since midnight in the device's time zone.
         // Things won't be consistent if the event and the device have different ideas about DST.
         String timeZone = eventValues.getAsString(Events.EVENT_TIMEZONE);
-        String testStart = "1999-04-18T00:00:00";
-        String testEnd = "1999-05-16T23:59:59";
+        String testStart = "1999-07-02T00:00:00";
+        String testEnd = "1999-08-04T23:59:59";
         String[] projection = { Instances.BEGIN, Instances.START_MINUTE, Instances.END_MINUTE };
 
         Cursor instances = getInstances(timeZone, testStart, testEnd, projection,

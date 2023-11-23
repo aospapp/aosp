@@ -25,8 +25,11 @@
 #include "cpp_bindings.h"
 #include "gscancommand.h"
 #include "gscan_event_handler.h"
+#include "vendor_definitions.h"
 
 #define GSCAN_EVENT_WAIT_TIME_SECONDS 4
+#define WIFI_SCANNING_MAC_OUI_LENGTH 3
+#define EPNO_NO_NETWORKS 0
 
 /* BSSID blacklist */
 typedef struct {

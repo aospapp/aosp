@@ -94,7 +94,7 @@ std::string ReflectedParamUpdater::Dict::debugString(size_t indent_) const {
             s << "string " << it.first << " = \"" << strValue.c_str() << "\"";
         } else if (it.second.find(&bufValue)) {
             s << "Buffer " << it.first << " = ";
-            if (bufValue != NULL && bufValue->data() != NULL && bufValue->size() <= 64) {
+            if (bufValue != nullptr && bufValue->data() != nullptr && bufValue->size() <= 64) {
                 s << "{" << std::endl;
                 AString tmp;
                 hexdump(bufValue->data(), bufValue->size(), indent_ + 4, &tmp);
@@ -211,7 +211,20 @@ void ReflectedParamUpdater::addParamDesc(
     }
     mParamNames.emplace(desc->index(), paramName);
 
+    // also allow setting whole parameters in a binary fashion via ByteBuffer
+    // this is opt-in for now
+    auto it = mWholeParams.find(paramName);
+    if (it != mWholeParams.end() && it->second.coreIndex() == desc->index().coreIndex()) {
+        mMap.emplace(paramName, FieldDesc{ desc, nullptr, 0 /* offset */ });
+        // don't add fields of whole parameters.
+        return;
+    }
+
     addParamStructDesc(desc, paramName, 0 /* offset */, structDesc, reflector);
+}
+
+void ReflectedParamUpdater::supportWholeParam(std::string name, C2Param::CoreIndex index) {
+    mWholeParams.emplace(name, index);
 }
 
 std::string ReflectedParamUpdater::getParamName(C2Param::Index index) const {
@@ -281,8 +294,6 @@ void ReflectedParamUpdater::updateParamsFromMessage(
     parseMessageAndDoWork(
             params,
             [&paramsMap](const std::string &name, const FieldDesc &desc, const void *ptr, size_t size) {
-                size_t offset = sizeof(C2Param) + desc.offset
-                        + _C2ParamInspector::GetOffset(*desc.fieldDesc);
                 std::unique_ptr<C2Param> *param = nullptr;
                 auto paramIt = paramsMap.find(desc.paramDesc->index());
                 if (paramIt == paramsMap.end()) {
@@ -292,21 +303,37 @@ void ReflectedParamUpdater::updateParamsFromMessage(
                 }
                 param = paramIt->second;
 
-                // reallocate or trim flexible param as necessary
-                if (desc.fieldDesc->extent() == 0) {
-                    struct _C2Param : public C2Param {
-                        using C2Param::C2Param;
-                        _C2Param(uint32_t size, uint32_t index) : C2Param(size, index) { }
-                    };
+                struct _C2Param : public C2Param {
+                    using C2Param::C2Param;
+                    _C2Param(uint32_t size, uint32_t index) : C2Param(size, index) { }
+                };
+
+                // we will handle whole param updates as part of a flexible param update using
+                // a zero offset.
+                size_t offset = 0;
+                size_t minOffset = 0;
+
+                // if this descriptor has a field, use the offset and size and ensure that offset
+                // is not part of the header
+                if (desc.fieldDesc) {
+                    minOffset = sizeof(C2Param);
+                    offset = sizeof(C2Param) + desc.offset
+                            + _C2ParamInspector::GetOffset(*desc.fieldDesc);
+                }
+
+                // reallocate or trim flexible param (or whole param) as necessary
+                if (!desc.fieldDesc /* whole param */ || desc.fieldDesc->extent() == 0) {
                     // reallocate param if more space is needed
                     if (param->get()->size() < offset + size) {
-                        if (size > INT32_MAX - offset || offset < sizeof(C2Param)) {
+                        if (size > INT32_MAX - offset || offset < minOffset) {
                             // size too long or offset too early - abandon
                             return;
                         }
                         C2Param *newParam = (C2Param *)::operator new(offset + size);
                         new (newParam) _C2Param(offset + size, param->get()->index());
-                        memcpy(newParam + 1, param->get() + 1, offset - sizeof(C2Param));
+                        if (offset > sizeof(C2Param)) {
+                            memcpy(newParam + 1, param->get() + 1, offset - sizeof(C2Param));
+                        }
                         param->reset(newParam);
                     } else if (param->get()->size() > offset + size) {
                         // trim parameter size
@@ -332,6 +359,22 @@ void ReflectedParamUpdater::parseMessageAndDoWork(
         const FieldDesc &desc = kv.second;
         auto param = params.find(name);
         if (param == params.end()) {
+            continue;
+        }
+
+        // handle whole parameters
+        if (!desc.fieldDesc) {
+            sp<ABuffer> tmp;
+            if (param->second.find(&tmp) && tmp != nullptr) {
+                C2Param *tmpAsParam = C2Param::From(tmp->data(), tmp->size());
+                if (tmpAsParam && tmpAsParam->type().type() == desc.paramDesc->index().type()) {
+                    work(name, desc, tmp->data(), tmp->size());
+                } else {
+                    ALOGD("Param blob does not match param for '%s' (%p, %x vs %x)",
+                            name.c_str(), tmpAsParam, tmpAsParam ? tmpAsParam->type().type() : 0xDEADu,
+                            desc.paramDesc->index().type());
+                }
+            }
             continue;
         }
 
@@ -449,11 +492,20 @@ ReflectedParamUpdater::getParams(const std::vector<C2Param*> &params) const {
             continue;
         }
         C2Param *param = paramsMap[desc.paramDesc->index()];
+        Value value;
+
+        // handle whole params first
+        if (!desc.fieldDesc) {
+            sp<ABuffer> buf = ABuffer::CreateAsCopy(param, param->size());
+            value.set(buf);
+            ret.emplace(name, value);
+            continue;
+        }
+
         size_t offset = sizeof(C2Param) + desc.offset
                 + _C2ParamInspector::GetOffset(*desc.fieldDesc);
         uint8_t *data = (uint8_t *)param + offset;
         C2FieldDescriptor::type_t fieldType = desc.fieldDesc->type();
-        Value value;
         switch (fieldType) {
             case C2FieldDescriptor::STRING: {
                 size_t length = desc.fieldDesc->extent();

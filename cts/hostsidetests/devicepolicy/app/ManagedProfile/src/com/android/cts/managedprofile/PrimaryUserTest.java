@@ -20,7 +20,8 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.test.ActivityInstrumentationTestCase2;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Test for {@link DevicePolicyManager#addCrossProfileIntentFilter} API, for

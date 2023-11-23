@@ -16,11 +16,10 @@
 
 package com.android.tv.settings.accessories;
 
-import static android.arch.lifecycle.Lifecycle.Event.ON_PAUSE;
-import static android.arch.lifecycle.Lifecycle.Event.ON_RESUME;
+import static androidx.lifecycle.Lifecycle.Event.ON_PAUSE;
+import static androidx.lifecycle.Lifecycle.Event.ON_RESUME;
 
 import android.annotation.CallSuper;
-import android.arch.lifecycle.LifecycleOwner;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -28,12 +27,14 @@ import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.VerticalGridView;
-import android.support.v17.preference.BaseLeanbackPreferenceFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.util.SparseArray;
+
+import androidx.annotation.NonNull;
+import androidx.leanback.preference.BaseLeanbackPreferenceFragment;
+import androidx.leanback.widget.VerticalGridView;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.core.instrumentation.Instrumentable;

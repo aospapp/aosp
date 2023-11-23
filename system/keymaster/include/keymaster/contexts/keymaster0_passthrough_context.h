@@ -18,28 +18,27 @@
 #ifndef CONTEXTS_KEYMASTER0_PASSTHROUGH_CONTEXT_H_
 #define CONTEXTS_KEYMASTER0_PASSTHROUGH_CONTEXT_H_
 
-
 #include <hardware/keymaster0.h>
 
 #include <keymaster/contexts/pure_soft_keymaster_context.h>
-#include <keymaster/legacy_support/keymaster0_engine.h>
 #include <keymaster/legacy_support/ec_keymaster0_key.h>
+#include <keymaster/legacy_support/keymaster0_engine.h>
 #include <keymaster/legacy_support/rsa_keymaster0_key.h>
 
 namespace keymaster {
 
 class Keymaster0PassthroughContext : public PureSoftKeymasterContext {
-public:
-    Keymaster0PassthroughContext(keymaster0_device_t *dev) : PureSoftKeymasterContext() {
+  public:
+    explicit Keymaster0PassthroughContext(keymaster0_device_t* dev) : PureSoftKeymasterContext() {
         km0_engine_.reset(new Keymaster0Engine(dev));
         rsa_factory_.reset(new RsaKeymaster0KeyFactory(this, km0_engine_.get()));
         ec_factory_.reset(new EcdsaKeymaster0KeyFactory(this, km0_engine_.get()));
     }
 
-private:
+  private:
     UniquePtr<Keymaster0Engine> km0_engine_;
 };
 
-} // namespace keymaster
+}  // namespace keymaster
 
 #endif  // CONTEXTS_KEYMASTER0_PASSTHROUGH_CONTEXT_H_

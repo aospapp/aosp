@@ -34,7 +34,6 @@ related) are functioning.
 """
 
 import common
-from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 # Values specified in this bug template will override default values when
@@ -52,7 +51,6 @@ args_dict['file_bugs'] = True
 args_dict['name'] = 'faft_ec3po'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['bug_template'] = _BUG_TEMPLATE
 
 dynamic_suite.reimage_and_run(**args_dict)

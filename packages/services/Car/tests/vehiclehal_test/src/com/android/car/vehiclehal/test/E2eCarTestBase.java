@@ -19,17 +19,18 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.car.Car;
+import android.car.hardware.CarPropertyValue;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
 import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.os.ConditionVariable;
 import android.os.FileUtils;
 import android.os.IBinder;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.google.android.collect.Lists;
 
@@ -44,10 +45,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
-
 public class E2eCarTestBase {
     private static final String TAG = Utils.concatTag(E2eCarTestBase.class);
-    private static final int DEFAULT_WAIT_TIMEOUT_MS = 1000;
+    private static final int DEFAULT_WAIT_TIMEOUT_MS = 5000;
 
     protected IVehicle mVehicle;
     protected Car mCar;
@@ -56,7 +56,7 @@ public class E2eCarTestBase {
 
     @Before
     public void connectToVehicleHal() throws Exception {
-        mVehicle = Utils.getVehicle();
+        mVehicle = Utils.getVehicleWithTimeout(DEFAULT_WAIT_TIMEOUT_MS);
         mVehicle.getPropConfigs(
                 Lists.newArrayList(VhalEventGenerator.GENERATE_FAKE_DATA_CONTROLLING_PROPERTY),
                 (status, propConfigs) -> assumeTrue(status == StatusCode.OK));
@@ -82,7 +82,7 @@ public class E2eCarTestBase {
         }
     }
 
-    protected List<VehiclePropValue> getExpectedEvents(String fileName)
+    protected List<CarPropertyValue> getExpectedEvents(String fileName)
             throws IOException, JSONException {
         try (InputStream in = mContext.getAssets().open(fileName)) {
             Log.d(TAG, "Reading golden test data" + fileName);

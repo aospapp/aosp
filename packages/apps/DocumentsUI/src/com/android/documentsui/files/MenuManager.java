@@ -16,7 +16,6 @@
 
 package com.android.documentsui.files;
 
-import android.app.Fragment;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.Uri;
@@ -28,15 +27,16 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.selection.SelectionTracker;
+
 import com.android.documentsui.R;
-import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.queries.SearchViewManager;
-import com.android.documentsui.selection.SelectionHelper;
 
 import java.util.List;
 import java.util.function.IntFunction;
@@ -45,7 +45,7 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     private final Features mFeatures;
     private final Context mContext;
-    private final SelectionHelper mSelectionManager;
+    private final SelectionTracker<String> mSelectionManager;
     private final Lookup<String, Uri> mUriLookup;
     private final Lookup<String, String> mAppNameLookup;
 
@@ -55,7 +55,7 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
             State displayState,
             DirectoryDetails dirDetails,
             Context context,
-            SelectionHelper selectionManager,
+            SelectionTracker<String> selectionManager,
             Lookup<String, String> appNameLookup,
             Lookup<String, Uri> uriLookup) {
 
@@ -66,14 +66,6 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
         mSelectionManager = selectionManager;
         mAppNameLookup = appNameLookup;
         mUriLookup = uriLookup;
-    }
-
-    @Override
-    public void updateOptionMenu(Menu menu) {
-        super.updateOptionMenu(menu);
-
-        // It hides icon if searching in progress
-        mSearchManager.updateMenu();
     }
 
     @Override
@@ -161,13 +153,6 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     @Override
     protected void updateNewWindow(MenuItem newWindow) {
         newWindow.setVisible(true);
-    }
-
-    @Override
-    protected void updateOpenInContextMenu(MenuItem open, SelectionDetails selectionDetails) {
-        open.setVisible(true);
-        open.setEnabled(selectionDetails.size() == 1
-                && !selectionDetails.containsPartialFiles());
     }
 
     @Override
@@ -270,9 +255,7 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     protected void updateInspect(MenuItem inspect) {
         boolean visible = mFeatures.isInspectorEnabled();
         inspect.setVisible(visible);
-        // use a null check w/ peek instead of isEmpty since
-        // DocumentStack accepts null values (not sure why).
-        inspect.setEnabled(visible && mState.stack.peek() != null);
+        inspect.setEnabled(visible && mDirDetails.canInspectDirectory());
     }
 
     @Override
@@ -284,7 +267,8 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
 
     @Override
     protected void updateViewInOwner(MenuItem view, SelectionDetails selectionDetails) {
-        if (selectionDetails.canViewInOwner()) {
+        if (selectionDetails.canViewInOwner() &&
+                mSelectionManager.getSelection().iterator().hasNext()) {
             view.setVisible(true);
             view.setEnabled(true);
             Resources res = mContext.getResources();

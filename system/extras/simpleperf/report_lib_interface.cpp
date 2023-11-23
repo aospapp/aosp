@@ -19,12 +19,14 @@
 
 #include <android-base/logging.h>
 #include <android-base/file.h>
+#include <android-base/strings.h>
 
 #include "dso.h"
 #include "event_attr.h"
 #include "event_type.h"
 #include "record_file.h"
 #include "thread_tree.h"
+#include "tracing.h"
 #include "utils.h"
 
 class ReportLib;
@@ -44,8 +46,23 @@ struct Sample {
   uint64_t period;
 };
 
+struct TracingFieldFormat {
+  const char* name;
+  uint32_t offset;
+  uint32_t elem_size;
+  uint32_t elem_count;
+  uint32_t is_signed;
+};
+
+struct TracingDataFormat {
+  uint32_t size;
+  uint32_t field_count;
+  TracingFieldFormat* fields;
+};
+
 struct Event {
   const char* name;
+  TracingDataFormat tracing_data_format;
 };
 
 struct Mapping {
@@ -90,26 +107,27 @@ bool SetSymfs(ReportLib* report_lib, const char* symfs_dir) EXPORT;
 bool SetRecordFile(ReportLib* report_lib, const char* record_file) EXPORT;
 bool SetKallsymsFile(ReportLib* report_lib, const char* kallsyms_file) EXPORT;
 void ShowIpForUnknownSymbol(ReportLib* report_lib) EXPORT;
+void ShowArtFrames(ReportLib* report_lib, bool show) EXPORT;
 
 Sample* GetNextSample(ReportLib* report_lib) EXPORT;
 Event* GetEventOfCurrentSample(ReportLib* report_lib) EXPORT;
 SymbolEntry* GetSymbolOfCurrentSample(ReportLib* report_lib) EXPORT;
 CallChain* GetCallChainOfCurrentSample(ReportLib* report_lib) EXPORT;
+const char* GetTracingDataOfCurrentSample(ReportLib* report_lib) EXPORT;
 
 const char* GetBuildIdForPath(ReportLib* report_lib, const char* path) EXPORT;
 FeatureSection* GetFeatureSection(ReportLib* report_lib, const char* feature_name) EXPORT;
 }
 
-struct EventAttrWithName {
+struct EventInfo {
   perf_event_attr attr;
   std::string name;
-};
 
-enum {
-  UPDATE_FLAG_OF_SAMPLE = 1 << 0,
-  UPDATE_FLAG_OF_EVENT = 1 << 1,
-  UPDATE_FLAG_OF_SYMBOL = 1 << 2,
-  UPDATE_FLAG_OF_CALLCHAIN = 1 << 3,
+  struct TracingInfo {
+    TracingDataFormat data_format;
+    std::vector<std::string> field_names;
+    std::vector<TracingFieldFormat> fields;
+  } tracing_info;
 };
 
 class ReportLib {
@@ -119,8 +137,8 @@ class ReportLib {
             new android::base::ScopedLogSeverity(android::base::INFO)),
         record_filename_("perf.data"),
         current_thread_(nullptr),
-        update_flag_(0),
-        trace_offcpu_(false) {
+        trace_offcpu_(false),
+        show_art_frames_(false) {
   }
 
   bool SetLogSeverity(const char* log_level);
@@ -135,17 +153,22 @@ class ReportLib {
   bool SetKallsymsFile(const char* kallsyms_file);
 
   void ShowIpForUnknownSymbol() { thread_tree_.ShowIpForUnknownSymbol(); }
+  void ShowArtFrames(bool show) { show_art_frames_ = show; }
 
   Sample* GetNextSample();
-  Event* GetEventOfCurrentSample();
-  SymbolEntry* GetSymbolOfCurrentSample();
-  CallChain* GetCallChainOfCurrentSample();
+  Event* GetEventOfCurrentSample() { return &current_event_; }
+  SymbolEntry* GetSymbolOfCurrentSample() { return current_symbol_; }
+  CallChain* GetCallChainOfCurrentSample() { return &current_callchain_; }
+  const char* GetTracingDataOfCurrentSample() { return current_tracing_data_; }
 
   const char* GetBuildIdForPath(const char* path);
   FeatureSection* GetFeatureSection(const char* feature_name);
 
  private:
-  Sample* GetCurrentSample();
+  void SetCurrentSample();
+  const EventInfo* FindEventOfCurrentSample();
+  void CreateEvents();
+
   bool OpenRecordFileIfNecessary();
   Mapping* AddMapping(const MapEntry& map);
 
@@ -157,18 +180,20 @@ class ReportLib {
   const ThreadEntry* current_thread_;
   Sample current_sample_;
   Event current_event_;
-  SymbolEntry current_symbol_;
+  SymbolEntry* current_symbol_;
   CallChain current_callchain_;
+  const char* current_tracing_data_;
   std::vector<std::unique_ptr<Mapping>> current_mappings_;
   std::vector<CallChainEntry> callchain_entries_;
   std::string build_id_string_;
-  int update_flag_;
-  std::vector<EventAttrWithName> event_attrs_;
+  std::vector<EventInfo> events_;
   std::unique_ptr<ScopedEventTypes> scoped_event_types_;
   bool trace_offcpu_;
   std::unordered_map<pid_t, std::unique_ptr<SampleRecord>> next_sample_cache_;
   FeatureSection feature_section_;
   std::vector<char> feature_section_data_;
+  bool show_art_frames_;
+  std::unique_ptr<Tracing> tracing_;
 };
 
 bool ReportLib::SetLogSeverity(const char* log_level) {
@@ -243,132 +268,140 @@ Sample* ReportLib::GetNextSample() {
       }
       current_record_.reset(static_cast<SampleRecord*>(record.release()));
       break;
+    } else if (record->type() == PERF_RECORD_TRACING_DATA ||
+               record->type() == SIMPLE_PERF_RECORD_TRACING_DATA) {
+      const auto& r = *static_cast<TracingDataRecord*>(record.get());
+      tracing_.reset(new Tracing(std::vector<char>(r.data, r.data + r.data_size)));
     }
   }
-  update_flag_ = 0;
-  current_mappings_.clear();
-  return GetCurrentSample();
-}
-
-Sample* ReportLib::GetCurrentSample() {
-  if (!(update_flag_ & UPDATE_FLAG_OF_SAMPLE)) {
-    SampleRecord& r = *current_record_;
-    current_sample_.ip = r.ip_data.ip;
-    current_sample_.pid = r.tid_data.pid;
-    current_sample_.tid = r.tid_data.tid;
-    current_thread_ =
-        thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-    current_sample_.thread_comm = current_thread_->comm;
-    current_sample_.time = r.time_data.time;
-    current_sample_.in_kernel = r.InKernel();
-    current_sample_.cpu = r.cpu_data.cpu;
-    if (trace_offcpu_) {
-      uint64_t next_time = std::max(next_sample_cache_[r.tid_data.tid]->time_data.time,
-                                    r.time_data.time + 1);
-      current_sample_.period = next_time - r.time_data.time;
-    } else {
-      current_sample_.period = r.period_data.period;
-    }
-    update_flag_ |= UPDATE_FLAG_OF_SAMPLE;
-  }
+  SetCurrentSample();
   return &current_sample_;
 }
 
-Event* ReportLib::GetEventOfCurrentSample() {
-  if (!(update_flag_ & UPDATE_FLAG_OF_EVENT)) {
-    if (event_attrs_.empty()) {
-      std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
-      for (const auto& attr_with_id : attrs) {
-        EventAttrWithName attr;
-        attr.attr = *attr_with_id.attr;
-        attr.name = GetEventNameByAttr(attr.attr);
-        event_attrs_.push_back(attr);
-      }
-    }
-    size_t attr_index;
-    if (trace_offcpu_) {
-      // For trace-offcpu, we don't want to show event sched:sched_switch.
-      attr_index = 0;
-    } else {
-      attr_index = record_file_reader_->GetAttrIndexOfRecord(current_record_.get());
-    }
-    current_event_.name = event_attrs_[attr_index].name.c_str();
-    update_flag_ |= UPDATE_FLAG_OF_EVENT;
+void ReportLib::SetCurrentSample() {
+  current_mappings_.clear();
+  callchain_entries_.clear();
+  SampleRecord& r = *current_record_;
+  current_sample_.ip = r.ip_data.ip;
+  current_sample_.pid = r.tid_data.pid;
+  current_sample_.tid = r.tid_data.tid;
+  current_thread_ = thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
+  current_sample_.thread_comm = current_thread_->comm;
+  current_sample_.time = r.time_data.time;
+  current_sample_.in_kernel = r.InKernel();
+  current_sample_.cpu = r.cpu_data.cpu;
+  if (trace_offcpu_) {
+    uint64_t next_time = std::max(next_sample_cache_[r.tid_data.tid]->time_data.time,
+                                  r.time_data.time + 1);
+    current_sample_.period = next_time - r.time_data.time;
+  } else {
+    current_sample_.period = r.period_data.period;
   }
-  return &current_event_;
-}
 
-SymbolEntry* ReportLib::GetSymbolOfCurrentSample() {
-  if (!(update_flag_ & UPDATE_FLAG_OF_SYMBOL)) {
-    SampleRecord& r = *current_record_;
-    const MapEntry* map =
-        thread_tree_.FindMap(current_thread_, r.ip_data.ip, r.InKernel());
-    uint64_t vaddr_in_file;
-    const Symbol* symbol =
-        thread_tree_.FindSymbol(map, r.ip_data.ip, &vaddr_in_file);
-    current_symbol_.dso_name = map->dso->Path().c_str();
-    current_symbol_.vaddr_in_file = vaddr_in_file;
-    current_symbol_.symbol_name = symbol->DemangledName();
-    current_symbol_.symbol_addr = symbol->addr;
-    current_symbol_.symbol_len = symbol->len;
-    current_symbol_.mapping = AddMapping(*map);
-    update_flag_ |= UPDATE_FLAG_OF_SYMBOL;
-  }
-  return &current_symbol_;
-}
-
-CallChain* ReportLib::GetCallChainOfCurrentSample() {
-  if (!(update_flag_ & UPDATE_FLAG_OF_CALLCHAIN)) {
-    SampleRecord& r = *current_record_;
-    callchain_entries_.clear();
-
-    if (r.sample_type & PERF_SAMPLE_CALLCHAIN) {
-      bool first_ip = true;
-      bool in_kernel = r.InKernel();
-      for (uint64_t i = 0; i < r.callchain_data.ip_nr; ++i) {
-        uint64_t ip = r.callchain_data.ips[i];
-        if (ip >= PERF_CONTEXT_MAX) {
-          switch (ip) {
-            case PERF_CONTEXT_KERNEL:
-              in_kernel = true;
-              break;
-            case PERF_CONTEXT_USER:
-              in_kernel = false;
-              break;
-            default:
-              LOG(DEBUG) << "Unexpected perf_context in callchain: " << std::hex
-                         << ip;
-          }
-        } else {
-          if (first_ip) {
-            first_ip = false;
-            // Remove duplication with sample ip.
-            if (ip == r.ip_data.ip) {
-              continue;
-            }
-          }
-          const MapEntry* map =
-              thread_tree_.FindMap(current_thread_, ip, in_kernel);
-          uint64_t vaddr_in_file;
-          const Symbol* symbol =
-              thread_tree_.FindSymbol(map, ip, &vaddr_in_file);
-          CallChainEntry entry;
-          entry.ip = ip;
-          entry.symbol.dso_name = map->dso->Path().c_str();
-          entry.symbol.vaddr_in_file = vaddr_in_file;
-          entry.symbol.symbol_name = symbol->DemangledName();
-          entry.symbol.symbol_addr = symbol->addr;
-          entry.symbol.symbol_len = symbol->len;
-          entry.symbol.mapping = AddMapping(*map);
-          callchain_entries_.push_back(entry);
+  size_t kernel_ip_count;
+  std::vector<uint64_t> ips = r.GetCallChain(&kernel_ip_count);
+  std::vector<std::pair<uint64_t, const MapEntry*>> ip_maps;
+  bool near_java_method = false;
+  auto is_map_for_interpreter = [](const MapEntry* map) {
+    return android::base::EndsWith(map->dso->Path(), "/libart.so");
+  };
+  for (size_t i = 0; i < ips.size(); ++i) {
+    const MapEntry* map = thread_tree_.FindMap(current_thread_, ips[i], i < kernel_ip_count);
+    if (!show_art_frames_) {
+      // Remove interpreter frames both before and after the Java frame.
+      if (map->dso->IsForJavaMethod()) {
+        near_java_method = true;
+        while (!ip_maps.empty() && is_map_for_interpreter(ip_maps.back().second)) {
+          ip_maps.pop_back();
         }
+      } else if (is_map_for_interpreter(map)){
+        if (near_java_method) {
+          continue;
+        }
+      } else {
+        near_java_method = false;
       }
     }
-    current_callchain_.nr = callchain_entries_.size();
-    current_callchain_.entries = callchain_entries_.data();
-    update_flag_ |= UPDATE_FLAG_OF_CALLCHAIN;
+    ip_maps.push_back(std::make_pair(ips[i], map));
   }
-  return &current_callchain_;
+  for (auto& pair : ip_maps) {
+    uint64_t ip = pair.first;
+    const MapEntry* map = pair.second;
+    uint64_t vaddr_in_file;
+    const Symbol* symbol = thread_tree_.FindSymbol(map, ip, &vaddr_in_file);
+    CallChainEntry entry;
+    entry.ip = ip;
+    entry.symbol.dso_name = map->dso->Path().c_str();
+    entry.symbol.vaddr_in_file = vaddr_in_file;
+    entry.symbol.symbol_name = symbol->DemangledName();
+    entry.symbol.symbol_addr = symbol->addr;
+    entry.symbol.symbol_len = symbol->len;
+    entry.symbol.mapping = AddMapping(*map);
+    callchain_entries_.push_back(entry);
+  }
+  current_sample_.ip = callchain_entries_[0].ip;
+  current_symbol_ = &(callchain_entries_[0].symbol);
+  current_callchain_.nr = callchain_entries_.size() - 1;
+  current_callchain_.entries = &callchain_entries_[1];
+  const EventInfo* event = FindEventOfCurrentSample();
+  current_event_.name = event->name.c_str();
+  current_event_.tracing_data_format = event->tracing_info.data_format;
+  if (current_event_.tracing_data_format.size > 0u && (r.sample_type & PERF_SAMPLE_RAW)) {
+    CHECK_GE(r.raw_data.size, current_event_.tracing_data_format.size);
+    current_tracing_data_ = r.raw_data.data;
+  } else {
+    current_tracing_data_ = nullptr;
+  }
+}
+
+const EventInfo* ReportLib::FindEventOfCurrentSample() {
+  if (events_.empty()) {
+    CreateEvents();
+  }
+  size_t attr_index;
+  if (trace_offcpu_) {
+    // For trace-offcpu, we don't want to show event sched:sched_switch.
+    attr_index = 0;
+  } else {
+    attr_index = record_file_reader_->GetAttrIndexOfRecord(current_record_.get());
+  }
+  return &events_[attr_index];
+}
+
+void ReportLib::CreateEvents() {
+  std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
+  events_.resize(attrs.size());
+  for (size_t i = 0; i < attrs.size(); ++i) {
+    events_[i].attr = *attrs[i].attr;
+    events_[i].name = GetEventNameByAttr(events_[i].attr);
+    EventInfo::TracingInfo& tracing_info = events_[i].tracing_info;
+    if (events_[i].attr.type == PERF_TYPE_TRACEPOINT && tracing_) {
+      TracingFormat format = tracing_->GetTracingFormatHavingId(events_[i].attr.config);
+      tracing_info.field_names.resize(format.fields.size());
+      tracing_info.fields.resize(format.fields.size());
+      for (size_t i = 0; i < format.fields.size(); ++i) {
+        tracing_info.field_names[i] = format.fields[i].name;
+        TracingFieldFormat& field = tracing_info.fields[i];
+        field.name = tracing_info.field_names[i].c_str();
+        field.offset = format.fields[i].offset;
+        field.elem_size = format.fields[i].elem_size;
+        field.elem_count = format.fields[i].elem_count;
+        field.is_signed = format.fields[i].is_signed;
+      }
+      if (tracing_info.fields.empty()) {
+        tracing_info.data_format.size = 0;
+      } else {
+        TracingFieldFormat& field = tracing_info.fields.back();
+        tracing_info.data_format.size = field.offset + field.elem_size * field.elem_count;
+      }
+      tracing_info.data_format.field_count = tracing_info.fields.size();
+      tracing_info.data_format.fields = &tracing_info.fields[0];
+    } else {
+      tracing_info.data_format.size = 0;
+      tracing_info.data_format.field_count = 0;
+      tracing_info.data_format.fields = nullptr;
+    }
+  }
 }
 
 Mapping* ReportLib::AddMapping(const MapEntry& map) {
@@ -432,6 +465,10 @@ void ShowIpForUnknownSymbol(ReportLib* report_lib) {
   return report_lib->ShowIpForUnknownSymbol();
 }
 
+void ShowArtFrames(ReportLib* report_lib, bool show) {
+  return report_lib->ShowArtFrames(show);
+}
+
 bool SetKallsymsFile(ReportLib* report_lib, const char* kallsyms_file) {
   return report_lib->SetKallsymsFile(kallsyms_file);
 }
@@ -450,6 +487,10 @@ SymbolEntry* GetSymbolOfCurrentSample(ReportLib* report_lib) {
 
 CallChain* GetCallChainOfCurrentSample(ReportLib* report_lib) {
   return report_lib->GetCallChainOfCurrentSample();
+}
+
+const char* GetTracingDataOfCurrentSample(ReportLib* report_lib) {
+  return report_lib->GetTracingDataOfCurrentSample();
 }
 
 const char* GetBuildIdForPath(ReportLib* report_lib, const char* path) {

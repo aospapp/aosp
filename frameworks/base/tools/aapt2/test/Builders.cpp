@@ -28,6 +28,7 @@ using ::aapt::configuration::AndroidSdk;
 using ::aapt::configuration::ConfiguredArtifact;
 using ::aapt::configuration::GetOrCreateGroup;
 using ::aapt::io::StringInputStream;
+using ::android::ConfigDescription;
 using ::android::StringPiece;
 
 namespace aapt {
@@ -131,6 +132,14 @@ ResourceTableBuilder& ResourceTableBuilder::SetSymbolState(const StringPiece& na
   visibility.level = level;
   CHECK(table_->SetVisibilityWithIdMangled(res_name, visibility, id, GetDiagnostics()));
   CHECK(table_->SetAllowNewMangled(res_name, AllowNew{}, GetDiagnostics()));
+  return *this;
+}
+
+ResourceTableBuilder& ResourceTableBuilder::SetOverlayable(const StringPiece& name,
+                                                           const OverlayableItem& overlayable) {
+
+  ResourceName res_name = ParseNameOrDie(name);
+  CHECK(table_->SetOverlayable(res_name, overlayable, GetDiagnostics()));
   return *this;
 }
 

@@ -18,9 +18,18 @@
 #define MINIKIN_HB_UTILS_H
 
 #include <hb.h>
+#include <cmath>
 #include <memory>
 
 namespace minikin {
+
+inline float HBFixedToFloat(hb_position_t v) {
+    return scalbnf(v, -8);
+}
+
+inline hb_position_t HBFloatToFixed(float v) {
+    return scalbnf(v, +8);
+}
 
 struct HbBlobDeleter {
     void operator()(hb_blob_t* v) { hb_blob_destroy(v); }

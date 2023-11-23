@@ -10,6 +10,8 @@
 
 %option yylineno
 %option noyywrap
+%option nounput
+%option noinput
 %option reentrant
 %option bison-bridge
 %option bison-locations
@@ -20,6 +22,7 @@ identifier  [_a-zA-Z][_a-zA-Z0-9]*
 whitespace  ([ \t\r]+)
 intvalue    [-+]?(0|[1-9][0-9]*)
 hexvalue    0[x|X][0-9a-fA-F]+
+floatvalue  [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?f?
 
 %%
 %{
@@ -63,20 +66,24 @@ hexvalue    0[x|X][0-9a-fA-F]+
 \<                    { return '<'; }
 \>                    { return '>'; }
 
+    /* annotations */
+@{identifier}         { yylval->token = new AidlToken(yytext + 1, extra_text);
+                        return yy::parser::token::ANNOTATION;
+                      }
+
     /* keywords */
-parcelable            { return yy::parser::token::PARCELABLE; }
+parcelable            { yylval->token = new AidlToken("parcelable", extra_text);
+                        return yy::parser::token::PARCELABLE;
+                      }
 import                { return yy::parser::token::IMPORT; }
 package               { return yy::parser::token::PACKAGE; }
-int                   { return yy::parser::token::INT; }
-String                { return yy::parser::token::STRING; }
 in                    { return yy::parser::token::IN; }
 out                   { return yy::parser::token::OUT; }
 inout                 { return yy::parser::token::INOUT; }
 cpp_header            { return yy::parser::token::CPP_HEADER; }
 const                 { return yy::parser::token::CONST; }
-@nullable             { return yy::parser::token::ANNOTATION_NULLABLE; }
-@utf8                 { return yy::parser::token::ANNOTATION_UTF8; }
-@utf8InCpp            { return yy::parser::token::ANNOTATION_UTF8_CPP; }
+true                  { return yy::parser::token::TRUE_LITERAL; }
+false                 { return yy::parser::token::FALSE_LITERAL; }
 
 interface             { yylval->token = new AidlToken("interface", extra_text);
                         return yy::parser::token::INTERFACE;
@@ -89,16 +96,18 @@ oneway                { yylval->token = new AidlToken("oneway", extra_text);
 {identifier}          { yylval->token = new AidlToken(yytext, extra_text);
                         return yy::parser::token::IDENTIFIER;
                       }
-{intvalue}            { yylval->integer = std::stoi(yytext);
+'.'                   { yylval->character = yytext[1];
+                        return yy::parser::token::CHARVALUE;
+                      }
+{intvalue}            { yylval->token = new AidlToken(yytext, extra_text);
                         return yy::parser::token::INTVALUE; }
+{floatvalue}          { yylval->token = new AidlToken(yytext, extra_text);
+                        return yy::parser::token::FLOATVALUE; }
 {hexvalue}            { yylval->token = new AidlToken(yytext, extra_text);
                         return yy::parser::token::HEXVALUE; }
 
-    /* syntax error! */
-.                     { printf("UNKNOWN(%s)", yytext);
-                        yylval->token = new AidlToken(yytext, extra_text);
-                        return yy::parser::token::IDENTIFIER;
-                      }
+  /* lexical error! */
+.                     { return yy::parser::token::UNKNOWN; }
 
 %%
 

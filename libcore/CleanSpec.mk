@@ -54,6 +54,16 @@ $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/core*)
 $(call add-clean-step, rm -rf $(OUT_DIR)/host/common/obj/JAVA_LIBRARIES/core*)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/core*)
 $(call add-clean-step, rm -rf $(OUT_DIR)/host/common/obj/JAVA_LIBRARIES/core*)
+
+# Remove core-simple bootclasspath artifacts
+$(call add-clean-step, rm -rf $(OUT_DIR)/host/linux-x86/framework/*core-simple*)
+$(call add-clean-step, rm -rf $(OUT_DIR)/host/linux-x86/framework/*/*core-simple*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/framework/*core-simple*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/framework/*/*core-simple*)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/framework/*/*core-simple*)
+$(call add-clean-step, touch -c $(OUT_DIR)/host/linux-x86/bin/dex2oat)
+$(call add-clean-step, touch -c $(OUT_DIR)/host/linux-x86/bin/dex2oatd)
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

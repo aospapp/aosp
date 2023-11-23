@@ -34,7 +34,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <linux/videodev2.h>
-#include <utils/Log.h>
+#include <log/log.h>
 
 namespace android {
 
@@ -55,8 +55,8 @@ QemuSensor::QemuSensor(const char *deviceName, uint32_t width, uint32_t height):
         mLastRequestWidth(-1),
         mLastRequestHeight(-1),
         mCameraQemuClient(),
-        mGotVSync(false),
         mDeviceName(deviceName),
+        mGotVSync(false),
         mFrameDuration(kFrameDurationRange[0]),
         mNextBuffers(nullptr),
         mFrameNumber(0),
@@ -153,7 +153,6 @@ bool QemuSensor::waitForVSync(nsecs_t reltime) {
 
 bool QemuSensor::waitForNewFrame(nsecs_t reltime, nsecs_t *captureTime) {
     Mutex::Autolock lock(mReadoutMutex);
-    uint8_t *ret;
     if (mCapturedBuffers == nullptr) {
         int res;
         res = mReadoutAvailable.waitRelative(mReadoutMutex, reltime);
@@ -336,17 +335,17 @@ bool QemuSensor::threadLoop() {
             ret = nanosleep(&t, &t);
         } while (ret != 0);
     }
-    nsecs_t endRealTime = systemTime();
     ALOGVV("Frame cycle took %d ms, target %d ms",
-            (int) ((endRealTime - startRealTime) / 1000000),
+            (int) ((systemTime() - startRealTime) / 1000000),
             (int) (frameDuration / 1000000));
     return true;
-};
+}
 
 void QemuSensor::captureRGBA(uint8_t *img, uint32_t width, uint32_t height,
         uint32_t stride, int64_t *timestamp) {
     status_t res;
-    if (width != mLastRequestWidth || height != mLastRequestHeight) {
+    if (width != (uint32_t)mLastRequestWidth ||
+        height != (uint32_t)mLastRequestHeight) {
         ALOGI("%s: Dimensions for the current request (%dx%d) differ "
               "from the previous request (%dx%d). Restarting camera",
                 __FUNCTION__, width, height, mLastRequestWidth,
@@ -414,7 +413,8 @@ void QemuSensor::captureRGB(uint8_t *img, uint32_t width, uint32_t height, uint3
 
 void QemuSensor::captureNV21(uint8_t *img, uint32_t width, uint32_t height, uint32_t stride, int64_t *timestamp) {
     status_t res;
-    if (width != mLastRequestWidth || height != mLastRequestHeight) {
+    if (width != (uint32_t)mLastRequestWidth ||
+        height != (uint32_t)mLastRequestHeight) {
         ALOGI("%s: Dimensions for the current request (%dx%d) differ "
               "from the previous request (%dx%d). Restarting camera",
                 __FUNCTION__, width, height, mLastRequestWidth,

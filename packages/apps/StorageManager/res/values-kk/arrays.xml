@@ -17,8 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="automatic_storage_management_days">
-    <item msgid="4262697175462957945">"30 күн бұрынғы"</item>
-    <item msgid="2920779420892632946">"60 күн бұрынғы"</item>
-    <item msgid="1402081670011072896">"90 күн бұрынғы"</item>
+    <item msgid="4262697175462957945">"30 күннен артық сақталған"</item>
+    <item msgid="2920779420892632946">"60 күннен артық сақталған"</item>
+    <item msgid="1402081670011072896">"90 күннен артық сақталған"</item>
   </string-array>
 </resources>

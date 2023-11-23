@@ -17,13 +17,11 @@
 #ifndef F2FS_UTILS_F2F2_UTILS_H_
 #define F2FS_UTILS_F2F2_UTILS_H_
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-
-
 
 #define ver_after(a, b) (typecheck(unsigned long long, a) &&            \
     typecheck(unsigned long long, b) &&                     \
@@ -37,35 +35,35 @@ struct f2fs_sit_block;
 struct f2fs_summary_block;
 
 struct f2fs_info {
-    u_int64_t blocks_per_segment;
-    u_int32_t block_size;
+    uint64_t blocks_per_segment;
+    uint32_t block_size;
 
     char *sit_bmp;
-    u_int32_t sit_bmp_size;
-    u_int64_t blocks_per_sit;
+    uint32_t sit_bmp_size;
+    uint64_t blocks_per_sit;
     struct f2fs_sit_block *sit_blocks;
     struct f2fs_summary_block *sit_sums;
 
-    u_int64_t cp_blkaddr;
-    u_int64_t cp_valid_cp_blkaddr;
+    uint64_t cp_blkaddr;
+    uint64_t cp_valid_cp_blkaddr;
 
-    u_int64_t sit_blkaddr;
+    uint64_t sit_blkaddr;
 
-    u_int64_t nat_blkaddr;
+    uint64_t nat_blkaddr;
 
-    u_int64_t ssa_blkaddr;
+    uint64_t ssa_blkaddr;
 
-    u_int64_t main_blkaddr;
+    uint64_t main_blkaddr;
 
-    u_int64_t total_user_used;
-    u_int64_t total_blocks;
+    uint64_t total_user_used;
+    uint64_t total_blocks;
 };
 
-u64 get_num_blocks_used(struct f2fs_info *info);
+uint64_t get_num_blocks_used(struct f2fs_info *info);
 struct f2fs_info *generate_f2fs_info(int fd);
 void free_f2fs_info(struct f2fs_info *info);
 unsigned int get_f2fs_filesystem_size_sec(char *dev);
-int run_on_used_blocks(u64 startblock, struct f2fs_info *info, int (*func)(u64 pos, void *data), void *data);
+int run_on_used_blocks(uint64_t startblock, struct f2fs_info *info, int (*func)(uint64_t pos, void *data), void *data);
 
 #ifdef __cplusplus
 }

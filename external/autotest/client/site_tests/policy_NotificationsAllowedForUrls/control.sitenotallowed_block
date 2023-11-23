@@ -4,7 +4,7 @@
 
 AUTHOR = 'krishnargv'
 NAME = 'policy_NotificationsAllowedForUrls.sitenotallowed_block'
-ATTRIBUTES = 'suite:regression, suite:policy'
+ATTRIBUTES = 'suite:ent-nightly, suite:policy'
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'

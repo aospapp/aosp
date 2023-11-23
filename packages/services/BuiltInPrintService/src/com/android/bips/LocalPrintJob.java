@@ -27,6 +27,7 @@ import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.discovery.MdnsDiscovery;
 import com.android.bips.ipp.Backend;
 import com.android.bips.ipp.CapabilitiesCache;
+import com.android.bips.ipp.CertificateStore;
 import com.android.bips.ipp.JobStatus;
 import com.android.bips.jni.BackendConstants;
 import com.android.bips.jni.LocalPrinterCapabilities;
@@ -42,6 +43,7 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         CapabilitiesCache.OnLocalPrinterCapabilities {
     private static final String TAG = LocalPrintJob.class.getSimpleName();
     private static final boolean DEBUG = false;
+    private static final String IPPS_SCHEME = "ipps";
 
     /** Maximum time to wait to find a printer before failing the job */
     private static final int DISCOVERY_TIMEOUT = 2 * 60 * 1000;
@@ -51,8 +53,9 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
     private static final int STATE_DISCOVERY = 1;
     private static final int STATE_CAPABILITIES = 2;
     private static final int STATE_DELIVERING = 3;
-    private static final int STATE_CANCEL = 4;
-    private static final int STATE_DONE = 5;
+    private static final int STATE_SECURITY = 4;
+    private static final int STATE_CANCEL = 5;
+    private static final int STATE_DONE = 6;
 
     private final BuiltInPrintService mPrintService;
     private final PrintJob mPrintJob;
@@ -63,6 +66,8 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
     private Uri mPath;
     private DelayedAction mDiscoveryTimeout;
     private P2pPrinterConnection mConnection;
+    private LocalPrinterCapabilities mCapabilities;
+    private CertificateStore mCertificateStore;
 
     /**
      * Construct the object; use {@link #start(Consumer)} to begin job processing.
@@ -71,6 +76,7 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         mPrintService = printService;
         mBackend = backend;
         mPrintJob = printJob;
+        mCertificateStore = mPrintService.getCertificateStore();
         mState = STATE_INIT;
 
         // Tell the job it is blocked (until start())
@@ -107,12 +113,24 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         mPrintService.getDiscovery().start(this);
     }
 
+    /**
+     * Restart the job if possible.
+     */
+    void restart() {
+        if (DEBUG) Log.d(TAG, "restart() " + mPrintJob + " in state " + mState);
+        if (mState == STATE_SECURITY) {
+            mCapabilities.certificate = mCertificateStore.get(mCapabilities.uuid);
+            deliver();
+        }
+    }
+
     void cancel() {
         if (DEBUG) Log.d(TAG, "cancel() " + mPrintJob + " in state " + mState);
 
         switch (mState) {
             case STATE_DISCOVERY:
             case STATE_CAPABILITIES:
+            case STATE_SECURITY:
                 // Cancel immediately
                 mState = STATE_CANCEL;
                 finish(false, null);
@@ -156,6 +174,14 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
         mPrintService.getDiscovery().stop(this);
         mState = STATE_CAPABILITIES;
         mPath = printer.path;
+        // Upgrade to IPPS path if present
+        for (Uri path : printer.paths) {
+            if (IPPS_SCHEME.equals(path.getScheme())) {
+                mPath = path;
+                break;
+            }
+        }
+
         mPrintService.getCapabilitiesCache().request(printer, true, this);
     }
 
@@ -213,14 +239,36 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
             if (mDiscoveryTimeout != null) {
                 mDiscoveryTimeout.cancel();
             }
+            mCapabilities = capabilities;
+            deliver();
+        }
+    }
+
+    private void deliver() {
+        if (mCapabilities.certificate != null && !IPPS_SCHEME.equals(mPath.getScheme())) {
+            mState = STATE_SECURITY;
+            mPrintJob.block(mPrintService.getString(R.string.printer_not_encrypted));
+            mPrintService.notifyCertificateChange(mCapabilities.name,
+                    mPrintJob.getInfo().getPrinterId(), mCapabilities.uuid, null);
+        } else {
             mState = STATE_DELIVERING;
             mPrintJob.start();
-            mBackend.print(mPath, mPrintJob, capabilities, this::handleJobStatus);
+            mBackend.print(mPath, mPrintJob, mCapabilities, this::handleJobStatus);
         }
     }
 
     private void handleJobStatus(JobStatus jobStatus) {
         if (DEBUG) Log.d(TAG, "onJobStatus() " + jobStatus);
+
+        byte[] certificate = jobStatus.getCertificate();
+        if (certificate != null && mCapabilities != null) {
+            // If there is no certificate, record this one
+            if (mCertificateStore.get(mCapabilities.uuid) == null) {
+                if (DEBUG) Log.d(TAG, "Recording new certificate");
+                mCertificateStore.put(mCapabilities.uuid, certificate);
+            }
+        }
+
         switch (jobStatus.getJobState()) {
             case BackendConstants.JOB_STATE_DONE:
                 switch (jobStatus.getJobResult()) {
@@ -236,7 +284,11 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                         break;
                     default:
                         // Job failed
-                        finish(false, null);
+                        if (jobStatus.getBlockedReasonId() == R.string.printer_bad_certificate) {
+                            handleBadCertificate(jobStatus);
+                        } else {
+                            finish(false, null);
+                        }
                         break;
                 }
                 break;
@@ -257,6 +309,20 @@ class LocalPrintJob implements MdnsDiscovery.Listener, ConnectionListener,
                 }
                 mPrintJob.start();
                 break;
+        }
+    }
+
+    private void handleBadCertificate(JobStatus jobStatus) {
+        byte[] certificate = jobStatus.getCertificate();
+
+        if (certificate == null) {
+            mPrintJob.fail(mPrintService.getString(R.string.printer_bad_certificate));
+        } else {
+            if (DEBUG) Log.d(TAG, "Certificate change detected.");
+            mState = STATE_SECURITY;
+            mPrintJob.block(mPrintService.getString(R.string.printer_bad_certificate));
+            mPrintService.notifyCertificateChange(mCapabilities.name,
+                    mPrintJob.getInfo().getPrinterId(), mCapabilities.uuid, certificate);
         }
     }
 

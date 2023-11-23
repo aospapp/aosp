@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -73,24 +74,20 @@ public class WatchedHistoryManager {
                         // onNewRecordAdded will be called in the same thread as the thread
                         // which created this instance.
                         mHandler.post(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        for (long i = mLastIndex + 1; i <= lastIndex; ++i) {
-                                            WatchedRecord record =
-                                                    decode(
-                                                            mSharedPreferences.getString(
-                                                                    getSharedPreferencesKey(i),
-                                                                    null));
-                                            if (record != null) {
-                                                mWatchedHistory.add(record);
-                                                if (mListener != null) {
-                                                    mListener.onNewRecordAdded(record);
-                                                }
+                                () -> {
+                                    for (long i = mLastIndex + 1; i <= lastIndex; ++i) {
+                                        WatchedRecord record =
+                                                decode(
+                                                        mSharedPreferences.getString(
+                                                                getSharedPreferencesKey(i), null));
+                                        if (record != null) {
+                                            mWatchedHistory.add(record);
+                                            if (mListener != null) {
+                                                mListener.onNewRecordAdded(record);
                                             }
                                         }
-                                        mLastIndex = lastIndex;
                                     }
+                                    mLastIndex = lastIndex;
                                 });
                     }
                 }
@@ -100,16 +97,18 @@ public class WatchedHistoryManager {
     private Listener mListener;
     private final int mMaxHistorySize;
     private final Handler mHandler;
+    private final Executor mExecutor;
 
     public WatchedHistoryManager(Context context) {
-        this(context, MAX_HISTORY_SIZE);
+        this(context, MAX_HISTORY_SIZE, AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     @VisibleForTesting
-    WatchedHistoryManager(Context context, int maxHistorySize) {
+    WatchedHistoryManager(Context context, int maxHistorySize, Executor executor) {
         mContext = context.getApplicationContext();
         mMaxHistorySize = maxHistorySize;
         mHandler = new Handler();
+        mExecutor = executor;
     }
 
     /** Starts the manager. It loads history data from {@link SharedPreferences}. */
@@ -130,7 +129,7 @@ public class WatchedHistoryManager {
                 protected void onPostExecute(Void params) {
                     onLoadFinished();
                 }
-            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            }.executeOnExecutor(mExecutor);
         } else {
             loadWatchedHistory();
             onLoadFinished();

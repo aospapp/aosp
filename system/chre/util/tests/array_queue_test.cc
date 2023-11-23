@@ -11,6 +11,7 @@ namespace {
 constexpr int kMaxTestCapacity = 10;
 int destructor_count[kMaxTestCapacity];
 int constructor_count;
+int total_destructor_count;
 
 class DummyElement {
  public:
@@ -22,6 +23,7 @@ class DummyElement {
     constructor_count++;
   };
   ~DummyElement() {
+    total_destructor_count++;
     if (val_ >= 0 && val_ < kMaxTestCapacity) {
       destructor_count[val_]++;
     }
@@ -107,6 +109,27 @@ TEST(ArrayQueueTest, TestEmpty) {
   EXPECT_FALSE(q.empty());
   q.pop();
   EXPECT_TRUE(q.empty());
+}
+
+TEST(ArrayQueueTest, KickPushWhenNotFull) {
+  ArrayQueue<int, 2> q;
+  q.kick_push(1);
+  EXPECT_EQ(1, q.size());
+  EXPECT_EQ(1, q[0]);
+  q.kick_push(2);
+  EXPECT_EQ(2, q.size());
+  EXPECT_EQ(2, q[1]);
+}
+
+TEST(ArrayQueueTest, KickPushWhenFull) {
+  ArrayQueue<int, 2> q;
+  q.kick_push(1);
+  q.push(2);
+  EXPECT_EQ(2, q.size());
+  q.kick_push(3);
+  EXPECT_EQ(2, q.size());
+  EXPECT_EQ(2, q[0]);
+  EXPECT_EQ(3, q[1]);
 }
 
 TEST(ArrayQueueTest, PopWhenEmpty) {
@@ -465,4 +488,45 @@ TEST(ArrayQueueTest, IteratorTraits) {
   static_assert(
       std::is_same<traits::iterator_category, std::forward_iterator_tag>::value,
       "ArrayQueueIterator should be a forward iterator");
+}
+
+TEST(ArrayQueueTest, ArrayClear) {
+  ArrayQueue<size_t, 4> q;
+
+  q.clear();
+  EXPECT_TRUE(q.empty());
+
+  for (size_t i = 0; i < 4; i++) {
+    q.push(i);
+  }
+
+  q.clear();
+  EXPECT_TRUE(q.empty());
+
+  // Make sure that insertion/access still work after a clear.
+  for (size_t i = 0; i < 4; i++) {
+    q.push(i);
+  }
+  for (size_t i = 0; i < 4; i++) {
+    EXPECT_EQ(q[i], i);
+  }
+}
+
+TEST(ArrayQueueTest, ElementsDestructedArrayClear) {
+  for (size_t i = 0; i < kMaxTestCapacity; ++i) {
+    destructor_count[i] = 0;
+  }
+  total_destructor_count = 0;
+
+  ArrayQueue<DummyElement, 4> q;
+  for (size_t i = 0; i < 3; ++i) {
+    q.emplace(i);
+  }
+
+  q.clear();
+
+  for (size_t i = 0; i < 3; ++i) {
+    EXPECT_EQ(1, destructor_count[i]);
+  }
+  EXPECT_EQ(3, total_destructor_count);
 }

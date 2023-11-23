@@ -1,4 +1,4 @@
-// Copyright (c) 2014 The Chromium OS Autholr. All rights reserved.
+// Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -54,6 +54,7 @@ TEST(LinearResampler, ReampleToSlightlyLargerRate) {
 		EXPECT_LE(*(int16_t *)(in_buf + 4 * i),
 			  *(int16_t *)(out_buf + 4 * (i + 1)));
 	}
+	linear_resampler_destroy(lr);
 }
 
 TEST(LinearResampler, ResampleIntegerFractionToLarger) {
@@ -104,6 +105,7 @@ TEST(LinearResampler, ResampleIntegerFractionToLarger) {
 		EXPECT_LE(*(int16_t *)(in_buf + 4 * i + 2),
 			  *(int16_t *)(out_buf + 4 * i + 2));
 	}
+	linear_resampler_destroy(lr);
 }
 
 TEST(LinearResampler, ResampleIntegerFractionToLess) {
@@ -152,6 +154,7 @@ TEST(LinearResampler, ResampleIntegerFractionToLess) {
 		EXPECT_LE(*(int16_t *)(in_buf + 4 * i + 2),
 			  *(int16_t *)(out_buf + 4 * i + 2));
 	}
+	linear_resampler_destroy(lr);
 }
 
 TEST(LinearResampler, ResampleIntegerNoSrcBuffer) {
@@ -170,6 +173,7 @@ TEST(LinearResampler, ResampleIntegerNoSrcBuffer) {
 				     out_buf, BUF_SIZE);
 	EXPECT_EQ(0, rc);
 	EXPECT_EQ(0, count);
+	linear_resampler_destroy(lr);
 }
 
 TEST(LinearResampler, ResampleIntegerNoDstBuffer) {
@@ -188,6 +192,7 @@ TEST(LinearResampler, ResampleIntegerNoDstBuffer) {
 				     out_buf, 0);
 	EXPECT_EQ(0, rc);
 	EXPECT_EQ(0, count);
+	linear_resampler_destroy(lr);
 }
 
 extern "C" {

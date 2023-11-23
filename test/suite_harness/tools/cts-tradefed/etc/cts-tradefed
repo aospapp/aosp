@@ -93,8 +93,7 @@ JARS="tradefed
   cts-tradefed
   cts-tradefed-tests
   compatibility-common-util-tests
-  compatibility-tradefed-tests
-  host-libprotobuf-java-full"
+  compatibility-tradefed-tests"
 
 for JAR in $JARS; do
     checkFile ${JAR_DIR}/${JAR}.jar
@@ -107,9 +106,12 @@ OPTIONAL_JARS="
   google-tradefed-tests
   google-tf-prod-tests"
 
+STANDALONE_JAR_DIR=${ANDROID_HOST_OUT}/framework
 for JAR in $OPTIONAL_JARS; do
     if [ -f "${JAR_DIR}/${JAR}.jar" ]; then
         JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
+    elif [ -f "${STANDALONE_JAR_DIR}/${JAR}.jar" ]; then
+        JAR_PATH=${JAR_PATH}:${STANDALONE_JAR_DIR}/${JAR}.jar
     fi;
 done
 
@@ -128,5 +130,5 @@ for j in ${CTS_ROOT}/android-cts/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-java $RDBG_FLAG -Xmx4g -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+java $RDBG_FLAG -Xmx6g -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
 

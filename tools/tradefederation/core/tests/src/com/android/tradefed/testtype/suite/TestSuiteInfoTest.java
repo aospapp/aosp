@@ -42,7 +42,7 @@ public class TestSuiteInfoTest {
             return;
         }
         assertEquals("[stub build number]", instance.getBuildNumber());
-        assertEquals("[stub target arch]", instance.getTargetArch());
+        assertEquals("[stub target arch]", instance.getTargetArchs().get(0));
         assertEquals("[stub name]", instance.getName());
         assertEquals("[stub fullname]", instance.getFullName());
         assertEquals("[stub version]", instance.getVersion());
@@ -69,6 +69,32 @@ public class TestSuiteInfoTest {
             Properties p = instance.loadSuiteInfo(stream);
             assertEquals("eng.build.5", p.getProperty("build_number"));
             assertEquals("arm64", p.getProperty("target_arch"));
+            assertEquals("CTS", p.getProperty("name"));
+            assertEquals("Compatibility Test Suite", p.getProperty("fullname"));
+            assertEquals("7.0", p.getProperty("version"));
+        } finally {
+            FileUtil.deleteFile(propertyFile);
+            StreamUtil.close(stream);
+        }
+    }
+
+    @Test
+    public void testLoadConfig_multiArch() throws Exception {
+        File propertyFile = FileUtil.createTempFile("test-suite-prop", ".properties");
+        FileInputStream stream = null;
+        try {
+            FileUtil.writeToFile(
+                    "build_number = eng.build.5\n"
+                            + "target_arch = arm64,x86_64\n"
+                            + "name = CTS\n"
+                            + "fullname = Compatibility Test Suite\n"
+                            + "version = 7.0",
+                    propertyFile);
+            TestSuiteInfo instance = TestSuiteInfo.getInstance();
+            stream = new FileInputStream(propertyFile);
+            Properties p = instance.loadSuiteInfo(stream);
+            assertEquals("eng.build.5", p.getProperty("build_number"));
+            assertEquals("arm64,x86_64", p.getProperty("target_arch"));
             assertEquals("CTS", p.getProperty("name"));
             assertEquals("Compatibility Test Suite", p.getProperty("fullname"));
             assertEquals("7.0", p.getProperty("version"));

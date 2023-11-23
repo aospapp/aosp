@@ -33,6 +33,9 @@ Counter::Counter(const char* name, CounterType type)
     : count_(0), enabled_(false), type_(type) {
   VIXL_ASSERT(name != NULL);
   strncpy(name_, name, kCounterNameMaxLength);
+  // Make sure `name_` is always NULL-terminated, even if the source's length is
+  // higher.
+  name_[kCounterNameMaxLength - 1] = '\0';
 }
 
 
@@ -404,6 +407,14 @@ void Instrument::VisitLoadStoreExclusive(const Instruction* instr) {
 }
 
 
+void Instrument::VisitAtomicMemory(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("Other");
+  counter->Increment();
+}
+
+
 void Instrument::VisitLoadLiteral(const Instruction* instr) {
   USE(instr);
   Update();
@@ -667,7 +678,31 @@ void Instrument::VisitNEON2RegMisc(const Instruction* instr) {
 }
 
 
+void Instrument::VisitNEON2RegMiscFP16(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
 void Instrument::VisitNEON3Same(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
+void Instrument::VisitNEON3SameFP16(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
+void Instrument::VisitNEON3SameExtra(const Instruction* instr) {
   USE(instr);
   Update();
   static Counter* counter = GetCounter("NEON");
@@ -765,6 +800,14 @@ void Instrument::VisitNEONScalar2RegMisc(const Instruction* instr) {
 }
 
 
+void Instrument::VisitNEONScalar2RegMiscFP16(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
 void Instrument::VisitNEONScalar3Diff(const Instruction* instr) {
   USE(instr);
   Update();
@@ -774,6 +817,22 @@ void Instrument::VisitNEONScalar3Diff(const Instruction* instr) {
 
 
 void Instrument::VisitNEONScalar3Same(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
+void Instrument::VisitNEONScalar3SameFP16(const Instruction* instr) {
+  USE(instr);
+  Update();
+  static Counter* counter = GetCounter("NEON");
+  counter->Increment();
+}
+
+
+void Instrument::VisitNEONScalar3SameExtra(const Instruction* instr) {
   USE(instr);
   Update();
   static Counter* counter = GetCounter("NEON");

@@ -27,13 +27,13 @@
 
 #include <fcntl.h>
 #include <pty.h>
-#include <stdio.h>
+#include <cstdio>
 #include <termios.h>
 #include <unistd.h>
 
 #include <vterm.h>
 
-#include <string.h>
+#include <cstring>
 
 #define USE_TEST_SHELL 0
 #define DEBUG_CALLBACKS 0
@@ -207,19 +207,12 @@ static int term_settermprop(VTermProp prop, VTermValue *val, void *user) {
         return env->CallIntMethod(term->getCallbacks(), setTermPropStringMethod, prop,
                 env->NewStringUTF(val->string));
     case VTERM_VALUETYPE_COLOR:
-        return env->CallIntMethod(term->getCallbacks(), setTermPropIntMethod, prop, val->color.red,
-                val->color.green, val->color.blue);
+        return env->CallIntMethod(term->getCallbacks(), setTermPropIntMethod, prop,
+                val->color.rgb.red, val->color.rgb.green, val->color.rgb.blue);
     default:
         ALOGE("unknown callback type");
         return 0;
     }
-}
-
-static int term_setmousefunc(VTermMouseFunc func, void *data, void *user) {
-#if DEBUG_CALLBACKS
-    ALOGW("term_setmousefunc");
-#endif
-    return 1;
 }
 
 static int term_bell(void *user) {
@@ -255,7 +248,6 @@ static VTermScreenCallbacks cb = {
     .moverect = term_moverect,
     .movecursor = term_movecursor,
     .settermprop = term_settermprop,
-    .setmousefunc = term_setmousefunc,
     .bell = term_bell,
     // Resize requests are applied immediately, so callback is ignored
     .resize = NULL,
@@ -274,7 +266,7 @@ Terminal::Terminal(jobject callbacks) :
 
     /* Create VTerm */
     mVt = vterm_new(mRows, mCols);
-    vterm_parser_set_utf8(mVt, 1);
+    vterm_set_utf8(mVt, 1);
 
     /* Set up screen */
     mVts = vterm_obtain_screen(mVt);
@@ -345,7 +337,9 @@ status_t Terminal::run() {
         // We know execvp(2) won't actually try to modify this.
         char *shell = const_cast<char*>("/system/bin/sh");
 #if USE_TEST_SHELL
-        char *args[4] = {shell, "-c", "x=1; c=0; while true; do echo -e \"stop \e[00;3${c}mechoing\e[00m yourself! ($x)\"; x=$(( $x + 1 )); c=$((($c+1)%7)); if [ $x -gt 110 ]; then sleep 0.5; fi; done", NULL};
+        char *arg1 = const_cast<char*>("-c");
+        char *arg2 = const_cast<char*>("x=1; c=0; while true; do echo -e \"stop \e[00;3${c}mechoing\e[00m yourself! ($x)\"; x=$(( $x + 1 )); c=$((($c+1)%7)); if [ $x -gt 110 ]; then sleep 0.5; fi; done");
+        char *args[4] = {shell, arg1, arg2, NULL};
 #else
         char *args[2] = {shell, NULL};
 #endif
@@ -378,7 +372,7 @@ status_t Terminal::run() {
 
         {
             Mutex::Autolock lock(mLock);
-            vterm_push_bytes(mVt, buffer, bytes);
+            vterm_input_write(mVt, buffer, bytes);
             vterm_screen_flush_damage(mVts);
         }
     }
@@ -392,13 +386,13 @@ size_t Terminal::write(const char *bytes, size_t len) {
 
 bool Terminal::dispatchCharacter(int mod, int character) {
     Mutex::Autolock lock(mLock);
-    vterm_input_push_char(mVt, static_cast<VTermModifier>(mod), character);
+    vterm_keyboard_unichar(mVt, character, static_cast<VTermModifier>(mod));
     return flushInput();
 }
 
 bool Terminal::dispatchKey(int mod, int key) {
     Mutex::Autolock lock(mLock);
-    vterm_input_push_key(mVt, static_cast<VTermModifier>(mod), static_cast<VTermKey>(key));
+    vterm_keyboard_key(mVt, static_cast<VTermKey>(key), static_cast<VTermModifier>(mod));
     return flushInput();
 }
 
@@ -406,7 +400,7 @@ bool Terminal::flushInput() {
     size_t len = vterm_output_get_buffer_current(mVt);
     if (len) {
         char buf[len];
-        len = vterm_output_bufferread(mVt, buf, len);
+        len = vterm_output_read(mVt, buf, len);
         return len == write(buf, len);
     }
     return true;
@@ -569,7 +563,7 @@ static jint com_android_terminal_Terminal_nativeResize(JNIEnv* env,
 }
 
 static inline int toArgb(const VTermColor& color) {
-    return (0xff << 24 | color.red << 16 | color.green << 8 | color.blue);
+    return (0xff << 24 | color.rgb.red << 16 | color.rgb.green << 8 | color.rgb.blue);
 }
 
 static inline bool isCellStyleEqual(const VTermScreenCell& a, const VTermScreenCell& b) {

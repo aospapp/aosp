@@ -15,34 +15,32 @@
  */
 package com.android.internal.telephony;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mock;
-
-import java.util.List;
-import java.util.ArrayList;
-
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
-import org.mockito.ArgumentCaptor;
+import static org.mockito.Mockito.verify;
+
+import android.os.Bundle;
 import android.telephony.CellInfo;
 import android.telephony.DisconnectCause;
 import android.telephony.PreciseCallState;
 import android.telephony.PreciseDisconnectCause;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
-import android.telephony.VoLteServiceState;
 import android.telephony.gsm.GsmCellLocation;
-import android.os.Bundle;
-import android.os.Process;
-import android.os.WorkSource;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class DefaultPhoneNotifierTest extends TelephonyTest {
 
@@ -157,34 +155,30 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
 
     @Test @SmallTest
     public void testNotifyDisconnectCause() throws Exception {
-        mDefaultPhoneNotifierUT.notifyDisconnectCause(DisconnectCause.NOT_VALID,
+        doReturn(1).when(mPhone).getPhoneId();
+        doReturn(0).when(mPhone).getSubId();
+        mDefaultPhoneNotifierUT.notifyDisconnectCause(mPhone, DisconnectCause.NOT_VALID,
                 PreciseDisconnectCause.FDN_BLOCKED);
-        verify(mTelephonyRegisteryMock).notifyDisconnectCause(DisconnectCause.NOT_VALID,
+        verify(mTelephonyRegisteryMock).notifyDisconnectCause(1, 0, DisconnectCause.NOT_VALID,
                 PreciseDisconnectCause.FDN_BLOCKED);
 
-        mDefaultPhoneNotifierUT.notifyDisconnectCause(DisconnectCause.LOCAL,
+        mDefaultPhoneNotifierUT.notifyDisconnectCause(mPhone, DisconnectCause.LOCAL,
                 PreciseDisconnectCause.CHANNEL_NOT_AVAIL);
-        verify(mTelephonyRegisteryMock).notifyDisconnectCause(DisconnectCause.LOCAL,
+        verify(mTelephonyRegisteryMock).notifyDisconnectCause(1, 0, DisconnectCause.LOCAL,
                 PreciseDisconnectCause.CHANNEL_NOT_AVAIL);
     }
 
     @Test @SmallTest
     public void testNotifyDataConnectionFailed() throws Exception {
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "BUSY", "APN_0");
-        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0, "BUSY", "APN_0");
+        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "APN_0");
+        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0, 0, "APN_0");
 
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "LOCAL", "APN_0");
-        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0, "LOCAL",
-                "APN_0");
-
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "LOCAL", "APN_1");
-        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0, "LOCAL",
-                "APN_1");
+        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "APN_1");
+        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0, 0, "APN_1");
 
         doReturn(1).when(mPhone).getSubId();
-        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "LOCAL", "APN_1");
-        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(1, "LOCAL",
-                "APN_1");
+        mDefaultPhoneNotifierUT.notifyDataConnectionFailed(mPhone, "APN_1");
+        verify(mTelephonyRegisteryMock).notifyDataConnectionFailedForSubscriber(0,1, "APN_1");
     }
 
     @Test @SmallTest
@@ -196,22 +190,24 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         doReturn(Call.State.IDLE).when(mRingingCall).getState();
 
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
-        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(anyInt(), anyInt(),
-                anyInt());
+        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(
+                anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
 
         doReturn(mForeGroundCall).when(mPhone).getForegroundCall();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
-        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(anyInt(), anyInt(),
-                anyInt());
+        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(
+                anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
 
         doReturn(mBackGroundCall).when(mPhone).getBackgroundCall();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
-        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(anyInt(), anyInt(),
-                anyInt());
+        verify(mTelephonyRegisteryMock, times(0)).notifyPreciseCallState(
+                anyInt(), anyInt(), anyInt(), anyInt(), anyInt());
 
         doReturn(mRingingCall).when(mPhone).getRingingCall();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
         verify(mTelephonyRegisteryMock, times(1)).notifyPreciseCallState(
+                mPhone.getPhoneId(),
+                mPhone.getSubId(),
                 PreciseCallState.PRECISE_CALL_STATE_IDLE,
                 PreciseCallState.PRECISE_CALL_STATE_IDLE,
                 PreciseCallState.PRECISE_CALL_STATE_IDLE);
@@ -219,6 +215,8 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         doReturn(Call.State.ACTIVE).when(mForeGroundCall).getState();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
         verify(mTelephonyRegisteryMock, times(1)).notifyPreciseCallState(
+                mPhone.getPhoneId(),
+                mPhone.getSubId(),
                 PreciseCallState.PRECISE_CALL_STATE_IDLE,
                 PreciseCallState.PRECISE_CALL_STATE_ACTIVE,
                 PreciseCallState.PRECISE_CALL_STATE_IDLE);
@@ -226,6 +224,8 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         doReturn(Call.State.HOLDING).when(mBackGroundCall).getState();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
         verify(mTelephonyRegisteryMock, times(1)).notifyPreciseCallState(
+                mPhone.getPhoneId(),
+                mPhone.getSubId(),
                 PreciseCallState.PRECISE_CALL_STATE_IDLE,
                 PreciseCallState.PRECISE_CALL_STATE_ACTIVE,
                 PreciseCallState.PRECISE_CALL_STATE_HOLDING);
@@ -233,6 +233,8 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         doReturn(Call.State.ALERTING).when(mRingingCall).getState();
         mDefaultPhoneNotifierUT.notifyPreciseCallState(mPhone);
         verify(mTelephonyRegisteryMock, times(1)).notifyPreciseCallState(
+                mPhone.getPhoneId(),
+                mPhone.getSubId(),
                 PreciseCallState.PRECISE_CALL_STATE_ALERTING,
                 PreciseCallState.PRECISE_CALL_STATE_ACTIVE,
                 PreciseCallState.PRECISE_CALL_STATE_HOLDING);
@@ -247,7 +249,7 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
         ArgumentCaptor<Bundle> cellLocationCapture =
                 ArgumentCaptor.forClass(Bundle.class);
 
-        mDefaultPhoneNotifierUT.notifyCellLocation(mPhone);
+        mDefaultPhoneNotifierUT.notifyCellLocation(mPhone, mGsmCellLocation);
         verify(mTelephonyRegisteryMock).notifyCellLocationForSubscriber(eq(0),
                 cellLocationCapture.capture());
         assertEquals(2, cellLocationCapture.getValue().getInt("lac"));
@@ -256,7 +258,7 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
 
         doReturn(1).when(mPhone).getSubId();
         mGsmCellLocation.setPsc(5);
-        mDefaultPhoneNotifierUT.notifyCellLocation(mPhone);
+        mDefaultPhoneNotifierUT.notifyCellLocation(mPhone, mGsmCellLocation);
         verify(mTelephonyRegisteryMock).notifyCellLocationForSubscriber(eq(1),
                 cellLocationCapture.capture());
         assertEquals(2, cellLocationCapture.getValue().getInt("lac"));
@@ -267,20 +269,11 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
     @Test @SmallTest
     public void testNotifyOtaspChanged() throws Exception {
         mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, TelephonyManager.OTASP_NEEDED);
-        verify(mTelephonyRegisteryMock).notifyOtaspChanged(TelephonyManager.OTASP_NEEDED);
+        verify(mTelephonyRegisteryMock).notifyOtaspChanged(eq(mPhone.getSubId()),
+                eq(TelephonyManager.OTASP_NEEDED));
 
         mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, TelephonyManager.OTASP_UNKNOWN);
-        verify(mTelephonyRegisteryMock).notifyOtaspChanged(TelephonyManager.OTASP_UNKNOWN);
-    }
-
-    @Test @SmallTest
-    public void testNotifyVoLteServiceStateChanged() throws Exception {
-        VoLteServiceState state = new VoLteServiceState(VoLteServiceState.NOT_SUPPORTED);
-        mDefaultPhoneNotifierUT.notifyVoLteServiceStateChanged(mPhone, state);
-        verify(mTelephonyRegisteryMock).notifyVoLteServiceStateChanged(state);
-
-        state = new VoLteServiceState(VoLteServiceState.HANDOVER_COMPLETED);
-        mDefaultPhoneNotifierUT.notifyVoLteServiceStateChanged(mPhone, state);
-        verify(mTelephonyRegisteryMock).notifyVoLteServiceStateChanged(state);
+        verify(mTelephonyRegisteryMock).notifyOtaspChanged(eq(mPhone.getSubId()),
+                eq(TelephonyManager.OTASP_UNKNOWN));
     }
 }

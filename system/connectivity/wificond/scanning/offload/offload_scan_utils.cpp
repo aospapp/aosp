@@ -43,7 +43,7 @@ bool OffloadScanUtils::convertToNativeScanResults(
     single_scan_result.ssid.assign(scan_result[i].networkInfo.ssid.begin(),
                                    scan_result[i].networkInfo.ssid.end());
     for (size_t j = 0; j < scan_result[i].bssid.elementCount(); j++) {
-      single_scan_result.bssid.push_back(scan_result[i].bssid[j]);
+      single_scan_result.bssid.at(j) = scan_result[i].bssid[j];
     }
     single_scan_result.frequency = scan_result[i].frequency;
     single_scan_result.signal_mbm = scan_result[i].rssi;

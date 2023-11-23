@@ -15,22 +15,24 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.support.wear.ambient.AmbientMode;
-import android.support.wear.widget.WearableRecyclerView;
-import android.support.wear.widget.drawer.WearableActionDrawerView;
 import android.view.View;
+
+import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.wear.ambient.AmbientModeSupport;
+import androidx.wear.widget.WearableRecyclerView;
+import androidx.wear.widget.drawer.WearableActionDrawerView;
 
 import com.example.android.wearable.wear.wearaccessibilityapp.LongListRecyclerViewAdapter.SwitchChangeListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class LongListActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+public class LongListActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
 
     private List<AppItem> mItems;
     private LongListRecyclerViewAdapter mAdapter;
@@ -44,7 +46,7 @@ public class LongListActivity extends Activity implements AmbientMode.AmbientCal
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_long_list);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         mHandler = new Handler();
 
@@ -186,9 +188,9 @@ public class LongListActivity extends Activity implements AmbientMode.AmbientCal
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

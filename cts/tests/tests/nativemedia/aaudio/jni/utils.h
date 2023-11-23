@@ -24,6 +24,11 @@ int64_t getNanoseconds(clockid_t clockId = CLOCK_MONOTONIC);
 const char* performanceModeToString(aaudio_performance_mode_t mode);
 const char* sharingModeToString(aaudio_sharing_mode_t mode);
 
+static constexpr const char* FEATURE_PLAYBACK = "android.hardware.audio.output";
+static constexpr const char* FEATURE_RECORDING = "android.hardware.microphone";
+static constexpr const char* FEATURE_LOW_LATENCY = "android.hardware.audio.low_latency";
+bool deviceSupportsFeature(const char* feature);
+
 class StreamBuilderHelper {
   public:
     struct Parameters {

@@ -53,12 +53,15 @@ public class JobStatus {
                 R.string.printer_low_on_toner);
         sBlockReasonsMap.put(BackendConstants.BLOCKED_REASON__BUSY, R.string.printer_busy);
         sBlockReasonsMap.put(BackendConstants.BLOCKED_REASON__OFFLINE, R.string.printer_offline);
+        sBlockReasonsMap.put(BackendConstants.BLOCKED_REASON__BAD_CERTIFICATE,
+                R.string.printer_bad_certificate);
     }
 
     private int mId;
     private String mJobState;
     private String mJobResult;
     private final Set<String> mBlockedReasons;
+    private byte[] mCertificate;
 
     /** Create a new, blank job status */
     public JobStatus() {
@@ -72,6 +75,7 @@ public class JobStatus {
         mJobState = other.mJobState;
         mJobResult = other.mJobResult;
         mBlockedReasons = other.mBlockedReasons;
+        mCertificate = other.mCertificate;
     }
 
     /** Returns a string resource ID corresponding to a blocked reason, or 0 if none found */
@@ -104,12 +108,18 @@ public class JobStatus {
         return !TextUtils.isEmpty(mJobResult);
     }
 
+    /** Return certificate if supplied as part of this status. */
+    public byte[] getCertificate() {
+        return mCertificate;
+    }
+
     @Override
     public String toString() {
         return "JobStatus{id=" + mId
                 + ", jobState=" + mJobState
                 + ", jobResult=" + mJobResult
                 + ", blockedReasons=" + mBlockedReasons
+                + ", certificate=" + (mCertificate != null)
                 + "}";
     }
 
@@ -136,6 +146,11 @@ public class JobStatus {
 
         Builder setJobResult(String jobResult) {
             mPrototype.mJobResult = jobResult;
+            return this;
+        }
+
+        Builder setCertificate(byte[] certificate) {
+            mPrototype.mCertificate = certificate;
             return this;
         }
 

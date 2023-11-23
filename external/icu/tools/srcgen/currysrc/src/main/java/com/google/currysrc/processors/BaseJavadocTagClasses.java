@@ -30,7 +30,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import java.util.List;
 
 /**
- * Inserts the tag text to the Javadoc for any type declaration that matches
+ * Adds the tag text to the Javadoc for any type declaration that matches
  * {@link #mustTag(AbstractTypeDeclaration)}.
  */
 public abstract class BaseJavadocTagClasses implements Processor {
@@ -58,7 +58,7 @@ public abstract class BaseJavadocTagClasses implements Processor {
         if (mustTag(node)) {
           toHide.add(node);
         }
-        return false;
+        return true;
       }
     });
     ASTRewrite rewrite = context.rewrite();

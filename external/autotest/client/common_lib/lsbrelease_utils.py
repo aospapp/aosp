@@ -13,7 +13,7 @@ import common
 from autotest_lib.client.cros import constants
 
 
-JETSTREAM_BOARDS = frozenset(['arkham', 'gale', 'whirlwind'])
+JETSTREAM_BOARDS = frozenset(['arkham', 'gale', 'mistral', 'whirlwind'])
 
 def _lsbrelease_search(regex, group_id=0, lsb_release_content=None):
     """Searches /etc/lsb-release for a regex match.

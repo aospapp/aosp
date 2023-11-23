@@ -293,6 +293,18 @@ public class OtaDeviceBuildInfo implements IDeviceBuildInfo {
         mBaselineBuild.setTestsDir(testsZipFile, version);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public File getResourcesDir() {
+        return mBaselineBuild.getResourcesDir();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setResourcesDir(File resourceDir, String version) {
+        mBaselineBuild.setResourcesDir(resourceDir, version);
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -453,6 +465,11 @@ public class OtaDeviceBuildInfo implements IDeviceBuildInfo {
         combinedFiles.addAll(mBaselineBuild.getFiles());
         combinedFiles.addAll(mOtaBuild.getFiles());
         return combinedFiles;
+    }
+
+    @Override
+    public Set<String> getVersionedFileKeys() {
+        return mBaselineBuild.getVersionedFileKeys();
     }
 
     public void setReportTargetBuild(boolean downgrade) {

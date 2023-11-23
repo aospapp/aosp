@@ -21,7 +21,7 @@
 #include "base/safe_map.h"
 #include "dex/method_reference.h"
 #include "jit_code_cache.h"
-#include "profile_compilation_info.h"
+#include "profile/profile_compilation_info.h"
 #include "profile_saver_options.h"
 
 namespace art {
@@ -58,6 +58,9 @@ class ProfileSaver {
 
   // Just for testing purposes.
   static bool HasSeenMethod(const std::string& profile, bool hot, MethodReference ref);
+
+  // Notify that startup has completed.
+  static void NotifyStartupCompleted();
 
  private:
   ProfileSaver(const ProfileSaverOptions& options,

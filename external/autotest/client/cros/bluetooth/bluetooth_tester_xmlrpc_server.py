@@ -96,6 +96,27 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                           profile_settings)
             return False
 
+        # The high 8 bits of class_of_device is part of Class of Service field
+        # which are not actually updated in kernel with
+        # self._control.set_device_class() below due to a bug in kernel
+        # mgmt.c: set_dev_class(). Hence, we should keep these bits in
+        # profile_class to make the test setup correctly.
+        # Refer to this link about Class of Device/Service bits.
+        #   https://www.bluetooth.com/specifications/assigned-numbers/baseband
+        # Since the class of device is used as an indication only and is not
+        # practically useful in autotest, the service class bits are just
+        # copied from previous self._control.read_info() request.
+        # Refer to Bluetooth Spec. 4.2, "Vol 3, Part C, 3.2.4.4 Usage" about
+        # why it is not actually important.
+        # Refer to "Vol 2. Part E, 7.3.26 Write Class of Device Command" about
+        # the correct parameters to pass to set_device_class() which require
+        # 3 bytes instead of 2 bytes.
+        # Remove the following statement which modifies profile_class only
+        # when kernel is fixed and 3 bytes are passed in set_dev_class().
+        # However, this is of very low priority.
+        profile_class = ((class_of_device & 0xFF0000) |
+                         (profile_class & 0x00FFFF))
+
         # Before beginning, force the adapter power off, even if it's already
         # off; this is enough to persuade an AP-mode Intel chip to accept
         # settings.
@@ -126,6 +147,10 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         if turn_off & bluetooth_socket.MGMT_SETTING_LE:
             if self._control.set_le(self.index, False) is None:
                 logging.warning('Failed to disable LE')
+                return False
+        if turn_off & bluetooth_socket.MGMT_SETTING_SECURE_CONNECTIONS:
+            if self._control.set_secure_connections(self.index, False) is None:
+                logging.warning('Failed to disable secure connections')
                 return False
 
         # Adjust settings that are BR/EDR specific that we need to set before
@@ -183,6 +208,19 @@ class BluetoothTesterXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                     is None):
             logging.warning('Failed to set local name')
             return False
+
+        # Check and set discoverable property
+        if ((profile_settings ^ current_settings) &
+                    bluetooth_socket.MGMT_SETTING_DISCOVERABLE):
+            logging.debug('Set discoverable to %x ',
+                          profile_settings &
+                          bluetooth_socket.MGMT_SETTING_DISCOVERABLE)
+            if self._control.set_discoverable(
+                   self.index,
+                   profile_settings &
+                   bluetooth_socket.MGMT_SETTING_DISCOVERABLE) is None:
+                logging.warning('Failed to set discoverable setting')
+                return False
 
         # Now the settings have been set, power up the adapter.
         if not self._control.set_powered(

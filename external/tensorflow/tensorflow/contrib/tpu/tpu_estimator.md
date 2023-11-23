@@ -87,14 +87,11 @@ handle training:
           label = tf.cast(features["label"], tf.int32)
           return image, label
 
-        dataset = tf.contrib.data.TFRecordDataset(
+        dataset = tf.data.TFRecordDataset(
             filename, buffer_size=FLAGS.dataset_reader_buffer_size)
-        dataset = dataset.map(parser).cache().repeat().batch(batch_size)
-        images, labels = dataset.make_one_shot_iterator().get_next()
-        # set_shape to give inputs statically known shapes.
-        images.set_shape([batch_size, 28 * 28])
-        labels.set_shape([batch_size])
-        return images, labels
+        dataset = dataset.map(parser).cache().repeat().batch(
+            batch_size, drop_remainder=True)
+        return dataset
       return input_fn
 
 
@@ -172,7 +169,7 @@ It is always recommended to port a small, simple model first to make sure that
 you are familiar with the basic concepts of `TPUEstimator` and test end-to-end
 behavior. Once your simple model runs, gradually add more functionality.
 In addition, there are several sample models, available at
-[github.com/tensorflow/tpu-demos](https://github.com/tensorflow/tpu-demos).
+[github.com/tensorflow/tpu](https://github.com/tensorflow/tpu).
 
 To convert your code from the vanilla `Estimator` class to use TPUs, change the
 following (note some of the details may change over time):

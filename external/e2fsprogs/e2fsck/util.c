@@ -83,6 +83,8 @@ out:
 	ctx->flags |= E2F_FLAG_ABORT;
 	if (ctx->flags & E2F_FLAG_SETJMP_OK)
 		longjmp(ctx->abort_loc, 1);
+	if (ctx->logf)
+		fprintf(ctx->logf, "Exit status: %d\n", exit_value);
 	exit(exit_value);
 }
 
@@ -194,6 +196,9 @@ int ask_yn(e2fsck_t ctx, const char * string, int def)
 	const char	*short_yes = _("yY");
 	const char	*short_no = _("nN");
 	const char	*short_yesall = _("aA");
+	const char	*english_yes = "yY";
+	const char	*english_no = "nN";
+	const char	*english_yesall = "aA";
 	const char	*yesall_prompt = _(" ('a' enables 'yes' to all) ");
 	const char	*extra_prompt = "";
 	static int	yes_answers;
@@ -201,7 +206,8 @@ int ask_yn(e2fsck_t ctx, const char * string, int def)
 #ifdef HAVE_TERMIOS_H
 	struct termios	termios, tmp;
 
-	tcgetattr (0, &termios);
+	if (tcgetattr (0, &termios) < 0)
+		memset(&termios, 0, sizeof(termios));
 	tmp = termios;
 	tmp.c_lflag &= ~(ICANON | ECHO);
 	tmp.c_cc[VMIN] = 1;
@@ -242,19 +248,28 @@ int ask_yn(e2fsck_t ctx, const char * string, int def)
 			return 0;
 		}
 		if (strchr(short_yes, (char) c)) {
+		do_yes:
 			def = 1;
 			if (yes_answers >= 0)
 				yes_answers++;
 			break;
 		} else if (strchr(short_no, (char) c)) {
+		do_no:
 			def = 0;
 			yes_answers = -1;
 			break;
 		} else if (strchr(short_yesall, (char)c)) {
+		do_all:
 			def = 2;
 			yes_answers = -1;
 			ctx->options |= E2F_OPT_YES;
 			break;
+		} else if (strchr(english_yes, (char) c)) {
+			goto do_yes;
+		} else if (strchr(english_no, (char) c)) {
+			goto do_no;
+		} else if (strchr(english_yesall, (char) c)) {
+			goto do_all;
 		} else if ((c == 27 || c == ' ' || c == '\n') && (def != -1)) {
 			yes_answers = -1;
 			break;
@@ -721,7 +736,7 @@ int check_for_modules(const char *fs_name)
 
 /*
  * Helper function that does the right thing if write returns a
- * partial write, or an EGAIN/EINTR error.
+ * partial write, or an EAGAIN/EINTR error.
  */
 int write_all(int fd, char *buf, size_t count)
 {
@@ -742,16 +757,28 @@ int write_all(int fd, char *buf, size_t count)
 	return c;
 }
 
-void dump_mmp_msg(struct mmp_struct *mmp, const char *msg)
+void dump_mmp_msg(struct mmp_struct *mmp, const char *fmt, ...)
 {
+	va_list pvar;
 
-	if (msg)
-		printf("MMP check failed: %s\n", msg);
+	if (fmt) {
+		printf("MMP check failed: ");
+		va_start(pvar, fmt);
+		vprintf(fmt, pvar);
+		va_end(pvar);
+	}
 	if (mmp) {
 		time_t t = mmp->mmp_time;
 
-		printf("MMP error info: last update: %s node: %s device: %s\n",
-		       ctime(&t), mmp->mmp_nodename, mmp->mmp_bdevname);
+		printf("MMP_block:\n");
+		printf("    mmp_magic: 0x%x\n", mmp->mmp_magic);
+		printf("    mmp_check_interval: %d\n",
+		       mmp->mmp_check_interval);
+		printf("    mmp_sequence: %08x\n", mmp->mmp_seq);
+		printf("    mmp_update_date: %s", ctime(&t));
+		printf("    mmp_update_time: %lld\n", mmp->mmp_time);
+		printf("    mmp_node_name: %s\n", mmp->mmp_nodename);
+		printf("    mmp_device_name: %s\n", mmp->mmp_bdevname);
 	}
 }
 

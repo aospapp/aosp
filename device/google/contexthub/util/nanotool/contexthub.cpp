@@ -83,6 +83,7 @@ struct SensorTypeAlias {
 
 static const SensorTypeAlias sensor_aliases_[] = {
     { SensorType::Accel, SensorType::CompressedAccel, "compressed_accel" },
+    { SensorType::Magnetometer, SensorType::CompressedMag, "compressed_mag" },
 };
 
 bool SensorTypeIsAliasOf(SensorType sensor_type, SensorType alias) {

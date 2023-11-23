@@ -39,6 +39,11 @@ public class TestProvidersAccess implements ProvidersAccess {
     public static final RootInfo PICKLES;
     public static final RootInfo RECENTS;
     public static final RootInfo INSPECTOR;
+    public static final RootInfo IMAGE;
+    public static final RootInfo AUDIO;
+    public static final RootInfo VIDEO;
+    public static final RootInfo EXTERNALSTORAGE;
+
 
     static {
         DOWNLOADS = new RootInfo() {{
@@ -47,6 +52,7 @@ public class TestProvidersAccess implements ProvidersAccess {
         DOWNLOADS.authority = Providers.AUTHORITY_DOWNLOADS;
         DOWNLOADS.rootId = Providers.ROOT_ID_DOWNLOADS;
         DOWNLOADS.title = "Downloads";
+        DOWNLOADS.derivedType = RootInfo.TYPE_DOWNLOADS;
         DOWNLOADS.flags = Root.FLAG_LOCAL_ONLY
                 | Root.FLAG_SUPPORTS_CREATE
                 | Root.FLAG_SUPPORTS_IS_CHILD
@@ -56,6 +62,7 @@ public class TestProvidersAccess implements ProvidersAccess {
         HOME.authority = Providers.AUTHORITY_STORAGE;
         HOME.rootId = Providers.ROOT_ID_HOME;
         HOME.title = "Home";
+        HOME.derivedType = RootInfo.TYPE_LOCAL;
         HOME.flags = Root.FLAG_LOCAL_ONLY
                 | Root.FLAG_SUPPORTS_CREATE
                 | Root.FLAG_SUPPORTS_IS_CHILD
@@ -65,6 +72,8 @@ public class TestProvidersAccess implements ProvidersAccess {
         HAMMY.authority = "yummies";
         HAMMY.rootId = "hamsandwich";
         HAMMY.title = "Ham Sandwich";
+        HAMMY.derivedType = RootInfo.TYPE_LOCAL;
+        HAMMY.flags = Root.FLAG_LOCAL_ONLY;
 
         PICKLES = new RootInfo();
         PICKLES.authority = "yummies";
@@ -85,6 +94,30 @@ public class TestProvidersAccess implements ProvidersAccess {
         INSPECTOR.title = "Inspector";
         INSPECTOR.flags = Root.FLAG_LOCAL_ONLY
             | Root.FLAG_SUPPORTS_CREATE;
+
+        IMAGE = new RootInfo();
+        IMAGE.authority = Providers.AUTHORITY_MEDIA;
+        IMAGE.rootId = Providers.ROOT_ID_IMAGES;
+        IMAGE.title = "Images";
+        IMAGE.derivedType = RootInfo.TYPE_IMAGES;
+
+        AUDIO = new RootInfo();
+        AUDIO.authority = Providers.AUTHORITY_MEDIA;
+        AUDIO.rootId = Providers.ROOT_ID_AUDIO;
+        AUDIO.title = "Audio";
+        AUDIO.derivedType = RootInfo.TYPE_AUDIO;
+
+        VIDEO = new RootInfo();
+        VIDEO.authority = Providers.AUTHORITY_MEDIA;
+        VIDEO.rootId = Providers.ROOT_ID_VIDEOS;
+        VIDEO.title = "Videos";
+        VIDEO.derivedType = RootInfo.TYPE_VIDEO;
+
+        EXTERNALSTORAGE = new RootInfo();
+        EXTERNALSTORAGE.authority = Providers.AUTHORITY_STORAGE;
+        EXTERNALSTORAGE.rootId = Providers.ROOT_ID_DEVICE;
+        EXTERNALSTORAGE.title = "Device";
+        EXTERNALSTORAGE.derivedType = RootInfo.TYPE_LOCAL;
     }
 
     public final Map<String, Collection<RootInfo>> roots = new HashMap<>();

@@ -15,8 +15,19 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
 import org.bouncycastle.jcajce.provider.config.ProviderConfiguration;
+import org.bouncycastle.jcajce.provider.symmetric.util.ClassUtil;
 import org.bouncycastle.jcajce.provider.util.AlgorithmProvider;
 import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
+// Android-removed: Unsupported algorithms
+// import org.bouncycastle.pqc.asn1.PQCObjectIdentifiers;
+// import org.bouncycastle.pqc.jcajce.provider.mceliece.McElieceCCA2KeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.mceliece.McElieceKeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.newhope.NHKeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.qtesla.QTESLAKeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.rainbow.RainbowKeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.sphincs.Sphincs256KeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.xmss.XMSSKeyFactorySpi;
+// import org.bouncycastle.pqc.jcajce.provider.xmss.XMSSMTKeyFactorySpi;
 
 /**
  * To add the provider at runtime use:
@@ -45,7 +56,7 @@ import org.bouncycastle.jcajce.provider.util.AsymmetricKeyInfoConverter;
 public final class BouncyCastleProvider extends Provider
     implements ConfigurableProvider
 {
-    private static String info = "BouncyCastle Security Provider v1.57";
+    private static String info = "BouncyCastle Security Provider v1.61";
 
     public static final String PROVIDER_NAME = "BC";
 
@@ -61,7 +72,7 @@ public final class BouncyCastleProvider extends Provider
     private static final String[] SYMMETRIC_GENERIC =
     {
         // Android-changed: Remove unsupported algorithms, add our own version of PBEv2 AlgParams
-        // "PBEPBKDF2", "TLSKDF"
+        // "PBEPBKDF1", "PBEPBKDF2", "PBEPKCS12", "TLSKDF", "SCRYPT"
         "PBEPBKDF2", "PBEPKCS12", "PBES2AlgorithmParameters"
     };
 
@@ -77,7 +88,7 @@ public final class BouncyCastleProvider extends Provider
         // "AES", "ARC4", "ARIA", "Blowfish", "Camellia", "CAST5", "CAST6", "ChaCha", "DES", "DESede",
         // "GOST28147", "Grainv1", "Grain128", "HC128", "HC256", "IDEA", "Noekeon", "RC2", "RC5",
         // "RC6", "Rijndael", "Salsa20", "SEED", "Serpent", "Shacal2", "Skipjack", "SM4", "TEA", "Twofish", "Threefish",
-        // "VMPC", "VMPCKSA3", "XTEA", "XSalsa20", "OpenSSLPBKDF"
+        // "VMPC", "VMPCKSA3", "XTEA", "XSalsa20", "OpenSSLPBKDF", "DSTU7624", "GOST3412_2015"
         "AES", "ARC4", "Blowfish", "DES", "DESede", "RC2", "Twofish",
     };
 
@@ -98,7 +109,7 @@ public final class BouncyCastleProvider extends Provider
     private static final String[] ASYMMETRIC_CIPHERS =
     {
         // Android-changed: Unsupported algorithms
-        // "DSA", "DH", "EC", "RSA", "GOST", "ECGOST", "ElGamal", "DSTU4145", "GM"
+        // "DSA", "DH", "EC", "RSA", "GOST", "ECGOST", "ElGamal", "DSTU4145", "GM", "EdEC"
         "DSA", "DH", "EC", "RSA",
     };
 
@@ -110,7 +121,7 @@ public final class BouncyCastleProvider extends Provider
     {
         // Android-changed: Unsupported algorithms
         // "GOST3411", "Keccak", "MD2", "MD4", "MD5", "SHA1", "RIPEMD128", "RIPEMD160", "RIPEMD256", "RIPEMD320", "SHA224",
-        // "SHA256", "SHA384", "SHA512", "SHA3", "Skein", "SM3", "Tiger", "Whirlpool", "Blake2b"
+        // "SHA256", "SHA384", "SHA512", "SHA3", "Skein", "SM3", "Tiger", "Whirlpool", "Blake2b", "Blake2s", "DSTU7564"
         "MD5", "SHA1", "SHA224", "SHA256", "SHA384", "SHA512",
     };
 
@@ -140,7 +151,7 @@ public final class BouncyCastleProvider extends Provider
      */
     public BouncyCastleProvider()
     {
-        super(PROVIDER_NAME, 1.57, info);
+        super(PROVIDER_NAME, 1.61, info);
 
         AccessController.doPrivileged(new PrivilegedAction()
         {
@@ -172,6 +183,7 @@ public final class BouncyCastleProvider extends Provider
         /*
         loadAlgorithms(SECURE_RANDOM_PACKAGE, SECURE_RANDOMS);
 
+        loadPQCKeys();  // so we can handle certificates containing them.
         //
         // X509Store
         //
@@ -224,24 +236,7 @@ public final class BouncyCastleProvider extends Provider
     {
         for (int i = 0; i != names.length; i++)
         {
-            Class clazz = null;
-            try
-            {
-                ClassLoader loader = this.getClass().getClassLoader();
-
-                if (loader != null)
-                {
-                    clazz = loader.loadClass(packageName + names[i] + "$Mappings");
-                }
-                else
-                {
-                    clazz = Class.forName(packageName + names[i] + "$Mappings");
-                }
-            }
-            catch (ClassNotFoundException e)
-            {
-                // ignore
-            }
+            Class clazz = ClassUtil.loadClass(BouncyCastleProvider.class, packageName + names[i] + "$Mappings");
 
             if (clazz != null)
             {
@@ -257,6 +252,26 @@ public final class BouncyCastleProvider extends Provider
             }
         }
     }
+
+    // BEGIN Android-removed: Unsupported algorithms
+    /*
+    private void loadPQCKeys()
+    {
+        addKeyInfoConverter(PQCObjectIdentifiers.sphincs256, new Sphincs256KeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.newHope, new NHKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.xmss, new XMSSKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.xmss_mt, new XMSSMTKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.mcEliece, new McElieceKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.mcElieceCca2, new McElieceCCA2KeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.rainbow, new RainbowKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.qTESLA_I, new QTESLAKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.qTESLA_III_size, new QTESLAKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.qTESLA_III_speed, new QTESLAKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.qTESLA_p_I, new QTESLAKeyFactorySpi());
+        addKeyInfoConverter(PQCObjectIdentifiers.qTESLA_p_III, new QTESLAKeyFactorySpi());
+    }
+    */
+    // END Android-removed: Unsupported algorithms
 
     public void setParameter(String parameterName, Object parameter)
     {

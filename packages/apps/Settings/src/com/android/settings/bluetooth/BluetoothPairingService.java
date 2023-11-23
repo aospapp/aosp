@@ -17,15 +17,15 @@
 package com.android.settings.bluetooth;
 
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothDevice;
-import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.os.IBinder;
 import android.text.TextUtils;
@@ -124,7 +124,8 @@ public final class BluetoothPairingService extends Service {
                 .setLocalOnly(true);
 
         PendingIntent pairIntent = PendingIntent.getActivity(this, 0,
-                getPairingDialogIntent(this, intent), PendingIntent.FLAG_ONE_SHOT);
+                getPairingDialogIntent(this, intent),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
 
         PendingIntent dismissIntent = PendingIntent.getBroadcast(this, 0,
                 new Intent(ACTION_DISMISS_PAIRING), PendingIntent.FLAG_ONE_SHOT);

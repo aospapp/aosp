@@ -16,6 +16,9 @@
 package com.android.tradefed.build;
 
 import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
+import com.android.tradefed.build.proto.BuildInformation;
+import com.android.tradefed.build.proto.BuildInformation.BuildFile;
+import com.android.tradefed.build.proto.BuildInformation.KeyBuildFilePair;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.FileUtil;
@@ -27,6 +30,8 @@ import com.google.common.base.Objects;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -49,19 +54,31 @@ public class BuildInfo implements IBuildInfo {
     private String mBuildTargetName = "stub";
     private final UniqueMultiMap<String, String> mBuildAttributes =
             new UniqueMultiMap<String, String>();
+    // TODO: once deployed make non-transient
     private Map<String, VersionedFile> mVersionedFileMap;
+    private transient MultiMap<String, VersionedFile> mVersionedFileMultiMap;
     private String mBuildFlavor = null;
     private String mBuildBranch = null;
     private String mDeviceSerial = null;
+    /** Whether or not the build info describes a test resource */
+    private boolean mTestResourceBuild = false;
 
     /** File handling properties: Some files of the BuildInfo might requires special handling */
     private final Set<BuildInfoProperties> mProperties = new HashSet<>();
+
+    private static final String[] FILE_NOT_TO_CLONE =
+            new String[] {
+                BuildInfoFileKey.TESTDIR_IMAGE.getFileKey(),
+                BuildInfoFileKey.HOST_LINKED_DIR.getFileKey(),
+                BuildInfoFileKey.TARGET_LINKED_DIR.getFileKey(),
+            };
 
     /**
      * Creates a {@link BuildInfo} using default attribute values.
      */
     public BuildInfo() {
         mVersionedFileMap = new Hashtable<String, VersionedFile>();
+        mVersionedFileMultiMap = new MultiMap<String, VersionedFile>();
     }
 
     /**
@@ -71,26 +88,9 @@ public class BuildInfo implements IBuildInfo {
      * @param buildTargetName the build target name
      */
     public BuildInfo(String buildId, String buildTargetName) {
+        this();
         mBuildId = buildId;
         mBuildTargetName = buildTargetName;
-        mVersionedFileMap = new Hashtable<String, VersionedFile>();
-    }
-
-    /**
-     * Creates a {@link BuildInfo}
-     *
-     * @param buildId the build id
-     * @param testTag the test tag name
-     * @param buildTargetName the build target name
-     * @deprecated use {@link #BuildInfo(String, String)} instead. test-tag should not be mandatory
-     * when instantiating the build info.
-     */
-    @Deprecated
-    public BuildInfo(String buildId, String testTag, String buildTargetName) {
-        mBuildId = buildId;
-        mTestTag = testTag;
-        mBuildTargetName = buildTargetName;
-        mVersionedFileMap = new Hashtable<String, VersionedFile>();
     }
 
     /**
@@ -122,6 +122,18 @@ public class BuildInfo implements IBuildInfo {
     @Override
     public void setBuildId(String buildId) {
         mBuildId = buildId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isTestResourceBuild() {
+        return mTestResourceBuild;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTestResourceBuild(boolean testResourceBuild) {
+        mTestResourceBuild = testResourceBuild;
     }
 
     /**
@@ -185,6 +197,12 @@ public class BuildInfo implements IBuildInfo {
         mBuildAttributes.put(attributeName, attributeValue);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void addBuildAttributes(Map<String, String> buildAttributes) {
+        mBuildAttributes.putAll(buildAttributes);
+    }
+
     /**
      * Helper method to copy build attributes, branch, and flavor from other build.
      */
@@ -193,6 +211,7 @@ public class BuildInfo implements IBuildInfo {
         setBuildFlavor(build.getBuildFlavor());
         setBuildBranch(build.getBuildBranch());
         setTestTag(build.getTestTag());
+        setTestResourceBuild(build.isTestResourceBuild());
     }
 
     protected MultiMap<String, String> getAttributesMultiMap() {
@@ -240,11 +259,38 @@ public class BuildInfo implements IBuildInfo {
      */
     protected boolean applyBuildProperties(
             VersionedFile origFileConsidered, IBuildInfo build, IBuildInfo receiver) {
+        // If the no copy on sharding is set, that means the tests dir will be shared and should
+        // not be copied.
+        if (getProperties().contains(BuildInfoProperties.DO_NOT_COPY_ON_SHARDING)) {
+            for (String name : FILE_NOT_TO_CLONE) {
+                if (origFileConsidered.getFile().equals(build.getFile(name))) {
+                    receiver.setFile(
+                            name, origFileConsidered.getFile(), origFileConsidered.getVersion());
+                    return true;
+                }
+            }
+        }
+        if (getProperties().contains(BuildInfoProperties.DO_NOT_COPY_IMAGE_FILE)) {
+            if (origFileConsidered.equals(build.getVersionedFile(BuildInfoFileKey.DEVICE_IMAGE))) {
+                CLog.d("Skip copying of device_image.");
+                return true;
+            }
+        }
         return false;
     }
 
     protected Map<String, VersionedFile> getVersionedFileMap() {
-        return mVersionedFileMap;
+        return mVersionedFileMultiMap.getUniqueMap();
+    }
+
+    protected MultiMap<String, VersionedFile> getVersionedFileMapFull() {
+        return new MultiMap<>(mVersionedFileMultiMap);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getVersionedFileKeys() {
+        return mVersionedFileMultiMap.keySet();
     }
 
     /**
@@ -252,11 +298,11 @@ public class BuildInfo implements IBuildInfo {
      */
     @Override
     public File getFile(String name) {
-        VersionedFile fileRecord = mVersionedFileMap.get(name);
-        if (fileRecord != null) {
-            return fileRecord.getFile();
+        List<VersionedFile> fileRecords = mVersionedFileMultiMap.get(name);
+        if (fileRecords == null || fileRecords.isEmpty()) {
+            return null;
         }
-        return null;
+        return fileRecords.get(0).getFile();
     }
 
     /** {@inheritDoc} */
@@ -267,8 +313,12 @@ public class BuildInfo implements IBuildInfo {
 
     /** {@inheritDoc} */
     @Override
-    public VersionedFile getVersionedFile(String name) {
-        return mVersionedFileMap.get(name);
+    public final VersionedFile getVersionedFile(String name) {
+        List<VersionedFile> fileRecords = mVersionedFileMultiMap.get(name);
+        if (fileRecords == null || fileRecords.isEmpty()) {
+            return null;
+        }
+        return fileRecords.get(0);
     }
 
     /** {@inheritDoc} */
@@ -277,12 +327,22 @@ public class BuildInfo implements IBuildInfo {
         return getVersionedFile(key.getFileKey());
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public final List<VersionedFile> getVersionedFiles(BuildInfoFileKey key) {
+        if (!key.isList()) {
+            throw new UnsupportedOperationException(
+                    String.format("Key %s does not support list of files.", key.getFileKey()));
+        }
+        return mVersionedFileMultiMap.get(key.getFileKey());
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public Collection<VersionedFile> getFiles() {
-        return mVersionedFileMap.values();
+        return mVersionedFileMultiMap.values();
     }
 
     /**
@@ -290,11 +350,11 @@ public class BuildInfo implements IBuildInfo {
      */
     @Override
     public String getVersion(String name) {
-        VersionedFile fileRecord = mVersionedFileMap.get(name);
-        if (fileRecord != null) {
-            return fileRecord.getVersion();
+        List<VersionedFile> fileRecords = mVersionedFileMultiMap.get(name);
+        if (fileRecords == null || fileRecords.isEmpty()) {
+            return null;
         }
-        return null;
+        return fileRecords.get(0).getVersion();
     }
 
     /** {@inheritDoc} */
@@ -308,12 +368,20 @@ public class BuildInfo implements IBuildInfo {
      */
     @Override
     public void setFile(String name, File file, String version) {
-        if (mVersionedFileMap.containsKey(name)) {
-            CLog.e("Device build already contains a file for %s in thread %s", name,
-                    Thread.currentThread().getName());
-            return;
+        if (!mVersionedFileMap.containsKey(name)) {
+            mVersionedFileMap.put(name, new VersionedFile(file, version));
         }
-        mVersionedFileMap.put(name, new VersionedFile(file, version));
+        if (mVersionedFileMultiMap.containsKey(name)) {
+            BuildInfoFileKey key = BuildInfoFileKey.fromString(name);
+            // If the key is a list, we will add it to the map.
+            if (key == null || !key.isList()) {
+                CLog.e(
+                        "Device build already contains a file for %s in thread %s",
+                        name, Thread.currentThread().getName());
+                return;
+            }
+        }
+        mVersionedFileMultiMap.put(name, new VersionedFile(file, version));
     }
 
     /** {@inheritDoc} */
@@ -327,10 +395,10 @@ public class BuildInfo implements IBuildInfo {
      */
     @Override
     public void cleanUp() {
-        for (VersionedFile fileRecord : mVersionedFileMap.values()) {
+        for (VersionedFile fileRecord : mVersionedFileMultiMap.values()) {
             FileUtil.recursiveDelete(fileRecord.getFile());
         }
-        mVersionedFileMap.clear();
+        mVersionedFileMultiMap.clear();
     }
 
     /** {@inheritDoc} */
@@ -339,7 +407,7 @@ public class BuildInfo implements IBuildInfo {
         if (doNotClean == null) {
             cleanUp();
         }
-        for (VersionedFile fileRecord : mVersionedFileMap.values()) {
+        for (VersionedFile fileRecord : mVersionedFileMultiMap.values()) {
             if (!doNotClean.contains(fileRecord.getFile())) {
                 FileUtil.recursiveDelete(fileRecord.getFile());
             }
@@ -351,10 +419,12 @@ public class BuildInfo implements IBuildInfo {
      * Run through all the {@link VersionedFile} and remove from the map the one that do not exists.
      */
     private void refreshVersionedFiles() {
-        Set<String> keys = new HashSet<>(mVersionedFileMap.keySet());
+        Set<String> keys = new HashSet<>(mVersionedFileMultiMap.keySet());
         for (String key : keys) {
-            if (!mVersionedFileMap.get(key).getFile().exists()) {
-                mVersionedFileMap.remove(key);
+            for (VersionedFile file : mVersionedFileMultiMap.get(key)) {
+                if (!file.getFile().exists()) {
+                    mVersionedFileMultiMap.remove(key);
+                }
             }
         }
     }
@@ -479,5 +549,129 @@ public class BuildInfo implements IBuildInfo {
                 .add("branch", mBuildBranch)
                 .add("serial", mDeviceSerial)
                 .toString();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BuildInformation.BuildInfo toProto() {
+        BuildInformation.BuildInfo.Builder protoBuilder = BuildInformation.BuildInfo.newBuilder();
+        if (getBuildId() != null) {
+            protoBuilder.setBuildId(getBuildId());
+        }
+        if (getBuildFlavor() != null) {
+            protoBuilder.setBuildFlavor(getBuildFlavor());
+        }
+        if (getBuildBranch() != null) {
+            protoBuilder.setBranch(getBuildBranch());
+        }
+        // Attributes
+        protoBuilder.putAllAttributes(getBuildAttributes());
+        // Populate the versioned file
+        for (String fileKey : mVersionedFileMultiMap.keySet()) {
+            KeyBuildFilePair.Builder buildFile = KeyBuildFilePair.newBuilder();
+            buildFile.setBuildFileKey(fileKey);
+            for (VersionedFile vFile : mVersionedFileMultiMap.get(fileKey)) {
+                BuildFile.Builder fileInformation = BuildFile.newBuilder();
+                fileInformation.setVersion(vFile.getVersion());
+                fileInformation.setLocalPath(vFile.getFile().getAbsolutePath());
+                buildFile.addFile(fileInformation);
+            }
+            protoBuilder.addVersionedFile(buildFile);
+        }
+        protoBuilder.setBuildInfoClass(this.getClass().getCanonicalName());
+        // Test resource
+        protoBuilder.setIsTestResource(isTestResourceBuild());
+        return protoBuilder.build();
+    }
+
+    /** Copy all the {@link VersionedFile} from a given build to this one. */
+    public final void copyAllFileFrom(BuildInfo build) {
+        MultiMap<String, VersionedFile> versionedMap = build.getVersionedFileMapFull();
+        for (String versionedFile : versionedMap.keySet()) {
+            for (VersionedFile vFile : versionedMap.get(versionedFile)) {
+                setFile(versionedFile, vFile.getFile(), vFile.getVersion());
+            }
+        }
+    }
+
+    /** Special serialization to handle the new underlying type. */
+    private void writeObject(ObjectOutputStream outputStream) throws IOException {
+        outputStream.defaultWriteObject();
+        outputStream.writeObject(mVersionedFileMultiMap);
+    }
+
+    /** Special java method that allows for custom deserialization. */
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        try {
+            mVersionedFileMultiMap = (MultiMap<String, VersionedFile>) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            mVersionedFileMultiMap = new MultiMap<>();
+        }
+    }
+
+    /** Inverse operation to {@link #toProto()} to get the instance back. */
+    public static IBuildInfo fromProto(BuildInformation.BuildInfo protoBuild) {
+        IBuildInfo buildInfo;
+        String buildClass = protoBuild.getBuildInfoClass();
+        if (buildClass.isEmpty()) {
+            buildInfo = new BuildInfo();
+        } else {
+            // Restore the original type of build info.
+            try {
+                buildInfo = (IBuildInfo) Class.forName(buildClass).newInstance();
+            } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        // Build id
+        if (!protoBuild.getBuildId().isEmpty()) {
+            buildInfo.setBuildId(protoBuild.getBuildId());
+        }
+        // Build Flavor
+        if (!protoBuild.getBuildFlavor().isEmpty()) {
+            buildInfo.setBuildFlavor(protoBuild.getBuildFlavor());
+        }
+        // Build Branch
+        if (!protoBuild.getBranch().isEmpty()) {
+            buildInfo.setBuildBranch(protoBuild.getBranch());
+        }
+        // Attributes
+        for (String key : protoBuild.getAttributes().keySet()) {
+            buildInfo.addBuildAttribute(key, protoBuild.getAttributes().get(key));
+        }
+        // Versioned File
+        for (KeyBuildFilePair filePair : protoBuild.getVersionedFileList()) {
+            for (BuildFile buildFile : filePair.getFileList()) {
+                buildInfo.setFile(
+                        filePair.getBuildFileKey(),
+                        new File(buildFile.getLocalPath()),
+                        buildFile.getVersion());
+            }
+        }
+        // Test resource
+        buildInfo.setTestResourceBuild(protoBuild.getIsTestResource());
+        return buildInfo;
+    }
+
+    /**
+     * Get test resource from a list of builds.
+     *
+     * @param testResourceBuildInfos An list of {@link IBuildInfo}.
+     * @param testResourceName the test resource name
+     * @return the test resource file.
+     */
+    public static File getTestResource(
+            List<IBuildInfo> testResourceBuildInfos, String testResourceName) {
+        if (testResourceBuildInfos == null) {
+            return null;
+        }
+        for (IBuildInfo buildInfo : testResourceBuildInfos) {
+            File testResourceFile = buildInfo.getFile(testResourceName);
+            if (testResourceFile != null) {
+                return testResourceFile;
+            }
+        }
+        return null;
     }
 }

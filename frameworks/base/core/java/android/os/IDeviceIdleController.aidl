@@ -39,10 +39,13 @@ interface IDeviceIdleController {
     int[] getAppIdTempWhitelist();
     boolean isPowerSaveWhitelistExceptIdleApp(String name);
     boolean isPowerSaveWhitelistApp(String name);
+    @UnsupportedAppUsage
     void addPowerSaveTempWhitelistApp(String name, long duration, int userId, String reason);
     long addPowerSaveTempWhitelistAppForMms(String name, int userId, String reason);
     long addPowerSaveTempWhitelistAppForSms(String name, int userId, String reason);
     void exitIdle(String reason);
     boolean registerMaintenanceActivityListener(IMaintenanceActivityListener listener);
     void unregisterMaintenanceActivityListener(IMaintenanceActivityListener listener);
+    int setPreIdleTimeoutMode(int Mode);
+    void resetPreIdleTimeoutMode();
 }

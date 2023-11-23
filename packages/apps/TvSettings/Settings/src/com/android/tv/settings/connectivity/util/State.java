@@ -17,7 +17,7 @@
 package com.android.tv.settings.connectivity.util;
 
 
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 
 /**
  * State used by {@link StateMachine}.

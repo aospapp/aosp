@@ -27,15 +27,16 @@ import java.util.concurrent.TimeUnit;
  * Custom {@link android.os.CancellationSignal.OnCancelListener} used to assert that
  * {@link android.os.CancellationSignal.OnCancelListener} was called, and just once.
  */
-final class OneTimeCancellationSignalListener implements CancellationSignal.OnCancelListener {
+public final class OneTimeCancellationSignalListener
+        implements CancellationSignal.OnCancelListener {
     private final CountDownLatch mLatch = new CountDownLatch(1);
     private final long mTimeoutMs;
 
-    OneTimeCancellationSignalListener(long timeoutMs) {
+    public OneTimeCancellationSignalListener(long timeoutMs) {
         mTimeoutMs = timeoutMs;
     }
 
-    void assertOnCancelCalled() throws Exception {
+    public void assertOnCancelCalled() throws Exception {
         final boolean called = mLatch.await(mTimeoutMs, TimeUnit.MILLISECONDS);
         assertWithMessage("Timeout (%s ms) waiting for onCancel()", mTimeoutMs)
                 .that(called).isTrue();

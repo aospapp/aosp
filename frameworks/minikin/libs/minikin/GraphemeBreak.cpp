@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <android-base/macros.h>
 #include <unicode/uchar.h>
 #include <unicode/utf16.h>
 
@@ -105,10 +106,6 @@ bool GraphemeBreak::isGraphemeBreak(const float* advances, const uint16_t* buf, 
     if ((p1 == U_GCB_LVT || p1 == U_GCB_T) && p2 == U_GCB_T) {
         return false;
     }
-    // Rule GB9, x (Extend | ZWJ); Rule GB9a, x SpacingMark; Rule GB9b, Prepend x
-    if (p2 == U_GCB_EXTEND || p2 == U_GCB_ZWJ || p2 == U_GCB_SPACING_MARK || p1 == U_GCB_PREPEND) {
-        return false;
-    }
 
     // This is used to decide font-dependent grapheme clusters. If we don't have the advance
     // information, we become conservative in grapheme breaking and assume that it has no advance.
@@ -121,48 +118,32 @@ bool GraphemeBreak::isGraphemeBreak(const float* advances, const uint16_t* buf, 
         return true;
     }
 
-    // Note: For Rule GB10 and GB11 below, we do not use the Unicode line breaking properties for
-    // determining emoji-ness and carry our own data, because our data could be more fresh than what
-    // ICU provides.
-    //
-    // Tailored version of Rule GB10, (E_Base | EBG) Extend* × E_Modifier.
-    // The rule itself says do not break between emoji base and emoji modifiers, skipping all Extend
-    // characters. Variation selectors are considered Extend, so they are handled fine.
-    //
-    // We tailor this by requiring that an actual ligature is formed. If the font doesn't form a
-    // ligature, we allow a break before the modifier.
-    if (isEmojiModifier(c2)) {
-        uint32_t c0 = c1;
+    // Rule GB9, x (Extend | ZWJ); Rule GB9a, x SpacingMark; Rule GB9b, Prepend x
+    if (p2 == U_GCB_EXTEND || p2 == U_GCB_ZWJ || p2 == U_GCB_SPACING_MARK || p1 == U_GCB_PREPEND) {
+        return false;
+    }
+
+    // Tailored version of Rule GB11
+    // \p{Extended_Pictographic} Extend* ZWJ x \p{Extended_Pictographic}
+    if (offset_back > start && p1 == U_GCB_ZWJ &&
+        u_hasBinaryProperty(c2, UCHAR_EXTENDED_PICTOGRAPHIC)) {
+        uint32_t c0 = 0;
         size_t offset_backback = offset_back;
-        int32_t p0 = p1;
-        if (p0 == U_GCB_EXTEND && offset_backback > start) {
-            // skip over emoji variation selector
+        int32_t p0 = 0;
+
+        U16_PREV(buf, start, offset_backback, c0);
+        p0 = tailoredGraphemeClusterBreak(c0);
+
+        while (p0 == U_GCB_EXTEND && offset_backback > start) {
             U16_PREV(buf, start, offset_backback, c0);
             p0 = tailoredGraphemeClusterBreak(c0);
         }
-        if (isEmojiBase(c0)) {
+
+        if (u_hasBinaryProperty(c0, UCHAR_EXTENDED_PICTOGRAPHIC)) {
             return false;
         }
     }
-    // Tailored version of Rule GB11, ZWJ × (Glue_After_Zwj | EBG)
-    // We try to make emoji sequences with ZWJ a single grapheme cluster, but only if they actually
-    // merge to one cluster. So we are more relaxed than the UAX #29 rules in accepting any emoji
-    // character after the ZWJ, but are tighter in that we only treat it as one cluster if a
-    // ligature is actually formed and we also require the character before the ZWJ to also be an
-    // emoji.
-    if (p1 == U_GCB_ZWJ && isEmoji(c2) && offset_back > start) {
-        // look at character before ZWJ to see that both can participate in an emoji zwj sequence
-        uint32_t c0 = 0;
-        size_t offset_backback = offset_back;
-        U16_PREV(buf, start, offset_backback, c0);
-        if (c0 == 0xFE0F && offset_backback > start) {
-            // skip over emoji variation selector
-            U16_PREV(buf, start, offset_backback, c0);
-        }
-        if (isEmoji(c0)) {
-            return false;
-        }
-    }
+
     // Tailored version of Rule GB12 and Rule GB13 that look at even-odd cases.
     // sot   (RI RI)*  RI x RI
     // [^RI] (RI RI)*  RI x RI
@@ -211,7 +192,7 @@ size_t GraphemeBreak::getTextRunCursor(const float* advances, const uint16_t* bu
             if (offset < start + count) {
                 offset++;
             }
-        // fall through
+            FALLTHROUGH_INTENDED;
         case AT_OR_AFTER:
             while (!isGraphemeBreak(advances, buf, start, count, offset)) {
                 offset++;
@@ -221,7 +202,7 @@ size_t GraphemeBreak::getTextRunCursor(const float* advances, const uint16_t* bu
             if (offset > start) {
                 offset--;
             }
-        // fall through
+            FALLTHROUGH_INTENDED;
         case AT_OR_BEFORE:
             while (!isGraphemeBreak(advances, buf, start, count, offset)) {
                 offset--;

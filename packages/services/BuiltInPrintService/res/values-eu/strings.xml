@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Atea irekita dago"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Papera trabatuta dago"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Konexiorik gabe"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Ziurtagiri okerra"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Enkriptatu gabe"</string>
     <string name="printer_check" msgid="6428369671197132828">"Egiaztatu inprimagailua"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Bidaltzeko zain"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Ezin izan da irakurri dokumentua"</string>
@@ -37,7 +39,7 @@
     <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 hazbete"</string>
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 hazbete"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s (%2$s)"</string>
-    <string name="title_activity_add_printer" msgid="9119216095769228566">"Gehitu inprimagailu bat"</string>
+    <string name="title_activity_add_printer" msgid="9119216095769228566">"Gehitu inprimagailua"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"Gehitu inprimagailu bat IP helbidearen arabera"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Ostalari-izena edo IP helbidea"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Inprimagailua ez da bateragarria"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Bilatu Wi-Fi Direct erabil dezaketen inprimagailuak"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct bidez inprimatzea"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct erabiltzen duten inprimagailuak"</string>
     <string name="searching" msgid="2114018057619514587">"Bilatzen…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Baliteke konexioa onartu behar izatea inprimagailuaren aurrealdeko panelean"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Ahaztu"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct zerbitzuaren bidez konektatzen da"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Uneko sarearen bidez konektatzen da (<xliff:g id="IP_ADDRESS">%1$s</xliff:g>)"</string>
+    <string name="security" msgid="2279008326210305401">"Segurtasuna"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Inprimagailuak segurtasun-ziurtagiri berri bat eman du, edo beste gailu bat ziurtagiria faltsutzen ari da. Ziurtagiri berria onartu nahi duzu?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Inprimagailu honek ez du jada onartzen lan enkriptaturik. Aurrera egin nahi duzu inprimaketarekin?"</string>
+    <string name="accept" msgid="4426153292469698134">"Onartu"</string>
+    <string name="reject" msgid="24751635160440693">"Baztertu"</string>
+    <string name="connections" msgid="8895413761760117180">"Konexioak"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Inprimatze-zerbitzu lehenetsiak kokapena erabiltzeko baimena behar du inguruko gailuak aurkitzeko."</string>
+    <string name="fix" msgid="7784394272611365393">"Berrikusi baimena"</string>
 </resources>

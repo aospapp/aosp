@@ -5,6 +5,8 @@
 * found in the LICENSE file.
 */
 
+#include "vk/GrVkVulkan.h"
+
 #include "Window_win.h"
 
 #include <tchar.h>
@@ -72,11 +74,11 @@ bool Window_win::init(HINSTANCE hInstance) {
         wcex.cbWndExtra = 0;
         wcex.hInstance = fHInstance;
         wcex.hIcon = LoadIcon(fHInstance, (LPCTSTR)IDI_WINLOGO);
-        wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);;
+        wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
         wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
         wcex.lpszMenuName = nullptr;
         wcex.lpszClassName = gSZWindowClass;
-        wcex.hIconSm = LoadIcon(fHInstance, (LPCTSTR)IDI_WINLOGO);;
+        wcex.hIconSm = LoadIcon(fHInstance, (LPCTSTR)IDI_WINLOGO);
 
         if (!RegisterClassEx(&wcex)) {
             return false;
@@ -303,8 +305,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             std::unique_ptr<TOUCHINPUT[]> inputs(new TOUCHINPUT[numInputs]);
             if (GetTouchInputInfo((HTOUCHINPUT)lParam, numInputs, inputs.get(),
                                   sizeof(TOUCHINPUT))) {
-                RECT rect;
-                GetClientRect(hWnd, &rect);
+                POINT topLeft = {0, 0};
+                ClientToScreen(hWnd, &topLeft);
                 for (uint16_t i = 0; i < numInputs; ++i) {
                     TOUCHINPUT ti = inputs[i];
                     Window::InputState state;
@@ -319,8 +321,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     }
                     // TOUCHINPUT coordinates are in 100ths of pixels
                     // Adjust for that, and make them window relative
-                    LONG tx = (ti.x / 100) - rect.left;
-                    LONG ty = (ti.y / 100) - rect.top;
+                    LONG tx = (ti.x / 100) - topLeft.x;
+                    LONG ty = (ti.y / 100) - topLeft.y;
                     eventHandled = window->onTouch(ti.dwID, state, tx, ty) || eventHandled;
                 }
             }

@@ -77,7 +77,7 @@ public interface ICreateInfo {
      */
     String[] getJavaPkgClasses();
 
-    Set<String> getExcludedClasses();
+    String[] getExcludedClasses();
 
     /**
      * Returns a list of fields which should be promoted to public visibility. The array values

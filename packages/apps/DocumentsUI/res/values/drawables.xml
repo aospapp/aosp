@@ -17,11 +17,4 @@
 <resources>
     <item name="app_icon" type="drawable">@mipmap/ic_app_icon</item>
     <item name="launcher_icon" type="drawable">@mipmap/ic_app_icon</item>
-    <item name="image_root_icon" type="drawable">@*android:drawable/ic_doc_image</item>
-    <item name="video_root_icon" type="drawable">@*android:drawable/ic_doc_video</item>
-    <item name="audio_root_icon" type="drawable">@*android:drawable/ic_doc_audio</item>
-    <item name="generic_doc_icon" type="drawable">@*android:drawable/ic_doc_generic</item>
-    <item name="search_text_select_handle_left" type="drawable">@*android:drawable/text_select_handle_left_mtrl_alpha</item>
-    <item name="search_text_select_handle_right" type="drawable">@*android:drawable/text_select_handle_right_mtrl_alpha</item>
-    <item name="search_text_select_handle_middle" type="drawable">@*android:drawable/text_select_handle_middle_mtrl_alpha</item>
 </resources>

@@ -26,10 +26,6 @@
  *    Rob Clark <robclark@freedesktop.org>
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include "kgsl_priv.h"
 
 
@@ -52,6 +48,7 @@ static int kgsl_pipe_get_param(struct fd_pipe *pipe,
 		return 0;
 	case FD_MAX_FREQ:
 	case FD_TIMESTAMP:
+	case FD_NR_RINGS:
 		/* unsupported on kgsl */
 		return -1;
 	default:
@@ -210,7 +207,7 @@ static int getprop(int fd, enum kgsl_property_type type,
 
 
 drm_private struct fd_pipe * kgsl_pipe_new(struct fd_device *dev,
-		enum fd_pipe_id id)
+		enum fd_pipe_id id, uint32_t prio)
 {
 	static const char *paths[] = {
 			[FD_PIPE_3D] = "/dev/kgsl-3d0",

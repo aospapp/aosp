@@ -16,19 +16,42 @@
 
 package com.android.tools.metalava.model.text
 
-import com.google.common.truth.Truth
+import com.android.tools.metalava.doclava1.ApiFile
+import com.android.tools.metalava.model.text.TextTypeParameterItem.Companion.bounds
+
+import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class TextTypeParameterItemTest {
     @Test
     fun testTypeParameterNames() {
-        Truth.assertThat(TextTypeParameterItem.bounds(null).toString()).isEqualTo("[]")
-        Truth.assertThat(TextTypeParameterItem.bounds("").toString()).isEqualTo("[]")
-        Truth.assertThat(TextTypeParameterItem.bounds("X").toString()).isEqualTo("[]")
-        Truth.assertThat(TextTypeParameterItem.bounds("DEF extends T").toString()).isEqualTo("[T]")
-        Truth.assertThat(TextTypeParameterItem.bounds("T extends java.lang.Comparable<? super T>").toString())
+        assertThat(bounds(null).toString()).isEqualTo("[]")
+        assertThat(bounds("").toString()).isEqualTo("[]")
+        assertThat(bounds("X").toString()).isEqualTo("[]")
+        assertThat(bounds("DEF extends T").toString()).isEqualTo("[T]")
+        assertThat(bounds("T extends java.lang.Comparable<? super T>").toString())
             .isEqualTo("[java.lang.Comparable]")
-        Truth.assertThat(TextTypeParameterItem.bounds("T extends java.util.List<Number> & java.util.RandomAccess").toString())
+        assertThat(bounds("T extends java.util.List<Number> & java.util.RandomAccess").toString())
             .isEqualTo("[java.util.List, java.util.RandomAccess]")
+
+        // When a type variable is on a member and the type variable is defined on the surrounding
+        // class, look up the bound on the class type parameter:
+        val codebase = ApiFile.parseApi(
+            "test", """
+            package androidx.navigation {
+              public final class NavDestination {
+                ctor public NavDestination();
+              }
+              public class NavDestinationBuilder<D extends androidx.navigation.NavDestination> {
+                ctor public NavDestinationBuilder(int id);
+                method public D build();
+              }
+            }
+        """.trimIndent(), false
+        )
+        val cls = codebase.findClass("androidx.navigation.NavDestinationBuilder")
+        val method = cls?.findMethod("build", "") as TextMethodItem
+        assertThat(method).isNotNull()
+        assertThat(bounds("D", method).toString()).isEqualTo("[androidx.navigation.NavDestination]")
     }
 }

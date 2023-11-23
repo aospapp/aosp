@@ -21,11 +21,12 @@ from autotest_lib.site_utils.lxc import unittest_setup
 from autotest_lib.site_utils.lxc import utils as lxc_utils
 
 
-class ContainerTests(unittest.TestCase):
+class ContainerTests(lxc_utils.LXCTests):
     """Unit tests for the Container class."""
 
     @classmethod
     def setUpClass(cls):
+        super(ContainerTests, cls).setUpClass()
         cls.test_dir = tempfile.mkdtemp(dir=lxc.DEFAULT_CONTAINER_PATH,
                                         prefix='container_unittest_')
 
@@ -358,7 +359,7 @@ class ContainerTests(unittest.TestCase):
         self.assertEqual(container_inode, host_inode)
 
 
-class ContainerIdTests(unittest.TestCase):
+class ContainerIdTests(lxc_utils.LXCTests):
     """Unit tests for the ContainerId class."""
 
     def setUp(self):
@@ -385,5 +386,4 @@ def random_container_id():
 
 
 if __name__ == '__main__':
-    unittest_setup.setup()
     unittest.main()

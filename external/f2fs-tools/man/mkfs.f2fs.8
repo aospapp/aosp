@@ -45,6 +45,10 @@ mkfs.f2fs \- create an F2FS file system
 .B \-q
 ]
 [
+.B \-R
+.I root_owner
+]
+[
 .B \-s
 .I #-of-segments-per-section
 ]
@@ -112,12 +116,17 @@ is hidden to users, and utilized by F2FS cleaner. If not specified, the best
 number will be assigned automatically accoring to the partition size.
 .TP
 .BI \-O " feature-list"
-Specify a feature list in order f2fs filesystem will supports.
+Specify a feature list like feature1[feature2,feature3,...] in order f2fs
+filesystem will supports.
 e.g "encrypt" and so on.
 .TP
 .BI \-q
 Quiet mode.
 With it, mkfs.f2fs does not show any messages include the basic messages.
+.TP
+.BI \-R
+Give root_owner option for initial uid/gid assignment.
+Default is set by getuid()/getgid(), and assigned by "-R $uid:$gid".
 .TP
 .BI \-s " #-of-segments-per-section"
 Specify the number of segments per section. A section consists of

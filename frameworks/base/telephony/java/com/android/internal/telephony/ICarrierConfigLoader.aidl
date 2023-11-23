@@ -23,7 +23,10 @@ import android.os.PersistableBundle;
  */
 interface ICarrierConfigLoader {
 
-    PersistableBundle getConfigForSubId(int subId);
+    @UnsupportedAppUsage
+    PersistableBundle getConfigForSubId(int subId, String callingPackage);
+
+    void overrideConfig(int subId, in PersistableBundle overrides);
 
     void notifyConfigChangedForSubId(int subId);
 

@@ -16,6 +16,8 @@
 
 package android.jni.cts;
 
+import android.os.Process;
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -309,5 +311,37 @@ public class JniStaticTest extends JniTestCase {
                         30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
                         40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
                         50));
+    }
+
+    /**
+     * dlopen(3) any of the public lib via file name (non-absolute path) should succeed.
+     */
+    public void test_dlopenPublicLibrariesInRuntimeNamespace() {
+        String error = LinkerNamespacesHelper.runDlopenPublicLibrariesInRuntimeNamespace();
+        if (error != null) {
+            fail(error);
+        }
+    }
+
+    /**
+     * If ICU4C native libraries, i.e. libicuuc.so and libicui18n.so, have been moved into APEX,
+     * app with targetSdkVersion < Q can still dlopen the /system/{LIB}/libicuuc.so even though
+     * the file does not exist in the file system. It's done by a redirect in linker.
+     * http://b/121248172
+     *
+     * This test ensures that dlopen fail with a target version SDK of Q or above.
+     */
+    public void test_dlopenIcu4cInSystemShouldFail() {
+        File systemBaseDir = new File("/system/lib" + (Process.is64Bit() ? "64" : ""));
+        String[] libs = new String[] { "libicuuc.so", "libicui18n.so"};
+
+        for (String lib : libs) {
+            File f = new File(systemBaseDir, lib);
+            assertFalse("The same native library should exist in the Runtime APEX."
+                + " It should not exist in /system: " + f , f.exists());
+            String error = LinkerNamespacesHelper.tryDlopen(f.toString());
+            assertNotNull("The native library file does not exist in the file system, "
+                + "but dlopen(" + f + ", RTLD_NOW) succeeds.", error);
+        }
     }
 }

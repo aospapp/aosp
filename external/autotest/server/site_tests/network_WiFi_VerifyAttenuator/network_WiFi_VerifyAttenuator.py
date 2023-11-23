@@ -111,7 +111,7 @@ class network_WiFi_VerifyAttenuator(wifi_cell_test_base.WiFiCellTestBase):
         # In practice it has been observed that going from max attuation
         # to 0 attenuation may take several scans until the signal is what
         # is desirable.
-        for i in range(5):
+        for _ in range(5):
             scan_result = self._client_iw_runner.wait_for_scan_result(
                 self._client_if, ssids=[ssid], timeout_seconds=10)
             if scan_result is None or len(scan_result) == 0:

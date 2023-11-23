@@ -301,6 +301,7 @@ public class BigIntegerTest extends junit.framework.TestCase {
 	/**
 	 * @tests java.math.BigInteger#negate()
 	 */
+	@SuppressWarnings("ConstantOverflow")
 	public void test_negate() {
 		assertTrue("Single negation of zero did not result in zero", zero
 				.negate().equals(zero));

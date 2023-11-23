@@ -8,8 +8,8 @@ import unittest
 
 import common
 
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server import utils
+from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import base_label
 
  # pylint: disable=missing-docstring
@@ -54,31 +54,19 @@ class TestStringPrefixLabel(base_label.StringPrefixLabel):
         return [self.label_to_return]
 
 
-class TestLabelList(base_label.StringLabel):
-    """TestLabelList is used to validate a label consisting of other labels."""
-
-    _LABEL_LIST = [TestBaseLabel(), TestStringPrefixLabel()]
-
-    def generate_labels(self, host):
-        labels = []
-        for label_detectors in self._LABEL_LIST:
-            labels.extend(label_detectors.get(host))
-        return labels
-
-
 class MockAFEHost(utils.EmptyAFEHost):
 
-    def __init__(self, labels=[], attributes={}):
-        self.labels = labels
-        self.attributes = attributes
+    def __init__(self, labels=None, attributes=None):
+        self.labels = labels or []
+        self.attributes = attributes or {}
 
 
 class MockHost(object):
 
-    def __init__(self, exists=True, afe_host=None):
+    def __init__(self, exists=True, store=None):
         self.hostname = 'hostname'
         self.exists = exists
-        self._afe_host = afe_host
+        self.host_info_store = store
 
 
 class BaseLabelUnittests(unittest.TestCase):
@@ -150,8 +138,6 @@ class LabelRetrieverUnittests(unittest.TestCase):
         label_list = [TestStringPrefixLabel(), TestBaseLabel()]
         self.retriever = base_label.LabelRetriever(label_list)
         self.retriever._populate_known_labels(label_list)
-        self.retriever_label_list = base_label.LabelRetriever([TestLabelList()])
-        self.retriever_label_list._populate_known_labels([TestLabelList()])
 
 
     def test_populate_known_labels(self):
@@ -161,11 +147,6 @@ class LabelRetrieverUnittests(unittest.TestCase):
         # Check on a normal retriever.
         self.assertEqual(self.retriever.label_full_names, full_names)
         self.assertEqual(self.retriever.label_prefix_names, prefix_names)
-
-        # Check on a retriever that has a label with a label list.
-        self.assertEqual(self.retriever_label_list.label_full_names, full_names)
-        self.assertEqual(self.retriever_label_list.label_prefix_names,
-                         prefix_names)
 
 
     def test_is_known_label(self):
@@ -184,33 +165,26 @@ class LabelRetrieverUnittests(unittest.TestCase):
                              expected_known)
 
 
-    @mock.patch.object(frontend_wrappers, 'RetryingAFE')
-    def test_update_labels(self, mock_retry_afe):
+    def test_update_labels(self):
         """Check that we add/remove the expected labels in update_labels()."""
         label_to_add = 'label_to_add'
         label_to_remove = 'prefix:label_to_remove'
-        mock_afe = mock.MagicMock()
-        mockhost = MockHost(afe_host=MockAFEHost(
-                labels=[label_to_remove, TestBaseLabel._NAME]))
-        expected_remove_labels = [label_to_remove]
-        expected_add_labels = ['%s:%s' % (TestStringPrefixLabel._NAME,
-                                          label_to_add)]
+        store = host_info.InMemoryHostInfoStore(
+                info=host_info.HostInfo(
+                        labels=[label_to_remove, TestBaseLabel._NAME],
+                ),
+        )
+        mockhost = MockHost(store=store)
 
         retriever = base_label.LabelRetriever(
                 [TestStringPrefixLabel(label=label_to_add),
                  TestBaseLabel()])
-
         retriever.update_labels(mockhost)
-
-        # Check that we removed the right labels
-        mock_afe.run.has_calls('host_remove_labels',
-                               id=mockhost.hostname,
-                               labels=expected_remove_labels)
-
-        # Check that we added the right labels
-        mock_afe.run.has_calls('host_add_labels',
-                               id=mockhost.hostname,
-                               labels=expected_add_labels)
+        self.assertEqual(
+                set(store.get().labels),
+                {'%s:%s' % (TestStringPrefixLabel._NAME, label_to_add),
+                 TestBaseLabel._NAME},
+        )
 
 
 if __name__ == '__main__':

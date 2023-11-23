@@ -19,11 +19,11 @@ package com.android.phone;
 import android.app.Dialog;
 import android.app.StatusBarManager;
 import android.content.Context;
+import android.os.Bundle;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.WindowManager;
 import android.view.Window;
-import android.os.Bundle;
+import android.view.WindowManager;
 
 /**
  * Base class for ICC-related panels in the Phone UI.

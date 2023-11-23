@@ -17,13 +17,13 @@
 %                                 July 1999                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -170,7 +170,8 @@ static Image *ReadMPEGImage(const ImageInfo *image_info,
 
   Image
     *image,
-    *images;
+    *images,
+    *next;
 
   ImageInfo
     *read_info;
@@ -200,15 +201,27 @@ static Image *ReadMPEGImage(const ImageInfo *image_info,
   /*
     Convert MPEG to PAM with delegate.
   */
+  images=(Image *) NULL;
   read_info=CloneImageInfo(image_info);
   image=AcquireImage(image_info,exception);
-  (void) InvokeDelegate(read_info,image,"mpeg:decode",(char *) NULL,exception);
-  image=DestroyImage(image);
-  (void) FormatLocaleString(read_info->filename,MagickPathExtent,"%s.%s",
-    read_info->unique,ReadMPEGIntermediateFormat);
-  images=ReadImage(read_info,exception);
-  (void) RelinquishUniqueFileResource(read_info->filename);
+  status=InvokeDelegate(read_info,image,"mpeg:decode",(char *) NULL,exception);
+  if (status != MagickFalse)
+    {
+      (void) FormatLocaleString(read_info->filename,MagickPathExtent,"%s.%s",
+        read_info->unique,ReadMPEGIntermediateFormat);
+      *read_info->magick='\0';
+      images=ReadImage(read_info,exception);
+      if (images != (Image *) NULL)
+        for (next=images; next != (Image *) NULL; next=next->next)
+        {
+          (void) CopyMagickString(next->filename,image->filename,
+            MagickPathExtent);
+          (void) CopyMagickString(next->magick,image->magick,MagickPathExtent);
+        }
+      (void) RelinquishUniqueFileResource(read_info->filename);
+    }
   read_info=DestroyImageInfo(read_info);
+  image=DestroyImage(image);
   return(images);
 }
 
@@ -240,6 +253,16 @@ ModuleExport size_t RegisterMPEGImage(void)
   MagickInfo
     *entry;
 
+  entry=AcquireMagickInfo("MPEG","3GP","Media Container");
+  entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
+  entry->flags^=CoderBlobSupportFlag;
+  entry->flags|=CoderSeekableStreamFlag;
+  (void) RegisterMagickInfo(entry);
+  entry=AcquireMagickInfo("MPEG","3G2","Media Container");
+  entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
+  entry->flags^=CoderBlobSupportFlag;
+  entry->flags|=CoderSeekableStreamFlag;
+  (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("MPEG","AVI","Microsoft Audio/Visual Interleaved");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
   entry->magick=(IsImageFormatHandler *) IsAVI;
@@ -326,6 +349,8 @@ ModuleExport void UnregisterMPEGImage(void)
   (void) UnregisterMagickInfo("MPEG");
   (void) UnregisterMagickInfo("MKV");
   (void) UnregisterMagickInfo("AVI");
+  (void) UnregisterMagickInfo("3G2");
+  (void) UnregisterMagickInfo("3GP");
 }
 
 /*
@@ -574,7 +599,8 @@ static MagickBooleanType WriteMPEGImage(const ImageInfo *image_info,
   (void) CopyMagickString(coalesce_image->filename,basename,MagickPathExtent);
   GetPathComponent(image_info->filename,ExtensionPath,coalesce_image->magick);
   if (*coalesce_image->magick == '\0')
-    (void) CopyMagickString(coalesce_image->magick,image->magick,MagickPathExtent);
+    (void) CopyMagickString(coalesce_image->magick,image->magick,
+      MagickPathExtent);
   status=InvokeDelegate(write_info,coalesce_image,(char *) NULL,"mpeg:encode",
     exception);
   (void) FormatLocaleString(write_info->filename,MagickPathExtent,"%s.%s",

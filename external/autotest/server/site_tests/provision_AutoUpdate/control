@@ -25,7 +25,6 @@ src/third_party/autotest/files/shadow_config.ini
 
 [CROS]
 dev_server: http://127.0.0.1:8082
-enable_devserver_trigger_auto_update: True
 
 3. Use a command like this replacing the |value| arg with the device and build
 version you want to run the test against:

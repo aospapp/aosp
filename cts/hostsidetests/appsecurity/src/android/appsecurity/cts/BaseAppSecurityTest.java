@@ -16,7 +16,6 @@
 
 package android.appsecurity.cts;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -24,6 +23,7 @@ import org.junit.Assert;
 import org.junit.Before;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Base class.
@@ -38,42 +38,62 @@ abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
     private ArrayList<Integer> mFixedUsers;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUpBaseAppSecurityTest() throws Exception {
         Assert.assertNotNull(getBuild()); // ensure build has been set before test is run.
 
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
-        mIsSplitSystemUser = checkIfSplitSystemUser();
         mPrimaryUserId = getDevice().getPrimaryUserId();
         mFixedUsers = new ArrayList<>();
         mFixedUsers.add(mPrimaryUserId);
         if (mPrimaryUserId != Utils.USER_SYSTEM) {
             mFixedUsers.add(Utils.USER_SYSTEM);
         }
-        getDevice().switchUser(mPrimaryUserId);
-    }
-
-    private boolean checkIfSplitSystemUser() throws DeviceNotAvailableException {
-        final String commandOuput = getDevice().executeShellCommand(
-                "getprop ro.fw.system_user_split");
-        return "y".equals(commandOuput) || "yes".equals(commandOuput)
-                || "1".equals(commandOuput) || "true".equals(commandOuput)
-                || "on".equals(commandOuput);
     }
 
     protected void installTestAppForUser(String apk, int userId) throws Exception {
+        installTestAppForUser(apk, false, userId);
+    }
+
+    protected void installTestAppForUser(String apk, boolean instant, int userId) throws Exception {
         if (userId < 0) {
             userId = mPrimaryUserId;
         }
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
-        Assert.assertNull(getDevice().installPackageForUser(
-                buildHelper.getTestFile(apk), true, false, userId, "-t"));
+        new InstallMultiple(instant)
+                .addApk(apk)
+                .allowTest()
+                .forUser(userId)
+                .run();
+    }
+
+    // TODO: We should be able to set test arguments from the BaseHostJUnit4Test methods
+    protected void runDeviceTests(String packageName, String testClassName,
+            String testMethodName, boolean instant) throws DeviceNotAvailableException {
+        final HashMap<String, String> testArgs;
+        if (instant) {
+            testArgs = new HashMap<>();
+            testArgs.put("is_instant", Boolean.TRUE.toString());
+        } else {
+            testArgs = null;
+        }
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), packageName, testClassName, testMethodName,
+                testArgs);
     }
 
     protected boolean isAppVisibleForUser(String packageName, int userId,
-            boolean matchUninstalled) throws DeviceNotAvailableException {
+            boolean matchUninstalled) throws Exception {
         String command = "cmd package list packages --user " + userId;
         if (matchUninstalled) command += " -u";
         String output = getDevice().executeShellCommand(command);
         return output.contains(packageName);
+    }
+
+    protected class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
+        public InstallMultiple() {
+            this(false);
+        }
+        public InstallMultiple(boolean instant) {
+            super(getDevice(), getBuild(), getAbi());
+            addArg(instant ? "--instant" : "");
+        }
     }
 }

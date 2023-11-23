@@ -5,7 +5,7 @@
  *
  * No Standard.
 
-USE_PMAP(NEWTOY(pmap, "<1xq", TOYFLAG_BIN))
+USE_PMAP(NEWTOY(pmap, "<1xq", TOYFLAG_USR|TOYFLAG_BIN))
 
 config PMAP
   bool "pmap"
@@ -13,10 +13,10 @@ config PMAP
   help
     usage: pmap [-xq] [pids...]
 
-    Reports the memory map of a process or processes.
+    Report the memory map of a process or processes.
 
-    -x Show the extended format
-    -q Do not display some header/footer lines
+    -x	Show the extended format
+    -q	Do not display some header/footer lines
 */
 
 #define FOR_pmap

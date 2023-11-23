@@ -59,7 +59,7 @@ public class ContactsContract_AggregationSuggestionsTest extends AndroidTestCase
         long [] contactIds = setupThreeContacts();
 
         // Setup: create query with first and last name reversed.
-        Uri uri = AggregationSuggestions.builder()
+        Uri uri = new AggregationSuggestions.Builder()
                 .addNameParameter("last1 first1")
                 .build();
 
@@ -81,7 +81,7 @@ public class ContactsContract_AggregationSuggestionsTest extends AndroidTestCase
         long [] contactIds = setupThreeContacts();
 
         // Setup: create query with first and last name in same order as display name.
-        Uri uri = AggregationSuggestions.builder()
+        Uri uri = new AggregationSuggestions.Builder()
                 .addNameParameter("first1 last1")
                 .build();
 
@@ -102,7 +102,7 @@ public class ContactsContract_AggregationSuggestionsTest extends AndroidTestCase
         setupThreeContacts();
 
         // Setup: query with name that is completely different than all the contacts.
-        Uri uri = AggregationSuggestions.builder()
+        Uri uri = new AggregationSuggestions.Builder()
                 .addNameParameter("unmatched name")
                 .build();
 
@@ -118,7 +118,7 @@ public class ContactsContract_AggregationSuggestionsTest extends AndroidTestCase
         long [] contactIds = setupThreeContacts();
 
         // Setup: query with two names. The first name is completely unlike all the contacts.
-        Uri uri = AggregationSuggestions.builder()
+        Uri uri = new AggregationSuggestions.Builder()
                 .addNameParameter("unmatched name")
                 .addNameParameter("first2 last2")
                 .build();
@@ -139,7 +139,7 @@ public class ContactsContract_AggregationSuggestionsTest extends AndroidTestCase
         long [] contactIds = setupThreeContacts();
 
         // Setup: query with two names. The second name is completely unlike all the contacts.
-        Uri uri = AggregationSuggestions.builder()
+        Uri uri = new AggregationSuggestions.Builder()
                 .addNameParameter("first2 last2")
                 .addNameParameter("unmatched name")
                 .build();

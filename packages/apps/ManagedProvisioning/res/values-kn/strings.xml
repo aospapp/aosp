@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಾಣಿಕೆ"</string>
+    <string name="app_label" msgid="1527793174155125990">"ಕೆಲಸದ ಸೆಟಪ್"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"ಓಹ್!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಿ"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"ಈ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ನಿಮ್ಮ ಸಂಸ್ಥೆಯು ನಿಯಂತ್ರಿಸುತ್ತದೆ ಹಾಗೂ ಅದನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಕಾಪಾಡುತ್ತದೆ. ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿರುವ ಪ್ರತಿಯೊಂದನ್ನೂ ನೀವು ನಿಯಂತ್ರಿಸಬಹುದು."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ಈ ಅಪ್ಲಿಕೇಶನ್ ನಿಮ್ಮ ಸಾಧನವನ್ನು ನಿರ್ವಹಿಸುತ್ತದೆ:"</string>
     <string name="next" msgid="1004321437324424398">"ಮುಂದೆ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಅಪ್ಲಿಕೇಶನ್‌ಗಳು, ಅನುಮತಿಗಳ ನಿಗಾ ವಹಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯ ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಗಿರುತ್ತದೆ. ಮಾತ್ರವಲ್ಲ, ಈ ಪ್ರೊಫೈಲ್‌ಗೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆಯೂ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆಯ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕಗಳ ಹುಡುಕಾಟದ ಇತಿಹಾಸವನ್ನು ಕೂಡ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಅಧಿಕಾರ ಅವರಿಗಿರುತ್ತದೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಅಪ್ಲಿಕೇಶನ್‌ಗಳು, ಅನುಮತಿಗಳ ನಿಗಾ ವಹಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯ ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಗಿರುತ್ತದೆ. ಮಾತ್ರವಲ್ಲ, ಈ ಸಾಧನಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಡೇಟಾ ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆಯೂ ಸೇರಿದಂತೆ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆಯ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕಗಳ ಹುಡುಕಾಟದ ಇತಿಹಾಸವನ್ನು ಕೂಡ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಅಧಿಕಾರ ಅವರಿಗಿರುತ್ತದೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರು, ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಆ್ಯಪ್‌ಗಳು, ಅನುಮತಿಗಳು ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆ ಹಾಗೂ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕ ಹುಡುಕಾಟ ಇತಿಹಾಸವನ್ನು ಸೇರಿದಂತೆ ಈ ಪ್ರೊಫೈಲ್ ಜೊತೆಗೆ ಸಂಯೋಜಿತವಾಗಿರುವ ಡೇಟಾವನ್ನು ನಿಯಂತ್ರಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯವನ್ನು ಹೊಂದಿರುತ್ತಾರೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ, ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರು, ಸೆಟ್ಟಿಂಗ್‌ಗಳು, ಕಾರ್ಪೊರೇಟ್ ಪ್ರವೇಶ, ಆ್ಯಪ್‌ಗಳು, ಅನುಮತಿಗಳು ಮತ್ತು ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಚಟುವಟಿಕೆ ಹಾಗೂ ನಿಮ್ಮ ಸಾಧನದ ಸ್ಥಳ, ಕರೆ ಇತಿಹಾಸ ಮತ್ತು ಸಂಪರ್ಕ ಹುಡುಕಾಟ ಇತಿಹಾಸವನ್ನು ಸೇರಿದಂತೆ ಈ ಸಾಧನದ ಜೊತೆಗೆ ಸಂಯೋಜಿತವಾಗಿರುವ ಡೇಟಾವನ್ನು ನಿಯಂತ್ರಿಸುವ ಮತ್ತು ನಿರ್ವಹಿಸುವ ಸಾಮರ್ಥ್ಯವನ್ನು ಹೊಂದಿರುತ್ತಾರೆ.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ, ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"ಕಳವು ಸಂರಕ್ಷಣಾ ವೈಶಿಷ್ಟ್ಯತೆಗಳನ್ನು ಉಪಯೋಗಿಸಲು, ನಿಮ್ಮ ಸಾಧನವು ಪಾಸ್‌ವರ್ಡ್ ರಕ್ಷಣೆಯ ಸ್ಕ್ರೀನ್ ಲಾಕ್‌ ಅನ್ನು ಹೊಂದಿರಬೇಕು."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳನ್ನು ಒಳಗೊಂಡಂತೆ, ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಗೌಪ್ಯತೆ ನೀತಿಗಳೂ ಸೇರಿದಂತೆ, ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"ರದ್ದುಮಾಡಿ"</string>
     <string name="ok_setup" msgid="4593707675416137504">"ಸರಿ"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ನಿಮ್ಮ IT ವಿಭಾಗವನ್ನು ಸಂಪರ್ಕಿಸಿ ಅಥವಾ ನಂತರ ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಸೇರಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"ಉದ್ಯೋಗದ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ಬದಲಾಯಿಸಲು ಅಥವಾ ತೆಗೆದುಹಾಕಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"ಉದ್ಯೋಗದ ಪ್ರೊಫೈಲ್‌ ಅನ್ನು ಈ ಸಾಧನಕ್ಕೆ ಸೇರಿಸಲಾಗುವುದಿಲ್ಲ. ನಿಮ್ಮಲ್ಲಿ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಈ ಸಾಧನಕ್ಕೆ ಸೇರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ನಿಮ್ಮಲ್ಲಿ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"ಸಾಧನದ ಲಾಂಚರ್ ಬದಲಾಯಿಸಿ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ಈ ಲಾಂಚರ್ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ ಬಳಸಿಕೊಳ್ಳಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"ರದ್ದುಮಾಡಿ"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"ಅಂತಿಮ ಸ್ಪರ್ಶಗಳನ್ನು ನೀಡಲಾಗುತ್ತಿದೆ..."</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"ಸಾಧನದ ಮಾಲೀಕರನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"ಸಾಧನವನ್ನು ಆರಂಭಿಸಲಾಗುತ್ತಿದೆ..."</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"ಹೊಂದಿಸುವುದಕ್ಕಾಗಿ ಅಗತ್ಯವಿರುವ ಎನ್‌ಕ್ರಿಪ್ಷನ್ ಅನ್ನು ಈ ಸಾಧನ ಅನುಮತಿಸುತ್ತಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ಸೆಟಪ್‌ಗಾಗಿ ಅಗತ್ಯವಿರುವ ಎನ್‌ಕ್ರಿಪ್ಶನ್ ಅನ್ನು ಈ ಸಾಧನ ಅನುಮತಿಸುವುದಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"ಸೆಟಪ್ ನಿಲ್ಲಿಸಿ ಸಾಧನ ಮರುಹೊಂದಿಸುವುದೇ?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"ಇದು ನಿಮ್ಮ ಸಾಧನವನ್ನು ಮರುಹೊಂದಿಸುತ್ತದೆ ಮತ್ತು ಮೊದಲ ಪರದೆಗೆ ನಿಮ್ಮನ್ನು ಮರಳಿ ಕರೆದೊಯ್ಯುತ್ತದೆ"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"ಹೊಂದಾಣಿಕೆಯನ್ನು ನಿಲ್ಲಿಸುವುದೇ ಮತ್ತು ನಿಮ್ಮ ಸಾಧನದ ಡೇಟಾವನ್ನು ಅಳಿಸುವುದೇ?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"ಮರುಹೊಂದಿಸಿ"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ಪ್ರೊಫೈಲ್ ಹೊಂದಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"ಸಾಧನ ಹೊಂದಿಸಲಾಗುತ್ತಿಲ್ಲ"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"ಸಾಧನವನ್ನು ಹೊಂದಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"ಸಹಾಯಕ್ಕಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"ಸಹಾಯಕ್ಕಾಗಿ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"ಸಾಧನವನ್ನು ಈಗಾಗಲೇ ಹೊಂದಿಸಲಾಗಿದೆ"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"ವೈ-ಫೈ ಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ಮರುಹೊಂದಿಸುವಿಕೆ ಸಂರಕ್ಷಣೆ ಆನ್ ಆಗಿದೆ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"ವೈ-ಫೈಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ಮರುಹೊಂದಿಸುವಿಕೆ ಸಂರಕ್ಷಣೆ ಆನ್ ಆಗಿದೆ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"ಅಳಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"ಚೆಕ್‌ಸಮ್ ದೋಷ ಎದುರಾಗಿರುವ ಕಾರಣ ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಇದರ ಘಟಕಗಳು ಕಾಣೆಯಾಗಿವೆ ಅಥವಾ ದೋಷಪೂರಿತವಾಗಿವೆ. ಸಹಾಯಕ್ಕಾಗಿ ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್‌ ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"ಚೆಕ್‌ಸಮ್ ದೋಷ ಎದುರಾಗಿರುವ ಕಾರಣ ನಿರ್ವಾಹಕ ಆ್ಯಪ್ ಬಳಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"ನಿರ್ವಾಹಕ ಆ್ಯಪ್ ಬಳಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಇದರ ಘಟಕಗಳು ಕಾಣೆಯಾಗಿವೆ ಅಥವಾ ದೋಷಪೂರಿತವಾಗಿವೆ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್‌ ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"ಹೊಂದಿಸುವುದನ್ನು ನಿಲ್ಲಿಸುವುದೇ?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"ಇಲ್ಲ"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"ಹೌದು"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"ಈ ಸಾಧನವನ್ನು <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ಮೂಲಕ ನಿರ್ವಹಣೆ, ಮೇಲ್ವಿಚಾರಣೆ ಮತ್ತು ಸಂರಕ್ಷಣೆ ಮಾಡಲಾಗುತ್ತದೆ. ನಿಯಮಗಳು ಅನ್ವಯವಾಗುತ್ತವೆ. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ಈ ಸಾಧನವನ್ನು <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ಮೂಲಕ ನಿರ್ವಹಣೆ, ಮೇಲ್ವಿಚಾರಣೆ ಮತ್ತು ಸಂರಕ್ಷಣೆ ಮಾಡಲಾಗುತ್ತದೆ. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> ನ ನಿಯಮಗಳು ಅನ್ವಯವಾಗುತ್ತವೆ. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ಈ ಲಿಂಕ್ ಸುರಕ್ಷಿತವಾಗಿಲ್ಲ ಮತ್ತು ಸಾಧನದ ಸೆಟಪ್ ಪೂರ್ತಿಯಾಗುವವರೆಗೆ ತೆರೆಯಲು ಸಾಧ್ಯವಿಲ್ಲ: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"ನಿಮ್ಮಲ್ಲಿ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಿಮ್ಮ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ಅವರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"ನೀವು ಪ್ರಶ್ನೆಗಳನ್ನು ಹೊಂದಿದ್ದರೆ, ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"ಸೆಟಪ್ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"ಸಂಸ್ಥೆಯ ನಿರ್ವಾಹಕರು"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"ಇನ್ನಷ್ಟು ತಿಳಿಯಲು, ನಿಮ್ಮ <xliff:g id="IT_ADMIN">%1$s</xliff:g> ಅವರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"ನಿಮಗೆ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"ಸೆಟಪ್ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ. ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"ಸಹಾಯಕ್ಕಾಗಿ, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT ನಿರ್ವಾಹಕರು"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"ಈ ಕೆಳಗಿನ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಿಕೊಂಡು ಈ ಸಾಧನವನ್ನು <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ನಿರ್ವಹಿಸುತ್ತದೆ ಮತ್ತು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡುತ್ತದೆ:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"ನಿಮ್ಮ ಸಂಘಟನೆ"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"ನಿಮ್ಮ ಸಂಸ್ಥೆ"</string>
     <string name="view_terms" msgid="7230493092383341605">"ನಿಯಮಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"ಸಮ್ಮತಿಸಿ, ಮುಂದುವರಿಸಿ"</string>
-    <string name="close" msgid="7208600934846389439">"ಮುಚ್ಚಿ"</string>
+    <string name="back" msgid="6455622465896147127">"ಹಿಂದೆ"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"ನಿಮ್ಮ ಸಾಧನ ಹೊಂದಿಸಿ"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"ನೀವು ಕೆಲಸ ಮಾಡುವ ರೀತಿಯನ್ನು ಬದಲಾಯಿಸಿ"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"ಕೆಲಸವನ್ನು ವೈಯಕ್ತಿಕದಿಂದ ಪ್ರತ್ಯೇಕಿಸಿ"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"ಕೆಲವು ನಿಮಿಷಗಳ ಕಾಲಾವಕಾಶ ತೆಗೆದುಕೊಳ್ಳಬಹುದು"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"ನಿಮ್ಮ ಕೆಲಸದ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಈ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿ ಇರಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಮೂಲಕ ನಿರ್ವಹಿಸಲಾಗುತ್ತದೆ"</string>
     <string name="device_owner_description" msgid="168013145812679664">"ಈ ಸಾಧನವನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಇರಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಸಂಸ್ಥೆಯ ಮೂಲಕ ನಿರ್ವಹಿಸಲಾಗುತ್ತದೆ"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"ಕೆಲಸದ ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡಲು ಸಿದ್ಧಗೊಳ್ಳುತ್ತಿದೆ ..."</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ನಿರ್ವಹಣೆ ಅಪ್ಲಿಕೇಶನ್ ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"ಎಲ್ಲವನ್ನೂ ಹೊಂದಿಸಿ"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"ಈಗ, ನಾವು ಎಲ್ಲವನ್ನೂ ಹೊಂದಿಸೋಣ"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"ಈ ಸಾಧನವು ನಿಮ್ಮ ಸಂಸ್ಥೆಗೆ ಸೇರಿರುತ್ತದೆ"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"ಈ ಫೋನ್ ಅನ್ನು ನಿರ್ವಹಿಸಲು ಮತ್ತು ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಲು ಕೆಳಗಿನ ಆ್ಯಪ್‌ ಅನ್ನು ಬಳಸಲಾಗುತ್ತದೆ"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"ಕೆಲಸದ ಸಾಧನ ಸೆಟಪ್ ಮಾಡಲು ಸಿದ್ಧವಾಗುತ್ತಿದೆ…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"ಮೊದಲು, ನಿಮ್ಮ ಕೆಲಸದ ಪ್ರೊಫೈಲ್ ಅನ್ನು ನಾವು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರಿಸಲಾಗಿದೆ"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ನಿಮ್ಮ ಕೆಲಸದ ಸಮಯವು ಮುಕ್ತಾಯವಾದಾಗ, ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಿ"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ಡೇಟಾ ಮಾತ್ರ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಮಾತ್ರ ಗೋಚರಿಸುತ್ತದೆ"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್ ಅನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಕೆಲಸದ ಸಮಯವು ಮುಕ್ತಾಯವಾದಾಗ ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ನೀವು ವಿರಾಮಗೊಳಿಸಬಹುದು. ನಿಮ್ಮ ಉದ್ಯೋಗ ಪ್ರೊಫೈಲ್‌ನಲ್ಲಿರುವ ಡೇಟಾ ಮಾತ್ರ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಮಾತ್ರ ಗೋಚರಿಸುತ್ತದೆ."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"ನಿಮ್ಮ ಕೆಲಸದ ಸಾಧನವನ್ನು ಸೆಟಪ್ ಮಾಡೋಣ"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ಸುಲಭವಾಗಿ ಪ್ರವೇಶಿಸುವಂತೆ ಇರಿಸಿಕೊಳ್ಳಿ"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ಇದು ಖಾಸಗಿ ಸಾಧನವಲ್ಲ"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಈ ಸಾಧನದಲ್ಲಿರುವ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ನಿಮ್ಮ ಸಾಧನವನ್ನು ಹೊಂದಿಸಲಾಗುತ್ತಿದೆ…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ನಿಮ್ಮ ಕೆಲಸದ ಆ್ಯಪ್‌ಗಳನ್ನು ಸುಲಭವಾಗಿ ಪ್ರವೇಶಿಸಲು ಈ ಸಾಧನವನ್ನು ಬಳಸಿ. ಇದು ಖಾಸಗಿ ಸಾಧನವಲ್ಲ, ಆದ್ದರಿಂದ ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು ಇನ್ನಷ್ಟು ತಿಳಿಯಲು, ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ಗೌಪ್ಯತಾ ಜ್ಞಾಪನಾ ಪತ್ರ"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ನಿಮ್ಮ IT ನಿರ್ವಾಹಕರಿಗೆ ಈ ಸಾಧನದಲ್ಲಿರುವ ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ಚಟುವಟಿಕೆಯನ್ನು ವೀಕ್ಷಿಸಲು ಸಾಧ್ಯವಾಗಬಹುದು"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"ನಿಮ್ಮ ಸಾಧನ, ಬಳಸಲು ಸಿದ್ಧವಾಗಿದೆ!"</string>
+    <string name="done" msgid="7755227776955952318">"ಮುಗಿದಿದೆ"</string>
 </resources>

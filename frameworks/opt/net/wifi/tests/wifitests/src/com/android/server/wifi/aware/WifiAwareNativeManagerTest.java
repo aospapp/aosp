@@ -31,6 +31,8 @@ import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
 import android.os.Handler;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.server.wifi.HalDeviceManager;
 
 import org.junit.Before;
@@ -45,6 +47,7 @@ import org.mockito.MockitoAnnotations;
 /**
  * Unit test harness for WifiAwareNativeManager.
  */
+@SmallTest
 public class WifiAwareNativeManagerTest {
     private WifiAwareNativeManager mDut;
     @Mock private WifiAwareStateManager mWifiAwareStateManagerMock;
@@ -117,7 +120,6 @@ public class WifiAwareNativeManagerTest {
     public void testControlFlowWithoutInterface() {
         // configure HalDeviceManager as ready/wifi started (and to return an interface if
         // requested)
-        when(mHalDeviceManager.isReady()).thenReturn(true);
         when(mHalDeviceManager.isStarted()).thenReturn(true);
         when(mHalDeviceManager.createNanIface(any(), any())).thenReturn(mWifiNanIfaceMock);
 
@@ -166,7 +168,6 @@ public class WifiAwareNativeManagerTest {
     public void testReferenceCounting() throws Exception {
         // configure HalDeviceManager as ready/wifi started (and to return an interface if
         // requested)
-        when(mHalDeviceManager.isReady()).thenReturn(true);
         when(mHalDeviceManager.isStarted()).thenReturn(true);
         when(mHalDeviceManager.createNanIface(any(), any())).thenReturn(mWifiNanIfaceMock);
 
@@ -228,7 +229,6 @@ public class WifiAwareNativeManagerTest {
     public void testRequestFlowWithAsyncDeletes() throws Exception {
         // configure HalDeviceManager as ready/wifi started (and to return an interface if
         // requested)
-        when(mHalDeviceManager.isReady()).thenReturn(true);
         when(mHalDeviceManager.isStarted()).thenReturn(true);
         when(mHalDeviceManager.createNanIface(any(), any())).thenReturn(mWifiNanIfaceMock);
 
@@ -271,7 +271,6 @@ public class WifiAwareNativeManagerTest {
     public void testBasicFlowHal12() throws Exception {
         // configure HalDeviceManager as ready/wifi started (and to return an interface if
         // requested)
-        when(mHalDeviceManager.isReady()).thenReturn(true);
         when(mHalDeviceManager.isStarted()).thenReturn(true);
         when(mHalDeviceManager.createNanIface(any(), any())).thenReturn(mIWifiNanIface12Mock);
 

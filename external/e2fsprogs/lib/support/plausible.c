@@ -43,6 +43,17 @@ static const char *(*dl_magic_file)(magic_t, const char *);
 static int (*dl_magic_load)(magic_t, const char *);
 static void (*dl_magic_close)(magic_t);
 
+/*
+ * NO_CHECK functionality was only added in file 4.20.
+ * Older systems like RHEL 5.x still have file 4.17
+ */
+#ifndef MAGIC_NO_CHECK_COMPRESS
+#define MAGIC_NO_CHECK_COMPRESS 0x0001000
+#endif
+#ifndef MAGIC_NO_CHECK_ELF
+#define MAGIC_NO_CHECK_ELF 0x0010000
+#endif
+
 #ifdef HAVE_DLOPEN
 #include <dlfcn.h>
 
@@ -235,8 +246,8 @@ int check_plausibility(const char *device, int flags, int *ret_is_dev)
 
 	if (fs_type) {
 		if (fs_label)
-			printf(_("%s contains a %s file system "
-				 "labelled '%s'\n"), device, fs_type, fs_label);
+			printf(_("%s contains a %s file system labelled '%s'\n"),
+			       device, fs_type, fs_label);
 		else
 			printf(_("%s contains a %s file system\n"), device,
 			       fs_type);

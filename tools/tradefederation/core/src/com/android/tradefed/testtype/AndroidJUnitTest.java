@@ -18,10 +18,13 @@ package com.android.tradefed.testtype;
 
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.metric.target.DeviceSideCollectorSpecification;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
@@ -29,25 +32,32 @@ import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.ListInstrumentationParser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 
 import org.junit.runner.notification.RunListener;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.Set;
 
 /**
  * A Test that runs an instrumentation test package on given device using the
  * android.support.test.runner.AndroidJUnitRunner.
  */
-public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHintProvider,
-        ITestFileFilterReceiver, ITestFilterReceiver, ITestAnnotationFilterReceiver,
-        IShardableTest, IStrictShardableTest {
-
-    protected static final String AJUR = "android.support.test.runner.AndroidJUnitRunner";
+@OptionClass(alias = "android-junit")
+public class AndroidJUnitTest extends InstrumentationTest
+        implements IRuntimeHintProvider,
+                ITestFileFilterReceiver,
+                ITestFilterReceiver,
+                ITestAnnotationFilterReceiver,
+                IShardableTest {
 
     /** instrumentation test runner argument key used for including a class/test */
     private static final String INCLUDE_CLASS_INST_ARGS_KEY = "class";
@@ -57,6 +67,8 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     private static final String INCLUDE_PACKAGE_INST_ARGS_KEY = "package";
     /** instrumentation test runner argument key used for excluding a package */
     private static final String EXCLUDE_PACKAGE_INST_ARGS_KEY = "notPackage";
+    /** instrumentation test runner argument key used for including a test regex */
+    private static final String INCLUDE_REGEX_INST_ARGS_KEY = "tests_regex";
     /** instrumentation test runner argument key used for adding annotation filter */
     private static final String ANNOTATION_INST_ARGS_KEY = "annotation";
     /** instrumentation test runner argument key used for adding notAnnotation filter */
@@ -75,6 +87,11 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
      */
     public static final String NEW_RUN_LISTENER_ORDER_KEY = "newRunListenerMode";
 
+    /** Options from the collector side helper library. */
+    public static final String INCLUDE_COLLECTOR_FILTER_KEY = "include-filter-group";
+
+    public static final String EXCLUDE_COLLECTOR_FILTER_KEY = "exclude-filter-group";
+
     private static final String INCLUDE_FILE = "includes.txt";
     private static final String EXCLUDE_FILE = "excludes.txt";
 
@@ -83,21 +100,29 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
             description="The hint about the test's runtime.")
     private long mRuntimeHint = 60000;// 1 minute
 
-    @Option(name = "include-filter",
-            description="The include filters of the test name to run.")
-    private List<String> mIncludeFilters = new ArrayList<>();
+    @Option(
+            name = "include-filter",
+            description = "The include filters of the test name to run.",
+            requiredForRerun = true)
+    private Set<String> mIncludeFilters = new HashSet<>();
 
-    @Option(name = "exclude-filter",
-            description="The exclude filters of the test name to run.")
-    private List<String> mExcludeFilters = new ArrayList<>();
+    @Option(
+            name = "exclude-filter",
+            description = "The exclude filters of the test name to run.",
+            requiredForRerun = true)
+    private Set<String> mExcludeFilters = new HashSet<>();
 
-    @Option(name = "include-annotation",
-            description="The annotation class name of the test name to run, can be repeated")
-    private List<String> mIncludeAnnotation = new ArrayList<>();
+    @Option(
+            name = "include-annotation",
+            description = "The annotation class name of the test name to run, can be repeated",
+            requiredForRerun = true)
+    private Set<String> mIncludeAnnotation = new HashSet<>();
 
-    @Option(name = "exclude-annotation",
-            description="The notAnnotation class name of the test name to run, can be repeated")
-    private List<String> mExcludeAnnotation = new ArrayList<>();
+    @Option(
+            name = "exclude-annotation",
+            description = "The notAnnotation class name of the test name to run, can be repeated",
+            requiredForRerun = true)
+    private Set<String> mExcludeAnnotation = new HashSet<>();
 
     @Option(name = "test-file-include-filter",
             description="A file containing a list of line separated test classes and optionally"
@@ -120,12 +145,11 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     private Integer mMaxShard = null;
 
     @Option(
-        name = "device-listeners",
-        description =
-                "Specify a device side instrumentation listener to be added for the run. "
-                        + "Can be repeated."
-    )
-    private List<String> mExtraDeviceListener = new ArrayList<>();
+            name = "device-listeners",
+            description =
+                    "Specify a device side instrumentation listener to be added for the run. "
+                            + "Can be repeated.")
+    private Set<String> mExtraDeviceListeners = new HashSet<>();
 
     @Option(
         name = "use-new-run-listener-order",
@@ -141,11 +165,20 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     // Flag to avoid re-sharding a test that already was.
     private boolean mIsSharded = false;
 
+    // Special object that can tune some device side aspects.
+    private DeviceSideCollectorSpecification mDeviceSideSpec = null;
+
     public AndroidJUnitTest() {
         super();
-        // Set the runner to AJUR, this can still be overwritten by the optionsetter/optioncopier
-        setRunnerName(AJUR);
         setEnforceFormat(true);
+    }
+
+    /** Guice-injected object, that can influence the instrumentation args. */
+    @Inject
+    public void setDeviceSpec(IConfiguration spec) {
+        if (spec.getDeviceSideCollectorsSpec() != null) {
+            mDeviceSideSpec = spec.getDeviceSideCollectorsSpec();
+        }
     }
 
     /**
@@ -188,9 +221,31 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         mExcludeFilters.addAll(filters);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
+    @Override
+    public void clearIncludeFilters() {
+        mIncludeFilters.clear();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIncludeFilters() {
+        return mIncludeFilters;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getExcludeFilters() {
+        return mExcludeFilters;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearExcludeFilters() {
+        mExcludeFilters.clear();
+    }
+
+    /** {@inheritDoc} */
     @Override
     public void setIncludeTestFile(File testFile) {
         mIncludeTestFile = testFile;
@@ -236,6 +291,30 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         mExcludeAnnotation.addAll(excludeAnnotations);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getIncludeAnnotations() {
+        return mIncludeAnnotation;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<String> getExcludeAnnotations() {
+        return mExcludeAnnotation;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearIncludeAnnotations() {
+        mIncludeAnnotation.clear();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearExcludeAnnotations() {
+        mExcludeAnnotation.clear();
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -244,16 +323,21 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         if (getDevice() == null) {
             throw new IllegalArgumentException("Device has not been set");
         }
+        boolean pushedFile = false;
         // if mIncludeTestFile is set, perform filtering with this file
-        if (mIncludeTestFile != null) {
+        if (mIncludeTestFile != null && mIncludeTestFile.length() > 0) {
             mDeviceIncludeFile = mTestFilterDir.replaceAll("/$", "") + "/" + INCLUDE_FILE;
             pushTestFile(mIncludeTestFile, mDeviceIncludeFile, listener);
+            pushedFile = true;
+            // If an explicit include file filter is provided, do not use the package
+            setTestPackageName(null);
         }
 
         // if mExcludeTestFile is set, perform filtering with this file
-        if (mExcludeTestFile != null) {
+        if (mExcludeTestFile != null && mExcludeTestFile.length() > 0) {
             mDeviceExcludeFile = mTestFilterDir.replaceAll("/$", "") + "/" + EXCLUDE_FILE;
             pushTestFile(mExcludeTestFile, mDeviceExcludeFile, listener);
+            pushedFile = true;
         }
         if (mTotalShards > 0 && !isShardable() && mShardIndex != 0) {
             // If not shardable, only first shard can run.
@@ -261,11 +345,9 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
             return;
         }
         super.run(listener);
-        if (mIncludeTestFile != null) {
-            removeTestFile(mDeviceIncludeFile);
-        }
-        if (mExcludeTestFile != null) {
-            removeTestFile(mDeviceExcludeFile);
+        if (pushedFile) {
+            // Remove the directory where the files where pushed
+            removeTestFilterDir();
         }
     }
 
@@ -291,14 +373,19 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         List<String> notClassArg = new ArrayList<String>();
         List<String> packageArg = new ArrayList<String>();
         List<String> notPackageArg = new ArrayList<String>();
+        List<String> regexArg = new ArrayList<String>();
         for (String test : mIncludeFilters) {
-            if (isClassOrMethod(test)) {
+            if (isRegex(test)) {
+                regexArg.add(test);
+            } else if (isClassOrMethod(test)) {
                 classArg.add(test);
             } else {
                 packageArg.add(test);
             }
         }
         for (String test : mExcludeFilters) {
+            // tests_regex doesn't support exclude-filter. Therefore, only check if the filter is
+            // for class/method or package.
             if (isClassOrMethod(test)) {
                 notClassArg.add(test);
             } else {
@@ -321,6 +408,16 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
             runner.addInstrumentationArg(EXCLUDE_PACKAGE_INST_ARGS_KEY,
                     ArrayUtil.join(",", notPackageArg));
         }
+        if (!regexArg.isEmpty()) {
+            String regexFilter;
+            if (regexArg.size() == 1) {
+                regexFilter = regexArg.get(0);
+            } else {
+                Collections.sort(regexArg);
+                regexFilter = "\"(" + ArrayUtil.join("|", regexArg) + ")\"";
+            }
+            runner.addInstrumentationArg(INCLUDE_REGEX_INST_ARGS_KEY, regexFilter);
+        }
         if (!mIncludeAnnotation.isEmpty()) {
             runner.addInstrumentationArg(ANNOTATION_INST_ARGS_KEY,
                     ArrayUtil.join(",", mIncludeAnnotation));
@@ -337,8 +434,28 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
             runner.addInstrumentationArg(
                     NEW_RUN_LISTENER_ORDER_KEY, Boolean.toString(mNewRunListenerOrderMode));
         }
+
+        // Load the device side configuration from Guice
+        if (mDeviceSideSpec != null) {
+            CLog.d("Got a DeviceSideCollectorSpecification from Guice Tradefed.");
+            mExtraDeviceListeners.addAll(mDeviceSideSpec.getCollectorNames());
+            for (String key : mDeviceSideSpec.getCollectorOptions().keySet()) {
+                runner.addInstrumentationArg(
+                        key, ArrayUtil.join(",", mDeviceSideSpec.getCollectorOptions().get(key)));
+            }
+            if (!mDeviceSideSpec.getExcludeGroupFilters().isEmpty()) {
+                runner.addInstrumentationArg(
+                        EXCLUDE_COLLECTOR_FILTER_KEY,
+                        ArrayUtil.join(",", mDeviceSideSpec.getExcludeGroupFilters()));
+            }
+            if (!mDeviceSideSpec.getIncludeGroupFilters().isEmpty()) {
+                runner.addInstrumentationArg(
+                        INCLUDE_COLLECTOR_FILTER_KEY,
+                        ArrayUtil.join(",", mDeviceSideSpec.getIncludeGroupFilters()));
+            }
+        }
         // Add the listeners received from Options
-        addDeviceListener(mExtraDeviceListener);
+        addDeviceListeners(mExtraDeviceListeners);
     }
 
     /**
@@ -358,6 +475,7 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         }
         ITestDevice device = getDevice();
         try {
+            CLog.d("Attempting to push filters to %s", destination);
             if (!device.pushFile(testFile, destination)) {
                 String message =
                         String.format(
@@ -374,9 +492,8 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         }
     }
 
-    private void removeTestFile(String deviceTestFile) throws DeviceNotAvailableException {
-        ITestDevice device = getDevice();
-        device.executeShellCommand(String.format("rm %s", deviceTestFile));
+    private void removeTestFilterDir() throws DeviceNotAvailableException {
+        getDevice().deleteFile(mTestFilterDir);
     }
 
     private void reportEarlyFailure(ITestInvocationListener listener, String errorMessage) {
@@ -404,10 +521,33 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         return false;
     }
 
+    /** Return if a string is a regex for filter. */
+    @VisibleForTesting
+    public boolean isRegex(String filter) {
+        // If filter contains any special regex character, return true.
+        // Throw RuntimeException if the regex is invalid.
+        if (Pattern.matches(".*[\\?\\*\\^\\$\\(\\)\\[\\]\\{\\}\\|\\\\].*", filter)) {
+            try {
+                Pattern.compile(filter);
+            } catch (PatternSyntaxException e) {
+                CLog.e("Filter %s is not a valid regular expression string.", filter);
+                throw new RuntimeException(e);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Helper to return if the runner is one that support sharding.
      */
     private boolean isShardable() {
+        // Edge toward shardable if no explicit runner specified. The runner will be determined
+        // later and if not shardable only the first shard will run.
+        if (getRunnerName() == null) {
+            return true;
+        }
         return ListInstrumentationParser.SHARDABLE_RUNNERS.contains(getRunnerName());
     }
 
@@ -431,11 +571,7 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
+    private IRemoteTest getTestShard(int shardCount, int shardIndex) {
         AndroidJUnitTest shard;
         // ensure we handle runners that extend AndroidJUnitRunner
         try {

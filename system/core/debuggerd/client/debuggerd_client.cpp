@@ -26,6 +26,7 @@
 
 #include <chrono>
 
+#include <android-base/cmsg.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
@@ -33,6 +34,7 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <cutils/sockets.h>
+#include <procinfo/process.h>
 
 #include "debuggerd/handler.h"
 #include "protocol.h"
@@ -40,6 +42,7 @@
 
 using namespace std::chrono_literals;
 
+using android::base::SendFileDescriptors;
 using android::base::unique_fd;
 
 static bool send_signal(pid_t pid, const DebuggerdDumpType dump_type) {
@@ -62,8 +65,20 @@ static void populate_timeval(struct timeval* tv, const Duration& duration) {
   tv->tv_usec = static_cast<long>(microseconds.count());
 }
 
-bool debuggerd_trigger_dump(pid_t pid, DebuggerdDumpType dump_type, unsigned int timeout_ms,
+bool debuggerd_trigger_dump(pid_t tid, DebuggerdDumpType dump_type, unsigned int timeout_ms,
                             unique_fd output_fd) {
+  pid_t pid = tid;
+  if (dump_type == kDebuggerdJavaBacktrace) {
+    // Java dumps always get sent to the tgid, so we need to resolve our tid to a tgid.
+    android::procinfo::ProcessInfo procinfo;
+    std::string error;
+    if (!android::procinfo::GetProcessInfo(tid, &procinfo, &error)) {
+      LOG(ERROR) << "libdebugged_client: failed to get process info: " << error;
+      return false;
+    }
+    pid = procinfo.pid;
+  }
+
   LOG(INFO) << "libdebuggerd_client: started dumping process " << pid;
   unique_fd sockfd;
   const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
@@ -133,22 +148,27 @@ bool debuggerd_trigger_dump(pid_t pid, DebuggerdDumpType dump_type, unsigned int
     PLOG(ERROR) << "failed to set pipe buffer size";
   }
 
-  if (send_fd(set_timeout(sockfd), &req, sizeof(req), std::move(pipe_write)) != sizeof(req)) {
+  ssize_t rc = SendFileDescriptors(set_timeout(sockfd), &req, sizeof(req), pipe_write.get());
+  pipe_write.reset();
+  if (rc != sizeof(req)) {
     PLOG(ERROR) << "libdebuggerd_client: failed to send output fd to tombstoned";
     return false;
   }
 
   // Check to make sure we've successfully registered.
   InterceptResponse response;
-  ssize_t rc =
-      TEMP_FAILURE_RETRY(recv(set_timeout(sockfd.get()), &response, sizeof(response), MSG_TRUNC));
+  rc = TEMP_FAILURE_RETRY(recv(set_timeout(sockfd.get()), &response, sizeof(response), MSG_TRUNC));
   if (rc == 0) {
-    LOG(ERROR) << "libdebuggerd_client: failed to read response from tombstoned: timeout reached?";
+    LOG(ERROR) << "libdebuggerd_client: failed to read initial response from tombstoned: "
+               << "timeout reached?";
+    return false;
+  } else if (rc == -1) {
+    PLOG(ERROR) << "libdebuggerd_client: failed to read initial response from tombstoned";
     return false;
   } else if (rc != sizeof(response)) {
-    LOG(ERROR)
-        << "libdebuggerd_client: received packet of unexpected length from tombstoned: expected "
-        << sizeof(response) << ", received " << rc;
+    LOG(ERROR) << "libdebuggerd_client: received packet of unexpected length from tombstoned while "
+                  "reading initial response: expected "
+               << sizeof(response) << ", received " << rc;
     return false;
   }
 
@@ -158,18 +178,22 @@ bool debuggerd_trigger_dump(pid_t pid, DebuggerdDumpType dump_type, unsigned int
     return false;
   }
 
-  if (!send_signal(pid, dump_type)) {
+  if (!send_signal(tid, dump_type)) {
     return false;
   }
 
   rc = TEMP_FAILURE_RETRY(recv(set_timeout(sockfd.get()), &response, sizeof(response), MSG_TRUNC));
   if (rc == 0) {
-    LOG(ERROR) << "libdebuggerd_client: failed to read response from tombstoned: timeout reached?";
+    LOG(ERROR) << "libdebuggerd_client: failed to read status response from tombstoned: "
+                  "timeout reached?";
+    return false;
+  } else if (rc == -1) {
+    PLOG(ERROR) << "libdebuggerd_client: failed to read status response from tombstoned";
     return false;
   } else if (rc != sizeof(response)) {
-    LOG(ERROR)
-      << "libdebuggerd_client: received packet of unexpected length from tombstoned: expected "
-      << sizeof(response) << ", received " << rc;
+    LOG(ERROR) << "libdebuggerd_client: received packet of unexpected length from tombstoned while "
+                  "reading confirmation response: expected "
+               << sizeof(response) << ", received " << rc;
     return false;
   }
 

@@ -31,6 +31,16 @@ using std::string;
 
 namespace nugget_tools {
 
+bool IsDirectDeviceClient() {
+#ifdef ANDROID
+  nos::NuggetClient client;
+  client.Open();
+  return client.IsOpen();
+#else
+  return true;
+#endif
+}
+
 std::string GetCitadelUSBSerialNo() {
 #ifdef ANDROID
   return "";
@@ -58,6 +68,17 @@ std::unique_ptr<nos::NuggetClientInterface> MakeNuggetClient() {
   return client;
 #else
   return std::unique_ptr<nos::NuggetClientInterface>(
+      new nos::NuggetClient(GetCitadelUSBSerialNo()));
+#endif
+}
+
+std::unique_ptr<nos::NuggetClient> MakeDirectNuggetClient() {
+#ifdef ANDROID
+  std::unique_ptr<nos::NuggetClient> client =
+      std::unique_ptr<nos::NuggetClient>(new nos::NuggetClient());
+  return client;
+#else
+  return std::unique_ptr<nos::NuggetClient>(
       new nos::NuggetClient(GetCitadelUSBSerialNo()));
 #endif
 }
@@ -95,6 +116,16 @@ static void ShowStats(const char *msg,
          stats.time_spent_in_deep_sleep);
 }
 
+bool RebootNuggetUnchecked(nos::NuggetClientInterface *client) {
+  std::vector<uint8_t> ignored;
+  if (client->CallApp(APP_ID_NUGGET, NUGGET_PARAM_REBOOT, ignored,
+                      nullptr) != app_status::APP_SUCCESS) {
+    LOG(ERROR) << "CallApp(..., NUGGET_PARAM_REBOOT, ...) failed!\n";
+    return false;
+  }
+  return true;
+}
+
 bool RebootNugget(nos::NuggetClientInterface *client) {
   struct nugget_app_low_power_stats stats0;
   struct nugget_app_low_power_stats stats1;
@@ -113,12 +144,7 @@ bool RebootNugget(nos::NuggetClientInterface *client) {
   auto start = high_resolution_clock::now();
 
   // Tell Nugget OS to reboot
-  std::vector<uint8_t> ignored;
-  if (client->CallApp(APP_ID_NUGGET, NUGGET_PARAM_REBOOT, ignored,
-                      nullptr) != app_status::APP_SUCCESS) {
-    LOG(ERROR) << "CallApp(..., NUGGET_PARAM_REBOOT, ...) failed!\n";
-    return false;
-  }
+  if (!RebootNuggetUnchecked(client)) return false;
 
   // Grab stats after sleeping
   buffer.empty();

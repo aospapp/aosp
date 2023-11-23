@@ -16,20 +16,29 @@
 
 package android.provider.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore.Audio;
 
-import junit.framework.TestCase;
+import androidx.test.runner.AndroidJUnit4;
 
-public class MediaStore_AudioTest extends TestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@Presubmit
+@RunWith(AndroidJUnit4.class)
+public class MediaStore_AudioTest {
     private String mKeyForBeatles;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mKeyForBeatles = Audio.keyFor("beatles");
     }
 
+    @Test
     public void testKeyFor() {
         assertEquals(mKeyForBeatles, Audio.keyFor("[beatles]"));
         assertEquals(mKeyForBeatles, Audio.keyFor("(beatles)"));

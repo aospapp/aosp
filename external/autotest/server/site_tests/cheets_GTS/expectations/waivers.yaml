@@ -1,0 +1,8 @@
+com.google.android.assistant.gts.AssistantTest#testAssistantOpenRearCamera: [all]
+com.google.android.assistant.gts.AssistantTest#testAssistantOpenFrontCamera: [all]
+com.google.android.assistant.gts.AssistantTest#testAssistantTakePhotoWithoutVoiceInteraction: [all]
+com.google.android.assistant.gts.AssistantTest#testAssistantTakeSelfieWithoutVoiceInteraction: [all]
+com.google.android.gts.audio.AudioHostTest#testFocusChangeMediaToGuidance: [P]
+com.google.android.placement.gts.CoreGmsAppsTest#testCoreGmsAppsPreloaded: [all]
+com.google.android.placement.gts.CoreGmsAppsTest#testGoogleDuoPreloaded: [all]
+com.google.android.placement.gts.UiPlacementTest#testPlayStore: [all]

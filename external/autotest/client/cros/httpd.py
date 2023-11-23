@@ -131,7 +131,10 @@ class FormHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             e.set()
             del wait_urls[self.path]
         else:
-            logging.debug('URL %s not in watch list' % self.path)
+          if self.path not in self.server._urls:
+              # if the url is not in _urls, this means it was neither setup
+              # as a permanent, or event url.
+              logging.debug('URL %s not in watch list' % self.path)
 
 
     @_handle_http_errors
@@ -173,22 +176,50 @@ class HTTPListener(object):
     def config_server(self, server, docroot, wait_urls, url_handlers):
         # Stuff some convenient data fields into the server object.
         self._server.docroot = docroot
+        self._server._urls = set()
         self._server._wait_urls = wait_urls
         self._server._url_handlers = url_handlers
         self._server._form_entries = {}
         self._server_thread = threading.Thread(
             target=self._server.serve_forever)
 
+    def add_url(self, url):
+        """
+          Add a url to the urls that the http server is actively watching for.
+
+          Not adding a url via add_url or add_wait_url, and only installing a
+          handler will still result in that handler being executed, but this
+          server will warn in the debug logs that it does not expect that url.
+
+          Args:
+            url (string): url suffix to listen to
+        """
+        self._server._urls.add(url)
 
     def add_wait_url(self, url='/', matchParams={}):
+        """
+          Add a wait url to the urls that the http server is aware of.
+
+          Not adding a url via add_url or add_wait_url, and only installing a
+          handler will still result in that handler being executed, but this
+          server will warn in the debug logs that it does not expect that url.
+
+          Args:
+            url (string): url suffix to listen to
+            matchParams (dictionary): an unused dictionary
+
+          Returns:
+            e, and event object. Call e.wait() on the object to wait (block)
+            until the server receives the first request for the wait url.
+
+        """
         e = threading.Event()
         self._server._wait_urls[url] = (matchParams, e)
+        self._server._urls.add(url)
         return e
-
 
     def add_url_handler(self, url, handler_func):
         self._server._url_handlers[url] = handler_func
-
 
     def clear_form_entries(self):
         self._server._form_entries = {}

@@ -52,6 +52,9 @@ public class RunHostCommandTargetPreparer extends BaseTargetPreparer
 
     private static final String BG_COMMAND_LOG_PREFIX = "bg_command_log_";
 
+    @Option(name = "work-dir", description = "Working directory to be used when running commands.")
+    private File mWorkDir = null;
+
     @Option(
         name = "host-setup-command",
         description =
@@ -89,6 +92,7 @@ public class RunHostCommandTargetPreparer extends BaseTargetPreparer
     private List<Process> mBgProcesses = new ArrayList<>();
     private List<BgCommandLog> mBgCommandLogs = new ArrayList<>();
     private ITestLogger mLogger;
+    private IRunUtil mRunUtil;
 
     /**
      * An interface simply wraps the OutputStream and InputStreamSource for the background command
@@ -141,6 +145,9 @@ public class RunHostCommandTargetPreparer extends BaseTargetPreparer
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        if (mWorkDir != null) {
+            getRunUtil().setWorkingDir(mWorkDir);
+        }
         replaceSerialNumber(mSetUpCommands, device);
         runCommandList(mSetUpCommands);
 
@@ -252,7 +259,10 @@ public class RunHostCommandTargetPreparer extends BaseTargetPreparer
      */
     @VisibleForTesting
     IRunUtil getRunUtil() {
-        return RunUtil.getDefault();
+        if (mRunUtil == null) {
+            mRunUtil = new RunUtil();
+        }
+        return mRunUtil;
     }
 
     /**

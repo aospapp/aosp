@@ -19,4 +19,5 @@
     <dimen name="car_keyline_2">108dp</dimen>
     <dimen name="car_keyline_3">128dp</dimen>
     <dimen name="car_keyline_4">168dp</dimen>
+    <dimen name="car_margin">148dp</dimen>
 </resources>

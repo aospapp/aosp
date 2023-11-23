@@ -19,6 +19,7 @@ package android.view.textclassifier.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.PendingIntent;
 import android.app.RemoteAction;
@@ -28,17 +29,24 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
+import android.icu.util.ULocale;
+import android.os.Bundle;
 import android.os.LocaleList;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassifier;
+import android.view.textclassifier.TextLanguage;
+import android.view.textclassifier.TextLinks;
 import android.view.textclassifier.TextSelection;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Collections;
 
 /**
  * TextClassifier value objects tests.
@@ -49,6 +57,13 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TextClassifierValueObjectsTest {
 
+    private static final float EPSILON = 0.000001f;
+    private static final String BUNDLE_KEY = "key";
+    private static final String BUNDLE_VALUE = "value";
+    private static final Bundle BUNDLE = new Bundle();
+    static {
+        BUNDLE.putString(BUNDLE_KEY, BUNDLE_VALUE);
+    }
     private static final double ACCEPTED_DELTA = 0.0000001;
     private static final String TEXT = "abcdefghijklmnopqrstuvwxyz";
     private static final int START = 5;
@@ -65,6 +80,7 @@ public class TextClassifierValueObjectsTest {
                 .setEntityType(TextClassifier.TYPE_ADDRESS, addressScore)
                 .setEntityType(TextClassifier.TYPE_EMAIL, emailScore)
                 .setId(ID)
+                .setExtras(BUNDLE)
                 .build();
 
         assertEquals(START, selection.getSelectionStartIndex());
@@ -78,6 +94,7 @@ public class TextClassifierValueObjectsTest {
                 ACCEPTED_DELTA);
         assertEquals(0, selection.getConfidenceScore("random_type"), ACCEPTED_DELTA);
         assertEquals(ID, selection.getId());
+        assertEquals(BUNDLE_VALUE, selection.getExtras().getString(BUNDLE_KEY));
     }
 
     @Test
@@ -107,6 +124,7 @@ public class TextClassifierValueObjectsTest {
         TextSelection selection = new TextSelection.Builder(START, END).build();
         assertEquals(0, selection.getEntityCount());
         assertNull(selection.getId());
+        assertTrue(selection.getExtras().isEmpty());
     }
 
     @Test
@@ -151,7 +169,7 @@ public class TextClassifierValueObjectsTest {
         final TextSelection.Request request = new TextSelection.Request.Builder(TEXT, START, END)
                 .setDefaultLocales(LOCALES)
                 .build();
-        assertEquals(TEXT, request.getText());
+        assertEquals(TEXT, request.getText().toString());
         assertEquals(START, request.getStartIndex());
         assertEquals(END, request.getEndIndex());
         assertEquals(LOCALES, request.getDefaultLocales());
@@ -171,6 +189,7 @@ public class TextClassifierValueObjectsTest {
         final TextSelection.Request request =
                 new TextSelection.Request.Builder(TEXT, START, END).build();
         assertNull(request.getDefaultLocales());
+        assertTrue(request.getExtras().isEmpty());
     }
 
     @Test
@@ -195,6 +214,7 @@ public class TextClassifierValueObjectsTest {
                 .addAction(new RemoteAction(icon1, label1, description1, intent1))
                 .addAction(new RemoteAction(icon2, label2, description2, intent2))
                 .setId(ID)
+                .setExtras(BUNDLE)
                 .build();
 
         assertEquals(TEXT, classification.getText());
@@ -223,6 +243,7 @@ public class TextClassifierValueObjectsTest {
         assertEquals(intent2, classification.getActions().get(1).getActionIntent());
         assertNotNull(classification.getActions().get(1).getIcon());
         assertEquals(ID, classification.getId());
+        assertEquals(BUNDLE_VALUE, classification.getExtras().getString(BUNDLE_KEY));
     }
 
     @Test
@@ -274,6 +295,7 @@ public class TextClassifierValueObjectsTest {
         assertEquals(null, classification.getOnClickListener());
         assertEquals(0, classification.getActions().size());
         assertNull(classification.getId());
+        assertTrue(classification.getExtras().isEmpty());
     }
 
     @Test
@@ -281,8 +303,11 @@ public class TextClassifierValueObjectsTest {
         final TextClassification.Request request =
                 new TextClassification.Request.Builder(TEXT, START, END)
                         .setDefaultLocales(LOCALES)
+                        .setExtras(BUNDLE)
                         .build();
+
         assertEquals(LOCALES, request.getDefaultLocales());
+        assertEquals(BUNDLE_VALUE, request.getExtras().getString(BUNDLE_KEY));
     }
 
     @Test
@@ -291,7 +316,9 @@ public class TextClassifierValueObjectsTest {
                 new TextClassification.Request.Builder(TEXT, START, END)
                         .setDefaultLocales(null)
                         .build();
+
         assertNull(request.getDefaultLocales());
+        assertTrue(request.getExtras().isEmpty());
     }
 
     @Test
@@ -299,6 +326,101 @@ public class TextClassifierValueObjectsTest {
         final TextClassification.Request request =
                 new TextClassification.Request.Builder(TEXT, START, END).build();
         assertNull(request.getDefaultLocales());
+        assertTrue(request.getExtras().isEmpty());
+    }
+
+    @Test
+    public void testTextLinks_defaultValues() {
+        final TextLinks textLinks = new TextLinks.Builder(TEXT).build();
+
+        assertTrue(textLinks.getExtras().isEmpty());
+        assertTrue(textLinks.getLinks().isEmpty());
+    }
+
+    @Test
+    public void testTextLinks_full() {
+        final TextLinks textLinks = new TextLinks.Builder(TEXT)
+                .setExtras(BUNDLE)
+                .addLink(START, END, Collections.singletonMap(TextClassifier.TYPE_ADDRESS, 1.0f))
+                .build();
+
+        assertEquals(BUNDLE_VALUE, textLinks.getExtras().getString(BUNDLE_KEY));
+        assertEquals(1, textLinks.getLinks().size());
+        TextLinks.TextLink textLink = textLinks.getLinks().iterator().next();
+        assertEquals(TextClassifier.TYPE_ADDRESS, textLink.getEntity(0));
+        assertEquals(1.0f, textLink.getConfidenceScore(TextClassifier.TYPE_ADDRESS), EPSILON);
+    }
+
+    @Test
+    public void testTextLinksRequest_defaultValues() {
+        final TextLinks.Request request = new TextLinks.Request.Builder(TEXT).build();
+
+        assertEquals(TEXT, request.getText());
+        assertNull(request.getDefaultLocales());
+        assertTrue(request.getExtras().isEmpty());
+        assertNull(request.getEntityConfig());
+    }
+
+    @Test
+    public void testTextLinksRequest_full() {
+        final TextLinks.Request request = new TextLinks.Request.Builder(TEXT)
+                .setDefaultLocales(LOCALES)
+                .setExtras(BUNDLE)
+                .setEntityConfig(TextClassifier.EntityConfig.createWithHints(
+                        Collections.singletonList(TextClassifier.HINT_TEXT_IS_EDITABLE)))
+                .build();
+
+        assertEquals(TEXT, request.getText());
+        assertEquals(LOCALES, request.getDefaultLocales());
+        assertEquals(BUNDLE_VALUE, request.getExtras().getString(BUNDLE_KEY));
+        assertEquals(1, request.getEntityConfig().getHints().size());
+        assertEquals(
+                TextClassifier.HINT_TEXT_IS_EDITABLE,
+                request.getEntityConfig().getHints().iterator().next());
+    }
+
+    @Test
+    public void testTextLanguage() {
+        final TextLanguage language = new TextLanguage.Builder()
+                .setId(ID)
+                .putLocale(ULocale.ENGLISH, 0.6f)
+                .putLocale(ULocale.CHINESE, 0.3f)
+                .putLocale(ULocale.JAPANESE, 0.1f)
+                .setExtras(BUNDLE)
+                .build();
+
+        assertEquals(ID, language.getId());
+        assertEquals(3, language.getLocaleHypothesisCount());
+        assertEquals(ULocale.ENGLISH, language.getLocale(0));
+        assertEquals(ULocale.CHINESE, language.getLocale(1));
+        assertEquals(ULocale.JAPANESE, language.getLocale(2));
+        assertEquals(0.6f, language.getConfidenceScore(ULocale.ENGLISH), EPSILON);
+        assertEquals(0.3f, language.getConfidenceScore(ULocale.CHINESE), EPSILON);
+        assertEquals(0.1f, language.getConfidenceScore(ULocale.JAPANESE), EPSILON);
+        assertEquals(BUNDLE_VALUE, language.getExtras().getString(BUNDLE_KEY));
+    }
+
+    @Test
+    public void testTextLanguage_clippedScore() {
+        final TextLanguage language = new TextLanguage.Builder()
+                .putLocale(ULocale.ENGLISH, 2f)
+                .putLocale(ULocale.CHINESE, -2f)
+                .build();
+
+        assertEquals(1, language.getLocaleHypothesisCount());
+        assertEquals(ULocale.ENGLISH, language.getLocale(0));
+        assertEquals(1f, language.getConfidenceScore(ULocale.ENGLISH), EPSILON);
+        assertNull(language.getId());
+    }
+
+    @Test
+    public void testTextLanguageRequest() {
+        final TextLanguage.Request request = new TextLanguage.Request.Builder(TEXT)
+                .setExtras(BUNDLE)
+                .build();
+
+        assertEquals(TEXT, request.getText());
+        assertEquals(BUNDLE_VALUE, request.getExtras().getString(BUNDLE_KEY));
     }
 
     // TODO: Add more tests.

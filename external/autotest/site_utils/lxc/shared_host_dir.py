@@ -79,7 +79,7 @@ class SharedHostDir(object):
             return
 
         # Unmount and delete everything in the host path.
-        for info in lxc_utils.get_mount_info():
+        for info in utils.get_mount_info():
             if lxc_utils.is_subdir(self.path, info.mount_point):
                 utils.run('sudo umount "%s"' % info.mount_point)
 
@@ -132,7 +132,7 @@ class SharedHostDir(object):
     def _host_dir_is_valid(self):
         """Verifies that the shared host directory is set up correctly."""
         logging.debug('Verifying existing host path: %s', self.path)
-        host_mount = list(lxc_utils.get_mount_info(self.path))
+        host_mount = list(utils.get_mount_info(mount_point=self.path))
 
         # Check that the host mount exists and is shared
         if host_mount:

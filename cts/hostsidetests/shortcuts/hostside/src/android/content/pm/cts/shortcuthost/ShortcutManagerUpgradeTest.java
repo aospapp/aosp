@@ -15,7 +15,12 @@
  */
 package android.content.pm.cts.shortcuthost;
 
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class ShortcutManagerUpgradeTest extends BaseShortcutManagerHostTest {
     private static final String VERSION1_APK = "CtsShortcutUpgradeVersion1.apk";
     private static final String VERSION2_APK = "CtsShortcutUpgradeVersion2.apk";
@@ -23,13 +28,7 @@ public class ShortcutManagerUpgradeTest extends BaseShortcutManagerHostTest {
     private static final String TARGET_PKG = "android.content.pm.cts.shortcut.upgrade";
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(TARGET_PKG);
 
         super.tearDown();
@@ -39,6 +38,7 @@ public class ShortcutManagerUpgradeTest extends BaseShortcutManagerHostTest {
      * Make sure that, even when icon resource IDs have changed during an app upgrade,
      * ShortcutManager correctly resolves the right resources by resource name.
      */
+    @Test
     public void testUpgrade() throws Exception {
         installAppAsUser(VERSION1_APK, getPrimaryUserId());
 

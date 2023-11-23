@@ -121,7 +121,7 @@ public class BluetoothFacade extends RpcReceiver {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = mBluetoothAdapter.getState();
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
                 Bundle msg = new Bundle();
                 if (state == BluetoothAdapter.STATE_ON) {
                     msg.putString("State", "ON");

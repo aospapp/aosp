@@ -6,6 +6,8 @@
 
 from __future__ import print_function
 
+from autotest_lib.client.common_lib.cros.cfm.usb import usb_port_manager
+
 import logging
 import os
 import time
@@ -17,13 +19,42 @@ TOKEN_ROOT_DEVICE = '\n    |__ '
 # Front left usb port:  218, port number: 2
 # Front right usb port: 219, port number: 3
 # Rear dual usb ports:  209, port number: 5,6
+#
+# On board fizz, there are 5 usb ports and usb port power is controlled by EC
+# with user space command: ectool goioset USBx_ENABLE 0/1 (x from 1 to 5).
 PORT_NUM_DICT = {
     'guado': {
+        # USB 2.0.
         'bus1': {
             2: 'front_left',
             3: 'front_right',
             5: 'back_dual',
             6: 'back_dual'
+        },
+        # USB 3.0.
+        'bus2': {
+            1: 'front_left',
+            2: 'front_right',
+            3: 'back_dual',
+            4: 'back_dual'
+        }
+    },
+    'fizz': {
+        # USB 2.0.
+        'bus1': {
+            2: 'rear_right',
+            3: 'front_right',
+            4: 'front_left',
+            5: 'rear_left',
+            6: 'rear_middle'
+        },
+        # USB 3.0.
+        'bus2': {
+            2: 'rear_right',
+            3: 'front_right',
+            4: 'front_left',
+            5: 'rear_left',
+            6: 'rear_middle'
         }
     }
 }
@@ -33,46 +64,33 @@ PORT_GPIO_DICT = {
             'front_left': 218,
             'front_right': 219,
             'back_dual': 209
+        },
+        'bus2': {
+            'front_left': 218,
+            'front_right': 219,
+            'back_dual': 209
+        }
+    },
+    'fizz': {
+        'bus1': {
+            'rear_left': 1,
+            'rear_middle': 2,
+            'rear_right': 3,
+            'front_right': 4,
+            'front_left': 5
+        },
+        'bus2': {
+            'rear_left': 1,
+            'rear_middle': 2,
+            'rear_right': 3,
+            'front_right': 4,
+            'front_left': 5
         }
     }
 }
 
 
-def power_cycle_usb_gpio(dut, gpio_idx, pause=1):
-    """
-    Power cycle a usb port on dut via its gpio index.
-
-    Each usb port has corresponding gpio controling its power. If the gpio
-    index of the gpio is known, the power cycling procedure is pretty
-    straightforward.
-
-    @param dut: The handle of the device under test. Should be initialized in
-            autotest.
-    @param gpio_idx: The index of the gpio that controls power of the usb port
-            we want to reset.
-    @param pause: The waiting time before powering on usb device, unit is second.
-
-    """
-    if gpio_idx is None:
-        return
-    export_flag = False
-    if not dut.path_exists('/sys/class/gpio/gpio{}'.format(gpio_idx)):
-        export_flag = True
-        cmd = 'echo {} > /sys/class/gpio/export'.format(gpio_idx)
-        dut.run(cmd)
-    cmd = 'echo out > /sys/class/gpio/gpio{}/direction'.format(gpio_idx)
-    dut.run(cmd)
-    cmd = 'echo 0 > /sys/class/gpio/gpio{}/value'.format(gpio_idx)
-    dut.run(cmd)
-    time.sleep(pause)
-    cmd = 'echo 1 > /sys/class/gpio/gpio{}/value'.format(gpio_idx)
-    dut.run(cmd)
-    if export_flag:
-        cmd = 'echo {} > /sys/class/gpio/unexport'.format(gpio_idx)
-        dut.run(cmd)
-
-
-def power_cycle_usb_vidpid(dut, board, vid, pid):
+def power_cycle_usb_vidpid(dut, board, vid, pid, pause=1):
     """
     Power cycle a usb port on DUT via peripharel's VID and PID.
 
@@ -85,6 +103,7 @@ def power_cycle_usb_vidpid(dut, board, vid, pid):
     @param board: Board name ('guado', etc.)
     @param vid: Vendor ID of the peripharel device.
     @param pid: Product ID of the peripharel device.
+    @param pause: Time interval between power off and power on, unit is second.
 
     @raise KeyError if the target device wasn't found by given VID and PID.
 
@@ -93,13 +112,12 @@ def power_cycle_usb_vidpid(dut, board, vid, pid):
     if port_idx is None:
         raise KeyError('Couldn\'t find target device, {}:{}.'.format(vid, pid))
     logging.info('found device bus {} port {}'.format(bus_idx, port_idx))
-    token_bus = 'bus{}'.format(bus_idx)
-    target_gpio_pos = (PORT_NUM_DICT.get(board, {})
-                       .get(token_bus, {}).get(port_idx, ''))
-    target_gpio = (PORT_GPIO_DICT.get(board, {})
-                   .get(token_bus, {}).get(target_gpio_pos, None))
-    logging.info('target gpio num {}'.format(target_gpio))
-    power_cycle_usb_gpio(dut, target_gpio)
+
+    usb_manager = usb_port_manager.UsbPortManager(dut)
+    port_id = [usb_port_manager.PortId(bus=bus_idx, port_number=port_idx)]
+    usb_manager.set_port_power(port_id, 0)
+    time.sleep(pause)
+    usb_manager.set_port_power(port_id, 1)
 
 
 def get_port_number_from_vidpid(dut, vid, pid):

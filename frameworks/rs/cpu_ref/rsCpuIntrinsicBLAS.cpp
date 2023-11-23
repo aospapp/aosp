@@ -142,7 +142,7 @@ static void setupGEMM(MTLaunchStructForEachBlas *mtls, const Allocation **ain, R
 // Generic GEMM callback routine.
 template <typename T_data, typename T_param, typename Func>
 static void walk_tiled_gemm(Func blasFunc, T_param alpha, T_param beta, int vecSize,
-                            RsBlasCall* call, const MTLaunchStructForEachBlas *mtls) {
+                            RsBlasCall* call, MTLaunchStructForEachBlas *mtls) {
     // setup BLAS enum args
     enum CBLAS_TRANSPOSE TransA = (enum CBLAS_TRANSPOSE)call->transA;
     enum CBLAS_TRANSPOSE TransB = (enum CBLAS_TRANSPOSE)call->transB;
@@ -190,7 +190,7 @@ static void walk_tiled_gemm(Func blasFunc, T_param alpha, T_param beta, int vecS
 
 // SGEMM callback
 static void walk_2d_sgemm(void *usr, uint32_t idx) {
-    const MTLaunchStructForEachBlas *mtls = (const MTLaunchStructForEachBlas *)usr;
+    MTLaunchStructForEachBlas *mtls = (MTLaunchStructForEachBlas *)usr;
     RsBlasCall* call = (RsBlasCall*) mtls->sc;
 
     float alpha = call->alpha.f;
@@ -201,7 +201,7 @@ static void walk_2d_sgemm(void *usr, uint32_t idx) {
 
 // DGEMM callback
 static void walk_2d_dgemm(void *usr, uint32_t idx) {
-    const MTLaunchStructForEachBlas *mtls = (const MTLaunchStructForEachBlas *)usr;
+    MTLaunchStructForEachBlas *mtls = (MTLaunchStructForEachBlas *)usr;
     RsBlasCall* call = (RsBlasCall*) mtls->sc;
 
     double alpha = call->alpha.d;
@@ -212,7 +212,7 @@ static void walk_2d_dgemm(void *usr, uint32_t idx) {
 
 // CGEMM callback
 static void walk_2d_cgemm(void *usr, uint32_t idx) {
-    const MTLaunchStructForEachBlas *mtls = (const MTLaunchStructForEachBlas *)usr;
+    MTLaunchStructForEachBlas *mtls = (MTLaunchStructForEachBlas *)usr;
     RsBlasCall* call = (RsBlasCall*) mtls->sc;
 
     void * alpha = (void *)&call->alpha.c;
@@ -223,7 +223,7 @@ static void walk_2d_cgemm(void *usr, uint32_t idx) {
 
 // ZGEMM callback
 static void walk_2d_zgemm(void *usr, uint32_t idx) {
-    const MTLaunchStructForEachBlas *mtls = (const MTLaunchStructForEachBlas *)usr;
+    MTLaunchStructForEachBlas *mtls = (MTLaunchStructForEachBlas *)usr;
     RsBlasCall* call = (RsBlasCall*) mtls->sc;
 
     void * alpha = (void *)&call->alpha.z;

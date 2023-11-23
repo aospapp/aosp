@@ -112,7 +112,7 @@ void PropertyMap::addAll(const PropertyMap* map) {
 }
 
 status_t PropertyMap::load(const String8& filename, PropertyMap** outMap) {
-    *outMap = NULL;
+    *outMap = nullptr;
 
     Tokenizer* tokenizer;
     status_t status = Tokenizer::open(filename, &tokenizer);
@@ -208,7 +208,7 @@ status_t PropertyMap::Parser::parse() {
 
         mTokenizer->nextLine();
     }
-    return NO_ERROR;
+    return OK;
 }
 
 } // namespace android

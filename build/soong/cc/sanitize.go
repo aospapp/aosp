@@ -16,10 +16,11 @@ package cc
 
 import (
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/google/blueprint"
 
 	"android/soong/android"
 	"android/soong/cc/config"
@@ -34,15 +35,30 @@ var (
 	asanLdflags = []string{"-Wl,-u,__asan_preinit"}
 	asanLibs    = []string{"libasan"}
 
+	// TODO(pcc): Stop passing -hwasan-allow-ifunc here once it has been made
+	// the default.
+	hwasanCflags = []string{"-fno-omit-frame-pointer", "-Wno-frame-larger-than=",
+		"-mllvm", "-hwasan-create-frame-descriptions=0",
+		"-mllvm", "-hwasan-allow-ifunc",
+		"-fsanitize-hwaddress-abi=platform"}
+
 	cfiCflags = []string{"-flto", "-fsanitize-cfi-cross-dso",
 		"-fsanitize-blacklist=external/compiler-rt/lib/cfi/cfi_blacklist.txt"}
+	// -flto and -fvisibility are required by clang when -fsanitize=cfi is
+	// used, but have no effect on assembly files
+	cfiAsflags = []string{"-flto", "-fvisibility=default"}
 	cfiLdflags = []string{"-flto", "-fsanitize-cfi-cross-dso", "-fsanitize=cfi",
 		"-Wl,-plugin-opt,O1"}
-	cfiExportsMapPath  = "build/soong/cc/config/cfi_exports.map"
-	cfiStaticLibsMutex sync.Mutex
+	cfiExportsMapPath     = "build/soong/cc/config/cfi_exports.map"
+	cfiStaticLibsMutex    sync.Mutex
+	hwasanStaticLibsMutex sync.Mutex
 
-	intOverflowCflags   = []string{"-fsanitize-blacklist=build/soong/cc/config/integer_overflow_blacklist.txt"}
-	minimalRuntimeFlags = []string{"-fsanitize-minimal-runtime", "-fno-sanitize-trap=integer", "-fno-sanitize-recover=integer"}
+	intOverflowCflags = []string{"-fsanitize-blacklist=build/soong/cc/config/integer_overflow_blacklist.txt"}
+
+	minimalRuntimeFlags = []string{"-fsanitize-minimal-runtime", "-fno-sanitize-trap=integer,undefined",
+		"-fno-sanitize-recover=integer,undefined"}
+	hwasanGlobalOptions = []string{"heap_history_size=1023", "stack_history_size=512",
+		"export_memory_stats=0", "max_malloc_fill_size=0"}
 )
 
 type sanitizerType int
@@ -57,21 +73,48 @@ func boolPtr(v bool) *bool {
 
 const (
 	asan sanitizerType = iota + 1
+	hwasan
 	tsan
 	intOverflow
 	cfi
+	scs
 )
 
-func (t sanitizerType) String() string {
+// Name of the sanitizer variation for this sanitizer type
+func (t sanitizerType) variationName() string {
 	switch t {
 	case asan:
 		return "asan"
+	case hwasan:
+		return "hwasan"
 	case tsan:
 		return "tsan"
 	case intOverflow:
 		return "intOverflow"
 	case cfi:
 		return "cfi"
+	case scs:
+		return "scs"
+	default:
+		panic(fmt.Errorf("unknown sanitizerType %d", t))
+	}
+}
+
+// This is the sanitizer names in SANITIZE_[TARGET|HOST]
+func (t sanitizerType) name() string {
+	switch t {
+	case asan:
+		return "address"
+	case hwasan:
+		return "hwaddress"
+	case tsan:
+		return "thread"
+	case intOverflow:
+		return "integer_overflow"
+	case cfi:
+		return "cfi"
+	case scs:
+		return "shadow-call-stack"
 	default:
 		panic(fmt.Errorf("unknown sanitizerType %d", t))
 	}
@@ -83,8 +126,9 @@ type SanitizeProperties struct {
 		Never *bool `android:"arch_variant"`
 
 		// main sanitizers
-		Address *bool `android:"arch_variant"`
-		Thread  *bool `android:"arch_variant"`
+		Address   *bool `android:"arch_variant"`
+		Thread    *bool `android:"arch_variant"`
+		Hwaddress *bool `android:"arch_variant"`
 
 		// local sanitizers
 		Undefined        *bool    `android:"arch_variant"`
@@ -94,6 +138,8 @@ type SanitizeProperties struct {
 		Safestack        *bool    `android:"arch_variant"`
 		Cfi              *bool    `android:"arch_variant"`
 		Integer_overflow *bool    `android:"arch_variant"`
+		Scudo            *bool    `android:"arch_variant"`
+		Scs              *bool    `android:"arch_variant"`
 
 		// Sanitizers to run in the diagnostic mode (as opposed to the release mode).
 		// Replaces abort() on error with a human-readable error message.
@@ -103,6 +149,7 @@ type SanitizeProperties struct {
 			Cfi              *bool    `android:"arch_variant"`
 			Integer_overflow *bool    `android:"arch_variant"`
 			Misc_undefined   []string `android:"arch_variant"`
+			No_recover       []string
 		}
 
 		// value to pass to -fsanitize-recover=
@@ -112,21 +159,22 @@ type SanitizeProperties struct {
 		Blacklist *string
 	} `android:"arch_variant"`
 
-	SanitizerEnabled  bool `blueprint:"mutated"`
-	SanitizeDep       bool `blueprint:"mutated"`
-	MinimalRuntimeDep bool `blueprint:"mutated"`
-	InSanitizerDir    bool `blueprint:"mutated"`
+	SanitizerEnabled  bool     `blueprint:"mutated"`
+	SanitizeDep       bool     `blueprint:"mutated"`
+	MinimalRuntimeDep bool     `blueprint:"mutated"`
+	UbsanRuntimeDep   bool     `blueprint:"mutated"`
+	InSanitizerDir    bool     `blueprint:"mutated"`
+	Sanitizers        []string `blueprint:"mutated"`
+	DiagSanitizers    []string `blueprint:"mutated"`
 }
 
 type sanitize struct {
 	Properties SanitizeProperties
-
-	runtimeLibrary          string
-	androidMkRuntimeLibrary string
 }
 
 func init() {
 	android.RegisterMakeVarsProvider(pctx, cfiMakeVarsProvider)
+	android.RegisterMakeVarsProvider(pctx, hwasanMakeVarsProvider)
 }
 
 func (sanitize *sanitize) props() []interface{} {
@@ -141,6 +189,11 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 		s.Never = BoolPtr(true)
 	}
 
+	// Sanitizers do not work on Fuchsia yet.
+	if ctx.Fuchsia() {
+		s.Never = BoolPtr(true)
+	}
+
 	// Never always wins.
 	if Bool(s.Never) {
 		return
@@ -149,15 +202,15 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 	var globalSanitizers []string
 	var globalSanitizersDiag []string
 
-	if ctx.clang() {
-		if ctx.Host() {
+	if ctx.Host() {
+		if !ctx.Windows() {
 			globalSanitizers = ctx.Config().SanitizeHost()
-		} else {
-			arches := ctx.Config().SanitizeDeviceArch()
-			if len(arches) == 0 || inList(ctx.Arch().ArchType.Name, arches) {
-				globalSanitizers = ctx.Config().SanitizeDevice()
-				globalSanitizersDiag = ctx.Config().SanitizeDeviceDiag()
-			}
+		}
+	} else {
+		arches := ctx.Config().SanitizeDeviceArch()
+		if len(arches) == 0 || inList(ctx.Arch().ArchType.Name, arches) {
+			globalSanitizers = ctx.Config().SanitizeDevice()
+			globalSanitizersDiag = ctx.Config().SanitizeDeviceDiag()
 		}
 	}
 
@@ -199,18 +252,28 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 			}
 		}
 
+		// Global integer_overflow builds do not support static libraries.
 		if found, globalSanitizers = removeFromList("integer_overflow", globalSanitizers); found && s.Integer_overflow == nil {
-			if !ctx.Config().IntegerOverflowDisabledForPath(ctx.ModuleDir()) {
+			if !ctx.Config().IntegerOverflowDisabledForPath(ctx.ModuleDir()) && !ctx.static() {
 				s.Integer_overflow = boolPtr(true)
 			}
+		}
+
+		if found, globalSanitizers = removeFromList("scudo", globalSanitizers); found && s.Scudo == nil {
+			s.Scudo = boolPtr(true)
+		}
+
+		if found, globalSanitizers = removeFromList("hwaddress", globalSanitizers); found && s.Hwaddress == nil {
+			s.Hwaddress = boolPtr(true)
 		}
 
 		if len(globalSanitizers) > 0 {
 			ctx.ModuleErrorf("unknown global sanitizer option %s", globalSanitizers[0])
 		}
 
+		// Global integer_overflow builds do not support static library diagnostics.
 		if found, globalSanitizersDiag = removeFromList("integer_overflow", globalSanitizersDiag); found &&
-			s.Diag.Integer_overflow == nil && Bool(s.Integer_overflow) {
+			s.Diag.Integer_overflow == nil && Bool(s.Integer_overflow) && !ctx.static() {
 			s.Diag.Integer_overflow = boolPtr(true)
 		}
 
@@ -244,22 +307,42 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 		s.Diag.Cfi = nil
 	}
 
+	// HWASan requires AArch64 hardware feature (top-byte-ignore).
+	if ctx.Arch().ArchType != android.Arm64 {
+		s.Hwaddress = nil
+	}
+
+	// SCS is only implemented on AArch64.
+	if ctx.Arch().ArchType != android.Arm64 {
+		s.Scs = nil
+	}
+
 	// Also disable CFI if ASAN is enabled.
-	if Bool(s.Address) {
+	if Bool(s.Address) || Bool(s.Hwaddress) {
 		s.Cfi = nil
 		s.Diag.Cfi = nil
 	}
 
-	// Also disable CFI for host builds.
+	// Disable sanitizers that depend on the UBSan runtime for host builds.
 	if ctx.Host() {
 		s.Cfi = nil
 		s.Diag.Cfi = nil
+		s.Misc_undefined = nil
+		s.Undefined = nil
+		s.All_undefined = nil
+		s.Integer_overflow = nil
 	}
 
 	// Also disable CFI for VNDK variants of components
 	if ctx.isVndk() && ctx.useVndk() {
 		s.Cfi = nil
 		s.Diag.Cfi = nil
+	}
+
+	// HWASan ramdisk (which is built from recovery) goes over some bootloader limit.
+	// Keep libc instrumented so that recovery can run hwasan-instrumented code if necessary.
+	if ctx.inRecovery() && !strings.HasPrefix(ctx.ModuleDir(), "bionic/libc") {
+		s.Hwaddress = nil
 	}
 
 	if ctx.staticBinary() {
@@ -280,8 +363,19 @@ func (sanitize *sanitize) begin(ctx BaseModuleContext) {
 	}
 
 	if ctx.Os() != android.Windows && (Bool(s.All_undefined) || Bool(s.Undefined) || Bool(s.Address) || Bool(s.Thread) ||
-		Bool(s.Coverage) || Bool(s.Safestack) || Bool(s.Cfi) || Bool(s.Integer_overflow) || len(s.Misc_undefined) > 0) {
+		Bool(s.Coverage) || Bool(s.Safestack) || Bool(s.Cfi) || Bool(s.Integer_overflow) || len(s.Misc_undefined) > 0 ||
+		Bool(s.Scudo) || Bool(s.Hwaddress) || Bool(s.Scs)) {
 		sanitize.Properties.SanitizerEnabled = true
+	}
+
+	// Disable Scudo if ASan or TSan is enabled, or if it's disabled globally.
+	if Bool(s.Address) || Bool(s.Thread) || Bool(s.Hwaddress) || ctx.Config().DisableScudo() {
+		s.Scudo = nil
+	}
+
+	if Bool(s.Hwaddress) {
+		s.Address = nil
+		s.Thread = nil
 	}
 
 	if Bool(s.Coverage) {
@@ -299,10 +393,31 @@ func (sanitize *sanitize) deps(ctx BaseModuleContext, deps Deps) Deps {
 	if ctx.Device() {
 		if Bool(sanitize.Properties.Sanitize.Address) {
 			deps.StaticLibs = append(deps.StaticLibs, asanLibs...)
+			// Compiling asan and having libc_scudo in the same
+			// executable will cause the executable to crash.
+			// Remove libc_scudo since it is only used to override
+			// allocation functions which asan already overrides.
+			_, deps.SharedLibs = removeFromList("libc_scudo", deps.SharedLibs)
 		}
 	}
 
 	return deps
+}
+
+func toDisableImplicitIntegerChange(flags []string) bool {
+	// Returns true if any flag is fsanitize*integer, and there is
+	// no explicit flag about sanitize=implicit-integer-sign-change.
+	for _, f := range flags {
+		if strings.Contains(f, "sanitize=implicit-integer-sign-change") {
+			return false
+		}
+	}
+	for _, f := range flags {
+		if strings.HasPrefix(f, "-fsanitize") && strings.Contains(f, "integer") {
+			return true
+		}
+	}
+	return false
 }
 
 func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
@@ -313,53 +428,9 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 		flags.LdFlags = append(flags.LdFlags, minimalRuntimePath)
 		flags.LdFlags = append(flags.LdFlags, "-Wl,--exclude-libs,"+minimalRuntimeLib)
 	}
-	if !sanitize.Properties.SanitizerEnabled {
+	if !sanitize.Properties.SanitizerEnabled && !sanitize.Properties.UbsanRuntimeDep {
 		return flags
 	}
-
-	if !ctx.clang() {
-		ctx.ModuleErrorf("Use of sanitizers requires clang")
-	}
-
-	var sanitizers []string
-	var diagSanitizers []string
-
-	if Bool(sanitize.Properties.Sanitize.All_undefined) {
-		sanitizers = append(sanitizers, "undefined")
-	} else {
-		if Bool(sanitize.Properties.Sanitize.Undefined) {
-			sanitizers = append(sanitizers,
-				"bool",
-				"integer-divide-by-zero",
-				"return",
-				"returns-nonnull-attribute",
-				"shift-exponent",
-				"unreachable",
-				"vla-bound",
-				// TODO(danalbert): The following checks currently have compiler performance issues.
-				//"alignment",
-				//"bounds",
-				//"enum",
-				//"float-cast-overflow",
-				//"float-divide-by-zero",
-				//"nonnull-attribute",
-				//"null",
-				//"shift-base",
-				//"signed-integer-overflow",
-				// TODO(danalbert): Fix UB in libc++'s __tree so we can turn this on.
-				// https://llvm.org/PR19302
-				// http://reviews.llvm.org/D6974
-				// "object-size",
-			)
-		}
-		sanitizers = append(sanitizers, sanitize.Properties.Sanitize.Misc_undefined...)
-	}
-
-	if Bool(sanitize.Properties.Sanitize.Diag.Undefined) {
-		diagSanitizers = append(diagSanitizers, "undefined")
-	}
-
-	diagSanitizers = append(diagSanitizers, sanitize.Properties.Sanitize.Diag.Misc_undefined...)
 
 	if Bool(sanitize.Properties.Sanitize.Address) {
 		if ctx.Arch().ArchType == android.Arm {
@@ -376,25 +447,23 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 			flags.LdFlags = append(flags.LdFlags, "-Wl,--no-as-needed")
 		} else {
 			flags.CFlags = append(flags.CFlags, "-mllvm", "-asan-globals=0")
-			flags.DynamicLinker = "/system/bin/linker_asan"
+			if ctx.bootstrap() {
+				flags.DynamicLinker = "/system/bin/bootstrap/linker_asan"
+			} else {
+				flags.DynamicLinker = "/system/bin/linker_asan"
+			}
 			if flags.Toolchain.Is64Bit() {
 				flags.DynamicLinker += "64"
 			}
 		}
-		sanitizers = append(sanitizers, "address")
-		diagSanitizers = append(diagSanitizers, "address")
 	}
 
-	if Bool(sanitize.Properties.Sanitize.Thread) {
-		sanitizers = append(sanitizers, "thread")
+	if Bool(sanitize.Properties.Sanitize.Hwaddress) {
+		flags.CFlags = append(flags.CFlags, hwasanCflags...)
 	}
 
 	if Bool(sanitize.Properties.Sanitize.Coverage) {
 		flags.CFlags = append(flags.CFlags, "-fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp")
-	}
-
-	if Bool(sanitize.Properties.Sanitize.Safestack) {
-		sanitizers = append(sanitizers, "safe-stack")
 	}
 
 	if Bool(sanitize.Properties.Sanitize.Cfi) {
@@ -403,25 +472,15 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 			// to do this on a function basis, so force Thumb on the entire module.
 			flags.RequiredInstructionSet = "thumb"
 		}
-		sanitizers = append(sanitizers, "cfi")
 
 		flags.CFlags = append(flags.CFlags, cfiCflags...)
+		flags.AsFlags = append(flags.AsFlags, cfiAsflags...)
 		// Only append the default visibility flag if -fvisibility has not already been set
 		// to hidden.
 		if !inList("-fvisibility=hidden", flags.CFlags) {
 			flags.CFlags = append(flags.CFlags, "-fvisibility=default")
 		}
 		flags.LdFlags = append(flags.LdFlags, cfiLdflags...)
-		if ctx.Device() {
-			// Work around a bug in Clang. The CFI sanitizer requires LTO, and when
-			// LTO is enabled, the Clang driver fails to enable emutls for Android.
-			// See b/72706604 or https://github.com/android-ndk/ndk/issues/498.
-			flags.LdFlags = append(flags.LdFlags, "-Wl,-plugin-opt,-emulated-tls")
-		}
-		flags.ArGoldPlugin = true
-		if Bool(sanitize.Properties.Sanitize.Diag.Cfi) {
-			diagSanitizers = append(diagSanitizers, "cfi")
-		}
 
 		if ctx.staticBinary() {
 			_, flags.CFlags = removeFromList("-fsanitize-cfi-cross-dso", flags.CFlags)
@@ -430,21 +489,14 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 	}
 
 	if Bool(sanitize.Properties.Sanitize.Integer_overflow) {
-		if !ctx.static() {
-			sanitizers = append(sanitizers, "unsigned-integer-overflow")
-			sanitizers = append(sanitizers, "signed-integer-overflow")
-			flags.CFlags = append(flags.CFlags, intOverflowCflags...)
-			if Bool(sanitize.Properties.Sanitize.Diag.Integer_overflow) {
-				diagSanitizers = append(diagSanitizers, "unsigned-integer-overflow")
-				diagSanitizers = append(diagSanitizers, "signed-integer-overflow")
-			}
-		}
+		flags.CFlags = append(flags.CFlags, intOverflowCflags...)
 	}
 
-	if len(sanitizers) > 0 {
-		sanitizeArg := "-fsanitize=" + strings.Join(sanitizers, ",")
+	if len(sanitize.Properties.Sanitizers) > 0 {
+		sanitizeArg := "-fsanitize=" + strings.Join(sanitize.Properties.Sanitizers, ",")
 
 		flags.CFlags = append(flags.CFlags, sanitizeArg)
+		flags.AsFlags = append(flags.AsFlags, sanitizeArg)
 		if ctx.Host() {
 			flags.CFlags = append(flags.CFlags, "-fno-sanitize-recover=all")
 			flags.LdFlags = append(flags.LdFlags, sanitizeArg)
@@ -460,10 +512,14 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 				flags.LdFlags = append(flags.LdFlags, "-Wl,--exclude-libs,"+minimalRuntimeLib)
 			}
 		}
+		// http://b/119329758, Android core does not boot up with this sanitizer yet.
+		if toDisableImplicitIntegerChange(flags.CFlags) {
+			flags.CFlags = append(flags.CFlags, "-fno-sanitize=implicit-integer-sign-change")
+		}
 	}
 
-	if len(diagSanitizers) > 0 {
-		flags.CFlags = append(flags.CFlags, "-fno-sanitize-trap="+strings.Join(diagSanitizers, ","))
+	if len(sanitize.Properties.DiagSanitizers) > 0 {
+		flags.CFlags = append(flags.CFlags, "-fno-sanitize-trap="+strings.Join(sanitize.Properties.DiagSanitizers, ","))
 	}
 	// FIXME: enable RTTI if diag + (cfi or vptr)
 
@@ -472,28 +528,9 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 			strings.Join(sanitize.Properties.Sanitize.Recover, ","))
 	}
 
-	// Link a runtime library if needed.
-	runtimeLibrary := ""
-	if Bool(sanitize.Properties.Sanitize.Address) {
-		runtimeLibrary = config.AddressSanitizerRuntimeLibrary(ctx.toolchain())
-	} else if Bool(sanitize.Properties.Sanitize.Thread) {
-		runtimeLibrary = config.ThreadSanitizerRuntimeLibrary(ctx.toolchain())
-	} else if len(diagSanitizers) > 0 {
-		runtimeLibrary = config.UndefinedBehaviorSanitizerRuntimeLibrary(ctx.toolchain())
-	}
-
-	if runtimeLibrary != "" {
-		// ASan runtime library must be the first in the link order.
-		flags.libFlags = append([]string{
-			"${config.ClangAsanLibDir}/" + runtimeLibrary + ctx.toolchain().ShlibSuffix(),
-		}, flags.libFlags...)
-		sanitize.runtimeLibrary = runtimeLibrary
-
-		// When linking against VNDK, use the vendor variant of the runtime lib
-		sanitize.androidMkRuntimeLibrary = sanitize.runtimeLibrary
-		if ctx.useVndk() {
-			sanitize.androidMkRuntimeLibrary = sanitize.runtimeLibrary + vendorSuffix
-		}
+	if sanitize.Properties.Sanitize.Diag.No_recover != nil {
+		flags.CFlags = append(flags.CFlags, "-fno-sanitize-recover="+
+			strings.Join(sanitize.Properties.Sanitize.Diag.No_recover, ","))
 	}
 
 	blacklist := android.OptionalPathForModuleSrc(ctx, sanitize.Properties.Sanitize.Blacklist)
@@ -506,16 +543,16 @@ func (sanitize *sanitize) flags(ctx ModuleContext, flags Flags) Flags {
 }
 
 func (sanitize *sanitize) AndroidMk(ctx AndroidMkContext, ret *android.AndroidMkData) {
-	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
-		if sanitize.androidMkRuntimeLibrary != "" {
-			fmt.Fprintln(w, "LOCAL_SHARED_LIBRARIES += "+sanitize.androidMkRuntimeLibrary)
-		}
-	})
-
 	// Add a suffix for CFI-enabled static libraries to allow surfacing both to make without a
 	// name conflict.
 	if ret.Class == "STATIC_LIBRARIES" && Bool(sanitize.Properties.Sanitize.Cfi) {
 		ret.SubName += ".cfi"
+	}
+	if ret.Class == "STATIC_LIBRARIES" && Bool(sanitize.Properties.Sanitize.Hwaddress) {
+		ret.SubName += ".hwasan"
+	}
+	if ret.Class == "STATIC_LIBRARIES" && Bool(sanitize.Properties.Sanitize.Scs) {
+		ret.SubName += ".scs"
 	}
 }
 
@@ -527,12 +564,16 @@ func (sanitize *sanitize) getSanitizerBoolPtr(t sanitizerType) *bool {
 	switch t {
 	case asan:
 		return sanitize.Properties.Sanitize.Address
+	case hwasan:
+		return sanitize.Properties.Sanitize.Hwaddress
 	case tsan:
 		return sanitize.Properties.Sanitize.Thread
 	case intOverflow:
 		return sanitize.Properties.Sanitize.Integer_overflow
 	case cfi:
 		return sanitize.Properties.Sanitize.Cfi
+	case scs:
+		return sanitize.Properties.Sanitize.Scs
 	default:
 		panic(fmt.Errorf("unknown sanitizerType %d", t))
 	}
@@ -540,12 +581,15 @@ func (sanitize *sanitize) getSanitizerBoolPtr(t sanitizerType) *bool {
 
 func (sanitize *sanitize) isUnsanitizedVariant() bool {
 	return !sanitize.isSanitizerEnabled(asan) &&
+		!sanitize.isSanitizerEnabled(hwasan) &&
 		!sanitize.isSanitizerEnabled(tsan) &&
-		!sanitize.isSanitizerEnabled(cfi)
+		!sanitize.isSanitizerEnabled(cfi) &&
+		!sanitize.isSanitizerEnabled(scs)
 }
 
 func (sanitize *sanitize) isVariantOnProductionDevice() bool {
 	return !sanitize.isSanitizerEnabled(asan) &&
+		!sanitize.isSanitizerEnabled(hwasan) &&
 		!sanitize.isSanitizerEnabled(tsan)
 }
 
@@ -556,13 +600,16 @@ func (sanitize *sanitize) SetSanitizer(t sanitizerType, b bool) {
 		if !b {
 			sanitize.Properties.Sanitize.Coverage = nil
 		}
+	case hwasan:
+		sanitize.Properties.Sanitize.Hwaddress = boolPtr(b)
 	case tsan:
 		sanitize.Properties.Sanitize.Thread = boolPtr(b)
 	case intOverflow:
 		sanitize.Properties.Sanitize.Integer_overflow = boolPtr(b)
 	case cfi:
 		sanitize.Properties.Sanitize.Cfi = boolPtr(b)
-		sanitize.Properties.Sanitize.Diag.Cfi = boolPtr(b)
+	case scs:
+		sanitize.Properties.Sanitize.Scs = boolPtr(b)
 	default:
 		panic(fmt.Errorf("unknown sanitizerType %d", t))
 	}
@@ -596,17 +643,38 @@ func (sanitize *sanitize) isSanitizerEnabled(t sanitizerType) bool {
 	return sanitizerVal != nil && *sanitizerVal == true
 }
 
-// Propagate asan requirements down from binaries
+func isSanitizableDependencyTag(tag blueprint.DependencyTag) bool {
+	t, ok := tag.(dependencyTag)
+	return ok && t.library || t == reuseObjTag
+}
+
+// Propagate sanitizer requirements down from binaries
 func sanitizerDepsMutator(t sanitizerType) func(android.TopDownMutatorContext) {
 	return func(mctx android.TopDownMutatorContext) {
 		if c, ok := mctx.Module().(*Module); ok && c.sanitize.isSanitizerEnabled(t) {
-			mctx.VisitDepsDepthFirst(func(module android.Module) {
-				if d, ok := module.(*Module); ok && d.sanitize != nil &&
+			mctx.WalkDeps(func(child, parent android.Module) bool {
+				if !isSanitizableDependencyTag(mctx.OtherModuleDependencyTag(child)) {
+					return false
+				}
+				if d, ok := child.(*Module); ok && d.sanitize != nil &&
 					!Bool(d.sanitize.Properties.Sanitize.Never) &&
 					!d.sanitize.isSanitizerExplicitlyDisabled(t) {
-					if (t == cfi && d.static()) || t != cfi {
+					if t == cfi || t == hwasan || t == scs {
+						if d.static() {
+							d.sanitize.Properties.SanitizeDep = true
+						}
+					} else {
 						d.sanitize.Properties.SanitizeDep = true
 					}
+				}
+				return true
+			})
+		} else if sanitizeable, ok := mctx.Module().(Sanitizeable); ok {
+			// If an APEX module includes a lib which is enabled for a sanitizer T, then
+			// the APEX module is also enabled for the same sanitizer type.
+			mctx.VisitDirectDeps(func(child android.Module) {
+				if c, ok := child.(*Module); ok && c.sanitize.isSanitizerEnabled(t) {
+					sanitizeable.EnableSanitizer(t.name())
 				}
 			})
 		}
@@ -614,21 +682,184 @@ func sanitizerDepsMutator(t sanitizerType) func(android.TopDownMutatorContext) {
 }
 
 // Propagate the ubsan minimal runtime dependency when there are integer overflow sanitized static dependencies.
-func minimalRuntimeDepsMutator() func(android.TopDownMutatorContext) {
-	return func(mctx android.TopDownMutatorContext) {
-		if c, ok := mctx.Module().(*Module); ok && c.sanitize != nil {
-			mctx.VisitDepsDepthFirst(func(module android.Module) {
-				if d, ok := module.(*Module); ok && d.static() && d.sanitize != nil {
+func sanitizerRuntimeDepsMutator(mctx android.TopDownMutatorContext) {
+	if c, ok := mctx.Module().(*Module); ok && c.sanitize != nil {
+		mctx.WalkDeps(func(child, parent android.Module) bool {
+			if !isSanitizableDependencyTag(mctx.OtherModuleDependencyTag(child)) {
+				return false
+			}
+			if d, ok := child.(*Module); ok && d.static() && d.sanitize != nil {
 
-					// If a static dependency will be built with the minimal runtime,
+				if enableMinimalRuntime(d.sanitize) {
+					// If a static dependency is built with the minimal runtime,
 					// make sure we include the ubsan minimal runtime.
-					if enableMinimalRuntime(d.sanitize) {
-						c.sanitize.Properties.MinimalRuntimeDep = true
-					}
+					c.sanitize.Properties.MinimalRuntimeDep = true
+				} else if Bool(d.sanitize.Properties.Sanitize.Diag.Integer_overflow) ||
+					len(d.sanitize.Properties.Sanitize.Diag.Misc_undefined) > 0 {
+					// If a static dependency runs with full ubsan diagnostics,
+					// make sure we include the ubsan runtime.
+					c.sanitize.Properties.UbsanRuntimeDep = true
 				}
-			})
+			}
+			return true
+		})
+	}
+}
+
+// Add the dependency to the runtime library for each of the sanitizer variants
+func sanitizerRuntimeMutator(mctx android.BottomUpMutatorContext) {
+	if c, ok := mctx.Module().(*Module); ok && c.sanitize != nil {
+		if !c.Enabled() {
+			return
+		}
+		var sanitizers []string
+		var diagSanitizers []string
+
+		if Bool(c.sanitize.Properties.Sanitize.All_undefined) {
+			sanitizers = append(sanitizers, "undefined")
+		} else {
+			if Bool(c.sanitize.Properties.Sanitize.Undefined) {
+				sanitizers = append(sanitizers,
+					"bool",
+					"integer-divide-by-zero",
+					"return",
+					"returns-nonnull-attribute",
+					"shift-exponent",
+					"unreachable",
+					"vla-bound",
+					// TODO(danalbert): The following checks currently have compiler performance issues.
+					//"alignment",
+					//"bounds",
+					//"enum",
+					//"float-cast-overflow",
+					//"float-divide-by-zero",
+					//"nonnull-attribute",
+					//"null",
+					//"shift-base",
+					//"signed-integer-overflow",
+					// TODO(danalbert): Fix UB in libc++'s __tree so we can turn this on.
+					// https://llvm.org/PR19302
+					// http://reviews.llvm.org/D6974
+					// "object-size",
+				)
+			}
+			sanitizers = append(sanitizers, c.sanitize.Properties.Sanitize.Misc_undefined...)
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Diag.Undefined) {
+			diagSanitizers = append(diagSanitizers, "undefined")
+		}
+
+		diagSanitizers = append(diagSanitizers, c.sanitize.Properties.Sanitize.Diag.Misc_undefined...)
+
+		if Bool(c.sanitize.Properties.Sanitize.Address) {
+			sanitizers = append(sanitizers, "address")
+			diagSanitizers = append(diagSanitizers, "address")
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Hwaddress) {
+			sanitizers = append(sanitizers, "hwaddress")
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Thread) {
+			sanitizers = append(sanitizers, "thread")
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Safestack) {
+			sanitizers = append(sanitizers, "safe-stack")
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Cfi) {
+			sanitizers = append(sanitizers, "cfi")
+
+			if Bool(c.sanitize.Properties.Sanitize.Diag.Cfi) {
+				diagSanitizers = append(diagSanitizers, "cfi")
+			}
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Integer_overflow) {
+			sanitizers = append(sanitizers, "unsigned-integer-overflow")
+			sanitizers = append(sanitizers, "signed-integer-overflow")
+			if Bool(c.sanitize.Properties.Sanitize.Diag.Integer_overflow) {
+				diagSanitizers = append(diagSanitizers, "unsigned-integer-overflow")
+				diagSanitizers = append(diagSanitizers, "signed-integer-overflow")
+			}
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Scudo) {
+			sanitizers = append(sanitizers, "scudo")
+		}
+
+		if Bool(c.sanitize.Properties.Sanitize.Scs) {
+			sanitizers = append(sanitizers, "shadow-call-stack")
+		}
+
+		// Save the list of sanitizers. These will be used again when generating
+		// the build rules (for Cflags, etc.)
+		c.sanitize.Properties.Sanitizers = sanitizers
+		c.sanitize.Properties.DiagSanitizers = diagSanitizers
+
+		// Determine the runtime library required
+		runtimeLibrary := ""
+		toolchain := c.toolchain(mctx)
+		if Bool(c.sanitize.Properties.Sanitize.Address) {
+			runtimeLibrary = config.AddressSanitizerRuntimeLibrary(toolchain)
+		} else if Bool(c.sanitize.Properties.Sanitize.Hwaddress) {
+			if c.staticBinary() {
+				runtimeLibrary = config.HWAddressSanitizerStaticLibrary(toolchain)
+			} else {
+				runtimeLibrary = config.HWAddressSanitizerRuntimeLibrary(toolchain)
+			}
+		} else if Bool(c.sanitize.Properties.Sanitize.Thread) {
+			runtimeLibrary = config.ThreadSanitizerRuntimeLibrary(toolchain)
+		} else if Bool(c.sanitize.Properties.Sanitize.Scudo) {
+			if len(diagSanitizers) == 0 && !c.sanitize.Properties.UbsanRuntimeDep {
+				runtimeLibrary = config.ScudoMinimalRuntimeLibrary(toolchain)
+			} else {
+				runtimeLibrary = config.ScudoRuntimeLibrary(toolchain)
+			}
+		} else if len(diagSanitizers) > 0 || c.sanitize.Properties.UbsanRuntimeDep {
+			runtimeLibrary = config.UndefinedBehaviorSanitizerRuntimeLibrary(toolchain)
+		}
+
+		if mctx.Device() && runtimeLibrary != "" {
+			if inList(runtimeLibrary, llndkLibraries) && !c.static() && c.useVndk() {
+				runtimeLibrary = runtimeLibrary + llndkLibrarySuffix
+			}
+
+			// Adding dependency to the runtime library. We are using *FarVariation*
+			// because the runtime libraries themselves are not mutated by sanitizer
+			// mutators and thus don't have sanitizer variants whereas this module
+			// has been already mutated.
+			//
+			// Note that by adding dependency with {static|shared}DepTag, the lib is
+			// added to libFlags and LOCAL_SHARED_LIBRARIES by cc.Module
+			if c.staticBinary() {
+				// static executable gets static runtime libs
+				mctx.AddFarVariationDependencies([]blueprint.Variation{
+					{Mutator: "link", Variation: "static"},
+					{Mutator: "image", Variation: c.imageVariation()},
+					{Mutator: "arch", Variation: mctx.Target().String()},
+				}, staticDepTag, runtimeLibrary)
+			} else if !c.static() {
+				// dynamic executable and shared libs get shared runtime libs
+				mctx.AddFarVariationDependencies([]blueprint.Variation{
+					{Mutator: "link", Variation: "shared"},
+					{Mutator: "image", Variation: c.imageVariation()},
+					{Mutator: "arch", Variation: mctx.Target().String()},
+				}, earlySharedDepTag, runtimeLibrary)
+			}
+			// static lib does not have dependency to the runtime library. The
+			// dependency will be added to the executables or shared libs using
+			// the static lib.
 		}
 	}
+}
+
+type Sanitizeable interface {
+	android.Module
+	IsSanitizerEnabled(ctx android.BaseModuleContext, sanitizerName string) bool
+	EnableSanitizer(sanitizerName string)
 }
 
 // Create sanitized variants for modules that need them
@@ -636,14 +867,14 @@ func sanitizerMutator(t sanitizerType) func(android.BottomUpMutatorContext) {
 	return func(mctx android.BottomUpMutatorContext) {
 		if c, ok := mctx.Module().(*Module); ok && c.sanitize != nil {
 			if c.isDependencyRoot() && c.sanitize.isSanitizerEnabled(t) {
-				modules := mctx.CreateVariations(t.String())
+				modules := mctx.CreateVariations(t.variationName())
 				modules[0].(*Module).sanitize.SetSanitizer(t, true)
 			} else if c.sanitize.isSanitizerEnabled(t) || c.sanitize.Properties.SanitizeDep {
 				// Save original sanitizer status before we assign values to variant
 				// 0 as that overwrites the original.
 				isSanitizerEnabled := c.sanitize.isSanitizerEnabled(t)
 
-				modules := mctx.CreateVariations("", t.String())
+				modules := mctx.CreateVariations("", t.variationName())
 				modules[0].(*Module).sanitize.SetSanitizer(t, false)
 				modules[1].(*Module).sanitize.SetSanitizer(t, true)
 
@@ -688,21 +919,84 @@ func sanitizerMutator(t sanitizerType) func(android.BottomUpMutatorContext) {
 						modules[1].(*Module).Properties.PreventInstall = true
 						modules[1].(*Module).Properties.HideFromMake = true
 					}
+				} else if t == scs {
+					// We don't currently link any static libraries built with make into
+					// libraries built with SCS, so we don't need logic for propagating
+					// SCSness of dependencies into make.
+					if !c.static() {
+						if isSanitizerEnabled {
+							modules[0].(*Module).Properties.PreventInstall = true
+							modules[0].(*Module).Properties.HideFromMake = true
+						} else {
+							modules[1].(*Module).Properties.PreventInstall = true
+							modules[1].(*Module).Properties.HideFromMake = true
+						}
+					}
+				} else if t == hwasan {
+					if mctx.Device() {
+						// CFI and HWASAN are currently mutually exclusive so disable
+						// CFI if this is an HWASAN variant.
+						modules[1].(*Module).sanitize.SetSanitizer(cfi, false)
+					}
+
+					if c.static() {
+						if c.useVndk() {
+							hwasanVendorStaticLibs := hwasanVendorStaticLibs(mctx.Config())
+							hwasanStaticLibsMutex.Lock()
+							*hwasanVendorStaticLibs = append(*hwasanVendorStaticLibs, c.Name())
+							hwasanStaticLibsMutex.Unlock()
+						} else {
+							hwasanStaticLibs := hwasanStaticLibs(mctx.Config())
+							hwasanStaticLibsMutex.Lock()
+							*hwasanStaticLibs = append(*hwasanStaticLibs, c.Name())
+							hwasanStaticLibsMutex.Unlock()
+						}
+					} else {
+						if isSanitizerEnabled {
+							modules[0].(*Module).Properties.PreventInstall = true
+							modules[0].(*Module).Properties.HideFromMake = true
+						} else {
+							modules[1].(*Module).Properties.PreventInstall = true
+							modules[1].(*Module).Properties.HideFromMake = true
+						}
+					}
 				}
 			}
 			c.sanitize.Properties.SanitizeDep = false
+		} else if sanitizeable, ok := mctx.Module().(Sanitizeable); ok && sanitizeable.IsSanitizerEnabled(mctx, t.name()) {
+			// APEX modules fall here
+			mctx.CreateVariations(t.variationName())
 		}
 	}
 }
 
+var cfiStaticLibsKey = android.NewOnceKey("cfiStaticLibs")
+
 func cfiStaticLibs(config android.Config) *[]string {
-	return config.Once("cfiStaticLibs", func() interface{} {
+	return config.Once(cfiStaticLibsKey, func() interface{} {
+		return &[]string{}
+	}).(*[]string)
+}
+
+var hwasanStaticLibsKey = android.NewOnceKey("hwasanStaticLibs")
+
+func hwasanStaticLibs(config android.Config) *[]string {
+	return config.Once(hwasanStaticLibsKey, func() interface{} {
+		return &[]string{}
+	}).(*[]string)
+}
+
+var hwasanVendorStaticLibsKey = android.NewOnceKey("hwasanVendorStaticLibs")
+
+func hwasanVendorStaticLibs(config android.Config) *[]string {
+	return config.Once(hwasanVendorStaticLibsKey, func() interface{} {
 		return &[]string{}
 	}).(*[]string)
 }
 
 func enableMinimalRuntime(sanitize *sanitize) bool {
 	if !Bool(sanitize.Properties.Sanitize.Address) &&
+		!Bool(sanitize.Properties.Sanitize.Hwaddress) &&
 		(Bool(sanitize.Properties.Sanitize.Integer_overflow) ||
 			len(sanitize.Properties.Sanitize.Misc_undefined) > 0) &&
 		!(Bool(sanitize.Properties.Sanitize.Diag.Integer_overflow) ||
@@ -717,4 +1011,14 @@ func cfiMakeVarsProvider(ctx android.MakeVarsContext) {
 	cfiStaticLibs := cfiStaticLibs(ctx.Config())
 	sort.Strings(*cfiStaticLibs)
 	ctx.Strict("SOONG_CFI_STATIC_LIBRARIES", strings.Join(*cfiStaticLibs, " "))
+}
+
+func hwasanMakeVarsProvider(ctx android.MakeVarsContext) {
+	hwasanStaticLibs := hwasanStaticLibs(ctx.Config())
+	sort.Strings(*hwasanStaticLibs)
+	ctx.Strict("SOONG_HWASAN_STATIC_LIBRARIES", strings.Join(*hwasanStaticLibs, " "))
+
+	hwasanVendorStaticLibs := hwasanVendorStaticLibs(ctx.Config())
+	sort.Strings(*hwasanVendorStaticLibs)
+	ctx.Strict("SOONG_HWASAN_VENDOR_STATIC_LIBRARIES", strings.Join(*hwasanVendorStaticLibs, " "))
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2008 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.google.inject.internal;
 
 /**
@@ -25,6 +24,8 @@ package com.google.inject.internal;
  * @author jessewilson@google.com (Jesse Wilson)
  */
 public class ErrorsException extends Exception {
+  // NOTE: this is used by Gin which is abandoned.  So changing this API will prevent Gin users from
+  // upgrading Guice version.
 
   private final Errors errors;
 

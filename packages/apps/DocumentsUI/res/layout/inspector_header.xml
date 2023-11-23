@@ -22,23 +22,8 @@
         android:id="@+id/inspector_thumbnail"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:scaleType="fitCenter"
         android:alpha="0.0"
-        android:background="@android:color/white" />
-
-    <TextView
-        android:id="@+id/inspector_file_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="20sp"
-        android:paddingTop="5dp"
-        android:paddingBottom="5dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:textColor="@android:color/white"
-        android:layout_gravity="center_vertical"
-        android:background="@color/inspector_title_background"
-        android:textIsSelectable="true"
-        android:textAlignment="viewStart"
-        android:layout_alignBottom="@+id/inspector_thumbnail" />
+        android:background="?android:colorBackgroundFloating" />
 
 </RelativeLayout>

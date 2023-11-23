@@ -33,7 +33,9 @@
 
 #include <sys/time.h>
 
-#include "fastboot.h"
+#include "util.h"
+
+static bool g_verbose = false;
 
 double now() {
     struct timeval tv;
@@ -44,15 +46,26 @@ double now() {
 void die(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr,"error: ");
+    fprintf(stderr, "fastboot: error: ");
     vfprintf(stderr, fmt, ap);
-    fprintf(stderr,"\n");
+    fprintf(stderr, "\n");
     va_end(ap);
     exit(EXIT_FAILURE);
 }
 
-char* xstrdup(const char* s) {
-    char* result = strdup(s);
-    if (!result) die("out of memory");
-    return result;
+void set_verbose() {
+    g_verbose = true;
+}
+
+void verbose(const char* fmt, ...) {
+    if (!g_verbose) return;
+
+    if (*fmt != '\n') {
+        va_list ap;
+        va_start(ap, fmt);
+        fprintf(stderr, "fastboot: verbose: ");
+        vfprintf(stderr, fmt, ap);
+        va_end(ap);
+    }
+    fprintf(stderr, "\n");
 }

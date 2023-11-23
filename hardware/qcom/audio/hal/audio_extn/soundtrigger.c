@@ -78,7 +78,9 @@ typedef enum {
     SND_CARD_STATUS_OFFLINE,
     SND_CARD_STATUS_ONLINE,
     CPE_STATUS_OFFLINE,
-    CPE_STATUS_ONLINE
+    CPE_STATUS_ONLINE,
+    SLPI_STATUS_OFFLINE,
+    SLPI_STATUS_ONLINE,
 } ssr_event_status_t;
 
 struct sound_trigger_session_info {
@@ -362,9 +364,6 @@ void audio_extn_sound_trigger_update_device_status(snd_device_t snd_device,
     if (!st_dev)
        return;
 
-    if (st_dev->sthal_prop_api_version >= STHAL_PROP_API_VERSION_1_0)
-        return;
-
     if (snd_device >= SND_DEVICE_OUT_BEGIN &&
         snd_device < SND_DEVICE_OUT_END) {
         device_type = PCM_PLAYBACK;
@@ -423,7 +422,7 @@ void audio_extn_sound_trigger_update_stream_status(struct audio_usecase *uc_info
     if (valid_type && platform_sound_trigger_usecase_needs_event(uc_info->id)) {
         ALOGV("%s: uc_id %d of type %d for Event %d, with Raise=%d",
               __func__, uc_info->id, uc_info->type, event, raise_event);
-        if (uc_info->type == PCM_CAPTURE) {
+        if (uc_info->type == PCM_CAPTURE || uc_info->type == VOICE_CALL) {
             ev = (event == ST_EVENT_STREAM_BUSY) ? AUDIO_EVENT_CAPTURE_STREAM_ACTIVE :
                                                    AUDIO_EVENT_CAPTURE_STREAM_INACTIVE;
         } else {
@@ -483,6 +482,19 @@ void audio_extn_sound_trigger_set_parameters(struct audio_device *adev __unused,
     if (ret >= 0) {
         event.u.value = val;
         st_dev->st_callback(AUDIO_EVENT_NUM_ST_SESSIONS, &event);
+    }
+
+    ret = str_parms_get_str(params, "SLPI_STATUS", value, sizeof(value));
+    if (ret > 0) {
+        if (strstr(value, "OFFLINE")) {
+            event.u.status = SLPI_STATUS_OFFLINE;
+            st_dev->st_callback(AUDIO_EVENT_SSR, &event);
+        } else if (strstr(value, "ONLINE")) {
+            event.u.status = SLPI_STATUS_ONLINE;
+            st_dev->st_callback(AUDIO_EVENT_SSR, &event);
+        } else {
+            ALOGE("%s: unknown SLPI status", __func__);
+        }
     }
 }
 

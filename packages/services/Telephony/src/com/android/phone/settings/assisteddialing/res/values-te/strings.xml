@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"సహాయక డయలింగ్"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"మీరు విదేశాల్లో ప్రయాణిస్తున్నప్పుడు కాల్ చేసేటప్పుడు దేశం కోడ్‌ని ఊహించి, జోడించండి"</string>

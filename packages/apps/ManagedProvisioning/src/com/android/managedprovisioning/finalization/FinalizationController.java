@@ -16,25 +16,28 @@
 
 package com.android.managedprovisioning.finalization;
 
-import static android.app.admin.DeviceAdminReceiver.ACTION_PROFILE_PROVISIONING_COMPLETE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISIONING_SUCCESSFUL;
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
-import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.annotation.NonNull;
-import android.app.Activity;
-import android.content.BroadcastReceiver;
+import static com.android.internal.util.Preconditions.checkNotNull;
+import static com.android.managedprovisioning.finalization.SendDpcBroadcastService.EXTRA_PROVISIONING_PARAMS;
+
+import android.app.NotificationManager;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.analytics.DeferredMetricsReader;
+import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
+import com.android.managedprovisioning.provisioning.Constants;
 
 import java.io.File;
 
@@ -52,25 +55,48 @@ public class FinalizationController {
     private final Context mContext;
     private final Utils mUtils;
     private final SettingsFacade mSettingsFacade;
-    private final UserProvisioningStateHelper mHelper;
+    private final UserProvisioningStateHelper mUserProvisioningStateHelper;
+    private final ProvisioningIntentProvider mProvisioningIntentProvider;
+    private final NotificationHelper mNotificationHelper;
+    private final DeferredMetricsReader mDeferredMetricsReader;
+
+    public FinalizationController(Context context,
+          UserProvisioningStateHelper userProvisioningStateHelper) {
+        this(
+                context,
+                new Utils(),
+                new SettingsFacade(),
+                userProvisioningStateHelper,
+                new NotificationHelper(context),
+                new DeferredMetricsReader(
+                        Constants.getDeferredMetricsFile(context)));
+    }
 
     public FinalizationController(Context context) {
         this(
                 context,
                 new Utils(),
                 new SettingsFacade(),
-                new UserProvisioningStateHelper(context));
+                new UserProvisioningStateHelper(context),
+                new NotificationHelper(context),
+                new DeferredMetricsReader(
+                        Constants.getDeferredMetricsFile(context)));
     }
 
     @VisibleForTesting
     FinalizationController(Context context,
             Utils utils,
             SettingsFacade settingsFacade,
-            UserProvisioningStateHelper helper) {
+            UserProvisioningStateHelper helper,
+            NotificationHelper notificationHelper,
+            DeferredMetricsReader deferredMetricsReader) {
         mContext = checkNotNull(context);
         mUtils = checkNotNull(utils);
         mSettingsFacade = checkNotNull(settingsFacade);
-        mHelper = checkNotNull(helper);
+        mUserProvisioningStateHelper = checkNotNull(helper);
+        mProvisioningIntentProvider = new ProvisioningIntentProvider();
+        mNotificationHelper = checkNotNull(notificationHelper);
+        mDeferredMetricsReader = checkNotNull(deferredMetricsReader);
     }
 
     /**
@@ -81,10 +107,12 @@ public class FinalizationController {
      * SUW, this method notifies the DPC about the completed provisioning; otherwise, it stores the
      * provisioning params for later digestion.</p>
      *
+     * <p>Note that fully managed device provisioning is only possible during SUW.
+     *
      * @param params the provisioning params
      */
     public void provisioningInitiallyDone(ProvisioningParams params) {
-        if (!mHelper.isStateUnmanagedOrFinalized()) {
+        if (!mUserProvisioningStateHelper.isStateUnmanagedOrFinalized()) {
             // In any other state than STATE_USER_UNMANAGED and STATE_USER_SETUP_FINALIZED, we've
             // already run this method, so don't do anything.
             // STATE_USER_SETUP_FINALIZED can occur here if a managed profile is provisioned on a
@@ -94,15 +122,47 @@ public class FinalizationController {
             return;
         }
 
-        mHelper.markUserProvisioningStateInitiallyDone(params);
-        if (ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)
-                && mSettingsFacade.isUserSetupCompleted(mContext)) {
-            // If a managed profile was provisioned after SUW, notify the DPC straight away
-            notifyDpcManagedProfile(params);
-        } else {
-            // Otherwise store the information and wait for provisioningFinalized to be called
+        mUserProvisioningStateHelper.markUserProvisioningStateInitiallyDone(params);
+        if (ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)) {
+            if (params.isOrganizationOwnedProvisioning) {
+                setProfileOwnerCanAccessDeviceIds();
+            }
+            if (!mSettingsFacade.isDuringSetupWizard(mContext)) {
+                // If a managed profile was provisioned after SUW, notify the DPC straight away.
+                notifyDpcManagedProfile(params);
+            }
+        }
+        if (mSettingsFacade.isDuringSetupWizard(mContext)) {
+            // Store the information and wait for provisioningFinalized to be called
             storeProvisioningParams(params);
         }
+    }
+
+    private void setProfileOwnerCanAccessDeviceIds() {
+        final DevicePolicyManager dpm = mContext.getSystemService(DevicePolicyManager.class);
+        final int managedProfileUserId = mUtils.getManagedProfile(mContext).getIdentifier();
+        final ComponentName admin = dpm.getProfileOwnerAsUser(managedProfileUserId);
+        if (admin != null) {
+            try {
+                final Context profileContext = mContext.createPackageContextAsUser(
+                        mContext.getPackageName(), 0 /* flags */,
+                        UserHandle.of(managedProfileUserId));
+                final DevicePolicyManager profileDpm =
+                        profileContext.getSystemService(DevicePolicyManager.class);
+                profileDpm.setProfileOwnerCanAccessDeviceIds(admin);
+            } catch (NameNotFoundException e) {
+                ProvisionLogger.logw("Error setting access to Device IDs: " + e.getMessage());
+            }
+        }
+    }
+
+    @VisibleForTesting
+    PrimaryProfileFinalizationHelper getPrimaryProfileFinalizationHelper(
+            ProvisioningParams params) {
+        return new PrimaryProfileFinalizationHelper(params.accountToMigrate,
+                params.keepAccountMigrated, mUtils.getManagedProfile(mContext),
+                params.inferDeviceAdminPackageName(), mUtils,
+                mUtils.isAdminIntegratedFlow(params));
     }
 
     /**
@@ -114,7 +174,9 @@ public class FinalizationController {
      * provisioning and sets the right user provisioning states.</p>
      */
     void provisioningFinalized() {
-        if (mHelper.isStateUnmanagedOrFinalized()) {
+        mDeferredMetricsReader.scheduleDumpMetrics(mContext);
+
+        if (mUserProvisioningStateHelper.isStateUnmanagedOrFinalized()) {
             ProvisionLogger.logw("provisioningInitiallyDone called, but state is finalized or "
                     + "unmanaged");
             return;
@@ -126,85 +188,53 @@ public class FinalizationController {
             return;
         }
 
-        if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
-            notifyDpcManagedProfile(params);
-        } else {
-            // For managed user and device owner, we send the provisioning complete intent and maybe
-            // launch the DPC.
-            int userId = UserHandle.myUserId();
-            Intent provisioningCompleteIntent = createProvisioningCompleteIntent(params, userId);
-            if (provisioningCompleteIntent == null) {
-                return;
+        if (mUtils.isAdminIntegratedFlow(params)) {
+            // Don't send ACTION_PROFILE_PROVISIONING_COMPLETE broadcast to DPC or launch DPC by
+            // ACTION_PROVISIONING_SUCCESSFUL intent if it's admin integrated flow.
+            if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+                getPrimaryProfileFinalizationHelper(params)
+                        .finalizeProvisioningInPrimaryProfile(mContext, null);
+            } else if (ACTION_PROVISION_MANAGED_DEVICE.equals(params.provisioningAction)) {
+                mNotificationHelper.showPrivacyReminderNotification(
+                        mContext, NotificationManager.IMPORTANCE_DEFAULT);
             }
-            mContext.sendBroadcast(provisioningCompleteIntent);
+            mProvisioningIntentProvider.launchFinalizationScreen(mContext, params);
+        } else {
+            if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+                notifyDpcManagedProfile(params);
+            } else {
+                // For managed user and device owner, we send the provisioning complete intent and
+                // maybe launch the DPC.
+                final int userId = UserHandle.myUserId();
+                final Intent provisioningCompleteIntent = mProvisioningIntentProvider
+                        .createProvisioningCompleteIntent(params, userId, mUtils, mContext);
+                if (provisioningCompleteIntent == null) {
+                    return;
+                }
+                mContext.sendBroadcast(provisioningCompleteIntent);
 
-            maybeLaunchDpc(params, userId);
+                mProvisioningIntentProvider.maybeLaunchDpc(params, userId, mUtils, mContext);
+
+                if (ACTION_PROVISION_MANAGED_DEVICE.equals(params.provisioningAction)) {
+                    mNotificationHelper.showPrivacyReminderNotification(
+                            mContext, NotificationManager.IMPORTANCE_DEFAULT);
+                }
+            }
         }
 
-        mHelper.markUserProvisioningStateFinalized(params);
+        mUserProvisioningStateHelper.markUserProvisioningStateFinalized(params);
     }
 
     /**
-     * Notify the DPC on the managed profile that provisioning has completed. When the DPC has
-     * received the intent, send notify the primary instance that the profile is ready.
+     * Start a service which notifies the DPC on the managed profile that provisioning has
+     * completed. When the DPC has received the intent, send notify the primary instance that the
+     * profile is ready. The service is needed to prevent the managed provisioning process from
+     * getting killed while the user is on the DPC screen.
      */
     private void notifyDpcManagedProfile(ProvisioningParams params) {
-        UserHandle managedProfileUserHandle = mUtils.getManagedProfile(mContext);
-
-        // Use an ordered broadcast, so that we only finish when the DPC has received it.
-        // Avoids a lag in the transition between provisioning and the DPC.
-        BroadcastReceiver dpcReceivedSuccessReceiver =
-                new DpcReceivedSuccessReceiver(params.accountToMigrate,
-                        params.keepAccountMigrated, managedProfileUserHandle,
-                        params.inferDeviceAdminPackageName());
-        Intent completeIntent = createProvisioningCompleteIntent(
-                params, managedProfileUserHandle.getIdentifier());
-
-        mContext.sendOrderedBroadcastAsUser(completeIntent, managedProfileUserHandle, null,
-                dpcReceivedSuccessReceiver, null, Activity.RESULT_OK, null, null);
-        ProvisionLogger.logd("Provisioning complete broadcast has been sent to user "
-                + managedProfileUserHandle.getIdentifier());
-
-        maybeLaunchDpc(params, managedProfileUserHandle.getIdentifier());
-    }
-
-    private void maybeLaunchDpc(ProvisioningParams params, int userId) {
-        final Intent dpcLaunchIntent = createDpcLaunchIntent(params);
-        if (mUtils.canResolveIntentAsUser(mContext, dpcLaunchIntent, userId)) {
-            mContext.startActivityAsUser(dpcLaunchIntent, UserHandle.of(userId));
-            ProvisionLogger.logd("Dpc was launched for user: " + userId);
-        }
-    }
-
-    private Intent createProvisioningCompleteIntent(
-            @NonNull ProvisioningParams params, int userId) {
-        Intent intent = new Intent(ACTION_PROFILE_PROVISIONING_COMPLETE);
-        try {
-            intent.setComponent(params.inferDeviceAdminComponentName(mUtils, mContext, userId));
-        } catch (IllegalProvisioningArgumentException e) {
-            ProvisionLogger.loge("Failed to infer the device admin component name", e);
-            return null;
-        }
-        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES | Intent.FLAG_RECEIVER_FOREGROUND);
-        addExtrasToIntent(intent, params);
-        return intent;
-    }
-
-    private Intent createDpcLaunchIntent(@NonNull ProvisioningParams params) {
-        Intent intent = new Intent(ACTION_PROVISIONING_SUCCESSFUL);
-        final String packageName = params.inferDeviceAdminPackageName();
-        if (packageName == null) {
-            ProvisionLogger.loge("Device admin package name is null");
-            return null;
-        }
-        intent.setPackage(packageName);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        addExtrasToIntent(intent, params);
-        return intent;
-    }
-
-    private void addExtrasToIntent(Intent intent, ProvisioningParams params) {
-        intent.putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, params.adminExtrasBundle);
+        mContext.startService(
+                new Intent(mContext, SendDpcBroadcastService.class)
+                        .putExtra(EXTRA_PROVISIONING_PARAMS, params));
     }
 
     private void storeProvisioningParams(ProvisioningParams params) {

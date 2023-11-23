@@ -175,7 +175,7 @@ def chromite_load(name):
 
 
 def deps_load(name):
-    """Import module from chromite.lib.
+    """Import module from dependencies, e.g. site-package.
 
     This enforces that monkeypatch() is called first.
 

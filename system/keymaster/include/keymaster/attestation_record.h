@@ -71,6 +71,7 @@ typedef struct km_auth_list {
     ASN1_INTEGER* user_auth_type;
     ASN1_INTEGER* auth_timeout;
     ASN1_NULL* allow_while_on_body;
+    ASN1_NULL* trusted_confirmation_required;
     ASN1_NULL* unlocked_device_required;
     ASN1_NULL* all_applications;
     ASN1_OCTET_STRING* application_id;
@@ -114,6 +115,8 @@ ASN1_SEQUENCE(KM_AUTH_LIST) = {
     ASN1_EXP_OPT(KM_AUTH_LIST, auth_timeout, ASN1_INTEGER, TAG_AUTH_TIMEOUT.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, allow_while_on_body, ASN1_NULL,
                  TAG_ALLOW_WHILE_ON_BODY.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, unlocked_device_required, ASN1_NULL,
+                 TAG_UNLOCKED_DEVICE_REQUIRED.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, all_applications, ASN1_NULL, TAG_ALL_APPLICATIONS.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, application_id, ASN1_OCTET_STRING, TAG_APPLICATION_ID.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, creation_date_time, ASN1_INTEGER,
@@ -240,7 +243,8 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
                                            size_t* asn1_key_desc_len);
 
 /**
- * helper function for attestation record test.
+ * Helper functions for attestation record tests. Caller takes ownership of
+ * |attestation_challenge->data| and |unique_id->data|, deallocate using delete[].
  */
 keymaster_error_t parse_attestation_record(const uint8_t* asn1_key_desc, size_t asn1_key_desc_len,
                                            uint32_t* attestation_version,  //
@@ -251,6 +255,14 @@ keymaster_error_t parse_attestation_record(const uint8_t* asn1_key_desc, size_t 
                                            AuthorizationSet* software_enforced,
                                            AuthorizationSet* tee_enforced,
                                            keymaster_blob_t* unique_id);
+
+/**
+ * Caller takes ownership of |verified_boot_key->data|, deallocate using delete[].
+ */
+keymaster_error_t parse_root_of_trust(const uint8_t* asn1_key_desc, size_t asn1_key_desc_len,
+                                      keymaster_blob_t* verified_boot_key,
+                                      keymaster_verified_boot_t* verified_boot_state,
+                                      bool* device_locked);
 
 keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_AUTH_LIST* record);
 

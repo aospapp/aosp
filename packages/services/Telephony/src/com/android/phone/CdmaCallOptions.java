@@ -16,22 +16,16 @@
 
 package com.android.phone;
 
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneConstants;
-
-import android.content.DialogInterface;
-import android.os.AsyncResult;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.os.PersistableBundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 import android.telephony.CarrierConfigManager;
-import android.util.Log;
 import android.view.MenuItem;
+
+import com.android.internal.telephony.PhoneConstants;
 
 public class CdmaCallOptions extends PreferenceActivity {
     private static final String LOG_TAG = "CdmaCallOptions";

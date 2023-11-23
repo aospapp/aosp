@@ -4,20 +4,20 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.widget.CheckedTextView;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class ShadowCheckedTextViewTest {
 
   private CheckedTextView checkedTextView;
 
   @Before
   public void beforeTests() {
-    checkedTextView = new CheckedTextView(RuntimeEnvironment.application);
+    checkedTextView = new CheckedTextView(ApplicationProvider.getApplicationContext());
   }
 
   @Test
@@ -39,7 +39,7 @@ public class ShadowCheckedTextViewTest {
   }
 
   @Test public void toggle_shouldChangeCheckedness() throws Exception {
-    CheckedTextView view = new CheckedTextView(RuntimeEnvironment.application);
+    CheckedTextView view = new CheckedTextView(ApplicationProvider.getApplicationContext());
     assertFalse(view.isChecked());
     view.toggle();
     assertTrue(view.isChecked());

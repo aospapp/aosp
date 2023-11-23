@@ -34,7 +34,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class InvokeMethod002Test extends JDWPSyncTestCase {
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod002Debuggee";
+        return InvokeMethod002Debuggee.class.getName();
     }
 
     /**
@@ -50,8 +50,7 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Get debuggee class ID.
-        String debuggeeClassSig = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/InvokeMethod002Debuggee;";
-        long debuggeeTypeID = debuggeeWrapper.vmMirror.getClassID(debuggeeClassSig);
+        long debuggeeTypeID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
         assertTrue("Failed to find debuggee class", debuggeeTypeID != 0);
 
         // Set METHOD_ENTRY event request so application is suspended.
@@ -126,8 +125,8 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
         assertTrue("Field is null", receiverObjectID != 0);
 
         // Get test class ID.
-        String testClassSig = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/InvokeMethod002Debuggee$TestClass;";
-        long testTypeID = debuggeeWrapper.vmMirror.getClassID(testClassSig);
+        long testTypeID = debuggeeWrapper.vmMirror.getClassID(
+                getClassSignature(InvokeMethod002Debuggee.TestClass.class));
         assertTrue("Failed to find test class", testTypeID != 0);
 
         // Get test method ID.

@@ -37,6 +37,8 @@ import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
+
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -121,13 +123,14 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
         // network
         String network = tm.getNetworkOperatorName();
         addResult(NETWORK, network.trim());
-
         // imei
-        String imei = tm.getDeviceId();
+        String imei = ShellIdentityUtils.invokeMethodWithShellPermissions(tm,
+                (telephonyManager) -> telephonyManager.getDeviceId());
         addResult(IMEI, imei);
 
         // imsi
-        String imsi = tm.getSubscriberId();
+        String imsi = ShellIdentityUtils.invokeMethodWithShellPermissions(tm,
+                (telephonyManager) -> telephonyManager.getSubscriberId());
         addResult(IMSI, imsi);
 
         // phone number

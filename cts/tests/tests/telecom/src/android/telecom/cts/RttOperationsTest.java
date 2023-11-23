@@ -326,13 +326,13 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
 
     private void setRttMasterSwitch(boolean on) throws Exception {
         TestUtils.executeShellCommand(getInstrumentation(),
-                "settings put system rtt_calling_mode " + (on ? 1 : 0));
+                "settings put system secure rtt_calling_mode " + (on ? 1 : 0));
     }
 
     private boolean getRttMasterSwitch() throws Exception {
         try {
             return Integer.valueOf(TestUtils.executeShellCommand(
-                    getInstrumentation(), "settings get system rtt_calling_mode")) == 1;
+                    getInstrumentation(), "settings get secure rtt_calling_mode")) == 1;
         } catch (NumberFormatException e) {
             // If the setting hasn't been set yet, assume it's off
             return false;

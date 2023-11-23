@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright 2016 - The Android Open Source Project
 #
@@ -16,42 +16,64 @@
 """This module is where all the record definitions and record containers live.
 """
 
+import collections
+import copy
+import io
 import json
 import logging
-import pprint
 
 from acts import logger
-from acts import signals
-from acts import utils
+from acts.libs import yaml_writer
+
+from mobly.records import ExceptionRecord
+from mobly.records import OUTPUT_FILE_SUMMARY
+from mobly.records import TestResultEnums as MoblyTestResultEnums
+from mobly.records import TestResultRecord as MoblyTestResultRecord
+from mobly.records import TestResult as MoblyTestResult
+from mobly.records import TestSummaryEntryType
+from mobly.records import TestSummaryWriter as MoblyTestSummaryWriter
 
 
-class TestResultEnums(object):
-    """Enums used for TestResultRecord class.
+class TestSummaryWriter(MoblyTestSummaryWriter):
+    """Writes test results to a summary file in real time. Inherits from Mobly's
+    TestSummaryWriter.
+    """
+
+    def dump(self, content, entry_type):
+        """Update Mobly's implementation of dump to work on OrderedDict.
+
+        See MoblyTestSummaryWriter.dump for documentation.
+        """
+        new_content = collections.OrderedDict(copy.deepcopy(content))
+        new_content['Type'] = entry_type.value
+        new_content.move_to_end('Type', last=False)
+        # Both user code and Mobly code can trigger this dump, hence the lock.
+        with self._lock:
+            # For Python3, setting the encoding on yaml.safe_dump does not work
+            # because Python3 file descriptors set an encoding by default, which
+            # PyYAML uses instead of the encoding on yaml.safe_dump. So, the
+            # encoding has to be set on the open call instead.
+            with io.open(self._path, 'a', encoding='utf-8') as f:
+                # Use safe_dump here to avoid language-specific tags in final
+                # output.
+                yaml_writer.safe_dump(new_content, f)
+
+
+class TestResultEnums(MoblyTestResultEnums):
+    """Enums used for TestResultRecord class. Inherits from Mobly's
+    TestResultEnums.
 
     Includes the tokens to mark test result with, and the string names for each
     field in TestResultRecord.
     """
 
-    RECORD_NAME = "Test Name"
-    RECORD_CLASS = "Test Class"
-    RECORD_BEGIN_TIME = "Begin Time"
-    RECORD_END_TIME = "End Time"
     RECORD_LOG_BEGIN_TIME = "Log Begin Time"
     RECORD_LOG_END_TIME = "Log End Time"
-    RECORD_RESULT = "Result"
-    RECORD_UID = "UID"
-    RECORD_EXTRAS = "Extras"
-    RECORD_ADDITIONAL_ERRORS = "Extra Errors"
-    RECORD_DETAILS = "Details"
-    TEST_RESULT_PASS = "PASS"
-    TEST_RESULT_FAIL = "FAIL"
-    TEST_RESULT_SKIP = "SKIP"
-    TEST_RESULT_BLOCKED = "BLOCKED"
-    TEST_RESULT_UNKNOWN = "UNKNOWN"
 
 
-class TestResultRecord(object):
-    """A record that holds the information of a test case execution.
+class TestResultRecord(MoblyTestResultRecord):
+    """A record that holds the information of a test case execution. This class
+    inherits from Mobly's TestResultRecord class.
 
     Attributes:
         test_name: A string representing the name of the test case.
@@ -64,24 +86,16 @@ class TestResultRecord(object):
     """
 
     def __init__(self, t_name, t_class=None):
-        self.test_name = t_name
-        self.test_class = t_class
-        self.begin_time = None
-        self.end_time = None
+        super().__init__(t_name, t_class)
         self.log_begin_time = None
         self.log_end_time = None
-        self.uid = None
-        self.result = None
-        self.extras = None
-        self.details = None
-        self.additional_errors = {}
 
     def test_begin(self):
         """Call this when the test case it records begins execution.
 
         Sets the begin_time of this record.
         """
-        self.begin_time = utils.get_current_epoch_time()
+        super().test_begin()
         self.log_begin_time = logger.epoch_to_log_line_timestamp(
             self.begin_time)
 
@@ -94,85 +108,10 @@ class TestResultRecord(object):
                 be any exception instance or of any subclass of
                 acts.signals.TestSignal.
         """
-        self.end_time = utils.get_current_epoch_time()
-        self.log_end_time = logger.epoch_to_log_line_timestamp(self.end_time)
-        self.result = result
-        if self.additional_errors:
-            self.result = TestResultEnums.TEST_RESULT_UNKNOWN
-        if isinstance(e, signals.TestSignal):
-            self.details = e.details
-            self.extras = e.extras
-        elif e:
-            self.details = str(e)
-
-    def test_pass(self, e=None):
-        """To mark the test as passed in this record.
-
-        Args:
-            e: An instance of acts.signals.TestPass.
-        """
-        self._test_end(TestResultEnums.TEST_RESULT_PASS, e)
-
-    def test_fail(self, e=None):
-        """To mark the test as failed in this record.
-
-        Only test_fail does instance check because we want "assert xxx" to also
-        fail the test same way assert_true does.
-
-        Args:
-            e: An exception object. It can be an instance of AssertionError or
-                acts.base_test.TestFailure.
-        """
-        self._test_end(TestResultEnums.TEST_RESULT_FAIL, e)
-
-    def test_skip(self, e=None):
-        """To mark the test as skipped in this record.
-
-        Args:
-            e: An instance of acts.signals.TestSkip.
-        """
-        self._test_end(TestResultEnums.TEST_RESULT_SKIP, e)
-
-    def test_blocked(self, e=None):
-        """To mark the test as blocked in this record.
-
-        Args:
-            e: An instance of acts.signals.Test
-        """
-        self._test_end(TestResultEnums.TEST_RESULT_BLOCKED, e)
-
-    def test_unknown(self, e=None):
-        """To mark the test as unknown in this record.
-
-        Args:
-            e: An exception object.
-        """
-        self._test_end(TestResultEnums.TEST_RESULT_UNKNOWN, e)
-
-    def add_error(self, tag, e):
-        """Add extra error happened during a test mark the test result as
-        UNKNOWN.
-
-        If an error is added the test record, the record's result is equivalent
-        to the case where an uncaught exception happened.
-
-        Args:
-            tag: A string describing where this error came from, e.g. 'on_pass'.
-            e: An exception object.
-        """
-        self.result = TestResultEnums.TEST_RESULT_UNKNOWN
-        self.additional_errors[tag] = str(e)
-
-    def __str__(self):
-        d = self.to_dict()
-        l = ["%s = %s" % (k, v) for k, v in d.items()]
-        s = ', '.join(l)
-        return s
-
-    def __repr__(self):
-        """This returns a short string representation of the test record."""
-        t = utils.epoch_to_human_time(self.begin_time)
-        return "%s %s %s" % (t, self.test_name, self.result)
+        super()._test_end(result, e)
+        if self.end_time:
+            self.log_end_time = logger.epoch_to_log_line_timestamp(
+                self.end_time)
 
     def to_dict(self):
         """Gets a dictionary representing the content of this class.
@@ -180,7 +119,7 @@ class TestResultRecord(object):
         Returns:
             A dictionary representing the content of this class.
         """
-        d = {}
+        d = collections.OrderedDict()
         d[TestResultEnums.RECORD_NAME] = self.test_name
         d[TestResultEnums.RECORD_CLASS] = self.test_class
         d[TestResultEnums.RECORD_BEGIN_TIME] = self.begin_time
@@ -191,7 +130,11 @@ class TestResultRecord(object):
         d[TestResultEnums.RECORD_UID] = self.uid
         d[TestResultEnums.RECORD_EXTRAS] = self.extras
         d[TestResultEnums.RECORD_DETAILS] = self.details
-        d[TestResultEnums.RECORD_ADDITIONAL_ERRORS] = self.additional_errors
+        d[TestResultEnums.RECORD_EXTRA_ERRORS] = {
+            key: value.to_dict()
+            for (key, value) in self.extra_errors.items()
+        }
+        d[TestResultEnums.RECORD_STACKTRACE] = self.stacktrace
         return d
 
     def json_str(self):
@@ -211,8 +154,9 @@ class TestResultRecord(object):
         return json.dumps(self.to_dict())
 
 
-class TestResult(object):
-    """A class that contains metrics of a test run.
+class TestResult(MoblyTestResult):
+    """A class that contains metrics of a test run. This class inherits from
+    Mobly's TestResult class.
 
     This class is essentially a container of TestResultRecord objects.
 
@@ -223,19 +167,11 @@ class TestResult(object):
         self.executed: A list of records for tests that were actually executed.
         self.passed: A list of records for tests passed.
         self.skipped: A list of records for tests skipped.
-        self.unknown: A list of records for tests with unknown result token.
     """
 
     def __init__(self):
-        self.requested = []
-        self.failed = []
-        self.executed = []
-        self.passed = []
-        self.skipped = []
-        self.blocked = []
-        self.unknown = []
+        super().__init__()
         self.controller_info = {}
-        self.post_run_data = {}
         self.extras = {}
 
     def __add__(self, r):
@@ -260,11 +196,9 @@ class TestResult(object):
             if isinstance(r_value, list):
                 setattr(sum_result, name, l_value + r_value)
             elif isinstance(r_value, dict):
-                # '+' operator for TestResult is only valid when multiple
-                # TestResult objs were created in the same test run, which means
-                # the controller info would be the same across all of them.
-                # TODO(angli): have a better way to validate this situation.
-                setattr(sum_result, name, l_value)
+                sum_dict = copy.deepcopy(l_value)
+                sum_dict.update(copy.deepcopy(r_value))
+                setattr(sum_result, name, sum_dict)
         return sum_result
 
     def add_controller_info(self, name, info):
@@ -286,36 +220,6 @@ class TestResult(object):
             info = str(info)
         self.extras[name] = info
 
-    def add_record(self, record):
-        """Adds a test record to test result.
-
-        A record is considered executed once it's added to the test result.
-
-        Args:
-            record: A test record object to add.
-        """
-        if record.result == TestResultEnums.TEST_RESULT_FAIL:
-            self.executed.append(record)
-            self.failed.append(record)
-        elif record.result == TestResultEnums.TEST_RESULT_SKIP:
-            self.skipped.append(record)
-        elif record.result == TestResultEnums.TEST_RESULT_PASS:
-            self.executed.append(record)
-            self.passed.append(record)
-        elif record.result == TestResultEnums.TEST_RESULT_BLOCKED:
-            self.blocked.append(record)
-        else:
-            self.executed.append(record)
-            self.unknown.append(record)
-
-    @property
-    def is_all_pass(self):
-        """True if no tests failed or threw errors, False otherwise."""
-        num_of_failures = (len(self.failed) +
-                           len(self.unknown) +
-                           len(self.blocked))
-        return num_of_failures == 0
-
     def json_str(self):
         """Converts this test result to a string in json format.
 
@@ -332,18 +236,19 @@ class TestResult(object):
         Returns:
             A json-format string representing the test results.
         """
-        d = {}
+        d = collections.OrderedDict()
         d["ControllerInfo"] = self.controller_info
         d["Results"] = [record.to_dict() for record in self.executed]
         d["Summary"] = self.summary_dict()
         d["Extras"] = self.extras
-        json_str = json.dumps(d, indent=4, sort_keys=True)
+        d["Error"] = self.errors_list()
+        json_str = json.dumps(d, indent=4)
         return json_str
 
     def summary_str(self):
         """Gets a string that summarizes the stats of this test result.
 
-        The summary rovides the counts of how many test cases fall into each
+        The summary provides the counts of how many test cases fall into each
         category, like "Passed", "Failed" etc.
 
         Format of the string is:
@@ -353,26 +258,20 @@ class TestResult(object):
             A summary string of this test result.
         """
         l = ["%s %s" % (k, v) for k, v in self.summary_dict().items()]
-        # Sort the list so the order is the same every time.
-        msg = ", ".join(sorted(l))
+        msg = ", ".join(l)
         return msg
 
-    def summary_dict(self):
-        """Gets a dictionary that summarizes the stats of this test result.
-
-        The summary rovides the counts of how many test cases fall into each
-        category, like "Passed", "Failed" etc.
-
-        Returns:
-            A dictionary with the stats of this test result.
-        """
-        d = {}
-        d["ControllerInfo"] = self.controller_info
-        d["Requested"] = len(self.requested)
-        d["Executed"] = len(self.executed)
-        d["Passed"] = len(self.passed)
-        d["Failed"] = len(self.failed)
-        d["Skipped"] = len(self.skipped)
-        d["Blocked"] = len(self.blocked)
-        d["Unknown"] = len(self.unknown)
-        return d
+    def errors_list(self):
+        l = list()
+        for record in self.error:
+            if isinstance(record, TestResultRecord):
+                keys = [TestResultEnums.RECORD_NAME,
+                        TestResultEnums.RECORD_DETAILS,
+                        TestResultEnums.RECORD_EXTRA_ERRORS]
+            elif isinstance(record, ExceptionRecord):
+                keys = [TestResultEnums.RECORD_DETAILS,
+                        TestResultEnums.RECORD_POSITION]
+            else:
+                return []
+            l.append({k: record.to_dict()[k] for k in keys})
+        return l

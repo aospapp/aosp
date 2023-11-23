@@ -18,13 +18,13 @@
 %                                August 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -52,6 +52,7 @@
 #include "MagickCore/log.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/pixel.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
@@ -216,11 +217,9 @@ MagickExport ResampleFilter *AcquireResampleFilter(const Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  resample_filter=(ResampleFilter *) AcquireMagickMemory(sizeof(
+  resample_filter=(ResampleFilter *) AcquireCriticalMemory(sizeof(
     *resample_filter));
-  if (resample_filter == (ResampleFilter *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(resample_filter,0,sizeof(*resample_filter));
+  (void) memset(resample_filter,0,sizeof(*resample_filter));
   resample_filter->exception=exception;
   resample_filter->image=ReferenceImage((Image *) image);
   resample_filter->view=AcquireVirtualCacheView(resample_filter->image,

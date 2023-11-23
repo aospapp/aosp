@@ -16,24 +16,23 @@
 
 #define LOG_TAG "hwc-platform-drm-generic"
 
-#include "drmresources.h"
-#include "platform.h"
 #include "platformdrmgeneric.h"
+#include "drmdevice.h"
+#include "platform.h"
 
 #include <drm/drm_fourcc.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
-#include <cutils/log.h>
-#include <gralloc_drm_handle.h>
+#include <gralloc_handle.h>
 #include <hardware/gralloc.h>
-#include <EGL/eglext.h>
+#include <log/log.h>
 
 namespace android {
 
 #ifdef USE_DRM_GENERIC_IMPORTER
 // static
-Importer *Importer::CreateInstance(DrmResources *drm) {
+Importer *Importer::CreateInstance(DrmDevice *drm) {
   DrmGenericImporter *importer = new DrmGenericImporter(drm);
   if (!importer)
     return NULL;
@@ -48,7 +47,7 @@ Importer *Importer::CreateInstance(DrmResources *drm) {
 }
 #endif
 
-DrmGenericImporter::DrmGenericImporter(DrmResources *drm) : drm_(drm) {
+DrmGenericImporter::DrmGenericImporter(DrmDevice *drm) : drm_(drm) {
 }
 
 DrmGenericImporter::~DrmGenericImporter() {
@@ -84,24 +83,26 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
   }
 }
 
-EGLImageKHR DrmGenericImporter::ImportImage(EGLDisplay egl_display, buffer_handle_t handle) {
-  gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
-  if (!gr_handle)
-    return NULL;
-  EGLint attr[] = {
-    EGL_WIDTH, gr_handle->width,
-    EGL_HEIGHT, gr_handle->height,
-    EGL_LINUX_DRM_FOURCC_EXT, (EGLint)ConvertHalFormatToDrm(gr_handle->format),
-    EGL_DMA_BUF_PLANE0_FD_EXT, gr_handle->prime_fd,
-    EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-    EGL_DMA_BUF_PLANE0_PITCH_EXT, gr_handle->stride,
-    EGL_NONE,
-  };
-  return eglCreateImageKHR(egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attr);
+uint32_t DrmGenericImporter::DrmFormatToBitsPerPixel(uint32_t drm_format) {
+  switch (drm_format) {
+    case DRM_FORMAT_ARGB8888:
+    case DRM_FORMAT_XBGR8888:
+    case DRM_FORMAT_ABGR8888:
+      return 32;
+    case DRM_FORMAT_BGR888:
+      return 24;
+    case DRM_FORMAT_BGR565:
+      return 16;
+    case DRM_FORMAT_YVU420:
+      return 12;
+    default:
+      ALOGE("Cannot convert hal format %u to bpp (returning 32)", drm_format);
+      return 32;
+  }
 }
 
 int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
+  gralloc_handle_t *gr_handle = gralloc_handle(handle);
   if (!gr_handle)
     return -EINVAL;
 
@@ -115,7 +116,11 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   memset(bo, 0, sizeof(hwc_drm_bo_t));
   bo->width = gr_handle->width;
   bo->height = gr_handle->height;
+  bo->hal_format = gr_handle->format;
   bo->format = ConvertHalFormatToDrm(gr_handle->format);
+  bo->usage = gr_handle->usage;
+  bo->pixel_stride = (gr_handle->stride * 8) /
+                     DrmFormatToBitsPerPixel(bo->format);
   bo->pitches[0] = gr_handle->stride;
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
@@ -137,23 +142,33 @@ int DrmGenericImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
 
   struct drm_gem_close gem_close;
   memset(&gem_close, 0, sizeof(gem_close));
-  int num_gem_handles = sizeof(bo->gem_handles) / sizeof(bo->gem_handles[0]);
-  for (int i = 0; i < num_gem_handles; i++) {
+
+  for (int i = 0; i < HWC_DRM_BO_MAX_PLANES; i++) {
     if (!bo->gem_handles[i])
       continue;
 
     gem_close.handle = bo->gem_handles[i];
     int ret = drmIoctl(drm_->fd(), DRM_IOCTL_GEM_CLOSE, &gem_close);
-    if (ret)
+    if (ret) {
       ALOGE("Failed to close gem handle %d %d", i, ret);
-    else
+    } else {
+      for (int j = i + 1; j < HWC_DRM_BO_MAX_PLANES; j++)
+        if (bo->gem_handles[j] == bo->gem_handles[i])
+          bo->gem_handles[j] = 0;
       bo->gem_handles[i] = 0;
+    }
   }
   return 0;
 }
 
+bool DrmGenericImporter::CanImportBuffer(buffer_handle_t handle) {
+  if (handle == NULL)
+    return false;
+  return true;
+}
+
 #ifdef USE_DRM_GENERIC_IMPORTER
-std::unique_ptr<Planner> Planner::CreateInstance(DrmResources *) {
+std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<PlanStageGreedy>();
   return planner;

@@ -23,11 +23,20 @@ import (
 //
 
 func init() {
-	android.RegisterModuleType("toolchain_library", toolchainLibraryFactory)
+	android.RegisterModuleType("toolchain_library", ToolchainLibraryFactory)
+}
+
+type toolchainLibraryProperties struct {
+	// the prebuilt toolchain library, as a path from the top of the source tree
+	Src *string `android:"arch_variant"`
 }
 
 type toolchainLibraryDecorator struct {
 	*libraryDecorator
+
+	stripper
+
+	Properties toolchainLibraryProperties
 }
 
 func (*toolchainLibraryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
@@ -35,7 +44,13 @@ func (*toolchainLibraryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	return deps
 }
 
-func toolchainLibraryFactory() android.Module {
+func (library *toolchainLibraryDecorator) linkerProps() []interface{} {
+	var props []interface{}
+	props = append(props, library.libraryDecorator.linkerProps()...)
+	return append(props, &library.Properties, &library.stripper.StripProperties)
+}
+
+func ToolchainLibraryFactory() android.Module {
 	module, library := NewLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyStatic()
 	toolchainLibrary := &toolchainLibraryDecorator{
@@ -43,7 +58,6 @@ func toolchainLibraryFactory() android.Module {
 	}
 	module.compiler = toolchainLibrary
 	module.linker = toolchainLibrary
-	module.Properties.Clang = BoolPtr(false)
 	module.stl = nil
 	module.sanitize = nil
 	module.installer = nil
@@ -58,16 +72,24 @@ func (library *toolchainLibraryDecorator) compile(ctx ModuleContext, flags Flags
 func (library *toolchainLibraryDecorator) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 
-	libName := ctx.ModuleName() + staticLibraryExtension
-	outputFile := android.PathForModuleOut(ctx, libName)
-
-	if flags.Clang {
-		ctx.ModuleErrorf("toolchain_library must use GCC, not Clang")
+	if library.Properties.Src == nil {
+		ctx.PropertyErrorf("src", "No library source specified")
+		return android.PathForSource(ctx, "")
 	}
 
-	CopyGccLib(ctx, libName, flagsToBuilderFlags(flags), outputFile)
+	srcPath := android.PathForSource(ctx, *library.Properties.Src)
 
-	ctx.CheckbuildFile(outputFile)
+	if library.stripper.StripProperties.Strip.Keep_symbols_list != nil {
+		fileName := ctx.ModuleName() + staticLibraryExtension
+		outputFile := android.PathForModuleOut(ctx, fileName)
+		buildFlags := flagsToBuilderFlags(flags)
+		library.stripper.strip(ctx, srcPath, outputFile, buildFlags)
+		return outputFile
+	}
 
-	return outputFile
+	return srcPath
+}
+
+func (library *toolchainLibraryDecorator) nativeCoverage() bool {
+	return false
 }

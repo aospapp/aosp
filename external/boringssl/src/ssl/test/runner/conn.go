@@ -106,10 +106,16 @@ type Conn struct {
 	pendingFragments [][]byte // pending outgoing handshake fragments.
 	pendingPacket    []byte   // pending outgoing packet.
 
+	keyUpdateSeen      bool
 	keyUpdateRequested bool
 	seenOneByteRecord  bool
 
 	expectTLS13ChangeCipherSpec bool
+
+	// seenHandshakePackEnd is whether the most recent handshake record was
+	// not full for ExpectPackedEncryptedHandshake. If true, no more
+	// handshake data may be received until the next flight or epoch change.
+	seenHandshakePackEnd bool
 
 	tmp [16]byte
 }
@@ -448,6 +454,8 @@ func (hc *halfConn) decrypt(b *block) (ok bool, prefixLen int, contentType recor
 				n := len(payload) - c.Overhead()
 				additionalData[11] = byte(n >> 8)
 				additionalData[12] = byte(n)
+			} else {
+				additionalData = b.data[:recordHeaderLen]
 			}
 			var err error
 			payload, err = c.Open(payload[:0], nonce, payload, additionalData)
@@ -612,6 +620,12 @@ func (hc *halfConn) encrypt(b *block, explicitIVLen int, typ recordType) (bool, 
 				copy(additionalData[8:], b.data[:3])
 				additionalData[11] = byte(payloadLen >> 8)
 				additionalData[12] = byte(payloadLen)
+			} else {
+				additionalData = make([]byte, 5)
+				copy(additionalData, b.data[:3])
+				n := len(b.data) - recordHeaderLen
+				additionalData[3] = byte(n >> 8)
+				additionalData[4] = byte(n)
 			}
 
 			c.Seal(payload[:0], nonce, payload, additionalData)
@@ -748,6 +762,7 @@ func (c *Conn) useInTrafficSecret(version uint16, suite *cipherSuite, secret []b
 		side = clientWrite
 	}
 	c.in.useTrafficSecret(version, suite, secret, side)
+	c.seenHandshakePackEnd = false
 	return nil
 }
 
@@ -967,6 +982,13 @@ Again:
 		return c.in.setErrorLocked(err)
 	}
 
+	if typ != recordTypeHandshake {
+		c.seenHandshakePackEnd = false
+	} else if c.seenHandshakePackEnd {
+		c.in.freeBlock(b)
+		return c.in.setErrorLocked(errors.New("tls: peer violated ExpectPackedEncryptedHandshake"))
+	}
+
 	switch typ {
 	default:
 		c.in.setErrorLocked(c.sendAlert(alertUnexpectedMessage))
@@ -1029,6 +1051,9 @@ Again:
 			return c.in.setErrorLocked(c.sendAlert(alertNoRenegotiation))
 		}
 		c.hand.Write(data)
+		if pack := c.config.Bugs.ExpectPackedEncryptedHandshake; pack > 0 && len(data) < pack && c.out.cipher != nil {
+			c.seenHandshakePackEnd = true
+		}
 	}
 
 	if b != nil {
@@ -1087,6 +1112,7 @@ func (c *Conn) writeV2Record(data []byte) (n int, err error) {
 // to the connection and updates the record layer state.
 // c.out.Mutex <= L.
 func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
+	c.seenHandshakePackEnd = false
 	if typ == recordTypeHandshake {
 		msgType := data[0]
 		if c.config.Bugs.SendWrongMessageType != 0 && msgType == c.config.Bugs.SendWrongMessageType {
@@ -1340,9 +1366,11 @@ func (c *Conn) readHandshake() (interface{}, error) {
 		m = &certificateMsg{
 			hasRequestContext: c.vers >= VersionTLS13,
 		}
+	case typeCompressedCertificate:
+		m = new(compressedCertificateMsg)
 	case typeCertificateRequest:
 		m = &certificateRequestMsg{
-			vers: c.wireVersion,
+			vers:                  c.wireVersion,
 			hasSignatureAlgorithm: c.vers >= VersionTLS12,
 			hasRequestContext:     c.vers >= VersionTLS13,
 		}
@@ -1605,6 +1633,8 @@ func (c *Conn) handlePostHandshakeMessage() error {
 	}
 
 	if keyUpdate, ok := msg.(*keyUpdateMsg); ok {
+		c.keyUpdateSeen = true
+
 		if c.config.Bugs.RejectUnsolicitedKeyUpdate {
 			return errors.New("tls: unexpected KeyUpdate message")
 		}
@@ -1635,7 +1665,7 @@ func (c *Conn) ReadKeyUpdateACK() error {
 	keyUpdate, ok := msg.(*keyUpdateMsg)
 	if !ok {
 		c.sendAlert(alertUnexpectedMessage)
-		return errors.New("tls: unexpected message when reading KeyUpdate")
+		return fmt.Errorf("tls: unexpected message (%T) when reading KeyUpdate", msg)
 	}
 
 	if keyUpdate.keyUpdateRequest != keyUpdateNotRequested {
@@ -1678,13 +1708,12 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 				// Soft error, like EAGAIN
 				return 0, err
 			}
-			if c.hand.Len() > 0 {
+			for c.hand.Len() > 0 {
 				// We received handshake bytes, indicating a
 				// post-handshake message.
 				if err := c.handlePostHandshakeMessage(); err != nil {
 					return 0, err
 				}
-				continue
 			}
 		}
 		if err := c.in.err; err != nil {
@@ -1778,7 +1807,7 @@ func (c *Conn) Handshake() error {
 	if c.isDTLS && c.config.Bugs.SendSplitAlert {
 		c.conn.Write([]byte{
 			byte(recordTypeAlert), // type
-			0xfe, 0xff, // version
+			0xfe, 0xff,            // version
 			0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, // sequence
 			0x0, 0x2, // length
 		})

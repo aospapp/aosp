@@ -271,7 +271,8 @@ public class EmbmsSampleDownloadService extends Service {
     }
 
     private void sendFdRequest(DownloadRequest request, FrontendAppIdentifier appKey) {
-        int numFds = getNumFdsNeededForRequest(request);
+        // Request twice as many as needed to exercise the post-download cleanup mechanism
+        int numFds = getNumFdsNeededForRequest(request) * 2;
         // Compose the FILE_DESCRIPTOR_REQUEST_INTENT
         Intent requestIntent = new Intent(VendorUtils.ACTION_FILE_DESCRIPTOR_REQUEST);
         requestIntent.putExtra(VendorUtils.EXTRA_SERVICE_ID, request.getFileServiceId());
@@ -309,8 +310,8 @@ public class EmbmsSampleDownloadService extends Service {
                 .getFileServiceInfoForId(request.getFileServiceId())
                 .getFiles();
 
-        if (tempFiles.size() != filesToDownload.size()) {
-            Log.w(LOG_TAG, "Different numbers of temp files and files to download...");
+        if (tempFiles.size() != filesToDownload.size() * 2) {
+            Log.w(LOG_TAG, "Incorrect numbers of temp files and files to download...");
         }
 
         if (!mActiveDownloadRequests.containsKey(appKey)) {
@@ -320,28 +321,29 @@ public class EmbmsSampleDownloadService extends Service {
 
         // Go through the files one-by-one and send them to the frontend app with a delay between
         // each one.
-        for (int i = 0; i < tempFiles.size(); i++) {
-            if (i >= filesToDownload.size()) {
+        for (int i = 0; i < tempFiles.size(); i += 2) {
+            if (i >= filesToDownload.size() * 2) {
                 break;
             }
             UriPathPair tempFile = tempFiles.get(i);
+            UriPathPair extraTempFile = tempFiles.get(i + 1);
             addTempFileInUse(appKey, request.getFileServiceId(),
                     tempFile.getFilePathUri());
-            FileInfo fileToDownload = filesToDownload.get(i);
+            FileInfo fileToDownload = filesToDownload.get(i / 2);
             mHandler.postDelayed(() -> {
                 if (mActiveDownloadRequests.get(appKey) == null ||
                         !mActiveDownloadRequests.get(appKey).contains(request)) {
                     return;
                 }
-                downloadSingleFile(appKey, request, tempFile, fileToDownload);
+                downloadSingleFile(appKey, request, tempFile, extraTempFile, fileToDownload);
                 removeTempFileInUse(appKey, request.getFileServiceId(),
                         tempFile.getFilePathUri());
-            }, FILE_SEPARATION_DELAY * i * mDownloadDelayFactor);
+            }, FILE_SEPARATION_DELAY * i * mDownloadDelayFactor / 2);
         }
     }
 
     private void downloadSingleFile(FrontendAppIdentifier appKey, DownloadRequest request,
-            UriPathPair tempFile, FileInfo fileToDownload) {
+            UriPathPair tempFile, UriPathPair extraTempFile, FileInfo fileToDownload) {
         int result = MbmsDownloadSession.RESULT_SUCCESSFUL;
         // Test Callback
         DownloadStatusListener statusListener = mDownloadStatusCallbacks.get(request);
@@ -393,9 +395,10 @@ public class EmbmsSampleDownloadService extends Service {
         downloadResultIntent.putExtra(MbmsDownloadSession.EXTRA_MBMS_FILE_INFO, fileToDownload);
         downloadResultIntent.putExtra(VendorUtils.EXTRA_TEMP_FILE_ROOT,
                 mAppTempFileRoots.get(appKey));
-        ArrayList<Uri> tempFileList = new ArrayList<>(1);
+        ArrayList<Uri> tempFileList = new ArrayList<>(2);
         tempFileList.add(tempFile.getFilePathUri());
-        downloadResultIntent.getExtras().putParcelableArrayList(
+        tempFileList.add(extraTempFile.getFilePathUri());
+        downloadResultIntent.putParcelableArrayListExtra(
                 VendorUtils.EXTRA_TEMP_LIST, tempFileList);
         downloadResultIntent.putExtra(MbmsDownloadSession.EXTRA_MBMS_DOWNLOAD_RESULT, result);
         downloadResultIntent.setComponent(mAppReceivers.get(appKey));

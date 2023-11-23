@@ -16,9 +16,10 @@
 
 package com.android.settings.vpn2;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.net.Proxy;
+import android.net.ProxyInfo;
 import android.os.Bundle;
 import android.os.SystemProperties;
 import android.security.Credentials;
@@ -33,6 +34,8 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
 
 import com.android.internal.net.VpnProfile;
 import com.android.settings.R;
@@ -66,6 +69,9 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
     private TextView mSearchDomains;
     private TextView mDnsServers;
     private TextView mRoutes;
+    private Spinner mProxySettings;
+    private TextView mProxyHost;
+    private TextView mProxyPort;
     private CheckBox mMppe;
     private TextView mL2tpSecret;
     private TextView mIpsecIdentifier;
@@ -104,6 +110,9 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mSearchDomains = (TextView) mView.findViewById(R.id.search_domains);
         mDnsServers = (TextView) mView.findViewById(R.id.dns_servers);
         mRoutes = (TextView) mView.findViewById(R.id.routes);
+        mProxySettings = (Spinner) mView.findViewById(R.id.vpn_proxy_settings);
+        mProxyHost = (TextView) mView.findViewById(R.id.vpn_proxy_host);
+        mProxyPort = (TextView) mView.findViewById(R.id.vpn_proxy_port);
         mMppe = (CheckBox) mView.findViewById(R.id.mppe);
         mL2tpSecret = (TextView) mView.findViewById(R.id.l2tp_secret);
         mIpsecIdentifier = (TextView) mView.findViewById(R.id.ipsec_identifier);
@@ -127,8 +136,14 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mSearchDomains.setText(mProfile.searchDomains);
         mDnsServers.setText(mProfile.dnsServers);
         mRoutes.setText(mProfile.routes);
+        if (mProfile.proxy != null) {
+            mProxyHost.setText(mProfile.proxy.getHost());
+            int port = mProfile.proxy.getPort();
+            mProxyPort.setText(port == 0 ? "" : Integer.toString(port));
+        }
         mMppe.setChecked(mProfile.mppe);
         mL2tpSecret.setText(mProfile.l2tpSecret);
+        mL2tpSecret.setTextAppearance(android.R.style.TextAppearance_DeviceDefault_Medium);
         mIpsecIdentifier.setText(mProfile.ipsecIdentifier);
         mIpsecSecret.setText(mProfile.ipsecSecret);
         loadCertificates(mIpsecUserCert, Credentials.USER_PRIVATE_KEY, 0, mProfile.ipsecUserCert);
@@ -138,6 +153,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
                 R.string.vpn_no_server_cert, mProfile.ipsecServerCert);
         mSaveLogin.setChecked(mProfile.saveLogin);
         mAlwaysOnVpn.setChecked(mProfile.key.equals(VpnUtils.getLockdownVpn()));
+        mPassword.setTextAppearance(android.R.style.TextAppearance_DeviceDefault_Medium);
 
         // Hide lockdown VPN on devices that require IMS authentication
         if (SystemProperties.getBoolean("persist.radio.imsregrequired", false)) {
@@ -152,6 +168,9 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         mPassword.addTextChangedListener(this);
         mDnsServers.addTextChangedListener(this);
         mRoutes.addTextChangedListener(this);
+        mProxySettings.setOnItemSelectedListener(this);
+        mProxyHost.addTextChangedListener(this);
+        mProxyPort.addTextChangedListener(this);
         mIpsecSecret.addTextChangedListener(this);
         mIpsecUserCert.setOnItemSelectedListener(this);
         mShowOptions.setOnClickListener(this);
@@ -174,7 +193,8 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
 
             // Switch to advanced view immediately if any advanced options are on
             if (!mProfile.searchDomains.isEmpty() || !mProfile.dnsServers.isEmpty() ||
-                    !mProfile.routes.isEmpty()) {
+                    !mProfile.routes.isEmpty() || (mProfile.proxy != null &&
+                    (!mProfile.proxy.getHost().isEmpty() || mProfile.proxy.getPort() != 0))) {
                 showAdvancedOptions();
             }
 
@@ -245,6 +265,8 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         if (parent == mType) {
             changeType(position);
+        } else if (parent == mProxySettings) {
+            updateProxyFieldsVisibility(position);
         }
         updateUiControls();
     }
@@ -270,6 +292,7 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
      * These include:
      * "Always-on VPN" checkbox
      * Reason for "Always-on VPN" being disabled, when necessary
+     * Proxy info if manually configured
      * "Save account information" checkbox
      * "Save" and "Connect" buttons
      */
@@ -297,6 +320,13 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
             mAlwaysOnInvalidReason.setVisibility(View.VISIBLE);
         }
 
+        // Show proxy fields if any proxy field is filled.
+        if (mProfile.proxy != null && (!mProfile.proxy.getHost().isEmpty() ||
+                mProfile.proxy.getPort() != 0)) {
+            mProxySettings.setSelection(VpnProfile.PROXY_MANUAL);
+            updateProxyFieldsVisibility(VpnProfile.PROXY_MANUAL);
+        }
+
         // Save account information
         if (mAlwaysOnVpn.isChecked()) {
             mSaveLogin.setChecked(true);
@@ -308,6 +338,11 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
 
         // Save or Connect button
         getButton(DialogInterface.BUTTON_POSITIVE).setEnabled(validate(mEditing));
+    }
+
+    private void updateProxyFieldsVisibility(int position) {
+        final int visible = position == VpnProfile.PROXY_MANUAL ? View.VISIBLE : View.GONE;
+        mView.findViewById(R.id.vpn_proxy_fields).setVisibility(visible);
     }
 
     private void showAdvancedOptions() {
@@ -360,6 +395,11 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
                 !validateAddresses(mRoutes.getText().toString(), true)) {
             return false;
         }
+
+        if (!validateProxy()) {
+            return false;
+        }
+
         switch (mType.getSelectedItemPosition()) {
             case VpnProfile.TYPE_PPTP:
             case VpnProfile.TYPE_IPSEC_HYBRID_RSA:
@@ -434,6 +474,10 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         return mEditing;
     }
 
+    boolean hasProxy() {
+        return mProxySettings.getSelectedItemPosition() == VpnProfile.PROXY_MANUAL;
+    }
+
     VpnProfile getProfile() {
         // First, save common fields.
         VpnProfile profile = new VpnProfile(mProfile.key);
@@ -445,7 +489,16 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         profile.searchDomains = mSearchDomains.getText().toString().trim();
         profile.dnsServers = mDnsServers.getText().toString().trim();
         profile.routes = mRoutes.getText().toString().trim();
-
+        if (hasProxy()) {
+            String proxyHost = mProxyHost.getText().toString().trim();
+            String proxyPort = mProxyPort.getText().toString().trim();
+            // 0 is a last resort default, but the interface validates that the proxy port is
+            // present and non-zero.
+            int port = proxyPort.isEmpty() ? 0 : Integer.parseInt(proxyPort);
+            profile.proxy = new ProxyInfo(proxyHost, port, null);
+        } else {
+            profile.proxy = null;
+        }
         // Then, save type-specific fields.
         switch (profile.type) {
             case VpnProfile.TYPE_PPTP:
@@ -482,4 +535,15 @@ class ConfigDialog extends AlertDialog implements TextWatcher,
         profile.saveLogin = mSaveLogin.isChecked() || (mEditing && hasLogin);
         return profile;
     }
+
+    private boolean validateProxy() {
+        if (!hasProxy()) {
+            return true;
+        }
+
+        final String host = mProxyHost.getText().toString().trim();
+        final String port = mProxyPort.getText().toString().trim();
+        return Proxy.validate(host, port, "") == Proxy.PROXY_VALID;
+    }
+
 }

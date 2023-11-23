@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"ការហៅទូរសព្ទ​ដោយ​មាន​ជំនួយ"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"ទស្សន៍ទាយ និង​បញ្ចូល​កូដ​ប្រទេស នៅពេល​អ្នក​ហៅ​ទូរសព្ទ ពេល​ធ្វើ​ដំណើរ​ក្រៅ​ប្រទេស"</string>

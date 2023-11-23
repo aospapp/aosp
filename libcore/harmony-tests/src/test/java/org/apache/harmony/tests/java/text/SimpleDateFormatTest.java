@@ -891,51 +891,76 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         assertEquals(f2.toPattern(), f2.toLocalizedPattern());
     }
 
-    public void test_parse_with_spaces() {
-        // Regression for HARMONY-502
-        SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss");
-        df.setLenient(false);
+    // Regression for HARMONY-502
+    public void test_parse_whitespace_within_date() {
+        Date date = new GregorianCalendar(2003, Calendar.APRIL, 5, 9, 7, 6).getTime();
+        parse_whitespace_variants(
+            new SimpleDateFormat("HH:mm:ss dd/MM/yy"),
+            date,
+            new String[] {
+                "%c9:07:06 05/04/03",
+                "%c09:07:06 05/04/03",
+                "09:%c7:06 05/04/03",
+                "09:%c07:06 05/04/03",
+                "09:07:%c6 05/04/03",
+                "09:07:%c06 05/04/03",
+                "09:07:06 %c05/04/03",
+                "09:07:06 %c5/04/03",
+                "09:07:06 05/%c4/03",
+                "09:07:06 05/%c04/03",
+                "09:07:06 05/04/%c03",
+            });
 
-        char allowed_chars[] = { 0x9, 0x20 };
-        String allowed_char_names[] = { "tab", "space" };
-        for (int i = 0; i < allowed_chars.length; i++) {
-            Date expected = new GregorianCalendar(1970, Calendar.JANUARY, 1, 9, 7, 6).getTime();
-            ParsePosition pp = new ParsePosition(0);
-            Date d = df.parse(allowed_chars[i] + "9:07:06", pp);
-            assertNotNull("hour may be prefixed by " + allowed_char_names[i], d);
-            assertEquals(expected, d);
+        parse_whitespace_variants(
+            new SimpleDateFormat("HH:mm:ss dd/MM/yyyy"),
+            date,
+            new String[] {
+                "09:07:06 05/04/%c2003",
+            });
+    }
 
-            pp = new ParsePosition(0);
-            d = df.parse("09:" + allowed_chars[i] + "7:06", pp);
-            assertNotNull("minute may be prefixed by " + allowed_char_names[i], d);
-            assertEquals(expected, d);
-
-            pp = new ParsePosition(0);
-            d = df.parse("09:07:" + allowed_chars[i] + "6", pp);
-            assertNotNull("second may be prefixed by " + allowed_char_names[i], d);
-            assertEquals(expected, d);
-        }
-
-        char not_allowed_chars[] = {
-                // whitespace
+    // Tests valid and invalid whitespace characters are parsed correctly within
+    // a date string. dateFormat and expected are the SimpleDateFormat and expected date.
+    // variants is a list of input variations where %c will be substituted with
+    // the whitespace characters to test.
+    private void parse_whitespace_variants(SimpleDateFormat dateFormat, Date expected,
+        String[] variants) {
+        char validWhitespace[] = { 0x9, 0x20 };
+        char invalidWhitespace[] = {
+                // Whitespace
                 0x1c, 0x1d, 0x1e, 0x1f, 0xa, 0xb, 0xc, 0xd, 0x2001, 0x2002,
                 0x2003, 0x2004, 0x2005, 0x2006, 0x2008, 0x2009, 0x200a, 0x200b,
                 0x2028, 0x2029, 0x3000,
-                // non-breaking space
+                // Non-breaking space
                 0xA0, 0x2007, 0x202F };
 
-        for (int i = 0; i < not_allowed_chars.length; i++) {
-            ParsePosition pp = new ParsePosition(0);
-            Date d = df.parse(not_allowed_chars[i] + "9:07", pp);
-            assertNull(d);
+        dateFormat.setLenient(false);
+        for (String variant: variants) {
+            for (char c : validWhitespace) {
+                String info = String.format("Parsing variant='%s', c=0x%x:", variant, (int) c);
+                String input = String.format(variant, c);
+                Date date = dateFormat.parse(input, new ParsePosition(0));
+                assertEquals(info, expected, date);
+                try {
+                    date = dateFormat.parse(input);
+                } catch (ParseException e) {
+                    fail(info);
+                }
+                assertEquals(info, expected, date);
 
-            pp = new ParsePosition(0);
-            d = df.parse("09:" + not_allowed_chars[i] + "7", pp);
-            assertNull(d);
-
-            pp = new ParsePosition(0);
-            d = df.parse("09:07:" + not_allowed_chars[i] + "6", pp);
-            assertNull(d);
+            }
+            for (char c : invalidWhitespace) {
+                String info = String.format("Parsing variant='%s', c=0x%x:", variant, (int) c);
+                String input = String.format(variant, c);
+                Date date = dateFormat.parse(input, new ParsePosition(0));
+                assertNull(info, date);
+                try {
+                    dateFormat.parse(input);
+                    fail(info);
+                } catch (ParseException e) {
+                    // Expected
+                }
+            }
         }
     }
 }

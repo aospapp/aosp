@@ -18,13 +18,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.example.tvcustomization">
     <!-- Customization package must have this permission to customize TV apps. -->
-    <uses-permission android:name="com.android.tv.permission.CUSTOMIZE_TV_APP"/>
+    <uses-permission android:name="com.google.android.tv.permission.CUSTOMIZE_TV_APP"/>
 
     <!-- Enable leanback library support. -->
     <uses-feature android:name="android.software.leanback" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="23"/>
+    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23"/>
 
     <application android:label="Partner Customization"
             android:theme="@android:style/Theme.Holo.Light.NoActionBar"

@@ -29,6 +29,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.IDeviceMonitor.DeviceLister;
 import com.android.tradefed.device.IManagedTestDevice.DeviceEventResponse;
+import com.android.tradefed.device.cloud.VmRemoteDevice;
 import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.log.LogRegistry;
@@ -36,15 +37,18 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.SizeLimitedOutputStream;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.TableFormatter;
+import com.android.tradefed.util.ZipUtil2;
 import com.android.tradefed.util.hostmetric.IHostMonitor;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
@@ -58,6 +62,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -87,9 +92,11 @@ public class DeviceManager implements IDeviceManager {
 
     /** a {@link DeviceSelectionOptions} that matches any device. Visible for testing. */
     static final IDeviceSelection ANY_DEVICE_OPTIONS = new DeviceSelectionOptions();
-    private static final String NULL_DEVICE_SERIAL_PREFIX = "null-device";
+    static final String NULL_DEVICE_SERIAL_PREFIX = "null-device";
     private static final String EMULATOR_SERIAL_PREFIX = "emulator";
     private static final String TCP_DEVICE_SERIAL_PREFIX = "tcp-device";
+    private static final String GCE_DEVICE_SERIAL_PREFIX = "gce-device";
+    private static final String REMOTE_DEVICE_SERIAL_PREFIX = "remote-device";
 
     /**
      * Pattern for a device listed by 'adb devices':
@@ -98,9 +105,9 @@ public class DeviceManager implements IDeviceManager {
      *
      * <p>serial1 device
      *
-     * <p>serial2 device
+     * <p>serial2 offline
      */
-    private static final String DEVICE_LIST_PATTERN = "(.*)(\n)(%s)(\\s+)(device)(.*?)";
+    private static final String DEVICE_LIST_PATTERN = ".*\n(%s)\\s+(device|offline).*";
 
     private Semaphore mConcurrentFlashLock = null;
 
@@ -125,6 +132,7 @@ public class DeviceManager implements IDeviceManager {
     private FastbootMonitor mFastbootMonitor;
     private boolean mIsTerminated = false;
     private IDeviceSelection mGlobalDeviceFilter;
+    private IDeviceSelection mDeviceSelectionOptions;
 
     @Option(name = "max-emulators",
             description = "the maximum number of emulators that can be allocated at one time")
@@ -135,6 +143,18 @@ public class DeviceManager implements IDeviceManager {
     @Option(name = "max-tcp-devices",
             description = "the maximum number of tcp devices that can be allocated at one time")
     private int mNumTcpDevicesSupported = 1;
+
+    @Option(
+        name = "max-gce-devices",
+        description = "the maximum number of remote gce devices that can be allocated at one time"
+    )
+    private int mNumGceDevicesSupported = 1;
+
+    @Option(
+        name = "max-remote-devices",
+        description = "the maximum number of remote devices that can be allocated at one time"
+    )
+    private int mNumRemoteDevicesSupported = 1;
 
     private boolean mSynchronousMode = false;
 
@@ -147,9 +167,14 @@ public class DeviceManager implements IDeviceManager {
             + "default use the one in $PATH.")
     private String mAdbPath = "adb";
 
-    @Option(name = "fastboot-path", description = "path of the fastboot binary to use, "
-            + "default use the one in $PATH.")
-    private String mFastbootPath = "fastboot";
+    @Option(
+        name = "fastboot-path",
+        description = "path of the fastboot binary to use, default use the one in $PATH."
+    )
+    private File mFastbootFile = new File("fastboot");
+
+    private File mUnpackedFastbootDir = null;
+    private File mUnpackedFastboot = null;
 
     private DeviceRecoverer mDeviceRecoverer;
 
@@ -215,7 +240,22 @@ public class DeviceManager implements IDeviceManager {
         }
         mManagedDeviceList = new ManagedDeviceList(deviceFactory);
 
-        final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), mFastbootPath);
+        // Setup fastboot- if it's zipped, unzip it
+        if (".zip".equals(FileUtil.getExtension(mFastbootFile.getName()))) {
+            // Unzip the fastboot files
+            try {
+                mUnpackedFastbootDir =
+                        ZipUtil2.extractZipToTemp(mFastbootFile, "unpacked-fastboot");
+                mUnpackedFastboot = FileUtil.findFile(mUnpackedFastbootDir, "fastboot");
+            } catch (IOException e) {
+                CLog.e("Failed to unpacked zipped fastboot.");
+                CLog.e(e);
+                FileUtil.recursiveDelete(mUnpackedFastbootDir);
+                mUnpackedFastbootDir = null;
+            }
+        }
+
+        final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), getFastbootPath());
         if (fastboot.isFastbootAvailable()) {
             mFastbootListeners = Collections.synchronizedSet(new HashSet<IFastbootListener>());
             mFastbootMonitor = new FastbootMonitor();
@@ -248,12 +288,18 @@ public class DeviceManager implements IDeviceManager {
         // condition when detecting devices.
         mAdbBridge.addDeviceChangeListener(mManagedDeviceListener);
         if (mDvcMon != null && !mDvcMonRunning) {
-            mDvcMon.setDeviceLister(new DeviceLister() {
-                @Override
-                public List<DeviceDescriptor> listDevices() {
-                    return listAllDevices();
-                }
-            });
+            mDvcMon.setDeviceLister(
+                    new DeviceLister() {
+                        @Override
+                        public List<DeviceDescriptor> listDevices() {
+                            return listAllDevices();
+                        }
+
+                        @Override
+                        public DeviceDescriptor getDeviceDescriptor(String serial) {
+                            return DeviceManager.this.getDeviceDescriptor(serial);
+                        }
+                    });
             mDvcMon.run();
             mDvcMonRunning = true;
         }
@@ -262,14 +308,18 @@ public class DeviceManager implements IDeviceManager {
         addEmulators();
         addNullDevices();
         addTcpDevices();
+        addGceDevices();
+        addRemoteDevices();
 
         List<IMultiDeviceRecovery> recoverers = getGlobalConfig().getMultiDeviceRecoveryHandlers();
-        if (recoverers != null) {
+        if (recoverers != null && !recoverers.isEmpty()) {
             for (IMultiDeviceRecovery recoverer : recoverers) {
-                recoverer.setFastbootPath(mFastbootPath);
+                recoverer.setFastbootPath(getFastbootPath());
             }
             mDeviceRecoverer = new DeviceRecoverer(recoverers);
             startDeviceRecoverer();
+        } else {
+            CLog.d("No IMultiDeviceRecovery configured.");
         }
     }
 
@@ -445,6 +495,22 @@ public class DeviceManager implements IDeviceManager {
         }
     }
 
+    /** Add placeholder objects for the max number of gce devices that can be connected */
+    private void addGceDevices() {
+        for (int i = 0; i < mNumGceDevicesSupported; i++) {
+            addAvailableDevice(
+                    new RemoteAvdIDevice(String.format("%s-%d", GCE_DEVICE_SERIAL_PREFIX, i)));
+        }
+    }
+
+    /** Add placeholder objects for the max number of remote devices that can be managed */
+    private void addRemoteDevices() {
+        for (int i = 0; i < mNumRemoteDevicesSupported; i++) {
+            addAvailableDevice(
+                    new VmRemoteDevice(String.format("%s-%s", REMOTE_DEVICE_SERIAL_PREFIX, i)));
+        }
+    }
+
     public void addAvailableDevice(IDevice stubDevice) {
         IManagedTestDevice d = mManagedDeviceList.findOrCreate(stubDevice);
         if (d != null) {
@@ -455,7 +521,7 @@ public class DeviceManager implements IDeviceManager {
     }
 
     private void addFastbootDevices() {
-        final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), mFastbootPath);
+        final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), getFastbootPath());
         Set<String> serials = fastboot.getDevices();
         for (String serial : serials) {
             FastbootDevice d = new FastbootDevice(serial);
@@ -485,7 +551,7 @@ public class DeviceManager implements IDeviceManager {
      */
     @Override
     public ITestDevice allocateDevice() {
-        return allocateDevice(ANY_DEVICE_OPTIONS);
+        return allocateDevice(ANY_DEVICE_OPTIONS, false);
     }
 
     /**
@@ -493,7 +559,19 @@ public class DeviceManager implements IDeviceManager {
      */
     @Override
     public ITestDevice allocateDevice(IDeviceSelection options) {
+        return allocateDevice(options, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ITestDevice allocateDevice(IDeviceSelection options, boolean isTemporary) {
         checkInit();
+        if (isTemporary) {
+            String rand = UUID.randomUUID().toString();
+            String serial = String.format("%s%s", NullDevice.TEMP_NULL_DEVICE_PREFIX, rand);
+            addAvailableDevice(new NullDevice(serial, true));
+            options.setSerial(serial);
+        }
         return mManagedDeviceList.allocate(options);
     }
 
@@ -533,6 +611,18 @@ public class DeviceManager implements IDeviceManager {
         // force stop capturing logcat just to be sure
         managedDevice.stopLogcat();
         IDevice ideviceToReturn = device.getIDevice();
+        if (ideviceToReturn instanceof NullDevice) {
+            NullDevice nullDevice = (NullDevice) ideviceToReturn;
+            if (nullDevice.isTemporary()) {
+                DeviceEventResponse r =
+                        mManagedDeviceList.handleDeviceEvent(
+                                managedDevice, DeviceEvent.FREE_UNKNOWN);
+                CLog.d(
+                        "Temporary device '%s' final allocation state: '%s'",
+                        device.getSerialNumber(), r.allocationState.toString());
+                return;
+            }
+        }
         // don't kill emulator if it wasn't launched by launchEmulator (ie emulatorProcess is null).
         if (ideviceToReturn.isEmulator() && managedDevice.getEmulatorProcess() != null) {
             try {
@@ -635,7 +725,7 @@ public class DeviceManager implements IDeviceManager {
 
     private void assertEmulatorProcessAlive(Process p, ITestDevice device)
             throws DeviceNotAvailableException {
-        if (!isProcessRunning(p)) {
+        if (!p.isAlive()) {
             try {
                 CLog.e("Emulator process has died . stdout: '%s', stderr: '%s'",
                         StreamUtil.getStringFromStream(p.getInputStream()),
@@ -646,22 +736,6 @@ public class DeviceManager implements IDeviceManager {
             throw new DeviceNotAvailableException("emulator died after launch",
                     device.getSerialNumber());
         }
-    }
-
-    /**
-     * Check if emulator process has died
-     *
-     * @param p the {@link Process} to check
-     * @return true if process is running, false otherwise
-     */
-    private boolean isProcessRunning(Process p) {
-        try {
-            p.exitValue();
-        } catch (IllegalThreadStateException e) {
-            // expected if process is still alive
-            return true;
-        }
-        return false;
     }
 
     /**
@@ -682,7 +756,7 @@ public class DeviceManager implements IDeviceManager {
         Process emulatorProcess = ((IManagedTestDevice) device).getEmulatorProcess();
         if (emulatorProcess != null) {
             emulatorProcess.destroy();
-            if (isProcessRunning(emulatorProcess)) {
+            if (emulatorProcess.isAlive()) {
                 CLog.w("Emulator process still running after destroy for %s",
                         device.getSerialNumber());
                 forceKillProcess(emulatorProcess, device.getSerialNumber());
@@ -831,6 +905,7 @@ public class DeviceManager implements IDeviceManager {
                 }
             }
         }
+        FileUtil.recursiveDelete(mUnpackedFastbootDir);
     }
 
     /** Stop adb bridge and services depending on adb connection. */
@@ -907,44 +982,45 @@ public class DeviceManager implements IDeviceManager {
         }
     }
 
-
     /**
      * {@inheritDoc}
      */
     @Override
     public List<DeviceDescriptor> listAllDevices() {
         final List<DeviceDescriptor> serialStates = new ArrayList<DeviceDescriptor>();
-        IDeviceSelection selector = getDeviceSelectionOptions();
+        if (mAdbBridgeNeedRestart) {
+            return serialStates;
+        }
         for (IManagedTestDevice d : mManagedDeviceList) {
-            IDevice idevice = d.getIDevice();
-            serialStates.add(
-                    new DeviceDescriptor(
-                            idevice.getSerialNumber(),
-                            idevice instanceof StubDevice,
-                            idevice.getState(),
-                            d.getAllocationState(),
-                            getDisplay(selector.getDeviceProductType(idevice)),
-                            getDisplay(selector.getDeviceProductVariant(idevice)),
-                            getDisplay(idevice.getProperty("ro.build.version.sdk")),
-                            getDisplay(idevice.getProperty("ro.build.id")),
-                            getDisplay(selector.getBatteryLevel(idevice)),
-                            d.getDeviceClass(),
-                            getDisplay(d.getMacAddress()),
-                            getDisplay(d.getSimState()),
-                            getDisplay(d.getSimOperator()),
-                            idevice));
+            if (d == null) {
+                continue;
+            }
+            DeviceDescriptor desc = d.getDeviceDescriptor();
+            if (desc != null) {
+                serialStates.add(desc);
+            }
         }
         return serialStates;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public void displayDevicesInfo(PrintWriter stream) {
+    public DeviceDescriptor getDeviceDescriptor(String serial) {
+        IManagedTestDevice device = mManagedDeviceList.find(serial);
+        if (device == null) {
+            return null;
+        }
+        return device.getDeviceDescriptor();
+    }
+
+    @Override
+    public void displayDevicesInfo(PrintWriter stream, boolean includeStub) {
         ArrayList<List<String>> displayRows = new ArrayList<List<String>>();
         displayRows.add(Arrays.asList("Serial", "State", "Allocation", "Product", "Variant",
                 "Build", "Battery"));
         List<DeviceDescriptor> deviceList = listAllDevices();
         sortDeviceList(deviceList);
-        addDevicesInfo(displayRows, deviceList);
+        addDevicesInfo(displayRows, deviceList, includeStub);
         new TableFormatter().displayTable(displayRows, stream);
     }
 
@@ -974,20 +1050,26 @@ public class DeviceManager implements IDeviceManager {
 
     /**
      * Get the {@link IDeviceSelection} to use to display device info
-     * <p/>
-     * Exposed for unit testing.
+     *
+     * <p>Exposed for unit testing.
      */
     IDeviceSelection getDeviceSelectionOptions() {
-        return new DeviceSelectionOptions();
+        if (mDeviceSelectionOptions == null) {
+            mDeviceSelectionOptions = new DeviceSelectionOptions();
+        }
+        return mDeviceSelectionOptions;
     }
 
-    private void addDevicesInfo(List<List<String>> displayRows,
-            List<DeviceDescriptor> sortedDeviceList) {
+    private void addDevicesInfo(
+            List<List<String>> displayRows,
+            List<DeviceDescriptor> sortedDeviceList,
+            boolean includeStub) {
         for (DeviceDescriptor desc : sortedDeviceList) {
-            if (desc.isStubDevice() &&
-                    desc.getState() != DeviceAllocationState.Allocated) {
-                // don't add placeholder devices
-                continue;
+            if (!includeStub) {
+                if (desc.isStubDevice() && desc.getState() != DeviceAllocationState.Allocated) {
+                    // don't add placeholder devices
+                    continue;
+                }
             }
             displayRows.add(Arrays.asList(
                     desc.getSerial(),
@@ -999,13 +1081,6 @@ public class DeviceManager implements IDeviceManager {
                     desc.getBatteryLevel())
                     );
         }
-    }
-
-    /**
-     * Return the displayable string for given object
-     */
-    private String getDisplay(Object o) {
-        return o == null ? UNKNOWN_DISPLAY_STRING : o.toString();
     }
 
     /**
@@ -1114,7 +1189,6 @@ public class DeviceManager implements IDeviceManager {
         }
     }
 
-    /** Helper to log the device events. */
     @VisibleForTesting
     void logDeviceEvent(EventType event, String serial) {
         Map<String, String> args = new HashMap<>();
@@ -1176,7 +1250,7 @@ public class DeviceManager implements IDeviceManager {
 
         @Override
         public void run() {
-            final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), mFastbootPath);
+            final FastbootHelper fastboot = new FastbootHelper(getRunUtil(), getFastbootPath());
             while (!mQuit) {
                 Set<String> serials = fastboot.getDevices();
                 if (serials != null) {
@@ -1227,8 +1301,12 @@ public class DeviceManager implements IDeviceManager {
                     // After the sleep time, we check if we should run or not.
                     return;
                 }
+                CLog.d("Running DeviceRecoverer ...");
                 if (mMultiDeviceRecoverers != null && !mMultiDeviceRecoverers.isEmpty()) {
                     for (IMultiDeviceRecovery m : mMultiDeviceRecoverers) {
+                        CLog.d(
+                                "Triggering IMultiDeviceRecovery class %s ...",
+                                m.getClass().getSimpleName());
                         m.recoverDevices(getDeviceList());
                     }
                 }
@@ -1261,6 +1339,16 @@ public class DeviceManager implements IDeviceManager {
         mNumTcpDevicesSupported = tcpDevices;
     }
 
+    @VisibleForTesting
+    void setMaxGceDevices(int gceDevices) {
+        mNumGceDevicesSupported = gceDevices;
+    }
+
+    @VisibleForTesting
+    void setMaxRemoteDevices(int remoteDevices) {
+        mNumRemoteDevicesSupported = remoteDevices;
+    }
+
     @Override
     public boolean isNullDevice(String serial) {
         return serial.startsWith(NULL_DEVICE_SERIAL_PREFIX);
@@ -1282,8 +1370,20 @@ public class DeviceManager implements IDeviceManager {
     }
 
     @Override
+    public String getAdbPath() {
+        return mAdbPath;
+    }
+
+    @Override
     public String getFastbootPath() {
-        return mFastbootPath;
+        if (mUnpackedFastboot != null) {
+            return mUnpackedFastboot.getAbsolutePath();
+        }
+        // Support default fastboot in PATH variable
+        if (new File("fastboot").equals(mFastbootFile)) {
+            return "fastboot";
+        }
+        return mFastbootFile.getAbsolutePath();
     }
 
     /**

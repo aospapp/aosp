@@ -210,19 +210,18 @@ public class NumberFormatTest extends junit.framework.TestCase {
     public void test_setCurrency() throws Exception {
         NumberFormat nf = NumberFormat.getCurrencyInstance(Locale.US);
 
-        // The Armenian Dram is a special case where the fractional digits are 0.
-        Currency amd = Currency.getInstance("AMD");
-        assertEquals(0, amd.getDefaultFractionDigits());
+        // The Japanese Yen is a special case where the fractional digits are 0.
+        Currency jpy = Currency.getInstance("JPY");
+        assertEquals(0, jpy.getDefaultFractionDigits());
 
-        // Armenian Dram ISO 4217 code.
-        nf.setCurrency(amd);
+        nf.setCurrency(jpy);
         assertEquals(2, nf.getMinimumFractionDigits());  // Check DecimalFormat has not taken the
         assertEquals(2, nf.getMaximumFractionDigits());  // currency specific fractional digits.
-        assertEquals("AMD50.00", nf.format(50.00));
+        assertEquals("¥50.00", nf.format(50.00));
 
         // Try and explicitly request fractional digits for the specified currency.
-        nf.setMaximumFractionDigits(amd.getDefaultFractionDigits());
-        assertEquals("AMD50", nf.format(50.00));
+        nf.setMaximumFractionDigits(jpy.getDefaultFractionDigits());
+        assertEquals("¥50", nf.format(50.00));
 
         nf = NumberFormat.getCurrencyInstance(Locale.US);
 
@@ -230,9 +229,9 @@ public class NumberFormatTest extends junit.framework.TestCase {
         nf.setCurrency(Currency.getInstance("EUR"));
         assertEquals("€50.00", nf.format(50.00));
 
-        // Japanese Yen symbol.
-        nf.setCurrency(Currency.getInstance("JPY"));
-        assertEquals("¥50.00", nf.format(50.00));
+        // Armenian Dram symbol.
+        nf.setCurrency(Currency.getInstance("AMD"));
+        assertEquals("AMD50.00", nf.format(50.00));
 
         // Swiss Franc ISO 4217 code.
         nf.setCurrency(Currency.getInstance("CHF"));
@@ -245,9 +244,9 @@ public class NumberFormatTest extends junit.framework.TestCase {
         NumberFormat nf = NumberFormat.getCurrencyInstance(Locale.JAPAN);
         assertEquals("￥50", nf.format(50.00));
 
-        // Armenian Dram 0 fractional digits.
+        // Armenian Dram 2 fractional digits.
         nf = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("hy-AM"));
-        assertEquals("50\u00a0֏", nf.format(50.00));
+        assertEquals("50,00\u00a0֏", nf.format(50.00));
 
         // Swiss Francs 2 fractional digits.
         nf = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("de-CH"));

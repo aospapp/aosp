@@ -35,7 +35,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -44,6 +43,7 @@ import android.content.pm.ServiceInfo;
 import android.net.KeepalivePacketData;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
+import android.net.NattKeepalivePacketData;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkUtils;
@@ -51,10 +51,11 @@ import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.AccessNetworkConstants.AccessNetworkType;
-import android.telephony.AccessNetworkConstants.TransportType;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
+import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataProfile;
 import android.telephony.data.DataService;
@@ -101,61 +102,146 @@ public class DataConnectionTest extends TelephonyTest {
     private DataConnectionTestHandler mDataConnectionTestHandler;
     private DcController mDcc;
 
-    private ApnSetting mApn1 = new ApnSetting(
+    private ApnSetting mApn1 = ApnSetting.makeApnSetting(
             2163,                   // id
             "44010",                // numeric
             "sp-mode",              // name
             "spmode.ne.jp",         // apn
-            "",                     // proxy
-            "",                     // port
-            "",                     // mmsc
-            "",                     // mmsproxy
-            "",                     // mmsport
+            null,                     // proxy
+            -1,                     // port
+            null,                     // mmsc
+            null,                     // mmsproxy
+            -1,                     // mmsport
             "",                     // user
             "",                     // password
             -1,                     // authtype
-            new String[]{"default", "supl"},     // types
-            "IP",                   // protocol
-            "IP",                   // roaming_protocol
+            ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_SUPL,     // types
+            ApnSetting.PROTOCOL_IP,                   // protocol
+            ApnSetting.PROTOCOL_IP,                   // roaming_protocol
             true,                   // carrier_enabled
-            0,                      // bearer
-            0,                      // bearer_bitmask
+            0,                      // networktype_bitmask
             0,                      // profile_id
             false,                  // modem_cognitive
             0,                      // max_conns
             0,                      // wait_time
             0,                      // max_conns_time
             0,                      // mtu
-            "",                     // mvno_type
+            -1,                     // mvno_type
             "");                    // mnvo_match_data
 
-    private ApnSetting mApn2 = new ApnSetting(
+    private ApnSetting mApn2 = ApnSetting.makeApnSetting(
             2164,                   // id
             "44010",                // numeric
             "sp-mode",              // name
             "spmode.ne.jp",         // apn
-            "",                     // proxy
-            "",                     // port
-            "",                     // mmsc
-            "",                     // mmsproxy
-            "",                     // mmsport
+            null,                     // proxy
+            -1,                     // port
+            null,                     // mmsc
+            null,                     // mmsproxy
+            -1,                     // mmsport
             "",                     // user
             "",                     // password
             -1,                     // authtype
-            new String[]{"default", "dun"},     // types
-            "IP",                   // protocol
-            "IP",                   // roaming_protocol
+            ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_DUN,     // types
+            ApnSetting.PROTOCOL_IP,                   // protocol
+            ApnSetting.PROTOCOL_IP,                   // roaming_protocol
             true,                   // carrier_enabled
-            0,                      // bearer
-            0,                      // bearer_bitmask
+            0,                      // networktype_bitmask
             0,                      // profile_id
             false,                  // modem_cognitive
             0,                      // max_conns
             0,                      // wait_time
             0,                      // max_conns_time
             0,                      // mtu
-            "",                     // mvno_type
+            -1,                     // mvno_type
             "");                    // mnvo_match_data
+
+    private ApnSetting mApn3 = ApnSetting.makeApnSetting(
+            2164,                   // id
+            "44010",                // numeric
+            "sp-mode",              // name
+            "spmode.ne.jp",         // apn
+            null,                   // proxy
+            -1,                     // port
+            null,                   // mmsc
+            null,                   // mmsproxy
+            -1,                     // mmsport
+            "",                     // user
+            "",                     // password
+            -1,                     // authtype
+            ApnSetting.TYPE_DEFAULT, // types
+            ApnSetting.PROTOCOL_IPV6, // protocol
+            ApnSetting.PROTOCOL_IP, // roaming_protocol
+            true,                   // carrier_enabled
+            0,                      // networktype_bitmask
+            0,                      // profile_id
+            false,                  // modem_cognitive
+            0,                      // max_conns
+            0,                      // wait_time
+            0,                      // max_conns_time
+            0,                      // mtu
+            -1,                     // mvno_type
+            "",                     // mnvo_match_data
+            0,                      // apn_set_id
+            -1,                     // carrier_id
+            1);                     // skip_464xlat
+
+    private ApnSetting mApn4 = ApnSetting.makeApnSetting(
+            2164,                   // id
+            "44010",                // numeric
+            "sp-mode",              // name
+            "spmode.ne.jp",         // apn
+            null,                   // proxy
+            -1,                     // port
+            null,                   // mmsc
+            null,                   // mmsproxy
+            -1,                     // mmsport
+            "",                     // user
+            "",                     // password
+            -1,                     // authtype
+            ApnSetting.TYPE_IMS,    // types
+            ApnSetting.PROTOCOL_IPV6, // protocol
+            ApnSetting.PROTOCOL_IP, // roaming_protocol
+            true,                   // carrier_enabled
+            0,                      // networktype_bitmask
+            0,                      // profile_id
+            false,                  // modem_cognitive
+            0,                      // max_conns
+            0,                      // wait_time
+            0,                      // max_conns_time
+            0,                      // mtu
+            -1,                     // mvno_type
+            "");                    // mnvo_match_data
+
+    private ApnSetting mApn5 = ApnSetting.makeApnSetting(
+            2164,                   // id
+            "44010",                // numeric
+            "sp-mode",              // name
+            "spmode.ne.jp",         // apn
+            null,                   // proxy
+            -1,                     // port
+            null,                   // mmsc
+            null,                   // mmsproxy
+            -1,                     // mmsport
+            "",                     // user
+            "",                     // password
+            -1,                     // authtype
+            ApnSetting.TYPE_IMS,    // types
+            ApnSetting.PROTOCOL_IPV6, // protocol
+            ApnSetting.PROTOCOL_IP, // roaming_protocol
+            true,                   // carrier_enabled
+            0,                      // networktype_bitmask
+            0,                      // profile_id
+            false,                  // modem_cognitive
+            0,                      // max_conns
+            0,                      // wait_time
+            0,                      // max_conns_time
+            0,                      // mtu
+            -1,                     // mvno_type
+            "",                     // mnvo_match_data
+            0,                      // apn_set_id
+            -1,                     // carrier_id
+            0);                     // skip_464xlat
 
     private class DataConnectionTestHandler extends HandlerThread {
 
@@ -167,8 +253,9 @@ public class DataConnectionTest extends TelephonyTest {
         public void onLooperPrepared() {
             Handler h = new Handler();
 
-            DataServiceManager manager = new DataServiceManager(mPhone, TransportType.WWAN);
-            mDcc = DcController.makeDcc(mPhone, mDcTracker, manager, h);
+            DataServiceManager manager = new DataServiceManager(mPhone,
+                    AccessNetworkConstants.TRANSPORT_TYPE_WWAN, "");
+            mDcc = DcController.makeDcc(mPhone, mDcTracker, manager, h, "");
             mDcc.start();
             mDc = DataConnection.makeDataConnection(mPhone, 0, mDcTracker, manager,
                     mDcTesterFailBringUpAll, mDcc);
@@ -179,10 +266,10 @@ public class DataConnectionTest extends TelephonyTest {
         CellularDataService cellularDataService = new CellularDataService();
         ServiceInfo serviceInfo = new ServiceInfo();
         serviceInfo.packageName = "com.android.phone";
-        serviceInfo.permission = "android.permission.BIND_DATA_SERVICE";
+        serviceInfo.permission = "android.permission.BIND_TELEPHONY_DATA_SERVICE";
         IntentFilter filter = new IntentFilter();
         mContextFixture.addService(
-                DataService.DATA_SERVICE_INTERFACE,
+                DataService.SERVICE_INTERFACE,
                 null,
                 "com.android.phone",
                 cellularDataService.mBinder,
@@ -202,7 +289,6 @@ public class DataConnectionTest extends TelephonyTest {
                 ServiceState.RIL_RADIO_TECHNOLOGY_UMTS);
         doReturn(mApn1).when(mApnContext).getApnSetting();
         doReturn(PhoneConstants.APN_TYPE_DEFAULT).when(mApnContext).getApnType();
-        doReturn(true).when(mDcTracker).isDataEnabled();
 
         mDcFailBringUp.saveParameters(0, 0, -2);
         doReturn(mDcFailBringUp).when(mDcTesterFailBringUpAll).getDcFailBringUp();
@@ -257,6 +343,12 @@ public class DataConnectionTest extends TelephonyTest {
         return (long) method.invoke(mDc, response);
     }
 
+    private boolean isUnmeteredUseOnly() throws Exception {
+        Method method = DataConnection.class.getDeclaredMethod("isUnmeteredUseOnly");
+        method.setAccessible(true);
+        return (boolean) method.invoke(mDc);
+    }
+
     private SetupResult setLinkProperties(DataCallResponse response,
                                                          LinkProperties linkProperties)
             throws Exception {
@@ -301,6 +393,11 @@ public class DataConnectionTest extends TelephonyTest {
         assertEquals("spmode.ne.jp", dpCaptor.getValue().getApn());
 
         assertEquals("DcActiveState", getCurrentState().getName());
+
+        assertEquals(3, mDc.getPcscfAddresses().length);
+        assertTrue(Arrays.stream(mDc.getPcscfAddresses()).anyMatch("fd00:976a:c305:1d::8"::equals));
+        assertTrue(Arrays.stream(mDc.getPcscfAddresses()).anyMatch("fd00:976a:c202:1d::7"::equals));
+        assertTrue(Arrays.stream(mDc.getPcscfAddresses()).anyMatch("fd00:976a:c305:1d::5"::equals));
     }
 
     @Test
@@ -323,28 +420,31 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testModemSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, 0, 1, 2, "IP", FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, 0, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, 1000, 1, 2, "IP", FAKE_IFNAME,
+        response = new DataCallResponse(0, 1000, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, 9999, 1, 2, "IP", FAKE_IFNAME,
+        response = new DataCallResponse(0, 9999, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
         assertEquals(response.getSuggestedRetryTime(), getSuggestedRetryDelay(response));
     }
@@ -352,28 +452,31 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testModemNotSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2, "IP", FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, -5, 1, 2, "IP", FAKE_IFNAME,
+        response = new DataCallResponse(0, -5, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
 
-        response = new DataCallResponse(0, Integer.MIN_VALUE, 1, 2, "IP", FAKE_IFNAME,
+        response = new DataCallResponse(0, Integer.MIN_VALUE, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(response));
     }
@@ -381,12 +484,12 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testModemSuggestNoRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse(0, Integer.MAX_VALUE, 1, 2, "IP",
-                FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, Integer.MAX_VALUE, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
         assertEquals(RetryManager.NO_RETRY, getSuggestedRetryDelay(response));
     }
@@ -504,6 +607,45 @@ public class DataConnectionTest extends TelephonyTest {
         assertTrue(getNetworkCapabilities().hasCapability(NET_CAPABILITY_NOT_CONGESTED));
     }
 
+    @Test
+    public void testShouldSkip464Xlat() throws Exception {
+        assertFalse(testShouldSkip464XlatEvent(mApn1));
+        disconnectEvent();
+
+        assertTrue(testShouldSkip464XlatEvent(mApn3));
+        disconnectEvent();
+
+        assertTrue(testShouldSkip464XlatEvent(mApn4));
+        disconnectEvent();
+
+        assertFalse(testShouldSkip464XlatEvent(mApn5));
+        disconnectEvent();
+    }
+
+    private boolean testShouldSkip464XlatEvent(ApnSetting apn) throws Exception {
+        Method method = DataConnection.class.getDeclaredMethod("shouldSkip464Xlat");
+        method.setAccessible(true);
+
+        doReturn(apn).when(mApnContext).getApnSetting();
+        connectEvent();
+        logd(getNetworkCapabilities().toString());
+
+        return (Boolean) method.invoke(mDc);
+    }
+
+    private void connectEvent() throws Exception {
+        mDc.sendMessage(DataConnection.EVENT_CONNECT, mCp);
+        waitForMs(200);
+        assertEquals("DcActiveState", getCurrentState().getName());
+    }
+
+    private void disconnectEvent() throws Exception {
+        mDc.sendMessage(DataConnection.EVENT_DISCONNECT, mDcp);
+        waitForMs(100);
+        assertEquals("DcInactiveState", getCurrentState().getName());
+    }
+
+    @Test
     @SmallTest
     public void testIsIpAddress() throws Exception {
         // IPv4
@@ -519,17 +661,18 @@ public class DataConnectionTest extends TelephonyTest {
     @SmallTest
     public void testSetLinkProperties() throws Exception {
 
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2, "IP", FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         LinkProperties linkProperties = new LinkProperties();
         assertEquals(SetupResult.SUCCESS, setLinkProperties(response, linkProperties));
         logd(linkProperties.toString());
-        assertEquals(response.getIfname(), linkProperties.getInterfaceName());
+        assertEquals(response.getInterfaceName(), linkProperties.getInterfaceName());
         assertEquals(response.getAddresses().size(), linkProperties.getAddresses().size());
         for (int i = 0; i < response.getAddresses().size(); ++i) {
             assertEquals(response.getAddresses().get(i).getAddress(),
@@ -537,17 +680,25 @@ public class DataConnectionTest extends TelephonyTest {
                             .getAddress().getHostAddress()));
         }
 
-        assertEquals(response.getDnses().size(), linkProperties.getDnsServers().size());
-        for (int i = 0; i < response.getDnses().size(); ++i) {
-            assertEquals("i = " + i, response.getDnses().get(i), NetworkUtils.numericToInetAddress(
-                    linkProperties.getDnsServers().get(i).getHostAddress()));
+        assertEquals(response.getDnsAddresses().size(), linkProperties.getDnsServers().size());
+        for (int i = 0; i < response.getDnsAddresses().size(); ++i) {
+            assertEquals("i = " + i, response.getDnsAddresses().get(i),
+                    NetworkUtils.numericToInetAddress(
+                            linkProperties.getDnsServers().get(i).getHostAddress()));
         }
 
-        assertEquals(response.getGateways().size(), linkProperties.getRoutes().size());
-        for (int i = 0; i < response.getGateways().size(); ++i) {
-            assertEquals("i = " + i, response.getGateways().get(i),
+        assertEquals(response.getGatewayAddresses().size(), linkProperties.getRoutes().size());
+        for (int i = 0; i < response.getGatewayAddresses().size(); ++i) {
+            assertEquals("i = " + i, response.getGatewayAddresses().get(i),
                     NetworkUtils.numericToInetAddress(linkProperties.getRoutes().get(i)
                             .getGateway().getHostAddress()));
+        }
+
+        assertEquals(response.getPcscfAddresses().size(), linkProperties.getPcscfServers().size());
+        for (int i = 0; i < response.getPcscfAddresses().size(); ++i) {
+            assertEquals("i = " + i, response.getPcscfAddresses().get(i),
+                    NetworkUtils.numericToInetAddress(linkProperties.getPcscfServers().get(i)
+                            .getHostAddress()));
         }
 
         assertEquals(response.getMtu(), linkProperties.getMtu());
@@ -558,11 +709,12 @@ public class DataConnectionTest extends TelephonyTest {
     public void testSetLinkPropertiesEmptyAddress() throws Exception {
 
         // 224.224.224.224 is an invalid address.
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2, "IP", FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 null,
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_DNS)),
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         LinkProperties linkProperties = new LinkProperties();
@@ -575,11 +727,12 @@ public class DataConnectionTest extends TelephonyTest {
     public void testSetLinkPropertiesEmptyDns() throws Exception {
 
         // Empty dns entry.
-        DataCallResponse response = new DataCallResponse(0, -1, 1, 2, "IP", FAKE_IFNAME,
+        DataCallResponse response = new DataCallResponse(0, -1, 1, 2,
+                ApnSetting.PROTOCOL_IP, FAKE_IFNAME,
                 Arrays.asList(new LinkAddress(NetworkUtils.numericToInetAddress(FAKE_ADDRESS), 0)),
                 null,
                 Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_GATEWAY)),
-                Arrays.asList(FAKE_PCSCF_ADDRESS),
+                Arrays.asList(NetworkUtils.numericToInetAddress(FAKE_PCSCF_ADDRESS)),
                 1440);
 
         // Make sure no exception was thrown
@@ -593,16 +746,16 @@ public class DataConnectionTest extends TelephonyTest {
         testConnectEvent();
         waitForMs(200);
 
-        DataServiceManager mockDsm = mock(DataServiceManager.class);
-        doReturn(TransportType.WLAN).when(mockDsm).getTransportType();
-        replaceInstance(DataConnection.class, "mDataServiceManager", mDc, mockDsm);
+        Field field = DataConnection.class.getDeclaredField("mTransportType");
+        field.setAccessible(true);
+        field.setInt(mDc, AccessNetworkConstants.TRANSPORT_TYPE_WLAN);
 
         final int sessionHandle = 0xF00;
         final int slotId = 3;
         final int interval = 10; // seconds
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
-        KeepalivePacketData kd = KeepalivePacketData.nattKeepalivePacket(
+        KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
                 NetworkUtils.numericToInetAddress("1.2.3.4"),
                 1234,
                 NetworkUtils.numericToInetAddress("8.8.8.8"),
@@ -626,7 +779,7 @@ public class DataConnectionTest extends TelephonyTest {
         final int interval = 10; // seconds
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
-        KeepalivePacketData kd = KeepalivePacketData.nattKeepalivePacket(
+        KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
                 NetworkUtils.numericToInetAddress("1.2.3.4"),
                 1234,
                 NetworkUtils.numericToInetAddress("8.8.8.8"),
@@ -705,7 +858,7 @@ public class DataConnectionTest extends TelephonyTest {
         final int interval = 10; // seconds
         // Construct a new KeepalivePacketData request as we would receive from a Network Agent,
         // and check that the packet is sent to the RIL.
-        KeepalivePacketData kd = KeepalivePacketData.nattKeepalivePacket(
+        KeepalivePacketData kd = NattKeepalivePacketData.nattKeepalivePacket(
                 NetworkUtils.numericToInetAddress("1.2.3.4"),
                 1234,
                 NetworkUtils.numericToInetAddress("8.8.8.8"),
@@ -754,5 +907,29 @@ public class DataConnectionTest extends TelephonyTest {
     @SmallTest
     public void testStartNattKeepaliveFailCondensed() throws Exception {
         checkStartNattKeepaliveFail(true);
+    }
+
+    @Test
+    @SmallTest
+    public void testIsUnmeteredUseOnly() throws Exception {
+        Field field = DataConnection.class.getDeclaredField("mTransportType");
+        field.setAccessible(true);
+        field.setInt(mDc, AccessNetworkConstants.TRANSPORT_TYPE_WLAN);
+
+        assertFalse(isUnmeteredUseOnly());
+
+        field = DataConnection.class.getDeclaredField("mTransportType");
+        field.setAccessible(true);
+        field.setInt(mDc, AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+
+        doReturn(false).when(mDataEnabledSettings).isDataEnabled();
+        doReturn(false).when(mServiceState).getDataRoaming();
+        doReturn(ApnSetting.TYPE_MMS).when(mApnContext).getApnTypeBitmask();
+
+        mContextFixture.getCarrierConfigBundle().putStringArray(
+                CarrierConfigManager.KEY_CARRIER_METERED_APN_TYPES_STRINGS,
+                new String[] { "default" });
+
+        assertTrue(isUnmeteredUseOnly());
     }
 }

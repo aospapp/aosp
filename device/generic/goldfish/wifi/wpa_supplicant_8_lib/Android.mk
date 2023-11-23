@@ -58,6 +58,8 @@ ifdef CONFIG_ANDROID_LOG
 L_CFLAGS += -DCONFIG_ANDROID_LOG
 endif
 
+L_CFLAGS += -Wno-unused-parameter
+
 ########################
 
 include $(CLEAR_VARS)

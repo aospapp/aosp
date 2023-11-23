@@ -20,8 +20,9 @@
 #include <stdint.h>
 
 #include <limits>
+#include <map>
 #include <memory>
-#include <set>
+#include <unordered_map>
 
 #include "dso.h"
 
@@ -34,33 +35,33 @@ constexpr char DEFAULT_EXECNAME_FOR_THREAD_MMAP[] = "//anon";
 
 namespace simpleperf {
 
+namespace map_flags {
+constexpr uint32_t PROT_JIT_SYMFILE_MAP = 0x4000;
+}  // namespace map_flags
+
 struct MapEntry {
   uint64_t start_addr;
   uint64_t len;
   uint64_t pgoff;
-  uint64_t time;  // Map creation time.
   Dso* dso;
   bool in_kernel;
+  uint32_t flags;
 
-  MapEntry(uint64_t start_addr, uint64_t len, uint64_t pgoff, uint64_t time,
-           Dso* dso, bool in_kernel)
+  MapEntry(uint64_t start_addr, uint64_t len, uint64_t pgoff,
+           Dso* dso, bool in_kernel, uint32_t flags = 0)
       : start_addr(start_addr),
         len(len),
         pgoff(pgoff),
-        time(time),
         dso(dso),
-        in_kernel(in_kernel) {}
+        in_kernel(in_kernel),
+        flags(flags) {}
   MapEntry() {}
 
   uint64_t get_end_addr() const { return start_addr + len; }
 };
 
-struct MapComparator {
-  bool operator()(const MapEntry* map1, const MapEntry* map2) const;
-};
-
 struct MapSet {
-  std::set<MapEntry*, MapComparator> maps;
+  std::map<uint64_t, const MapEntry*> maps;  // Map from start_addr to a MapEntry.
   uint64_t version = 0u;  // incremented each time changing maps
 };
 
@@ -81,9 +82,9 @@ class ThreadTree {
         show_mark_for_unknown_symbol_(false),
         unknown_symbol_("unknown", 0,
                         std::numeric_limits<unsigned long long>::max()) {
-    unknown_dso_ = Dso::CreateDso(DSO_ELF_FILE, "unknown");
+    unknown_dso_ = Dso::CreateDso(DSO_UNKNOWN_FILE, "unknown");
     unknown_map_ = MapEntry(0, std::numeric_limits<unsigned long long>::max(),
-                            0, 0, unknown_dso_.get(), false);
+                            0, unknown_dso_.get(), false);
     kernel_dso_ = Dso::CreateDso(DSO_KERNEL, DEFAULT_KERNEL_MMAP_NAME);
     // We can't dump comm for pid 0 from /proc, so add it's name here.
     SetThreadName(0, 0, "swapper");
@@ -93,9 +94,9 @@ class ThreadTree {
   void ForkThread(int pid, int tid, int ppid, int ptid);
   ThreadEntry* FindThreadOrNew(int pid, int tid);
   void AddKernelMap(uint64_t start_addr, uint64_t len, uint64_t pgoff,
-                    uint64_t time, const std::string& filename);
+                    const std::string& filename);
   void AddThreadMap(int pid, int tid, uint64_t start_addr, uint64_t len,
-                    uint64_t pgoff, uint64_t time, const std::string& filename);
+                    uint64_t pgoff, const std::string& filename, uint32_t flags = 0);
   const MapEntry* FindMap(const ThreadEntry* thread, uint64_t ip,
                           bool in_kernel);
   // Find map for an ip address when we don't know whether it is in kernel.
@@ -116,7 +117,9 @@ class ThreadTree {
   void ClearThreadAndMap();
 
   void AddDsoInfo(const std::string& file_path, uint32_t file_type,
-                  uint64_t min_vaddr, std::vector<Symbol>* symbols);
+                  uint64_t min_vaddr, uint64_t file_offset_of_min_vaddr,
+                  std::vector<Symbol>* symbols, const std::vector<uint64_t>& dex_file_offsets);
+  void AddDexFileOffset(const std::string& file_path, uint64_t dex_file_offset);
 
   // Update thread tree with information provided by record.
   void Update(const Record& record);
@@ -127,9 +130,10 @@ class ThreadTree {
  private:
   ThreadEntry* CreateThread(int pid, int tid);
   Dso* FindKernelDsoOrNew(const std::string& filename);
-  Dso* FindUserDsoOrNew(const std::string& filename, uint64_t start_addr = 0);
-  MapEntry* AllocateMap(const MapEntry& value);
-  void FixOverlappedMap(MapSet* maps, const MapEntry* map);
+  Dso* FindUserDsoOrNew(const std::string& filename, uint64_t start_addr = 0,
+                        DsoType dso_type = DSO_ELF_FILE);
+  const MapEntry* AllocateMap(const MapEntry& entry);
+  void InsertMap(MapSet& maps, const MapEntry& entry);
 
   std::unordered_map<int, std::unique_ptr<ThreadEntry>> thread_tree_;
   std::vector<std::unique_ptr<std::string>> thread_comm_storage_;

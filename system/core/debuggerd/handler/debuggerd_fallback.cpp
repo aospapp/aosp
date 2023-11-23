@@ -42,11 +42,15 @@
 #include <android-base/file.h>
 #include <android-base/unique_fd.h>
 #include <async_safe/log.h>
-#include <backtrace/BacktraceMap.h>
+#include <unwindstack/DexFiles.h>
+#include <unwindstack/JitDebug.h>
+#include <unwindstack/Maps.h>
 #include <unwindstack/Memory.h>
 #include <unwindstack/Regs.h>
+#include <unwindstack/Unwinder.h>
 
 #include "debuggerd/handler.h"
+#include "handler/fallback.h"
 #include "tombstoned/tombstoned.h"
 #include "util.h"
 
@@ -54,7 +58,6 @@
 #include "libdebuggerd/tombstone.h"
 
 using android::base::unique_fd;
-using unwindstack::Regs;
 
 extern "C" bool __linker_enable_fallback_allocator();
 extern "C" void __linker_disable_fallback_allocator();
@@ -72,17 +75,22 @@ static void debuggerd_fallback_trace(int output_fd, ucontext_t* ucontext) {
   }
 
   {
-    std::unique_ptr<Regs> regs;
+    std::unique_ptr<unwindstack::Regs> regs;
 
     ThreadInfo thread;
     thread.pid = getpid();
     thread.tid = gettid();
     thread.thread_name = get_thread_name(gettid());
-    thread.registers.reset(Regs::CreateFromUcontext(Regs::CurrentArch(), ucontext));
+    unwindstack::ArchEnum arch = unwindstack::Regs::CurrentArch();
+    thread.registers.reset(unwindstack::Regs::CreateFromUcontext(arch, ucontext));
 
     // TODO: Create this once and store it in a global?
-    std::unique_ptr<BacktraceMap> map(BacktraceMap::Create(getpid()));
-    dump_backtrace_thread(output_fd, map.get(), thread);
+    unwindstack::UnwinderFromPid unwinder(kMaxFrames, getpid());
+    if (unwinder.Init(arch)) {
+      dump_backtrace_thread(output_fd, &unwinder, thread);
+    } else {
+      async_safe_format_log(ANDROID_LOG_ERROR, "libc", "Unable to init unwinder.");
+    }
   }
   __linker_disable_fallback_allocator();
 }
@@ -187,7 +195,7 @@ static std::pair<pid_t, int> unpack_thread_fd(uint64_t value) {
 static void trace_handler(siginfo_t* info, ucontext_t* ucontext) {
   static std::atomic<uint64_t> trace_output(pack_thread_fd(-1, -1));
 
-  if (info->si_value.sival_int == ~0) {
+  if (info->si_value.sival_ptr == kDebuggerdFallbackSivalPtrRequestDump) {
     // Asked to dump by the original signal recipient.
     uint64_t val = trace_output.load();
     auto [tid, fd] = unpack_thread_fd(val);
@@ -249,17 +257,18 @@ static void trace_handler(siginfo_t* info, ucontext_t* ucontext) {
         }
 
         uint64_t expected = pack_thread_fd(-1, -1);
-        if (!trace_output.compare_exchange_strong(expected,
-                                                  pack_thread_fd(tid, pipe_write.release()))) {
+        int sent_fd = pipe_write.release();
+        if (!trace_output.compare_exchange_strong(expected, pack_thread_fd(tid, sent_fd))) {
           auto [tid, fd] = unpack_thread_fd(expected);
           async_safe_format_log(ANDROID_LOG_ERROR, "libc",
                                 "thread %d is already outputting to fd %d?", tid, fd);
+          close(sent_fd);
           return false;
         }
 
         siginfo_t siginfo = {};
         siginfo.si_code = SI_QUEUE;
-        siginfo.si_value.sival_int = ~0;
+        siginfo.si_value.sival_ptr = kDebuggerdFallbackSivalPtrRequestDump;
         siginfo.si_pid = getpid();
         siginfo.si_uid = getuid();
 
@@ -304,7 +313,16 @@ static void crash_handler(siginfo_t* info, ucontext_t* ucontext, void* abort_mes
 
   crash_mutex.lock();
   if (lock_count++ > 0) {
-    async_safe_format_log(ANDROID_LOG_ERROR, "libc", "recursed signal handler call, exiting");
+    async_safe_format_log(ANDROID_LOG_ERROR, "libc", "recursed signal handler call, aborting");
+    signal(SIGABRT, SIG_DFL);
+    raise(SIGABRT);
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGABRT);
+    sigprocmask(SIG_UNBLOCK, &sigset, nullptr);
+
+    // Just in case...
+    async_safe_format_log(ANDROID_LOG_ERROR, "libc", "abort didn't exit, exiting");
     _exit(1);
   }
 
@@ -322,7 +340,7 @@ static void crash_handler(siginfo_t* info, ucontext_t* ucontext, void* abort_mes
 
 extern "C" void debuggerd_fallback_handler(siginfo_t* info, ucontext_t* ucontext,
                                            void* abort_message) {
-  if (info->si_signo == DEBUGGER_SIGNAL && info->si_value.sival_int != 0) {
+  if (info->si_signo == DEBUGGER_SIGNAL && info->si_value.sival_ptr != nullptr) {
     return trace_handler(info, ucontext);
   } else {
     return crash_handler(info, ucontext, abort_message);

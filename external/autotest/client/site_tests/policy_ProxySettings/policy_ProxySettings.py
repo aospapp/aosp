@@ -8,6 +8,7 @@ import threading
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
+from autotest_lib.client.cros.enterprise.network_config import ProxyConfig
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
 from telemetry.core import exceptions as telemetry_exceptions
 
@@ -82,7 +83,7 @@ class ProxyListener(object):
         self._thread = threading.Thread(target=self._server.serve_forever)
 
     def run(self):
-        """Start the server by activating it's thread."""
+        """Start the server by activating its thread."""
         self._thread.start()
 
     def stop(self):
@@ -131,14 +132,16 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
         self.POLICY_NAME = 'ProxySettings'
         self.PROXY_PORT = 3128
         self.PAC_FILE = 'proxy_test.pac'
+        self.PAC_URL = '%s/%s' % (self.WEB_HOST, self.PAC_FILE)
+        self.BYPASS_URLS = ['www.google.com', 'www.googleapis.com']
         self.FIXED_PROXY = {
-            'ProxyBypassList': 'www.google.com,www.googleapis.com',
+            'ProxyBypassList': ','.join(self.BYPASS_URLS),
             'ProxyMode': 'fixed_servers',
             'ProxyServer': 'localhost:%s' % self.PROXY_PORT
         }
         self.PAC_PROXY = {
             'ProxyMode': 'pac_script',
-            'ProxyPacUrl': '%s/%s' % (self.WEB_HOST, self.PAC_FILE)
+            'ProxyPacUrl': self.PAC_URL
         }
         self.DIRECT_PROXY = {
             'ProxyMode': 'direct'
@@ -148,7 +151,16 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
             'FixedProxy_UseFixedProxy': self.FIXED_PROXY,
             'PacProxy_UsePacFile': self.PAC_PROXY,
             'DirectProxy_UseNoProxy': self.DIRECT_PROXY,
-            'NotSet_UseNoProxy': None
+            'NotSet_UseNoProxy': None,
+        }
+        self.PROXY_CONFIGS = {
+            'DirectProxy_UseNoProxy_ONC': ProxyConfig(type='Direct'),
+            'PacProxy_UsePacFile_ONC': ProxyConfig(type='PAC',
+                                           pac_url=self.PAC_URL),
+            'FixedProxy_UseFixedProxy_ONC': ProxyConfig(type='Manual',
+                                                host='localhost',
+                                                port=self.PROXY_PORT,
+                                                exclude_urls=self.BYPASS_URLS)
         }
 
 
@@ -172,7 +184,7 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
             try:
                 self.navigate_to_url(url)
             except telemetry_exceptions.TimeoutError as e:
-                if i is total_tries - 1:
+                if i == total_tries - 1:
                     logging.error('Timeout error: %s [%s].', str(e),
                                   sys.exc_info())
                     raise error.TestError('Could not load %s after '
@@ -184,11 +196,11 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
                 break
 
 
-    def _test_proxy_configuration(self, policy_value):
+    def _test_proxy_configuration(self, mode):
         """
         Verify CrOS enforces the specified ProxySettings configuration.
 
-        @param policy_value: policy value expected.
+        @param mode: Type of proxy.
 
         @raises error.TestFail if behavior does not match expected.
 
@@ -201,7 +213,6 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
                              if self.TEST_URL in request]
         logging.info('matching_requests: %s', matching_requests)
 
-        mode = policy_value['ProxyMode'] if policy_value else None
         if mode is None or mode == 'direct':
             if matching_requests:
                 raise error.TestFail('Requests should not have been sent '
@@ -211,16 +222,27 @@ class policy_ProxySettings(enterprise_policy_base.EnterprisePolicyTest):
                 raise error.TestFail('Requests should have been sent '
                                      'through the proxy server.')
         else:
-            raise error.TestFail('Unrecognized Policy Value %s', policy_value)
+            raise error.TestFail('Unrecognized Mode %s' % mode)
 
 
     def run_once(self, case):
         """
         Setup and run the test configured for the specified test case.
 
+        Sets up a proxy using either the ProxyMode policy or ONC policy.
+
         @param case: Name of the test case to run: see TEST_CASES.
 
         """
-        case_value = self.TEST_CASES[case]
-        self.setup_case(user_policies={self.POLICY_NAME: case_value})
-        self._test_proxy_configuration(case_value)
+        if case.endswith('_ONC'):
+            proxy = self.PROXY_CONFIGS[case]
+            self.setup_case(user_policies={
+                'OpenNetworkConfiguration': proxy.policy()
+            })
+            mode = proxy.mode()
+        else:
+            case_value = self.TEST_CASES[case]
+            self.setup_case(user_policies={self.POLICY_NAME: case_value})
+            mode = case_value['ProxyMode'] if case_value else None
+
+        self._test_proxy_configuration(mode)

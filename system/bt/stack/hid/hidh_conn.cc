@@ -42,6 +42,7 @@
 #include "hidh_api.h"
 #include "hidh_int.h"
 
+#include "log/log.h"
 #include "osi/include/osi.h"
 
 static uint8_t find_conn_by_cid(uint16_t cid);
@@ -96,11 +97,13 @@ tHID_STATUS hidh_conn_reg(void) {
   hh_cb.l2cap_cfg.flush_to = HID_HOST_FLUSH_TO;
 
   /* Now, register with L2CAP */
-  if (!L2CA_Register(HID_PSM_CONTROL, (tL2CAP_APPL_INFO*)&hst_reg_info)) {
+  if (!L2CA_Register(HID_PSM_CONTROL, (tL2CAP_APPL_INFO*)&hst_reg_info,
+                     false /* enable_snoop */)) {
     HIDH_TRACE_ERROR("HID-Host Control Registration failed");
     return (HID_ERR_L2CAP_FAILED);
   }
-  if (!L2CA_Register(HID_PSM_INTERRUPT, (tL2CAP_APPL_INFO*)&hst_reg_info)) {
+  if (!L2CA_Register(HID_PSM_INTERRUPT, (tL2CAP_APPL_INFO*)&hst_reg_info,
+                     false /* enable_snoop */)) {
     L2CA_Deregister(HID_PSM_CONTROL);
     HIDH_TRACE_ERROR("HID-Host Interrupt Registration failed");
     return (HID_ERR_L2CAP_FAILED);
@@ -655,7 +658,7 @@ static void hidh_l2cif_disconnect_ind(uint16_t l2cap_cid, bool ack_needed) {
         (!(hh_cb.devices[dhandle].attr_mask & HID_RECONN_INIT)) &&
         (hh_cb.devices[dhandle].attr_mask & HID_NORMALLY_CONNECTABLE)) {
       hh_cb.devices[dhandle].conn_tries = 0;
-      period_ms_t interval_ms = HID_HOST_REPAGE_WIN * 1000;
+      uint64_t interval_ms = HID_HOST_REPAGE_WIN * 1000;
       alarm_set_on_mloop(hh_cb.devices[dhandle].conn.process_repage_timer,
                          interval_ms, hidh_process_repage_timer_timeout,
                          UINT_TO_PTR(dhandle));
@@ -796,6 +799,14 @@ static void hidh_l2cif_data_ind(uint16_t l2cap_cid, BT_HDR* p_msg) {
     HIDH_TRACE_WARNING("HID-Host Rcvd L2CAP data, unknown CID: 0x%x",
                        l2cap_cid);
     osi_free(p_msg);
+    return;
+  }
+
+  if (p_msg->len < 1) {
+    HIDH_TRACE_WARNING("Rcvd L2CAP data, invalid length %d, should be >= 1",
+                       p_msg->len);
+    osi_free(p_msg);
+    android_errorWriteLog(0x534e4554, "80493272");
     return;
   }
 
@@ -1064,7 +1075,7 @@ static void hidh_conn_retry(uint8_t dhandle) {
 
   p_dev->conn.conn_state = HID_CONN_STATE_UNUSED;
 #if (HID_HOST_REPAGE_WIN > 0)
-  period_ms_t interval_ms = HID_HOST_REPAGE_WIN * 1000;
+  uint64_t interval_ms = HID_HOST_REPAGE_WIN * 1000;
   alarm_set_on_mloop(p_dev->conn.process_repage_timer, interval_ms,
                      hidh_process_repage_timer_timeout, UINT_TO_PTR(dhandle));
 #else

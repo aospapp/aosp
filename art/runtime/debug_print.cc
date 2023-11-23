@@ -25,7 +25,7 @@
 #include "gc/heap.h"
 #include "gc/space/space-inl.h"
 #include "mirror/class.h"
-#include "mirror/class_loader.h"
+#include "mirror/class_loader-inl.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
@@ -37,7 +37,7 @@ std::string DescribeSpace(ObjPtr<mirror::Class> klass) {
   std::ostringstream oss;
   gc::Heap* heap = Runtime::Current()->GetHeap();
   gc::space::ContinuousSpace* cs =
-      heap->FindContinuousSpaceFromObject(klass.Ptr(), /* fail_ok */ true);
+      heap->FindContinuousSpaceFromObject(klass, /* fail_ok= */ true);
   if (cs != nullptr) {
     if (cs->IsImageSpace()) {
       gc::space::ImageSpace* ispace = cs->AsImageSpace();
@@ -50,7 +50,7 @@ std::string DescribeSpace(ObjPtr<mirror::Class> klass) {
     }
   } else {
     gc::space::DiscontinuousSpace* ds =
-        heap->FindDiscontinuousSpaceFromObject(klass, /* fail_ok */ true);
+        heap->FindDiscontinuousSpaceFromObject(klass, /* fail_ok= */ true);
     if (ds != nullptr) {
       oss << "discontinuous;" << ds->GetName();
     } else {

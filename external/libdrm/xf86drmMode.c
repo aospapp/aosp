@@ -38,10 +38,6 @@
  * platforms find which headers to include to get uint32_t
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -271,9 +267,9 @@ int drmModeAddFB(int fd, uint32_t width, uint32_t height, uint8_t depth,
 }
 
 int drmModeAddFB2WithModifiers(int fd, uint32_t width, uint32_t height,
-                               uint32_t pixel_format, uint32_t bo_handles[4],
-                               uint32_t pitches[4], uint32_t offsets[4],
-                               uint64_t modifier[4], uint32_t *buf_id, uint32_t flags)
+                               uint32_t pixel_format, const uint32_t bo_handles[4],
+                               const uint32_t pitches[4], const uint32_t offsets[4],
+                               const uint64_t modifier[4], uint32_t *buf_id, uint32_t flags)
 {
 	struct drm_mode_fb_cmd2 f;
 	int ret;
@@ -297,8 +293,8 @@ int drmModeAddFB2WithModifiers(int fd, uint32_t width, uint32_t height,
 }
 
 int drmModeAddFB2(int fd, uint32_t width, uint32_t height,
-                  uint32_t pixel_format, uint32_t bo_handles[4],
-                  uint32_t pitches[4], uint32_t offsets[4],
+                  uint32_t pixel_format, const uint32_t bo_handles[4],
+                  const uint32_t pitches[4], const uint32_t offsets[4],
                   uint32_t *buf_id, uint32_t flags)
 {
 	return drmModeAddFB2WithModifiers(fd, width, height,
@@ -831,8 +827,7 @@ int drmCheckModesettingSupported(const char *busid)
 	}
 #elif defined(__DragonFly__)
 	return 0;
-#endif
-#ifdef __OpenBSD__
+#elif defined(__OpenBSD__)
 	int	fd;
 	struct drm_mode_card_res res;
 	drmModeResPtr r = 0;
@@ -889,6 +884,8 @@ int drmHandleEvent(int fd, drmEventContextPtr evctx)
 	int len, i;
 	struct drm_event *e;
 	struct drm_event_vblank *vblank;
+	struct drm_event_crtc_sequence *seq;
+	void *user_data;
 
 	/* The DRM read semantics guarantees that we always get only
 	 * complete events. */
@@ -915,15 +912,30 @@ int drmHandleEvent(int fd, drmEventContextPtr evctx)
 					      U642VOID (vblank->user_data));
 			break;
 		case DRM_EVENT_FLIP_COMPLETE:
-			if (evctx->version < 2 ||
-			    evctx->page_flip_handler == NULL)
-				break;
 			vblank = (struct drm_event_vblank *) e;
-			evctx->page_flip_handler(fd,
-						 vblank->sequence,
-						 vblank->tv_sec,
-						 vblank->tv_usec,
-						 U642VOID (vblank->user_data));
+			user_data = U642VOID (vblank->user_data);
+
+			if (evctx->version >= 3 && evctx->page_flip_handler2)
+				evctx->page_flip_handler2(fd,
+							 vblank->sequence,
+							 vblank->tv_sec,
+							 vblank->tv_usec,
+							 vblank->crtc_id,
+							 user_data);
+			else if (evctx->version >= 2 && evctx->page_flip_handler)
+				evctx->page_flip_handler(fd,
+							 vblank->sequence,
+							 vblank->tv_sec,
+							 vblank->tv_usec,
+							 user_data);
+			break;
+		case DRM_EVENT_CRTC_SEQUENCE:
+			seq = (struct drm_event_crtc_sequence *) e;
+			if (evctx->version >= 4 && evctx->sequence_handler)
+				evctx->sequence_handler(fd,
+							seq->sequence,
+							seq->time_ns,
+							seq->user_data);
 			break;
 		default:
 			break;
@@ -1188,275 +1200,6 @@ int drmModeObjectSetProperty(int fd, uint32_t object_id, uint32_t object_type,
 	return DRM_IOCTL(fd, DRM_IOCTL_MODE_OBJ_SETPROPERTY, &prop);
 }
 
-typedef struct _drmModePropertySetItem drmModePropertySetItem, *drmModePropertySetItemPtr;
-
-struct _drmModePropertySetItem {
-	uint32_t object_id;
-	uint32_t property_id;
-	bool is_blob;
-	uint64_t value;
-	void *blob;
-	drmModePropertySetItemPtr next;
-};
-
-struct _drmModePropertySet {
-	unsigned int count_objs;
-	unsigned int count_props;
-	unsigned int count_blobs;
-	drmModePropertySetItem list;
-};
-
-drmModePropertySetPtr drmModePropertySetAlloc(void)
-{
-	drmModePropertySetPtr set;
-
-	set = drmMalloc(sizeof *set);
-	if (!set)
-		return NULL;
-
-	set->list.next = NULL;
-	set->count_props = 0;
-	set->count_objs = 0;
-
-	return set;
-}
-
-int drmModePropertySetAdd(drmModePropertySetPtr set,
-			  uint32_t object_id,
-			  uint32_t property_id,
-			  uint64_t value)
-{
-	drmModePropertySetItemPtr prev = &set->list;
-	bool new_obj = false;
-
-	/* keep it sorted by object_id and property_id */
-	while (prev->next) {
-		if (prev->next->object_id > object_id)
-			break;
-
-		if (prev->next->object_id == object_id &&
-		    prev->next->property_id >= property_id)
-			break;
-
-		prev = prev->next;
-	}
-
-	if ((prev == &set->list || prev->object_id != object_id) &&
-	    (!prev->next || prev->next->object_id != object_id))
-		new_obj = true;
-
-	/* replace or add? */
-	if (prev->next &&
-	    prev->next->object_id == object_id &&
-	    prev->next->property_id == property_id) {
-		drmModePropertySetItemPtr item = prev->next;
-
-		if (item->is_blob)
-			return -EINVAL;
-
-		item->value = value;
-	} else {
-		drmModePropertySetItemPtr item;
-
-		item = drmMalloc(sizeof *item);
-		if (!item)
-			return -1;
-
-		item->object_id = object_id;
-		item->property_id = property_id;
-		item->value = value;
-		item->is_blob = false;
-		item->blob = NULL;
-
-		item->next = prev->next;
-		prev->next = item;
-
-		set->count_props++;
-	}
-
-	if (new_obj)
-		set->count_objs++;
-
-	return 0;
-}
-
-int drmModePropertySetAddBlob(drmModePropertySetPtr set,
-			      uint32_t object_id,
-			      uint32_t property_id,
-			      uint64_t length,
-			      void *data)
-{
-	drmModePropertySetItemPtr prev = &set->list;
-	bool new_obj = false;
-
-	/* keep it sorted by object_id and property_id */
-	while (prev->next) {
-		if (prev->next->object_id > object_id)
-			break;
-
-		if (prev->next->object_id == object_id &&
-		    prev->next->property_id >= property_id)
-			break;
-
-		prev = prev->next;
-	}
-
-	if ((prev == &set->list || prev->object_id != object_id) &&
-	    (!prev->next || prev->next->object_id != object_id))
-		new_obj = true;
-
-	/* replace or add? */
-	if (prev->next &&
-	    prev->next->object_id == object_id &&
-	    prev->next->property_id == property_id) {
-		drmModePropertySetItemPtr item = prev->next;
-
-		if (!item->is_blob)
-			return -EINVAL;
-
-		item->value = length;
-		item->blob = data;
-	} else {
-		drmModePropertySetItemPtr item;
-
-		item = drmMalloc(sizeof *item);
-		if (!item)
-			return -1;
-
-		item->object_id = object_id;
-		item->property_id = property_id;
-		item->is_blob = true;
-		item->value = length;
-		item->blob = data;
-
-		item->next = prev->next;
-		prev->next = item;
-
-		set->count_props++;
-		set->count_blobs++;
-	}
-
-	if (new_obj)
-		set->count_objs++;
-
-	return 0;
-}
-
-void drmModePropertySetFree(drmModePropertySetPtr set)
-{
-	drmModePropertySetItemPtr item;
-
-	if (!set)
-		return;
-
-	item = set->list.next;
-
-	while (item) {
-		drmModePropertySetItemPtr next = item->next;
-
-		drmFree(item);
-
-		item = next;
-	}
-
-	drmFree(set);
-}
-
-int drmModePropertySetCommit(int fd, uint32_t flags, void *user_data,
-			     drmModePropertySetPtr set)
-{
-	drmModePropertySetItemPtr item;
-	uint32_t *objs_ptr = NULL;
-	uint32_t *count_props_ptr = NULL;
-	uint32_t *props_ptr = NULL;
-	uint64_t *prop_values_ptr = NULL;
-	uint64_t *blob_values_ptr = NULL;
-	struct drm_mode_atomic atomic = { 0 };
-	unsigned int obj_idx = 0;
-	unsigned int prop_idx = 0;
-	unsigned int blob_idx = 0;
-	int ret = -1;
-
-	if (!set)
-		return -1;
-
-	objs_ptr = drmMalloc(set->count_objs * sizeof objs_ptr[0]);
-	if (!objs_ptr) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	count_props_ptr = drmMalloc(set->count_objs * sizeof count_props_ptr[0]);
-	if (!count_props_ptr) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	props_ptr = drmMalloc(set->count_props * sizeof props_ptr[0]);
-	if (!props_ptr) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	prop_values_ptr = drmMalloc(set->count_props * sizeof prop_values_ptr[0]);
-	if (!prop_values_ptr) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	blob_values_ptr = drmMalloc(set->count_blobs * sizeof blob_values_ptr[0]);
-	if (!blob_values_ptr) {
-		errno = ENOMEM;
-		goto out;
-	}
-
-	item = set->list.next;
-
-	while (item) {
-		int count_props = 0;
-		drmModePropertySetItemPtr next = item;
-
-		objs_ptr[obj_idx] = item->object_id;
-
-		while (next && next->object_id == item->object_id) {
-			props_ptr[prop_idx] = next->property_id;
-			prop_values_ptr[prop_idx] = next->value;
-			prop_idx++;
-
-			if (next->is_blob)
-				blob_values_ptr[blob_idx++] = VOID2U64(next->blob);
-
-			count_props++;
-
-			next = next->next;
-		}
-
-		count_props_ptr[obj_idx++] = count_props;
-
-		item = next;
-	}
-
-	atomic.count_objs = set->count_objs;
-	atomic.flags = flags;
-	atomic.objs_ptr = VOID2U64(objs_ptr);
-	atomic.count_props_ptr = VOID2U64(count_props_ptr);
-	atomic.props_ptr = VOID2U64(props_ptr);
-	atomic.prop_values_ptr = VOID2U64(prop_values_ptr);
-// TODO:
-//	atomic.blob_values_ptr = VOID2U64(blob_values_ptr);
-	atomic.user_data = VOID2U64(user_data);
-
-	ret = DRM_IOCTL(fd, DRM_IOCTL_MODE_ATOMIC, &atomic);
-
-out:
-	drmFree(objs_ptr);
-	drmFree(count_props_ptr);
-	drmFree(props_ptr);
-	drmFree(prop_values_ptr);
-
-	return ret;
-}
-
 typedef struct _drmModeAtomicReqItem drmModeAtomicReqItem, *drmModeAtomicReqItemPtr;
 
 struct _drmModeAtomicReqItem {
@@ -1507,7 +1250,7 @@ drmModeAtomicReqPtr drmModeAtomicDuplicate(drmModeAtomicReqPtr old)
 			return NULL;
 		}
 		memcpy(new->items, old->items,
-		       old->size_items * sizeof(*new->items));
+		       old->cursor * sizeof(*new->items));
 	} else {
 		new->items = NULL;
 	}
@@ -1565,13 +1308,17 @@ int drmModeAtomicAddProperty(drmModeAtomicReqPtr req,
 	if (!req)
 		return -EINVAL;
 
+	if (object_id == 0 || property_id == 0)
+		return -EINVAL;
+
 	if (req->cursor >= req->size_items) {
+		const uint32_t item_size_inc = getpagesize() / sizeof(*req->items);
 		drmModeAtomicReqItemPtr new;
 
-		req->size_items += 16;
+		req->size_items += item_size_inc;
 		new = realloc(req->items, req->size_items * sizeof(*req->items));
 		if (!new) {
-			req->size_items -= 16;
+			req->size_items -= item_size_inc;
 			return -ENOMEM;
 		}
 		req->items = new;
@@ -1745,4 +1492,93 @@ drmModeDestroyPropertyBlob(int fd, uint32_t id)
 	memclear(destroy);
 	destroy.blob_id = id;
 	return DRM_IOCTL(fd, DRM_IOCTL_MODE_DESTROYPROPBLOB, &destroy);
+}
+
+int
+drmModeCreateLease(int fd, const uint32_t *objects, int num_objects, int flags, uint32_t *lessee_id)
+{
+	struct drm_mode_create_lease create;
+	int ret;
+
+	memclear(create);
+	create.object_ids = (uintptr_t) objects;
+	create.object_count = num_objects;
+	create.flags = flags;
+
+	ret = DRM_IOCTL(fd, DRM_IOCTL_MODE_CREATE_LEASE, &create);
+	if (ret == 0) {
+		*lessee_id = create.lessee_id;
+		return create.fd;
+	}
+	return -errno;
+}
+
+drmModeLesseeListPtr
+drmModeListLessees(int fd)
+{
+	struct drm_mode_list_lessees list;
+	uint32_t count;
+	drmModeLesseeListPtr ret;
+
+	memclear(list);
+
+	if (DRM_IOCTL(fd, DRM_IOCTL_MODE_LIST_LESSEES, &list))
+		return NULL;
+
+	count = list.count_lessees;
+	ret = drmMalloc(sizeof (drmModeLesseeListRes) + count * sizeof (ret->lessees[0]));
+	if (!ret)
+		return NULL;
+
+	list.lessees_ptr = VOID2U64(&ret->lessees[0]);
+	if (DRM_IOCTL(fd, DRM_IOCTL_MODE_LIST_LESSEES, &list)) {
+		drmFree(ret);
+		return NULL;
+	}
+
+	ret->count = count;
+	return ret;
+}
+
+drmModeObjectListPtr
+drmModeGetLease(int fd)
+{
+	struct drm_mode_get_lease get;
+	uint32_t count;
+	drmModeObjectListPtr ret;
+
+	memclear(get);
+
+	if (DRM_IOCTL(fd, DRM_IOCTL_MODE_GET_LEASE, &get))
+		return NULL;
+
+	count = get.count_objects;
+	ret = drmMalloc(sizeof (drmModeObjectListRes) + count * sizeof (ret->objects[0]));
+	if (!ret)
+		return NULL;
+
+	get.objects_ptr = VOID2U64(&ret->objects[0]);
+	if (DRM_IOCTL(fd, DRM_IOCTL_MODE_GET_LEASE, &get)) {
+		drmFree(ret);
+		return NULL;
+	}
+
+	ret->count = count;
+	return ret;
+}
+
+int
+drmModeRevokeLease(int fd, uint32_t lessee_id)
+{
+	struct drm_mode_revoke_lease revoke;
+	int ret;
+
+	memclear(revoke);
+
+	revoke.lessee_id = lessee_id;
+
+	ret = DRM_IOCTL(fd, DRM_IOCTL_MODE_REVOKE_LEASE, &revoke);
+	if (ret == 0)
+		return 0;
+	return -errno;
 }

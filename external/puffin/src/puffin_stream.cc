@@ -16,21 +16,21 @@
 #include "puffin/src/include/puffin/huffer.h"
 #include "puffin/src/include/puffin/puffer.h"
 #include "puffin/src/include/puffin/stream.h"
+#include "puffin/src/logging.h"
 #include "puffin/src/puff_reader.h"
 #include "puffin/src/puff_writer.h"
-#include "puffin/src/set_errors.h"
+
+using std::shared_ptr;
+using std::unique_ptr;
+using std::vector;
 
 namespace puffin {
-
-using std::vector;
-using std::unique_ptr;
-using std::shared_ptr;
 
 namespace {
 
 bool CheckArgsIntegrity(uint64_t puff_size,
-                        const std::vector<BitExtent>& deflates,
-                        const std::vector<ByteExtent>& puffs) {
+                        const vector<BitExtent>& deflates,
+                        const vector<ByteExtent>& puffs) {
   TEST_AND_RETURN_FALSE(puffs.size() == deflates.size());
   // Check if the |puff_size| is actually greater than the last byte of the last
   // puff in |puffs|.
@@ -54,13 +54,12 @@ bool CheckArgsIntegrity(uint64_t puff_size,
 
 }  // namespace
 
-UniqueStreamPtr PuffinStream::CreateForPuff(
-    UniqueStreamPtr stream,
-    std::shared_ptr<Puffer> puffer,
-    uint64_t puff_size,
-    const std::vector<BitExtent>& deflates,
-    const std::vector<ByteExtent>& puffs,
-    size_t max_cache_size) {
+UniqueStreamPtr PuffinStream::CreateForPuff(UniqueStreamPtr stream,
+                                            shared_ptr<Puffer> puffer,
+                                            uint64_t puff_size,
+                                            const vector<BitExtent>& deflates,
+                                            const vector<ByteExtent>& puffs,
+                                            size_t max_cache_size) {
   TEST_AND_RETURN_VALUE(CheckArgsIntegrity(puff_size, deflates, puffs),
                         nullptr);
   TEST_AND_RETURN_VALUE(stream->Seek(0), nullptr);
@@ -72,12 +71,11 @@ UniqueStreamPtr PuffinStream::CreateForPuff(
   return puffin_stream;
 }
 
-UniqueStreamPtr PuffinStream::CreateForHuff(
-    UniqueStreamPtr stream,
-    std::shared_ptr<Huffer> huffer,
-    uint64_t puff_size,
-    const std::vector<BitExtent>& deflates,
-    const std::vector<ByteExtent>& puffs) {
+UniqueStreamPtr PuffinStream::CreateForHuff(UniqueStreamPtr stream,
+                                            shared_ptr<Huffer> huffer,
+                                            uint64_t puff_size,
+                                            const vector<BitExtent>& deflates,
+                                            const vector<ByteExtent>& puffs) {
   TEST_AND_RETURN_VALUE(CheckArgsIntegrity(puff_size, deflates, puffs),
                         nullptr);
   TEST_AND_RETURN_VALUE(stream->Seek(0), nullptr);
@@ -288,9 +286,8 @@ bool PuffinStream::Read(void* buffer, size_t count) {
         TEST_AND_RETURN_FALSE(bit_reader.CacheBits(extra_bits_len));
         bit_reader.DropBits(extra_bits_len);
 
-        Error error;
         TEST_AND_RETURN_FALSE(
-            puffer_->PuffDeflate(&bit_reader, &puff_writer, nullptr, &error));
+            puffer_->PuffDeflate(&bit_reader, &puff_writer, nullptr));
         TEST_AND_RETURN_FALSE(bytes_to_read == bit_reader.Offset());
         TEST_AND_RETURN_FALSE(cur_puff_->length == puff_writer.Size());
       } else {
@@ -385,9 +382,7 @@ bool PuffinStream::Write(const void* buffer, size_t count) {
             bit_writer.WriteBits(cur_deflate_->offset & 7, last_byte_));
         last_byte_ = 0;
 
-        Error error;
-        TEST_AND_RETURN_FALSE(
-            huffer_->HuffDeflate(&puff_reader, &bit_writer, &error));
+        TEST_AND_RETURN_FALSE(huffer_->HuffDeflate(&puff_reader, &bit_writer));
         TEST_AND_RETURN_FALSE(bit_writer.Size() == bytes_to_write);
         TEST_AND_RETURN_FALSE(puff_reader.BytesLeft() == 0);
 
@@ -444,10 +439,10 @@ bool PuffinStream::SetExtraByte() {
 
 bool PuffinStream::GetPuffCache(int puff_id,
                                 uint64_t puff_size,
-                                SharedBufferPtr* buffer) {
+                                shared_ptr<Buffer>* buffer) {
   bool found = false;
   // Search for it.
-  std::pair<int, SharedBufferPtr> cache;
+  std::pair<int, shared_ptr<Buffer>> cache;
   // TODO(*): Find a faster way of doing this? Maybe change the data structure
   // that supports faster search.
   for (auto iter = caches_.begin(); iter != caches_.end(); ++iter) {

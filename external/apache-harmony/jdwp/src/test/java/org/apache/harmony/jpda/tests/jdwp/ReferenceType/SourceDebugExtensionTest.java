@@ -29,6 +29,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
+import org.apache.harmony.jpda.tests.jdwp.Events.SourceDebugExtensionMockClass;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -41,14 +42,13 @@ public class SourceDebugExtensionTest extends JDWPSyncTestCase {
     static final int testStatusPassed = 0;
     static final int testStatusFailed = -1;
     static final String thisCommandName = "ReferenceType.SourceDebugExtension command";
-    static final String debuggeeSignature =
-            "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/SourceDebugExtensionDebuggee;";
+    static final String debuggeeSignature = getClassSignature(SourceDebugExtensionDebuggee.class);
     static final String expectedSourceDebugExtension = "SMAP\nhelloworld_jsp.java\nJSP\n*S JSP\n" +
             "*F\n+ 0 helloworld.jsp\nhelloworld.jsp\n*L\n1,5:53\n6:58,3\n7,4:61\n*E\n";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.SourceDebugExtensionDebuggee";
+        return SourceDebugExtensionDebuggee.class.getName();
     }
 
 
@@ -116,7 +116,7 @@ public class SourceDebugExtensionTest extends JDWPSyncTestCase {
      */
     public void testSourceDebugExtension001() {
         doTest("testSourceDebugExtension001",
-               "Lorg/apache/harmony/jpda/tests/jdwp/Events/SourceDebugExtensionMockClass;",
+               getClassSignature(SourceDebugExtensionMockClass.class),
                JDWPConstants.Error.NONE);
     }
 

@@ -34,13 +34,19 @@ import com.android.tv.common.BuildConfig;
 
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** A utility class to get the current location. */
 public class LocationUtils {
     private static final String TAG = "LocationUtils";
     private static final boolean DEBUG = false;
+
+    private static final Set<OnUpdateAddressListener> sOnUpdateAddressListeners =
+            Collections.synchronizedSet(new HashSet<>());
 
     private static Context sApplicationContext;
     private static Address sAddress;
@@ -61,6 +67,39 @@ public class LocationUtils {
         }
         LocationUtilsHelper.startLocationUpdates();
         return null;
+    }
+
+    /** The listener used when address is updated. */
+    public interface OnUpdateAddressListener {
+        /**
+         * Called when address is updated.
+         *
+         * This listener is removed when this method returns true.
+         *
+         * @return {@code true} if the job has been finished and the listener needs to be removed;
+         *         {@code false} otherwise.
+         */
+        boolean onUpdateAddress(Address address);
+    }
+
+    /**
+     * Add an {@link OnUpdateAddressListener} instance.
+     *
+     * Note that the listener is removed automatically when
+     * {@link OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
+     */
+    public static void addOnUpdateAddressListener(OnUpdateAddressListener listener) {
+        sOnUpdateAddressListeners.add(listener);
+    }
+
+    /**
+     * Remove an {@link OnUpdateAddressListener} instance if it exists.
+     *
+     * Note that the listener will be removed automatically when
+     * {@link OnUpdateAddressListener#onUpdateAddress(Address)} is called and returns {@code true}.
+     */
+    public static void removeOnUpdateAddressListener(OnUpdateAddressListener listener) {
+        sOnUpdateAddressListeners.remove(listener);
     }
 
     /** Returns the current country. */
@@ -91,6 +130,17 @@ public class LocationUtils {
                     PostalCodeUtils.updatePostalCode(sApplicationContext);
                 } catch (Exception e) {
                     // Do nothing
+                }
+                Set<OnUpdateAddressListener> listenersToRemove = new HashSet<>();
+                synchronized (sOnUpdateAddressListeners) {
+                    for (OnUpdateAddressListener listener : sOnUpdateAddressListeners) {
+                        if (listener.onUpdateAddress(sAddress)) {
+                            listenersToRemove.add(listener);
+                        }
+                    }
+                    for (OnUpdateAddressListener listener : listenersToRemove) {
+                        removeOnUpdateAddressListener(listener);
+                    }
                 }
             } else {
                 if (DEBUG) Log.d(TAG, "No address returned");

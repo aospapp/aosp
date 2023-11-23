@@ -17,50 +17,37 @@ package com.android.tradefed.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IFolderBuildInfo;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.CommandStatus;
-import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.IRunUtil;
-import com.android.tradefed.util.ProcessHelper;
-import com.android.tradefed.util.RunInterruptedException;
-import com.android.tradefed.util.VtsPythonRunnerHelper;
-import java.io.File;
-import java.io.IOException;
+
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.File;
+import java.io.IOException;
+
 /**
  * Unit tests for {@link VtsPythonRunnerHelper}.
  */
 @RunWith(JUnit4.class)
 public class VtsPythonRunnerHelperTest {
-    private static final String OS_NAME = VtsPythonRunnerHelper.OS_NAME;
-    private static final String WINDOWS = VtsPythonRunnerHelper.WINDOWS;
-    private static final String VTS = VtsPythonRunnerHelper.VTS;
-    private static final String PYTHONPATH = VtsPythonRunnerHelper.PYTHONPATH;
-    private static final String VIRTUAL_ENV_PATH = VtsPythonRunnerHelper.VIRTUAL_ENV_PATH;
-    private static final String ANDROID_BUILD_TOP = VtsPythonRunnerHelper.ANDROID_BUILD_TOP;
-    private static final String ALT_HOST_TESTCASE_DIR = "ANDROID_HOST_OUT_TESTCASES";
-    private static final String LINUX = "Linux";
     private static final String[] mPythonCmd = {"python"};
     private static final long mTestTimeout = 1000 * 5;
 
     private ProcessHelper mProcessHelper = null;
     private VtsPythonRunnerHelper mVtsPythonRunnerHelper = null;
+    private String mVirtualenvPath = "virtualenv_path_" + System.currentTimeMillis();
 
     @Before
     public void setUp() throws Exception {
         IFolderBuildInfo buildInfo = EasyMock.createNiceMock(IFolderBuildInfo.class);
         EasyMock.replay(buildInfo);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(buildInfo) {
+        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(new File(mVirtualenvPath), null) {
             @Override
             protected ProcessHelper createProcessHelper(String[] cmd) {
                 return mProcessHelper;
@@ -107,17 +94,34 @@ public class VtsPythonRunnerHelperTest {
     /**
      * Create a mock runUtil with returns the expected results.
      */
-    private IRunUtil createMockRunUtil(CommandResult result) {
-        IRunUtil runUtil = EasyMock.createMock(IRunUtil.class);
-        EasyMock.expect(runUtil.runTimedCmd(
-                                EasyMock.anyLong(), EasyMock.eq("which"), EasyMock.eq("python")))
-                .andReturn(result)
-                .anyTimes();
-        EasyMock.expect(runUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.eq("where"),
-                                EasyMock.eq("python.exe")))
-                .andReturn(result)
-                .anyTimes();
-        EasyMock.replay(runUtil);
+    private IRunUtil createMockRunUtil() {
+        IRunUtil runUtil = new RunUtil() {
+            private String path = null;
+
+            @Override
+            public void setEnvVariable(String key, String value) {
+                super.setEnvVariable(key, value);
+                if (key.equals("PATH")) {
+                    path = value;
+                }
+            }
+
+            @Override
+            public CommandResult runTimedCmd(final long timeout, final String... command) {
+                CommandResult cmdRes = new CommandResult(CommandStatus.SUCCESS);
+                String out = "";
+                if (command.length == 2 && command[0].equals("which")
+                        && command[1].equals("python")) {
+                    if (path != null) {
+                        out = path.split(":")[0] + "/python";
+                    } else {
+                        out = "/usr/bin/python";
+                    }
+                }
+                cmdRes.setStdout(out);
+                return cmdRes;
+            }
+        };
         return runUtil;
     }
 
@@ -162,146 +166,33 @@ public class VtsPythonRunnerHelperTest {
     }
 
     @Test
-    public void testGetPythonBinaryNullBuildInfo() {
-        CommandResult findPythonresult = new CommandResult();
-        findPythonresult.setStatus(CommandStatus.SUCCESS);
-        findPythonresult.setStdout("/user/bin/python");
-        IRunUtil runUtil = createMockRunUtil(findPythonresult);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(null);
-        mVtsPythonRunnerHelper.setRunUtil(runUtil);
-        String pythonBinary = mVtsPythonRunnerHelper.getPythonBinary();
-        assertEquals(pythonBinary, "/user/bin/python");
+    public void testActivateVirtualEnvNotExist() {
+        IRunUtil runUtil = createMockRunUtil();
+        assertEquals(null, VtsPythonRunnerHelper.getPythonBinDir(mVirtualenvPath));
+        VtsPythonRunnerHelper.activateVirtualenv(runUtil, mVirtualenvPath);
+        String pythonBinary = runUtil.runTimedCmd(1000, "which", "python").getStdout();
+        assertEquals(pythonBinary, "/usr/bin/python");
     }
 
     @Test
-    public void testGetPythonBinaryPythonBinaryNotExists() {
-        CommandResult findPythonresult = new CommandResult();
-        findPythonresult.setStatus(CommandStatus.SUCCESS);
-        findPythonresult.setStdout("/user/bin/python");
-        IRunUtil runUtil = createMockRunUtil(findPythonresult);
-        IBuildInfo mockBuildInfo = EasyMock.createNiceMock(IBuildInfo.class);
-        EasyMock.expect(mockBuildInfo.getFile(EasyMock.eq("VIRTUALENVPATH")))
-                .andReturn(new File("NonExists"))
-                .atLeastOnce();
-        EasyMock.replay(mockBuildInfo);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(mockBuildInfo);
-        mVtsPythonRunnerHelper.setRunUtil(runUtil);
+    public void testActivateVirtualEnvExist() {
+        IRunUtil runUtil = createMockRunUtil();
+        String binDirName = EnvUtil.isOnWindows() ? "Scripts" : "bin";
+        File envDir = new File(mVirtualenvPath);
+        File binDir = new File(mVirtualenvPath, binDirName);
         try {
-            String pythonBinary = mVtsPythonRunnerHelper.getPythonBinary();
-            assertEquals(pythonBinary, "/user/bin/python");
-        } catch (RuntimeException e) {
-            fail();
-        }
-
-        EasyMock.verify(mockBuildInfo);
-    }
-
-    @Test
-    public void testGetPythonBinaryException() {
-        CommandResult findPythonresult = new CommandResult();
-        findPythonresult.setStatus(CommandStatus.FAILED);
-        findPythonresult.setStdout("");
-        IRunUtil runUtil = createMockRunUtil(findPythonresult);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(null);
-        mVtsPythonRunnerHelper.setRunUtil(runUtil);
-        try {
-            String pythonBinary = mVtsPythonRunnerHelper.getPythonBinary();
-        } catch (RuntimeException e) {
-            assertEquals("Could not find python binary on host machine", e.getMessage());
-            return;
-        }
-        fail();
-    }
-
-    @Test
-    public void testGetPythonBinaryNormalOnLinux() {
-        String originalName = System.getProperty(OS_NAME);
-        if (originalName.contains(WINDOWS)) {
-            System.setProperty(OS_NAME, LINUX);
-        }
-        try {
-            runTestPythonBinaryNormal(false);
-        } catch (IOException e) {
-            fail();
+            CLog.d("%s", envDir.mkdir());
+            CLog.d("%s", binDir.mkdir());
+            assertTrue(binDir.exists());
+            assertEquals(binDir.getAbsolutePath(),
+                    VtsPythonRunnerHelper.getPythonBinDir(mVirtualenvPath));
+            VtsPythonRunnerHelper.activateVirtualenv(runUtil, mVirtualenvPath);
+            String pythonBinary = runUtil.runTimedCmd(1000, "which", "python").getStdout();
+            assertEquals(pythonBinary, new File(binDir, "python").getAbsolutePath());
         } finally {
-            System.setProperty(OS_NAME, originalName);
+            FileUtil.recursiveDelete(envDir);
+            FileUtil.recursiveDelete(binDir);
         }
     }
 
-    @Test
-    public void testGetPythonBinaryNormalOnWindows() {
-        String originalName = System.getProperty(OS_NAME);
-        if (!originalName.contains(WINDOWS)) {
-            System.setProperty(OS_NAME, WINDOWS);
-        }
-        try {
-            runTestPythonBinaryNormal(true);
-        } catch (IOException e) {
-            fail();
-        } finally {
-            System.setProperty(OS_NAME, originalName);
-        }
-    }
-
-    public void runTestPythonBinaryNormal(boolean isWindows) throws IOException {
-        String python = isWindows ? "python.exe" : "python";
-        String binDir = isWindows ? "Scripts" : "bin";
-        File testDir = FileUtil.createTempDir("testVirtualEnv");
-        File testPython = new File(testDir, binDir + File.separator + python);
-        testPython.getParentFile().mkdirs();
-        testPython.createNewFile();
-        CLog.i("creating test file: " + testPython.getAbsolutePath());
-        IBuildInfo mockBuildInfo = EasyMock.createNiceMock(IBuildInfo.class);
-        EasyMock.expect(mockBuildInfo.getFile(EasyMock.eq("VIRTUALENVPATH")))
-                .andReturn(testDir)
-                .atLeastOnce();
-        EasyMock.replay(mockBuildInfo);
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(mockBuildInfo);
-        String pythonBinary = mVtsPythonRunnerHelper.getPythonBinary();
-        assertEquals(pythonBinary, testPython.getAbsolutePath());
-        FileUtil.recursiveDelete(testDir);
-        EasyMock.verify(mockBuildInfo);
-    }
-
-    @Test
-    public void testGetPythonPath() {
-        StringBuilder sb = new StringBuilder();
-        String separator = File.pathSeparator;
-        if (System.getenv(PYTHONPATH) != null) {
-            sb.append(separator);
-            sb.append(System.getenv(PYTHONPATH));
-        }
-
-        File testVts = new File("TEST_VTS");
-        File testPythonPath = new File("TEST_PYTHON_PATH");
-
-        String altTestsDir = System.getenv().get(ALT_HOST_TESTCASE_DIR);
-        if (altTestsDir != null) {
-            File testsDir = new File(altTestsDir);
-            sb.append(separator);
-            sb.append(testsDir.getAbsolutePath());
-        } else {
-            sb.append(separator);
-            sb.append(testVts.getAbsolutePath()).append("/..");
-        }
-
-        sb.append(separator);
-        sb.append(testPythonPath.getAbsolutePath());
-        if (System.getenv("ANDROID_BUILD_TOP") != null) {
-            sb.append(separator);
-            sb.append(System.getenv("ANDROID_BUILD_TOP")).append("/test");
-        }
-
-        IBuildInfo mockBuildInfo = EasyMock.createNiceMock(IBuildInfo.class);
-        EasyMock.expect(mockBuildInfo.getFile(EasyMock.eq(VTS))).andReturn(testVts).anyTimes();
-        EasyMock.expect(mockBuildInfo.getFile(EasyMock.eq(PYTHONPATH)))
-                .andReturn(testPythonPath)
-                .times(2);
-        EasyMock.replay(mockBuildInfo);
-
-        mVtsPythonRunnerHelper = new VtsPythonRunnerHelper(mockBuildInfo);
-        assertEquals(sb.substring(1), mVtsPythonRunnerHelper.getPythonPath());
-
-        EasyMock.verify(mockBuildInfo);
-    }
 }

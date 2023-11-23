@@ -1,0 +1,20 @@
+AUTHOR = "Chrome OS Team"
+NAME = "power_ThermalLoad.fish_tank"
+PURPOSE = "Run thermal workload and log temperature."
+CRITERIA = "This test is a benchmark."
+TIME = "LONG"
+TEST_CATEGORY = "Benchmark"
+TEST_CLASS = "power"
+TEST_TYPE = "client"
+
+DOC = """
+This test records power and temperature related statistics while open WebGL
+heavy page.
+"""
+
+URL = "https://webglsamples.org/aquarium/aquarium.html?numFish=1000"
+
+args_dict = utils.args_to_dict(args)
+pdash_note = args_dict.get('pdash_note', '')
+job.run_test('power_ThermalLoad', test_url=URL, tag=NAME.split('.')[1],
+             pdash_note=pdash_note)

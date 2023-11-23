@@ -350,6 +350,7 @@ public class DateIntervalFormat extends UFormat {
     /*
      * default constructor; private because we don't want anyone to use 
      */
+    @dalvik.annotation.compat.UnsupportedAppUsage
     @SuppressWarnings("unused")
     private DateIntervalFormat() {
     }

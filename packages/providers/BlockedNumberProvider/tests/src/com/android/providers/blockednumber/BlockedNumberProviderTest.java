@@ -479,7 +479,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
     public void testCarrierAppCanAccessApis() {
         doReturn(PackageManager.PERMISSION_DENIED)
                 .when(mMockContext).checkCallingPermission(anyString());
-        when(mMockContext.mTelephonyManager.checkCarrierPrivilegesForPackage(anyString()))
+        when(mMockContext.mTelephonyManager.checkCarrierPrivilegesForPackageAnyPhone(anyString()))
                 .thenReturn(TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS);
 
         mResolver.insert(
@@ -489,7 +489,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
 
         // Dialer check is executed twice: once for insert, and once for isBlocked.
         verify(mMockContext.mTelephonyManager, times(2))
-                .checkCarrierPrivilegesForPackage(anyString());
+                .checkCarrierPrivilegesForPackageAnyPhone(anyString());
     }
 
     public void testSelfCanAccessApis() {
@@ -611,19 +611,24 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         insert(cv(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, emergencyNumber));
 
         assertIsBlocked(true, emergencyNumber);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber, null));
+        assertEquals(BlockedNumberContract.STATUS_NOT_BLOCKED,
+                SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber, null));
 
         setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNREGISTERED, true);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+        assertEquals(BlockedNumberContract.STATUS_NOT_BLOCKED,
+                SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
                 createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_ALLOWED, false)));
         setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PRIVATE, true);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+        assertEquals(BlockedNumberContract.STATUS_NOT_BLOCKED,
+                SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
                 createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_RESTRICTED, false)));
         setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_PAYPHONE, true);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+        assertEquals(BlockedNumberContract.STATUS_NOT_BLOCKED,
+                SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
                 createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_PAYPHONE, false)));
         setEnhancedBlockSetting(SystemContract.ENHANCED_SETTING_KEY_BLOCK_UNKNOWN, true);
-        assertFalse(SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
+        assertEquals(BlockedNumberContract.STATUS_NOT_BLOCKED,
+                SystemContract.shouldSystemBlockNumber(mMockContext, emergencyNumber,
                 createBundleForEnhancedBlocking(TelecomManager.PRESENTATION_UNKNOWN, false)));
     }
 
@@ -707,8 +712,9 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
     }
 
     private void assertShouldSystemBlock(boolean expected, String phoneNumber, Bundle extras) {
-        assertEquals(expected, SystemContract.shouldSystemBlockNumber(mMockContext, phoneNumber,
-                extras));
+        assertEquals(expected,
+                SystemContract.shouldSystemBlockNumber(mMockContext, phoneNumber, extras)
+                        != BlockedNumberContract.STATUS_NOT_BLOCKED);
     }
 
     private void setEnhancedBlockSetting(String key, boolean value) {

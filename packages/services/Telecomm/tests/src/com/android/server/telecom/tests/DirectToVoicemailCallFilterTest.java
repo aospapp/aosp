@@ -17,6 +17,7 @@
 package com.android.server.telecom.tests;
 
 import android.net.Uri;
+import android.provider.CallLog;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telephony.CallerInfo;
@@ -65,7 +66,10 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
                         false, // shouldAllowCall
                         true, // shouldReject
                         true, // shouldAddToCallLog
-                        true // shouldShowNotification
+                        true, // shouldShowNotification
+                        CallLog.Calls.BLOCK_REASON_DIRECT_TO_VOICEMAIL, //callBlockReason
+                        null, //callScreeningAppName
+                        null // callScreeningComponentName
                 ));
     }
 

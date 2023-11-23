@@ -95,8 +95,7 @@ public class LocaleDisplayNamesImpl extends LocaleDisplayNames {
             CaseMap.toTitle().wholeString().noLowercase();
 
     private static String toTitleWholeStringNoLowercase(ULocale locale, String s) {
-        return TO_TITLE_WHOLE_STRING_NO_LOWERCASE.apply(
-                locale.toLocale(), null, s, new StringBuilder(), null).toString();
+        return TO_TITLE_WHOLE_STRING_NO_LOWERCASE.apply(locale.toLocale(), null, s);
     }
 
     public static LocaleDisplayNames getInstance(ULocale locale, DialectHandling dialectHandling) {
@@ -623,6 +622,9 @@ public class LocaleDisplayNamesImpl extends LocaleDisplayNames {
         return new UiListItem(minimized, modified, nameInDisplayLocale, nameInSelf);
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static class DataTable {
         final boolean nullIfNotFound;
 
@@ -701,6 +703,9 @@ public class LocaleDisplayNamesImpl extends LocaleDisplayNames {
         static final DataTables impl = DataTables.load("android.icu.impl.ICURegionDataTables");
     }
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static enum DataTableType {
         LANG, REGION;
     }

@@ -34,7 +34,6 @@ import android.view.Gravity;
 import android.view.SoundEffectConstants;
 import android.widget.Checkable;
 import android.widget.ImageView;
-import android.widget.ImageView.ScaleType;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -68,8 +67,10 @@ public class CheckableLabeledButton extends LinearLayout implements Checkable {
     CharSequence labelText;
     boolean enabled;
 
-    backgroundMore = getResources().getDrawable(R.drawable.incall_button_background_more, null);
-    background = getResources().getDrawable(R.drawable.incall_button_background, null);
+    backgroundMore =
+        getResources().getDrawable(R.drawable.incall_button_background_more, context.getTheme());
+    background =
+        getResources().getDrawable(R.drawable.incall_button_background, context.getTheme());
 
     TypedArray typedArray =
         context.obtainStyledAttributes(attrs, R.styleable.CheckableLabeledButton);
@@ -82,18 +83,22 @@ public class CheckableLabeledButton extends LinearLayout implements Checkable {
     setPadding(paddingSize, paddingSize, paddingSize, paddingSize);
 
     int iconSize = getResources().getDimensionPixelSize(R.dimen.incall_labeled_button_size);
+    int imageSize = getResources().getDimensionPixelSize(R.dimen.incall_labeled_button_icon_size);
+    int iconPadding = (iconSize - imageSize) / 2;
 
     iconView = new ImageView(context, null, android.R.style.Widget_Material_Button_Colored);
     LayoutParams iconParams = generateDefaultLayoutParams();
     iconParams.width = iconSize;
     iconParams.height = iconSize;
     iconView.setLayoutParams(iconParams);
-    iconView.setScaleType(ScaleType.CENTER_INSIDE);
+    iconView.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
     iconView.setImageDrawable(icon);
     iconView.setImageTintMode(Mode.SRC_IN);
-    iconView.setImageTintList(getResources().getColorStateList(R.color.incall_button_icon, null));
+    iconView.setImageTintList(
+        getResources().getColorStateList(R.color.incall_button_icon, context.getTheme()));
 
-    iconView.setBackground(getResources().getDrawable(R.drawable.incall_button_background, null));
+    iconView.setBackground(
+        getResources().getDrawable(R.drawable.incall_button_background, context.getTheme()));
     iconView.setDuplicateParentStateEnabled(true);
     iconView.setElevation(getResources().getDimension(R.dimen.incall_button_elevation));
     iconView.setStateListAnimator(

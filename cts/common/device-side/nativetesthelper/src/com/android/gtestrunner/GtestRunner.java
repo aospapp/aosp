@@ -16,11 +16,24 @@
 
 package com.android.gtestrunner;
 
+import java.util.Iterator;
+import java.util.List;
 import org.junit.runner.Description;
 import org.junit.runner.Runner;
+import org.junit.runner.manipulation.Filter;
+import org.junit.runner.manipulation.Filterable;
+import org.junit.runner.manipulation.NoTestsRemainException;
 import org.junit.runner.notification.RunNotifier;
 
-public class GtestRunner extends Runner {
+/**
+ * Custom Runner that implements a bridge between JUnit and GTest.
+ * 
+ * Use this Runner in a @RunWith annotation together with a @TargetLibrary
+ * annotation on an empty class to create a CTS test that consists of native
+ * tests written against the Google Test Framework. See the CTS module in
+ * cts/tests/tests/nativehardware for an example.
+ */
+public class GtestRunner extends Runner implements Filterable {
     private static boolean sOnceFlag = false;
 
     private Class mTargetClass;
@@ -41,7 +54,9 @@ public class GtestRunner extends Runner {
         }
         System.loadLibrary(library.value());
         mDescription = Description.createSuiteDescription(testClass);
-        nInitialize(mDescription);
+        // The nInitialize native method will populate the description based on
+        // GTest test data.
+        nInitialize(testClass.getName(), mDescription);
     }
 
     @Override
@@ -50,10 +65,29 @@ public class GtestRunner extends Runner {
     }
 
     @Override
-    public void run(RunNotifier notifier) {
-        nRun(notifier);
+    public void filter(Filter filter) throws NoTestsRemainException {
+        List<Description> children = mDescription.getChildren();
+        mDescription = Description.createSuiteDescription(mTargetClass);
+        for (Iterator<Description> iter = children.iterator(); iter.hasNext(); ) {
+            Description testDescription = iter.next();
+            if (filter.shouldRun(testDescription)) {
+                mDescription.addChild(testDescription);
+            }
+        }
+        if (mDescription.getChildren().isEmpty()) {
+            throw new NoTestsRemainException();
+        }
     }
 
-    private static native void nInitialize(Description description);
-    private static native void nRun(RunNotifier notifier);
+    @Override
+    public void run(RunNotifier notifier) {
+        for (Description description : mDescription.getChildren()) {
+            nAddTest(description.getMethodName());
+        }
+        nRun(mTargetClass.getName(), notifier);
+    }
+
+    private static native void nInitialize(String className, Description description);
+    private static native void nAddTest(String testName);
+    private static native boolean nRun(String className, RunNotifier notifier);
 }

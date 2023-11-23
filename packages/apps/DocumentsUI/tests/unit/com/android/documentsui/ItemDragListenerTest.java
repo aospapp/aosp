@@ -18,16 +18,16 @@ package com.android.documentsui;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ClipData;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.DragEvent;
 import android.view.View;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.testing.ClipDatas;
 import com.android.documentsui.testing.DragEvents;
@@ -161,6 +161,18 @@ public class ItemDragListenerTest {
     }
 
     @Test
+    public void testDoNotHandleDragEvent() {
+        mTestDragHost.mLastEnteredView = null;
+
+        mTestDragHost.mCanHandleDragEvent = false;
+        final boolean handled = triggerDragEvent(DragEvent.ACTION_DRAG_ENTERED);
+        mTestDragHost.mCanHandleDragEvent = true;
+
+        assertFalse(handled);
+        assertNull(mTestDragHost.mLastEnteredView);
+    }
+
+    @Test
     public void testNoDropWithoutClipData() {
         triggerDragEvent(DragEvent.ACTION_DRAG_ENTERED);
 
@@ -217,6 +229,13 @@ public class ItemDragListenerTest {
         private View mLastHoveredView;
         private View mLastEnteredView;
         private View mLastExitedView;
+
+        private boolean mCanHandleDragEvent = true;
+
+        @Override
+        public boolean canHandleDragEvent(View v) {
+            return mCanHandleDragEvent;
+        }
 
         @Override
         public void setDropTargetHighlight(View v, boolean highlight) {

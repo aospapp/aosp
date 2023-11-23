@@ -18,10 +18,10 @@
 #define ART_RUNTIME_DEX_DEX_FILE_ANNOTATIONS_H_
 
 #include "dex/dex_file.h"
-
 #include "handle.h"
 #include "mirror/dex_cache.h"
 #include "mirror/object_array.h"
+#include "obj_ptr.h"
 
 namespace art {
 
@@ -35,37 +35,39 @@ class ClassLinker;
 namespace annotations {
 
 // Field annotations.
-mirror::Object* GetAnnotationForField(ArtField* field, Handle<mirror::Class> annotation_class)
+ObjPtr<mirror::Object> GetAnnotationForField(ArtField* field,
+                                             Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Object>* GetAnnotationsForField(ArtField* field)
+ObjPtr<mirror::ObjectArray<mirror::Object>> GetAnnotationsForField(ArtField* field)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForField(ArtField* field)
+ObjPtr<mirror::ObjectArray<mirror::String>> GetSignatureAnnotationForField(ArtField* field)
     REQUIRES_SHARED(Locks::mutator_lock_);
 bool IsFieldAnnotationPresent(ArtField* field, Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 // Method annotations.
-mirror::Object* GetAnnotationDefaultValue(ArtMethod* method)
+ObjPtr<mirror::Object> GetAnnotationDefaultValue(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::Object* GetAnnotationForMethod(ArtMethod* method, Handle<mirror::Class> annotation_class)
+ObjPtr<mirror::Object> GetAnnotationForMethod(ArtMethod* method,
+                                              Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Object>* GetAnnotationsForMethod(ArtMethod* method)
+ObjPtr<mirror::ObjectArray<mirror::Object>> GetAnnotationsForMethod(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Class>* GetExceptionTypesForMethod(ArtMethod* method)
+ObjPtr<mirror::ObjectArray<mirror::Class>> GetExceptionTypesForMethod(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Object>* GetParameterAnnotations(ArtMethod* method)
+ObjPtr<mirror::ObjectArray<mirror::Object>> GetParameterAnnotations(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
 uint32_t GetNumberOfAnnotatedMethodParameters(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::Object* GetAnnotationForMethodParameter(ArtMethod* method,
-                                                uint32_t parameter_idx,
-                                                Handle<mirror::Class> annotation_class)
+ObjPtr<mirror::Object> GetAnnotationForMethodParameter(ArtMethod* method,
+                                                       uint32_t parameter_idx,
+                                                       Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
-bool GetParametersMetadataForMethod(ArtMethod* method,
-                                    MutableHandle<mirror::ObjectArray<mirror::String>>* names,
-                                    MutableHandle<mirror::IntArray>* access_flags)
-    REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForMethod(ArtMethod* method)
+bool GetParametersMetadataForMethod(
+    ArtMethod* method,
+    /*out*/ MutableHandle<mirror::ObjectArray<mirror::String>>* names,
+    /*out*/ MutableHandle<mirror::IntArray>* access_flags) REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::ObjectArray<mirror::String>> GetSignatureAnnotationForMethod(ArtMethod* method)
     REQUIRES_SHARED(Locks::mutator_lock_);
 // Check whether `method` is annotated with `annotation_class`.
 // If `lookup_in_resolved_boot_classes` is true, look up any of the
@@ -76,34 +78,57 @@ bool IsMethodAnnotationPresent(ArtMethod* method,
                                Handle<mirror::Class> annotation_class,
                                uint32_t visibility = DexFile::kDexVisibilityRuntime)
     REQUIRES_SHARED(Locks::mutator_lock_);
+
 // Check whether a method from the `dex_file` with the given `method_index`
 // is annotated with @dalvik.annotation.optimization.FastNative or
 // @dalvik.annotation.optimization.CriticalNative with build visibility.
 // If yes, return the associated access flags, i.e. kAccFastNative or kAccCriticalNative.
 uint32_t GetNativeMethodAnnotationAccessFlags(const DexFile& dex_file,
-                                              const DexFile::ClassDef& class_def,
+                                              const dex::ClassDef& class_def,
                                               uint32_t method_index);
+// Is the field from the `dex_file` with the given `field_index`
+// annotated with @dalvik.annotation.optimization.ReachabilitySensitive?
+bool FieldIsReachabilitySensitive(const DexFile& dex_file,
+                                  const dex::ClassDef& class_def,
+                                  uint32_t field_index);
+// Is the method from the `dex_file` with the given `method_index`
+// annotated with @dalvik.annotation.optimization.ReachabilitySensitive?
+bool MethodIsReachabilitySensitive(const DexFile& dex_file,
+                                   const dex::ClassDef& class_def,
+                                   uint32_t method_index);
+// Does the method from the `dex_file` with the given `method_index` contain an access to a field
+// annotated with @dalvik.annotation.optimization.ReachabilitySensitive, or a call to a method
+// with that annotation?
+// Class_def is the class defining the method. We consider only accessses to classes or methods
+// declared in the static type of the corresponding object. We may overlook accesses to annotated
+// fields or methods that are in neither class_def nor a containing (outer) class.
+bool MethodContainsRSensitiveAccess(const DexFile& dex_file,
+                                    const dex::ClassDef& class_def,
+                                    uint32_t method_index);
+// Is the given class annotated with @dalvik.annotation.optimization.DeadReferenceSafe?
+bool HasDeadReferenceSafeAnnotation(const DexFile& dex_file,
+                                    const dex::ClassDef& class_def);
 
 // Class annotations.
-mirror::Object* GetAnnotationForClass(Handle<mirror::Class> klass,
+ObjPtr<mirror::Object> GetAnnotationForClass(Handle<mirror::Class> klass,
                                       Handle<mirror::Class> annotation_class)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Object>* GetAnnotationsForClass(Handle<mirror::Class> klass)
+ObjPtr<mirror::ObjectArray<mirror::Object>> GetAnnotationsForClass(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::Class>* GetDeclaredClasses(Handle<mirror::Class> klass)
+ObjPtr<mirror::ObjectArray<mirror::Class>> GetDeclaredClasses(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::Class* GetDeclaringClass(Handle<mirror::Class> klass)
+ObjPtr<mirror::Class> GetDeclaringClass(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::Class* GetEnclosingClass(Handle<mirror::Class> klass)
+ObjPtr<mirror::Class> GetEnclosingClass(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::Object* GetEnclosingMethod(Handle<mirror::Class> klass)
+ObjPtr<mirror::Object> GetEnclosingMethod(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
-bool GetInnerClass(Handle<mirror::Class> klass, mirror::String** name)
+bool GetInnerClass(Handle<mirror::Class> klass, /*out*/ ObjPtr<mirror::String>* name)
     REQUIRES_SHARED(Locks::mutator_lock_);
 bool GetInnerClassFlags(Handle<mirror::Class> klass, uint32_t* flags)
     REQUIRES_SHARED(Locks::mutator_lock_);
-mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForClass(Handle<mirror::Class> klass)
-    REQUIRES_SHARED(Locks::mutator_lock_);
+ObjPtr<mirror::ObjectArray<mirror::String>> GetSignatureAnnotationForClass(
+    Handle<mirror::Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
 const char* GetSourceDebugExtension(Handle<mirror::Class> klass)
     REQUIRES_SHARED(Locks::mutator_lock_);
 bool IsClassAnnotationPresent(Handle<mirror::Class> klass,
@@ -121,7 +146,7 @@ class RuntimeEncodedStaticFieldValueIterator : public EncodedStaticFieldValueIte
   RuntimeEncodedStaticFieldValueIterator(Handle<mirror::DexCache> dex_cache,
                                          Handle<mirror::ClassLoader> class_loader,
                                          ClassLinker* linker,
-                                         const DexFile::ClassDef& class_def)
+                                         const dex::ClassDef& class_def)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : EncodedStaticFieldValueIterator(*dex_cache->GetDexFile(), class_def),
         dex_cache_(dex_cache),

@@ -21,7 +21,8 @@ class firmware_WriteProtect(FirmwareTest):
 
     def cleanup(self):
         try:
-            self.set_hardware_write_protect(self._original_wp)
+            if hasattr(self, '_original_wp'):
+              self.set_hardware_write_protect(self._original_wp)
         except Exception as e:
             logging.error('Caught exception: %s', str(e))
         super(firmware_WriteProtect, self).cleanup()

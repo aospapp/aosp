@@ -18,11 +18,12 @@ package android.view.animation.cts;
 
 import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.support.test.rule.ActivityTestRule;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.LayoutAnimationController;
+
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 

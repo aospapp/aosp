@@ -33,10 +33,12 @@ class ArtMethod;
 // Cast entrypoints.
 extern "C" void art_quick_check_instance_of(art::mirror::Object*, art::mirror::Class*);
 
-// DexCache entrypoints.
-extern "C" void* art_quick_initialize_static_storage(uint32_t);
-extern "C" void* art_quick_initialize_type(uint32_t);
-extern "C" void* art_quick_initialize_type_and_verify_access(uint32_t);
+// Resolution and initialization entrypoints.
+extern "C" void* art_quick_initialize_static_storage(art::mirror::Class*);
+extern "C" void* art_quick_resolve_type(uint32_t);
+extern "C" void* art_quick_resolve_type_and_verify_access(uint32_t);
+extern "C" void* art_quick_resolve_method_handle(uint32_t);
+extern "C" void* art_quick_resolve_method_type(uint32_t);
 extern "C" void* art_quick_resolve_string(uint32_t);
 
 // Field entrypoints.
@@ -112,9 +114,9 @@ extern "C" void art_quick_invoke_super_trampoline_with_access_check(uint32_t, vo
 
 extern "C" void art_quick_invoke_virtual_trampoline_with_access_check(uint32_t, void*);
 
-// Invoke polymorphic entrypoint. Return type is dynamic and may be void, a primitive value, or
-// reference return type.
+// Polymorphic invoke entrypoints.
 extern "C" void art_quick_invoke_polymorphic(uint32_t, void*);
+extern "C" void art_quick_invoke_custom(uint32_t, void*);
 
 // Thread entrypoints.
 extern "C" void art_quick_test_suspend();

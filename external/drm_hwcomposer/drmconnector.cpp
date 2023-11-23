@@ -17,17 +17,17 @@
 #define LOG_TAG "hwc-drm-connector"
 
 #include "drmconnector.h"
-#include "drmresources.h"
+#include "drmdevice.h"
 
 #include <errno.h>
 #include <stdint.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <xf86drmMode.h>
 
 namespace android {
 
-DrmConnector::DrmConnector(DrmResources *drm, drmModeConnectorPtr c,
+DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
                            DrmEncoder *current_encoder,
                            std::vector<DrmEncoder *> &possible_encoders)
     : drm_(drm),
@@ -52,6 +52,26 @@ int DrmConnector::Init() {
     ALOGE("Could not get CRTC_ID property\n");
     return ret;
   }
+  if (writeback()) {
+    ret = drm_->GetConnectorProperty(*this, "WRITEBACK_PIXEL_FORMATS",
+                                     &writeback_pixel_formats_);
+    if (ret) {
+      ALOGE("Could not get WRITEBACK_PIXEL_FORMATS connector_id = %d\n", id_);
+      return ret;
+    }
+    ret = drm_->GetConnectorProperty(*this, "WRITEBACK_FB_ID",
+                                     &writeback_fb_id_);
+    if (ret) {
+      ALOGE("Could not get WRITEBACK_FB_ID connector_id = %d\n", id_);
+      return ret;
+    }
+    ret = drm_->GetConnectorProperty(*this, "WRITEBACK_OUT_FENCE_PTR",
+                                     &writeback_out_fence_);
+    if (ret) {
+      ALOGE("Could not get WRITEBACK_OUT_FENCE_PTR connector_id = %d\n", id_);
+      return ret;
+    }
+  }
   return 0;
 }
 
@@ -67,9 +87,28 @@ void DrmConnector::set_display(int display) {
   display_ = display;
 }
 
-bool DrmConnector::built_in() const {
+bool DrmConnector::internal() const {
   return type_ == DRM_MODE_CONNECTOR_LVDS || type_ == DRM_MODE_CONNECTOR_eDP ||
          type_ == DRM_MODE_CONNECTOR_DSI || type_ == DRM_MODE_CONNECTOR_VIRTUAL;
+}
+
+bool DrmConnector::external() const {
+  return type_ == DRM_MODE_CONNECTOR_HDMIA ||
+         type_ == DRM_MODE_CONNECTOR_DisplayPort ||
+         type_ == DRM_MODE_CONNECTOR_DVID || type_ == DRM_MODE_CONNECTOR_DVII ||
+         type_ == DRM_MODE_CONNECTOR_VGA;
+}
+
+bool DrmConnector::writeback() const {
+#ifdef DRM_MODE_CONNECTOR_WRITEBACK
+  return type_ == DRM_MODE_CONNECTOR_WRITEBACK;
+#else
+  return false;
+#endif
+}
+
+bool DrmConnector::valid_type() const {
+  return internal() || external() || writeback();
 }
 
 int DrmConnector::UpdateModes() {
@@ -83,6 +122,7 @@ int DrmConnector::UpdateModes() {
 
   state_ = c->connection;
 
+  bool preferred_mode_found = false;
   std::vector<DrmMode> new_modes;
   for (int i = 0; i < c->count_modes; ++i) {
     bool exists = false;
@@ -93,14 +133,20 @@ int DrmConnector::UpdateModes() {
         break;
       }
     }
-    if (exists)
-      continue;
-
-    DrmMode m(&c->modes[i]);
-    m.set_id(drm_->next_mode_id());
-    new_modes.push_back(m);
+    if (!exists) {
+      DrmMode m(&c->modes[i]);
+      m.set_id(drm_->next_mode_id());
+      new_modes.push_back(m);
+    }
+    if (new_modes.back().type() & DRM_MODE_TYPE_PREFERRED) {
+      preferred_mode_id_ = new_modes.back().id();
+      preferred_mode_found = true;
+    }
   }
   modes_.swap(new_modes);
+  if ((!preferred_mode_found) && (modes_.size() != 0)) {
+    preferred_mode_id_ = modes_[0].id();
+  }
   return 0;
 }
 
@@ -118,6 +164,18 @@ const DrmProperty &DrmConnector::dpms_property() const {
 
 const DrmProperty &DrmConnector::crtc_id_property() const {
   return crtc_id_property_;
+}
+
+const DrmProperty &DrmConnector::writeback_pixel_formats() const {
+  return writeback_pixel_formats_;
+}
+
+const DrmProperty &DrmConnector::writeback_fb_id() const {
+  return writeback_fb_id_;
+}
+
+const DrmProperty &DrmConnector::writeback_out_fence() const {
+  return writeback_out_fence_;
 }
 
 DrmEncoder *DrmConnector::encoder() const {
@@ -139,4 +197,4 @@ uint32_t DrmConnector::mm_width() const {
 uint32_t DrmConnector::mm_height() const {
   return mm_height_;
 }
-}
+}  // namespace android

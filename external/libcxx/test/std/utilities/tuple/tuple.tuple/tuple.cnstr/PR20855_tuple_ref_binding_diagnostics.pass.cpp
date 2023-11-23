@@ -14,8 +14,10 @@
 
 // See llvm.org/PR20855
 
+#include <functional>
 #include <tuple>
 #include <string>
+#include <cassert>
 #include "test_macros.h"
 
 #if TEST_HAS_BUILTIN_IDENTIFIER(__reference_binds_to_temporary)

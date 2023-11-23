@@ -293,6 +293,12 @@ static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t
         ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_INTEGER, "copies", job_params->num_copies);
     }
 
+    // Add print quality if requested
+    if (job_params->print_quality) {
+        ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_ENUM, "print-quality",
+                job_params->print_quality);
+    }
+
     ippAddResolution(request, IPP_TAG_JOB, "printer-resolution", IPP_RES_PER_INCH,
             job_params->pixel_units, job_params->pixel_units);
     if (job_params->duplex == DUPLEX_MODE_BOOK) {

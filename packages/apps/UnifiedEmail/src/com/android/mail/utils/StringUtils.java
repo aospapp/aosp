@@ -1,6 +1,6 @@
 package com.android.mail.utils;
 
-import android.support.v4.text.BidiFormatter;
+import androidx.core.text.BidiFormatter;
 
 /**
  * A small utility class for working with strings.

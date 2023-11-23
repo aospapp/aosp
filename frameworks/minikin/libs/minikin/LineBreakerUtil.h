@@ -55,11 +55,6 @@ inline bool isLineEndSpace(uint16_t c) {
            || c == 0x3000;
 }
 
-// Returns true if the character needs to be excluded for the line spacing.
-inline bool isLineSpaceExcludeChar(uint16_t c) {
-    return c == CHAR_LINE_FEED || c == CHAR_CARRIAGE_RETURN;
-}
-
 inline Locale getEffectiveLocale(uint32_t localeListId) {
     const LocaleList& localeList = LocaleListCache::getById(localeListId);
     return localeList.empty() ? Locale() : localeList[0];
@@ -89,14 +84,14 @@ inline void populateHyphenationPoints(
         auto hyphenPart = contextRange.split(i);
         U16StringPiece firstText = textBuf.substr(hyphenPart.first);
         U16StringPiece secondText = textBuf.substr(hyphenPart.second);
-        const float first = run.measureHyphenPiece(firstText, Range(0, firstText.size()),
-                                                   StartHyphenEdit::NO_EDIT /* start hyphen edit */,
-                                                   editForThisLine(hyph) /* end hyphen edit */,
-                                                   nullptr /* advances */, pieces);
-        const float second = run.measureHyphenPiece(secondText, Range(0, secondText.size()),
-                                                    editForNextLine(hyph) /* start hyphen edit */,
-                                                    EndHyphenEdit::NO_EDIT /* end hyphen edit */,
-                                                    nullptr /* advances */, pieces);
+        const float first =
+                run.measureHyphenPiece(firstText, Range(0, firstText.size()),
+                                       StartHyphenEdit::NO_EDIT /* start hyphen edit */,
+                                       editForThisLine(hyph) /* end hyphen edit */, pieces);
+        const float second =
+                run.measureHyphenPiece(secondText, Range(0, secondText.size()),
+                                       editForNextLine(hyph) /* start hyphen edit */,
+                                       EndHyphenEdit::NO_EDIT /* end hyphen edit */, pieces);
 
         out->emplace_back(i, hyph, first, second);
     }
@@ -153,7 +148,6 @@ struct CharProcessor {
     // The user of CharProcessor must call updateLocaleIfNecessary with valid locale at least one
     // time before feeding characters.
     void updateLocaleIfNecessary(const Run& run) {
-        // Update locale if necessary.
         uint32_t newLocaleListId = run.getLocaleListId();
         if (localeListId != newLocaleListId) {
             Locale locale = getEffectiveLocale(newLocaleListId);
@@ -164,11 +158,13 @@ struct CharProcessor {
     }
 
     // Process one character.
-    void feedChar(uint32_t idx, uint16_t c, float w) {
+    void feedChar(uint32_t idx, uint16_t c, float w, bool canBreakHere) {
         if (idx == nextWordBreak) {
-            prevWordBreak = nextWordBreak;
+            if (canBreakHere) {
+                prevWordBreak = nextWordBreak;
+                sumOfCharWidthsAtPrevWordBreak = sumOfCharWidths;
+            }
             nextWordBreak = breaker.next();
-            sumOfCharWidthsAtPrevWordBreak = sumOfCharWidths;
         }
         if (isWordSpace(c)) {
             rawSpaceCount += 1;

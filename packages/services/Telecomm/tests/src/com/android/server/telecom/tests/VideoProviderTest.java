@@ -34,6 +34,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
+import android.telecom.Connection;
 import android.telecom.Connection.VideoProvider;
 import android.telecom.InCallService;
 import android.telecom.InCallService.VideoCall;
@@ -96,7 +97,8 @@ public class VideoProviderTest extends TelecomSystemTest {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
         mAppOpsManager = (AppOpsManager) mContext.getSystemService(Context.APP_OPS_SERVICE);
-
+        mConnectionServiceFixtureA.mConnectionServiceDelegate.mCapabilities
+                |= Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL;
         mCallIds = startAndMakeActiveOutgoingCall(
                 "650-555-1212",
                 mPhoneAccountA0.getAccountHandle(),

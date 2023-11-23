@@ -2,7 +2,7 @@
  *
  * Copyright 2012 Elie De Brauwer <eliedebrauwer@gmail.com>
 
-USE_TASKSET(NEWTOY(taskset, "<1^pa", TOYFLAG_BIN|TOYFLAG_STAYROOT))
+USE_TASKSET(NEWTOY(taskset, "<1^pa", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_STAYROOT))
 USE_NPROC(NEWTOY(nproc, "(all)", TOYFLAG_USR|TOYFLAG_BIN))
 
 config NPROC
@@ -22,7 +22,7 @@ config TASKSET
     usage: taskset [-ap] [mask] [PID | cmd [args...]]
 
     Launch a new task which may only run on certain processors, or change
-    the processor affinity of an exisitng PID.
+    the processor affinity of an existing PID.
 
     Mask is a hex string where each bit represents a processor the process
     is allowed to run on. PID without a mask displays existing affinity.

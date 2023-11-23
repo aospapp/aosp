@@ -15,16 +15,41 @@
  */
 package com.android.tradefed.result;
 
+import com.android.tradefed.invoker.IInvocationContext;
+
 import java.util.List;
 
+/**
+ * Interface that allows {@link ITestInvocationListener} to exchange some limited information via
+ * summaries.
+ */
 public interface ITestSummaryListener extends ITestInvocationListener {
+
+    /**
+     * Passes a {@link List} of non-null {@link TestSummary}s which may have been returned from any
+     * {@link ITestInvocationListener}s instantiated as part of the configuration. The early
+     * summaries are generated after {@link #invocationStarted(IInvocationContext)} and can be
+     * completed at the end of the invocation via {@link #putSummary(List)}.
+     *
+     * <p>This is called before {@link #invocationStarted(IInvocationContext)} and contains all the
+     * summaries from the listeners configured before it.
+     *
+     * @param summaries A {@link List} of non-null {@link TestSummary}s from {@link
+     *     ITestInvocationListener}s that are part of the current configuration.
+     */
+    public default void putEarlySummary(List<TestSummary> summaries) {
+        // Empty default implementation
+    }
+
     /**
      * Passes a {@link List} of non-null {@link TestSummary}s which may have been returned from any
      * {@link ITestInvocationListener}s instantiated as part of the configuration.
      *
-     * @param summaries A {@link List} of non-null {@link TestSummary}s from
-     *        {@link ITestInvocationListener}s that are part of the current configuration.
+     * @param summaries A {@link List} of non-null {@link TestSummary}s from {@link
+     *     ITestInvocationListener}s that are part of the current configuration.
      */
-    public void putSummary(List<TestSummary> summaries);
+    public default void putSummary(List<TestSummary> summaries) {
+        // Empty default implementation
+    }
 
 }

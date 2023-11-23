@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "tensorflow/core/framework/op_gen_lib.h"
 
+#include <algorithm>
 #include <vector>
 #include "tensorflow/core/framework/attr_value.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -22,6 +23,7 @@ limitations under the License.
 #include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/protobuf.h"
+#include "tensorflow/core/util/proto/proto_utils.h"
 
 namespace tensorflow {
 
@@ -50,10 +52,10 @@ string WordWrap(StringPiece prefix, StringPiece str, int width) {
     StringPiece to_append = str.substr(0, space);
     str.remove_prefix(space + 1);
     // Remove spaces at break.
-    while (to_append.ends_with(" ")) {
+    while (str_util::EndsWith(to_append, " ")) {
       to_append.remove_suffix(1);
     }
-    while (str.Consume(" ")) {
+    while (str_util::ConsumePrefix(&str, " ")) {
     }
 
     // Go on to the next line.
@@ -65,8 +67,9 @@ string WordWrap(StringPiece prefix, StringPiece str, int width) {
 }
 
 bool ConsumeEquals(StringPiece* description) {
-  if (description->Consume("=")) {
-    while (description->Consume(" ")) {  // Also remove spaces after "=".
+  if (str_util::ConsumePrefix(description, "=")) {
+    while (str_util::ConsumePrefix(description,
+                                   " ")) {  // Also remove spaces after "=".
     }
     return true;
   }
@@ -98,7 +101,7 @@ static bool StartsWithFieldName(StringPiece line,
                                 const std::vector<string>& multi_line_fields) {
   StringPiece up_to_colon;
   if (!SplitAt(':', &line, &up_to_colon)) return false;
-  while (up_to_colon.Consume(" "))
+  while (str_util::ConsumePrefix(&up_to_colon, " "))
     ;  // Remove leading spaces.
   for (const auto& field : multi_line_fields) {
     if (up_to_colon == field) {
@@ -119,9 +122,9 @@ static bool ConvertLine(StringPiece line,
   StringPiece up_to_colon;
   StringPiece after_colon = line;
   SplitAt(':', &after_colon, &up_to_colon);
-  while (after_colon.Consume(" "))
+  while (str_util::ConsumePrefix(&after_colon, " "))
     ;  // Remove leading spaces.
-  if (!after_colon.Consume("\"")) {
+  if (!str_util::ConsumePrefix(&after_colon, "\"")) {
     // We only convert string fields, so don't convert this line.
     return false;
   }
@@ -181,10 +184,10 @@ string PBTxtToMultiline(StringPiece pbtxt,
 static bool FindMultiline(StringPiece line, size_t colon, string* end) {
   if (colon == StringPiece::npos) return false;
   line.remove_prefix(colon + 1);
-  while (line.Consume(" ")) {
+  while (str_util::ConsumePrefix(&line, " ")) {
   }
-  if (line.Consume("<<")) {
-    *end = line.ToString();
+  if (str_util::ConsumePrefix(&line, "<<")) {
+    *end = string(line);
     return true;
   }
   return false;
@@ -225,10 +228,9 @@ string PBTxtFromMultiline(StringPiece multiline_pbtxt) {
     // Add every line to unescaped until we see the "END" string.
     string unescaped;
     bool first = true;
-    string suffix;
     while (!multiline_pbtxt.empty()) {
       SplitAt('\n', &multiline_pbtxt, &line);
-      if (line.Consume(end)) break;
+      if (str_util::ConsumePrefix(&line, end)) break;
       if (first) {
         first = false;
       } else {
@@ -305,9 +307,6 @@ void InitApiDefFromOpDef(const OpDef& op_def, ApiDef* api_def) {
 
   auto* endpoint = api_def->add_endpoint();
   endpoint->set_name(op_def.name());
-  if (op_def.has_deprecation()) {
-    endpoint->set_deprecation_version(op_def.deprecation().version());
-  }
 
   for (const auto& op_in_arg : op_def.input_arg()) {
     auto* api_in_arg = api_def->add_in_arg();
@@ -489,14 +488,21 @@ Status ApiDefMap::LoadFile(Env* env, const string& filename) {
   if (filename.empty()) return Status::OK();
   string contents;
   TF_RETURN_IF_ERROR(ReadFileToString(env, filename, &contents));
-  TF_RETURN_IF_ERROR(LoadApiDef(contents));
+  Status status = LoadApiDef(contents);
+  if (!status.ok()) {
+    // Return failed status annotated with filename to aid in debugging.
+    return Status(status.code(),
+                  strings::StrCat("Error parsing ApiDef file ", filename, ": ",
+                                  status.error_message()));
+  }
   return Status::OK();
 }
 
 Status ApiDefMap::LoadApiDef(const string& api_def_file_contents) {
   const string contents = PBTxtFromMultiline(api_def_file_contents);
   ApiDefs api_defs;
-  protobuf::TextFormat::ParseFromString(contents, &api_defs);
+  TF_RETURN_IF_ERROR(
+      proto_utils::ParseTextFormatFromString(contents, &api_defs));
   for (const auto& api_def : api_defs.op()) {
     // Check if the op definition is loaded. If op definition is not
     // loaded, then we just skip this ApiDef.

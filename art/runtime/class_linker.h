@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_CLASS_LINKER_H_
 #define ART_RUNTIME_CLASS_LINKER_H_
 
+#include <list>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -25,10 +26,10 @@
 #include <vector>
 
 #include "base/enums.h"
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
+#include "dex/class_accessor.h"
 #include "dex/dex_cache_resolved_classes.h"
-#include "dex/dex_file.h"
 #include "dex/dex_file_types.h"
 #include "gc_root.h"
 #include "handle.h"
@@ -37,6 +38,11 @@
 #include "verifier/verifier_enums.h"
 
 namespace art {
+
+namespace dex {
+struct ClassDef;
+struct MethodHandleItem;
+}  // namespace dex
 
 namespace gc {
 namespace space {
@@ -67,8 +73,12 @@ using MethodDexCachePair = NativeDexCachePair<ArtMethod>;
 using MethodDexCacheType = std::atomic<MethodDexCachePair>;
 }  // namespace mirror
 
+class ArtField;
+class ArtMethod;
 class ClassHierarchyAnalysis;
+enum class ClassRoot : uint32_t;
 class ClassTable;
+class DexFile;
 template<class T> class Handle;
 class ImtConflictTable;
 template<typename T> class LengthPrefixedArray;
@@ -80,6 +90,7 @@ template<class T> class ObjectLock;
 class Runtime;
 class ScopedObjectAccessAlreadyRunnable;
 template<size_t kNumReferences> class PACKED(4) StackHandleScope;
+class Thread;
 
 enum VisitRootFlags : uint8_t;
 
@@ -97,64 +108,20 @@ class ClassLoaderVisitor {
       REQUIRES_SHARED(Locks::classlinker_classes_lock_, Locks::mutator_lock_) = 0;
 };
 
+class AllocatorVisitor {
+ public:
+  virtual ~AllocatorVisitor() {}
+  // Return true to continue visiting.
+  virtual bool Visit(LinearAlloc* alloc)
+      REQUIRES_SHARED(Locks::classlinker_classes_lock_, Locks::mutator_lock_) = 0;
+};
+
 class ClassLinker {
  public:
-  // Well known mirror::Class roots accessed via GetClassRoot.
-  enum ClassRoot {
-    kJavaLangClass,
-    kJavaLangObject,
-    kClassArrayClass,
-    kObjectArrayClass,
-    kJavaLangString,
-    kJavaLangDexCache,
-    kJavaLangRefReference,
-    kJavaLangReflectConstructor,
-    kJavaLangReflectField,
-    kJavaLangReflectMethod,
-    kJavaLangReflectProxy,
-    kJavaLangStringArrayClass,
-    kJavaLangReflectConstructorArrayClass,
-    kJavaLangReflectFieldArrayClass,
-    kJavaLangReflectMethodArrayClass,
-    kJavaLangInvokeCallSite,
-    kJavaLangInvokeMethodHandleImpl,
-    kJavaLangInvokeMethodHandlesLookup,
-    kJavaLangInvokeMethodType,
-    kJavaLangInvokeVarHandle,
-    kJavaLangInvokeFieldVarHandle,
-    kJavaLangInvokeArrayElementVarHandle,
-    kJavaLangInvokeByteArrayViewVarHandle,
-    kJavaLangInvokeByteBufferViewVarHandle,
-    kJavaLangClassLoader,
-    kJavaLangThrowable,
-    kJavaLangClassNotFoundException,
-    kJavaLangStackTraceElement,
-    kDalvikSystemEmulatedStackFrame,
-    kPrimitiveBoolean,
-    kPrimitiveByte,
-    kPrimitiveChar,
-    kPrimitiveDouble,
-    kPrimitiveFloat,
-    kPrimitiveInt,
-    kPrimitiveLong,
-    kPrimitiveShort,
-    kPrimitiveVoid,
-    kBooleanArrayClass,
-    kByteArrayClass,
-    kCharArrayClass,
-    kDoubleArrayClass,
-    kFloatArrayClass,
-    kIntArrayClass,
-    kLongArrayClass,
-    kShortArrayClass,
-    kJavaLangStackTraceElementArrayClass,
-    kDalvikSystemClassExt,
-    kClassRootsMax,
-  };
+  static constexpr bool kAppImageMayContainStrings = true;
 
-  static constexpr bool kAppImageMayContainStrings = false;
-
-  explicit ClassLinker(InternTable* intern_table);
+  explicit ClassLinker(InternTable* intern_table,
+                       bool fast_class_not_found_exceptions = true);
   virtual ~ClassLinker();
 
   // Initialize class linker by bootstraping from dex files.
@@ -167,6 +134,12 @@ class ClassLinker {
   bool InitFromBootImage(std::string* error_msg)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
+
+  // Add boot class path dex files that were not included in the boot image.
+  // ClassLinker takes ownership of these dex files.
+  void AddExtraBootDexFiles(Thread* self,
+                            std::vector<std::unique_ptr<const DexFile>>&& additional_dex_files)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Add an image space to the class linker, may fix up classloader fields and dex cache fields.
   // The dex files that were newly opened for the space are placed in the out argument
@@ -190,22 +163,22 @@ class ClassLinker {
 
   // Finds a class by its descriptor, loading it if necessary.
   // If class_loader is null, searches boot_class_path_.
-  mirror::Class* FindClass(Thread* self,
-                           const char* descriptor,
-                           Handle<mirror::ClassLoader> class_loader)
+  ObjPtr<mirror::Class> FindClass(Thread* self,
+                                  const char* descriptor,
+                                  Handle<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
   // Finds a class by its descriptor using the "system" class loader, ie by searching the
   // boot_class_path_.
-  mirror::Class* FindSystemClass(Thread* self, const char* descriptor)
+  ObjPtr<mirror::Class> FindSystemClass(Thread* self, const char* descriptor)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_) {
     return FindClass(self, descriptor, ScopedNullHandle<mirror::ClassLoader>());
   }
 
   // Finds the array class given for the element class.
-  mirror::Class* FindArrayClass(Thread* self, ObjPtr<mirror::Class>* element_class)
+  ObjPtr<mirror::Class> FindArrayClass(Thread* self, ObjPtr<mirror::Class> element_class)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
@@ -215,20 +188,20 @@ class ClassLinker {
   }
 
   // Define a new a class based on a ClassDef from a DexFile
-  mirror::Class* DefineClass(Thread* self,
-                             const char* descriptor,
-                             size_t hash,
-                             Handle<mirror::ClassLoader> class_loader,
-                             const DexFile& dex_file,
-                             const DexFile::ClassDef& dex_class_def)
+  ObjPtr<mirror::Class> DefineClass(Thread* self,
+                                    const char* descriptor,
+                                    size_t hash,
+                                    Handle<mirror::ClassLoader> class_loader,
+                                    const DexFile& dex_file,
+                                    const dex::ClassDef& dex_class_def)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
   // Finds a class by its descriptor, returning null if it isn't wasn't loaded
   // by the given 'class_loader'.
-  mirror::Class* LookupClass(Thread* self,
-                             const char* descriptor,
-                             ObjPtr<mirror::ClassLoader> class_loader)
+  ObjPtr<mirror::Class> LookupClass(Thread* self,
+                                    const char* descriptor,
+                                    ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -237,12 +210,23 @@ class ClassLinker {
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::Class* FindPrimitiveClass(char type) REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::Class> LookupPrimitiveClass(char type) REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::Class> FindPrimitiveClass(char type) REQUIRES_SHARED(Locks::mutator_lock_);
 
   void DumpForSigQuit(std::ostream& os) REQUIRES(!Locks::classlinker_classes_lock_);
 
   size_t NumLoadedClasses()
       REQUIRES(!Locks::classlinker_classes_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Resolve a String with the given index from the DexFile associated with the given `referrer`,
+  // storing the result in the DexCache. The `referrer` is used to identify the target DexCache
+  // to use for resolution.
+  ObjPtr<mirror::String> ResolveString(dex::StringIndex string_idx,
+                                       ArtField* referrer)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::String> ResolveString(dex::StringIndex string_idx,
+                                       ArtMethod* referrer)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolve a String with the given index from the DexFile associated with the given DexCache,
@@ -263,10 +247,9 @@ class ClassLinker {
   ObjPtr<mirror::Class> ResolveType(dex::TypeIndex type_idx, ObjPtr<mirror::Class> referrer)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
-
-  // Resolve a type with the given index from the DexFile associated with the given `referrer`,
-  // storing the result in the DexCache. The `referrer` is used to identify the target DexCache
-  // and ClassLoader to use for resolution.
+  ObjPtr<mirror::Class> ResolveType(dex::TypeIndex type_idx, ArtField* referrer)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
   ObjPtr<mirror::Class> ResolveType(dex::TypeIndex type_idx, ArtMethod* referrer)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
@@ -286,10 +269,8 @@ class ClassLinker {
   ObjPtr<mirror::Class> LookupResolvedType(dex::TypeIndex type_idx,
                                            ObjPtr<mirror::Class> referrer)
       REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Look up a resolved type with the given index from the DexFile associated with the given
-  // `referrer`, storing the result in the DexCache. The `referrer` is used to identify the
-  // target DexCache and ClassLoader to use for lookup.
+  ObjPtr<mirror::Class> LookupResolvedType(dex::TypeIndex type_idx, ArtField* referrer)
+      REQUIRES_SHARED(Locks::mutator_lock_);
   ObjPtr<mirror::Class> LookupResolvedType(dex::TypeIndex type_idx, ArtMethod* referrer)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -408,14 +389,14 @@ class ClassLinker {
   // Resolve a method type with a given ID from the DexFile associated with a given DexCache
   // and ClassLoader, storing the result in the DexCache.
   ObjPtr<mirror::MethodType> ResolveMethodType(Thread* self,
-                                               uint32_t proto_idx,
+                                               dex::ProtoIndex proto_idx,
                                                Handle<mirror::DexCache> dex_cache,
                                                Handle<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
 
   ObjPtr<mirror::MethodType> ResolveMethodType(Thread* self,
-                                               uint32_t proto_idx,
+                                               dex::ProtoIndex proto_idx,
                                                ArtMethod* referrer)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -439,7 +420,7 @@ class ClassLinker {
 
   // Initializes classes that have instances in the image but that have
   // <clinit> methods so they could not be initialized by the compiler.
-  void RunRootClinits()
+  void RunRootClinits(Thread* self)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
 
@@ -496,16 +477,16 @@ class ClassLinker {
                                                       LinearAlloc* allocator,
                                                       size_t length);
 
-  mirror::PointerArray* AllocPointerArray(Thread* self, size_t length)
+  ObjPtr<mirror::PointerArray> AllocPointerArray(Thread* self, size_t length)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  mirror::IfTable* AllocIfTable(Thread* self, size_t ifcount)
+  ObjPtr<mirror::IfTable> AllocIfTable(Thread* self, size_t ifcount)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  mirror::ObjectArray<mirror::StackTraceElement>* AllocStackTraceElementArray(Thread* self,
-                                                                              size_t length)
+  ObjPtr<mirror::ObjectArray<mirror::StackTraceElement>> AllocStackTraceElementArray(Thread* self,
+                                                                                     size_t length)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
@@ -527,14 +508,12 @@ class ClassLinker {
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
-  mirror::Class* CreateProxyClass(ScopedObjectAccessAlreadyRunnable& soa,
-                                  jstring name,
-                                  jobjectArray interfaces,
-                                  jobject loader,
-                                  jobjectArray methods,
-                                  jobjectArray throws)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  std::string GetDescriptorForProxy(ObjPtr<mirror::Class> proxy_class)
+  ObjPtr<mirror::Class> CreateProxyClass(ScopedObjectAccessAlreadyRunnable& soa,
+                                         jstring name,
+                                         jobjectArray interfaces,
+                                         jobject loader,
+                                         jobjectArray methods,
+                                         jobjectArray throws)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the oat code for a method when its class isn't yet initialized.
@@ -543,10 +522,6 @@ class ClassLinker {
 
   pid_t GetClassesLockOwner();  // For SignalCatcher.
   pid_t GetDexLockOwner();  // For SignalCatcher.
-
-  mirror::Class* GetClassRoot(ClassRoot class_root) REQUIRES_SHARED(Locks::mutator_lock_);
-
-  static const char* GetClassRootDescriptor(ClassRoot class_root);
 
   // Is the given entry point quick code to run the resolution stub?
   bool IsQuickResolutionStub(const void* entry_point) const;
@@ -579,7 +554,9 @@ class ClassLinker {
   // Attempts to insert a class into a class table.  Returns null if
   // the class was inserted, otherwise returns an existing class with
   // the same descriptor and ClassLoader.
-  mirror::Class* InsertClass(const char* descriptor, ObjPtr<mirror::Class> klass, size_t hash)
+  ObjPtr<mirror::Class> InsertClass(const char* descriptor,
+                                    ObjPtr<mirror::Class> klass,
+                                    size_t hash)
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -589,11 +566,8 @@ class ClassLinker {
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::ObjectArray<mirror::Class>* GetClassRoots() REQUIRES_SHARED(Locks::mutator_lock_) {
-    mirror::ObjectArray<mirror::Class>* class_roots = class_roots_.Read();
-    DCHECK(class_roots != nullptr);
-    return class_roots;
-  }
+  template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<mirror::ObjectArray<mirror::Class>> GetClassRoots() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Move the class table to the pre-zygote table to reduce memory usage. This works by ensuring
   // that no more classes are ever added to the pre zygote table which makes it that the pages
@@ -612,7 +586,8 @@ class ClassLinker {
   jobject CreateWellKnownClassLoader(Thread* self,
                                      const std::vector<const DexFile*>& dex_files,
                                      jclass loader_class,
-                                     jobject parent_loader)
+                                     jobject parent_loader,
+                                     jobject shared_libraries = nullptr)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
@@ -623,6 +598,16 @@ class ClassLinker {
   jobject CreatePathClassLoader(Thread* self, const std::vector<const DexFile*>& dex_files)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
+
+  // Non-GlobalRef version of CreateWellKnownClassLoader
+  ObjPtr<mirror::ClassLoader> CreateWellKnownClassLoader(
+      Thread* self,
+      const std::vector<const DexFile*>& dex_files,
+      Handle<mirror::Class> loader_class,
+      Handle<mirror::ClassLoader> parent_loader,
+      Handle<mirror::ObjectArray<mirror::ClassLoader>> shared_libraries)
+          REQUIRES_SHARED(Locks::mutator_lock_)
+          REQUIRES(!Locks::dex_lock_);
 
   PointerSize GetImagePointerSize() const {
     return image_pointer_size_;
@@ -694,14 +679,21 @@ class ClassLinker {
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Visit all of the allocators that belong to classloaders except boot classloader.
+  // This is used by 616-cha-unloading test to confirm memory reuse.
+  void VisitAllocators(AllocatorVisitor* visitor) const
+      REQUIRES_SHARED(Locks::classlinker_classes_lock_, Locks::mutator_lock_);
+
   // Throw the class initialization failure recorded when first trying to initialize the given
   // class.
-  void ThrowEarlierClassFailure(ObjPtr<mirror::Class> c, bool wrap_in_no_class_def = false)
+  void ThrowEarlierClassFailure(ObjPtr<mirror::Class> c,
+                                bool wrap_in_no_class_def = false,
+                                bool log = false)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
   // Get the actual holding class for a copied method. Pretty slow, don't call often.
-  mirror::Class* GetHoldingClassOfCopiedMethod(ArtMethod* method)
+  ObjPtr<mirror::Class> GetHoldingClassOfCopiedMethod(ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns null if not found.
@@ -804,46 +796,52 @@ class ClassLinker {
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
 
-  // For early bootstrapping by Init
-  mirror::Class* AllocClass(Thread* self,
-                            ObjPtr<mirror::Class> java_lang_Class,
-                            uint32_t class_size)
+  // For early bootstrapping by Init.
+  // If we do not allow moving classes (`art::kMovingClass` is false) or if
+  // parameter `kMovable` is false (or both), the class object is allocated in
+  // the non-moving space.
+  template <bool kMovable = true>
+  ObjPtr<mirror::Class> AllocClass(Thread* self,
+                                   ObjPtr<mirror::Class> java_lang_Class,
+                                   uint32_t class_size)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  // Alloc* convenience functions to avoid needing to pass in mirror::Class*
-  // values that are known to the ClassLinker such as
-  // kObjectArrayClass and kJavaLangString etc.
-  mirror::Class* AllocClass(Thread* self, uint32_t class_size)
+  // Alloc* convenience functions to avoid needing to pass in ObjPtr<mirror::Class>
+  // values that are known to the ClassLinker such as classes corresponding to
+  // ClassRoot::kObjectArrayClass and ClassRoot::kJavaLangString etc.
+  ObjPtr<mirror::Class> AllocClass(Thread* self, uint32_t class_size)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  mirror::DexCache* AllocDexCache(ObjPtr<mirror::String>* out_location,
-                                  Thread* self,
-                                  const DexFile& dex_file)
+  // Allocate a primitive array class.
+  ObjPtr<mirror::Class> AllocPrimitiveArrayClass(Thread* self,
+                                                 ObjPtr<mirror::Class> java_lang_Class)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
+
+  ObjPtr<mirror::DexCache> AllocDexCache(/*out*/ ObjPtr<mirror::String>* out_location,
+                                         Thread* self,
+                                         const DexFile& dex_file)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
   // Used for tests and AppendToBootClassPath.
-  mirror::DexCache* AllocAndInitializeDexCache(Thread* self,
-                                               const DexFile& dex_file,
-                                               LinearAlloc* linear_alloc)
+  ObjPtr<mirror::DexCache> AllocAndInitializeDexCache(Thread* self,
+                                                      const DexFile& dex_file,
+                                                      LinearAlloc* linear_alloc)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  mirror::Class* CreatePrimitiveClass(Thread* self, Primitive::Type type)
-      REQUIRES_SHARED(Locks::mutator_lock_)
-      REQUIRES(!Roles::uninterruptible_);
-  mirror::Class* InitializePrimitiveClass(ObjPtr<mirror::Class> primitive_class,
-                                          Primitive::Type type)
+  ObjPtr<mirror::Class> CreatePrimitiveClass(Thread* self, Primitive::Type type)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  mirror::Class* CreateArrayClass(Thread* self,
-                                  const char* descriptor,
-                                  size_t hash,
-                                  Handle<mirror::ClassLoader> class_loader)
+  ObjPtr<mirror::Class> CreateArrayClass(Thread* self,
+                                         const char* descriptor,
+                                         size_t hash,
+                                         Handle<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
 
@@ -854,33 +852,29 @@ class ClassLinker {
   // Precomputes size needed for Class, in the case of a non-temporary class this size must be
   // sufficient to hold all static fields.
   uint32_t SizeOfClassWithoutEmbeddedTables(const DexFile& dex_file,
-                                            const DexFile::ClassDef& dex_class_def);
+                                            const dex::ClassDef& dex_class_def);
 
   // Setup the classloader, class def index, type idx so that we can insert this class in the class
   // table.
   void SetupClass(const DexFile& dex_file,
-                  const DexFile::ClassDef& dex_class_def,
+                  const dex::ClassDef& dex_class_def,
                   Handle<mirror::Class> klass,
                   ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void LoadClass(Thread* self,
                  const DexFile& dex_file,
-                 const DexFile::ClassDef& dex_class_def,
+                 const dex::ClassDef& dex_class_def,
                  Handle<mirror::Class> klass)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  void LoadClassMembers(Thread* self,
-                        const DexFile& dex_file,
-                        const uint8_t* class_data,
-                        Handle<mirror::Class> klass)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void LoadField(const ClassDataItemIterator& it, Handle<mirror::Class> klass, ArtField* dst)
+  void LoadField(const ClassAccessor::Field& field, Handle<mirror::Class> klass, ArtField* dst)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void LoadMethod(const DexFile& dex_file,
-                  const ClassDataItemIterator& it,
-                  Handle<mirror::Class> klass, ArtMethod* dst)
+                  const ClassAccessor::Method& method,
+                  Handle<mirror::Class> klass,
+                  ArtMethod* dst)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void FixupStaticTrampolines(ObjPtr<mirror::Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -895,7 +889,16 @@ class ClassLinker {
                                      const char* descriptor,
                                      size_t hash,
                                      Handle<mirror::ClassLoader> class_loader,
-                                     ObjPtr<mirror::Class>* result)
+                                     /*out*/ ObjPtr<mirror::Class>* result)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Locks::dex_lock_);
+
+  bool FindClassInSharedLibraries(ScopedObjectAccessAlreadyRunnable& soa,
+                                  Thread* self,
+                                  const char* descriptor,
+                                  size_t hash,
+                                  Handle<mirror::ClassLoader> class_loader,
+                                  /*out*/ ObjPtr<mirror::Class>* result)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
 
@@ -922,11 +925,31 @@ class ClassLinker {
 
   // Implementation of LookupResolvedType() called when the type was not found in the dex cache.
   ObjPtr<mirror::Class> DoLookupResolvedType(dex::TypeIndex type_idx,
+                                             ObjPtr<mirror::Class> referrer)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::Class> DoLookupResolvedType(dex::TypeIndex type_idx,
                                              ObjPtr<mirror::DexCache> dex_cache,
                                              ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Implementation of ResolveString() called when the string was not found in the dex cache.
+  ObjPtr<mirror::String> DoResolveString(dex::StringIndex string_idx,
+                                         ObjPtr<mirror::DexCache> dex_cache)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::String> DoResolveString(dex::StringIndex string_idx,
+                                         Handle<mirror::DexCache> dex_cache)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Implementation of LookupString() called when the string was not found in the dex cache.
+  ObjPtr<mirror::String> DoLookupString(dex::StringIndex string_idx,
+                                        ObjPtr<mirror::DexCache> dex_cache)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Implementation of ResolveType() called when the type was not found in the dex cache.
+  template <typename T>
+  ObjPtr<mirror::Class> DoResolveType(dex::TypeIndex type_idx, T referrer)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Locks::dex_lock_, !Roles::uninterruptible_);
   ObjPtr<mirror::Class> DoResolveType(dex::TypeIndex type_idx,
                                       Handle<mirror::DexCache> dex_cache,
                                       Handle<mirror::ClassLoader> class_loader)
@@ -935,10 +958,10 @@ class ClassLinker {
 
   // Finds a class by its descriptor, returning NULL if it isn't wasn't loaded
   // by the given 'class_loader'. Uses the provided hash for the descriptor.
-  mirror::Class* LookupClass(Thread* self,
-                             const char* descriptor,
-                             size_t hash,
-                             ObjPtr<mirror::ClassLoader> class_loader)
+  ObjPtr<mirror::Class> LookupClass(Thread* self,
+                                    const char* descriptor,
+                                    size_t hash,
+                                    ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -1012,15 +1035,15 @@ class ClassLinker {
                    ArtMethod** out_imt)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::MethodHandle* ResolveMethodHandleForField(Thread* self,
-                                                    const DexFile::MethodHandleItem& method_handle,
-                                                    ArtMethod* referrer)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::MethodHandle> ResolveMethodHandleForField(
+      Thread* self,
+      const dex::MethodHandleItem& method_handle,
+      ArtMethod* referrer) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::MethodHandle* ResolveMethodHandleForMethod(Thread* self,
-                                                     const DexFile::MethodHandleItem& method_handle,
-                                                     ArtMethod* referrer)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::MethodHandle> ResolveMethodHandleForMethod(
+      Thread* self,
+      const dex::MethodHandleItem& method_handle,
+      ArtMethod* referrer) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // A wrapper class representing the result of a method translation used for linking methods and
   // updating superclass default methods. For each method in a classes vtable there are 4 states it
@@ -1045,12 +1068,12 @@ class ClassLinker {
    public:
     // This slot must become a default conflict method.
     static MethodTranslation CreateConflictingMethod() {
-      return MethodTranslation(Type::kConflict, /*translation*/nullptr);
+      return MethodTranslation(Type::kConflict, /*translation=*/nullptr);
     }
 
     // This slot must become an abstract method.
     static MethodTranslation CreateAbstractMethod() {
-      return MethodTranslation(Type::kAbstract, /*translation*/nullptr);
+      return MethodTranslation(Type::kAbstract, /*translation=*/nullptr);
     }
 
     // Use the given method as the current value for this vtable slot during translation.
@@ -1209,7 +1232,9 @@ class ClassLinker {
   // when resolution has occurred. This happens in mirror::Class::SetStatus. As resolution may
   // retire a class, the version of the class in the table is returned and this may differ from
   // the class passed in.
-  mirror::Class* EnsureResolved(Thread* self, const char* descriptor, ObjPtr<mirror::Class> klass)
+  ObjPtr<mirror::Class> EnsureResolved(Thread* self,
+                                       const char* descriptor,
+                                       ObjPtr<mirror::Class> klass)
       WARN_UNUSED
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::dex_lock_);
@@ -1220,6 +1245,20 @@ class ClassLinker {
 
   void SetClassRoot(ClassRoot class_root, ObjPtr<mirror::Class> klass)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Allocate primitive array class for primitive with class root
+  // `primitive_class_root`, and associate it to class root
+  // `primitive_array_class_root`.
+  //
+  // Also check this class returned when searching system classes for
+  // `descriptor` matches the allocated class.
+  void AllocAndSetPrimitiveArrayClassRoot(Thread* self,
+                                          ObjPtr<mirror::Class> java_lang_Class,
+                                          ClassRoot primitive_array_class_root,
+                                          ClassRoot primitive_class_root,
+                                          const char* descriptor)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!Roles::uninterruptible_);
 
   // Return the quick generic JNI stub for testing.
   const void* GetRuntimeQuickGenericJniStub() const;
@@ -1287,6 +1326,8 @@ class ClassLinker {
                                 ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  ObjPtr<mirror::IfTable> GetArrayIfTable() REQUIRES_SHARED(Locks::mutator_lock_);
+
   std::vector<const DexFile*> boot_class_path_;
   std::vector<std::unique_ptr<const DexFile>> boot_dex_files_;
 
@@ -1316,9 +1357,6 @@ class ClassLinker {
   // Well known mirror::Class roots.
   GcRoot<mirror::ObjectArray<mirror::Class>> class_roots_;
 
-  // The interface table used by all arrays.
-  GcRoot<mirror::IfTable> array_iftable_;
-
   // A cache of the last FindArrayClass results. The cache serves to avoid creating array class
   // descriptors for the sake of performing FindClass.
   static constexpr size_t kFindArrayCacheSize = 16;
@@ -1329,6 +1367,8 @@ class ClassLinker {
   bool log_new_roots_ GUARDED_BY(Locks::classlinker_classes_lock_);
 
   InternTable* intern_table_;
+
+  const bool fast_class_not_found_exceptions_;
 
   // Trampolines within the image the bounce to runtime entrypoints. Done so that there is a single
   // patch point within the image. TODO: make these proper relocations.
@@ -1344,11 +1384,10 @@ class ClassLinker {
 
   class FindVirtualMethodHolderVisitor;
 
-  friend class AppImageClassLoadersAndDexCachesHelper;
+  friend class AppImageLoadingHelper;
   friend class ImageDumper;  // for DexLock
   friend struct linker::CompilationHelper;  // For Compile in ImageTest.
   friend class linker::ImageWriter;  // for GetClassRoots
-  friend class linker::OatWriter;  // for boot image string/class table slot address lookup.
   friend class JniCompilerTest;  // for GetRuntimeQuickGenericJniStub
   friend class JniInternalTest;  // for GetRuntimeQuickGenericJniStub
   friend class VMClassLoader;  // for LookupClass and FindClassInBaseDexClassLoader.
@@ -1374,9 +1413,9 @@ class ClassLoadCallback {
                               Handle<mirror::Class> klass ATTRIBUTE_UNUSED,
                               Handle<mirror::ClassLoader> class_loader ATTRIBUTE_UNUSED,
                               const DexFile& initial_dex_file ATTRIBUTE_UNUSED,
-                              const DexFile::ClassDef& initial_class_def ATTRIBUTE_UNUSED,
+                              const dex::ClassDef& initial_class_def ATTRIBUTE_UNUSED,
                               /*out*/DexFile const** final_dex_file ATTRIBUTE_UNUSED,
-                              /*out*/DexFile::ClassDef const** final_class_def ATTRIBUTE_UNUSED)
+                              /*out*/dex::ClassDef const** final_class_def ATTRIBUTE_UNUSED)
       REQUIRES_SHARED(Locks::mutator_lock_) {}
 
   // A class has been loaded.

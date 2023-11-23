@@ -15,13 +15,13 @@
  */
 package android.autofillservice.cts;
 
-import android.app.Activity;
-import android.support.test.rule.ActivityTestRule;
+import androidx.test.rule.ActivityTestRule;
 
 /**
  * Custom {@link ActivityTestRule}.
  */
-public class AutofillActivityTestRule<T extends Activity> extends ActivityTestRule<T> {
+public class AutofillActivityTestRule<T extends AbstractAutoFillActivity>
+        extends ActivityTestRule<T> {
 
     public AutofillActivityTestRule(Class<T> activityClass) {
         super(activityClass);
@@ -29,5 +29,13 @@ public class AutofillActivityTestRule<T extends Activity> extends ActivityTestRu
 
     public AutofillActivityTestRule(Class<T> activityClass, boolean launchActivity) {
         super(activityClass, false, launchActivity);
+    }
+
+    @Override
+    protected void afterActivityFinished() {
+        // AutofillTestWatcher does not need to watch for this activity as the ActivityTestRule
+        // will take care of finishing it...
+        AutofillTestWatcher.unregisterActivity("AutofillActivityTestRule.afterActivityFinished()",
+                getActivity());
     }
 }

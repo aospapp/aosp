@@ -17,13 +17,13 @@
 %                                 May 2003                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -977,7 +977,10 @@ static Image *ReadPATTERNImage(const ImageInfo *image_info,
         break;
       }
   if (blob == (const void *) NULL)
-    ThrowReaderException(OptionError,"UnrecognizedImageFormat");
+    {
+      blob_info=DestroyImageInfo(blob_info);
+      ThrowReaderException(OptionError,"UnrecognizedImageFormat");
+    }
   image=BlobToImage(blob_info,blob,extent,exception);
   if (image_info->size != (char *) NULL)
     {

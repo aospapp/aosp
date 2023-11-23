@@ -16,13 +16,12 @@
 
 package com.android.car.settings.bluetooth;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.text.TextUtils;
 import android.widget.Toast;
-
-import androidx.car.app.CarAlertDialog;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
@@ -42,7 +41,8 @@ final class BluetoothUtils {
         @Override
         public void onBluetoothManagerInitialized(Context appContext,
                 LocalBluetoothManager bluetoothManager) {
-            com.android.settingslib.bluetooth.Utils.setErrorListener(BluetoothUtils::showError);
+            com.android.settingslib.bluetooth.BluetoothUtils.setErrorListener(
+                    com.android.car.settings.bluetooth.BluetoothUtils::showError);
         }
     };
 
@@ -69,9 +69,9 @@ final class BluetoothUtils {
         String message = context.getString(messageResId, name);
         Context activity = manager.getForegroundActivity();
         if (manager.isForegroundActivity()) {
-            new CarAlertDialog.Builder(activity)
+            new AlertDialog.Builder(activity)
                     .setTitle(R.string.bluetooth_error_title)
-                    .setBody(message)
+                    .setMessage(message)
                     .setPositiveButton(android.R.string.ok, null)
                     .create()
                     .show();
@@ -127,7 +127,7 @@ final class BluetoothUtils {
                 return true;
             }
             if ((adapter.getDiscoveryEndMillis() +
-                GRACE_PERIOD_TO_SHOW_DIALOGS_IN_FOREGROUND) > currentTimeMillis) {
+                    GRACE_PERIOD_TO_SHOW_DIALOGS_IN_FOREGROUND) > currentTimeMillis) {
                 return true;
             }
         }
@@ -160,6 +160,19 @@ final class BluetoothUtils {
 
         LOG.v("Found no reason to show the dialog - do not show dialog.");
         return false;
+    }
+
+    static void persistSelectedDeviceInPicker(Context context, String deviceAddress) {
+        SharedPreferences.Editor editor = getSharedPreferences(context).edit();
+        editor.putString(KEY_LAST_SELECTED_DEVICE, deviceAddress);
+        editor.putLong(KEY_LAST_SELECTED_DEVICE_TIME, System.currentTimeMillis());
+        editor.apply();
+    }
+
+    static void persistDiscoverableEndTimestamp(Context context, long endTimestamp) {
+        SharedPreferences.Editor editor = getSharedPreferences(context).edit();
+        editor.putLong(KEY_DISCOVERABLE_END_TIMESTAMP, endTimestamp);
+        editor.apply();
     }
 
     public static LocalBluetoothManager getLocalBtManager(Context context) {

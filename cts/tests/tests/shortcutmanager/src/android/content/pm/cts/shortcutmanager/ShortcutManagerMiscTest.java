@@ -34,7 +34,7 @@ public class ShortcutManagerMiscTest extends ShortcutManagerCtsTestsBase {
     public void testMiscApis() throws Exception {
         ShortcutManager manager = getTestContext().getSystemService(ShortcutManager.class);
 
-        assertEquals(5, manager.getMaxShortcutCountPerActivity());
+        assertEquals(10, manager.getMaxShortcutCountPerActivity());
 
         // during the test, this process always considered to be in the foreground.
         assertFalse(manager.isRateLimitingActive());

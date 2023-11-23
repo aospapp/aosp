@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,7 +46,9 @@
 #include <string.h>
 #endif
 
-#ifdef _ALLBSD_SOURCE
+// Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
+// #ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
 #include <string.h>
 
 #define stat64 stat
@@ -56,7 +58,10 @@
 #define fstat64 fstat
 #define lstat64 lstat
 #define dirent64 dirent
-#define readdir64_r readdir_r
+// Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+// Integrate UnixNativeDispatcher.c changes from http://hg.openjdk.java.net/jdk/jdk/rev/90144bc10fe6
+// #define readdir64_r readdir_r
+#define readdir64 readdir
 #endif
 
 #include "jni.h"
@@ -408,9 +413,22 @@ Java_sun_nio_fs_UnixNativeDispatcher_openat0(JNIEnv* env, jclass this, jint dfd,
 
 JNIEXPORT void JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_close(JNIEnv* env, jclass this, jint fd) {
-    int err;
-    /* TDB - need to decide if EIO and other errors should cause exception */
-    RESTARTABLE(close((int)fd), err);
+// BEGIN Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+//    int err;
+//    /* TDB - need to decide if EIO and other errors should cause exception */
+//    RESTARTABLE(close((int)fd), err);
+    int res;
+
+#if defined(_AIX)
+    /* AIX allows close to be restarted after EINTR */
+    RESTARTABLE(close((int)fd), res);
+#else
+    res = close((int)fd);
+#endif
+    if (res == -1 && errno != EINTR) {
+        throwUnixException(env, errno);
+    }
+// END Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
 }
 
 JNIEXPORT jint JNICALL
@@ -685,6 +703,8 @@ Java_sun_nio_fs_UnixNativeDispatcher_closedir(JNIEnv* env, jclass this, jlong di
 
 JNIEXPORT jbyteArray JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_readdir(JNIEnv* env, jclass this, jlong value) {
+// BEGIN Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+/*
     struct dirent64* result;
     struct {
         struct dirent64 buf;
@@ -694,13 +714,13 @@ Java_sun_nio_fs_UnixNativeDispatcher_readdir(JNIEnv* env, jclass this, jlong val
     int res;
     DIR* dirp = jlong_to_ptr(value);
 
-    /* EINTR not listed as a possible error */
-    /* TDB: reentrant version probably not required here */
+    * EINTR not listed as a possible error *
+    * TDB: reentrant version probably not required here *
     res = readdir64_r(dirp, ptr, &result);
 
 #ifdef _AIX
-    /* On AIX, readdir_r() returns EBADF (i.e. '9') and sets 'result' to NULL for the */
-    /* directory stream end. Otherwise, 'errno' will contain the error code. */
+    * On AIX, readdir_r() returns EBADF (i.e. '9') and sets 'result' to NULL for the *
+    * directory stream end. Otherwise, 'errno' will contain the error code. *
     if (res != 0) {
         res = (result == NULL && res == EBADF) ? 0 : errno;
     }
@@ -721,6 +741,26 @@ Java_sun_nio_fs_UnixNativeDispatcher_readdir(JNIEnv* env, jclass this, jlong val
             return bytes;
         }
     }
+*/
+    DIR* dirp = jlong_to_ptr(value);
+    struct dirent64* ptr;
+
+    errno = 0;
+    ptr = readdir64(dirp);
+    if (ptr == NULL) {
+        if (errno != 0) {
+            throwUnixException(env, errno);
+        }
+        return NULL;
+    } else {
+        jsize len = strlen(ptr->d_name);
+        jbyteArray bytes = (*env)->NewByteArray(env, len);
+        if (bytes != NULL) {
+            (*env)->SetByteArrayRegion(env, bytes, 0, len, (jbyte*)(ptr->d_name));
+        }
+        return bytes;
+    }
+// END Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
 }
 
 JNIEXPORT void JNICALL

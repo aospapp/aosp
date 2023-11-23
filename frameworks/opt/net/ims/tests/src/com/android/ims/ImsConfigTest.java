@@ -16,18 +16,19 @@
 
 package com.android.ims;
 
-import android.support.test.runner.AndroidJUnit4;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.verify;
+
 import android.telephony.ims.aidl.IImsConfig;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.verify;
 
 /**
  * Unit Tests for ImsConfig

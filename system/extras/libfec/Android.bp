@@ -3,6 +3,7 @@
 cc_library {
     name: "libfec",
     host_supported: true,
+    recovery_available: true,
     srcs: [
         "fec_open.cpp",
         "fec_read.cpp",
@@ -12,16 +13,19 @@ cc_library {
     cflags: ["-Wall", "-Werror", "-O3", "-D_LARGEFILE64_SOURCE"],
     export_include_dirs: ["include"],
     // Exported header include/fec/io.h includes crypto_utils headers.
-    export_static_lib_headers: ["libcrypto_utils"],
+    export_shared_lib_headers: ["libcrypto_utils"],
+
+    shared_libs: [
+        "libbase",
+        "libcrypto",
+        "libcrypto_utils",
+        "libcutils",
+        "libext4_utils",
+        "libsquashfs_utils",
+    ],
 
     static_libs: [
-        "libext4_utils",
         "libfec_rs",
-        "libsquashfs_utils",
-        "libcrypto_utils",
-        "libcrypto",
-        "libcutils",
-        "libbase",
     ],
 
     target: {

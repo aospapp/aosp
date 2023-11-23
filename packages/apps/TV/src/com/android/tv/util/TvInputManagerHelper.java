@@ -19,21 +19,29 @@ package com.android.tv.util;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.graphics.drawable.Drawable;
 import android.hardware.hdmi.HdmiDeviceInfo;
 import android.media.tv.TvContentRatingSystemInfo;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvInputManager.TvInputCallback;
+import android.net.Uri;
 import android.os.Handler;
+import android.provider.Settings;
+import android.provider.Settings.SettingNotFoundException;
 import android.support.annotation.Nullable;
+import android.support.annotation.UiThread;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
-import com.android.tv.TvFeatures;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.compat.TvInputInfoCompat;
+import com.android.tv.common.dagger.annotations.ApplicationContext;
 import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.util.SystemProperties;
+import com.android.tv.features.TvFeatures;
 import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.util.images.ImageCache;
@@ -46,7 +54,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
+/** Helper class for {@link TvInputManager}. */
+@UiThread
+@Singleton
 public class TvInputManagerHelper {
     private static final String TAG = "TvInputManagerHelper";
     private static final boolean DEBUG = false;
@@ -117,6 +130,12 @@ public class TvInputManagerHelper {
     };
     private static final String META_LABEL_SORT_KEY = "input_sort_key";
 
+    private static final String TV_INPUT_ALLOW_3RD_PARTY_INPUTS = "tv_input_allow_3rd_party_inputs";
+
+    private static final String[] SYSTEM_INPUT_ID_BLACKLIST = {
+        "com.google.android.videos/" // Play Movies
+    };
+
     /** The default tv input priority to show. */
     private static final ArrayList<Integer> DEFAULT_TV_INPUT_PRIORITY = new ArrayList<>();
 
@@ -149,21 +168,24 @@ public class TvInputManagerHelper {
     private final PackageManager mPackageManager;
     protected final TvInputManagerInterface mTvInputManager;
     private final Map<String, Integer> mInputStateMap = new HashMap<>();
-    private final Map<String, TvInputInfo> mInputMap = new HashMap<>();
+    private final Map<String, TvInputInfoCompat> mInputMap = new HashMap<>();
     private final Map<String, String> mTvInputLabels = new ArrayMap<>();
     private final Map<String, String> mTvInputCustomLabels = new ArrayMap<>();
     private final Map<String, Boolean> mInputIdToPartnerInputMap = new HashMap<>();
 
     private final Map<String, CharSequence> mTvInputApplicationLabels = new ArrayMap<>();
     private final Map<String, Drawable> mTvInputApplicationIcons = new ArrayMap<>();
-    private final Map<String, Drawable> mTvInputAppliactionBanners = new ArrayMap<>();
+    private final Map<String, Drawable> mTvInputApplicationBanners = new ArrayMap<>();
+
+    private final ContentObserver mContentObserver;
 
     private final TvInputCallback mInternalCallback =
             new TvInputCallback() {
                 @Override
                 public void onInputStateChanged(String inputId, int state) {
                     if (DEBUG) Log.d(TAG, "onInputStateChanged " + inputId + " state=" + state);
-                    if (isInBlackList(inputId)) {
+                    TvInputInfo info = mInputMap.get(inputId).getTvInputInfo();
+                    if (info == null || isInputBlocked(info)) {
                         return;
                     }
                     mInputStateMap.put(inputId, state);
@@ -175,12 +197,12 @@ public class TvInputManagerHelper {
                 @Override
                 public void onInputAdded(String inputId) {
                     if (DEBUG) Log.d(TAG, "onInputAdded " + inputId);
-                    if (isInBlackList(inputId)) {
+                    TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
+                    if (info == null || isInputBlocked(info)) {
                         return;
                     }
-                    TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
                     if (info != null) {
-                        mInputMap.put(inputId, info);
+                        mInputMap.put(inputId, new TvInputInfoCompat(mContext, info));
                         CharSequence label = info.loadLabel(mContext);
                         // in tests the label may be missing just use the input id
                         mTvInputLabels.put(inputId, label != null ? label.toString() : inputId);
@@ -205,7 +227,7 @@ public class TvInputManagerHelper {
                     mTvInputCustomLabels.remove(inputId);
                     mTvInputApplicationLabels.remove(inputId);
                     mTvInputApplicationIcons.remove(inputId);
-                    mTvInputAppliactionBanners.remove(inputId);
+                    mTvInputApplicationBanners.remove(inputId);
                     mInputStateMap.remove(inputId);
                     mInputIdToPartnerInputMap.remove(inputId);
                     mContentRatingsManager.update();
@@ -219,11 +241,11 @@ public class TvInputManagerHelper {
                 @Override
                 public void onInputUpdated(String inputId) {
                     if (DEBUG) Log.d(TAG, "onInputUpdated " + inputId);
-                    if (isInBlackList(inputId)) {
+                    TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
+                    if (info == null || isInputBlocked(info)) {
                         return;
                     }
-                    TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
-                    mInputMap.put(inputId, info);
+                    mInputMap.put(inputId, new TvInputInfoCompat(mContext, info));
                     mTvInputLabels.put(inputId, info.loadLabel(mContext).toString());
                     CharSequence inputCustomLabel = info.loadCustomLabel(mContext);
                     if (inputCustomLabel != null) {
@@ -231,7 +253,7 @@ public class TvInputManagerHelper {
                     }
                     mTvInputApplicationLabels.remove(inputId);
                     mTvInputApplicationIcons.remove(inputId);
-                    mTvInputAppliactionBanners.remove(inputId);
+                    mTvInputApplicationBanners.remove(inputId);
                     for (TvInputCallback callback : mCallbacks) {
                         callback.onInputUpdated(inputId);
                     }
@@ -242,7 +264,10 @@ public class TvInputManagerHelper {
                 @Override
                 public void onTvInputInfoUpdated(TvInputInfo inputInfo) {
                     if (DEBUG) Log.d(TAG, "onTvInputInfoUpdated " + inputInfo);
-                    mInputMap.put(inputInfo.getId(), inputInfo);
+                    if (isInputBlocked(inputInfo)) {
+                        return;
+                    }
+                    mInputMap.put(inputInfo.getId(), new TvInputInfoCompat(mContext, inputInfo));
                     mTvInputLabels.put(inputInfo.getId(), inputInfo.loadLabel(mContext).toString());
                     CharSequence inputCustomLabel = inputInfo.loadCustomLabel(mContext);
                     if (inputCustomLabel != null) {
@@ -264,8 +289,10 @@ public class TvInputManagerHelper {
     private final ContentRatingsManager mContentRatingsManager;
     private final ParentalControlSettings mParentalControlSettings;
     private final Comparator<TvInputInfo> mTvInputInfoComparator;
+    private boolean mAllow3rdPartyInputs;
 
-    public TvInputManagerHelper(Context context) {
+    @Inject
+    public TvInputManagerHelper(@ApplicationContext Context context) {
         this(context, createTvInputManagerWrapper(context));
     }
 
@@ -285,6 +312,22 @@ public class TvInputManagerHelper {
         mContentRatingsManager = new ContentRatingsManager(context, tvInputManager);
         mParentalControlSettings = new ParentalControlSettings(context);
         mTvInputInfoComparator = new InputComparatorInternal(this);
+        mContentObserver =
+                new ContentObserver(mHandler) {
+                    @Override
+                    public void onChange(boolean selfChange, Uri uri) {
+                        String option = uri.getLastPathSegment();
+                        if (option == null || !option.equals(TV_INPUT_ALLOW_3RD_PARTY_INPUTS)) {
+                            return;
+                        }
+                        boolean previousSetting = mAllow3rdPartyInputs;
+                        updateAllow3rdPartyInputs();
+                        if (previousSetting == mAllow3rdPartyInputs) {
+                            return;
+                        }
+                        initInputMaps();
+                    }
+                };
     }
 
     public void start() {
@@ -297,30 +340,14 @@ public class TvInputManagerHelper {
         }
         if (DEBUG) Log.d(TAG, "start");
         mStarted = true;
+        mContext.getContentResolver()
+                .registerContentObserver(
+                        Settings.Global.getUriFor(TV_INPUT_ALLOW_3RD_PARTY_INPUTS),
+                        true,
+                        mContentObserver);
+        updateAllow3rdPartyInputs();
         mTvInputManager.registerCallback(mInternalCallback, mHandler);
-        mInputMap.clear();
-        mTvInputLabels.clear();
-        mTvInputCustomLabels.clear();
-        mTvInputApplicationLabels.clear();
-        mTvInputApplicationIcons.clear();
-        mTvInputAppliactionBanners.clear();
-        mInputStateMap.clear();
-        mInputIdToPartnerInputMap.clear();
-        for (TvInputInfo input : mTvInputManager.getTvInputList()) {
-            if (DEBUG) Log.d(TAG, "Input detected " + input);
-            String inputId = input.getId();
-            if (isInBlackList(inputId)) {
-                continue;
-            }
-            mInputMap.put(inputId, input);
-            int state = mTvInputManager.getInputState(inputId);
-            mInputStateMap.put(inputId, state);
-            mInputIdToPartnerInputMap.put(inputId, isPartnerInput(input));
-        }
-        SoftPreconditions.checkState(
-                mInputStateMap.size() == mInputMap.size(),
-                TAG,
-                "mInputStateMap not the same size as mInputMap");
+        initInputMaps();
         mContentRatingsManager.update();
     }
 
@@ -329,6 +356,7 @@ public class TvInputManagerHelper {
             return;
         }
         mTvInputManager.unregisterCallback(mInternalCallback);
+        mContext.getContentResolver().unregisterContentObserver(mContentObserver);
         mStarted = false;
         mInputStateMap.clear();
         mInputMap.clear();
@@ -336,8 +364,7 @@ public class TvInputManagerHelper {
         mTvInputCustomLabels.clear();
         mTvInputApplicationLabels.clear();
         mTvInputApplicationIcons.clear();
-        mTvInputAppliactionBanners.clear();
-        ;
+        mTvInputApplicationBanners.clear();
         mInputIdToPartnerInputMap.clear();
     }
 
@@ -355,6 +382,9 @@ public class TvInputManagerHelper {
                 continue;
             }
             TvInputInfo input = getTvInputInfo(pair.getKey());
+            if (input == null || isInputBlocked(input)) {
+                continue;
+            }
             if (tunerOnly && input.getType() != TvInputInfo.TYPE_TUNER) {
                 continue;
             }
@@ -460,12 +490,12 @@ public class TvInputManagerHelper {
 
     /** Gets the tv input application's banner. */
     public Drawable getTvInputApplicationBanner(String inputId) {
-        return mTvInputAppliactionBanners.get(inputId);
+        return mTvInputApplicationBanners.get(inputId);
     }
 
     /** Stores the tv input application's banner. */
     public void setTvInputApplicationBanner(String inputId, Drawable banner) {
-        mTvInputAppliactionBanners.put(inputId, banner);
+        mTvInputApplicationBanners.put(inputId, banner);
     }
 
     /** Returns if TV input exists with the input id. */
@@ -475,7 +505,14 @@ public class TvInputManagerHelper {
         return mStarted && !TextUtils.isEmpty(inputId) && mInputMap.get(inputId) != null;
     }
 
+    @Nullable
     public TvInputInfo getTvInputInfo(String inputId) {
+        TvInputInfoCompat inputInfo = getTvInputInfoCompat(inputId);
+        return inputInfo == null ? null : inputInfo.getTvInputInfo();
+    }
+
+    @Nullable
+    public TvInputInfoCompat getTvInputInfoCompat(String inputId) {
         SoftPreconditions.checkState(
                 mStarted, TAG, "getTvInputInfo() called before TvInputManagerHelper was started.");
         if (!mStarted) {
@@ -494,7 +531,7 @@ public class TvInputManagerHelper {
 
     public int getTunerTvInputSize() {
         int size = 0;
-        for (TvInputInfo input : mInputMap.values()) {
+        for (TvInputInfoCompat input : mInputMap.values()) {
             if (input.getType() == TvInputInfo.TYPE_TUNER) {
                 ++size;
             }
@@ -599,6 +636,61 @@ public class TvInputManagerHelper {
             return true;
         }
         return false;
+    }
+
+    private void initInputMaps() {
+        mInputMap.clear();
+        mTvInputLabels.clear();
+        mTvInputCustomLabels.clear();
+        mTvInputApplicationLabels.clear();
+        mTvInputApplicationIcons.clear();
+        mTvInputApplicationBanners.clear();
+        mInputStateMap.clear();
+        mInputIdToPartnerInputMap.clear();
+        for (TvInputInfo input : mTvInputManager.getTvInputList()) {
+            if (DEBUG) {
+                Log.d(TAG, "Input detected " + input);
+            }
+            String inputId = input.getId();
+            if (isInputBlocked(input)) {
+                continue;
+            }
+            mInputMap.put(inputId, new TvInputInfoCompat(mContext, input));
+            int state = mTvInputManager.getInputState(inputId);
+            mInputStateMap.put(inputId, state);
+            mInputIdToPartnerInputMap.put(inputId, isPartnerInput(input));
+        }
+        SoftPreconditions.checkState(
+                mInputStateMap.size() == mInputMap.size(),
+                TAG,
+                "mInputStateMap not the same size as mInputMap");
+    }
+
+    private void updateAllow3rdPartyInputs() {
+        int setting;
+        try {
+            setting =
+                    Settings.Global.getInt(
+                            mContext.getContentResolver(), TV_INPUT_ALLOW_3RD_PARTY_INPUTS);
+        } catch (SettingNotFoundException e) {
+            mAllow3rdPartyInputs = SystemProperties.ALLOW_THIRD_PARTY_INPUTS.getValue();
+            return;
+        }
+        mAllow3rdPartyInputs = setting == 1;
+    }
+
+    private boolean isInputBlocked(TvInputInfo info) {
+        if (!mAllow3rdPartyInputs) {
+            if (!isSystemInput(info)) {
+                return true;
+            }
+            for (String id : SYSTEM_INPUT_ID_BLACKLIST) {
+                if (info.getId().startsWith(id)) {
+                    return true;
+                }
+            }
+        }
+        return isInBlackList(info.getId());
     }
 
     /**

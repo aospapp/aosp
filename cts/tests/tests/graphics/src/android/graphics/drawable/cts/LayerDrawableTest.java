@@ -61,14 +61,15 @@ import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.RotateDrawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.StateListDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.StateSet;
 import android.util.Xml;
 import android.view.Gravity;
 import android.view.View;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -1510,6 +1511,16 @@ public class LayerDrawableTest {
                 + dr.getDrawable(0).getIntrinsicHeight();
         assertEquals(width, dr.getIntrinsicWidth());
         assertEquals(height, dr.getIntrinsicHeight());
+    }
+
+    @Test
+    public void testIsProjectedWithNullLayer() {
+        try {
+            LayerDrawable dr = new LayerDrawable(new Drawable[] {null});
+            dr.isProjected();
+        } catch (NullPointerException excep) {
+            fail("isProjected should support null child layer drawables");
+        }
     }
 
     // Since Mockito can't mock or spy on protected methods, we have a custom extension

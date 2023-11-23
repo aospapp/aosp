@@ -18,11 +18,8 @@ package com.android.incallui.contactgrid;
 
 import android.content.Context;
 import android.support.annotation.Nullable;
-import android.telephony.PhoneNumberUtils;
-import android.text.BidiFormatter;
-import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
-import com.android.incallui.call.DialerCall.State;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.incall.protocol.PrimaryCallState;
 import com.android.incallui.incall.protocol.PrimaryInfo;
 
@@ -74,7 +71,7 @@ public class BottomRow {
 
   public static Info getInfo(Context context, PrimaryCallState state, PrimaryInfo primaryInfo) {
     CharSequence label;
-    boolean isTimerVisible = state.state() == State.ACTIVE;
+    boolean isTimerVisible = state.state() == DialerCallState.ACTIVE;
     boolean isForwardIconVisible = state.isForwardedNumber();
     boolean isWorkIconVisible = state.isWorkCall();
     boolean isHdIconVisible = state.isHdAudioCall() && !isForwardIconVisible;
@@ -86,13 +83,13 @@ public class BottomRow {
       label = context.getString(R.string.contact_grid_incoming_suspected_spam);
       isSpamIconVisible = true;
       isHdIconVisible = false;
-    } else if (state.state() == State.DISCONNECTING) {
+    } else if (state.state() == DialerCallState.DISCONNECTING) {
       // While in the DISCONNECTING state we display a "Hanging up" message in order to make the UI
       // feel more responsive.  (In GSM it's normal to see a delay of a couple of seconds while
       // negotiating the disconnect with the network, so the "Hanging up" state at least lets the
       // user know that we're doing something.  This state is currently not used with CDMA.)
       label = context.getString(R.string.incall_hanging_up);
-    } else if (state.state() == State.DISCONNECTED) {
+    } else if (state.state() == DialerCallState.DISCONNECTED) {
       label = state.disconnectCause().getLabel();
       if (TextUtils.isEmpty(label)) {
         label = context.getString(R.string.incall_call_ended);
@@ -118,22 +115,17 @@ public class BottomRow {
       return primaryInfo.location();
     }
     if (!primaryInfo.nameIsNumber() && !TextUtils.isEmpty(primaryInfo.number())) {
-      CharSequence spannedNumber = spanDisplayNumber(primaryInfo.number());
       if (primaryInfo.label() == null) {
-        return spannedNumber;
+        return primaryInfo.number();
       } else {
-        return TextUtils.concat(primaryInfo.label(), " ", spannedNumber);
+        return TextUtils.concat(primaryInfo.label(), " ", primaryInfo.number());
       }
     }
     return null;
   }
 
-  private static CharSequence spanDisplayNumber(String displayNumber) {
-    return PhoneNumberUtils.createTtsSpannable(
-        BidiFormatter.getInstance().unicodeWrap(displayNumber, TextDirectionHeuristics.LTR));
-  }
-
   private static boolean isIncoming(PrimaryCallState state) {
-    return state.state() == State.INCOMING || state.state() == State.CALL_WAITING;
+    return state.state() == DialerCallState.INCOMING
+        || state.state() == DialerCallState.CALL_WAITING;
   }
 }

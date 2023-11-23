@@ -16,20 +16,16 @@
 
 package com.android.documentsui.sidebar;
 
+import static com.android.documentsui.base.Shared.compareToIgnoreCaseNullable;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.annotation.Nullable;
-import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
-import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
 import android.content.Intent;
-import android.content.Loader;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
@@ -49,9 +45,19 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.ListView;
 
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.app.LoaderManager.LoaderCallbacks;
+import androidx.loader.content.Loader;
+
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.BaseActivity;
 import com.android.documentsui.DocumentsApplication;
+import com.android.documentsui.DragHoverListener;
 import com.android.documentsui.Injector;
 import com.android.documentsui.Injector.Injected;
 import com.android.documentsui.ItemDragListener;
@@ -63,6 +69,7 @@ import com.android.documentsui.base.Events;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
+import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.roots.ProvidersCache;
 import com.android.documentsui.roots.RootsLoader;
 
@@ -70,7 +77,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -80,6 +89,8 @@ public class RootsFragment extends Fragment {
 
     private static final String TAG = "RootsFragment";
     private static final String EXTRA_INCLUDE_APPS = "includeApps";
+    private static final String PROFILE_TARGET_ACTIVITY =
+            "com.android.internal.app.IntentForwarderActivity";
     private static final int CONTEXT_MENU_ITEM_TIMEOUT = 500;
 
     private final OnItemClickListener mItemListener = new OnItemClickListener() {
@@ -110,6 +121,8 @@ public class RootsFragment extends Fragment {
 
     @Injected
     private ActionHandler mActionHandler;
+
+    private List<Item> mApplicationItemList;
 
     public static RootsFragment show(FragmentManager fm, Intent includeApps) {
         final Bundle args = new Bundle();
@@ -161,6 +174,7 @@ public class RootsFragment extends Fragment {
             }
         });
         mList.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        mList.setSelector(new ColorDrawable(Color.TRANSPARENT));
         return view;
     }
 
@@ -197,7 +211,7 @@ public class RootsFragment extends Fragment {
                     DocumentsApplication.getDragAndDropManager(activity),
                     this::getItem,
                     mActionHandler);
-            mDragListener = new ItemDragListener<DragHost>(host) {
+            final ItemDragListener<DragHost> listener = new ItemDragListener<DragHost>(host) {
                 @Override
                 public boolean handleDropEventChecked(View v, DragEvent event) {
                     final Item item = getItem(v);
@@ -207,6 +221,8 @@ public class RootsFragment extends Fragment {
                     return item.dropOn(event);
                 }
             };
+            mDragListener = DragHoverListener.create(listener, mList);
+            mList.setOnDragListener(mDragListener);
         }
 
         mCallbacks = new LoaderCallbacks<Collection<RootInfo>>() {
@@ -228,12 +244,14 @@ public class RootsFragment extends Fragment {
                 final boolean excludeSelf =
                         intent.getBooleanExtra(DocumentsContract.EXTRA_EXCLUDE_SELF, false);
                 final String excludePackage = excludeSelf ? activity.getCallingPackage() : null;
-                List<Item> sortedItems =
-                        sortLoadResult(roots, excludePackage, handlerAppIntent);
+                List<Item> sortedItems = sortLoadResult(roots, excludePackage, handlerAppIntent,
+                        DocumentsApplication.getProvidersCache(getContext()));
                 mAdapter = new RootsAdapter(activity, sortedItems, mDragListener);
                 mList.setAdapter(mAdapter);
 
                 mInjector.shortcutsUpdater.accept(roots);
+                mInjector.appsRowManager.updateList(mApplicationItemList);
+                mInjector.appsRowManager.updateView(activity);
                 onCurrentRootChanged();
             }
 
@@ -246,81 +264,150 @@ public class RootsFragment extends Fragment {
     }
 
     /**
+     * If the package name of other providers or apps capable of handling the original intent
+     * include the preferred root source, it will have higher order than others.
      * @param excludePackage Exclude activities from this given package
      * @param handlerAppIntent When not null, apps capable of handling the original intent will
      *            be included in list of roots (in special section at bottom).
      */
-    private List<Item> sortLoadResult(
+    @VisibleForTesting
+    List<Item> sortLoadResult(
             Collection<RootInfo> roots,
             @Nullable String excludePackage,
-            @Nullable Intent handlerAppIntent) {
+            @Nullable Intent handlerAppIntent,
+            ProvidersAccess providersAccess) {
         final List<Item> result = new ArrayList<>();
 
         final List<RootItem> libraries = new ArrayList<>();
-        final List<RootItem> others = new ArrayList<>();
+        final List<RootItem> storageProviders = new ArrayList<>();
+        final List<RootItem> otherProviders = new ArrayList<>();
 
         for (final RootInfo root : roots) {
-            final RootItem item = new RootItem(root, mActionHandler);
+            final RootItem item;
 
-            Activity activity = getActivity();
-            if (root.isHome() && !Shared.shouldShowDocumentsRoot(activity)) {
+            if (root.isExternalStorageHome() && !Shared.shouldShowDocumentsRoot(getContext())) {
                 continue;
-            } else if (root.isLibrary()) {
+            } else if (root.isLibrary() || root.isDownloads()) {
+                item = new RootItem(root, mActionHandler);
                 libraries.add(item);
+            } else if (root.isStorage()) {
+                item = new RootItem(root, mActionHandler);
+                storageProviders.add(item);
             } else {
-                others.add(item);
+                item = new RootItem(root, mActionHandler,
+                        providersAccess.getPackageName(root.authority));
+                otherProviders.add(item);
             }
         }
 
         final RootComparator comp = new RootComparator();
         Collections.sort(libraries, comp);
-        Collections.sort(others, comp);
+        Collections.sort(storageProviders, comp);
 
         if (VERBOSE) Log.v(TAG, "Adding library roots: " + libraries);
         result.addAll(libraries);
+
         // Only add the spacer if it is actually separating something.
-        if (!libraries.isEmpty() && !others.isEmpty()) {
+        if (!result.isEmpty() && !storageProviders.isEmpty()) {
             result.add(new SpacerItem());
         }
-
-        if (VERBOSE) Log.v(TAG, "Adding plain roots: " + libraries);
-        result.addAll(others);
+        if (VERBOSE) Log.v(TAG, "Adding storage roots: " + storageProviders);
+        result.addAll(storageProviders);
 
         // Include apps that can handle this intent too.
         if (handlerAppIntent != null) {
-            includeHandlerApps(handlerAppIntent, excludePackage, result);
+            includeHandlerApps(handlerAppIntent, excludePackage, result, otherProviders);
+        } else {
+            // Only add providers
+            Collections.sort(otherProviders, comp);
+            if (!result.isEmpty() && !otherProviders.isEmpty()) {
+                result.add(new SpacerItem());
+            }
+            if (VERBOSE) Log.v(TAG, "Adding plain roots: " + otherProviders);
+            result.addAll(otherProviders);
+
+            mApplicationItemList = new ArrayList<>();
+            for (Item item : otherProviders) {
+                mApplicationItemList.add(item);
+            }
         }
 
         return result;
     }
 
     /**
-     * Adds apps capable of handling the original intent will be included in list of roots (in
-     * special section at bottom).
+     * Adds apps capable of handling the original intent will be included in list of roots. If
+     * the providers and apps are the same package name, combine them as RootAndAppItems.
      */
     private void includeHandlerApps(
-            Intent handlerAppIntent, @Nullable String excludePackage, List<Item> result) {
+            Intent handlerAppIntent, @Nullable String excludePackage, List<Item> result,
+            List<RootItem> otherProviders) {
         if (VERBOSE) Log.v(TAG, "Adding handler apps for intent: " + handlerAppIntent);
         Context context = getContext();
         final PackageManager pm = context.getPackageManager();
         final List<ResolveInfo> infos = pm.queryIntentActivities(
                 handlerAppIntent, PackageManager.MATCH_DEFAULT_ONLY);
 
-        final List<AppItem> apps = new ArrayList<>();
+        final List<Item> rootList = new ArrayList<>();
+        final Map<String, ResolveInfo> appsMapping = new HashMap<>();
+        final Map<String, Item> appItems = new HashMap<>();
+        ProfileItem profileItem = null;
 
         // Omit ourselves and maybe calling package from the list
         for (ResolveInfo info : infos) {
-            if (!context.getPackageName().equals(info.activityInfo.packageName) &&
-                    !TextUtils.equals(excludePackage, info.activityInfo.packageName)) {
-                final AppItem app = new AppItem(info, mActionHandler);
-                if (VERBOSE) Log.v(TAG, "Adding handler app: " + app);
-                apps.add(app);
+            final String packageName = info.activityInfo.packageName;
+            if (!context.getPackageName().equals(packageName) &&
+                    !TextUtils.equals(excludePackage, packageName)) {
+                appsMapping.put(packageName, info);
+
+                // for change personal profile root.
+                if (PROFILE_TARGET_ACTIVITY.equals(info.activityInfo.targetActivity)) {
+                    profileItem = new ProfileItem(info, info.loadLabel(pm).toString(),
+                            mActionHandler);
+                } else {
+                    final Item item = new AppItem(info, info.loadLabel(pm).toString(),
+                            mActionHandler);
+                    appItems.put(packageName, item);
+                    if (VERBOSE) Log.v(TAG, "Adding handler app: " + item);
+                }
             }
         }
 
-        if (apps.size() > 0) {
+        // If there are some providers and apps has the same package name, combine them as one item.
+        for (RootItem rootItem : otherProviders) {
+            final String packageName = rootItem.getPackageName();
+            final ResolveInfo resolveInfo = appsMapping.get(packageName);
+
+            final Item item;
+            if (resolveInfo != null) {
+                item = new RootAndAppItem(rootItem.root, resolveInfo, mActionHandler);
+                appItems.remove(packageName);
+            } else {
+                item = rootItem;
+            }
+
+            if (VERBOSE) Log.v(TAG, "Adding provider : " + item);
+            rootList.add(item);
+        }
+
+        rootList.addAll(appItems.values());
+
+        if (!result.isEmpty() && !rootList.isEmpty()) {
             result.add(new SpacerItem());
-            result.addAll(apps);
+        }
+
+        final String preferredRootPackage = getResources().getString(
+                R.string.preferred_root_package, "");
+
+        final ItemComparator comp = new ItemComparator(preferredRootPackage);
+        Collections.sort(rootList, comp);
+        result.addAll(rootList);
+
+        mApplicationItemList = rootList;
+
+        if (profileItem != null) {
+            result.add(new SpacerItem());
+            result.add(profileItem);
         }
     }
 
@@ -341,7 +428,7 @@ public class RootsFragment extends Fragment {
             mList.setLongClickable(false);
         }
 
-        getLoaderManager().restartLoader(2, null, mCallbacks);
+        LoaderManager.getInstance(this).restartLoader(2, null, mCallbacks);
     }
 
     public void onCurrentRootChanged() {
@@ -355,6 +442,8 @@ public class RootsFragment extends Fragment {
             if (item instanceof RootItem) {
                 final RootInfo testRoot = ((RootItem) item).root;
                 if (Objects.equals(testRoot, root)) {
+                    // b/37358441 should reload all root title after configuration changed
+                    root.title = testRoot.title;
                     mList.setItemChecked(i, true);
                     return;
                 }
@@ -397,7 +486,7 @@ public class RootsFragment extends Fragment {
         final RootItem rootItem = (RootItem) mAdapter.getItem(adapterMenuInfo.position);
         switch (item.getItemId()) {
             case R.id.root_menu_eject_root:
-                final View ejectIcon = adapterMenuInfo.targetView.findViewById(R.id.eject_icon);
+                final View ejectIcon = adapterMenuInfo.targetView.findViewById(R.id.action_icon);
                 ejectClicked(ejectIcon, rootItem.root, mActionHandler);
                 return true;
             case R.id.root_menu_open_in_new_window:
@@ -410,7 +499,9 @@ public class RootsFragment extends Fragment {
                 mActionHandler.openSettings(rootItem.root);
                 return true;
             default:
-                if (DEBUG) Log.d(TAG, "Unhandled menu item selected: " + item);
+                if (DEBUG) {
+                    Log.d(TAG, "Unhandled menu item selected: " + item);
+                }
                 return false;
         }
     }
@@ -457,6 +548,53 @@ public class RootsFragment extends Fragment {
         @Override
         public int compare(RootItem lhs, RootItem rhs) {
             return lhs.root.compareTo(rhs.root);
+        }
+    }
+
+    /**
+     * The comparator of {@link AppItem}, {@link RootItem} and {@link RootAndAppItem}.
+     * Sort by if the item's package name starts with the preferred package name,
+     * then title, then summary. Because the {@link AppItem} doesn't have summary,
+     * it will have lower order than other same title items.
+     */
+    @VisibleForTesting
+    static class ItemComparator implements Comparator<Item> {
+        private final String mPreferredPackageName;
+
+        ItemComparator(String preferredPackageName) {
+            mPreferredPackageName = preferredPackageName;
+        }
+
+        @Override
+        public int compare(Item lhs, Item rhs) {
+            // Sort by whether the item starts with preferred package name
+            if (!mPreferredPackageName.isEmpty()) {
+                if (lhs.getPackageName().startsWith(mPreferredPackageName)) {
+                    if (!rhs.getPackageName().startsWith(mPreferredPackageName)) {
+                        // lhs starts with it, but rhs doesn't start with it
+                        return -1;
+                    }
+                } else {
+                    if (rhs.getPackageName().startsWith(mPreferredPackageName)) {
+                        // lhs doesn't start with it, but rhs starts with it
+                        return 1;
+                    }
+                }
+            }
+
+            // Sort by title
+            int score = compareToIgnoreCaseNullable(lhs.title, rhs.title);
+            if (score != 0) {
+                return score;
+            }
+
+            // Sort by summary. If the item is AppItem, it doesn't have summary.
+            // So, the RootItem or RootAndAppItem will have higher order than AppItem.
+            if (lhs instanceof RootItem) {
+                return rhs instanceof RootItem ? compareToIgnoreCaseNullable(
+                        ((RootItem) lhs).root.summary, ((RootItem) rhs).root.summary) : 1;
+            }
+            return rhs instanceof RootItem ? -1 : 0;
         }
     }
 

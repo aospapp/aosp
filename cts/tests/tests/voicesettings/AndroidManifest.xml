@@ -35,7 +35,7 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.voicesettings.cts"
                      android:label="CTS tests of android.voicesettings">
         <meta-data android:name="listener"

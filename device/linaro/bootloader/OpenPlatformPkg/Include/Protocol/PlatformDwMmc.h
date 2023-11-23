@@ -65,6 +65,7 @@ EFI_STATUS
 typedef
 BOOLEAN
 (EFIAPI *PLATFORM_DW_MMC_CARD_DETECT) (
+  IN EFI_HANDLE                 Controller,
   IN UINT8                      Slot
   );
 

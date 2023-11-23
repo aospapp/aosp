@@ -91,7 +91,7 @@ class AutotestJobInfo(object):
     @property
     def results_url(self):
         """The url where results are stored."""
-        return '%s/results/%s-%s/%s' % (
+        return '%sresults/%s-%s/%s' % (
             RETRIEVE_LOGS_CGI, self.id, self.user, self.dut)
 
     @property
@@ -117,7 +117,8 @@ class AutotestTaskInfo(object):
     tags = ['autotest']
 
     # A list of logs to upload for this task.
-    logs = ['debug', 'status.log', 'crash', 'keyval', 'control', 'control.srv']
+    logs = ['debug', 'status.log', 'crash', 'keyval', 'control', 'control.srv',
+            'results/results-chart.json']
 
     # Version of the data stored.
     version = 2

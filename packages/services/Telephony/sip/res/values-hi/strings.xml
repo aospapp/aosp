@@ -16,19 +16,19 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sip_settings" msgid="3768482698061677257">"एसआईपी सेटिंग"</string>
+    <string name="sip_settings" msgid="3768482698061677257">"SIP सेटिंग"</string>
     <string name="sip_accounts" msgid="85559497282185405">"SIP खाते"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"खाते"</string>
-    <string name="sip_receive_calls" msgid="426678617137462173">"इनकमिंग कॉल प्राप्त करें"</string>
+    <string name="sip_receive_calls" msgid="426678617137462173">"इनकमिंग कॉल पाएं"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"ज़्यादा बैटरी का इस्तेमाल करती है"</string>
-    <string name="sip_call_options_title" msgid="8421210494703869806">"एसआईपी कॉलिंग का उपयोग करें"</string>
+    <string name="sip_call_options_title" msgid="8421210494703869806">"SIP कॉलिंग का इस्तेमाल करें"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP कॉलिंग का उपयोग करें (केवल वाई-फ़ाई)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"डेटा नेटवर्क उपलब्ध होने पर सभी कॉल के लिए"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"केवल SIP कॉल के लिए"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"सभी कॉल के लिए"</string>
     <string name="add_sip_account" msgid="800843669753980091">"खाता जोड़ें"</string>
     <string name="remove_sip_account" msgid="1367664438506503690">"खाता हटाएं"</string>
-    <string name="sip_account_list" msgid="5610858485304821480">"एसआईपी खाते"</string>
+    <string name="sip_account_list" msgid="5610858485304821480">"SIP खाते"</string>
     <string name="saving_account" msgid="5336529880235177448">"खाता सहेज रहा है..."</string>
     <string name="removing_account" msgid="5537351356808985756">"खाता निकाल रहा है..."</string>
     <string name="sip_menu_save" msgid="7882219814563869225">"जोड़ें"</string>
@@ -53,21 +53,21 @@
     <string name="domain_address_title" msgid="1968479941328225423">"सर्वर"</string>
     <string name="username_title" msgid="6770064611005663470">"उपयोगकर्ता नाम"</string>
     <string name="password_title" msgid="5289013731515564295">"पासवर्ड"</string>
-    <string name="display_name_title" msgid="579241787583079773">"प्रदर्शन नाम"</string>
+    <string name="display_name_title" msgid="579241787583079773">"डिसप्ले नाम"</string>
     <string name="proxy_address_title" msgid="6890163365640631841">"आउटबाउंड प्रॉक्सी पता"</string>
     <string name="port_title" msgid="6693965912656593862">"पोर्ट नंबर"</string>
-    <string name="transport_title" msgid="889155457465372527">"परिवहन का प्रकार"</string>
+    <string name="transport_title" msgid="889155457465372527">"ट्रांसपोर्ट टाइप"</string>
     <string name="send_keepalive_title" msgid="599627072150501159">"कीप अलाइव भेजें"</string>
     <string name="advanced_settings" msgid="6622996380747040711">"वैकल्पिक सेटिंग"</string>
-    <string name="auth_username_title" msgid="8262491689004708265">"प्रमाणीकरण उपयोगकर्ता नाम"</string>
-    <string name="auth_username_summary" msgid="941160241371436473">"प्रमाणीकरण के लिए उपयोग होने वाला उपयोगकर्ता नाम"</string>
+    <string name="auth_username_title" msgid="8262491689004708265">"पुष्टि के लिए उपयोगकर्ता का नाम"</string>
+    <string name="auth_username_summary" msgid="941160241371436473">"पुष्टि के लिए इस्तेमाल होने वाला उपयोगकर्ता नाम"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;सेट नहीं है&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;सेट नहीं है&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;सेट नहीं है&gt;"</string>
-    <string name="display_name_summary" msgid="7155076491675565407">"&lt;उपयोगकर्ता नाम के समान&gt;"</string>
+    <string name="display_name_summary" msgid="7155076491675565407">"&lt;उपयोगकर्ता नाम के जैसा&gt;"</string>
     <string name="optional_summary" msgid="2363105560396317624">"&lt;वैकल्पिक&gt;"</string>
-    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ सभी दिखाने के लिए स्पर्श करें"</string>
-    <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ सभी छिपाने के लिए स्पर्श करें"</string>
+    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ सभी दिखाने के लिए छुएं"</string>
+    <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ सभी छिपाने के लिए छुएं"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"नए SIP खाते के विवरण डालें."</string>
     <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> आवश्यक है और इसे खाली नहीं छोड़ा जा सकता."</string>
     <string name="not_a_valid_port" msgid="7931422555587011830">"पोर्ट नंबर 1000 और 65534 के बीच होना चाहिए."</string>

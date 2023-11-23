@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"ផ្ញើ​ឯកសារ​ទៅ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"ផ្ញើ​ឯកសារ <xliff:g id="NUMBER">%1$s</xliff:g> ទៅ \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"បាន​បញ្ឈប់​ការ​ផ្ញើ​ឯកសារ​ទៅ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"ឧបករណ៍​ផ្ទុក​យូអេសប៊ី​មិន​មាន​ទំហំ​គ្រប់គ្រាន់ ដើម្បី​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"កាត​អេសឌី​មិន​មាន​ទំហំ​គ្រប់គ្រាន់ ដើម្បី​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅក្នុង​ឧបករណ៍​ផ្ទុក USB សម្រាប់​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\" ទេ"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅលើ​កាត SD សម្រាប់​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\" ទេ"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ទំហំ​ដែល​ត្រូវ​ការ៖ <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"កំពុង​ដំណើរការ​សំណើ​ជា​ច្រើន​​។ សូម​ព្យាយាម​ម្ដង​ទៀត​នៅ​ពេល​ក្រោយ​។"</string>
     <string name="status_pending" msgid="2503691772030877944">"មិន​ទាន់​បាន​ចាប់ផ្ដើម​ផ្ទេរ​ឯកសារ​នៅ​ឡើយ​ទេ។"</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"ឧបករណ៍​គោលដៅ​បាន​ហាមឃាត់​ការ​ផ្ទេរ​។"</string>
     <string name="status_canceled" msgid="6664490318773098285">"អ្នក​ប្រើ​បាន​បោះបង់​ការ​ផ្ទេរ។"</string>
     <string name="status_file_error" msgid="3671917770630165299">"បញ្ហា​​ឧបករណ៍​ផ្ទុក​។"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"គ្មាន​ឧបករណ៍​​ផ្ទុក​យូអេសប៊ី។"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"គ្មាន​កាត​អេសឌី។ បញ្ចូល​កាត​អេសឌី ដើម្បី​រក្សាទុក​ឯកសារ​ដែល​បាន​ផ្ទេរ។"</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"គ្មាន​ឧបករណ៍​ផ្ទុក​ USB ទេ។"</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"គ្មាន​កាត​ SD ទេ។ សូម​បញ្ចូល​កាត SD ដើម្បី​រក្សាទុក​ឯកសារ​ដែល​បាន​ផ្ទេរ។"</string>
     <string name="status_connection_error" msgid="947681831523219891">"ការ​តភ្ជាប់​​មិន​ជោគជ័យ​។"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"មិន​អាច​ដោះស្រាយ​សំណើ​​​​ដោយ​ត្រឹមត្រូវ​ទេ។"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"មិន​ស្គាល់​កំហុស។"</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"បើក"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"សម្អាត​ពី​បញ្ជី"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"សម្អាត"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"រក្សាទុក"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"បោះបង់"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ជ្រើសគណនីដែលអ្នកចង់ចែករំលែកតាមរយៈប៊្លូធូស។ អ្នកនៅតែត្រូវទទួលយកលទ្ធភាពចូលដំណើរការទាំងឡាយទៅកាន់គណនីនេះដដែល នៅពេលភ្ជាប់។"</string>

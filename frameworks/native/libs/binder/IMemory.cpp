@@ -31,7 +31,6 @@
 #include <binder/Parcel.h>
 #include <log/log.h>
 
-#include <utils/CallStack.h>
 #include <utils/KeyedVector.h>
 #include <utils/threads.h>
 
@@ -87,7 +86,7 @@ public:
     virtual void* getBase() const;
     virtual size_t getSize() const;
     virtual uint32_t getFlags() const;
-    virtual uint32_t getOffset() const;
+    off_t getOffset() const override;
 
 private:
     friend class IMemory;
@@ -114,7 +113,7 @@ private:
     mutable void*       mBase;
     mutable size_t      mSize;
     mutable uint32_t    mFlags;
-    mutable uint32_t    mOffset;
+    mutable off_t       mOffset;
     mutable bool        mRealHeap;
     mutable Mutex       mLock;
 };
@@ -130,7 +129,8 @@ class BpMemory : public BpInterface<IMemory>
 public:
     explicit BpMemory(const sp<IBinder>& impl);
     virtual ~BpMemory();
-    virtual sp<IMemoryHeap> getMemory(ssize_t* offset=0, size_t* size=0) const;
+    // NOLINTNEXTLINE(google-default-arguments)
+    virtual sp<IMemoryHeap> getMemory(ssize_t* offset=nullptr, size_t* size=nullptr) const;
 
 private:
     mutable sp<IMemoryHeap> mHeap;
@@ -145,22 +145,22 @@ void* IMemory::fastPointer(const sp<IBinder>& binder, ssize_t offset) const
     sp<IMemoryHeap> realHeap = BpMemoryHeap::get_heap(binder);
     void* const base = realHeap->base();
     if (base == MAP_FAILED)
-        return 0;
+        return nullptr;
     return static_cast<char*>(base) + offset;
 }
 
 void* IMemory::pointer() const {
     ssize_t offset;
     sp<IMemoryHeap> heap = getMemory(&offset);
-    void* const base = heap!=0 ? heap->base() : MAP_FAILED;
+    void* const base = heap!=nullptr ? heap->base() : MAP_FAILED;
     if (base == MAP_FAILED)
-        return 0;
+        return nullptr;
     return static_cast<char*>(base) + offset;
 }
 
 size_t IMemory::size() const {
     size_t size;
-    getMemory(NULL, &size);
+    getMemory(nullptr, &size);
     return size;
 }
 
@@ -181,20 +181,24 @@ BpMemory::~BpMemory()
 {
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 sp<IMemoryHeap> BpMemory::getMemory(ssize_t* offset, size_t* size) const
 {
-    if (mHeap == 0) {
+    if (mHeap == nullptr) {
         Parcel data, reply;
         data.writeInterfaceToken(IMemory::getInterfaceDescriptor());
         if (remote()->transact(GET_MEMORY, data, &reply) == NO_ERROR) {
             sp<IBinder> heap = reply.readStrongBinder();
-            ssize_t o = reply.readInt32();
-            size_t s = reply.readInt32();
-            if (heap != 0) {
+            if (heap != nullptr) {
                 mHeap = interface_cast<IMemoryHeap>(heap);
-                if (mHeap != 0) {
+                if (mHeap != nullptr) {
+                    const int64_t offset64 = reply.readInt64();
+                    const uint64_t size64 = reply.readUint64();
+                    const ssize_t o = (ssize_t)offset64;
+                    const size_t s = (size_t)size64;
                     size_t heapSize = mHeap->getSize();
-                    if (s <= heapSize
+                    if (s == size64 && o == offset64 // ILP32 bounds check
+                            && s <= heapSize
                             && o >= 0
                             && (static_cast<size_t>(o) <= heapSize - s)) {
                         mOffset = o;
@@ -202,7 +206,7 @@ sp<IMemoryHeap> BpMemory::getMemory(ssize_t* offset, size_t* size) const
                     } else {
                         // Hm.
                         android_errorWriteWithInfoLog(0x534e4554,
-                            "26877992", -1, NULL, 0);
+                            "26877992", -1, nullptr, 0);
                         mOffset = 0;
                         mSize = 0;
                     }
@@ -212,7 +216,7 @@ sp<IMemoryHeap> BpMemory::getMemory(ssize_t* offset, size_t* size) const
     }
     if (offset) *offset = mOffset;
     if (size) *size = mSize;
-    return (mSize > 0) ? mHeap : 0;
+    return (mSize > 0) ? mHeap : nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +229,7 @@ BnMemory::BnMemory() {
 BnMemory::~BnMemory() {
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 status_t BnMemory::onTransact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
 {
@@ -234,8 +239,8 @@ status_t BnMemory::onTransact(
             ssize_t offset;
             size_t size;
             reply->writeStrongBinder( IInterface::asBinder(getMemory(&offset, &size)) );
-            reply->writeInt32(offset);
-            reply->writeInt32(size);
+            reply->writeInt64(offset);
+            reply->writeUint64(size);
             return NO_ERROR;
         } break;
         default:
@@ -264,7 +269,6 @@ BpMemoryHeap::~BpMemoryHeap() {
                 if (VERBOSE) {
                     ALOGD("UNMAPPING binder=%p, heap=%p, size=%zu, fd=%d",
                             binder.get(), this, mSize, heapId);
-                    CallStack stack(LOG_TAG);
                 }
 
                 munmap(mBase, mSize);
@@ -315,18 +319,23 @@ void BpMemoryHeap::assertReallyMapped() const
         data.writeInterfaceToken(IMemoryHeap::getInterfaceDescriptor());
         status_t err = remote()->transact(HEAP_ID, data, &reply);
         int parcel_fd = reply.readFileDescriptor();
-        ssize_t size = reply.readInt32();
-        uint32_t flags = reply.readInt32();
-        uint32_t offset = reply.readInt32();
-
-        ALOGE_IF(err, "binder=%p transaction failed fd=%d, size=%zd, err=%d (%s)",
-                IInterface::asBinder(this).get(),
-                parcel_fd, size, err, strerror(-err));
+        const uint64_t size64 = reply.readUint64();
+        const int64_t offset64 = reply.readInt64();
+        const uint32_t flags = reply.readUint32();
+        const size_t size = (size_t)size64;
+        const off_t offset = (off_t)offset64;
+        if (err != NO_ERROR || // failed transaction
+                size != size64 || offset != offset64) { // ILP32 size check
+            ALOGE("binder=%p transaction failed fd=%d, size=%zu, err=%d (%s)",
+                    IInterface::asBinder(this).get(),
+                    parcel_fd, size, err, strerror(-err));
+            return;
+        }
 
         Mutex::Autolock _l(mLock);
         if (mHeapId.load(memory_order_relaxed) == -1) {
             int fd = fcntl(parcel_fd, F_DUPFD_CLOEXEC, 0);
-            ALOGE_IF(fd==-1, "cannot dup fd=%d, size=%zd, err=%d (%s)",
+            ALOGE_IF(fd == -1, "cannot dup fd=%d, size=%zu, err=%d (%s)",
                     parcel_fd, size, err, strerror(errno));
 
             int access = PROT_READ;
@@ -334,9 +343,9 @@ void BpMemoryHeap::assertReallyMapped() const
                 access |= PROT_WRITE;
             }
             mRealHeap = true;
-            mBase = mmap(0, size, access, MAP_SHARED, fd, offset);
+            mBase = mmap(nullptr, size, access, MAP_SHARED, fd, offset);
             if (mBase == MAP_FAILED) {
-                ALOGE("cannot map BpMemoryHeap (binder=%p), size=%zd, fd=%d (%s)",
+                ALOGE("cannot map BpMemoryHeap (binder=%p), size=%zu, fd=%d (%s)",
                         IInterface::asBinder(this).get(), size, fd, strerror(errno));
                 close(fd);
             } else {
@@ -370,7 +379,7 @@ uint32_t BpMemoryHeap::getFlags() const {
     return mFlags;
 }
 
-uint32_t BpMemoryHeap::getOffset() const {
+off_t BpMemoryHeap::getOffset() const {
     assertMapped();
     return mOffset;
 }
@@ -385,6 +394,7 @@ BnMemoryHeap::BnMemoryHeap() {
 BnMemoryHeap::~BnMemoryHeap() {
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 status_t BnMemoryHeap::onTransact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
 {
@@ -392,9 +402,9 @@ status_t BnMemoryHeap::onTransact(
        case HEAP_ID: {
             CHECK_INTERFACE(IMemoryHeap, data, reply);
             reply->writeFileDescriptor(getHeapID());
-            reply->writeInt32(getSize());
-            reply->writeInt32(getFlags());
-            reply->writeInt32(getOffset());
+            reply->writeUint64(getSize());
+            reply->writeInt64(getOffset());
+            reply->writeUint32(getFlags());
             return NO_ERROR;
         } break;
         default:

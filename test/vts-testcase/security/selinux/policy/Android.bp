@@ -32,3 +32,7 @@ cc_binary_host {
     ],
 
 }
+
+vts_config {
+    name: "VtsSecuritySelinuxPolicyHost",
+}

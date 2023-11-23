@@ -24,10 +24,12 @@
         <option name="cleanup" value="true" />
     </target_preparer>
 
+    <!-- The option values may be overriden in drm_compliance.gcl -->
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.google.android.media.gts" />
         <option name="runtime-hint" value="2h" />
         <option name="shell-timeout" value="2000000" />
-        <option name="test-timeout" value="600000" />
+        <option name="test-timeout" value="1200000" />
+        <option name="isolated-storage" value="false" />
     </test>
 </configuration>

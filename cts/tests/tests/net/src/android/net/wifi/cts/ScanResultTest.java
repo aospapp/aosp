@@ -25,9 +25,13 @@ import android.content.IntentFilter;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.SystemUtil;
+
+@AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class ScanResultTest extends AndroidTestCase {
     private static class MySync {
         int expectedState = STATE_NULL;
@@ -121,7 +125,11 @@ public class ScanResultTest extends AndroidTestCase {
     private void setWifiEnabled(boolean enable) throws Exception {
         synchronized (mMySync) {
             mMySync.expectedState = STATE_WIFI_CHANGING;
-            assertTrue(mWifiManager.setWifiEnabled(enable));
+            if (enable) {
+                SystemUtil.runShellCommand("svc wifi enable");
+            } else {
+                SystemUtil.runShellCommand("svc wifi disable");
+            }
             waitForBroadcast(TIMEOUT_MSEC, STATE_WIFI_CHANGED);
        }
     }

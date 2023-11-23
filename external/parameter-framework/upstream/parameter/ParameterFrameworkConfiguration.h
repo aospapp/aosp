@@ -43,19 +43,20 @@ public:
     bool isTuningAllowed() const;
 
     // Server port
-    uint16_t getServerPort() const;
+    const std::string &getServerBindAddress() const;
 
     // From IXmlSink
-    virtual bool fromXml(const CXmlElement &xmlElement, CXmlSerializingContext &serializingContext);
+    bool fromXml(const CXmlElement &xmlElement,
+                 CXmlSerializingContext &serializingContext) override;
 
 private:
-    virtual std::string getKind() const;
-    virtual bool childrenAreDynamic() const;
+    std::string getKind() const override;
+    bool childrenAreDynamic() const override;
 
     // System class name
     std::string _strSystemClassName;
     // Tuning allowed
     bool _bTuningAllowed{false};
     // Server port
-    uint16_t _uiServerPort{0};
+    std::string _bindAddress;
 };

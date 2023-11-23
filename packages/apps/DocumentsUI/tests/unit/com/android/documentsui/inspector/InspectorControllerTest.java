@@ -15,7 +15,6 @@
  */
 package com.android.documentsui.inspector;
 
-import static junit.framework.Assert.fail;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
@@ -29,16 +28,16 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.View.OnClickListener;
+
+import androidx.annotation.Nullable;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.InspectorProvider;
 import com.android.documentsui.R;
 import com.android.documentsui.TestProviderActivity;
 import com.android.documentsui.base.DocumentInfo;
-import com.android.documentsui.base.Shared;
 import com.android.documentsui.inspector.InspectorController.ActionDisplay;
 import com.android.documentsui.inspector.InspectorController.DataSupplier;
 import com.android.documentsui.inspector.InspectorController.DebugDisplay;
@@ -46,11 +45,9 @@ import com.android.documentsui.inspector.InspectorController.DetailsDisplay;
 import com.android.documentsui.inspector.InspectorController.HeaderDisplay;
 import com.android.documentsui.inspector.InspectorController.MediaDisplay;
 import com.android.documentsui.inspector.actions.Action;
-import com.android.documentsui.testing.TestConsumer;
 import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestLoaderManager;
 import com.android.documentsui.testing.TestPackageManager;
-import com.android.documentsui.testing.TestPackageManager.TestResolveInfo;
 import com.android.documentsui.testing.TestProvidersAccess;
 
 import org.junit.Assert;
@@ -58,7 +55,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
 import java.util.function.Consumer;
 
 @RunWith(AndroidJUnit4.class)
@@ -80,7 +76,8 @@ public class InspectorControllerTest  {
     private TestAction mDefaultsTestDouble;
     private TestDebug mDebugTestDouble;
     private TestRunnable mErrCallback;
-    private Bundle mTestArgs;
+    private String mTitle;
+    private boolean mShowDebug;
 
     @Before
     public void setUp() throws Exception {
@@ -96,7 +93,8 @@ public class InspectorControllerTest  {
         mDefaultsTestDouble = new TestAction();
         mDebugTestDouble = new TestDebug();
         mErrCallback = new TestRunnable();
-        mTestArgs = new Bundle();
+        mTitle = "";
+        mShowDebug = false;
 
         // Add some fake data.
         mDataSupplier.mDoc = TestEnv.FILE_JPG;
@@ -123,7 +121,8 @@ public class InspectorControllerTest  {
                 mShowInProvider,
                 mDefaultsTestDouble,
                 mDebugTestDouble,
-                mTestArgs,
+                mTitle,
+                mShowDebug,
                 mErrCallback);
     }
 
@@ -142,7 +141,7 @@ public class InspectorControllerTest  {
      */
     @Test
     public void testShowDebugUpdatesView() throws Exception {
-        mTestArgs.putBoolean(Shared.EXTRA_SHOW_DEBUG, true);
+        mShowDebug = true;
         recreateController();
         mController.loadInfo(TestEnv.FILE_JPG.derivedUri);  // actual URI doesn't matter :)
         mDebugTestDouble.assertVisible(true);
@@ -154,10 +153,10 @@ public class InspectorControllerTest  {
      */
     @Test
     public void testExtraTitleOverridesDisplayName() throws Exception {
-        mTestArgs.putString(Intent.EXTRA_TITLE, "hammy!");
+        mTitle = "hammy!";
         recreateController();
         mController.loadInfo(TestEnv.FILE_JPG.derivedUri);  // actual URI doesn't matter :)
-        mHeaderTestDouble.assertTitle("hammy!");
+        mDetailsTestDouble.assertTitle("hammy!");
     }
 
     /**
@@ -220,41 +219,6 @@ public class InspectorControllerTest  {
     public void testShowInProvider_invisible() throws Exception {
         mController.loadInfo(TestEnv.FILE_JPG.derivedUri);  // actual URI doesn't matter :)
         assertFalse(mShowInProvider.becameVisible);
-    }
-
-    /**
-     * Test that the action clear app defaults is visible when conditions are met.
-     * @throws Exception
-     */
-    @Test
-    public void testAppDefaults_visible() throws Exception {
-        mPm.queryIntentProvidersResults = new ArrayList<>();
-        mPm.queryIntentProvidersResults.add(new TestResolveInfo());
-        mPm.queryIntentProvidersResults.add(new TestResolveInfo());
-        DocumentInfo doc = new DocumentInfo();
-        doc.derivedUri =
-            DocumentsContract.buildDocumentUri(InspectorProvider.AUTHORITY, OPEN_IN_PROVIDER_DOC);
-
-        mDataSupplier.mDoc = doc;
-        mController.loadInfo(doc.derivedUri);  // actual URI doesn't matter :)
-        assertTrue(mDefaultsTestDouble.becameVisible);
-    }
-
-    /**
-     * Test that action clear app defaults is invisible when conditions have not been met.
-     * @throws Exception
-     */
-    @Test
-    public void testAppDefaults_invisible() throws Exception {
-        mPm.queryIntentProvidersResults = new ArrayList<>();
-        mPm.queryIntentProvidersResults.add(new TestResolveInfo());
-        DocumentInfo doc = new DocumentInfo();
-        doc.derivedUri =
-            DocumentsContract.buildDocumentUri(InspectorProvider.AUTHORITY, OPEN_IN_PROVIDER_DOC);
-
-        mDataSupplier.mDoc = doc;
-        mController.loadInfo(doc.derivedUri);  // actual URI doesn't matter :)
-        assertFalse(mDefaultsTestDouble.becameVisible);
     }
 
     /**
@@ -371,16 +335,10 @@ public class InspectorControllerTest  {
     private static class TestHeader implements HeaderDisplay {
 
         private boolean mCalled = false;
-        private @Nullable String mTitle;
 
         @Override
-        public void accept(DocumentInfo info, String displayName) {
+        public void accept(DocumentInfo info) {
             mCalled = true;
-            mTitle = displayName;
-        }
-
-        public void assertTitle(String expected) {
-            Assert.assertEquals(expected, mTitle);
         }
 
         public void assertCalled() {
@@ -395,10 +353,16 @@ public class InspectorControllerTest  {
     private static class TestDetails implements DetailsDisplay {
 
         private boolean mCalled = false;
+        private @Nullable String mTitle;
 
         @Override
-        public void accept(DocumentInfo info) {
+        public void accept(DocumentInfo info, String displayName) {
             mCalled = true;
+            mTitle = displayName;
+        }
+
+        public void assertTitle(String expected) {
+            Assert.assertEquals(expected, mTitle);
         }
 
         @Override

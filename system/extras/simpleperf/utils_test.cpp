@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "get_test_data.h"
 #include "utils.h"
 
 static bool ModulesMatch(const char* p, const char* q) {
@@ -72,4 +73,29 @@ TEST(utils, ConvertBytesToValue) {
   ASSERT_EQ(0x201ULL, ConvertBytesToValue(buf + 1, 2));
   ASSERT_EQ(0x05040302ULL, ConvertBytesToValue(buf + 2, 4));
   ASSERT_EQ(0x0706050403020100ULL, ConvertBytesToValue(buf, 8));
+}
+
+TEST(utils, ArchiveHelper) {
+  std::unique_ptr<ArchiveHelper> ahelper = ArchiveHelper::CreateInstance(GetTestData(APK_FILE));
+  ASSERT_TRUE(ahelper);
+  bool found = false;
+  ZipEntry lib_entry;
+  ASSERT_TRUE(ahelper->IterateEntries([&](ZipEntry& entry, const std::string& name) {
+    if (name == NATIVELIB_IN_APK) {
+      found = true;
+      lib_entry = entry;
+      return false;
+    }
+    return true;
+  }));
+  ASSERT_TRUE(found);
+  ZipEntry entry;
+  ASSERT_TRUE(ahelper->FindEntry(NATIVELIB_IN_APK, &entry));
+  ASSERT_EQ(entry.offset, lib_entry.offset);
+  std::vector<uint8_t> data;
+  ASSERT_TRUE(ahelper->GetEntryData(entry, &data));
+
+  // Check reading wrong file formats.
+  ASSERT_FALSE(ArchiveHelper::CreateInstance(GetTestData(ELF_FILE)));
+  ASSERT_FALSE(ArchiveHelper::CreateInstance("/dev/zero"));
 }

@@ -19,7 +19,6 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
-        "-std=c++14",
     ],
 }
 
@@ -49,6 +48,5 @@ cc_test {
     cflags: [
         "-Werror",
         "-Wall",
-        "-std=c++14",
     ],
 }

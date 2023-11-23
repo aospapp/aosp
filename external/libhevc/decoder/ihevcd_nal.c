@@ -301,7 +301,7 @@ IHEVCD_ERROR_T ihevcd_nal_unit_header(bitstrm_t *ps_bitstrm, nal_header_t *ps_na
     unused = ihevcd_bits_get(ps_bitstrm, 6);
 
     /* Syntax : nuh_temporal_id_plus1 */
-    ps_nal->i1_nuh_temporal_id = ihevcd_bits_get(ps_bitstrm, 3) - 1;
+    ps_nal->i1_nuh_temporal_id = (WORD32)ihevcd_bits_get(ps_bitstrm, 3) - 1;
 
     return ret;
 

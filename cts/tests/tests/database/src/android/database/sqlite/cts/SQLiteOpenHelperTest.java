@@ -16,6 +16,9 @@
 
 package android.database.sqlite.cts;
 
+import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
+import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
+
 import android.app.ActivityManager;
 import android.content.Context;
 import android.database.Cursor;
@@ -23,21 +26,16 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.database.sqlite.SQLiteDebug;
 import android.database.sqlite.SQLiteGlobal;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQuery;
-import android.database.sqlite.SQLiteDatabase.CursorFactory;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import java.io.File;
 import java.util.Arrays;
-
-import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
-import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
 
 /**
  * Test {@link SQLiteOpenHelper}.

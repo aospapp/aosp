@@ -5,10 +5,10 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-v4 \
-    android-support-v7-appcompat \
-    android-support-v7-recyclerview \
-    android-support-v7-cardview
+    androidx.legacy_legacy-support-v4 \
+    androidx.appcompat_appcompat \
+    androidx.recyclerview_recyclerview \
+    androidx.cardview_cardview
 
 LOCAL_USE_AAPT2 := true
 

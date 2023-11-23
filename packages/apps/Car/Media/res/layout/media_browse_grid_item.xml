@@ -14,31 +14,92 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="@dimen/media_browse_grid_item_padding"
     android:focusable="true"
     android:clickable="true"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:foreground="@drawable/grid_item_background"
+    android:layout_marginBottom="@dimen/media_browse_grid_item_margin_bottom">
 
     <com.android.car.media.common.FixedRatioImageView
         android:id="@+id/thumbnail"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:scaleType="centerCrop"
-        app:aspect_ratio="1"/>
+        app:aspect_ratio="1"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <ImageView
+        android:id="@+id/download_icon_with_title"
+        android:layout_width="@dimen/media_browse_indicator_size"
+        android:layout_height="@dimen/media_browse_indicator_size"
+        android:src="@drawable/ic_file_download_done_black"
+        android:tint="@color/icon_tint"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/explicit_icon_with_title"
+        app:layout_constraintBottom_toBottomOf="@+id/title"
+        app:layout_constraintTop_toTopOf="@+id/title"/>
+
+    <ImageView
+        android:id="@+id/explicit_icon_with_title"
+        android:layout_width="@dimen/media_browse_indicator_size"
+        android:layout_height="@dimen/media_browse_indicator_size"
+        android:src="@drawable/ic_explicit_black"
+        android:tint="@color/icon_tint"
+        app:layout_constraintBottom_toBottomOf="@+id/title"
+        app:layout_constraintTop_toTopOf="@+id/title"
+        app:layout_constraintStart_toEndOf="@+id/download_icon_with_title"
+        app:layout_constraintEnd_toStartOf="@+id/title"/>
 
     <TextView
         android:id="@+id/title"
-        android:layout_width="match_parent"
+        style="@style/BrowseGridTitleStyle"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/car_padding_2"
-        android:layout_marginBottom="@dimen/car_padding_2"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textAppearance="@style/TextAppearance.Car.Body2.Light"/>
+        android:layout_marginTop="@dimen/media_browse_grid_item_text_margin_top"
+        android:singleLine="true"
+        android:duplicateParentState="true"
+        app:layout_constraintStart_toEndOf="@+id/explicit_icon_with_title"
+        app:layout_constraintTop_toBottomOf="@+id/thumbnail"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-</LinearLayout>
+    <ImageView
+        android:id="@+id/download_icon_with_subtitle"
+        android:layout_width="@dimen/media_browse_indicator_size"
+        android:layout_height="@dimen/media_browse_indicator_size"
+        android:src="@drawable/ic_file_download_done_black"
+        android:tint="@color/icon_tint"
+        app:layout_constraintBottom_toBottomOf="@+id/subtitle"
+        app:layout_constraintTop_toTopOf="@+id/subtitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/explicit_icon_with_subtitle"/>
+
+    <ImageView
+        android:id="@+id/explicit_icon_with_subtitle"
+        android:layout_width="@dimen/media_browse_indicator_size"
+        android:layout_height="@dimen/media_browse_indicator_size"
+        android:src="@drawable/ic_explicit_black"
+        android:tint="@color/icon_tint"
+        app:layout_constraintBottom_toBottomOf="@+id/subtitle"
+        app:layout_constraintTop_toTopOf="@+id/subtitle"
+        app:layout_constraintStart_toEndOf="@+id/download_icon_with_subtitle"/>
+
+    <TextView
+        android:id="@+id/subtitle"
+        style="@style/BrowseGridSubtitleStyle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:duplicateParentState="true"
+        app:layout_constraintTop_toBottomOf="@+id/title"
+        app:layout_constraintStart_toEndOf="@+id/explicit_icon_with_subtitle"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

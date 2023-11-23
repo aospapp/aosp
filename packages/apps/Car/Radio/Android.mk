@@ -27,7 +27,10 @@ LOCAL_AIDL_INCLUDES := \
     $(CAR_BROADCASTRADIO_SUPPORTLIB_PATH)/src
 
 LOCAL_PACKAGE_NAME := CarRadioApp
+
 LOCAL_PRIVATE_PLATFORM_APIS := true
+
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.radio
 
 LOCAL_CERTIFICATE := platform
 
@@ -39,37 +42,29 @@ LOCAL_USE_AAPT2 := true
 
 LOCAL_JAVA_LIBRARIES += android.car
 
-LOCAL_STATIC_ANDROID_LIBRARIES += \
-    android-support-car \
-    android-support-constraint-layout \
-    car-apps-common \
-    car-broadcastradio-support \
-    car-stream-ui-lib
-
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-arch-lifecycle-livedata \
-    android-arch-persistence-db-framework \
-    android-arch-persistence-db \
-    android-support-constraint-layout-solver \
-    bcradio-android-arch-room-common-nodeps \
-    bcradio-android-arch-room-runtime-nodeps
+    androidx.lifecycle_lifecycle-livedata \
+    androidx.sqlite_sqlite-framework \
+    androidx.sqlite_sqlite \
+    car-androidx-room-common-nodeps \
+    car-androidx-room-runtime-nodeps
 
 LOCAL_ANNOTATION_PROCESSORS := \
-    bcradio-android-arch-room-common-nodeps \
-    bcradio-android-arch-room-compiler-nodeps \
-    bcradio-android-arch-room-migration-nodeps \
-    bcradio-android-support-annotations-nodeps \
-    bcradio-antlr4-nodeps \
-    bcradio-apache-commons-codec-nodeps \
-    bcradio-auto-common-nodeps \
-    bcradio-javapoet-nodeps \
-    bcradio-kotlin-metadata-nodeps \
-    bcradio-sqlite-jdbc-nodeps \
+    car-androidx-annotation-nodeps \
+    car-androidx-room-common-nodeps \
+    car-androidx-room-compiler-nodeps \
+    car-androidx-room-migration-nodeps \
+    car-antlr4-nodeps \
+    car-apache-commons-codec-nodeps \
+    car-auto-common-nodeps \
+    car-javapoet-nodeps \
+    car-kotlin-metadata-nodeps \
+    car-sqlite-jdbc-nodeps \
     guava-21.0 \
     kotlin-stdlib
 
 LOCAL_ANNOTATION_PROCESSOR_CLASSES := \
-    android.arch.persistence.room.RoomProcessor
+    androidx.room.RoomProcessor
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
@@ -77,33 +72,18 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
 
+LOCAL_STATIC_ANDROID_LIBRARIES += \
+    androidx-constraintlayout_constraintlayout \
+    car-apps-common \
+    car-media-common \
+    car-broadcastradio-support
+
+# Including the resources for the static android libraries allows to pick up their static overlays.
+LOCAL_RESOURCE_DIR += \
+    $(LOCAL_PATH)/../libs/car-apps-common/res \
+    $(LOCAL_PATH)/../libs/car-broadcastradio-support/res \
+    $(LOCAL_PATH)/../libs/car-media-common/res
+
 include $(BUILD_PACKAGE)
-
-include $(CLEAR_VARS)
-
-LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
-    bcradio-android-arch-room-runtime-nodeps:libs/android-arch/room/runtime-1.1.0-beta3.aar \
-    bcradio-android-arch-room-common-nodeps:libs/android-arch/room/common-1.1.0-beta3.jar
-
-include $(BUILD_MULTI_PREBUILT)
-
-include $(CLEAR_VARS)
-
-COMMON_LIBS_PATH := ../../../../prebuilts/tools/common/m2/repository
-MAVEN_LIBS_PATH := ../../../../prebuilts/maven_repo/android
-
-LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
-    bcradio-android-arch-room-common-nodeps:libs/android-arch/room/common-1.1.0-beta3.jar \
-    bcradio-android-arch-room-compiler-nodeps:libs/android-arch/room/compiler-1.1.0-beta3.jar \
-    bcradio-android-arch-room-migration-nodeps:libs/android-arch/room/migration-1.1.0-beta3.jar \
-    bcradio-android-support-annotations-nodeps:$(MAVEN_LIBS_PATH)/com/android/support/support-annotations/27.1.0/support-annotations-27.1.0.jar \
-    bcradio-antlr4-nodeps:$(COMMON_LIBS_PATH)/org/antlr/antlr4/4.5.3/antlr4-4.5.3.jar \
-    bcradio-apache-commons-codec-nodeps:$(COMMON_LIBS_PATH)/org/eclipse/tycho/tycho-bundles-external/0.18.1/eclipse/plugins/org.apache.commons.codec_1.4.0.v201209201156.jar \
-    bcradio-auto-common-nodeps:$(COMMON_LIBS_PATH)/com/google/auto/auto-common/0.9/auto-common-0.9.jar \
-    bcradio-javapoet-nodeps:$(COMMON_LIBS_PATH)/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar \
-    bcradio-kotlin-metadata-nodeps:$(COMMON_LIBS_PATH)/me/eugeniomarletti/kotlin-metadata/1.2.1/kotlin-metadata-1.2.1.jar \
-    bcradio-sqlite-jdbc-nodeps:$(COMMON_LIBS_PATH)/org/xerial/sqlite-jdbc/3.20.1/sqlite-jdbc-3.20.1.jar
-
-include $(BUILD_HOST_PREBUILT)
 
 endif

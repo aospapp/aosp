@@ -19,8 +19,9 @@ package com.android.tv.settings.system.development;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
-import android.support.annotation.Nullable;
-import android.support.v7.preference.Preference;
+
+import androidx.annotation.Nullable;
+import androidx.preference.Preference;
 
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.development.AbstractLogpersistPreferenceController;

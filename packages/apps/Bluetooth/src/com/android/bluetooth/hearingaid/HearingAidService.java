@@ -28,15 +28,17 @@ import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.HandlerThread;
 import android.os.ParcelUuid;
-import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.btservice.ServiceFactory;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @hide
  */
 public class HearingAidService extends ProfileService {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "HearingAidService";
 
     // Upper limit of all HearingAid devices: Bonded or Connected
@@ -70,10 +72,13 @@ public class HearingAidService extends ProfileService {
             new HashMap<>();
     private final Map<BluetoothDevice, Long> mDeviceHiSyncIdMap = new ConcurrentHashMap<>();
     private final Map<BluetoothDevice, Integer> mDeviceCapabilitiesMap = new HashMap<>();
+    private final Map<Long, Boolean> mHiSyncIdConnectedMap = new HashMap<>();
     private long mActiveDeviceHiSyncId = BluetoothHearingAid.HI_SYNC_ID_INVALID;
 
     private BroadcastReceiver mBondStateChangedReceiver;
     private BroadcastReceiver mConnectionStateChangedReceiver;
+
+    private final ServiceFactory mFactory = new ServiceFactory();
 
     @Override
     protected IProfileServiceBinder initBinder() {
@@ -111,9 +116,10 @@ public class HearingAidService extends ProfileService {
         mStateMachinesThread = new HandlerThread("HearingAidService.StateMachines");
         mStateMachinesThread.start();
 
-        // Clear HiSyncId map and capabilities map
+        // Clear HiSyncId map, capabilities map and HiSyncId Connected map
         mDeviceHiSyncIdMap.clear();
         mDeviceCapabilitiesMap.clear();
+        mHiSyncIdConnectedMap.clear();
 
         // Setup broadcast receivers
         IntentFilter filter = new IntentFilter();
@@ -166,9 +172,10 @@ public class HearingAidService extends ProfileService {
             mStateMachines.clear();
         }
 
-        // Clear HiSyncId map and capabilities map
+        // Clear HiSyncId map, capabilities map and HiSyncId Connected map
         mDeviceHiSyncIdMap.clear();
         mDeviceCapabilitiesMap.clear();
+        mHiSyncIdConnectedMap.clear();
 
         if (mStateMachinesThread != null) {
             mStateMachinesThread.quitSafely();
@@ -320,13 +327,28 @@ public class HearingAidService extends ProfileService {
     }
 
     /**
+     * Check any peer device is connected.
+     * The check considers any peer device is connected.
+     *
+     * @param device the peer device to connect to
+     * @return true if there are any peer device connected.
+     */
+    public boolean isConnectedPeerDevices(BluetoothDevice device) {
+        long hiSyncId = getHiSyncId(device);
+        if (getConnectedPeerDevices(hiSyncId).isEmpty()) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Check whether can connect to a peer device.
      * The check considers a number of factors during the evaluation.
      *
      * @param device the peer device to connect to
      * @return true if connection is allowed, otherwise false
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public boolean okToConnect(BluetoothDevice device) {
         // Check if this is an incoming connection in Quiet mode.
         if (mAdapterService.isQuietModeEnabled()) {
@@ -334,24 +356,18 @@ public class HearingAidService extends ProfileService {
             return false;
         }
         // Check priority and accept or reject the connection.
-        // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
         int bondState = mAdapterService.getBondState(device);
-        // If priority is undefined, it is likely that service discovery has not completed and peer
-        // initiated the connection. Allow this connection only if the device is bonded or bonding
-        boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED)
-                && (bondState == BluetoothDevice.BOND_BONDING
-                   || bondState == BluetoothDevice.BOND_BONDED);
-        // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-        boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT)
-                && (bondState == BluetoothDevice.BOND_BONDED
-                   || bondState == BluetoothDevice.BOND_BONDING);
-        if (!serviceDiscoveryPending && !isEnabled) {
-            // Otherwise, reject the connection if no service discovery is pending and priority is
-            // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-            Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                    + bondState);
+        // Allow this connection only if the device is bonded. Any attempt to connect while
+        // bonding would potentially lead to an unauthorized connection.
+        if (bondState != BluetoothDevice.BOND_BONDED) {
+            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
+            return false;
+        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                && priority != BluetoothProfile.PRIORITY_ON
+                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            // Otherwise, reject the connection if priority is not valid.
+            Log.w(TAG, "okToConnect: return false, priority=" + priority);
             return false;
         }
         return true;
@@ -405,6 +421,16 @@ public class HearingAidService extends ProfileService {
         }
     }
 
+    /**
+     * Get the HiSyncIdMap for testing
+     *
+     * @return mDeviceHiSyncIdMap
+     */
+    @VisibleForTesting
+    Map<BluetoothDevice, Long> getHiSyncIdMap() {
+        return mDeviceHiSyncIdMap;
+    }
+
     int getConnectionState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         synchronized (mStateMachines) {
@@ -425,20 +451,18 @@ public class HearingAidService extends ProfileService {
      */
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHearingAidPriorityKey(device.getAddress()), priority);
         if (DBG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEARING_AID, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHearingAidPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEARING_AID);
     }
 
     void setVolume(int volume) {
@@ -481,6 +505,15 @@ public class HearingAidService extends ProfileService {
             Long deviceHiSyncId = mDeviceHiSyncIdMap.getOrDefault(device,
                     BluetoothHearingAid.HI_SYNC_ID_INVALID);
             if (deviceHiSyncId != mActiveDeviceHiSyncId) {
+                // Give an early notification to A2DP that active device is being switched
+                // to Hearing Aids before the Audio Service.
+                final A2dpService a2dpService = mFactory.getA2dpService();
+                if (a2dpService != null) {
+                    if (DBG) {
+                        Log.d(TAG, "earlyNotifyHearingAidActive for " + device);
+                    }
+                    a2dpService.earlyNotifyHearingAidActive();
+                }
                 mActiveDeviceHiSyncId = deviceHiSyncId;
                 reportActiveDevice(device);
             }
@@ -495,7 +528,7 @@ public class HearingAidService extends ProfileService {
      * device; the second element is the right active device. If either or both side
      * is not active, it will be null on that position
      */
-    List<BluetoothDevice> getActiveDevices() {
+    public List<BluetoothDevice> getActiveDevices() {
         if (DBG) {
             Log.d(TAG, "getActiveDevices");
         }
@@ -598,6 +631,9 @@ public class HearingAidService extends ProfileService {
             Log.d(TAG, "reportActiveDevice(" + device + ")");
         }
 
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEARING_AID,
+                mAdapterService.obfuscateAddress(device));
+
         Intent intent = new Intent(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
@@ -608,19 +644,24 @@ public class HearingAidService extends ProfileService {
             if (DBG) {
                 Log.d(TAG, "Set Hearing Aid audio to disconnected");
             }
-            mAudioManager.setHearingAidDeviceConnectionState(mPreviousAudioDevice,
-                    BluetoothProfile.STATE_DISCONNECTED);
+            boolean suppressNoisyIntent =
+                    (getConnectionState(mPreviousAudioDevice) == BluetoothProfile.STATE_CONNECTED);
+            mAudioManager.setBluetoothHearingAidDeviceConnectionState(
+                    mPreviousAudioDevice, BluetoothProfile.STATE_DISCONNECTED,
+                    suppressNoisyIntent, 0);
             mPreviousAudioDevice = null;
         } else {
             if (DBG) {
                 Log.d(TAG, "Set Hearing Aid audio to connected");
             }
             if (mPreviousAudioDevice != null) {
-                mAudioManager.setHearingAidDeviceConnectionState(mPreviousAudioDevice,
-                        BluetoothProfile.STATE_DISCONNECTED);
+                mAudioManager.setBluetoothHearingAidDeviceConnectionState(
+                        mPreviousAudioDevice, BluetoothProfile.STATE_DISCONNECTED,
+                        true, 0);
             }
-            mAudioManager.setHearingAidDeviceConnectionState(device,
-                    BluetoothProfile.STATE_CONNECTED);
+            mAudioManager.setBluetoothHearingAidDeviceConnectionState(
+                    device, BluetoothProfile.STATE_CONNECTED,
+                    true, 0);
             mPreviousAudioDevice = device;
         }
     }
@@ -658,6 +699,7 @@ public class HearingAidService extends ProfileService {
         if (bondState != BluetoothDevice.BOND_NONE) {
             return;
         }
+        mDeviceHiSyncIdMap.remove(device);
         synchronized (mStateMachines) {
             HearingAidStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
@@ -712,10 +754,15 @@ public class HearingAidService extends ProfileService {
                 MetricsLogger.logProfileConnectionEvent(
                         BluetoothMetricsProto.ProfileId.HEARING_AID);
             }
-            setActiveDevice(device);
+            if (!mHiSyncIdConnectedMap.getOrDefault(myHiSyncId, false)) {
+                setActiveDevice(device);
+                mHiSyncIdConnectedMap.put(myHiSyncId, true);
+            }
         }
         if (fromState == BluetoothProfile.STATE_CONNECTED && getConnectedDevices().isEmpty()) {
             setActiveDevice(null);
+            long myHiSyncId = getHiSyncId(device);
+            mHiSyncIdConnectedMap.put(myHiSyncId, false);
         }
         // Check if the device is disconnected - if unbond, remove the state machine
         if (toState == BluetoothProfile.STATE_DISCONNECTED) {

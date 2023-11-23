@@ -24,10 +24,12 @@ import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.util.Arrays;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PackageInfoTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private PackageInfo mPackageInfo;

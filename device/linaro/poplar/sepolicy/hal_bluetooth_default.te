@@ -1,0 +1,16 @@
+allow hal_bluetooth_default sysfs:file { write };
+allow hal_bluetooth_default ttyAMA2_device:chr_file { read write open ioctl };
+allow hal_bluetooth_default rtk_bt_device:chr_file { read write open ioctl };
+# Socket creation under /data/misc/bluedroid.
+type_transition hal_bluetooth_default bluetooth_data_file:sock_file bluetooth_socket;
+
+# Allow access to net_admin ioctls
+allowxperm hal_bluetooth_default self:udp_socket ioctl priv_sock_ioctls;
+
+#allow hal_bluetooth_default bluetooth_data_file:dir create_dir_perms;
+#allow hal_bluetooth_default bluetooth_data_file:file create_file_perms;
+#allow hal_bluetooth_default rtk_bt_device:chr_file rw_file_perms;
+
+# Socket creation under /data/misc/bluedroid.
+#allow hal_bluetooth_default bluetooth_socket:sock_file create_file_perms;
+allow hal_bluetooth_default self:capability net_admin;

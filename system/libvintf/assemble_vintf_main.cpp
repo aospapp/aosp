@@ -34,7 +34,8 @@ void help() {
                  "               A list of input files. Format is automatically detected for the\n"
                  "               first file, and the remaining files must have the same format.\n"
                  "               Files other than the first file should only have <hal> defined;\n"
-                 "               other entries are ignored.\n"
+                 "               other entries are ignored. Argument may also be specified\n"
+                 "               multiple times.\n"
                  "    -o <output file>\n"
                  "               Optional output file. If not specified, write to stdout.\n"
                  "    -m\n"
@@ -43,24 +44,32 @@ void help() {
                  "               a framework compatibility matrix is generated. This flag\n"
                  "               is ignored when input is a compatibility matrix.\n"
                  "    -c [<check file>]\n"
-                 "               After writing the output file, check compatibility between\n"
-                 "               output file and check file.\n"
-                 "               If -c is set but the check file is not specified, a warning\n"
-                 "               message is written to stderr. Return 0.\n"
-                 "               If the check file is specified but is not compatible, an error\n"
-                 "               message is written to stderr. Return 1.\n"
-                 "    --kernel=<version>:<android-base.cfg>[:<android-base-arch.cfg>[...]]\n"
-                 "               Add a kernel entry to framework compatibility matrix.\n"
-                 "               Ignored for other input format.\n"
-                 "               <version> has format: 3.18\n"
-                 "               <android-base.cfg> is the location of android-base.cfg\n"
-                 "               <android-base-arch.cfg> is the location of an optional\n"
+                 "               The path of the \"check file\"; for example, this is the path\n"
+                 "               of the device manifest for framework compatibility matrix.\n"
+                 "               After writing the output file, the program checks against\n"
+                 "               the \"check file\", depending on environment variables.\n"
+                 "               - PRODUCT_ENFORCE_VINTF_MANIFEST=true: check compatibility\n"
+                 "               - VINTF_ENFORCE_NO_UNUSED_HALS  =true: check unused HALs\n"
+                 "               If any check fails, an error message is written to stderr.\n"
+                 "               Return 1.\n"
+                 "    --kernel=<version>:<android-base.config>[:<android-base-arch.config>[...]]\n"
+                 "               Add a kernel entry to framework compatibility matrix or device\n"
+                 "               manifest. Ignored for other input format.\n"
+                 "               There can be any number of --kernel for framework compatibility\n"
+                 "               matrix, but at most one --kernel and at most one config file for\n"
+                 "               device manifest.\n"
+                 "               <version> has format: 3.18.0\n"
+                 "               <android-base.config> is the location of android-base.config\n"
+                 "               <android-base-arch.config> is the location of an optional\n"
                  "               arch-specific config fragment, more than one may be specified\n"
                  "    -l, --hals-only\n"
                  "               Output has only <hal> entries. Cannot be used with -n.\n"
                  "    -n, --no-hals\n"
                  "               Output has no <hal> entries (but all other entries).\n"
-                 "               Cannot be used with -l.\n";
+                 "               Cannot be used with -l.\n"
+                 "    --no-kernel-requirements\n"
+                 "               Output has no <config> entries in <kernel>, and kernel minor\n"
+                 "               version is set to zero. (For example, 3.18.0).\n";
 }
 
 int main(int argc, char** argv) {
@@ -68,6 +77,7 @@ int main(int argc, char** argv) {
     const struct option longopts[] = {{"kernel", required_argument, NULL, 'k'},
                                       {"hals-only", no_argument, NULL, 'l'},
                                       {"no-hals", no_argument, NULL, 'n'},
+                                      {"no-kernel-requirements", no_argument, NULL, 'K'},
                                       {0, 0, 0, 0}};
 
     std::string outFilePath;
@@ -119,6 +129,12 @@ int main(int argc, char** argv) {
 
             case 'n': {
                 if (!assembleVintf->setNoHals()) {
+                    return 1;
+                }
+            } break;
+
+            case 'K': {
+                if (!assembleVintf->setNoKernelRequirements()) {
                     return 1;
                 }
             } break;

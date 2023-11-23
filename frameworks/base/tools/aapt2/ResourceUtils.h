@@ -20,6 +20,8 @@
 #include <functional>
 #include <memory>
 
+#include "androidfw/AssetManager2.h"
+#include "androidfw/ConfigDescription.h"
 #include "androidfw/ResourceTypes.h"
 #include "androidfw/StringPiece.h"
 
@@ -75,6 +77,12 @@ bool IsAttributeReference(const android::StringPiece& str);
  */
 Maybe<ResourceName> ToResourceName(
     const android::ResTable::resource_name& name);
+
+/**
+ * Convert an android::AssetManager2::ResourceName to an aapt::ResourceName struct.
+ */
+Maybe<ResourceName> ToResourceName(
+    const android::AssetManager2::ResourceName& name_in);
 
 /**
  * Returns a boolean value if the string is equal to TRUE, true, True, FALSE,
@@ -219,7 +227,8 @@ std::string BuildResourceFileName(const ResourceFile& res_file,
 
 // Parses the binary form of a resource value. `type` is used as a hint to know when a value is
 // an ID versus a False boolean value, etc. `config` is for sorting strings in the string pool.
-std::unique_ptr<Item> ParseBinaryResValue(const ResourceType& type, const ConfigDescription& config,
+std::unique_ptr<Item> ParseBinaryResValue(const ResourceType& type,
+                                          const android::ConfigDescription& config,
                                           const android::ResStringPool& src_pool,
                                           const android::Res_value& res_value,
                                           StringPool* dst_pool);

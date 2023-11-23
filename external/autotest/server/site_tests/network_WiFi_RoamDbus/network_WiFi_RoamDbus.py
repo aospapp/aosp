@@ -2,9 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-import time
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.network import hostap_config
@@ -37,27 +36,6 @@ class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
         scan_results = runner.scan(self.context.client.wifi_if)
         return scan_results and filter(is_requested_bss, scan_results)
 
-
-    def retry(self, func, reason, timeout_seconds=TIMEOUT_SECONDS):
-        """
-        Retry a function until it returns true or we time out.
-
-        @param func: function that takes no parameters.
-        @param reason: string concise description of what the function does.
-        @param timeout_seconds: int number of seconds to wait for a True
-                response from |func|.
-
-        """
-        logging.info('Waiting for %s.', reason)
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            if func():
-                return
-            time.sleep(1)
-        else:
-            raise error.TestFail('Timed out waiting for %s.' % reason)
-
-
     def run_once(self,host):
         """Test body."""
         self._router0_conf = hostap_config.HostapConfig(channel=48,
@@ -82,7 +60,12 @@ class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
         bssid1 = self.context.router.get_hostapd_mac(1)
 
         # Wait for DUT to see the second AP
-        self.retry(lambda: self.dut_sees_bss(bssid1), 'DUT to see second AP')
+        utils.poll_for_condition(
+                condition=lambda: self.dut_sees_bss(bssid1),
+                exception=error.TestFail(
+                        'Timed out waiting for DUT to see second AP'),
+                timeout=self.TIMEOUT_SECONDS,
+                sleep_interval=1)
 
         # Check which AP we are currently connected.
         # This is to include the case that wpa_supplicant

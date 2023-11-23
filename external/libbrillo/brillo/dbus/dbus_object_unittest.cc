@@ -43,6 +43,8 @@ const char kTestMethod_NoOp[] = "NoOp";
 const char kTestMethod_WithMessage[] = "TestWithMessage";
 const char kTestMethod_WithMessageAsync[] = "TestWithMessageAsync";
 
+const char kTestInterface4[] = "org.chromium.Test.LateInterface";
+
 struct Calc {
   int Add(int x, int y) { return x + y; }
   int Negate(int x) { return -x; }
@@ -87,6 +89,10 @@ void TestWithMessageAsync(
     std::unique_ptr<DBusMethodResponse<std::string>> response,
     dbus::Message* message) {
   response->Return(message->GetSender());
+}
+
+void OnInterfaceExported(bool success) {
+  // Does nothing.
 }
 
 }  // namespace
@@ -313,6 +319,35 @@ TEST_F(DBusObjectTest, TestWithMessageAsync) {
   ASSERT_TRUE(reader.PopString(&message));
   ASSERT_FALSE(reader.HasMoreData());
   EXPECT_EQ(sender, message);
+}
+
+TEST_F(DBusObjectTest, TestRemovedInterface) {
+  // Removes the interface to be tested.
+  dbus_object_->RemoveInterface(kTestInterface3);
+
+  const std::string sender{":1.2345"};
+  dbus::MethodCall method_call(kTestInterface3, kTestMethod_WithMessage);
+  method_call.SetSerial(123);
+  method_call.SetSender(sender);
+  auto response = testing::CallMethod(*dbus_object_, &method_call);
+  // The response should contain error UnknownInterface since the interface has
+  // been intentionally removed.
+  EXPECT_EQ(DBUS_ERROR_UNKNOWN_INTERFACE, response->GetErrorName());
+}
+
+TEST_F(DBusObjectTest, TestInterfaceExportedLate) {
+  // Registers a new interface late.
+  dbus_object_->ExportInterfaceAsync(kTestInterface4,
+                                     base::Bind(&OnInterfaceExported));
+
+  const std::string sender{":1.2345"};
+  dbus::MethodCall method_call(kTestInterface4, kTestMethod_WithMessage);
+  method_call.SetSerial(123);
+  method_call.SetSender(sender);
+  auto response = testing::CallMethod(*dbus_object_, &method_call);
+  // The response should contain error UnknownMethod rather than
+  // UnknownInterface since the interface has been registered late.
+  EXPECT_EQ(DBUS_ERROR_UNKNOWN_METHOD, response->GetErrorName());
 }
 
 TEST_F(DBusObjectTest, TooFewParams) {

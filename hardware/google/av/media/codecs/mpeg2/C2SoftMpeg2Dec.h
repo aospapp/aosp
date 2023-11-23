@@ -125,13 +125,6 @@ struct C2SoftMpeg2Dec : public SimpleC2Component {
                        size_t inSize,
                        uint32_t tsMarker);
     bool getSeqInfo();
-    // TODO:This is not the right place for colorAspects functions. These should
-    // be part of c2-vndk so that they can be accessed by all video plugins
-    // until then, make them feel at home
-    bool colorAspectsDiffer(const ColorAspects &a, const ColorAspects &b);
-    void updateFinalColorAspects(
-            const ColorAspects &otherAspects, const ColorAspects &preferredAspects);
-    status_t handleColorAspectsChange();
     c2_status_t ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool);
     void finishWork(uint64_t index, const std::unique_ptr<C2Work> &work);
     status_t setFlushMode();
@@ -169,13 +162,23 @@ struct C2SoftMpeg2Dec : public SimpleC2Component {
     bool mSignalledOutputEos;
     bool mSignalledError;
 
-    // ColorAspects
-    Mutex mColorAspectsLock;
-    int mPreference;
-    ColorAspects mDefaultColorAspects;
-    ColorAspects mBitstreamColorAspects;
-    ColorAspects mFinalColorAspects;
-    bool mUpdateColorAspects;
+    // Color aspects. These are ISO values and are meant to detect changes in aspects to avoid
+    // converting them to C2 values for each frame
+    struct VuiColorAspects {
+        uint8_t primaries;
+        uint8_t transfer;
+        uint8_t coeffs;
+        uint8_t fullRange;
+
+        // default color aspects
+        VuiColorAspects()
+            : primaries(2), transfer(2), coeffs(2), fullRange(0) { }
+
+        bool operator==(const VuiColorAspects &o) {
+            return primaries == o.primaries && transfer == o.transfer && coeffs == o.coeffs
+                    && fullRange == o.fullRange;
+        }
+    } mBitstreamColorAspects;
 
     // profile
     struct timeval mTimeStart;

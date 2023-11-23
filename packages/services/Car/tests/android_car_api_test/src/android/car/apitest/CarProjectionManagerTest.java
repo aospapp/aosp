@@ -18,12 +18,20 @@ package android.car.apitest;
 import android.app.Service;
 import android.car.Car;
 import android.car.CarProjectionManager;
+import android.car.CarProjectionManager.ProjectionAccessPointCallback;
 import android.content.Intent;
+import android.net.wifi.WifiConfiguration;
 import android.os.Binder;
 import android.os.IBinder;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.Suppress;
 
-@MediumTest
+import androidx.test.filters.RequiresDevice;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+@LargeTest
 public class CarProjectionManagerTest extends CarApiTestBase {
     private static final String TAG = CarProjectionManagerTest.class.getSimpleName();
 
@@ -77,7 +85,7 @@ public class CarProjectionManagerTest extends CarApiTestBase {
         try {
             mManager.registerProjectionListener(null, CarProjectionManager.PROJECTION_VOICE_SEARCH);
             fail();
-        } catch (IllegalArgumentException e) {
+        } catch (NullPointerException e) {
             // expected.
         }
     }
@@ -95,5 +103,23 @@ public class CarProjectionManagerTest extends CarApiTestBase {
         }
         assertTrue(TestService.getBound());
         mManager.unregisterProjectionRunner(intent);
+    }
+
+    //TODO(b/120081013): move this test to CTS
+    @Suppress
+    @RequiresDevice
+    public void testAccessPoint() throws Exception {
+        CountDownLatch startedLatch = new CountDownLatch(1);
+
+        mManager.startProjectionAccessPoint(new ProjectionAccessPointCallback() {
+            @Override
+            public void onStarted(WifiConfiguration wifiConfiguration) {
+                startedLatch.countDown();
+            }
+        });
+
+        assertTrue(startedLatch.await(30, TimeUnit.SECONDS));
+
+        mManager.stopProjectionAccessPoint();
     }
 }

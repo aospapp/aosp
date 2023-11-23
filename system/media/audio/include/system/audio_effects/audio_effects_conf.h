@@ -44,14 +44,15 @@
 #define STRING_TAG "string"
 
 // audio_source_t
-#define MIC_SRC_TAG "mic"                           // AUDIO_SOURCE_MIC
-#define VOICE_UL_SRC_TAG "voice_uplink"             // AUDIO_SOURCE_VOICE_UPLINK
-#define VOICE_DL_SRC_TAG "voice_downlink"           // AUDIO_SOURCE_VOICE_DOWNLINK
-#define VOICE_CALL_SRC_TAG "voice_call"             // AUDIO_SOURCE_VOICE_CALL
-#define CAMCORDER_SRC_TAG "camcorder"               // AUDIO_SOURCE_CAMCORDER
-#define VOICE_REC_SRC_TAG "voice_recognition"       // AUDIO_SOURCE_VOICE_RECOGNITION
-#define VOICE_COMM_SRC_TAG "voice_communication"    // AUDIO_SOURCE_VOICE_COMMUNICATION
-#define UNPROCESSED_SRC_TAG "unprocessed"           // AUDIO_SOURCE_UNPROCESSED
+#define MIC_SRC_TAG "mic"                             // AUDIO_SOURCE_MIC
+#define VOICE_UL_SRC_TAG "voice_uplink"               // AUDIO_SOURCE_VOICE_UPLINK
+#define VOICE_DL_SRC_TAG "voice_downlink"             // AUDIO_SOURCE_VOICE_DOWNLINK
+#define VOICE_CALL_SRC_TAG "voice_call"               // AUDIO_SOURCE_VOICE_CALL
+#define CAMCORDER_SRC_TAG "camcorder"                 // AUDIO_SOURCE_CAMCORDER
+#define VOICE_REC_SRC_TAG "voice_recognition"         // AUDIO_SOURCE_VOICE_RECOGNITION
+#define VOICE_COMM_SRC_TAG "voice_communication"      // AUDIO_SOURCE_VOICE_COMMUNICATION
+#define UNPROCESSED_SRC_TAG "unprocessed"             // AUDIO_SOURCE_UNPROCESSED
+#define VOICE_PERFORMANCE_SRC_TAG "voice_performance" // AUDIO_SOURCE_VOICE_PERFORMANCE
 
 // audio_stream_type_t
 #define AUDIO_STREAM_DEFAULT_TAG "default"

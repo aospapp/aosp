@@ -18,13 +18,14 @@ package com.android.tradefed.testtype.junit4;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.invoker.IInvocationContext;
@@ -32,6 +33,7 @@ import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.targetprep.suite.SuiteApkInstaller;
@@ -39,6 +41,7 @@ import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.HostTest;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.ListInstrumentationParser;
 
 import org.easymock.EasyMock;
 import org.junit.Assert;
@@ -50,6 +53,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -76,6 +80,18 @@ public class BaseHostJUnit4TestTest {
             listener.testRunEnded(500l, new HashMap<String, Metric>());
             return listener;
         }
+
+        @Override
+        ListInstrumentationParser getListInstrumentationParser() {
+            ListInstrumentationParser parser = new ListInstrumentationParser();
+            parser.processNewLines(
+                    new String[] {
+                        "instrumentation:com.package/"
+                                + "android.support.test.runner.AndroidJUnitRunner "
+                                + "(target=com.example2)"
+                    });
+            return parser;
+        }
     }
 
     /**
@@ -83,7 +99,7 @@ public class BaseHostJUnit4TestTest {
      * run.
      */
     @RunWith(DeviceJUnit4ClassRunner.class)
-    public static class FailureHostJUnit4Test extends BaseHostJUnit4Test {
+    public static class FailureHostJUnit4Test extends TestableHostJUnit4Test {
         @Test
         public void testOne() {
             Assert.assertNotNull(getDevice());
@@ -137,7 +153,7 @@ public class BaseHostJUnit4TestTest {
         mMockListener.testStarted(tid);
         mMockListener.testEnded(tid, new HashMap<String, Metric>());
         mMockListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         EasyMock.replay(mMockListener, mMockBuild, mMockDevice);
         mHostTest.run(mMockListener);
         EasyMock.verify(mMockListener, mMockBuild, mMockDevice);
@@ -153,11 +169,13 @@ public class BaseHostJUnit4TestTest {
         test.setDevice(mMockDevice);
         test.setBuild(mMockBuild);
         test.setInvocationContext(mMockContext);
+        mMockDevice.executeShellCommand(
+                EasyMock.eq("pm list instrumentation"), EasyMock.anyObject());
         EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.expect(
                         mMockDevice.runInstrumentationTests(
                                 (IRemoteAndroidTestRunner) EasyMock.anyObject(),
-                                (ITestInvocationListener) EasyMock.anyObject()))
+                                EasyMock.<Collection<ITestLifeCycleReceiver>>anyObject()))
                 .andReturn(true);
         EasyMock.replay(mMockBuild, mMockDevice);
         try {
@@ -177,7 +195,7 @@ public class BaseHostJUnit4TestTest {
                 new TestableHostJUnit4Test() {
                     @Override
                     RemoteAndroidTestRunner createTestRunner(
-                            String packageName, String runnerName, IDevice device) {
+                            String packageName, String runnerName, ITestDevice device) {
                         return runner;
                     }
                 };
@@ -185,11 +203,10 @@ public class BaseHostJUnit4TestTest {
         test.setBuild(mMockBuild);
         test.setInvocationContext(mMockContext);
         test.setAbi(new Abi("arm", "32"));
-        EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.expect(
                         mMockDevice.runInstrumentationTests(
                                 (IRemoteAndroidTestRunner) EasyMock.anyObject(),
-                                (ITestInvocationListener) EasyMock.anyObject()))
+                                EasyMock.<Collection<ITestLifeCycleReceiver>>anyObject()))
                 .andReturn(true);
         EasyMock.replay(mMockBuild, mMockDevice);
         try {
@@ -213,16 +230,18 @@ public class BaseHostJUnit4TestTest {
         test.setDevice(mMockDevice);
         test.setBuild(mMockBuild);
         test.setInvocationContext(mMockContext);
+        mMockDevice.executeShellCommand(
+                EasyMock.eq("pm list instrumentation"), EasyMock.anyObject());
         EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.expect(
                         mMockDevice.runInstrumentationTestsAsUser(
                                 (IRemoteAndroidTestRunner) EasyMock.anyObject(),
                                 EasyMock.eq(0),
-                                (ITestInvocationListener) EasyMock.anyObject()))
+                                EasyMock.<Collection<ITestLifeCycleReceiver>>anyObject()))
                 .andReturn(true);
         EasyMock.replay(mMockBuild, mMockDevice);
         try {
-            test.runDeviceTests("package", "class", 0, null);
+            test.runDeviceTests("com.package", "class", 0, null);
         } catch (AssumptionViolatedException e) {
             // Ensure that the Assume logic in the test does not make a false pass for the unit test
             fail("Should not have thrown an Assume exception.");
@@ -236,24 +255,38 @@ public class BaseHostJUnit4TestTest {
      */
     @Test
     public void testRunDeviceTestsWithOptions() throws Exception {
-        TestableHostJUnit4Test test = new TestableHostJUnit4Test();
+        RemoteAndroidTestRunner mockRunner = Mockito.mock(RemoteAndroidTestRunner.class);
+        TestableHostJUnit4Test test =
+                new TestableHostJUnit4Test() {
+                    @Override
+                    RemoteAndroidTestRunner createTestRunner(
+                            String packageName, String runnerName, ITestDevice device)
+                            throws DeviceNotAvailableException {
+                        return mockRunner;
+                    }
+                };
         test.setDevice(mMockDevice);
         test.setBuild(mMockBuild);
         test.setInvocationContext(mMockContext);
-        EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.expect(
                         mMockDevice.runInstrumentationTests(
                                 (IRemoteAndroidTestRunner) EasyMock.anyObject(),
-                                (ITestInvocationListener) EasyMock.anyObject()))
+                                EasyMock.<Collection<ITestLifeCycleReceiver>>anyObject()))
                 .andReturn(true);
         EasyMock.replay(mMockBuild, mMockDevice);
         try {
             test.runDeviceTests(
-                    new DeviceTestRunOptions("com.package").setTestClassName("testClass"));
+                    new DeviceTestRunOptions("com.package")
+                            .setTestClassName("testClass")
+                            .addInstrumentationArg("test", "value")
+                            .addInstrumentationArg("test2", "value2"));
         } catch (AssumptionViolatedException e) {
             // Ensure that the Assume logic in the test does not make a false pass for the unit test
             fail("Should not have thrown an Assume exception.");
         }
+        // Our args are translated to the runner
+        Mockito.verify(mockRunner).addInstrumentationArg("test", "value");
+        Mockito.verify(mockRunner).addInstrumentationArg("test2", "value2");
         EasyMock.verify(mMockBuild, mMockDevice);
     }
 
@@ -267,15 +300,17 @@ public class BaseHostJUnit4TestTest {
         test.setDevice(mMockDevice);
         test.setBuild(mMockBuild);
         test.setInvocationContext(mMockContext);
+        mMockDevice.executeShellCommand(
+                EasyMock.eq("pm list instrumentation"), EasyMock.anyObject());
         EasyMock.expect(mMockDevice.getIDevice()).andReturn(new StubDevice("serial"));
         EasyMock.expect(
                         mMockDevice.runInstrumentationTests(
                                 (IRemoteAndroidTestRunner) EasyMock.anyObject(),
-                                (ITestInvocationListener) EasyMock.anyObject()))
+                                EasyMock.<Collection<ITestLifeCycleReceiver>>anyObject()))
                 .andReturn(true);
         EasyMock.replay(mMockBuild, mMockDevice);
         try {
-            test.runDeviceTests("com.package", "testClass");
+            test.runDeviceTests("com.package", "class");
         } catch (AssumptionViolatedException e) {
             // Ensure that the Assume logic in the test does not make a false pass for the unit test
             fail("Should not have thrown an Assume exception.");
@@ -330,6 +365,9 @@ public class BaseHostJUnit4TestTest {
             mMockListener.testStarted(description);
             Map<String, String> properties = new HashMap<>();
             properties.put("ROOT_DIR", fakeTestsDir.getAbsolutePath());
+            EasyMock.expect(mMockBuild.getFile("apkFileName")).andReturn(null);
+            EasyMock.expect(mMockBuild.getFile(BuildInfoFileKey.SHARED_RESOURCE_DIR))
+                    .andReturn(null);
             EasyMock.expect(mMockBuild.getBuildAttributes()).andReturn(properties).times(2);
             EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(null);
 
@@ -338,7 +376,7 @@ public class BaseHostJUnit4TestTest {
             EasyMock.expect(mMockDevice.uninstallPackage("fakepackage")).andReturn(null);
             mMockListener.testEnded(description, new HashMap<String, Metric>());
             mMockListener.testRunEnded(
-                    EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                    EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
             EasyMock.replay(mMockBuild, mMockDevice, mMockListener);
             test.run(mMockListener);

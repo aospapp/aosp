@@ -22,7 +22,7 @@
  * by
  * ../../tools/proto_to_cpp/proto_to_cpp.cc.
  * If you need to make changes here, change the .proto file and then run
- * ./tools/gen_tracing_cpp_headers_from_protos.py
+ * ./tools/gen_tracing_cpp_headers_from_protos
  */
 
 #include "perfetto/tracing/core/process_stats_config.h"
@@ -39,6 +39,17 @@ ProcessStatsConfig& ProcessStatsConfig::operator=(const ProcessStatsConfig&) =
 ProcessStatsConfig::ProcessStatsConfig(ProcessStatsConfig&&) noexcept = default;
 ProcessStatsConfig& ProcessStatsConfig::operator=(ProcessStatsConfig&&) =
     default;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+bool ProcessStatsConfig::operator==(const ProcessStatsConfig& other) const {
+  return (quirks_ == other.quirks_) &&
+         (scan_all_processes_on_start_ == other.scan_all_processes_on_start_) &&
+         (record_thread_names_ == other.record_thread_names_) &&
+         (proc_stats_poll_ms_ == other.proc_stats_poll_ms_) &&
+         (proc_stats_cache_ttl_ms_ == other.proc_stats_cache_ttl_ms_);
+}
+#pragma GCC diagnostic pop
 
 void ProcessStatsConfig::FromProto(
     const perfetto::protos::ProcessStatsConfig& proto) {
@@ -62,6 +73,18 @@ void ProcessStatsConfig::FromProto(
       "size mismatch");
   record_thread_names_ =
       static_cast<decltype(record_thread_names_)>(proto.record_thread_names());
+
+  static_assert(
+      sizeof(proc_stats_poll_ms_) == sizeof(proto.proc_stats_poll_ms()),
+      "size mismatch");
+  proc_stats_poll_ms_ =
+      static_cast<decltype(proc_stats_poll_ms_)>(proto.proc_stats_poll_ms());
+
+  static_assert(sizeof(proc_stats_cache_ttl_ms_) ==
+                    sizeof(proto.proc_stats_cache_ttl_ms()),
+                "size mismatch");
+  proc_stats_cache_ttl_ms_ = static_cast<decltype(proc_stats_cache_ttl_ms_)>(
+      proto.proc_stats_cache_ttl_ms());
   unknown_fields_ = proto.unknown_fields();
 }
 
@@ -87,6 +110,19 @@ void ProcessStatsConfig::ToProto(
   proto->set_record_thread_names(
       static_cast<decltype(proto->record_thread_names())>(
           record_thread_names_));
+
+  static_assert(
+      sizeof(proc_stats_poll_ms_) == sizeof(proto->proc_stats_poll_ms()),
+      "size mismatch");
+  proto->set_proc_stats_poll_ms(
+      static_cast<decltype(proto->proc_stats_poll_ms())>(proc_stats_poll_ms_));
+
+  static_assert(sizeof(proc_stats_cache_ttl_ms_) ==
+                    sizeof(proto->proc_stats_cache_ttl_ms()),
+                "size mismatch");
+  proto->set_proc_stats_cache_ttl_ms(
+      static_cast<decltype(proto->proc_stats_cache_ttl_ms())>(
+          proc_stats_cache_ttl_ms_));
   *(proto->mutable_unknown_fields()) = unknown_fields_;
 }
 

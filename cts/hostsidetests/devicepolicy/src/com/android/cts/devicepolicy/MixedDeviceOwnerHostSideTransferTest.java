@@ -100,24 +100,4 @@ public class MixedDeviceOwnerHostSideTransferTest extends
                 "testTransferAffiliatedProfileOwnershipCompleteCallbackIsCalled",
                 mUserId);
     }
-
-    private void assertAffiliationIdsAreIntact(int profileUserId,
-            String testClassName) throws Exception {
-        runDeviceTestsAsUser(TRANSFER_OWNER_INCOMING_PKG,
-                testClassName,
-                "testIsAffiliationId1", mPrimaryUserId);
-        runDeviceTestsAsUser(TRANSFER_OWNER_INCOMING_PKG,
-                testClassName,
-                "testIsAffiliationId1", profileUserId);
-    }
-
-    private void setSameAffiliationId(int profileUserId, String testClassName)
-            throws Exception {
-        runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
-                testClassName,
-                "testSetAffiliationId1", mPrimaryUserId);
-        runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
-                testClassName,
-                "testSetAffiliationId1", profileUserId);
-    }
 }

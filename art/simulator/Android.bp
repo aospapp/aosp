@@ -44,7 +44,8 @@ art_cc_library {
     defaults: ["libart_simulator_defaults"],
     shared_libs: [
         "libart",
-        "libvixl-arm64",
+        "libartbase",
+        "libvixl",
     ],
 }
 
@@ -56,7 +57,8 @@ art_cc_library {
     ],
     shared_libs: [
         "libartd",
-        "libvixld-arm64",
+        "libartbased",
+        "libvixld",
     ],
 }
 
@@ -80,6 +82,7 @@ art_cc_library {
     name: "libart-simulator-container",
     defaults: ["libart_simulator_container_defaults"],
     shared_libs: [
+        "libartbase",
         "libart",
     ],
 }
@@ -91,6 +94,7 @@ art_cc_library {
         "libart_simulator_container_defaults",
     ],
     shared_libs: [
+        "libartbased",
         "libartd",
     ],
 }

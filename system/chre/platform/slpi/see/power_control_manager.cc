@@ -23,6 +23,18 @@
 
 namespace chre {
 
+PowerControlManagerBase::PowerControlManagerBase() {
+#ifdef CHRE_THREAD_UTIL_ENABLED
+  sns_client_create_thread_utilization_client(&mThreadUtilClient);
+#endif  // CHRE_THREAD_UTIL_ENABLED
+}
+
+PowerControlManagerBase::~PowerControlManagerBase() {
+#ifdef CHRE_THREAD_UTIL_ENABLED
+  sns_client_remove_thread_utilization_client(mThreadUtilClient);
+#endif  // CHRE_THREAD_UTIL_ENABLED
+}
+
 bool PowerControlManagerBase::voteBigImage(bool bigImage) {
   return IslandVoteClientSingleton::get()->voteBigImage(bigImage);
 }
@@ -34,10 +46,41 @@ void PowerControlManagerBase::onHostWakeSuspendEvent(bool awake) {
     EventLoopManagerSingleton::get()->getEventLoop().postEvent(
         mHostIsAwake ? CHRE_EVENT_HOST_AWAKE : CHRE_EVENT_HOST_ASLEEP,
         nullptr /* eventData */, nullptr /* freeCallback */);
+
+#ifdef CHRE_AUDIO_SUPPORT_ENABLED
+    if (awake) {
+      auto callback = [](uint16_t /* eventType */, void * /* eventData*/) {
+        EventLoopManagerSingleton::get()->getAudioRequestManager()
+            .getPlatformAudio().onHostAwake();
+      };
+
+      EventLoopManagerSingleton::get()->deferCallback(
+          SystemCallbackType::AudioHandleHostAwake, nullptr, callback);
+    }
+#endif  // CHRE_AUDIO_SUPPORT_ENABLED
   }
 }
 
 void PowerControlManager::postEventLoopProcess(size_t numPendingEvents) {
+#ifdef CHRE_THREAD_UTIL_ENABLED
+  // Although this execution point does not actually represent the start
+  // of the CHRE thread's activity, we only care about cases where the
+  // CHRE's event queue is highly backlogged for voting higher clock rates.
+  if (mIsThreadIdle && numPendingEvents != 0) {
+    sns_client_thread_utilization_start(mThreadUtilClient);
+    mIsThreadIdle = false;
+  } else if (!mIsThreadIdle) {
+    // Update the time profile as frequently as possible so that clock updates
+    // are not deferred until all events are processed.
+    sns_client_thread_utilization_stop(mThreadUtilClient);
+    if (numPendingEvents != 0) {
+      sns_client_thread_utilization_start(mThreadUtilClient);
+    } else {
+      mIsThreadIdle = true;
+    }
+  }
+#endif  // CHRE_THREAD_UTIL_ENABLED
+
   if (numPendingEvents == 0 && !slpiInUImage()) {
     voteBigImage(false /* bigImage */);
   }

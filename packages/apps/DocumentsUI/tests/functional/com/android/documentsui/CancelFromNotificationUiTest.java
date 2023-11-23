@@ -20,29 +20,20 @@ import static com.android.documentsui.StubProvider.EXTRA_SIZE;
 import static com.android.documentsui.StubProvider.ROOT_0_ID;
 import static com.android.documentsui.StubProvider.ROOT_1_ID;
 
-import static android.provider.DocumentsContract.buildDocumentUri;
-import android.provider.DocumentsContract;
-import com.android.documentsui.archives.ResourcesProvider;
-
-import android.content.ComponentName;
+import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.BroadcastReceiver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.provider.Settings;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
-import android.text.TextUtils;
-import android.view.KeyEvent;
 import android.util.Log;
 
+import androidx.test.filters.LargeTest;
+
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.filters.HugeLongTest;
 import com.android.documentsui.services.TestNotificationService;
-import com.android.documentsui.R;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -54,21 +45,13 @@ import java.util.concurrent.TimeUnit;
 */
 @LargeTest
 public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
-    private static final String PACKAGE_NAME = "com.android.documentsui.tests";
+    private static final String TAG = "CancelFromNotificationUiTest";
 
     private static final String TARGET_FILE = "dummy.data";
 
     private static final int BUFFER_SIZE = 10 * 1024 * 1024;
 
-    private static final String ACCESS_APP_NAME = "DocumentsUI Tests";
-
-    private static final String ALLOW = "ALLOW";
-
-    private static final String TURN_OFF = "TURN OFF";
-
-    private static final String COPY = "Copy to…";
-
-    private static final String MOVE = "Move to…";
+    private static final int WAIT_TIME_SECONDS = 60;
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -106,6 +89,12 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         bundle.putLong(EXTRA_SIZE, 500L);
         mDocsHelper.configure(null, bundle);
 
+        try {
+            bots.notifications.setNotificationAccess(getActivity(), true);
+        } catch (Exception e) {
+            Log.d(TAG, "Cannot set notification access. ", e);
+        }
+
         initTestFiles();
 
         IntentFilter filter = new IntentFilter();
@@ -126,11 +115,9 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
 
         context.unregisterReceiver(mReceiver);
         try {
-            if (isEnableAccessNotification()) {
-                disallowNotificationAccess();
-            }
+            bots.notifications.setNotificationAccess(getActivity(), false);
         } catch (Exception e) {
-            // ignore
+            Log.d(TAG, "Cannot set notification access. ", e);
         }
         super.tearDown();
     }
@@ -138,9 +125,6 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
     @Override
     public void initTestFiles() throws RemoteException {
         try {
-            if (!isEnableAccessNotification()) {
-               allowNotificationAccess();
-            }
             createDummyFile();
         } catch (Exception e) {
             fail("Initialization failed. " + e.toString());
@@ -158,57 +142,17 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         }
     }
 
-    private void allowNotificationAccess() throws Exception {
-        Intent intent = new Intent();
-        intent.setAction(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        getActivity().startActivity(intent);
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ACCESS_APP_NAME).click();
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ALLOW).click();
-        bots.keyboard.pressKey(KeyEvent.KEYCODE_BACK);
-    }
-
-    private void disallowNotificationAccess() throws Exception {
-        Intent intent = new Intent();
-        intent.setAction(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        getActivity().startActivity(intent);
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ACCESS_APP_NAME).click();
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(TURN_OFF).click();
-        bots.keyboard.pressKey(KeyEvent.KEYCODE_BACK);
-    }
-
-    private boolean isEnableAccessNotification() {
-        ContentResolver resolver = getActivity().getContentResolver();
-        String listeners = Settings.Secure.getString(resolver,"enabled_notification_listeners");
-
-        if (!TextUtils.isEmpty(listeners)) {
-            String[] list = listeners.split(":");
-            for(String item : list) {
-                if(item.startsWith(PACKAGE_NAME)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
+    @HugeLongTest
     public void testCopyDocument_Cancel() throws Exception {
         bots.roots.openRoot(ROOT_0_ID);
 
         bots.directory.findDocument(TARGET_FILE);
         device.waitForIdle();
 
-        bots.directory.selectDocument(TARGET_FILE);
+        bots.directory.selectDocument(TARGET_FILE, 1);
         device.waitForIdle();
 
-        bots.main.clickToolbarOverflowItem(COPY);
+        bots.main.clickToolbarOverflowItem(context.getResources().getString(R.string.menu_copy));
         device.waitForIdle();
 
         bots.main.clickDialogCancelButton();
@@ -217,15 +161,16 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         bots.directory.waitForDocument(TARGET_FILE);
     }
 
+    @HugeLongTest
     public void testCopyDocument_CancelFromNotification() throws Exception {
         bots.roots.openRoot(ROOT_0_ID);
         bots.directory.findDocument(TARGET_FILE);
         device.waitForIdle();
 
-        bots.directory.selectDocument(TARGET_FILE);
+        bots.directory.selectDocument(TARGET_FILE, 1);
         device.waitForIdle();
 
-        bots.main.clickToolbarOverflowItem(COPY);
+        bots.main.clickToolbarOverflowItem(context.getResources().getString(R.string.menu_copy));
         device.waitForIdle();
 
         bots.roots.openRoot(ROOT_1_ID);
@@ -233,7 +178,7 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         device.waitForIdle();
 
         try {
-            mCountDownLatch.await(60, TimeUnit.SECONDS);
+            mCountDownLatch.await(WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             fail("Cannot wait because of error." + e.toString());
         }
@@ -249,16 +194,17 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         assertTrue(bots.directory.hasDocuments(TARGET_FILE));
     }
 
+    @HugeLongTest
     public void testMoveDocument_Cancel() throws Exception {
         bots.roots.openRoot(ROOT_0_ID);
 
         bots.directory.findDocument(TARGET_FILE);
         device.waitForIdle();
 
-        bots.directory.selectDocument(TARGET_FILE);
+        bots.directory.selectDocument(TARGET_FILE, 1);
         device.waitForIdle();
 
-        bots.main.clickToolbarOverflowItem(MOVE);
+        bots.main.clickToolbarOverflowItem(context.getResources().getString(R.string.menu_move));
         device.waitForIdle();
 
         bots.main.clickDialogCancelButton();
@@ -267,15 +213,16 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         bots.directory.waitForDocument(TARGET_FILE);
     }
 
+    @HugeLongTest
     public void testMoveDocument_CancelFromNotification() throws Exception {
         bots.roots.openRoot(ROOT_0_ID);
         bots.directory.findDocument(TARGET_FILE);
         device.waitForIdle();
 
-        bots.directory.selectDocument(TARGET_FILE);
+        bots.directory.selectDocument(TARGET_FILE, 1);
         device.waitForIdle();
 
-        bots.main.clickToolbarOverflowItem(MOVE);
+        bots.main.clickToolbarOverflowItem(context.getResources().getString(R.string.menu_move));
         device.waitForIdle();
 
         bots.roots.openRoot(ROOT_1_ID);
@@ -283,7 +230,7 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
         device.waitForIdle();
 
         try {
-            mCountDownLatch.await(60, TimeUnit.SECONDS);
+            mCountDownLatch.await(WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             fail("Cannot wait because of error." + e.toString());
         }

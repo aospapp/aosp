@@ -36,7 +36,7 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
 
     t_ignore = ' '
 
-    start = 'newnode'
+    start = 'nodes'
 
     p_nodes = repeat_rule('node')
     p_lines = repeat_rule('line')
@@ -44,22 +44,20 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
     p_colonlines = repeat_rule('colonline')
     p_numcommas = repeat_rule('numcomma')
 
-    def p_newnode(self, p):
-        'newnode : nodes unpopulated'
-        p[0] = p[1:]
-
     def p_node(self, p):
-        '''node : heading pernode APAGES lines protection PAGESETS NEWLINE cpus colonlines
-                | heading pernode APAGES lines protection lines PAGESETS NEWLINE cpus colonlines'''
-        if len(p) == 11:
-            p[0] = [p[1], p[3], p[4] + p[6], p[8], p[9]]
-        else:
-            p[0] = [p[1], p[3], p[4], p[7], p[8]]
+        '''node : heading pernode APAGES lines protection populated'''
+        p[0] = [p[1], p[2], p[4], p[5], p[6]]
 
-    def p_unpopulated(self, p):
-        '''unpopulated : heading pernode APAGES lines protection
-                   | empty'''
-        p[0] = [] if len(p) == 2 else [p[1], p[3], p[4]]
+    def p_populated(self, p):
+        '''populated : PAGESETS NEWLINE cpus colonlines
+                | lines PAGESETS NEWLINE cpus colonlines
+                | empty'''
+        if len(p) == 2:
+            p[0] = []
+        elif len(p) == 6:
+            p[0] = [p[1], p[4], p[5]]
+        else:
+            p[0] = [p[3], p[4]]
 
     def p_pernode(self, p):
         '''pernode : PERNODE STATS NEWLINE lines
@@ -75,8 +73,12 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         p[0] = p[1]
 
     def p_line(self, p):
-        'line : STRING NUMBER NEWLINE'
-        p[0] = p[1:3]
+        '''line : STRING NUMBER NEWLINE
+                | NUMBER NEWLINE'''
+        if len(p) == 4:
+            p[0] = p[1:3]
+        else:
+            p[0] = p[1]
 
     def p_cpu(self, p):
         'cpu : CPU COLON NUMBER NEWLINE colonline colonline colonline \

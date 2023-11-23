@@ -27,13 +27,13 @@
             <!-- TEST: when installed as an instant app, normal apps can't query for it -->
             <!-- TEST: when installed as a full app, normal apps can query for it -->
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.QUERY" />
+                <action android:name="com.android.cts.instantappusertest.QUERY" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             </activity>
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.userapp" />
 </manifest>

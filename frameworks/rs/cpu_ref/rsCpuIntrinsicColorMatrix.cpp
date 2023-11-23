@@ -174,7 +174,7 @@ protected:
 
     // The following four fields are read as constants
     // by the SIMD assembly code.
-    short ip[16];
+    int16_t ip[16];
     int ipa[4];
     float tmpFp[16];
     float tmpFpa[4];
@@ -195,7 +195,7 @@ protected:
 
     bool build(Key_t key);
 
-    void (*mOptKernel)(void *dst, const void *src, const short *coef, uint32_t count);
+    void (*mOptKernel)(void *dst, const void *src, const int16_t *coef, uint32_t count);
 
 };
 
@@ -451,11 +451,11 @@ static uint8_t * addVADD_F32(uint8_t *buf, uint32_t dest_q, uint32_t src_q1, uin
 
 #if defined(ARCH_X86_HAVE_SSSE3)
 extern void rsdIntrinsicColorMatrixDot_K(void *dst, const void *src,
-                                  const short *coef, uint32_t count);
+                                  const int16_t *coef, uint32_t count);
 extern void rsdIntrinsicColorMatrix3x3_K(void *dst, const void *src,
-                                  const short *coef, uint32_t count);
+                                  const int16_t *coef, uint32_t count);
 extern void rsdIntrinsicColorMatrix4x4_K(void *dst, const void *src,
-                                  const short *coef, uint32_t count);
+                                  const int16_t *coef, uint32_t count);
 
 using android::renderscript::Key_t;
 
@@ -744,7 +744,7 @@ bool RsdCpuScriptIntrinsicColorMatrix::build(Key_t key) {
 
 void RsdCpuScriptIntrinsicColorMatrix::updateCoeffCache(float fpMul, float addMul) {
     for(int ct=0; ct < 16; ct++) {
-        ip[ct] = (short)(fp[ct] * 256.f + 0.5f);
+        ip[ct] = (int16_t)(fp[ct] * 256.f + 0.5f);
         tmpFp[ct] = fp[ct] * fpMul;
         //ALOGE("mat %i %f  %f", ct, fp[ct], tmpFp[ct]);
     }
@@ -969,7 +969,7 @@ void RsdCpuScriptIntrinsicColorMatrix::preLaunch(uint32_t slot,
 #if defined(ARCH_X86_HAVE_SSSE3)
     if ((mOptKernel == nullptr) || (mLastKey.key != key.key)) {
         // FIXME: Disable mOptKernel to pass RS color matrix CTS cases
-        // mOptKernel = (void (*)(void *, const void *, const short *, uint32_t)) selectKernel(key);
+        // mOptKernel = (void (*)(void *, const void *, const int16_t *, uint32_t)) selectKernel(key);
         mLastKey = key;
     }
 
@@ -979,7 +979,7 @@ void RsdCpuScriptIntrinsicColorMatrix::preLaunch(uint32_t slot,
         mBuf = nullptr;
         mOptKernel = nullptr;
         if (build(key)) {
-            mOptKernel = (void (*)(void *, const void *, const short *, uint32_t)) mBuf;
+            mOptKernel = (void (*)(void *, const void *, const int16_t *, uint32_t)) mBuf;
         }
 #if defined(ARCH_ARM64_USE_INTRINSICS)
         else {

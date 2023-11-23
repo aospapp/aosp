@@ -11,10 +11,10 @@ cc_library_shared {
         "libdl",
         "libhardware",
         "libmetricslogger",
-        "libpower",
         "libz",
         "libchrome",
         "libbase",
+	"libstatslog",
 
         // Treble configuration
         "libhidlbase",
@@ -23,6 +23,7 @@ cc_library_shared {
         "libutils",
         "android.hardware.nfc@1.0",
         "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
     ],
     static_libs: [
         "libnfcutils",
@@ -31,6 +32,7 @@ cc_library_shared {
         "-DBUILDCFG=1",
         "-Wall",
         "-Werror",
+        "-Wimplicit-fallthrough",
     ],
     local_include_dirs: [
         "include",

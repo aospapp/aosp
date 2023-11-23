@@ -197,6 +197,7 @@ I think so, so how about double this string, like copy and paste! </string>
     <string name="toolbar_subtitle">Toolbar subtitle</string>
     <string name="toolbar_navigation">Toolbar navigation</string>
     <string name="toolbar_logo">Toolbar logo</string>
+    <string name="toolbar_collapse">Toolbar collapse</string>
 
     <string name="search_query_hint">query hint</string>
 

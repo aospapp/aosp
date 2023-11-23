@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -14,17 +14,22 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
+from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 from acts.test_utils.bt.bt_test_utils import disable_bluetooth
 
 
-class WlanStandalonePerformanceTest(CoexBaseTest):
+class WlanStandalonePerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
+
+    def setup_class(self):
+        super().setup_class()
+        req_params = ["iterations"]
+        self.unpack_userparams(req_params)
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
+        super().setup_test()
         if not disable_bluetooth(self.pri_ad.droid):
             self.log.info("Failed to disable bluetooth")
             return False
@@ -40,7 +45,7 @@ class WlanStandalonePerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_001
         """
-        self.run_iperf_and_get_result()
+        self.set_attenuation_and_run_iperf()
         return self.teardown_result()
 
     def test_performance_wlan_standalone_tcp_dl(self):
@@ -54,7 +59,7 @@ class WlanStandalonePerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_002
         """
-        self.run_iperf_and_get_result()
+        self.set_attenuation_and_run_iperf()
         return self.teardown_result()
 
     def test_performance_wlan_standalone_udp_ul(self):
@@ -68,7 +73,7 @@ class WlanStandalonePerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_003
         """
-        self.run_iperf_and_get_result()
+        self.set_attenuation_and_run_iperf()
         return self.teardown_result()
 
     def test_performance_wlan_standalone_udp_dl(self):
@@ -82,5 +87,5 @@ class WlanStandalonePerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_004
         """
-        self.run_iperf_and_get_result()
+        self.set_attenuation_and_run_iperf()
         return self.teardown_result()

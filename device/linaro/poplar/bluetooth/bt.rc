@@ -1,0 +1,5 @@
+
+on boot
+    setprop ro.boot.btmacaddr 11:22:33:44:55:66
+    setprop ro.rfkilldisabled 1
+    chmod 777 /dev/rtkbt_dev

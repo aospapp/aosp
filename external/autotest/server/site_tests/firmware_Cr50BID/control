@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50BID"
 PURPOSE = "Verify cr50 response to board id"
-ATTRIBUTES = "suite:cr50_stress_flaky"
+ATTRIBUTES = "suite:cr50_stress_experimental"
 TIME = "LONG"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"
@@ -41,7 +41,10 @@ be used.
                     run.
 """
 
-args_dict = utils.args_to_dict(args)
+if 'args_dict' not in locals():
+    args_dict = {}
+
+args_dict.update(utils.args_to_dict(args))
 servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run(machine):
@@ -55,6 +58,7 @@ def run(machine):
 
     job.run_test("firmware_Cr50BID", host=host, cmdline_args=args,
                  iterations=iterations, dev_path=dev_path, bid_path=bid_path,
-                 release_ver=release_ver, test_subset=test_subset)
+                 release_ver=release_ver, test_subset=test_subset,
+                 full_args=args_dict)
 
 parallel_simple(run, machines)

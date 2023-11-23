@@ -15,15 +15,16 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.jni.cts">
+    package="android.jni.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <application>
+    <application android:extractNativeLibs="true">
         <uses-library android:name="android.test.runner" />
     </application>
 
     <!-- This is a self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.jni.cts"
                      android:label="CTS tests of calling native code via JNI">
         <meta-data android:name="listener"

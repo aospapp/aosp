@@ -17,10 +17,11 @@
 package com.android.tv.dvr.recorder;
 
 import android.annotation.TargetApi;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputManager;
-import android.media.tv.TvRecordingClient.RecordingCallback;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -36,6 +37,7 @@ import com.android.tv.InputSessionManager.RecordingSession;
 import com.android.tv.R;
 import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.compat.TvRecordingClientCompat.RecordingCallbackCompat;
 import com.android.tv.common.util.Clock;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.api.Channel;
@@ -55,7 +57,7 @@ import java.util.concurrent.TimeUnit;
  */
 @WorkerThread
 @TargetApi(Build.VERSION_CODES.N)
-public class RecordingTask extends RecordingCallback
+public class RecordingTask extends RecordingCallbackCompat
         implements Handler.Callback, DvrManager.Listener {
     private static final String TAG = "RecordingTask";
     private static final boolean DEBUG = false;
@@ -223,6 +225,14 @@ public class RecordingTask extends RecordingCallback
     }
 
     @Override
+    public void onRecordingStarted(String inputId, String recUri) {
+        if (DEBUG) {
+            Log.d(TAG, "onRecordingStart");
+        }
+        addRecordedProgramId(recUri);
+    }
+
+    @Override
     public void onRecordingStopped(Uri recordedProgramUri) {
         Log.i(TAG, "Recording Stopped: " + mScheduledRecording);
         Log.i(TAG, "Recording Stopped: stored as " + recordedProgramUri);
@@ -340,10 +350,8 @@ public class RecordingTask extends RecordingCallback
     }
 
     private void failAndQuit(Integer reason) {
-        if (DEBUG) Log.d(TAG, "failAndQuit");
-        updateRecordingState(
-                ScheduledRecording.STATE_RECORDING_FAILED,
-                reason);
+        Log.w(TAG, "Recording " + mScheduledRecording + " failed with code " + reason);
+        updateRecordingState(ScheduledRecording.STATE_RECORDING_FAILED, reason);
         mState = State.ERROR;
         sendRemove();
     }
@@ -450,6 +458,7 @@ public class RecordingTask extends RecordingCallback
     private void updateRecordingState(@ScheduledRecording.RecordingState int state) {
         updateRecordingState(state, null);
     }
+
     private void updateRecordingState(
             @ScheduledRecording.RecordingState int state, @Nullable Integer reason) {
         if (DEBUG) {
@@ -471,13 +480,48 @@ public class RecordingTask extends RecordingCallback
                             // has been updated. mScheduledRecording will be updated from
                             // onScheduledRecordingStateChanged.
                             ScheduledRecording.Builder builder =
-                                    ScheduledRecording
-                                            .buildFrom(schedule)
-                                            .setState(state);
+                                    ScheduledRecording.buildFrom(schedule).setState(state);
                             if (state == ScheduledRecording.STATE_RECORDING_FAILED
                                     && reason != null) {
                                 builder.setFailedReason(reason);
                             }
+                            mDataManager.updateScheduledRecording(builder.build());
+                        }
+                    }
+                });
+    }
+
+    private void addRecordedProgramId(String recordedProgramUri) {
+        if (DEBUG) {
+            Log.d(TAG, "Adding Recorded Program Id to " + mScheduledRecording);
+        }
+        mRecordedProgramUri = Uri.parse(recordedProgramUri);
+        long id = ContentUris.parseId(mRecordedProgramUri);
+        mScheduledRecording =
+                ScheduledRecording.buildFrom(mScheduledRecording).setRecordedProgramId(id).build();
+        ContentValues values = new ContentValues();
+        values.put(
+                TvContract.RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS,
+                mScheduledRecording.getEndTimeMs() - mScheduledRecording.getStartTimeMs());
+        values.put(
+                TvContract.RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS,
+                mScheduledRecording.getEndTimeMs());
+        mContext.getContentResolver().update(mRecordedProgramUri, values, null, null);
+        runOnMainThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        ScheduledRecording schedule =
+                                mDataManager.getScheduledRecording(mScheduledRecording.getId());
+                        if (schedule == null) {
+                            // Schedule has been deleted. Delete the recorded program.
+                            removeRecordedProgram();
+                        } else {
+                            // Update the state based on the object in DataManager in case when it
+                            // has been updated. mScheduledRecording will be updated from
+                            // onScheduledRecordingStateChanged.
+                            ScheduledRecording.Builder builder =
+                                    ScheduledRecording.buildFrom(schedule).setRecordedProgramId(id);
                             mDataManager.updateScheduledRecording(builder.build());
                         }
                     }
@@ -553,7 +597,7 @@ public class RecordingTask extends RecordingCallback
                     @Override
                     public void run() {
                         if (mRecordedProgramUri != null) {
-                            mDvrManager.removeRecordedProgram(mRecordedProgramUri);
+                            mDvrManager.removeRecordedProgram(mRecordedProgramUri, true);
                         }
                     }
                 });

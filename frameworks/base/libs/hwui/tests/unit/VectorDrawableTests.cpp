@@ -85,8 +85,10 @@ const static TestData sTestDataSet[] = {
              outPath->rCubicTo(8.0, 8.0, 8.0, 8.0, 8.0, 8.0);
              outPath->cubicTo(16.0, 16.0, 9.0, 9.0, 9.0, 9.0);
              outPath->rCubicTo(0.0, 0.0, 9.0, 9.0, 9.0, 9.0);
-             outPath->arcTo(10.0, 10.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCW_Direction, 10.0, 10.0);
-             outPath->arcTo(10.0, 10.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCW_Direction, 20.0, 20.0);
+             outPath->arcTo(10.0, 10.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCW_Direction, 10.0,
+                            10.0);
+             outPath->arcTo(10.0, 10.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCW_Direction, 20.0,
+                            20.0);
          }},
 
         // Check box VectorDrawable path data
@@ -157,7 +159,8 @@ const static TestData sTestDataSet[] = {
          },
          [](SkPath* outPath) {
              outPath->moveTo(300.0, 70.0);
-             outPath->arcTo(230.0, 230.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCCW_Direction, 301.0, 70.0);
+             outPath->arcTo(230.0, 230.0, 0.0, SkPath::kLarge_ArcSize, SkPath::kCCW_Direction,
+                            301.0, 70.0);
              outPath->close();
              outPath->moveTo(300.0, 70.0);
          }},
@@ -236,14 +239,14 @@ struct StringPath {
 };
 
 const StringPath sStringPaths[] = {
-        {"3e...3", false},     // Not starting with a verb and ill-formatted float
-        {"L.M.F.A.O", false},  // No floats following verbs
-        {"m 1 1", true},       // Valid path data
-        {"\n \t   z", true},   // Valid path data with leading spaces
-        {"1-2e34567", false},  // Not starting with a verb and ill-formatted float
-        {"f 4 5", false},      // Invalid verb
-        {"\r      ", false},   // Empty string
-        {"L1,0 L1,1 L0,1 z M1000", false}    // Not enough floats following verb M.
+        {"3e...3", false},                 // Not starting with a verb and ill-formatted float
+        {"L.M.F.A.O", false},              // No floats following verbs
+        {"m 1 1", true},                   // Valid path data
+        {"\n \t   z", true},               // Valid path data with leading spaces
+        {"1-2e34567", false},              // Not starting with a verb and ill-formatted float
+        {"f 4 5", false},                  // Invalid verb
+        {"\r      ", false},               // Empty string
+        {"L1,0 L1,1 L0,1 z M1000", false}  // Not enough floats following verb M.
 };
 
 static bool hasSameVerbs(const PathData& from, const PathData& to) {
@@ -251,7 +254,7 @@ static bool hasSameVerbs(const PathData& from, const PathData& to) {
 }
 
 TEST(PathParser, parseStringForData) {
-    for (TestData testData : sTestDataSet) {
+    for (const TestData& testData : sTestDataSet) {
         PathParser::ParseResult result;
         // Test generated path data against the given data.
         PathData pathData;
@@ -271,7 +274,7 @@ TEST(PathParser, parseStringForData) {
 }
 
 TEST(VectorDrawableUtils, createSkPathFromPathData) {
-    for (TestData testData : sTestDataSet) {
+    for (const TestData& testData : sTestDataSet) {
         SkPath expectedPath;
         testData.skPathLamda(&expectedPath);
         SkPath actualPath;
@@ -281,7 +284,7 @@ TEST(VectorDrawableUtils, createSkPathFromPathData) {
 }
 
 TEST(PathParser, parseAsciiStringForSkPath) {
-    for (TestData testData : sTestDataSet) {
+    for (const TestData& testData : sTestDataSet) {
         PathParser::ParseResult result;
         size_t length = strlen(testData.pathString);
         // Check the return value as well as the SkPath generated.
@@ -304,8 +307,8 @@ TEST(PathParser, parseAsciiStringForSkPath) {
 }
 
 TEST(VectorDrawableUtils, morphPathData) {
-    for (TestData fromData : sTestDataSet) {
-        for (TestData toData : sTestDataSet) {
+    for (const TestData& fromData : sTestDataSet) {
+        for (const TestData& toData : sTestDataSet) {
             bool canMorph = VectorDrawableUtils::canMorph(fromData.pathData, toData.pathData);
             if (fromData.pathData == toData.pathData) {
                 EXPECT_TRUE(canMorph);
@@ -319,8 +322,8 @@ TEST(VectorDrawableUtils, morphPathData) {
 
 TEST(VectorDrawableUtils, interpolatePathData) {
     // Interpolate path data with itself and every other path data
-    for (TestData fromData : sTestDataSet) {
-        for (TestData toData : sTestDataSet) {
+    for (const TestData& fromData : sTestDataSet) {
+        for (const TestData& toData : sTestDataSet) {
             PathData outData;
             bool success = VectorDrawableUtils::interpolatePathData(&outData, fromData.pathData,
                                                                     toData.pathData, 0.5);
@@ -331,7 +334,7 @@ TEST(VectorDrawableUtils, interpolatePathData) {
 
     float fractions[] = {0, 0.00001, 0.28, 0.5, 0.7777, 0.9999999, 1};
     // Now try to interpolate with a slightly modified version of self and expect success
-    for (TestData fromData : sTestDataSet) {
+    for (const TestData& fromData : sTestDataSet) {
         PathData toPathData = fromData.pathData;
         for (size_t i = 0; i < toPathData.points.size(); i++) {
             toPathData.points[i]++;
@@ -406,5 +409,5 @@ TEST(VectorDrawable, drawPathWithoutIncrementingShaderRefCount) {
     EXPECT_TRUE(shader->unique());
 }
 
-};  // namespace uirenderer
-};  // namespace android
+}  // namespace uirenderer
+}  // namespace android

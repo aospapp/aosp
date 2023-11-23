@@ -21,10 +21,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
-
 
 /**
  * Unit tests for {@link com.android.server.wifi.util.ByteArrayRingBuffer}.

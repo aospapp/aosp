@@ -25,6 +25,6 @@
     <string name="local_source_name" msgid="6487253091085518505">"Fotos del dispositiu"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"No s\'ha seleccionat cap foto."</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"Selec. tot"</string>
-    <string name="photodream_select_none" msgid="8816452124894525861">"Anul. sel. tot"</string>
+    <string name="photodream_select_none" msgid="8816452124894525861">"Desselecciona tot"</string>
     <string name="no_photos" msgid="4262083523147564199">"No hi ha cap foto al dispositiu."</string>
 </resources>

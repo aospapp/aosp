@@ -131,6 +131,8 @@ int main(int argc, char **argv)
 			tst_resm(TFAIL | TERRNO,
 				 "move_pages unexpectedly failed");
 			goto err_free_pages;
+		} else if (ret > 0) {
+			tst_resm(TINFO, "move_pages() returned %d\n", ret);
 		}
 
 		if (status[UNTOUCHED_PAGE] == exp_status) {
@@ -150,12 +152,11 @@ err_free_pages:
 		free_pages(pages, TEST_PAGES);
 	}
 #else
-	tst_resm(TCONF, "test requires libnuma >= 2 and it's development packages");
+	tst_resm(TCONF, NUMA_ERROR_MSG);
 #endif
 
 	cleanup();
 	tst_exit();
-
 }
 
 /*

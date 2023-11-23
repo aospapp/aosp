@@ -25,8 +25,6 @@ import org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 /**
  * Helper to initialize the JNI libraries. This version runs when compiled
  * as part of the platform.
- *
- * @hide
  */
 @Internal
 public final class InternalUtil {
@@ -41,13 +39,6 @@ public final class InternalUtil {
 
     public static PublicKey readPublicKeyPem(InputStream pem) throws InvalidKeyException, NoSuchAlgorithmException {
         return OpenSSLKey.fromPublicKeyPemInputStream(pem).getPublicKey();
-    }
-
-    public static byte[] getOcspSingleExtension(
-            byte[] ocspResponse, String oid, OpenSSLX509Certificate x509,
-            OpenSSLX509Certificate issuerX509) {
-        return NativeCrypto.get_ocsp_single_extension(ocspResponse, oid, x509.getContext(), x509,
-                issuerX509.getContext(), issuerX509);
     }
 
     private InternalUtil() {

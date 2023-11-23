@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import androidx.core.app.JobIntentService;
 
 import com.android.gallery3d.picasasource.PicasaSource;
 import com.android.gallery3d.util.LightCycleHelper;
@@ -37,16 +38,18 @@ public class PackagesMonitor extends BroadcastReceiver {
     @Override
     public void onReceive(final Context context, final Intent intent) {
         intent.setClass(context, AsyncService.class);
-        context.startService(intent);
+        AsyncService.enqueueWork(context, intent);
     }
 
-    public static class AsyncService extends IntentService {
-        public AsyncService() {
-            super("GalleryPackagesMonitorAsync");
+    public static class AsyncService extends JobIntentService {
+        public static final int JOB_ID = 1;
+
+        public static void enqueueWork(Context context, Intent work) {
+            enqueueWork(context, AsyncService.class, JOB_ID, work);
         }
 
         @Override
-        protected void onHandleIntent(Intent intent) {
+        protected void onHandleWork(Intent intent) {
             onReceiveAsync(this, intent);
         }
     }

@@ -117,7 +117,10 @@ func (n *ninjaWriter) Build(comment string, rule string, outputs, implicitOuts,
 	}
 
 	if comment != "" {
-		wrapper.Comment(comment)
+		err := wrapper.Comment(comment)
+		if err != nil {
+			return err
+		}
 	}
 
 	wrapper.WriteString("build")
@@ -193,6 +196,12 @@ func (n *ninjaWriter) Default(targets ...string) error {
 	return wrapper.Flush()
 }
 
+func (n *ninjaWriter) Subninja(file string) error {
+	n.justDidBlankLine = false
+	_, err := fmt.Fprintf(n.writer, "subninja %s\n", file)
+	return err
+}
+
 func (n *ninjaWriter) BlankLine() (err error) {
 	// We don't output multiple blank lines in a row.
 	if !n.justDidBlankLine {
@@ -231,7 +240,10 @@ func (n *ninjaWriterWithWrap) writeString(s string, space bool) {
 		n.writtenLen = indentWidth * 2
 		s = strings.TrimLeftFunc(s, unicode.IsSpace)
 	} else if space {
-		io.WriteString(n.writer, " ")
+		_, n.err = io.WriteString(n.writer, " ")
+		if n.err != nil {
+			return
+		}
 		n.writtenLen++
 	}
 

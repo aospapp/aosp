@@ -52,10 +52,10 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"無効な番号"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"ボイスメールの番号が不明です。"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY が有効な場合はビデオハングアウトを行えません。"</string>
-    <string name="callEnded_pulled" msgid="437630601519502587">"通話を別の端末に転送しました。"</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"通話を別のデバイスに転送しました。"</string>
     <string name="ringtone_silent" msgid="249805466934178869">"なし"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"不明な着信音"</string>
-    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"利用可能な回線はすべて使用中です。電話をかけるには、この端末または他のお使いの端末上の通話のどれかを切断してください。"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"利用可能な回線はすべて使用中です。電話をかけるには、このデバイスまたは他のお使いのデバイス上の通話のどれかを切断してください。"</string>
     <string name="callFailed_data_disabled" msgid="3885826754435317856">"モバイルデータが無効になったため、通話を終了しました。"</string>
     <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"モバイルデータ通信量の上限に達したため、通話を終了しました。"</string>
     <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"データ通信量の上限に達したため、通話を終了しました。"</string>

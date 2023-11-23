@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <vector>
 
-#include <unicode/locid.h>
 #include <utils/Log.h>
 
 #include "minikin/Hyphenator.h"

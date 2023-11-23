@@ -8,7 +8,7 @@ PURPOSE = "Verify cellular device 'Scanning' property is updated correctly."
 CRITERIA = """
 This test will fail if shill does not update the |Scanning| property correctly
 during the initial modem enable-register-connect sequence, or when the user
-requests a network scan using |ProposeScan|.
+requests a network scan using |RequestScan|.
 """
 ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
@@ -18,8 +18,8 @@ TEST_TYPE = "client"
 DOC = """
 Test that the |Scanning| Property of the shill cellular device object is
 updated correctly in the following two scenarios:
-  (1) When a user requests a network scan using the |ProposeScan| method of
-      the cellular device.
+  (1) When a user requests a network scan using the |RequestScan| method of
+      shill Manager interface.
   (2) During the initial modem enable-register-connect sequence.
 """
 

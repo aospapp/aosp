@@ -34,7 +34,7 @@ constexpr char nativehelper::detail::jni_type_trait<jtype>::type_name[];
 DEFINE_JNI_TYPE_TRAIT(STORAGE_FN_FOR_JNI_TRAITS)
 
 template <typename T>
-auto stringify_helper(const T& val) -> decltype(std::stringstream().str()) {  // suppress incorrect warnings about compiler not support 'auto'
+std::string stringify_helper(const T& val) {
   std::stringstream ss;
   ss << val;
   return ss.str();
@@ -43,7 +43,7 @@ auto stringify_helper(const T& val) -> decltype(std::stringstream().str()) {  //
 #define EXPECT_STRINGIFY_EQ(x, y) EXPECT_EQ(stringify_helper(x), stringify_helper(y))
 
 TEST(JniSafeRegisterNativeMethods, StringParsing) {
-  using namespace nativehelper::detail;                                \
+  using namespace nativehelper::detail;  // NOLINT
 
   // Super basic bring-up tests for core functionality.
 
@@ -73,6 +73,27 @@ TEST(JniSafeRegisterNativeMethods, StringParsing) {
     auto parse = ParseSingleTypeDescriptor("[I");
     EXPECT_EQ("[I", parse->token);
     EXPECT_EQ("", parse->remainder);
+  }
+
+  {
+    auto parse = ParseSingleTypeDescriptor("LObject;");
+    EXPECT_EQ("LObject;", parse->token);
+    EXPECT_EQ("", parse->remainder);
+  }
+
+  {
+    auto parse = ParseSingleTypeDescriptor("LBadObject);");
+    EXPECT_FALSE(parse.has_value());
+  }
+
+  {
+    auto parse = ParseSingleTypeDescriptor("LBadObject(;");
+    EXPECT_FALSE(parse.has_value());
+  }
+
+  {
+    auto parse = ParseSingleTypeDescriptor("LBadObject[;");
+    EXPECT_FALSE(parse.has_value());
   }
 
   // Stringify is used for convenience to make writing out tests easier.
@@ -114,12 +135,8 @@ TEST(JniSafeRegisterNativeMethods, StringParsing) {
   EXPECT_OK_SIGNATURE_PARSE("()F", /*args*/"", /*ret*/"F");
   EXPECT_OK_SIGNATURE_PARSE("()J", /*args*/"", /*ret*/"J");
   EXPECT_OK_SIGNATURE_PARSE("()D", /*args*/"", /*ret*/"D");
-  EXPECT_OK_SIGNATURE_PARSE("()Ljava/lang/Object;", /*args*/
-                            "", /*ret*/
-                            "Ljava/lang/Object;");
-  EXPECT_OK_SIGNATURE_PARSE("()[Ljava/lang/Object;", /*args*/
-                            "", /*ret*/
-                            "[Ljava/lang/Object;");
+  EXPECT_OK_SIGNATURE_PARSE("()Ljava/lang/Object;", /*args*/"", /*ret*/"Ljava/lang/Object;");
+  EXPECT_OK_SIGNATURE_PARSE("()[Ljava/lang/Object;", /*args*/"", /*ret*/"[Ljava/lang/Object;");
   EXPECT_OK_SIGNATURE_PARSE("()[I", /*args*/"", /*ret*/"[I");
   EXPECT_OK_SIGNATURE_PARSE("()[[I", /*args*/"", /*ret*/"[[I");
   EXPECT_OK_SIGNATURE_PARSE("()[[[I", /*args*/"", /*ret*/"[[[I");
@@ -143,15 +160,15 @@ TEST(JniSafeRegisterNativeMethods, StringParsing) {
 
   EXPECT_OK_SIGNATURE_PARSE("(ZIJ)V", /*args*/"Z,I,J", /*ret*/"V");
   EXPECT_OK_SIGNATURE_PARSE("(B[IJ)V", /*args*/"B,[I,J", /*ret*/"V");
-  EXPECT_OK_SIGNATURE_PARSE("(Ljava/lang/Object;B)D", /*args*/
-                            "Ljava/lang/Object;,B", /*ret*/
-                            "D");
-  EXPECT_OK_SIGNATURE_PARSE("(Ljava/lang/Object;Ljava/lang/String;IF)D", /*args*/
-                            "Ljava/lang/Object;,Ljava/lang/String;,I,F", /*ret*/
-                            "D");
-  EXPECT_OK_SIGNATURE_PARSE("([[[Ljava/lang/Object;Ljava/lang/String;IF)D", /*args*/
-                            "[[[Ljava/lang/Object;,Ljava/lang/String;,I,F", /*ret*/
-                            "D");
+  EXPECT_OK_SIGNATURE_PARSE("(Ljava/lang/Object;B)D",
+                            /*args*/"Ljava/lang/Object;,B",
+                            /*ret*/"D");
+  EXPECT_OK_SIGNATURE_PARSE("(Ljava/lang/Object;Ljava/lang/String;IF)D",
+                            /*args*/"Ljava/lang/Object;,Ljava/lang/String;,I,F",
+                            /*ret*/"D");
+  EXPECT_OK_SIGNATURE_PARSE("([[[Ljava/lang/Object;Ljava/lang/String;IF)D",
+                            /*args*/"[[[Ljava/lang/Object;,Ljava/lang/String;,I,F",
+                            /*ret*/"D");
 
   /*
    * Test Failures in Parsing
@@ -201,7 +218,7 @@ TEST(JniSafeRegisterNativeMethods, StringParsing) {
 // Basic smoke tests for parameter validity.
 // See below for more exhaustive tests.
 TEST(JniSafeRegisterNativeMethods, ParameterTypes) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   EXPECT_TRUE(IsJniParameterCountValid(kCriticalNative, 0u));
   EXPECT_TRUE(IsJniParameterCountValid(kCriticalNative, 1u));
   EXPECT_TRUE(IsJniParameterCountValid(kCriticalNative, 2u));
@@ -223,7 +240,7 @@ TEST(JniSafeRegisterNativeMethods, ParameterTypes) {
 
 struct TestReturnAnything {
   template <typename T>
-  operator T() const {
+  operator T() const {  // NOLINT
     return T{};
   }
 };
@@ -257,6 +274,8 @@ struct TestJni {
   static jint int_fn() { return 0; }
 
   static void v_() {}
+  // Note: volatile,const don't participate in the function signature
+  // but we still have these here to clarify that it is indeed allowed.
   static void v_vol_i(volatile jint) {}
   static void v_const_i(const jint) {}
   static void v_i(jint) {}
@@ -356,11 +375,12 @@ struct TestJni {
 // Template parameters must have linkage, which function-local structs lack.
 
 TEST(JniSafeRegisterNativeMethods, FunctionTypes) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   // The exact error messages are not tested but they would be seen in the compiler
   // stack trace when used from a constexpr context.
 
-#define IS_VALID_JNI_FUNCTION_TYPE(native_kind, func) (IsValidJniFunctionType<native_kind, decltype(func), (func)>())
+#define IS_VALID_JNI_FUNCTION_TYPE(native_kind, func) \
+    (IsValidJniFunctionType<native_kind, decltype(func), (func)>())
 #define IS_VALID_NORMAL_JNI_FUNCTION_TYPE(func) IS_VALID_JNI_FUNCTION_TYPE(kNormalNative, func)
 #define IS_VALID_CRITICAL_JNI_FUNCTION_TYPE(func) IS_VALID_JNI_FUNCTION_TYPE(kCriticalNative, func)
 
@@ -368,12 +388,6 @@ TEST(JniSafeRegisterNativeMethods, FunctionTypes) {
     do {                                                            \
        EXPECT_FALSE(IS_VALID_CRITICAL_JNI_FUNCTION_TYPE(func));    \
        EXPECT_FALSE(IS_VALID_NORMAL_JNI_FUNCTION_TYPE(func));      \
-    } while (false)
-
-#define EXPECT_EITHER_JNI_FUNCTION_TYPE(func)                       \
-    do {                                                            \
-       EXPECT_TRUE(IS_VALID_CRITICAL_JNI_FUNCTION_TYPE(func));     \
-       EXPECT_TRUE(IS_VALID_NORMAL_JNI_FUNCTION_TYPE(func));       \
     } while (false)
 
 #define EXPECT_NORMAL_JNI_FUNCTION_TYPE(func)                       \
@@ -467,12 +481,12 @@ TEST(JniSafeRegisterNativeMethods, FunctionTypes) {
  }
 
 TEST(JniSafeRegisterNativeMethods, FunctionTypeDescriptorConversion) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   {
     constexpr auto cvrt = MaybeMakeReifiedJniSignature<kCriticalNative,
                                                        decltype(TestJni::v_i),
                                                        TestJni::v_i>();
-    EXPECT_TRUE(cvrt.has_value());
+    ASSERT_TRUE(cvrt.has_value());
     EXPECT_CONSTEXPR_EQ(2u, cvrt->max_size);
     EXPECT_CONSTEXPR_EQ(1u, cvrt->args.size());
     EXPECT_STRINGIFY_EQ("args={jint}, ret=void", cvrt.value());
@@ -489,7 +503,7 @@ TEST(JniSafeRegisterNativeMethods, FunctionTypeDescriptorConversion) {
     constexpr auto cvrt = MaybeMakeReifiedJniSignature<kNormalNative,
                                                        decltype(TestJni::normal_agi),
                                                        TestJni::normal_agi>();
-    EXPECT_TRUE(cvrt.has_value());
+    ASSERT_TRUE(cvrt.has_value());
     EXPECT_EQ(2u, cvrt->args.size());
     EXPECT_STRINGIFY_EQ("args={jdoubleArray,jobject}, ret=jdoubleArray", cvrt.value());
   }
@@ -498,7 +512,7 @@ TEST(JniSafeRegisterNativeMethods, FunctionTypeDescriptorConversion) {
     constexpr auto cvrt = MaybeMakeReifiedJniSignature<kCriticalNative,
                                                        decltype(TestJni::critical_ac2),
                                                        TestJni::critical_ac2>();
-    EXPECT_TRUE(cvrt.has_value());
+    ASSERT_TRUE(cvrt.has_value());
     EXPECT_EQ(2u, cvrt->args.size());
     EXPECT_STRINGIFY_EQ("args={jshort,jchar}, ret=jshort", cvrt.value());
   }
@@ -520,8 +534,9 @@ struct apply_return_type {
 #define FN_ARGS_PAIR(fn) decltype(fn), (fn)
 
 TEST(JniSafeRegisterNativeMethods, FunctionTraits) {
-  using namespace nativehelper::detail;
-  using traits_for_int_ret = FunctionTypeMetafunction<FN_ARGS_PAIR(test_function_traits::int_returning_function)>;
+  using namespace nativehelper::detail;  // NOLINT
+  using traits_for_int_ret =
+      FunctionTypeMetafunction<FN_ARGS_PAIR(test_function_traits::int_returning_function)>;
   int applied = traits_for_int_ret::map_return<apply_return_type>();
   EXPECT_EQ(1, applied);
 
@@ -552,7 +567,7 @@ constexpr size_t SumUpVector(const nativehelper::detail::ConstexprVector<T, kMax
 
 template <typename T>
 constexpr auto make_test_int_vector() {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   ConstexprVector<T, 5> vec_int;
   vec_int.push_back(T{1});
   vec_int.push_back(T{2});
@@ -562,8 +577,19 @@ constexpr auto make_test_int_vector() {
   return vec_int;
 }
 
+TEST(JniSafeRegisterNativeMethods, ConstexprOptional) {
+  using namespace nativehelper::detail;  // NOLINT
+
+  ConstexprOptional<int> int_opt;
+  EXPECT_FALSE(int_opt.has_value());
+
+  int_opt = ConstexprOptional<int>(12345);
+  EXPECT_EQ(12345, int_opt.value());
+  EXPECT_EQ(12345, *int_opt);
+}
+
 TEST(JniSafeRegisterNativeMethods, ConstexprVector) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   {
     constexpr ConstexprVector<IntHolder, 5> vec_int = make_test_int_vector<IntHolder>();
     constexpr size_t the_sum = SumUpVector(vec_int);
@@ -584,11 +610,14 @@ constexpr nativehelper::detail::JniDescriptorNode MakeNode(
   return nativehelper::detail::JniDescriptorNode{str};
 }
 
-#define EXPECT_EQUALISH_JNI_DESCRIPTORS_IMPL(user_desc, derived, cond) \
-  do { \
-    constexpr bool res = CompareJniDescriptorNodeErased(MakeNode(user_desc), ReifiedJniTypeTrait::Reify<derived>()); \
-    (void)res; \
-    EXPECT_ ## cond(CompareJniDescriptorNodeErased(MakeNode(user_desc), ReifiedJniTypeTrait::Reify<derived>())); \
+#define EXPECT_EQUALISH_JNI_DESCRIPTORS_IMPL(user_desc, derived, cond)                      \
+  do {                                                                                      \
+    constexpr bool res =                                                                    \
+        CompareJniDescriptorNodeErased(MakeNode(user_desc),                                 \
+                                       ReifiedJniTypeTrait::Reify<derived>());              \
+    (void)res;                                                                              \
+    EXPECT_ ## cond(CompareJniDescriptorNodeErased(MakeNode(user_desc),                     \
+                                                   ReifiedJniTypeTrait::Reify<derived>())); \
   } while (0);
 
 #define EXPECT_EQUALISH_JNI_DESCRIPTORS(user_desc, derived_desc) \
@@ -598,7 +627,7 @@ constexpr nativehelper::detail::JniDescriptorNode MakeNode(
   EXPECT_EQUALISH_JNI_DESCRIPTORS_IMPL(user_desc, derived_desc, FALSE)
 
 TEST(JniSafeRegisterNativeMethods, CompareJniDescriptorNodeErased) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   EXPECT_EQUALISH_JNI_DESCRIPTORS("V", void);
   EXPECT_NOT_EQUALISH_JNI_DESCRIPTORS("V", jint);
   EXPECT_EQUALISH_JNI_DESCRIPTORS("Z", jboolean);
@@ -641,15 +670,15 @@ TEST(JniSafeRegisterNativeMethods, CompareJniDescriptorNodeErased) {
   EXPECT_EQUALISH_JNI_DESCRIPTORS("Ljava/lang/Error;", jthrowable);
 }
 
-#define EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH(type_desc, type) \
-  do { \
-    constexpr auto res = ReifiedJniTypeTrait::MostSimilarTypeDescriptor(type_desc); \
-    EXPECT_TRUE((ReifiedJniTypeTrait::MostSimilarTypeDescriptor(type_desc)).has_value());\
-    if (res.has_value()) EXPECT_EQ(ReifiedJniTypeTrait::Reify<type>(), res.value());  \
+#define EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH(type_desc, type)                             \
+  do {                                                                                    \
+    constexpr auto res = ReifiedJniTypeTrait::MostSimilarTypeDescriptor(type_desc);       \
+    EXPECT_TRUE((ReifiedJniTypeTrait::MostSimilarTypeDescriptor(type_desc)).has_value()); \
+    if (res.has_value()) EXPECT_EQ(ReifiedJniTypeTrait::Reify<type>(), res.value());      \
   } while (false)
 
-#define EXPECT_SIMILAR_TYPE_DESCRIPTOR_NO_MATCH(type_desc) \
-  do { \
+#define EXPECT_SIMILAR_TYPE_DESCRIPTOR_NO_MATCH(type_desc)                \
+  do {                                                                    \
     auto res = ReifiedJniTypeTrait::MostSimilarTypeDescriptor(type_desc); \
     EXPECT_FALSE(res.has_value());                                        \
   } while (false)
@@ -657,14 +686,14 @@ TEST(JniSafeRegisterNativeMethods, CompareJniDescriptorNodeErased) {
 #define JNI_TYPE_TRAIT_MUST_BE_SAME_FN(type_name, type_desc, ...)              \
   /* skip jarray because it aliases Ljava/lang/Object; */                      \
   do {                                                                         \
-    constexpr auto str_type_name = ConstexprStringView(#type_name);          \
+    constexpr auto str_type_name = ConstexprStringView(#type_name);            \
     if (str_type_name != "jarray" && str_type_name != "JNIEnv*") {             \
       EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH(type_desc, type_name);              \
     }                                                                          \
   } while(false);
 
 TEST(JniSafeRegisterNativeMethods, MostSimilarTypeDescriptor) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH("Z", jboolean);
   EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH("[[I", jobjectArray);
   EXPECT_SIMILAR_TYPE_DESCRIPTOR_MATCH("[[Z", jobjectArray);
@@ -701,7 +730,7 @@ TEST(JniSafeRegisterNativeMethods, MostSimilarTypeDescriptor) {
     EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION_IMPL(FALSE, native_kind, func, desc)
 
 TEST(JniSafeRegisterNativeMethods, MatchJniDescriptorWithFunctionType) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   // Bad C++ signature.
   EXPECT_NO_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kCriticalNative, TestJni::bad_cptr, "()V");
   EXPECT_NO_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative, TestJni::bad_cptr, "()V");
@@ -720,11 +749,15 @@ TEST(JniSafeRegisterNativeMethods, MatchJniDescriptorWithFunctionType) {
 
   // Argument types don't match.
   EXPECT_NO_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kCriticalNative, TestJni::v_i, "(Z)V");
-  EXPECT_NO_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative, TestJni::v_eoo, "(Ljava/lang/Class;)V");
+  EXPECT_NO_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative,
+                                                  TestJni::v_eoo,
+                                                  "(Ljava/lang/Class;)V");
 
   // OK.
   EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kCriticalNative, TestJni::v_i, "(I)V");
-  EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative, TestJni::v_eoo, "(Ljava/lang/Object;)V");
+  EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative,
+                                               TestJni::v_eoo,
+                                               "(Ljava/lang/Object;)V");
 
   EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kCriticalNative, TestJni::v_lib, "(JIZ)V");
   EXPECT_MATCH_JNI_DESCRIPTOR_AGAINST_FUNCTION(kNormalNative, TestJni::v_eolib, "(JIZ)V");
@@ -733,7 +766,7 @@ TEST(JniSafeRegisterNativeMethods, MatchJniDescriptorWithFunctionType) {
 }
 
 TEST(JniSafeRegisterNativeMethods, Infer) {
-  using namespace nativehelper::detail;
+  using namespace nativehelper::detail;  // NOLINT
   {
     using Infer_v_eolib_t = InferJniDescriptor<kNormalNative,
                                                decltype(TestJni::v_eolib),
@@ -850,6 +883,373 @@ static void TestJniMacros_v_lib(jlong, jint, jboolean) {}
 static void TestJniMacros_v_lib_od(jlong, jint, jboolean) {}
 static void TestJniMacros_v_eolib(JNIEnv*, jobject, jlong, jint, jboolean) {}
 static void TestJniMacros_v_eolib_od(JNIEnv*, jobject, jlong, jint, jboolean) {}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+
+static jint android_os_Parcel_dataSize(jlong) { return 0; }
+static jint android_os_Parcel_dataAvail(jlong) { return 0; }
+static jint android_os_Parcel_dataPosition(jlong) { return 0; }
+static jint android_os_Parcel_dataCapacity(jlong) { return 0; }
+static jlong android_os_Parcel_setDataSize(JNIEnv*, jclass, jlong, jint) { return 0; }
+static void android_os_Parcel_setDataPosition(jlong, jint) {}
+static void android_os_Parcel_setDataCapacity(JNIEnv*, jclass, jlong, jint) {}
+static jboolean android_os_Parcel_pushAllowFds(jlong, jboolean) { return true; }
+static void android_os_Parcel_restoreAllowFds(jlong, jboolean) {}
+static void android_os_Parcel_writeByteArray(JNIEnv*, jclass, jlong, jbyteArray, jint, jint) {}
+
+static void android_os_Parcel_writeBlob(JNIEnv*, jclass, jlong, jbyteArray, jint, jint) {}
+static void android_os_Parcel_writeInt(JNIEnv*, jclass, jlong, jint) {}
+static void android_os_Parcel_writeLong(JNIEnv* env,
+                                        jclass clazz,
+                                        jlong nativePtr,
+                                        jlong val) {}
+static void android_os_Parcel_writeFloat(JNIEnv* env,
+                                         jclass clazz,
+                                         jlong nativePtr,
+                                         jfloat val) {}
+static void android_os_Parcel_writeDouble(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong nativePtr,
+                                          jdouble val) {}
+static void android_os_Parcel_writeString(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong nativePtr,
+                                          jstring val) {}
+static void android_os_Parcel_writeStrongBinder(JNIEnv* env,
+                                                jclass clazz,
+                                                jlong nativePtr,
+                                                jobject object) {}
+static jlong android_os_Parcel_writeFileDescriptor(JNIEnv* env,
+                                                   jclass clazz,
+                                                   jlong nativePtr,
+                                                   jobject object) { return 0; }
+static jbyteArray android_os_Parcel_createByteArray(JNIEnv* env,
+                                                    jclass clazz,
+                                                    jlong nativePtr) { return nullptr; }
+
+static jboolean android_os_Parcel_readByteArray(JNIEnv* env,
+                                                jclass clazz,
+                                                jlong nativePtr,
+                                                jbyteArray dest,
+                                                jint destLen) { return false; }
+static jbyteArray android_os_Parcel_readBlob(JNIEnv* env,
+                                             jclass clazz,
+                                             jlong nativePtr) { return nullptr; }
+
+static jint android_os_Parcel_readInt(jlong nativePtr) { return 0; }
+
+static jlong android_os_Parcel_readLong(jlong nativePtr) { return 0; }
+
+static jfloat android_os_Parcel_readFloat(jlong nativePtr) { return 0.0f; }
+static jdouble android_os_Parcel_readDouble(jlong nativePtr) { return 0.0; }
+
+static jstring android_os_Parcel_readString(JNIEnv* env,
+                                            jclass clazz,
+                                            jlong nativePtr) { return nullptr; }
+
+static jobject android_os_Parcel_readStrongBinder(JNIEnv* env,
+                                                  jclass clazz,
+                                                  jlong nativePtr) { return nullptr; }
+
+
+static jobject android_os_Parcel_readFileDescriptor(JNIEnv* env,
+                                                    jclass clazz,
+                                                    jlong nativePtr) { return nullptr; }
+
+static jobject android_os_Parcel_openFileDescriptor(JNIEnv* env,
+                                                    jclass clazz,
+                                                    jstring name,
+                                                    jint mode) { return 0; }
+
+
+static jobject android_os_Parcel_dupFileDescriptor(JNIEnv* env,
+                                                   jclass clazz,
+                                                   jobject orig) { return 0; }
+
+
+static void android_os_Parcel_closeFileDescriptor(JNIEnv* env,
+                                                  jclass clazz,
+                                                  jobject object) {}
+
+
+static void android_os_Parcel_clearFileDescriptor(JNIEnv* env,
+                                                  jclass clazz,
+                                                  jobject object) {}
+
+
+static jlong android_os_Parcel_create(JNIEnv* env, jclass clazz) { return 0; }
+
+
+static jlong android_os_Parcel_freeBuffer(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong nativePtr) { return 0; }
+
+
+static void  android_os_Parcel_destroy(JNIEnv* env, jclass clazz, jlong nativePtr) {}
+
+
+static jbyteArray android_os_Parcel_marshall(JNIEnv* env,
+                                             jclass clazz,
+                                             jlong nativePtr) { return 0; }
+
+
+static jlong android_os_Parcel_unmarshall(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong nativePtr,
+                                          jbyteArray data,
+                                          jint offset,
+                                          jint length) { return 0; }
+
+
+static jint android_os_Parcel_compareData(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong thisNativePtr,
+                                          jlong otherNativePtr) { return 0; }
+
+
+static jlong android_os_Parcel_appendFrom(JNIEnv* env,
+                                          jclass clazz,
+                                          jlong thisNativePtr,
+                                          jlong otherNativePtr,
+                                          jint offset,
+                                          jint length) { return 0; }
+
+
+static jboolean android_os_Parcel_hasFileDescriptors(jlong nativePtr) { return 0; }
+
+
+static void android_os_Parcel_writeInterfaceToken(JNIEnv* env,
+                                                  jclass clazz,
+                                                  jlong nativePtr,
+                                                  jstring name) {}
+
+
+static void android_os_Parcel_enforceInterface(JNIEnv* env,
+                                               jclass clazz,
+                                               jlong nativePtr,
+                                               jstring name) {}
+
+
+static jlong android_os_Parcel_getGlobalAllocSize(JNIEnv* env, jclass clazz) { return 0; }
+
+
+static jlong android_os_Parcel_getGlobalAllocCount(JNIEnv* env, jclass clazz) { return 0; }
+
+
+static jlong android_os_Parcel_getBlobAshmemSize(jlong nativePtr) { return 0; }
+
+#pragma clang diagnostic pop
+
+TEST(JniSafeRegisterNativeMethods, ParcelExample) {
+  // Test a wide range of automatic signature inferencing.
+  // This is taken from real code in android_os_Parcel.cpp.
+
+  const JNINativeMethod gParcelMethods[] = {
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeDataSize", android_os_Parcel_dataSize),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeDataAvail", android_os_Parcel_dataAvail),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeDataPosition", android_os_Parcel_dataPosition),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeDataCapacity", android_os_Parcel_dataCapacity),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeSetDataSize",  android_os_Parcel_setDataSize),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeSetDataPosition", android_os_Parcel_setDataPosition),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeSetDataCapacity", android_os_Parcel_setDataCapacity),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativePushAllowFds", android_os_Parcel_pushAllowFds),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeRestoreAllowFds", android_os_Parcel_restoreAllowFds),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteByteArray", android_os_Parcel_writeByteArray),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteBlob", android_os_Parcel_writeBlob),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteInt", android_os_Parcel_writeInt),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteLong", android_os_Parcel_writeLong),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteFloat", android_os_Parcel_writeFloat),
+    // @FastNative
+    MAKE_JNI_FAST_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteDouble", android_os_Parcel_writeDouble),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteString",  android_os_Parcel_writeString),
+    MAKE_JNI_NATIVE_METHOD(
+        "nativeWriteStrongBinder", "(JLandroid/os/IBinder;)V", android_os_Parcel_writeStrongBinder),
+    MAKE_JNI_NATIVE_METHOD(
+        "nativeWriteFileDescriptor", "(JLjava/io/FileDescriptor;)J", android_os_Parcel_writeFileDescriptor),
+
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeCreateByteArray", android_os_Parcel_createByteArray),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeReadByteArray", android_os_Parcel_readByteArray),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeReadBlob", android_os_Parcel_readBlob),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeReadInt", android_os_Parcel_readInt),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeReadLong", android_os_Parcel_readLong),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeReadFloat", android_os_Parcel_readFloat),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeReadDouble", android_os_Parcel_readDouble),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeReadString", android_os_Parcel_readString),
+    MAKE_JNI_NATIVE_METHOD(
+        "nativeReadStrongBinder", "(J)Landroid/os/IBinder;", android_os_Parcel_readStrongBinder),
+    MAKE_JNI_NATIVE_METHOD(
+        "nativeReadFileDescriptor", "(J)Ljava/io/FileDescriptor;", android_os_Parcel_readFileDescriptor),
+    MAKE_JNI_NATIVE_METHOD(
+        "openFileDescriptor", "(Ljava/lang/String;I)Ljava/io/FileDescriptor;", android_os_Parcel_openFileDescriptor),
+    MAKE_JNI_NATIVE_METHOD(
+        "dupFileDescriptor", "(Ljava/io/FileDescriptor;)Ljava/io/FileDescriptor;", android_os_Parcel_dupFileDescriptor),
+    MAKE_JNI_NATIVE_METHOD(
+        "closeFileDescriptor", "(Ljava/io/FileDescriptor;)V", android_os_Parcel_closeFileDescriptor),
+    MAKE_JNI_NATIVE_METHOD(
+        "clearFileDescriptor", "(Ljava/io/FileDescriptor;)V", android_os_Parcel_clearFileDescriptor),
+
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeCreate", android_os_Parcel_create),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeFreeBuffer", android_os_Parcel_freeBuffer),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeDestroy", android_os_Parcel_destroy),
+
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeMarshall", android_os_Parcel_marshall),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeUnmarshall", android_os_Parcel_unmarshall),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeCompareData", android_os_Parcel_compareData),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeAppendFrom", android_os_Parcel_appendFrom),
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeHasFileDescriptors", android_os_Parcel_hasFileDescriptors),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeWriteInterfaceToken", android_os_Parcel_writeInterfaceToken),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "nativeEnforceInterface", android_os_Parcel_enforceInterface),
+
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "getGlobalAllocSize", android_os_Parcel_getGlobalAllocSize),
+    MAKE_JNI_NATIVE_METHOD_AUTOSIG(
+        "getGlobalAllocCount", android_os_Parcel_getGlobalAllocCount),
+
+    // @CriticalNative
+    MAKE_JNI_CRITICAL_NATIVE_METHOD_AUTOSIG(
+        "nativeGetBlobAshmemSize", android_os_Parcel_getBlobAshmemSize),
+  };
+
+  const JNINativeMethod gParcelMethodsExpected[] = {
+    // @CriticalNative
+    {"nativeDataSize",            "(J)I", (void*)android_os_Parcel_dataSize},
+    // @CriticalNative
+    {"nativeDataAvail",           "(J)I", (void*)android_os_Parcel_dataAvail},
+    // @CriticalNative
+    {"nativeDataPosition",        "(J)I", (void*)android_os_Parcel_dataPosition},
+    // @CriticalNative
+    {"nativeDataCapacity",        "(J)I", (void*)android_os_Parcel_dataCapacity},
+    // @FastNative
+    {"nativeSetDataSize",         "(JI)J", (void*)android_os_Parcel_setDataSize},
+    // @CriticalNative
+    {"nativeSetDataPosition",     "(JI)V", (void*)android_os_Parcel_setDataPosition},
+    // @FastNative
+    {"nativeSetDataCapacity",     "(JI)V", (void*)android_os_Parcel_setDataCapacity},
+
+    // @CriticalNative
+    {"nativePushAllowFds",        "(JZ)Z", (void*)android_os_Parcel_pushAllowFds},
+    // @CriticalNative
+    {"nativeRestoreAllowFds",     "(JZ)V", (void*)android_os_Parcel_restoreAllowFds},
+
+    {"nativeWriteByteArray",      "(J[BII)V", (void*)android_os_Parcel_writeByteArray},
+    {"nativeWriteBlob",           "(J[BII)V", (void*)android_os_Parcel_writeBlob},
+    // @FastNative
+    {"nativeWriteInt",            "(JI)V", (void*)android_os_Parcel_writeInt},
+    // @FastNative
+    {"nativeWriteLong",           "(JJ)V", (void*)android_os_Parcel_writeLong},
+    // @FastNative
+    {"nativeWriteFloat",          "(JF)V", (void*)android_os_Parcel_writeFloat},
+    // @FastNative
+    {"nativeWriteDouble",         "(JD)V", (void*)android_os_Parcel_writeDouble},
+    {"nativeWriteString",         "(JLjava/lang/String;)V", (void*)android_os_Parcel_writeString},
+    {"nativeWriteStrongBinder",   "(JLandroid/os/IBinder;)V", (void*)android_os_Parcel_writeStrongBinder},
+    {"nativeWriteFileDescriptor", "(JLjava/io/FileDescriptor;)J", (void*)android_os_Parcel_writeFileDescriptor},
+
+    {"nativeCreateByteArray",     "(J)[B", (void*)android_os_Parcel_createByteArray},
+    {"nativeReadByteArray",       "(J[BI)Z", (void*)android_os_Parcel_readByteArray},
+    {"nativeReadBlob",            "(J)[B", (void*)android_os_Parcel_readBlob},
+    // @CriticalNative
+    {"nativeReadInt",             "(J)I", (void*)android_os_Parcel_readInt},
+    // @CriticalNative
+    {"nativeReadLong",            "(J)J", (void*)android_os_Parcel_readLong},
+    // @CriticalNative
+    {"nativeReadFloat",           "(J)F", (void*)android_os_Parcel_readFloat},
+    // @CriticalNative
+    {"nativeReadDouble",          "(J)D", (void*)android_os_Parcel_readDouble},
+    {"nativeReadString",          "(J)Ljava/lang/String;", (void*)android_os_Parcel_readString},
+    {"nativeReadStrongBinder",    "(J)Landroid/os/IBinder;", (void*)android_os_Parcel_readStrongBinder},
+    {"nativeReadFileDescriptor",  "(J)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_readFileDescriptor},
+
+    {"openFileDescriptor",        "(Ljava/lang/String;I)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_openFileDescriptor},
+    {"dupFileDescriptor",         "(Ljava/io/FileDescriptor;)Ljava/io/FileDescriptor;", (void*)android_os_Parcel_dupFileDescriptor},
+    {"closeFileDescriptor",       "(Ljava/io/FileDescriptor;)V", (void*)android_os_Parcel_closeFileDescriptor},
+    {"clearFileDescriptor",       "(Ljava/io/FileDescriptor;)V", (void*)android_os_Parcel_clearFileDescriptor},
+
+    {"nativeCreate",              "()J", (void*)android_os_Parcel_create},
+    {"nativeFreeBuffer",          "(J)J", (void*)android_os_Parcel_freeBuffer},
+    {"nativeDestroy",             "(J)V", (void*)android_os_Parcel_destroy},
+
+    {"nativeMarshall",            "(J)[B", (void*)android_os_Parcel_marshall},
+    {"nativeUnmarshall",          "(J[BII)J", (void*)android_os_Parcel_unmarshall},
+    {"nativeCompareData",         "(JJ)I", (void*)android_os_Parcel_compareData},
+    {"nativeAppendFrom",          "(JJII)J", (void*)android_os_Parcel_appendFrom},
+    // @CriticalNative
+    {"nativeHasFileDescriptors",  "(J)Z", (void*)android_os_Parcel_hasFileDescriptors},
+    {"nativeWriteInterfaceToken", "(JLjava/lang/String;)V", (void*)android_os_Parcel_writeInterfaceToken},
+    {"nativeEnforceInterface",    "(JLjava/lang/String;)V", (void*)android_os_Parcel_enforceInterface},
+
+    {"getGlobalAllocSize",        "()J", (void*)android_os_Parcel_getGlobalAllocSize},
+    {"getGlobalAllocCount",       "()J", (void*)android_os_Parcel_getGlobalAllocCount},
+
+    // @CriticalNative
+    {"nativeGetBlobAshmemSize",       "(J)J", (void*)android_os_Parcel_getBlobAshmemSize},
+  };
+
+  ASSERT_EQ(sizeof(gParcelMethodsExpected)/sizeof(JNINativeMethod),
+            sizeof(gParcelMethods)/sizeof(JNINativeMethod));
+
+
+  for (size_t i = 0; i < sizeof(gParcelMethods) / sizeof(JNINativeMethod); ++i) {
+    const JNINativeMethod& actual = gParcelMethods[i];
+    const JNINativeMethod& expected = gParcelMethodsExpected[i];
+
+    EXPECT_STREQ(expected.name, actual.name);
+    EXPECT_STREQ(expected.signature, actual.signature) << expected.name;
+    EXPECT_EQ(expected.fnPtr, actual.fnPtr) << expected.name;
+  }
+}
 
 TEST(JniSafeRegisterNativeMethods, JniMacros) {
   JNINativeMethod tmp_native_method;  // shadow variable check.

@@ -7,7 +7,7 @@ import logging
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_helper
-
+from autotest_lib.client.cros.audio import cras_utils
 
 _DEFAULT_VOLUME_LEVEL = 100
 _DEFAULT_CAPTURE_GAIN = 2500
@@ -51,8 +51,12 @@ class audio_LoopbackLatency(test.test):
                          'reported %d uS, diff %d us\n', _NOISE_THRESHOLD,
                          result[0], result[1], diff)
 
+            perf_value_description = 'loopback_latency'
+            if cras_utils.get_selected_output_device_type() == 'USB':
+                perf_value_description += '_usb'
+
             self.output_perf_value(
-                description='loopback_latency', value=result[0],
+                description=perf_value_description, value=result[0],
                 units='uS', higher_is_better=False)
 
             # Difference between measured and reported latency should

@@ -30,8 +30,8 @@ LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-          android-support-test \
-          compatibility-device-util \
+          androidx.test.rules \
+          compatibility-device-util-axt \
 
 LOCAL_JNI_SHARED_LIBRARIES := \
           libctsseccomp_jni \
@@ -47,7 +47,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsSeccompDeviceApp
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_PACKAGE)
 

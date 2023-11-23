@@ -33,6 +33,7 @@
 #include "vktTestGroupUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkBuilderUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "vktProtectedMemContext.hpp"
 #include "vktProtectedMemUtils.hpp"
@@ -174,27 +175,16 @@ tcu::TestStatus AttachmentClearTestInstance::iterate()
 	}
 
 	// Image clear to different from input color
-	const vk::VkClearValue				clearValue			=
-		vk::makeClearValueColorF32(m_clearValue.color.float32[0] < 0.5f ? 1.0f : 0.0f,
-								   m_clearValue.color.float32[1] < 0.5f ? 1.0f : 0.0f,
-								   m_clearValue.color.float32[2] < 0.5f ? 1.0f : 0.0f,
-								   m_clearValue.color.float32[3] < 0.5f ? 1.0f : 0.0f
-		);
-	const vk::VkRenderPassBeginInfo		passBeginInfo		=
-	{
-		vk::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,			// sType
-		DE_NULL,												// pNext
-		*renderPass,											// renderPass
-		*framebuffer,											// framebuffer
-		{ {0, 0}, {RENDER_WIDTH, RENDER_HEIGHT} },				// renderArea
-		1u,														// clearValueCount
-		&clearValue												// pClearValues
-	};
+
+	const tcu::Vec4						clearValue			(m_clearValue.color.float32[0] < 0.5f ? 1.0f : 0.0f,
+															 m_clearValue.color.float32[1] < 0.5f ? 1.0f : 0.0f,
+															 m_clearValue.color.float32[2] < 0.5f ? 1.0f : 0.0f,
+															 m_clearValue.color.float32[3] < 0.5f ? 1.0f : 0.0f);
 
 	const vk::VkSubpassContents			subpassContents		= m_cmdBufferType == CMD_BUFFER_SECONDARY
 															  ? vk::VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS
 															  : vk::VK_SUBPASS_CONTENTS_INLINE;
-	vk.cmdBeginRenderPass(*cmdBuffer, &passBeginInfo, subpassContents);
+	beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, vk::makeRect2D(RENDER_WIDTH, RENDER_HEIGHT), clearValue, subpassContents);
 
 	if (m_cmdBufferType == CMD_BUFFER_SECONDARY)
 	{
@@ -220,21 +210,7 @@ tcu::TestStatus AttachmentClearTestInstance::iterate()
 			0u,													//uint32_t				colorAttachment
 			m_clearValue										// VkClearValue			clearValue;
 		};
-		const vk::VkOffset2D			offset				=
-		{
-			0,													//int32_t				x;
-			0													//int32_t				y;
-		};
-		const vk::VkExtent2D			extent				=
-		{
-			RENDER_WIDTH,										//uint32_t				width;
-			RENDER_HEIGHT										//uint32_t				height;
-		};
-		const vk::VkRect2D				rect2D				=
-		{
-			offset,												//VkOffset2D			offset;
-			extent												//VkExtent2D			extent;
-		};
+		const vk::VkRect2D				rect2D				= vk::makeRect2D(RENDER_WIDTH, RENDER_HEIGHT);
 		const vk::VkClearRect			clearRect			=
 		{
 			rect2D,												// VkRect2D				rect;
@@ -246,13 +222,14 @@ tcu::TestStatus AttachmentClearTestInstance::iterate()
 
 	if (m_cmdBufferType == CMD_BUFFER_SECONDARY)
 	{
-		VK_CHECK(vk.endCommandBuffer(*secondaryCmdBuffer));
+		endCommandBuffer(vk, *secondaryCmdBuffer);
 		vk.cmdExecuteCommands(*cmdBuffer, 1u, &secondaryCmdBuffer.get());
 	}
 
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
 	{
+		// Image validator reads image in compute shader
 		const vk::VkImageMemoryBarrier	endImgBarrier		=
 		{
 			vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// sType
@@ -273,15 +250,15 @@ tcu::TestStatus AttachmentClearTestInstance::iterate()
 			}
 		};
 		vk.cmdPipelineBarrier(*cmdBuffer,
-							  vk::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 							  vk::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+							  vk::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 							  (vk::VkDependencyFlags)0,
 							  0, (const vk::VkMemoryBarrier*)DE_NULL,
 							  0, (const vk::VkBufferMemoryBarrier*)DE_NULL,
 							  1, &endImgBarrier);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 
 	// Submit command buffer
 	const vk::Unique<vk::VkFence>	fence		(vk::createFence(vk, device));
@@ -294,7 +271,7 @@ tcu::TestStatus AttachmentClearTestInstance::iterate()
 		<< tcu::TestLog::Message << "Stencil clear value: " << m_clearValue.depthStencil.stencil << tcu::TestLog::EndMessage;
 
 	// Validate resulting image
-	if (m_validator.validateImage(ctx, m_refData, **colorImage, m_imageFormat))
+	if (m_validator.validateImage(ctx, m_refData, **colorImage, m_imageFormat, vk::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 		return tcu::TestStatus::pass("Everything went OK");
 	else
 		return tcu::TestStatus::fail("Something went really wrong");

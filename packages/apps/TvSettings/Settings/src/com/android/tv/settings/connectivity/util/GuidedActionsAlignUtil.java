@@ -18,12 +18,13 @@ package com.android.tv.settings.connectivity.util;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.support.v17.leanback.widget.BaseGridView;
-import android.support.v17.leanback.widget.FacetProvider;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.ItemAlignmentFacet;
-import android.support.v17.leanback.widget.VerticalGridView;
 import android.view.View;
+
+import androidx.leanback.widget.BaseGridView;
+import androidx.leanback.widget.FacetProvider;
+import androidx.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.widget.ItemAlignmentFacet;
+import androidx.leanback.widget.VerticalGridView;
 
 /**
  * Utilities to align the ActionGridView so that the baseline of the title view matches with
@@ -50,7 +51,7 @@ public class GuidedActionsAlignUtil {
                 ItemAlignmentFacet.ItemAlignmentDef alignedDef =
                         new ItemAlignmentFacet.ItemAlignmentDef();
                 alignedDef.setItemAlignmentViewId(
-                        android.support.v17.leanback.R.id.guidedactions_item_title);
+                        androidx.leanback.R.id.guidedactions_item_title);
                 alignedDef.setAlignedToTextViewBaseline(false);
                 alignedDef.setItemAlignmentOffset(0);
                 alignedDef.setItemAlignmentOffsetWithPadding(true);
@@ -66,9 +67,9 @@ public class GuidedActionsAlignUtil {
 
     private static float getKeyLinePercent(Context context) {
         TypedArray ta = context.getTheme().obtainStyledAttributes(
-                android.support.v17.leanback.R.styleable.LeanbackGuidedStepTheme);
+                androidx.leanback.R.styleable.LeanbackGuidedStepTheme);
         float percent = ta.getFloat(
-                android.support.v17.leanback.R.styleable.LeanbackGuidedStepTheme_guidedStepKeyline,
+                androidx.leanback.R.styleable.LeanbackGuidedStepTheme_guidedStepKeyline,
                 40);
         ta.recycle();
         return percent;

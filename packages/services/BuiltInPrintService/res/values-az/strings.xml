@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Açıq qapı"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Sıxılmış"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Oflayn"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Uyğun olmayan sertifikat"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Şifrələnmədi"</string>
     <string name="printer_check" msgid="6428369671197132828">"Printeri yoxlayın"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Göndərmək üçü gözlənilir"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Sənədi oxumaq mümkün deyil"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printer dəstəklənmir"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct printerlərini axtarın"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi ilə birbaşa çap"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct printerləri"</string>
     <string name="searching" msgid="2114018057619514587">"Axtarılır..."</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Printerin ön panelində bu bağlantını doğrulamalısınız"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Unudun"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct ilə qoşulur"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Cari şəbəkə ilə <xliff:g id="IP_ADDRESS">%1$s</xliff:g> ünvanında qoşulur"</string>
+    <string name="security" msgid="2279008326210305401">"Təhlükəsizlik"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Bu printer yeni sertifikat təqdim etdi və ya digər cihaz onun şəxsiyyətini oğurlayır. Yeni sertifikat qəbul edilsin?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Bu printer artıq şifrələnmiş işləri qəbul etmir. Çapa davam edilsin?"</string>
+    <string name="accept" msgid="4426153292469698134">"Qəbul edin"</string>
+    <string name="reject" msgid="24751635160440693">"Rədd edin"</string>
+    <string name="connections" msgid="8895413761760117180">"Əlaqələr"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Defolt Çap Xidməti yaxınlıqdakı cihazları tapmaq üçün məkan icazəsi tələb edir."</string>
+    <string name="fix" msgid="7784394272611365393">"Rəy icazələri"</string>
 </resources>

@@ -131,7 +131,7 @@
     <string name="search_settings_description" msgid="2675223022992445813">"Kontaktlaringiz ismi"</string>
     <string name="quickcontact_transparent_view_description" msgid="987959416759562455">"Avvalgi ekranga qaytish uchun bosing"</string>
     <string name="quickcontact_add_phone_number" msgid="731665835910658965">"Telefon raqamini kiritish"</string>
-    <string name="quickcontact_add_email" msgid="739298028384348482">"E-pochta manzilini kiritish"</string>
+    <string name="quickcontact_add_email" msgid="739298028384348482">"Email manzilini kiritish"</string>
     <string name="missing_app" msgid="1466111003546611387">"Ushbu amalni bajarish uchun ilova topilmadi."</string>
     <string name="menu_share" msgid="943789700636542260">"Yuborish"</string>
     <string name="menu_add_contact" msgid="3198704337220892684">"Kontaktlarga saqlash"</string>
@@ -202,15 +202,8 @@
     <string name="action_menu_add_new_contact_button" msgid="5506832825256203208">"Yangi kontakt yaratish"</string>
     <string name="expanding_entry_card_view_see_more" msgid="3779194067124758079">"Yana"</string>
     <string name="expanding_entry_card_view_see_less" msgid="5344160551629714168">"Kamroq"</string>
-    <string name="recent_card_title" msgid="8982782042698001695">"Yaqinda"</string>
     <string name="about_card_title" msgid="2920942314212825637">"Kontakt haqida:"</string>
     <string name="toast_making_personal_copy" msgid="288549957278065542">"Shaxsiy nusxasi yaratilmoqda…"</string>
-    <string name="tomorrow" msgid="6241969467795308581">"Ertaga"</string>
-    <string name="today" msgid="8041090779381781781">"Bugun"</string>
-    <string name="today_at_time_fmt" msgid="605665249491030460">"Bugun <xliff:g id="TIME_INTERVAL">%s</xliff:g> da"</string>
-    <string name="tomorrow_at_time_fmt" msgid="4856497969617819421">"Ertaga <xliff:g id="TIME_INTERVAL">%s</xliff:g> da"</string>
-    <string name="date_time_fmt" msgid="5053178726906863812">"<xliff:g id="DATE">%1$s</xliff:g>, <xliff:g id="TIME_INTERVAL">%2$s</xliff:g>"</string>
-    <string name="untitled_event" msgid="3484859385405939366">"(Nomsiz tadbir)"</string>
     <string name="date_time_set" msgid="4761419824439606690">"Saqlash"</string>
     <string name="header_im_entry" msgid="3581720979640225615">"Tezkor xabar (IM)"</string>
     <string name="header_organization_entry" msgid="8515394955666265406">"Tashkilot"</string>
@@ -220,15 +213,9 @@
     <string name="header_event_entry" msgid="6738250422744401460">"Tadbir"</string>
     <string name="header_relation_entry" msgid="1520292958088146460">"Aloqadorligi"</string>
     <string name="header_name_entry" msgid="1592791008096288306">"Ism"</string>
-    <string name="header_email_entry" msgid="8666093061171624478">"E-pochta"</string>
+    <string name="header_email_entry" msgid="8666093061171624478">"Email"</string>
     <string name="header_phone_entry" msgid="8450980572274173570">"Telefon"</string>
     <string name="content_description_directions" msgid="2686791825798189335">"manzilga yo\'nalishlar"</string>
-    <string name="content_description_recent_sms" msgid="1666389577263317445">"Yaqindagi SMS xabar. <xliff:g id="MESSAGE_BODY">%1$s</xliff:g>. <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>. <xliff:g id="DATE">%3$s</xliff:g>. Javob berish uchun bosing."</string>
-    <string name="content_description_recent_call_type_incoming" msgid="5210739096863511410">"kiruvchi"</string>
-    <string name="content_description_recent_call_type_outgoing" msgid="5156553338985232744">"chiquvchi"</string>
-    <string name="content_description_recent_call_type_missed" msgid="7371810920196048204">"javobsiz"</string>
-    <string name="content_description_recent_call" msgid="5183800406316723676">"Yaqindagi chaqiruv. <xliff:g id="CALL_TYPE">%1$s</xliff:g>. <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>. <xliff:g id="DATE">%3$s</xliff:g>. Qaytarib qilish uchun bosing."</string>
-    <string name="message_from_you_prefix" msgid="7180706529908434482">"Siz: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="editor_more_fields" msgid="3630987771304393421">"Boshqa maydonlar"</string>
     <string name="editor_change_photo_content_description" msgid="820879708069864340">"Kontakt suratini o‘zgartirish"</string>
     <string name="editor_add_photo_content_description" msgid="4194479313465418120">"Kontakt suratini qo‘shish"</string>
@@ -250,10 +237,6 @@
     <string name="navigation_drawer_label" msgid="4154758025620107419">"“<xliff:g id="LABEL_NAME">%s</xliff:g>” yorlig‘i"</string>
     <string name="menu_title_groups" msgid="8356921831150278868">"Yorliqlar"</string>
     <string name="menu_title_filters" msgid="8210922220185114527">"Hisoblar"</string>
-    <string name="permission_explanation_header" msgid="5739405825039695327">"Umumiy tarixni ochish"</string>
-    <string name="permission_explanation_subheader_calendar_and_SMS" msgid="5411144298889835768">"Tadbirlar va xabarlar"</string>
-    <string name="permission_explanation_subheader_calendar" msgid="8785323496211704613">"Tadbirlar"</string>
-    <string name="permission_explanation_subheader_SMS" msgid="1904552086449525567">"Xabarlar"</string>
     <string name="hamburger_feature_highlight_header" msgid="5762679188565585072">"Tavsiyalar"</string>
     <string name="hamburger_feature_highlight_body" msgid="4403398269286898733">"Kontaktlar bilan qulay ishlash uchun ularni tartibga soling"</string>
     <string name="undo" msgid="1425165101664071422">"Bekor qilish"</string>
@@ -303,7 +286,7 @@
     <string name="sms_by_shortcut" msgid="7741770672976099517">"<xliff:g id="CONTACT_NAME">%s</xliff:g> (SMS)"</string>
     <string name="description_video_call" msgid="7120921378651700947">"Video qo‘ng‘iroq qilish"</string>
     <string name="clearFrequentsConfirmation_title" msgid="766292372438450432">"Bu ro‘yxat tozalansinmi?"</string>
-    <string name="clearFrequentsConfirmation" msgid="2270554975938265734">"Kontaktlar va Telefon ilovalaridagi tez-tez aloqa qilingan kontaktlar ro‘yxati tozalanadi. E-pochta ilovalari esa e-pochta manzillarini yangidan eslay boshlaydi."</string>
+    <string name="clearFrequentsConfirmation" msgid="2270554975938265734">"Kontaktlar va Telefon ilovalaridagi tez-tez aloqa qilingan kontaktlar ro‘yxati tozalanadi. Email ilovalari esa e-pochta manzillarini yangidan eslay boshlaydi."</string>
     <string name="clearFrequentsProgress_title" msgid="5157001637482794212">"Ro‘yxat tozalanmoqda…"</string>
     <string name="status_available" msgid="5586870015822828392">"Aloqada"</string>
     <string name="status_away" msgid="1838861100379804730">"Tashqarida"</string>
@@ -332,7 +315,7 @@
     <string name="name_phonetic_middle" msgid="8643721493320405200">"Otasining ismi talaffuzi"</string>
     <string name="name_phonetic_family" msgid="2640133663656011626">"Familiya talaffuzi"</string>
     <string name="phoneLabelsGroup" msgid="6468091477851199285">"Telefon"</string>
-    <string name="emailLabelsGroup" msgid="8389931313045344406">"E-pochta"</string>
+    <string name="emailLabelsGroup" msgid="8389931313045344406">"Email"</string>
     <string name="postalLabelsGroup" msgid="3487738141112589324">"Manzil"</string>
     <string name="imLabelsGroup" msgid="3898238486262614027">"Chat"</string>
     <string name="organizationLabelsGroup" msgid="2478611760751832035">"Tashkilot"</string>
@@ -350,9 +333,9 @@
     <string name="email_home" msgid="8573740658148184279">"Shaxsiy e-pochta"</string>
     <string name="email_mobile" msgid="2042889209787989814">"Mobil e-pochta"</string>
     <string name="email_work" msgid="2807430017302722689">"Ish e-pochtasi"</string>
-    <string name="email_other" msgid="3454004077967657109">"E-pochta xat yuborish"</string>
-    <string name="email_custom" msgid="5536404237099078802">"E-pochta xat yozish (<xliff:g id="CUSTOM_LABEL">%s</xliff:g>)"</string>
-    <string name="email" msgid="5668400997660065897">"E-pochta"</string>
+    <string name="email_other" msgid="3454004077967657109">"Email xat yuborish"</string>
+    <string name="email_custom" msgid="5536404237099078802">"Email xat yozish (<xliff:g id="CUSTOM_LABEL">%s</xliff:g>)"</string>
+    <string name="email" msgid="5668400997660065897">"Email"</string>
     <string name="postal_street" msgid="8133143961580058972">"Ko‘cha"</string>
     <string name="postal_city" msgid="6597491300084895548">"Shahar"</string>
     <string name="postal_region" msgid="6045263193478437672">"Viloyat"</string>
@@ -489,7 +472,7 @@
     <string name="call_subject_type_and_number" msgid="7667188212129152558">"<xliff:g id="TYPE">%1$s</xliff:g> • <xliff:g id="NUMBER">%2$s</xliff:g>"</string>
     <string name="about_build_version" msgid="1765533099416999801">"Versiyasi"</string>
     <string name="about_open_source_licenses" msgid="6479990452352919641">"Ochiq kodli DT litsenziyalari"</string>
-    <string name="about_open_source_licenses_summary" msgid="57418386931763994">"Ochiq kodli DT litsenziyalari haqida ma’lumot"</string>
+    <string name="about_open_source_licenses_summary" msgid="57418386931763994">"Ochiq kodli DT litsenziyalari haqida axborot"</string>
     <string name="about_privacy_policy" msgid="3705518622499152626">"Maxfiylik siyosati"</string>
     <string name="about_terms_of_service" msgid="4642400812150296723">"Foydalanish shartlari"</string>
     <string name="activity_title_licenses" msgid="5467767062737708066">"Ochiq kodli DT litsenziyalari"</string>
@@ -499,9 +482,6 @@
     <string name="description_search_video_call" msgid="5841525580339803272">"Video qo‘ng‘iroq qilish"</string>
     <string name="description_delete_contact" msgid="53835657343783663">"O‘chirib tashlash"</string>
     <string name="description_no_name_header" msgid="8884991311595943271">"Uch nuqta"</string>
-    <string name="callDurationSecondFormat" msgid="7067644915903528776">"<xliff:g id="SECONDS">%s</xliff:g> son."</string>
-    <string name="callDurationMinuteFormat" msgid="4647095486747447674">"<xliff:g id="MINUTES">%1$s</xliff:g> daq. <xliff:g id="SECONDS">%2$s</xliff:g> son."</string>
-    <string name="callDurationHourFormat" msgid="7392254193808506640">"<xliff:g id="MINUTES_0">%1$s</xliff:g> soat <xliff:g id="MINUTES_1">%2$s</xliff:g> daq. <xliff:g id="SECONDS">%3$s</xliff:g> son."</string>
     <string name="dynamic_shortcut_disabled_message" msgid="249939425761315252">"Bu yorliq o‘chirib tashlandi"</string>
     <string name="dynamic_shortcut_contact_removed_message" msgid="6845645831837615899">"Kontakt olib tashlandi"</string>
     <string name="sim_import_button_text" msgid="4270841592496619317">"Import qilish"</string>

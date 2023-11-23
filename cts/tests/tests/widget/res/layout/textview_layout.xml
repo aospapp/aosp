@@ -44,6 +44,12 @@
                 android:layout_height="wrap_content"/>
 
             <TextView
+                android:id="@+id/textview_textAttr_zeroTextSize"
+                android:textSize="0sp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+
+            <TextView
                 android:id="@+id/textview_password"
                 android:password="true"
                 android:minWidth="1dp"

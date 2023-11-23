@@ -46,6 +46,39 @@ class Test {
   static void unexpectedEvent(uint16_t eventType);
 
   /**
+   * Wrapper structure to store the current async request.
+   */
+  struct chreAsyncRequest {
+    //! An opaque value that will be included in the chreAsyncResult
+    //! sent in relation to a chre async request.
+    const void *cookie;
+
+    //! A type of request. Same field as that in {@link #chreAsyncResult}
+    uint8_t requestType;
+
+    //! Timestamp when mading the request.
+    uint64_t requestTimeNs;
+
+    //! Timeout to receive the chre async result.
+    uint64_t timeoutNs;
+  };
+
+  /**
+   * Reports a test-ending error due to failure in chreAsyncResult.
+   *
+   * 1. chre async result is not success.
+   * 2. chre async result success, but errorCode is not CHRE_ERROR_NONE.
+   * 3. request cookie mismatch.
+   * 4. requestType mismatch.
+   * 5. result timeout.
+   *
+   * @param result chreAsyncResult of an async request.
+   * @param request lastest chre async request.
+   */
+  static void validateChreAsyncResult(const chreAsyncResult *result,
+                                      const chreAsyncRequest& request);
+
+  /**
    * Get the message data sent from the host, after performing sanity checks.
    *
    * The method centralizes a number of common sanity checks that tests

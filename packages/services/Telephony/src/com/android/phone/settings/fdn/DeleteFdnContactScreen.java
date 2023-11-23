@@ -16,6 +16,9 @@
 
 package com.android.phone.settings.fdn;
 
+import static android.view.Window.PROGRESS_VISIBILITY_OFF;
+import static android.view.Window.PROGRESS_VISIBILITY_ON;
+
 import android.app.Activity;
 import android.content.AsyncQueryHandler;
 import android.content.ContentResolver;
@@ -32,9 +35,6 @@ import android.widget.Toast;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
-
-import static android.view.Window.PROGRESS_VISIBILITY_OFF;
-import static android.view.Window.PROGRESS_VISIBILITY_ON;
 
 /**
  * Activity to let the user delete an FDN contact.

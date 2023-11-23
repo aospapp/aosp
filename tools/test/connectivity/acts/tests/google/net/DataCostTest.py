@@ -25,8 +25,7 @@ from acts import base_test
 from acts import test_runner
 from acts.controllers import adb
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
-from acts.test_utils.tel.tel_test_utils import verify_http_connection
+from acts.test_utils.net import net_test_utils as nutils
 from acts.test_utils.tel.tel_test_utils import _check_file_existance
 from acts.test_utils.tel.tel_test_utils import _generate_file_directory_and_file_name
 from acts.test_utils.wifi import wifi_test_utils as wutils
@@ -48,17 +47,19 @@ class DataCostTest(base_test.BaseTestClass):
         self.unpack_userparams(req_params)
 
         for ad in self.android_devices:
-            wutils.reset_wifi(ad)
-            ad.droid.telephonyToggleDataConnection(True)
-            wait_for_cell_data_connection(self.log, ad, True)
-            asserts.assert_true(
-                verify_http_connection(self.log, ad),
-                "HTTP verification failed on cell data connection")
+            nutils.verify_lte_data_and_tethering_supported(ad)
 
     def teardown_class(self):
+        """ Reset settings to default """
         for ad in self.android_devices:
+            sub_id = str(ad.droid.telephonyGetSubscriberId())
+            ad.droid.connectivityFactoryResetNetworkPolicies(sub_id)
+            ad.droid.connectivitySetDataWarningLimit(sub_id, -1)
             wutils.reset_wifi(ad)
-            ad.droid.telephonyToggleDataConnection(True)
+
+    def on_fail(self, test_name, begin_time):
+        for ad in self.android_devices:
+            ad.take_bug_report(test_name, begin_time)
 
     """ Helper functions """
 
@@ -154,10 +155,6 @@ class DataCostTest(base_test.BaseTestClass):
         self.log.info("Setting data warning limit to %sMB" % (total_pre + 5))
         ad.droid.connectivitySetDataWarningLimit(
             sub_id, int((total_pre + 5) * 1000.0 * 1000.0))
-
-        # reset data limit
-        ad.droid.connectivityFactoryResetNetworkPolicies(sub_id)
-        ad.droid.connectivitySetDataWarningLimit(sub_id, -1)
 
         # verify multipath preference values
         self._verify_multipath_preferences(

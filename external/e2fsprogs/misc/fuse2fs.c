@@ -118,7 +118,14 @@ typedef struct {
 
 typedef struct {
 	u_int32_t	a_version;
+#if __GNUC_PREREQ (4, 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 	acl_ea_entry	a_entries[0];
+#if __GNUC_PREREQ (4, 8)
+#pragma GCC diagnostic pop
+#endif
 } acl_ea_header;
 
 static inline size_t acl_ea_size(int count)
@@ -863,8 +870,9 @@ static int op_readlink(const char *path, char *buf, size_t len)
 	len--;
 	if (inode.i_size < len)
 		len = inode.i_size;
-	if (ext2fs_inode_data_blocks2(fs, &inode) ||
-	    (inode.i_flags & EXT4_INLINE_DATA_FL)) {
+	if (ext2fs_is_fast_symlink(&inode))
+		memcpy(buf, (char *)inode.i_block, len);
+	else {
 		/* big/inline symlink */
 
 		err = ext2fs_file_open(fs, ino, 0, &file);
@@ -888,9 +896,7 @@ out2:
 			ret = translate_error(fs, ino, err);
 			goto out;
 		}
-	} else
-		/* inline symlink */
-		memcpy(buf, (char *)inode.i_block, len);
+	}
 	buf[len] = 0;
 
 	if (fs_writeable(fs)) {
@@ -910,7 +916,7 @@ static int op_mknod(const char *path, mode_t mode, dev_t dev)
 	struct fuse2fs *ff = (struct fuse2fs *)ctxt->private_data;
 	ext2_filsys fs;
 	ext2_ino_t parent, child;
-	char *temp_path = strdup(path);
+	char *temp_path;
 	errcode_t err;
 	char *node_name, a;
 	int filetype;
@@ -921,6 +927,7 @@ static int op_mknod(const char *path, mode_t mode, dev_t dev)
 	fs = ff->fs;
 	dbg_printf("%s: path=%s mode=0%o dev=0x%x\n", __func__, path, mode,
 		   (unsigned int)dev);
+	temp_path = strdup(path);
 	if (!temp_path) {
 		ret = -ENOMEM;
 		goto out;
@@ -1037,7 +1044,7 @@ static int op_mkdir(const char *path, mode_t mode)
 	struct fuse2fs *ff = (struct fuse2fs *)ctxt->private_data;
 	ext2_filsys fs;
 	ext2_ino_t parent, child;
-	char *temp_path = strdup(path);
+	char *temp_path;
 	errcode_t err;
 	char *node_name, a;
 	struct ext2_inode_large inode;
@@ -1049,6 +1056,7 @@ static int op_mkdir(const char *path, mode_t mode)
 	FUSE2FS_CHECK_CONTEXT(ff);
 	fs = ff->fs;
 	dbg_printf("%s: path=%s mode=0%o\n", __func__, path, mode);
+	temp_path = strdup(path);
 	if (!temp_path) {
 		ret = -ENOMEM;
 		goto out;
@@ -1424,7 +1432,7 @@ static int op_symlink(const char *src, const char *dest)
 	struct fuse2fs *ff = (struct fuse2fs *)ctxt->private_data;
 	ext2_filsys fs;
 	ext2_ino_t parent, child;
-	char *temp_path = strdup(dest);
+	char *temp_path;
 	errcode_t err;
 	char *node_name, a;
 	struct ext2_inode_large inode;
@@ -1433,6 +1441,7 @@ static int op_symlink(const char *src, const char *dest)
 	FUSE2FS_CHECK_CONTEXT(ff);
 	fs = ff->fs;
 	dbg_printf("%s: symlink %s to %s\n", __func__, src, dest);
+	temp_path = strdup(dest);
 	if (!temp_path) {
 		ret = -ENOMEM;
 		goto out;
@@ -1769,7 +1778,7 @@ static int op_link(const char *src, const char *dest)
 	struct fuse_context *ctxt = fuse_get_context();
 	struct fuse2fs *ff = (struct fuse2fs *)ctxt->private_data;
 	ext2_filsys fs;
-	char *temp_path = strdup(dest);
+	char *temp_path;
 	errcode_t err;
 	char *node_name, a;
 	ext2_ino_t parent, ino;
@@ -1779,6 +1788,7 @@ static int op_link(const char *src, const char *dest)
 	FUSE2FS_CHECK_CONTEXT(ff);
 	fs = ff->fs;
 	dbg_printf("%s: src=%s dest=%s\n", __func__, src, dest);
+	temp_path = strdup(dest);
 	if (!temp_path) {
 		ret = -ENOMEM;
 		goto out;
@@ -2537,7 +2547,7 @@ static int op_listxattr(const char *path, char *names, size_t len)
 
 	ret = check_inum_access(fs, ino, R_OK);
 	if (ret)
-		goto out2;
+		goto out;
 
 	err = ext2fs_xattrs_open(fs, ino, &h);
 	if (err) {
@@ -2650,12 +2660,6 @@ static int op_setxattr(const char *path EXT2FS_ATTR((unused)),
 		goto out3;
 	}
 
-	err = ext2fs_xattrs_write(h);
-	if (err) {
-		ret = translate_error(fs, ino, err);
-		goto out3;
-	}
-
 	ret = update_ctime(fs, ino, NULL);
 out3:
 	if (cvalue != value)
@@ -2717,12 +2721,6 @@ static int op_removexattr(const char *path, const char *key)
 	}
 
 	err = ext2fs_xattr_remove(h, key);
-	if (err) {
-		ret = translate_error(fs, ino, err);
-		goto out2;
-	}
-
-	err = ext2fs_xattrs_write(h);
 	if (err) {
 		ret = translate_error(fs, ino, err);
 		goto out2;
@@ -2835,7 +2833,7 @@ static int op_create(const char *path, mode_t mode, struct fuse_file_info *fp)
 	struct fuse2fs *ff = (struct fuse2fs *)ctxt->private_data;
 	ext2_filsys fs;
 	ext2_ino_t parent, child;
-	char *temp_path = strdup(path);
+	char *temp_path;
 	errcode_t err;
 	char *node_name, a;
 	int filetype;
@@ -2845,6 +2843,7 @@ static int op_create(const char *path, mode_t mode, struct fuse_file_info *fp)
 	FUSE2FS_CHECK_CONTEXT(ff);
 	fs = ff->fs;
 	dbg_printf("%s: path=%s mode=0%o\n", __func__, path, mode);
+	temp_path = strdup(path);
 	if (!temp_path) {
 		ret = -ENOMEM;
 		goto out;
@@ -3754,7 +3753,7 @@ int main(int argc, char *argv[])
 		fctx.err_fp = fopen(logfile, "a");
 		if (!fctx.err_fp) {
 			perror(logfile);
-			goto out_nofs;
+			goto out;
 		}
 	} else
 		fctx.err_fp = stderr;
@@ -3775,12 +3774,13 @@ int main(int argc, char *argv[])
 	if (err) {
 		printf(_("%s: %s.\n"), fctx.device, error_message(err));
 		printf(_("Please run e2fsck -fy %s.\n"), fctx.device);
-		goto out_nofs;
+		goto out;
 	}
 	fctx.fs = global_fs;
 	global_fs->priv_data = &fctx;
 
 	ret = 3;
+
 	if (ext2fs_has_feature_journal_needs_recovery(global_fs->super)) {
 		if (!fctx.ro) {
 			printf(_("%s: recovering journal\n"), fctx.device);
@@ -3864,12 +3864,12 @@ int main(int argc, char *argv[])
 
 	ret = 0;
 out:
-	err = ext2fs_close(global_fs);
-	if (err)
-		com_err(argv[0], err, "while closing fs");
-	global_fs = NULL;
-out_nofs:
-
+	if (global_fs) {
+		err = ext2fs_close(global_fs);
+		if (err)
+			com_err(argv[0], err, "while closing fs");
+		global_fs = NULL;
+	}
 	return ret;
 }
 
@@ -3901,6 +3901,7 @@ static int __translate_error(ext2_filsys fs, errcode_t err, ext2_ino_t ino,
 		break;
 	case EXT2_ET_DIR_NO_SPACE:
 		is_err = 1;
+		/* fallthrough */
 	case EXT2_ET_TOOSMALL:
 	case EXT2_ET_BLOCK_ALLOC_FAIL:
 	case EXT2_ET_INODE_ALLOC_FAIL:
@@ -3947,11 +3948,11 @@ no_translation:
 
 	if (ino)
 		fprintf(ff->err_fp, "FUSE2FS (%s): %s (inode #%d) at %s:%d.\n",
-			fs && fs->device_name ? fs->device_name : "???",
+			fs->device_name ? fs->device_name : "???",
 			error_message(err), ino, file, line);
 	else
 		fprintf(ff->err_fp, "FUSE2FS (%s): %s at %s:%d.\n",
-			fs && fs->device_name ? fs->device_name : "???",
+			fs->device_name ? fs->device_name : "???",
 			error_message(err), file, line);
 	fflush(ff->err_fp);
 

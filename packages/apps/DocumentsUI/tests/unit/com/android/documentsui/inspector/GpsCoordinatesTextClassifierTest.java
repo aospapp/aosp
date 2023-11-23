@@ -17,17 +17,19 @@ package com.android.documentsui.inspector;
 
 import static junit.framework.Assert.assertEquals;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.LocaleList;
-import android.support.test.InstrumentationRegistry;
-
-import android.content.Context;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassifier;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.documentsui.testing.TestPackageManager;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,8 +48,21 @@ public class GpsCoordinatesTextClassifierTest {
         PackageManager pm = TestPackageManager.create();
         Context context = InstrumentationRegistry.getTargetContext();
 
-        TextClassifier defaultClassifier =
-                context.getSystemService(TextClassificationManager.class).getTextClassifier();
+        // The test case assertClassifiedGeo("-90.1, -180.156754", false) failed when full test,
+        // but it can pass "atest DocumentsUITests". Which means there might have some corruption
+        // when running whole test process.
+        // If someone run test case on TextClassificationManager but forgot to reset classifier
+        // back to default while teardown, such as cts/TextClassificationManagerTest.java, other
+        // test case might be effected. There are two ways to fix this test case, one is to fix
+        // at setup method with API setTextClassifier(null), this can ensure our test case is
+        // running with default classifier, i.e. systemTextClassifier. Another way is to find all
+        // test case which should clean their textClassifier object back to default while teardown,
+        // but this would be difficult to maintain than previous method.
+        TextClassificationManager manager =
+                context.getSystemService(TextClassificationManager.class);
+        // Reset classifier to default
+        manager.setTextClassifier(null);
+        TextClassifier defaultClassifier = manager.getTextClassifier();
         mClassifier = new GpsCoordinatesTextClassifier(pm, defaultClassifier);
     }
 
@@ -78,10 +93,9 @@ public class GpsCoordinatesTextClassifierTest {
         assertClassifiedGeo("GeoIntent", false);
         assertClassifiedGeo("A.B, C.D", false);
         assertClassifiedGeo("90.165464, 180.1", false);
-        // TODO: Failing tests below
-        // assertClassifiedGeo("-90.1, -180.156754", false);
-        // assertClassifiedGeo("5000, 5000", false);
-        // assertClassifiedGeo("500, 500", false);
+        assertClassifiedGeo("-90.1, -180.156754", false);
+        assertClassifiedGeo("5000, 5000", false);
+        assertClassifiedGeo("500, 500", false);
     }
 
     private void assertClassifiedGeo(CharSequence text, boolean expectClassified) {

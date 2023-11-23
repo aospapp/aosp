@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
@@ -30,23 +29,25 @@ class DarkResumeSuspend(object):
     """
 
 
-    def __init__(self, proxy, host):
+    def __init__(self, proxy, host, suspend_for):
         """Set up for a dark-resume-ready suspend to be carried out using
         |proxy| and for the subsequent wakeup to be carried out using
         |host|.
 
         @param proxy: a dark resume xmlrpc server proxy object for the DUT
         @param host: a servo host connected to the DUT
-
+        @param suspend_for : If not 0, sets a rtc alarm to wake the system after
+            |suspend_for| secs.
         """
         self._client_proxy = proxy
         self._host = host
+        self._suspend_for = suspend_for
 
 
     def __enter__(self):
         """Suspend the DUT."""
         logging.info('Suspending DUT (in background)...')
-        self._client_proxy.suspend_bg_for_dark_resume()
+        self._client_proxy.suspend_bg_for_dark_resume(self._suspend_for)
 
 
     def __exit__(self, exception, value, traceback):
@@ -83,22 +84,6 @@ class DarkResumeUtils(object):
         logging.debug('Enabling dark resume')
         host.run('echo 0 > %s/disable_dark_resume' % TMP_POWER_DIR)
 
-        logging.debug('Enabling USB ports in dark resume')
-
-        dev_contents = host.run('cat %s/dark_resume_devices' % POWER_DEFAULTS,
-                                ignore_status=True).stdout
-        dev_list = dev_contents.split('\n')
-        new_dev_list = filter(lambda dev: dev.find('usb') == -1, dev_list)
-        new_dev_contents = '\n'.join(new_dev_list)
-        host.run('echo -e \'%s\' > %s/dark_resume_devices' %
-                 (new_dev_contents, TMP_POWER_DIR))
-
-        if duration > 0:
-            # override suspend durations preference for dark resume
-            logging.info('setting dark_resume_suspend_durations=%d', duration)
-            host.run('echo 0.0 %d > %s/dark_resume_suspend_durations' %
-                     (duration, TMP_POWER_DIR))
-
         # bind the tmp directory to the power preference directory
         host.run('mount --bind %s %s' % (TMP_POWER_DIR, POWER_DIR))
 
@@ -121,10 +106,21 @@ class DarkResumeUtils(object):
         self._host.run('stop powerd; start powerd')
 
 
-    def suspend(self):
-        """Returns a DarkResumeSuspend context manager that allows safe suspending
-        of the DUT."""
-        return DarkResumeSuspend(self._client_proxy, self._host)
+    def suspend(self, suspend_for=0):
+        """
+        Returns a DarkResumeSuspend context manager that allows safe
+        suspending of the DUT.
+        @param suspend_for : If not 0, sets a rtc alarm to wake the system after
+            |suspend_for| secs.
+        """
+        return DarkResumeSuspend(self._client_proxy, self._host, suspend_for)
+
+
+    def stop_resuspend_on_dark_resume(self, stop_resuspend=True):
+        """
+        If |stop_resuspend| is True, stops re-suspend on seeing a dark resume.
+        """
+        self._client_proxy.set_stop_resuspend(stop_resuspend)
 
 
     def count_dark_resumes(self):
@@ -140,6 +136,12 @@ class DarkResumeUtils(object):
         _wake_dut(self._host)
 
         return self._client_proxy.get_dark_resume_count()
+
+
+
+    def host_has_lid(self):
+        """Returns True if the DUT has a lid."""
+        return self._client_proxy.has_lid()
 
 
     def _get_xmlrpc_proxy(self):
@@ -171,25 +173,22 @@ class DarkResumeUtils(object):
 
 
 def _wake_dut(host):
-    """Make sure |host| is up. If we can't wake it with normal keys, hit the
-    power button."""
+    """
+    Make sure |host| is up by pressing power button.
 
+    @raises error.TestFail: If we cannot wake the |host| up. This means the
+            DUT has to be woken up manually. Should not happen mostly.
+    """
     woken = False
     for i in range(RESUME_CTRL_RETRIES):
-        # Double tap servo key to make sure we signal user activity to Chrome.
-        # The first key might occur during the kernel suspend pathway, which
-        # causes the suspend to abort, but might put us in dark resume since
-        # the keypress is not forwarded to Chrome.
-        host.servo.ctrl_key()
-        time.sleep(0.5)
-        host.servo.ctrl_key()
-
+        # Check before pressing the power button. Or you might suspend/shutdown
+        # the system if already in S0.
         if host.wait_up(timeout=RESUME_GRACE_PERIOD):
             woken = True
             break
-        logging.debug('Wake attempt #%d failed', i+1)
+        logging.debug('Wake attempt #%d ', i+1)
+        host.servo.power_short_press()
 
     if not woken:
         logging.warning('DUT did not wake -- trouble ahead')
-        host.servo.power_key()
         raise error.TestFail('DUT did not wake')

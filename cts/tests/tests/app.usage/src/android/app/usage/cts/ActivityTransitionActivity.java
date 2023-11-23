@@ -62,6 +62,7 @@ public class ActivityTransitionActivity extends Activity {
 
     public static final String ENTER_VISIBILITY = "enterVisibility";
     public static final String RETURN_VISIBILITY = "returnVisibility";
+    public static final String ACTIVITY_FINISHED = "activityFinished";
 
     private int mLayoutId;
     private int mTest;
@@ -78,6 +79,7 @@ public class ActivityTransitionActivity extends Activity {
     public boolean mQuickFinish;
     public boolean mAllowOverlap;
     public boolean mNoReturnTransition;
+    public boolean mIsResumed;
 
     public CountDownLatch returnLatch = new CountDownLatch(1);
     public CountDownLatch reenterLatch = new CountDownLatch(1);
@@ -152,6 +154,12 @@ public class ActivityTransitionActivity extends Activity {
         outState.putBoolean(PAUSE_ON_RESTART, mPauseOnRestart);
     }
 
+    private void sendResult() {
+        if (mResultReceiver != null) {
+            mResultReceiver.send(RESULT_OK, result);
+        }
+    }
+
     private void startTest() {
         if (mTest == TEST_ARRIVE) {
             setEnterSharedElementCallback(new SharedElementCallback() {
@@ -167,6 +175,7 @@ public class ActivityTransitionActivity extends Activity {
                     } else {
                         result.putLong(ARRIVE_RETURN_TIME, SystemClock.uptimeMillis());
                     }
+                    sendResult();
 
                     getWindow().getDecorView().postDelayed(new Runnable() {
                         @Override
@@ -178,8 +187,8 @@ public class ActivityTransitionActivity extends Activity {
                             } else {
                                 result.putLong(ARRIVE_RETURN_TIME_READY,
                                         SystemClock.uptimeMillis());
-                                mResultReceiver.send(RESULT_OK, result);
                             }
+                            sendResult();
                             listener.onSharedElementsReady();
                         }
                     }, SHARED_ELEMENT_READY_DELAY);
@@ -252,6 +261,29 @@ public class ActivityTransitionActivity extends Activity {
                 }
             }, 500);
         }
+    }
+
+    @Override
+    protected synchronized void onPause() {
+        super.onPause();
+        mIsResumed = false;
+    }
+
+    @Override
+    protected synchronized void onResume() {
+        super.onResume();
+        mIsResumed = true;
+        notifyAll();
+    }
+
+    @Override
+    public void finish() {
+        if (mResultReceiver != null) {
+            Bundle result = new Bundle();
+            result.putBoolean(ACTIVITY_FINISHED, true);
+            mResultReceiver.send(RESULT_OK, result);
+        }
+        super.finish();
     }
 
     private class VisibilityCheck extends TransitionListenerAdapter {

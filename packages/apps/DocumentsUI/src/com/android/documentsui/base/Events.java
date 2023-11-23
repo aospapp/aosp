@@ -16,7 +16,6 @@
 
 package com.android.documentsui.base;
 
-import android.graphics.Point;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
@@ -27,10 +26,6 @@ public final class Events {
 
     public static boolean isMouseEvent(MotionEvent e) {
         return e.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE;
-    }
-
-    public static boolean isActionMove(MotionEvent e) {
-        return e.getActionMasked() == MotionEvent.ACTION_MOVE;
     }
 
     public static boolean isActionDown(MotionEvent e) {
@@ -49,22 +44,6 @@ public final class Events {
         return e.getActionMasked() == MotionEvent.ACTION_POINTER_UP;
     }
 
-    public static boolean isActionCancel(MotionEvent e) {
-        return e.getActionMasked() == MotionEvent.ACTION_CANCEL;
-    }
-
-    public static boolean isPrimaryButtonPressed(MotionEvent e) {
-        return e.isButtonPressed(MotionEvent.BUTTON_PRIMARY);
-    }
-
-    public static boolean isSecondaryButtonPressed(MotionEvent e) {
-        return e.isButtonPressed(MotionEvent.BUTTON_SECONDARY);
-    }
-
-    public static boolean isTertiaryButtonPressed(MotionEvent e) {
-        return e.isButtonPressed(MotionEvent.BUTTON_TERTIARY);
-    }
-
     public static boolean isCtrlKeyPressed(MotionEvent e) {
         return hasBit(e.getMetaState(), KeyEvent.META_CTRL_ON);
     }
@@ -77,18 +56,8 @@ public final class Events {
         return hasBit(e.getMetaState(), KeyEvent.META_SHIFT_ON);
     }
 
-    public static boolean isTouchpadScroll(MotionEvent e) {
-        // Touchpad inputs are treated as mouse inputs, and when scrolling, there are no buttons
-        // returned.
-        return isMouseEvent(e) && isActionMove(e) && e.getButtonState() == 0;
-    }
-
     private static boolean hasBit(int metaState, int bit) {
         return (metaState & bit) != 0;
-    }
-
-    public static Point getOrigin(MotionEvent e) {
-        return new Point((int) e.getX(), (int) e.getY());
     }
 
     /**
@@ -108,16 +77,5 @@ public final class Events {
             default:
                 return false;
         }
-    }
-
-    /**
-     * Returns true if the event is a mouse drag event.
-     * @param e
-     * @return
-     */
-    public static boolean isMouseDragEvent(MotionEvent e) {
-        return isMouseEvent(e)
-                && isActionMove(e)
-                && isPrimaryButtonPressed(e);
     }
 }

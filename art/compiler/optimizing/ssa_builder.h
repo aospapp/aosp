@@ -61,7 +61,8 @@ class SsaBuilder : public ValueObject {
         local_allocator_(local_allocator),
         ambiguous_agets_(local_allocator->Adapter(kArenaAllocGraphBuilder)),
         ambiguous_asets_(local_allocator->Adapter(kArenaAllocGraphBuilder)),
-        uninitialized_strings_(local_allocator->Adapter(kArenaAllocGraphBuilder)) {
+        uninitialized_strings_(local_allocator->Adapter(kArenaAllocGraphBuilder)),
+        uninitialized_string_phis_(local_allocator->Adapter(kArenaAllocGraphBuilder)) {
     graph_->InitializeInexactObjectRTI(handles);
   }
 
@@ -96,6 +97,10 @@ class SsaBuilder : public ValueObject {
     }
   }
 
+  void AddUninitializedStringPhi(HInvoke* invoke) {
+    uninitialized_string_phis_.push_back(invoke);
+  }
+
  private:
   void SetLoopHeaderPhiInputs();
   void FixEnvironmentPhis();
@@ -118,6 +123,8 @@ class SsaBuilder : public ValueObject {
   HArrayGet* GetFloatOrDoubleEquivalentOfArrayGet(HArrayGet* aget);
 
   void RemoveRedundantUninitializedStrings();
+  bool ReplaceUninitializedStringPhis();
+  bool HasAliasInEnvironments(HInstruction* instruction);
 
   HGraph* const graph_;
   Handle<mirror::ClassLoader> class_loader_;
@@ -131,6 +138,7 @@ class SsaBuilder : public ValueObject {
   ScopedArenaVector<HArrayGet*> ambiguous_agets_;
   ScopedArenaVector<HArraySet*> ambiguous_asets_;
   ScopedArenaVector<HNewInstance*> uninitialized_strings_;
+  ScopedArenaVector<HInvoke*> uninitialized_string_phis_;
 
   DISALLOW_COPY_AND_ASSIGN(SsaBuilder);
 };

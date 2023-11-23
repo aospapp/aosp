@@ -23,6 +23,7 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -159,6 +160,8 @@ public class RequestControlPane extends ControlPane {
         mTemplateSpinner = (Spinner) findViewById(R.id.request_pane_template_spinner);
         mOutputListView = (ListView) findViewById(R.id.request_pane_output_listview);
 
+        mCameraSpinner.setOnItemSelectedListener(mCameraSpinnerListener);
+
         mOutputAdapter = new CheckableListAdapter(context, R.layout.checkable_list_item,
                 new ArrayList<CheckableListAdapter.CheckableItem>());
         mOutputListView.setAdapter(mOutputAdapter);
@@ -192,6 +195,18 @@ public class RequestControlPane extends ControlPane {
             updateCameraPaneList();
         }
     }
+
+    private AdapterView.OnItemSelectedListener mCameraSpinnerListener = new AdapterView.OnItemSelectedListener() {
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            updateOutputList();
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+            updateOutputList();
+        }
+    };
 
     private OnClickListener mCaptureButtonListener = new OnClickListener() {
         @Override

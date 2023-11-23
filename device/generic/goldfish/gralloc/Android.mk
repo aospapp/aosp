@@ -32,6 +32,7 @@ LOCAL_HEADER_LIBRARIES := libhardware_headers
 
 LOCAL_MODULE := gralloc.goldfish.default
 LOCAL_CFLAGS:= -DLOG_TAG=\"gralloc\" -Wno-missing-field-initializers
+LOCAL_CFLAGS:= -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
 ifeq ($(TARGET_USE_PAN_DISPLAY),true)
 LOCAL_CFLAGS += -DUSE_PAN_DISPLAY=1
 endif

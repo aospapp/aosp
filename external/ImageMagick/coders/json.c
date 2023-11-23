@@ -17,13 +17,13 @@
 %                                January 2014                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -74,6 +74,23 @@
 #include "MagickCore/utility.h"
 #include "MagickCore/version.h"
 #include "MagickCore/module.h"
+
+/*
+  Typedef declarations.
+*/
+typedef struct _IPTCInfo
+{
+  long
+    dataset,
+    record;
+
+  size_t
+    values_length;
+
+  char
+    tag[32],
+    ***values;
+} IPTCInfo;
 
 /*
   Forward declarations.
@@ -169,7 +186,8 @@ ModuleExport void UnregisterJSONImage(void)
 %
 */
 
-static void JsonFormatLocaleFile(FILE *file,const char *format,const char *value)
+static void JSONFormatLocaleFile(FILE *file,const char *format,
+  const char *value)
 {
   char
     *escaped_json;
@@ -184,81 +202,109 @@ static void JsonFormatLocaleFile(FILE *file,const char *format,const char *value
     length;
 
   assert(format != (const char *) NULL);
-  if (value == (char *) NULL || *value == '\0')
-  {
-    (void) FormatLocaleFile(file,format,"null");
-    return;
-  }
+  if ((value == (char *) NULL) || (*value == '\0'))
+    {
+      (void) FormatLocaleFile(file,format,"null");
+      return;
+    }
   length=strlen(value)+2;
   /*
-    Find all the chars that need escaping and increase the dest length counter
+    Find all the chars that need escaping and increase the dest length counter.
   */
   for (p=value; *p != '\0'; p++)
+  {
+    switch (*p)
     {
-      switch (*p)
-        {
-          case '"':
-          case '\b':
-          case '\f':
-          case '\n':
-          case '\r':
-          case '\t':
-          case '\\':
-            if (~length < 1)
-              return;
-            length++;
-            break;
-          default:
-            break;
-        }
+      case '"':
+      case '\b':
+      case '\f':
+      case '\n':
+      case '\r':
+      case '\t':
+      case '\\':
+      {
+        if (~length < 1)
+          return;
+        length++;
+        break;
+      }
+      default:
+      {
+        if (((int) *p >= 0x00) && ((int) *p <= 0x1f))
+          length+=6;
+        break;
+      }
     }
+  }
   escaped_json=(char *) NULL;
   if (~length >= (MagickPathExtent-1))
     escaped_json=(char *) AcquireQuantumMemory(length+MagickPathExtent,
       sizeof(*escaped_json));
   if (escaped_json == (char *) NULL)
-  {
-    (void) FormatLocaleFile(file,format,"null");
-    return;
-  }
+    {
+      (void) FormatLocaleFile(file,format,"null");
+      return;
+    }
   q=escaped_json;
   *q++='"';
   for (p=value; *p != '\0'; p++)
+  {
+    switch (*p)
     {
-      switch (*p)
-        {
-          case '"':
-            *q++='\\';
-            *q++=(*p);
+      case '"':
+      {
+        *q++='\\';
+        *q++=(*p);
+        break;
+      }
+      case '\b':
+      {
+        *q++='\\';
+        *q++='b';
+        break;
+      }
+      case '\f':
+      {
+        *q++='\\';
+        *q++='f';
+        break;
+      }
+      case '\n':
+      {
+        *q++='\\';
+        *q++='n';
+        break;
+      }
+      case '\r':
+      {
+        *q++='\\';
+        *q++='r';
+        break;
+      }
+      case '\t':
+      {
+        *q++='\\';
+        *q++='t';
+        break;
+      }
+      case '\\':
+      {
+        *q++='\\';
+        *q++='\\';
+        break;
+      }
+      default:
+      {
+        if (((int) *p >= 0x00) && ((int) *p <= 0x1f))
+          {
+            (void) FormatLocaleString(q,7,"\\u%04X",(int) *p);
+            q+=6;
             break;
-          case '\b':
-            *q++='\\';
-            *q++='b';
-            break;
-          case '\f':
-            *q++='\\';
-            *q++='f';
-            break;
-          case '\n':
-            *q++='\\';
-            *q++='n';
-            break;
-          case '\r':
-            *q++='\\';
-            *q++='r';
-            break;
-          case '\t':
-            *q++='\\';
-            *q++='t';
-            break;
-          case '\\':
-            *q++='\\';
-            *q++='\\';
-            break;
-          default:
-            *q++=(*p);
-            break;
-        }
+          }
+        *q++=(*p);
+        break;
+      }
+    }
   }
   *q++='"';
   *q='\0';
@@ -286,7 +332,7 @@ static ChannelStatistics *GetLocationStatistics(const Image *image,
     MaxPixelChannels+1,sizeof(*channel_statistics));
   if (channel_statistics == (ChannelStatistics *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(channel_statistics,0,(MaxPixelChannels+1)*
+  (void) memset(channel_statistics,0,(MaxPixelChannels+1)*
     sizeof(*channel_statistics));
   for (i=0; i <= (ssize_t) MaxPixelChannels; i++)
   {
@@ -321,15 +367,15 @@ static ChannelStatistics *GetLocationStatistics(const Image *image,
       register ssize_t
         i;
 
-      if (GetPixelReadMask(image,p) == 0)
+      if (GetPixelReadMask(image,p) <= (QuantumRange/2))
         {
           p+=GetPixelChannels(image);
           continue;
         }
       for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
       {
-        PixelChannel channel=GetPixelChannelChannel(image,i);
-        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel = GetPixelChannelChannel(image,i);
+        PixelTrait traits = GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         switch (type)
@@ -368,102 +414,102 @@ static ssize_t PrintChannelFeatures(FILE *file,const PixelChannel channel,
 
 #define FeaturesFormat "      \"%s\": {\n" \
   "        \"angularSecondMoment\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"contrast\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"correlation\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"sumOfSquaresVariance\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"inverseDifferenceMoment\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"sumAverage\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"sumVariance\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"sumEntropy\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"entropy\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"differenceVariance\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"differenceEntropy\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"informationMeasureOfCorrelation1\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"informationMeasureOfCorrelation2\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        },\n" \
   "        \"maximumCorrelationCoefficient\": {\n" \
-  "          \"horizontal\": \"%.*g\",\n" \
-  "          \"vertical\": \"%.*g\",\n" \
-  "          \"leftDiagonal\": \"%.*g\",\n" \
-  "          \"rightDiagonal\": \"%.*g\",\n" \
-  "          \"average\": \"%.*g\"\n" \
+  "          \"horizontal\": %.*g,\n" \
+  "          \"vertical\": %.*g,\n" \
+  "          \"leftDiagonal\": %.*g,\n" \
+  "          \"rightDiagonal\": %.*g,\n" \
+  "          \"average\": %.*g\n" \
   "        }\n"
 
   ssize_t
@@ -521,7 +567,7 @@ static ssize_t PrintChannelLocations(FILE *file,const Image *image,
     }
   }
   (void) FormatLocaleFile(file,"      \"%s\": {\n        \"intensity\": "
-    "\"%.*g\",\n",name,GetMagickPrecision(),QuantumScale*target);
+    "%.*g,\n",name,GetMagickPrecision(),QuantumScale*target);
   exception=AcquireExceptionInfo();
   n=0;
   for (y=0; y < (ssize_t) image->rows; y++)
@@ -541,7 +587,7 @@ static ssize_t PrintChannelLocations(FILE *file,const Image *image,
       MagickBooleanType
         match;
 
-      PixelTrait traits=GetPixelChannelTraits(image,channel);
+      PixelTrait traits = GetPixelChannelTraits(image,channel);
       if (traits == UndefinedPixelTrait)
         continue;
       offset=GetPixelChannelOffset(image,channel);
@@ -581,25 +627,25 @@ static ssize_t PrintChannelMoments(FILE *file,const PixelChannel channel,
 
   n=FormatLocaleFile(file,"      \"%s\": {\n",name);
   n+=FormatLocaleFile(file,"        \"centroid\": {\n "
-    "          \"x\": \"%.*g\",\n"
-    "           \"y\": \"%.*g\"\n        },\n",
+    "          \"x\": %.*g,\n"
+    "           \"y\": %.*g\n        },\n",
     GetMagickPrecision(),channel_moments[channel].centroid.x,
     GetMagickPrecision(),channel_moments[channel].centroid.y);
   n+=FormatLocaleFile(file,"        \"ellipseSemiMajorMinorAxis\": {\n"
-    "          \"x\": \"%.*g\",\n"
-    "          \"y\": \"%.*g\"\n        },\n",
+    "          \"x\": %.*g,\n"
+    "          \"y\": %.*g\n        },\n",
     GetMagickPrecision(),channel_moments[channel].ellipse_axis.x,
     GetMagickPrecision(),channel_moments[channel].ellipse_axis.y);
-  n+=FormatLocaleFile(file,"        \"ellipseAngle\": \"%.*g\",\n",
+  n+=FormatLocaleFile(file,"        \"ellipseAngle\": %.*g,\n",
     GetMagickPrecision(),channel_moments[channel].ellipse_angle);
-  n+=FormatLocaleFile(file,"        \"ellipseEccentricity\": \"%.*g\",\n",
+  n+=FormatLocaleFile(file,"        \"ellipseEccentricity\": %.*g,\n",
     GetMagickPrecision(),channel_moments[channel].ellipse_eccentricity);
-  n+=FormatLocaleFile(file,"        \"ellipseIntensity\": \"%.*g\",\n",
+  n+=FormatLocaleFile(file,"        \"ellipseIntensity\": %.*g,\n",
     GetMagickPrecision(),channel_moments[channel].ellipse_intensity);
   for (i=0; i < 7; i++)
-    n+=FormatLocaleFile(file,"        \"I%.20g\": \"%.*g\",\n",i+1.0,
+    n+=FormatLocaleFile(file,"        \"I%.20g\": %.*g,\n",i+1.0,
       GetMagickPrecision(),channel_moments[channel].invariant[i]);
-  n+=FormatLocaleFile(file,"        \"I%.20g\": \"%.*g\"\n",i+1.0,
+  n+=FormatLocaleFile(file,"        \"I%.20g\": %.*g\n",i+1.0,
     GetMagickPrecision(),channel_moments[channel].invariant[i]);
   (void) FormatLocaleFile(file,"      }");
   if (separator != MagickFalse)
@@ -608,30 +654,55 @@ static ssize_t PrintChannelMoments(FILE *file,const PixelChannel channel,
   return(n);
 }
 
-static ssize_t PrintChannelPerceptualHash(FILE *file,const ChannelType channel,
-  const char *name,const MagickBooleanType separator,
+static ssize_t PrintChannelPerceptualHash(Image *image,FILE *file,
   const ChannelPerceptualHash *channel_phash)
 {
   register ssize_t
     i;
 
   ssize_t
-    n;
+    n = 0;
 
-  n=FormatLocaleFile(file,"      \"%s\": {\n",name);
-  for (i=0; i < 6; i++)
-    n+=FormatLocaleFile(file,
-      "        \"PH%.20g\": [ \"%.*g\", \"%.*g\" ],\n",i+1.0,
-      GetMagickPrecision(),channel_phash[channel].srgb_hu_phash[i],
-      GetMagickPrecision(),channel_phash[channel].hclp_hu_phash[i]);
-  n+=FormatLocaleFile(file,
-    "        \"PH%.20g\": [ \"%.*g\", \"%.*g\" ]\n",i+1.0,
-    GetMagickPrecision(),channel_phash[channel].srgb_hu_phash[i],
-    GetMagickPrecision(),channel_phash[channel].hclp_hu_phash[i]);
-  (void) FormatLocaleFile(file,"      }");
-  if (separator != MagickFalse)
-    (void) FormatLocaleFile(file,",");
-  (void) FormatLocaleFile(file,"\n");
+  (void) FormatLocaleFile(file,"      \"colorspaces\": [ ");
+  for (i=0; i < (ssize_t) channel_phash[0].number_colorspaces; i++)
+  {
+    (void) FormatLocaleFile(file,"\"%s\"",CommandOptionToMnemonic(
+      MagickColorspaceOptions,(ssize_t) channel_phash[0].colorspace[i]));
+    if (i < (ssize_t) (channel_phash[0].number_colorspaces-1))
+      (void) FormatLocaleFile(file,", ");
+  }
+  (void) FormatLocaleFile(file,"],\n");
+  for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
+  {
+    register ssize_t
+      j;
+
+    PixelChannel channel = GetPixelChannelChannel(image,i);
+    PixelTrait traits = GetPixelChannelTraits(image,channel);
+    if (traits == UndefinedPixelTrait)
+      continue;
+    n=FormatLocaleFile(file,"      \"Channel%.20g\": {\n",(double) channel);
+    for (j=0; j < MaximumNumberOfPerceptualHashes; j++)
+    {
+      register ssize_t
+        k;
+
+      n+=FormatLocaleFile(file,"        \"PH%.20g\": [",(double) j+1);
+      for (k=0; k < (ssize_t) channel_phash[0].number_colorspaces; k++)
+      {
+        n+=FormatLocaleFile(file,"%.*g",GetMagickPrecision(),
+          channel_phash[channel].phash[k][j]);
+        if (k < (ssize_t) (channel_phash[0].number_colorspaces-1))
+          n+=FormatLocaleFile(file,", ");
+      }
+      n+=FormatLocaleFile(file,"]");
+      if (j < (MaximumNumberOfPerceptualHashes-1))
+        n+=FormatLocaleFile(file,",\n");
+    }
+    if (i < (ssize_t) (GetPixelChannels(image)-1))
+      n+=FormatLocaleFile(file,"\n      },\n");
+  }
+  n+=FormatLocaleFile(file,"\n      }\n");
   return(n);
 }
 
@@ -639,24 +710,204 @@ static ssize_t PrintChannelStatistics(FILE *file,const PixelChannel channel,
   const char *name,const double scale,const MagickBooleanType separator,
   const ChannelStatistics *channel_statistics)
 {
-#define StatisticsFormat "      \"%s\": {\n        \"min\": \"" QuantumFormat  \
-  "\",\n        \"max\": \"" QuantumFormat "\",\n"  \
-  "        \"mean\": \"%g\",\n        \"standardDeviation\": "  \
-  "\"%g\",\n        \"kurtosis\": \"%g\",\n        \"skewness\": " \
-  "\"%g\"\n      }"
+#define StatisticsFormat "      \"%s\": {\n        \"min\": %.*g,\n"  \
+  "        \"max\": %.*g,\n        \"mean\": %.*g,\n        "  \
+  "\"standardDeviation\": %.*g,\n        \"kurtosis\": %.*g,\n        "\
+  "\"skewness\": %.*g,\n        \"entropy\": %.*g\n      }"
 
   ssize_t
     n;
 
-  n=FormatLocaleFile(file,StatisticsFormat,name,ClampToQuantum(scale*
-    channel_statistics[channel].minima),ClampToQuantum(scale*
-    channel_statistics[channel].maxima),scale*channel_statistics[channel].mean,
-    scale*channel_statistics[channel].standard_deviation,
-    channel_statistics[channel].kurtosis,channel_statistics[channel].skewness);
+  n=FormatLocaleFile(file,StatisticsFormat,name,GetMagickPrecision(),
+    (double) ClampToQuantum(scale*channel_statistics[channel].minima),
+    GetMagickPrecision(),(double) ClampToQuantum(scale*
+    channel_statistics[channel].maxima),GetMagickPrecision(),scale*
+    channel_statistics[channel].mean,GetMagickPrecision(),scale*
+    IsNaN(channel_statistics[channel].standard_deviation) != 0 ? MagickEpsilon :
+    channel_statistics[channel].standard_deviation,GetMagickPrecision(),
+    channel_statistics[channel].kurtosis,GetMagickPrecision(),
+    channel_statistics[channel].skewness,GetMagickPrecision(),
+    channel_statistics[channel].entropy);
   if (separator != MagickFalse)
     (void) FormatLocaleFile(file,",");
   (void) FormatLocaleFile(file,"\n");
   return(n);
+}
+
+static void EncodeIptcProfile(FILE *file,const StringInfo *profile)
+{
+  char
+    *attribute,
+    **attribute_list;
+
+  const char
+    *tag;
+
+  IPTCInfo
+    *value,
+    **values;
+
+  long
+    dataset,
+    record,
+    sentinel;
+
+  register ssize_t
+    i,
+    j,
+    k;
+
+  size_t
+    count,
+    length,
+    profile_length;
+
+  values=(IPTCInfo **) NULL;
+  count=0;
+  profile_length=GetStringInfoLength(profile);
+  for (i=0; i < (ssize_t) profile_length; i+=(ssize_t) length)
+  {
+    length=1;
+    sentinel=GetStringInfoDatum(profile)[i++];
+    if (sentinel != 0x1c)
+      continue;
+    dataset=GetStringInfoDatum(profile)[i++];
+    record=GetStringInfoDatum(profile)[i++];
+    value=(IPTCInfo *) NULL;
+    for (j=0; j < (ssize_t) count; j++)
+    {
+      if ((values[j]->record == record) && (values[j]->dataset == dataset))
+        value=values[j];
+    }
+    if (value == (IPTCInfo *) NULL)
+      {
+        values=(IPTCInfo **) ResizeQuantumMemory(values,count+1,
+          sizeof(*values));
+        if (values == (IPTCInfo **) NULL)
+          break;
+        value=(IPTCInfo *) AcquireMagickMemory(sizeof(*value));
+        if (value == (IPTCInfo *) NULL)
+          break;
+        /* Check the tag length in IPTCInfo when a new tag is added */
+        switch (record)
+        {
+          case 5: tag="Image Name"; break;
+          case 7: tag="Edit Status"; break;
+          case 10: tag="Priority"; break;
+          case 15: tag="Category"; break;
+          case 20: tag="Supplemental Category"; break;
+          case 22: tag="Fixture Identifier"; break;
+          case 25: tag="Keyword"; break;
+          case 30: tag="Release Date"; break;
+          case 35: tag="Release Time"; break;
+          case 40: tag="Special Instructions"; break;
+          case 45: tag="Reference Service"; break;
+          case 47: tag="Reference Date"; break;
+          case 50: tag="Reference Number"; break;
+          case 55: tag="Created Date"; break;
+          case 60: tag="Created Time"; break;
+          case 65: tag="Originating Program"; break;
+          case 70: tag="Program Version"; break;
+          case 75: tag="Object Cycle"; break;
+          case 80: tag="Byline"; break;
+          case 85: tag="Byline Title"; break;
+          case 90: tag="City"; break;
+          case 92: tag="Sub-Location"; break;
+          case 95: tag="Province State"; break;
+          case 100: tag="Country Code"; break;
+          case 101: tag="Country"; break;
+          case 103: tag="Original Transmission Reference"; break;
+          case 105: tag="Headline"; break;
+          case 110: tag="Credit"; break;
+          case 115: tag="Src"; break;
+          case 116: tag="Copyright String"; break;
+          case 120: tag="Caption"; break;
+          case 121: tag="Local Caption"; break;
+          case 122: tag="Caption Writer"; break;
+          case 200: tag="Custom Field 1"; break;
+          case 201: tag="Custom Field 2"; break;
+          case 202: tag="Custom Field 3"; break;
+          case 203: tag="Custom Field 4"; break;
+          case 204: tag="Custom Field 5"; break;
+          case 205: tag="Custom Field 6"; break;
+          case 206: tag="Custom Field 7"; break;
+          case 207: tag="Custom Field 8"; break;
+          case 208: tag="Custom Field 9"; break;
+          case 209: tag="Custom Field 10"; break;
+          case 210: tag="Custom Field 11"; break;
+          case 211: tag="Custom Field 12"; break;
+          case 212: tag="Custom Field 13"; break;
+          case 213: tag="Custom Field 14"; break;
+          case 214: tag="Custom Field 15"; break;
+          case 215: tag="Custom Field 16"; break;
+          case 216: tag="Custom Field 17"; break;
+          case 217: tag="Custom Field 18"; break;
+          case 218: tag="Custom Field 19"; break;
+          case 219: tag="Custom Field 20"; break;
+          default: tag="Unknown"; break;
+        }
+        (void) CopyMagickString(value->tag,tag,strlen(tag)+1);
+        value->record=record;
+        value->dataset=dataset;
+        value->values=(char ***) NULL;
+        value->values_length=0;
+        values[count++]=value;
+      }
+    length=(size_t) (GetStringInfoDatum(profile)[i++] << 8);
+    length|=GetStringInfoDatum(profile)[i++];
+    attribute=(char *) NULL;
+    if (~length >= (MagickPathExtent-1))
+      attribute=(char *) AcquireQuantumMemory(length+MagickPathExtent,
+        sizeof(*attribute));
+    if (attribute != (char *) NULL)
+      {
+        (void) CopyMagickString(attribute,(char *)
+          GetStringInfoDatum(profile)+i,length+1);
+        attribute_list=StringToList(attribute);
+        if (attribute_list != (char **) NULL)
+          {
+            value->values=(char ***) ResizeQuantumMemory(value->values,
+              value->values_length+1,
+              sizeof(*value->values));
+            if (value->values == (char ***) NULL)
+              break;
+            value->values[value->values_length++]=attribute_list;
+          }
+        attribute=DestroyString(attribute);
+      }
+  }
+  if (values != (IPTCInfo **) NULL)
+    {
+      for (i=0; i < (ssize_t) count; i++)
+      {
+        value=values[i];
+        (void) FormatLocaleFile(file,"        \"%s[%.20g,%.20g]\": ",
+          value->tag,(double) value->dataset,(double) value->record);
+        if (value->values_length == 0)
+          (void) FormatLocaleFile(file,"null,");
+        else
+          {
+            (void) FormatLocaleFile(file,"[");
+            for (j=0; j < (ssize_t) value->values_length; j++)
+            {
+              for (k=0; value->values[j][k] != (char *) NULL; k++)
+              {
+                if (j > 0 || k > 0)
+                  (void) FormatLocaleFile(file,",");
+                JSONFormatLocaleFile(file,"%s",value->values[j][k]);
+                value->values[j][k]=(char *) RelinquishMagickMemory(
+                  value->values[j][k]);
+              }
+              value->values[j]=(char **) RelinquishMagickMemory(
+                value->values[j]);
+            }
+            value->values=(char ***) RelinquishMagickMemory(value->values);
+            (void) FormatLocaleFile(file,"],\n");
+          }
+        values[i]=(IPTCInfo *) RelinquishMagickMemory(values[i]);
+      }
+      values=(IPTCInfo **) RelinquishMagickMemory(values);
+    }
 }
 
 static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
@@ -679,8 +930,8 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   ChannelStatistics
     *channel_statistics;
 
-  ColorspaceType
-    colorspace;
+  char
+    *url;
 
   const char
     *artifact,
@@ -698,7 +949,6 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
     user_time;
 
   ImageType
-    base_type,
     type;
 
   MagickBooleanType
@@ -731,7 +981,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   ping=p == (const Quantum *) NULL ? MagickTrue : MagickFalse;
   (void) ping;
   (void) SignatureImage(image,exception);
-  JsonFormatLocaleFile(file,"{\n  \"image\": {\n    \"name\": %s,\n",
+  JSONFormatLocaleFile(file,"{\n  \"image\": {\n    \"name\": %s,\n",
     image->filename);
   if (*image->magick_filename != '\0')
     if (LocaleCompare(image->magick_filename,image->filename) != 0)
@@ -740,55 +990,50 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
           filename[MagickPathExtent];
 
         GetPathComponent(image->magick_filename,TailPath,filename);
-        JsonFormatLocaleFile(file,"    \"baseName\": %s,\n",filename);
+        JSONFormatLocaleFile(file,"    \"baseName\": %s,\n",filename);
       }
-  JsonFormatLocaleFile(file,"    \"format\": %s,\n",image->magick);
+  JSONFormatLocaleFile(file,"    \"format\": %s,\n",image->magick);
   magick_info=GetMagickInfo(image->magick,exception);
   if ((magick_info != (const MagickInfo *) NULL) &&
       (GetMagickDescription(magick_info) != (const char *) NULL))
-    JsonFormatLocaleFile(file,"    \"formatDescription\": %s,\n",
+    JSONFormatLocaleFile(file,"    \"formatDescription\": %s,\n",
       image->magick);
   if ((magick_info != (const MagickInfo *) NULL) &&
       (GetMagickMimeType(magick_info) != (const char *) NULL))
-    JsonFormatLocaleFile(file,"    \"mimeType\": %s,\n",GetMagickMimeType(
+    JSONFormatLocaleFile(file,"    \"mimeType\": %s,\n",GetMagickMimeType(
       magick_info));
-  JsonFormatLocaleFile(file,"    \"class\": %s,\n",CommandOptionToMnemonic(
+  JSONFormatLocaleFile(file,"    \"class\": %s,\n",CommandOptionToMnemonic(
     MagickClassOptions,(ssize_t) image->storage_class));
   (void) FormatLocaleFile(file,"    \"geometry\": {\n"
-    "      \"width\": %.20g,\n      \"height\": %.20g,\n"
-    "      \"x\": %.20g,\n      \"y\": %.20g\n    },\n",
+    "      \"width\": %g,\n      \"height\": %g,\n"
+    "      \"x\": %g,\n      \"y\": %g\n    },\n",
     (double) image->columns,(double) image->rows,(double) image->tile_offset.x,
     (double) image->tile_offset.y);
   if ((image->magick_columns != 0) || (image->magick_rows != 0))
     if ((image->magick_columns != image->columns) ||
         (image->magick_rows != image->rows))
       (void) FormatLocaleFile(file,"    \"baseGeometry\": {\n"
-        "      \"width\": %.20g,\n      \"height\": %.20g\n    },\n",
-        (double) image->magick_columns,(double) image->magick_rows);
+        "      \"width\": %g,\n      \"height\": %g\n    },\n",(double)
+        image->magick_columns,(double) image->magick_rows);
   if ((image->resolution.x != 0.0) && (image->resolution.y != 0.0))
     {
       (void) FormatLocaleFile(file,"    \"resolution\": {\n"
-        "      \"x\": %.20g,\n      \"y\": %.20g\n    },\n",
-        image->resolution.x,image->resolution.y);
-      (void) FormatLocaleFile(file,"    \"printSize\": {\n"
-        "      \"x\": %.20g,\n      \"y\": %.20g\n    },\n",
-        image->columns/image->resolution.x,(double) image->rows/
+        "      \"x\": %g,\n      \"y\": %g\n    },\n",image->resolution.x,
         image->resolution.y);
+      (void) FormatLocaleFile(file,"    \"printSize\": {\n"
+        "      \"x\": %.*g,\n      \"y\": %.*g\n    },\n",GetMagickPrecision(),
+        image->columns/image->resolution.x,GetMagickPrecision(),(double)
+        image->rows/image->resolution.y);
     }
-  JsonFormatLocaleFile(file,"    \"units\": %s,\n",CommandOptionToMnemonic(
+  JSONFormatLocaleFile(file,"    \"units\": %s,\n",CommandOptionToMnemonic(
     MagickResolutionOptions,(ssize_t) image->units));
-  colorspace=image->colorspace;
   type=IdentifyImageType(image,exception);
-  if ((type == BilevelType) || (type == GrayscaleType) ||
-      (type == GrayscaleAlphaType))
-    colorspace=GRAYColorspace;
-  JsonFormatLocaleFile(file,"    \"type\": %s,\n",CommandOptionToMnemonic(
+  JSONFormatLocaleFile(file,"    \"type\": %s,\n",CommandOptionToMnemonic(
     MagickTypeOptions,(ssize_t) type));
-  base_type=GetImageType(image);
-  if (type != base_type)
-    JsonFormatLocaleFile(file,"    \"baseType\": %s,\n",
-      CommandOptionToMnemonic(MagickTypeOptions,(ssize_t) base_type));
-  JsonFormatLocaleFile(file,"    \"endianess\": %s,\n",
+  if (image->type != type)
+    JSONFormatLocaleFile(file,"    \"baseType\": %s,\n",
+      CommandOptionToMnemonic(MagickTypeOptions,(ssize_t) image->type));
+  JSONFormatLocaleFile(file,"    \"endianess\": %s,\n",
     CommandOptionToMnemonic(MagickEndianOptions,(ssize_t) image->endian));
   locate=GetImageArtifact(image,"identify:locate");
   if (locate == (const char *) NULL)
@@ -822,7 +1067,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       if (image->alpha_trait != UndefinedPixelTrait)
         (void) PrintChannelLocations(file,image,AlphaPixelChannel,"Alpha",
           type,max_locations,MagickTrue,channel_statistics);
-      switch (colorspace)
+      switch (image->colorspace)
       {
         case RGBColorspace:
         default:
@@ -839,14 +1084,15 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
         {
           (void) PrintChannelLocations(file,image,CyanPixelChannel,"Cyan",
             type,max_locations,MagickTrue,channel_statistics);
-          (void) PrintChannelLocations(file,image,MagentaPixelChannel,"Magenta",
-            type,max_locations,MagickTrue,channel_statistics);
+          (void) PrintChannelLocations(file,image,MagentaPixelChannel,
+            "Magenta",type,max_locations,MagickTrue,channel_statistics);
           (void) PrintChannelLocations(file,image,YellowPixelChannel,"Yellow",
             type,max_locations,MagickTrue,channel_statistics);
           (void) PrintChannelLocations(file,image,BlackPixelChannel,"Black",
             type,max_locations,MagickFalse,channel_statistics);
           break;
         }
+        case LinearGRAYColorspace:
         case GRAYColorspace:
         {
           (void) PrintChannelLocations(file,image,GrayPixelChannel,"Gray",
@@ -861,7 +1107,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   /*
     Detail channel depth and extrema.
   */
-  JsonFormatLocaleFile(file,"    \"colorspace\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"colorspace\": %s,\n",
     CommandOptionToMnemonic(MagickColorspaceOptions,(ssize_t)
     image->colorspace));
   channel_statistics=(ChannelStatistics *) NULL;
@@ -889,14 +1135,14 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       channel_features=GetImageFeatures(image,distance,exception);
     }
   depth=GetImageDepth(image,exception);
-  (void) FormatLocaleFile(file,"    \"depth\": %.20g,\n",(double) depth);
-  (void) FormatLocaleFile(file,"    \"baseDepth\": %.20g,\n",(double)
+  (void) FormatLocaleFile(file,"    \"depth\": %g,\n",(double) depth);
+  (void) FormatLocaleFile(file,"    \"baseDepth\": %g,\n",(double)
     image->depth);
   (void) FormatLocaleFile(file,"    \"channelDepth\": {\n");
   if (image->alpha_trait != UndefinedPixelTrait)
     (void) FormatLocaleFile(file,"      \"alpha\": %.20g,\n",(double)
       channel_statistics[AlphaPixelChannel].depth);
-  switch (colorspace)
+  switch (image->colorspace)
   {
     case RGBColorspace:
     default:
@@ -921,6 +1167,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
         channel_statistics[BlackChannel].depth);
       break;
     }
+    case LinearGRAYColorspace:
     case GRAYColorspace:
     {
       (void) FormatLocaleFile(file,"      \"gray\": %.20g\n",(double)
@@ -937,7 +1184,8 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
     {
       (void) FormatLocaleFile(file,"    \"pixels\": %.20g,\n",
         channel_statistics[CompositePixelChannel].area);
-      if (colorspace != GRAYColorspace)
+      if ((image->colorspace != LinearGRAYColorspace) &&
+          (image->colorspace != GRAYColorspace))
         {
           (void) FormatLocaleFile(file,"    \"imageStatistics\": {\n");
           (void) PrintChannelStatistics(file,(PixelChannel) MaxPixelChannels,
@@ -948,7 +1196,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       if (image->alpha_trait != UndefinedPixelTrait)
         (void) PrintChannelStatistics(file,AlphaPixelChannel,"Alpha",1.0/scale,
           MagickTrue,channel_statistics);
-      switch (colorspace)
+      switch (image->colorspace)
       {
         case RGBColorspace:
         default:
@@ -973,6 +1221,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
             scale,MagickFalse,channel_statistics);
           break;
         }
+        case LinearGRAYColorspace:
         case GRAYColorspace:
         {
           (void) PrintChannelStatistics(file,GrayPixelChannel,"Gray",1.0/scale,
@@ -990,7 +1239,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       if (image->alpha_trait != UndefinedPixelTrait)
         (void) PrintChannelMoments(file,AlphaPixelChannel,"Alpha",MagickTrue,
           channel_moments);
-      switch (colorspace)
+      switch (image->colorspace)
       {
         case RGBColorspace:
         default:
@@ -1015,6 +1264,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
             MagickFalse,channel_moments);
           break;
         }
+        case LinearGRAYColorspace:
         case GRAYColorspace:
         {
           (void) PrintChannelMoments(file,GrayPixelChannel,"Gray",MagickFalse,
@@ -1029,15 +1279,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
   if (channel_phash != (ChannelPerceptualHash *) NULL)
     {
       (void) FormatLocaleFile(file,"    \"channelPerceptualHash\": {\n");
-      if (image->alpha_trait != UndefinedPixelTrait)
-        (void) PrintChannelPerceptualHash(file,AlphaChannel,"alphaAlpha",
-          MagickTrue,channel_phash);
-      (void) PrintChannelPerceptualHash(file,RedChannel,"redHue",MagickTrue,
-        channel_phash);
-      (void) PrintChannelPerceptualHash(file,GreenChannel,"greenChroma",
-        MagickTrue,channel_phash);
-      (void) PrintChannelPerceptualHash(file,BlueChannel,"blueLuma",MagickFalse,
-        channel_phash);
+      (void) PrintChannelPerceptualHash(image,file,channel_phash);
       (void) FormatLocaleFile(file,"    },\n");
       channel_phash=(ChannelPerceptualHash *) RelinquishMagickMemory(
         channel_phash);
@@ -1048,7 +1290,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       if (image->alpha_trait != UndefinedPixelTrait)
         (void) PrintChannelFeatures(file,AlphaPixelChannel,"Alpha",MagickTrue,
           channel_features);
-      switch (colorspace)
+      switch (image->colorspace)
       {
         case RGBColorspace:
         default:
@@ -1073,6 +1315,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
             MagickFalse,channel_features);
           break;
         }
+        case LinearGRAYColorspace:
         case GRAYColorspace:
         {
           (void) PrintChannelFeatures(file,GrayPixelChannel,"Gray",MagickFalse,
@@ -1142,15 +1385,15 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       (void) FormatLocaleFile(file,"\n    ],\n");
     }
   if (image->error.mean_error_per_pixel != 0.0)
-    (void) FormatLocaleFile(file,"    \"meanErrorPerPixel\": \"%g\",\n",
+    (void) FormatLocaleFile(file,"    \"meanErrorPerPixel\": %g,\n",
       image->error.mean_error_per_pixel);
   if (image->error.normalized_mean_error != 0.0)
-    (void) FormatLocaleFile(file,"    \"normalizedMeanError\": \"%g\",\n",
+    (void) FormatLocaleFile(file,"    \"normalizedMeanError\": %g,\n",
       image->error.normalized_mean_error);
   if (image->error.normalized_maximum_error != 0.0)
-    (void) FormatLocaleFile(file,"    \"normalizedMaximumError\": \"%g\",\n",
+    (void) FormatLocaleFile(file,"    \"normalizedMaximumError\": %g,\n",
       image->error.normalized_maximum_error);
-  JsonFormatLocaleFile(file,"    \"renderingIntent\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"renderingIntent\": %s,\n",
     CommandOptionToMnemonic(MagickIntentOptions,(ssize_t)
     image->rendering_intent));
   if (image->gamma != 0.0)
@@ -1185,19 +1428,19 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       "      \"x\": %.20g,\n      \"y\": %.20g\n    },\n",
       (double) image->extract_info.width,(double) image->extract_info.height,
       (double) image->extract_info.x,(double) image->extract_info.y);
-  GetColorTuple(&image->alpha_color,MagickTrue,color);
-  (void) FormatLocaleFile(file,"    \"alphaColor\": \"%s\",\n",color);
+  GetColorTuple(&image->matte_color,MagickTrue,color);
+  (void) FormatLocaleFile(file,"    \"matteColor\": \"%s\",\n",color);
   GetColorTuple(&image->background_color,MagickTrue,color);
   (void) FormatLocaleFile(file,"    \"backgroundColor\": \"%s\",\n",color);
   GetColorTuple(&image->border_color,MagickTrue,color);
   (void) FormatLocaleFile(file,"    \"borderColor\": \"%s\",\n",color);
   GetColorTuple(&image->transparent_color,MagickTrue,color);
   (void) FormatLocaleFile(file,"    \"transparentColor\": \"%s\",\n",color);
-  JsonFormatLocaleFile(file,"    \"interlace\": %s,\n",CommandOptionToMnemonic(
+  JSONFormatLocaleFile(file,"    \"interlace\": %s,\n",CommandOptionToMnemonic(
     MagickInterlaceOptions,(ssize_t) image->interlace));
-  JsonFormatLocaleFile(file,"    \"intensity\": %s,\n",CommandOptionToMnemonic(
+  JSONFormatLocaleFile(file,"    \"intensity\": %s,\n",CommandOptionToMnemonic(
     MagickPixelIntensityOptions,(ssize_t) image->intensity));
-  JsonFormatLocaleFile(file,"    \"compose\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"compose\": %s,\n",
     CommandOptionToMnemonic(MagickComposeOptions,(ssize_t) image->compose));
   if ((image->page.width != 0) || (image->page.height != 0) ||
       (image->page.x != 0) || (image->page.y != 0))
@@ -1207,34 +1450,34 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       (double) image->page.width,(double) image->page.height,
       (double) image->page.x,(double) image->page.y);
   if ((image->page.x != 0) || (image->page.y != 0))
-    (void) FormatLocaleFile(file,"    \"originGeometry\": %+.20g%+.20g\n",
+    (void) FormatLocaleFile(file,"    \"originGeometry\": \"%+.20g%+.20g\",\n",
       (double) image->page.x,(double) image->page.y);
-  JsonFormatLocaleFile(file,"    \"dispose\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"dispose\": %s,\n",
     CommandOptionToMnemonic(MagickDisposeOptions,(ssize_t) image->dispose));
   if (image->delay != 0)
-    (void) FormatLocaleFile(file,"    \"delay\": \"%.20gx%.20g\"\n",
+    (void) FormatLocaleFile(file,"    \"delay\": \"%.20gx%.20g\",\n",
       (double) image->delay,(double) image->ticks_per_second);
   if (image->iterations != 1)
     (void) FormatLocaleFile(file,"    \"iterations\": %.20g,\n",(double)
       image->iterations);
   if ((image->next != (Image *) NULL) || (image->previous != (Image *) NULL))
-    (void) FormatLocaleFile(file,"    \"scene\": %.20g\n    \"scenes\": "
-      "%.20g\n",(double) image->scene,(double) GetImageListLength(image));
+    (void) FormatLocaleFile(file,"    \"scene\": %.20g,\n    \"scenes\": "
+      "%.20g,\n",(double) image->scene,(double) GetImageListLength(image));
   else
     if (image->scene != 0)
       (void) FormatLocaleFile(file,"    \"scene\": %.20g,\n",(double)
         image->scene);
-  JsonFormatLocaleFile(file,"    \"compression\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"compression\": %s,\n",
     CommandOptionToMnemonic(MagickCompressOptions,(ssize_t)
     image->compression));
   if (image->quality != UndefinedCompressionQuality)
     (void) FormatLocaleFile(file,"    \"quality\": %.20g,\n",(double)
       image->quality);
-  JsonFormatLocaleFile(file,"    \"orientation\": %s,\n",
+  JSONFormatLocaleFile(file,"    \"orientation\": %s,\n",
     CommandOptionToMnemonic(MagickOrientationOptions,(ssize_t)
     image->orientation));
   if (image->montage != (char *) NULL)
-    JsonFormatLocaleFile(file,"    \"montage\": \"%s\",\n",image->montage);
+    JSONFormatLocaleFile(file,"    \"montage\": \"%s\",\n",image->montage);
   if (image->directory != (char *) NULL)
     {
       Image
@@ -1260,11 +1503,11 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       while (*p != '\0')
       {
         q=p;
-        while ((*q != '\n') && (*q != '\0'))
+        while ((*q != '\xff') && (*q != '\0'))
           q++;
         (void) CopyMagickString(image_info->filename,p,(size_t) (q-p+1));
         p=q+1;
-        JsonFormatLocaleFile(file,"{\n       \"name\": %s",
+        JSONFormatLocaleFile(file,"{\n       \"name\": %s",
           image_info->filename);
         handler=SetWarningHandler((WarningHandler) NULL);
         tile=ReadImage(image_info,exception);
@@ -1282,12 +1525,12 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
         property=GetNextImageProperty(tile);
         while (property != (const char *) NULL)
         {
-          JsonFormatLocaleFile(file,",\n       %s: ",property);
+          JSONFormatLocaleFile(file,",\n       %s: ",property);
           value=GetImageProperty(tile,property,exception);
-          JsonFormatLocaleFile(file,"%s",value);
+          JSONFormatLocaleFile(file,"%s",value);
           property=GetNextImageProperty(tile);
         }
-        tile=DestroyImage(tile);
+        tile=DestroyImageList(tile);
         if (*p != '\0')
           (void) FormatLocaleFile(file,"\n    },");
         else
@@ -1316,9 +1559,9 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       {
         if (n++ != 0)
           (void) FormatLocaleFile(file,",\n");
-        JsonFormatLocaleFile(file,"      %s: ",property);
+        JSONFormatLocaleFile(file,"      %s: ",property);
         value=GetImageProperty(image,property,exception);
-        JsonFormatLocaleFile(file,"%s",value);
+        JSONFormatLocaleFile(file,"%s",value);
         property=GetNextImageProperty(image);
       }
       (void) FormatLocaleFile(file,"\n    },\n");
@@ -1330,9 +1573,7 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       /*
         Display clipping path.
       */
-      (void) FormatLocaleFile(file,"    \"clipping path\": {\n");
-      JsonFormatLocaleFile(file,"%s\n",value);
-      (void) FormatLocaleFile(file,"    },\n");
+      JSONFormatLocaleFile(file,"    \"clipping path\": %s,\n",value);
     }
   ResetImageProfileIterator(image);
   name=GetNextImageProfile(image);
@@ -1356,131 +1597,10 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
           continue;
         if (n++ != 0)
           (void) FormatLocaleFile(file,",\n");
-        JsonFormatLocaleFile(file,"      %s: {\n",name);
+        JSONFormatLocaleFile(file,"      %s: {\n",name);
         if (LocaleCompare(name,"iptc") == 0)
-          {
-            char
-              *attribute,
-              **attribute_list;
-
-            const char
-              *tag;
-
-            long
-              dataset,
-              record,
-              sentinel;
-
-            register ssize_t
-              j;
-
-            size_t
-              length,
-              profile_length;
-
-            profile_length=GetStringInfoLength(profile);
-            for (i=0; i < (ssize_t) profile_length; i+=(ssize_t) length)
-            {
-              length=1;
-              sentinel=GetStringInfoDatum(profile)[i++];
-              if (sentinel != 0x1c)
-                continue;
-              dataset=GetStringInfoDatum(profile)[i++];
-              record=GetStringInfoDatum(profile)[i++];
-              switch (record)
-              {
-                case 5: tag="Image Name"; break;
-                case 7: tag="Edit Status"; break;
-                case 10: tag="Priority"; break;
-                case 15: tag="Category"; break;
-                case 20: tag="Supplemental Category"; break;
-                case 22: tag="Fixture Identifier"; break;
-                case 25: tag="Keyword"; break;
-                case 30: tag="Release Date"; break;
-                case 35: tag="Release Time"; break;
-                case 40: tag="Special Instructions"; break;
-                case 45: tag="Reference Service"; break;
-                case 47: tag="Reference Date"; break;
-                case 50: tag="Reference Number"; break;
-                case 55: tag="Created Date"; break;
-                case 60: tag="Created Time"; break;
-                case 65: tag="Originating Program"; break;
-                case 70: tag="Program Version"; break;
-                case 75: tag="Object Cycle"; break;
-                case 80: tag="Byline"; break;
-                case 85: tag="Byline Title"; break;
-                case 90: tag="City"; break;
-                case 92: tag="Sub-Location"; break;
-                case 95: tag="Province State"; break;
-                case 100: tag="Country Code"; break;
-                case 101: tag="Country"; break;
-                case 103: tag="Original Transmission Reference"; break;
-                case 105: tag="Headline"; break;
-                case 110: tag="Credit"; break;
-                case 115: tag="Src"; break;
-                case 116: tag="Copyright String"; break;
-                case 120: tag="Caption"; break;
-                case 121: tag="Local Caption"; break;
-                case 122: tag="Caption Writer"; break;
-                case 200: tag="Custom Field 1"; break;
-                case 201: tag="Custom Field 2"; break;
-                case 202: tag="Custom Field 3"; break;
-                case 203: tag="Custom Field 4"; break;
-                case 204: tag="Custom Field 5"; break;
-                case 205: tag="Custom Field 6"; break;
-                case 206: tag="Custom Field 7"; break;
-                case 207: tag="Custom Field 8"; break;
-                case 208: tag="Custom Field 9"; break;
-                case 209: tag="Custom Field 10"; break;
-                case 210: tag="Custom Field 11"; break;
-                case 211: tag="Custom Field 12"; break;
-                case 212: tag="Custom Field 13"; break;
-                case 213: tag="Custom Field 14"; break;
-                case 214: tag="Custom Field 15"; break;
-                case 215: tag="Custom Field 16"; break;
-                case 216: tag="Custom Field 17"; break;
-                case 217: tag="Custom Field 18"; break;
-                case 218: tag="Custom Field 19"; break;
-                case 219: tag="Custom Field 20"; break;
-                default: tag="unknown"; break;
-              }
-              (void) FormatLocaleFile(file,"      %s[%.20g,%.20g]: ",tag,
-                (double) dataset,(double) record);
-              length=(size_t) (GetStringInfoDatum(profile)[i++] << 8);
-              length|=GetStringInfoDatum(profile)[i++];
-              attribute=(char *) NULL;
-              if (~length >= (MagickPathExtent-1))
-                attribute=(char *) AcquireQuantumMemory(length+MagickPathExtent,
-                  sizeof(*attribute));
-              if (attribute != (char *) NULL)
-                {
-                  (void) CopyMagickString(attribute,(char *)
-                    GetStringInfoDatum(profile)+i,length+1);
-                  attribute_list=StringToList(attribute);
-                  if (attribute_list != (char **) NULL)
-                    {
-                     (void) FormatLocaleFile(file,"[");
-                      for (j=0; attribute_list[j] != (char *) NULL; j++)
-                      {
-                        if (j != 0)
-                          (void) FormatLocaleFile(file,",");
-                        JsonFormatLocaleFile(file,"%s",attribute_list[j]);
-                        attribute_list[j]=(char *) RelinquishMagickMemory(
-                          attribute_list[j]);
-                      }
-                      (void) FormatLocaleFile(file,"],");
-                      attribute_list=(char **) RelinquishMagickMemory(
-                        attribute_list);
-                    }
-                   else
-                    (void) FormatLocaleFile(file,"null,");
-                  attribute=DestroyString(attribute);
-                }
-              else
-                (void) FormatLocaleFile(file,"null,");
-            }
-          }
-        (void) FormatLocaleFile(file,"        \"length\": \"%.20g\"",(double)
+          EncodeIptcProfile(file,profile);
+        (void) FormatLocaleFile(file,"        \"length\": %.20g",(double)
           GetStringInfoLength(profile));
         (void) FormatLocaleFile(file,"\n      }");
         name=GetNextImageProfile(image);
@@ -1503,9 +1623,9 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       {
         if (n++ != 0)
           (void) FormatLocaleFile(file,",\n");
-        JsonFormatLocaleFile(file,"      %s: ",artifact);
+        JSONFormatLocaleFile(file,"      %s: ",artifact);
         value=GetImageArtifact(image,artifact);
-        JsonFormatLocaleFile(file,"%s",value);
+        JSONFormatLocaleFile(file,"%s",value);
         artifact=GetNextImageArtifact(image);
       }
       (void) FormatLocaleFile(file,"\n    },\n");
@@ -1526,10 +1646,10 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       {
         if (n++ != 0)
           (void) FormatLocaleFile(file,",\n");
-        JsonFormatLocaleFile(file,"      %s: ",registry);
+        JSONFormatLocaleFile(file,"      %s: ",registry);
         value=(const char *) GetImageRegistry(StringRegistryType,registry,
           exception);
-        JsonFormatLocaleFile(file,"%s",value);
+        JSONFormatLocaleFile(file,"%s",value);
         registry=GetNextImageRegistry();
       }
       (void) FormatLocaleFile(file,"    },\n");
@@ -1538,22 +1658,23 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
     image->taint != MagickFalse ? "true" : "false");
   (void) FormatMagickSize(GetBlobSize(image),MagickFalse,"B",MagickPathExtent,
     format);
-  JsonFormatLocaleFile(file,"    \"filesize\": %s,\n",format);
+  JSONFormatLocaleFile(file,"    \"filesize\": %s,\n",format);
   (void) FormatMagickSize((MagickSizeType) image->columns*image->rows,
     MagickFalse,"B",MagickPathExtent,format);
   if (strlen(format) > 1)
     format[strlen(format)-1]='\0';
-  JsonFormatLocaleFile(file,"    \"numberPixels\": %s,\n",format);
+  JSONFormatLocaleFile(file,"    \"numberPixels\": %s,\n",format);
   (void) FormatMagickSize((MagickSizeType) ((double) image->columns*image->rows/
     elapsed_time+0.5),MagickFalse,"B",MagickPathExtent,format);
-  JsonFormatLocaleFile(file,"    \"pixelsPerSecond\": %s,\n",format);
+  JSONFormatLocaleFile(file,"    \"pixelsPerSecond\": %s,\n",format);
   (void) FormatLocaleFile(file,"    \"userTime\": \"%0.3fu\",\n",user_time);
   (void) FormatLocaleFile(file,"    \"elapsedTime\": \"%lu:%02lu.%03lu\",\n",
     (unsigned long) (elapsed_time/60.0),(unsigned long) ceil(fmod(
     elapsed_time,60.0)),(unsigned long) (1000.0*(elapsed_time-floor(
     elapsed_time))));
-  JsonFormatLocaleFile(file,"    \"version\": %s\n",
-    GetMagickVersion((size_t *) NULL));
+  url=GetMagickHomeURL();
+  JSONFormatLocaleFile(file,"    \"version\": %s\n",url);
+  url=DestroyString(url);
   (void) FormatLocaleFile(file,"  }\n}\n");
   (void) fflush(file);
   return(ferror(file) != 0 ? MagickFalse : MagickTrue);
@@ -1571,6 +1692,9 @@ static MagickBooleanType WriteJSONImage(const ImageInfo *image_info,
   MagickOffsetType
     scene;
 
+  size_t
+    imageListLength;
+
   /*
     Open output image file.
   */
@@ -1587,21 +1711,22 @@ static MagickBooleanType WriteJSONImage(const ImageInfo *image_info,
   if (file == (FILE *) NULL)
     file=stdout;
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
-    WriteBlobString(image,"[");
+    if (scene == 0)
+      (void) WriteBlobString(image,"[");
     image->magick_columns=image->columns;
     image->magick_rows=image->rows;
-    EncodeImageAttributes(image,file,exception);
+    (void) EncodeImageAttributes(image,file,exception);
     if (GetNextImageInList(image) == (Image *) NULL)
       {
-        WriteBlobString(image,"]");
+        (void) WriteBlobString(image,"]");
         break;
       }
-    WriteBlobString(image,",\n");
+    (void) WriteBlobString(image,",\n");
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

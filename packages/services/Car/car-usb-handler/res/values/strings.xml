@@ -17,9 +17,6 @@
     <string name="app_name">USB Handler</string>
 
     <!-- USB Manager Settings -->
-    <string name="usb_title">USB Devices settings</string>
-    <string name="usb_description">Customize your USB Devices settings</string>
-    <string name="usb_available_devices">Connected devices</string>
     <string name="usb_saved_devices">Saved devices</string>
     <string name="usb_pref_delete_title">Remove handling app for USB device</string>
     <string name="usb_pref_delete_message">Are you sure you wan to delete dafault handling app for %1$s?</string>
@@ -27,4 +24,12 @@
     <string name="usb_pref_delete_cancel">Cancel</string>
     <string name="usb_resolving_handlers">Getting supported handlers</string>
     <string name="usb_unknown_device">Unknown USB device</string>
+    <string name="usb_boot_service_notification">Analyzing USB devices</string>
+
+    <!-- VID:PID pairs (in hexadecimal and separated by a colon, e.g. 18d1:4e11)
+         of Android devices known to be incompatible with AOAP. Devices in this
+         list will not be probed by UsbHostManagementActivity for AOAP support. -->
+    <string-array name="config_AoapIncompatibleDeviceIds">
+        <item>18d1:9302</item>
+    </string-array>
 </resources>

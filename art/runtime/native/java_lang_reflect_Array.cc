@@ -22,8 +22,9 @@
 #include "common_throws.h"
 #include "dex/dex_file-inl.h"
 #include "handle_scope-inl.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "mirror/object-inl.h"
 #include "native_util.h"
 #include "scoped_fast_native_object_access-inl.h"
@@ -44,9 +45,8 @@ static jobject Array_createMultiArray(
             Primitive::kPrimInt);
   Handle<mirror::IntArray> dimensions_array(
       hs.NewHandle(ObjPtr<mirror::IntArray>::DownCast(dimensions_obj)));
-  mirror::Array* new_array = mirror::Array::CreateMultiArray(soa.Self(),
-                                                             element_class,
-                                                             dimensions_array);
+  ObjPtr<mirror::Array> new_array =
+      mirror::Array::CreateMultiArray(soa.Self(), element_class, dimensions_array);
   return soa.AddLocalReference<jobject>(new_array);
 }
 
@@ -57,16 +57,16 @@ static jobject Array_createObjectArray(JNIEnv* env, jclass, jclass javaElementCl
     ThrowNegativeArraySizeException(length);
     return nullptr;
   }
-  ObjPtr<mirror::Class> element_class = soa.Decode<mirror::Class>(javaElementClass);
   Runtime* runtime = Runtime::Current();
   ClassLinker* class_linker = runtime->GetClassLinker();
-  ObjPtr<mirror::Class> array_class = class_linker->FindArrayClass(soa.Self(), &element_class);
+  ObjPtr<mirror::Class> array_class =
+      class_linker->FindArrayClass(soa.Self(), soa.Decode<mirror::Class>(javaElementClass));
   if (UNLIKELY(array_class == nullptr)) {
     CHECK(soa.Self()->IsExceptionPending());
     return nullptr;
   }
   DCHECK(array_class->IsObjectArrayClass());
-  ObjPtr<mirror::Array> new_array = mirror::ObjectArray<mirror::Object*>::Alloc(
+  ObjPtr<mirror::Array> new_array = mirror::ObjectArray<mirror::Object>::Alloc(
       soa.Self(),
       array_class,
       length,

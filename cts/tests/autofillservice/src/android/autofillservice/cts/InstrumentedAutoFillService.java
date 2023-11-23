@@ -16,6 +16,7 @@
 
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.CannedFillResponse.ResponseType.FAILURE;
 import static android.autofillservice.cts.CannedFillResponse.ResponseType.NULL;
 import static android.autofillservice.cts.CannedFillResponse.ResponseType.TIMEOUT;
 import static android.autofillservice.cts.Helper.dumpStructure;
@@ -30,10 +31,13 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.assist.AssistStructure;
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
+import android.autofillservice.cts.CannedFillResponse.ResponseType;
 import android.content.ComponentName;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.service.autofill.AutofillService;
 import android.service.autofill.Dataset;
@@ -47,11 +51,20 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.android.compatibility.common.util.RetryableException;
+import com.android.compatibility.common.util.TestNameUtils;
+import com.android.compatibility.common.util.Timeout;
+
+import java.io.FileDescriptor;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -64,6 +77,9 @@ public class InstrumentedAutoFillService extends AutofillService {
 
     static final String SERVICE_NAME = SERVICE_PACKAGE + "/." + SERVICE_CLASS;
 
+    // TODO(b/125844305): remove once fixed
+    private static final boolean FAIL_ON_INVALID_CONNECTION_STATE = false;
+
     private static final String TAG = "InstrumentedAutoFillService";
 
     private static final boolean DUMP_FILL_REQUESTS = false;
@@ -73,19 +89,26 @@ public class InstrumentedAutoFillService extends AutofillService {
             new AtomicReference<>();
     private static final Replier sReplier = new Replier();
 
-    private static final Object sLock = new Object();
-
-    // @GuardedBy("sLock") // NOTE: not using annotation because of dependencies
-    private static boolean sIgnoreUnexpectedRequests = false;
-
-    // @GuardedBy("sLock") // NOTE: not using annotation because of dependencies
-    private static boolean sConnected;
+    private static AtomicBoolean sConnected = new AtomicBoolean(false);
 
     protected static String sServiceLabel = SERVICE_CLASS;
+
+    // We must handle all requests in a separate thread as the service's main thread is the also
+    // the UI thread of the test process and we don't want to hose it in case of failures here
+    private static final HandlerThread sMyThread = new HandlerThread("MyServiceThread");
+    private final Handler mHandler;
+
+    private boolean mConnected;
+
+    static {
+        Log.i(TAG, "Starting thread " + sMyThread);
+        sMyThread.start();
+    }
 
     public InstrumentedAutoFillService() {
         sInstance.set(this);
         sServiceLabel = SERVICE_CLASS;
+        mHandler = Handler.createAsync(sMyThread.getLooper());
     }
 
     private static InstrumentedAutoFillService peekInstance() {
@@ -158,59 +181,99 @@ public class InstrumentedAutoFillService extends AutofillService {
         return sServiceLabel;
     }
 
+    private void handleConnected(boolean connected) {
+        Log.v(TAG, "handleConnected(): from " + sConnected.get() + " to " + connected);
+        sConnected.set(connected);
+    }
+
     @Override
     public void onConnected() {
-        synchronized (sLock) {
-            Log.v(TAG, "onConnected(): connected=" + sConnected);
-            sConnected = true;
+        Log.v(TAG, "onConnected");
+        if (mConnected && FAIL_ON_INVALID_CONNECTION_STATE) {
+            dumpSelf();
+            sReplier.addException(new IllegalStateException("onConnected() called again"));
         }
+        mConnected = true;
+        mHandler.post(() -> handleConnected(true));
     }
 
     @Override
     public void onDisconnected() {
-        synchronized (sLock) {
-            Log.v(TAG, "onDisconnected(): connected=" + sConnected);
-            sConnected = false;
+        Log.v(TAG, "onDisconnected");
+        if (!mConnected && FAIL_ON_INVALID_CONNECTION_STATE) {
+            dumpSelf();
+            sReplier.addException(
+                    new IllegalStateException("onDisconnected() called when disconnected"));
         }
+        mConnected = false;
+        mHandler.post(() -> handleConnected(false));
     }
 
     @Override
     public void onFillRequest(android.service.autofill.FillRequest request,
             CancellationSignal cancellationSignal, FillCallback callback) {
-        if (DUMP_FILL_REQUESTS) dumpStructure("onFillRequest()", request.getFillContexts());
-        synchronized (sLock) {
-            if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts()))  {
-                Log.w(TAG, "Ignoring onFillRequest()");
-                return;
-            }
+        final ComponentName component = getLastActivityComponent(request.getFillContexts());
+        if (DUMP_FILL_REQUESTS) {
+            dumpStructure("onFillRequest()", request.getFillContexts());
+        } else {
+            Log.i(TAG, "onFillRequest() for " + component.toShortString());
         }
-        sReplier.onFillRequest(request.getFillContexts(), request.getClientState(),
-                cancellationSignal, callback, request.getFlags());
+        if (!mConnected && FAIL_ON_INVALID_CONNECTION_STATE) {
+            dumpSelf();
+            sReplier.addException(
+                    new IllegalStateException("onFillRequest() called when disconnected"));
+        }
+
+        if (!TestNameUtils.isRunningTest()) {
+            Log.e(TAG, "onFillRequest(" + component + ") called after tests finished");
+            return;
+        }
+        if (!fromSamePackage(component))  {
+            Log.w(TAG, "Ignoring onFillRequest() from different package: " + component);
+            return;
+        }
+        mHandler.post(
+                () -> sReplier.onFillRequest(request.getFillContexts(), request.getClientState(),
+                        cancellationSignal, callback, request.getFlags()));
     }
 
     @Override
     public void onSaveRequest(android.service.autofill.SaveRequest request,
             SaveCallback callback) {
-        if (DUMP_SAVE_REQUESTS) dumpStructure("onSaveRequest()", request.getFillContexts());
-        synchronized (sLock) {
-            if (sIgnoreUnexpectedRequests || !fromSamePackage(request.getFillContexts())) {
-                Log.w(TAG, "Ignoring onSaveRequest()");
-                return;
-            }
+        if (!mConnected && FAIL_ON_INVALID_CONNECTION_STATE) {
+            dumpSelf();
+            sReplier.addException(
+                    new IllegalStateException("onSaveRequest() called when disconnected"));
         }
-        sReplier.onSaveRequest(request.getFillContexts(), request.getClientState(), callback,
-                request.getDatasetIds());
+        mHandler.post(()->handleSaveRequest(request, callback));
     }
 
-    private static boolean isConnected() {
-        synchronized (sLock) {
-            return sConnected;
+    private void handleSaveRequest(android.service.autofill.SaveRequest request,
+            SaveCallback callback) {
+        final ComponentName component = getLastActivityComponent(request.getFillContexts());
+        if (!TestNameUtils.isRunningTest()) {
+            Log.e(TAG, "onSaveRequest(" + component + ") called after tests finished");
+            return;
         }
+        if (!fromSamePackage(component)) {
+            Log.w(TAG, "Ignoring onSaveRequest() from different package: " + component);
+            return;
+        }
+        if (DUMP_SAVE_REQUESTS) {
+            dumpStructure("onSaveRequest()", request.getFillContexts());
+        } else {
+            Log.i(TAG, "onSaveRequest() for " + component.toShortString());
+        }
+        mHandler.post(() -> sReplier.onSaveRequest(request.getFillContexts(),
+                request.getClientState(), callback,
+                request.getDatasetIds()));
     }
 
-    private boolean fromSamePackage(List<FillContext> contexts) {
-        final ComponentName component = contexts.get(contexts.size() - 1).getStructure()
-                .getActivityComponent();
+    public static boolean isConnected() {
+        return sConnected.get();
+    }
+
+    private boolean fromSamePackage(ComponentName component) {
         final String actualPackage = component.getPackageName();
         if (!actualPackage.equals(getPackageName())
                 && !actualPackage.equals(sReplier.mAcceptedPackageName)) {
@@ -220,15 +283,29 @@ public class InstrumentedAutoFillService extends AutofillService {
         return true;
     }
 
-    /**
-     * Sets whether unexpected calls to
-     * {@link #onFillRequest(android.service.autofill.FillRequest, CancellationSignal, FillCallback)}
-     * should throw an exception.
-     */
-    public static void setIgnoreUnexpectedRequests(boolean ignore) {
-        synchronized (sLock) {
-            sIgnoreUnexpectedRequests = ignore;
+    private ComponentName getLastActivityComponent(List<FillContext> contexts) {
+        return contexts.get(contexts.size() - 1).getStructure().getActivityComponent();
+    }
+
+    private void dumpSelf()  {
+        try {
+            try (StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw)) {
+                dump(null, pw, null);
+                pw.flush();
+                final String dump = sw.toString();
+                Log.e(TAG, "dumpSelf(): " + dump);
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "I don't always fail to dump, but when I do, I dump the failure", e);
         }
+    }
+
+    @Override
+    protected void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        pw.print("sConnected: "); pw.println(sConnected);
+        pw.print("mConnected: "); pw.println(mConnected);
+        pw.print("sInstance: "); pw.println(sInstance);
+        pw.println("sReplier: "); sReplier.dump(pw);
     }
 
     /**
@@ -240,7 +317,7 @@ public class InstrumentedAutoFillService extends AutofillService {
      * was replied with a {@code null} response) - if a text needs to block until the service
      * receives a callback, it should use {@link Replier#getNextFillRequest()} instead.
      */
-    static void waitUntilConnected() throws Exception {
+    public static void waitUntilConnected() throws Exception {
         waitConnectionState(CONNECTION_TIMEOUT, true);
     }
 
@@ -250,7 +327,7 @@ public class InstrumentedAutoFillService extends AutofillService {
      * <p>This method is useful on tests that explicitly verifies the connection, but should be
      * avoided in other tests, as it adds extra time to the test execution.
      */
-    static void waitUntilDisconnected() throws Exception {
+    public static void waitUntilDisconnected() throws Exception {
         waitConnectionState(IDLE_UNBIND_TIMEOUT, false);
     }
 
@@ -269,7 +346,7 @@ public class InstrumentedAutoFillService extends AutofillService {
 
     static void resetStaticState() {
         sInstance.set(null);
-        sConnected = false;
+        sConnected.set(false);
         sServiceLabel = SERVICE_CLASS;
     }
 
@@ -278,13 +355,13 @@ public class InstrumentedAutoFillService extends AutofillService {
      * {@link AutofillService#onFillRequest(android.service.autofill.FillRequest,
      * CancellationSignal, FillCallback)} that can be asserted at the end of a test case.
      */
-    static final class FillRequest {
-        final AssistStructure structure;
-        final List<FillContext> contexts;
-        final Bundle data;
-        final CancellationSignal cancellationSignal;
-        final FillCallback callback;
-        final int flags;
+    public static final class FillRequest {
+        public final AssistStructure structure;
+        public final List<FillContext> contexts;
+        public final Bundle data;
+        public final CancellationSignal cancellationSignal;
+        public final FillCallback callback;
+        public final int flags;
 
         private FillRequest(List<FillContext> contexts, Bundle data,
                 CancellationSignal cancellationSignal, FillCallback callback, int flags) {
@@ -293,12 +370,13 @@ public class InstrumentedAutoFillService extends AutofillService {
             this.cancellationSignal = cancellationSignal;
             this.callback = callback;
             this.flags = flags;
-            structure = contexts.get(contexts.size() - 1).getStructure();
+            this.structure = contexts.get(contexts.size() - 1).getStructure();
         }
 
         @Override
         public String toString() {
-            return "FillRequest:" + getActivityName(contexts);
+            return "FillRequest[activity=" + getActivityName(contexts) + ", flags=" + flags
+                    + ", bundle=" + data + ", structure=" + Helper.toString(structure) + "]";
         }
     }
 
@@ -307,7 +385,7 @@ public class InstrumentedAutoFillService extends AutofillService {
      * {@link AutofillService#onSaveRequest(android.service.autofill.SaveRequest, SaveCallback)}
      * that can be asserted at the end of a test case.
      */
-    static final class SaveRequest {
+    public static final class SaveRequest {
         public final List<FillContext> contexts;
         public final AssistStructure structure;
         public final Bundle data;
@@ -339,7 +417,7 @@ public class InstrumentedAutoFillService extends AutofillService {
      * CancellationSignal, FillCallback)}
      * on behalf of a unit test method.
      */
-    static final class Replier {
+    public static final class Replier {
 
         private final BlockingQueue<CannedFillResponse> mResponses = new LinkedBlockingQueue<>();
         private final BlockingQueue<FillRequest> mFillRequests = new LinkedBlockingQueue<>();
@@ -368,7 +446,8 @@ public class InstrumentedAutoFillService extends AutofillService {
         /**
          * Gets the exceptions thrown asynchronously, if any.
          */
-        @Nullable List<Throwable> getExceptions() {
+        @Nullable
+        public List<Throwable> getExceptions() {
             return mExceptions;
         }
 
@@ -385,7 +464,7 @@ public class InstrumentedAutoFillService extends AutofillService {
          * Sets the expectation for the next {@code onFillRequest} as {@link FillResponse} with just
          * one {@link Dataset}.
          */
-        Replier addResponse(CannedDataset dataset) {
+        public Replier addResponse(CannedDataset dataset) {
             return addResponse(new CannedFillResponse.Builder()
                     .addDataset(dataset)
                     .build());
@@ -394,7 +473,7 @@ public class InstrumentedAutoFillService extends AutofillService {
         /**
          * Sets the expectation for the next {@code onFillRequest}.
          */
-        Replier addResponse(CannedFillResponse response) {
+        public Replier addResponse(CannedFillResponse response) {
             if (response == null) {
                 throw new IllegalArgumentException("Cannot be null - use NO_RESPONSE instead");
             }
@@ -406,16 +485,15 @@ public class InstrumentedAutoFillService extends AutofillService {
          * Sets the {@link IntentSender} that is passed to
          * {@link SaveCallback#onSuccess(IntentSender)}.
          */
-        void setOnSave(IntentSender intentSender) {
+        public Replier setOnSave(IntentSender intentSender) {
             mOnSaveIntentSender = intentSender;
+            return this;
         }
 
         /**
          * Gets the next fill request, in the order received.
-         *
-         * <p>Typically called at the end of a test case, to assert the initial request.
          */
-        FillRequest getNextFillRequest() {
+        public FillRequest getNextFillRequest() {
             FillRequest request;
             try {
                 request = mFillRequests.poll(FILL_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
@@ -436,7 +514,7 @@ public class InstrumentedAutoFillService extends AutofillService {
          * <p>Should only be called in cases where it's not expected to be called, as it will
          * sleep for a few ms.
          */
-        void assertOnFillRequestNotCalled() {
+        public void assertOnFillRequestNotCalled() {
             SystemClock.sleep(FILL_TIMEOUT.getMaxValue());
             assertThat(mFillRequests).isEmpty();
         }
@@ -447,7 +525,7 @@ public class InstrumentedAutoFillService extends AutofillService {
          * received by the service were properly {@link #getNextFillRequest() handled} by the test
          * case.
          */
-        void assertNoUnhandledFillRequests() {
+        public void assertNoUnhandledFillRequests() {
             if (mFillRequests.isEmpty()) return; // Good job, test case!
 
             if (!mReportUnhandledFillRequest) {
@@ -465,7 +543,7 @@ public class InstrumentedAutoFillService extends AutofillService {
         /**
          * Gets the current number of unhandled requests.
          */
-        int getNumberUnhandledFillRequests() {
+        public int getNumberUnhandledFillRequests() {
             return mFillRequests.size();
         }
 
@@ -474,7 +552,7 @@ public class InstrumentedAutoFillService extends AutofillService {
          *
          * <p>Typically called at the end of a test case, to assert the initial request.
          */
-        SaveRequest getNextSaveRequest() {
+        public SaveRequest getNextSaveRequest() {
             SaveRequest request;
             try {
                 request = mSaveRequests.poll(SAVE_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
@@ -494,7 +572,7 @@ public class InstrumentedAutoFillService extends AutofillService {
          * save requests} received by the service were properly
          * {@link #getNextFillRequest() handled} by the test case.
          */
-        void assertNoUnhandledSaveRequests() {
+        public void assertNoUnhandledSaveRequests() {
             if (mSaveRequests.isEmpty()) return; // Good job, test case!
 
             if (!mReportUnhandledSaveRequest) {
@@ -512,7 +590,7 @@ public class InstrumentedAutoFillService extends AutofillService {
         /**
          * Resets its internal state.
          */
-        void reset() {
+        public void reset() {
             mResponses.clear();
             mFillRequests.clear();
             mSaveRequests.clear();
@@ -553,6 +631,19 @@ public class InstrumentedAutoFillService extends AutofillService {
                     return;
                 }
 
+                if (response.getResponseType() == FAILURE) {
+                    Log.d(TAG, "onFillRequest(): replying with failure");
+                    callback.onFailure("D'OH!");
+                    return;
+                }
+
+                if (response.getResponseType() == ResponseType.NO_MORE) {
+                    Log.w(TAG, "onFillRequest(): replying with null when not expecting more");
+                    addException(new IllegalStateException("got unexpected request"));
+                    callback.onSuccess(null);
+                    return;
+                }
+
                 final String failureMessage = response.getFailureMessage();
                 if (failureMessage != null) {
                     Log.v(TAG, "onFillRequest(): failureMessage = " + failureMessage);
@@ -564,15 +655,15 @@ public class InstrumentedAutoFillService extends AutofillService {
 
                 switch (mIdMode) {
                     case RESOURCE_ID:
-                        fillResponse = response.asFillResponse(
+                        fillResponse = response.asFillResponse(contexts,
                                 (id) -> Helper.findNodeByResourceId(contexts, id));
                         break;
                     case HTML_NAME:
-                        fillResponse = response.asFillResponse(
+                        fillResponse = response.asFillResponse(contexts,
                                 (name) -> Helper.findNodeByHtmlName(contexts, name));
                         break;
                     case HTML_NAME_OR_RESOURCE_ID:
-                        fillResponse = response.asFillResponse(
+                        fillResponse = response.asFillResponse(contexts,
                                 (id) -> Helper.findNodeByHtmlNameOrResourceId(contexts, id));
                         break;
                     default:
@@ -584,20 +675,37 @@ public class InstrumentedAutoFillService extends AutofillService {
             } catch (Throwable t) {
                 addException(t);
             } finally {
-                mFillRequests.offer(new FillRequest(contexts, data, cancellationSignal, callback,
-                        flags));
+                Helper.offer(mFillRequests, new FillRequest(contexts, data, cancellationSignal,
+                        callback, flags), CONNECTION_TIMEOUT.ms());
             }
         }
 
         private void onSaveRequest(List<FillContext> contexts, Bundle data, SaveCallback callback,
                 List<String> datasetIds) {
             Log.d(TAG, "onSaveRequest(): sender=" + mOnSaveIntentSender);
-            mSaveRequests.offer(new SaveRequest(contexts, data, callback, datasetIds));
-            if (mOnSaveIntentSender != null) {
-                callback.onSuccess(mOnSaveIntentSender);
-            } else {
-                callback.onSuccess();
+
+            try {
+                if (mOnSaveIntentSender != null) {
+                    callback.onSuccess(mOnSaveIntentSender);
+                } else {
+                    callback.onSuccess();
+                }
+            } finally {
+                Helper.offer(mSaveRequests, new SaveRequest(contexts, data, callback, datasetIds),
+                        CONNECTION_TIMEOUT.ms());
             }
+        }
+
+        private void dump(PrintWriter pw) {
+            pw.print("mResponses: "); pw.println(mResponses);
+            pw.print("mFillRequests: "); pw.println(mFillRequests);
+            pw.print("mSaveRequests: "); pw.println(mSaveRequests);
+            pw.print("mExceptions: "); pw.println(mExceptions);
+            pw.print("mOnSaveIntentSender: "); pw.println(mOnSaveIntentSender);
+            pw.print("mAcceptedPackageName: "); pw.println(mAcceptedPackageName);
+            pw.print("mAcceptedPackageName: "); pw.println(mAcceptedPackageName);
+            pw.print("mReportUnhandledFillRequest: "); pw.println(mReportUnhandledSaveRequest);
+            pw.print("mIdMode: "); pw.println(mIdMode);
         }
     }
 }

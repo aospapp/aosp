@@ -18,6 +18,7 @@ limitations under the License.
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="radio_am_text" msgid="571324921988967868">"AM"</string>
     <string name="radio_fm_text" msgid="1973045042281933494">"FM"</string>
+    <string name="radio_dab_text" msgid="8456449462266648979">"DAB"</string>
     <string name="program_list_text" msgid="4414150317304422313">"Ռադիոկայաններ"</string>
     <string name="favorites_list_text" msgid="7829827713977109155">"Ընտրանի"</string>
 </resources>

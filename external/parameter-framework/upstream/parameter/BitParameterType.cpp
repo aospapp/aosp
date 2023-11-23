@@ -123,7 +123,7 @@ bool CBitParameterType::toBlackboard(const string &strValue, uint64_t &uiValue,
                                      CParameterAccessContext &parameterAccessContext) const
 {
     // Get value
-    uint64_t uiConvertedValue = strtoull(strValue.c_str(), NULL, 0);
+    uint64_t uiConvertedValue = strtoull(strValue.c_str(), nullptr, 0);
 
     if (uiConvertedValue > _uiMax) {
 
@@ -223,20 +223,6 @@ uint64_t CBitParameterType::getMaxEncodableValue() const
 uint64_t CBitParameterType::getMask() const
 {
     return getMaxEncodableValue() << _bitPos;
-}
-
-// Check data has no bit set outside available range
-bool CBitParameterType::isEncodable(uint64_t uiData) const
-{
-    size_t uiShift = 8 * sizeof(uiData) - _uiBitSize;
-
-    if (uiShift) {
-
-        // Check high bits are clean
-        return !(uiData >> uiShift);
-    }
-
-    return true;
 }
 
 // From IXmlSource

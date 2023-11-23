@@ -41,7 +41,7 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:functionalTest="true"
                      android:targetPackage="android.packageinstaller.admin.cts"
                      android:label="External App Sources Tests"/>

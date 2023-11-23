@@ -12,10 +12,16 @@
 #include <base/files/scoped_file.h>
 #include <base/logging.h>
 #include <base/posix/eintr_wrapper.h>
+#include <base/rand_util.h>
+#include <base/strings/string_number_conversions.h>
+#include <base/time/time.h>
 
 namespace brillo {
 
 namespace {
+
+// Log sync(), fsync(), etc. calls that take this many seconds or longer.
+constexpr const base::TimeDelta kLongSync = base::TimeDelta::FromSeconds(10);
 
 enum {
   kPermissions600 = S_IRUSR | S_IWUSR,
@@ -112,11 +118,9 @@ bool TouchFileInternal(const base::FilePath& path,
   }
 
   // Create the file as owner-only initially.
-  base::ScopedFD scoped_fd(
-      HANDLE_EINTR(openat(AT_FDCWD,
-                          path.value().c_str(),
-                          O_RDONLY | O_NOFOLLOW | O_CREAT | O_EXCL | O_CLOEXEC,
-                          kPermissions600)));
+  base::ScopedFD scoped_fd(HANDLE_EINTR(openat(
+      AT_FDCWD, path.value().c_str(),
+      O_RDONLY | O_NOFOLLOW | O_CREAT | O_EXCL | O_CLOEXEC, kPermissions600)));
   if (scoped_fd == -1) {
     PLOG(WARNING) << "Failed to create file \"" << path.value() << '"';
     return false;
@@ -126,6 +130,24 @@ bool TouchFileInternal(const base::FilePath& path,
     fd_out->swap(scoped_fd);
   }
   return true;
+}
+
+std::string GetRandomSuffix() {
+  const int kBufferSize = 6;
+  unsigned char buffer[kBufferSize];
+  base::RandBytes(buffer, arraysize(buffer));
+  std::string suffix;
+  for (int i = 0; i < kBufferSize; ++i) {
+    int random_value = buffer[i] % (2 * 26 + 10);
+    if (random_value < 26) {
+      suffix.push_back('a' + random_value);
+    } else if (random_value < 2 * 26) {
+      suffix.push_back('A' + random_value - 26);
+    } else {
+      suffix.push_back('0' + random_value - 2 * 26);
+    }
+  }
+  return suffix;
 }
 
 }  // namespace
@@ -160,6 +182,135 @@ bool TouchFile(const base::FilePath& path) {
   // Use TouchFile() instead of TouchFileInternal() to explicitly set
   // permissions to 600 in case umask is set strangely.
   return TouchFile(path, kPermissions600, geteuid(), getegid());
+}
+
+bool WriteBlobToFile(const base::FilePath& path, const Blob& blob) {
+  return WriteToFile(path, reinterpret_cast<const char*>(blob.data()),
+                     blob.size());
+}
+
+bool WriteStringToFile(const base::FilePath& path, const std::string& data) {
+  return WriteToFile(path, data.data(), data.size());
+}
+
+bool WriteToFile(const base::FilePath& path, const char* data, size_t size) {
+  if (!base::DirectoryExists(path.DirName())) {
+    if (!base::CreateDirectory(path.DirName())) {
+      LOG(ERROR) << "Cannot create directory: " << path.DirName().value();
+      return false;
+    }
+  }
+  // base::WriteFile takes an int size.
+  if (size > std::numeric_limits<int>::max()) {
+    LOG(ERROR) << "Cannot write to " << path.value()
+               << ". Data is too large: " << size << " bytes.";
+    return false;
+  }
+
+  int data_written = base::WriteFile(path, data, size);
+  return data_written == static_cast<int>(size);
+}
+
+bool SyncFileOrDirectory(const base::FilePath& path,
+                         bool is_directory,
+                         bool data_sync) {
+  const base::TimeTicks start = base::TimeTicks::Now();
+  data_sync = data_sync && !is_directory;
+
+  int flags = (is_directory ? O_RDONLY | O_DIRECTORY : O_WRONLY);
+  int fd = HANDLE_EINTR(open(path.value().c_str(), flags));
+  if (fd < 0) {
+    PLOG(WARNING) << "Could not open " << path.value() << " for syncing";
+    return false;
+  }
+  // POSIX specifies EINTR as a possible return value of fsync() but not for
+  // fdatasync().  To be on the safe side, it is handled in both cases.
+  int result =
+      (data_sync ? HANDLE_EINTR(fdatasync(fd)) : HANDLE_EINTR(fsync(fd)));
+  if (result < 0) {
+    PLOG(WARNING) << "Failed to sync " << path.value();
+    close(fd);
+    return false;
+  }
+  // close() may not be retried on error.
+  result = IGNORE_EINTR(close(fd));
+  if (result < 0) {
+    PLOG(WARNING) << "Failed to close after sync " << path.value();
+    return false;
+  }
+
+  const base::TimeDelta delta = base::TimeTicks::Now() - start;
+  if (delta > kLongSync) {
+    LOG(WARNING) << "Long " << (data_sync ? "fdatasync" : "fsync") << "() of "
+                 << path.value() << ": " << delta.InSeconds() << " seconds";
+  }
+
+  return true;
+}
+
+bool WriteToFileAtomic(const base::FilePath& path,
+                       const char* data,
+                       size_t size,
+                       mode_t mode) {
+  if (!base::DirectoryExists(path.DirName())) {
+    if (!base::CreateDirectory(path.DirName())) {
+      LOG(ERROR) << "Cannot create directory: " << path.DirName().value();
+      return false;
+    }
+  }
+  std::string random_suffix = GetRandomSuffix();
+  if (random_suffix.empty()) {
+    PLOG(WARNING) << "Could not compute random suffix";
+    return false;
+  }
+  std::string temp_name = path.AddExtension(random_suffix).value();
+  int fd =
+      HANDLE_EINTR(open(temp_name.c_str(), O_CREAT | O_EXCL | O_WRONLY, mode));
+  if (fd < 0) {
+    PLOG(WARNING) << "Could not open " << temp_name << " for atomic write";
+    unlink(temp_name.c_str());
+    return false;
+  }
+
+  size_t position = 0;
+  while (position < size) {
+    ssize_t bytes_written =
+        HANDLE_EINTR(write(fd, data + position, size - position));
+    if (bytes_written < 0) {
+      PLOG(WARNING) << "Could not write " << temp_name;
+      close(fd);
+      unlink(temp_name.c_str());
+      return false;
+    }
+    position += bytes_written;
+  }
+
+  if (HANDLE_EINTR(fdatasync(fd)) < 0) {
+    PLOG(WARNING) << "Could not fsync " << temp_name;
+    close(fd);
+    unlink(temp_name.c_str());
+    return false;
+  }
+  if (close(fd) < 0) {
+    PLOG(WARNING) << "Could not close " << temp_name;
+    unlink(temp_name.c_str());
+    return false;
+  }
+
+  if (rename(temp_name.c_str(), path.value().c_str()) < 0) {
+    PLOG(WARNING) << "Could not close " << temp_name;
+    unlink(temp_name.c_str());
+    return false;
+  }
+
+  return true;
+}
+
+bool WriteBlobToFileAtomic(const base::FilePath& path,
+                           const Blob& blob,
+                           mode_t mode) {
+  return WriteToFileAtomic(path, reinterpret_cast<const char*>(blob.data()),
+                           blob.size(), mode);
 }
 
 }  // namespace brillo

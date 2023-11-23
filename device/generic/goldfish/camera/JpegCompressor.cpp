@@ -21,7 +21,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_JPEG"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <assert.h>
 #include <dlfcn.h>
 #include "JpegCompressor.h"

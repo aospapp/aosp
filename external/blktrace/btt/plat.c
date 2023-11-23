@@ -27,7 +27,7 @@ struct plat_info {
 	double first_ts, last_ts, tl;
 };
 
-void *plat_alloc(char *str)
+void *plat_alloc(struct d_info *dip, char *post)
 {
 	char *oname;
 	struct plat_info *pp;
@@ -38,10 +38,12 @@ void *plat_alloc(char *str)
 	pp->nl = 0;
 	pp->first_ts = pp->last_ts = pp->tl = -1.0;
 
-	oname = malloc(strlen(str) + 32);
-	sprintf(oname, "%s.dat", str);
+	oname = malloc(strlen(dip->dip_name) + strlen(post) + 32);
+	sprintf(oname, "%s%s_plat.dat", dip->dip_name, post);
 	if ((pp->fp = my_fopen(oname, "w")) == NULL) {
 		perror(oname);
+		free(oname);
+		free(pp);
 		return NULL;
 	}
 	add_file(pp->fp, oname);

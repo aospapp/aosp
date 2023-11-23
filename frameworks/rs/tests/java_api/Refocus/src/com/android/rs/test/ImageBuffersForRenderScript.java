@@ -1,8 +1,8 @@
 package com.android.rs.refocus;
 
 import android.graphics.Bitmap;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.RenderScript;
 
 /**
  * A class that manages the image buffers that interface between Java and Render

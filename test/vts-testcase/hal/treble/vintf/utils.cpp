@@ -73,7 +73,9 @@ const map<size_t /* Shipping API Level */, Level /* FCM Version */>
                       // O MR-1
                       {27, static_cast<Level>(2)},
                       // P
-                      {28, static_cast<Level>(3)}}};
+                      {28, static_cast<Level>(3)},
+                      // Q
+                      {29, static_cast<Level>(4)}}};
 
 // Returns ro.product.first_api_level if it is defined and not 0. Returns
 // ro.build.version.sdk otherwise.
@@ -97,9 +99,9 @@ const string PackageRoot(const FQName &fq_iface_name) {
   return "";
 }
 
-// Returns true iff HAL interface is Google-defined.
-bool IsGoogleDefinedIface(const FQName &fq_iface_name) {
-  // Package roots are only known for Google-defined packages.
+// Returns true iff HAL interface is Android platform.
+bool IsAndroidPlatformInterface(const FQName &fq_iface_name) {
+  // Package roots are only known for Android platform packages.
   return !PackageRoot(fq_iface_name).empty();
 }
 
@@ -148,5 +150,4 @@ void PrintTo(const android::vintf::testing::HalManifestPtr &v, ostream *os) {
   }
   *os << to_string(v->type()) << " manifest";
 }
-void PrintTo(nullptr_t, ostream *os) { *os << "nullptr"; }
 }  // namespace std

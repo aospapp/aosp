@@ -25,7 +25,6 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
-import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
 
@@ -34,8 +33,7 @@ import java.util.Collection;
 import java.util.Set;
 
 public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildReceiver,
-        IAbiReceiver, IRuntimeHintProvider, ITestCollector, ITestFilterReceiver,
-        IStrictShardableTest {
+        IAbiReceiver, IRuntimeHintProvider, ITestCollector, ITestFilterReceiver {
 
     @Option(name = "module")
     String mModule;
@@ -74,14 +72,6 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
             mShards.add(new ShardableTestStub());
         }
         return mShards;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
-        return new ShardableTestStub();
     }
 
     @Override
@@ -123,4 +113,20 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
     public void addAllExcludeFilters(Set<String> filters) {
 
     }
+
+    @Override
+    public Set<String> getIncludeFilters() {
+        return null;
+    }
+
+    @Override
+    public Set<String> getExcludeFilters() {
+        return null;
+    }
+
+    @Override
+    public void clearIncludeFilters() {}
+
+    @Override
+    public void clearExcludeFilters() {}
 }

@@ -28,10 +28,17 @@
 struct generic_audio_device {
   struct audio_hw_device device;  // Constant after init
   pthread_mutex_t lock;
-  bool master_mute;             // Proteced by this->lock
-  bool mic_mute;                // Proteced by this->lock
-  struct mixer *mixer;          // Proteced by this->lock
+  unsigned int last_patch_id;   // Protected by this->lock
+  bool master_mute;             // Protected by this->lock
+  bool mic_mute;                // Protected by this->lock
+  struct mixer *mixer;          // Protected by this->lock
   Hashmap *out_bus_stream_map;  // Extended field. Constant after init
+};
+
+enum output_channel_enable {
+  LEFT_CHANNEL = 1,
+  RIGHT_CHANNEL = 1 << 1,
+  BOTH_CHANNELS = LEFT_CHANNEL | RIGHT_CHANNEL
 };
 
 struct generic_stream_out {
@@ -45,6 +52,7 @@ struct generic_stream_out {
   const char *bus_address;           // Extended field. Constant after init
   struct audio_gain gain_stage;      // Constant after init
   float amplitude_ratio;             // Protected by this->lock
+  enum output_channel_enable enabled_channels;  // Constant after init
 
   // Time & Position Keeping
   bool standby;                    // Protected by this->lock

@@ -1,0 +1,21 @@
+--- android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2019-06-06 19:02:22.710493092 +0100
++++ android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2019-06-06 18:59:52.997663940 +0100
+@@ -124,7 +124,7 @@
+  * argNumber = '0' | ('1'..'9' ('0'..'9')*)
+  *
+  * argType = "number" | "date" | "time" | "spellout" | "ordinal" | "duration"
+- * argStyle = "short" | "medium" | "long" | "full" | "integer" | "currency" | "percent" | argStyleText | "::" argSkeletonText
++ * argStyle = "short" | "medium" | "long" | "full" | "integer" | "currency" | "percent" | argStyleText
+  * </pre></blockquote>
+  *
+  * <ul>
+@@ -181,9 +181,6 @@
+  *       <td><i>argStyleText</i>
+  *       <td><code>new DecimalFormat(argStyleText, new DecimalFormatSymbols(getLocale()))</code>
+  *    <tr>
+- *       <td><i>argSkeletonText</i>
+- *       <td><code>NumberFormatter.forSkeleton(argSkeletonText).locale(getLocale()).toFormat()</code>
+- *    <tr>
+  *       <td rowspan=6><code>date</code>
+  *       <td><i>(none)</i>
+  *       <td><code>DateFormat.getDateInstance(DateFormat.DEFAULT, getLocale())</code>

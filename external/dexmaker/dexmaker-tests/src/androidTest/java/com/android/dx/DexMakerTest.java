@@ -16,9 +16,35 @@
 
 package com.android.dx;
 
-import android.support.test.InstrumentationRegistry;
+import static com.android.dx.util.TestUtil.DELTA_DOUBLE;
+import static com.android.dx.util.TestUtil.DELTA_FLOAT;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
+import android.os.Build;
+
+import androidx.test.InstrumentationRegistry;
+
+import dalvik.system.BaseDexClassLoader;
+
 import org.junit.Before;
 import org.junit.Test;
+
+import static java.lang.reflect.Modifier.ABSTRACT;
+import static java.lang.reflect.Modifier.FINAL;
+import static java.lang.reflect.Modifier.NATIVE;
+import static java.lang.reflect.Modifier.PRIVATE;
+import static java.lang.reflect.Modifier.PROTECTED;
+import static java.lang.reflect.Modifier.PUBLIC;
+import static java.lang.reflect.Modifier.STATIC;
+import static java.lang.reflect.Modifier.SYNCHRONIZED;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -30,21 +56,6 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
-
-import static com.android.dx.util.TestUtil.DELTA_DOUBLE;
-import static com.android.dx.util.TestUtil.DELTA_FLOAT;
-import static java.lang.reflect.Modifier.ABSTRACT;
-import static java.lang.reflect.Modifier.FINAL;
-import static java.lang.reflect.Modifier.NATIVE;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.PROTECTED;
-import static java.lang.reflect.Modifier.PUBLIC;
-import static java.lang.reflect.Modifier.STATIC;
-import static java.lang.reflect.Modifier.SYNCHRONIZED;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * This generates a class named 'Generated' with one or more generated methods
@@ -135,7 +146,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("call");
         method.invoke(instance);
     }
@@ -177,7 +188,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("call", int.class);
         method.invoke(instance, 0);
     }
@@ -244,7 +255,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("call", generatedClass);
         assertEquals(5, method.invoke(null, instance));
     }
@@ -278,7 +289,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("superHashCode");
         assertEquals(System.identityHashCode(instance), method.invoke(instance));
     }
@@ -299,6 +310,7 @@ public final class DexMakerTest {
         code.returnValue(localResult);
 
         Callable<Object> callable = new Callable<Object>() {
+            @Override
             public Object call() throws Exception {
                 return "abc";
             }
@@ -425,7 +437,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
 
         Field a = generatedClass.getField("a");
         assertEquals(int.class, a.getType());
@@ -691,6 +703,7 @@ public final class DexMakerTest {
     }
 
     @Test
+    @SuppressWarnings("FloatingPointLiteralPrecision")
     public void testCastFloatingPointToInteger() throws Exception {
         Method floatToInt = numericCastingMethod(float.class, int.class);
         assertEquals(0, floatToInt.invoke(null, 0.0f));
@@ -1046,7 +1059,7 @@ public final class DexMakerTest {
         assertEquals((short) 0x1234, instance.shortValue);
     }
 
-    public class Instance {
+    public static class Instance {
         public int intValue;
         public long longValue;
         public float floatValue;
@@ -1871,7 +1884,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("call");
         assertTrue(Modifier.isSynchronized(method.getModifiers()));
         try {
@@ -1905,7 +1918,7 @@ public final class DexMakerTest {
         addDefaultConstructor();
 
         Class<?> generatedClass = generateAndLoad();
-        Object instance = generatedClass.newInstance();
+        Object instance = generatedClass.getDeclaredConstructor().newInstance();
         Method method = generatedClass.getMethod("call");
         assertFalse(Modifier.isSynchronized(method.getModifiers()));
         method.invoke(instance); // will take 100ms
@@ -2121,7 +2134,7 @@ public final class DexMakerTest {
         TypeId<IllegalStateException> iseType = TypeId.get(IllegalStateException.class);
         Local<IllegalStateException> localIse = code.newLocal(iseType);
         if (params.length > 0) {
-            if (params[0] == typeId) {
+            if (params[0].equals(typeId)) {
                 Local<?> localResult = code.getParameter(0, TypeId.INT);
                 code.returnValue(localResult);
             } else {
@@ -2130,6 +2143,30 @@ public final class DexMakerTest {
         } else {
             code.throwValue(localIse);
         }
+    }
+
+    public interface BlankInterfaceA {}
+
+    public interface BlankInterfaceB {}
+
+    @Test
+    public void testCaching_DifferentInterfaces() throws Exception {
+        int origSize = getDataDirectory().listFiles().length;
+
+        // Create new dexmaker generator with BlankInterfaceA.
+        dexMaker = new DexMaker();
+        TypeId interfaceA = TypeId.get(BlankInterfaceA.class);
+        dexMaker.declare(GENERATED, "Generated.java", PUBLIC, TypeId.OBJECT, interfaceA);
+        generateAndLoad();
+        int numFiles = getDataDirectory().listFiles().length;
+        assertTrue(origSize < numFiles);
+
+        // Create new dexmaker generator with BlankInterfaceB.
+        dexMaker = new DexMaker();
+        TypeId interfaceB = TypeId.get(BlankInterfaceB.class);
+        dexMaker.declare(GENERATED, "Generated.java", PUBLIC, TypeId.OBJECT, interfaceB);
+        generateAndLoad();
+        assertTrue(numFiles < getDataDirectory().listFiles().length);
     }
 
     @Test
@@ -2188,6 +2225,7 @@ public final class DexMakerTest {
 
     private File[] getJarFiles() {
         return getDataDirectory().listFiles(new FilenameFilter() {
+            @Override
             public boolean accept(File dir, String name) {
                 return name.endsWith(".jar");
             }
@@ -2215,5 +2253,65 @@ public final class DexMakerTest {
     private Class<?> generateAndLoad() throws Exception {
         return dexMaker.generateAndLoad(getClass().getClassLoader(), getDataDirectory())
                 .loadClass("Generated");
+    }
+
+    private final ClassLoader commonClassLoader = new BaseDexClassLoader(
+            getDataDirectory().getPath(), getDataDirectory(), getDataDirectory().getPath(),
+            DexMakerTest.class.getClassLoader());
+
+    private final ClassLoader uncommonClassLoader = new ClassLoader() {
+        @Override
+        public Class<?> loadClass(String name) throws ClassNotFoundException {
+            throw new IllegalStateException("Not used");
+        }
+    };
+
+    private static void loadWithSharedClassLoader(ClassLoader cl, boolean markAsTrusted,
+                                                  boolean shouldUseCL) throws Exception {
+        DexMaker d = new DexMaker();
+        d.setSharedClassLoader(cl);
+
+        if (markAsTrusted) {
+            d.markAsTrusted();
+        }
+
+        ClassLoader selectedCL = d.generateAndLoad(null, getDataDirectory());
+
+        if (shouldUseCL) {
+            assertSame(cl, selectedCL);
+        } else {
+            assertNotSame(cl, selectedCL);
+
+            // An appropriate fallback should have been selected
+            assertNotNull(selectedCL);
+        }
+    }
+
+    @Test
+    public void loadWithUncommonSharedClassLoader() throws Exception{
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+
+        loadWithSharedClassLoader(uncommonClassLoader, false, false);
+    }
+
+    @Test
+    public void loadWithCommonSharedClassLoader() throws Exception{
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N);
+
+        loadWithSharedClassLoader(commonClassLoader, false, true);
+    }
+
+    @Test
+    public void loadAsTrustedWithUncommonSharedClassLoader() throws Exception{
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P);
+
+        loadWithSharedClassLoader(uncommonClassLoader, true, false);
+    }
+
+    @Test
+    public void loadAsTrustedWithCommonSharedClassLoader() throws Exception{
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P);
+
+        loadWithSharedClassLoader(commonClassLoader, true, true);
     }
 }

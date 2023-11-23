@@ -3,7 +3,7 @@
  * Copyright (c) 1993 Branko Lankester <branko@hacktic.nl>
  * Copyright (c) 1993, 1994, 1995, 1996 Rick Sladkey <jrs@world.std.com>
  * Copyright (c) 1996-1999 Wichert Akkerman <wichert@cistron.nl>
- * Copyright (c) 1999-2017 The strace developers.
+ * Copyright (c) 1999-2018 The strace developers.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@
 #include "print_fields.h"
 #include <linux/aio_abi.h>
 
+#include "xlat/aio_cmds.h"
+
 SYS_FUNC(io_setup)
 {
 	if (entering(tcp))
@@ -56,28 +58,22 @@ enum iocb_sub {
 static enum iocb_sub
 tprint_lio_opcode(unsigned int cmd)
 {
-	static const struct {
-		const char *name;
-		enum iocb_sub sub;
-	} cmds[] = {
-		{ "IOCB_CMD_PREAD", SUB_COMMON },
-		{ "IOCB_CMD_PWRITE", SUB_COMMON },
-		{ "IOCB_CMD_FSYNC", SUB_NONE },
-		{ "IOCB_CMD_FDSYNC", SUB_NONE },
-		{ "IOCB_CMD_PREADX", SUB_NONE },
-		{ "IOCB_CMD_POLL", SUB_NONE },
-		{ "IOCB_CMD_NOOP", SUB_NONE },
-		{ "IOCB_CMD_PREADV", SUB_VECTOR },
-		{ "IOCB_CMD_PWRITEV", SUB_VECTOR },
+	static const enum iocb_sub subs[] = {
+		[IOCB_CMD_PREAD]	= SUB_COMMON,
+		[IOCB_CMD_PWRITE]	= SUB_COMMON,
+		[IOCB_CMD_FSYNC]	= SUB_NONE,
+		[IOCB_CMD_FDSYNC]	= SUB_NONE,
+		[IOCB_CMD_PREADX]	= SUB_NONE,
+		[IOCB_CMD_POLL]		= SUB_NONE,
+		[IOCB_CMD_NOOP]		= SUB_NONE,
+		[IOCB_CMD_PREADV]	= SUB_VECTOR,
+		[IOCB_CMD_PWRITEV]	= SUB_VECTOR,
 	};
 
-	if (cmd < ARRAY_SIZE(cmds)) {
-		tprints(cmds[cmd].name);
-		return cmds[cmd].sub;
-	}
-	tprintf("%u", cmd);
-	tprints_comment("IOCB_CMD_???");
-	return SUB_NONE;
+	printxval_indexn_ex(ARRSZ_PAIR(aio_cmds), cmd, "IOCB_CMD_???",
+			    XLAT_STYLE_FMT_U);
+
+	return cmd < ARRAY_SIZE(subs) ? subs[cmd] : SUB_NONE;
 }
 
 static void
@@ -129,6 +125,8 @@ print_iocb_header(struct tcb *tcp, const struct iocb *cb)
 static void
 print_iocb(struct tcb *tcp, const struct iocb *cb)
 {
+	tprints("{");
+
 	enum iocb_sub sub = print_iocb_header(tcp, cb);
 
 	switch (sub) {
@@ -160,6 +158,8 @@ print_iocb(struct tcb *tcp, const struct iocb *cb)
 	case SUB_NONE:
 		break;
 	}
+
+	tprints("}");
 }
 
 static bool
@@ -174,10 +174,8 @@ print_iocbp(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 		addr = *(kernel_ulong_t *) elem_buf;
 	}
 
-	tprints("{");
 	if (!umove_or_printaddr(tcp, addr, &cb))
 		print_iocb(tcp, &cb);
-	tprints("}");
 
 	return true;
 }
@@ -196,7 +194,7 @@ SYS_FUNC(io_submit)
 		printaddr(addr);
 	else
 		print_array(tcp, addr, nr, &iocbp, current_wordsize,
-			    umoven_or_printaddr, print_iocbp, 0);
+			    tfetch_mem, print_iocbp, 0);
 
 	return RVAL_DECODED;
 }
@@ -238,7 +236,8 @@ SYS_FUNC(io_cancel)
 	return 0;
 }
 
-SYS_FUNC(io_getevents)
+static int
+print_io_getevents(struct tcb *tcp, bool has_usig)
 {
 	if (entering(tcp)) {
 		printaddr(tcp->u_arg[0]);
@@ -248,16 +247,30 @@ SYS_FUNC(io_getevents)
 	} else {
 		struct io_event buf;
 		print_array(tcp, tcp->u_arg[3], tcp->u_rval, &buf, sizeof(buf),
-			    umoven_or_printaddr, print_io_event, 0);
+			    tfetch_mem, print_io_event, 0);
 		tprints(", ");
 		/*
-		 * Since the timeout parameter is read by the kernel
+		 * Since the timeout and usig parameters are read by the kernel
 		 * on entering syscall, it has to be decoded the same way
 		 * whether the syscall has failed or not.
 		 */
 		temporarily_clear_syserror(tcp);
 		print_timespec(tcp, tcp->u_arg[4]);
+		if (has_usig) {
+			tprints(", ");
+			print_aio_sigset(tcp, tcp->u_arg[5]);
+		}
 		restore_cleared_syserror(tcp);
 	}
 	return 0;
+}
+
+SYS_FUNC(io_getevents)
+{
+	return print_io_getevents(tcp, false);
+}
+
+SYS_FUNC(io_pgetevents)
+{
+	return print_io_getevents(tcp, true);
 }

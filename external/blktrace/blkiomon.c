@@ -198,7 +198,7 @@ static struct dstat *blkiomon_find_dstat(struct rb_search *search, __u32 device)
 static struct dstat *blkiomon_get_dstat(__u32 device)
 {
 	struct dstat *dstat;
-	struct rb_search search;
+	struct rb_search search = { 0, };
 
 	pthread_mutex_lock(&dstat_mutex);
 
@@ -599,6 +599,7 @@ static char usage_str[] = "\n\nblkiomon " \
 	"-I <interval>       | --interval=<interval>\n" \
 	"[ -h <file>         | --human-readable=<file> ]\n" \
 	"[ -b <file>         | --binary=<file> ]\n" \
+	"[ -d <file>         | --dump-lldd=<file> ]\n" \
 	"[ -D <file>         | --debug=<file> ]\n" \
 	"[ -Q <path name>    | --msg-queue=<path name>]\n" \
 	"[ -q <msg queue id> | --msg-queue-id=<msg queue id>]\n" \

@@ -57,6 +57,7 @@ struct vfio_device_info {
 #define VFIO_DEVICE_FLAGS_PLATFORM (1 << 2)
 #define VFIO_DEVICE_FLAGS_AMBA (1 << 3)
 #define VFIO_DEVICE_FLAGS_CCW (1 << 4)
+#define VFIO_DEVICE_FLAGS_AP (1 << 5)
   __u32 num_regions;
   __u32 num_irqs;
 };
@@ -65,6 +66,7 @@ struct vfio_device_info {
 #define VFIO_DEVICE_API_PLATFORM_STRING "vfio-platform"
 #define VFIO_DEVICE_API_AMBA_STRING "vfio-amba"
 #define VFIO_DEVICE_API_CCW_STRING "vfio-ccw"
+#define VFIO_DEVICE_API_AP_STRING "vfio-ap"
 struct vfio_region_info {
   __u32 argsz;
   __u32 flags;
@@ -100,6 +102,32 @@ struct vfio_region_info_cap_type {
 #define VFIO_REGION_SUBTYPE_INTEL_IGD_OPREGION (1)
 #define VFIO_REGION_SUBTYPE_INTEL_IGD_HOST_CFG (2)
 #define VFIO_REGION_SUBTYPE_INTEL_IGD_LPC_CFG (3)
+#define VFIO_REGION_TYPE_GFX (1)
+#define VFIO_REGION_SUBTYPE_GFX_EDID (1)
+struct vfio_region_gfx_edid {
+  __u32 edid_offset;
+  __u32 edid_max_size;
+  __u32 edid_size;
+  __u32 max_xres;
+  __u32 max_yres;
+  __u32 link_state;
+#define VFIO_DEVICE_GFX_LINK_STATE_UP 1
+#define VFIO_DEVICE_GFX_LINK_STATE_DOWN 2
+};
+#define VFIO_REGION_SUBTYPE_NVIDIA_NVLINK2_RAM (1)
+#define VFIO_REGION_SUBTYPE_IBM_NVLINK2_ATSD (1)
+#define VFIO_REGION_INFO_CAP_MSIX_MAPPABLE 3
+#define VFIO_REGION_INFO_CAP_NVLINK2_SSATGT 4
+struct vfio_region_info_cap_nvlink2_ssatgt {
+  struct vfio_info_cap_header header;
+  __u64 tgt;
+};
+#define VFIO_REGION_INFO_CAP_NVLINK2_LNKSPD 5
+struct vfio_region_info_cap_nvlink2_lnkspd {
+  struct vfio_info_cap_header header;
+  __u32 link_speed;
+  __u32 __pad;
+};
 struct vfio_irq_info {
   __u32 argsz;
   __u32 flags;
@@ -177,6 +205,43 @@ struct vfio_pci_hot_reset {
   __s32 group_fds[];
 };
 #define VFIO_DEVICE_PCI_HOT_RESET _IO(VFIO_TYPE, VFIO_BASE + 13)
+struct vfio_device_gfx_plane_info {
+  __u32 argsz;
+  __u32 flags;
+#define VFIO_GFX_PLANE_TYPE_PROBE (1 << 0)
+#define VFIO_GFX_PLANE_TYPE_DMABUF (1 << 1)
+#define VFIO_GFX_PLANE_TYPE_REGION (1 << 2)
+  __u32 drm_plane_type;
+  __u32 drm_format;
+  __u64 drm_format_mod;
+  __u32 width;
+  __u32 height;
+  __u32 stride;
+  __u32 size;
+  __u32 x_pos;
+  __u32 y_pos;
+  __u32 x_hot;
+  __u32 y_hot;
+  union {
+    __u32 region_index;
+    __u32 dmabuf_id;
+  };
+};
+#define VFIO_DEVICE_QUERY_GFX_PLANE _IO(VFIO_TYPE, VFIO_BASE + 14)
+#define VFIO_DEVICE_GET_GFX_DMABUF _IO(VFIO_TYPE, VFIO_BASE + 15)
+struct vfio_device_ioeventfd {
+  __u32 argsz;
+  __u32 flags;
+#define VFIO_DEVICE_IOEVENTFD_8 (1 << 0)
+#define VFIO_DEVICE_IOEVENTFD_16 (1 << 1)
+#define VFIO_DEVICE_IOEVENTFD_32 (1 << 2)
+#define VFIO_DEVICE_IOEVENTFD_64 (1 << 3)
+#define VFIO_DEVICE_IOEVENTFD_SIZE_MASK (0xf)
+  __u64 offset;
+  __u64 data;
+  __s32 fd;
+};
+#define VFIO_DEVICE_IOEVENTFD _IO(VFIO_TYPE, VFIO_BASE + 16)
 struct vfio_iommu_type1_info {
   __u32 argsz;
   __u32 flags;

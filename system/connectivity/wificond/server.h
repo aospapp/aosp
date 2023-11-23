@@ -23,7 +23,6 @@
 
 #include <android-base/macros.h>
 #include <wifi_system/interface_tool.h>
-#include <wifi_system/supplicant_manager.h>
 
 #include "android/net/wifi/BnWificond.h"
 #include "android/net/wifi/IApInterface.h"
@@ -45,8 +44,6 @@ struct InterfaceInfo;
 class Server : public android::net::wifi::BnWificond {
  public:
   Server(std::unique_ptr<wifi_system::InterfaceTool> if_tool,
-         std::unique_ptr<wifi_system::SupplicantManager> supplicant_man,
-         std::unique_ptr<wifi_system::HostapdManager> hostapd_man,
          NetlinkUtils* netlink_utils,
          ScanUtils* scan_utils);
   ~Server() override = default;
@@ -86,8 +83,6 @@ class Server : public android::net::wifi::BnWificond {
       bool* out_success) override;
 
   android::binder::Status tearDownInterfaces() override;
-  android::binder::Status enableSupplicant(bool* success) override;
-  android::binder::Status disableSupplicant(bool* success) override;
 
   android::binder::Status GetClientInterfaces(
       std::vector<android::sp<android::IBinder>>* out_client_ifs) override;
@@ -102,7 +97,7 @@ class Server : public android::net::wifi::BnWificond {
   // the interface to Ap mode later.
   // Returns true on success, false otherwise.
   bool SetupInterface(const std::string& iface_name, InterfaceInfo* interface);
-  bool RefreshWiphyIndex();
+  bool RefreshWiphyIndex(const std::string& iface_num);
   void LogSupportedBands();
   void OnRegDomainChanged(std::string& country_code);
   void BroadcastClientInterfaceReady(
@@ -116,8 +111,6 @@ class Server : public android::net::wifi::BnWificond {
   void MarkDownAllInterfaces();
 
   const std::unique_ptr<wifi_system::InterfaceTool> if_tool_;
-  const std::unique_ptr<wifi_system::SupplicantManager> supplicant_manager_;
-  const std::unique_ptr<wifi_system::HostapdManager> hostapd_manager_;
   NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
 

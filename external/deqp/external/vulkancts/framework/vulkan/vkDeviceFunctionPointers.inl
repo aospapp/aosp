@@ -1,6 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  */
+GetDeviceProcAddrFunc							getDeviceProcAddr;
 DestroyDeviceFunc								destroyDevice;
 GetDeviceQueueFunc								getDeviceQueue;
 QueueSubmitFunc									queueSubmit;
@@ -156,6 +157,10 @@ ImportSemaphoreFdKHRFunc						importSemaphoreFdKHR;
 GetSemaphoreFdKHRFunc							getSemaphoreFdKHR;
 CmdPushDescriptorSetKHRFunc						cmdPushDescriptorSetKHR;
 CmdPushDescriptorSetWithTemplateKHRFunc			cmdPushDescriptorSetWithTemplateKHR;
+CreateRenderPass2KHRFunc						createRenderPass2KHR;
+CmdBeginRenderPass2KHRFunc						cmdBeginRenderPass2KHR;
+CmdNextSubpass2KHRFunc							cmdNextSubpass2KHR;
+CmdEndRenderPass2KHRFunc						cmdEndRenderPass2KHR;
 GetSwapchainStatusKHRFunc						getSwapchainStatusKHR;
 ImportFenceWin32HandleKHRFunc					importFenceWin32HandleKHR;
 GetFenceWin32HandleKHRFunc						getFenceWin32HandleKHR;
@@ -168,7 +173,11 @@ CmdDebugMarkerEndEXTFunc						cmdDebugMarkerEndEXT;
 CmdDebugMarkerInsertEXTFunc						cmdDebugMarkerInsertEXT;
 CmdDrawIndirectCountAMDFunc						cmdDrawIndirectCountAMD;
 CmdDrawIndexedIndirectCountAMDFunc				cmdDrawIndexedIndirectCountAMD;
+CmdDrawIndirectCountKHRFunc						cmdDrawIndirectCountKHR;
+CmdDrawIndexedIndirectCountKHRFunc				cmdDrawIndexedIndirectCountKHR;
 GetMemoryWin32HandleNVFunc						getMemoryWin32HandleNV;
+CmdBeginConditionalRenderingEXTFunc				cmdBeginConditionalRenderingEXT;
+CmdEndConditionalRenderingEXTFunc				cmdEndConditionalRenderingEXT;
 CmdProcessCommandsNVXFunc						cmdProcessCommandsNVX;
 CmdReserveSpaceForCommandsNVXFunc				cmdReserveSpaceForCommandsNVX;
 CreateIndirectCommandsLayoutNVXFunc				createIndirectCommandsLayoutNVX;
@@ -191,5 +200,6 @@ CreateValidationCacheEXTFunc					createValidationCacheEXT;
 DestroyValidationCacheEXTFunc					destroyValidationCacheEXT;
 MergeValidationCachesEXTFunc					mergeValidationCachesEXT;
 GetValidationCacheDataEXTFunc					getValidationCacheDataEXT;
+GetMemoryHostPointerPropertiesEXTFunc			getMemoryHostPointerPropertiesEXT;
 GetAndroidHardwareBufferPropertiesANDROIDFunc	getAndroidHardwareBufferPropertiesANDROID;
 GetMemoryAndroidHardwareBufferANDROIDFunc		getMemoryAndroidHardwareBufferANDROID;

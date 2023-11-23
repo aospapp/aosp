@@ -15,24 +15,78 @@
   limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:colorControlHighlight">@color/car_card_ripple_background_light</item>
-        <item name="android:windowBackground">@null</item>
-    </style>
-
     <style name="TextAppearance.NoContent" parent="android:TextAppearance.Medium">
         <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:textSize">@dimen/car_body2_size</item>
+        <item name="android:textSize">@*android:dimen/car_body3_size</item>
         <item name="android:textColor">@color/no_content_text_color</item>
     </style>
 
-    <style name="TextAppearance.Car.Body5">
-        <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body5_size</item>
-        <item name="android:textColor">@color/car_body5</item>
+    <style name="AppBarTitleStyle">
+        <item name="android:textAppearance">@style/TextAppearance.Body1</item>
+        <item name="android:background">@drawable/media_app_title_background</item>
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:singleLine">true</item>
     </style>
 
-    <style name="TextAppearance.Car.Body5.Light">
-        <item name="android:textColor">@color/car_body5_light</item>
+    <style name="AppBarTabStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/appbar_first_row_height</item>
+        <item name="android:layout_marginStart">@dimen/appbar_view_tabs_margin_start</item>
+        <item name="android:layout_marginEnd">@dimen/appbar_view_tabs_margin_end</item>
+        <item name="layout_constraintTop_toTopOf">parent</item>
+        <item name="layout_constraintBottom_toTopOf">@+id/row_separator</item>
+        <item name="layout_constraintStart_toStartOf">parent</item>
+        <item name="layout_constraintEnd_toStartOf">@+id/search</item>
+        <item name="layout_constraintHorizontal_bias">0.0</item>
+        <item name="layout_constrainedWidth">true</item>
+    </style>
+
+    <style name="MetadataPlaybackTitleStyle" parent="TextAppearance.Display2">
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:lineSpacingExtra">@*android:dimen/car_padding_1</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="MetadataPlaybackSubtitleStyle" parent="TextAppearance.Body1">
+        <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="MetadataContainerStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginHorizontal">@dimen/fragment_metadata_margin_x</item>
+    </style>
+
+    <style name="BrowseSubheaderStyle" parent="TextAppearance.Body3"/>
+    <style name="BrowseListTitleStyle" parent="TextAppearance.Body1"/>
+    <style name="BrowseListSubtitleStyle" parent="TextAppearance.Body3"/>
+    <style name="BrowseGridTitleStyle" parent="TextAppearance.Body2"/>
+    <style name="BrowseGridSubtitleStyle" parent="TextAppearance.Body3"/>
+
+    <style name="ErrorTextStyle" parent="TextAppearance.Body3"/>
+    <style name="ErrorButtonStyle" parent="TextAppearance.Body3">
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="SeekBarStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/playback_seekbar_height</item>
+    </style>
+
+    <style name="QueueListItemTitleStyle" parent="TextAppearance.Body1">
+        <item name="android:singleLine">true</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <style name="QueueListItemTimeStyle" parent="TextAppearance.Body3">
+        <item name="android:singleLine">true</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:textStyle">bold</item>
     </style>
 </resources>

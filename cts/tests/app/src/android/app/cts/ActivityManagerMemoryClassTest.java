@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.support.test.uiautomator.UiDevice;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -31,6 +32,8 @@ import com.android.compatibility.common.util.CddTest;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * {@link ActivityInstrumentationTestCase2} that tests {@link ActivityManager#getMemoryClass()}
@@ -56,8 +59,12 @@ public class ActivityManagerMemoryClassTest
 
         static {
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_LOW, 32);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_140, 32);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_MEDIUM, 32);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_180, 32);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_200, 32);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_TV, 32);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_220, 36);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_HIGH, 36);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_260, 36);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_280, 36);
@@ -68,15 +75,21 @@ public class ActivityManagerMemoryClassTest
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_400, 56);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_420, 64);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_440, 88);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_450, 88);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_XXHIGH, 88);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_560, 112);
+            expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_600, 138);
             expectedMemorySizeForWatch.put(DisplayMetrics.DENSITY_XXXHIGH, 154);
         }
 
         static {
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_LOW, 32);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_140, 32);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_MEDIUM, 32);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_180, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_200, 48);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_TV, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_220, 48);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_HIGH, 48);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_260, 48);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_280, 48);
@@ -87,15 +100,21 @@ public class ActivityManagerMemoryClassTest
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_400, 96);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_420, 112);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_440, 128);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_450, 128);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_XXHIGH, 128);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_560, 192);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_600, 228);
             expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 256);
         }
 
         static {
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_LOW, 32);
-            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_MEDIUM, 64);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_140, 48);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_MEDIUM, 48);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_180, 80);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_200, 80);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_TV, 80);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_220, 80);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_HIGH, 80);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_260, 96);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_280, 96);
@@ -106,15 +125,21 @@ public class ActivityManagerMemoryClassTest
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_400, 192);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_420, 228);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_440, 256);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_450, 256);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_XXHIGH, 256);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_560, 384);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_600, 448);
             expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 512);
         }
 
         static {
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_LOW, 48);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_140, 80);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_MEDIUM, 80);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_180, 96);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_200, 96);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_TV, 96);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_220, 96);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_HIGH, 96);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_260, 144);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_280, 144);
@@ -125,8 +150,10 @@ public class ActivityManagerMemoryClassTest
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_400, 288);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_420, 336);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_440, 384);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_450, 384);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_XXHIGH, 384);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_560, 576);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_600, 672);
             expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 768);
         }
 
@@ -156,12 +183,35 @@ public class ActivityManagerMemoryClassTest
 
     @CddTest(requirement="3.7")
     public void testGetMemoryClass() throws Exception {
+        UiDevice uiDevice = UiDevice.getInstance(getInstrumentation());
+        int density = resetDensityIfNeeded(uiDevice);
+
         int memoryClass = getMemoryClass();
         int screenDensity = getScreenDensity();
         int screenSize = getScreenSize();
         assertMemoryForScreenDensity(memoryClass, screenDensity, screenSize);
 
         runHeapTestApp(memoryClass);
+
+        restoreDensityIfNeeded(uiDevice, density);
+    }
+
+    private int resetDensityIfNeeded(UiDevice device) throws Exception {
+        final String output = device.executeShellCommand("wm density");
+         final Pattern p = Pattern.compile("Override density: (\\d+)");
+         final Matcher m = p.matcher(output);
+         if (m.find()) {
+             device.executeShellCommand("wm density reset");
+             int restoreDensity = Integer.parseInt(m.group(1));
+             return restoreDensity;
+         }
+         return -1;
+    }
+
+    private void restoreDensityIfNeeded(UiDevice device, int restoreDensity) throws Exception {
+        if (restoreDensity > 0) {
+            device.executeShellCommand("wm density " + restoreDensity);
+        }
     }
 
     private int getMemoryClass() {

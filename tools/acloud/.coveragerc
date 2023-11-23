@@ -1,0 +1,15 @@
+[run]
+branch = True
+
+# module names must be listed one per line.
+source =
+    acloud
+
+# omit file patterns must be listed one per line. */.local/* /usr/*
+omit =
+    *_test.py
+    *__init__.py
+    *public/acloud_kernel/*
+    # TODO: Remove the bottom 2 when the files are deleted.
+    *public/__main__.py
+    *setup.py

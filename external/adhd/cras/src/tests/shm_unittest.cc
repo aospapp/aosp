@@ -251,6 +251,32 @@ TEST_F(ShmTestSuite, InputBufferOverrun) {
   EXPECT_EQ(1, cras_shm_num_overruns(&shm_));
 }
 
+TEST_F(ShmTestSuite, GetWritableFramesNeedToWrite) {
+  unsigned buffer_size = 480;
+  unsigned limit = 480;
+  unsigned written = 200;
+  unsigned frames;
+  shm_.area->write_buf_idx = 0;
+  shm_.config.used_size = buffer_size * shm_.config.frame_bytes;
+  shm_.area->write_offset[0] = written * shm_.config.frame_bytes;
+  buf_ = cras_shm_get_writeable_frames(&shm_, limit, &frames);
+  EXPECT_EQ(limit - written, frames);
+  EXPECT_EQ(shm_.area->samples + shm_.area->write_offset[0], buf_);
+}
+
+TEST_F(ShmTestSuite, GetWritableFramesNoNeedToWrite) {
+  unsigned buffer_size = 480;
+  unsigned limit = 240;
+  unsigned written = 300;
+  unsigned frames;
+  shm_.area->write_buf_idx = 0;
+  shm_.config.used_size = buffer_size * shm_.config.frame_bytes;
+  shm_.area->write_offset[0] = written * shm_.config.frame_bytes;
+  buf_ = cras_shm_get_writeable_frames(&shm_, limit, &frames);
+  EXPECT_EQ(0, frames);
+  EXPECT_EQ(shm_.area->samples + shm_.area->write_offset[0], buf_);
+}
+
 }  //  namespace
 
 int main(int argc, char **argv) {

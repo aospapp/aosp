@@ -35,10 +35,8 @@ test_config = {
 
 ptz_motion_sequence = ['panLeft', 'panStop', 'tiltUp', 'tiltStop', 'zoomIn', 'resetPosition']
 
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
-
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=None)
+    host = hosts.create_host(machine)
     job.run_test('enterprise_CFM_PTZStress',
         host=host,
         test_config=test_config,

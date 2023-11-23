@@ -1,10 +1,10 @@
-#  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
 #  obtain a copy of the License at
 #
-#    http://www.imagemagick.org/script/license.php
+#    https://imagemagick.org/script/license.php
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
@@ -54,7 +54,9 @@ include_HEADERS =
 
 # Headers which are not installed but which are distributed
 noinst_HEADERS = \
-	$(MAGICKCORE_NOINST_HDRS)
+	$(MAGICKCORE_NOINST_HDRS) \
+	$(MAGICKWAND_NOINST_HDRS) \
+	$(CODERS_NOINST_HDRS)
 
 if WIN32_NATIVE_BUILD
 SRCDIR='$(shell @WinPathScript@ $(srcdir)/)'
@@ -108,6 +110,7 @@ TOP_EXTRA_DIST = \
 	Platforms.txt \
 	README.txt \
 	index.html \
+	gitversion.sh \
 	version.sh \
 	winpath.sh
 
@@ -239,7 +242,7 @@ dist-hook:
 # Install HTML files
 pkgdocdir = $(DOCUMENTATION_PATH)
 DOCDIRSDOXYGEN = www/api/MagickCore www/api/MagickWand
-DOCDIRSMANUAL = images images/patterns www www/css www/js www/api www/source www/Magick++
+DOCDIRSMANUAL = images images/patterns www www/assets www/api www/source www/Magick++
 DOCDIRS= $(DOCDIRSMANUAL) $(DOCDIRSDOXYGEN)
 
 if INSTALL_DOC
@@ -284,7 +287,7 @@ magick-version: MagickCore/version.h
 	fi ; \
 	touch magick-version
 
-${srcdir}/configure: ${srcdir}/version.sh
+${srcdir}/configure: ${srcdir}/version.sh ${srcdir}/gitversion.sh
 
 # Automagically reconfigure libtool
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
@@ -347,7 +350,7 @@ endif # P7ZIP_DELEGATE
 #
 if RPM_DELEGATE
 
-DIST_ARCHIVE_SRPM=$(distdir)-1.src.rpm
+DIST_ARCHIVE_SRPM=$(distdir).src.rpm
 .PHONY: srpm
 $(DIST_ARCHIVE_SRPM) srpm: dist-bzip2
 	rm -f $(DIST_ARCHIVE_SRPM)
@@ -388,4 +391,4 @@ snapshot: distcheck
 	$(MAKE) $(DIST_ARCHIVE_SRPM)
 	$(MAKE) $(DIST_WINDOWS_SRC_ZIP)
 	$(MAKE) $(DIST_WINDOWS_SRC_7ZIP)
-	mv $(DIST_ARCHIVES) $(DIST_WINDOWS_SRC_ZIP) $(DIST_WINDOWS_SRC_7ZIP) $(DIST_ARCHIVE_SRPM) /var/ftp/pub/ImageMagick/alpha/
+	mv $(DIST_ARCHIVES) $(DIST_WINDOWS_SRC_ZIP) $(DIST_WINDOWS_SRC_7ZIP) $(DIST_ARCHIVE_SRPM) /var/ftp/pub/ImageMagick/beta/

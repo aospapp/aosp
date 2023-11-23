@@ -20,12 +20,11 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.net.Uri;
-import android.support.annotation.Nullable;
+
+import androidx.recyclerview.selection.Selection;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
-import com.android.documentsui.base.RootInfo;
-import com.android.documentsui.selection.Selection;
 import com.android.documentsui.services.FileOperationService.OpType;
 import com.android.documentsui.services.FileOperations;
 
@@ -47,7 +46,7 @@ public interface DocumentClipper {
      * Returns {@link ClipData} representing the selection, or null if selection is empty,
      * or cannot be converted.
      */
-    ClipData getClipDataForDocuments(Function<String, Uri> uriBuilder, Selection selection,
+    ClipData getClipDataForDocuments(Function<String, Uri> uriBuilder, Selection<String> selection,
             @OpType int opType);
 
     /**
@@ -63,13 +62,13 @@ public interface DocumentClipper {
     /**
      * Puts {@code ClipData} in a primary clipboard, describing a copy operation
      */
-    void clipDocumentsForCopy(Function<String, Uri> uriBuilder, Selection selection);
+    void clipDocumentsForCopy(Function<String, Uri> uriBuilder, Selection<String> selection);
 
     /**
      *  Puts {@Code ClipData} in a primary clipboard, describing a cut operation
      */
     void clipDocumentsForCut(
-            Function<String, Uri> uriBuilder, Selection selection, DocumentInfo parent);
+            Function<String, Uri> uriBuilder, Selection<String> selection, DocumentInfo parent);
 
     /**
      * Copies documents from clipboard. It's the same as {@link #copyFromClipData} with clipData

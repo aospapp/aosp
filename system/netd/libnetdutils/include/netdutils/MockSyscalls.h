@@ -44,6 +44,7 @@ class MockSyscalls : public Syscalls {
 
     MOCK_CONST_METHOD3(bind, Status(Fd sock, const sockaddr* addr, socklen_t addrlen));
     MOCK_CONST_METHOD3(connect, Status(Fd sock, const sockaddr* addr, socklen_t addrlen));
+    MOCK_CONST_METHOD3(ioctl, StatusOr<ifreq>(Fd sock, unsigned long request, ifreq* ifr));
 
     // Use Return(ByMove(...)) to deal with movable return types.
     MOCK_CONST_METHOD2(eventfd, StatusOr<UniqueFd>(unsigned int initval, int flags));

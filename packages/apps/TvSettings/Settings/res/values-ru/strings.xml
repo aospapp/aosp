@@ -24,7 +24,7 @@
     <string name="header_category_quick_settings" msgid="6626141045575946920">"Быстрые настройки"</string>
     <string name="header_category_general_settings" msgid="1208946854116876918">"Общие настройки"</string>
     <string name="dismiss_suggestion" msgid="8288127823132069828">"Закрыть подсказку"</string>
-    <string name="hotwording_title" msgid="1984130766527626626">"Распознавание команды \"О\'кей, Google\""</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Распознавание команды \"Окей, Google\""</string>
     <string name="hotwording_summary" msgid="2863751845299261441">"Говорите с Google Ассистентом в любой момент."</string>
     <string name="header_category_device" msgid="4855983928659541345">"Устройство"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Настройки"</string>
@@ -96,8 +96,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Калибровка"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Выбор форматов"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Объемный звук"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -366,7 +366,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Пока вы снова не подключите диск, некоторые приложения могут быть недоступны либо работать с ошибками."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Недостаточно места."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Приложение не установлено."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Приложение защищено от копирования."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Недопустимое место установки."</string>
     <string name="system_package" msgid="9200255718634512790">"Системные обновления нельзя установить на внешнем носителе."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Нельзя установить администратор устройства на внешнем носителе."</string>
@@ -492,7 +491,7 @@
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Подробный журнал Wi-Fi"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Включить запись подробных сведений в журнал Wi-Fi"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Показывать нажатия"</string>
-    <string name="system_pointer_location" msgid="2673764026490179227">"Показывать касания"</string>
+    <string name="system_pointer_location" msgid="2673764026490179227">"Место касания"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"Показывать границы макета"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Показывать обновление экрана"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Показывать аппаратный уровень"</string>
@@ -743,6 +742,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Доступ к уведомлениям"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Установленные приложения не запрашивали доступ к уведомлениям."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Эти приложения смогут читать все уведомления, в том числе содержащие личную информацию (например, имена контактов и сообщения). Они также получат право закрывать уведомления и нажимать кнопки в них."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Доступ к каталогам"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"У этих приложений есть доступ к некоторым каталогам."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Поверх других приложений"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Поверх других приложений"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Разрешить показывать элементы интерфейса поверх других окон. Это может мешать вашей работе с приложениями или искажать их интерфейс."</string>

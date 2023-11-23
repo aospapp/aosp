@@ -200,6 +200,7 @@ counts, but the output will exclude results with counts of zero or less.
       adapted for Python 2.5 and an early `Bag recipe
       <https://code.activestate.com/recipes/259174/>`_ for Python 2.4.
 
+    * `Bag class <https://www.gnu.org/software/smalltalk/manual-base/html_node/Bag.html>`_
       in Smalltalk.
 
     * Wikipedia entry for `Multisets <https://en.wikipedia.org/wiki/Multiset>`_.
@@ -299,7 +300,7 @@ counts, but the output will exclude results with counts of zero or less.
 
    .. method:: remove(value)
 
-      Removed the first occurrence of *value*.  If not found, raises a
+      Remove the first occurrence of *value*.  If not found, raises a
       :exc:`ValueError`.
 
       .. versionadded:: 2.5
@@ -310,11 +311,14 @@ counts, but the output will exclude results with counts of zero or less.
 
       .. versionadded:: 2.7
 
-   .. method:: rotate(n)
+   .. method:: rotate(n=1)
 
       Rotate the deque *n* steps to the right.  If *n* is negative, rotate to
-      the left.  Rotating one step to the right is equivalent to:
-      ``d.appendleft(d.pop())``.
+      the left.
+
+      When the deque is not empty, rotating one step to the right is equivalent to
+      ``d.appendleft(d.pop())``, and rotating one step to the left is
+      equivalent to ``d.append(d.popleft())``.
 
 
    Deque objects also provide one read-only attribute:
@@ -703,7 +707,7 @@ field names, the method and attribute names start with an underscore.
    .. versionchanged:: 2.7
       Returns an :class:`OrderedDict` instead of a regular :class:`dict`.
 
-.. method:: somenamedtuple._replace(kwargs)
+.. method:: somenamedtuple._replace(**kwargs)
 
    Return a new instance of the named tuple replacing specified fields with new
    values::

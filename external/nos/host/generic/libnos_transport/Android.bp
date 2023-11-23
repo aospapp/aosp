@@ -18,13 +18,15 @@ cc_library {
     name: "libnos_transport",
     srcs: [
         "transport.c",
+        "crc16.c",
     ],
-    defaults: ["nos_cc_host_supported_defaults"],
+    defaults: ["nos_cc_defaults"],
     cflags: [
         "-Wno-zero-length-array",
     ],
     header_libs: ["nos_headers"],
     shared_libs: [
+        "libbase",
         "liblog",
         "libnos_datagram",
     ],

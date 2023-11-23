@@ -163,11 +163,11 @@ Move<VkInstance> createInstance (const PlatformInterface& vk, const VkInstanceCr
 	return Move<VkInstance>(check<VkInstance>(object), Deleter<VkInstance>(vk, object, pAllocator));
 }
 
-Move<VkDevice> createDevice (const InstanceInterface& vk, VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator)
+Move<VkDevice> createDevice (const PlatformInterface& vkp, VkInstance instance, const InstanceInterface& vk, VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator)
 {
 	VkDevice object = 0;
 	VK_CHECK(vk.createDevice(physicalDevice, pCreateInfo, pAllocator, &object));
-	return Move<VkDevice>(check<VkDevice>(object), Deleter<VkDevice>(vk, object, pAllocator));
+	return Move<VkDevice>(check<VkDevice>(object), Deleter<VkDevice>(vkp, instance, object, pAllocator));
 }
 
 Move<VkDeviceMemory> allocateMemory (const DeviceInterface& vk, VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator)
@@ -371,6 +371,13 @@ Move<VkSurfaceKHR> createWin32SurfaceKHR (const InstanceInterface& vk, VkInstanc
 	VkSurfaceKHR object = 0;
 	VK_CHECK(vk.createWin32SurfaceKHR(instance, pCreateInfo, pAllocator, &object));
 	return Move<VkSurfaceKHR>(check<VkSurfaceKHR>(object), Deleter<VkSurfaceKHR>(vk, instance, pAllocator));
+}
+
+Move<VkRenderPass> createRenderPass2KHR (const DeviceInterface& vk, VkDevice device, const VkRenderPassCreateInfo2KHR* pCreateInfo, const VkAllocationCallbacks* pAllocator)
+{
+	VkRenderPass object = 0;
+	VK_CHECK(vk.createRenderPass2KHR(device, pCreateInfo, pAllocator, &object));
+	return Move<VkRenderPass>(check<VkRenderPass>(object), Deleter<VkRenderPass>(vk, device, pAllocator));
 }
 
 Move<VkDebugReportCallbackEXT> createDebugReportCallbackEXT (const InstanceInterface& vk, VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator)

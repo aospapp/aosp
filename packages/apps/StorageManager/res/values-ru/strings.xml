@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Не использовалось в течение года"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Нет данных о последнем использовании"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Освободить <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Резервные копии фото и видео"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Фото и видео с резервными копиями"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"Добавленные более 30 дней назад"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
@@ -35,7 +35,7 @@
     <skip />
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
-    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Очистка хранилища"</string>
+    <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Освободить место"</string>
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"С вашего устройства будет удален контент объемом <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>."</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Освободить место"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Включить автоматическую очистку?"</string>
@@ -54,7 +54,7 @@
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Разрешите менеджеру хранилища автоматически удалять старые фото и видео с устройства при нехватке свободного пространства."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Не включать"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Включить"</string>
-    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Резервные копии фото и видео"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Фото и видео с резервными копиями"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Поиск…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Показать все объекты"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Скрыть последние объекты"</string>

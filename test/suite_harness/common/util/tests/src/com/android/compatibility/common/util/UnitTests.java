@@ -21,13 +21,15 @@ import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * A test suite for all util unit tests.
- * <p/>
- * All tests listed here should be self-contained, and do not require any external dependencies.
+ *
+ * <p>All tests listed here should be self-contained, and do not require any external dependencies.
  */
 @RunWith(Suite.class)
 @SuiteClasses({
+    BackupUtilsTest.class,
     BusinessLogicTest.class,
     CaseResultTest.class,
+    CrashUtilsTest.class,
     DynamicConfigTest.class,
     LightInvocationResultTest.class,
     MetricsXmlSerializerTest.class,
@@ -36,6 +38,7 @@ import org.junit.runners.Suite.SuiteClasses;
     ResultHandlerTest.class,
     StatTest.class,
     TestResultTest.class,
+    ReadElfTest.class,
 })
 public class UnitTests {
     // empty on purpose

@@ -33,7 +33,6 @@ cc_defaults {
         "-Wno-nested-anon-types",
         "-Wno-gnu-statement-expression",
         "-Wno-vla-extension",
-        "-Wno-extended-offsetof",
     ],
     cppflags: [
         "-Wno-sign-compare",
@@ -55,6 +54,30 @@ cc_defaults {
         "-g",
         "-UNDEBUG",
     ],
+
+    // Add sanitizers that work w/o extra libraries. This is important
+    // for atest etc to work.
+    sanitize: {
+        integer_overflow: true,
+        undefined: true,
+    },
+
+//  TODO: Re-enable when ART's ASAN flags are correctly propagated.
+//    target: {
+//        // On the host add ASAN.
+//        host: {
+//            sanitize: {
+//                address: true,
+//            },
+//        },
+//    }
+}
+
+filegroup {
+    name: "perfprofd_record_proto",
+    srcs: [
+        "perfprofd_record.proto",
+    ],
 }
 
 // Static library for the record proto and its I/O.
@@ -74,7 +97,7 @@ cc_library_static {
     ],
     srcs: [
         "perfprofd_io.cc",
-        "perfprofd_record.proto",
+        ":perfprofd_record_proto",
     ],
 
     proto: {
@@ -85,6 +108,35 @@ cc_library_static {
 
     export_include_dirs: ["."],  // Really only the -fwd.h.
     export_static_lib_headers: ["libquipper"],
+}
+
+filegroup {
+    name: "perfprofd_config_proto",
+    srcs: [
+        "perfprofd_config.proto",
+    ],
+}
+
+cc_library_static {
+    name: "libperfprofd_proto_config",
+    defaults: [
+        "perfprofd_defaults",
+    ],
+    host_supported: true,
+
+    static_libs: [
+        "libprotobuf-cpp-lite",
+    ],
+    srcs: [
+        ":perfprofd_config_proto",
+    ],
+
+    proto: {
+        export_proto_headers: true,
+        type: "lite",
+    },
+
+    export_include_dirs: ["."],  // Really only the -fwd.h.
 }
 
 //
@@ -100,6 +152,9 @@ cc_defaults {
 
     static_libs: [
         "libbase",
+        "libperfprofd_proto_config",
+        "libprotobuf-cpp-lite",
+        "libsimpleperf_dex_read",
         "libsimpleperf_elf_read",
     ],
     whole_static_libs: [
@@ -113,6 +168,7 @@ cc_defaults {
         "cpuconfig.cc",
         "perfprofdcore.cc",
         "perfprofd_cmdline.cc",
+        "perfprofd_perf.cc",
         "symbolizer.cc"
     ],
 
@@ -121,11 +177,24 @@ cc_defaults {
     ],
 
     export_include_dirs: ["."],
+
+    target: {
+        android: {
+            static_libs: [
+                "libhealthhalutils",
+            ],
+            shared_libs: [
+                "android.hardware.health@2.0",
+                "libhidlbase",
+            ],
+        }
+    }
 }
 
 cc_library_static {
     name: "libperfprofdcore",
     defaults: [
+        "libart_static_defaults",
         "libperfprofdcore_defaults",
     ],
 }
@@ -134,6 +203,7 @@ cc_library_static {
 cc_library_static {
     name: "libperfprofdcored",
     defaults: [
+        "libartd_static_defaults",
         "libperfprofdcore_defaults",
         "perfprofd_debug_defaults",
     ],
@@ -146,7 +216,10 @@ cc_library_static {
 cc_binary {
     name: "perfprofd",
     defaults: [
+        "libart_static_defaults",
         "perfprofd_defaults",
+        "libsimpleperf_dex_read_static_reqs_defaults",
+        "libsimpleperf_elf_read_static_reqs_defaults",
     ],
 
     srcs: [
@@ -154,17 +227,22 @@ cc_binary {
     ],
 
     static_libs: [
+        "libhealthhalutils",
         "libperfprofdcore",
         "libperfprofd_binder",
+        "libperfprofd_proto_config",
+        "libsimpleperf_dex_read",
         "libsimpleperf_elf_read",
     ],
     group_static_libs: true,
 
     shared_libs: [
+        "android.hardware.health@2.0",
         "liblog",
         "libprotobuf-cpp-lite",
         "libbase",
         "libbinder",
+        "libhidlbase",
         "libservices",
         "libutils",
     ],

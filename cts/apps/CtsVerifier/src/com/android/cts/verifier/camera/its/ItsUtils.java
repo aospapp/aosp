@@ -19,8 +19,10 @@ package com.android.cts.verifier.camera.its;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
@@ -29,8 +31,14 @@ import android.media.Image;
 import android.media.Image.Plane;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Size;
+
+import com.android.ex.camera2.blocking.BlockingCameraManager;
+import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
+import com.android.ex.camera2.blocking.BlockingStateCallback;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,8 +46,10 @@ import org.json.JSONObject;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 import java.util.List;
+import java.util.Set;
 
 
 public class ItsUtils {
@@ -117,6 +127,11 @@ public class ItsUtils {
     public static Size[] getYuvOutputSizes(CameraCharacteristics ccs)
             throws ItsException {
         return getOutputSizes(ccs, ImageFormat.YUV_420_888);
+    }
+
+    public static Size[] getY8OutputSizes(CameraCharacteristics ccs)
+            throws ItsException {
+        return getOutputSizes(ccs, ImageFormat.Y8);
     }
 
     public static Size getMaxOutputSize(CameraCharacteristics ccs, int format)
@@ -201,10 +216,11 @@ public class ItsUtils {
             }
             data = new byte[buffer.capacity()];
             buffer.get(data);
-            Logt.i(TAG, "Done reading jpeg image, format %d");
+            Logt.i(TAG, "Done reading jpeg image");
             return data;
         } else if (format == ImageFormat.YUV_420_888 || format == ImageFormat.RAW_SENSOR
-                || format == ImageFormat.RAW10 || format == ImageFormat.RAW12) {
+                || format == ImageFormat.RAW10 || format == ImageFormat.RAW12
+                || format == ImageFormat.Y8) {
             int offset = 0;
             int dataSize = width * height * ImageFormat.getBitsPerPixel(format) / 8;
             if (quota != null) {
@@ -291,9 +307,128 @@ public class ItsUtils {
             case ImageFormat.RAW10:
             case ImageFormat.RAW12:
             case ImageFormat.JPEG:
+            case ImageFormat.Y8:
                 return 1 == planes.length;
             default:
                 return false;
         }
+    }
+
+    public static class ItsCameraIdList {
+        // Short form camera Ids (including both CameraIdList and hidden physical cameras
+        public List<String> mCameraIds;
+        // Camera Id combos (ids from CameraIdList, and hidden physical camera Ids
+        // in the form of [logical camera id]:[hidden physical camera id]
+        public List<String> mCameraIdCombos;
+    }
+
+    public static ItsCameraIdList getItsCompatibleCameraIds(CameraManager manager)
+            throws ItsException {
+        if (manager == null) {
+            throw new IllegalArgumentException("CameraManager is null");
+        }
+
+        ItsCameraIdList outList = new ItsCameraIdList();
+        outList.mCameraIds = new ArrayList<String>();
+        outList.mCameraIdCombos = new ArrayList<String>();
+        try {
+            String[] cameraIds = manager.getCameraIdList();
+            for (String id : cameraIds) {
+                CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
+                int[] actualCapabilities = characteristics.get(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+                boolean haveBC = false;
+                boolean isMultiCamera = false;
+                final int BACKWARD_COMPAT =
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE;
+                final int LOGICAL_MULTI_CAMERA =
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA;
+                for (int capability : actualCapabilities) {
+                    if (capability == BACKWARD_COMPAT) {
+                        haveBC = true;
+                    }
+                    if (capability == LOGICAL_MULTI_CAMERA) {
+                        isMultiCamera = true;
+                    }
+                }
+
+                // Skip devices that does not support BACKWARD_COMPATIBLE capability
+                if (!haveBC) continue;
+
+                int hwLevel = characteristics.get(
+                        CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+                if (hwLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY ||
+                        hwLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                    // Skip LEGACY and EXTERNAL devices
+                    continue;
+                }
+                outList.mCameraIds.add(id);
+                outList.mCameraIdCombos.add(id);
+
+                // Only add hidden physical cameras for multi-camera.
+                if (!isMultiCamera) continue;
+
+                float defaultFocalLength = getLogicalCameraDefaultFocalLength(manager, id);
+                Set<String> physicalIds = characteristics.getPhysicalCameraIds();
+                for (String physicalId : physicalIds) {
+                    if (Arrays.asList(cameraIds).contains(physicalId)) continue;
+
+                    CameraCharacteristics physicalChar =
+                            manager.getCameraCharacteristics(physicalId);
+                    hwLevel = characteristics.get(
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+                    if (hwLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY ||
+                            hwLevel ==
+                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                        // Skip LEGACY and EXTERNAL devices
+                        continue;
+                    }
+
+                    // To reduce duplicate tests, only additionally test hidden physical cameras
+                    // with different focal length compared to the default focal length of the
+                    // logical camera.
+                    float[] physicalFocalLengths = physicalChar.get(
+                            CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+                    if (defaultFocalLength != physicalFocalLengths[0]) {
+                        outList.mCameraIds.add(physicalId);
+                        outList.mCameraIdCombos.add(id + ":" + physicalId);
+                    }
+                }
+
+            }
+        } catch (CameraAccessException e) {
+            Logt.e(TAG,
+                    "Received error from camera service while checking device capabilities: " + e);
+            throw new ItsException("Failed to get device ID list", e);
+        }
+        return outList;
+    }
+
+    public static float getLogicalCameraDefaultFocalLength(CameraManager manager,
+            String cameraId) throws ItsException {
+        BlockingCameraManager blockingManager = new BlockingCameraManager(manager);
+        BlockingStateCallback listener = new BlockingStateCallback();
+        HandlerThread cameraThread = new HandlerThread("ItsUtilThread");
+        cameraThread.start();
+        Handler cameraHandler = new Handler(cameraThread.getLooper());
+        CameraDevice camera = null;
+        float defaultFocalLength = 0.0f;
+
+        try {
+            camera = blockingManager.openCamera(cameraId, listener, cameraHandler);
+            CaptureRequest.Builder previewBuilder =
+                    camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            defaultFocalLength = previewBuilder.get(CaptureRequest.LENS_FOCAL_LENGTH);
+        } catch (Exception e) {
+            throw new ItsException("Failed to query default focal length for logical camera", e);
+        } finally {
+            if (camera != null) {
+                camera.close();
+            }
+            if (cameraThread != null) {
+                cameraThread.quitSafely();
+            }
+        }
+        return defaultFocalLength;
     }
 }

@@ -20,27 +20,31 @@
     <package>com.example.android.wearable.wear.wearnotifications</package>
 
     <minSdk>18</minSdk>
-    <compileSdkVersion>27</compileSdkVersion>
-    <targetSdkVersion>27</targetSdkVersion>
+    <compileSdkVersion>28</compileSdkVersion>
+    <targetSdkVersion>28</targetSdkVersion>
 
     <minSdkVersionWear>23</minSdkVersionWear>
-    <compileSdkVersionWear>26</compileSdkVersionWear>
-    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <compileSdkVersionWear>28</compileSdkVersionWear>
+    <targetSdkVersionWear>28</targetSdkVersionWear>
     <multiDexEnabled>true</multiDexEnabled>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
-    <dependency>com.android.support:appcompat-v7:27.1.0</dependency>
-    <dependency>com.android.support:cardview-v7:27.1.0</dependency>
-    <dependency>com.android.support:design:27.1.0</dependency>
+    <androidX>true</androidX>
 
-    <dependency_shared>com.android.support:support-v4:27.1.0</dependency_shared>
+    <dependency>androidx.appcompat:appcompat:1.0.2</dependency>
+    <dependency>androidx.cardview:cardview:1.0.0</dependency>
+    <dependency>com.google.android.material:material:1.0.0</dependency>
+    <dependency>androidx.legacy:legacy-support-v13:1.0.0</dependency>
 
-    <dependency_wearable>com.android.support:appcompat-v7:27.1.0</dependency_wearable>
-    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
-    <dependency_wearable>com.android.support:design:27.1.0</dependency_wearable>
+    <dependency_shared>androidx.legacy:legacy-support-v4:1.0.0</dependency_shared>
+
+    <dependency_wearable>androidx.appcompat:appcompat:1.0.2</dependency_wearable>
+    <dependency_wearable>androidx.wear:wear:1.0.0</dependency_wearable>
+    <dependency_wearable>com.google.android.material:material:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.legacy:legacy-support-v13:1.0.0</dependency_wearable>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->

@@ -22,13 +22,15 @@ import static com.android.documentsui.StubProvider.ROOT_1_ID;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
 import android.view.KeyEvent;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.Suppress;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.filters.HugeLongTest;
 import com.android.documentsui.sorting.SortDimension;
 import com.android.documentsui.sorting.SortModel;
 
@@ -77,7 +79,7 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
     }
 
     public void testDeleteDocument() throws Exception {
-        bots.directory.selectDocument("file1.png");
+        bots.directory.selectDocument("file1.png", 1);
         device.waitForIdle();
         bots.main.clickToolbarItem(R.id.action_menu_delete);
 
@@ -87,8 +89,9 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
         bots.directory.assertDocumentsAbsent("file1.png");
     }
 
+    @HugeLongTest
     public void testKeyboard_CutDocument() throws Exception {
-        bots.directory.selectDocument("file1.png");
+        bots.directory.selectDocument("file1.png", 1);
         device.waitForIdle();
         bots.keyboard.pressKey(KeyEvent.KEYCODE_X, KeyEvent.META_CTRL_ON);
 
@@ -104,8 +107,9 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
         bots.directory.assertDocumentsAbsent("file1.png");
     }
 
+    @HugeLongTest
     public void testKeyboard_CopyDocument() throws Exception {
-        bots.directory.selectDocument("file1.png");
+        bots.directory.selectDocument("file1.png", 1);
         device.waitForIdle();
         bots.keyboard.pressKey(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON);
 
@@ -121,7 +125,7 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
     }
 
     public void testDeleteDocument_Cancel() throws Exception {
-        bots.directory.selectDocument("file1.png");
+        bots.directory.selectDocument("file1.png", 1);
         device.waitForIdle();
         bots.main.clickToolbarItem(R.id.action_menu_delete);
 
@@ -130,6 +134,7 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
         bots.directory.waitForDocument("file1.png");
     }
 
+    @HugeLongTest
     public void testCopyLargeAmountOfFiles() throws Exception {
         // Suppress root notification. We're gonna create tons of files and it will soon crash
         // DocsUI because too many root refreshes are queued in an executor.
@@ -150,7 +155,7 @@ public class FileManagementUiTest extends ActivityTest<FilesActivity> {
 
         bots.roots.openRoot(ROOT_0_ID);
         bots.directory.openDocument("test");
-        bots.sortHeader.sortBy(
+        bots.sort.sortBy(
                 SortModel.SORT_DIMENSION_ID_TITLE, SortDimension.SORT_DIRECTION_ASCENDING);
         bots.directory.waitForDocument("0.txt");
         bots.keyboard.pressKey(

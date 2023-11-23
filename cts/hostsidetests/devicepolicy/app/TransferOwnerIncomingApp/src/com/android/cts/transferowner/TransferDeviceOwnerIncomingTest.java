@@ -21,7 +21,8 @@ import static org.junit.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 import android.app.admin.SystemUpdatePolicy;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 

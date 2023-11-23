@@ -35,12 +35,13 @@
 #include <android-base/unique_fd.h>
 #include <log/log.h>
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
 #include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
+#include "JniConstants.h"
 #include "JniException.h"
 #include "ScopedIcuLocale.h"
 #include "ScopedJavaUnicodeString.h"
@@ -328,24 +329,24 @@ static jobjectArray ICU_getAvailableNumberFormatLocalesNative(JNIEnv* env, jclas
 static bool setIntegerField(JNIEnv* env, jobject obj, const char* fieldName, int value) {
     ScopedLocalRef<jobject> integerValue(env, integerValueOf(env, value));
     if (integerValue.get() == NULL) return false;
-    jfieldID fid = env->GetFieldID(JniConstants::localeDataClass, fieldName, "Ljava/lang/Integer;");
+    jfieldID fid = env->GetFieldID(JniConstants::GetLocaleDataClass(env), fieldName, "Ljava/lang/Integer;");
     env->SetObjectField(obj, fid, integerValue.get());
     return true;
 }
 
 static void setStringField(JNIEnv* env, jobject obj, const char* fieldName, jstring value) {
-    jfieldID fid = env->GetFieldID(JniConstants::localeDataClass, fieldName, "Ljava/lang/String;");
+    jfieldID fid = env->GetFieldID(JniConstants::GetLocaleDataClass(env), fieldName, "Ljava/lang/String;");
     env->SetObjectField(obj, fid, value);
     env->DeleteLocalRef(value);
 }
 
 static void setStringArrayField(JNIEnv* env, jobject obj, const char* fieldName, jobjectArray value) {
-    jfieldID fid = env->GetFieldID(JniConstants::localeDataClass, fieldName, "[Ljava/lang/String;");
+    jfieldID fid = env->GetFieldID(JniConstants::GetLocaleDataClass(env), fieldName, "[Ljava/lang/String;");
     env->SetObjectField(obj, fid, value);
 }
 
 static void setStringArrayField(JNIEnv* env, jobject obj, const char* fieldName, const icu::UnicodeString* valueArray, int32_t size) {
-    ScopedLocalRef<jobjectArray> result(env, env->NewObjectArray(size, JniConstants::stringClass, NULL));
+    ScopedLocalRef<jobjectArray> result(env, env->NewObjectArray(size, JniConstants::GetStringClass(env), NULL));
     for (int32_t i = 0; i < size ; i++) {
         ScopedLocalRef<jstring> s(env, jniCreateString(env, valueArray[i].getBuffer(),valueArray[i].length()));
         if (env->ExceptionCheck()) {
@@ -389,7 +390,7 @@ static void setCharField(JNIEnv* env, jobject obj, const char* fieldName, const 
     if (value.length() == 0) {
         return;
     }
-    jfieldID fid = env->GetFieldID(JniConstants::localeDataClass, fieldName, "C");
+    jfieldID fid = env->GetFieldID(JniConstants::GetLocaleDataClass(env), fieldName, "C");
     env->SetCharField(obj, fid, value.charAt(0));
 }
 
@@ -761,7 +762,7 @@ static jstring ICU_getTZDataVersion(JNIEnv* env, jclass) {
   return env->NewStringUTF(version);
 }
 
-static jobject ICU_getAvailableCurrencyCodes(JNIEnv* env, jclass) {
+static jobjectArray ICU_getAvailableCurrencyCodes(JNIEnv* env, jclass) {
   UErrorCode status = U_ZERO_ERROR;
   icu::UStringEnumeration e(ucurr_openISOCurrencies(UCURR_COMMON|UCURR_NON_DEPRECATED, &status));
   return fromStringEnumeration(env, status, "ucurr_openISOCurrencies", &e);
@@ -949,25 +950,40 @@ struct ICURegistration {
     // Tell ICU it can *only* use our memory-mapped data.
     udata_setFileAccess(UDATA_NO_FILES, &status);
     if (status != U_ZERO_ERROR) {
-        ALOGE("Couldn't initialize ICU (s_setFileAccess): %s", u_errorName(status)); 
+        ALOGE("Couldn't initialize ICU (s_setFileAccess): %s", u_errorName(status));
         abort();
     }
 
-    std::string dataPath = getTzDataOverridePath();
-
-    // Map in optional TZ data files.
-    struct stat sb;
-    if (stat(dataPath.c_str(), &sb) == 0) {
-        ALOGD("Timezone override file found: %s", dataPath.c_str());
+    // Check the timezone /data override file exists from the "Time zone update via APK" feature.
+    // https://source.android.com/devices/tech/config/timezone-rules
+    // If it does, map it first so we use its data in preference to later ones.
+    std::string dataPath = getDataTimeZonePath();
+    if (pathExists(dataPath)) {
+        ALOGD("Time zone override file found: %s", dataPath.c_str());
         if ((icu_datamap_from_data_ = IcuDataMap::Create(dataPath)) == nullptr) {
-            ALOGW("TZ override file %s exists but could not be loaded. Skipping.", dataPath.c_str());
+            ALOGW("TZ override /data file %s exists but could not be loaded. Skipping.",
+                    dataPath.c_str());
         }
     } else {
-        ALOGV("No timezone override file found: %s", dataPath.c_str());
+        ALOGV("No timezone override /data file found: %s", dataPath.c_str());
     }
 
-    // Use the ICU data files that shipped with the device for everything else.
-    if ((icu_datamap_from_system_ = IcuDataMap::Create(getSystemPath())) == nullptr) {
+    // Check the timezone override file exists from a mounted APEX file.
+    // If it does, map it next so we use its data in preference to later ones.
+    std::string tzModulePath = getTimeZoneModulePath();
+    if (pathExists(tzModulePath)) {
+        ALOGD("Time zone APEX file found: %s", tzModulePath.c_str());
+        if ((icu_datamap_from_tz_module_ = IcuDataMap::Create(tzModulePath)) == nullptr) {
+            ALOGW("TZ module override file %s exists but could not be loaded. Skipping.",
+                    tzModulePath.c_str());
+        }
+    } else {
+        ALOGV("No time zone module override file found: %s", tzModulePath.c_str());
+    }
+
+    // Use the ICU data files that shipped with the runtime module for everything else.
+    icu_datamap_from_runtime_module_ = IcuDataMap::Create(getRuntimeModulePath());
+    if (icu_datamap_from_runtime_module_ == nullptr) {
         abort();
     }
 
@@ -990,18 +1006,25 @@ struct ICURegistration {
     // Reset libicu state to before it was loaded.
     u_cleanup();
 
-    // Unmap ICU data files that shipped with the device for everything else.
-    icu_datamap_from_system_.reset();
+    // Unmap ICU data files from the runtime module.
+    icu_datamap_from_runtime_module_.reset();
 
-    // Unmap optional TZ data files.
+    // Unmap optional TZ module files from /apex.
+    icu_datamap_from_tz_module_.reset();
+
+    // Unmap optional TZ /data file.
     icu_datamap_from_data_.reset();
 
     // We don't need to call udata_setFileAccess because u_cleanup takes care of it.
   }
 
-  // Check the timezone override file exists. If it does, map it first so we use it in preference
-  // to the one that shipped with the device.
-  static std::string getTzDataOverridePath() {
+  static bool pathExists(const std::string path) {
+    struct stat sb;
+    return stat(path.c_str(), &sb) == 0;
+  }
+
+  // Returns a string containing the expected path of the (optional) /data tz data file
+  static std::string getDataTimeZonePath() {
     const char* dataPathPrefix = getenv("ANDROID_DATA");
     if (dataPathPrefix == NULL) {
       ALOGE("ANDROID_DATA environment variable not set"); \
@@ -1014,23 +1037,38 @@ struct ICURegistration {
     return dataPath;
   }
 
-  static std::string getSystemPath() {
-    const char* systemPathPrefix = getenv("ANDROID_ROOT");
-    if (systemPathPrefix == NULL) {
-      ALOGE("ANDROID_ROOT environment variable not set"); \
+  // Returns a string containing the expected path of the (optional) /apex tz module data file
+  static std::string getTimeZoneModulePath() {
+    const char* tzdataModulePathPrefix = getenv("ANDROID_TZDATA_ROOT");
+    if (tzdataModulePathPrefix == NULL) {
+      ALOGE("ANDROID_TZDATA_ROOT environment variable not set"); \
       abort();
     }
 
-    std::string systemPath;
-    systemPath = systemPathPrefix;
-    systemPath += "/usr/icu/";
-    systemPath += U_ICUDATA_NAME;
-    systemPath += ".dat";
-    return systemPath;
+    std::string tzdataModulePath;
+    tzdataModulePath = tzdataModulePathPrefix;
+    tzdataModulePath += "/etc/icu/icu_tzdata.dat";
+    return tzdataModulePath;
+  }
+
+  static std::string getRuntimeModulePath() {
+    const char* runtimeModulePathPrefix = getenv("ANDROID_RUNTIME_ROOT");
+    if (runtimeModulePathPrefix == NULL) {
+      ALOGE("ANDROID_RUNTIME_ROOT environment variable not set"); \
+      abort();
+    }
+
+    std::string runtimeModulePath;
+    runtimeModulePath = runtimeModulePathPrefix;
+    runtimeModulePath += "/etc/icu/";
+    runtimeModulePath += U_ICUDATA_NAME;
+    runtimeModulePath += ".dat";
+    return runtimeModulePath;
   }
 
   std::unique_ptr<IcuDataMap> icu_datamap_from_data_;
-  std::unique_ptr<IcuDataMap> icu_datamap_from_system_;
+  std::unique_ptr<IcuDataMap> icu_datamap_from_tz_module_;
+  std::unique_ptr<IcuDataMap> icu_datamap_from_runtime_module_;
 };
 
 // Use RAII-style initialization/teardown so that we can get unregistered
@@ -1043,7 +1081,7 @@ void register_libcore_icu_ICU(JNIEnv* env) {
 }
 
 // De-init ICU, unloading the data files. Do the opposite of the above function.
-void unregister_libcore_icu_ICU(JNIEnv*) {
+void unregister_libcore_icu_ICU() {
   // Explicitly calling this is optional. Dlclose will take care of it as well.
   sIcuRegistration.reset();
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2009 The Android Open Source Project
+ * Copyright 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,8 @@
 
 package android.content.res.cts;
 
-import android.content.cts.R;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
 import android.content.Context;
+import android.content.cts.R;
 import android.content.cts.util.XmlUtils;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
@@ -35,16 +31,25 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.ColorStateListDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.LocaleList;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.util.Xml;
 import android.view.Display;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.view.WindowManager;
+
+import androidx.test.InstrumentationRegistry;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,6 +69,10 @@ public class ResourcesTest extends AndroidTestCase {
         super.setUp();
 
         mResources = getContext().getResources();
+    }
+
+    public void testIdNull() {
+        assertEquals(0, Resources.ID_NULL);
     }
 
     public void testResources() {
@@ -947,5 +956,37 @@ public class ResourcesTest extends AndroidTestCase {
         assertEquals(Typeface.ITALIC, mResources.getFont(R.font.sample_italic_family).getStyle());
         assertEquals(Typeface.BOLD_ITALIC,
                 mResources.getFont(R.font.sample_bolditalic_family).getStyle());
+    }
+
+    // TODO Figure out why it fails in the instant mode.
+    @AppModeFull
+    public void testComplextColorDrawableAttrInflation() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        LayoutInflater layoutInflater = (LayoutInflater) context.getSystemService(
+                Context.LAYOUT_INFLATER_SERVICE);
+
+        View view = layoutInflater.inflate(R.layout.complex_color_drawable_attr_layout, null);
+        assertTrue(view.getBackground() instanceof ColorStateListDrawable);
+    }
+
+    public void testGetAttributeSetSourceResId() {
+        assertEquals(Resources.ID_NULL, Resources.getAttributeSetSourceResId(null));
+
+        XmlPullParser test_color_parser = mResources.getXml(R.xml.test_color);
+        AttributeSet test_color_set = Xml.asAttributeSet(test_color_parser);
+        assertEquals(R.xml.test_color, Resources.getAttributeSetSourceResId(test_color_set));
+
+        XmlPullParser colors_parser = mResources.getXml(R.xml.colors);
+        AttributeSet colors_set = Xml.asAttributeSet(colors_parser);
+        assertEquals(R.xml.colors, Resources.getAttributeSetSourceResId(colors_set));
+
+        XmlPullParser content_layout_parser = mResources.getLayout(R.layout.context_layout);
+        AttributeSet content_layout_set = Xml.asAttributeSet(content_layout_parser);
+        assertEquals(R.layout.context_layout,
+                Resources.getAttributeSetSourceResId(content_layout_set));
+
+        XmlPullParser anim_rotate_parser = mResources.getAnimation(R.anim.anim_rotate);
+        AttributeSet anim_rotate_set = Xml.asAttributeSet(anim_rotate_parser);
+        assertEquals(R.anim.anim_rotate, Resources.getAttributeSetSourceResId(anim_rotate_set));
     }
 }

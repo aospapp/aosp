@@ -13,7 +13,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_jpeg_acc_dec"
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -25,4 +24,4 @@ jpeg decoding for hardware decode and software decode.
 """
 
 
-job.run_test('video_JDAPerf', power_test=True)
+job.run_test('video_JDAPerf', capability='hw_dec_jpeg', power_test=True)

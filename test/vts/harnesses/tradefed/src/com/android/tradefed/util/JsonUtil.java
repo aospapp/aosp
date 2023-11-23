@@ -45,7 +45,7 @@ public class JsonUtil {
             try {
                 target_value = target.get(key);
             } catch (JSONException e) {
-                CLog.i("Merging Json key '%s' into target object.", key);
+                CLog.d("Merging Json key '%s' into target object.", key);
                 target.put(key, source_value);
                 continue;
             }

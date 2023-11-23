@@ -77,8 +77,9 @@ class audio_WebRtcAudioLoopback(test.test):
         utils.poll_for_condition(
             lambda: cras_utils.get_active_stream_count() == expected_count,
             exception=error.TestError(
-                'Timeout waiting active stream count to become %d' %
-                 expected_count))
+                'Timeout waiting active stream count to become "%d",'
+                'current value is "%d"' % (
+                    expected_count, cras_utils.get_active_stream_count())))
 
     @helper_logger.video_log_wrapper
     def run_once(self):

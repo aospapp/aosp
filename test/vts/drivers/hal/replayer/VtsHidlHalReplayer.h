@@ -30,7 +30,7 @@ namespace vts {
 // 3) Verify the return results of each API calls.
 class VtsHidlHalReplayer {
  public:
-  VtsHidlHalReplayer(VtsHalDriverManager* driver_manager)
+  explicit VtsHidlHalReplayer(VtsHalDriverManager* driver_manager)
       : driver_manager_(driver_manager) {}
 
   // Replays the API call sequence parsed from the trace file.

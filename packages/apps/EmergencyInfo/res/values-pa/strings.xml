@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"ਡਾਕਟਰੀ ਜਾਣਕਾਰੀ"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="edit_info" msgid="5973929805855224805">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਦਾ ਸੰਪਾਦਨ ਕਰੋ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ਜਾਣਕਾਰੀ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"ਸੰਪਰਕ"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"ਡਾਕਟਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸੰਕਟਕਾਲੀਨ ਸੰਪਰਕ ਸ਼ਾਮਲ ਕਰਨ ਨਾਲ ਕਿਸੇ ਸੰਕਟਕਾਲ ਵਿੱਚ ਸਭ ਤੋਂ ਪਹਿਲਾਂ ਪਹੁੰਚਣ ਵਾਲੇ ਮਦਦਗਾਰਾਂ ਨੂੰ ਮਦਦ ਮਿਲ ਸਕਦੀ ਹੈ।\n\nਕੋਈ ਵੀ ਵਿਅਕਤੀ ਤੁਹਾਡੀ ਲਾਕ ਸਕ੍ਰੀਨ ਤੋਂ ਇਹ ਜਾਣਕਾਰੀ ਪੜ੍ਹ ਸਕਦਾ ਹੈ, ਅਤੇ ਤੁਹਾਡੇ ਫ਼ੋਨ ਨੂੰ ਅਣਲਾਕ ਕੀਤੇ ਬਿਨਾਂ ਤੁਹਾਡੇ ਸੰਪਰਕਾਂ ਨੂੰ ਉਹਨਾਂ ਦੇ ਨਾਮਾਂ \'ਤੇ ਟੈਪ ਕਰਕੇ ਕਾਲ ਕਰ ਸਕਦਾ ਹੈ।"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"ਸੰਕਟਕਾਲੀਨ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"ਪਹਿਲੇ ਮਦਦਗਾਰਾਂ ਨੂੰ ਤੁਹਾਡੀ ਜਾਣਕਾਰੀ ਦੇਖਣ ਦਿਓ"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ਫ਼ੋਟੋ ਖਿੱਚੋ"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"ਚਿੱਤਰ ਚੁਣੋ"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"ਫ਼ੋਟੋ ਚੁਣੋ"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"ਉਪਨਾਮ"</string>
 </resources>

@@ -42,6 +42,7 @@ import com.android.dialer.util.PermissionsUtil;
 import com.android.dialer.voicemail.listui.error.VoicemailErrorMessageCreator;
 import com.android.dialer.voicemail.listui.error.VoicemailStatus;
 import com.android.dialer.voicemail.listui.error.VoicemailStatusWorker;
+import com.android.dialer.widget.EmptyContentView;
 import java.util.List;
 
 public class VisualVoicemailCallLogFragment extends CallLogFragment {
@@ -110,6 +111,8 @@ public class VisualVoicemailCallLogFragment extends CallLogFragment {
   public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedState) {
     View view = inflater.inflate(R.layout.call_log_fragment, container, false);
     setupView(view);
+    EmptyContentView emptyContentView = view.findViewById(R.id.empty_list_view);
+    emptyContentView.setImage(R.drawable.quantum_ic_voicemail_vd_theme_24);
     return view;
   }
 
@@ -124,6 +127,12 @@ public class VisualVoicemailCallLogFragment extends CallLogFragment {
   public void onPause() {
     voicemailPlaybackPresenter.onPause();
     voicemailErrorManager.onPause();
+    // Necessary to reset the speaker when leaving otherwise the platform will still remain in
+    // speaker mode
+    AudioManager audioManager = getContext().getSystemService(AudioManager.class);
+    if (audioManager.isSpeakerphoneOn()) {
+      audioManager.setSpeakerphoneOn(false);
+    }
     super.onPause();
   }
 
@@ -151,7 +160,9 @@ public class VisualVoicemailCallLogFragment extends CallLogFragment {
   @Override
   public void fetchCalls() {
     super.fetchCalls();
-    FragmentUtils.getParentUnsafe(this, CallLogFragmentListener.class).updateTabUnreadCounts();
+    if (FragmentUtils.getParent(this, CallLogFragmentListener.class) != null) {
+      FragmentUtils.getParentUnsafe(this, CallLogFragmentListener.class).updateTabUnreadCounts();
+    }
   }
 
   @Override
@@ -176,10 +187,10 @@ public class VisualVoicemailCallLogFragment extends CallLogFragment {
   }
 
   @VisibleForTesting
-  static boolean shouldAutoSync(
+  boolean shouldAutoSync(
       VoicemailErrorMessageCreator errorMessageCreator, List<VoicemailStatus> statuses) {
     for (VoicemailStatus status : statuses) {
-      if (!status.isActive()) {
+      if (!status.isActive(getContext())) {
         continue;
       }
       if (errorMessageCreator.isSyncBlockingError(status)) {

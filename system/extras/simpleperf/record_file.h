@@ -47,6 +47,7 @@ class RecordFileWriter {
   bool WriteAttrSection(const std::vector<EventAttrWithId>& attr_ids);
   bool WriteRecord(const Record& record);
 
+  uint64_t GetDataSectionSize() const { return data_section_size_; }
   bool ReadDataSection(const std::function<void(const Record*)>& callback);
 
   bool BeginWriteFeatures(size_t feature_count);
@@ -55,10 +56,6 @@ class RecordFileWriter {
   bool WriteCmdlineFeature(const std::vector<std::string>& cmdline);
   bool WriteBranchStackFeature();
   bool WriteFileFeatures(const std::vector<Dso*>& files);
-  bool WriteFileFeature(const std::string& file_path,
-                        uint32_t file_type,
-                        uint64_t min_vaddr,
-                        const std::vector<const Symbol*>& symbols);
   bool WriteMetaInfoFeature(const std::unordered_map<std::string, std::string>& info_map);
   bool WriteFeature(int feature, const std::vector<char>& data);
   bool EndWriteFeatures();
@@ -76,6 +73,12 @@ class RecordFileWriter {
   bool Read(void* buf, size_t len);
   bool GetFilePos(uint64_t* file_pos);
   bool WriteStringWithLength(const std::string& s);
+  bool WriteFileFeature(const std::string& file_path,
+                        uint32_t file_type,
+                        uint64_t min_vaddr,
+                        uint64_t file_offset_of_min_vaddr,
+                        const std::vector<const Symbol*>& symbols,
+                        const std::vector<uint64_t>* dex_file_offsets);
   bool WriteFeatureBegin(int feature);
   bool WriteFeatureEnd(int feature);
 
@@ -128,13 +131,12 @@ class RecordFileReader {
   // is by calling ReadRecord() in a loop.
 
   // If sorted is true, sort records before passing them to callback function.
-  bool ReadDataSection(const std::function<bool(std::unique_ptr<Record>)>& callback,
-                       bool sorted = true);
+  bool ReadDataSection(const std::function<bool(std::unique_ptr<Record>)>& callback);
 
   // Read next record. If read successfully, set [record] and return true.
   // If there is no more records, set [record] to nullptr and return true.
   // Otherwise return false.
-  bool ReadRecord(std::unique_ptr<Record>& record, bool sorted = true);
+  bool ReadRecord(std::unique_ptr<Record>& record);
 
   size_t GetAttrIndexOfRecord(const Record* record);
 
@@ -147,9 +149,9 @@ class RecordFileReader {
   // call, and is updated to point to the next file information. Return true
   // if read successfully, and return false if there is no more file
   // information.
-  bool ReadFileFeature(size_t& read_pos, std::string* file_path,
-                       uint32_t* file_type, uint64_t* min_vaddr,
-                       std::vector<Symbol>* symbols);
+  bool ReadFileFeature(size_t& read_pos, std::string* file_path, uint32_t* file_type,
+                       uint64_t* min_vaddr, uint64_t* file_offset_of_min_vaddr,
+                       std::vector<Symbol>* symbols, std::vector<uint64_t>* dex_file_offsets);
   bool ReadMetaInfoFeature(std::unordered_map<std::string, std::string>* info_map);
 
   void LoadBuildIdAndFileFeatures(ThreadTree& thread_tree);
@@ -181,7 +183,6 @@ class RecordFileReader {
   size_t event_id_pos_in_sample_records_;
   size_t event_id_reverse_pos_in_non_sample_records_;
 
-  std::unique_ptr<RecordCache> record_cache_;
   uint64_t read_record_size_;
 
   DISALLOW_COPY_AND_ASSIGN(RecordFileReader);

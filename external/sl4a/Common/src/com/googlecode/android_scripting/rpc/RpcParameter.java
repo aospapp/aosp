@@ -24,21 +24,19 @@ import java.lang.annotation.Target;
 
 /**
  * An annotation that is used to document the parameters of an RPC.
- *
- *
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
 @Documented
 public @interface RpcParameter {
-  /**
-   * The name of the formal parameter. This should be in agreement with the java code.
-   */
-  public String name();
+    /**
+     * The name of the formal parameter. This should be in agreement with the java code.
+     */
+    String name();
 
-  /**
-   * Description of the RPC. This should be a short descriptive statement without a full stop, such
-   * as 'disables the WiFi mode'.
-   */
-  public String description() default "";
+    /**
+     * Description of the RPC. This should be a short descriptive statement without a full stop, such
+     * as 'disables the WiFi mode'.
+     */
+    String description() default "";
 }

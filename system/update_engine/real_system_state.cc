@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <base/bind.h>
 #include <base/files/file_util.h>
@@ -31,9 +32,11 @@
 #include "update_engine/common/boot_control.h"
 #include "update_engine/common/boot_control_stub.h"
 #include "update_engine/common/constants.h"
+#include "update_engine/common/dlcservice.h"
 #include "update_engine/common/hardware.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/metrics_reporter_omaha.h"
+#include "update_engine/update_boot_flags_action.h"
 #if USE_DBUS
 #include "update_engine/dbus_connection.h"
 #endif  // USE_DBUS
@@ -62,13 +65,13 @@ bool RealSystemState::Initialize() {
 
   hardware_ = hardware::CreateHardware();
   if (!hardware_) {
-    LOG(ERROR) << "Error intializing the HardwareInterface.";
+    LOG(ERROR) << "Error initializing the HardwareInterface.";
     return false;
   }
 
 #if USE_CHROME_KIOSK_APP
-  libcros_proxy_.reset(new org::chromium::LibCrosServiceInterfaceProxy(
-      DBusConnection::Get()->GetDBus(), chromeos::kLibCrosServiceName));
+  kiosk_app_proxy_.reset(new org::chromium::KioskAppServiceInterfaceProxy(
+      DBusConnection::Get()->GetDBus(), chromeos::kKioskAppServiceName));
 #endif  // USE_CHROME_KIOSK_APP
 
   LOG_IF(INFO, !hardware_->IsNormalBootMode()) << "Booted in dev mode.";
@@ -76,13 +79,19 @@ bool RealSystemState::Initialize() {
 
   connection_manager_ = connection_manager::CreateConnectionManager(this);
   if (!connection_manager_) {
-    LOG(ERROR) << "Error intializing the ConnectionManagerInterface.";
+    LOG(ERROR) << "Error initializing the ConnectionManagerInterface.";
     return false;
   }
 
   power_manager_ = power_manager::CreatePowerManager();
   if (!power_manager_) {
-    LOG(ERROR) << "Error intializing the PowerManagerInterface.";
+    LOG(ERROR) << "Error initializing the PowerManagerInterface.";
+    return false;
+  }
+
+  dlcservice_ = CreateDlcService();
+  if (!dlcservice_) {
+    LOG(ERROR) << "Error initializing the DlcServiceInterface.";
     return false;
   }
 
@@ -140,8 +149,8 @@ bool RealSystemState::Initialize() {
       new CertificateChecker(prefs_.get(), &openssl_wrapper_));
   certificate_checker_->Init();
 
-  update_attempter_.reset(new UpdateAttempter(this,
-                                              certificate_checker_.get()));
+  update_attempter_.reset(
+      new UpdateAttempter(this, certificate_checker_.get()));
 
   // Initialize the UpdateAttempter before the UpdateManager.
   update_attempter_->Init();
@@ -150,7 +159,7 @@ bool RealSystemState::Initialize() {
   chromeos_update_manager::State* um_state =
       chromeos_update_manager::DefaultStateFactory(&policy_provider_,
 #if USE_CHROME_KIOSK_APP
-                                                   libcros_proxy_.get(),
+                                                   kiosk_app_proxy_.get(),
 #else
                                                    nullptr,
 #endif  // USE_CHROME_KIOSK_APP
@@ -160,19 +169,35 @@ bool RealSystemState::Initialize() {
     LOG(ERROR) << "Failed to initialize the Update Manager.";
     return false;
   }
-  update_manager_.reset(
-      new chromeos_update_manager::UpdateManager(
-          &clock_, base::TimeDelta::FromSeconds(5),
-          base::TimeDelta::FromHours(12), um_state));
+  update_manager_.reset(new chromeos_update_manager::UpdateManager(
+      &clock_,
+      base::TimeDelta::FromSeconds(5),
+      base::TimeDelta::FromHours(12),
+      um_state));
 
   // The P2P Manager depends on the Update Manager for its initialization.
-  p2p_manager_.reset(P2PManager::Construct(
-          nullptr, &clock_, update_manager_.get(), "cros_au",
-          kMaxP2PFilesToKeep, base::TimeDelta::FromDays(kMaxP2PFileAgeDays)));
+  p2p_manager_.reset(
+      P2PManager::Construct(nullptr,
+                            &clock_,
+                            update_manager_.get(),
+                            "cros_au",
+                            kMaxP2PFilesToKeep,
+                            base::TimeDelta::FromDays(kMaxP2PFileAgeDays)));
 
   if (!payload_state_.Initialize(this)) {
     LOG(ERROR) << "Failed to initialize the payload state object.";
     return false;
+  }
+
+  // For devices that are not rollback enabled (ie. consumer devices),
+  // initialize max kernel key version to 0xfffffffe, which is logically
+  // infinity.
+  if (policy_provider_.IsConsumerDevice()) {
+    if (!hardware()->SetMaxKernelKeyRollforward(
+            chromeos_update_manager::kRollforwardInfinity)) {
+      LOG(ERROR) << "Failed to set kernel_max_rollforward to infinity for"
+                 << " consumer devices";
+    }
   }
 
   // All is well. Initialization successful.
@@ -183,23 +208,28 @@ bool RealSystemState::StartUpdater() {
   // Initiate update checks.
   update_attempter_->ScheduleUpdates();
 
+  auto update_boot_flags_action =
+      std::make_unique<UpdateBootFlagsAction>(boot_control_.get());
+  processor_.EnqueueAction(std::move(update_boot_flags_action));
   // Update boot flags after 45 seconds.
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&UpdateAttempter::UpdateBootFlags,
-                 base::Unretained(update_attempter_.get())),
+      base::Bind(&ActionProcessor::StartProcessing,
+                 base::Unretained(&processor_)),
       base::TimeDelta::FromSeconds(45));
 
   // Broadcast the update engine status on startup to ensure consistent system
   // state on crashes.
-  MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-      &UpdateAttempter::BroadcastStatus,
-      base::Unretained(update_attempter_.get())));
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
+      base::Bind(&UpdateAttempter::BroadcastStatus,
+                 base::Unretained(update_attempter_.get())));
 
   // Run the UpdateEngineStarted() method on |update_attempter|.
-  MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-      &UpdateAttempter::UpdateEngineStarted,
-      base::Unretained(update_attempter_.get())));
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
+      base::Bind(&UpdateAttempter::UpdateEngineStarted,
+                 base::Unretained(update_attempter_.get())));
   return true;
 }
 

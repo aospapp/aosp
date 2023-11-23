@@ -35,6 +35,7 @@ void ResetStubData() {
   cras_bt_io_remove_called = 0;
   cras_bt_io_destroy_called = 0;
   cras_bt_io_try_remove_ret = 0;
+  cras_main_message_send_msg = NULL;
 }
 
 namespace {
@@ -53,6 +54,11 @@ class BtDeviceTestSuite : public testing::Test {
       d2_.update_active_node = update_active_node;
       d3_.direction = CRAS_STREAM_INPUT;
       d3_.update_active_node = update_active_node;
+    }
+
+    virtual void TearDown() {
+      if(cras_main_message_send_msg)
+        free(cras_main_message_send_msg);
     }
 
     static void update_active_node(struct cras_iodev *iodev,
@@ -117,6 +123,7 @@ TEST_F(BtDeviceTestSuite, AppendRmIodev) {
   EXPECT_EQ(1, cras_bt_io_remove_called);
   EXPECT_EQ(1, cras_bt_io_destroy_called);
   EXPECT_EQ(0, cras_bt_device_get_active_profile(device));
+  cras_bt_device_destroy(device);
 }
 
 TEST_F(BtDeviceTestSuite, SwitchProfile) {
@@ -150,6 +157,7 @@ TEST_F(BtDeviceTestSuite, SwitchProfile) {
   cras_main_message_add_handler_callback(
       cras_main_message_send_msg,
       cras_main_message_add_handler_callback_data);
+  cras_bt_device_destroy(device);
 }
 
 /* Stubs */
@@ -260,7 +268,9 @@ int hfp_event_speaker_gain(struct hfp_slc_handle *handle, int gain)
 
 /* From iodev_list */
 
-int cras_iodev_open(struct cras_iodev *dev, unsigned int cb_level) {
+int cras_iodev_open(struct cras_iodev *dev, unsigned int cb_level,
+                    const struct cras_audio_format *fmt)
+{
   return 0;
 }
 
@@ -287,7 +297,13 @@ void cras_iodev_list_notify_node_volume(struct cras_ionode *node)
 
 int cras_main_message_send(struct cras_main_message *msg)
 {
-  cras_main_message_send_msg = msg;
+  // cras_main_message is a local variable from caller, we should allocate
+  // memory from heap and copy its data
+  if(cras_main_message_send_msg)
+    free(cras_main_message_send_msg);
+  cras_main_message_send_msg =
+    (struct cras_main_message *)calloc(1, msg->length);
+  memcpy((void *)cras_main_message_send_msg, (void *)msg, msg->length);
   return 0;
 }
 

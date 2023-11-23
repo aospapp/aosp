@@ -24,9 +24,14 @@ import android.media.AudioManager;
 import android.media.AudioPlaybackConfiguration;
 import android.media.MediaPlayer;
 import android.media.session.MediaSessionManager.RemoteUserInfo;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
+import androidx.test.platform.app.InstrumentationRegistry;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,6 +45,7 @@ import junit.framework.Assert;
 public class Utils {
     private static final String TAG = "CtsMediaTestUtil";
     private static final int TEST_TIMING_TOLERANCE_MS = 500;
+    private static final String MEDIA_PATH_INSTR_ARG_KEY = "media-path";
 
     public static void enableAppOps(String packageName, String operation,
             Instrumentation instrumentation) {
@@ -55,6 +61,21 @@ public class Utils {
         try (Scanner scanner = new Scanner(is).useDelimiter("\\A")) {
             return scanner.hasNext() ? scanner.next() : "";
         }
+    }
+
+    public static String getMediaPath() {
+        Bundle bundle = InstrumentationRegistry.getArguments();
+        String mediaPath = bundle.getString(MEDIA_PATH_INSTR_ARG_KEY);
+        Log.i(TAG, "Media Path value is: " + mediaPath);
+
+        if (mediaPath != null && !mediaPath.isEmpty()) {
+            if (mediaPath.startsWith("http") || mediaPath.startsWith("file")) {
+                return mediaPath;
+            }
+            // Otherwise, assume a file path that is not already Uri formatted
+            return Uri.fromFile(new File(mediaPath)).toString();
+        }
+        return "https://storage.googleapis.com/wvmedia";
     }
 
     private static void setAppOps(String packageName, String operation,

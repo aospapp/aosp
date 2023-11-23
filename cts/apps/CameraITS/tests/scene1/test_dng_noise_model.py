@@ -39,22 +39,23 @@ def main():
     # (since ITS doesn't require a perfectly uniformly lit scene).
 
     with its.device.ItsSession() as cam:
-
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
         its.caps.skip_unless(its.caps.raw(props) and
-                             its.caps.raw16(props) and
-                             its.caps.manual_sensor(props) and
-                             its.caps.read_3a(props) and
-                             its.caps.per_frame_control(props) and
-                             not its.caps.mono_camera(props))
+                its.caps.raw16(props) and
+                its.caps.manual_sensor(props) and
+                its.caps.read_3a(props) and
+                its.caps.per_frame_control(props) and
+                not its.caps.mono_camera(props))
+
         debug = its.caps.debug_mode()
 
         white_level = float(props['android.sensor.info.whiteLevel'])
         cfa_idxs = its.image.get_canonical_cfa_order(props)
-        aax = props['android.sensor.info.activeArraySize']['left']
-        aay = props['android.sensor.info.activeArraySize']['top']
-        aaw = props['android.sensor.info.activeArraySize']['right']-aax
-        aah = props['android.sensor.info.activeArraySize']['bottom']-aay
+        aax = props['android.sensor.info.preCorrectionActiveArraySize']['left']
+        aay = props['android.sensor.info.preCorrectionActiveArraySize']['top']
+        aaw = props['android.sensor.info.preCorrectionActiveArraySize']['right']-aax
+        aah = props['android.sensor.info.preCorrectionActiveArraySize']['bottom']-aay
 
         # Expose for the scene with min sensitivity
         sens_min, sens_max = props['android.sensor.info.sensitivityRange']
@@ -125,7 +126,7 @@ def main():
         print 'Diffs (%s):'%(ch), diffs
         for j, diff in enumerate(diffs):
             thresh = max(DIFF_THRESH, FRAC_THRESH*var_expected[i][j])
-            assert diff <= thresh
+            assert diff <= thresh, 'diff: %.5f, thresh: %.4f' % (diff, thresh)
 
 if __name__ == '__main__':
     main()

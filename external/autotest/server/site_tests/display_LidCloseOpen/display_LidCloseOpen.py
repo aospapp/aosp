@@ -29,7 +29,7 @@ class display_LidCloseOpen(test.test):
     # Time to allow display port plug transition to take effect
     WAIT_TIME_PLUG_TRANSITION = 5
     # Some boards do not play well with servo - crosbug.com/p/27591
-    INCOMPATIBLE_SERVO_BOARDS = ['daisy', 'falco']
+    INCOMPATIBLE_SERVO_BOARDS = ['daisy', 'falco', 'auron_paine']
 
 
     def close_lid(self):

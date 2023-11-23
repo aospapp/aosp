@@ -43,7 +43,10 @@ struct DocCommentable {
         }
     }
 
-   private:
+  protected:
+    const DocComment* getDocComment() const { return mDocComment; }
+
+  private:
     const DocComment* mDocComment = nullptr;
 };
 

@@ -28,6 +28,7 @@ import org.junit.runners.JUnit4;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 
 /** Unit tests for {@link ConfigurationXmlParser}. */
@@ -65,6 +66,30 @@ public class ConfigurationXmlParserTest {
                 configDef.getObjectClassMap().get("test").get(0).mClassName);
         assertEquals("junit.framework.TestCase:1:opName", configDef.getOptionList().get(0).name);
         assertEquals("val", configDef.getOptionList().get(0).value);
+    }
+
+    /** Test parsing xml when two Tradefed objects are interleaved. */
+    @Test
+    public void testParse_interleaved() {
+        final String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <test class=\"junit.framework.TestCase\">\n"
+                        + "    <option name=\"opName\" value=\"val\" />\n"
+                        + "    <target_preparer class=\"com.targetprep.class\" />\n"
+                        + "  </test>\n"
+                        + "</configuration>";
+        final String configName = "config";
+        ConfigurationDef configDef = new ConfigurationDef(configName);
+        try {
+            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+            fail("Should have thrown an exception.");
+        } catch (ConfigurationException expected) {
+            // Expected
+            assertEquals(
+                    "Failed to parse config xml 'config'. Reason: Declared 'target_preparer'"
+                            + " object inside junit.framework.TestCase:1 is not valid.",
+                    expected.getMessage());
+        }
     }
 
     /** Test parsing xml with a global option */
@@ -169,6 +194,7 @@ public class ConfigurationXmlParserTest {
                 EasyMock.eq("foo"),
                 EasyMock.eq(includedName),
                 EasyMock.anyObject(),
+                EasyMock.anyObject(),
                 EasyMock.anyObject());
         EasyMock.replay(mMockLoader);
         final String config = "<include name=\"includeme\" />";
@@ -182,7 +208,12 @@ public class ConfigurationXmlParserTest {
         ConfigurationDef parent = new ConfigurationDef("name");
         ConfigurationException exception = new ConfigurationException("I don't exist");
         mMockLoader.loadIncludedConfiguration(
-                parent, "name", includedName, null, Collections.<String, String>emptyMap());
+                parent,
+                "name",
+                includedName,
+                null,
+                Collections.<String, String>emptyMap(),
+                new HashSet<>());
         EasyMock.expectLastCall().andThrow(exception);
         EasyMock.replay(mMockLoader);
         final String config = String.format("<include name=\"%s\" />", includedName);
@@ -419,6 +450,27 @@ public class ConfigurationXmlParserTest {
         }
     }
 
+    /** Prevent template-include with the same name from appearing. */
+    @Test
+    public void testParse_repeatedTemplateName() {
+        String expectedException =
+                "Failed to parse config xml 'config'. Reason: Template named 'preparers' "
+                        + "appeared more than once.";
+        final String normalConfig =
+                "<configuration description=\"desc\" >\n"
+                        + "  <template-include name=\"preparers\" default=\"empty\"/>\n"
+                        + "  <template-include name=\"preparers\" default=\"empty\"/>\n"
+                        + "</configuration>";
+        final String configName = "config";
+        ConfigurationDef configDef = new ConfigurationDef(configName);
+        try {
+            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+            fail("An exception should have been thrown.");
+        } catch (ConfigurationException expected) {
+            assertEquals(expectedException, expected.getMessage());
+        }
+    }
+
     /**
      * Test that if an object is left at the root of the config but with one real and one fake
      * device, we do not reject the xml. Object will be associated later to the real device.
@@ -466,14 +518,8 @@ public class ConfigurationXmlParserTest {
                         + "</configuration>";
         final String configName = "config";
         ConfigurationDef configDef = new ConfigurationDef(configName);
-        try {
-            xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
-            fail("An exception should have been thrown.");
-        } catch (ConfigurationException expected) {
-            assertEquals(
-                    "You seem to want a multi-devices configuration but you have [target_preparer] "
-                            + "tags outside the <device> tags",
-                    expected.getMessage());
-        }
+        xmlParser.parse(configDef, configName, getStringAsStream(normalConfig), null);
+        // Two fakes devices, the root device will be added during creation of configuration
+        assertEquals(2, configDef.getObjectClassMap().get(Configuration.DEVICE_NAME).size());
     }
 }

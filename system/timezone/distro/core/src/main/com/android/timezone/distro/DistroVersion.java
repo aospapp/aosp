@@ -26,27 +26,11 @@ import java.util.regex.Pattern;
  */
 public class DistroVersion {
 
-    /**
-     * The major distro format version supported by this device.
-     * Increment this for non-backwards compatible changes to the distro format. Reset the minor
-     * version to 1 when doing so.
-     * This constant must match the one in system/core/tzdatacheck/tzdatacheck.cpp.
-     */
-    public static final int CURRENT_FORMAT_MAJOR_VERSION = 2;
-
-    /**
-     * The minor distro format version supported by this device. Increment this for
-     * backwards-compatible changes to the distro format.
-     * This constant must match the one in system/core/tzdatacheck/tzdatacheck.cpp.
-     */
-    public static final int CURRENT_FORMAT_MINOR_VERSION = 1;
-
-    /** The full major + minor distro format version for this device. */
-    private static final String FULL_CURRENT_FORMAT_VERSION_STRING =
-            toFormatVersionString(CURRENT_FORMAT_MAJOR_VERSION, CURRENT_FORMAT_MINOR_VERSION);
+    /** An example major + minor distro format version string. */
+    private static final String SAMPLE_FORMAT_VERSION_STRING = toFormatVersionString(1, 1);
 
     private static final int FORMAT_VERSION_STRING_LENGTH =
-            FULL_CURRENT_FORMAT_VERSION_STRING.length();
+            SAMPLE_FORMAT_VERSION_STRING.length();
     private static final Pattern FORMAT_VERSION_PATTERN = Pattern.compile("(\\d{3})\\.(\\d{3})");
 
     /** A pattern that matches the IANA rules value of a rules update. e.g. "2016g" */
@@ -122,11 +106,6 @@ public class DistroVersion {
         return (toFormatVersionString(majorFormatVersion, minorFormatVerison)
                 + "|" + rulesVersion + "|" + to3DigitVersionString(revision))
                 .getBytes(StandardCharsets.US_ASCII);
-    }
-
-    public static boolean isCompatibleWithThisDevice(DistroVersion distroVersion) {
-        return (CURRENT_FORMAT_MAJOR_VERSION == distroVersion.formatMajorVersion)
-                && (CURRENT_FORMAT_MINOR_VERSION <= distroVersion.formatMinorVersion);
     }
 
     @Override

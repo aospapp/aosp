@@ -21,11 +21,11 @@ import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 
 import android.graphics.Point;
-import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.MediumTest;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.Constants;
 import com.android.tv.tests.ui.LiveChannelsTestController;

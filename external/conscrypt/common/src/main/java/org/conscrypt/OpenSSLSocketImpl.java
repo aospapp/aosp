@@ -28,11 +28,9 @@ import javax.net.ssl.SSLSession;
 /**
  * Public shim allowing us to stay backward-compatible with legacy applications which were using
  * Conscrypt's extended socket API before the introduction of the {@link Conscrypt} class.
- *
- * @hide
  */
 @Internal
-public abstract class OpenSSLSocketImpl extends ConscryptSocketBase {
+public abstract class OpenSSLSocketImpl extends AbstractConscryptSocket {
     OpenSSLSocketImpl() throws IOException {
     }
 
@@ -110,26 +108,38 @@ public abstract class OpenSSLSocketImpl extends ConscryptSocketBase {
     @Override
     public abstract void setChannelIdPrivateKey(PrivateKey privateKey);
 
+    /**
+     * @deprecated NPN is not supported
+     */
     @Override
     @Deprecated
     public final byte[] getNpnSelectedProtocol() {
         return super.getNpnSelectedProtocol();
     }
 
+    /**
+     * @deprecated NPN is not supported
+     */
     @Override
     @Deprecated
     public final void setNpnProtocols(byte[] npnProtocols) {
         super.setNpnProtocols(npnProtocols);
     }
 
+    /**
+     * @deprecated use {@link #setApplicationProtocols(String[])} instead.
+     */
     @Override
     @Deprecated
     public final void setAlpnProtocols(String[] alpnProtocols) {
         setApplicationProtocols(alpnProtocols == null ? EmptyArray.STRING : alpnProtocols);
     }
 
-    @Deprecated
+    /**
+     * @deprecated use {@link #getApplicationProtocol()} instead.
+     */
     @Override
+    @Deprecated
     public final byte[] getAlpnSelectedProtocol() {
         return SSLUtils.toProtocolBytes(getApplicationProtocol());
     }

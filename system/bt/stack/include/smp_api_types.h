@@ -109,10 +109,6 @@ typedef uint8_t tSMP_STATUS;
 #define SMP_IO_CAP_MAX BTM_IO_CAP_MAX
 typedef uint8_t tSMP_IO_CAP;
 
-#ifndef SMP_DEFAULT_IO_CAPS
-#define SMP_DEFAULT_IO_CAPS SMP_IO_CAP_KBDISP
-#endif
-
 /* OOB data present or not */
 enum { SMP_OOB_NONE, SMP_OOB_PRESENT, SMP_OOB_UNKNOWN };
 typedef uint8_t tSMP_OOB_FLAG;
@@ -224,8 +220,8 @@ typedef struct {
 /* the data associated with the info sent to the peer via OOB interface */
 typedef struct {
   bool present;
-  BT_OCTET16 randomizer;
-  BT_OCTET16 commitment;
+  Octet16 randomizer;
+  Octet16 commitment;
 
   tBLE_BD_ADDR addr_sent_to;
   BT_OCTET32 private_key_used; /* is used to calculate: */
@@ -238,8 +234,8 @@ typedef struct {
 /* the data associated with the info received from the peer via OOB interface */
 typedef struct {
   bool present;
-  BT_OCTET16 randomizer;
-  BT_OCTET16 commitment;
+  Octet16 randomizer;
+  Octet16 commitment;
   tBLE_BD_ADDR addr_rcvd_from;
 } tSMP_PEER_OOB_DATA;
 
@@ -261,7 +257,7 @@ typedef struct {
   uint8_t status;
   uint8_t param_len;
   uint16_t opcode;
-  uint8_t param_buf[BT_OCTET16_LEN];
+  uint8_t param_buf[OCTET16_LEN];
 } tSMP_ENC;
 
 /* Security Manager events - Called by the stack when Security Manager related

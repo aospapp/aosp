@@ -17,6 +17,7 @@
 #ifndef SIMPLE_PERF_IOEVENT_LOOP_H_
 #define SIMPLE_PERF_IOEVENT_LOOP_H_
 
+#include <stdint.h>
 #include <time.h>
 
 #include <functional>
@@ -57,8 +58,7 @@ class IOEventLoop {
 
   // Register a periodic Event, so [callback] is called periodically every
   // [duration].
-  bool AddPeriodicEvent(timeval duration,
-                        const std::function<bool()>& callback);
+  IOEventRef AddPeriodicEvent(timeval duration, const std::function<bool()>& callback);
 
   // Run a loop polling for Events. It only exits when ExitLoop() is called
   // in a callback function of registered Events.
@@ -77,14 +77,15 @@ class IOEventLoop {
 
  private:
   bool EnsureInit();
-  IOEventRef AddEvent(int fd_or_sig, short events, timeval* timeout,
+  IOEventRef AddEvent(int fd_or_sig, int16_t events, timeval* timeout,
                       const std::function<bool()>& callback);
-  static void EventCallbackFn(int, short, void*);
+  static void EventCallbackFn(int, int16_t, void*);
 
   event_base* ebase_;
   std::vector<std::unique_ptr<IOEvent>> events_;
   bool has_error_;
   bool use_precise_timer_;
+  bool in_loop_;
 };
 
 #endif  // SIMPLE_PERF_IOEVENT_LOOP_H_

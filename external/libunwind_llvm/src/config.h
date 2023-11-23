@@ -1,9 +1,8 @@
 //===----------------------------- config.h -------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //
 //  Defines macros used within libunwind project.
@@ -38,7 +37,11 @@
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   1
   #endif
 #elif defined(_WIN32)
-  #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
+  #ifdef __SEH__
+    #define _LIBUNWIND_SUPPORT_SEH_UNWIND 1
+  #else
+    #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
+  #endif
 #else
   #if defined(__ARM_DWARF_EH__) || !defined(__arm__)
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
@@ -63,16 +66,22 @@
 #define _LIBUNWIND_BUILD_SJLJ_APIS
 #endif
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__ppc__) || defined(__ppc64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__ppc__) || defined(__ppc64__) || defined(__powerpc64__)
 #define _LIBUNWIND_SUPPORT_FRAME_APIS
 #endif
 
 #if defined(__i386__) || defined(__x86_64__) ||                                \
-    defined(__ppc__) || defined(__ppc64__) ||                                  \
+    defined(__ppc__) || defined(__ppc64__) || defined(__powerpc64__) ||        \
     (!defined(__APPLE__) && defined(__arm__)) ||                               \
     (defined(__arm64__) || defined(__aarch64__)) ||                            \
     defined(__mips__)
+#if !defined(_LIBUNWIND_BUILD_SJLJ_APIS)
 #define _LIBUNWIND_BUILD_ZERO_COST_APIS
+#endif
+#endif
+
+#if defined(__powerpc64__) && defined(_ARCH_PWR8)
+#define PPC64_HAS_VMX
 #endif
 
 #if defined(NDEBUG) && defined(_LIBUNWIND_IS_BAREMETAL)
@@ -91,8 +100,11 @@
 #endif
 
 #if defined(NDEBUG) && defined(_LIBUNWIND_IS_BAREMETAL)
+#define _LIBUNWIND_LOG0(msg)
 #define _LIBUNWIND_LOG(msg, ...)
 #else
+#define _LIBUNWIND_LOG0(msg)                                               \
+  fprintf(stderr, "libunwind: " msg "\n")
 #define _LIBUNWIND_LOG(msg, ...)                                               \
   fprintf(stderr, "libunwind: " msg "\n", __VA_ARGS__)
 #endif
@@ -152,7 +164,7 @@
 #if defined(_LIBUNWIND_IS_NATIVE_ONLY)
 # define COMP_OP ==
 #else
-# define COMP_OP <
+# define COMP_OP <=
 #endif
 template <typename _Type, typename _Mem>
 struct check_fit {

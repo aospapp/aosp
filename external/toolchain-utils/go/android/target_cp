@@ -22,7 +22,7 @@ fi
 
 if [[ -d ${src} ]]
 then
-	adb_${target} push ${src} ${dest}/${src##*/} 2>/dev/null
+	adb_${target} push ${src} ${dest}/${src##*/} >/dev/null
 else
-	adb_${target} push ${src} ${dest} 2>/dev/null
+	adb_${target} push ${src} ${dest} >/dev/null
 fi

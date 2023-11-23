@@ -15,18 +15,25 @@
  */
 package android.content.pm.cts.shortcuthost;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
+
+import org.junit.After;
+import org.junit.Before;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -38,29 +45,22 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
-abstract public class BaseShortcutManagerHostTest extends DeviceTestCase implements IBuildReceiver {
+abstract public class BaseShortcutManagerHostTest extends BaseHostJUnit4Test {
     protected static final boolean DUMPSYS_IN_TEARDOWN = false; // DO NOT SUBMIT WITH TRUE
 
     protected static final boolean NO_UNINSTALL_IN_TEARDOWN = false; // DO NOT SUBMIT WITH TRUE
 
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
-
-    private IBuildInfo mCtsBuild;
+    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     protected boolean mIsMultiuserSupported;
     protected boolean mIsManagedUserSupported;
 
+    private int mInitialUserId;
     private ArrayList<Integer> mOriginalUsers;
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        assertNotNull(mCtsBuild);  // ensure build has been set before test is run.
+    @Before
+    public void setUp() throws Exception {
+        assertNotNull(getBuild());  // ensure build has been set before test is run.
 
         mIsMultiuserSupported = getDevice().isMultiUserSupported();
         if (!mIsMultiuserSupported) {
@@ -72,14 +72,14 @@ abstract public class BaseShortcutManagerHostTest extends DeviceTestCase impleme
         }
 
         if (mIsMultiuserSupported) {
+            mInitialUserId = getDevice().getCurrentUser();
             mOriginalUsers = new ArrayList<>(getDevice().listUsers());
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         removeTestUsers();
-        super.tearDown();
     }
 
     protected void dumpsys(String label) throws DeviceNotAvailableException {
@@ -104,7 +104,7 @@ abstract public class BaseShortcutManagerHostTest extends DeviceTestCase impleme
     protected void installAppAsUser(String appFileName, int userId) throws FileNotFoundException,
             DeviceNotAvailableException {
         CLog.i("Installing app " + appFileName + " for user " + userId);
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
         String result = getDevice().installPackageForUser(
                 buildHelper.getTestFile(appFileName), true, true, userId, "-t");
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
@@ -126,69 +126,44 @@ abstract public class BaseShortcutManagerHostTest extends DeviceTestCase impleme
     protected void runDeviceTestsAsUser(
             String pkgName, @Nullable String testClassName, String testMethodName, int userId)
             throws DeviceNotAvailableException {
-        Map<String, String> params = Collections.emptyMap();
-        runDeviceTestsAsUser(pkgName, testClassName, testMethodName, userId, params);
-    }
 
-    protected void runDeviceTestsAsUser(String pkgName, @Nullable String testClassName,
-            @Nullable String testMethodName, int userId,
-            Map<String, String> params) throws DeviceNotAvailableException {
-        if (testClassName != null && testClassName.startsWith(".")) {
-            testClassName = pkgName + testClassName;
-        }
-
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(
-                pkgName, RUNNER, getDevice().getIDevice());
-        if (testClassName != null && testMethodName != null) {
-            testRunner.setMethodName(testClassName, testMethodName);
-        } else if (testClassName != null) {
-            testRunner.setClassName(testClassName);
-        }
-
-        for (Map.Entry<String, String> param : params.entrySet()) {
-            testRunner.addInstrumentationArg(param.getKey(), param.getValue());
-        }
-
-        CollectingTestListener listener = new CollectingTestListener();
-        assertTrue(getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener));
-
-        TestRunResult runResult = listener.getCurrentRunResults();
-        if (runResult.getTestResults().size() == 0) {
-            fail("No tests have been executed.");
-            return;
-        }
-
-        printTestResult(runResult);
-        if (runResult.hasFailedTests() || runResult.getNumTestsInState(TestStatus.PASSED) == 0) {
-            fail("Some tests have been failed.");
-        }
-    }
-
-    private void printTestResult(TestRunResult runResult) {
-        for (Map.Entry<TestDescription, TestResult> testEntry :
-                runResult.getTestResults().entrySet()) {
-            TestResult testResult = testEntry.getValue();
-
-            final String message = "Test " + testEntry.getKey() + ": " + testResult.getStatus();
-            if (testResult.getStatus() == TestStatus.PASSED) {
-                CLog.i(message);
-            } else {
-                CLog.e(message);
-                CLog.e(testResult.getStackTrace());
+        final DeviceTestRunOptions opts = new DeviceTestRunOptions(pkgName);
+        if (testClassName != null) {
+            if (testClassName.startsWith(".")) {
+                testClassName = pkgName + testClassName;
             }
+            opts.setTestClassName(testClassName);
         }
+        if (testMethodName != null) {
+            opts.setTestMethodName(testMethodName);
+        }
+        opts.setUserId(userId);
+
+        runDeviceTests(opts);
     }
 
     private void removeTestUsers() throws Exception {
         if (!mIsMultiuserSupported) {
             return;
         }
-        getDevice().switchUser(getPrimaryUserId());
+        getDevice().switchUser(mInitialUserId);
         for (int userId : getDevice().listUsers()) {
             if (!mOriginalUsers.contains(userId)) {
                 getDevice().removeUser(userId);
             }
         }
+    }
+
+    protected int getOrCreateSecondaryUser() throws Exception {
+        if (getDevice().isUserSecondary(mInitialUserId)) {
+            return mInitialUserId;
+        }
+        for (int userId : getDevice().listUsers()) {
+            if (getDevice().isUserSecondary(userId)) {
+                return userId;
+            }
+        }
+        return createUser();
     }
 
     protected int createUser() throws Exception{

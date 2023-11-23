@@ -18,7 +18,9 @@ package libcore.util;
 
 /**
  * Hexadecimal encoding where each byte is represented by two hexadecimal digits.
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public class HexEncoding {
 
     /** Hidden constructor to prevent instantiation. */
@@ -29,6 +31,7 @@ public class HexEncoding {
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
      */
+    @libcore.api.CorePlatformApi
     public static char[] encode(byte[] data) {
         return encode(data, 0, data.length);
     }
@@ -36,6 +39,7 @@ public class HexEncoding {
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
      */
+    @libcore.api.CorePlatformApi
     public static char[] encode(byte[] data, int offset, int len) {
         char[] result = new char[len * 2];
         for (int i = 0; i < len; i++) {
@@ -51,6 +55,7 @@ public class HexEncoding {
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
      */
+    @libcore.api.CorePlatformApi
     public static String encodeToString(byte[] data) {
         return new String(encode(data));
     }
@@ -61,6 +66,7 @@ public class HexEncoding {
      *
      * Throws an {@code IllegalArgumentException} if the input is malformed.
      */
+    @libcore.api.CorePlatformApi
     public static byte[] decode(String encoded) throws IllegalArgumentException {
         return decode(encoded.toCharArray());
     }
@@ -82,6 +88,7 @@ public class HexEncoding {
      *
      * Throws an {@code IllegalArgumentException} if the input is malformed.
      */
+    @libcore.api.CorePlatformApi
     public static byte[] decode(char[] encoded) throws IllegalArgumentException {
         return decode(encoded, false);
     }
@@ -93,6 +100,7 @@ public class HexEncoding {
      *
      * Throws an {@code IllegalArgumentException} if the input is malformed.
      */
+    @libcore.api.CorePlatformApi
     public static byte[] decode(char[] encoded, boolean allowSingleChar) throws IllegalArgumentException {
         int resultLengthBytes = (encoded.length + 1) / 2;
         byte[] result = new byte[resultLengthBytes];

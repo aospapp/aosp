@@ -108,7 +108,7 @@ size_t PlatformAudio::getSourceCount() {
 }
 
 bool PlatformAudio::getAudioSource(uint32_t handle,
-                                   chreAudioSource *audioSource) {
+                                   chreAudioSource *audioSource) const {
   bool success = (handle < gAudioSources.size());
   if (success) {
     const auto& source = gAudioSources[handle];

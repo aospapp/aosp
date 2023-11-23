@@ -13,6 +13,7 @@ class Values(object):
     has_keyboard = False
     rec_button_dev_switch = True
     spi_voltage = 'pp3300'
-    wp_voltage = 'pp3300'
     chrome_ec = True
-    ec_capability = ['x86', 'no_reset_in_off']
+    ec_capability = ['x86']
+    delay_reboot_to_ping = 40
+    smm_store = False

@@ -97,6 +97,7 @@ public final class VtsCoveragePreparerTest {
             public File getTestsDir() throws FileNotFoundException {
                 return mTestDir;
             }
+            @Override
             public File getResultDir() throws FileNotFoundException {
                 return mTestDir;
             }

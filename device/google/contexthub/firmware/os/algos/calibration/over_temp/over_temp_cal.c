@@ -1444,10 +1444,13 @@ bool isValidOtcLinearModel(const struct OverTempCal *over_temp_cal,
                            float temp_sensitivity, float sensor_intercept) {
   ASSERT_NOT_NULL(over_temp_cal);
 
+  // Simple check to ensure that the linear model parameters are:
+  //   1. Within the valid range, AND
+  //   2. At least one model parameter is considered non-zero.
   return NANO_ABS(temp_sensitivity) < over_temp_cal->temp_sensitivity_limit &&
          NANO_ABS(sensor_intercept) < over_temp_cal->sensor_intercept_limit &&
-         NANO_ABS(temp_sensitivity) > OTC_MODELDATA_NEAR_ZERO_TOL &&
-         NANO_ABS(sensor_intercept) > OTC_MODELDATA_NEAR_ZERO_TOL;
+         (NANO_ABS(temp_sensitivity) > OTC_MODELDATA_NEAR_ZERO_TOL ||
+         NANO_ABS(sensor_intercept) > OTC_MODELDATA_NEAR_ZERO_TOL);
 }
 
 bool isValidOtcOffset(const float *offset, float offset_temp_celsius) {

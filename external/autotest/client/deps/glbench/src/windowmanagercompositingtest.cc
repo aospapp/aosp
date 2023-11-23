@@ -8,18 +8,17 @@
 #include "testbase.h"
 #include "utils.h"
 
-
 namespace glbench {
 
-const float kScreenScaleFactor = 1e6f * (WINDOW_WIDTH * WINDOW_HEIGHT) /
-    (1280.f * 768);
+const float kScreenScaleFactor =
+    1e6f * (WINDOW_WIDTH * WINDOW_HEIGHT) / (1280.f * 768);
 
 class WindowManagerCompositingTest : public TestBase {
  public:
   WindowManagerCompositingTest(bool scissor)
       : scissor_(scissor),
-      compositing_background_program_(0),
-      compositing_foreground_program_(0) {}
+        compositing_background_program_(0),
+        compositing_foreground_program_(0) {}
   virtual ~WindowManagerCompositingTest() {}
   virtual bool TestFunc(uint64_t iterations);
   virtual bool Run();
@@ -35,8 +34,8 @@ class WindowManagerCompositingTest : public TestBase {
 
  private:
   bool scissor_;
-  uint32_t texture_base_[WINDOW_HEIGHT*WINDOW_WIDTH];
-  uint32_t texture_update_[WINDOW_HEIGHT*WINDOW_WIDTH];
+  uint32_t texture_base_[WINDOW_HEIGHT * WINDOW_WIDTH];
+  uint32_t texture_update_[WINDOW_HEIGHT * WINDOW_WIDTH];
   GLuint compositing_textures_[5];
   GLuint compositing_background_program_;
   GLuint compositing_foreground_program_;
@@ -55,13 +54,14 @@ bool WindowManagerCompositingTest::Run() {
     testname = "compositing_no_fill";
   }
   InitializeCompositing();
-  RunTest(this, testname, kScreenScaleFactor, WINDOW_WIDTH, WINDOW_HEIGHT, true);
+  RunTest(this, testname, kScreenScaleFactor, WINDOW_WIDTH, WINDOW_HEIGHT,
+          true);
   TeardownCompositing();
   return true;
 }
 
 bool WindowManagerCompositingTest::TestFunc(uint64_t iterations) {
-  for (uint64_t i = 0 ; i < iterations; ++i) {
+  for (uint64_t i = 0; i < iterations; ++i) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Draw the background
@@ -111,7 +111,7 @@ bool WindowManagerCompositingTest::TestFunc(uint64_t iterations) {
   return true;
 }
 
-const char *kBasicTextureVertexShader =
+const char* kBasicTextureVertexShader =
     "attribute vec4 c1;"
     "attribute vec4 c2;"
     "varying vec4 v1;"
@@ -120,7 +120,7 @@ const char *kBasicTextureVertexShader =
     "    v1 = c2;"
     "}";
 
-const char *kBasicTextureFragmentShader =
+const char* kBasicTextureFragmentShader =
     "uniform sampler2D texture_sampler;"
     "varying vec4 v1;"
     "void main() {"
@@ -128,8 +128,8 @@ const char *kBasicTextureFragmentShader =
     "}";
 
 GLuint BasicTextureShaderProgram(GLuint vertex_buffer, GLuint texture_buffer) {
-  GLuint program = InitShaderProgram(kBasicTextureVertexShader,
-                                     kBasicTextureFragmentShader);
+  GLuint program =
+      InitShaderProgram(kBasicTextureVertexShader, kBasicTextureFragmentShader);
 
   // Set up the texture sampler
   int textureSampler = glGetUniformLocation(program, "texture_sampler");
@@ -150,7 +150,7 @@ GLuint BasicTextureShaderProgram(GLuint vertex_buffer, GLuint texture_buffer) {
   return program;
 }
 
-const char *kDoubleTextureBlendVertexShader =
+const char* kDoubleTextureBlendVertexShader =
     "attribute vec4 c1;"
     "attribute vec4 c2;"
     "attribute vec4 c3;"
@@ -162,7 +162,7 @@ const char *kDoubleTextureBlendVertexShader =
     "    v2 = c3;"
     "}";
 
-const char *kDoubleTextureBlendFragmentShader =
+const char* kDoubleTextureBlendFragmentShader =
     "uniform sampler2D texture_sampler_0;"
     "uniform sampler2D texture_sampler_1;"
     "varying vec4 v1;"
@@ -205,43 +205,42 @@ GLuint DoubleTextureBlendShaderProgram(GLuint vertex_buffer,
   return program;
 }
 
-const char *triple_texture_blend_vertex_shader =
-"attribute vec4 c1;"
-"attribute vec4 c2;"
-"attribute vec4 c3;"
-"attribute vec4 c4;"
-"varying vec4 v1;"
-"varying vec4 v2;"
-"varying vec4 v3;"
-"void main() {"
-"    gl_Position = c1;"
-"    v1 = c2;"
-"    v2 = c3;"
-"    v3 = c4;"
-"}";
+const char* triple_texture_blend_vertex_shader =
+    "attribute vec4 c1;"
+    "attribute vec4 c2;"
+    "attribute vec4 c3;"
+    "attribute vec4 c4;"
+    "varying vec4 v1;"
+    "varying vec4 v2;"
+    "varying vec4 v3;"
+    "void main() {"
+    "    gl_Position = c1;"
+    "    v1 = c2;"
+    "    v2 = c3;"
+    "    v3 = c4;"
+    "}";
 
-const char *triple_texture_blend_fragment_shader =
-"uniform sampler2D texture_sampler_0;"
-"uniform sampler2D texture_sampler_1;"
-"uniform sampler2D texture_sampler_2;"
-"varying vec4 v1;"
-"varying vec4 v2;"
-"varying vec4 v3;"
-"void main() {"
-"    vec4 one = texture2D(texture_sampler_0, v1.st);"
-"    vec4 two = texture2D(texture_sampler_1, v2.st);"
-"    vec4 three = texture2D(texture_sampler_2, v3.st);"
-"    gl_FragColor = mix(mix(one, two, 0.5), three, 0.5);"
-"}";
+const char* triple_texture_blend_fragment_shader =
+    "uniform sampler2D texture_sampler_0;"
+    "uniform sampler2D texture_sampler_1;"
+    "uniform sampler2D texture_sampler_2;"
+    "varying vec4 v1;"
+    "varying vec4 v2;"
+    "varying vec4 v3;"
+    "void main() {"
+    "    vec4 one = texture2D(texture_sampler_0, v1.st);"
+    "    vec4 two = texture2D(texture_sampler_1, v2.st);"
+    "    vec4 three = texture2D(texture_sampler_2, v3.st);"
+    "    gl_FragColor = mix(mix(one, two, 0.5), three, 0.5);"
+    "}";
 
 // This shader blends the three textures
 GLuint TripleTextureBlendShaderProgram(GLuint vertex_buffer,
-                                              GLuint texture_buffer_0,
-                                              GLuint texture_buffer_1,
-                                              GLuint texture_buffer_2) {
-  GLuint program =
-    InitShaderProgram(triple_texture_blend_vertex_shader,
-                      triple_texture_blend_fragment_shader);
+                                       GLuint texture_buffer_0,
+                                       GLuint texture_buffer_1,
+                                       GLuint texture_buffer_2) {
+  GLuint program = InitShaderProgram(triple_texture_blend_vertex_shader,
+                                     triple_texture_blend_fragment_shader);
 
   // Set up the texture sampler
   int textureSampler0 = glGetUniformLocation(program, "texture_sampler_0");
@@ -289,30 +288,28 @@ void WindowManagerCompositingTest::InitializeCompositing() {
   glActiveTexture(GL_TEXTURE0);
   for (int i = 0; i < 5; i++) {
     glBindTexture(GL_TEXTURE_2D, compositing_textures_[i]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-                    GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
 
   // Set up the vertex arrays for drawing textured quads later on.
   GLfloat buffer_vertex[8] = {
-    -1.f, -1.f,
-    1.f,  -1.f,
-    -1.f, 1.f,
-    1.f,  1.f,
+      -1.f, -1.f,
+      1.f, -1.f,
+      -1.f, 1.f,
+      1.f, 1.f,
   };
-  GLuint vbo_vertex = SetupVBO(GL_ARRAY_BUFFER,
-                               sizeof(buffer_vertex), buffer_vertex);
+  GLuint vbo_vertex =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_vertex), buffer_vertex);
 
   GLfloat buffer_texture[8] = {
-    0.f, 0.f,
-    1.f, 0.f,
-    0.f, 1.f,
-    1.f, 1.f,
+      0.f, 0.f,
+      1.f, 0.f,
+      0.f, 1.f,
+      1.f, 1.f,
   };
-  GLuint vbo_texture = SetupVBO(GL_ARRAY_BUFFER,
-                                sizeof(buffer_texture), buffer_texture);
+  GLuint vbo_texture =
+      SetupVBO(GL_ARRAY_BUFFER, sizeof(buffer_texture), buffer_texture);
 
   // Set up the static background textures.
   UpdateTexture();
@@ -341,9 +338,8 @@ void WindowManagerCompositingTest::InitializeCompositing() {
   LoadTexture();
 
   // Set up vertex & fragment shaders.
-  compositing_background_program_ =
-      TripleTextureBlendShaderProgram(vbo_vertex,
-                                      vbo_texture, vbo_texture, vbo_texture);
+  compositing_background_program_ = TripleTextureBlendShaderProgram(
+      vbo_vertex, vbo_texture, vbo_texture, vbo_texture);
   compositing_foreground_program_ =
       BasicTextureShaderProgram(vbo_vertex, vbo_texture);
   if (!compositing_background_program_ || !compositing_foreground_program_) {
@@ -360,7 +356,7 @@ void WindowManagerCompositingTest::InitBaseTexture() {
   for (int y = 0; y < WINDOW_HEIGHT; y++) {
     for (int x = 0; x < WINDOW_WIDTH; x++) {
       // This color is gray, half alpha.
-      texture_base_[y*WINDOW_WIDTH+x] = 0x80808080;
+      texture_base_[y * WINDOW_WIDTH + x] = 0x80808080;
     }
   }
 }
@@ -374,9 +370,8 @@ void WindowManagerCompositingTest::UpdateTexture() {
 
 void WindowManagerCompositingTest::LoadTexture() {
   // Use GL_RGBA for compatibility with GLES2.0.
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-               WINDOW_WIDTH, WINDOW_HEIGHT, 0,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
                GL_RGBA, GL_UNSIGNED_BYTE, texture_update_);
 }
 
-} // namespace glbench
+}  // namespace glbench

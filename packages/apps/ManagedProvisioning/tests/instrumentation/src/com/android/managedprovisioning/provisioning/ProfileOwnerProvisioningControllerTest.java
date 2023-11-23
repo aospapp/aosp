@@ -31,8 +31,9 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.UserInfo;
 import android.os.UserManager;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.finalization.FinalizationController;

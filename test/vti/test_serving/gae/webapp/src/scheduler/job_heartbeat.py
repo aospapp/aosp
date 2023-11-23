@@ -16,13 +16,18 @@
 #
 
 import datetime
+import logging
 import webapp2
+
+from google.appengine.ext import ndb
 
 from webapp.src import vtslab_status as Status
 from webapp.src.proto import model
+from webapp.src.utils import email_util
 from webapp.src.utils import logger
+from webapp.src.utils import model_util
 
-JOB_RESPONSE_TIMEOUT_SECONDS = 300
+JOB_RESPONSE_TIMEOUT_SECONDS = 60 * 60
 
 
 class PeriodicJobHeartBeat(webapp2.RequestHandler):
@@ -40,8 +45,7 @@ class PeriodicJobHeartBeat(webapp2.RequestHandler):
         self.logger.Clear()
 
         job_query = model.JobModel.query(
-            model.JobModel.status == Status.JOB_STATUS_DICT["leased"]
-        )
+            model.JobModel.status == Status.JOB_STATUS_DICT["leased"])
         jobs = job_query.fetch()
 
         lost_jobs = []
@@ -54,23 +58,38 @@ class PeriodicJobHeartBeat(webapp2.RequestHandler):
                     job_timestamp).seconds >= JOB_RESPONSE_TIMEOUT_SECONDS:
                 lost_jobs.append(job)
 
+        lost_jobs_to_put = []
+        devices_to_put = []
         for job in lost_jobs:
             self.logger.Println("Lost job found")
-            self.logger.Println(
-                "[hostname]{} [device]{} [test_name]{}".format(
-                    job.hostname, job.device, job.test_name))
+            self.logger.Println("[hostname]{} [device]{} [test_name]{}".format(
+                job.hostname, job.device, job.test_name))
             job.status = Status.JOB_STATUS_DICT["infra-err"]
-            job.put()
+            lost_jobs_to_put.append(job)
+            model_util.UpdateParentSchedule(
+                job, Status.JOB_STATUS_DICT["infra-err"])
 
             device_query = model.DeviceModel.query(
-                model.DeviceModel.serial.IN(job.serial)
-            )
+                model.DeviceModel.serial.IN(job.serial))
             devices = device_query.fetch()
-
             for device in devices:
+                self.logger.Println("Device serial: {}".format(device.serial))
                 device.scheduling_status = Status.DEVICE_SCHEDULING_STATUS_DICT[
                     "free"]
-                device.put()
+                devices_to_put.append(device)
 
-        self.response.write(
-            "<pre>\n" + "\n".join(self.logger.Get()) + "\n</pre>")
+        if lost_jobs_to_put:
+            ndb.put_multi(lost_jobs_to_put)
+            email_util.send_job_notification(lost_jobs_to_put)
+            self.logger.Println("{} jobs are updated.".format(
+                len(lost_jobs_to_put)))
+
+        if devices_to_put:
+            ndb.put_multi(devices_to_put)
+            self.logger.Println("{} devices are updated.".format(
+                len(devices_to_put)))
+
+        lines = self.logger.Get()
+        logging.info("\n".join([line.strip() for line in lines]))
+
+        self.response.write("<pre>\n" + "\n".join(lines) + "\n</pre>")

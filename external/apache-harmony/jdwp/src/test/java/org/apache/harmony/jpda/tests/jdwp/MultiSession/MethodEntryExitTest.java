@@ -39,15 +39,11 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class MethodEntryExitTest extends JDWPSyncTestCase {
 
-    private String DEBUGGEE_SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/MultiSessionDebuggee;";
-
     private String METHOD_NAME = "printWord";
-
-    String classNameRegexp = "org.apache.harmony.jpda.tests.jdwp.MultiSession.MultiSessionDebuggee";
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.MultiSession.MultiSessionDebuggee";
+        return MultiSessionDebuggee.class.getName();
     }
 
     /**
@@ -62,7 +58,7 @@ public class MethodEntryExitTest extends JDWPSyncTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long classID = debuggeeWrapper.vmMirror.getClassID(DEBUGGEE_SIGNATURE);
+        long classID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
 
         logWriter.println("=> Set breakpoint at method begin");
         //long requestID =
@@ -71,10 +67,10 @@ public class MethodEntryExitTest extends JDWPSyncTestCase {
 
         logWriter.println("=> Set request for METHOD_ENTRY event");
         debuggeeWrapper.vmMirror
-                .setMethodEntry(classNameRegexp);
+                .setMethodEntry(getDebuggeeClassName());
 
         logWriter.println("=> Set request for METHOD_EXIT event");
-        debuggeeWrapper.vmMirror.setMethodExit(classNameRegexp);
+        debuggeeWrapper.vmMirror.setMethodExit(getDebuggeeClassName());
 
         logWriter.println("");
         logWriter.println("=> CLOSE CONNECTION..");

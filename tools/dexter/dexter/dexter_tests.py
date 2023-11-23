@@ -38,7 +38,7 @@ test_cases = {
                           'exit_hooks.dex', 'medium.dex', 'try_catch.dex' ] },
   'wrap_invoke'     : { 'args' : '-d -x stress_wrap_invoke', 'input' : [
                           'hello.dex', 'hello_nodebug.dex', 'medium.dex' ] },
-  'mi'              : { 'args' : '-d -x test_method_instrumenter', 'input' : ['entry_hooks.dex'] },
+  'mi'              : { 'args' : '-d -x test_method_instrumenter', 'input' : ['mi.dex'] },
   'find_method'     : { 'args' : '-x stress_find_method', 'input' : [
                           'hello.dex', 'entry_hooks.dex', 'medium.dex', 'large.dex', 'try_catch.dex' ] },
   'verbose_cfg'     : { 'args' : '-d --cfg=verbose', 'input' : ['*.dex'] },

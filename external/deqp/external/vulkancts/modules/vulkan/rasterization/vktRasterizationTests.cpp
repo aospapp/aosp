@@ -43,6 +43,8 @@
 #include "vkQueryUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include <vector>
 
@@ -190,8 +192,6 @@ protected:
 
 	Move<VkShaderModule>							m_vertexShaderModule;
 	Move<VkShaderModule>							m_fragmentShaderModule;
-
-	Move<VkFence>									m_fence;
 
 	Move<VkBuffer>									m_resultBuffer;
 	de::MovePtr<Allocation>							m_resultBufferMemory;
@@ -535,9 +535,6 @@ BaseRenderingTestInstance::BaseRenderingTestInstance (Context& context, VkSample
 		m_fragmentShaderModule	= createShaderModule(vkd, vkDevice, m_context.getBinaryCollection().get("fragment_shader"), 0);
 	}
 
-	// Fence
-	m_fence = createFence(vkd, vkDevice);
-
 	// Result Buffer
 	{
 		const VkBufferCreateInfo				bufferCreateInfo		=
@@ -630,28 +627,6 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 
 	// Create Graphics Pipeline
 	{
-		const VkPipelineShaderStageCreateInfo	shaderStageParams[2]	=
-		{
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType					sType;
-				DE_NULL,													// const void*						pNext;
-				0,															// VkPipelineShaderStageCreateFlags flags;
-				VK_SHADER_STAGE_VERTEX_BIT,									// VkShaderStage					stage;
-				*m_vertexShaderModule,										// VkShader							shader;
-				"main",														// const char*						pName;
-				DE_NULL														// const VkSpecializationInfo*		pSpecializationInfo;
-			},
-			{
-				VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,		// VkStructureType					sType;
-				DE_NULL,													// const void*						pNext;
-				0,															// VkPipelineShaderStageCreateFlags flags;
-				VK_SHADER_STAGE_FRAGMENT_BIT,								// VkShaderStage					stage;
-				*m_fragmentShaderModule,									// VkShader							shader;
-				"main",														// const char*						pName;
-				DE_NULL														// const VkSpecializationInfo*		pSpecializationInfo;
-			}
-		};
-
 		const VkVertexInputBindingDescription	vertexInputBindingDescription =
 		{
 			0u,								// deUint32					binding;
@@ -686,41 +661,8 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 			vertexInputAttributeDescriptions								// const VkVertexInputAttributeDescription*	pVertexAttributeDescriptions;
 		};
 
-		const VkPipelineInputAssemblyStateCreateInfo	inputAssemblyStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,	// VkStructureType							sType;
-			DE_NULL,														// const void*								pNext;
-			0,																// VkPipelineInputAssemblyStateCreateFlags	flags;
-			primitiveTopology,												// VkPrimitiveTopology						topology;
-			false															// VkBool32									primitiveRestartEnable;
-		};
-
-		const VkViewport						viewport =
-		{
-			0.0f,						// float	originX;
-			0.0f,						// float	originY;
-			(float)m_renderSize,		// float	width;
-			(float)m_renderSize,		// float	height;
-			0.0f,						// float	minDepth;
-			1.0f						// float	maxDepth;
-		};
-
-		const VkRect2D							scissor =
-		{
-			{ 0, 0 },														// VkOffset2D  offset;
-			{ m_renderSize, m_renderSize }									// VkExtent2D  extent;
-		};
-
-		const VkPipelineViewportStateCreateInfo	viewportStateParams =
-		{
-			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,			// VkStructureType						sType;
-			DE_NULL,														// const void*							pNext;
-			0,																// VkPipelineViewportStateCreateFlags	flags;
-			1u,																// deUint32								viewportCount;
-			&viewport,														// const VkViewport*					pViewports;
-			1u,																// deUint32								scissorCount;
-			&scissor														// const VkRect2D*						pScissors;
-		};
+		const std::vector<VkViewport>	viewports	(1, makeViewport(tcu::UVec2(m_renderSize)));
+		const std::vector<VkRect2D>		scissors	(1, makeRect2D(tcu::UVec2(m_renderSize)));
 
 		const VkPipelineMultisampleStateCreateInfo multisampleStateParams =
 		{
@@ -735,30 +677,25 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 			VK_FALSE														// VkBool32									alphaToOneEnable;
 		};
 
-		const VkGraphicsPipelineCreateInfo graphicsPipelineParams =
-		{
-			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,	// VkStructureType									sType;
-			DE_NULL,											// const void*										pNext;
-			0u,													// VkPipelineCreateFlags							flags;
-			2u,													// deUint32											stageCount;
-			shaderStageParams,									// const VkPipelineShaderStageCreateInfo*			pStages;
-			&vertexInputStateParams,							// const VkPipelineVertexInputStateCreateInfo*		pVertexInputState;
-			&inputAssemblyStateParams,							// const VkPipelineInputAssemblyStateCreateInfo*	pInputAssemblyState;
-			DE_NULL,											// const VkPipelineTessellationStateCreateInfo*		pTessellationState;
-			&viewportStateParams,								// const VkPipelineViewportStateCreateInfo*			pViewportState;
-			getRasterizationStateCreateInfo(),					// const VkPipelineRasterStateCreateInfo*			pRasterizationState;
-			&multisampleStateParams,							// const VkPipelineMultisampleStateCreateInfo*		pMultisampleState;
-			DE_NULL,											// const VkPipelineDepthStencilStateCreateInfo*		pDepthStencilState;
-			getColorBlendStateCreateInfo(),						// const VkPipelineColorBlendStateCreateInfo*		pColorBlendState;
-			DE_NULL,											// const VkPipelineDynamicStateCreateInfo*			pDynamicState;
-			*m_pipelineLayout,									// VkPipelineLayout									layout;
-			*m_renderPass,										// VkRenderPass										renderPass;
-			0u,													// deUint32											subpass;
-			0u,													// VkPipeline										basePipelineHandle;
-			0u													// deInt32											basePipelineIndex;
-		};
-
-		graphicsPipeline		= createGraphicsPipeline(vkd, vkDevice, DE_NULL, &graphicsPipelineParams);
+		graphicsPipeline = makeGraphicsPipeline(vkd,								// const DeviceInterface&                        vk
+												vkDevice,							// const VkDevice                                device
+												*m_pipelineLayout,					// const VkPipelineLayout                        pipelineLayout
+												*m_vertexShaderModule,				// const VkShaderModule                          vertexShaderModule
+												DE_NULL,							// const VkShaderModule                          tessellationControlShaderModule
+												DE_NULL,							// const VkShaderModule                          tessellationEvalShaderModule
+												DE_NULL,							// const VkShaderModule                          geometryShaderModule
+												*m_fragmentShaderModule,			// const VkShaderModule                          fragmentShaderModule
+												*m_renderPass,						// const VkRenderPass                            renderPass
+												viewports,							// const std::vector<VkViewport>&                viewports
+												scissors,							// const std::vector<VkRect2D>&                  scissors
+												primitiveTopology,					// const VkPrimitiveTopology                     topology
+												0u,									// const deUint32                                subpass
+												0u,									// const deUint32                                patchControlPoints
+												&vertexInputStateParams,			// const VkPipelineVertexInputStateCreateInfo*   vertexInputStateCreateInfo
+												getRasterizationStateCreateInfo(),	// const VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo
+												&multisampleStateParams,			// const VkPipelineMultisampleStateCreateInfo*   multisampleStateCreateInfo
+												DE_NULL,							// const VkPipelineDepthStencilStateCreateInfo*  depthStencilStateCreateInfo,
+												getColorBlendStateCreateInfo());	// const VkPipelineColorBlendStateCreateInfo*    colorBlendStateCreateInfo
 	}
 
 	// Create Vertex Buffer
@@ -783,24 +720,14 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 		// Load vertices into vertex buffer
 		deMemcpy(vertexBufferMemory->getHostPtr(), positionData.data(), attributeBatchSize);
 		deMemcpy(reinterpret_cast<deUint8*>(vertexBufferMemory->getHostPtr()) +  attributeBatchSize, colorData.data(), attributeBatchSize);
-		flushMappedMemoryRange(vkd, vkDevice, vertexBufferMemory->getMemory(), vertexBufferMemory->getOffset(), vertexBufferParams.size);
+		flushAlloc(vkd, vkDevice, *vertexBufferMemory);
 	}
 
 	// Create Command Buffer
 	commandBuffer = allocateCommandBuffer(vkd, vkDevice, *m_commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
 	// Begin Command Buffer
-	{
-		const VkCommandBufferBeginInfo		cmdBufferBeginInfo		=
-		{
-			VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// VkStructureType							sType;
-			DE_NULL,										// const void*								pNext;
-			0u,												// VkCmdBufferOptimizeFlags					flags;
-			DE_NULL											// const VkCommandBufferInheritanceInfo*	pInheritanceInfo;
-		};
-
-		VK_CHECK(vkd.beginCommandBuffer(*commandBuffer, &cmdBufferBeginInfo));
-	}
+	beginCommandBuffer(vkd, *commandBuffer);
 
 	addImageTransitionBarrier(*commandBuffer, *m_image,
 							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,				// VkPipelineStageFlags		srcStageMask
@@ -821,25 +748,7 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 	}
 
 	// Begin Render Pass
-	{
-		const VkClearValue					clearValue				= makeClearValueColorF32(0.0, 0.0, 0.0, 1.0);
-
-		const VkRenderPassBeginInfo			renderPassBeginInfo		=
-		{
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,				// VkStructureType		sType;
-			DE_NULL,												// const void*			pNext;
-			*m_renderPass,											// VkRenderPass			renderPass;
-			*m_frameBuffer,											// VkFramebuffer		framebuffer;
-			{
-				{ 0, 0 },
-				{ m_renderSize, m_renderSize }
-			},														// VkRect2D				renderArea;
-			1u,														// deUint32				clearValueCount;
-			&clearValue												// const VkClearValue*	pClearValues;
-		};
-
-		vkd.cmdBeginRenderPass(*commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	}
+	beginRenderPass(vkd, *commandBuffer, *m_renderPass, *m_frameBuffer, vk::makeRect2D(0, 0, m_renderSize, m_renderSize), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	const VkDeviceSize						vertexBufferOffset		= 0;
 
@@ -847,81 +756,24 @@ void BaseRenderingTestInstance::drawPrimitives (tcu::Surface& result, const std:
 	vkd.cmdBindDescriptorSets(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipelineLayout, 0u, 1, &m_descriptorSet.get(), 0u, DE_NULL);
 	vkd.cmdBindVertexBuffers(*commandBuffer, 0, 1, &vertexBuffer.get(), &vertexBufferOffset);
 	vkd.cmdDraw(*commandBuffer, (deUint32)positionData.size(), 1, 0, 0);
-	vkd.cmdEndRenderPass(*commandBuffer);
+	endRenderPass(vkd, *commandBuffer);
 
 	// Copy Image
-	{
+	copyImageToBuffer(vkd, *commandBuffer, m_multisampling ? *m_resolvedImage : *m_image, *m_resultBuffer, tcu::IVec2(m_renderSize, m_renderSize));
 
-		const VkBufferMemoryBarrier			bufferBarrier			=
-		{
-			VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,	// VkStructureType		sType;
-			DE_NULL,									// const void*			pNext;
-			VK_ACCESS_TRANSFER_WRITE_BIT,				// VkMemoryOutputFlags	outputMask;
-			VK_ACCESS_HOST_READ_BIT,					// VkMemoryInputFlags	inputMask;
-			VK_QUEUE_FAMILY_IGNORED,					// deUint32				srcQueueFamilyIndex;
-			VK_QUEUE_FAMILY_IGNORED,					// deUint32				destQueueFamilyIndex;
-			*m_resultBuffer,							// VkBuffer				buffer;
-			0u,											// VkDeviceSize			offset;
-			m_resultBufferSize							// VkDeviceSize			size;
-		};
-
-		const VkBufferImageCopy				copyRegion				=
-		{
-			0u,											// VkDeviceSize				bufferOffset;
-			m_renderSize,								// deUint32					bufferRowLength;
-			m_renderSize,								// deUint32					bufferImageHeight;
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u },	// VkImageSubresourceCopy	imageSubresource;
-			{ 0, 0, 0 },								// VkOffset3D				imageOffset;
-			{ m_renderSize, m_renderSize, 1u }			// VkExtent3D				imageExtent;
-		};
-
-		addImageTransitionBarrier(*commandBuffer,
-								  m_multisampling ? *m_resolvedImage : *m_image,
-								  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,		// VkPipelineStageFlags		srcStageMask
-								  VK_PIPELINE_STAGE_TRANSFER_BIT,						// VkPipelineStageFlags		dstStageMask
-								  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,					// VkAccessFlags			srcAccessMask
-								  VK_ACCESS_TRANSFER_READ_BIT,							// VkAccessFlags			dstAccessMask
-								  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,				// VkImageLayout			oldLayout;
-								  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);				// VkImageLayout			newLayout;)
-
-		if (m_multisampling)
-			vkd.cmdCopyImageToBuffer(*commandBuffer, *m_resolvedImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *m_resultBuffer, 1, &copyRegion);
-		else
-			vkd.cmdCopyImageToBuffer(*commandBuffer, *m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *m_resultBuffer, 1, &copyRegion);
-
-		vkd.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &bufferBarrier, 0, (const VkImageMemoryBarrier*)DE_NULL);
-	}
-
-	VK_CHECK(vkd.endCommandBuffer(*commandBuffer));
+	endCommandBuffer(vkd, *commandBuffer);
 
 	// Set Point Size
 	{
 		float	pointSize	= getPointSize();
 		deMemcpy(m_uniformBufferMemory->getHostPtr(), &pointSize, (size_t)m_uniformBufferSize);
-		flushMappedMemoryRange(vkd, vkDevice, m_uniformBufferMemory->getMemory(), m_uniformBufferMemory->getOffset(), m_uniformBufferSize);
+		flushAlloc(vkd, vkDevice, *m_uniformBufferMemory);
 	}
 
 	// Submit
-	{
-		const VkSubmitInfo					submitInfo				=
-		{
-			VK_STRUCTURE_TYPE_SUBMIT_INFO,			// VkStructureType				sType;
-			DE_NULL,								// const void*					pNext;
-			0u,										// deUint32						waitSemaphoreCount;
-			DE_NULL,								// const VkSemaphore*			pWaitSemaphores;
-			DE_NULL,								// const VkPipelineStageFlags*	pWaitDstStageMask;
-			1u,										// deUint32						commandBufferCount;
-			&commandBuffer.get(),					// const VkCommandBuffer*		pCommandBuffers;
-			0u,										// deUint32						signalSemaphoreCount;
-			DE_NULL,								// const VkSemaphore*			pSignalSemaphores;
-		};
+	submitCommandsAndWait(vkd, vkDevice, queue, commandBuffer.get());
 
-		VK_CHECK(vkd.resetFences(vkDevice, 1, &m_fence.get()));
-		VK_CHECK(vkd.queueSubmit(queue, 1, &submitInfo, *m_fence));
-		VK_CHECK(vkd.waitForFences(vkDevice, 1, &m_fence.get(), true, ~(0ull) /* infinity */));
-	}
-
-	invalidateMappedMemoryRange(vkd, vkDevice, m_resultBufferMemory->getMemory(), m_resultBufferMemory->getOffset(), m_resultBufferSize);
+	invalidateAlloc(vkd, vkDevice, *m_resultBufferMemory);
 	tcu::copy(result.getAccess(), tcu::ConstPixelBufferAccess(m_textureFormat, tcu::IVec3(m_renderSize, m_renderSize, 1), m_resultBufferMemory->getHostPtr()));
 }
 
@@ -2310,6 +2162,480 @@ protected:
 	const VkPolygonMode			m_polygonMode;
 };
 
+class DiscardTestInstance : public BaseRenderingTestInstance
+{
+public:
+															DiscardTestInstance					(Context& context, VkPrimitiveTopology primitiveTopology, deBool queryFragmentShaderInvocations)
+																: BaseRenderingTestInstance			(context, VK_SAMPLE_COUNT_1_BIT, DEFAULT_RENDER_SIZE)
+																, m_primitiveTopology				(primitiveTopology)
+																, m_queryFragmentShaderInvocations	(queryFragmentShaderInvocations)
+															{}
+
+	virtual const VkPipelineRasterizationStateCreateInfo*	getRasterizationStateCreateInfo		(void) const;
+	tcu::TestStatus											iterate								(void);
+
+private:
+	void													generateVertices					(std::vector<tcu::Vec4>& outData) const;
+	void													extractTriangles					(std::vector<TriangleSceneSpec::SceneTriangle>& outTriangles, const std::vector<tcu::Vec4>& vertices) const;
+	void													extractLines						(std::vector<LineSceneSpec::SceneLine>& outLines, const std::vector<tcu::Vec4>& vertices) const;
+	void													extractPoints						(std::vector<PointSceneSpec::ScenePoint>& outPoints, const std::vector<tcu::Vec4>& vertices) const;
+	void													drawPrimitives						(tcu::Surface& result, const std::vector<tcu::Vec4>& positionData, VkPrimitiveTopology primitiveTopology, Move<VkQueryPool>& queryPool);
+
+	const VkPrimitiveTopology								m_primitiveTopology;
+	const deBool											m_queryFragmentShaderInvocations;
+};
+
+tcu::TestStatus DiscardTestInstance::iterate (void)
+{
+	const DeviceInterface&							vkd			= m_context.getDeviceInterface();
+	const VkDevice									vkDevice	= m_context.getDevice();
+	deUint64										queryResult	= 0u;
+	tcu::Surface									resultImage	(m_renderSize, m_renderSize);
+	std::vector<tcu::Vec4>							drawBuffer;
+	std::vector<PointSceneSpec::ScenePoint>			points;
+	std::vector<LineSceneSpec::SceneLine>			lines;
+	std::vector<TriangleSceneSpec::SceneTriangle>	triangles;
+
+	generateVertices(drawBuffer);
+
+	switch (m_primitiveTopology)
+	{
+		case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+			extractPoints(points, drawBuffer);
+			break;
+
+		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+			extractLines(lines, drawBuffer);
+			break;
+
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+			extractTriangles(triangles, drawBuffer);
+			break;
+
+		default:
+			DE_ASSERT(false);
+	}
+
+	const VkQueryPoolCreateInfo queryPoolCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,						// VkStructureType					sType
+		DE_NULL,														// const void*						pNext
+		(VkQueryPoolCreateFlags)0,										// VkQueryPoolCreateFlags			flags
+		VK_QUERY_TYPE_PIPELINE_STATISTICS ,								// VkQueryType						queryType
+		1u,																// deUint32							entryCount
+		VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT,	// VkQueryPipelineStatisticFlags	pipelineStatistics
+	};
+
+	if (m_queryFragmentShaderInvocations)
+	{
+		Move<VkQueryPool> queryPool	= createQueryPool(vkd, vkDevice, &queryPoolCreateInfo);
+
+		drawPrimitives(resultImage, drawBuffer, m_primitiveTopology, queryPool);
+		vkd.getQueryPoolResults(vkDevice, *queryPool, 0u, 1u, sizeof(deUint64), &queryResult, 0u, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+	}
+	else
+		BaseRenderingTestInstance::drawPrimitives(resultImage, drawBuffer, m_primitiveTopology);
+
+	// compare
+	{
+		tcu::IVec4						colorBits	= tcu::getTextureFormatBitDepth(getTextureFormat());
+
+		const RasterizationArguments	args		=
+		{
+			0,							// int	numSamples;
+			(int)m_subpixelBits,		// int	subpixelBits;
+			colorBits[0],				// int	redBits;
+			colorBits[1],				// int	greenBits;
+			colorBits[2]				// int	blueBits;
+		};
+
+		// Empty scene to compare to, primitives should be discarded before rasterization
+		TriangleSceneSpec				scene;
+
+		const bool						isCompareOk	= verifyTriangleGroupRasterization(resultImage,
+																					   scene,
+																					   args,
+																					   m_context.getTestContext().getLog(),
+																					   tcu::VERIFICATIONMODE_STRICT);
+
+		if (isCompareOk)
+		{
+			if (m_queryFragmentShaderInvocations && queryResult > 0u)
+				return tcu::TestStatus::fail("Fragment shader invocations occured");
+			else
+				return tcu::TestStatus::pass("Pass");
+		}
+		else
+			return tcu::TestStatus::fail("Incorrect rendering");
+	}
+}
+
+void DiscardTestInstance::generateVertices (std::vector<tcu::Vec4>& outData) const
+{
+	de::Random rnd(12345);
+
+	outData.resize(6);
+
+	for (int vtxNdx = 0; vtxNdx < (int)outData.size(); ++vtxNdx)
+	{
+		outData[vtxNdx].x() = rnd.getFloat(-0.9f, 0.9f);
+		outData[vtxNdx].y() = rnd.getFloat(-0.9f, 0.9f);
+		outData[vtxNdx].z() = 0.0f;
+		outData[vtxNdx].w() = 1.0f;
+	}
+}
+
+void DiscardTestInstance::extractTriangles (std::vector<TriangleSceneSpec::SceneTriangle>& outTriangles, const std::vector<tcu::Vec4>& vertices) const
+{
+	switch (m_primitiveTopology)
+	{
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+		{
+			for (int vtxNdx = 0; vtxNdx < (int)vertices.size() - 2; vtxNdx += 3)
+			{
+				TriangleSceneSpec::SceneTriangle	tri;
+				const tcu::Vec4&					v0	= vertices[vtxNdx + 0];
+				const tcu::Vec4&					v1	= vertices[vtxNdx + 1];
+				const tcu::Vec4&					v2	= vertices[vtxNdx + 2];
+
+				tri.positions[0] = v0;
+				tri.positions[1] = v1;
+				tri.positions[2] = v2;
+
+				outTriangles.push_back(tri);
+			}
+
+			break;
+		}
+
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+		{
+			for (int vtxNdx = 0; vtxNdx < (int)vertices.size() - 2; ++vtxNdx)
+			{
+				TriangleSceneSpec::SceneTriangle	tri;
+				const tcu::Vec4&					v0	= vertices[vtxNdx + 0];
+				const tcu::Vec4&					v1	= vertices[vtxNdx + 1];
+				const tcu::Vec4&					v2	= vertices[vtxNdx + 2];
+
+				tri.positions[0] = v0;
+				tri.positions[1] = v1;
+				tri.positions[2] = v2;
+
+				outTriangles.push_back(tri);
+			}
+
+			break;
+		}
+
+		case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+		{
+			for (int vtxNdx = 1; vtxNdx < (int)vertices.size() - 1; ++vtxNdx)
+			{
+				TriangleSceneSpec::SceneTriangle	tri;
+				const tcu::Vec4&					v0	= vertices[0];
+				const tcu::Vec4&					v1	= vertices[vtxNdx + 0];
+				const tcu::Vec4&					v2	= vertices[vtxNdx + 1];
+
+				tri.positions[0] = v0;
+				tri.positions[1] = v1;
+				tri.positions[2] = v2;
+
+				outTriangles.push_back(tri);
+			}
+
+			break;
+		}
+
+		default:
+			DE_ASSERT(false);
+	}
+}
+
+void DiscardTestInstance::extractLines (std::vector<LineSceneSpec::SceneLine>& outLines, const std::vector<tcu::Vec4>& vertices) const
+{
+	switch (m_primitiveTopology)
+	{
+		case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+		{
+			for (int vtxNdx = 0; vtxNdx < (int)vertices.size() - 1; vtxNdx += 2)
+			{
+				LineSceneSpec::SceneLine line;
+
+				line.positions[0] = vertices[vtxNdx + 0];
+				line.positions[1] = vertices[vtxNdx + 1];
+
+				outLines.push_back(line);
+			}
+
+			break;
+		}
+
+		case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+		{
+			for (int vtxNdx = 0; vtxNdx < (int)vertices.size() - 1; ++vtxNdx)
+			{
+				LineSceneSpec::SceneLine line;
+
+				line.positions[0] = vertices[vtxNdx + 0];
+				line.positions[1] = vertices[vtxNdx + 1];
+
+				outLines.push_back(line);
+			}
+
+			break;
+		}
+
+		default:
+			DE_ASSERT(false);
+		}
+}
+
+void DiscardTestInstance::extractPoints (std::vector<PointSceneSpec::ScenePoint>& outPoints, const std::vector<tcu::Vec4>& vertices) const
+{
+	for (int pointNdx = 0; pointNdx < (int)outPoints.size(); ++pointNdx)
+	{
+		for (int vrtxNdx = 0; vrtxNdx < 3; ++vrtxNdx)
+		{
+			PointSceneSpec::ScenePoint point;
+
+			point.position	= vertices[vrtxNdx];
+			point.pointSize	= 1.0f;
+
+			outPoints.push_back(point);
+		}
+	}
+}
+
+const VkPipelineRasterizationStateCreateInfo* DiscardTestInstance::getRasterizationStateCreateInfo (void) const
+{
+	static const VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,	// VkStructureType							sType;
+		NULL,														// const void*								pNext;
+		0,															// VkPipelineRasterizationStateCreateFlags	flags;
+		VK_FALSE,													// VkBool32									depthClipEnable;
+		VK_TRUE,													// VkBool32									rasterizerDiscardEnable;
+		VK_POLYGON_MODE_FILL,										// VkFillMode								fillMode;
+		VK_CULL_MODE_NONE,											// VkCullMode								cullMode;
+		VK_FRONT_FACE_COUNTER_CLOCKWISE,							// VkFrontFace								frontFace;
+		VK_FALSE,													// VkBool32									depthBiasEnable;
+		0.0f,														// float									depthBias;
+		0.0f,														// float									depthBiasClamp;
+		0.0f,														// float									slopeScaledDepthBias;
+		getLineWidth(),												// float									lineWidth;
+	};
+
+	return &rasterizationStateCreateInfo;
+}
+
+void DiscardTestInstance::drawPrimitives (tcu::Surface& result, const std::vector<tcu::Vec4>& positionData, VkPrimitiveTopology primitiveTopology, Move<VkQueryPool>& queryPool)
+{
+	const DeviceInterface&				vkd					= m_context.getDeviceInterface();
+	const VkDevice						vkDevice			= m_context.getDevice();
+	const VkPhysicalDeviceProperties	properties			= m_context.getDeviceProperties();
+	const VkQueue						queue				= m_context.getUniversalQueue();
+	const deUint32						queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
+	Allocator&							allocator			= m_context.getDefaultAllocator();
+
+	const size_t						attributeBatchSize	= positionData.size() * sizeof(tcu::Vec4);
+	const VkDeviceSize					vertexBufferOffset	= 0;
+	de::MovePtr<Allocation>				vertexBufferMemory;
+	Move<VkBuffer>						vertexBuffer;
+	Move<VkCommandBuffer>				commandBuffer;
+	Move<VkPipeline>					graphicsPipeline;
+
+	if (attributeBatchSize > properties.limits.maxVertexInputAttributeOffset)
+	{
+		std::stringstream message;
+		message << "Larger vertex input attribute offset is needed (" << attributeBatchSize << ") than the available maximum (" << properties.limits.maxVertexInputAttributeOffset << ").";
+		TCU_THROW(NotSupportedError, message.str().c_str());
+	}
+
+	// Create Graphics Pipeline
+	{
+		const VkVertexInputBindingDescription		vertexInputBindingDescription		=
+		{
+			0u,										// deUint32					binding;
+			sizeof(tcu::Vec4),						// deUint32					strideInBytes;
+			VK_VERTEX_INPUT_RATE_VERTEX				// VkVertexInputStepRate	stepRate;
+		};
+
+		const VkVertexInputAttributeDescription		vertexInputAttributeDescriptions[2]	=
+		{
+			{
+				0u,									// deUint32	location;
+				0u,									// deUint32	binding;
+				VK_FORMAT_R32G32B32A32_SFLOAT,		// VkFormat	format;
+				0u									// deUint32	offsetInBytes;
+			},
+			{
+				1u,									// deUint32	location;
+				0u,									// deUint32	binding;
+				VK_FORMAT_R32G32B32A32_SFLOAT,		// VkFormat	format;
+				(deUint32)attributeBatchSize		// deUint32	offsetInBytes;
+			}
+		};
+
+		const VkPipelineVertexInputStateCreateInfo	vertexInputStateParams				=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,	// VkStructureType							sType;
+			DE_NULL,													// const void*								pNext;
+			0,															// VkPipelineVertexInputStateCreateFlags	flags;
+			1u,															// deUint32									bindingCount;
+			&vertexInputBindingDescription,								// const VkVertexInputBindingDescription*	pVertexBindingDescriptions;
+			2u,															// deUint32									attributeCount;
+			vertexInputAttributeDescriptions							// const VkVertexInputAttributeDescription*	pVertexAttributeDescriptions;
+		};
+
+		const std::vector<VkViewport>				viewports							(1, makeViewport(tcu::UVec2(m_renderSize)));
+		const std::vector<VkRect2D>					scissors							(1, makeRect2D(tcu::UVec2(m_renderSize)));
+
+		const VkPipelineMultisampleStateCreateInfo	multisampleStateParams				=
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,	// VkStructureType							sType;
+			DE_NULL,													// const void*								pNext;
+			0u,															// VkPipelineMultisampleStateCreateFlags	flags;
+			m_sampleCount,												// VkSampleCountFlagBits					rasterizationSamples;
+			VK_FALSE,													// VkBool32									sampleShadingEnable;
+			0.0f,														// float									minSampleShading;
+			DE_NULL,													// const VkSampleMask*						pSampleMask;
+			VK_FALSE,													// VkBool32									alphaToCoverageEnable;
+			VK_FALSE													// VkBool32									alphaToOneEnable;
+		};
+
+		graphicsPipeline = makeGraphicsPipeline(vkd,								// const DeviceInterface&							vk
+												vkDevice,							// const VkDevice									device
+												*m_pipelineLayout,					// const VkPipelineLayout							pipelineLayout
+												*m_vertexShaderModule,				// const VkShaderModule								vertexShaderModule
+												DE_NULL,							// const VkShaderModule								tessellationControlShaderModule
+												DE_NULL,							// const VkShaderModule								tessellationEvalShaderModule
+												DE_NULL,							// const VkShaderModule								geometryShaderModule
+												*m_fragmentShaderModule,			// const VkShaderModule								fragmentShaderModule
+												*m_renderPass,						// const VkRenderPass								renderPass
+												viewports,							// const std::vector<VkViewport>&					viewports
+												scissors,							// const std::vector<VkRect2D>&						scissors
+												primitiveTopology,					// const VkPrimitiveTopology						topology
+												0u,									// const deUint32									subpass
+												0u,									// const deUint32									patchControlPoints
+												&vertexInputStateParams,			// const VkPipelineVertexInputStateCreateInfo*		vertexInputStateCreateInfo
+												getRasterizationStateCreateInfo(),	// const VkPipelineRasterizationStateCreateInfo*	rasterizationStateCreateInfo
+												&multisampleStateParams,			// const VkPipelineMultisampleStateCreateInfo*		multisampleStateCreateInfo
+												DE_NULL,							// const VkPipelineDepthStencilStateCreateInfo*		depthStencilStateCreateInfo,
+												getColorBlendStateCreateInfo());	// const VkPipelineColorBlendStateCreateInfo*		colorBlendStateCreateInfo
+	}
+
+	// Create Vertex Buffer
+	{
+		const VkBufferCreateInfo					vertexBufferParams		=
+		{
+			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
+			DE_NULL,								// const void*			pNext;
+			0u,										// VkBufferCreateFlags	flags;
+			attributeBatchSize * 2,					// VkDeviceSize			size;
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		// VkBufferUsageFlags	usage;
+			VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
+			1u,										// deUint32				queueFamilyCount;
+			&queueFamilyIndex						// const deUint32*		pQueueFamilyIndices;
+		};
+
+		const std::vector<tcu::Vec4>				colorData				(positionData.size(), tcu::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+		vertexBuffer		= createBuffer(vkd, vkDevice, &vertexBufferParams);
+		vertexBufferMemory	= allocator.allocate(getBufferMemoryRequirements(vkd, vkDevice, *vertexBuffer), MemoryRequirement::HostVisible);
+
+		VK_CHECK(vkd.bindBufferMemory(vkDevice, *vertexBuffer, vertexBufferMemory->getMemory(), vertexBufferMemory->getOffset()));
+
+		// Load vertices into vertex buffer
+		deMemcpy(vertexBufferMemory->getHostPtr(), positionData.data(), attributeBatchSize);
+		deMemcpy(reinterpret_cast<deUint8*>(vertexBufferMemory->getHostPtr()) + attributeBatchSize, colorData.data(), attributeBatchSize);
+		flushAlloc(vkd, vkDevice, *vertexBufferMemory);
+	}
+
+	// Create Command Buffer
+	commandBuffer = allocateCommandBuffer(vkd, vkDevice, *m_commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	// Begin Command Buffer
+	beginCommandBuffer(vkd, *commandBuffer);
+
+	addImageTransitionBarrier(*commandBuffer,									// VkCommandBuffer			commandBuffer
+							  *m_image,											// VkImage					image
+							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,				// VkPipelineStageFlags		srcStageMask
+							  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,				// VkPipelineStageFlags		dstStageMask
+							  0,												// VkAccessFlags			srcAccessMask
+							  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,				// VkAccessFlags			dstAccessMask
+							  VK_IMAGE_LAYOUT_UNDEFINED,						// VkImageLayout			oldLayout;
+							  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);		// VkImageLayout			newLayout;
+
+	if (m_multisampling)
+	{
+		addImageTransitionBarrier(*commandBuffer,								// VkCommandBuffer			commandBuffer
+								  *m_resolvedImage,								// VkImage					image
+								  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,			// VkPipelineStageFlags		srcStageMask
+								  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,			// VkPipelineStageFlags		dstStageMask
+								  0,											// VkAccessFlags			srcAccessMask
+								  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,			// VkAccessFlags			dstAccessMask
+								  VK_IMAGE_LAYOUT_UNDEFINED,					// VkImageLayout			oldLayout;
+								  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);	// VkImageLayout			newLayout;
+	}
+
+	// Reset query pool
+	vkd.cmdResetQueryPool(*commandBuffer, *queryPool, 0u, 1u);
+
+	// Begin render pass and start query
+	beginRenderPass(vkd, *commandBuffer, *m_renderPass, *m_frameBuffer, vk::makeRect2D(0, 0, m_renderSize, m_renderSize), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	vkd.cmdBeginQuery(*commandBuffer, *queryPool, 0u, (VkQueryControlFlags)0u);
+	vkd.cmdBindPipeline(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *graphicsPipeline);
+	vkd.cmdBindDescriptorSets(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipelineLayout, 0u, 1, &m_descriptorSet.get(), 0u, DE_NULL);
+	vkd.cmdBindVertexBuffers(*commandBuffer, 0, 1, &vertexBuffer.get(), &vertexBufferOffset);
+	vkd.cmdDraw(*commandBuffer, (deUint32)positionData.size(), 1, 0, 0);
+	endRenderPass(vkd, *commandBuffer);
+	vkd.cmdEndQuery(*commandBuffer, *queryPool, 0u);
+
+	// Copy Image
+	copyImageToBuffer(vkd, *commandBuffer, m_multisampling ? *m_resolvedImage : *m_image, *m_resultBuffer, tcu::IVec2(m_renderSize, m_renderSize));
+
+	endCommandBuffer(vkd, *commandBuffer);
+
+	// Set Point Size
+	{
+		float pointSize = getPointSize();
+
+		deMemcpy(m_uniformBufferMemory->getHostPtr(), &pointSize, (size_t)m_uniformBufferSize);
+		flushAlloc(vkd, vkDevice, *m_uniformBufferMemory);
+	}
+
+	// Submit
+	submitCommandsAndWait(vkd, vkDevice, queue, commandBuffer.get());
+
+	invalidateAlloc(vkd, vkDevice, *m_resultBufferMemory);
+	tcu::copy(result.getAccess(), tcu::ConstPixelBufferAccess(m_textureFormat, tcu::IVec3(m_renderSize, m_renderSize, 1), m_resultBufferMemory->getHostPtr()));
+}
+
+class DiscardTestCase : public BaseRenderingTestCase
+{
+public:
+								DiscardTestCase					(tcu::TestContext& context, const std::string& name, const std::string& description, VkPrimitiveTopology primitiveTopology, deBool queryFragmentShaderInvocations, VkSampleCountFlagBits sampleCount = VK_SAMPLE_COUNT_1_BIT)
+									: BaseRenderingTestCase				(context, name, description, sampleCount)
+									, m_primitiveTopology				(primitiveTopology)
+									, m_queryFragmentShaderInvocations	(queryFragmentShaderInvocations)
+								{}
+
+	virtual TestInstance*		createInstance		(Context& context) const
+								{
+									if (m_queryFragmentShaderInvocations && !context.getDeviceFeatures().pipelineStatisticsQuery)
+										throw tcu::NotSupportedError("Pipeline statistics queries are not supported");
+
+									return new DiscardTestInstance (context, m_primitiveTopology, m_queryFragmentShaderInvocations);
+								}
+
+protected:
+	const VkPrimitiveTopology	m_primitiveTopology;
+	const deBool				m_queryFragmentShaderInvocations;
+};
+
 class TriangleInterpolationTestInstance : public BaseRenderingTestInstance
 {
 public:
@@ -2889,6 +3215,51 @@ void createRasterizationTests (tcu::TestCaseGroup* rasterizationTests)
 				culling->addChild(new CullingTestCase(testCtx, name, "Test primitive culling.", cullModes[cullModeNdx].mode, primitiveTypes[primitiveNdx].type, frontOrders[frontOrderNdx].mode, polygonModes[polygonModeNdx].mode));
 			}
 		}
+	}
+
+	// .discard
+	{
+		static const struct PrimitiveType
+		{
+			VkPrimitiveTopology	type;
+			const char*			name;
+		} primitiveTypes[] =
+		{
+			{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,	"triangle_list"		},
+			{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,	"triangle_strip"	},
+			{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,	"triangle_fan"		},
+			{ VK_PRIMITIVE_TOPOLOGY_LINE_LIST,		"line_list"			},
+			{ VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,		"line_strip"		},
+			{ VK_PRIMITIVE_TOPOLOGY_POINT_LIST,		"point_list"		}
+		};
+
+		static const struct queryPipeline
+		{
+			deBool			useQuery;
+			const char*		name;
+		} queryPipeline[] =
+		{
+			{ DE_FALSE,	"query_pipeline_false"	},
+			{ DE_TRUE,	"query_pipeline_true"	},
+		};
+
+		tcu::TestCaseGroup* const discard = new tcu::TestCaseGroup(testCtx, "discard", "Rasterizer discard");
+
+		for (int primitiveNdx = 0; primitiveNdx < DE_LENGTH_OF_ARRAY(primitiveTypes); ++primitiveNdx)
+		{
+			tcu::TestCaseGroup* const primitive = new tcu::TestCaseGroup(testCtx, primitiveTypes[primitiveNdx].name, "Rasterizer discard");
+
+			for (int useQueryNdx = 0; useQueryNdx < DE_LENGTH_OF_ARRAY(queryPipeline); useQueryNdx++)
+			{
+				const std::string name = std::string(queryPipeline[useQueryNdx].name);
+
+				primitive->addChild(new DiscardTestCase(testCtx, name, "Test primitive discarding.", primitiveTypes[primitiveNdx].type, queryPipeline[useQueryNdx].useQuery));
+			}
+
+			discard->addChild(primitive);
+		}
+
+		rasterizationTests->addChild(discard);
 	}
 
 	// .interpolation

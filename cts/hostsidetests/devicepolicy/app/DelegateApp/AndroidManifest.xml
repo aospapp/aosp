@@ -17,14 +17,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.delegate">
 
-    <application>
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
         <activity
             android:name="com.android.cts.delegate.DelegatedScopesReceiverActivity"
             android:exported="true">
         </activity>
+        <receiver
+            android:name=".NetworkLoggingDelegateTest$NetworkLogsReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.NETWORK_LOGS_AVAILABLE"/>
+            </intent-filter>
+        </receiver>
     </application>
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.delegate"
                      android:label="Delegation CTS Tests"/>
 </manifest>

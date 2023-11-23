@@ -16,13 +16,31 @@
 
 package android.voiceinteraction.service;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionSession;
 import android.service.voice.VoiceInteractionSessionService;
+import android.voiceinteraction.common.Utils;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 public class MainInteractionSessionService extends VoiceInteractionSessionService {
     @Override
     public VoiceInteractionSession onNewSession(Bundle args) {
-        return new MainInteractionSession(this);
+        final String className = (args != null)
+                ? args.getString(Utils.DIRECT_ACTIONS_KEY_CLASS) : null;
+        if (className == null) {
+            return new MainInteractionSession(this);
+        } else {
+            try {
+                final Constructor<?> constructor = Class.forName(className)
+                        .getConstructor(Context.class);
+                return (VoiceInteractionSession) constructor.newInstance(this);
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException
+                    | InstantiationException | InvocationTargetException e) {
+                throw new RuntimeException("Cannot instantiate class: " + className, e);
+            }
+        }
     }
 }

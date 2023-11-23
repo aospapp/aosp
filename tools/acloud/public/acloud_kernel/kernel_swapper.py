@@ -13,25 +13,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Kernel Swapper.
 
 This class manages swapping kernel images for a Cloud Android instance.
 """
-import os
 import subprocess
 
-from acloud.public import errors
+from acloud import errors
 from acloud.public import report
-from acloud.internal.lib import android_build_client
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import auth
-from acloud.internal.lib import gstorage_client
 from acloud.internal.lib import utils
-
-ALL_SCOPES = ' '.join([android_build_client.AndroidBuildClient.SCOPE,
-                       gstorage_client.StorageClient.SCOPE,
-                       android_compute_client.AndroidComputeClient.SCOPE])
 
 # ssh flags used to communicate with the Cloud Android instance.
 SSH_FLAGS = [
@@ -50,7 +42,7 @@ class KernelSwapper(object):
 
     Attributes:
         _compute_client: AndroidCopmuteClient object, manages AVD.
-        _instance_name: string, name of Cloud Android Instance.
+        _instance_name: tring, name of Cloud Android Instance.
         _target_ip: string, IP address of Cloud Android instance.
         _ssh_flags: string list, flags to be used with ssh and scp.
     """
@@ -62,7 +54,7 @@ class KernelSwapper(object):
             cfg: AcloudConfig object, used to create credentials.
             instance_name: string, instance name.
         """
-        credentials = auth.CreateCredentials(cfg, ALL_SCOPES)
+        credentials = auth.CreateCredentials(cfg)
         self._compute_client = android_compute_client.AndroidComputeClient(
             cfg, credentials)
         # Name of the Cloud Android instance.
@@ -83,22 +75,22 @@ class KernelSwapper(object):
         Returns:
             A Report instance.
         """
-        r = report.Report(command='swap_kernel')
+        reboot_image = report.Report(command='swap_kernel')
         try:
             self._ShellCmdOnTarget(MOUNT_CMD)
             self.PushFile(local_kernel_image, '/boot')
             self.RebootTarget()
         except subprocess.CalledProcessError as e:
-            r.AddError(str(e))
-            r.SetStatus(report.Status.FAIL)
-            return r
-        except errors.DeviceBootTimeoutError as e:
-            r.AddError(str(e))
-            r.SetStatus(report.Status.BOOT_FAIL)
-            return r
+            reboot_image.AddError(str(e))
+            reboot_image.SetStatus(report.Status.FAIL)
+            return reboot_image
+        except errors.DeviceBootError as e:
+            reboot_image.AddError(str(e))
+            reboot_image.SetStatus(report.Status.BOOT_FAIL)
+            return reboot_image
 
-        r.SetStatus(report.Status.SUCCESS)
-        return r
+        reboot_image.SetStatus(report.Status.SUCCESS)
+        return reboot_image
 
     def PushFile(self, src_path, dest_path):
         """Pushes local file to target Cloud Android instance.
@@ -119,7 +111,7 @@ class KernelSwapper(object):
 
         Raises:
             subprocess.CalledProcessError: see _ShellCmd.
-            errors.DeviceBootTimeoutError: if booting times out.
+            errors.DeviceBootError: if target fails to boot.
         """
         self._ShellCmdOnTarget(REBOOT_CMD)
         self._compute_client.WaitForBoot(self._instance_name)
@@ -137,7 +129,8 @@ class KernelSwapper(object):
         host_cmd = ' '.join([ssh_cmd, '"%s"' % target_cmd])
         self._ShellCmd(host_cmd)
 
-    def _ShellCmd(self, host_cmd):
+    @staticmethod
+    def _ShellCmd(host_cmd):
         """Runs a shell command on host device.
 
         Args:
@@ -151,4 +144,6 @@ class KernelSwapper(object):
             retry_checker=lambda e: isinstance(e, subprocess.CalledProcessError),
             max_retries=2,
             functor=lambda cmd: subprocess.check_call(cmd, shell=True),
+            sleep_multiplier=0,
+            retry_backoff_factor=1,
             cmd=host_cmd)

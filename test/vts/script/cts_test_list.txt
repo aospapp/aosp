@@ -5,7 +5,6 @@ CtsAccessibilityTestCases
 CtsAccountManagerTestCases
 CtsAdminPackageInstallerTestCases
 CtsAdminTestCases
-CtsAlarmClockTestCases
 CtsAndroidAppTestCases
 CtsAnimationTestCases
 CtsAppSecurityHostTestCases
@@ -68,7 +67,6 @@ CtsKernelConfigTestCases
 CtsKeystoreTestCases
 CtsLeanbackJankTestCases
 CtsLibcoreFileIOTestCases
-CtsLibcoreJavaUtilCollectionsTestCases
 CtsLibcoreJsr166TestCases
 CtsLibcoreLegacy22TestCases
 CtsLibcoreOjTestCases
@@ -125,7 +123,6 @@ CtsSaxTestCases
 CtsSecurityHostTestCases
 CtsSecurityTestCases
 CtsSensorTestCases
-CtsActivityManagerDeviceTestCases
 CtsShortcutHostTestCases
 CtsShortcutManagerTestCases
 CtsSignatureTestCases

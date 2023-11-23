@@ -19,52 +19,33 @@ package com.android.internal.telephony.mocks;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 
-import android.annotation.Nullable;
 import android.app.PendingIntent;
 import android.content.Context;
-import android.content.Intent;
 import android.net.ConnectivityManager;
-import android.net.IConnectivityManager;
 import android.net.LinkProperties;
-import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkMisc;
-import android.net.NetworkQuotaInfo;
 import android.net.NetworkRequest;
-import android.net.NetworkState;
-import android.net.ProxyInfo;
 import android.os.Binder;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
-import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.RemoteException;
-import android.os.ResultReceiver;
 import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.net.LegacyVpnInfo;
-import com.android.internal.net.VpnConfig;
-import com.android.internal.net.VpnInfo;
-import com.android.internal.net.VpnProfile;
 import com.android.internal.util.AsyncChannel;
 import com.android.server.connectivity.NetworkAgentInfo;
-import com.android.server.connectivity.NetworkMonitor;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
 import java.util.HashMap;
 
-/**
- * @hide
- */
-public class ConnectivityServiceMock extends IConnectivityManager.Stub
-        implements PendingIntent.OnFinished {
+public class ConnectivityServiceMock {
     private static final String TAG = "ConnectivityServiceMock";
     private static final boolean DBG = true;
     private static final boolean VDBG = true;
@@ -261,7 +242,7 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
             //notifyNetworkCallbacks(nai, ConnectivityManager.CALLBACK_LOST);
             //mKeepaliveTracker.handleStopAllKeepalives(nai,
             //       ConnectivityManager.PacketKeepalive.ERROR_INVALID_NETWORK);
-            nai.networkMonitor.sendMessage(NetworkMonitor.CMD_NETWORK_DISCONNECTED);
+            // nai.networkMonitor.sendMessage(NetworkMonitor.CMD_NETWORK_DISCONNECTED);
             mNetworkAgentInfos.remove(msg.replyTo);
             //updateClat(null, nai.linkProperties, nai);
             //synchronized (mNetworkForNetId) {
@@ -330,12 +311,23 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         public final String name;
         public final Messenger messenger;
         public final AsyncChannel asyncChannel;
+        public final int factorySerialNumber;
 
-        public NetworkFactoryInfo(String name, Messenger messenger, AsyncChannel asyncChannel) {
+        NetworkFactoryInfo(String name, Messenger messenger, AsyncChannel asyncChannel,
+                int factorySerialNumber) {
             this.name = name;
             this.messenger = messenger;
             this.asyncChannel = asyncChannel;
+            this.factorySerialNumber = factorySerialNumber;
         }
+    }
+
+    private int getCallingUid() {
+        return Process.myUid();
+    }
+
+    private int getCallingPid() {
+        return Process.myPid();
     }
 
     private class NetworkRequestInfo implements IBinder.DeathRecipient {
@@ -405,288 +397,6 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         return mNextNetworkRequestId++;
     }
 
-    @Override
-    public NetworkInfo getActiveNetworkInfo() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public Network getActiveNetwork() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public Network getActiveNetworkForUid(int uid, boolean ignoreBlocked) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public NetworkInfo getActiveNetworkInfoUnfiltered() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkInfo getActiveNetworkInfoForUid(int uid, boolean ignoreBlocked) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkInfo getNetworkInfo(int networkType) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkInfo getNetworkInfoForUid(Network network, int uid, boolean ignoreBlocked) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkInfo[] getAllNetworkInfo() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public Network getNetworkForType(int networkType) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public Network[] getAllNetworks() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkCapabilities[] getDefaultNetworkCapabilitiesForUser(int userId) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean isNetworkSupported(int networkType) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public LinkProperties getActiveLinkProperties() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public LinkProperties getLinkPropertiesForType(int networkType) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public LinkProperties getLinkProperties(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkCapabilities getNetworkCapabilities(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkState[] getAllNetworkState() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkQuotaInfo getActiveNetworkQuotaInfo() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean isActiveNetworkMetered() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public boolean requestRouteToHostAddress(int networkType, byte[] hostAddress) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public int getRestoreDefaultNetworkDelay(int networkType) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void setAcceptUnvalidated(Network network, boolean accept, boolean always) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void setAvoidUnvalidated(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void startCaptivePortalApp(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public int getMultipathPreference(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public int tether(String iface, String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public int untether(String iface, String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public int getLastTetherError(String iface) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetherableUsbRegexs() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetherableWifiRegexs() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetherableBluetoothRegexs() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public int setUsbTethering(boolean enable, String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetherableIfaces() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetheredIfaces() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetheringErroredIfaces() {
-        throw new RuntimeException("not implemented");
-    }
-
-    public String[] getTetheredDhcpRanges() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean isTetheringSupported(String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void startTethering(int type, ResultReceiver receiver, boolean showProvisioningUi,
-            String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void stopTethering(int type, String callerPkg) {
-        throw new RuntimeException("not implemented");
-    }
-
-
-    public void reportInetCondition(int networkType, int percentage) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void reportNetworkConnectivity(Network network, boolean hasConnectivity) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public ProxyInfo getProxyForNetwork(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void setGlobalProxy(ProxyInfo proxyProperties) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public ProxyInfo getGlobalProxy() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean prepareVpn(@Nullable String oldPackage, @Nullable String newPackage,
-            int userId) {
-        throw new RuntimeException("not implemented");
-    }
-
-    public void setVpnPackageAuthorization(String packageName, int userId, boolean authorized) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public ParcelFileDescriptor establishVpn(VpnConfig config) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void startLegacyVpn(VpnProfile profile) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public LegacyVpnInfo getLegacyVpnInfo(int userId) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public VpnInfo[] getAllVpnInfo() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public VpnConfig getVpnConfig(int userId) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean updateLockdownVpn() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean isAlwaysOnVpnPackageSupported(int userId, String packageName) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean setAlwaysOnVpnPackage(int userId, String packageName, boolean lockdownEnabled) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public String getAlwaysOnVpnPackage(int userId) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public int checkMobileProvisioning(int suggestedTimeOutMs) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public String getMobileProvisioningUrl() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void setProvisioningNotificationVisible(boolean visible, int networkType,
-            String action) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void setAirplaneMode(boolean enable) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
     public NetworkRequest requestNetwork(NetworkCapabilities networkCapabilities,
             Messenger messenger, int timeoutMs, IBinder binder, int legacyType) {
         networkCapabilities = new NetworkCapabilities(networkCapabilities);
@@ -705,45 +415,16 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         return networkRequest;
     }
 
-    @Override
-    public boolean requestBandwidthUpdate(Network network) {
-        throw new RuntimeException("not implemented");
-    }
-
-
-    @Override
-    public NetworkRequest pendingRequestForNetwork(NetworkCapabilities networkCapabilities,
-            PendingIntent operation) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void releasePendingNetworkRequest(PendingIntent operation) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public NetworkRequest listenForNetwork(NetworkCapabilities networkCapabilities,
-            Messenger messenger, IBinder binder) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void pendingListenForNetwork(NetworkCapabilities networkCapabilities,
-            PendingIntent operation) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
     public void releaseNetworkRequest(NetworkRequest networkRequest) {
         mHandler.sendMessage(mHandler.obtainMessage(EVENT_RELEASE_NETWORK_REQUEST, getCallingUid(),
                 0, networkRequest));
     }
 
-    @Override
-    public void registerNetworkFactory(Messenger messenger, String name) {
-        NetworkFactoryInfo nfi = new NetworkFactoryInfo(name, messenger, new AsyncChannel());
+    public int registerNetworkFactory(Messenger messenger, String name) {
+        NetworkFactoryInfo nfi = new NetworkFactoryInfo(name, messenger, new AsyncChannel(),
+                NetworkFactory.SerialNumber.nextSerialNumber());
         mHandler.sendMessage(mHandler.obtainMessage(EVENT_REGISTER_NETWORK_FACTORY, nfi));
+        return nfi.factorySerialNumber;
     }
 
     private void handleRegisterNetworkFactory(NetworkFactoryInfo nfi) {
@@ -752,14 +433,8 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         nfi.asyncChannel.connect(mContext, mTrackerHandler, nfi.messenger);
     }
 
-    @Override
     public void unregisterNetworkFactory(Messenger messenger) {
         mHandler.sendMessage(mHandler.obtainMessage(EVENT_UNREGISTER_NETWORK_FACTORY, messenger));
-    }
-
-    @Override
-    public byte[] getNetworkWatchlistConfigHash() {
-        throw new RuntimeException("not implemented");
     }
 
     private void handleUnregisterNetworkFactory(Messenger messenger) {
@@ -773,7 +448,7 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
 
     public int registerNetworkAgent(Messenger messenger, NetworkInfo networkInfo,
             LinkProperties linkProperties, NetworkCapabilities networkCapabilities,
-            int currentScore, NetworkMisc networkMisc) {
+            int currentScore, NetworkMisc networkMisc, int factorySerialNumber) {
 //        final NetworkAgentInfo nai = new NetworkAgentInfo(messenger, new AsyncChannel(),
 //                new Network(reserveNetId()), new NetworkInfo(networkInfo), new LinkProperties(
 //                linkProperties), new NetworkCapabilities(networkCapabilities), currentScore,
@@ -913,54 +588,6 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
     private void rematchAllNetworksAndRequests(NetworkAgentInfo changed, int oldScore) {
     }
 
-    @Override
-    public void onSendFinished(PendingIntent pendingIntent, Intent intent, int resultCode,
-            String resultData, Bundle resultExtras) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean addVpnAddress(String address, int prefixLength) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean removeVpnAddress(String address, int prefixLength) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public boolean setUnderlyingNetworksForVpn(Network[] networks) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public String getCaptivePortalServerUrl() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void startNattKeepalive(Network network, int intervalSeconds, Messenger messenger,
-            IBinder binder, String srcAddr, int srcPort, String dstAddr) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void stopKeepalive(Network network, int slot) {
-        throw new RuntimeException("not implemented");
-    }
-
-    @Override
-    public void factoryReset() {
-        throw new RuntimeException("not implemented");
-    }
-
-    @VisibleForTesting
-    public NetworkMonitor createNetworkMonitor(Context context, Handler handler,
-            NetworkAgentInfo nai, NetworkRequest defaultRequest) {
-        throw new RuntimeException("not implemented");
-    }
-
     @VisibleForTesting
     public NetworkRequest defaultRequest = null;
     @VisibleForTesting
@@ -984,6 +611,4 @@ public class ConnectivityServiceMock extends IConnectivityManager.Stub
         releaseNetworkRequest(defaultRequest);
         defaultRequest = null;
     }
-
-
 }

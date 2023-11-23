@@ -21,15 +21,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"android/soong/ui/metrics"
+	"android/soong/ui/status"
 )
 
 func runNinja(ctx Context, config Config) {
-	ctx.BeginTrace("ninja")
+	ctx.BeginTrace(metrics.PrimaryNinja, "ninja")
 	defer ctx.EndTrace()
+
+	fifo := filepath.Join(config.OutDir(), ".ninja_fifo")
+	nr := status.NewNinjaReader(ctx, ctx.Status.StartTool(), fifo)
+	defer nr.Close()
 
 	executable := config.PrebuiltBuildTool("ninja")
 	args := []string{
 		"-d", "keepdepfile",
+		"--frontend_file", fifo,
 	}
 
 	args = append(args, config.NinjaArgs()...)
@@ -47,15 +55,17 @@ func runNinja(ctx Context, config Config) {
 
 	args = append(args, "-f", config.CombinedNinjaFile())
 
-	if config.IsVerbose() {
-		args = append(args, "-v")
-	}
-	args = append(args, "-w", "dupbuild=err")
+	args = append(args,
+		"-w", "dupbuild=err",
+		"-w", "missingdepfile=err")
 
 	cmd := Command(ctx, config, "ninja", executable, args...)
+	cmd.Sandbox = ninjaSandbox
 	if config.HasKatiSuffix() {
 		cmd.Environment.AppendFromKati(config.KatiEnvFile())
 	}
+
+	cmd.Environment.Set("DIST_DIR", config.DistDir())
 
 	// Allow both NINJA_ARGS and NINJA_EXTRA_ARGS, since both have been
 	// used in the past to specify extra ninja arguments.
@@ -66,13 +76,6 @@ func runNinja(ctx Context, config Config) {
 		cmd.Args = append(cmd.Args, strings.Fields(extra)...)
 	}
 
-	if _, ok := cmd.Environment.Get("NINJA_STATUS"); !ok {
-		cmd.Environment.Set("NINJA_STATUS", "[%p %f/%t] ")
-	}
-
-	cmd.Stdin = ctx.Stdin()
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
 	logPath := filepath.Join(config.OutDir(), ".ninja_log")
 	ninjaHeartbeatDuration := time.Minute * 5
 	if overrideText, ok := cmd.Environment.Get("NINJA_HEARTBEAT_INTERVAL"); ok {
@@ -99,10 +102,8 @@ func runNinja(ctx Context, config Config) {
 		}
 	}()
 
-	startTime := time.Now()
-	defer ctx.ImportNinjaLog(logPath, startTime)
-
-	cmd.RunOrFatal()
+	ctx.Status.Status("Starting ninja...")
+	cmd.RunAndPrintOrFatal()
 }
 
 type statusChecker struct {

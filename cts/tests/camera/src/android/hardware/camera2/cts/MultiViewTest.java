@@ -18,7 +18,9 @@ package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 
+import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
+import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraAccessException;
@@ -27,14 +29,16 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.cts.CameraTestUtils.ImageVerifierListener;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.camera2.cts.rs.BitmapUtils;
 import android.hardware.camera2.cts.testcases.Camera2MultiViewTestCase;
 import android.hardware.camera2.cts.testcases.Camera2MultiViewTestCase.CameraPreviewListener;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.ImageWriter;
 import android.os.SystemClock;
 import android.os.ConditionVariable;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -46,18 +50,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.Test;
+
 /**
  * CameraDevice test by using combination of SurfaceView, TextureView and ImageReader
  */
-@AppModeFull
 public class MultiViewTest extends Camera2MultiViewTestCase {
     private static final String TAG = "MultiViewTest";
     private final static long WAIT_FOR_COMMAND_TO_COMPLETE = 5000; //ms
     private final static long PREVIEW_TIME_MS = 2000;
-    private final static int NUM_SURFACE_SWITCHES = 10;
+    private final static long PREVIEW_FLUSH_TIME_MS = 1000;
+    private final static int NUM_SURFACE_SWITCHES = 30;
     private final static int IMG_READER_COUNT = 2;
     private final static int YUV_IMG_READER_COUNT = 3;
+    private final static double BITMAP_DIFF_THRESHOLD = 0.1;
 
+    @Test
     public void testTextureViewPreview() throws Exception {
         for (String cameraId : mCameraIds) {
             Exception prior = null;
@@ -86,6 +94,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         }
     }
 
+    @Test
     public void testTextureViewPreviewWithImageReader() throws Exception {
         for (String cameraId : mCameraIds) {
             Exception prior = null;
@@ -133,6 +142,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         }
     }
 
+    @Test
     public void testDualTextureViewPreview() throws Exception {
         for (String cameraId : mCameraIds) {
             Exception prior = null;
@@ -165,6 +175,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         }
     }
 
+    @Test
     public void testDualTextureViewAndImageReaderPreview() throws Exception {
         for (String cameraId : mCameraIds) {
             Exception prior = null;
@@ -209,6 +220,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         }
     }
 
+    @Test
     public void testDualCameraPreview() throws Exception {
         final int NUM_CAMERAS_TESTED = 2;
         if (mCameraIds.length < NUM_CAMERAS_TESTED) {
@@ -230,6 +242,11 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             // TODO: check the framerate is correct
             SystemClock.sleep(PREVIEW_TIME_MS);
             for (int i = 0; i < NUM_CAMERAS_TESTED; i++) {
+                if (!getStaticInfo(mCameraIds[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 stopPreview(mCameraIds[i]);
             }
         } catch (BlockingOpenException e) {
@@ -248,6 +265,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Verify dynamic shared surface behavior.
      */
+    @Test
     public void testSharedSurfaceBasic() throws Exception {
         for (String cameraId : mCameraIds) {
             try {
@@ -389,6 +407,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Verify dynamic shared surface behavior using multiple ImageReaders.
      */
+    @Test
     public void testSharedSurfaceImageReaderSwitch() throws Exception {
         for (String cameraId : mCameraIds) {
             try {
@@ -477,6 +496,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Verify dynamic shared surface behavior using YUV ImageReaders.
      */
+    @Test
     public void testSharedSurfaceYUVImageReaderSwitch() throws Exception {
         int YUVFormats[] = {ImageFormat.YUV_420_888, ImageFormat.YUV_422_888,
             ImageFormat.YUV_444_888, ImageFormat.YUY2, ImageFormat.YV12,
@@ -508,7 +528,9 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
                 if ((yuvFormat != -1) && (frameSize.getWidth() > 0) &&
                         (frameSize.getHeight() > 0)) {
                     testSharedSurfaceYUVImageReaderSwitch(cameraId, NUM_SURFACE_SWITCHES, yuvFormat,
-                            frameSize);
+                            frameSize, /*blockMaxAcquired*/ false);
+                    testSharedSurfaceYUVImageReaderSwitch(cameraId, NUM_SURFACE_SWITCHES, yuvFormat,
+                            frameSize, /*blockMaxAcquired*/ true);
                 } else {
                     Log.i(TAG, "Camera " + cameraId +
                             " does not support YUV outputs, skipping");
@@ -521,7 +543,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     }
 
     private void testSharedSurfaceYUVImageReaderSwitch(String cameraId, int switchCount, int format,
-            Size frameSize) throws Exception {
+            Size frameSize, boolean blockMaxAcquired) throws Exception {
 
         assertTrue("YUV_IMG_READER_COUNT should be equal or greater than 2",
                 (YUV_IMG_READER_COUNT >= 2));
@@ -552,6 +574,11 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         // Test YUV ImageReader surface sharing. The first ImageReader will
         // always be part of the capture request, the rest will switch on each
         // iteration.
+        // If 'blockMaxAcquired' is enabled, the first image reader will acquire
+        // the maximum possible amount of buffers and also block a few more.
+        int maxAcquiredImages = imageReaders[0].getMaxImages();
+        int acquiredCount = 0;
+        Image[] acquiredImages = new Image[maxAcquiredImages];
         for (int j = 0; j < switchCount; j++) {
             for (int i = 1; i < YUV_IMG_READER_COUNT; i++) {
                 outputConfig.addSurface(readerSurfaces[i]);
@@ -559,17 +586,34 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
                 CaptureRequest.Builder imageReaderRequestBuilder = getCaptureBuilder(cameraId,
                         CameraDevice.TEMPLATE_PREVIEW);
                 imageReaderRequestBuilder.addTarget(readerSurfaces[i]);
-                imageReaderRequestBuilder.addTarget(readerSurfaces[0]);
+                if (blockMaxAcquired) {
+                    if (acquiredCount <= (maxAcquiredImages + 1)) {
+                        // Camera should be able to handle cases where
+                        // one output blocks more buffers than the respective
+                        // maximum acquired count.
+                        imageReaderRequestBuilder.addTarget(readerSurfaces[0]);
+                    }
+                } else {
+                    imageReaderRequestBuilder.addTarget(readerSurfaces[0]);
+                }
                 capture(cameraId, imageReaderRequestBuilder.build(), resultListener);
                 imageListeners[i].waitForAnyImageAvailable(PREVIEW_TIME_MS);
                 Image img = imageReaders[i].acquireLatestImage();
                 assertNotNull("Invalid image acquired!", img);
                 assertNotNull("Image planes are invalid!", img.getPlanes());
                 img.close();
-                imageListeners[0].waitForAnyImageAvailable(PREVIEW_TIME_MS);
-                img = imageReaders[0].acquireLatestImage();
-                assertNotNull("Invalid image acquired!", img);
-                img.close();
+                if (blockMaxAcquired) {
+                    if (acquiredCount < maxAcquiredImages) {
+                        imageListeners[0].waitForAnyImageAvailable(PREVIEW_TIME_MS);
+                        acquiredImages[acquiredCount] = imageReaders[0].acquireNextImage();
+                    }
+                    acquiredCount++;
+                } else {
+                    imageListeners[0].waitForAnyImageAvailable(PREVIEW_TIME_MS);
+                    img = imageReaders[0].acquireLatestImage();
+                    assertNotNull("Invalid image acquired!", img);
+                    img.close();
+                }
                 outputConfig.removeSurface(readerSurfaces[i]);
                 updateOutputConfiguration(cameraId, outputConfig);
             }
@@ -583,6 +627,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Test the dynamic shared surface limit.
      */
+    @Test
     public void testSharedSurfaceLimit() throws Exception {
         for (String cameraId : mCameraIds) {
             try {
@@ -663,6 +708,8 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
                 }
             } else {
                 surfaceSharedOutput.addSurface(surfaces[i]);
+                assertTrue("Session configuration should not fail",
+                        isSessionConfigurationSupported(cameraId, outputConfigurations));
                 updateOutputConfiguration(cameraId, surfaceSharedOutput);
                 sequenceId = updateRepeatingRequest(cameraId, outputConfigurations, resultListener);
 
@@ -680,7 +727,8 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
                 }
             } else {
                 surfaceSharedOutput.removeSurface(surfaces[i]);
-
+                assertTrue("Session configuration should not fail",
+                        isSessionConfigurationSupported(cameraId, outputConfigurations));
             }
         }
         //Remove all previously added shared outputs in one call
@@ -697,6 +745,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Test dynamic shared surface switch behavior.
      */
+    @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testSharedSurfaceSwitch() throws Exception {
         for (String cameraId : mCameraIds) {
             try {
@@ -789,6 +838,171 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         stopPreview(cameraId);
     }
 
+
+    /*
+     * Two output Surface of the same size are configured: one from TextureView and
+     * the other is ImageReader with usage flag USAGE_GPU_SAMPLED_IMAGE. The
+     * ImageReader queues Image to a ImageWriter of the same usage flag, the
+     * ImageWriter then is connected to another TextureView. Verify the Bitmap
+     * from the first TextureView is identical to the second TextureView.
+     */
+    @Test
+    public void testTextureImageWriterReaderOperation() throws Exception {
+        for (String id : mCameraIds) {
+            ImageReader reader = null;
+            ImageWriter writer = null;
+            Surface writerOutput = null;
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+                openCamera(id);
+
+                if (!getStaticInfo(id).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
+                int maxNumStreamsProc =
+                        getStaticInfo(id).getMaxNumOutputStreamsProcessedChecked();
+                if (maxNumStreamsProc < 2) {
+                    continue;
+                }
+
+                // mTextureView[0..2] each shared 1/3 of the horizontal space but their size can
+                // differ up to one pixel if the total width is not divisible by 3. Here we try to
+                // pick two of them that have matching size.
+                Size size0 = new Size(mTextureView[0].getWidth(), mTextureView[0].getHeight());
+                Size size1 = new Size(mTextureView[1].getWidth(), mTextureView[1].getHeight());
+                Size size2 = new Size(mTextureView[2].getWidth(), mTextureView[2].getHeight());
+                Log.v(TAG, "Size0: " + size0 + ", Size1: " + size1 + ", size2: " + size2);
+
+                int viewIdx0 = 0;
+                int viewIdx1 = 1;
+                if (!size0.equals(size1)) {
+                    assertTrue("No matching view sizes! Size0: " + size0 +
+                            ", Size1: " + size1 + ", size2: " + size2,
+                            size0.equals(size2) || size1.equals(size2));
+                    if (size0.equals(size2)) {
+                        viewIdx0 = 0;
+                        viewIdx1 = 2;
+                    } else {
+                        viewIdx0 = 1;
+                        viewIdx1 = 2;
+                    }
+                }
+
+                Size previewSize = getOrderedPreviewSizes(id).get(0);
+                List<TextureView> views = Arrays.asList(mTextureView[viewIdx0]);
+
+                // view[0] is normal camera -> TextureView path
+                // view[1] is camera -> ImageReader -> TextureView path
+                SurfaceTexture surfaceTexture0 = getAvailableSurfaceTexture(
+                        WAIT_FOR_COMMAND_TO_COMPLETE, mTextureView[viewIdx0]);
+                assertNotNull("Unable to get preview surface texture 0", surfaceTexture0);
+                surfaceTexture0.setDefaultBufferSize(
+                        previewSize.getWidth(), previewSize.getHeight());
+
+                SurfaceTexture surfaceTexture1 = getAvailableSurfaceTexture(
+                        WAIT_FOR_COMMAND_TO_COMPLETE, mTextureView[viewIdx1]);
+                assertNotNull("Unable to get preview surface texture 1", surfaceTexture1);
+                surfaceTexture1.setDefaultBufferSize(
+                        previewSize.getWidth(), previewSize.getHeight());
+
+                updatePreviewDisplayRotation(previewSize, mTextureView[viewIdx1]);
+
+                reader = ImageReader.newInstance(
+                        previewSize.getWidth(), previewSize.getHeight(),
+                        ImageFormat.PRIVATE,
+                        MAX_READER_IMAGES,
+                        HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+
+                writerOutput = new Surface(surfaceTexture1);
+                writer = ImageWriter.newInstance(
+                        writerOutput, MAX_READER_IMAGES,
+                        ImageFormat.PRIVATE);
+
+                ImageWriterQueuer writerInput = new ImageWriterQueuer(writer);
+
+                reader.setOnImageAvailableListener(writerInput, mHandler);
+
+                startTextureViewPreview(id, views, reader);
+                SystemClock.sleep(PREVIEW_TIME_MS);
+                stopRepeating(id);
+                // Extra sleep to make sure all previous preview frames are delivered to
+                // SurfaceTexture
+                SystemClock.sleep(PREVIEW_FLUSH_TIME_MS);
+
+                Surface preview = new Surface(surfaceTexture0);
+                CaptureRequest.Builder requestBuilder = getCaptureBuilder(id,
+                        CameraDevice.TEMPLATE_PREVIEW);
+                requestBuilder.addTarget(reader.getSurface());
+                requestBuilder.addTarget(preview);
+                SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+                CameraPreviewListener stListener0 = new CameraPreviewListener();
+                CameraPreviewListener stListener1 = new CameraPreviewListener();
+                mTextureView[viewIdx0].setSurfaceTextureListener(stListener0);
+                mTextureView[viewIdx1].setSurfaceTextureListener(stListener1);
+
+                // do a single capture
+                capture(id, requestBuilder.build(), resultListener);
+                // wait for capture done
+                stListener0.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+                stListener1.waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+
+                // get bitmap from both TextureView and compare
+                Bitmap bitmap0 = mTextureView[viewIdx0].getBitmap();
+                Bitmap bitmap1 = mTextureView[viewIdx1].getBitmap();
+                BitmapUtils.BitmapCompareResult result =
+                        BitmapUtils.compareBitmap(bitmap0, bitmap1);
+
+                Log.i(TAG, "Bitmap difference is " + result.mDiff);
+                assertTrue(String.format(
+                        "Bitmap difference exceeds threshold: diff %f > threshold %f",
+                        result.mDiff, BITMAP_DIFF_THRESHOLD),
+                        result.mDiff <= BITMAP_DIFF_THRESHOLD);
+
+                assertTrue(String.format(
+                        "Bitmap from direct Textureview is flat. All pixels are (%f, %f, %f)",
+                        result.mLhsAverage[0], result.mLhsAverage[1], result.mLhsAverage[2]),
+                        !result.mLhsFlat);
+
+                assertTrue(String.format(
+                        "Bitmap from ImageWriter Textureview is flat. All pixels are (%f, %f, %f)",
+                        result.mRhsAverage[0], result.mRhsAverage[1], result.mRhsAverage[2]),
+                        !result.mRhsFlat);
+            } finally {
+                if (reader != null) {
+                    reader.close();
+                }
+                if (writer != null) {
+                    writer.close();
+                }
+                if (writerOutput != null) {
+                    writerOutput.release();
+                }
+                closeCamera(id);
+            }
+        }
+    }
+
+    public static class ImageWriterQueuer implements ImageReader.OnImageAvailableListener {
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image image = null;
+            try {
+                image = reader.acquireNextImage();
+            } finally {
+                if (image != null && mWriter != null) {
+                    mWriter.queueInputImage(image);
+                }
+            }
+        }
+
+        public ImageWriterQueuer(ImageWriter writer) {
+            mWriter = writer;
+        }
+        private ImageWriter mWriter = null;
+    }
+
     private void checkForLastFrameInSequence(long lastSequenceFrameNumber,
             SimpleCaptureCallback listener) throws Exception {
         // Find the last frame number received in results and failures.
@@ -821,6 +1035,7 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
     /*
      * Verify behavior of sharing surfaces within one OutputConfiguration
      */
+    @Test
     public void testSharedSurfaces() throws Exception {
         for (String cameraId : mCameraIds) {
             try {
@@ -1002,8 +1217,6 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             surfaces[i] = new Surface(previewTexture[i]);
         }
 
-        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-
         // Create shared outputs for the two surface textures
         OutputConfiguration surfaceSharedOutput = new OutputConfiguration(
                 OutputConfiguration.SURFACE_GROUP_ID_NONE, surfaces[0]);
@@ -1045,8 +1258,6 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             updatePreviewDisplayRotation(previewSize, mTextureView[i]);
             surfaces[i] = new Surface(previewTexture[i]);
         }
-
-        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
 
         //
         // Create deferred outputConfiguration, addSurface, createCaptureSession, addSurface, and

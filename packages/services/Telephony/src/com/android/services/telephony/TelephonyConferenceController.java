@@ -16,25 +16,21 @@
 
 package com.android.services.telephony;
 
+import android.telecom.Conference;
+import android.telecom.Connection;
+import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccountHandle;
+
+import com.android.internal.telephony.Call;
+import com.android.phone.PhoneUtils;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import android.net.Uri;
-import android.telecom.Conference;
-import android.telecom.ConferenceParticipant;
-import android.telecom.Conferenceable;
-import android.telecom.Connection;
-import android.telecom.DisconnectCause;
-import android.telecom.PhoneAccountHandle;
-import com.android.phone.PhoneUtils;
-
-import com.android.internal.telephony.Call;
 
 /**
  * Maintains a list of all the known TelephonyConnections connections and controls GSM and
@@ -268,6 +264,7 @@ final class TelephonyConferenceController {
                                 mTelephonyConference, connection);
                         mTelephonyConference.addConnection(connection);
                     }
+                    mTelephonyConference.updateCallRadioTechAfterCreation();
                     mConnectionService.addConference(mTelephonyConference);
                 } else {
                     Log.d(this, "Trigger recalculate later");

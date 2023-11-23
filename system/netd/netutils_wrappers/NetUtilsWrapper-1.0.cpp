@@ -26,7 +26,7 @@
 #include <android-base/strings.h>
 
 #define LOG_TAG "NetUtilsWrapper"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include "NetUtilsWrapper.h"
 
@@ -34,7 +34,8 @@
 
 #define OEM_IFACE "[^ ]*oem[0-9]+"
 #define RMNET_IFACE "(r_)?rmnet_(data)?[0-9]+"
-#define VENDOR_IFACE "(" OEM_IFACE "|" RMNET_IFACE ")"
+#define CCMNI_IFACE "cc(3)?mni[0-9]+"
+#define VENDOR_IFACE "(" OEM_IFACE "|" RMNET_IFACE "|" CCMNI_IFACE ")"
 #define VENDOR_CHAIN "(oem_.*|nm_.*|qcom_.*)"
 
 // List of net utils wrapped by this program
@@ -45,7 +46,7 @@ const char *netcmds[] = {
     "ndc",
     "tc",
     "ip",
-    NULL,
+    nullptr,
 };
 
 // List of regular expressions of expected commands.
@@ -105,7 +106,7 @@ bool checkExpectedCommand(int argc, char **argv) {
 // This is the only gateway for vendor programs to reach net utils.
 int doMain(int argc, char **argv) {
     char *progname = argv[0];
-    char *basename = NULL;
+    char *basename = nullptr;
 
     basename = strrchr(progname, '/');
     basename = basename ? basename + 1 : progname;

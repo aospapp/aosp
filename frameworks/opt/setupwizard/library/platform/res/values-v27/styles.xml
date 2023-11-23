@@ -44,6 +44,7 @@
 
         <item name="suwButtonAllCaps">true</item>
         <item name="suwButtonFontFamily">sans-serif</item>
+        <item name="suwButtonHighlightAlpha">0.24</item>
         <item name="suwCardBackground">@drawable/suw_card_bg</item>
         <item name="suwFillContentLayoutStyle">@style/SuwFillContentLayout</item>
         <item name="suwDividerInsetEnd">0dp</item>
@@ -75,6 +76,7 @@
 
         <item name="suwButtonAllCaps">true</item>
         <item name="suwButtonFontFamily">sans-serif</item>
+        <item name="suwButtonHighlightAlpha">0.24</item>
         <item name="suwCardBackground">@drawable/suw_card_bg</item>
         <item name="suwFillContentLayoutStyle">@style/SuwFillContentLayout</item>
         <item name="suwDividerInsetEnd">0dp</item>
@@ -109,7 +111,8 @@
 
         <item name="suwButtonAllCaps">true</item>
         <item name="suwButtonCornerRadius">@dimen/suw_glif_button_corner_radius</item>
-        <item name="suwButtonFontFamily">sans-serif</item>
+        <item name="suwButtonFontFamily">sans-serif-medium</item>
+        <item name="suwButtonHighlightAlpha">0.24</item>
         <item name="suwColorPrimary">?android:attr/colorPrimary</item>
         <item name="suwFillContentLayoutStyle">@style/SuwFillContentLayout</item>
         <item name="suwDividerInsetEnd">0dp</item>
@@ -145,7 +148,8 @@
 
         <item name="suwButtonAllCaps">true</item>
         <item name="suwButtonCornerRadius">@dimen/suw_glif_button_corner_radius</item>
-        <item name="suwButtonFontFamily">sans-serif</item>
+        <item name="suwButtonFontFamily">sans-serif-medium</item>
+        <item name="suwButtonHighlightAlpha">0.12</item>
         <item name="suwColorPrimary">?android:attr/colorPrimary</item>
         <item name="suwFillContentLayoutStyle">@style/SuwFillContentLayout</item>
         <item name="suwDividerInsetEnd">0dp</item>
@@ -216,6 +220,13 @@
         <!-- Values used in themes -->
         <item name="android:buttonCornerRadius" tools:ignore="NewApi">?attr/suwButtonCornerRadius</item>
         <item name="android:colorControlHighlight">@color/suw_flat_button_highlight</item>
+    </style>
+
+    <!-- Ignore UnusedResources: used by clients -->
+    <style name="SuwGlifButton.Tertiary"
+        parent="SuwGlifButton.BaseTertiary"
+        tools:ignore="UnusedResources">
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
 </resources>

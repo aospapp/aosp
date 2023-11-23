@@ -43,5 +43,6 @@ cc_binary {
         "libvts_common",
         "libvts_multidevice_proto",
         "libvts_profiling_utils",
+        "libvts_resource_manager",
     ],
 }

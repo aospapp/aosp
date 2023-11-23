@@ -13,31 +13,28 @@
 #include "puffin/src/huffman_table.h"
 #include "puffin/src/include/puffin/common.h"
 #include "puffin/src/include/puffin/stream.h"
+#include "puffin/src/logging.h"
 #include "puffin/src/puff_data.h"
 #include "puffin/src/puff_reader.h"
-#include "puffin/src/set_errors.h"
-
-namespace puffin {
 
 using std::string;
+
+namespace puffin {
 
 Huffer::Huffer() : dyn_ht_(new HuffmanTable()), fix_ht_(new HuffmanTable()) {}
 
 Huffer::~Huffer() {}
 
 bool Huffer::HuffDeflate(PuffReaderInterface* pr,
-                         BitWriterInterface* bw,
-                         Error* error) const {
-  *error = Error::kSuccess;
+                         BitWriterInterface* bw) const {
   PuffData pd;
   HuffmanTable* cur_ht = nullptr;
   // If no bytes left for PuffReader to read, bail out.
   while (pr->BytesLeft() != 0) {
-    TEST_AND_RETURN_FALSE(pr->GetNext(&pd, error));
+    TEST_AND_RETURN_FALSE(pr->GetNext(&pd));
 
     // The first data should be a metadata.
-    TEST_AND_RETURN_FALSE_SET_ERROR(pd.type == PuffData::Type::kBlockMetadata,
-                                    Error::kInvalidInput);
+    TEST_AND_RETURN_FALSE(pd.type == PuffData::Type::kBlockMetadata);
     auto header = pd.block_metadata[0];
     auto final_bit = (header & 0x80) >> 7;
     auto type = (header & 0x60) >> 5;
@@ -45,36 +42,26 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
     DVLOG(2) << "Write block type: "
              << BlockTypeToString(static_cast<BlockType>(type));
 
-    TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(1, final_bit),
-                                    Error::kInsufficientInput);
-    TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(2, type),
-                                    Error::kInsufficientInput);
+    TEST_AND_RETURN_FALSE(bw->WriteBits(1, final_bit));
+    TEST_AND_RETURN_FALSE(bw->WriteBits(2, type));
     switch (static_cast<BlockType>(type)) {
       case BlockType::kUncompressed:
         bw->WriteBoundaryBits(skipped_bits);
-        TEST_AND_RETURN_FALSE(pr->GetNext(&pd, error));
-        TEST_AND_RETURN_FALSE_SET_ERROR(pd.type != PuffData::Type::kLiteral,
-                                        Error::kInvalidInput);
+        TEST_AND_RETURN_FALSE(pr->GetNext(&pd));
+        TEST_AND_RETURN_FALSE(pd.type != PuffData::Type::kLiteral);
 
         if (pd.type == PuffData::Type::kLiterals) {
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(16, pd.length),
-                                          Error::kInsufficientOutput);
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(16, ~pd.length),
-                                          Error::kInsufficientOutput);
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBytes(pd.length, pd.read_fn),
-                                          Error::kInsufficientOutput);
+          TEST_AND_RETURN_FALSE(bw->WriteBits(16, pd.length));
+          TEST_AND_RETURN_FALSE(bw->WriteBits(16, ~pd.length));
+          TEST_AND_RETURN_FALSE(bw->WriteBytes(pd.length, pd.read_fn));
           // Reading end of block, but don't write anything.
-          TEST_AND_RETURN_FALSE(pr->GetNext(&pd, error));
-          TEST_AND_RETURN_FALSE_SET_ERROR(
-              pd.type == PuffData::Type::kEndOfBlock, Error::kInvalidInput);
+          TEST_AND_RETURN_FALSE(pr->GetNext(&pd));
+          TEST_AND_RETURN_FALSE(pd.type == PuffData::Type::kEndOfBlock);
         } else if (pd.type == PuffData::Type::kEndOfBlock) {
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(16, 0),
-                                          Error::kInsufficientOutput);
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(16, ~0),
-                                          Error::kInsufficientOutput);
+          TEST_AND_RETURN_FALSE(bw->WriteBits(16, 0));
+          TEST_AND_RETURN_FALSE(bw->WriteBits(16, ~0));
         } else {
           LOG(ERROR) << "Uncompressed block did not end properly!";
-          *error = Error::kInvalidInput;
           return false;
         }
         // We have to read a new block.
@@ -88,13 +75,12 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
       case BlockType::kDynamic:
         cur_ht = dyn_ht_.get();
         TEST_AND_RETURN_FALSE(dyn_ht_->BuildDynamicHuffmanTable(
-            &pd.block_metadata[1], pd.length - 1, bw, error));
+            &pd.block_metadata[1], pd.length - 1, bw));
         break;
 
       default:
         LOG(ERROR) << "Invalid block compression type: "
                    << static_cast<int>(type);
-        *error = Error::kInvalidInput;
         return false;
     }
 
@@ -102,19 +88,16 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
     // stream is reached.
     bool block_ended = false;
     while (!block_ended) {
-      TEST_AND_RETURN_FALSE(pr->GetNext(&pd, error));
+      TEST_AND_RETURN_FALSE(pr->GetNext(&pd));
       switch (pd.type) {
         case PuffData::Type::kLiteral:
         case PuffData::Type::kLiterals: {
-          auto write_literal = [&cur_ht, &bw, &error](uint8_t literal) {
+          auto write_literal = [&cur_ht, &bw](uint8_t literal) {
             uint16_t literal_huffman;
             size_t nbits;
-            TEST_AND_RETURN_FALSE_SET_ERROR(
-                cur_ht->LitLenHuffman(literal, &literal_huffman, &nbits),
-                Error::kInvalidInput);
-            TEST_AND_RETURN_FALSE_SET_ERROR(
-                bw->WriteBits(nbits, literal_huffman),
-                Error::kInsufficientOutput);
+            TEST_AND_RETURN_FALSE(
+                cur_ht->LitLenHuffman(literal, &literal_huffman, &nbits));
+            TEST_AND_RETURN_FALSE(bw->WriteBits(nbits, literal_huffman));
             return true;
           };
 
@@ -133,8 +116,7 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
         case PuffData::Type::kLenDist: {
           auto len = pd.length;
           auto dist = pd.distance;
-          TEST_AND_RETURN_FALSE_SET_ERROR(len >= 3 && len <= 258,
-                                          Error::kInvalidInput);
+          TEST_AND_RETURN_FALSE(len >= 3 && len <= 258);
 
           // Using a binary search here instead of the linear search may be (but
           // not necessarily) faster. Needs experiment to validate.
@@ -148,17 +130,14 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
           auto extra_bits_len = kLengthExtraBits[index];
           uint16_t length_huffman;
           size_t nbits;
-          TEST_AND_RETURN_FALSE_SET_ERROR(
-              cur_ht->LitLenHuffman(index + 257, &length_huffman, &nbits),
-              Error::kInvalidInput);
+          TEST_AND_RETURN_FALSE(
+              cur_ht->LitLenHuffman(index + 257, &length_huffman, &nbits));
 
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(nbits, length_huffman),
-                                          Error::kInsufficientInput);
+          TEST_AND_RETURN_FALSE(bw->WriteBits(nbits, length_huffman));
 
           if (extra_bits_len > 0) {
-            TEST_AND_RETURN_FALSE_SET_ERROR(
-                bw->WriteBits(extra_bits_len, len - kLengthBases[index]),
-                Error::kInsufficientInput);
+            TEST_AND_RETURN_FALSE(
+                bw->WriteBits(extra_bits_len, len - kLengthBases[index]));
           }
 
           // Same as above (binary search).
@@ -171,17 +150,13 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
           }
           extra_bits_len = kDistanceExtraBits[index];
           uint16_t distance_huffman;
-          TEST_AND_RETURN_FALSE_SET_ERROR(
-              cur_ht->DistanceHuffman(index, &distance_huffman, &nbits),
-              Error::kInvalidInput);
+          TEST_AND_RETURN_FALSE(
+              cur_ht->DistanceHuffman(index, &distance_huffman, &nbits));
 
-          TEST_AND_RETURN_FALSE_SET_ERROR(
-              bw->WriteBits(nbits, distance_huffman),
-              Error::kInsufficientInput);
+          TEST_AND_RETURN_FALSE(bw->WriteBits(nbits, distance_huffman));
           if (extra_bits_len > 0) {
-            TEST_AND_RETURN_FALSE_SET_ERROR(
-                bw->WriteBits(extra_bits_len, dist - kDistanceBases[index]),
-                Error::kInsufficientInput);
+            TEST_AND_RETURN_FALSE(
+                bw->WriteBits(extra_bits_len, dist - kDistanceBases[index]));
           }
           break;
         }
@@ -189,28 +164,24 @@ bool Huffer::HuffDeflate(PuffReaderInterface* pr,
         case PuffData::Type::kEndOfBlock: {
           uint16_t eos_huffman;
           size_t nbits;
-          TEST_AND_RETURN_FALSE_SET_ERROR(
-              cur_ht->LitLenHuffman(256, &eos_huffman, &nbits),
-              Error::kInvalidInput);
-          TEST_AND_RETURN_FALSE_SET_ERROR(bw->WriteBits(nbits, eos_huffman),
-                                          Error::kInsufficientInput);
+          TEST_AND_RETURN_FALSE(
+              cur_ht->LitLenHuffman(256, &eos_huffman, &nbits));
+          TEST_AND_RETURN_FALSE(bw->WriteBits(nbits, eos_huffman));
           block_ended = true;
           break;
         }
         case PuffData::Type::kBlockMetadata:
           LOG(ERROR) << "Not expecing a metadata!";
-          *error = Error::kInvalidInput;
           return false;
 
         default:
           LOG(ERROR) << "Invalid block data type!";
-          *error = Error::kInvalidInput;
           return false;
       }
     }
   }
 
-  TEST_AND_RETURN_FALSE_SET_ERROR(bw->Flush(), Error::kInsufficientOutput);
+  TEST_AND_RETURN_FALSE(bw->Flush());
   return true;
 }
 

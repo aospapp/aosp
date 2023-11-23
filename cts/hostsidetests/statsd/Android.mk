@@ -24,9 +24,11 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_MODULE := CtsStatsdHostTestCases
 
-LOCAL_PROTOC_OPTIMIZE_TYPE := full
-LOCAL_STATIC_JAVA_LIBRARIES := platformprotos
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util host-libprotobuf-java-full
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util host-libprotobuf-java-full \
+	platformprotos truth-host-prebuilt
+
+LOCAL_COMPATIBILITY_SUPPORT_FILES := \
+	$(foreach file, $(call find-subdir-files, *.pbtxt), $(LOCAL_PATH)/$(file))
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

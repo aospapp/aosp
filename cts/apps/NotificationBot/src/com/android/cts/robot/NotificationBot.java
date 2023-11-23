@@ -36,7 +36,7 @@ import java.util.List;
 
 public class NotificationBot extends BroadcastReceiver {
     private static final String TAG = "NotificationBot";
-    private static final String NOTIFICATION_CHANNEL_ID = TAG;
+    private static final String NOTIFICATION_CHANNEL_ID = TAG + "_high";
     private static final String EXTRA_ID = "ID";
     private static final String EXTRA_NOTIFICATION = "NOTIFICATION";
     private static final String ACTION_POST = "com.android.cts.robot.ACTION_POST";
@@ -139,7 +139,7 @@ public class NotificationBot extends BroadcastReceiver {
                 context.getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
-                NotificationManager.IMPORTANCE_DEFAULT));
+                NotificationManager.IMPORTANCE_HIGH));
         final Notification.Builder nb = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle(intent.getStringExtra(EXTRA_NOTIFICATION_TITLE))
                 .setSmallIcon(android.R.drawable.ic_popup_sync)

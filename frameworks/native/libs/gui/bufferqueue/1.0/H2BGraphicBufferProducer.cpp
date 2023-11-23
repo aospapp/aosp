@@ -100,7 +100,12 @@ inline int native_handle_read_fd(native_handle_t const* nh, int index = 0) {
  */
 // convert: Return<Status> -> status_t
 inline status_t toStatusT(Return<Status> const& t) {
-    return t.isOk() ? static_cast<status_t>(static_cast<Status>(t)) : UNKNOWN_ERROR;
+    if (t.isOk()) {
+        return static_cast<status_t>(static_cast<Status>(t));
+    } else if (t.isDeadObject()) {
+        return DEAD_OBJECT;
+    }
+    return UNKNOWN_ERROR;
 }
 
 /**
@@ -111,7 +116,7 @@ inline status_t toStatusT(Return<Status> const& t) {
  */
 // convert: Return<void> -> status_t
 inline status_t toStatusT(Return<void> const& t) {
-    return t.isOk() ? OK : UNKNOWN_ERROR;
+    return t.isOk() ? OK : (t.isDeadObject() ? DEAD_OBJECT : UNKNOWN_ERROR);
 }
 
 /**
@@ -896,7 +901,7 @@ inline bool convertTo(
     int const* constFds = static_cast<int const*>(baseFds.get());
     numFds = baseNumFds;
     if (l->unflatten(constBuffer, size, constFds, numFds) != NO_ERROR) {
-        for (auto nhA : nhAA) {
+        for (const auto& nhA : nhAA) {
             for (auto nh : nhA) {
                 if (nh != nullptr) {
                     native_handle_close(nh);
@@ -907,8 +912,8 @@ inline bool convertTo(
         return false;
     }
 
-    for (auto nhA : nhAA) {
-        for (auto nh : nhA) {
+    for (const auto& nhA : nhAA) {
+        for (const auto& nh : nhA) {
             if (nh != nullptr) {
                 native_handle_delete(nh);
             }
@@ -1056,7 +1061,7 @@ status_t H2BGraphicBufferProducer::detachNextBuffer(
 
 status_t H2BGraphicBufferProducer::attachBuffer(
         int* outSlot, const sp<GraphicBuffer>& buffer) {
-    AnwBuffer tBuffer;
+    AnwBuffer tBuffer{};
     wrapAs(&tBuffer, *buffer);
     status_t fnStatus;
     status_t transStatus = toStatusT(mBase->attachBuffer(tBuffer,
@@ -1071,7 +1076,7 @@ status_t H2BGraphicBufferProducer::queueBuffer(
         int slot,
         const QueueBufferInput& input,
         QueueBufferOutput* output) {
-    HGraphicBufferProducer::QueueBufferInput tInput;
+    HGraphicBufferProducer::QueueBufferInput tInput{};
     native_handle_t* nh;
     if (!wrapAs(&tInput, &nh, input)) {
         ALOGE("H2BGraphicBufferProducer::queueBuffer - "

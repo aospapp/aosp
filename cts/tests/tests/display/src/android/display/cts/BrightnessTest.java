@@ -26,18 +26,21 @@ import static org.junit.Assert.fail;
 import android.Manifest;
 import android.app.UiAutomation;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.display.BrightnessChangeEvent;
 import android.hardware.display.BrightnessConfiguration;
+import android.hardware.display.BrightnessCorrection;
 import android.hardware.display.DisplayManager;
 import android.os.ParcelFileDescriptor;
 import android.os.PowerManager;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -46,7 +49,6 @@ import org.junit.runner.RunWith;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -104,6 +106,7 @@ public class BrightnessTest {
 
             // Setup and remember some initial state.
             recordSliderEvents();
+            waitForFirstSliderEvent();
             setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, 20);
             getNewEvents(1);
 
@@ -211,10 +214,20 @@ public class BrightnessTest {
         BrightnessConfiguration config =
                 new BrightnessConfiguration.Builder(
                         new float[]{0.0f, 1000.0f},new float[]{20.0f, 500.0f})
+                        .addCorrectionByCategory(ApplicationInfo.CATEGORY_IMAGE,
+                                BrightnessCorrection.createScaleAndTranslateLog(0.80f, 0.2f))
+                        .addCorrectionByPackageName("some.package.name",
+                                BrightnessCorrection.createScaleAndTranslateLog(0.70f, 0.1f))
                         .setDescription("some test").build();
         mDisplayManager.setBrightnessConfiguration(config);
         BrightnessConfiguration returnedConfig = mDisplayManager.getBrightnessConfiguration();
         assertEquals(config, returnedConfig);
+        assertEquals(config.getCorrectionByCategory(ApplicationInfo.CATEGORY_IMAGE),
+                BrightnessCorrection.createScaleAndTranslateLog(0.80f, 0.2f));
+        assertEquals(config.getCorrectionByPackageName("some.package.name"),
+                BrightnessCorrection.createScaleAndTranslateLog(0.70f, 0.1f));
+        assertNull(config.getCorrectionByCategory(ApplicationInfo.CATEGORY_GAME));
+        assertNull(config.getCorrectionByPackageName("someother.package.name"));
 
         // After clearing the curve we should get back the default curve.
         mDisplayManager.setBrightnessConfiguration(null);
@@ -277,6 +290,7 @@ public class BrightnessTest {
 
             // Setup and remember some initial state.
             recordSliderEvents();
+            waitForFirstSliderEvent();
             setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, 20);
             getNewEvents(1);
 
@@ -367,9 +381,24 @@ public class BrightnessTest {
     private void recordSliderEvents() {
         mLastReadEvents = new HashMap<>();
         List<BrightnessChangeEvent> eventsBefore = mDisplayManager.getBrightnessEvents();
-        for (BrightnessChangeEvent event: eventsBefore) {
+        for (BrightnessChangeEvent event : eventsBefore) {
             mLastReadEvents.put(event.timeStamp, event);
         }
+    }
+
+    private void waitForFirstSliderEvent() throws  InterruptedException {
+        // Keep changing brightness until we get an event to handle devices with sensors
+        // that take a while to warm up.
+        int brightness = 25;
+        for (int i = 0; i < 20; ++i) {
+            setSystemSetting(Settings.System.SCREEN_BRIGHTNESS, brightness);
+            brightness = brightness == 25 ? 80 : 25;
+            Thread.sleep(100);
+            if (!getNewEvents().isEmpty()) {
+                return;
+            }
+        }
+        fail("Failed to fetch first slider event. Is the ambient brightness sensor working?");
     }
 
     private int getSystemSetting(String setting) {

@@ -18,7 +18,8 @@ import android.animation.AnimatorInflater;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepFragment;
+
+import androidx.leanback.app.GuidedStepFragment;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.name.DeviceNameSetFragment;

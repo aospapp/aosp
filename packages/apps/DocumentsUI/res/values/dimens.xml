@@ -15,12 +15,20 @@
 -->
 
 <resources>
-    <dimen name="grid_container_padding">10dp</dimen>
+    <!-- Material design rounded radius -->
+    <dimen name="material_round_radius">2dp</dimen>
+
+    <dimen name="grid_container_padding">20dp</dimen>
     <dimen name="list_container_padding">0dp</dimen>
     <dimen name="icon_size">40dp</dimen>
+    <dimen name="button_touch_size">48dp</dimen>
     <dimen name="root_icon_size">24dp</dimen>
     <dimen name="root_icon_margin">0dp</dimen>
+    <dimen name="root_spacer_padding">0dp</dimen>
+    <dimen name="root_action_icon_size">18dp</dimen>
+    <dimen name="root_icon_disabled_alpha">?android:attr/disabledAlpha</dimen>
     <dimen name="check_icon_size">30dp</dimen>
+    <dimen name="zoom_icon_size">24dp</dimen>
     <dimen name="list_item_thumbnail_size">40dp</dimen>
     <dimen name="grid_item_icon_size">30dp</dimen>
     <dimen name="progress_bar_height">4dp</dimen>
@@ -31,14 +39,17 @@
     <dimen name="grid_item_margin">6dp</dimen>
     <dimen name="grid_padding_horiz">4dp</dimen>
     <dimen name="grid_padding_vert">4dp</dimen>
+    <dimen name="list_item_width">72dp</dimen>
     <dimen name="list_item_height">72dp</dimen>
     <dimen name="list_item_padding">16dp</dimen>
+    <dimen name="list_item_icon_padding">16dp</dimen>
     <dimen name="breadcrumb_item_padding">8dp</dimen>
     <dimen name="breadcrumb_item_height">36dp</dimen>
     <dimen name="list_divider_inset">72dp</dimen>
     <dimen name="dir_elevation">8dp</dimen>
     <dimen name="drag_shadow_size">120dp</dimen>
     <dimen name="grid_item_elevation">2dp</dimen>
+    <dimen name="grid_item_radius">2dp</dimen>
     <dimen name="max_drawer_width">280dp</dimen>
 
     <dimen name="drawer_edge_width">12dp</dimen>
@@ -52,7 +63,7 @@
     <dimen name="doc_header_height">60dp</dimen>
 
     <dimen name="dropdown_sort_widget_margin">12dp</dimen>
-    <dimen name="dropdown_sort_widget_size">48dp</dimen>
+    <dimen name="dropdown_sort_widget_size">54dp</dimen>
     <dimen name="dropdown_sort_text_size">18sp</dimen>
 
     <dimen name="drop_icon_height">14dp</dimen>
@@ -65,11 +76,46 @@
     <dimen name="fastscroll_margin">0dp</dimen>
 
     <dimen name="bottom_bar_height">56dp</dimen>
-    <dimen name="bottom_bar_padding_end">10dp</dimen>
-    <dimen name="bottom_bar_negative_button_width">88.5dp</dimen>
-    <dimen name="bottom_bar_positive_button_margin_start">8dp</dimen>
-    <dimen name="bottom_bar_positive_button_width">73dp</dimen>
-    <dimen name="bottom_bar_positive_button_elevation">2dp</dimen>
+    <dimen name="bottom_bar_padding">10dp</dimen>
+    <dimen name="bottom_bar_button_height">36dip</dimen>
+    <dimen name="bottom_bar_button_horizontal_padding">24dp</dimen>
+    <dimen name="bottom_bar_button_corner_radius">4dp</dimen>
 
-    <dimen name="inspector_header_height">250dp</dimen>
+    <dimen name="inspector_header_height">280dp</dimen>
+
+    <dimen name="root_info_header_height">60dp</dimen>
+    <dimen name="root_info_header_horizontal_padding">24dp</dimen>
+
+    <dimen name="search_chip_group_margin">8dp</dimen>
+    <dimen name="search_chip_spacing">8dp</dimen>
+    <dimen name="search_chip_icon_padding">4dp</dimen>
+    <dimen name="search_chip_radius">16dp</dimen>
+
+    <dimen name="dialog_content_padding_top">18dp</dimen>
+    <dimen name="dialog_content_padding_bottom">24dp</dimen>
+
+    <dimen name="apps_row_title_height">48dp</dimen>
+    <dimen name="apps_row_title_padding_start">24dp</dimen>
+    <dimen name="apps_row_item_width">92dp</dimen>
+    <dimen name="apps_row_item_height">82dp</dimen>
+    <dimen name="apps_row_app_icon_size">32dp</dimen>
+    <dimen name="apps_row_app_icon_margin_horizontal">30dp</dimen>
+    <dimen name="apps_row_app_icon_margin_top">6dp</dimen>
+    <dimen name="apps_row_app_icon_margin_bottom">10dp</dimen>
+    <dimen name="apps_row_exit_icon_size">12dp</dimen>
+    <dimen name="apps_row_exit_icon_margin_top">2dp</dimen>
+    <dimen name="apps_row_exit_icon_margin_bottom">6dp</dimen>
+    <dimen name="apps_row_item_text_margin_horizontal">8dp</dimen>
+
+    <dimen name="search_bar_radius">8dp</dimen>
+    <dimen name="search_bar_background_margin_start">0dp</dimen>
+    <dimen name="search_bar_background_margin_end">0dp</dimen>
+    <dimen name="search_bar_margin">8dp</dimen>
+    <dimen name="search_bar_text_size">16dp</dimen>
+    <dimen name="action_bar_size">48dp</dimen>
+    <!--This value should equal actionBarSize + (2 x search_bar_margin)-->
+    <dimen name="action_bar_space_height">64dp</dimen>
+    <dimen name="action_bar_space_margin">@dimen/action_bar_space_height</dimen>
+
+    <dimen name="refresh_icon_range">64dp</dimen>
 </resources>

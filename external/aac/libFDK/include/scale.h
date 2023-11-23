@@ -1,7 +1,7 @@
 /* -----------------------------------------------------------------------------
 Software License for The Fraunhofer FDK AAC Codec Library for Android
 
-© Copyright  1995 - 2018 Fraunhofer-Gesellschaft zur Förderung der angewandten
+© Copyright  1995 - 2019 Fraunhofer-Gesellschaft zur Förderung der angewandten
 Forschung e.V. All rights reserved.
 
  1.    INTRODUCTION
@@ -123,7 +123,7 @@ void scaleValues(FIXP_DBL *dst, const FIXP_DBL *src, INT len, INT scalefactor);
 #if (SAMPLE_BITS == 16)
 void scaleValues(FIXP_PCM *dst, const FIXP_DBL *src, INT len, INT scalefactor);
 #endif
-void scaleValues(FIXP_PCM *dst, const FIXP_SGL *src, INT len, INT scalefactor);
+void scaleValues(FIXP_SGL *dst, const FIXP_SGL *src, INT len, INT scalefactor);
 void scaleCplxValues(FIXP_DBL *r_dst, FIXP_DBL *i_dst, const FIXP_DBL *r_src,
                      const FIXP_DBL *i_src, INT len, INT scalefactor);
 void scaleValuesWithFactor(FIXP_DBL *vector, FIXP_DBL factor, INT len,
@@ -268,11 +268,11 @@ inline void scaleValueInPlace(FIXP_DBL *value, /*!< Value */
  * to avoid problems when inverting the sign of the result.
  */
 #ifndef SATURATE_LEFT_SHIFT_ALT
-#define SATURATE_LEFT_SHIFT_ALT(src, scale, dBits)                       \
-  (((LONG)(src) > ((LONG)(((1U) << ((dBits)-1)) - 1) >> (scale)))        \
-       ? (LONG)(((1U) << ((dBits)-1)) - 1)                               \
-       : ((LONG)(src) < ~((LONG)(((1U) << ((dBits)-1)) - 2) >> (scale))) \
-             ? ~((LONG)(((1U) << ((dBits)-1)) - 2))                      \
+#define SATURATE_LEFT_SHIFT_ALT(src, scale, dBits)                        \
+  (((LONG)(src) > ((LONG)(((1U) << ((dBits)-1)) - 1) >> (scale)))         \
+       ? (LONG)(((1U) << ((dBits)-1)) - 1)                                \
+       : ((LONG)(src) <= ~((LONG)(((1U) << ((dBits)-1)) - 1) >> (scale))) \
+             ? ~((LONG)(((1U) << ((dBits)-1)) - 2))                       \
              : ((LONG)(src) << (scale)))
 #endif
 

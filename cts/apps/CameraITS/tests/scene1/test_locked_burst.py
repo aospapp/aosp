@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
-import its.device
-import its.objects
-import its.caps
 import os.path
-import numpy
-from matplotlib import pylab
-import matplotlib
-import matplotlib.pyplot
+import its.caps
+import its.device
+import its.image
+import its.objects
+
+BURST_LEN = 8
+COLORS = ['R', 'G', 'B']
+FPS_MAX_DIFF = 2.0
+NAME = os.path.basename(__file__).split('.')[0]
+SPREAD_THRESH_MANUAL_SENSOR = 0.01
+SPREAD_THRESH = 0.03
+VALUE_THRESH = 0.1
+
 
 def main():
     """Test 3A lock + YUV burst (using auto settings).
@@ -29,12 +34,6 @@ def main():
     don't have MANUAL_SENSOR or PER_FRAME_CONTROLS. The test checks
     YUV image consistency while the frame rate check is in CTS.
     """
-    NAME = os.path.basename(__file__).split(".")[0]
-
-    BURST_LEN = 8
-    SPREAD_THRESH_MANUAL_SENSOR = 0.01
-    SPREAD_THRESH = 0.03
-    FPS_MAX_DIFF = 2.0
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -49,9 +48,10 @@ def main():
         fmt = its.objects.get_largest_yuv_format(props)
 
         # After 3A has converged, lock AE+AWB for the duration of the test.
+        print 'Locking AE & AWB'
         req = its.objects.fastest_auto_capture_request(props)
-        req["android.control.awbLock"] = True
-        req["android.control.aeLock"] = True
+        req['android.control.awbLock'] = True
+        req['android.control.aeLock'] = True
 
         # Capture bursts of YUV shots.
         # Get the mean values of a center patch for each.
@@ -59,23 +59,32 @@ def main():
         g_means = []
         b_means = []
         caps = cam.do_capture([req]*BURST_LEN, fmt)
-        for i,cap in enumerate(caps):
+        for i, cap in enumerate(caps):
             img = its.image.convert_capture_to_rgb_image(cap)
-            its.image.write_image(img, "%s_frame%d.jpg"%(NAME,i))
+            its.image.write_image(img, '%s_frame%d.jpg'%(NAME, i))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
             means = its.image.compute_image_means(tile)
             r_means.append(means[0])
             g_means.append(means[1])
             b_means.append(means[2])
 
-        # Pass/fail based on center patch similarity.
-        for means in [r_means, g_means, b_means]:
-            spread = max(means) - min(means)
-            print "Patch mean spread", spread, \
-                    " (min/max: ",  min(means), "/", max(means), ")"
+        # Assert center patch brightness & similarity
+        for i, means in enumerate([r_means, g_means, b_means]):
+            plane = COLORS[i]
+            min_means = min(means)
+            spread = max(means) - min_means
+            print '%s patch mean spread %.5f. means = [' % (plane, spread),
+            for j in range(BURST_LEN):
+                print '%.5f' % means[j],
+            print ']'
+            e_msg = 'Image too dark!  %s: %.5f, THRESH: %.2f' % (
+                    plane, min_means, VALUE_THRESH)
+            assert min_means > VALUE_THRESH, e_msg
             threshold = SPREAD_THRESH_MANUAL_SENSOR \
                     if its.caps.manual_sensor(props) else SPREAD_THRESH
-            assert(spread < threshold)
+            e_msg = '%s center patch spread: %.5f, THRESH: %.2f' % (
+                    plane, spread, threshold)
+            assert spread < threshold, e_msg
 
 if __name__ == '__main__':
     main()

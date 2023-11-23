@@ -61,12 +61,12 @@ void nfc_start_timer(TIMER_LIST_ENT* p_tle, uint16_t type, uint32_t timeout) {
   NFC_HDR* p_msg;
 
   /* if timer list is currently empty, start periodic GKI timer */
-  if (nfc_cb.timer_queue.p_first == NULL) {
+  if (nfc_cb.timer_queue.p_first == nullptr) {
     /* if timer starts on other than NFC task (scritp wrapper) */
     if (GKI_get_taskid() != NFC_TASK) {
       /* post event to start timer in NFC task */
       p_msg = (NFC_HDR*)GKI_getbuf(NFC_HDR_SIZE);
-      if (p_msg != NULL) {
+      if (p_msg != nullptr) {
         p_msg->event = BT_EVT_TO_START_TIMER;
         GKI_send_msg(NFC_TASK, NFC_MBOX_ID, p_msg);
       }
@@ -137,7 +137,7 @@ void nfc_process_timer_evt(void) {
   }
 
   /* if timer list is empty stop periodic GKI timer */
-  if (nfc_cb.timer_queue.p_first == NULL) {
+  if (nfc_cb.timer_queue.p_first == nullptr) {
     GKI_stop_timer(NFC_TIMER_ID);
   }
 }
@@ -155,7 +155,7 @@ void nfc_stop_timer(TIMER_LIST_ENT* p_tle) {
   GKI_remove_from_timer_list(&nfc_cb.timer_queue, p_tle);
 
   /* if timer list is empty stop periodic GKI timer */
-  if (nfc_cb.timer_queue.p_first == NULL) {
+  if (nfc_cb.timer_queue.p_first == nullptr) {
     GKI_stop_timer(NFC_TIMER_ID);
   }
 }
@@ -178,12 +178,12 @@ void nfc_start_quick_timer(TIMER_LIST_ENT* p_tle, uint16_t type,
   NFC_HDR* p_msg;
 
   /* if timer list is currently empty, start periodic GKI timer */
-  if (nfc_cb.quick_timer_queue.p_first == NULL) {
+  if (nfc_cb.quick_timer_queue.p_first == nullptr) {
     /* if timer starts on other than NFC task (scritp wrapper) */
     if (GKI_get_taskid() != NFC_TASK) {
       /* post event to start timer in NFC task */
       p_msg = (NFC_HDR*)GKI_getbuf(NFC_HDR_SIZE);
-      if (p_msg != NULL) {
+      if (p_msg != nullptr) {
         p_msg->event = BT_EVT_TO_START_QUICK_TIMER;
         GKI_send_msg(NFC_TASK, NFC_MBOX_ID, p_msg);
       }
@@ -216,7 +216,7 @@ void nfc_stop_quick_timer(TIMER_LIST_ENT* p_tle) {
   GKI_remove_from_timer_list(&nfc_cb.quick_timer_queue, p_tle);
 
   /* if timer list is empty stop periodic GKI timer */
-  if (nfc_cb.quick_timer_queue.p_first == NULL) {
+  if (nfc_cb.quick_timer_queue.p_first == nullptr) {
     GKI_stop_timer(NFC_QUICK_TIMER_ID);
   }
 }
@@ -270,6 +270,10 @@ void nfc_process_quick_timer_evt(void) {
       case NFC_TTYPE_P2P_PRIO_LOGIC_CLEANUP:
         nfa_dm_p2p_prio_logic_cleanup();
         break;
+      case NFC_TTYPE_RW_MFC_RESPONSE:
+        rw_mfc_process_timeout(p_tle);
+        break;
+
 #if (NFC_RW_ONLY == FALSE)
       case NFC_TTYPE_CE_T4T_UPDATE:
         ce_t4t_process_timeout(p_tle);
@@ -284,7 +288,7 @@ void nfc_process_quick_timer_evt(void) {
   }
 
   /* if timer list is empty stop periodic GKI timer */
-  if (nfc_cb.quick_timer_queue.p_first == NULL) {
+  if (nfc_cb.quick_timer_queue.p_first == nullptr) {
     GKI_stop_timer(NFC_QUICK_TIMER_ID);
   }
 }
@@ -302,7 +306,7 @@ void nfc_task_shutdown_nfcc(void) {
   NFC_HDR* p_msg;
 
   /* Free any messages still in the mbox */
-  while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFC_MBOX_ID)) != NULL) {
+  while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFC_MBOX_ID)) != nullptr) {
     GKI_freebuf(p_msg);
   }
 
@@ -365,7 +369,7 @@ uint32_t nfc_task(__attribute__((unused)) uint32_t arg) {
 
     if (event & NFC_MBOX_EVT_MASK) {
       /* Process all incoming NCI messages */
-      while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFC_MBOX_ID)) != NULL) {
+      while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFC_MBOX_ID)) != nullptr) {
         free_buf = true;
 
         /* Determine the input message type. */
@@ -413,7 +417,7 @@ uint32_t nfc_task(__attribute__((unused)) uint32_t arg) {
     }
 
     if (event & NFA_MBOX_EVT_MASK) {
-      while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFA_MBOX_ID)) != NULL) {
+      while ((p_msg = (NFC_HDR*)GKI_read_mbox(NFA_MBOX_ID)) != nullptr) {
         nfa_sys_event(p_msg);
       }
     }

@@ -54,6 +54,8 @@ import android.app.stubs.R;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
 
+import androidx.test.filters.FlakyTest;
+
 public class InstrumentationTest extends InstrumentationTestCase {
 
     private static final int WAIT_TIME = 1000;
@@ -103,6 +105,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
                 "\nINSTRUMENTATION_CODE: -1\n", result);
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testWildcardProcessInstrumentation() throws Exception {
         String cmd = "am instrument -w android.app.cts/.WildcardProcessInstrumentation";
         String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
@@ -204,6 +207,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertEquals(threadAllocCount, Debug.getThreadAllocCount());
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testSendTrackballEventSync() throws Exception {
         long now = SystemClock.uptimeMillis();
         MotionEvent orig = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN,
@@ -217,12 +221,14 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertEquals(orig.getDownTime(), motionEvent.getDownTime());
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testCallApplicationOnCreate() throws Exception {
         InstrumentationTestStub ca = new InstrumentationTestStub();
         mInstrumentation.callApplicationOnCreate(ca);
         assertTrue(ca.mIsOnCreateCalled);
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testContext() throws Exception {
         Context c1 = mInstrumentation.getContext();
         Context c2 = mInstrumentation.getTargetContext();
@@ -262,6 +268,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertTrue(mActivity.isOnNewIntentCalled());
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testCallActivityOnResume() throws Throwable {
         mActivity.setOnResume(false);
         runTestOnUiThread(new Runnable() {
@@ -327,6 +334,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         }
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testCallActivityOnSaveInstanceState() throws Throwable {
         final Bundle bundle = new Bundle();
         mActivity.setOnSaveInstanceState(false);
@@ -410,6 +418,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertEquals(KeyEvent.KEYCODE_0, mActivity.getKeyDownList().get(0).getKeyCode());
     }
 
+    @FlakyTest(bugId = 133760851)
     @UiThreadTest
     public void testNewActivity() throws Exception {
         Intent intent = new Intent();
@@ -459,6 +468,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertEquals(KeyEvent.KEYCODE_0, mActivity.getKeyUpCode());
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testCallActivityOnRestart() throws Exception {
         mActivity.setOnRestart(false);
         mInstrumentation.callActivityOnRestart(mActivity);
@@ -473,6 +483,7 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertTrue(mActivity.isOnStop());
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testCallActivityOnUserLeaving() throws Exception {
         assertFalse(mActivity.isOnLeave());
         mInstrumentation.callActivityOnUserLeaving(mActivity);

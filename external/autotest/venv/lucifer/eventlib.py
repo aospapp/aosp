@@ -39,8 +39,8 @@ class Event(enum.Enum):
     The value of enum members must be a string, which is printed by
     itself on a line to signal the event.
 
-    This should be backward compatible with all versions of
-    lucifer_run_job, which lives in the infra/lucifer repository.
+    This should be backward compatible with all versions of lucifer,
+    which lives in the infra/lucifer repository.
 
     TODO(crbug.com/748234): Events starting with X are temporary to
     support gradual lucifer rollout.
@@ -49,15 +49,24 @@ class Event(enum.Enum):
     """
     # Job status
     STARTING = 'starting'
+    RUNNING = 'running'
     GATHERING = 'gathering'
-    X_TESTS_DONE = 'x_tests_done'
     PARSING = 'parsing'
+    ABORTED = 'aborted'
     COMPLETED = 'completed'
 
+    # Test status
+    TEST_PASSED = 'test_passed'
+    TEST_FAILED = 'test_failed'
+
     # Host status
+    HOST_RUNNING = 'host_running'
     HOST_READY = 'host_ready'
     HOST_NEEDS_CLEANUP = 'host_needs_cleanup'
     HOST_NEEDS_RESET = 'host_needs_reset'
+
+    # Temporary
+    X_TESTS_DONE = 'x_tests_done'  # Only for GATHERING
 
 
 def run_event_command(event_handler, args):
@@ -79,7 +88,7 @@ def run_event_command(event_handler, args):
     @param returns: exit status of command.
     """
     logger.debug('Starting event command with %r', args)
-    with subprocess32.Popen(args, stdout=PIPE) as proc:
+    with subprocess32.Popen(args, stdout=PIPE, close_fds=True) as proc:
         logger.debug('Event command child pid is %d', proc.pid)
         _handle_subprocess_events(event_handler, proc)
     logger.debug('Event command child with pid %d exited with %d',

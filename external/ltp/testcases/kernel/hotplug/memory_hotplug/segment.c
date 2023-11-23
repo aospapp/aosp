@@ -28,9 +28,6 @@
  */
 
 #include "config.h"
-#if HAVE_NUMA_H
-#include <numa.h>
-#endif
 
 #ifdef HAVE_NUMA_V2
 
@@ -609,7 +606,7 @@ static int show_one_segment(segment_t * segp, bool header)
 }
 
 /*
- * segment_show() -- show specifed segment, or all, if none specified.
+ * segment_show() -- show specified segment, or all, if none specified.
  */
 int segment_show(char *name)
 {

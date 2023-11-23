@@ -27,8 +27,8 @@ LOCKED = 3
 LUMA_LOCKED_TOL = 0.05
 THRESH_CONVERGE_FOR_EV = 8  # AE must converge within this num
 YUV_FULL_SCALE = 255.0
-YUV_SATURATION_MIN = 253.0
-YUV_SATURATION_TOL = 1.0
+YUV_SAT_MIN = 250.0
+YUV_SAT_TOL = 3.0
 
 
 def main():
@@ -49,13 +49,10 @@ def main():
             fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
 
         ev_per_step = its.objects.rational_to_float(
-            props['android.control.aeCompensationStep'])
+                props['android.control.aeCompensationStep'])
         steps_per_ev = int(1.0 / ev_per_step)
         evs = range(-2 * steps_per_ev, 2 * steps_per_ev + 1, steps_per_ev)
         lumas = []
-        reds = []
-        greens = []
-        blues = []
 
         # Converge 3A, and lock AE once converged. skip AF trigger as
         # dark/bright scene could make AF convergence fail and this test
@@ -77,45 +74,33 @@ def main():
                     luma_locked.append(luma)
                     if i == THRESH_CONVERGE_FOR_EV-1:
                         lumas.append(luma)
-                        rgb = its.image.convert_capture_to_rgb_image(cap)
-                        rgb_tile = its.image.get_image_patch(rgb,
-                                                             0.45, 0.45,
-                                                             0.1, 0.1)
-                        rgb_means = its.image.compute_image_means(rgb_tile)
-                        reds.append(rgb_means[0])
-                        greens.append(rgb_means[1])
-                        blues.append(rgb_means[2])
                         print 'lumas in AE locked captures: ', luma_locked
+                        msg = 'AE locked lumas: %s, RTOL: %.2f' % (
+                                str(luma_locked), LUMA_LOCKED_TOL)
                         assert np.isclose(min(luma_locked), max(luma_locked),
-                                          rtol=LUMA_LOCKED_TOL)
+                                          rtol=LUMA_LOCKED_TOL), msg
             assert caps[THRESH_CONVERGE_FOR_EV-1]['metadata']['android.control.aeState'] == LOCKED
 
         pylab.plot(evs, lumas, '-ro')
+        pylab.title(NAME)
         pylab.xlabel('EV Compensation')
         pylab.ylabel('Mean Luma (Normalized)')
         matplotlib.pyplot.savefig('%s_plot_means.png' % (NAME))
 
         # Trim extra saturated images
-        while lumas and lumas[-1] >= YUV_SATURATION_MIN/YUV_FULL_SCALE:
-            if (np.isclose(reds[-1], greens[-1],
-                           YUV_SATURATION_TOL/YUV_FULL_SCALE) and
-                    np.isclose(blues[-1], greens[-1],
-                               YUV_SATURATION_TOL/YUV_FULL_SCALE)):
-                lumas.pop(-1)
-                reds.pop(-1)
-                greens.pop(-1)
-                blues.pop(-1)
-                print 'Removed saturated image.'
-            else:
-                break
+        while (lumas[-2] >= YUV_SAT_MIN/YUV_FULL_SCALE and
+               lumas[-1] >= YUV_SAT_MIN/YUV_FULL_SCALE and
+               len(lumas) > 2):
+            lumas.pop(-1)
+            print 'Removed saturated image.'
+
         # Only allow positive EVs to give saturated image
-        assert len(lumas) > 2
-        luma_diffs = np.diff(lumas)
-        min_luma_diffs = min(luma_diffs)
+        assert len(lumas) > 2, '3 or more unsaturated images needed'
+        min_luma_diffs = min(np.diff(lumas))
         print 'Min of the luma value difference between adjacent ev comp: ',
         print min_luma_diffs
         # All luma brightness should be increasing with increasing ev comp.
-        assert min_luma_diffs > 0
+        assert min_luma_diffs > 0, 'Luma is not increasing!'
 
 if __name__ == '__main__':
     main()

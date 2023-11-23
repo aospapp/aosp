@@ -73,4 +73,8 @@
         <item name="android:positiveButtonText">@android:string/ok</item>
         <item name="android:negativeButtonText">@android:string/cancel</item>
     </style>
+
+    <style name="PreferenceCategory" parent="@style/Preference.Category.Material">
+        <item name="android:layout">@layout/preference_category_material_settings</item>
+    </style>
 </resources>

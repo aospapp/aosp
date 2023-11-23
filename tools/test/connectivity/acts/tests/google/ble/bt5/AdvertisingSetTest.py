@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -28,15 +28,15 @@ from acts.asserts import assert_true
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
-from acts.test_utils.bt.bt_test_utils import advertising_set_started
-from acts.test_utils.bt.bt_test_utils import advertising_set_stopped
-from acts.test_utils.bt.bt_test_utils import advertising_set_enabled
-from acts.test_utils.bt.bt_test_utils import advertising_set_data_set
-from acts.test_utils.bt.bt_test_utils import advertising_set_scan_response_set
-from acts.test_utils.bt.bt_test_utils import advertising_set_parameters_update
-from acts.test_utils.bt.bt_test_utils import advertising_set_periodic_parameters_updated
-from acts.test_utils.bt.bt_test_utils import advertising_set_periodic_data_set
-from acts.test_utils.bt.bt_test_utils import advertising_set_periodic_enable
+from acts.test_utils.bt.bt_constants import advertising_set_started
+from acts.test_utils.bt.bt_constants import advertising_set_stopped
+from acts.test_utils.bt.bt_constants import advertising_set_enabled
+from acts.test_utils.bt.bt_constants import advertising_set_data_set
+from acts.test_utils.bt.bt_constants import advertising_set_scan_response_set
+from acts.test_utils.bt.bt_constants import advertising_set_parameters_update
+from acts.test_utils.bt.bt_constants import advertising_set_periodic_parameters_updated
+from acts.test_utils.bt.bt_constants import advertising_set_periodic_data_set
+from acts.test_utils.bt.bt_constants import advertising_set_periodic_enable
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts import signals
 
@@ -67,6 +67,7 @@ class AdvertisingSetTest(BluetoothBaseTest):
         self.adv_ad = self.android_devices[0]
 
     def setup_class(self):
+        super(AdvertisingSetTest, self).setup_class()
         if not self.adv_ad.droid.bluetoothIsLeExtendedAdvertisingSupported():
             raise signals.TestSkipClass(
                 "Advertiser does not support LE Extended Advertising")

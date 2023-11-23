@@ -29,7 +29,7 @@ namespace vts {
 
 class LibSharedCodeGen : public HalCodeGen {
  public:
-  LibSharedCodeGen(const char* input_vts_file_path)
+  explicit LibSharedCodeGen(const char* input_vts_file_path)
       : HalCodeGen(input_vts_file_path) {}
 
  protected:

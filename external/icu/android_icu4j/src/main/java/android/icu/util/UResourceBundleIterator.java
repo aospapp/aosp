@@ -56,6 +56,7 @@ public class UResourceBundleIterator{
      * @return the UResourceBundle object
      * @throws NoSuchElementException If there does not exist such an element.
      */
+    @dalvik.annotation.compat.UnsupportedAppUsage
     public UResourceBundle next()throws NoSuchElementException{
         if(index<size){
             return bundle.get(index++);
@@ -87,6 +88,7 @@ public class UResourceBundleIterator{
      * Checks whether the given resource has another element to iterate over.
      * @return TRUE if there are more elements, FALSE if there is no more elements
      */
+    @dalvik.annotation.compat.UnsupportedAppUsage
     public boolean hasNext(){
         return index < size;   
     }

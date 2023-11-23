@@ -16,11 +16,12 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.arch.lifecycle.ViewModelProviders;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.ViewModelProviders;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.setup.AdvancedOptionsFlowInfo;

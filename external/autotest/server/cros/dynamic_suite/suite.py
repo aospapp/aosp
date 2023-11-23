@@ -17,7 +17,6 @@ import warnings
 import common
 
 from autotest_lib.frontend.afe.json_rpc import proxy
-from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import enum
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
@@ -31,6 +30,7 @@ from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.cros.dynamic_suite import job_status
+from autotest_lib.server.cros.dynamic_suite import suite_common
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite.job_status import Status
 
@@ -49,8 +49,7 @@ _FILE_BUG_SUITES = ['au', 'bvt', 'bvt-cq', 'bvt-inline', 'paygen_au_beta',
                     'sanity', 'push_to_prod']
 _AUTOTEST_DIR = global_config.global_config.get_config_value(
         'SCHEDULER', 'drone_installation_directory')
-ENABLE_CONTROLS_IN_BATCH = global_config.global_config.get_config_value(
-        'CROS', 'enable_getting_controls_in_batch', type=bool, default=False)
+
 
 class RetryHandler(object):
     """Maintain retry information.
@@ -111,6 +110,8 @@ class RetryHandler(object):
             if test.job_retries > 0:
                 self._add_job(new_job_id=job_id,
                               retry_max=test.job_retries)
+            else:
+                logging.debug("Test %s has no retries", test.name)
 
 
     def _add_job(self, new_job_id, retry_max):
@@ -239,6 +240,50 @@ class RetryHandler(object):
             and self._retry_map[result.id]['retry_max'] > 0
         )
 
+    def _should_retry_local_job(self, job_id):
+        """Check whether we should retry a job based on information available
+        for a local job without a Result object.
+
+        We will retry the job that corresponds to the result
+        when all of the following are true.
+        a) The test requires retry, i.e. the job has an entry in the retry map.
+        b) We haven't made any retry attempt yet for this job, i.e.
+           state == NOT_ATTEMPTED
+           If the job is aborted,  we will give up on all following retries,
+           regardless of max_retries.
+        c) The job has not reached its retry max, i.e. retry_max > 0
+
+        @param job_id: the id for the job, to look up relevant information.
+
+        @returns: True if we should retry the job.
+
+        """
+        if self._suite_max_reached():
+            logging.debug('suite max_retries reached, not retrying.')
+            return False
+        if job_id not in self._retry_map:
+            logging.debug('job_id not in retry map, not retrying.')
+            return False
+        if self._retry_map[job_id]['state'] != self.States.NOT_ATTEMPTED:
+            logging.debug("job state was %s not 'Not Attempted', not retrying",
+                          self._retry_map[job_id]['state'])
+            return False
+        if self._retry_map[job_id]['retry_max'] <= 0:
+            logging.debug('test-level retries exhausted, not retrying')
+            return False
+        return True
+
+
+    def job_present(self, job_id):
+        """Check whether a job id present in the retry map.
+
+        @param job_id: afe_job_id of a job.
+
+        @returns: A True if the job is present, False if not.
+        """
+        return bool(self._retry_map.get(job_id))
+
+
 
     def get_retry_max(self, job_id):
         """Get the maximum times the job can still be retried.
@@ -358,7 +403,6 @@ class _SuiteChildJobCreator(object):
             max_runtime_mins=self._max_runtime_mins,
             timeout_mins=self._timeout_mins,
             parent_job_id=self._suite_job_id,
-            test_retry=test.retries,
             reboot_before=reboot_before,
             run_reset=not test.fast,
             priority=test_priority,
@@ -436,43 +480,6 @@ class _SuiteChildJobCreator(object):
         return keyvals
 
 
-def _get_cf_retriever(cf_getter, forgiving_parser=True, run_prod_code=False,
-                      test_args=None):
-    """Return the correct _ControlFileRetriever instance.
-
-    If cf_getter is a File system ControlFileGetter, return a
-    _ControlFileRetriever.  This performs a full parse of the root
-    directory associated with the getter. This is the case when it's
-    invoked from suite_preprocessor.
-
-    If cf_getter is a devserver getter, return a
-    _BatchControlFileRetriever.  This looks up the suite_name in a suite
-    to control file map generated at build time, and parses the relevant
-    control files alone. This lookup happens on the devserver, so as far
-    as this method is concerned, both cases are equivalent. If
-    enable_controls_in_batch is switched on, this function will call
-    cf_getter.get_suite_info() to get a dict of control files and
-    contents in batch.
-    """
-    if _should_batch_with(cf_getter):
-        cls = _BatchControlFileRetriever
-    else:
-        cls = _ControlFileRetriever
-    return cls(cf_getter, forgiving_parser, run_prod_code, test_args)
-
-
-def _should_batch_with(cf_getter):
-    """Return whether control files should be fetched in batch.
-
-    This depends on the control file getter and configuration options.
-
-    @param cf_getter: a control_file_getter.ControlFileGetter used to list
-           and fetch the content of control files
-    """
-    return (ENABLE_CONTROLS_IN_BATCH
-            and isinstance(cf_getter, control_file_getter.DevServerGetter))
-
-
 class _ControlFileRetriever(object):
     """Retrieves control files.
 
@@ -504,7 +511,7 @@ class _ControlFileRetriever(object):
         self._test_args = test_args
 
 
-    def retrieve(self, test_name):
+    def retrieve_for_test(self, test_name):
         """Retrieve a test's control data.
 
         This ignores forgiving_parser because we cannot return a
@@ -517,9 +524,8 @@ class _ControlFileRetriever(object):
 
         @returns a ControlData object
         """
-        path = self._cf_getter.get_control_file_path(test_name)
-        text = self._cf_getter.get_control_file_contents(path)
-        return self._parse_cf_text(path, text)
+        return suite_common.retrieve_control_data_for_test(
+                self._cf_getter, test_name)
 
 
     def retrieve_for_suite(self, suite_name=''):
@@ -534,128 +540,14 @@ class _ControlFileRetriever(object):
         @returns a dictionary of ControlData objects that based on given
                  parameters.
         """
-        control_file_texts = self._get_cf_texts_for_suite(suite_name)
-        return self._parse_cf_text_many(control_file_texts)
-
-
-    def _filter_cf_paths(self, paths):
-        """Remove certain control file paths
-
-        @param paths: Iterable of paths
-        @returns: generator yielding paths
-        """
-        matcher = re.compile(r'[^/]+/(deps|profilers)/.+')
-        return (path for path in paths if not matcher.match(path))
-
-
-    def _get_cf_texts_for_suite(self, suite_name):
-        """Get control file content for given suite.
-
-        @param suite_name: If specified, this method will attempt to restrain
-                           the search space to just this suite's control files.
-        @returns: generator yielding (path, text) tuples
-        """
-        files = self._cf_getter.get_control_file_list(suite_name=suite_name)
-        filtered_files = self._filter_cf_paths(files)
-        for path in filtered_files:
-            yield path, self._cf_getter.get_control_file_contents(path)
-
-
-    def _parse_cf_text_many(self, control_file_texts):
-        """Parse control file texts.
-
-        @param control_file_texts: iterable of (path, text) pairs
-        @returns: a dictionary of ControlData objects
-        """
-        tests = {}
-        for path, text in control_file_texts:
-            # Seed test_args into the control file.
-            if self._test_args:
-                text = tools.inject_vars(self._test_args, text)
-            try:
-                found_test = self._parse_cf_text(path, text)
-            except control_data.ControlVariableException, e:
-                if not self._forgiving_parser:
-                    msg = "Failed parsing %s\n%s" % (path, e)
-                    raise control_data.ControlVariableException(msg)
-                logging.warning("Skipping %s\n%s", path, e)
-            except Exception, e:
-                logging.error("Bad %s\n%s", path, e)
-            else:
-                tests[path] = found_test
-        return tests
-
-
-    def _parse_cf_text(self, path, text):
-        """Parse control file text.
-
-        This ignores forgiving_parser because we cannot return a
-        forgiving value.
-
-        @param path: path to control file
-        @param text: control file text contents
-        @returns: a ControlData object
-
-        @raises ControlVariableException: There is a syntax error in a
-                                          control file.
-        """
-        test = control_data.parse_control_string(
-                text, raise_warnings=True, path=path)
-        test.text = text
+        tests = suite_common.retrieve_for_suite(
+                self._cf_getter, suite_name, self._forgiving_parser,
+                self._test_args)
         if self._run_prod_code:
-            test.require_ssp = False
-        return test
+            for test in tests.itervalues():
+                test.require_ssp = False
 
-
-class _BatchControlFileRetriever(_ControlFileRetriever):
-    """Subclass that can retrieve suite control files in batch."""
-
-
-    def _get_cf_texts_for_suite(self, suite_name):
-        """Get control file content for given suite.
-
-        @param suite_name: If specified, this method will attempt to restrain
-                           the search space to just this suite's control files.
-        @returns: generator yielding (path, text) tuples
-        """
-        suite_info = self._cf_getter.get_suite_info(suite_name=suite_name)
-        files = suite_info.keys()
-        filtered_files = self._filter_cf_paths(files)
-        for path in filtered_files:
-            yield path, suite_info[path]
-
-
-def get_test_source_build(builds, **dargs):
-    """Get the build of test code.
-
-    Get the test source build from arguments. If parameter
-    `test_source_build` is set and has a value, return its value. Otherwise
-    returns the ChromeOS build name if it exists. If ChromeOS build is not
-    specified either, raise SuiteArgumentException.
-
-    @param builds: the builds on which we're running this suite. It's a
-                   dictionary of version_prefix:build.
-    @param **dargs: Any other Suite constructor parameters, as described
-                    in Suite.__init__ docstring.
-
-    @return: The build contains the test code.
-    @raise: SuiteArgumentException if both test_source_build and ChromeOS
-            build are not specified.
-
-    """
-    if dargs.get('test_source_build', None):
-        return dargs['test_source_build']
-    cros_build = builds.get(provision.CROS_VERSION_PREFIX, None)
-    if cros_build.endswith(provision.CHEETS_SUFFIX):
-        test_source_build = re.sub(
-                provision.CHEETS_SUFFIX + '$', '', cros_build)
-    else:
-        test_source_build = cros_build
-    if not test_source_build:
-        raise error.SuiteArgumentException(
-                'test_source_build must be specified if CrOS build is not '
-                'specified.')
-    return test_source_build
+        return tests
 
 
 def list_all_suites(build, devserver, cf_getter=None):
@@ -808,7 +700,7 @@ def name_in_tag_predicate(name):
     @return a callable that takes a ControlData and looks for |name| in that
             ControlData object's suite member.
     """
-    return lambda t: name in t.suite_tag_parts
+    return suite_common.name_in_tag_predicate(name)
 
 
 def create_fs_getter(autotest_dir):
@@ -874,20 +766,15 @@ def find_and_parse_tests(cf_getter, predicate, suite_name='',
             on the TIME setting in control file, slowest test comes first.
     """
     logging.debug('Getting control file list for suite: %s', suite_name)
-    retriever = _get_cf_retriever(cf_getter,
-                                  forgiving_parser=forgiving_parser,
-                                  run_prod_code=run_prod_code,
-                                  test_args=test_args)
+    retriever = _ControlFileRetriever(cf_getter,
+                                      forgiving_parser=forgiving_parser,
+                                      run_prod_code=run_prod_code,
+                                      test_args=test_args)
     tests = retriever.retrieve_for_suite(suite_name)
-    logging.debug('Parsed %s control files.', len(tests))
     if not add_experimental:
         predicate = _ComposedPredicate([predicate,
                                         _non_experimental_tests_predicate])
-    tests = [test for test in tests.itervalues() if predicate(test)]
-    tests.sort(key=lambda t:
-               control_data.ControlData.get_test_time_index(t.time),
-               reverse=True)
-    return tests
+    return suite_common.filter_tests(tests, predicate)
 
 
 def find_possible_tests(cf_getter, predicate, suite_name='', count=10):
@@ -913,7 +800,7 @@ def find_possible_tests(cf_getter, predicate, suite_name='', count=10):
             match ratio.
     """
     logging.debug('Getting control file list for suite: %s', suite_name)
-    tests = _get_cf_retriever(cf_getter).retrieve_for_suite(suite_name)
+    tests = _ControlFileRetriever(cf_getter).retrieve_for_suite(suite_name)
     logging.debug('Parsed %s control files.', len(tests))
     similarities = {}
     for test in tests.itervalues():
@@ -1021,7 +908,7 @@ class _BaseSuite(object):
         @param wait_for_results: Set to False to run the suite job without
                                  waiting for test jobs to finish. Default is
                                  True.
-        @param job_retry: A bool value indicating whether jobs should be retired
+        @param job_retry: A bool value indicating whether jobs should be retried
                           on failure. If True, the field 'JOB_RETRIES' in
                           control files will be respected. If False, do not
                           retry.
@@ -1139,6 +1026,7 @@ class _BaseSuite(object):
         except (error.RPCException, proxy.JSONRPCException):
             if retry_for:
                 # Mark that we've attempted to retry the old job.
+                logging.debug("RPC exception occurred")
                 self._retry_handler.set_attempted(job_id=retry_for)
             raise
         else:
@@ -1155,7 +1043,6 @@ class _BaseSuite(object):
                               job.id, retry_for, retry_count)
             self._remember_job_keyval(job)
             return job
-
 
     def schedule(self, record):
         """
@@ -1199,9 +1086,14 @@ class _BaseSuite(object):
                    'Exception while scheduling suite').record_result(record)
 
         if self._job_retry:
+            logging.debug("Initializing RetryHandler for suite %s.", self._tag)
             self._retry_handler = RetryHandler(
                     initial_jobs_to_tests=self._jobs_to_tests,
                     max_retries=self._max_retries)
+            logging.debug("retry map created: %s ",
+                          self._retry_handler._retry_map)
+        else:
+            logging.info("Will not retry jobs from suite %s.", self._tag)
         return len(scheduled_test_names)
 
 
@@ -1299,7 +1191,8 @@ class _BaseSuite(object):
                  prototype:
                    record(base_job.status_log_entry)
         @param waiter: JobResultsWaiter instance.
-        @param reporter: _ResultReporter instance.
+
+        @instance_param _result_reporter: _ResultReporter instance.
         """
         self._record_result(result, record)
         rescheduled = False
@@ -1313,7 +1206,6 @@ class _BaseSuite(object):
 
         if self._should_report(result):
             self._result_reporter.report(result)
-
 
     def _record_result(self, result, record):
         """
@@ -1355,6 +1247,13 @@ class _BaseSuite(object):
         else:
             waiter.add_job(new_job)
             return bool(new_job)
+
+    @property
+    def jobs(self):
+        """Give a copy of the associated jobs
+
+        @returns: array of jobs"""
+        return [job for job in self._jobs]
 
 
     @property
@@ -1423,7 +1322,8 @@ class Suite(_BaseSuite):
     find_and_parse_tests = _deprecated_suite_method(find_and_parse_tests)
     find_possible_tests = _deprecated_suite_method(find_possible_tests)
     create_fs_getter = _deprecated_suite_method(create_fs_getter)
-    name_in_tag_predicate = _deprecated_suite_method(name_in_tag_predicate)
+    name_in_tag_predicate = _deprecated_suite_method(
+            suite_common.name_in_tag_predicate)
     name_in_tag_similarity_predicate = _deprecated_suite_method(
             name_in_tag_similarity_predicate)
     test_name_equals_predicate = _deprecated_suite_method(
@@ -1439,7 +1339,8 @@ class Suite(_BaseSuite):
     test_file_similarity_predicate = _deprecated_suite_method(
             test_file_similarity_predicate)
     list_all_suites = _deprecated_suite_method(list_all_suites)
-    get_test_source_build = _deprecated_suite_method(get_test_source_build)
+    get_test_source_build = _deprecated_suite_method(
+            suite_common.get_test_source_build)
 
 
     @classmethod
@@ -1476,7 +1377,7 @@ class Suite(_BaseSuite):
             if run_prod_code:
                 cf_getter = create_fs_getter(_AUTOTEST_DIR)
             else:
-                build = get_test_source_build(builds, **dargs)
+                build = suite_common.get_test_source_build(builds, **dargs)
                 cf_getter = _create_ds_getter(build, devserver)
 
         return cls(predicates,
@@ -1506,10 +1407,10 @@ class Suite(_BaseSuite):
         @return a Suite instance.
         """
         if cf_getter is None:
-            build = get_test_source_build(builds, **dargs)
+            build = suite_common.get_test_source_build(builds, **dargs)
             cf_getter = _create_ds_getter(build, devserver)
 
-        return cls([name_in_tag_predicate(name)],
+        return cls([suite_common.name_in_tag_predicate(name)],
                    name, builds, board, cf_getter, **dargs)
 
 
@@ -1577,7 +1478,7 @@ class Suite(_BaseSuite):
         @param wait_for_results: Set to False to run the suite job without
                                  waiting for test jobs to finish. Default is
                                  True.
-        @param job_retry: A bool value indicating whether jobs should be retired
+        @param job_retry: A bool value indicating whether jobs should be retried
                           on failure. If True, the field 'JOB_RETRIES' in
                           control files will be respected. If False, do not
                           retry.
@@ -1733,13 +1634,15 @@ def _load_dummy_test(
         if run_prod_code:
             cf_getter = create_fs_getter(_AUTOTEST_DIR)
         else:
-            build = get_test_source_build(
+            build = suite_common.get_test_source_build(
                     builds, test_source_build=test_source_build)
+            devserver.stage_artifacts(image=build,
+                                      artifacts=['control_files'])
             cf_getter = _create_ds_getter(build, devserver)
-    retriever = _get_cf_retriever(cf_getter,
-                                  run_prod_code=run_prod_code,
-                                  test_args=test_args)
-    return retriever.retrieve('dummy_Pass')
+    retriever = _ControlFileRetriever(cf_getter,
+                                      run_prod_code=run_prod_code,
+                                      test_args=test_args)
+    return retriever.retrieve_for_test('dummy_Pass')
 
 
 class _ComposedPredicate(object):

@@ -16,12 +16,10 @@
 
 package android.assist.testapp;
 
-import android.app.Activity;
 import android.assist.common.Utils;
-import android.content.Intent;
 import android.util.Log;
 
-public class FocusChangeActivity extends Activity {
+public class FocusChangeActivity extends BaseThirdPartyActivity {
     private static final String TAG = "FocusChangeActivity";
     private boolean mGainedFocus = false;
 
@@ -30,10 +28,10 @@ public class FocusChangeActivity extends Activity {
         if (hasFocus && !mGainedFocus) {
             mGainedFocus = true;
             Log.i(TAG, "gained focus");
-            sendBroadcast(new Intent(Utils.GAINED_FOCUS));
+            notify(Utils.GAINED_FOCUS);
         } else if (!hasFocus && mGainedFocus) {
             Log.i(TAG, "lost focus");
-            sendBroadcast(new Intent(Utils.LOST_FOCUS));
+            notify(Utils.LOST_FOCUS);
         }
     }
 }

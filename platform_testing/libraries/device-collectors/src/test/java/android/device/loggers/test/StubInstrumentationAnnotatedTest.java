@@ -16,7 +16,7 @@
 package android.device.loggers.test;
 
 import android.device.loggers.TestLogData;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Rule;
 import org.junit.Test;

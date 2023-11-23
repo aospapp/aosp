@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.BitmapShader;
+import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ComposeShader;
@@ -30,9 +31,10 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Shader;
 import android.graphics.Shader.TileMode;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,6 +52,39 @@ public class ComposeShaderTest {
         LinearGradient redGradient = new LinearGradient(0, 0, 0, SIZE,
                 Color.GREEN, Color.RED, Shader.TileMode.CLAMP);
         ComposeShader shader = new ComposeShader(blueGradient, redGradient, PorterDuff.Mode.SCREEN);
+
+        Bitmap bitmap = Bitmap.createBitmap(SIZE, SIZE, Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setShader(shader);
+        canvas.drawPaint(paint);
+
+        for (int y = 0; y < SIZE; y++) {
+            for (int x = 0; x < SIZE; x++) {
+                float greenX = 1f - (x / 255f);
+                float greenY = 1f - (y / 255f);
+                int green = (int) ((greenX + greenY - greenX * greenY) * 255);
+                int pixel = bitmap.getPixel(x, y);
+                try {
+                    assertEquals(0xFF, Color.alpha(pixel), TOLERANCE);
+                    assertEquals(y, Color.red(pixel), TOLERANCE);
+                    assertEquals(green, Color.green(pixel), TOLERANCE);
+                    assertEquals(x, Color.blue(pixel), TOLERANCE);
+                } catch (Error e) {
+                    Log.w(getClass().getName(), "Failed at (" + x + "," + y + ")");
+                    throw e;
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testBlendMode() {
+        LinearGradient blueGradient = new LinearGradient(0, 0, SIZE, 0,
+                Color.GREEN, Color.BLUE, Shader.TileMode.CLAMP);
+        LinearGradient redGradient = new LinearGradient(0, 0, 0, SIZE,
+                Color.GREEN, Color.RED, Shader.TileMode.CLAMP);
+        ComposeShader shader = new ComposeShader(blueGradient, redGradient, BlendMode.SCREEN);
 
         Bitmap bitmap = Bitmap.createBitmap(SIZE, SIZE, Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);

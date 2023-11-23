@@ -27,7 +27,7 @@ import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.settings.suggestions.Suggestion;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -182,14 +182,17 @@ public class CandidateSuggestion {
                 // First get override data
                 final Bundle overrideData = getOverrideData(metaData);
                 // Get icon
-                if (metaData.containsKey(META_DATA_PREFERENCE_ICON)) {
-                    iconRes = metaData.getInt(META_DATA_PREFERENCE_ICON);
-                } else {
-                    iconRes = mResolveInfo.activityInfo.icon;
-                }
-                if (iconRes != 0) {
-                    icon = Icon.createWithResource(
-                            mResolveInfo.activityInfo.packageName, iconRes);
+                icon = getIconFromBundle(overrideData, META_DATA_PREFERENCE_ICON);
+                if (icon == null) {
+                    if (metaData.containsKey(META_DATA_PREFERENCE_ICON)) {
+                        iconRes = metaData.getInt(META_DATA_PREFERENCE_ICON);
+                    } else {
+                        iconRes = mResolveInfo.activityInfo.icon;
+                    }
+                    if (iconRes != 0) {
+                        icon = Icon.createWithResource(
+                                mResolveInfo.activityInfo.packageName, iconRes);
+                    }
                 }
                 // Get title
                 title = getStringFromBundle(overrideData, META_DATA_PREFERENCE_TITLE);
@@ -239,6 +242,14 @@ public class CandidateSuggestion {
             return null;
         }
         return bundle.getString(key);
+    }
+
+    /** Extracts an Icon object from bundle. */
+    private Icon getIconFromBundle(Bundle bundle, String key) {
+        if (bundle == null || TextUtils.isEmpty(key)) {
+            return null;
+        }
+        return bundle.getParcelable(key);
     }
 
     private Bundle getOverrideData(Bundle metadata) {

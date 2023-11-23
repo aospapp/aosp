@@ -37,6 +37,8 @@ public class ConstantPoolReader {
   static final int CONSTANT_METHOD_HANDLE = 15;
   static final int CONSTANT_METHOD_TYPE = 16;
   static final int CONSTANT_INVOKE_DYNAMIC = 18;
+  static final int CONSTANT_MODULE = 19;
+  static final int CONSTANT_PACKAGE = 20;
 
   /** A table that maps constant pool entries to byte offsets in {@link #byteReader}. */
   private final int[] constantPool;
@@ -70,6 +72,8 @@ public class ConstantPoolReader {
       case CONSTANT_CLASS:
       case CONSTANT_METHOD_TYPE:
       case CONSTANT_STRING:
+      case CONSTANT_MODULE:
+      case CONSTANT_PACKAGE:
         reader.skip(2);
         return 1;
       case CONSTANT_DOUBLE:
@@ -119,6 +123,28 @@ public class ConstantPoolReader {
     return reader.readUTF();
   }
 
+  /** Reads the CONSTANT_Module_info at the given index. */
+  public String moduleInfo(int index) {
+    ByteArrayDataInput reader = byteReader.seek(constantPool[index - 1]);
+    byte tag = reader.readByte();
+    if (tag != CONSTANT_MODULE) {
+      throw new AssertionError(String.format("bad tag: %x", tag));
+    }
+    int nameIndex = reader.readUnsignedShort();
+    return utf8(nameIndex);
+  }
+
+  /** Reads the CONSTANT_Package_info at the given index. */
+  public String packageInfo(int index) {
+    ByteArrayDataInput reader = byteReader.seek(constantPool[index - 1]);
+    byte tag = reader.readByte();
+    if (tag != CONSTANT_PACKAGE) {
+      throw new AssertionError(String.format("bad tag: %x", tag));
+    }
+    int nameIndex = reader.readUnsignedShort();
+    return utf8(nameIndex);
+  }
+
   /**
    * Reads a constant value at the given index, which must be one of CONSTANT_String_info,
    * CONSTANT_Integer_info, CONSTANT_Float_info, CONSTANT_Long_info, or CONSTANT_Double_info.
@@ -137,6 +163,8 @@ public class ConstantPoolReader {
         return new Const.IntValue(reader.readInt());
       case CONSTANT_STRING:
         return new Const.StringValue(utf8(reader.readUnsignedShort()));
+      case CONSTANT_UTF8:
+        return new Const.StringValue(reader.readUTF());
       default:
         throw new AssertionError(String.format("bad tag: %x", tag));
     }

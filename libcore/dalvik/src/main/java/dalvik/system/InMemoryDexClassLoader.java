@@ -16,6 +16,8 @@
 
 package dalvik.system;
 
+import libcore.util.NonNull;
+import libcore.util.Nullable;
 import java.nio.ByteBuffer;
 
 /**
@@ -29,10 +31,25 @@ public final class InMemoryDexClassLoader extends BaseDexClassLoader {
      *
      * @param dexBuffers array of buffers containing DEX files between
      *                       <tt>buffer.position()</tt> and <tt>buffer.limit()</tt>.
+     * @param librarySearchPath the list of directories containing native
+     *   libraries, delimited by {@code File.pathSeparator}; may be {@code null}
      * @param parent the parent class loader for delegation.
      */
-    public InMemoryDexClassLoader(ByteBuffer[] dexBuffers, ClassLoader parent) {
-        super(dexBuffers, parent);
+    public InMemoryDexClassLoader(@NonNull ByteBuffer @NonNull [] dexBuffers,
+            @Nullable String librarySearchPath, @Nullable ClassLoader parent) {
+        super(dexBuffers, librarySearchPath, parent);
+    }
+
+    /**
+     * Create an in-memory DEX class loader with the given dex buffers.
+     *
+     * @param dexBuffers array of buffers containing DEX files between
+     *                       <tt>buffer.position()</tt> and <tt>buffer.limit()</tt>.
+     * @param parent the parent class loader for delegation.
+     */
+    public InMemoryDexClassLoader(@NonNull ByteBuffer @NonNull [] dexBuffers,
+            @Nullable ClassLoader parent) {
+        this(dexBuffers, null, parent);
     }
 
     /**
@@ -42,7 +59,7 @@ public final class InMemoryDexClassLoader extends BaseDexClassLoader {
      *                       <tt>buffer.position()</tt> and <tt>buffer.limit()</tt>.
      * @param parent the parent class loader for delegation.
      */
-    public InMemoryDexClassLoader(ByteBuffer dexBuffer, ClassLoader parent) {
+    public InMemoryDexClassLoader(@NonNull ByteBuffer dexBuffer, @Nullable ClassLoader parent) {
         this(new ByteBuffer[] { dexBuffer }, parent);
     }
 }

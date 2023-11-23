@@ -6,6 +6,7 @@
 """Standalone service to monitor AFE servers and report to ts_mon"""
 import sys
 import time
+import logging
 import multiprocessing
 import urllib2
 
@@ -18,7 +19,6 @@ from autotest_lib.server import frontend
 from autotest_lib.server import site_host_attributes
 from autotest_lib.site_utils import server_manager_utils
 from chromite.lib import commandline
-from chromite.lib import cros_logging as logging
 from chromite.lib import metrics
 from chromite.lib import ts_mon_config
 
@@ -42,7 +42,7 @@ def afe_rpc_call(hostname):
     except Exception as e:
         metrics.Counter(METRIC_MONITOR_ERROR).increment(
                 fields={'target_hostname': hostname})
-        logging.exception(e)
+        logging.exception('Exception when running against host %s', hostname)
 
 
 def update_shards(shards, shards_lock, period=600, stop_event=None):

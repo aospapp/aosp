@@ -85,6 +85,8 @@ public interface Channel {
 
     String getAppLinkIntentUri();
 
+    String getNetworkAffiliation();
+
     String getLogoUri();
 
     boolean isRecordingProhibited();
@@ -108,6 +110,8 @@ public interface Channel {
     void copyFrom(Channel channel);
 
     void setLogoUri(String logoUri);
+
+    void setNetworkAffiliation(String networkAffiliation);
 
     boolean channelLogoExists();
 

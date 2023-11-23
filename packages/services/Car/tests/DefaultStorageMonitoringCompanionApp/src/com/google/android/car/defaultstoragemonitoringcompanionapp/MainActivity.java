@@ -17,7 +17,6 @@ package com.google.android.car.defaultstoragemonitoringcompanionapp;
 
 import android.app.Activity;
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.storagemonitoring.CarStorageMonitoringManager;
 import android.car.storagemonitoring.WearEstimate;
 import android.car.storagemonitoring.WearEstimateChange;
@@ -28,6 +27,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.TextView;
+
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -112,28 +112,24 @@ public class MainActivity extends Activity {
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d(TAG, "Connected to " + name.flattenToString());
 
-            try {
-                CarStorageMonitoringManager storageMonitoringManager =
+            CarStorageMonitoringManager storageMonitoringManager =
                     (CarStorageMonitoringManager) mCar.getCarManager(
-                        Car.STORAGE_MONITORING_SERVICE);
-                Log.d(TAG, "Acquired a CarStorageMonitoringManager " + storageMonitoringManager);
-                List<WearEstimateChange> wearEstimateChanges = storageMonitoringManager
-                    .getWearEstimateHistory();
-                if (wearEstimateChanges.isEmpty()) {
-                    finish();
-                }
-
-                WearEstimateChange currentChange = wearEstimateChanges
-                    .get(wearEstimateChanges.size() - 1);
-
-                if (!DEBUG && currentChange.isAcceptableDegradation) {
-                    finish();
-                }
-
-                    mNotificationTextView.setText(wearChangeToString(currentChange));
-            } catch (CarNotConnectedException e) {
-                Log.e(TAG, "Failed to get a connection", e);
+                            Car.STORAGE_MONITORING_SERVICE);
+            Log.d(TAG, "Acquired a CarStorageMonitoringManager " + storageMonitoringManager);
+            List<WearEstimateChange> wearEstimateChanges =
+                    storageMonitoringManager.getWearEstimateHistory();
+            if (wearEstimateChanges.isEmpty()) {
+                finish();
             }
+
+            WearEstimateChange currentChange =
+                    wearEstimateChanges.get(wearEstimateChanges.size() - 1);
+
+            if (!DEBUG && currentChange.isAcceptableDegradation) {
+                finish();
+            }
+
+            mNotificationTextView.setText(wearChangeToString(currentChange));
         }
 
         @Override

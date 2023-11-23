@@ -15,8 +15,6 @@
  */
 package com.android.tradefed.util;
 
-import com.android.tradefed.log.LogUtil.CLog;
-
 import org.junit.runner.Description;
 
 import java.lang.annotation.Annotation;
@@ -119,6 +117,14 @@ public class TestFilterHelper {
         return mExcludeFilters;
     }
 
+    public void clearIncludeFilters() {
+        mIncludeFilters.clear();
+    }
+
+    public void clearExcludeFilters() {
+        mExcludeFilters.clear();
+    }
+
     public Set<String> getIncludeAnnotation() {
         return mIncludeAnnotations;
     }
@@ -127,6 +133,13 @@ public class TestFilterHelper {
         return mExcludeAnnotations;
     }
 
+    public void clearIncludeAnnotations() {
+        mIncludeAnnotations.clear();
+    }
+
+    public void clearExcludeAnnotations() {
+        mExcludeAnnotations.clear();
+    }
 
     /**
      * Check if an element that has annotation passes the filter
@@ -163,7 +176,6 @@ public class TestFilterHelper {
             for (Annotation a : annotationsList) {
                 if (mExcludeAnnotations.contains(a.annotationType().getName())) {
                     // If any of the method annotation match an ExcludeAnnotation, don't run it
-                    CLog.i("Skipping %s, ExcludeAnnotation exclude it", a);
                     return true;
                 }
             }
@@ -182,7 +194,6 @@ public class TestFilterHelper {
             }
             if (neededAnnotation.size() != 0) {
                 // The test needs to have all the include annotation to pass.
-                CLog.i("Skipping, IncludeAnnotation filtered it");
                 return false;
             }
         }
@@ -264,17 +275,14 @@ public class TestFilterHelper {
     private boolean shouldRunFilter(String packageName, String className, String methodName) {
         if (mExcludeFilters.contains(packageName)) {
             // Skip package because it was excluded
-            CLog.i("Skip package %s because it was excluded", packageName);
             return false;
         }
         if (mExcludeFilters.contains(className)) {
             // Skip class because it was excluded
-            CLog.i("Skip class %s because it was excluded", className);
             return false;
         }
         if (mExcludeFilters.contains(methodName)) {
             // Skip method because it was excluded
-            CLog.i("Skip method %s in class %s because it was excluded", methodName, className);
             return false;
         }
         return true;

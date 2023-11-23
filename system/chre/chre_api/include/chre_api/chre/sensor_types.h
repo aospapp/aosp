@@ -57,10 +57,13 @@ extern "C" {
 /**
  * Accelerometer.
  *
- * Generates: CHRE_EVENT_SENSOR_ACCELEROMETER_DATA
+ * Generates: CHRE_EVENT_SENSOR_ACCELEROMETER_DATA and
+ *     optionally CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO
  *
  * Note that the ACCELEROMETER_DATA is always the fully calibrated data,
  * including factory calibration and runtime calibration if available.
+ *
+ * @see chreConfigureSensorBiasEvents
  */
 #define CHRE_SENSOR_TYPE_ACCELEROMETER  UINT8_C(1)
 
@@ -94,6 +97,8 @@ extern "C" {
  *
  * Note that the GYROSCOPE_DATA is always the fully calibrated data, including
  * factory calibration and runtime calibration if available.
+ *
+ * @see chreConfigureSensorBiasEvents
  */
 #define CHRE_SENSOR_TYPE_GYROSCOPE  UINT8_C(6)
 
@@ -115,6 +120,8 @@ extern "C" {
  *
  * Note that the GEOMAGNETIC_FIELD_DATA is always the fully calibrated data,
  * including factory calibration and runtime calibration if available.
+ *
+ * @see chreConfigureSensorBiasEvents
  */
 #define CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD  UINT8_C(8)
 
@@ -154,6 +161,15 @@ extern "C" {
 #define CHRE_SENSOR_TYPE_PROXIMITY  UINT8_C(13)
 
 /**
+ * Step detection.
+ *
+ * Generates: CHRE_EVENT_SENSOR_STEP_DETECT_DATA
+ *
+ * @since v1.3
+ */
+#define CHRE_SENSOR_TYPE_STEP_DETECT  UINT8_C(23)
+
+/**
  * Uncalibrated accelerometer.
  *
  * Generates: CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_DATA
@@ -188,6 +204,33 @@ extern "C" {
 #error Too many sensor types
 #endif
 
+/**
+ * Values that can be stored in the accuracy field of chreSensorDataHeader.
+ * If CHRE_SENSOR_ACCURACY_UNKNOWN is returned, then the driver did not provide
+ * accuracy information with the data. Values in the range
+ * [CHRE_SENSOR_ACCURACY_VENDOR_START, CHRE_SENSOR_ACCURACY_VENDOR_END] are
+ * reserved for vendor-specific values for vendor sensor types, and are not used
+ * by CHRE for standard sensor types.
+ *
+ * Otherwise, the values have the same meaning as defined in the Android
+ * Sensors definition:
+ * https://developer.android.com/reference/android/hardware/SensorManager
+ *
+ * @since v1.3
+ *
+ * @defgroup CHRE_SENSOR_ACCURACY
+ * @{
+ */
+
+#define CHRE_SENSOR_ACCURACY_UNKNOWN       UINT8_C(0)
+#define CHRE_SENSOR_ACCURACY_UNRELIABLE    UINT8_C(1)
+#define CHRE_SENSOR_ACCURACY_LOW           UINT8_C(2)
+#define CHRE_SENSOR_ACCURACY_MEDIUM        UINT8_C(3)
+#define CHRE_SENSOR_ACCURACY_HIGH          UINT8_C(4)
+#define CHRE_SENSOR_ACCURACY_VENDOR_START  UINT8_C(192)
+#define CHRE_SENSOR_ACCURACY_VENDOR_END    UINT8_MAX
+
+/** @} */
 
 /**
  * Header used in every structure containing batchable data from a sensor.
@@ -254,17 +297,27 @@ struct chreSensorDataHeader {
     uint16_t readingCount;
 
     /**
+     * The accuracy of the sensor data.
+     *
+     * @ref CHRE_SENSOR_ACCURACY
+     *
+     * @since v1.3
+     */
+    uint8_t accuracy;
+
+    /**
      * Reserved bytes.
      *
-     * These must be 0.
+     * This must be 0.
      */
-    uint8_t reserved[2];
+    uint8_t reserved;
 };
 
 /**
  * Data for a sensor which reports on three axes.
  *
  * This is used by CHRE_EVENT_SENSOR_ACCELEROMETER_DATA,
+ * CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO,
  * CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_DATA,
  * CHRE_EVENT_SENSOR_GYROSCOPE_DATA,
  * CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO,
@@ -308,8 +361,9 @@ struct chreSensorThreeAxisData {
  * to the timestamp.  But since we only care about the occurrence, we
  * don't need to know anything else.
  *
- * Used by: CHRE_EVENT_SENSOR_INSTANT_MOTION_DETECT_DATA and
- *     CHRE_EVENT_SENSOR_STATIONARY_DETECT_DATA.
+ * Used by: CHRE_EVENT_SENSOR_INSTANT_MOTION_DETECT_DATA,
+ *     CHRE_EVENT_SENSOR_STATIONARY_DETECT_DATA, and
+ *     CHRE_EVENT_SENSOR_STEP_DETECT_DATA.
  */
 struct chreSensorOccurrenceData {
     struct chreSensorDataHeader header;

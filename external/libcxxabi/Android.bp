@@ -18,6 +18,7 @@ cc_library_static {
     name: "libc++abi",
     host_supported: true,
     vendor_available: true,
+    recovery_available: true,
     srcs: [
         "src/abort_message.cpp",
         "src/cxa_aux_runtime.cpp",
@@ -51,6 +52,8 @@ cc_library_static {
         "-fexceptions",
         "-Wextra",
         "-Wno-unused-function",
+        "-Wno-implicit-fallthrough",
+        // src/cxa_demangle.cpp:2591 -Wimplicit-fallthrough
     ],
     sanitize: {
         never: true,
@@ -92,6 +95,30 @@ cc_library_static {
             cppflags: ["-DHAVE___CXA_THREAD_ATEXIT_IMPL"],
             enabled: true,
         },
+        windows: {
+            enabled: true,
+            cppflags: [
+                "-D_LIBCPP_HAS_THREAD_API_WIN32",
+                "-D_LIBCXXABI_BUILDING_LIBRARY",
+                "-D_LIBCXXABI_DISABLE_VISIBILITY_ANNOTATIONS",
+                "-D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+            ],
+            exclude_srcs: [
+                "src/cxa_thread_atexit.cpp",
+
+                // Building stdlib_new_delete.cpp in libcxxabi causes
+                // multiple-definition errors against definitions in
+                // libcxx/src/new.cpp on Windows.  This works on Linux and
+                // Android where the functions have 'weak' linkage and are
+                // discarded by the linker.
+                "src/stdlib_new_delete.cpp",
+            ],
+        },
+        windows_x86: {
+            cppflags: [
+                "-fsjlj-exceptions",
+            ],
+        }
     },
 
 }

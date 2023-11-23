@@ -17,6 +17,7 @@
 package com.android.cts.usepermission;
 
 import static junit.framework.Assert.assertEquals;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -27,41 +28,48 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.icu.text.CaseMap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
+import android.support.test.uiautomator.Until;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ScrollView;
-import android.widget.Switch;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import junit.framework.Assert;
+
+import org.junit.Before;
+import org.junit.runner.RunWith;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
-import junit.framework.Assert;
-import org.junit.Before;
-import org.junit.runner.RunWith;
+import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
 public abstract class BasePermissionsTest {
     private static final String PLATFORM_PACKAGE_NAME = "android";
 
-    private static final long IDLE_TIMEOUT_MILLIS = 500;
-    private static final long GLOBAL_TIMEOUT_MILLIS = 5000;
+    private static final long IDLE_TIMEOUT_MILLIS = 1000;
+    private static final long GLOBAL_TIMEOUT_MILLIS = 10000;
 
-    private static final long RETRY_TIMEOUT = 3 * GLOBAL_TIMEOUT_MILLIS;
+    private static final long RETRY_TIMEOUT = 10 * GLOBAL_TIMEOUT_MILLIS;
     private static final String LOG_TAG = "BasePermissionsTest";
 
     private static Map<String, String> sPermissionToLabelResNameMap = new ArrayMap<>();
@@ -252,7 +260,7 @@ public abstract class BasePermissionsTest {
 
         PackageManager packageManager = mContext.getPackageManager();
         mWatch = packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH);
-        initPermissionToLabelMap(packageManager.isPermissionReviewModeEnabled());
+        initPermissionToLabelMap(packageManager.arePermissionsIndividuallyControlled());
 
         UiObject2 button = getUiDevice().findObject(By.text("Close"));
         if (button != null) {
@@ -288,25 +296,47 @@ public abstract class BasePermissionsTest {
 
     protected void clickAllowButton() throws Exception {
         scrollToBottomIfWatch();
-        getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.packageinstaller:id/permission_allow_button")).click();
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_allow_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
+    }
+
+    protected void clickAllowAlwaysButton() throws Exception {
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_allow_always_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
+    }
+
+    protected void clickAllowForegroundButton() throws Exception {
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_allow_foreground_only_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
     }
 
     protected void clickDenyButton() throws Exception {
         scrollToBottomIfWatch();
-        getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.packageinstaller:id/permission_deny_button")).click();
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_deny_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
     }
 
-    protected void clickDontAskAgainCheckbox() throws Exception {
-        getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.packageinstaller:id/do_not_ask_checkbox")).click();
+    protected void clickDenyAndDontAskAgainButton() throws Exception {
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
     }
 
     protected void clickDontAskAgainButton() throws Exception {
         scrollToBottomIfWatch();
-        getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.packageinstaller:id/permission_deny_dont_ask_again_button")).click();
+        waitForIdle();
+        getUiDevice().wait(Until.findObject(By.res(
+                "com.android.permissioncontroller:id/permission_deny_dont_ask_again_button")),
+                GLOBAL_TIMEOUT_MILLIS).click();
     }
 
     protected void grantPermission(String permission) throws Exception {
@@ -327,6 +357,7 @@ public abstract class BasePermissionsTest {
 
     private void scrollToBottomIfWatch() throws Exception {
         if (mWatch) {
+            getUiDevice().wait(Until.findObject(By.clazz(ScrollView.class)), GLOBAL_TIMEOUT_MILLIS);
             UiScrollable scrollable =
                     new UiScrollable(new UiSelector().className(ScrollView.class));
             if (scrollable.exists()) {
@@ -364,60 +395,78 @@ public abstract class BasePermissionsTest {
         Assert.assertNotNull("Permissions label should be present", permLabelView);
 
         AccessibilityNodeInfo permItemView = findCollectionItem(permLabelView);
-        Assert.assertNotNull("Permissions item should be present", permItemView);
 
         click(permItemView);
 
         waitForIdle();
 
         for (String permission : permissions) {
-            // Find the permission toggle
+            // Find the permission screen
             String permissionLabel = getPermissionLabel(permission);
 
-            AccessibilityNodeInfo labelView = getNodeTimed(() -> findByText(permissionLabel), true);
-            Assert.assertNotNull("Permission label should be present", labelView);
+            UiObject2 permissionView = null;
+            long start = System.currentTimeMillis();
+            while (permissionView == null && start + RETRY_TIMEOUT > System.currentTimeMillis()) {
+                permissionView = getUiDevice().wait(Until.findObject(By.text(permissionLabel)),
+                        GLOBAL_TIMEOUT_MILLIS);
 
-            AccessibilityNodeInfo itemView = findCollectionItem(labelView);
-            Assert.assertNotNull("Permission item should be present", itemView);
+                if (permissionView == null) {
+                    getUiDevice().findObject(By.res("android:id/list_container"))
+                            .scroll(Direction.DOWN, 1);
+                }
+            }
 
-            final AccessibilityNodeInfo toggleView = findSwitch(itemView);
-            Assert.assertNotNull("Permission toggle should be present", toggleView);
+            permissionView.click();
+            waitForIdle();
 
-            final boolean wasGranted = toggleView.isChecked();
+            String denyLabel = mContext.getResources().getString(R.string.Deny);
+
+            final boolean wasGranted = !getUiDevice().wait(Until.findObject(By.text(denyLabel)),
+                    GLOBAL_TIMEOUT_MILLIS).isChecked();
             if (granted != wasGranted) {
                 // Toggle the permission
 
-                if (!itemView.getActionList().contains(AccessibilityAction.ACTION_CLICK)) {
-                    click(toggleView);
+                if (granted) {
+                    String allowLabel = mContext.getResources().getString(R.string.Allow);
+                    getUiDevice().findObject(By.text(allowLabel)).click();
                 } else {
-                    click(itemView);
+                    getUiDevice().findObject(By.text(denyLabel)).click();
                 }
-
                 waitForIdle();
 
                 if (wasGranted && legacyApp) {
                     scrollToBottomIfWatch();
-                    String packageName = getInstrumentation().getContext().getPackageManager()
+                    Context context = getInstrumentation().getContext();
+                    String packageName = context.getPackageManager()
                             .getPermissionControllerPackageName();
-                    String resIdName = "com.android.packageinstaller"
+                    String resIdName = "com.android.permissioncontroller"
                             + ":string/grant_dialog_button_deny_anyway";
-                    Resources resources = getInstrumentation().getContext()
+                    Resources resources = context
                             .createPackageContext(packageName, 0).getResources();
                     final int confirmResId = resources.getIdentifier(resIdName, null, null);
-                    String confirmTitle = resources.getString(confirmResId);
-                    UiObject denyAnyway = getUiDevice().findObject(new UiSelector()
-                            .textStartsWith(confirmTitle));
-                    denyAnyway.click();
+                    String confirmTitle = CaseMap.toUpper().apply(
+                            resources.getConfiguration().getLocales().get(0),
+                            resources.getString(confirmResId));
+                    getUiDevice().wait(Until.findObject(
+                            byTextStartsWithCaseInsensitive(confirmTitle)),
+                            GLOBAL_TIMEOUT_MILLIS).click();
 
                     waitForIdle();
                 }
             }
+
+            getUiDevice().pressBack();
+            waitForIdle();
         }
 
         getUiDevice().pressBack();
         waitForIdle();
         getUiDevice().pressBack();
         waitForIdle();
+    }
+
+    private BySelector byTextStartsWithCaseInsensitive(String prefix) {
+        return By.text(Pattern.compile(String.format("(?i)^%s.*$", Pattern.quote(prefix))));
     }
 
     private String getPermissionLabel(String permission) throws Exception {
@@ -476,7 +525,9 @@ public abstract class BasePermissionsTest {
                     return result;
                 }
                 try {
-                    while (child.getActionList().contains(AccessibilityAction.ACTION_SCROLL_FORWARD)) {
+                    while (child.getActionList().contains(
+                            AccessibilityAction.ACTION_SCROLL_FORWARD) || child.getActionList()
+                            .contains(AccessibilityAction.ACTION_SCROLL_DOWN)) {
                         scrollForward(child);
                         result = getNodeTimed(() -> findByText(child, text), false);
                         if (result != null) {
@@ -548,7 +599,9 @@ public abstract class BasePermissionsTest {
             throws Exception {
         AccessibilityNodeInfo result = current;
         while (result != null) {
-            if (result.getCollectionItemInfo() != null) {
+            // Nodes that are in the hierarchy but not yet on screen may not have collection item
+            // info populated. Use a parent with collection info as an indicator in those cases.
+            if (result.getCollectionItemInfo() != null || hasCollectionAsParent(result)) {
                 return result;
             }
             result = result.getParent();
@@ -556,25 +609,8 @@ public abstract class BasePermissionsTest {
         return null;
     }
 
-    private static AccessibilityNodeInfo findSwitch(AccessibilityNodeInfo root) throws Exception {
-        if (Switch.class.getName().equals(root.getClassName().toString())) {
-            return root;
-        }
-        final int childCount = root.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            AccessibilityNodeInfo child = root.getChild(i);
-            if (child == null) {
-                continue;
-            }
-            if (Switch.class.getName().equals(child.getClassName().toString())) {
-                return child;
-            }
-            AccessibilityNodeInfo result = findSwitch(child);
-            if (result != null) {
-                return result;
-            }
-        }
-        return null;
+    private static boolean hasCollectionAsParent(AccessibilityNodeInfo node) {
+        return node.getParent() != null && node.getParent().getCollectionInfo() != null;
     }
 
     private static AccessibilityNodeInfo getNodeTimed(

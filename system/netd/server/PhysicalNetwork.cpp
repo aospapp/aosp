@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "Netd"
+
 #include "PhysicalNetwork.h"
 
 #include "RouteController.h"
 #include "SockDiag.h"
 
-#define LOG_TAG "Netd"
 #include "log/log.h"
 
 namespace android {

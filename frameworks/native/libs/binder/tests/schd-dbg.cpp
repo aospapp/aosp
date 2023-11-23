@@ -218,7 +218,7 @@ struct Results {
   uint64_t m_total_time = 0;
   uint64_t m_miss = 0;
   bool tracing;
-  Results(bool _tracing) : tracing(_tracing) {
+  explicit Results(bool _tracing) : tracing(_tracing) {
   }
   inline bool miss_deadline(uint64_t nano) {
     return nano > deadline_us * 1000;
@@ -295,7 +295,7 @@ static void* thread_start(void* p) {
 
   no_inherent += reply.readInt32();
   no_sync += reply.readInt32();
-  return 0;
+  return nullptr;
 }
 
 // create a fifo thread to transact and wait it to finished

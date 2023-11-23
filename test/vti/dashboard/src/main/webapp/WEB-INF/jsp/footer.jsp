@@ -16,9 +16,9 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 
-<footer class='page-footer'>
-  <div class='footer-copyright'>
-    <div class='container'>
+<footer class="page-footer" style="height: 70px;">
+  <div class="footer-copyright">
+    <div class="container">
       © 2017 - The Android Open Source Project
     </div>
   </div>

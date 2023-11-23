@@ -437,10 +437,6 @@ dEQP-GLES2.functional.shaders.preprocessor.directive.error_vertex
 dEQP-GLES2.functional.shaders.preprocessor.directive.error_fragment
 dEQP-GLES2.functional.shaders.preprocessor.builtin.line_and_file_vertex
 dEQP-GLES2.functional.shaders.preprocessor.builtin.line_and_file_fragment
-dEQP-GLES2.functional.shaders.preprocessor.builtin.line_expression_vertex
-dEQP-GLES2.functional.shaders.preprocessor.builtin.line_expression_fragment
-dEQP-GLES2.functional.shaders.preprocessor.builtin.line_and_file_expression_vertex
-dEQP-GLES2.functional.shaders.preprocessor.builtin.line_and_file_expression_fragment
 dEQP-GLES2.functional.shaders.preprocessor.builtin.line_defined_2_vertex
 dEQP-GLES2.functional.shaders.preprocessor.builtin.line_defined_2_fragment
 dEQP-GLES2.functional.shaders.preprocessor.builtin.empty_line_vertex
@@ -10078,7 +10074,6 @@ dEQP-GLES2.functional.shaders.random.all_features.fragment.12
 dEQP-GLES2.functional.shaders.random.all_features.fragment.13
 dEQP-GLES2.functional.shaders.random.all_features.fragment.14
 dEQP-GLES2.functional.shaders.random.all_features.fragment.15
-dEQP-GLES2.functional.shaders.random.all_features.fragment.16
 dEQP-GLES2.functional.shaders.random.all_features.fragment.17
 dEQP-GLES2.functional.shaders.random.all_features.fragment.18
 dEQP-GLES2.functional.shaders.random.all_features.fragment.19
@@ -10118,7 +10113,6 @@ dEQP-GLES2.functional.shaders.random.all_features.fragment.52
 dEQP-GLES2.functional.shaders.random.all_features.fragment.53
 dEQP-GLES2.functional.shaders.random.all_features.fragment.54
 dEQP-GLES2.functional.shaders.random.all_features.fragment.55
-dEQP-GLES2.functional.shaders.random.all_features.fragment.56
 dEQP-GLES2.functional.shaders.random.all_features.fragment.57
 dEQP-GLES2.functional.shaders.random.all_features.fragment.58
 dEQP-GLES2.functional.shaders.random.all_features.fragment.59

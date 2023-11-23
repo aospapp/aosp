@@ -22,11 +22,11 @@ import static com.android.documentsui.services.FileOperationService.EXTRA_CANCEL
 import static com.android.documentsui.services.FileOperationService.EXTRA_JOB_ID;
 import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION;
 
-import android.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.android.documentsui.services.FileOperationService.OpType;
@@ -58,13 +58,16 @@ public final class FileOperations {
     public static String start(Context context, FileOperation operation, Callback callback,
             @Nullable String jobId) {
 
-        if (DEBUG) Log.d(TAG, "Handling generic 'start' call.");
+        if (DEBUG) {
+            Log.d(TAG, "Handling generic 'start' call.");
+        }
 
         String newJobId = jobId != null ? jobId : createJobId();
         Intent intent = createBaseIntent(context, newJobId, operation);
-
-        callback.onOperationResult(Callback.STATUS_ACCEPTED, operation.getOpType(),
-                operation.getSrc().getItemCount());
+        if (callback != null) {
+            callback.onOperationResult(Callback.STATUS_ACCEPTED, operation.getOpType(),
+                    operation.getSrc().getItemCount());
+        }
 
         context.startService(intent);
 
@@ -73,7 +76,9 @@ public final class FileOperations {
 
     @VisibleForTesting
     public static void cancel(Activity activity, String jobId) {
-        if (DEBUG) Log.d(TAG, "Attempting to canceling operation: " + jobId);
+        if (DEBUG) {
+            Log.d(TAG, "Attempting to canceling operation: " + jobId);
+        }
 
         Intent intent = new Intent(activity, FileOperationService.class);
         intent.putExtra(EXTRA_CANCEL, true);

@@ -134,9 +134,9 @@ class SuiteRunnerTest(unittest.TestCase):
     self.assertTrue(self.call_telemetry_run)
     self.assertFalse(self.call_test_that_run)
     self.assertFalse(self.call_telemetry_crosperf_run)
-    self.assertEqual(self.telemetry_run_args, [
-        'fake_machine', self.mock_label, self.telemetry_bench, ''
-    ])
+    self.assertEqual(
+        self.telemetry_run_args,
+        ['fake_machine', self.mock_label, self.telemetry_bench, ''])
 
     reset()
     self.runner.Run(machine, self.mock_label, self.test_that_bench, test_args,
@@ -145,9 +145,9 @@ class SuiteRunnerTest(unittest.TestCase):
     self.assertFalse(self.call_telemetry_run)
     self.assertTrue(self.call_test_that_run)
     self.assertFalse(self.call_telemetry_crosperf_run)
-    self.assertEqual(self.test_that_args, [
-        'fake_machine', self.mock_label, self.test_that_bench, '', ''
-    ])
+    self.assertEqual(
+        self.test_that_args,
+        ['fake_machine', self.mock_label, self.test_that_bench, '', ''])
 
     reset()
     self.runner.Run(machine, self.mock_label, self.telemetry_crosperf_bench,
@@ -171,7 +171,10 @@ class SuiteRunnerTest(unittest.TestCase):
         'set -e && '
         # Disable Turbo in Intel pstate driver
         'if [[ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then '
-        'echo -n 1 > /sys/devices/system/cpu/intel_pstate/no_turbo; fi; '
+        '  if grep -q 0 /sys/devices/system/cpu/intel_pstate/no_turbo;  then '
+        '    echo -n 1 > /sys/devices/system/cpu/intel_pstate/no_turbo; '
+        '  fi; '
+        'fi; '
         # Set governor to performance for each cpu
         'for f in /sys/devices/system/cpu/cpu*/cpufreq; do '
         'cd $f; '
@@ -191,11 +194,10 @@ class SuiteRunnerTest(unittest.TestCase):
 
     self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
     self.runner.PinGovernorExecutionFrequencies = FakePinGovernor
-    self.runner.RebootMachine('lumpy1.cros', '/tmp/chromeos')
+    self.runner.RestartUI('lumpy1.cros', '/tmp/chromeos')
     self.assertEqual(mock_cros_runcmd.call_count, 1)
-    self.assertEqual(mock_cros_runcmd.call_args_list[0][0], ('reboot && exit',))
-    self.assertEqual(mock_sleep.call_count, 1)
-    self.assertEqual(mock_sleep.call_args_list[0][0], (60,))
+    self.assertEqual(mock_cros_runcmd.call_args_list[0][0],
+                     ('stop ui; sleep 5; start ui',))
 
   @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
   @mock.patch.object(command_executer.CommandExecuter,
@@ -228,7 +230,7 @@ class SuiteRunnerTest(unittest.TestCase):
     self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
     res = self.runner.Test_That_Run('lumpy1.cros', self.mock_label,
                                     self.test_that_bench, '--iterations=2', '')
-    self.assertEqual(mock_cros_runcmd.call_count, 1)
+    self.assertEqual(mock_cros_runcmd.call_count, 2)
     self.assertEqual(mock_chroot_runcmd.call_count, 1)
     self.assertEqual(res, 0)
     self.assertEqual(mock_cros_runcmd.call_args_list[0][0],

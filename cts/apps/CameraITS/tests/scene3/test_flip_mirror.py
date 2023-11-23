@@ -25,11 +25,6 @@ import numpy as np
 NAME = os.path.basename(__file__).split('.')[0]
 CHART_FILE = os.path.join(os.environ['CAMERA_ITS_TOP'], 'pymodules', 'its',
                           'test_images', 'ISO12233.png')
-CHART_HEIGHT = 13.5  # cm
-CHART_DISTANCE = 30.0  # cm
-CHART_SCALE_START = 0.65
-CHART_SCALE_STOP = 1.35
-CHART_SCALE_STEP = 0.025
 CHART_ORIENTATIONS = ['nominal', 'flip', 'mirror', 'rotate']
 VGA_WIDTH = 640
 VGA_HEIGHT = 480
@@ -125,9 +120,7 @@ def main():
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.read_3a(props))
     # initialize chart class and locate chart in scene
-    chart = its.cv2image.Chart(CHART_FILE, CHART_HEIGHT, CHART_DISTANCE,
-                               CHART_SCALE_START, CHART_SCALE_STOP,
-                               CHART_SCALE_STEP)
+    chart = its.cv2image.Chart()
 
     with its.device.ItsSession() as cam:
         fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}

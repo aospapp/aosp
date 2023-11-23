@@ -1,11 +1,11 @@
 /*
-Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
 dedicated to making software imaging solutions freely available.
 
-You may not use this file except in compliance with the License.
+You may not use this file except in compliance with the License.  You may
 obtain a copy of the License at
 
-http://www.imagemagick.org/script/license.php
+https://imagemagick.org/script/license.php
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -51,6 +51,9 @@ typedef struct _MagickCLCacheInfo
 
   Quantum
     *pixels;
+
+  SemaphoreInfo
+    *events_semaphore;
 }* MagickCLCacheInfo;
 
 /*
@@ -118,6 +121,10 @@ typedef CL_API_ENTRY cl_int
 typedef CL_API_ENTRY cl_mem
   (CL_API_CALL *MAGICKpfn_clCreateBuffer)(cl_context context,
     cl_mem_flags flags,size_t size,void *host_ptr,cl_int *errcode_ret)
+    CL_API_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_int
+  (CL_API_CALL *MAGICKpfn_clRetainMemObject)(cl_mem memobj)
     CL_API_SUFFIX__VERSION_1_0;
 
 typedef CL_API_ENTRY cl_int
@@ -207,6 +214,11 @@ typedef CL_API_ENTRY cl_int
 
 /* Events APIs */
 typedef CL_API_ENTRY cl_int
+  (CL_API_CALL *MAGICKpfn_clGetEventInfo)(cl_event event,
+    cl_profiling_info param_name,size_t param_value_size,void *param_value,
+    size_t *param_value_size_ret) CL_API_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_int
   (CL_API_CALL *MAGICKpfn_clWaitForEvents)(cl_uint num_events,
     const cl_event *event_list) CL_API_SUFFIX__VERSION_1_0;
 
@@ -234,6 +246,8 @@ typedef struct MagickLibraryRec MagickLibrary;
 
 struct MagickLibraryRec
 {
+  void *library;
+
   MAGICKpfn_clGetPlatformIDs          clGetPlatformIDs;
   MAGICKpfn_clGetPlatformInfo         clGetPlatformInfo;
 
@@ -249,6 +263,7 @@ struct MagickLibraryRec
   MAGICKpfn_clFinish                  clFinish;
 
   MAGICKpfn_clCreateBuffer            clCreateBuffer;
+  MAGICKpfn_clRetainMemObject         clRetainMemObject;
   MAGICKpfn_clReleaseMemObject        clReleaseMemObject;
 
   MAGICKpfn_clCreateProgramWithSource clCreateProgramWithSource;
@@ -268,6 +283,7 @@ struct MagickLibraryRec
   MAGICKpfn_clEnqueueUnmapMemObject   clEnqueueUnmapMemObject;
   MAGICKpfn_clEnqueueNDRangeKernel    clEnqueueNDRangeKernel;
 
+  MAGICKpfn_clGetEventInfo            clGetEventInfo;
   MAGICKpfn_clWaitForEvents           clWaitForEvents;
   MAGICKpfn_clReleaseEvent            clReleaseEvent;
   MAGICKpfn_clRetainEvent             clRetainEvent;
@@ -323,6 +339,9 @@ struct _MagickCLDevice
 
   ssize_t
     command_queues_index;
+
+  char
+    *vendor_name;
 };
 
 typedef struct _MagickCLEnv
@@ -400,7 +419,7 @@ extern MagickPrivate cl_command_queue
   AcquireOpenCLCommandQueue(MagickCLDevice);
 
 extern MagickPrivate cl_int
-  SetOpenCLKernelArg(cl_kernel,cl_uint,size_t,const void *);
+  SetOpenCLKernelArg(cl_kernel,size_t,size_t,const void *);
 
 extern MagickPrivate cl_kernel
   AcquireOpenCLKernel(MagickCLDevice,const char *);
@@ -410,7 +429,8 @@ extern MagickPrivate cl_mem
 
 extern MagickPrivate MagickBooleanType
   EnqueueOpenCLKernel(cl_command_queue,cl_kernel,cl_uint,const size_t *,
-    const size_t *,const size_t *,const Image *,const Image *,ExceptionInfo *),
+    const size_t *,const size_t *,const Image *,const Image *,
+    MagickBooleanType,ExceptionInfo *),
   InitializeOpenCL(MagickCLEnv,ExceptionInfo *),
   OpenCLThrowMagickException(MagickCLDevice,ExceptionInfo *,
     const char *,const char *,const size_t,const ExceptionType,const char *,
@@ -438,7 +458,8 @@ extern MagickPrivate void
   ReleaseOpenCLDevice(MagickCLDevice),
   ReleaseOpenCLKernel(cl_kernel),
   ReleaseOpenCLMemObject(cl_mem),
-  RetainOpenCLEvent(cl_event);
+  RetainOpenCLEvent(cl_event),
+  RetainOpenCLMemObject(cl_mem);
 
 #endif
 

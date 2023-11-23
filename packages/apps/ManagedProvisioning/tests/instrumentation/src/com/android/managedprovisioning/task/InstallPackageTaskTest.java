@@ -28,6 +28,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -47,7 +48,7 @@ import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import org.mockito.ArgumentCaptor;
@@ -83,7 +84,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
     @Mock private AbstractProvisioningTask.Callback mCallback;
     @Mock private DownloadPackageTask mDownloadPackageTask;
     private InstallPackageTask mTask;
-    private final SettingsFacade mSettingsFacade = new SettingsFacadeStub();
     private String mTestPackageLocation;
 
     @Override
@@ -115,8 +115,8 @@ public class InstallPackageTaskTest extends AndroidTestCase {
             out.write(APK_CONTENT);
         }
 
-        mTask = new InstallPackageTask(mSettingsFacade, mDownloadPackageTask, mMockContext,
-                TEST_PARAMS, mCallback);
+        mTask = new InstallPackageTask(mDownloadPackageTask, mMockContext, TEST_PARAMS, mCallback,
+                mock(ProvisioningAnalyticsTracker.class));
     }
 
     @SmallTest
@@ -130,7 +130,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         verify(mPackageManager, never()).getPackageInstaller();
         verify(mCallback).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mMockContext));
     }
 
     @SmallTest
@@ -153,7 +152,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN we receive a success callback
         verify(mCallback, timeout(TIMEOUT)).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mMockContext));
     }
 
     @SmallTest
@@ -179,7 +177,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN we receive a success callback
         verify(mCallback, timeout(TIMEOUT)).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mMockContext));
     }
 
 
@@ -205,7 +202,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN we get a success callback, because an existing version of the DPC is present
         verify(mCallback, timeout(TIMEOUT)).onSuccess(mTask);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mMockContext));
     }
 
     @SmallTest
@@ -230,7 +226,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN we get a success callback, because an existing version of the DPC is present
         verify(mCallback, timeout(TIMEOUT)).onError(mTask, ERROR_INSTALLATION_FAILED);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mMockContext));
     }
 
     @SmallTest
@@ -252,7 +247,6 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN we get a success callback, because the wrong package name
         verify(mCallback, timeout(TIMEOUT)).onError(mTask, ERROR_PACKAGE_INVALID);
         verifyNoMoreInteractions(mCallback);
-        assertTrue(mSettingsFacade.isPackageVerifierEnabled(mContext));
     }
 
     private IntentSender verifyPackageInstalled(int installFlags) throws IOException {
@@ -273,19 +267,5 @@ public class InstallPackageTaskTest extends AndroidTestCase {
         // THEN package installation was started and we will receive a status callback
         verify(mSession).commit(intentSenderCaptor.capture());
         return intentSenderCaptor.getValue();
-    }
-
-    private static class SettingsFacadeStub extends SettingsFacade {
-        private boolean mPackageVerifierEnabled = true;
-
-        @Override
-        public boolean isPackageVerifierEnabled(Context c) {
-            return mPackageVerifierEnabled;
-        }
-
-        @Override
-        public void setPackageVerifierEnabled(Context c, boolean packageVerifierEnabled) {
-            mPackageVerifierEnabled = packageVerifierEnabled;
-        }
     }
 }

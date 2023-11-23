@@ -17,24 +17,30 @@
 package android.widget.cts;
 
 import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
 import android.widget.cts.util.ListUtil;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+
 import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import junit.framework.Assert;
 
 public class ExpandableListTester {
+    private final ActivityTestRule<?> mActivityTestRule;
     private final ExpandableListView mExpandableListView;
     private final ExpandableListAdapter mAdapter;
     private final ListUtil mListUtil;
     private final Instrumentation mInstrumentation;
 
-    public ExpandableListTester(ExpandableListView expandableListView) {
+    public ExpandableListTester(ActivityTestRule<?> activityTestRule,
+            ExpandableListView expandableListView) {
+        mActivityTestRule = activityTestRule;
         mExpandableListView = expandableListView;
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mListUtil = new ListUtil(mExpandableListView, mInstrumentation);
@@ -44,11 +50,16 @@ public class ExpandableListTester {
     private void expandGroup(final int groupIndex, int flatPosition) {
         Assert.assertFalse("Group is already expanded", mExpandableListView
                 .isGroupExpanded(groupIndex));
+
+        // The following injects key events to emulate the sequence of expanding the group,
+        // each waiting for a redraw pass to complete. Note that we can't inject key events on
+        // the main thread, which is why we're passing null as the last parameter to the draw sync
         mListUtil.arrowScrollToSelectedPosition(flatPosition);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView, null);
         CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
                 KeyEvent.KEYCODE_DPAD_CENTER);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView, null);
+
         Assert.assertTrue("Group did not expand " + groupIndex,
                 mExpandableListView.isGroupExpanded(groupIndex));
     }
@@ -68,8 +79,8 @@ public class ExpandableListTester {
             mListUtil.arrowScrollToSelectedPosition(index);
             View headerChild = mExpandableListView.getChildAt(index
                     - mExpandableListView.getFirstVisiblePosition());
-            mExpandableListView.showContextMenuForChild(headerChild);
-            mInstrumentation.waitForIdleSync();
+            WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView,
+                    () -> mExpandableListView.showContextMenuForChild(headerChild));
             Assert.assertNull(menuListener.getErrorMessage(), menuListener.getErrorMessage());
             index++;
         }
@@ -86,8 +97,8 @@ public class ExpandableListTester {
             mListUtil.arrowScrollToSelectedPosition(index);
             View groupChild = mExpandableListView.getChildAt(index
                     - mExpandableListView.getFirstVisiblePosition());
-            mExpandableListView.showContextMenuForChild(groupChild);
-            mInstrumentation.waitForIdleSync();
+            WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView,
+                    () -> mExpandableListView.showContextMenuForChild(groupChild));
             Assert.assertNull(menuListener.getErrorMessage(), menuListener.getErrorMessage());
             index++;
 
@@ -98,8 +109,8 @@ public class ExpandableListTester {
                 menuListener.expectChildContextMenu(groupIndex, childIndex);
                 View child = mExpandableListView.getChildAt(index
                         - mExpandableListView.getFirstVisiblePosition());
-                mExpandableListView.showContextMenuForChild(child);
-                mInstrumentation.waitForIdleSync();
+                WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView,
+                        () -> mExpandableListView.showContextMenuForChild(child));
                 Assert.assertNull(menuListener.getErrorMessage(), menuListener.getErrorMessage());
                 index++;
             }
@@ -113,8 +124,8 @@ public class ExpandableListTester {
             mListUtil.arrowScrollToSelectedPosition(index);
             View footerChild = mExpandableListView.getChildAt(index
                     - mExpandableListView.getFirstVisiblePosition());
-            mExpandableListView.showContextMenuForChild(footerChild);
-            mInstrumentation.waitForIdleSync();
+            WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView,
+                    () -> mExpandableListView.showContextMenuForChild(footerChild));
             Assert.assertNull(menuListener.getErrorMessage(), menuListener.getErrorMessage());
             index++;
         }

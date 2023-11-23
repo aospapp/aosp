@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -50,13 +50,14 @@ class TelLabDataRoamingTest(TelephonyBaseTest):
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
+        self.md8475_version = self.user_params.get("md8475", "A")
         if self.ad.sim_card == "VzW12349":
             set_preferred_apn_by_adb(self.ad, "VZWINTERNET")
 
     def setup_class(self):
         try:
             self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option)
+                                   self.wlan_option, self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False

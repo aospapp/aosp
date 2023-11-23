@@ -41,7 +41,7 @@ rm -rf loading-test2.jar
 
 mkdir classes
 javac -d classes *.java
-dx --dex --output=classes.dex classes
+find classes -type f | xargs d8 --output . # Creates classes.dex
 jar cf loading-test2.jar classes.dex -C resources .
 
 rm -rf classes

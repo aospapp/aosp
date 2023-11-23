@@ -11,11 +11,11 @@ dnl This is to figure out the version number and the date....
 dnl
 E2FSPROGS_VERSION=`grep E2FSPROGS_VERSION ${srcdir}/version.h  \
 	| awk '{print $3}' | tr \" " " | awk '{print $1}'`
-DATE=`grep E2FSPROGS_DATE ${srcdir}/version.h | awk '{print $3}' \
-	| tr \" " "`
-E2FSPROGS_DAY=$(echo $DATE | awk -F- '{print $1}' | sed -e '/^[[1-9]]$/s/^/0/')
-MONTH=`echo $DATE | awk -F- '{print $2}'`
-YEAR=`echo $DATE | awk -F- '{print $3}'`
+E2FSPROGS_DATE=`grep E2FSPROGS_DATE ${srcdir}/version.h | awk '{print $3}' \
+	| tr \" " " | awk '{print $1}'`
+E2FSPROGS_DAY=$(echo $E2FSPROGS_DATE | awk -F- '{print $1}' | sed -e '/^[[1-9]]$/s/^/0/')
+MONTH=`echo $E2FSPROGS_DATE | awk -F- '{print $2}'`
+YEAR=`echo $E2FSPROGS_DATE | awk -F- '{print $3}'`
 
 if expr $YEAR ">" 1900 > /dev/null ; then
 	E2FSPROGS_YEAR=$YEAR
@@ -63,6 +63,7 @@ AC_SUBST(E2FSPROGS_MONTH)
 AC_SUBST(E2FSPROGS_DAY)
 AC_SUBST(E2FSPROGS_VERSION)
 AC_SUBST(E2FSPROGS_PKGVER)
+AC_SUBST(E2FSPROGS_DATE)
 dnl
 dnl Use diet libc
 dnl 
@@ -124,8 +125,8 @@ else
 fi
 AC_USE_SYSTEM_EXTENSIONS
 dnl
-dnl Set default values for library extentions.  Will be dealt with after
-dnl parsing configuration opions, which may modify these
+dnl Set default values for library extensions.  Will be dealt with after
+dnl parsing configuration options, which may modify these
 dnl
 LIB_EXT=.a
 STATIC_LIB_EXT=.a
@@ -565,6 +566,24 @@ AC_SUBST(PROFILED_LIBBLKID)
 AC_SUBST(DEPPROFILED_LIBBLKID)
 AC_SUBST(BLKID_CMT)
 dnl
+dnl handle --enable-subset
+dnl
+ALL_CMT=
+SUBSET_CMT=
+AC_ARG_ENABLE([subset],
+[  --enable-subset  	  enable subset-only build],
+if test "$enableval" = "no"
+then
+	SUBSET_CMT=#
+	AC_MSG_RESULT([Disabling subset-only build])
+else
+	ALL_CMT=#
+	AC_MSG_RESULT([Enabling subset-only-build])
+fi
+,)
+AC_SUBST(ALL_CMT)
+AC_SUBST(SUBSET_CMT)
+dnl
 dnl handle --disable-backtrace
 dnl
 AH_TEMPLATE([DISABLE_BACKTRACE], [Define to 1 to disable use of backtrace])
@@ -862,6 +881,7 @@ AC_SUBST(BINARY_TYPE)
 AC_PROG_MAKE_SET
 CHECK_GNU_MAKE
 AC_PATH_PROG(LN, ln, ln)
+AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PATH_PROG(MV, mv, mv)
 AC_PATH_PROG(CP, cp, cp)
@@ -877,7 +897,7 @@ AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_CHECK_TOOL(STRIP, strip, :)
 AC_CHECK_PROG(MAKEINFO, makeinfo, makeinfo, )
 if test "_$MAKEINFO" = "_"; then
-    MAKEINFO="@echo Makeinfo is missing. Info documentation will not be built.;true"
+    MAKEINFO="echo Makeinfo is missing. Info documentation will not be built."
 else
     case "$MAKEINFO" in
       */missing.*)
@@ -918,6 +938,7 @@ AC_CHECK_HEADERS(m4_flatten([
 	attr/xattr.h
 	linux/falloc.h
 	linux/fd.h
+	linux/fsmap.h
 	linux/major.h
 	linux/loop.h
 	linux/types.h
@@ -945,7 +966,27 @@ AC_CHECK_HEADERS(m4_flatten([
 	sys/types.h
 	sys/un.h
 	sys/wait.h
+	sys/xattr.h
 ]))
+dnl Check where to find a dd(1) that supports iflag=fullblock
+dnl and oflag=append
+AC_MSG_CHECKING([for a dd(1) program that supports iflag=fullblock])
+DD=
+for i in dd gdd ; do
+	if "$i" if=/dev/null of=/dev/null count=1 bs=10k 2>/dev/null iflag=fullblock oflag=append ; then
+		DD=$i
+		break
+	fi
+done
+if test -n "$DD" ; then
+	AC_MSG_RESULT([$DD])
+else
+	AC_MSG_RESULT([not found, using dd])
+	DD=dd
+	AC_MSG_WARN([No GNU-compatible dd(1) program found, expect some self-test failures.])
+fi
+AC_SUBST([DD])
+
 AC_CHECK_HEADERS(net/if.h,,,
 [[
 #if HAVE_SYS_TYPES_H
@@ -957,7 +998,7 @@ AC_CHECK_HEADERS(net/if.h,,,
 ]])
 AC_FUNC_VPRINTF
 dnl Check to see if dirent has member d_reclen. On cygwin those d_reclen
-dnl is not decleared.
+dnl is not declared.
 AC_CHECK_MEMBER(struct dirent.d_reclen,[AC_DEFINE(HAVE_RECLEN_DIRENT, 1,
 		       [Define to 1 if dirent has d_reclen])],,
 		[#include <dirent.h>])
@@ -1103,6 +1144,7 @@ AC_CHECK_FUNCS(m4_flatten([
 	futimes
 	getcwd
 	getdtablesize
+	gethostname
 	getmntinfo
 	getpwuid_r
 	getrlimit
@@ -1238,16 +1280,20 @@ dnl Test for sem_init, and which library it might require:
 dnl
 AH_TEMPLATE([HAVE_SEM_INIT], [Define to 1 if sem_init() exists])
 SEM_INIT_LIB=''
-AC_CHECK_FUNC(sem_init, ,
-  AC_CHECK_LIB(pthread, sem_init,
+echo GL_THREADS_API: ${gl_threads_api}
+if test "${gl_threads_api}" != none
+then
+  AC_CHECK_FUNC(sem_init, ,
+    AC_CHECK_LIB(pthread, sem_init,
   	AC_DEFINE(HAVE_SEM_INIT, 1)
   	SEM_INIT_LIB=-lpthread,
-  AC_CHECK_LIB(rt, sem_init,
+    AC_CHECK_LIB(rt, sem_init,
   	AC_DEFINE(HAVE_SEM_INIT, 1)
   	SEM_INIT_LIB=-lrt,
-  AC_CHECK_LIB(posix4, sem_init,
+    AC_CHECK_LIB(posix4, sem_init,
   	AC_DEFINE(HAVE_SEM_INIT, 1)
   	SEM_INIT_LIB=-lposix4))))dnl
+fi
 AC_SUBST(SEM_INIT_LIB)
 dnl
 dnl Check for unified diff
@@ -1269,6 +1315,127 @@ linux*)
 	;;
 esac
 dnl
+dnl Enable LTO for all packages
+dnl
+AC_ARG_ENABLE([lto],
+[  --enable-lto		  enable link time optimization],,
+enable_lto=no)
+if test "$enable_lto" = "yes" || test "$enable_lto" = "probe"; then
+	AC_MSG_CHECKING([if C compiler supports LTO])
+	OLD_CFLAGS="$CFLAGS"
+	OLD_LDFLAGS="$LDFLAGS"
+	LTO_FLAGS="-g -flto -ffat-lto-objects"
+	CFLAGS="$CFLAGS $LTO_FLAGS"
+	LDFLAGS="$LDFLAGS $LTO_FLAGS"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([])],
+		[AC_MSG_RESULT([yes])]
+		[lto_cflags=$LTO_FLAGS]
+		[lto_ldflags=$LTO_FLAGS]
+		[AC_PATH_PROG(gcc_ar, gcc-ar,,)]
+		[AC_PATH_PROG(gcc_ranlib, gcc-ranlib,,)],
+		[AC_MSG_RESULT([no])])
+	if test -x "$gcc_ar" && test -x "$gcc_ranlib"; then
+		have_lto=yes
+		AR="${gcc_ar}"
+		RANLIB="${gcc_ranlib}"
+	fi
+	CFLAGS="${OLD_CFLAGS}"
+	LDFLAGS="${OLD_LDFLAGS}"
+	AC_SUBST(have_lto)
+	AC_SUBST(lto_cflags)
+	AC_SUBST(lto_ldflags)
+fi
+if test "$enable_lto" = "yes" && test "$have_lto" != "yes"; then
+	AC_MSG_ERROR([LTO not supported by compiler.])
+fi
+dnl
+dnl Enable UBSAN for all packages
+dnl
+AC_ARG_ENABLE([ubsan],
+[  --enable-ubsan	  enable undefined behavior sanitizer],,
+enable_ubsan=no)
+if test "$enable_ubsan" = "yes" || test "$enable_ubsan" = "probe"; then
+	AC_MSG_CHECKING([if C compiler supports UBSAN])
+	OLD_CFLAGS="$CFLAGS"
+	OLD_LDFLAGS="$LDFLAGS"
+	UBSAN_FLAGS="-fsanitize=undefined"
+	CFLAGS="$CFLAGS $UBSAN_FLAGS"
+	LDFLAGS="$LDFLAGS $UBSAN_FLAGS"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([])],
+		[AC_MSG_RESULT([yes])]
+		[ubsan_cflags=$UBSAN_FLAGS]
+		[ubsan_ldflags=$UBSAN_FLAGS]
+		[have_ubsan=yes],
+		[AC_MSG_RESULT([no])])
+	CFLAGS="${OLD_CFLAGS}"
+	LDFLAGS="${OLD_LDFLAGS}"
+	AC_SUBST(have_ubsan)
+	AC_SUBST(ubsan_cflags)
+	AC_SUBST(ubsan_ldflags)
+fi
+if test "$enable_ubsan" = "yes" && test "$have_ubsan" != "yes"; then
+	AC_MSG_ERROR([UBSAN not supported by compiler.])
+fi
+dnl
+dnl Enable ADDRSAN for all packages
+dnl
+AC_ARG_ENABLE([addrsan],
+[  --enable-addrsan	  enable address sanitizer],,
+enable_addrsan=no)
+if test "$enable_addrsan" = "yes" || test "$enable_addrsan" = "probe"; then
+	AC_MSG_CHECKING([if C compiler supports ADDRSAN])
+	OLD_CFLAGS="$CFLAGS"
+	OLD_LDFLAGS="$LDFLAGS"
+	ADDRSAN_FLAGS="-fsanitize=address"
+	CFLAGS="$CFLAGS $ADDRSAN_FLAGS"
+	LDFLAGS="$LDFLAGS $ADDRSAN_FLAGS"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([])],
+		[AC_MSG_RESULT([yes])]
+		[addrsan_cflags=$ADDRSAN_FLAGS]
+		[addrsan_ldflags=$ADDRSAN_FLAGS]
+		[have_addrsan=yes],
+		[AC_MSG_RESULT([no])])
+	CFLAGS="${OLD_CFLAGS}"
+	LDFLAGS="${OLD_LDFLAGS}"
+	AC_SUBST(have_addrsan)
+	AC_SUBST(addrsan_cflags)
+	AC_SUBST(addrsan_ldflags)
+fi
+if test "$enable_addrsan" = "yes" && test "$have_addrsan" != "yes"; then
+	AC_MSG_ERROR([ADDRSAN not supported by compiler.])
+fi
+dnl
+dnl Enable THREADSAN for all packages
+dnl
+AC_ARG_ENABLE([threadsan],
+[  --enable-threadsan	  enable thread sanitizer],,
+enable_threadsan=no)
+if test "$enable_threadsan" = "yes" || test "$enable_threadsan" = "probe"; then
+	AC_MSG_CHECKING([if C compiler supports THREADSAN])
+	OLD_CFLAGS="$CFLAGS"
+	OLD_LDFLAGS="$LDFLAGS"
+	THREADSAN_FLAGS="-fsanitize=thread"
+	CFLAGS="$CFLAGS $THREADSAN_FLAGS"
+	LDFLAGS="$LDFLAGS $THREADSAN_FLAGS"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([])],
+		[AC_MSG_RESULT([yes])]
+		[threadsan_cflags=$THREADSAN_FLAGS]
+		[threadsan_ldflags=$THREADSAN_FLAGS]
+		[have_threadsan=yes],
+		[AC_MSG_RESULT([no])])
+	CFLAGS="${OLD_CFLAGS}"
+	LDFLAGS="${OLD_LDFLAGS}"
+	AC_SUBST(have_threadsan)
+	AC_SUBST(threadsan_cflags)
+	AC_SUBST(threadsan_ldflags)
+fi
+if test "$enable_threadsan" = "yes" && test "$have_threadsan" != "yes"; then
+	AC_MSG_ERROR([THREADSAN not supported by compiler.])
+fi
+if test "$have_threadsan" = "yes" && test "$have_addrsan" = "yes"; then
+	AC_MSG_WARN([ADDRSAN and THREADSAN are not known to work together.])
+fi
+dnl
 dnl OS-specific uncomment control
 dnl
 LINUX_CMT="#"
@@ -1286,6 +1453,11 @@ esac
 AC_SUBST(LINUX_CMT)
 AC_SUBST(CYGWIN_CMT)
 AC_SUBST(UNIX_CMT)
+dnl
+dnl e2scrub only builds on linux
+dnl
+E2SCRUB_CMT="$LINUX_CMT"
+AC_SUBST(E2SCRUB_CMT)
 dnl
 dnl Linux and Hurd places root files in the / by default
 dnl
@@ -1361,7 +1533,8 @@ else
     libdir=$libdir/$withval
     root_libdir=$root_libdir/$withval
 fi
-)dnl
+)
+dnl
 dnl
 dnl See if -static works.  This could fail if the linker does not
 dnl support -static, or if required external libraries are not available
@@ -1425,7 +1598,6 @@ if test -n "$WITH_DIET_LIBC" ; then
 	INCLUDES="$INCLUDES -D_REENTRANT"
 fi
 AC_SUBST(INCLUDES)
-AM_MKINSTALLDIRS
 dnl
 dnl Build CFLAGS
 dnl
@@ -1444,6 +1616,115 @@ LDFLAGS_SHLIB=${LDFLAGS_SHLIB:-$LDFLAGS}
 AC_SUBST(CFLAGS_SHLIB)
 AC_SUBST(CFLAGS_STLIB)
 AC_SUBST(LDFLAGS_SHLIB)
+
+dnl
+dnl Where do udev rules go?
+dnl
+AC_ARG_WITH([udev_rules_dir],
+  [AS_HELP_STRING([--with-udev-rules-dir@<:@=DIR@:>@],
+	[Install udev rules into DIR.])],
+  [],
+  [with_udev_rules_dir=yes])
+AS_IF([test "x${with_udev_rules_dir}" != "xno"],
+  [
+	AS_IF([test "x${with_udev_rules_dir}" = "xyes"],
+	  [
+		PKG_CHECK_MODULES([udev], [udev],
+		  [
+			with_udev_rules_dir="$($PKG_CONFIG --variable=udevdir udev)/rules.d"
+		  ], [
+			with_udev_rules_dir=""
+		  ])
+	  ])
+	AC_MSG_CHECKING([for udev rules dir])
+	pkg_udev_rules_dir="${with_udev_rules_dir}"
+	AS_IF([test -n "${pkg_udev_rules_dir}"],
+	  [
+		AC_MSG_RESULT(${pkg_udev_rules_dir})
+		have_udev="yes"
+	  ],
+	  [
+		AC_MSG_RESULT(no)
+		have_udev="no"
+	  ])
+  ],
+  [
+	have_udev="disabled"
+  ])
+AC_SUBST(have_udev)
+AC_SUBST(pkg_udev_rules_dir)
+
+dnl
+dnl Where do cron jobs go?
+dnl
+AC_ARG_WITH([crond_dir],
+  [AS_HELP_STRING([--with-crond-dir@<:@=DIR@:>@],
+	[Install system crontabs into DIR.])],
+  [],
+  [with_crond_dir=yes])
+AS_IF([test "x${with_crond_dir}" != "xno"],
+  [
+	AS_IF([test "x${with_crond_dir}" = "xyes"],
+	  [
+		AS_IF([test -d "/etc/cron.d"],
+		  [with_crond_dir="/etc/cron.d"])
+	  ])
+	AC_MSG_CHECKING([for system crontab dir])
+	crond_dir="${with_crond_dir}"
+	AS_IF([test -n "${crond_dir}"],
+	  [
+		AC_MSG_RESULT(${crond_dir})
+		have_crond="yes"
+	  ],
+	  [
+		AC_MSG_RESULT(no)
+		have_crond="no"
+	  ])
+  ],
+  [
+	have_crond="disabled"
+  ])
+AC_SUBST(have_crond)
+AC_SUBST(crond_dir)
+
+dnl
+dnl Where do systemd services go?
+dnl
+AC_ARG_WITH([systemd_unit_dir],
+  [AS_HELP_STRING([--with-systemd-unit-dir@<:@=DIR@:>@],
+	[Install systemd system units into DIR.])],
+  [],
+  [with_systemd_unit_dir=yes])
+AS_IF([test "x${with_systemd_unit_dir}" != "xno"],
+  [
+	AS_IF([test "x${with_systemd_unit_dir}" = "xyes"],
+	  [
+		PKG_CHECK_MODULES([systemd], [systemd],
+		  [
+			with_systemd_unit_dir="$($PKG_CONFIG --variable=systemdsystemunitdir systemd)"
+		  ], [
+			with_systemd_unit_dir=""
+		  ])
+		m4_pattern_allow([^PKG_(MAJOR|MINOR|BUILD|REVISION)$])
+	  ])
+	AC_MSG_CHECKING([for systemd system unit dir])
+	systemd_system_unit_dir="${with_systemd_unit_dir}"
+	AS_IF([test -n "${systemd_system_unit_dir}"],
+	  [
+		AC_MSG_RESULT(${systemd_system_unit_dir})
+		have_systemd="yes"
+	  ],
+	  [
+		AC_MSG_RESULT(no)
+		have_systemd="no"
+	  ])
+  ],
+  [
+	have_systemd="disabled"
+  ])
+AC_SUBST(have_systemd)
+AC_SUBST(systemd_system_unit_dir)
+
 dnl
 dnl Make our output files, being sure that we create the some miscellaneous 
 dnl directories
@@ -1460,7 +1741,7 @@ if test -z "$BLKID_CMT" ; then
 	blkid_out_list="lib/blkid/Makefile lib/blkid/blkid.pc \
 		lib/blkid/blkid_types.h"
 fi
-for i in MCONFIG Makefile e2fsprogs.spec \
+for i in MCONFIG Makefile \
 	util/Makefile util/subst.conf util/gen-tarball util/install-symlink \
 	lib/et/Makefile lib/ss/Makefile lib/e2p/Makefile \
 	lib/ext2fs/Makefile lib/ext2fs/ext2_types.h \
@@ -1469,7 +1750,7 @@ for i in MCONFIG Makefile e2fsprogs.spec \
 	misc/Makefile ext2ed/Makefile e2fsck/Makefile \
 	debugfs/Makefile tests/Makefile tests/progs/Makefile \
 	resize/Makefile doc/Makefile intl/Makefile \
-	intl/libgnuintl.h po/Makefile.in ; do
+	intl/libgnuintl.h po/Makefile.in scrub/Makefile; do
 	if test -d `dirname ${srcdir}/$i` ; then
 		outlist="$outlist $i"
 	fi

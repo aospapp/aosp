@@ -34,7 +34,7 @@ import java.util.Objects;
  * This class contains references to all the different wrapper interfaces between
  * CarService and the Android OS APIs.
  */
-public final class SystemInterface implements DisplayInterface, IOInterface,
+public class SystemInterface implements DisplayInterface, IOInterface,
         StorageMonitoringInterface, SystemStateInterface, TimeInterface,
         WakeLockInterface {
     private final DisplayInterface mDisplayInterface;
@@ -68,8 +68,8 @@ public final class SystemInterface implements DisplayInterface, IOInterface,
     }
 
     @Override
-    public File getFilesDir() {
-        return mIOInterface.getFilesDir();
+    public File getSystemCarDir() {
+        return mIOInterface.getSystemCarDir();
     }
 
     @Override
@@ -123,6 +123,11 @@ public final class SystemInterface implements DisplayInterface, IOInterface,
     }
 
     @Override
+    public void reconfigureSecondaryDisplays() {
+        mDisplayInterface.reconfigureSecondaryDisplays();
+    }
+
+    @Override
     public void startDisplayStateMonitoring(CarPowerManagementService service) {
         mDisplayInterface.startDisplayStateMonitoring(service);
     }
@@ -153,8 +158,8 @@ public final class SystemInterface implements DisplayInterface, IOInterface,
     }
 
     @Override
-    public boolean enterDeepSleep(int wakeupTimeSec) {
-        return mSystemStateInterface.enterDeepSleep(wakeupTimeSec);
+    public boolean enterDeepSleep() {
+        return mSystemStateInterface.enterDeepSleep();
     }
 
     @Override
@@ -170,6 +175,11 @@ public final class SystemInterface implements DisplayInterface, IOInterface,
     @Override
     public boolean isSystemSupportingDeepSleep() {
         return mSystemStateInterface.isSystemSupportingDeepSleep();
+    }
+
+    @Override
+    public void refreshDisplayBrightness() {
+        mDisplayInterface.refreshDisplayBrightness();
     }
 
     public final static class Builder {

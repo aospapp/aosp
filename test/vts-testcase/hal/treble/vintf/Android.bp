@@ -29,6 +29,7 @@ cc_defaults {
         "libz",
     ],
     static_libs: [
+        "libgmock",
         "libhidl-gen-hash",
         "libhidl-gen-utils",
         "libprocpartition",
@@ -62,6 +63,7 @@ cc_test {
     defaults: ["vts_treble_vintf_test_defaults"],
     srcs: [
         "DeviceManifestTest.cpp",
+        "DeviceMatrixTest.cpp",
         "SingleManifestTest.cpp",
     ],
 }
@@ -75,14 +77,6 @@ cc_test {
         "SingleManifestTest.cpp",
         "SystemVendorTest.cpp",
     ],
-    multilib: {
-        lib32: {
-            suffix: "32",
-        },
-        lib64: {
-            suffix: "64",
-        },
-    },
 }
 
 // Tests everything.
@@ -93,7 +87,12 @@ cc_test {
     defaults: ["vts_treble_vintf_test_defaults"],
     srcs: [
         "DeviceManifestTest.cpp",
+        "DeviceMatrixTest.cpp",
         "SingleManifestTest.cpp",
         "SystemVendorTest.cpp",
     ],
+}
+
+vts_config {
+    name: "VtsTrebleVintfTestOMr1",
 }

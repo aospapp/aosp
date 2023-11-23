@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - Google
 #
@@ -18,9 +18,11 @@ import itertools
 
 BAND_2G = '2g'
 BAND_5G = '5g'
+WEP = 0
 WPA1 = 1
 WPA2 = 2
 MIXED = 3
+ENT = 4  # get the correct constant
 MAX_WPA_PSK_LENGTH = 64
 MIN_WPA_PSK_LENGTH = 8
 WPA_STRICT_REKEY = 1
@@ -31,10 +33,18 @@ WPA_STRICT_REKEY_DEFAULT = True
 WPA_STRING = 'wpa'
 WPA2_STRING = 'wpa2'
 WPA_MIXED_STRING = 'wpa/wpa2'
+ENT_STRING = 'ent'
+ENT_KEY_MGMT = 'WPA-EAP'
+IEEE8021X = 1
 WLAN0_STRING = 'wlan0'
 WLAN1_STRING = 'wlan1'
 WLAN2_STRING = 'wlan2'
 WLAN3_STRING = 'wlan3'
+WLAN0_GALE = 'wlan-2400mhz'
+WLAN1_GALE = 'wlan-5000mhz'
+WEP_STRING = 'wep'
+WEP_DEFAULT_KEY = 0
+WEP_HEX_LENGTH = [10, 26, 32, 58]
 AP_DEFAULT_CHANNEL_2G = 6
 AP_DEFAULT_CHANNEL_5G = 36
 AP_DEFAULT_MAX_SSIDS_2G = 8
@@ -43,6 +53,8 @@ AP_SSID_LENGTH_2G = 8
 AP_PASSPHRASE_LENGTH_2G = 10
 AP_SSID_LENGTH_5G = 8
 AP_PASSPHRASE_LENGTH_5G = 10
+INTERFACE_2G_LIST = [WLAN0_STRING, WLAN0_GALE]
+INTERFACE_5G_LIST = [WLAN1_STRING, WLAN1_GALE]
 
 # A mapping of frequency to channel number.  This includes some
 # frequencies used outside the US.
@@ -105,6 +117,7 @@ CHANNEL_MAP = {
     5805: 161,
     5825: 165
 }
+FREQUENCY_MAP = {v: k for k, v in CHANNEL_MAP.items()}
 
 MODE_11A = 'a'
 MODE_11B = 'b'
@@ -212,6 +225,12 @@ VHT_CHANNEL_WIDTH_40 = 0
 VHT_CHANNEL_WIDTH_80 = 1
 VHT_CHANNEL_WIDTH_160 = 2
 VHT_CHANNEL_WIDTH_80_80 = 3
+
+VHT_CHANNEL = {
+    40: VHT_CHANNEL_WIDTH_40,
+    80: VHT_CHANNEL_WIDTH_80,
+    160: VHT_CHANNEL_WIDTH_160
+}
 
 # This is a loose merging of the rules for US and EU regulatory
 # domains as taken from IEEE Std 802.11-2012 Appendix E.  For instance,

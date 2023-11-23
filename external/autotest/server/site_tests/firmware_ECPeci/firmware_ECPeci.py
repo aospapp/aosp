@@ -19,6 +19,9 @@ class firmware_ECPeci(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECPeci, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability(['peci']):
+            raise error.TestNAError("Nothing needs to be tested on this device")
         self.ec.send_command("chan 0")
 
     def cleanup(self):
@@ -40,6 +43,8 @@ class firmware_ECPeci(FirmwareTest):
             raise error.TestFail("Abnormal CPU temperature %d K" % t)
 
     def run_once(self):
+        """Execute the main body of the test.
+        """
         if not self.check_ec_capability(['peci']):
             raise error.TestNAError("Nothing needs to be tested on this device")
         logging.info("Reading PECI CPU temperature for %d times.",

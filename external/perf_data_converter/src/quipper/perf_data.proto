@@ -705,4 +705,6 @@ message PerfDataProto {
   }
 
   optional StringMetadata string_metadata = 13;
+
+  extensions 32 to 100;
 }

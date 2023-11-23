@@ -22,12 +22,15 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.telephony.CallQuality;
 import android.telephony.CellInfo;
+import android.telephony.DataFailCause;
+import android.telephony.PhoneCapability;
 import android.telephony.PhysicalChannelConfig;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
-import android.telephony.VoLteServiceState;
+import android.telephony.ims.ImsReasonInfo;
 
 import com.android.internal.telephony.IOnSubscriptionsChangedListener;
 import com.android.internal.telephony.IPhoneStateListener;
@@ -45,6 +48,7 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
 
         IPhoneStateListener callback;
         IOnSubscriptionsChangedListener onSubscriptionsChangedListenerCallback;
+        IOnSubscriptionsChangedListener onOpportunisticSubscriptionsChangedListenerCallback;
 
         int callerUserId;
 
@@ -64,12 +68,19 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
             return (onSubscriptionsChangedListenerCallback != null);
         }
 
+        boolean matchOnOpportunisticSubscriptionsChangedListener() {
+            return (onOpportunisticSubscriptionsChangedListenerCallback != null);
+        }
+
+
         @Override
         public String toString() {
             return "{callingPackage=" + callingPackage + " binder=" + binder
                     + " callback=" + callback
-                    + " onSubscriptionsChangedListenererCallback="
-                                            + onSubscriptionsChangedListenerCallback
+                    + " onSubscriptionsChangedListenerCallback="
+                    + onSubscriptionsChangedListenerCallback
+                    + " onOpportunisticSubscriptionsChangedListenerCallback="
+                    + onOpportunisticSubscriptionsChangedListenerCallback
                     + " callerUserId=" + callerUserId + " subId=" + subId + " phoneId=" + phoneId
                     + " events=" + Integer.toHexString(events)
                     + " canReadPhoneState=" + canReadPhoneState + "}";
@@ -78,7 +89,8 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
 
     private final ArrayList<IBinder> mRemoveList = new ArrayList<IBinder>();
     private final ArrayList<Record> mRecords = new ArrayList<Record>();
-    private boolean hasNotifySubscriptionInfoChangedOccurred = false;
+    private boolean mHasNotifySubscriptionInfoChangedOccurred = false;
+    private boolean mHasNotifyOpportunisticSubscriptionInfoChangedOccurred = false;
 
     public TelephonyRegistryMock() {
     }
@@ -133,14 +145,54 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
             r.events = 0;
             r.canReadPhoneState = true; // permission has been enforced above
             // Always notify when registration occurs if there has been a notification.
-            if (hasNotifySubscriptionInfoChangedOccurred) {
+            if (mHasNotifySubscriptionInfoChangedOccurred) {
                 try {
                     r.onSubscriptionsChangedListenerCallback.onSubscriptionsChanged();
                 } catch (RemoteException e) {
                     remove(r.binder);
                 }
             } else {
-                //log("listen oscl: hasNotifySubscriptionInfoChangedOccurred==false no callback");
+                //log("listen oscl: mHasNotifySubscriptionInfoChangedOccurred==false no callback");
+            }
+        }
+
+    }
+
+    @Override
+    public void addOnOpportunisticSubscriptionsChangedListener(String callingPackage,
+            IOnSubscriptionsChangedListener callback) {
+        Record r;
+
+        synchronized (mRecords) {
+            // register
+            find_and_add: {
+                IBinder b = callback.asBinder();
+                final int n = mRecords.size();
+                for (int i = 0; i < n; i++) {
+                    r = mRecords.get(i);
+                    if (b == r.binder) {
+                        break find_and_add;
+                    }
+                }
+                r = new Record();
+                r.binder = b;
+                mRecords.add(r);
+            }
+
+            r.onOpportunisticSubscriptionsChangedListenerCallback = callback;
+            r.callingPackage = callingPackage;
+            r.callerUserId = UserHandle.getCallingUserId();
+            r.events = 0;
+            r.canReadPhoneState = true; // permission has been enforced above
+            // Always notify when registration occurs if there has been a notification.
+            if (mHasNotifyOpportunisticSubscriptionInfoChangedOccurred) {
+                try {
+                    r.onOpportunisticSubscriptionsChangedListenerCallback.onSubscriptionsChanged();
+                } catch (RemoteException e) {
+                    remove(r.binder);
+                }
+            } else {
+                //log("listen oscl: mHasNotifySubscriptionInfoChangedOccurred==false no callback");
             }
         }
 
@@ -155,16 +207,39 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
     @Override
     public void notifySubscriptionInfoChanged() {
         synchronized (mRecords) {
-            if (!hasNotifySubscriptionInfoChangedOccurred) {
+            if (!mHasNotifySubscriptionInfoChangedOccurred) {
                 //log("notifySubscriptionInfoChanged: first invocation mRecords.size="
                 //        + mRecords.size());
             }
-            hasNotifySubscriptionInfoChangedOccurred = true;
+            mHasNotifySubscriptionInfoChangedOccurred = true;
             mRemoveList.clear();
             for (Record r : mRecords) {
                 if (r.matchOnSubscriptionsChangedListener()) {
                     try {
                         r.onSubscriptionsChangedListenerCallback.onSubscriptionsChanged();
+                    } catch (RemoteException ex) {
+                        mRemoveList.add(r.binder);
+                    }
+                }
+            }
+            handleRemoveListLocked();
+        }
+    }
+
+    @Override
+    public void notifyOpportunisticSubscriptionInfoChanged() {
+        synchronized (mRecords) {
+            if (!mHasNotifyOpportunisticSubscriptionInfoChangedOccurred) {
+                //log("notifySubscriptionInfoChanged: first invocation mRecords.size="
+                //        + mRecords.size());
+            }
+            mHasNotifyOpportunisticSubscriptionInfoChangedOccurred = true;
+            mRemoveList.clear();
+            for (Record r : mRecords) {
+                if (r.matchOnOpportunisticSubscriptionsChangedListener()) {
+                    try {
+                        r.onOpportunisticSubscriptionsChangedListenerCallback
+                                .onSubscriptionsChanged();
                     } catch (RemoteException ex) {
                         mRemoveList.add(r.binder);
                     }
@@ -234,26 +309,26 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
 
     @Override
     public void notifyDataConnection(int state, boolean isDataConnectivityPossible,
-            String reason, String apn, String apnType, LinkProperties linkProperties,
+            String apn, String apnType, LinkProperties linkProperties,
             NetworkCapabilities networkCapabilities, int networkType, boolean roaming) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyDataConnectionForSubscriber(int subId, int state,
-            boolean isDataConnectivityPossible, String reason, String apn, String apnType,
+    public void notifyDataConnectionForSubscriber(int phoneId, int subId, int state,
+            boolean isDataConnectivityPossible, String apn, String apnType,
             LinkProperties linkProperties, NetworkCapabilities networkCapabilities,
             int networkType, boolean roaming) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyDataConnectionFailed(String reason, String apnType) {
+    public void notifyDataConnectionFailed(String apnType) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyDataConnectionFailedForSubscriber(int subId, String reason, String apnType) {
+    public void notifyDataConnectionFailedForSubscriber(int phoneId, int subId, String apnType) {
         throw new RuntimeException("Not implemented");
     }
 
@@ -268,7 +343,7 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
     }
 
     @Override
-    public void notifyOtaspChanged(int otaspMode) {
+    public void notifyOtaspChanged(int subId, int otaspMode) {
         throw new RuntimeException("Not implemented");
     }
 
@@ -289,19 +364,32 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
     }
 
     @Override
-    public void notifyPreciseCallState(int ringingCallState, int foregroundCallState,
-            int backgroundCallState) {
+    public void notifyEmergencyNumberList(int phoneId, int subId) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyDisconnectCause(int disconnectCause, int preciseDisconnectCause) {
+    public void notifyCallQualityChanged(CallQuality callQuality, int phoneId, int subId,
+            int callNetworkType) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyPreciseDataConnectionFailed(String reason, String apnType, String apn,
-            String failCause) {
+    public void notifyPreciseCallState(int phoneId, int subId, int ringingCallState,
+                                       int foregroundCallState, int backgroundCallState) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public void notifyDisconnectCause(int phoneId, int subId, int disconnectCause,
+                                      int preciseDisconnectCause) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public void notifyPreciseDataConnectionFailed(int phoneId, int subId,
+                                                  String apnType, String apn,
+                                                  @DataFailCause.FailCause int failCause) {
         throw new RuntimeException("Not implemented");
     }
 
@@ -311,12 +399,12 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
     }
 
     @Override
-    public void notifyVoLteServiceStateChanged(VoLteServiceState lteState) {
+    public void notifySrvccStateChanged(int subId, int state) {
         throw new RuntimeException("Not implemented");
     }
 
     @Override
-    public void notifyOemHookRawEventForSubscriber(int subId, byte[] rawData) {
+    public void notifyOemHookRawEventForSubscriber(int phoneId, int subId, byte[] rawData) {
         throw new RuntimeException("Not implemented");
     }
 
@@ -333,6 +421,25 @@ public class TelephonyRegistryMock extends ITelephonyRegistry.Stub {
 
     @Override
     public void notifyUserMobileDataStateChangedForPhoneId(int phoneId, int subId, boolean state) {
+    }
+
+    @Override
+    public void notifyPhoneCapabilityChanged(PhoneCapability capability) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public void notifyActiveDataSubIdChanged(int subId) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public void notifyRadioPowerStateChanged(int phoneId, int subId, int state) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public void notifyImsDisconnectCause(int subId, ImsReasonInfo imsReasonInfo)  {
         throw new RuntimeException("Not implemented");
     }
 }

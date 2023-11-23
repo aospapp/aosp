@@ -41,6 +41,7 @@
           android:layout_width="@dimen/voicemail_promo_card_icon_size"
           android:layout_height="@dimen/voicemail_promo_card_icon_size"
           android:layout_gravity="top"
+          android:importantForAccessibility="no"
           android:src="@drawable/ic_voicemail_error_24px"/>
 
       <LinearLayout
@@ -52,21 +53,18 @@
 
         <TextView
             android:id="@+id/error_card_header"
-            android:textStyle="bold"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/voicemail_promo_card_title_padding"
             android:layout_gravity="center_vertical"
-            android:singleLine="false"
-            android:textSize="@dimen/voicemail_promo_card_title_text_size"/>
+            style="@style/Dialer.TextAppearance.Header2"/>
 
         <TextView
             android:id="@+id/error_card_details"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:lineSpacingExtra="@dimen/voicemail_promo_card_line_spacing"
-            android:singleLine="false"
-            android:textSize="@dimen/voicemail_promo_card_message_size"/>
+            style="@style/Dialer.TextAppearance.Secondary"/>
       </LinearLayout>
     </LinearLayout>
 
@@ -82,10 +80,10 @@
       <TextView
           android:id="@+id/secondary_action_raised"
           style="@style/RaisedErrorActionStyle"
-          android:paddingEnd="@dimen/alert_action_between_padding"
           android:layout_marginEnd="8dp"
-          android:nextFocusForward="@+id/secondary_action"
-          android:clickable="true"/>
+          android:paddingEnd="@dimen/alert_action_between_padding"
+          android:clickable="true"
+          android:nextFocusForward="@+id/secondary_action"/>
 
       <TextView
           android:id="@+id/secondary_action"
@@ -103,9 +101,8 @@
       <TextView
           android:id="@+id/primary_action_raised"
           style="@style/RaisedErrorActionStyle"
-          android:nextFocusForward="@+id/promo_card"
           android:clickable="true"
-          />
+          android:nextFocusForward="@+id/promo_card"/>
 
     </LinearLayout>
   </LinearLayout>

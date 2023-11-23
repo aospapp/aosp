@@ -42,7 +42,8 @@ import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -61,7 +62,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
     private static boolean sIsDefaultPrinterSet;
 
     @Before
-    public void setDefaultPrinter() throws Exception {
+    public void setDefaultPrinter() throws Throwable {
         if (!sIsDefaultPrinterSet) {
             // Create a callback for the target print service.
             FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
@@ -107,9 +108,12 @@ public class PrintDocumentInfoTest extends BasePrintTest {
                 invocation -> printerDiscoverySessionCallbacks,
                 invocation -> {
                     PrintJob printJob = (PrintJob) invocation.getArguments()[0];
-                    queuedInfo[0] = printJob.getDocument().getInfo();
-                    queuedData[0] = printJob.getDocument().getData();
+                    synchronized (queuedInfo) {
+                        queuedInfo[0] = printJob.getDocument().getInfo();
+                        queuedData[0] = printJob.getDocument().getData();
+                    }
                     printJob.complete();
+                    onPrintJobQueuedCalled();
                     return null;
                 }, null);
 
@@ -127,12 +131,15 @@ public class PrintDocumentInfoTest extends BasePrintTest {
                     return null;
                 }, invocation -> {
                     Object[] args = invocation.getArguments();
-                    PageRange[] pages = (PageRange[]) args[0];
                     ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
                     WriteResultCallback callback = (WriteResultCallback) args[3];
                     writeBlankPages(printAttributes[0], fd, 0, 1);
                     fd.close();
-                    callback.onWriteFinished(pages);
+                    if (pageCount != null && pageCount > 0) {
+                        callback.onWriteFinished(new PageRange[]{new PageRange(0, pageCount - 1)});
+                    } else {
+                        callback.onWriteFinished(new PageRange[]{new PageRange(0, 1)});
+                    }
                     onWriteCalled();
                     return null;
                 }, invocation -> null);
@@ -148,9 +155,14 @@ public class PrintDocumentInfoTest extends BasePrintTest {
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        waitForServiceOnPrintJobQueuedCallbackCalled(1);
 
         // Check that the document name was carried over 1:1
-        eventually(() -> assertEquals(name, queuedInfo[0].getName()));
+        eventually(() -> {
+            synchronized (queuedInfo) {
+                assertEquals(name, queuedInfo[0].getName());
+            }
+        });
 
         // Content type is set to document by default, but is otherwise unrestricted
         if (contentType != null) {
@@ -191,7 +203,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoNothingSet() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, null, null);
+        printDocumentBaseTest("documentInfoNothingSet", null, null);
     }
 
     /**
@@ -201,7 +213,8 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoUnknownPageCount() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, null, PrintDocumentInfo.PAGE_COUNT_UNKNOWN);
+        printDocumentBaseTest("documentInfoUnknownPageCount", null,
+                PrintDocumentInfo.PAGE_COUNT_UNKNOWN);
     }
 
     /**
@@ -211,7 +224,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoZeroPageCount() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, null, 0);
+        printDocumentBaseTest("documentInfoZeroPageCount", null, 0);
     }
 
     /**
@@ -221,7 +234,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoOnePageCount() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, null, 1);
+        printDocumentBaseTest("documentInfoOnePageCount", null, 1);
     }
 
     /**
@@ -231,7 +244,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoThreePageCount() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, null, 3);
+        printDocumentBaseTest("documentInfoThreePageCount", null, 3);
     }
 
     /**
@@ -241,7 +254,8 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoContentTypePhoto() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, PrintDocumentInfo.CONTENT_TYPE_PHOTO, null);
+        printDocumentBaseTest("documentInfoContentTypePhoto", PrintDocumentInfo.CONTENT_TYPE_PHOTO,
+                null);
     }
 
     /**
@@ -251,7 +265,8 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoContentTypeUnknown() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, PrintDocumentInfo.CONTENT_TYPE_UNKNOWN, null);
+        printDocumentBaseTest("documentInfoContentTypeUnknown",
+                PrintDocumentInfo.CONTENT_TYPE_UNKNOWN, null);
     }
 
     /**
@@ -261,7 +276,7 @@ public class PrintDocumentInfoTest extends BasePrintTest {
      */
     @Test
     public void documentInfoContentTypeNonDefined() throws Throwable {
-        printDocumentBaseTest(PRINT_JOB_NAME, -23, null);
+        printDocumentBaseTest("documentInfoContentTypeNonDefined", -23, null);
     }
 
     private PrinterDiscoverySessionCallbacks createFirstMockDiscoverySessionCallbacks() {

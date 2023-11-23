@@ -16,12 +16,11 @@
 
 package com.android.ahat.heapdump;
 
-import com.android.ahat.dominators.DominatorsComputation;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 
-class SuperRoot extends AhatInstance implements DominatorsComputation.Node {
+class SuperRoot extends AhatInstance {
   private List<AhatInstance> mRoots = new ArrayList<AhatInstance>();
   private Object mDominatorsComputationState;
 
@@ -54,7 +53,7 @@ class SuperRoot extends AhatInstance implements DominatorsComputation.Node {
       @Override
       public Reference get(int index) {
         String field = ".roots[" + Integer.toString(index) + "]";
-        return new Reference(SuperRoot.this, field, mRoots.get(index), true);
+        return new Reference(SuperRoot.this, field, mRoots.get(index), Reachability.STRONG);
       }
     };
   }

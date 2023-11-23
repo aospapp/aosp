@@ -38,10 +38,6 @@
 using namespace android;  // TODO just import names needed
 using namespace aaudio;   // TODO just import names needed
 
-AAudioServiceEndpoint::~AAudioServiceEndpoint() {
-    ALOGD("%s(%p) destroyed", __func__, this);
-}
-
 std::string AAudioServiceEndpoint::dump() const {
     std::stringstream result;
 
@@ -59,6 +55,7 @@ std::string AAudioServiceEndpoint::dump() const {
     result << "    Device Id:            " << getDeviceId() << "\n";
     result << "    Sample Rate:          " << getSampleRate() << "\n";
     result << "    Channel Count:        " << getSamplesPerFrame() << "\n";
+    result << "    Format:               " << getFormat() << "\n";
     result << "    Frames Per Burst:     " << mFramesPerBurst << "\n";
     result << "    Usage:                " << getUsage() << "\n";
     result << "    ContentType:          " << getContentType() << "\n";
@@ -68,7 +65,7 @@ std::string AAudioServiceEndpoint::dump() const {
     result << "    Connected:            " << mConnected.load() << "\n";
     result << "    Registered Streams:" << "\n";
     result << AAudioServiceStreamShared::dumpHeader() << "\n";
-    for (const auto stream : mRegisteredStreams) {
+    for (const auto& stream : mRegisteredStreams) {
         result << stream->dump() << "\n";
     }
 
@@ -81,7 +78,7 @@ std::string AAudioServiceEndpoint::dump() const {
 // @return true if stream found
 bool AAudioServiceEndpoint::isStreamRegistered(audio_port_handle_t portHandle) {
     std::lock_guard<std::mutex> lock(mLockStreams);
-    for (const auto stream : mRegisteredStreams) {
+    for (const auto& stream : mRegisteredStreams) {
         if (stream->getPortHandle() == portHandle) {
             return true;
         }
@@ -92,8 +89,9 @@ bool AAudioServiceEndpoint::isStreamRegistered(audio_port_handle_t portHandle) {
 void AAudioServiceEndpoint::disconnectRegisteredStreams() {
     std::lock_guard<std::mutex> lock(mLockStreams);
     mConnected.store(false);
-    for (const auto stream : mRegisteredStreams) {
-        ALOGD("disconnectRegisteredStreams() stop and disconnect %p", stream.get());
+    for (const auto& stream : mRegisteredStreams) {
+        ALOGD("disconnectRegisteredStreams() stop and disconnect port %d",
+              stream->getPortHandle());
         stream->stop();
         stream->disconnect();
     }

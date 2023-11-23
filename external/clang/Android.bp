@@ -11,6 +11,7 @@ cc_defaults {
         "-Wno-cast-qual",
         "-Wno-long-long",
         "-Wno-unused-private-field",
+        "-Wno-unused-lambda-capture",
     ],
 
     include_dirs: [

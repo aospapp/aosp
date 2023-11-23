@@ -21,8 +21,12 @@
 
 #include <string>
 
+#include "epoll.h"
+
 namespace android {
 namespace init {
+
+bool CanReadProperty(const std::string& source_context, const std::string& name);
 
 extern uint32_t (*property_set)(const std::string& name, const std::string& value);
 
@@ -32,10 +36,10 @@ uint32_t HandlePropertySet(const std::string& name, const std::string& value,
 extern bool PropertyChildReap(pid_t pid);
 
 void property_init(void);
-void property_load_boot_defaults(void);
+void property_load_boot_defaults(bool);
 void load_persist_props(void);
 void load_system_props(void);
-void start_property_service(void);
+void StartPropertyService(Epoll* epoll);
 
 }  // namespace init
 }  // namespace android

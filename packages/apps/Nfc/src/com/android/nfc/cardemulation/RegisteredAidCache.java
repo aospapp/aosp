@@ -775,10 +775,10 @@ public class RegisteredAidCache {
             resolvedAids.clear();
         }
 
-        updateRoutingLocked();
+        updateRoutingLocked(false);
     }
 
-    void updateRoutingLocked() {
+    void updateRoutingLocked(boolean force) {
         if (!mNfcEnabled) {
             if (DBG) Log.d(TAG, "Not updating routing table because NFC is off.");
             return;
@@ -807,19 +807,53 @@ public class RegisteredAidCache {
                 // There is a default service set, route to where that service resides -
                 // either on the host (HCE) or on an SE.
                 aidType.isOnHost = resolveInfo.defaultService.isOnHost();
+                if (!aidType.isOnHost) {
+                    aidType.offHostSE =
+                            resolveInfo.defaultService.getOffHostSecureElement();
+                }
                 routingEntries.put(aid, aidType);
             } else if (resolveInfo.services.size() == 1) {
                 // Only one service, but not the default, must route to host
                 // to ask the user to choose one.
-                aidType.isOnHost = true;
+                if (resolveInfo.category.equals(
+                        CardEmulation.CATEGORY_PAYMENT)) {
+                    aidType.isOnHost = true;
+                } else {
+                    aidType.isOnHost = resolveInfo.services.get(0).isOnHost();
+                    if (!aidType.isOnHost) {
+                        aidType.offHostSE =
+                                resolveInfo.services.get(0).getOffHostSecureElement();
+                    }
+                }
                 routingEntries.put(aid, aidType);
             } else if (resolveInfo.services.size() > 1) {
-                // Multiple services, need to route to host to ask
-                aidType.isOnHost = true;
+                // Multiple services if all the services are routing to same
+                // offhost then the service should be routed to off host.
+                boolean onHost = false;
+                String offHostSE = null;
+                for (ApduServiceInfo service : resolveInfo.services) {
+                    // In case there is at least one service which routes to host
+                    // Route it to host for user to select which service to use
+                    onHost |= service.isOnHost();
+                    if (!onHost) {
+                        if (offHostSE == null) {
+                            offHostSE = service.getOffHostSecureElement();
+                        } else if (!offHostSE.equals(
+                                service.getOffHostSecureElement())) {
+                            // There are registerations to different SEs, route this
+                            // to host and have user choose a service for this AID
+                            offHostSE = null;
+                            onHost = true;
+                            break;
+                        }
+                    }
+                }
+                aidType.isOnHost = onHost;
+                aidType.offHostSE = onHost ? null : offHostSE;
                 routingEntries.put(aid, aidType);
             }
         }
-        mRoutingManager.configureRouting(routingEntries);
+        mRoutingManager.configureRouting(routingEntries, force);
     }
 
     public void onServicesUpdated(int userId, List<ApduServiceInfo> services) {
@@ -861,7 +895,13 @@ public class RegisteredAidCache {
     public void onNfcEnabled() {
         synchronized (mLock) {
             mNfcEnabled = true;
-            updateRoutingLocked();
+            updateRoutingLocked(false);
+        }
+    }
+
+    public void onSecureNfcToggled() {
+        synchronized (mLock) {
+            updateRoutingLocked(true);
         }
     }
 

@@ -30,7 +30,7 @@
             android:id="@+id/progress_window"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
-        <android.support.v7.widget.RecyclerView
+        <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/downloaded_images"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -51,85 +51,93 @@
                 android:layout_column="0"
                 android:text="@string/bind_button" />
             <Button
-                android:id="@+id/set_temp_root_button"
+                android:id="@+id/set_temp_root_button_internal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_row="0"
                 android:layout_column="1"
-                android:text="@string/set_temp_root_button" />
+                android:text="@string/set_temp_root_button_internal" />
+            <Button
+                android:id="@+id/set_temp_root_button_external"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_row="1"
+                android:layout_column="0"
+                android:text="@string/set_temp_root_button_external" />
             <Button
                 android:id="@+id/get_file_services_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_row="1"
-                android:layout_column="0"
+                android:layout_column="1"
                 android:text="@string/get_file_services_button" />
             <Button
                 android:id="@+id/request_dl_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="1"
-                android:layout_column="1"
+                android:layout_row="2"
+                android:layout_column="0"
                 android:text="@string/request_dl_button" />
             <Button
                 android:id="@+id/request_cleanup_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_row="2"
-                android:layout_column="0"
+                android:layout_column="1"
                 android:text="@string/request_cleanup_button" />
             <Button
                 android:id="@+id/request_spurious_temp_files_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="2"
-                android:layout_column="1"
+                android:layout_row="3"
+                android:layout_column="0"
                 android:text="@string/request_spurious_temp_files_button" />
             <Button
                 android:id="@+id/delay_download_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="3"
+                android:layout_row="4"
                 android:layout_column="0"
                 android:text="@string/delay_download_button" />
-            <NumberPicker
+            <EditText
                 android:id="@+id/delay_factor"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="3"
+                android:inputType="number"
+                android:layout_row="4"
                 android:layout_column="1"/>
             <Button
                 android:id="@+id/cancel_download_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="4"
+                android:layout_row="5"
                 android:layout_column="0"
                 android:text="@string/cancel_download_button" />
+            <Button
+                android:id="@+id/register_all_callback_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_row="5"
+                android:layout_column="1"
+                android:text="@string/register_all_callback_button" />
             <Button
                 android:id="@+id/register_state_callback_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="5"
+                android:layout_row="6"
                 android:layout_column="0"
                 android:text="@string/register_state_callback_button" />
             <Button
                 android:id="@+id/register_progress_callback_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_row="5"
+                android:layout_row="6"
                 android:layout_column="1"
                 android:text="@string/register_progress_callback_button" />
-            <Button
-                android:id="@+id/register_all_callback_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_row="6"
-                android:layout_column="0"
-                android:text="@string/register_all_callback_button" />
 
             <Spinner
                 android:id="@+id/active_downloads"
-                android:layout_row="7"
+                android:layout_row="8"
                 android:layout_column="1"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>

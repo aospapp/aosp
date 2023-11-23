@@ -17,13 +17,14 @@
 #
 
 DEVICE_INFO_PACKAGE := com.android.compatibility.common.deviceinfo
-DEVICE_INFO_INSTRUMENT := android.support.test.runner.AndroidJUnitRunner
+DEVICE_INFO_INSTRUMENT := androidx.test.runner.AndroidJUnitRunner
 DEVICE_INFO_USES_LIBRARY := android.test.runner
 DEVICE_INFO_PERMISSIONS += \
   android.permission.READ_PHONE_STATE \
   android.permission.WRITE_EXTERNAL_STORAGE
 DEVICE_INFO_ACTIVITIES += \
   $(DEVICE_INFO_PACKAGE).AppStandbyDeviceInfo \
+  $(DEVICE_INFO_PACKAGE).ClientIdDeviceInfo \
   $(DEVICE_INFO_PACKAGE).ConfigurationDeviceInfo \
   $(DEVICE_INFO_PACKAGE).CpuDeviceInfo \
   $(DEVICE_INFO_PACKAGE).FeatureDeviceInfo \
@@ -49,7 +50,7 @@ DEVICE_INFO_TARGET_SDK := 17
 endif
 
 # Add the base device info
-LOCAL_STATIC_JAVA_LIBRARIES += compatibility-device-info compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES += compatibility-device-info compatibility-device-util-axt
 
 # Generator of APK manifests.
 MANIFEST_GENERATOR_JAR := $(HOST_OUT_JAVA_LIBRARIES)/compatibility-manifest-generator.jar

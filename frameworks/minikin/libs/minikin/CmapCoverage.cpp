@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "minikin/Range.h"
 #include "minikin/SparseBitSet.h"
 
 #include "MinikinInternal.h"

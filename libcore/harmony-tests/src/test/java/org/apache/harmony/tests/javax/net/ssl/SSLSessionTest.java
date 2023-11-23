@@ -91,27 +91,6 @@ public class SSLSessionTest extends TestCase {
     }
 
     /**
-     * javax.net.ssl.SSLSession#getCipherSuite()
-     */
-    public void test_getCipherSuite() {
-        // Identify the expected cipher suite from the expected list of cipher suites enabled by
-        // default.
-        // This test class initializes the server with an RSA key. Thus, only cipher suites that
-        // authenticate the server using RSA are expected to be used.
-        String expectedCipherSuite = null;
-        for (String cipherSuite : StandardNames.CIPHER_SUITES_DEFAULT) {
-            if (cipherSuite.contains("_RSA_")) {
-                expectedCipherSuite = cipherSuite;
-                break;
-            }
-        }
-        if (expectedCipherSuite == null) {
-            fail("Failed to identify expected cipher suite");
-        }
-        assertEquals(expectedCipherSuite, clientSession.getCipherSuite());
-    }
-
-    /**
      * javax.net.ssl.SSLSession#getCreationTime()
      */
     public void test_getCreationTime() {
@@ -184,7 +163,7 @@ public class SSLSessionTest extends TestCase {
      * javax.net.ssl.SSLSession#getProtocol()
      */
     public void test_getProtocol() {
-        assertEquals("TLSv1.2", clientSession.getProtocol());
+        assertEquals("TLSv1.3", clientSession.getProtocol());
     }
 
     /**

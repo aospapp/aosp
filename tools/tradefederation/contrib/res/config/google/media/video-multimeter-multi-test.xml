@@ -4,7 +4,7 @@
 <configuration description="Run Video Multimeter test with plotter setup">
     <option name="test-tag" value="VideoMultimeter" />
 
-    <target_preparer class="com.google.android.tradefed.targetprep.GoogleDeviceSetup">
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
         <option name="screen-always-on" value="on" />
         <option name="screen-adaptive-brightness" value="off" />
         <option name="disable-audio" value="false"/>

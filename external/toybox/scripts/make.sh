@@ -5,20 +5,14 @@
 export LANG=c
 export LC_ALL=C
 set -o pipefail
-source ./configure
+source scripts/portability.sh
 
 [ -z "$KCONFIG_CONFIG" ] && KCONFIG_CONFIG=.config
 [ -z "$OUTNAME" ] && OUTNAME=toybox
 UNSTRIPPED="generated/unstripped/$(basename "$OUTNAME")"
 
-# Since each cc invocation is short, launch half again as many processes
-# as we have processors so they don't exit faster than we can start them.
-[ -z "$CPUS" ] && CPUS=$(($(nproc)+1))
-
-if [ -z "$SED" ]
-then
-  [ ! -z "$(which gsed 2>/dev/null)" ] && SED=gsed || SED=sed
-fi
+# Try to keep one more cc invocation going than we have processors
+[ -z "$CPUS" ] && CPUS=$(($(nproc 2>/dev/null)+1))
 
 # Respond to V= by echoing command lines as well as running them
 DOTPROG=
@@ -87,18 +81,20 @@ genbuildsh()
 
   echo "#!/bin/sh"
   echo
+  echo "PATH='$PATH'"
+  echo
   echo "BUILD='$BUILD'"
   echo
-  echo "FILES='$LIBFILES $TOYFILES'"
-  echo
   echo "LINK='$LINK'"
+  echo
+  echo "FILES='$LIBFILES $TOYFILES'"
   echo
   echo
   echo '$BUILD $FILES $LINK'
 }
 
-if ! cmp -s <(genbuildsh | head -n 3) \
-          <(head -n 3 generated/build.sh 2>/dev/null)
+if ! cmp -s <(genbuildsh 2>/dev/null | head -n 6 ; echo LINK="'"$LDOPTIMIZE $LDFLAGS) \
+          <(head -n 7 generated/build.sh 2>/dev/null | $SED '7s/ -o .*//')
 then
   echo -n "Library probe"
 
@@ -108,10 +104,10 @@ then
   # for it.
 
   > generated/optlibs.dat
-  for i in util crypt m resolv selinux smack attr rt crypto z log
+  for i in util crypt m resolv selinux smack attr rt crypto z log iconv
   do
     echo "int main(int argc, char *argv[]) {return 0;}" | \
-    ${CROSS_COMPILE}${CC} $CFLAGS -xc - -o generated/libprobe -Wl,--as-needed -l$i > /dev/null 2>/dev/null &&
+    ${CROSS_COMPILE}${CC} $CFLAGS $LDFLAGS -xc - -o generated/libprobe $LDASNEEDED -l$i > /dev/null 2>/dev/null &&
     echo -l$i >> generated/optlibs.dat
     echo -n .
   done
@@ -121,7 +117,7 @@ fi
 
 # LINK needs optlibs.dat, above
 
-LINK="$(echo $LDOPTIMIZE $LDFLAGS -o "$UNSTRIPPED" -Wl,--as-needed $(cat generated/optlibs.dat))"
+LINK="$(echo $LDOPTIMIZE $LDFLAGS -o "$UNSTRIPPED" $LDASNEEDED $(cat generated/optlibs.dat))"
 genbuildsh > generated/build.sh && chmod +x generated/build.sh || exit 1
 
 #TODO: "make $SED && make" doesn't regenerate config.h because diff .config
@@ -131,7 +127,8 @@ then
 
   # This long and roundabout sed invocation is to make old versions of sed
   # happy. New ones have '\n' so can replace one line with two without all
-  # the branches and tedious mucking about with hold space.
+  # the branches and tedious mucking about with hyperspace.
+  # TODO: clean this up to use modern stuff.
 
   $SED -n \
     -e 's/^# CONFIG_\(.*\) is not set.*/\1/' \
@@ -253,8 +250,7 @@ fi
 
 if [ generated/config2help -ot scripts/config2help.c ]
 then
-  do_loudly $HOSTCC scripts/config2help.c -I . lib/xwrap.c lib/llist.c \
-    lib/lib.c lib/portability.c -o generated/config2help || exit 1
+  do_loudly $HOSTCC scripts/config2help.c -o generated/config2help || exit 1
 fi
 if isnewer generated/help.h generated/Config.in
 then
@@ -264,7 +260,7 @@ fi
 
 [ ! -z "$NOBUILD" ] && exit 0
 
-echo -n "Compile toybox"
+echo -n "Compile $OUTNAME"
 [ ! -z "$V" ] && echo
 DOTPROG=.
 
@@ -297,9 +293,10 @@ do
   OUT="generated/obj/${X%%.c}.o"
   LNKFILES="$LNKFILES $OUT"
 
-  # $LIBFILES doesn't need to be rebuilt if newer than .config, $TOYFILES does
+  # $LIBFILES doesn't need to be rebuilt if older than .config, $TOYFILES does
+  # ($TOYFILES contents can depend on CONFIG symbols, lib/*.c never should.)
 
-  [ "$OUT" -nt "$i" ] && [ -z "$CLICK" -o "$OUT" -nt "$KCONFIG_CONFIG" ] &&
+  [ "$OUT" -nt "$i" ] && [ -z "$CLICK" -o "$OUT" -ot "$KCONFIG_CONFIG" ] &&
     continue
 
   do_loudly $BUILD -c $i -o $OUT &
@@ -332,10 +329,12 @@ done
 
 do_loudly $BUILD $LNKFILES $LINK || exit 1
 if [ ! -z "$NOSTRIP" ] ||
-  ! do_loudly ${CROSS_COMPILE}strip "$UNSTRIPPED" -o "$OUTNAME"
+  ! do_loudly ${CROSS_COMPILE}${STRIP} "$UNSTRIPPED" -o "$OUTNAME"
 then
-  echo "strip failed, using unstripped" && cp "$UNSTRIPPED" "$OUTNAME" ||
-  exit 1
+  echo "strip failed, using unstripped" &&
+  rm -f "$OUTNAME" &&
+  cp "$UNSTRIPPED" "$OUTNAME" ||
+    exit 1
 fi
 
 # gcc 4.4's strip command is buggy, and doesn't set the executable bit on

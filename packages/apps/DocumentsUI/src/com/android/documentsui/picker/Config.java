@@ -61,6 +61,8 @@ final class Config extends ActivityConfig {
         }
 
         switch (state.action) {
+            case ACTION_PICK_COPY_DESTINATION:
+                return false;
             case ACTION_CREATE:
                 // Read-only files are disabled when creating.
                 if ((docFlags & Document.FLAG_SUPPORTS_WRITE) == 0) {

@@ -26,9 +26,11 @@
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/AUtils.h>
 #include <media/stagefright/MediaClock.h>
+#include <media/stagefright/MediaCodecConstants.h>
+#include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/Utils.h>
-#include <media/stagefright/VideoFrameScheduler.h>
+#include <media/stagefright/VideoFrameScheduler2.h>
 #include <media/MediaCodecBuffer.h>
 
 #include <inttypes.h>
@@ -67,12 +69,16 @@ static inline int32_t getAudioSinkPcmMsSetting() {
 
 // Maximum time in paused state when offloading audio decompression. When elapsed, the AudioSink
 // is closed to allow the audio DSP to power down.
-static const int64_t kOffloadPauseMaxUs = 10000000ll;
+static const int64_t kOffloadPauseMaxUs = 10000000LL;
 
 // Maximum allowed delay from AudioSink, 1.5 seconds.
-static const int64_t kMaxAllowedAudioSinkDelayUs = 1500000ll;
+static const int64_t kMaxAllowedAudioSinkDelayUs = 1500000LL;
 
 static const int64_t kMinimumAudioClockUpdatePeriodUs = 20 /* msec */ * 1000;
+
+// Default video frame display duration when only video exists.
+// Used to set max media time in MediaClock.
+static const int64_t kDefaultVideoFrameIntervalUs = 100000LL;
 
 // static
 const NuPlayer2::Renderer::PcmInfo NuPlayer2::Renderer::AUDIO_PCMINFO_INITIALIZER = {
@@ -84,12 +90,27 @@ const NuPlayer2::Renderer::PcmInfo NuPlayer2::Renderer::AUDIO_PCMINFO_INITIALIZE
 };
 
 // static
-const int64_t NuPlayer2::Renderer::kMinPositionUpdateDelayUs = 100000ll;
+const int64_t NuPlayer2::Renderer::kMinPositionUpdateDelayUs = 100000LL;
+
+static audio_format_t constexpr audioFormatFromEncoding(int32_t pcmEncoding) {
+    switch (pcmEncoding) {
+    case kAudioEncodingPcmFloat:
+        return AUDIO_FORMAT_PCM_FLOAT;
+    case kAudioEncodingPcm16bit:
+        return AUDIO_FORMAT_PCM_16_BIT;
+    case kAudioEncodingPcm8bit:
+        return AUDIO_FORMAT_PCM_8_BIT;  // TODO: do we want to support this?
+    default:
+        ALOGE("%s: Invalid encoding: %d", __func__, pcmEncoding);
+        return AUDIO_FORMAT_INVALID;
+    }
+}
 
 NuPlayer2::Renderer::Renderer(
         const sp<MediaPlayer2Interface::AudioSink> &sink,
         const sp<MediaClock> &mediaClock,
         const sp<AMessage> &notify,
+        const sp<JObjectHolder> &context,
         uint32_t flags)
     : mAudioSink(sink),
       mUseVirtualAudioSink(false),
@@ -108,14 +129,14 @@ NuPlayer2::Renderer::Renderer(
       mAudioFirstAnchorTimeMediaUs(-1),
       mAnchorTimeMediaUs(-1),
       mAnchorNumFramesWritten(-1),
-      mVideoLateByUs(0ll),
+      mVideoLateByUs(0LL),
       mNextVideoTimeMediaUs(-1),
       mHasAudio(false),
       mHasVideo(false),
       mNotifyCompleteAudio(false),
       mNotifyCompleteVideo(false),
       mSyncQueues(false),
-      mPaused(false),
+      mPaused(true),
       mPauseDrainAudioAllowedUs(0),
       mVideoSampleReceived(false),
       mVideoRenderingStarted(false),
@@ -131,10 +152,9 @@ NuPlayer2::Renderer::Renderer(
       mTotalBuffersQueued(0),
       mLastAudioBufferDrained(0),
       mUseAudioCallback(false),
-      mWakeLock(new JWakeLock()) {
+      mWakeLock(new JWakeLock(context)) {
     CHECK(mediaClock != NULL);
-    mPlaybackRate = mPlaybackSettings.mSpeed;
-    mMediaClock->setPlaybackRate(mPlaybackRate);
+    mMediaClock->setPlaybackRate(mPlaybackSettings.mSpeed);
 }
 
 NuPlayer2::Renderer::~Renderer() {
@@ -190,26 +210,20 @@ status_t NuPlayer2::Renderer::setPlaybackSettings(const AudioPlaybackRate &rate)
 }
 
 status_t NuPlayer2::Renderer::onConfigPlayback(const AudioPlaybackRate &rate /* sanitized */) {
-    if (rate.mSpeed == 0.f) {
-        onPause();
-        // don't call audiosink's setPlaybackRate if pausing, as pitch does not
-        // have to correspond to the any non-0 speed (e.g old speed). Keep
-        // settings nonetheless, using the old speed, in case audiosink changes.
-        AudioPlaybackRate newRate = rate;
-        newRate.mSpeed = mPlaybackSettings.mSpeed;
-        mPlaybackSettings = newRate;
-        return OK;
+    if (rate.mSpeed <= 0.f) {
+        ALOGW("playback rate cannot be %f", rate.mSpeed);
+        return BAD_VALUE;
     }
 
     if (mAudioSink != NULL && mAudioSink->ready()) {
         status_t err = mAudioSink->setPlaybackRate(rate);
         if (err != OK) {
+            ALOGW("failed to get playback rate from audio sink, err(%d)", err);
             return err;
         }
     }
     mPlaybackSettings = rate;
-    mPlaybackRate = rate.mSpeed;
-    mMediaClock->setPlaybackRate(mPlaybackRate);
+    mMediaClock->setPlaybackRate(mPlaybackSettings.mSpeed);
     return OK;
 }
 
@@ -231,14 +245,12 @@ status_t NuPlayer2::Renderer::onGetPlaybackSettings(AudioPlaybackRate *rate /* n
         status_t err = mAudioSink->getPlaybackRate(rate);
         if (err == OK) {
             if (!isAudioPlaybackRateEqual(*rate, mPlaybackSettings)) {
-                ALOGW("correcting mismatch in internal/external playback rate");
+                ALOGW("correcting mismatch in internal/external playback rate, %f vs %f",
+                      rate->mSpeed, mPlaybackSettings.mSpeed);
             }
             // get playback settings used by audiosink, as it may be
             // slightly off due to audiosink not taking small changes.
             mPlaybackSettings = *rate;
-            if (mPaused) {
-                rate->mSpeed = 0.f;
-            }
         }
         return err;
     }
@@ -297,11 +309,11 @@ void NuPlayer2::Renderer::flush(bool audio, bool notifyComplete) {
             mNotifyCompleteVideo |= notifyComplete;
             ++mVideoQueueGeneration;
             ++mVideoDrainGeneration;
+            mNextVideoTimeMediaUs = -1;
         }
 
         mMediaClock->clearAnchor();
         mVideoLateByUs = 0;
-        mNextVideoTimeMediaUs = -1;
         mSyncQueues = false;
     }
 
@@ -560,8 +572,8 @@ void NuPlayer2::Renderer::onMessageReceived(const sp<AMessage> &msg) {
                 int64_t delayUs =
                     mAudioSink->msecsPerFrame()
                         * numFramesPendingPlayout * 1000ll;
-                if (mPlaybackRate > 1.0f) {
-                    delayUs /= mPlaybackRate;
+                if (mPlaybackSettings.mSpeed > 1.0f) {
+                    delayUs /= mPlaybackSettings.mSpeed;
                 }
 
                 // Let's give it more data after about half that time
@@ -1140,8 +1152,7 @@ int64_t NuPlayer2::Renderer::getDurationUsIfPlayedAtSampleRate(uint32_t numFrame
         ALOGE("sampleRate is 0 in %s mode", offloadingAudio() ? "offload" : "non-offload");
         return 0;
     }
-    // TODO: remove the (int32_t) casting below as it may overflow at 12.4 hours.
-    return (int64_t)((int32_t)numFrames * 1000000LL / sampleRate);
+    return (int64_t)(numFrames * 1000000LL / sampleRate);
 }
 
 // Calculate duration of pending samples if played at normal rate (i.e., 1.0).
@@ -1151,7 +1162,7 @@ int64_t NuPlayer2::Renderer::getPendingAudioPlayoutDurationUs(int64_t nowUs) {
         int64_t nowUs = ALooper::GetNowUs();
         int64_t mediaUs;
         if (mMediaClock->getMediaTime(nowUs, &mediaUs) != OK) {
-            return 0ll;
+            return 0LL;
         } else {
             return writtenAudioDurationUs - (mediaUs - mAudioFirstAnchorTimeMediaUs);
         }
@@ -1278,10 +1289,10 @@ void NuPlayer2::Renderer::postDrainVideoQueue() {
             mAnchorTimeMediaUs = mediaTimeUs;
         }
     }
-    mNextVideoTimeMediaUs = mediaTimeUs + 100000;
+    mNextVideoTimeMediaUs = mediaTimeUs;
     if (!mHasAudio) {
         // smooth out videos >= 10fps
-        mMediaClock->updateMaxTimeMedia(mNextVideoTimeMediaUs);
+        mMediaClock->updateMaxTimeMedia(mediaTimeUs + kDefaultVideoFrameIntervalUs);
     }
 
     if (!mVideoSampleReceived || mediaTimeUs < mAudioFirstAnchorTimeMediaUs) {
@@ -1348,7 +1359,7 @@ void NuPlayer2::Renderer::onDrainVideoQueue() {
                     && mediaTimeUs > mLastAudioMediaTimeUs) {
                 // If audio ends before video, video continues to drive media clock.
                 // Also smooth out videos >= 10fps.
-                mMediaClock->updateMaxTimeMedia(mediaTimeUs + 100000);
+                mMediaClock->updateMaxTimeMedia(mediaTimeUs + kDefaultVideoFrameIntervalUs);
             }
         }
     } else {
@@ -1366,7 +1377,7 @@ void NuPlayer2::Renderer::onDrainVideoQueue() {
         tooLate = false;
     }
 
-    entry->mNotifyConsumed->setInt64("timestampNs", realTimeUs * 1000ll);
+    entry->mNotifyConsumed->setInt64("timestampNs", realTimeUs * 1000LL);
     entry->mNotifyConsumed->setInt32("render", !tooLate);
     entry->mNotifyConsumed->post();
     mVideoQueue.erase(mVideoQueue.begin());
@@ -1415,9 +1426,16 @@ void NuPlayer2::Renderer::notifyEOS_l(bool audio, status_t finalResult, int64_t 
         mHasAudio = false;
         if (mNextVideoTimeMediaUs >= 0) {
             int64_t mediaUs = 0;
-            mMediaClock->getMediaTime(ALooper::GetNowUs(), &mediaUs);
-            if (mNextVideoTimeMediaUs > mediaUs) {
-                mMediaClock->updateMaxTimeMedia(mNextVideoTimeMediaUs);
+            int64_t nowUs = ALooper::GetNowUs();
+            status_t result = mMediaClock->getMediaTime(nowUs, &mediaUs);
+            if (result == OK) {
+                if (mNextVideoTimeMediaUs > mediaUs) {
+                    mMediaClock->updateMaxTimeMedia(mNextVideoTimeMediaUs);
+                }
+            } else {
+                mMediaClock->updateAnchor(
+                        mNextVideoTimeMediaUs, nowUs,
+                        mNextVideoTimeMediaUs + kDefaultVideoFrameIntervalUs);
             }
         }
     }
@@ -1445,7 +1463,7 @@ void NuPlayer2::Renderer::onQueueBuffer(const sp<AMessage> &msg) {
 
     if (mHasVideo) {
         if (mVideoScheduler == NULL) {
-            mVideoScheduler = new VideoFrameScheduler();
+            mVideoScheduler = new VideoFrameScheduler2();
             mVideoScheduler->init();
         }
     }
@@ -1498,7 +1516,7 @@ void NuPlayer2::Renderer::onQueueBuffer(const sp<AMessage> &msg) {
 
     ALOGV("queueDiff = %.2f secs", diff / 1E6);
 
-    if (diff > 100000ll) {
+    if (diff > 100000LL) {
         // Audio data starts More than 0.1 secs before video.
         // Drop some audio.
 
@@ -1570,9 +1588,18 @@ void NuPlayer2::Renderer::onFlush(const sp<AMessage> &msg) {
             notifyComplete = mNotifyCompleteAudio;
             mNotifyCompleteAudio = false;
             mLastAudioMediaTimeUs = -1;
+
+            mHasAudio = false;
+            if (mNextVideoTimeMediaUs >= 0) {
+                int64_t nowUs = ALooper::GetNowUs();
+                mMediaClock->updateAnchor(
+                        mNextVideoTimeMediaUs, nowUs,
+                        mNextVideoTimeMediaUs + kDefaultVideoFrameIntervalUs);
+            }
         } else {
             notifyComplete = mNotifyCompleteVideo;
             mNotifyCompleteVideo = false;
+            mVideoRenderingStarted = false;
         }
 
         // If we're currently syncing the queues, i.e. dropping audio while
@@ -1773,7 +1800,7 @@ void NuPlayer2::Renderer::onResume() {
             mAudioSink->setPlaybackRate(mPlaybackSettings);
         }
 
-        mMediaClock->setPlaybackRate(mPlaybackRate);
+        mMediaClock->setPlaybackRate(mPlaybackSettings.mSpeed);
 
         if (!mAudioQueue.empty()) {
             postDrainAudioQueue_l();
@@ -1787,7 +1814,7 @@ void NuPlayer2::Renderer::onResume() {
 
 void NuPlayer2::Renderer::onSetVideoFrameRate(float fps) {
     if (mVideoScheduler == NULL) {
-        mVideoScheduler = new VideoFrameScheduler();
+        mVideoScheduler = new VideoFrameScheduler2();
     }
     mVideoScheduler->init(fps);
 }
@@ -1857,6 +1884,7 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
         bool isStreaming) {
     ALOGV("openAudioSink: offloadOnly(%d) offloadingAudio(%d)",
             offloadOnly, offloadingAudio());
+
     bool audioSinkChanged = false;
 
     int32_t numChannels;
@@ -1871,8 +1899,13 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
     int32_t sampleRate;
     CHECK(format->findInt32("sample-rate", &sampleRate));
 
+    // read pcm encoding from MediaCodec output format, if available
+    int32_t pcmEncoding;
+    audio_format_t audioFormat =
+            format->findInt32(KEY_PCM_ENCODING, &pcmEncoding) ?
+                    audioFormatFromEncoding(pcmEncoding) : AUDIO_FORMAT_PCM_16_BIT;
+
     if (offloadingAudio()) {
-        audio_format_t audioFormat = AUDIO_FORMAT_PCM_16_BIT;
         AString mime;
         CHECK(format->findString("mime", &mime));
         status_t err = mapMimeToAudioFormat(audioFormat, mime.c_str());
@@ -1928,7 +1961,6 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
                     numChannels,
                     (audio_channel_mask_t)channelMask,
                     audioFormat,
-                    0 /* bufferCount - unused */,
                     &NuPlayer2::Renderer::AudioSinkCallback,
                     this,
                     (audio_output_flags_t)offloadFlags,
@@ -1974,7 +2006,7 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
         const PcmInfo info = {
                 (audio_channel_mask_t)channelMask,
                 (audio_output_flags_t)pcmFlags,
-                AUDIO_FORMAT_PCM_16_BIT, // TODO: change to audioFormat
+                audioFormat,
                 numChannels,
                 sampleRate
         };
@@ -1999,13 +2031,6 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
         const uint32_t frameCount =
                 (unsigned long long)sampleRate * getAudioSinkPcmMsSetting() / 1000;
 
-        // The doNotReconnect means AudioSink will signal back and let NuPlayer2 to re-construct
-        // AudioSink. We don't want this when there's video because it will cause a video seek to
-        // the previous I frame. But we do want this when there's only audio because it will give
-        // NuPlayer2 a chance to switch from non-offload mode to offload mode.
-        // So we only set doNotReconnect when there's no video.
-        const bool doNotReconnect = !hasVideo;
-
         // We should always be able to set our playback settings if the sink is closed.
         LOG_ALWAYS_FATAL_IF(mAudioSink->setPlaybackRate(mPlaybackSettings) != OK,
                 "onOpenAudioSink: can't set playback rate on closed sink");
@@ -2013,13 +2038,11 @@ status_t NuPlayer2::Renderer::onOpenAudioSink(
                     sampleRate,
                     numChannels,
                     (audio_channel_mask_t)channelMask,
-                    AUDIO_FORMAT_PCM_16_BIT,
-                    0 /* bufferCount - unused */,
+                    audioFormat,
                     mUseAudioCallback ? &NuPlayer2::Renderer::AudioSinkCallback : NULL,
                     mUseAudioCallback ? this : NULL,
                     (audio_output_flags_t)pcmFlags,
                     NULL,
-                    doNotReconnect,
                     frameCount);
         if (err != OK) {
             ALOGW("openAudioSink: non offloaded open failed status: %d", err);
@@ -2071,4 +2094,3 @@ void NuPlayer2::Renderer::onChangeAudioFormat(
 }
 
 }  // namespace android
-

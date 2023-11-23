@@ -118,7 +118,7 @@ public class ImageProvider extends ContentProvider {
         }
 
         Bundle bundle = new Bundle();
-        bundle.putInt(ContentResolver.EXTRA_TOTAL_SIZE, files.length);
+        bundle.putInt(ContentResolver.EXTRA_SIZE, files.length);
         String[] honoredArgs = new String[2];
         int size = 0;
         if (queryArgs.containsKey(ContentResolver.QUERY_ARG_OFFSET)) {

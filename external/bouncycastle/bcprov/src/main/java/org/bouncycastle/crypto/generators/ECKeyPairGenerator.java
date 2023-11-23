@@ -5,6 +5,7 @@ import java.security.SecureRandom;
 
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
@@ -15,6 +16,7 @@ import org.bouncycastle.math.ec.ECMultiplier;
 import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.math.ec.FixedPointCombMultiplier;
 import org.bouncycastle.math.ec.WNafUtil;
+import org.bouncycastle.util.BigIntegers;
 
 public class ECKeyPairGenerator
     implements AsymmetricCipherKeyPairGenerator, ECConstants
@@ -32,7 +34,7 @@ public class ECKeyPairGenerator
 
         if (this.random == null)
         {
-            this.random = new SecureRandom();
+            this.random = CryptoServicesRegistrar.getSecureRandom();
         }
     }
 
@@ -49,7 +51,7 @@ public class ECKeyPairGenerator
         BigInteger d;
         for (;;)
         {
-            d = new BigInteger(nBitLength, random);
+            d = BigIntegers.createRandomBigInteger(nBitLength, random);
 
             if (d.compareTo(TWO) < 0  || (d.compareTo(n) >= 0))
             {

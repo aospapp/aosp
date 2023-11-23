@@ -48,6 +48,15 @@ void logAlwaysFatal(const char *message);
 // If "ro.vndk.version" is not set or set to "current", it returns empty string.
 std::string getVndkVersionStr();
 
+// Explicitly invokes the parameterized element's destructor;
+// intended to be used alongside the placement new operator.
+template<typename T>
+void destructElement(T* element) {
+    if (element != nullptr) {
+        element->~T();
+    }
+}
+
 // HIDL client/server code should *NOT* use this class.
 //
 // hidl_pointer wraps a pointer without taking ownership,
@@ -59,16 +68,17 @@ template<typename T>
 struct hidl_pointer {
     hidl_pointer()
         : _pad(0) {
+        static_assert(sizeof(*this) == 8, "wrong size");
     }
     hidl_pointer(T* ptr) : hidl_pointer() { mPointer = ptr; }
     hidl_pointer(const hidl_pointer<T>& other) : hidl_pointer() { mPointer = other.mPointer; }
-    hidl_pointer(hidl_pointer<T>&& other) : hidl_pointer() { *this = std::move(other); }
+    hidl_pointer(hidl_pointer<T>&& other) noexcept : hidl_pointer() { *this = std::move(other); }
 
     hidl_pointer &operator=(const hidl_pointer<T>& other) {
         mPointer = other.mPointer;
         return *this;
     }
-    hidl_pointer &operator=(hidl_pointer<T>&& other) {
+    hidl_pointer& operator=(hidl_pointer<T>&& other) noexcept {
         mPointer = other.mPointer;
         other.mPointer = nullptr;
         return *this;

@@ -4,11 +4,11 @@
 #undef LOG_TAG
 #define LOG_TAG "FuzzerExtended_android_hardware_nfc_V1_0_types"
 
-#include <stdio.h>
+#include <log/log.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <utils/Log.h>
 
 #include <driver_base/DriverBase.h>
 #include <driver_base/DriverCallbackBase.h>
@@ -22,14 +22,14 @@
 using namespace android::hardware::nfc::V1_0;
 namespace android {
 namespace vts {
-::android::hardware::nfc::V1_0::NfcEvent EnumValue__android__hardware__nfc__V1_0__NfcEvent(const ScalarDataValueMessage& arg);
+extern "C" void MessageTo__android__hardware__nfc__V1_0__NfcEvent(const VariableSpecificationMessage& var_msg, ::android::hardware::nfc::V1_0::NfcEvent* arg, const string& callback_socket_name);
 uint32_t Random__android__hardware__nfc__V1_0__NfcEvent();
 bool Verify__android__hardware__nfc__V1_0__NfcEvent(const VariableSpecificationMessage& expected_result, const VariableSpecificationMessage& actual_result);
-void SetResult__android__hardware__nfc__V1_0__NfcEvent(VariableSpecificationMessage* result_msg, ::android::hardware::nfc::V1_0::NfcEvent result_value);
-::android::hardware::nfc::V1_0::NfcStatus EnumValue__android__hardware__nfc__V1_0__NfcStatus(const ScalarDataValueMessage& arg);
+extern "C" void SetResult__android__hardware__nfc__V1_0__NfcEvent(VariableSpecificationMessage* result_msg, ::android::hardware::nfc::V1_0::NfcEvent result_value);
+extern "C" void MessageTo__android__hardware__nfc__V1_0__NfcStatus(const VariableSpecificationMessage& var_msg, ::android::hardware::nfc::V1_0::NfcStatus* arg, const string& callback_socket_name);
 uint32_t Random__android__hardware__nfc__V1_0__NfcStatus();
 bool Verify__android__hardware__nfc__V1_0__NfcStatus(const VariableSpecificationMessage& expected_result, const VariableSpecificationMessage& actual_result);
-void SetResult__android__hardware__nfc__V1_0__NfcStatus(VariableSpecificationMessage* result_msg, ::android::hardware::nfc::V1_0::NfcStatus result_value);
+extern "C" void SetResult__android__hardware__nfc__V1_0__NfcStatus(VariableSpecificationMessage* result_msg, ::android::hardware::nfc::V1_0::NfcStatus result_value);
 
 
 }  // namespace vts

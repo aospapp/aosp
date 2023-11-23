@@ -20,11 +20,11 @@ struct MD5Context {
 extern "C" {
 #endif  // __cplusplus
 
-void MD5Init(struct MD5Context *ctx);
+void MD5Init(struct MD5Context* ctx);
 
-void MD5Update(struct MD5Context *ctx, unsigned char const *buf, unsigned len);
+void MD5Update(struct MD5Context* ctx, unsigned char const* buf, unsigned len);
 
-void MD5Final(unsigned char digest[16], struct MD5Context *ctx);
+void MD5Final(unsigned char digest[16], struct MD5Context* ctx);
 
 #ifdef __cplusplus
 }

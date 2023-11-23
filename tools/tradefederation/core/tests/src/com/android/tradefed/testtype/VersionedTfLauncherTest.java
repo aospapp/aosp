@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.testtype;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.IDevice;
@@ -45,7 +46,9 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /** Unit tests for {@link VersionedTfLauncher}. */
@@ -108,10 +111,13 @@ public class VersionedTfLauncherTest {
         mMockIDevice = EasyMock.createMock(IDevice.class);
 
         CommandResult cr = new CommandResult(CommandStatus.SUCCESS);
-        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(
-                EasyMock.eq(SubprocessTfLauncher.TF_GLOBAL_CONFIG), (String) EasyMock.anyObject());
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE),
+                (String) EasyMock.anyObject());
 
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
@@ -133,6 +139,9 @@ public class VersionedTfLauncherTest {
                                 EasyMock.eq(FAKE_SERIAL),
                                 EasyMock.eq("--additional-tests-zip"),
                                 EasyMock.eq(ADDITIONAL_TEST_ZIP),
+                                EasyMock.eq("--" + CommandOptions.INVOCATION_DATA),
+                                EasyMock.eq(SubprocessTfLauncher.SUBPROCESS_TAG_NAME),
+                                EasyMock.eq("true"),
                                 EasyMock.eq("--subprocess-report-file"),
                                 (String) EasyMock.anyObject()))
                 .andReturn(cr);
@@ -143,6 +152,7 @@ public class VersionedTfLauncherTest {
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn("FAKEID").times(2);
         EasyMock.expect(mMockBuildInfo.getFile("general-tests.zip"))
                 .andReturn(new File(ADDITIONAL_TEST_ZIP));
+        mMockBuildInfo.addBuildAttribute(SubprocessTfLauncher.PARENT_PROC_TAG_NAME, "true");
         EasyMock.expect(mMockTestDevice.getIDevice()).andReturn(mMockIDevice).times(2);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andReturn(FAKE_SERIAL).times(1);
         mMockListener.testLog((String)EasyMock.anyObject(), (LogDataType)EasyMock.anyObject(),
@@ -168,10 +178,13 @@ public class VersionedTfLauncherTest {
         mMockIDevice = new NullDevice("null-device-1");
 
         CommandResult cr = new CommandResult(CommandStatus.SUCCESS);
-        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(
-                EasyMock.eq(SubprocessTfLauncher.TF_GLOBAL_CONFIG), (String) EasyMock.anyObject());
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE),
+                (String) EasyMock.anyObject());
 
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
@@ -190,6 +203,9 @@ public class VersionedTfLauncherTest {
                                 EasyMock.eq(TF_COMMAND_LINE_OPTION),
                                 EasyMock.eq(TF_COMMAND_LINE_OPTION_VALUE),
                                 EasyMock.eq("--null-device"),
+                                EasyMock.eq("--" + CommandOptions.INVOCATION_DATA),
+                                EasyMock.eq(SubprocessTfLauncher.SUBPROCESS_TAG_NAME),
+                                EasyMock.eq("true"),
                                 EasyMock.eq("--subprocess-report-file"),
                                 (String) EasyMock.anyObject()))
                 .andReturn(cr);
@@ -199,6 +215,7 @@ public class VersionedTfLauncherTest {
         EasyMock.expect(mMockBuildInfo.getRootDir()).andReturn(new File(""));
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn("FAKEID").times(2);
         EasyMock.expect(mMockBuildInfo.getFile("general-tests.zip")).andReturn(null);
+        mMockBuildInfo.addBuildAttribute(SubprocessTfLauncher.PARENT_PROC_TAG_NAME, "true");
         EasyMock.expect(mMockTestDevice.getIDevice()).andReturn(mMockIDevice).times(1);
         mMockListener.testLog((String)EasyMock.anyObject(), (LogDataType)EasyMock.anyObject(),
                 (FileInputStreamSource)EasyMock.anyObject());
@@ -219,10 +236,13 @@ public class VersionedTfLauncherTest {
     @Test
     public void testRun_DeviceNoPreSetup() {
         CommandResult cr = new CommandResult(CommandStatus.SUCCESS);
-        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(
-                EasyMock.eq(SubprocessTfLauncher.TF_GLOBAL_CONFIG), (String) EasyMock.anyObject());
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE),
+                (String) EasyMock.anyObject());
 
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
@@ -242,6 +262,9 @@ public class VersionedTfLauncherTest {
                                 EasyMock.eq(TF_COMMAND_LINE_OPTION_VALUE),
                                 EasyMock.eq("--additional-tests-zip"),
                                 EasyMock.eq(ADDITIONAL_TEST_ZIP),
+                                EasyMock.eq("--" + CommandOptions.INVOCATION_DATA),
+                                EasyMock.eq(SubprocessTfLauncher.SUBPROCESS_TAG_NAME),
+                                EasyMock.eq("true"),
                                 EasyMock.eq("--subprocess-report-file"),
                                 (String) EasyMock.anyObject()))
                 .andReturn(cr);
@@ -252,6 +275,7 @@ public class VersionedTfLauncherTest {
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn("FAKEID").times(2);
         EasyMock.expect(mMockBuildInfo.getFile("general-tests.zip"))
                 .andReturn(new File(ADDITIONAL_TEST_ZIP));
+        mMockBuildInfo.addBuildAttribute(SubprocessTfLauncher.PARENT_PROC_TAG_NAME, "true");
         EasyMock.expect(mMockTestDevice.getIDevice()).andReturn(new StubDevice("serial1")).times(2);
         mMockListener.testLog(
                 (String) EasyMock.anyObject(),
@@ -276,10 +300,15 @@ public class VersionedTfLauncherTest {
      */
     @Test
     public void testGetTestShard() {
-        IRemoteTest test = mVersionedTfLauncher.getTestShard(2, 1);
-        assertTrue(test instanceof VersionedTfLauncher);
+        Collection<IRemoteTest> tests = mVersionedTfLauncher.split(2);
+        assertEquals(2, tests.size());
+        Iterator<IRemoteTest> ite = tests.iterator();
+        IRemoteTest firstTest = ite.next();
+        assertTrue(firstTest instanceof VersionedTfLauncher);
+        IRemoteTest secondTest = ite.next();
+        assertTrue(secondTest instanceof VersionedTfLauncher);
 
-        VersionedTfLauncher shardedTest = (VersionedTfLauncher) test;
+        VersionedTfLauncher shardedTest = (VersionedTfLauncher) secondTest;
 
         shardedTest.setRunUtil(mMockRunUtil);
         shardedTest.setBuild(mMockBuildInfo);
@@ -289,10 +318,13 @@ public class VersionedTfLauncherTest {
         mMockIDevice = EasyMock.createMock(IDevice.class);
 
         CommandResult cr = new CommandResult(CommandStatus.SUCCESS);
-        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
         mMockRunUtil.setEnvVariable(
-                EasyMock.eq(SubprocessTfLauncher.TF_GLOBAL_CONFIG), (String) EasyMock.anyObject());
+                EasyMock.eq(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE),
+                (String) EasyMock.anyObject());
 
         EasyMock.expect(
                         mMockRunUtil.runTimedCmd(
@@ -316,6 +348,9 @@ public class VersionedTfLauncherTest {
                                 EasyMock.eq("2"),
                                 EasyMock.eq("--shard-index"),
                                 EasyMock.eq("1"),
+                                EasyMock.eq("--" + CommandOptions.INVOCATION_DATA),
+                                EasyMock.eq(SubprocessTfLauncher.SUBPROCESS_TAG_NAME),
+                                EasyMock.eq("true"),
                                 EasyMock.eq("--subprocess-report-file"),
                                 (String) EasyMock.anyObject()))
                 .andReturn(cr);
@@ -325,6 +360,7 @@ public class VersionedTfLauncherTest {
         EasyMock.expect(mMockBuildInfo.getRootDir()).andReturn(new File(""));
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn("FAKEID").times(2);
         EasyMock.expect(mMockBuildInfo.getFile("general-tests.zip")).andReturn(null);
+        mMockBuildInfo.addBuildAttribute(SubprocessTfLauncher.PARENT_PROC_TAG_NAME, "true");
         EasyMock.expect(mMockTestDevice.getIDevice()).andReturn(mMockIDevice).times(2);
         EasyMock.expect(mMockTestDevice.getSerialNumber()).andReturn(FAKE_SERIAL).times(1);
         mMockListener.testLog(

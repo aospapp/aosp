@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" എന്നയാൾക്ക് ഫയൽ അയയ്‌ക്കുന്നു"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" എന്നയാൾക്ക് <xliff:g id="NUMBER">%1$s</xliff:g> ഫയലുകൾ അയയ്‌ക്കുന്നു"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" എന്നയാൾക്ക് ഫയൽ അയയ്‌ക്കുന്നത് നിർത്തി"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ USB സംഭരണത്തിൽ ആവശ്യമായ ഇടമില്ല."</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ SD കാർഡിൽ ആവശ്യമായ ഇടമില്ല."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ USB സ്‌റ്റോറേജിൽ ആവശ്യമായ ഇടമില്ല."</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" എന്നയാളിൽ നിന്നുള്ള ഫയൽ സംരക്ഷിക്കാൻ SD കാർഡിൽ ആവശ്യമായ ഇടമില്ല."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ആവശ്യമായ ഇടം: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"നിരവധി അഭ്യർത്ഥനകൾ പ്രോസസ്സ് ചെയ്യുന്നു. പിന്നീട് വീണ്ടും ശ്രമിക്കുക."</string>
     <string name="status_pending" msgid="2503691772030877944">"ഫയൽ കൈമാറ്റം ഇതുവരെ ആരംഭിച്ചിട്ടില്ല."</string>
@@ -95,12 +95,12 @@
     <string name="status_forbidden" msgid="613956401054050725">"ലക്ഷ്യസ്ഥാന ഉപകരണം, കൈമാറൽ നിരോധിച്ചിരിക്കുന്നു."</string>
     <string name="status_canceled" msgid="6664490318773098285">"കൈമാറൽ ഉപയോക്താവ് റദ്ദാക്കി."</string>
     <string name="status_file_error" msgid="3671917770630165299">"സംഭരണ പ്രശ്‌നം."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USB സംഭരണമൊന്നുമില്ല."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD കാർഡൊന്നുമില്ല. കൈമാറിയ ഫയലുകൾ സംരക്ഷിക്കാൻ ഒരു SD കാർഡ് ചേർക്കുക."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB സ്‌റ്റോറേജൊന്നുമില്ല."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD കാർഡൊന്നുമില്ല. കൈമാറിയ ഫയലുകൾ സംരക്ഷിക്കാൻ ഒരു SD കാർഡ് ചേർക്കുക."</string>
     <string name="status_connection_error" msgid="947681831523219891">"കണക്ഷൻ പരാജയപ്പെട്ടു."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"അഭ്യർത്ഥന ശരിയായി കൈകാര്യം ചെയ്യാനാകില്ല."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"അജ്ഞാത പിശക്."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"ബ്ലൂടൂത്ത് ലഭിച്ചു"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"ബ്ലൂടൂത്തിലൂടെ ലഭിച്ചവ"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth പങ്കിടൽ"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> നേടൽ പൂർത്തിയായി."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> അയച്ചത് പൂർത്തിയായി."</string>
@@ -120,6 +120,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"തുറക്കുക"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"ലിസ്റ്റിൽ നിന്നും മായ്‌ക്കുക"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"മായ്‌ക്കുക"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"ഇപ്പോൾ പ്ലേ ചെയ്യുന്നത്"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"സംരക്ഷിക്കുക"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"റദ്ദാക്കുക"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"നിങ്ങൾക്ക് Bluetooth വഴി പങ്കിടേണ്ട അക്കൗണ്ടുകൾ തിരഞ്ഞെടുക്കുക. കണക്‌റ്റുചെയ്യുമ്പോൾ അക്കൗണ്ടുകളിലേക്കുള്ള ഏത് ആക്‌സസും നിങ്ങൾ തുടർന്നും അംഗീകരിക്കേണ്ടതാണ്."</string>

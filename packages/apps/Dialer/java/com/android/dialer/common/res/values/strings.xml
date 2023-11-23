@@ -19,4 +19,8 @@
   <string name="network_name_mobile">Mobile</string>
   <!-- Content description for the overflow menu button. [CHAR LIMIT=NONE] -->
   <string name="content_description_overflow">More options</string>
+  <!-- Text for undo button in snackbar for voicemail deletion/blocking/unblocking number. [CHAR LIMIT=10] -->
+  <string name="snackbar_undo">UNDO</string>
+  <!-- Text on button of "OK, got it". [CHAR_LIMIT=30] -->
+  <string name="ok_got_it">OK, got it</string>
 </resources>

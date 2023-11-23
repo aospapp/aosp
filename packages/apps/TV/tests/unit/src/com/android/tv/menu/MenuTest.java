@@ -15,11 +15,11 @@
  */
 package com.android.tv.menu;
 
-import static android.support.test.InstrumentationRegistry.getTargetContext;
+import static androidx.test.InstrumentationRegistry.getTargetContext;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.menu.Menu.OnMenuVisibilityChangeListener;
 import org.junit.Before;
 import org.junit.Ignore;

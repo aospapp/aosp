@@ -42,11 +42,10 @@ class bluetooth_Sanity_LEDiscovery(bluetooth_test.BluetoothTest):
                     if device.get('Name') != device['Alias']:
                         logging.info('Device name not yet received')
                         continue
-                    if self.name != device['Alias']:
+                    if device['Alias'] not in self.name_list:
                         raise error.TestFail(
-                                'Tester did not have expected name ' +
-                                '"%s" != "%s"' % (device['Alias'],
-                                                  self.name))
+                                'Tester "%s" is not one of the expected names '
+                                '"%s"' % (device['Alias'], str(self.name_list)))
                     # Found the device
                     device_found = True
                     # Write out the RSSI now we've found it.
@@ -76,6 +75,7 @@ class bluetooth_Sanity_LEDiscovery(bluetooth_test.BluetoothTest):
 
 
     def run_once(self):
+        """Running BLE test to discover a remote advertising device."""
         # Reset the adapter to the powered on state.
         if not self.device.reset_on():
             raise error.TestFail('DUT could not be reset to initial state')
@@ -93,6 +93,7 @@ class bluetooth_Sanity_LEDiscovery(bluetooth_test.BluetoothTest):
               name, short_name ) = self.tester.read_info()
             self.address = address
             self.name = name
+            self.name_list = [name, short_name]
 
         if self.interactive:
             self.interactive.login()

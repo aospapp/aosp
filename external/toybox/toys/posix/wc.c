@@ -14,10 +14,10 @@ config WC
 
     Count lines, words, and characters in input.
 
-    -l	show lines
-    -w	show words
-    -c	show bytes
-    -m	show characters
+    -l	Show lines
+    -w	Show words
+    -c	Show bytes
+    -m	Show characters
 
     By default outputs lines, words, bytes, and filename for each
     argument (or from stdin if none). Displays only either bytes
@@ -33,9 +33,18 @@ GLOBALS(
 
 static void show_lengths(unsigned long *lengths, char *name)
 {
-  int i, space = 7, first = 1;
+  int i, space = 0, first = 1;
 
-  for (i = 0; i<4; i++) if (toys.optflags == (1<<i)) space = 0;
+  // POSIX says there should never be leading spaces, but accepts that
+  // traditional implementations use 7 spaces, unless only one file (or
+  // just stdin) is being counted, when there should be no leading spaces,
+  // *except* for the case where we're going to output multiple numbers.
+  // And, yes, folks have test scripts that rely on all this nonsense :-(
+  // Note: sufficiently modern versions of coreutils wc will use the smallest
+  // column width necessary to have all columns be equal width rather than 0.
+  if (!(!toys.optc && !(toys.optflags & (toys.optflags-1))) && toys.optc!=1)
+    space = 7;
+
   for (i = 0; i<4; i++) {
     if (toys.optflags&(1<<i)) {
       printf(" %*ld"+first, space, lengths[i]);
@@ -73,7 +82,7 @@ static void do_wc(int fd, char *name)
     for (pos = 0; pos<len; pos++) {
       if (toybuf[pos]=='\n') lengths[0]++;
       lengths[2]++;
-      if (toys.optflags&FLAG_m) {
+      if (FLAG(m)) {
         // If we've consumed next wide char
         if (--clen<1) {
           wchar_t wchar;

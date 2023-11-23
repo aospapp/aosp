@@ -38,9 +38,9 @@ TEST(BrotliCompressorTest, BrotliCompressorSmoke) {
 }
 
 TEST(BrotliCompressorTest, BrotliCompressorEmptyStream) {
-  uint8_t empty_buffer[] = {};
+  uint8_t unused_value = 0;
   BrotliCompressor brotli_compressor(11);
-  EXPECT_TRUE(brotli_compressor.Write(empty_buffer, sizeof(empty_buffer)));
+  EXPECT_TRUE(brotli_compressor.Write(&unused_value, 0));
   EXPECT_TRUE(brotli_compressor.Finish());
 
   std::vector<uint8_t> compressed_data = brotli_compressor.GetCompressedData();

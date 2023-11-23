@@ -27,12 +27,13 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     icu4j-icudata-jarjar \
     icu4j-icutzdata-jarjar \
     ims-common \
-    android.test.base \
+    android.test.base_static \
     libphonenumber-platform \
     okhttp \
     services \
     services.accessibility \
-    telephony-common
+    telephony-common \
+    updatable-media
 
 # include the uncompiled/raw resources in the jar
 # Eventually these raw resources will be removed once the transition to

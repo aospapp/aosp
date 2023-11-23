@@ -58,6 +58,9 @@ public class DynamicConfigFileReaderTest {
 
     private void writeDynamicConfigFile() throws IOException {
         String content = "<dynamicConfig>\n" +
+            "  <entry key=\"remote_config_required\">\n" +
+            "    <value>false</value>\n" +
+            "  </entry>\n" +
             "  <entry key=\"media_files_url\">\n" +
             "    <value>some value</value>\n" +
             "  </entry>\n" +

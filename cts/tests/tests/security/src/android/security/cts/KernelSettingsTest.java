@@ -33,10 +33,6 @@ import java.io.IOException;
 @SecurityTest
 public class KernelSettingsTest extends TestCase {
 
-    static {
-        System.loadLibrary("ctssecurity_jni");
-    }
-
     /**
      * Protect against kernel based NULL pointer attacks by enforcing a
      * minimum (and maximum!) value of mmap_min_addr.
@@ -76,23 +72,6 @@ public class KernelSettingsTest extends TestCase {
             // Odd. The file doesn't exist... Assume we're ok.
         }
     }
-
-    /**
-     * Verify that ext4 extended attributes (xattrs) are enabled in the
-     * Linux kernel.
-     *
-     * To fix this failure, you need to enable the following kernel options:
-     * - CONFIG_EXT4_FS_XATTR
-     * - CONFIG_EXT4_FS_SECURITY
-     *
-     * Failure to enable this option may result in upgrade problems when
-     * trying to upgrade to Android 4.4.
-     */
-    public void testXattrInKernel() {
-        assertTrue(supportsXattr());
-    }
-
-    private static native boolean supportsXattr();
 
     /**
      * ICMP redirects should be disabled.

@@ -24,8 +24,9 @@
 
 namespace art {
 
+class InductionVarRange;
+
 static const bool kSuperblockClonerLogging = false;
-static const bool kSuperblockClonerVerify = false;
 
 // Represents an edge between two HBasicBlocks.
 //
@@ -141,7 +142,8 @@ class SuperblockCloner : public ValueObject {
   SuperblockCloner(HGraph* graph,
                    const HBasicBlockSet* orig_bb_set,
                    HBasicBlockMap* bb_map,
-                   HInstructionMap* hir_map);
+                   HInstructionMap* hir_map,
+                   InductionVarRange* induction_range);
 
   // Sets edge successor remapping info specified by corresponding edge sets.
   void SetSuccessorRemappingInfo(const HEdgeSet* remap_orig_internal,
@@ -151,6 +153,15 @@ class SuperblockCloner : public ValueObject {
   // Returns whether the specified subgraph is copyable.
   // TODO: Start from small range of graph patterns then extend it.
   bool IsSubgraphClonable() const;
+
+  // Returns whether selected subgraph satisfies the criteria for fast data flow resolution
+  // when iterative DF algorithm is not required and dominators/instructions inputs can be
+  // trivially adjusted.
+  //
+  // TODO: formally describe the criteria.
+  //
+  // Loop peeling and unrolling satisfy the criteria.
+  bool IsFastCase() const;
 
   // Runs the copy algorithm according to the description.
   void Run();
@@ -202,11 +213,17 @@ class SuperblockCloner : public ValueObject {
     return IsInOrigBBSet(block->GetBlockId());
   }
 
+  // Returns the area (the most outer loop) in the graph for which control flow (back edges, loops,
+  // dominators) needs to be adjusted.
+  HLoopInformation* GetRegionToBeAdjusted() const {
+    return outer_loop_;
+  }
+
  private:
   // Fills the 'exits' vector with the subgraph exits.
-  void SearchForSubgraphExits(ArenaVector<HBasicBlock*>* exits);
+  void SearchForSubgraphExits(ArenaVector<HBasicBlock*>* exits) const;
 
-  // Finds and records information about the area in the graph for which control-flow (back edges,
+  // Finds and records information about the area in the graph for which control flow (back edges,
   // loops, dominators) needs to be adjusted.
   void FindAndSetLocalAreaForAdjustments();
 
@@ -217,13 +234,40 @@ class SuperblockCloner : public ValueObject {
   // phis' nor instructions' inputs values are resolved.
   void RemapEdgesSuccessors();
 
-  // Adjusts control-flow (back edges, loops, dominators) for the local area defined by
+  // Adjusts control flow (back edges, loops, dominators) for the local area defined by
   // FindAndSetLocalAreaForAdjustments.
   void AdjustControlFlowInfo();
 
   // Resolves Data Flow - adjusts phis' and instructions' inputs in order to have a valid graph in
   // the SSA form.
   void ResolveDataFlow();
+
+  //
+  // Helpers for live-outs processing and Subgraph-closed SSA.
+  //
+  //  - live-outs - values which are defined inside the subgraph and have uses outside.
+  //  - Subgraph-closed SSA - SSA form for which all the values defined inside the subgraph
+  //    have no outside uses except for the phi-nodes in the subgraph exits.
+  //
+  // Note: now if the subgraph has live-outs it is only clonable if it has a single exit; this
+  // makes the subgraph-closed SSA form construction much easier.
+  //
+  // TODO: Support subgraphs with live-outs and multiple exits.
+  //
+
+  // For each live-out value 'val' in the region puts a record <val, val> into the map.
+  // Returns whether all of the instructions in the subgraph are clonable.
+  bool CollectLiveOutsAndCheckClonable(HInstructionMap* live_outs_) const;
+
+  // Constructs Subgraph-closed SSA; precondition - a subgraph has a single exit.
+  //
+  // For each live-out 'val' in 'live_outs_' map inserts a HPhi 'phi' into the exit node, updates
+  // the record in the map to <val, phi> and replaces all outside uses with this phi.
+  void ConstructSubgraphClosedSSA();
+
+  // Fixes the data flow for the live-out 'val' by adding a 'copy_val' input to the corresponding
+  // (<val, phi>) phi after the cloning is done.
+  void FixSubgraphClosedSSAAfterCloning();
 
   //
   // Helpers for CloneBasicBlock.
@@ -268,10 +312,17 @@ class SuperblockCloner : public ValueObject {
   // Resolves the inputs of the phi.
   void ResolvePhi(HPhi* phi);
 
+  // Update induction range after when fixing SSA.
+  void UpdateInductionRangeInfoOf(
+      HInstruction* user, HInstruction* old_instruction, HInstruction* replacement);
+
   //
   // Debug and logging methods.
   //
   void CheckInstructionInputsRemapping(HInstruction* orig_instr);
+  bool CheckRemappingInfoIsValid();
+  void VerifyGraph();
+  void DumpInputSets();
 
   HBasicBlock* GetBlockById(uint32_t block_id) const {
     DCHECK(block_id < graph_->GetBlocks().size());
@@ -295,15 +346,103 @@ class SuperblockCloner : public ValueObject {
   HBasicBlockMap* bb_map_;
   // Correspondence map for instructions: (original HInstruction, copy HInstruction).
   HInstructionMap* hir_map_;
-  // Area in the graph for which control-flow (back edges, loops, dominators) needs to be adjusted.
+  // As a result of cloning, the induction range analysis information can be invalidated
+  // and must be updated. If not null, the cloner updates it for changed instructions.
+  InductionVarRange* induction_range_;
+  // Area in the graph for which control flow (back edges, loops, dominators) needs to be adjusted.
   HLoopInformation* outer_loop_;
   HBasicBlockSet outer_loop_bb_set_;
 
+  HInstructionMap live_outs_;
+
   ART_FRIEND_TEST(SuperblockClonerTest, AdjustControlFlowInfo);
+  ART_FRIEND_TEST(SuperblockClonerTest, IsGraphConnected);
 
   DISALLOW_COPY_AND_ASSIGN(SuperblockCloner);
 };
 
+// Helper class to perform loop peeling/unrolling.
+//
+// This helper should be used when correspondence map between original and copied
+// basic blocks/instructions are demanded.
+class PeelUnrollHelper : public ValueObject {
+ public:
+  PeelUnrollHelper(HLoopInformation* info,
+                   SuperblockCloner::HBasicBlockMap* bb_map,
+                   SuperblockCloner::HInstructionMap* hir_map,
+                   InductionVarRange* induction_range) :
+      loop_info_(info),
+      cloner_(info->GetHeader()->GetGraph(), &info->GetBlocks(), bb_map, hir_map, induction_range) {
+    // For now do peeling/unrolling only for natural loops.
+    DCHECK(!info->IsIrreducible());
+  }
+
+  // Returns whether the loop can be peeled/unrolled (static function).
+  static bool IsLoopClonable(HLoopInformation* loop_info);
+
+  // Returns whether the loop can be peeled/unrolled.
+  bool IsLoopClonable() const { return cloner_.IsSubgraphClonable(); }
+
+  HBasicBlock* DoPeeling() { return DoPeelUnrollImpl(/* to_unroll= */ false); }
+  HBasicBlock* DoUnrolling() { return DoPeelUnrollImpl(/* to_unroll= */ true); }
+  HLoopInformation* GetRegionToBeAdjusted() const { return cloner_.GetRegionToBeAdjusted(); }
+
+ protected:
+  // Applies loop peeling/unrolling for the loop specified by 'loop_info'.
+  //
+  // Depending on 'do_unroll' either unrolls loop by 2 or peels one iteration from it.
+  HBasicBlock* DoPeelUnrollImpl(bool to_unroll);
+
+ private:
+  HLoopInformation* loop_info_;
+  SuperblockCloner cloner_;
+
+  DISALLOW_COPY_AND_ASSIGN(PeelUnrollHelper);
+};
+
+// Helper class to perform loop peeling/unrolling.
+//
+// This helper should be used when there is no need to get correspondence information between
+// original and copied basic blocks/instructions.
+class PeelUnrollSimpleHelper : public ValueObject {
+ public:
+  PeelUnrollSimpleHelper(HLoopInformation* info, InductionVarRange* induction_range);
+  bool IsLoopClonable() const { return helper_.IsLoopClonable(); }
+  HBasicBlock* DoPeeling() { return helper_.DoPeeling(); }
+  HBasicBlock* DoUnrolling() { return helper_.DoUnrolling(); }
+  HLoopInformation* GetRegionToBeAdjusted() const { return helper_.GetRegionToBeAdjusted(); }
+
+  const SuperblockCloner::HBasicBlockMap* GetBasicBlockMap() const { return &bb_map_; }
+  const SuperblockCloner::HInstructionMap* GetInstructionMap() const { return &hir_map_; }
+
+ private:
+  SuperblockCloner::HBasicBlockMap bb_map_;
+  SuperblockCloner::HInstructionMap hir_map_;
+  PeelUnrollHelper helper_;
+
+  DISALLOW_COPY_AND_ASSIGN(PeelUnrollSimpleHelper);
+};
+
+// Collects edge remapping info for loop peeling/unrolling for the loop specified by loop info.
+void CollectRemappingInfoForPeelUnroll(bool to_unroll,
+                                       HLoopInformation* loop_info,
+                                       SuperblockCloner::HEdgeSet* remap_orig_internal,
+                                       SuperblockCloner::HEdgeSet* remap_copy_internal,
+                                       SuperblockCloner::HEdgeSet* remap_incoming);
+
+// Returns whether blocks from 'work_set' are reachable from the rest of the graph.
+//
+// Returns whether such a set 'outer_entries' of basic blocks exists that:
+// - each block from 'outer_entries' is not from 'work_set'.
+// - each block from 'work_set' is reachable from at least one block from 'outer_entries'.
+//
+// After the function returns work_set contains only blocks from the original 'work_set'
+// which are unreachable from the rest of the graph.
+bool IsSubgraphConnected(SuperblockCloner::HBasicBlockSet* work_set, HGraph* graph);
+
+// Returns a common predecessor of loop1 and loop2 in the loop tree or nullptr if it is the whole
+// graph.
+HLoopInformation* FindCommonLoop(HLoopInformation* loop1, HLoopInformation* loop2);
 }  // namespace art
 
 namespace std {
@@ -312,11 +451,12 @@ template <>
 struct hash<art::HEdge> {
   size_t operator()(art::HEdge const& x) const noexcept  {
     // Use Cantor pairing function as the hash function.
-    uint32_t a = x.GetFrom();
-    uint32_t b = x.GetTo();
+    size_t a = x.GetFrom();
+    size_t b = x.GetTo();
     return (a + b) * (a + b + 1) / 2 + b;
   }
 };
+ostream& operator<<(ostream& os, const art::HEdge& e);
 
 }  // namespace std
 

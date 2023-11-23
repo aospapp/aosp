@@ -17,11 +17,4 @@ Fake trackpad failure to trigger crash report with udev type, and
 confirm the *.log file has the correct conetent.
 """
 
-BUG_TEMPLATE = {
-    'labels': ['OS-Chrome'],
-    'components': ['Internals>Logging', 'OS>Systems'],
-    'owner': 'vapier@chromium.org',
-    'cc': ['vapier@chromium.org', 'benchan@chromium.org'],
-}
-
 job.run_test("logging_UdevCrash")

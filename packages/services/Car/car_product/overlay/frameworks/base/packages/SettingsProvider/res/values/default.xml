@@ -22,4 +22,6 @@
     <bool name="def_user_setup_complete">true</bool>
     <bool name="def_bluetooth_on">true</bool>
     <bool name="def_wifi_on">false</bool>
+    <!-- Disable system heads-up notifications -->
+    <integer name="def_heads_up_enabled">0</integer>
 </resources>

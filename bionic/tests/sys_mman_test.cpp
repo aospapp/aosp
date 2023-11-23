@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/user.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "TemporaryFile.h"
+#include <android-base/file.h>
+#include <gtest/gtest.h>
 
 TEST(sys_mman, mmap_std) {
-  void* map = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+  void* map = mmap(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
   ASSERT_NE(MAP_FAILED, map);
   ASSERT_EQ(0, munmap(map, 4096));
 }
 
 TEST(sys_mman, mmap64_std) {
-  void* map = mmap64(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+  void* map = mmap64(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
   ASSERT_NE(MAP_FAILED, map);
   ASSERT_EQ(0, munmap(map, 4096));
 }
@@ -38,14 +38,14 @@ TEST(sys_mman, mmap64_std) {
 TEST(sys_mman, mmap_file_bad_offset) {
   TemporaryFile tf;
 
-  void* map = mmap(NULL, 100, PROT_READ, MAP_SHARED, tf.fd, 1);
+  void* map = mmap(nullptr, 100, PROT_READ, MAP_SHARED, tf.fd, 1);
   ASSERT_EQ(MAP_FAILED, map);
 }
 
 TEST(sys_mman, mmap64_file_bad_offset) {
   TemporaryFile tf;
 
-  void* map = mmap64(NULL, 100, PROT_READ, MAP_SHARED, tf.fd, 1);
+  void* map = mmap64(nullptr, 100, PROT_READ, MAP_SHARED, tf.fd, 1);
   ASSERT_EQ(MAP_FAILED, map);
 }
 
@@ -59,7 +59,7 @@ TEST(sys_mman, mmap_file_read) {
 
   ASSERT_EQ(STR_SSIZE(STRING_MSG), write(tf.fd, STRING_MSG, sizeof(STRING_MSG)));
 
-  void* map = mmap(NULL, sizeof(STRING_MSG), PROT_READ, MAP_SHARED, tf.fd, 0);
+  void* map = mmap(nullptr, sizeof(STRING_MSG), PROT_READ, MAP_SHARED, tf.fd, 0);
   ASSERT_NE(MAP_FAILED, map);
 
   char* data = reinterpret_cast<char*>(map);
@@ -74,7 +74,7 @@ TEST(sys_mman, mmap_file_write) {
   ASSERT_EQ(STR_SSIZE(INITIAL_MSG), write(tf.fd, INITIAL_MSG, sizeof(INITIAL_MSG)));
   lseek(tf.fd, 0, SEEK_SET);
 
-  void* map = mmap(NULL, sizeof(STRING_MSG), PROT_WRITE, MAP_SHARED, tf.fd, 0);
+  void* map = mmap(nullptr, sizeof(STRING_MSG), PROT_WRITE, MAP_SHARED, tf.fd, 0);
   ASSERT_NE(MAP_FAILED, map);
   close(tf.fd);
 
@@ -82,7 +82,7 @@ TEST(sys_mman, mmap_file_write) {
 
   ASSERT_EQ(0, munmap(map, sizeof(STRING_MSG)));
 
-  tf.reopen();
+  tf.fd = open(tf.path, O_RDWR);
   char buf[sizeof(STRING_MSG)];
   memset(buf, 0, sizeof(STRING_MSG));
   ASSERT_EQ(STR_SSIZE(STRING_MSG), read(tf.fd, buf, sizeof(STRING_MSG)));
@@ -110,7 +110,7 @@ TEST(sys_mman, mmap_file_read_at_offset) {
 
   ASSERT_NE(-1, lseek(tf.fd, 0, SEEK_SET));
 
-  void* map = mmap(NULL, pagesize, PROT_READ, MAP_SHARED, tf.fd, pagesize);
+  void* map = mmap(nullptr, pagesize, PROT_READ, MAP_SHARED, tf.fd, pagesize);
   ASSERT_NE(MAP_FAILED, map);
 
   char* data = reinterpret_cast<char*>(map);
@@ -118,7 +118,7 @@ TEST(sys_mman, mmap_file_read_at_offset) {
 
   ASSERT_EQ(0, munmap(map, pagesize));
 
-  map = mmap(NULL, pagesize, PROT_READ, MAP_SHARED, tf.fd, 2 * pagesize);
+  map = mmap(nullptr, pagesize, PROT_READ, MAP_SHARED, tf.fd, 2 * pagesize);
   ASSERT_NE(MAP_FAILED, map);
 
   data = reinterpret_cast<char*>(map);
@@ -146,22 +146,22 @@ TEST(sys_mman, mmap_file_write_at_offset) {
 
   ASSERT_NE(-1, lseek(tf.fd, 0, SEEK_SET));
 
-  void* map = mmap(NULL, pagesize, PROT_WRITE, MAP_SHARED, tf.fd, pagesize);
+  void* map = mmap(nullptr, pagesize, PROT_WRITE, MAP_SHARED, tf.fd, pagesize);
   ASSERT_NE(MAP_FAILED, map);
   close(tf.fd);
 
   memcpy(map, NEWPAGE1_MSG, sizeof(NEWPAGE1_MSG));
   ASSERT_EQ(0, munmap(map, pagesize));
 
-  tf.reopen();
-  map = mmap(NULL, pagesize, PROT_WRITE, MAP_SHARED, tf.fd, 2 * pagesize);
+  tf.fd = open(tf.path, O_RDWR);
+  map = mmap(nullptr, pagesize, PROT_WRITE, MAP_SHARED, tf.fd, 2 * pagesize);
   ASSERT_NE(MAP_FAILED, map);
   close(tf.fd);
 
   memcpy(map, NEWPAGE2_MSG, sizeof(NEWPAGE2_MSG));
   ASSERT_EQ(0, munmap(map, pagesize));
 
-  tf.reopen();
+  tf.fd = open(tf.path, O_RDWR);
   char buf[pagesize];
   ASSERT_EQ(static_cast<ssize_t>(pagesize), read(tf.fd, buf, pagesize));
   ASSERT_STREQ(PAGE0_MSG, buf);
@@ -181,7 +181,7 @@ TEST(sys_mman, posix_madvise) {
 
   // Prepare environment.
   ASSERT_EQ(static_cast<ssize_t>(pagesize), write(tempfile.fd, buf, pagesize));
-  void* map = mmap(NULL, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, tempfile.fd, 0);
+  void* map = mmap(nullptr, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, tempfile.fd, 0);
   ASSERT_NE(MAP_FAILED, map);
 
   // Verify different options of posix_madvise.
@@ -199,7 +199,7 @@ TEST(sys_mman, posix_madvise) {
 TEST(sys_mman, posix_madvise_POSIX_MADV_DONTNEED) {
   size_t pagesize = sysconf(_SC_PAGESIZE);
 
-  void* map = mmap(NULL, pagesize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  void* map = mmap(nullptr, pagesize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   ASSERT_NE(MAP_FAILED, map);
 
   int* int_ptr = reinterpret_cast<int*>(map);

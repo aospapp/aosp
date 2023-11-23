@@ -17,11 +17,11 @@
 package com.android.cellbroadcastreceiver;
 
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
-import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
 
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.AudioAttributes;
@@ -30,22 +30,22 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.media.MediaPlayer.OnErrorListener;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertService.AlertType;
 
 import java.util.Locale;
-import java.util.MissingResourceException;
 
 /**
  * Manages alert audio and vibration and text-to-speech. Runs as a service so that
@@ -63,21 +63,12 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_BODY";
 
     /** Extra for text-to-speech preferred language (if speech enabled in settings). */
-    public static final String ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE";
-
-    /** Extra for text-to-speech default language when preferred language is
-        not available (if speech enabled in settings). */
-    public static final String ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE";
+    public static final String ALERT_AUDIO_MESSAGE_LANGUAGE =
+            "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_LANGUAGE";
 
     /** Extra for alert tone type */
     public static final String ALERT_AUDIO_TONE_TYPE =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_TONE_TYPE";
-
-    /** Extra for alert audio vibration enabled (from settings). */
-    public static final String ALERT_AUDIO_VIBRATE_EXTRA =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_VIBRATE";
 
     /** Extra for alert vibration pattern (unless master volume is silent). */
     public static final String ALERT_AUDIO_VIBRATION_PATTERN_EXTRA =
@@ -99,8 +90,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private boolean mTtsEngineReady;
 
     private String mMessageBody;
-    private String mMessagePreferredLanguage;
-    private String mMessageDefaultLanguage;
+    private String mMessageLanguage;
     private boolean mTtsLanguageSupported;
     private boolean mEnableVibrate;
     private boolean mEnableAudio;
@@ -147,16 +137,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     if (mMessageBody != null && mTtsEngineReady && mTtsLanguageSupported) {
                         if (DBG) log("Speaking broadcast text: " + mMessageBody);
 
-                        Bundle params = new Bundle();
-                        // Play TTS in the alarm stream, which we use for playing alert tones as
-                        // well.
-                        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM,
-                                AudioManager.STREAM_ALARM);
-                        // Use the non-public parameter 2 --> TextToSpeech.QUEUE_DESTROY for TTS.
-                        // The entire playback queue is purged. This is different from QUEUE_FLUSH
-                        // in that all entries are purged, not just entries from a given caller.
-                        // This is for emergency so we want to kill all other TTS sessions.
-                        res = mTts.speak(mMessageBody, 2, params, TTS_UTTERANCE_ID);
+                        mTts.setAudioAttributes(getAlertAudioAttributes());
+                        res = mTts.speak(mMessageBody, 2, null, TTS_UTTERANCE_ID);
                         mState = STATE_SPEAKING;
                     }
                     if (res != TextToSpeech.SUCCESS) {
@@ -189,7 +171,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
      */
     @Override
     public void onInit(int status) {
-        if (VDBG) log("onInit() TTS engine status: " + status);
+        if (DBG) log("onInit() TTS engine status: " + status);
         if (status == TextToSpeech.SUCCESS) {
             mTtsEngineReady = true;
             mTts.setOnUtteranceCompletedListener(this);
@@ -207,31 +189,20 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
      * it to the default language. mTtsLanguageSupported will be updated based on the response.
      */
     private void setTtsLanguage() {
-
-        String language = mMessagePreferredLanguage;
-        if (language == null || language.isEmpty() ||
-                TextToSpeech.LANG_AVAILABLE != mTts.isLanguageAvailable(new Locale(language))) {
-            language = mMessageDefaultLanguage;
-            if (language == null || language.isEmpty() ||
-                    TextToSpeech.LANG_AVAILABLE != mTts.isLanguageAvailable(new Locale(language))) {
-                mTtsLanguageSupported = false;
-                return;
-            }
-            if (DBG) log("Language '" + mMessagePreferredLanguage + "' is not available, using" +
-                    "the default language '" + mMessageDefaultLanguage + "'");
+        Locale locale;
+        if (!TextUtils.isEmpty(mMessageLanguage)) {
+            locale = new Locale(mMessageLanguage);
+        } else {
+            // If the cell broadcast message does not specify the language, use device's default
+            // language.
+            locale = Locale.getDefault();
         }
 
-        if (DBG) log("Setting TTS language to '" + language + '\'');
+        if (DBG) log("Setting TTS language to '" + locale + '\'');
 
-        try {
-            int result = mTts.setLanguage(new Locale(language));
-            if (DBG) log("TTS setLanguage() returned: " + result);
-            mTtsLanguageSupported = (result == TextToSpeech.LANG_AVAILABLE);
-        }
-        catch (MissingResourceException e) {
-            mTtsLanguageSupported = false;
-            loge("Language '" + language + "' is not available.");
-        }
+        int result = mTts.setLanguage(locale);
+        if (DBG) log("TTS setLanguage() returned: " + result);
+        mTtsLanguageSupported = (result >= TextToSpeech.LANG_AVAILABLE);
     }
 
     /**
@@ -300,37 +271,39 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         // Get text to speak (if enabled by user)
         mMessageBody = intent.getStringExtra(ALERT_AUDIO_MESSAGE_BODY);
-        mMessagePreferredLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE);
-        mMessageDefaultLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE);
+        mMessageLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_LANGUAGE);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         // Get config of whether to always sound CBS alerts at full volume.
-        mUseFullVolume = PreferenceManager.getDefaultSharedPreferences(this)
-                .getBoolean(CellBroadcastSettings.KEY_USE_FULL_VOLUME, false);
+        mUseFullVolume = prefs.getBoolean(CellBroadcastSettings.KEY_USE_FULL_VOLUME, false);
 
         // retrieve the vibrate settings from cellbroadcast receiver settings.
-        mEnableVibrate = intent.getBooleanExtra(ALERT_AUDIO_VIBRATE_EXTRA, true);
+        mEnableVibrate = prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, true);
         // retrieve the vibration patterns
         mVibrationPattern = intent.getIntArrayExtra(ALERT_AUDIO_VIBRATION_PATTERN_EXTRA);
 
         switch (mAudioManager.getRingerMode()) {
             case AudioManager.RINGER_MODE_SILENT:
                 if (DBG) log("Ringer mode: silent");
-                mEnableAudio = false;
-                mEnableVibrate = false;
+                if (!mUseFullVolume) {
+                    mEnableVibrate = false;
+                }
+                // If the phone is in silent mode, we only enable the audio when use full volume
+                // setting is turned on.
+                mEnableAudio = mUseFullVolume;
                 break;
             case AudioManager.RINGER_MODE_VIBRATE:
                 if (DBG) log("Ringer mode: vibrate");
-                mEnableAudio = false;
+                // If the phone is in vibration mode, we only enable the audio when use full volume
+                // setting is turned on.
+                mEnableAudio = mUseFullVolume;
                 break;
             case AudioManager.RINGER_MODE_NORMAL:
             default:
                 if (DBG) log("Ringer mode: normal");
                 mEnableAudio = true;
                 break;
-        }
-
-        if (mUseFullVolume) {
-            mEnableAudio = true;
         }
 
         if (mMessageBody != null && mEnableAudio) {
@@ -371,12 +344,18 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         // stop() checks to see if we are already playing.
         stop();
 
-        log("playAlertTone: alertType=" + alertType);
+        log("playAlertTone: alertType=" + alertType + ", mEnableVibrate=" + mEnableVibrate
+                + ", mEnableAudio=" + mEnableAudio + ", mUseFullVolume=" + mUseFullVolume);
+        Resources res =
+                CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(
+                        getApplicationContext());
 
         // Vibration duration in milliseconds
         long vibrateDuration = 0;
 
-        int customAlertDuration = getResources().getInteger(R.integer.alert_duration);
+        // Get the alert tone duration. Negative tone duration value means we only play the tone
+        // once, not repeat it.
+        int customAlertDuration = res.getInteger(R.integer.alert_duration);
 
         // Start the vibration first.
         if (mEnableVibrate) {
@@ -386,7 +365,22 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                 vibrationPattern[i] = patternArray[i];
                 vibrateDuration += patternArray[i];
             }
-            mVibrator.vibrate(vibrationPattern, 0);
+
+            AudioAttributes.Builder attrBuilder = new AudioAttributes.Builder();
+            attrBuilder.setUsage(AudioAttributes.USAGE_ALARM);
+            if (mUseFullVolume) {
+                // Set the flags to bypass DnD mode if the user enables use full volume option.
+                attrBuilder.setFlags(AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY
+                        | AudioAttributes.FLAG_BYPASS_MUTE);
+            }
+            AudioAttributes attr = attrBuilder.build();
+            // If we only play the tone once, then we also play the vibration pattern once.
+            int repeatIndex = (customAlertDuration < 0)
+                    ? -1 /* not repeat */ : 0 /* index to repeat */;
+            VibrationEffect effect = VibrationEffect.createWaveform(vibrationPattern, repeatIndex);
+            log("vibrate: effect=" + effect + ", attr=" + attr + ", duration="
+                    + customAlertDuration);
+            mVibrator.vibrate(effect, attr);
         }
 
 
@@ -417,26 +411,21 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             }
 
             try {
-                log("Locale=" + getResources().getConfiguration().getLocales()
-                        + ", alertType=" + alertType);
+                log("Locale=" + res.getConfiguration().getLocales() + ", alertType=" + alertType);
 
                 // Load the tones based on type
                 switch (alertType) {
                     case ETWS_EARTHQUAKE:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_earthquake);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_earthquake);
                         break;
                     case ETWS_TSUNAMI:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_tsunami);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_tsunami);
                         break;
                     case OTHER:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_other_disaster);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_other_disaster);
                         break;
                     case ETWS_DEFAULT:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.etws_default);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.etws_default);
                         break;
                     case INFO:
                         // for non-emergency alerts, we are using system default notification sound.
@@ -448,16 +437,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     case TEST:
                     case DEFAULT:
                     default:
-                        setDataSourceFromResource(getResources(), mMediaPlayer,
-                                R.raw.default_tone);
+                        setDataSourceFromResource(res, mMediaPlayer, R.raw.default_tone);
                 }
 
                 // Request audio focus (though we're going to play even if we don't get it)
                 mAudioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-                mMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
-
-                setAlertAudioAttributes();
+                mMediaPlayer.setAudioAttributes(getAlertAudioAttributes());
                 setAlertVolume();
 
                 // If we are using the custom alert duration, set looping to true so we can repeat
@@ -533,10 +519,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     }
 
     /**
-     * Set AudioAttributes for mMediaPlayer. Replacement of deprecated
-     * mMediaPlayer.setAudioStreamType.
+     * Get audio attribute for the alarm.
      */
-    private void setAlertAudioAttributes() {
+    private AudioAttributes getAlertAudioAttributes() {
         AudioAttributes.Builder builder = new AudioAttributes.Builder();
 
         builder.setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
@@ -548,7 +533,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     | AudioAttributes.FLAG_BYPASS_MUTE);
         }
 
-        mMediaPlayer.setAudioAttributes(builder.build());
+        return builder.build();
     }
 
     /**

@@ -19,13 +19,65 @@
 #include <fstream>
 #include <sstream>
 
+#include "android-base/strings.h"
 #include "dex/dex_file-inl.h"
 
 namespace art {
 
+HiddenApi::HiddenApi(const char* filename, bool sdk_uses_only) {
+  CHECK(filename != nullptr);
+
+  std::ifstream in(filename);
+  for (std::string str; std::getline(in, str);) {
+    std::vector<std::string> values = android::base::Split(str, ",");
+    const std::string& signature = values[0];
+
+    hiddenapi::ApiList membership;
+    bool success = hiddenapi::ApiList::FromNames(values.begin() + 1, values.end(), &membership);
+    CHECK(success) << "Unknown ApiList flag: " << str;
+    CHECK(membership.IsValid()) << "Invalid ApiList: " << membership;
+
+    if (sdk_uses_only != membership.Contains(hiddenapi::ApiList::Whitelist())) {
+      // Either we want only SDK uses and this is not a whitelist entry,
+      // or we want only non-SDK uses and this is a whitelist entry.
+      continue;
+    }
+
+    AddSignatureToApiList(signature, membership);
+    size_t pos = signature.find("->");
+    if (pos != std::string::npos) {
+      // Add the class name.
+      AddSignatureToApiList(signature.substr(0, pos), membership);
+      pos = signature.find('(');
+      if (pos != std::string::npos) {
+        // Add the class->method name (so stripping the signature).
+        AddSignatureToApiList(signature.substr(0, pos), membership);
+      }
+      pos = signature.find(':');
+      if (pos != std::string::npos) {
+        // Add the class->field name (so stripping the type).
+        AddSignatureToApiList(signature.substr(0, pos), membership);
+      }
+    }
+  }
+}
+
+void HiddenApi::AddSignatureToApiList(const std::string& signature, hiddenapi::ApiList membership) {
+  auto it = api_list_.find(signature);
+  if (it == api_list_.end()) {
+    // Does not exist yet. Add it to list.
+    api_list_.emplace(signature, membership);
+  } else if (membership.GetMaxAllowedSdkVersion() < it->second.GetMaxAllowedSdkVersion()) {
+    // Already exist but `membership` is more restrictive.
+    it->second = membership;
+  } else {
+    // Already exists and `membership` is equally or less restrictive.
+  }
+}
+
 std::string HiddenApi::GetApiMethodName(const DexFile& dex_file, uint32_t method_index) {
   std::stringstream ss;
-  const DexFile::MethodId& method_id = dex_file.GetMethodId(method_index);
+  const dex::MethodId& method_id = dex_file.GetMethodId(method_index);
   ss << dex_file.StringByTypeIdx(method_id.class_idx_)
      << "->"
      << dex_file.GetMethodName(method_id)
@@ -35,39 +87,13 @@ std::string HiddenApi::GetApiMethodName(const DexFile& dex_file, uint32_t method
 
 std::string HiddenApi::GetApiFieldName(const DexFile& dex_file, uint32_t field_index) {
   std::stringstream ss;
-  const DexFile::FieldId& field_id = dex_file.GetFieldId(field_index);
+  const dex::FieldId& field_id = dex_file.GetFieldId(field_index);
   ss << dex_file.StringByTypeIdx(field_id.class_idx_)
      << "->"
      << dex_file.GetFieldName(field_id)
      << ":"
      << dex_file.GetFieldTypeDescriptor(field_id);
   return ss.str();
-}
-
-void HiddenApi::FillList(const char* filename, std::set<std::string>& entries) {
-  if (filename == nullptr) {
-    return;
-  }
-  std::ifstream in(filename);
-  std::string str;
-  while (std::getline(in, str)) {
-    entries.insert(str);
-    size_t pos = str.find("->");
-    if (pos != std::string::npos) {
-      // Add the class name.
-      entries.insert(str.substr(0, pos));
-      pos = str.find('(');
-      if (pos != std::string::npos) {
-        // Add the class->method name (so stripping the signature).
-        entries.insert(str.substr(0, pos));
-      }
-      pos = str.find(':');
-      if (pos != std::string::npos) {
-        // Add the class->field name (so stripping the type).
-        entries.insert(str.substr(0, pos));
-      }
-    }
-  }
 }
 
 }  // namespace art

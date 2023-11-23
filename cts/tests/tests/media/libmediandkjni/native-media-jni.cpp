@@ -17,7 +17,7 @@
 /* Original code copied from NDK Native-media sample code */
 
 //#define LOG_NDEBUG 0
-#define TAG "NativeMedia"
+#define LOG_TAG "NativeMedia"
 #include <log/log.h>
 
 #include <assert.h>
@@ -82,15 +82,18 @@ public:
 struct FdDataSource {
 
     FdDataSource(int fd, jlong offset, jlong size)
-        : mFd(fd),
+        : mFd(dup(fd)),
           mOffset(offset),
           mSize(size) {
     }
 
     ssize_t readAt(off64_t offset, void *data, size_t size) {
         ssize_t ssize = size;
-        if (!data || offset < 0 || offset >= mSize || offset + ssize < offset) {
+        if (!data || offset < 0 || offset + ssize < offset) {
             return -1;
+        }
+        if (offset >= mSize) {
+            return 0; // EOS
         }
         if (offset + ssize > mSize) {
             ssize = mSize - offset;
@@ -242,6 +245,21 @@ static void OnErrorCB(
     ALOGV("OnErrorCB: err(%d), actionCode(%d), detail(%s)", err, actionCode, detail);
 }
 
+static int adler32(const uint8_t *input, int len) {
+
+    int a = 1;
+    int b = 0;
+    for (int i = 0; i < len; i++) {
+        a += input[i];
+        b += a;
+        a = a % 65521;
+        b = b % 65521;
+    }
+    int ret = b * 65536 + a;
+    ALOGV("adler %d/%d", len, ret);
+    return ret;
+}
+
 jobject testExtractor(AMediaExtractor *ex, JNIEnv *env) {
 
     simplevector<int> sizes;
@@ -293,6 +311,7 @@ jobject testExtractor(AMediaExtractor *ex, JNIEnv *env) {
         sizes.add(AMediaExtractor_getSampleTrackIndex(ex));
         sizes.add(AMediaExtractor_getSampleFlags(ex));
         sizes.add(AMediaExtractor_getSampleTime(ex));
+        sizes.add(adler32(buf, n));
         AMediaExtractor_advance(ex);
     }
 
@@ -328,7 +347,8 @@ extern "C" jobject Java_android_media_cts_NativeDecoderTest_getSampleSizesNative
 
 // get the sample sizes for the path
 extern "C" jobject Java_android_media_cts_NativeDecoderTest_getSampleSizesNativePath(JNIEnv *env,
-        jclass /*clazz*/, jstring jpath)
+        jclass /*clazz*/, jstring jpath, jobjectArray jkeys, jobjectArray jvalues,
+        jboolean testNativeSource)
 {
     AMediaExtractor *ex = AMediaExtractor_new();
 
@@ -337,29 +357,47 @@ extern "C" jobject Java_android_media_cts_NativeDecoderTest_getSampleSizesNative
         return NULL;
     }
 
-    int err = AMediaExtractor_setDataSource(ex, tmp);
+    int numkeys = jkeys ? env->GetArrayLength(jkeys) : 0;
+    int numvalues = jvalues ? env->GetArrayLength(jvalues) : 0;
+    int numheaders = numkeys < numvalues ? numkeys : numvalues;
+    const char **key_values = numheaders ? new const char *[numheaders * 2] : NULL;
+    for (int i = 0; i < numheaders; i++) {
+        jstring jkey = (jstring) (env->GetObjectArrayElement(jkeys, i));
+        jstring jvalue = (jstring) (env->GetObjectArrayElement(jvalues, i));
+        const char *key = env->GetStringUTFChars(jkey, NULL);
+        const char *value = env->GetStringUTFChars(jvalue, NULL);
+        key_values[i * 2] = key;
+        key_values[i * 2 + 1] = value;
+    }
+
+    int err;
+    AMediaDataSource *src = NULL;
+    if (testNativeSource) {
+        src = AMediaDataSource_newUri(tmp, numheaders, key_values);
+        err = src ? AMediaExtractor_setDataSourceCustom(ex, src) : -1;
+    } else {
+        err = AMediaExtractor_setDataSource(ex, tmp);
+    }
+
+    for (int i = 0; i < numheaders; i++) {
+        jstring jkey = (jstring) (env->GetObjectArrayElement(jkeys, i));
+        jstring jvalue = (jstring) (env->GetObjectArrayElement(jvalues, i));
+        env->ReleaseStringUTFChars(jkey, key_values[i * 2]);
+        env->ReleaseStringUTFChars(jvalue, key_values[i * 2 + 1]);
+    }
 
     env->ReleaseStringUTFChars(jpath, tmp);
+    delete[] key_values;
 
     if (err != 0) {
         ALOGE("setDataSource error: %d", err);
+        AMediaExtractor_delete(ex);
+        AMediaDataSource_delete(src);
         return NULL;
     }
-    return testExtractor(ex, env);
-}
 
-static int adler32(const uint8_t *input, int len) {
-
-    int a = 1;
-    int b = 0;
-    for (int i = 0; i < len; i++) {
-        a += input[i];
-        b += a;
-    }
-    a = a % 65521;
-    b = b % 65521;
-    int ret = b * 65536 + a;
-    ALOGV("adler %d/%d", len, ret);
+    jobject ret = testExtractor(ex, env);
+    AMediaDataSource_delete(src);
     return ret;
 }
 
@@ -403,7 +441,7 @@ extern "C" jlong Java_android_media_cts_NativeDecoderTest_getExtractorFileDurati
 }
 
 extern "C" jlong Java_android_media_cts_NativeDecoderTest_getExtractorCachedDurationNative(
-        JNIEnv * env, jclass /*clazz*/, jstring jpath)
+        JNIEnv * env, jclass /*clazz*/, jstring jpath, jboolean testNativeSource)
 {
     AMediaExtractor *ex = AMediaExtractor_new();
 
@@ -413,18 +451,27 @@ extern "C" jlong Java_android_media_cts_NativeDecoderTest_getExtractorCachedDura
         return -1;
     }
 
-    int err = AMediaExtractor_setDataSource(ex, tmp);
+    int err;
+    AMediaDataSource *src = NULL;
+    if (testNativeSource) {
+        src = AMediaDataSource_newUri(tmp, 0, NULL);
+        err = src ? AMediaExtractor_setDataSourceCustom(ex, src) : -1;
+    } else {
+        err = AMediaExtractor_setDataSource(ex, tmp);
+    }
 
     env->ReleaseStringUTFChars(jpath, tmp);
 
     if (err != 0) {
         ALOGE("setDataSource error: %d", err);
         AMediaExtractor_delete(ex);
+        AMediaDataSource_delete(src);
         return -1;
     }
 
     int64_t cachedDurationUs = AMediaExtractor_getCachedDuration(ex);
     AMediaExtractor_delete(ex);
+    AMediaDataSource_delete(src);
     return cachedDurationUs;
 
 }
@@ -792,10 +839,10 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testFormatNative(JN
         return false;
     }
 
-    AMediaFormat_setInt64(format, AMEDIAFORMAT_KEY_DURATION, 123456789123456789ll);
+    AMediaFormat_setInt64(format, AMEDIAFORMAT_KEY_DURATION, 123456789123456789LL);
     int64_t duration = 0;
     if (!AMediaFormat_getInt64(format, AMEDIAFORMAT_KEY_DURATION, &duration)
-            || duration != 123456789123456789ll) {
+            || duration != 123456789123456789LL) {
         ALOGE("AMediaFormat_getInt64 fail: %lld", (long long) duration);
         return false;
     }
@@ -918,6 +965,47 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testCryptoInfoNativ
     return true;
 }
 
+extern "C" jlong Java_android_media_cts_NativeDecoderTest_createAMediaExtractor(JNIEnv * /*env*/,
+        jclass /*clazz*/) {
+    AMediaExtractor *ex = AMediaExtractor_new();
+    return reinterpret_cast<jlong>(ex);
+}
+
+extern "C" jlong Java_android_media_cts_NativeDecoderTest_createAMediaDataSource(JNIEnv * env,
+        jclass /*clazz*/, jstring jurl) {
+    const char *url = env->GetStringUTFChars(jurl, NULL);
+    if (url == NULL) {
+        ALOGE("GetStringUTFChars error");
+        return 0;
+    }
+
+    AMediaDataSource *ds = AMediaDataSource_newUri(url, 0, NULL);
+    env->ReleaseStringUTFChars(jurl, url);
+    return reinterpret_cast<jlong>(ds);
+}
+
+extern "C" jint Java_android_media_cts_NativeDecoderTest_setAMediaExtractorDataSource(JNIEnv * /*env*/,
+        jclass /*clazz*/, jlong jex, jlong jds) {
+    AMediaExtractor *ex = reinterpret_cast<AMediaExtractor *>(jex);
+    AMediaDataSource *ds = reinterpret_cast<AMediaDataSource *>(jds);
+    return AMediaExtractor_setDataSourceCustom(ex, ds);
+}
+
+extern "C" void Java_android_media_cts_NativeDecoderTest_closeAMediaDataSource(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong ds) {
+    AMediaDataSource_close(reinterpret_cast<AMediaDataSource *>(ds));
+}
+
+extern "C" void Java_android_media_cts_NativeDecoderTest_deleteAMediaExtractor(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong ex) {
+    AMediaExtractor_delete(reinterpret_cast<AMediaExtractor *>(ex));
+}
+
+extern "C" void Java_android_media_cts_NativeDecoderTest_deleteAMediaDataSource(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong ds) {
+    AMediaDataSource_delete(reinterpret_cast<AMediaDataSource *>(ds));
+}
+//
 // === NdkMediaCodec
 
 extern "C" jlong Java_android_media_cts_NdkMediaCodec_AMediaCodecCreateCodecByName(
@@ -1381,4 +1469,41 @@ extern "C" void Java_android_media_cts_NdkInputSurface_nativeRelease(
 
     ANativeWindow_release(reinterpret_cast<ANativeWindow *>(nativeWindow));
 
+}
+
+extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testMediaFormatNative(
+        JNIEnv * /*env*/, jclass /*clazz*/) {
+
+    AMediaFormat *original = AMediaFormat_new();
+    AMediaFormat *copy = AMediaFormat_new();
+    jboolean ret = false;
+    while (true) {
+        AMediaFormat_setInt64(original, AMEDIAFORMAT_KEY_DURATION, 1234ll);
+        int64_t value = 0;
+        if (!AMediaFormat_getInt64(original, AMEDIAFORMAT_KEY_DURATION, &value) || value != 1234) {
+            ALOGE("format missing expected entry");
+            break;
+        }
+        AMediaFormat_copy(copy, original);
+        value = 0;
+        if (!AMediaFormat_getInt64(copy, AMEDIAFORMAT_KEY_DURATION, &value) || value != 1234) {
+            ALOGE("copied format missing expected entry");
+            break;
+        }
+        AMediaFormat_clear(original);
+        if (AMediaFormat_getInt64(original, AMEDIAFORMAT_KEY_DURATION, &value)) {
+            ALOGE("format still has entry after clear");
+            break;
+        }
+        value = 0;
+        if (!AMediaFormat_getInt64(copy, AMEDIAFORMAT_KEY_DURATION, &value) || value != 1234) {
+            ALOGE("copied format missing expected entry");
+            break;
+        }
+        ret = true;
+        break;
+    }
+    AMediaFormat_delete(original);
+    AMediaFormat_delete(copy);
+    return ret;
 }

@@ -44,6 +44,8 @@ const char *getSensorTypeName(SensorType sensorType) {
       return "Light";
     case SensorType::Proximity:
       return "Proximity";
+    case SensorType::StepDetect:
+      return "Step Detect";
     case SensorType::AccelerometerTemperature:
       return "Accelerometer Temp";
     case SensorType::GyroscopeTemperature:
@@ -62,6 +64,18 @@ const char *getSensorTypeName(SensorType sensorType) {
       return "Vendor Type 1";
     case SensorType::VendorType2:
       return "Vendor Type 2";
+    case SensorType::VendorType3:
+      return "Vendor Type 3";
+    case SensorType::VendorType4:
+      return "Vendor Type 4";
+    case SensorType::VendorType5:
+      return "Vendor Type 5";
+    case SensorType::VendorType6:
+      return "Vendor Type 6";
+    case SensorType::VendorType7:
+      return "Vendor Type 7";
+    case SensorType::VendorType8:
+      return "Vendor Type 8";
     default:
       CHRE_ASSERT(false);
       return "";
@@ -98,6 +112,8 @@ SensorType getSensorTypeFromUnsignedInt(uint8_t sensorType) {
       return SensorType::Light;
     case CHRE_SENSOR_TYPE_PROXIMITY:
       return SensorType::Proximity;
+    case CHRE_SENSOR_TYPE_STEP_DETECT:
+      return SensorType::StepDetect;
     case CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE:
       return SensorType::AccelerometerTemperature;
     case CHRE_SENSOR_TYPE_GYROSCOPE_TEMPERATURE:
@@ -116,6 +132,18 @@ SensorType getSensorTypeFromUnsignedInt(uint8_t sensorType) {
       return SensorType::VendorType1;
     case (CHRE_SENSOR_TYPE_VENDOR_START + 2):
       return SensorType::VendorType2;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 3):
+      return SensorType::VendorType3;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 4):
+      return SensorType::VendorType4;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 5):
+      return SensorType::VendorType5;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 6):
+      return SensorType::VendorType6;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 7):
+      return SensorType::VendorType7;
+    case (CHRE_SENSOR_TYPE_VENDOR_START + 8):
+      return SensorType::VendorType8;
     default:
       return SensorType::Unknown;
   }
@@ -139,6 +167,8 @@ uint8_t getUnsignedIntFromSensorType(SensorType sensorType) {
       return CHRE_SENSOR_TYPE_LIGHT;
     case SensorType::Proximity:
       return CHRE_SENSOR_TYPE_PROXIMITY;
+    case SensorType::StepDetect:
+      return CHRE_SENSOR_TYPE_STEP_DETECT;
     case SensorType::AccelerometerTemperature:
       return CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE;
     case SensorType::GyroscopeTemperature:
@@ -157,6 +187,18 @@ uint8_t getUnsignedIntFromSensorType(SensorType sensorType) {
       return (CHRE_SENSOR_TYPE_VENDOR_START + 1);
     case SensorType::VendorType2:
       return (CHRE_SENSOR_TYPE_VENDOR_START + 2);
+    case SensorType::VendorType3:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 3);
+    case SensorType::VendorType4:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 4);
+    case SensorType::VendorType5:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 5);
+    case SensorType::VendorType6:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 6);
+    case SensorType::VendorType7:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 7);
+    case SensorType::VendorType8:
+      return (CHRE_SENSOR_TYPE_VENDOR_START + 8);
     default:
       // Update implementation to prevent undefined or SensorType::Unknown from
       // being used.
@@ -198,15 +240,30 @@ SensorSampleType getSensorSampleTypeFromSensorType(SensorType sensorType) {
       return SensorSampleType::Float;
     case SensorType::InstantMotion:
     case SensorType::StationaryDetect:
+    case SensorType::StepDetect:
       return SensorSampleType::Occurrence;
     case SensorType::Proximity:
       return SensorSampleType::Byte;
+#ifdef CHREX_SENSOR_SUPPORT
     case SensorType::VendorType0:
       return SensorSampleType::Vendor0;
     case SensorType::VendorType1:
       return SensorSampleType::Vendor1;
     case SensorType::VendorType2:
       return SensorSampleType::Vendor2;
+    case SensorType::VendorType3:
+      return SensorSampleType::Vendor3;
+    case SensorType::VendorType4:
+      return SensorSampleType::Vendor4;
+    case SensorType::VendorType5:
+      return SensorSampleType::Vendor5;
+    case SensorType::VendorType6:
+      return SensorSampleType::Vendor6;
+    case SensorType::VendorType7:
+      return SensorSampleType::Vendor7;
+    case SensorType::VendorType8:
+      return SensorSampleType::Vendor8;
+#endif  // CHREX_SENSOR_SUPPORT
     case SensorType::Unknown:
       return SensorSampleType::Unknown;
     default:
@@ -255,6 +312,86 @@ bool sensorTypeIsOnChange(SensorType sensorType) {
 bool sensorTypeIsContinuous(SensorType sensorType) {
   return (!sensorTypeIsOneShot(sensorType)
           && !sensorTypeIsOnChange(sensorType));
+}
+
+bool sensorTypeReportsBias(SensorType sensorType) {
+  uint16_t eventType;
+  return getSensorBiasEventType(sensorType, &eventType);
+}
+
+bool getSensorBiasEventType(SensorType sensorType, uint16_t *eventType) {
+  CHRE_ASSERT(eventType != nullptr);
+  bool success = false;
+  if (eventType != nullptr) {
+    success = true;
+    switch (sensorType) {
+      case SensorType::Accelerometer:
+        *eventType = CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO;
+        break;
+      case SensorType::UncalibratedAccelerometer:
+        *eventType = CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_BIAS_INFO;
+        break;
+      case SensorType::Gyroscope:
+        *eventType = CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO;
+        break;
+      case SensorType::UncalibratedGyroscope:
+        *eventType = CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_BIAS_INFO;
+        break;
+      case SensorType::GeomagneticField:
+        *eventType = CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO;
+        break;
+      case SensorType::UncalibratedGeomagneticField:
+        *eventType = CHRE_EVENT_SENSOR_UNCALIBRATED_GEOMAGNETIC_FIELD_BIAS_INFO;
+        break;
+      default:
+#ifdef CHREX_SENSOR_SUPPORT
+        success =
+            extension::vendorGetSensorBiasEventType(sensorType, eventType);
+#else
+        success = false;
+#endif
+    }
+  }
+
+  return success;
+}
+
+bool sensorTypeIsCalibrated(SensorType sensorType) {
+  return (sensorType == SensorType::Accelerometer
+          || sensorType == SensorType::Gyroscope
+          || sensorType == SensorType::GeomagneticField);
+}
+
+SensorType toCalibratedSensorType(SensorType sensorType) {
+  switch (sensorType) {
+    case SensorType::UncalibratedAccelerometer:
+      return SensorType::Accelerometer;
+    case SensorType::UncalibratedGyroscope:
+      return SensorType::Gyroscope;
+    case SensorType::UncalibratedGeomagneticField:
+      return SensorType::GeomagneticField;
+    default:
+      /* empty */
+      break;
+  }
+
+  return sensorType;
+}
+
+SensorType toUncalibratedSensorType(SensorType sensorType) {
+  switch (sensorType) {
+    case SensorType::Accelerometer:
+      return SensorType::UncalibratedAccelerometer;
+    case SensorType::Gyroscope:
+      return SensorType::UncalibratedGyroscope;
+    case SensorType::GeomagneticField:
+      return SensorType::UncalibratedGeomagneticField;
+    default:
+      /* empty */
+      break;
+  }
+
+  return sensorType;
 }
 
 }  // namespace chre

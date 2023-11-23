@@ -27,7 +27,7 @@ See the Apache License Version 2.0 for the specific language governing permissio
 
   <groupId>com.google.inject</groupId>
   <artifactId>guice-parent</artifactId>
-  <version>4.0</version>
+  <version>4.2.0</version>
 
   <name>Google Guice</name>
 
@@ -67,7 +67,7 @@ See the Apache License Version 2.0 for the specific language governing permissio
   </scm>
 
   <issueManagement>
-    <system>Google Code</system>
+    <system>Github</system>
     <url>https://github.com/google/guice/issues/</url>
   </issueManagement>
 
@@ -144,22 +144,39 @@ See the Apache License Version 2.0 for the specific language governing permissio
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>16.0.1</version>
+        <version>23.6-android</version>
       </dependency>
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava-testlib</artifactId>
-        <version>16.0.1</version>
+        <version>23.6-android</version>
       </dependency>
       <dependency>
         <groupId>org.ow2.asm</groupId>
         <artifactId>asm</artifactId>
-        <version>5.0.3</version>
+        <version>6.0</version>
       </dependency>
       <dependency>
         <groupId>cglib</groupId>
         <artifactId>cglib</artifactId>
-        <version>3.1</version>
+        <version>3.2.6</version>
+      </dependency>
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.11</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.truth</groupId>
+        <artifactId>truth</artifactId>
+        <version>0.36</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>3.0.1</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -168,8 +185,6 @@ See the Apache License Version 2.0 for the specific language governing permissio
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.11</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -250,30 +265,30 @@ See the Apache License Version 2.0 for the specific language governing permissio
           </executions>
         </plugin>
         <!--
-         | Make sure we only use Java6 methods
+         | Make sure we only use Java7 methods
         -->
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>2.3.2</version>
           <configuration>
-            <source>1.6</source>
-            <target>1.6</target>
+            <source>1.7</source>
+            <target>1.7</target>
           </configuration>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>animal-sniffer-maven-plugin</artifactId>
-          <version>1.10</version>
+          <version>1.16</version>
           <configuration>
             <signature>
               <groupId>org.codehaus.mojo.signature</groupId>
-              <artifactId>java16</artifactId>
+              <artifactId>java17</artifactId>
               <version>1.0</version>
             </signature>
           </configuration>
           <executions>
             <execution>
-              <id>check-java-1.6-compat</id>
+              <id>check-java-1.7-compat</id>
               <phase>process-classes</phase>
               <goals>
                 <goal>check</goal>
@@ -321,7 +336,7 @@ See the Apache License Version 2.0 for the specific language governing permissio
         <plugin>
           <groupId>org.apache.felix</groupId>
           <artifactId>maven-bundle-plugin</artifactId>
-          <version>2.1.0</version>
+          <version>3.5.0</version>
           <configuration>
             <instructions>
               <module>com.google.inject</module>
@@ -377,7 +392,7 @@ See the Apache License Version 2.0 for the specific language governing permissio
         </plugin>
         <plugin>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>2.7</version>
+          <version>3.0.0</version>
           <executions>
             <execution>
               <phase>package</phase>
@@ -448,7 +463,9 @@ See the Apache License Version 2.0 for the specific language governing permissio
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
             <configuration>
-              <additionalparam>-Xdoclint:none</additionalparam>
+              <additionalOptions>
+                <additionalOption>-Xdoclint:none</additionalOption>
+              </additionalOptions>
             </configuration>
           </plugin>
         </plugins>
@@ -459,7 +476,9 @@ See the Apache License Version 2.0 for the specific language governing permissio
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
             <configuration>
-              <additionalparam>-Xdoclint:none</additionalparam>
+              <additionalOptions>
+                <additionalOption>-Xdoclint:none</additionalOption>
+              </additionalOptions>
             </configuration>
           </plugin>
         </plugins>

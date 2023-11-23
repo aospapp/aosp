@@ -20,7 +20,6 @@
 #include <jni.h>
 
 #include <android/hardware_buffer_jni.h>
-#include <utils/Errors.h>
 
 #define LOG_TAG "HardwareBufferTest"
 
@@ -35,7 +34,9 @@ static jobject android_hardware_HardwareBuffer_nativeCreateHardwareBuffer(JNIEnv
     desc.usage = usage;
     desc.format = format;
     int res = AHardwareBuffer_allocate(&desc, &buffer);
-    if (res == android::NO_ERROR) {
+
+    // TODO: Change this to res == NO_ERROR after b/77153085 is fixed
+    if (res == 0) {
         return AHardwareBuffer_toHardwareBuffer(env, buffer);
     } else {
         return 0;

@@ -13,7 +13,6 @@ ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_enc_h264"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -25,5 +24,5 @@ This test verifies H.264 video encode acceleration is used
 when MediaRecorder records a video.
 """
 
-job.run_test('video_MediaRecorderHWEncodeUsed', codec='h264', tag='h264')
-
+job.run_test('video_MediaRecorderHWEncodeUsed', codec='h264', tag='h264',
+             capability='hw_enc_h264_1080_30')

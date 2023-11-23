@@ -1,0 +1,8 @@
+{
+  "presubmit": [
+    {
+      "name": "atest_unittests",
+      "host": true
+    }
+  ]
+}

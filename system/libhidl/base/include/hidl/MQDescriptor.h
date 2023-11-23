@@ -59,18 +59,20 @@ enum MQFlavor : uint32_t {
 
 template <typename T, MQFlavor flavor>
 struct MQDescriptor {
+    // Takes ownership of handle
     MQDescriptor(
             const std::vector<GrantorDescriptor>& grantors,
             native_handle_t* nHandle, size_t size);
 
+    // Takes ownership of handle
     MQDescriptor(size_t bufferSize, native_handle_t* nHandle,
                  size_t messageSize, bool configureEventFlag = false);
 
     MQDescriptor();
     ~MQDescriptor();
 
-    explicit MQDescriptor(const MQDescriptor &other);
-    MQDescriptor &operator=(const MQDescriptor &other) = delete;
+    explicit MQDescriptor(const MQDescriptor& other) : MQDescriptor() { *this = other; }
+    MQDescriptor& operator=(const MQDescriptor& other);
 
     size_t getSize() const;
 
@@ -213,12 +215,17 @@ MQDescriptor<T, flavor>::MQDescriptor(size_t bufferSize, native_handle_t *nHandl
     }
 }
 
-template<typename T, MQFlavor flavor>
-MQDescriptor<T, flavor>::MQDescriptor(const MQDescriptor<T, flavor> &other)
-    : mGrantors(other.mGrantors),
-      mHandle(nullptr),
-      mQuantum(other.mQuantum),
-      mFlags(other.mFlags) {
+template <typename T, MQFlavor flavor>
+MQDescriptor<T, flavor>& MQDescriptor<T, flavor>::operator=(const MQDescriptor& other) {
+    mGrantors = other.mGrantors;
+    if (mHandle != nullptr) {
+        native_handle_close(mHandle);
+        native_handle_delete(mHandle);
+        mHandle = nullptr;
+    }
+    mQuantum = other.mQuantum;
+    mFlags = other.mFlags;
+
     if (other.mHandle != nullptr) {
         mHandle = native_handle_create(
                 other.mHandle->numFds, other.mHandle->numInts);
@@ -231,6 +238,8 @@ MQDescriptor<T, flavor>::MQDescriptor(const MQDescriptor<T, flavor> &other)
                &other.mHandle->data[other.mHandle->numFds],
                other.mHandle->numInts * sizeof(int));
     }
+
+    return *this;
 }
 
 template<typename T, MQFlavor flavor>

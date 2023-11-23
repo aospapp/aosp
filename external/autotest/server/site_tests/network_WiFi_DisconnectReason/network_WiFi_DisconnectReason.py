@@ -23,17 +23,19 @@ class network_WiFi_DisconnectReason(wifi_cell_test_base.WiFiCellTestBase):
     CHANNEL_SWITCH_ATTEMPTS = 5
     CHANNEL_SWITCH_WAIT_TIME_SEC = 3
 
-    def run_once(self, disconnect_trigger, req_capabilities=[]):
+    def run_once(self, disconnect_trigger, req_caps=None):
         """Sets up a router, connects to it, pings it and disables it to trigger
         disconnect."""
         configuration = hostap_config.HostapConfig(
                 channel=self.INITIAL_CHANNEL,
                 mode=hostap_config.HostapConfig.MODE_11A,
                 spectrum_mgmt_required=True)
-        self.context.router.require_capabilities(req_capabilities)
+        if req_caps is None:
+            req_caps = []
+        self.context.router.require_capabilities(req_caps)
         self.context.configure(configuration)
 
-        if site_linux_system.LinuxSystem.CAPABILITY_MULTI_AP in req_capabilities:
+        if site_linux_system.LinuxSystem.CAPABILITY_MULTI_AP in req_caps:
             # prep alternate Access Point
             alt_ap_config = hostap_config.HostapConfig(
                     channel=self.ALT_CHANNEL,
@@ -53,7 +55,7 @@ class network_WiFi_DisconnectReason(wifi_cell_test_base.WiFiCellTestBase):
             elif disconnect_trigger == 'deauth client':
                 self.context.router.deauth_client(self.context.client.wifi_mac)
             elif disconnect_trigger == 'AP send channel switch':
-                for attempt in range(self.CHANNEL_SWITCH_ATTEMPTS):
+                for _ in range(self.CHANNEL_SWITCH_ATTEMPTS):
                     self.context.router.send_management_frame_on_ap(
                             'channel_switch',
                             self.ALT_CHANNEL)
@@ -64,7 +66,8 @@ class network_WiFi_DisconnectReason(wifi_cell_test_base.WiFiCellTestBase):
                 self.context.client.set_device_enabled(
                         self.context.client.wifi_if, False)
             else:
-                raise error.TestError('unknown test mode: %s' % disconnect_trigger)
+                raise error.TestError('unknown test mode: %s' %
+                                      disconnect_trigger)
             time.sleep(wifi_client.DISCONNECT_WAIT_TIME_SECONDS)
 
         disconnect_reasons = self.context.client.get_disconnect_reasons()

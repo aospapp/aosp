@@ -59,7 +59,7 @@ static keymaster_error_t ComputeHmac(const uint8_t* serialized_data, size_t seri
     HMAC_CTX ctx;
     HMAC_CTX_init(&ctx);
     const EVP_MD* md = EVP_sha256();
-    if (!HMAC_Init_ex(&ctx, HMAC_KEY, sizeof(HMAC_KEY), md, NULL /* engine */))
+    if (!HMAC_Init_ex(&ctx, HMAC_KEY, sizeof(HMAC_KEY), md, nullptr /* engine */))
         return TranslateLastOpenSslError();
     HmacCleanup cleanup(&ctx);
 

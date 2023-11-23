@@ -89,8 +89,7 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
     /**
      * Creates an {@link IntentSender} with the given unique id for the given dataset.
      */
-    public static IntentSender createSender(Context context, int id,
-            CannedDataset dataset) {
+    public static IntentSender createSender(Context context, int id, CannedDataset dataset) {
         return createSender(context, id, dataset, null);
     }
 
@@ -137,7 +136,8 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
     public static IntentSender createSender(Context context, int id) {
         Preconditions.checkArgument(id > 0, "id must be positive");
         return PendingIntent
-                .getActivity(context, id, new Intent(context, AuthenticationActivity.class), 0)
+                .getActivity(context, id, new Intent(context, AuthenticationActivity.class),
+                        PendingIntent.FLAG_CANCEL_CURRENT)
                 .getIntentSender();
     }
 
@@ -223,8 +223,8 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
             if (response.getResponseType() == NULL) {
                 result = null;
             } else {
-                result = response
-                        .asFillResponse((id) -> Helper.findNodeByResourceId(structure, id));
+                result = response.asFillResponse(/* contexts= */ null,
+                        (id) -> Helper.findNodeByResourceId(structure, id));
             }
         } else if (dataset != null) {
             result = dataset.asDataset((id) -> Helper.findNodeByResourceId(structure, id));

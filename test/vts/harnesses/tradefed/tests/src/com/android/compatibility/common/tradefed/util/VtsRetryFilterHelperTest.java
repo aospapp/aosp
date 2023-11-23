@@ -80,6 +80,7 @@ public class VtsRetryFilterHelperTest {
         ITestDevice mockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mockDevice.getProperty(VENDOR_FINGERPRINT_PROPERTY))
                 .andReturn(vendorFingerprint);
+        EasyMock.expect(mockDevice.getSerialNumber()).andStubReturn("serial");
         EasyMock.replay(mockDevice);
         return mockDevice;
     }

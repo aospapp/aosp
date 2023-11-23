@@ -8,7 +8,6 @@ public class GnssStatusTest extends GnssTestCase  {
     private static final String TAG = "GnssStatusTest";
     private static final int LOCATION_TO_COLLECT_COUNT = 1;
     private static final int STATUS_TO_COLLECT_COUNT = 3;
-    private static final int YEAR_2018 = 2018;
 
   @Override
   protected void setUp() throws Exception {
@@ -22,8 +21,7 @@ public class GnssStatusTest extends GnssTestCase  {
   public void testGnssStatusChanges() throws Exception {
     // Checks if GPS hardware feature is present, skips test (pass) if not,
     // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-        TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, isCtsVerifierTest())) {
+    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, isCtsVerifierTest())) {
       return;
     }
 
@@ -47,11 +45,13 @@ public class GnssStatusTest extends GnssTestCase  {
     success = success ? testGnssStatusCallback.awaitStop() : false;
     mTestLocationManager.unregisterGnssStatusCallback(testGnssStatusCallback);
 
-    SoftAssert.failOrWarning(isMeasurementTestStrict(),
+    SoftAssert softAssert = new SoftAssert(TAG);
+    softAssert.assertTrue(
         "Time elapsed without getting the right status changes."
             + " Possibly, the test has been run deep indoors."
             + " Consider retrying test outdoors.",
         success);
+    softAssert.assertAll();
   }
 
   /**
@@ -60,8 +60,7 @@ public class GnssStatusTest extends GnssTestCase  {
   public void testGnssStatusValues() throws InterruptedException {
     // Checks if GPS hardware feature is present, skips test (pass) if not,
     // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-        TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, isCtsVerifierTest())) {
+    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, isCtsVerifierTest())) {
       return;
     }
     SoftAssert softAssert = new SoftAssert(TAG);
@@ -108,7 +107,7 @@ public class GnssStatusTest extends GnssTestCase  {
       TestMeasurementUtil.validateSvidSub(softAssert, null,
           status.getConstellationType(i),status.getSvid(i));
 
-      // For those function with boolean type return, just simplly call the function
+      // For those function with boolean type return, just simply call the function
       // to make sure those function won't crash, also increase the test coverage.
       Log.i(TAG, "hasAlmanacData: " + status.hasAlmanacData(i));
       Log.i(TAG, "hasEphemerisData: " + status.hasEphemerisData(i));

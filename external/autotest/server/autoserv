@@ -12,6 +12,7 @@ import getpass
 import logging
 import os
 import re
+import shutil
 import signal
 import socket
 import sys
@@ -19,14 +20,17 @@ import traceback
 import time
 import urllib2
 
-
 import common
 from autotest_lib.client.bin.result_tools import utils as result_utils
 from autotest_lib.client.bin.result_tools import view as result_view
 from autotest_lib.client.common_lib import control_data
+from autotest_lib.client.common_lib import enum
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import host_queue_entry_states
+from autotest_lib.client.common_lib import host_states
 from autotest_lib.server import results_mocker
+from autotest_lib.server.cros.dynamic_suite import suite
 
 try:
     from chromite.lib import metrics
@@ -39,7 +43,6 @@ except ImportError:
 
 _CONFIG = global_config.global_config
 
-
 # Number of seconds to wait before returning if testing mode is enabled
 TESTING_MODE_SLEEP_SECS = 1
 
@@ -51,7 +54,6 @@ from autotest_lib.server import utils as server_utils
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.site_utils import job_directories
-from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import lxc
 from autotest_lib.site_utils.lxc import utils as lxc_utils
 from autotest_lib.client.common_lib import pidfile, logging_manager
@@ -64,6 +66,11 @@ STAGE_SERVER_SIDE_PACKAGE_CONTROL_FILE = server_job._control_segment_path(
 # Command line to start servod in a moblab.
 START_SERVOD_CMD = 'sudo start servod BOARD=%s PORT=%s'
 STOP_SERVOD_CMD = 'sudo stop servod'
+
+_AUTOTEST_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+_CONTROL_FILE_FROM_CONTROL_NAME = 'control.from_control_name'
+
+_LXC_JOB_FOLDER = 'lxc_job_folder'
 
 def log_alarm(signum, frame):
     logging.error("Received SIGALARM. Ignoring and continuing on.")
@@ -119,29 +126,33 @@ def _stage_ssp(parser, resultsdir):
             for results to be stored in a temp folder. resultsdir can be None
             for autoserv run requires no logging.
 
-    @return: (ssp_url, error_msg), where
-              ssp_url is a url to the autotest server-side package. None if
-              server-side package is not supported.
-              error_msg is a string indicating the failures. None if server-
-              side package is staged successfully.
+    @return: url to the autotest server-side package. None in case of errors.
     """
     machines_list = _get_machines(parser)
-    machines_list = server_job.get_machine_dicts(machines_list, resultsdir,
-                                                 parser.options.lab,
-                                                 parser.options.host_attributes)
+    machines_list = server_job.get_machine_dicts(
+            machine_names=machines_list,
+            store_dir=os.path.join(resultsdir, parser.options.host_info_subdir),
+            in_lab=parser.options.lab,
+            use_shadow_store=not parser.options.local_only_host_info,
+            host_attributes=parser.options.host_attributes,
+    )
 
-    # If test_source_build is not specified, default to use server-side test
-    # code from build specified in --image.
     namespace = {'machines': machines_list,
-                 'image': (parser.options.test_source_build or
-                           parser.options.image),}
+                 'isolate_hash': parser.options.isolate,
+                 'image': parser.options.test_source_build}
     script_locals = {}
     execfile(STAGE_SERVER_SIDE_PACKAGE_CONTROL_FILE, namespace, script_locals)
-    return script_locals['ssp_url'], script_locals['error_msg']
+    ssp_url = script_locals['ssp_url']
+    if not ssp_url:
+        logging.error('Failed to stage SSP package: %s',
+                      script_locals['error_msg'])
+        logging.error('This job will fail later, when attempting to run with'
+                      ' SSP')
+    return ssp_url
 
 
 def _run_with_ssp(job, container_id, job_id, results, parser, ssp_url,
-                  job_folder, machines):
+                  machines):
     """Run the server job with server-side packaging.
 
     @param job: The server job object.
@@ -154,9 +165,13 @@ def _run_with_ssp(job, container_id, job_id, results, parser, ssp_url,
                     results can be None for autoserv run requires no logging.
     @param parser: Command line parser that contains the options.
     @param ssp_url: url of the staged server-side package.
-    @param job_folder: Name of the job result folder.
     @param machines: A list of machines to run the test.
     """
+    if not ssp_url:
+        job.record('FAIL', None, None,
+                   'Failed to stage server-side package')
+        raise error.AutoservError('Failed to stage server-side package')
+
     bucket = lxc.ContainerBucket()
     control = (parser.args[0] if len(parser.args) > 0 and parser.args[0] != ''
                else None)
@@ -164,8 +179,9 @@ def _run_with_ssp(job, container_id, job_id, results, parser, ssp_url,
         dut_name = machines[0] if len(machines) >= 1 else None
         test_container = bucket.setup_test(container_id, job_id, ssp_url,
                                            results, control=control,
-                                           job_folder=job_folder,
-                                           dut_name=dut_name)
+                                           job_folder=_LXC_JOB_FOLDER,
+                                           dut_name=dut_name,
+                                           isolate_hash=parser.options.isolate)
     except Exception as e:
         job.record('FAIL', None, None,
                    'Failed to setup container for test: %s. Check logs in '
@@ -192,14 +208,9 @@ def _run_with_ssp(job, container_id, job_id, results, parser, ssp_url,
                 lxc.CONTROL_TEMP_PATH, os.path.basename(control))
         paths_to_replace[control] = container_control_filename
     # Update result directory with the one in container.
-    container_result_dir = os.path.join(lxc.RESULT_DIR_FMT % job_folder)
+    container_result_dir = os.path.join(lxc.RESULT_DIR_FMT % _LXC_JOB_FOLDER)
     if parser.options.results:
         paths_to_replace[parser.options.results] = container_result_dir
-    # Update parse_job directory with the one in container. The assumption is
-    # that the result folder to be parsed is always the same as the results_dir.
-    if parser.options.parse_job:
-        paths_to_replace[parser.options.parse_job] = container_result_dir
-
     args = [paths_to_replace.get(arg, arg) for arg in args]
 
     # Apply --use-existing-results, results directory is aready created and
@@ -300,6 +311,40 @@ def _start_servod(machine):
         logging.error('Servod failed to be started, error: %s', e)
 
 
+def _control_path_on_disk(control_name):
+    """Find the control file corresponding to the given control name, on disk.
+
+    @param control_name: NAME attribute of the control file to fetch.
+    @return: Path to the control file.
+    """
+    cf_getter = suite.create_fs_getter(_AUTOTEST_ROOT)
+    control_name_predicate = suite.test_name_matches_pattern_predicate(
+            '^%s$' % control_name)
+    tests = suite.find_and_parse_tests(cf_getter, control_name_predicate)
+    if not tests:
+        raise error.AutoservError(
+                'Failed to find any control files with NAME %s' % control_name)
+    if len(tests) > 1:
+        logging.error('Found more than one control file with NAME %s: %s',
+                      control_name, [t.path for t in tests])
+        raise error.AutoservError(
+                'Found more than one control file with NAME %s' % control_name)
+    return tests[0].path
+
+
+def _stage_control_file(control_name, results_dir):
+    """Stage the control file to execute from local autotest checkout.
+
+    @param control_name: Name of the control file to stage.
+    @param results_dir: Results directory to stage the control file into.
+    @return: Absolute path to the staged control file.
+    """
+    control_path = _control_path_on_disk(control_name)
+    new_control = os.path.join(results_dir, _CONTROL_FILE_FROM_CONTROL_NAME)
+    shutil.copy2(control_path, new_control)
+    return new_control
+
+
 def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     """Run server job with given options.
 
@@ -309,13 +354,6 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     @param ssp_url: Url to server-side package.
     @param use_ssp: Set to True to run with server-side packaging.
     """
-    if parser.options.warn_no_ssp:
-        # Post a warning in the log.
-        logging.warn('Autoserv is required to run with server-side packaging. '
-                     'However, no drone is found to support server-side '
-                     'packaging. The test will be executed in a drone without '
-                     'server-side packaging supported.')
-
     # send stdin to /dev/null
     dev_null = os.open(os.devnull, os.O_RDONLY)
     os.dup2(dev_null, sys.stdin.fileno())
@@ -332,7 +370,6 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     job_or_task_id = job_directories.get_job_id_or_task_id(
             parser.options.results)
     container_id = lxc.ContainerId(job_or_task_id, time.time(), os.getpid())
-    job_folder = job_directories.get_job_folder_name(parser.options.results)
 
     # Implement SIGTERM handler
     def handle_sigterm(signum, frame):
@@ -399,8 +436,6 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     user = parser.options.user
     client = parser.options.client
     server = parser.options.server
-    install_before = parser.options.install_before
-    install_after = parser.options.install_after
     verify = parser.options.verify
     repair = parser.options.repair
     cleanup = parser.options.cleanup
@@ -408,22 +443,17 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     reset = parser.options.reset
     job_labels = parser.options.job_labels
     no_tee = parser.options.no_tee
-    parse_job = parser.options.parse_job
     execution_tag = parser.options.execution_tag
-    if not execution_tag:
-        execution_tag = parse_job
     ssh_user = parser.options.ssh_user
     ssh_port = parser.options.ssh_port
     ssh_pass = parser.options.ssh_pass
     collect_crashinfo = parser.options.collect_crashinfo
     control_filename = parser.options.control_filename
-    test_retry = parser.options.test_retry
     verify_job_repo_url = parser.options.verify_job_repo_url
     skip_crash_collection = parser.options.skip_crash_collection
     ssh_verbosity = int(parser.options.ssh_verbosity)
     ssh_options = parser.options.ssh_options
     no_use_packaging = parser.options.no_use_packaging
-    host_attributes = parser.options.host_attributes
     in_lab = bool(parser.options.lab)
 
     # can't be both a client and a server side test
@@ -435,8 +465,28 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
 
     is_special_task = (verify or repair or cleanup or collect_crashinfo or
                        provision or reset)
-    if len(parser.args) < 1 and not is_special_task:
-        parser.parser.error("Missing argument: control file")
+    use_client_trampoline = False
+    if parser.options.control_name:
+        if use_ssp:
+            # When use_ssp is True, autoserv will be re-executed inside a
+            # container preserving the --control-name argument. Control file
+            # will be staged inside the rexecuted autoserv.
+            control = None
+        else:
+            try:
+                control = _stage_control_file(parser.options.control_name,
+                                              results)
+            except error.AutoservError as e:
+                logging.info("Using client trampoline because of: %s", e)
+                control = parser.options.control_name
+                use_client_trampoline = True
+
+    elif parser.args:
+        control = parser.args[0]
+    else:
+        if not is_special_task:
+            parser.parser.error("Missing argument: control file")
+        control = None
 
     if ssh_verbosity > 0:
         # ssh_verbosity is an integer between 0 and 3, inclusive
@@ -444,34 +494,45 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     else:
         ssh_verbosity_flag = ''
 
-    # We have a control file unless it's just a verify/repair/cleanup job
-    if len(parser.args) > 0:
-        control = parser.args[0]
-    else:
-        control = None
-
     machines = _get_machines(parser)
     if group_name and len(machines) < 2:
         parser.parser.error('-G %r may only be supplied with more than one '
                             'machine.' % group_name)
 
-    kwargs = {'group_name': group_name, 'tag': execution_tag,
-              'disable_sysinfo': parser.options.disable_sysinfo}
+    job_kwargs = {
+            'control': control,
+            'args': parser.args[1:],
+            'resultdir': results,
+            'label': label,
+            'user': user,
+            'machines': machines,
+            'machine_dict_list': server_job.get_machine_dicts(
+                    machine_names=machines,
+                    store_dir=os.path.join(results,
+                                           parser.options.host_info_subdir),
+                    in_lab=in_lab,
+                    use_shadow_store=not parser.options.local_only_host_info,
+                    host_attributes=parser.options.host_attributes,
+            ),
+            'client': client,
+            'ssh_user': ssh_user,
+            'ssh_port': ssh_port,
+            'ssh_pass': ssh_pass,
+            'ssh_verbosity_flag': ssh_verbosity_flag,
+            'ssh_options': ssh_options,
+            'group_name': group_name,
+            'tag': execution_tag,
+            'disable_sysinfo': parser.options.disable_sysinfo,
+            'in_lab': in_lab,
+            'use_client_trampoline': use_client_trampoline,
+    }
     if parser.options.parent_job_id:
-        kwargs['parent_job_id'] = int(parser.options.parent_job_id)
+        job_kwargs['parent_job_id'] = int(parser.options.parent_job_id)
     if control_filename:
-        kwargs['control_filename'] = control_filename
-    if host_attributes:
-        kwargs['host_attributes'] = host_attributes
-    kwargs['in_lab'] = in_lab
-    job = server_job.server_job(control, parser.args[1:], results, label,
-                                user, machines, client, parse_job,
-                                ssh_user, ssh_port, ssh_pass,
-                                ssh_verbosity_flag, ssh_options,
-                                test_retry, **kwargs)
+        job_kwargs['control_filename'] = control_filename
+    job = server_job.server_job(**job_kwargs)
 
     job.logging.start_logging()
-    job.init_parser()
 
     # perform checks
     job.precheck()
@@ -482,7 +543,7 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
             'AUTOSERV', 'auto_start_servod', type=bool, default=False)
 
     site_utils.SetupTsMonGlobalState('autoserv', indirect=False,
-                                     auto_flush=False, short_lived=True)
+                                     short_lived=True)
     try:
         try:
             if repair:
@@ -503,8 +564,7 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                 if use_ssp:
                     try:
                         _run_with_ssp(job, container_id, job_or_task_id,
-                                        results, parser, ssp_url, job_folder,
-                                        machines)
+                                        results, parser, ssp_url, machines)
                     finally:
                         # Update the ownership of files in result folder.
                         correct_results_folder_permission(results)
@@ -525,8 +585,7 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                     f = {'in_container': utils.is_in_container(),
                          'success': False}
                     with metrics.SecondsTimer(metric_name, fields=f) as c:
-                        job.run(install_before, install_after,
-                                verify_job_repo_url=verify_job_repo_url,
+                        job.run(verify_job_repo_url=verify_job_repo_url,
                                 only_collect_crashinfo=collect_crashinfo,
                                 skip_crash_collection=skip_crash_collection,
                                 job_labels=job_labels,
@@ -554,39 +613,17 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     finally:
         metrics.Flush()
 
-    if pid_file_manager:
-        pid_file_manager.num_tests_failed = job.num_tests_failed
-        pid_file_manager.close_file(exit_code)
-    job.cleanup_parser()
-
     sys.exit(exit_code)
 
 
-def record_autoserv(options, start_time):
-    """Record autoserv end-to-end time in metadata db.
-
-    @param options: parser options.
-    @param start_time: When autoserv started
-    """
-    # Get machine hostname
-    machines = options.machines.replace(
-            ',', ' ').strip().split() if options.machines else []
-    num_machines = len(machines)
-    if num_machines > 1:
-        # Skip the case where atomic group is used.
-        return
-    elif num_machines == 0:
-        machines.append('hostless')
-
-    # Determine the status that will be reported.
-    status = get_job_status(options)
-    is_special_task = status not in [
-            job_overhead.STATUS.RUNNING, job_overhead.STATUS.GATHERING]
-    job_or_task_id = job_directories.get_job_id_or_task_id(options.results)
-    duration_secs = (datetime.datetime.now() - start_time).total_seconds()
-    job_overhead.record_state_duration(
-            job_or_task_id, machines[0], status, duration_secs,
-            is_special_task=is_special_task)
+# Job breakdown statuses
+_hs = host_states.Status
+_qs = host_queue_entry_states.Status
+_status_list = [
+        _qs.QUEUED, _qs.RESETTING, _qs.VERIFYING,
+        _qs.PROVISIONING, _hs.REPAIRING, _qs.CLEANING,
+        _qs.RUNNING, _qs.GATHERING, _qs.PARSING]
+_JOB_OVERHEAD_STATUS = enum.Enum(*_status_list, string_values=True)
 
 
 def get_job_status(options):
@@ -594,7 +631,7 @@ def get_job_status(options):
 
     @param options: parser options.
     """
-    s = job_overhead.STATUS
+    s = _JOB_OVERHEAD_STATUS
     task_mapping = {
             'reset': s.RESETTING, 'verify': s.VERIFYING,
             'provision': s.PROVISIONING, 'repair': s.REPAIRING,
@@ -603,9 +640,41 @@ def get_job_status(options):
     return task_mapping[match[0]] if match else s.RUNNING
 
 
+def _require_ssp_from_control(control_name):
+    """Read the value of REQUIRE_SSP from test control file.
+
+    This reads the control file from the prod checkout of autotest and uses that
+    to determine whether to even stage the SSP package on a devserver.
+
+    This means:
+    [1] Any change in REQUIRE_SSP directive in a test requires a prod-push to go
+    live.
+    [2] This function may find that the control file does not exist but the SSP
+    package may contain the test file. This function conservatively returns True
+    in that case.
+
+    This function is called very early in autoserv, before logging is setup.
+    """
+    if not control_name:
+        return True
+    try:
+        path = _control_path_on_disk(control_name)
+    except error.AutoservError as e:
+        sys.stderr.write("autoserv: Could not determine control file path,"
+                         " assuming we need SSP: %s\n" % e)
+        sys.stderr.flush()
+        return True
+    if not os.path.isfile(path):
+        return True
+    control = control_data.parse_control(path)
+    # There must be explicit directive in the control file to disable SSP.
+    if not control or control.require_ssp is None:
+        return True
+    return control.require_ssp
+
+
 def main():
     start_time = datetime.datetime.now()
-    # grab the parser
     parser = autoserv_parser.autoserv_parser
     parser.parse_args()
 
@@ -635,27 +704,14 @@ def main():
         if not os.path.isdir(results):
             os.makedirs(results)
 
-    # If the job requires to run with server-side package, try to stage server-
-    # side package first. If that fails with error that autotest server package
-    # does not exist, fall back to run the job without using server-side
-    # packaging. If option warn_no_ssp is specified, that means autoserv is
-    # running in a drone does not support SSP, thus no need to stage server-side
-    # package.
-    ssp_url = None
-    ssp_url_warning = False
-    if (not parser.options.warn_no_ssp and parser.options.require_ssp):
-        ssp_url, ssp_error_msg = _stage_ssp(parser, results)
-        # The build does not have autotest server package. Fall back to not
-        # to use server-side package. Logging is postponed until logging being
-        # set up.
-        ssp_url_warning = not ssp_url
+    if parser.options.require_ssp:
+        # This is currently only used for skylab (i.e., when --control-name is
+        # used).
+        use_ssp = _require_ssp_from_control(parser.options.control_name)
+    else:
+        use_ssp = False
 
-    # Server-side packaging will only be used if it's required and the package
-    # is available. If warn_no_ssp is specified, it means that autoserv is
-    # running in a drone does not have SSP supported and a warning will be logs.
-    # Therefore, it should not run with SSP.
-    use_ssp = (not parser.options.warn_no_ssp and parser.options.require_ssp
-               and ssp_url)
+
     if use_ssp:
         log_dir = os.path.join(results, 'ssp_logs') if results else None
         if log_dir and not os.path.exists(log_dir):
@@ -670,16 +726,14 @@ def main():
             verbose=parser.options.verbose,
             no_console_prefix=parser.options.no_console_prefix)
 
-    if ssp_url_warning:
-        logging.warn(
-                'Autoserv is required to run with server-side packaging. '
-                'However, no server-side package can be staged based on '
-                '`--image`, host attribute job_repo_url or host OS version '
-                'label. It could be that the build to test is older than the '
-                'minimum version that supports server-side packaging, or no '
-                'devserver can be found to stage server-side package. The test '
-                'will be executed without using erver-side packaging. '
-                'Following is the detailed error:\n%s', ssp_error_msg)
+    logging.debug('autoserv is running in drone %s.', socket.gethostname())
+    logging.debug('autoserv command was: %s', ' '.join(sys.argv))
+    logging.debug('autoserv parsed options: %s', parser.options)
+
+    if use_ssp:
+        ssp_url = _stage_ssp(parser, results)
+    else:
+        ssp_url = None
 
     if results:
         logging.info("Results placed in %s" % results)
@@ -689,9 +743,6 @@ def main():
             not utils.is_in_container()):
             logging.error("No existing results directory found: %s", results)
             sys.exit(1)
-
-    logging.debug('autoserv is running in drone %s.', socket.gethostname())
-    logging.debug('autoserv command was: %s', ' '.join(sys.argv))
 
     if parser.options.write_pidfile and results:
         pid_file_manager = pidfile.PidFileManager(parser.options.pidfile_label,
@@ -765,9 +816,6 @@ def main():
     finally:
         if pid_file_manager:
             pid_file_manager.close_file(exit_code)
-        # Record the autoserv duration time. Must be called
-        # just before the system exits to ensure accuracy.
-        record_autoserv(parser.options, start_time)
     sys.exit(exit_code)
 
 

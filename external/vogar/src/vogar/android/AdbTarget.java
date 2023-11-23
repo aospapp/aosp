@@ -29,12 +29,12 @@ import vogar.Md5Cache;
 import vogar.Target;
 import vogar.commands.Command;
 
-public final class AdbTarget extends Target {
+public class AdbTarget extends Target {
 
     private static final ImmutableList<String> TARGET_PROCESS_PREFIX =
             ImmutableList.of("adb", "shell");
 
-    private final Log log;
+    protected final Log log;
 
     private final DeviceFilesystem deviceFilesystem;
 

@@ -100,7 +100,7 @@
 
 impeg2_copy_mb_a9q:
 
-    stmfd           r13!, {r4, r5, r14}
+    stmfd           sp!, {r4, r5, r14}
 
 
     ldr             r4, [r0]            @src->y
@@ -188,7 +188,7 @@ impeg2_copy_mb_a9q:
     vld1.8          {d0}, [r4], r2      @Load and increment src
     vst1.8          {d0}, [r5], r3      @Store and increment dst
 
-    ldmfd           r13!, {r4, r5, pc}
+    ldmfd           sp!, {r4, r5, pc}
 
 
 
@@ -223,7 +223,8 @@ impeg2_copy_mb_a9q:
 
 impeg2_mc_fullx_halfy_8x8_a9q:
 
-    stmfd           r13!, {r14}
+    stmfd           sp!, {r14}
+    vpush           {d8-d9}
     add             r14, r1, r2
     mov             r2, r2, lsl #1
 
@@ -257,6 +258,7 @@ impeg2_mc_fullx_halfy_8x8_a9q:
     vst1.8          {d7}, [r14], r3     @// eighth row hence r8 = D7
     vst1.8          {d5}, [r0], r3      @// seventh row hence r7 = D5
 
+    vpop            {d8-d9}
     ldmfd           sp!, {pc}
 
 
@@ -315,27 +317,27 @@ impeg2_mc_halfx_fully_8x8_a9q:
     vld1.8          {d6, d7}, [r14], r2 @row6
 
 
-    vext.8          d8, d0, d1, #1      @Extract pixels (1-8) of row1
+    vext.8          d24, d0, d1, #1     @Extract pixels (1-8) of row1
 
-    vext.8          d12, d2, d3, #1     @Extract pixels (1-8) of row5
+    vext.8          d28, d2, d3, #1     @Extract pixels (1-8) of row5
 
     vext.8          d16, d4, d5, #1     @Extract pixels (1-8) of row2
 
     vext.8          d20, d6, d7, #1     @Extract pixels (1-8) of row6
 
 
-    vld1.8          {d9, d10}, [r1], r2 @load row3
+    vld1.8          {d25, d26}, [r1], r2 @load row3
 
-    vld1.8          {d13, d14}, [r14], r2 @load row7
+    vld1.8          {d29, d30}, [r14], r2 @load row7
 
     vld1.8          {d17, d18}, [r1], r2 @load  row4
 
     vld1.8          {d21, d22}, [r14], r2 @load  row8
 
 
-    vext.8          d1, d9, d10, #1     @Extract pixels (1-8) of row3
+    vext.8          d1, d25, d26, #1    @Extract pixels (1-8) of row3
 
-    vext.8          d3, d13, d14, #1    @Extract pixels (1-8) of row7
+    vext.8          d3, d29, d30, #1    @Extract pixels (1-8) of row7
 
 
 
@@ -344,9 +346,9 @@ impeg2_mc_halfx_fully_8x8_a9q:
     vext.8          d7, d21, d22, #1    @Extract pixels (1-8) of row8
 
 
-    vrhadd.u8       q0, q0, q4          @operate on row1 and row3
+    vrhadd.u8       q0, q0, q12         @operate on row1 and row3
 
-    vrhadd.u8       q1, q1, q6          @operate on row5 and row7
+    vrhadd.u8       q1, q1, q14         @operate on row5 and row7
 
 
     vrhadd.u8       q2, q2, q8          @operate on row2 and row4
@@ -415,6 +417,7 @@ impeg2_mc_halfx_fully_8x8_a9q:
 impeg2_mc_halfx_halfy_8x8_a9q:
 
     stmfd           sp!, {r14}
+    vpush           {d8-d15}
 
     add             r14, r1, r2, lsl #2
 
@@ -548,6 +551,7 @@ impeg2_mc_halfx_halfy_8x8_a9q:
 
 
 
+    vpop            {d8-d15}
     ldmfd           sp!, {pc}
 
 
@@ -663,7 +667,8 @@ impeg2_mc_fullx_fully_8x8_a9q:
 
 impeg2_interpolate_a9q:
 
-    stmfd           r13!, {r4, r5, r7, r12, r14}
+    stmfd           sp!, {r4, r5, r7, r12, r14}
+    vpush           {d8-d15}
 
     ldr             r4, [r0, #0]        @ptr_y src1
 
@@ -793,7 +798,8 @@ interp_chromablocks_stride:
     bne             interp_chromablocks_stride
 
 
-    ldmfd           r13!, {r4, r5, r7, r12, pc}
+    vpop            {d8-d15}
+    ldmfd           sp!, {r4, r5, r7, r12, pc}
 
 
 

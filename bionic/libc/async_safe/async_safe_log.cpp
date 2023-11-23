@@ -37,6 +37,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/un.h>
@@ -49,6 +50,12 @@
 #include "private/CachedProperty.h"
 #include "private/ErrnoRestorer.h"
 #include "private/ScopedPthreadMutexLocker.h"
+
+// Don't call libc's close, since it might call back into us as a result of fdsan.
+#pragma GCC poison close
+static int __close(int fd) {
+  return syscall(__NR_close, fd);
+}
 
 // Must be kept in sync with frameworks/base/core/java/android/util/EventLog.java.
 enum AndroidEventLogType {
@@ -326,7 +333,7 @@ static void out_vformat(Out& o, const char* format, va_list args) {
     if (c == 's') {
       /* string */
       str = va_arg(args, const char*);
-      if (str == NULL) {
+      if (str == nullptr) {
         str = "(null)";
       }
     } else if (c == 'c') {
@@ -417,13 +424,18 @@ int async_safe_format_buffer(char* buffer, size_t buffer_size, const char* forma
   return buffer_len;
 }
 
-int async_safe_format_fd(int fd, const char* format, ...) {
+int async_safe_format_fd_va_list(int fd, const char* format, va_list args) {
   FdOutputStream os(fd);
+  out_vformat(os, format, args);
+  return os.total;
+}
+
+int async_safe_format_fd(int fd, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  out_vformat(os, format, args);
+  int result = async_safe_format_fd_va_list(fd, format, args);
   va_end(args);
-  return os.total;
+  return result;
 }
 
 static int write_stderr(const char* tag, const char* msg) {
@@ -462,7 +474,7 @@ static int open_log_socket() {
   strlcpy(u.addrUn.sun_path, "/dev/socket/logdw", sizeof(u.addrUn.sun_path));
 
   if (TEMP_FAILURE_RETRY(connect(log_fd, &u.addr, sizeof(u.addrUn))) != 0) {
-    close(log_fd);
+    __close(log_fd);
     return -1;
   }
 
@@ -504,7 +516,7 @@ int async_safe_write_log(int priority, const char* tag, const char* msg) {
   vec[5].iov_len = strlen(msg) + 1;
 
   int result = TEMP_FAILURE_RETRY(writev(main_log_fd, vec, sizeof(vec) / sizeof(vec[0])));
-  close(main_log_fd);
+  __close(main_log_fd);
   return result;
 }
 
@@ -537,7 +549,7 @@ void async_safe_fatal_va_list(const char* prefix, const char* format, va_list ar
 
   // Log to stderr for the benefit of "adb shell" users and gtests.
   struct iovec iov[2] = {
-      {msg, os.total}, {const_cast<char*>("\n"), 1},
+      {msg, strlen(msg)}, {const_cast<char*>("\n"), 1},
   };
   TEMP_FAILURE_RETRY(writev(2, iov, 2));
 

@@ -125,8 +125,8 @@
 
     <style name="TestProgressBar">
         <item name="android:indeterminateOnly">false</item>
-        <item name="android:progressDrawable">?android:drawable/progress_horizontal</item>
-        <item name="android:indeterminateDrawable">?android:drawable/progress_horizontal</item>
+        <item name="android:progressDrawable">@android:drawable/progress_horizontal</item>
+        <item name="android:indeterminateDrawable">@android:drawable/progress_horizontal</item>
         <item name="android:minHeight">20dip</item>
         <item name="android:maxHeight">20dip</item>
         <item name="android:focusable">true</item>
@@ -159,7 +159,7 @@
     <style name="Theme_OverrideView">
         <item name="themeType">5</item>
     </style>
-    
+
     <style name="Theme_ThemedDrawableTest">
         <item name="themeBoolean">true</item>
         <item name="themeColor">@android:color/black</item>
@@ -187,4 +187,16 @@
         <item name="android:windowContentTransitions">false</item>
         <item name="android:windowAnimationStyle">@null</item>
     </style>
+
+    <style name="ViewAttributeTestTheme" parent="@android:Theme.Material"/>
+
+    <style name="ExplicitStyle1" parent="@style/ParentOfExplicitStyle1">
+        <item name="android:padding">1dp</item>
+    </style>
+
+    <style name="ParentOfExplicitStyle1">
+        <item name="android:paddingLeft">2dp</item>
+    </style>
+
+    <style name="ExplicitStyle2" />
 </resources>

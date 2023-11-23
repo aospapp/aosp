@@ -39,12 +39,6 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         self.original_cr50_version = self.cr50.get_active_version_info()
 
 
-    def cleanup(self):
-        """Reenable ccd"""
-        self.cr50.ccd_enable()
-        super(firmware_Cr50DeepSleepStress, self).cleanup()
-
-
     def check_cr50_state(self, expected_count, expected_version):
         """Check the reboot count and version match the expected values"""
         count = self.cr50.get_deep_sleep_count()
@@ -120,6 +114,14 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
         self.cr50.ccd_enable()
 
 
+    def get_expected_ds_count(self, host, reset_type, suspend_count):
+        """Returns the expected deep sleep count"""
+        is_arm = host.run('arch').stdout.strip() in ['aarch64', 'armv7l']
+        # x86 devices should suspend once per reset. ARM will only suspend
+        # if the device enters s5.
+        return 0 if (reset_type != 'reboot' and is_arm) else suspend_count
+
+
     def run_once(self, host, suspend_count, reset_type):
         """Verify deep sleep after suspending for the given number of cycles
 
@@ -156,4 +158,6 @@ class firmware_Cr50DeepSleepStress(FirmwareTest):
 
         # Cr50 should enter deep sleep once per suspend cycle if deep sleep is
         # supported
-        self.check_cr50_state(suspend_count, self.original_cr50_version)
+        expected_ds_count = self.get_expected_ds_count(host, reset_type,
+                suspend_count)
+        self.check_cr50_state(expected_ds_count, self.original_cr50_version)

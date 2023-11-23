@@ -35,6 +35,9 @@ namespace V1_1 {
 struct INfc;
 struct INfcClientCallback;
 }
+namespace V1_2 {
+struct INfc;
+}
 }
 }
 }
@@ -45,7 +48,7 @@ class ThreadMutex {
   virtual ~ThreadMutex();
   void lock();
   void unlock();
-  operator pthread_mutex_t*() { return &mMutex; }
+  explicit operator pthread_mutex_t*() { return &mMutex; }
 
  private:
   pthread_mutex_t mMutex;
@@ -57,7 +60,8 @@ class ThreadCondVar : public ThreadMutex {
   virtual ~ThreadCondVar();
   void signal();
   void wait();
-  operator pthread_cond_t*() { return &mCondVar; }
+  explicit operator pthread_cond_t*() { return &mCondVar; }
+  // NOLINTNEXTLINE(google-explicit-constructor)
   operator pthread_mutex_t*() {
     return ThreadMutex::operator pthread_mutex_t*();
   }
@@ -68,10 +72,10 @@ class ThreadCondVar : public ThreadMutex {
 
 class AutoThreadMutex {
  public:
-  AutoThreadMutex(ThreadMutex& m);
+  explicit AutoThreadMutex(ThreadMutex& m);
   virtual ~AutoThreadMutex();
-  operator ThreadMutex&() { return mm; }
-  operator pthread_mutex_t*() { return (pthread_mutex_t*)mm; }
+  explicit operator ThreadMutex&() { return mm; }
+  explicit operator pthread_mutex_t*() { return (pthread_mutex_t*)mm; }
 
  private:
   ThreadMutex& mm;
@@ -86,7 +90,7 @@ class NfcAdaptation {
   void DeviceShutdown();
   static NfcAdaptation& GetInstance();
   tHAL_NFC_ENTRY* GetHalEntryFuncs();
-  void DownloadFirmware();
+  bool DownloadFirmware();
   void GetVendorConfigs(std::map<std::string, ConfigValue>& configMap);
   void Dump(int fd);
 
@@ -99,6 +103,7 @@ class NfcAdaptation {
   tHAL_NFC_ENTRY mHalEntryFuncs;  // function pointers for HAL entry points
   static android::sp<android::hardware::nfc::V1_0::INfc> mHal;
   static android::sp<android::hardware::nfc::V1_1::INfc> mHal_1_1;
+  static android::sp<android::hardware::nfc::V1_2::INfc> mHal_1_2;
   static android::hardware::nfc::V1_1::INfcClientCallback* mCallback;
   static tHAL_NFC_CBACK* mHalCallback;
   static tHAL_NFC_DATA_CBACK* mHalDataCallback;

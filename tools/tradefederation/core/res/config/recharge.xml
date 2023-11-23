@@ -16,6 +16,8 @@
 <configuration description="A fake test that waits for nearly-discharged devices and holds them for charging">
 
     <option name="loop" value="true" />
+    <!-- Requires a physical device to run, not an emulator -->
+    <option name="device" value="true" />
     <option name="max-battery" value="20" />
     <option name="test-tag" value="DeviceBatteryLevelChecker" />
     <test class="com.android.tradefed.testtype.DeviceBatteryLevelChecker" />

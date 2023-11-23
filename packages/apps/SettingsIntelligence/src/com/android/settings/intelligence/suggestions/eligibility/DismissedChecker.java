@@ -19,7 +19,7 @@ package com.android.settings.intelligence.suggestions.eligibility;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ResolveInfo;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
 import android.util.Log;
 

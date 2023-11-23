@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include "file_output_stream.h"
-#include "vector_output_stream.h"
-
 #include <android-base/logging.h>
 
 #include "base/macros.h"
 #include "base/unix_file/fd_file.h"
-#include "buffered_output_stream.h"
 #include "common_runtime_test.h"
+#include "stream/buffered_output_stream.h"
+#include "stream/file_output_stream.h"
+#include "stream/vector_output_stream.h"
 
 namespace art {
 namespace linker {
@@ -106,20 +105,20 @@ TEST_F(OutputStreamTest, BufferedFlush) {
     CheckingOutputStream()
         : OutputStream("dummy"),
           flush_called(false) { }
-    ~CheckingOutputStream() OVERRIDE {}
+    ~CheckingOutputStream() override {}
 
     bool WriteFully(const void* buffer ATTRIBUTE_UNUSED,
-                    size_t byte_count ATTRIBUTE_UNUSED) OVERRIDE {
+                    size_t byte_count ATTRIBUTE_UNUSED) override {
       LOG(FATAL) << "UNREACHABLE";
       UNREACHABLE();
     }
 
-    off_t Seek(off_t offset ATTRIBUTE_UNUSED, Whence whence ATTRIBUTE_UNUSED) OVERRIDE {
+    off_t Seek(off_t offset ATTRIBUTE_UNUSED, Whence whence ATTRIBUTE_UNUSED) override {
       LOG(FATAL) << "UNREACHABLE";
       UNREACHABLE();
     }
 
-    bool Flush() OVERRIDE {
+    bool Flush() override {
       flush_called = true;
       return true;
     }

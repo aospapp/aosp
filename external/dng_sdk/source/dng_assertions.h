@@ -59,7 +59,7 @@ void dng_show_message_f (const char *fmt, ...);
 /// \param x Predicate which must be true.
 /// \param y String to display if x is not true.
 
-#define DNG_ASSERT(x,y)
+#define DNG_ASSERT(x,y) do { } while(false)
 
 #endif
 #endif

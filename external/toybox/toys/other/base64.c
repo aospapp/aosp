@@ -14,16 +14,16 @@ config BASE64
 
     Encode or decode in base64.
 
-    -d	decode
-    -i	ignore non-alphabetic characters
-    -w	wrap output at COLUMNS (default 76 or 0 for no wrap)
+    -d	Decode
+    -i	Ignore non-alphabetic characters
+    -w	Wrap output at COLUMNS (default 76 or 0 for no wrap)
 */
 
 #define FOR_base64
 #include "toys.h"
 
 GLOBALS(
-  long columns;
+  long w;
 
   unsigned total;
 )
@@ -32,7 +32,7 @@ static void wraputchar(int c, int *x)
 {
   putchar(c);
   TT.total++;
-  if (TT.columns && ++*x == TT.columns) {
+  if (TT.w && ++*x == TT.w) {
     *x = 0;
     xputc('\n');
   };

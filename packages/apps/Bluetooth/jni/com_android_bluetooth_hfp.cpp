@@ -38,7 +38,7 @@ static jmethodID method_onHangupCall;
 static jmethodID method_onVolumeChanged;
 static jmethodID method_onDialCall;
 static jmethodID method_onSendDtmf;
-static jmethodID method_onNoiceReductionEnable;
+static jmethodID method_onNoiseReductionEnable;
 static jmethodID method_onWBS;
 static jmethodID method_onAtChld;
 static jmethodID method_onAtCnum;
@@ -182,6 +182,13 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
       return;
     }
 
+    char null_str[] = "";
+    if (!sCallbackEnv.isValidUtf(number)) {
+      android_errorWriteLog(0x534e4554, "109838537");
+      ALOGE("%s: number is not a valid UTF string.", __func__);
+      number = null_str;
+    }
+
     ScopedLocalRef<jstring> js_number(sCallbackEnv.get(),
                                       sCallbackEnv->NewStringUTF(number));
     sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onDialCall,
@@ -215,7 +222,7 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
       ALOGE("Fail to new jbyteArray bd addr for audio state");
       return;
     }
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNoiceReductionEnable,
+    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNoiseReductionEnable,
                                  nrec == bluetooth::headset::BTHF_NREC_START,
                                  addr.get());
   }
@@ -319,6 +326,13 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
       return;
     }
 
+    char null_str[] = "";
+    if (!sCallbackEnv.isValidUtf(at_string)) {
+      android_errorWriteLog(0x534e4554, "109838537");
+      ALOGE("%s: at_string is not a valid UTF string.", __func__);
+      at_string = null_str;
+    }
+
     ScopedLocalRef<jstring> js_at_string(sCallbackEnv.get(),
                                          sCallbackEnv->NewStringUTF(at_string));
     sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onUnknownAt,
@@ -347,6 +361,13 @@ class JniHeadsetCallbacks : bluetooth::headset::Callbacks {
 
     ScopedLocalRef<jbyteArray> addr(sCallbackEnv.get(), marshall_bda(bd_addr));
     if (addr.get() == nullptr) return;
+
+    char null_str[] = "";
+    if (!sCallbackEnv.isValidUtf(at_string)) {
+      android_errorWriteLog(0x534e4554, "109838537");
+      ALOGE("%s: at_string is not a valid UTF string.", __func__);
+      at_string = null_str;
+    }
 
     ScopedLocalRef<jstring> js_at_string(sCallbackEnv.get(),
                                          sCallbackEnv->NewStringUTF(at_string));
@@ -396,8 +417,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onDialCall =
       env->GetMethodID(clazz, "onDialCall", "(Ljava/lang/String;[B)V");
   method_onSendDtmf = env->GetMethodID(clazz, "onSendDtmf", "(I[B)V");
-  method_onNoiceReductionEnable =
-      env->GetMethodID(clazz, "onNoiceReductionEnable", "(Z[B)V");
+  method_onNoiseReductionEnable =
+      env->GetMethodID(clazz, "onNoiseReductionEnable", "(Z[B)V");
   method_onWBS = env->GetMethodID(clazz, "onWBS", "(I[B)V");
   method_onAtChld = env->GetMethodID(clazz, "onAtChld", "(I[B)V");
   method_onAtCnum = env->GetMethodID(clazz, "onAtCnum", "([B)V");
@@ -446,6 +467,7 @@ static void initializeNative(JNIEnv* env, jobject object, jint max_hf_clients,
   if (!sBluetoothHfpInterface) {
     ALOGW("%s: Failed to get Bluetooth Handsfree Interface", __func__);
     jniThrowIOException(env, EINVAL);
+    return;
   }
   bt_status_t status =
       sBluetoothHfpInterface->Init(JniHeadsetCallbacks::GetInstance(),
@@ -804,7 +826,8 @@ static jboolean clccResponseNative(JNIEnv* env, jobject object, jint index,
 static jboolean phoneStateChangeNative(JNIEnv* env, jobject object,
                                        jint num_active, jint num_held,
                                        jint call_state, jstring number_str,
-                                       jint type, jbyteArray address) {
+                                       jint type, jstring name_str,
+                                       jbyteArray address) {
   std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
   if (!sBluetoothHfpInterface) {
     ALOGW("%s: sBluetoothHfpInterface is null", __func__);
@@ -817,14 +840,21 @@ static jboolean phoneStateChangeNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
   const char* number = env->GetStringUTFChars(number_str, nullptr);
+  const char* name = nullptr;
+  if (name_str != nullptr) {
+    name = env->GetStringUTFChars(name_str, nullptr);
+  }
   bt_status_t status = sBluetoothHfpInterface->PhoneStateChange(
       num_active, num_held, (bluetooth::headset::bthf_call_state_t)call_state,
-      number, (bluetooth::headset::bthf_call_addrtype_t)type,
+      number, (bluetooth::headset::bthf_call_addrtype_t)type, name,
       (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed report phone state change, status: %d", status);
   }
   env->ReleaseStringUTFChars(number_str, number);
+  if (name != nullptr) {
+    env->ReleaseStringUTFChars(name_str, name);
+  }
   env->ReleaseByteArrayElements(address, addr, 0);
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -908,7 +938,7 @@ static JNINativeMethod sMethods[] = {
     {"atResponseCodeNative", "(II[B)Z", (void*)atResponseCodeNative},
     {"clccResponseNative", "(IIIIZLjava/lang/String;I[B)Z",
      (void*)clccResponseNative},
-    {"phoneStateChangeNative", "(IIILjava/lang/String;I[B)Z",
+    {"phoneStateChangeNative", "(IIILjava/lang/String;ILjava/lang/String;[B)Z",
      (void*)phoneStateChangeNative},
     {"setScoAllowedNative", "(Z)Z", (void*)setScoAllowedNative},
     {"sendBsirNative", "(Z[B)Z", (void*)sendBsirNative},

@@ -1505,7 +1505,7 @@ void RSReflectionJava::genExportReduceAllocationVariant(const RSExportReduce *ER
     const std::string &InName = Args[InIdx].second;
     genTypeCheck(InTypes[InIdx], InName.c_str());
     if (InIdx > 0)
-      genPairwiseDimCheck(In0Name.c_str(), InName.c_str());
+      genPairwiseDimCheck(In0Name, InName);
   }
   // Create a temporary output allocation
   const char OutputAllocName[] = "aout";

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"કટોકટીની માહિતી"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"તબીબી માહિતી"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"માહિતીમાં ફેરફાર કરો"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"માહિતી ઉમેરો"</string>
     <string name="edit_info" msgid="5973929805855224805">"કટોકટીની માહિતી સંપાદિત કરો"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"માહિતી"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"સંપર્કો"</string>
@@ -77,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"દવાઓ"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"અજાણી"</string>
     <string name="medications_hint" msgid="3221620025945593723">"ઉદાહરણ તરીકે, એસ્પિરિન"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"તબીબી નોધો"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"તબીબી નોંધો"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"અજાણી"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"ઉદાહરણ તરીકે, અસ્થમા"</string>
     <string name="organ_donor" msgid="5953509460007124827">"અંગ દાતા"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"તબીબી માહિતી તથા કટોકટીના સંપર્કો ઉમેરવાથી કટોકટીમાં પ્રથમ પ્રતિભાવ આપનારને સહાય મળી શકે છે.\n\nકોઈ પણ વ્યક્તિ તમારો ફોન અનલૉક કર્યા વિના તમારી લૉક સ્ક્રીન પરની આ માહિતી વાંચીને, તમારા સંપર્કના નામ પર ટૅપ કરીને તેમનો નંબર ડાયલ કરી શકે છે."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"કટોકટીની માહિતી ઉમેરો"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"પ્રથમ પ્રતિસાદ આપનારાઓને તમારી માહિતી જોવા દો"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ફોટો લો"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"છબી પસંદ કરો"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"ફોટો પસંદ કરો"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"ઉપનામ"</string>
 </resources>

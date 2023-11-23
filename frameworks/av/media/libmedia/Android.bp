@@ -1,8 +1,16 @@
+cc_defaults {
+    name: "libmedia_defaults",
+    include_dirs: [
+        "bionic/libc/private",
+    ],
+}
+
 cc_library_headers {
     name: "libmedia_headers",
     vendor_available: true,
     export_include_dirs: ["include"],
     header_libs:[
+        "libbase_headers",
         "libgui_headers",
         "libstagefright_headers",
         "media_plugin_headers",
@@ -20,7 +28,8 @@ cc_library {
     vndk: {
         enabled: true,
     },
-    srcs: ["AudioParameter.cpp", "TypeConverter.cpp", "TimeCheck.cpp"],
+    double_loadable: true,
+    srcs: ["AudioParameter.cpp", "TypeConverter.cpp"],
     cflags: [
         "-Werror",
         "-Wno-error=deprecated-declarations",
@@ -32,6 +41,9 @@ cc_library {
         "libaudioclient_headers",
         "libaudio_system_headers",
     ],
+    export_header_lib_headers: [
+        "libmedia_headers",
+    ],
     clang: true,
 }
 
@@ -41,6 +53,7 @@ cc_library_shared {
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
 
     srcs: [
         "aidl/android/IGraphicBufferSource.aidl",
@@ -52,7 +65,6 @@ cc_library_shared {
         "MediaCodecInfo.cpp",
         "OMXBuffer.cpp",
         "omx/1.0/WGraphicBufferSource.cpp",
-        "omx/1.0/WOmx.cpp",
         "omx/1.0/WOmxBufferSource.cpp",
         "omx/1.0/WOmxNode.cpp",
         "omx/1.0/WOmxObserver.cpp",
@@ -62,13 +74,16 @@ cc_library_shared {
         local_include_dirs: ["aidl"],
         export_aidl_headers: true,
     },
+    
+    local_include_dirs: [
+        "include",
+    ],
 
     shared_libs: [
         "android.hidl.token@1.0-utils",
         "android.hardware.media.omx@1.0",
         "libbinder",
         "libcutils",
-        "libgui",
         "libhidlbase",
         "libhidltransport",
         "liblog",
@@ -85,15 +100,18 @@ cc_library_shared {
     ],
 
     header_libs: [
-        "libmedia_headers",
+        "libstagefright_headers",
+        "media_plugin_headers",
     ],
 
     export_header_lib_headers: [
-        "libmedia_headers",
+        "libstagefright_headers",
+        "media_plugin_headers",
     ],
 
     export_include_dirs: [
         "aidl",
+        "include",
     ],
 
     cflags: [
@@ -108,9 +126,67 @@ cc_library_shared {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
+    },
+}
+
+
+cc_library_shared {
+    name: "libmedia_omx_client",
+
+    srcs: [
+        "omx/1.0/WOmx.cpp",
+    ],
+
+    local_include_dirs: [
+        "include",
+    ],
+
+    shared_libs: [
+        "libbinder",
+        "libcutils",
+        "libgui",
+        "libhidlbase",
+        "libhidltransport",
+        "liblog",
+        "libmedia_omx",
+        "libstagefright_foundation",
+        "libui",
+        "libutils",
+    ],
+
+    export_shared_lib_headers: [
+        "libgui",
+        "libmedia_omx",
+        "libstagefright_foundation",
+        "libui",
+    ],
+
+    header_libs: [
+        "libstagefright_headers",
+        "media_plugin_headers",
+    ],
+
+    export_header_lib_headers: [
+        "libstagefright_headers",
+        "media_plugin_headers",
+    ],
+
+    export_include_dirs: [
+        "include",
+    ],
+
+    cflags: [
+        "-Werror",
+        "-Wno-error=deprecated-declarations",
+        "-Wall",
+    ],
+
+    sanitize: {
+        misc_undefined: [
+            "unsigned-integer-overflow",
+            "signed-integer-overflow",
+        ],
+        cfi: true,
     },
 }
 
@@ -123,6 +199,10 @@ cc_library_static {
         "libsonivox",
     ],
 
+    header_libs: [
+        "media_ndk_headers",
+    ],
+
     cflags: [
         "-Werror",
         "-Wno-error=deprecated-declarations",
@@ -135,24 +215,15 @@ cc_library_static {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
-}
-
-filegroup {
-    name: "mediaupdateservice_aidl",
-    srcs: [
-        "aidl/android/media/IMediaExtractorUpdateService.aidl",
-    ],
 }
 
 cc_library {
     name: "libmedia",
 
+    defaults: [ "libmedia_defaults" ],
+
     srcs: [
-        ":mediaupdateservice_aidl",
         "IDataSource.cpp",
         "BufferingSettings.cpp",
         "mediaplayer.cpp",
@@ -187,6 +258,8 @@ cc_library {
         "MediaResourcePolicy.cpp",
         "Visualizer.cpp",
         "StringArray.cpp",
+        "NdkMediaFormatPriv.cpp",
+        "NdkMediaErrorPriv.cpp",
     ],
 
     aidl: {
@@ -196,25 +269,26 @@ cc_library {
 
     header_libs: [
         "libstagefright_headers",
+        "media_ndk_headers",
     ],
 
     export_header_lib_headers: [
         "libstagefright_headers",
+        "media_ndk_headers",
     ],
 
     shared_libs: [
         "android.hidl.token@1.0-utils",
         "liblog",
         "libcutils",
+        "libprocessgroup",
         "libutils",
         "libbinder",
         "libsonivox",
-        "libicuuc",
-        "libicui18n",
+        "libandroidicu",
         "libexpat",
         "libcamera_client",
         "libstagefright_foundation",
-        "libmediaextractor",
         "libgui",
         "libdl",
         "libaudioutils",
@@ -225,8 +299,7 @@ cc_library {
     export_shared_lib_headers: [
         "libaudioclient",
         "libbinder",
-        "libicuuc",
-        "libicui18n",
+        "libandroidicu",
         "libsonivox",
         "libmedia_omx",
     ],
@@ -254,24 +327,19 @@ cc_library {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 }
 
-cc_library {
+cc_library_static {
     name: "libmedia_player2_util",
 
+    defaults: [ "libmedia_defaults" ],
+
     srcs: [
+        "AudioParameter.cpp",
         "BufferingSettings.cpp",
         "DataSourceDesc.cpp",
-        "IDataSource.cpp",
-        "IMediaExtractor.cpp",
-        "IMediaExtractorService.cpp",
-        "IMediaSource.cpp",
         "MediaCodecBuffer.cpp",
-        "MediaUtils.cpp",
         "Metadata.cpp",
         "NdkWrapper.cpp",
     ],
@@ -280,9 +348,9 @@ cc_library {
         "libbinder",
         "libcutils",
         "liblog",
-        "libmediaextractor",
         "libmediandk",
         "libnativewindow",
+        "libmediandk_utils",
         "libstagefright_foundation",
         "libui",
         "libutils",
@@ -295,6 +363,10 @@ cc_library {
 
     header_libs: [
         "media_plugin_headers",
+    ],
+
+    include_dirs: [
+        "frameworks/av/media/ndk",
     ],
 
     static_libs: [
@@ -318,8 +390,5 @@ cc_library {
             "signed-integer-overflow",
         ],
         cfi: true,
-        diag: {
-            cfi: true,
-        },
     },
 }

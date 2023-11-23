@@ -18,8 +18,9 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.GridActivity.ID_L1C1;
 import static android.autofillservice.cts.GridActivity.ID_L1C2;
+import static android.autofillservice.cts.Helper.assertEqualsIgnoreSession;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
-import static android.autofillservice.cts.Helper.findNodeByAutofillId;
+import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -38,30 +39,16 @@ import android.util.Log;
 import android.view.autofill.AutofillId;
 import android.widget.EditText;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Test cases for the cases where the autofill id of a view is changed by the app.
  */
-public class MutableAutofillIdTest extends AutoFillServiceTestCase {
+public class MutableAutofillIdTest extends AbstractGridActivityTestCase {
 
     private static final String TAG = "MutableAutofillIdTest";
-
-    @Rule
-    public final AutofillActivityTestRule<GridActivity> mActivityRule =
-            new AutofillActivityTestRule<GridActivity>(GridActivity.class);
-
-    private GridActivity mActivity;
-
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
-    }
 
     @Test
     public void testDatasetPickerIsNotShownAfterViewIsSwappedOut() throws Exception {
@@ -69,14 +56,12 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
 
         final EditText field1 = mActivity.getCell(1, 1);
         final AutofillId oldIdField1 = field1.getAutofillId();
-        final EditText field2 = mActivity.getCell(1, 2);
-        final AutofillId idField2 = field2.getAutofillId();
 
         // Prepare response
         final CannedFillResponse response1 = new CannedFillResponse.Builder()
                 .addDataset(new CannedDataset.Builder()
-                        .setField(oldIdField1, "l1c1", createPresentation("l1c1"))
-                        .setField(idField2, "l1c2", createPresentation("l1c2"))
+                        .setField(ID_L1C1, "l1c1", createPresentation("l1c1"))
+                        .setField(ID_L1C2, "l1c2", createPresentation("l1c2"))
                         .build())
                 .build();
         sReplier.addResponse(response1);
@@ -85,7 +70,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         focusCell(1, 1);
         final FillRequest fillRequest1 = sReplier.getNextFillRequest();
         final ViewNode node1Request1 = assertTextIsSanitized(fillRequest1.structure, ID_L1C1);
-        assertThat(node1Request1.getAutofillId()).isEqualTo(oldIdField1);
+        assertEqualsIgnoreSession(node1Request1.getAutofillId(), oldIdField1);
         mUiBot.assertDatasets("l1c1");
 
         // Make sure 2nd field shows picker
@@ -115,7 +100,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         // Trigger another request because 1st view has a different id. Service will ignore it now.
         final CannedFillResponse response2 = new CannedFillResponse.Builder()
                 .addDataset(new CannedDataset.Builder()
-                        .setField(idField2, "l1c2", createPresentation("l1c2"))
+                        .setField(ID_L1C2, "l1c2", createPresentation("l1c2"))
                         .build())
                 .build();
         sReplier.addResponse(response2);
@@ -127,7 +112,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         final FillRequest fillRequest2 = sReplier.getNextFillRequest();
         final ViewNode node1Request2 = assertTextIsSanitized(fillRequest2.structure, ID_L1C1);
         // Make sure node has new id.
-        assertThat(node1Request2.getAutofillId()).isEqualTo(newIdField1);
+        assertEqualsIgnoreSession(node1Request2.getAutofillId(), newIdField1);
         mUiBot.assertNoDatasets();
 
         // Make sure 2nd field shows picker
@@ -147,14 +132,12 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
 
         final EditText field1 = mActivity.getCell(1, 1);
         final AutofillId oldIdField1 = field1.getAutofillId();
-        final EditText field2 = mActivity.getCell(1, 2);
-        final AutofillId idField2 = field2.getAutofillId();
 
         // Prepare response
         final CannedFillResponse response1 = new CannedFillResponse.Builder()
                 .addDataset(new CannedDataset.Builder()
-                        .setField(oldIdField1, "l1c1", createPresentation("l1c1"))
-                        .setField(idField2, "l1c2", createPresentation("l1c2"))
+                        .setField(ID_L1C1, "l1c1", createPresentation("l1c1"))
+                        .setField(ID_L1C2, "l1c2", createPresentation("l1c2"))
                         .build())
                 .build();
         sReplier.addResponse(response1);
@@ -163,7 +146,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         focusCell(1, 1);
         final FillRequest fillRequest1 = sReplier.getNextFillRequest();
         final ViewNode node1Request1 = assertTextIsSanitized(fillRequest1.structure, ID_L1C1);
-        assertThat(node1Request1.getAutofillId()).isEqualTo(oldIdField1);
+        assertEqualsIgnoreSession(node1Request1.getAutofillId(), oldIdField1);
         mUiBot.assertDatasets("l1c1");
 
         // Make sure 2nd field shows picker
@@ -176,7 +159,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         // Change id
         mActivity.removeCell(1, 1);
         field1.setAutofillId(newIdField1);
-        assertThat(field1.getAutofillId()).isEqualTo(newIdField1);
+        assertEqualsIgnoreSession(field1.getAutofillId(), newIdField1);
         Log.d(TAG, "Changed id of " + ID_L1C1 + " from " + oldIdField1 + " to " + newIdField1);
 
         // Autofill it - just 2nd field should be autofilled
@@ -213,12 +196,10 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
 
         final EditText field1 = mActivity.getCell(1, 1);
         final AutofillId oldIdField1 = field1.getAutofillId();
-        final EditText field2 = mActivity.getCell(1, 2);
-        final AutofillId idField2 = field2.getAutofillId();
 
         // Prepare response
         final CannedFillResponse response1 = new CannedFillResponse.Builder()
-                .setRequiredSavableAutofillIds(SAVE_DATA_TYPE_GENERIC, oldIdField1, idField2)
+                .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_L1C1, ID_L1C2)
                 .build();
         sReplier.addResponse(response1);
 
@@ -226,7 +207,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         mActivity.focusCell(1, 1); // No window change because it's not showing dataset picker.
         final FillRequest fillRequest1 = sReplier.getNextFillRequest();
         final ViewNode node1Request1 = assertTextIsSanitized(fillRequest1.structure, ID_L1C1);
-        assertThat(node1Request1.getAutofillId()).isEqualTo(oldIdField1);
+        assertEqualsIgnoreSession(node1Request1.getAutofillId(), oldIdField1);
         mUiBot.assertNoDatasetsEver();
 
         // Make sure 2nd field doesn't trigger a new request
@@ -246,10 +227,10 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         final CannedFillResponse.Builder response2 = new CannedFillResponse.Builder();
         if (serviceIgnoresNewId) {
             // ... and service will ignore it now.
-            response2.setRequiredSavableAutofillIds(SAVE_DATA_TYPE_GENERIC, idField2);
+            response2.setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_L1C2);
         } else {
             // ..but service is still expecting the old id.
-            response2.setRequiredSavableAutofillIds(SAVE_DATA_TYPE_GENERIC, oldIdField1, idField2);
+            response2.setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_L1C1, ID_L1C2);
         }
         sReplier.addResponse(response2.build());
 
@@ -258,7 +239,7 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         final FillRequest fillRequest2 = sReplier.getNextFillRequest();
         final ViewNode node1Request2 = assertTextIsSanitized(fillRequest2.structure, ID_L1C1);
         // Make sure node has new id.
-        assertThat(node1Request2.getAutofillId()).isEqualTo(newIdField1);
+        assertEqualsIgnoreSession(node1Request2.getAutofillId(), newIdField1);
         mUiBot.assertNoDatasetsEver();
 
         // Now triggers save
@@ -274,41 +255,23 @@ public class MutableAutofillIdTest extends AutoFillServiceTestCase {
         // Assert 1st context
         final AssistStructure structure1 = contexts.get(0).getStructure();
 
-        final ViewNode oldNode1Context1 = findNodeByAutofillId(structure1, oldIdField1);
-        assertThat(oldNode1Context1).isNotNull();
-        assertThat(oldNode1Context1.getIdEntry()).isEqualTo(ID_L1C1);
-        assertThat(oldNode1Context1.getText().toString()).isEqualTo("OLD");
+        final ViewNode newNode1Context1 = findNodeByResourceId(structure1, ID_L1C1);
+        assertThat(newNode1Context1).isNotNull();
+        assertThat(newNode1Context1.getText().toString()).isEqualTo("OLD");
 
-        final ViewNode newNode1Context1 = findNodeByAutofillId(structure1, newIdField1);
-        assertThat(newNode1Context1).isNull();
-
-        final ViewNode node2Context1 = findNodeByAutofillId(structure1, idField2);
+        final ViewNode node2Context1 = findNodeByResourceId(structure1, ID_L1C2);
         assertThat(node2Context1).isNotNull();
-        assertThat(node2Context1.getIdEntry()).isEqualTo(ID_L1C2);
         assertThat(node2Context1.getText().toString()).isEqualTo("NOD2");
 
         // Assert 2nd context
         final AssistStructure structure2 = contexts.get(1).getStructure();
 
-        final ViewNode oldNode1Context2 = findNodeByAutofillId(structure2, oldIdField1);
-        assertThat(oldNode1Context2).isNull();
-
-        final ViewNode newNode1Context2 = findNodeByAutofillId(structure2, newIdField1);
+        final ViewNode newNode1Context2 = findNodeByResourceId(structure2, ID_L1C1);
         assertThat(newNode1Context2).isNotNull();
-        assertThat(newNode1Context2.getIdEntry()).isEqualTo(ID_L1C1);
         assertThat(newNode1Context2.getText().toString()).isEqualTo("NEW");
 
-        final ViewNode node2Context2 = findNodeByAutofillId(structure2, idField2);
+        final ViewNode node2Context2 = findNodeByResourceId(structure2, ID_L1C2);
         assertThat(node2Context2).isNotNull();
-        assertThat(node2Context2.getIdEntry()).isEqualTo(ID_L1C2);
         assertThat(node2Context2.getText().toString()).isEqualTo("NOD2");
-    }
-
-    /**
-     * Focus to a cell and expect window event
-     */
-    void focusCell(int row, int column) throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.focusCell(row, column),
-                Timeouts.UI_TIMEOUT.getMaxValue());
     }
 }

@@ -229,9 +229,8 @@ public class TextToSpeechWrapper {
         public void onStart(String utteranceId) {
             mLock.lock();
             try {
-                // TODO: Due to a bug in the framework onStart() is called twice for
-                //       synthesizeToFile requests. Once that is fixed we should assert here that we
-                //       expect only one onStart() per utteranceId.
+                Assert.assertNotNull(utteranceId);
+                Assert.assertFalse(mStartedUtterances.contains(utteranceId));
                 mStartedUtterances.add(utteranceId);
             } finally {
                 mLock.unlock();
@@ -250,7 +249,8 @@ public class TextToSpeechWrapper {
         }
 
         @Override
-        public void onBeginSynthesis(String utteranceId, int sampleRateInHz, int audioFormat, int channelCount) {
+        public void onBeginSynthesis(String utteranceId, int sampleRateInHz, int audioFormat,
+                int channelCount) {
             Assert.assertNotNull(utteranceId);
             Assert.assertTrue(sampleRateInHz > 0);
             Assert.assertTrue(audioFormat == android.media.AudioFormat.ENCODING_PCM_8BIT

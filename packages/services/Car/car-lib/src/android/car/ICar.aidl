@@ -18,12 +18,35 @@ package android.car;
 
 /** @hide */
 interface ICar {
+    // All oneway methods are called from system server and should be placed in top positions.
+    // Do not change the order of oneway methods as system server make binder call based on this
+    // order.
+
     /**
      * IBinder is ICarServiceHelper but passed as IBinder due to aidl hidden.
-     * Only this method is oneway as it is called from system server.
+     *
      * This should be the 1st method. Do not change the order.
      */
     oneway void setCarServiceHelper(in IBinder helper) = 0;
-    IBinder getCarService(in String serviceName) = 1;
-    int getCarConnectionType() = 2;
+    /**
+     * Notify lock / unlock of user id to car service.
+     * unlocked: 1 if unlocked 0 otherwise.
+     *
+     * This should be the 2nd method. Do not change the order.
+     */
+    oneway void setUserLockStatus(in int userHandle, in int unlocked) = 1;
+
+    /**
+     * Notify of user switching.  This is called only for foreground users when the user is starting
+     * to boot.
+     *
+     * @param userHandle -  user handle of new user.
+     *
+     * This should be the 3rd method. Do not change the order.
+     */
+    oneway void onSwitchUser(in int userHandle) = 2;
+
+    IBinder getCarService(in String serviceName) = 3;
+    int getCarConnectionType() = 4;
+
 }

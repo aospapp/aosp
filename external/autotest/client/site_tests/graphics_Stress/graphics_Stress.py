@@ -11,11 +11,9 @@ from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
 
-
 BIG_BUCK_BUNNY_VM_URL = 'http://vimeo.com/1084537'
 BIG_BUCK_BUNNY_YT_URL = 'https://www.youtube.com/watch?v=YE7VzlLtp-4'
 GMAPS_MTV_URL = 'https://www.google.com/maps/@37.4249155,-122.072205,13z?force=webgl'
-PEACEKEEPER_URL = 'http://peacekeeper.futuremark.com/run.action'
 WEBGL_AQUARIUM_URL = \
     'http://webglsamples.org/aquarium/aquarium.html'
 WEBGL_BLOB_URL = 'http://webglsamples.org/blob/blob.html'
@@ -33,7 +31,9 @@ class graphics_Stress(graphics_utils.GraphicsTest):
 
 
     def new_chrome(self):
-        return chrome.Chrome(extension_paths=self.ext_paths,
+        browser_args = ['--disable-features=PreferHtmlOverPlugins']
+        return chrome.Chrome(extra_browser_args=browser_args,
+                             extension_paths=self.ext_paths,
                              logged_in=True,
                              autotest_ext=True)
 
@@ -138,15 +138,6 @@ class graphics_Stress(graphics_utils.GraphicsTest):
                 tab.Close()
 
 
-    def peacekeeper_test(self):
-        """ Run Futuremark Peacekeeper benchmark. """
-        with self.new_chrome() as cr:
-            tabs = self.open_urls(cr, [PEACEKEEPER_URL])
-            time.sleep(self._test_duration_secs - (time.time() - self._start_time))
-            for tab in tabs:
-                tab.Close()
-
-
     def restart_test(self):
         """ Restart UI, excercises X server startup and shutdown and related
         kernel paths. """
@@ -192,7 +183,6 @@ class graphics_Stress(graphics_utils.GraphicsTest):
         '50spirit' : fifty_spirits_test,
         'blob+aquarium+yt' : blob_aquarium_yt_test,
         'gmaps' : gmaps_test,
-        'peacekeeper' : peacekeeper_test,
         'restart' : restart_test,
         'tabopenclose' : tab_open_close_test,
         'yt+vimeo+webgl' : yt_vimeo_webgl_test

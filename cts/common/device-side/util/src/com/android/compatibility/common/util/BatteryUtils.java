@@ -18,11 +18,14 @@ package com.android.compatibility.common.util;
 import static com.android.compatibility.common.util.SettingsUtils.putGlobalSetting;
 import static com.android.compatibility.common.util.TestUtils.waitUntil;
 
+import android.content.pm.PackageManager;
 import android.os.BatteryManager;
 import android.os.PowerManager;
 import android.provider.Settings.Global;
 import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import org.junit.Assume;
 
 public class BatteryUtils {
     private static final String TAG = "CtsBatteryUtils";
@@ -39,15 +42,33 @@ public class BatteryUtils {
     }
 
     /** Make the target device think it's off charger. */
-    public static void runDumpsysBatteryUnplug() throws Exception {
-        SystemUtil.runShellCommandForNoOutput("dumpsys battery unplug");
+    public static void runDumpsysBatteryUnplug() {
+        SystemUtil.runShellCommandForNoOutput("cmd battery unplug");
 
         Log.d(TAG, "Battery UNPLUGGED");
     }
 
-    /** Reset {@link #runDumpsysBatteryUnplug}.  */
-    public static void runDumpsysBatteryReset() throws Exception {
-        SystemUtil.runShellCommandForNoOutput(("dumpsys battery reset"));
+    /**
+     * Set the battery level to {@code level} percent. The valid range is [0, 100].
+     */
+    public static void runDumpsysBatterySetLevel(int level) throws Exception {
+        SystemUtil.runShellCommandForNoOutput(("cmd battery set level " + level));
+
+        Log.d(TAG, "Battery level set to " + level);
+    }
+
+    /**
+     * Set whether the device is plugged in to a charger or not.
+     */
+    public static void runDumpsysBatterySetPluggedIn(boolean pluggedIn) throws Exception {
+        SystemUtil.runShellCommandForNoOutput(("cmd battery set ac " + (pluggedIn ? "1" : "0")));
+
+        Log.d(TAG, "Battery AC set to " + pluggedIn);
+    }
+
+    /** Reset the effect of all the previous {@code runDumpsysBattery*} call  */
+    public static void runDumpsysBatteryReset() {
+        SystemUtil.runShellCommandForNoOutput(("cmd battery reset"));
 
         Log.d(TAG, "Battery RESET");
     }
@@ -72,6 +93,7 @@ public class BatteryUtils {
 
         } else {
             SystemUtil.runShellCommandForNoOutput("cmd power set-mode 0");
+            putGlobalSetting(Global.LOW_POWER_MODE, "0");
             putGlobalSetting(Global.LOW_POWER_MODE_STICKY, "0");
             waitUntil("Battery saver still on", () -> !getPowerManager().isPowerSaveMode());
             waitUntil("Location mode still " + getPowerManager().getLocationPowerSaveMode(),
@@ -102,5 +124,16 @@ public class BatteryUtils {
         }
         AmUtils.waitForBroadcastIdle();
         Log.d(TAG, "Screen turned " + (on ? "ON" : "OFF"));
+    }
+
+    /** @return true if the device supports battery saver. */
+    public static boolean isBatterySaverSupported() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        return !pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    /** "Assume" the current device supports battery saver. */
+    public static void assumeBatterySaverFeature() {
+        Assume.assumeTrue("Device doesn't support battery saver", isBatterySaverSupported());
     }
 }

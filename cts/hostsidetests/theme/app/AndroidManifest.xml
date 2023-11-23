@@ -18,12 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.theme.app">
 
-    <uses-sdk android:minSdkVersion="17" />
-
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <application>
+    <application android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name=".ThemeDeviceActivity"
                   android:screenOrientation="portrait">
@@ -34,12 +31,12 @@
         </activity>
         <activity android:name=".GenerateImagesActivity"
                   android:screenOrientation="portrait"
-                  android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+                  android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
                   android:exported="true" />
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.theme.app"
                      android:label="Generates Theme reference images"/>
 

@@ -17,6 +17,7 @@
 package com.android.vts.api;
 
 import com.android.vts.proto.VtsReportMessage.TestReportMessage;
+import com.android.vts.servlet.BaseServlet;
 import com.android.vts.util.DatastoreHelper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -25,9 +26,14 @@ import com.google.api.services.oauth2.Oauth2;
 import com.google.api.services.oauth2.model.Tokeninfo;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -38,10 +44,32 @@ import org.json.JSONObject;
 /** REST endpoint for posting data JSON to the Dashboard. */
 @Deprecated
 public class BigtableLegacyJsonServlet extends HttpServlet {
-    private static final String SERVICE_CLIENT_ID = System.getProperty("SERVICE_CLIENT_ID");
+    private static String SERVICE_CLIENT_ID;
     private static final String SERVICE_NAME = "VTS Dashboard";
     private static final Logger logger =
             Logger.getLogger(BigtableLegacyJsonServlet.class.getName());
+
+    /** System Configuration Property class */
+    protected Properties systemConfigProp = new Properties();
+
+    @Override
+    public void init(ServletConfig cfg) throws ServletException {
+        super.init(cfg);
+
+        try {
+            InputStream defaultInputStream =
+                    BigtableLegacyJsonServlet.class
+                            .getClassLoader()
+                            .getResourceAsStream("config.properties");
+            systemConfigProp.load(defaultInputStream);
+
+            SERVICE_CLIENT_ID = systemConfigProp.getProperty("appengine.serviceClientID");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -93,7 +121,8 @@ public class BigtableLegacyJsonServlet extends HttpServlet {
                         insertData(payloadJson);
                         break;
                     default:
-                        logger.log(Level.WARNING,
+                        logger.log(
+                                Level.WARNING,
                                 "Invalid Datastore REST verb: " + payloadJson.getString("verb"));
                         throw new IOException("Unsupported POST verb.");
                 }
@@ -110,8 +139,7 @@ public class BigtableLegacyJsonServlet extends HttpServlet {
      *
      * @param payloadJson The JSON object representing the row to be inserted. Of the form: {
      *     (deprecated) 'tableName' : 'table', (deprecated) 'rowKey' : 'row', (deprecated) 'family'
-     * :
-     *     'family', (deprecated) 'qualifier' : 'qualifier', 'value' : 'value' }
+     *     : 'family', (deprecated) 'qualifier' : 'qualifier', 'value' : 'value' }
      * @throws IOException
      */
     private void insertData(JSONObject payloadJson) throws IOException {
@@ -122,7 +150,6 @@ public class BigtableLegacyJsonServlet extends HttpServlet {
         try {
             byte[] value = Base64.decodeBase64(payloadJson.getString("value"));
             TestReportMessage testReportMessage = TestReportMessage.parseFrom(value);
-            DatastoreHelper.insertTestReport(testReportMessage);
         } catch (InvalidProtocolBufferException e) {
             logger.log(Level.WARNING, "Invalid report posted to dashboard.");
         }

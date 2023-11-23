@@ -15,6 +15,6 @@
      limitations under the License.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" >
-    <solid android:color="@color/car_card" />
-    <corners android:radius="@dimen/car_radius_3" />
+    <solid android:color="?android:attr/colorBackgroundFloating" />
+    <corners android:radius="@*android:dimen/car_radius_3" />
 </shape>

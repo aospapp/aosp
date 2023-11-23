@@ -27,13 +27,12 @@ import android.app.Fragment;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.content.Intent;
 import android.service.autofill.SaveInfo;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.view.ViewGroup;
 import android.widget.EditText;
 
-import org.junit.Before;
-import org.junit.Rule;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,22 +40,30 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Tests that the session finishes when the views and fragments go away
  */
-public class AutoFinishSessionTest extends AutoFillServiceTestCase {
+public class AutoFinishSessionTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<FragmentContainerActivity> {
 
     private static final String ID_BUTTON = "button";
 
-    @Rule
-    public final AutofillActivityTestRule<FragmentContainerActivity> mActivityRule =
-            new AutofillActivityTestRule<>(FragmentContainerActivity.class);
     private FragmentContainerActivity mActivity;
     private EditText mEditText1;
     private EditText mEditText2;
     private Fragment mFragment;
     private ViewGroup mParent;
 
-    @Before
-    public void initViews() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<FragmentContainerActivity> getActivityRule() {
+        return new AutofillActivityTestRule<FragmentContainerActivity>(
+                FragmentContainerActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                initViews(getActivity());
+            }
+        };
+    }
+
+    private void initViews(FragmentContainerActivity activitiy) {
+        mActivity = activitiy;
         mEditText1 = mActivity.findViewById(R.id.editText1);
         mEditText2 = mActivity.findViewById(R.id.editText2);
         mFragment = mActivity.getFragmentManager().findFragmentByTag(FRAGMENT_TAG);
@@ -75,15 +82,14 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
                 .setSaveInfoFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, viewsToSave).build());
 
-        // Trigger autofill
-        mActivity.syncRunOnUiThread(() -> {
-            mEditText2.requestFocus();
-            mEditText1.requestFocus();
-        });
-
+        // Trigger autofill on editText2
+        mActivity.syncRunOnUiThread(() -> mEditText2.requestFocus());
         sReplier.getNextFillRequest();
-
         mUiBot.assertNoDatasetsEver();
+
+        // Now it's safe to focus on editText1 without triggering a new partition due to race
+        // conditions
+        mActivity.syncRunOnUiThread(() -> mEditText1.requestFocus());
 
         // remove first set of views
         mActivity.syncRunOnUiThread(() -> {
@@ -205,15 +211,15 @@ public class AutoFinishSessionTest extends AutoFillServiceTestCase {
                 .setSaveInfoFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, "editText1").build());
 
-        // Trigger autofill
-        mActivity.syncRunOnUiThread(() -> {
-            mEditText2.requestFocus();
-            mEditText1.requestFocus();
-        });
 
+        // Trigger autofill on editText2
+        mActivity.syncRunOnUiThread(() -> mEditText2.requestFocus());
         sReplier.getNextFillRequest();
-
         mUiBot.assertNoDatasetsEver();
+
+        // Now it's safe to focus on editText1 without triggering a new partition due to race
+        // conditions
+        mActivity.syncRunOnUiThread(() -> mEditText1.requestFocus());
 
         mActivity.syncRunOnUiThread(() -> {
             mEditText1.setText("editText1-filled");

@@ -17,9 +17,9 @@ config TAIL
     Copy last lines from files to stdout. If no files listed, copy from
     stdin. Filename "-" is a synonym for stdin.
 
-    -n	output the last NUMBER lines (default 10), +X counts from start
-    -c	output the last NUMBER bytes, +NUMBER counts from start
-    -f	follow FILE(s), waiting for more data to be appended
+    -n	Output the last NUMBER lines (default 10), +X counts from start
+    -c	Output the last NUMBER bytes, +NUMBER counts from start
+    -f	Follow FILE(s), waiting for more data to be appended
 
 config TAIL_SEEK
   bool "tail seek support"
@@ -34,8 +34,7 @@ config TAIL_SEEK
 #include <sys/inotify.h>
 
 GLOBALS(
-  long lines;
-  long bytes;
+  long n, c;
 
   int file_no, ffd, *files;
 )
@@ -134,10 +133,10 @@ static int try_lseek(int fd, long bytes, long lines)
 // Called for each file listed on command line, and/or stdin
 static void do_tail(int fd, char *name)
 {
-  long bytes = TT.bytes, lines = TT.lines;
+  long bytes = TT.c, lines = TT.n;
   int linepop = 1;
 
-  if (toys.optflags & FLAG_f) {
+  if (FLAG(f)) {
     int f = TT.file_no*2;
     char *s = name;
 
@@ -166,7 +165,7 @@ static void do_tail(int fd, char *name)
       dlist_add_nomalloc((void *)&list, (void *)new);
 
       // If tracing bytes, add until we have enough, discarding overflow.
-      if (TT.bytes) {
+      if (TT.c) {
         bytes += new->len;
         if (bytes > 0) {
           while (list->len <= bytes) {
@@ -224,28 +223,27 @@ void tail_main(void)
 {
   char **args = toys.optargs;
 
-  if (!(toys.optflags&(FLAG_n|FLAG_c))) {
+  if (!FLAG(n) && !FLAG(c)) {
     char *arg = *args;
 
     // handle old "-42" style arguments
     if (arg && *arg == '-' && arg[1]) {
-      TT.lines = atolx(*(args++));
+      TT.n = atolx(*(args++));
       toys.optc--;
     } else {
       // if nothing specified, default -n to -10
-      TT.lines = -10;
+      TT.n = -10;
     }
   }
 
   // Allocate 2 ints per optarg for -f
-  if (toys.optflags&FLAG_f) {
+  if (FLAG(f)) {
     if ((TT.ffd = inotify_init()) < 0) perror_exit("inotify_init");
     TT.files = xmalloc(toys.optc*8);
   }
-  loopfiles_rw(args, O_RDONLY|WARN_ONLY|(O_CLOEXEC*!(toys.optflags&FLAG_f)),
-    0, do_tail);
+  loopfiles_rw(args, O_RDONLY|WARN_ONLY|(O_CLOEXEC*!FLAG(f)), 0, do_tail);
 
-  if ((toys.optflags & FLAG_f) && TT.file_no) {
+  if (FLAG(f) && TT.file_no) {
     int len, last_fd = TT.files[(TT.file_no-1)*2], i, fd;
     struct inotify_event ev;
 

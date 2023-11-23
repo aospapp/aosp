@@ -16,31 +16,6 @@ LOCAL_PATH := $(call my-dir)
 
 ifneq ($(TARGET_BUILD_PDK), true)
 
-# Make the JNI part
-# ============================================================
-include $(CLEAR_VARS)
-
-LOCAL_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-function \
-                -Wunused-variable -Winit-self -Wwrite-strings -Wshadow
-
-LOCAL_C_INCLUDES += \
-	$(JNI_H_INCLUDE) \
-
-LOCAL_SHARED_LIBRARIES += \
-	liblog \
-	libnativehelper \
-	libcutils \
-	libutils \
-	libdl
-
-LOCAL_SRC_FILES := \
-	jni/com_android_server_wifi_WifiNative.cpp \
-	jni/jni_helper.cpp
-
-LOCAL_MODULE := libwifi-service
-
-include $(BUILD_SHARED_LIBRARY)
-
 # Build the java code
 # ============================================================
 
@@ -56,19 +31,25 @@ LOCAL_SRC_FILES := $(call all-java-files-under, java) \
 	$(call all-logtags-files-under, java)
 
 LOCAL_JAVA_LIBRARIES := \
-	android.hidl.manager-V1.0-java \
-	bouncycastle \
-	conscrypt \
+	android.hidl.manager-V1.2-java \
 	error_prone_annotations \
+	libprotobuf-java-lite \
 	jsr305 \
 	services
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	android.hardware.wifi-V1.0-java \
 	android.hardware.wifi-V1.1-java \
 	android.hardware.wifi-V1.2-java \
+	android.hardware.wifi-V1.3-java \
 	android.hardware.wifi.hostapd-V1.0-java \
+	android.hardware.wifi.hostapd-V1.1-java \
 	android.hardware.wifi.supplicant-V1.0-java \
-	android.hardware.wifi.supplicant-V1.1-java
+	android.hardware.wifi.supplicant-V1.1-java \
+	android.hardware.wifi.supplicant-V1.2-java \
+	wifi_service_proto \
+	ksoap2 \
+	libnanohttpd
+
 LOCAL_REQUIRED_MODULES := \
 	services \
 	libwifi-service \

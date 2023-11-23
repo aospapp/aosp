@@ -15,8 +15,11 @@
 -->
 <resources>
     <color name="emergency_primary_dark">#C62828</color>
-    <color name="emergency_primary">#E53935</color>
+    <color name="emergency_primary">#D93025</color>
+    <color name="emergency_contacts_text_color">#E53935</color>
     <color name="emergency_accent">#FFFF00</color>
+    <color name="emergency_owner_text_color">#FFFFFF</color>
+
     <color name="tab_text_color">#FFFFFF</color>
     <color name="white_with_alpha">#B2FFFFFF</color>
     <color name="hint_text_color">#36000000</color>

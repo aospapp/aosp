@@ -59,12 +59,16 @@ public class ModuleSplitter {
      *
      * @param runConfig {@link LinkedHashMap} loaded from {@link ITestSuite#loadTests()}.
      * @param shardCount a shard count hint to help with sharding.
+     * @param dynamicModule Whether or not module can be shared in pool or must be independent
+     *     (strict sharding).
+     * @param intraModuleSharding Whether or not to shard within the modules.
      * @return List of {@link ModuleDefinition}
      */
     public static List<ModuleDefinition> splitConfiguration(
             LinkedHashMap<String, IConfiguration> runConfig,
             int shardCount,
-            boolean dynamicModule) {
+            boolean dynamicModule,
+            boolean intraModuleSharding) {
         if (dynamicModule) {
             // We maximize the sharding for dynamic to reduce time difference between first and
             // last shard as much as possible. Overhead is low due to our test pooling.
@@ -80,7 +84,8 @@ public class ModuleSplitter {
                     configMap.getKey(),
                     configMap.getValue(),
                     shardCount,
-                    dynamicModule);
+                    dynamicModule,
+                    intraModuleSharding);
         }
         return runModules;
     }
@@ -90,10 +95,12 @@ public class ModuleSplitter {
             String moduleName,
             IConfiguration config,
             int shardCount,
-            boolean dynamicModule) {
+            boolean dynamicModule,
+            boolean intraModuleSharding) {
         // If this particular configuration module is declared as 'not shardable' we take it whole
         // but still split the individual IRemoteTest in a pool.
-        if (config.getConfigurationDescription().isNotShardable()
+        if (!intraModuleSharding
+                || config.getConfigurationDescription().isNotShardable()
                 || (!dynamicModule
                         && config.getConfigurationDescription().isNotStrictShardable())) {
             for (int i = 0; i < config.getTests().size(); i++) {

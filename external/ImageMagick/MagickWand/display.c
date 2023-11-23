@@ -17,13 +17,13 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -187,6 +187,7 @@ static MagickBooleanType DisplayUsage(void)
       "-map type            display image using this Standard Colormap",
       "-matte               store matte channel if the image has one",
       "-monitor             monitor progress",
+      "-nostdin             do not try to open stdin",
       "-page geometry       size and location of an image canvas",
       "-profile filename    add, delete, or apply an image profile",
       "-quality value       JPEG/MIFF/PNG compression level",
@@ -244,7 +245,7 @@ static MagickBooleanType DisplayUsage(void)
   (void) printf(
     "resources as command line options:  -background, -bordercolor,\n");
   (void) printf(
-    " -alpha-color, -borderwidth, -font, -foreground, -iconGeometry,\n");
+    " -mattecolor, -borderwidth, -font, -foreground, -iconGeometry,\n");
   (void) printf("-iconic, -name, -shared-memory, -usePixmap, or -title.\n");
   (void) printf(
     "\nBy default, the image format of 'file' is determined by its magic\n");
@@ -315,6 +316,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
 
   MagickBooleanType
     fire,
+    nostdin,
     pend,
     respect_parenthesis;
 
@@ -375,8 +377,9 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
   option=(char *) NULL;
   pend=MagickFalse;
   respect_parenthesis=MagickFalse;
+  nostdin=MagickFalse;
   resource_database=(XrmDatabase) NULL;
-  (void) ResetMagickMemory(&resource_info,0,sizeof(resource_info));
+  (void) memset(&resource_info,0,sizeof(resource_info));
   server_name=(char *) NULL;
   state=0;
   status=MagickTrue;
@@ -401,6 +404,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
       Check command line for server name.
     */
     option=argv[i];
+    if (IsCommandOption(option) == MagickFalse)
+      continue;
     if (LocaleCompare("display",option+1) == 0)
       {
         /*
@@ -411,6 +416,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           ThrowDisplayException(OptionError,"MissingArgument",option);
         server_name=argv[i];
       }
+    if (LocaleCompare("nostdin",option+1) == 0)
+      nostdin=MagickTrue;
     if ((LocaleCompare("help",option+1) == 0) ||
         (LocaleCompare("-help",option+1) == 0))
       return(DisplayUsage());
@@ -459,10 +466,10 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
       if (image != (Image *) NULL)
         break;
       else
-        if (isatty(STDIN_FILENO) != MagickFalse)
+        if (isatty(STDIN_FILENO) != MagickFalse || (nostdin != MagickFalse))
           option="logo:";
         else
-         option="-";
+          option="-";
     if (LocaleCompare(option,"(") == 0)
       {
         FireImageStack(MagickFalse,MagickTrue,pend);
@@ -509,9 +516,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           continue;
         AppendImageStack(images);
         FinalizeImageSettings(image_info,image,MagickFalse);
-        iterations=0;
-        if (i == (ssize_t) argc)
-          iterations=image->iterations;
+        iterations=image->iterations;
         image_list=CloneImageList(image,exception);
         if (image_list == (Image *) NULL)
           ThrowDisplayException(ResourceLimitError,"MemoryAllocationFailed",
@@ -652,8 +657,12 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           }
         if (resource_info.window_id != (char *) NULL)
           state|=ExitState;
-        if ((iterations != 0) && (++iteration == (ssize_t) iterations))
-          state|=ExitState;
+        if (iterations != 0)
+          {
+            if (++iteration == (ssize_t) iterations)
+              state|=ExitState;
+            i=0;
+          }
         if (LocaleCompare(filename,"-") == 0)
           state|=ExitState;
         RemoveAllImageStack();
@@ -674,10 +683,11 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             i++;
             if (i == (ssize_t) argc)
               ThrowDisplayException(OptionError,"MissingArgument",option);
-            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,argv[i]);
+            type=ParseCommandOption(MagickAlphaChannelOptions,MagickFalse,
+              argv[i]);
             if (type < 0)
-              ThrowDisplayException(OptionError,"UnrecognizedAlphaChannelOption",
-                argv[i]);
+              ThrowDisplayException(OptionError,
+                "UnrecognizedAlphaChannelOption",argv[i]);
             break;
           }
         if (LocaleCompare("antialias",option+1) == 0)
@@ -1323,7 +1333,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
             DestroyDisplay();
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("log",option+1) == 0)
           {
@@ -1378,14 +1388,14 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           }
         if (LocaleCompare("matte",option+1) == 0)
           break;
-        if (LocaleCompare("alpha-color",option+1) == 0)
+        if (LocaleCompare("mattecolor",option+1) == 0)
           {
             if (*option == '+')
               break;
             i++;
             if (i == (ssize_t) argc)
               ThrowDisplayException(OptionError,"MissingArgument",option);
-            resource_info.alpha_color=argv[i];
+            resource_info.matte_color=argv[i];
             break;
           }
         if (LocaleCompare("monitor",option+1) == 0)
@@ -1418,6 +1428,8 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
         if (LocaleCompare("noop",option+1) == 0)
           break;
         if (LocaleCompare("normalize",option+1) == 0)
+          break;
+        if (LocaleCompare("nostdin",option+1) == 0)
           break;
         ThrowDisplayException(OptionError,"UnrecognizedOption",option);
       }
@@ -1882,8 +1894,9 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
   DestroyDisplay();
   return(status != 0 ? MagickTrue : MagickFalse);
 #else
-  (void) argc;
-  (void) argv;
+  wand_unreferenced(argc);
+  wand_unreferenced(argv);
+  wand_unreferenced(metadata);
   (void) ThrowMagickException(exception,GetMagickModule(),MissingDelegateError,
     "DelegateLibrarySupportNotBuiltIn","'%s' (X11)",image_info->filename);
   return(DisplayUsage());

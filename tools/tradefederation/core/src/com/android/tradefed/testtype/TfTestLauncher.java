@@ -31,8 +31,8 @@ import com.android.tradefed.util.HprofAllocSiteParser;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.SystemUtil.EnvVariable;
-import com.android.tradefed.util.proto.TfMetricProtoUtil;
 import com.android.tradefed.util.TarUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -54,7 +54,7 @@ import java.util.regex.Pattern;
  */
 public class TfTestLauncher extends SubprocessTfLauncher {
 
-    private static final long COVERAGE_REPORT_TIMEOUT_MS = 2 * 60 * 1000;
+    private static final long COVERAGE_REPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
     @Option(name = "jacoco-code-coverage", description = "Enable jacoco code coverage on the java "
             + "sub process. Run will be slightly slower because of the overhead.")
@@ -320,7 +320,7 @@ public class TfTestLauncher extends SubprocessTfLauncher {
         runMetrics.put(
                 "elapsed-time", TfMetricProtoUtil.stringToMetric(Long.toString(elapsedTime)));
         listener.testEnded(tid, runMetrics);
-        listener.testRunEnded(elapsedTime, runMetrics);
+        listener.testRunEnded(0L, runMetrics);
     }
 
     /**
@@ -338,6 +338,7 @@ public class TfTestLauncher extends SubprocessTfLauncher {
         String[] listFiles = tmpDir.list();
         List<String> unmatchedFiles = new ArrayList<String>();
         List<String> patterns = new ArrayList<String>(Arrays.asList(EXPECTED_TMP_FILE_PATTERNS));
+        patterns.add(mBuildInfo.getBuildBranch());
         for (String file : Arrays.asList(listFiles)) {
             Boolean matchFound = false;
             for (String pattern : patterns) {
@@ -352,10 +353,11 @@ public class TfTestLauncher extends SubprocessTfLauncher {
             }
         }
         if (unmatchedFiles.size() > 0) {
-            String trace = String.format("Found '%d' unexpected temporary files: %s.\nOnly "
-                    + "expected files are: %s. And each should appears only once.",
-                    unmatchedFiles.size(), unmatchedFiles,
-                    Arrays.asList(EXPECTED_TMP_FILE_PATTERNS));
+            String trace =
+                    String.format(
+                            "Found '%d' unexpected temporary files: %s.\nOnly "
+                                    + "expected files are: %s. And each should appears only once.",
+                            unmatchedFiles.size(), unmatchedFiles, patterns);
             listener.testFailed(tid, trace);
         }
         listener.testEnded(tid, new HashMap<String, Metric>());

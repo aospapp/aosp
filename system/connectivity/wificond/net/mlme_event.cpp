@@ -23,6 +23,7 @@
 #include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/net/nl80211_packet.h"
 
+using std::array;
 using std::unique_ptr;
 using std::vector;
 
@@ -33,7 +34,7 @@ namespace {
 
 bool GetCommonFields(const NL80211Packet* packet,
                      uint32_t* if_index,
-                     vector<uint8_t>* bssid) {
+                     array<uint8_t, ETH_ALEN>* bssid) {
   if (!packet->GetAttributeValue(NL80211_ATTR_IFINDEX, if_index)) {
      LOG(ERROR) << "Failed to get NL80211_ATTR_IFINDEX";
      return false;

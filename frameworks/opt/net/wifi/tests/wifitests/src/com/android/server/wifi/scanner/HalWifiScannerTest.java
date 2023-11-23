@@ -18,7 +18,7 @@ package com.android.server.wifi.scanner;
 
 import static com.android.server.wifi.ScanTestUtil.setupMockChannels;
 
-import android.support.test.filters.SmallTest;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 

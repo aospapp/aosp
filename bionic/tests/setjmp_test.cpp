@@ -19,7 +19,7 @@
 #include <setjmp.h>
 #include <stdlib.h>
 
-#include "ScopedSignalHandler.h"
+#include "SignalUtils.h"
 
 TEST(setjmp, setjmp_smoke) {
   int value;
@@ -74,6 +74,8 @@ struct SigSets {
     sigset64_t ss;
     sigemptyset64(&ss);
     sigaddset64(&ss, SIGUSR1 + offset);
+    // TIMER_SIGNAL.
+    sigaddset64(&ss, __SIGRTMIN);
     sigaddset64(&ss, SIGRTMIN + offset);
     return ss;
   }
@@ -84,7 +86,7 @@ struct SigSets {
 
 void AssertSigmaskEquals(const sigset64_t& expected) {
   sigset64_t actual;
-  sigprocmask64(SIG_SETMASK, NULL, &actual);
+  sigprocmask64(SIG_SETMASK, nullptr, &actual);
   size_t end = sizeof(expected) * 8;
   for (size_t i = 1; i <= end; ++i) {
     EXPECT_EQ(sigismember64(&expected, i), sigismember64(&actual, i)) << i;
@@ -99,7 +101,7 @@ TEST(setjmp, _setjmp_signal_mask) {
   sigprocmask64(SIG_SETMASK, &ss.one, nullptr);
   jmp_buf jb;
   if (_setjmp(jb) == 0) {
-    sigprocmask64(SIG_SETMASK, &ss.two, NULL);
+    sigprocmask64(SIG_SETMASK, &ss.two, nullptr);
     _longjmp(jb, 1);
     FAIL(); // Unreachable.
   } else {
@@ -117,7 +119,7 @@ TEST(setjmp, setjmp_signal_mask) {
   sigprocmask64(SIG_SETMASK, &ss.one, nullptr);
   jmp_buf jb;
   if (setjmp(jb) == 0) {
-    sigprocmask64(SIG_SETMASK, &ss.two, NULL);
+    sigprocmask64(SIG_SETMASK, &ss.two, nullptr);
     longjmp(jb, 1);
     FAIL(); // Unreachable.
   } else {
@@ -139,7 +141,7 @@ TEST(setjmp, sigsetjmp_0_signal_mask) {
   sigprocmask64(SIG_SETMASK, &ss.one, nullptr);
   sigjmp_buf sjb;
   if (sigsetjmp(sjb, 0) == 0) {
-    sigprocmask64(SIG_SETMASK, &ss.two, NULL);
+    sigprocmask64(SIG_SETMASK, &ss.two, nullptr);
     siglongjmp(sjb, 1);
     FAIL(); // Unreachable.
   } else {
@@ -155,7 +157,7 @@ TEST(setjmp, sigsetjmp_1_signal_mask) {
   sigprocmask64(SIG_SETMASK, &ss.one, nullptr);
   sigjmp_buf sjb;
   if (sigsetjmp(sjb, 1) == 0) {
-    sigprocmask64(SIG_SETMASK, &ss.two, NULL);
+    sigprocmask64(SIG_SETMASK, &ss.two, nullptr);
     siglongjmp(sjb, 1);
     FAIL(); // Unreachable.
   } else {
@@ -261,4 +263,15 @@ TEST(setjmp, setjmp_cookie_checksum) {
   } else {
     fprintf(stderr, "setjmp_cookie_checksum: longjmp succeeded?");
   }
+}
+
+__attribute__((noinline)) void call_longjmp(jmp_buf buf) {
+  longjmp(buf, 123);
+}
+
+TEST(setjmp, setjmp_stack) {
+  jmp_buf buf;
+  int value = setjmp(buf);
+  if (value == 0) call_longjmp(buf);
+  EXPECT_EQ(123, value);
 }

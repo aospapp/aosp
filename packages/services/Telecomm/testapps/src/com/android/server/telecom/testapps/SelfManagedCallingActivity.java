@@ -17,6 +17,12 @@
 package com.android.server.telecom.testapps;
 
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.role.RoleManager;
+import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.ConnectionRequest;
@@ -44,11 +50,13 @@ import java.util.Objects;
  */
 public class SelfManagedCallingActivity extends Activity {
     private static final String TAG = "SelfMgCallActivity";
+    private static final int REQUEST_ID = 1;
     private SelfManagedCallList mCallList = SelfManagedCallList.getInstance();
     private CheckBox mCheckIfPermittedBeforeCalling;
     private Button mPlaceOutgoingCallButton;
     private Button mPlaceIncomingCallButton;
     private Button mHandoverFrom;
+    private Button mRequestCallScreeningRole;
     private RadioButton mUseAcct1Button;
     private RadioButton mUseAcct2Button;
     private CheckBox mHoldableCheckbox;
@@ -100,6 +108,7 @@ public class SelfManagedCallingActivity extends Activity {
                         | WindowManager.LayoutParams.FLAG_IGNORE_CHEEK_PRESSES;
 
         getWindow().addFlags(flags);
+        configureNotificationChannel();
         setContentView(R.layout.self_managed_sample_main);
         mCheckIfPermittedBeforeCalling = (CheckBox) findViewById(
                 R.id.checkIfPermittedBeforeCalling);
@@ -114,12 +123,16 @@ public class SelfManagedCallingActivity extends Activity {
         mPlaceIncomingCallButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                placeIncomingCall(false /* isHandoverFrom */);
+                placeIncomingCall();
             }
         });
         mHandoverFrom = (Button) findViewById(R.id.handoverFrom);
         mHandoverFrom.setOnClickListener((v -> {
-            placeIncomingCall(true /* isHandoverFrom */);
+            initiateHandover();
+        }));
+        mRequestCallScreeningRole = (Button) findViewById(R.id.requestCallScreeningRole);
+        mRequestCallScreeningRole.setOnClickListener((v -> {
+            requestCallScreeningRole();
         }));
 
         mUseAcct1Button = findViewById(R.id.useAcct1Button);
@@ -171,7 +184,14 @@ public class SelfManagedCallingActivity extends Activity {
         tm.placeCall(Uri.parse(mNumber.getText().toString()), extras);
     }
 
-    private void placeIncomingCall(boolean isHandoverFrom) {
+    private void initiateHandover() {
+        TelecomManager tm = TelecomManager.from(this);
+        PhoneAccountHandle phoneAccountHandle = getSelectedPhoneAccountHandle();
+        Uri address = Uri.parse(mNumber.getText().toString());
+        tm.acceptHandover(address, VideoProfile.STATE_BIDIRECTIONAL, phoneAccountHandle);
+    }
+
+    private void placeIncomingCall() {
         TelecomManager tm = TelecomManager.from(this);
         PhoneAccountHandle phoneAccountHandle = getSelectedPhoneAccountHandle();
 
@@ -191,9 +211,39 @@ public class SelfManagedCallingActivity extends Activity {
             extras.putInt(TelecomManager.EXTRA_INCOMING_VIDEO_STATE,
                     VideoProfile.STATE_BIDIRECTIONAL);
         }
-        if (isHandoverFrom) {
-            extras.putBoolean(TelecomManager.EXTRA_IS_HANDOVER, true);
-        }
         tm.addNewIncomingCall(getSelectedPhoneAccountHandle(), extras);
+    }
+
+    private void configureNotificationChannel() {
+        NotificationChannel channel = new NotificationChannel(
+                SelfManagedConnection.INCOMING_CALL_CHANNEL_ID, "Incoming Calls",
+                NotificationManager.IMPORTANCE_MAX);
+        channel.setShowBadge(false);
+        Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        channel.setSound(ringtoneUri, new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build());
+        channel.enableLights(true);
+
+        NotificationManager mgr = getSystemService(NotificationManager.class);
+        mgr.createNotificationChannel(channel);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_ID) {
+            if (resultCode == android.app.Activity.RESULT_OK) {
+                Toast.makeText(this, "Call screening role granted.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Call screening role NOT granted.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void requestCallScreeningRole() {
+        RoleManager roleManager = (RoleManager) getSystemService(ROLE_SERVICE);
+        Intent intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING);
+        startActivityForResult(intent, REQUEST_ID);
     }
 }

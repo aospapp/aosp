@@ -21,7 +21,9 @@ import static android.telecom.cts.TestUtils.*;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
+import android.content.Context;
 import android.graphics.drawable.Icon;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.net.Uri;
 import android.telecom.Call;
@@ -63,9 +65,10 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     public static final String TEST_SUBJECT = "test";
     public static final String TEST_CHILD_NUMBER = "650-555-1212";
     public static final String TEST_FORWARDED_NUMBER = "650-555-1212";
-    public static final String TEST_EXTRA_KEY = "com.test.extra.TEST";
-    public static final String TEST_EXTRA_KEY2 = "com.test.extra.TEST2";
-    public static final String TEST_EXTRA_KEY3 = "com.test.extra.TEST3";
+    public static final String TEST_EXTRA_KEY = "android.test.extra.TEST";
+    public static final String TEST_EXTRA_KEY2 = "android.test.extra.TEST2";
+    public static final String TEST_EXTRA_KEY3 = "android.test.extra.TEST3";
+    public static final String TEST_INVALID_EXTRA_KEY = "blah";
     public static final int TEST_EXTRA_VALUE = 10;
     public static final String TEST_EVENT = "com.test.event.TEST";
     public static final Uri TEST_DEFLECT_URI = Uri.fromParts("tel", "+16505551212", null);
@@ -425,6 +428,43 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Tests that extra keys outside of the standard android.* namespace are not sent to a third
+     * party InCallService (the CTS test InCallService is technically not the OEM stock dialer).
+     */
+    public void testExtrasBlocking() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        Bundle exampleExtras = new Bundle();
+        exampleExtras.putString(Connection.EXTRA_CALL_SUBJECT, TEST_SUBJECT);
+        exampleExtras.putString(TEST_INVALID_EXTRA_KEY, "Secrets!");
+        exampleExtras.putString(Connection.EXTRA_SIP_INVITE, "Sip headers!!");
+        // Some ImsCallProfile system API extra keys we don't want to exposure to non-system
+        // dialer apps; its a bit of an implementation detail but good to verify that these are
+        // never exposed unintentionally.
+        exampleExtras.putString("oi", "5551212");
+        exampleExtras.putString("cna", "Joe");
+        exampleExtras.putInt("oir", TelecomManager.PRESENTATION_ALLOWED);
+        exampleExtras.putInt("cnap", TelecomManager.PRESENTATION_ALLOWED);
+
+        mConnection.setExtras(exampleExtras);
+
+        // Make sure we got back a bundle with the call subject key set.
+        assertCallExtras(mCall, Connection.EXTRA_CALL_SUBJECT);
+
+        Bundle callExtras = mCall.getDetails().getExtras();
+        assertEquals(TEST_SUBJECT, callExtras.getString(Connection.EXTRA_CALL_SUBJECT));
+        assertFalse(callExtras.containsKey(TEST_INVALID_EXTRA_KEY));
+        assertFalse(callExtras.containsKey(Connection.EXTRA_SIP_INVITE));
+        // Some ImsCallProfile extra keys that should not be exposed to non-system dialers.
+        assertFalse(callExtras.containsKey("oi"));
+        assertFalse(callExtras.containsKey("cna"));
+        assertFalse(callExtras.containsKey("oir"));
+        assertFalse(callExtras.containsKey("cnap"));
+    }
+
+    /**
      * Tests that {@link Connection} extras changes made via {@link Connection#putExtras(Bundle)}
      * are propagated to the {@link Call} via
      * {@link android.telecom.Call.Callback#onDetailsChanged(Call, Call.Details)}.
@@ -655,6 +695,37 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertNotNull(extras);
         assertTrue(extras.containsKey(TEST_EXTRA_KEY));
         assertEquals(TEST_SUBJECT, extras.getString(TEST_EXTRA_KEY));
+    }
+
+    /**
+     * Verifies that the AudioManager audio mode changes as expected based on whether a connection
+     * is using voip audio mode or not.
+     */
+    public void testSetVoipAudioMode() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        mConnection.setAudioModeIsVoip(true);
+        assertCallProperties(mCall, Call.Details.PROPERTY_VOIP_AUDIO_MODE);
+        AudioManager audioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        assertAudioMode(audioManager, AudioManager.MODE_IN_COMMUNICATION);
+
+        mConnection.setAudioModeIsVoip(false);
+        assertDoesNotHaveCallProperties(mCall, Call.Details.PROPERTY_VOIP_AUDIO_MODE);
+        assertAudioMode(audioManager, AudioManager.MODE_IN_CALL);
+    }
+
+    /**
+     * Tests whether the getCallDirection() getter returns correct call direction.
+     */
+    public void testGetCallDirection() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        assertEquals(Call.Details.DIRECTION_OUTGOING, mCall.getDetails().getCallDirection());
+        assertFalse(Call.Details.DIRECTION_INCOMING == mCall.getDetails().getCallDirection());
+        assertFalse(Call.Details.DIRECTION_UNKNOWN == mCall.getDetails().getCallDirection());
     }
 
     /**

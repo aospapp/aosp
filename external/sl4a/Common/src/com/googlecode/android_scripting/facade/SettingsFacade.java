@@ -283,7 +283,9 @@ public class SettingsFacade extends RpcReceiver {
                           description = "The current password used to lock the device")
             @RpcDefault("1111")
             @RpcOptional String currentPassword) {
-        mLockPatternUtils.clearLock(currentPassword, UserHandle.myUserId());
+        byte[] currentPasswordBytes = currentPassword != null ? currentPassword.getBytes()
+                : null;
+        mLockPatternUtils.clearLock(currentPasswordBytes, UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
     }
 

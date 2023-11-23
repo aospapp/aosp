@@ -32,6 +32,7 @@ import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.VersionParser;
 
 import java.io.File;
 import java.io.IOException;
@@ -72,6 +73,12 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
 
     @Option(name="build-flavor", description="build flavor name to supply.")
     private String mBuildFlavor = null;
+
+    @Option(
+        name = "build-flavor-prefix",
+        description = "allow for a prefix to be inserted into build flavor."
+    )
+    private String mBuildFlavorPrefix = null;
 
     @Option(name="build-target", description="build target name to supply.")
     private String mBuildTarget = null;
@@ -141,7 +148,11 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
             ctsBuild.setBuildBranch(mBranch);
         }
         if (mBuildFlavor != null) {
-            ctsBuild.setBuildFlavor(mBuildFlavor);
+            String buildFlavor = mBuildFlavor;
+            if (mBuildFlavorPrefix != null) {
+                buildFlavor = mBuildFlavorPrefix + buildFlavor;
+            }
+            ctsBuild.setBuildFlavor(buildFlavor);
         }
         injectBuildAttributes(ctsBuild);
         addCompatibilitySuiteInfo(ctsBuild);
@@ -162,8 +173,12 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
             if (mBuildId == null) {
                 mBuildId = device.getBuildId();
             }
-            if (mBuildFlavor == null) {
-                mBuildFlavor = device.getBuildFlavor();
+            String buildFlavor = mBuildFlavor;
+            if (buildFlavor == null) {
+                buildFlavor = device.getBuildFlavor();
+            }
+            if (mBuildFlavorPrefix != null) {
+                buildFlavor = mBuildFlavorPrefix + buildFlavor;
             }
             if (mBuildTarget == null) {
                 String name = device.getProperty("ro.product.name");
@@ -181,7 +196,7 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
                         device.getProperty("ro.build.version.release"));
             }
             info.setBuildBranch(mBranch);
-            info.setBuildFlavor(mBuildFlavor);
+            info.setBuildFlavor(buildFlavor);
             String buildAlias = device.getBuildAlias();
             if (RELEASE_BUILD.matcher(buildAlias).matches()) {
                 info.addBuildAttribute("build_alias", buildAlias);
@@ -296,7 +311,12 @@ public class CompatibilityBuildProvider implements IDeviceBuildProvider, IInvoca
      * Return the SuiteInfo build number generated at build time. Exposed for testing.
      */
     protected String getSuiteInfoBuildNumber() {
-        return TestSuiteInfo.getInstance().getBuildNumber();
+        String buildNumber = TestSuiteInfo.getInstance().getBuildNumber();
+        String versionFile = VersionParser.fetchVersion();
+        if (versionFile != null) {
+            buildNumber = versionFile;
+        }
+        return buildNumber;
     }
 
     /**

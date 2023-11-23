@@ -16,7 +16,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.isolatedsplitapp.feature_c"
-        featureSplit="feature_c">
+        featureSplit="feature_c"
+        android:targetSandboxVersion="2">
 
     <application>
         <activity android:name=".FeatureCActivity">

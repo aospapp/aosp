@@ -20,25 +20,23 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.app.AuthenticationRequiredException;
 import android.database.Cursor;
-import android.database.MergeCursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
-import com.android.documentsui.DirectoryResult;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.selection.Selection;
+
 import com.android.documentsui.base.DocumentFilters;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.Features;
-import com.android.documentsui.roots.RootCursorWrapper;
-import com.android.documentsui.selection.Selection;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -113,10 +111,11 @@ public class Model {
     }
 
     @VisibleForTesting
-    protected void update(DirectoryResult result) {
+    public void update(DirectoryResult result) {
         assert(result != null);
-
-        if (DEBUG) Log.i(TAG, "Updating model with new result set.");
+        if (DEBUG) {
+            Log.i(TAG, "Updating model with new result set.");
+        }
 
         if (result.exception != null) {
             Log.e(TAG, "Error while loading directory contents", result.exception);
@@ -161,14 +160,8 @@ public class Model {
             }
             // Generates a Model ID for a cursor entry that refers to a document. The Model ID is a
             // unique string that can be used to identify the document referred to by the cursor.
-            // If the cursor is a merged cursor over multiple authorities, then prefix the ids
-            // with the authority to avoid collisions.
-            if (mCursor instanceof MergeCursor) {
-                mIds[pos] = getCursorString(mCursor, RootCursorWrapper.COLUMN_AUTHORITY)
-                        + "|" + getCursorString(mCursor, Document.COLUMN_DOCUMENT_ID);
-            } else {
-                mIds[pos] = getCursorString(mCursor, Document.COLUMN_DOCUMENT_ID);
-            }
+            // Prefix the ids with the authority to avoid collisions.
+            mIds[pos] = ModelId.build(mCursor);
             mFileNames.add(getCursorString(mCursor, Document.COLUMN_DISPLAY_NAME));
         }
 
@@ -186,13 +179,17 @@ public class Model {
     public @Nullable Cursor getItem(String modelId) {
         Integer pos = mPositions.get(modelId);
         if (pos == null) {
-            if (DEBUG) Log.d(TAG, "Unabled to find cursor position for modelId: " + modelId);
+            if (DEBUG) {
+                Log.d(TAG, "Unabled to find cursor position for modelId: " + modelId);
+            }
             return null;
         }
 
         if (!mCursor.moveToPosition(pos)) {
-            if (DEBUG) Log.d(TAG,
+            if (DEBUG) {
+                Log.d(TAG,
                     "Unabled to move cursor to position " + pos + " for modelId: " + modelId);
+            }
             return null;
         }
 
@@ -203,7 +200,7 @@ public class Model {
         return mIsLoading;
     }
 
-    public List<DocumentInfo> getDocuments(Selection selection) {
+    public List<DocumentInfo> getDocuments(Selection<String> selection) {
         return loadDocuments(selection, DocumentFilters.ANY);
     }
 
@@ -214,7 +211,7 @@ public class Model {
                 : DocumentInfo.fromDirectoryCursor(cursor);
     }
 
-    public List<DocumentInfo> loadDocuments(Selection selection, Predicate<Cursor> filter) {
+    public List<DocumentInfo> loadDocuments(Selection<String> selection, Predicate<Cursor> filter) {
         final int size = (selection != null) ? selection.size() : 0;
 
         final List<DocumentInfo> docs =  new ArrayList<>(size);
@@ -228,7 +225,7 @@ public class Model {
         return docs;
     }
 
-    public boolean hasDocuments(Selection selection, Predicate<Cursor> filter) {
+    public boolean hasDocuments(Selection<String> selection, Predicate<Cursor> filter) {
         for (String modelId: selection) {
             if (loadDocument(modelId, filter) != null) {
                 return true;

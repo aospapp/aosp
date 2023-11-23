@@ -106,13 +106,10 @@ class cellular_OutOfCreditsSubscriptionState(test.test):
         self.test_env = test_environment.CellularPseudoMMTestEnvironment(
                 pseudomm_args=({'family': '3GPP'},))
         with self.test_env, shill_context.ServiceAutoConnectContext(
-                self.test_env.shill.find_cellular_service_object, False):
+                self.test_env.shill.wait_for_cellular_service_object, False):
             self.pseudomm = pm_proxy.PseudoMMProxy.get_proxy()
             self.modem = self.pseudomm.get_modem()
 
-            tests = [self._test_provisioned,
-                     self._test_out_of_credits_at_start,
-                     self._test_out_of_credits_while_connected]
-
-            for test in tests:
-                test()
+            self._test_provisioned()
+            self._test_out_of_credits_at_start()
+            self._test_out_of_credits_while_connected()

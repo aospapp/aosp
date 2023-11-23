@@ -16,7 +16,7 @@
 
 #include "util/hash/hash.h"
 
-#include "util/base/macros.h"
+#include "utils/base/macros.h"
 
 namespace libtextclassifier2 {
 
@@ -59,10 +59,10 @@ uint32 Hash32(const char *data, size_t n, uint32 seed) {
   switch (n) {
     case 3:
       h ^= ByteAs32(data[2]) << 16;
-      TC_FALLTHROUGH_INTENDED;
+      TC3_FALLTHROUGH_INTENDED;
     case 2:
       h ^= ByteAs32(data[1]) << 8;
-      TC_FALLTHROUGH_INTENDED;
+      TC3_FALLTHROUGH_INTENDED;
     case 1:
       h ^= ByteAs32(data[0]);
       h *= m;

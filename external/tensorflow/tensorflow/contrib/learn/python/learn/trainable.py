@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""`Trainable` interface."""
+"""`Trainable` interface (deprecated).
+
+This module and all its submodules are deprecated. See
+[contrib/learn/README.md](https://www.tensorflow.org/code/tensorflow/contrib/learn/README.md)
+for migration instructions.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -20,11 +25,15 @@ from __future__ import print_function
 
 import abc
 
+import six
 
+
+@six.add_metaclass(abc.ABCMeta)
 class Trainable(object):
   """Interface for objects that are trainable by, e.g., `Experiment`.
+
+  THIS CLASS IS DEPRECATED.
   """
-  __metaclass__ = abc.ABCMeta
 
   @abc.abstractmethod
   def fit(self,

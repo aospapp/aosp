@@ -33,7 +33,7 @@ public class ZeroHeightTiffTest extends AndroidTestCase {
      * Prior to fixing bug 33300701, decoding resulted in undefined behavior (divide by zero).
      * With the fix, decoding will fail, without dividing by zero.
      */
-    @SecurityTest
+    @SecurityTest(minPatchLevel = "2017-03")
     public void test_android_bug_33300701() {
         InputStream exploitImage = mContext.getResources().openRawResource(R.raw.bug_33300701);
         Bitmap bitmap = BitmapFactory.decodeStream(exploitImage);

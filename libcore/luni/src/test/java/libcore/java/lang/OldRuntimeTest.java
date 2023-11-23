@@ -25,13 +25,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.Permission;
 import java.util.Arrays;
-import java.util.Vector;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 import tests.support.resource.Support_Resources;
-import dalvik.system.VMRuntime;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
-public class OldRuntimeTest extends junit.framework.TestCase {
+public class OldRuntimeTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
 
     Runtime r = Runtime.getRuntime();
 
@@ -517,71 +523,66 @@ public class OldRuntimeTest extends junit.framework.TestCase {
     }
 
     // b/25859957
-    public void test_loadDeprecated() throws Exception {
-        final int savedTargetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+    @TargetSdkVersion(24)
+    public void test_loadDeprecated_targetSdkVersion_24() throws Exception {
         try {
-            try {
-                // Call Runtime#load(String, ClassLoader) at API level 24 (N). It will fail
-                // with a UnsatisfiedLinkError because requested library doesn't exits.
-                VMRuntime.getRuntime().setTargetSdkVersion(24);
-                Method loadMethod =
-                        Runtime.class.getDeclaredMethod("load", String.class, ClassLoader.class);
-                loadMethod.setAccessible(true);
-                loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
-                fail();
-            } catch(InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsatisfiedLinkError);
-            }
-
-            try {
-                // Call Runtime#load(String, ClassLoader) at API level 25. It will fail
-                // with a IllegalStateException because it's deprecated.
-                VMRuntime.getRuntime().setTargetSdkVersion(25);
-                Method loadMethod =
-                        Runtime.class.getDeclaredMethod("load", String.class, ClassLoader.class);
-                loadMethod.setAccessible(true);
-                loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
-                fail();
-            } catch(InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsupportedOperationException);
-            }
-        } finally {
-            VMRuntime.getRuntime().setTargetSdkVersion(savedTargetSdkVersion);
+            // Call Runtime#load(String, ClassLoader) at API level 24 (N). It will fail
+            // with an UnsatisfiedLinkError because requested library doesn't exist.
+            Method loadMethod =
+                    Runtime.class.getDeclaredMethod("load", String.class, ClassLoader.class);
+            loadMethod.setAccessible(true);
+            loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
+            fail();
+        } catch(InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsatisfiedLinkError);
         }
     }
 
     // b/25859957
-    public void test_loadLibraryDeprecated() throws Exception {
-        final int savedTargetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+    @TargetSdkVersion(25)
+    public void test_loadDeprecated_targetSdkVersion_25() throws Exception {
         try {
-            try {
-                // Call Runtime#loadLibrary(String, ClassLoader) at API level 24 (N). It will fail
-                // with a UnsatisfiedLinkError because requested library doesn't exits.
-                VMRuntime.getRuntime().setTargetSdkVersion(24);
-                Method loadMethod =
-                        Runtime.class.getDeclaredMethod("loadLibrary", String.class, ClassLoader.class);
-                loadMethod.setAccessible(true);
-                loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
-                fail();
-            } catch(InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsatisfiedLinkError);
-            }
+            // Call Runtime#load(String, ClassLoader) at API level 25. It will fail
+            // with an IllegalStateException because it's deprecated.
+            Method loadMethod =
+                    Runtime.class.getDeclaredMethod("load", String.class, ClassLoader.class);
+            loadMethod.setAccessible(true);
+            loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
+            fail();
+        } catch(InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsupportedOperationException);
+        }
+    }
 
-            try {
-                // Call Runtime#load(String, ClassLoader) at API level 25. It will fail
-                // with a IllegalStateException because it's deprecated.
+    // b/25859957
+    @TargetSdkVersion(24)
+    public void test_loadLibraryDeprecated_targetSdkVersion_24() throws Exception {
+        try {
+            // Call Runtime#loadLibrary(String, ClassLoader) at API level 24 (N). It will fail
+            // with a UnsatisfiedLinkError because requested library doesn't exits.
+            Method loadMethod =
+                    Runtime.class.getDeclaredMethod("loadLibrary", String.class, ClassLoader.class);
+            loadMethod.setAccessible(true);
+            loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
+            fail();
+        } catch(InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsatisfiedLinkError);
+        }
+    }
 
-                VMRuntime.getRuntime().setTargetSdkVersion(25);
-                Method loadMethod =
-                        Runtime.class.getDeclaredMethod("loadLibrary", String.class, ClassLoader.class);
-                loadMethod.setAccessible(true);
-                loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
-                fail();
-            } catch(InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsupportedOperationException);
-            }
-        } finally {
-            VMRuntime.getRuntime().setTargetSdkVersion(savedTargetSdkVersion);
+    // b/25859957
+    @TargetSdkVersion(25)
+    public void test_loadLibraryDeprecated_targetSdkVersion_25() throws Exception {
+        try {
+            // Call Runtime#load(String, ClassLoader) at API level 25. It will fail
+            // with a IllegalStateException because it's deprecated.
+            Method loadMethod =
+                    Runtime.class.getDeclaredMethod("loadLibrary", String.class, ClassLoader.class);
+            loadMethod.setAccessible(true);
+            loadMethod.invoke(Runtime.getRuntime(), "nonExistentLibrary", null);
+            fail();
+        } catch(InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsupportedOperationException);
         }
     }
 }

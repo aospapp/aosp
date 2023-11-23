@@ -45,4 +45,60 @@ public interface IMapsHelper extends IAppHelper {
      * Best effort attempt to stop navigation, and go back to the directions screen.
      */
     public void stopNavigation();
+
+    /**
+     * Setup expectation: Destination is selected.
+     *
+     * Goes to the details screen for the selected destination.
+     */
+    default public void openAddressDetails() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the destination details screen.
+     *
+     * Flings down the destination details screen.
+     */
+    default public void flingAddressDetails() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the navigation screen.
+     *
+     * <p>Click the home button to go to the navigation pip page.
+     */
+    public default void goToNavigatePip() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the home screen.
+     *
+     * <p>Click the navigation pip to go to the navigation page.
+     */
+    public default void backToNavigationFromPip() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the standard Map screen in any setup.
+     *
+     * <p>Best effort attempt to go to the query screen (if not currently there),
+     * does a search.
+     */
+    public default void inputSearch(String query) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the search screen.
+     *
+     * <p>Best effort attempt to go to the query screen (if not currently there),
+     * selects the results.
+     */
+    public default void startSearch() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

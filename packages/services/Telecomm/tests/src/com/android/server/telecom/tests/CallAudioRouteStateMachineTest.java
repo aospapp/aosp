@@ -538,11 +538,34 @@ public class CallAudioRouteStateMachineTest extends TelecomSystemTest {
         initializationTestHelper(expectedState, CallAudioRouteStateMachine.EARPIECE_FORCE_DISABLED);
     }
 
+    @SmallTest
+    @Test
+    public void testInitializationWithAvailableButInactiveBtDevice() {
+        CallAudioState expectedState = new CallAudioState(false, CallAudioState.ROUTE_EARPIECE,
+                CallAudioState.ROUTE_SPEAKER | CallAudioState.ROUTE_BLUETOOTH
+                        | CallAudioState.ROUTE_EARPIECE);
+        when(mockBluetoothRouteManager.isBluetoothAvailable()).thenReturn(true);
+        when(mockBluetoothRouteManager.hasBtActiveDevice()).thenReturn(false);
+
+        CallAudioRouteStateMachine stateMachine = new CallAudioRouteStateMachine(
+                mContext,
+                mockCallsManager,
+                mockBluetoothRouteManager,
+                mockWiredHeadsetManager,
+                mockStatusBarNotifier,
+                mAudioServiceFactory,
+                CallAudioRouteStateMachine.EARPIECE_FORCE_ENABLED);
+        stateMachine.initialize();
+        assertEquals(expectedState, stateMachine.getCurrentCallAudioState());
+    }
+
     private void initializationTestHelper(CallAudioState expectedState,
             int earpieceControl) {
         when(mockWiredHeadsetManager.isPluggedIn()).thenReturn(
                 (expectedState.getSupportedRouteMask() & CallAudioState.ROUTE_WIRED_HEADSET) != 0);
         when(mockBluetoothRouteManager.isBluetoothAvailable()).thenReturn(
+                (expectedState.getSupportedRouteMask() & CallAudioState.ROUTE_BLUETOOTH) != 0);
+        when(mockBluetoothRouteManager.hasBtActiveDevice()).thenReturn(
                 (expectedState.getSupportedRouteMask() & CallAudioState.ROUTE_BLUETOOTH) != 0);
 
         CallAudioRouteStateMachine stateMachine = new CallAudioRouteStateMachine(

@@ -21,11 +21,15 @@ import com.android.tradefed.config.OptionClass;
 import java.io.File;
 
 /** Class that can receive and provide options to a {@link ISandbox}. */
-@OptionClass(alias = "sandbox", global_namespace = false)
+@OptionClass(alias = "sandbox", global_namespace = true)
 public final class SandboxOptions {
 
     public static final String TF_LOCATION = "tf-location";
     public static final String SANDBOX_BUILD_ID = "sandbox-build-id";
+    public static final String USE_PROTO_REPORTER = "use-proto-reporter";
+    public static final String CHILD_GLOBAL_CONFIG = "sub-global-config";
+    public static final String PARENT_PREPARER_CONFIG = "parent-preparer-config";
+    public static final String WAIT_FOR_EVENTS_TIMEOUT = "wait-for-events";
 
     @Option(
         name = TF_LOCATION,
@@ -41,6 +45,35 @@ public final class SandboxOptions {
     )
     private String mBuildId = null;
 
+    @Option(
+        name = USE_PROTO_REPORTER,
+        description = "Whether or not to use protobuf format reporting between processes."
+    )
+    private boolean mUseProtoReporter = true;
+
+    @Option(
+            name = CHILD_GLOBAL_CONFIG,
+            description =
+                    "Force a particular configuration to be used as global configuration for the"
+                            + " sandbox.")
+    private String mChildGlobalConfig = null;
+
+    @Option(
+        name = PARENT_PREPARER_CONFIG,
+        description =
+                "A configuration which target_preparers will be run in the parent of the sandbox."
+    )
+    private String mParentPreparerConfig = null;
+
+    @Option(
+        name = WAIT_FOR_EVENTS_TIMEOUT,
+        isTimeVal = true,
+        description =
+                "The time we should wait for all events to complete after the "
+                        + "sandbox is done running."
+    )
+    private long mWaitForEventsTimeoutMs = 30000L;
+
     /**
      * Returns the provided directories containing the Trade Federation version to use for
      * sandboxing the run.
@@ -52,5 +85,30 @@ public final class SandboxOptions {
     /** Returns the build-id forced for the sandbox to be used during the run. */
     public String getSandboxBuildId() {
         return mBuildId;
+    }
+
+    /** Returns whether or not protobuf reporting should be used. */
+    public boolean shouldUseProtoReporter() {
+        return mUseProtoReporter;
+    }
+
+    /**
+     * Returns the configuration to be used for the child sandbox. Or null if the parent one should
+     * be used.
+     */
+    public String getChildGlobalConfig() {
+        return mChildGlobalConfig;
+    }
+
+    /** Returns the configuration which preparer should run in the parent process of the sandbox. */
+    public String getParentPreparerConfig() {
+        return mParentPreparerConfig;
+    }
+
+    /**
+     * Returns the time we should wait for events to be processed after the sandbox is done running.
+     */
+    public long getWaitForEventsTimeout() {
+        return mWaitForEventsTimeoutMs;
     }
 }

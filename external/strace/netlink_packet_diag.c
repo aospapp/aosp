@@ -37,6 +37,7 @@
 #include <linux/sock_diag.h>
 #include <linux/packet_diag.h>
 
+#include "xlat/af_packet_versions.h"
 #include "xlat/packet_diag_attrs.h"
 #include "xlat/packet_diag_info_flags.h"
 #include "xlat/packet_diag_show.h"
@@ -52,8 +53,11 @@ DECL_NETLINK_DIAG_DECODER(decode_packet_diag_req)
 		if (!umoven_or_printaddr(tcp, addr + offset,
 					 sizeof(req) - offset,
 					 (char *) &req + offset)) {
-			PRINT_FIELD_XVAL("", req, sdiag_protocol,
-					 ethernet_protocols, "ETH_P_???");
+			/*
+			 * AF_PACKET currently doesn't support protocol values
+			 * other than 0.
+			 */
+			PRINT_FIELD_X("", req, sdiag_protocol);
 			PRINT_FIELD_U(", ", req, pdiag_ino);
 			PRINT_FIELD_FLAGS(", ", req, pdiag_show,
 					  packet_diag_show, "PACKET_SHOW_???");
@@ -77,8 +81,9 @@ decode_packet_diag_info(struct tcb *const tcp,
 	if (umove_or_printaddr(tcp, addr, &pinfo))
 		return true;
 
-	PRINT_FIELD_U("{", pinfo, pdi_index);
-	PRINT_FIELD_U(", ", pinfo, pdi_version);
+	PRINT_FIELD_IFINDEX("{", pinfo, pdi_index);
+	PRINT_FIELD_XVAL(", ", pinfo, pdi_version, af_packet_versions,
+			 "TPACKET_???");
 	PRINT_FIELD_U(", ", pinfo, pdi_reserve);
 	PRINT_FIELD_U(", ", pinfo, pdi_copy_thresh);
 	PRINT_FIELD_U(", ", pinfo, pdi_tstamp);
@@ -94,8 +99,7 @@ print_packet_diag_mclist(struct tcb *const tcp, void *const elem_buf,
 			 const size_t elem_size, void *const opaque_data)
 {
 	struct packet_diag_mclist *dml = elem_buf;
-	uint16_t alen = dml->pdmc_alen > sizeof(dml->pdmc_addr) ?
-		sizeof(dml->pdmc_addr) : dml->pdmc_alen;
+	uint16_t alen = MIN(dml->pdmc_alen, sizeof(dml->pdmc_addr));
 
 	PRINT_FIELD_IFINDEX("{", *dml, pdmc_index);
 	PRINT_FIELD_U(", ", *dml, pdmc_count);
@@ -120,7 +124,7 @@ decode_packet_diag_mclist(struct tcb *const tcp,
 		return false;
 
 	print_array(tcp, addr, nmemb, &dml, sizeof(dml),
-		    umoven_or_printaddr, print_packet_diag_mclist, 0);
+		    tfetch_mem, print_packet_diag_mclist, 0);
 
 	return true;
 }
@@ -171,7 +175,7 @@ static const nla_decoder_t packet_diag_msg_nla_decoders[] = {
 	[PACKET_DIAG_RX_RING]	= decode_packet_diag_ring,
 	[PACKET_DIAG_TX_RING]	= decode_packet_diag_ring,
 	[PACKET_DIAG_FANOUT]	= decode_nla_u32,
-	[PACKET_DIAG_UID]	= decode_nla_u32,
+	[PACKET_DIAG_UID]	= decode_nla_uid,
 	[PACKET_DIAG_MEMINFO]	= decode_nla_meminfo,
 	[PACKET_DIAG_FILTER]	= decode_packet_diag_filter
 };
@@ -190,7 +194,10 @@ DECL_NETLINK_DIAG_DECODER(decode_packet_diag_msg)
 					 (char *) &msg + offset)) {
 			PRINT_FIELD_XVAL("", msg, pdiag_type,
 					 socktypes, "SOCK_???");
-			PRINT_FIELD_U(", ", msg, pdiag_num);
+			PRINT_FIELD_XVAL_SORTED_SIZED(", ", msg, pdiag_num,
+						      ethernet_protocols,
+						      ethernet_protocols_size,
+						      "ETH_P_???");
 			PRINT_FIELD_U(", ", msg, pdiag_ino);
 			PRINT_FIELD_COOKIE(", ", msg, pdiag_cookie);
 			decode_nla = true;

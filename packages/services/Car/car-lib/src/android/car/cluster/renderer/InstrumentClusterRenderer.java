@@ -18,16 +18,15 @@ package android.car.cluster.renderer;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UiThread;
-import android.car.navigation.CarNavigationInstrumentCluster;
 import android.content.Context;
 
 /**
- * Interface for instrument cluster rendering.
- *
- * TODO: implement instrument cluster feature list and extend API. bug: 32060603
+ * @deprecated This class is unused. Refer to {@link InstrumentClusterRenderingService} for
+ * documentation on how to build a instrument cluster renderer.
  *
  * @hide
  */
+@Deprecated
 @SystemApi
 public abstract class InstrumentClusterRenderer {
 

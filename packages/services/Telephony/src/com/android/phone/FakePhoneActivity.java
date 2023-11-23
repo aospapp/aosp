@@ -19,13 +19,14 @@ package com.android.phone;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.os.Bundle;
-import com.android.internal.telephony.test.SimulatedRadioControl;
 import android.util.Log;
-import android.view.View.OnClickListener;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import com.android.internal.telephony.test.SimulatedRadioControl;
 
 /**
  * A simple activity that presents you with a UI for faking incoming phone operations.

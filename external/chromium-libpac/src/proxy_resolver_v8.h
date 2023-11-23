@@ -6,25 +6,19 @@
 #define NET_PROXY_PROXY_RESOLVER_V8_H_
 #pragma once
 
-#include <utils/String16.h>
+#include <string>
 
 #include "proxy_resolver_js_bindings.h"
+#include "proxy_resolver_v8_wrapper.h"
 
 namespace net {
-
-typedef void* RequestHandle;
-typedef void* CompletionCallback;
-
-#define OK 0
-#define ERR_PAC_SCRIPT_FAILED -1
-#define ERR_FAILED -2
 
 class ProxyErrorListener {
 protected:
   virtual ~ProxyErrorListener() {}
 public:
-  virtual void AlertMessage(android::String16 message) = 0;
-  virtual void ErrorMessage(android::String16 error) = 0;
+  virtual void AlertMessage(const std::string& message) = 0;
+  virtual void ErrorMessage(const std::string& error) = 0;
 };
 
 // Implementation of ProxyResolver that uses V8 to evaluate PAC scripts.
@@ -50,6 +44,8 @@ class ProxyResolverV8 {
   // Constructs a ProxyResolverV8 with custom bindings. ProxyResolverV8 takes
   // ownership of |custom_js_bindings| and deletes it when ProxyResolverV8
   // is destroyed.
+  explicit ProxyResolverV8(ProxyResolverJSBindings* custom_js_bindings);
+  // This constructor should only be used for test.
   explicit ProxyResolverV8(ProxyResolverJSBindings* custom_js_bindings,
           ProxyErrorListener* error_listener);
 
@@ -57,10 +53,10 @@ class ProxyResolverV8 {
 
   ProxyResolverJSBindings* js_bindings() { return js_bindings_; }
 
-  virtual int GetProxyForURL(const android::String16 spec, const android::String16 host,
-                             android::String16* results);
+  virtual int GetProxyForURL(const std::u16string& spec, const std::u16string& host,
+                             std::u16string* results);
   virtual void PurgeMemory();
-  virtual int SetPacScript(const android::String16& script_data);
+  virtual int SetPacScript(const std::u16string& script_data);
 
  private:
   // Context holds the Javascript state for the most recently loaded PAC

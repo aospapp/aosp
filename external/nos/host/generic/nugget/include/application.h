@@ -75,6 +75,8 @@ typedef const void * const __private;
 
 /* Fake apps used only for testing */
 #define APP_ID_AVB_TEST          0x11
+#define APP_ID_TRANSPORT_TEST    0x12
+#define APP_ID_FACEAUTH_TEST     0x13
 
 /* This app ID should only be used by tests. */
 #define APP_ID_TEST              0xff
@@ -199,33 +201,82 @@ typedef void (write_to_app_fn_t)(uint32_t command,
  * then performs the requested operation and transititions to a "done" state.
  * The Master will retrieve the application status and any reply data from
  * Nugget OS, after which the application is ready to handle the next command.
- *
+ */
+
+#define TRANSPORT_V0    0x0000
+#define TRANSPORT_V1    0x0001
+
+/* Command information for the transport protocol. */
+struct transport_command_info {
+  /* v1 fields */
+  uint16_t length;           /* length of this message */
+  uint16_t version;          /* max version used by master */
+  uint16_t crc;              /* CRC of some command fields */
+  uint16_t reply_len_hint;   /* max that the master will read */
+} __packed;
+
+#define COMMAND_INFO_MIN_LENGTH 8
+#define COMMAND_INFO_MAX_LENGTH 32
+/* If more data needs to be sent, chain a new struct to the end of this one. It
+ * will require its own CRC for data integrity and something to signify the
+ * presence of the extra data. */
+
+struct transport_status {
+  /* v0 fields */
+  uint32_t status;         /* status of the app */
+  uint16_t reply_len;      /* length of available response data */
+  /* v1 fields */
+  uint16_t length;         /* length of this message */
+  uint16_t version;        /* max version used by slave */
+  uint16_t flags;          /* space for more protocol state flags */
+  uint16_t crc;            /* CRC of this status with crc set to 0 */
+  uint16_t reply_crc;      /* CRC of the reply data */
+} __packed;
+
+/* Valid range of lengths for the status message */
+#define STATUS_MIN_LENGTH 0x10
+#define STATUS_MAX_LENGTH 0xff
+
+/* Flags used in the status message */
+#define STATUS_FLAG_WORKING 0x0001 /* added in v1 */
+
+/* Pre-calculated CRCs for different status responses set by in the interrupt
+ * context where the CRC would otherwise not be calculated. */
+#define STATUS_CRC_FOR_IDLE              0x54c1
+#define STATUS_CRC_FOR_WORKING           0x2101
+#define STATUS_CRC_FOR_ERROR_TOO_MUCH    0x97c0
+
+/*
  * Applications that wish to use this transport API will need to declare a
  * private struct app_transport which Nugget OS can use to maintain the state:
  */
-
 struct app_transport {
-  uint32_t command;                           /* from master */
-  volatile uint32_t status;                   /* current application status */
-  uint8_t *request, *response;                /* input/output data buffer */
-  uint16_t max_request_len, max_response_len; /* data buffer sizes */
-  uint16_t request_len, response_len;         /* current buffer count */
-  uint16_t request_idx, response_idx;         /* used internally */
   void (*done_fn)(struct app_transport *);    /* optional cleanup function */
   /* Note: Any done_fn() is called in interrupt context. Be quick. */
+  uint8_t *const request;                     /* input data buffer */
+  uint8_t *const response;                    /* output data buffer */
+  const uint16_t max_request_len;             /* input data buffer size */
+  const uint16_t max_response_len;            /* output data buffer size */
+  /* The following are used for the incoming command. */
+  uint32_t command;                           /* from master */
+  union {
+    struct transport_command_info info;
+    uint8_t data[COMMAND_INFO_MAX_LENGTH];    /* space for future growth */
+  } command_info;                             /* extra info about the command */
+  uint16_t request_len;                       /* command data buffer size */
+  uint16_t response_idx;                      /* current index into response */
+  struct transport_status status[2];          /* current transport_status */
+  volatile uint8_t status_idx;                /* index of active status */
 };
 
 /*
- * TODO(b/66104849): Note that request and response buffers are transferred as
- * byte streams. However, if they will eventually represent structs, the usual
- * ABI alignment requirements will be required. Until we've declared all
- * applications structs in a union, we will need to align the buffers manually.
- * Use this to declare the uint8_t buffers until then:
+ * Note that request and response buffers are transferred as byte streams.
+ * However, if they will eventually represent structs, the usual ABI alignment
+ * requirements will be required. Until we've declared all applications structs
+ * in a union, we will need to align the buffers manually. Use this to declare
+ * the uint8_t buffers until then:
  */
 #define __TRANSPORT_ALIGNED__ __attribute__((aligned(8)))
-
-/* For debugging if needed */
-extern void dump_transport_state(const struct app_transport *s);
 
 /*
  * The application will need to provide a write_to_app_fn_t function that will
@@ -233,9 +284,18 @@ extern void dump_transport_state(const struct app_transport *s);
  * parameters will already be present in the app's struct app_transport, so it
  * just needs to awaken the application task to do the work.
  *
+ * When awakened, the application task must check that there were no errors in
+ * the transmission of the request by calling this function. If it returns
+ * true, the task should go back to sleep until the next request arrives.
+ */
+int request_is_invalid(struct app_transport *s);
+/*
  * When processing is finished, the app should call the app_reply() function to
- * return its status code and specify length of any data it has placed into the
- * response buffer, and then it can go back to sleep until its next invocation.
+ * return its status code and specify the length of any data it has placed into
+ * the response buffer, and then it can go back to sleep until its next
+ * invocation. CAUTION: The Master polls for app completion independently, so
+ * it may immediately begin retrieving the results as soon as this function
+ * is called *without* waiting for the Nugget OS app to go to sleep.
  */
 void app_reply(struct app_transport *st, uint32_t status, uint16_t reply_len);
 
@@ -248,6 +308,9 @@ enum app_status {
   APP_ERROR_TOO_MUCH,        /* caller sent too much data */
   APP_ERROR_IO,              /* problem sending or receiving data */
   APP_ERROR_RPC,             /* problem during RPC communication */
+  APP_ERROR_CHECKSUM,        /* checksum failed, only used within protocol */
+  APP_ERROR_BUSY,            /* the app is already working on a commnad */
+  APP_ERROR_TIMEOUT,         /* the app took too long to respond */
   /* more? */
 
   APP_SPECIFIC_ERROR = 0x20, /* "should be enough for anybody" */
@@ -314,6 +377,7 @@ extern write_to_app_fn_t transaction_api_to_fn;
 
 /* Command flags used internally by Transport API messages */
 #define CMD_TRANSPORT       0x40000000    /* 1=Transport API message */
+/* When CMD_TRANSPORT is set, the following bits have meaning */
 #define CMD_IS_DATA         0x20000000    /* 1=data msg 0=status msg */
 #define CMD_MORE_TO_COME    0x10000000    /* 1=continued 0=new */
 

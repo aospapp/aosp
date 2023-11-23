@@ -25,14 +25,14 @@ LOCAL_MODULE_TAGS := optional
 # When built, explicitly put it in the data partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_STATIC_JAVA_LIBRARIES := \
-	ctstestrunner \
-	compatibility-device-util
+	ctstestrunner-axt \
+	compatibility-device-util-axt
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := 29
 LOCAL_JAVA_LIBRARIES += android.test.runner
 LOCAL_JAVA_LIBRARIES += android.test.base
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts-instant
 
 include $(BUILD_CTS_PACKAGE)
 
@@ -47,7 +47,7 @@ LOCAL_MODULE_CLASS := APPS
 LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts-instant
 
 LOCAL_REPLACE_PREBUILT_APK_INSTALLED := $(LOCAL_PATH)/apk/signed-CtsSecureElementAccessControlTestCases3.apk
 

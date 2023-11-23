@@ -188,9 +188,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {new CurrencyAmount(1f, Currency.getInstance("EUR")), "1 €"},
             {new CurrencyAmount(12f, Currency.getInstance("EUR")), "12 €"},
             {new CurrencyAmount(123f, Currency.getInstance("EUR")), "120 €"},
-            {new CurrencyAmount(1234f, Currency.getInstance("EUR")), "1,2 Tsd. €"},
-            {new CurrencyAmount(12345f, Currency.getInstance("EUR")), "12 Tsd. €"},
-            {new CurrencyAmount(123456f, Currency.getInstance("EUR")), "120 Tsd. €"},
+            {new CurrencyAmount(1234f, Currency.getInstance("EUR")), "1200 €"},
+            {new CurrencyAmount(12345f, Currency.getInstance("EUR")), "12.000 €"},
+            {new CurrencyAmount(123456f, Currency.getInstance("EUR")), "120.000 €"},
             {new CurrencyAmount(1234567f, Currency.getInstance("EUR")), "1,2 Mio. €"},
             {new CurrencyAmount(12345678f, Currency.getInstance("EUR")), "12 Mio. €"},
             {new CurrencyAmount(123456789f, Currency.getInstance("EUR")), "120 Mio. €"},
@@ -226,15 +226,15 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {1234f, "elfu\u00a01.2"},
             {12345f, "elfu\u00a012"},
             {123456f, "elfu\u00A0120"},
-            {1234567f, "M1.2"},
-            {12345678f, "M12"},
-            {123456789f, "M120"},
-            {1234567890f, "B1.2"},
-            {12345678901f, "B12"},
-            {123456789012f, "B120"},
-            {1234567890123f, "T1.2"},
-            {12345678901234f, "T12"},
-            {12345678901234567890f, "T12,000,000"},
+            {1234567f, "1.2M"},
+            {12345678f, "12M"},
+            {123456789f, "120M"},
+            {1234567890f, "1.2B"},
+            {12345678901f, "12B"},
+            {123456789012f, "120B"},
+            {1234567890123f, "1.2T"},
+            {12345678901234f, "12T"},
+            {12345678901234567890f, "12,000,000T"},
     };
 
     Object[][] CsTestDataShort = {
@@ -270,15 +270,15 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {-1234f, "elfu\u00a0-1.2"},
             {-12345f, "elfu\u00a0-12"},
             {-123456f, "elfu\u00a0-120"},
-            {-1234567f, "M-1.2"},
-            {-12345678f, "M-12"},
-            {-123456789f, "M-120"},
-            {-1234567890f, "B-1.2"},
-            {-12345678901f, "B-12"},
-            {-123456789012f, "B-120"},
-            {-1234567890123f, "T-1.2"},
-            {-12345678901234f, "T-12"},
-            {-12345678901234567890f, "T-12,000,000"},
+            {-1234567f, "-1.2M"},
+            {-12345678f, "-12M"},
+            {-123456789f, "-120M"},
+            {-1234567890f, "-1.2B"},
+            {-12345678901f, "-12B"},
+            {-123456789012f, "-120B"},
+            {-1234567890123f, "-1.2T"},
+            {-12345678901234f, "-12T"},
+            {-12345678901234567890f, "-12,000,000T"},
     };
 
     Object[][] TestACoreCompactFormatList = {
@@ -377,12 +377,12 @@ public class CompactDecimalFormatTest extends TestFmwk {
         CompactDecimalFormat cdf =
                 getCDFInstance(ULocale.forLanguageTag("sw"), CompactStyle.SHORT);
         AttributedCharacterIterator iter = cdf.formatToCharacterIterator(1234567);
-        assertEquals("CharacterIterator", "M1.2", iterToString(iter));
+        assertEquals("CharacterIterator", "1.2M", iterToString(iter));
         iter = cdf.formatToCharacterIterator(1234567);
-        iter.setIndex(1);
+        iter.setIndex(0);
         assertEquals("Attributes", NumberFormat.Field.INTEGER, iter.getAttribute(NumberFormat.Field.INTEGER));
-        assertEquals("Attributes", 1, iter.getRunStart());
-        assertEquals("Attributes", 2, iter.getRunLimit());
+        assertEquals("Attributes", 0, iter.getRunStart());
+        assertEquals("Attributes", 1, iter.getRunLimit());
     }
 
     @Test
@@ -393,7 +393,7 @@ public class CompactDecimalFormatTest extends TestFmwk {
     @Test
     public void TestArabicLongStyle() {
         NumberFormat cdf =
-                CompactDecimalFormat.getInstance(new Locale("ar"), CompactStyle.LONG);
+                CompactDecimalFormat.getInstance(new Locale("ar-EG"), CompactStyle.LONG);
         assertEquals("Arabic Long", "\u061C-\u0665\u066B\u0663 \u0623\u0644\u0641", cdf.format(-5300));
     }
 
@@ -464,9 +464,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
         FieldPosition fp = new FieldPosition(0);
         StringBuffer sb = new StringBuffer();
         cdf.format(1234567f, sb, fp);
-        assertEquals("fp string", "M1.2", sb.toString());
-        assertEquals("fp start", 1, fp.getBeginIndex());
-        assertEquals("fp end", 2, fp.getEndIndex());
+        assertEquals("fp string", "1.2M", sb.toString());
+        assertEquals("fp start", 0, fp.getBeginIndex());
+        assertEquals("fp end", 1, fp.getEndIndex());
     }
 
     @Test
@@ -690,17 +690,17 @@ public class CompactDecimalFormatTest extends TestFmwk {
         assertEquals("CDF should correctly format 43000 in 'ar'", "٤٣ ألف", result);
 
         // Bug #12449
-        cdf = CompactDecimalFormat.getInstance(new ULocale("ar"), CompactDecimalFormat.CompactStyle.SHORT);
+        cdf = CompactDecimalFormat.getInstance(new ULocale("ar-EG"), CompactDecimalFormat.CompactStyle.SHORT);
         cdf.setMaximumSignificantDigits(3);
         result = cdf.format(1234);
-        assertEquals("CDF should correctly format 1234 with 3 significant digits in 'ar'", "١٫٢٣ ألف", result);
+        assertEquals("CDF should correctly format 1234 with 3 significant digits in 'ar-EG'", "١٫٢٣ ألف", result);
 
         // Check currency formatting as well
-        cdf = CompactDecimalFormat.getInstance(new ULocale("ar"), CompactDecimalFormat.CompactStyle.SHORT);
+        cdf = CompactDecimalFormat.getInstance(new ULocale("ar-EG"), CompactDecimalFormat.CompactStyle.SHORT);
         result = cdf.format(new CurrencyAmount(43000f, Currency.getInstance("USD")));
-        assertEquals("CDF should correctly format 43000 with currency in 'ar'", "US$ ٤٣ ألف", result);
+        assertEquals("CDF should correctly format 43000 with currency in 'ar-EG'", "US$ ٤٣ ألف", result);
         result = cdf.format(new CurrencyAmount(-43000f, Currency.getInstance("USD")));
-        assertEquals("CDF should correctly format -43000 with currency in 'ar'", "؜-US$ ٤٣ ألف", result);
+        assertEquals("CDF should correctly format -43000 with currency in 'ar-EG'", "؜-US$ ٤٣ ألف", result);
 
         // Extra locale with different positive/negative formats
         cdf = CompactDecimalFormat.getInstance(new ULocale("fi"), CompactDecimalFormat.CompactStyle.SHORT);
@@ -758,9 +758,9 @@ public class CompactDecimalFormatTest extends TestFmwk {
     public void TestBug12975() {
         ULocale locale = new ULocale("it");
         CompactDecimalFormat cdf = CompactDecimalFormat.getInstance(locale, CompactStyle.SHORT);
-        String resultCdf = cdf.format(120000);
+        String resultCdf = cdf.format(12000);
         DecimalFormat df = (DecimalFormat) DecimalFormat.getInstance(locale);
-        String resultDefault = df.format(120000);
+        String resultDefault = df.format(12000);
         assertEquals("CompactDecimalFormat should use default pattern when compact pattern is unavailable",
                      resultDefault, resultCdf);
     }

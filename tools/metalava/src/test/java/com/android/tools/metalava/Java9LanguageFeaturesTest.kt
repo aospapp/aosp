@@ -48,7 +48,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
                   }
                 }
                 """,
-            extraArguments = arrayOf("--java-source", "1.9")
+            extraArguments = arrayOf(ARG_JAVA_SOURCE, "1.9")
         )
     }
 
@@ -143,7 +143,7 @@ class Java9LanguageFeaturesTest : DriverTest() {
                   }
                 }
                 """,
-            extraArguments = arrayOf("--java-source", "1.9")
+            extraArguments = arrayOf(ARG_JAVA_SOURCE, "1.9")
         )
     }
 }

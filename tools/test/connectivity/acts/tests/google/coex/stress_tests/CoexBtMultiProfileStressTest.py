@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -13,7 +13,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+"""
+Test to check MultiProfile Stress with Wlan.
 
+Test Setup:
+
+One Android device.
+"""
 import time
 
 from acts.test_utils.bt import BtEnum
@@ -26,24 +32,24 @@ from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
 class CoexBtMultiProfileStressTest(CoexBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
+        super().setup_class()
         self.receiver = self.relay_devices[1]
         req_params = ["iterations"]
         self.unpack_userparams(req_params)
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
-        self.audio_receiver.pairing_mode()
+        super().setup_test()
+        self.audio_receiver.enter_pairing_mode()
         self.receiver.setup()
         self.receiver.power_on()
-        self.receiver.pairing_mode()
+        self.receiver.enter_pairing_mode()
 
     def teardown_test(self):
         clear_bonded_devices(self.pri_ad)
-        CoexBaseTest.teardown_test(self)
+        super().teardown_test()
         self.audio_receiver.clean_up()
         self.receiver.clean_up()
 

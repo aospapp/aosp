@@ -20,7 +20,7 @@ import (
 
 type moduleType struct {
 	name    string
-	factory blueprint.ModuleFactory
+	factory ModuleFactory
 }
 
 var moduleTypes []moduleType
@@ -40,8 +40,6 @@ type mutator struct {
 	parallel        bool
 }
 
-var mutators []*mutator
-
 type ModuleFactory func() Module
 
 // ModuleFactoryAdaptor wraps a ModuleFactory into a blueprint.ModuleFactory by converting a Module
@@ -60,12 +58,15 @@ type SingletonFactory func() Singleton
 func SingletonFactoryAdaptor(factory SingletonFactory) blueprint.SingletonFactory {
 	return func() blueprint.Singleton {
 		singleton := factory()
-		return singletonAdaptor{singleton}
+		if makevars, ok := singleton.(SingletonMakeVarsProvider); ok {
+			registerSingletonMakeVarsProvider(makevars)
+		}
+		return &singletonAdaptor{Singleton: singleton}
 	}
 }
 
 func RegisterModuleType(name string, factory ModuleFactory) {
-	moduleTypes = append(moduleTypes, moduleType{name, ModuleFactoryAdaptor(factory)})
+	moduleTypes = append(moduleTypes, moduleType{name, factory})
 }
 
 func RegisterSingletonType(name string, factory SingletonFactory) {
@@ -90,7 +91,7 @@ func (ctx *Context) Register() {
 	}
 
 	for _, t := range moduleTypes {
-		ctx.RegisterModuleType(t.name, t.factory)
+		ctx.RegisterModuleType(t.name, ModuleFactoryAdaptor(t.factory))
 	}
 
 	for _, t := range singletons {
@@ -99,5 +100,17 @@ func (ctx *Context) Register() {
 
 	registerMutators(ctx.Context, preArch, preDeps, postDeps)
 
+	// Register makevars after other singletons so they can export values through makevars
+	ctx.RegisterSingletonType("makevars", SingletonFactoryAdaptor(makeVarsSingletonFunc))
+
+	// Register env last so that it can track all used environment variables
 	ctx.RegisterSingletonType("env", SingletonFactoryAdaptor(EnvSingleton))
+}
+
+func ModuleTypeFactories() map[string]ModuleFactory {
+	ret := make(map[string]ModuleFactory)
+	for _, t := range moduleTypes {
+		ret[t.name] = t.factory
+	}
+	return ret
 }

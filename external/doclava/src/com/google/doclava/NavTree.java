@@ -26,6 +26,7 @@ import java.util.TreeMap;
 
 public class NavTree {
 
+  /* @deprecated This method was used for an older version of DAC, circa 2012, retired May 2018 */
   public static void writeNavTree(String dir, String refPrefix) {
     List<Node> children = new ArrayList<Node>();
     for (PackageInfo pkg : Doclava.choosePackages()) {

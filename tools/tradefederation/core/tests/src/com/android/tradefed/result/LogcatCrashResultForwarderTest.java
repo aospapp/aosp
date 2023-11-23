@@ -105,8 +105,8 @@ public class LogcatCrashResultForwarderTest {
     }
 
     /**
-     * Test that if a crash is note detected at testFailed but later found at testRunFailed, we
-     * still add the extracted information to the failure.
+     * Test that if a crash is not detected at testFailed but later found at testRunFailed, we still
+     * add the extracted information to the failure.
      */
     @Test
     @SuppressWarnings("MustBeClosedChecker")
@@ -138,6 +138,52 @@ public class LogcatCrashResultForwarderTest {
                 EasyMock.contains(
                         "instrumentation failed. reason: 'Process crashed.'"
                                 + "\nCrash Message:Runtime"));
+
+        EasyMock.replay(mMockListener, mMockDevice);
+        mReporter.testStarted(test, 0L);
+        mReporter.testFailed(test, "Something went wrong.");
+        mReporter.testEnded(test, 5L, new HashMap<String, Metric>());
+        mReporter.testRunFailed("instrumentation failed. reason: 'Process crashed.'");
+        EasyMock.verify(mMockListener, mMockDevice);
+    }
+
+    /**
+     * Test that if several crashes are detected and they are the same repeated stack, then we
+     * ignore the duplicate for readability.
+     */
+    @Test
+    @SuppressWarnings("MustBeClosedChecker")
+    public void testCaptureTestCrash_duplicateStack() {
+        mReporter = new LogcatCrashResultForwarder(mMockDevice, mMockListener);
+        TestDescription test = new TestDescription("com.class", "test");
+
+        mMockListener.testStarted(test, 0L);
+
+        String logcat =
+                "04-25 09:55:47.799  wifi  64  82 E AndroidRuntime: java.lang.Exception: test\n"
+                        + "04-25 09:55:47.799  wifi  64  82 E AndroidRuntime: "
+                        + "\tat class.method1(Class.java:1)\n"
+                        + "04-25 09:55:47.799  wifi  64  82 E AndroidRuntime: "
+                        + "\tat class.method2(Class.java:2)\n"
+                        + "04-25 09:55:47.799  wifi  65  90 E AndroidRuntime: "
+                        + "java.lang.Exception: test\n"
+                        + "04-25 09:55:47.799  wifi  65  90 E AndroidRuntime: "
+                        + "\tat class.method1(Class.java:1)\n"
+                        + "04-25 09:55:47.799  wifi  65  90 E AndroidRuntime: "
+                        + "\tat class.method2(Class.java:2)\n";
+
+        EasyMock.expect(mMockDevice.getLogcatSince(0L))
+                .andReturn(new ByteArrayInputStreamSource(logcat.getBytes()));
+        // No crash added at the point of testFailed.
+        mMockListener.testFailed(test, "Something went wrong.");
+        mMockListener.testEnded(test, 5L, new HashMap<String, Metric>());
+        // If a run failure comes with a crash detected, expect it to contain the additional stack.
+        mMockListener.testRunFailed(
+                EasyMock.eq(
+                        "instrumentation failed. reason: 'Process crashed.'"
+                                + "\nCrash Message:test\njava.lang.Exception: test\n"
+                                + "\tat class.method1(Class.java:1)\n"
+                                + "\tat class.method2(Class.java:2)\n"));
 
         EasyMock.replay(mMockListener, mMockDevice);
         mReporter.testStarted(test, 0L);

@@ -27,32 +27,36 @@
 namespace android {
 namespace hardware {
 
-// An object similar in function to a status_t except that it understands
-// how exceptions are encoded in the prefix of a Parcel. Used like:
+// HIDL formally separates transport error codes from interface error codes. When developing a HIDL
+// interface, errors relevant to a service should be placed in the interface design for that HAL.
 //
-//     Parcel data;
-//     Parcel reply;
-//     status_t status;
-//     binder::Status remote_exception;
-//     if ((status = data.writeInterfaceToken(interface_descriptor)) != OK ||
-//         (status = data.writeInt32(function_input)) != OK) {
-//         // We failed to write into the memory of our local parcel?
-//     }
-//     if ((status = remote()->transact(transaction, data, &reply)) != OK) {
-//        // Something has gone wrong in the binder driver or libbinder.
-//     }
-//     if ((status = remote_exception.readFromParcel(reply)) != OK) {
-//         // The remote didn't correctly write the exception header to the
-//         // reply.
-//     }
-//     if (!remote_exception.isOk()) {
-//         // The transaction went through correctly, but the remote reported an
-//         // exception during handling.
-//     }
+// For instance:
 //
+//     interface I* {
+//         enum FooStatus { NO_FOO, NO_BAR }; // service-specific errors
+//         doFoo(...) generates (FooStatus foo);
+//     };
+//
+// When calling into this interface, a Return<*> (in this case Return<FooStatus> object will be
+// returned). For most clients, it's expected that they'll just get the result from this function
+// and use it directly. If there is a transport error, the process will just abort. In general,
+// transport errors are expected only in extremely rare circumstances (bug in the
+// code/cosmic radiation/etc..). Aborting allows process to restart using their normal happy path
+// code.
+//
+// For certain processes though which are critical to the functionality of the phone (e.g.
+// hwservicemanager/init), these errors must be handled. Return<*>::isOk and
+// Return<*>::isDeadObject are provided for these cases. Whenever this is done, special attention
+// should be paid to testing the unhappy paths to make sure that error handling is handled
+// properly.
+
+// Transport implementation detail. HIDL implementors, see Return below. HAL implementations should
+// return HIDL-defined errors rather than use this.
 class Status final {
 public:
-    // Keep the exception codes in sync with android/os/Parcel.java.
+    // Note: forked from
+    // - frameworks/base/core/java/android/os/android/os/Parcel.java.
+    // - frameworks/native/libs/binder/include/binder/Status.h
     enum Exception {
         EX_NONE = 0,
         EX_SECURITY = -1,
@@ -139,19 +143,16 @@ namespace details {
 
         template <typename T, typename U>
         friend Return<U> StatusOf(const Return<T> &other);
-    protected:
-        void assertOk() const;
     public:
+        void assertOk() const;
         return_status() {}
         return_status(const Status& s) : mStatus(s) {}
 
         return_status(const return_status &) = delete;
         return_status &operator=(const return_status &) = delete;
 
-        return_status(return_status &&other) {
-            *this = std::move(other);
-        }
-        return_status &operator=(return_status &&other);
+        return_status(return_status&& other) noexcept { *this = std::move(other); }
+        return_status& operator=(return_status&& other) noexcept;
 
         ~return_status();
 
@@ -187,6 +188,26 @@ namespace details {
     };
 }  // namespace details
 
+enum class HidlReturnRestriction {
+    // Okay to ignore checking transport errors. This would instead rely on init to reset state
+    // after an error in the underlying transport. This is the default and expected for most
+    // usecases.
+    NONE,
+    // Log when there is an unchecked error.
+    ERROR_IF_UNCHECKED,
+    // Fatal when there is an unchecked error.
+    FATAL_IF_UNCHECKED,
+};
+
+/**
+ * This should be called during process initialization (e.g. before binder threadpool is created).
+ *
+ * Note: default of HidlReturnRestriction::NONE should be good for most usecases. See above.
+ *
+ * The restriction will be applied when Return objects are deconstructed.
+ */
+void setProcessHidlReturnRestriction(HidlReturnRestriction restriction);
+
 template<typename T> class Return : public details::return_status {
 private:
     T mVal {};
@@ -197,8 +218,8 @@ public:
     // move-able.
     // precondition: "this" has checked status
     // postcondition: other is safe to destroy after moving to *this.
-    Return(Return &&other) = default;
-    Return &operator=(Return &&) = default;
+    Return(Return&& other) noexcept = default;
+    Return& operator=(Return&&) noexcept = default;
 
     ~Return() = default;
 
@@ -226,8 +247,8 @@ public:
     // move-able.
     // precondition: "this" has checked status
     // postcondition: other is safe to destroy after moving to *this.
-    Return(Return &&other) = default;
-    Return &operator=(Return &&) = default;
+    Return(Return&& other) noexcept = default;
+    Return& operator=(Return&&) noexcept = default;
 
     ~Return() = default;
 

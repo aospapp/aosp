@@ -4,7 +4,7 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/mkdir.html
 
-USE_MKDIR(NEWTOY(mkdir, "<1"USE_MKDIR_Z("Z:")"vpm:", TOYFLAG_BIN|TOYFLAG_UMASK))
+USE_MKDIR(NEWTOY(mkdir, "<1"USE_MKDIR_Z("Z:")"vp(parent)(parents)m:", TOYFLAG_BIN|TOYFLAG_UMASK))
 
 config MKDIR
   bool "mkdir"
@@ -14,9 +14,9 @@ config MKDIR
 
     Create one or more directories.
 
-    -m	set permissions of directory to mode
-    -p	make parent directories as needed
-    -v	verbose
+    -m	Set permissions of directory to mode
+    -p	Make parent directories as needed
+    -v	Verbose
 
 config MKDIR_Z
   bool
@@ -25,15 +25,14 @@ config MKDIR_Z
   help
     usage: [-Z context]
 
-    -Z	set security context
+    -Z	Set security context
 */
 
 #define FOR_mkdir
 #include "toys.h"
 
 GLOBALS(
-  char *arg_mode;
-  char *arg_context;
+  char *m, *Z;
 )
 
 void mkdir_main(void)
@@ -42,14 +41,14 @@ void mkdir_main(void)
   mode_t mode = (0777&~toys.old_umask);
 
   if (CFG_MKDIR_Z && (toys.optflags&FLAG_Z))
-    if (0>lsm_set_create(TT.arg_context))
-      perror_exit("-Z '%s' failed", TT.arg_context);
+    if (0>lsm_set_create(TT.Z))
+      perror_exit("-Z '%s' failed", TT.Z);
 
-  if (TT.arg_mode) mode = string_to_mode(TT.arg_mode, 0777);
+  if (TT.m) mode = string_to_mode(TT.m, 0777);
 
   // Note, -p and -v flags line up with mkpathat() flags
   for (s=toys.optargs; *s; s++) {
-    if (mkpathat(AT_FDCWD, *s, mode, toys.optflags|1))
+    if (mkpathat(AT_FDCWD, *s, mode, toys.optflags|MKPATHAT_MKLAST))
       perror_msg("'%s'", *s);
   }
 }

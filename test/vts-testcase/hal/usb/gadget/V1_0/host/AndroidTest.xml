@@ -15,6 +15,8 @@
 -->
 <configuration description="Config for VtsHalUsbGadgetV1_0Host test cases">
     <option name="config-descriptor:metadata" key="plan" value="vts-staging-default" />
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal-host" />
+    <option name="config-descriptor:metadata" key="plan" value="vts-hal" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
     </target_preparer>

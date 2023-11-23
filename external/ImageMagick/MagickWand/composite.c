@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -43,6 +43,7 @@
 #include "MagickWand/studio.h"
 #include "MagickWand/MagickWand.h"
 #include "MagickWand/mogrify-private.h"
+#include "MagickCore/composite-private.h"
 #include "MagickCore/string-private.h"
 
 /*
@@ -70,6 +71,7 @@ typedef struct _CompositeOptions
     offset;
 
   MagickBooleanType
+    clip_to_self,
     stereo,
     tile;
 } CompositeOptions;
@@ -111,6 +113,9 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
   Image *composite_image,CompositeOptions *composite_options,
   ExceptionInfo *exception)
 {
+  const char
+    *value;
+
   MagickStatusType
     status;
 
@@ -121,7 +126,16 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
   if ((*image)->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",(*image)->filename);
   assert(exception != (ExceptionInfo *) NULL);
+  (void) image_info;
   status=MagickTrue;
+  composite_options->clip_to_self=GetCompositeClipToSelf(
+    composite_options->compose);
+  value=GetImageOption(image_info,"compose:clip-to-self");
+  if (value != (const char *) NULL)
+    composite_options->clip_to_self=IsStringTrue(value);
+  value=GetImageOption(image_info,"compose:outside-overlay");
+  if (value != (const char *) NULL)
+    composite_options->clip_to_self=IsStringFalse(value);  /* deprecated */
   if (composite_image != (Image *) NULL)
     {
       ChannelType
@@ -191,7 +205,6 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
               /*
                 Tile the composite image.
               */
-              (void) SetImageArtifact(*image,"compose:outside-overlay","false");
               columns=composite_image->columns;
               for (y=0; y < (ssize_t) (*image)->rows; y+=(ssize_t) composite_image->rows)
                 for (x=0; x < (ssize_t) (*image)->columns; x+=(ssize_t) columns)
@@ -218,8 +231,8 @@ static MagickBooleanType CompositeImageList(ImageInfo *image_info,Image **image,
                 Digitally composite image.
               */
               status&=CompositeImage(*image,composite_image,
-                composite_options->compose,MagickTrue,geometry.x,geometry.y,
-                exception);
+                composite_options->compose,composite_options->clip_to_self,
+                geometry.x,geometry.y,exception);
             }
       (void) SetPixelChannelMask(composite_image,channel_mask);
     }
@@ -369,9 +382,10 @@ static MagickBooleanType CompositeUsage(void)
   return(MagickFalse);
 }
 
-static void GetCompositeOptions(CompositeOptions *composite_options)
+static void GetCompositeOptions(const ImageInfo *image_info,
+  CompositeOptions *composite_options)
 {
-  (void) ResetMagickMemory(composite_options,0,sizeof(*composite_options));
+  (void) memset(composite_options,0,sizeof(*composite_options));
   composite_options->channel=DefaultChannels;
   composite_options->compose=OverCompositeOp;
 }
@@ -467,7 +481,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
     }
   if (argc < 4)
     return(CompositeUsage());
-  GetCompositeOptions(&composite_options);
+  GetCompositeOptions(image_info,&composite_options);
   filename=(char *) NULL;
   format="%w,%h,%m";
   j=1;
@@ -510,9 +524,6 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
       }
     if (IsCommandOption(option) == MagickFalse)
       {
-        Image
-          *images;
-
         /*
           Read input image.
         */
@@ -1157,7 +1168,7 @@ WandExport MagickBooleanType CompositeImageCommand(ImageInfo *image_info,
             status=MogrifyImageInfo(image_info,(int) (i-j+1),(const char **)
               argv+j,exception);
             DestroyComposite();
-            return(status == 0 ? MagickTrue : MagickFalse);
+            return(status == 0 ? MagickFalse : MagickTrue);
           }
         if (LocaleCompare("log",option+1) == 0)
           {

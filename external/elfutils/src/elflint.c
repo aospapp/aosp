@@ -1,5 +1,5 @@
 /* Pedantic checking of ELF files compliance with gABI/psABI spec.
-   Copyright (C) 2001-2015 Red Hat, Inc.
+   Copyright (C) 2001-2015, 2017, 2018 Red Hat, Inc.
    This file is part of elfutils.
    Written by Ulrich Drepper <drepper@redhat.com>, 2001.
 
@@ -24,7 +24,6 @@
 #include <assert.h>
 #include <byteswap.h>
 #include <endian.h>
-#include <error.h>
 #include <fcntl.h>
 #include <gelf.h>
 #include <inttypes.h>
@@ -35,10 +34,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <sys/param.h>
 
 #include <elf-knowledge.h>
+#include <libeu.h>
 #include <system.h>
+#include <printversion.h>
 #include "../libelf/libelfP.h"
 #include "../libelf/common.h"
 #include "../libebl/libeblP.h"
@@ -48,7 +48,6 @@
 
 
 /* Name and version of program.  */
-static void print_version (FILE *stream, struct argp_state *state);
 ARGP_PROGRAM_VERSION_HOOK_DEF = print_version;
 
 /* Bug report address.  */
@@ -210,6 +209,7 @@ parse_opt (int key, char *arg __attribute__ ((unused)),
 
     case 'd':
       is_debuginfo = true;
+      break;
 
     case ARGP_gnuld:
       gnuld = true;
@@ -224,20 +224,6 @@ parse_opt (int key, char *arg __attribute__ ((unused)),
       return ARGP_ERR_UNKNOWN;
     }
   return 0;
-}
-
-
-/* Print the version information.  */
-static void
-print_version (FILE *stream, struct argp_state *state __attribute__ ((unused)))
-{
-  fprintf (stream, "elflint (%s) %s\n", PACKAGE_NAME, PACKAGE_VERSION);
-  fprintf (stream, gettext ("\
-Copyright (C) %s Red Hat, Inc.\n\
-This is free software; see the source for copying conditions.  There is NO\n\
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
-"), "2012");
-  fprintf (stream, gettext ("Written by %s.\n"), "Ulrich Drepper");
 }
 
 
@@ -344,7 +330,7 @@ static const int valid_e_machine[] =
     EM_CRIS, EM_JAVELIN, EM_FIREPATH, EM_ZSP, EM_MMIX, EM_HUANY, EM_PRISM,
     EM_AVR, EM_FR30, EM_D10V, EM_D30V, EM_V850, EM_M32R, EM_MN10300,
     EM_MN10200, EM_PJ, EM_OPENRISC, EM_ARC_A5, EM_XTENSA, EM_ALPHA,
-    EM_TILEGX, EM_TILEPRO, EM_AARCH64
+    EM_TILEGX, EM_TILEPRO, EM_AARCH64, EM_BPF, EM_RISCV
   };
 #define nvalid_e_machine \
   (sizeof (valid_e_machine) / sizeof (valid_e_machine[0]))
@@ -389,9 +375,9 @@ check_elf_header (Ebl *ebl, GElf_Ehdr *ehdr, size_t size)
 	   EI_OSABI,
 	   ebl_osabi_name (ebl, ehdr->e_ident[EI_OSABI], buf, sizeof (buf)));
 
-  /* No ABI versions other than zero supported either.  */
+  /* No ABI versions other than zero are supported either.  */
   if (ehdr->e_ident[EI_ABIVERSION] != 0)
-    ERROR (gettext ("unsupport ABI version e_ident[%d] == %d\n"),
+    ERROR (gettext ("unsupported ABI version e_ident[%d] == %d\n"),
 	   EI_ABIVERSION, ehdr->e_ident[EI_ABIVERSION]);
 
   for (cnt = EI_PAD; cnt < EI_NIDENT; ++cnt)
@@ -469,6 +455,24 @@ invalid number of section header table entries\n"));
 	ERROR (gettext ("invalid section header index\n"));
     }
 
+  /* Check the shdrs actually exist.  And uncompress them before
+     further checking.  Indexes between sections reference the
+     uncompressed data.  */
+  unsigned int scnt;
+  Elf_Scn *scn = NULL;
+  for (scnt = 1; scnt < shnum; ++scnt)
+     {
+	scn = elf_nextscn (ebl->elf, scn);
+	if (scn == NULL)
+	  break;
+	/* If the section wasn't compressed this does nothing, but
+	   returns an error.  We don't care.  */
+	elf_compress (scn, 0, 0);
+     }
+  if (scnt < shnum)
+    ERROR (gettext ("Can only check %u headers, shnum was %u\n"), scnt, shnum);
+  shnum = scnt;
+
   phnum = ehdr->e_phnum;
   if (ehdr->e_phnum == PN_XNUM)
     {
@@ -486,6 +490,19 @@ invalid number of program header table entries\n"));
 	    phnum = shdr->sh_info;
 	}
     }
+
+  /* Check the phdrs actually exist. */
+  unsigned int pcnt;
+  for (pcnt = 0; pcnt < phnum; ++pcnt)
+     {
+	GElf_Phdr phdr_mem;
+	GElf_Phdr *phdr = gelf_getphdr (ebl->elf, pcnt, &phdr_mem);
+	if (phdr == NULL)
+	  break;
+     }
+  if (pcnt < phnum)
+    ERROR (gettext ("Can only check %u headers, phnum was %u\n"), pcnt, phnum);
+  phnum = pcnt;
 
   /* Check the e_flags field.  */
   if (!ebl_machine_flag_check (ebl, ehdr->e_flags))
@@ -524,7 +541,7 @@ invalid number of program header table entries\n"));
       if (ehdr->e_shentsize != 0 && ehdr->e_shentsize != sizeof (Elf64_Shdr))
 	ERROR (gettext ("invalid section header size: %hd\n"),
 	       ehdr->e_shentsize);
-      else if (ehdr->e_shoff + ehdr->e_shnum * ehdr->e_shentsize > size)
+      else if (ehdr->e_shoff + shnum * ehdr->e_shentsize > size)
 	ERROR (gettext ("invalid section header position or size\n"));
     }
 }
@@ -779,7 +796,7 @@ section [%2d] '%s': symbol %zu: function in COMMON section is nonsense\n"),
 		st_value = sym->st_value;
 	      if (GELF_ST_TYPE (sym->st_info) != STT_TLS)
 		{
-		  if (! ebl_check_special_symbol (ebl, ehdr, sym, name,
+		  if (! ebl_check_special_symbol (ebl, sym, name,
 						  destshdr))
 		    {
 		      if (st_value - sh_addr > destshdr->sh_size)
@@ -939,7 +956,7 @@ section [%2d] '%s': symbol %zu: non-local section symbol\n"),
 		      destshdr = gelf_getshdr (gscn, &destshdr_mem);
 		      assert (destshdr != NULL);
 		      const char *sname = elf_strptr (ebl->elf,
-						      ehdr->e_shstrndx,
+						      shstrndx,
 						      destshdr->sh_name);
 		      if (sname != NULL)
 			{
@@ -960,7 +977,7 @@ section [%2d] '%s': symbol %zu: non-local section symbol\n"),
 
 	      const char *sname = ((destshdr == NULL || xndx == SHN_UNDEF)
 				   ? NULL
-				   : elf_strptr (ebl->elf, ehdr->e_shstrndx,
+				   : elf_strptr (ebl->elf, shstrndx,
 						 destshdr->sh_name));
 	      if (sname == NULL)
 		{
@@ -980,7 +997,7 @@ section [%2d] '%s'\n"),
 	      if (destshdr != NULL)
 		{
 		  /* Found it.  */
-		  if (!ebl_check_special_symbol (ebl, ehdr, sym, name,
+		  if (!ebl_check_special_symbol (ebl, sym, name,
 						 destshdr))
 		    {
 		      if (ehdr->e_type != ET_REL
@@ -1746,7 +1763,7 @@ section [%2d] '%s': entry %zu: pointer does not match address of section [%2d] '
 	  if (dyn->d_tag < DT_ADDRRNGLO || dyn->d_tag > DT_ADDRRNGHI)
 	    /* Value is no pointer.  */
 	    break;
-	  /* FALLTHROUGH */
+	  FALLTHROUGH;
 
 	case DT_AUXILIARY:
 	case DT_FILTER:
@@ -1972,7 +1989,8 @@ section [%2d] '%s': extended section index in section [%2zu] '%s' refers to same
       return;
     }
 
-  if (*((Elf32_Word *) data->d_buf) != 0)
+  if (data->d_size < sizeof (Elf32_Word)
+      || *((Elf32_Word *) data->d_buf) != 0)
     ERROR (gettext ("symbol 0 should have zero extended section index\n"));
 
   for (size_t cnt = 1; cnt < data->d_size / sizeof (Elf32_Word); ++cnt)
@@ -2005,11 +2023,14 @@ check_sysv_hash (Ebl *ebl, GElf_Shdr *shdr, Elf_Data *data, int idx,
   Elf32_Word nbucket = ((Elf32_Word *) data->d_buf)[0];
   Elf32_Word nchain = ((Elf32_Word *) data->d_buf)[1];
 
-  if (shdr->sh_size < (2 + nbucket + nchain) * shdr->sh_entsize)
-    ERROR (gettext ("\
+  if (shdr->sh_size < (2ULL + nbucket + nchain) * sizeof (Elf32_Word))
+    {
+      ERROR (gettext ("\
 section [%2d] '%s': hash table section is too small (is %ld, expected %ld)\n"),
-	   idx, section_name (ebl, idx), (long int) shdr->sh_size,
-	   (long int) ((2 + nbucket + nchain) * shdr->sh_entsize));
+	     idx, section_name (ebl, idx), (long int) shdr->sh_size,
+	     (long int) ((2 + nbucket + nchain) * sizeof (Elf32_Word)));
+      return;
+    }
 
   size_t maxidx = nchain;
 
@@ -2056,11 +2077,17 @@ check_sysv_hash64 (Ebl *ebl, GElf_Shdr *shdr, Elf_Data *data, int idx,
   Elf64_Xword nbucket = ((Elf64_Xword *) data->d_buf)[0];
   Elf64_Xword nchain = ((Elf64_Xword *) data->d_buf)[1];
 
-  if (shdr->sh_size < (2 + nbucket + nchain) * shdr->sh_entsize)
-    ERROR (gettext ("\
+  uint64_t maxwords = shdr->sh_size / sizeof (Elf64_Xword);
+  if (maxwords < 2
+      || maxwords - 2 < nbucket
+      || maxwords - 2 - nbucket < nchain)
+    {
+      ERROR (gettext ("\
 section [%2d] '%s': hash table section is too small (is %ld, expected %ld)\n"),
-	   idx, section_name (ebl, idx), (long int) shdr->sh_size,
-	   (long int) ((2 + nbucket + nchain) * shdr->sh_entsize));
+	     idx, section_name (ebl, idx), (long int) shdr->sh_size,
+	     (long int) ((2 + nbucket + nchain) * sizeof (Elf64_Xword)));
+      return;
+    }
 
   size_t maxidx = nchain;
 
@@ -2300,10 +2327,12 @@ section [%2d] '%s': hash table not for dynamic symbol table\n"),
 section [%2d] '%s': invalid sh_link symbol table section index [%2d]\n"),
 	   idx, section_name (ebl, idx), shdr->sh_link);
 
-  if (shdr->sh_entsize != (tag == SHT_GNU_HASH
+  size_t expect_entsize = (tag == SHT_GNU_HASH
 			   ? (gelf_getclass (ebl->elf) == ELFCLASS32
 			      ? sizeof (Elf32_Word) : 0)
-			   : (size_t) ebl_sysvhash_entrysize (ebl)))
+			   : (size_t) ebl_sysvhash_entrysize (ebl));
+
+  if (shdr->sh_entsize != expect_entsize)
     ERROR (gettext ("\
 section [%2d] '%s': hash table entry size incorrect\n"),
 	   idx, section_name (ebl, idx));
@@ -2312,7 +2341,7 @@ section [%2d] '%s': hash table entry size incorrect\n"),
     ERROR (gettext ("section [%2d] '%s': not marked to be allocated\n"),
 	   idx, section_name (ebl, idx));
 
-  if (shdr->sh_size < (tag == SHT_GNU_HASH ? 4 : 2) * (shdr->sh_entsize ?: 4))
+  if (shdr->sh_size < (tag == SHT_GNU_HASH ? 4 : 2) * (expect_entsize ?: 4))
     {
       ERROR (gettext ("\
 section [%2d] '%s': hash table has not even room for initial administrative entries\n"),
@@ -2482,7 +2511,7 @@ hash section [%2zu] '%s' uses too much data\n"),
 	    }
 	}
     }
-  else if (hash_shdr->sh_entsize == sizeof (Elf64_Word))
+  else if (hash_shdr->sh_entsize == sizeof (Elf64_Xword))
     {
       const Elf64_Xword *hasharr = (Elf64_Xword *) hash_data->d_buf;
       if (hash_data->d_size < 2 * sizeof (Elf32_Word))
@@ -2523,7 +2552,7 @@ hash section [%2zu] '%s' uses too much data\n"),
     {
       ERROR (gettext ("\
 hash section [%2zu] '%s' invalid sh_entsize\n"),
-	     gnu_hash_idx, gnu_hash_name);
+	     hash_idx, hash_name);
       return;
     }
 
@@ -2659,9 +2688,12 @@ section [%2d] '%s': section size not multiple of sizeof(Elf32_Word)\n"),
 	       idx, section_name (ebl, idx));
 
       if (data->d_size < elsize)
-	ERROR (gettext ("\
+	{
+	  ERROR (gettext ("\
 section [%2d] '%s': section group without flags word\n"),
 	       idx, section_name (ebl, idx));
+	  return;
+	}
       else if (be_strict)
 	{
 	  if (data->d_size < 2 * elsize)
@@ -2683,7 +2715,7 @@ section [%2d] '%s': section group with only one member\n"),
 	ERROR (gettext ("section [%2d] '%s': unknown section group flags\n"),
 	       idx, section_name (ebl, idx));
 
-      for (cnt = elsize; cnt < data->d_size; cnt += elsize)
+      for (cnt = elsize; cnt + elsize <= data->d_size; cnt += elsize)
 	{
 #if ALLOW_UNALIGNED
 	  val = *((Elf32_Word *) ((char *) data->d_buf + cnt));
@@ -3963,6 +3995,7 @@ section [%2zu] '%s': merge flag set but entry size is zero\n"),
 	    case SHT_NOBITS:
 	      if (is_debuginfo)
 		break;
+	      FALLTHROUGH;
 	    default:
 	      ERROR (gettext ("\
 section [%2zu] '%s' has unexpected type %d for an executable section\n"),
@@ -4106,7 +4139,7 @@ section [%2zu] '%s': ELF header says this is the section header string table but
 	    ERROR (gettext ("\
 section [%2zu] '%s': relocatable files cannot have dynamic symbol tables\n"),
 		   cnt, section_name (ebl, cnt));
-	  /* FALLTHROUGH */
+	  FALLTHROUGH;
 	case SHT_SYMTAB:
 	  check_symtab (ebl, ehdr, shdr, cnt);
 	  break;
@@ -4298,25 +4331,54 @@ section [%2d] '%s': unknown core file note type %" PRIu32
 	  case NT_GNU_HWCAP:
 	  case NT_GNU_BUILD_ID:
 	  case NT_GNU_GOLD_VERSION:
-	    break;
+	  case NT_GNU_PROPERTY_TYPE_0:
+	    if (nhdr.n_namesz == sizeof ELF_NOTE_GNU
+		&& strcmp (data->d_buf + name_offset, ELF_NOTE_GNU) == 0)
+	      break;
+	    else
+	      {
+		/* NT_VERSION is 1, same as NT_GNU_ABI_TAG.  It has no
+		   descriptor and (ab)uses the name as version string.  */
+		if (nhdr.n_descsz == 0 && nhdr.n_type == NT_VERSION)
+		  break;
+	      }
+	      goto unknown_note;
+
+	  case NT_GNU_BUILD_ATTRIBUTE_OPEN:
+	  case NT_GNU_BUILD_ATTRIBUTE_FUNC:
+	    /* GNU Build Attributes store most data in the owner
+	       name, which must start with the
+	       ELF_NOTE_GNU_BUILD_ATTRIBUTE_PREFIX "GA".  */
+	    if (nhdr.n_namesz >= sizeof ELF_NOTE_GNU_BUILD_ATTRIBUTE_PREFIX
+		&& strncmp (data->d_buf + name_offset,
+			    ELF_NOTE_GNU_BUILD_ATTRIBUTE_PREFIX,
+			    strlen (ELF_NOTE_GNU_BUILD_ATTRIBUTE_PREFIX)) == 0)
+	      break;
+	    else
+	      goto unknown_note;
 
 	  case 0:
 	    /* Linux vDSOs use a type 0 note for the kernel version word.  */
 	    if (nhdr.n_namesz == sizeof "Linux"
 		&& !memcmp (data->d_buf + name_offset, "Linux", sizeof "Linux"))
 	      break;
-
+	    FALLTHROUGH;
 	  default:
+	    {
+	    unknown_note:
 	    if (shndx == 0)
 	      ERROR (gettext ("\
-phdr[%d]: unknown object file note type %" PRIu32 " at offset %zu\n"),
-		     phndx, (uint32_t) nhdr.n_type, offset);
+phdr[%d]: unknown object file note type %" PRIu32 " with owner name '%s' at offset %zu\n"),
+		     phndx, (uint32_t) nhdr.n_type,
+		     (char *) data->d_buf + name_offset, offset);
 	    else
 	      ERROR (gettext ("\
 section [%2d] '%s': unknown object file note type %" PRIu32
-			      " at offset %zu\n"),
+			      " with owner name '%s' at offset %zu\n"),
 		     shndx, section_name (ebl, shndx),
-		     (uint32_t) nhdr.n_type, offset);
+		     (uint32_t) nhdr.n_type,
+		     (char *) data->d_buf + name_offset, offset);
+	    }
 	  }
     }
 
@@ -4343,7 +4405,8 @@ phdr[%d]: no note entries defined for the type of file\n"),
   GElf_Off notes_size = 0;
   Elf_Data *data = elf_getdata_rawchunk (ebl->elf,
 					 phdr->p_offset, phdr->p_filesz,
-					 ELF_T_NHDR);
+					 (phdr->p_align == 8
+					  ? ELF_T_NHDR8 : ELF_T_NHDR));
   if (data != NULL && data->d_buf != NULL)
     notes_size = check_note_data (ebl, ehdr, data, 0, cnt, phdr->p_offset);
 
@@ -4570,8 +4633,10 @@ program header offset in ELF header and PHDR entry do not match"));
 	      any = true;
 	      shdr = gelf_getshdr (scn, &shdr_mem);
 	      if (shdr != NULL
-		  && shdr->sh_type == (is_debuginfo
-				       ? SHT_NOBITS : SHT_PROGBITS)
+		  && ((is_debuginfo && shdr->sh_type == SHT_NOBITS)
+		      || (! is_debuginfo
+			  && (shdr->sh_type == SHT_PROGBITS
+			      || shdr->sh_type == SHT_X86_64_UNWIND)))
 		  && elf_strptr (ebl->elf, shstrndx, shdr->sh_name) != NULL
 		  && ! strcmp (".eh_frame_hdr",
 			       elf_strptr (ebl->elf, shstrndx, shdr->sh_name)))

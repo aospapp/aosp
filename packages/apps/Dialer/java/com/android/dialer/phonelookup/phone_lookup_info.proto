@@ -13,12 +13,13 @@ package com.android.dialer.phonelookup;
 // to an implementation of PhoneLookup. For example, field
 // "cp2_info_in_default_directory" corresponds to class
 // Cp2DefaultDirectoryPhoneLookup, and class Cp2DefaultDirectoryPhoneLookup
-// alone is responsible for populating it. Next ID: 7
+// alone is responsible for populating it.
+// Next ID: 11
 message PhoneLookupInfo {
   // Information about a PhoneNumber retrieved from CP2.
   message Cp2Info {
     // Information about a single contact.
-    // Next ID: 8
+    // Next ID: 9
     message Cp2ContactInfo {
       // For a contact in the default directory:
       //   android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY
@@ -65,6 +66,15 @@ message PhoneLookupInfo {
       //   constructed based on
       //   android.provider.ContactsContract.PhoneLookup.LOOKUP_KEY
       optional string lookup_uri = 7;
+
+      // For a contact in the default directory:
+      //    value set based on
+      //    android.provider.ContactsContract.CommonDataKinds.Phone.CARRIER_PRESENCE
+      // For a contact in other directories: always false.
+      //    This is because we lookup contacts in other directories via
+      //    android.provider.ContactsContract.PhoneLookup, to which carrier
+      //    presence info is not directly accessible.
+      optional bool can_support_carrier_video_call = 8;
     }
     // Repeated because one phone number can be associated with multiple CP2
     // contacts.
@@ -146,10 +156,45 @@ message PhoneLookupInfo {
   }
   optional SystemBlockedNumberInfo system_blocked_number_info = 4;
 
-  // Message for the dialer fallback for blocked number. Used in M or when the
-  // migration to the system has not been completed.
-  message DialerBlockedNumberInfo {
-    optional BlockedState blocked_state = 1;
+  // Information obtained via CNAP
+  // (https://en.wikipedia.org/wiki/Calling_Name_Presentation)
+  // Next ID: 2
+  message CnapInfo {
+    optional string name = 1;
   }
-  optional DialerBlockedNumberInfo dialer_blocked_number_info = 5;
+  optional CnapInfo cnap_info = 7;
+
+  // Information obtained via Cequint
+  // Next ID: 4
+  message CequintInfo {
+    optional string name = 1;
+
+    // Description of the geolocation (e.g., "Mountain View, CA")
+    optional string geolocation = 2;
+
+    optional string photo_uri = 3;
+  }
+  optional CequintInfo cequint_info = 8;
+
+  // Message indicating whether a number is an emergency number.
+  // Next ID: 2
+  message EmergencyInfo {
+    optional bool is_emergency_number = 1;
+  }
+  optional EmergencyInfo emergency_info = 9;
+
+  // Information cached in the old calllog
+  message MigratedInfo {
+    // The display name
+    optional string name = 1;
+    // Display label, i.e. "Home", "Mobile"
+    optional string label = 2;
+
+    optional string photo_uri = 3;
+
+    optional bool is_business = 4;
+    // ContactSource.Type
+    optional int32 source_type = 5;
+  }
+  optional MigratedInfo migrated_info = 10;
 }

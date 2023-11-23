@@ -16,27 +16,29 @@
 
 package com.android.car;
 
+import android.util.Log;
+
+import com.android.internal.annotations.GuardedBy;
+
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
-import com.android.internal.annotations.GuardedBy;
-import android.util.Log;
 
 public class VmsPublishersInfo {
     private static final String TAG = "VmsPublishersInfo";
     private static final boolean DBG = true;
+    private static final byte[] EMPTY_RESPONSE = new byte[0];
+
     private final Object mLock = new Object();
     @GuardedBy("mLock")
-    private final Map<InfoWrapper, Integer> mPublishersIds = new HashMap();
+    private final Map<InfoWrapper, Integer> mPublishersIds = new HashMap<>();
     @GuardedBy("mLock")
-    private final Map<Integer, byte[]> mPublishersInfo = new HashMap();
+    private final Map<Integer, byte[]> mPublishersInfo = new HashMap<>();
 
     private static class InfoWrapper {
         private final byte[] mInfo;
 
-        public InfoWrapper(byte[] info) {
+        InfoWrapper(byte[] info) {
             mInfo = info;
         }
 
@@ -78,7 +80,9 @@ public class VmsPublishersInfo {
 
     public byte[] getPublisherInfo(int publisherId) {
         synchronized (mLock) {
-            return mPublishersInfo.get(publisherId).clone();
+            return mPublishersInfo.containsKey(publisherId)
+                    ? mPublishersInfo.get(publisherId).clone()
+                    : EMPTY_RESPONSE;
         }
     }
 

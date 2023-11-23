@@ -23,19 +23,26 @@
  */ /*-------------------------------------------------------------------*/
 
 #include "es3cTestPackage.hpp"
+#include "es3cCopyTexImageConversionsTests.hpp"
+#include "glcAggressiveShaderOptimizationsTests.hpp"
 #include "glcExposedExtensionsTests.hpp"
 #include "glcFragDepthTests.hpp"
 #include "glcInfoTests.hpp"
-#include "glcShaderConstExprTests.hpp"
+#include "glcInternalformatTests.hpp"
+#include "glcPackedDepthStencilTests.hpp"
+#include "glcPackedPixelsTests.hpp"
 #include "glcParallelShaderCompileTests.hpp"
+#include "glcShaderConstExprTests.hpp"
 #include "glcShaderIndexingTests.hpp"
 #include "glcShaderIntegerMixTests.hpp"
 #include "glcShaderLibrary.hpp"
 #include "glcShaderLoopTests.hpp"
+#include "glcShaderMacroTests.hpp"
 #include "glcShaderNegativeTests.hpp"
 #include "glcShaderStructTests.hpp"
 #include "glcShaderSwitchTests.hpp"
 #include "glcTextureFilterAnisotropicTests.hpp"
+#include "glcTextureRepeatModeTests.hpp"
 #include "glcUniformBlockTests.hpp"
 #include "gluStateReset.hpp"
 #include "glwEnums.hpp"
@@ -125,17 +132,20 @@ public:
 	void init(void)
 	{
 		addChild(new deqp::ShaderLibraryGroup(m_context, "arrays", "Array Tests", "arrays.test"));
+		addChild(new deqp::ShaderLibraryGroup(m_context, "declarations", "Declaration Tests", "declarations.test"));
 		addChild(new deqp::FragDepthTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderIndexingTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderLoopTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderLibraryGroup(m_context, "preprocessor", "Preprocessor Tests", "preprocessor.test"));
 		addChild(new deqp::ShaderLibraryGroup(m_context, "literal_parsing", "Literal Parsing Tests",
 											  "literal_parsing.test"));
+		addChild(new deqp::ShaderLibraryGroup(m_context, "name_hiding", "Name Hiding Tests", "name_hiding.test"));
 		addChild(new deqp::ShaderStructTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderSwitchTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::UniformBlockTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderIntegerMixTests(m_context, glu::GLSL_VERSION_300_ES));
 		addChild(new deqp::ShaderNegativeTests(m_context, glu::GLSL_VERSION_300_ES));
+		addChild(new glcts::AggressiveShaderOptimizationsTests(m_context));
 	}
 };
 
@@ -158,11 +168,17 @@ void ES30TestPackage::init(void)
 	{
 		addChild(new ShaderTests(getContext()));
 		addChild(new glcts::TextureFilterAnisotropicTests(getContext()));
+		addChild(new glcts::TextureRepeatModeTests(getContext()));
 		addChild(new glcts::ExposedExtensionsTests(getContext()));
 		tcu::TestCaseGroup* coreGroup = new tcu::TestCaseGroup(getTestContext(), "core", "core tests");
 		coreGroup->addChild(new glcts::ShaderConstExprTests(getContext()));
+		coreGroup->addChild(new glcts::ShaderMacroTests(getContext()));
+		coreGroup->addChild(new glcts::InternalformatTests(getContext()));
 		addChild(coreGroup);
 		addChild(new glcts::ParallelShaderCompileTests(getContext()));
+		addChild(new glcts::PackedPixelsTests(getContext()));
+		addChild(new glcts::PackedDepthStencilTests(getContext()));
+		addChild(new es3cts::CopyTexImageConversionsTests(getContext()));
 	}
 	catch (...)
 	{

@@ -23,24 +23,19 @@ import static org.junit.Assert.assertTrue;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.cts.common.Constants;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.LauncherApps;
 import android.os.Bundle;
-import android.os.Handler;
 import android.platform.test.annotations.AppModeFull;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import com.android.compatibility.common.util.CddTest;
 
 @AppModeFull(reason = "Instant apps cannot provide or host app widgets")
 public class RequestPinAppWidgetTest extends AppWidgetTestCase {
@@ -68,7 +63,7 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
         Context context = getInstrumentation().getContext();
 
         // Request to pin widget
-        BlockingReceiver setupReceiver = new BlockingReceiver()
+        BlockingBroadcastReceiver setupReceiver = new BlockingBroadcastReceiver()
                 .register(Constants.ACTION_SETUP_REPLY);
 
         Bundle extras = new Bundle();
@@ -81,12 +76,11 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
 
         setupReceiver.await();
         // Verify that the confirmation dialog was opened
-        assertTrue(setupReceiver.mResult.getBooleanExtra(Constants.EXTRA_SUCCESS, false));
-        assertEquals(launcherPkg, setupReceiver.mResult.getStringExtra(Constants.EXTRA_PACKAGE));
-        setupReceiver.unregister();
+        assertTrue(setupReceiver.result.getBooleanExtra(Constants.EXTRA_SUCCESS, false));
+        assertEquals(launcherPkg, setupReceiver.result.getStringExtra(Constants.EXTRA_PACKAGE));
 
         LauncherApps.PinItemRequest req =
-                setupReceiver.mResult.getParcelableExtra(Constants.EXTRA_REQUEST);
+                setupReceiver.result.getParcelableExtra(Constants.EXTRA_REQUEST);
         assertNotNull(req);
         // Verify that multiple calls to getAppWidgetProviderInfo have proper dimension.
         boolean[] providerInfo = verifyInstalledProviders(Arrays.asList(
@@ -96,15 +90,15 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
         assertEquals(launcherPkg + "-dummy", req.getExtras().getString("dummy"));
 
         // Accept the request
-        BlockingReceiver resultReceiver = new BlockingReceiver().register(ACTION_PIN_RESULT);
+        BlockingBroadcastReceiver resultReceiver = new BlockingBroadcastReceiver()
+                .register(ACTION_PIN_RESULT);
         context.sendBroadcast(new Intent(Constants.ACTION_CONFIRM_PIN)
                 .setPackage(launcherPkg)
                 .putExtra("dummy", "dummy-2"));
         resultReceiver.await();
 
         // Verify that the result contain the extras
-        assertEquals("dummy-2", resultReceiver.mResult.getStringExtra("dummy"));
-        resultReceiver.unregister();
+        assertEquals("dummy-2", resultReceiver.result.getStringExtra("dummy"));
     }
 
     @Test
@@ -156,32 +150,5 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
     private void setLauncher(String component) throws Exception {
         runShellCommand("cmd package set-home-activity --user "
                 + getInstrumentation().getContext().getUserId() + " " + component);
-    }
-
-    private class BlockingReceiver extends BroadcastReceiver {
-        private final CountDownLatch notifier = new CountDownLatch(1);
-
-        private Intent mResult;
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            mResult = new Intent(intent);
-            notifier.countDown();
-        }
-
-        public BlockingReceiver register(String action) {
-            Context context = getInstrumentation().getContext();
-            context.registerReceiver(this, new IntentFilter(action),
-                    null, new Handler(context.getMainLooper()));
-            return this;
-        }
-
-        public void await() throws Exception {
-            assertTrue(notifier.await(20, TimeUnit.SECONDS));
-        }
-
-        public void unregister() {
-            getInstrumentation().getContext().unregisterReceiver(this);
-        }
     }
 }

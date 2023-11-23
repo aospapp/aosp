@@ -16,42 +16,52 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
-import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
+import android.media.cts.R;
+import android.media.cts.TestUtils.Monitor;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.compatibility.common.util.MediaUtils;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
+import org.apache.http.Header;
+import org.apache.http.HttpRequest;
+import org.apache.http.impl.DefaultHttpServerConnection;
+import org.apache.http.impl.io.SocketOutputBuffer;
+import org.apache.http.io.SessionOutputBuffer;
+import org.apache.http.params.HttpParams;
+import org.apache.http.util.CharArrayBuffer;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
+import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.Adler32;
 
+@SmallTest
+@RequiresDevice
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class NativeDecoderTest extends MediaPlayerTestBase {
     private static final String TAG = "DecoderTest";
@@ -85,32 +95,89 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
     // check that native extractor behavior matches java extractor
 
+    private void compareArrays(String message, int[] a1, int[] a2) {
+        if (a1 == a2) {
+            return;
+        }
+
+        assertNotNull(message + ": array 1 is null", a1);
+        assertNotNull(message + ": array 2 is null", a2);
+
+        assertEquals(message + ": arraylengths differ", a1.length, a2.length);
+        int length = a1.length;
+
+        for (int i = 0; i < length; i++)
+            if (a1[i] != a2[i]) {
+                Log.i("@@@@", Arrays.toString(a1));
+                Log.i("@@@@", Arrays.toString(a2));
+                fail(message + ": at index " + i);
+            }
+    }
+
     public void testExtractor() throws Exception {
         testExtractor(R.raw.sinesweepogg);
+        testExtractor(R.raw.sinesweepoggmkv);
+        testExtractor(R.raw.sinesweepoggmp4);
         testExtractor(R.raw.sinesweepmp3lame);
         testExtractor(R.raw.sinesweepmp3smpb);
+        testExtractor(R.raw.sinesweepopus);
+        testExtractor(R.raw.sinesweepopusmp4);
         testExtractor(R.raw.sinesweepm4a);
+        testExtractor(R.raw.sinesweepflacmkv);
         testExtractor(R.raw.sinesweepflac);
+        testExtractor(R.raw.sinesweepflacmp4);
         testExtractor(R.raw.sinesweepwav);
 
         testExtractor(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
         testExtractor(R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz);
         testExtractor(R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz);
+        testExtractor(R.raw.video_1280x720_webm_av1_2000kbps_30fps_vorbis_stereo_128kbps_48000hz);
         testExtractor(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz);
+        testExtractor(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz);
         testExtractor(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
 
         CtsTestServer foo = new CtsTestServer(mContext);
         testExtractor(foo.getAssetUrl("noiseandchirps.ogg"));
         testExtractor(foo.getAssetUrl("ringer.mp3"));
         testExtractor(foo.getRedirectingAssetUrl("ringer.mp3"));
+
+        String[] keys = new String[] {"header0", "header1"};
+        String[] values = new String[] {"value0", "value1"};
+        testExtractor(foo.getAssetUrl("noiseandchirps.ogg"), keys, values);
+        HttpRequest req = foo.getLastRequest("noiseandchirps.ogg");
+        for (int i = 0; i < keys.length; i++) {
+            String key = keys[i];
+            String value = values[i];
+            Header[] header = req.getHeaders(key);
+            assertTrue("expecting " + key + ":" + value + ", saw " + Arrays.toString(header),
+                    header.length == 1 && header[0].getValue().equals(value));
+        }
+
+        String[] emptyArray = new String[0];
+        testExtractor(foo.getAssetUrl("noiseandchirps.ogg"), emptyArray, emptyArray);
     }
 
     private void testExtractor(String path) throws Exception {
-        int[] jsizes = getSampleSizes(path);
-        int[] nsizes = getSampleSizesNativePath(path);
+        testExtractor(path, null, null);
+    }
 
-        //Log.i("@@@", Arrays.toString(jsizes));
-        assertTrue("different samplesizes", Arrays.equals(jsizes, nsizes));
+    /**
+     * |keys| and |values| should be arrays of the same length.
+     *
+     * If keys or values is null, test {@link MediaExtractor#setDataSource(String)}
+     * and NDK counter part, i.e. set data source without headers.
+     *
+     * If keys or values is zero length, test {@link MediaExtractor#setDataSource(String, Map))}
+     * and NDK counter part with null headers.
+     *
+     */
+    private void testExtractor(String path, String[] keys, String[] values) throws Exception {
+        int[] jsizes = getSampleSizes(path, keys, values);
+        int[] nsizes = getSampleSizesNativePath(path, keys, values, /* testNativeSource = */ false);
+        int[] nsizes2 = getSampleSizesNativePath(path, keys, values, /* testNativeSource = */ true);
+
+        compareArrays("different samplesizes", jsizes, nsizes);
+        compareArrays("different samplesizes native source", jsizes, nsizes2);
     }
 
     private void testExtractor(int res) throws Exception {
@@ -122,13 +189,27 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
                 fd.getParcelFileDescriptor().getFd(), fd.getStartOffset(), fd.getLength());
 
         fd.close();
-        //Log.i("@@@", Arrays.toString(jsizes));
-        assertTrue("different samplesizes", Arrays.equals(jsizes, nsizes));
+        compareArrays("different samples", jsizes, nsizes);
     }
 
-    private static int[] getSampleSizes(String path) throws IOException {
+    private static int[] getSampleSizes(String path, String[] keys, String[] values) throws IOException {
         MediaExtractor ex = new MediaExtractor();
-        ex.setDataSource(path);
+        if (keys == null || values == null) {
+            ex.setDataSource(path);
+        } else {
+            Map<String, String> headers = null;
+            int numheaders = Math.min(keys.length, values.length);
+            for (int i = 0; i < numheaders; i++) {
+                if (headers == null) {
+                    headers = new HashMap<>();
+                }
+                String key = keys[i];
+                String value = values[i];
+                headers.put(key, value);
+            }
+            ex.setDataSource(path, headers);
+        }
+
         return getSampleSizes(ex);
     }
 
@@ -172,6 +253,9 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             foo.add(ex.getSampleTrackIndex());
             foo.add(ex.getSampleFlags());
             foo.add((int)ex.getSampleTime()); // just the low bits should be OK
+            byte foobar[] = new byte[n];
+            buf.get(foobar, 0, n);
+            foo.add((int)adler32(foobar));
             ex.advance();
         }
 
@@ -183,7 +267,8 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     }
 
     private static native int[] getSampleSizesNative(int fd, long offset, long size);
-    private static native int[] getSampleSizesNativePath(String path);
+    private static native int[] getSampleSizesNativePath(
+            String path, String[] keys, String[] values, boolean testNativeSource);
 
     public void testExtractorFileDurationNative() throws Exception {
         int res = R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz;
@@ -220,25 +305,35 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
     public void testExtractorCachedDurationNative() throws Exception {
         CtsTestServer foo = new CtsTestServer(mContext);
-        long cachedDurationUs = getExtractorCachedDurationNative(foo.getAssetUrl("ringer.mp3"));
+        String url = foo.getAssetUrl("ringer.mp3");
+        long cachedDurationUs = getExtractorCachedDurationNative(url, /* testNativeSource = */ false);
         assertTrue("cached duration negative", cachedDurationUs >= 0);
+        cachedDurationUs = getExtractorCachedDurationNative(url, /* testNativeSource = */ true);
+        assertTrue("cached duration negative native source", cachedDurationUs >= 0);
     }
 
-    private static native long getExtractorCachedDurationNative(String uri);
+    private static native long getExtractorCachedDurationNative(String uri, boolean testNativeSource);
 
     public void testDecoder() throws Exception {
         int testsRun =
             testDecoder(R.raw.sinesweepogg) +
+            testDecoder(R.raw.sinesweepoggmkv) +
+            testDecoder(R.raw.sinesweepoggmp4) +
             testDecoder(R.raw.sinesweepmp3lame) +
             testDecoder(R.raw.sinesweepmp3smpb) +
+            testDecoder(R.raw.sinesweepopus) +
+            testDecoder(R.raw.sinesweepopusmp4) +
             testDecoder(R.raw.sinesweepm4a) +
+            testDecoder(R.raw.sinesweepflacmkv) +
             testDecoder(R.raw.sinesweepflac) +
+            testDecoder(R.raw.sinesweepflacmp4) +
             testDecoder(R.raw.sinesweepwav) +
 
             testDecoder(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz) +
             testDecoder(R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz) +
             testDecoder(R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz) +
             testDecoder(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
+            testDecoder(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz);
             testDecoder(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
         if (testsRun == 0) {
             MediaUtils.skipTest("no decoders found");
@@ -248,6 +343,18 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     public void testDataSource() throws Exception {
         int testsRun = testDecoder(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz,
                 /* wrapFd */ true, /* useCallback */ false);
+        if (testsRun == 0) {
+            MediaUtils.skipTest("no decoders found");
+        }
+    }
+
+    public void testDataSourceAudioOnly() throws Exception {
+        int testsRun = testDecoder(
+                R.raw.loudsoftmp3,
+                /* wrapFd */ true, /* useCallback */ false) +
+                testDecoder(
+                        R.raw.loudsoftaac,
+                        /* wrapFd */ false, /* useCallback */ false);
         if (testsRun == 0) {
             MediaUtils.skipTest("no decoders found");
         }
@@ -272,17 +379,21 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
         AssetFileDescriptor fd = mResources.openRawResourceFd(res);
 
-        int[] jdata = getDecodedData(
+        int[] jdata1 = getDecodedData(
                 fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
-        int[] ndata = getDecodedDataNative(
+        int[] jdata2 = getDecodedData(
+                fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+        int[] ndata1 = getDecodedDataNative(
+                fd.getParcelFileDescriptor().getFd(), fd.getStartOffset(), fd.getLength(), wrapFd,
+                useCallback);
+        int[] ndata2 = getDecodedDataNative(
                 fd.getParcelFileDescriptor().getFd(), fd.getStartOffset(), fd.getLength(), wrapFd,
                 useCallback);
 
         fd.close();
-        Log.i("@@@", Arrays.toString(jdata));
-        Log.i("@@@", Arrays.toString(ndata));
-        assertEquals("number of samples differs", jdata.length, ndata.length);
-        assertTrue("different decoded data", Arrays.equals(jdata, ndata));
+        compareArrays("inconsistent java decoder", jdata1, jdata2);
+        compareArrays("inconsistent native decoder", ndata1, ndata2);
+        compareArrays("different decoded data", jdata1, ndata1);
         return 1;
     }
 
@@ -329,7 +440,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
                     Log.i("@@@@", "track " + t + " buffer " + bufidx);
                     ByteBuffer buf = inbuffers[t][bufidx];
                     int sampleSize = ex.readSampleData(buf, 0);
-                    Log.i("@@@@", "read " + sampleSize);
+                    Log.i("@@@@", "read " + sampleSize + " @ " + ex.getSampleTime());
                     if (sampleSize < 0) {
                         sampleSize = 0;
                         sawInputEOS[t] = true;
@@ -428,21 +539,12 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
         dst.add( (int) (sum & 0xffffffff));
     }
 
+    private final static Adler32 checksummer = new Adler32(); 
     // simple checksum computed over every decoded buffer
-    static long adler32(byte[] input) {
-        int a = 1;
-        int b = 0;
-        for (int i = 0; i < input.length; i++) {
-            int unsignedval = input[i];
-            if (unsignedval < 0) {
-                unsignedval = 256 + unsignedval;
-            }
-            a += unsignedval;
-            b += a;
-        }
-        a = a % 65521;
-        b = b % 65521;
-        long ret = b * 65536 + a;
+    static int adler32(byte[] input) {
+        checksummer.reset();
+        checksummer.update(input);
+        int ret = (int) checksummer.getValue();
         Log.i("@@@", "adler " + input.length + "/" + ret);
         return ret;
     }
@@ -460,7 +562,11 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             testVideoPlayback(
                     R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz) +
             testVideoPlayback(
+                    R.raw.video_640x360_webm_av1_470kbps_30fps_vorbis_stereo_128kbps_48000hz) +
+            testVideoPlayback(
                     R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
+            testVideoPlayback(
+                    R.raw.video_176x144_mp4_mpeg2_105kbps_25fps_aac_stereo_128kbps_44100hz) +
             testVideoPlayback(
                     R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
         if (testsRun == 0) {
@@ -686,5 +792,144 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     }
 
     private static native boolean testCryptoInfoNative();
+
+    public void testMediaFormat() throws Exception {
+        assertTrue("native mediaformat failed, see log for details", testMediaFormatNative());
+    }
+
+    private static native boolean testMediaFormatNative();
+
+    public void testAMediaDataSourceClose() throws Throwable {
+
+        final CtsTestServer slowServer = new SlowCtsTestServer();
+        final String url = slowServer.getAssetUrl("noiseandchirps.ogg");
+        final long ds = createAMediaDataSource(url);
+        final long ex = createAMediaExtractor();
+
+        try {
+            setAMediaExtractorDataSourceAndFailIfAnr(ex, ds);
+        } finally {
+            slowServer.shutdown();
+            deleteAMediaExtractor(ex);
+            deleteAMediaDataSource(ds);
+        }
+
+    }
+
+    private void setAMediaExtractorDataSourceAndFailIfAnr(final long ex, final long ds)
+            throws Throwable {
+        final Monitor setAMediaExtractorDataSourceDone = new Monitor();
+        final int HEAD_START_MILLIS = 1000;
+        final int ANR_TIMEOUT_MILLIS = 2500;
+        final int JOIN_TIMEOUT_MILLIS = 1500;
+
+        Thread setAMediaExtractorDataSourceThread = new Thread() {
+            public void run() {
+                setAMediaExtractorDataSource(ex, ds);
+                setAMediaExtractorDataSourceDone.signal();
+            }
+        };
+
+        try {
+            setAMediaExtractorDataSourceThread.start();
+            Thread.sleep(HEAD_START_MILLIS);
+            closeAMediaDataSource(ds);
+            boolean closed = setAMediaExtractorDataSourceDone.waitForSignal(ANR_TIMEOUT_MILLIS);
+            assertTrue("close took longer than " + ANR_TIMEOUT_MILLIS, closed);
+        } finally {
+            setAMediaExtractorDataSourceThread.join(JOIN_TIMEOUT_MILLIS);
+        }
+
+    }
+
+    private class SlowCtsTestServer extends CtsTestServer {
+
+        private static final int SERVER_DELAY_MILLIS = 5000;
+        private final CountDownLatch mDisconnected = new CountDownLatch(1);
+
+        SlowCtsTestServer() throws Exception {
+            super(mContext);
+        }
+
+        @Override
+        protected DefaultHttpServerConnection createHttpServerConnection() {
+            return new SlowHttpServerConnection(mDisconnected, SERVER_DELAY_MILLIS);
+        }
+
+        @Override
+        public void shutdown() {
+            mDisconnected.countDown();
+            super.shutdown();
+        }
+    }
+
+    private static class SlowHttpServerConnection extends DefaultHttpServerConnection {
+
+        private final CountDownLatch mDisconnected;
+        private final int mDelayMillis;
+
+        public SlowHttpServerConnection(CountDownLatch disconnected, int delayMillis) {
+            mDisconnected = disconnected;
+            mDelayMillis = delayMillis;
+        }
+
+        @Override
+        protected SessionOutputBuffer createHttpDataTransmitter(
+                Socket socket, int buffersize, HttpParams params) throws IOException {
+            return createSessionOutputBuffer(socket, buffersize, params);
+        }
+
+        SessionOutputBuffer createSessionOutputBuffer(
+                Socket socket, int buffersize, HttpParams params) throws IOException {
+            return new SocketOutputBuffer(socket, buffersize, params) {
+                @Override
+                public void write(byte[] b) throws IOException {
+                    write(b, 0, b.length);
+                }
+
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    while (len-- > 0) {
+                        write(b[off++]);
+                    }
+                }
+
+                @Override
+                public void writeLine(String s) throws IOException {
+                    delay();
+                    super.writeLine(s);
+                }
+
+                @Override
+                public void writeLine(CharArrayBuffer buffer) throws IOException {
+                    delay();
+                    super.writeLine(buffer);
+                }
+
+                @Override
+                public void write(int b) throws IOException {
+                    delay();
+                    super.write(b);
+                }
+
+                private void delay() throws IOException {
+                    try {
+                        mDisconnected.await(mDelayMillis, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException e) {
+                        // Ignored
+                    }
+                }
+
+            };
+        }
+    }
+
+    private static native long createAMediaExtractor();
+    private static native long createAMediaDataSource(String url);
+    private static native int  setAMediaExtractorDataSource(long ex, long ds);
+    private static native void closeAMediaDataSource(long ds);
+    private static native void deleteAMediaExtractor(long ex);
+    private static native void deleteAMediaDataSource(long ds);
+
 }
 

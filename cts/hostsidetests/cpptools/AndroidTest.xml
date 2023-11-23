@@ -16,9 +16,18 @@
 <configuration description="Config for CTS CPP host test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="devtools" />
+    <!-- b/123333261 : run-as not working for instant apps -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsCppToolsApp.apk" />
+        <option name="test-file-name" value="CtsDomainSocket.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="connector->/data/local/tmp/connector" />
+        <option name="append-bitness" value="true" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsCppToolsTestCases.jar" />

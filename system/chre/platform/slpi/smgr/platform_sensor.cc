@@ -32,6 +32,7 @@ extern "C" {
 #include "chre_api/chre/sensor.h"
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/sensor.h"
+#include "chre/core/timer_pool.h"
 #include "chre/platform/assert.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
@@ -68,9 +69,12 @@ extern "C" {
 //       transition.
 //    3) The merged mode of a sensor is the strongest mode of all sensor
 //       requests of the same sensor ID, with active > passive > off.
-// 3. When SNS_SMGR_SENSOR_STATUS_MONITOR_IND_V02 from SMGR is received, a
-//    SNS_SMGR_CLIENT_REQUEST_INFO_REQ_V01 message is sent to query SMGR on the
-//    existence of other clients.
+// 3. When SNS_SMGR_SENSOR_STATUS_MONITOR_IND_V02 from SMGR is received, a new
+//    timer is set for kStatusDelayIntervalNanos in the future for each
+//    sensorId. Any future updates that occur before the timer fires are
+//    ignored.
+// 4. Once the timer fires, an asynchronous SNS_SMGR_CLIENT_REQUEST_INFO_REQ_V01
+//    message is sent to query SMGR on the existence of other clients.
 //    - If a transition from absence-to-presence of other clients is detected,
 //      all pending passive requests are made.
 //    - If a transition from presence-to-absence of other clients is deteted,
@@ -97,6 +101,10 @@ constexpr uint64_t kDefaultInterval = Seconds(1).toRawNanoseconds();
 //! The offset in nanoseconds each 32-bit tick rollover introduces in timestamp
 constexpr uint64_t kTickRolloverOffset =
     ((1ULL << 32) * Seconds(1).toRawNanoseconds()) / TIMETICK_NOMINAL_FREQ_HZ;
+
+//! The delay in nanoseconds between receiving a sensor status change
+//! and updating the sensor status.
+constexpr Nanoseconds kStatusDelayIntervalNanos = Milliseconds(20);
 
 smr_client_hndl gPlatformSensorServiceSmrClientHandle;
 smr_client_hndl gPlatformSensorInternalServiceSmrClientHandle;
@@ -367,10 +375,11 @@ void populateSensorDataHeader(
   while (slpiTime > baseTime + kTickRolloverOffset / 2) {
     baseTime += kTickRolloverOffset;
   }
-  memset(header->reserved, 0, sizeof(header->reserved));
+  header->reserved = 0;
   header->baseTimestamp = baseTime;
   header->sensorHandle = getSensorHandleFromSensorType(sensorType);
   header->readingCount = sensorIndex.SampleCount;
+  header->accuracy = CHRE_SENSOR_ACCURACY_UNKNOWN;
 }
 
 void populateThreeAxisEvent(
@@ -732,47 +741,114 @@ void onOtherClientPresenceChange(uint8_t sensorId, bool otherClientPresent) {
 }
 
 /**
- * Processes sensor status monitor indication message.
+ * Retrieves first valid sensor that has the given sensor ID. Can be
+ * invoked from any thread.
  *
- * @param status The new sensor status indication from SMGR
+ * @param sensorID The sensor handle that should be used to search
+ *     the current list of sensors.
+ * @return The first non-null Sensor that matches the given sensor handle or
+ *     nullptr if no match is found.
  */
-void onStatusChange(const sns_smgr_sensor_status_monitor_ind_msg_v02& status) {
-  size_t index = getSensorMonitorIndex(status.sensor_id);
-  if (index == gSensorMonitors.size()) {
-    LOGE("Sensor status monitor update of invalid sensor ID %" PRIu64,
-         status.sensor_id);
+Sensor *getFirstValidSensor(uint8_t sensorId) {
+  SensorType sensorTypes[kMaxNumSensorsPerSensorId];
+  size_t numSensorTypes = populateSensorTypeArrayFromSensorId(
+      sensorId, sensorTypes);
+
+  Sensor *sensor = nullptr;
+  for (size_t i = 0; i < numSensorTypes; i++) {
+    sensor = EventLoopManagerSingleton::get()
+        ->getSensorRequestManager().getSensor(sensorTypes[i]);
+    if (sensor != nullptr) {
+      break;
+    }
+  }
+  return sensor;
+}
+
+/**
+ * Processes the latest client request info response for the given sensor ID.
+ * Must be invoked from the CHRE thread.
+ *
+ * @param resp The SMGR client request info response.
+ * @param sensorId The sensor ID the response is for.
+ * @param transpErr The error related to the request.
+ */
+void onClientRequestInfoResponse(
+    const sns_smgr_client_request_info_resp_msg_v01& resp,
+    uint8_t sensorId,
+    smr_err transpErr) {
+  size_t index = getSensorMonitorIndex(sensorId);
+  if (transpErr != SMR_NO_ERR) {
+    LOGE("Error receiving client request info: %" PRIu8, transpErr);
+  } else if (resp.resp.sns_result_t != SNS_RESULT_SUCCESS_V01) {
+    LOGE("Client request info failed with error: %" PRIu8 ", id %" PRIu8,
+         resp.resp.sns_err_t, sensorId);
+  } else if (index == gSensorMonitors.size()) {
+    LOGE("Sensor status monitor update of invalid sensor ID %" PRIu8, sensorId);
   } else {
-    // Use asynchronous sensor status monitor indication message as a cue to
-    // query and obtain the synchronous client request info.
-    // As the info conveyed in the indication is asynchronous from current
-    // status and is insufficient to determine other clients' status, relying on
-    // it to enable/disable passive sensors may put the system in an incorrect
-    // state or lead to a request loop.
+    bool otherClientPresent = resp.other_client_present;
+    if (gSensorMonitors[index].otherClientPresent != otherClientPresent) {
+      onOtherClientPresenceChange(sensorId, otherClientPresent);
+      gSensorMonitors[index].otherClientPresent = otherClientPresent;
+    }
+  }
+}
+
+/**
+ * Makes an asynchronous request to SMGR to receive the latest client
+ * request info.
+ *
+ * @param sensorId The handle to the sensor whose status has changed.
+ */
+void onStatusChange(uint8_t sensorId) {
+  // Sensor already verified to be valid before onStatusChange is called.
+  Sensor *sensor = getFirstValidSensor(sensorId);
+  // Invalidate timer first so a status update isn't potentially
+  // missed.
+  sensor->timerHandle = CHRE_TIMER_INVALID;
+
+  size_t index = getSensorMonitorIndex(sensorId);
+  if (index == gSensorMonitors.size()) {
+    LOGE("Sensor status monitor update of invalid sensor ID %" PRIu8, sensorId);
+  } else {
+    // Use the asynchronous sensor status monitor indication message as a cue
+    // to query and obtain the latest client request info. Since the status
+    // changes are processed on a delay, the current client status is out of
+    // date so query the latest status asynchronously to avoid holding up the
+    // CHRE thread.
     auto infoRequest =
         MakeUniqueZeroFill<sns_smgr_client_request_info_req_msg_v01>();
     auto infoResponse = MakeUnique<sns_smgr_client_request_info_resp_msg_v01>();
 
     if (infoRequest.isNull() || infoResponse.isNull()) {
-      LOGE("Failed to allocate client request info message");
+      LOG_OOM();
     } else {
-      infoRequest->sensor_id = status.sensor_id;
+      // Enables passing the sensor ID through the event data pointer to avoid
+      // allocating memory
+      union NestedSensorId {
+        void *eventData;
+        uint8_t sensorId;
+      };
+      NestedSensorId nestedId = {};
+      nestedId.sensorId = sensorId;
 
-      smr_err smrStatus = getSmrHelper()->sendReqSync(
+      SmrReqCallback<sns_smgr_client_request_info_resp_msg_v01> callback =
+          [](UniquePtr<sns_smgr_client_request_info_resp_msg_v01> resp,
+             void *data,
+             smr_err transpErr) {
+        NestedSensorId nestedIdCb;
+        nestedIdCb.eventData = data;
+        onClientRequestInfoResponse(*resp.get(),
+                                    nestedIdCb.sensorId, transpErr);
+      };
+
+      infoRequest->sensor_id = sensorId;
+      smr_err smrStatus = getSmrHelper()->sendReqAsync(
           gPlatformSensorServiceSmrClientHandle,
           SNS_SMGR_CLIENT_REQUEST_INFO_REQ_V01,
-          &infoRequest, &infoResponse);
-
+          &infoRequest, &infoResponse, callback, nestedId.eventData);
       if (smrStatus != SMR_NO_ERR) {
         LOGE("Error requesting client request info: %d", smrStatus);
-      } else if (infoResponse->resp.sns_result_t != SNS_RESULT_SUCCESS_V01) {
-        LOGE("Client request info failed with error: %" PRIu8 ", id %" PRIu8,
-             infoResponse->resp.sns_err_t, infoRequest->sensor_id);
-      } else {
-        bool otherClientPresent = infoResponse->other_client_present;
-        if (gSensorMonitors[index].otherClientPresent != otherClientPresent) {
-          onOtherClientPresenceChange(status.sensor_id, otherClientPresent);
-          gSensorMonitors[index].otherClientPresent = otherClientPresent;
-        }
       }
     }
   }
@@ -837,10 +913,7 @@ void updateSamplingStatus(Sensor *sensor, const SensorRequest& request) {
       auto& requests = EventLoopManagerSingleton::get()->
           getSensorRequestManager().getRequests(sensor->getSensorType());
       for (const auto& req : requests) {
-        if (req.getNanoapp() != nullptr) {
-          postSamplingStatusEvent(req.getNanoapp()->getInstanceId(),
-                                  sensorHandle, status);
-        }
+        postSamplingStatusEvent(req.getInstanceId(), sensorHandle, status);
       }
     }
   }
@@ -853,23 +926,40 @@ void updateSamplingStatus(Sensor *sensor, const SensorRequest& request) {
  */
 void handleSensorStatusMonitorIndication(
     const sns_smgr_sensor_status_monitor_ind_msg_v02& smgrMonitorIndMsg) {
-  auto *callbackData =
-      memoryAlloc<sns_smgr_sensor_status_monitor_ind_msg_v02>();
-  if (callbackData == nullptr) {
-    LOGE("Failed to allocate status update deferred callback memory");
-  } else {
-    *callbackData = smgrMonitorIndMsg;
+  uint8_t sensorId = smgrMonitorIndMsg.sensor_id;
+
+  // Only use one Sensor to avoid multiple timers per sensorId.
+  Sensor *sensor = getFirstValidSensor(sensorId);
+  if (sensor == nullptr) {
+    LOGE("Sensor ID: %" PRIu8 " in status update doesn't correspond to "
+         "valid sensor.", sensorId);
+  // SMGR should send all callbacks back on the same thread which 
+  // means the following code won't result in any timers overriding one
+  // another.
+  } else if (sensor->timerHandle.load() == CHRE_TIMER_INVALID) {
+    // Enables passing the sensor ID through the event data pointer to avoid
+    // allocating memory
+    union NestedSensorId {
+      void *eventData;
+      uint8_t sensorId;
+    };
+    NestedSensorId nestedId = {};
+    nestedId.sensorId = sensorId;
+
     auto callback = [](uint16_t /* type */, void *data) {
-      auto *cbData =
-          static_cast<sns_smgr_sensor_status_monitor_ind_msg_v02 *>(data);
-      onStatusChange(*cbData);
-      memoryFree(cbData);
+      NestedSensorId nestedIdCb;
+      nestedIdCb.eventData = data;
+      onStatusChange(nestedIdCb.sensorId);
     };
 
-    // Schedule a deferred callback to handle sensor status change in the main
+    // Schedule a delayed callback to handle sensor status change on the main
     // thread.
-    EventLoopManagerSingleton::get()->deferCallback(
-        SystemCallbackType::SensorStatusUpdate, callbackData, callback);
+    TimerHandle timer = EventLoopManagerSingleton::get()->setDelayedCallback(
+        SystemCallbackType::SensorStatusUpdate,
+        nestedId.eventData,
+        callback,
+        kStatusDelayIntervalNanos);
+    sensor->timerHandle = timer;
   }
 }
 
@@ -1453,6 +1543,27 @@ bool PlatformSensor::applyRequest(const SensorRequest& request) {
   return success;
 }
 
+bool PlatformSensor::flushAsync() {
+  // NOTE: SMGR framework flushes all pending data when a new request comes in
+  //       (ref sns_rh_sol_schedule_existing_report() in sns_rh_sol.c).
+  //       In this implementation of flushAsync, we make a request identical to
+  //       the existing sensor request, blocking on an asynchronous response,
+  //       and assume that the flush request has completed when this identical
+  //       sensor request is successfully handled and executed. This
+  //       implementation mirrors the sensors HAL implementation of flush.
+  bool success = false;
+  Sensor *sensor = EventLoopManagerSingleton::get()->getSensorRequestManager()
+      .getSensor(getSensorType());
+  if (sensor != nullptr) {
+    success = applyRequest(sensor->getRequest());
+    if (success) {
+      EventLoopManagerSingleton::get()->getSensorRequestManager()
+          .handleFlushCompleteEvent(CHRE_ERROR_NONE, getSensorType());
+    }
+  }
+  return success;
+}
+
 SensorType PlatformSensor::getSensorType() const {
   return getSensorTypeFromSensorId(this->sensorId, this->dataType,
                                    this->calType);
@@ -1504,6 +1615,12 @@ bool PlatformSensor::getSamplingStatus(
 
   memcpy(status, &samplingStatus, sizeof(*status));
   return true;
+}
+
+bool PlatformSensor::getThreeAxisBias(
+    struct chreSensorThreeAxisData *bias) const {
+  // TODO: Implement this.
+  return false;
 }
 
 void PlatformSensorBase::setLastEvent(const ChreSensorData *event) {

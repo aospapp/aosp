@@ -16,22 +16,25 @@
 
 package com.android.documentsui.base;
 
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.FileUtils;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsProvider;
-import android.support.annotation.VisibleForTesting;
+import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.roots.RootCursorWrapper;
-
-import libcore.io.IoUtils;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -48,6 +51,7 @@ import javax.annotation.Nullable;
  * Representation of a {@link Document}.
  */
 public class DocumentInfo implements Durable, Parcelable {
+    private static final String TAG = "DocumentInfo";
     private static final int VERSION_INIT = 1;
     private static final int VERSION_SPLIT_URI = 2;
 
@@ -198,8 +202,8 @@ public class DocumentInfo implements Durable, Parcelable {
         } catch (Throwable t) {
             throw asFileNotFoundException(t);
         } finally {
-            IoUtils.closeQuietly(cursor);
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(cursor);
+            FileUtils.closeQuietly(client);
         }
     }
 
@@ -222,6 +226,7 @@ public class DocumentInfo implements Durable, Parcelable {
                 + ", isVirtual=" + isVirtual()
                 + ", isDeleteSupported=" + isDeleteSupported()
                 + ", isCreateSupported=" + isCreateSupported()
+                + ", isMoveSupported=" + isMoveSupported()
                 + ", isRenameSupported=" + isRenameSupported()
                 + ", isMetadataSupported=" + isMetadataSupported()
                 + "} @ "
@@ -323,6 +328,9 @@ public class DocumentInfo implements Durable, Parcelable {
     }
 
     public static String getCursorString(Cursor cursor, String columnName) {
+        if (cursor == null) {
+            return null;
+        }
         final int index = cursor.getColumnIndex(columnName);
         return (index != -1) ? cursor.getString(index) : null;
     }
@@ -331,6 +339,10 @@ public class DocumentInfo implements Durable, Parcelable {
      * Missing or null values are returned as -1.
      */
     public static long getCursorLong(Cursor cursor, String columnName) {
+        if (cursor == null) {
+            return -1;
+        }
+
         final int index = cursor.getColumnIndex(columnName);
         if (index == -1) return -1;
         final String value = cursor.getString(index);
@@ -346,6 +358,10 @@ public class DocumentInfo implements Durable, Parcelable {
      * Missing or null values are returned as 0.
      */
     public static int getCursorInt(Cursor cursor, String columnName) {
+        if (cursor == null) {
+            return 0;
+        }
+
         final int index = cursor.getColumnIndex(columnName);
         return (index != -1) ? cursor.getInt(index) : 0;
     }
@@ -369,7 +385,14 @@ public class DocumentInfo implements Durable, Parcelable {
     public static void addMimeTypes(ContentResolver resolver, Uri uri, Set<String> mimeTypes) {
         assert(uri != null);
         if ("content".equals(uri.getScheme())) {
-            mimeTypes.add(resolver.getType(uri));
+            final String type = resolver.getType(uri);
+            if (type != null) {
+                mimeTypes.add(type);
+            } else {
+                if (DEBUG) {
+                    Log.d(TAG, "resolver.getType(uri) return null, url:" + uri.toSafeString());
+                }
+            }
             final String[] streamTypes = resolver.getStreamTypes(uri, "*/*");
             if (streamTypes != null) {
                 mimeTypes.addAll(Arrays.asList(streamTypes));
@@ -383,8 +406,7 @@ public class DocumentInfo implements Durable, Parcelable {
         }
 
         if (doc.derivedUri == null) {
-            doc.deriveFields();
-            assert(doc.derivedUri != null);
+            return "<DocumentInfo null derivedUri>";
         }
         return doc.derivedUri.toString();
     }

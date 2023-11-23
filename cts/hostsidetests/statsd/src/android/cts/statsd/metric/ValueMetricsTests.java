@@ -15,39 +15,31 @@
  */
 package android.cts.statsd.metric;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.cts.statsd.atom.DeviceAtomTestCase;
 
-import com.android.internal.os.StatsdConfigProto;
+import com.android.internal.os.StatsdConfigProto.ActivationType;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
-import com.android.internal.os.StatsdConfigProto.FieldMatcher;
-import com.android.internal.os.StatsdConfigProto.ValueMetric;
-import com.android.os.AtomsProto.AppBreadcrumbReported;
-import com.android.os.AtomsProto.SystemElapsedRealtime;
-
-import com.android.os.AtomsProto.Atom;
-import com.android.os.StatsLog.ValueBucketInfo;
-import com.android.os.StatsLog.ValueMetricData;
-import com.android.os.StatsLog.StatsLogReport;
-import com.android.annotations.Nullable;
-import com.android.internal.os.StatsdConfigProto.AtomMatcher;
-import com.android.internal.os.StatsdConfigProto.EventMetric;
+import com.android.internal.os.StatsdConfigProto.EventActivation;
 import com.android.internal.os.StatsdConfigProto.FieldFilter;
 import com.android.internal.os.StatsdConfigProto.FieldMatcher;
 import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
-import com.android.internal.os.StatsdConfigProto.GaugeMetric;
+import com.android.internal.os.StatsdConfigProto.MetricActivation;
 import com.android.internal.os.StatsdConfigProto.Predicate;
 import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.internal.os.StatsdConfigProto.SimplePredicate;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.internal.os.StatsdConfigProto.TimeUnit;
-import com.android.os.AtomsProto.Atom;
+import com.android.internal.os.StatsdConfigProto.ValueMetric;
+
 import com.android.os.AtomsProto.AppBreadcrumbReported;
-import com.android.os.AtomsProto.ScreenStateChanged;
-import com.android.os.StatsLog.ConfigMetricsReport;
-import com.android.os.StatsLog.ConfigMetricsReportList;
-import com.android.os.StatsLog.EventMetricData;
-import com.android.os.StatsLog.GaugeMetricData;
+import com.android.os.AtomsProto.Atom;
+import com.android.os.AtomsProto.SystemElapsedRealtime;
 import com.android.os.StatsLog.StatsLogReport;
+import com.android.os.StatsLog.ValueBucketInfo;
+import com.android.os.StatsLog.ValueMetricData;
+
 import com.android.tradefed.log.LogUtil;
 
 public class ValueMetricsTests extends DeviceAtomTestCase {
@@ -67,7 +59,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     AtomMatcher atomMatcher =
         MetricsUtils.simpleAtomMatcher(APP_BREADCRUMB_REPORTED_B_MATCH_START_ID);
 
-    StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder();
+    StatsdConfig.Builder builder = createConfigBuilder();
     builder.addAtomMatcher(startAtomMatcher);
     builder.addAtomMatcher(stopAtomMatcher);
     builder.addAtomMatcher(atomMatcher);
@@ -77,7 +69,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
         ValueMetric.newBuilder()
             .setId(MetricsUtils.VALUE_METRIC_ID)
             .setWhat(APP_BREADCRUMB_REPORTED_B_MATCH_START_ID)
-            .setBucket(StatsdConfigProto.TimeUnit.CTS)
+            .setBucket(TimeUnit.CTS)
             .setValueField(FieldMatcher.newBuilder()
                                .setField(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
                                .addChild(FieldMatcher.newBuilder().setField(
@@ -98,14 +90,14 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     doAppBreadcrumbReportedStop(3);
 
     // Wait for the metrics to propagate to statsd.
-    Thread.sleep(2000);
+    Thread.sleep(1000);
 
     StatsLogReport metricReport = getStatsLogReport();
     LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
     assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
     assertTrue(metricReport.hasValueMetrics());
     StatsLogReport.ValueMetricDataWrapper valueData = metricReport.getValueMetrics();
-    assertEquals(valueData.getDataCount(), 1);
+    assertEquals(1, valueData.getDataCount());
 
     int bucketCount = valueData.getData(0).getBucketInfoCount();
     assertTrue(bucketCount > 1);
@@ -113,9 +105,11 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      totalValue += (int) bucketInfo.getValue();
+      assertEquals(1, bucketInfo.getValuesCount());
+      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
-    assertEquals(totalValue, 8);
+    assertEquals(8, totalValue);
   }
 
   // Test value metric with pulled atoms and across multiple buckets
@@ -133,7 +127,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     AtomMatcher stopAtomMatcher =
             MetricsUtils.stopAtomMatcher(predicateFalseName.hashCode());
 
-    StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder();
+    StatsdConfig.Builder builder = createConfigBuilder();
     builder.addAtomMatcher(startAtomMatcher);
     builder.addAtomMatcher(stopAtomMatcher);
     builder.addPredicate(Predicate.newBuilder()
@@ -156,7 +150,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
             ValueMetric.newBuilder()
                     .setId(MetricsUtils.VALUE_METRIC_ID)
                     .setWhat(atomName.hashCode())
-                    .setBucket(StatsdConfigProto.TimeUnit.ONE_MINUTE)
+                    .setBucket(TimeUnit.ONE_MINUTE)
                     .setValueField(FieldMatcher.newBuilder()
                             .setField(Atom.SYSTEM_ELAPSED_REALTIME_FIELD_NUMBER)
                             .addChild(FieldMatcher.newBuilder().setField(
@@ -190,7 +184,9 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      totalValue += (int) bucketInfo.getValue();
+      assertEquals(1, bucketInfo.getValuesCount());
+      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
     // At most we lose one full min bucket
     assertTrue(totalValue > (130_000 - 60_000));
@@ -211,7 +207,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     AtomMatcher stopAtomMatcher =
             MetricsUtils.stopAtomMatcher(predicateFalseName.hashCode());
 
-    StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder();
+    StatsdConfig.Builder builder = createConfigBuilder();
     builder.addAtomMatcher(startAtomMatcher);
     builder.addAtomMatcher(stopAtomMatcher);
     builder.addPredicate(Predicate.newBuilder()
@@ -234,7 +230,7 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
             ValueMetric.newBuilder()
                     .setId(MetricsUtils.VALUE_METRIC_ID)
                     .setWhat(atomName.hashCode())
-                    .setBucket(StatsdConfigProto.TimeUnit.ONE_MINUTE)
+                    .setBucket(TimeUnit.ONE_MINUTE)
                     .setValueField(FieldMatcher.newBuilder()
                             .setField(Atom.SYSTEM_ELAPSED_REALTIME_FIELD_NUMBER)
                             .addChild(FieldMatcher.newBuilder().setField(
@@ -272,9 +268,209 @@ public class ValueMetricsTests extends DeviceAtomTestCase {
     int totalValue = 0;
     for (ValueBucketInfo bucketInfo : data.getBucketInfoList()) {
       MetricsUtils.assertBucketTimePresent(bucketInfo);
-      totalValue += (int) bucketInfo.getValue();
+      assertEquals(1, bucketInfo.getValuesCount());
+      assertEquals(0, bucketInfo.getValues(0).getIndex());
+      totalValue += (int) bucketInfo.getValues(0).getValueLong();
     }
     // At most we lose one full min bucket
     assertTrue(totalValue > (GAP_INTERVAL*NUM_EVENTS - 60_000));
   }
+
+  // Test value metric with pulled atoms and across multiple buckets
+  public void testPullerAcrossBucketsWithActivation() throws Exception {
+    if (statsdDisabled()) {
+      return;
+    }
+
+    StatsdConfig.Builder builder = createConfigBuilder();
+
+    // Add AtomMatcher's.
+    int activationAtomMatcherId = 1;
+    int activationAtomMatcherLabel = 1;
+    AtomMatcher activationAtomMatcher =
+            MetricsUtils.appBreadcrumbMatcherWithLabel(
+                    activationAtomMatcherId, activationAtomMatcherLabel);
+    final String atomName = "SYSTEM_ELAPSED_REALTIME";
+    SimpleAtomMatcher.Builder sam = SimpleAtomMatcher.newBuilder()
+            .setAtomId(Atom.SYSTEM_ELAPSED_REALTIME_FIELD_NUMBER);
+    builder.addAtomMatcher(activationAtomMatcher)
+            .addAtomMatcher(AtomMatcher.newBuilder()
+                    .setId(atomName.hashCode())
+                    .setSimpleAtomMatcher(sam));
+
+    // Add ValueMetric.
+    builder.addValueMetric(
+            ValueMetric.newBuilder()
+                    .setId(MetricsUtils.VALUE_METRIC_ID)
+                    .setWhat(atomName.hashCode())
+                    .setBucket(TimeUnit.ONE_MINUTE)
+                    .setValueField(FieldMatcher.newBuilder()
+                            .setField(Atom.SYSTEM_ELAPSED_REALTIME_FIELD_NUMBER)
+                            .addChild(FieldMatcher.newBuilder().setField(
+                                    SystemElapsedRealtime.TIME_MILLIS_FIELD_NUMBER)))
+                    .build());
+    // Add activation.
+    builder.addMetricActivation(MetricActivation.newBuilder()
+          .setMetricId(MetricsUtils.VALUE_METRIC_ID)
+          .setActivationType(ActivationType.ACTIVATE_IMMEDIATELY)
+          .addEventActivation(EventActivation.newBuilder()
+                  .setAtomMatcherId(activationAtomMatcherId)
+                  .setTtlSeconds(5)));
+
+
+    // Upload config.
+    uploadConfig(builder);
+
+    // Wait for 1 min and 10 sec to capture at least 1 bucket
+    Thread.sleep(60_000 + 10_000);
+
+    // Wait for the metrics to propagate to statsd.
+    Thread.sleep(1_000);
+
+    StatsLogReport metricReport = getStatsLogReport();
+    LogUtil.CLog.d("Got the following value metric data: " + metricReport.toString());
+    assertEquals(MetricsUtils.VALUE_METRIC_ID, metricReport.getMetricId());
+    assertFalse(metricReport.hasValueMetrics());
+  }
+
+    public void testValueMetricWithConditionAndActivation() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+
+        final int conditionLabel = 2;
+        final int activationMatcherId = 5;
+        final int activationMatcherLabel = 5;
+        final int whatMatcherId = 8;
+        final int ttlSec = 5;
+
+        // Add AtomMatchers.
+        AtomMatcher conditionStartAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_START_ID, conditionLabel);
+        AtomMatcher conditionStopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID, conditionLabel);
+        AtomMatcher activationMatcher =
+                MetricsUtils.startAtomMatcherWithLabel(
+                        activationMatcherId, activationMatcherLabel);
+        AtomMatcher whatMatcher =
+                MetricsUtils.unspecifiedAtomMatcher(whatMatcherId);
+
+        StatsdConfig.Builder builder = createConfigBuilder()
+                .addAtomMatcher(conditionStartAtomMatcher)
+                .addAtomMatcher(conditionStopAtomMatcher)
+                .addAtomMatcher(whatMatcher)
+                .addAtomMatcher(activationMatcher);
+
+        // Add Predicates.
+        SimplePredicate simplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
+                .build();
+        Predicate predicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("Predicate"))
+                                  .setSimplePredicate(simplePredicate)
+                                  .build();
+        builder.addPredicate(predicate);
+
+        // Add ValueMetric.
+        builder
+                .addValueMetric(ValueMetric.newBuilder()
+                        .setId(MetricsUtils.VALUE_METRIC_ID)
+                        .setWhat(whatMatcher.getId())
+                        .setBucket(TimeUnit.ONE_MINUTE)
+                        .setCondition(predicate.getId())
+                        .setValueField(FieldMatcher.newBuilder()
+                                .setField(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
+                                .addChild(FieldMatcher.newBuilder()
+                                        .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER))
+                        )
+                        .setDimensionsInWhat(FieldMatcher.newBuilder().setField(whatMatcherId))
+                )
+                .addMetricActivation(MetricActivation.newBuilder()
+                        .setMetricId(MetricsUtils.VALUE_METRIC_ID)
+                        .addEventActivation(EventActivation.newBuilder()
+                                .setAtomMatcherId(activationMatcherId)
+                                .setActivationType(ActivationType.ACTIVATE_IMMEDIATELY)
+                                .setTtlSeconds(ttlSec)
+                        )
+                );
+
+        uploadConfig(builder);
+
+        // Activate the metric.
+        doAppBreadcrumbReportedStart(activationMatcherLabel);
+        Thread.sleep(10);
+
+        // Set the condition to true.
+        doAppBreadcrumbReportedStart(conditionLabel);
+        Thread.sleep(10);
+
+        // Skipped due to unknown condition at start of bucket.
+        doAppBreadcrumbReported(10);
+        Thread.sleep(10);
+
+        // Skipped due to unknown condition at start of bucket.
+        doAppBreadcrumbReported(200);
+        Thread.sleep(10);
+
+        // Set the condition to false.
+        doAppBreadcrumbReportedStop(conditionLabel);
+        Thread.sleep(10);
+
+        // Log an event that should not be counted because condition is false.
+        doAppBreadcrumbReported(3_000);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+
+        // Log an event that should not be counted.
+        doAppBreadcrumbReported(40_000);
+        Thread.sleep(10);
+
+        // Condition to true again.
+        doAppBreadcrumbReportedStart(conditionLabel);
+        Thread.sleep(10);
+
+        // Event should not be counted, metric is still not active.
+        doAppBreadcrumbReported(500_000);
+        Thread.sleep(10);
+
+        // Activate the metric.
+        doAppBreadcrumbReportedStart(activationMatcherLabel);
+        Thread.sleep(10);
+
+        //  Log an event that should be counted.
+        doAppBreadcrumbReported(6_000_000);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+
+        // Log an event that should not be counted.
+        doAppBreadcrumbReported(70_000_000);
+        Thread.sleep(10);
+
+        // Wait for the metrics to propagate to statsd.
+        Thread.sleep(2000);
+
+        StatsLogReport metricReport = getStatsLogReport();
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.VALUE_METRIC_ID);
+        assertThat(metricReport.hasValueMetrics()).isTrue();
+        assertThat(metricReport.getIsActive()).isFalse();
+
+        StatsLogReport.ValueMetricDataWrapper valueData = metricReport.getValueMetrics();
+        assertThat(valueData.getDataCount()).isEqualTo(1);
+        assertThat(valueData.getData(0).getBucketInfoCount()).isEqualTo(1);
+        long totalValue = valueData.getData(0).getBucketInfoList().stream()
+                .peek(MetricsUtils::assertBucketTimePresent)
+                .peek(bucketInfo -> assertThat(bucketInfo.getValuesCount()).isEqualTo(1))
+                .map(bucketInfo -> bucketInfo.getValues(0))
+                .peek(value -> assertThat(value.getIndex()).isEqualTo(0))
+                .mapToLong(value -> value.getValueLong())
+                .sum();
+        assertThat(totalValue).isEqualTo(6_000_000);
+    }
+
 }

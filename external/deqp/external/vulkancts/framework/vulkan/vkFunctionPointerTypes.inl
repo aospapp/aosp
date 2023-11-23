@@ -226,6 +226,10 @@ typedef VKAPI_ATTR void					(VKAPI_CALL* CmdPushDescriptorSetWithTemplateKHRFunc
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* CreateDescriptorUpdateTemplateKHRFunc)					(VkDevice device, const VkDescriptorUpdateTemplateCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDescriptorUpdateTemplate* pDescriptorUpdateTemplate);
 typedef VKAPI_ATTR void					(VKAPI_CALL* DestroyDescriptorUpdateTemplateKHRFunc)				(VkDevice device, VkDescriptorUpdateTemplate descriptorUpdateTemplate, const VkAllocationCallbacks* pAllocator);
 typedef VKAPI_ATTR void					(VKAPI_CALL* UpdateDescriptorSetWithTemplateKHRFunc)				(VkDevice device, VkDescriptorSet descriptorSet, VkDescriptorUpdateTemplate descriptorUpdateTemplate, const void* pData);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* CreateRenderPass2KHRFunc)								(VkDevice device, const VkRenderPassCreateInfo2KHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdBeginRenderPass2KHRFunc)							(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfoKHR* pSubpassBeginInfo);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdNextSubpass2KHRFunc)								(VkCommandBuffer commandBuffer, const VkSubpassBeginInfoKHR* pSubpassBeginInfo, const VkSubpassEndInfoKHR* pSubpassEndInfo);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdEndRenderPass2KHRFunc)								(VkCommandBuffer commandBuffer, const VkSubpassEndInfoKHR* pSubpassEndInfo);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetSwapchainStatusKHRFunc)								(VkDevice device, VkSwapchainKHR swapchain);
 typedef VKAPI_ATTR void					(VKAPI_CALL* GetPhysicalDeviceExternalFencePropertiesKHRFunc)		(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalFenceInfo* pExternalFenceInfo, VkExternalFenceProperties* pExternalFenceProperties);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* ImportFenceWin32HandleKHRFunc)							(VkDevice device, const VkImportFenceWin32HandleInfoKHR* pImportFenceWin32HandleInfo);
@@ -234,6 +238,10 @@ typedef VKAPI_ATTR VkResult				(VKAPI_CALL* ImportFenceFdKHRFunc)									(VkDev
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetFenceFdKHRFunc)										(VkDevice device, const VkFenceGetFdInfoKHR* pGetFdInfo, int* pFd);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetPhysicalDeviceSurfaceCapabilities2KHRFunc)			(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetPhysicalDeviceSurfaceFormats2KHRFunc)				(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, deUint32* pSurfaceFormatCount, VkSurfaceFormat2KHR* pSurfaceFormats);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetPhysicalDeviceDisplayProperties2KHRFunc)			(VkPhysicalDevice physicalDevice, deUint32* pPropertyCount, VkDisplayProperties2KHR* pProperties);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetPhysicalDeviceDisplayPlaneProperties2KHRFunc)		(VkPhysicalDevice physicalDevice, deUint32* pPropertyCount, VkDisplayPlaneProperties2KHR* pProperties);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetDisplayModeProperties2KHRFunc)						(VkPhysicalDevice physicalDevice, VkDisplayKHR display, deUint32* pPropertyCount, VkDisplayModeProperties2KHR* pProperties);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetDisplayPlaneCapabilities2KHRFunc)					(VkPhysicalDevice physicalDevice, const VkDisplayPlaneInfo2KHR* pDisplayPlaneInfo, VkDisplayPlaneCapabilities2KHR* pCapabilities);
 typedef VKAPI_ATTR void					(VKAPI_CALL* GetBufferMemoryRequirements2KHRFunc)					(VkDevice device, const VkBufferMemoryRequirementsInfo2* pInfo, VkMemoryRequirements2* pMemoryRequirements);
 typedef VKAPI_ATTR void					(VKAPI_CALL* GetImageMemoryRequirements2KHRFunc)					(VkDevice device, const VkImageMemoryRequirementsInfo2* pInfo, VkMemoryRequirements2* pMemoryRequirements);
 typedef VKAPI_ATTR void					(VKAPI_CALL* GetImageSparseMemoryRequirements2KHRFunc)				(VkDevice device, const VkImageSparseMemoryRequirementsInfo2* pInfo, deUint32* pSparseMemoryRequirementCount, VkSparseImageMemoryRequirements2* pSparseMemoryRequirements);
@@ -252,9 +260,13 @@ typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDebugMarkerEndEXTFunc)								(VkCom
 typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDebugMarkerInsertEXTFunc)							(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
 typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDrawIndirectCountAMDFunc)							(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, deUint32 maxDrawCount, deUint32 stride);
 typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDrawIndexedIndirectCountAMDFunc)					(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, deUint32 maxDrawCount, deUint32 stride);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDrawIndirectCountKHRFunc)							(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, deUint32 maxDrawCount, deUint32 stride);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdDrawIndexedIndirectCountKHRFunc)					(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, deUint32 maxDrawCount, deUint32 stride);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetPhysicalDeviceExternalImageFormatPropertiesNVFunc)	(VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags, VkExternalMemoryHandleTypeFlagsNV externalHandleType, VkExternalImageFormatPropertiesNV* pExternalImageFormatProperties);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetMemoryWin32HandleNVFunc)							(VkDevice device, VkDeviceMemory memory, VkExternalMemoryHandleTypeFlagsNV handleType, pt::Win32Handle* pHandle);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* CreateViSurfaceNNFunc)									(VkInstance instance, const VkViSurfaceCreateInfoNN* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdBeginConditionalRenderingEXTFunc)					(VkCommandBuffer commandBuffer, const VkConditionalRenderingBeginInfoEXT* pConditionalRenderingBegin);
+typedef VKAPI_ATTR void					(VKAPI_CALL* CmdEndConditionalRenderingEXTFunc)						(VkCommandBuffer commandBuffer);
 typedef VKAPI_ATTR void					(VKAPI_CALL* CmdProcessCommandsNVXFunc)								(VkCommandBuffer commandBuffer, const VkCmdProcessCommandsInfoNVX* pProcessCommandsInfo);
 typedef VKAPI_ATTR void					(VKAPI_CALL* CmdReserveSpaceForCommandsNVXFunc)						(VkCommandBuffer commandBuffer, const VkCmdReserveSpaceForCommandsInfoNVX* pReserveSpaceInfo);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* CreateIndirectCommandsLayoutNVXFunc)					(VkDevice device, const VkIndirectCommandsLayoutCreateInfoNVX* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkIndirectCommandsLayoutNVX* pIndirectCommandsLayout);
@@ -285,5 +297,6 @@ typedef VKAPI_ATTR VkResult				(VKAPI_CALL* CreateValidationCacheEXTFunc)							
 typedef VKAPI_ATTR void					(VKAPI_CALL* DestroyValidationCacheEXTFunc)							(VkDevice device, VkValidationCacheEXT validationCache, const VkAllocationCallbacks* pAllocator);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* MergeValidationCachesEXTFunc)							(VkDevice device, VkValidationCacheEXT dstCache, deUint32 srcCacheCount, const VkValidationCacheEXT* pSrcCaches);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetValidationCacheDataEXTFunc)							(VkDevice device, VkValidationCacheEXT validationCache, deUintptr* pDataSize, void* pData);
+typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetMemoryHostPointerPropertiesEXTFunc)					(VkDevice device, VkExternalMemoryHandleTypeFlagBits handleType, const void* pHostPointer, VkMemoryHostPointerPropertiesEXT* pMemoryHostPointerProperties);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetAndroidHardwareBufferPropertiesANDROIDFunc)			(VkDevice device, const struct pt::AndroidHardwareBufferPtr buffer, VkAndroidHardwareBufferPropertiesANDROID* pProperties);
 typedef VKAPI_ATTR VkResult				(VKAPI_CALL* GetMemoryAndroidHardwareBufferANDROIDFunc)				(VkDevice device, const VkMemoryGetAndroidHardwareBufferInfoANDROID* pInfo, struct pt::AndroidHardwareBufferPtr* pBuffer);

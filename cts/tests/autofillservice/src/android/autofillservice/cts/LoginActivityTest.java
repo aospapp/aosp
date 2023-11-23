@@ -17,31 +17,38 @@
 package android.autofillservice.cts;
 
 import static android.autofillservice.cts.CannedFillResponse.DO_NOT_REPLY_RESPONSE;
+import static android.autofillservice.cts.CannedFillResponse.FAIL;
+import static android.autofillservice.cts.CannedFillResponse.NO_MOAR_RESPONSES;
 import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.Helper.ID_EMPTY;
 import static android.autofillservice.cts.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.Helper.ID_PASSWORD_LABEL;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
 import static android.autofillservice.cts.Helper.ID_USERNAME_LABEL;
+import static android.autofillservice.cts.Helper.allowOverlays;
 import static android.autofillservice.cts.Helper.assertHasFlags;
 import static android.autofillservice.cts.Helper.assertNumberOfChildren;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertTextOnly;
 import static android.autofillservice.cts.Helper.assertValue;
+import static android.autofillservice.cts.Helper.assertViewAutofillState;
+import static android.autofillservice.cts.Helper.disallowOverlays;
 import static android.autofillservice.cts.Helper.dumpStructure;
+import static android.autofillservice.cts.Helper.findAutofillIdByResourceId;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.Helper.isAutofillWindowFullScreen;
 import static android.autofillservice.cts.Helper.setUserComplete;
 import static android.autofillservice.cts.InstrumentedAutoFillService.SERVICE_CLASS;
 import static android.autofillservice.cts.InstrumentedAutoFillService.SERVICE_PACKAGE;
+import static android.autofillservice.cts.InstrumentedAutoFillService.isConnected;
 import static android.autofillservice.cts.InstrumentedAutoFillService.waitUntilConnected;
 import static android.autofillservice.cts.InstrumentedAutoFillService.waitUntilDisconnected;
 import static android.autofillservice.cts.LoginActivity.AUTHENTICATION_MESSAGE;
 import static android.autofillservice.cts.LoginActivity.BACKDOOR_USERNAME;
 import static android.autofillservice.cts.LoginActivity.ID_USERNAME_CONTAINER;
 import static android.autofillservice.cts.LoginActivity.getWelcomeMessage;
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
-import static android.autofillservice.cts.common.ShellHelper.tap;
+import static android.content.Context.CLIPBOARD_SERVICE;
 import static android.service.autofill.FillRequest.FLAG_MANUAL_REQUEST;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_ADDRESS;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD;
@@ -54,6 +61,9 @@ import static android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO;
 import static android.view.WindowManager.LayoutParams.FLAG_SECURE;
 
+import static com.android.compatibility.common.util.ShellUtils.sendKeyEvent;
+import static com.android.compatibility.common.util.ShellUtils.tap;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -63,6 +73,8 @@ import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -74,6 +86,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.service.autofill.FillContext;
 import android.service.autofill.SaveInfo;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
@@ -84,7 +97,10 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.autofill.AutofillManager;
+import android.widget.EditText;
 import android.widget.RemoteViews;
+
+import com.android.compatibility.common.util.RetryableException;
 
 import org.junit.Test;
 
@@ -124,18 +140,77 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps support
-    public void testAutofillManuallyAfterServiceReturnedNoDatasets() throws Exception {
-        autofillAfterServiceReturnedNoDatasets(true);
+    public void testAutoFillNoDatasets_multipleFields_alwaysNull() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier
+            .addResponse(NO_RESPONSE)
+            .addResponse(NO_MOAR_RESPONSES);
+
+        // Trigger autofill
+        mActivity.onUsername(View::requestFocus);
+        sReplier.getNextFillRequest();
+        mUiBot.assertNoDatasetsEver();
+
+        // Tap back and forth to make sure no more requests are shown
+
+        mActivity.onPassword(View::requestFocus);
+        mUiBot.assertNoDatasetsEver();
+
+        mActivity.onUsername(View::requestFocus);
+        mUiBot.assertNoDatasetsEver();
+
+        mActivity.onPassword(View::requestFocus);
+        mUiBot.assertNoDatasetsEver();
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutofillAutomaticallyAfterServiceReturnedNoDatasets() throws Exception {
-        autofillAfterServiceReturnedNoDatasets(false);
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(NO_RESPONSE);
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Trigger autofill.
+        mActivity.onUsername(View::requestFocus);
+        sReplier.getNextFillRequest();
+
+        // Make sure UI is not shown.
+        mUiBot.assertNoDatasetsEver();
+
+        // Try again, in a field that was added after the first request
+        final EditText child = new EditText(mActivity);
+        child.setId(R.id.empty);
+        mActivity.addChild(child);
+        final OneTimeTextWatcher watcher = new OneTimeTextWatcher("child", child,
+                "new view on the block");
+        child.addTextChangedListener(watcher);
+        sReplier.addResponse(new CannedDataset.Builder()
+                .setField(ID_USERNAME, "dude")
+                .setField(ID_PASSWORD, "sweet")
+                .setField(ID_EMPTY, "new view on the block")
+                .setPresentation(createPresentation("The Dude"))
+                .build());
+        mActivity.syncRunOnUiThread(() -> child.requestFocus());
+
+        sReplier.getNextFillRequest();
+
+        // Select the dataset.
+        mUiBot.selectDataset("The Dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+        watcher.assertAutoFilled();
     }
 
-    private void autofillAfterServiceReturnedNoDatasets(boolean manually) throws Exception {
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
+    public void testAutofillManuallyAfterServiceReturnedNoDatasets() throws Exception {
         // Set service.
         enableService();
 
@@ -157,17 +232,10 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 .setPresentation(createPresentation("The Dude"))
                 .build());
 
-        final int expectedFlags;
-        if (manually) {
-            expectedFlags = FLAG_MANUAL_REQUEST;
-            mActivity.forceAutofillOnUsername();
-        } else {
-            expectedFlags = 0;
-            requestFocusOnPassword();
-        }
+        mActivity.forceAutofillOnUsername();
 
         final FillRequest fillRequest = sReplier.getNextFillRequest();
-        assertHasFlags(fillRequest.flags, expectedFlags);
+        assertHasFlags(fillRequest.flags, FLAG_MANUAL_REQUEST);
 
         // Select the dataset.
         mUiBot.selectDataset("The Dude");
@@ -177,18 +245,8 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutofillManuallyAndSaveAfterServiceReturnedNoDatasets() throws Exception {
-        autofillAndSaveAfterServiceReturnedNoDatasets(true);
-    }
-
-    @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps support
-    public void testAutofillAutomaticallyAndSaveAfterServiceReturnedNoDatasets() throws Exception {
-        autofillAndSaveAfterServiceReturnedNoDatasets(false);
-    }
-
-    private void autofillAndSaveAfterServiceReturnedNoDatasets(boolean manually) throws Exception {
         // Set service.
         enableService();
 
@@ -208,7 +266,69 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         sReplier.assertNoUnhandledFillRequests();
 
         // Try again, forcing it
-        saveOnlyTest(manually);
+        saveOnlyTest(/* manually= */ true);
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
+    public void testAutofillAutomaticallyAndSaveAfterServiceReturnedNoDatasets() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(NO_RESPONSE);
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Trigger autofill.
+        mActivity.onUsername(View::requestFocus);
+        sReplier.getNextFillRequest();
+
+        // Make sure UI is not shown.
+        mUiBot.assertNoDatasetsEver();
+
+        // Try again, in a field that was added after the first request
+        final EditText child = new EditText(mActivity);
+        child.setId(R.id.empty);
+        mActivity.addChild(child);
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD,
+                        ID_USERNAME,
+                        ID_PASSWORD,
+                        ID_EMPTY)
+                .build());
+        mActivity.syncRunOnUiThread(() -> child.requestFocus());
+
+        // Sanity check.
+        mUiBot.assertNoDatasetsEver();
+
+        // Wait for onFill() before proceeding, otherwise the fields might be changed before
+        // the session started
+        sReplier.getNextFillRequest();
+
+        // Set credentials...
+        mActivity.onUsername((v) -> v.setText("malkovich"));
+        mActivity.onPassword((v) -> v.setText("malkovich"));
+        mActivity.runOnUiThread(() -> child.setText("NOT MR.M"));
+
+        // ...and login
+        final String expectedMessage = getWelcomeMessage("malkovich");
+        final String actualMessage = mActivity.tapLogin();
+        assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
+
+        // Assert the snack bar is shown and tap "Save".
+        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+
+        final SaveRequest saveRequest = sReplier.getNextSaveRequest();
+        sReplier.assertNoUnhandledSaveRequests();
+        assertThat(saveRequest.datasetIds).isNull();
+
+        // Assert value of expected fields - should not be sanitized.
+        final ViewNode username = findNodeByResourceId(saveRequest.structure, ID_USERNAME);
+        assertTextAndValue(username, "malkovich");
+        final ViewNode password = findNodeByResourceId(saveRequest.structure, ID_PASSWORD);
+        assertTextAndValue(password, "malkovich");
+        final ViewNode childNode = findNodeByResourceId(saveRequest.structure, ID_EMPTY);
+        assertTextAndValue(childNode, "NOT MR.M");
     }
 
     /**
@@ -217,7 +337,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
      * workflow was requested.
      */
     @Test
-    @AppModeFull // testAutoFillNoDatasets() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutoFillNoDatasets() is enough")
     public void testMultipleIterationsAfterServiceReturnedNoDatasets() throws Exception {
         // Set service.
         enableService();
@@ -228,21 +348,10 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         sReplier.getNextFillRequest();
         waitUntilDisconnected();
 
-        // Trigger autofill on password - should call service
-        sReplier.addResponse(NO_RESPONSE);
+        // Every other call should be ignored
         mActivity.onPassword(View::requestFocus);
-        sReplier.getNextFillRequest();
-        waitUntilDisconnected();
-
-        // Tap username again - should be ignored
         mActivity.onUsername(View::requestFocus);
-        sReplier.assertOnFillRequestNotCalled();
-        waitUntilDisconnected();
-
-        // Tap password again - should be ignored
         mActivity.onPassword(View::requestFocus);
-        sReplier.assertOnFillRequestNotCalled();
-        waitUntilDisconnected();
 
         // Trigger autofill by manually requesting username - should call service
         sReplier.addResponse(NO_RESPONSE);
@@ -260,7 +369,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyAlwaysCallServiceAgain() throws Exception {
         // Set service.
         enableService();
@@ -294,13 +403,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset_withHeaderAndFooter() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset_withHeaderAndFooter() is enough")
     public void testAutoFillOneDataset_withHeader() throws Exception {
         autofillOneDatasetTest(BorderType.HEADER_ONLY);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset_withHeaderAndFooter() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset_withHeaderAndFooter() is enough")
     public void testAutoFillOneDataset_withFooter() throws Exception {
         autofillOneDatasetTest(BorderType.FOOTER_ONLY);
     }
@@ -362,6 +471,9 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         final FillRequest request = sReplier.getNextFillRequest();
         assertWithMessage("CancelationSignal is null").that(request.cancellationSignal).isNotNull();
         assertTextIsSanitized(request.structure, ID_PASSWORD);
+        final FillContext fillContext = request.contexts.get(request.contexts.size() - 1);
+        assertThat(fillContext.getFocusedId())
+                .isEqualTo(findAutofillIdByResourceId(fillContext, ID_USERNAME));
 
         // Make sure initial focus was properly set.
         assertWithMessage("Username node is not focused").that(
@@ -370,11 +482,47 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 findNodeByResourceId(request.structure, ID_PASSWORD).isFocused()).isFalse();
     }
 
+
+    @Test
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
+    public void testAutofillAgainAfterOnFailure() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(FAIL);
+
+        // Trigger autofill.
+        requestFocusOnUsernameNoWindowChange();
+        sReplier.getNextFillRequest();
+        mUiBot.assertNoDatasetsEver();
+
+        // Try again
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger autofill.
+        clearFocus();
+        requestFocusOnUsername();
+        sReplier.getNextFillRequest();
+        mActivity.expectAutoFill("dude", "sweet");
+        mUiBot.selectDataset("The Dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+    }
+
     @Test
     public void testDatasetPickerPosition() throws Exception {
-        // TODO: currently disabled because the screenshot contains elements external to the
-        // activity that can change (for exmaple, clock), which causes flakiness to the test.
+        // TODO(b/75281985): currently disabled because the screenshot contains elements external to
+        // the activity that can change (for example, clock), which causes flakiness to the test.
         final boolean compareBitmaps = false;
+
         final boolean pickerAndViewBoundsMatches = !isAutofillWindowFullScreen(mContext);
 
         // Set service.
@@ -456,7 +604,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillTwoDatasetsSameNumberOfFields() throws Exception {
         // Set service.
         enableService();
@@ -495,13 +643,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillTwoDatasetsUnevenNumberOfFieldsFillsAll() throws Exception {
         autoFillTwoDatasetsUnevenNumberOfFieldsTest(true);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillTwoDatasetsUnevenNumberOfFieldsFillsOne() throws Exception {
         autoFillTwoDatasetsUnevenNumberOfFieldsTest(false);
     }
@@ -553,7 +701,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillDatasetWithoutFieldIsIgnored() throws Exception {
         // Set service.
         enableService();
@@ -700,8 +848,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         mUiBot.assertDatasets("The Dude");
 
         // tapping outside autofill window should close it and raise ui hidden event
-        mUiBot.waitForWindowChange(() -> tap(mActivity.getUsernameLabel()),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> tap(mActivity.getUsernameLabel()));
         callback.assertUiHiddenEvent(username);
 
         mUiBot.assertNoDatasets();
@@ -748,7 +895,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackDisabled() throws Exception {
         // Set service.
         disableService();
@@ -764,13 +911,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackNoDatasets() throws Exception {
         callbackUnavailableTest(NO_RESPONSE);
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackNoDatasetsButSaveInfo() throws Exception {
         callbackUnavailableTest(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
@@ -839,6 +986,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         // Check the results.
         mActivity.assertAutoFilled();
+        assertViewAutofillState(mActivity.getPassword(), true);
 
         // Try to login, it will fail.
         final String loginMessage = mActivity.tapLogin();
@@ -847,6 +995,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         // Set right password...
         mActivity.onPassword((v) -> v.setText("dude"));
+        assertViewAutofillState(mActivity.getPassword(), false);
 
         // ... and try again
         final String expectedMessage = getWelcomeMessage("dude");
@@ -854,7 +1003,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
 
         // Assert the snack bar is shown and tap "Save".
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
 
@@ -904,7 +1053,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         final View[] overlay = new View[1];
         try {
             // Allow ourselves to add overlays
-            runShellCommand("appops set %s SYSTEM_ALERT_WINDOW allow", mPackageName);
+            allowOverlays();
 
             // Make sure the fill UI is shown.
             mUiBot.assertDatasets("The Dude");
@@ -957,7 +1106,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
             assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
 
             // Assert the snack bar is shown and tap "Save".
-            mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+            mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
             final SaveRequest saveRequest = sReplier.getNextSaveRequest();
 
@@ -972,30 +1121,34 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
             final String extraValue = saveRequest.data.getString("numbers");
             assertWithMessage("extras not passed on save").that(extraValue).isEqualTo("4815162342");
         } finally {
-            // Make sure we can no longer add overlays
-            runShellCommand("appops set %s SYSTEM_ALERT_WINDOW ignore", mPackageName);
-            // Make sure the overlay is removed
-            mActivity.runOnUiThread(() -> {
-                WindowManager windowManager = mContext.getSystemService(WindowManager.class);
-                windowManager.removeView(overlay[0]);
-            });
+            try {
+                // Make sure we can no longer add overlays
+                disallowOverlays();
+                // Make sure the overlay is removed
+                mActivity.runOnUiThread(() -> {
+                    WindowManager windowManager = mContext.getSystemService(WindowManager.class);
+                    windowManager.removeView(overlay[0]);
+                });
+            } catch (Exception e) {
+                mSafeCleanerRule.add(e);
+            }
         }
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillMultipleDatasetsPickFirst() throws Exception {
         multipleDatasetsTest(1);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillMultipleDatasetsPickSecond() throws Exception {
         multipleDatasetsTest(2);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDataset() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
     public void testAutoFillMultipleDatasetsPickThird() throws Exception {
         multipleDatasetsTest(3);
     }
@@ -1099,7 +1252,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
      * and password) and the dataset itself, and each dataset has the same number of fields.
      */
     @Test
-    @AppModeFull // testAutofillOneDatasetCustomPresentation() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillOneDatasetCustomPresentation() is enough")
     public void testAutofillMultipleDatasetsCustomPresentations() throws Exception {
         // Set service.
         enableService();
@@ -1144,7 +1297,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
      * and password), and each dataset has the same number of fields.
      */
     @Test
-    @AppModeFull // testAutofillOneDatasetCustomPresentation() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillOneDatasetCustomPresentation() is enough")
     public void testAutofillMultipleDatasetsCustomPresentationSameFields() throws Exception {
         // Set service.
         enableService();
@@ -1188,7 +1341,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
      * and password), but each dataset has a different number of fields.
      */
     @Test
-    @AppModeFull // testAutofillOneDatasetCustomPresentation() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillOneDatasetCustomPresentation() is enough")
     public void testAutofillMultipleDatasetsCustomPresentationFirstDatasetMissingSecondField()
             throws Exception {
         // Set service.
@@ -1231,7 +1384,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
      * and password), but each dataset has a different number of fields.
      */
     @Test
-    @AppModeFull // testAutofillOneDatasetCustomPresentation() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutofillOneDatasetCustomPresentation() is enough")
     public void testAutofillMultipleDatasetsCustomPresentationSecondDatasetMissingFirstField()
             throws Exception {
         // Set service.
@@ -1270,13 +1423,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnly() throws Exception {
         saveOnlyTest(false);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnlyTriggeredManually() throws Exception {
         saveOnlyTest(false);
     }
@@ -1394,13 +1547,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnlyPreFilled() throws Exception {
         saveOnlyTestPreFilled(false);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnlyTriggeredManuallyPreFilled() throws Exception {
         saveOnlyTestPreFilled(true);
     }
@@ -1459,7 +1612,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnlyTwoRequiredFieldsOnePrefilled() throws Exception {
         enableService();
 
@@ -1506,7 +1659,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveOnlyOptionalField() throws Exception {
         enableService();
 
@@ -1549,19 +1702,19 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveNoRequiredField_NoneFilled() throws Exception {
         optionalOnlyTest(FilledFields.NONE);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveNoRequiredField_OneFilled() throws Exception {
         optionalOnlyTest(FilledFields.USERNAME_ONLY);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testSaveNoRequiredField_BothFilled() throws Exception {
         optionalOnlyTest(FilledFields.BOTH);
     }
@@ -1630,37 +1783,37 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testGenericSave() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_GENERIC);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testCustomizedSavePassword() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_PASSWORD);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testCustomizedSaveAddress() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_ADDRESS);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testCustomizedSaveCreditCard() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_CREDIT_CARD);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testCustomizedSaveUsername() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_USERNAME);
     }
 
     @Test
-    @AppModeFull // testAutoFillOneDatasetAndSave() is enough to test ephemeral apps
+    @AppModeFull(reason = "testAutoFillOneDatasetAndSave() is enough")
     public void testCustomizedSaveEmailAddress() throws Exception {
         customizedSaveTest(SAVE_DATA_TYPE_EMAIL_ADDRESS);
     }
@@ -1749,7 +1902,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // Service-specific test
+    @AppModeFull(reason = "Service-specific test")
     public void testDisableSelf() throws Exception {
         enableService();
 
@@ -1856,7 +2009,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // Unit test
+    @AppModeFull(reason = "Unit test")
     public void testGetTextInputType() throws Exception {
         // Set service.
         enableService();
@@ -1879,7 +2032,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // Unit test
+    @AppModeFull(reason = "Unit test")
     public void testNoContainers() throws Exception {
         // Set service.
         enableService();
@@ -1925,7 +2078,6 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         // And activity.
         mActivity.onUsername((v) -> v.setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_NO));
-
         // Set expectations.
         sReplier.addResponse(new CannedDataset.Builder()
                 .setField(ID_USERNAME, "dude")
@@ -1935,7 +2087,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         mActivity.expectAutoFill("dude", "sweet");
 
         // Explicitly uses the contextual menu to test that functionality.
-        mUiBot.getAutofillMenuOption(ID_USERNAME).click();
+        mUiBot.getAutofillMenuOption(ID_USERNAME, false).click();
 
         final FillRequest fillRequest = sReplier.getNextFillRequest();
         assertHasFlags(fillRequest.flags, FLAG_MANUAL_REQUEST);
@@ -1948,13 +2100,50 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutoFillOneDataset() is enough")
+    public void testAutofillManuallyOneDatasetWhenClipboardFull() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set clipboard.
+        ClipboardManager cm = (ClipboardManager) mActivity.getSystemService(CLIPBOARD_SERVICE);
+        cm.setPrimaryClip(ClipData.newPlainText(null, "test"));
+
+        // And activity.
+        mActivity.onUsername((v) -> v.setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_NO));
+
+        // Set expectations.
+        sReplier.addResponse(new CannedDataset.Builder()
+                .setField(ID_USERNAME, "dude")
+                .setField(ID_PASSWORD, "sweet")
+                .setPresentation(createPresentation("The Dude"))
+                .build());
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Explicitly uses the contextual menu to test that functionality.
+        mUiBot.getAutofillMenuOption(ID_USERNAME, true).click();
+
+        final FillRequest fillRequest = sReplier.getNextFillRequest();
+        assertHasFlags(fillRequest.flags, FLAG_MANUAL_REQUEST);
+
+        // Should have been automatically filled.
+        mUiBot.selectDataset("The Dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+
+        // clear clipboard
+        cm.clearPrimaryClip();
+    }
+
+    @Test
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyTwoDatasetsPickFirst() throws Exception {
         autofillManuallyTwoDatasets(true);
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyTwoDatasetsPickSecond() throws Exception {
         autofillManuallyTwoDatasets(false);
     }
@@ -1998,7 +2187,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyPartialField() throws Exception {
         // Set service.
         enableService();
@@ -2033,7 +2222,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyAgainAfterAutomaticallyAutofilledBefore() throws Exception {
         // Set service.
         enableService();
@@ -2094,7 +2283,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyAgainAfterManuallyAutofilledBefore() throws Exception {
         // Set service.
         enableService();
@@ -2163,7 +2352,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
                 .build();
 
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 10; i++) {
             Log.i(TAG, "testCommitMultipleTimes(): step " + i);
             final String username = "user-" + i;
             final String password = "pass-" + i;
@@ -2171,12 +2360,14 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
                 // Set expectations.
                 sReplier.addResponse(response);
 
-                // Trigger auto-fill.
-                mActivity.onUsername(View::requestFocus);
+                Timeouts.IDLE_UNBIND_TIMEOUT.run("wait for session created", () -> {
+                    // Trigger auto-fill.
+                    mActivity.onUsername(View::clearFocus);
+                    mActivity.onUsername(View::requestFocus);
 
-                // Wait for onFill() before proceeding, otherwise the fields might be changed before
-                // the session started
-                waitUntilConnected();
+                    return isConnected() ? "not_used" : null;
+                });
+
                 sReplier.getNextFillRequest();
 
                 // Sanity check.
@@ -2219,7 +2410,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         // Set service.
         enableService();
 
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 10; i++) {
             Log.i(TAG, "testCancelMultipleTimes(): step " + i);
             final String username = "user-" + i;
             final String password = "pass-" + i;
@@ -2328,12 +2519,12 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
         // Sanity check.
         final AutofillManager afm = mActivity.getAutofillManager();
-        assertThat(afm.isEnabled()).isTrue();
+        Helper.assertAutofillEnabled(afm, true);
 
         // Now disable user_complete and try again.
         try {
             setUserComplete(mContext, false);
-            assertThat(afm.isEnabled()).isFalse();
+            Helper.assertAutofillEnabled(afm, false);
         } finally {
             setUserComplete(mContext, true);
         }
@@ -2366,13 +2557,13 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
 
     // TODO(b/70682223): add a new test to make sure service with BIND_AUTOFILL permission works
     @Test
-    @AppModeFull // Service-specific test
+    @AppModeFull(reason = "Service-specific test")
     public void testServiceIsDisabledWhenNewServiceInfoIsInvalid() throws Exception {
         serviceIsDisabledWhenNewServiceIsInvalid(BadAutofillService.SERVICE_NAME);
     }
 
     @Test
-    @AppModeFull // Service-specific test
+    @AppModeFull(reason = "Service-specific test")
     public void testServiceIsDisabledWhenNewServiceNameIsInvalid() throws Exception {
         serviceIsDisabledWhenNewServiceIsInvalid("Y_U_NO_VALID");
     }
@@ -2504,7 +2695,7 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // Unit test
+    @AppModeFull(reason = "Unit test")
     public void testNewTextAttributes() throws Exception {
         enableService();
         sReplier.addResponse(NO_RESPONSE);
@@ -2525,5 +2716,83 @@ public class LoginActivityTest extends AbstractLoginActivityTestCase {
         assertThat(password.getMinTextEms()).isEqualTo(-1);
         assertThat(password.getMaxTextEms()).isEqualTo(-1);
         assertThat(password.getMaxTextLength()).isEqualTo(-1);
+    }
+
+    @Test
+    public void testUiShowOnChangeAfterAutofill() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedDataset.Builder()
+                .setField(ID_USERNAME, "dude", createPresentation("dude"))
+                .setField(ID_PASSWORD, "sweet", createPresentation("sweet"))
+                .build());
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Trigger auto-fill.
+        requestFocusOnUsername();
+        mUiBot.assertDatasets("dude");
+        sReplier.getNextFillRequest();
+        mUiBot.selectDataset("dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+        mUiBot.assertNoDatasets();
+
+        // Delete a character.
+        sendKeyEvent("KEYCODE_DEL");
+        assertThat(mUiBot.getTextByRelativeId(ID_USERNAME)).isEqualTo("dud");
+
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Check autofill UI show.
+        final UiObject2 datasetPicker = mUiBot.assertDatasets("dude");
+
+        // Autofill again.
+        mUiBot.selectDataset(datasetPicker, "dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+        mUiBot.assertNoDatasets();
+    }
+
+    @Test
+    public void testUiShowOnChangeAfterAutofillOnePresentation() throws Exception {
+        // Set service.
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedDataset.Builder()
+                .setField(ID_USERNAME, "dude")
+                .setField(ID_PASSWORD, "sweet")
+                .setPresentation(createPresentation("The Dude"))
+                .build());
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Trigger auto-fill.
+        requestFocusOnUsername();
+        mUiBot.assertDatasets("The Dude");
+        sReplier.getNextFillRequest();
+        mUiBot.selectDataset("The Dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+        mUiBot.assertNoDatasets();
+
+        // Delete username
+        mUiBot.setTextByRelativeId(ID_USERNAME, "");
+
+        mActivity.expectAutoFill("dude", "sweet");
+
+        // Check autofill UI show.
+        final UiObject2 datasetPicker = mUiBot.assertDatasets("The Dude");
+
+        // Autofill again.
+        mUiBot.selectDataset(datasetPicker, "The Dude");
+
+        // Check the results.
+        mActivity.assertAutoFilled();
+        mUiBot.assertNoDatasets();
     }
 }

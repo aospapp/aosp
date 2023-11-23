@@ -40,8 +40,10 @@ BackendGlobalData *gdata = NULL;
 
 /* Forward declarations */
 static jboolean isInterface(jclass clazz);
-static jboolean isArrayClass(jclass clazz);
 static char * getPropertyUTF8(JNIEnv *env, char *propertyName);
+
+static jvmtiError (JNICALL *ext_RawMonitorEnterNoSuspend) (jvmtiEnv* env, jrawMonitorID monitor);
+static jvmtiError (JNICALL *ext_RawMonitorExitNoSuspend) (jvmtiEnv* env, jrawMonitorID monitor);
 
 // ANDROID-CHANGED: Implement a helper to get the current time in milliseconds according to
 // CLOCK_MONOTONIC.
@@ -1093,6 +1095,24 @@ debugMonitorExit(jrawMonitorID monitor)
     }
 }
 
+/* ANDROID-CHANGED: Add suspension ignoring raw-monitor enter. */
+void debugMonitorEnterNoSuspend(jrawMonitorID monitor)
+{
+    jvmtiError error;
+    while (JNI_TRUE) {
+        error = FUNC_PTR(&gdata,raw_monitor_enter_no_suspend)(gdata->jvmti, monitor);
+        error = ignore_vm_death(error);
+        if (error == JVMTI_ERROR_INTERRUPT) {
+            handleInterrupt();
+        } else {
+            break;
+        }
+    }
+    if (error != JVMTI_ERROR_NONE) {
+        EXIT_ERROR(error, "on raw monitor enter no suspend");
+    }
+}
+
 void
 debugMonitorWait(jrawMonitorID monitor)
 {
@@ -1312,7 +1332,8 @@ classStatus(jclass clazz)
     return status;
 }
 
-static jboolean
+/* ANDROID-CHANGED: Make isArrayClass public */
+jboolean
 isArrayClass(jclass clazz)
 {
     jboolean isArray = JNI_FALSE;

@@ -18,9 +18,10 @@ package com.android.settings.development;
 
 import android.content.Context;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.development.DeveloperOptionsPreferenceController;
@@ -65,7 +66,7 @@ public class MobileDataAlwaysOnPreferenceController extends
     protected void onDeveloperOptionsSwitchDisabled() {
         super.onDeveloperOptionsSwitchDisabled();
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.MOBILE_DATA_ALWAYS_ON,
-                SETTING_VALUE_OFF);
-        ((SwitchPreference) mPreference).setChecked(false);
+                SETTING_VALUE_ON);
+        ((SwitchPreference) mPreference).setChecked(true);
     }
 }

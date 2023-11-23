@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Compartir"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Borrar"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Seleccionar todos"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Seleccionar"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Ordenar por…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Copiar a…"</string>
     <string name="menu_move" msgid="2310760789561129882">"Mover a…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Comprimir"</string>
@@ -59,15 +61,26 @@
     <string name="button_retry" msgid="4011461781916631389">"Volver a intentar"</string>
     <string name="button_clear" msgid="5412304437764369441">"Borrar"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Mostrar en el proveedor"</string>
-    <string name="not_sorted" msgid="7813496644889115530">"Sin ordernar"</string>
+    <string name="not_sorted" msgid="7813496644889115530">"Sin ordenar"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Nombre"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"Resumen"</string>
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Tipo"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Tamaño"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Modificación"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Nombre (A-Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Tipo (A-Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Tamaño (más pequeños)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Más antiguos primero"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Nombre (Z-A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Tipo (Z-A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Tamaño (más grandes)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Más recientes primero"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Ordenar por"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Se ordena por <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Cantidad de elementos"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Ascendente"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Descendente"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Abrir <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Mostrar raíces"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Ocultar raíces"</string>
     <string name="save_error" msgid="8631128801982095782">"Error al guardar el documento"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"¿Quieres otorgar a la app de <xliff:g id="APPNAME"><b>^1</b></xliff:g> acceso al directorio <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> en <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"¿Quieres otorgar acceso a la app de <xliff:g id="APPNAME"><b>^1</b></xliff:g> al directorio <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"¿Quieres otorgar acceso a la app de <xliff:g id="APPNAME"><b>^1</b></xliff:g> a tus datos, incluidas tus fotos y videos, en <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"No volver a preguntar"</string>
     <string name="allow" msgid="1275746941353040309">"Permitir"</string>
     <string name="deny" msgid="5127201668078153379">"Rechazar"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archivo<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"¿Deseas sobrescribir <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Continuar en segundo plano"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elementos seleccionados</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elemento seleccionado</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Archivos recientes en el teléfono"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Archivos en el teléfono"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> en el teléfono"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Archivos en <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Archivos de <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Archivos de <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Imágenes recientes en el teléfono"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Imágenes en el teléfono"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"Imágenes en <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"Imágenes de <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Imágenes de <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Imágenes"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Audio"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Videos"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Documentos"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Nombre de carpeta"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Nombre nuevo"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Obtener vista previa del archivo <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Explorar archivos en otras apps"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Anónimo"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Permitir el acceso a \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"¿Quieres permitir el acceso a \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" en \"<xliff:g id="ROOT">%2$s</xliff:g>\"?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Le permitirá a \"<xliff:g id="APPNAME">%1$s</xliff:g>\" tener acceso completo a todos los archivos almacenados actualmente en esta ubicación y a cualquier contenido que se almacene aquí en el futuro."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Buscar en este teléfono"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Borrar historial de búsqueda de <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

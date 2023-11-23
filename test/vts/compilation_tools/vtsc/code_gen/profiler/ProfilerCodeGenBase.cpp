@@ -45,7 +45,7 @@ void ProfilerCodeGenBase::GenerateHeaderFile(
     InterfaceSpecificationMessage interface = message.interface();
     // First generate the declaration of profiler functions for all user
     // defined types within the interface.
-    for (const auto attribute : interface.attribute()) {
+    for (const auto& attribute : interface.attribute()) {
       GenerateProfilerMethodDeclForAttribute(out, attribute);
     }
 
@@ -72,7 +72,7 @@ void ProfilerCodeGenBase::GenerateHeaderFile(
   } else {
     // For types.vts, just generate the declaration of profiler functions
     // for all user defined types.
-    for (const auto attribute : message.attribute()) {
+    for (const auto& attribute : message.attribute()) {
       GenerateProfilerMethodDeclForAttribute(out, attribute);
     }
   }
@@ -92,7 +92,7 @@ void ProfilerCodeGenBase::GenerateSourceFile(
     InterfaceSpecificationMessage interface = message.interface();
     // First generate profiler functions for all user defined types within
     // the interface.
-    for (const auto attribute : interface.attribute()) {
+    for (const auto& attribute : interface.attribute()) {
       GenerateProfilerMethodImplForAttribute(out, attribute);
     }
     // Generate the main profiler function.
@@ -118,7 +118,7 @@ void ProfilerCodeGenBase::GenerateSourceFile(
       GenerateLocalVariableDefinition(out, message);
 
       // Generate the profiler code for each method.
-      for (const FunctionSpecificationMessage api : interface.api()) {
+      for (const FunctionSpecificationMessage& api : interface.api()) {
         out << "if (strcmp(method, \"" << api.name() << "\") == 0) {\n";
         out.indent();
         GenerateProfilerForMethod(out, api);
@@ -132,7 +132,7 @@ void ProfilerCodeGenBase::GenerateSourceFile(
   } else {
     // For types.vts, just generate profiler functions for the user defined
     // types.
-    for (const auto attribute : message.attribute()) {
+    for (const auto& attribute : message.attribute()) {
       GenerateProfilerMethodImplForAttribute(out, attribute);
     }
   }
@@ -217,22 +217,30 @@ void ProfilerCodeGenBase::GenerateProfilerForTypedVariable(Formatter& out,
       GenerateProfilerForFMQUnsyncVariable(out, val, arg_name, arg_value);
       break;
     }
-    default:
-    {
-      cout << "not supported.\n";
+    case TYPE_SAFE_UNION: {
+      GenerateProfilerForSafeUnionVariable(out, val, arg_name, arg_value);
+      break;
+    }
+    default: {
+      out << "LOG(ERROR) << \"Type " << val.type()
+          << "is not supported yet. \";\n";
     }
   }
 }
 
 void ProfilerCodeGenBase::GenerateProfilerMethodDeclForAttribute(Formatter& out,
   const VariableSpecificationMessage& attribute) {
-  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
+  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION ||
+      attribute.type() == TYPE_SAFE_UNION) {
     // Recursively generate profiler method declaration for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateProfilerMethodDeclForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateProfilerMethodDeclForAttribute(out, sub_union);
+    }
+    for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+      GenerateProfilerMethodDeclForAttribute(out, sub_safe_union);
     }
   }
   std::string attribute_name = attribute.name();
@@ -244,13 +252,17 @@ void ProfilerCodeGenBase::GenerateProfilerMethodDeclForAttribute(Formatter& out,
 
 void ProfilerCodeGenBase::GenerateProfilerMethodImplForAttribute(
     Formatter& out, const VariableSpecificationMessage& attribute) {
-  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
+  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION ||
+      attribute.type() == TYPE_SAFE_UNION) {
     // Recursively generate profiler method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateProfilerMethodImplForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateProfilerMethodImplForAttribute(out, sub_union);
+    }
+    for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+      GenerateProfilerMethodImplForAttribute(out, sub_safe_union);
     }
   }
   std::string attribute_name = attribute.name();
@@ -274,6 +286,70 @@ void ProfilerCodeGenBase::GenerateCloseNameSpaces(Formatter& out,
     const ComponentSpecificationMessage& /*message*/) {
   out << "}  // namespace vts\n";
   out << "}  // namespace android\n";
+}
+
+bool ProfilerCodeGenBase::IncludeHidlNativeType(
+    const ComponentSpecificationMessage& message, const VariableType& type) {
+  if (message.has_interface()) {
+    InterfaceSpecificationMessage interface = message.interface();
+    for (const VariableSpecificationMessage& attribute :
+         interface.attribute()) {
+      if (IncludeHidlNativeType(attribute, type)) {
+        return true;
+      }
+    }
+    for (const FunctionSpecificationMessage& api : interface.api()) {
+      for (const VariableSpecificationMessage& arg : api.arg()) {
+        if (IncludeHidlNativeType(arg, type)) {
+          return true;
+        }
+      }
+      for (const VariableSpecificationMessage& result :
+           api.return_type_hidl()) {
+        if (IncludeHidlNativeType(result, type)) {
+          return true;
+        }
+      }
+    }
+  } else {
+    for (const VariableSpecificationMessage& attribute : message.attribute()) {
+      if (IncludeHidlNativeType(attribute, type)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool ProfilerCodeGenBase::IncludeHidlNativeType(
+    const VariableSpecificationMessage& val, const VariableType& type) {
+  if (val.type() == type) {
+    return true;
+  }
+  if (val.type() == TYPE_VECTOR || val.type() == TYPE_ARRAY) {
+    if (IncludeHidlNativeType(val.vector_value(0), type)) return true;
+  }
+  if (val.type() == TYPE_STRUCT) {
+    if (!val.has_predefined_type()) {
+      for (const auto& sub_struct : val.sub_struct()) {
+        if (IncludeHidlNativeType(sub_struct, type)) return true;
+      }
+      for (const auto& struct_field : val.struct_value()) {
+        if (IncludeHidlNativeType(struct_field, type)) return true;
+      }
+    }
+  }
+  if (val.type() == TYPE_UNION) {
+    if (!val.has_predefined_type()) {
+      for (const auto& sub_union : val.sub_union()) {
+        if (IncludeHidlNativeType(sub_union, type)) return true;
+      }
+      for (const auto& union_field : val.union_value()) {
+        if (IncludeHidlNativeType(union_field, type)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 }  // namespace vts

@@ -35,14 +35,24 @@ if(BUILD_TESTING)
     # Add unit test
     add_executable(parameterFunctionalTest
                    Basic.cpp
+                   Boolean.cpp
+                   BitParameter.cpp
+                   EnumParameter.cpp
                    FloatingPoint.cpp
+                   FixedPoint.cpp
+                   Integer.cpp
+                   Linear.cpp
+                   Logarithmic.cpp
                    Handle.cpp
                    AutoSync.cpp)
 
     find_package(LibXml2 REQUIRED)
 
+    target_compile_definitions(parameterFunctionalTest PUBLIC -D PLUGIN_NAME=\"introspection-subsystem\" PLUGIN_PATH=\"\")
+
     target_link_libraries(parameterFunctionalTest
-                          PRIVATE parameter catch tmpfile LibXml2::libxml2 introspection-subsystem)
+                          PRIVATE parameter
+                          PRIVATE pfw_utility catch tmpfile LibXml2::libxml2 introspection-subsystem)
 
     add_test(NAME parameterFunctionalTest
              COMMAND parameterFunctionalTest)

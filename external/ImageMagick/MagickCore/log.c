@@ -17,13 +17,13 @@
 %                                September 2002                               %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -50,6 +50,7 @@
 #include "MagickCore/log.h"
 #include "MagickCore/log-private.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/nt-base-private.h"
 #include "MagickCore/option.h"
 #include "MagickCore/semaphore.h"
@@ -208,6 +209,9 @@ static char
 static LinkedListInfo
   *log_cache = (LinkedListInfo *) NULL;
 
+static MagickBooleanType
+  event_logging = MagickFalse;
+
 static SemaphoreInfo
   *event_semaphore = (SemaphoreInfo *) NULL,
   *log_semaphore = (SemaphoreInfo *) NULL;
@@ -216,13 +220,13 @@ static SemaphoreInfo
   Forward declarations.
 */
 static LogHandlerType
-  ParseLogHandlers(const char *);
+  ParseLogHandlers(const char *) magick_attribute((__pure__));
 
 static LogInfo
   *GetLogInfo(const char *,ExceptionInfo *);
 
 static MagickBooleanType
-  IsLogCacheInstantiated(ExceptionInfo *),
+  IsLogCacheInstantiated(ExceptionInfo *) magick_attribute((__pure__)),
   LoadLogCache(LinkedListInfo *,const char *,const char *,const size_t,
     ExceptionInfo *);
 
@@ -268,8 +272,6 @@ static LinkedListInfo *AcquireLogCache(const char *filename,
     Load external log map.
   */
   cache=NewLinkedList(0);
-  if (cache == (LinkedListInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   status=MagickTrue;
 #if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
   {
@@ -309,7 +311,7 @@ static LinkedListInfo *AcquireLogCache(const char *filename,
           ResourceLimitError,"MemoryAllocationFailed","`%s'",p->filename);
         continue;
       }
-    (void) ResetMagickMemory(log_info,0,sizeof(*log_info));
+    (void) memset(log_info,0,sizeof(*log_info));
     log_info->path=ConstantString("[built-in]");
     GetTimerInfo((TimerInfo *) &log_info->timer);
     log_info->event_mask=p->event_mask;
@@ -656,6 +658,26 @@ MagickExport const char *GetLogName(void)
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static inline void CheckEventLogging()
+{
+  /*
+    Are we logging events?
+  */
+  if (IsLinkedListEmpty(log_cache) != MagickFalse)
+    event_logging=MagickFalse;
+  else
+    {
+      LogInfo
+        *p;
+
+      ResetLinkedListIterator(log_cache);
+      p=(LogInfo *) GetNextValueInLinkedList(log_cache);
+      event_logging=(p != (LogInfo *) NULL) && (p->event_mask != NoEvents) ?
+        MagickTrue: MagickFalse;
+    }
+}
+
 static MagickBooleanType IsLogCacheInstantiated(ExceptionInfo *exception)
 {
   if (log_cache == (LinkedListInfo *) NULL)
@@ -664,7 +686,10 @@ static MagickBooleanType IsLogCacheInstantiated(ExceptionInfo *exception)
         ActivateSemaphoreInfo(&log_semaphore);
       LockSemaphoreInfo(log_semaphore);
       if (log_cache == (LinkedListInfo *) NULL)
-        log_cache=AcquireLogCache(LogFilename,exception);
+        {
+          log_cache=AcquireLogCache(LogFilename,exception);
+          CheckEventLogging();
+        }
       UnlockSemaphoreInfo(log_semaphore);
     }
   return(log_cache != (LinkedListInfo *) NULL ? MagickTrue : MagickFalse);
@@ -691,20 +716,9 @@ static MagickBooleanType IsLogCacheInstantiated(ExceptionInfo *exception)
 */
 MagickExport MagickBooleanType IsEventLogging(void)
 {
-  const LogInfo
-    *log_info;
-
-  ExceptionInfo
-    *exception;
-
-  if ((log_cache == (LinkedListInfo *) NULL) ||
-      (IsLinkedListEmpty(log_cache) != MagickFalse))
-    return(MagickFalse);
-  exception=AcquireExceptionInfo();
-  log_info=GetLogInfo("*",exception);
-  exception=DestroyExceptionInfo(exception);
-  return(log_info->event_mask != NoEvents ? MagickTrue : MagickFalse);
+  return(event_logging);
 }
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -892,6 +906,7 @@ MagickPrivate void LogComponentTerminus(void)
   LockSemaphoreInfo(log_semaphore);
   if (log_cache != (LinkedListInfo *) NULL)
     log_cache=DestroyLinkedList(log_cache,DestroyLogElement);
+  event_logging=MagickFalse;
   UnlockSemaphoreInfo(log_semaphore);
   RelinquishSemaphoreInfo(&log_semaphore);
 }
@@ -1091,15 +1106,15 @@ static char *TranslateEvent(const char *module,const char *function,
       case 'm':
       {
         register const char
-          *p;
+          *r;
 
-        for (p=module+strlen(module)-1; p > module; p--)
-          if (*p == *DirectorySeparator)
+        for (r=module+strlen(module)-1; r > module; r--)
+          if (*r == *DirectorySeparator)
             {
-              p++;
+              r++;
               break;
             }
-        q+=CopyMagickString(q,p,extent);
+        q+=CopyMagickString(q,r,extent);
         break;
       }
       case 'n':
@@ -1252,8 +1267,9 @@ static char *TranslateFilename(const LogInfo *log_info)
   return(filename);
 }
 
-MagickBooleanType LogMagickEventList(const LogEventType type,const char *module,
-  const char *function,const size_t line,const char *format,va_list operands)
+MagickExport MagickBooleanType LogMagickEventList(const LogEventType type,
+  const char *module,const char *function,const size_t line,const char *format,
+  va_list operands)
 {
   char
     event[MagickPathExtent],
@@ -1271,8 +1287,6 @@ MagickBooleanType LogMagickEventList(const LogEventType type,const char *module,
   LogInfo
     *log_info;
 
-  if (IsEventLogging() == MagickFalse)
-    return(MagickFalse);
   exception=AcquireExceptionInfo();
   log_info=(LogInfo *) GetLogInfo("*",exception);
   exception=DestroyExceptionInfo(exception);
@@ -1381,8 +1395,9 @@ MagickBooleanType LogMagickEventList(const LogEventType type,const char *module,
   return(MagickTrue);
 }
 
-MagickBooleanType LogMagickEvent(const LogEventType type,const char *module,
-  const char *function,const size_t line,const char *format,...)
+MagickExport MagickBooleanType LogMagickEvent(const LogEventType type,
+  const char *module,const char *function,const size_t line,
+  const char *format,...)
 {
   va_list
     operands;
@@ -1390,6 +1405,8 @@ MagickBooleanType LogMagickEvent(const LogEventType type,const char *module,
   MagickBooleanType
     status;
 
+  if (IsEventLogging() == MagickFalse)
+    return(MagickFalse);
   va_start(operands,format);
   status=LogMagickEventList(type,module,function,line,format,operands);
   va_end(operands);
@@ -1494,7 +1511,7 @@ static MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
           GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"file") == 0)
             {
-              if (depth > 200)
+              if (depth > MagickMaxRecursionDepth)
                 (void) ThrowMagickException(exception,GetMagickModule(),
                   ConfigureError,"IncludeElementNestedTooDeeply","`%s'",token);
               else
@@ -1528,10 +1545,8 @@ static MagickBooleanType LoadLogCache(LinkedListInfo *cache,const char *xml,
         /*
           Allocate memory for the log list.
         */
-        log_info=(LogInfo *) AcquireMagickMemory(sizeof(*log_info));
-        if (log_info == (LogInfo *) NULL)
-          ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-        (void) ResetMagickMemory(log_info,0,sizeof(*log_info));
+        log_info=(LogInfo *) AcquireCriticalMemory(sizeof(*log_info));
+        (void) memset(log_info,0,sizeof(*log_info));
         log_info->path=ConstantString(filename);
         GetTimerInfo((TimerInfo *) &log_info->timer);
         log_info->signature=MagickCoreSignature;
@@ -1740,6 +1755,7 @@ MagickExport LogEventType SetLogEventMask(const char *events)
   log_info->event_mask=(LogEventType) option;
   if (option == -1)
     log_info->event_mask=UndefinedEvents;
+  CheckEventLogging();
   UnlockSemaphoreInfo(log_semaphore);
   return(log_info->event_mask);
 }
@@ -1783,7 +1799,7 @@ MagickExport void SetLogFormat(const char *format)
   log_info->format=ConstantString(format);
   UnlockSemaphoreInfo(log_semaphore);
 }
-
+
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %

@@ -8,6 +8,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Experimental"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """
 This test verifies that a user's pkcs11 signing keys are preserved

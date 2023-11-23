@@ -28,15 +28,16 @@
     <string name="notification_missedCall_message" msgid="3049928912736917988">"செய்தி"</string>
     <string name="accessibility_call_muted" msgid="2776111226185342220">"அழைப்பு முடக்கப்பட்டது."</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"ஸ்பீக்கர்ஃபோன் இயக்கப்பட்டது."</string>
-    <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"இப்போது பேசமுடியாது. என்ன விஷேசம்?"</string>
+    <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"இப்போது பேசமுடியாது. என்ன விசேஷம்?"</string>
     <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"சிறிதுநேரம் கழித்து நான் அழைக்கிறேன்."</string>
     <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"பிறகு அழைக்கிறேன்."</string>
-    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"இப்போது பேச முடியவில்லை. பிறகு அழைக்க முடியுமா?"</string>
+    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"இப்போது பேசமுடியாது, பிறகு அழைக்கிறீர்களா?"</string>
     <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"விரைவு பதில்கள்"</string>
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"விரைவு பதில்களை மாற்று"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"விரைவு பதில்"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> க்குச் செய்தி அனுப்பப்பட்டது."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"செய்தியை <xliff:g id="PHONE_NUMBER">%s</xliff:g>க்கு அனுப்ப முடியவில்லை."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"அழைப்புக் கணக்குகள்"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"அவசர அழைப்புகள் மட்டுமே அனுமதிக்கப்படும்."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"ஃபோன் அனுமதியில்லாமல், பயன்பாட்டினால் வெளிச்செல்லும் அழைப்புகளைச் செய்ய முடியாது."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"இயல்புநிலையாக அமை"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"ரத்துசெய்"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"அழைப்புகளின் எல்லா அம்சங்களையும் <xliff:g id="NEW_APP">%s</xliff:g> ஆல் செயல்படுத்தவும் கட்டுப்படுத்தவும் முடியும். நீங்கள் நம்பகமானது என கருதும் பயன்பாடுகளை மட்டுமே இயல்புநிலை ஃபோன் பயன்பாடாக அமைக்க வேண்டும்."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g>ஐ இயல்பு அழைப்புச் சோதனை ஆப்ஸாக அமைக்கவா?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> ஆப்ஸால் இனி அழைப்புகளைச் சோதனைச் செய்ய முடியாது."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> ஆப்ஸால் உங்கள் தொடர்புகளில் இல்லாத அழைப்பாளர்களைப் பற்றிய தகவலைப் பார்க்க முடியும், மேலும் அவர்கள் செய்யும் அழைப்புகளைத் தடுக்கவும் முடியும். நீங்கள் நம்பும் ஆப்ஸை மட்டுமே இயல்பு அழைப்புச் சோதனை ஆப்ஸாக அமைக்க வேண்டும்."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"இயல்பானதாக அமை"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"ரத்துசெய்"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"தடுக்கப்பட்ட எண்கள்"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"தடுக்கப்பட்ட எண்களிலிருந்து அழைப்புகள் அல்லது உரைச் செய்திகளைப் பெறமாட்டீர்கள்."</string>
     <string name="block_number" msgid="1101252256321306179">"எண்ணைச் சேர்"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"பதிலளித்தால், செயலில் உள்ள வீடியோ அழைப்பு துண்டிக்கப்படும்"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"பதிலளி"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"நிராகரி"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"இந்த வகை அழைப்புகளை ஆதரிக்கும் அழைப்புக் கணக்குகள் இல்லாததால், அழைப்பை மேற்கொள்ள முடியாது."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"<xliff:g id="OTHER_CALL">%1$s</xliff:g> அழைப்பு செயலில் உள்ளதால், புதிய அழைப்பைச் செய்ய முடியாது."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"<xliff:g id="OTHER_CALL">%1$s</xliff:g> அழைப்புகள் செயலில் உள்ளதால், புதிய அழைப்பைச் செய்ய முடியாது."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"மற்றொரு பயன்பாட்டில் அழைப்பு செயலில் உள்ளதால், புதிய அழைப்பைச் செய்ய முடியாது."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"தவறிய அழைப்புகள்"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"அழைப்புத் தடுப்பு"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"புதிய அழைப்பைச் செய்தால், செயலில் உள்ள <xliff:g id="OTHER_APP">%1$s</xliff:g> அழைப்பு துண்டிக்கப்படும்."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"இந்த அழைப்பை எவ்வாறு மேற்கொள்ள வேண்டும் எனத் தேர்ந்தெடுக்கவும்"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"<xliff:g id="OTHER_APP">%1$s</xliff:g>ஐப் பயன்படுத்தி அழைப்பைத் திருப்பி விடு"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"எனது மொபைல் எண்ணைப் பயன்படுத்தி அழை"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"<xliff:g id="OTHER_APP">%1$s</xliff:g> மூலம் அழைக்க முடியாது. அழைப்பைத் திருப்பிவிடுவதற்கான வேறொரு ஆப்ஸைப் பயன்படுத்திப் பார்க்கவும் அல்லது டெவெலப்பரைத் தொடர்பு கொண்டு, உதவி பெறவும்."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"அழைப்புத் தடுப்பு"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"தொடர்புகளில் இல்லாத எண்கள்"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"உங்கள் தொடர்புகளில் பட்டியலிடப்படாத எண்களைத் தடுக்கும்"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"அவசர அழைப்பு செய்யப்பட்டது"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"அவசரநிலையில் பதிலளிப்பவர்களை உங்களைத் தொடர்புகொள்வதற்கு அனுமதிக்க, அழைப்புத் தடுப்பு முடக்கப்பட்டுள்ளது."</string>
+    <string name="developer_title" msgid="1816273446906554627">"டெலிகாம் டெவெலப்பர் மெனு"</string>
 </resources>

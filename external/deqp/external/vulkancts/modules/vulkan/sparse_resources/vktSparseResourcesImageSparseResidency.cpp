@@ -32,10 +32,12 @@
 #include "vkPlatform.hpp"
 #include "vkPrograms.hpp"
 #include "vkMemUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deStringUtil.hpp"
@@ -77,17 +79,6 @@ const std::string getCoordStr  (const ImageType		imageType,
 			DE_ASSERT(false);
 			return "";
 	}
-}
-
-tcu::UVec3 alignedDivide (const VkExtent3D& extent, const VkExtent3D& divisor)
-{
-	tcu::UVec3 result;
-
-	result.x() = extent.width  / divisor.width  + ((extent.width  % divisor.width)  ? 1u : 0u);
-	result.y() = extent.height / divisor.height + ((extent.height % divisor.height) ? 1u : 0u);
-	result.z() = extent.depth  / divisor.depth  + ((extent.depth  % divisor.depth)  ? 1u : 0u);
-
-	return result;
 }
 
 tcu::UVec3 computeWorkGroupSize (const tcu::UVec3& gridSize)
@@ -303,10 +294,23 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 			std::vector<VkSparseImageMemoryBind> imageResidencyMemoryBinds;
 			std::vector<VkSparseMemoryBind>		 imageMipTailMemoryBinds;
 
-			const deUint32						 memoryType = findMatchingMemoryType(instance, physicalDevice, imageMemoryRequirements, MemoryRequirement::Any);
+			const deUint32						 memoryType = findMatchingMemoryType(instance, getPhysicalDevice(secondDeviceID), imageMemoryRequirements, MemoryRequirement::Any);
 
 			if (memoryType == NO_MATCH_FOUND)
 				return tcu::TestStatus::fail("No matching memory type found");
+
+			if (firstDeviceID != secondDeviceID)
+			{
+				VkPeerMemoryFeatureFlags	peerMemoryFeatureFlags = (VkPeerMemoryFeatureFlags)0;
+				const deUint32				heapIndex = getHeapIndexForMemoryType(instance, getPhysicalDevice(secondDeviceID), memoryType);
+				deviceInterface.getDeviceGroupPeerMemoryFeatures(getDevice(), heapIndex, firstDeviceID, secondDeviceID, &peerMemoryFeatureFlags);
+
+				if (((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT)    == 0) ||
+					((peerMemoryFeatureFlags & VK_PEER_MEMORY_FEATURE_GENERIC_DST_BIT) == 0))
+				{
+					TCU_THROW(NotSupportedError, "Peer memory does not support COPY_SRC and GENERIC_DST");
+				}
+			}
 
 			// Bind device memory for each aspect
 			for (deUint32 layerNdx = 0; layerNdx < imageCreateInfo.arrayLayers; ++layerNdx)
@@ -501,11 +505,11 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 				VK_ACCESS_SHADER_WRITE_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED,
 				VK_IMAGE_LAYOUT_GENERAL,
-				sparseQueue.queueFamilyIndex != computeQueue.queueFamilyIndex ? sparseQueue.queueFamilyIndex : VK_QUEUE_FAMILY_IGNORED,
-				sparseQueue.queueFamilyIndex != computeQueue.queueFamilyIndex ? computeQueue.queueFamilyIndex : VK_QUEUE_FAMILY_IGNORED,
 				*sparseImage,
-				subresourceRange
-			);
+				subresourceRange,
+				sparseQueue.queueFamilyIndex != computeQueue.queueFamilyIndex ? sparseQueue.queueFamilyIndex : VK_QUEUE_FAMILY_IGNORED,
+				sparseQueue.queueFamilyIndex != computeQueue.queueFamilyIndex ? computeQueue.queueFamilyIndex : VK_QUEUE_FAMILY_IGNORED
+				);
 
 			deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0u, 0u, DE_NULL, 0u, DE_NULL, 1u, &sparseImageLayoutChangeBarrier);
 		}
@@ -580,7 +584,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 			0, DE_NULL, m_useDeviceGroups, firstDeviceID);
 
 		// Retrieve data from buffer to host memory
-		invalidateMappedMemoryRange(deviceInterface, getDevice(), outputBufferAlloc->getMemory(), outputBufferAlloc->getOffset(), imageSizeInBytes);
+		invalidateAlloc(deviceInterface, getDevice(), *outputBufferAlloc);
 
 		const deUint8* outputData = static_cast<const deUint8*>(outputBufferAlloc->getHostPtr());
 		const tcu::ConstPixelBufferAccess pixelBuffer = tcu::ConstPixelBufferAccess(m_format, gridSize.x(), gridSize.y(), gridSize.z(), outputData);

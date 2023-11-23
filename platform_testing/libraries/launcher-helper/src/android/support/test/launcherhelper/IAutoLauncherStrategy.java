@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,4 +51,25 @@ public interface IAutoLauncherStrategy extends ILauncherStrategy {
      * Open Home Facet to select Dial/Media cards.
      */
     void openHomeFacet();
+
+    /**
+     * Open Google Assistant Facet.
+     */
+    void openAssistantFacet();
+
+    /**
+     * This method is to check if an application is visible on UI
+     *
+     * @param appName check app from all apps facet.
+     */
+    boolean checkApplicationExists(String appName);
+
+    /**
+     * This method is to open an application if it appears on UI
+     *
+     * It throws an exception when the target application is not found
+     *
+     * @param appName application to be opened.
+     */
+    void openApp(String appName);
 }

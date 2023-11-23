@@ -85,6 +85,8 @@ public:
     status_t    setEnabled_l(bool enabled);
     bool isEnabled() const;
     bool isProcessEnabled() const;
+    bool isOffloadedOrDirect() const;
+    bool isVolumeControlEnabled() const;
 
     void        setInBuffer(const sp<EffectBufferHalInterface>& buffer);
     int16_t     *inBuffer() const {
@@ -95,7 +97,8 @@ public:
         return mOutBuffer != 0 ? reinterpret_cast<int16_t*>(mOutBuffer->ptr()) : NULL;
     }
     void        setChain(const wp<EffectChain>& chain) { mChain = chain; }
-    void        setThread(const wp<ThreadBase>& thread) { mThread = thread; }
+    void        setThread(const wp<ThreadBase>& thread)
+                    { mThread = thread; mThreadType = thread.promote()->type(); }
     const wp<ThreadBase>& thread() { return mThread; }
 
     status_t addHandle(EffectHandle *handle);
@@ -128,10 +131,18 @@ public:
                         { return (mDescriptor.flags & EFFECT_FLAG_HW_ACC_MASK) == 0; }
     bool             isProcessImplemented() const
                         { return (mDescriptor.flags & EFFECT_FLAG_NO_PROCESS) == 0; }
+    bool             isVolumeControl() const
+                        { return (mDescriptor.flags & EFFECT_FLAG_VOLUME_MASK)
+                            == EFFECT_FLAG_VOLUME_CTRL; }
+    bool             isVolumeMonitor() const
+                        { return (mDescriptor.flags & EFFECT_FLAG_VOLUME_MASK)
+                            == EFFECT_FLAG_VOLUME_MONITOR; }
     status_t         setOffloaded(bool offloaded, audio_io_handle_t io);
     bool             isOffloaded() const;
     void             addEffectToHal_l();
     void             release_l();
+
+    status_t         updatePolicyState();
 
     void             dump(int fd, const Vector<String16>& args);
 
@@ -150,6 +161,7 @@ private:
 
 mutable Mutex               mLock;      // mutex for process, commands and handles list protection
     wp<ThreadBase>      mThread;    // parent thread
+    ThreadBase::type_t  mThreadType; // parent thread type
     wp<EffectChain>     mChain;     // parent effect chain
     const int           mId;        // this instance unique ID
     const audio_session_t mSessionId; // audio session ID
@@ -176,6 +188,34 @@ mutable Mutex               mLock;      // mutex for process, commands and handl
     uint32_t mInChannelCountRequested;
     uint32_t mOutChannelCountRequested;
 #endif
+
+    class AutoLockReentrant {
+    public:
+        AutoLockReentrant(Mutex& mutex, pid_t allowedTid)
+            : mMutex(gettid() == allowedTid ? nullptr : &mutex)
+        {
+            if (mMutex != nullptr) mMutex->lock();
+        }
+        ~AutoLockReentrant() {
+            if (mMutex != nullptr) mMutex->unlock();
+        }
+    private:
+        Mutex * const mMutex;
+    };
+
+    static constexpr pid_t INVALID_PID = (pid_t)-1;
+    // this tid is allowed to call setVolume() without acquiring the mutex.
+    pid_t mSetVolumeReentrantTid = INVALID_PID;
+
+    // Audio policy effect state management
+    // Mutex protecting transactions with audio policy manager as mLock cannot
+    // be held to avoid cross deadlocks with audio policy mutex
+    Mutex   mPolicyLock;
+    // Effect is registered in APM or not
+    bool    mPolicyRegistered = false;
+    // Effect enabled state communicated to APM. Enabled state corresponds to
+    // state requested by the EffectHandle with control
+    bool    mPolicyEnabled = false;
 };
 
 // The EffectHandle class implements the IEffect interface. It provides resources
@@ -306,6 +346,7 @@ public:
     sp<EffectModule> getEffectFromDesc_l(effect_descriptor_t *descriptor);
     sp<EffectModule> getEffectFromId_l(int id);
     sp<EffectModule> getEffectFromType_l(const effect_uuid_t *type);
+    std::vector<int> getEffectIds();
     // FIXME use float to improve the dynamic range
     bool setVolume_l(uint32_t *left, uint32_t *right, bool force = false);
     void resetVolume_l();
@@ -353,6 +394,7 @@ public:
 
     // At least one non offloadable effect in the chain is enabled
     bool isNonOffloadableEnabled();
+    bool isNonOffloadableEnabled_l();
 
     void syncHalEffectsState();
 
@@ -402,6 +444,8 @@ private:
     void clearInputBuffer_l(const sp<ThreadBase>& thread);
 
     void setThread(const sp<ThreadBase>& thread);
+
+    void setVolumeForOutput_l(uint32_t left, uint32_t right);
 
              wp<ThreadBase> mThread;     // parent mixer thread
     mutable  Mutex mLock;        // mutex protecting effect list

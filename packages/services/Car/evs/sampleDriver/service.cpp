@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2016-2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <unistd.h>
+#include <atomic>
 
 #include <hidl/HidlTransportSupport.h>
 #include <utils/Errors.h>
@@ -41,6 +42,11 @@ using namespace android;
 
 int main() {
     ALOGI("EVS Hardware Enumerator service is starting");
+
+    // Start a thread to listen video device addition events.
+    std::atomic<bool> running { true };
+    std::thread ueventHandler(EvsEnumerator::EvsUeventThread, std::ref(running));
+
     android::sp<IEvsEnumerator> service = new EvsEnumerator();
 
     configureRpcThreadpool(1, true /* callerWillJoin */);
@@ -53,6 +59,12 @@ int main() {
         joinRpcThreadpool();
     } else {
         ALOGE("Could not register service %s (%d).", kEnumeratorServiceName, status);
+    }
+
+    // Exit a uevent handler thread.
+    running = false;
+    if (ueventHandler.joinable()) {
+        ueventHandler.join();
     }
 
     // In normal operation, we don't expect the thread pool to exit

@@ -25,7 +25,7 @@
     </application>
 
     <!-- This is a self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.rsblas"
                      android:label="CTS tests of RenderScript IntrinsicBLAS">
         <meta-data android:name="listener"

@@ -48,7 +48,7 @@ using ::android::hardware::keymaster::V4_0::VerificationToken;
 
 class AndroidKeymaster4Device : public IKeymasterDevice {
   public:
-    AndroidKeymaster4Device(SecurityLevel securityLevel);
+    explicit AndroidKeymaster4Device(SecurityLevel securityLevel);
     virtual ~AndroidKeymaster4Device();
 
     Return<void> getHardwareInfo(getHardwareInfo_cb _hidl_cb) override;

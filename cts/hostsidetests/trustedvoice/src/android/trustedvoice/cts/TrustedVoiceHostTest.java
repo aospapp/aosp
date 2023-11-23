@@ -97,6 +97,8 @@ public class TrustedVoiceHostTest extends DeviceTestCase {
             getDevice().executeAdbCommand("logcat", "-c");
             // Lock the device
             getDevice().executeShellCommand(SLEEP_COMMAND);
+            // Add a delay to allow the device to go to sleep.
+            Thread.sleep(1000);
             // Start the APK and wait for it to complete.
             getDevice().executeShellCommand(START_COMMAND);
             // Adding delay for OEM specific features which could delay the time of printing the

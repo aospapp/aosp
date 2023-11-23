@@ -24,11 +24,13 @@ import java.util.Map;
  */
 public class Api extends ApiElement {
     private final Map<String, ApiClass> mClasses = new HashMap<>();
+    private final int mMax;
 
-    public Api() {
+    public Api(int max) {
         // Pretend that API started from version 0 to make sure that classes existed in the first version
         // are printed with since="1".
         super("Android API");
+        mMax = max;
     }
 
     /**
@@ -61,6 +63,13 @@ public class Api extends ApiElement {
         return classElement;
     }
 
+    public ApiClass findClass(String name) {
+        if (name == null) {
+            return null;
+        }
+        return mClasses.get(name);
+    }
+
     /**
      * The bytecode visitor registers interfaces listed for a class. However,
      * a class will <b>also</b> implement interfaces implemented by the super classes.
@@ -81,6 +90,18 @@ public class Api extends ApiElement {
     public void removeOverridingMethods() {
         for (ApiClass classElement : mClasses.values()) {
             classElement.removeOverridingMethods(mClasses);
+        }
+    }
+
+    public void inlineFromHiddenSuperClasses() {
+        Map<String, ApiClass> hidden = new HashMap<>();
+        for (ApiClass classElement : mClasses.values()) {
+            if (classElement.getHiddenUntil() < 0) { // hidden in the .jar files? (mMax==codebase, -1: jar files)
+                hidden.put(classElement.getName(), classElement);
+            }
+        }
+        for (ApiClass classElement : mClasses.values()) {
+            classElement.inlineFromHiddenSuperClasses(hidden);
         }
     }
 }

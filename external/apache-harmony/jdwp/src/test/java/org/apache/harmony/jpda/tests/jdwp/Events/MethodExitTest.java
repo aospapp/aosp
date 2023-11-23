@@ -52,7 +52,7 @@ public class MethodExitTest extends JDWPEventTestCase {
     public void testMethodExit() {
         logWriter.println("testMethodExit started");
 
-        String methodExitClassNameRegexp = "org.apache.harmony.jpda.tests.jdwp.Events.MethodEntryDebuggee";
+        String methodExitClassNameRegexp = MethodEntryDebuggee.class.getName();
         //String methodExitClassNameSignature = "Lorg/apache/harmony/jpda/tests/jdwp/Events/MethodEntryDebuggee;";
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);

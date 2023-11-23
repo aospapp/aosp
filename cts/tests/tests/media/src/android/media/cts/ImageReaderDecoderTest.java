@@ -16,15 +16,14 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
-import android.graphics.Rect;
 import android.graphics.ImageFormat;
-import android.media.cts.CodecUtils;
+import android.graphics.Rect;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
@@ -35,24 +34,26 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.cts.CodecUtils;
+import android.media.cts.R;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 
-import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -66,6 +67,8 @@ import java.util.concurrent.TimeUnit;
  * test. For decoder test, hw and sw decoders are tested,
  * </p>
  */
+@SmallTest
+@RequiresDevice
 public class ImageReaderDecoderTest extends AndroidTestCase {
     private static final String TAG = "ImageReaderDecoderTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -320,7 +323,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         ArrayList<Decoder> result = new ArrayList<Decoder>();
 
         for (MediaCodecInfo info : mcl.getCodecInfos()) {
-            if (info.isEncoder() || MediaUtils.isGoogle(info.getName()) != goog) {
+            if (info.isEncoder() || info.isAlias() || !info.isVendor() != goog) {
                 continue;
             }
             CodecCapabilities caps = null;

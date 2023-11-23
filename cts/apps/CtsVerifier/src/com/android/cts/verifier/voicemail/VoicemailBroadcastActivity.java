@@ -29,6 +29,8 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.voicemail.VoicemailBroadcastReceiver.ReceivedListener;
 
+import android.view.View.OnClickListener;
+import android.widget.Button;
 /**
  * This test ask the tester to set the CTS verifier as the default dialer and leave a voicemail. The
  * test will pass if the verifier is able to receive a broadcast for the incoming voicemail. This
@@ -38,7 +40,9 @@ import com.android.cts.verifier.voicemail.VoicemailBroadcastReceiver.ReceivedLis
 public class VoicemailBroadcastActivity extends PassFailButtons.Activity {
 
     private ImageView mLeaveVoicemailImage;
+    private ImageView mRestoreDefaultDialerImage;
     private TextView mLeaveVoicemailText;
+    private Button mNotApplicableButton;
 
     private DefaultDialerChanger mDefaultDialerChanger;
 
@@ -53,9 +57,22 @@ public class VoicemailBroadcastActivity extends PassFailButtons.Activity {
         getPassButton().setEnabled(false);
 
         mLeaveVoicemailImage = (ImageView) findViewById(R.id.leave_voicemail_image);
+        mRestoreDefaultDialerImage = (ImageView) findViewById(R.id.restore_default_dialer_image);
         mLeaveVoicemailText = (TextView) findViewById(R.id.leave_voicemail_text);
 
         mDefaultDialerChanger = new DefaultDialerChanger(this);
+
+        mNotApplicableButton = findViewById(R.id.call_settings_check_not_applicable);
+        mNotApplicableButton.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        getPassButton().setEnabled(true);
+                        mLeaveVoicemailImage.setImageDrawable(getDrawable(R.drawable.fs_warning));
+                        mRestoreDefaultDialerImage.setImageDrawable(getDrawable(R.drawable.fs_warning));
+                    }
+                }
+        );
 
         VoicemailBroadcastReceiver.setListener(new ReceivedListener() {
             @Override

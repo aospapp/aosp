@@ -16,11 +16,12 @@
 
 package com.android.vts.job;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import com.android.vts.entity.ProfilingPointEntity;
 import com.android.vts.entity.ProfilingPointSummaryEntity;
 import com.android.vts.proto.VtsReportMessage.VtsProfilingRegressionMode;
+import com.android.vts.util.ObjectifyTestBase;
 import com.android.vts.util.PerformanceSummary;
 import com.android.vts.util.ProfilingPointSummary;
 import com.android.vts.util.StatSummary;
@@ -36,16 +37,16 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-public class VtsPerformanceJobServletTest {
+public class VtsPerformanceJobServletTest extends ObjectifyTestBase {
     private final LocalServiceTestHelper helper =
             new LocalServiceTestHelper(new LocalDatastoreServiceTestConfig());
 
     private static final String LABEL = "testLabel";
-    private static final String ROOT = "src/test/res/servlet";
+    private static final String ROOT = "src/test/resources/servlet";
     private static final String[] LABELS = new String[] {"label1", "label2", "label3"};
     private static final long[] HIGH_VALS = new long[] {10, 20, 30};
     private static final long[] LOW_VALS = new long[] {1, 2, 3};
@@ -101,12 +102,12 @@ public class VtsPerformanceJobServletTest {
         assertEquals(baseline, text);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         helper.setUp();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         helper.tearDown();
     }
@@ -239,7 +240,6 @@ public class VtsPerformanceJobServletTest {
         String output =
                 VtsPerformanceJobServlet.getPerformanceSummary(
                         "test", dailySummaries, legendLabels);
-        System.out.println(output);
         compareToBaseline(output, "performanceSummary3.html");
     }
 

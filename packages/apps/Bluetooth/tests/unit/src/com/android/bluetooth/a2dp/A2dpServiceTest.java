@@ -31,14 +31,18 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Looper;
 import android.os.ParcelUuid;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ServiceTestRule;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ServiceTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
+import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.ServiceFactory;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -73,6 +77,9 @@ public class A2dpServiceTest {
 
     @Mock private AdapterService mAdapterService;
     @Mock private A2dpNativeInterface mA2dpNativeInterface;
+    @Mock private DatabaseManager mDatabaseManager;
+    @Mock private AvrcpTargetService mAvrcpTargetService;
+    @Mock private ServiceFactory mFactory;
 
     @Rule public final ServiceTestRule mServiceRule = new ServiceTestRule();
 
@@ -91,11 +98,13 @@ public class A2dpServiceTest {
         TestUtils.setAdapterService(mAdapterService);
         doReturn(MAX_CONNECTED_AUDIO_DEVICES).when(mAdapterService).getMaxConnectedAudioDevices();
         doReturn(false).when(mAdapterService).isQuietModeEnabled();
+        doReturn(mAvrcpTargetService).when(mFactory).getAvrcpTargetService();
 
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
         startService();
         mA2dpService.mA2dpNativeInterface = mA2dpNativeInterface;
+        mA2dpService.mFactory = mFactory;
 
         // Override the timeout value to speed up the test
         A2dpStateMachine.sConnectTimeoutMs = TIMEOUT_MS;    // 1s
@@ -110,7 +119,6 @@ public class A2dpServiceTest {
 
         // Get a device for testing
         mTestDevice = mAdapter.getRemoteDevice("00:01:02:03:04:05");
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_UNDEFINED);
         doReturn(BluetoothDevice.BOND_BONDED).when(mAdapterService)
                 .getBondState(any(BluetoothDevice.class));
         doReturn(new ParcelUuid[]{BluetoothUuid.AudioSink}).when(mAdapterService)
@@ -244,6 +252,8 @@ public class A2dpServiceTest {
         });
         // Verify that setActiveDevice(null) was called during shutdown
         verify(mA2dpNativeInterface).setActiveDevice(null);
+        // Verify that storeVolumeForDevice(mTestDevice) was called during shutdown
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
         // Try to restart the service. Note: must be done on the main thread.
         InstrumentationRegistry.getInstrumentation().runOnMainSync(new Runnable() {
             public void run() {
@@ -253,26 +263,34 @@ public class A2dpServiceTest {
     }
 
     /**
-     * Test get/set priority for BluetoothDevice
+     * Test get priority for BluetoothDevice
      */
     @Test
-    public void testGetSetPriority() {
+    public void testGetPriority() {
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
         Assert.assertEquals("Initial device priority",
                             BluetoothProfile.PRIORITY_UNDEFINED,
                             mA2dpService.getPriority(mTestDevice));
 
-        Assert.assertTrue(mA2dpService.setPriority(mTestDevice,  BluetoothProfile.PRIORITY_OFF));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         Assert.assertEquals("Setting device priority to PRIORITY_OFF",
                             BluetoothProfile.PRIORITY_OFF,
                             mA2dpService.getPriority(mTestDevice));
 
-        Assert.assertTrue(mA2dpService.setPriority(mTestDevice,  BluetoothProfile.PRIORITY_ON));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         Assert.assertEquals("Setting device priority to PRIORITY_ON",
                             BluetoothProfile.PRIORITY_ON,
                             mA2dpService.getPriority(mTestDevice));
 
-        Assert.assertTrue(mA2dpService.setPriority(mTestDevice,
-                                                   BluetoothProfile.PRIORITY_AUTO_CONNECT));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_AUTO_CONNECT);
         Assert.assertEquals("Setting device priority to PRIORITY_AUTO_CONNECT",
                             BluetoothProfile.PRIORITY_AUTO_CONNECT,
                             mA2dpService.getPriority(mTestDevice));
@@ -296,13 +314,13 @@ public class A2dpServiceTest {
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_NONE, badPriorityValue, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_UNDEFINED, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_UNDEFINED, false);
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_OFF, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_ON, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_ON, false);
         testOkToConnectCase(mTestDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_AUTO_CONNECT, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
         testOkToConnectCase(mTestDevice,
                 BluetoothDevice.BOND_BONDING, badPriorityValue, false);
         testOkToConnectCase(mTestDevice,
@@ -325,9 +343,6 @@ public class A2dpServiceTest {
                 badBondState, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
         testOkToConnectCase(mTestDevice,
                 badBondState, badPriorityValue, false);
-        // Restore prirority to undefined for this test device
-        Assert.assertTrue(mA2dpService.setPriority(
-                mTestDevice, BluetoothProfile.PRIORITY_UNDEFINED));
     }
 
 
@@ -337,7 +352,9 @@ public class A2dpServiceTest {
     @Test
     public void testOutgoingConnectMissingAudioSinkUuid() {
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -358,7 +375,9 @@ public class A2dpServiceTest {
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
         // Set the device priority to PRIORITY_OFF so connect() should fail
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
 
         // Send a connect request
         Assert.assertFalse("Connect expected to fail", mA2dpService.connect(mTestDevice));
@@ -370,7 +389,9 @@ public class A2dpServiceTest {
     @Test
     public void testOutgoingConnectTimeout() {
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -399,7 +420,9 @@ public class A2dpServiceTest {
         A2dpStackEvent connCompletedEvent;
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -468,7 +491,9 @@ public class A2dpServiceTest {
         for (int i = 0; i < MAX_CONNECTED_AUDIO_DEVICES; i++) {
             BluetoothDevice testDevice = TestUtils.getTestDevice(mAdapter, i);
             testDevices[i] = testDevice;
-            mA2dpService.setPriority(testDevice, BluetoothProfile.PRIORITY_ON);
+            when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+            when(mDatabaseManager.getProfilePriority(testDevice, BluetoothProfile.A2DP))
+                    .thenReturn(BluetoothProfile.PRIORITY_ON);
             // Send a connect request
             Assert.assertTrue("Connect failed", mA2dpService.connect(testDevice));
             // Verify the connection state broadcast, and that we are in Connecting state
@@ -494,7 +519,9 @@ public class A2dpServiceTest {
 
         // Prepare and connect the extra test device. The connect request should fail
         extraTestDevice = TestUtils.getTestDevice(mAdapter, MAX_CONNECTED_AUDIO_DEVICES);
-        mA2dpService.setPriority(extraTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(extraTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         // Send a connect request
         Assert.assertFalse("Connect expected to fail", mA2dpService.connect(extraTestDevice));
     }
@@ -508,7 +535,9 @@ public class A2dpServiceTest {
         A2dpStackEvent stackEvent;
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -586,7 +615,9 @@ public class A2dpServiceTest {
                                                                     codecsSelectableCapabilities);
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -649,7 +680,9 @@ public class A2dpServiceTest {
         A2dpStackEvent stackEvent;
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -706,7 +739,9 @@ public class A2dpServiceTest {
         A2dpStackEvent stackEvent;
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(mTestDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mTestDevice, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
 
@@ -744,15 +779,173 @@ public class A2dpServiceTest {
         Assert.assertFalse(mA2dpService.getDevices().contains(mTestDevice));
     }
 
+    /**
+     * Test that whether active device been removed after enable silence mode
+     */
+    @Test
+    public void testSetSilenceMode() {
+        BluetoothDevice otherDevice = mAdapter.getRemoteDevice("05:04:03:02:01:00");
+        connectDevice(mTestDevice);
+        connectDevice(otherDevice);
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+        doReturn(true).when(mA2dpNativeInterface).setSilenceDevice(any(BluetoothDevice.class),
+                anyBoolean());
+
+        // Test whether active device been removed after enable silence mode.
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+        Assert.assertTrue(mA2dpService.setSilenceMode(mTestDevice, true));
+        verify(mA2dpNativeInterface).setSilenceDevice(mTestDevice, true);
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
+        Assert.assertNull(mA2dpService.getActiveDevice());
+
+        // Test whether active device been resumeed after disable silence mode.
+        Assert.assertTrue(mA2dpService.setSilenceMode(mTestDevice, false));
+        verify(mA2dpNativeInterface).setSilenceDevice(mTestDevice, false);
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+
+        // Test that active device should not be changed when silence a non-active device
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+        Assert.assertTrue(mA2dpService.setSilenceMode(otherDevice, true));
+        verify(mA2dpNativeInterface).setSilenceDevice(otherDevice, true);
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+
+        // Test that active device should not be changed when another device exits silence mode
+        Assert.assertTrue(mA2dpService.setSilenceMode(otherDevice, false));
+        verify(mA2dpNativeInterface).setSilenceDevice(otherDevice, false);
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
+        Assert.assertEquals(mTestDevice, mA2dpService.getActiveDevice());
+    }
+
+    /**
+     * Test that whether updateOptionalCodecsSupport() method is working as intended
+     * when a Bluetooth device is connected with A2DP.
+     */
+    @Test
+    public void testUpdateOptionalCodecsSupport() {
+        int verifySupportTime = 0;
+        int verifyNotSupportTime = 0;
+        int verifyEnabledTime = 0;
+        // Test for device supports optional codec
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                ++verifySupportTime, verifyNotSupportTime, ++verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                ++verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                ++verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                verifySupportTime, verifyNotSupportTime, ++verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                ++verifySupportTime, verifyNotSupportTime, ++verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                ++verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, true,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                ++verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+
+        // Test for device not supports optional codec
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                verifySupportTime, ++verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN,
+                verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED,
+                verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+        testUpdateOptionalCodecsSupportCase(
+                BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED, false,
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED,
+                verifySupportTime, verifyNotSupportTime, verifyEnabledTime);
+    }
+
+    /**
+     * Test that volume level of previous active device will be stored after set active device.
+     */
+    @Test
+    public void testStoreVolumeAfterSetActiveDevice() {
+        BluetoothDevice otherDevice = mAdapter.getRemoteDevice("05:04:03:02:01:00");
+        connectDevice(otherDevice);
+        connectDevice(mTestDevice);
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(null);
+        Assert.assertTrue(mA2dpService.setActiveDevice(mTestDevice));
+
+        // Test volume stored for previous active device an adjust for current active device
+        Assert.assertTrue(mA2dpService.setActiveDevice(otherDevice));
+        verify(mAvrcpTargetService).storeVolumeForDevice(mTestDevice);
+        verify(mAvrcpTargetService).getRememberedVolumeForDevice(otherDevice);
+
+        // Test volume store for previous active device when set active device to null
+        Assert.assertTrue(mA2dpService.setActiveDevice(null));
+        verify(mAvrcpTargetService).storeVolumeForDevice(otherDevice);
+    }
+
     private void connectDevice(BluetoothDevice device) {
+        connectDeviceWithCodecStatus(device, null);
+    }
+
+    private void connectDeviceWithCodecStatus(BluetoothDevice device,
+            BluetoothCodecStatus codecStatus) {
         A2dpStackEvent connCompletedEvent;
 
         List<BluetoothDevice> prevConnectedDevices = mA2dpService.getConnectedDevices();
 
         // Update the device priority so okToConnect() returns true
-        mA2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.A2DP))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mA2dpNativeInterface).connectA2dp(device);
         doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(device);
+        doReturn(true).when(mA2dpNativeInterface).setCodecConfigPreference(
+                any(BluetoothDevice.class), any(BluetoothCodecConfig[].class));
 
         // Send a connect request
         Assert.assertTrue("Connect failed", mA2dpService.connect(device));
@@ -762,6 +955,10 @@ public class A2dpServiceTest {
                                     BluetoothProfile.STATE_DISCONNECTED);
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
                             mA2dpService.getConnectionState(device));
+
+        if (codecStatus != null) {
+            generateCodecMessageFromNative(device, codecStatus);
+        }
 
         // Send a message to trigger connection completed
         connCompletedEvent = new A2dpStackEvent(A2dpStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -862,7 +1059,9 @@ public class A2dpServiceTest {
     private void testOkToConnectCase(BluetoothDevice device, int bondState, int priority,
             boolean expected) {
         doReturn(bondState).when(mAdapterService).getBondState(device);
-        Assert.assertTrue(mA2dpService.setPriority(device, priority));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.A2DP))
+                .thenReturn(priority);
 
         // Test when the AdapterService is in non-quiet mode: the result should not depend
         // on whether the connection request is outgoing or incoming.
@@ -875,5 +1074,86 @@ public class A2dpServiceTest {
         doReturn(true).when(mAdapterService).isQuietModeEnabled();
         Assert.assertEquals(expected, mA2dpService.okToConnect(device, true));  // Outgoing
         Assert.assertEquals(false, mA2dpService.okToConnect(device, false)); // Incoming
+    }
+
+    /**
+     * Helper function to test updateOptionalCodecsSupport() method
+     *
+     * @param previousSupport previous optional codec support status
+     * @param support new optional codec support status
+     * @param previousEnabled previous optional codec enable status
+     * @param verifySupportTime verify times of optional codec set to support
+     * @param verifyNotSupportTime verify times of optional codec set to not support
+     * @param verifyEnabledTime verify times of optional codec set to enabled
+     */
+    private void testUpdateOptionalCodecsSupportCase(int previousSupport, boolean support,
+            int previousEnabled, int verifySupportTime, int verifyNotSupportTime,
+            int verifyEnabledTime) {
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        doReturn(true).when(mA2dpNativeInterface).setActiveDevice(any(BluetoothDevice.class));
+
+        BluetoothCodecConfig codecConfigSbc =
+                new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC,
+                        BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+                        BluetoothCodecConfig.SAMPLE_RATE_44100,
+                        BluetoothCodecConfig.BITS_PER_SAMPLE_16,
+                        BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+                        0, 0, 0, 0);       // Codec-specific fields
+        BluetoothCodecConfig codecConfigAac =
+                new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC,
+                        BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+                        BluetoothCodecConfig.SAMPLE_RATE_44100,
+                        BluetoothCodecConfig.BITS_PER_SAMPLE_16,
+                        BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+                        0, 0, 0, 0);       // Codec-specific fields
+
+        BluetoothCodecConfig[] codecsLocalCapabilities;
+        BluetoothCodecConfig[] codecsSelectableCapabilities;
+        if (support) {
+            codecsLocalCapabilities = new BluetoothCodecConfig[2];
+            codecsSelectableCapabilities = new BluetoothCodecConfig[2];
+            codecsLocalCapabilities[0] = codecConfigSbc;
+            codecsLocalCapabilities[1] = codecConfigAac;
+            codecsSelectableCapabilities[0] = codecConfigSbc;
+            codecsSelectableCapabilities[1] = codecConfigAac;
+        } else {
+            codecsLocalCapabilities = new BluetoothCodecConfig[1];
+            codecsSelectableCapabilities = new BluetoothCodecConfig[1];
+            codecsLocalCapabilities[0] = codecConfigSbc;
+            codecsSelectableCapabilities[0] = codecConfigSbc;
+        }
+        BluetoothCodecConfig[] badCodecsSelectableCapabilities;
+        badCodecsSelectableCapabilities = new BluetoothCodecConfig[1];
+        badCodecsSelectableCapabilities[0] = codecConfigAac;
+
+        BluetoothCodecStatus codecStatus = new BluetoothCodecStatus(codecConfigSbc,
+                codecsLocalCapabilities, codecsSelectableCapabilities);
+        BluetoothCodecStatus badCodecStatus = new BluetoothCodecStatus(codecConfigAac,
+                codecsLocalCapabilities, badCodecsSelectableCapabilities);
+
+        when(mDatabaseManager.getA2dpSupportsOptionalCodecs(mTestDevice))
+                .thenReturn(previousSupport);
+        when(mDatabaseManager.getA2dpOptionalCodecsEnabled(mTestDevice))
+                .thenReturn(previousEnabled);
+
+        // Generate connection request from native with bad codec status
+        connectDeviceWithCodecStatus(mTestDevice, badCodecStatus);
+        generateConnectionMessageFromNative(mTestDevice, BluetoothProfile.STATE_DISCONNECTED,
+                BluetoothProfile.STATE_CONNECTED);
+
+        // Generate connection request from native with good codec status
+        connectDeviceWithCodecStatus(mTestDevice, codecStatus);
+        generateConnectionMessageFromNative(mTestDevice, BluetoothProfile.STATE_DISCONNECTED,
+                BluetoothProfile.STATE_CONNECTED);
+
+        // Check optional codec status is set properly
+        verify(mDatabaseManager, times(verifyNotSupportTime)).setA2dpSupportsOptionalCodecs(
+                mTestDevice, BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED);
+        verify(mDatabaseManager, times(verifySupportTime)).setA2dpSupportsOptionalCodecs(
+                mTestDevice, BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED);
+        verify(mDatabaseManager, times(verifyEnabledTime)).setA2dpOptionalCodecsEnabled(
+                mTestDevice, BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED);
     }
 }

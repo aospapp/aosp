@@ -32,42 +32,15 @@ public:
     T* operator->() { return 0; }
 };
 
-template<typename T> class OwnPtr {
-public:
-    ~OwnPtr() { }
-    operator T*() const { return 0; }
-    T* operator->() { return 0; }
-};
-
 class DefaultAllocator {
 public:
     static const bool isGarbageCollected = false;
 };
 
-template<typename T>
-struct VectorTraits {
-    static const bool needsDestruction = true;
-};
-
-template<size_t inlineCapacity, bool isGarbageCollected, bool tNeedsDestruction>
-class VectorDestructorBase {
-public:
-    ~VectorDestructorBase() {}
-};
-
-template<size_t inlineCapacity>
-class VectorDestructorBase<inlineCapacity, true, false> {};
-
-template<>
-class VectorDestructorBase<0, true, true> {};
-
-template<
-    typename T,
-    size_t inlineCapacity = 0,
-    typename Allocator = DefaultAllocator>
-class Vector : public VectorDestructorBase<inlineCapacity,
-                                           Allocator::isGarbageCollected,
-                                           VectorTraits<T>::needsDestruction> {
+template <typename T,
+          size_t inlineCapacity = 0,
+          typename Allocator = DefaultAllocator>
+class Vector {
  public:
   using iterator = T*;
   using const_iterator = const T*;
@@ -76,6 +49,8 @@ class Vector : public VectorDestructorBase<inlineCapacity,
 
   size_t size();
   T& operator[](size_t);
+
+  ~Vector() {}
 };
 
 template <typename T,
@@ -87,6 +62,8 @@ class Deque {
   using const_iterator = const T*;
   using reverse_iterator = T*;
   using const_reverse_iterator = const T*;
+
+  ~Deque() {}
 };
 
 template <typename ValueArg,
@@ -99,6 +76,8 @@ class HashSet {
   typedef const ValueArg* const_iterator;
   typedef ValueArg* reverse_iterator;
   typedef const ValueArg* const_reverse_iterator;
+
+  ~HashSet() {}
 };
 
 template <typename ValueArg,
@@ -111,6 +90,8 @@ class ListHashSet {
   typedef const ValueArg* const_iterator;
   typedef ValueArg* reverse_iterator;
   typedef const ValueArg* const_reverse_iterator;
+
+  ~ListHashSet() {}
 };
 
 template <typename ValueArg,
@@ -123,14 +104,18 @@ class LinkedHashSet {
   typedef const ValueArg* const_iterator;
   typedef ValueArg* reverse_iterator;
   typedef const ValueArg* const_reverse_iterator;
+
+  ~LinkedHashSet() {}
 };
 
-template<
-    typename ValueArg,
-    typename HashArg = void,
-    typename TraitsArg = void,
-    typename Allocator = DefaultAllocator>
-class HashCountedSet {};
+template <typename ValueArg,
+          typename HashArg = void,
+          typename TraitsArg = void,
+          typename Allocator = DefaultAllocator>
+class HashCountedSet {
+ public:
+  ~HashCountedSet() {}
+};
 
 template <typename KeyArg,
           typename MappedArg,
@@ -144,6 +129,8 @@ class HashMap {
   typedef const MappedArg* const_iterator;
   typedef MappedArg* reverse_iterator;
   typedef const MappedArg* const_reverse_iterator;
+
+  ~HashMap() {}
 };
 }
 
@@ -162,7 +149,24 @@ public:
     T* operator->() { return 0; }
 };
 
+template <typename T, typename... Args>
+unique_ptr<T> make_unique(Args&&... args) {
+  return unique_ptr<T>();
 }
+
+}  // namespace std
+
+namespace base {
+
+template <typename T>
+std::unique_ptr<T> WrapUnique(T* ptr) {
+  return std::unique_ptr<T>();
+}
+
+template <typename T>
+class Optional {};
+
+}  // namespace base
 
 namespace blink {
 
@@ -179,10 +183,10 @@ using namespace WTF;
     void* operator new(size_t) = delete;                    \
     void* operator new(size_t, void*) = delete;
 
-#define ALLOW_ONLY_INLINE_ALLOCATION()    \
-    public:                               \
-    void* operator new(size_t, void*);    \
-    private:                              \
+#define DISALLOW_NEW_EXCEPT_PLACEMENT_NEW() \
+    public:                                 \
+    void* operator new(size_t, void*);      \
+    private:                                \
     void* operator new(size_t) = delete;
 
 #define GC_PLUGIN_IGNORE(bug)                           \
@@ -276,26 +280,13 @@ class HeapHashMap : public HashMap<K, V, void, void, void, HeapAllocator> { };
 template<typename T>
 class PersistentHeapVector : public Vector<T, 0, HeapAllocator> { };
 
-template <typename Derived>
-class VisitorHelper {
-public:
-    template<typename T>
-    void Trace(const T&);
-};
+class Visitor {
+ public:
+  template <typename T, void (T::*method)(Visitor*)>
+  void RegisterWeakMembers(const T* obj);
 
-class Visitor : public VisitorHelper<Visitor> {
-public:
-    template<typename T, void (T::*method)(Visitor*)>
-    void RegisterWeakMembers(const T* obj);
-};
-
-class InlinedGlobalMarkingVisitor
-    : public VisitorHelper<InlinedGlobalMarkingVisitor> {
-public:
-    InlinedGlobalMarkingVisitor* operator->() { return this; }
-
-    template<typename T, void (T::*method)(Visitor*)>
-    void RegisterWeakMembers(const T* obj);
+  template <typename T>
+  void Trace(const T&);
 };
 
 class GarbageCollectedMixin {
@@ -308,15 +299,6 @@ public:
 template<typename T>
 struct TraceIfNeeded {
     static void Trace(Visitor*, T*);
-};
-
-}
-
-namespace WTF {
-
-template<typename T>
-struct VectorTraits<blink::Member<T> > {
-    static const bool needsDestruction = false;
 };
 
 }

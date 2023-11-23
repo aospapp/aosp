@@ -18,48 +18,37 @@ package com.android.storagemanager.deletionhelper;
 
 import android.view.View;
 
-import com.android.storagemanager.testing.StorageManagerRobolectricTestRunner;
-import com.android.storagemanager.testing.TestingConstants;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.robolectric.annotation.Config;
+import org.robolectric.RobolectricTestRunner;
 
-import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@RunWith(StorageManagerRobolectricTestRunner.class)
-@Config(manifest = TestingConstants.MANIFEST, sdk = TestingConstants.SDK_VERSION)
+@RunWith(RobolectricTestRunner.class)
 public class LoadingSpinnerControllerTest {
-    @Mock DeletionHelperActivity mActivity;
-    @Mock View mListView;
-    LoadingSpinnerController mController;
+    @Mock private DeletionHelperActivity mActivity;
+    @Mock private View mListView;
+    private LoadingSpinnerController mController;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         mController = new LoadingSpinnerController(mActivity);
         doAnswer(
-                        new Answer() {
-                            @Override
-                            public Object answer(InvocationOnMock invocationOnMock)
-                                    throws Throwable {
-                                final boolean isLoading =
-                                        (boolean) (invocationOnMock.getArguments())[1];
-                                when(mActivity.isLoadingVisible()).thenReturn(isLoading);
-                                return null;
-                            }
+                        invocationOnMock -> {
+                            final boolean isLoading = (boolean) invocationOnMock.getArguments()[1];
+                            when(mActivity.isLoadingVisible()).thenReturn(isLoading);
+                            return null;
                         })
                 .when(mActivity)
                 .setLoading(any(View.class), anyBoolean(), anyBoolean());

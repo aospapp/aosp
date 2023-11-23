@@ -32,6 +32,11 @@ public final class PartnerCustomizations extends BaseCustomization {
     public static final String TVPROVIDER_ALLOWS_SYSTEM_INSERTS_TO_PROGRAM_TABLE =
             "tvprovider_allows_system_inserts_to_program_table";
 
+    public static final String TVPROVIDER_ALLOWS_COLUMN_CREATION =
+            "tvprovider_allows_column_creation";
+
+    public static final String TURN_OFF_EMBEDDED_TUNER = "turn_off_embedded_tuner";
+
     public PartnerCustomizations(Context context) {
         super(context, CUSTOMIZE_PERMISSIONS);
     }
@@ -39,5 +44,13 @@ public final class PartnerCustomizations extends BaseCustomization {
     public boolean doesTvProviderAllowSystemInsertsToProgramTable(Context context) {
         return getBooleanResource(context, TVPROVIDER_ALLOWS_SYSTEM_INSERTS_TO_PROGRAM_TABLE)
                 .orElse(false);
+    }
+
+    public boolean doesTvProviderAllowColumnCreation(Context context) {
+        return getBooleanResource(context, TVPROVIDER_ALLOWS_COLUMN_CREATION).orElse(false);
+    }
+
+    public boolean turnOffEmbeddedTuner(Context context) {
+        return getBooleanResource(context, TURN_OFF_EMBEDDED_TUNER).orElse(false);
     }
 }

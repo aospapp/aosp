@@ -26,14 +26,11 @@ import android.os.Parcel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Robolectric tests for {@link WifiInfo}.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = "packages/apps/ManagedProvisioning/AndroidManifest.xml",
-        sdk = 23)
 public class WifiInfoRoboTest {
     private static final String TEST_SSID = "TestWifi";
     private static final boolean TEST_HIDDEN = true;

@@ -1,4 +1,7 @@
 platform_tests += \
+    apex_file_test \
+    apex_manifest_test \
+    apexservice_test \
     ActivityManagerPerfTests \
     ActivityManagerPerfTestsTestApp \
     AndroidTVJankTests \
@@ -18,8 +21,8 @@ platform_tests += \
     BandwidthTests \
     BluetoothTests \
     BootHelperApp \
+    BusinessCard \
     CalculatorFunctionalTests \
-    CalculatorTests \
     CalendarTests \
     camera_client_test \
     camera_metadata_tests \
@@ -29,9 +32,10 @@ platform_tests += \
     CtsCameraTestCases \
     CtsHardwareTestCases \
     DataIdleTest \
+    Development \
     DeviceHealthChecks \
     DeviceHealthTests \
-    DexLoggerIntegrationTests \
+    DynamicCodeLoggerIntegrationTests \
     DialerJankTests \
     DownloadManagerTestApp \
     DummyIME \
@@ -44,28 +48,10 @@ platform_tests += \
     ExternalSharedPermsFLTestApp \
     ExternalSharedPermsTestApp \
     flatland \
-    FrameworksCoreTests \
-    FrameworkCoreTests_install \
-    FrameworkCoreTests_install_bad_dex \
-    FrameworkCoreTests_install_complete_package_info \
-    FrameworkCoreTests_install_decl_perm \
-    FrameworkCoreTests_install_loc_auto \
-    FrameworkCoreTests_install_loc_internal \
-    FrameworkCoreTests_install_loc_sdcard \
-    FrameworkCoreTests_install_loc_unspecified \
-    FrameworkCoreTests_install_use_perm_good \
-    FrameworkCoreTests_install_uses_feature \
-    FrameworkCoreTests_install_verifier_bad \
-    FrameworkCoreTests_install_verifier_good \
-    FrameworkCoreTests_version_1 \
-    FrameworkCoreTests_version_1_diff \
-    FrameworkCoreTests_version_1_nosys \
-    FrameworkCoreTests_version_2 \
-    FrameworkCoreTests_version_2_diff \
-    FrameworkCoreTests_version_3 \
     FrameworkPerf \
     FrameworkPermissionTests \
     FrameworksCoreTests \
+    FrameworksMockingCoreTests \
     FrameworksPrivacyLibraryTests \
     FrameworksUtilTests \
     InternalLocTestApp \
@@ -95,6 +81,7 @@ platform_tests += \
     PermissionFunctionalTests \
     PermissionTestAppMV1 \
     PermissionUtils \
+    PlatformScenarioTests \
     PowerPerfTest \
     SettingsUITests \
     SimpleTestApp \
@@ -119,3 +106,14 @@ platform_tests += \
     VersatileTestApp_Internal \
     VersatileTestApp_None \
     VoiceInteraction \
+    WifiStrengthScannerUtil \
+
+ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
+platform_tests += perf-setup.sh
+endif
+
+ifneq ($(filter vsoc_x86 vsoc_x86_64, $(TARGET_DEVICE)),)
+  platform_tests += \
+    CuttlefishRilTests \
+    CuttlefishWifiTests
+endif

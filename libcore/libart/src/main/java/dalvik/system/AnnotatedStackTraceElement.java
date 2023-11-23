@@ -23,6 +23,7 @@ package dalvik.system;
  *
  * @hide
  */
+@libcore.api.CorePlatformApi
 public class AnnotatedStackTraceElement {
     /**
      * The traditional StackTraceElement describing the Java stack frame.
@@ -45,14 +46,17 @@ public class AnnotatedStackTraceElement {
     private AnnotatedStackTraceElement() {
     }
 
+    @libcore.api.CorePlatformApi
     public StackTraceElement getStackTraceElement() {
         return stackTraceElement;
     }
 
+    @libcore.api.CorePlatformApi
     public Object[] getHeldLocks() {
         return heldLocks;
     }
 
+    @libcore.api.CorePlatformApi
     public Object getBlockedOn() {
         return blockedOn;
     }

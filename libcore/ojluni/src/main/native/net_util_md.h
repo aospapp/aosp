@@ -33,11 +33,18 @@
 #include <unistd.h>
 
 #ifndef USE_SELECT
+// Android-changed: Fuchsia: Point to correct location of header. http://b/119426171
+// #include <sys/poll.h>
+#if !defined(__Fuchsia__)
 #include <sys/poll.h>
+#else
+#include <poll.h>
+#endif
 #endif
 
-
-#if defined(__linux__) || defined(MACOSX)
+// Android-changed: Fuchsia: Use the non-JVM NET_* on Fuchsia also.
+// #if defined(__linux__) || defined(MACOSX)
+#if defined(__linux__) || defined(MACOSX) || defined(__Fuchsia__)
 extern int NET_Timeout(int s, long timeout);
 extern int NET_Read(int s, void* buf, size_t len);
 extern int NET_RecvFrom(int s, void *buf, int len, unsigned int flags,

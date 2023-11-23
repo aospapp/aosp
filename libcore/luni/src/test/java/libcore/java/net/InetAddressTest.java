@@ -192,6 +192,20 @@ public class InetAddressTest {
     }
 
     @Test
+    public void test_isNumeric_notNumeric_null() throws Exception {
+        try {
+            boolean result = InetAddress.isNumeric(null);
+            fail("Expected isNumeric(null) to throw a NPE but instead returned " + result);
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    @Test
+    public void test_isNumeric_notNumeric_empty() throws Exception {
+        assertFalse(InetAddress.isNumeric(""));
+    }
+
+    @Test
     public void test_isNumeric_notNumeric() throws Exception {
         // Negative test
         assertFalse(InetAddress.isNumeric("example.com"));

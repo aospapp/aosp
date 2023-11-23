@@ -1,6 +1,6 @@
 /* Copyright (c) 2003,2004, Stefan Haustein, Oberhausen, Rhld., Germany
  * Copyright (c) 2006, James Seigel, Calgary, AB., Canada
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -21,15 +21,15 @@
 
 package org.ksoap2.transport;
 
-import java.io.*;
-import java.net.*;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.ksoap2.HeaderProperty;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.Proxy;
+import java.net.URL;
+import java.util.*;
 
 /**
  * Connection for J2SE environments.
@@ -40,8 +40,8 @@ public class ServiceConnectionSE implements ServiceConnection {
 
     /**
      * Constructor taking the url to the endpoint for this soap communication
+     *
      * @param url the url to open the connection to.
-     * @throws IOException
      */
     public ServiceConnectionSE(String url) throws IOException {
         this(null, url, ServiceConnection.DEFAULT_TIMEOUT);
@@ -53,9 +53,10 @@ public class ServiceConnectionSE implements ServiceConnection {
 
     /**
      * Constructor taking the url to the endpoint for this soap communication
-     * @param url the url to open the connection to.
+     *
+     * @param url     the url to open the connection to.
      * @param timeout the connection and read timeout for the http connection in milliseconds
-     * @throws IOException                            // 20 seconds
+     * @throws IOException // 20 seconds
      */
     public ServiceConnectionSE(String url, int timeout) throws IOException {
         this(null, url, timeout);
@@ -69,7 +70,8 @@ public class ServiceConnectionSE implements ServiceConnection {
         connection.setDoOutput(true);
         connection.setDoInput(true);
         connection.setConnectTimeout(timeout);
-        connection.setReadTimeout(timeout); // even if we connect fine we want to time out if we cant read anything..
+        connection.setReadTimeout(
+                timeout); // even if we connect fine we want to time out if we cant read anything..
     }
 
     public void connect() throws IOException {
@@ -80,21 +82,27 @@ public class ServiceConnectionSE implements ServiceConnection {
         connection.disconnect();
     }
 
-    public List getResponseProperties() {
-        Map properties = connection.getHeaderFields();
-        Set keys = properties.keySet();
+    public List getResponseProperties() throws IOException {
         List retList = new LinkedList();
 
-        for (Iterator i = keys.iterator(); i.hasNext();) {
-            String key = (String) i.next();
-            List values = (List) properties.get(key);
+        Map properties = connection.getHeaderFields();
+        if (properties != null) {
+            Set keys = properties.keySet();
+            for (Iterator i = keys.iterator(); i.hasNext(); ) {
+                String key = (String) i.next();
+                List values = (List) properties.get(key);
 
-            for (int j = 0; j < values.size(); j++) {
-                retList.add(new HeaderProperty(key, (String) values.get(j)));
+                for (int j = 0; j < values.size(); j++) {
+                    retList.add(new HeaderProperty(key, (String) values.get(j)));
+                }
             }
         }
 
         return retList;
+    }
+
+    public int getResponseCode() throws IOException {
+        return connection.getResponseCode();
     }
 
     public void setRequestProperty(String string, String soapAction) {
@@ -106,7 +114,7 @@ public class ServiceConnectionSE implements ServiceConnection {
     }
 
     /**
-     * If the length of a HTTP request body is known ahead, sets fixed length 
+     * If the length of a HTTP request body is known ahead, sets fixed length
      * to enable streaming without buffering. Sets after connection will cause an exception.
      *
      * @param contentLength the fixed length of the HTTP request body
@@ -114,6 +122,10 @@ public class ServiceConnectionSE implements ServiceConnection {
      **/
     public void setFixedLengthStreamingMode(int contentLength) {
         connection.setFixedLengthStreamingMode(contentLength);
+    }
+
+    public void setChunkedStreamingMode() {
+        connection.setChunkedStreamingMode(0);
     }
 
     public OutputStream openOutputStream() throws IOException {

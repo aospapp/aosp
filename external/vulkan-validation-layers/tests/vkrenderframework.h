@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2015-2017 The Khronos Group Inc.
- * Copyright (c) 2015-2017 Valve Corporation
- * Copyright (c) 2015-2017 LunarG, Inc.
+ * Copyright (c) 2015-2019 The Khronos Group Inc.
+ * Copyright (c) 2015-2019 Valve Corporation
+ * Copyright (c) 2015-2019 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ class VkImageObj;
 #include <algorithm>
 #include <array>
 #include <map>
+#include <memory>
 #include <vector>
 
 using namespace std;
@@ -46,11 +47,12 @@ std::vector<Dst *> MakeTestbindingHandles(const std::vector<Src *> &v) {
     return handles;
 }
 
+typedef vk_testing::Queue VkQueueObj;
 class VkDeviceObj : public vk_testing::Device {
    public:
     VkDeviceObj(uint32_t id, VkPhysicalDevice obj);
     VkDeviceObj(uint32_t id, VkPhysicalDevice obj, std::vector<const char *> &extension_names,
-                VkPhysicalDeviceFeatures *features = nullptr);
+                VkPhysicalDeviceFeatures *features = nullptr, void *create_device_pnext = nullptr);
 
     uint32_t QueueFamilyMatching(VkQueueFlags with, VkQueueFlags without, bool all_bits = true);
     uint32_t QueueFamilyWithoutCapabilities(VkQueueFlags capabilities) {
@@ -59,7 +61,8 @@ class VkDeviceObj : public vk_testing::Device {
     }
 
     VkDevice device() { return handle(); }
-    void get_device_queue();
+    void SetDeviceQueue();
+    VkQueueObj *GetDefaultQueue();
 
     uint32_t id;
     VkPhysicalDeviceProperties props;
@@ -90,18 +93,25 @@ class VkRenderFramework : public VkTestFramework {
     void InitRenderTarget(uint32_t targets);
     void InitRenderTarget(VkImageView *dsBinding);
     void InitRenderTarget(uint32_t targets, VkImageView *dsBinding);
-    void InitFramework(PFN_vkDebugReportCallbackEXT = NULL, void *userData = NULL);
+    void DestroyRenderTarget();
+    void InitFramework(PFN_vkDebugReportCallbackEXT = NULL, void *userData = NULL, void *instance_pnext = NULL);
 
     void ShutdownFramework();
     void GetPhysicalDeviceFeatures(VkPhysicalDeviceFeatures *features);
-    void InitState(VkPhysicalDeviceFeatures *features = nullptr, const VkCommandPoolCreateFlags flags = 0);
+    void GetPhysicalDeviceProperties(VkPhysicalDeviceProperties *props);
+    void InitState(VkPhysicalDeviceFeatures *features = nullptr, void *create_device_pnext = nullptr,
+                   const VkCommandPoolCreateFlags flags = 0);
 
     const VkRenderPassBeginInfo &renderPassBeginInfo() const { return m_renderPassBeginInfo; }
 
     bool InstanceLayerSupported(const char *name, uint32_t specVersion = 0, uint32_t implementationVersion = 0);
     bool EnableDeviceProfileLayer();
     bool InstanceExtensionSupported(const char *name, uint32_t specVersion = 0);
+    bool InstanceExtensionEnabled(const char *name);
     bool DeviceExtensionSupported(VkPhysicalDevice dev, const char *layer, const char *name, uint32_t specVersion = 0);
+    bool DeviceExtensionEnabled(const char *name);
+    bool DeviceIsMockICD();
+    bool DeviceCanDraw();
 
    protected:
     VkApplicationInfo app_info;
@@ -129,7 +139,7 @@ class VkRenderFramework : public VkTestFramework {
     bool m_addRenderPassSelfDependency;
     std::vector<VkClearValue> m_renderPassClearValues;
     VkRenderPassBeginInfo m_renderPassBeginInfo;
-    vector<VkImageObj *> m_renderTargets;
+    vector<std::unique_ptr<VkImageObj>> m_renderTargets;
     float m_width, m_height;
     VkFormat m_render_target_fmt;
     VkFormat m_depth_stencil_fmt;
@@ -171,6 +181,8 @@ class VkDescriptorSetObj;
 class VkConstantBufferObj;
 class VkPipelineObj;
 class VkDescriptorSetObj;
+typedef vk_testing::Fence VkFenceObj;
+typedef vk_testing::Buffer VkBufferObj;
 
 class VkCommandPoolObj : public vk_testing::CommandPool {
    public:
@@ -179,15 +191,17 @@ class VkCommandPoolObj : public vk_testing::CommandPool {
 
 class VkCommandBufferObj : public vk_testing::CommandBuffer {
    public:
-    VkCommandBufferObj(VkDeviceObj *device, VkCommandPoolObj *pool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    VkCommandBufferObj(VkDeviceObj *device, VkCommandPoolObj *pool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                       VkQueueObj *queue = nullptr);
     void PipelineBarrier(VkPipelineStageFlags src_stages, VkPipelineStageFlags dest_stages, VkDependencyFlags dependencyFlags,
                          uint32_t memoryBarrierCount, const VkMemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount,
                          const VkBufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount,
                          const VkImageMemoryBarrier *pImageMemoryBarriers);
-    void ClearAllBuffers(const vector<VkImageObj *> &color_objs, VkClearColorValue clear_color,
+    void ClearAllBuffers(const vector<std::unique_ptr<VkImageObj>> &color_objs, VkClearColorValue clear_color,
                          VkDepthStencilObj *depth_stencil_obj, float depth_clear_value, uint32_t stencil_clear_value);
-    void PrepareAttachments(const vector<VkImageObj *> &color_atts, VkDepthStencilObj *depth_stencil_att);
+    void PrepareAttachments(const vector<std::unique_ptr<VkImageObj>> &color_atts, VkDepthStencilObj *depth_stencil_att);
     void BindDescriptorSet(VkDescriptorSetObj &descriptorSet);
+    void BindIndexBuffer(VkBufferObj *indexBuffer, VkDeviceSize offset, VkIndexType indexType);
     void BindVertexBuffer(VkConstantBufferObj *vertexBuffer, VkDeviceSize offset, uint32_t binding);
     void BeginRenderPass(const VkRenderPassBeginInfo &info);
     void EndRenderPass();
@@ -196,7 +210,7 @@ class VkCommandBufferObj : public vk_testing::CommandBuffer {
     void DrawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
                      uint32_t firstInstance);
     void QueueCommandBuffer(bool checkSuccess = true);
-    void QueueCommandBuffer(VkFence fence, bool checkSuccess = true);
+    void QueueCommandBuffer(const VkFenceObj &fence, bool checkSuccess = true);
     void SetViewport(uint32_t firstViewport, uint32_t viewportCount, const VkViewport *pViewports);
     void SetStencilReference(VkStencilFaceFlags faceMask, uint32_t reference);
     void UpdateBuffer(VkBuffer buffer, VkDeviceSize dstOffset, VkDeviceSize dataSize, const void *pData);
@@ -211,9 +225,10 @@ class VkCommandBufferObj : public vk_testing::CommandBuffer {
 
    protected:
     VkDeviceObj *m_device;
+    VkQueueObj *m_queue;
 };
 
-class VkConstantBufferObj : public vk_testing::Buffer {
+class VkConstantBufferObj : public VkBufferObj {
    public:
     VkConstantBufferObj(VkDeviceObj *device,
                         VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -268,6 +283,10 @@ class VkImageObj : public vk_testing::Image {
 
     VkResult CopyImage(VkImageObj &src_image);
 
+    VkResult CopyImageOut(VkImageObj &dst_image);
+
+    std::array<std::array<uint32_t, 16>, 16> Read();
+
     VkImage image() const { return handle(); }
 
     VkImageView targetView(VkFormat format) {
@@ -307,7 +326,7 @@ class VkTextureObj : public VkImageObj {
    public:
     VkTextureObj(VkDeviceObj *device, uint32_t *colors = NULL);
 
-    VkDescriptorImageInfo m_imageInfo;
+    const VkDescriptorImageInfo &DescriptorImageInfo() const { return m_descriptorImageInfo; }
 
    protected:
     VkDeviceObj *m_device;
@@ -385,6 +404,8 @@ class VkDescriptorSetObj : public vk_testing::DescriptorPool {
 class VkShaderObj : public vk_testing::ShaderModule {
    public:
     VkShaderObj(VkDeviceObj *device, const char *shaderText, VkShaderStageFlagBits stage, VkRenderFramework *framework,
+                char const *name = "main", bool debug = false);
+    VkShaderObj(VkDeviceObj *device, const std::string spv_source, VkShaderStageFlagBits stage, VkRenderFramework *framework,
                 char const *name = "main");
     VkPipelineShaderStageCreateInfo const &GetStageCreateInfo() const;
 

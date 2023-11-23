@@ -1,0 +1,3 @@
+allow vold dumpstate:fd { use };
+allow vold dumpstate:fifo_file { write open read };
+allow vold vendor_file:dir { open read };

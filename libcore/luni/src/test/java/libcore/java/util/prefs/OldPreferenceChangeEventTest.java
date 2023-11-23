@@ -25,7 +25,7 @@ import java.util.prefs.PreferencesFactory;
 
 import junit.framework.TestCase;
 
-import libcore.io.IoUtils;
+import libcore.testing.io.TestIoUtils;
 
 public final class OldPreferenceChangeEventTest extends TestCase {
 
@@ -34,7 +34,7 @@ public final class OldPreferenceChangeEventTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        File tmpDir = IoUtils.createTemporaryDirectory("OldPreferenceChangeEventTest");
+        File tmpDir = TestIoUtils.createTemporaryDirectory("OldPreferenceChangeEventTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new PreferencesTest.TestPreferencesFactory(tmpDir.getAbsolutePath()));
     }

@@ -13,5 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_SERVICENAMES_H
+#define ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_SERVICENAMES_H
 
 const static char kEnumeratorServiceName[] = "EvsEnumeratorHw";
+
+#endif // ANDROID_HARDWARE_AUTOMOTIVE_EVS_V1_0_SERVICENAMES_H

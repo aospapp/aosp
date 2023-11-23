@@ -30,7 +30,9 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
 LOCAL_SHARED_LIBRARIES := libandroid libnativehelper_compat_libc++ liblog
 
-LOCAL_CXX_STL := libc++_static
+LOCAL_NDK_STL_VARIANT := none
+
+LOCAL_SDK_VERSION := current
 
 LOCAL_CLANG := true
 

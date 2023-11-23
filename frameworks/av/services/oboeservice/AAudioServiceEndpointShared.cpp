@@ -78,6 +78,7 @@ aaudio_result_t AAudioServiceEndpointShared::open(const aaudio::AAudioStreamRequ
     setSamplesPerFrame(mStreamInternal->getSamplesPerFrame());
     setDeviceId(mStreamInternal->getDeviceId());
     setSessionId(mStreamInternal->getSessionId());
+    setFormat(AUDIO_FORMAT_PCM_FLOAT); // force for mixer
     mFramesPerBurst = mStreamInternal->getFramesPerBurst();
 
     return result;
@@ -180,8 +181,8 @@ aaudio_result_t AAudioServiceEndpointShared::stopStream(sp<AAudioServiceStreamBa
 // Get timestamp that was written by the real-time service thread, eg. mixer.
 aaudio_result_t AAudioServiceEndpointShared::getFreeRunningPosition(int64_t *positionFrames,
                                                                   int64_t *timeNanos) {
-    if (mAtomicTimestamp.isValid()) {
-        Timestamp timestamp = mAtomicTimestamp.read();
+    if (mAtomicEndpointTimestamp.isValid()) {
+        Timestamp timestamp = mAtomicEndpointTimestamp.read();
         *positionFrames = timestamp.getPosition();
         *timeNanos = timestamp.getNanoseconds();
         return AAUDIO_OK;
@@ -192,5 +193,13 @@ aaudio_result_t AAudioServiceEndpointShared::getFreeRunningPosition(int64_t *pos
 
 aaudio_result_t AAudioServiceEndpointShared::getTimestamp(int64_t *positionFrames,
                                                           int64_t *timeNanos) {
-    return mStreamInternal->getTimestamp(CLOCK_MONOTONIC, positionFrames, timeNanos);
+    aaudio_result_t result = mStreamInternal->getTimestamp(CLOCK_MONOTONIC, positionFrames, timeNanos);
+    if (result == AAUDIO_ERROR_INVALID_STATE) {
+        // getTimestamp() can return AAUDIO_ERROR_INVALID_STATE if the stream has
+        // not completely started. This can cause a race condition that kills the
+        // timestamp service thread.  So we reduce the error to a less serious one
+        // that allows the timestamp thread to continue.
+        result = AAUDIO_ERROR_UNAVAILABLE;
+    }
+    return result;
 }

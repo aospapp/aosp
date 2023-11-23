@@ -18,8 +18,13 @@
 
 #include "sysdeps.h"
 
+#if defined(__BIONIC__)
+#include <android/fdsan.h>
+#endif
+
 #include <errno.h>
 #include <getopt.h>
+#include <malloc.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,13 +37,15 @@
 #include <android-base/macros.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
+
+#if defined(__ANDROID__)
 #include <libminijail.h>
 #include <log/log_properties.h>
 #include <scoped_minijail.h>
 
 #include <private/android_filesystem_config.h>
-#include "debuggerd/handler.h"
 #include "selinux/android.h"
+#endif
 
 #include "adb.h"
 #include "adb_auth.h"
@@ -48,19 +55,26 @@
 
 #include "mdns.h"
 
+#if defined(__ANDROID__)
 static const char* root_seclabel = nullptr;
 
+static inline bool is_device_unlocked() {
+    return "orange" == android::base::GetProperty("ro.boot.verifiedbootstate", "");
+}
+
 static bool should_drop_capabilities_bounding_set() {
-#if defined(ALLOW_ADBD_ROOT)
-    if (__android_log_is_debuggable()) {
-        return false;
+    if (ALLOW_ADBD_ROOT || is_device_unlocked()) {
+        if (__android_log_is_debuggable()) {
+            return false;
+        }
     }
-#endif
     return true;
 }
 
 static bool should_drop_privileges() {
-#if defined(ALLOW_ADBD_ROOT)
+    // "adb root" not allowed, always drop privileges.
+    if (!ALLOW_ADBD_ROOT && !is_device_unlocked()) return true;
+
     // The properties that affect `adb root` and `adb unroot` are ro.secure and
     // ro.debuggable. In this context the names don't make the expected behavior
     // particularly obvious.
@@ -90,9 +104,6 @@ static bool should_drop_privileges() {
     }
 
     return drop;
-#else
-    return true; // "adb root" not allowed, always drop privileges.
-#endif // ALLOW_ADBD_ROOT
 }
 
 static void drop_privileges(int server_port) {
@@ -166,10 +177,14 @@ static void drop_privileges(int server_port) {
         }
     }
 }
+#endif
 
 static void setup_port(int port) {
+    LOG(INFO) << "adbd listening on port " << port;
     local_init(port);
+#if defined(__ANDROID__)
     setup_mdns(port);
+#endif
 }
 
 int adbd_main(int server_port) {
@@ -177,15 +192,27 @@ int adbd_main(int server_port) {
 
     signal(SIGPIPE, SIG_IGN);
 
+#if defined(__BIONIC__)
+    auto fdsan_level = android_fdsan_get_error_level();
+    if (fdsan_level == ANDROID_FDSAN_ERROR_LEVEL_DISABLED) {
+        android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE);
+    }
+#endif
+
     init_transport_registration();
 
     // We need to call this even if auth isn't enabled because the file
     // descriptor will always be open.
     adbd_cloexec_auth_socket();
 
-    if (ALLOW_ADBD_NO_AUTH && !android::base::GetBoolProperty("ro.adb.secure", false)) {
-        auth_required = false;
+#if defined(ALLOW_ADBD_NO_AUTH)
+    // If ro.adb.secure is unset, default to no authentication required.
+    auth_required = android::base::GetBoolProperty("ro.adb.secure", false);
+#elif defined(__ANDROID__)
+    if (is_device_unlocked()) {  // allows no authentication when the device is unlocked.
+        auth_required = android::base::GetBoolProperty("ro.adb.secure", false);
     }
+#endif
 
     adbd_auth_init();
 
@@ -199,14 +226,19 @@ int adbd_main(int server_port) {
           " unchanged.\n");
     }
 
+#if defined(__ANDROID__)
     drop_privileges(server_port);
+#endif
 
     bool is_usb = false;
+
+#if defined(__ANDROID__)
     if (access(USB_FFS_ADB_EP0, F_OK) == 0) {
         // Listen on USB.
         usb_init();
         is_usb = true;
     }
+#endif
 
     // If one of these properties is set, also listen on that port.
     // If one of the properties isn't set and we couldn't listen on usb, listen
@@ -237,6 +269,11 @@ int adbd_main(int server_port) {
 }
 
 int main(int argc, char** argv) {
+#if defined(__BIONIC__)
+    // Set M_DECAY_TIME so that our allocations aren't immediately purged on free.
+    mallopt(M_DECAY_TIME, 1);
+#endif
+
     while (true) {
         static struct option opts[] = {
             {"root_seclabel", required_argument, nullptr, 's'},
@@ -251,25 +288,26 @@ int main(int argc, char** argv) {
         }
 
         switch (c) {
-        case 's':
-            root_seclabel = optarg;
-            break;
-        case 'b':
-            adb_device_banner = optarg;
-            break;
-        case 'v':
-            printf("Android Debug Bridge Daemon version %d.%d.%d\n", ADB_VERSION_MAJOR,
-                   ADB_VERSION_MINOR, ADB_SERVER_VERSION);
-            return 0;
-        default:
-            // getopt already prints "adbd: invalid option -- %c" for us.
-            return 1;
+#if defined(__ANDROID__)
+            case 's':
+                root_seclabel = optarg;
+                break;
+#endif
+            case 'b':
+                adb_device_banner = optarg;
+                break;
+            case 'v':
+                printf("Android Debug Bridge Daemon version %d.%d.%d\n", ADB_VERSION_MAJOR,
+                       ADB_VERSION_MINOR, ADB_SERVER_VERSION);
+                return 0;
+            default:
+                // getopt already prints "adbd: invalid option -- %c" for us.
+                return 1;
         }
     }
 
     close_stdin();
 
-    debuggerd_init(nullptr);
     adb_trace_init(argv);
 
     D("Handling main()");

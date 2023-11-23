@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -20,18 +20,78 @@ import datetime
 import logging
 import os
 import re
-import sys
+
+from copy import copy
 
 from acts import tracelogger
+from acts.libs.logging import log_stream
+from acts.libs.logging.log_stream import LogStyles
 from acts.utils import create_dir
+
 
 log_line_format = "%(asctime)s.%(msecs).03d %(levelname)s %(message)s"
 # The micro seconds are added by the format string above,
 # so the time format does not include ms.
 log_line_time_format = "%Y-%m-%d %H:%M:%S"
-log_line_timestamp_len = 18
+log_line_timestamp_len = 23
 
-logline_timestamp_re = re.compile("\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d")
+logline_timestamp_re = re.compile("\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d")
+
+
+# yapf: disable
+class Style:
+    RESET  = '\033[0m'
+    BRIGHT = '\033[1m'
+    DIM    = '\033[2m'
+    NORMAL = '\033[22m'
+
+
+class Fore:
+    BLACK   = '\033[30m'
+    RED     = '\033[31m'
+    GREEN   = '\033[32m'
+    YELLOW  = '\033[33m'
+    BLUE    = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN    = '\033[36m'
+    WHITE   = '\033[37m'
+    RESET   = '\033[39m'
+
+
+class Back:
+    BLACK   = '\033[40m'
+    RED     = '\033[41m'
+    GREEN   = '\033[42m'
+    YELLOW  = '\033[43m'
+    BLUE    = '\033[44m'
+    MAGENTA = '\033[45m'
+    CYAN    = '\033[46m'
+    WHITE   = '\033[47m'
+    RESET   = '\033[49m'
+
+
+LOG_LEVELS = {
+  'DEBUG':     {'level': 10, 'style': Fore.GREEN + Style.BRIGHT},
+  'CASE':      {'level': 11, 'style': Back.BLUE + Fore.WHITE + Style.BRIGHT},
+  'SUITE':     {'level': 12, 'style': Back.MAGENTA + Fore.WHITE + Style.BRIGHT},
+  'INFO':      {'level': 20, 'style': Style.NORMAL},
+  'STEP':      {'level': 15, 'style': Fore.WHITE + Style.BRIGHT},
+  'WARNING':   {'level': 30, 'style': Fore.YELLOW + Style.BRIGHT},
+  'ERROR':     {'level': 40, 'style': Fore.RED + Style.BRIGHT},
+  'EXCEPTION': {'level': 45, 'style': Back.RED + Fore.WHITE + Style.BRIGHT},
+  'DEVICE':    {'level': 51, 'style': Fore.CYAN + Style.BRIGHT},
+}
+# yapf: enable
+
+
+class ColoredLogFormatter(logging.Formatter):
+    def format(self, record):
+        colored_record = copy(record)
+        level_name = colored_record.levelname
+        style = LOG_LEVELS[level_name]['style']
+        formatted_level_name = '%s%s%s' % (style, level_name, Style.RESET)
+        colored_record.levelname = formatted_level_name
+        return super().format(colored_record)
 
 
 def _parse_logline_timestamp(t):
@@ -128,10 +188,10 @@ def get_log_file_timestamp(delta=None):
     Returns:
         A timestamp in log file name format with an offset.
     """
-    return _get_timestamp("%Y-%m-%d-%Y_%H-%M-%S-%f", delta)
+    return _get_timestamp("%Y-%m-%d_%H-%M-%S-%f", delta)
 
 
-def _setup_test_logger(log_path, prefix=None, filename=None):
+def _setup_test_logger(log_path, prefix=None):
     """Customizes the root logger for a test run.
 
     The logger object has a stream handler and a file handler. The stream
@@ -141,43 +201,27 @@ def _setup_test_logger(log_path, prefix=None, filename=None):
     Args:
         log_path: Location of the log file.
         prefix: A prefix for each log line in terminal.
-        filename: Name of the log file. The default is the time the logger
-                  is requested.
     """
-    log = logging.getLogger()
-    kill_test_logger(log)
-    log.propagate = False
-    log.setLevel(logging.DEBUG)
-    # Log info to stream
+    logging.log_path = log_path
+    log_styles = [LogStyles.LOG_INFO + LogStyles.TO_STDOUT,
+                  LogStyles.DEFAULT_LEVELS + LogStyles.TESTCASE_LOG]
     terminal_format = log_line_format
     if prefix:
         terminal_format = "[{}] {}".format(prefix, log_line_format)
-    c_formatter = logging.Formatter(terminal_format, log_line_time_format)
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setFormatter(c_formatter)
-    ch.setLevel(logging.INFO)
-    # Log everything to file
-    f_formatter = logging.Formatter(log_line_format, log_line_time_format)
-    # All the logs of this test class go into one directory
-    if filename is None:
-        filename = get_log_file_timestamp()
-        create_dir(log_path)
-    fh = logging.FileHandler(os.path.join(log_path, 'test_run_details.txt'))
-    fh.setFormatter(f_formatter)
-    fh.setLevel(logging.DEBUG)
-    fh_info = logging.FileHandler(os.path.join(log_path, 'test_run_info.txt'))
-    fh_info.setFormatter(f_formatter)
-    fh_info.setLevel(logging.INFO)
-    fh_error = logging.FileHandler(
-        os.path.join(log_path, 'test_run_error.txt'))
-    fh_error.setFormatter(f_formatter)
-    fh_error.setLevel(logging.WARNING)
-    log.addHandler(ch)
-    log.addHandler(fh)
-    log.addHandler(fh_info)
-    log.addHandler(fh_error)
-    log.log_path = log_path
-    logging.log_path = log_path
+    stream_formatter = ColoredLogFormatter(terminal_format,
+                                           log_line_time_format)
+    file_formatter = logging.Formatter(log_line_format, log_line_time_format)
+    log = log_stream.create_logger('test_run', '', log_styles=log_styles,
+                                   stream_format=stream_formatter,
+                                   file_format=file_formatter)
+    log.setLevel(logging.DEBUG)
+    _enable_additional_log_levels()
+
+
+def _enable_additional_log_levels():
+    """Enables logging levels used for tracing tests and debugging devices."""
+    for log_type, log_data in LOG_LEVELS.items():
+        logging.addLevelName(log_data['level'], log_type)
 
 
 def kill_test_logger(logger):
@@ -204,7 +248,7 @@ def create_latest_log_alias(actual_path):
     os.symlink(actual_path, link_path)
 
 
-def setup_test_logger(log_path, prefix=None, filename=None):
+def setup_test_logger(log_path, prefix=None):
     """Customizes the root logger for a test run.
 
     Args:
@@ -213,10 +257,8 @@ def setup_test_logger(log_path, prefix=None, filename=None):
         filename: Name of the files. The default is the time the objects
             are requested.
     """
-    if filename is None:
-        filename = get_log_file_timestamp()
     create_dir(log_path)
-    logger = _setup_test_logger(log_path, prefix, filename)
+    _setup_test_logger(log_path, prefix)
     create_latest_log_alias(log_path)
 
 
@@ -266,6 +308,8 @@ def create_tagged_trace_logger(tag=''):
 
             <TESTBED> <TIME> <LOG_LEVEL> [tag123] logged message
     """
+
     def logging_lambda(msg):
         return '[%s] %s' % (tag, msg)
+
     return create_logger(logging_lambda)

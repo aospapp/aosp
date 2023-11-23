@@ -17,18 +17,33 @@ cc_library_headers {
     host_supported: true,
     export_include_dirs: ["include_jni"],
     vendor_available: true,
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 cc_library_headers {
     name: "libnativehelper_header_only",
     host_supported: true,
     export_include_dirs: ["header_only_include"],
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 cc_library_headers {
     name: "jni_platform_headers",
     host_supported: true,
     export_include_dirs: ["platform_include"],
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 cc_library {
@@ -37,36 +52,31 @@ cc_library {
     srcs: [
         "JNIHelp.cpp",
         "JniConstants.cpp",
-        "toStringArray.cpp",
         "JniInvocation.cpp",
+        "toStringArray.cpp",
     ],
-
-    target: {
-        linux: {
-            srcs: ["AsynchronousCloseMonitor.cpp"],
-        },
-    },
-
-    header_libs: [
-        "jni_headers",
-        "libnativehelper_header_only",
-        "jni_platform_headers"
-    ],
-    export_header_lib_headers: [
-        "jni_headers",
-        "libnativehelper_header_only",
-        "jni_platform_headers",
-    ],
-
     shared_libs: [
+        "libbase",
         "liblog",
     ],
     cflags: [
         "-Werror",
         "-fvisibility=protected",
     ],
-
-    export_include_dirs: ["include"],
+    export_include_dirs: [
+        "include",
+        "header_only_include",
+        "platform_include"
+    ],
+    stubs: {
+        symbol_file: "libnativehelper.map.txt",
+        versions: ["1"],
+    },
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 //
@@ -93,7 +103,6 @@ cc_library_shared {
     ],
     shared_libs: [
         "liblog",
-        "libdl",
     ],
     sdk_version: "19",
     stl: "c++_static",

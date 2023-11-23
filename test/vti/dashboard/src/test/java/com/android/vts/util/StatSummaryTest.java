@@ -16,7 +16,7 @@
 
 package com.android.vts.util;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import com.android.vts.proto.VtsReportMessage.VtsProfilingRegressionMode;
 import java.util.Random;

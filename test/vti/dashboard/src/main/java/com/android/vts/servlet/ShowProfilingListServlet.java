@@ -16,6 +16,8 @@
 
 package com.android.vts.servlet;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
 import com.android.vts.entity.TestEntity;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
@@ -28,49 +30,44 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/** Servlet for handling requests to display profiling tests. */
+/**
+ * Servlet for handling requests to display profiling tests.
+ */
 public class ShowProfilingListServlet extends BaseServlet {
-    private static final String PROFILING_LIST_JSP = "WEB-INF/jsp/show_profiling_list.jsp";
 
-    @Override
-    public PageType getNavParentType() {
-        return PageType.PROFILING_LIST;
+  private static final String PROFILING_LIST_JSP = "WEB-INF/jsp/show_profiling_list.jsp";
+
+  @Override
+  public PageType getNavParentType() {
+    return PageType.PROFILING_LIST;
+  }
+
+  @Override
+  public List<Page> getBreadcrumbLinks(HttpServletRequest request) {
+    return null;
+  }
+
+  @Override
+  public void doGetHandler(HttpServletRequest request, HttpServletResponse response)
+      throws IOException {
+    List<String> tests = ofy().load().type(TestEntity.class)
+        .filter(TestEntity.HAS_PROFILING_DATA, true).list().stream()
+        .sorted(Comparator.comparing(TestEntity::getTestName)).map(t -> t.getTestName())
+        .collect(Collectors.toList());
+
+    response.setStatus(HttpServletResponse.SC_OK);
+    request.setAttribute("testNames", tests);
+    RequestDispatcher dispatcher = request.getRequestDispatcher(PROFILING_LIST_JSP);
+    try {
+      dispatcher.forward(request, response);
+    } catch (ServletException e) {
+      logger.log(Level.SEVERE, "Servlet Excpetion caught : ", e);
     }
-
-    @Override
-    public List<Page> getBreadcrumbLinks(HttpServletRequest request) {
-        return null;
-    }
-
-    @Override
-    public void doGetHandler(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        Query.Filter profilingFilter = new Query.FilterPredicate(
-                TestEntity.HAS_PROFILING_DATA, Query.FilterOperator.EQUAL, true);
-        Query query = new Query(TestEntity.KIND)
-                            .setFilter(profilingFilter)
-                            .setKeysOnly();
-        Set<String> profilingTests = new HashSet<>();
-        for (Entity test : datastore.prepare(query).asIterable()) {
-            profilingTests.add(test.getKey().getName());
-        }
-
-        List<String> tests = new ArrayList<>(profilingTests);
-        tests.sort(Comparator.naturalOrder());
-
-        response.setStatus(HttpServletResponse.SC_OK);
-        request.setAttribute("testNames", tests);
-        RequestDispatcher dispatcher = request.getRequestDispatcher(PROFILING_LIST_JSP);
-        try {
-            dispatcher.forward(request, response);
-        } catch (ServletException e) {
-            logger.log(Level.SEVERE, "Servlet Excpetion caught : ", e);
-        }
-    }
+  }
 }

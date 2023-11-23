@@ -12,7 +12,7 @@
   limitations under the License.
   -->
 
-<android.support.wear.widget.BoxInsetLayout
+<androidx.wear.widget.BoxInsetLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -62,4 +62,4 @@
             android:text="@string/hello_wear_activity_main" />
     </LinearLayout>
 
-</android.support.wear.widget.BoxInsetLayout>
+</androidx.wear.widget.BoxInsetLayout>

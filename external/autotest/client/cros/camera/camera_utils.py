@@ -3,28 +3,7 @@
 # found in the LICENSE file.
 
 import glob, os
-import numpy as np
-
-# Dimension padding/unpadding function for converting points matrices to
-# the OpenCV format (channel-based).
-def Pad(x):
-    return np.expand_dims(x, axis=0)
-
-
-def Unpad(x):
-    return np.squeeze(x)
-
-
-class Pod(object):
-    '''A POD (plain-old-data) object containing arbitrary fields.'''
-    def __init__(self, **args):
-        self.__dict__.update(args)
-
-    def __repr__(self):
-        '''Returns a representation of the object, including its properties.'''
-        return (self.__class__.__name__ + '(' +
-        ', '.join('%s=%s' % (k, v) for k, v in sorted(self.__dict__.items())
-                  if not k.startswith('_')) + ')')
+from autotest_lib.client.cros.video import device_capability
 
 
 def find_camera():
@@ -39,3 +18,26 @@ def find_camera():
         return None, None
     camera = cameras[0]
     return camera, int(camera[5:])
+
+
+def has_builtin_usb_camera():
+    """Check if there is a built-in USB camera by capability."""
+    return device_capability.DeviceCapability().have_capability('usb_camera')
+
+
+def get_camera_hal_paths():
+    """Return the paths of all camera HALs on device."""
+    return glob.glob('/usr/lib*/camera_hal/*.so')
+
+
+def get_camera_hal_paths_for_test():
+    """Return the paths of all camera HALs on device for test."""
+    paths = []
+    for path in get_camera_hal_paths():
+        name = os.path.basename(path)
+        # usb.so might be there for external cameras, skip it if there is no
+        # built-in USB camera.
+        if name == 'usb.so' and not has_builtin_usb_camera():
+            continue
+        paths.append(path)
+    return paths

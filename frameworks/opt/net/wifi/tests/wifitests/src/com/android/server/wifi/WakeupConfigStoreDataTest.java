@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.eq;
@@ -23,6 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.util.Xml;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 
@@ -33,7 +36,6 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.ByteArrayInputStream;
@@ -45,6 +47,7 @@ import java.util.Set;
 /**
  * Unit tests for {@link WakeupConfigStoreData}.
  */
+@SmallTest
 public class WakeupConfigStoreDataTest {
 
     @Mock private WakeupConfigStoreData.DataSource<Boolean> mActiveDataSource;
@@ -65,14 +68,13 @@ public class WakeupConfigStoreDataTest {
     /**
      * Helper function for serializing configuration data to a XML block.
      *
-     * @param shared Flag indicating serializing shared or user configurations
      * @return byte[] of the XML data
      */
-    private byte[] serializeData(boolean shared) throws Exception {
+    private byte[] serializeData() throws Exception {
         final XmlSerializer out = new FastXmlSerializer();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         out.setOutput(outputStream, StandardCharsets.UTF_8.name());
-        mWakeupConfigData.serializeData(out, shared);
+        mWakeupConfigData.serializeData(out);
         out.flush();
         return outputStream.toByteArray();
     }
@@ -81,31 +83,12 @@ public class WakeupConfigStoreDataTest {
      * Helper function for parsing configuration data from a XML block.
      *
      * @param data XML data to parse from
-     * @param shared Flag indicating parsing of shared or user configurations
      */
-    private void deserializeData(byte[] data, boolean shared) throws Exception {
+    private void deserializeData(byte[] data) throws Exception {
         final XmlPullParser in = Xml.newPullParser();
         final ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
         in.setInput(inputStream, StandardCharsets.UTF_8.name());
-        mWakeupConfigData.deserializeData(in, in.getDepth(), shared);
-    }
-
-    /**
-     * Verify that a XmlPullParserException will be thrown when attempting to serialize data
-     * to the share store.
-     */
-    @Test(expected = XmlPullParserException.class)
-    public void serializeShareDataThrowsException() throws Exception {
-        serializeData(true /* shared */);
-    }
-
-    /**
-     * Verify that a XmlPullParserException will be thrown when attempting to deserialize
-     * data from the share store.
-     */
-    @Test(expected = XmlPullParserException.class)
-    public void deserializeShareDataThrowsException() throws Exception {
-        deserializeData(new byte[0], true /* shared */);
+        mWakeupConfigData.deserializeData(in, in.getDepth());
     }
 
     /**
@@ -123,8 +106,8 @@ public class WakeupConfigStoreDataTest {
         when(mNotificationsDataSource.getData()).thenReturn(notificationsShown);
         when(mNetworkDataSource.getData()).thenReturn(networks);
 
-        byte[] bytes = serializeData(false /* shared */);
-        deserializeData(bytes, false /* shared */);
+        byte[] bytes = serializeData();
+        deserializeData(bytes);
 
         verify(mActiveDataSource).setData(eq(isActive));
         verify(mIsOnboardedDataSource).setData(eq(isOnboarded));
@@ -159,8 +142,8 @@ public class WakeupConfigStoreDataTest {
         when(mNotificationsDataSource.getData()).thenReturn(notificationsShown);
         when(mNetworkDataSource.getData()).thenReturn(networks);
 
-        byte[] bytes = serializeData(false /* shared */);
-        deserializeData(bytes, false /* shared */);
+        byte[] bytes = serializeData();
+        deserializeData(bytes);
 
         verify(mActiveDataSource).setData(eq(isActive));
         verify(mIsOnboardedDataSource).setData(eq(isOnboarded));
@@ -173,7 +156,7 @@ public class WakeupConfigStoreDataTest {
      */
     @Test
     public void resetDataWipesDataSources() {
-        mWakeupConfigData.resetData(false /* shared */);
+        mWakeupConfigData.resetData();
 
         verify(mActiveDataSource).setData(false);
         verify(mIsOnboardedDataSource).setData(false);
@@ -194,16 +177,19 @@ public class WakeupConfigStoreDataTest {
      */
     @Test
     public void hasBeenReadIsTrueWhenUserStoreIsLoaded() throws Exception {
-        mWakeupConfigData.deserializeData(null /* in */, 0 /* outerTagDepth */, false /* shared */);
+        mWakeupConfigData.deserializeData(null /* in */, 0 /* outerTagDepth */);
         assertTrue(mWakeupConfigData.hasBeenRead());
     }
 
     /**
-     * Verify that hasBeenRead returns false if only the shared store has been read.
+     * Verify that WakeUpConfigStoreData is written to
+     * {@link WifiConfigStore#STORE_FILE_NAME_USER_GENERAL}.
+     *
+     * @throws Exception
      */
     @Test
-    public void hasBeenReadIsFalseWhenSharedStoreIsLoaded() throws Exception {
-        mWakeupConfigData.deserializeData(null /* in */, 0 /* outerTagDepth */, true /* shared */);
-        assertFalse(mWakeupConfigData.hasBeenRead());
+    public void getUserStoreFileId() throws Exception {
+        assertEquals(WifiConfigStore.STORE_FILE_USER_GENERAL,
+                mWakeupConfigData.getStoreFileId());
     }
 }

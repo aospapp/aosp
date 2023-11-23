@@ -1,0 +1,3 @@
+allow kernel device:dir { add_name write remove_name rmdir create setattr getattr unlink};
+allow kernel device:chr_file { create setattr getattr unlink};
+allow kernel self:capability { mknod };

@@ -68,20 +68,21 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         return target_file_utils.FindFiles(self._shell, dir_path, "*",
                                            "! -type d")
 
-    def _TestVndkDirectory(self, vndk_dir, *vndk_list_names):
+    def _TestVndkDirectory(self, vndk_dir, vndk_list_names):
         """Verifies that the VNDK directory doesn't contain extra files.
 
         Args:
             vndk_dir: The path to the VNDK directory on device.
-            *vndk_list_names: Strings, the categories of the VNDK libraries
-                              that can be in the directory.
+            vndk_list_names: Strings, the categories of the VNDK libraries
+                             that can be in the directory.
         """
         vndk_lists = vndk_data.LoadVndkLibraryLists(
             self.data_file_path, self._vndk_version, *vndk_list_names)
         asserts.assertTrue(vndk_lists, "Cannot load VNDK library lists.")
         vndk_set = set().union(*vndk_lists)
         logging.debug("vndk set: %s", vndk_set)
-        unexpected = set(self._ListFiles(vndk_dir)) - vndk_set
+        unexpected = [x for x in self._ListFiles(vndk_dir) if
+                      path_utils.TargetBaseName(x) not in vndk_set]
         if unexpected:
             logging.error("Unexpected files:\n%s", "\n".join(unexpected))
             asserts.fail("Total number of errors: %d" % len(unexpected))
@@ -99,9 +100,7 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         vndk_lists = vndk_data.LoadVndkLibraryLists(
             self.data_file_path, self._vndk_version, *vndk_list_names)
         asserts.assertTrue(vndk_lists, "Cannot load VNDK library lists.")
-        vndk_set = set()
-        for vndk_list in vndk_lists:
-            vndk_set.update(path_utils.TargetBaseName(x) for x in vndk_list)
+        vndk_set = set().union(*vndk_lists)
         vndk_set.difference_update(except_libs)
         logging.debug("vndk set: %s", vndk_set)
         unexpected = [x for x in self._ListFiles(vndk_dir) if
@@ -117,16 +116,14 @@ class VtsVndkFilesTest(base_test.BaseTestClass):
         self._TestVndkDirectory(
             vndk_utils.GetVndkCoreDirectory(
                 self.abi_bitness, self._vndk_version),
-            vndk_data.VNDK,
-            vndk_data.VNDK_PRIVATE)
+            (vndk_data.VNDK, vndk_data.VNDK_PRIVATE,))
 
     def testVndkSpDirectory(self):
         """Verifies that VNDK-SP directory doesn't contain extra files."""
         self._TestVndkDirectory(
             vndk_utils.GetVndkSpDirectory(
                 self.abi_bitness, self._vndk_version),
-            vndk_data.VNDK_SP,
-            vndk_data.VNDK_SP_PRIVATE)
+            (vndk_data.VNDK_SP, vndk_data.VNDK_SP_PRIVATE,))
 
     def testNoLlndkInVendor(self):
         """Verifies that vendor partition has no LL-NDK libraries."""

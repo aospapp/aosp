@@ -28,7 +28,7 @@ import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.roots.ProvidersAccess;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 import java.io.IOException;
 
@@ -69,7 +69,7 @@ public interface LastAccessedStorage {
             } catch (IOException e) {
                 Log.w(TAG, "Failed to resume: ", e);
             } finally {
-                IoUtils.closeQuietly(cursor);
+                FileUtils.closeQuietly(cursor);
             }
 
             return null;

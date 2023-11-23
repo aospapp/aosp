@@ -17,7 +17,6 @@
 package android.car.apitest;
 
 import android.car.hardware.CarPropertyConfig;
-import android.graphics.Point;
 import android.test.suitebuilder.annotation.MediumTest;
 
 /**
@@ -32,12 +31,12 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
 
     private CarPropertyConfig<Float> createFloatPropertyConfig() {
         CarPropertyConfig<Float> config = CarPropertyConfig
-                .newBuilder(Float.class, PROPERTY_ID, CAR_AREA_TYPE)
+                .newBuilder(Float.class, FLOAT_PROPERTY_ID, CAR_AREA_TYPE)
                 .addArea(WINDOW_DRIVER)
                 .addAreaConfig(WINDOW_PASSENGER, 10f, 20f)
                 .build();
 
-        assertEquals(PROPERTY_ID, config.getPropertyId());
+        assertEquals(FLOAT_PROPERTY_ID, config.getPropertyId());
         assertEquals(CAR_AREA_TYPE, config.getAreaType());
         assertEquals(Float.class, config.getPropertyType());
         assertEquals(2, config.getAreaCount());
@@ -58,7 +57,7 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         writeToParcel(config);
         CarPropertyConfig<Float> configRead = readFromParcel();
 
-        assertEquals(PROPERTY_ID, configRead.getPropertyId());
+        assertEquals(FLOAT_PROPERTY_ID, configRead.getPropertyId());
         assertEquals(CAR_AREA_TYPE, configRead.getAreaType());
         assertEquals(Float.class, configRead.getPropertyType());
         assertEquals(2, configRead.getAreaCount());
@@ -71,10 +70,56 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         assertEquals(20f, configRead.getMaxValue(WINDOW_PASSENGER));
     }
 
+    public void testWriteReadIntegerValue() {
+        Integer expectedMinValue = 1;
+        Integer expectedMaxValue = 20;
+        CarPropertyConfig<Integer> config = CarPropertyConfig
+                .newBuilder(Integer.class, INT_PROPERTY_ID, CAR_AREA_TYPE)
+                .addAreaConfig(WINDOW_PASSENGER, expectedMinValue, expectedMaxValue)
+                .addArea(WINDOW_DRIVER)
+                .build();
+        writeToParcel(config);
+        CarPropertyConfig<Integer> configRead = readFromParcel();
+
+        assertEquals(INT_PROPERTY_ID, configRead.getPropertyId());
+        assertEquals(CAR_AREA_TYPE, configRead.getAreaType());
+        assertEquals(Integer.class, configRead.getPropertyType());
+        assertEquals(2, configRead.getAreaCount());
+
+        assertNull(configRead.getMinValue(WINDOW_DRIVER));
+        assertNull(configRead.getMaxValue(WINDOW_DRIVER));
+
+        assertEquals(expectedMinValue, configRead.getMinValue(WINDOW_PASSENGER));
+        assertEquals(expectedMaxValue, configRead.getMaxValue(WINDOW_PASSENGER));
+    }
+
+    public void testWriteReadLongValue() {
+        Long expectedMinValue = 0L;
+        Long expectedMaxValue = 100L;
+        CarPropertyConfig<Long> config = CarPropertyConfig
+                .newBuilder(Long.class, LONG_PROPERTY_ID, CAR_AREA_TYPE)
+                .addAreaConfig(WINDOW_PASSENGER, expectedMinValue, expectedMaxValue)
+                .addArea(WINDOW_DRIVER)
+                .build();
+        writeToParcel(config);
+        CarPropertyConfig<Long> configRead = readFromParcel();
+
+        assertEquals(LONG_PROPERTY_ID, configRead.getPropertyId());
+        assertEquals(CAR_AREA_TYPE, configRead.getAreaType());
+        assertEquals(Long.class, configRead.getPropertyType());
+        assertEquals(2, configRead.getAreaCount());
+
+        assertNull(configRead.getMinValue(WINDOW_DRIVER));
+        assertNull(configRead.getMaxValue(WINDOW_DRIVER));
+
+        assertEquals(expectedMinValue, configRead.getMinValue(WINDOW_PASSENGER));
+        assertEquals(expectedMaxValue, configRead.getMaxValue(WINDOW_PASSENGER));
+    }
+
     public void testWriteReadIntegerArray() {
         CarPropertyConfig<Integer[]> config = CarPropertyConfig
-                .newBuilder(Integer[].class, PROPERTY_ID, CAR_AREA_TYPE)
-                // We can specify min/max values per each element.
+                .newBuilder(Integer[].class, INT_ARRAY_PROPERTY_ID, CAR_AREA_TYPE)
+                // We do not set range for integer array properties.
                 .addAreaConfig(WINDOW_DRIVER, new Integer[] {10, 20, 30}, new Integer[0])
                 .addArea(WINDOW_PASSENGER)
                 .build();
@@ -82,7 +127,7 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         writeToParcel(config);
         CarPropertyConfig<Integer[]> configRead = readFromParcel();
 
-        assertEquals(PROPERTY_ID, configRead.getPropertyId());
+        assertEquals(INT_ARRAY_PROPERTY_ID, configRead.getPropertyId());
         assertEquals(CAR_AREA_TYPE, configRead.getAreaType());
         assertEquals(Integer[].class, configRead.getPropertyType());
         assertEquals(2, configRead.getAreaCount());
@@ -90,10 +135,8 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         // We didn't assign any restrictions to WINDOW_DRIVER area.
         assertNull(configRead.getMinValue(WINDOW_PASSENGER));
         assertNull(configRead.getMaxValue(WINDOW_PASSENGER));
-
-        assertEquals(3, configRead.getMinValue(WINDOW_DRIVER).length);
-        assertEquals(20, (int) configRead.getMinValue(WINDOW_DRIVER)[1]);
-        assertEquals(0, configRead.getMaxValue(WINDOW_DRIVER).length);
+        assertNull(configRead.getMinValue(WINDOW_DRIVER));
+        assertNull(configRead.getMaxValue(WINDOW_DRIVER));
     }
 
     public void testWriteReadUnexpectedType() {
@@ -119,25 +162,5 @@ public class CarPropertyConfigTest extends CarPropertyTestBase {
         } catch (ClassCastException expected) {
             // Expected. Wrote float, attempted to read integer.
         }
-    }
-
-    public void testWriteReadArbitraryParcelable() {
-        Point maxPoint = new Point(10, 20);
-        CarPropertyConfig<Point> config = CarPropertyConfig
-                .newBuilder(Point.class, PROPERTY_ID, CAR_AREA_TYPE)
-                .addAreaConfig(WINDOW_DRIVER, null, maxPoint)
-                .build();
-
-        assertNull(config.getMinValue());
-        assertNotNull(config.toString(), config.getMaxValue());
-        assertEquals("Value: " + config.toString(), 10, config.getMaxValue().x);
-
-        writeToParcel(config);
-
-        CarPropertyConfig<Point> configRead = readFromParcel();
-        assertNotNull(configRead);
-        assertEquals(Point.class, configRead.getPropertyType());
-        assertNull(configRead.getMinValue());
-        assertEquals(10, configRead.getMaxValue().x);
     }
 }

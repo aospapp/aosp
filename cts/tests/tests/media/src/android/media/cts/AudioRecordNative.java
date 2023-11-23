@@ -18,6 +18,7 @@ package android.media.cts;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.media.AudioRouting;
 import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
@@ -84,6 +85,10 @@ public class AudioRecordNative {
 
     public int getBuffersPending() {
         return nativeGetBuffersPending(mNativeRecordInJavaObj);
+    }
+
+    public AudioRouting getRoutingInterface() {
+        return nativeGetRoutingInterface(mNativeRecordInJavaObj);
     }
 
     public int read(@NonNull byte[] byteArray,
@@ -158,6 +163,7 @@ public class AudioRecordNative {
             int offsetInSamples, int sizeInSamples, @ReadFlags int readFlags);
     private static native int nativeReadFloatArray(long record, @NonNull float[] floatArray,
             int offsetInSamples, int sizeInSamples, @ReadFlags int readFlags);
+    private static native AudioRouting nativeGetRoutingInterface(long record);
 
     // native interface for all-in-one testing, no record handle required.
     private static native int nativeTest(

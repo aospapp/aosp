@@ -13,16 +13,20 @@
 # limitations under the License.
 
 instrumentation_metric_tests := \
+    AutofillPerfTests \
     crashcollector \
     CorePerfTests \
     DocumentsUIAppPerfTests \
     MtpDocumentsProviderPerfTests \
-    perf-setup.sh \
     RsBlasBenchmark \
     ImageProcessingJB \
     MultiUserPerfTests \
-    NeuralNetworksApiBenchmark
+    NeuralNetworksApiBenchmark \
+    TextClassifierPerfTests
 
     # TODO(b/72332760): Uncomment when fixed
     #DocumentsUIPerfTests
 
+ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
+instrumentation_metric_tests += perf-setup.sh
+endif

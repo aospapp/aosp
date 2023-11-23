@@ -24,13 +24,14 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.HandlerThread;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 
-import com.android.bluetooth.R;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.internal.R;
 
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
@@ -61,7 +62,8 @@ public class HearingAidStateMachineTest {
     public void setUp() throws Exception {
         mTargetContext = InstrumentationRegistry.getTargetContext();
         Assume.assumeTrue("Ignore test when HearingAidService is not enabled",
-                mTargetContext.getResources().getBoolean(R.bool.profile_supported_hearing_aid));
+                mTargetContext.getResources().getBoolean(
+                    R.bool.config_hearing_aid_profile_supported));
         // Set up mocks and test assets
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
@@ -83,7 +85,8 @@ public class HearingAidStateMachineTest {
 
     @After
     public void tearDown() throws Exception {
-        if (!mTargetContext.getResources().getBoolean(R.bool.profile_supported_hearing_aid)) {
+        if (!mTargetContext.getResources().getBoolean(
+                            R.bool.config_hearing_aid_profile_supported)) {
             return;
         }
         mHearingAidStateMachine.doQuit();
@@ -183,6 +186,7 @@ public class HearingAidStateMachineTest {
                 BluetoothDevice.class));
         doReturn(true).when(mHearingAidNativeInterface).disconnectHearingAid(any(
                 BluetoothDevice.class));
+        when(mHearingAidService.isConnectedPeerDevices(mTestDevice)).thenReturn(true);
 
         // Send a connect request
         mHearingAidStateMachine.sendMessage(HearingAidStateMachine.CONNECT, mTestDevice);
@@ -209,6 +213,7 @@ public class HearingAidStateMachineTest {
         // Check that we are in Disconnected state
         Assert.assertThat(mHearingAidStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HearingAidStateMachine.Disconnected.class));
+        verify(mHearingAidNativeInterface).addToWhiteList(eq(mTestDevice));
     }
 
     /**
@@ -221,6 +226,7 @@ public class HearingAidStateMachineTest {
                 BluetoothDevice.class));
         doReturn(true).when(mHearingAidNativeInterface).disconnectHearingAid(any(
                 BluetoothDevice.class));
+        when(mHearingAidService.isConnectedPeerDevices(mTestDevice)).thenReturn(true);
 
         // Inject an event for when incoming connection is requested
         HearingAidStackEvent connStCh =
@@ -251,5 +257,6 @@ public class HearingAidStateMachineTest {
         // Check that we are in Disconnected state
         Assert.assertThat(mHearingAidStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HearingAidStateMachine.Disconnected.class));
+        verify(mHearingAidNativeInterface).addToWhiteList(eq(mTestDevice));
     }
 }

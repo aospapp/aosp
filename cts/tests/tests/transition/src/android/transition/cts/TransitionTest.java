@@ -30,6 +30,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -38,8 +39,6 @@ import static org.mockito.Mockito.verify;
 import android.animation.Animator;
 import android.graphics.Rect;
 import android.os.SystemClock;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.ArcMotion;
 import android.transition.AutoTransition;
 import android.transition.ChangeBounds;
@@ -55,13 +54,18 @@ import android.transition.TransitionPropagation;
 import android.transition.TransitionValues;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.invocation.InvocationOnMock;
 
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
@@ -70,6 +74,14 @@ import java.util.concurrent.TimeUnit;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class TransitionTest extends BaseTransitionTest {
+    @Override
+    public void setup() {
+        super.setup();
+        // We want to be able to catch the transition in the middle of running, so
+        // it should be long enough that devices can catch it without trouble.
+        mTransition.setDuration(1000);
+    }
+
     @Test
     public void testAddListener() throws Throwable {
         startTransition(R.layout.scene1);
@@ -103,13 +115,14 @@ public class TransitionTest extends BaseTransitionTest {
 
     @Test
     public void testRemoveListener() throws Throwable {
+        TransitionListener listener = mock(TransitionListener.class);
+        mTransition.addListener(listener);
         startTransition(R.layout.scene1);
         waitForStart();
 
-        mActivityRule.runOnUiThread(() -> mTransition.removeListener(mListener));
-
-        SystemClock.sleep(250);
-        verify(mListener, never()).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> mTransition.removeListener(listener));
+        waitForEnd(2000);
+        mActivityRule.runOnUiThread(() -> verify(listener, never()).onTransitionEnd(any()));
     }
 
     @Test
@@ -305,8 +318,10 @@ public class TransitionTest extends BaseTransitionTest {
         View holder2 = layout2.findViewById(R.id.holder);
         mTransition.excludeChildren(holder2, true);
         startTransition(scene2);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         mTransition.excludeChildren(holder1, false); // remove it
         mTransition.excludeChildren(holder2, false); // remove it
@@ -321,8 +336,10 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.excludeChildren(R.id.holder, true);
         startTransition(R.layout.scene2);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         resetListener();
         mTransition.excludeChildren(R.id.holder, false); // remove it
@@ -336,8 +353,10 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.excludeChildren(RelativeLayout.class, true);
         startTransition(R.layout.scene2);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         resetListener();
         mTransition.excludeChildren(RelativeLayout.class, false); // remove it
@@ -354,7 +373,7 @@ public class TransitionTest extends BaseTransitionTest {
         View redSquare1 = layout1.findViewById(R.id.redSquare);
         mTransition.excludeTarget(redSquare1, true);
         startTransition(R.layout.scene7);
-        waitForEnd(600);
+        waitForEnd(2000);
 
         mTransition.excludeTarget(redSquare1, false); // remove it
         resetListener();
@@ -368,8 +387,10 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.excludeTarget(R.id.redSquare, true);
         startTransition(R.layout.scene7);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         resetListener();
         mTransition.excludeTarget(R.id.redSquare, false); // remove it
@@ -383,8 +404,10 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.excludeTarget(TextView.class, true);
         startTransition(R.layout.scene3);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         resetListener();
         mTransition.excludeTarget(TextView.class, false); // remove it
@@ -398,8 +421,10 @@ public class TransitionTest extends BaseTransitionTest {
         enterScene(R.layout.scene1);
         mTransition.excludeTarget("hello", true);
         startTransition(R.layout.scene3);
-        // Should already be ended, since no children are transitioning
-        verify(mListener, times(1)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(() -> {
+            // Should already be ended, since no children are transitioning
+            verify(mListener, times(1)).onTransitionEnd(any());
+        });
 
         resetListener();
         mTransition.excludeTarget("hello", false); // remove it
@@ -410,16 +435,22 @@ public class TransitionTest extends BaseTransitionTest {
 
     @Test
     public void testDuration() throws Throwable {
-        assertEquals(-1, mTransition.getDuration());
+        Transition transition = new AutoTransition();
+        assertEquals(-1, transition.getDuration());
         enterScene(R.layout.scene1);
-        mTransition.setDuration(500);
-        assertEquals(500, mTransition.getDuration());
+        mTransition.setDuration(1000);
+        assertEquals(1000, mTransition.getDuration());
         DurationListener durationListener = new DurationListener();
         mTransition.addListener(durationListener);
         startTransition(R.layout.scene3);
-        waitForEnd(800);
+        waitForEnd(5000);
+        // We can't be certain that the onTransitionStart() and onTransitionEnd()
+        // are going to be called exactly 1000ms apart. There could be more of a
+        // delay at the beginning than the end. So, we give it some room at the
+        // minimum. It can also take a lot longer on the larger side because of
+        // slow devices.
         assertThat(durationListener.getDuration(),
-                allOf(greaterThanOrEqualTo(500L), lessThan(900L)));
+                allOf(greaterThanOrEqualTo(500L), lessThan(2000L)));
     }
 
     @Test
@@ -451,7 +482,7 @@ public class TransitionTest extends BaseTransitionTest {
         assertFalse(transition.animators.isEmpty());
         Animator animator = transition.animators.get(redSquare);
         Animator.AnimatorListener listener = transition.listeners.get(redSquare);
-        verify(listener, within(100)).onAnimationStart(any(), eq(false));
+        verify(listener, within(1000)).onAnimationStart(any(), eq(false));
         assertSame(interpolator, animator.getInterpolator());
         endTransition();
     }
@@ -508,7 +539,7 @@ public class TransitionTest extends BaseTransitionTest {
         Animator redSquareAnimator = transition.animators.get(redSquare);
         Animator greenSquareAnimator = transition.animators.get(greenSquare);
         Animator.AnimatorListener listener = transition.listeners.get(redSquare);
-        verify(listener, within(100)).onAnimationStart(any(), eq(false));
+        verify(listener, within(1000)).onAnimationStart(any(), eq(false));
         assertEquals(0, redSquareAnimator.getStartDelay());
         assertEquals(diffTop, greenSquareAnimator.getStartDelay());
         endTransition();
@@ -521,6 +552,74 @@ public class TransitionTest extends BaseTransitionTest {
         TransitionPropagation propagation = new CircularPropagation();
         transition.setPropagation(propagation);
         assertSame(propagation, transition.getPropagation());
+    }
+
+    @Test
+    public void testForceToEndTransitionsDependedEachOther() throws Throwable {
+        final Transition.TransitionListener listener1 = mock(Transition.TransitionListener.class);
+        final Transition.TransitionListener listener2 = mock(Transition.TransitionListener.class);
+
+        Scene scene1 = loadScene(R.layout.scene1);
+        Scene scene2 = loadScene(R.layout.scene2);
+
+        final ViewGroup scene1Root = scene1.getSceneRoot();
+        final ViewTreeObserver.OnPreDrawListener transition1OnPreDrawListener =
+                new ViewTreeObserver.OnPreDrawListener() {
+                    public boolean onPreDraw() {
+                        // Start the 2nd transition after the 1st transiton starts and does predraw.
+                        Transition transition2 = new TestTransition();
+                        transition2.setDuration(1000);
+                        transition2.addListener(listener2);
+                        TransitionManager.go(scene2, transition2);
+                        scene1Root.getViewTreeObserver().removeOnPreDrawListener(this);
+                        return true;
+                    }
+                };
+
+        // Start the 1st transition.
+        mActivityRule.runOnUiThread(
+                () -> {
+                    Transition transition1 = new TestTransition();
+                    transition1.setDuration(1000);
+
+                    transition1.addListener(listener1);
+                    TransitionManager.go(scene1, transition1);
+                    scene1Root
+                            .getViewTreeObserver()
+                            .addOnPreDrawListener(transition1OnPreDrawListener);
+                });
+
+        // When the 1st transition ends, end the other (2nd) transition if it is still alive.
+        doAnswer(
+                (InvocationOnMock invocation) -> {
+                    TransitionManager.endTransitions(
+                            mActivity.findViewById(R.id.container));
+                    return null;
+                })
+                .when(listener1)
+                .onTransitionEnd(any());
+
+        // When the 2st transition ends, end the other (1nd) transition if it is still alive.
+        doAnswer(
+                (InvocationOnMock invocation) -> {
+                    TransitionManager.endTransitions(
+                            mActivity.findViewById(R.id.container));
+                    return null;
+                })
+                .when(listener2)
+                .onTransitionEnd(any());
+
+        verify(listener1, within(4000)).onTransitionStart(any());
+        verify(listener2, within(4000)).onTransitionStart(any());
+
+        // End both transitions forcibly.
+        mActivityRule.runOnUiThread(
+                () -> {
+                    TransitionManager.endTransitions(mActivity.findViewById(R.id.container));
+                });
+
+        verify(listener1, within(4000)).onTransitionEnd(any());
+        verify(listener2, within(4000)).onTransitionEnd(any());
     }
 
     @Test
@@ -540,7 +639,7 @@ public class TransitionTest extends BaseTransitionTest {
         Animator animator = transition.animators.get(redSquare);
         assertFalse(animator.isRunning());
         Animator.AnimatorListener listener = transition.listeners.get(redSquare);
-        verify(listener, within(250)).onAnimationStart(any(), eq(false));
+        verify(listener, within(1000)).onAnimationStart(any(), eq(false));
         endTransition();
     }
 
@@ -552,8 +651,8 @@ public class TransitionTest extends BaseTransitionTest {
         mTransition.setDuration(10);
         resetListener();
         startTransition(R.layout.scene2);
-        assertTrue(transition.onDisappearCalled.await(500, TimeUnit.MILLISECONDS));
-        assertTrue(transition.onAppearCalled.await(500, TimeUnit.MILLISECONDS));
+        assertTrue(transition.onDisappearCalled.await(2000, TimeUnit.MILLISECONDS));
+        assertTrue(transition.onAppearCalled.await(2000, TimeUnit.MILLISECONDS));
         // The transition has all the asserts in it, so we can just end it now.
         endTransition();
     }
@@ -566,7 +665,7 @@ public class TransitionTest extends BaseTransitionTest {
         startTransition(R.layout.scene8);
 
         // scene 8 swaps the ids, but not the names. No transition should happen.
-        waitForEnd(0);
+        waitForEnd(2000);
 
         // now change the match order to prefer the id
         mTransition.setMatchOrder(new int[] {Transition.MATCH_ID, Transition.MATCH_NAME});
@@ -574,7 +673,7 @@ public class TransitionTest extends BaseTransitionTest {
         resetListener();
         startTransition(R.layout.scene1);
         verify(mListener, never()).onTransitionEnd(any()); // it is running as expected
-        waitForEnd(1000);
+        waitForEnd(2000);
     }
 
     @Test
@@ -585,7 +684,7 @@ public class TransitionTest extends BaseTransitionTest {
         mTransition = transition;
         resetListener();
         startTransition(R.layout.scene2);
-        assertTrue(transition.latch.await(500, TimeUnit.MILLISECONDS));
+        assertTrue(transition.latch.await(2000, TimeUnit.MILLISECONDS));
         endTransition();
 
         // Now make the transition only make changes to unimportant properties.
@@ -593,7 +692,7 @@ public class TransitionTest extends BaseTransitionTest {
         mTransition = transition;
         resetListener();
         startTransition(R.layout.scene1);
-        verify(mListener, within(500)).onTransitionEnd(any());
+        verify(mListener, within(2000)).onTransitionEnd(any());
         // createAnimator shouldn't have been called.
         assertEquals(1, transition.latch.getCount());
 
@@ -731,17 +830,17 @@ public class TransitionTest extends BaseTransitionTest {
 
     private static class DurationListener extends TransitionListenerAdapter {
 
-        private long mUptimeMillisStart = -1;
+        private long mElapsedMillisStart = -1;
         private long mDuration = -1;
 
         @Override
         public void onTransitionStart(Transition transition) {
-            mUptimeMillisStart = SystemClock.uptimeMillis();
+            mElapsedMillisStart = SystemClock.elapsedRealtime();
         }
 
         @Override
         public void onTransitionEnd(Transition transition) {
-            mDuration = SystemClock.uptimeMillis() - mUptimeMillisStart;
+            mDuration = SystemClock.elapsedRealtime() - mElapsedMillisStart;
         }
 
         public long getDuration() {

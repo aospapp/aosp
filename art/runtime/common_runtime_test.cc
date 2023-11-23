@@ -24,12 +24,12 @@
 #include "nativehelper/scoped_local_ref.h"
 
 #include "android-base/stringprintf.h"
-#include <unicode/uvernum.h>
 
 #include "art_field-inl.h"
 #include "base/file_utils.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/mem_map.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/runtime_debug.h"
@@ -43,15 +43,17 @@
 #include "dex/dex_file_loader.h"
 #include "dex/primitive.h"
 #include "gc/heap.h"
+#include "gc/space/image_space.h"
 #include "gc_root-inl.h"
 #include "gtest/gtest.h"
 #include "handle_scope-inl.h"
 #include "interpreter/unstarted_runtime.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
-#include "mem_map.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/class-inl.h"
-#include "mirror/class_loader.h"
+#include "mirror/class_loader-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "native/dalvik_system_DexFile.h"
 #include "noop_compiler_callbacks.h"
 #include "runtime-inl.h"
@@ -59,85 +61,9 @@
 #include "thread.h"
 #include "well_known_classes.h"
 
-int main(int argc, char **argv) {
-  // Gtests can be very noisy. For example, an executable with multiple tests will trigger native
-  // bridge warnings. The following line reduces the minimum log severity to ERROR and suppresses
-  // everything else. In case you want to see all messages, comment out the line.
-  setenv("ANDROID_LOG_TAGS", "*:e", 1);
-
-  art::Locks::Init();
-  art::InitLogging(argv, art::Runtime::Abort);
-  LOG(INFO) << "Running main() from common_runtime_test.cc...";
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 namespace art {
 
 using android::base::StringPrintf;
-
-ScratchFile::ScratchFile() {
-  // ANDROID_DATA needs to be set
-  CHECK_NE(static_cast<char*>(nullptr), getenv("ANDROID_DATA")) <<
-      "Are you subclassing RuntimeTest?";
-  filename_ = getenv("ANDROID_DATA");
-  filename_ += "/TmpFile-XXXXXX";
-  int fd = mkstemp(&filename_[0]);
-  CHECK_NE(-1, fd) << strerror(errno) << " for " << filename_;
-  file_.reset(new File(fd, GetFilename(), true));
-}
-
-ScratchFile::ScratchFile(const ScratchFile& other, const char* suffix)
-    : ScratchFile(other.GetFilename() + suffix) {}
-
-ScratchFile::ScratchFile(const std::string& filename) : filename_(filename) {
-  int fd = open(filename_.c_str(), O_RDWR | O_CREAT, 0666);
-  CHECK_NE(-1, fd);
-  file_.reset(new File(fd, GetFilename(), true));
-}
-
-ScratchFile::ScratchFile(File* file) {
-  CHECK(file != nullptr);
-  filename_ = file->GetPath();
-  file_.reset(file);
-}
-
-ScratchFile::ScratchFile(ScratchFile&& other) {
-  *this = std::move(other);
-}
-
-ScratchFile& ScratchFile::operator=(ScratchFile&& other) {
-  if (GetFile() != other.GetFile()) {
-    std::swap(filename_, other.filename_);
-    std::swap(file_, other.file_);
-  }
-  return *this;
-}
-
-ScratchFile::~ScratchFile() {
-  Unlink();
-}
-
-int ScratchFile::GetFd() const {
-  return file_->Fd();
-}
-
-void ScratchFile::Close() {
-  if (file_.get() != nullptr) {
-    if (file_->FlushCloseOrErase() != 0) {
-      PLOG(WARNING) << "Error closing scratch file.";
-    }
-  }
-}
-
-void ScratchFile::Unlink() {
-  if (!OS::FileExists(filename_.c_str())) {
-    return;
-  }
-  Close();
-  int unlink_result = unlink(filename_.c_str());
-  CHECK_EQ(0, unlink_result);
-}
 
 static bool unstarted_initialized_ = false;
 
@@ -149,124 +75,6 @@ CommonRuntimeTestImpl::~CommonRuntimeTestImpl() {
   // Ensure the dex files are cleaned up before the runtime.
   loaded_dex_files_.clear();
   runtime_.reset();
-}
-
-void CommonRuntimeTestImpl::SetUpAndroidRoot() {
-  if (IsHost()) {
-    // $ANDROID_ROOT is set on the device, but not necessarily on the host.
-    // But it needs to be set so that icu4c can find its locale data.
-    const char* android_root_from_env = getenv("ANDROID_ROOT");
-    if (android_root_from_env == nullptr) {
-      // Use ANDROID_HOST_OUT for ANDROID_ROOT if it is set.
-      const char* android_host_out = getenv("ANDROID_HOST_OUT");
-      if (android_host_out != nullptr) {
-        setenv("ANDROID_ROOT", android_host_out, 1);
-      } else {
-        // Build it from ANDROID_BUILD_TOP or cwd
-        std::string root;
-        const char* android_build_top = getenv("ANDROID_BUILD_TOP");
-        if (android_build_top != nullptr) {
-          root += android_build_top;
-        } else {
-          // Not set by build server, so default to current directory
-          char* cwd = getcwd(nullptr, 0);
-          setenv("ANDROID_BUILD_TOP", cwd, 1);
-          root += cwd;
-          free(cwd);
-        }
-#if defined(__linux__)
-        root += "/out/host/linux-x86";
-#elif defined(__APPLE__)
-        root += "/out/host/darwin-x86";
-#else
-#error unsupported OS
-#endif
-        setenv("ANDROID_ROOT", root.c_str(), 1);
-      }
-    }
-    setenv("LD_LIBRARY_PATH", ":", 0);  // Required by java.lang.System.<clinit>.
-
-    // Not set by build server, so default
-    if (getenv("ANDROID_HOST_OUT") == nullptr) {
-      setenv("ANDROID_HOST_OUT", getenv("ANDROID_ROOT"), 1);
-    }
-  }
-}
-
-void CommonRuntimeTestImpl::SetUpAndroidData(std::string& android_data) {
-  // On target, Cannot use /mnt/sdcard because it is mounted noexec, so use subdir of dalvik-cache
-  if (IsHost()) {
-    const char* tmpdir = getenv("TMPDIR");
-    if (tmpdir != nullptr && tmpdir[0] != 0) {
-      android_data = tmpdir;
-    } else {
-      android_data = "/tmp";
-    }
-  } else {
-    android_data = "/data/dalvik-cache";
-  }
-  android_data += "/art-data-XXXXXX";
-  if (mkdtemp(&android_data[0]) == nullptr) {
-    PLOG(FATAL) << "mkdtemp(\"" << &android_data[0] << "\") failed";
-  }
-  setenv("ANDROID_DATA", android_data.c_str(), 1);
-}
-
-void CommonRuntimeTestImpl::TearDownAndroidData(const std::string& android_data,
-                                                bool fail_on_error) {
-  if (fail_on_error) {
-    ASSERT_EQ(rmdir(android_data.c_str()), 0);
-  } else {
-    rmdir(android_data.c_str());
-  }
-}
-
-// Helper - find directory with the following format:
-// ${ANDROID_BUILD_TOP}/${subdir1}/${subdir2}-${version}/${subdir3}/bin/
-static std::string GetAndroidToolsDir(const std::string& subdir1,
-                                      const std::string& subdir2,
-                                      const std::string& subdir3) {
-  std::string root;
-  const char* android_build_top = getenv("ANDROID_BUILD_TOP");
-  if (android_build_top != nullptr) {
-    root = android_build_top;
-  } else {
-    // Not set by build server, so default to current directory
-    char* cwd = getcwd(nullptr, 0);
-    setenv("ANDROID_BUILD_TOP", cwd, 1);
-    root = cwd;
-    free(cwd);
-  }
-
-  std::string toolsdir = root + "/" + subdir1;
-  std::string founddir;
-  DIR* dir;
-  if ((dir = opendir(toolsdir.c_str())) != nullptr) {
-    float maxversion = 0;
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-      std::string format = subdir2 + "-%f";
-      float version;
-      if (std::sscanf(entry->d_name, format.c_str(), &version) == 1) {
-        if (version > maxversion) {
-          maxversion = version;
-          founddir = toolsdir + "/" + entry->d_name + "/" + subdir3 + "/bin/";
-        }
-      }
-    }
-    closedir(dir);
-  }
-
-  if (founddir.empty()) {
-    ADD_FAILURE() << "Cannot find Android tools directory.";
-  }
-  return founddir;
-}
-
-std::string CommonRuntimeTestImpl::GetAndroidHostToolsDir() {
-  return GetAndroidToolsDir("prebuilts/gcc/linux-x86/host",
-                            "x86_64-linux-glibc2.15",
-                            "x86_64-linux");
 }
 
 std::string CommonRuntimeTestImpl::GetAndroidTargetToolsDir(InstructionSet isa) {
@@ -297,51 +105,20 @@ std::string CommonRuntimeTestImpl::GetAndroidTargetToolsDir(InstructionSet isa) 
   return "";
 }
 
-std::string CommonRuntimeTestImpl::GetCoreArtLocation() {
-  return GetCoreFileLocation("art");
-}
-
-std::string CommonRuntimeTestImpl::GetCoreOatLocation() {
-  return GetCoreFileLocation("oat");
-}
-
-std::unique_ptr<const DexFile> CommonRuntimeTestImpl::LoadExpectSingleDexFile(
-    const char* location) {
-  std::vector<std::unique_ptr<const DexFile>> dex_files;
-  std::string error_msg;
-  MemMap::Init();
-  static constexpr bool kVerifyChecksum = true;
-  const ArtDexFileLoader dex_file_loader;
-  if (!dex_file_loader.Open(
-        location, location, /* verify */ true, kVerifyChecksum, &error_msg, &dex_files)) {
-    LOG(FATAL) << "Could not open .dex file '" << location << "': " << error_msg << "\n";
-    UNREACHABLE();
-  } else {
-    CHECK_EQ(1U, dex_files.size()) << "Expected only one dex file in " << location;
-    return std::move(dex_files[0]);
-  }
-}
-
 void CommonRuntimeTestImpl::SetUp() {
-  SetUpAndroidRoot();
-  SetUpAndroidData(android_data_);
-  dalvik_cache_.append(android_data_.c_str());
-  dalvik_cache_.append("/dalvik-cache");
-  int mkdir_result = mkdir(dalvik_cache_.c_str(), 0700);
-  ASSERT_EQ(mkdir_result, 0);
+  CommonArtTestImpl::SetUp();
 
   std::string min_heap_string(StringPrintf("-Xms%zdm", gc::Heap::kDefaultInitialSize / MB));
   std::string max_heap_string(StringPrintf("-Xmx%zdm", gc::Heap::kDefaultMaximumSize / MB));
 
-
   RuntimeOptions options;
-  std::string boot_class_path_string = "-Xbootclasspath";
-  for (const std::string &core_dex_file_name : GetLibCoreDexFileNames()) {
-    boot_class_path_string += ":";
-    boot_class_path_string += core_dex_file_name;
-  }
+  std::string boot_class_path_string =
+      GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames());
+  std::string boot_class_path_locations_string =
+      GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations());
 
   options.push_back(std::make_pair(boot_class_path_string, nullptr));
+  options.push_back(std::make_pair(boot_class_path_locations_string, nullptr));
   options.push_back(std::make_pair("-Xcheck:jni", nullptr));
   options.push_back(std::make_pair(min_heap_string, nullptr));
   options.push_back(std::make_pair(max_heap_string, nullptr));
@@ -361,7 +138,7 @@ void CommonRuntimeTestImpl::SetUp() {
   PreRuntimeCreate();
   if (!Runtime::Create(options, false)) {
     LOG(FATAL) << "Failed to create runtime";
-    return;
+    UNREACHABLE();
   }
   PostRuntimeCreate();
   runtime_.reset(Runtime::Current());
@@ -392,7 +169,7 @@ void CommonRuntimeTestImpl::FinalizeSetup() {
 
   {
     ScopedObjectAccess soa(Thread::Current());
-    class_linker_->RunRootClinits();
+    runtime_->RunRootClinits(soa.Self());
   }
 
   // We're back in native, take the opportunity to initialize well known classes.
@@ -406,78 +183,11 @@ void CommonRuntimeTestImpl::FinalizeSetup() {
   runtime_->GetHeap()->SetMinIntervalHomogeneousSpaceCompactionByOom(0U);
 }
 
-void CommonRuntimeTestImpl::ClearDirectory(const char* dirpath, bool recursive) {
-  ASSERT_TRUE(dirpath != nullptr);
-  DIR* dir = opendir(dirpath);
-  ASSERT_TRUE(dir != nullptr);
-  dirent* e;
-  struct stat s;
-  while ((e = readdir(dir)) != nullptr) {
-    if ((strcmp(e->d_name, ".") == 0) || (strcmp(e->d_name, "..") == 0)) {
-      continue;
-    }
-    std::string filename(dirpath);
-    filename.push_back('/');
-    filename.append(e->d_name);
-    int stat_result = lstat(filename.c_str(), &s);
-    ASSERT_EQ(0, stat_result) << "unable to stat " << filename;
-    if (S_ISDIR(s.st_mode)) {
-      if (recursive) {
-        ClearDirectory(filename.c_str());
-        int rmdir_result = rmdir(filename.c_str());
-        ASSERT_EQ(0, rmdir_result) << filename;
-      }
-    } else {
-      int unlink_result = unlink(filename.c_str());
-      ASSERT_EQ(0, unlink_result) << filename;
-    }
-  }
-  closedir(dir);
-}
-
 void CommonRuntimeTestImpl::TearDown() {
-  const char* android_data = getenv("ANDROID_DATA");
-  ASSERT_TRUE(android_data != nullptr);
-  ClearDirectory(dalvik_cache_.c_str());
-  int rmdir_cache_result = rmdir(dalvik_cache_.c_str());
-  ASSERT_EQ(0, rmdir_cache_result);
-  TearDownAndroidData(android_data_, true);
-  dalvik_cache_.clear();
-
+  CommonArtTestImpl::TearDown();
   if (runtime_ != nullptr) {
     runtime_->GetHeap()->VerifyHeap();  // Check for heap corruption after the test
   }
-}
-
-static std::string GetDexFileName(const std::string& jar_prefix, bool host) {
-  std::string path;
-  if (host) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    path = host_dir;
-  } else {
-    path = GetAndroidRoot();
-  }
-
-  std::string suffix = host
-      ? "-hostdex"                 // The host version.
-      : "-testdex";                // The unstripped target version.
-
-  return StringPrintf("%s/framework/%s%s.jar", path.c_str(), jar_prefix.c_str(), suffix.c_str());
-}
-
-std::vector<std::string> CommonRuntimeTestImpl::GetLibCoreDexFileNames() {
-  return std::vector<std::string>({GetDexFileName("core-oj", IsHost()),
-                                   GetDexFileName("core-libart", IsHost())});
-}
-
-std::string CommonRuntimeTestImpl::GetTestAndroidRoot() {
-  if (IsHost()) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    return host_dir;
-  }
-  return GetAndroidRoot();
 }
 
 // Check that for target builds we have ART_TARGET_NATIVETEST_DIR set.
@@ -490,47 +200,6 @@ std::string CommonRuntimeTestImpl::GetTestAndroidRoot() {
 #else
 #define ART_TARGET_NATIVETEST_DIR_STRING ""
 #endif
-
-std::string CommonRuntimeTestImpl::GetTestDexFileName(const char* name) const {
-  CHECK(name != nullptr);
-  std::string filename;
-  if (IsHost()) {
-    filename += getenv("ANDROID_HOST_OUT");
-    filename += "/framework/";
-  } else {
-    filename += ART_TARGET_NATIVETEST_DIR_STRING;
-  }
-  filename += "art-gtest-";
-  filename += name;
-  filename += ".jar";
-  return filename;
-}
-
-std::vector<std::unique_ptr<const DexFile>> CommonRuntimeTestImpl::OpenTestDexFiles(
-    const char* name) {
-  std::string filename = GetTestDexFileName(name);
-  static constexpr bool kVerifyChecksum = true;
-  std::string error_msg;
-  const ArtDexFileLoader dex_file_loader;
-  std::vector<std::unique_ptr<const DexFile>> dex_files;
-  bool success = dex_file_loader.Open(filename.c_str(),
-                                      filename.c_str(),
-                                      /* verify */ true,
-                                      kVerifyChecksum,
-                                      &error_msg, &dex_files);
-  CHECK(success) << "Failed to open '" << filename << "': " << error_msg;
-  for (auto& dex_file : dex_files) {
-    CHECK_EQ(PROT_READ, dex_file->GetPermissions());
-    CHECK(dex_file->IsReadOnly());
-  }
-  return dex_files;
-}
-
-std::unique_ptr<const DexFile> CommonRuntimeTestImpl::OpenTestDexFile(const char* name) {
-  std::vector<std::unique_ptr<const DexFile>> vector = OpenTestDexFiles(name);
-  EXPECT_EQ(1U, vector.size());
-  return std::move(vector[0]);
-}
 
 std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_loader) {
   ScopedObjectAccess soa(Thread::Current());
@@ -603,7 +272,8 @@ jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
 
 jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& dex_name,
                                                              jclass loader_class,
-                                                             jobject parent_loader) {
+                                                             jobject parent_loader,
+                                                             jobject shared_libraries) {
   std::vector<std::unique_ptr<const DexFile>> dex_files = OpenTestDexFiles(dex_name.c_str());
   std::vector<const DexFile*> class_path;
   CHECK_NE(0U, dex_files.size());
@@ -618,7 +288,8 @@ jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& 
       self,
       class_path,
       loader_class,
-      parent_loader);
+      parent_loader,
+      shared_libraries);
 
   {
     // Verify we build the correct chain.
@@ -645,10 +316,12 @@ jobject CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::string& 
 }
 
 jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::string& dex_name,
-                                                        jobject parent_loader) {
+                                                        jobject parent_loader,
+                                                        jobject shared_libraries) {
   return LoadDexInWellKnownClassLoader(dex_name,
                                        WellKnownClasses::dalvik_system_PathClassLoader,
-                                       parent_loader);
+                                       parent_loader,
+                                       shared_libraries);
 }
 
 jobject CommonRuntimeTestImpl::LoadDexInDelegateLastClassLoader(const std::string& dex_name,
@@ -658,41 +331,11 @@ jobject CommonRuntimeTestImpl::LoadDexInDelegateLastClassLoader(const std::strin
                                        parent_loader);
 }
 
-std::string CommonRuntimeTestImpl::GetCoreFileLocation(const char* suffix) {
-  CHECK(suffix != nullptr);
-
-  std::string location;
-  if (IsHost()) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    location = StringPrintf("%s/framework/core.%s", host_dir, suffix);
-  } else {
-    location = StringPrintf("/data/art-test/core.%s", suffix);
-  }
-
-  return location;
-}
-
-std::string CommonRuntimeTestImpl::CreateClassPath(
-    const std::vector<std::unique_ptr<const DexFile>>& dex_files) {
-  CHECK(!dex_files.empty());
-  std::string classpath = dex_files[0]->GetLocation();
-  for (size_t i = 1; i < dex_files.size(); i++) {
-    classpath += ":" + dex_files[i]->GetLocation();
-  }
-  return classpath;
-}
-
-std::string CommonRuntimeTestImpl::CreateClassPathWithChecksums(
-    const std::vector<std::unique_ptr<const DexFile>>& dex_files) {
-  CHECK(!dex_files.empty());
-  std::string classpath = dex_files[0]->GetLocation() + "*" +
-      std::to_string(dex_files[0]->GetLocationChecksum());
-  for (size_t i = 1; i < dex_files.size(); i++) {
-    classpath += ":" + dex_files[i]->GetLocation() + "*" +
-        std::to_string(dex_files[i]->GetLocationChecksum());
-  }
-  return classpath;
+jobject CommonRuntimeTestImpl::LoadDexInInMemoryDexClassLoader(const std::string& dex_name,
+                                                               jobject parent_loader) {
+  return LoadDexInWellKnownClassLoader(dex_name,
+                                       WellKnownClasses::dalvik_system_InMemoryDexClassLoader,
+                                       parent_loader);
 }
 
 void CommonRuntimeTestImpl::FillHeap(Thread* self,
@@ -749,6 +392,45 @@ void CommonRuntimeTestImpl::SetUpRuntimeOptionsForFillHeap(RuntimeOptions *optio
   }
 }
 
+void CommonRuntimeTestImpl::MakeInterpreted(ObjPtr<mirror::Class> klass) {
+  PointerSize pointer_size = class_linker_->GetImagePointerSize();
+  for (ArtMethod& method : klass->GetMethods(pointer_size)) {
+    class_linker_->SetEntryPointsToInterpreter(&method);
+  }
+}
+
+bool CommonRuntimeTestImpl::StartDex2OatCommandLine(/*out*/std::vector<std::string>* argv,
+                                                    /*out*/std::string* error_msg) {
+  DCHECK(argv != nullptr);
+  DCHECK(argv->empty());
+
+  Runtime* runtime = Runtime::Current();
+  const std::vector<gc::space::ImageSpace*>& image_spaces =
+      runtime->GetHeap()->GetBootImageSpaces();
+  if (image_spaces.empty()) {
+    *error_msg = "No image location found for Dex2Oat.";
+    return false;
+  }
+  std::string image_location = image_spaces[0]->GetImageLocation();
+
+  argv->push_back(runtime->GetCompilerExecutable());
+  if (runtime->IsJavaDebuggable()) {
+    argv->push_back("--debuggable");
+  }
+  runtime->AddCurrentRuntimeFeaturesAsDex2OatArguments(argv);
+
+  argv->push_back("--runtime-arg");
+  argv->push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
+  argv->push_back("--runtime-arg");
+  argv->push_back(GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
+
+  argv->push_back("--boot-image=" + image_location);
+
+  std::vector<std::string> compiler_options = runtime->GetCompilerOptions();
+  argv->insert(argv->end(), compiler_options.begin(), compiler_options.end());
+  return true;
+}
+
 CheckJniAbortCatcher::CheckJniAbortCatcher() : vm_(Runtime::Current()->GetJavaVM()) {
   vm_->SetCheckJniAbortHook(Hook, &actual_);
 }
@@ -775,3 +457,26 @@ void CheckJniAbortCatcher::Hook(void* data, const std::string& reason) {
 }
 
 }  // namespace art
+
+// Allow other test code to run global initialization/configuration before
+// gtest infra takes over.
+extern "C"
+__attribute__((visibility("default"))) __attribute__((weak))
+void ArtTestGlobalInit() {
+  LOG(ERROR) << "ArtTestGlobalInit in common_runtime_test";
+}
+
+int main(int argc, char **argv) {
+  // Gtests can be very noisy. For example, an executable with multiple tests will trigger native
+  // bridge warnings. The following line reduces the minimum log severity to ERROR and suppresses
+  // everything else. In case you want to see all messages, comment out the line.
+  setenv("ANDROID_LOG_TAGS", "*:e", 1);
+
+  art::Locks::Init();
+  art::InitLogging(argv, art::Runtime::Abort);
+  art::MemMap::Init();
+  LOG(INFO) << "Running main() from common_runtime_test.cc...";
+  testing::InitGoogleTest(&argc, argv);
+  ArtTestGlobalInit();
+  return RUN_ALL_TESTS();
+}

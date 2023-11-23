@@ -281,7 +281,7 @@ public class ITestSuiteIntegrationTest {
             assertEquals("armeabi-v7a", mListener.getModulesAbi().get("module1").getName());
             assertEquals("armeabi-v7a", mListener.getModulesAbi().get("module2").getName());
             // Check the expected file have been logged in the right place:
-            Iterator<TestRunResult> iterator = mListener.getRunResults().iterator();
+            Iterator<TestRunResult> iterator = mListener.getMergedTestRunResults().iterator();
             TestRunResult module1 = iterator.next();
 
             // Check that all the files at the end are properly associated with each of their test
@@ -563,8 +563,7 @@ public class ITestSuiteIntegrationTest {
     }
 
     /**
-     * Test sharding of ITestSuite with shard-count and shard-index and with TF internal sharding
-     * (--disable-strict-sharding).
+     * Test sharding of ITestSuite with shard-count and shard-index and with TF internal sharding.
      */
     @Test
     public void testRun_sharding_withIndex() throws Exception {
@@ -585,8 +584,6 @@ public class ITestSuiteIntegrationTest {
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(2);
         config.getCommandOptions().setShardIndex(0);
-        OptionSetter setter = new OptionSetter(config.getCommandOptions());
-        setter.setOptionValue("disable-strict-sharding", "true");
         // invocation context
         mMockBuildInfo = new BuildInfo("9999", "test-target");
         mContext = new InvocationContext();
@@ -666,8 +663,6 @@ public class ITestSuiteIntegrationTest {
         config.setTestInvocationListener(mListener);
         config.getCommandOptions().setShardCount(shardCount);
         config.getCommandOptions().setShardIndex(shardIndex);
-        OptionSetter setter = new OptionSetter(config.getCommandOptions());
-        setter.setOptionValue("disable-strict-sharding", "true");
         // invocation context
         mMockBuildInfo = new BuildInfo("9999", "test-target");
         mContext = new InvocationContext();

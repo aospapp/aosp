@@ -21,7 +21,7 @@
     android:orientation="vertical"
     android:padding="?android:attr/dialogPreferredPadding">
 
-    <TextView android:id="@+android:id/message"
+    <TextView android:id="@+id/message"
         style="?android:attr/textAppearanceMedium"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

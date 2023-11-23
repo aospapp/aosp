@@ -24,7 +24,7 @@ LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_APPS_PRIVILEGED)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt compatibility-device-util-axt
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

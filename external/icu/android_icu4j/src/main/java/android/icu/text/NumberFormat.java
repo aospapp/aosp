@@ -26,6 +26,7 @@ import java.util.Set;
 
 import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
+import android.icu.number.NumberFormatter;
 import android.icu.util.Currency;
 import android.icu.util.Currency.CurrencyUsage;
 import android.icu.util.CurrencyAmount;
@@ -35,6 +36,12 @@ import android.icu.util.UResourceBundle;
 
 /**
  * <strong>[icu enhancement]</strong> ICU's replacement for {@link java.text.NumberFormat}.&nbsp;Methods, fields, and other functionality specific to ICU are labeled '<strong>[icu]</strong>'.
+ *
+ * <p>
+ * <strong>IMPORTANT:</strong> New users are strongly encouraged to see if
+ * {@code NumberFormatter} fits their use case.  Although not deprecated, this
+ * class, NumberFormat, is only provided for java.text.NumberFormat compatibility.
+ * <hr>
  *
  * <code>NumberFormat</code> is the abstract base class for all number
  * formats. This class provides the interface for formatting and parsing
@@ -249,6 +256,8 @@ public abstract class NumberFormat extends UFormat {
     public StringBuffer format(Object number,
                                StringBuffer toAppendTo,
                                FieldPosition pos) {
+        // NOTE: Number type expansion happens both here
+        // and in DecimalQuantity_DualStorageBCD.java
         if (number instanceof Long) {
             return format(((Long)number).longValue(), toAppendTo, pos);
         } else if (number instanceof BigInteger) {
@@ -750,6 +759,7 @@ public abstract class NumberFormat extends UFormat {
      * one of these two methods <b>MUST</b> be overridden or else an infinite
      * loop will occur.
      *
+     * @hide Only a subset of ICU is exposed in Android
      * @hide unsupported on Android
      */
     public static abstract class NumberFormatFactory {
@@ -834,6 +844,7 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * A NumberFormatFactory that supports a single locale.  It can be visible or invisible.
+     * @hide Only a subset of ICU is exposed in Android
      * @hide unsupported on Android
      */
     public static abstract class SimpleNumberFormatFactory extends NumberFormatFactory {
@@ -997,8 +1008,9 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * Overrides equals.
-     * Two NumberFormats are equal if they are of the same class
-     * and the settings (groupingUsed, parseIntegerOnly, maximumIntegerDigits, etc.
+     * Two NumberFormats are equal they are of the same class
+     * and the user-specified values for settings
+     * (groupingUsed, parseIntegerOnly, maximumIntegerDigits, etc.)
      * are equal.
      * @param obj the object to compare against
      * @return true if the object is equal to this.

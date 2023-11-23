@@ -16,13 +16,13 @@
 %                              December 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -46,6 +46,7 @@
 #include "MagickCore/property.h"
 #include "MagickCore/image.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/quantum.h"
 #include "MagickCore/quantum-private.h"
@@ -77,7 +78,7 @@ struct _SignatureInfo
     high_order;
 
   size_t
-    offset;
+    extent;
 
   MagickBooleanType
     lsb_first;
@@ -121,10 +122,9 @@ MagickPrivate SignatureInfo *AcquireSignatureInfo(void)
   unsigned long
     lsb_first;
 
-  signature_info=(SignatureInfo *) AcquireMagickMemory(sizeof(*signature_info));
-  if (signature_info == (SignatureInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(signature_info,0,sizeof(*signature_info));
+  signature_info=(SignatureInfo *) AcquireCriticalMemory(
+    sizeof(*signature_info));
+  (void) memset(signature_info,0,sizeof(*signature_info));
   signature_info->digestsize=SignatureDigestsize;
   signature_info->blocksize=SignatureBlocksize;
   signature_info->digest=AcquireStringInfo(SignatureDigestsize);
@@ -133,10 +133,12 @@ MagickPrivate SignatureInfo *AcquireSignatureInfo(void)
     SignatureBlocksize,sizeof(*signature_info->accumulator));
   if (signature_info->accumulator == (unsigned int *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
+  (void) memset(signature_info->accumulator,0,SignatureBlocksize*
+    sizeof(*signature_info->accumulator));
   lsb_first=1;
   signature_info->lsb_first=(int) (*(char *) &lsb_first) == 1 ? MagickTrue :
     MagickFalse;
-  signature_info->timestamp=(ssize_t) time(0);
+  signature_info->timestamp=(ssize_t) time((time_t *) NULL);
   signature_info->signature=MagickCoreSignature;
   InitializeSignature(signature_info);
   return(signature_info);
@@ -215,11 +217,13 @@ MagickPrivate void FinalizeSignature(SignatureInfo *signature_info)
   register unsigned int
     *p;
 
+  size_t
+    extent;
+
   unsigned char
     *datum;
 
   unsigned int
-    count,
     high_order,
     low_order;
 
@@ -231,18 +235,18 @@ MagickPrivate void FinalizeSignature(SignatureInfo *signature_info)
   assert(signature_info->signature == MagickCoreSignature);
   low_order=signature_info->low_order;
   high_order=signature_info->high_order;
-  count=((low_order >> 3) & 0x3f);
+  extent=((low_order >> 3) & 0x3f);
   datum=GetStringInfoDatum(signature_info->message);
-  datum[count++]=(unsigned char) 0x80;
-  if (count <= (unsigned int) (GetStringInfoLength(signature_info->message)-8))
-    (void) ResetMagickMemory(datum+count,0,GetStringInfoLength(
-      signature_info->message)-8-count);
+  datum[extent++]=(unsigned char) 0x80;
+  if (extent <= (unsigned int) (GetStringInfoLength(signature_info->message)-8))
+    (void) memset(datum+extent,0,GetStringInfoLength(
+      signature_info->message)-8-extent);
   else
     {
-      (void) ResetMagickMemory(datum+count,0,GetStringInfoLength(
-        signature_info->message)-count);
+      (void) memset(datum+extent,0,GetStringInfoLength(
+        signature_info->message)-extent);
       TransformSignature(signature_info);
-      (void) ResetMagickMemory(datum,0,GetStringInfoLength(
+      (void) memset(datum,0,GetStringInfoLength(
         signature_info->message)-8);
     }
   datum[56]=(unsigned char) (high_order >> 24);
@@ -396,7 +400,7 @@ MagickPrivate void InitializeSignature(SignatureInfo *signature_info)
   signature_info->accumulator[7]=0x5be0cd19U;
   signature_info->low_order=0;
   signature_info->high_order=0;
-  signature_info->offset=0;
+  signature_info->extent=0;
 }
 
 /*
@@ -520,7 +524,7 @@ MagickExport MagickBooleanType SignatureImage(Image *image,
       register ssize_t
         i;
 
-      if (GetPixelReadMask(image,p) == 0)
+      if (GetPixelReadMask(image,p) <= (QuantumRange/2))
         {
           p+=GetPixelChannels(image);
           continue;
@@ -530,13 +534,17 @@ MagickExport MagickBooleanType SignatureImage(Image *image,
         register ssize_t
           j;
 
-        PixelChannel channel=GetPixelChannelChannel(image,i);
-        PixelTrait traits=GetPixelChannelTraits(image,channel);
+        PixelChannel channel = GetPixelChannelChannel(image,i);
+        PixelTrait traits = GetPixelChannelTraits(image,channel);
         if (traits == UndefinedPixelTrait)
           continue;
         pixel=QuantumScale*p[i];
-        for (j=0; j < (ssize_t) sizeof(pixel); j++)
-          *q++=(unsigned char) ((unsigned char *) &pixel)[j];
+        if (signature_info->lsb_first == MagickFalse)
+          for (j=(ssize_t) sizeof(pixel)-1; j >= 0; j--)
+            *q++=(unsigned char) ((unsigned char *) &pixel)[j];
+        else
+          for (j=0; j < (ssize_t) sizeof(pixel); j++)
+            *q++=(unsigned char) ((unsigned char *) &pixel)[j];
       }
       p+=GetPixelChannels(image);
     }
@@ -579,33 +587,16 @@ MagickExport MagickBooleanType SignatureImage(Image *image,
 %    o signature_info: the address of a structure of type SignatureInfo.
 %
 */
-
-static inline unsigned int Ch(unsigned int x,unsigned int y,unsigned int z)
-{
-  return((x & y) ^ (~x & z));
-}
-
-static inline unsigned int Maj(unsigned int x,unsigned int y,unsigned int z)
-{
-  return((x & y) ^ (x & z) ^ (y & z));
-}
-
-static inline unsigned int Trunc32(unsigned int x)
-{
-  return((unsigned int) (x & 0xffffffffU));
-}
-
-static unsigned int RotateRight(unsigned int x,unsigned int n)
-{
-  return(Trunc32((x >> n) | (x << (32-n))));
-}
-
 static void TransformSignature(SignatureInfo *signature_info)
 {
+#define Ch(x,y,z)  (((x) & (y)) ^ (~(x) & (z)))
+#define Maj(x,y,z)  (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+#define RotateRight(x,n)  (Trunc32(((x) >> n) | ((x) << (32-n))))
 #define Sigma0(x)  (RotateRight(x,7) ^ RotateRight(x,18) ^ Trunc32((x) >> 3))
 #define Sigma1(x)  (RotateRight(x,17) ^ RotateRight(x,19) ^ Trunc32((x) >> 10))
 #define Suma0(x)  (RotateRight(x,2) ^ RotateRight(x,13) ^ RotateRight(x,22))
 #define Suma1(x)  (RotateRight(x,6) ^ RotateRight(x,11) ^ RotateRight(x,25))
+#define Trunc32(x)  ((unsigned int) ((x) & 0xffffffffU))
 
   register ssize_t
     i;
@@ -616,7 +607,7 @@ static void TransformSignature(SignatureInfo *signature_info)
   ssize_t
     j;
 
-  static unsigned int
+  static const unsigned int
     K[64] =
     {
       0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
@@ -744,7 +735,7 @@ RestoreMSCWarning
   T=0;
   T1=0;
   T2=0;
-  (void) ResetMagickMemory(W,0,sizeof(W));
+  (void) memset(W,0,sizeof(W));
 }
 
 /*
@@ -796,20 +787,19 @@ MagickPrivate void UpdateSignature(SignatureInfo *signature_info,
   if (length < signature_info->low_order)
     signature_info->high_order++;
   signature_info->low_order=length;
-  signature_info->high_order+=(unsigned int) (n >> 29);
+  signature_info->high_order+=(unsigned int) n >> 29;
   p=GetStringInfoDatum(message);
-  if (signature_info->offset != 0)
+  if (signature_info->extent != 0)
     {
-      i=GetStringInfoLength(signature_info->message)-signature_info->offset;
+      i=GetStringInfoLength(signature_info->message)-signature_info->extent;
       if (i > n)
         i=n;
-      (void) CopyMagickMemory(GetStringInfoDatum(signature_info->message)+
-        signature_info->offset,p,i);
+      (void) memcpy(GetStringInfoDatum(signature_info->message)+
+        signature_info->extent,p,i);
       n-=i;
       p+=i;
-      signature_info->offset+=i;
-      if (signature_info->offset !=
-          GetStringInfoLength(signature_info->message))
+      signature_info->extent+=i;
+      if (signature_info->extent != GetStringInfoLength(signature_info->message))
         return;
       TransformSignature(signature_info);
     }
@@ -820,6 +810,6 @@ MagickPrivate void UpdateSignature(SignatureInfo *signature_info,
     n-=GetStringInfoLength(signature_info->message);
     TransformSignature(signature_info);
   }
-  (void) CopyMagickMemory(GetStringInfoDatum(signature_info->message),p,n);
-  signature_info->offset=n;
+  (void) memcpy(GetStringInfoDatum(signature_info->message),p,n);
+  signature_info->extent=n;
 }

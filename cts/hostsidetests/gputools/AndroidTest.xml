@@ -16,7 +16,9 @@
 
 <configuration description="Config for CtsGpuToolsHostTestCases">
     <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="misc" />
+    <option name="config-descriptor:metadata" key="component" value="graphics" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsGpuToolsRootlessGpuDebugApp-DEBUG.apk" />
@@ -28,6 +30,10 @@
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsGpuToolsRootlessGpuDebugApp-LAYERS.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="test-file-name" value="CtsGpuToolsRootlessGpuDebugApp-GLES_LAYERS.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsGpuToolsHostTestCases.jar" />

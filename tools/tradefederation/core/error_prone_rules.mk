@@ -20,6 +20,7 @@ LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:ConstantField:ERROR \
                           -Xep:DeadException:ERROR \
                           -Xep:EqualsIncompatibleType:ERROR \
+                          -Xep:ExtendingJUnitAssert:ERROR \
                           -Xep:FormatString:ERROR \
                           -Xep:GetClassOnClass:ERROR \
                           -Xep:IdentityBinaryExpression:ERROR \
@@ -28,9 +29,11 @@ LOCAL_ERROR_PRONE_FLAGS:= -XDandroidCompatible=false \
                           -Xep:JUnitAmbiguousTestClass:ERROR \
                           -Xep:MissingFail:ERROR \
                           -Xep:MissingOverride:ERROR \
+                          -Xep:ModifiedButNotUsed:ERROR \
                           -Xep:MustBeClosedChecker:ERROR \
                           -Xep:Overrides:ERROR \
                           -Xep:PackageLocation:ERROR \
+                          -Xep:ParameterName:ERROR \
                           -Xep:ReferenceEquality:ERROR \
                           -Xep:RemoveUnusedImports:ERROR \
                           -Xep:ReturnValueIgnored:ERROR \

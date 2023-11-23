@@ -1,5 +1,6 @@
 import cStringIO
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros import textfsm
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device
 
@@ -34,10 +35,10 @@ class UsbDeviceCollector(object):
         '  ^I:\s+If\#=\s+${intindex}.*Driver=${intdriver}\n'
     )
 
-    def __init__(self, host):
+    def __init__(self, host=None):
         """
         Constructor
-        @param host the DUT.
+        @param host: An optional host object if running against a remote host.
         """
         self._host = host
 
@@ -72,7 +73,8 @@ class UsbDeviceCollector(object):
 
     def _collect_usb_device_data(self):
         """Collecting usb device data."""
-        usb_devices = (self._host.run('usb-devices', ignore_status=True).
+        run = utils.run if self._host is None else self._host.run
+        usb_devices = (run('usb-devices', ignore_status=True).
                        stdout.strip().split('\n\n'))
         return self._extract_usb_data(
             '\nUSB-Device\n'+'\nUSB-Device\n'.join(usb_devices))

@@ -37,6 +37,9 @@
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkBarrierUtil.hpp"
+#include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deStringUtil.hpp"
@@ -516,13 +519,13 @@ tcu::TestStatus ComputeTestInstance::iterate (void)
 			0u, DE_NULL, 1u, &shaderWriteBarrier, 0u, DE_NULL);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 	// Verify results
 
 	const Allocation& resultAlloc = resultBuffer.getAllocation();
-	invalidateMappedMemoryRange(vk, device, resultAlloc.getMemory(), resultAlloc.getOffset(), m_ssboSize);
+	invalidateAlloc(vk, device, resultAlloc);
 
 	if (verifyValues(m_context.getTestContext().getLog(), resultAlloc.getHostPtr(), m_expectedValues))
 		return tcu::TestStatus::pass("Success");
@@ -590,7 +593,7 @@ tcu::TestStatus GraphicsTestInstance::iterate (void)
 		pVertices[1] = tcu::Vec4(-1.0f,  1.0f,  0.0f,  1.0f);
 		pVertices[2] = tcu::Vec4( 1.0f, -1.0f,  0.0f,  1.0f);
 
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), vertexBufferSizeBytes);
+		flushAlloc(vk, device, alloc);
 		// No barrier needed, flushed memory is automatically visible
 	}
 
@@ -645,12 +648,9 @@ tcu::TestStatus GraphicsTestInstance::iterate (void)
 
 	// Draw commands
 
-	const VkRect2D renderArea = {
-		makeOffset2D(0, 0),
-		makeExtent2D(renderSize.x(), renderSize.y()),
-	};
-	const tcu::Vec4    clearColor         (0.0f, 0.0f, 0.0f, 1.0f);
-	const VkDeviceSize vertexBufferOffset = 0ull;
+	const VkRect2D		renderArea			= makeRect2D(renderSize);
+	const tcu::Vec4		clearColor			(0.0f, 0.0f, 0.0f, 1.0f);
+	const VkDeviceSize	vertexBufferOffset	= 0ull;
 
 	beginCommandBuffer(vk, *cmdBuffer);
 
@@ -672,7 +672,7 @@ tcu::TestStatus GraphicsTestInstance::iterate (void)
 	vk.cmdBindVertexBuffers (*cmdBuffer, 0u, 1u, &vertexBuffer.get(), &vertexBufferOffset);
 
 	vk.cmdDraw(*cmdBuffer, numVertices, 1u, 0u, 0u);
-	vk.cmdEndRenderPass(*cmdBuffer);
+	endRenderPass(vk, *cmdBuffer);
 
 	{
 		const VkBufferMemoryBarrier shaderWriteBarrier = makeBufferMemoryBarrier(
@@ -682,13 +682,13 @@ tcu::TestStatus GraphicsTestInstance::iterate (void)
 			0u, DE_NULL, 1u, &shaderWriteBarrier, 0u, DE_NULL);
 	}
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+	endCommandBuffer(vk, *cmdBuffer);
 	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 	// Verify results
 
 	const Allocation& resultAlloc = resultBuffer.getAllocation();
-	invalidateMappedMemoryRange(vk, device, resultAlloc.getMemory(), resultAlloc.getOffset(), m_ssboSize);
+	invalidateAlloc(vk, device, resultAlloc);
 
 	if (verifyValues(m_context.getTestContext().getLog(), resultAlloc.getHostPtr(), m_expectedValues))
 		return tcu::TestStatus::pass("Success");

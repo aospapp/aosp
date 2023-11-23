@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"보정"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"형식 선택"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"서라운드 사운드"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3(Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3(Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"드라이브가 다시 연결될 때까지 일부 앱이 사용 불가능하거나 제대로 작동하지 않습니다."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"저장공간이 충분하지 않습니다."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"앱이 없습니다."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"복제 방지된 앱입니다."</string>
     <string name="invalid_location" msgid="5269044848535157307">"설치 위치가 잘못되었습니다."</string>
     <string name="system_package" msgid="9200255718634512790">"외부 장치에 시스템 업데이트를 설치할 수 없습니다."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"외부 장치에 기기 관리자를 설치할 수 없습니다."</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"알림 액세스"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"설치된 앱 중에서 알림 액세스를 요청한 앱이 없습니다."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"이 앱이 연락처 이름과 수신 메시지에 포함된 텍스트 등의 개인정보를 비롯한 모든 알림을 읽을 수 있게 됩니다. 또한 알림을 닫거나 알림에 포함된 작업을 실행할 수도 있습니다."</string>
+    <string name="directory_access" msgid="7439168599298598101">"디렉터리 액세스"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"다음 앱에 특정 디렉터리에 액세스할 수 있는 권한이 있습니다."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g>(<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"다른 앱 위에 표시"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"다른 앱 위에 표시 허용"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"앱이 사용 중인 다른 앱 위에 표시되도록 허용합니다. 이로 인해 다른 앱 사용에 방해를 받거나 앱의 표시 또는 작동 방식이 변경될 수도 있습니다."</string>

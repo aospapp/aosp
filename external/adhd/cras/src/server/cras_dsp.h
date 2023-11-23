@@ -54,6 +54,12 @@ void cras_dsp_set_variable_boolean(struct cras_dsp_context *ctx, const char *key
  * blocking the audio thread. */
 void cras_dsp_load_pipeline(struct cras_dsp_context *ctx);
 
+/* Loads a dummy pipeline of source directly connects to sink, of given
+ * number of channels.
+ */
+void cras_dsp_load_dummy_pipeline(struct cras_dsp_context *ctx,
+				  unsigned int num_channels);
+
 /* Locks the pipeline in the context for access. Returns NULL if the
  * pipeline is still being loaded or cannot be loaded. */
 struct pipeline *cras_dsp_get_pipeline(struct cras_dsp_context *ctx);

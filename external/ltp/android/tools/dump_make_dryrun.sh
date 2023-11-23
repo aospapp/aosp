@@ -26,11 +26,11 @@ fi
 
 OUTPUT=$TOOLS_DIR/make_dry_run.dump
 echo "Dumping output to $OUTPUT from command 'make -C $LTP_ROOT/testcases --dry-run'"
-make -C $LTP_ROOT/testcases --dry-run > $OUTPUT
+make -j1 -C $LTP_ROOT/testcases --dry-run > $OUTPUT
 
 OUTPUT=$TOOLS_DIR/make_install_dry_run.dump
 echo "Dumping output to $OUTPUT from command 'make -C $LTP_ROOT/testcases install --dry-run'"
-make -C $LTP_ROOT/testcases install --dry-run > $OUTPUT
+make -j1 -C $LTP_ROOT/testcases install --dry-run > $OUTPUT
 
 echo "Distclean $LTP_ROOT ..."
 make -C $LTP_ROOT distclean

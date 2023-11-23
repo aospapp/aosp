@@ -23,7 +23,13 @@
  * questions.
  */
 
+// Android-changed: Fuchsia: Point to correct location of header. http://b/119426171
+// #include <sys/poll.h>
+#if defined(__Fuchsia__)
+#include <poll.h>
+#else
 #include <sys/poll.h>
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -374,7 +380,13 @@ Java_sun_nio_ch_Net_localPort(JNIEnv *env, jclass clazz, jobject fdo)
             struct sockaddr_in *sin;
             sin = (struct sockaddr_in *) &sa;
             bzero(sin, sizeof(*sin));
+            // BEGIN Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
+            // http://b/119497331
+            // sin->sin_len = sizeof(struct sockaddr_in);
+#if !defined(__Fuchsia__)
             sin->sin_len  = sizeof(struct sockaddr_in);
+#endif
+            // END Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
             sin->sin_family = AF_INET;
             sin->sin_port = htonl(0);
             sin->sin_addr.s_addr = INADDR_ANY;
@@ -409,7 +421,13 @@ Java_sun_nio_ch_Net_localInetAddress(JNIEnv *env, jclass clazz, jobject fdo)
             struct sockaddr_in *sin;
             sin = (struct sockaddr_in *) &sa;
             bzero(sin, sizeof(*sin));
+            // BEGIN Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
+            // http://b/119497331
+            // sin->sin_len = sizeof(struct sockaddr_in);
+#if !defined(__Fuchsia__)
             sin->sin_len  = sizeof(struct sockaddr_in);
+#endif
+            // END Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
             sin->sin_family = AF_INET;
             sin->sin_port = htonl(0);
             sin->sin_addr.s_addr = INADDR_ANY;

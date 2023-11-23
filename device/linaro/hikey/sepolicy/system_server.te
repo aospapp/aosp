@@ -1,0 +1,5 @@
+# TODO(b/73123675): BatterySaver needs access to cpufreq. Remove this access
+# once cpufreq functionality is hidden behind a HAL.
+allow system_server sysfs_devices_system_cpu:file w_file_perms;
+
+dontaudit system_server self:capability sys_module;

@@ -76,6 +76,9 @@ public:
     /** Wrap EH::getAsDouble to throw an exception on failure. */
     void getAsDouble(double &value) const { mayFailCall(&EH::getAsDouble, value); }
 
+    void setAsBoolean(bool value) { mayFailCall(&EH::setAsBoolean, value); }
+    void getAsBoolean(bool &value) const { mayFailCall(&EH::getAsBoolean, value); }
+
     void setAsInteger(uint32_t value) { mayFailCall(&EH::setAsInteger, value); }
     void getAsInteger(uint32_t &value) const { mayFailCall(&EH::getAsInteger, value); }
     void setAsIntegerArray(const std::vector<uint32_t> &value)
@@ -112,4 +115,4 @@ public:
     void setAsBytes(const std::vector<uint8_t> &settings) { mayFailSet(&EH::setAsBytes, settings); }
 };
 
-} // parameterFramework
+} // namespace parameterFramework

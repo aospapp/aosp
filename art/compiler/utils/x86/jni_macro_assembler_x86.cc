@@ -25,10 +25,10 @@ namespace art {
 namespace x86 {
 
 // Slowpath entered when Thread::Current()->_exception is non-null
-class X86ExceptionSlowPath FINAL : public SlowPath {
+class X86ExceptionSlowPath final : public SlowPath {
  public:
   explicit X86ExceptionSlowPath(size_t stack_adjust) : stack_adjust_(stack_adjust) {}
-  virtual void Emit(Assembler *sp_asm) OVERRIDE;
+  void Emit(Assembler *sp_asm) override;
  private:
   const size_t stack_adjust_;
 };
@@ -67,8 +67,7 @@ void X86JNIMacroAssembler::BuildFrame(size_t frame_size,
   cfi().AdjustCFAOffset(kFramePointerSize);
   DCHECK_EQ(static_cast<size_t>(cfi().GetCurrentCFAOffset()), frame_size);
 
-  for (size_t i = 0; i < entry_spills.size(); ++i) {
-    ManagedRegisterSpill spill = entry_spills.at(i);
+  for (const ManagedRegisterSpill& spill : entry_spills) {
     if (spill.AsX86().IsCpuRegister()) {
       int offset = frame_size + spill.getSpillOffset();
       __ movl(Address(ESP, offset), spill.AsX86().AsCpuRegister());

@@ -9,7 +9,7 @@ NAME = "enterprise_CFM_LowLevelPeripheralTest.huddly_power_cycle_stress"
 PURPOSE = "Stresses an Huddly device by repeatedly power cycling its USB port."
 CRITERIA = ("Huddly detectable as a USB device after each cycle "
             "and no crash files appear")
-ATTRIBUTES = "suite:bluestreak, suite:bluestreak-release, suite:bluestreak-perbuild"
+ATTRIBUTES = "suite:hotrod"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_TYPE = "server"
@@ -32,13 +32,11 @@ cfm_test = CfmTest(
     ),
 )
 
-args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run_test(machine):
     job.run_test("enterprise_CFM_LowLevelPeripheralTest",
                  cfm_test = cfm_test,
                  tag = 'huddly_power_cycle_stress',
-                 host = hosts.create_host(machine, servo_args=servo_args))
+                 host = hosts.create_host(machine))
 
 
 parallel_simple(run_test, machines)

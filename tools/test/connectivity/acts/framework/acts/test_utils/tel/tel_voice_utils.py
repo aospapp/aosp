@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -15,9 +15,13 @@
 #   limitations under the License.
 
 import time
+from acts import signals
+from acts.test_utils.tel.loggers.protos.telephony_metric_pb2 import TelephonyVoiceTestResult
 from acts.test_utils.tel.tel_defines import CALL_PROPERTY_HIGH_DEF_AUDIO
 from acts.test_utils.tel.tel_defines import CALL_STATE_ACTIVE
 from acts.test_utils.tel.tel_defines import CALL_STATE_HOLDING
+from acts.test_utils.tel.tel_defines import CAPABILITY_VOLTE
+from acts.test_utils.tel.tel_defines import CAPABILITY_WFC
 from acts.test_utils.tel.tel_defines import GEN_2G
 from acts.test_utils.tel.tel_defines import GEN_3G
 from acts.test_utils.tel.tel_defines import GEN_4G
@@ -46,6 +50,8 @@ from acts.test_utils.tel.tel_defines import NETWORK_MODE_GSM_UMTS
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
 from acts.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
+from acts.test_utils.tel.tel_subscription_utils import set_subid_for_outgoing_call
+from acts.test_utils.tel.tel_subscription_utils import get_subid_from_slot_index
 from acts.test_utils.tel.tel_subscription_utils import get_default_data_sub_id
 from acts.test_utils.tel.tel_test_utils import call_reject_leave_message
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
@@ -65,12 +71,15 @@ from acts.test_utils.tel.tel_test_utils import \
     reset_preferred_network_type_to_allowable_range
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import set_wifi_to_default
+from acts.test_utils.tel.tel_test_utils import TelResultWrapper
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import toggle_volte_for_subscription
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
+from acts.test_utils.tel.tel_test_utils import verify_internet_connection
 from acts.test_utils.tel.tel_test_utils import \
     wait_for_data_attach_for_subscription
+from acts.test_utils.tel.tel_test_utils import wait_for_enhanced_4g_lte_setting
 from acts.test_utils.tel.tel_test_utils import wait_for_network_generation
 from acts.test_utils.tel.tel_test_utils import \
     wait_for_network_generation_for_subscription
@@ -85,6 +94,8 @@ from acts.test_utils.tel.tel_test_utils import \
     wait_for_voice_attach_for_subscription
 from acts.test_utils.tel.tel_test_utils import wait_for_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import wait_for_wfc_disabled
+
+CallResult = TelephonyVoiceTestResult.CallResult.Value
 
 
 def two_phone_call_leave_voice_mail(
@@ -167,6 +178,72 @@ def two_phone_call_short_seq(log,
             This is optional, default is WAIT_TIME_IN_CALL
 
     Returns:
+        TelResultWrapper which will evaluate as False if error.
+    """
+    ads = [phone_a, phone_b]
+
+    call_params = [
+        (ads[0], ads[1], ads[0], phone_a_in_call_check_func,
+         phone_b_in_call_check_func),
+        (ads[0], ads[1], ads[1], phone_a_in_call_check_func,
+         phone_b_in_call_check_func),
+    ]
+
+    tel_result = TelResultWrapper(CallResult('SUCCESS'))
+    for param in call_params:
+        # Make sure phones are idle.
+        ensure_phones_idle(log, ads)
+        if phone_a_idle_func and not phone_a_idle_func(log, phone_a):
+            phone_a.log.error("Phone A Failed to Reselect")
+            return TelResultWrapper(CallResult('CALL_SETUP_FAILURE'))
+        if phone_b_idle_func and not phone_b_idle_func(log, phone_b):
+            phone_b.log.error("Phone B Failed to Reselect")
+            return TelResultWrapper(CallResult('CALL_SETUP_FAILURE'))
+
+        # TODO: b/26337871 Need to use proper API to check phone registered.
+        time.sleep(WAIT_TIME_BETWEEN_REG_AND_CALL)
+
+        # Make call.
+        log.info("---> Call test: %s to %s <---", param[0].serial,
+                 param[1].serial)
+        tel_result = call_setup_teardown(
+                log, *param, wait_time_in_call=wait_time_in_call)
+        if not tel_result:
+            log.error("Call Iteration Failed")
+            break
+
+    return tel_result
+
+
+def two_phone_call_msim_short_seq(log,
+                             phone_a,
+                             phone_a_idle_func,
+                             phone_a_in_call_check_func,
+                             phone_b,
+                             phone_b_idle_func,
+                             phone_b_in_call_check_func,
+                             call_sequence_func=None,
+                             wait_time_in_call=WAIT_TIME_IN_CALL):
+    """Call process short sequence.
+    1. Ensure phone idle and in idle_func check return True.
+    2. Call from PhoneA to PhoneB, accept on PhoneB.
+    3. Check phone state, hangup on PhoneA.
+    4. Ensure phone idle and in idle_func check return True.
+    5. Call from PhoneA to PhoneB, accept on PhoneB.
+    6. Check phone state, hangup on PhoneB.
+
+    Args:
+        phone_a: PhoneA's android device object.
+        phone_a_idle_func: function to check PhoneA's idle state.
+        phone_a_in_call_check_func: function to check PhoneA's in-call state.
+        phone_b: PhoneB's android device object.
+        phone_b_idle_func: function to check PhoneB's idle state.
+        phone_b_in_call_check_func: function to check PhoneB's in-call state.
+        call_sequence_func: default parameter, not implemented.
+        wait_time_in_call: time to wait in call.
+            This is optional, default is WAIT_TIME_IN_CALL
+
+    Returns:
         True: if call sequence succeed.
         False: for errors
     """
@@ -193,13 +270,22 @@ def two_phone_call_short_seq(log,
         time.sleep(WAIT_TIME_BETWEEN_REG_AND_CALL)
 
         # Make call.
-        log.info("---> Call test: %s to %s <---", param[0].serial,
-                 param[1].serial)
-        if not call_setup_teardown(
-                log, *param, wait_time_in_call=wait_time_in_call):
-            log.error("Call Iteration Failed")
-            return False
-
+        log.info("--> Call test: %s to %s <--", phone_a.serial, phone_b.serial)
+        slots = 2
+        for slot in range(slots):
+            set_subid_for_outgoing_call(
+                            ads[0], get_subid_from_slot_index(log,ads[0],slot))
+            set_subid_for_outgoing_call(
+                            ads[1], get_subid_from_slot_index(log,ads[1],slot))
+            time.sleep(WAIT_TIME_BETWEEN_REG_AND_CALL)
+            if not call_setup_teardown(log, *param,slot_id_callee = slot,
+                                       wait_time_in_call=wait_time_in_call):
+                log.error("Call Iteration Failed")
+                return False
+            if not call_setup_teardown(log, *param,slot_id_callee = 1-slot,
+                                       wait_time_in_call=wait_time_in_call):
+                log.error("Call Iteration Failed")
+                return False
     return True
 
 
@@ -238,8 +324,8 @@ def two_phone_call_long_seq(log,
             This is optional, default is WAIT_TIME_IN_CALL
 
     Returns:
-        True: if call sequence succeed.
-        False: for errors
+        TelResultWrapper which will evaluate as False if error.
+
     """
     ads = [phone_a, phone_b]
 
@@ -254,15 +340,16 @@ def two_phone_call_long_seq(log,
          phone_a_in_call_check_func),
     ]
 
+    tel_result = TelResultWrapper(CallResult('SUCCESS'))
     for param in call_params:
         # Make sure phones are idle.
         ensure_phones_idle(log, ads)
         if phone_a_idle_func and not phone_a_idle_func(log, phone_a):
             phone_a.log.error("Phone A Failed to Reselect")
-            return False
+            return TelResultWrapper(CallResult('CALL_SETUP_FAILURE'))
         if phone_b_idle_func and not phone_b_idle_func(log, phone_b):
             phone_b.log.error("Phone B Failed to Reselect")
-            return False
+            return TelResultWrapper(CallResult('CALL_SETUP_FAILURE'))
 
         # TODO: b/26337871 Need to use proper API to check phone registered.
         time.sleep(WAIT_TIME_BETWEEN_REG_AND_CALL)
@@ -270,12 +357,13 @@ def two_phone_call_long_seq(log,
         # Make call.
         log.info("---> Call test: %s to %s <---", param[0].serial,
                  param[1].serial)
-        if not call_setup_teardown(
-                log, *param, wait_time_in_call=wait_time_in_call):
+        tel_result = call_setup_teardown(
+                log, *param, wait_time_in_call=wait_time_in_call)
+        if not tel_result:
             log.error("Call Iteration Failed")
-            return False
+            break
 
-    return True
+    return tel_result
 
 
 def phone_setup_iwlan(log,
@@ -303,6 +391,10 @@ def phone_setup_iwlan(log,
     Returns:
         True if success. False if fail.
     """
+    #TODO: get per sub_id carrier_config for multi-sim purpose
+    if CAPABILITY_WFC not in ad.telephony.get("capabilities", []):
+        ad.log.error("WFC is not supported, abort test.")
+        raise signals.TestSkip("WFC is not supported, abort test.")
     return phone_setup_iwlan_for_subscription(log, ad,
                                               get_outgoing_voice_sub_id(ad),
                                               is_airplane_mode, wfc_mode,
@@ -347,7 +439,7 @@ def phone_setup_iwlan_for_subscription(log,
 
     if wifi_ssid is not None:
         if not ensure_wifi_connected(log, ad, wifi_ssid, wifi_pwd):
-            ad.log.error("Fail to connect to WiFi %s.", wifi_ssid)
+            ad.log.error("Fail to bring up WiFi connection on %s.", wifi_ssid)
             return False
 
     if not set_wfc_mode(log, ad, wfc_mode):
@@ -357,19 +449,7 @@ def phone_setup_iwlan_for_subscription(log,
     if not wait_for_wfc_enabled(log, ad, max_time=MAX_WAIT_TIME_WFC_ENABLED):
         ad.log.error("WFC is not enabled")
         return False
-
-    if wait_for_network_rat_for_subscription(
-            log, ad, sub_id, RAT_FAMILY_WLAN,
-            voice_or_data=NETWORK_SERVICE_DATA):
-        ad.log.info(
-            "Data rat is in iwlan mode successfully with APM %s WFC %s",
-            is_airplane_mode, wfc_mode)
-        return True
-    else:
-        ad.log.error(
-            "Unable to bring data rat in iwlan mode with APM %s WFC %s",
-            is_airplane_mode, wfc_mode)
-        return False
+    return True
 
 
 def phone_setup_iwlan_cellular_preferred(log,
@@ -405,13 +485,13 @@ def phone_setup_iwlan_cellular_preferred(log,
     except Exception as e:
         ad.log.error(e)
         ad.droid.telephonyToggleDataConnection(True)
-    if not set_wfc_mode(log, ad, WFC_MODE_CELLULAR_PREFERRED):
-        ad.log.error("Set WFC mode failed.")
-        return False
     if wifi_ssid is not None:
         if not ensure_wifi_connected(log, ad, wifi_ssid, wifi_pwd):
             ad.log.error("Connect to WiFi failed.")
             return False
+    if not set_wfc_mode(log, ad, WFC_MODE_CELLULAR_PREFERRED):
+        ad.log.error("Set WFC mode failed.")
+        return False
     if not wait_for_not_network_rat(
             log, ad, RAT_FAMILY_WLAN, voice_or_data=NETWORK_SERVICE_DATA):
         ad.log.error("Data rat in iwlan mode.")
@@ -595,6 +675,10 @@ def phone_setup_volte(log, ad):
         True: if VoLTE is enabled successfully.
         False: for errors
     """
+    #TODO: get per sub_id carrier_config for multi-sim purpose
+    if CAPABILITY_VOLTE not in ad.telephony.get("capabilities", []):
+        ad.log.error("VoLTE is not supported, abort test.")
+        raise signals.TestSkip("VoLTE is not supported, abort test.")
     return phone_setup_volte_for_subscription(log, ad,
                                               get_outgoing_voice_sub_id(ad))
 
@@ -613,6 +697,9 @@ def phone_setup_volte_for_subscription(log, ad, sub_id):
     """
     if not phone_setup_4g_for_subscription(log, ad, sub_id):
         ad.log.error("Failed to set to 4G data.")
+        return False
+    if not wait_for_enhanced_4g_lte_setting(log, ad):
+        ad.log.error("Enhanced 4G LTE setting is not available")
         return False
     toggle_volte_for_subscription(log, ad, sub_id, True)
     return phone_idle_volte_for_subscription(log, ad, sub_id)
@@ -705,6 +792,11 @@ def phone_setup_voice_general(log, ad):
     """
     return phone_setup_voice_general_for_subscription(
         log, ad, get_outgoing_voice_sub_id(ad))
+
+
+def phone_setup_voice_general_for_slot(log,ad,slot_id):
+    return phone_setup_voice_general_for_subscription(
+        log, ad, get_subid_from_slot_index(log,ad,slot_id))
 
 
 def phone_setup_voice_general_for_subscription(log, ad, sub_id):
@@ -878,11 +970,6 @@ def phone_idle_iwlan_for_subscription(log, ad, sub_id):
         ad: Android device object.
         sub_id: subscription id.
     """
-    if not wait_for_network_rat_for_subscription(
-            log, ad, sub_id, RAT_FAMILY_WLAN,
-            voice_or_data=NETWORK_SERVICE_DATA):
-        ad.log.error("data rat not in iwlan mode.")
-        return False
     if not wait_for_wfc_enabled(log, ad, MAX_WAIT_TIME_WFC_ENABLED):
         ad.log.error("Failed to <report wfc enabled true> within %s seconds.",
                      MAX_WAIT_TIME_WFC_ENABLED)
@@ -1173,7 +1260,7 @@ def is_phone_in_call_wcdma_for_subscription(log, ad, sub_id):
     return True
 
 
-def is_phone_in_call_iwlan(log, ad):
+def is_phone_in_call_iwlan(log, ad, call_id=None):
     """Return if phone is in WiFi call.
 
     Args:
@@ -1182,12 +1269,27 @@ def is_phone_in_call_iwlan(log, ad):
     if not ad.droid.telecomIsInCall():
         ad.log.error("Not in call.")
         return False
+    if not ad.droid.telephonyIsImsRegistered():
+        ad.log.info("IMS is not registered.")
+        return False
+    if not ad.droid.telephonyIsWifiCallingAvailable():
+        ad.log.info("IsWifiCallingAvailble is False")
+        return False
+    if not call_id:
+        call_ids = ad.droid.telecomCallGetCallIds()
+        if call_ids:
+            call_id = call_ids[-1]
+    if not call_id:
+        ad.log.error("Failed to get call id")
+        return False
+    else:
+        call_prop = ad.droid.telecomCallGetProperties(call_id)
+        if "WIFI" not in call_prop:
+            ad.log.info("callProperties = %s, expecting WIFI", call_prop)
+            return False
     nw_type = get_network_rat(log, ad, NETWORK_SERVICE_DATA)
     if nw_type != RAT_IWLAN:
         ad.log.error("Data rat on: %s. Expected: iwlan", nw_type)
-        return False
-    if not is_wfc_enabled(log, ad):
-        ad.log.error("WiFi Calling feature bit is False.")
         return False
     return True
 

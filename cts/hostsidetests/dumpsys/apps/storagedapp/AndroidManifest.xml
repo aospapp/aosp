@@ -25,6 +25,6 @@
         <activity android:name=".SimpleIOActivity" android:label="Storaged Test Activity"/>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.server.cts.storaged" />
 </manifest>

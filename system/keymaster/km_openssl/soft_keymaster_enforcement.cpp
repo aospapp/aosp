@@ -20,9 +20,6 @@
 #include <assert.h>
 #include <time.h>
 
-#include <initializer_list>
-#include <limits>
-
 #include <openssl/cmac.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -95,9 +92,8 @@ namespace {
 
 DEFINE_OPENSSL_OBJECT_POINTER(HMAC_CTX);
 
-keymaster_error_t hmacSha256(const keymaster_key_blob_t& key,
-                             std::initializer_list<const keymaster_blob_t> data_chunks,
-                             KeymasterBlob* output) {
+keymaster_error_t hmacSha256(const keymaster_key_blob_t& key, const keymaster_blob_t data_chunks[],
+                             size_t data_chunk_count, KeymasterBlob* output) {
     if (!output) return KM_ERROR_UNEXPECTED_NULL_POINTER;
 
     unsigned digest_len = SHA256_DIGEST_LENGTH;
@@ -109,7 +105,8 @@ keymaster_error_t hmacSha256(const keymaster_key_blob_t& key,
         return TranslateLastOpenSslError();
     }
 
-    for (auto& chunk : data_chunks) {
+    for (size_t i = 0; i < data_chunk_count; i++) {
+        auto& chunk = data_chunks[i];
         if (!HMAC_Update(ctx.get(), chunk.data, chunk.data_length)) {
             return TranslateLastOpenSslError();
         }
@@ -125,8 +122,7 @@ keymaster_error_t hmacSha256(const keymaster_key_blob_t& key,
 }
 
 // Helpers for converting types to keymaster_blob_t, for easy feeding of hmacSha256.
-template <typename T, typename = std::enable_if<std::is_integral<T>::value>>
-inline keymaster_blob_t toBlob(const T& t) {
+template <typename T> inline keymaster_blob_t toBlob(const T& t) {
     return {reinterpret_cast<const uint8_t*>(&t), sizeof(t)};
 }
 inline keymaster_blob_t toBlob(const char* str) {
@@ -175,7 +171,8 @@ SoftKeymasterEnforcement::ComputeSharedHmac(const HmacSharingParametersArray& pa
 
     keymaster_blob_t data = {reinterpret_cast<const uint8_t*>(kMacVerificationString),
                              strlen(kMacVerificationString)};
-    return hmacSha256(hmac_key_, {data}, sharingCheck);
+    keymaster_blob_t data_chunks[] = {data};
+    return hmacSha256(hmac_key_, data_chunks, 1, sharingCheck);
 }
 
 VerifyAuthorizationResponse
@@ -188,15 +185,14 @@ SoftKeymasterEnforcement::VerifyAuthorization(const VerifyAuthorizationRequest& 
     response.token.challenge = request.challenge;
     response.token.timestamp = get_current_time_ms();
     response.token.security_level = SecurityLevel();
-    response.error = hmacSha256(hmac_key_,
-                                {
-                                    toBlob(kAuthVerificationLabel),
-                                    toBlob(response.token.challenge),
-                                    toBlob(response.token.timestamp),
-                                    toBlob(response.token.security_level),
-                                    {},  // parametersVerified
-                                },
-                                &response.token.mac);
+    keymaster_blob_t data_chunks[] = {
+        toBlob(kAuthVerificationLabel),
+        toBlob(response.token.challenge),
+        toBlob(response.token.timestamp),
+        toBlob(response.token.security_level),
+        {},  // parametersVerified
+    };
+    response.error = hmacSha256(hmac_key_, data_chunks, 5, &response.token.mac);
 
     return response;
 }

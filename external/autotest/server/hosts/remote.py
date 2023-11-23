@@ -1,6 +1,7 @@
 """This class defines the Remote host class."""
 
 import os, logging, urllib, time
+import re
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import utils
 from autotest_lib.server.hosts import base_classes
@@ -28,6 +29,7 @@ class RemoteHost(base_classes.Host):
     _DETECTABLE_LABELS = []
 
     VAR_LOG_MESSAGES_COPY_PATH = "/var/tmp/messages.autotest_start"
+    TMP_DIR_TEMPLATE = 'autoserv-XXXXXX'
 
 
     def _initialize(self, hostname, autodir=None, *args, **dargs):
@@ -43,6 +45,7 @@ class RemoteHost(base_classes.Host):
 
 
     def close(self):
+        # pylint: disable=missing-docstring
         super(RemoteHost, self).close()
         self.stop_loggers()
 
@@ -87,6 +90,7 @@ class RemoteHost(base_classes.Host):
 
 
     def sysrq_reboot(self):
+        # pylint: disable=missing-docstring
         self.run_background('echo b > /proc/sysrq-trigger')
 
 
@@ -134,6 +138,7 @@ class RemoteHost(base_classes.Host):
         def reboot():
             # pylint: disable=missing-docstring
             self.record("GOOD", None, "reboot.start")
+            current_boot_id = None
             try:
                 current_boot_id = self.get_boot_id()
 
@@ -150,7 +155,7 @@ class RemoteHost(base_classes.Host):
                 # successfully in progress. This is difficult to be avoided,
                 # because we have no much control on remote machine after
                 # "reboot" starts.
-                if not wait:
+                if not wait or current_boot_id is None:
                     # TODO(b/37652392): Revisit no-wait case, later.
                     self.record("ABORT", None, "reboot.start",
                                 "reboot command failed")
@@ -165,13 +170,20 @@ class RemoteHost(base_classes.Host):
         else:
             reboot()
 
-    def suspend(self, timeout, suspend_cmd, **dargs):
+    def suspend(self, timeout, suspend_cmd,
+                allow_early_resume=False):
         """
         Suspend the remote host.
 
         Args:
-                timeout - How long to wait for the suspend.
-                susped_cmd - suspend command to execute.
+                timeout - How long to wait for the suspend in integer seconds.
+                suspend_cmd - suspend command to execute.
+                allow_early_resume - Boolean that indicate whether resume
+                                     before |timeout| is ok.
+        Raises:
+                error.AutoservSuspendError - If |allow_early_resume| is False
+                                             and if device resumes before
+                                             |timeout|.
         """
         # define a function for the supend and run it in a group
         def suspend():
@@ -207,12 +219,14 @@ class RemoteHost(base_classes.Host):
         start_time = time.time()
         self.log_op(self.OP_SUSPEND, suspend)
         lasted = time.time() - start_time
-        if (lasted < timeout):
+        logging.info("Device resumed after %d secs", lasted)
+        if (lasted < timeout and not allow_early_resume):
             raise error.AutoservSuspendError(
                 "Suspend did not last long enough: %d instead of %d" % (
                     lasted, timeout))
 
     def reboot_followup(self, *args, **dargs):
+        # pylint: disable=missing-docstring
         super(RemoteHost, self).reboot_followup(*args, **dargs)
         if self.job:
             self.job.profilers.handle_reboot(self)
@@ -230,6 +244,7 @@ class RemoteHost(base_classes.Host):
 
 
     def cleanup(self):
+        # pylint: disable=missing-docstring
         super(RemoteHost, self).cleanup()
         self.reboot()
 
@@ -244,7 +259,7 @@ class RemoteHost(base_classes.Host):
         it.
         """
         self.run("mkdir -p %s" % parent)
-        template = os.path.join(parent, 'autoserv-XXXXXX')
+        template = os.path.join(parent, self.TMP_DIR_TEMPLATE)
         dir_name = self.run("mktemp -d %s" % template).stdout.rstrip()
         self.tmp_dirs.append(dir_name)
         return dir_name
@@ -287,6 +302,31 @@ class RemoteHost(base_classes.Host):
         """
         self.run('rm -rf "%s"' % utils.sh_escape(tmpdir), ignore_status=True)
         self.tmp_dirs.remove(tmpdir)
+
+
+    def delete_all_tmp_dirs(self, parent='/tmp'):
+        """
+        Delete all directories in parent that were created by get_tmp_dir
+
+        Note that this may involve deleting directories created by calls to
+        get_tmp_dir on a different RemoteHost instance than the one running this
+        method. Only perform this operation when certain that this will not
+        cause unexpected behavior.
+        """
+        # follow mktemp's behavior of only expanding 3 or more consecutive Xs
+        base_template = re.sub('XXXX*', '*', self.TMP_DIR_TEMPLATE)
+        # distinguish between non-wildcard asterisks in parent directory name
+        # and wildcards inserted from the template
+        base = '*'.join(map(lambda x: '"%s"' % utils.sh_escape(x),
+                base_template.split('*')))
+        path = '"%s' % os.path.join(utils.sh_escape(parent), base[1:])
+        self.run('rm -rf %s' % path, ignore_status=True)
+        # remove deleted directories from tmp_dirs
+        regex = os.path.join(parent, re.sub('(XXXX*)',
+                        lambda match: '[a-zA-Z0-9]{%d}' % len(match.group(1)),
+                        self.TMP_DIR_TEMPLATE))
+        regex += '(/|$)' # remove if matches, or is within a dir that matches
+        self.tmp_dirs = filter(lambda x: not re.match(regex, x), self.tmp_dirs)
 
 
     def check_uptime(self):

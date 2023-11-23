@@ -64,6 +64,31 @@ class ShadowingStore(host_info.CachingHostInfoStore):
                     'Failed to initialize shadow store. '
                     'Expect primary / shadow desync in the future.')
 
+    def commit_with_substitute(self, info, primary_store=None,
+                               shadow_store=None):
+        """Commit host information using alternative stores.
+
+        This is used to commit using an alternative store implementation
+        to work around some issues (crbug.com/903589).
+
+        Don't set cached_info in this function.
+
+        @param info: A HostInfo object to set.
+        @param primary_store: A CachingHostInfoStore object to commit instead of
+            the original primary_store.
+        @param shadow_store: A CachingHostInfoStore object to commit instead of
+            the original shadow store.
+        """
+        if primary_store is not None:
+            primary_store.commit(info)
+        else:
+            self._commit_to_primary_store(info)
+
+        if shadow_store is not None:
+            shadow_store.commit(info)
+        else:
+            self._commit_to_shadow_store(info)
+
     def __str__(self):
         return '%s[%s, %s]' % (type(self).__name__, self._primary_store,
                                self._shadow_store)

@@ -25,7 +25,6 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
@@ -50,13 +49,24 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="android.security.cts.SkiaJpegDecodingActivity"
+            android:label="Test overflow in libskia JPG processing">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.security.cts"
                      android:label="CTS tests of android.security.cts">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
+        <meta-data android:name="listener"
+            android:value="com.android.cts.runner.CrashParserRunListener" />
     </instrumentation>
 
 </manifest>

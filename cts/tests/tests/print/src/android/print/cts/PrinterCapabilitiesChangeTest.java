@@ -155,7 +155,7 @@ public class PrinterCapabilitiesChangeTest extends BasePrintTest {
     }
 
     @Before
-    public void setUpPrinting() throws Exception {
+    public void setUpPrinting() throws Throwable {
         // Create the mSession[0] callbacks that we will be checking.
         final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
                 createMockPrinterDiscoverySessionCallbacks(invocation -> {

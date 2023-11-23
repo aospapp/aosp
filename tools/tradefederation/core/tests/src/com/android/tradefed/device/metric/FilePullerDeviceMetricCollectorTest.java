@@ -1,19 +1,7 @@
-/*
- * Copyright (C) 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.android.tradefed.device.metric;
+
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
@@ -23,6 +11,7 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
@@ -54,14 +43,14 @@ public class FilePullerDeviceMetricCollectorTest {
                 new FilePullerDeviceMetricCollector() {
                     @Override
                     public void processMetricFile(
-                            String key, File metricFile, DeviceMetricData runData) {
+                            String key, File metricFile, DeviceMetricData data) {
                         try (FileInputStreamSource source = new FileInputStreamSource(metricFile)) {
                             testLog(key, LogDataType.TEXT, source);
                         }
                     }
                     @Override
                     public void processMetricDirectory(
-                            String key, File metricDirectory, DeviceMetricData runData) {
+                            String key, File metricDirectory, DeviceMetricData data) {
                         try (FileInputStreamSource source = new FileInputStreamSource(
                                 metricDirectory)) {
                             testLog(key, LogDataType.TEXT, source);
@@ -121,6 +110,35 @@ public class FilePullerDeviceMetricCollectorTest {
 
         Mockito.verify(mMockListener)
                 .testLog(Mockito.eq("coverageFile"), Mockito.eq(LogDataType.TEXT), Mockito.any());
+    }
+
+    /**
+     * Test {@link FilePullerDeviceMetricCollector#processMetricFile(String, File,
+     * DeviceMetricData)} is called on test case end and test run ended.
+     */
+    @Test
+    public void testMetricFileProcessingFlow() throws Exception {
+        OptionSetter setter = new OptionSetter(mFilePuller);
+        setter.setOptionValue("pull-pattern-keys", "coverageFile");
+        HashMap<String, Metric> currentMetrics = new HashMap<>();
+        currentMetrics.put("coverageFile", TfMetricProtoUtil.stringToMetric("/data/coverage"));
+
+        Mockito.when(mMockDevice.pullFile(Mockito.eq("/data/coverage")))
+                .thenReturn(new File("fake"));
+
+        TestDescription testDesc = new TestDescription("xyz", "abc");
+
+        mFilePuller.testRunStarted("fakeRun", 5);
+        mFilePuller.testStarted(testDesc);
+        mFilePuller.testEnded(testDesc, currentMetrics);
+        Mockito.verify(mMockListener)
+                .testLog(Mockito.eq("coverageFile"), Mockito.eq(LogDataType.TEXT), Mockito.any());
+        verify(mMockListener, times(1)).testLog(Mockito.eq("coverageFile"),
+                Mockito.eq(LogDataType.TEXT), Mockito.any());
+        mFilePuller.testRunEnded(500, currentMetrics);
+        verify(mMockListener, times(2)).testLog(Mockito.eq("coverageFile"),
+                Mockito.eq(LogDataType.TEXT), Mockito.any());
+
     }
 
     /** Test when a file exists in the metrics but the pattern searching does not match it. */

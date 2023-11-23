@@ -86,9 +86,13 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
      * IDs based on the widget_provider string resource. When subclassing, be sure to either
      * override this method or provide the correct provider name in the string resource.
      *
-     * @return the list ids for the currently configured widgets.
+     * @return the list ids for the currently configured widgets. If widgets are not supported or
+     * there are no widgets, empty array (new int[0]) will be returned.
      */
-    protected int[] getCurrentWidgetIds(Context context) {
+    private int[] getCurrentWidgetIdsIfSupported(Context context) {
+        if (!WidgetService.isWidgetSupported(context)) {
+            return new int[0];
+        }
         final AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
         final ComponentName mailComponent = new ComponentName(context, getProviderName(context));
         return appWidgetManager.getAppWidgetIds(mailComponent);
@@ -153,7 +157,7 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
                 return;
             }
             final Set<Integer> widgetsToUpdate = Sets.newHashSet();
-            for (int id : getCurrentWidgetIds(context)) {
+            for (int id : getCurrentWidgetIdsIfSupported(context)) {
                 // Retrieve the persisted information for this widget from
                 // preferences.
                 final String accountFolder = MailPrefs.get(context).getWidgetConfiguration(id);
@@ -178,8 +182,10 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
             }
             if (widgetsToUpdate.size() > 0) {
                 final int[] widgets = Ints.toArray(widgetsToUpdate);
-                AppWidgetManager.getInstance(context).notifyAppWidgetViewDataChanged(widgets,
-                        R.id.conversation_list);
+                if (WidgetService.isWidgetSupported(context)) {
+                    AppWidgetManager.getInstance(context).notifyAppWidgetViewDataChanged(widgets,
+                            R.id.conversation_list);
+                }
             }
         }
     }
@@ -351,7 +357,9 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
                     folderDisplayName == null ? " " : folderDisplayName);
 
         }
-        AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, remoteViews);
+        if (WidgetService.isWidgetSupported(context)) {
+            AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, remoteViews);
+        }
     }
 
     protected boolean isAccountValid(Context context, Account account) {
@@ -392,7 +400,7 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
     }
 
     private void migrateAllLegacyWidgetInformation(Context context) {
-        final int[] currentWidgetIds = getCurrentWidgetIds(context);
+        final int[] currentWidgetIds = getCurrentWidgetIdsIfSupported(context);
         migrateLegacyWidgets(context, currentWidgetIds);
     }
 
@@ -407,7 +415,7 @@ public abstract class BaseWidgetProvider extends AppWidgetProvider {
     }
 
     private void validateAllWidgetInformation(Context context) {
-        final int[] widgetIds = getCurrentWidgetIds(context);
+        final int[] widgetIds = getCurrentWidgetIdsIfSupported(context);
         for (int widgetId : widgetIds) {
             final String accountFolder = MailPrefs.get(context).getWidgetConfiguration(widgetId);
             String accountUri = null;

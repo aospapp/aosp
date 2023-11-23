@@ -23,7 +23,7 @@ limitations under the License.
 #if defined(WIN32)
 #include "extras/CUPTI/include/cupti.h"
 #else
-#include "cuda/extras/CUPTI/include/cupti.h"
+#include "cupti.h"
 #endif
 namespace perftools {
 namespace gputools {
@@ -68,6 +68,8 @@ class CuptiWrapper {
                         CUpti_CallbackFunc callback, void* userdata);
 
   CUptiResult Unsubscribe(CUpti_SubscriberHandle subscriber);
+
+  CUptiResult GetResultString(CUptiResult result, const char** str);
 };
 
 }  // namespace profiler

@@ -18,6 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           coreApp="true"
           package="com.android.phone.testapps.imstestapp">
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!--Beware, declaring the below permission will cause the device to not boot unless you add
+        this app and permission to frameworks/base/data/etc/privapp-permissions-platform.xml-->
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <application
         android:label="ImsTestService"
         android:directBootAware="true">

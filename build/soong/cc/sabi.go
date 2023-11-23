@@ -71,12 +71,7 @@ func (sabimod *sabi) flags(ctx ModuleContext, flags Flags) Flags {
 	// Assuming that the cflags which clang LibTooling tools cannot
 	// understand have not been converted to ninja variables yet.
 	flags.ToolingCFlags = filterOutWithPrefix(flags.CFlags, config.ClangLibToolingUnknownCflags)
-
-	// RSClang does not support recent mcpu option likes exynos-m2.
-	// So we need overriding mcpu option when we want to use it.
-	if ctx.Arch().CpuVariant == "exynos-m2" {
-		flags.ToolingCFlags = append(flags.ToolingCFlags, "-mcpu=cortex-a53")
-	}
+	flags.ToolingCppFlags = filterOutWithPrefix(flags.CppFlags, config.ClangLibToolingUnknownCflags)
 
 	return flags
 }

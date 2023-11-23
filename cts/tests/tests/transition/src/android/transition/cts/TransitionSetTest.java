@@ -18,18 +18,30 @@ package android.transition.cts;
 import static com.android.compatibility.common.util.CtsMockitoUtils.within;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.animation.TimeInterpolator;
+import android.graphics.Rect;
+import android.transition.ArcMotion;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
+import android.transition.PathMotion;
 import android.transition.Transition;
+import android.transition.TransitionPropagation;
 import android.transition.TransitionSet;
+import android.transition.TransitionValues;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -122,6 +134,142 @@ public class TransitionSetTest extends BaseTransitionTest {
         transitionSet.removeTransition(fade); // remove one that isn't there
         assertEquals(1, transitionSet.getTransitionCount());
         assertSame(changeBounds, transitionSet.getTransitionAt(0));
+    }
+
+    @Test
+    public void testSetTransferValuesDuringAdd() throws Throwable {
+        Fade fade = new Fade();
+        fade.setDuration(500);
+        fade.setPropagation(new TestPropagation());
+        fade.setEpicenterCallback(new Transition.EpicenterCallback() {
+            @Override
+            public Rect onGetEpicenter(Transition transition) {
+                return null;
+            }
+        });
+        fade.setInterpolator(new AccelerateDecelerateInterpolator());
+        fade.setPathMotion(new ArcMotion());
+
+        TransitionSet transitionSet = new TransitionSet();
+        int duration = 100;
+        TestPropagation propagation = new TestPropagation();
+        TimeInterpolator interpolator = new DecelerateInterpolator();
+        PathMotion pathMotion = new ArcMotion();
+        Transition.EpicenterCallback epicenterCallback = new Transition.EpicenterCallback() {
+            @Override
+            public Rect onGetEpicenter(Transition transition) {
+                return null;
+            }
+        };
+        transitionSet.setDuration(duration);
+        transitionSet.setPropagation(propagation);
+        transitionSet.setInterpolator(interpolator);
+        transitionSet.setPathMotion(pathMotion);
+        transitionSet.setEpicenterCallback(epicenterCallback);
+
+        transitionSet.addTransition(fade);
+        assertEquals(duration, fade.getDuration());
+        assertSame(propagation, fade.getPropagation());
+        assertSame(interpolator, fade.getInterpolator());
+        assertSame(pathMotion, fade.getPathMotion());
+        assertSame(epicenterCallback, fade.getEpicenterCallback());
+    }
+
+    @Test
+    public void testSetTransferNullValuesDuringAdd() throws Throwable {
+        Fade fade = new Fade();
+        fade.setDuration(500);
+        fade.setPropagation(new TestPropagation());
+        fade.setEpicenterCallback(new Transition.EpicenterCallback() {
+            @Override
+            public Rect onGetEpicenter(Transition transition) {
+                return null;
+            }
+        });
+        fade.setInterpolator(new AccelerateDecelerateInterpolator());
+        fade.setPathMotion(new ArcMotion());
+
+        TransitionSet transitionSet = new TransitionSet();
+        transitionSet.setDuration(0);
+        transitionSet.setPropagation(null);
+        transitionSet.setInterpolator(null);
+        transitionSet.setPathMotion(null);
+        transitionSet.setEpicenterCallback(null);
+
+        transitionSet.addTransition(fade);
+        assertEquals(0, fade.getDuration());
+        assertNull(fade.getPropagation());
+        assertNull(fade.getInterpolator());
+        assertSame(transitionSet.getPathMotion(), fade.getPathMotion());
+        assertNull(fade.getEpicenterCallback());
+    }
+
+    @Test
+    public void testSetNoTransferValuesDuringAdd() throws Throwable {
+        Fade fade = new Fade();
+        int duration = 100;
+        TestPropagation propagation = new TestPropagation();
+        TimeInterpolator interpolator = new DecelerateInterpolator();
+        PathMotion pathMotion = new ArcMotion();
+        Transition.EpicenterCallback epicenterCallback = new Transition.EpicenterCallback() {
+            @Override
+            public Rect onGetEpicenter(Transition transition) {
+                return null;
+            }
+        };
+        fade.setDuration(duration);
+        fade.setPropagation(propagation);
+        fade.setInterpolator(interpolator);
+        fade.setPathMotion(pathMotion);
+        fade.setEpicenterCallback(epicenterCallback);
+
+        TransitionSet transitionSet = new TransitionSet();
+
+        transitionSet.addTransition(fade);
+        assertEquals(duration, fade.getDuration());
+        assertSame(propagation, fade.getPropagation());
+        assertSame(interpolator, fade.getInterpolator());
+        assertSame(pathMotion, fade.getPathMotion());
+        assertSame(epicenterCallback, fade.getEpicenterCallback());
+    }
+
+    @Test
+    public void testSetAllowsChildrenToOverrideConfigs() {
+        TransitionSet transitionSet = new TransitionSet();
+        transitionSet.setDuration(100);
+        transitionSet.setInterpolator(new DecelerateInterpolator());
+
+        Fade fade = new Fade();
+        transitionSet.addTransition(fade); // here set's duration and interpolator are applied
+
+        int overriddenDuration = 200;
+        TimeInterpolator overriddenInterpolator = new AccelerateInterpolator();
+        fade.setDuration(overriddenDuration);
+        fade.setInterpolator(overriddenInterpolator);
+
+        // emulate beginDelayedTransition where we clone the provided transition
+        transitionSet = (TransitionSet) transitionSet.clone();
+        fade = (Fade) transitionSet.getTransitionAt(0);
+
+        assertEquals(overriddenDuration, fade.getDuration());
+        assertEquals(overriddenInterpolator, fade.getInterpolator());
+    }
+
+    private static class TestPropagation extends TransitionPropagation {
+        @Override
+        public long getStartDelay(ViewGroup sceneRoot, Transition transition,
+                TransitionValues startValues, TransitionValues endValues) {
+            return 0;
+        }
+
+        @Override
+        public void captureValues(TransitionValues transitionValues) {
+        }
+
+        @Override
+        public String[] getPropagationProperties() {
+            return new String[] { };
+        }
     }
 }
 

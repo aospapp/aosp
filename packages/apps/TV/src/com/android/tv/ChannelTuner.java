@@ -97,13 +97,7 @@ public class ChannelTuner {
         mStarted = true;
         mChannelDataManager.addListener(mChannelDataManagerListener);
         if (mChannelDataManager.isDbLoadFinished()) {
-            mHandler.post(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            mChannelDataManagerListener.onLoadFinished();
-                        }
-                    });
+            mHandler.post(mChannelDataManagerListener::onLoadFinished);
         }
     }
 

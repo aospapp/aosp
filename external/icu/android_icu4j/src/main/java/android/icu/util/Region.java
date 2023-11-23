@@ -12,6 +12,7 @@ package android.icu.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,13 +60,17 @@ import android.icu.impl.ICUResourceBundle;
  * @hide Only a subset of ICU is exposed in Android
  */
 
+@libcore.api.CorePlatformApi
 public class Region implements Comparable<Region> {
 
     /**
      * RegionType is an enumeration defining the different types of regions.  Current possible
      * values are WORLD, CONTINENT, SUBCONTINENT, TERRITORY, GROUPING, DEPRECATED, and UNKNOWN.
+     * 
+     * @hide Only a subset of ICU is exposed in Android
      */
 
+    @libcore.api.CorePlatformApi
     public enum RegionType {
         /**
          * Type representing the unknown region.
@@ -75,6 +80,7 @@ public class Region implements Comparable<Region> {
         /**
          * Type representing a territory.
          */
+        @libcore.api.CorePlatformApi
         TERRITORY,
 
         /**
@@ -178,8 +184,7 @@ public class Region implements Comparable<Region> {
 
         String[] continentsArr = worldContainment.getStringArray();
         List<String> continents = Arrays.asList(continentsArr);
-        String[] groupingArr = groupingContainment.getStringArray();
-        List<String> groupings = Arrays.asList(groupingArr);
+        Enumeration<String> groupings = groupingContainment.getKeys();
         List<String> regionCodes = new ArrayList<String>();
 
         List<String> allRegions = new ArrayList<String>();
@@ -296,7 +301,8 @@ public class Region implements Comparable<Region> {
             }
         }
 
-        for ( String grouping : groupings ) {
+        while ( groupings.hasMoreElements() ) {
+            String grouping = groupings.nextElement();
             if (regionIDMap.containsKey(grouping)) {
                 r = regionIDMap.get(grouping);
                 r.type = RegionType.GROUPING;
@@ -315,9 +321,10 @@ public class Region implements Comparable<Region> {
         for ( int i = 0 ; i < territoryContainment.getSize(); i++ ) {
             UResourceBundle mapping = territoryContainment.get(i);
             String parent = mapping.getKey();
-            if (parent.equals("containedGroupings") || parent.equals("deprecated")) {
+            if (parent.equals("containedGroupings") || parent.equals("deprecated") || parent.equals("grouping")) {
                 continue; // handle new pseudo-parent types added in ICU data per cldrbug 7808; for now just skip.
                 // #11232 is to do something useful with these.
+                // Also skip "grouping" which has multi-level structure below from CLDR 34.
             }
             Region parentRegion = regionIDMap.get(parent);
             for ( int j = 0 ; j < mapping.getSize(); j++ ) {
@@ -428,6 +435,7 @@ public class Region implements Comparable<Region> {
      * @return An unmodifiable set of all known regions that match the given type.
      */
 
+    @libcore.api.CorePlatformApi
     public static Set<Region> getAvailable(RegionType type) {
 
         loadRegionData();

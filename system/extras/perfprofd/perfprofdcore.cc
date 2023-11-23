@@ -43,6 +43,10 @@
 #include <android-base/properties.h>
 #endif
 
+#ifdef __ANDROID__
+#include <healthhalutils/HealthHalUtils.h>
+#endif
+
 #include "perfprofd_record.pb.h"
 
 #include "config.h"
@@ -50,6 +54,7 @@
 #include "perf_data_converter.h"
 #include "perfprofdcore.h"
 #include "perfprofd_io.h"
+#include "perfprofd_perf.h"
 #include "symbolizer.h"
 
 //
@@ -289,30 +294,40 @@ bool get_camera_active()
 
 bool get_charging()
 {
-  std::string psdir("/sys/class/power_supply");
-  DIR* dir = opendir(psdir.c_str());
-  if (dir == NULL) {
-    PLOG(ERROR) << "Failed to open dir " << psdir;
+#ifdef __ANDROID__
+  using android::sp;
+  using android::hardware::Return;
+  using android::hardware::health::V2_0::get_health_service;
+  using android::hardware::health::V2_0::HealthInfo;
+  using android::hardware::health::V2_0::IHealth;
+  using android::hardware::health::V2_0::Result;
+
+  sp<IHealth> service = get_health_service();
+  if (service == nullptr) {
+    LOG(ERROR) << "Failed to get health HAL";
     return false;
   }
-  struct dirent* e;
-  bool result = false;
-  while ((e = readdir(dir)) != 0) {
-    if (e->d_name[0] != '.') {
-      std::string online_path = psdir + "/" + e->d_name + "/online";
-      std::string contents;
-      int value = 0;
-      if (android::base::ReadFileToString(online_path.c_str(), &contents) &&
-          sscanf(contents.c_str(), "%d", &value) == 1) {
-        if (value) {
-          result = true;
-          break;
-        }
-      }
-    }
+  Result res = Result::UNKNOWN;
+  HealthInfo val;
+  Return<void> ret =
+      service->getHealthInfo([&](Result out_res, HealthInfo out_val) {
+        res = out_res;
+        val = out_val;
+      });
+  if (!ret.isOk()) {
+    LOG(ERROR) << "Failed to call getChargeStatus on health HAL: " << ret.description();
+    return false;
   }
-  closedir(dir);
-  return result;
+  if (res != Result::SUCCESS) {
+    LOG(ERROR) << "Failed to retrieve charge status from health HAL: result = "
+               << toString(res);
+    return false;
+  }
+  return val.legacy.chargerAcOnline || val.legacy.chargerUsbOnline ||
+         val.legacy.chargerWirelessOnline;
+#else
+  return false;
+#endif
 }
 
 static bool postprocess_proc_stat_contents(const std::string &pscontents,
@@ -362,7 +377,7 @@ static void annotate_encoded_perf_profile(android::perfprofd::PerfprofdRecord* p
   // Incorporate cpu utilization (collected prior to perf run)
   //
   if (config.collect_cpu_utilization) {
-    profile->set_cpu_utilization(cpu_utilization);
+    profile->SetExtension(quipper::cpu_utilization, cpu_utilization);
   }
 
   //
@@ -373,7 +388,7 @@ static void annotate_encoded_perf_profile(android::perfprofd::PerfprofdRecord* p
   if (android::base::ReadFileToString("/proc/loadavg", &load) &&
       sscanf(load.c_str(), "%lf", &fload) == 1) {
     int iload = static_cast<int>(fload * 100.0);
-    profile->set_sys_load_average(iload);
+    profile->SetExtension(quipper::sys_load_average, iload);
   } else {
     PLOG(ERROR) << "Failed to read or scan /proc/loadavg";
   }
@@ -383,13 +398,13 @@ static void annotate_encoded_perf_profile(android::perfprofd::PerfprofdRecord* p
   //
   bool is_booting = get_booting();
   if (config.collect_booting) {
-    profile->set_booting(is_booting);
+    profile->SetExtension(quipper::booting, is_booting);
   }
   if (config.collect_camera_active) {
-    profile->set_camera_active(is_booting ? false : get_camera_active());
+    profile->SetExtension(quipper::camera_active, is_booting ? false : get_camera_active());
   }
   if (config.collect_charging_state) {
-    profile->set_on_charger(get_charging());
+    profile->SetExtension(quipper::on_charger, get_charging());
   }
 
   //
@@ -400,7 +415,7 @@ static void annotate_encoded_perf_profile(android::perfprofd::PerfprofdRecord* p
   std::string disp;
   if (android::base::ReadFileToString("/sys/power/wake_unlock", &disp)) {
     bool ison = (strstr(disp.c_str(), "PowerManagerService.Display") == 0);
-    profile->set_display_on(ison);
+    profile->SetExtension(quipper::display_on, ison);
   } else {
     PLOG(ERROR) << "Failed to read /sys/power/wake_unlock";
   }
@@ -414,7 +429,9 @@ static ProtoUniquePtr encode_to_proto(const std::string &data_file_path,
   // Open and read perf.data file
   //
   ProtoUniquePtr encodedProfile(
-      android::perfprofd::RawPerfDataToAndroidPerfProfile(data_file_path, symbolizer));
+      android::perfprofd::RawPerfDataToAndroidPerfProfile(data_file_path,
+                                                          symbolizer,
+                                                          config.symbolize_everything));
   if (encodedProfile == nullptr) {
     return nullptr;
   }
@@ -440,7 +457,7 @@ PROFILE_RESULT encode_to_proto(const std::string &data_file_path,
   //
   // Issue error if no samples
   //
-  if (encodedProfile == nullptr || encodedProfile->perf_data().events_size() == 0) {
+  if (encodedProfile == nullptr || encodedProfile->events_size() == 0) {
     return ERR_PERF_ENCODE_FAILED;
   }
 
@@ -449,135 +466,6 @@ PROFILE_RESULT encode_to_proto(const std::string &data_file_path,
                                                config.compress)
       ? OK_PROFILE_COLLECTION
       : ERR_WRITE_ENCODED_FILE_FAILED;
-}
-
-//
-// Invoke "perf record". Return value is OK_PROFILE_COLLECTION for
-// success, or some other error code if something went wrong.
-//
-static PROFILE_RESULT invoke_perf(Config& config,
-                                  const std::string &perf_path,
-                                  const char *stack_profile_opt,
-                                  unsigned duration,
-                                  const std::string &data_file_path,
-                                  const std::string &perf_stderr_path)
-{
-  pid_t pid = fork();
-
-  if (pid == -1) {
-    return ERR_FORK_FAILED;
-  }
-
-  if (pid == 0) {
-    // child
-
-    // Open file to receive stderr/stdout from perf
-    FILE *efp = fopen(perf_stderr_path.c_str(), "w");
-    if (efp) {
-      dup2(fileno(efp), STDERR_FILENO);
-      dup2(fileno(efp), STDOUT_FILENO);
-    } else {
-      PLOG(WARNING) << "unable to open " << perf_stderr_path << " for writing";
-    }
-
-    // marshall arguments
-    constexpr unsigned max_args = 17;
-    const char *argv[max_args];
-    unsigned slot = 0;
-    argv[slot++] = perf_path.c_str();
-    argv[slot++] = "record";
-
-    // -o perf.data
-    argv[slot++] = "-o";
-    argv[slot++] = data_file_path.c_str();
-
-    // -c/f N
-    std::string p_str;
-    if (config.sampling_frequency > 0) {
-      argv[slot++] = "-f";
-      p_str = android::base::StringPrintf("%u", config.sampling_frequency);
-      argv[slot++] = p_str.c_str();
-    } else if (config.sampling_period > 0) {
-      argv[slot++] = "-c";
-      p_str = android::base::StringPrintf("%u", config.sampling_period);
-      argv[slot++] = p_str.c_str();
-    }
-
-    // -g if desired
-    if (stack_profile_opt) {
-      argv[slot++] = stack_profile_opt;
-      argv[slot++] = "-m";
-      argv[slot++] = "8192";
-    }
-
-    std::string pid_str;
-    if (config.process < 0) {
-      // system wide profiling
-      argv[slot++] = "-a";
-    } else {
-      argv[slot++] = "-p";
-      pid_str = std::to_string(config.process);
-      argv[slot++] = pid_str.c_str();
-    }
-
-    // no need for kernel or other symbols
-    argv[slot++] = "--no-dump-kernel-symbols";
-    argv[slot++] = "--no-dump-symbols";
-
-    // sleep <duration>
-    argv[slot++] = "--duration";
-    std::string d_str = android::base::StringPrintf("%u", duration);
-    argv[slot++] = d_str.c_str();
-
-    // terminator
-    argv[slot++] = nullptr;
-    assert(slot < max_args);
-
-    // record the final command line in the error output file for
-    // posterity/debugging purposes
-    fprintf(stderr, "perf invocation (pid=%d):\n", getpid());
-    for (unsigned i = 0; argv[i] != nullptr; ++i) {
-      fprintf(stderr, "%s%s", i ? " " : "", argv[i]);
-    }
-    fprintf(stderr, "\n");
-
-    // exec
-    execvp(argv[0], (char * const *)argv);
-    fprintf(stderr, "exec failed: %s\n", strerror(errno));
-    exit(1);
-
-  } else {
-    // parent
-
-    // Try to sleep.
-    config.Sleep(duration);
-
-    // We may have been woken up to stop profiling.
-    if (config.ShouldStopProfiling()) {
-      // Send SIGHUP to simpleperf to make it stop.
-      kill(pid, SIGHUP);
-    }
-
-    // Wait for the child, so it's reaped correctly.
-    int st = 0;
-    pid_t reaped = TEMP_FAILURE_RETRY(waitpid(pid, &st, 0));
-
-    if (reaped == -1) {
-      PLOG(WARNING) << "waitpid failed";
-    } else if (WIFSIGNALED(st)) {
-      if (WTERMSIG(st) == SIGHUP && config.ShouldStopProfiling()) {
-        // That was us...
-        return OK_PROFILE_COLLECTION;
-      }
-      LOG(WARNING) << "perf killed by signal " << WTERMSIG(st);
-    } else if (WEXITSTATUS(st) != 0) {
-      LOG(WARNING) << "perf bad exit status " << WEXITSTATUS(st);
-    } else {
-      return OK_PROFILE_COLLECTION;
-    }
-  }
-
-  return ERR_PERF_RECORD_FAILED;
 }
 
 //
@@ -664,13 +552,14 @@ static ProtoUniquePtr collect_profile(Config& config)
       (config.stack_profile ? "-g" : nullptr);
   const std::string& perf_path = config.perf_path;
 
-  PROFILE_RESULT ret = invoke_perf(config,
-                                   perf_path.c_str(),
-                                   stack_profile_opt,
-                                   duration,
-                                   data_file_path,
-                                   perf_stderr_path);
-  if (ret != OK_PROFILE_COLLECTION) {
+  android::perfprofd::PerfResult invoke_res =
+      android::perfprofd::InvokePerf(config,
+                                     perf_path,
+                                     stack_profile_opt,
+                                     duration,
+                                     data_file_path,
+                                     perf_stderr_path);
+  if (invoke_res != android::perfprofd::PerfResult::kOK) {
     return nullptr;
   }
 
@@ -753,6 +642,12 @@ void CommonInit(uint32_t use_fixed_seed, const char* dest_dir) {
 #endif
 
   common_initialized = true;
+}
+
+void GlobalInit(const std::string& perf_path) {
+  if (!android::perfprofd::FindSupportedPerfCounters(perf_path)) {
+    LOG(WARNING) << "Could not read supported perf counters.";
+  }
 }
 
 bool IsDebugBuild() {

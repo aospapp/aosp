@@ -16,6 +16,7 @@ from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.audio import cmd_utils
 from autotest_lib.client.cros.audio import cras_dbus_utils
 from autotest_lib.client.cros.audio import cras_utils
+from autotest_lib.client.cros.audio import alsa_utils
 from autotest_lib.client.cros.multimedia import audio_extension_handler
 
 
@@ -66,6 +67,10 @@ class AudioFacadeNative(object):
     _PLAYBACK_DATA_FORMAT = dict(
             file_type='raw', sample_format='S16_LE', channel=2, rate=48000)
 
+    _LISTEN_DATA_FORMATS = [
+            dict(file_type='raw', sample_format='S16_LE',
+                 channel=1, rate=16000)]
+
     def __init__(self, resource, arc_resource=None):
         """Initializes an audio facade.
 
@@ -74,6 +79,7 @@ class AudioFacadeNative(object):
 
         """
         self._resource = resource
+        self._listener = None
         self._recorder = None
         self._player = None
         self._counter = None
@@ -153,6 +159,16 @@ class AudioFacadeNative(object):
             self._extension_handler.set_active_node_id(node_id)
 
 
+    def check_audio_stream_at_selected_device(self):
+        """Checks the audio output is at expected node"""
+        output_device_name = cras_utils.get_selected_output_device_name()
+        output_device_type = cras_utils.get_selected_output_device_type()
+        logging.info("Output device name is %s", output_device_name)
+        logging.info("Output device type is %s", output_device_type)
+        alsa_utils.check_audio_stream_at_selected_device(output_device_name,
+                                                         output_device_type)
+
+
     def cleanup(self):
         """Clean up the temporary files."""
         for path in glob.glob('/tmp/playback_*'):
@@ -161,10 +177,15 @@ class AudioFacadeNative(object):
         for path in glob.glob('/tmp/capture_*'):
             os.unlink(path)
 
+        for path in glob.glob('/tmp/listen_*'):
+            os.unlink(path)
+
         if self._recorder:
             self._recorder.cleanup()
         if self._player:
             self._player.cleanup()
+        if self._listener:
+            self._listener.cleanup()
 
         if self._arc_resource:
             self._arc_resource.cleanup()
@@ -250,6 +271,52 @@ class AudioFacadeNative(object):
                           'Capture device is not functional')
             return None
         return self._recorder.file_path
+
+
+    def start_listening(self, data_format):
+        """Starts listening to hotword for a given format.
+
+        Currently the format specified in _CAPTURE_DATA_FORMATS is the only
+        formats.
+
+        @param data_format: A dict containing:
+                            file_type: 'raw'.
+                            sample_format: 'S16_LE' for 16-bit signed integer in
+                                           little-endian.
+                            channel: channel number.
+                            rate: sampling rate.
+
+
+        @returns: True
+
+        @raises: AudioFacadeNativeError if data format is not supported.
+
+        """
+        logging.info('AudioFacadeNative record format: %r', data_format)
+
+        if data_format not in self._LISTEN_DATA_FORMATS:
+            raise AudioFacadeNativeError(
+                    'data format %r is not supported' % data_format)
+
+        self._listener = Listener()
+        self._listener.start(data_format)
+
+        return True
+
+
+    def stop_listening(self):
+        """Stops listening to hotword.
+
+        @returns: The path to the recorded file.
+                  None if hotwording is not functional.
+
+        """
+        self._listener.stop()
+        if file_contains_all_zeros(self._listener.file_path):
+            logging.error('Recorded file contains all zeros. '
+                          'Hotwording device is not functional')
+            return None
+        return self._listener.file_path
 
 
     def set_selected_output_volume(self, volume):
@@ -510,3 +577,64 @@ class Player(object):
 
         """
         self.stop()
+
+
+class ListenerError(Exception):
+    """Error in Listener."""
+    pass
+
+
+class Listener(object):
+    """The class to control listening subprocess.
+
+    Properties:
+        file_path: The path to recorded file. It should be accessed after
+                   stop() is called.
+
+    """
+    def __init__(self):
+        """Initializes a Listener."""
+        _, self.file_path = tempfile.mkstemp(prefix='listen_', suffix='.raw')
+        self._capture_subprocess = None
+
+
+    def start(self, data_format):
+        """Starts listening.
+
+        Starts listening subprocess. It can be stopped by calling stop().
+
+        @param data_format: A dict containing:
+                            file_type: 'raw'.
+                            sample_format: 'S16_LE' for 16-bit signed integer in
+                                           little-endian.
+                            channel: channel number.
+                            rate: sampling rate.
+
+        @raises: ListenerError: If listening subprocess is terminated
+                 unexpectedly.
+
+        """
+        self._capture_subprocess = cmd_utils.popen(
+                cras_utils.listen_cmd(
+                        capture_file=self.file_path, duration=None,
+                        channels=data_format['channel'],
+                        rate=data_format['rate']))
+
+
+    def stop(self):
+        """Stops listening subprocess."""
+        if self._capture_subprocess.poll() is None:
+            self._capture_subprocess.terminate()
+        else:
+            raise ListenerError(
+                    'Listening process was terminated unexpectedly.')
+
+
+    def cleanup(self):
+        """Cleanup the resources.
+
+        Terminates the listening process if needed.
+
+        """
+        if self._capture_subprocess and self._capture_subprocess.poll() is None:
+            self._capture_subprocess.terminate()

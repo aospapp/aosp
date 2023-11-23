@@ -27,8 +27,12 @@ LOCAL_USE_AAPT2 := true
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_PACKAGE_NAME := CarLensPickerApp
+
 LOCAL_PRIVATE_PLATFORM_APIS := true
+
 LOCAL_OVERRIDES_PACKAGES += Launcher2 Launcher3 Launcher3QuickStep
+
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.lenspicker
 
 LOCAL_MODULE_TAGS := optional
 

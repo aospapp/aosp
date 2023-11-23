@@ -16,3 +16,6 @@
 
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/uml.mk
+
+COMMON_LUNCH_CHOICES := \
+    uml-userdebug

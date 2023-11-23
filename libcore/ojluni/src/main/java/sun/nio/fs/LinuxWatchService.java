@@ -25,25 +25,18 @@
 
 package sun.nio.fs;
 
+import java.nio.file.*;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.*;
 import java.io.IOException;
-import java.nio.file.NotDirectoryException;
-import java.nio.file.Path;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.CloseGuard;
 import sun.misc.Unsafe;
 
-import static sun.nio.fs.UnixConstants.EAGAIN;
-import static sun.nio.fs.UnixConstants.EMFILE;
-import static sun.nio.fs.UnixConstants.ENOSPC;
-import static sun.nio.fs.UnixNativeDispatcher.read;
-import static sun.nio.fs.UnixNativeDispatcher.write;
+import static sun.nio.fs.UnixNativeDispatcher.*;
+import static sun.nio.fs.UnixConstants.*;
 
 /**
  * Linux implementation of WatchService based on inotify.
@@ -388,14 +381,13 @@ class LinuxWatchService
                             }
                             if (actual > 0) {
                                 byte[] buf = new byte[actual];
+                                // BEGIN Android-changed: Use Unsafe.getByte not Unsafe.copyMemory.
                                 // unsafe.copyMemory(null, event + OFFSETOF_NAME,
                                 //    buf, Unsafe.ARRAY_BYTE_BASE_OFFSET, actual);
-
-                                // Android-changed: We don't have Unsafe.copyMemory yet, so we use
-                                // getByte.
                                 for(int i = 0; i < actual; i++) {
                                     buf[i] = unsafe.getByte(event + OFFSETOF_NAME + i);
                                 }
+                                // END Android-changed: Use Unsafe.getByte not Unsafe.copyMemory.
                                 name = new UnixPath(fs, buf);
                             }
                         }

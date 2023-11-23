@@ -5,10 +5,33 @@
 #include <cstring>  // memcpy
 
 #include <base/stl_util.h>
+#include <base/strings/string_number_conversions.h>
 
 #include "brillo/secure_blob.h"
 
 namespace brillo {
+
+std::string BlobToString(const Blob& blob) {
+  return std::string(blob.begin(), blob.end());
+}
+
+Blob BlobFromString(const std::string& bytes) {
+  return Blob(bytes.begin(), bytes.end());
+}
+
+Blob CombineBlobs(const std::initializer_list<Blob>& blobs) {
+  size_t total_size = 0;
+  for (const auto& blob : blobs)
+    total_size += blob.size();
+  Blob concatenation;
+  concatenation.reserve(total_size);
+  for (const auto& blob : blobs)
+    concatenation.insert(concatenation.end(), blob.begin(), blob.end());
+  return concatenation;
+}
+
+SecureBlob::SecureBlob(const Blob& blob)
+    : SecureBlob(blob.begin(), blob.end()) {}
 
 SecureBlob::SecureBlob(const std::string& data)
     : SecureBlob(data.begin(), data.end()) {}
@@ -49,7 +72,21 @@ SecureBlob SecureBlob::Combine(const SecureBlob& blob1,
   return result;
 }
 
-void* SecureMemset(void* v, int c, size_t n) {
+bool SecureBlob::HexStringToSecureBlob(const std::string& input,
+                                       SecureBlob* output) {
+  // TODO(jorgelo,crbug.com/728047): Consider not using an intermediate
+  // std::vector here at all.
+  std::vector<uint8_t> temp;
+  if (!base::HexStringToBytes(input, &temp)) {
+    output->clear();
+    return false;
+  }
+  output->assign(temp.begin(), temp.end());
+  SecureMemset(temp.data(), 0, temp.capacity());
+  return true;
+}
+
+BRILLO_DISABLE_ASAN void* SecureMemset(void* v, int c, size_t n) {
   volatile uint8_t* p = reinterpret_cast<volatile uint8_t*>(v);
   while (n--)
     *p++ = c;

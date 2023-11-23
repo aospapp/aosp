@@ -1,0 +1,13 @@
+allow priv_app mali_device:chr_file { read write open getattr ioctl };
+allow priv_app sysfs:file { getattr }; # open read
+allow priv_app proc_stat:file { read write open getattr };
+allow priv_app sysfs_hisi:file { read write open getattr };
+allow priv_app proc_uptime:file { getattr open read };
+allow priv_app device:dir { open };
+allow priv_app proc_interrupts:file { open };
+allow priv_app proc_modules:file { open };
+allow priv_app sysfs_android_usb:file { open };
+allow priv_app zygote:dir { search };
+allow priv_app hi_vfmw_device:chr_file { write read open ioctl getattr};
+allow priv_app hi_overlay_file:file { read open getattr };
+

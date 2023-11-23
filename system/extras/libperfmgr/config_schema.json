@@ -33,7 +33,7 @@
             "type": "string",
             "id": "/properties/Nodes/items/properties/Path",
             "title": "The Path Schema.",
-            "description": "The path of the node.",
+            "description": "For File type node, it is filesystem path of the file; for Property type node, it is the key of the property.",
             "minLength": 1
           },
           "Values": {
@@ -45,8 +45,7 @@
               "type": "string",
               "id": "/properties/Nodes/items/properties/Values/items",
               "title": "The Values Schema.",
-              "description": "The Values array lists all possible values that can be set in the Actions section, and the list of values is sorted based on their priority, with the highest priority first.",
-              "minLength": 1
+              "description": "The Values array lists all possible values that can be set in the Actions section, and the list of values is sorted based on their priority, with the highest priority first."
             }
           },
           "DefaultIndex": {
@@ -62,11 +61,17 @@
             "title": "The Reset On Init Schema.",
             "description": "Flag if node will be set to default value on initialization; if not present, it will be set to false."
           },
+          "Type": {
+            "type": "string",
+            "id": "/properties/Nodes/items/properties/Type",
+            "title": "The type Schema.",
+            "description": "Type of Node (File or Property), if not present, it will be set to File."
+          },
           "HoldFd": {
             "type": "boolean",
             "id": "/properties/Nodes/items/properties/HoldFd",
             "title": "The Hold Fd Schema.",
-            "description": "Flag if node will hold the file descriptor on non-default values; if not present, it will be set to false."
+            "description": "Flag if node will hold the file descriptor on non-default values; if not present, it will be set to false. This is only honoured for File type node."
           }
         }
       }

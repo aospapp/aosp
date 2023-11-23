@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"ドアが開いています"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"詰まっています"</string>
     <string name="printer_offline" msgid="9196864753298645066">"オフラインです"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"不適切な証明書"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"暗号化なし"</string>
     <string name="printer_check" msgid="6428369671197132828">"プリンタを確認してください"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"送信を待機しています"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ドキュメントを読み込めませんでした"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"プリンタがサポートされていません"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct 対応プリンタを検出"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct 印刷"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct 対応プリンタ"</string>
     <string name="searching" msgid="2114018057619514587">"検索しています…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"プリンタの前面パネルでこの接続を承認しなければならない場合があります"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"削除"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct 経由で接続する"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"現在のネットワーク（<xliff:g id="IP_ADDRESS">%1$s</xliff:g>）経由で接続する"</string>
+    <string name="security" msgid="2279008326210305401">"セキュリティ"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"このプリンタが新しいセキュリティ証明書を提示しました。これは他のデバイスによるなりすましの可能性もあります。新しい証明書を承認しますか？"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"このプリンタは暗号化されたジョブに対応しなくなりました。印刷を続行しますか？"</string>
+    <string name="accept" msgid="4426153292469698134">"承認"</string>
+    <string name="reject" msgid="24751635160440693">"拒否"</string>
+    <string name="connections" msgid="8895413761760117180">"接続"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"デフォルト印刷サービスが近くのデバイスを検出するには、位置情報の利用許可が必要です。"</string>
+    <string name="fix" msgid="7784394272611365393">"権限を確認"</string>
 </resources>

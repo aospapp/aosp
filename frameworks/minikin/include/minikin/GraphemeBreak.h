@@ -17,6 +17,7 @@
 #ifndef MINIKIN_GRAPHEME_BREAK_H
 #define MINIKIN_GRAPHEME_BREAK_H
 
+#include <cstddef>
 #include <cstdint>
 
 namespace minikin {

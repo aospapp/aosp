@@ -27,10 +27,11 @@ import com.google.turbine.binder.lookup.LookupKey;
 import com.google.turbine.binder.lookup.LookupResult;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
-import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
+import com.google.turbine.diag.TurbineLog.TurbineLogWithSource;
 import com.google.turbine.model.TurbineTyKind;
 import com.google.turbine.tree.Tree;
+import com.google.turbine.tree.Tree.ClassTy;
 import java.util.ArrayDeque;
 
 /** Type hierarchy binding. */
@@ -38,20 +39,24 @@ public class HierarchyBinder {
 
   /** Binds the type hierarchy (superclasses and interfaces) for a single class. */
   public static SourceHeaderBoundClass bind(
+      TurbineLogWithSource log,
       ClassSymbol origin,
       PackageSourceBoundClass base,
       Env<ClassSymbol, ? extends HeaderBoundClass> env) {
-    return new HierarchyBinder(origin, base, env).bind();
+    return new HierarchyBinder(log, origin, base, env).bind();
   }
 
+  private final TurbineLogWithSource log;
   private final ClassSymbol origin;
   private final PackageSourceBoundClass base;
   private final Env<ClassSymbol, ? extends HeaderBoundClass> env;
 
   private HierarchyBinder(
+      TurbineLogWithSource log,
       ClassSymbol origin,
       PackageSourceBoundClass base,
       Env<ClassSymbol, ? extends HeaderBoundClass> env) {
+    this.log = log;
     this.origin = origin;
     this.base = base;
     this.env = env;
@@ -83,7 +88,7 @@ public class HierarchyBinder {
       for (Tree.ClassTy i : decl.impls()) {
         ClassSymbol result = resolveClass(i);
         if (result == null) {
-          throw new AssertionError(i);
+          continue;
         }
         interfaces.add(result);
       }
@@ -95,12 +100,11 @@ public class HierarchyBinder {
 
     ImmutableMap.Builder<String, TyVarSymbol> typeParameters = ImmutableMap.builder();
     for (Tree.TyParam p : decl.typarams()) {
-      typeParameters.put(p.name(), new TyVarSymbol(origin, p.name()));
+      typeParameters.put(p.name().value(), new TyVarSymbol(origin, p.name().value()));
     }
 
     return new SourceHeaderBoundClass(base, superclass, interfaces.build(), typeParameters.build());
   }
-
 
   /**
    * Resolves the {@link ClassSymbol} for the given {@link Tree.ClassTy}, with handling for
@@ -109,29 +113,43 @@ public class HierarchyBinder {
   private ClassSymbol resolveClass(Tree.ClassTy ty) {
     // flatten a left-recursive qualified type name to its component simple names
     // e.g. Foo<Bar>.Baz -> ["Foo", "Bar"]
-    ArrayDeque<String> flat = new ArrayDeque<>();
-    for (Tree.ClassTy curr = ty; curr != null; curr = curr.base().orNull()) {
+    ArrayDeque<Tree.Ident> flat = new ArrayDeque<>();
+    for (Tree.ClassTy curr = ty; curr != null; curr = curr.base().orElse(null)) {
       flat.addFirst(curr.name());
     }
     // Resolve the base symbol in the qualified name.
-    LookupResult result = lookup(ty, new LookupKey(flat));
+    LookupResult result = lookup(ty, new LookupKey(ImmutableList.copyOf(flat)));
     if (result == null) {
-      throw TurbineError.format(base.source(), ty.position(), ErrorKind.SYMBOL_NOT_FOUND, ty);
+      log.error(ty.position(), ErrorKind.CANNOT_RESOLVE, ty);
+      return null;
     }
     // Resolve pieces in the qualified name referring to member types.
     // This needs to consider member type declarations inherited from supertypes and interfaces.
     ClassSymbol sym = (ClassSymbol) result.sym();
-    for (String bit : result.remaining()) {
-      try {
-        sym = Resolve.resolve(env, origin, sym, bit);
-      } catch (LazyBindingError e) {
-        throw error(ty.position(), ErrorKind.CYCLIC_HIERARCHY, e.getMessage());
-      }
+    for (Tree.Ident bit : result.remaining()) {
+      sym = resolveNext(ty, sym, bit);
       if (sym == null) {
-        throw error(ty.position(), ErrorKind.SYMBOL_NOT_FOUND, bit);
+        break;
       }
     }
     return sym;
+  }
+
+  private ClassSymbol resolveNext(ClassTy ty, ClassSymbol sym, Tree.Ident bit) {
+    ClassSymbol next;
+    try {
+      next = Resolve.resolve(env, origin, sym, bit);
+    } catch (LazyBindingError e) {
+      log.error(ty.position(), ErrorKind.CYCLIC_HIERARCHY, e.getMessage());
+      return null;
+    }
+    if (next == null) {
+      log.error(
+          bit.position(),
+          ErrorKind.SYMBOL_NOT_FOUND,
+          new ClassSymbol(sym.binaryName() + '$' + bit));
+    }
+    return next;
   }
 
   /** Resolve a qualified type name to a symbol. */
@@ -144,7 +162,8 @@ public class HierarchyBinder {
       try {
         result = Resolve.resolve(env, origin, curr, lookup.first());
       } catch (LazyBindingError e) {
-        throw error(tree.position(), ErrorKind.CYCLIC_HIERARCHY, e.getMessage());
+        log.error(tree.position(), ErrorKind.CYCLIC_HIERARCHY, e.getMessage());
+        result = null;
       }
       if (result != null) {
         return new LookupResult(result, lookup);
@@ -153,9 +172,5 @@ public class HierarchyBinder {
     // Fall back to the top-level scopes for the compilation unit (imports, same package, then
     // qualified name resolution).
     return base.scope().lookup(lookup, Resolve.resolveFunction(env, origin));
-  }
-
-  private TurbineError error(int position, ErrorKind kind, Object... args) {
-    return TurbineError.format(base.source(), position, kind, args);
   }
 }

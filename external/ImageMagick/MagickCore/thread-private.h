@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@
 #define MAGICKCORE_THREAD_PRIVATE_H
 
 #include "MagickCore/cache.h"
+#include "MagickCore/image-private.h"
 #include "MagickCore/resource_.h"
 #include "MagickCore/thread_.h"
 
@@ -27,17 +28,17 @@ extern "C" {
 #endif
 
 /*
-  Single threaded unless workload justifies the threading overhead.
+  Number of threads bounded by the amount of work and any thread resource limit.
+  The limit is 2 if the pixel cache type is not memory or memory-mapped.
 */
-#define magick_threads(source,destination,chunk,expression) \
-  num_threads((expression) == 0 ? 1 : \
-    ((chunk) > (32*GetMagickResourceLimit(ThreadResource))) && \
-     ((GetImagePixelCacheType(source) == MemoryCache) || \
-      (GetImagePixelCacheType(source) == MapCache)) && \
-     ((GetImagePixelCacheType(destination) == MemoryCache) || \
-      (GetImagePixelCacheType(destination) == MapCache)) ? \
-      GetMagickResourceLimit(ThreadResource) : \
-      GetMagickResourceLimit(ThreadResource) < 2 ? 1 : 2)
+#define magick_number_threads(source,destination,chunk,multithreaded) \
+  num_threads((multithreaded) == 0 ? 1 : \
+    ((GetImagePixelCacheType(source) != MemoryCache) && \
+     (GetImagePixelCacheType(source) != MapCache)) || \
+    ((GetImagePixelCacheType(destination) != MemoryCache) && \
+     (GetImagePixelCacheType(destination) != MapCache)) ? \
+    MagickMax(MagickMin(GetMagickResourceLimit(ThreadResource),2),1) : \
+    MagickMax(MagickMin((ssize_t) GetMagickResourceLimit(ThreadResource),(ssize_t) (chunk)/64),1))
 
 #if defined(__clang__) || (__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ > 10))
 #define MagickCachePrefetch(address,mode,locality) \

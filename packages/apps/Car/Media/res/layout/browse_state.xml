@@ -14,38 +14,39 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<merge
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     tools:showIn="@layout/fragment_browse">
-
-    <ProgressBar
-        android:id="@+id/loading_spinner"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/car_double_line_list_item_height"
-        android:layout_centerInParent="true"
-        android:visibility="gone"
-        android:indeterminateDrawable="@drawable/music_buffering" />
 
     <ImageView
         android:id="@+id/error_icon"
         android:layout_width="@dimen/missing_permission_icon_size"
         android:layout_height="@dimen/missing_permission_icon_size"
-        android:layout_centerInParent="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/error_message"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
         android:src="@drawable/error_illustration"
         android:visibility="gone"
-        android:tint="@color/car_body2_light"/>
+        android:tint="@color/icon_tint"/>
 
     <TextView
         android:id="@+id/error_message"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
+        style="@style/ErrorTextStyle"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/error_icon"
-        android:layout_marginTop="@dimen/car_padding_4"
-        android:textAppearance="@style/TextAppearance.Car.Body2.Light"
-        android:gravity="center"
+        android:layout_marginTop="@dimen/browse_state_error_margin_top"
+        app:layout_constraintTop_toBottomOf="@+id/error_icon"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         android:maxLines="3"
         android:text="@string/nothing_to_play"
         android:visibility="gone" />
 
-</merge>
+</androidx.constraintlayout.widget.ConstraintLayout>

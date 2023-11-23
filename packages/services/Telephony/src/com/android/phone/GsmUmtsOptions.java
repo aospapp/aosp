@@ -16,6 +16,7 @@
 
 package com.android.phone;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.PersistableBundle;
 import android.preference.Preference;
@@ -23,12 +24,12 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
+import android.telephony.TelephonyManager;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 
 /**
  * List of Network-specific settings screens.
@@ -36,6 +37,7 @@ import com.android.settingslib.RestrictedLockUtils;
 public class GsmUmtsOptions {
     private static final String LOG_TAG = "GsmUmtsOptions";
 
+    private CarrierConfigManager mCarrierConfigManager;
     private RestrictedPreference mButtonAPNExpand;
     private Preference mCategoryAPNExpand;
     Preference mCarrierSettingPref;
@@ -51,9 +53,11 @@ public class GsmUmtsOptions {
     private PreferenceScreen mPrefScreen;
 
     public GsmUmtsOptions(PreferenceFragment prefFragment, PreferenceScreen prefScreen,
-            final int subId, INetworkQueryService queryService) {
+            final int subId) {
+        final Context context = prefFragment.getContext();
         mPrefFragment = prefFragment;
         mPrefScreen = prefScreen;
+        mCarrierConfigManager = new CarrierConfigManager(context);
         mPrefFragment.addPreferencesFromResource(R.xml.gsm_umts_options);
         mButtonAPNExpand = (RestrictedPreference) mPrefScreen.findPreference(BUTTON_APN_EXPAND_KEY);
         mCategoryAPNExpand = mPrefScreen.findPreference(CATEGORY_APN_EXPAND_KEY);
@@ -63,25 +67,24 @@ public class GsmUmtsOptions {
 
         mNetworkOperator.initialize();
 
-        update(subId, queryService);
+        update(subId);
     }
 
-    // Unlike mPrefFragment or mPrefScreen, subId or queryService may change during lifecycle of
-    // GsmUmtsOptions. When that happens, we update GsmUmtsOptions with new parameters.
-    protected void update(final int subId, INetworkQueryService queryService) {
+    // Unlike mPrefFragment or mPrefScreen, subId  may change during lifecycle of GsmUmtsOptions.
+    // When that happens, we update GsmUmtsOptions with new parameters.
+    protected void update(final int subId) {
         boolean addAPNExpand = true;
         boolean addNetworkOperatorsCategory = true;
         boolean addCarrierSettings = true;
-        Phone phone = PhoneGlobals.getPhone(subId);
-        if (phone == null) return;
-        if (phone.getPhoneType() != PhoneConstants.PHONE_TYPE_GSM) {
+        final TelephonyManager telephonyManager = TelephonyManager.from(mPrefFragment.getContext())
+                .createForSubscriptionId(subId);
+        if (telephonyManager.getPhoneType() != PhoneConstants.PHONE_TYPE_GSM) {
             log("Not a GSM phone");
             addAPNExpand = false;
             mNetworkOperator.setEnabled(false);
         } else {
             log("Not a CDMA phone");
-            PersistableBundle carrierConfig =
-                    PhoneGlobals.getInstance().getCarrierConfigForSubId(subId);
+            PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(subId);
 
             // Determine which options to display. For GSM these are defaulted to true in
             // CarrierConfigManager, but they maybe overriden by DefaultCarrierConfigService or a
@@ -98,7 +101,7 @@ public class GsmUmtsOptions {
             }
 
             if (carrierConfig.getBoolean(CarrierConfigManager.KEY_CSP_ENABLED_BOOL)) {
-                if (phone.isCspPlmnEnabled()) {
+                if (telephonyManager.isManualNetworkSelectionAllowed()) {
                     log("[CSP] Enabling Operator Selection menu.");
                     mNetworkOperator.setEnabled(true);
                 } else {
@@ -119,7 +122,8 @@ public class GsmUmtsOptions {
             log("update: addAPNExpand");
             mButtonAPNExpand.setDisabledByAdmin(
                     MobileNetworkSettings.isDpcApnEnforced(mButtonAPNExpand.getContext())
-                            ? RestrictedLockUtils.getDeviceOwner(mButtonAPNExpand.getContext())
+                            ? RestrictedLockUtilsInternal.getDeviceOwner(
+                                    mButtonAPNExpand.getContext())
                             : null);
             mButtonAPNExpand.setOnPreferenceClickListener(
                     new Preference.OnPreferenceClickListener() {
@@ -145,7 +149,7 @@ public class GsmUmtsOptions {
 
         if (addNetworkOperatorsCategory) {
             mPrefScreen.addPreference(mNetworkOperator);
-            mNetworkOperator.update(subId, queryService);
+            mNetworkOperator.update(subId);
         } else {
             mPrefScreen.removePreference(mNetworkOperator);
         }

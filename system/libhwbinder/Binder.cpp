@@ -43,12 +43,12 @@ IBinder::~IBinder()
 
 BHwBinder* IBinder::localBinder()
 {
-    return NULL;
+    return nullptr;
 }
 
 BpHwBinder* IBinder::remoteBinder()
 {
-    return NULL;
+    return nullptr;
 }
 
 bool IBinder::checkSubclass(const void* /*subclassID*/) const
@@ -61,6 +61,10 @@ bool IBinder::checkSubclass(const void* /*subclassID*/) const
 class BHwBinder::Extras
 {
 public:
+    // unlocked objects
+    bool mRequestingSid = false;
+
+    // for below objects
     Mutex mLock;
     BpHwBinder::ObjectManager mObjects;
 };
@@ -79,6 +83,28 @@ int BHwBinder::getMinSchedulingPriority() {
     return mSchedPriority;
 }
 
+bool BHwBinder::isRequestingSid() {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    return e && e->mRequestingSid;
+}
+
+void BHwBinder::setRequestingSid(bool requestingSid) {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    if (!e) {
+        // default is false. Most things don't need sids, so avoiding allocations when possible.
+        if (!requestingSid) {
+            return;
+        }
+
+        e = getOrCreateExtras();
+        if (!e) return; // out of memory
+    }
+
+    e->mRequestingSid = requestingSid;
+}
+
 status_t BHwBinder::transact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags, TransactCallback callback)
 {
@@ -90,7 +116,7 @@ status_t BHwBinder::transact(
             err = onTransact(code, data, reply, flags,
                     [&](auto &replyParcel) {
                         replyParcel.setDataPosition(0);
-                        if (callback != NULL) {
+                        if (callback != nullptr) {
                             callback(replyParcel);
                         }
                     });
@@ -118,19 +144,8 @@ void BHwBinder::attachObject(
     const void* objectID, void* object, void* cleanupCookie,
     object_cleanup_func func)
 {
-    Extras* e = mExtras.load(std::memory_order_acquire);
-
-    if (!e) {
-        e = new Extras;
-        Extras* expected = nullptr;
-        if (!mExtras.compare_exchange_strong(expected, e,
-                                             std::memory_order_release,
-                                             std::memory_order_acquire)) {
-            delete e;
-            e = expected;  // Filled in by CAS
-        }
-        if (e == 0) return; // out of memory
-    }
+    Extras* e = getOrCreateExtras();
+    if (!e) return; // out of memory
 
     AutoMutex _l(e->mLock);
     e->mObjects.attach(objectID, object, cleanupCookie, func);
@@ -139,7 +154,7 @@ void BHwBinder::attachObject(
 void* BHwBinder::findObject(const void* objectID) const
 {
     Extras* e = mExtras.load(std::memory_order_acquire);
-    if (!e) return NULL;
+    if (!e) return nullptr;
 
     AutoMutex _l(e->mLock);
     return e->mObjects.find(objectID);
@@ -173,6 +188,25 @@ status_t BHwBinder::onTransact(
     return UNKNOWN_TRANSACTION;
 }
 
+BHwBinder::Extras* BHwBinder::getOrCreateExtras()
+{
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    if (!e) {
+        e = new Extras;
+        Extras* expected = nullptr;
+        if (!mExtras.compare_exchange_strong(expected, e,
+                                             std::memory_order_release,
+                                             std::memory_order_acquire)) {
+            delete e;
+            e = expected;  // Filled in by CAS
+        }
+        if (e == nullptr) return nullptr; // out of memory
+    }
+
+    return e;
+}
+
 // ---------------------------------------------------------------------------
 
 enum {
@@ -183,7 +217,7 @@ enum {
 };
 
 BpHwRefBase::BpHwRefBase(const sp<IBinder>& o)
-    : mRemote(o.get()), mRefs(NULL), mState(0)
+    : mRemote(o.get()), mRefs(nullptr), mState(0)
 {
     if (mRemote) {
         mRemote->incStrong(this);           // Removed on first IncStrong().

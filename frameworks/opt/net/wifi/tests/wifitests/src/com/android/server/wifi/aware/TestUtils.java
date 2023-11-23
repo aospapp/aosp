@@ -103,14 +103,14 @@ public class TestUtils {
 
         public boolean initiateDataPath(short transactionId, int peerId, int channelRequestType,
                 int channel, byte[] peer, String interfaceName, byte[] pmk, String passphrase,
-                boolean isOutOfBand, Capabilities capabilities) {
+                boolean isOutOfBand, byte[] appInfo, Capabilities capabilities) {
             addTransactionId(transactionId);
             return true;
         }
 
         public boolean respondToDataPathRequest(short transactionId, boolean accept, int ndpId,
-                String interfaceName, byte[] pmk, String passphrase, boolean isOutOfBand,
-                Capabilities capabilities) {
+                String interfaceName, byte[] pmk, String passphrase, byte[] appInfo,
+                boolean isOutOfBand, Capabilities capabilities) {
             addTransactionId(transactionId);
             return true;
         }

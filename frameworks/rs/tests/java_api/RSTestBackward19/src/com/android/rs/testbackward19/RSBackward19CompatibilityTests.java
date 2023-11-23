@@ -16,12 +16,13 @@
 
 package com.android.rs.testbackward19;
 
-import com.android.rs.unittest.*;
-
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+
+import com.android.rs.unittest.*;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -44,7 +45,7 @@ import java.util.List;
  *
  * To run the test, please use command
  *
- * adb shell am instrument -w com.android.rs.testbackward19/android.support.test.runner.AndroidJUnitRunner
+ * adb shell am instrument -w com.android.rs.testbackward19/androidx.test.runner.AndroidJUnitRunner
  */
 @RunWith(Parameterized.class)
 public class RSBackward19CompatibilityTests {

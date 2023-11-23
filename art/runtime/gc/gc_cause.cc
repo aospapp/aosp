@@ -19,7 +19,7 @@
 #include <android-base/logging.h>
 
 #include "base/macros.h"
-#include "globals.h"
+#include "runtime_globals.h"
 
 #include <ostream>
 

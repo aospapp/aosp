@@ -18,7 +18,12 @@ package com.android.managedprovisioning.task;
 import android.content.Context;
 import android.os.FileUtils;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.task.nonrequiredapps.SystemAppsSnapshot;
 
 import java.io.File;
@@ -29,7 +34,16 @@ public class MigrateSystemAppsSnapshotTask extends AbstractProvisioningTask {
     private static final Pattern XML_FILE_NAME_PATTERN = Pattern.compile("(\\d+)\\.xml");
 
     public MigrateSystemAppsSnapshotTask(Context context, Callback callback) {
-        super(context, null, callback);
+        this(context, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
+    }
+
+    @VisibleForTesting
+    public MigrateSystemAppsSnapshotTask(Context context, Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, null, callback, provisioningAnalyticsTracker);
     }
 
     @Override

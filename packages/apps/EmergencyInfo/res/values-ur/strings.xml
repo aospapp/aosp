@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ہنگامی معلومات"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"طبی معلومات"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"معلومات میں ترمیم کریں"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"معلومات شامل کریں"</string>
     <string name="edit_info" msgid="5973929805855224805">"ہنگامی معلومات میں ترمیم کریں"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"معلومات"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"رابطے"</string>
@@ -103,7 +103,11 @@
     <string name="clear_all" msgid="8899013032870561633">"سبھی کو صاف کریں"</string>
     <string name="clear" msgid="3648880442502887163">"صاف کریں"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"تمام معلومات اور رابطے صاف کریں؟"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"طبی معلومات اور ایمرجینسی رابطے شامل کرنے سے ایمرجینسی حالت میں پہلے جواب دہندگان کو مدد مل سکتی ہے۔\n\nاپنے فون کو غیر مقفل کیے بغیر کوئی بھی شخص اپنے لاک اسکرین سے یہ معلومعات پڑھ سکتا ہے اور اپنے ناموں پر تھپتھپا کر آپ کے رابطے پر ڈائل کر سکتا ہے۔"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"طبی معلومات اور ایمرجینسی رابطے شامل کرنے سے ایمرجینسی حالت میں پہلے جواب دہندگان کو مدد مل سکتی ہے۔\n\nآپ کے فون کو غیر مقفل کیے بغیر کوئی بھی شخص آپ کی لاک اسکرین سے یہ معلومعات پڑھ سکتا ہے اور رابطوں کے ناموں پر تھپتھپا کر انہیں ڈائل کر سکتا ہے۔"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"ہنگامی معلومات شامل کریں"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"اولین جواب دہندگان کو اپنی معلومات دیکھنے کی سہولت دیں"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ایک تصویر لیں"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"ایک تصویر منتخب کریں"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"تصویر منتخب کریں"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"عرفی نام"</string>
 </resources>

@@ -13,7 +13,6 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "hw_video_acc_h264"
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
@@ -27,4 +26,4 @@ This test verifies H264 resolution-changing video decode acceleration works.
 video = ('http://commondatastorage.googleapis.com/'
             'chromiumos-test-assets-public/MSE/switch_1080p_720p.mp4')
 job.run_test('video_ChromeVidResChangeHWDecode', video_file=video, video_len=31,
-             tag='h264')
+             tag='h264', capability='hw_dec_h264_1080_30')

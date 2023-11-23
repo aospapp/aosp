@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
-  You may not use this file except in compliance with the License.
+  You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
 
-    http://www.imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
 
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -70,7 +70,9 @@ typedef struct _NTMEMORYSTATUSEX
     ullAvailExtendedVirtual;
 } NTMEMORYSTATUSEX;
 
-#if !defined(__MINGW32__) && !defined(__MINGW64__)
+#if !defined(__MINGW32__)
+struct timeval;
+
 struct timezone
 {
   int
@@ -115,7 +117,7 @@ extern MagickPrivate double
 
 extern MagickPrivate int
   Exit(int),
-#if !defined(__MINGW32__) && !defined(__MINGW64__)
+#if !defined(__MINGW32__)
   gettimeofday(struct timeval *,struct timezone *),
 #endif
   IsWindows95(void),
@@ -135,6 +137,7 @@ extern MagickPrivate int
   NTSystemCommand(const char *,char *);
 
 extern MagickPrivate ssize_t
+  NTGetPageSize(void),
   NTSystemConfiguration(int),
   NTTellDirectory(DIR *);
 
@@ -142,8 +145,7 @@ extern MagickPrivate MagickBooleanType
   NTGatherRandomData(const size_t,unsigned char *),
   NTGetExecutionPath(char *,const size_t),
   NTGetModulePath(const char *,char *),
-  NTReportEvent(const char *,const MagickBooleanType),
-  NTReportException(const char *,const MagickBooleanType);
+  NTReportEvent(const char *,const MagickBooleanType);
 
 extern MagickPrivate struct dirent
   *NTReadDirectory(DIR *);

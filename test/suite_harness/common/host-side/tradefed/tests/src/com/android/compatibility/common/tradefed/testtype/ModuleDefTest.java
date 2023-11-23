@@ -36,6 +36,7 @@ import org.easymock.EasyMock;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -88,6 +89,16 @@ public class ModuleDefTest extends TestCase {
         }
 
         @Override
+        public void clearIncludeFilters() {
+            mIncludeFilters.clear();
+        }
+
+        @Override
+        public Set<String> getIncludeFilters() {
+            return new HashSet<>(mIncludeFilters);
+        }
+
+        @Override
         public void addExcludeFilter(String filter) {
             mExcludeFilters.add(filter);
         }
@@ -95,6 +106,16 @@ public class ModuleDefTest extends TestCase {
         @Override
         public void addAllExcludeFilters(Set<String> filters) {
             mExcludeFilters.addAll(filters);
+        }
+
+        @Override
+        public void clearExcludeFilters() {
+            mExcludeFilters.clear();
+        }
+
+        @Override
+        public Set<String> getExcludeFilters() {
+            return new HashSet<>(mExcludeFilters);
         }
 
         @Override

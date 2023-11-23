@@ -17,13 +17,14 @@
 package com.android.settings.widget;
 
 import android.content.Context;
-import android.support.v4.content.res.TypedArrayUtils;
-import android.support.v7.preference.CheckBoxPreference;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.TextView;
+
+import androidx.core.content.res.TypedArrayUtils;
+import androidx.preference.CheckBoxPreference;
+import androidx.preference.PreferenceViewHolder;
 
 import com.android.settings.R;
 
@@ -43,6 +44,8 @@ public class RadioButtonPreference extends CheckBoxPreference {
     }
 
     private OnClickListener mListener = null;
+    private View appendix;
+    private int appendixVisibility = -1;
 
     public RadioButtonPreference(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
@@ -53,7 +56,7 @@ public class RadioButtonPreference extends CheckBoxPreference {
 
     public RadioButtonPreference(Context context, AttributeSet attrs) {
         this(context, attrs, TypedArrayUtils.getAttr(context,
-                android.support.v7.preference.R.attr.preferenceStyle,
+                androidx.preference.R.attr.preferenceStyle,
                 android.R.attr.preferenceStyle));
     }
 
@@ -80,6 +83,10 @@ public class RadioButtonPreference extends CheckBoxPreference {
         if (summaryContainer != null) {
             summaryContainer.setVisibility(
                 TextUtils.isEmpty(getSummary()) ? View.GONE : View.VISIBLE);
+            appendix = view.findViewById(R.id.appendix);
+            if (appendix != null && appendixVisibility != -1) {
+                appendix.setVisibility(appendixVisibility);
+            }
         }
 
         TextView title = (TextView) view.findViewById(android.R.id.title);
@@ -87,5 +94,12 @@ public class RadioButtonPreference extends CheckBoxPreference {
             title.setSingleLine(false);
             title.setMaxLines(3);
         }
+    }
+
+    public void setAppendixVisibility(int visibility) {
+        if (appendix != null) {
+            appendix.setVisibility(visibility);
+        }
+        appendixVisibility = visibility;
     }
 }

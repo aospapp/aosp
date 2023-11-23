@@ -48,6 +48,7 @@
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/MediaCodec.h>
+#include <media/stagefright/MediaCodecConstants.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaMuxer.h>
 #include <media/stagefright/PersistentSurface.h>
@@ -58,7 +59,35 @@
 #include "Overlay.h"
 #include "FrameOutput.h"
 
-using namespace android;
+using android::ABuffer;
+using android::ALooper;
+using android::AMessage;
+using android::AString;
+using android::DisplayInfo;
+using android::FrameOutput;
+using android::IBinder;
+using android::IGraphicBufferProducer;
+using android::ISurfaceComposer;
+using android::MediaCodec;
+using android::MediaCodecBuffer;
+using android::MediaMuxer;
+using android::Overlay;
+using android::PersistentSurface;
+using android::ProcessState;
+using android::Rect;
+using android::String8;
+using android::SurfaceComposerClient;
+using android::Vector;
+using android::sp;
+using android::status_t;
+
+using android::DISPLAY_ORIENTATION_0;
+using android::DISPLAY_ORIENTATION_180;
+using android::DISPLAY_ORIENTATION_90;
+using android::INVALID_OPERATION;
+using android::NAME_NOT_FOUND;
+using android::NO_ERROR;
+using android::UNKNOWN_ERROR;
 
 static const uint32_t kMinBitRate = 100000;         // 0.1Mbps
 static const uint32_t kMaxBitRate = 200 * 1000000;  // 200Mbps
@@ -73,7 +102,7 @@ static bool gRotate = false;            // rotate 90 degrees
 static bool gMonotonicTime = false;     // use system monotonic time for timestamps
 static bool gPersistentSurface = false; // use persistent surface
 static enum {
-    FORMAT_MP4, FORMAT_H264, FORMAT_FRAMES, FORMAT_RAW_FRAMES
+    FORMAT_MP4, FORMAT_H264, FORMAT_WEBM, FORMAT_3GPP, FORMAT_FRAMES, FORMAT_RAW_FRAMES
 } gOutputFormat = FORMAT_MP4;           // data format for output
 static AString gCodecName = "";         // codec name override
 static bool gSizeSpecified = false;     // was size explicitly requested?
@@ -83,6 +112,7 @@ static uint32_t gVideoWidth = 0;        // default width+height
 static uint32_t gVideoHeight = 0;
 static uint32_t gBitRate = 20000000;     // 20Mbps
 static uint32_t gTimeLimitSec = kMaxTimeLimitSec;
+static uint32_t gBframes = 0;
 
 // Set by signal handler to stop recording.
 static volatile bool gStopRequested = false;
@@ -140,14 +170,6 @@ static status_t configureSignals() {
 }
 
 /*
- * Returns "true" if the device is rotated 90 degrees.
- */
-static bool isDeviceRotated(int orientation) {
-    return orientation != DISPLAY_ORIENTATION_0 &&
-            orientation != DISPLAY_ORIENTATION_180;
-}
-
-/*
  * Configures and starts the MediaCodec encoder.  Obtains an input surface
  * from the codec.
  */
@@ -162,15 +184,20 @@ static status_t prepareEncoder(float displayFps, sp<MediaCodec>* pCodec,
     }
 
     sp<AMessage> format = new AMessage;
-    format->setInt32("width", gVideoWidth);
-    format->setInt32("height", gVideoHeight);
-    format->setString("mime", kMimeTypeAvc);
-    format->setInt32("color-format", OMX_COLOR_FormatAndroidOpaque);
-    format->setInt32("bitrate", gBitRate);
-    format->setFloat("frame-rate", displayFps);
-    format->setInt32("i-frame-interval", 10);
+    format->setInt32(KEY_WIDTH, gVideoWidth);
+    format->setInt32(KEY_HEIGHT, gVideoHeight);
+    format->setString(KEY_MIME, kMimeTypeAvc);
+    format->setInt32(KEY_COLOR_FORMAT, OMX_COLOR_FormatAndroidOpaque);
+    format->setInt32(KEY_BIT_RATE, gBitRate);
+    format->setFloat(KEY_FRAME_RATE, displayFps);
+    format->setInt32(KEY_I_FRAME_INTERVAL, 10);
+    format->setInt32(KEY_MAX_B_FRAMES, gBframes);
+    if (gBframes > 0) {
+        format->setInt32(KEY_PROFILE, AVCProfileMain);
+        format->setInt32(KEY_LEVEL, AVCLevel41);
+    }
 
-    sp<ALooper> looper = new ALooper;
+    sp<android::ALooper> looper = new android::ALooper;
     looper->setName("screenrecord_looper");
     looper->start();
     ALOGV("Creating codec");
@@ -242,22 +269,11 @@ static status_t setDisplayProjection(
         const DisplayInfo& mainDpyInfo) {
 
     // Set the region of the layer stack we're interested in, which in our
-    // case is "all of it".  If the app is rotated (so that the width of the
-    // app is based on the height of the display), reverse width/height.
-    bool deviceRotated = isDeviceRotated(mainDpyInfo.orientation);
-    uint32_t sourceWidth, sourceHeight;
-    if (!deviceRotated) {
-        sourceWidth = mainDpyInfo.w;
-        sourceHeight = mainDpyInfo.h;
-    } else {
-        ALOGV("using rotated width/height");
-        sourceHeight = mainDpyInfo.w;
-        sourceWidth = mainDpyInfo.h;
-    }
-    Rect layerStackRect(sourceWidth, sourceHeight);
+    // case is "all of it".
+    Rect layerStackRect(mainDpyInfo.viewportW, mainDpyInfo.viewportH);
 
     // We need to preserve the aspect ratio of the display.
-    float displayAspect = (float) sourceHeight / (float) sourceWidth;
+    float displayAspect = (float) mainDpyInfo.viewportH / (float) mainDpyInfo.viewportW;
 
 
     // Set the way we map the output onto the display surface (which will
@@ -467,7 +483,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
         case -EAGAIN:                       // INFO_TRY_AGAIN_LATER
             ALOGV("Got -EAGAIN, looping");
             break;
-        case INFO_FORMAT_CHANGED:           // INFO_OUTPUT_FORMAT_CHANGED
+        case android::INFO_FORMAT_CHANGED:    // INFO_OUTPUT_FORMAT_CHANGED
             {
                 // Format includes CSD, which we must provide to muxer.
                 ALOGV("Encoder format changed");
@@ -484,7 +500,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
                 }
             }
             break;
-        case INFO_OUTPUT_BUFFERS_CHANGED:   // INFO_OUTPUT_BUFFERS_CHANGED
+        case android::INFO_OUTPUT_BUFFERS_CHANGED:   // INFO_OUTPUT_BUFFERS_CHANGED
             // Not expected for an encoder; handle it anyway.
             ALOGV("Encoder buffers changed");
             err = encoder->getOutputBuffers(&buffers);
@@ -552,6 +568,10 @@ static FILE* prepareRawOutput(const char* fileName) {
     return rawFp;
 }
 
+static inline uint32_t floorToEven(uint32_t num) {
+    return num & ~1;
+}
+
 /*
  * Main "do work" start point.
  *
@@ -571,27 +591,32 @@ static status_t recordScreen(const char* fileName) {
     self->startThreadPool();
 
     // Get main display parameters.
-    sp<IBinder> mainDpy = SurfaceComposerClient::getBuiltInDisplay(
-            ISurfaceComposer::eDisplayIdMain);
+    const sp<IBinder> mainDpy = SurfaceComposerClient::getInternalDisplayToken();
+    if (mainDpy == nullptr) {
+        fprintf(stderr, "ERROR: no display\n");
+        return NAME_NOT_FOUND;
+    }
+
     DisplayInfo mainDpyInfo;
     err = SurfaceComposerClient::getDisplayInfo(mainDpy, &mainDpyInfo);
     if (err != NO_ERROR) {
         fprintf(stderr, "ERROR: unable to get display characteristics\n");
         return err;
     }
+
     if (gVerbose) {
         printf("Main display is %dx%d @%.2ffps (orientation=%u)\n",
-                mainDpyInfo.w, mainDpyInfo.h, mainDpyInfo.fps,
+                mainDpyInfo.viewportW, mainDpyInfo.viewportH, mainDpyInfo.fps,
                 mainDpyInfo.orientation);
         fflush(stdout);
     }
 
-    bool rotated = isDeviceRotated(mainDpyInfo.orientation);
+    // Encoder can't take odd number as config
     if (gVideoWidth == 0) {
-        gVideoWidth = rotated ? mainDpyInfo.h : mainDpyInfo.w;
+        gVideoWidth = floorToEven(mainDpyInfo.viewportW);
     }
     if (gVideoHeight == 0) {
-        gVideoHeight = rotated ? mainDpyInfo.w : mainDpyInfo.h;
+        gVideoHeight = floorToEven(mainDpyInfo.viewportH);
     }
 
     // Configure and start the encoder.
@@ -669,7 +694,9 @@ static status_t recordScreen(const char* fileName) {
     sp<MediaMuxer> muxer = NULL;
     FILE* rawFp = NULL;
     switch (gOutputFormat) {
-        case FORMAT_MP4: {
+        case FORMAT_MP4:
+        case FORMAT_WEBM:
+        case FORMAT_3GPP: {
             // Configure muxer.  We have to wait for the CSD blob from the encoder
             // before we can start it.
             err = unlink(fileName);
@@ -682,7 +709,13 @@ static status_t recordScreen(const char* fileName) {
                 fprintf(stderr, "ERROR: couldn't open file\n");
                 abort();
             }
-            muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
+            if (gOutputFormat == FORMAT_MP4) {
+                muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_MPEG_4);
+            } else if (gOutputFormat == FORMAT_WEBM) {
+                muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_WEBM);
+            } else {
+                muxer = new MediaMuxer(fd, MediaMuxer::OUTPUT_FORMAT_THREE_GPP);
+            }
             close(fd);
             if (gRotate) {
                 muxer->setOrientationHint(90);  // TODO: does this do anything?
@@ -932,6 +965,7 @@ int main(int argc, char* const argv[]) {
         { "codec-name",         required_argument,  NULL, 'N' },
         { "monotonic-time",     no_argument,        NULL, 'm' },
         { "persistent-surface", no_argument,        NULL, 'p' },
+        { "bframes",            required_argument,  NULL, 'B' },
         { NULL,                 0,                  NULL, 0 }
     };
 
@@ -1002,6 +1036,10 @@ int main(int argc, char* const argv[]) {
                 gOutputFormat = FORMAT_MP4;
             } else if (strcmp(optarg, "h264") == 0) {
                 gOutputFormat = FORMAT_H264;
+            } else if (strcmp(optarg, "webm") == 0) {
+                gOutputFormat = FORMAT_WEBM;
+            } else if (strcmp(optarg, "3gpp") == 0) {
+                gOutputFormat = FORMAT_3GPP;
             } else if (strcmp(optarg, "frames") == 0) {
                 gOutputFormat = FORMAT_FRAMES;
             } else if (strcmp(optarg, "raw-frames") == 0) {
@@ -1019,6 +1057,11 @@ int main(int argc, char* const argv[]) {
             break;
         case 'p':
             gPersistentSurface = true;
+            break;
+        case 'B':
+            if (parseValueWithUnit(optarg, &gBframes) != NO_ERROR) {
+                return 2;
+            }
             break;
         default:
             if (ic != '?') {

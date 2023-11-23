@@ -19,10 +19,10 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.Element.DataKind;
-import android.support.v8.renderscript.Element.DataType;
-import android.support.v8.renderscript.RenderScript;
+import androidx.renderscript.Element;
+import androidx.renderscript.Element.DataKind;
+import androidx.renderscript.Element.DataType;
+import androidx.renderscript.RenderScript;
 
 public class UT_element extends UnitTest {
     Element simpleElem;

@@ -19,10 +19,7 @@ package com.android.tv.settings.users;
 import android.app.Fragment;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.pm.UserInfo;
 import android.os.Bundle;
-import android.os.UserHandle;
-import android.os.UserManager;
 import android.preference.PreferenceManager;
 
 import com.android.tv.settings.dialog.PinDialogFragment;
@@ -45,12 +42,11 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         void clearLockPassword(String oldPin);
 
         /**
-         * Check the PIN password for the specified userID
+         * Check the PIN password
          * @param password Password to check
-         * @param userId ID to check against
          * @return {@code True} if password is correct
          */
-        boolean checkPassword(String password, int userId);
+        boolean checkPassword(String password);
 
         /**
          * Query if there is a password set
@@ -113,7 +109,7 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
 
         if (callback != null) {
             callback.saveLockPassword(pin, originalPin,
-                    DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
+                    DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
         }
     }
 
@@ -149,12 +145,7 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         }
 
         if (callback != null) {
-            UserInfo myUserInfo = UserManager.get(getActivity()).getUserInfo(UserHandle.myUserId());
-            // UserInfo.restrictedProfileParentId may not be set if the restricted profile was
-            // created on Android M devices.
-            return myUserInfo != null && callback.checkPassword(pin,
-                    myUserInfo.restrictedProfileParentId == UserHandle.USER_NULL
-                            ? UserHandle.USER_OWNER : myUserInfo.restrictedProfileParentId);
+            return callback.checkPassword(pin);
         }
         return false;
     }
@@ -173,9 +164,7 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         }
 
         if (callback != null) {
-            UserInfo myUserInfo = UserManager.get(getActivity()).getUserInfo(UserHandle.myUserId());
-            return (myUserInfo != null && myUserInfo.isRestricted()) ||
-                    callback.hasLockscreenSecurity();
+            return callback.hasLockscreenSecurity();
         } else {
             throw new IllegalStateException("Can't call isPinSet when not attached");
         }

@@ -15,33 +15,15 @@
  */
 package com.google.android.car.usb.aoap.host;
 
-import android.app.Service;
-import android.car.IUsbAoapSupportCheckService;
-import android.content.Intent;
+import android.car.AoapService;
 import android.hardware.usb.UsbDevice;
-import android.os.IBinder;
 
 /**
  * Service to check is AOAP device supports Android Auto.
  */
-public class AoapSupportCheckService extends Service {
-
-    private final IUsbAoapSupportCheckService.Stub mBinder =
-            new IUsbAoapSupportCheckService.Stub() {
-                public boolean isDeviceSupported(UsbDevice device) {
-                    // TODO: do some check.
-                    return true;
-                }
-            };
-
+public class AoapSupportCheckService extends AoapService {
     @Override
-    public void onCreate() {
-        super.onCreate();
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        // Return the interface
-        return mBinder;
+    public int isDeviceSupported(UsbDevice device) {
+        return RESULT_OK;
     }
 }

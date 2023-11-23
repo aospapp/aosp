@@ -87,7 +87,8 @@ public final class ConnectionSpecTest {
     SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
     socket.setEnabledCipherSuites(new String[] {
         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
     });
     socket.setEnabledProtocols(new String[] {
         TlsVersion.TLS_1_2.javaName,
@@ -102,7 +103,8 @@ public final class ConnectionSpecTest {
     Set<String> expectedCipherSet =
         set(
             CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
-            CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName);
+            // Android-changed: Replace removed CBC cipher with GCM version
+            CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName);
     assertEquals(expectedCipherSet, expectedCipherSet);
   }
 
@@ -115,7 +117,8 @@ public final class ConnectionSpecTest {
     SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
     socket.setEnabledCipherSuites(new String[] {
         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
     });
     socket.setEnabledProtocols(new String[] {
         TlsVersion.TLS_1_2.javaName,
@@ -130,7 +133,8 @@ public final class ConnectionSpecTest {
     Set<String> expectedCipherSet =
         set(
             CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
-            CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName);
+            // Android-changed: Replace removed CBC cipher with GCM version
+            CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName);
     if (Arrays.asList(socket.getSupportedCipherSuites()).contains("TLS_FALLBACK_SCSV")) {
       expectedCipherSet.add("TLS_FALLBACK_SCSV");
     }
@@ -147,7 +151,8 @@ public final class ConnectionSpecTest {
     SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
     socket.setEnabledCipherSuites(new String[] {
         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
     });
     socket.setEnabledProtocols(new String[] {
         TlsVersion.TLS_1_2.javaName,
@@ -189,13 +194,15 @@ public final class ConnectionSpecTest {
     });
 
     socket.setEnabledCipherSuites(new String[] {
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
     });
     assertTrue(tlsSpec.isCompatible(socket));
 
     socket.setEnabledCipherSuites(new String[] {
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
     });
     assertFalse(tlsSpec.isCompatible(socket));
   }
@@ -208,13 +215,15 @@ public final class ConnectionSpecTest {
 
     SSLSocket sslSocket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
     sslSocket.setEnabledCipherSuites(new String[] {
-        CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+        // Android-changed: Replace removed CBC cipher with GCM version
+        CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
         CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName,
     });
 
     tlsSpec.apply(sslSocket, false);
     assertEquals(Arrays.asList(
-            CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256.javaName,
+            // Android-changed: Replace removed CBC cipher with GCM version
+            CipherSuite.TLS_RSA_WITH_AES_128_GCM_SHA256.javaName,
             CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA.javaName),
         Arrays.asList(sslSocket.getEnabledCipherSuites()));
   }

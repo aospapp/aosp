@@ -15,22 +15,24 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
-import android.support.wear.ambient.AmbientMode;
 
-public class InLineActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
+public class InLineActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         getFragmentManager()
                 .beginTransaction()
@@ -87,9 +89,9 @@ public class InLineActivity extends Activity implements AmbientMode.AmbientCallb
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

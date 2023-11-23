@@ -33,10 +33,12 @@
     <string name="menu_open_with" msgid="5507647065467520229">"ଏଥିରେ ଖୋଲନ୍ତୁ"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ"</string>
     <string name="menu_save" msgid="5195367497138965168">"ସେଭ୍‌ କରନ୍ତୁ"</string>
-    <string name="menu_share" msgid="4307140947108068356">"ଶେୟାର୍‍ କରନ୍ତୁ"</string>
+    <string name="menu_share" msgid="4307140947108068356">"ସେୟାର୍‍ କରନ୍ତୁ"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ଡିଲିଟ୍‌ କରନ୍ତୁ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ସବୁ ଚୟନ କରନ୍ତୁ"</string>
-    <string name="menu_copy" msgid="7404820171352314754">"ଏଥିକୁ କପୀ କରନ୍ତୁ…"</string>
+    <string name="menu_select" msgid="1366061076507142387">"ଚୟନ କରନ୍ତୁ"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"ଏହି ଅନୁସାରେ ସଜାନ୍ତୁ..."</string>
+    <string name="menu_copy" msgid="7404820171352314754">"ଏଠାକୁ କପି କରନ୍ତୁ…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ଏଥିକୁ ନିଅନ୍ତୁ…"</string>
     <string name="menu_compress" msgid="37539111904724188">"ଛୋଟ କରନ୍ତୁ"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ଏଠାକୁ ଏକ୍ସଟ୍ରାକ୍ଟ କରନ୍ତୁ…"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"ପ୍ରକାର"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"ଆକାର"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"ଗତଥର ସଂଶୋଧିତ"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ଫାଇଲ୍‍ ନାମ (A ରୁ Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ଟାଇପ୍‌ (A ରୁ Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"ଆକାର (ପ୍ରଥମେ ଛୋଟ)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"ପରିବର୍ତ୍ତିତ(ପ୍ରଥମେ ପୁରୁଣା)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ଫାଇଲ୍‍ ନାମ (Z ରୁ A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ଟାଇପ୍‍ (Z ରୁ A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"ଆକାର (ପ୍ରଥମେ ବୃହତ)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"ପରିବର୍ତ୍ତିତ(ପ୍ରଥମେ ନୂଆ)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"ଏହି ଅନୁସାରେ ସଜାନ୍ତୁ"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g> ଦ୍ବାରା ସର୍ଟ ହୋଇଛି"</string>
     <string name="directory_items" msgid="6645621978998614003">"ଆଇଟମ୍‌ଗୁଡ଼ିକର ସଂଖ୍ୟା"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ସାନରୁ ବଡ଼ କ୍ରମରେ"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ବଡ଼ରୁ ସାନ କ୍ରମରେ"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> ଖୋଲନ୍ତୁ।"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ରୁଟ୍‍ ଦେଖାନ୍ତୁ"</string>
     <string name="drawer_close" msgid="4263880768630848848">"ରୁଟ୍‍ ଲୁଚାନ୍ତୁ"</string>
     <string name="save_error" msgid="8631128801982095782">"ଡକୁମେଣ୍ଟକୁ ସେଭ୍‍ କରିପାରିଲା ନାହିଁ"</string>
@@ -84,7 +97,7 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ଫାଇଲ୍‍ ଖୋଲିହେବ ନାହିଁ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ସଂଗ୍ରହରେ ଥିବା ଫାଇଲ୍‍ ଖୋଲିପାରିବ ନାହିଁ"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"କିଛି ଡକୁମେଣ୍ଟ ଡିଲିଟ୍‍ କରିହେବ ନାହିଁ"</string>
-    <string name="share_via" msgid="8725082736005677161">"ଏହା ମାଧ୍ୟମରେ ଶେୟାର୍‌ କରନ୍ତୁ"</string>
+    <string name="share_via" msgid="8725082736005677161">"ଏହା ମାଧ୍ୟମରେ ସେୟାର୍‌ କରନ୍ତୁ"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ଫାଇଲ୍‌ଗୁଡ଼ିକ କପୀ କରାଯାଉଛି"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ଫାଇଲ୍‍ ଛୋଟ କରାଯାଉଛି"</string>
     <string name="extract_notification_title" msgid="5067393961754430469">"ଫାଇଲ୍‍ ଏକ୍ସଟ୍ରାକ୍ଟ କରିବା"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g>ରେ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ଡିରେକ୍ଟୋରୀକୁ <xliff:g id="APPNAME"><b>^1</b></xliff:g>ର ଆକ୍ସେସ୍‍ ମଞ୍ଜୁରୀ ଦେବେ?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ଡିରେକ୍ଟୋରୀକୁ <xliff:g id="APPNAME"><b>^1</b></xliff:g>ର ଆକ୍ସେସ୍‍ ମଞ୍ଜୁରୀ ଦେବେ?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"ଫଟୋ ଓ ଭିଡିଓ ସମେତ <xliff:g id="STORAGE"><i>^2</i></xliff:g>ରେ, ଆପଣଙ୍କ ଡାଟାକୁ <xliff:g id="APPNAME"><b>^1</b></xliff:g>ର ଆକ୍ସେସ୍‍ ମଞ୍ଜୁରୀ ଦେବେ?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"ପୁଣି ପଚାରନ୍ତୁ ନାହିଁ"</string>
     <string name="allow" msgid="1275746941353040309">"ଅନୁମତି ଦିଅନ୍ତୁ"</string>
     <string name="deny" msgid="5127201668078153379">"ପ୍ରତ୍ୟାଖ୍ୟାନ କରନ୍ତୁ"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"ସଂଗ୍ରହ<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>ଙ୍କୁ ବଦଳାଇବେ?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ବ୍ୟାକଗ୍ରାଉଣ୍ଡରେ ଜାରିରଖନ୍ତୁ"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>ଟି ଚୟନ କରାଯାଇଛି</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>ଟି ଚୟନ କରାଯାଇଛି</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ଫୋନ୍‌ରେ ଥିବା କିଛି ସମୟପୂର୍ବର ଫାଇଲ୍‌ଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ଫୋନ୍‌ରେ ଥିବା ଫାଇଲ୍‌ଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"ଫୋନ୍‌ରେ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g>ରେ ଥିବା ଫାଇଲ୍‌ଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>ରୁ ଫାଇଲ୍‍ଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>ରୁ ଫାଇଲ୍‌ଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ଫୋନ୍‌ରେ ଥିବା ବର୍ତ୍ତମାନର ଛବିଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ଫୋନ୍‌ରେ ଥିବା ଛବିଗୁଡ଼ିକ"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>ରେ ଥିବା ଛବି"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ରୁ ଛବି"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>ରୁ ଛବିଗୁଡ଼ିିିିକ"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"ଛବି"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ଅଡିଓ"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"ଭିଡିଓ"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ଡକ୍ୟୁମେଣ୍ଟ"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ଫୋଲ୍ଡର୍‌ ନାମ"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"ନୂଆ ନାମ"</string>
+    <string name="preview_file" msgid="4056622696305432343">"ଫାଇଲ୍‍ <xliff:g id="FILENAME">%1$s</xliff:g> ପୂର୍ବାବଲୋକନ କରନ୍ତୁ"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ଅନ୍ୟ ଆପ୍ସରେ ଫାଇଲ୍‍ ବ୍ରାଉଜ୍‍ କରନ୍ତୁ"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"ବେନାମୀ"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"କୁ ଆକ୍ସେସ୍‌ କରିବା ପାଇଁ ଅନୁମତି ଦିଅନ୍ତୁ"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\"ରେ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"କୁ ଆକ୍ସେସ୍ କରିବା ପାଇଁ ଅନୁମତି ଦେବେ କି?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ଏହା \"<xliff:g id="APPNAME">%1$s</xliff:g>\"କୁ ଏହି ଲୋକେସନ୍‌ରେ ଏବେ ଷ୍ଟୋର୍ ହୋଇଥିବା ଏବଂ ଏଠାରେ ଭବିଷ୍ୟତରେ ଷ୍ଟୋର୍ ହେବାକୁ ଥିବା ସମସ୍ତ ଫାଇଲ୍‌କୁ ସମ୍ପୂର୍ଣ୍ଣ ଆକ୍ସେସ୍‍‍‍‍ କରିବାକୁ ଅନୁମତି ଦେବ।"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ଏହି ଫୋନ୍‌ ଖୋଜନ୍ତୁ"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"ସର୍ଚ୍ଚ ଇତିବୃତ୍ତି <xliff:g id="TEXT">%1$s</xliff:g>କୁ ଡିଲିଟ୍‌ କରନ୍ତୁ"</string>
 </resources>

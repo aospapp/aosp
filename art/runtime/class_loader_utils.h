@@ -18,10 +18,11 @@
 #define ART_RUNTIME_CLASS_LOADER_UTILS_H_
 
 #include "art_field-inl.h"
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "handle_scope.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class_loader.h"
+#include "mirror/object-inl.h"
 #include "native/dalvik_system_DexFile.h"
 #include "scoped_thread_state_change-inl.h"
 #include "well_known_classes.h"
@@ -29,11 +30,11 @@
 namespace art {
 
 // Returns true if the given class loader is either a PathClassLoader or a DexClassLoader.
-// (they both have the same behaviour with respect to class lockup order)
+// (they both have the same behaviour with respect to class lookup order)
 inline bool IsPathOrDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
                                    Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  mirror::Class* class_loader_class = class_loader->GetClass();
+  ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
   return
       (class_loader_class ==
           soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader)) ||
@@ -41,10 +42,19 @@ inline bool IsPathOrDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
           soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DexClassLoader));
 }
 
+// Returns true if the given class loader is an InMemoryDexClassLoader.
+inline bool IsInMemoryDexClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
+                                     Handle<mirror::ClassLoader> class_loader)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
+  return (class_loader_class ==
+      soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_InMemoryDexClassLoader));
+}
+
 inline bool IsDelegateLastClassLoader(ScopedObjectAccessAlreadyRunnable& soa,
                                       Handle<mirror::ClassLoader> class_loader)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  mirror::Class* class_loader_class = class_loader->GetClass();
+  ObjPtr<mirror::Class> class_loader_class = class_loader->GetClass();
   return class_loader_class ==
       soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DelegateLastClassLoader);
 }
@@ -88,7 +98,6 @@ inline RetType VisitClassLoaderDexElements(ScopedObjectAccessAlreadyRunnable& so
         }
       }
     }
-    self->AssertNoPendingException();
   }
   return defaultReturn;
 }
@@ -147,14 +156,20 @@ inline void VisitClassLoaderDexFiles(ScopedObjectAccessAlreadyRunnable& soa,
                                      Handle<mirror::ClassLoader> class_loader,
                                      Visitor fn)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  auto helper = [&fn](const art::DexFile* dex_file, void** ATTRIBUTE_UNUSED)
+  auto helper = [&fn](const art::DexFile* dex_file, void** ret)
       REQUIRES_SHARED(Locks::mutator_lock_) {
+#ifdef __clang_analyzer__
+    *ret = nullptr;
+#else
+    UNUSED(ret);
+#endif
+
     return fn(dex_file);
   };
   VisitClassLoaderDexFiles<decltype(helper), void*>(soa,
                                                     class_loader,
                                                     helper,
-                                                    /* default */ nullptr);
+                                                    /* default= */ nullptr);
 }
 
 }  // namespace art

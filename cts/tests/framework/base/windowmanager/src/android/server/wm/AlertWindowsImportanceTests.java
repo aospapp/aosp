@@ -19,11 +19,16 @@ package android.server.wm;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE_PRE_26;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+import static android.app.AppOpsManager.MODE_ALLOWED;
+import static android.app.AppOpsManager.MODE_ERRORED;
+import static android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW;
 import static android.content.Context.BIND_ALLOW_OOM_MANAGEMENT;
 import static android.content.Context.BIND_AUTO_CREATE;
 import static android.content.Context.BIND_NOT_FOREGROUND;
 import static android.server.wm.alertwindowappsdk25.Components.SDK25_ALERT_WINDOW_TEST_ACTIVITY;
 import static android.server.wm.alertwindowservice.Components.ALERT_WINDOW_SERVICE;
+
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
 
@@ -31,8 +36,8 @@ import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.content.ServiceConnection;
+import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -42,16 +47,13 @@ import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.alertwindowservice.AlertWindowService;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.AppOpsUtils;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.ToIntFunction;
@@ -61,7 +63,6 @@ import java.util.function.ToIntFunction;
  *     atest CtsWindowManagerDeviceTestCases:AlertWindowsImportanceTests
  */
 @Presubmit
-@RunWith(AndroidJUnit4.class)
 public final class AlertWindowsImportanceTests {
 
     private static final String TAG = "AlertWindowsTests";
@@ -82,7 +83,7 @@ public final class AlertWindowsImportanceTests {
     @Before
     public void setUp() throws Exception {
         if (DEBUG) Log.e(TAG, "setUp");
-        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context context = getInstrumentation().getTargetContext();
 
         mAm = context.getSystemService(ActivityManager.class);
         mAm25 = context.createPackageContext(SDK25_ALERT_WINDOW_TEST_ACTIVITY.getPackageName(), 0)
@@ -107,7 +108,7 @@ public final class AlertWindowsImportanceTests {
         if (mService != null) {
             mService.send(Message.obtain(null, AlertWindowService.MSG_REMOVE_ALL_ALERT_WINDOWS));
         }
-        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context context = getInstrumentation().getTargetContext();
         context.unbindService(mConnection);
         mAm = null;
         mAm25 = null;
@@ -170,28 +171,32 @@ public final class AlertWindowsImportanceTests {
     }
 
     private void setAlertWindowPermission(boolean allow) throws Exception {
-        final String cmd = "appops set " + mServicePackageName
-                + " android:system_alert_window " + (allow ? "allow" : "deny");
-        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), cmd);
+        final int mode = allow ? MODE_ALLOWED : MODE_ERRORED;
+        AppOpsUtils.setOpMode(mServicePackageName, OPSTR_SYSTEM_ALERT_WINDOW, mode);
     }
 
     private void assertImportance(ToIntFunction<ActivityManager> apiCaller,
             int expectedForO, int expectedForPreO) throws Exception {
-        final long TIMEOUT = SystemClock.uptimeMillis() + TimeUnit.SECONDS.toMillis(30);
-        int actual;
+        try {
+            getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
 
-        do {
-            // TODO: We should try to use ActivityManagerTest.UidImportanceListener here to listen
-            // for changes in the uid importance. However, the way it is currently structured
-            // doesn't really work for this use case right now...
-            Thread.sleep(500);
-            actual = apiCaller.applyAsInt(mAm);
-        } while (actual != expectedForO && (SystemClock.uptimeMillis() < TIMEOUT));
+            final long TIMEOUT = SystemClock.uptimeMillis() + TimeUnit.SECONDS.toMillis(30);
+            int actual;
+            do {
+                // TODO: We should try to use ActivityManagerTest.UidImportanceListener here to
+                // listen for changes in the uid importance. However, the way it is currently
+                // structured doesn't really work for this use case right now...
+                Thread.sleep(500);
+                actual = apiCaller.applyAsInt(mAm);
+            } while (actual != expectedForO && (SystemClock.uptimeMillis() < TIMEOUT));
 
-        assertEquals(expectedForO, actual);
+            assertEquals(expectedForO, actual);
 
-        // Check the result for pre-O apps.
-        assertEquals(expectedForPreO, apiCaller.applyAsInt(mAm25));
+            // Check the result for pre-O apps.
+            assertEquals(expectedForPreO, apiCaller.applyAsInt(mAm25));
+        } finally {
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
     }
 
     /**
@@ -249,7 +254,7 @@ public final class AlertWindowsImportanceTests {
     }
 
     private boolean isRunningInVR() {
-        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context context = getInstrumentation().getTargetContext();
         if ((context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK)
              == Configuration.UI_MODE_TYPE_VR_HEADSET) {
             return true;

@@ -15,8 +15,6 @@
  */
 package com.android.cts.packageaccessapp;
 
-import static junit.framework.Assert.assertFalse;
-
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
@@ -24,12 +22,12 @@ import static org.junit.Assert.fail;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.internal.runners.statements.Fail;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 

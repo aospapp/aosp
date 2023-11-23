@@ -106,7 +106,7 @@ static void custom_poll_timer_handler(uint32_t timerId, void* pContext) {
 
     phNxpNciHal_stop_polling_loop();
   } else {
-    NXPLOG_NCIHAL_E(
+    NXPLOG_NCIHAL_D(
         ">> custom_poll_timer_handler - invalid flag state (iso_dep_detected)");
   }
 
@@ -367,7 +367,7 @@ NFCSTATUS phNxpNciHal_NfcDep_comapre_ntf(uint8_t* p_cmd_data,
     if (ret_val != 0) {
       NXPLOG_NCIHAL_E("Third notification is not equal to last");
     } else {
-      NXPLOG_NCIHAL_E(
+      NXPLOG_NCIHAL_D(
           "Third notification is equal to last (disable p2p logic)");
       status = NFCSTATUS_SUCCESS;
     }
@@ -413,7 +413,7 @@ extern NFCSTATUS phNxpNciHal_clean_P2P_Prio() {
 void* tmp_thread(void* tmp) {
   NFCSTATUS status = NFCSTATUS_SUCCESS;
   uint16_t data_len;
-  NXPLOG_NCIHAL_E("tmp_thread: enter type=0x0%x", *((int*)tmp));
+  NXPLOG_NCIHAL_W("tmp_thread: enter type=0x0%x", *((int*)tmp));
   usleep(10 * 1000);
 
   switch (*((int*)tmp)) {
@@ -470,7 +470,7 @@ void* tmp_thread(void* tmp) {
       break;
   }
 
-  NXPLOG_NCIHAL_E("tmp_thread: exit");
+  NXPLOG_NCIHAL_W("tmp_thread: exit");
   return NULL;
 }
 /*******************************************************************************

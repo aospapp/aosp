@@ -21,15 +21,23 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.DeviceUnresponsiveException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.metric.IMetricCollector;
+import com.android.tradefed.invoker.shard.token.ITokenRequest;
+import com.android.tradefed.log.ILogRegistry;
+import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.IReportNotExecuted;
 import com.android.tradefed.testtype.StubTest;
+import com.android.tradefed.testtype.suite.ITestSuite;
+import com.android.tradefed.testtype.suite.ITestSuiteTest.TestSuiteImpl;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,6 +46,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -49,11 +58,13 @@ public class TestsPoolPollerTest {
     private ITestInvocationListener mListener;
     private ITestDevice mDevice;
     private List<IMetricCollector> mMetricCollectors;
+    private ILogRegistry mMockRegistry;
 
     @Before
     public void setUp() {
         mListener = Mockito.mock(ITestInvocationListener.class);
         mDevice = Mockito.mock(ITestDevice.class);
+        mMockRegistry = Mockito.mock(ILogRegistry.class);
         Mockito.doReturn("serial").when(mDevice).getSerialNumber();
         mMetricCollectors = new ArrayList<>();
     }
@@ -108,7 +119,7 @@ public class TestsPoolPollerTest {
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         assertEquals(0, tracker.getCount());
     }
 
@@ -139,7 +150,7 @@ public class TestsPoolPollerTest {
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         assertEquals(0, tracker.getCount());
     }
 
@@ -170,7 +181,7 @@ public class TestsPoolPollerTest {
         Mockito.verify(mListener, Mockito.times(numTests))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         assertEquals(0, tracker.getCount());
     }
 
@@ -198,6 +209,7 @@ public class TestsPoolPollerTest {
         TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
         poller.setMetricCollectors(mMetricCollectors);
         poller.setDevice(mDevice);
+        poller.setLogRegistry(mMockRegistry);
         try {
             poller.run(mListener);
             fail("Should have thrown an exception.");
@@ -208,8 +220,68 @@ public class TestsPoolPollerTest {
         Mockito.verify(mListener, Mockito.times(0))
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(0))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, String>>any());
         assertEquals(0, tracker.getCount());
+        Mockito.verify(mMockRegistry)
+                .logEvent(
+                        Mockito.eq(LogLevel.DEBUG),
+                        Mockito.eq(EventType.SHARD_POLLER_EARLY_TERMINATION),
+                        Mockito.any());
+    }
+
+    /**
+     * Test that a runner that implements {@link IReportNotExecuted} can report the non-executed
+     * tests when the DNAE occurs.
+     */
+    @Test
+    public void testRun_dnae_reportNotExecuted() throws Exception {
+        List<IRemoteTest> testsList = new ArrayList<>();
+        // Add one bad test first that will throw an exception.
+        IRemoteTest badTest = new StubTest();
+        OptionSetter setter = new OptionSetter(badTest);
+        setter.setOptionValue("test-throw-not-available", "true");
+        testsList.add(badTest);
+        // Add tests that from a suite that can report their not executed tests.
+        int numTests = 5;
+        ITestSuite suite = new TestSuiteImpl(numTests);
+        testsList.addAll(suite.split(3));
+        CountDownLatch tracker = new CountDownLatch(1);
+        TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
+        poller.setMetricCollectors(mMetricCollectors);
+        poller.setDevice(mDevice);
+        poller.setLogRegistry(mMockRegistry);
+        try {
+            poller.run(mListener);
+            fail("Should have thrown an exception.");
+        } catch (DeviceNotAvailableException expected) {
+            // expected
+        }
+        // We expect all the non-executed tests to be reported.
+        Mockito.verify(mListener, Mockito.times(1))
+                .testRunStarted(
+                        Mockito.eq("test"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mListener, Mockito.times(1))
+                .testRunStarted(
+                        Mockito.eq("test1"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mListener, Mockito.times(1))
+                .testRunStarted(
+                        Mockito.eq("test2"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mListener, Mockito.times(1))
+                .testRunStarted(
+                        Mockito.eq("test3"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mListener, Mockito.times(1))
+                .testRunStarted(
+                        Mockito.eq("test4"), Mockito.eq(0), Mockito.eq(0), Mockito.anyLong());
+        Mockito.verify(mListener, Mockito.times(5))
+                .testRunFailed(IReportNotExecuted.NOT_EXECUTED_FAILURE);
+        Mockito.verify(mListener, Mockito.times(5))
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
+        assertEquals(0, tracker.getCount());
+        Mockito.verify(mMockRegistry)
+                .logEvent(
+                        Mockito.eq(LogLevel.DEBUG),
+                        Mockito.eq(EventType.SHARD_POLLER_EARLY_TERMINATION),
+                        Mockito.any());
     }
 
     /**
@@ -244,11 +316,102 @@ public class TestsPoolPollerTest {
                 .testRunStarted(Mockito.anyString(), Mockito.anyInt());
         Mockito.verify(mListener, Mockito.times(numTests)).testStarted(Mockito.any());
         Mockito.verify(mListener, Mockito.times(numTests))
-                .testEnded(Mockito.any(), (HashMap<String, Metric>) Mockito.any());
+                .testEnded(Mockito.any(), Mockito.<HashMap<String, Metric>>any());
         Mockito.verify(mListener, Mockito.times(numTests))
-                .testRunEnded(Mockito.anyLong(), (HashMap<String, Metric>) Mockito.any());
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
         Mockito.verify(mDevice).waitForDeviceAvailable(Mockito.anyLong());
         Mockito.verify(mDevice).reboot();
         assertEquals(2, tracker.getCount());
+    }
+
+    /**
+     * If a device not available exception is thrown from a tests, and the poller is not the last
+     * one alive, we wait and attempt to recover the device. In case of failure, execution will not
+     * proceed and we log an event.
+     */
+    @Test
+    public void testRun_dnae_NotLastDevice_offline() throws Exception {
+        List<IRemoteTest> testsList = new ArrayList<>();
+        // Add one bad test first that will throw an exception.
+        IRemoteTest badTest = new StubTest();
+        OptionSetter setter = new OptionSetter(badTest);
+        setter.setOptionValue("test-throw-not-available", "true");
+        testsList.add(badTest);
+        // Add tests that can run
+        int numTests = 5;
+        for (int i = 0; i < numTests; i++) {
+            IRemoteTest test = new StubTest();
+            OptionSetter s = new OptionSetter(test);
+            s.setOptionValue("run-a-test", "true");
+            testsList.add(test);
+        }
+        CountDownLatch tracker = new CountDownLatch(3);
+        TestsPoolPoller poller = new TestsPoolPoller(testsList, tracker);
+        poller.setMetricCollectors(mMetricCollectors);
+        poller.setDevice(mDevice);
+        poller.setLogRegistry(mMockRegistry);
+
+        Mockito.doThrow(new DeviceNotAvailableException())
+                .when(mDevice)
+                .waitForDeviceAvailable(Mockito.anyLong());
+        try {
+            poller.run(mListener);
+            fail("Should have thrown an exception.");
+        } catch (DeviceNotAvailableException expected) {
+            assertEquals(StubTest.DNAE_MESSAGE, expected.getMessage());
+        }
+        // The callbacks from all the other tests are not called because device was unavailable.
+        Mockito.verify(mListener, Mockito.times(0))
+                .testRunStarted(Mockito.anyString(), Mockito.anyInt());
+        Mockito.verify(mListener, Mockito.times(0)).testStarted(Mockito.any());
+        Mockito.verify(mListener, Mockito.times(0))
+                .testEnded(Mockito.any(), Mockito.<HashMap<String, String>>any());
+        Mockito.verify(mListener, Mockito.times(0))
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, String>>any());
+        Mockito.verify(mDevice).waitForDeviceAvailable(Mockito.anyLong());
+        Mockito.verify(mDevice, Mockito.times(0)).reboot();
+        assertEquals(2, tracker.getCount());
+
+        Mockito.verify(mMockRegistry)
+                .logEvent(
+                        Mockito.eq(LogLevel.DEBUG),
+                        Mockito.eq(EventType.SHARD_POLLER_EARLY_TERMINATION),
+                        Mockito.any());
+    }
+
+    @Test
+    public void testPolling_tokens_notExecuted() throws Exception {
+        int numTests = 5;
+        List<IRemoteTest> testsList = new ArrayList<>();
+        for (int i = 0; i < numTests; i++) {
+            IRemoteTest test = new StubTest();
+            OptionSetter setter = new OptionSetter(test);
+            setter.setOptionValue("run-a-test", "true");
+            testsList.add(test);
+        }
+
+        ITokenRequest tokenTest = new TokenTestClass();
+        ITokenRequest tokenTest2 = new TokenTestClass();
+
+        Collection<ITokenRequest> tokenList = new ArrayList<>();
+        tokenList.add(tokenTest);
+        tokenList.add(tokenTest2);
+
+        CountDownLatch tracker = new CountDownLatch(1);
+        TestsPoolPoller poller = new TestsPoolPoller(testsList, tokenList, tracker);
+        poller.setMetricCollectors(mMetricCollectors);
+        poller.setDevice(mDevice);
+        poller.run(mListener);
+        Mockito.verify(mListener, Mockito.times(numTests))
+                .testRunStarted(Mockito.anyString(), Mockito.anyInt());
+        Mockito.verify(mListener, Mockito.times(numTests))
+                .testRunEnded(Mockito.anyLong(), Mockito.<HashMap<String, Metric>>any());
+        assertEquals(0, tracker.getCount());
+
+        // The two tokens test did not execute.
+        Mockito.verify(mListener, Mockito.times(2))
+                .testFailed(
+                        new TestDescription("token.class", "token.test"),
+                        "Test did not run. No token '[SIM_CARD]' matching it on any device.");
     }
 }

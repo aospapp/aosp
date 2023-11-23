@@ -27,7 +27,7 @@
         android:forceHasOverlappingRendering="false">
 
         <ProgressBar
-            style="@android:style/Widget.Material.ProgressBar"
+            style="@android:style/Widget.DeviceDefault.ProgressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
@@ -35,102 +35,58 @@
 
     </FrameLayout>
 
-    <FrameLayout android:layout_width="match_parent"
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/preview_gradient_background_height"
+        android:layout_gravity="top"
+        android:background="@drawable/gradient_background"/>
+
+    <FrameLayout
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="true">
 
-        <android.support.design.widget.CoordinatorLayout
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:id="@+id/coordinator_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom">
+            android:layout_gravity="bottom"
+            android:orientation="vertical">
 
-            <RelativeLayout android:id="@+id/bottom_sheet"
+            <LinearLayout
+                android:id="@+id/bottom_pane"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:minHeight="@dimen/preview_attribution_pane_expanded_height"
-                android:orientation="vertical"
                 android:background="@color/translucent_black"
+                android:orientation="vertical"
                 app:behavior_peekHeight="@dimen/preview_attribution_pane_collapsed_height"
-                app:layout_behavior="android.support.design.widget.BottomSheetBehavior">
+                app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
-                <ImageButton android:id="@+id/preview_attribution_pane_arrow"
-                    android:contentDescription="@string/expand_attribution_panel"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_alignParentEnd="true"
-                    android:focusable="true"
-                    android:clickable="true"
-                    android:src="@drawable/ic_keyboard_arrow_up_white_24dp"
-                    style="?android:attr/borderlessButtonStyle"/>
-
-                <TextView
-                    android:id="@+id/preview_attribution_pane_title"
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tablayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="start"
-                    android:layout_marginStart="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginEnd="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginTop="@dimen/preview_attribution_pane_title_top_margin"
-                    android:layout_toStartOf="@id/preview_attribution_pane_arrow"
-                    android:ellipsize="end"
-                    android:textAppearance="@style/AttributionPaneTitle"
-                    android:forceHasOverlappingRendering="false"/>
-
-                <TextView android:id="@+id/preview_attribution_pane_subtitle1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginEnd="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginTop="@dimen/preview_attribution_pane_subtitle1_top_margin"
-                    android:layout_below="@id/preview_attribution_pane_title"
-                    android:layout_toStartOf="@id/preview_attribution_pane_arrow"
-                    android:textAppearance="@android:style/TextAppearance.Material.Body1"
-                    android:forceHasOverlappingRendering="false"/>
-
-                <TextView android:id="@+id/preview_attribution_pane_subtitle2"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="@dimen/abc_text_size_caption_material"
-                    android:layout_marginStart="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginEnd="@dimen/preview_attribution_pane_content_side_margin"
-                    android:layout_marginTop="@dimen/preview_attribution_pane_subtitle2_top_margin"
-                    android:layout_below="@id/preview_attribution_pane_subtitle1"
-                    android:layout_toStartOf="@id/preview_attribution_pane_arrow"
-                    android:textAppearance="@android:style/TextAppearance.Material.Caption"
-                    android:forceHasOverlappingRendering="false"/>
-
-                <Button android:id="@+id/preview_attribution_pane_explore_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="?android:attr/colorAccent"
-                    android:layout_marginLeft="@dimen/preview_attribution_pane_explore_left_margin"
-                    android:layout_marginStart="@dimen/preview_attribution_pane_explore_left_margin"
-                    android:layout_marginTop="@dimen/preview_attribution_pane_explore_top_margin"
-                    android:layout_marginBottom="@dimen/preview_attribution_pane_explore_bottom_margin"
-                    android:layout_below="@id/preview_attribution_pane_subtitle2"
-                    android:layout_gravity="center_vertical"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:forceHasOverlappingRendering="false"/>
-
-                <View android:id="@id/spacer"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/preview_attribution_pane_spacer_height"
-                    android:layout_below="@id/preview_attribution_pane_subtitle2"
+                    style="@style/TabLayoutStyle"
                     android:visibility="gone"/>
 
-            </RelativeLayout>
+                <com.android.wallpaper.livepicker.widget.ConstraintViewPager
+                    android:id="@+id/viewpager"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"/>
 
-        </android.support.design.widget.CoordinatorLayout>
+            </LinearLayout>
 
-        <android.widget.Toolbar android:id="@+id/toolbar"
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+        <android.widget.Toolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:paddingStart="@dimen/preview_toolbar_up_button_padding"
-            android:paddingEnd="@dimen/preview_toolbar_set_wallpaper_button_end_padding"
-            style="@style/TranslucentToolbarStyle"/>
+            style="@style/TranslucentToolbarStyle"
+            android:paddingStart="@dimen/preview_toolbar_start_padding"
+            android:paddingEnd="@dimen/preview_toolbar_end_padding"/>
 
     </FrameLayout>
+
 </FrameLayout>

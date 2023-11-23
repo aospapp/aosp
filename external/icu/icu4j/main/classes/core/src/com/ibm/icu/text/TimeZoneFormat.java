@@ -723,7 +723,7 @@ public class TimeZoneFormat extends UFormat implements Freezable<TimeZoneFormat>
      * Sets the default parse options.
      * <p>
      * <b>Note:</b> By default, an instance of <code>TimeZoneFormat</code>
-     * created by {#link {@link #getInstance(ULocale)} has no parse options set.
+     * created by {@link #getInstance(ULocale)} has no parse options set.
      *
      * @param options the default parse options.
      * @return this object.
@@ -3031,11 +3031,11 @@ public class TimeZoneFormat extends UFormat implements Freezable<TimeZoneFormat>
             }
         }
 
-        int[] matchLen = new int[] {0};
-        Iterator<String> itr = ZONE_ID_TRIE.get(text, pos.getIndex(), matchLen);
+        TextTrieMap.Output trieOutput = new TextTrieMap.Output();
+        Iterator<String> itr = ZONE_ID_TRIE.get(text, pos.getIndex(), trieOutput);
         if (itr != null) {
             resolvedID = itr.next();
-            pos.setIndex(pos.getIndex() + matchLen[0]);
+            pos.setIndex(pos.getIndex() + trieOutput.matchLength);
         } else {
             // TODO
             // We many need to handle rule based custom zone ID (See ZoneMeta.parseCustomID),
@@ -3074,11 +3074,11 @@ public class TimeZoneFormat extends UFormat implements Freezable<TimeZoneFormat>
             }
         }
 
-        int[] matchLen = new int[] {0};
-        Iterator<String> itr = SHORT_ZONE_ID_TRIE.get(text, pos.getIndex(), matchLen);
+        TextTrieMap.Output trieOutput = new TextTrieMap.Output();
+        Iterator<String> itr = SHORT_ZONE_ID_TRIE.get(text, pos.getIndex(), trieOutput);
         if (itr != null) {
             resolvedID = itr.next();
-            pos.setIndex(pos.getIndex() + matchLen[0]);
+            pos.setIndex(pos.getIndex() + trieOutput.matchLength);
         } else {
             pos.setErrorIndex(pos.getIndex());
         }

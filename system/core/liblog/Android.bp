@@ -15,38 +15,39 @@
 //
 
 liblog_sources = [
-    "config_read.c",
-    "config_write.c",
-    "local_logger.c",
-    "log_event_list.c",
-    "log_event_write.c",
-    "log_ratelimit.cpp",
-    "logger_lock.c",
-    "logger_name.c",
-    "logger_read.c",
-    "logger_write.c",
-    "logprint.c",
-    "stderr_write.c",
+    "config_read.cpp",
+    "config_write.cpp",
+    "log_event_list.cpp",
+    "log_event_write.cpp",
+    "logger_lock.cpp",
+    "logger_name.cpp",
+    "logger_read.cpp",
+    "logger_write.cpp",
+    "logprint.cpp",
+    "stderr_write.cpp",
 ]
 liblog_host_sources = [
-    "fake_log_device.c",
-    "fake_writer.c",
+    "fake_log_device.cpp",
+    "fake_writer.cpp",
 ]
 liblog_target_sources = [
     "event_tag_map.cpp",
     "log_time.cpp",
-    "properties.c",
-    "pmsg_reader.c",
-    "pmsg_writer.c",
-    "logd_reader.c",
-    "logd_writer.c",
+    "properties.cpp",
+    "pmsg_reader.cpp",
+    "pmsg_writer.cpp",
+    "logd_reader.cpp",
+    "logd_writer.cpp",
 ]
 
 cc_library_headers {
     name: "liblog_headers",
     host_supported: true,
     vendor_available: true,
+    recovery_available: true,
     export_include_dirs: ["include"],
+    system_shared_libs: [],
+    stl: "none",
     target: {
         windows: {
             enabled: true,
@@ -65,7 +66,7 @@ cc_library_headers {
 cc_library {
     name: "liblog",
     host_supported: true,
-
+    recovery_available: true,
     srcs: liblog_sources,
 
     target: {
@@ -74,6 +75,7 @@ cc_library {
             cflags: ["-DFAKE_LOG_DEVICE=1"],
         },
         android: {
+            version_script: "liblog.map.txt",
             srcs: liblog_target_sources,
             // AddressSanitizer runtime library depends on liblog.
             sanitize: {
@@ -82,10 +84,10 @@ cc_library {
         },
         android_arm: {
             // TODO: This is to work around b/24465209. Remove after root cause is fixed
+            pack_relocations: false,
             ldflags: ["-Wl,--hash-style=both"],
         },
         windows: {
-            srcs: ["uio.c"],
             enabled: true,
         },
         not_windows: {
@@ -99,9 +101,13 @@ cc_library {
     header_libs: ["liblog_headers"],
     export_header_lib_headers: ["liblog_headers"],
 
+    stubs: {
+        symbol_file: "liblog.map.txt",
+        versions: ["10000"],
+    },
+
     cflags: [
         "-Werror",
-        "-fvisibility=hidden",
         // This is what we want to do:
         //  liblog_cflags := $(shell \
         //   sed -n \
@@ -133,6 +139,5 @@ ndk_library {
 llndk_library {
     name: "liblog",
     symbol_file: "liblog.map.txt",
-    unversioned: true,
     export_include_dirs: ["include_vndk"],
 }

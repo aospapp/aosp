@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"‏طلب التطبيق %s شهادة. وسيتيح اختيار شهادة للتطبيق استخدام هذه الهوية مع الخوادم الآن وفي المستقبل."</string>
     <string name="requesting_server" msgid="5832565605998634370">"‏تعرف التطبيق على الخادم مقدم الطلب كـ %s، ولكن يجب ألا تمنح التطبيق إمكانية الوصول إلى الشهادة إلا إذا كنت تثق فيه."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"‏يمكنك تثبيت شهادات من ملف PKCS#12 بامتداد %1$s أو %2$s، حيث إن هذا الملف موجود في وحدة التخزين الخارجية."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"تثبيت شهادة"</string>
     <string name="allow_button" msgid="3030990695030371561">"تحديد"</string>
     <string name="deny_button" msgid="3766539809121892584">"رفض"</string>
 </resources>

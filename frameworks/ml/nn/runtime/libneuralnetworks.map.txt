@@ -20,30 +20,57 @@
 
 LIBNEURALNETWORKS {
   global:
+    ANeuralNetworks_getDeviceCount; # introduced=Q
+    ANeuralNetworks_getDevice; # introduced=Q
+    ANeuralNetworksDevice_getName; # introduced=Q
+    ANeuralNetworksDevice_getType; # introduced=Q
+    ANeuralNetworksDevice_getVersion; # introduced=Q
+    ANeuralNetworksDevice_getFeatureLevel; # introduced=Q
+    ANeuralNetworksMemory_createFromAHardwareBuffer; # introduced=Q
     ANeuralNetworksMemory_createFromFd;
     ANeuralNetworksMemory_free;
     ANeuralNetworksModel_create;
     ANeuralNetworksModel_free;
     ANeuralNetworksModel_finish;
     ANeuralNetworksModel_addOperand;
+    ANeuralNetworksModel_setOperandSymmPerChannelQuantParams; # introduced=Q
     ANeuralNetworksModel_setOperandValue;
     ANeuralNetworksModel_setOperandValueFromMemory;
     ANeuralNetworksModel_addOperation;
     ANeuralNetworksModel_identifyInputsAndOutputs;
     ANeuralNetworksModel_relaxComputationFloat32toFloat16;
+    ANeuralNetworksModel_getSupportedOperationsForDevices; # introduced=Q
     ANeuralNetworksCompilation_create;
+    ANeuralNetworksCompilation_createForDevices; # introduced=Q
     ANeuralNetworksCompilation_free;
+    ANeuralNetworksCompilation_setCaching; # introduced=Q
     ANeuralNetworksCompilation_setPreference;
     ANeuralNetworksCompilation_finish;
+    ANeuralNetworksBurst_create; # introduced=Q
+    ANeuralNetworksBurst_free; # introduced=Q
+    ANeuralNetworksExecution_burstCompute; # introduced=Q
+    ANeuralNetworksExecution_compute; # introduced=Q
     ANeuralNetworksExecution_create;
     ANeuralNetworksExecution_free;
+    ANeuralNetworksExecution_getDuration; # introduced=Q
     ANeuralNetworksExecution_setInput;
     ANeuralNetworksExecution_setInputFromMemory;
+    ANeuralNetworksExecution_setMeasureTiming; # introduced=Q
     ANeuralNetworksExecution_setOutput;
     ANeuralNetworksExecution_setOutputFromMemory;
     ANeuralNetworksExecution_startCompute;
+    ANeuralNetworksExecution_getOutputOperandDimensions; # introduced=Q
+    ANeuralNetworksExecution_getOutputOperandRank; # introduced=Q
     ANeuralNetworksEvent_wait;
     ANeuralNetworksEvent_free;
   local:
     *;
 };
+
+LIBNEURALNETWORKS_PLATFORM {
+  global:
+    ANeuralNetworksDevice_getExtensionSupport;
+    ANeuralNetworksModel_getExtensionOperandType;
+    ANeuralNetworksModel_getExtensionOperationType;
+    ANeuralNetworksModel_setOperandExtensionData;
+} LIBNEURALNETWORKS;

@@ -30,4 +30,7 @@ interface ICitadeld {
 
     /** Reset Citadel by pulling the reset line. */
     boolean reset();
+
+    /** Get cached low-power stats */
+    void getCachedStats(out byte[] response);
 }

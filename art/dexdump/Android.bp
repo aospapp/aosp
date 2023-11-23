@@ -17,15 +17,11 @@
 
 cc_defaults {
     name: "dexdump_defaults",
+    defaults: ["art_defaults"],
     srcs: [
         "dexdump_cfg.cc",
         "dexdump_main.cc",
         "dexdump.cc",
-    ],
-    cflags: ["-Wall", "-Werror"],
-    // TODO: fix b/72216369 and remove the need for this.
-    include_dirs: [
-        "art/runtime"  // dex utils.
     ],
 }
 
@@ -35,21 +31,26 @@ art_cc_binary {
     host_supported: true,
     shared_libs: [
         "libdexfile",
+        "libartbase",
         "libbase",
     ],
 }
 
 art_cc_binary {
     name: "dexdumps",
-    defaults: ["dexdump_defaults"],
+    defaults: [
+        "dexdump_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+    ],
     host_supported: true,
     device_supported: false,
-    static_libs: [
-        "libdexfile",
-    ] + art_static_dependencies,
     target: {
         darwin: {
             enabled: false,
+        },
+        windows: {
+            enabled: true,
         },
     },
 }

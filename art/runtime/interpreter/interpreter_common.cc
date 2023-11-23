@@ -18,25 +18,34 @@
 
 #include <cmath>
 
+#include "base/casts.h"
 #include "base/enums.h"
+#include "class_root.h"
 #include "debugger.h"
 #include "dex/dex_file_types.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "intrinsics_enum.h"
 #include "jit/jit.h"
-#include "jvalue.h"
+#include "jvalue-inl.h"
 #include "method_handles-inl.h"
 #include "method_handles.h"
+#include "mirror/array-alloc-inl.h"
 #include "mirror/array-inl.h"
+#include "mirror/call_site-inl.h"
 #include "mirror/class.h"
 #include "mirror/emulated_stack_frame.h"
 #include "mirror/method_handle_impl-inl.h"
+#include "mirror/method_type-inl.h"
+#include "mirror/object_array-alloc-inl.h"
+#include "mirror/object_array-inl.h"
 #include "mirror/var_handle.h"
 #include "reflection-inl.h"
 #include "reflection.h"
+#include "shadow_frame-inl.h"
 #include "stack.h"
 #include "thread-inl.h"
 #include "transaction.h"
+#include "var_handles.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -44,6 +53,42 @@ namespace interpreter {
 
 void ThrowNullPointerExceptionFromInterpreter() {
   ThrowNullPointerExceptionFromDexPC();
+}
+
+bool CheckStackOverflow(Thread* self, size_t frame_size)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  bool implicit_check = !Runtime::Current()->ExplicitStackOverflowChecks();
+  uint8_t* stack_end = self->GetStackEndForInterpreter(implicit_check);
+  if (UNLIKELY(__builtin_frame_address(0) < stack_end + frame_size)) {
+    ThrowStackOverflowError(self);
+    return false;
+  }
+  return true;
+}
+
+bool UseFastInterpreterToInterpreterInvoke(ArtMethod* method) {
+  Runtime* runtime = Runtime::Current();
+  const void* quick_code = method->GetEntryPointFromQuickCompiledCode();
+  if (!runtime->GetClassLinker()->IsQuickToInterpreterBridge(quick_code)) {
+    return false;
+  }
+  if (!method->SkipAccessChecks() || method->IsNative() || method->IsProxyMethod()) {
+    return false;
+  }
+  if (method->IsIntrinsic()) {
+    return false;
+  }
+  if (method->GetDeclaringClass()->IsStringClass() && method->IsConstructor()) {
+    return false;
+  }
+  if (method->IsStatic() && !method->GetDeclaringClass()->IsInitialized()) {
+    return false;
+  }
+  ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
+  if ((profiling_info != nullptr) && (profiling_info->GetSavedEntryPoint() != nullptr)) {
+    return false;
+  }
+  return true;
 }
 
 template<FindFieldType find_type, Primitive::Type field_type, bool do_access_check,
@@ -368,6 +413,12 @@ bool DoIPutQuick(const ShadowFrame& shadow_frame, const Instruction* inst, uint1
     if (UNLIKELY(self->IsExceptionPending())) {
       return false;
     }
+    if (UNLIKELY(shadow_frame.GetForcePopFrame())) {
+      // Don't actually set the field. The next instruction will force us to pop.
+      DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
+      DCHECK(PrevFrameWillRetry(self, shadow_frame));
+      return true;
+    }
   }
   // Note: iput-x-quick instructions are only for non-volatile fields.
   switch (field_type) {
@@ -437,6 +488,11 @@ bool MoveToExceptionHandler(Thread* self,
       self->IsExceptionThrownByCurrentMethod(exception.Get())) {
     // See b/65049545 for why we don't need to check to see if the exception has changed.
     instrumentation->ExceptionThrownEvent(self, exception.Get());
+    if (shadow_frame.GetForcePopFrame()) {
+      // We will check in the caller for GetForcePopFrame again. We need to bail out early to
+      // prevent an ExceptionHandledEvent from also being sent before popping.
+      return true;
+    }
   }
   bool clear_exception = false;
   uint32_t found_dex_pc = shadow_frame.GetMethod()->FindCatchBlock(
@@ -581,10 +637,10 @@ void SetStringInitValueToAllAliases(ShadowFrame* shadow_frame,
   for (uint32_t i = 0, e = shadow_frame->NumberOfVRegs(); i < e; ++i) {
     if (shadow_frame->GetVRegReference(i) == existing) {
       DCHECK_EQ(shadow_frame->GetVRegReference(i),
-                reinterpret_cast<mirror::Object*>(shadow_frame->GetVReg(i)));
+                reinterpret_cast32<mirror::Object*>(shadow_frame->GetVReg(i)));
       shadow_frame->SetVRegReference(i, result.GetL());
       DCHECK_EQ(shadow_frame->GetVRegReference(i),
-                reinterpret_cast<mirror::Object*>(shadow_frame->GetVReg(i)));
+                reinterpret_cast32<mirror::Object*>(shadow_frame->GetVReg(i)));
     }
   }
 }
@@ -615,8 +671,7 @@ static bool DoMethodHandleInvokeCommon(Thread* self,
   // and not the method that we'll dispatch to in the end.
   StackHandleScope<2> hs(self);
   Handle<mirror::MethodHandle> method_handle(hs.NewHandle(
-      ObjPtr<mirror::MethodHandle>::DownCast(
-          MakeObjPtr(shadow_frame.GetVRegReference(vRegC)))));
+      ObjPtr<mirror::MethodHandle>::DownCast(shadow_frame.GetVRegReference(vRegC))));
   if (UNLIKELY(method_handle == nullptr)) {
     // Note that the invoke type is kVirtual here because a call to a signature
     // polymorphic method is shaped like a virtual call at the bytecode level.
@@ -626,7 +681,8 @@ static bool DoMethodHandleInvokeCommon(Thread* self,
 
   // The vRegH value gives the index of the proto_id associated with this
   // signature polymorphic call site.
-  const uint32_t callsite_proto_id = (is_range) ? inst->VRegH_4rcc() : inst->VRegH_45cc();
+  const uint16_t vRegH = (is_range) ? inst->VRegH_4rcc() : inst->VRegH_45cc();
+  const dex::ProtoIndex callsite_proto_id(vRegH);
 
   // Call through to the classlinker and ask it to resolve the static type associated
   // with the callsite. This information is stored in the dex cache so it's
@@ -698,12 +754,12 @@ bool DoMethodHandleInvokeExact(Thread* self,
   if (inst->Opcode() == Instruction::INVOKE_POLYMORPHIC) {
     static const bool kIsRange = false;
     return DoMethodHandleInvokeCommon<kIsRange>(
-        self, shadow_frame, true /* is_exact */, inst, inst_data, result);
+        self, shadow_frame, /* invoke_exact= */ true, inst, inst_data, result);
   } else {
     DCHECK_EQ(inst->Opcode(), Instruction::INVOKE_POLYMORPHIC_RANGE);
     static const bool kIsRange = true;
     return DoMethodHandleInvokeCommon<kIsRange>(
-        self, shadow_frame, true /* is_exact */, inst, inst_data, result);
+        self, shadow_frame, /* invoke_exact= */ true, inst, inst_data, result);
   }
 }
 
@@ -715,45 +771,13 @@ bool DoMethodHandleInvoke(Thread* self,
   if (inst->Opcode() == Instruction::INVOKE_POLYMORPHIC) {
     static const bool kIsRange = false;
     return DoMethodHandleInvokeCommon<kIsRange>(
-        self, shadow_frame, false /* is_exact */, inst, inst_data, result);
+        self, shadow_frame, /* invoke_exact= */ false, inst, inst_data, result);
   } else {
     DCHECK_EQ(inst->Opcode(), Instruction::INVOKE_POLYMORPHIC_RANGE);
     static const bool kIsRange = true;
     return DoMethodHandleInvokeCommon<kIsRange>(
-        self, shadow_frame, false /* is_exact */, inst, inst_data, result);
+        self, shadow_frame, /* invoke_exact= */ false, inst, inst_data, result);
   }
-}
-
-static bool DoVarHandleInvokeChecked(Thread* self,
-                                     Handle<mirror::VarHandle> var_handle,
-                                     Handle<mirror::MethodType> callsite_type,
-                                     mirror::VarHandle::AccessMode access_mode,
-                                     ShadowFrame& shadow_frame,
-                                     InstructionOperands* operands,
-                                     JValue* result)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  // TODO(oth): GetMethodTypeForAccessMode() allocates a MethodType()
-  // which is only required if we need to convert argument and/or
-  // return types.
-  StackHandleScope<1> hs(self);
-  Handle<mirror::MethodType> accessor_type(hs.NewHandle(
-      var_handle->GetMethodTypeForAccessMode(self, access_mode)));
-  const size_t num_vregs = accessor_type->NumberOfVRegs();
-  const int num_params = accessor_type->GetPTypes()->GetLength();
-  ShadowFrameAllocaUniquePtr accessor_frame =
-      CREATE_SHADOW_FRAME(num_vregs, nullptr, shadow_frame.GetMethod(), shadow_frame.GetDexPC());
-  ShadowFrameGetter getter(shadow_frame, operands);
-  static const uint32_t kFirstDestinationReg = 0;
-  ShadowFrameSetter setter(accessor_frame.get(), kFirstDestinationReg);
-  if (!PerformConversions(self, callsite_type, accessor_type, &getter, &setter, num_params)) {
-    return false;
-  }
-  RangeInstructionOperands accessor_operands(kFirstDestinationReg,
-                                             kFirstDestinationReg + num_vregs);
-  if (!var_handle->Access(access_mode, accessor_frame.get(), &accessor_operands, result)) {
-    return false;
-  }
-  return ConvertReturnValue(callsite_type, accessor_type, result);
 }
 
 static bool DoVarHandleInvokeCommon(Thread* self,
@@ -768,59 +792,43 @@ static bool DoVarHandleInvokeCommon(Thread* self,
     return false;
   }
 
-  bool is_var_args = inst->HasVarArgs();
-  const uint32_t vRegC = is_var_args ? inst->VRegC_45cc() : inst->VRegC_4rcc();
-  ObjPtr<mirror::Object> receiver(shadow_frame.GetVRegReference(vRegC));
-  if (receiver.IsNull()) {
-    ThrowNullPointerExceptionFromDexPC();
-    return false;
-  }
-
   StackHandleScope<2> hs(self);
-  Handle<mirror::VarHandle> var_handle(hs.NewHandle(down_cast<mirror::VarHandle*>(receiver.Ptr())));
-  if (!var_handle->IsAccessModeSupported(access_mode)) {
-    ThrowUnsupportedOperationException();
-    return false;
-  }
-
-  const uint32_t vRegH = is_var_args ? inst->VRegH_45cc() : inst->VRegH_4rcc();
+  bool is_var_args = inst->HasVarArgs();
+  const uint16_t vRegH = is_var_args ? inst->VRegH_45cc() : inst->VRegH_4rcc();
   ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
   Handle<mirror::MethodType> callsite_type(hs.NewHandle(
-      class_linker->ResolveMethodType(self, vRegH, shadow_frame.GetMethod())));
+      class_linker->ResolveMethodType(self, dex::ProtoIndex(vRegH), shadow_frame.GetMethod())));
   // This implies we couldn't resolve one or more types in this VarHandle.
   if (UNLIKELY(callsite_type == nullptr)) {
     CHECK(self->IsExceptionPending());
     return false;
   }
 
-  if (!var_handle->IsMethodTypeCompatible(access_mode, callsite_type.Get())) {
-    ThrowWrongMethodTypeException(var_handle->GetMethodTypeForAccessMode(self, access_mode),
-                                  callsite_type.Get());
-    return false;
-  }
-
+  const uint32_t vRegC = is_var_args ? inst->VRegC_45cc() : inst->VRegC_4rcc();
+  ObjPtr<mirror::Object> receiver(shadow_frame.GetVRegReference(vRegC));
+  Handle<mirror::VarHandle> var_handle(hs.NewHandle(ObjPtr<mirror::VarHandle>::DownCast(receiver)));
   if (is_var_args) {
     uint32_t args[Instruction::kMaxVarArgRegs];
     inst->GetVarArgs(args, inst_data);
     VarArgsInstructionOperands all_operands(args, inst->VRegA_45cc());
     NoReceiverInstructionOperands operands(&all_operands);
-    return DoVarHandleInvokeChecked(self,
-                                    var_handle,
-                                    callsite_type,
-                                    access_mode,
-                                    shadow_frame,
-                                    &operands,
-                                    result);
+    return VarHandleInvokeAccessor(self,
+                                   shadow_frame,
+                                   var_handle,
+                                   callsite_type,
+                                   access_mode,
+                                   &operands,
+                                   result);
   } else {
     RangeInstructionOperands all_operands(inst->VRegC_4rcc(), inst->VRegA_4rcc());
     NoReceiverInstructionOperands operands(&all_operands);
-    return DoVarHandleInvokeChecked(self,
-                                    var_handle,
-                                    callsite_type,
-                                    access_mode,
-                                    shadow_frame,
-                                    &operands,
-                                    result);
+    return VarHandleInvokeAccessor(self,
+                                   shadow_frame,
+                                   var_handle,
+                                   callsite_type,
+                                   access_mode,
+                                   &operands,
+                                   result);
   }
 }
 
@@ -900,171 +908,488 @@ bool DoInvokePolymorphic(Thread* self,
   }
 }
 
+static JValue ConvertScalarBootstrapArgument(jvalue value) {
+  // value either contains a primitive scalar value if it corresponds
+  // to a primitive type, or it contains an integer value if it
+  // corresponds to an object instance reference id (e.g. a string id).
+  return JValue::FromPrimitive(value.j);
+}
+
+static ObjPtr<mirror::Class> GetClassForBootstrapArgument(EncodedArrayValueIterator::ValueType type)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots = class_linker->GetClassRoots();
+  switch (type) {
+    case EncodedArrayValueIterator::ValueType::kBoolean:
+    case EncodedArrayValueIterator::ValueType::kByte:
+    case EncodedArrayValueIterator::ValueType::kChar:
+    case EncodedArrayValueIterator::ValueType::kShort:
+      // These types are disallowed by JVMS. Treat as integers. This
+      // will result in CCE's being raised if the BSM has one of these
+      // types.
+    case EncodedArrayValueIterator::ValueType::kInt:
+      return GetClassRoot(ClassRoot::kPrimitiveInt, class_roots);
+    case EncodedArrayValueIterator::ValueType::kLong:
+      return GetClassRoot(ClassRoot::kPrimitiveLong, class_roots);
+    case EncodedArrayValueIterator::ValueType::kFloat:
+      return GetClassRoot(ClassRoot::kPrimitiveFloat, class_roots);
+    case EncodedArrayValueIterator::ValueType::kDouble:
+      return GetClassRoot(ClassRoot::kPrimitiveDouble, class_roots);
+    case EncodedArrayValueIterator::ValueType::kMethodType:
+      return GetClassRoot<mirror::MethodType>(class_roots);
+    case EncodedArrayValueIterator::ValueType::kMethodHandle:
+      return GetClassRoot<mirror::MethodHandle>(class_roots);
+    case EncodedArrayValueIterator::ValueType::kString:
+      return GetClassRoot<mirror::String>();
+    case EncodedArrayValueIterator::ValueType::kType:
+      return GetClassRoot<mirror::Class>();
+    case EncodedArrayValueIterator::ValueType::kField:
+    case EncodedArrayValueIterator::ValueType::kMethod:
+    case EncodedArrayValueIterator::ValueType::kEnum:
+    case EncodedArrayValueIterator::ValueType::kArray:
+    case EncodedArrayValueIterator::ValueType::kAnnotation:
+    case EncodedArrayValueIterator::ValueType::kNull:
+      return nullptr;
+  }
+}
+
+static bool GetArgumentForBootstrapMethod(Thread* self,
+                                          ArtMethod* referrer,
+                                          EncodedArrayValueIterator::ValueType type,
+                                          const JValue* encoded_value,
+                                          JValue* decoded_value)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // The encoded_value contains either a scalar value (IJDF) or a
+  // scalar DEX file index to a reference type to be materialized.
+  switch (type) {
+    case EncodedArrayValueIterator::ValueType::kInt:
+    case EncodedArrayValueIterator::ValueType::kFloat:
+      decoded_value->SetI(encoded_value->GetI());
+      return true;
+    case EncodedArrayValueIterator::ValueType::kLong:
+    case EncodedArrayValueIterator::ValueType::kDouble:
+      decoded_value->SetJ(encoded_value->GetJ());
+      return true;
+    case EncodedArrayValueIterator::ValueType::kMethodType: {
+      StackHandleScope<2> hs(self);
+      Handle<mirror::ClassLoader> class_loader(hs.NewHandle(referrer->GetClassLoader()));
+      Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
+      dex::ProtoIndex proto_idx(encoded_value->GetC());
+      ClassLinker* cl = Runtime::Current()->GetClassLinker();
+      ObjPtr<mirror::MethodType> o =
+          cl->ResolveMethodType(self, proto_idx, dex_cache, class_loader);
+      if (UNLIKELY(o.IsNull())) {
+        DCHECK(self->IsExceptionPending());
+        return false;
+      }
+      decoded_value->SetL(o);
+      return true;
+    }
+    case EncodedArrayValueIterator::ValueType::kMethodHandle: {
+      uint32_t index = static_cast<uint32_t>(encoded_value->GetI());
+      ClassLinker* cl = Runtime::Current()->GetClassLinker();
+      ObjPtr<mirror::MethodHandle> o = cl->ResolveMethodHandle(self, index, referrer);
+      if (UNLIKELY(o.IsNull())) {
+        DCHECK(self->IsExceptionPending());
+        return false;
+      }
+      decoded_value->SetL(o);
+      return true;
+    }
+    case EncodedArrayValueIterator::ValueType::kString: {
+      dex::StringIndex index(static_cast<uint32_t>(encoded_value->GetI()));
+      ClassLinker* cl = Runtime::Current()->GetClassLinker();
+      ObjPtr<mirror::String> o = cl->ResolveString(index, referrer);
+      if (UNLIKELY(o.IsNull())) {
+        DCHECK(self->IsExceptionPending());
+        return false;
+      }
+      decoded_value->SetL(o);
+      return true;
+    }
+    case EncodedArrayValueIterator::ValueType::kType: {
+      dex::TypeIndex index(static_cast<uint32_t>(encoded_value->GetI()));
+      ClassLinker* cl = Runtime::Current()->GetClassLinker();
+      ObjPtr<mirror::Class> o = cl->ResolveType(index, referrer);
+      if (UNLIKELY(o.IsNull())) {
+        DCHECK(self->IsExceptionPending());
+        return false;
+      }
+      decoded_value->SetL(o);
+      return true;
+    }
+    case EncodedArrayValueIterator::ValueType::kBoolean:
+    case EncodedArrayValueIterator::ValueType::kByte:
+    case EncodedArrayValueIterator::ValueType::kChar:
+    case EncodedArrayValueIterator::ValueType::kShort:
+    case EncodedArrayValueIterator::ValueType::kField:
+    case EncodedArrayValueIterator::ValueType::kMethod:
+    case EncodedArrayValueIterator::ValueType::kEnum:
+    case EncodedArrayValueIterator::ValueType::kArray:
+    case EncodedArrayValueIterator::ValueType::kAnnotation:
+    case EncodedArrayValueIterator::ValueType::kNull:
+      // Unreachable - unsupported types that have been checked when
+      // determining the effect call site type based on the bootstrap
+      // argument types.
+      UNREACHABLE();
+  }
+}
+
+static bool PackArgumentForBootstrapMethod(Thread* self,
+                                           ArtMethod* referrer,
+                                           CallSiteArrayValueIterator* it,
+                                           ShadowFrameSetter* setter)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  auto type = it->GetValueType();
+  const JValue encoded_value = ConvertScalarBootstrapArgument(it->GetJavaValue());
+  JValue decoded_value;
+  if (!GetArgumentForBootstrapMethod(self, referrer, type, &encoded_value, &decoded_value)) {
+    return false;
+  }
+  switch (it->GetValueType()) {
+    case EncodedArrayValueIterator::ValueType::kInt:
+    case EncodedArrayValueIterator::ValueType::kFloat:
+      setter->Set(static_cast<uint32_t>(decoded_value.GetI()));
+      return true;
+    case EncodedArrayValueIterator::ValueType::kLong:
+    case EncodedArrayValueIterator::ValueType::kDouble:
+      setter->SetLong(decoded_value.GetJ());
+      return true;
+    case EncodedArrayValueIterator::ValueType::kMethodType:
+    case EncodedArrayValueIterator::ValueType::kMethodHandle:
+    case EncodedArrayValueIterator::ValueType::kString:
+    case EncodedArrayValueIterator::ValueType::kType:
+      setter->SetReference(decoded_value.GetL());
+      return true;
+    case EncodedArrayValueIterator::ValueType::kBoolean:
+    case EncodedArrayValueIterator::ValueType::kByte:
+    case EncodedArrayValueIterator::ValueType::kChar:
+    case EncodedArrayValueIterator::ValueType::kShort:
+    case EncodedArrayValueIterator::ValueType::kField:
+    case EncodedArrayValueIterator::ValueType::kMethod:
+    case EncodedArrayValueIterator::ValueType::kEnum:
+    case EncodedArrayValueIterator::ValueType::kArray:
+    case EncodedArrayValueIterator::ValueType::kAnnotation:
+    case EncodedArrayValueIterator::ValueType::kNull:
+      // Unreachable - unsupported types that have been checked when
+      // determining the effect call site type based on the bootstrap
+      // argument types.
+      UNREACHABLE();
+  }
+}
+
+static bool PackCollectorArrayForBootstrapMethod(Thread* self,
+                                                 ArtMethod* referrer,
+                                                 ObjPtr<mirror::Class> array_type,
+                                                 int32_t array_length,
+                                                 CallSiteArrayValueIterator* it,
+                                                 ShadowFrameSetter* setter)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  StackHandleScope<1> hs(self);
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  JValue decoded_value;
+
+#define COLLECT_PRIMITIVE_ARRAY(Descriptor, Type)                       \
+  Handle<mirror::Type ## Array> array =                                 \
+      hs.NewHandle(mirror::Type ## Array::Alloc(self, array_length));   \
+  if (array.IsNull()) {                                                 \
+    return false;                                                       \
+  }                                                                     \
+  for (int32_t i = 0; it->HasNext(); it->Next(), ++i) {                 \
+    auto type = it->GetValueType();                                     \
+    DCHECK_EQ(type, EncodedArrayValueIterator::ValueType::k ## Type);   \
+    const JValue encoded_value =                                        \
+        ConvertScalarBootstrapArgument(it->GetJavaValue());             \
+    GetArgumentForBootstrapMethod(self,                                 \
+                                  referrer,                             \
+                                  type,                                 \
+                                  &encoded_value,                       \
+                                  &decoded_value);                      \
+    array->Set(i, decoded_value.Get ## Descriptor());                   \
+  }                                                                     \
+  setter->SetReference(array.Get());                                    \
+  return true;
+
+#define COLLECT_REFERENCE_ARRAY(T, Type)                                \
+  Handle<mirror::ObjectArray<T>> array =                   /* NOLINT */ \
+      hs.NewHandle(mirror::ObjectArray<T>::Alloc(self,                  \
+                                                 array_type,            \
+                                                 array_length));        \
+  if (array.IsNull()) {                                                 \
+    return false;                                                       \
+  }                                                                     \
+  for (int32_t i = 0; it->HasNext(); it->Next(), ++i) {                 \
+    auto type = it->GetValueType();                                     \
+    DCHECK_EQ(type, EncodedArrayValueIterator::ValueType::k ## Type);   \
+    const JValue encoded_value =                                        \
+        ConvertScalarBootstrapArgument(it->GetJavaValue());             \
+    if (!GetArgumentForBootstrapMethod(self,                            \
+                                       referrer,                        \
+                                       type,                            \
+                                       &encoded_value,                  \
+                                       &decoded_value)) {               \
+      return false;                                                     \
+    }                                                                   \
+    ObjPtr<mirror::Object> o = decoded_value.GetL();                    \
+    if (Runtime::Current()->IsActiveTransaction()) {                    \
+      array->Set<true>(i, ObjPtr<T>::DownCast(o));                      \
+    } else {                                                            \
+      array->Set<false>(i, ObjPtr<T>::DownCast(o));                     \
+    }                                                                   \
+  }                                                                     \
+  setter->SetReference(array.Get());                                    \
+  return true;
+
+  ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots = class_linker->GetClassRoots();
+  ObjPtr<mirror::Class> component_type = array_type->GetComponentType();
+  if (component_type == GetClassRoot(ClassRoot::kPrimitiveInt, class_roots)) {
+    COLLECT_PRIMITIVE_ARRAY(I, Int);
+  } else if (component_type == GetClassRoot(ClassRoot::kPrimitiveLong, class_roots)) {
+    COLLECT_PRIMITIVE_ARRAY(J, Long);
+  } else if (component_type == GetClassRoot(ClassRoot::kPrimitiveFloat, class_roots)) {
+    COLLECT_PRIMITIVE_ARRAY(F, Float);
+  } else if (component_type == GetClassRoot(ClassRoot::kPrimitiveDouble, class_roots)) {
+    COLLECT_PRIMITIVE_ARRAY(D, Double);
+  } else if (component_type == GetClassRoot<mirror::MethodType>()) {
+    COLLECT_REFERENCE_ARRAY(mirror::MethodType, MethodType);
+  } else if (component_type == GetClassRoot<mirror::MethodHandle>()) {
+    COLLECT_REFERENCE_ARRAY(mirror::MethodHandle, MethodHandle);
+  } else if (component_type == GetClassRoot<mirror::String>(class_roots)) {
+    COLLECT_REFERENCE_ARRAY(mirror::String, String);
+  } else if (component_type == GetClassRoot<mirror::Class>()) {
+    COLLECT_REFERENCE_ARRAY(mirror::Class, Type);
+  } else {
+    UNREACHABLE();
+  }
+  #undef COLLECT_PRIMITIVE_ARRAY
+  #undef COLLECT_REFERENCE_ARRAY
+}
+
+static ObjPtr<mirror::MethodType> BuildCallSiteForBootstrapMethod(Thread* self,
+                                                                  const DexFile* dex_file,
+                                                                  uint32_t call_site_idx)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  const dex::CallSiteIdItem& csi = dex_file->GetCallSiteId(call_site_idx);
+  CallSiteArrayValueIterator it(*dex_file, csi);
+  DCHECK_GE(it.Size(), 1u);
+
+  StackHandleScope<2> hs(self);
+  // Create array for parameter types.
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  ObjPtr<mirror::Class> class_array_type =
+      GetClassRoot<mirror::ObjectArray<mirror::Class>>(class_linker);
+  Handle<mirror::ObjectArray<mirror::Class>> ptypes = hs.NewHandle(
+      mirror::ObjectArray<mirror::Class>::Alloc(self,
+                                                class_array_type,
+                                                static_cast<int>(it.Size())));
+  if (ptypes.IsNull()) {
+    DCHECK(self->IsExceptionPending());
+    return nullptr;
+  }
+
+  // Populate the first argument with an instance of j.l.i.MethodHandles.Lookup
+  // that the runtime will construct.
+  ptypes->Set(0, GetClassRoot<mirror::MethodHandlesLookup>(class_linker));
+  it.Next();
+
+  // The remaining parameter types are derived from the types of
+  // arguments present in the DEX file.
+  int index = 1;
+  while (it.HasNext()) {
+    ObjPtr<mirror::Class> ptype = GetClassForBootstrapArgument(it.GetValueType());
+    if (ptype.IsNull()) {
+      ThrowClassCastException("Unsupported bootstrap argument type");
+      return nullptr;
+    }
+    ptypes->Set(index, ptype);
+    index++;
+    it.Next();
+  }
+  DCHECK_EQ(static_cast<size_t>(index), it.Size());
+
+  // By definition, the return type is always a j.l.i.CallSite.
+  Handle<mirror::Class> rtype = hs.NewHandle(GetClassRoot<mirror::CallSite>());
+  return mirror::MethodType::Create(self, rtype, ptypes);
+}
+
 static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
                                                       ShadowFrame& shadow_frame,
                                                       uint32_t call_site_idx)
     REQUIRES_SHARED(Locks::mutator_lock_) {
+  StackHandleScope<5> hs(self);
+  // There are three mandatory arguments expected from the call site
+  // value array in the DEX file: the bootstrap method handle, the
+  // method name to pass to the bootstrap method, and the method type
+  // to pass to the bootstrap method.
+  static constexpr size_t kMandatoryArgumentsCount = 3;
   ArtMethod* referrer = shadow_frame.GetMethod();
   const DexFile* dex_file = referrer->GetDexFile();
-  const DexFile::CallSiteIdItem& csi = dex_file->GetCallSiteId(call_site_idx);
-
-  StackHandleScope<10> hs(self);
-  Handle<mirror::ClassLoader> class_loader(hs.NewHandle(referrer->GetClassLoader()));
-  Handle<mirror::DexCache> dex_cache(hs.NewHandle(referrer->GetDexCache()));
-
+  const dex::CallSiteIdItem& csi = dex_file->GetCallSiteId(call_site_idx);
   CallSiteArrayValueIterator it(*dex_file, csi);
-  uint32_t method_handle_idx = static_cast<uint32_t>(it.GetJavaValue().i);
+  if (it.Size() < kMandatoryArgumentsCount) {
+    ThrowBootstrapMethodError("Truncated bootstrap arguments (%zu < %zu)",
+                              it.Size(), kMandatoryArgumentsCount);
+    return nullptr;
+  }
+
+  if (it.GetValueType() != EncodedArrayValueIterator::ValueType::kMethodHandle) {
+    ThrowBootstrapMethodError("First bootstrap argument is not a method handle");
+    return nullptr;
+  }
+
+  uint32_t bsm_index = static_cast<uint32_t>(it.GetJavaValue().i);
+  it.Next();
+
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  Handle<mirror::MethodHandle>
-      bootstrap(hs.NewHandle(class_linker->ResolveMethodHandle(self, method_handle_idx, referrer)));
-  if (bootstrap.IsNull()) {
+  Handle<mirror::MethodHandle> bsm =
+      hs.NewHandle(class_linker->ResolveMethodHandle(self, bsm_index, referrer));
+  if (bsm.IsNull()) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
   }
-  Handle<mirror::MethodType> bootstrap_method_type = hs.NewHandle(bootstrap->GetMethodType());
-  it.Next();
 
-  DCHECK_EQ(static_cast<size_t>(bootstrap->GetMethodType()->GetPTypes()->GetLength()), it.Size());
-  const size_t num_bootstrap_vregs = bootstrap->GetMethodType()->NumberOfVRegs();
+  if (bsm->GetHandleKind() != mirror::MethodHandle::Kind::kInvokeStatic) {
+    // JLS suggests also accepting constructors. This is currently
+    // hard as constructor invocations happen via transformers in ART
+    // today. The constructor would need to be a class derived from java.lang.invoke.CallSite.
+    ThrowBootstrapMethodError("Unsupported bootstrap method invocation kind");
+    return nullptr;
+  }
+
+  // Construct the local call site type information based on the 3
+  // mandatory arguments provided by the runtime and the static arguments
+  // in the DEX file. We will use these arguments to build a shadow frame.
+  MutableHandle<mirror::MethodType> call_site_type =
+      hs.NewHandle(BuildCallSiteForBootstrapMethod(self, dex_file, call_site_idx));
+  if (call_site_type.IsNull()) {
+    DCHECK(self->IsExceptionPending());
+    return nullptr;
+  }
+
+  // Check if this BSM is targeting a variable arity method. If so,
+  // we'll need to collect the trailing arguments into an array.
+  Handle<mirror::Array> collector_arguments;
+  int32_t collector_arguments_length;
+  if (bsm->GetTargetMethod()->IsVarargs()) {
+    int number_of_bsm_parameters = bsm->GetMethodType()->GetNumberOfPTypes();
+    if (number_of_bsm_parameters == 0) {
+      ThrowBootstrapMethodError("Variable arity BSM does not have any arguments");
+      return nullptr;
+    }
+    Handle<mirror::Class> collector_array_class =
+        hs.NewHandle(bsm->GetMethodType()->GetPTypes()->Get(number_of_bsm_parameters - 1));
+    if (!collector_array_class->IsArrayClass()) {
+      ThrowBootstrapMethodError("Variable arity BSM does not have array as final argument");
+      return nullptr;
+    }
+    // The call site may include no arguments to be collected. In this
+    // case the number of arguments must be at least the number of BSM
+    // parameters less the collector array.
+    if (call_site_type->GetNumberOfPTypes() < number_of_bsm_parameters - 1) {
+      ThrowWrongMethodTypeException(bsm->GetMethodType(), call_site_type.Get());
+      return nullptr;
+    }
+    // Check all the arguments to be collected match the collector array component type.
+    for (int i = number_of_bsm_parameters - 1; i < call_site_type->GetNumberOfPTypes(); ++i) {
+      if (call_site_type->GetPTypes()->Get(i) != collector_array_class->GetComponentType()) {
+        ThrowClassCastException(collector_array_class->GetComponentType(),
+                                call_site_type->GetPTypes()->Get(i));
+        return nullptr;
+      }
+    }
+    // Update the call site method type so it now includes the collector array.
+    int32_t collector_arguments_start = number_of_bsm_parameters - 1;
+    collector_arguments_length = call_site_type->GetNumberOfPTypes() - number_of_bsm_parameters + 1;
+    call_site_type.Assign(
+        mirror::MethodType::CollectTrailingArguments(self,
+                                                     call_site_type.Get(),
+                                                     collector_array_class.Get(),
+                                                     collector_arguments_start));
+    if (call_site_type.IsNull()) {
+      DCHECK(self->IsExceptionPending());
+      return nullptr;
+    }
+  } else {
+    collector_arguments_length = 0;
+  }
+
+  if (call_site_type->GetNumberOfPTypes() != bsm->GetMethodType()->GetNumberOfPTypes()) {
+    ThrowWrongMethodTypeException(bsm->GetMethodType(), call_site_type.Get());
+    return nullptr;
+  }
+
+  // BSM invocation has a different set of exceptions that
+  // j.l.i.MethodHandle.invoke(). Scan arguments looking for CCE
+  // "opportunities". Unfortunately we cannot just leave this to the
+  // method handle invocation as this might generate a WMTE.
+  for (int32_t i = 0; i < call_site_type->GetNumberOfPTypes(); ++i) {
+    ObjPtr<mirror::Class> from = call_site_type->GetPTypes()->Get(i);
+    ObjPtr<mirror::Class> to = bsm->GetMethodType()->GetPTypes()->Get(i);
+    if (!IsParameterTypeConvertible(from, to)) {
+      ThrowClassCastException(from, to);
+      return nullptr;
+    }
+  }
+  if (!IsReturnTypeConvertible(call_site_type->GetRType(), bsm->GetMethodType()->GetRType())) {
+    ThrowClassCastException(bsm->GetMethodType()->GetRType(), call_site_type->GetRType());
+    return nullptr;
+  }
 
   // Set-up a shadow frame for invoking the bootstrap method handle.
   ShadowFrameAllocaUniquePtr bootstrap_frame =
-      CREATE_SHADOW_FRAME(num_bootstrap_vregs, nullptr, referrer, shadow_frame.GetDexPC());
+      CREATE_SHADOW_FRAME(call_site_type->NumberOfVRegs(),
+                          nullptr,
+                          referrer,
+                          shadow_frame.GetDexPC());
   ScopedStackedShadowFramePusher pusher(
       self, bootstrap_frame.get(), StackedShadowFrameType::kShadowFrameUnderConstruction);
-  size_t vreg = 0;
+  ShadowFrameSetter setter(bootstrap_frame.get(), 0u);
 
   // The first parameter is a MethodHandles lookup instance.
-  {
-    Handle<mirror::Class> lookup_class =
-        hs.NewHandle(shadow_frame.GetMethod()->GetDeclaringClass());
-    ObjPtr<mirror::MethodHandlesLookup> lookup =
-        mirror::MethodHandlesLookup::Create(self, lookup_class);
-    if (lookup.IsNull()) {
-      DCHECK(self->IsExceptionPending());
-      return nullptr;
-    }
-    bootstrap_frame->SetVRegReference(vreg++, lookup.Ptr());
-  }
-
-  // The second parameter is the name to lookup.
-  {
-    dex::StringIndex name_idx(static_cast<uint32_t>(it.GetJavaValue().i));
-    ObjPtr<mirror::String> name = class_linker->ResolveString(name_idx, dex_cache);
-    if (name.IsNull()) {
-      DCHECK(self->IsExceptionPending());
-      return nullptr;
-    }
-    bootstrap_frame->SetVRegReference(vreg++, name.Ptr());
-  }
-  it.Next();
-
-  // The third parameter is the method type associated with the name.
-  uint32_t method_type_idx = static_cast<uint32_t>(it.GetJavaValue().i);
-  Handle<mirror::MethodType> method_type(hs.NewHandle(
-      class_linker->ResolveMethodType(self, method_type_idx, dex_cache, class_loader)));
-  if (method_type.IsNull()) {
+  Handle<mirror::Class> lookup_class =
+      hs.NewHandle(shadow_frame.GetMethod()->GetDeclaringClass());
+  ObjPtr<mirror::MethodHandlesLookup> lookup =
+      mirror::MethodHandlesLookup::Create(self, lookup_class);
+  if (lookup.IsNull()) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
   }
-  bootstrap_frame->SetVRegReference(vreg++, method_type.Get());
-  it.Next();
+  setter.SetReference(lookup);
 
-  // Append remaining arguments (if any).
-  while (it.HasNext()) {
-    const jvalue& jvalue = it.GetJavaValue();
-    switch (it.GetValueType()) {
-      case EncodedArrayValueIterator::ValueType::kBoolean:
-      case EncodedArrayValueIterator::ValueType::kByte:
-      case EncodedArrayValueIterator::ValueType::kChar:
-      case EncodedArrayValueIterator::ValueType::kShort:
-      case EncodedArrayValueIterator::ValueType::kInt:
-        bootstrap_frame->SetVReg(vreg, jvalue.i);
-        vreg += 1;
-        break;
-      case EncodedArrayValueIterator::ValueType::kLong:
-        bootstrap_frame->SetVRegLong(vreg, jvalue.j);
-        vreg += 2;
-        break;
-      case EncodedArrayValueIterator::ValueType::kFloat:
-        bootstrap_frame->SetVRegFloat(vreg, jvalue.f);
-        vreg += 1;
-        break;
-      case EncodedArrayValueIterator::ValueType::kDouble:
-        bootstrap_frame->SetVRegDouble(vreg, jvalue.d);
-        vreg += 2;
-        break;
-      case EncodedArrayValueIterator::ValueType::kMethodType: {
-        uint32_t idx = static_cast<uint32_t>(jvalue.i);
-        ObjPtr<mirror::MethodType> ref =
-            class_linker->ResolveMethodType(self, idx, dex_cache, class_loader);
-        if (ref.IsNull()) {
-          DCHECK(self->IsExceptionPending());
-          return nullptr;
-        }
-        bootstrap_frame->SetVRegReference(vreg, ref.Ptr());
-        vreg += 1;
-        break;
+  // Pack the remaining arguments into the frame.
+  int number_of_arguments = call_site_type->GetNumberOfPTypes();
+  int argument_index;
+  for (argument_index = 1; argument_index < number_of_arguments; ++argument_index) {
+    if (argument_index == number_of_arguments - 1 &&
+        call_site_type->GetPTypes()->Get(argument_index)->IsArrayClass()) {
+      ObjPtr<mirror::Class> array_type = call_site_type->GetPTypes()->Get(argument_index);
+      if (!PackCollectorArrayForBootstrapMethod(self,
+                                                referrer,
+                                                array_type,
+                                                collector_arguments_length,
+                                                &it,
+                                                &setter)) {
+        DCHECK(self->IsExceptionPending());
+        return nullptr;
       }
-      case EncodedArrayValueIterator::ValueType::kMethodHandle: {
-        uint32_t idx = static_cast<uint32_t>(jvalue.i);
-        ObjPtr<mirror::MethodHandle> ref =
-            class_linker->ResolveMethodHandle(self, idx, referrer);
-        if (ref.IsNull()) {
-          DCHECK(self->IsExceptionPending());
-          return nullptr;
-        }
-        bootstrap_frame->SetVRegReference(vreg, ref.Ptr());
-        vreg += 1;
-        break;
-      }
-      case EncodedArrayValueIterator::ValueType::kString: {
-        dex::StringIndex idx(static_cast<uint32_t>(jvalue.i));
-        ObjPtr<mirror::String> ref = class_linker->ResolveString(idx, dex_cache);
-        if (ref.IsNull()) {
-          DCHECK(self->IsExceptionPending());
-          return nullptr;
-        }
-        bootstrap_frame->SetVRegReference(vreg, ref.Ptr());
-        vreg += 1;
-        break;
-      }
-      case EncodedArrayValueIterator::ValueType::kType: {
-        dex::TypeIndex idx(static_cast<uint32_t>(jvalue.i));
-        ObjPtr<mirror::Class> ref = class_linker->ResolveType(idx, dex_cache, class_loader);
-        if (ref.IsNull()) {
-          DCHECK(self->IsExceptionPending());
-          return nullptr;
-        }
-        bootstrap_frame->SetVRegReference(vreg, ref.Ptr());
-        vreg += 1;
-        break;
-      }
-      case EncodedArrayValueIterator::ValueType::kNull:
-        bootstrap_frame->SetVRegReference(vreg, nullptr);
-        vreg += 1;
-        break;
-      case EncodedArrayValueIterator::ValueType::kField:
-      case EncodedArrayValueIterator::ValueType::kMethod:
-      case EncodedArrayValueIterator::ValueType::kEnum:
-      case EncodedArrayValueIterator::ValueType::kArray:
-      case EncodedArrayValueIterator::ValueType::kAnnotation:
-        // Unreachable based on current EncodedArrayValueIterator::Next().
-        UNREACHABLE();
+    } else if (!PackArgumentForBootstrapMethod(self, referrer, &it, &setter)) {
+      DCHECK(self->IsExceptionPending());
+      return nullptr;
     }
-
     it.Next();
   }
+  DCHECK(!it.HasNext());
+  DCHECK(setter.Done());
 
   // Invoke the bootstrap method handle.
   JValue result;
-  RangeInstructionOperands operands(0, vreg);
-  bool invoke_success = MethodHandleInvokeExact(self,
-                                                *bootstrap_frame,
-                                                bootstrap,
-                                                bootstrap_method_type,
-                                                &operands,
-                                                &result);
+  RangeInstructionOperands operands(0, bootstrap_frame->NumberOfVRegs());
+  bool invoke_success = MethodHandleInvoke(self,
+                                           *bootstrap_frame,
+                                           bsm,
+                                           call_site_type,
+                                           &operands,
+                                           &result);
   if (!invoke_success) {
     DCHECK(self->IsExceptionPending());
     return nullptr;
@@ -1077,92 +1402,104 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
     return nullptr;
   }
 
-  // Check the result type is a subclass of CallSite.
-  if (UNLIKELY(!object->InstanceOf(mirror::CallSite::StaticClass()))) {
-    ThrowClassCastException(object->GetClass(), mirror::CallSite::StaticClass());
+  // Check the result type is a subclass of j.l.i.CallSite.
+  ObjPtr<mirror::Class> call_site_class = GetClassRoot<mirror::CallSite>(class_linker);
+  if (UNLIKELY(!object->InstanceOf(call_site_class))) {
+    ThrowClassCastException(object->GetClass(), call_site_class);
     return nullptr;
   }
 
-  Handle<mirror::CallSite> call_site =
-      hs.NewHandle(ObjPtr<mirror::CallSite>::DownCast(ObjPtr<mirror::Object>(result.GetL())));
   // Check the call site target is not null as we're going to invoke it.
-  Handle<mirror::MethodHandle> target = hs.NewHandle(call_site->GetTarget());
-  if (UNLIKELY(target.IsNull())) {
-    ThrowClassCastException("Bootstrap method did not return a callsite");
+  ObjPtr<mirror::CallSite> call_site = ObjPtr<mirror::CallSite>::DownCast(result.GetL());
+  ObjPtr<mirror::MethodHandle> target = call_site->GetTarget();
+  if (UNLIKELY(target == nullptr)) {
+    ThrowClassCastException("Bootstrap method returned a CallSite with a null target");
     return nullptr;
   }
-
-  // Check the target method type matches the method type requested modulo the receiver
-  // needs to be compatible rather than exact.
-  Handle<mirror::MethodType> target_method_type = hs.NewHandle(target->GetMethodType());
-  if (UNLIKELY(!target_method_type->IsExactMatch(method_type.Get()) &&
-               !IsParameterTypeConvertible(target_method_type->GetPTypes()->GetWithoutChecks(0),
-                                           method_type->GetPTypes()->GetWithoutChecks(0)))) {
-    ThrowWrongMethodTypeException(target_method_type.Get(), method_type.Get());
-    return nullptr;
-  }
-
-  return call_site.Get();
+  return call_site;
 }
 
-template<bool is_range>
+namespace {
+
+ObjPtr<mirror::CallSite> DoResolveCallSite(Thread* self,
+                                           ShadowFrame& shadow_frame,
+                                           uint32_t call_site_idx)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  StackHandleScope<1> hs(self);
+  Handle<mirror::DexCache> dex_cache(hs.NewHandle(shadow_frame.GetMethod()->GetDexCache()));
+
+  // Get the call site from the DexCache if present.
+  ObjPtr<mirror::CallSite> call_site = dex_cache->GetResolvedCallSite(call_site_idx);
+  if (LIKELY(call_site != nullptr)) {
+    return call_site;
+  }
+
+  // Invoke the bootstrap method to get a candidate call site.
+  call_site = InvokeBootstrapMethod(self, shadow_frame, call_site_idx);
+  if (UNLIKELY(call_site == nullptr)) {
+    if (!self->GetException()->IsError()) {
+      // Use a BootstrapMethodError if the exception is not an instance of java.lang.Error.
+      ThrowWrappedBootstrapMethodError("Exception from call site #%u bootstrap method",
+                                       call_site_idx);
+    }
+    return nullptr;
+  }
+
+  // Attempt to place the candidate call site into the DexCache, return the winning call site.
+  return dex_cache->SetResolvedCallSite(call_site_idx, call_site);
+}
+
+}  // namespace
+
 bool DoInvokeCustom(Thread* self,
                     ShadowFrame& shadow_frame,
-                    const Instruction* inst,
-                    uint16_t inst_data,
-                    JValue* result)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
+                    uint32_t call_site_idx,
+                    const InstructionOperands* operands,
+                    JValue* result) {
   // Make sure to check for async exceptions
   if (UNLIKELY(self->ObserveAsyncException())) {
     return false;
   }
+
   // invoke-custom is not supported in transactions. In transactions
   // there is a limited set of types supported. invoke-custom allows
   // running arbitrary code and instantiating arbitrary types.
   CHECK(!Runtime::Current()->IsActiveTransaction());
-  StackHandleScope<4> hs(self);
-  Handle<mirror::DexCache> dex_cache(hs.NewHandle(shadow_frame.GetMethod()->GetDexCache()));
-  const uint32_t call_site_idx = is_range ? inst->VRegB_3rc() : inst->VRegB_35c();
-  MutableHandle<mirror::CallSite>
-      call_site(hs.NewHandle(dex_cache->GetResolvedCallSite(call_site_idx)));
+
+  ObjPtr<mirror::CallSite> call_site = DoResolveCallSite(self, shadow_frame, call_site_idx);
   if (call_site.IsNull()) {
-    call_site.Assign(InvokeBootstrapMethod(self, shadow_frame, call_site_idx));
-    if (UNLIKELY(call_site.IsNull())) {
-      CHECK(self->IsExceptionPending());
-      ThrowWrappedBootstrapMethodError("Exception from call site #%u bootstrap method",
-                                       call_site_idx);
-      result->SetJ(0);
-      return false;
-    }
-    mirror::CallSite* winning_call_site =
-        dex_cache->SetResolvedCallSite(call_site_idx, call_site.Get());
-    call_site.Assign(winning_call_site);
+    DCHECK(self->IsExceptionPending());
+    return false;
   }
 
-  // CallSite.java checks the re-assignment of the call site target
-  // when mutating call site targets. We only check the target is
-  // non-null and has the right type during bootstrap method execution.
+  StackHandleScope<2> hs(self);
   Handle<mirror::MethodHandle> target = hs.NewHandle(call_site->GetTarget());
   Handle<mirror::MethodType> target_method_type = hs.NewHandle(target->GetMethodType());
-  DCHECK_EQ(static_cast<size_t>(inst->VRegA()), target_method_type->NumberOfVRegs());
-  if (is_range) {
-    RangeInstructionOperands operands(inst->VRegC_3rc(), inst->VRegA_3rc());
-    return MethodHandleInvokeExact(self,
-                                   shadow_frame,
-                                   target,
-                                   target_method_type,
-                                   &operands,
-                                   result);
+  DCHECK_EQ(operands->GetNumberOfOperands(), target_method_type->NumberOfVRegs())
+      << " call_site_idx" << call_site_idx;
+  return MethodHandleInvokeExact(self,
+                                 shadow_frame,
+                                 target,
+                                 target_method_type,
+                                 operands,
+                                 result);
+}
+
+// Assign register 'src_reg' from shadow_frame to register 'dest_reg' into new_shadow_frame.
+static inline void AssignRegister(ShadowFrame* new_shadow_frame, const ShadowFrame& shadow_frame,
+                                  size_t dest_reg, size_t src_reg)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Uint required, so that sign extension does not make this wrong on 64b systems
+  uint32_t src_value = shadow_frame.GetVReg(src_reg);
+  ObjPtr<mirror::Object> o = shadow_frame.GetVRegReference<kVerifyNone>(src_reg);
+
+  // If both register locations contains the same value, the register probably holds a reference.
+  // Note: As an optimization, non-moving collectors leave a stale reference value
+  // in the references array even after the original vreg was overwritten to a non-reference.
+  if (src_value == reinterpret_cast32<uint32_t>(o.Ptr())) {
+    new_shadow_frame->SetVRegReference(dest_reg, o);
   } else {
-    uint32_t args[Instruction::kMaxVarArgRegs];
-    inst->GetVarArgs(args, inst_data);
-    VarArgsInstructionOperands operands(args, inst->VRegA_35c());
-    return MethodHandleInvokeExact(self,
-                                   shadow_frame,
-                                   target,
-                                   target_method_type,
-                                   &operands,
-                                   result);
+    new_shadow_frame->SetVReg(dest_reg, src_value);
   }
 }
 
@@ -1300,7 +1637,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
 
     // We need to do runtime check on reference assignment. We need to load the shorty
     // to get the exact type of each reference argument.
-    const DexFile::TypeList* params = method->GetParameterTypeList();
+    const dex::TypeList* params = method->GetParameterTypeList();
     uint32_t shorty_len = 0;
     const char* shorty = method->GetShorty(&shorty_len);
 
@@ -1350,7 +1687,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
               return false;
             }
           }
-          new_shadow_frame->SetVRegReference(dest_reg, o.Ptr());
+          new_shadow_frame->SetVRegReference(dest_reg, o);
           break;
         }
         // Handle doubles and longs. 2 consecutive virtual register slots.
@@ -1496,12 +1833,12 @@ bool DoFilledNewArray(const Instruction* inst,
 
 // TODO: Use ObjPtr here.
 template<typename T>
-static void RecordArrayElementsInTransactionImpl(mirror::PrimitiveArray<T>* array,
+static void RecordArrayElementsInTransactionImpl(ObjPtr<mirror::PrimitiveArray<T>> array,
                                                  int32_t count)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   Runtime* runtime = Runtime::Current();
   for (int32_t i = 0; i < count; ++i) {
-    runtime->RecordWriteArray(array, i, array->GetWithoutChecks(i));
+    runtime->RecordWriteArray(array.Ptr(), i, array->GetWithoutChecks(i));
   }
 }
 
@@ -1539,7 +1876,7 @@ void RecordArrayElementsInTransaction(ObjPtr<mirror::Array> array, int32_t count
     default:
       LOG(FATAL) << "Unsupported primitive type " << primitive_component_type
                  << " in fill-array-data";
-      break;
+      UNREACHABLE();
   }
 }
 
@@ -1565,16 +1902,6 @@ EXPLICIT_DO_CALL_TEMPLATE_DECL(true, true);
 EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(false);
 EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(true);
 #undef EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL
-
-// Explicit DoInvokeCustom template function declarations.
-#define EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(_is_range)               \
-  template REQUIRES_SHARED(Locks::mutator_lock_)                         \
-  bool DoInvokeCustom<_is_range>(                                        \
-      Thread* self, ShadowFrame& shadow_frame, const Instruction* inst,  \
-      uint16_t inst_data, JValue* result)
-EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(false);
-EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL(true);
-#undef EXPLICIT_DO_INVOKE_CUSTOM_TEMPLATE_DECL
 
 // Explicit DoFilledNewArray template function declarations.
 #define EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(_is_range_, _check, _transaction_active)       \

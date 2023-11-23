@@ -21,6 +21,28 @@
 #include "fs_mgr.h"
 #include "fs_mgr_priv.h"
 
+// Realistically, this file should be part of the android::fs_mgr namespace;
+using namespace android::fs_mgr;
+
+// https://source.android.com/devices/tech/ota/ab/ab_implement#partitions
+// All partitions that are A/B-ed should be named as follows (slots are always
+// named a, b, etc.): boot_a, boot_b, system_a, system_b, vendor_a, vendor_b.
+static std::string other_suffix(const std::string& slot_suffix) {
+    if (slot_suffix == "_a") {
+        return "_b";
+    }
+    if (slot_suffix == "_b") {
+        return "_a";
+    }
+    return "";
+}
+
+// Returns "_b" or "_a", which is *the other* slot of androidboot.slot_suffix
+// in kernel cmdline, or an empty string if that parameter does not exist.
+std::string fs_mgr_get_other_slot_suffix() {
+    return other_suffix(fs_mgr_get_slot_suffix());
+}
+
 // Returns "_a" or "_b" based on androidboot.slot_suffix in kernel cmdline, or an empty string
 // if that parameter does not exist.
 std::string fs_mgr_get_slot_suffix() {
@@ -31,25 +53,24 @@ std::string fs_mgr_get_slot_suffix() {
 }
 
 // Updates |fstab| for slot_suffix. Returns true on success, false on error.
-bool fs_mgr_update_for_slotselect(struct fstab *fstab) {
-    int n;
+bool fs_mgr_update_for_slotselect(Fstab* fstab) {
     std::string ab_suffix;
 
-    for (n = 0; n < fstab->num_entries; n++) {
-        if (fstab->recs[n].fs_mgr_flags & MF_SLOTSELECT) {
-            char *tmp;
-            if (ab_suffix.empty()) {
-                ab_suffix = fs_mgr_get_slot_suffix();
-                // Return false if failed to get ab_suffix when MF_SLOTSELECT is specified.
-                if (ab_suffix.empty()) return false;
-            }
-            if (asprintf(&tmp, "%s%s", fstab->recs[n].blk_device, ab_suffix.c_str()) > 0) {
-                free(fstab->recs[n].blk_device);
-                fstab->recs[n].blk_device = tmp;
-            } else {
-                return false;
-            }
+    for (auto& entry : *fstab) {
+        if (!entry.fs_mgr_flags.slot_select && !entry.fs_mgr_flags.slot_select_other) {
+            continue;
         }
+
+        if (ab_suffix.empty()) {
+            ab_suffix = fs_mgr_get_slot_suffix();
+            // Return false if failed to get ab_suffix when MF_SLOTSELECT is specified.
+            if (ab_suffix.empty()) return false;
+        }
+
+        const auto& update_suffix =
+                entry.fs_mgr_flags.slot_select ? ab_suffix : other_suffix(ab_suffix);
+        entry.blk_device = entry.blk_device + update_suffix;
+        entry.logical_partition_name = entry.logical_partition_name + update_suffix;
     }
     return true;
 }

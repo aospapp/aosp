@@ -63,7 +63,7 @@
         </service>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.accounts.cts"
                      android:label="CTS tests for android.accounts">
         <meta-data android:name="listener"

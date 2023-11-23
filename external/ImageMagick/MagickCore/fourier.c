@@ -19,13 +19,13 @@
 %                                 July 2009                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -179,7 +179,7 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
         "ImageSequenceRequired","`%s'",images->filename);
       return((Image *) NULL);
     }
-  image=CloneImage(images,images->columns,images->rows,MagickTrue,exception);
+  image=CloneImage(images,0,0,MagickTrue,exception);
   if (image == (Image *) NULL)
     return((Image *) NULL);
   if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
@@ -190,7 +190,7 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   image->depth=32UL;
   complex_images=NewImageList();
   AppendImageToList(&complex_images,image);
-  image=CloneImage(images,images->columns,images->rows,MagickTrue,exception);
+  image=CloneImage(images,0,0,MagickTrue,exception);
   if (image == (Image *) NULL)
     {
       complex_images=DestroyImageList(complex_images);
@@ -225,8 +225,8 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   status=MagickTrue;
   progress=0;
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(progress,status) \
-    magick_threads(images,complex_images,images->rows,1L)
+  #pragma omp parallel for schedule(static) shared(progress,status) \
+    magick_number_threads(images,complex_images,images->rows,1L)
 #endif
   for (y=0; y < (ssize_t) images->rows; y++)
   {
@@ -333,10 +333,10 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
           proceed;
 
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp critical (MagickCore_ComplexImages)
+        #pragma omp atomic
 #endif
-        proceed=SetImageProgress(images,ComplexImageTag,progress++,
-          images->rows);
+        progress++;
+        proceed=SetImageProgress(images,ComplexImageTag,progress,images->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -428,7 +428,7 @@ static MagickBooleanType RollFourier(const size_t width,const size_t height,
       source_pixels[v*width+u]=roll_pixels[i++];
     }
   }
-  (void) CopyMagickMemory(roll_pixels,source_pixels,height*width*
+  (void) memcpy(roll_pixels,source_pixels,height*width*
     sizeof(*source_pixels));
   source_info=RelinquishVirtualMemory(source_info);
   return(MagickTrue);
@@ -540,10 +540,10 @@ static MagickBooleanType ForwardFourier(const FourierInfo *fourier_info,
       return(MagickFalse);
     }
   magnitude_pixels=(double *) GetVirtualMemoryBlob(magnitude_info);
-  (void) ResetMagickMemory(magnitude_pixels,0,fourier_info->width*
+  (void) memset(magnitude_pixels,0,fourier_info->width*
     fourier_info->height*sizeof(*magnitude_pixels));
   phase_pixels=(double *) GetVirtualMemoryBlob(phase_info);
-  (void) ResetMagickMemory(phase_pixels,0,fourier_info->width*
+  (void) memset(phase_pixels,0,fourier_info->width*
     fourier_info->height*sizeof(*phase_pixels));
   status=ForwardQuadrantSwap(fourier_info->width,fourier_info->height,
     magnitude,magnitude_pixels);
@@ -716,7 +716,7 @@ static MagickBooleanType ForwardFourierTransform(FourierInfo *fourier_info,
       return(MagickFalse);
     }
   source_pixels=(double *) GetVirtualMemoryBlob(source_info);
-  ResetMagickMemory(source_pixels,0,fourier_info->width*fourier_info->height*
+  memset(source_pixels,0,fourier_info->width*fourier_info->height*
     sizeof(*source_pixels));
   i=0L;
   image_view=AcquireVirtualCacheView(image,exception);
@@ -1190,7 +1190,7 @@ static MagickBooleanType InverseFourier(FourierInfo *fourier_info,
   magnitude_view=DestroyCacheView(magnitude_view);
   status=InverseQuadrantSwap(fourier_info->width,fourier_info->height,
     magnitude_pixels,inverse_pixels);
-  (void) CopyMagickMemory(magnitude_pixels,inverse_pixels,fourier_info->height*
+  (void) memcpy(magnitude_pixels,inverse_pixels,fourier_info->height*
     fourier_info->center*sizeof(*magnitude_pixels));
   i=0L;
   phase_view=AcquireVirtualCacheView(phase_image,exception);
@@ -1251,7 +1251,7 @@ static MagickBooleanType InverseFourier(FourierInfo *fourier_info,
   if (status != MagickFalse)
     status=InverseQuadrantSwap(fourier_info->width,fourier_info->height,
       phase_pixels,inverse_pixels);
-  (void) CopyMagickMemory(phase_pixels,inverse_pixels,fourier_info->height*
+  (void) memcpy(phase_pixels,inverse_pixels,fourier_info->height*
     fourier_info->center*sizeof(*phase_pixels));
   inverse_info=RelinquishVirtualMemory(inverse_info);
   /*

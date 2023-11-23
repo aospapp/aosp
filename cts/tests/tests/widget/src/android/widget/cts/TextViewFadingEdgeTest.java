@@ -29,16 +29,16 @@ import static android.widget.TextView.TEXT_ALIGNMENT_VIEW_START;
 import static org.junit.Assert.assertEquals;
 
 import android.app.Activity;
-import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.TypedValue;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -176,17 +176,16 @@ public class TextViewFadingEdgeTest {
         layout.setLayoutParams(layoutParams);
         layout.addView(textView);
 
-        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        mActivityRule.runOnUiThread(() -> mActivity.setContentView(layout));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, layout,
+                () -> mActivity.setContentView(layout));
         if (scrollToMiddle) {
-            mActivityRule.runOnUiThread(() -> {
+            WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, textView, () -> {
                 float lineMid = (textView.getLayout().getLineLeft(0) +
                         textView.getLayout().getLineRight(0)) / 2;
                 int scrollPosition = (int) lineMid;
                 textView.setScrollX(scrollPosition);
             });
         }
-        instrumentation.waitForIdleSync();
         return textView;
     }
 

@@ -17,6 +17,8 @@
 package libcore.java.util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class ArrayListTest extends junit.framework.TestCase {
     public void test_replaceAll() {
@@ -25,5 +27,54 @@ public class ArrayListTest extends junit.framework.TestCase {
 
     public void test_sort() {
         ListDefaultMethodTester.test_sort(new ArrayList<>());
+    }
+
+    public void test_sublist_throws() {
+        ArrayList<String> list = new ArrayList<>(Arrays.asList("zero", "one", "two"));
+
+        // For comparison, a few cases that should not throw
+        list.subList(1, 2);
+        list.subList(0, 3);
+        list.subList(1, 1);
+
+        // Cases that should throw
+        try {
+            list.subList(-1, 1); // fromIndex out of bounds
+            fail();
+        } catch (IndexOutOfBoundsException expected) {
+        }
+
+        try {
+            list.subList(0, 4); // toIndex out of bounds
+            fail();
+        } catch (IndexOutOfBoundsException expected) {
+        }
+
+        try {
+            list.subList(-1, 4); // both fromIndex and toIndex out of bounds
+            fail();
+        } catch (IndexOutOfBoundsException expected) {
+        }
+
+        try {
+            list.subList(1, 0); // fromIndex > toIndex
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void test_sublist_set() {
+        List<String> list = new ArrayList<>(Arrays.asList("zero", "one", "two"));
+        list.subList(1, 2).set(0, "ONE");
+        assertEquals(Arrays.asList("zero", "ONE", "two"), list);
+
+        list.subList(1, 2).subList(0, 1).set(0, "1");
+        assertEquals(Arrays.asList("zero", "1", "two"), list);
+
+        try {
+            list.subList(1, 2).set(2, "out of bounds");
+            fail();
+        } catch (IndexOutOfBoundsException expected) {
+        }
     }
 }

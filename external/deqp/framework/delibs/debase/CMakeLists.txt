@@ -35,13 +35,6 @@ if (DE_OS_IS_UNIX OR DE_OS_IS_QNX)
 	add_definitions(-D_XOPEN_SOURCE=600)
 endif ()
 
-if (DE_OS_IS_ANDROID)
-	find_library(C_LIBRARY NAMES c PATHS /usr/lib /lib)
-	find_library(M_LIBRARY NAMES m PATHS /usr/lib /lib)
-	find_library(LOG_LIBRARY NAMES log PATHS /usr/lib)
-	target_link_libraries(debase ${C_LIBRARY} ${M_LIBRARY} ${LOG_LIBRARY} gcc)
-endif ()
-
 if (DE_OS_IS_SYMBIAN)
     target_link_libraries(debase gcc)
 endif()

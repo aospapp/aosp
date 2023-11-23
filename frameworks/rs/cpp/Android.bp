@@ -13,7 +13,6 @@ cc_library_static {
         "-Wall",
         "-Werror",
         "-Wno-unused-parameter",
-        "-std=c++11",
         "-DRS_COMPATIBILITY_LIB",
     ],
 

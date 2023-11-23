@@ -10,35 +10,61 @@
 #include <string>
 #include <vector>
 
+#include <base/logging.h>
+
+#define LOGF(level) LOG(level) << __FUNCTION__ << "(): "
+#define VLOGF(level) VLOG(level) << __FUNCTION__ << "(): "
+
+// The definition should match camera_metadata_enum_android_lens_facing_t
+// in camera_metadata_tags.h.
+enum lens_facing {
+  FACING_FRONT,
+  FACING_BACK,
+};
+
 // The types in this file should match Android camera HAL.
 
 struct DeviceInfo {
+  int camera_id;
+
+  // TODO(shik): Change this to base::FilePath.
+  // ex: /dev/video0
   std::string device_path;
-  std::string usb_vid; // USB vender id
-  std::string usb_pid; // USB product id
-  uint32_t lens_facing; // Direction the camera faces relative to device screen.
-  // Clockwise angle through which the output image needs to be rotated to be
-  // upright on the device screen in its native orientation.
-  int32_t sensor_orientation;
-  uint32_t frames_to_skip_after_streamon;
-  float horizontal_view_angle_16_9;
-  float horizontal_view_angle_4_3;
-  std::vector<float> lens_info_available_focal_lengths;
-  float lens_info_minimum_focus_distance;
-  float lens_info_optimal_focus_distance;
-  float vertical_view_angle_16_9;
-  float vertical_view_angle_4_3;
-  // The camera doesn't support 1280x960 resolution when the maximum resolution
-  // of the camear is larger than 1080p.
-  bool resolution_1280x960_unsupported;
-  // The camera doesn't support 1600x1200 resolution.
-  bool resolution_1600x1200_unsupported;
+
+  // USB vendor id, the emulated vivid devices do not have this field.
+  std::string usb_vid;
+
+  // USB product id, the emulated vivid devices do not have this field.
+  std::string usb_pid;
+
+  // Some cameras need to wait several frames to output correct images.
+  uint32_t frames_to_skip_after_streamon = 0;
+
   // The camera doesn't support constant frame rate. That means HAL cannot set
   // V4L2_CID_EXPOSURE_AUTO_PRIORITY to 0 to have constant frame rate in low
   // light environment.
-  bool constant_framerate_unsupported;
-  uint32_t sensor_info_pixel_array_size_width;
-  uint32_t sensor_info_pixel_array_size_height;
+  bool constant_framerate_unsupported = false;
+
+  // Member definitions can be found in https://developer.android.com/
+  // reference/android/hardware/camera2/CameraCharacteristics.html
+  uint32_t lens_facing = FACING_FRONT;
+  int32_t sensor_orientation = 0;
+
+  // These fields are not available for external cameras.
+  std::vector<float> lens_info_available_apertures;
+  std::vector<float> lens_info_available_focal_lengths;
+  float lens_info_minimum_focus_distance;
+  float lens_info_optimal_focus_distance;
+  int32_t sensor_info_pixel_array_size_width;
+  int32_t sensor_info_pixel_array_size_height;
+  float sensor_info_physical_size_width;
+  float sensor_info_physical_size_height;
+
+  // FOV parameters for HAL v1.
+  float horizontal_view_angle_16_9;
+  float horizontal_view_angle_4_3;
+  float vertical_view_angle_16_9;
+  float vertical_view_angle_4_3;
 };
 
 typedef std::vector<DeviceInfo> DeviceInfos;
@@ -60,12 +86,5 @@ struct SupportedFormat {
 };
 
 typedef std::vector<SupportedFormat> SupportedFormats;
-
-// The definition should be match camera_metadata_enum_android_lens_facing_t
-// in camera_metadata_tags.h.
-enum lens_facing {
-  FACING_FRONT,
-  FACING_BACK,
-};
 
 #endif

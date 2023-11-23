@@ -17,6 +17,8 @@
 package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
+import android.app.ActivityOptions;
+import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.content.pm.CarPackageManager;
 import android.content.Context;
@@ -24,15 +26,20 @@ import android.content.Intent;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
-import android.graphics.drawable.Drawable;
+import android.content.pm.ResolveInfo;
 import android.os.Process;
+import android.service.media.MediaBrowserService;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Util class that contains helper method used by app launcher classes.
@@ -57,65 +64,128 @@ class AppLauncherUtils {
      * @param app the requesting app's AppMetaData
      */
     static void launchApp(Context context, AppMetaData app) {
-        Intent intent =
-                context.getPackageManager().getLaunchIntentForPackage(app.getPackageName());
-        context.startActivity(intent);
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchDisplayId(context.getDisplayId());
+        context.startActivity(app.getMainLaunchIntent(), options.toBundle());
     }
 
-    /**
-     * Converts a {@link Drawable} to grey scale.
-     *
-     * @param drawable the original drawable
-     * @return the grey scale drawable
-     */
-    static Drawable toGrayscale(Drawable drawable) {
-        ColorMatrix matrix = new ColorMatrix();
-        matrix.setSaturation(0);
-        ColorMatrixColorFilter filter = new ColorMatrixColorFilter(matrix);
-        // deep copy the original drawable
-        Drawable newDrawable = drawable.getConstantState().newDrawable().mutate();
-        newDrawable.setColorFilter(filter);
-        return newDrawable;
+    /** Bundles application and services info. */
+    static class LauncherAppsInfo {
+        /** Map of all apps' metadata keyed by package name. */
+        private final Map<String, AppMetaData> mApplications;
+
+        /** Map of all the media services keyed by package name. */
+        private final Map<String, ResolveInfo> mMediaServices;
+
+        LauncherAppsInfo(@NonNull Map<String, AppMetaData> apps,
+                @NonNull Map<String, ResolveInfo> mediaServices) {
+            mApplications = apps;
+            mMediaServices = mediaServices;
+        }
+
+        /** Returns true if all maps are empty. */
+        boolean isEmpty() {
+            return mApplications.isEmpty() && mMediaServices.isEmpty();
+        }
+
+        /** Returns whether the given package name is a media service. */
+        boolean isMediaService(String packageName) {
+            return mMediaServices.containsKey(packageName);
+        }
+
+        /** Returns the {@link AppMetaData} for the given package name. */
+        @Nullable
+        AppMetaData getAppMetaData(String packageName) {
+            return mApplications.get(packageName);
+        }
+
+        /** Returns a new list of the applications' {@link AppMetaData}. */
+        @NonNull
+        List<AppMetaData> getApplicationsList() {
+            return new ArrayList<>(mApplications.values());
+        }
     }
 
+    private final static LauncherAppsInfo EMPTY_APPS_INFO = new LauncherAppsInfo(
+            Collections.emptyMap(), Collections.emptyMap());
+
     /**
-     * Gets all apps that support launching from launcher in unsorted order.
+     * Gets all the apps that we want to see in the launcher in unsorted order. Includes media
+     * services without launcher activities.
      *
+     * @param blackList         A (possibly empty) list of apps to hide
      * @param launcherApps      The {@link LauncherApps} system service
      * @param carPackageManager The {@link CarPackageManager} system service
      * @param packageManager    The {@link PackageManager} system service
-     * @return a list of all apps' metadata
+     * @return a new {@link LauncherAppsInfo}
      */
-    @Nullable
-    static List<AppMetaData> getAllLaunchableApps(
+    @NonNull
+    static LauncherAppsInfo getAllLauncherApps(
+            @NonNull Set<String> blackList,
             LauncherApps launcherApps,
             CarPackageManager carPackageManager,
             PackageManager packageManager) {
 
         if (launcherApps == null || carPackageManager == null || packageManager == null) {
-            return null;
+            return EMPTY_APPS_INFO;
         }
 
-        List<AppMetaData> apps = new ArrayList<>();
-
-        Intent intent = new Intent(Intent.ACTION_MAIN, null);
-        intent.addCategory(Intent.CATEGORY_LAUNCHER);
-
+        List<ResolveInfo> mediaServices = packageManager.queryIntentServices(
+                new Intent(MediaBrowserService.SERVICE_INTERFACE),
+                PackageManager.GET_RESOLVED_FILTER);
         List<LauncherActivityInfo> availableActivities =
                 launcherApps.getActivityList(null, Process.myUserHandle());
+
+        Map<String, AppMetaData> apps = new HashMap<>(
+                mediaServices.size() + availableActivities.size());
+        Map<String, ResolveInfo> mediaServicesMap = new HashMap<>(mediaServices.size());
+
+        // Process media services
+        for (ResolveInfo info : mediaServices) {
+            String packageName = info.serviceInfo.packageName;
+            mediaServicesMap.put(packageName, info);
+            if (shouldAdd(packageName, apps, blackList)) {
+                final boolean isDistractionOptimized = true;
+
+                Intent intent = new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE);
+                intent.putExtra(Car.CAR_EXTRA_MEDIA_PACKAGE, packageName);
+
+                AppMetaData appMetaData = new AppMetaData(
+                        info.serviceInfo.loadLabel(packageManager),
+                        packageName,
+                        info.serviceInfo.loadIcon(packageManager),
+                        isDistractionOptimized,
+                        intent,
+                        packageManager.getLaunchIntentForPackage(packageName));
+                apps.put(packageName, appMetaData);
+            }
+        }
+
+        // Process activities
         for (LauncherActivityInfo info : availableActivities) {
             String packageName = info.getComponentName().getPackageName();
-            boolean isDistractionOptimized =
-                    isActivityDistractionOptimized(carPackageManager, packageName, info.getName());
+            if (shouldAdd(packageName, apps, blackList)) {
+                boolean isDistractionOptimized =
+                        isActivityDistractionOptimized(carPackageManager, packageName,
+                                info.getName());
 
-            AppMetaData app = new AppMetaData(
-                    info.getLabel(),
-                    packageName,
-                    info.getApplicationInfo().loadIcon(packageManager),
-                    isDistractionOptimized);
-            apps.add(app);
+                AppMetaData appMetaData = new AppMetaData(
+                        info.getLabel(),
+                        packageName,
+                        info.getBadgedIcon(0),
+                        isDistractionOptimized,
+                        packageManager.getLaunchIntentForPackage(packageName),
+                        null);
+                apps.put(packageName, appMetaData);
+            }
         }
-        return apps;
+
+        return new LauncherAppsInfo(apps, mediaServicesMap);
+    }
+
+    private static boolean shouldAdd(String packageName, Map<String, AppMetaData> apps,
+            @NonNull Set<String> blackList) {
+        return !apps.containsKey(packageName) && !blackList.contains(packageName);
     }
 
     /**

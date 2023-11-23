@@ -17,8 +17,10 @@
 package com.android.settings.display;
 
 import static android.content.Context.POWER_SERVICE;
+
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.anyString;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -29,22 +31,22 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.os.PowerManager;
 import android.provider.Settings.System;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowContentResolver;
 
-@RunWith(SettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class BrightnessLevelPreferenceControllerTest {
 
     @Mock
@@ -79,6 +81,12 @@ public class BrightnessLevelPreferenceControllerTest {
     @Test
     public void isAvailable_shouldAlwaysReturnTrue() {
         assertThat(mController.isAvailable()).isTrue();
+    }
+
+    @Test
+    public void isInVrMode_noVrManager_shouldAlwaysReturnFalse() {
+        doReturn(null).when(mController).safeGetVrManager();
+        assertThat(mController.isInVrMode()).isFalse();
     }
 
     @Test

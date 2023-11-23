@@ -30,10 +30,6 @@ LOCAL_PRIVILEGED_MODULE := true
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_USE_AAPT2 := true
 
-LOCAL_SHARED_ANDROID_LIBRARIES := \
-    android-support-v4 \
-    car-media-common
-
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 ifeq ($(BOARD_IS_AUTOMOTIVE), true)

@@ -25,6 +25,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
+#include "mirror/string-alloc-inl.h"
 
 namespace art {
 
@@ -59,11 +60,11 @@ static ALWAYS_INLINE inline mirror::Object* artAllocObjectFromCode(
     }
   }
   if (kInitialized) {
-    return AllocObjectFromCodeInitialized<kInstrumented>(klass, self, allocator_type);
+    return AllocObjectFromCodeInitialized<kInstrumented>(klass, self, allocator_type).Ptr();
   } else if (!kFinalize) {
-    return AllocObjectFromCodeResolved<kInstrumented>(klass, self, allocator_type);
+    return AllocObjectFromCodeResolved<kInstrumented>(klass, self, allocator_type).Ptr();
   } else {
-    return AllocObjectFromCode<kInstrumented>(klass, self, allocator_type);
+    return AllocObjectFromCode<kInstrumented>(klass, self, allocator_type).Ptr();
   }
 }
 
@@ -83,12 +84,19 @@ extern "C" mirror::Object* artAllocObjectFromCodeInitialized##suffix##suffix2( \
     REQUIRES_SHARED(Locks::mutator_lock_) { \
   return artAllocObjectFromCode<true, false, instrumented_bool, allocator_type>(klass, self); \
 } \
+extern "C" mirror::String* artAllocStringObject##suffix##suffix2( \
+    mirror::Class* klass, Thread* self) \
+    REQUIRES_SHARED(Locks::mutator_lock_) { \
+  /* The klass arg is so it matches the ABI of the other object alloc callbacks. */ \
+  DCHECK(klass->IsStringClass()) << klass->PrettyClass(); \
+  return mirror::String::AllocEmptyString<instrumented_bool>(self, allocator_type).Ptr(); \
+} \
 extern "C" mirror::Array* artAllocArrayFromCodeResolved##suffix##suffix2( \
     mirror::Class* klass, int32_t component_count, Thread* self) \
     REQUIRES_SHARED(Locks::mutator_lock_) { \
   ScopedQuickEntrypointChecks sqec(self); \
-  return AllocArrayFromCodeResolved<instrumented_bool>(klass, component_count, self, \
-                                                       allocator_type); \
+  return AllocArrayFromCodeResolved<instrumented_bool>( \
+      klass, component_count, self, allocator_type).Ptr(); \
 } \
 extern "C" mirror::String* artAllocStringFromBytesFromCode##suffix##suffix2( \
     mirror::ByteArray* byte_array, int32_t high, int32_t offset, int32_t byte_count, \
@@ -97,24 +105,24 @@ extern "C" mirror::String* artAllocStringFromBytesFromCode##suffix##suffix2( \
   ScopedQuickEntrypointChecks sqec(self); \
   StackHandleScope<1> hs(self); \
   Handle<mirror::ByteArray> handle_array(hs.NewHandle(byte_array)); \
-  return mirror::String::AllocFromByteArray<instrumented_bool>(self, byte_count, handle_array, \
-                                                               offset, high, allocator_type); \
+  return mirror::String::AllocFromByteArray<instrumented_bool>( \
+      self, byte_count, handle_array, offset, high, allocator_type).Ptr(); \
 } \
 extern "C" mirror::String* artAllocStringFromCharsFromCode##suffix##suffix2( \
     int32_t offset, int32_t char_count, mirror::CharArray* char_array, Thread* self) \
     REQUIRES_SHARED(Locks::mutator_lock_) { \
   StackHandleScope<1> hs(self); \
   Handle<mirror::CharArray> handle_array(hs.NewHandle(char_array)); \
-  return mirror::String::AllocFromCharArray<instrumented_bool>(self, char_count, handle_array, \
-                                                               offset, allocator_type); \
+  return mirror::String::AllocFromCharArray<instrumented_bool>( \
+      self, char_count, handle_array, offset, allocator_type).Ptr(); \
 } \
 extern "C" mirror::String* artAllocStringFromStringFromCode##suffix##suffix2( /* NOLINT */ \
     mirror::String* string, Thread* self) \
     REQUIRES_SHARED(Locks::mutator_lock_) { \
   StackHandleScope<1> hs(self); \
   Handle<mirror::String> handle_string(hs.NewHandle(string)); \
-  return mirror::String::AllocFromString<instrumented_bool>(self, handle_string->GetLength(), \
-                                                            handle_string, 0, allocator_type); \
+  return mirror::String::AllocFromString<instrumented_bool>( \
+    self, handle_string->GetLength(), handle_string, 0, allocator_type).Ptr(); \
 }
 
 #define GENERATE_ENTRYPOINTS_FOR_ALLOCATOR(suffix, allocator_type) \
@@ -137,6 +145,7 @@ extern "C" void* art_quick_alloc_array_resolved64##suffix(mirror::Class* klass, 
 extern "C" void* art_quick_alloc_object_resolved##suffix(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_object_initialized##suffix(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_object_with_checks##suffix(mirror::Class* klass); \
+extern "C" void* art_quick_alloc_string_object##suffix(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_string_from_bytes##suffix(void*, int32_t, int32_t, int32_t); \
 extern "C" void* art_quick_alloc_string_from_chars##suffix(int32_t, int32_t, void*); \
 extern "C" void* art_quick_alloc_string_from_string##suffix(void*); \
@@ -148,6 +157,7 @@ extern "C" void* art_quick_alloc_array_resolved64##suffix##_instrumented(mirror:
 extern "C" void* art_quick_alloc_object_resolved##suffix##_instrumented(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_object_initialized##suffix##_instrumented(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_object_with_checks##suffix##_instrumented(mirror::Class* klass); \
+extern "C" void* art_quick_alloc_string_object##suffix##_instrumented(mirror::Class* klass); \
 extern "C" void* art_quick_alloc_string_from_bytes##suffix##_instrumented(void*, int32_t, int32_t, int32_t); \
 extern "C" void* art_quick_alloc_string_from_chars##suffix##_instrumented(int32_t, int32_t, void*); \
 extern "C" void* art_quick_alloc_string_from_string##suffix##_instrumented(void*); \
@@ -161,6 +171,7 @@ void SetQuickAllocEntryPoints##suffix(QuickEntryPoints* qpoints, bool instrument
     qpoints->pAllocObjectResolved = art_quick_alloc_object_resolved##suffix##_instrumented; \
     qpoints->pAllocObjectInitialized = art_quick_alloc_object_initialized##suffix##_instrumented; \
     qpoints->pAllocObjectWithChecks = art_quick_alloc_object_with_checks##suffix##_instrumented; \
+    qpoints->pAllocStringObject = art_quick_alloc_string_object##suffix##_instrumented; \
     qpoints->pAllocStringFromBytes = art_quick_alloc_string_from_bytes##suffix##_instrumented; \
     qpoints->pAllocStringFromChars = art_quick_alloc_string_from_chars##suffix##_instrumented; \
     qpoints->pAllocStringFromString = art_quick_alloc_string_from_string##suffix##_instrumented; \
@@ -173,6 +184,7 @@ void SetQuickAllocEntryPoints##suffix(QuickEntryPoints* qpoints, bool instrument
     qpoints->pAllocObjectResolved = art_quick_alloc_object_resolved##suffix; \
     qpoints->pAllocObjectInitialized = art_quick_alloc_object_initialized##suffix; \
     qpoints->pAllocObjectWithChecks = art_quick_alloc_object_with_checks##suffix; \
+    qpoints->pAllocStringObject = art_quick_alloc_string_object##suffix; \
     qpoints->pAllocStringFromBytes = art_quick_alloc_string_from_bytes##suffix; \
     qpoints->pAllocStringFromChars = art_quick_alloc_string_from_chars##suffix; \
     qpoints->pAllocStringFromString = art_quick_alloc_string_from_string##suffix; \

@@ -54,8 +54,8 @@ struct ScalarType : public Type {
             bool specifyNamespaces) const override;
 
     std::string getJavaType(bool forInitializer) const override;
+    std::string getJavaTypeClass() const override;
 
-    std::string getJavaWrapperType() const override;
     std::string getJavaSuffix() const override;
 
     std::string getVtsType() const override;

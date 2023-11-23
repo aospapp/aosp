@@ -20,13 +20,13 @@
 %                               October 2003                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -447,6 +447,7 @@ static Image *ReadCINImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((count != 4) ||
       ((LocaleNCompare((char *) magick,"\200\052\137\327",4) != 0)))
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  memset(&cin,0,sizeof(cin));
   image->endian=(magick[0] == 0x80) && (magick[1] == 0x2a) &&
     (magick[2] == 0x5f) && (magick[3] == 0xd7) ? MSBEndian : LSBEndian;
   cin.file.image_offset=ReadBlobLong(image);
@@ -621,7 +622,7 @@ static Image *ReadCINImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) CopyMagickString(property,cin.origination.model,
     sizeof(cin.origination.model));
   (void) SetImageProperty(image,"dpx:origination.model",property,exception);
-  (void) ResetMagickMemory(cin.origination.serial,0, 
+  (void) memset(cin.origination.serial,0, 
     sizeof(cin.origination.serial));
   offset+=ReadBlob(image,sizeof(cin.origination.serial),(unsigned char *)
     cin.origination.serial);
@@ -706,7 +707,10 @@ static Image *ReadCINImage(const ImageInfo *image_info,ExceptionInfo *exception)
       /*
         User defined data.
       */
-      profile=BlobToStringInfo((const unsigned char *) NULL,cin.file.user_length);
+      if (cin.file.user_length > GetBlobSize(image))
+        ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
+      profile=BlobToStringInfo((const unsigned char *) NULL,
+        cin.file.user_length);
       if (profile == (StringInfo *) NULL)
         ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
       offset+=ReadBlob(image,GetStringInfoLength(profile),
@@ -722,6 +726,8 @@ static Image *ReadCINImage(const ImageInfo *image_info,ExceptionInfo *exception)
       (void) CloseBlob(image);
       return(image);
     }
+  if (((MagickSizeType) image->columns*image->rows/8) > GetBlobSize(image))
+    ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
   for ( ; offset < (MagickOffsetType) cin.file.image_offset; offset++)
   {
     int
@@ -736,6 +742,7 @@ static Image *ReadCINImage(const ImageInfo *image_info,ExceptionInfo *exception)
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
     return(DestroyImageList(image));
+  (void) SetImageBackgroundColor(image,exception);
   /*
     Convert CIN raster image to pixel packets.
   */
@@ -814,6 +821,7 @@ ModuleExport size_t RegisterCINImage(void)
   entry->decoder=(DecodeImageHandler *) ReadCINImage;
   entry->encoder=(EncodeImageHandler *) WriteCINImage;
   entry->magick=(IsImageFormatHandler *) IsCIN;
+  entry->flags|=CoderDecoderSeekableStreamFlag;
   entry->flags^=CoderAdjoinFlag;
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
@@ -951,7 +959,7 @@ static MagickBooleanType WriteCINImage(const ImageInfo *image_info,Image *image,
   /*
     Write image information.
   */
-  (void) ResetMagickMemory(&cin,0,sizeof(cin));
+  (void) memset(&cin,0,sizeof(cin));
   offset=0;
   cin.file.magic=0x802A5FD7UL;
   offset+=WriteBlobLong(image,(unsigned int) cin.file.magic);

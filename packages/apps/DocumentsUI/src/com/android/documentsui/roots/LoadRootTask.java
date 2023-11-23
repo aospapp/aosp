@@ -28,14 +28,14 @@ import com.android.documentsui.base.PairedTask;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 
-public final class LoadRootTask<T extends Activity & CommonAddons>
+public class LoadRootTask<T extends Activity & CommonAddons>
         extends PairedTask<T, Void, RootInfo> {
     private static final String TAG = "LoadRootTask";
 
-    private final State mState;
-    private final ProvidersAccess mProviders;
-    private final Uri mRootUri;
+    protected final ProvidersAccess mProviders;
 
+    private final State mState;
+    private final Uri mRootUri;
 
     public LoadRootTask(T activity, ProvidersAccess providers, State state, Uri rootUri) {
         super(activity);
@@ -46,20 +46,27 @@ public final class LoadRootTask<T extends Activity & CommonAddons>
 
     @Override
     protected RootInfo run(Void... params) {
-        if (DEBUG) Log.d(TAG, "Loading root: " + mRootUri);
+        if (DEBUG) {
+            Log.d(TAG, "Loading root: " + mRootUri);
+        }
 
-        String rootId = DocumentsContract.getRootId(mRootUri);
-        return mProviders.getRootOneshot(mRootUri.getAuthority(), rootId);
+        return mProviders.getRootOneshot(mRootUri.getAuthority(), getRootId(mRootUri));
     }
 
     @Override
     protected void finish(RootInfo root) {
         if (root != null) {
-            if (DEBUG) Log.d(TAG, "Loaded root: " + root);
+            if (DEBUG) {
+                Log.d(TAG, "Loaded root: " + root);
+            }
             mOwner.onRootPicked(root);
         } else {
             Log.w(TAG, "Failed to find root: " + mRootUri);
             mOwner.finish();
         }
+    }
+
+    protected String getRootId(Uri rootUri) {
+        return DocumentsContract.getRootId(rootUri);
     }
 }

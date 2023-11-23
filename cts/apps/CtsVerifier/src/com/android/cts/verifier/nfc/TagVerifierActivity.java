@@ -352,7 +352,7 @@ public class TagVerifierActivity<T> extends PassFailButtons.ListActivity {
         // Placeholder title and message that will be set properly in onPrepareDialog
         return new AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
-                .setTitle(R.string.nfc_result_failure)
+                .setTitle(R.string.result_failure)
                 .setMessage("")
                 .setPositiveButton(android.R.string.ok, null)
                 .create();
@@ -378,8 +378,8 @@ public class TagVerifierActivity<T> extends PassFailButtons.ListActivity {
 
         AlertDialog alert = (AlertDialog) dialog;
         alert.setTitle(isMatch
-                ? R.string.nfc_result_success
-                : R.string.nfc_result_failure);
+                ? R.string.result_success
+                : R.string.result_failure);
         alert.setMessage(getString(R.string.nfc_result_message, expectedContent, actualContent));
     }
 

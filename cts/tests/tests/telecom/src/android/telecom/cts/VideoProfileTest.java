@@ -104,4 +104,13 @@ public class VideoProfileTest extends AndroidTestCase {
         assertFalse(VideoProfile.isTransmissionEnabled(VideoProfile.STATE_RX_ENABLED));
         assertFalse(VideoProfile.isTransmissionEnabled(VideoProfile.STATE_PAUSED));
     }
-}
+
+    public void testCameraCapability() {
+        VideoProfile.CameraCapabilities cp = new VideoProfile.CameraCapabilities(
+                1, 1, true, 0.5f);
+        assertEquals(1, cp.getWidth());
+        assertEquals(1, cp.getHeight());
+        assertTrue(cp.isZoomSupported());
+        assertEquals(0.5f, cp.getMaxZoom());
+    }
+ }

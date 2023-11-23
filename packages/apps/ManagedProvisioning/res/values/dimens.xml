@@ -68,11 +68,6 @@
     <dimen name="spacer_112">112dp</dimen>
 
     <!-- Pre-provisioning -->
-    <dimen name="info_view_width">412dp</dimen>
-    <dimen name="info_view_width_x0.5">206dp</dimen>
-    <dimen name="info_view_width_x1.5">618dp</dimen>
-    <dimen name="info_view_width_x2.5">1030dp</dimen>
-
     <dimen name="info_text_title_size">24sp</dimen>
 
     <dimen name="intro_button_width">208dp</dimen>
@@ -84,4 +79,7 @@
 
     <dimen name="terms_screen_margin">@dimen/spacer_0</dimen>
     <dimen name="terms_screen_padding">@dimen/spacer_0</dimen>
+
+    <!-- Provisioning -->
+    <dimen name="animation_height">162dp</dimen>
 </resources>

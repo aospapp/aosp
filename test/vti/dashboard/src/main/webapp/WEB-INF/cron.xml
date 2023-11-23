@@ -27,4 +27,16 @@ Copyright 2016 Google Inc. All Rights Reserved.
     <schedule>every day 07:30</schedule>
     <timezone>America/Los_Angeles</timezone>
   </cron>
+  <cron>
+    <url>/cron/test_suite_report_gcs_monitor</url>
+    <description>Process suite test report from gcs.</description>
+    <schedule>every 5 mins</schedule>
+    <timezone>America/Los_Angeles</timezone>
+  </cron>
+  <cron>
+    <url>/cron/vts_spreadsheet_sync_job</url>
+    <description>Sync google spreadsheet data with datastore entity.</description>
+    <schedule>every day 00:30</schedule>
+    <timezone>America/Los_Angeles</timezone>
+  </cron>
 </cronentries>

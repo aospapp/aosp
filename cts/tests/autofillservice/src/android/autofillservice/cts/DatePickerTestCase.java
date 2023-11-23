@@ -36,14 +36,14 @@ import org.junit.Test;
 /**
  * Base class for {@link AbstractDatePickerActivity} tests.
  */
-abstract class DatePickerTestCase<T extends AbstractDatePickerActivity>
-        extends AutoFillServiceTestCase {
+abstract class DatePickerTestCase<A extends AbstractDatePickerActivity>
+        extends AutoFillServiceTestCase.AutoActivityLaunch<A> {
 
-    protected abstract T getDatePickerActivity();
+    protected A mActivity;
 
     @Test
     public void testAutoFillAndSave() throws Exception {
-        final T activity = getDatePickerActivity();
+        assertWithMessage("subclass did not set mActivity").that(mActivity).isNotNull();
 
         // Set service.
         enableService();
@@ -62,10 +62,10 @@ abstract class DatePickerTestCase<T extends AbstractDatePickerActivity>
                     .build())
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_OUTPUT, ID_DATE_PICKER)
                 .build());
-        activity.expectAutoFill("2012/11/20", 2012, Calendar.DECEMBER, 20);
+        mActivity.expectAutoFill("2012/11/20", 2012, Calendar.DECEMBER, 20);
 
         // Trigger auto-fill.
-        activity.onOutput((v) -> v.requestFocus());
+        mActivity.onOutput((v) -> v.requestFocus());
         final FillRequest fillRequest = sReplier.getNextFillRequest();
 
         // Assert properties of DatePicker field.
@@ -76,13 +76,13 @@ abstract class DatePickerTestCase<T extends AbstractDatePickerActivity>
         mUiBot.selectDataset("The end of the world");
 
         // Check the results.
-        activity.assertAutoFilled();
+        mActivity.assertAutoFilled();
 
         // Trigger save.
-        activity.setDate(2010, Calendar.DECEMBER, 12);
-        activity.tapOk();
+        mActivity.setDate(2010, Calendar.DECEMBER, 12);
+        mActivity.tapOk();
 
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_GENERIC);
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertWithMessage("onSave() not called").that(saveRequest).isNotNull();
 

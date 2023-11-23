@@ -15,7 +15,7 @@ af{
         018{"Suider-Afrika"}
         019{"Amerikas"}
         021{"Noordelike Amerika"}
-        029{"Karibies"}
+        029{"Karibiese streek"}
         030{"Oos-Asië"}
         034{"Suid-Asië"}
         035{"Suidoos-Asië"}
@@ -31,6 +31,7 @@ af{
         151{"Oos-Europa"}
         154{"Noord-Europa"}
         155{"Wes-Europa"}
+        202{"Afrika suid van die Sahara"}
         419{"Latyns-Amerika"}
         AC{"Ascensioneiland"}
         AD{"Andorra"}
@@ -226,7 +227,7 @@ af{
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Katar"}
-        QO{"Omliggende Oseanië"}
+        QO{"Afgeleë Oseanië"}
         RE{"Réunion"}
         RO{"Roemenië"}
         RS{"Serwië"}
@@ -304,5 +305,5 @@ af{
         CG{"Kongo (Republiek die)"}
         CZ{"Tsjeggiese Republiek"}
     }
-    Version{"2.1.37.5"}
+    Version{"2.1.43.65"}
 }

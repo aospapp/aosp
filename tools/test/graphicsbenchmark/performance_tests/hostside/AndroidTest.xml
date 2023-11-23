@@ -1,0 +1,16 @@
+<configuration description="Game qualification test">
+    <option name="test-suite-tag" value="gamecore" />
+
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="test-file-name" value="GameQualificationDevice.apk" />
+        <option name="cleanup-apks" value="true" />
+    </target_preparer>
+
+    <test class="com.android.game.qualification.testtype.GameQualificationHostsideController" />
+
+    <!--
+    <metrics_collector class="com.android.game.qualification.metric.GameQualificationFpsCollector" />
+    <result_reporter class="com.android.game.qualification.reporter.GameQualificationResultReporter"/>
+    -->
+
+</configuration>

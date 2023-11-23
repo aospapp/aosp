@@ -124,3 +124,47 @@ cc_library {
     required: ["libnpt"],
     defaults: ["upstream-jdwp-defaults"],
 }
+
+genrule {
+    name: "jdwp_generated_java",
+    tools: ["jdwpgen"],
+    cmd: "$(location jdwpgen) $(in) -jdi $(out)",
+    srcs: ["make/data/jdwp/jdwp.spec"],
+    out: ["JDWP.java"],
+}
+
+python_binary_host {
+  name: "jdi_prop_gen",
+  srcs: ["etc/jdigen.py"],
+  main: "etc/jdigen.py",
+}
+
+genrule {
+  name: "jdi_generated_properties",
+  tools: ["jdi_prop_gen"],
+  cmd: "$(location jdi_prop_gen) $(in) $(out)",
+  out: ["jdi.java"],
+  srcs: ["src/share/classes/com/sun/tools/jdi/resources/jdi.properties"],
+}
+
+// The classes needed to support JDI and debug remote processes.
+java_library_host {
+  name: "jdi-support",
+  srcs: [
+    // The JDI interface definition.
+    "src/share/classes/com/sun/jdi/**/*.java",
+    // The JDI interface implementation
+    "src/share/classes/com/sun/tools/jdi/**/*.java",
+    // The JDWP.java file that contains all the constants.
+    ":jdwp_generated_java",
+    // The properties class which holds information about the various connectors.
+    ":jdi_generated_properties",
+  ],
+  exclude_srcs: [
+    // We don't support process attachment and lack some of the classes to even compile this file.
+    "src/share/classes/com/sun/tools/jdi/ProcessAttachingConnector.java",
+  ],
+  services: ["etc/com.sun.jdi.connect.Connector"],
+  javacflags: ["-g"],
+  notice: "LICENSE",
+}

@@ -16,13 +16,11 @@
 
 package com.android.dialer.app.calllog;
 
-import android.annotation.TargetApi;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build.VERSION_CODES;
 import android.provider.CallLog;
 import android.provider.VoicemailContract.Voicemails;
 import android.support.annotation.NonNull;
@@ -34,7 +32,7 @@ import com.android.dialer.common.concurrent.AsyncTaskExecutors;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.voicemail.VoicemailClient;
 
-@TargetApi(VERSION_CODES.M)
+/** TODO(calderwoodra): documentation */
 public class CallLogAsyncTaskUtil {
 
   private static final String TAG = "CallLogAsyncTaskUtil";
@@ -155,6 +153,7 @@ public class CallLogAsyncTaskUtil {
     UPDATE_DURATION,
   }
 
+  /** TODO(calderwoodra): documentation */
   public interface CallLogAsyncTaskListener {
     void onDeleteVoicemail();
   }

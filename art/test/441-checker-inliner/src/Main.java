@@ -135,11 +135,7 @@ public class Main {
     }
   }
 
-  /// CHECK-START: int Main.returnAbs(int) intrinsics_recognition (before)
-  /// CHECK-DAG:     <<Result:i\d+>>      InvokeStaticOrDirect
-  /// CHECK-DAG:                          Return [<<Result>>]
-
-  /// CHECK-START: int Main.returnAbs(int) intrinsics_recognition (after)
+  /// CHECK-START: int Main.returnAbs(int) builder (after)
   /// CHECK-DAG:     <<Result:i\d+>>      InvokeStaticOrDirect intrinsic:MathAbsInt
   /// CHECK-DAG:                          Return [<<Result>>]
 
@@ -152,10 +148,12 @@ public class Main {
   /// CHECK-DAG:     <<Result:i\d+>>      InvokeStaticOrDirect
   /// CHECK-DAG:                          Return [<<Result>>]
 
+  //
+  // Intrinsic directly simplified into Abs and evaluated!
+  //
   /// CHECK-START: int Main.InlinedIntrinsicsAreStillIntrinsic() inliner (after)
-  /// CHECK-DAG:     <<ConstMinus1:i\d+>> IntConstant -1
-  /// CHECK-DAG:     <<Result:i\d+>>      InvokeStaticOrDirect intrinsic:MathAbsInt
-  /// CHECK-DAG:                          Return [<<Result>>]
+  /// CHECK-DAG:     <<Const1:i\d+>>      IntConstant 1
+  /// CHECK-DAG:                          Return [<<Const1>>]
 
   public static int InlinedIntrinsicsAreStillIntrinsic() {
     return returnAbs(-1);

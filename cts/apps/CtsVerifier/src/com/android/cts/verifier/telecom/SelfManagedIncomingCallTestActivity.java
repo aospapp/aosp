@@ -30,8 +30,6 @@ import android.widget.ImageView;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
-import java.util.List;
-
 /**
  * This test verifies functionality associated with the Self-Managed
  * {@link android.telecom.ConnectionService} APIs.  It ensures that Telecom will show an incoming
@@ -45,10 +43,42 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
     private ImageView mStep1Status;
     private Button mRegisterPhoneAccount;
     private ImageView mStep2Status;
-    private Button mShowUi;
+    private Button mVerifyCall;
+    private Button mPlaceCall;
     private ImageView mStep3Status;
-    private Button mConfirm;
 
+    private CtsConnection.Listener mConnectionListener = new CtsConnection.Listener() {
+        @Override
+        void onShowIncomingCallUi(CtsConnection connection) {
+            // The system should have displayed the incoming call UI; this is a fail.
+            mStep3Status.setImageResource(R.drawable.fs_error);
+            getPassButton().setEnabled(false);
+        };
+
+        @Override
+        void onAnswer(CtsConnection connection, int videoState) {
+            // Call was answered, so disconnect it now.
+            connection.onDisconnect();
+        };
+
+        @Override
+        void onDisconnect(CtsConnection connection) {
+            super.onDisconnect(connection);
+
+            cleanupConnectionServices();
+
+            TelecomManager telecomManager =
+                    (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+            if (telecomManager == null || !telecomManager.isInManagedCall()) {
+                // Should still be in a managed call; only one would need to be disconnected.
+                mStep3Status.setImageResource(R.drawable.fs_error);
+                return;
+            }
+
+            mStep3Status.setImageResource(R.drawable.fs_good);
+            getPassButton().setEnabled(true);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,15 +95,11 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         mRegisterPhoneAccount.setOnClickListener(v -> {
             PhoneAccountUtils.registerTestSelfManagedPhoneAccount(this);
             PhoneAccount account = PhoneAccountUtils.getSelfManagedPhoneAccount(this);
-            PhoneAccount account2 = PhoneAccountUtils.getSelfManagedPhoneAccount2(this);
             if (account != null &&
                     account.isEnabled() &&
-                    account.hasCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED) &&
-                    account2 != null &&
-                    account2.isEnabled() &&
-                    account2.hasCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)) {
+                    account.hasCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)) {
                 mRegisterPhoneAccount.setEnabled(false);
-                mShowUi.setEnabled(true);
+                mVerifyCall.setEnabled(true);
                 mStep1Status.setImageResource(R.drawable.fs_good);
             } else {
                 mStep1Status.setImageResource(R.drawable.fs_error);
@@ -81,8 +107,24 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         });
 
         mStep2Status = view.findViewById(R.id.step_2_status);
-        mShowUi = view.findViewById(R.id.telecom_incoming_self_mgd_show_ui_button);
-        mShowUi.setOnClickListener(v -> {
+        mVerifyCall = view.findViewById(R.id.telecom_incoming_self_mgd_verify_call_button);
+        mVerifyCall.setOnClickListener(v -> {
+            TelecomManager telecomManager =
+                    (TelecomManager) getSystemService(Context.TELECOM_SERVICE);
+            if (telecomManager == null || !telecomManager.isInManagedCall()) {
+                mStep2Status.setImageResource(R.drawable.fs_error);
+                mPlaceCall.setEnabled(false);
+            } else {
+                mStep2Status.setImageResource(R.drawable.fs_good);
+                mVerifyCall.setEnabled(false);
+                mPlaceCall.setEnabled(true);
+            }
+        });
+
+
+        // telecom_incoming_self_mgd_place_call_button
+        mPlaceCall = view.findViewById(R.id.telecom_incoming_self_mgd_place_call_button);
+        mPlaceCall.setOnClickListener(v -> {
             (new AsyncTask<Void, Void, Throwable>() {
                 @Override
                 protected Throwable doInBackground(Void... params) {
@@ -111,6 +153,8 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                             mStep2Status.setImageResource(R.drawable.fs_error);
                             return new Throwable("Could not get connection.");
                         }
+                        connection.addListener(mConnectionListener);
+
                         // Wait until the connection knows its audio state changed; at this point
                         // Telecom knows about the connection and can answer.
                         connection.waitForAudioStateChanged();
@@ -123,15 +167,6 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         int capabilities = connection.getConnectionCapabilities();
                         capabilities &= ~Connection.CAPABILITY_HOLD;
                         connection.setConnectionCapabilities(capabilities);
-
-                        // Place the second call. It should trigger the incoming call UX.
-                        Bundle extras2 = new Bundle();
-                        extras2.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
-                                TEST_DIAL_NUMBER_2);
-                        telecomManager.addNewIncomingCall(
-                                PhoneAccountUtils.TEST_SELF_MANAGED_PHONE_ACCOUNT_HANDLE_2,
-                                extras2);
-
                         return null;
                     } catch (Throwable t) {
                         return t;
@@ -142,8 +177,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                 protected void onPostExecute(Throwable t) {
                     if (t == null) {
                         mStep2Status.setImageResource(R.drawable.fs_good);
-                        mShowUi.setEnabled(false);
-                        mConfirm.setEnabled(true);
+                        mPlaceCall.setEnabled(false);
                     } else {
                         mStep2Status.setImageResource(R.drawable.fs_error);
                     }
@@ -154,44 +188,8 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         });
 
         mStep3Status = view.findViewById(R.id.step_3_status);
-        mConfirm = view.findViewById(R.id.telecom_incoming_self_mgd_confirm_answer_button);
-        mConfirm.setOnClickListener(v -> {
-            try {
-                CtsSelfManagedConnectionService ctsSelfConnSvr =
-                        CtsSelfManagedConnectionService.waitForAndGetConnectionService();
-                if (ctsSelfConnSvr == null) {
-                    mStep3Status.setImageResource(R.drawable.fs_error);
-                    return;
-                }
-                List<CtsConnection> connections = ctsSelfConnSvr.getConnections();
-                if (connections.size() != 1) {
-                    mStep3Status.setImageResource(R.drawable.fs_error);
-                    return;
-                }
-
-                if (connections.get(0).getState() == Connection.STATE_ACTIVE) {
-                    mStep3Status.setImageResource(R.drawable.fs_good);
-                    getPassButton().setEnabled(true);
-                } else {
-                    mStep3Status.setImageResource(R.drawable.fs_error);
-                }
-
-                // The self-managed connection service should be disconnected, because all of the
-                // self-managed connections are disconnected.
-                if (CtsConnectionService.getConnectionService() != null) {
-                    mStep3Status.setImageResource(R.drawable.fs_error);
-                    return;
-                }
-
-                mConfirm.setEnabled(false);
-            } finally {
-                // If some step fails, make sure we cleanup any lingering connections.
-                cleanupConnectionServices();
-            }
-        });
-
-        mShowUi.setEnabled(false);
-        mConfirm.setEnabled(false);
+        mVerifyCall.setEnabled(false);
+        mPlaceCall.setEnabled(false);
     }
 
     private void cleanupConnectionServices() {

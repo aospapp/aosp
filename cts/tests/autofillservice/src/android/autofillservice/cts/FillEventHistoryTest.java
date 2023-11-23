@@ -28,6 +28,7 @@ import static android.autofillservice.cts.Helper.assertFillEventForDatasetAuthen
 import static android.autofillservice.cts.Helper.assertFillEventForDatasetSelected;
 import static android.autofillservice.cts.Helper.assertFillEventForSaveShown;
 import static android.autofillservice.cts.Helper.assertNoDeprecatedClientState;
+import static android.autofillservice.cts.Helper.findAutofillIdByResourceId;
 import static android.autofillservice.cts.InstrumentedAutoFillService.waitUntilConnected;
 import static android.autofillservice.cts.InstrumentedAutoFillService.waitUntilDisconnected;
 import static android.autofillservice.cts.LoginActivity.BACKDOOR_USERNAME;
@@ -40,10 +41,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
+import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
+import android.service.autofill.FillContext;
 import android.service.autofill.FillEventHistory;
 import android.service.autofill.FillEventHistory.Event;
 import android.service.autofill.FillResponse;
@@ -53,8 +56,6 @@ import android.view.autofill.AutofillId;
 
 import com.google.common.collect.ImmutableMap;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.List;
@@ -65,19 +66,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Test that uses {@link LoginActivity} to test {@link FillEventHistory}.
  */
-@AppModeFull // Service-specific test
-public class FillEventHistoryTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<LoginActivity> mActivityRule =
-            new AutofillActivityTestRule<LoginActivity>(LoginActivity.class);
-
-    private LoginActivity mActivity;
-
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
-    }
+@AppModeFull(reason = "Service-specific test")
+public class FillEventHistoryTest extends AbstractLoginActivityTestCase {
 
     @Test
     public void testDatasetAuthenticationSelected() throws Exception {
@@ -618,7 +608,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
 
         // Trigger autofill on username
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
 
         final UiObject2 datasetPicker = mUiBot.assertDatasets("dataset1", "dataset2");
         mUiBot.selectDataset(datasetPicker, "dataset1");
@@ -649,7 +639,8 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event2.getClientState()).isNull();
             assertThat(event2.getSelectedDatasetIds()).isEmpty();
             assertThat(event2.getIgnoredDatasetIds()).containsExactly("id2");
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final AutofillId passwordId = findAutofillIdByResourceId(request.contexts.get(0),
+                    ID_PASSWORD);
             final Map<AutofillId, String> changedFields = event2.getChangedFields();
             assertThat(changedFields).containsExactly(passwordId, "id2");
             assertThat(event2.getManuallyEnteredField()).isEmpty();
@@ -679,7 +670,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
 
         // Trigger autofill on username
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
 
         final UiObject2 datasetPicker = mUiBot.assertDatasets("dataset1", "dataset2");
         mUiBot.selectDataset(datasetPicker, "dataset2");
@@ -710,7 +701,8 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event2.getClientState()).isNull();
             assertThat(event2.getSelectedDatasetIds()).containsExactly("id2");
             assertThat(event2.getIgnoredDatasetIds()).isEmpty();
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final AutofillId passwordId = findAutofillIdByResourceId(request.contexts.get(0),
+                    ID_PASSWORD);
             final Map<AutofillId, String> changedFields = event2.getChangedFields();
             assertThat(changedFields).containsExactly(passwordId, "id2");
             assertThat(event2.getManuallyEnteredField()).isEmpty();
@@ -798,7 +790,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
 
         // Trigger autofill on username
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
 
         final UiObject2 datasetPicker = mUiBot.assertDatasets("dataset1", "dataset2");
         mUiBot.selectDataset(datasetPicker, "dataset1");
@@ -831,8 +823,10 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event2.getSelectedDatasetIds()).containsExactly("id1");
             assertThat(event2.getIgnoredDatasetIds()).containsExactly("id2");
             final Map<AutofillId, String> changedFields = event2.getChangedFields();
-            final AutofillId usernameId = mActivity.getUsername().getAutofillId();
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final FillContext context = request.contexts.get(0);
+            final AutofillId usernameId = findAutofillIdByResourceId(context, ID_USERNAME);
+            final AutofillId passwordId = findAutofillIdByResourceId(context, ID_PASSWORD);
+
             assertThat(changedFields).containsExactlyEntriesIn(
                     ImmutableMap.of(usernameId, "id1", passwordId, "id1"));
             assertThat(event2.getManuallyEnteredField()).isEmpty();
@@ -864,7 +858,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
 
         // Trigger autofill
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
 
         // Autofill username
         mUiBot.selectDataset("dataset1");
@@ -912,7 +906,8 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event3.getSelectedDatasetIds()).containsExactly("id1", "id2");
             assertThat(event3.getIgnoredDatasetIds()).isEmpty();
             final Map<AutofillId, String> changedFields = event3.getChangedFields();
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final AutofillId passwordId = findAutofillIdByResourceId(request.contexts.get(0),
+                    ID_PASSWORD);
             assertThat(changedFields).containsExactly(passwordId, "id2");
             assertThat(event3.getManuallyEnteredField()).isEmpty();
         }
@@ -1082,7 +1077,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
                 .build());
         // Trigger autofill on username
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
         mUiBot.assertDatasets("dataset1", "dataset2");
 
         // Verify history
@@ -1108,8 +1103,9 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event.getSelectedDatasetIds()).isEmpty();
             assertThat(event.getIgnoredDatasetIds()).containsExactly("id1", "id2");
             assertThat(event.getChangedFields()).isEmpty();
-            final AutofillId usernameId = mActivity.getUsername().getAutofillId();
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final FillContext context = request.contexts.get(0);
+            final AutofillId usernameId = findAutofillIdByResourceId(context, ID_USERNAME);
+            final AutofillId passwordId = findAutofillIdByResourceId(context, ID_PASSWORD);
 
             final Map<AutofillId, Set<String>> manuallyEnteredFields =
                     event.getManuallyEnteredField();
@@ -1153,7 +1149,7 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
                 .build());
         // Trigger autofill on username
         mActivity.onUsername(View::requestFocus);
-        sReplier.getNextFillRequest();
+        final FillRequest request = sReplier.getNextFillRequest();
         mUiBot.assertDatasets("dataset1", "dataset2", "dataset3");
 
         // Verify history
@@ -1180,8 +1176,9 @@ public class FillEventHistoryTest extends AutoFillServiceTestCase {
             assertThat(event.getSelectedDatasetIds()).isEmpty();
             assertThat(event.getIgnoredDatasetIds()).containsExactly("id1", "id2", "id3");
             assertThat(event.getChangedFields()).isEmpty();
-            final AutofillId usernameId = mActivity.getUsername().getAutofillId();
-            final AutofillId passwordId = mActivity.getPassword().getAutofillId();
+            final FillContext context = request.contexts.get(0);
+            final AutofillId usernameId = findAutofillIdByResourceId(context, ID_USERNAME);
+            final AutofillId passwordId = findAutofillIdByResourceId(context, ID_PASSWORD);
 
             final Map<AutofillId, Set<String>> manuallyEnteredFields =
                     event.getManuallyEnteredField();

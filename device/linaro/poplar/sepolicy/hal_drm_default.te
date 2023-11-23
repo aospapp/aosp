@@ -1,0 +1,6 @@
+allow hal_drm_default mmz_userdev_device:chr_file { ioctl open read write };
+allow hal_drm_default debugfs_trace_marker:file { open write };
+allow hal_drm_default vndbinder_device:chr_file { open read write ioctl };
+allow hal_drm_default vendor_data_file:dir { write add_name create open read };
+allow hal_drm_default vendor_data_file:file { create read write open getattr};
+#allow hal_drm_default system_data_file:dir { write };

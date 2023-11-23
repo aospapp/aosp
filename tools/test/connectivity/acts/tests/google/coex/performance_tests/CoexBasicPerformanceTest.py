@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -14,14 +14,14 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
+from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 from acts.test_utils.coex.coex_test_utils import perform_classic_discovery
 
 
-class CoexBasicPerformanceTest(CoexBaseTest):
+class CoexBasicPerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def run_iperf_and_perform_discovery(self):
         """Starts iperf client on host machine and bluetooth discovery
@@ -30,8 +30,10 @@ class CoexBasicPerformanceTest(CoexBaseTest):
         Returns:
             True if successful, False otherwise.
         """
-        self.run_iperf_and_get_result()
-        if not perform_classic_discovery(self.pri_ad):
+        tasks = [(perform_classic_discovery,
+                  (self.pri_ad, self.iperf["duration"], self.json_file,
+                   self.dev_list)), (self.run_iperf_and_get_result, ())]
+        if not self.set_attenuation_and_run_iperf(tasks):
             return False
         return self.teardown_result()
 
@@ -46,8 +48,8 @@ class CoexBasicPerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_005
         """
-        self.run_iperf_and_get_result()
-        self.teardown_result()
+        self.set_attenuation_and_run_iperf()
+        return self.teardown_result()
 
     def test_performance_with_bt_on_tcp_dl(self):
         """Check throughput when bluetooth on.
@@ -60,8 +62,8 @@ class CoexBasicPerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_006
         """
-        self.run_iperf_and_get_result()
-        self.teardown_result()
+        self.set_attenuation_and_run_iperf()
+        return self.teardown_result()
 
     def test_performance_with_bt_on_udp_ul(self):
         """Check throughput when bluetooth on.
@@ -74,8 +76,8 @@ class CoexBasicPerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_007
         """
-        self.run_iperf_and_get_result()
-        self.teardown_result()
+        self.set_attenuation_and_run_iperf()
+        return self.teardown_result()
 
     def test_performance_with_bt_on_udp_dl(self):
         """Check throughput when bluetooth on.
@@ -88,8 +90,8 @@ class CoexBasicPerformanceTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_kpi_008
         """
-        self.run_iperf_and_get_result()
-        self.teardown_result()
+        self.set_attenuation_and_run_iperf()
+        return self.teardown_result()
 
     def test_performance_with_bluetooth_discovery_tcp_ul(self):
         """Check throughput when bluetooth discovery is ongoing.

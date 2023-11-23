@@ -22,6 +22,8 @@
 #include <sys/stat.h>
 #include <sys/prctl.h>
 
+#include <string>
+
 #include <android-base/scopeguard.h>
 
 extern "C" pid_t gettid();
@@ -35,22 +37,23 @@ static void ProcSelfReadlinkBody() {
   const char* ERRORMSG = "Please apply the following two kernel patches:\n"
     "* https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=73af963f9f3036dffed55c3a2898598186db1045\n"
     "* https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=96d0df79f2644fc823f26c06491e182d87a90c2a\n";
-  ASSERT_NE(-1, readlink(buf, buf2, sizeof(buf2))) << ERRORMSG;
-  ASSERT_STREQ("/dev/null", buf2);
+  ssize_t length = readlink(buf, buf2, sizeof(buf2));
+  ASSERT_LT(0, length) << ERRORMSG;
+  ASSERT_EQ("/dev/null", std::string(buf2, length));
   close(fd);
 }
 
 static void* ProcSelfReadlink(void*) {
   ProcSelfReadlinkBody();
-  return NULL;
+  return nullptr;
 }
 
 TEST(bug_26110743, ProcSelfReadlink) {
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ProcSelfReadlink, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ProcSelfReadlink, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
-  ASSERT_EQ(NULL, result);
+  ASSERT_EQ(nullptr, result);
 }
 
 TEST(bug_26110743, ProcSelfReadlink_NotDumpable) {
@@ -62,10 +65,10 @@ TEST(bug_26110743, ProcSelfReadlink_NotDumpable) {
   });
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ProcSelfReadlink, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ProcSelfReadlink, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
-  ASSERT_EQ(NULL, result);
+  ASSERT_EQ(nullptr, result);
 }
 
 static void ProcTaskFdReadlinkBody() {
@@ -79,22 +82,23 @@ static void ProcTaskFdReadlinkBody() {
   snprintf(buf, sizeof(buf), "/proc/%d/task/%d/fd/%d", mypid, mytid, fd);
   const char* ERRORMSG = "Please apply the following kernel patch:\n"
     "* https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=54708d2858e79a2bdda10bf8a20c80eb96c20613\n";
-  ASSERT_NE(-1, readlink(buf, buf2, sizeof(buf2))) << ERRORMSG;
-  ASSERT_STREQ("/dev/null", buf2);
+  ssize_t length = readlink(buf, buf2, sizeof(buf2));
+  ASSERT_LT(0, length) << ERRORMSG;
+  ASSERT_EQ("/dev/null", std::string(buf2, length));
   close(fd);
 }
 
 static void* ProcTaskFdReadlink(void*) {
   ProcTaskFdReadlinkBody();
-  return NULL;
+  return nullptr;
 }
 
 TEST(bug_26110743, ProcTaskFdReadlink) {
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ProcTaskFdReadlink, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ProcTaskFdReadlink, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
-  ASSERT_EQ(NULL, result);
+  ASSERT_EQ(nullptr, result);
 }
 
 TEST(bug_26110743, ProcTaskFdReadlink_NotDumpable) {
@@ -106,8 +110,8 @@ TEST(bug_26110743, ProcTaskFdReadlink_NotDumpable) {
   });
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, ProcTaskFdReadlink, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, ProcTaskFdReadlink, nullptr));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
-  ASSERT_EQ(NULL, result);
+  ASSERT_EQ(nullptr, result);
 }

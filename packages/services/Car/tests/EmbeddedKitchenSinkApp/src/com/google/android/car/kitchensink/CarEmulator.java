@@ -17,6 +17,8 @@
 
 package com.google.android.car.kitchensink;
 
+import com.google.android.collect.Lists;
+
 import android.car.Car;
 import android.content.Context;
 import android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction;
@@ -24,6 +26,7 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.os.SystemClock;
+import android.util.SparseIntArray;
 
 import com.android.car.ICarImpl;
 import com.android.car.systeminterface.SystemInterface;
@@ -31,6 +34,10 @@ import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.car.vehiclehal.test.MockedVehicleHal;
 import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
 import com.android.car.vehiclehal.test.VehiclePropConfigBuilder;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class CarEmulator {
 

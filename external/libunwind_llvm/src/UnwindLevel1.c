@@ -1,9 +1,8 @@
 //===------------------------- UnwindLevel1.c -----------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //
 // Implements C++ ABI Exception Handling Level 1 as documented at:
@@ -31,6 +30,8 @@
 #include "config.h"
 
 #if !defined(_LIBUNWIND_ARM_EHABI) && !defined(__USING_SJLJ_EXCEPTIONS__)
+
+#ifndef _LIBUNWIND_SUPPORT_SEH_UNWIND
 
 static _Unwind_Reason_Code
 unwind_phase1(unw_context_t *uc, unw_cursor_t *cursor, _Unwind_Exception *exception_object) {
@@ -287,7 +288,7 @@ unwind_phase2_forced(unw_context_t *uc, unw_cursor_t *cursor,
     // If there is a personality routine, tell it we are unwinding.
     if (frameInfo.handler != 0) {
       __personality_routine p =
-          (__personality_routine)(long)(frameInfo.handler);
+          (__personality_routine)(intptr_t)(frameInfo.handler);
       _LIBUNWIND_TRACE_UNWINDING(
           "unwind_phase2_forced(ex_ojb=%p): calling personality function %p",
           (void *)exception_object, (void *)(uintptr_t)p);
@@ -449,6 +450,7 @@ _Unwind_GetRegionStart(struct _Unwind_Context *context) {
   return result;
 }
 
+#endif // !_LIBUNWIND_SUPPORT_SEH_UNWIND
 
 /// Called by personality handler during phase 2 if a foreign exception
 // is caught.

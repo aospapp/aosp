@@ -9,6 +9,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/videodev2.h>
 #include <poll.h>
 #include <string.h>
 #include <sys/eventfd.h>
@@ -27,7 +28,6 @@
 #include "h264_parser.h"
 #include "rect.h"
 #include "shared_memory_region.h"
-#include "videodev2.h"
 
 #define DVLOGF(level) DVLOG(level) << __func__ << "(): "
 #define VLOGF(level) VLOG(level) << __func__ << "(): "
@@ -186,7 +186,7 @@ bool V4L2VideoDecodeAccelerator::Initialize(const Config& config,
   video_profile_ = config.profile;
 
   input_format_fourcc_ =
-      V4L2Device::VideoCodecProfileToV4L2PixFmt(video_profile_, false);
+      V4L2Device::VideoCodecProfileToV4L2PixFmt(video_profile_);
 
   if (!device_->Open(V4L2Device::Type::kDecoder, input_format_fourcc_)) {
     VLOGF(1) << "Failed to open device for profile: " << config.profile

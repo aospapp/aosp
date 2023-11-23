@@ -18,28 +18,36 @@
 
 #include <iostream>
 
-#include <stdio.h>
 #include <arpa/inet.h>
 #include <netinet/in6.h>
+#include <stdio.h>
 #include <sys/uio.h>
 
 #include <gtest/gtest.h>
 
+#include "netutils/ifc.h"
+#include "tun_interface.h"
+
 extern "C" {
-#include "checksum.h"
-#include "translate.h"
-#include "config.h"
 #include "clatd.h"
+#include "config.h"
+#include "getaddr.h"
+#include "netutils/checksum.h"
+#include "translate.h"
+#include "tun.h"
 }
 
 // For convenience.
 #define ARRAYSIZE(x) sizeof((x)) / sizeof((x)[0])
 
+using android::net::TunInterface;
+
 // Default translation parameters.
-static const char kIPv4LocalAddr[] = "192.0.0.4";
-static const char kIPv6LocalAddr[] = "2001:db8:0:b11::464";
+static const char kIPv4LocalAddr[]  = "192.0.0.4";
+static const char kIPv6LocalAddr[]  = "2001:db8:0:b11::464";
 static const char kIPv6PlatSubnet[] = "64:ff9b::";
 
+// clang-format off
 // Test packet portions. Defined as macros because it's easy to concatenate them to make packets.
 #define IPV4_HEADER(p, c1, c2) \
     0x45, 0x00,    0,   41,  /* Version=4, IHL=5, ToS=0x80, len=41 */     \
@@ -164,6 +172,7 @@ static const uint8_t kReassembledIPv4[] = {
     0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00,
     0x01
 };
+// clang-format on
 
 // Expected checksums.
 static const uint32_t kUdpPartialChecksum     = 0xd5c8;
@@ -185,9 +194,9 @@ int is_ipv6_fragment(struct ip6_hdr *ip6, size_t len) {
   if (ip6->ip6_nxt != IPPROTO_FRAGMENT) {
     return 0;
   }
-  struct ip6_frag *frag = (struct ip6_frag *) (ip6 + 1);
+  struct ip6_frag *frag = (struct ip6_frag *)(ip6 + 1);
   return len >= sizeof(*ip6) + sizeof(*frag) &&
-          (frag->ip6f_offlg & (IP6F_OFF_MASK | IP6F_MORE_FRAG));
+         (frag->ip6f_offlg & (IP6F_OFF_MASK | IP6F_MORE_FRAG));
 }
 
 int ipv4_fragment_offset(struct iphdr *ip) {
@@ -200,50 +209,50 @@ int ipv6_fragment_offset(struct ip6_frag *frag) {
 
 void check_packet(const uint8_t *packet, size_t len, const char *msg) {
   void *payload;
-  size_t payload_length = 0;
+  size_t payload_length    = 0;
   uint32_t pseudo_checksum = 0;
-  uint8_t protocol = 0;
-  int version = ip_version(packet);
+  uint8_t protocol         = 0;
+  int version              = ip_version(packet);
   switch (version) {
     case 4: {
-      struct iphdr *ip = (struct iphdr *) packet;
+      struct iphdr *ip = (struct iphdr *)packet;
       ASSERT_GE(len, sizeof(*ip)) << msg << ": IPv4 packet shorter than IPv4 header\n";
       EXPECT_EQ(5, ip->ihl) << msg << ": Unsupported IP header length\n";
       EXPECT_EQ(len, ntohs(ip->tot_len)) << msg << ": Incorrect IPv4 length\n";
       EXPECT_EQ(0, ip_checksum(ip, sizeof(*ip))) << msg << ": Incorrect IP checksum\n";
       protocol = ip->protocol;
-      payload = ip + 1;
+      payload  = ip + 1;
       if (!is_ipv4_fragment(ip)) {
-        payload_length = len - sizeof(*ip);
+        payload_length  = len - sizeof(*ip);
         pseudo_checksum = ipv4_pseudo_header_checksum(ip, payload_length);
       }
       ASSERT_TRUE(protocol == IPPROTO_TCP || protocol == IPPROTO_UDP || protocol == IPPROTO_ICMP)
-          << msg << ": Unsupported IPv4 protocol " << protocol << "\n";
+        << msg << ": Unsupported IPv4 protocol " << protocol << "\n";
       break;
     }
     case 6: {
-      struct ip6_hdr *ip6 = (struct ip6_hdr *) packet;
+      struct ip6_hdr *ip6 = (struct ip6_hdr *)packet;
       ASSERT_GE(len, sizeof(*ip6)) << msg << ": IPv6 packet shorter than IPv6 header\n";
       EXPECT_EQ(len - sizeof(*ip6), htons(ip6->ip6_plen)) << msg << ": Incorrect IPv6 length\n";
 
       if (ip6->ip6_nxt == IPPROTO_FRAGMENT) {
-        struct ip6_frag *frag = (struct ip6_frag *) (ip6 + 1);
+        struct ip6_frag *frag = (struct ip6_frag *)(ip6 + 1);
         ASSERT_GE(len, sizeof(*ip6) + sizeof(*frag))
-            << msg << ": IPv6 fragment: short fragment header\n";
+          << msg << ": IPv6 fragment: short fragment header\n";
         protocol = frag->ip6f_nxt;
-        payload = frag + 1;
+        payload  = frag + 1;
         // Even though the packet has a Fragment header, it might not be a fragment.
         if (!is_ipv6_fragment(ip6, len)) {
           payload_length = len - sizeof(*ip6) - sizeof(*frag);
         }
       } else {
         // Since there are no extension headers except Fragment, this must be the payload.
-        protocol = ip6->ip6_nxt;
-        payload = ip6 + 1;
+        protocol       = ip6->ip6_nxt;
+        payload        = ip6 + 1;
         payload_length = len - sizeof(*ip6);
       }
       ASSERT_TRUE(protocol == IPPROTO_TCP || protocol == IPPROTO_UDP || protocol == IPPROTO_ICMPV6)
-          << msg << ": Unsupported IPv6 next header " << protocol;
+        << msg << ": Unsupported IPv6 next header " << protocol;
       if (payload_length) {
         pseudo_checksum = ipv6_pseudo_header_checksum(ip6, payload_length, protocol);
       }
@@ -257,7 +266,7 @@ void check_packet(const uint8_t *packet, size_t len, const char *msg) {
   // If we understand the payload, verify the checksum.
   if (payload_length) {
     uint16_t checksum;
-    switch(protocol) {
+    switch (protocol) {
       case IPPROTO_UDP:
       case IPPROTO_TCP:
       case IPPROTO_ICMPV6:
@@ -274,7 +283,7 @@ void check_packet(const uint8_t *packet, size_t len, const char *msg) {
   }
 
   if (protocol == IPPROTO_UDP) {
-    struct udphdr *udp = (struct udphdr *) payload;
+    struct udphdr *udp = (struct udphdr *)payload;
     EXPECT_NE(0, udp->check) << msg << ": UDP checksum 0 should be 0xffff";
     // If this is not a fragment, check the UDP length field.
     if (payload_length) {
@@ -285,15 +294,15 @@ void check_packet(const uint8_t *packet, size_t len, const char *msg) {
 
 void reassemble_packet(const uint8_t **fragments, const size_t lengths[], int numpackets,
                        uint8_t *reassembled, size_t *reassembled_len, const char *msg) {
-  struct iphdr *ip = NULL;
-  struct ip6_hdr *ip6 = NULL;
-  size_t  total_length, pos = 0;
+  struct iphdr *ip    = nullptr;
+  struct ip6_hdr *ip6 = nullptr;
+  size_t total_length, pos = 0;
   uint8_t protocol = 0;
-  uint8_t version = ip_version(fragments[0]);
+  uint8_t version  = ip_version(fragments[0]);
 
   for (int i = 0; i < numpackets; i++) {
     const uint8_t *packet = fragments[i];
-    int len = lengths[i];
+    int len               = lengths[i];
     int headersize, payload_offset;
 
     ASSERT_EQ(ip_version(packet), version) << msg << ": Inconsistent fragment versions\n";
@@ -301,32 +310,32 @@ void reassemble_packet(const uint8_t **fragments, const size_t lengths[], int nu
 
     switch (version) {
       case 4: {
-        struct iphdr *ip_orig = (struct iphdr *) packet;
-        headersize = sizeof(*ip_orig);
+        struct iphdr *ip_orig = (struct iphdr *)packet;
+        headersize            = sizeof(*ip_orig);
         ASSERT_TRUE(is_ipv4_fragment(ip_orig))
-            << msg << ": IPv4 fragment #" << i + 1 << " not a fragment\n";
-        ASSERT_EQ(pos, ipv4_fragment_offset(ip_orig) * 8 + ((i != 0) ? sizeof(*ip): 0))
-            << msg << ": IPv4 fragment #" << i + 1 << ": inconsistent offset\n";
+          << msg << ": IPv4 fragment #" << i + 1 << " not a fragment\n";
+        ASSERT_EQ(pos, ipv4_fragment_offset(ip_orig) * 8 + ((i != 0) ? sizeof(*ip) : 0))
+          << msg << ": IPv4 fragment #" << i + 1 << ": inconsistent offset\n";
 
-        headersize = sizeof(*ip_orig);
+        headersize     = sizeof(*ip_orig);
         payload_offset = headersize;
         if (pos == 0) {
-          ip = (struct iphdr *) reassembled;
+          ip = (struct iphdr *)reassembled;
         }
         break;
       }
       case 6: {
-        struct ip6_hdr *ip6_orig = (struct ip6_hdr *) packet;
-        struct ip6_frag *frag = (struct ip6_frag *) (ip6_orig + 1);
+        struct ip6_hdr *ip6_orig = (struct ip6_hdr *)packet;
+        struct ip6_frag *frag    = (struct ip6_frag *)(ip6_orig + 1);
         ASSERT_TRUE(is_ipv6_fragment(ip6_orig, len))
-            << msg << ": IPv6 fragment #" << i + 1 << " not a fragment\n";
-        ASSERT_EQ(pos, ipv6_fragment_offset(frag) * 8 + ((i != 0) ? sizeof(*ip6): 0))
-            << msg << ": IPv6 fragment #" << i + 1 << ": inconsistent offset\n";
+          << msg << ": IPv6 fragment #" << i + 1 << " not a fragment\n";
+        ASSERT_EQ(pos, ipv6_fragment_offset(frag) * 8 + ((i != 0) ? sizeof(*ip6) : 0))
+          << msg << ": IPv6 fragment #" << i + 1 << ": inconsistent offset\n";
 
-        headersize = sizeof(*ip6_orig);
+        headersize     = sizeof(*ip6_orig);
         payload_offset = sizeof(*ip6_orig) + sizeof(*frag);
         if (pos == 0) {
-          ip6 = (struct ip6_hdr *) reassembled;
+          ip6      = (struct ip6_hdr *)reassembled;
           protocol = frag->ip6f_nxt;
         }
         break;
@@ -337,7 +346,7 @@ void reassemble_packet(const uint8_t **fragments, const size_t lengths[], int nu
 
     // If this is the first fragment, copy the header.
     if (pos == 0) {
-      ASSERT_LT(headersize, (int) *reassembled_len) << msg << ": Reassembly buffer too small\n";
+      ASSERT_LT(headersize, (int)*reassembled_len) << msg << ": Reassembly buffer too small\n";
       memcpy(reassembled, packet, headersize);
       total_length = headersize;
       pos += headersize;
@@ -351,21 +360,20 @@ void reassemble_packet(const uint8_t **fragments, const size_t lengths[], int nu
     pos += payload_length;
   }
 
-
   // Fix up the reassembled headers to reflect fragmentation and length (and IPv4 checksum).
   ASSERT_EQ(total_length, pos) << msg << ": Reassembled packet length incorrect\n";
   if (ip) {
     ip->frag_off &= ~htons(IP_MF);
     ip->tot_len = htons(total_length);
-    ip->check = 0;
-    ip->check = ip_checksum(ip, sizeof(*ip));
+    ip->check   = 0;
+    ip->check   = ip_checksum(ip, sizeof(*ip));
     ASSERT_FALSE(is_ipv4_fragment(ip)) << msg << ": reassembled IPv4 packet is a fragment!\n";
   }
   if (ip6) {
-    ip6->ip6_nxt = protocol;
+    ip6->ip6_nxt  = protocol;
     ip6->ip6_plen = htons(total_length - sizeof(*ip6));
     ASSERT_FALSE(is_ipv6_fragment(ip6, ip6->ip6_plen))
-        << msg << ": reassembled IPv6 packet is a fragment!\n";
+      << msg << ": reassembled IPv6 packet is a fragment!\n";
   }
 
   *reassembled_len = total_length;
@@ -383,8 +391,8 @@ void check_data_matches(const void *expected, const void *actual, size_t len, co
         snprintf(actual_hexdump + pos, hexdump_len - pos, "\n   ");
         pos += 4;
       }
-      snprintf(expected_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *) expected)[i]);
-      snprintf(actual_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *) actual)[i]);
+      snprintf(expected_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *)expected)[i]);
+      snprintf(actual_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *)actual)[i]);
       pos += 3;
     }
     FAIL() << msg << ": Data doesn't match"
@@ -393,27 +401,27 @@ void check_data_matches(const void *expected, const void *actual, size_t len, co
   }
 }
 
-void fix_udp_checksum(uint8_t* packet) {
+void fix_udp_checksum(uint8_t *packet) {
   uint32_t pseudo_checksum;
   uint8_t version = ip_version(packet);
   struct udphdr *udp;
   switch (version) {
     case 4: {
-      struct iphdr *ip = (struct iphdr *) packet;
-      udp = (struct udphdr *) (ip + 1);
-      pseudo_checksum = ipv4_pseudo_header_checksum(ip, ntohs(udp->len));
+      struct iphdr *ip = (struct iphdr *)packet;
+      udp              = (struct udphdr *)(ip + 1);
+      pseudo_checksum  = ipv4_pseudo_header_checksum(ip, ntohs(udp->len));
       break;
     }
     case 6: {
-      struct ip6_hdr *ip6 = (struct ip6_hdr *) packet;
-      udp = (struct udphdr *) (ip6 + 1);
-      pseudo_checksum = ipv6_pseudo_header_checksum(ip6, ntohs(udp->len), IPPROTO_UDP);
+      struct ip6_hdr *ip6 = (struct ip6_hdr *)packet;
+      udp                 = (struct udphdr *)(ip6 + 1);
+      pseudo_checksum     = ipv6_pseudo_header_checksum(ip6, ntohs(udp->len), IPPROTO_UDP);
       break;
     }
     default:
       FAIL() << "unsupported IP version" << version << "\n";
       return;
-    }
+  }
 
   udp->check = 0;
   udp->check = ip_checksum_finish(ip_checksum_add(pseudo_checksum, udp, ntohs(udp->len)));
@@ -422,9 +430,7 @@ void fix_udp_checksum(uint8_t* packet) {
 // Testing stub for send_rawv6. The real version uses sendmsg() with a
 // destination IPv6 address, and attempting to call that on our test socketpair
 // fd results in EINVAL.
-extern "C" void send_rawv6(int fd, clat_packet out, int iov_len) {
-    writev(fd, out, iov_len);
-}
+extern "C" void send_rawv6(int fd, clat_packet out, int iov_len) { writev(fd, out, iov_len); }
 
 void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *out, size_t *outlen,
                          const char *msg) {
@@ -443,13 +449,13 @@ void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *
   switch (version) {
     case 4:
       expected_proto = htons(ETH_P_IPV6);
-      read_fd = fds[1];
-      write_fd = fds[0];
+      read_fd        = fds[1];
+      write_fd       = fds[0];
       break;
     case 6:
       expected_proto = htons(ETH_P_IP);
-      read_fd = fds[0];
-      write_fd = fds[1];
+      read_fd        = fds[0];
+      write_fd       = fds[1];
       break;
     default:
       FAIL() << msg << ": Unsupported IP version " << version << "\n";
@@ -464,11 +470,12 @@ void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *
     struct tun_pi new_tun_header;
     struct iovec iov[] = {
       { &new_tun_header, sizeof(new_tun_header) },
-      { out, *outlen }
+      { out, *outlen },
     };
+
     int len = readv(read_fd, iov, 2);
-    if (len > (int) sizeof(new_tun_header)) {
-      ASSERT_LT((size_t) len, *outlen) << msg << ": Translated packet buffer too small\n";
+    if (len > (int)sizeof(new_tun_header)) {
+      ASSERT_LT((size_t)len, *outlen) << msg << ": Translated packet buffer too small\n";
       EXPECT_EQ(expected_proto, new_tun_header.proto) << msg << "Unexpected tun proto\n";
       *outlen = len - sizeof(new_tun_header);
       check_packet(out, *outlen, msg);
@@ -483,8 +490,8 @@ void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *
   }
 }
 
-void check_translated_packet(const uint8_t *original, size_t original_len,
-                             const uint8_t *expected, size_t expected_len, const char *msg) {
+void check_translated_packet(const uint8_t *original, size_t original_len, const uint8_t *expected,
+                             size_t expected_len, const char *msg) {
   uint8_t translated[MAXMTU];
   size_t translated_len = sizeof(translated);
   do_translate_packet(original, original_len, translated, &translated_len, msg);
@@ -499,8 +506,8 @@ void check_fragment_translation(const uint8_t *original[], const size_t original
     // Check that each of the fragments translates as expected.
     char frag_msg[512];
     snprintf(frag_msg, sizeof(frag_msg), "%s: fragment #%d", msg, i + 1);
-    check_translated_packet(original[i], original_lengths[i],
-                            expected[i], expected_lengths[i], frag_msg);
+    check_translated_packet(original[i], original_lengths[i], expected[i], expected_lengths[i],
+                            frag_msg);
   }
 
   // Sanity check that reassembling the original and translated fragments produces valid packets.
@@ -524,17 +531,17 @@ int get_transport_checksum(const uint8_t *packet) {
   int version = ip_version(packet);
   switch (version) {
     case 4:
-      ip = (struct iphdr *) packet;
+      ip = (struct iphdr *)packet;
       if (is_ipv4_fragment(ip)) {
-          return -1;
+        return -1;
       }
       protocol = ip->protocol;
-      payload = ip + 1;
+      payload  = ip + 1;
       break;
     case 6:
-      ip6 = (struct ip6_hdr *) packet;
+      ip6      = (struct ip6_hdr *)packet;
       protocol = ip6->ip6_nxt;
-      payload = ip6 + 1;
+      payload  = ip6 + 1;
       break;
     default:
       return -1;
@@ -542,10 +549,10 @@ int get_transport_checksum(const uint8_t *packet) {
 
   switch (protocol) {
     case IPPROTO_UDP:
-      return ((struct udphdr *) payload)->check;
+      return ((struct udphdr *)payload)->check;
 
     case IPPROTO_TCP:
-      return ((struct tcphdr *) payload)->check;
+      return ((struct tcphdr *)payload)->check;
 
     case IPPROTO_FRAGMENT:
     default:
@@ -553,18 +560,44 @@ int get_transport_checksum(const uint8_t *packet) {
   }
 }
 
+static tun_data makeTunData() {
+  // Create some fake but realistic-looking sockets so update_clat_ipv6_address doesn't balk.
+  return {
+    .write_fd6 = socket(AF_INET6, SOCK_RAW | SOCK_NONBLOCK, IPPROTO_RAW),
+    .read_fd6  = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6)),
+    .fd4       = socket(AF_UNIX, SOCK_DGRAM, 0),
+  };
+}
+
+void freeTunData(tun_data *tunnel) {
+  close(tunnel->write_fd6);
+  close(tunnel->read_fd6);
+  close(tunnel->fd4);
+}
+
 struct clat_config Global_Clatd_Config;
 
 class ClatdTest : public ::testing::Test {
  protected:
+  static TunInterface sTun;
+
   virtual void SetUp() {
     inet_pton(AF_INET, kIPv4LocalAddr, &Global_Clatd_Config.ipv4_local_subnet);
     inet_pton(AF_INET6, kIPv6PlatSubnet, &Global_Clatd_Config.plat_subnet);
-    inet_pton(AF_INET6, kIPv6LocalAddr, &Global_Clatd_Config.ipv6_local_subnet);
-    Global_Clatd_Config.ipv6_host_id = in6addr_any;
+    memset(&Global_Clatd_Config.ipv6_local_subnet, 0, sizeof(in6_addr));
+    Global_Clatd_Config.ipv6_host_id    = in6addr_any;
     Global_Clatd_Config.use_dynamic_iid = 1;
+    Global_Clatd_Config.default_pdp_interface = const_cast<char *>(sTun.name().c_str());
   }
+
+  // Static because setting up the tun interface takes about 40ms.
+  static void SetUpTestCase() { ASSERT_EQ(0, sTun.init()); }
+
+  // Closing the socket removes the interface and IP addresses.
+  static void TearDownTestCase() { sTun.destroy(); }
 };
+
+TunInterface ClatdTest::sTun;
 
 void expect_ipv6_addr_equal(struct in6_addr *expected, struct in6_addr *actual) {
   if (!IN6_ARE_ADDR_EQUAL(expected, actual)) {
@@ -597,7 +630,7 @@ TEST_F(ClatdTest, TestIPv6PrefixEqual) {
 int count_onebits(const void *data, size_t size) {
   int onebits = 0;
   for (size_t pos = 0; pos < size; pos++) {
-    uint8_t *byte = ((uint8_t*) data) + pos;
+    uint8_t *byte = ((uint8_t *)data) + pos;
     for (int shift = 0; shift < 8; shift++) {
       onebits += (*byte >> shift) & 1;
     }
@@ -611,7 +644,7 @@ TEST_F(ClatdTest, TestCountOnebits) {
   ASSERT_EQ(1, count_onebits(&i, sizeof(i)));
   i <<= 61;
   ASSERT_EQ(1, count_onebits(&i, sizeof(i)));
-  i |= ((uint64_t) 1 << 33);
+  i |= ((uint64_t)1 << 33);
   ASSERT_EQ(2, count_onebits(&i, sizeof(i)));
   i = 0xf1000202020000f0;
   ASSERT_EQ(5 + 1 + 1 + 1 + 4, count_onebits(&i, sizeof(i)));
@@ -637,10 +670,10 @@ TEST_F(ClatdTest, TestGenIIDRandom) {
   Global_Clatd_Config.ipv6_host_id = in6addr_any;
 
   // Generate a boatload of random IIDs.
-  int onebits = 0;
+  int onebits       = 0;
   uint64_t prev_iid = 0;
   for (int i = 0; i < 100000; i++) {
-    struct in6_addr myaddr =  interface_ipv6;
+    struct in6_addr myaddr = interface_ipv6;
 
     config_generate_local_ipv6_subnet(&myaddr);
 
@@ -648,7 +681,7 @@ TEST_F(ClatdTest, TestGenIIDRandom) {
     EXPECT_TRUE(ipv6_prefix_equal(&interface_ipv6, &myaddr));
 
     // Check that consecutive IIDs are not the same.
-    uint64_t iid = * (uint64_t*) (&myaddr.s6_addr[8]);
+    uint64_t iid = *(uint64_t *)(&myaddr.s6_addr[8]);
     ASSERT_TRUE(iid != prev_iid)
         << "Two consecutive random IIDs are the same: "
         << std::showbase << std::hex
@@ -657,7 +690,7 @@ TEST_F(ClatdTest, TestGenIIDRandom) {
 
     // Check that the IID is checksum-neutral with the NAT64 prefix and the
     // local prefix.
-    struct in_addr *ipv4addr = &Global_Clatd_Config.ipv4_local_subnet;
+    struct in_addr *ipv4addr     = &Global_Clatd_Config.ipv4_local_subnet;
     struct in6_addr *plat_subnet = &Global_Clatd_Config.plat_subnet;
 
     uint16_t c1 = ip_checksum_finish(ip_checksum_add(0, ipv4addr, sizeof(*ipv4addr)));
@@ -732,11 +765,60 @@ TEST_F(ClatdTest, SelectIPv4Address) {
   // Now try using the real function which sees if IP addresses are free using bind().
   // Assume that the machine running the test has the address 127.0.0.1, but not 8.8.8.8.
   config_is_ipv4_address_free = orig_config_is_ipv4_address_free;
-  addr.s_addr = inet_addr("8.8.8.8");
+  addr.s_addr                 = inet_addr("8.8.8.8");
   EXPECT_EQ(inet_addr("8.8.8.8"), config_select_ipv4_address(&addr, 29));
 
   addr.s_addr = inet_addr("127.0.0.1");
   EXPECT_EQ(inet_addr("127.0.0.2"), config_select_ipv4_address(&addr, 29));
+}
+
+TEST_F(ClatdTest, ConfigureTunIp) {
+  addr_free_func orig_config_is_ipv4_address_free = config_is_ipv4_address_free;
+  config_is_ipv4_address_free                     = over6_free;
+
+  Global_Clatd_Config.ipv4_local_prefixlen = 29;
+  Global_Clatd_Config.ipv4mtu              = 1472;
+
+  // Create an interface for configure_tun_ip to configure and bring up.
+  TunInterface v4Iface;
+  ASSERT_EQ(0, v4Iface.init());
+  struct tun_data tunnel = makeTunData();
+  strlcpy(tunnel.device4, v4Iface.name().c_str(), sizeof(tunnel.device4));
+
+  configure_tun_ip(&tunnel, nullptr /* v4_addr */);
+  EXPECT_EQ(inet_addr("192.0.0.6"), Global_Clatd_Config.ipv4_local_subnet.s_addr);
+
+  union anyip *ip = getinterface_ip(v4Iface.name().c_str(), AF_INET);
+  EXPECT_EQ(inet_addr("192.0.0.6"), ip->ip4.s_addr);
+  free(ip);
+
+  config_is_ipv4_address_free = orig_config_is_ipv4_address_free;
+  v4Iface.destroy();
+}
+
+TEST_F(ClatdTest, ConfigureTunIpManual) {
+  addr_free_func orig_config_is_ipv4_address_free = config_is_ipv4_address_free;
+  config_is_ipv4_address_free                     = over6_free;
+
+  Global_Clatd_Config.ipv4_local_prefixlen = 29;
+  Global_Clatd_Config.ipv4mtu              = 1472;
+
+  // Create an interface for configure_tun_ip to configure and bring up.
+  TunInterface v4Iface;
+  ASSERT_EQ(0, v4Iface.init());
+  struct tun_data tunnel = makeTunData();
+  strlcpy(tunnel.device4, v4Iface.name().c_str(), sizeof(tunnel.device4));
+
+  configure_tun_ip(&tunnel, "192.0.2.1" /* v4_addr */);
+  EXPECT_EQ(inet_addr("192.0.2.1"), Global_Clatd_Config.ipv4_local_subnet.s_addr);
+
+  union anyip *ip = getinterface_ip(v4Iface.name().c_str(), AF_INET);
+  ASSERT_NE(nullptr, ip);
+  EXPECT_EQ(inet_addr("192.0.2.1"), ip->ip4.s_addr);
+  free(ip);
+
+  config_is_ipv4_address_free = orig_config_is_ipv4_address_free;
+  v4Iface.destroy();
 }
 
 TEST_F(ClatdTest, DataSanitycheck) {
@@ -753,13 +835,13 @@ TEST_F(ClatdTest, DataSanitycheck) {
   // Sanity checks check_packet.
   struct udphdr *udp;
   uint8_t v4_udp_packet[] = { IPV4_UDP_HEADER UDP_HEADER PAYLOAD };
-  udp = (struct udphdr *) (v4_udp_packet + sizeof(struct iphdr));
+  udp                     = (struct udphdr *)(v4_udp_packet + sizeof(struct iphdr));
   fix_udp_checksum(v4_udp_packet);
   ASSERT_EQ(kUdpV4Checksum, udp->check) << "UDP/IPv4 packet checksum sanity check\n";
   check_packet(v4_udp_packet, sizeof(v4_udp_packet), "UDP/IPv4 packet sanity check");
 
   uint8_t v6_udp_packet[] = { IPV6_UDP_HEADER UDP_HEADER PAYLOAD };
-  udp = (struct udphdr *) (v6_udp_packet + sizeof(struct ip6_hdr));
+  udp                     = (struct udphdr *)(v6_udp_packet + sizeof(struct ip6_hdr));
   fix_udp_checksum(v6_udp_packet);
   ASSERT_EQ(kUdpV6Checksum, udp->check) << "UDP/IPv6 packet checksum sanity check\n";
   check_packet(v6_udp_packet, sizeof(v6_udp_packet), "UDP/IPv6 packet sanity check");
@@ -773,53 +855,53 @@ TEST_F(ClatdTest, DataSanitycheck) {
   // Sanity checks reassemble_packet.
   uint8_t reassembled[MAXMTU];
   size_t total_length = sizeof(reassembled);
-  reassemble_packet(kIPv4Fragments, kIPv4FragLengths, ARRAYSIZE(kIPv4Fragments),
-                    reassembled, &total_length, "Reassembly sanity check");
+  reassemble_packet(kIPv4Fragments, kIPv4FragLengths, ARRAYSIZE(kIPv4Fragments), reassembled,
+                    &total_length, "Reassembly sanity check");
   check_packet(reassembled, total_length, "IPv4 Reassembled packet is valid");
   ASSERT_EQ(sizeof(kReassembledIPv4), total_length) << "IPv4 reassembly sanity check: length\n";
-  ASSERT_TRUE(!is_ipv4_fragment((struct iphdr *) reassembled))
-      << "Sanity check: reassembled packet is a fragment!\n";
+  ASSERT_TRUE(!is_ipv4_fragment((struct iphdr *)reassembled))
+    << "Sanity check: reassembled packet is a fragment!\n";
   check_data_matches(kReassembledIPv4, reassembled, total_length, "IPv4 reassembly sanity check");
 
   total_length = sizeof(reassembled);
-  reassemble_packet(kIPv6Fragments, kIPv6FragLengths, ARRAYSIZE(kIPv6Fragments),
-                    reassembled, &total_length, "IPv6 reassembly sanity check");
-  ASSERT_TRUE(!is_ipv6_fragment((struct ip6_hdr *) reassembled, total_length))
-      << "Sanity check: reassembled packet is a fragment!\n";
+  reassemble_packet(kIPv6Fragments, kIPv6FragLengths, ARRAYSIZE(kIPv6Fragments), reassembled,
+                    &total_length, "IPv6 reassembly sanity check");
+  ASSERT_TRUE(!is_ipv6_fragment((struct ip6_hdr *)reassembled, total_length))
+    << "Sanity check: reassembled packet is a fragment!\n";
   check_packet(reassembled, total_length, "IPv6 Reassembled packet is valid");
 }
 
 TEST_F(ClatdTest, PseudoChecksum) {
   uint32_t pseudo_checksum;
 
-  uint8_t v4_header[] = { IPV4_UDP_HEADER };
+  uint8_t v4_header[]        = { IPV4_UDP_HEADER };
   uint8_t v4_pseudo_header[] = { IPV4_PSEUDOHEADER(v4_header, UDP_LEN) };
-  pseudo_checksum = ipv4_pseudo_header_checksum((struct iphdr *) v4_header, UDP_LEN);
+  pseudo_checksum            = ipv4_pseudo_header_checksum((struct iphdr *)v4_header, UDP_LEN);
   EXPECT_EQ(ip_checksum_finish(pseudo_checksum),
             ip_checksum(v4_pseudo_header, sizeof(v4_pseudo_header)))
-            << "ipv4_pseudo_header_checksum incorrect\n";
+    << "ipv4_pseudo_header_checksum incorrect\n";
 
-  uint8_t v6_header[] = { IPV6_UDP_HEADER };
+  uint8_t v6_header[]        = { IPV6_UDP_HEADER };
   uint8_t v6_pseudo_header[] = { IPV6_PSEUDOHEADER(v6_header, IPPROTO_UDP, UDP_LEN) };
-  pseudo_checksum = ipv6_pseudo_header_checksum((struct ip6_hdr *) v6_header, UDP_LEN, IPPROTO_UDP);
+  pseudo_checksum = ipv6_pseudo_header_checksum((struct ip6_hdr *)v6_header, UDP_LEN, IPPROTO_UDP);
   EXPECT_EQ(ip_checksum_finish(pseudo_checksum),
             ip_checksum(v6_pseudo_header, sizeof(v6_pseudo_header)))
-            << "ipv6_pseudo_header_checksum incorrect\n";
+    << "ipv6_pseudo_header_checksum incorrect\n";
 }
 
 TEST_F(ClatdTest, TransportChecksum) {
-  uint8_t udphdr[] = { UDP_HEADER };
+  uint8_t udphdr[]  = { UDP_HEADER };
   uint8_t payload[] = { PAYLOAD };
   EXPECT_EQ(kUdpPartialChecksum, ip_checksum_add(0, udphdr, sizeof(udphdr)))
-            << "UDP partial checksum\n";
+    << "UDP partial checksum\n";
   EXPECT_EQ(kPayloadPartialChecksum, ip_checksum_add(0, payload, sizeof(payload)))
-            << "Payload partial checksum\n";
+    << "Payload partial checksum\n";
 
-  uint8_t ip[] = { IPV4_UDP_HEADER };
-  uint8_t ip6[] = { IPV6_UDP_HEADER };
-  uint32_t ipv4_pseudo_sum = ipv4_pseudo_header_checksum((struct iphdr *) ip, UDP_LEN);
-  uint32_t ipv6_pseudo_sum = ipv6_pseudo_header_checksum((struct ip6_hdr *) ip6, UDP_LEN,
-                                                         IPPROTO_UDP);
+  uint8_t ip[]             = { IPV4_UDP_HEADER };
+  uint8_t ip6[]            = { IPV6_UDP_HEADER };
+  uint32_t ipv4_pseudo_sum = ipv4_pseudo_header_checksum((struct iphdr *)ip, UDP_LEN);
+  uint32_t ipv6_pseudo_sum =
+    ipv6_pseudo_header_checksum((struct ip6_hdr *)ip6, UDP_LEN, IPPROTO_UDP);
 
   EXPECT_EQ(0x3ad0U, ipv4_pseudo_sum) << "IPv4 pseudo-checksum sanity check\n";
   EXPECT_EQ(0x2644bU, ipv6_pseudo_sum) << "IPv6 pseudo-checksum sanity check\n";
@@ -868,6 +950,9 @@ TEST_F(ClatdTest, AdjustChecksum) {
 }
 
 TEST_F(ClatdTest, Translate) {
+  // This test uses hardcoded packets so the clatd address must be fixed.
+  inet_pton(AF_INET6, kIPv6LocalAddr, &Global_Clatd_Config.ipv6_local_subnet);
+
   uint8_t udp_ipv4[] = { IPV4_UDP_HEADER UDP_HEADER PAYLOAD };
   uint8_t udp_ipv6[] = { IPV6_UDP_HEADER UDP_HEADER PAYLOAD };
   fix_udp_checksum(udp_ipv4);
@@ -886,12 +971,13 @@ TEST_F(ClatdTest, Translate) {
 }
 
 TEST_F(ClatdTest, Fragmentation) {
-  check_fragment_translation(kIPv4Fragments, kIPv4FragLengths,
-                             kIPv6Fragments, kIPv6FragLengths,
+  // This test uses hardcoded packets so the clatd address must be fixed.
+  inet_pton(AF_INET6, kIPv6LocalAddr, &Global_Clatd_Config.ipv6_local_subnet);
+
+  check_fragment_translation(kIPv4Fragments, kIPv4FragLengths, kIPv6Fragments, kIPv6FragLengths,
                              ARRAYSIZE(kIPv4Fragments), "IPv4->IPv6 fragment translation");
 
-  check_fragment_translation(kIPv6Fragments, kIPv6FragLengths,
-                             kIPv4Fragments, kIPv4FragLengths,
+  check_fragment_translation(kIPv6Fragments, kIPv6FragLengths, kIPv4Fragments, kIPv4FragLengths,
                              ARRAYSIZE(kIPv6Fragments), "IPv6->IPv4 fragment translation");
 }
 
@@ -902,12 +988,12 @@ void check_translate_checksum_neutral(const uint8_t *original, size_t original_l
   do_translate_packet(original, original_len, translated, &translated_len, msg);
   EXPECT_EQ(expected_len, translated_len) << msg << ": Translated packet length incorrect\n";
   // do_translate_packet already checks packets for validity and verifies the checksum.
-  int original_check = get_transport_checksum(original);
+  int original_check   = get_transport_checksum(original);
   int translated_check = get_transport_checksum(translated);
   ASSERT_NE(-1, original_check);
   ASSERT_NE(-1, translated_check);
   ASSERT_EQ(original_check, translated_check)
-      << "Not checksum neutral: original and translated checksums differ\n";
+    << "Not checksum neutral: original and translated checksums differ\n";
 }
 
 TEST_F(ClatdTest, TranslateChecksumNeutral) {
@@ -916,8 +1002,8 @@ TEST_F(ClatdTest, TranslateChecksumNeutral) {
   ASSERT_TRUE(inet_pton(AF_INET6, "2001:db8:1:2:f076:ae99:124e:aa54",
                         &Global_Clatd_Config.ipv6_local_subnet));
   config_generate_local_ipv6_subnet(&Global_Clatd_Config.ipv6_local_subnet);
-  ASSERT_NE((uint32_t) 0x00000464, Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
-  ASSERT_NE((uint32_t) 0, Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
+  ASSERT_NE(htonl((uint32_t)0x00000464), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
+  ASSERT_NE((uint32_t)0, Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
 
   // Check that translating UDP packets is checksum-neutral. First, IPv4.
   uint8_t udp_ipv4[] = { IPV4_UDP_HEADER UDP_HEADER PAYLOAD };
@@ -928,9 +1014,104 @@ TEST_F(ClatdTest, TranslateChecksumNeutral) {
   // Now try IPv6.
   uint8_t udp_ipv6[] = { IPV6_UDP_HEADER UDP_HEADER PAYLOAD };
   // The test packet uses the static IID, not the random IID. Fix up the source address.
-  struct ip6_hdr *ip6 = (struct ip6_hdr *) udp_ipv6;
+  struct ip6_hdr *ip6 = (struct ip6_hdr *)udp_ipv6;
   memcpy(&ip6->ip6_src, &Global_Clatd_Config.ipv6_local_subnet, sizeof(ip6->ip6_src));
   fix_udp_checksum(udp_ipv6);
   check_translate_checksum_neutral(udp_ipv4, sizeof(udp_ipv4), sizeof(udp_ipv4) + 20,
                                    "UDP/IPv4 -> UDP/IPv6 checksum neutral");
+}
+
+TEST_F(ClatdTest, GetInterfaceIp) {
+  union anyip *ip = getinterface_ip(sTun.name().c_str(), AF_INET6);
+  ASSERT_NE(nullptr, ip);
+  in6_addr expected = sTun.srcAddr();
+  in6_addr actual   = ip->ip6;
+  expect_ipv6_addr_equal(&expected, &actual);
+}
+
+void expectSocketBound(int ifindex, int sock) {
+  // Check that the packet socket is bound to the interface. We can't check the socket filter
+  // because there is no way to fetch it from the kernel.
+  sockaddr_ll sll;
+  socklen_t len = sizeof(sll);
+  ASSERT_EQ(0, getsockname(sock, reinterpret_cast<sockaddr *>(&sll), &len));
+  EXPECT_EQ(htons(ETH_P_IPV6), sll.sll_protocol);
+  EXPECT_EQ(ifindex, sll.sll_ifindex);
+}
+
+TEST_F(ClatdTest, ConfigureIpv6Address) {
+  struct tun_data tunnel = makeTunData();
+
+  // Run configure_clat_ipv6_address.
+  ASSERT_TRUE(IN6_IS_ADDR_UNSPECIFIED(&Global_Clatd_Config.ipv6_local_subnet));
+  ASSERT_EQ(1, configure_clat_ipv6_address(&tunnel, sTun.name().c_str(), nullptr /* v6_addr */));
+
+  // Check that it generated an IID in the same prefix as the address assigned to the interface,
+  // and that the IID is not the default IID.
+  in6_addr addr = sTun.srcAddr();
+  EXPECT_TRUE(ipv6_prefix_equal(&Global_Clatd_Config.ipv6_local_subnet, &addr));
+  EXPECT_FALSE(IN6_ARE_ADDR_EQUAL(&Global_Clatd_Config.ipv6_local_subnet, &addr));
+  EXPECT_NE(htonl((uint32_t)0x00000464), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
+  EXPECT_NE((uint32_t)0, Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
+
+  expectSocketBound(sTun.ifindex(), tunnel.read_fd6);
+
+  freeTunData(&tunnel);
+}
+
+TEST_F(ClatdTest, ConfigureIpv6AddressCommandLine) {
+  struct tun_data tunnel = makeTunData();
+
+  ASSERT_TRUE(IN6_IS_ADDR_UNSPECIFIED(&Global_Clatd_Config.ipv6_local_subnet));
+
+  const char *addrStr = "2001:db8::f00";
+  in6_addr addr;
+  ASSERT_EQ(1, inet_pton(AF_INET6, addrStr, &addr));
+  ASSERT_EQ(1, configure_clat_ipv6_address(&tunnel, sTun.name().c_str(), addrStr));
+
+  EXPECT_EQ(htonl(0x20010db8), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[0]);
+  EXPECT_EQ(htonl(0x00000000), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[1]);
+  EXPECT_EQ(htonl(0x00000000), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[2]);
+  EXPECT_EQ(htonl(0x00000f00), Global_Clatd_Config.ipv6_local_subnet.s6_addr32[3]);
+
+  // Check that the packet socket is bound to the interface. We can't check the socket filter
+  // because there is no way to fetch it from the kernel.
+  sockaddr_ll sll;
+  socklen_t len = sizeof(sll);
+  ASSERT_EQ(0, getsockname(tunnel.read_fd6, reinterpret_cast<sockaddr *>(&sll), &len));
+  EXPECT_EQ(htons(ETH_P_IPV6), sll.sll_protocol);
+  EXPECT_EQ(sll.sll_ifindex, sTun.ifindex());
+
+  expectSocketBound(sTun.ifindex(), tunnel.read_fd6);
+
+  freeTunData(&tunnel);
+}
+
+TEST_F(ClatdTest, Ipv6AddressChanged) {
+  // Configure the clat IPv6 address.
+  struct tun_data tunnel = {
+    .write_fd6 = socket(AF_INET6, SOCK_RAW | SOCK_NONBLOCK, IPPROTO_RAW),
+    .read_fd6  = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6)),
+  };
+  const char *ifname = sTun.name().c_str();
+  ASSERT_EQ(1, configure_clat_ipv6_address(&tunnel, ifname, nullptr));
+  EXPECT_EQ(0, ipv6_address_changed(ifname));
+  EXPECT_EQ(0, ipv6_address_changed(ifname));
+
+  // Change the IP address on the tun interface to a new prefix.
+  char srcaddr[INET6_ADDRSTRLEN];
+  char dstaddr[INET6_ADDRSTRLEN];
+  ASSERT_NE(nullptr, inet_ntop(AF_INET6, &sTun.srcAddr(), srcaddr, sizeof(srcaddr)));
+  ASSERT_NE(nullptr, inet_ntop(AF_INET6, &sTun.dstAddr(), dstaddr, sizeof(dstaddr)));
+  EXPECT_EQ(0, ifc_del_address(ifname, srcaddr, 64));
+  EXPECT_EQ(0, ifc_del_address(ifname, dstaddr, 64));
+
+  // Check that we can tell that the address has changed.
+  EXPECT_EQ(0, ifc_add_address(ifname, "2001:db8::1:2", 64));
+  EXPECT_EQ(1, ipv6_address_changed(ifname));
+  EXPECT_EQ(1, ipv6_address_changed(ifname));
+
+  // Restore the tun interface configuration.
+  sTun.destroy();
+  ASSERT_EQ(0, sTun.init());
 }

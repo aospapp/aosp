@@ -97,6 +97,11 @@ class audio_AudioVolume(audio_test.AudioTest):
                     host, audio_facade, self.resultsdir, 'after_binding')
 
             if not cfm_speaker:
+                node_type = audio_test_utils.cros_port_id_to_cras_node_type(
+                        source.port_id)
+                audio_facade.set_chrome_active_node_type(node_type, None)
+                audio_test_utils.dump_cros_audio_logs(
+                        host, audio_facade, self.resultsdir, 'after_select')
                 audio_test_utils.check_output_port(audio_facade, source.port_id)
             else:
                 audio_test_utils.check_audio_nodes(audio_facade,

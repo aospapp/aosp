@@ -159,8 +159,8 @@ try_again:
 	}
 
 #ifdef ANDROID
-	chmod(ctrl->local.sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 	/* Set group even if we do not have privileges to change owner */
+	chmod(ctrl->local.sun_path, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 	grp_wifi = getgrnam("wifi");
 	gid_wifi = grp_wifi ? grp_wifi->gr_gid : 0;
 	pwd_system = getpwnam("system");
@@ -558,7 +558,8 @@ retry_send:
 			res = recv(ctrl->s, reply, *reply_len, 0);
 			if (res < 0)
 				return res;
-			if (res > 0 && reply[0] == '<') {
+			if ((res > 0 && reply[0] == '<') ||
+			    (res > 6 && strncmp(reply, "IFNAME=", 7) == 0)) {
 				/* This is an unsolicited message from
 				 * wpa_supplicant, not the reply to the
 				 * request. Use msg_cb to report this to the

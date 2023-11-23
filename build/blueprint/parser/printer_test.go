@@ -33,7 +33,7 @@ foo {}
 	},
 	{
 		input: `
-foo{name= "abc",num= 4,}
+foo(name= "abc",num= 4,)
 `,
 		output: `
 foo {
@@ -166,6 +166,22 @@ bar {
 	},
 	{
 		input: `
+foo {
+    bar: "b" +
+        "a" +
+	"z",
+}
+`,
+		output: `
+foo {
+    bar: "b" +
+        "a" +
+        "z",
+}
+`,
+	},
+	{
+		input: `
 foo = "stuff"
 bar = foo
 baz = foo + bar
@@ -190,6 +206,18 @@ foo = 100
 bar = foo
 baz = foo + bar
 baz += foo
+`,
+	},
+	{
+		input: `
+foo = "bar " +
+    "" +
+    "baz"
+`,
+		output: `
+foo = "bar " +
+    "" +
+    "baz"
 `,
 	},
 	{

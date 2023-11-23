@@ -20,8 +20,6 @@
     <package>com.example.android.messagingservice</package>
 
     <minSdk>21</minSdk>
-    <compileSdkVersion>24</compileSdkVersion>
-    <targetSdkVersion>24</targetSdkVersion>
 
     <strings>
         <intro>

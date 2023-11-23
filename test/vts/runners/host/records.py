@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __builtin__ import property
 """This module is where all the record definitions and record containers live.
 """
 
@@ -73,6 +74,13 @@ class TestResultRecord(object):
         self.details = None
         self.extra_errors = {}
         self.tables = {}
+
+    @property
+    def fullname(self):
+        return '%s.%s' % (self.test_class, self.test_name)
+
+    def isSameTestCase(self, record):
+        return self.fullname == record.fullname
 
     def testBegin(self):
         """Call this when the test case it records begins execution.
@@ -218,6 +226,8 @@ class TestResult(object):
         self.passed: A list of records for tests passed.
         self.skipped: A list of records for tests skipped.
         self.error: A list of records for tests with error result token.
+        self.class_errors: A list of strings, the errors that occurred during
+                            class setup.
         self._test_module_name: A string, test module's name.
         self._test_module_timestamp: An integer, test module's execution start
                                      timestamp.
@@ -232,6 +242,7 @@ class TestResult(object):
         self.error = []
         self._test_module_name = None
         self._test_module_timestamp = None
+        self.class_errors = []
 
     def __add__(self, r):
         """Overrides '+' operator for TestResult class.
@@ -279,28 +290,51 @@ class TestResult(object):
                 setattr(sum_result, name, l_value + r_value)
         return sum_result
 
+    def getNonPassingRecords(self, non_executed=True, failed=True, skipped=False, error=True):
+        """Returns a list of non-passing test records.
+
+        Returns:
+            a list of TestResultRecord, records that do not have passing result.
+            non_executed: bool, whether to include non-executed results
+            failed: bool, whether to include failed results
+            skipped: bool, whether to include skipped results
+            error: bool, whether to include error results
+        """
+        return ((self.getNonExecutedRecords() if non_executed else [])
+            + (self.failed if failed else [])
+            + (self.skipped if skipped else [])
+            + (self.error if error else []))
+
+    def getNonExecutedRecords(self):
+        """Returns a list of records that were requested but not executed."""
+        res = []
+
+        for requested in self.requested:
+            found = False
+
+            for executed in self.executed:
+                if requested.isSameTestCase(executed):
+                    found = True
+                    break
+
+            if not found:
+                res.append(requested)
+
+        return res
+
     def reportNonExecutedRecord(self):
         """Check and report any requested tests that did not finish.
 
         Adds a test record to self.error list iff it is in requested list but not
         self.executed result list.
         """
-        for requested in self.requested:
-            found = False
+        for requested in self.getNonExecutedRecords():
+            requested.testBegin()
+            requested.testError(
+                "Unknown error: test case requested but not executed.")
+            self.error.append(requested)
 
-            for executed in self.executed:
-                if (requested.test_name == executed.test_name and
-                        requested.test_class == executed.test_class):
-                    found = True
-                    break
-
-            if not found:
-                requested.testBegin()
-                requested.testError(
-                    "Unknown error: test case requested but not executed.")
-                self.error.append(requested)
-
-    def removeRecord(self, record):
+    def removeRecord(self, record, remove_requested=True):
         """Remove a test record from test results.
 
         Records will be ed using test_name and test_class attribute.
@@ -309,6 +343,8 @@ class TestResult(object):
 
         Args:
             record: A test record object to add.
+            remove_requested: bool, whether to remove the test case from requested
+                              list as well.
         """
         lists = [
             self.requested, self.failed, self.executed, self.passed,
@@ -318,8 +354,7 @@ class TestResult(object):
         for l in lists:
             indexToRemove = []
             for idx in range(len(l)):
-                if (l[idx].test_name == record.test_name and
-                        l[idx].test_class == record.test_class):
+                if l[idx].isSameTestCase(record):
                     indexToRemove.append(idx)
 
             for idx in reversed(indexToRemove):
@@ -333,6 +368,8 @@ class TestResult(object):
         Args:
             record: A test record object to add.
         """
+        self.removeRecord(record, remove_requested=False)
+
         self.executed.append(record)
         if record.result == TestResultEnums.TEST_RESULT_FAIL:
             self.failed.append(record)
@@ -356,11 +393,7 @@ class TestResult(object):
             class_name: A string that is the name of the failed test class.
             e: An exception object.
         """
-        record = TestResultRecord("setup_class", class_name)
-        record.testBegin()
-        record.testFail(e)
-        self.executed.append(record)
-        self.failed.append(record)
+        self.class_errors.append("%s: %s" % (class_name, e))
 
     def passClass(self, class_name, e=None):
         """Add a record to indicate a test class setup has passed and no test
@@ -383,7 +416,7 @@ class TestResult(object):
             class_name: A string that is the name of the skipped test class.
             reason: A string that is the reason for skipping.
         """
-        record = TestResultRecord("unknown", class_name)
+        record = TestResultRecord("skip_class", class_name)
         record.testBegin()
         record.testSkip(signals.TestSkip(reason))
         self.executed.append(record)
@@ -413,6 +446,8 @@ class TestResult(object):
         d["Results"] = executed
         d["Summary"] = self.summaryDict()
         d["TestModule"] = self.testModuleDict()
+        d["Class Errors"] = ("\n".join(self.class_errors)
+                             if self.class_errors else None)
         jsonString = json.dumps(d, indent=4, sort_keys=True)
         return jsonString
 
@@ -432,6 +467,17 @@ class TestResult(object):
         # Sort the list so the order is the same every time.
         msg = ", ".join(sorted(l))
         return msg
+
+    @property
+    def progressStr(self):
+        """Gets a string that shows test progress.
+
+        Format of the string is:
+          x/n, where x is number of executed + skipped + 1,
+          and n is number of requested tests.
+        """
+        return '%s/%s' % (len(self.executed) + len(self.skipped) + 1,
+                          len(self.requested))
 
     def summaryDict(self):
         """Gets a dictionary that summarizes the stats of this test result.

@@ -16,9 +16,14 @@
 
 package com.android.compatibility.common.util;
 
+import com.google.common.io.Closeables;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 
 
 public class StreamUtil {
@@ -43,4 +48,25 @@ public class StreamUtil {
         }
     }
 
+    /**
+     * Reads {@code inputStream} converting it into a string. Does NOT close it.
+     *
+     * @throws IOException
+     */
+    public static String readInputStream(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream result = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            result.write(buffer, 0, length);
+        }
+        return result.toString(StandardCharsets.UTF_8.name());
+    }
+
+    public static void drainAndClose(Reader reader) {
+        try {
+            while (reader.read() >= 0) {}
+        } catch (IOException ignored) {}
+        Closeables.closeQuietly(reader);
+    }
 }

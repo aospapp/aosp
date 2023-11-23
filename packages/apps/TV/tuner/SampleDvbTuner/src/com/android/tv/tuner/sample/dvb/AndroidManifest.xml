@@ -36,6 +36,10 @@
     <uses-feature android:name="android.software.leanback" android:required="true" />
     <uses-feature android:name="android.software.live_tv" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
-    <uses-sdk android:targetSdkVersion="26" android:minSdkVersion="23"/>
-    <application />
+    <uses-sdk android:targetSdkVersion="27" android:minSdkVersion="23"/>
+    <application
+        android:name=".app.SampleDvbTuner"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/sample_dvb_tuner_app_name"
+        />
 </manifest>

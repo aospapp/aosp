@@ -207,6 +207,10 @@ class CPURegister {
   bool IsD() const { return IsV() && Is64Bits(); }
   bool IsQ() const { return IsV() && Is128Bits(); }
 
+  // Semantic type for sdot and udot instructions.
+  bool IsS4B() const { return IsS(); }
+  const VRegister& S4B() const { return S(); }
+
   const Register& W() const;
   const Register& X() const;
   const VRegister& V() const;
@@ -360,6 +364,7 @@ class VRegister : public CPURegister {
 
   VRegister V8B() const { return VRegister(code_, kDRegSize, 8); }
   VRegister V16B() const { return VRegister(code_, kQRegSize, 16); }
+  VRegister V2H() const { return VRegister(code_, kSRegSize, 2); }
   VRegister V4H() const { return VRegister(code_, kDRegSize, 4); }
   VRegister V8H() const { return VRegister(code_, kQRegSize, 8); }
   VRegister V2S() const { return VRegister(code_, kDRegSize, 2); }
@@ -369,6 +374,7 @@ class VRegister : public CPURegister {
 
   bool Is8B() const { return (Is64Bits() && (lanes_ == 8)); }
   bool Is16B() const { return (Is128Bits() && (lanes_ == 16)); }
+  bool Is2H() const { return (Is32Bits() && (lanes_ == 2)); }
   bool Is4H() const { return (Is64Bits() && (lanes_ == 4)); }
   bool Is8H() const { return (Is128Bits() && (lanes_ == 8)); }
   bool Is2S() const { return (Is64Bits() && (lanes_ == 2)); }
@@ -391,6 +397,10 @@ class VRegister : public CPURegister {
     VIXL_ASSERT(!(Is32Bits() && IsVector()));
     return Is32Bits();
   }
+
+  // Semantic type for sdot and udot instructions.
+  bool Is1S4B() const { return Is1S(); }
+
 
   bool IsLaneSizeB() const { return GetLaneSizeInBits() == kBRegSize; }
   bool IsLaneSizeH() const { return GetLaneSizeInBits() == kHRegSize; }
@@ -493,6 +503,28 @@ bool AreSameSizeAndType(const CPURegister& reg1,
                         const CPURegister& reg6 = NoCPUReg,
                         const CPURegister& reg7 = NoCPUReg,
                         const CPURegister& reg8 = NoCPUReg);
+
+// AreEven returns true if all of the specified registers have even register
+// indices. Arguments set to NoReg are ignored, as are any subsequent
+// arguments. At least one argument (reg1) must be valid (not NoCPUReg).
+bool AreEven(const CPURegister& reg1,
+             const CPURegister& reg2,
+             const CPURegister& reg3 = NoReg,
+             const CPURegister& reg4 = NoReg,
+             const CPURegister& reg5 = NoReg,
+             const CPURegister& reg6 = NoReg,
+             const CPURegister& reg7 = NoReg,
+             const CPURegister& reg8 = NoReg);
+
+
+// AreConsecutive returns true if all of the specified registers are
+// consecutive in the register file. Arguments set to NoReg are ignored, as are
+// any subsequent arguments. At least one argument (reg1) must be valid
+// (not NoCPUReg).
+bool AreConsecutive(const CPURegister& reg1,
+                    const CPURegister& reg2,
+                    const CPURegister& reg3 = NoCPUReg,
+                    const CPURegister& reg4 = NoCPUReg);
 
 
 // AreSameFormat returns true if all of the specified VRegisters have the same

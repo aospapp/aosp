@@ -16,36 +16,37 @@
 
 package com.android.tv.app;
 
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.media.tv.TvContract;
 import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Analytics;
 import com.android.tv.analytics.StubAnalytics;
 import com.android.tv.analytics.Tracker;
-import com.android.tv.common.CommonConstants;
-import com.android.tv.common.actions.InputSetupActionUtils;
-import com.android.tv.common.config.DefaultConfigManager;
-import com.android.tv.common.config.api.RemoteConfig;
+import com.android.tv.common.dagger.ApplicationModule;
 import com.android.tv.common.experiments.ExperimentLoader;
-import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.flags.impl.DefaultBackendKnobsFlags;
+import com.android.tv.common.flags.impl.DefaultCloudEpgFlags;
+import com.android.tv.common.flags.impl.DefaultConcurrentDvrPlaybackFlags;
+import com.android.tv.common.flags.impl.DefaultUiFlags;
+import com.android.tv.common.singletons.HasSingletons;
 import com.android.tv.data.epg.EpgReader;
 import com.android.tv.data.epg.StubEpgReader;
+import com.android.tv.modules.TvSingletonsModule;
 import com.android.tv.perf.PerformanceMonitor;
-import com.android.tv.perf.StubPerformanceMonitor;
-import com.android.tv.tuner.livetuner.LiveTvTunerTvInputService;
-import com.android.tv.tuner.setup.LiveTvTunerSetupActivity;
+import com.android.tv.perf.PerformanceMonitorManagerFactory;
+import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
 import com.android.tv.util.account.AccountHelper;
 import com.android.tv.util.account.AccountHelperImpl;
+import com.google.common.base.Optional;
+import dagger.android.AndroidInjector;
 import javax.inject.Provider;
 
 /** The top level application for Live TV. */
-public class LiveTvApplication extends TvApplication {
-    protected static final String TV_ACTIVITY_CLASS_NAME =
-            CommonConstants.BASE_PACKAGE + ".TvActivity";
+public class LiveTvApplication extends TvApplication implements HasSingletons<TvSingletons> {
 
-    private final StubPerformanceMonitor performanceMonitor = new StubPerformanceMonitor();
+    static {
+        PERFORMANCE_MONITOR_MANAGER.getStartupMeasure().onAppClassLoaded();
+    }
+
     private final Provider<EpgReader> mEpgReaderProvider =
             new Provider<EpgReader>() {
 
@@ -55,12 +56,30 @@ public class LiveTvApplication extends TvApplication {
                 }
             };
 
+    private final DefaultBackendKnobsFlags mBackendKnobsFlags = new DefaultBackendKnobsFlags();
+    private final DefaultCloudEpgFlags mCloudEpgFlags = new DefaultCloudEpgFlags();
+    private final DefaultUiFlags mUiFlags = new DefaultUiFlags();
+    private final DefaultConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags =
+            new DefaultConcurrentDvrPlaybackFlags();
     private AccountHelper mAccountHelper;
     private Analytics mAnalytics;
     private Tracker mTracker;
-    private String mEmbeddedInputId;
-    private RemoteConfig mRemoteConfig;
     private ExperimentLoader mExperimentLoader;
+    private PerformanceMonitor mPerformanceMonitor;
+
+    @Override
+    protected AndroidInjector<LiveTvApplication> applicationInjector() {
+        return DaggerLiveTvApplicationComponent.builder()
+                .applicationModule(new ApplicationModule(this))
+                .tvSingletonsModule(new TvSingletonsModule(this))
+                .build();
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        PERFORMANCE_MONITOR_MANAGER.getStartupMeasure().onAppCreate(this);
+    }
 
     /** Returns the {@link AccountHelperImpl}. */
     @Override
@@ -73,7 +92,10 @@ public class LiveTvApplication extends TvApplication {
 
     @Override
     public synchronized PerformanceMonitor getPerformanceMonitor() {
-        return performanceMonitor;
+        if (mPerformanceMonitor == null) {
+            mPerformanceMonitor = PerformanceMonitorManagerFactory.create().initialize(this);
+        }
+        return mPerformanceMonitor;
     }
 
     @Override
@@ -85,6 +107,11 @@ public class LiveTvApplication extends TvApplication {
     public ExperimentLoader getExperimentLoader() {
         mExperimentLoader = new ExperimentLoader();
         return mExperimentLoader;
+    }
+
+    @Override
+    public DefaultBackendKnobsFlags getBackendKnobs() {
+        return mBackendKnobsFlags;
     }
 
     /** Returns the {@link Analytics}. */
@@ -106,34 +133,32 @@ public class LiveTvApplication extends TvApplication {
     }
 
     @Override
-    public Intent getTunerSetupIntent(Context context) {
-        // Make an intent to launch the setup activity of TV tuner input.
-        Intent intent =
-                CommonUtils.createSetupIntent(
-                        new Intent(context, LiveTvTunerSetupActivity.class), mEmbeddedInputId);
-        intent.putExtra(InputSetupActionUtils.EXTRA_INPUT_ID, mEmbeddedInputId);
-        Intent tvActivityIntent = new Intent();
-        tvActivityIntent.setComponent(new ComponentName(context, TV_ACTIVITY_CLASS_NAME));
-        intent.putExtra(InputSetupActionUtils.EXTRA_ACTIVITY_AFTER_COMPLETION, tvActivityIntent);
-        return intent;
+    public DefaultCloudEpgFlags getCloudEpgFlags() {
+        return mCloudEpgFlags;
     }
 
     @Override
-    public synchronized String getEmbeddedTunerInputId() {
-        if (mEmbeddedInputId == null) {
-            mEmbeddedInputId =
-                    TvContract.buildInputId(
-                            new ComponentName(this, LiveTvTunerTvInputService.class));
-        }
-        return mEmbeddedInputId;
+    public DefaultUiFlags getUiFlags() {
+        return mUiFlags;
     }
 
     @Override
-    public RemoteConfig getRemoteConfig() {
-        if (mRemoteConfig == null) {
-            // No need to synchronize this, it does not hurt to create two and throw one away.
-            mRemoteConfig = DefaultConfigManager.createInstance(this).getRemoteConfig();
-        }
-        return mRemoteConfig;
+    public Optional<BuiltInTunerManager> getBuiltInTunerManager() {
+        return Optional.absent();
+    }
+
+    @Override
+    public BuildType getBuildType() {
+        return BuildType.AOSP;
+    }
+
+    @Override
+    public DefaultConcurrentDvrPlaybackFlags getConcurrentDvrPlaybackFlags() {
+        return mConcurrentDvrPlaybackFlags;
+    }
+
+    @Override
+    public TvSingletons singletons() {
+        return this;
     }
 }

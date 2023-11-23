@@ -31,9 +31,9 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiNetworkScoreCache;
 import android.net.wifi.WifiSsid;
-import android.support.test.filters.SmallTest;
 import android.text.TextUtils;
 
+import com.android.server.wifi.util.NativeUtil;
 import com.android.server.wifi.util.ScanResultUtil;
 
 import java.util.ArrayList;
@@ -44,7 +44,6 @@ import java.util.Map;
 /**
  * Helper for WifiNetworkSelector unit tests.
  */
-@SmallTest
 public class WifiNetworkSelectorTestUtil {
 
     /**
@@ -87,10 +86,24 @@ public class WifiNetworkSelectorTestUtil {
                 WifiConfigManager wifiConfigManager, Clock clock) {
         List<ScanDetail> scanDetails = buildScanDetails(ssids, bssids, freqs, caps, levels, clock);
         WifiConfiguration[] savedConfigs = generateWifiConfigurations(ssids, securities);
+        checkConsistencyOfScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
         prepareConfigStore(wifiConfigManager, savedConfigs);
         scanResultLinkConfiguration(wifiConfigManager, savedConfigs, scanDetails);
 
         return new ScanDetailsAndWifiConfigs(scanDetails, savedConfigs);
+    }
+
+    private static void checkConsistencyOfScanDetailsAndWifiConfigs(
+            List<ScanDetail> scanDetails,
+            WifiConfiguration[] savedConfigs) {
+        assertEquals(scanDetails.size(), savedConfigs.length);
+        for (int i = 0; i < savedConfigs.length; i++) {
+            ScanResult scanResult = scanDetails.get(i).getScanResult();
+            WifiConfiguration config = savedConfigs[i];
+            assertEquals("Problem in entry " + i,
+                    ScanResultMatchInfo.fromScanResult(scanResult),
+                    ScanResultMatchInfo.fromWifiConfiguration(config));
+        }
     }
 
     /**
@@ -124,7 +137,8 @@ public class WifiNetworkSelectorTestUtil {
 
         long timeStamp = clock.getElapsedSinceBootMillis();
         for (int index = 0; index < ssids.length; index++) {
-            ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssids[index]),
+            byte[] ssid = NativeUtil.byteArrayFromArrayList(NativeUtil.decodeSsid(ssids[index]));
+            ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromByteArray(ssid),
                     bssids[index], caps[index], levels[index], freqs[index], timeStamp, 0);
             scanDetailList.add(scanDetail);
         }
@@ -142,9 +156,8 @@ public class WifiNetworkSelectorTestUtil {
      */
     public static WifiConfiguration[] generateWifiConfigurations(String[] ssids,
                 int[] securities) {
-        if (ssids == null || securities == null || ssids.length != securities.length
-                || ssids.length == 0) {
-            return null;
+        if (ssids == null || securities == null || ssids.length != securities.length) {
+            throw new IllegalArgumentException();
         }
 
         Map<String, Integer> netIdMap = new HashMap<>();
@@ -164,6 +177,10 @@ public class WifiNetworkSelectorTestUtil {
 
             configs[index] = generateWifiConfig(id.intValue(), 0, ssids[index], false, true, null,
                     null, securities[index]);
+            configs[index].preSharedKey = "\"PA55W0RD\""; // needed to validate with PSK
+            if (!WifiConfigurationUtil.validate(configs[index], true)) {
+                throw new IllegalArgumentException("Invalid generated config: " + configs[index]);
+            }
         }
 
         return configs;
@@ -201,7 +218,7 @@ public class WifiNetworkSelectorTestUtil {
                         return null;
                     }
                 });
-        when(wifiConfigManager.getSavedNetworks())
+        when(wifiConfigManager.getConfiguredNetworks())
                 .then(new AnswerWithArguments() {
                     public List<WifiConfiguration> answer() {
                         List<WifiConfiguration> savedNetworks = new ArrayList<>();
@@ -367,6 +384,7 @@ public class WifiNetworkSelectorTestUtil {
         final WifiConfiguration config =
                 ScanResultUtil.createNetworkFromScanResult(scanDetail.getScanResult());
         config.ephemeral = true;
+        config.trusted = false;
         config.networkId = networkId;
         config.meteredHint = meteredHint;
 

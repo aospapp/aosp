@@ -21,7 +21,7 @@
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "EmulatedCamera_QemuClient"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "EmulatedCamera.h"
 #include "QemuClient.h"
 

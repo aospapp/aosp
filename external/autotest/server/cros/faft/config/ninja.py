@@ -13,5 +13,4 @@ class Values(rambi.Values):
     has_lid = False
     has_keyboard = False
     rec_button_dev_switch = True
-    wp_voltage = 'pp3300'
     spi_voltage = 'pp3300'

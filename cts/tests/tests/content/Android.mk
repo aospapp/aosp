@@ -22,6 +22,10 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_USE_AAPT2 := true
 
+# Don't run manifestmerger on dependencies, it is unhappy with the duplicate
+# REQUIRED_MULTI_DENY permissions in AndroidManifest.xml
+LOCAL_DONT_MERGE_MANIFESTS := true
+
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
@@ -30,17 +34,19 @@ LOCAL_JNI_SHARED_LIBRARIES := libnativecursorwindow_jni libnativehelper_compat_l
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs android.test.mock
 
 LOCAL_STATIC_JAVA_LIBRARIES :=  \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     services.core \
     junit \
     truth-prebuilt \
-    accountaccesslib
+    accountaccesslib \
+	ub-uiautomator \
+    testng # TODO: remove once Android migrates to JUnit 4.12, which provide assertThrows
 
 LOCAL_STATIC_ANDROID_LIBRARIES := androidx.legacy_legacy-support-v4
 
 # Use multi-dex as the compatibility-common-util-devicesidelib dependency
-# on compatibility-device-util pushes us beyond 64k methods.
+# on compatibility-device-util-axt pushes us beyond 64k methods.
 LOCAL_JACK_FLAGS := --multi-dex native
 LOCAL_DX_FLAGS := --multi-dex
 
@@ -59,7 +65,8 @@ LOCAL_AAPT_FLAGS := \
 	-c tlh \
 	-c xx,xx-rYY
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src) \
+    $(call all-Iaidl-files-under, BinderPermissionTestService)
 LOCAL_MULTILIB := both
 LOCAL_PACKAGE_NAME := CtsContentTestCases
 LOCAL_PRIVATE_PLATFORM_APIS := true

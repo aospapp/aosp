@@ -206,7 +206,7 @@ std::string ErrorCodeFromSystemError(int errnum) {
 }  // anonymous namespace
 
 void AddSystemError(ErrorPtr* error,
-                    const tracked_objects::Location& location,
+                    const base::Location& location,
                     int errnum) {
   std::string message = base::safe_strerror(errnum);
   std::string code = ErrorCodeFromSystemError(errnum);

@@ -319,7 +319,7 @@ static ssize_t verity_read(fec_handle *f, uint8_t *dest, size_t count,
 
         /* if we are in read-only mode and expect to read a zero block,
            skip reading and just return zeros */
-        if (f->mode & O_RDONLY && expect_zeros) {
+        if ((f->mode & O_ACCMODE) == O_RDONLY && expect_zeros) {
             memset(data, 0, FEC_BLOCKSIZE);
             goto valid;
         }

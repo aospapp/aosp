@@ -25,13 +25,18 @@ class SharedDict(object):
     shared between the main process and the process pool.
 
     Attributes:
+        _manager: SyncManager. an instance of a manager for shared objects and
+                  values between processes.
         _dict: multiprocessing.SyncManager.dict. A dictionary
                shared among processes.
     """
 
-    def __init__(self):
-        manager = multiprocessing.Manager()
-        self._dict = manager.dict()
+    def __init__(self, manager=None):
+        if manager is not None:
+            self._manager = manager
+        else:
+            self._manager = multiprocessing.Manager()
+        self._dict = self._manager.dict()
 
     def __getitem__(self, key):
         """getitem for self._dict.

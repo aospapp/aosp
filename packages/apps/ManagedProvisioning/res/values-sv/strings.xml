@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Konfiguration av jobbprofil"</string>
+    <string name="app_label" msgid="1527793174155125990">"Jobbkonfiguration"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Hoppsan!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Konfigurera jobbprofil"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Organisationen kontrollerar profilen och håller den säker. Du har kontroll över allt annat på enheten."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Enheten hanteras med följande app:"</string>
     <string name="next" msgid="1004321437324424398">"Nästa"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Konfigurerar jobbprofilen …"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Administratören kan övervaka och hantera inställningar, företagsåtkomst, appar, behörigheter och uppgifter som är kopplade till profilen. Detta gäller exempelvis nätverksaktivitet, enhetens plats, samtalshistorik och kontaktsökhistorik.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakta administratören om du vill veta mer, till exempel om organisationens sekretesspolicyer."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Administratören kan övervaka och hantera inställningar, företagsåtkomst, appar, behörigheter och uppgifter som är kopplade till enheten. Detta gäller exempelvis nätverksaktivitet, enhetens plats, samtalshistorik och kontaktsökhistorik.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakta administratören om du vill veta mer, till exempel om organisationens sekretesspolicyer."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-administratören kan övervaka och hantera inställningar, företagsåtkomst, appar, data med koppling till profilen, inklusive nätverksaktivitet, samt plats, samtalshistorik och sökhistorik i kontakter för enheten.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakta IT-administratören om du vill få mer information, till exempel om organisationens sekretesspolicy."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-administratören kan övervaka och hantera inställningar, företagsåtkomst, appar, data med koppling till enheten, inklusive nätverksaktivitet, samt plats, samtalshistorik och sökhistorik i kontakter för enheten.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Kontakta IT-administratören om du vill få mer information, till exempel om organisationens sekretesspolicy."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Enheten måste ha ett lösenordsskyddat skärmlås för att du ska kunna använda stöldskyddsfunktioner."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Kontakta administratören om du vill veta mer, inklusive om du vill veta mer om organisationens sekretesspolicy."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Kontakta IT-administratören om du vill få mer information, till exempel om organisationens sekretesspolicy."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Läs mer"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Avbryt"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Det gick inte att konfigurera arbetsprofilen. Kontakta IT-avdelningen eller försök igen senare."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Det går inte att lägga till jobbprofiler"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Det gick inte att ersätta eller ta bort jobbprofilen"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Det gick inte att lägga till jobbprofilen på den här enheten. Kontakta administratören om du har frågor."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Det gick inte att lägga till jobbprofilen på den här enheten. Kontakta IT-administratören om du har frågor."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Ändra enhetsöversikt"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Det går inte att använda denna appöversikt i jobbprofilen"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Avbryt"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Gör klart det sista …"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Ställer in enhetsägare …"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Enheten initieras …"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Kryptering krävs för att konfigurera, men enheten har inte stöd för kryptering. Kontakta administratören om du behöver hjälp."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Kryptering krävs för att konfigurera, men enheten har inte stöd för kryptering. Kontakta IT-administratören om du behöver hjälp."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Vill du avbryta konfigurationen och återställa enheten?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Enheten återställs och första skärmen visas igen"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Vill du avbryta konfigurationen och radera enhetens data?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"Återställ"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Det går inte att konfigurera profilen"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Det går inte att konfigurera enheten"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Det gick inte att konfigurera enheten. Kontakta administratören om du behöver hjälp."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Kontakta administratören om du behöver hjälp"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Det gick inte att konfigurera enheten. Kontakta IT-administratören om du behöver hjälp."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Kontakta IT-administratören om du behöver hjälp"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Enheten har redan konfigurerats"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Det gick inte att ansluta till Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Skyddet mot fabriksåterställning är aktiverat. Kontakta administratören om du behöver hjälp."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Det gick inte att ansluta till Wi-Fi"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Återställningsskyddet är aktiverat på enheten. Kontakta IT-administratören om du behöver hjälp."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Rensar"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Vänta ..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Det gick inte att använda administratörsappen på grund av en felaktig kontrollsumma. Kontakta administratören om du behöver hjälp."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Det gick inte att ladda ned administrationsappen"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Det gick inte att använda administratörsappen. Komponenter saknas eller appen har skadats. Kontakta administratören om du behöver hjälp."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Det gick inte att installera administrationsappen"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Det gick inte att använda administratörsappen på grund av en felaktig kontrollsumma. Kontakta IT-administratören om du behöver hjälp."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Det gick inte att hämta administrationsappen"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Det gick inte att använda administratörsappen. Komponenter saknas eller appen har skadats. Kontakta IT-administratören om du behöver hjälp."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Det gick inte att installera administrationsappen"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Vill du avbryta konfigurationen?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nej"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ja"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Enheten hanteras, övervakas och skyddas av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Villkor gäller. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Enheten hanteras, övervakas och skyddas av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Villkor från <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> gäller. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Detta är inte en säker länk. Den kan endast öppnas när enhetskonfigurationen är slutförd: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Kontakta <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> om du har några frågor."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Kontakta organisationens administratör om du har några frågor"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"Konfigurationen har inte slutförts. Kontakta administratören om du behöver hjälp."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Kontakta administratören om du behöver hjälp"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"organisationens administratör"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Kontakta din <xliff:g id="IT_ADMIN">%1$s</xliff:g> om du vill veta mer."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Kontakta IT-administratören om du har frågor"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Konfigurationen har inte slutförts. Kontakta IT-administratören om du behöver hjälp."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Kontakta IT-administratören om du behöver hjälp"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT-administratör"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"Enheten hanteras och övervakas av <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> med hjälp av följande app:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"organisationen"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"organisationen"</string>
     <string name="view_terms" msgid="7230493092383341605">"Visa användarvillkoren"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Godkänn och fortsätt"</string>
-    <string name="close" msgid="7208600934846389439">"Stäng"</string>
+    <string name="back" msgid="6455622465896147127">"Tillbaka"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Konfigurera enheten"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Ändra ditt arbetssätt"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Separata profiler för jobbrelaterade och personliga uppgifter"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Det kan ta några minuter"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"Dina jobbappar sparas i den här profilen och hanteras av organisationen"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Enheten skyddas och hanteras av organisationen"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Konfigurationen av jobbenheten förbereds …"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfigurerar administrationsappen"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Konfigurera resten"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Nu konfigurerar vi resten"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Enheten ägs av din organisation"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"Mobilen hanteras och övervakas med hjälp av följande app"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Jobbkonfigurationen förbereds …"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Börja med att konfigurera jobbprofilen"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Konfigurera jobbprofilen"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Jobbappar lagras i din jobbprofil"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pausa dina jobbappar när du har jobbat klart för dagen"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Det är bara data i din jobbprofil som är synlig för IT-administratören"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Konfigurerar arbetsprofilen …"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Jobbappar lagras i din jobbprofil. Du kan pausa dina jobbappar när du har jobbat klart för dagen. Det är bara data i din jobbprofil som är synlig för IT-administratören."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Sätt igång att konfigurera jobbenheten"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Ha jobbapparna nära till hands"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Enheten är inte privat"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT-administratören kanske kan visa din aktivitet och data på enheten."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Konfigurerar enheten …"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Få enkelt åtkomst till dina jobbappar på den här enheten. Enheten är inte privat, så IT-administratören kanske kan se din aktivitet och data på enheten. Kontakta IT-administratören om du vill veta mer."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Sekretesspåminnelse"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT-administratören kanske kan se din aktivitet och data på enheten"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Enheten är klar att användas."</string>
+    <string name="done" msgid="7755227776955952318">"Klart"</string>
 </resources>

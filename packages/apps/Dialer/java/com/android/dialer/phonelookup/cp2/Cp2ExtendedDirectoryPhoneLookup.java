@@ -19,20 +19,23 @@ package com.android.dialer.phonelookup.cp2;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.Directory;
 import android.support.annotation.VisibleForTesting;
 import com.android.dialer.DialerPhoneNumber;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.Annotations.BackgroundExecutor;
 import com.android.dialer.common.concurrent.Annotations.LightweightExecutor;
-import com.android.dialer.common.cp2.DirectoryCompat;
+import com.android.dialer.common.concurrent.Annotations.NonUiSerial;
+import com.android.dialer.configprovider.ConfigProvider;
 import com.android.dialer.inject.ApplicationContext;
+import com.android.dialer.logging.DialerImpression;
+import com.android.dialer.logging.Logger;
 import com.android.dialer.phonelookup.PhoneLookup;
 import com.android.dialer.phonelookup.PhoneLookupInfo;
 import com.android.dialer.phonelookup.PhoneLookupInfo.Cp2Info;
 import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.util.PermissionsUtil;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -40,6 +43,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 import javax.inject.Inject;
 
 /**
@@ -50,26 +57,66 @@ import javax.inject.Inject;
  */
 public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Info> {
 
+  /** Config flag for timeout (in ms). */
+  @VisibleForTesting
+  static final String CP2_EXTENDED_DIRECTORY_PHONE_LOOKUP_TIMEOUT_MILLIS =
+      "cp2_extended_directory_phone_lookup_timout_millis";
+
   private final Context appContext;
+  private final ConfigProvider configProvider;
   private final ListeningExecutorService backgroundExecutorService;
   private final ListeningExecutorService lightweightExecutorService;
+  private final MissingPermissionsOperations missingPermissionsOperations;
+  private final ScheduledExecutorService scheduledExecutorService;
 
   @Inject
   Cp2ExtendedDirectoryPhoneLookup(
       @ApplicationContext Context appContext,
       @BackgroundExecutor ListeningExecutorService backgroundExecutorService,
-      @LightweightExecutor ListeningExecutorService lightweightExecutorService) {
+      @LightweightExecutor ListeningExecutorService lightweightExecutorService,
+      @NonUiSerial ScheduledExecutorService scheduledExecutorService,
+      ConfigProvider configProvider,
+      MissingPermissionsOperations missingPermissionsOperations) {
     this.appContext = appContext;
     this.backgroundExecutorService = backgroundExecutorService;
     this.lightweightExecutorService = lightweightExecutorService;
+    this.scheduledExecutorService = scheduledExecutorService;
+    this.configProvider = configProvider;
+    this.missingPermissionsOperations = missingPermissionsOperations;
   }
 
   @Override
   public ListenableFuture<Cp2Info> lookup(DialerPhoneNumber dialerPhoneNumber) {
-    return Futures.transformAsync(
-        queryCp2ForExtendedDirectoryIds(),
-        directoryIds -> queryCp2ForDirectoryContact(dialerPhoneNumber, directoryIds),
-        lightweightExecutorService);
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      return Futures.immediateFuture(Cp2Info.getDefaultInstance());
+    }
+
+    ListenableFuture<Cp2Info> cp2InfoFuture =
+        Futures.transformAsync(
+            queryCp2ForExtendedDirectoryIds(),
+            directoryIds -> queryCp2ForDirectoryContact(dialerPhoneNumber, directoryIds),
+            lightweightExecutorService);
+
+    long timeoutMillis =
+        configProvider.getLong(CP2_EXTENDED_DIRECTORY_PHONE_LOOKUP_TIMEOUT_MILLIS, Long.MAX_VALUE);
+
+    // Do not pass Long.MAX_VALUE to Futures.withTimeout as it will cause the internal
+    // ScheduledExecutorService for timing to keep waiting even after "cp2InfoFuture" is done.
+    // Do not pass 0 or a negative value to Futures.withTimeout either as it will cause the timeout
+    // event to be triggered immediately.
+    return timeoutMillis == Long.MAX_VALUE
+        ? cp2InfoFuture
+        : Futures.catching(
+            Futures.withTimeout(
+                cp2InfoFuture, timeoutMillis, TimeUnit.MILLISECONDS, scheduledExecutorService),
+            TimeoutException.class,
+            unused -> {
+              LogUtil.w("Cp2ExtendedDirectoryPhoneLookup.lookup", "Time out!");
+              Logger.get(appContext)
+                  .logImpression(DialerImpression.Type.CP2_EXTENDED_DIRECTORY_PHONE_LOOKUP_TIMEOUT);
+              return Cp2Info.getDefaultInstance();
+            },
+            lightweightExecutorService);
   }
 
   private ListenableFuture<List<Long>> queryCp2ForExtendedDirectoryIds() {
@@ -80,7 +127,7 @@ public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Inf
               appContext
                   .getContentResolver()
                   .query(
-                      DirectoryCompat.getContentUri(),
+                      Directory.ENTERPRISE_CONTENT_URI,
                       /* projection = */ new String[] {ContactsContract.Directory._ID},
                       /* selection = */ null,
                       /* selectionArgs = */ null,
@@ -168,7 +215,7 @@ public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Inf
 
             do {
               cp2InfoBuilder.addCp2ContactInfo(
-                  Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor));
+                  Cp2Projections.buildCp2ContactInfoFromCursor(appContext, cursor, directoryId));
             } while (cursor.moveToNext());
           }
 
@@ -178,13 +225,8 @@ public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Inf
 
   @VisibleForTesting
   static Uri getContentUriForContacts(String number, long directoryId) {
-    Uri baseUri =
-        VERSION.SDK_INT >= VERSION_CODES.N
-            ? ContactsContract.PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI
-            : ContactsContract.PhoneLookup.CONTENT_FILTER_URI;
-
     Uri.Builder builder =
-        baseUri
+        ContactsContract.PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI
             .buildUpon()
             .appendPath(number)
             .appendQueryParameter(
@@ -197,18 +239,29 @@ public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Inf
   }
 
   private static boolean isExtendedDirectory(long directoryId) {
-    return DirectoryCompat.isRemoteDirectoryId(directoryId)
-        || DirectoryCompat.isEnterpriseDirectoryId(directoryId);
+    return Directory.isRemoteDirectoryId(directoryId)
+        || Directory.isEnterpriseDirectoryId(directoryId);
   }
 
   @Override
   public ListenableFuture<Boolean> isDirty(ImmutableSet<DialerPhoneNumber> phoneNumbers) {
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      Predicate<PhoneLookupInfo> phoneLookupInfoIsDirtyFn =
+          phoneLookupInfo ->
+              !phoneLookupInfo.getExtendedCp2Info().equals(Cp2Info.getDefaultInstance());
+      return missingPermissionsOperations.isDirtyForMissingPermissions(
+          phoneNumbers, phoneLookupInfoIsDirtyFn);
+    }
     return Futures.immediateFuture(false);
   }
 
   @Override
   public ListenableFuture<ImmutableMap<DialerPhoneNumber, Cp2Info>> getMostRecentInfo(
       ImmutableMap<DialerPhoneNumber, Cp2Info> existingInfoMap) {
+    if (!PermissionsUtil.hasContactsReadPermissions(appContext)) {
+      LogUtil.w("Cp2ExtendedDirectoryPhoneLookup.getMostRecentInfo", "missing permissions");
+      return missingPermissionsOperations.getMostRecentInfoForMissingPermissions(existingInfoMap);
+    }
     return Futures.immediateFuture(existingInfoMap);
   }
 
@@ -228,9 +281,22 @@ public final class Cp2ExtendedDirectoryPhoneLookup implements PhoneLookup<Cp2Inf
   }
 
   @Override
-  public void registerContentObservers(Context appContext) {
+  public void registerContentObservers() {
     // For contacts in remote directories, no content observer can be registered.
     // For contacts in local (but not default) directories (e.g., the local work directory), we
     // don't register a content observer for now.
+  }
+
+  @Override
+  public void unregisterContentObservers() {}
+
+  @Override
+  public ListenableFuture<Void> clearData() {
+    return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public String getLoggingName() {
+    return "Cp2ExtendedDirectoryPhoneLookup";
   }
 }

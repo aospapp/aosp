@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.ime2;
@@ -19,6 +19,9 @@ package android.inputmethodservice.cts.ime2;
 import android.inputmethodservice.cts.ime.CtsBaseInputMethod;
 import android.view.View;
 
+/**
+ * Implementation of test IME 2.
+ */
 public final class CtsInputMethod2 extends CtsBaseInputMethod {
 
     @Override

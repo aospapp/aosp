@@ -18,7 +18,9 @@
 #define SIMPLE_PERF_EVENT_H_
 
 #include <stdint.h>
+#include <strings.h>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,6 +47,10 @@ struct EventType {
   EventType() : type(0), config(0) {
   }
 
+  bool operator<(const EventType& other) const {
+    return strcasecmp(name.c_str(), other.name.c_str()) < 0;
+  }
+
   std::string name;
   uint32_t type;
   uint64_t config;
@@ -64,10 +70,10 @@ class ScopedEventTypes {
   ~ScopedEventTypes();
 
  private:
-  std::vector<EventType> saved_event_types_;
+  std::set<EventType> saved_event_types_;
 };
 
-const std::vector<EventType>& GetAllEventTypes();
+const std::set<EventType>& GetAllEventTypes();
 const EventType* FindEventTypeByName(const std::string& name, bool report_error = true);
 
 struct EventTypeAndModifier {

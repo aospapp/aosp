@@ -21,6 +21,7 @@ cc_binary {
         "service.cpp"
     ],
     init_rc: ["android.hidl.allocator@1.0-service.rc"],
+    vintf_fragments: ["android.hidl.allocator@1.0-service.xml"],
 
     shared_libs: [
         "android.hidl.allocator@1.0",

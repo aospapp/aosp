@@ -19,6 +19,8 @@ package com.android.server.wifi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import androidx.test.filters.SmallTest;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -27,6 +29,7 @@ import java.util.Random;
 /**
  * Unit tests for {@link com.android.server.wifi.WifiLinkLayerStats}.
  */
+@SmallTest
 public class WifiLinkLayerStatsTest {
 
     ExtendedWifiInfo mWifiInfo;

@@ -45,6 +45,7 @@ import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.R;
@@ -56,6 +57,7 @@ import java.io.IOException;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -66,6 +68,8 @@ public class BluetoothOppUtility {
     private static final String TAG = "BluetoothOppUtility";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
+    /** Whether the device has the "nosdcard" characteristic, or null if not-yet-known. */
+    private static Boolean sNoSdCard = null;
 
     private static final ConcurrentHashMap<Uri, BluetoothOppSendFileInfo> sSendFileMap =
             new ConcurrentHashMap<Uri, BluetoothOppSendFileInfo>();
@@ -292,6 +296,17 @@ public class BluetoothOppUtility {
     }
 
     /**
+     * Whether the device has the "nosdcard" characteristic or not.
+     */
+    public static boolean deviceHasNoSdCard() {
+        if (sNoSdCard == null) {
+            String characteristics = SystemProperties.get("ro.build.characteristics", "");
+            sNoSdCard = Arrays.asList(characteristics).contains("nosdcard");
+        }
+        return sNoSdCard;
+    }
+
+    /**
      * Get status description according to status code.
      */
     public static String getStatusDescription(Context context, int statusCode, String deviceName) {
@@ -311,11 +326,15 @@ public class BluetoothOppUtility {
         } else if (statusCode == BluetoothShare.STATUS_FILE_ERROR) {
             ret = context.getString(R.string.status_file_error);
         } else if (statusCode == BluetoothShare.STATUS_ERROR_NO_SDCARD) {
-            ret = context.getString(R.string.status_no_sd_card);
+            int id = deviceHasNoSdCard()
+                    ? R.string.status_no_sd_card_nosdcard
+                    : R.string.status_no_sd_card_default;
+            ret = context.getString(id);
         } else if (statusCode == BluetoothShare.STATUS_CONNECTION_ERROR) {
             ret = context.getString(R.string.status_connection_error);
         } else if (statusCode == BluetoothShare.STATUS_ERROR_SDCARD_FULL) {
-            ret = context.getString(R.string.bt_sm_2_1, deviceName);
+            int id = deviceHasNoSdCard() ? R.string.bt_sm_2_1_nosdcard : R.string.bt_sm_2_1_default;
+            ret = context.getString(id);
         } else if ((statusCode == BluetoothShare.STATUS_BAD_REQUEST) || (statusCode
                 == BluetoothShare.STATUS_LENGTH_REQUIRED) || (statusCode
                 == BluetoothShare.STATUS_PRECONDITION_FAILED) || (statusCode

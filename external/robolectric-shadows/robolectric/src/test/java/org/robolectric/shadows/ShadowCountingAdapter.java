@@ -4,7 +4,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
-import org.robolectric.RuntimeEnvironment;
+import androidx.test.core.app.ApplicationProvider;
 
 class ShadowCountingAdapter extends BaseAdapter {
   private int itemCount;
@@ -35,7 +35,7 @@ class ShadowCountingAdapter extends BaseAdapter {
 
   @Override
   public View getView(int position, View convertView, ViewGroup parent) {
-    TextView textView = new TextView(RuntimeEnvironment.application);
+    TextView textView = new TextView(ApplicationProvider.getApplicationContext());
     textView.setText("Item " + position);
     return textView;
   }

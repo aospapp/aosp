@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 #include <stdio.h>
+
+#include <set>
 #include <unordered_map>
 
 #include "dex/compact_dex_level.h"
@@ -148,7 +150,7 @@ class DexLayout {
   void DumpEncodedAnnotation(dex_ir::EncodedAnnotation* annotation);
   void DumpEncodedValue(const dex_ir::EncodedValue* data);
   void DumpFileHeader();
-  void DumpIField(uint32_t idx, uint32_t flags, int i);
+  void DumpIField(uint32_t idx, uint32_t flags, uint32_t hiddenapi_flags, int i);
   void DumpInstruction(const dex_ir::CodeItem* code,
                        uint32_t code_offset,
                        uint32_t insn_idx,
@@ -156,9 +158,17 @@ class DexLayout {
                        const Instruction* dec_insn);
   void DumpInterface(const dex_ir::TypeId* type_item, int i);
   void DumpLocalInfo(const dex_ir::CodeItem* code);
-  void DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem* code, int i);
+  void DumpMethod(uint32_t idx,
+                  uint32_t flags,
+                  uint32_t hiddenapi_flags,
+                  const dex_ir::CodeItem* code,
+                  int i);
   void DumpPositionInfo(const dex_ir::CodeItem* code);
-  void DumpSField(uint32_t idx, uint32_t flags, int i, dex_ir::EncodedValue* init);
+  void DumpSField(uint32_t idx,
+                  uint32_t flags,
+                  uint32_t hiddenapi_flags,
+                  int i,
+                  dex_ir::EncodedValue* init);
   void DumpDexFile();
 
   void LayoutClassDefsAndClassData(const DexFile* dex_file);
@@ -174,7 +184,7 @@ class DexLayout {
                      std::string* error_msg);
 
   void DumpCFG(const DexFile* dex_file, int idx);
-  void DumpCFG(const DexFile* dex_file, uint32_t dex_method_idx, const DexFile::CodeItem* code);
+  void DumpCFG(const DexFile* dex_file, uint32_t dex_method_idx, const dex::CodeItem* code);
 
   Options& options_;
   ProfileCompilationInfo* info_;

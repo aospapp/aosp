@@ -270,6 +270,20 @@ class ChromeEC(ChromeConsole):
         self.send_command(cmd)
 
 
+    def get_version(self):
+        """Get version information from the Chrome EC console.
+           Additionally, can be used to verify if EC console is available.
+        """
+        self.send_command("chan 0")
+        expected_output = ["Chip:\s+([^\r\n]*)\r\n",
+                           "RO:\s+([^\r\n]*)\r\n",
+                           "RW_?[AB]?:\s+([^\r\n]*)\r\n",
+                           "Build:\s+([^\r\n]*)\r\n"]
+        l = self.send_command_get_output("version", expected_output)
+        self.send_command("chan 0xffffffff")
+        return l
+
+
 class ChromeUSBPD(ChromeEC):
     """Manages control of a Chrome USBPD.
 

@@ -19,7 +19,7 @@
     <group>UI</group>
     <package>com.example.android.shareactionprovider</package>
 
-    <minSdk>9</minSdk>
+    <minSdk>14</minSdk>
 
     <strings>
         <intro>

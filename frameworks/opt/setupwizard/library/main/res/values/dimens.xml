@@ -31,7 +31,7 @@
     <dimen name="suw_glif_footer_padding_vertical">8dp</dimen>
     <dimen name="suw_glif_footer_min_height">72dp</dimen>
     <dimen name="suw_glif_margin_sides">24dp</dimen>
-    <dimen name="suw_glif_margin_top">48dp</dimen>
+    <dimen name="suw_glif_margin_top">56dp</dimen>
 
     <dimen name="suw_glif_v3_button_corner_radius">4dp</dimen>
 
@@ -98,7 +98,7 @@
     <!-- This is the extra spacing required to make the leading exactly 32sp -->
     <dimen name="suw_header_title_line_spacing_extra">3.67sp</dimen>
 
-    <dimen name="suw_glif_header_title_margin_top">15dp</dimen>
+    <dimen name="suw_glif_header_title_margin_top">16dp</dimen>
     <dimen name="suw_glif_header_title_margin_bottom">2dp</dimen>
 
     <dimen name="suw_glif_icon_max_height">32dp</dimen>
@@ -139,6 +139,7 @@
     <!-- The margin to compensate for the padding built-in to the widget itself -->
     <dimen name="suw_progress_bar_margin_vertical">-7dp</dimen>
     <dimen name="suw_glif_progress_bar_margin_vertical">7dp</dimen>
+    <dimen name="suw_glif_progress_bar_padding">40dp</dimen>
 
     <!-- Edit Text dimensions -->
     <dimen name="suw_edit_text_min_height">56dp</dimen>

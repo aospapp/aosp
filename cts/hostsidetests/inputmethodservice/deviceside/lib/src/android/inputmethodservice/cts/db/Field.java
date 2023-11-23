@@ -25,15 +25,15 @@ import android.database.Cursor;
 public abstract class Field {
 
     /** Field position in a row. */
-    final int pos;
+    final int mPos;
 
     /** Column name of this field. */
-    final String name;
+    final String mName;
 
     /** Field type of SQLite. */
-    final String sqLiteType;
+    final String mSqLiteType;
 
-    public static Field newInstance(final int pos, final String name, final int fieldType) {
+    static Field newInstance(int pos, String name, int fieldType) {
         switch (fieldType) {
             case Cursor.FIELD_TYPE_INTEGER:
                 return new IntegerField(pos, name);
@@ -44,34 +44,58 @@ public abstract class Field {
         }
     }
 
-    private Field(final int pos, final String name, final int fieldType) {
-        this.pos = pos;
-        this.name = name;
-        this.sqLiteType = toSqLiteType(fieldType);
+    private Field(int pos, String name, int fieldType) {
+        this.mPos = pos;
+        this.mName = name;
+        this.mSqLiteType = toSqLiteType(fieldType);
     }
 
-    public long getLong(final Cursor cursor) {
+    /**
+     * Read data from {@link Cursor}.
+     *
+     * @param cursor {@link Cursor} to read.
+     * @return long data read from {@code cursor}.
+     */
+    public long getLong(Cursor cursor) {
         throw buildException(Cursor.FIELD_TYPE_INTEGER);
     }
 
-    public String getString(final Cursor cursor) {
+    /**
+     * Read data from {@link Cursor}.
+     *
+     * @param cursor {@link Cursor} to read.
+     * @return {@link String} data read from {@code cursor}.
+     */
+    public String getString(Cursor cursor) {
         throw buildException(Cursor.FIELD_TYPE_STRING);
     }
 
-    public void putLong(final ContentValues values, final long value) {
+    /**
+     * Put data to {@link ContentValues}.
+     *
+     * @param values {@link ContentValues} to be updated.
+     * @param value long data to put.
+     */
+    public void putLong(ContentValues values, long value) {
         throw buildException(Cursor.FIELD_TYPE_INTEGER);
     }
 
-    public void putString(final ContentValues values, final String value) {
+    /**
+     * Put data to {@link ContentValues}.
+     *
+     * @param values {@link ContentValues} to be updated.
+     * @param value {@link String} data to put.
+     */
+    public void putString(ContentValues values, String value) {
         throw buildException(Cursor.FIELD_TYPE_STRING);
     }
 
-    private UnsupportedOperationException buildException(final int expectedFieldType) {
-        return new UnsupportedOperationException("Illegal type: " + name + " is " + sqLiteType
+    private UnsupportedOperationException buildException(int expectedFieldType) {
+        return new UnsupportedOperationException("Illegal type: " + mName + " is " + mSqLiteType
                 + ", expected " + toSqLiteType(expectedFieldType));
     }
 
-    private static String toSqLiteType(final int fieldType) {
+    private static String toSqLiteType(int fieldType) {
         switch (fieldType) {
             case Cursor.FIELD_TYPE_NULL:
                 return "NULL";
@@ -93,18 +117,18 @@ public abstract class Field {
      */
     private static final class IntegerField extends Field {
 
-        IntegerField(final int pos, final String name) {
+        IntegerField(int pos, String name) {
             super(pos, name, Cursor.FIELD_TYPE_INTEGER);
         }
 
         @Override
-        public long getLong(final Cursor cursor) {
-            return cursor.getLong(pos);
+        public long getLong(Cursor cursor) {
+            return cursor.getLong(mPos);
         }
 
         @Override
-        public void putLong(final ContentValues values, final long value) {
-            values.put(name, value);
+        public void putLong(ContentValues values, long value) {
+            values.put(mName, value);
         }
     }
 
@@ -113,18 +137,18 @@ public abstract class Field {
      */
     private static final class StringField extends Field {
 
-        StringField(final int pos, final String name) {
+        StringField(int pos, String name) {
             super(pos, name, Cursor.FIELD_TYPE_STRING);
         }
 
         @Override
-        public String getString(final Cursor cursor) {
-            return cursor.getString(pos);
+        public String getString(Cursor cursor) {
+            return cursor.getString(mPos);
         }
 
         @Override
-        public void putString(final ContentValues values, final String value) {
-            values.put(name, value);
+        public void putString(ContentValues values, String value) {
+            values.put(mName, value);
         }
     }
 }

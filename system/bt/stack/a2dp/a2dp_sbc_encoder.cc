@@ -28,6 +28,7 @@
 #include "a2dp_sbc.h"
 #include "a2dp_sbc_up_sample.h"
 #include "bt_common.h"
+#include "common/time_util.h"
 #include "embdrv/sbc/encoder/include/sbc_encoder.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
@@ -43,11 +44,6 @@
 
 #define A2DP_SBC_NON_EDR_MAX_RATE 229
 
-/*
- * 2DH5 payload size of:
- * 679 bytes - (4 bytes L2CAP Header + 12 bytes AVDTP Header)
- */
-#define MAX_2MBPS_AVDTP_MTU 663
 #define A2DP_SBC_MAX_PCM_ITER_NUM_PER_TICK 3
 
 #define A2DP_SBC_MAX_HQ_FRAME_SIZE_44_1 119
@@ -142,7 +138,8 @@ void a2dp_sbc_encoder_init(const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
                            a2dp_source_enqueue_callback_t enqueue_callback) {
   memset(&a2dp_sbc_encoder_cb, 0, sizeof(a2dp_sbc_encoder_cb));
 
-  a2dp_sbc_encoder_cb.stats.session_start_us = time_get_os_boottime_us();
+  a2dp_sbc_encoder_cb.stats.session_start_us =
+      bluetooth::common::time_get_os_boottime_us();
 
   a2dp_sbc_encoder_cb.read_callback = read_callback;
   a2dp_sbc_encoder_cb.enqueue_callback = enqueue_callback;
@@ -399,7 +396,7 @@ void a2dp_sbc_feeding_flush(void) {
   a2dp_sbc_encoder_cb.feeding_state.aa_feed_residue = 0;
 }
 
-period_ms_t a2dp_sbc_get_encoder_interval_ms(void) {
+uint64_t a2dp_sbc_get_encoder_interval_ms(void) {
   return A2DP_SBC_ENCODER_INTERVAL_MS;
 }
 
@@ -860,7 +857,7 @@ static uint32_t a2dp_sbc_frame_length(void) {
 
   switch (p_encoder_params->s16ChannelMode) {
     case SBC_MONO:
-    /* FALLTHROUGH */
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
     case SBC_DUAL:
       frame_len = A2DP_SBC_FRAME_HEADER_SIZE_BYTES +
                   ((uint32_t)(A2DP_SBC_SCALE_FACTOR_BITS *
@@ -909,7 +906,7 @@ uint32_t a2dp_sbc_get_bitrate() {
   return p_encoder_params->u16BitRate * 1000;
 }
 
-period_ms_t A2dpCodecConfigSbcSource::encoderIntervalMs() const {
+uint64_t A2dpCodecConfigSbcSource::encoderIntervalMs() const {
   return a2dp_sbc_get_encoder_interval_ms();
 }
 

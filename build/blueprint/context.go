@@ -16,6 +16,7 @@ package blueprint
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -66,6 +68,8 @@ const MockModuleListFile = "bplist"
 // write phase generates the Ninja manifest text based on the generated build
 // actions.
 type Context struct {
+	context.Context
+
 	// set at instantiation
 	moduleFactories     map[string]ModuleFactory
 	nameInterface       NameInterface
@@ -101,6 +105,8 @@ type Context struct {
 	requiredNinjaMajor int          // For the ninja_required_version variable
 	requiredNinjaMinor int          // For the ninja_required_version variable
 	requiredNinjaMicro int          // For the ninja_required_version variable
+
+	subninjas []string
 
 	// set lazily by sortedModuleGroups
 	cachedSortedModuleGroups []*moduleGroup
@@ -273,6 +279,7 @@ type mutatorInfo struct {
 
 func newContext() *Context {
 	return &Context{
+		Context:            context.Background(),
 		moduleFactories:    make(map[string]ModuleFactory),
 		nameInterface:      NewSimpleNameInterface(),
 		moduleInfo:         make(map[Module]*moduleInfo),
@@ -597,15 +604,6 @@ type fileParseContext struct {
 	doneVisiting chan struct{}
 }
 
-func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string, errs []error) {
-	baseDir := filepath.Dir(rootFile)
-	pathsToParse, err := c.ListModulePaths(baseDir)
-	if err != nil {
-		return nil, []error{err}
-	}
-	return c.ParseFileList(baseDir, pathsToParse)
-}
-
 // ParseBlueprintsFiles parses a set of Blueprints files starting with the file
 // at rootFile.  When it encounters a Blueprints file with a set of subdirs
 // listed it recursively parses any Blueprints files found in those
@@ -615,6 +613,15 @@ func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string, errs []e
 // which the future output will depend is returned.  This list will include both
 // Blueprints file paths as well as directory paths for cases where wildcard
 // subdirs are found.
+func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string, errs []error) {
+	baseDir := filepath.Dir(rootFile)
+	pathsToParse, err := c.ListModulePaths(baseDir)
+	if err != nil {
+		return nil, []error{err}
+	}
+	return c.ParseFileList(baseDir, pathsToParse)
+}
+
 func (c *Context) ParseFileList(rootDir string, filePaths []string) (deps []string,
 	errs []error) {
 
@@ -717,7 +724,6 @@ func (c *Context) WalkBlueprintsFiles(rootDir string, filePaths []string,
 	descendantsMap, err := findBlueprintDescendants(filePaths)
 	if err != nil {
 		panic(err.Error())
-		return nil, []error{err}
 	}
 	blueprintsSet := make(map[string]bool)
 
@@ -1291,6 +1297,14 @@ func (c *Context) processModuleDef(moduleDef *parser.Module,
 
 func (c *Context) addModule(module *moduleInfo) []error {
 	name := module.logicModule.Name()
+	if name == "" {
+		return []error{
+			&BlueprintError{
+				Err: fmt.Errorf("property 'name' is missing from a module"),
+				Pos: module.pos,
+			},
+		}
+	}
 	c.moduleInfo[module.logicModule] = module
 
 	group := &moduleGroup{
@@ -1320,27 +1334,39 @@ func (c *Context) addModule(module *moduleInfo) []error {
 // the modules depended upon are defined and that no circular dependencies
 // exist.
 func (c *Context) ResolveDependencies(config interface{}) (deps []string, errs []error) {
-	c.liveGlobals = newLiveTracker(config)
+	return c.resolveDependencies(c.Context, config)
+}
 
-	deps, errs = c.generateSingletonBuildActions(config, c.preSingletonInfo, c.liveGlobals)
+func (c *Context) resolveDependencies(ctx context.Context, config interface{}) (deps []string, errs []error) {
+	pprof.Do(ctx, pprof.Labels("blueprint", "ResolveDependencies"), func(ctx context.Context) {
+		c.liveGlobals = newLiveTracker(config)
+
+		deps, errs = c.generateSingletonBuildActions(config, c.preSingletonInfo, c.liveGlobals)
+		if len(errs) > 0 {
+			return
+		}
+
+		errs = c.updateDependencies()
+		if len(errs) > 0 {
+			return
+		}
+
+		var mutatorDeps []string
+		mutatorDeps, errs = c.runMutators(ctx, config)
+		if len(errs) > 0 {
+			return
+		}
+		deps = append(deps, mutatorDeps...)
+
+		c.cloneModules()
+
+		c.dependenciesReady = true
+	})
+
 	if len(errs) > 0 {
 		return nil, errs
 	}
 
-	errs = c.updateDependencies()
-	if len(errs) > 0 {
-		return nil, errs
-	}
-
-	mutatorDeps, errs := c.runMutators(config)
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	deps = append(deps, mutatorDeps...)
-
-	c.cloneModules()
-
-	c.dependenciesReady = true
 	return deps, nil
 }
 
@@ -1401,12 +1427,6 @@ func (c *Context) addDependency(module *moduleInfo, tag DependencyTag, depName s
 	}
 
 	if m := c.findMatchingVariant(module, possibleDeps); m != nil {
-		for _, dep := range module.directDeps {
-			if m == dep.module {
-				// TODO(ccross): what if adding a dependency with a different tag?
-				return nil
-			}
-		}
 		module.directDeps = append(module.directDeps, depInfo{m, tag})
 		atomic.AddUint32(&c.depsModified, 1)
 		return nil
@@ -1860,69 +1880,93 @@ func (c *Context) updateDependencies() (errs []error) {
 // SingletonContext.AddNinjaFileDeps(), and PackageContext.AddNinjaFileDeps()
 // methods.
 func (c *Context) PrepareBuildActions(config interface{}) (deps []string, errs []error) {
-	c.buildActionsReady = false
+	pprof.Do(c.Context, pprof.Labels("blueprint", "PrepareBuildActions"), func(ctx context.Context) {
+		c.buildActionsReady = false
 
-	if !c.dependenciesReady {
-		extraDeps, errs := c.ResolveDependencies(config)
-		if len(errs) > 0 {
-			return nil, errs
+		if !c.dependenciesReady {
+			var extraDeps []string
+			extraDeps, errs = c.resolveDependencies(ctx, config)
+			if len(errs) > 0 {
+				return
+			}
+			deps = append(deps, extraDeps...)
 		}
-		deps = append(deps, extraDeps...)
-	}
 
-	depsModules, errs := c.generateModuleBuildActions(config, c.liveGlobals)
+		var depsModules []string
+		depsModules, errs = c.generateModuleBuildActions(config, c.liveGlobals)
+		if len(errs) > 0 {
+			return
+		}
+
+		var depsSingletons []string
+		depsSingletons, errs = c.generateSingletonBuildActions(config, c.singletonInfo, c.liveGlobals)
+		if len(errs) > 0 {
+			return
+		}
+
+		deps = append(deps, depsModules...)
+		deps = append(deps, depsSingletons...)
+
+		if c.ninjaBuildDir != nil {
+			err := c.liveGlobals.addNinjaStringDeps(c.ninjaBuildDir)
+			if err != nil {
+				errs = []error{err}
+				return
+			}
+		}
+
+		pkgNames, depsPackages := c.makeUniquePackageNames(c.liveGlobals)
+
+		deps = append(deps, depsPackages...)
+
+		// This will panic if it finds a problem since it's a programming error.
+		c.checkForVariableReferenceCycles(c.liveGlobals.variables, pkgNames)
+
+		c.pkgNames = pkgNames
+		c.globalVariables = c.liveGlobals.variables
+		c.globalPools = c.liveGlobals.pools
+		c.globalRules = c.liveGlobals.rules
+
+		c.buildActionsReady = true
+	})
+
 	if len(errs) > 0 {
 		return nil, errs
 	}
-
-	depsSingletons, errs := c.generateSingletonBuildActions(config, c.singletonInfo, c.liveGlobals)
-	if len(errs) > 0 {
-		return nil, errs
-	}
-
-	deps = append(deps, depsModules...)
-	deps = append(deps, depsSingletons...)
-
-	if c.ninjaBuildDir != nil {
-		c.liveGlobals.addNinjaStringDeps(c.ninjaBuildDir)
-	}
-
-	pkgNames, depsPackages := c.makeUniquePackageNames(c.liveGlobals)
-
-	deps = append(deps, depsPackages...)
-
-	// This will panic if it finds a problem since it's a programming error.
-	c.checkForVariableReferenceCycles(c.liveGlobals.variables, pkgNames)
-
-	c.pkgNames = pkgNames
-	c.globalVariables = c.liveGlobals.variables
-	c.globalPools = c.liveGlobals.pools
-	c.globalRules = c.liveGlobals.rules
-
-	c.buildActionsReady = true
 
 	return deps, nil
 }
 
-func (c *Context) runMutators(config interface{}) (deps []string, errs []error) {
+func (c *Context) runMutators(ctx context.Context, config interface{}) (deps []string, errs []error) {
 	var mutators []*mutatorInfo
 
-	mutators = append(mutators, c.earlyMutatorInfo...)
-	mutators = append(mutators, c.mutatorInfo...)
+	pprof.Do(ctx, pprof.Labels("blueprint", "runMutators"), func(ctx context.Context) {
+		mutators = append(mutators, c.earlyMutatorInfo...)
+		mutators = append(mutators, c.mutatorInfo...)
 
-	for _, mutator := range mutators {
-		var newDeps []string
-		if mutator.topDownMutator != nil {
-			newDeps, errs = c.runMutator(config, mutator, topDownMutator)
-		} else if mutator.bottomUpMutator != nil {
-			newDeps, errs = c.runMutator(config, mutator, bottomUpMutator)
-		} else {
-			panic("no mutator set on " + mutator.name)
+		for _, mutator := range mutators {
+			pprof.Do(ctx, pprof.Labels("mutator", mutator.name), func(context.Context) {
+				var newDeps []string
+				if mutator.topDownMutator != nil {
+					newDeps, errs = c.runMutator(config, mutator, topDownMutator)
+				} else if mutator.bottomUpMutator != nil {
+					newDeps, errs = c.runMutator(config, mutator, bottomUpMutator)
+				} else {
+					panic("no mutator set on " + mutator.name)
+				}
+				if len(errs) > 0 {
+					return
+				}
+				deps = append(deps, newDeps...)
+			})
+			if len(errs) > 0 {
+				return
+			}
 		}
-		if len(errs) > 0 {
-			return nil, errs
-		}
-		deps = append(deps, newDeps...)
+	})
+
+	if len(errs) > 0 {
+		return nil, errs
 	}
 
 	return deps, nil
@@ -2303,6 +2347,7 @@ func (c *Context) generateSingletonBuildActions(config interface{},
 		scope := newLocalScope(nil, singletonNamespacePrefix(info.name))
 
 		sctx := &singletonContext{
+			name:    info.name,
 			context: c,
 			config:  config,
 			scope:   scope,
@@ -2386,7 +2431,7 @@ func (c *Context) processLocalBuildActions(out, in *localBuildActions,
 	return nil
 }
 
-func (c *Context) walkDeps(topModule *moduleInfo,
+func (c *Context) walkDeps(topModule *moduleInfo, allowDuplicates bool,
 	visitDown func(depInfo, *moduleInfo) bool, visitUp func(depInfo, *moduleInfo)) {
 
 	visited := make(map[*moduleInfo]bool)
@@ -2402,16 +2447,16 @@ func (c *Context) walkDeps(topModule *moduleInfo,
 	var walk func(module *moduleInfo)
 	walk = func(module *moduleInfo) {
 		for _, dep := range module.directDeps {
-			if !visited[dep.module] {
-				visited[dep.module] = true
+			if allowDuplicates || !visited[dep.module] {
 				visiting = dep.module
 				recurse := true
 				if visitDown != nil {
 					recurse = visitDown(dep, module)
 				}
-				if recurse {
+				if recurse && !visited[dep.module] {
 					walk(dep.module)
 				}
+				visited[dep.module] = true
 				if visitUp != nil {
 					visitUp(dep, module)
 				}
@@ -2785,6 +2830,14 @@ func (c *Context) ModuleTypePropertyStructs() map[string][]interface{} {
 	return ret
 }
 
+func (c *Context) ModuleTypeFactories() map[string]ModuleFactory {
+	ret := make(map[string]ModuleFactory)
+	for k, v := range c.moduleFactories {
+		ret[k] = v
+	}
+	return ret
+}
+
 func (c *Context) ModuleName(logicModule Module) string {
 	module := c.moduleInfo[logicModule]
 	return module.Name()
@@ -2884,7 +2937,7 @@ func (c *Context) VisitDepsDepthFirst(module Module, visit func(Module)) {
 		}
 	}()
 
-	c.walkDeps(topModule, nil, func(dep depInfo, parent *moduleInfo) {
+	c.walkDeps(topModule, false, nil, func(dep depInfo, parent *moduleInfo) {
 		visiting = dep.module
 		visit(dep.module.logicModule)
 	})
@@ -2902,7 +2955,7 @@ func (c *Context) VisitDepsDepthFirstIf(module Module, pred func(Module) bool, v
 		}
 	}()
 
-	c.walkDeps(topModule, nil, func(dep depInfo, parent *moduleInfo) {
+	c.walkDeps(topModule, false, nil, func(dep depInfo, parent *moduleInfo) {
 		if pred(dep.module.logicModule) {
 			visiting = dep.module
 			visit(dep.module.logicModule)
@@ -2925,54 +2978,86 @@ func (c *Context) VisitAllModuleVariants(module Module,
 	c.visitAllModuleVariants(c.moduleInfo[module], visit)
 }
 
+// Singletons returns a list of all registered Singletons.
+func (c *Context) Singletons() []Singleton {
+	var ret []Singleton
+	for _, s := range c.singletonInfo {
+		ret = append(ret, s.singleton)
+	}
+	return ret
+}
+
+// SingletonName returns the name that the given singleton was registered with.
+func (c *Context) SingletonName(singleton Singleton) string {
+	for _, s := range c.singletonInfo {
+		if s.singleton == singleton {
+			return s.name
+		}
+	}
+	return ""
+}
+
 // WriteBuildFile writes the Ninja manifeset text for the generated build
 // actions to w.  If this is called before PrepareBuildActions successfully
 // completes then ErrBuildActionsNotReady is returned.
 func (c *Context) WriteBuildFile(w io.Writer) error {
-	if !c.buildActionsReady {
-		return ErrBuildActionsNotReady
-	}
+	var err error
+	pprof.Do(c.Context, pprof.Labels("blueprint", "WriteBuildFile"), func(ctx context.Context) {
+		if !c.buildActionsReady {
+			err = ErrBuildActionsNotReady
+			return
+		}
 
-	nw := newNinjaWriter(w)
+		nw := newNinjaWriter(w)
 
-	err := c.writeBuildFileHeader(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeBuildFileHeader(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeNinjaRequiredVersion(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeNinjaRequiredVersion(nw)
+		if err != nil {
+			return
+		}
 
-	// TODO: Group the globals by package.
+		err = c.writeSubninjas(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeGlobalVariables(nw)
-	if err != nil {
-		return err
-	}
+		// TODO: Group the globals by package.
 
-	err = c.writeGlobalPools(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeGlobalVariables(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeBuildDir(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeGlobalPools(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeGlobalRules(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeBuildDir(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeAllModuleActions(nw)
-	if err != nil {
-		return err
-	}
+		err = c.writeGlobalRules(nw)
+		if err != nil {
+			return
+		}
 
-	err = c.writeAllSingletonActions(nw)
+		err = c.writeAllModuleActions(nw)
+		if err != nil {
+			return
+		}
+
+		err = c.writeAllSingletonActions(nw)
+		if err != nil {
+			return
+		}
+	})
+
 	if err != nil {
 		return err
 	}
@@ -3051,6 +3136,16 @@ func (c *Context) writeNinjaRequiredVersion(nw *ninjaWriter) error {
 		return err
 	}
 
+	return nw.BlankLine()
+}
+
+func (c *Context) writeSubninjas(nw *ninjaWriter) error {
+	for _, subninja := range c.subninjas {
+		err := nw.Subninja(subninja)
+		if err != nil {
+			return err
+		}
+	}
 	return nw.BlankLine()
 }
 

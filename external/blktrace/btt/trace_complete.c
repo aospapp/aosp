@@ -55,13 +55,15 @@ static void handle_complete(struct io *c_iop)
 	struct list_head *p, *q;
 	__u64 d_time = (__u64)-1;
 	FILE *pit_fp = c_iop->dip->pit_fp;
+	double cur = BIT_TIME(c_iop->t.time);
 
 	update_blks(c_iop);
 	update_cregion(&all_regions, c_iop->t.time);
 	update_cregion(&c_iop->dip->regions, c_iop->t.time);
 	if (c_iop->pip)
 		update_cregion(&c_iop->pip->regions, c_iop->t.time);
-	aqd_complete(c_iop->dip->aqd_handle, BIT_TIME(c_iop->t.time));
+	aqd_complete(c_iop->dip->aqd_handle, cur);
+	rstat_add(c_iop->dip->rstat_handle, cur, c_iop->t.bytes >> 9);
 
 	dip_foreach_list(c_iop, IOP_Q, &head);
 	list_for_each_safe(p, q, &head) {
@@ -76,6 +78,7 @@ static void handle_complete(struct io *c_iop)
 		if (q_iop->d_time != (__u64)-1) {
 			__u64 d2c = tdelta(q_iop->d_time, c_iop->t.time);
 
+			p_live_add(q_iop->dip, q_iop->d_time, c_iop->t.time);
 			update_d2c(q_iop, d2c);
 			latency_d2c(q_iop->dip, c_iop->t.time, d2c);
 			iostat_complete(q_iop, c_iop);

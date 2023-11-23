@@ -125,8 +125,12 @@ public class JarURLConnection extends java.net.JarURLConnection {
              * to get the jarFile, and set it as our permission.
              */
             if (getUseCaches()) {
+                // Android-added: Upstream fix to avoid affecting useCaches setting.
+                // This line and the one further down were integrated from an
+                // upstream commit beyond OpenJDK 8u121-b13. See http://b/62368386
                 boolean oldUseCaches = jarFileURLConnection.getUseCaches();
                 jarFileURLConnection = factory.getConnection(jarFile);
+                // Android-added: Upstream fix to avoid affecting useCaches setting.
                 jarFileURLConnection.setUseCaches(oldUseCaches);
             }
 

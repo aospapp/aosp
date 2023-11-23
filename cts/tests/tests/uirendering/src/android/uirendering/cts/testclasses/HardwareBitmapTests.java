@@ -34,8 +34,6 @@ import android.graphics.Picture;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.NinePatchDrawable;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
@@ -43,6 +41,9 @@ import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.util.DisplayMetrics;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -242,7 +243,7 @@ public class HardwareBitmapTests extends ActivityTestBase {
         createTest().addCanvasClient((canvas, width, height) -> {
             Bitmap hardwareBitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot,
                     HARDWARE_OPTIONS);
-            Bitmap scaled = Bitmap.createScaledBitmap(hardwareBitmap, 24, 24, false);
+            Bitmap scaled = Bitmap.createScaledBitmap(hardwareBitmap, 24, 24, true);
             assertEquals(Bitmap.Config.HARDWARE, scaled.getConfig());
             canvas.drawBitmap(scaled, 0, 0, null);
         }, true).runWithVerifier(new GoldenImageVerifier(getActivity(),

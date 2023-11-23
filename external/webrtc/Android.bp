@@ -116,6 +116,11 @@ cc_library_shared {
             instruction_set: "arm",
         },
     },
+
+    // Disable native_coverage since linking fails with -O0 (needed for
+    // coverage).  The fix is to mark InStream::Rewind and OutStream::Rewind as
+    // pure virtual in webrtc/common_types.h
+    native_coverage: false,
 }
 
 cc_library_shared {

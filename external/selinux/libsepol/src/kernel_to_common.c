@@ -10,6 +10,9 @@
 #ifndef IPPROTO_DCCP
 #define IPPROTO_DCCP 33
 #endif
+#ifndef IPPROTO_SCTP
+#define IPPROTO_SCTP 132
+#endif
 
 #include <sepol/policydb/ebitmap.h>
 #include <sepol/policydb/hashtab.h>
@@ -77,10 +80,13 @@ static char *create_str_helper(const char *fmt, int num, va_list vargs)
 		goto exit;
 	}
 
+	va_end(vargs2);
+
 	return str;
 
 exit:
 	free(str);
+	va_end(vargs2);
 	return NULL;
 }
 
@@ -394,27 +400,27 @@ exit:
 	return str;
 }
 
-int stack_init(struct strs **stack)
+int strs_stack_init(struct strs **stack)
 {
 	return strs_init(stack, STACK_SIZE);
 }
 
-void stack_destroy(struct strs **stack)
+void strs_stack_destroy(struct strs **stack)
 {
 	return strs_destroy(stack);
 }
 
-int stack_push(struct strs *stack, char *s)
+int strs_stack_push(struct strs *stack, char *s)
 {
 	return strs_add(stack, s);
 }
 
-char *stack_pop(struct strs *stack)
+char *strs_stack_pop(struct strs *stack)
 {
 	return strs_remove_last(stack);
 }
 
-int stack_empty(struct strs *stack)
+int strs_stack_empty(struct strs *stack)
 {
 	return strs_num_items(stack) == 0;
 }

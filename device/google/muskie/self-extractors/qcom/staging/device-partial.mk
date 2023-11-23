@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# AOSP packages required by the blobs
-PRODUCT_PACKAGES := \
-    com.android.ims.rcsmanager.xml \
-    com.android.ims.rcsmanager
-
 #  blob(s) necessary for Walleye hardware
 PRODUCT_COPY_FILES := \
     vendor/qcom/walleye/proprietary/ATT_profiles.xml:system/etc/cne/Nexus/ATT/ATT_profiles.xml:qcom \
@@ -40,7 +35,6 @@ PRODUCT_COPY_FILES := \
     vendor/qcom/walleye/proprietary/lib64/lib-imsvtextutils.so:system/lib64/lib-imsvtextutils.so:qcom \
     vendor/qcom/walleye/proprietary/lib64/lib-imsvt.so:system/lib64/lib-imsvt.so:qcom \
     vendor/qcom/walleye/proprietary/lib64/lib-imsvtutils.so:system/lib64/lib-imsvtutils.so:qcom \
-    vendor/qcom/walleye/proprietary/lib64/libiperf.so:system/lib64/libiperf.so:qcom \
     vendor/qcom/walleye/proprietary/lib64/librcc.so:system/lib64/librcc.so:qcom \
     vendor/qcom/walleye/proprietary/com.qualcomm.qti.imsrtpservice@1.0.so:system/lib/com.qualcomm.qti.imsrtpservice@1.0.so:qcom \
     vendor/qcom/walleye/proprietary/libdiag_system.so:system/lib/libdiag_system.so:qcom \
@@ -50,7 +44,4 @@ PRODUCT_COPY_FILES := \
     vendor/qcom/walleye/proprietary/lib-imsvtextutils.so:system/lib/lib-imsvtextutils.so:qcom \
     vendor/qcom/walleye/proprietary/lib-imsvt.so:system/lib/lib-imsvt.so:qcom \
     vendor/qcom/walleye/proprietary/lib-imsvtutils.so:system/lib/lib-imsvtutils.so:qcom \
-    vendor/qcom/walleye/proprietary/libiperf.so:system/lib/libiperf.so:qcom \
     vendor/qcom/walleye/proprietary/librcc.so:system/lib/librcc.so:qcom \
-    vendor/qcom/walleye/proprietary/iperf3:system/xbin/iperf3:qcom \
-    vendor/qcom/walleye/proprietary/sanitizer-status:system/xbin/sanitizer-status:qcom \

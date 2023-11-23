@@ -72,8 +72,7 @@
     var temp_video = createVideo();
     var ms = createMediaSource();
     ms.addEventListener('webkitsourceopen', onSourceopen);
-    var ms_url = window.URL.createObjectURL(ms);
-    temp_video.src = ms_url;
+    temp_video.srcObject = ms;
     return {
       'video': temp_video,
       'ms': ms
@@ -144,7 +143,7 @@
     });
 
     var video = document.getElementById('main_player');
-    video.src = window.URL.createObjectURL(ms);
+    video.srcObject = ms;
     video.load();
   };
 

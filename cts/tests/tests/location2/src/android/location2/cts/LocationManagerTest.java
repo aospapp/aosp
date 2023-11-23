@@ -22,8 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.location.Criteria;
-import android.location.GpsStatus.Listener;
-import android.location.GpsStatus.NmeaListener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -33,7 +31,6 @@ import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
 import android.util.Log;
 
 import java.io.FileInputStream;
@@ -142,6 +139,32 @@ public class LocationManagerTest extends InstrumentationTestCase {
         doTestGetLocationUpdates_withListener("my coarse provider name");
     }
 
+    public void testGnssProvidedClock() throws Exception {
+        String providerName = LocationManager.GPS_PROVIDER;
+        try {
+            addTestProvider(providerName, Criteria.ACCURACY_COARSE, true,
+                    false, true);
+            Location location = new Location(providerName);
+            long elapsed = SystemClock.elapsedRealtimeNanos();
+            location.setLatitude(0);
+            location.setLongitude(0);
+            location.setAccuracy(0);
+            location.setElapsedRealtimeNanos(elapsed);
+            location.setTime(1);
+            mManager.setTestProviderLocation(providerName, location);
+            assertTrue(SystemClock.currentGnssTimeClock().millis() < 1000);
+
+            location.setTime(java.lang.System.currentTimeMillis());
+            location.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+            mManager.setTestProviderLocation(providerName, location);
+            Thread.sleep(200);
+            long clockms = SystemClock.currentGnssTimeClock().millis();
+            assertTrue(System.currentTimeMillis() - clockms < 1000);
+        } finally {
+            removeTestProvider(providerName);
+        }
+    }
+
 
     private void doTestGetLocationUpdates_withIntent(String providerName) {
         try {
@@ -227,47 +250,10 @@ public class LocationManagerTest extends InstrumentationTestCase {
         return false;
     }
 
-    @UiThreadTest
-    public void testGpsStatusListener() {
-        try {
-            mManager.addGpsStatusListener(new MockGpsStatusListener());
-            fail("Should have failed to add a gps status listener");
-        } catch (SecurityException e) {
-            // expected
-        }
-
-        try {
-            mManager.addGpsStatusListener(null);
-            fail("Should have failed to add null as a gps status listener");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
-    @UiThreadTest
-    public void testGpsStatusNmeaListener() {
-        try {
-            mManager.addNmeaListener(new MockGpsStatusNmeaListener());
-            fail("Should have failed to add a gps status nmea listener");
-        } catch (SecurityException e) {
-            // expected
-        }
-
-        try {
-            mManager.addNmeaListener((NmeaListener) null);
-            fail("Should have failed to add null as a gps status nmea listener");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
     @AppModeFull
     public void testSendExtraCommand() {
         addTestProvider(LocationManager.NETWORK_PROVIDER, Criteria.ACCURACY_COARSE, true, false, true);
         addTestProvider(LocationManager.GPS_PROVIDER, Criteria.ACCURACY_FINE, false, true, false);
-
-        // Unknown command
-        assertFalse(mManager.sendExtraCommand(LocationManager.NETWORK_PROVIDER, "unknown", new Bundle()));
 
         try {
             mManager.sendExtraCommand(LocationManager.GPS_PROVIDER, "unknown", new Bundle());
@@ -497,38 +483,6 @@ public class LocationManagerTest extends InstrumentationTestCase {
 
         public Location getLocation() {
             return mLocation;
-        }
-    }
-
-    private static class MockGpsStatusListener implements Listener {
-        private boolean mHasCallOnGpsStatusChanged;
-
-        public boolean hasCallOnGpsStatusChanged() {
-            return mHasCallOnGpsStatusChanged;
-        }
-
-        public void reset(){
-            mHasCallOnGpsStatusChanged = false;
-        }
-
-        public void onGpsStatusChanged(int event) {
-            mHasCallOnGpsStatusChanged = true;
-        }
-    }
-
-    private static class MockGpsStatusNmeaListener implements NmeaListener {
-        private boolean mHasCallOnNmeaReceived;
-
-        public boolean hasCallOnNmeaReceived() {
-            return mHasCallOnNmeaReceived;
-        }
-
-        public void reset(){
-            mHasCallOnNmeaReceived = false;
-        }
-
-        public void onNmeaReceived(long timestamp, String nmea) {
-            mHasCallOnNmeaReceived = true;
         }
     }
 }

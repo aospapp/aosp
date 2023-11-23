@@ -28,6 +28,7 @@
 #include "deMemory.h"
 
 #include <vector>
+#include <string>
 
 namespace vk
 {

@@ -32,6 +32,17 @@
 #define NANOS_PER_MILLISECOND  1000000LL
 #define NANOS_PER_SECOND    1000000000LL
 
+#define SECONDS_PER_MINUTE  60LL
+#define MINUTES_PER_HOUR    60LL
+
+#define MICROS_PER_MINUTE   (MICROS_PER_SECOND * SECONDS_PER_MINUTE)
+#define MILLIS_PER_MINUTE   (MILLIS_PER_SECOND * SECONDS_PER_MINUTE)
+#define NANOS_PER_MINUTE    (NANOS_PER_SECOND  * SECONDS_PER_MINUTE)
+
+#define MICROS_PER_HOUR     (MICROS_PER_MINUTE * MINUTES_PER_HOUR)
+#define MILLIS_PER_HOUR     (MILLIS_PER_MINUTE * MINUTES_PER_HOUR)
+#define NANOS_PER_HOUR      (NANOS_PER_MINUTE  * MINUTES_PER_HOUR)
+
 /**
  * \brief Converts time in ns to a time string, with format similar to logcat.
  * \param ns          input time in nanoseconds to convert.

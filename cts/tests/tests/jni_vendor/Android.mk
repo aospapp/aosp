@@ -27,7 +27,7 @@ LOCAL_MULTILIB := both
 # When built, explicitly put it in the vendor partition.
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules ctstestrunner-axt
 
 LOCAL_JNI_SHARED_LIBRARIES := libvendorjnitest
 

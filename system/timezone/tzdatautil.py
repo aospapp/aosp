@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import os
 import sys
 
@@ -28,6 +30,6 @@ def GetIanaTarFile(dir_name, file_type):
   elif len(matching_files) == 1:
     return '%s/%s' % (dir_name, matching_files[0])
   else:
-    print 'Multiple tz%s files found unexpectedly %s' % (file_type, matching_files)
+    print('Multiple tz%s files found unexpectedly %s' % (file_type, matching_files))
     sys.exit(1)
 

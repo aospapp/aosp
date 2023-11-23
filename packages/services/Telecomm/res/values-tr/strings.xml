@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Hızlı yanıt"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mesaj, <xliff:g id="PHONE_NUMBER">%s</xliff:g> numaralı telefona gönderildi."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> numaralı telefona mesaj gönderilemedi."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Çağrı hesapları"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Yalnızca acil durum çağrılarına izin veriliyor."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Bu uygulama, Telefonun izni olmadan giden çağrılar yapamaz."</string>
@@ -49,12 +50,17 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Varsayılan Uygulamayı Ayarla"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"İptal"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> uygulaması üzerinden çağrı yapabilecek ve çağrıları her yönüyle kontrol edebileceksiniz. Yalnızca güvendiğiniz uygulamalar varsayılan Telefon uygulaması olarak ayarlanmalıdır."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g> varsayılan arama filtreleme uygulamanız yapılsın mı?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> artık aramaları filtreleyemeyecek."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g>, kişileriniz arasında bulunmayan arayanlarla ilgili bilgileri görebilecek ve bu aramaları engelleyebilecek. Yalnızca güvendiğiniz uygulamalar varsayılan arama filtreleme uygulaması olarak ayarlanmalıdır."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Varsayılan Olarak Ayarla"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"İptal"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Engellenen numaralar"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Engellenen numaralardan gelen çağrıları veya kısa mesajları almazsınız."</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Engellenen numaralardan gelen telefon aramalarını veya kısa mesajları almayacaksınız."</string>
     <string name="block_number" msgid="1101252256321306179">"Numara ekle"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g> numaralı telefonun engellemesi kaldırılsın mı?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Engellemeyi kaldır"</string>
-    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Şu numaradan gelen çağrıları ve kısa mesajları engelle:"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Şu numaradan gelen aramaları ve kısa mesajları engelle:"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"Telefon numarası"</string>
     <string name="block_button" msgid="8822290682524373357">"Engelle"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"Yalnızca cihaz sahibi engellenen numaraları görüntüleyebilir ve yönetebilir."</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Cevapladığınızda, devam eden görüntülü görüşme sona erecek"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Cevapla"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Reddet"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Bu tür görüşmeleri destekleyen bir arama hesabı olmadığı için arama yapılamıyor."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Devam eden <xliff:g id="OTHER_CALL">%1$s</xliff:g> çağrınız nedeniyle telefon araması yapılamıyor."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Devam eden <xliff:g id="OTHER_CALL">%1$s</xliff:g> çağrılarınız nedeniyle telefon araması yapılamıyor."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Başka bir uygulamada devam eden çağrınız nedeniyle telefon araması yapılamıyor."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Cevapsız çağrılar"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Çağrı Engelleme"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Bu çağrıyı yaptığınızda <xliff:g id="OTHER_APP">%1$s</xliff:g> çağrınız sona erecek."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Bu aramanın nasıl yapılacağını seçin"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"<xliff:g id="OTHER_APP">%1$s</xliff:g> uygulamasını kullanarak aramayı yönlendir"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Telefon numaramı kullanarak ara"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Arama <xliff:g id="OTHER_APP">%1$s</xliff:g> ile yapılamaz. Farklı bir arama yönlendirme uygulaması kullanmayı veya yardım almak için geliştirici ile iletişime geçmeyi deneyin."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Çağrı Engelleme"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Kişiler arasında bulunmayan numaralar"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Kişileriniz arasında bulunmayan numaralar engellenir"</string>
@@ -91,10 +102,11 @@
     <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Gizli numaradan arayanlar engellenir"</string>
     <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Ankesörlü telefon"</string>
     <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Ankesörlü telefonlardan gelen çağrılar engellenir"</string>
-    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Bilinmeyen"</string>
-    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Tanımlanamayan arayanlardan gelen çağrılar engellenir"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Bilinmeyen numaralar"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Tanımlanamayan arayanlardan gelen aramaları engelle"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Çağrı Engelleme"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Çağrı Engelleme devre dışı bırakıldı"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Acil durum çağrısı yapıldı"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Acil durum müdahale ekibinin sizinle iletişime geçmesine olanak tanımak için Çağrı Engelleme devre dışı bırakıldı."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Telekomünikasyon Geliştirici Menüsü"</string>
 </resources>

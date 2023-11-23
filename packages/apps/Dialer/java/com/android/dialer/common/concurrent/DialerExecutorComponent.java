@@ -23,6 +23,7 @@ import com.android.dialer.common.concurrent.Annotations.LightweightExecutor;
 import com.android.dialer.common.concurrent.Annotations.NonUiParallel;
 import com.android.dialer.common.concurrent.Annotations.Ui;
 import com.android.dialer.inject.HasRootComponent;
+import com.android.dialer.inject.IncludeInDialerRoot;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import dagger.Subcomponent;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +51,15 @@ public abstract class DialerExecutorComponent {
     return UiListener.create(fragmentManager, taskId);
   }
 
+  /**
+   * Version of {@link #createUiListener(FragmentManager, String)} that accepts support fragment
+   * manager.
+   */
+  public <OutputT> SupportUiListener<OutputT> createUiListener(
+      android.support.v4.app.FragmentManager fragmentManager, String taskId) {
+    return SupportUiListener.create(fragmentManager, taskId);
+  }
+
   public static DialerExecutorComponent get(Context context) {
     return ((DialerExecutorComponent.HasComponent)
             ((HasRootComponent) context.getApplicationContext()).component())
@@ -57,6 +67,7 @@ public abstract class DialerExecutorComponent {
   }
 
   /** Used to refer to the root application component. */
+  @IncludeInDialerRoot
   public interface HasComponent {
     DialerExecutorComponent dialerExecutorComponent();
   }

@@ -544,4 +544,3 @@ void release_echo_reference(struct echo_reference_itfe *echo_reference) {
     }
     free(er);
 }
-

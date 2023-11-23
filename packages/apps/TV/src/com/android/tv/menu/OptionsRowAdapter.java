@@ -37,17 +37,14 @@ public abstract class OptionsRowAdapter extends ItemListRowView.ItemListAdapter<
                 public void onClick(View view) {
                     final MenuAction action = (MenuAction) view.getTag();
                     view.post(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    int resId = action.getActionNameResId();
-                                    if (resId == 0) {
-                                        mTracker.sendMenuClicked(CUSTOM_ACTION_LABEL);
-                                    } else {
-                                        mTracker.sendMenuClicked(resId);
-                                    }
-                                    executeAction(action.getType());
+                            () -> {
+                                int resId = action.getActionNameResId();
+                                if (resId == 0) {
+                                    mTracker.sendMenuClicked(CUSTOM_ACTION_LABEL);
+                                } else {
+                                    mTracker.sendMenuClicked(resId);
                                 }
+                                executeAction(action.getType());
                             });
                 }
             };

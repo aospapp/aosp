@@ -24,6 +24,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.provider.Settings;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
@@ -49,6 +50,7 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
     private static final String DISABLE_STATUS_BAR_TEST_ID = "DISABLE_STATUS_BAR";
     private static final String DISABLE_KEYGUARD_TEST_ID = "DISABLE_KEYGUARD";
     private static final String POLICY_TRANSPARENCY_TEST_ID = "POLICY_TRANSPARENCY";
+    private static final String DISALLOW_REMOVE_USER_TEST_ID = "DISALLOW_REMOVE_USER";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -147,6 +149,19 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
                                 createManagedUserIntentWithBooleanParameter(
                                         CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
                                         false))}));
+
+        // DISALLOW_REMOVE_USER
+        adapter.add(createInteractiveTestItem(this, DISALLOW_REMOVE_USER_TEST_ID,
+                R.string.disallow_remove_user,
+                R.string.managed_user_disallow_remove_user_info,
+                new ButtonInfo[]{
+                        new ButtonInfo(
+                                R.string.device_owner_user_restriction_set,
+                                CommandReceiverActivity.createSetUserRestrictionIntent(
+                                        UserManager.DISALLOW_REMOVE_USER, true)),
+                        new ButtonInfo(
+                                R.string.device_owner_settings_go,
+                                new Intent(Settings.ACTION_USER_SETTINGS))}));
 
         // Policy Transparency
         final Intent policyTransparencyTestIntent = new Intent(this,

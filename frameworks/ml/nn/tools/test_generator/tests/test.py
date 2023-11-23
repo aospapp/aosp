@@ -148,7 +148,7 @@ GetOutDir.cache = None
 def CreateCmd(run_vts):
   """Creates the test command to run for the current test."""
   cmd_string = ('%s/%s_generator.py'
-                ) % (GetOutDir(), "test" if not run_vts else "vts")
+                ) % (GetOutDir(), "cts" if not run_vts else "vts")
   base_args = cmd_string.split()
   rs_files = GetRSFiles()
 

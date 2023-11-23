@@ -56,11 +56,11 @@ static bool waitpid_with_timeout(pid_t pid, int timeout_ms, int* status) {
     timespec ts;
     ts.tv_sec = MSEC_TO_SEC(timeout_ms);
     ts.tv_nsec = (timeout_ms % 1000) * 1000000;
-    int ret = TEMP_FAILURE_RETRY(sigtimedwait(&child_mask, NULL, &ts));
+    int ret = TEMP_FAILURE_RETRY(sigtimedwait(&child_mask, nullptr, &ts));
     int saved_errno = errno;
 
     // Set the signals back the way they were.
-    if (sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1) {
+    if (sigprocmask(SIG_SETMASK, &old_mask, nullptr) == -1) {
         printf("*** sigprocmask failed: %s\n", strerror(errno));
         if (ret == 0) {
             return false;
@@ -101,13 +101,16 @@ CommandOptions::CommandOptionsBuilder& CommandOptions::CommandOptionsBuilder::Al
 }
 
 CommandOptions::CommandOptionsBuilder& CommandOptions::CommandOptionsBuilder::AsRoot() {
-    values.account_mode_ = SU_ROOT;
+    if (!PropertiesHelper::IsUnroot()) {
+        values.account_mode_ = SU_ROOT;
+    }
     return *this;
 }
 
 CommandOptions::CommandOptionsBuilder& CommandOptions::CommandOptionsBuilder::AsRootIfAvailable() {
-    if (!PropertiesHelper::IsUserBuild())
-        values.account_mode_ = SU_ROOT;
+    if (!PropertiesHelper::IsUserBuild()) {
+        return AsRoot();
+    }
     return *this;
 }
 
@@ -176,6 +179,7 @@ CommandOptions::CommandOptionsBuilder CommandOptions::WithTimeoutInMs(int64_t ti
 
 std::string PropertiesHelper::build_type_ = "";
 int PropertiesHelper::dry_run_ = -1;
+int PropertiesHelper::unroot_ = -1;
 
 bool PropertiesHelper::IsUserBuild() {
     if (build_type_.empty()) {
@@ -189,6 +193,13 @@ bool PropertiesHelper::IsDryRun() {
         dry_run_ = android::base::GetBoolProperty("dumpstate.dry_run", false) ? 1 : 0;
     }
     return dry_run_ == 1;
+}
+
+bool PropertiesHelper::IsUnroot() {
+    if (unroot_ == -1) {
+        unroot_ = android::base::GetBoolProperty("dumpstate.unroot", false) ? 1 : 0;
+    }
+    return unroot_ == 1;
 }
 
 int DumpFileToFd(int out_fd, const std::string& title, const std::string& path) {
@@ -310,7 +321,7 @@ int RunCommandToFd(int fd, const std::string& title, const std::vector<std::stri
         struct sigaction sigact;
         memset(&sigact, 0, sizeof(sigact));
         sigact.sa_handler = SIG_IGN;
-        sigaction(SIGPIPE, &sigact, NULL);
+        sigaction(SIGPIPE, &sigact, nullptr);
 
         execvp(path, (char**)args.data());
         // execvp's result will be handled after waitpid_with_timeout() below, but

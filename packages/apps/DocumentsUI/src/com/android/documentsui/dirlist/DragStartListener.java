@@ -17,13 +17,16 @@
 package com.android.documentsui.dirlist;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
-import static com.android.internal.util.Preconditions.checkArgument;
 
 import android.net.Uri;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.selection.MutableSelection;
+import androidx.recyclerview.selection.Selection;
+import androidx.recyclerview.selection.SelectionTracker;
 
 import com.android.documentsui.DragAndDropManager;
 import com.android.documentsui.MenuManager.SelectionDetails;
@@ -31,10 +34,6 @@ import com.android.documentsui.Model;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Events;
 import com.android.documentsui.base.State;
-import com.android.documentsui.selection.ItemDetailsLookup;
-import com.android.documentsui.selection.MutableSelection;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,17 +50,12 @@ interface DragStartListener {
 
     static final DragStartListener DUMMY = new DragStartListener() {
         @Override
-        public boolean onMouseDragEvent(MotionEvent event) {
-            return false;
-        }
-        @Override
-        public boolean onTouchDragEvent(MotionEvent event) {
+        public boolean onDragEvent(MotionEvent event) {
             return false;
         }
     };
 
-    boolean onMouseDragEvent(MotionEvent event);
-    boolean onTouchDragEvent(MotionEvent event);
+    boolean onDragEvent(MotionEvent event);
 
     @VisibleForTesting
     class RuntimeDragStartListener implements DragStartListener {
@@ -70,12 +64,11 @@ interface DragStartListener {
 
         private final IconHelper mIconHelper;
         private final State mState;
-        private final ItemDetailsLookup mDetailsLookup;
-        private final SelectionHelper mSelectionMgr;
+        private final SelectionTracker<String> mSelectionMgr;
         private final SelectionDetails mSelectionDetails;
         private final ViewFinder mViewFinder;
         private final Function<View, String> mIdFinder;
-        private final Function<Selection, List<DocumentInfo>> mDocsConverter;
+        private final Function<Selection<String>, List<DocumentInfo>> mDocsConverter;
         private final DragAndDropManager mDragAndDropManager;
 
 
@@ -84,17 +77,15 @@ interface DragStartListener {
         public RuntimeDragStartListener(
                 IconHelper iconHelper,
                 State state,
-                ItemDetailsLookup detailsLookup,
-                SelectionHelper selectionMgr,
+                SelectionTracker<String> selectionMgr,
                 SelectionDetails selectionDetails,
                 ViewFinder viewFinder,
                 Function<View, String> idFinder,
-                Function<Selection, List<DocumentInfo>> docsConverter,
+                Function<Selection<String>, List<DocumentInfo>> docsConverter,
                 DragAndDropManager dragAndDropManager) {
 
             mIconHelper = iconHelper;
             mState = state;
-            mDetailsLookup = detailsLookup;
             mSelectionMgr = selectionMgr;
             mSelectionDetails = selectionDetails;
             mViewFinder = viewFinder;
@@ -104,15 +95,7 @@ interface DragStartListener {
         }
 
         @Override
-        public final boolean onMouseDragEvent(MotionEvent event) {
-            checkArgument(Events.isMouseDragEvent(event));
-            checkArgument(mDetailsLookup.inItemDragRegion(event));
-
-            return startDrag(mViewFinder.findView(event.getX(), event.getY()), event);
-        }
-
-        @Override
-        public final boolean onTouchDragEvent(MotionEvent event) {
+        public final boolean onDragEvent(MotionEvent event) {
             return startDrag(mViewFinder.findView(event.getX(), event.getY()), event);
         }
 
@@ -122,17 +105,21 @@ interface DragStartListener {
         private boolean startDrag(@Nullable View view, MotionEvent event) {
 
             if (view == null) {
-                if (DEBUG) Log.d(TAG, "Ignoring drag event, null view.");
+                if (DEBUG) {
+                    Log.d(TAG, "Ignoring drag event, null view.");
+                }
                 return false;
             }
 
             @Nullable String modelId = mIdFinder.apply(view);
             if (modelId == null) {
-                if (DEBUG) Log.d(TAG, "Ignoring drag on view not represented in model.");
+                if (DEBUG) {
+                    Log.d(TAG, "Ignoring drag on view not represented in model.");
+                }
                 return false;
             }
 
-            Selection selection = getSelectionToBeCopied(modelId, event);
+            Selection<String> selection = getSelectionToBeCopied(modelId, event);
 
             final List<DocumentInfo> srcs = mDocsConverter.apply(selection);
 
@@ -158,8 +145,8 @@ interface DragStartListener {
          * coordinates of the event, return a valid selection for drag and drop operation
          */
         @VisibleForTesting
-        MutableSelection getSelectionToBeCopied(String modelId, MotionEvent event) {
-            MutableSelection selection = new MutableSelection();
+        MutableSelection<String> getSelectionToBeCopied(String modelId, MotionEvent event) {
+            MutableSelection<String> selection = new MutableSelection<>();
             // If CTRL-key is held down and there's other existing selection, add item to
             // selection (if not already selected)
             if (Events.isCtrlKeyPressed(event)
@@ -181,10 +168,9 @@ interface DragStartListener {
     static DragStartListener create(
             IconHelper iconHelper,
             Model model,
-            SelectionHelper selectionMgr,
+            SelectionTracker<String> selectionMgr,
             SelectionDetails selectionDetails,
             State state,
-            ItemDetailsLookup detailsLookup,
             Function<View, String> idFinder,
             ViewFinder viewFinder,
             DragAndDropManager dragAndDropManager) {
@@ -192,7 +178,6 @@ interface DragStartListener {
         return new RuntimeDragStartListener(
                 iconHelper,
                 state,
-                detailsLookup,
                 selectionMgr,
                 selectionDetails,
                 viewFinder,

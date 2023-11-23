@@ -55,6 +55,10 @@ enum FeatureBits
 	FEATURE_MATRIX_LAYOUT			= (1<<15),	//!< Matrix layout flags.
 	FEATURE_ARRAYS_OF_ARRAYS		= (1<<16),
 	FEATURE_OUT_OF_ORDER_OFFSETS	= (1<<17),
+	FEATURE_16BIT_STORAGE			= (1<<18),
+	FEATURE_8BIT_STORAGE			= (1<<19),
+	FEATURE_STD430_LAYOUT			= (1<<20),
+	FEATURE_SCALAR_LAYOUT			= (1<<21),
 };
 
 class RandomUniformBlockCase : public UniformBlockCase

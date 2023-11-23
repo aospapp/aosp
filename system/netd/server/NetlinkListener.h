@@ -22,9 +22,10 @@
 #include <mutex>
 #include <thread>
 
+#include <android-base/thread_annotations.h>
 #include <netdutils/Netlink.h>
 #include <netdutils/Slice.h>
-#include <netdutils/StatusOr.h>
+#include <netdutils/Status.h>
 #include <netdutils/UniqueFd.h>
 
 namespace android {
@@ -33,6 +34,8 @@ namespace net {
 class NetlinkListenerInterface {
   public:
     using DispatchFn = std::function<void(const nlmsghdr& nlmsg, const netdutils::Slice msg)>;
+
+    using SkErrorHandler = std::function<void(const int fd, const int err)>;
 
     virtual ~NetlinkListenerInterface() = default;
 
@@ -49,6 +52,8 @@ class NetlinkListenerInterface {
     // Halt delivery of future messages with nlmsghdr.nlmsg_type == type.
     // Threadsafe.
     virtual netdutils::Status unsubscribe(uint16_t type) = 0;
+
+    virtual void registerSkErrorHandler(const SkErrorHandler& handler) = 0;
 };
 
 // NetlinkListener manages a netlink socket and associated blocking
@@ -70,24 +75,28 @@ class NetlinkListenerInterface {
 // netfilter extensions that allow batching of events like NFLOG.
 class NetlinkListener : public NetlinkListenerInterface {
   public:
-    NetlinkListener(netdutils::UniqueFd event, netdutils::UniqueFd sock);
+    NetlinkListener(netdutils::UniqueFd event, netdutils::UniqueFd sock, const std::string& name);
 
     ~NetlinkListener() override;
 
     netdutils::Status send(const netdutils::Slice msg) override;
 
-    netdutils::Status subscribe(uint16_t type, const DispatchFn& fn) override;
+    netdutils::Status subscribe(uint16_t type, const DispatchFn& fn) override EXCLUDES(mMutex);
 
-    netdutils::Status unsubscribe(uint16_t type) override;
+    netdutils::Status unsubscribe(uint16_t type) override EXCLUDES(mMutex);
+
+    void registerSkErrorHandler(const SkErrorHandler& handler) override;
 
   private:
     netdutils::Status run();
 
-    netdutils::UniqueFd mEvent;
-    netdutils::UniqueFd mSock;
+    const netdutils::UniqueFd mEvent;
+    const netdutils::UniqueFd mSock;
+    const std::string mThreadName;
     std::mutex mMutex;
-    std::map<uint16_t, DispatchFn> mDispatchMap;  // guarded by mMutex
+    std::map<uint16_t, DispatchFn> mDispatchMap GUARDED_BY(mMutex);
     std::thread mWorker;
+    SkErrorHandler mErrorHandler;
 };
 
 }  // namespace net

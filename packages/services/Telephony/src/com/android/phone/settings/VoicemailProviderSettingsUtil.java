@@ -137,7 +137,7 @@ public class VoicemailProviderSettingsUtil {
         prefs.edit()
                 .putString(key + VM_NUMBER_TAG, null)
                 .putInt(key + FWD_SETTINGS_TAG + FWD_SETTINGS_LENGTH_TAG, 0)
-                .commit();
+                .apply();
     }
 
     private static SharedPreferences getPrefs(Context context) {

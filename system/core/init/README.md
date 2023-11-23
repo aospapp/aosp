@@ -161,6 +161,27 @@ Options
 Options are modifiers to services.  They affect how and when init
 runs the service.
 
+`capabilities [ <capability>\* ]`
+> Set capabilities when exec'ing this service. 'capability' should be a Linux
+  capability without the "CAP\_" prefix, like "NET\_ADMIN" or "SETPCAP". See
+  http://man7.org/linux/man-pages/man7/capabilities.7.html for a list of Linux
+  capabilities.
+  If no capabilities are provided, then all capabilities are removed from this service, even if it
+  runs as root.
+
+`class <name> [ <name>\* ]`
+> Specify class names for the service.  All services in a
+  named class may be started or stopped together.  A service
+  is in the class "default" if one is not specified via the
+  class option. Additional classnames beyond the (required) first
+  one are used to group services.
+  The `animation` class should include all services necessary for both
+  boot animation and shutdown animation. As these services can be
+  launched very early during bootup and can run until the last stage
+  of shutdown, access to /data partition is not guaranteed. These
+  services can check files under /data but it should not keep files opened
+  and should work when /data is not available.
+
 `console [<console>]`
 > This service needs a console. The optional second parameter chooses a
   specific console instead of the default. The default "/dev/console" can
@@ -170,22 +191,11 @@ runs the service.
 
 `critical`
 > This is a device-critical service. If it exits more than four times in
-  four minutes, the device will reboot into recovery mode.
+  four minutes or before boot completes, the device will reboot into bootloader.
 
 `disabled`
 > This service will not automatically start with its class.
-  It must be explicitly started by name.
-
-`setenv <name> <value>`
-> Set the environment variable _name_ to _value_ in the launched process.
-
-`socket <name> <type> <perm> [ <user> [ <group> [ <seclabel> ] ] ]`
-> Create a unix domain socket named /dev/socket/_name_ and pass its fd to the
-  launched process.  _type_ must be "dgram", "stream" or "seqpacket".  User and
-  group default to 0.  'seclabel' is the SELinux security context for the
-  socket.  It defaults to the service security context, as specified by
-  seclabel or computed based on the service executable file security context.
-  For native executables see libcutils android\_get\_control\_socket().
+  It must be explicitly started by name or by interface name.
 
 `enter_namespace <type> <path>`
 > Enters the namespace of type _type_ located at _path_. Only network namespaces are supported with
@@ -195,6 +205,137 @@ runs the service.
 > Open a file path and pass its fd to the launched process. _type_ must be
   "r", "w" or "rw".  For native executables see libcutils
   android\_get\_control\_file().
+
+`group <groupname> [ <groupname>\* ]`
+> Change to 'groupname' before exec'ing this service.  Additional
+  groupnames beyond the (required) first one are used to set the
+  supplemental groups of the process (via setgroups()).
+  Currently defaults to root.  (??? probably should default to nobody)
+
+`interface <interface name> <instance name>`
+> Associates this service with a list of the HIDL services that it provides. The interface name
+  must be a fully-qualified name and not a value name. This is used to allow hwservicemanager to
+  lazily start services. When multiple interfaces are served, this tag should be used multiple
+  times.
+  For example: interface vendor.foo.bar@1.0::IBaz default
+
+`ioprio <class> <priority>`
+> Sets the IO priority and IO priority class for this service via the SYS_ioprio_set syscall.
+  _class_ must be one of "rt", "be", or "idle". _priority_ must be an integer in the range 0 - 7.
+
+`keycodes <keycode> [ <keycode>\* ]`
+> Sets the keycodes that will trigger this service. If all of the keys corresponding to the passed
+  keycodes are pressed at once, the service will start. This is typically used to start the
+  bugreport service.
+
+> This option may take a property instead of a list of keycodes. In this case, only one option is
+  provided: the property name in the typical property expansion format. The property must contain
+  a comma separated list of keycode values or the text 'none' to indicate that
+  this service does not respond to keycodes.
+
+> For example, `keycodes ${some.property.name:-none}` where some.property.name expands
+  to "123,124,125". Since keycodes are handled very early in init,
+  only PRODUCT_DEFAULT_PROPERTY_OVERRIDES properties can be used.
+
+`memcg.limit_in_bytes <value>` and `memcg.limit_percent <value>`
+> Sets the child's memory.limit_in_bytes to the minimum of `limit_in_bytes`
+  bytes and `limit_percent` which is interpreted as a percentage of the size
+  of the device's physical memory (only if memcg is mounted).
+  Values must be equal or greater than 0.
+
+`memcg.limit_property <value>`
+> Sets the child's memory.limit_in_bytes to the value of the specified property
+  (only if memcg is mounted). This property will override the values specified
+  via `memcg.limit_in_bytes` and `memcg.limit_percent`.
+
+`memcg.soft_limit_in_bytes <value>`
+> Sets the child's memory.soft_limit_in_bytes to the specified value (only if memcg is mounted),
+  which must be equal or greater than 0.
+
+`memcg.swappiness <value>`
+> Sets the child's memory.swappiness to the specified value (only if memcg is mounted),
+  which must be equal or greater than 0.
+
+`namespace <pid|mnt>`
+> Enter a new PID or mount namespace when forking the service.
+
+`oneshot`
+> Do not restart the service when it exits.
+
+`onrestart`
+> Execute a Command (see below) when service restarts.
+
+`oom_score_adjust <value>`
+> Sets the child's /proc/self/oom\_score\_adj to the specified value,
+  which must range from -1000 to 1000.
+
+`override`
+> Indicates that this service definition is meant to override a previous definition for a service
+  with the same name. This is typically meant for services on /odm to override those defined on
+  /vendor. The last service definition that init parses with this keyword is the service definition
+  will use for this service. Pay close attention to the order in which init.rc files are parsed,
+  since it has some peculiarities for backwards compatibility reasons. The 'imports' section of
+  this file has more details on the order.
+
+`priority <priority>`
+> Scheduling priority of the service process. This value has to be in range
+  -20 to 19. Default priority is 0. Priority is set via setpriority().
+
+`restart_period <seconds>`
+> If a non-oneshot service exits, it will be restarted at its start time plus
+  this period. It defaults to 5s to rate limit crashing services.
+  This can be increased for services that are meant to run periodically. For
+  example, it may be set to 3600 to indicate that the service should run every hour
+  or 86400 to indicate that the service should run every day.
+
+`rlimit <resource> <cur> <max>`
+> This applies the given rlimit to the service. rlimits are inherited by child
+  processes, so this effectively applies the given rlimit to the process tree
+  started by this service.
+  It is parsed similarly to the setrlimit command specified below.
+
+`seclabel <seclabel>`
+> Change to 'seclabel' before exec'ing this service.
+  Primarily for use by services run from the rootfs, e.g. ueventd, adbd.
+  Services on the system partition can instead use policy-defined transitions
+  based on their file security context.
+  If not specified and no transition is defined in policy, defaults to the init context.
+
+`setenv <name> <value>`
+> Set the environment variable _name_ to _value_ in the launched process.
+
+`shutdown <shutdown_behavior>`
+> Set shutdown behavior of the service process. When this is not specified,
+  the service is killed during shutdown process by using SIGTERM and SIGKILL.
+  The service with shutdown_behavior of "critical" is not killed during shutdown
+  until shutdown times out. When shutdown times out, even services tagged with
+  "shutdown critical" will be killed. When the service tagged with "shutdown critical"
+  is not running when shut down starts, it will be started.
+
+`sigstop`
+> Send SIGSTOP to the service immediately before exec is called. This is intended for debugging.
+  See the below section on debugging for how this can be used.
+
+`socket <name> <type> <perm> [ <user> [ <group> [ <seclabel> ] ] ]`
+> Create a unix domain socket named /dev/socket/_name_ and pass its fd to the
+  launched process.  _type_ must be "dgram", "stream" or "seqpacket".  User and
+  group default to 0.  'seclabel' is the SELinux security context for the
+  socket.  It defaults to the service security context, as specified by
+  seclabel or computed based on the service executable file security context.
+  For native executables see libcutils android\_get\_control\_socket().
+
+`timeout_period <seconds>`
+> Provide a timeout after which point the service will be killed. The oneshot keyword is respected
+  here, so oneshot services do not automatically restart, however all other services will.
+  This is particularly useful for creating a periodic service combined with the restart_period
+  option described above.
+
+`updatable`
+> Mark that the service can be overridden (via the 'override' option) later in
+  the boot sequence by APEXes. When a service with updatable option is started
+  before APEXes are all activated, the execution is delayed until the activation
+  is finished. A service that is not marked as updatable cannot be overridden by
+  APEXes.
 
 `user <username>`
 > Change to 'username' before exec'ing this service.
@@ -212,87 +353,11 @@ runs the service.
   As of Android O, processes can also request capabilities directly in their .rc
   files. See the "capabilities" option below.
 
-`group <groupname> [ <groupname>\* ]`
-> Change to 'groupname' before exec'ing this service.  Additional
-  groupnames beyond the (required) first one are used to set the
-  supplemental groups of the process (via setgroups()).
-  Currently defaults to root.  (??? probably should default to nobody)
-
-`capabilities <capability> [ <capability>\* ]`
-> Set capabilities when exec'ing this service. 'capability' should be a Linux
-  capability without the "CAP\_" prefix, like "NET\_ADMIN" or "SETPCAP". See
-  http://man7.org/linux/man-pages/man7/capabilities.7.html for a list of Linux
-  capabilities.
-
-`setrlimit <resource> <cur> <max>`
-> This applies the given rlimit to the service. rlimits are inherited by child
-  processes, so this effectively applies the given rlimit to the process tree
-  started by this service.
-  It is parsed similarly to the setrlimit command specified below.
-
-`seclabel <seclabel>`
-> Change to 'seclabel' before exec'ing this service.
-  Primarily for use by services run from the rootfs, e.g. ueventd, adbd.
-  Services on the system partition can instead use policy-defined transitions
-  based on their file security context.
-  If not specified and no transition is defined in policy, defaults to the init context.
-
-`oneshot`
-> Do not restart the service when it exits.
-
-`class <name> [ <name>\* ]`
-> Specify class names for the service.  All services in a
-  named class may be started or stopped together.  A service
-  is in the class "default" if one is not specified via the
-  class option. Additional classnames beyond the (required) first
-  one are used to group services.
-`animation class`
-> 'animation' class should include all services necessary for both
-  boot animation and shutdown animation. As these services can be
-  launched very early during bootup and can run until the last stage
-  of shutdown, access to /data partition is not guaranteed. These
-  services can check files under /data but it should not keep files opened
-  and should work when /data is not available.
-
-`onrestart`
-> Execute a Command (see below) when service restarts.
-
 `writepid <file> [ <file>\* ]`
 > Write the child's pid to the given files when it forks. Meant for
   cgroup/cpuset usage. If no files under /dev/cpuset/ are specified, but the
   system property 'ro.cpuset.default' is set to a non-empty cpuset name (e.g.
   '/foreground'), then the pid is written to file /dev/cpuset/_cpuset\_name_/tasks.
-
-`priority <priority>`
-> Scheduling priority of the service process. This value has to be in range
-  -20 to 19. Default priority is 0. Priority is set via setpriority().
-
-`namespace <pid|mnt>`
-> Enter a new PID or mount namespace when forking the service.
-
-`oom_score_adjust <value>`
-> Sets the child's /proc/self/oom\_score\_adj to the specified value,
-  which must range from -1000 to 1000.
-
-`memcg.swappiness <value>`
-> Sets the child's memory.swappiness to the specified value (only if memcg is mounted),
-  which must be equal or greater than 0.
-
-`memcg.soft_limit_in_bytes <value>`
-> Sets the child's memory.soft_limit_in_bytes to the specified value (only if memcg is mounted),
-  which must be equal or greater than 0.
-
-`memcg.limit_in_bytes <value>`
-> Sets the child's memory.limit_in_bytes to the specified value (only if memcg is mounted),
-  which must be equal or greater than 0.
-
-`shutdown <shutdown_behavior>`
-> Set shutdown behavior of the service process. When this is not specified,
-  the service is killed during shutdown process by using SIGTERM and SIGKILL.
-  The service with shutdown_behavior of "critical" is not killed during shutdown
-  until shutdown times out. When shutdown times out, even services tagged with
-  "shutdown critical" will be killed. When the service tagged with "shutdown critical"
-  is not running when shut down starts, it will be started.
 
 
 Triggers
@@ -347,6 +412,11 @@ Commands
   not already running.  See the start entry for more information on
   starting services.
 
+`class_start_post_data <serviceclass>`
+> Like `class_start`, but only considers services that were started
+  after /data was mounted, and that were running at the time
+ `class_reset_post_data` was called. Only used for FDE devices.
+
 `class_stop <serviceclass>`
 > Stop and disable all services of the specified class if they are
   currently running.
@@ -355,6 +425,10 @@ Commands
 > Stop all services of the specified class if they are
   currently running, without disabling them. They can be restarted
   later using `class_start`.
+
+`class_reset_post_data <serviceclass>`
+> Like `class_reset`, but only considers services that were started
+  after /data was mounted. Only used for FDE devices.
 
 `class_restart <serviceclass>`
 > Restarts all services of the specified class.
@@ -415,9 +489,8 @@ Commands
   -f: force installation of the module even if the version of the running kernel
   and the version of the kernel for which the module was compiled do not match.
 
-`load_all_props`
-> Loads properties from /system, /vendor, et cetera.
-  This is included in the default init.rc.
+`load_system_props`
+> (This action is deprecated and no-op.)
 
 `load_persist_props`
 > Loads persistent properties when /data has been decrypted.
@@ -425,6 +498,10 @@ Commands
 
 `loglevel <level>`
 > Sets the kernel log level to level. Properties are expanded within _level_.
+
+`mark_post_data`
+> Used to mark the point right after /data is mounted. Used to implement the
+  `class_reset_post_data` and `class_start_post_data` commands.
 
 `mkdir <path> [mode] [owner] [group]`
 > Create a directory at _path_, optionally with the given mode, owner, and
@@ -443,6 +520,10 @@ Commands
   _flag_s include "ro", "rw", "remount", "noatime", ...
   _options_ include "barrier=1", "noauto\_da\_alloc", "discard", ... as
   a comma separated string, eg: barrier=1,noauto\_da\_alloc
+
+`parse_apex_configs`
+> Parses config file(s) from the mounted APEXes. Intented to be used only once
+  when apexd notifies the mount event by setting apexd.status to ready.
 
 `restart <service>`
 > Stops and restarts a running service, does nothing if the service is currently
@@ -480,6 +561,7 @@ Commands
   _resource_ is best specified using its text representation ('cpu', 'rtio', etc
   or 'RLIM_CPU', 'RLIM_RTIO', etc). It also may be specified as the int value
   that the resource enum corresponds to.
+  _cur_ and _max_ can be 'unlimited' or '-1' to indicate an infinite rlimit.
 
 `start <service>`
 > Start a service running if it is not already running.
@@ -591,11 +673,18 @@ The below pseudocode may explain this more clearly:
 
 Properties
 ----------
-Init provides information about the services that it is responsible
-for via the below properties.
+Init provides state information with the following properties.
 
 `init.svc.<name>`
 > State of a named service ("stopped", "stopping", "running", "restarting")
+
+`dev.mnt.blk.<mount_point>`
+> Block device base name associated with a *mount_point*.
+  The *mount_point* has / replaced by . and if referencing the root mount point
+  "/", it will use "/root", specifically `dev.mnt.blk.root`.
+  Meant for references to `/sys/device/block/${dev.mnt.blk.<mount_point>}/` and
+  `/sys/fs/ext4/${dev.mnt.blk.<mount_point>}/` to tune the block device
+  characteristics in a device agnostic manner.
 
 
 Boot timing
@@ -690,23 +779,97 @@ affected.
 
 Debugging init
 --------------
-By default, programs executed by init will drop stdout and stderr into
-/dev/null. To help with debugging, you can execute your program via the
-Android program logwrapper. This will redirect stdout/stderr into the
-Android logging system (accessed via logcat).
+Launching init services without init is not recommended as init sets up a significant amount of
+environment (user, groups, security label, capabilities, etc) that is hard to replicate manually.
 
-For example
-service akmd /system/bin/logwrapper /sbin/akmd
+If it is required to debug a service from its very start, the `sigstop` service option is added.
+This option will send SIGSTOP to a service immediately before calling exec. This gives a window
+where developers can attach a debugger, strace, etc before continuing the service with SIGCONT.
 
-For quicker turnaround when working on init itself, use:
+This flag can also be dynamically controled via the ctl.sigstop_on and ctl.sigstop_off properties.
 
-    mm -j &&
-    m ramdisk-nodeps &&
-    m bootimage-nodeps &&
-    adb reboot bootloader &&
-    fastboot boot $ANDROID_PRODUCT_OUT/boot.img
+Below is an example of dynamically debugging logd via the above:
 
-Alternatively, use the emulator:
+    stop logd
+    setprop ctl.sigstop_on logd
+    start logd
+    ps -e | grep logd
+    > logd          4343     1   18156   1684 do_signal_stop 538280 T init
+    gdbclient.py -p 4343
+    b main
+    c
+    c
+    c
+    > Breakpoint 1, main (argc=1, argv=0x7ff8c9a488) at system/core/logd/main.cpp:427
 
-    emulator -partition-size 1024 \
-        -verbose -show-kernel -no-window
+Below is an example of doing the same but with strace
+
+    stop logd
+    setprop ctl.sigstop_on logd
+    start logd
+    ps -e | grep logd
+    > logd          4343     1   18156   1684 do_signal_stop 538280 T init
+    strace -p 4343
+
+    (From a different shell)
+    kill -SIGCONT 4343
+
+    > strace runs
+
+Host Init Script Verification
+-----------------------------
+
+Init scripts are checked for correctness during build time. Specifically the below is checked.
+
+1) Well formatted action, service and import sections, e.g. no actions without a preceding 'on'
+line, and no extraneous lines after an 'import' statement.
+2) All commands map to a valid keyword and the argument count is within the correct range.
+3) All service options are valid. This is stricter than how commands are checked as the service
+options' arguments are fully parsed, e.g. UIDs and GIDs must resolve.
+
+There are other parts of init scripts that are only parsed at runtime and therefore not checked
+during build time, among them are the below.
+
+1) The validity of the arguments of commands, e.g. no checking if file paths actually exist, if
+SELinux would permit the operation, or if the UIDs and GIDs resolve.
+2) No checking if a service exists or has a valid SELinux domain defined
+3) No checking if a service has not been previously defined in a different init script.
+
+Early Init Boot Sequence
+------------------------
+The early init boot sequence is broken up into three stages: first stage init, SELinux setup, and
+second stage init.
+
+First stage init is responsible for setting up the bare minimum requirements to load the rest of the
+system. Specifically this includes mounting /dev, /proc, mounting 'early mount' partitions (which
+needs to include all partitions that contain system code, for example system and vendor), and moving
+the system.img mount to / for devices with a ramdisk.
+
+Note that in Android Q, system.img always contains TARGET_ROOT_OUT and always is mounted at / by the
+time first stage init finishes. Android Q will also require dynamic partitions and therefore will
+require using a ramdisk to boot Android. The recovery ramdisk can be used to boot to Android instead
+of a dedicated ramdisk as well.
+
+First stage init has three variations depending on the device configuration:
+1) For system-as-root devices, first stage init is part of /system/bin/init and a symlink at /init
+points to /system/bin/init for backwards compatibility. These devices do not need to do anything to
+mount system.img, since it is by definition already mounted as the rootfs by the kernel.
+
+2) For devices with a ramdisk, first stage init is a static executable located at /init. These
+devices mount system.img as /system then perform a switch root operation to move the mount at
+/system to /. The contents of the ramdisk are freed after mounting has completed.
+
+3) For devices that use recovery as a ramdisk, first stage init it contained within the shared init
+located at /init within the recovery ramdisk. These devices first switch root to
+/first_stage_ramdisk to remove the recovery components from the environment, then proceed the same
+as 2). Note that the decision to boot normally into Android instead of booting
+into recovery mode is made if androidboot.force_normal_boot=1 is present in the
+kernel commandline.
+
+Once first stage init finishes it execs /system/bin/init with the "selinux_setup" argument. This
+phase is where SELinux is optionally compiled and loaded onto the system. selinux.cpp contains more
+information on the specifics of this process.
+
+Lastly once that phase finishes, it execs /system/bin/init again with the "second_stage"
+argument. At this point the main phase of init runs and continues the boot process via the init.rc
+scripts.

@@ -40,13 +40,12 @@ from autotest_lib.server.cros import telemetry_runner
 # to have a short list that is as representative as possible and takes a
 # short time to execute. At this point the list of benchmarks is in flux.
 TELEMETRY_AFDO_BENCHMARKS = (
-    ('page_cycler_v2.typical_25', ('--pageset-repeat=1',)),
-    ('page_cycler_v2.intl_ja_zh', ('--pageset-repeat=1',)),
-    # Temporarily disable these two benchmarks to finish in 60 minutes.
-    # ('page_cycler_v2.intl_ar_fa_he', ('--pageset-repeat=1',)),
-    # ('page_cycler_v2.intl_es_fr_pt-BR', ('--pageset-repeat=1',)),
-    # ('page_cycler_v2.intl_ko_th_vi', ('--pageset-repeat=1',)),
-    # ('page_cycler_v2.intl_hi_ru', ('--pageset-repeat=1',)),
+    # page_cycler tests are deprecated. Replace them with loading.desktop.
+    ('loading.desktop', ('--pageset-repeat=1','--story-tag-filter=typical')),
+    ('loading.desktop', ('--pageset-repeat=1','--story-tag-filter=intl_ja_zh')),
+    ('rendering.desktop',
+      ('--story-tag-filter=tough_canvas',
+       '--story-filter="bouncing\\*\\|canvas\\*\\|microsoft\\*"')),
     ('octane',),
     ('kraken',),
     ('speedometer',),

@@ -16,10 +16,10 @@
 
 package com.android.documentsui.picker;
 
-import static junit.framework.Assert.assertTrue;
-
+import static org.mockito.Mockito.verify;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -28,22 +28,31 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.fragment.app.FragmentActivity;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.AbstractActionHandler;
+import com.android.documentsui.DocumentsAccess;
+import com.android.documentsui.Injector;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentStack;
+import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ActionType;
+import com.android.documentsui.picker.ActionHandler.Addons;
+import com.android.documentsui.queries.SearchViewManager;
+import com.android.documentsui.roots.ProvidersAccess;
 import com.android.documentsui.testing.DocumentStackAsserts;
 import com.android.documentsui.testing.TestEnv;
-import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.testing.TestLastAccessedStorage;
+import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.testing.TestResolveInfo;
 
+import java.util.concurrent.Executor;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,17 +66,20 @@ public class ActionHandlerTest {
 
     private TestEnv mEnv;
     private TestActivity mActivity;
-    private ActionHandler<TestActivity> mHandler;
+    private TestableActionHandler<TestActivity> mHandler;
     private TestLastAccessedStorage mLastAccessed;
+    private PickCountRecordStorage mPickCountRecord;
 
     @Before
     public void setUp() {
         mEnv = TestEnv.create();
         mActivity = TestActivity.create(mEnv);
         mEnv.providers.configurePm(mActivity.packageMgr);
+        mEnv.injector.pickResult = new PickResult();
         mLastAccessed = new TestLastAccessedStorage();
+        mPickCountRecord = mock(PickCountRecordStorage.class);
 
-        mHandler = new ActionHandler<>(
+        mHandler = new TestableActionHandler<>(
                 mActivity,
                 mEnv.state,
                 mEnv.providers,
@@ -75,7 +87,8 @@ public class ActionHandlerTest {
                 mEnv.searchViewManager,
                 mEnv::lookupExecutor,
                 mEnv.injector,
-                mLastAccessed
+                mLastAccessed,
+                mPickCountRecord
         );
 
         mEnv.dialogs.confirmNext();
@@ -83,6 +96,32 @@ public class ActionHandlerTest {
         mEnv.selectionMgr.select("1");
 
         AsyncTask.setDefaultExecutor(mEnv.mExecutor);
+    }
+
+    private static class TestableActionHandler<T extends FragmentActivity & Addons>
+        extends ActionHandler {
+
+        private UpdatePickResultTask mTask;
+
+        TestableActionHandler(
+            T activity,
+            State state,
+            ProvidersAccess providers,
+            DocumentsAccess docs,
+            SearchViewManager searchMgr,
+            Lookup<String, Executor> executors,
+            Injector injector,
+            LastAccessedStorage lastAccessed,
+            PickCountRecordStorage pickCountRecordStorage) {
+            super(activity, state, providers, docs, searchMgr, executors, injector, lastAccessed);
+            mTask = new UpdatePickResultTask(
+                mActivity, mInjector.pickResult, pickCountRecordStorage);
+        }
+
+        @Override
+        public UpdatePickResultTask getUpdatePickResultTask() {
+            return mTask;
+        }
     }
 
     @AfterClass
@@ -181,20 +220,13 @@ public class ActionHandlerTest {
     }
 
     @Test
-    public void testInitLocation_DefaultToRecents_ActionOpenTree() throws Exception {
-        testInitLocationDefaultToRecentsOnAction(State.ACTION_OPEN_TREE);
+    public void testInitLocation_DefaultToDownloads_ActionOpenTree() throws Exception {
+        testInitLocationDefaultToDownloadsOnAction(State.ACTION_OPEN_TREE);
     }
 
     @Test
     public void testInitLocation_DefaultsToDownloads_ActionCreate() throws Exception {
-        mEnv.state.action = State.ACTION_CREATE;
-        mActivity.resources.bools.put(R.bool.show_documents_root, false);
-
-        mActivity.refreshCurrentRootAndDirectory.assertNotCalled();
-
-        mHandler.initLocation(mActivity.getIntent());
-
-        assertRootPicked(TestProvidersAccess.DOWNLOADS.getUri());
+        testInitLocationDefaultToDownloadsOnAction(State.ACTION_CREATE);
     }
 
     @Test
@@ -204,6 +236,23 @@ public class ActionHandlerTest {
         assertEquals(TestEnv.FOLDER_0, mEnv.state.stack.peek());
 
         mActivity.refreshCurrentRootAndDirectory.assertCalled();
+    }
+
+    @Test
+    public void testIncreasePickCountRecordCalled() throws Exception {
+        mEnv.state.action = State.ACTION_GET_CONTENT;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.HOME);
+        mEnv.state.stack.push(TestEnv.FOLDER_1);
+
+        mActivity.finishedHandler.assertNotCalled();
+        mHandler.finishPicking(TestEnv.FILE_JPG.derivedUri);
+
+        mEnv.beforeAsserts();
+
+        verify(mPickCountRecord).increasePickCountRecord(
+            mActivity.getApplicationContext(), TestEnv.FILE_JPG.derivedUri);
+
+        mActivity.finishedHandler.assertCalled();
     }
 
     @Test
@@ -217,7 +266,7 @@ public class ActionHandlerTest {
 
         mActivity.finishedHandler.assertNotCalled();
 
-        mHandler.pickDocument(TestEnv.FOLDER_2);
+        mHandler.pickDocument(null, TestEnv.FOLDER_2);
 
         mEnv.beforeAsserts();
 
@@ -243,7 +292,9 @@ public class ActionHandlerTest {
 
         mActivity.finishedHandler.assertNotCalled();
 
-        mHandler.pickDocument(TestEnv.FOLDER_2);
+        Uri uri = DocumentsContract.buildTreeDocumentUri(
+                TestEnv.FOLDER_2.authority, TestEnv.FOLDER_2.documentId);
+        mHandler.finishPicking(uri);
 
         mEnv.beforeAsserts();
 
@@ -303,6 +354,16 @@ public class ActionHandlerTest {
         mHandler.saveDocument(null, TestEnv.FILE_JPG);
 
         mEnv.dialogs.assertOverwriteConfirmed(TestEnv.FILE_JPG);
+    }
+
+    @Test
+    public void testPickDocument_ConfirmsOpenTree() {
+        mEnv.state.action = State.ACTION_OPEN_TREE;
+        mEnv.state.stack.changeRoot(TestProvidersAccess.HOME);
+
+        mHandler.pickDocument(null, TestEnv.FOLDER_1);
+
+        mEnv.dialogs.assertDocumentTreeConfirmed(TestEnv.FOLDER_1);
     }
 
     @Test
@@ -466,6 +527,25 @@ public class ActionHandlerTest {
         assertNotNull(mActivity.startActivityForResult.getLastValue().first);
     }
 
+    @Test
+    public void testOpenAppRootWithQueryContent_matchedContent() throws Exception {
+        final String queryContent = "query";
+        mActivity.intent.putExtra(Intent.EXTRA_CONTENT_QUERY, queryContent);
+        mHandler.openRoot(TestResolveInfo.create());
+        assertEquals(queryContent,
+                mActivity.startActivityForResult.getLastValue().first.getStringExtra(
+                        Intent.EXTRA_CONTENT_QUERY));
+    }
+
+    @Test
+    public void testPreviewItem() throws Exception {
+        mActivity.resources.setQuickViewerPackage("corptropolis.viewer");
+        mActivity.currentRoot = TestProvidersAccess.HOME;
+
+        mHandler.priviewDocument(TestEnv.FILE_GIF);
+        mActivity.assertActivityStarted(Intent.ACTION_QUICK_VIEW);
+    }
+
     private void testInitLocationDefaultToRecentsOnAction(@ActionType int action)
             throws Exception {
         mEnv.state.action = action;
@@ -477,6 +557,20 @@ public class ActionHandlerTest {
         mEnv.beforeAsserts();
         assertEquals(TestProvidersAccess.RECENTS, mEnv.state.stack.getRoot());
         mActivity.refreshCurrentRootAndDirectory.assertCalled();
+    }
+
+    private void testInitLocationDefaultToDownloadsOnAction(@ActionType int action)
+            throws Exception {
+        mEnv.state.action = action;
+        mActivity.resources.bools.put(R.bool.show_documents_root, false);
+        mActivity.resources.strings.put(R.string.default_root_uri,
+                TestProvidersAccess.DOWNLOADS.getUri().toString());
+
+        mActivity.refreshCurrentRootAndDirectory.assertNotCalled();
+
+        mHandler.initLocation(mActivity.getIntent());
+
+        assertRootPicked(TestProvidersAccess.DOWNLOADS.getUri());
     }
 
     private void assertRootPicked(Uri expectedUri) throws Exception {

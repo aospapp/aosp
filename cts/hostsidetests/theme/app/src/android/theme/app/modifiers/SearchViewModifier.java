@@ -34,7 +34,7 @@ public class SearchViewModifier extends AbstractLayoutModifier {
     }
 
     @Override
-    public View modifyView(View view) {
+    public void modifyViewBeforeAdd(View view) {
         SearchView searchView = (SearchView) view;
         Context context = view.getContext();
 
@@ -52,6 +52,5 @@ public class SearchViewModifier extends AbstractLayoutModifier {
         }
 
         searchView.setIconifiedByDefault(false);
-        return searchView;
     }
 }

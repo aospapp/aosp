@@ -33,7 +33,8 @@ import android.net.wifi.WifiSsid;
 import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.hotspot2.AnqpEvent;
 import com.android.server.wifi.hotspot2.IconEvent;
@@ -402,14 +403,14 @@ public class WifiMonitorTest {
     @Test
     public void testBroadcastAssociatedBssidEvent() {
         mWifiMonitor.registerHandler(
-                WLAN_IFACE_NAME, WifiStateMachine.CMD_ASSOCIATED_BSSID, mHandlerSpy);
+                WLAN_IFACE_NAME, ClientModeImpl.CMD_ASSOCIATED_BSSID, mHandlerSpy);
         String bssid = BSSID;
         mWifiMonitor.broadcastAssociatedBssidEvent(WLAN_IFACE_NAME, bssid);
         mLooper.dispatchAll();
 
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
-        assertEquals(WifiStateMachine.CMD_ASSOCIATED_BSSID, messageCaptor.getValue().what);
+        assertEquals(ClientModeImpl.CMD_ASSOCIATED_BSSID, messageCaptor.getValue().what);
         assertEquals(bssid, (String) messageCaptor.getValue().obj);
     }
 

@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import os.path
+
 import its.caps
 import its.device
+import its.image
 import its.objects
-import os.path
+
+NAME = os.path.basename(__file__).split(".")[0]
+
 
 def main():
     """Test capturing a single frame as both DNG and YUV outputs.
     """
-    NAME = os.path.basename(__file__).split(".")[0]
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -32,13 +35,12 @@ def main():
         cam.do_3a(mono_camera=mono_camera)
 
         req = its.objects.auto_capture_request()
-        max_dng_size = \
-                its.objects.get_available_output_sizes("raw", props)[0]
-        w,h = its.objects.get_available_output_sizes(
+        max_dng_size = its.objects.get_available_output_sizes("raw", props)[0]
+        w, h = its.objects.get_available_output_sizes(
                 "yuv", props, (1920, 1080), max_dng_size)[0]
-        out_surfaces = [{"format":"dng"},
-                        {"format":"yuv", "width":w, "height":h}]
-        cap_dng, cap_yuv = cam.do_capture(req, cam.CAP_DNG_YUV)
+        out_surfaces = [{"format": "dng"},
+                        {"format": "yuv", "width": w, "height": h}]
+        cap_dng, cap_yuv = cam.do_capture(req, out_surfaces)
 
         img = its.image.convert_capture_to_rgb_image(cap_yuv)
         its.image.write_image(img, "%s.jpg" % (NAME))
@@ -49,6 +51,6 @@ def main():
         # No specific pass/fail check; test is assumed to have succeeded if
         # it completes.
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 

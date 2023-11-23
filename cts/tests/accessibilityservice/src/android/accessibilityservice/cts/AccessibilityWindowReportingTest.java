@@ -16,6 +16,7 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangeTypesAndWindowTitle;
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangedWithChangeTypes;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.findWindowByTitle;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.getActivityTitle;
@@ -43,9 +44,6 @@ import android.accessibilityservice.cts.activities.AccessibilityWindowReportingA
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -54,6 +52,10 @@ import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -274,8 +276,8 @@ public class AccessibilityWindowReportingTest {
                         autoCompleteTextView.setAdapter(adapter);
                         autoCompleteTextView.showDropDown();
                     }),
-                    filterWindowsChangedWithChangeTypes(WINDOWS_CHANGE_CHILDREN),
-                    TIMEOUT_ASYNC_PROCESSING);
+                    filterWindowsChangeTypesAndWindowTitle(sUiAutomation, WINDOWS_CHANGE_CHILDREN,
+                            mActivityTitle.toString()), TIMEOUT_ASYNC_PROCESSING);
         } catch (TimeoutException exception) {
             throw new RuntimeException(
                     "Failed to get window changed event when showing dropdown", exception);

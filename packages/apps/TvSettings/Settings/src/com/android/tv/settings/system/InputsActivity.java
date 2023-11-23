@@ -18,8 +18,8 @@ package com.android.tv.settings.system;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Activity to control TV input settings.
@@ -28,19 +28,7 @@ public class InputsActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final InputsFragment fragment = InputsFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(InputsFragment.class.getName(), null);
     }
 }

@@ -24,9 +24,10 @@ import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.O;
+import static android.os.Build.VERSION_CODES.Q;
 
-import android.util.ArraySet;
 import android.view.Display;
+import android.view.DisplayAddress;
 import android.view.DisplayInfo;
 import android.view.Surface;
 import java.util.Arrays;
@@ -58,7 +59,7 @@ public final class DisplayConfig {
    * Display address, or null if none.
    * Interpretation varies by display type.
    */
-  public String address;
+  public DisplayAddress address;
 
   /**
    * The human-readable name of the display.
@@ -174,7 +175,7 @@ public final class DisplayConfig {
   /**
    * The supported modes of this display.
    */
-  public Display.Mode[] supportedModes = Display.Mode.EMPTY_ARRAY;
+  public Display.Mode[] supportedModes = new Display.Mode[0];
 
   /** The active color mode. */
   public int colorMode;
@@ -265,7 +266,9 @@ public final class DisplayConfig {
     layerStack = other.layerStack;
     flags = other.flags;
     type = other.type;
-    address = other.address;
+    if (RuntimeEnvironment.getApiLevel() >= Q) {
+      address = other.address;
+    }
     name = other.name;
     if (RuntimeEnvironment.getApiLevel() >= LOLLIPOP_MR1) {
       uniqueId = other.uniqueId;
@@ -320,6 +323,7 @@ public final class DisplayConfig {
     return o instanceof DisplayConfig && equals((DisplayConfig)o);
   }
 
+  @SuppressWarnings("NonOverridingEquals")
   public boolean equals(DisplayConfig other) {
     return other != null
         && layerStack == other.layerStack
@@ -403,7 +407,9 @@ public final class DisplayConfig {
     other.layerStack = layerStack;
     other.flags = flags;
     other.type = type;
-    other.address = address;
+    if (RuntimeEnvironment.getApiLevel() >= Q) {
+      other.address = address;
+    }
     other.name = name;
     if (RuntimeEnvironment.getApiLevel() >= LOLLIPOP_MR1) {
       other.uniqueId = uniqueId;

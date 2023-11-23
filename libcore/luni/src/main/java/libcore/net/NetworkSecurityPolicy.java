@@ -16,6 +16,8 @@
 
 package libcore.net;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
+
 /**
  * Network security policy for this process/application.
  *
@@ -25,15 +27,27 @@ package libcore.net;
  *
  * <p>The policy currently consists of a single flag: whether cleartext network traffic is
  * permitted. See {@link #isCleartextTrafficPermitted()}.
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
+@libcore.api.IntraCoreApi
 public abstract class NetworkSecurityPolicy {
 
     private static volatile NetworkSecurityPolicy instance = new DefaultNetworkSecurityPolicy();
 
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
+    public NetworkSecurityPolicy() {
+    }
+
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public static NetworkSecurityPolicy getInstance() {
         return instance;
     }
 
+    @libcore.api.CorePlatformApi
     public static void setInstance(NetworkSecurityPolicy policy) {
         if (policy == null) {
             throw new NullPointerException("policy == null");
@@ -60,6 +74,8 @@ public abstract class NetworkSecurityPolicy {
      * this flag from day one, and well-established third-party network stacks will eventually
      * honor it.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public abstract boolean isCleartextTrafficPermitted();
 
     /**
@@ -69,6 +85,7 @@ public abstract class NetworkSecurityPolicy {
      *
      * <p>See {@link #isCleartextTrafficPermitted} for more details.
      */
+    @libcore.api.CorePlatformApi
     public abstract boolean isCleartextTrafficPermitted(String hostname);
 
     /**
@@ -77,6 +94,8 @@ public abstract class NetworkSecurityPolicy {
      *
      * <p>See RFC6962 section 3.3 for more details.
      */
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public abstract boolean isCertificateTransparencyVerificationRequired(String hostname);
 
     public static final class DefaultNetworkSecurityPolicy extends NetworkSecurityPolicy {

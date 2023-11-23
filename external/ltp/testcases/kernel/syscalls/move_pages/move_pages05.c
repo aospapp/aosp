@@ -175,6 +175,8 @@ int main(int argc, char **argv)
 			tst_resm(TFAIL | TERRNO,
 				 "move_pages unexpectedly failed");
 			goto err_kill_child;
+		} else if (ret > 0) {
+			tst_resm(TINFO, "move_pages() returned %d\n", ret);
 		}
 
 		if (status[SHARED_PAGE] == -EACCES)
@@ -198,7 +200,7 @@ err_free_shared:
 		free_shared_pages(pages + SHARED_PAGE, N_SHARED_PAGES);
 	}
 #else
-	tst_resm(TCONF, "test requires libnuma >= 2 and it's development packages");
+	tst_resm(TCONF, NUMA_ERROR_MSG);
 #endif
 
 	cleanup();

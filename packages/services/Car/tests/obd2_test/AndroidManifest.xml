@@ -18,7 +18,7 @@
     package="com.android.car.obd2.test"
     android:sharedUserId="android.uid.system" >
 
-  <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
       android:targetPackage="com.android.car.obd2.test"
       android:label="Tests for OBD2 APIs"/>
 

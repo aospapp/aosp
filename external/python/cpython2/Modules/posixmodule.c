@@ -65,6 +65,11 @@ corresponding Unix manual entries for more information on calls.");
 #include "osdefs.h"
 #endif
 
+#ifdef HAVE_SYS_SYSMACROS_H
+/* GNU C Library: major(), minor(), makedev() */
+#include <sys/sysmacros.h>
+#endif
+
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif /* HAVE_SYS_TYPES_H */
@@ -979,6 +984,7 @@ win32_wchdir(LPCWSTR path)
     wchar_t _new_path[MAX_PATH+1], *new_path = _new_path;
     int result;
     wchar_t env[4] = L"=x:";
+    int is_unc_like_path;
 
     if(!SetCurrentDirectoryW(path))
         return FALSE;
@@ -997,15 +1003,15 @@ win32_wchdir(LPCWSTR path)
             return FALSE;
         }
     }
-    if (wcsncmp(new_path, L"\\\\", 2) == 0 ||
-        wcsncmp(new_path, L"//", 2) == 0)
-        /* UNC path, nothing to do. */
-        return TRUE;
-    env[1] = new_path[0];
-    result = SetEnvironmentVariableW(env, new_path);
+    is_unc_like_path = (wcsncmp(new_path, L"\\\\", 2) == 0 ||
+                        wcsncmp(new_path, L"//", 2) == 0);
+    if (!is_unc_like_path) {
+        env[1] = new_path[0];
+        result = SetEnvironmentVariableW(env, new_path);
+    }
     if (new_path != _new_path)
         free(new_path);
-    return result;
+    return result ? TRUE : FALSE;
 }
 #endif
 
@@ -2380,7 +2386,7 @@ posix_listdir(PyObject *self, PyObject *args)
     if (len > 0) {
         char ch = namebuf[len-1];
         if (ch != SEP && ch != ALTSEP && ch != ':')
-            namebuf[len++] = '/';
+            namebuf[len++] = SEP;
         strcpy(namebuf + len, "*.*");
     }
 
@@ -3315,6 +3321,12 @@ posix_execve(PyObject *self, PyObject *args)
         {
             goto fail_2;
         }
+        /* Search from index 1 because on Windows starting '=' is allowed for
+           defining hidden environment variables. */
+        if (*k == '\0' || strchr(k + 1, '=') != NULL) {
+            PyErr_SetString(PyExc_ValueError, "illegal environment variable name");
+            goto fail_2;
+        }
 
 #if defined(PYOS_OS2)
         /* Omit Pseudo-Env Vars that Would Confuse Programs if Passed On */
@@ -3550,6 +3562,12 @@ posix_spawnve(PyObject *self, PyObject *args)
         {
             goto fail_2;
         }
+        /* Search from index 1 because on Windows starting '=' is allowed for
+           defining hidden environment variables. */
+        if (*k == '\0' || strchr(k + 1, '=') != NULL) {
+            PyErr_SetString(PyExc_ValueError, "illegal environment variable name");
+            goto fail_2;
+        }
         len = PyString_Size(key) + PyString_Size(val) + 2;
         p = PyMem_NEW(char, len);
         if (p == NULL) {
@@ -3783,6 +3801,12 @@ posix_spawnvpe(PyObject *self, PyObject *args)
         {
             goto fail_2;
         }
+        /* Search from index 1 because on Windows starting '=' is allowed for
+           defining hidden environment variables. */
+        if (*k == '\0' || strchr(k + 1, '=') != NULL) {
+            PyErr_SetString(PyExc_ValueError, "illegal environment variable name");
+            goto fail_2;
+        }
         len = PyString_Size(key) + PyString_Size(val) + 2;
         p = PyMem_NEW(char, len);
         if (p == NULL) {
@@ -3913,7 +3937,7 @@ posix_fork(PyObject *self, PyObject *noargs)
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif
-#endif /* defined(HAVE_OPENPTY) || defined(HAVE_FORKPTY) || defined(HAVE_DEV_PTMX */
+#endif /* defined(HAVE_OPENPTY) || defined(HAVE_FORKPTY) || defined(HAVE_DEV_PTMX) */
 
 #if defined(HAVE_OPENPTY) || defined(HAVE__GETPTY) || defined(HAVE_DEV_PTMX)
 PyDoc_STRVAR(posix_openpty__doc__,
@@ -6077,7 +6101,7 @@ Set the groups of the current process to list.");
 static PyObject *
 posix_setgroups(PyObject *self, PyObject *groups)
 {
-    int i, len;
+    Py_ssize_t i, len;
     gid_t grouplist[MAX_GROUPS];
 
     if (!PySequence_Check(groups)) {
@@ -6085,6 +6109,9 @@ posix_setgroups(PyObject *self, PyObject *groups)
         return NULL;
     }
     len = PySequence_Size(groups);
+    if (len < 0) {
+        return NULL;
+    }
     if (len > MAX_GROUPS) {
         PyErr_SetString(PyExc_ValueError, "too many groups");
         return NULL;
@@ -6094,7 +6121,7 @@ posix_setgroups(PyObject *self, PyObject *groups)
         elem = PySequence_GetItem(groups, i);
         if (!elem)
             return NULL;
-        if (!PyInt_Check(elem) && !PyLong_Check(elem)) {
+        if (!_PyAnyInt_Check(elem)) {
             PyErr_SetString(PyExc_TypeError,
                             "groups must be integers");
             Py_DECREF(elem);
@@ -7175,6 +7202,13 @@ posix_putenv(PyObject *self, PyObject *args)
             return os2_error(rc);
     } else {
 #endif
+
+    /* Search from index 1 because on Windows starting '=' is allowed for
+       defining hidden environment variables. */
+    if (*s1 == '\0' || strchr(s1 + 1, '=') != NULL) {
+        PyErr_SetString(PyExc_ValueError, "illegal environment variable name");
+        return NULL;
+    }
 
     /* XXX This can leak memory -- not easy to fix :-( */
     len = strlen(s1) + strlen(s2) + 2;

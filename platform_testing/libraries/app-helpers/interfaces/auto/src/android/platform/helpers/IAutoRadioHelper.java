@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,14 +35,14 @@ public interface IAutoRadioHelper extends IAppHelper {
     /**
      * Setup expectations: Radio app is open.
      *
-     * This method is used to select next station.
+     * This method is used to select next station using application softkey.
      */
     void clickNextStation();
 
     /**
      * Setup expectations: Radio app is open.
      *
-     * This method is used to select previous station.
+     * This method is used to select previous station using application softkey.
      */
     void clickPreviousStation();
 

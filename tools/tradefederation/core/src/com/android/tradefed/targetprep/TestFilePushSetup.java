@@ -31,7 +31,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A {@link ITargetPreparer} that pushes one or more files/dirs from a {@link
@@ -62,6 +64,8 @@ public class TestFilePushSetup extends BaseTargetPreparer {
     @Option(name = "alt-dir-behavior", description = "The order of alternate directory to be used "
             + "when searching for files to push")
     private AltDirBehavior mAltDirBehavior = AltDirBehavior.FALLBACK;
+
+    private Set<String> mFailedToPush = new HashSet<>();
 
     /**
      * Adds a file to the list of items to push
@@ -155,10 +159,11 @@ public class TestFilePushSetup extends BaseTargetPreparer {
                             "Could not find test file %s directory in extracted tests.zip",
                             fileName), device.getDeviceDescriptor());
                 } else {
-                    CLog.w(String.format(
-                            "Could not find test file %s directory in extracted tests.zip, but" +
-                            "will continue test setup as throw-if-not-found is set to false",
-                            fileName));
+                    CLog.w(
+                            "Could not find test file %s directory in extracted tests.zip, but will"
+                                    + " continue test setup as throw-if-not-found is set to false",
+                            fileName);
+                    mFailedToPush.add(fileName);
                     continue;
                 }
             }
@@ -195,6 +200,14 @@ public class TestFilePushSetup extends BaseTargetPreparer {
      */
     protected void setAltDirBehavior(AltDirBehavior behavior) {
         mAltDirBehavior = behavior;
+    }
+
+    /**
+     * Returns the set of files that failed to be pushed. Can only be used if 'throw-if-not-found'
+     * is false otherwise the first failed push will throw an exception.
+     */
+    protected Set<String> getFailedToPushFiles() {
+        return mFailedToPush;
     }
 
     static String getDevicePathFromUserData(String path) {

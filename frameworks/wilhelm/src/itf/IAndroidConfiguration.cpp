@@ -23,6 +23,14 @@
 
 #include <android_runtime/AndroidRuntime.h>
 
+extern jmethodID gMidAudioTrackRoutingProxy_ctor;
+extern jmethodID gMidAudioTrackRoutingProxy_release;
+extern jmethodID gMidAudioRecordRoutingProxy_ctor;
+extern jmethodID gMidAudioRecordRoutingProxy_release;
+
+extern jclass gClsAudioTrackRoutingProxy;
+extern jclass gClsAudioRecordRoutingProxy;
+
 static SLresult IAndroidConfiguration_SetConfiguration(SLAndroidConfigurationItf self,
         const SLchar *configKey,
         const void *pConfigValue,
@@ -150,17 +158,11 @@ static SLresult AllocPlayerRoutingProxy(IAndroidConfiguration* iConfig, jobject*
 
     JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
 
-    // Get the constructor for (Java) AudioTrackRoutingProxy
-    jclass clsAudioTrackRoutingProxy =
-            j_env->FindClass("android/media/AudioTrackRoutingProxy");
-    jmethodID midAudioTrackRoutingProxy_ctor =
-        j_env->GetMethodID(clsAudioTrackRoutingProxy, "<init>", "(J)V");
-
     j_env->ExceptionClear();
 
     jobject localObjRef =
-        j_env->NewObject(clsAudioTrackRoutingProxy,
-                         midAudioTrackRoutingProxy_ctor,
+        j_env->NewObject(gClsAudioTrackRoutingProxy,
+                         gMidAudioTrackRoutingProxy_ctor,
                          (jlong)pAudioTrack /*audioTrackObjInLong*/);
 
     *proxyObj = j_env->NewGlobalRef(localObjRef);
@@ -226,16 +228,10 @@ static SLresult AllocRecorderRoutingProxy(IAndroidConfiguration* iConfig, jobjec
 
     JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
 
-    // Get the constructor for (Java) AudioRecordRoutingProxy
-    jclass clsAudioRecordRoutingProxy =
-            j_env->FindClass("android/media/AudioRecordRoutingProxy");
-    jmethodID midAudioRecordRoutingProxy_ctor =
-        j_env->GetMethodID(clsAudioRecordRoutingProxy, "<init>", "(J)V");
-
     j_env->ExceptionClear();
     jobject localObjRef =
-        j_env->NewObject(clsAudioRecordRoutingProxy,
-                         midAudioRecordRoutingProxy_ctor,
+        j_env->NewObject(gClsAudioRecordRoutingProxy,
+                         gMidAudioRecordRoutingProxy_ctor,
                          (jlong)pAudioRecord /*audioRecordObjInLong*/);
 
     *proxyObj = j_env->NewGlobalRef(localObjRef);
@@ -332,14 +328,8 @@ static SLresult IAndroidConfiguration_ReleaseJavaProxy(SLAndroidConfigurationItf
             {
                 JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
 
-                // Get the release method for (Java) AudioTrackRoutingProxy
-                jclass clsAudioTrackRoutingProxy =
-                        j_env->FindClass("android/media/AudioTrackRoutingProxy");
-                jmethodID midAudioTrackRoutingProxy_release =
-                    j_env->GetMethodID(clsAudioTrackRoutingProxy, "native_release", "()V");
-
                 j_env->ExceptionClear();
-                j_env->CallVoidMethod(iConfig->mRoutingProxy, midAudioTrackRoutingProxy_release);
+                j_env->CallVoidMethod(iConfig->mRoutingProxy, gMidAudioTrackRoutingProxy_release);
                 if (j_env->ExceptionCheck()) {
                     SL_LOGE("Java exception releasing recorder routing object.");
                     result = SL_RESULT_INTERNAL_ERROR;
@@ -353,14 +343,8 @@ static SLresult IAndroidConfiguration_ReleaseJavaProxy(SLAndroidConfigurationItf
             {
                 JNIEnv* j_env = android::AndroidRuntime::getJNIEnv();
 
-                // Get the release method for (Java) AudioTrackRoutingProxy
-                jclass clsAudioRecordRoutingProxy =
-                        j_env->FindClass("android/media/AudioRecordRoutingProxy");
-                jmethodID midAudioRecordRoutingProxy_release =
-                    j_env->GetMethodID(clsAudioRecordRoutingProxy, "native_release", "()V");
-
                 j_env->ExceptionClear();
-                j_env->CallVoidMethod(iConfig->mRoutingProxy, midAudioRecordRoutingProxy_release);
+                j_env->CallVoidMethod(iConfig->mRoutingProxy, gMidAudioRecordRoutingProxy_release);
                 if (j_env->ExceptionCheck()) {
                     SL_LOGE("Java exception releasing recorder routing object.");
                     result = SL_RESULT_INTERNAL_ERROR;

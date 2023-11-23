@@ -692,6 +692,15 @@ namespace sw
 		else ASSERT(false);
 	}
 
+	void VertexProcessor::setSyncRequired(unsigned int sampler, bool isSincRequired)
+	{
+		if(sampler < TEXTURE_IMAGE_UNITS)
+		{
+			context->sampler[sampler].setSyncRequired(isSincRequired);
+		}
+		else ASSERT(false);
+	}
+
 	void VertexProcessor::setPointSize(float pointSize)
 	{
 		point.pointSize = replicate(pointSize);
@@ -1098,7 +1107,7 @@ namespace sw
 			}
 
 			generator->generate();
-			routine = (*generator)(L"VertexRoutine_%0.8X", state.shaderID);
+			routine = (*generator)("VertexRoutine_%0.8X", state.shaderID);
 			delete generator;
 
 			routineCache->add(state, routine);

@@ -29,7 +29,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_JAVA_LIBRARIES := telephony-common android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util ctstestrunner apache-commons-math platform-test-annotations
+    compatibility-device-util-axt ctstestrunner-axt apache-commons-math platform-test-annotations
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/android/location/cts) \
    $(call all-proto-files-under, protos)
@@ -52,7 +52,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_JAVA_LIBRARIES := telephony-common android.test.base.stubs
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner  apache-commons-math
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt ctstestrunner-axt  apache-commons-math
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 

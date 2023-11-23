@@ -22,6 +22,7 @@ $ ./flash-all.sh
 $ fastboot flash boot out/target/product/hikey960/boot.img
 $ fastboot flash dts out/target/product/hikey960/dt.img
 $ fastboot flash system out/target/product/hikey960/system.img
+$ fastboot flash vendor out/target/product/hikey960/vendor.img
 $ fastboot flash cache out/target/product/hikey960/cache.img
 $ fastboot flash userdata out/target/product/hikey960/userdata.img
 Turn OFF switch 3 and power cycle the board.

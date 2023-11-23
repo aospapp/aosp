@@ -21,7 +21,7 @@ class APSpecTest(unittest.TestCase):
         self.assertEquals(spec.band, ap_spec.DEFAULT_BAND)
         self.assertEquals(spec.mode, ap_spec.DEFAULT_2GHZ_MODE)
         self.assertEquals(spec.channel, ap_spec.DEFAULT_2GHZ_CHANNEL)
-        self.assertIsNone(spec.password)
+        self.assertEquals(spec.password, 'chromeos')
 
 
     def test_only_set_band_2ghz(self):
@@ -89,14 +89,14 @@ class APSpecTest(unittest.TestCase):
         """Test setting the band and channel to valid 2GHz values."""
         spec = ap_spec.APSpec(band=ap_spec.BAND_2GHZ, mode=ap_spec.MODE_N,
                               channel=ap_spec.DEFAULT_2GHZ_CHANNEL)
-        self.assertNotEquals(spec.mode, ap_spec.DEFAULT_5GHZ_MODE)
+        self.assertEquals(spec.mode, ap_spec.MODE_N)
 
 
     def test_set_band_mode_and_channel_5ghz(self):
         """Test setting the band and channel to valid 5GHz value."""
         spec = ap_spec.APSpec(band=ap_spec.BAND_5GHZ, mode=ap_spec.MODE_N,
                               channel=ap_spec.DEFAULT_5GHZ_CHANNEL)
-        self.assertNotEquals(spec.mode, ap_spec.DEFAULT_2GHZ_MODE)
+        self.assertEquals(spec.mode, ap_spec.MODE_N)
 
 
     def test_set_security_psk_default(self):

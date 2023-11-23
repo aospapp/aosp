@@ -39,7 +39,7 @@ class iozone(test.test):
 
         ctarget = os.getenv('CTARGET_default')
 
-        if (ctarget == 'armv7a-cros-linux-gnueabi'):
+        if (ctarget == 'armv7a-cros-linux-gnueabihf'):
             utils.make('linux-arm')
         elif (ctarget == 'i686-pc-linux-gnu'):
             utils.make('linux')

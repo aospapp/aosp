@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision a3ee0ed08111d44ac3cb863d9e3e81a7c28f9d90.
+ * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
  */
 void					glActiveShaderProgram								(glw::GLuint pipeline, glw::GLuint program);
 void					glActiveTexture										(glw::GLenum texture);
@@ -156,7 +156,7 @@ void					glDeleteVertexArrays								(glw::GLsizei n, const glw::GLuint *arrays)
 void					glDepthBoundsEXT									(glw::GLclampd zmin, glw::GLclampd zmax);
 void					glDepthFunc											(glw::GLenum func);
 void					glDepthMask											(glw::GLboolean flag);
-void					glDepthRange										(glw::GLdouble near, glw::GLdouble far);
+void					glDepthRange										(glw::GLdouble n, glw::GLdouble f);
 void					glDepthRangeArrayfvOES								(glw::GLuint first, glw::GLsizei count, const glw::GLfloat *v);
 void					glDepthRangeArrayv									(glw::GLuint first, glw::GLsizei count, const glw::GLdouble *v);
 void					glDepthRangeIndexed									(glw::GLuint index, glw::GLdouble n, glw::GLdouble f);
@@ -220,6 +220,7 @@ void					glFramebufferRenderbuffer							(glw::GLenum target, glw::GLenum attach
 void					glFramebufferTexture								(glw::GLenum target, glw::GLenum attachment, glw::GLuint texture, glw::GLint level);
 void					glFramebufferTexture1D								(glw::GLenum target, glw::GLenum attachment, glw::GLenum textarget, glw::GLuint texture, glw::GLint level);
 void					glFramebufferTexture2D								(glw::GLenum target, glw::GLenum attachment, glw::GLenum textarget, glw::GLuint texture, glw::GLint level);
+void					glFramebufferTexture2DMultisampleEXT				(glw::GLenum target, glw::GLenum attachment, glw::GLenum textarget, glw::GLuint texture, glw::GLint level, glw::GLsizei samples);
 void					glFramebufferTexture3D								(glw::GLenum target, glw::GLenum attachment, glw::GLenum textarget, glw::GLuint texture, glw::GLint level, glw::GLint zoffset);
 void					glFramebufferTexture3DOES							(glw::GLenum target, glw::GLenum attachment, glw::GLenum textarget, glw::GLuint texture, glw::GLint level, glw::GLint zoffset);
 void					glFramebufferTextureLayer							(glw::GLenum target, glw::GLenum attachment, glw::GLuint texture, glw::GLint level, glw::GLint layer);
@@ -496,6 +497,17 @@ void					glMultiTexRenderbufferEXT							(glw::GLenum texunit, glw::GLenum targe
 void					glMultiTexSubImage1DEXT								(glw::GLenum texunit, glw::GLenum target, glw::GLint level, glw::GLint xoffset, glw::GLsizei width, glw::GLenum format, glw::GLenum type, const void *pixels);
 void					glMultiTexSubImage2DEXT								(glw::GLenum texunit, glw::GLenum target, glw::GLint level, glw::GLint xoffset, glw::GLint yoffset, glw::GLsizei width, glw::GLsizei height, glw::GLenum format, glw::GLenum type, const void *pixels);
 void					glMultiTexSubImage3DEXT								(glw::GLenum texunit, glw::GLenum target, glw::GLint level, glw::GLint xoffset, glw::GLint yoffset, glw::GLint zoffset, glw::GLsizei width, glw::GLsizei height, glw::GLsizei depth, glw::GLenum format, glw::GLenum type, const void *pixels);
+void					glMulticastBarrierNV								(void);
+void					glMulticastBlitFramebufferNV						(glw::GLuint srcGpu, glw::GLuint dstGpu, glw::GLint srcX0, glw::GLint srcY0, glw::GLint srcX1, glw::GLint srcY1, glw::GLint dstX0, glw::GLint dstY0, glw::GLint dstX1, glw::GLint dstY1, glw::GLbitfield mask, glw::GLenum filter);
+void					glMulticastBufferSubDataNV							(glw::GLbitfield gpuMask, glw::GLuint buffer, glw::GLintptr offset, glw::GLsizeiptr size, const void *data);
+void					glMulticastCopyBufferSubDataNV						(glw::GLuint readGpu, glw::GLbitfield writeGpuMask, glw::GLuint readBuffer, glw::GLuint writeBuffer, glw::GLintptr readOffset, glw::GLintptr writeOffset, glw::GLsizeiptr size);
+void					glMulticastCopyImageSubDataNV						(glw::GLuint srcGpu, glw::GLbitfield dstGpuMask, glw::GLuint srcName, glw::GLenum srcTarget, glw::GLint srcLevel, glw::GLint srcX, glw::GLint srcY, glw::GLint srcZ, glw::GLuint dstName, glw::GLenum dstTarget, glw::GLint dstLevel, glw::GLint dstX, glw::GLint dstY, glw::GLint dstZ, glw::GLsizei srcWidth, glw::GLsizei srcHeight, glw::GLsizei srcDepth);
+void					glMulticastFramebufferSampleLocationsfvNV			(glw::GLuint gpu, glw::GLuint framebuffer, glw::GLuint start, glw::GLsizei count, const glw::GLfloat *v);
+void					glMulticastGetQueryObjecti64vNV						(glw::GLuint gpu, glw::GLuint id, glw::GLenum pname, glw::GLint64 *params);
+void					glMulticastGetQueryObjectivNV						(glw::GLuint gpu, glw::GLuint id, glw::GLenum pname, glw::GLint *params);
+void					glMulticastGetQueryObjectui64vNV					(glw::GLuint gpu, glw::GLuint id, glw::GLenum pname, glw::GLuint64 *params);
+void					glMulticastGetQueryObjectuivNV						(glw::GLuint gpu, glw::GLuint id, glw::GLenum pname, glw::GLuint *params);
+void					glMulticastWaitSyncNV								(glw::GLuint signalGpu, glw::GLbitfield waitGpuMask);
 void					glNamedBufferData									(glw::GLuint buffer, glw::GLsizeiptr size, const void *data, glw::GLenum usage);
 void					glNamedBufferDataEXT								(glw::GLuint buffer, glw::GLsizeiptr size, const void *data, glw::GLenum usage);
 void					glNamedBufferPageCommitmentARB						(glw::GLuint buffer, glw::GLintptr offset, glw::GLsizeiptr size, glw::GLboolean commit);
@@ -632,8 +644,10 @@ void					glReadBuffer										(glw::GLenum src);
 void					glReadPixels										(glw::GLint x, glw::GLint y, glw::GLsizei width, glw::GLsizei height, glw::GLenum format, glw::GLenum type, void *pixels);
 void					glReadnPixels										(glw::GLint x, glw::GLint y, glw::GLsizei width, glw::GLsizei height, glw::GLenum format, glw::GLenum type, glw::GLsizei bufSize, void *data);
 void					glReleaseShaderCompiler								(void);
+void					glRenderGpuMaskNV									(glw::GLbitfield mask);
 void					glRenderbufferStorage								(glw::GLenum target, glw::GLenum internalformat, glw::GLsizei width, glw::GLsizei height);
 void					glRenderbufferStorageMultisample					(glw::GLenum target, glw::GLsizei samples, glw::GLenum internalformat, glw::GLsizei width, glw::GLsizei height);
+void					glRenderbufferStorageMultisampleEXT					(glw::GLenum target, glw::GLsizei samples, glw::GLenum internalformat, glw::GLsizei width, glw::GLsizei height);
 void					glResumeTransformFeedback							(void);
 void					glSampleCoverage									(glw::GLfloat value, glw::GLboolean invert);
 void					glSampleMaski										(glw::GLuint maskNumber, glw::GLbitfield mask);

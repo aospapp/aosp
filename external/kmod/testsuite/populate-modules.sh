@@ -22,6 +22,14 @@ map=(
     ["test-depmod/detect-loop/lib/modules/4.4.4/kernel/mod-loop-i.ko"]="mod-loop-i.ko"
     ["test-depmod/detect-loop/lib/modules/4.4.4/kernel/mod-loop-j.ko"]="mod-loop-j.ko"
     ["test-depmod/detect-loop/lib/modules/4.4.4/kernel/mod-loop-k.ko"]="mod-loop-k.ko"
+    ["test-depmod/search-order-external-first/lib/modules/4.4.4/foo/"]="mod-simple.ko"
+    ["test-depmod/search-order-external-first/lib/modules/4.4.4/foobar/"]="mod-simple.ko"
+    ["test-depmod/search-order-external-first/lib/modules/external/"]="mod-simple.ko"
+    ["test-depmod/search-order-external-last/lib/modules/4.4.4/foo/"]="mod-simple.ko"
+    ["test-depmod/search-order-external-last/lib/modules/4.4.4/foobar/"]="mod-simple.ko"
+    ["test-depmod/search-order-external-last/lib/modules/external/"]="mod-simple.ko"
+    ["test-depmod/search-order-override/lib/modules/4.4.4/foo/"]="mod-simple.ko"
+    ["test-depmod/search-order-override/lib/modules/4.4.4/override/"]="mod-simple.ko"
     ["test-dependencies/lib/modules/4.0.20-kmod/kernel/fs/foo/"]="mod-foo-b.ko"
     ["test-dependencies/lib/modules/4.0.20-kmod/kernel/"]="mod-foo-c.ko"
     ["test-dependencies/lib/modules/4.0.20-kmod/kernel/lib/"]="mod-foo-a.ko"
@@ -31,6 +39,7 @@ map=(
     ["test-modprobe/show-depends/lib/modules/4.4.4/kernel/mod-loop-a.ko"]="mod-loop-a.ko"
     ["test-modprobe/show-depends/lib/modules/4.4.4/kernel/mod-loop-b.ko"]="mod-loop-b.ko"
     ["test-modprobe/show-depends/lib/modules/4.4.4/kernel/mod-simple.ko"]="mod-simple.ko"
+    ["test-modprobe/show-exports/mod-loop-a.ko"]="mod-loop-a.ko"
     ["test-modprobe/softdep-loop/lib/modules/4.4.4/kernel/mod-loop-a.ko"]="mod-loop-a.ko"
     ["test-modprobe/softdep-loop/lib/modules/4.4.4/kernel/mod-loop-b.ko"]="mod-loop-b.ko"
     ["test-modprobe/install-cmd-loop/lib/modules/4.4.4/kernel/mod-loop-a.ko"]="mod-loop-a.ko"
@@ -40,6 +49,7 @@ map=(
     ["test-modprobe/oldkernel-force/lib/modules/3.3.3/kernel/"]="mod-simple.ko"
     ["test-modprobe/alias-to-none/lib/modules/4.4.4/kernel/"]="mod-simple.ko"
     ["test-modprobe/module-param-kcmdline/lib/modules/4.4.4/kernel/"]="mod-simple.ko"
+    ["test-modprobe/external/lib/modules/external/"]="mod-simple.ko"
     ["test-depmod/modules-order-compressed/lib/modules/4.4.4/kernel/drivers/block/cciss.ko"]="mod-fake-cciss.ko"
     ["test-depmod/modules-order-compressed/lib/modules/4.4.4/kernel/drivers/scsi/hpsa.ko"]="mod-fake-hpsa.ko"
     ["test-depmod/modules-order-compressed/lib/modules/4.4.4/kernel/drivers/scsi/scsi_mod.ko"]="mod-fake-scsi-mod.ko"
@@ -48,6 +58,8 @@ map=(
     ["test-modinfo/mod-simple-sparc64.ko"]="mod-simple-sparc64.ko"
     ["test-modinfo/mod-simple-sha1.ko"]="mod-simple.ko"
     ["test-modinfo/mod-simple-sha256.ko"]="mod-simple.ko"
+    ["test-modinfo/mod-simple-pkcs7.ko"]="mod-simple.ko"
+    ["test-modinfo/external/lib/modules/external/mod-simple.ko"]="mod-simple.ko"
     ["test-tools/insert/lib/modules/4.4.4/kernel/"]="mod-simple.ko"
     ["test-tools/remove/lib/modules/4.4.4/kernel/"]="mod-simple.ko"
 )
@@ -64,6 +76,10 @@ attach_sha256_array=(
 
 attach_sha1_array=(
     "test-modinfo/mod-simple-sha1.ko"
+    )
+
+attach_pkcs7_array=(
+    "test-modinfo/mod-simple-pkcs7.ko"
     )
 
 for k in ${!map[@]}; do
@@ -91,4 +107,8 @@ done
 
 for m in "${attach_sha256_array[@]}"; do
     cat ${MODULE_PLAYGROUND}/dummy.sha256 >> ${ROOTFS}/$m
+done
+
+for m in "${attach_pkcs7_array[@]}"; do
+    cat ${MODULE_PLAYGROUND}/dummy.pkcs7 >> ${ROOTFS}/$m
 done

@@ -14,15 +14,15 @@
 
 LOCAL_PATH := $(call my-dir)
 
-include $(CLEAR_VARS)
+vti-global-config-prod-zip :=
+vti-global-config-test-zip :=
 
-.PHONY: vti-global-config
-
+dirs := $(strip \
+  $(wildcard test/vti/test_serving/configs/global/prod) \
+  $(wildcard vendor/google_vts/configs/global/prod))
+ifdef dirs
 vti-global-config-prod-zip := $(HOST_OUT)/vti-global-config/vti-global-config-prod.zip
-vti-global-config-test-zip := $(HOST_OUT)/vti-global-config/vti-global-config-test.zip
-
-.PHONY: $(vti-global-config-prod-zip)
-$(vti-global-config-prod-zip): $(SOONG_ZIP)
+$(vti-global-config-prod-zip): $(SOONG_ZIP) $(call find-files-in-subdirs,.,"*.*_config", $(dirs))
 	@echo "build vti config package: $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) rm -f $@
@@ -31,9 +31,14 @@ $(vti-global-config-prod-zip): $(SOONG_ZIP)
 	$(hide) $(SOONG_ZIP) -d -o $@ -C test/vti/test_serving/configs/global -l $@.list \
 	    -C vendor/google_vts/configs/global -l $@.list.vendor
 	$(hide) rm -f $@.list $@.list.vendor
+endif
 
-.PHONY: $(vti-global-config-test-zip)
-$(vti-global-config-test-zip): $(SOONG_ZIP)
+dirs := $(strip \
+    $(wildcard test/vti/test_serving/configs/global/test) \
+    $(wildcard vendor/google_vts/configs/global/test))
+ifdef dirs
+vti-global-config-test-zip := $(HOST_OUT)/vti-global-config/vti-global-config-test.zip
+$(vti-global-config-test-zip): $(SOONG_ZIP) $(call find-files-in-subdirs,.,"*.*_config", $(dirs))
 	@echo "build vti config package: $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) rm -f $@
@@ -42,12 +47,17 @@ $(vti-global-config-test-zip): $(SOONG_ZIP)
 	$(hide) $(SOONG_ZIP) -d -o $@ -C test/vti/test_serving/configs/global -l $@.list \
 	    -C vendor/google_vts/configs/global -l $@.list.vendor
 	$(hide) rm -f $@.list $@.list.vendor
+endif
 
+.PHONY: vti-global-config
 vti-global-config: $(vti-global-config-prod-zip) $(vti-global-config-test-zip)
 $(call dist-for-goals, vti-global-config, $(vti-global-config-prod-zip) $(vti-global-config-test-zip))
 
+.PHONY: vti-config
 vti-config: vti-global-config
 
+.PHONY: vti
 vti: vti-config
 
+.PHONY: vts
 vts: vti-config

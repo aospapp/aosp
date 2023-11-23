@@ -50,6 +50,10 @@ public class EmergencySearchIndexablesProvider extends SearchIndexablesProvider 
 
     @Override
     public Cursor queryXmlResources(String[] projection) {
+        if (getContext().getResources().getBoolean(R.bool.config_search_index_disabled)) {
+            return null;
+        }
+
         MatrixCursor cursor = new MatrixCursor(INDEXABLES_XML_RES_COLUMNS);
         for (int i = 0, length = INDEXABLE_RES.length; i < length; i++) {
             cursor.newRow()
@@ -66,13 +70,11 @@ public class EmergencySearchIndexablesProvider extends SearchIndexablesProvider 
 
     @Override
     public Cursor queryRawData(String[] projection) {
-        MatrixCursor cursor = new MatrixCursor(INDEXABLES_RAW_COLUMNS);
-        return cursor;
+        return null;
     }
 
     @Override
     public Cursor queryNonIndexableKeys(String[] projection) {
-        MatrixCursor cursor = new MatrixCursor(NON_INDEXABLES_KEYS_COLUMNS);
-        return cursor;
+        return null;
     }
 }

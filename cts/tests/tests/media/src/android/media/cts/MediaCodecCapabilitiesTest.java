@@ -35,6 +35,8 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+import android.util.Range;
+import android.util.Size;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.DynamicConfigDeviceSide;
@@ -171,6 +173,19 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             assertTrue(
                     "H.265 must support Main10 Profile Main Tier Level 5 if UHD is supported",
                     hasDecoder(MIMETYPE_VIDEO_HEVC, HEVCProfileMain10, HEVCMainTierLevel5));
+        }
+    }
+
+    public void testVp9DecoderCapabilitiesOnTv() throws Exception {
+        if (isTv() && MediaUtils.hasHardwareCodec(MIMETYPE_VIDEO_VP9, /* encode = */ false)) {
+            // CDD [5.3.7.4/T-1-1]
+            assertTrue(MediaUtils.canDecodeVideo(MIMETYPE_VIDEO_VP9, 1920, 1080, 60 /* fps */,
+                    VP9Profile0, null, null));
+            if (MediaUtils.canDecodeVideo(MIMETYPE_VIDEO_VP9, 3840, 2160, 60 /* fps */)) {
+                // CDD [5.3.7.5/T-2-1]
+                assertTrue(MediaUtils.canDecodeVideo(MIMETYPE_VIDEO_VP9, 3840, 2160, 60 /* fps */,
+                        VP9Profile0, null, null));
+            }
         }
     }
 
@@ -492,6 +507,16 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         }
     }
 
+    private Size getVideoSizeForTest(VideoCapabilities vidCaps) {
+        Size size = new Size(176, 144);  // Use QCIF by default.
+        if (vidCaps != null && !vidCaps.isSizeSupported(size.getWidth(), size.getHeight())) {
+            int minWidth = vidCaps.getSupportedWidths().getLower();
+            int minHeight = vidCaps.getSupportedHeightsFor(minWidth).getLower();
+            size = new Size(minWidth, minHeight);
+        }
+        return size;
+    }
+
     private MediaFormat createVideoFormatForBitrateMode(String mime, int width, int height,
             int bitrateMode, CodecCapabilities caps) {
         MediaCodecInfo.EncoderCapabilities encoderCaps = caps.getEncoderCapabilities();
@@ -545,12 +570,14 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
                 if (!isVideo) {
                     continue;
                 }
+                CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                Size size = getVideoSizeForTest(caps.getVideoCapabilities());
                 skipped = false;
 
                 int numSupportedModes = 0;
                 for (int mode : modes) {
                     MediaFormat format = createVideoFormatForBitrateMode(
-                            mime, 176, 144, mode, info.getCapabilitiesForType(mime));
+                            mime, size.getWidth(), size.getHeight(), mode, caps);
                     if (format == null) {
                         continue;
                     }
@@ -603,9 +630,10 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
                 MediaCodec codec = null;
                 MediaFormat format = null;
                 try {
+                    Size size = getVideoSizeForTest(caps.getVideoCapabilities());
                     codec = MediaCodec.createByCodecName(info.getName());
-                    // implicit assumption that QCIF video is always valid.
-                    format = createReasonableVideoFormat(caps, mime, isEncoder, 176, 144);
+                    format = createReasonableVideoFormat(
+                            caps, mime, isEncoder, size.getWidth(), size.getHeight());
                     format.setInteger(
                             MediaFormat.KEY_COLOR_FORMAT,
                             caps.COLOR_FormatYUV420Flexible);
@@ -722,6 +750,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_OPUS     ) ||
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_RAW      ) ||
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_AUDIO_VORBIS   ) ||
+            type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_AV1      ) ||
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_AVC      ) ||
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_H263     ) ||
             type.equalsIgnoreCase(MediaFormat.MIMETYPE_VIDEO_HEVC     ) ||
@@ -772,6 +801,77 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             String failMessage = "In order to pass the test, please publish following " +
                     "codecs' concurrent instances limit in /etc/media_codecs.xml: \n";
            fail(failMessage + xmlOverrides.toString());
+        }
+    }
+
+    public void testGetSupportedFrameRates() throws IOException {
+        // Chose MediaFormat.MIMETYPE_VIDEO_H263 randomly
+        CodecCapabilities codecCap = CodecCapabilities.createFromProfileLevel(
+                MediaFormat.MIMETYPE_VIDEO_H263, H263ProfileBaseline, H263Level45);
+        Range<Integer> supportedFrameRates =
+                codecCap.getVideoCapabilities().getSupportedFrameRates();
+        Log.d(TAG, "Supported Frame Rates : " + supportedFrameRates.toString());
+        /*
+            ITU-T Rec. H.263/Annex X (03/2004) says that for H263ProfileBaseline and H263Level45,
+            the device has to support 15 fps.
+        */
+        assertTrue("Invalid framerate range", Range.create(1, 15).equals(supportedFrameRates));
+    }
+
+    public void testIsSampleRateSupported() throws IOException {
+        if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_AUDIO_AAC)) {
+            return; // skip
+        }
+        // Chose AAC Decoder/MediaFormat.MIMETYPE_AUDIO_AAC randomly
+        MediaCodec codec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+        MediaCodecInfo.AudioCapabilities audioCap = codec.getCodecInfo()
+                    .getCapabilitiesForType(MediaFormat.MIMETYPE_AUDIO_AAC).getAudioCapabilities();
+        final int[] validSampleRates = {8000, 16000, 22050, 44100};
+        for(int sampleRate : validSampleRates) {
+            Log.d(TAG, "SampleRate = " + sampleRate);
+            assertTrue("Expected True for isSampleRateSupported",
+                audioCap.isSampleRateSupported(sampleRate));
+        }
+        final int[] invalidSampleRates = {-1, 0, 1, Integer.MAX_VALUE};
+        for(int sampleRate : invalidSampleRates) {
+            Log.d(TAG, "SampleRate = " + sampleRate);
+            assertFalse("Expected False for isSampleRateSupported",
+                audioCap.isSampleRateSupported(sampleRate));
+        }
+        codec.release();
+    }
+
+    // API test coverage for MediaCodecInfo.EncoderCapabilities.getComplexityRange()
+    public void testGetComplexityRange() throws IOException {
+        boolean skipTest = true;
+        if (MediaUtils.hasEncoder(MediaFormat.MIMETYPE_AUDIO_AAC)) {
+            // Chose AAC Encoder/MediaFormat.MIMETYPE_AUDIO_AAC randomly
+            MediaCodec codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+            Range<Integer> complexityRange =
+                    codec.getCodecInfo()
+                            .getCapabilitiesForType(MediaFormat.MIMETYPE_AUDIO_AAC)
+                            .getEncoderCapabilities()
+                            .getComplexityRange();
+            Log.d(TAG, "AAC ComplexityRange : " + complexityRange.toString());
+            assertTrue("AAC ComplexityRange invalid low value", complexityRange.getLower() >= 0);
+            codec.release();
+            skipTest = false;
+        }
+        if (MediaUtils.hasEncoder(MediaFormat.MIMETYPE_AUDIO_FLAC)) {
+            // Repeat test with FLAC Encoder
+            MediaCodec codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_FLAC);
+            Range<Integer> complexityRange =
+                    codec.getCodecInfo()
+                            .getCapabilitiesForType(MediaFormat.MIMETYPE_AUDIO_FLAC)
+                            .getEncoderCapabilities()
+                            .getComplexityRange();
+            Log.d(TAG, "FLAC ComplexityRange : " + complexityRange.toString());
+            assertTrue("FLAC ComplexityRange invalid low value", complexityRange.getLower() >= 0);
+            codec.release();
+            skipTest = false;
+        }
+        if (skipTest) {
+            MediaUtils.skipTest(TAG, "AAC and FLAC encoders not present");
         }
     }
 }

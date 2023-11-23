@@ -22,7 +22,7 @@
 
 #include "art_method-inl.h"
 #include "gc/task_processor.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
@@ -59,7 +59,7 @@ static ResultT GetThreadStack(const ScopedFastNativeObjectAccess& soa,
     ThreadList* thread_list = Runtime::Current()->GetThreadList();
     bool timed_out;
     Thread* thread = thread_list->SuspendThreadByPeer(peer,
-                                                      /* request_suspension */ true,
+                                                      /* request_suspension= */ true,
                                                       SuspendReason::kInternal,
                                                       &timed_out);
     if (thread != nullptr) {
@@ -113,7 +113,7 @@ static jobject VMStack_getClosestUserClassLoader(JNIEnv* env, jclass) {
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         class_loader(nullptr) {}
 
-    bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
+    bool VisitFrame() override REQUIRES_SHARED(Locks::mutator_lock_) {
       DCHECK(class_loader == nullptr);
       ObjPtr<mirror::Class> c = GetMethod()->GetDeclaringClass();
       // c is null for runtime methods.

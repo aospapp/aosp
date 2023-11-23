@@ -21,6 +21,7 @@
 
 #include <android-base/logging.h>
 
+#include "base/data_hash.h"
 #include "base/utils.h"
 #include "compiled_method.h"
 #include "linker/linker_patch.h"
@@ -80,65 +81,7 @@ class CompiledMethodStorage::DedupeHashFunc {
 
  public:
   size_t operator()(const ArrayRef<ContentType>& array) const {
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(array.data());
-    // TODO: More reasonable assertion.
-    // static_assert(IsPowerOfTwo(sizeof(ContentType)),
-    //    "ContentType is not power of two, don't know whether array layout is as assumed");
-    uint32_t len = sizeof(ContentType) * array.size();
-    if (kUseMurmur3Hash) {
-      static constexpr uint32_t c1 = 0xcc9e2d51;
-      static constexpr uint32_t c2 = 0x1b873593;
-      static constexpr uint32_t r1 = 15;
-      static constexpr uint32_t r2 = 13;
-      static constexpr uint32_t m = 5;
-      static constexpr uint32_t n = 0xe6546b64;
-
-      uint32_t hash = 0;
-
-      const int nblocks = len / 4;
-      typedef __attribute__((__aligned__(1))) uint32_t unaligned_uint32_t;
-      const unaligned_uint32_t *blocks = reinterpret_cast<const uint32_t*>(data);
-      int i;
-      for (i = 0; i < nblocks; i++) {
-        uint32_t k = blocks[i];
-        k *= c1;
-        k = (k << r1) | (k >> (32 - r1));
-        k *= c2;
-
-        hash ^= k;
-        hash = ((hash << r2) | (hash >> (32 - r2))) * m + n;
-      }
-
-      const uint8_t *tail = reinterpret_cast<const uint8_t*>(data + nblocks * 4);
-      uint32_t k1 = 0;
-
-      switch (len & 3) {
-        case 3:
-          k1 ^= tail[2] << 16;
-          FALLTHROUGH_INTENDED;
-        case 2:
-          k1 ^= tail[1] << 8;
-          FALLTHROUGH_INTENDED;
-        case 1:
-          k1 ^= tail[0];
-
-          k1 *= c1;
-          k1 = (k1 << r1) | (k1 >> (32 - r1));
-          k1 *= c2;
-          hash ^= k1;
-      }
-
-      hash ^= len;
-      hash ^= (hash >> 16);
-      hash *= 0x85ebca6b;
-      hash ^= (hash >> 13);
-      hash *= 0xc2b2ae35;
-      hash ^= (hash >> 16);
-
-      return hash;
-    } else {
-      return HashBytes(data, len);
-    }
+    return DataHash()(array);
   }
 };
 
@@ -161,17 +104,57 @@ class CompiledMethodStorage::LengthPrefixedArrayAlloc {
   SwapSpace* const swap_space_;
 };
 
+class CompiledMethodStorage::ThunkMapKey {
+ public:
+  ThunkMapKey(linker::LinkerPatch::Type type, uint32_t custom_value1, uint32_t custom_value2)
+      : type_(type), custom_value1_(custom_value1), custom_value2_(custom_value2) {}
+
+  bool operator<(const ThunkMapKey& other) const {
+    if (custom_value1_ != other.custom_value1_) {
+      return custom_value1_ < other.custom_value1_;
+    }
+    if (custom_value2_ != other.custom_value2_) {
+      return custom_value2_ < other.custom_value2_;
+    }
+    return type_ < other.type_;
+  }
+
+ private:
+  linker::LinkerPatch::Type type_;
+  uint32_t custom_value1_;
+  uint32_t custom_value2_;
+};
+
+class CompiledMethodStorage::ThunkMapValue {
+ public:
+  ThunkMapValue(std::vector<uint8_t, SwapAllocator<uint8_t>>&& code,
+                const std::string& debug_name)
+      : code_(std::move(code)), debug_name_(debug_name) {}
+
+  ArrayRef<const uint8_t> GetCode() const {
+    return ArrayRef<const uint8_t>(code_);
+  }
+
+  const std::string& GetDebugName() const {
+    return debug_name_;
+  }
+
+ private:
+  std::vector<uint8_t, SwapAllocator<uint8_t>> code_;
+  std::string debug_name_;
+};
+
 CompiledMethodStorage::CompiledMethodStorage(int swap_fd)
     : swap_space_(swap_fd == -1 ? nullptr : new SwapSpace(swap_fd, 10 * MB)),
       dedupe_enabled_(true),
       dedupe_code_("dedupe code", LengthPrefixedArrayAlloc<uint8_t>(swap_space_.get())),
-      dedupe_method_info_("dedupe method info",
-                          LengthPrefixedArrayAlloc<uint8_t>(swap_space_.get())),
       dedupe_vmap_table_("dedupe vmap table",
                          LengthPrefixedArrayAlloc<uint8_t>(swap_space_.get())),
       dedupe_cfi_info_("dedupe cfi info", LengthPrefixedArrayAlloc<uint8_t>(swap_space_.get())),
       dedupe_linker_patches_("dedupe cfi info",
-                             LengthPrefixedArrayAlloc<linker::LinkerPatch>(swap_space_.get())) {
+                             LengthPrefixedArrayAlloc<linker::LinkerPatch>(swap_space_.get())),
+      thunk_map_lock_("thunk_map_lock"),
+      thunk_map_(std::less<ThunkMapKey>(), SwapAllocator<ThunkMapValueType>(swap_space_.get())) {
 }
 
 CompiledMethodStorage::~CompiledMethodStorage() {
@@ -200,15 +183,6 @@ void CompiledMethodStorage::ReleaseCode(const LengthPrefixedArray<uint8_t>* code
   ReleaseArrayIfNotDeduplicated(code);
 }
 
-const LengthPrefixedArray<uint8_t>* CompiledMethodStorage::DeduplicateMethodInfo(
-    const ArrayRef<const uint8_t>& src_map) {
-  return AllocateOrDeduplicateArray(src_map, &dedupe_method_info_);
-}
-
-void CompiledMethodStorage::ReleaseMethodInfo(const LengthPrefixedArray<uint8_t>* method_info) {
-  ReleaseArrayIfNotDeduplicated(method_info);
-}
-
 const LengthPrefixedArray<uint8_t>* CompiledMethodStorage::DeduplicateVMapTable(
     const ArrayRef<const uint8_t>& table) {
   return AllocateOrDeduplicateArray(table, &dedupe_vmap_table_);
@@ -235,6 +209,57 @@ const LengthPrefixedArray<linker::LinkerPatch>* CompiledMethodStorage::Deduplica
 void CompiledMethodStorage::ReleaseLinkerPatches(
     const LengthPrefixedArray<linker::LinkerPatch>* linker_patches) {
   ReleaseArrayIfNotDeduplicated(linker_patches);
+}
+
+CompiledMethodStorage::ThunkMapKey CompiledMethodStorage::GetThunkMapKey(
+    const linker::LinkerPatch& linker_patch) {
+  uint32_t custom_value1 = 0u;
+  uint32_t custom_value2 = 0u;
+  switch (linker_patch.GetType()) {
+    case linker::LinkerPatch::Type::kBakerReadBarrierBranch:
+      custom_value1 = linker_patch.GetBakerCustomValue1();
+      custom_value2 = linker_patch.GetBakerCustomValue2();
+      break;
+    case linker::LinkerPatch::Type::kCallRelative:
+      // No custom values.
+      break;
+    default:
+      LOG(FATAL) << "Unexpected patch type: " << linker_patch.GetType();
+      UNREACHABLE();
+  }
+  return ThunkMapKey(linker_patch.GetType(), custom_value1, custom_value2);
+}
+
+ArrayRef<const uint8_t> CompiledMethodStorage::GetThunkCode(const linker::LinkerPatch& linker_patch,
+                                                            /*out*/ std::string* debug_name) {
+  ThunkMapKey key = GetThunkMapKey(linker_patch);
+  MutexLock lock(Thread::Current(), thunk_map_lock_);
+  auto it = thunk_map_.find(key);
+  if (it != thunk_map_.end()) {
+    const ThunkMapValue& value = it->second;
+    if (debug_name != nullptr) {
+      *debug_name = value.GetDebugName();
+    }
+    return value.GetCode();
+  } else {
+    if (debug_name != nullptr) {
+      *debug_name = std::string();
+    }
+    return ArrayRef<const uint8_t>();
+  }
+}
+
+void CompiledMethodStorage::SetThunkCode(const linker::LinkerPatch& linker_patch,
+                                         ArrayRef<const uint8_t> code,
+                                         const std::string& debug_name) {
+  DCHECK(!code.empty());
+  ThunkMapKey key = GetThunkMapKey(linker_patch);
+  std::vector<uint8_t, SwapAllocator<uint8_t>> code_copy(
+      code.begin(), code.end(), SwapAllocator<uint8_t>(swap_space_.get()));
+  ThunkMapValue value(std::move(code_copy), debug_name);
+  MutexLock lock(Thread::Current(), thunk_map_lock_);
+  // Note: Multiple threads can try and compile the same thunk, so this may not create a new entry.
+  thunk_map_.emplace(key, std::move(value));
 }
 
 }  // namespace art

@@ -30,12 +30,12 @@ class SampleShellTest(base_test.BaseTestClass):
     REPEAT_COUNT = 10
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
 
     def testOneCommand(self):
         """A simple testcase which just emulates a normal usage pattern."""
         self.dut.shell.InvokeTerminal("my_shell1")
-        results = self.dut.shell.my_shell1.Execute("which ls")
+        results = self.dut.shell.Execute("which ls")
         logging.info(str(results[const.STDOUT]))
         asserts.assertEqual(len(results[const.STDOUT]), 1)
         asserts.assertEqual(results[const.STDOUT][0].strip(), "/system/bin/ls")

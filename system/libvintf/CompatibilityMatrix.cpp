@@ -19,6 +19,8 @@
 #include <iostream>
 #include <utility>
 
+#include <android-base/strings.h>
+
 #include "parse_string.h"
 #include "parse_xml.h"
 #include "utils.h"
@@ -26,14 +28,61 @@
 namespace android {
 namespace vintf {
 
-bool CompatibilityMatrix::add(MatrixHal &&hal) {
-    return HalGroup<MatrixHal>::add(std::move(hal));
-}
+using details::mergeField;
 
-bool CompatibilityMatrix::add(MatrixKernel &&kernel) {
+bool CompatibilityMatrix::addKernel(MatrixKernel&& kernel, std::string* error) {
     if (mType != SchemaType::FRAMEWORK) {
+        if (error) {
+            *error = "Cannot add <kernel> to a " + to_string(mType) + " compatibility matrix.";
+        }
         return false;
     }
+
+    auto it = framework.mKernels.begin();
+    for (; it != framework.mKernels.end(); ++it) {
+        if (it->minLts() == kernel.minLts()) {
+            break;
+        }
+        if (it->minLts().version == kernel.minLts().version &&
+            it->minLts().majorRev == kernel.minLts().majorRev) {
+            if (error) {
+                *error = "Kernel version mismatch; cannot add " + to_string(kernel.minLts()) +
+                         " because " + to_string(it->minLts()) + " was added.";
+            }
+            return false;
+        }
+    }
+
+    bool seenVersion = it != framework.mKernels.end();
+
+    if (seenVersion) {
+        // If no conditions, must be the first among the same minLts
+        // because O libvintf only checks the first <kernel> tag that version matches.
+        if (kernel.conditions().empty()) {
+            // Found first <kernel> with the same minLts.
+            // Append config if it does not have <condition>s, else error.
+            if (it->conditions().empty()) {
+                const auto& configs = kernel.configs();
+                it->mConfigs.insert(it->mConfigs.end(), configs.begin(), configs.end());
+            } else {
+                if (error) {
+                    *error =
+                        "Base compatibility matrix has <condition> for the first <kernel> "
+                        "with minlts " +
+                        to_string(kernel.minLts()) + " for unknown reason.";
+                }
+                return false;
+            }
+            return true;
+        }
+    } else {
+        // First <kernel> of a minLts must not have <condition>'s for backwards compatibility
+        // with O libvintf.
+        if (!kernel.conditions().empty()) {
+            framework.mKernels.push_back(MatrixKernel(KernelVersion{kernel.minLts()}, {}));
+        }
+    }
+
     framework.mKernels.push_back(std::move(kernel));
     return true;
 }
@@ -52,8 +101,10 @@ Version CompatibilityMatrix::getMinimumMetaVersion() const {
     return {1, 0};
 }
 
-status_t CompatibilityMatrix::fetchAllInformation(const std::string& path, std::string* error) {
-    return details::fetchAllInformation(path, gCompatibilityMatrixConverter, this, error);
+status_t CompatibilityMatrix::fetchAllInformation(const FileSystem* fileSystem,
+                                                  const std::string& path, std::string* error) {
+    return details::fetchAllInformation(fileSystem, path, gCompatibilityMatrixConverter, this,
+                                        error);
 }
 
 std::string CompatibilityMatrix::getXmlSchemaPath(const std::string& xmlFileName,
@@ -194,6 +245,27 @@ bool CompatibilityMatrix::addAllXmlFilesAsOptional(CompatibilityMatrix* other, s
     return true;
 }
 
+// Merge Kernel.
+// Add <kernel> from exact "level", then optionally add <kernel> from high levels to low levels.
+// For example, (each letter is a kernel version x.y.z)
+// 1.xml: A1, B1
+// 2.xml: B2, C2, D2
+// 3.xml: D3, E3
+// Then the combined 1.xml should have
+// A1, B1 (from 1.xml, required), C2, D2, E3 (optional, use earliest possible).
+bool CompatibilityMatrix::addAllKernels(CompatibilityMatrix* other, std::string* error) {
+    for (MatrixKernel& kernel : other->framework.mKernels) {
+        KernelVersion ver = kernel.minLts();
+        if (!addKernel(std::move(kernel), error)) {
+            if (error) {
+                *error = "Cannot add kernel version " + to_string(ver) + ": " + *error;
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
 bool CompatibilityMatrix::addAllKernelsAsOptional(CompatibilityMatrix* other, std::string* error) {
     if (other == nullptr || other->level() <= level()) {
         return true;
@@ -214,13 +286,45 @@ bool CompatibilityMatrix::addAllKernelsAsOptional(CompatibilityMatrix* other, st
         }
 
         KernelVersion minLts = kernelToAdd.minLts();
-        if (!add(std::move(kernelToAdd))) {
+        if (!addKernel(std::move(kernelToAdd), error)) {
             if (error) {
-                *error = "Cannot add " + to_string(minLts) + " for unknown reason.";
+                *error = "Cannot add " + to_string(minLts) + ": " + *error;
             }
             return false;
         }
     }
+    return true;
+}
+
+bool CompatibilityMatrix::addSepolicy(CompatibilityMatrix* other, std::string* error) {
+    bool success = mergeField(&this->framework.mSepolicy, &other->framework.mSepolicy);
+    if (!success && error) *error = "<sepolicy> is already defined";
+    return success;
+}
+
+bool CompatibilityMatrix::addAvbMetaVersion(CompatibilityMatrix* other, std::string* error) {
+    bool success = mergeField(&this->framework.mAvbMetaVersion, &other->framework.mAvbMetaVersion);
+    if (!success && error) *error = "<avb><vbmeta-version> is already defined";
+    return success;
+}
+
+bool CompatibilityMatrix::addVndk(CompatibilityMatrix* other, std::string* error) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    bool success = mergeField(&this->device.mVndk, &other->device.mVndk);
+#pragma clang diagnostic pop
+    if (!success && error) *error = "<vndk> is already defined";
+    return success;
+}
+
+bool CompatibilityMatrix::addVendorNdk(CompatibilityMatrix* other, std::string* error) {
+    bool success = mergeField(&this->device.mVendorNdk, &other->device.mVendorNdk);
+    if (!success && error) *error = "<vendor-ndk> is already defined";
+    return success;
+}
+
+bool CompatibilityMatrix::addSystemSdk(CompatibilityMatrix* other, std::string* /* error */) {
+    this->device.mSystemSdk.addAll(&other->device.mSystemSdk);
     return true;
 }
 
@@ -241,175 +345,105 @@ bool operator==(const CompatibilityMatrix &lft, const CompatibilityMatrix &rgt) 
              lft.framework.mAvbMetaVersion == rgt.framework.mAvbMetaVersion));
 }
 
-// Find compatibility_matrix.empty.xml (which has unspecified level) and use it
-// as a base matrix.
-CompatibilityMatrix* CompatibilityMatrix::findOrInsertBaseMatrix(
-    std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error) {
-    std::vector<CompatibilityMatrix*> matricesUnspecified;
-    std::vector<CompatibilityMatrix*> matricesEmpty;
+std::unique_ptr<CompatibilityMatrix> CompatibilityMatrix::combine(
+    Level deviceLevel, std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error) {
+    // Check type.
+    for (const auto& e : *matrices) {
+        if (e.object.type() != SchemaType::FRAMEWORK) {
+            if (error) {
+                *error = "File \"" + e.name + "\" is not a framework compatibility matrix.";
+                return nullptr;
+            }
+        }
+    }
+
+    // Matrices with unspecified (empty) level are auto-filled with deviceLevel.
     for (auto& e : *matrices) {
         if (e.object.level() == Level::UNSPECIFIED) {
-            matricesUnspecified.push_back(&e.object);
-
-            if (!e.object.mHals.empty()) {
-                continue;
-            }
-
-            if (!e.object.mXmlFiles.empty()) {
-                continue;
-            }
-
-            matricesEmpty.push_back(&e.object);
+            e.object.mLevel = deviceLevel;
         }
     }
 
-    if (matricesEmpty.size() > 1) {
-        if (error) {
-            *error =
-                "Error: multiple framework compatibility matrix files have "
-                "unspecified level; there should only be one such file.\n";
-            for (auto& e : *matrices) {
-                if (e.object.level() == Level::UNSPECIFIED) {
-                    *error += "    " + e.name + "\n";
-                }
-            }
+    // Add from low to high FCM version so that optional <kernel> requirements are added correctly.
+    // See comment in addAllAsOptional.
+    std::sort(matrices->begin(), matrices->end(),
+              [](const auto& x, const auto& y) { return x.object.level() < y.object.level(); });
+
+    auto baseMatrix = std::make_unique<CompatibilityMatrix>();
+    baseMatrix->mLevel = deviceLevel;
+    baseMatrix->mType = SchemaType::FRAMEWORK;
+
+    std::vector<std::string> parsedFiles;
+    for (auto& e : *matrices) {
+        if (e.object.level() < deviceLevel) {
+            continue;
         }
-        return nullptr;
+
+        bool success = false;
+        if (e.object.level() == deviceLevel) {
+            success = baseMatrix->addAll(&e, error);
+        } else {
+            success = baseMatrix->addAllAsOptional(&e, error);
+        }
+        if (!success) {
+            if (error) {
+                *error = "Conflict when merging \"" + e.name + "\": " + *error + "\n" +
+                         "Previous files:\n" + base::Join(parsedFiles, "\n");
+            }
+            return nullptr;
+        }
+        parsedFiles.push_back(e.name);
     }
-    if (matricesEmpty.size() == 1) {
-        return matricesEmpty.front();
-    }
-    if (!matricesUnspecified.empty()) {
-        return matricesUnspecified.front();
-    }
-    auto matrix = &matrices->emplace(matrices->end())->object;
-    matrix->mType = SchemaType::FRAMEWORK;
-    matrix->mLevel = Level::UNSPECIFIED;
-    return matrix;
+
+    return baseMatrix;
 }
 
-// Check if there are two files declaring level="1", for example, because
-// combine() use this assumption to simplify a lot of logic.
-static bool checkDuplicateLevels(const std::vector<Named<CompatibilityMatrix>>& matrices,
-                                 std::string* error) {
-    std::map<Level, const std::string*> existingLevels;
-    for (const auto& e : matrices) {
-        if (e.object.level() == Level::UNSPECIFIED &&
-            existingLevels.find(e.object.level()) != existingLevels.end()) {
+std::unique_ptr<CompatibilityMatrix> CompatibilityMatrix::combineDeviceMatrices(
+    std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error) {
+    auto baseMatrix = std::make_unique<CompatibilityMatrix>();
+    baseMatrix->mType = SchemaType::DEVICE;
+
+    std::vector<std::string> parsedFiles;
+    for (auto& e : *matrices) {
+        bool success = baseMatrix->addAll(&e, error);
+        if (!success) {
             if (error) {
-                *error = "Conflict of levels: file \"" +
-                         *existingLevels.find(e.object.level())->second + "\" and \"" + e.name +
-                         " both have level " + to_string(e.object.level());
+                *error = "Conflict when merging \"" + e.name + "\": " + *error + "\n" +
+                         "Previous files:\n" + base::Join(parsedFiles, "\n");
             }
-            return false;
+            return nullptr;
         }
-        existingLevels.emplace(e.object.level(), &e.name);
+        parsedFiles.push_back(e.name);
+    }
+    return baseMatrix;
+}
+
+bool CompatibilityMatrix::addAll(Named<CompatibilityMatrix>* inputMatrix, std::string* error) {
+    if (!addAllHals(&inputMatrix->object, error) || !addAllXmlFiles(&inputMatrix->object, error) ||
+        !addAllKernels(&inputMatrix->object, error) || !addSepolicy(&inputMatrix->object, error) ||
+        !addAvbMetaVersion(&inputMatrix->object, error) || !addVndk(&inputMatrix->object, error) ||
+        !addVendorNdk(&inputMatrix->object, error) || !addSystemSdk(&inputMatrix->object, error)) {
+        if (error) {
+            *error = "File \"" + inputMatrix->name + "\" cannot be added: " + *error + ".";
+        }
+        return false;
     }
     return true;
 }
 
-CompatibilityMatrix* CompatibilityMatrix::combine(Level deviceLevel,
-                                                  std::vector<Named<CompatibilityMatrix>>* matrices,
-                                                  std::string* error) {
-    if (!checkDuplicateLevels(*matrices, error)) {
-        return nullptr;
-    }
-
-    CompatibilityMatrix* matrix = findOrInsertBaseMatrix(matrices, error);
-    if (matrix == nullptr) {
-        return nullptr;
-    }
-
-    matrix->mLevel = deviceLevel;
-
-    for (auto& e : *matrices) {
-        if (&e.object != matrix &&
-            (e.object.level() == deviceLevel || e.object.level() == Level::UNSPECIFIED)) {
-            if (!matrix->addAllHals(&e.object, error)) {
-                if (error) {
-                    *error = "File \"" + e.name + "\" cannot be added: HAL " + *error +
-                             " has a conflict.";
-                }
-                return nullptr;
-            }
-
-            if (!matrix->addAllXmlFiles(&e.object, error)) {
-                if (error) {
-                    *error = "File \"" + e.name + "\" cannot be added: XML File entry " + *error +
-                             " has a conflict.";
-                }
-                return nullptr;
-            }
+bool CompatibilityMatrix::addAllAsOptional(Named<CompatibilityMatrix>* inputMatrix,
+                                           std::string* error) {
+    if (!addAllHalsAsOptional(&inputMatrix->object, error) ||
+        !addAllXmlFilesAsOptional(&inputMatrix->object, error) ||
+        !addAllKernelsAsOptional(&inputMatrix->object, error)) {
+        if (error) {
+            *error = "File \"" + inputMatrix->name + "\" cannot be added: " + *error;
         }
+        return false;
     }
-
-    for (auto& e : *matrices) {
-        if (&e.object != matrix && e.object.level() != Level::UNSPECIFIED &&
-            e.object.level() > deviceLevel) {
-            if (!matrix->addAllHalsAsOptional(&e.object, error)) {
-                if (error) {
-                    *error = "File \"" + e.name + "\" cannot be added: " + *error +
-                             ". See <hal> with the same name " +
-                             "in previously parsed files or previously declared in this file.";
-                }
-                return nullptr;
-            }
-
-            if (!matrix->addAllXmlFilesAsOptional(&e.object, error)) {
-                if (error) {
-                    *error = "File \"" + e.name + "\" cannot be added: XML File entry " + *error +
-                             " has a conflict.";
-                }
-                return nullptr;
-            }
-        }
-    }
-
-    // Add <kernel> from exact "level", then optionally add <kernel> from high levels to low levels.
-    // For example, (each letter is a kernel version x.y.z)
-    // 1.xml: A1, B1
-    // 2.xml: B2, C2, D2
-    // 3.xml: D3, E3
-    // Then the combined 1.xml should have
-    // A1, B1 (from 1.xml, required), C2, D2, E3 (optional, use earliest possible).
-    for (auto& e : *matrices) {
-        if (&e.object != matrix && e.object.level() == deviceLevel &&
-            e.object.type() == SchemaType::FRAMEWORK) {
-            for (MatrixKernel& kernel : e.object.framework.mKernels) {
-                KernelVersion ver = kernel.minLts();
-                if (!matrix->add(std::move(kernel))) {
-                    if (error) {
-                        *error = "Cannot add kernel version " + to_string(ver) +
-                                 " from FCM version " + to_string(deviceLevel);
-                    }
-                    return nullptr;
-                }
-            }
-        }
-    }
-
-    // There is only one file per level, hence a map is used instead of a multimap. Also, there is
-    // no good ordering (i.e. priority) for multiple files with the same level.
-    std::map<Level, Named<CompatibilityMatrix>*> matricesMap;
-    for (auto& e : *matrices) {
-        if (&e.object != matrix && e.object.level() != Level::UNSPECIFIED &&
-            e.object.level() > deviceLevel && e.object.type() == SchemaType::FRAMEWORK) {
-            matricesMap.emplace(e.object.level(), &e);
-        }
-    }
-
-    for (auto&& pair : matricesMap) {
-        if (!matrix->addAllKernelsAsOptional(&pair.second->object, error)) {
-            if (error) {
-                *error = "Cannot add new kernel versions from FCM version " +
-                         to_string(pair.first) + " (" + pair.second->name + ")" +
-                         " to FCM version " + to_string(deviceLevel) + ": " + *error;
-            }
-            return nullptr;
-        }
-    }
-
-    return matrix;
+    // ignore <sepolicy> requirement from higher level
+    // ignore <avb> requirement from higher level
+    return true;
 }
 
 bool CompatibilityMatrix::forEachInstanceOfVersion(
@@ -437,6 +471,10 @@ bool CompatibilityMatrix::matchInstance(const std::string& halName, const Versio
                                          return !found;  // if not found, continue
                                      });
     return found;
+}
+
+std::string CompatibilityMatrix::getVendorNdkVersion() const {
+    return type() == SchemaType::DEVICE ? device.mVendorNdk.version() : "";
 }
 
 } // namespace vintf

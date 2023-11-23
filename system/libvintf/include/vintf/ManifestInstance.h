@@ -32,9 +32,9 @@ class ManifestInstance {
    public:
     ManifestInstance();
     ManifestInstance(const ManifestInstance&);
-    ManifestInstance(ManifestInstance&&);
+    ManifestInstance(ManifestInstance&&) noexcept;
     ManifestInstance& operator=(const ManifestInstance&);
-    ManifestInstance& operator=(ManifestInstance&&);
+    ManifestInstance& operator=(ManifestInstance&&) noexcept;
 
     using VersionType = Version;
     ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt);

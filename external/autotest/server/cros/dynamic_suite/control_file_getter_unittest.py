@@ -6,10 +6,7 @@
 
 """Unit tests for client/common_lib/cros/control_file_getter.py."""
 
-import httplib
-import logging
 import mox
-import StringIO
 import unittest
 
 import common
@@ -33,6 +30,7 @@ class DevServerGetterTest(mox.MoxTestBase):
     def setUp(self):
         super(DevServerGetterTest, self).setUp()
         self.dev_server = self.mox.CreateMock(dev_server.ImageServer)
+        self.dev_server.hostname = 'localhost'
         self.getter = control_file_getter.DevServerGetter(self._BUILD,
                                                           self.dev_server)
 

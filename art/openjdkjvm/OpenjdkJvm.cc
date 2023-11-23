@@ -48,8 +48,8 @@
 #include "common_throws.h"
 #include "gc/heap.h"
 #include "handle_scope-inl.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/string-inl.h"
 #include "monitor.h"
@@ -65,11 +65,6 @@
 #undef LOG_TAG
 #define LOG_TAG "artopenjdk"
 
-using ::android::base::WARNING;
-using ::android::base::INFO;
-using ::android::base::ERROR;
-using ::android::base::FATAL;
-
 /* posix open() with extensions; used by e.g. ZipFile */
 JNIEXPORT jint JVM_Open(const char* fname, jint flags, jint mode) {
     /*
@@ -82,6 +77,7 @@ JNIEXPORT jint JVM_Open(const char* fname, jint flags, jint mode) {
                    << fname << "')";
     }
 
+    flags |= O_CLOEXEC;
     int fd = TEMP_FAILURE_RETRY(open(fname, flags & ~JVM_O_DELETE, mode));
     if (fd < 0) {
         int err = errno;
@@ -192,7 +188,7 @@ JNIEXPORT int jio_fprintf(FILE* fp, const char* fmt, ...) {
 }
 
 JNIEXPORT int jio_vfprintf(FILE* fp, const char* fmt, va_list args) {
-    assert(fp != NULL);
+    assert(fp != nullptr);
     return vfprintf(fp, fmt, args);
 }
 
@@ -208,7 +204,7 @@ JNIEXPORT void* JVM_FindLibraryEntry(void* handle, const char* name) {
 JNIEXPORT jlong JVM_CurrentTimeMillis(JNIEnv* env ATTRIBUTE_UNUSED,
                                       jclass clazz ATTRIBUTE_UNUSED) {
     struct timeval tv;
-    gettimeofday(&tv, (struct timezone *) NULL);
+    gettimeofday(&tv, (struct timezone *) nullptr);
     jlong when = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
     return when;
 }
@@ -322,10 +318,11 @@ JNIEXPORT __attribute__((noreturn)) void JVM_Exit(jint status) {
 
 JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env,
                                  jstring javaFilename,
-                                 jobject javaLoader) {
+                                 jobject javaLoader,
+                                 jclass caller) {
   ScopedUtfChars filename(env, javaFilename);
-  if (filename.c_str() == NULL) {
-    return NULL;
+  if (filename.c_str() == nullptr) {
+    return nullptr;
   }
 
   std::string error_msg;
@@ -334,6 +331,7 @@ JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env,
     bool success = vm->LoadNativeLibrary(env,
                                          filename.c_str(),
                                          javaLoader,
+                                         caller,
                                          &error_msg);
     if (success) {
       return nullptr;
@@ -353,7 +351,7 @@ JNIEXPORT void JVM_SetThreadPriority(JNIEnv* env, jobject jthread, jint prio) {
   art::ScopedObjectAccess soa(env);
   art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
   art::Thread* thread = art::Thread::FromManagedThread(soa, jthread);
-  if (thread != NULL) {
+  if (thread != nullptr) {
     thread->SetNativePriority(prio);
   }
 }
@@ -401,7 +399,7 @@ JNIEXPORT jboolean JVM_HoldsLock(JNIEnv* env, jclass unused ATTRIBUTE_UNUSED, jo
     art::ThrowNullPointerException("object == null");
     return JNI_FALSE;
   }
-  return soa.Self()->HoldsLock(object.Ptr());
+  return soa.Self()->HoldsLock(object);
 }
 
 JNIEXPORT void JVM_SetNativeThreadName(JNIEnv* env, jobject jthread, jstring java_name) {
@@ -426,7 +424,7 @@ JNIEXPORT void JVM_SetNativeThreadName(JNIEnv* env, jobject jthread, jstring jav
                                               art::SuspendReason::kInternal,
                                               &timed_out);
   }
-  if (thread != NULL) {
+  if (thread != nullptr) {
     {
       art::ScopedObjectAccess soa(env);
       thread->SetThreadName(name.c_str());
@@ -439,36 +437,37 @@ JNIEXPORT void JVM_SetNativeThreadName(JNIEnv* env, jobject jthread, jstring jav
   }
 }
 
-JNIEXPORT jint JVM_IHashCode(JNIEnv* env ATTRIBUTE_UNUSED,
+JNIEXPORT __attribute__((noreturn)) jint JVM_IHashCode(JNIEnv* env ATTRIBUTE_UNUSED,
                              jobject javaObject ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL) << "JVM_IHashCode is not implemented";
-  return 0;
+  UNREACHABLE();
 }
 
-JNIEXPORT jlong JVM_NanoTime(JNIEnv* env ATTRIBUTE_UNUSED, jclass unused ATTRIBUTE_UNUSED) {
+JNIEXPORT __attribute__((noreturn)) jlong JVM_NanoTime(JNIEnv* env ATTRIBUTE_UNUSED, jclass unused ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL) << "JVM_NanoTime is not implemented";
-  return 0L;
+  UNREACHABLE();
 }
 
-JNIEXPORT void JVM_ArrayCopy(JNIEnv* /* env */, jclass /* unused */, jobject /* javaSrc */,
+JNIEXPORT __attribute__((noreturn)) void JVM_ArrayCopy(JNIEnv* /* env */, jclass /* unused */, jobject /* javaSrc */,
                              jint /* srcPos */, jobject /* javaDst */, jint /* dstPos */,
                              jint /* length */) {
   UNIMPLEMENTED(FATAL) << "JVM_ArrayCopy is not implemented";
+  UNREACHABLE();
 }
 
-JNIEXPORT jint JVM_FindSignal(const char* name ATTRIBUTE_UNUSED) {
+JNIEXPORT __attribute__((noreturn)) jint JVM_FindSignal(const char* name ATTRIBUTE_UNUSED) {
   LOG(FATAL) << "JVM_FindSignal is not implemented";
-  return 0;
+  UNREACHABLE();
 }
 
-JNIEXPORT void* JVM_RegisterSignal(jint signum ATTRIBUTE_UNUSED, void* handler ATTRIBUTE_UNUSED) {
+JNIEXPORT __attribute__((noreturn)) void* JVM_RegisterSignal(jint signum ATTRIBUTE_UNUSED, void* handler ATTRIBUTE_UNUSED) {
   LOG(FATAL) << "JVM_RegisterSignal is not implemented";
-  return nullptr;
+  UNREACHABLE();
 }
 
-JNIEXPORT jboolean JVM_RaiseSignal(jint signum ATTRIBUTE_UNUSED) {
+JNIEXPORT __attribute__((noreturn)) jboolean JVM_RaiseSignal(jint signum ATTRIBUTE_UNUSED) {
   LOG(FATAL) << "JVM_RaiseSignal is not implemented";
-  return JNI_FALSE;
+  UNREACHABLE();
 }
 
 JNIEXPORT __attribute__((noreturn))  void JVM_Halt(jint code) {

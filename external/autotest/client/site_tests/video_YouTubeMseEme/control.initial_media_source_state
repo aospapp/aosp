@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "dunno@chromium.org"
-NAME = "video_YouTubeMseEme"
+NAME = "video_YouTubeMseEme.initial_media_source_state"
 PURPOSE = "Verify Chrome MSE/EME works for YouTube."
 CRITERIA = """
 This test will fail if the browser's initial MSE/EME Media Source state doesn't

@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
+// If the CHRE build variant wants to supply its own static nanoapps, include
+// chre/platform/static_nanoapp_init.h in the nanoapp to include and define
+// CHRE_STATIC_NANOAPP_INIT with the appropriate parameters (see examples under
+// chre/apps/). Then, define the UniquePtr created by CHRE_STATIC_NANOAPP_INIT
+// similar to chre/apps/apps.h and add that variable to kStaticNanoappList
+// below.
+#ifdef CHRE_INCLUDE_DEFAULT_STATIC_NANOAPPS
 #include "chre/apps/apps.h"
+#endif  // CHRE_INCLUDE_DEFAULT_STATIC_NANOAPPS
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/static_nanoapps.h"
 #include "chre/util/macros.h"

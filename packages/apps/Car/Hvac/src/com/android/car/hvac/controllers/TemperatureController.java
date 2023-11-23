@@ -16,6 +16,7 @@
 package com.android.car.hvac.controllers;
 
 import android.car.hardware.CarPropertyValue;
+
 import com.android.car.hvac.HvacController;
 import com.android.car.hvac.ui.TemperatureBarOverlay;
 
@@ -55,7 +56,7 @@ public class TemperatureController {
         }
 
         final boolean isPassengerTempControlAvailable =
-            mHvacController.isPassengerTemperatureControlAvailable();
+                mHvacController.isPassengerTemperatureControlAvailable();
         mPassengerTempBarExpanded.setAvailable(isPassengerTempControlAvailable);
         mPassengerTempBarCollapsed.setAvailable(isPassengerTempControlAvailable);
         if (isPassengerTempControlAvailable) {
@@ -71,7 +72,7 @@ public class TemperatureController {
             mPassengerTempBarExpanded.setAvailable(available);
             mPassengerTempBarCollapsed.setAvailable(available);
             if (available) {
-                final int temp = ((Float)value.getValue()).intValue();
+                final int temp = ((Float) value.getValue()).intValue();
                 mPassengerTempBarExpanded.setTemperature(temp);
                 mPassengerTempBarCollapsed.setTemperature(temp);
             }
@@ -81,12 +82,20 @@ public class TemperatureController {
         public void onDriverTemperatureChange(CarPropertyValue value) {
             final boolean available = value.getStatus() == CarPropertyValue.STATUS_AVAILABLE;
             mDriverTempBarExpanded.setAvailable(available);
-            mDriverTempBarExpanded.setAvailable(available);
+            mDriverTempBarCollapsed.setAvailable(available);
             if (available) {
-                final int temp = ((Float)value.getValue()).intValue();
+                final int temp = ((Float) value.getValue()).intValue();
                 mDriverTempBarCollapsed.setTemperature(temp);
                 mDriverTempBarExpanded.setTemperature(temp);
             }
+        }
+
+        @Override
+        public void onHvacPowerChange(boolean isOn) {
+            mDriverTempBarExpanded.setAvailable(isOn);
+            mDriverTempBarCollapsed.setAvailable(isOn);
+            mPassengerTempBarExpanded.setAvailable(isOn);
+            mPassengerTempBarCollapsed.setAvailable(isOn);
         }
     };
 

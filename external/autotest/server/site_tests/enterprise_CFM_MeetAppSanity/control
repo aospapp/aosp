@@ -10,7 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bluestreak, suite:hotrod"
+ATTRIBUTES = "suite:hotrod"
 DEPENDENCIES = "meet_app"
 JOB_RETRIES = 3
 
@@ -21,11 +21,8 @@ It clears the TPM at the end of the test run. Every time the TPM is cleared,
 the system is rebooted.
 """
 
-args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
-
 def run_test(machine):
-    host = hosts.create_host(machine, servo_args=servo_args)
+    host = hosts.create_host(machine)
     job.run_test('enterprise_CFM_MeetAppSanity', host=host)
 
 

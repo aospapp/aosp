@@ -67,6 +67,7 @@ bootstrap_go_package {
         "pathtools/glob.go",
     ],
     testSrcs: [
+        "pathtools/fs_test.go",
         "pathtools/glob_test.go",
     ],
 }
@@ -79,12 +80,14 @@ bootstrap_go_package {
         "proptools/escape.go",
         "proptools/extend.go",
         "proptools/proptools.go",
+        "proptools/tag.go",
         "proptools/typeequal.go",
     ],
     testSrcs: [
         "proptools/clone_test.go",
         "proptools/escape_test.go",
         "proptools/extend_test.go",
+        "proptools/tag_test.go",
         "proptools/typeequal_test.go",
     ],
 }
@@ -118,6 +121,11 @@ bootstrap_go_package {
     pkgPath: "github.com/google/blueprint/bootstrap/bpdoc",
     srcs: [
         "bootstrap/bpdoc/bpdoc.go",
+        "bootstrap/bpdoc/properties.go",
+        "bootstrap/bpdoc/reader.go",
+    ],
+    testSrcs: [
+        "bootstrap/bpdoc/reader_test.go",
     ],
 }
 

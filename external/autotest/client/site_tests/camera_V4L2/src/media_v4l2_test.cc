@@ -10,36 +10,52 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
+
+#include "base/at_exit.h"
+#include "base/command_line.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "gtest/gtest.h"
 
 #include "camera_characteristics.h"
 #include "common_types.h"
 #include "media_v4l2_device.h"
 
+struct TestCropping {
+  bool check_cropping = false;
+  uint32_t sensor_pixel_array_size_width = 0;
+  uint32_t sensor_pixel_array_size_height = 0;
+};
+
 struct TestProfile {
+  std::string test_list;
   std::string dev_name;
   bool check_1280x960 = false;
   bool check_1600x1200 = false;
+  bool check_constant_framerate = false;
+  bool check_maximum_resolution = false;
   bool support_constant_framerate = false;
-  bool check_minimum_resolution = false;
+  TestCropping cropping_profile;
   uint32_t skip_frames = 0;
-  uint32_t lens_facing;
+  uint32_t lens_facing = FACING_FRONT;
 };
 
 /* Test lists:
  * default: for devices without ARC++, and devices with ARC++ which use
  *          camera HAL v1.
  * halv3: for devices with ARC++ which use camera HAL v3.
- * external-camera: for third-party labs to verify new camera modules.
+ * certification: for third-party labs to verify new camera modules.
  */
 static const char kDefaultTestList[] = "default";
 static const char kHalv3TestList[] = "halv3";
-static const char kExternalCameraTestList[] = "external-camera";
+static const char kCertificationTestList[] = "certification";
 
 /* Camera Facing */
 static const char kFrontCamera[] = "user";
 static const char kBackCamera[] = "world";
+
+struct TestProfile g_profile;
 
 static void PrintUsage(int argc, char** argv) {
   printf("Usage: %s [options]\n\n"
@@ -50,18 +66,8 @@ static void PrintUsage(int argc, char** argv) {
          "--test-list=TEST     Select different test list\n"
          "                     [%s | %s | %s]\n",
          argv[0], kDefaultTestList, kHalv3TestList,
-         kExternalCameraTestList);
+         kCertificationTestList);
 }
-
-static const char short_options[] = "?d:u:t:";
-static const struct option
-long_options[] = {
-        { "help",      no_argument,       NULL, '?' },
-        { "device",    required_argument, NULL, 'd' },
-        { "usb-info",  required_argument, NULL, 'u' },
-        { "test-list", required_argument, NULL, 't' },
-        { 0, 0, 0, 0 }
-};
 
 int RunTest(V4L2Device* device, V4L2Device::IOMethod io,
             uint32_t buffers, uint32_t capture_time_in_sec, uint32_t width,
@@ -79,10 +85,10 @@ int RunTest(V4L2Device* device, V4L2Device::IOMethod io,
   if (!retcode && !device->Run(capture_time_in_sec))
     retcode = 3;
 
-  if (!retcode && !device->StopCapture())
+  if (!device->StopCapture())
     retcode = 4;
 
-  if (!retcode && !device->UninitDevice())
+  if (!device->UninitDevice())
     retcode = 5;
 
   return retcode;
@@ -144,9 +150,11 @@ SupportedFormat GetMaximumResolution(const SupportedFormats& formats) {
   SupportedFormat max_format;
   memset(&max_format, 0, sizeof(max_format));
   for (const auto& format : formats) {
-    if (format.width >= max_format.width &&
-        format.height >= max_format.height) {
-      max_format = format;
+    if (format.width >= max_format.width) {
+      max_format.width = format.width;
+    }
+    if (format.height >= max_format.height) {
+      max_format.height = format.height;
     }
   }
   return max_format;
@@ -173,8 +181,42 @@ const SupportedFormat* FindFormatByResolution(const SupportedFormats& formats,
 const SupportedFormat* FindFormatByFourcc(const SupportedFormats& formats,
                                           uint32_t fourcc) {
   for (const auto& format : formats) {
-    if (format.fourcc == V4L2_PIX_FMT_MJPEG) {
+    if (format.fourcc == fourcc) {
       return &format;
+    }
+  }
+  return nullptr;
+}
+
+const SupportedFormat* GetResolutionForCropping(
+    const SupportedFormats& formats,
+    TestCropping cropping_profile) {
+  // FOV requirement cannot allow cropping twice. If two streams resolution are
+  // 1920x1080 and 1600x1200, we need a larger resolution which aspect ratio
+  // is the same as sensor aspect ratio.
+  float sensor_aspect_ratio =
+      static_cast<float>(cropping_profile.sensor_pixel_array_size_width) /
+      cropping_profile.sensor_pixel_array_size_height;
+
+  // We need to compare the aspect ratio from sensor resolution.
+  // The sensor resolution may not be just the size. It may be a little larger.
+  // Add a margin to check if the sensor aspect ratio fall in the specific
+  // aspect ratio.
+  // 16:9=1.778, 16:10=1.6, 3:2=1.5, 4:3=1.333
+  const float kAspectRatioMargin = 0.04;
+  const float kFrameRate = 30.0;
+
+  for (const auto& format : formats) {
+    if (format.width >= 1920 && format.height >= 1200) {
+      float aspect_ratio = static_cast<float>(format.width) / format.height;
+      if (std::fabs(sensor_aspect_ratio - aspect_ratio) < kAspectRatioMargin) {
+        for (const auto& frame_rate : format.frame_rates) {
+          if (std::fabs(frame_rate - kFrameRate) <=
+              std::numeric_limits<float>::epsilon()) {
+            return &format;
+          }
+        }
+      }
     }
   }
   return nullptr;
@@ -182,7 +224,6 @@ const SupportedFormat* FindFormatByFourcc(const SupportedFormats& formats,
 
 // This is for Android testCameraToSurfaceTextureMetadata CTS test case.
 bool CheckConstantFramerate(const std::vector<int64_t>& timestamps,
-                            uint32_t capture_time_in_sec,
                             float require_fps) {
   // Timestamps are from driver. We only allow 1.5% error buffer for the frame
   // duration. The margin is aligned to CTS tests.
@@ -192,10 +233,10 @@ bool CheckConstantFramerate(const std::vector<int64_t>& timestamps,
 
   for (size_t i = 1; i < timestamps.size(); i++) {
     float frame_duration_ms =
-        (timestamps[i] - timestamps[i-1]) / 1000000.f;
+        (timestamps[i] - timestamps[i - 1]) / 1000000.f;
     if (frame_duration_ms > slop_max_frame_duration_ms ||
         frame_duration_ms < slop_min_frame_duration_ms) {
-      printf("[Error] Frame duration %f out of frame rate bounds [%f,%f]\n",
+      printf("[Warning] Frame duration %f out of frame rate bounds [%f,%f]\n",
           frame_duration_ms, slop_min_frame_duration_ms,
           slop_max_frame_duration_ms);
       return false;
@@ -205,7 +246,6 @@ bool CheckConstantFramerate(const std::vector<int64_t>& timestamps,
 }
 
 bool TestIO(const std::string& dev_name) {
-  printf("[Info] TestIO\n");
   uint32_t buffers = 4;
   uint32_t width = 640;
   uint32_t height = 480;
@@ -213,7 +253,6 @@ bool TestIO(const std::string& dev_name) {
   float fps = 30.0;
   uint32_t time_to_capture = 3;  // The unit is second.
   uint32_t skip_frames = 0;
-  bool check_1280x960 = false;
   V4L2Device::ConstantFramerate constant_framerate =
       V4L2Device::DEFAULT_FRAMERATE_SETTING;
 
@@ -244,7 +283,6 @@ bool TestIO(const std::string& dev_name) {
   }
 
   device->CloseDevice();
-  printf("[Info] TestIO pass\n");
   return true;
 }
 
@@ -255,11 +293,14 @@ bool TestIO(const std::string& dev_name) {
 bool TestResolutions(const std::string& dev_name,
                      bool check_1280x960,
                      bool check_1600x1200,
+                     TestCropping cropping_profile,
                      bool test_constant_framerate) {
-  printf("[Info] TestResolutions\n");
+  const int kMaxRetryTimes = 5;
   uint32_t buffers = 4;
   uint32_t time_to_capture = 3;
   uint32_t skip_frames = 0;
+  bool pass = true;
+
   V4L2Device::IOMethod io = V4L2Device::IO_METHOD_MMAP;
   std::unique_ptr<V4L2Device> device(
       new V4L2Device(dev_name.c_str(), buffers));
@@ -290,18 +331,23 @@ bool TestResolutions(const std::string& dev_name,
   required_resolutions.push_back(SupportedFormat(640, 480, 0, kFrameRate));
   required_resolutions.push_back(SupportedFormat(1280, 720, 0, kFrameRate));
   required_resolutions.push_back(SupportedFormat(1920, 1080, 0, kFrameRate));
-  if (check_1600x1200) {
-    required_resolutions.push_back(SupportedFormat(1600, 1200, 0, kFrameRate));
-  }
   if (check_1280x960) {
     required_resolutions.push_back(SupportedFormat(1280, 960, 0, kFrameRate));
   }
-
-  v4l2_streamparm param;
-  if (!device->GetParam(&param)) {
-    printf("[Error] Can not get stream param on device '%s'\n",
-        dev_name.c_str());
-    return false;
+  if (check_1600x1200) {
+    required_resolutions.push_back(SupportedFormat(1600, 1200, 0, kFrameRate));
+  }
+  if (cropping_profile.check_cropping) {
+    const SupportedFormat* cropping_resolution =
+        GetResolutionForCropping(supported_formats, cropping_profile);
+    if (cropping_resolution != nullptr) {
+      printf("[Info] Add resolution without cropping %dx%d.\n",
+          cropping_resolution->width, cropping_resolution->height);
+      required_resolutions.push_back(*cropping_resolution);
+    } else if (max_resolution.width >= 1920 && max_resolution.height >= 1200) {
+      printf("[Error] Can not find cropping resolution.\n");
+      pass = false;
+    }
   }
 
   for (const auto& test_resolution : required_resolutions) {
@@ -316,7 +362,8 @@ bool TestResolutions(const std::string& dev_name,
     if (test_format == nullptr) {
       printf("[Error] %dx%d not found in %s\n", test_resolution.width,
           test_resolution.height, dev_name.c_str());
-      return false;
+      pass = false;
+      continue;
     }
 
     bool frame_rate_30_supported = false;
@@ -331,68 +378,84 @@ bool TestResolutions(const std::string& dev_name,
       printf("[Error] Cannot test 30 fps for %dx%d (%08X) failed in %s\n",
           test_format->width, test_format->height, test_format->fourcc,
           dev_name.c_str());
-      return false;
+      pass = false;
     }
 
     for (const auto& constant_framerate : constant_framerate_setting) {
-      if (RunTest(device.get(), io, buffers, time_to_capture,
-            test_format->width, test_format->height, test_format->fourcc,
-            kFrameRate, constant_framerate, skip_frames)) {
-        printf("[Error] Could not capture frames for %dx%d (%08X) in %s\n",
-            test_format->width, test_format->height, test_format->fourcc,
-            dev_name.c_str());
-        return false;
-      }
+      int retry_count = 0;
 
-      // Make sure the driver didn't adjust the format.
-      v4l2_format fmt;
-      if (!device->GetV4L2Format(&fmt)) {
-        return false;
-      }
-      if (test_format->width != fmt.fmt.pix.width ||
-          test_format->height != fmt.fmt.pix.height ||
-          test_format->fourcc != fmt.fmt.pix.pixelformat ||
-          std::fabs(kFrameRate - device->GetFrameRate()) >
-              std::numeric_limits<float>::epsilon()) {
-        printf("[Error] Capture test %dx%d (%08X) %.2f fps failed in %s\n",
-            test_format->width, test_format->height, test_format->fourcc,
-            kFrameRate, dev_name.c_str());
-        return false;
-      }
-
-      if (constant_framerate != V4L2Device::ENABLE_CONSTANT_FRAMERATE) {
+      if (!frame_rate_30_supported && constant_framerate ==
+          V4L2Device::ENABLE_CONSTANT_FRAMERATE) {
         continue;
       }
 
-      float actual_fps = device->GetNumFrames() /
-          static_cast<float>(time_to_capture);
-      // 1 fps buffer is because |time_to_capture| may be too short.
-      // EX: 30 fps and capture 3 secs. We may get 89 frames or 91 frames.
-      // The actual fps will be 29.66 or 30.33.
-      if (fabsf(actual_fps - kFrameRate) > 1) {
-        printf("[Error] Capture test %dx%d (%08X) failed with fps %.2f in "
-               "%s\n", test_format->width, test_format->height,
-               test_format->fourcc, actual_fps, dev_name.c_str());
-        return false;
-      }
+      for (retry_count = 0; retry_count < kMaxRetryTimes; retry_count++) {
+        if (RunTest(device.get(), io, buffers, time_to_capture,
+              test_format->width, test_format->height, test_format->fourcc,
+              kFrameRate, constant_framerate, skip_frames)) {
+          printf("[Error] Could not capture frames for %dx%d (%08X) in %s\n",
+              test_format->width, test_format->height, test_format->fourcc,
+              dev_name.c_str());
+          pass = false;
+          break;
+        }
 
-      if (!CheckConstantFramerate(device->GetFrameTimestamps(),
-                                  time_to_capture, kFrameRate)) {
-        printf("[Error] Capture test %dx%d (%08X) failed and didn't meet "
-               "constant framerate in %s\n", test_format->width,
-               test_format->height, test_format->fourcc, dev_name.c_str());
-        return false;
+        // Make sure the driver didn't adjust the format.
+        v4l2_format fmt;
+        if (!device->GetV4L2Format(&fmt)) {
+          pass = false;
+          break;
+        } else {
+          if (test_format->width != fmt.fmt.pix.width ||
+              test_format->height != fmt.fmt.pix.height ||
+              test_format->fourcc != fmt.fmt.pix.pixelformat ||
+              std::fabs(kFrameRate - device->GetFrameRate()) >
+                  std::numeric_limits<float>::epsilon()) {
+            printf("[Error] Capture test %dx%d (%08X) %.2f fps failed in %s\n",
+                test_format->width, test_format->height, test_format->fourcc,
+                kFrameRate, dev_name.c_str());
+            pass = false;
+            break;
+          }
+        }
+
+        if (constant_framerate != V4L2Device::ENABLE_CONSTANT_FRAMERATE) {
+          break;
+        }
+
+        float actual_fps = (device->GetNumFrames() - 1) /
+            static_cast<float>(time_to_capture);
+        // 1 fps buffer is because |time_to_capture| may be too short.
+        // EX: 30 fps and capture 3 secs. We may get 89 frames or 91 frames.
+        // The actual fps will be 29.66 or 30.33.
+        if (fabsf(actual_fps - kFrameRate) > 1) {
+          printf("[Warning] Capture test %dx%d (%08X) failed with fps %.2f in "
+                 "%s\n", test_format->width, test_format->height,
+                 test_format->fourcc, actual_fps, dev_name.c_str());
+          continue;
+        }
+
+        if (!CheckConstantFramerate(device->GetFrameTimestamps(), kFrameRate)) {
+          printf("[Warning] Capture test %dx%d (%08X) failed and didn't meet "
+                 "constant framerate in %s\n", test_format->width,
+                 test_format->height, test_format->fourcc, dev_name.c_str());
+          continue;
+        }
+        break;
+      }
+      if (retry_count == kMaxRetryTimes) {
+        printf("[Error] Cannot meet constant framerate requirement %d times\n",
+               kMaxRetryTimes);
+        pass = false;
       }
     }
   }
   device->CloseDevice();
-  printf("[Info] TestResolutions pass\n");
-  return true;
+  return pass;
 }
 
 bool TestFirstFrameAfterStreamOn(const std::string& dev_name,
                                  uint32_t skip_frames) {
-  printf("[Info] TestFirstFrameAfterStreamOn\n");
   uint32_t buffers = 4;
   uint32_t pixfmt = V4L2_PIX_FMT_MJPEG;
   uint32_t fps = 30;
@@ -420,7 +483,7 @@ bool TestFirstFrameAfterStreamOn(const std::string& dev_name,
   uint32_t width = test_format->width;
   uint32_t height = test_format->height;
 
-  const int kTestLoop = 20;
+  const size_t kTestLoop = 20;
   for (size_t i = 0; i < kTestLoop; i++) {
     if (!device->InitDevice(io, width, height, pixfmt, fps, constant_framerate,
                             skip_frames))
@@ -430,8 +493,11 @@ bool TestFirstFrameAfterStreamOn(const std::string& dev_name,
       return false;
 
     uint32_t buf_index, data_size;
-    if (!device->ReadOneFrame(&buf_index, &data_size))
+    int ret;
+    while ((ret = device->ReadOneFrame(&buf_index, &data_size)) == 0);
+    if (ret < 0) {
       return false;
+    }
 
     const V4L2Device::Buffer& buffer = device->GetBufferInfo(buf_index);
     std::unique_ptr<uint8_t[]> yuv_buffer(new uint8_t[width * height * 2]);
@@ -444,6 +510,8 @@ bool TestFirstFrameAfterStreamOn(const std::string& dev_name,
         width, height, width, height);
     if (res) {
       printf("[Error] First frame is not a valid mjpeg image.\n");
+      base::WriteFile(base::FilePath("FirstFrame.jpg"),
+                      static_cast<char*>(buffer.start), data_size);
       return false;
     }
 
@@ -459,14 +527,13 @@ bool TestFirstFrameAfterStreamOn(const std::string& dev_name,
   }
 
   device->CloseDevice();
-  printf("[Info] TestFirstFrameAfterStreamOn pass\n");
   return true;
 }
 
-// ChromeOS spec requires word-facing camera should be at least 1920x1080 and
+// ChromeOS spec requires world-facing camera should be at least 1920x1080 and
 // user-facing camera should be at least 1280x720.
-bool TestMinimumResolution(const std::string& dev_name, uint32_t facing) {
-  printf("[Info] TestMinimumResolution\n");
+bool TestMaximumSupportedResolution(const std::string& dev_name,
+                                    uint32_t facing) {
   uint32_t buffers = 4;
   std::unique_ptr<V4L2Device> device(
       new V4L2Device(dev_name.c_str(), buffers));
@@ -482,181 +549,189 @@ bool TestMinimumResolution(const std::string& dev_name, uint32_t facing) {
   device->CloseDevice();
   SupportedFormat max_resolution = GetMaximumResolution(supported_formats);
 
-  uint32_t required_minimum_width = 0, required_minimum_height = 0;
+  uint32_t required_width = 0, required_height = 0;
   std::string facing_str = "";
   if (facing == FACING_FRONT) {
-    required_minimum_width = 1080;
-    required_minimum_height = 720;
+    required_width = 1080;
+    required_height = 720;
     facing_str = kFrontCamera;
   } else if (facing == FACING_BACK) {
-    required_minimum_width = 1920;
-    required_minimum_height = 1080;
+    required_width = 1920;
+    required_height = 1080;
     facing_str = kBackCamera;
   } else {
     printf("[Error] Undefined facing: %d\n", facing);
     return false;
   }
 
-  if (max_resolution.width < required_minimum_width ||
-      max_resolution.height < required_minimum_height) {
-    printf("[Error] The maximum resolution %dx%d does not meet minimum "
-           "requirement %dx%d for %s-facing\n", max_resolution.width,
-           max_resolution.height, required_minimum_width,
-           required_minimum_height, facing_str.c_str());
+  if (max_resolution.width < required_width ||
+      max_resolution.height < required_height) {
+    printf("[Error] The maximum resolution %dx%d does not meet requirement "
+           "%dx%d for %s-facing\n", max_resolution.width,
+           max_resolution.height, required_width, required_height,
+           facing_str.c_str());
     return false;
   }
-  printf("[Info] TestMinimumResolution pass\n");
   return true;
 }
 
 const TestProfile GetTestProfile(const std::string& dev_name,
                                  const std::string& usb_info,
                                  const std::string& test_list) {
-  std::unordered_map<std::string, std::string> mapping = {{usb_info, dev_name}};
+  const int VID_PID_LENGTH = 9;  // 0123:abcd format
+  const DeviceInfo* device_info = nullptr;
   CameraCharacteristics characteristics;
-  DeviceInfos device_infos =
-      characteristics.GetCharacteristicsFromFile(mapping);
-  if (device_infos.size() > 1) {
-    printf("[Error] One device should not have multiple configs.\n");
-    exit(EXIT_FAILURE);
+  if (!usb_info.empty()) {
+    if (usb_info.length() != VID_PID_LENGTH) {
+      printf("[Error] Invalid usb info: %s\n", usb_info.c_str());
+      exit(EXIT_FAILURE);
+    }
+    device_info = characteristics.Find(usb_info.substr(0, 4),
+                                       usb_info.substr(5, 9));
+  }
+
+  if (test_list != kDefaultTestList) {
+    if (!characteristics.ConfigFileExists()) {
+      printf("[Error] %s test list needs camera config file\n",
+          test_list.c_str());
+      exit(EXIT_FAILURE);
+    }
+    if (device_info == nullptr) {
+      printf("[Error] %s is not described in camera config file\n",
+          usb_info.c_str());
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    if (!characteristics.ConfigFileExists()) {
+      printf("[Info] Camera config file doesn't exist\n");
+    } else if (device_info == nullptr) {
+      printf("[Info] %s is not described in camera config file\n",
+          usb_info.c_str());
+    }
   }
 
   TestProfile profile;
+  profile.test_list = test_list;
   profile.dev_name = dev_name;
   // Get parameter from config file.
-  if (device_infos.size() == 1) {
-    profile.check_1280x960 = !device_infos[0].resolution_1280x960_unsupported;
-    profile.check_1600x1200 = !device_infos[0].resolution_1600x1200_unsupported;
+  if (device_info) {
     profile.support_constant_framerate =
-        !device_infos[0].constant_framerate_unsupported;
-    profile.skip_frames = device_infos[0].frames_to_skip_after_streamon;
-    profile.check_minimum_resolution = true;
-    profile.lens_facing = device_infos[0].lens_facing;
+        !device_info->constant_framerate_unsupported;
+    profile.skip_frames = device_info->frames_to_skip_after_streamon;
+    profile.lens_facing = device_info->lens_facing;
+    profile.check_maximum_resolution = true;
+
+    // If there is a camera config and test list is not HAL v1, then we can
+    // check cropping requirement according to the sensor physical size.
+    if (test_list != kDefaultTestList) {
+      profile.cropping_profile.check_cropping = true;
+      profile.cropping_profile.sensor_pixel_array_size_width =
+          device_info->sensor_info_pixel_array_size_width;
+      profile.cropping_profile.sensor_pixel_array_size_height =
+          device_info->sensor_info_pixel_array_size_height;
+    }
   }
 
-  bool check_constant_framerate = false;
-  if (test_list == kHalv3TestList) {
-    profile.skip_frames = 0;
-    check_constant_framerate = true;
-  }
-
-  if (test_list == kExternalCameraTestList) {
+  if (test_list == kDefaultTestList) {
+    profile.check_1280x960 = false;
+    profile.check_1600x1200 = false;
+    profile.check_constant_framerate = false;
+  } else if (test_list == kHalv3TestList) {
     profile.check_1280x960 = true;
     profile.check_1600x1200 = true;
-    profile.support_constant_framerate = true;
     profile.skip_frames = 0;
-    profile.check_minimum_resolution = false;
-    check_constant_framerate = true;
+    profile.check_constant_framerate = true;
+  } else if (test_list == kCertificationTestList) {
+    profile.check_1280x960 = true;
+    profile.check_1600x1200 = true;
+    profile.skip_frames = 0;
+    profile.check_maximum_resolution = false;
+    profile.check_constant_framerate = true;
   }
 
   printf("[Info] check 1280x960: %d\n", profile.check_1280x960);
   printf("[Info] check 1600x1200: %d\n", profile.check_1600x1200);
-  printf("[Info] check constant framerate: %d\n", check_constant_framerate);
+  printf("[Info] check constant framerate: %d\n",
+      profile.check_constant_framerate);
+  printf("[Info] check cropping: %d\n",
+      profile.cropping_profile.check_cropping);
   printf("[Info] num of skip frames after stream on: %d\n",
       profile.skip_frames);
 
   return profile;
 }
 
-bool RunDefaultTestList(const TestProfile& profile) {
-  bool pass = true;
-  if (!TestIO(profile.dev_name)) {
-    pass = false;
-  }
-  if (!TestResolutions(profile.dev_name, profile.check_1280x960,
-                       profile.check_1600x1200, false)) {
-    pass = false;
-  }
-  if (profile.check_minimum_resolution &&
-      !TestMinimumResolution(profile.dev_name, profile.lens_facing)) {
-    pass = false;
-  }
-  return pass;
+TEST(TestList, TestIO) {
+  ASSERT_TRUE(TestIO(g_profile.dev_name));
 }
 
-bool RunHalv3TestList(const TestProfile& profile) {
-  bool pass = true;
-  if (!TestIO(profile.dev_name)) {
-    pass = false;
-  }
-  if (profile.support_constant_framerate) {
-    if (!TestResolutions(profile.dev_name, profile.check_1280x960,
-                         profile.check_1600x1200, true)) {
-      pass = false;
-    }
-  } else {
+TEST(TestList, TestResolutions) {
+  if (g_profile.test_list == kHalv3TestList &&
+      !g_profile.support_constant_framerate) {
     printf("[Error] Hal v3 should support constant framerate.\n");
-    pass = false;
+    ASSERT_TRUE(false);
   }
-  if (!TestFirstFrameAfterStreamOn(profile.dev_name, profile.skip_frames)) {
-    pass = false;
-  }
-  if (profile.check_minimum_resolution &&
-      !TestMinimumResolution(profile.dev_name, profile.lens_facing)) {
-    pass = false;
-  }
-  return pass;
+
+  ASSERT_TRUE(TestResolutions(g_profile.dev_name, g_profile.check_1280x960,
+                              g_profile.check_1600x1200,
+                              g_profile.cropping_profile,
+                              g_profile.check_constant_framerate));
 }
 
-bool RunExternalCameraTestList(const TestProfile& profile) {
-  bool pass = true;
-  if (!TestIO(profile.dev_name)) {
-    pass = false;
+TEST(TestList, TestMaximumSupportedResolution) {
+  if (g_profile.test_list == kCertificationTestList)
+    return;
+  if (g_profile.check_maximum_resolution) {
+    ASSERT_TRUE(TestMaximumSupportedResolution(g_profile.dev_name,
+                                               g_profile.lens_facing));
   }
-  if (!TestFirstFrameAfterStreamOn(profile.dev_name, profile.skip_frames)) {
-    pass = false;
-  }
-  if (!TestResolutions(profile.dev_name, profile.check_1280x960,
-                       profile.check_1600x1200, true)) {
-    pass = false;
-  }
-  return pass;
+}
+
+TEST(TestList, TestFirstFrameAfterStreamOn) {
+  if (g_profile.test_list == kDefaultTestList)
+    return;
+  ASSERT_TRUE(TestFirstFrameAfterStreamOn(g_profile.dev_name,
+                                          g_profile.skip_frames));
 }
 
 int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  base::CommandLine::Init(argc, argv);
+  base::ShadowingAtExitManager at_exit_manager;
+
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  DCHECK(cmd_line);
+
   std::string dev_name = "/dev/video";
   std::string usb_info = "";
   std::string test_list = kDefaultTestList;
 
-  for (;;) {
-    int32_t index;
-    int32_t c = getopt_long(argc, argv, short_options, long_options, &index);
-    if (-1 == c)
-      break;
-    switch (c) {
-      case 0:  // getopt_long() flag.
-        break;
-      case '?':
-        PrintUsage(argc, argv);
-        return EXIT_SUCCESS;
-      case 'd':
-        // Initialize default v4l2 device name.
-        dev_name = optarg;
-        break;
-      case 'u':
-        usb_info = optarg;
-        break;
-      case 't':
-        test_list = optarg;
-        break;
-      default:
-        PrintUsage(argc, argv);
-        return EXIT_FAILURE;
+  base::CommandLine::SwitchMap switches = cmd_line->GetSwitches();
+  for (base::CommandLine::SwitchMap::const_iterator it = switches.begin();
+       it != switches.end(); ++it) {
+    if (it->first == "h" || it->first == "help") {
+      PrintUsage(argc, argv);
+      return EXIT_SUCCESS;
     }
-  }
+    if (it->first == "device") {
+      dev_name = it->second;
+      continue;
+    }
+    if (it->first == "usb-info") {
+      usb_info = it->second;
+      continue;
+    }
+    if (it->first == "test-list") {
+      test_list = it->second;
+      continue;
+    }
 
-  bool ret = true;
-  TestProfile profile = GetTestProfile(dev_name, usb_info, test_list);
-  if (test_list == kDefaultTestList) {
-    ret = RunDefaultTestList(profile);
-  } else if (test_list == kHalv3TestList) {
-    ret = RunHalv3TestList(profile);
-  } else if (test_list == kExternalCameraTestList) {
-    ret = RunExternalCameraTestList(profile);
-  } else {
-    printf("[Error] Unknown test list %s\n", test_list.c_str());
+    PrintUsage(argc, argv);
+    LOGF(ERROR) << "Unexpected switch: " << it->first << ":" << it->second;
     return EXIT_FAILURE;
   }
 
-  return ret == true ? EXIT_SUCCESS : EXIT_FAILURE;
+  g_profile = GetTestProfile(dev_name, usb_info, test_list);
+
+  return RUN_ALL_TESTS();
 }

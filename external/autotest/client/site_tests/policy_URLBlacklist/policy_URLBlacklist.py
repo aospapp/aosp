@@ -6,45 +6,27 @@ import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
+from telemetry.core.exceptions import EvaluateException
 
 
 class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
-    """Test effect of URLBlacklist policy on Chrome OS behavior.
-
-    Navigate to all the websites in the ALL_URLS_LIST. Verify that the
-    websites specified by the URLBlackList policy are blocked. Throw a warning
-    if the user message on the blocked page is incorrect.
-
-    Two test cases (SinglePage_Blocked, MultiplePages_Blocked) are designed to
-    verify that the URLs specified in the URLBlacklist policy are blocked.
-    The third test case (NotSet_Allowed) is designed to verify that none of
-    the URLs are blocked since the URLBlacklist policy is set to None
-
-    The test case shall pass if the URLs that are part of the URLBlacklist
-    policy value are blocked. The test case shall also pass if the URLs that
-    are not part of the URLBlacklist policy value are allowed. The test case
-    shall fail if the above behavior is not enforced.
-
-    """
     version = 1
 
     def initialize(self, **kwargs):
-        """Initialize this test."""
-        self._initialize_test_constants()
+        """Initialize this test and set test constants."""
         super(policy_URLBlacklist, self).initialize(**kwargs)
         self.start_webserver()
 
-
-    def _initialize_test_constants(self):
-        """Initialize test-specific constants, some from class constants."""
         self.POLICY_NAME = 'URLBlacklist'
         self.URL_BASE = '%s/%s' % (self.WEB_HOST, 'website')
         self.ALL_URLS_LIST = [self.URL_BASE + website for website in
                               ['/website1.html',
                                '/website2.html',
                                '/website3.html']]
+
         self.SINGLE_BLACKLISTED_FILE = self.ALL_URLS_LIST[:1]
         self.MULTIPLE_BLACKLISTED_FILES = self.ALL_URLS_LIST[:2]
+        self.BLACKLIST_WILDCARD = ['*']
         self.BLOCKED_USER_MESSAGE = 'Webpage Blocked'
         self.BLOCKED_ERROR_MESSAGE = 'ERR_BLOCKED_BY_ADMINISTRATOR'
 
@@ -52,15 +34,20 @@ class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
             'NotSet_Allowed': None,
             'SinglePage_Blocked': self.SINGLE_BLACKLISTED_FILE,
             'MultiplePages_Blocked': self.MULTIPLE_BLACKLISTED_FILES,
+            'Wildcard_Blocked': self.BLACKLIST_WILDCARD,
         }
-        self.SUPPORTING_POLICIES = {'URLWhitelist': None}
+
+        # chrome://* URLs need to be accessible for the test to run.
+        self.SUPPORTING_POLICIES = {'URLWhitelist': ['chrome://*']}
 
 
     def _scrape_text_from_webpage(self, tab):
-        """Return a list of filtered text on the web page.
+        """
+        Return a list of filtered text on the web page.
 
         @param tab: tab containing the website to be parsed.
         @raises: TestFail if the expected text was not found on the page.
+
         """
         parsed_message_string = ''
         parsed_message_list = []
@@ -68,19 +55,21 @@ class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
         try:
             parsed_message_string = tab.EvaluateJavaScript(page_scrape_cmd)
         except Exception as err:
-                raise error.TestFail('Unable to find the expected '
-                                     'text content on the test '
-                                     'page: %s\n %r'%(tab.url, err))
-        logging.info('Parsed message:%s', parsed_message_string)
+            raise error.TestFail('Unable to find the expected '
+                                 'text content on the test '
+                                 'page: %s\n %r' % (tab.url, err))
+        logging.info('Parsed message: %s' % parsed_message_string)
         parsed_message_list = [str(word) for word in
                                parsed_message_string.split('\n') if word]
         return parsed_message_list
 
 
     def _is_url_blocked(self, url):
-        """Return True if the URL is blocked else returns False.
+        """
+        Return True if the URL is blocked else returns False.
 
         @param url: The URL to be checked whether it is blocked.
+
         """
         parsed_message_list = []
         tab = self.navigate_to_url(url)
@@ -104,7 +93,8 @@ class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
 
 
     def _test_url_blacklist(self, policy_value):
-        """Verify CrOS enforces URLBlacklist policy value.
+        """
+        Verify CrOS enforces URLBlacklist policy value.
 
         Navigate to all the websites in the ALL_URLS_LIST. Verify that
         the websites specified in the URLWhitelist policy value are allowed.
@@ -115,11 +105,14 @@ class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
 
         @raises: TestFail if url is blocked/not blocked based on the
                  corresponding policy values.
+
         """
         for url in self.ALL_URLS_LIST:
             url_is_blocked = self._is_url_blocked(url)
             if policy_value:
-                if url in policy_value and not url_is_blocked:
+                should_be_blocked = (policy_value == self.BLACKLIST_WILDCARD or
+                                     url in policy_value)
+                if should_be_blocked and not url_is_blocked:
                     raise error.TestFail('The URL %s should have been blocked'
                                          ' by policy, but was allowed.' % url)
             elif url_is_blocked:
@@ -128,11 +121,17 @@ class policy_URLBlacklist(enterprise_policy_base.EnterprisePolicyTest):
 
 
     def run_once(self, case):
-        """Setup and run the test configured for the specified test case.
+        """
+        Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
+
         """
         case_value = self.TEST_CASES[case]
         self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
-        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
+        try:
+            self.setup_case(user_policies=self.SUPPORTING_POLICIES)
+        except EvaluateException:
+            raise error.TestFail('chrome://policy was not whitelisted.')
+
         self._test_url_blacklist(case_value)

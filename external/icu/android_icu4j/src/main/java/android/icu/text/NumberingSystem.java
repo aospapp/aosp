@@ -39,14 +39,12 @@ public class NumberingSystem {
     /**
      * For convenience, an instance representing the <em>latn</em> numbering system, which
      * corresponds to digits in the ASCII range '0' through '9'.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final NumberingSystem LATIN = lookupInstanceByName("latn");
 
     /**
-     * Default constructor.  Returns a numbering system that uses the Western decimal
-     * digits 0 through 9.
+     * Default constructor.  Returns a numbering system that uses the Latin-script decimal
+     * digits 0 through 9.  This should be equivalent to NumberingSystem.LATIN.
      */
     public NumberingSystem() {
         radix = 10;

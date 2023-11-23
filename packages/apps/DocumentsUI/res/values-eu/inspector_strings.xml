@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"Informazioa"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"Ezin izan da kargatu fitxategiaren informazioa"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"Arazte-informazioa (garatzaileentzat soilik)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"Arazketa-informazioa (garatzaileentzat soilik)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"Prozesatu gabeko metadatuak: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"Multimedia-elementuaren xehetasunak"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"Mota honetako fitxategiak aplikazio honekin ireki daitezke:"</string>
@@ -44,6 +44,4 @@
     <string name="metadata_composer" msgid="4696926808308256056">"Konpositorea"</string>
     <string name="metadata_album" msgid="1661699531214720236">"Albuma"</string>
     <string name="metadata_address" msgid="1849921023707744640">"Kokapena"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"Jario motak"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"Prozesatu gabeko tamaina (byte-tan)"</string>
 </resources>

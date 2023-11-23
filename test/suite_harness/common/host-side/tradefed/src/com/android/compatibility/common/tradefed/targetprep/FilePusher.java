@@ -15,78 +15,28 @@
  */
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
-import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.PushFilePreparer;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 
-/**
- * Pushes specified testing artifacts from Compatibility repository.
- */
-@OptionClass(alias="file-pusher")
-public class FilePusher extends PushFilePreparer implements IAbiReceiver {
+/** Pushes specified testing artifacts from Compatibility repository. */
+@OptionClass(alias = "file-pusher")
+public final class FilePusher extends PushFilePreparer {
 
     @Option(name = "append-bitness",
             description = "Append the ABI's bitness to the filename.")
     private boolean mAppendBitness = false;
-
-    private CompatibilityBuildHelper mBuildHelper = null;
-
-    private IAbi mAbi;
-
-    private void setBuildHelper(IBuildInfo buildInfo) {
-        if (mBuildHelper == null) {
-            mBuildHelper = new CompatibilityBuildHelper(buildInfo);
-        }
-    }
-
-    protected File getTestsDir(IBuildInfo buildInfo) throws FileNotFoundException {
-        setBuildHelper(buildInfo);
-        return mBuildHelper.getTestsDir();
-    }
-
-    protected File getTestFile(IBuildInfo buildInfo, String filename) throws FileNotFoundException {
-        setBuildHelper(buildInfo);
-        return mBuildHelper.getTestFile(filename);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IAbi getAbi() {
-        return mAbi;
-    }
 
     /**
      * {@inheritDoc}
      */
     @Override
     public File resolveRelativeFilePath(IBuildInfo buildInfo, String fileName) {
-        try {
-            File f = getTestFile(buildInfo,
-                    String.format("%s%s", fileName, mAppendBitness ? mAbi.getBitness() : ""));
-            CLog.logAndDisplay(LogLevel.INFO, "Copying from %s", f.getAbsolutePath());
-            return f;
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return super.resolveRelativeFilePath(
+                buildInfo,
+                String.format("%s%s", fileName, mAppendBitness ? getAbi().getBitness() : ""));
     }
 }

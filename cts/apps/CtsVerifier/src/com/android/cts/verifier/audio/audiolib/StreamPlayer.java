@@ -131,7 +131,7 @@ public class StreamPlayer {
             allocBurstBuffer();
             return true;
         }  catch (UnsupportedOperationException ex) {
-            Log.i(TAG, "Couldn't open AudioTrack: " + ex);
+            Log.e(TAG, "Couldn't open AudioTrack: " + ex);
             mAudioTrack = null;
             return false;
         }

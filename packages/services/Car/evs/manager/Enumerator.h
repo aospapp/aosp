@@ -49,8 +49,10 @@ public:
     bool init(const char* hardwareServiceName);
 
 private:
+    bool checkPermission();
+
     sp<IEvsEnumerator>          mHwEnumerator;  // Hardware enumerator
-    wp<IEvsDisplay>             mActiveDisplay; // Hardware display
+    wp<IEvsDisplay>             mActiveDisplay; // Display proxy object warpping hw display
     std::list<sp<HalCamera>>    mCameras;       // Camera proxy objects wrapping hw cameras
 };
 

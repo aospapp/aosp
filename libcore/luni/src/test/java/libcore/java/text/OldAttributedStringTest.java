@@ -19,11 +19,11 @@ package libcore.java.text;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 import java.text.CharacterIterator;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.WeakHashMap;
 
 public class OldAttributedStringTest extends junit.framework.TestCase {
 
@@ -165,9 +165,7 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
 
         // case 1: Try to construct AttributedString
         try {
-            AttributedString attrString = new AttributedString(
-                    test,
-                    new WeakHashMap<AttributedCharacterIterator.Attribute, String>());
+            AttributedString attrString = new AttributedString(test, Collections.emptyMap());
             AttributedCharacterIterator it = attrString.getIterator();
             StringBuffer buf = new StringBuffer();
             buf.append(it.first());
@@ -182,10 +180,9 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
         // case 2: Try to construct AttributedString using 0-length text and
         // not an empty Map attributes.
         try {
-            Map<AttributedCharacterIterator.Attribute, String> whm = new WeakHashMap<AttributedCharacterIterator.Attribute, String>();
-            whm.put(new TestAttributedCharacterIteratorAttribute("test"),
-                    "value");
-            new AttributedString("", whm);
+            Map<AttributedCharacterIterator.Attribute, String> map = Collections.singletonMap(
+                    new TestAttributedCharacterIteratorAttribute("test"), "value");
+            new AttributedString("", map);
             fail("Expected IllegalArgumentException was not thrown");
         } catch (Exception e) {
             // expected
@@ -304,7 +301,7 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
         }
 
         // regression for Harmony-1244
-        as = new AttributedString("123", new WeakHashMap());
+        as = new AttributedString("123", Collections.emptyMap());
         try {
             as.addAttribute(null, new TreeSet(), 0, 1);
             fail("should throw NullPointerException");
@@ -326,7 +323,7 @@ public class OldAttributedStringTest extends junit.framework.TestCase {
      */
     public void test_addAttributeLjava_text_AttributedCharacterIterator$AttributeLjava_lang_Object() {
         // regression for Harmony-1244
-        AttributedString as = new AttributedString("123", new WeakHashMap());
+        AttributedString as = new AttributedString("123", Collections.emptyMap());
 
         as.addAttribute(AttributedCharacterIterator.Attribute.LANGUAGE, "english");
         as.addAttribute(AttributedCharacterIterator.Attribute.INPUT_METHOD_SEGMENT,

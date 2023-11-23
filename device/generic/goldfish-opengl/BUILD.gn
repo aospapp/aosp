@@ -1,0 +1,119 @@
+shared_library("vulkan_goldfish") {
+  sources = [
+    "android-emu/android/base/AlignedBuf.cpp",
+    "android-emu/android/base/AlignedBuf.h",
+    "android-emu/android/base/Pool.cpp",
+    "android-emu/android/base/Pool.h",
+    "android-emu/android/base/SubAllocator.cpp",
+    "android-emu/android/base/SubAllocator.h",
+    "android-emu/android/base/files/MemStream.cpp",
+    "android-emu/android/base/files/MemStream.h",
+    "android-emu/android/base/files/Stream.cpp",
+    "android-emu/android/base/files/Stream.h",
+    "android-emu/android/base/files/StreamSerializing.cpp",
+    "android-emu/android/base/files/StreamSerializing.h",
+    "android-emu/android/base/Tracing.cpp",
+    "android-emu/android/base/Tracing.h",
+    "shared/OpenglCodecCommon/ChecksumCalculator.cpp",
+    "shared/OpenglCodecCommon/ChecksumCalculator.h",
+    "shared/OpenglCodecCommon/glUtils.cpp",
+    "shared/OpenglCodecCommon/glUtils.h",
+    "shared/OpenglCodecCommon/goldfish_address_space.cpp",
+    "shared/OpenglCodecCommon/goldfish_address_space.h",
+    "shared/OpenglCodecCommon/goldfish_dma.cpp",
+    "shared/OpenglCodecCommon/goldfish_dma.h",
+    "system/OpenglSystemCommon/HostConnection.cpp",
+    "system/OpenglSystemCommon/HostConnection.h",
+    "system/OpenglSystemCommon/ProcessPipe.cpp",
+    "system/OpenglSystemCommon/ProcessPipe.h",
+    "system/OpenglSystemCommon/QemuPipeStream.cpp",
+    "system/OpenglSystemCommon/QemuPipeStream.h",
+    "system/OpenglSystemCommon/ThreadInfo.cpp",
+    "system/OpenglSystemCommon/ThreadInfo.h",
+    "system/renderControl_enc/renderControl_enc.cpp",
+    "system/renderControl_enc/renderControl_enc.h",
+    "system/vulkan/func_table.cpp",
+    "system/vulkan/func_table.h",
+    "system/vulkan/goldfish_vulkan.cpp",
+    "system/vulkan_enc/HostVisibleMemoryVirtualization.cpp",
+    "system/vulkan_enc/HostVisibleMemoryVirtualization.h",
+    "system/vulkan_enc/ResourceTracker.cpp",
+    "system/vulkan_enc/ResourceTracker.h",
+    "system/vulkan_enc/Resources.cpp",
+    "system/vulkan_enc/Resources.h",
+    "system/vulkan_enc/Validation.cpp",
+    "system/vulkan_enc/Validation.h",
+    "system/vulkan_enc/VkEncoder.cpp",
+    "system/vulkan_enc/VkEncoder.h",
+    "system/vulkan_enc/VulkanHandleMapping.cpp",
+    "system/vulkan_enc/VulkanHandleMapping.h",
+    "system/vulkan_enc/VulkanStreamGuest.cpp",
+    "system/vulkan_enc/VulkanStreamGuest.h",
+    "system/vulkan_enc/goldfish_vk_deepcopy_guest.cpp",
+    "system/vulkan_enc/goldfish_vk_deepcopy_guest.h",
+    "system/vulkan_enc/goldfish_vk_extension_structs_guest.cpp",
+    "system/vulkan_enc/goldfish_vk_extension_structs_guest.h",
+    "system/vulkan_enc/goldfish_vk_marshaling_guest.cpp",
+    "system/vulkan_enc/goldfish_vk_marshaling_guest.h",
+    "system/vulkan_enc/goldfish_vk_transform_guest.cpp",
+    "system/vulkan_enc/goldfish_vk_transform_guest.h",
+  ]
+
+  include_dirs = [
+    "android-emu",
+    "host/include/libOpenglRender",
+    "shared/OpenglCodecCommon",
+    "system/OpenglSystemCommon",
+    "system/renderControl_enc",
+    "system/vulkan_enc",
+    "system/include",
+  ]
+
+  defines = [
+    "LOG_TAG=\"goldfish_vulkan\"",
+    "GOLDFISH_VULKAN",
+    "GOLDFISH_NO_GL",
+    "VK_USE_PLATFORM_FUCHSIA",
+    "PLATFORM_SDK_VERSION=1",
+    "PAGE_SIZE=4096",
+  ]
+
+  cflags_cc = [
+    "-Wno-unused-function",
+    "-Wno-unused-variable",
+    "-Wno-missing-field-initializers",
+  ]
+
+  ldflags = [ "-static-libstdc++" ]
+
+  if (target_os == "fuchsia") {
+    sources -= [ "system/OpenglSystemCommon/QemuPipeStream.cpp" ]
+    sources += [
+      "fuchsia/port.cc",
+      "system/OpenglSystemCommon/QemuPipeStreamFuchsia.cpp",
+    ]
+
+    include_dirs += [
+      "//third_party/vulkan_loader_and_validation_layers/include",
+      "fuchsia/include",
+    ]
+
+    libs = [
+      "zircon"
+    ]
+
+    deps = [
+      "//zircon/public/fidl/fuchsia-hardware-goldfish-address-space:fuchsia-hardware-goldfish-address-space_c",
+      "//zircon/public/fidl/fuchsia-hardware-goldfish-control:fuchsia-hardware-goldfish-control_c",
+      "//zircon/public/fidl/fuchsia-hardware-goldfish-pipe:fuchsia-hardware-goldfish-pipe_c",
+      "//zircon/public/fidl/fuchsia-sysmem",
+      "//zircon/public/lib/fdio",
+      "//zircon/public/lib/trace",
+    ]
+
+    defines += [
+      "QEMU_PIPE_PATH=\"/dev/class/goldfish-pipe/000\"",
+      "GOLDFISH_ADDRESS_SPACE_DEVICE_NAME=\"/dev/class/goldfish-address-space/000\"",
+    ]
+  }
+}

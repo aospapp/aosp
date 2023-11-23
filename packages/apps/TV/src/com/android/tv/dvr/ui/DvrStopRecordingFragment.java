@@ -126,7 +126,7 @@ public class DvrStopRecordingFragment extends DvrGuidedStepFragment {
         } else {
             description = getString(R.string.dvr_stop_recording_dialog_description);
         }
-        Drawable image = getResources().getDrawable(R.drawable.ic_warning_white_96dp, null);
+        Drawable image = getResources().getDrawable(R.drawable.quantum_ic_warning_white_96, null);
         return new Guidance(title, description, null, image);
     }
 

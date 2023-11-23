@@ -40,8 +40,6 @@
 #include "hcimsgs.h"
 #include "osi/include/osi.h"
 
-#if (BTM_SCO_INCLUDED == TRUE)
-
 /******************************************************************************/
 /*               L O C A L    D A T A    D E F I N I T I O N S                */
 /******************************************************************************/
@@ -485,8 +483,7 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
     if (p->state == SCO_ST_UNUSED) {
       if (remote_bda) {
         if (is_orig) {
-/* can not create SCO link if in park mode */
-#if (BTM_SCO_WAKE_PARKED_LINK == TRUE)
+          // can not create SCO link if in park mode
           tBTM_PM_STATE state;
           if ((btm_read_power_mode_state(*remote_bda, &state) == BTM_SUCCESS)) {
             if (state == BTM_PM_ST_SNIFF || state == BTM_PM_ST_PARK ||
@@ -503,12 +500,6 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
             LOG(ERROR) << __func__ << ": failed to read power mode for "
                        << *remote_bda;
           }
-#else   // BTM_SCO_WAKE_PARKED_LINK
-          uint8_t mode;
-          if ((BTM_ReadPowerMode(*remote_bda, &mode) == BTM_SUCCESS) &&
-              (mode == BTM_PM_MD_PARK))
-            return (BTM_WRONG_MODE);
-#endif  // BTM_SCO_WAKE_PARKED_LINK
         }
         p->esco.data.bd_addr = *remote_bda;
         p->rem_bd_known = true;
@@ -580,7 +571,6 @@ tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
   return BTM_NO_RESOURCES;
 }
 
-#if (BTM_SCO_WAKE_PARKED_LINK == TRUE)
 /*******************************************************************************
  *
  * Function         btm_sco_chk_pend_unpark
@@ -614,7 +604,6 @@ void btm_sco_chk_pend_unpark(uint8_t hci_status, uint16_t hci_handle) {
   }
 #endif  // BTM_MAX_SCO_LINKS
 }
-#endif  // BTM_SCO_WAKE_PARKED_LINK
 
 /*******************************************************************************
  *
@@ -1691,43 +1680,3 @@ static uint16_t btm_sco_voice_settings_to_legacy(enh_esco_params_t* p_params) {
 
   return (voice_settings);
 }
-
-#else /* SCO_EXCLUDED == TRUE (Link in stubs) */
-
-tBTM_STATUS BTM_CreateSco(const RawAddress* remote_bda, bool is_orig,
-                          uint16_t pkt_types, uint16_t* p_sco_inx,
-                          tBTM_SCO_CB* p_conn_cb, tBTM_SCO_CB* p_disc_cb) {
-  return (BTM_NO_RESOURCES);
-}
-tBTM_STATUS BTM_RemoveSco(uint16_t sco_inx) { return (BTM_NO_RESOURCES); }
-tBTM_STATUS BTM_SetScoPacketTypes(uint16_t sco_inx, uint16_t pkt_types) {
-  return (BTM_NO_RESOURCES);
-}
-uint16_t BTM_ReadScoPacketTypes(uint16_t sco_inx) { return (0); }
-uint16_t BTM_ReadDeviceScoPacketTypes(void) { return (0); }
-uint16_t BTM_ReadScoHandle(uint16_t sco_inx) {
-  return (BTM_INVALID_HCI_HANDLE);
-}
-const RawAddress* BTM_ReadScoBdAddr(uint16_t sco_inx) {
-  return ((uint8_t*)NULL);
-}
-uint16_t BTM_ReadScoDiscReason(void) { return (BTM_INVALID_SCO_DISC_REASON); }
-tBTM_STATUS BTM_SetEScoMode(enh_esco_params_t* p_parms) {
-  return (BTM_MODE_UNSUPPORTED);
-}
-tBTM_STATUS BTM_RegForEScoEvts(uint16_t sco_inx,
-                               tBTM_ESCO_CBACK* p_esco_cback) {
-  return (BTM_ILLEGAL_VALUE);
-}
-tBTM_STATUS BTM_ReadEScoLinkParms(uint16_t sco_inx, tBTM_ESCO_DATA* p_parms) {
-  return (BTM_MODE_UNSUPPORTED);
-}
-tBTM_STATUS BTM_ChangeEScoLinkParms(uint16_t sco_inx,
-                                    tBTM_CHG_ESCO_PARAMS* p_parms) {
-  return (BTM_MODE_UNSUPPORTED);
-}
-void BTM_EScoConnRsp(uint16_t sco_inx, uint8_t hci_status,
-                     enh_esco_params_t* p_parms) {}
-uint8_t BTM_GetNumScoLinks(void) { return (0); }
-
-#endif /* If SCO is being used */

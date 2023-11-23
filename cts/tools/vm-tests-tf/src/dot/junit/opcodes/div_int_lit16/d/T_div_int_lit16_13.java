@@ -18,6 +18,7 @@ package dot.junit.opcodes.div_int_lit16.d;
 
 public class T_div_int_lit16_13 {
 
+    @SuppressWarnings("ConstantOverflow")
     public int run() {
         return 1 / 0;
     }

@@ -1,8 +1,14 @@
 package org.robolectric.internal.dependency;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.Hashtable;
+import org.apache.maven.artifact.ant.Authentication;
 import org.apache.maven.artifact.ant.DependenciesTask;
 import org.apache.maven.artifact.ant.RemoteRepository;
 import org.apache.maven.model.Dependency;
@@ -14,14 +20,23 @@ public class MavenDependencyResolver implements DependencyResolver {
   private final Project project = new Project();
   private final String repositoryUrl;
   private final String repositoryId;
+  private final String repositoryUserName;
+  private final String repositoryPassword;
 
   public MavenDependencyResolver() {
-    this(RoboSettings.getMavenRepositoryUrl(), RoboSettings.getMavenRepositoryId());
+    this(RoboSettings.getMavenRepositoryUrl(), RoboSettings.getMavenRepositoryId(), RoboSettings.getMavenRepositoryUserName(), RoboSettings.getMavenRepositoryPassword());
   }
 
-  public MavenDependencyResolver(String repositoryUrl, String repositoryId) {
+  public MavenDependencyResolver(String repositoryUrl, String repositoryId, String repositoryUserName, String repositoryPassword) {
     this.repositoryUrl = repositoryUrl;
     this.repositoryId = repositoryId;
+    this.repositoryUserName = repositoryUserName;
+    this.repositoryPassword = repositoryPassword;
+  }
+
+  @Override
+  public URL[] getLocalArtifactUrls(DependencyJar dependency) {
+    return getLocalArtifactUrls(new DependencyJar[] {dependency});
   }
 
   /**
@@ -34,6 +49,12 @@ public class MavenDependencyResolver implements DependencyResolver {
     RemoteRepository remoteRepository = new RemoteRepository();
     remoteRepository.setUrl(repositoryUrl);
     remoteRepository.setId(repositoryId);
+    if (repositoryUserName != null || repositoryPassword != null) {
+      Authentication authentication = new Authentication();
+      authentication.setUserName(repositoryUserName);
+      authentication.setPassword(repositoryPassword);
+      remoteRepository.addAuthentication(authentication);
+    }
     dependenciesTask.addConfiguredRemoteRepository(remoteRepository);
     dependenciesTask.setProject(project);
     for (DependencyJar dependencyJar : dependencies) {
@@ -47,7 +68,8 @@ public class MavenDependencyResolver implements DependencyResolver {
       }
       dependenciesTask.addDependency(dependency);
     }
-    dependenciesTask.execute();
+
+    whileLocked(dependenciesTask::execute);
 
     @SuppressWarnings("unchecked")
     Hashtable<String, String> artifacts = project.getProperties();
@@ -60,6 +82,21 @@ public class MavenDependencyResolver implements DependencyResolver {
       }
     }
     return urls;
+  }
+
+  private void whileLocked(Runnable runnable) {
+    File lockFile = new File(System.getProperty("user.home"), ".robolectric-download-lock");
+    try (RandomAccessFile raf = new RandomAccessFile(lockFile, "rw")) {
+      try (FileChannel channel = raf.getChannel()) {
+        try (FileLock ignored = channel.lock()) {
+          runnable.run();
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException("Couldn't create lock file " + lockFile, e);
+    } finally {
+      lockFile.delete();
+    }
   }
 
   @Override

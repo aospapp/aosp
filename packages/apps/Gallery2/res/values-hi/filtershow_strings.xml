@@ -149,7 +149,7 @@
     <string name="filtershow_exif_focal_length" msgid="5925151469731623706">"फ़ोकल लंबाई"</string>
     <string name="filtershow_exif_iso" msgid="5822494416955625317">"ISO"</string>
     <string name="filtershow_exif_subject_distance" msgid="4920632253433906646">"विषय से दूरी"</string>
-    <string name="filtershow_exif_date" msgid="8882402253732028544">"फ़ोटो लेने का दिनांक"</string>
+    <string name="filtershow_exif_date" msgid="8882402253732028544">"फ़ोटो लेने का तारीख"</string>
     <string name="filtershow_exif_f_stop" msgid="6081797865604483139">"F स्टॉप"</string>
     <string name="filtershow_exif_exposure_time" msgid="4099067062781294115">"एक्स्पोज़र समय"</string>
     <string name="filtershow_exif_copyright" msgid="8801875918803737581">"कॉपीराइट"</string>

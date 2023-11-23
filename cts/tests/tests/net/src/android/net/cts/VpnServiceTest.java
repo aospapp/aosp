@@ -18,6 +18,7 @@ package android.net.cts;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -35,6 +36,7 @@ public class VpnServiceTest extends AndroidTestCase {
 
     private VpnService mVpnService = new VpnService();
 
+    @AppModeFull(reason = "PackageManager#queryIntentActivities cannot access in instant app mode")
     public void testPrepare() throws Exception {
         // Should never return null since we are not prepared.
         Intent intent = VpnService.prepare(mContext);
@@ -60,6 +62,7 @@ public class VpnServiceTest extends AndroidTestCase {
         }
     }
 
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testProtect_DatagramSocket() throws Exception {
         DatagramSocket socket = new DatagramSocket();
         try {
@@ -88,6 +91,7 @@ public class VpnServiceTest extends AndroidTestCase {
         }
     }
 
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testProtect_int() throws Exception {
         DatagramSocket socket = new DatagramSocket();
         ParcelFileDescriptor descriptor = ParcelFileDescriptor.fromDatagramSocket(socket);

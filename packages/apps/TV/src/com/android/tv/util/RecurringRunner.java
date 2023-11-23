@@ -99,17 +99,14 @@ public final class RecurringRunner {
         long delay = Math.max(next - now, 0);
         boolean posted =
                 mHandler.postDelayed(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                try {
-                                    if (DEBUG) Log.i(TAG, "Starting " + mName);
-                                    mRunnable.run();
-                                } catch (Exception e) {
-                                    Log.w(TAG, "Error running " + mName, e);
-                                }
-                                postAt(resetNextRunTime());
+                        () -> {
+                            try {
+                                if (DEBUG) Log.i(TAG, "Starting " + mName);
+                                mRunnable.run();
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error running " + mName, e);
                             }
+                            postAt(resetNextRunTime());
                         },
                         delay);
         if (!posted) {

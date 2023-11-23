@@ -25,6 +25,9 @@
  */
 package org.apache.harmony.jpda.tests.share;
 
+import java.io.FileReader;
+import java.io.StreamTokenizer;
+
 /**
  * The class extends <code>Debuggee</code> and adds usage of the
  * synchronization channel implemented by <code>JPDADebuggeeSynchronizer</code>.
@@ -36,6 +39,23 @@ public abstract class SyncDebuggee extends Debuggee {
      */
     public JPDADebuggeeSynchronizer synchronizer;
 
+    public String getPid() {
+        try {
+          StreamTokenizer toks = new StreamTokenizer(new FileReader("/proc/self/stat"));
+          toks.parseNumbers();
+          if (toks.nextToken() != StreamTokenizer.TT_NUMBER) {
+            System.out.println("Failed to tokenize /proc/self/stat correctly. " +
+                               "First token isn't a number");
+            return "-1";
+          }
+          return Integer.toString((int)toks.nval);
+        } catch (Exception e) {
+            System.out.println("Failed to get pid! " + e);
+            e.printStackTrace(System.out);
+            return "-1";
+        }
+    }
+
     /**
      * Initializes the synchronization channel.
      */
@@ -44,6 +64,7 @@ public abstract class SyncDebuggee extends Debuggee {
         super.onStart();
         synchronizer = createSynchronizer();
         synchronizer.startClient();
+        synchronizer.sendMessage(getPid());
     }
 
     /**

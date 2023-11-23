@@ -30,6 +30,8 @@
 #define SCTRL_SCFPLLCTRL0                       (SCTRL_REG_BASE + 0x120)
 #define SCTRL_SCFPLLCTRL0_FPLL0_EN              (1 << 0)
 
+#define SCTRL_BAK_DATA0                         (SCTRL_REG_BASE + 0x40C)
+
 #define USB3OTG_BC_REG_BASE                     0xFF200000
 
 #define USB3OTG_CTRL0                           (USB3OTG_BC_REG_BASE + 0x000)
@@ -141,5 +143,8 @@
 #define MASK_UFS_SYSCTRL_BYPASS                 (0x3F << 16)
 #define MASK_UFS_DEVICE_RESET                   (1 << 16)
 #define BIT_UFS_DEVICE_RESET                    (1 << 0)
+
+#define SCTRL_SCBAKDATA7                        (SCTRL_REG_BASE + 0x428)
+#define HIKEY_REGION_SIZE(x)                    ((((x) >> 0x8) & 0xF) << 30)
 
 #endif /* __HI3660_H__ */

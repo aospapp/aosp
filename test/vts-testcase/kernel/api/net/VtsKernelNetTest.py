@@ -73,7 +73,7 @@ class VtsKernelNetTest(base_test.BaseTestClass):
         logging.info('exit code: %s', result[const.EXIT_CODE])
         asserts.assertFalse(
             result[const.EXIT_CODE],
-            'kernel_net_tests binary returned non-zero exit code.')
+            'kernel_net_tests binary returned non-zero exit code: \n' + result[const.STDERR])
 
 if __name__ == '__main__':
     test_runner.main()

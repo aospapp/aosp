@@ -116,12 +116,15 @@ static int ucm_swap_mode_exists_ret_value;
 static int ucm_enable_swap_mode_ret_value;
 static size_t ucm_enable_swap_mode_called;
 static int is_utf8_string_ret_value;
-static char *cras_alsa_jack_update_monitor_fake_name = 0;
+static const char *cras_alsa_jack_update_monitor_fake_name = 0;
 static int cras_alsa_jack_get_name_called;
 static const char *cras_alsa_jack_get_name_ret_value = 0;
 static char default_jack_name[] = "Something Jack";
 static int auto_unplug_input_node_ret = 0;
 static int auto_unplug_output_node_ret = 0;
+static int ucm_get_min_software_gain_called;
+static int ucm_get_min_software_gain_ret_value;
+static long ucm_get_min_software_gain_value;
 static int ucm_get_max_software_gain_called;
 static int ucm_get_max_software_gain_ret_value;
 static long ucm_get_max_software_gain_value;
@@ -147,6 +150,9 @@ static int ucm_get_enable_htimestamp_flag_ret;
 static const struct cras_volume_curve *fake_get_dBFS_volume_curve_val;
 static int cras_iodev_dsp_set_swap_mode_for_node_called;
 static std::map<std::string, long> ucm_get_default_node_gain_values;
+static thread_callback audio_thread_cb;
+static void *audio_thread_cb_data;
+static int hotword_send_triggered_msg_called;
 
 void ResetStubData() {
   cras_alsa_open_called = 0;
@@ -209,6 +215,9 @@ void ResetStubData() {
   cras_alsa_jack_get_name_called = 0;
   cras_alsa_jack_get_name_ret_value = default_jack_name;
   cras_alsa_jack_update_monitor_fake_name = 0;
+  ucm_get_min_software_gain_called = 0;
+  ucm_get_min_software_gain_ret_value = -1;
+  ucm_get_min_software_gain_value = 0;
   ucm_get_max_software_gain_called = 0;
   ucm_get_max_software_gain_ret_value = -1;
   ucm_get_max_software_gain_value = 0;
@@ -393,12 +402,15 @@ TEST(AlsaIoInit, OpenPlayback) {
   EXPECT_EQ(2, cras_card_config_get_volume_curve_for_control_called);
   aio = (struct alsa_io *)iodev;
   format.frame_rate = 48000;
+  format.num_channels = 1;
   cras_iodev_set_format(iodev, &format);
 
   // Test that these flags are cleared after open_dev.
   aio->is_free_running = 1;
   aio->filled_zeros_for_draining = 512;
   iodev->open_dev(iodev);
+  EXPECT_EQ(1, cras_alsa_open_called);
+  iodev->configure_dev(iodev);
   EXPECT_EQ(1, cras_alsa_open_called);
   EXPECT_EQ(1, sys_set_volume_limits_called);
   EXPECT_EQ(1, alsa_mixer_set_dBFS_called);
@@ -482,8 +494,10 @@ TEST(AlsaIoInit, UseSoftwareGain) {
   struct cras_iodev *iodev;
   struct cras_use_case_mgr * const fake_ucm = (struct cras_use_case_mgr*)3;
 
-  /* Meet the requirements of using software gain. */
+  /* MaxSoftwareGain is specified in UCM */
   ResetStubData();
+  ucm_get_min_software_gain_ret_value = 1;
+  ucm_get_min_software_gain_value = 1;
   ucm_get_max_software_gain_ret_value = 0;
   ucm_get_max_software_gain_value = 2000;
   iodev = alsa_iodev_create_with_default_parameters(0, NULL,
@@ -493,14 +507,62 @@ TEST(AlsaIoInit, UseSoftwareGain) {
                                                     CRAS_STREAM_INPUT);
   ASSERT_EQ(0, alsa_iodev_legacy_complete_init(iodev));
   EXPECT_EQ(1, iodev->active_node->software_volume_needed);
+  EXPECT_EQ(DEFAULT_MIN_CAPTURE_GAIN, iodev->active_node->min_software_gain);
   EXPECT_EQ(2000, iodev->active_node->max_software_gain);
   ASSERT_EQ(1, sys_set_capture_gain_limits_called);
-  /* The gain range is [DEFAULT_MIN_CAPTURE_GAIN, maximum softare gain]. */
+  /* The gain range is [DEFAULT_MIN_CAPTURE_GAIN, maximum software gain]. */
   ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[0],
       DEFAULT_MIN_CAPTURE_GAIN);
   ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[1], 2000);
 
-  /* MaxSoftwareGain is not specified in UCM */
+  alsa_iodev_destroy(iodev);
+
+  /* MaxSoftwareGain and MinSoftwareGain are specified in UCM. */
+  ResetStubData();
+  ucm_get_min_software_gain_ret_value = 0;
+  ucm_get_min_software_gain_value = 1000;
+  ucm_get_max_software_gain_ret_value = 0;
+  ucm_get_max_software_gain_value = 2000;
+  iodev = alsa_iodev_create_with_default_parameters(0, NULL,
+                                                    ALSA_CARD_TYPE_INTERNAL, 1,
+                                                    fake_mixer, fake_config,
+                                                    fake_ucm,
+                                                    CRAS_STREAM_INPUT);
+  ASSERT_EQ(0, alsa_iodev_legacy_complete_init(iodev));
+  EXPECT_EQ(1, iodev->active_node->software_volume_needed);
+  EXPECT_EQ(1000, iodev->active_node->min_software_gain);
+  EXPECT_EQ(2000, iodev->active_node->max_software_gain);
+  ASSERT_EQ(1, sys_set_capture_gain_limits_called);
+  /* The gain range is [minimum software gain, maximum software gain]. */
+  ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[0], 1000);
+  ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[1], 2000);
+
+  alsa_iodev_destroy(iodev);
+
+  /* MinSoftwareGain is larger than MaxSoftwareGain in UCM. */
+  ResetStubData();
+  ucm_get_min_software_gain_ret_value = 0;
+  ucm_get_min_software_gain_value = 3000;
+  ucm_get_max_software_gain_ret_value = 0;
+  ucm_get_max_software_gain_value = 2000;
+  iodev = alsa_iodev_create_with_default_parameters(0, NULL,
+                                                    ALSA_CARD_TYPE_INTERNAL, 1,
+                                                    fake_mixer, fake_config,
+                                                    fake_ucm,
+                                                    CRAS_STREAM_INPUT);
+  ASSERT_EQ(0, alsa_iodev_legacy_complete_init(iodev));
+  EXPECT_EQ(1, iodev->active_node->software_volume_needed);
+  EXPECT_EQ(DEFAULT_MIN_CAPTURE_GAIN, iodev->active_node->min_software_gain);
+  EXPECT_EQ(2000, iodev->active_node->max_software_gain);
+  ASSERT_EQ(1, sys_set_capture_gain_limits_called);
+  /* The gain range is [DEFAULT_MIN_CAPTURE_GAIN, maximum software gain]. */
+  ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[0],
+      DEFAULT_MIN_CAPTURE_GAIN);
+  ASSERT_EQ(cras_system_set_capture_gain_limits_set_value[1], 2000);
+
+  alsa_iodev_destroy(iodev);
+
+  /* MaxSoftwareGain is not specified in UCM. */
   ResetStubData();
   ucm_get_max_software_gain_ret_value = 1;
   ucm_get_max_software_gain_value = 1;
@@ -534,7 +596,7 @@ TEST(AlsaIoInit, SoftwareGainWithDefaultNodeGain) {
   ucm_get_max_software_gain_ret_value = 0;
   ucm_get_max_software_gain_value = 2000;
 
-  // Set default node gain to -1000 dBm.
+  // Set default node gain to -1000 * 0.01 dB.
   ucm_get_default_node_gain_values["Internal Mic"] = default_node_gain;
 
   // Assume this is the first device so it gets internal mic node name.
@@ -545,7 +607,7 @@ TEST(AlsaIoInit, SoftwareGainWithDefaultNodeGain) {
                                                     CRAS_STREAM_INPUT);
   ASSERT_EQ(0, alsa_iodev_legacy_complete_init(iodev));
 
-  // Gain on node is 300 dBm.
+  // Gain on node is 300 * 0.01 dB.
   iodev->active_node->capture_gain = default_node_gain;
 
   // cras_iodev will call cras_iodev_adjust_active_node_gain to get gain for
@@ -647,10 +709,13 @@ TEST(AlsaIoInit, OpenCapture) {
 
   aio = (struct alsa_io *)iodev;
   format.frame_rate = 48000;
+  format.num_channels = 1;
   cras_iodev_set_format(iodev, &format);
 
   ResetStubData();
   iodev->open_dev(iodev);
+  EXPECT_EQ(1, cras_alsa_open_called);
+  iodev->configure_dev(iodev);
   EXPECT_EQ(1, cras_alsa_open_called);
   EXPECT_EQ(1, cras_alsa_mixer_get_minimum_capture_gain_called);
   EXPECT_EQ(1, cras_alsa_mixer_get_maximum_capture_gain_called);
@@ -675,7 +740,7 @@ TEST(AlsaIoInit, OpenCaptureSetCaptureGainWithDefaultNodeGain) {
   long default_node_gain = -1000;
 
   ResetStubData();
-  // Set default node gain to -1000 dBm.
+  // Set default node gain to -1000 * 0.01 dB.
   ucm_get_default_node_gain_values["Internal Mic"] = default_node_gain;
 
   // Assume this is the first device so it gets internal mic node name.
@@ -690,13 +755,14 @@ TEST(AlsaIoInit, OpenCaptureSetCaptureGainWithDefaultNodeGain) {
 
   // Check the default node gain is the same as what specified in UCM.
   EXPECT_EQ(default_node_gain, iodev->active_node->capture_gain);
-  // System gain is set to 2000 dBm.
+  // System gain is set to 2000 * 0.01 dB.
   sys_get_capture_gain_return_value = system_gain;
 
   iodev->open_dev(iodev);
+  iodev->configure_dev(iodev);
   iodev->close_dev(iodev);
 
-  // Hardware gain is set to 2000 - 1000 dBm.
+  // Hardware gain is set to (2000 - 1000) * 0.01 dB.
   EXPECT_EQ(system_gain + default_node_gain, alsa_mixer_set_capture_dBFS_value);
 
   alsa_iodev_destroy(iodev);
@@ -720,12 +786,15 @@ TEST(AlsaIoInit, OpenCaptureSetCaptureGainWithSoftwareGain) {
                                                     CRAS_STREAM_INPUT);
   ASSERT_EQ(0, alsa_iodev_legacy_complete_init(iodev));
 
+  format.frame_rate = 48000;
+  format.num_channels = 1;
   cras_iodev_set_format(iodev, &format);
 
-  /* System gain is set to 1000dBm */
+  /* System gain is set to 1000 * 0.01 dB */
   sys_get_capture_gain_return_value = 1000;
 
   iodev->open_dev(iodev);
+  iodev->configure_dev(iodev);
   iodev->close_dev(iodev);
 
   /* Hardware gain is set to 0dB when software gain is used. */
@@ -734,9 +803,10 @@ TEST(AlsaIoInit, OpenCaptureSetCaptureGainWithSoftwareGain) {
   /* Test the case where software gain is not needed. */
   iodev->active_node->software_volume_needed = 0;
   iodev->open_dev(iodev);
+  iodev->configure_dev(iodev);
   iodev->close_dev(iodev);
 
-  /* Hardware gain is set to 1000dBm as got from system capture gain.*/
+  /* Hardware gain is set to 1000 * 0.01 dB as got from system capture gain.*/
   EXPECT_EQ(1000, alsa_mixer_set_capture_dBFS_value);
 
   alsa_iodev_destroy(iodev);
@@ -892,7 +962,8 @@ TEST(AlsaIoInit, SwapMode) {
   struct alsa_io *aio;
   struct cras_alsa_mixer * const fake_mixer = (struct cras_alsa_mixer*)2;
   struct cras_use_case_mgr * const fake_ucm = (struct cras_use_case_mgr*)3;
-  struct cras_ionode * const fake_node = (cras_ionode *)4;
+  struct cras_ionode * const fake_node = (cras_ionode *)calloc(
+      1, sizeof(struct cras_ionode));
   ResetStubData();
   // Stub replies that swap mode does not exist.
   ucm_swap_mode_exists_ret_value = 0;
@@ -908,6 +979,7 @@ TEST(AlsaIoInit, SwapMode) {
 
   // Stub replies that swap mode exists.
   ucm_swap_mode_exists_ret_value = 1;
+  alsa_iodev_destroy((struct cras_iodev *)aio);
 
   aio = (struct alsa_io *)alsa_iodev_create_with_default_parameters(
       0, NULL, ALSA_CARD_TYPE_INTERNAL, 0, fake_mixer, fake_config, fake_ucm,
@@ -921,6 +993,7 @@ TEST(AlsaIoInit, SwapMode) {
   EXPECT_EQ(1, ucm_enable_swap_mode_called);
 
   alsa_iodev_destroy((struct cras_iodev *)aio);
+  free(fake_node);
 }
 
 // Test that system settins aren't touched if no streams active.
@@ -1641,6 +1714,19 @@ TEST(AlsaInitNode, SetNodeInitialState) {
   ASSERT_EQ(0, node.plugged);
   ASSERT_EQ(CRAS_NODE_TYPE_MIC, node.type);
   ASSERT_EQ(NODE_POSITION_EXTERNAL, node.position);
+  // Node name is changed to "Mic".
+  ASSERT_EQ(0, strcmp(node.name, "Mic"));
+
+  memset(&node, 0, sizeof(node));
+  node.dev = &dev;
+  dev.direction = CRAS_STREAM_OUTPUT;
+  strcpy(node.name, "DAISY-I2S Headphone Jack");
+  set_node_initial_state(&node, ALSA_CARD_TYPE_INTERNAL);
+  ASSERT_EQ(0, node.plugged);
+  ASSERT_EQ(CRAS_NODE_TYPE_HEADPHONE, node.type);
+  ASSERT_EQ(NODE_POSITION_EXTERNAL, node.position);
+  // Node name is changed to "Headphone".
+  ASSERT_EQ(0, strcmp(node.name, "Headphone"));
 
   memset(&node, 0, sizeof(node));
   node.dev = &dev;
@@ -1720,8 +1806,7 @@ TEST(AlsaIoInit, HDMIJackUpdateInvalidUTF8MonitorName) {
   // HDMI jack, and thus the callback creates an HDMI node.
   cras_alsa_jack_get_name_ret_value = "HDMI Jack";
   // Set the jack name updated from monitor to be an invalid UTF8 string.
-  cras_alsa_jack_update_monitor_fake_name = strdup("Something");
-  cras_alsa_jack_update_monitor_fake_name[0] = 0xfe;
+  cras_alsa_jack_update_monitor_fake_name = "\xfeomething";
   is_utf8_string_ret_value = 0;
 
   // Add the jack node.
@@ -1785,12 +1870,13 @@ TEST_F(AlsaVolumeMuteSuite, GetDefaultVolumeCurve) {
   aio_output_->base.format = fmt;
   aio_output_->handle = (snd_pcm_t *)0x24;
 
-  rc = aio_output_->base.open_dev(&aio_output_->base);
+  rc = aio_output_->base.configure_dev(&aio_output_->base);
   ASSERT_EQ(0, rc);
   EXPECT_EQ(&default_curve, fake_get_dBFS_volume_curve_val);
 
   aio_output_->base.set_volume(&aio_output_->base);
   EXPECT_EQ(&default_curve, fake_get_dBFS_volume_curve_val);
+  free(fmt);
 }
 
 TEST_F(AlsaVolumeMuteSuite, GetVolumeCurveFromNode)
@@ -1820,12 +1906,13 @@ TEST_F(AlsaVolumeMuteSuite, GetVolumeCurveFromNode)
   node = aio_output_->base.nodes->next;
   aio_output_->base.active_node = node;
 
-  rc = aio_output_->base.open_dev(&aio_output_->base);
+  rc = aio_output_->base.configure_dev(&aio_output_->base);
   ASSERT_EQ(0, rc);
   EXPECT_EQ(&hp_curve, fake_get_dBFS_volume_curve_val);
 
   aio_output_->base.set_volume(&aio_output_->base);
   EXPECT_EQ(&hp_curve, fake_get_dBFS_volume_curve_val);
+  free(fmt);
 }
 
 TEST_F(AlsaVolumeMuteSuite, SetVolume) {
@@ -1841,7 +1928,7 @@ TEST_F(AlsaVolumeMuteSuite, SetVolume) {
 
   aio_output_->num_underruns = 3; //  Something non-zero.
   sys_get_volume_return_value = fake_system_volume;
-  rc = aio_output_->base.open_dev(&aio_output_->base);
+  rc = aio_output_->base.configure_dev(&aio_output_->base);
   ASSERT_EQ(0, rc);
   EXPECT_EQ(1, alsa_mixer_set_dBFS_called);
   EXPECT_EQ(fake_system_volume_dB, alsa_mixer_set_dBFS_value);
@@ -1919,12 +2006,22 @@ class AlsaFreeRunTestSuite: public testing::Test {
       fmt_.format = SND_PCM_FORMAT_S16_LE;
       fmt_.frame_rate = 48000;
       fmt_.num_channels = 2;
+      aio.base.frames_queued = frames_queued;
+      aio.base.direction = CRAS_STREAM_OUTPUT;
       aio.base.format = &fmt_;
       aio.base.buffer_size = BUFFER_SIZE;
       aio.base.min_cb_level = 240;
+      aio.base.min_buffer_level = 0;
+      aio.filled_zeros_for_draining = 0;
+      cras_alsa_mmap_begin_buffer = (uint8_t *)calloc(
+        BUFFER_SIZE * 2 * 2,
+        sizeof(*cras_alsa_mmap_begin_buffer));
+      memset(cras_alsa_mmap_begin_buffer, 0xff,
+             sizeof(*cras_alsa_mmap_begin_buffer));
     }
 
     virtual void TearDown() {
+      free(cras_alsa_mmap_begin_buffer);
     }
 
   struct alsa_io aio;
@@ -1935,11 +2032,6 @@ TEST_F(AlsaFreeRunTestSuite, FillWholeBufferWithZeros) {
   int rc;
   int16_t *zeros;
 
-  cras_alsa_mmap_begin_buffer = (uint8_t *)calloc(
-      BUFFER_SIZE * 2 * 2,
-      sizeof(*cras_alsa_mmap_begin_buffer));
-  memset(cras_alsa_mmap_begin_buffer, 0xff,
-         sizeof(*cras_alsa_mmap_begin_buffer));
 
   rc = fill_whole_buffer_with_zeros(&aio.base);
 
@@ -1948,7 +2040,6 @@ TEST_F(AlsaFreeRunTestSuite, FillWholeBufferWithZeros) {
   EXPECT_EQ(0, memcmp(zeros, cras_alsa_mmap_begin_buffer, BUFFER_SIZE * 2 * 2));
 
   free(zeros);
-  free(cras_alsa_mmap_begin_buffer);
 }
 
 TEST_F(AlsaFreeRunTestSuite, EnterFreeRunAlreadyFreeRunning) {
@@ -1966,14 +2057,17 @@ TEST_F(AlsaFreeRunTestSuite, EnterFreeRunAlreadyFreeRunning) {
 }
 
 TEST_F(AlsaFreeRunTestSuite, EnterFreeRunNotDrainedYetNeedToFillZeros) {
-  int rc;
-
+  int rc, real_hw_level;
+  struct timespec hw_tstamp;
   // Device is not in free run state. There are still valid samples to play.
   // The number of valid samples is less than min_cb_level * 2.
   // Need to fill zeros targeting min_cb_level * 2 = 480.
   // The number of zeros to be filled is 480 - 200 = 280.
-  cras_iodev_frames_queued_ret = 200;
-  cras_iodev_buffer_avail_ret = BUFFER_SIZE - cras_iodev_frames_queued_ret;
+  real_hw_level = 200;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
+
+  rc = aio.base.frames_queued(&aio.base, &hw_tstamp);
+  EXPECT_EQ(200, rc);
 
   rc = no_stream(&aio.base, 1);
 
@@ -1986,13 +2080,13 @@ TEST_F(AlsaFreeRunTestSuite, EnterFreeRunNotDrainedYetNeedToFillZeros) {
 }
 
 TEST_F(AlsaFreeRunTestSuite, EnterFreeRunNotDrainedYetNoNeedToFillZeros) {
-  int rc;
+  int rc, real_hw_level;
 
   // Device is not in free run state. There are still valid samples to play.
   // The number of valid samples is more than min_cb_level * 2.
   // No need to fill zeros.
-  cras_iodev_frames_queued_ret = 500;
-  cras_iodev_buffer_avail_ret = BUFFER_SIZE - cras_iodev_frames_queued_ret;
+  real_hw_level = 500;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
 
   rc = no_stream(&aio.base, 1);
 
@@ -2003,13 +2097,13 @@ TEST_F(AlsaFreeRunTestSuite, EnterFreeRunNotDrainedYetNoNeedToFillZeros) {
 }
 
 TEST_F(AlsaFreeRunTestSuite, EnterFreeRunDrained) {
-  int rc;
+  int rc, real_hw_level;
 
   // Device is not in free run state. There are still valid samples to play.
   // The number of valid samples is less than filled zeros.
   // Should enter free run state and fill whole buffer with zeros.
-  cras_iodev_frames_queued_ret = 40;
-  cras_iodev_buffer_avail_ret = BUFFER_SIZE - cras_iodev_frames_queued_ret;
+  real_hw_level = 40;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
   aio.filled_zeros_for_draining = 100;
 
   rc = no_stream(&aio.base, 1);
@@ -2021,12 +2115,12 @@ TEST_F(AlsaFreeRunTestSuite, EnterFreeRunDrained) {
 }
 
 TEST_F(AlsaFreeRunTestSuite, EnterFreeRunNoSamples) {
-  int rc;
+  int rc, real_hw_level;
 
   // Device is not in free run state. There is no sample to play.
   // Should enter free run state and fill whole buffer with zeros.
-  cras_iodev_frames_queued_ret = 0;
-  cras_iodev_buffer_avail_ret = BUFFER_SIZE - cras_iodev_frames_queued_ret;
+  real_hw_level = 0;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
 
   rc = no_stream(&aio.base, 1);
 
@@ -2053,13 +2147,50 @@ TEST_F(AlsaFreeRunTestSuite, OutputShouldWake) {
   EXPECT_EQ(0, output_should_wake(&aio.base));
 }
 
-TEST_F(AlsaFreeRunTestSuite, LeaveFreeRunNotInFreeRun) {
-  int rc;
+TEST_F(AlsaFreeRunTestSuite, LeaveFreeRunNotInFreeRunMoreRemain) {
+  int rc, real_hw_level;
+
+  // Compare min_buffer_level + min_cb_level with valid samples left.
+  // 240 + 512 < 900 - 100, so we will get 900 - 100 in appl_ptr_ahead.
+
+  aio.is_free_running = 0;
+  aio.filled_zeros_for_draining = 100;
+  aio.base.min_buffer_level = 512;
+  real_hw_level = 900;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
 
   rc = no_stream(&aio.base, 0);
 
   EXPECT_EQ(0, rc);
-  EXPECT_EQ(0, cras_alsa_resume_appl_ptr_called);
+  EXPECT_EQ(1, cras_alsa_resume_appl_ptr_called);
+  EXPECT_EQ(800, cras_alsa_resume_appl_ptr_ahead);
+  EXPECT_EQ(0, cras_iodev_fill_odev_zeros_frames);
+  EXPECT_EQ(0, aio.is_free_running);
+  EXPECT_EQ(0, aio.filled_zeros_for_draining);
+}
+
+TEST_F(AlsaFreeRunTestSuite, LeaveFreeRunNotInFreeRunLessRemain) {
+  int rc, real_hw_level;
+
+  // Compare min_buffer_level + min_cb_level with valid samples left.
+  // 240 + 256 > 400 - 500, so we will get 240 + 256 in appl_ptr_ahead.
+  // And it will fill 240 + 256 - 400 = 96 zeros frames into device.
+
+  aio.is_free_running = 0;
+  aio.filled_zeros_for_draining = 500;
+  aio.base.min_buffer_level = 256;
+  real_hw_level = 400;
+  cras_alsa_get_avail_frames_avail = BUFFER_SIZE - real_hw_level;
+
+  rc = no_stream(&aio.base, 0);
+
+  EXPECT_EQ(0, rc);
+  EXPECT_EQ(1, cras_alsa_resume_appl_ptr_called);
+  EXPECT_EQ(aio.base.min_buffer_level + aio.base.min_cb_level,
+            cras_alsa_resume_appl_ptr_ahead);
+  EXPECT_EQ(96, cras_iodev_fill_odev_zeros_frames);
+  EXPECT_EQ(0, aio.is_free_running);
+  EXPECT_EQ(0, aio.filled_zeros_for_draining);
 }
 
 TEST_F(AlsaFreeRunTestSuite, LeaveFreeRunInFreeRun) {
@@ -2085,15 +2216,12 @@ TEST_F(AlsaFreeRunTestSuite, OutputUnderrun) {
   int rc;
   int16_t *zeros;
 
-  cras_alsa_mmap_begin_buffer = (uint8_t *)calloc(
-      BUFFER_SIZE * 2 * 2,
-      sizeof(*cras_alsa_mmap_begin_buffer));
-  memset(cras_alsa_mmap_begin_buffer, 0xff,
-         sizeof(*cras_alsa_mmap_begin_buffer));
+  aio.num_underruns = 0;
 
   // Ask alsa_io to handle output underrun.
   rc = alsa_output_underrun(&aio.base);
   EXPECT_EQ(0, rc);
+  EXPECT_EQ(1, aio.num_underruns);
 
   // mmap buffer should be filled with zeros.
   zeros = (int16_t *)calloc(BUFFER_SIZE * 2, sizeof(*zeros));
@@ -2106,9 +2234,40 @@ TEST_F(AlsaFreeRunTestSuite, OutputUnderrun) {
             cras_alsa_resume_appl_ptr_ahead);
 
   free(zeros);
-  free(cras_alsa_mmap_begin_buffer);
 }
 
+TEST(AlsaHotwordNode, HotwordTriggeredSendMessage) {
+  struct cras_iodev *iodev;
+  struct cras_audio_format format;
+  struct alsa_input_node alsa_node;
+  struct cras_ionode *node = &alsa_node.base;
+  int rc;
+
+  ResetStubData();
+  iodev = alsa_iodev_create_with_default_parameters(
+      0, NULL, ALSA_CARD_TYPE_INTERNAL, 0, fake_mixer, fake_config, NULL,
+      CRAS_STREAM_INPUT);
+  format.frame_rate = 16000;
+  format.num_channels = 1;
+  cras_iodev_set_format(iodev, &format);
+
+  memset(&alsa_node, 0, sizeof(alsa_node));
+  node->dev = iodev;
+  strcpy(node->name, "Wake on Voice");
+  set_node_initial_state(node, ALSA_CARD_TYPE_INTERNAL);
+  EXPECT_EQ(CRAS_NODE_TYPE_HOTWORD, node->type);
+
+  iodev->active_node = node;
+  iodev->open_dev(iodev);
+  rc = iodev->configure_dev(iodev);
+  free(fake_format);
+  ASSERT_EQ(0, rc);
+
+  ASSERT_NE(reinterpret_cast<thread_callback>(NULL), audio_thread_cb);
+  audio_thread_cb(audio_thread_cb_data);
+  EXPECT_EQ(1, hotword_send_triggered_msg_called);
+  alsa_iodev_destroy(iodev);
+}
 
 }  //  namespace
 
@@ -2152,6 +2311,16 @@ int cras_iodev_list_set_hotword_model(cras_node_id_t node_id,
 	return 0;
 }
 
+int cras_iodev_list_suspend_hotword_streams()
+{
+  return 0;
+}
+
+int cras_iodev_list_resume_hotword_stream()
+{
+  return 0;
+}
+
 struct audio_thread *cras_iodev_list_get_audio_thread()
 {
   return NULL;
@@ -2188,8 +2357,7 @@ int cras_alsa_pcm_drain(snd_pcm_t *handle)
 {
   return 0;
 }
-int cras_alsa_fill_properties(const char *dev,
-			      snd_pcm_stream_t stream,
+int cras_alsa_fill_properties(snd_pcm_t *handle,
 			      size_t **rates,
 			      size_t **channel_counts,
 			      snd_pcm_format_t **formats)
@@ -2222,8 +2390,7 @@ int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
                                snd_pcm_uframes_t severe_underrun_frames,
                                const char* dev_name,
                                snd_pcm_uframes_t *used,
-                               struct timespec *tstamp,
-                               unsigned int *num_underruns)
+                               struct timespec *tstamp)
 {
   *used = cras_alsa_get_avail_frames_avail;
   clock_gettime(CLOCK_MONOTONIC_RAW, tstamp);
@@ -2237,14 +2404,14 @@ int cras_alsa_get_delay_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 }
 int cras_alsa_mmap_begin(snd_pcm_t *handle, unsigned int format_bytes,
 			 uint8_t **dst, snd_pcm_uframes_t *offset,
-			 snd_pcm_uframes_t *frames, unsigned int *underruns)
+			 snd_pcm_uframes_t *frames)
 {
   *dst = cras_alsa_mmap_begin_buffer;
   *frames = cras_alsa_mmap_begin_frames;
   return 0;
 }
 int cras_alsa_mmap_commit(snd_pcm_t *handle, snd_pcm_uframes_t offset,
-			  snd_pcm_uframes_t frames, unsigned int *underruns)
+			  snd_pcm_uframes_t frames)
 {
   return 0;
 }
@@ -2530,11 +2697,11 @@ int ucm_set_enabled(
 }
 
 char *ucm_get_flag(struct cras_use_case_mgr *mgr, const char *flag_name) {
-  char *ret = (char *)malloc(8);
   if ((!strcmp(flag_name, "AutoUnplugInputNode") &&
        auto_unplug_input_node_ret) ||
       (!strcmp(flag_name, "AutoUnplugOutputNode") &&
        auto_unplug_output_node_ret)) {
+    char *ret = (char *)malloc(8);
     snprintf(ret, 8, "%s", "1");
     return ret;
   }
@@ -2558,8 +2725,10 @@ int ucm_enable_swap_mode(struct cras_use_case_mgr *mgr, const char *node_name,
   return ucm_enable_swap_mode_ret_value;
 }
 
-unsigned int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr)
+int ucm_get_min_buffer_level(struct cras_use_case_mgr *mgr,
+			     unsigned int *level)
 {
+  *level = 0;
   return 0;
 }
 
@@ -2571,6 +2740,14 @@ unsigned int ucm_get_enable_htimestamp_flag(struct cras_use_case_mgr *mgr)
 unsigned int ucm_get_disable_software_volume(struct cras_use_case_mgr *mgr)
 {
   return 0;
+}
+
+int ucm_get_min_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
+    long *gain)
+{
+  ucm_get_min_software_gain_called++;
+  *gain = ucm_get_min_software_gain_value;
+  return ucm_get_min_software_gain_ret_value;
 }
 
 int ucm_get_max_software_gain(struct cras_use_case_mgr *mgr, const char *dev,
@@ -2611,6 +2788,11 @@ int ucm_get_capture_chmap_for_dev(struct cras_use_case_mgr *mgr,
   return -EINVAL;
 }
 
+int ucm_get_preempt_hotword(struct cras_use_case_mgr *mgr, const char *dev)
+{
+  return 0;
+}
+
 struct cras_volume_curve *cras_volume_curve_create_default()
 {
   return &default_curve;
@@ -2637,9 +2819,11 @@ void cras_iodev_free_format(struct cras_iodev *iodev)
 int cras_iodev_set_format(struct cras_iodev *iodev,
 			  const struct cras_audio_format *fmt)
 {
-  fake_format = (struct cras_audio_format *)calloc(1, sizeof(*fake_format));
+  fake_format = (struct cras_audio_format *)calloc(
+        1,
+        sizeof(cras_audio_format));
   // Copy the content of format from fmt into format of iodev.
-  memcpy(fake_format, fmt, sizeof(*fake_format));
+  memcpy(fake_format, fmt, sizeof(cras_audio_format));
   iodev->format = fake_format;
   return 0;
 }
@@ -2761,6 +2945,8 @@ void cras_audio_area_config_buf_pointers(struct cras_audio_area *area,
 
 void audio_thread_add_callback(int fd, thread_callback cb, void *data)
 {
+  audio_thread_cb = cb;
+  audio_thread_cb_data = data;
 }
 
 void audio_thread_rm_callback(int fd)
@@ -2771,18 +2957,38 @@ int audio_thread_rm_callback_sync(struct audio_thread *thread, int fd) {
   return 0;
 }
 
+int cras_hotword_send_triggered_msg()
+{
+  hotword_send_triggered_msg_called++;
+  return 0;
+}
+
+int snd_pcm_poll_descriptors_count(snd_pcm_t *pcm)
+{
+  return 1;
+}
+
+int snd_pcm_poll_descriptors(snd_pcm_t *pcm, struct pollfd *pfds,
+                             unsigned int space)
+{
+  if (space >= 1) {
+    pfds[0].events = POLLIN;
+    pfds[0].fd = 99;
+  }
+  return 0;
+}
+
 int is_utf8_string(const char* string)
 {
   return is_utf8_string_ret_value;
 }
 
-int cras_alsa_mmap_get_whole_buffer(snd_pcm_t *handle, uint8_t **dst,
-				    unsigned int *underruns)
+int cras_alsa_mmap_get_whole_buffer(snd_pcm_t *handle, uint8_t **dst)
 {
   snd_pcm_uframes_t offset, frames;
 
   cras_alsa_mmap_get_whole_buffer_called++;
-  return cras_alsa_mmap_begin(handle, 0, dst, &offset, &frames, underruns);
+  return cras_alsa_mmap_begin(handle, 0, dst, &offset, &frames);
 }
 
 int cras_alsa_resume_appl_ptr(snd_pcm_t *handle, snd_pcm_uframes_t ahead)

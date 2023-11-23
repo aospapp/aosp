@@ -16,15 +16,14 @@
 
 package android.os.cts;
 
-import static android.support.test.InstrumentationRegistry.getContext;
 import static android.system.OsConstants.PROT_READ;
 import static android.system.OsConstants.PROT_WRITE;
 
+import static androidx.test.InstrumentationRegistry.getContext;
+
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
@@ -35,11 +34,12 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SharedMemory;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.system.ErrnoException;
 import android.system.OsConstants;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.util.concurrent.AbstractFuture;
 

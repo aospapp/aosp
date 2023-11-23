@@ -18,7 +18,8 @@ package com.android.documentsui;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.DocumentsContract;
-import android.support.test.filters.LargeTest;
+
+import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.bots.UiBot;
 import com.android.documentsui.inspector.InspectorActivity;
@@ -43,7 +44,7 @@ public class InspectorUiTest extends ActivityTest<InspectorActivity> {
             return;
         }
         final Intent intent = context.getPackageManager().getLaunchIntentForPackage(
-                UiBot.TARGET_PKG);
+                UiBot.targetPackageName);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri = DocumentsContract.buildDocumentUri(InspectorProvider.AUTHORITY, TEST_DOC_NAME);
         intent.setData(uri);
@@ -68,7 +69,7 @@ public class InspectorUiTest extends ActivityTest<InspectorActivity> {
                 getActivity());
         bots.inspector.assertRowEquals(
                 getActivity().getString(R.string.directory_items),
-                "4",
+                InspectorProvider.NUMBER_OF_ITEMS,
                 getActivity());
     }
 }

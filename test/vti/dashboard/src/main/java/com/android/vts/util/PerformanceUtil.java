@@ -196,7 +196,7 @@ public class PerformanceUtil {
         for (ProfilingPointEntity pp : profilingPoints) {
             Query profilingQuery =
                     new Query(ProfilingPointSummaryEntity.KIND)
-                            .setAncestor(pp.key)
+                            .setAncestor(pp.getKey())
                             .setFilter(filter);
             asyncEntities.put(
                     pp,
@@ -211,7 +211,7 @@ public class PerformanceUtil {
                         ProfilingPointSummaryEntity.fromEntity(ppSummaryEntity);
                 if (ppSummary == null) continue;
                 for (PerformanceSummary perfSummary : summaries) {
-                    if (perfSummary.contains(ppSummary.startTime)) {
+                    if (perfSummary.contains(ppSummary.getStartTime())) {
                         perfSummary.addData(pp, ppSummaryEntity);
                     }
                 }
@@ -270,8 +270,8 @@ public class PerformanceUtil {
     public static String getOptionAlias(
             ProfilingPointRunEntity profilingRun, Set<String> optionKeys) {
         String name = "";
-        if (profilingRun.options != null) {
-            name = getOptionAlias(profilingRun.options, optionKeys);
+        if (profilingRun.getOptions() != null) {
+            name = getOptionAlias(profilingRun.getOptions(), optionKeys);
         }
         return name;
     }

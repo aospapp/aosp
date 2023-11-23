@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_FIXED_SIZE_VECTOR_IMPL_H_
 #define CHRE_UTIL_FIXED_SIZE_VECTOR_IMPL_H_
 
+#include "chre/util/fixed_size_vector.h"
+
 #include <new>
 
 #include "chre/util/container_support.h"
@@ -99,6 +101,12 @@ void FixedSizeVector<ElementType, kCapacity>::emplace_back(Args&&... args) {
   if (!full()) {
     new (&data()[mSize++]) ElementType(std::forward<Args>(args)...);
   }
+}
+
+template<typename ElementType, size_t kCapacity>
+void FixedSizeVector<ElementType, kCapacity>::pop_back() {
+  CHRE_ASSERT(!empty());
+  erase(mSize - 1);
 }
 
 template<typename ElementType, size_t kCapacity>

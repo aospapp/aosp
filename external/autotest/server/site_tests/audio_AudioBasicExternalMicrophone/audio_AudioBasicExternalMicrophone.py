@@ -36,7 +36,7 @@ class audio_AudioBasicExternalMicrophone(audio_test.AudioTest):
         @param check_quality: flag to check audio quality.
 
         """
-        golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_FILE
+        golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_1330_FILE
 
         chameleon_board = host.chameleon
         factory = remote_facade_factory.RemoteFacadeFactory(

@@ -15,7 +15,6 @@
 <resources>
     <bool name="profile_supported_a2dp">true</bool>
     <bool name="profile_supported_a2dp_sink">false</bool>
-    <bool name="profile_supported_hdp">true</bool>
     <bool name="profile_supported_hs_hfp">true</bool>
     <bool name="profile_supported_hfpclient">false</bool>
     <bool name="profile_supported_hid_host">true</bool>
@@ -32,7 +31,6 @@
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
     <bool name="profile_supported_hid_device">true</bool>
-    <bool name="profile_supported_hearing_aid">false</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one
@@ -71,9 +69,14 @@
 
     <!-- For A2DP sink ducking volume feature. -->
     <integer name="a2dp_sink_duck_percent">25</integer>
+    <!-- If true, device requests audio focus and start avrcp updates on source start or play -->
+    <bool name="a2dp_sink_automatically_request_audio_focus">false</bool>
 
     <!-- For enabling the hfp client connection service -->
     <bool name="hfp_client_connection_service_enabled">false</bool>
+
+    <!-- For supporting emergency call through the hfp client connection service  -->
+    <bool name="hfp_client_connection_service_support_emergency_call">false</bool>
 
     <!-- Enabling autoconnect over pan -->
     <bool name="config_bluetooth_pan_enable_autoconnect">true</bool>

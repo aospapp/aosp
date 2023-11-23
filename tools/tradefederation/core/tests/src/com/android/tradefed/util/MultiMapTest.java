@@ -17,6 +17,11 @@ package com.android.tradefed.util;
 
 import junit.framework.TestCase;
 
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,5 +65,49 @@ public class MultiMapTest extends TestCase {
             }
         }
         return false;
+    }
+
+    /** Test for {@link MultiMap#entries()}. */
+    public void testEmptyMapEntries() {
+        MultiMap<String, String> multiMap = new MultiMap<>();
+        assertEquals(0, multiMap.entries().size());
+    }
+
+    public void testEntries() {
+        MultiMap<String, String> multiMap = new MultiMap<>();
+        multiMap.put("a", "1");
+        multiMap.put("b", "2");
+        multiMap.put("c", "3");
+        multiMap.put("c", "4");
+        multiMap.put("c", "4");
+
+        assertContainsExactly(
+                Arrays.asList(
+                        asEntry("a", "1"),
+                        asEntry("b", "2"),
+                        asEntry("c", "3"),
+                        asEntry("c", "4"),
+                        asEntry("c", "4")),
+                multiMap.entries());
+    }
+
+    private static <K, V> Map.Entry<K, V> asEntry(K key, V value) {
+        return new AbstractMap.SimpleImmutableEntry<>(key, value);
+    }
+
+    /**
+     * Check that actual collection contains exact items as expected collection, without considering
+     * order.
+     */
+    private static <T> void assertContainsExactly(Collection<T> expected, Collection<T> actual) {
+        assertEquals(expected.size(), actual.size());
+        List<T> copy = new ArrayList<>(actual);
+        for (T item : expected) {
+            int index = copy.indexOf(item);
+            if (index == -1) {
+                fail(String.format("Couldn't find %s in %s", item, actual.getClass()));
+            }
+            copy.remove(index);
+        }
     }
 }

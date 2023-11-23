@@ -20,6 +20,7 @@
 
 #include <inttypes.h>
 
+#include <android-base/macros.h>
 #include <utils/Log.h>
 #include <media/mediarecorder.h>
 #include <binder/IServiceManager.h>
@@ -597,7 +598,8 @@ status_t MediaRecorder::reset()
             if (OK != ret) {
                 return ret;  // No need to continue
             }
-        }  // Intentional fall through
+            FALLTHROUGH_INTENDED;
+        }
         case MEDIA_RECORDER_INITIALIZED:
             ret = close();
             break;
@@ -838,6 +840,27 @@ status_t MediaRecorder::getActiveMicrophones(std::vector<media::MicrophoneInfo>*
         return INVALID_OPERATION;
     }
     return mMediaRecorder->getActiveMicrophones(activeMicrophones);
+}
+
+status_t MediaRecorder::setPreferredMicrophoneDirection(audio_microphone_direction_t direction) {
+    ALOGV("setPreferredMicrophoneDirection(%d)", direction);
+    return mMediaRecorder->setPreferredMicrophoneDirection(direction);
+}
+
+status_t MediaRecorder::setPreferredMicrophoneFieldDimension(float zoom) {
+    ALOGV("setPreferredMicrophoneFieldDimension(%f)", zoom);
+    return mMediaRecorder->setPreferredMicrophoneFieldDimension(zoom);
+}
+
+status_t MediaRecorder::getPortId(audio_port_handle_t *portId) const
+{
+    ALOGV("getPortId");
+
+    if (mMediaRecorder == NULL) {
+        ALOGE("media recorder is not initialized yet");
+        return INVALID_OPERATION;
+    }
+    return mMediaRecorder->getPortId(portId);
 }
 
 } // namespace android

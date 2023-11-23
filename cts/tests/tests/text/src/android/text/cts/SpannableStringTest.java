@@ -17,12 +17,11 @@
 package android.text.cts;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertSame;
 import static junit.framework.Assert.fail;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Layout;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -33,6 +32,9 @@ import android.text.style.AlignmentSpan;
 import android.text.style.LocaleSpan;
 import android.text.style.QuoteSpan;
 import android.text.style.UnderlineSpan;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -238,4 +240,65 @@ public class SpannableStringTest {
 
         assertEquals(0, copiedSpans.length);
     }
+
+    @Test
+    public void testEquals() {
+        final String text = "this is a test!";
+        final Object span1 = new Object();
+        final Object span2 = new Object();
+
+        final SpannableString ss1 = new SpannableString(text);
+        ss1.setSpan(span1, 0, 5, 0);
+        ss1.setSpan(span2, 1, 5, 0);
+
+        assertEquals(ss1, ss1);
+
+        final SpannableString ss2 = new SpannableString(text);
+        ss2.setSpan(span1, 0, 5, 0);
+        ss2.setSpan(span2, 1, 5, 0);
+
+        assertEquals(ss1, ss2);
+        assertEquals(ss2, ss1);
+    }
+
+    @Test
+    public void testEqualsWithPriority() {
+        final String text = "this is a test!";
+        final Object span1 = new Object();
+        final Object span2 = new Object();
+
+        final SpannableString ss1 = new SpannableString(text);
+        ss1.setSpan(span1, 0, 5, 0);
+        ss1.setSpan(span2, 1, 5, Spanned.SPAN_PRIORITY);
+
+        assertEquals(ss1, ss1);
+
+        final SpannableString ss2 = new SpannableString(text);
+        ss2.setSpan(span2, 1, 5, Spanned.SPAN_PRIORITY);
+        ss2.setSpan(span1, 0, 5, 0);
+
+        // This should work because the span2 has priority.
+        assertEquals(ss1, ss2);
+    }
+
+    @Test
+    public void testEqualsWithDifferentSequence() {
+        final String text = "this is a test!";
+        final Object span1 = new Object();
+        final Object span2 = new Object();
+
+        final SpannableString ss1 = new SpannableString(text);
+        ss1.setSpan(span1, 0, 5, Spanned.SPAN_PRIORITY);
+        ss1.setSpan(span2, 1, 5, Spanned.SPAN_PRIORITY);
+
+        final SpannableString ss2 = new SpannableString(text);
+        ss2.setSpan(span2, 1, 5, Spanned.SPAN_PRIORITY);
+        ss2.setSpan(span1, 0, 5, Spanned.SPAN_PRIORITY);
+
+        // Both span1 and span2 have priority but they are applied in a different sequence,
+        // so ss1 should not equal to ss2.
+        assertFalse(ss1.equals(ss2));
+    }
+
+
 }

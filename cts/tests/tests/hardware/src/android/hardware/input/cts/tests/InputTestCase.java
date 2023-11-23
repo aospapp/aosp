@@ -20,51 +20,47 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
-import android.app.UiAutomation;
 import android.hardware.input.cts.InputCallback;
 import android.hardware.input.cts.InputCtsActivity;
-import android.os.ParcelFileDescriptor;
-import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
+import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import androidx.annotation.NonNull;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
-import libcore.io.IoUtils;
+import com.android.cts.input.HidDevice;
+import com.android.cts.input.HidJsonParser;
+import com.android.cts.input.HidTestData;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 
-public class InputTestCase {
-    // hid executable expects "-" argument to read from stdin instead of a file
-    private static final String HID_COMMAND = "hid -";
-    private static final String[] KEY_ACTIONS = {"DOWN", "UP", "MULTIPLE"};
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
-    private OutputStream mOutputStream;
+public abstract class InputTestCase {
+    private static final float TOLERANCE = 0.005f;
 
-    private final BlockingQueue<KeyEvent> mKeys;
-    private final BlockingQueue<MotionEvent> mMotions;
+    private final BlockingQueue<InputEvent> mEvents;
+
     private InputListener mInputListener;
-
     private Instrumentation mInstrumentation;
+    private HidDevice mHidDevice;
+    private HidJsonParser mParser;
+    // Stores the name of the currently running test
+    private String mCurrentTestCase;
+    private int mRegisterResourceId; // raw resource that contains json for registering a hid device
 
-    private volatile CountDownLatch mDeviceAddedSignal; // to wait for onInputDeviceAdded signal
-
-    public InputTestCase() {
-        mKeys = new LinkedBlockingQueue<KeyEvent>();
-        mMotions = new LinkedBlockingQueue<MotionEvent>();
+    InputTestCase(int registerResourceId) {
+        mEvents = new LinkedBlockingQueue<>();
         mInputListener = new InputListener();
+        mRegisterResourceId = registerResourceId;
     }
 
     @Rule
@@ -72,55 +68,19 @@ public class InputTestCase {
         new ActivityTestRule<>(InputCtsActivity.class);
 
     @Before
-    public void setUp() throws Exception {
-        clearKeys();
-        clearMotions();
+    public void setUp() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivityRule.getActivity().setInputCallback(mInputListener);
-        setupPipes();
+        mParser = new HidJsonParser(mInstrumentation.getTargetContext());
+        int hidDeviceId = mParser.readDeviceId(mRegisterResourceId);
+        String registerCommand = mParser.readRegisterCommand(mRegisterResourceId);
+        mHidDevice = new HidDevice(mInstrumentation, hidDeviceId, registerCommand);
+        mEvents.clear();
     }
 
     @After
-    public void tearDown() throws Exception {
-        IoUtils.closeQuietly(mOutputStream);
-    }
-
-    /**
-     * Register an input device. May cause a failure if the device added notification
-     * is not received within the timeout period
-     *
-     * @param resourceId The resource id from which to send the register command.
-     */
-    public void registerInputDevice(int resourceId) {
-        mDeviceAddedSignal = new CountDownLatch(1);
-        sendHidCommands(resourceId);
-        try {
-            // Found that in kernel 3.10, the device registration takes a very long time
-            // The wait can be decreased to 2 seconds after kernel 3.10 is no longer supported
-            mDeviceAddedSignal.await(20L, TimeUnit.SECONDS);
-            if (mDeviceAddedSignal.getCount() != 0) {
-                fail("Device added notification was not received in time.");
-            }
-        } catch (InterruptedException ex) {
-            fail("Unexpectedly interrupted while waiting for device added notification.");
-        }
-        SystemClock.sleep(100);
-    }
-
-    /**
-     * Sends the HID commands designated by the given resource id.
-     * The commands must be in the format expected by the `hid` shell command.
-     *
-     * @param id The resource id from which to load the HID commands. This must be a "raw"
-     * resource.
-     */
-    public void sendHidCommands(int id) {
-        try {
-            mOutputStream.write(getEvents(id).getBytes());
-            mOutputStream.flush();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public void tearDown() {
+        mHidDevice.close();
     }
 
     /**
@@ -131,114 +91,190 @@ public class InputTestCase {
      * KeyEvents are received within a reasonable amount of time, then this will throw an
      * AssertionFailedError.
      *
-     * @param action The action to expect on the next KeyEvent
-     * (e.g. {@link android.view.KeyEvent#ACTION_DOWN}).
-     * @param keyCode The expected key code of the next KeyEvent.
+     * Only action and keyCode are being compared.
      */
-    public void assertReceivedKeyEvent(int action, int keyCode) {
-        KeyEvent k = waitForKey();
-        if (k == null) {
-            fail("Timed out waiting for " + KeyEvent.keyCodeToString(keyCode)
-                    + " with action " + KEY_ACTIONS[action]);
-            return;
+    private void assertReceivedKeyEvent(@NonNull KeyEvent expectedKeyEvent) {
+        KeyEvent receivedKeyEvent = waitForKey();
+        if (receivedKeyEvent == null) {
+            failWithMessage("Did not receive " + expectedKeyEvent);
         }
-        assertEquals(action, k.getAction());
-        assertEquals(keyCode, k.getKeyCode());
+        assertEquals(mCurrentTestCase, expectedKeyEvent.getAction(), receivedKeyEvent.getAction());
+        assertEquals(mCurrentTestCase,
+                expectedKeyEvent.getKeyCode(), receivedKeyEvent.getKeyCode());
+    }
+
+    private void assertReceivedMotionEvent(@NonNull MotionEvent expectedEvent) {
+        MotionEvent event = waitForMotion();
+        /*
+         If the test fails here, one thing to try is to forcefully add a delay after the device
+         added callback has been received, but before any hid data has been written to the device.
+         We already wait for all of the proper callbacks here and in other places of the stack, but
+         it appears that the device sometimes is still not ready to receive hid data. If any data
+         gets written to the device in that state, it will disappear,
+         and no events will be generated.
+          */
+
+        if (event == null) {
+            failWithMessage("Did not receive " + expectedEvent);
+        }
+        if (event.getHistorySize() > 0) {
+            failWithMessage("expected each MotionEvent to only have a single entry");
+        }
+        assertEquals(mCurrentTestCase, expectedEvent.getAction(), event.getAction());
+        for (int axis = MotionEvent.AXIS_X; axis <= MotionEvent.AXIS_GENERIC_16; axis++) {
+            assertEquals(mCurrentTestCase + " (" + MotionEvent.axisToString(axis) + ")",
+                    expectedEvent.getAxisValue(axis), event.getAxisValue(axis), TOLERANCE);
+        }
     }
 
     /**
-     * Asserts that no more events have been received by the application.
+     * Assert that no more events have been received by the application.
      *
-     * If any more events have been received by the application, this throws an
-     * AssertionFailedError.
+     * If any more events have been received by the application, this will cause failure.
      */
-    public void assertNoMoreEvents() {
-        KeyEvent key;
-        MotionEvent motion;
-        if ((key = mKeys.poll()) != null) {
-            fail("Extraneous key events generated: " + key);
+    private void assertNoMoreEvents() {
+        mInstrumentation.waitForIdleSync();
+        InputEvent event = mEvents.poll();
+        if (event == null) {
+            return;
         }
-        if ((motion = mMotions.poll()) != null) {
-            fail("Extraneous motion events generated: " + motion);
-        }
+        failWithMessage("extraneous events generated: " + event);
     }
 
-    private KeyEvent waitForKey() {
+    protected void testInputEvents(int resourceId) {
+        List<HidTestData> tests = mParser.getTestData(resourceId);
+
+        for (HidTestData testData: tests) {
+            mCurrentTestCase = testData.name;
+
+            // Send all of the HID reports
+            for (int i = 0; i < testData.reports.size(); i++) {
+                final String report = testData.reports.get(i);
+                mHidDevice.sendHidReport(report);
+            }
+
+            // Make sure we received the expected input events
+            for (int i = 0; i < testData.events.size(); i++) {
+                final InputEvent event = testData.events.get(i);
+                if (event instanceof MotionEvent) {
+                    assertReceivedMotionEvent((MotionEvent) event);
+                } else if (event instanceof KeyEvent) {
+                    assertReceivedKeyEvent((KeyEvent) event);
+                } else {
+                    fail("Entry " + i + " is neither a KeyEvent nor a MotionEvent: " + event);
+                }
+            }
+        }
+        assertNoMoreEvents();
+    }
+
+    private InputEvent waitForEvent() {
         try {
-            return mKeys.poll(1, TimeUnit.SECONDS);
+            return mEvents.poll(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
+            failWithMessage("unexpectedly interrupted while waiting for InputEvent");
             return null;
         }
     }
 
-    private void clearKeys() {
-        mKeys.clear();
-    }
-
-    private void clearMotions() {
-        mMotions.clear();
-    }
-
-    private void setupPipes() throws IOException {
-        UiAutomation ui = mInstrumentation.getUiAutomation();
-        ParcelFileDescriptor[] pipes = ui.executeShellCommandRw(HID_COMMAND);
-
-        mOutputStream = new ParcelFileDescriptor.AutoCloseOutputStream(pipes[1]);
-        IoUtils.closeQuietly(pipes[0]); // hid command is write-only
-    }
-
-    private String getEvents(int id) throws IOException {
-        InputStream is =
-            mInstrumentation.getTargetContext().getResources().openRawResource(id);
-        return readFully(is);
-    }
-
-    private static String readFully(InputStream is) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        int read = 0;
-        byte[] buffer = new byte[1024];
-        while ((read = is.read(buffer)) >= 0) {
-            baos.write(buffer, 0, read);
+    private KeyEvent waitForKey() {
+        InputEvent event = waitForEvent();
+        if (event instanceof KeyEvent) {
+            return (KeyEvent) event;
         }
-        return baos.toString();
+        return null;
+    }
+
+    private MotionEvent waitForMotion() {
+        InputEvent event = waitForEvent();
+        if (event instanceof MotionEvent) {
+            return (MotionEvent) event;
+        }
+        return null;
+    }
+
+    /**
+     * Since MotionEvents are batched together based on overall system timings (i.e. vsync), we
+     * can't rely on them always showing up batched in the same way. In order to make sure our
+     * test results are consistent, we instead split up the batches so they end up in a
+     * consistent and reproducible stream.
+     *
+     * Note, however, that this ignores the problem of resampling, as we still don't know how to
+     * distinguish resampled events from real events. Only the latter will be consistent and
+     * reproducible.
+     *
+     * @param event The (potentially) batched MotionEvent
+     * @return List of MotionEvents, with each event guaranteed to have zero history size, and
+     * should otherwise be equivalent to the original batch MotionEvent.
+     */
+    private static List<MotionEvent> splitBatchedMotionEvent(MotionEvent event) {
+        List<MotionEvent> events = new ArrayList<>();
+        final int historySize = event.getHistorySize();
+        final int pointerCount = event.getPointerCount();
+        MotionEvent.PointerProperties[] properties =
+                new MotionEvent.PointerProperties[pointerCount];
+        MotionEvent.PointerCoords[] currentCoords = new MotionEvent.PointerCoords[pointerCount];
+        for (int p = 0; p < pointerCount; p++) {
+            properties[p] = new MotionEvent.PointerProperties();
+            event.getPointerProperties(p, properties[p]);
+            currentCoords[p] = new MotionEvent.PointerCoords();
+            event.getPointerCoords(p, currentCoords[p]);
+        }
+        for (int h = 0; h < historySize; h++) {
+            long eventTime = event.getHistoricalEventTime(h);
+            MotionEvent.PointerCoords[] coords = new MotionEvent.PointerCoords[pointerCount];
+
+            for (int p = 0; p < pointerCount; p++) {
+                coords[p] = new MotionEvent.PointerCoords();
+                event.getHistoricalPointerCoords(p, h, coords[p]);
+            }
+            MotionEvent singleEvent =
+                    MotionEvent.obtain(event.getDownTime(), eventTime, event.getAction(),
+                            pointerCount, properties, coords,
+                            event.getMetaState(), event.getButtonState(),
+                            event.getXPrecision(), event.getYPrecision(),
+                            event.getDeviceId(), event.getEdgeFlags(),
+                            event.getSource(), event.getFlags());
+            events.add(singleEvent);
+        }
+
+        MotionEvent singleEvent =
+                MotionEvent.obtain(event.getDownTime(), event.getEventTime(), event.getAction(),
+                        pointerCount, properties, currentCoords,
+                        event.getMetaState(), event.getButtonState(),
+                        event.getXPrecision(), event.getYPrecision(),
+                        event.getDeviceId(), event.getEdgeFlags(),
+                        event.getSource(), event.getFlags());
+        events.add(singleEvent);
+        return events;
+    }
+
+    /**
+     * Append the name of the currently executing test case to the fail message.
+     */
+    private void failWithMessage(String message) {
+        fail(mCurrentTestCase + ": " + message);
     }
 
     private class InputListener implements InputCallback {
         @Override
         public void onKeyEvent(KeyEvent ev) {
-            boolean done = false;
-            do {
-                try {
-                    mKeys.put(new KeyEvent(ev));
-                    done = true;
-                } catch (InterruptedException ignore) { }
-            } while (!done);
+            try {
+                mEvents.put(new KeyEvent(ev));
+            } catch (InterruptedException ex) {
+                failWithMessage("interrupted while adding a KeyEvent to the queue");
+            }
         }
 
         @Override
         public void onMotionEvent(MotionEvent ev) {
-            boolean done = false;
-            do {
-                try {
-                    mMotions.put(MotionEvent.obtain(ev));
-                    done = true;
-                } catch (InterruptedException ignore) { }
-            } while (!done);
-        }
-
-        @Override
-        public void onInputDeviceAdded(int deviceId) {
-            mDeviceAddedSignal.countDown();
-        }
-
-        @Override
-        public void onInputDeviceRemoved(int deviceId) {
-        }
-
-        @Override
-        public void onInputDeviceChanged(int deviceId) {
+            try {
+                for (MotionEvent event : splitBatchedMotionEvent(ev)) {
+                    mEvents.put(event);
+                }
+            } catch (InterruptedException ex) {
+                failWithMessage("interrupted while adding a MotionEvent to the queue");
+            }
         }
     }
-
-
 }

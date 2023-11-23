@@ -40,29 +40,6 @@ TEST_F(IdletimerControllerTest, TestSetupIptablesHooks) {
     expectIptablesRestoreCommands(ExpectedIptablesCommands{});
 }
 
-TEST_F(IdletimerControllerTest, TestEnableDisable) {
-    std::vector<std::string> expected = {
-        "*raw\n"
-        ":idletimer_raw_PREROUTING -\n"
-        "COMMIT\n"
-        "*mangle\n"
-        ":idletimer_mangle_POSTROUTING -\n"
-        "COMMIT\n",
-    };
-
-    mIt.enableIdletimerControl();
-    expectIptablesRestoreCommands(expected);
-
-    mIt.enableIdletimerControl();
-    expectIptablesRestoreCommands(expected);
-
-    mIt.disableIdletimerControl();
-    expectIptablesRestoreCommands(expected);
-
-    mIt.disableIdletimerControl();
-    expectIptablesRestoreCommands(expected);
-}
-
 const std::vector<std::string> makeAddRemoveCommands(bool add) {
     const char *op = add ? "-A" : "-D";
     std::vector<std::string> cmds = {

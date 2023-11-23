@@ -20,9 +20,11 @@ import android.bluetooth.BluetoothDevice;
 /** @hide */
 interface ICarBluetoothUserService {
     // Bluetooth related APIs
-    void setupBluetoothConnectionProxy();
-    void closeBluetoothConnectionProxy();
+    void setupBluetoothConnectionProxies();
+    void closeBluetoothConnectionProxies();
     boolean isBluetoothConnectionProxyAvailable(in int profile);
-    void bluetoothConnectToProfile(in int profile, in BluetoothDevice device);
+    boolean bluetoothConnectToProfile(in int profile, in BluetoothDevice device);
+    boolean bluetoothDisconnectFromProfile(in int profile, in BluetoothDevice device);
+    int getProfilePriority(in int profile, in BluetoothDevice device);
     void setProfilePriority(in int profile, in BluetoothDevice device, in int priority);
 }

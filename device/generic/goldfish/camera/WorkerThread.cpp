@@ -18,7 +18,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_WorkerThread"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <algorithm>
 

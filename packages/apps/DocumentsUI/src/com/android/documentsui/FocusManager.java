@@ -18,17 +18,15 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
-import static com.android.internal.util.Preconditions.checkNotNull;
+import static androidx.core.util.Preconditions.checkNotNull;
 
-import android.annotation.ColorRes;
-import android.annotation.Nullable;
+import androidx.annotation.ColorRes;
+import androidx.annotation.Nullable;
 import android.database.Cursor;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.DocumentsContract.Document;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.method.KeyListener;
@@ -40,6 +38,13 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.recyclerview.selection.FocusDelegate;
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.android.documentsui.Model.Update;
 import com.android.documentsui.base.EventListener;
 import com.android.documentsui.base.Events;
 import com.android.documentsui.base.Features;
@@ -47,21 +52,22 @@ import com.android.documentsui.base.Procedure;
 import com.android.documentsui.dirlist.DocumentHolder;
 import com.android.documentsui.dirlist.DocumentsAdapter;
 import com.android.documentsui.dirlist.FocusHandler;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.Model.Update;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public final class FocusManager implements FocusHandler {
+/**
+ * The implementation to handle focus and keyboard driven navigation.
+ */
+public final class FocusManager extends FocusDelegate<String> implements FocusHandler {
     private static final String TAG = "FocusManager";
 
     private final ContentScope mScope = new ContentScope();
 
     private final Features mFeatures;
-    private final SelectionHelper mSelectionMgr;
+    private final SelectionTracker<String> mSelectionMgr;
     private final DrawerController mDrawer;
     private final Procedure mRootsFocuser;
     private final TitleSearchHelper mSearchHelper;
@@ -70,7 +76,7 @@ public final class FocusManager implements FocusHandler {
 
     public FocusManager(
             Features features,
-            SelectionHelper selectionMgr,
+            SelectionTracker<String> selectionMgr,
             DrawerController drawer,
             Procedure rootsFocuser,
             @ColorRes int color) {
@@ -129,15 +135,17 @@ public final class FocusManager implements FocusHandler {
     @Override
     public void onFocusChange(View v, boolean hasFocus) {
         // Remember focus events on items.
-        if (hasFocus && v.getParent() == mScope.view) {
+        if (hasFocus && mScope.isValid() && v.getParent() == mScope.view) {
             mScope.lastFocusPosition = mScope.view.getChildAdapterPosition(v);
         }
     }
 
     @Override
     public boolean focusDirectoryList() {
-        if (mScope.adapter.getItemCount() == 0) {
-            if (DEBUG) Log.v(TAG, "Nothing to focus.");
+        if (!mScope.isValid() || mScope.adapter.getItemCount() == 0) {
+            if (DEBUG) {
+                Log.v(TAG, "Nothing to focus.");
+            }
             return false;
         }
 
@@ -146,7 +154,9 @@ public final class FocusManager implements FocusHandler {
         // vs. Cut focused
         // item)
         if (mSelectionMgr.hasSelection()) {
-            if (DEBUG) Log.v(TAG, "Existing selection found. No focus will be done.");
+            if (DEBUG) {
+                Log.v(TAG, "Existing selection found. No focus will be done.");
+            }
             return false;
         }
 
@@ -180,7 +190,9 @@ public final class FocusManager implements FocusHandler {
 
     @Override
     public void clearFocus() {
-        mScope.view.clearFocus();
+        if (mScope.isValid()) {
+            mScope.view.clearFocus();
+        }
     }
 
     /*
@@ -190,6 +202,12 @@ public final class FocusManager implements FocusHandler {
      */
     @Override
     public void focusDocument(String modelId) {
+        if (!mScope.isValid()) {
+            if (DEBUG) {
+                Log.v(TAG, "Invalid mScope. No focus will be done.");
+            }
+            return;
+        }
         int pos = mScope.adapter.getAdapterPosition(modelId);
         if (pos != -1 && mScope.view.findViewHolderForAdapterPosition(pos) != null) {
             focusItem(pos);
@@ -199,7 +217,12 @@ public final class FocusManager implements FocusHandler {
     }
 
     @Override
-    public int getFocusPosition() {
+    public void focusItem(ItemDetails<String> item) {
+        focusDocument(item.getSelectionKey());
+    }
+
+    @Override
+    public int getFocusedPosition() {
         return mScope.lastFocusPosition;
     }
 
@@ -663,5 +686,9 @@ public final class FocusManager implements FocusHandler {
 
         private @Nullable String pendingFocusId;
         private int lastFocusPosition = RecyclerView.NO_POSITION;
+
+        boolean isValid() {
+            return (view != null && model != null);
+        }
     }
 }

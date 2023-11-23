@@ -16,8 +16,6 @@
 
 package com.android.dialer.main.impl.toolbar;
 
-import android.animation.ValueAnimator;
-import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
@@ -25,11 +23,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.AttributeSet;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
-import android.widget.RelativeLayout;
 import com.android.dialer.common.Assert;
+import com.android.dialer.common.LogUtil;
 import com.android.dialer.util.ViewUtil;
 import com.google.common.base.Optional;
 
@@ -43,7 +42,7 @@ public final class MainToolbar extends Toolbar implements PopupMenu.OnMenuItemCl
   private SearchBarView searchBar;
   private SearchBarListener listener;
   private MainToolbarMenu overflowMenu;
-  private boolean isSlideUp;
+  private boolean hasGlobalLayoutListener;
 
   public MainToolbar(Context context, AttributeSet attrs) {
     super(context, attrs);
@@ -73,47 +72,58 @@ public final class MainToolbar extends Toolbar implements PopupMenu.OnMenuItemCl
   }
 
   /** Slides the toolbar up and off the screen. */
-  public void slideUp(boolean animate) {
-    Assert.checkArgument(!isSlideUp);
-    if (getHeight() == 0) {
-      ViewUtil.doOnGlobalLayout(this, view -> slideUp(animate));
+  public void slideUp(boolean animate, View container) {
+    if (hasGlobalLayoutListener) {
+      // Return early since we've already scheduled the toolbar to slide up
       return;
     }
-    isSlideUp = true;
-    ValueAnimator animator = ValueAnimator.ofFloat(0, -getHeight());
-    animator.setDuration(animate ? SLIDE_DURATION : 0);
-    animator.setInterpolator(SLIDE_INTERPOLATOR);
-    animator.addUpdateListener(
-        new AnimatorUpdateListener() {
-          @Override
-          public void onAnimationUpdate(ValueAnimator animation) {
-            int val = ((Float) animation.getAnimatedValue()).intValue();
-            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) getLayoutParams();
-            params.topMargin = val;
-            requestLayout();
-          }
-        });
-    animator.start();
+
+    if (getHeight() == 0) {
+      hasGlobalLayoutListener = true;
+      ViewUtil.doOnGlobalLayout(
+          this,
+          view -> {
+            hasGlobalLayoutListener = false;
+            slideUp(animate, container);
+          });
+      return;
+    }
+
+    if (isSlideUp()) {
+      LogUtil.e("MainToolbar.slideDown", "Already slide up.");
+      return;
+    }
+
+    animate()
+        .translationY(-getHeight())
+        .setDuration(animate ? SLIDE_DURATION : 0)
+        .setInterpolator(SLIDE_INTERPOLATOR)
+        .start();
+    container
+        .animate()
+        .translationY(-getHeight())
+        .setDuration(animate ? SLIDE_DURATION : 0)
+        .setInterpolator(SLIDE_INTERPOLATOR)
+        .start();
   }
 
   /** Slides the toolbar down and back onto the screen. */
-  public void slideDown(boolean animate) {
-    Assert.checkArgument(isSlideUp);
-    isSlideUp = false;
-    ValueAnimator animator = ValueAnimator.ofFloat(-getHeight(), 0);
-    animator.setDuration(animate ? SLIDE_DURATION : 0);
-    animator.setInterpolator(SLIDE_INTERPOLATOR);
-    animator.addUpdateListener(
-        new AnimatorUpdateListener() {
-          @Override
-          public void onAnimationUpdate(ValueAnimator animation) {
-            int val = ((Float) animation.getAnimatedValue()).intValue();
-            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) getLayoutParams();
-            params.topMargin = val;
-            requestLayout();
-          }
-        });
-    animator.start();
+  public void slideDown(boolean animate, View container) {
+    if (getTranslationY() == 0) {
+      LogUtil.e("MainToolbar.slideDown", "Already slide down.");
+      return;
+    }
+    animate()
+        .translationY(0)
+        .setDuration(animate ? SLIDE_DURATION : 0)
+        .setInterpolator(SLIDE_INTERPOLATOR)
+        .start();
+    container
+        .animate()
+        .translationY(0)
+        .setDuration(animate ? SLIDE_DURATION : 0)
+        .setInterpolator(SLIDE_INTERPOLATOR)
+        .start();
   }
 
   /** @see SearchBarView#collapse(boolean) */
@@ -121,13 +131,13 @@ public final class MainToolbar extends Toolbar implements PopupMenu.OnMenuItemCl
     searchBar.collapse(animate);
   }
 
-  /** @see SearchBarView#collapse(boolean) */
-  public void expand(boolean animate, Optional<String> text) {
-    searchBar.expand(animate, text);
+  /** @see SearchBarView#expand(boolean, Optional, boolean) */
+  public void expand(boolean animate, Optional<String> text, boolean requestFocus) {
+    searchBar.expand(animate, text, requestFocus);
   }
 
   public boolean isSlideUp() {
-    return isSlideUp;
+    return getHeight() != 0 && getTranslationY() == -getHeight();
   }
 
   public boolean isExpanded() {

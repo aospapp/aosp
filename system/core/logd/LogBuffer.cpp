@@ -105,10 +105,8 @@ void LogBuffer::init() {
 
     LastLogTimes::iterator times = mTimes.begin();
     while (times != mTimes.end()) {
-        LogTimeEntry* entry = (*times);
-        if (entry->owned_Locked()) {
-            entry->triggerReader_Locked();
-        }
+        LogTimeEntry* entry = times->get();
+        entry->triggerReader_Locked();
         times++;
     }
 
@@ -199,7 +197,7 @@ static enum match_type identical(LogBufferElement* elem,
 }
 
 int LogBuffer::log(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid,
-                   pid_t tid, const char* msg, unsigned short len) {
+                   pid_t tid, const char* msg, uint16_t len) {
     if (log_id >= LOG_ID_MAX) {
         return -EINVAL;
     }
@@ -240,7 +238,7 @@ int LogBuffer::log(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid,
     LogBufferElement* currentLast = lastLoggedElements[log_id];
     if (currentLast) {
         LogBufferElement* dropped = droppedElements[log_id];
-        unsigned short count = dropped ? dropped->getDropped() : 0;
+        uint16_t count = dropped ? dropped->getDropped() : 0;
         //
         // State Init
         //     incoming:
@@ -401,7 +399,7 @@ void LogBuffer::log(LogBufferElement* elem) {
                         ((*it)->getLogId() != LOG_ID_KERNEL))) {
         mLogElements.push_back(elem);
     } else {
-        log_time end = log_time::EPOCH;
+        log_time end(log_time::EPOCH);
         bool end_set = false;
         bool end_always = false;
 
@@ -409,17 +407,15 @@ void LogBuffer::log(LogBufferElement* elem) {
 
         LastLogTimes::iterator times = mTimes.begin();
         while (times != mTimes.end()) {
-            LogTimeEntry* entry = (*times);
-            if (entry->owned_Locked()) {
-                if (!entry->mNonBlock) {
-                    end_always = true;
-                    break;
-                }
-                // it passing mEnd is blocked by the following checks.
-                if (!end_set || (end <= entry->mEnd)) {
-                    end = entry->mEnd;
-                    end_set = true;
-                }
+            LogTimeEntry* entry = times->get();
+            if (!entry->mNonBlock) {
+                end_always = true;
+                break;
+            }
+            // it passing mEnd is blocked by the following checks.
+            if (!end_set || (end <= entry->mEnd)) {
+                end = entry->mEnd;
+                end_set = true;
             }
             times++;
         }
@@ -584,13 +580,13 @@ class LogBufferElementLast {
     LogBufferElementMap map;
 
    public:
-    bool coalesce(LogBufferElement* element, unsigned short dropped) {
+    bool coalesce(LogBufferElement* element, uint16_t dropped) {
         LogBufferElementKey key(element->getUid(), element->getPid(),
                                 element->getTid());
         LogBufferElementMap::iterator it = map.find(key.getKey());
         if (it != map.end()) {
             LogBufferElement* found = it->second;
-            unsigned short moreDropped = found->getDropped();
+            uint16_t moreDropped = found->getDropped();
             if ((dropped + moreDropped) > USHRT_MAX) {
                 map.erase(it);
             } else {
@@ -710,8 +706,8 @@ bool LogBuffer::prune(log_id_t id, unsigned long pruneRows, uid_t caller_uid) {
     // Region locked?
     LastLogTimes::iterator times = mTimes.begin();
     while (times != mTimes.end()) {
-        LogTimeEntry* entry = (*times);
-        if (entry->owned_Locked() && entry->isWatching(id) &&
+        LogTimeEntry* entry = times->get();
+        if (entry->isWatching(id) &&
             (!oldest || (oldest->mStart > entry->mStart) ||
              ((oldest->mStart == entry->mStart) &&
               (entry->mTimeout.tv_sec || entry->mTimeout.tv_nsec)))) {
@@ -847,7 +843,7 @@ bool LogBuffer::prune(log_id_t id, unsigned long pruneRows, uid_t caller_uid) {
                 mLastSet[id] = true;
             }
 
-            unsigned short dropped = element->getDropped();
+            uint16_t dropped = element->getDropped();
 
             // remove any leading drops
             if (leading && dropped) {
@@ -927,7 +923,7 @@ bool LogBuffer::prune(log_id_t id, unsigned long pruneRows, uid_t caller_uid) {
 
             kick = true;
 
-            unsigned short len = element->getMsgLen();
+            uint16_t len = element->getMsgLen();
 
             // do not create any leading drops
             if (leading) {
@@ -1052,9 +1048,9 @@ bool LogBuffer::clear(log_id_t id, uid_t uid) {
                 LogTimeEntry::wrlock();
                 LastLogTimes::iterator times = mTimes.begin();
                 while (times != mTimes.end()) {
-                    LogTimeEntry* entry = (*times);
+                    LogTimeEntry* entry = times->get();
                     // Killer punch
-                    if (entry->owned_Locked() && entry->isWatching(id)) {
+                    if (entry->isWatching(id)) {
                         entry->release_Locked();
                     }
                     times++;

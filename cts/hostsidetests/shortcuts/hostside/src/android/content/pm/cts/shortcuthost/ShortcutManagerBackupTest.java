@@ -16,12 +16,19 @@
 package android.content.pm.cts.shortcuthost;
 
 
+import static org.junit.Assert.fail;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
     private static final String LAUNCHER1_APK = "CtsShortcutBackupLauncher1.apk";
     private static final String LAUNCHER2_APK = "CtsShortcutBackupLauncher2.apk";
@@ -68,7 +75,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
     private boolean mSupportsBackup;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         mSupportsBackup = getDevice().hasFeature(FEATURE_BACKUP);
@@ -99,7 +106,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         if (DUMPSYS_IN_TEARDOWN) {
             dumpsys("tearDown");
         }
@@ -126,16 +133,16 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
 
         CLog.i("Making sure the local transport is selected...");
         assertContainsRegex(
-                "^Selected transport android/com.android.internal.backup.LocalTransport",
+                "^Selected transport com.android.localtransport/.LocalTransport",
                 executeShellCommandWithLog(
-                        "bmgr transport android/com.android.internal.backup.LocalTransport"));
+                        "bmgr transport com.android.localtransport/.LocalTransport"));
 
         executeShellCommandWithLog("dumpsys backup");
 
         assertContainsRegex(
                 "Wiped",
                 executeShellCommandWithLog(
-                        "bmgr wipe android/com.android.internal.backup.LocalTransport android"));
+                        "bmgr wipe com.android.localtransport/.LocalTransport android"));
 
         assertContainsRegex(
                 "Backup finished with result: Success",
@@ -225,6 +232,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 + " Last dumpsys=\n" + dumpsys);
     }
 
+    @Test
     public void testBackupAndRestore() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -326,6 +334,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_downgrade() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -388,6 +397,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
 
     }
 
+    @Test
     public void testBackupAndRestore_backupWasDisabled() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -432,6 +442,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_backupIsDisabled() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -476,6 +487,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_wrongKey() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -524,6 +536,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_noManifestOnOldVersion() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -572,6 +585,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_noManifestOnNewVersion() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -625,6 +639,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
      *
      * (Restore from new to old-nomanifest)
      */
+    @Test
     public void testBackupAndRestore_invisibleIgnored() throws Exception {
         if (!mSupportsBackup) {
             return;
@@ -673,6 +688,7 @@ public class ShortcutManagerBackupTest extends BaseShortcutManagerHostTest {
                 getPrimaryUserId());
     }
 
+    @Test
     public void testBackupAndRestore_withNoUninstall() throws Exception {
         if (!mSupportsBackup) {
             return;

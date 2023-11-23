@@ -12,5 +12,5 @@ class Values(object):
     dark_resume_capable = True
     ec_capability = ['adc_ectemp', 'battery', 'charging',
                      'keyboard', 'lid', 'x86', 'usb', 'peci']
-    wp_voltage = 'pp3300'
     spi_voltage = 'pp3300'
+    smm_store = False

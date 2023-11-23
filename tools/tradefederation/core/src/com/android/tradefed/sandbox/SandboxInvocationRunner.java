@@ -22,6 +22,7 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.PrettyPrintDelimiter;
 import com.android.tradefed.util.SerializationUtil;
 
 import org.json.JSONException;
@@ -42,12 +43,17 @@ public class SandboxInvocationRunner {
         // TODO: refactor TestInvocation to be more modular in the sandbox handling
         ISandbox sandbox =
                 (ISandbox) config.getConfigurationObject(Configuration.SANDBOX_TYPE_NAME);
+        if (sandbox == null) {
+            throw new RuntimeException("Couldn't find the sandbox object.");
+        }
+        PrettyPrintDelimiter.printStageDelimiter("Starting Sandbox Environment Setup");
         Exception res = sandbox.prepareEnvironment(context, config, listener);
         if (res != null) {
             CLog.w("Sandbox prepareEnvironment threw an Exception.");
             sandbox.tearDown();
             throw res;
         }
+        PrettyPrintDelimiter.printStageDelimiter("Done with Sandbox Environment Setup");
         try {
             CommandResult result = sandbox.run(config, listener);
             if (!CommandStatus.SUCCESS.equals(result.getStatus())) {

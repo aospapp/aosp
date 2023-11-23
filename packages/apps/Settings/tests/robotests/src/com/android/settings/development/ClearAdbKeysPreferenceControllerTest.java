@@ -16,23 +16,23 @@
 
 package com.android.settings.development;
 
-import static com.android.settings.development.ClearAdbKeysPreferenceController.RO_ADB_SECURE_PROPERTY_KEY;
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.app.Fragment;
 import android.content.Context;
-import android.hardware.usb.IUsbManager;
+import android.debug.IAdbManager;
 import android.os.RemoteException;
-import android.os.SystemProperties;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.PreferenceScreen;
+import android.sysprop.AdbProperties;
 
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
+import androidx.fragment.app.Fragment;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.SwitchPreference;
+
 import com.android.settings.testutils.shadow.ShadowUtils;
 
 import org.junit.After;
@@ -41,13 +41,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.util.ReflectionHelpers;
 
-@RunWith(SettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = ShadowUtils.class)
 public class ClearAdbKeysPreferenceControllerTest {
 
@@ -56,7 +57,7 @@ public class ClearAdbKeysPreferenceControllerTest {
     @Mock
     private SwitchPreference mPreference;
     @Mock
-    private IUsbManager mUsbManager;
+    private IAdbManager mAdbManager;
     @Mock
     private DevelopmentSettingsDashboardFragment mFragment;
 
@@ -67,7 +68,7 @@ public class ClearAdbKeysPreferenceControllerTest {
         MockitoAnnotations.initMocks(this);
         final Context context = RuntimeEnvironment.application;
         mController = spy(new ClearAdbKeysPreferenceController(context, mFragment));
-        ReflectionHelpers.setField(mController, "mUsbManager", mUsbManager);
+        ReflectionHelpers.setField(mController, "mAdbManager", mAdbManager);
         when(mScreen.findPreference(mController.getPreferenceKey())).thenReturn(mPreference);
     }
 
@@ -79,21 +80,21 @@ public class ClearAdbKeysPreferenceControllerTest {
 
     @Test
     public void isAvailable_roAdbSecureEnabled_shouldBeTrue() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
 
         assertThat(mController.isAvailable()).isTrue();
     }
 
     @Test
     public void isAvailable_roAdbSecureDisabled_shouldBeFalse() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(false));
+        AdbProperties.secure(false);
 
         assertThat(mController.isAvailable()).isFalse();
     }
 
     @Test
     public void displayPreference_isNotAdminUser_preferenceShouldBeDisabled() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(false).when(mController).isAdminUser();
 
         mController.displayPreference(mScreen);
@@ -104,7 +105,7 @@ public class ClearAdbKeysPreferenceControllerTest {
     @Test
     @Config(shadows = ShadowClearAdbKeysWarningDialog.class)
     public void handlePreferenceTreeClick_clearAdbKeysPreference_shouldShowWarningDialog() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(true).when(mController).isAdminUser();
         mController.displayPreference(mScreen);
         final String preferenceKey = mController.getPreferenceKey();
@@ -117,7 +118,7 @@ public class ClearAdbKeysPreferenceControllerTest {
 
     @Test
     public void handlePreferenceTreeClick_notClearAdbKeysPreference_shouldReturnFalse() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(true).when(mController).isAdminUser();
         mController.displayPreference(mScreen);
         when(mPreference.getKey()).thenReturn("Some random key!!!");
@@ -128,7 +129,7 @@ public class ClearAdbKeysPreferenceControllerTest {
 
     @Test
     public void handlePreferenceTreeClick_monkeyUser_shouldReturnFalse() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(true).when(mController).isAdminUser();
         ShadowUtils.setIsUserAMonkey(true);
         mController.displayPreference(mScreen);
@@ -142,7 +143,7 @@ public class ClearAdbKeysPreferenceControllerTest {
 
     @Test
     public void onDeveloperOptionsSwitchEnabled_isAdminUser_shouldEnablePreference() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(true).when(mController).isAdminUser();
         mController.displayPreference(mScreen);
         mController.onDeveloperOptionsSwitchEnabled();
@@ -152,7 +153,7 @@ public class ClearAdbKeysPreferenceControllerTest {
 
     @Test
     public void onDeveloperOptionsSwitchEnabled_isNotAdminUser_shouldNotEnablePreference() {
-        SystemProperties.set(RO_ADB_SECURE_PROPERTY_KEY, Boolean.toString(true));
+        AdbProperties.secure(true);
         doReturn(false).when(mController).isAdminUser();
         mController.displayPreference(mScreen);
         mController.onDeveloperOptionsSwitchEnabled();
@@ -164,7 +165,7 @@ public class ClearAdbKeysPreferenceControllerTest {
     public void onClearAdbKeysConfirmed_shouldClearKeys() throws RemoteException {
         mController.onClearAdbKeysConfirmed();
 
-        verify(mUsbManager).clearUsbDebuggingKeys();
+        verify(mAdbManager).clearDebuggingKeys();
     }
 
     @Implements(ClearAdbKeysWarningDialog.class)

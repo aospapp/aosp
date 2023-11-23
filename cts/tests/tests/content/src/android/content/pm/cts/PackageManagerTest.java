@@ -16,35 +16,77 @@
 
 package android.content.pm.cts;
 
-import android.content.cts.R;
+import static android.content.pm.ApplicationInfo.FLAG_HAS_CODE;
+import static android.content.pm.ApplicationInfo.FLAG_INSTALLED;
+import static android.content.pm.ApplicationInfo.FLAG_SYSTEM;
+import static android.content.pm.PackageManager.GET_ACTIVITIES;
+import static android.content.pm.PackageManager.GET_META_DATA;
+import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.GET_PROVIDERS;
+import static android.content.pm.PackageManager.GET_RECEIVERS;
+import static android.content.pm.PackageManager.GET_SERVICES;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.cts.R;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.InstrumentationInfo;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PermissionInfo;
 import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.test.AndroidTestCase;
+import android.content.pm.ServiceInfo;
+import android.content.pm.Signature;
+import android.os.SystemProperties;
+import android.os.UserHandle;
+import android.platform.test.annotations.AppModeFull;
+import android.text.TextUtils;
+import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * This test is based on the declarations in AndroidManifest.xml. We create mock declarations
  * in AndroidManifest.xml just for test of PackageManager, and there are no corresponding parts
  * of these declarations in test project.
  */
-public class PackageManagerTest extends AndroidTestCase {
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
+@RunWith(AndroidJUnit4.class)
+public class PackageManagerTest {
+    private static final String TAG = "PackageManagerTest";
+
     private PackageManager mPackageManager;
     private static final String PACKAGE_NAME = "android.content.cts";
+    private static final String CONTENT_PKG_NAME = "android.content.cts";
+    private static final String APPLICATION_NAME = "android.content.cts.MockApplication";
     private static final String ACTIVITY_ACTION_NAME = "android.intent.action.PMTEST";
     private static final String MAIN_ACTION_NAME = "android.intent.action.MAIN";
     private static final String SERVICE_ACTION_NAME =
@@ -55,15 +97,23 @@ public class PackageManagerTest extends AndroidTestCase {
     private static final String SERVICE_NAME = "android.content.pm.cts.TestPmService";
     private static final String RECEIVER_NAME = "android.content.pm.cts.PmTestReceiver";
     private static final String INSTRUMENT_NAME = "android.content.pm.cts.TestPmInstrumentation";
+    private static final String CALL_ABROAD_PERMISSION_NAME =
+            "android.content.cts.CALL_ABROAD_PERMISSION";
     private static final String PROVIDER_NAME = "android.content.cts.MockContentProvider";
     private static final String PERMISSIONGROUP_NAME = "android.permission-group.COST_MONEY";
+    private static final String PERMISSION_TREE_ROOT =
+            "android.content.cts.permission.TEST_DYNAMIC";
+    // There are 11 activities/activity-alias in AndroidManifest
+    private static final int NUM_OF_ACTIVITIES_IN_MANIFEST = 11;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mPackageManager = getContext().getPackageManager();
+    private static final String SHIM_APEX_PACKAGE_NAME = "com.android.apex.cts.shim";
+
+    @Before
+    public void setup() throws Exception {
+        mPackageManager = InstrumentationRegistry.getContext().getPackageManager();
     }
 
+    @Test
     public void testQuery() throws NameNotFoundException {
         // Test query Intent Activity related methods
 
@@ -110,7 +160,7 @@ public class PackageManagerTest extends AndroidTestCase {
         String testPermissionsGroup = "android.permission-group.COST_MONEY";
         List<PermissionInfo> permissions = mPackageManager.queryPermissionsByGroup(
                 testPermissionsGroup, PackageManager.GET_META_DATA);
-        checkPermissionInfoName("android.content.cts.CALL_ABROAD_PERMISSION", permissions);
+        checkPermissionInfoName(CALL_ABROAD_PERMISSION_NAME, permissions);
 
         ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
         List<ProviderInfo> providers = mPackageManager.queryContentProviders(PACKAGE_NAME,
@@ -185,6 +235,7 @@ public class PackageManagerTest extends AndroidTestCase {
         assertTrue(isContained);
     }
 
+    @Test
     public void testGetInfo() throws NameNotFoundException {
         // Test getApplicationInfo, getText
         ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
@@ -215,8 +266,8 @@ public class PackageManagerTest extends AndroidTestCase {
         assertEquals(RECEIVER_NAME, mPackageManager.getReceiverInfo(receiverName, 0).name);
 
         // Test getPackageArchiveInfo
-        final String apkRoute = getContext().getPackageCodePath();
-        final String apkName = getContext().getPackageName();
+        final String apkRoute = InstrumentationRegistry.getContext().getPackageCodePath();
+        final String apkName = InstrumentationRegistry.getContext().getPackageName();
         assertEquals(apkName, mPackageManager.getPackageArchiveInfo(apkRoute, 0).packageName);
 
         // Test getPackagesForUid, getNameForUid
@@ -298,6 +349,7 @@ public class PackageManagerTest extends AndroidTestCase {
      * can be added.
      * @see PackageManager#addPreferredActivity(IntentFilter, int, ComponentName[], ComponentName)
      */
+    @Test
     public void testGetPreferredActivities() {
         assertNoPreferredActivities();
     }
@@ -322,6 +374,7 @@ public class PackageManagerTest extends AndroidTestCase {
      * signature permission. Even though this app declares that permission, it still should not be
      * able to call this method because it is not signed with the platform certificate.
      */
+    @Test
     public void testAddPreferredActivity() {
         IntentFilter intentFilter = new IntentFilter(ACTIVITY_ACTION_NAME);
         ComponentName[] componentName = {new ComponentName(PACKAGE_NAME, ACTIVITY_NAME)};
@@ -339,6 +392,7 @@ public class PackageManagerTest extends AndroidTestCase {
      * Test that calling {@link PackageManager#clearPackagePreferredActivities(String)} has no
      * effect.
      */
+    @Test
     public void testClearPackagePreferredActivities() {
         // just ensure no unexpected exceptions are thrown, nothing else to do
         mPackageManager.clearPackagePreferredActivities(PACKAGE_NAME);
@@ -376,6 +430,7 @@ public class PackageManagerTest extends AndroidTestCase {
         assertTrue(isContained);
     }
 
+    @Test
     public void testAccessEnabledSetting() {
         mPackageManager.setApplicationEnabledSetting(PACKAGE_NAME,
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
@@ -389,6 +444,16 @@ public class PackageManagerTest extends AndroidTestCase {
                 mPackageManager.getComponentEnabledSetting(componentName));
     }
 
+    @Test
+    public void testGetApplicationEnabledSetting_notFound() {
+        try {
+            mPackageManager.getApplicationEnabledSetting("this.package.does.not.exist");
+            fail("Exception expected");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    @Test
     public void testGetIcon() throws NameNotFoundException {
         assertNotNull(mPackageManager.getApplicationIcon(PACKAGE_NAME));
         assertNotNull(mPackageManager.getApplicationIcon(mPackageManager.getApplicationInfo(
@@ -405,7 +470,8 @@ public class PackageManagerTest extends AndroidTestCase {
         assertNotNull(mPackageManager.getDrawable(PACKAGE_NAME, iconRes, appInfo));
     }
 
-    public void testCheckSignaturesMatch() {
+    @Test
+    public void testCheckSignaturesMatch_byPackageName() {
         // Compare the signature of this package to another package installed by this test suite
         // (see AndroidTest.xml). Their signatures must match.
         assertEquals(PackageManager.SIGNATURE_MATCH, mPackageManager.checkSignatures(PACKAGE_NAME,
@@ -415,27 +481,53 @@ public class PackageManagerTest extends AndroidTestCase {
                 PACKAGE_NAME));
     }
 
-    public void testCheckSignaturesNoMatch() {
+    @Test
+    public void testCheckSignaturesMatch_byUid() throws NameNotFoundException {
+        // Compare the signature of this package to another package installed by this test suite
+        // (see AndroidTest.xml). Their signatures must match.
+        int uid1 = mPackageManager.getPackageInfo(PACKAGE_NAME, 0).applicationInfo.uid;
+        int uid2 = mPackageManager.getPackageInfo("com.android.cts.stub", 0).applicationInfo.uid;
+        assertEquals(PackageManager.SIGNATURE_MATCH, mPackageManager.checkSignatures(uid1, uid2));
+
+        // A UID's signature should match its own signature.
+        assertEquals(PackageManager.SIGNATURE_MATCH, mPackageManager.checkSignatures(uid1, uid1));
+    }
+
+    @Test
+    public void testCheckSignaturesNoMatch_byPackageName() {
         // This test package's signature shouldn't match the system's signature.
         assertEquals(PackageManager.SIGNATURE_NO_MATCH, mPackageManager.checkSignatures(
                 PACKAGE_NAME, "android"));
     }
 
+    @Test
+    public void testCheckSignaturesNoMatch_byUid() throws NameNotFoundException {
+        // This test package's signature shouldn't match the system's signature.
+        int uid1 = mPackageManager.getPackageInfo(PACKAGE_NAME, 0).applicationInfo.uid;
+        int uid2 = mPackageManager.getPackageInfo("android", 0).applicationInfo.uid;
+        assertEquals(PackageManager.SIGNATURE_NO_MATCH,
+                mPackageManager.checkSignatures(uid1, uid2));
+    }
+
+    @Test
     public void testCheckSignaturesUnknownPackage() {
         assertEquals(PackageManager.SIGNATURE_UNKNOWN_PACKAGE, mPackageManager.checkSignatures(
                 PACKAGE_NAME, "this.package.does.not.exist"));
     }
 
+    @Test
     public void testCheckPermissionGranted() {
         assertEquals(PackageManager.PERMISSION_GRANTED,
                 mPackageManager.checkPermission(GRANTED_PERMISSION_NAME, PACKAGE_NAME));
     }
 
+    @Test
     public void testCheckPermissionNotGranted() {
         assertEquals(PackageManager.PERMISSION_DENIED,
                 mPackageManager.checkPermission(NOT_GRANTED_PERMISSION_NAME, PACKAGE_NAME));
     }
 
+    @Test
     public void testResolveMethods() {
         // Test resolveActivity
         Intent intent = new Intent(ACTIVITY_ACTION_NAME);
@@ -456,6 +548,7 @@ public class PackageManagerTest extends AndroidTestCase {
                 mPackageManager.resolveContentProvider(providerAuthorities, 0).name);
     }
 
+    @Test
     public void testGetResources() throws NameNotFoundException {
         ComponentName componentName = new ComponentName(PACKAGE_NAME, ACTIVITY_NAME);
         int resourceId = R.xml.pm_test;
@@ -470,9 +563,10 @@ public class PackageManagerTest extends AndroidTestCase {
                 .getResourceName(resourceId));
     }
 
+    @Test
     public void testGetPackageArchiveInfo() throws Exception {
-        final String apkPath = getContext().getPackageCodePath();
-        final String apkName = getContext().getPackageName();
+        final String apkPath = InstrumentationRegistry.getContext().getPackageCodePath();
+        final String apkName = InstrumentationRegistry.getContext().getPackageName();
 
         final int flags = PackageManager.GET_SIGNATURES;
 
@@ -485,14 +579,17 @@ public class PackageManagerTest extends AndroidTestCase {
                 pkgInfo.signatures);
     }
 
+    @Test
     public void testGetNamesForUids_null() throws Exception {
         assertNull(mPackageManager.getNamesForUids(null));
     }
 
+    @Test
     public void testGetNamesForUids_empty() throws Exception {
         assertNull(mPackageManager.getNamesForUids(new int[0]));
     }
 
+    @Test
     public void testGetNamesForUids_valid() throws Exception {
         final int shimId =
                 mPackageManager.getApplicationInfo("com.android.cts.ctsshim", 0 /*flags*/).uid;
@@ -508,5 +605,387 @@ public class PackageManagerTest extends AndroidTestCase {
         assertEquals("shared:android.uid.system", result[0]);
         assertEquals(null, result[1]);
         assertEquals("com.android.cts.ctsshim", result[2]);
+    }
+
+    @Test
+    public void testGetPackageUid() throws NameNotFoundException {
+        int userId = InstrumentationRegistry.getContext().getUserId();
+        int expectedUid = UserHandle.getUid(userId, 1000);
+
+        assertEquals(expectedUid, mPackageManager.getPackageUid("android", 0));
+
+        int uid = mPackageManager.getApplicationInfo("com.android.cts.ctsshim", 0 /*flags*/).uid;
+        assertEquals(uid, mPackageManager.getPackageUid("com.android.cts.ctsshim", 0));
+    }
+
+    @Test
+    public void testGetPackageInfo() throws NameNotFoundException {
+        PackageInfo pkgInfo = mPackageManager.getPackageInfo(PACKAGE_NAME, GET_META_DATA
+                | GET_PERMISSIONS | GET_ACTIVITIES | GET_PROVIDERS | GET_SERVICES | GET_RECEIVERS);
+        assertTestPackageInfo(pkgInfo);
+    }
+
+    @Test
+    public void testGetPackageInfo_notFound() {
+        try {
+            mPackageManager.getPackageInfo("this.package.does.not.exist", 0);
+            fail("Exception expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGetInstalledPackages() throws Exception {
+        List<PackageInfo> pkgs = mPackageManager.getInstalledPackages(GET_META_DATA
+                | GET_PERMISSIONS | GET_ACTIVITIES | GET_PROVIDERS | GET_SERVICES | GET_RECEIVERS);
+
+        PackageInfo pkgInfo = findPackageOrFail(pkgs, PACKAGE_NAME);
+        assertTestPackageInfo(pkgInfo);
+    }
+
+    /**
+     * Asserts that the pkgInfo object correctly describes the {@link #PACKAGE_NAME} package.
+     */
+    private void assertTestPackageInfo(PackageInfo pkgInfo) {
+        // Check metadata
+        ApplicationInfo appInfo = pkgInfo.applicationInfo;
+        assertEquals(APPLICATION_NAME, appInfo.name);
+        assertEquals("Android TestCase", appInfo.loadLabel(mPackageManager));
+        assertEquals(PACKAGE_NAME, appInfo.packageName);
+        assertTrue(appInfo.enabled);
+        // The process name defaults to the package name when not set.
+        assertEquals(PACKAGE_NAME, appInfo.processName);
+        assertEquals(0, appInfo.flags & FLAG_SYSTEM);
+        assertEquals(FLAG_INSTALLED, appInfo.flags & FLAG_INSTALLED);
+        assertEquals(FLAG_HAS_CODE, appInfo.flags & FLAG_HAS_CODE);
+
+        // Check required permissions
+        List<String> requestedPermissions = Arrays.asList(pkgInfo.requestedPermissions);
+        assertThat(requestedPermissions).containsAllOf(
+                "android.permission.MANAGE_ACCOUNTS",
+                "android.permission.ACCESS_NETWORK_STATE",
+                "android.content.cts.permission.TEST_GRANTED");
+
+        // Check declared permissions
+        PermissionInfo declaredPermission = (PermissionInfo) findPackageItemOrFail(
+                pkgInfo.permissions, CALL_ABROAD_PERMISSION_NAME);
+        assertEquals("Call abroad", declaredPermission.loadLabel(mPackageManager));
+        assertEquals(PERMISSIONGROUP_NAME, declaredPermission.group);
+        assertEquals(PermissionInfo.PROTECTION_NORMAL, declaredPermission.protectionLevel);
+
+        // Check if number of activities in PackageInfo matches number of activities in manifest,
+        // to make sure no synthesized activities not in the manifest are returned.
+        assertEquals("Number of activities in manifest != Number of activities in PackageInfo",
+                NUM_OF_ACTIVITIES_IN_MANIFEST, pkgInfo.activities.length);
+        // Check activities
+        ActivityInfo activity = findPackageItemOrFail(pkgInfo.activities, ACTIVITY_NAME);
+        assertTrue(activity.enabled);
+        assertTrue(activity.exported); // Has intent filters - export by default.
+        assertEquals(PACKAGE_NAME, activity.taskAffinity);
+        assertEquals(ActivityInfo.LAUNCH_SINGLE_TOP, activity.launchMode);
+
+        // Check services
+        ServiceInfo service = findPackageItemOrFail(pkgInfo.services, SERVICE_NAME);
+        assertTrue(service.enabled);
+        assertTrue(service.exported); // Has intent filters - export by default.
+        assertEquals(PACKAGE_NAME, service.packageName);
+        assertEquals(CALL_ABROAD_PERMISSION_NAME, service.permission);
+
+        // Check ContentProviders
+        ProviderInfo provider = findPackageItemOrFail(pkgInfo.providers, PROVIDER_NAME);
+        assertTrue(provider.enabled);
+        assertFalse(provider.exported); // Don't export by default.
+        assertEquals(PACKAGE_NAME, provider.packageName);
+        assertEquals("ctstest", provider.authority);
+
+        // Check Receivers
+        ActivityInfo receiver = findPackageItemOrFail(pkgInfo.receivers, RECEIVER_NAME);
+        assertTrue(receiver.enabled);
+        assertTrue(receiver.exported); // Has intent filters - export by default.
+        assertEquals(PACKAGE_NAME, receiver.packageName);
+    }
+
+    // Tests that other packages can be queried.
+    @Test
+    public void testGetInstalledPackages_OtherPackages() throws Exception {
+        List<PackageInfo> pkgInfos = mPackageManager.getInstalledPackages(0);
+
+        // Check a normal package.
+        PackageInfo pkgInfo = findPackageOrFail(pkgInfos, "com.android.cts.stub"); // A test package
+        assertEquals(0, pkgInfo.applicationInfo.flags & FLAG_SYSTEM);
+
+        // Check a system package.
+        pkgInfo = findPackageOrFail(pkgInfos, "android");
+        assertEquals(FLAG_SYSTEM, pkgInfo.applicationInfo.flags & FLAG_SYSTEM);
+    }
+
+    @Test
+    public void testGetInstalledApplications() throws Exception {
+        List<ApplicationInfo> apps = mPackageManager.getInstalledApplications(GET_META_DATA);
+
+        ApplicationInfo app = findPackageItemOrFail(
+                apps.toArray(new ApplicationInfo[] {}), APPLICATION_NAME);
+
+        assertEquals(APPLICATION_NAME, app.name);
+        assertEquals("Android TestCase", app.loadLabel(mPackageManager));
+        assertEquals(PACKAGE_NAME, app.packageName);
+        assertTrue(app.enabled);
+        // The process name defaults to the package name when not set.
+        assertEquals(PACKAGE_NAME, app.processName);
+    }
+
+    private PackageInfo findPackageOrFail(List<PackageInfo> pkgInfos, String pkgName) {
+        for (PackageInfo pkgInfo : pkgInfos) {
+            if (pkgName.equals(pkgInfo.packageName)) {
+                return pkgInfo;
+            }
+        }
+        fail("Package not found with name " + pkgName);
+        return null;
+    }
+
+    private <T extends PackageItemInfo> T findPackageItemOrFail(T[] items, String name) {
+        for (T item : items) {
+            if (name.equals(item.name)) {
+                return item;
+            }
+        }
+        fail("Package item not found with name " + name);
+        return null;
+    }
+
+    @Test
+    public void testGetPackagesHoldingPermissions() {
+        List<PackageInfo> pkgInfos = mPackageManager.getPackagesHoldingPermissions(
+                new String[] { GRANTED_PERMISSION_NAME }, 0);
+        findPackageOrFail(pkgInfos, PACKAGE_NAME);
+
+        pkgInfos = mPackageManager.getPackagesHoldingPermissions(
+                new String[] { NOT_GRANTED_PERMISSION_NAME }, 0);
+        for (PackageInfo pkgInfo : pkgInfos) {
+            if (PACKAGE_NAME.equals(pkgInfo.packageName)) {
+                fail("Must not return package " + PACKAGE_NAME);
+            }
+        }
+    }
+
+    @Test
+    public void testGetPermissionInfo() throws NameNotFoundException {
+        // Check a normal permission.
+        String permissionName = "android.permission.INTERNET";
+        PermissionInfo permissionInfo = mPackageManager.getPermissionInfo(permissionName, 0);
+        assertEquals(permissionName, permissionInfo.name);
+        assertEquals(PermissionInfo.PROTECTION_NORMAL, permissionInfo.getProtection());
+
+        // Check a dangerous (runtime) permission.
+        permissionName = "android.permission.RECORD_AUDIO";
+        permissionInfo = mPackageManager.getPermissionInfo(permissionName, 0);
+        assertEquals(permissionName, permissionInfo.name);
+        assertEquals(PermissionInfo.PROTECTION_DANGEROUS, permissionInfo.getProtection());
+        assertNotNull(permissionInfo.group);
+
+        // Check a signature permission.
+        permissionName = "android.permission.MODIFY_PHONE_STATE";
+        permissionInfo = mPackageManager.getPermissionInfo(permissionName, 0);
+        assertEquals(permissionName, permissionInfo.name);
+        assertEquals(PermissionInfo.PROTECTION_SIGNATURE, permissionInfo.getProtection());
+
+        // Check a special access (appop) permission.
+        permissionName = "android.permission.SYSTEM_ALERT_WINDOW";
+        permissionInfo = mPackageManager.getPermissionInfo(permissionName, 0);
+        assertEquals(permissionName, permissionInfo.name);
+        assertEquals(PermissionInfo.PROTECTION_SIGNATURE, permissionInfo.getProtection());
+        assertEquals(PermissionInfo.PROTECTION_FLAG_APPOP,
+                permissionInfo.getProtectionFlags() & PermissionInfo.PROTECTION_FLAG_APPOP);
+    }
+
+    @Test
+    public void testGetPermissionInfo_notFound() {
+        try {
+            mPackageManager.getPermissionInfo("android.permission.nonexistent.permission", 0);
+            fail("Exception expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGetPermissionGroupInfo() throws NameNotFoundException {
+        PermissionGroupInfo groupInfo = mPackageManager.getPermissionGroupInfo(
+                PERMISSIONGROUP_NAME, 0);
+        assertEquals(PERMISSIONGROUP_NAME, groupInfo.name);
+        assertEquals(PACKAGE_NAME, groupInfo.packageName);
+        assertFalse(TextUtils.isEmpty(groupInfo.loadDescription(mPackageManager)));
+    }
+
+    @Test
+    public void testGetPermissionGroupInfo_notFound() throws NameNotFoundException {
+        try {
+            mPackageManager.getPermissionGroupInfo("this.group.does.not.exist", 0);
+            fail("Exception expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testAddPermission_cantAddOutsideRoot() {
+        PermissionInfo permissionInfo = new PermissionInfo();
+        permissionInfo.name = "some.other.permission.tree.some-permission";
+        permissionInfo.nonLocalizedLabel = "Some Permission";
+        permissionInfo.protectionLevel = PermissionInfo.PROTECTION_NORMAL;
+        // Remove first
+        try {
+            mPackageManager.removePermission(permissionInfo.name);
+        } catch (SecurityException se) {
+        }
+        try {
+            mPackageManager.addPermission(permissionInfo);
+            fail("Must not add permission outside the permission tree defined in the manifest.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    @Test
+    public void testAddPermission() throws NameNotFoundException {
+        PermissionInfo permissionInfo = new PermissionInfo();
+        permissionInfo.name = PERMISSION_TREE_ROOT + ".some-permission";
+        permissionInfo.protectionLevel = PermissionInfo.PROTECTION_NORMAL;
+        permissionInfo.nonLocalizedLabel = "Some Permission";
+        // Remove first
+        try {
+            mPackageManager.removePermission(permissionInfo.name);
+        } catch (SecurityException se) {
+        }
+        mPackageManager.addPermission(permissionInfo);
+        PermissionInfo savedInfo = mPackageManager.getPermissionInfo(permissionInfo.name, 0);
+        assertEquals(PACKAGE_NAME, savedInfo.packageName);
+        assertEquals(PermissionInfo.PROTECTION_NORMAL, savedInfo.protectionLevel);
+    }
+
+    @Test
+    public void testGetPackageInfo_ApexSupported_ApexPackage_MatchesApex() throws Exception {
+        // This really should be a assumeTrue(isUpdatingApexSupported()), but JUnit3 doesn't support
+        // assumptions framework.
+        // TODO: change to assumeTrue after migrating tests to JUnit4.
+        if (!isUpdatingApexSupported()) {
+            Log.i(TAG, "Device doesn't support updating APEX");
+            return;
+        }
+        PackageInfo packageInfo = mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME,
+                PackageManager.MATCH_APEX);
+        assertShimApexInfoIsCorrect(packageInfo);
+    }
+
+    @Test
+    public void testGetPackageInfo_ApexSupported_ApexPackage_DoesNotMatchApex() {
+        // This really should be a assumeTrue(isUpdatingApexSupported()), but JUnit3 doesn't support
+        // assumptions framework.
+        // TODO: change to assumeTrue after migrating tests to JUnit4.
+        if (!isUpdatingApexSupported()) {
+            Log.i(TAG, "Device doesn't support updating APEX");
+            return;
+        }
+        try {
+            mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME, 0 /* flags */);
+            fail("NameNotFoundException expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGetPackageInfo_ApexNotSupported_ApexPackage_MatchesApex() {
+        if (isUpdatingApexSupported()) {
+            Log.i(TAG, "Device supports updating APEX");
+            return;
+        }
+        try {
+            mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+            fail("NameNotFoundException expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGetPackageInfo_ApexNotSupported_ApexPackage_DoesNotMatchApex() {
+        if (isUpdatingApexSupported()) {
+            Log.i(TAG, "Device supports updating APEX");
+            return;
+        }
+        try {
+            mPackageManager.getPackageInfo(SHIM_APEX_PACKAGE_NAME, 0);
+            fail("NameNotFoundException expected");
+        } catch (NameNotFoundException expected) {
+        }
+    }
+
+    @Test
+    public void testGetInstalledPackages_ApexSupported_MatchesApex() {
+        if (!isUpdatingApexSupported()) {
+            Log.i(TAG, "Device doesn't support updating APEX");
+            return;
+        }
+        List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(
+                PackageManager.MATCH_APEX);
+        List<PackageInfo> shimApex = installedPackages.stream().filter(
+                packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
+                Collectors.toList());
+        assertWithMessage("More than one shim apex found").that(shimApex).hasSize(1);
+        assertShimApexInfoIsCorrect(shimApex.get(0));
+    }
+
+    @Test
+    public void testGetInstalledPackages_ApexSupported_DoesNotMatchApex() {
+        if (!isUpdatingApexSupported()) {
+            Log.i(TAG, "Device doesn't support updating APEX");
+            return;
+        }
+        List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(0);
+        List<PackageInfo> shimApex = installedPackages.stream().filter(
+                packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
+                Collectors.toList());
+        assertWithMessage("Shim apex wasn't supposed to be found").that(shimApex).isEmpty();
+    }
+
+    @Test
+    public void testGetInstalledPackages_ApexNotSupported_MatchesApex() {
+        if (isUpdatingApexSupported()) {
+            Log.i(TAG, "Device supports updating APEX");
+            return;
+        }
+        List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(
+                PackageManager.MATCH_APEX);
+        List<PackageInfo> shimApex = installedPackages.stream().filter(
+                packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
+                Collectors.toList());
+        assertWithMessage("Shim apex wasn't supposed to be found").that(shimApex).isEmpty();
+    }
+
+    @Test
+    public void testGetInstalledPackages_ApexNotSupported_DoesNotMatchApex() {
+        if (isUpdatingApexSupported()) {
+            Log.i(TAG, "Device supports updating APEX");
+            return;
+        }
+        List<PackageInfo> installedPackages = mPackageManager.getInstalledPackages(0);
+        List<PackageInfo> shimApex = installedPackages.stream().filter(
+                packageInfo -> packageInfo.packageName.equals(SHIM_APEX_PACKAGE_NAME)).collect(
+                Collectors.toList());
+        assertWithMessage("Shim apex wasn't supposed to be found").that(shimApex).isEmpty();
+    }
+
+    private boolean isUpdatingApexSupported() {
+        return SystemProperties.getBoolean("ro.apex.updatable", false);
+    }
+
+    private static void assertShimApexInfoIsCorrect(PackageInfo packageInfo) {
+        assertThat(packageInfo.packageName).isEqualTo(SHIM_APEX_PACKAGE_NAME);
+        assertThat(packageInfo.getLongVersionCode()).isEqualTo(1);
+        assertThat(packageInfo.isApex).isTrue();
+        assertThat(packageInfo.applicationInfo.sourceDir).isEqualTo(
+                "/system/apex/com.android.apex.cts.shim.apex");
+        // Verify that legacy mechanism for handling signatures is supported.
+        Signature[] pastSigningCertificates =
+                packageInfo.signingInfo.getSigningCertificateHistory();
+        assertThat(packageInfo.signatures)
+                .asList().containsExactly((Object[]) pastSigningCertificates);
     }
 }

@@ -17,20 +17,27 @@ package cc
 import (
 	"android/soong/android"
 	"fmt"
+	"strconv"
 )
 
-func getNdkStlFamily(ctx android.ModuleContext, m *Module) string {
+func getNdkStlFamily(m *Module) string {
+	family, _ := getNdkStlFamilyAndLinkType(m)
+	return family
+}
+
+func getNdkStlFamilyAndLinkType(m *Module) (string, string) {
 	stl := m.stl.Properties.SelectedStl
 	switch stl {
-	case "ndk_libc++_shared", "ndk_libc++_static":
-		return "libc++"
+	case "ndk_libc++_shared":
+		return "libc++", "shared"
+	case "ndk_libc++_static":
+		return "libc++", "static"
 	case "ndk_system":
-		return "system"
+		return "system", "shared"
 	case "":
-		return "none"
+		return "none", "none"
 	default:
-		ctx.ModuleErrorf("stl: %q is not a valid STL", stl)
-		return ""
+		panic(fmt.Errorf("stl: %q is not a valid STL", stl))
 	}
 }
 
@@ -59,7 +66,7 @@ func (stl *stl) begin(ctx BaseModuleContext) {
 		}
 		if ctx.useSdk() && ctx.Device() {
 			switch s {
-			case "":
+			case "", "system":
 				return "ndk_system"
 			case "c++_shared", "c++_static":
 				return "ndk_lib" + s
@@ -75,13 +82,33 @@ func (stl *stl) begin(ctx BaseModuleContext) {
 			}
 		} else if ctx.Windows() {
 			switch s {
-			case "libc++", "libc++_static", "libstdc++", "":
-				// libc++ is not supported on mingw
-				return "libstdc++"
+			case "libc++", "libc++_static", "":
+				// Only use static libc++ for Windows.
+				return "libc++_static"
 			case "none":
 				return ""
 			default:
 				ctx.ModuleErrorf("stl: %q is not a supported STL for windows", s)
+				return ""
+			}
+		} else if ctx.Fuchsia() {
+			switch s {
+			case "c++_static":
+				return "libc++_static"
+			case "c++_shared":
+				return "libc++"
+			case "libc++", "libc++_static":
+				return s
+			case "none":
+				return ""
+			case "":
+				if ctx.static() {
+					return "libc++_static"
+				} else {
+					return "libc++"
+				}
+			default:
+				ctx.ModuleErrorf("stl: %q is not a supported STL on Fuchsia", s)
 				return ""
 			}
 		} else {
@@ -102,6 +129,26 @@ func (stl *stl) begin(ctx BaseModuleContext) {
 			}
 		}
 	}()
+}
+
+func needsLibAndroidSupport(ctx BaseModuleContext) bool {
+	versionStr, err := normalizeNdkApiLevel(ctx, ctx.sdkVersion(), ctx.Arch())
+	if err != nil {
+		ctx.PropertyErrorf("sdk_version", err.Error())
+	}
+
+	if versionStr == "current" {
+		return false
+	}
+
+	version, err := strconv.Atoi(versionStr)
+	if err != nil {
+		panic(fmt.Sprintf(
+			"invalid API level returned from normalizeNdkApiLevel: %q",
+			versionStr))
+	}
+
+	return version < 21
 }
 
 func (stl *stl) deps(ctx BaseModuleContext, deps Deps) Deps {
@@ -129,10 +176,18 @@ func (stl *stl) deps(ctx BaseModuleContext, deps Deps) Deps {
 		// The system STL doesn't have a prebuilt (it uses the system's libstdc++), but it does have
 		// its own includes. The includes are handled in CCBase.Flags().
 		deps.SharedLibs = append([]string{"libstdc++"}, deps.SharedLibs...)
-	case "ndk_libc++_shared":
-		deps.SharedLibs = append(deps.SharedLibs, stl.Properties.SelectedStl)
-	case "ndk_libc++_static":
-		deps.StaticLibs = append(deps.StaticLibs, stl.Properties.SelectedStl)
+	case "ndk_libc++_shared", "ndk_libc++_static":
+		if stl.Properties.SelectedStl == "ndk_libc++_shared" {
+			deps.SharedLibs = append(deps.SharedLibs, stl.Properties.SelectedStl)
+		} else {
+			deps.StaticLibs = append(deps.StaticLibs, stl.Properties.SelectedStl, "ndk_libc++abi")
+		}
+		if needsLibAndroidSupport(ctx) {
+			deps.StaticLibs = append(deps.StaticLibs, "ndk_libandroid_support")
+		}
+		if ctx.Arch().ArchType == android.Arm {
+			deps.StaticLibs = append(deps.StaticLibs, "ndk_libunwind")
+		}
 	default:
 		panic(fmt.Errorf("Unknown stl: %q", stl.Properties.SelectedStl))
 	}
@@ -165,6 +220,20 @@ func (stl *stl) flags(ctx ModuleContext, flags Flags) Flags {
 			} else {
 				flags.LdFlags = append(flags.LdFlags, hostDynamicGccLibs[ctx.Os()]...)
 			}
+			if ctx.Windows() {
+				// Use SjLj exceptions for 32-bit.  libgcc_eh implements SjLj
+				// exception model for 32-bit.
+				if ctx.Arch().ArchType == android.X86 {
+					flags.CppFlags = append(flags.CppFlags, "-fsjlj-exceptions")
+				}
+				flags.CppFlags = append(flags.CppFlags,
+					// Disable visiblity annotations since we're using static
+					// libc++.
+					"-D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+					"-D_LIBCXXABI_DISABLE_VISIBILITY_ANNOTATIONS",
+					// Use Win32 threads in libc++.
+					"-D_LIBCPP_HAS_THREAD_API_WIN32")
+			}
 		} else {
 			if ctx.Arch().ArchType == android.Arm {
 				flags.LdFlags = append(flags.LdFlags, "-Wl,--exclude-libs,libunwind_llvm.a")
@@ -176,7 +245,10 @@ func (stl *stl) flags(ctx ModuleContext, flags Flags) Flags {
 		ndkSrcRoot := android.PathForSource(ctx, "prebuilts/ndk/current/sources/cxx-stl/system/include")
 		flags.CFlags = append(flags.CFlags, "-isystem "+ndkSrcRoot.String())
 	case "ndk_libc++_shared", "ndk_libc++_static":
-		// Nothing.
+		if ctx.Arch().ArchType == android.Arm {
+			// Make sure the _Unwind_XXX symbols are not re-exported.
+			flags.LdFlags = append(flags.LdFlags, "-Wl,--exclude-libs,libunwind.a")
+		}
 	case "":
 		// None or error.
 		if !ctx.toolchain().Bionic() {
@@ -199,12 +271,13 @@ var hostDynamicGccLibs, hostStaticGccLibs map[android.OsType][]string
 
 func init() {
 	hostDynamicGccLibs = map[android.OsType][]string{
-		android.Linux:  []string{"-lgcc_s", "-lgcc", "-lc", "-lgcc_s", "-lgcc"},
-		android.Darwin: []string{"-lc", "-lSystem"},
-		android.Windows: []string{"-lmsvcr110", "-lmingw32", "-lgcc", "-lmoldname",
-			"-lmingwex", "-lmsvcrt", "-ladvapi32", "-lshell32", "-luser32",
-			"-lkernel32", "-lmingw32", "-lgcc", "-lmoldname", "-lmingwex",
-			"-lmsvcrt"},
+		android.Fuchsia: []string{"-lc", "-lunwind"},
+		android.Linux:   []string{"-lgcc_s", "-lgcc", "-lc", "-lgcc_s", "-lgcc"},
+		android.Darwin:  []string{"-lc", "-lSystem"},
+		android.Windows: []string{"-Wl,--start-group", "-lmingw32", "-lgcc", "-lgcc_eh",
+			"-lmoldname", "-lmingwex", "-lmsvcrt", "-lucrt", "-lpthread",
+			"-ladvapi32", "-lshell32", "-luser32", "-lkernel32", "-lpsapi",
+			"-Wl,--end-group"},
 	}
 	hostStaticGccLibs = map[android.OsType][]string{
 		android.Linux:   []string{"-Wl,--start-group", "-lgcc", "-lgcc_eh", "-lc", "-Wl,--end-group"},

@@ -17,11 +17,10 @@
 #define _THREAD_INFO_H
 
 #include "HostConnection.h"
-#include <pthread.h>
 
-#include <bionic_tls.h>
+#include <inttypes.h>
+
 struct EGLContext_t;
-struct HostConnection;
 
 struct EGLThreadInfo
 {
@@ -32,24 +31,13 @@ struct EGLThreadInfo
     int           eglError;
 };
 
-
 typedef bool (*tlsDtorCallback)(void*);
 void setTlsDestructor(tlsDtorCallback);
 
 extern "C" __attribute__((visibility("default"))) EGLThreadInfo *goldfish_get_egl_tls();
 
-inline EGLThreadInfo* getEGLThreadInfo() {
-#ifdef __ANDROID__
-    EGLThreadInfo *tInfo =
-        (EGLThreadInfo *)(((uintptr_t *)__get_tls())[TLS_SLOT_OPENGL]);
-    if (!tInfo) {
-        tInfo = goldfish_get_egl_tls();
-        ((uintptr_t *)__get_tls())[TLS_SLOT_OPENGL] = (uintptr_t)tInfo;
-    }
-    return tInfo;
-#else
-    return goldfish_get_egl_tls();
-#endif
-}
+EGLThreadInfo* getEGLThreadInfo();
+
+int32_t getCurrentThreadId();
 
 #endif // of _THREAD_INFO_H

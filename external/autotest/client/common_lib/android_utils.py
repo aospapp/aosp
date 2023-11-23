@@ -51,18 +51,6 @@ class AndroidAliases(object):
                board.
     """
 
-    # regex pattern for CLIENT/android_aliases_[product]. For example,
-    # global config can have following config in CLIENT section to indicate that
-    # android product name `zzz` has following aliases.
-    # ['my_board', 'xyz'].
-    # android_board_aliases_zzz: my_board,xyz
-    ALIASES_PATTERN = 'android_aliases_(.*)'
-
-    # A dict of product:aliases for product aliases, can be defined in global
-    # config CLIENT/android_aliases_[product]
-    aliases_map = get_config_value_regex('CLIENT',
-                                         ALIASES_PATTERN)
-
     # regex pattern for CLIENT/android_board_name[product]. For example,
     # global config can have following config in CLIENT section to indicate that
     # android product `zzz` has following board name.
@@ -74,24 +62,6 @@ class AndroidAliases(object):
     # A dict of product:board for product board names, can be defined in global
     # config CLIENT/android_board_name_[product]
     board_name_map = get_config_value_regex('CLIENT', BOARD_NAME_PATTERN)
-
-    @classmethod
-    def get_product_aliases(cls, product):
-        """Get all aliases for a android product name.
-
-        Androids can have multiple aliases for a single product. These aliases
-        may be what the device is called in different configs. For example
-        bat has a board name of bat_land. Therefore the product name bat
-        can be referenced as either bat or batland.
-
-        @param product: The name of the product that is reported for a device.
-        @returns: All aliases for that product (including the product name).
-        """
-        aliases = set(cls.aliases_map.get(product, []))
-        aliases.add(cls.get_board_name(product))
-        aliases.add(product)
-
-        return aliases
 
     @classmethod
     def get_board_name(cls, product):
@@ -108,84 +78,6 @@ class AndroidAliases(object):
         if boards:
             return boards[0]
         return product
-
-
-class AndroidImageFiles(object):
-    """A wrapper class for constants and methods related to image files.
-    """
-
-    BOOTLOADER = 'bootloader.img'
-    RADIO = 'radio.img'
-    BOOT = 'boot.img'
-    SYSTEM = 'system.img'
-    VENDOR = 'vendor.img'
-    VBMETA = 'vbmeta.img'
-    DTBO = 'dtbo.img'
-
-    # Image files not inside the image zip file. These files should be
-    # downloaded directly from devserver.
-    DEFAULT_STANDALONE_IMAGES = [BOOTLOADER, RADIO]
-
-    # Default image files that are packaged in a zip file, e.g.,
-    # shamu-img-123456.zip
-    DEFAULT_ZIPPED_IMAGES = [BOOT, SYSTEM, VENDOR, VBMETA, DTBO]
-
-    # Default image files to be flashed to an Android device.
-    DEFAULT_IMAGES = DEFAULT_STANDALONE_IMAGES + DEFAULT_ZIPPED_IMAGES
-
-    # regex pattern for CLIENT/android_standalone_images_[board]. For example,
-    # global config can have following config in CLIENT section to indicate that
-    # android board `xyz` has following standalone images.
-    # ['bootloader_image', 'radio_image'].
-    # android_standalone_xyz: bootloader.img,radio.img
-    STANDALONE_IMAGES_PATTERN = 'android_standalone_images_(.*)'
-
-    # A dict of board:images for standalone images, can be defined in global
-    # config CLIENT/android_standalone_images_[board]
-    standalone_images_map = get_config_value_regex('CLIENT',
-                                                   STANDALONE_IMAGES_PATTERN)
-
-    # regex pattern for CLIENT/android_standalone_images_[board]. For example,
-    # global config can have following config in CLIENT section to indicate that
-    # android board `xyz` has following standalone images.
-    # ['bootloader_image', 'radio_image'].
-    # android_zipped_xyz: bootloader.img,radio.img
-    ZIPPED_IMAGES_PATTERN = 'android_zipped_images_(.*)'
-
-    # A dict of board:images for zipped images, can be defined in global
-    # config CLIENT/android_zipped_images_[board]
-    zipped_images_map = get_config_value_regex('CLIENT', ZIPPED_IMAGES_PATTERN)
-
-    @classmethod
-    def get_standalone_images(cls, board):
-        """Get a list of standalone image files for given board.
-
-        @param board: Name of the board.
-
-        @return: A list of standalone image files.
-        """
-        if board in cls.standalone_images_map:
-            logging.debug('Found override of standalone image files for board '
-                          '%s: %s', board, cls.standalone_images_map[board])
-            return cls.standalone_images_map[board]
-        else:
-            return cls.DEFAULT_STANDALONE_IMAGES
-
-
-    @classmethod
-    def get_zipped_images(cls, board):
-        """Get a list of image files from zip_images artifact for given board.
-
-        @param board: Name of the board.
-
-        @return: A list of image files from `zip_images`.
-        """
-        if board in cls.zipped_images_map:
-            logging.debug('Found override of zip image files for board '
-                          '%s: %s', board, cls.zipped_images_map[board])
-            return cls.zipped_images_map[board]
-        else:
-            return cls.DEFAULT_ZIPPED_IMAGES
 
 
 class AndroidArtifacts(object):

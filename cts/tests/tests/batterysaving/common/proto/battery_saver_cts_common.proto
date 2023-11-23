@@ -43,6 +43,7 @@ message Payload {
             optional string intent_action = 5;
         }
         optional SetAlarmRequest set_alarm = 4;
+        optional bool stop_service = 5;
     }
 
     optional TestServiceRequest test_service_request = 1;
@@ -52,6 +53,7 @@ message Payload {
         optional string get_last_intent_action = 2;
         optional bool start_service_ack = 3;
         optional bool set_alarm_ack = 4;
+        optional bool stop_service_ack = 5;
     }
 
     optional TestServiceResponse test_service_response = 2;

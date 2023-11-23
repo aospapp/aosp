@@ -16,52 +16,55 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assert.assertNull;
+
 import android.platform.test.annotations.AppModeFull;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.io.FileNotFoundException;
 
 /**
  * Tests for the instant cookie APIs
  */
-@AppModeFull // Already handles instant installs when needed.
-public class InstantCookieHostTest extends DeviceTestCase implements IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull(reason = "Already handles instant installs when needed")
+public class InstantCookieHostTest extends BaseHostJUnit4Test {
     private static final String INSTANT_COOKIE_APP_APK = "CtsInstantCookieApp.apk";
     private static final String INSTANT_COOKIE_APP_PKG = "test.instant.cookie";
 
     private static final String INSTANT_COOKIE_APP_APK_2 = "CtsInstantCookieApp2.apk";
     private static final String INSTANT_COOKIE_APP_PKG_2 = "test.instant.cookie";
 
-    private CompatibilityBuildHelper mBuildHelper;
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildHelper = new CompatibilityBuildHelper(buildInfo);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         Utils.prepareSingleUser(getDevice());
         uninstallPackage(INSTANT_COOKIE_APP_PKG);
         clearAppCookieData();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         uninstallPackage(INSTANT_COOKIE_APP_PKG);
         clearAppCookieData();
     }
 
+    @Test
     public void testCookieUpdateAndRetrieval() throws Exception {
         assertNull(installPackage(INSTANT_COOKIE_APP_APK, false, true));
         runDeviceTests(INSTANT_COOKIE_APP_PKG, "test.instant.cookie.CookieTest",
                 "testCookieUpdateAndRetrieval");
     }
 
+    @Test
     public void testCookiePersistedAcrossInstantInstalls() throws Exception {
         assertNull(installPackage(INSTANT_COOKIE_APP_APK, false, true));
         runDeviceTests(INSTANT_COOKIE_APP_PKG, "test.instant.cookie.CookieTest",
@@ -72,6 +75,7 @@ public class InstantCookieHostTest extends DeviceTestCase implements IBuildRecei
                 "testCookiePersistedAcrossInstantInstalls2");
     }
 
+    @Test
     public void testCookiePersistedUpgradeFromInstant() throws Exception {
         assertNull(installPackage(INSTANT_COOKIE_APP_APK, false, true));
         runDeviceTests(INSTANT_COOKIE_APP_PKG, "test.instant.cookie.CookieTest",
@@ -81,6 +85,7 @@ public class InstantCookieHostTest extends DeviceTestCase implements IBuildRecei
                 "testCookiePersistedUpgradeFromInstant2");
     }
 
+    @Test
     public void testCookieResetOnNonInstantReinstall() throws Exception {
         assertNull(installPackage(INSTANT_COOKIE_APP_APK, false, false));
         runDeviceTests(INSTANT_COOKIE_APP_PKG, "test.instant.cookie.CookieTest",
@@ -91,7 +96,8 @@ public class InstantCookieHostTest extends DeviceTestCase implements IBuildRecei
                 "testCookieResetOnNonInstantReinstall2");
     }
 
-    public void testCookieValidWhenSingedWithTwoCerts() throws Exception {
+    @Test
+    public void testCookieValidWhenSignedWithTwoCerts() throws Exception {
         assertNull(installPackage(INSTANT_COOKIE_APP_APK, false, true));
         runDeviceTests(INSTANT_COOKIE_APP_PKG, "test.instant.cookie.CookieTest",
                 "testCookiePersistedAcrossInstantInstalls1");
@@ -102,17 +108,13 @@ public class InstantCookieHostTest extends DeviceTestCase implements IBuildRecei
     }
 
     private String installPackage(String apk, boolean replace, boolean instant) throws Exception {
-        return getDevice().installPackage(mBuildHelper.getTestFile(apk), replace,
+        return getDevice().installPackage(getTestAppFile(apk), replace,
                 instant ? "--instant" : "--full");
     }
 
-    private String uninstallPackage(String packageName) throws DeviceNotAvailableException {
-        return getDevice().uninstallPackage(packageName);
-    }
-
-    private void runDeviceTests(String packageName, String testClassName, String testMethodName)
-            throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
+    private File getTestAppFile(String fileName) throws FileNotFoundException {
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+        return buildHelper.getTestFile(fileName);
     }
 
     private void clearAppCookieData() throws Exception {

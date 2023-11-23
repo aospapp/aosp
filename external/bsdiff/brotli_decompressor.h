@@ -15,6 +15,7 @@ class BrotliDecompressor : public DecompressorInterface {
  public:
   BrotliDecompressor()
       : brotli_decoder_state_(nullptr), next_in_(nullptr), available_in_(0) {}
+  ~BrotliDecompressor();
 
   // DecompressorInterface overrides.
   bool SetInputData(const uint8_t* input_data, size_t size) override;

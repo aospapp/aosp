@@ -17,12 +17,15 @@
 package com.android.car.media.browse;
 
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.media.common.MediaItemMetadata;
 
 /**
@@ -33,6 +36,11 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
     final TextView mSubtitle;
     final ImageView mAlbumArt;
     final ViewGroup mContainer;
+    final ImageView mRightArrow;
+    final ImageView mTitleDownloadIcon;
+    final ImageView mTitleExplicitIcon;
+    final ImageView mSubTitleDownloadIcon;
+    final ImageView mSubTitleExplicitIcon;
 
     /**
      * Creates a {@link BrowseViewHolder} for the given view.
@@ -43,32 +51,48 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
         mSubtitle = itemView.findViewById(com.android.car.media.R.id.subtitle);
         mAlbumArt = itemView.findViewById(com.android.car.media.R.id.thumbnail);
         mContainer = itemView.findViewById(com.android.car.media.R.id.container);
+        mRightArrow = itemView.findViewById(com.android.car.media.R.id.right_arrow);
+        mTitleDownloadIcon = itemView.findViewById(
+                com.android.car.media.R.id.download_icon_with_title);
+        mTitleExplicitIcon = itemView.findViewById(
+                com.android.car.media.R.id.explicit_icon_with_title);
+        mSubTitleDownloadIcon = itemView.findViewById(
+                com.android.car.media.R.id.download_icon_with_subtitle);
+        mSubTitleExplicitIcon = itemView.findViewById(
+                com.android.car.media.R.id.explicit_icon_with_subtitle);
     }
 
     /**
      * Updates this {@link BrowseViewHolder} with the given data
      */
     public void bind(Context context, BrowseViewData data) {
+
+        boolean hasMediaItem = data.mMediaItem != null;
+        boolean showSubtitle = hasMediaItem && !TextUtils.isEmpty(data.mMediaItem.getSubtitle());
+
         if (mTitle != null) {
-            mTitle.setText(data.mText != null
-                    ? data.mText : data.mMediaItem != null
-                    ? data.mMediaItem.getTitle()
-                    : null);
+            mTitle.setText(data.mText != null ? data.mText :
+                    hasMediaItem ? data.mMediaItem.getTitle() : null);
         }
         if (mSubtitle != null) {
-            mSubtitle.setText(data.mMediaItem != null
-                    ? data.mMediaItem.getSubtitle()
-                    : null);
-            mSubtitle.setVisibility(data.mMediaItem != null && data.mMediaItem.getSubtitle() != null
-                    && !data.mMediaItem.getSubtitle().toString().isEmpty()
-                    ? View.VISIBLE
-                    : View.GONE);
+            mSubtitle.setText(hasMediaItem ? data.mMediaItem.getSubtitle() : null);
+            ViewUtils.setVisible(mSubtitle, showSubtitle);
         }
         if (mAlbumArt != null) {
-            MediaItemMetadata.updateImageView(context, data.mMediaItem, mAlbumArt, 0);
+            MediaItemMetadata.updateImageView(context, data.mMediaItem, mAlbumArt, 0, true);
         }
         if (mContainer != null && data.mOnClickListener != null) {
             mContainer.setOnClickListener(data.mOnClickListener);
         }
+        ViewUtils.setVisible(mRightArrow, hasMediaItem && data.mMediaItem.isBrowsable());
+
+        // Adjust the positioning of the explicit and downloaded icons. If there is a subtitle, then
+        // the icons should show on the subtitle row, otherwise they should show on the title row.
+        boolean downloaded = hasMediaItem && data.mMediaItem.isDownloaded();
+        boolean explicit = hasMediaItem && data.mMediaItem.isExplicit();
+        ViewUtils.setVisible(mTitleDownloadIcon, !showSubtitle && downloaded);
+        ViewUtils.setVisible(mTitleExplicitIcon, !showSubtitle && explicit);
+        ViewUtils.setVisible(mSubTitleDownloadIcon, showSubtitle && downloaded);
+        ViewUtils.setVisible(mSubTitleExplicitIcon, showSubtitle && explicit);
     }
 }

@@ -1064,7 +1064,7 @@ void bbf_Scanner_addOutPos( struct bbs_Context* cpA,
 							uint32 scaleA, 
 							int32 actA )
 {
-	if( ( ptrA->outCountE * 4 ) < ptrA->outArrE.sizeE )
+	if( ( ptrA->outCountE * 4 + 3 ) < ptrA->outArrE.sizeE )
 	{
         ptrA->outArrE.arrPtrE[ ptrA->outCountE * 4 + 0 ] = xA;
         ptrA->outArrE.arrPtrE[ ptrA->outCountE * 4 + 1 ] = yA;

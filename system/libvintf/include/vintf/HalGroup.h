@@ -39,20 +39,21 @@ struct HalGroup {
         for (auto& pair : other->mHals) {
             if (!add(std::move(pair.second))) {
                 if (error) {
-                    *error = pair.first;
+                    *error = "HAL \"" + pair.first + "\" has a conflict.";
                 }
                 return false;
             }
         }
+        other->mHals.clear();
         return true;
     }
 
     // Add an hal to this HalGroup so that it can be constructed programatically.
     virtual bool add(Hal&& hal) { return addInternal(std::move(hal)) != nullptr; }
 
+   protected:
     // Get all hals with the given name (e.g "android.hardware.camera").
     // There could be multiple hals that matches the same given name.
-    // TODO(b/74247301) Deprecated; use forEachInstanceOfPackage instead.
     std::vector<const Hal*> getHals(const std::string& name) const {
         std::vector<const Hal*> ret;
         auto range = mHals.equal_range(name);
@@ -65,7 +66,6 @@ struct HalGroup {
     // Get all hals with the given name (e.g "android.hardware.camera").
     // There could be multiple hals that matches the same given name.
     // Non-const version of the above getHals() method.
-    // TODO(b/74247301) Deprecated; use forEachInstanceOfPackage instead.
     std::vector<Hal*> getHals(const std::string& name) {
         std::vector<Hal*> ret;
         auto range = mHals.equal_range(name);
@@ -75,6 +75,7 @@ struct HalGroup {
         return ret;
     }
 
+   public:
     // Apply func to all instances.
     bool forEachInstance(const std::function<bool(const InstanceType&)>& func) const {
         for (const auto& hal : getHals()) {
@@ -143,11 +144,13 @@ struct HalGroup {
     // override this to filter for add.
     virtual bool shouldAdd(const Hal&) const { return true; }
 
-    // Return an iterable to all ManifestHal objects. Call it as follows:
+    // Return an iterable to all Hal objects. Call it as follows:
     // for (const auto& e : vm.getHals()) { }
-    ConstMultiMapValueIterable<std::string, Hal> getHals() const {
-        return ConstMultiMapValueIterable<std::string, Hal>(mHals);
-    }
+    ConstMultiMapValueIterable<std::string, Hal> getHals() const { return iterateValues(mHals); }
+
+    // Return an iterable to all Hal objects. Call it as follows:
+    // for (const auto& e : vm.getHals()) { }
+    MultiMapValueIterable<std::string, Hal> getHals() { return iterateValues(mHals); }
 
     // Get any HAL component based on the component name. Return any one
     // if multiple. Return nullptr if the component does not exist. This is only

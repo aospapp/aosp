@@ -14,13 +14,30 @@
  *  limitations under the License.
  */
 
-#ifndef _PROCESSGROUP_H_
-#define _PROCESSGROUP_H_
+#pragma once
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <string>
+#include <vector>
 
 __BEGIN_DECLS
+
+static constexpr const char* CGROUPV2_CONTROLLER_NAME = "cgroup2";
+
+bool CgroupGetControllerPath(const std::string& cgroup_name, std::string* path);
+bool CgroupGetAttributePath(const std::string& attr_name, std::string* path);
+bool CgroupGetAttributePathForTask(const std::string& attr_name, int tid, std::string* path);
+
+bool SetTaskProfiles(int tid, const std::vector<std::string>& profiles, bool use_fd_cache = false);
+bool SetProcessProfiles(uid_t uid, pid_t pid, const std::vector<std::string>& profiles,
+                        bool use_fd_cache = false);
+
+#ifndef __ANDROID_VNDK__
+
+static constexpr const char* CGROUPS_RC_PATH = "/dev/cgroup_info/cgroup.rc";
+
+bool UsePerAppMemcg();
 
 // Return 0 and removes the cgroup if there are no longer any processes in it.
 // Returns -1 in the case of an error occurring or if there are processes still running
@@ -31,14 +48,16 @@ int killProcessGroup(uid_t uid, int initialPid, int signal);
 // that it only returns 0 in the case that the cgroup exists and it contains no processes.
 int killProcessGroupOnce(uid_t uid, int initialPid, int signal);
 
-int createProcessGroup(uid_t uid, int initialPid);
+int createProcessGroup(uid_t uid, int initialPid, bool memControl = false);
 
+// Set various properties of a process group. For these functions to work, the process group must
+// have been created by passing memControl=true to createProcessGroup.
 bool setProcessGroupSwappiness(uid_t uid, int initialPid, int swappiness);
 bool setProcessGroupSoftLimit(uid_t uid, int initialPid, int64_t softLimitInBytes);
 bool setProcessGroupLimit(uid_t uid, int initialPid, int64_t limitInBytes);
 
 void removeAllProcessGroups(void);
 
-__END_DECLS
+#endif // __ANDROID_VNDK__
 
-#endif
+__END_DECLS

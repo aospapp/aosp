@@ -41,10 +41,11 @@ import android.os.cts.batterysaving.common.BatterySavingCtsCommon.Payload.TestSe
 import android.os.cts.batterysaving.common.BatterySavingCtsCommon.Payload.TestServiceRequest.SetAlarmRequest;
 import android.os.cts.batterysaving.common.BatterySavingCtsCommon.Payload.TestServiceRequest.StartServiceRequest;
 import android.os.cts.batterysaving.common.Values;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ThreadUtils;
 
@@ -67,7 +68,6 @@ public class BatterySaverAlarmTest extends BatterySavingTestBase {
     private static final String TAG = "BatterySaverAlarmTest";
 
     private static final long DEFAULT_WAIT = 1_000;
-    private static final long POLL_INTERVAL = 200;
 
     // Tweaked alarm manager constants to facilitate testing
     private static final long MIN_REPEATING_INTERVAL = 5_000;
@@ -157,7 +157,17 @@ public class BatterySaverAlarmTest extends BatterySavingTestBase {
         return action;
     }
 
-    private static void forcePackageIntoBg(String packageName) throws Exception {
+    private void stopService(String targetPackage) throws Exception {
+        final Payload response = mRpc.sendRequest(targetPackage,
+                Payload.newBuilder().setTestServiceRequest(
+                        TestServiceRequest.newBuilder().setStopService(true).build()).build());
+        assertTrue(response.hasTestServiceResponse()
+                && response.getTestServiceResponse().getStopServiceAck());
+    }
+
+
+    private void forcePackageIntoBg(String packageName) throws Exception {
+        stopService(packageName);
         runMakeUidIdle(packageName);
         Thread.sleep(200);
         runKill(packageName, /*wait=*/ true);
@@ -208,6 +218,7 @@ public class BatterySaverAlarmTest extends BatterySavingTestBase {
                 +" after FG service started",
                 1, mAlarmCount.get());
 
+        stopService(targetPackage);
         // Battery saver off. Always use the short time.
         enableBatterySaver(false);
 
@@ -257,6 +268,7 @@ public class BatterySaverAlarmTest extends BatterySavingTestBase {
         waitUntil("Alarm should fire for an FG app",
                 () -> mAlarmCount.get() == 1);
 
+        stopService(targetPackage);
         // Try again.
         mAlarmCount.set(0);
 

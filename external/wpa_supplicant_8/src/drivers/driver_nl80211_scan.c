@@ -197,9 +197,9 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 		if (ssids == NULL)
 			goto fail;
 		for (i = 0; i < params->num_ssids; i++) {
-			wpa_hexdump_ascii(MSG_MSGDUMP, "nl80211: Scan SSID",
-					  params->ssids[i].ssid,
-					  params->ssids[i].ssid_len);
+			wpa_printf(MSG_MSGDUMP, "nl80211: Scan SSID %s",
+				   wpa_ssid_txt(params->ssids[i].ssid,
+						params->ssids[i].ssid_len));
 			if (nla_put(msg, i + 1, params->ssids[i].ssid_len,
 				    params->ssids[i].ssid))
 				goto fail;
@@ -280,6 +280,21 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 		    nla_put_flag(msg,
 				 NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY))
 			goto fail;
+	}
+
+	if (params->oce_scan) {
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Add NL80211_SCAN_FLAG_FILS_MAX_CHANNEL_TIME");
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Add NL80211_SCAN_FLAG_ACCEPT_BCAST_PROBE_RESP");
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Add NL80211_SCAN_FLAG_OCE_PROBE_REQ_MIN_TX_RATE");
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: Add NL80211_SCAN_FLAG_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION");
+		scan_flags |= NL80211_SCAN_FLAG_FILS_MAX_CHANNEL_TIME |
+			NL80211_SCAN_FLAG_ACCEPT_BCAST_PROBE_RESP |
+			NL80211_SCAN_FLAG_OCE_PROBE_REQ_HIGH_TX_RATE |
+			NL80211_SCAN_FLAG_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION;
 	}
 
 	if (scan_flags &&
@@ -522,10 +537,10 @@ int wpa_driver_nl80211_sched_scan(void *priv,
 
 		for (i = 0; i < drv->num_filter_ssids; i++) {
 			struct nlattr *match_set_ssid;
-			wpa_hexdump_ascii(MSG_MSGDUMP,
-					  "nl80211: Sched scan filter SSID",
-					  drv->filter_ssids[i].ssid,
-					  drv->filter_ssids[i].ssid_len);
+			wpa_printf(MSG_MSGDUMP,
+				   "nl80211: Sched scan filter SSID %s",
+				   wpa_ssid_txt(drv->filter_ssids[i].ssid,
+						drv->filter_ssids[i].ssid_len));
 
 			match_set_ssid = nla_nest_start(msg, i + 1);
 			if (match_set_ssid == NULL ||
@@ -851,7 +866,8 @@ static void clear_state_mismatch(struct wpa_driver_nl80211_data *drv,
 			   "mismatch (" MACSTR ")", MAC2STR(addr));
 		wpa_driver_nl80211_mlme(drv, addr,
 					NL80211_CMD_DEAUTHENTICATE,
-					WLAN_REASON_PREV_AUTH_NOT_VALID, 1);
+					WLAN_REASON_PREV_AUTH_NOT_VALID, 1,
+					NULL);
 	}
 }
 
@@ -1082,9 +1098,9 @@ int wpa_driver_nl80211_vendor_scan(struct i802_bss *bss,
 		if (ssids == NULL)
 			goto fail;
 		for (i = 0; i < params->num_ssids; i++) {
-			wpa_hexdump_ascii(MSG_MSGDUMP, "nl80211: Scan SSID",
-					params->ssids[i].ssid,
-					params->ssids[i].ssid_len);
+			wpa_printf(MSG_MSGDUMP, "nl80211: Scan SSID %s",
+				   wpa_ssid_txt(params->ssids[i].ssid,
+						params->ssids[i].ssid_len));
 			if (nla_put(msg, i + 1, params->ssids[i].ssid_len,
 				    params->ssids[i].ssid))
 				goto fail;

@@ -20,6 +20,9 @@ limitations under the License.
     <!-- Text to denote the FM radio band. -->
     <string name="radio_fm_text">FM</string>
 
+    <!-- Text to denote the DAB radio band. -->
+    <string name="radio_dab_text">DAB</string>
+
     <!-- Text to denote the list of programs (stations). -->
     <string name="program_list_text">Stations</string>
 

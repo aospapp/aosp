@@ -40,7 +40,7 @@
 
     <!--  self-instrumenting test package. -->
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="JobScheduler shared-uid device-side tests"
         android:targetPackage="android.jobscheduler.cts.shareduidtests" >
     </instrumentation>

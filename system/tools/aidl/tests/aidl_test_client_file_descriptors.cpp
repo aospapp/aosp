@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include <android-base/unique_fd.h>
+#include <binder/ParcelFileDescriptor.h>
 
 // libbase
 using android::base::unique_fd;
@@ -36,6 +37,8 @@ using android::binder::Status;
 
 // generated
 using android::aidl::tests::ITestService;
+
+using android::os::ParcelFileDescriptor;
 
 using std::cerr;
 using std::cout;
@@ -161,6 +164,71 @@ bool ConfirmFileDescriptorArrays(const sp<ITestService>& s) {
       DoWrite(FdByName(repeated[1]), "Second") &&
       DoWrite(FdByName(reversed[0]), "Third") &&
       DoRead(FdByName(reversed[1]), "FirstSecondThird");
+
+  return ret;
+}
+
+bool ConfirmParcelFileDescriptors(const sp<ITestService>& s) {
+  Status status;
+  cout << "Confirming passing and returning parcel file descriptors works." << endl;
+
+  unique_fd read_fd;
+  unique_fd write_fd;
+
+  if (!DoPipe(&read_fd, &write_fd)) {
+    return false;
+  }
+
+  ParcelFileDescriptor return_fd;
+
+  status = s->RepeatParcelFileDescriptor(ParcelFileDescriptor(std::move(write_fd)), &return_fd);
+
+  if (!status.isOk()) {
+    cerr << "Could not repeat parcel file descriptors." << endl;
+    return false;
+  }
+
+  /* A note on some of the spookier stuff going on here: IIUC writes to pipes
+   * should be atomic and non-blocking so long as the total size doesn't exceed
+   * PIPE_BUF. We thus play a bit fast and loose with failure modes here.
+   */
+
+  bool ret = DoWrite(FdByName(return_fd.release()), "ReturnString") &&
+             DoRead(FdByName(read_fd), "ReturnString");
+
+  return ret;
+}
+
+bool ConfirmParcelFileDescriptorArrays(const sp<ITestService>& s) {
+  Status status;
+  cout << "Confirming passing and returning parcel file descriptor arrays works." << endl;
+
+  vector<unique_fd> array;
+  array.resize(2);
+
+  if (!DoPipe(&array[0], &array[1])) {
+    return false;
+  }
+
+  vector<ParcelFileDescriptor> input;
+  for (auto& fd : array) {
+    input.push_back(ParcelFileDescriptor(std::move(fd)));
+  }
+
+  vector<ParcelFileDescriptor> repeated;
+  vector<ParcelFileDescriptor> reversed;
+
+  status = s->ReverseParcelFileDescriptorArray(input, &repeated, &reversed);
+
+  if (!status.isOk()) {
+    cerr << "Could not reverse file descriptor array." << endl;
+    return false;
+  }
+
+  bool ret = DoWrite(FdByName(input[1].release()), "First") &&
+             DoWrite(FdByName(repeated[1].release()), "Second") &&
+             DoWrite(FdByName(reversed[0].release()), "Third") &&
+             DoRead(FdByName(input[0].release()), "FirstSecondThird");
 
   return ret;
 }

@@ -17,8 +17,8 @@
 package com.android.internal.telephony.gsm;
 
 import static android.telephony.SmsManager.RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED;
+import static android.telephony.SmsManager.SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE;
 
-import static com.android.internal.telephony.SmsUsageMonitor.CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE;
 import static com.android.internal.telephony.SmsUsageMonitor.PREMIUM_SMS_PERMISSION_NEVER_ALLOW;
 import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
@@ -44,11 +44,12 @@ import android.os.Message;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.provider.Telephony;
-import android.support.test.filters.FlakyTest;
 import android.telephony.SmsManager;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Singleton;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.internal.telephony.ContextFixture;
 import com.android.internal.telephony.ISub;
@@ -65,6 +66,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class GsmSmsDispatcherTest extends TelephonyTest {
@@ -86,7 +88,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
     @Mock
     private ISub.Stub mISubStub;
     private Object mLock = new Object();
-    private boolean mReceivedTestIntent = false;
+    private boolean mReceivedTestIntent;
     private static final String TEST_INTENT = "com.android.internal.telephony.TEST_INTENT";
     private BroadcastReceiver mTestReceiver = new BroadcastReceiver() {
         @Override
@@ -154,7 +156,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
                 .thenReturn(new Country("US", Country.COUNTRY_SOURCE_SIM));
 
         mGsmSmsDispatcher.sendText("6501002000", "121" /*scAddr*/, "test sms",
-                null, null, null, null, false, -1, false, -1);
+                null, null, null, null, false, -1, false, -1, false);
 
         verify(mSimulatedCommandsVerifier).sendSMS(anyString(), anyString(), any(Message.class));
         // Blocked number provider is notified about the emergency contact asynchronously.
@@ -174,7 +176,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
 
         mGsmSmsDispatcher.sendText(
                 getEmergencyNumberFromSystemPropertiesOrDefault(), "121" /*scAddr*/, "test sms",
-                null, null, null, null, false, -1, false, -1);
+                null, null, null, null, false, -1, false, -1, false);
 
         verify(mSimulatedCommandsVerifier).sendSMS(anyString(), anyString(), any(Message.class));
         // Blocked number provider is notified about the emergency contact asynchronously.
@@ -215,8 +217,9 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         PendingIntent pendingIntent = PendingIntent.getBroadcast(realContext, 0,
                 new Intent(TEST_INTENT), 0);
         // send invalid dest address: +
+        mReceivedTestIntent = false;
         mGsmSmsDispatcher.sendText("+", "222" /*scAddr*/, TAG,
-                pendingIntent, null, null, null, false, -1, false, -1);
+                pendingIntent, null, null, null, false, -1, false, -1, false);
         waitForMs(500);
         verify(mSimulatedCommandsVerifier, times(0)).sendSMS(anyString(), anyString(),
                 any(Message.class));
@@ -238,7 +241,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
 
         // Set values to return to simulate EVENT_STOP_SENDING
         when(mSmsUsageMonitor.checkDestination(any(), any()))
-                .thenReturn(CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE);
+                .thenReturn(SMS_CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE);
         when(mSmsUsageMonitor.getPremiumSmsPermission(any()))
                 .thenReturn(PREMIUM_SMS_PERMISSION_NEVER_ALLOW);
         when(mSmsTracker.getAppPackageName()).thenReturn("");
@@ -256,5 +259,40 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
                 .forClass(Integer.class);
         verify(mSmsTracker, times(1)).onFailed(any(), argumentCaptor.capture(), anyInt());
         assertEquals(RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED, (int) argumentCaptor.getValue());
+    }
+
+    @Test @SmallTest
+    public void testSendMultipartTextWithInvalidText() throws Exception {
+        // unmock ActivityManager to be able to register receiver, create real PendingIntent and
+        // receive TEST_INTENT
+        restoreInstance(Singleton.class, "mInstance", mIActivityManagerSingleton);
+        restoreInstance(ActivityManager.class, "IActivityManagerSingleton", null);
+
+        Context realContext = TestApplication.getAppContext();
+        realContext.registerReceiver(mTestReceiver, new IntentFilter(TEST_INTENT));
+
+        // initiate parameters for an invalid text MO SMS (the 2nd segmeant has 161 characters)
+        ArrayList<String> parts = new ArrayList<>();
+        parts.add("valid segment1");
+        parts.add("too long segment2 12345678912345678912345678912345678912345678912345678912345678"
+                + "91234567891234567891234567891234567891234567891234567891234567891234567891234567"
+                + "8");
+
+        ArrayList<PendingIntent> sentIntents = new ArrayList<>();
+        PendingIntent sentIntent = PendingIntent.getBroadcast(realContext, 0,
+                new Intent(TEST_INTENT), 0);
+        sentIntents.add(sentIntent);
+        sentIntents.add(sentIntent);
+
+        // send SMS and check sentIntent
+        mReceivedTestIntent = false;
+        mGsmSmsDispatcher.sendMultipartText("+123" /*destAddr*/, "222" /*scAddr*/, parts,
+                sentIntents, null, null, null, false, -1, false, -1);
+
+        waitForMs(500);
+        synchronized (mLock) {
+            assertEquals(true, mReceivedTestIntent);
+            assertEquals(SmsManager.RESULT_ERROR_GENERIC_FAILURE, mTestReceiver.getResultCode());
+        }
     }
 }

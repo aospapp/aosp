@@ -98,7 +98,8 @@ errcode_t ext2fs_image_inode_write(ext2_filsys fs, int fd, int flags)
 					blk++;
 					left--;
 					cp += fs->blocksize;
-					r = lseek(fd, fs->blocksize, SEEK_CUR);
+					r = ext2fs_llseek(fd, fs->blocksize,
+							  SEEK_CUR);
 					if (r < 0) {
 						retval = errno;
 						goto errout;
@@ -194,6 +195,11 @@ errcode_t ext2fs_image_super_write(ext2_filsys fs, int fd,
 	char		*buf, *cp;
 	ssize_t		actual;
 	errcode_t	retval;
+#ifdef WORDS_BIGENDIAN
+	unsigned int	groups_per_block;
+	struct		ext2_group_desc *gdp;
+	int		j;
+#endif
 
 	buf = malloc(fs->blocksize);
 	if (!buf)
@@ -203,7 +209,17 @@ errcode_t ext2fs_image_super_write(ext2_filsys fs, int fd,
 	 * Write out the superblock
 	 */
 	memset(buf, 0, fs->blocksize);
+#ifdef WORDS_BIGENDIAN
+	/*
+	 * We're writing out superblock so let's convert
+	 * it to little endian and then back if needed
+	 */
+	ext2fs_swap_super(fs->super);
 	memcpy(buf, fs->super, SUPERBLOCK_SIZE);
+	ext2fs_swap_super(fs->super);
+#else
+	memcpy(buf, fs->super, SUPERBLOCK_SIZE);
+#endif
 	actual = write(fd, buf, fs->blocksize);
 	if (actual == -1) {
 		retval = errno;
@@ -217,8 +233,34 @@ errcode_t ext2fs_image_super_write(ext2_filsys fs, int fd,
 	/*
 	 * Now write out the block group descriptors
 	 */
+
 	cp = (char *) fs->group_desc;
+
+#ifdef WORDS_BIGENDIAN
+	/*
+	 * Convert group descriptors to little endian and back
+	 * if needed
+	 */
+	groups_per_block = EXT2_DESC_PER_BLOCK(fs->super);
+	gdp = (struct ext2_group_desc *) cp;
+	for (j=0; j < groups_per_block*fs->desc_blocks; j++) {
+		gdp = ext2fs_group_desc(fs, fs->group_desc, j);
+		ext2fs_swap_group_desc2(fs, gdp);
+	}
+#endif
+
 	actual = write(fd, cp, fs->blocksize * fs->desc_blocks);
+
+
+#ifdef WORDS_BIGENDIAN
+	groups_per_block = EXT2_DESC_PER_BLOCK(fs->super);
+	gdp = (struct ext2_group_desc *) cp;
+	for (j=0; j < groups_per_block*fs->desc_blocks; j++) {
+		gdp = ext2fs_group_desc(fs, fs->group_desc, j);
+		ext2fs_swap_group_desc2(fs, gdp);
+	}
+#endif
+
 	if (actual == -1) {
 		retval = errno;
 		goto errout;
@@ -308,8 +350,8 @@ errcode_t ext2fs_image_bitmap_write(ext2_filsys fs, int fd, int flags)
 		}
 		bmap = fs->block_map;
 		itr = fs->super->s_first_data_block;
-		cnt = EXT2_GROUPS_TO_BLOCKS(fs->super, fs->group_desc_count);
-		size = EXT2_BLOCKS_PER_GROUP(fs->super) / 8;
+		cnt = EXT2_GROUPS_TO_CLUSTERS(fs->super, fs->group_desc_count);
+		size = EXT2_CLUSTERS_PER_GROUP(fs->super) / 8;
 	}
 	total_size = size * fs->group_desc_count;
 

@@ -18,6 +18,9 @@ Classes for test mapping related objects
 
 
 import copy
+import os
+
+import constants
 
 
 class TestDetail(object):
@@ -29,6 +32,7 @@ class TestDetail(object):
         Parse test detail from a dictionary, e.g.,
         {
           "name": "SettingsUnitTests",
+          "host": true,
           "options": [
             {
               "instrumentation-arg":
@@ -42,6 +46,9 @@ class TestDetail(object):
         """
         self.name = details['name']
         self.options = []
+        # True if the test should run on host and require no device.
+        self.host = details.get('host', False)
+        assert isinstance(self.host, bool), 'host can only have boolean value.'
         options = details.get('options', [])
         for option in options:
             assert len(option) == 1, 'Each option can only have one key.'
@@ -50,13 +57,15 @@ class TestDetail(object):
 
     def __str__(self):
         """String value of the TestDetail object."""
+        host_info = (', runs on host without device required.' if self.host
+                     else '')
         if not self.options:
-            return self.name
+            return self.name + host_info
         options = ''
         for option in self.options:
             options += '%s: %s, ' % option
 
-        return '%s (%s)' % (self.name, options.strip(', '))
+        return '%s (%s)%s' % (self.name, options.strip(', '), host_info)
 
     def __hash__(self):
         """Get the hash of TestDetail based on the details"""
@@ -64,3 +73,43 @@ class TestDetail(object):
 
     def __eq__(self, other):
         return str(self) == str(other)
+
+
+class Import(object):
+    """Store test mapping import details."""
+
+    def __init__(self, test_mapping_file, details):
+        """Import constructor
+
+        Parse import details from a dictionary, e.g.,
+        {
+            "path": "..\folder1"
+        }
+        in which, project is the name of the project, by default it's the
+        current project of the containing TEST_MAPPING file.
+
+        Args:
+            test_mapping_file: Path to the TEST_MAPPING file that contains the
+                import.
+            details: A dictionary of details about importing another
+                TEST_MAPPING file.
+        """
+        self.test_mapping_file = test_mapping_file
+        self.path = details['path']
+
+    def __str__(self):
+        """String value of the Import object."""
+        return 'Source: %s, path: %s' % (self.test_mapping_file, self.path)
+
+    def get_path(self):
+        """Get the path to TEST_MAPPING import directory."""
+        path = os.path.realpath(os.path.join(
+            os.path.dirname(self.test_mapping_file), self.path))
+        if os.path.exists(path):
+            return path
+        root_dir = os.environ.get(constants.ANDROID_BUILD_TOP, os.sep)
+        path = os.path.realpath(os.path.join(root_dir, self.path))
+        if os.path.exists(path):
+            return path
+        # The import path can't be located.
+        return None

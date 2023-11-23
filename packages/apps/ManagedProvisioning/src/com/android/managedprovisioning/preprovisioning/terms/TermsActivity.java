@@ -19,8 +19,10 @@ import static com.android.internal.logging.nano.MetricsProto.MetricsEvent
         .PROVISIONING_TERMS_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
+import android.annotation.ColorInt;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.util.ArraySet;
 import android.view.ContextMenu;
 import android.view.MenuItem;
@@ -29,16 +31,20 @@ import android.widget.ExpandableListView;
 import android.widget.TextView;
 import android.widget.Toolbar;
 
+import androidx.car.widget.PagedListView;
+
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
-import com.android.managedprovisioning.common.ClickableSpanFactory;
-import com.android.managedprovisioning.common.HtmlToSpannedParser;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.SetupLayoutActivity;
 import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.preprovisioning.WebActivity;
+import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapterCar;
+import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapter;
 
 import java.util.List;
 import java.util.Set;
@@ -49,22 +55,23 @@ import java.util.Set;
 public class TermsActivity extends SetupLayoutActivity {
     private final TermsProvider mTermsProvider;
     private final AccessibilityContextMenuMaker mContextMenuMaker;
-    private final ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
     private final Set<Integer> mExpandedGroupsPosition = new ArraySet<>();
+    private final SettingsFacade mSettingsFacade;
+    private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
 
     @SuppressWarnings("unused")
     public TermsActivity() {
-        this(StoreUtils::readString, null);
+        this(StoreUtils::readString, null,  new SettingsFacade());
     }
 
     @VisibleForTesting TermsActivity(StoreUtils.TextFileReader textFileReader,
-            AccessibilityContextMenuMaker contextMenuMaker) {
+            AccessibilityContextMenuMaker contextMenuMaker, SettingsFacade settingsFacade) {
         super(new Utils());
         mTermsProvider = new TermsProvider(this, textFileReader, mUtils);
-        mProvisioningAnalyticsTracker = ProvisioningAnalyticsTracker.getInstance();
         mContextMenuMaker =
                 contextMenuMaker != null ? contextMenuMaker : new AccessibilityContextMenuMaker(
                         this);
+        mSettingsFacade = settingsFacade;
     }
 
     @Override
@@ -72,43 +79,54 @@ public class TermsActivity extends SetupLayoutActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.terms_screen);
         setTitle(R.string.terms);
-        setStatusBarColor(getColor(R.color.term_status_bar));
+        int statusBarColor = getColor(R.color.term_status_bar);
+        setStatusBarColor(statusBarColor);
 
         ProvisioningParams params = checkNotNull(
                 getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
         List<TermsDocument> terms = mTermsProvider.getTerms(params, 0);
 
-        ExpandableListView container = findViewById(R.id.terms_container);
-        container.setAdapter(
-                new TermsListAdapter(terms,
-                        getLayoutInflater(),
-                        new AccessibilityContextMenuMaker(this),
-                        new HtmlToSpannedParser(
-                                new ClickableSpanFactory(getColor(R.color.blue)),
-                                url -> WebActivity.createIntent(this, url,
-                                        this.getWindow().getStatusBarColor())),
-                        container::isGroupExpanded));
-        container.expandGroup(0); // expand the 'General' section
-
-        // Add default open terms to the expanded groups set.
-        for (int i = 0; i < terms.size(); i++) {
-            if (container.isGroupExpanded(i)) mExpandedGroupsPosition.add(i);
-        }
-
-        // keep at most one group expanded at a time
-        container.setOnGroupExpandListener((int groupPosition) -> {
-            mExpandedGroupsPosition.add(groupPosition);
-            for (int i = 0; i < terms.size(); i++) {
-                if (i != groupPosition && container.isGroupExpanded(i)) {
-                    container.collapseGroup(i);
-                }
-            }
-        });
+        setUpTermsList(terms, statusBarColor);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> TermsActivity.this.finish());
 
+        mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
+                MetricsWriterFactory.getMetricsWriter(this, mSettingsFacade),
+                new ManagedProvisioningSharedPreferences(getApplicationContext()));
         mProvisioningAnalyticsTracker.logNumberOfTermsDisplayed(this, terms.size());
+    }
+
+    private void setUpTermsList(List<TermsDocument> terms, @ColorInt int statusBarColor) {
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            PagedListView pagedListView = findViewById(R.id.terms_container);
+            pagedListView.setAdapter(new TermsListAdapterCar(getApplicationContext(), terms,
+                    statusBarColor));
+
+        } else {
+            ExpandableListView container = findViewById(R.id.terms_container);
+            container.setAdapter(
+                    new TermsListAdapter(getApplicationContext(), terms,
+                            getLayoutInflater(),
+                            new AccessibilityContextMenuMaker(this),
+                            container::isGroupExpanded, statusBarColor));
+            container.expandGroup(0); // expand the 'General' section
+
+            // Add default open terms to the expanded groups set.
+            for (int i = 0; i < terms.size(); i++) {
+                if (container.isGroupExpanded(i)) mExpandedGroupsPosition.add(i);
+            }
+
+            // keep at most one group expanded at a time
+            container.setOnGroupExpandListener((int groupPosition) -> {
+                mExpandedGroupsPosition.add(groupPosition);
+                for (int i = 0; i < terms.size(); i++) {
+                    if (i != groupPosition && container.isGroupExpanded(i)) {
+                        container.collapseGroup(i);
+                    }
+                }
+            });
+        }
     }
 
     @Override

@@ -24,16 +24,12 @@ import argparse
 from datetime import datetime
 import itertools
 import json
-
 import logging
-logging.basicConfig(format = "%(message)s")
-
 from multiprocessing.dummy import Pool as ThreadPool
 import os.path
 from sorted_collection import SortedCollection
 import subprocess
 from threading import Timer
-
 
 # Generate with:
 #  aprotoc -I=external/perf_data_converter/src/quipper \
@@ -43,29 +39,34 @@ from threading import Timer
 #      --python_out=system/extras/perfprofd/scripts \
 #      system/extras/perfprofd/perfprofd_record.proto
 import perfprofd_record_pb2
+import perf_data_pb2
 
 # Make sure that symbol is on the PYTHONPATH, e.g., run as
 # PYTHONPATH=$PYTHONPATH:$ANDROID_BUILD_TOP/development/scripts python ...
 import symbol
 from symbol import SymbolInformation
 
+logging.basicConfig(format='%(message)s')
+
 # This is wrong. But then the symbol module is a bad quagmire.
 # TODO: Check build IDs.
 symbol.SetAbi(["ABI: 'arm64'"])
 
+
 class MmapState(object):
+
     def __init__(self):
-        self._list = SortedCollection((), lambda x : x[0])
+        self._list = SortedCollection((), lambda x: x[0])
 
     def add_map(self, start, length, pgoff, name):
-        tuple = (start, length, pgoff, name)
-        self._list.insert(tuple)
+        map_tuple = (start, length, pgoff, name)
+        self._list.insert(map_tuple)
 
     def find(self, addr):
         try:
-            tuple = self._list.find_le(addr)
-            if addr < tuple[0] + tuple[1]:
-                return tuple
+            map_tuple = self._list.find_le(addr)
+            if addr < map_tuple[0] + map_tuple[1]:
+                return map_tuple
             return None
         except ValueError:
             return None
@@ -76,13 +77,15 @@ class MmapState(object):
         return ret
 
     def __str__(self):
-        return "MmapState: " + self._list.__str__()
+        return 'MmapState: ' + self._list.__str__()
+
     def __repr__(self):
         return self.__str__()
 
+
 class SymbolMap(object):
     def __init__(self, min_v):
-        self._list = SortedCollection((), lambda x : x[0])
+        self._list = SortedCollection((), lambda x: x[0])
         self._min_vaddr = min_v
 
     def add_symbol(self, start, length, name):
@@ -105,11 +108,14 @@ class SymbolMap(object):
 
     def __str__(self):
         return "SymbolMap: " + self._list.__str__()
+
     def __repr__(self):
         return self.__str__()
 
+
 def intern_uni(u):
     return intern(u.encode('ascii', 'replace'))
+
 
 def collect_tid_names(perf_data):
     tid_name_map = {}
@@ -118,14 +124,17 @@ def collect_tid_names(perf_data):
             tid_name_map[event.comm_event.tid] = intern_uni(event.comm_event.comm)
     return tid_name_map
 
+
 def create_symbol_maps(profile):
     symbol_maps = {}
-    for si in profile.symbol_info:
+
+    for si in profile.Extensions[perfprofd_record_pb2.symbol_info]:
         map = SymbolMap(si.min_vaddr)
         symbol_maps[si.filename] = map
         for sym in si.symbols:
             map.add_symbol(sym.addr, sym.size, intern_uni(sym.name))
     return symbol_maps
+
 
 def update_mmap_states(event, state_map):
     if event.HasField('mmap_event'):
@@ -134,22 +143,25 @@ def update_mmap_states(event, state_map):
         if mmap_event.tid == 0:
             return
         # Create new map, if necessary.
-        if not mmap_event.pid in state_map:
+        if mmap_event.pid not in state_map:
             state_map[mmap_event.pid] = MmapState()
         state_map[mmap_event.pid].add_map(mmap_event.start, mmap_event.len, mmap_event.pgoff,
-            intern_uni(mmap_event.filename))
+                                          intern_uni(mmap_event.filename))
     elif event.HasField('fork_event'):
         fork_event = event.fork_event
         # Skip threads
         if fork_event.pid == fork_event.ppid:
             return
+
         if fork_event.ppid not in state_map:
             logging.warn("fork from %d without map", fork_event.ppid)
             return
         state_map[fork_event.pid] = state_map[fork_event.ppid].copy()
 
+
 skip_dso = set()
 vaddr = {}
+
 
 def find_vaddr(vaddr_map, filename):
     if filename in vaddr_map:
@@ -167,7 +179,9 @@ def find_vaddr(vaddr_map, filename):
         lines = res.split("\n")
         reading_headers = False
         min_vaddr = None
-        min_fn = lambda x, y: y if x is None else min(x, y)
+
+        def min_fn(x, y):
+            return y if x is None else min(x, y)
         # Using counting loop for access to next line.
         for i in range(0, len(lines) - 1):
             line = lines[i].strip()
@@ -197,11 +211,15 @@ def find_vaddr(vaddr_map, filename):
         vaddr_map[filename] = min_vaddr
     except subprocess.CalledProcessError:
         logging.warn('Error finding min_vaddr for %s', filename)
+
         vaddr_map[filename] = 0
     return vaddr_map[filename]
 
+
 unwind_symbols_cache = {}
 unwind_symbols_warn_missing_cache = set()
+
+
 def run_unwind_symbols(filename, offset_hex):
     path = "%s/%s" % (symbol.SYMBOLS_DIR, filename)
     if not os.path.isfile(path):
@@ -235,7 +253,7 @@ def run_unwind_symbols(filename, offset_hex):
 
                     # TODO C++ demangling necessary.
                     logging.debug('unwind_symbols: %s %s -> %s +%d', filename, offset_hex, parts[1],
-                        offset)
+                                  offset)
                     sym = intern(parts[1])
                     unwind_symbols_cache[(path, offset_hex)] = (sym, offset)
                     return [(sym, offset, filename)]
@@ -254,7 +272,7 @@ def decode_with_symbol_lib(name, addr_rel_hex):
         i = s.rfind('+')
         if i > 0:
             try:
-                off = int(s[i+1:])
+                off = int(s[i + 1:])
                 return (s[0:i], off)
             except ValueError:
                 pass
@@ -265,6 +283,7 @@ def decode_with_symbol_lib(name, addr_rel_hex):
     if object_symbol_with_offset is not None:
         pair = parse_symbol_lib_output(object_symbol_with_offset)
         ret.append((intern(pair[0]), pair[1], name))
+
     if source_symbol is not None:
         iterinfo = iter(info)
         next(iterinfo)
@@ -276,6 +295,7 @@ def decode_with_symbol_lib(name, addr_rel_hex):
     if len(ret) > 0:
         return ret
     return None
+
 
 def decode_addr(addr, mmap_state, device_symbols):
     """Try to decode the given address against the current mmap table and device symbols.
@@ -345,6 +365,7 @@ def print_sample(sample, tid_name_map):
         pid_name = "kernel (0)"
     else:
         pid_name = "unknown (%d)" % (sample[0])
+
     if sample[1] in tid_name_map:
         tid_name = "%s (%d)" % (tid_name_map[sample[1]], sample[1])
     elif sample[1] == 0:
@@ -352,15 +373,18 @@ def print_sample(sample, tid_name_map):
     else:
         tid_name = "unknown (%d)" % (sample[1])
     print " %s - %s:" % (pid_name, tid_name)
+
     for sym in sample[2]:
         print "   %s +%d (%s)" % (sym[0], sym[1], sym[2])
+
 
 def print_samples(samples, tid_name_map):
     for sample in samples:
         print_sample(sample, tid_name_map)
 
-def symbolize_events(perf_data, device_symbols, tid_name_map, printSamples = False,
-        removeKernelTop = False):
+
+def symbolize_events(perf_data, device_symbols, tid_name_map, printSamples=False,
+                     removeKernelTop=False):
     samples = []
     mmap_states = {}
     for event in perf_data.events:
@@ -386,7 +410,7 @@ def symbolize_events(perf_data, device_symbols, tid_name_map, printSamples = Fal
                     samples.append((0, sample_ev.tid, [("[kernel]", 0, "[kernel]")]))
                 elif sample_ev.pid in tid_name_map:
                     samples.append((sample_ev.pid, sample_ev.tid, [(tid_name_map[sample_ev.pid], 0,
-                        None)]))
+                                                                    None)]))
                 else:
                     samples.append((sample_ev.pid, sample_ev.tid, [("[unknown]", 0, None)]))
             if new_sample is not None:
@@ -395,34 +419,38 @@ def symbolize_events(perf_data, device_symbols, tid_name_map, printSamples = Fal
                     print_sample(new_sample, tid_name_map)
     return samples
 
+
 def count_key_reduce_function(x, y, key_fn):
     key = key_fn(y)
     if key not in x:
         x[key] = 0
-    x[key] = x[key] + 1
+    x[key] += 1
     return x
+
 
 def print_histogram(samples, reduce_key_fn, label_key_fn, size):
     # Create a sorted list of top samples.
     sorted_count_list = sorted(
         reduce(lambda x, y: count_key_reduce_function(x, y, reduce_key_fn), samples, {}).
-            iteritems(),
-        cmp=lambda x,y: cmp(x[1], y[1]),
+        iteritems(),
+        cmp=lambda x, y: cmp(x[1], y[1]),
         reverse=True)
     sorted_count_topX = list(itertools.islice(sorted_count_list, size))
 
     # Print top-size samples.
     print 'Histogram top-%d:' % (size)
     for i in xrange(0, len(sorted_count_topX)):
-        print '  %d: %s (%s)' % (i+1, label_key_fn(sorted_count_topX[i][0]),
-            sorted_count_topX[i][1])
+        print '  %d: %s (%s)' % (i + 1, label_key_fn(sorted_count_topX[i][0]),
+                                 sorted_count_topX[i][1])
 
-def get_name(pid):
+
+def get_name(pid, tid_name_map):
     if pid in tid_name_map:
         return tid_name_map[pid]
     if pid == 0:
         return "[kernel]"
     return "[unknown]"
+
 
 def create_cmd(args, f):
     ret = ['python', '-u', 'system/extras/perfprofd/scripts/perf_proto_stack.py']
@@ -437,41 +465,51 @@ def create_cmd(args, f):
     if args.print_sym_histogram is not None:
         ret.append('--print-sym-histogram')
     if args.print_dso_histogram is not None:
+
         ret.append('--print-dso-histogram')
     ret.extend(['--json-out', '%s.json' % (f)])
     ret.append(f)
     return ret
 
+
 def run_cmd(x):
+
     args = x[0]
     f = x[1]
-    cmd = create_cmd(args,f)
+    cmd = create_cmd(args, f)
     logging.warn('Running on %s', f)
     success = False
     logging.debug('%r', cmd)
     err_out = open('%s.err' % (f), 'w')
-    kill = lambda process: process.kill()
+
+    def kill(process):
+        process.kill()
     start = datetime.now()
+
     p = subprocess.Popen(cmd, stderr=err_out)
     kill_timer = Timer(3600, kill, [p])
     try:
         kill_timer.start()
-        stdout, stderr = p.communicate()
+        p.communicate()
         success = True
+
     finally:
         kill_timer.cancel()
     err_out.close()
     end = datetime.now()
-    logging.warn('Ended %s (%s)', f, str(end-start))
+    logging.warn('Ended %s (%s)', f, str(end - start))
     return '%s: %r' % (f, success)
+
 
 def parallel_runner(args):
     pool = ThreadPool(args.parallel)
     map_args = map(lambda f: (args, f), args.file)
+
     result = pool.map(run_cmd, map_args)
     pool.close()
     pool.join()
     print result
+
 
 def run(args):
     if args.syms is not None:
@@ -482,12 +520,14 @@ def run(args):
     # TODO: accept argument for parsing.
     file = open(args.file[0], 'rb')
     data = file.read()
+
     file.close()
 
-    profile = perfprofd_record_pb2.PerfprofdRecord()
+    profile = perf_data_pb2.PerfDataProto()
+    # PerfprofdRecord()
     profile.ParseFromString(data)
 
-    perf_data = profile.perf_data
+    perf_data = profile
 
     print "Stats: ", perf_data.stats
 
@@ -495,10 +535,10 @@ def run(args):
     symbol_maps = create_symbol_maps(profile)
 
     samples = symbolize_events(perf_data, symbol_maps, tid_name_map, printSamples=print_symbols,
-        removeKernelTop=skip_kernel_syms)
+                               removeKernelTop=skip_kernel_syms)
 
     if args.print_pid_histogram is not None:
-        print_histogram(samples, lambda x: x[0], lambda x: get_name(x), 25)
+        print_histogram(samples, lambda x: x[0], lambda x: get_name(x, tid_name_map), 25)
     if args.print_sym_histogram is not None:
         print_histogram(samples, lambda x: x[2][0][0], lambda x: x, 100)
     if args.print_dso_histogram is not None:
@@ -506,9 +546,10 @@ def run(args):
 
     if args.json_out is not None:
         json_file = open(args.json_out[0], 'w')
-        json_data = { 'samples': samples, 'names': tid_name_map }
+        json_data = {'samples': samples, 'names': tid_name_map}
         json.dump(json_data, json_file)
         json_file.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process a perfprofd record.')
@@ -518,13 +559,13 @@ if __name__ == "__main__":
     parser.add_argument('--json-out', help='output file for JSON', nargs=1)
     parser.add_argument('--print-samples', help='print samples', action='store_const', const=True)
     parser.add_argument('--skip-kernel-syms', help='skip kernel symbols at the top of stack',
-        action='store_const', const=True)
+                        action='store_const', const=True)
     parser.add_argument('--print-pid-histogram', help='print a top-25 histogram of processes',
-        action='store_const', const=True)
+                        action='store_const', const=True)
     parser.add_argument('--print-sym-histogram', help='print a top-100 histogram of symbols',
-        action='store_const', const=True)
+                        action='store_const', const=True)
     parser.add_argument('--print-dso-histogram', help='print a top-25 histogram of maps',
-        action='store_const', const=True)
+                        action='store_const', const=True)
     parser.add_argument('--parallel', help='run parallel jobs', type=int)
 
     args = parser.parse_args()

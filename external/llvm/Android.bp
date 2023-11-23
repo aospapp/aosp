@@ -6,6 +6,9 @@ cc_defaults {
         "-google-build-*",
         "-google-global-*",
     ],
+    sanitize: {
+        hwaddress: false, // code size b/112437884
+    },
 }
 
 // This module defines all of the defaults used to compiled llvm, except for
@@ -29,6 +32,7 @@ llvm_defaults {
         "-Wno-unused-parameter",
         "-Wno-maybe-uninitialized",
         "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
         "-Wwrite-strings",
         "-Werror",
         "-Dsprintf=sprintf",
@@ -37,12 +41,6 @@ llvm_defaults {
     cppflags: [
         "-Wno-sign-promo",
         "-std=c++11",
-    ],
-
-    clang_cflags: [
-        // Temporarily suppress the warnings http://b/37867503
-        "-Wno-error=unused-lambda-capture",
-        "-Wno-error=user-defined-warnings",
     ],
 
     tidy_checks: [
@@ -202,9 +200,10 @@ llvm_aarch64_static_libraries = [
     "libLLVMAArch64Disassembler",
 ]
 
-cc_library_shared {
+cc_library {
     host_supported: true,
     name: "libLLVM_android",
+    vendor_available: true,
     defaults: [
         "llvm-defaults",
         "force_build_llvm_components",

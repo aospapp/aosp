@@ -38,6 +38,9 @@ public final class ContractionsAndExpansions {
     private String suffix;
     private long[] ces = new long[Collation.MAX_EXPANSION_LENGTH];
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public static interface CESink {
         void handleCE(long ce);
         void handleExpansion(long ces[], int start, int length);

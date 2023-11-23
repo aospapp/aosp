@@ -61,8 +61,8 @@ case ${PTABLE} in
     fakeroot ${SGDISK} -n 5:0:+2M -t 5:0700 -u 5:00354BCD-BBCB-4CB3-B5AE-CDEFCB5DAC43 -c 5:"nvme" ${TEMP_FILE}
     #[6: boot: 14M-78M]
     fakeroot ${SGDISK} -n 6:0:+64M -t 6:EF00 -u 6:5C0F213C-17E1-4149-88C8-8B50FB4EC70E -c 6:"boot" ${TEMP_FILE}
-    #[7: reserved: 78M-334M]
-    fakeroot ${SGDISK} -n 7:0:+256M -t 7:0700 -u 7:BED8EBDC-298E-4A7A-B1F1-2500D98453B7 -c 7:"reserved" ${TEMP_FILE}
+    #[7: vendor: 78M-334M]
+    fakeroot ${SGDISK} -n 7:0:+256M -t 7:0700 -u 7:BED8EBDC-298E-4A7A-B1F1-2500D98453B7 -c 7:"vendor" ${TEMP_FILE}
     #[8: cache: 334M-590M]
     fakeroot ${SGDISK} -n 8:0:+256M -t 8:8301 -u 8:A092C620-D178-4CA7-B540-C4E26BD6D2E2 -c 8:"cache" ${TEMP_FILE}
     #[9: system: 590M-2126M]

@@ -16,8 +16,6 @@
 
 package com.android.cts.devicepolicy;
 
-import android.platform.test.annotations.RequiresDevice;
-
 /**
  * Set of tests for pure (non-managed) profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.

@@ -19,5 +19,7 @@
         <limit-password />
         <disable-keyguard-features/>
         <force-lock />
+        <expire-password />
+        <watch-login />
     </uses-policies>
 </device-admin>

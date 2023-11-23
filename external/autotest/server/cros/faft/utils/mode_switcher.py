@@ -19,6 +19,10 @@ class ConnectionError(Exception):
 class _BaseFwBypasser(object):
     """Base class that controls bypass logic for firmware screens."""
 
+    # Duration of holding Volume down button to quickly bypass the developer
+    # warning screen in tablets/detachables.
+    HOLD_VOL_DOWN_BUTTON_BYPASS = 3
+
     def __init__(self, faft_framework):
         self.servo = faft_framework.servo
         self.faft_config = faft_framework.faft_config
@@ -59,9 +63,21 @@ class _CtrlDBypasser(_BaseFwBypasser):
     """Controls bypass logic via Ctrl-D combo."""
 
     def bypass_dev_mode(self):
-        """Bypass the dev mode firmware logic to boot internal image."""
-        time.sleep(self.faft_config.firmware_screen)
-        self.servo.ctrl_d()
+        """Bypass the dev mode firmware logic to boot internal image.
+
+        Press Ctrl-D repeatedly. To obtain a low firmware boot time, pressing
+        Ctrl+D for every half second until firmware_screen delay has been
+        reached.
+        """
+        logging.info("Pressing Ctrl-D.")
+        # At maximum, device waits for twice of firmware_screen delay to
+        # bypass the Dev screen.
+        timeout = time.time() + (self.faft_config.firmware_screen * 2)
+        while time.time() < timeout:
+            self.servo.ctrl_d()
+            time.sleep(0.5)
+            if self.client_host.ping_wait_up(timeout=0.1):
+                break
 
 
     def bypass_dev_boot_usb(self):
@@ -90,12 +106,6 @@ class _CtrlDBypasser(_BaseFwBypasser):
         # Pressing Enter for too long triggers a second key press.
         # Let's press it without delay
         self.servo.enter_key(press_secs=0)
-
-        # For Alex/ZGB, there is a dev warning screen in text mode.
-        # Skip it by pressing Ctrl-D.
-        if self.faft_config.need_dev_transition:
-            time.sleep(self.faft_config.legacy_text_screen)
-            self.servo.ctrl_d()
 
 
     def trigger_rec_to_dev(self):
@@ -217,31 +227,29 @@ class _TabletDetachableBypasser(_BaseFwBypasser):
 
 
     def bypass_dev_mode(self):
-        """Bypass the dev mode firmware logic to boot internal image
+        """Bypass the developer warning screen immediately to boot into
+        internal disk.
 
-        On tablets/ detachables, recovery entered by pressing pwr, vol up
-        & vol down buttons for 10s.
-           Menu options seen in DEVELOPER WARNING screen:
-                 Developer Options
-                 Show Debug Info
-                 Enable Root Verification
-                 Power Off*
-                 Language
-           Menu options seen in DEV screen:
-                 Boot legacy BIOS
-                 Boot USB image
-                 Boot developer image*
-                 Cancel
-                 Power off
-                 Language
-        Vol up button selects previous item, vol down button selects
-        next item and pwr button selects current activated item.
+        On tablets/detachables, press & holding the Volume down button for
+        3-seconds will quickly bypass the developer warning screen.
         """
-        self.trigger_dev_screen()
-        time.sleep(self.faft_config.firmware_screen)
-        logging.info('Selecting power as enter key to select '
-                     'Boot Developer Image')
-        self.servo.power_short_press()
+        # Unit for the "volume_down_hold" console command is msec.
+        duration = (self.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1) * 1000
+        logging.info("Press and hold volume down button for %.1f seconds to "
+                     "immediately bypass the Developer warning screen.",
+                     self.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1)
+        # At maximum, device waits for twice of firmware_screen delay to
+        # bypass the Dev screen.
+        timeout = time.time() + (self.faft_config.firmware_screen * 2)
+        # To obtain a low firmware boot time, volume_down button pressed for
+        # every 3.1 seconds until firmware_screen delay has been reached.
+        while time.time() < timeout:
+            self.servo.set_nocheck('volume_down_hold', duration)
+            # After pressing 'volume_down_hold' button, wait for 0.2 seconds
+            # before start pressing the button for next iteration.
+            time.sleep(self.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.2)
+            if self.client_host.ping_wait_up(timeout=0.1):
+                break
 
 
     def trigger_dev_screen(self):
@@ -386,6 +394,8 @@ def _create_fw_bypasser(faft_framework):
 class _BaseModeSwitcher(object):
     """Base class that controls firmware mode switching."""
 
+    HOLD_VOL_DOWN_BUTTON_BYPASS = _BaseFwBypasser.HOLD_VOL_DOWN_BUTTON_BYPASS
+
     def __init__(self, faft_framework):
         self.faft_framework = faft_framework
         self.client_host = faft_framework._client
@@ -452,6 +462,11 @@ class _BaseModeSwitcher(object):
             self.faft_framework.blocking_sync()
         if to_mode == 'rec':
             self._enable_rec_mode_and_reboot(usb_state='dut')
+            if wait_for_dut_up:
+                self.wait_for_client()
+
+        elif to_mode == 'rec_force_mrc':
+            self._enable_rec_mode_force_mrc_and_reboot(usb_state='dut')
             if wait_for_dut_up:
                 self.wait_for_client()
 
@@ -575,6 +590,21 @@ class _BaseModeSwitcher(object):
         psc.power_on(psc.REC_ON)
 
 
+    def _enable_rec_mode_force_mrc_and_reboot(self, usb_state=None):
+        """Switch to rec mode, enable force mrc cache retraining, and reboot.
+
+        This method emulates the behavior of the old physical recovery switch,
+        i.e. switch ON + reboot + switch OFF, and the new keyboard controlled
+        recovery mode, i.e. just press Power + Esc + Refresh.
+
+        @param usb_state: A string, one of 'dut', 'host', or 'off'.
+        """
+        psc = self.servo.get_power_state_controller()
+        psc.power_off()
+        if usb_state:
+            self.servo.switch_usbkey(usb_state)
+        psc.power_on(psc.REC_ON_FORCE_MRC)
+
     def _disable_rec_mode_and_reboot(self, usb_state=None):
         """Disable the rec mode and reboot.
 
@@ -674,23 +704,6 @@ class _BaseModeSwitcher(object):
                 logging.warn('Reboot done very quickly.')
                 return
             raise ConnectionError('DUT is still up unexpectedly')
-
-
-class _PhysicalButtonSwitcher(_BaseModeSwitcher):
-    """Class that switches firmware mode via physical button."""
-
-    def _enable_dev_mode_and_reboot(self):
-        """Switch to developer mode and reboot."""
-        self.servo.enable_development_mode()
-        self.faft_client.system.run_shell_command(
-                'chromeos-firmwareupdate --mode todev && reboot')
-
-
-    def _enable_normal_mode_and_reboot(self):
-        """Switch to normal mode and reboot."""
-        self.servo.disable_development_mode()
-        self.faft_client.system.run_shell_command(
-                'chromeos-firmwareupdate --mode tonormal && reboot')
 
 
 class _KeyboardDevSwitcher(_BaseModeSwitcher):
@@ -913,10 +926,7 @@ def create_mode_switcher(faft_framework):
     @param faft_framework: The main FAFT framework object.
     """
     switcher_type = faft_framework.faft_config.mode_switcher_type
-    if switcher_type == 'physical_button_switcher':
-        logging.info('Create a PhysicalButtonSwitcher')
-        return _PhysicalButtonSwitcher(faft_framework)
-    elif switcher_type == 'keyboard_dev_switcher':
+    if switcher_type == 'keyboard_dev_switcher':
         logging.info('Create a KeyboardDevSwitcher')
         return _KeyboardDevSwitcher(faft_framework)
     elif switcher_type == 'jetstream_switcher':

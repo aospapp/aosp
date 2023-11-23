@@ -22,9 +22,10 @@
 #include "gc/accounting/atomic_stack.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "gc/heap.h"
-#include "gc/space/region_space.h"
+#include "gc/space/region_space-inl.h"
 #include "gc/verification.h"
 #include "lock_word.h"
+#include "mirror/class.h"
 #include "mirror/object-readbarrier-inl.h"
 
 namespace art {
@@ -32,13 +33,35 @@ namespace gc {
 namespace collector {
 
 inline mirror::Object* ConcurrentCopying::MarkUnevacFromSpaceRegion(
-    mirror::Object* ref, accounting::ContinuousSpaceBitmap* bitmap) {
-  // For the Baker-style RB, in a rare case, we could incorrectly change the object from white
-  // to gray even though the object has already been marked through. This happens if a mutator
-  // thread gets preempted before the AtomicSetReadBarrierState below, GC marks through the
-  // object (changes it from white to gray and back to white), and the thread runs and
-  // incorrectly changes it from white to gray. If this happens, the object will get added to the
-  // mark stack again and get changed back to white after it is processed.
+    Thread* const self,
+    mirror::Object* ref,
+    accounting::ContinuousSpaceBitmap* bitmap) {
+  if (use_generational_cc_ && !done_scanning_.load(std::memory_order_acquire)) {
+    // Everything in the unevac space should be marked for young generation CC,
+    // except for large objects.
+    DCHECK(!young_gen_ || region_space_bitmap_->Test(ref) || region_space_->IsLargeObject(ref))
+        << ref << " "
+        << ref->GetClass<kVerifyNone, kWithoutReadBarrier>()->PrettyClass();
+    // Since the mark bitmap is still filled in from last GC (or from marking phase of 2-phase CC,
+    // we can not use that or else the mutator may see references to the from space. Instead, use
+    // the baker pointer itself as the mark bit.
+    if (ref->AtomicSetReadBarrierState(ReadBarrier::NonGrayState(), ReadBarrier::GrayState())) {
+      // TODO: We don't actually need to scan this object later, we just need to clear the gray
+      // bit.
+      // TODO: We could also set the mark bit here for "free" since this case comes from the
+      // read barrier.
+      PushOntoMarkStack(self, ref);
+    }
+    DCHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::GrayState());
+    return ref;
+  }
+  // For the Baker-style RB, in a rare case, we could incorrectly change the object from non-gray
+  // (black) to gray even though the object has already been marked through. This happens if a
+  // mutator thread gets preempted before the AtomicSetReadBarrierState below, GC marks through the
+  // object (changes it from non-gray (white) to gray and back to non-gray (black)), and the thread
+  // runs and incorrectly changes it from non-gray (black) to gray. If this happens, the object
+  // will get added to the mark stack again and get changed back to non-gray (black) after it is
+  // processed.
   if (kUseBakerReadBarrier) {
     // Test the bitmap first to avoid graying an object that has already been marked through most
     // of the time.
@@ -53,8 +76,8 @@ inline mirror::Object* ConcurrentCopying::MarkUnevacFromSpaceRegion(
     // we can avoid an expensive CAS.
     // For the baker case, an object is marked if either the mark bit marked or the bitmap bit is
     // set.
-    success = ref->AtomicSetReadBarrierState(/* expected_rb_state */ ReadBarrier::WhiteState(),
-                                             /* rb_state */ ReadBarrier::GrayState());
+    success = ref->AtomicSetReadBarrierState(/* expected_rb_state= */ ReadBarrier::NonGrayState(),
+                                             /* rb_state= */ ReadBarrier::GrayState());
   } else {
     success = !bitmap->AtomicTestAndSet(ref);
   }
@@ -63,52 +86,57 @@ inline mirror::Object* ConcurrentCopying::MarkUnevacFromSpaceRegion(
     if (kUseBakerReadBarrier) {
       DCHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::GrayState());
     }
-    PushOntoMarkStack(ref);
+    PushOntoMarkStack(self, ref);
   }
   return ref;
 }
 
 template<bool kGrayImmuneObject>
-inline mirror::Object* ConcurrentCopying::MarkImmuneSpace(mirror::Object* ref) {
+inline mirror::Object* ConcurrentCopying::MarkImmuneSpace(Thread* const self,
+                                                          mirror::Object* ref) {
   if (kUseBakerReadBarrier) {
     // The GC-running thread doesn't (need to) gray immune objects except when updating thread roots
     // in the thread flip on behalf of suspended threads (when gc_grays_immune_objects_ is
     // true). Also, a mutator doesn't (need to) gray an immune object after GC has updated all
     // immune space objects (when updated_all_immune_objects_ is true).
     if (kIsDebugBuild) {
-      if (Thread::Current() == thread_running_gc_) {
+      if (self == thread_running_gc_) {
         DCHECK(!kGrayImmuneObject ||
-               updated_all_immune_objects_.LoadRelaxed() ||
+               updated_all_immune_objects_.load(std::memory_order_relaxed) ||
                gc_grays_immune_objects_);
       } else {
         DCHECK(kGrayImmuneObject);
       }
     }
-    if (!kGrayImmuneObject || updated_all_immune_objects_.LoadRelaxed()) {
+    if (!kGrayImmuneObject || updated_all_immune_objects_.load(std::memory_order_relaxed)) {
       return ref;
     }
     // This may or may not succeed, which is ok because the object may already be gray.
-    bool success = ref->AtomicSetReadBarrierState(/* expected_rb_state */ ReadBarrier::WhiteState(),
-                                                  /* rb_state */ ReadBarrier::GrayState());
+    bool success =
+        ref->AtomicSetReadBarrierState(/* expected_rb_state= */ ReadBarrier::NonGrayState(),
+                                       /* rb_state= */ ReadBarrier::GrayState());
     if (success) {
-      MutexLock mu(Thread::Current(), immune_gray_stack_lock_);
+      MutexLock mu(self, immune_gray_stack_lock_);
       immune_gray_stack_.push_back(ref);
     }
   }
   return ref;
 }
 
-template<bool kGrayImmuneObject, bool kFromGCThread>
-inline mirror::Object* ConcurrentCopying::Mark(mirror::Object* from_ref,
+template<bool kGrayImmuneObject, bool kNoUnEvac, bool kFromGCThread>
+inline mirror::Object* ConcurrentCopying::Mark(Thread* const self,
+                                               mirror::Object* from_ref,
                                                mirror::Object* holder,
                                                MemberOffset offset) {
+  // Cannot have `kNoUnEvac` when Generational CC collection is disabled.
+  DCHECK(!kNoUnEvac || use_generational_cc_);
   if (from_ref == nullptr) {
     return nullptr;
   }
   DCHECK(heap_->collector_type_ == kCollectorTypeCC);
   if (kFromGCThread) {
     DCHECK(is_active_);
-    DCHECK_EQ(Thread::Current(), thread_running_gc_);
+    DCHECK_EQ(self, thread_running_gc_);
   } else if (UNLIKELY(kUseBakerReadBarrier && !is_active_)) {
     // In the lock word forward address state, the read barrier bits
     // in the lock word are part of the stored forwarding address and
@@ -134,7 +162,7 @@ inline mirror::Object* ConcurrentCopying::Mark(mirror::Object* from_ref,
         mirror::Object* to_ref = GetFwdPtr(from_ref);
         if (to_ref == nullptr) {
           // It isn't marked yet. Mark it by copying it to the to-space.
-          to_ref = Copy(from_ref, holder, offset);
+          to_ref = Copy(self, from_ref, holder, offset);
         }
         // The copy should either be in a to-space region, or in the
         // non-moving space, if it could not fit in a to-space region.
@@ -143,34 +171,44 @@ inline mirror::Object* ConcurrentCopying::Mark(mirror::Object* from_ref,
         return to_ref;
       }
       case space::RegionSpace::RegionType::kRegionTypeUnevacFromSpace:
-        return MarkUnevacFromSpaceRegion(from_ref, region_space_bitmap_);
+        if (kNoUnEvac && use_generational_cc_ && !region_space_->IsLargeObject(from_ref)) {
+          if (!kFromGCThread) {
+            DCHECK(IsMarkedInUnevacFromSpace(from_ref)) << "Returning unmarked object to mutator";
+          }
+          return from_ref;
+        }
+        return MarkUnevacFromSpaceRegion(self, from_ref, region_space_bitmap_);
       default:
-        // The reference is in an unused region.
+        // The reference is in an unused region. Remove memory protection from
+        // the region space and log debugging information.
+        region_space_->Unprotect();
         LOG(FATAL_WITHOUT_ABORT) << DumpHeapReference(holder, offset, from_ref);
         region_space_->DumpNonFreeRegions(LOG_STREAM(FATAL_WITHOUT_ABORT));
-        heap_->GetVerification()->LogHeapCorruption(holder, offset, from_ref, /* fatal */ true);
+        heap_->GetVerification()->LogHeapCorruption(holder, offset, from_ref, /* fatal= */ true);
         UNREACHABLE();
     }
   } else {
     if (immune_spaces_.ContainsObject(from_ref)) {
-      return MarkImmuneSpace<kGrayImmuneObject>(from_ref);
+      return MarkImmuneSpace<kGrayImmuneObject>(self, from_ref);
     } else {
-      return MarkNonMoving(from_ref, holder, offset);
+      return MarkNonMoving(self, from_ref, holder, offset);
     }
   }
 }
 
 inline mirror::Object* ConcurrentCopying::MarkFromReadBarrier(mirror::Object* from_ref) {
   mirror::Object* ret;
+  Thread* const self = Thread::Current();
   // We can get here before marking starts since we gray immune objects before the marking phase.
-  if (from_ref == nullptr || !Thread::Current()->GetIsGcMarking()) {
+  if (from_ref == nullptr || !self->GetIsGcMarking()) {
     return from_ref;
   }
   // TODO: Consider removing this check when we are done investigating slow paths. b/30162165
   if (UNLIKELY(mark_from_read_barrier_measurements_)) {
-    ret = MarkFromReadBarrierWithMeasurements(from_ref);
+    ret = MarkFromReadBarrierWithMeasurements(self, from_ref);
   } else {
-    ret = Mark(from_ref);
+    ret = Mark</*kGrayImmuneObject=*/true, /*kNoUnEvac=*/false, /*kFromGCThread=*/false>(self,
+                                                                                         from_ref);
   }
   // Only set the mark bit for baker barrier.
   if (kUseBakerReadBarrier && LIKELY(!rb_mark_bit_stack_full_ && ret->AtomicSetMarkBit(0, 1))) {
@@ -199,13 +237,35 @@ inline mirror::Object* ConcurrentCopying::GetFwdPtr(mirror::Object* from_ref) {
 }
 
 inline bool ConcurrentCopying::IsMarkedInUnevacFromSpace(mirror::Object* from_ref) {
-  // Use load acquire on the read barrier pointer to ensure that we never see a white read barrier
-  // state with an unmarked bit due to reordering.
+  // Use load-acquire on the read barrier pointer to ensure that we never see a black (non-gray)
+  // read barrier state with an unmarked bit due to reordering.
   DCHECK(region_space_->IsInUnevacFromSpace(from_ref));
   if (kUseBakerReadBarrier && from_ref->GetReadBarrierStateAcquire() == ReadBarrier::GrayState()) {
     return true;
+  } else if (!use_generational_cc_ || done_scanning_.load(std::memory_order_acquire)) {
+    // If the card table scanning is not finished yet, then only read-barrier
+    // state should be checked. Checking the mark bitmap is unreliable as there
+    // may be some objects - whose corresponding card is dirty - which are
+    // marked in the mark bitmap, but cannot be considered marked unless their
+    // read-barrier state is set to Gray.
+    //
+    // Why read read-barrier state before checking done_scanning_?
+    // If the read-barrier state was read *after* done_scanning_, then there
+    // exists a concurrency race due to which even after the object is marked,
+    // read-barrier state is checked *after* that, this function will return
+    // false. The following scenario may cause the race:
+    //
+    // 1. Mutator thread reads done_scanning_ and upon finding it false, gets
+    // suspended before reading the object's read-barrier state.
+    // 2. GC thread finishes card-table scan and then sets done_scanning_ to
+    // true.
+    // 3. GC thread grays the object, scans it, marks in the bitmap, and then
+    // changes its read-barrier state back to non-gray.
+    // 4. Mutator thread resumes, reads the object's read-barrier state and
+    // returns false.
+    return region_space_bitmap_->Test(from_ref);
   }
-  return region_space_bitmap_->Test(from_ref);
+  return false;
 }
 
 }  // namespace collector

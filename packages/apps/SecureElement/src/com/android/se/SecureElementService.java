@@ -27,6 +27,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -40,6 +41,7 @@ import android.se.omapi.SEService;
 import android.util.Log;
 
 import com.android.se.Terminal.SecureElementReader;
+import com.android.se.internal.ByteArrayConverter;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -58,6 +60,7 @@ public final class SecureElementService extends Service {
     public static final String UICC_TERMINAL = "SIM";
     public static final String ESE_TERMINAL = "eSE";
     private final String mTag = "SecureElementService";
+    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
     // LinkedHashMap will maintain the order of insertion
     private LinkedHashMap<String, Terminal> mTerminals = new LinkedHashMap<String, Terminal>();
     private final ISecureElementService.Stub mSecureElementServiceBinder =
@@ -250,6 +253,10 @@ public final class SecureElementService extends Service {
         @Override
         public ISecureElementChannel openBasicChannel(byte[] aid, byte p2,
                 ISecureElementListener listener) throws RemoteException {
+            if (DEBUG) {
+                Log.i(mTag, "openBasicChannel() AID = "
+                        + ByteArrayConverter.byteArrayToHexString(aid) + ", P2 = " + p2);
+            }
             if (isClosed()) {
                 throw new IllegalStateException("Session is closed");
             } else if (listener == null) {
@@ -289,6 +296,10 @@ public final class SecureElementService extends Service {
         @Override
         public ISecureElementChannel openLogicalChannel(byte[] aid, byte p2,
                 ISecureElementListener listener) throws RemoteException {
+            if (DEBUG) {
+                Log.i(mTag, "openLogicalChannel() AID = "
+                        + ByteArrayConverter.byteArrayToHexString(aid) + ", P2 = " + p2);
+            }
             if (isClosed()) {
                 throw new IllegalStateException("Session is closed");
             } else if (listener == null) {

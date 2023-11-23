@@ -25,7 +25,7 @@
 #include "perfetto/base/weak_ptr.h"
 #include "perfetto/ipc/basic_types.h"
 #include "perfetto/tracing/core/consumer.h"
-#include "perfetto/tracing/core/service.h"
+#include "perfetto/tracing/core/tracing_service.h"
 
 #include "perfetto/ipc/consumer_port.ipc.h"
 
@@ -40,13 +40,16 @@ class Host;
 // on the IPC socket, through the methods overriddden from ConsumerPort.
 class ConsumerIPCService : public protos::ConsumerPort {
  public:
-  using Service = ::perfetto::Service;  // To avoid collisions w/ ipc::Service.
-  explicit ConsumerIPCService(Service* core_service);
+  explicit ConsumerIPCService(TracingService* core_service);
   ~ConsumerIPCService() override;
 
   // ConsumerPort implementation (from .proto IPC definition).
   void EnableTracing(const protos::EnableTracingRequest&,
                      DeferredEnableTracingResponse) override;
+  void StartTracing(const protos::StartTracingRequest&,
+                    DeferredStartTracingResponse) override;
+  void ChangeTraceConfig(const protos::ChangeTraceConfigRequest&,
+                         DeferredChangeTraceConfigResponse) override;
   void DisableTracing(const protos::DisableTracingRequest&,
                       DeferredDisableTracingResponse) override;
   void ReadBuffers(const protos::ReadBuffersRequest&,
@@ -54,6 +57,12 @@ class ConsumerIPCService : public protos::ConsumerPort {
   void FreeBuffers(const protos::FreeBuffersRequest&,
                    DeferredFreeBuffersResponse) override;
   void Flush(const protos::FlushRequest&, DeferredFlushResponse) override;
+  void Detach(const protos::DetachRequest&, DeferredDetachResponse) override;
+  void Attach(const protos::AttachRequest&, DeferredAttachResponse) override;
+  void GetTraceStats(const protos::GetTraceStatsRequest&,
+                     DeferredGetTraceStatsResponse) override;
+  void ObserveEvents(const protos::ObserveEventsRequest&,
+                     DeferredObserveEventsResponse) override;
   void OnClientDisconnected() override;
 
  private:
@@ -71,19 +80,39 @@ class ConsumerIPCService : public protos::ConsumerPort {
     void OnDisconnect() override;
     void OnTracingDisabled() override;
     void OnTraceData(std::vector<TracePacket>, bool has_more) override;
+    void OnDetach(bool) override;
+    void OnAttach(bool, const TraceConfig&) override;
+    void OnTraceStats(bool, const TraceStats&) override;
+    void OnObservableEvents(const ObservableEvents&) override;
+
+    void CloseObserveEventsResponseStream();
 
     // The interface obtained from the core service business logic through
-    // Service::ConnectConsumer(this). This allows to invoke methods for a
-    // specific Consumer on the Service business logic.
-    std::unique_ptr<Service::ConsumerEndpoint> service_endpoint;
+    // TracingService::ConnectConsumer(this). This allows to invoke methods for
+    // a specific Consumer on the Service business logic.
+    std::unique_ptr<TracingService::ConsumerEndpoint> service_endpoint;
 
-    // After DisableTracing() is invoked, this binds the async callback that
+    // After ReadBuffers() is invoked, this binds the async callback that
     // allows to stream trace packets back to the client.
     DeferredReadBuffersResponse read_buffers_response;
 
     // After EnableTracing() is invoked, this binds the async callback that
     // allows to send the OnTracingDisabled notification.
     DeferredEnableTracingResponse enable_tracing_response;
+
+    // After Detach() is invoked, this binds the async callback that allows to
+    // send the session id to the consumer.
+    DeferredDetachResponse detach_response;
+
+    // As above, but for the Attach() case.
+    DeferredAttachResponse attach_response;
+
+    // As above, but for GetTraceStats().
+    DeferredGetTraceStatsResponse get_trace_stats_response;
+
+    // After ObserveEvents() is invoked, this binds the async callback that
+    // allows to stream ObservableEvents back to the client.
+    DeferredObserveEventsResponse observe_events_response;
   };
 
   // This has to be a container that doesn't invalidate iterators.
@@ -98,7 +127,7 @@ class ConsumerIPCService : public protos::ConsumerPort {
 
   void OnFlushCallback(bool success, PendingFlushResponses::iterator);
 
-  Service* const core_service_;
+  TracingService* const core_service_;
 
   // Maps IPC clients to ConsumerEndpoint instances registered on the
   // |core_service_| business logic.

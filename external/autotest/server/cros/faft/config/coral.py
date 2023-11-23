@@ -8,4 +8,5 @@ from autotest_lib.server.cros.faft.config import reef
 
 class Values(reef.Values):
     """Inherit overrides from Reef."""
-    pass
+    # Time from deasserting cold_reset to firmware_screen being shown
+    firmware_screen = 35

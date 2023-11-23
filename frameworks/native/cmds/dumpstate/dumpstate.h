@@ -27,6 +27,8 @@
 
 #include <android-base/macros.h>
 #include <android-base/unique_fd.h>
+#include <android/os/BnIncidentAuthListener.h>
+#include <android/os/IDumpstate.h>
 #include <android/os/IDumpstateListener.h>
 #include <utils/StrongPointer.h>
 #include <ziparchive/zip_writer.h>
@@ -42,6 +44,9 @@
 // TODO: and then remove explicitly android::os::dumpstate:: prefixes
 namespace android {
 namespace os {
+
+struct DumpstateOptions;
+
 namespace dumpstate {
 
 class DumpstateTest;
@@ -68,13 +73,13 @@ extern "C" {
  */
 class DurationReporter {
   public:
-    DurationReporter(const std::string& title, bool log_only = false);
+    explicit DurationReporter(const std::string& title, bool logcat_only = false);
 
     ~DurationReporter();
 
   private:
     std::string title_;
-    bool log_only_;
+    bool logcat_only_;
     uint64_t started_;
 
     DISALLOW_COPY_AND_ASSIGN(DurationReporter);
@@ -107,7 +112,7 @@ class Progress {
      */
     static const int kDefaultMax;
 
-    Progress(const std::string& path = "");
+    explicit Progress(const std::string& path = "");
 
     // Gets the current progress.
     int32_t Get() const;
@@ -138,7 +143,7 @@ class Progress {
     float growth_factor_;
     int32_t n_runs_;
     int32_t average_max_;
-    const std::string& path_;
+    std::string path_;
 };
 
 /*
@@ -158,6 +163,11 @@ static std::string VERSION_SPLIT_ANR = "3.0-dev-split-anr";
  * "Alias" for the current version.
  */
 static std::string VERSION_DEFAULT = "default";
+
+/*
+ * Directory used by Dumpstate binary to keep its local files.
+ */
+static const std::string DUMPSTATE_DIRECTORY = "/bugreports";
 
 /*
  * Structure that contains the information of an open dump file.
@@ -183,6 +193,19 @@ class Dumpstate {
     friend class DumpstateTest;
 
   public:
+    enum RunStatus { OK, HELP, INVALID_INPUT, ERROR, USER_CONSENT_DENIED, USER_CONSENT_TIMED_OUT };
+
+    // The mode under which the bugreport should be run. Each mode encapsulates a few options.
+    enum BugreportMode {
+        BUGREPORT_FULL = android::os::IDumpstate::BUGREPORT_MODE_FULL,
+        BUGREPORT_INTERACTIVE = android::os::IDumpstate::BUGREPORT_MODE_INTERACTIVE,
+        BUGREPORT_REMOTE = android::os::IDumpstate::BUGREPORT_MODE_REMOTE,
+        BUGREPORT_WEAR = android::os::IDumpstate::BUGREPORT_MODE_WEAR,
+        BUGREPORT_TELEPHONY = android::os::IDumpstate::BUGREPORT_MODE_TELEPHONY,
+        BUGREPORT_WIFI = android::os::IDumpstate::BUGREPORT_MODE_WIFI,
+        BUGREPORT_DEFAULT = android::os::IDumpstate::BUGREPORT_MODE_DEFAULT
+    };
+
     static android::os::dumpstate::CommandOptions DEFAULT_DUMPSYS;
 
     static Dumpstate& GetInstance();
@@ -245,7 +268,7 @@ class Dumpstate {
                                         std::chrono::milliseconds timeout);
 
     /*
-     * Adds a text entry entry to the existing zip file.
+     * Adds a text entry to the existing zip file.
      */
     bool AddTextZipEntry(const std::string& entry_name, const std::string& content);
 
@@ -268,6 +291,12 @@ class Dumpstate {
     // TODO: temporary method until Dumpstate object is properly set
     void SetProgress(std::unique_ptr<Progress> progress);
 
+    // Dumps Dalvik and native stack traces, sets the trace file location to path
+    // if it succeeded.
+    // Note that it returns early if user consent is denied with status USER_CONSENT_DENIED.
+    // Returns OK in all other cases.
+    RunStatus DumpTraces(const char** path);
+
     void DumpstateBoard();
 
     /*
@@ -284,22 +313,92 @@ class Dumpstate {
      */
     bool FinishZipFile();
 
-    /* Gets the path of a bugreport file with the given suffix. */
+    /* Constructs a full path inside directory with file name formatted using the given suffix. */
+    std::string GetPath(const std::string& directory, const std::string& suffix) const;
+
+    /* Constructs a full path inside bugreport_internal_dir_ with file name formatted using the
+     * given suffix. */
     std::string GetPath(const std::string& suffix) const;
 
     /* Returns true if the current version supports priority dump feature. */
     bool CurrentVersionSupportsPriorityDumps() const;
 
-    // TODO: initialize fields on constructor
+    struct DumpOptions;
 
+    /* Main entry point for running a complete bugreport. */
+    RunStatus Run(int32_t calling_uid, const std::string& calling_package);
+
+    RunStatus ParseCommandlineAndRun(int argc, char* argv[]);
+
+    /* Sets runtime options. */
+    void SetOptions(std::unique_ptr<DumpOptions> options);
+
+    /*
+     * Returns true if user consent is necessary and has been denied.
+     * Consent is only necessary if the caller has asked to copy over the bugreport to a file they
+     * provided.
+     */
+    bool IsUserConsentDenied() const;
+
+    /*
+     * Structure to hold options that determine the behavior of dumpstate.
+     */
+    struct DumpOptions {
+        bool do_add_date = false;
+        bool do_zip_file = false;
+        bool do_vibrate = true;
+        // Writes bugreport content to a socket; only flatfile format is supported.
+        bool use_socket = false;
+        bool use_control_socket = false;
+        bool do_fb = false;
+        bool do_broadcast = false;
+        bool is_remote_mode = false;
+        bool show_header_only = false;
+        bool do_start_service = false;
+        bool telephony_only = false;
+        bool wifi_only = false;
+        // Whether progress updates should be published.
+        bool do_progress_updates = false;
+        // File descriptor to output zip file.
+        android::base::unique_fd bugreport_fd;
+        // File descriptor to screenshot file.
+        android::base::unique_fd screenshot_fd;
+        // TODO: rename to MODE.
+        // Extra options passed as system property.
+        std::string extra_options;
+        // Command-line arguments as string
+        std::string args;
+        // Notification title and description
+        std::string notification_title;
+        std::string notification_description;
+
+        /* Initializes options from commandline arguments and system properties. */
+        RunStatus Initialize(int argc, char* argv[]);
+
+        /* Initializes options from the requested mode. */
+        void Initialize(BugreportMode bugreport_mode, const android::base::unique_fd& bugreport_fd,
+                        const android::base::unique_fd& screenshot_fd);
+
+        /* Returns true if the options set so far are consistent. */
+        bool ValidateOptions() const;
+
+        /* Returns if options specified require writing bugreport to a file */
+        bool OutputToFile() const {
+            // If we are not writing to socket, we will write to a file. If bugreport_fd is
+            // specified, it is preferred. If not bugreport is written to /bugreports.
+            return !use_socket;
+        }
+    };
+
+    // TODO: initialize fields on constructor
     // dumpstate id - unique after each device reboot.
     uint32_t id_;
 
     // dumpstate pid
     pid_t pid_;
 
-    // Whether progress updates should be published.
-    bool update_progress_ = false;
+    // Runtime options.
+    std::unique_ptr<DumpOptions> options_;
 
     // How frequently the progess should be updated;the listener will only be notificated when the
     // delta from the previous update is more than the threshold.
@@ -319,18 +418,6 @@ class Dumpstate {
     // Bugreport format version;
     std::string version_ = VERSION_CURRENT;
 
-    // Command-line arguments as string
-    std::string args_;
-
-    // Extra options passed as system property.
-    std::string extra_options_;
-
-    // Full path of the directory where the bugreport files will be written.
-    std::string bugreport_dir_;
-
-    // Full path of the temporary file containing the screenshot (when requested).
-    std::string screenshot_path_;
-
     time_t now_;
 
     // Base name (without suffix or extensions) of the bugreport files, typically
@@ -341,14 +428,22 @@ class Dumpstate {
     // `-d`), but it could be changed by the user..
     std::string name_;
 
-    // Full path of the temporary file containing the bugreport.
+    std::string bugreport_internal_dir_ = DUMPSTATE_DIRECTORY;
+
+    // Full path of the temporary file containing the bugreport, inside bugreport_internal_dir_.
+    // At the very end this file is pulled into the zip file.
     std::string tmp_path_;
 
-    // Full path of the file containing the dumpstate logs.
+    // Full path of the file containing the dumpstate logs, inside bugreport_internal_dir_.
+    // This is useful for debugging.
     std::string log_path_;
 
-    // Pointer to the actual path, be it zip or text.
+    // Full path of the bugreport file, be it zip or text, inside bugreport_internal_dir_.
     std::string path_;
+
+    // TODO: If temporary this should be removed at the end.
+    // Full path of the temporary file containing the screenshot (when requested).
+    std::string screenshot_path_;
 
     // Pointer to the zipped file.
     std::unique_ptr<FILE, int (*)(FILE*)> zip_file{nullptr, fclose};
@@ -361,19 +456,52 @@ class Dumpstate {
     std::string listener_name_;
     bool report_section_;
 
-    // Notification title and description
-    std::string notification_title;
-    std::string notification_description;
-
     // List of open tombstone dump files.
     std::vector<DumpData> tombstone_data_;
 
     // List of open ANR dump files.
     std::vector<DumpData> anr_data_;
 
+    // A callback to IncidentCompanion service, which checks user consent for sharing the
+    // bugreport with the calling app. If the user has not responded yet to the dialog it will
+    // be neither confirmed nor denied.
+    class ConsentCallback : public android::os::BnIncidentAuthListener {
+      public:
+        ConsentCallback();
+        android::binder::Status onReportApproved() override;
+        android::binder::Status onReportDenied() override;
+
+        enum ConsentResult { APPROVED, DENIED, UNAVAILABLE };
+
+        ConsentResult getResult();
+
+        // Returns the time since creating this listener
+        uint64_t getElapsedTimeMs() const;
+
+      private:
+        ConsentResult result_;
+        uint64_t start_time_;
+        std::mutex lock_;
+    };
+
   private:
+    RunStatus RunInternal(int32_t calling_uid, const std::string& calling_package);
+
+    void CheckUserConsent(int32_t calling_uid, const android::String16& calling_package);
+
+    // Removes the in progress files output files (tmp file, zip/txt file, screenshot),
+    // but leaves the log file alone.
+    void CleanupFiles();
+
+    RunStatus HandleUserConsentDenied();
+
+    // Copies bugreport artifacts over to the caller's directories provided there is user consent.
+    RunStatus CopyBugreportIfUserConsented();
+
     // Used by GetInstance() only.
-    Dumpstate(const std::string& version = VERSION_CURRENT);
+    explicit Dumpstate(const std::string& version = VERSION_CURRENT);
+
+    android::sp<ConsentCallback> consent_callback_;
 
     DISALLOW_COPY_AND_ASSIGN(Dumpstate);
 };
@@ -404,20 +532,29 @@ int dump_files(const std::string& title, const char* dir, bool (*skip)(const cha
 /** opens a socket and returns its file descriptor */
 int open_socket(const char *service);
 
-/* redirect output to a service control socket */
-void redirect_to_socket(FILE *redirect, const char *service);
+/*
+ * Redirects 'redirect' to a service control socket.
+ *
+ * Returns true if redirect succeeds.
+ */
+bool redirect_to_socket(FILE* redirect, const char* service);
 
-/* redirect output to a new file */
-void redirect_to_file(FILE *redirect, char *path);
+/*
+ * Redirects 'redirect' to a file indicated by 'path', truncating it.
+ *
+ * Returns true if redirect succeeds.
+ */
+bool redirect_to_file(FILE* redirect, char* path);
 
-/* redirect output to an existing file */
-void redirect_to_existing_file(FILE *redirect, char *path);
+/*
+ * Redirects 'redirect' to an existing file indicated by 'path', appending it.
+ *
+ * Returns true if redirect succeeds.
+ */
+bool redirect_to_existing_file(FILE* redirect, char* path);
 
 /* create leading directories, if necessary */
 void create_parent_dirs(const char *path);
-
-/* dump Dalvik and native stack traces, return the trace file location (NULL if none) */
-const char *dump_traces();
 
 /* for each process in the system, run the specified function */
 void for_each_pid(for_each_pid_func func, const char *header);

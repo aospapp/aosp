@@ -19,6 +19,10 @@ package libcore.util;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
+import libcore.util.NativeAllocationRegistry.CleanerRunner;
+import libcore.util.NativeAllocationRegistry.CleanerThunk;
+import sun.misc.Cleaner;
+
 /**
  * Delegate implementing the native methods of {@link NativeAllocationRegistry}
  *
@@ -48,6 +52,44 @@ public class NativeAllocationRegistry_Delegate {
      */
     public static long createFinalizer(FreeFunction finalizer) {
         return sManager.addNewDelegate(new NativeAllocationRegistry_Delegate(finalizer));
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static void registerNativeAllocation(long size) {
+        NativeAllocationRegistry.registerNativeAllocation_Original(size);
+    }
+
+    @LayoutlibDelegate
+    /*package*/ static Runnable registerNativeAllocation(NativeAllocationRegistry registry,
+            Object referent,
+            long nativePtr) {
+        // Mark the object as already "natively" tracked.
+        // This allows the DelegateManager to dispose objects without waiting
+        // for an explicit call when the referent does not exist anymore.
+        sManager.markAsNativeAllocation(referent, nativePtr);
+        if (referent == null) {
+            throw new IllegalArgumentException("referent is null");
+        }
+        if (nativePtr == 0) {
+            throw new IllegalArgumentException("nativePtr is null");
+        }
+
+        CleanerThunk thunk;
+        CleanerRunner result;
+        try {
+            thunk = registry.new CleanerThunk();
+            Cleaner cleaner = Cleaner.create(referent, thunk);
+            result = new CleanerRunner(cleaner);
+            registerNativeAllocation(registry.size);
+        } catch (VirtualMachineError vme /* probably OutOfMemoryError */) {
+            applyFreeFunction(registry.freeFunction, nativePtr);
+            throw vme;
+        } // Other exceptions are impossible.
+        // Enable the cleaner only after we can no longer throw anything, including OOME.
+        thunk.setNativePtr(nativePtr);
+        // Needs to call Reference.reachabilityFence(referent) to ensure that cleaner doesn't
+        // get invoked before we enable it. Unfortunately impossible in OpenJDK 8.
+        return result;
     }
 
     @LayoutlibDelegate

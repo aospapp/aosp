@@ -9,6 +9,7 @@ import dbus
 import dbus.mainloop.glib
 import gobject
 
+from autotest_lib.client.cros import upstart
 
 class DarkResumeListener(object):
     """Server which listens for dark resume-related DBus signals to count how
@@ -24,6 +25,7 @@ class DarkResumeListener(object):
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         self._bus = dbus.SystemBus()
         self._count = 0
+        self._stop_resuspend = False
 
         self._bus.add_signal_receiver(handler_function=self._saw_dark_resume,
                                       signal_name=self.SIGNAL_NAME)
@@ -53,3 +55,16 @@ class DarkResumeListener(object):
 
     def _saw_dark_resume(self, unused):
         self._count += 1
+        if self._stop_resuspend:
+            # Restart powerd to stop re-suspend.
+            upstart.restart_job('powerd')
+
+
+    def stop_resuspend(self, should_stop):
+        """
+        Whether to stop suspend after seeing a dark resume.
+
+        @param should_stop: Whether to stop system from re-suspending.
+        """
+        self._stop_resuspend = should_stop
+

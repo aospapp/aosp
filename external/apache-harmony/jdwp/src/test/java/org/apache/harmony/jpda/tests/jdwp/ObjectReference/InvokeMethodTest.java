@@ -31,6 +31,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.TaggedObject;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -54,7 +55,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee";
+        return InvokeMethodDebuggee.class.getName();
     }
 
     protected int setEventRequest() {
@@ -176,7 +177,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Get referenceTypeID
-        String classSig = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/testClass2;";
+        String classSig = getDebuggeeClassSignature().replace("InvokeMethodDebuggee", "testClass2");
         long typeID = getReferenceTypeID(classSig);
 
         // Get methodIDs
@@ -286,11 +287,11 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         // Get referenceTypeID of super class
-        String classSig = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/testClass2;";
+        String classSig = getDebuggeeClassSignature().replace("InvokeMethodDebuggee", "testClass2");
         long typeIDSuper = getReferenceTypeID(classSig);
 
         // Get referenceTypeID of child class
-        classSig = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/testClass3;";
+        classSig = getDebuggeeClassSignature().replace("InvokeMethodDebuggee", "testClass3");
         long typeIDChild = getReferenceTypeID(classSig);
 
         // Get methodID

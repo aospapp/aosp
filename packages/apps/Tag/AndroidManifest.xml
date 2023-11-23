@@ -36,6 +36,7 @@
             android:label="@string/title_scanned_tag"
             android:launchMode="singleTop"
             android:priority="-10"
+            android:permission="android.permission.NFC"
         >
             <!-- Offer to display anything with NDEF data -->
             <intent-filter>
@@ -54,7 +55,7 @@
         </activity>
         <!-- Declare file provider to convert file:/// to content:// for file preview -->
         <provider
-            android:name="android.support.v4.content.FileProvider"
+            android:name="androidx.core.content.FileProvider"
             android:authorities="com.android.apps.tag.provider"
             android:exported="false"
             android:grantUriPermissions="true">

@@ -407,6 +407,17 @@ def get_hostname(url):
     return urlparse.urlparse(url).hostname
 
 
+def get_resolved_hostname(url):
+    """Get the symbolic hostname from url.
+
+    If the given `url` uses a numeric IP address, try and find a
+    symbolic name from the hostname map in the config file.
+
+    @param url  The URL with which to perform the conversion/lookup.
+    """
+    return _reverse_lookup_from_config(get_hostname(url))
+
+
 class DevServer(object):
     """Base class for all DevServer-like server stubs.
 
@@ -1690,6 +1701,18 @@ class ImageServer(ImageServerBase):
         return self._get_image_url(image) + '/chromiumos_test_image.bin'
 
 
+    def get_recovery_image_url(self, image):
+        """Returns a URL to a staged recovery image.
+
+        @param image: the image that was fetched.
+
+        @return A fully qualified URL that can be used for downloading the
+                image.
+
+        """
+        return self._get_image_url(image) + '/recovery_image.bin'
+
+
     @remote_devserver_call()
     def get_dependencies_file(self, build):
         """Ask the dev server for the contents of the suite dependencies file.
@@ -2607,19 +2630,6 @@ class AndroidBuildServer(ImageServerBase):
         self._stage_artifacts(build, artifacts, files, archive_url,
                               **android_build_info)
 
-    def get_pull_url(self, target, build_id, branch):
-        """Get the url to pull files from the devserver.
-
-        @param target: Target of the android build, e.g., shamu_userdebug
-        @param build_id: Build id of the android build.
-        @param branch: Branch of the android build.
-
-        @return A url to pull files from the dev server given a specific
-                android build.
-        """
-        return os.path.join(self.url(), 'static', branch, target, build_id)
-
-
     def trigger_download(self, target, build_id, branch, artifacts=None,
                          files='', os='android', synchronous=True):
         """Tell the devserver to download and stage an Android build.
@@ -2831,8 +2841,15 @@ def get_least_loaded_devserver(devserver_type=ImageServer, hostname=None):
     for p in processes:
         p.start()
     for p in processes:
-        p.join()
-    loads = [output.get() for p in processes]
+        # The timeout for the process commands aren't reliable.  Add
+        # some extra time to the timeout for potential overhead in the
+        # subprocesses.  crbug.com/913695
+        p.join(TIMEOUT_GET_DEVSERVER_LOAD + 10)
+    # Read queue before killing processes to avoid corrupting the queue.
+    loads = [output.get() for p in processes if not p.is_alive()]
+    for p in processes:
+        if p.is_alive():
+            p.terminate()
     # Filter out any load failed to be retrieved or does not support load check.
     loads = [load for load in loads if load and DevServer.CPU_LOAD in load and
              DevServer.is_free_disk_ok(load) and

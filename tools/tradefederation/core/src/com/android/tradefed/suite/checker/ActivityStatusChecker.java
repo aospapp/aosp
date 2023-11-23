@@ -55,6 +55,7 @@ public class ActivityStatusChecker implements ISystemStatusChecker, ITestLoggerR
             }
             // TODO: Add a step to return to home page, or refresh the device (reboot?)
             result.setStatus(CheckStatus.FAILED);
+            result.setBugreportNeeded(true);
             result.setErrorMessage("Launcher activity is not in front.");
             return result;
         }

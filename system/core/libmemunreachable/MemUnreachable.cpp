@@ -87,6 +87,11 @@ bool MemUnreachable::CollectAllocations(const allocator::vector<ThreadInfo>& thr
                                         const allocator::vector<Mapping>& mappings,
                                         const allocator::vector<uintptr_t>& refs) {
   MEM_ALOGI("searching process %d for allocations", pid_);
+
+  for (auto it = mappings.begin(); it != mappings.end(); it++) {
+    heap_walker_.Mapping(it->begin, it->end);
+  }
+
   allocator::vector<Mapping> heap_mappings{mappings};
   allocator::vector<Mapping> anon_mappings{mappings};
   allocator::vector<Mapping> globals_mappings{mappings};
@@ -212,6 +217,10 @@ static bool has_prefix(const allocator::string& s, const char* prefix) {
   return ret == 0;
 }
 
+static bool is_sanitizer_mapping(const allocator::string& s) {
+  return s == "[anon:low shadow]" || s == "[anon:high shadow]" || has_prefix(s, "[anon:hwasan");
+}
+
 bool MemUnreachable::ClassifyMappings(const allocator::vector<Mapping>& mappings,
                                       allocator::vector<Mapping>& heap_mappings,
                                       allocator::vector<Mapping>& anon_mappings,
@@ -244,7 +253,7 @@ bool MemUnreachable::ClassifyMappings(const allocator::vector<Mapping>& mappings
     } else if (mapping_name == "[anon:libc_malloc]") {
       // named malloc mapping
       heap_mappings.emplace_back(*it);
-    } else if (has_prefix(mapping_name, "/dev/ashmem/dalvik")) {
+    } else if (has_prefix(mapping_name, "[anon:dalvik-")) {
       // named dalvik heap mapping
       globals_mappings.emplace_back(*it);
     } else if (has_prefix(mapping_name, "[stack")) {
@@ -253,7 +262,8 @@ bool MemUnreachable::ClassifyMappings(const allocator::vector<Mapping>& mappings
     } else if (mapping_name.size() == 0) {
       globals_mappings.emplace_back(*it);
     } else if (has_prefix(mapping_name, "[anon:") &&
-               mapping_name != "[anon:leak_detector_malloc]") {
+               mapping_name != "[anon:leak_detector_malloc]" &&
+               !is_sanitizer_mapping(mapping_name)) {
       // TODO(ccross): it would be nice to treat named anonymous mappings as
       // possible leaks, but naming something in a .bss or .data section makes
       // it impossible to distinguish them from mmaped and then named mappings.

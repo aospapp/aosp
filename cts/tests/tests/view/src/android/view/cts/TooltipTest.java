@@ -23,10 +23,6 @@ import static org.junit.Assert.assertTrue;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -37,6 +33,11 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -170,11 +171,11 @@ public class TooltipTest {
     }
 
     private void injectShortClick(View target) {
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, target);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, target);
     }
 
     private void injectLongClick(View target) {
-        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, target,
+        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mActivityRule, target,
                 target.getWidth() / 2, target.getHeight() / 2);
     }
 

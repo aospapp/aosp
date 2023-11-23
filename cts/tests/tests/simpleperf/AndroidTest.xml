@@ -16,14 +16,25 @@
 <configuration description="Config for CTS Simpleperf test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="bionic" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsSimpleperfTestCases->/data/local/tmp/CtsSimpleperfTestCases" />
         <option name="append-bitness" value="true" />
     </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="CtsSimpleperfTestCases_testdata->/data/local/tmp/testdata" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="CtsSimpleperfDebugApp.apk" />
+        <option name="test-file-name" value="CtsSimpleperfDebuggableApp.apk" />
+        <option name="test-file-name" value="CtsSimpleperfProfileableApp.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="am start com.android.simpleperf.debuggable/.MainActivity" />
+        <option name="run-command" value="am start com.android.simpleperf.profileable/.MainActivity" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />

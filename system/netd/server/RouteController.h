@@ -20,9 +20,12 @@
 #include "NetdConstants.h"
 #include "Permission.h"
 
-#include <map>
-#include <sys/types.h>
+#include <android-base/thread_annotations.h>
+
 #include <linux/netlink.h>
+#include <sys/types.h>
+#include <map>
+#include <mutex>
 
 namespace android {
 namespace net {
@@ -52,7 +55,7 @@ public:
     // correspond to different interface indices over time. This way, even if the interface
     // index has changed, we can still free any map entries indexed by the ifindex that was
     // used to add them.
-    static uint32_t getIfIndex(const char* interface);
+    static uint32_t getIfIndex(const char* interface) EXCLUDES(sInterfaceToTableLock);
 
     static int addInterfaceToLocalNetwork(unsigned netId, const char* interface) WARN_UNUSED_RESULT;
     static int removeInterfaceFromLocalNetwork(unsigned netId,
@@ -111,15 +114,15 @@ public:
 private:
     friend class RouteControllerTest;
 
-    // Protects access to interfaceToTable.
-    static android::RWLock sInterfaceToTableLock;
-    static std::map<std::string, uint32_t> sInterfaceToTable;
+    static std::mutex sInterfaceToTableLock;
+    static std::map<std::string, uint32_t> sInterfaceToTable GUARDED_BY(sInterfaceToTableLock);
 
     static int configureDummyNetwork();
-    static int flushRoutes(const char* interface);
+    static int flushRoutes(const char* interface) EXCLUDES(sInterfaceToTableLock);
     static int flushRoutes(uint32_t table);
-    static uint32_t getRouteTableForInterfaceLocked(const char *interface);
-    static uint32_t getRouteTableForInterface(const char *interface);
+    static uint32_t getRouteTableForInterfaceLocked(const char *interface)
+            REQUIRES(sInterfaceToTableLock);
+    static uint32_t getRouteTableForInterface(const char *interface) EXCLUDES(sInterfaceToTableLock);
     static int modifyDefaultNetwork(uint16_t action, const char* interface, Permission permission);
     static int modifyPhysicalNetwork(unsigned netId, const char* interface, Permission permission,
                                      bool add);
@@ -132,7 +135,7 @@ private:
     static int modifyVirtualNetwork(unsigned netId, const char* interface,
                                     const UidRanges& uidRanges, bool secure, bool add,
                                     bool modifyNonUidBasedRules);
-    static void updateTableNamesFile();
+    static void updateTableNamesFile() EXCLUDES(sInterfaceToTableLock);
 };
 
 // Public because they are called by by RouteControllerTest.cpp.

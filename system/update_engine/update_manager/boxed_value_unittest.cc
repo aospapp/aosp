@@ -26,9 +26,11 @@
 #include <base/strings/stringprintf.h>
 #include <base/time/time.h>
 
+#include "update_engine/update_manager/rollback_prefs.h"
 #include "update_engine/update_manager/shill_provider.h"
 #include "update_engine/update_manager/umtest_utils.h"
 #include "update_engine/update_manager/updater_provider.h"
+#include "update_engine/update_manager/weekly_time.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -49,14 +51,14 @@ class DeleterMarker {
   ~DeleterMarker() { *marker_ = true; }
 
  private:
-  friend string BoxedValue::ValuePrinter<DeleterMarker>(const void *);
+  friend string BoxedValue::ValuePrinter<DeleterMarker>(const void*);
 
   // Pointer to the bool marker.
   bool* marker_;
 };
 
-template<>
-string BoxedValue::ValuePrinter<DeleterMarker>(const void *value) {
+template <>
+string BoxedValue::ValuePrinter<DeleterMarker>(const void* value) {
   const DeleterMarker* val = reinterpret_cast<const DeleterMarker*>(value);
   return base::StringPrintf("DeleterMarker:%s",
                             *val->marker_ ? "true" : "false");
@@ -110,8 +112,7 @@ TEST(UmBoxedValueTest, MixedMap) {
 }
 
 TEST(UmBoxedValueTest, StringToString) {
-  EXPECT_EQ("Hej Verden!",
-            BoxedValue(new string("Hej Verden!")).ToString());
+  EXPECT_EQ("Hej Verden!", BoxedValue(new string("Hej Verden!")).ToString());
 }
 
 TEST(UmBoxedValueTest, IntToString) {
@@ -120,8 +121,8 @@ TEST(UmBoxedValueTest, IntToString) {
 
 TEST(UmBoxedValueTest, Int64ToString) {
   // -123456789012345 doesn't fit in 32-bit integers.
-  EXPECT_EQ("-123456789012345", BoxedValue(
-      new int64_t(-123456789012345LL)).ToString());
+  EXPECT_EQ("-123456789012345",
+            BoxedValue(new int64_t(-123456789012345LL)).ToString());
 }
 
 TEST(UmBoxedValueTest, UnsignedIntToString) {
@@ -132,8 +133,8 @@ TEST(UmBoxedValueTest, UnsignedIntToString) {
 
 TEST(UmBoxedValueTest, UnsignedInt64ToString) {
   // 18446744073709551615 is the biggest possible 64-bit unsigned integer.
-  EXPECT_EQ("18446744073709551615", BoxedValue(
-      new uint64_t(18446744073709551615ULL)).ToString());
+  EXPECT_EQ("18446744073709551615",
+            BoxedValue(new uint64_t(18446744073709551615ULL)).ToString());
 }
 
 TEST(UmBoxedValueTest, BoolToString) {
@@ -153,43 +154,72 @@ TEST(UmBoxedValueTest, TimeToString) {
 
 TEST(UmBoxedValueTest, TimeDeltaToString) {
   // 12345 seconds is 3 hours, 25 minutes and 45 seconds.
-  EXPECT_EQ("3h25m45s",
-            BoxedValue(new TimeDelta(TimeDelta::FromSeconds(12345)))
-            .ToString());
+  EXPECT_EQ(
+      "3h25m45s",
+      BoxedValue(new TimeDelta(TimeDelta::FromSeconds(12345))).ToString());
 }
 
 TEST(UmBoxedValueTest, ConnectionTypeToString) {
-  EXPECT_EQ("ethernet",
-            BoxedValue(new ConnectionType(ConnectionType::kEthernet))
-            .ToString());
+  EXPECT_EQ(
+      "Disconnected",
+      BoxedValue(new ConnectionType(ConnectionType::kDisconnected)).ToString());
+  EXPECT_EQ(
+      "ethernet",
+      BoxedValue(new ConnectionType(ConnectionType::kEthernet)).ToString());
   EXPECT_EQ("wifi",
             BoxedValue(new ConnectionType(ConnectionType::kWifi)).ToString());
   EXPECT_EQ("wimax",
             BoxedValue(new ConnectionType(ConnectionType::kWimax)).ToString());
-  EXPECT_EQ("bluetooth",
-            BoxedValue(new ConnectionType(ConnectionType::kBluetooth))
-            .ToString());
-  EXPECT_EQ("cellular",
-            BoxedValue(new ConnectionType(ConnectionType::kCellular))
-            .ToString());
-  EXPECT_EQ("Unknown",
-            BoxedValue(new ConnectionType(ConnectionType::kUnknown))
-            .ToString());
+  EXPECT_EQ(
+      "bluetooth",
+      BoxedValue(new ConnectionType(ConnectionType::kBluetooth)).ToString());
+  EXPECT_EQ(
+      "cellular",
+      BoxedValue(new ConnectionType(ConnectionType::kCellular)).ToString());
+  EXPECT_EQ(
+      "Unknown",
+      BoxedValue(new ConnectionType(ConnectionType::kUnknown)).ToString());
 }
 
 TEST(UmBoxedValueTest, ConnectionTetheringToString) {
-  EXPECT_EQ("Not Detected",
-            BoxedValue(new ConnectionTethering(
-                ConnectionTethering::kNotDetected)).ToString());
+  EXPECT_EQ(
+      "Not Detected",
+      BoxedValue(new ConnectionTethering(ConnectionTethering::kNotDetected))
+          .ToString());
   EXPECT_EQ("Suspected",
             BoxedValue(new ConnectionTethering(ConnectionTethering::kSuspected))
-            .ToString());
+                .ToString());
   EXPECT_EQ("Confirmed",
             BoxedValue(new ConnectionTethering(ConnectionTethering::kConfirmed))
-            .ToString());
+                .ToString());
   EXPECT_EQ("Unknown",
             BoxedValue(new ConnectionTethering(ConnectionTethering::kUnknown))
-            .ToString());
+                .ToString());
+}
+
+TEST(UmBoxedValueTest, RollbackToTargetVersionToString) {
+  EXPECT_EQ("Unspecified",
+            BoxedValue(new RollbackToTargetVersion(
+                           RollbackToTargetVersion::kUnspecified))
+                .ToString());
+  EXPECT_EQ("Disabled",
+            BoxedValue(
+                new RollbackToTargetVersion(RollbackToTargetVersion::kDisabled))
+                .ToString());
+  EXPECT_EQ("Rollback and powerwash",
+            BoxedValue(new RollbackToTargetVersion(
+                           RollbackToTargetVersion::kRollbackAndPowerwash))
+                .ToString());
+  EXPECT_EQ(
+      "Rollback and restore if possible",
+      BoxedValue(new RollbackToTargetVersion(
+                     RollbackToTargetVersion::kRollbackAndRestoreIfPossible))
+          .ToString());
+  EXPECT_EQ(
+      "Rollback only if restore is possible",
+      BoxedValue(new RollbackToTargetVersion(
+                     RollbackToTargetVersion::kRollbackOnlyIfRestorePossible))
+          .ToString());
 }
 
 TEST(UmBoxedValueTest, SetConnectionTypeToString) {
@@ -204,18 +234,15 @@ TEST(UmBoxedValueTest, SetConnectionTypeToString) {
 }
 
 TEST(UmBoxedValueTest, StageToString) {
-  EXPECT_EQ("Idle",
-            BoxedValue(new Stage(Stage::kIdle)).ToString());
+  EXPECT_EQ("Idle", BoxedValue(new Stage(Stage::kIdle)).ToString());
   EXPECT_EQ("Checking For Update",
             BoxedValue(new Stage(Stage::kCheckingForUpdate)).ToString());
   EXPECT_EQ("Update Available",
             BoxedValue(new Stage(Stage::kUpdateAvailable)).ToString());
   EXPECT_EQ("Downloading",
             BoxedValue(new Stage(Stage::kDownloading)).ToString());
-  EXPECT_EQ("Verifying",
-            BoxedValue(new Stage(Stage::kVerifying)).ToString());
-  EXPECT_EQ("Finalizing",
-            BoxedValue(new Stage(Stage::kFinalizing)).ToString());
+  EXPECT_EQ("Verifying", BoxedValue(new Stage(Stage::kVerifying)).ToString());
+  EXPECT_EQ("Finalizing", BoxedValue(new Stage(Stage::kFinalizing)).ToString());
   EXPECT_EQ("Updated, Need Reboot",
             BoxedValue(new Stage(Stage::kUpdatedNeedReboot)).ToString());
   EXPECT_EQ("Reporting Error Event",
@@ -240,6 +267,36 @@ TEST(UmBoxedValueTest, UpdateRestrictionsToString) {
             BoxedValue(new UpdateRestrictions(
                            UpdateRestrictions::kRestrictDownloading))
                 .ToString());
+}
+
+TEST(UmBoxedValueTest, WeeklyTimeIntervalToString) {
+  EXPECT_EQ("Start: day_of_week=2 time=100\nEnd: day_of_week=4 time=200",
+            BoxedValue(new WeeklyTimeInterval(
+                           WeeklyTime(2, TimeDelta::FromMinutes(100)),
+                           WeeklyTime(4, TimeDelta::FromMinutes(200))))
+                .ToString());
+  EXPECT_EQ("Start: day_of_week=1 time=10\nEnd: day_of_week=1 time=20",
+            BoxedValue(new WeeklyTimeInterval(
+                           WeeklyTime(1, TimeDelta::FromMinutes(10)),
+                           WeeklyTime(1, TimeDelta::FromMinutes(20))))
+                .ToString());
+}
+
+TEST(UmBoxedValueTest, WeeklyTimeIntervalVectorToString) {
+  WeeklyTimeIntervalVector intervals;
+  intervals.emplace_back(WeeklyTime(5, TimeDelta::FromMinutes(10)),
+                         WeeklyTime(1, TimeDelta::FromMinutes(30)));
+  EXPECT_EQ(
+      "Disallowed intervals:\nStart: day_of_week=5 time=10\nEnd: "
+      "day_of_week=1 time=30\n",
+      BoxedValue(new WeeklyTimeIntervalVector(intervals)).ToString());
+  intervals.emplace_back(WeeklyTime(1, TimeDelta::FromMinutes(5)),
+                         WeeklyTime(6, TimeDelta::FromMinutes(1000)));
+  EXPECT_EQ(
+      "Disallowed intervals:\nStart: day_of_week=5 time=10\nEnd: "
+      "day_of_week=1 time=30\nStart: day_of_week=1 time=5\nEnd: day_of_week=6 "
+      "time=1000\n",
+      BoxedValue(new WeeklyTimeIntervalVector(intervals)).ToString());
 }
 
 }  // namespace chromeos_update_manager

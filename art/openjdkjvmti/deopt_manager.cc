@@ -30,6 +30,8 @@
  */
 
 #include <functional>
+#include <iosfwd>
+#include <mutex>
 
 #include "deopt_manager.h"
 
@@ -40,13 +42,19 @@
 #include "dex/dex_file_annotations.h"
 #include "dex/modifiers.h"
 #include "events-inl.h"
+#include "gc/collector_type.h"
+#include "gc/heap.h"
+#include "gc/scoped_gc_critical_section.h"
+#include "instrumentation.h"
 #include "jit/jit.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/object_array-inl.h"
 #include "nativehelper/scoped_local_ref.h"
+#include "read_barrier_config.h"
 #include "runtime_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
+#include "scoped_thread_state_change.h"
 #include "thread-current-inl.h"
 #include "thread_list.h"
 #include "ti_phase.h"
@@ -106,6 +114,53 @@ void DeoptManager::Shutdown() {
   callbacks->RemoveMethodInspectionCallback(&inspection_callback_);
 }
 
+void DeoptManager::DumpDeoptInfo(art::Thread* self, std::ostream& stream) {
+  art::ScopedObjectAccess soa(self);
+  art::MutexLock mutll(self, *art::Locks::thread_list_lock_);
+  art::MutexLock mudsl(self, deoptimization_status_lock_);
+  art::MutexLock mubsl(self, breakpoint_status_lock_);
+  stream << "Deoptimizer count: " << deopter_count_ << "\n";
+  stream << "Global deopt count: " << global_deopt_count_ << "\n";
+  stream << "Can perform OSR: " << !set_local_variable_called_.load() << "\n";
+  for (const auto& [bp, loc] : this->breakpoint_status_) {
+    stream << "Breakpoint: " << bp->PrettyMethod() << " @ 0x" << std::hex << loc << "\n";
+  }
+  struct DumpThreadDeoptCount : public art::Closure {
+   public:
+    DumpThreadDeoptCount(std::ostream& stream, std::mutex& mu)
+        : cnt_(0), stream_(stream), mu_(mu) {}
+    void Run(art::Thread* self) override {
+      {
+        std::lock_guard<std::mutex> lg(mu_);
+        std::string name;
+        self->GetThreadName(name);
+        stream_ << "Thread " << name << " (id: " << std::dec << self->GetThreadId()
+                << ") force interpreter count " << self->ForceInterpreterCount() << "\n";
+      }
+      // Increment this after unlocking the mutex so we won't race its destructor.
+      cnt_++;
+    }
+
+    void WaitForCount(size_t threads) {
+      while (cnt_.load() != threads) {
+        sched_yield();
+      }
+    }
+
+   private:
+    std::atomic<size_t> cnt_;
+    std::ostream& stream_;
+    std::mutex& mu_;
+  };
+
+  std::mutex mu;
+  DumpThreadDeoptCount dtdc(stream, mu);
+  auto func = [](art::Thread* thread, void* ctx) {
+    reinterpret_cast<DumpThreadDeoptCount*>(ctx)->Run(thread);
+  };
+  art::Runtime::Current()->GetThreadList()->ForEach(func, &dtdc);
+}
+
 void DeoptManager::FinishSetup() {
   art::Thread* self = art::Thread::Current();
   art::MutexLock mu(self, deoptimization_status_lock_);
@@ -137,6 +192,9 @@ void DeoptManager::FinishSetup() {
         // OnLoad since the runtime hasn't started up sufficiently. This is only expected to happen
         // on userdebug/eng builds.
         LOG(INFO) << "Attempting to start jit for openjdkjvmti plugin.";
+        // Note: use rwx allowed = true, because if this is the system server, we will not be
+        //       allowed to allocate any JIT code cache, anyways.
+        runtime->CreateJitCodeCache(/*rwx_memory_allowed=*/true);
         runtime->CreateJit();
         if (runtime->GetJit() == nullptr) {
           LOG(WARNING) << "Could not start jit for openjdkjvmti plugin. This process might be "
@@ -266,29 +324,35 @@ void DeoptManager::WaitForDeoptimizationToFinish(art::Thread* self) {
   deoptimization_status_lock_.ExclusiveUnlock(self);
 }
 
+// Users should make sure that only gc-critical-section safe code is used while a
+// ScopedDeoptimizationContext exists.
 class ScopedDeoptimizationContext : public art::ValueObject {
  public:
   ScopedDeoptimizationContext(art::Thread* self, DeoptManager* deopt)
       RELEASE(deopt->deoptimization_status_lock_)
       ACQUIRE(art::Locks::mutator_lock_)
       ACQUIRE(art::Roles::uninterruptible_)
-      : self_(self), deopt_(deopt), uninterruptible_cause_(nullptr) {
+      : self_(self),
+        deopt_(deopt),
+        critical_section_(self_, "JVMTI Deoptimizing methods"),
+        uninterruptible_cause_(nullptr) {
     deopt_->WaitForDeoptimizationToFinishLocked(self_);
     DCHECK(!deopt->performing_deoptimization_)
         << "Already performing deoptimization on another thread!";
     // Use performing_deoptimization_ to keep track of the lock.
     deopt_->performing_deoptimization_ = true;
     deopt_->deoptimization_status_lock_.Unlock(self_);
+    uninterruptible_cause_ = critical_section_.Enter(art::gc::kGcCauseInstrumentation,
+                                                     art::gc::kCollectorTypeCriticalSection);
     art::Runtime::Current()->GetThreadList()->SuspendAll("JMVTI Deoptimizing methods",
-                                                         /*long_suspend*/ false);
-    uninterruptible_cause_ = self_->StartAssertNoThreadSuspension("JVMTI deoptimizing methods");
+                                                         /*long_suspend=*/ false);
   }
 
   ~ScopedDeoptimizationContext()
       RELEASE(art::Locks::mutator_lock_)
       RELEASE(art::Roles::uninterruptible_) {
     // Can be suspended again.
-    self_->EndAssertNoThreadSuspension(uninterruptible_cause_);
+    critical_section_.Exit(uninterruptible_cause_);
     // Release the mutator lock.
     art::Runtime::Current()->GetThreadList()->ResumeAll();
     // Let other threads know it's fine to proceed.
@@ -300,6 +364,7 @@ class ScopedDeoptimizationContext : public art::ValueObject {
  private:
   art::Thread* self_;
   DeoptManager* deopt_;
+  art::gc::GCCriticalSection critical_section_;
   const char* uninterruptible_cause_;
 };
 
@@ -344,6 +409,46 @@ void DeoptManager::PerformGlobalUndeoptimization(art::Thread* self) {
       kDeoptManagerInstrumentationKey);
 }
 
+jvmtiError DeoptManager::AddDeoptimizeThreadMethods(art::ScopedObjectAccessUnchecked& soa, jthread jtarget) {
+  art::Locks::thread_list_lock_->ExclusiveLock(soa.Self());
+  art::Thread* target = nullptr;
+  jvmtiError err = OK;
+  if (!ThreadUtil::GetNativeThread(jtarget, soa, &target, &err)) {
+    art::Locks::thread_list_lock_->ExclusiveUnlock(soa.Self());
+    return err;
+  }
+  // We don't need additional locking here because we hold the Thread_list_lock_.
+  if (target->IncrementForceInterpreterCount() == 1) {
+    struct DeoptClosure : public art::Closure {
+     public:
+      explicit DeoptClosure(DeoptManager* man) : man_(man) {}
+      void Run(art::Thread* self) override REQUIRES_SHARED(art::Locks::mutator_lock_) {
+        man_->DeoptimizeThread(self);
+      }
+
+     private:
+      DeoptManager* man_;
+    };
+    DeoptClosure c(this);
+    target->RequestSynchronousCheckpoint(&c);
+  } else {
+    art::Locks::thread_list_lock_->ExclusiveUnlock(soa.Self());
+  }
+  return OK;
+}
+
+jvmtiError DeoptManager::RemoveDeoptimizeThreadMethods(art::ScopedObjectAccessUnchecked& soa, jthread jtarget) {
+  art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
+  art::Thread* target = nullptr;
+  jvmtiError err = OK;
+  if (!ThreadUtil::GetNativeThread(jtarget, soa, &target, &err)) {
+    return err;
+  }
+  // We don't need additional locking here because we hold the Thread_list_lock_.
+  DCHECK_GT(target->ForceInterpreterCount(), 0u);
+  target->DecrementForceInterpreterCount();
+  return OK;
+}
 
 void DeoptManager::RemoveDeoptimizationRequester() {
   art::Thread* self = art::Thread::Current();
@@ -368,14 +473,23 @@ void DeoptManager::AddDeoptimizationRequester() {
   deopter_count_++;
   if (deopter_count_ == 1) {
     ScopedDeoptimizationContext sdc(self, this);
-    art::Runtime::Current()->GetInstrumentation()->EnableDeoptimization();
-    return;
+    art::instrumentation::Instrumentation* instrumentation =
+        art::Runtime::Current()->GetInstrumentation();
+    // Enable deoptimization
+    instrumentation->EnableDeoptimization();
+    // Tell instrumentation we will be deopting single threads.
+    instrumentation->EnableSingleThreadDeopt();
   } else {
     deoptimization_status_lock_.ExclusiveUnlock(self);
   }
 }
 
 void DeoptManager::DeoptimizeThread(art::Thread* target) {
+  // We might or might not be running on the target thread (self) so get Thread::Current
+  // directly.
+  art::gc::ScopedGCCriticalSection sgccs(art::Thread::Current(),
+                                         art::gc::GcCause::kGcCauseDebugger,
+                                         art::gc::CollectorType::kCollectorTypeDebugger);
   art::Runtime::Current()->GetInstrumentation()->InstrumentThreadStack(target);
 }
 

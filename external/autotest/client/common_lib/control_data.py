@@ -95,7 +95,6 @@ class ControlData(object):
         self.test_parameters = set()
         self.test_category = ''
         self.test_class = ''
-        self.retries = 0
         self.job_retries = 0
         # Default to require server-side package. Unless require_ssp is
         # explicitly set to False, server-side package will be used for the
@@ -262,10 +261,6 @@ class ControlData(object):
 
     def set_test_parameters(self, val):
         self._set_set('test_parameters', val)
-
-
-    def set_retries(self, val):
-        self._set_int('retries', val)
 
 
     def set_job_retries(self, val):

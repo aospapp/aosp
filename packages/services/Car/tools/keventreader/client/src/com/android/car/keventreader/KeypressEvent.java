@@ -17,6 +17,7 @@ package com.android.car.keventreader;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -628,6 +629,17 @@ public final class KeypressEvent implements Parcelable {
     }
 
     public String keycodeToString() {
-        return KEYCODE_NAME_MAP.getOrDefault(keycode, Integer.toHexString(keycode));
+        return keycodeToString(keycode);
+    }
+
+    /**
+     * Translates a key code from keventreader into a string.
+     * @param keycode Key code from a keventreader KeypressEvent.
+     * @return String String label corresponding to keycode, if available. If not, String with
+     *     hexidecimal representation of keycode.
+     */
+    public static String keycodeToString(int keycode) {
+        String ret = KEYCODE_NAME_MAP.get(keycode);
+        return ret != null ? ret : "0x" + Integer.toHexString(keycode);
     }
 }

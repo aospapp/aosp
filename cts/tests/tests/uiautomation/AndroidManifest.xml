@@ -22,6 +22,7 @@
 
   <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
   <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+  <uses-permission android:name="android.permission.CAMERA" />
 
   <application android:theme="@android:style/Theme.Holo.NoActionBar" >
 
@@ -53,7 +54,7 @@
 
   </application>
 
-  <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                    android:targetPackage="android.app.uiautomation.cts">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />

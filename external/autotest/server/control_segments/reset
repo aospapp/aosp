@@ -27,12 +27,10 @@ def reset(machine):
                                   fields={'dut_host_name': hostname}):
             # Assume cleanup always runs first.
             target.cleanup()
-            provision.run_special_task_actions(job, target, labels_list,
-                                               provision.Cleanup)
+            provision.Cleanup.run_task_actions(job, target, labels_list)
 
             target.verify()
-            provision.run_special_task_actions(job, target, labels_list,
-                                               provision.Verify)
+            provision.Verify.run_task_actions(job, target, labels_list)
     except Exception:
         logging.exception('Reset failed due to Exception.')
         job.record('END FAIL', None, 'reset')

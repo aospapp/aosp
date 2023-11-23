@@ -16,6 +16,11 @@
 
 package com.android.cts.net.hostside;
 
+import static android.system.OsConstants.ICMP6_ECHO_REPLY;
+import static android.system.OsConstants.ICMP6_ECHO_REQUEST;
+import static android.system.OsConstants.ICMP_ECHO;
+import static android.system.OsConstants.ICMP_ECHOREPLY;
+
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
@@ -47,8 +52,6 @@ public class PacketReflector extends Thread {
 
     private static final byte ICMP_ECHO = 8;
     private static final byte ICMP_ECHOREPLY = 0;
-    private static final byte ICMPV6_ECHO_REQUEST = (byte) 128;
-    private static final byte ICMPV6_ECHO_REPLY = (byte) 129;
 
     private static String TAG = "PacketReflector";
 
@@ -125,7 +128,7 @@ public class PacketReflector extends Thread {
 
         byte type = buf[hdrLen];
         if (!(version == 4 && type == ICMP_ECHO) &&
-            !(version == 6 && type == ICMPV6_ECHO_REQUEST)) {
+            !(version == 6 && type == (byte) ICMP6_ECHO_REQUEST)) {
             return;
         }
 
@@ -145,10 +148,18 @@ public class PacketReflector extends Thread {
             return;
         }
 
+        byte replyType = buf[hdrLen];
+        if ((type == ICMP_ECHO && replyType != ICMP_ECHOREPLY)
+                || (type == (byte) ICMP6_ECHO_REQUEST && replyType != (byte) ICMP6_ECHO_REPLY)) {
+            Log.i(TAG, "Received unexpected ICMP reply: original " + type
+                    + ", reply " + replyType);
+            return;
+        }
+
         // Compare the response we got with the original packet.
         // The only thing that should have changed are addresses, type and checksum.
         // Overwrite them with the received bytes and see if the packet is otherwise identical.
-        request[hdrLen] = buf[hdrLen];          // Type.
+        request[hdrLen] = buf[hdrLen];          // Type
         request[hdrLen + 2] = buf[hdrLen + 2];  // Checksum byte 1.
         request[hdrLen + 3] = buf[hdrLen + 3];  // Checksum byte 2.
 

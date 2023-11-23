@@ -18,7 +18,7 @@ package com.android.rs.image2;
 
 import android.app.Activity;
 import android.content.Context;
-import android.support.v8.renderscript.*;
+import androidx.renderscript.*;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;

@@ -16,48 +16,38 @@
 
 #include "resolver.h"
 
+#include "dex/class_accessor-inl.h"
 #include "dex/dex_file-inl.h"
 #include "dex/primitive.h"
+#include "dex/signature-inl.h"
 #include "hidden_api.h"
 #include "veridex.h"
 
 namespace art {
 
 void VeridexResolver::Run() {
-  size_t class_def_count = dex_file_.NumClassDefs();
-  for (size_t class_def_index = 0; class_def_index < class_def_count; ++class_def_index) {
-    const DexFile::ClassDef& class_def = dex_file_.GetClassDef(class_def_index);
-    std::string name(dex_file_.StringByTypeIdx(class_def.class_idx_));
+  for (ClassAccessor accessor : dex_file_.GetClasses()) {
+    std::string name(accessor.GetDescriptor());
     auto existing = type_map_.find(name);
+    const uint32_t type_idx = accessor.GetClassIdx().index_;
     if (existing != type_map_.end()) {
       // Class already exists, cache it and move on.
-      type_infos_[class_def.class_idx_.index_] = *existing->second;
+      type_infos_[type_idx] = *existing->second;
       continue;
     }
-    type_infos_[class_def.class_idx_.index_] = VeriClass(Primitive::Type::kPrimNot, 0, &class_def);
-    type_map_[name] = &(type_infos_[class_def.class_idx_.index_]);
-
-    const uint8_t* class_data = dex_file_.GetClassData(class_def);
-    if (class_data == nullptr) {
-      // Empty class.
-      continue;
+    type_infos_[type_idx] = VeriClass(Primitive::Type::kPrimNot, 0, &accessor.GetClassDef());
+    type_map_[name] = &type_infos_[type_idx];
+    for (const ClassAccessor::Field& field : accessor.GetFields()) {
+      field_infos_[field.GetIndex()] = field.GetDataPointer();
     }
-
-    ClassDataItemIterator it(dex_file_, class_data);
-    for (; it.HasNextStaticField(); it.Next()) {
-      field_infos_[it.GetMemberIndex()] = it.DataPointer();
-    }
-    for (; it.HasNextInstanceField(); it.Next()) {
-      field_infos_[it.GetMemberIndex()] = it.DataPointer();
-    }
-    for (; it.HasNextMethod(); it.Next()) {
-      method_infos_[it.GetMemberIndex()] = it.DataPointer();
+    for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+      method_infos_[method.GetIndex()] = method.GetDataPointer();
     }
   }
 }
 
 static bool HasSameNameAndSignature(const DexFile& dex_file,
-                                    const DexFile::MethodId& method_id,
+                                    const dex::MethodId& method_id,
                                     const char* method_name,
                                     const char* type) {
   return strcmp(method_name, dex_file.GetMethodName(method_id)) == 0 &&
@@ -65,7 +55,7 @@ static bool HasSameNameAndSignature(const DexFile& dex_file,
 }
 
 static bool HasSameNameAndSignature(const DexFile& dex_file,
-                                    const DexFile::MethodId& method_id,
+                                    const dex::MethodId& method_id,
                                     const char* method_name,
                                     const Signature& signature) {
   return strcmp(method_name, dex_file.GetMethodName(method_id)) == 0 &&
@@ -73,7 +63,7 @@ static bool HasSameNameAndSignature(const DexFile& dex_file,
 }
 
 static bool HasSameNameAndType(const DexFile& dex_file,
-                               const DexFile::FieldId& field_id,
+                               const dex::FieldId& field_id,
                                const char* field_name,
                                const char* field_type) {
   return strcmp(field_name, dex_file.GetFieldName(field_id)) == 0 &&
@@ -148,18 +138,14 @@ VeriMethod VeridexResolver::LookupMethodIn(const VeriClass& kls,
 
   // Look at methods declared in `kls`.
   const DexFile& other_dex_file = resolver->dex_file_;
-  const uint8_t* class_data = other_dex_file.GetClassData(*kls.GetClassDef());
-  if (class_data != nullptr) {
-    ClassDataItemIterator it(other_dex_file, class_data);
-    it.SkipAllFields();
-    for (; it.HasNextMethod(); it.Next()) {
-      const DexFile::MethodId& other_method_id = other_dex_file.GetMethodId(it.GetMemberIndex());
-      if (HasSameNameAndSignature(other_dex_file,
-                                  other_method_id,
-                                  method_name,
-                                  method_signature)) {
-        return it.DataPointer();
-      }
+  ClassAccessor other_dex_accessor(other_dex_file, *kls.GetClassDef());
+  for (const ClassAccessor::Method& method : other_dex_accessor.GetMethods()) {
+    const dex::MethodId& other_method_id = other_dex_file.GetMethodId(method.GetIndex());
+    if (HasSameNameAndSignature(other_dex_file,
+                                other_method_id,
+                                method_name,
+                                method_signature)) {
+      return method.GetDataPointer();
     }
   }
 
@@ -175,7 +161,7 @@ VeriMethod VeridexResolver::LookupMethodIn(const VeriClass& kls,
   }
 
   // Look at methods in `kls`'s interface hierarchy.
-  const DexFile::TypeList* interfaces = other_dex_file.GetInterfacesList(*kls.GetClassDef());
+  const dex::TypeList* interfaces = other_dex_file.GetInterfacesList(*kls.GetClassDef());
   if (interfaces != nullptr) {
     for (size_t i = 0; i < interfaces->Size(); i++) {
       dex::TypeIndex idx = interfaces->GetTypeItem(i).type_idx_;
@@ -207,22 +193,19 @@ VeriField VeridexResolver::LookupFieldIn(const VeriClass& kls,
 
   // Look at fields declared in `kls`.
   const DexFile& other_dex_file = resolver->dex_file_;
-  const uint8_t* class_data = other_dex_file.GetClassData(*kls.GetClassDef());
-  if (class_data != nullptr) {
-    ClassDataItemIterator it(other_dex_file, class_data);
-    for (; it.HasNextStaticField() || it.HasNextInstanceField(); it.Next()) {
-      const DexFile::FieldId& other_field_id = other_dex_file.GetFieldId(it.GetMemberIndex());
-      if (HasSameNameAndType(other_dex_file,
-                             other_field_id,
-                             field_name,
-                             field_type)) {
-        return it.DataPointer();
-      }
+  ClassAccessor other_dex_accessor(other_dex_file, *kls.GetClassDef());
+  for (const ClassAccessor::Field& field : other_dex_accessor.GetFields()) {
+    const dex::FieldId& other_field_id = other_dex_file.GetFieldId(field.GetIndex());
+    if (HasSameNameAndType(other_dex_file,
+                           other_field_id,
+                           field_name,
+                           field_type)) {
+      return field.GetDataPointer();
     }
   }
 
   // Look at fields in `kls`'s interface hierarchy.
-  const DexFile::TypeList* interfaces = other_dex_file.GetInterfacesList(*kls.GetClassDef());
+  const dex::TypeList* interfaces = other_dex_file.GetInterfacesList(*kls.GetClassDef());
   if (interfaces != nullptr) {
     for (size_t i = 0; i < interfaces->Size(); i++) {
       dex::TypeIndex idx = interfaces->GetTypeItem(i).type_idx_;
@@ -260,18 +243,13 @@ VeriMethod VeridexResolver::LookupDeclaredMethodIn(const VeriClass& kls,
   }
   VeridexResolver* resolver = GetResolverOf(kls);
   const DexFile& other_dex_file = resolver->dex_file_;
-  const uint8_t* class_data = other_dex_file.GetClassData(*kls.GetClassDef());
-  if (class_data != nullptr) {
-    ClassDataItemIterator it(other_dex_file, class_data);
-    it.SkipAllFields();
-    for (; it.HasNextMethod(); it.Next()) {
-      const DexFile::MethodId& other_method_id = other_dex_file.GetMethodId(it.GetMemberIndex());
-      if (HasSameNameAndSignature(other_dex_file,
-                                  other_method_id,
-                                  method_name,
-                                  type)) {
-        return it.DataPointer();
-      }
+  ClassAccessor other_dex_accessor(other_dex_file, *kls.GetClassDef());
+  for (const ClassAccessor::Method& method : other_dex_accessor.GetMethods()) {
+    if (HasSameNameAndSignature(other_dex_file,
+                                other_dex_file.GetMethodId(method.GetIndex()),
+                                method_name,
+                                type)) {
+      return method.GetDataPointer();
     }
   }
   return nullptr;
@@ -281,7 +259,7 @@ VeriMethod VeridexResolver::GetMethod(uint32_t method_index) {
   VeriMethod method_info = method_infos_[method_index];
   if (method_info == nullptr) {
     // Method is defined in another dex file.
-    const DexFile::MethodId& method_id = dex_file_.GetMethodId(method_index);
+    const dex::MethodId& method_id = dex_file_.GetMethodId(method_index);
     VeriClass* kls = GetVeriClass(method_id.class_idx_);
     if (kls == nullptr) {
       return nullptr;
@@ -299,7 +277,7 @@ VeriField VeridexResolver::GetField(uint32_t field_index) {
   VeriField field_info = field_infos_[field_index];
   if (field_info == nullptr) {
     // Field is defined in another dex file.
-    const DexFile::FieldId& field_id = dex_file_.GetFieldId(field_index);
+    const dex::FieldId& field_id = dex_file_.GetFieldId(field_index);
     VeriClass* kls = GetVeriClass(field_id.class_idx_);
     if (kls == nullptr) {
       return nullptr;

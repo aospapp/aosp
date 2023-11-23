@@ -52,6 +52,26 @@ class ProcQtaguidCtrlTest(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_path(self):
         return "/proc/net/xt_qtaguid/ctrl"
 
+    def file_optional(self, shell=None, dut=None):
+        """Specifies if the /proc/net/xt_qtaguid/ctrl file is mandatory.
+
+        For device running kernel 4.9 or above, it should use the eBPF cgroup
+        filter to monitor networking stats instead. So it may not have
+        xt_qtaguid module and /proc/net/xt_qtaguid/ctrl file on device.
+        But for device that still has xt_qtaguid module, this file is mandatory.
+
+        Same logic as checkKernelSupport in file:
+        test/vts-testcase/kernel/api/qtaguid/SocketTagUserSpace.cpp
+
+        Returns:
+            True when the kernel is 4.9 or newer, otherwise False is returned
+        """
+        (version, patchlevel, sublevel) = dut.kernel_version
+        if version == 4 and patchlevel >= 9 or version > 4:
+            return True
+        else:
+            return False
+
     def get_permission_checker(self):
         """Get r/w file permission checker.
         """

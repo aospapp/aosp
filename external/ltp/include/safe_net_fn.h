@@ -28,8 +28,13 @@
 char *tst_sock_addr(const struct sockaddr *sa, socklen_t salen, char *res,
 		    size_t len);
 
+int tst_getsockport(const char *file, const int lineno, int sockfd);
+
 int safe_socket(const char *file, const int lineno, void (cleanup_fn)(void),
 		int domain, int type, int protocol);
+
+int safe_getsockopt(const char *file, const int lineno, int sockfd, int level,
+		    int optname, void *optval, socklen_t *optlen);
 
 int safe_setsockopt(const char *file, const int lineno, int sockfd, int level,
 		    int optname, const void *optval, socklen_t optlen);
@@ -40,6 +45,12 @@ ssize_t safe_send(const char *file, const int lineno, char len_strict,
 ssize_t safe_sendto(const char *file, const int lineno, char len_strict,
 		    int sockfd, const void *buf, size_t len, int flags,
 		    const struct sockaddr *dest_addr, socklen_t addrlen);
+
+ssize_t safe_sendmsg(const char *file, const int lineno, size_t msg_len,
+		  int sockfd, const struct msghdr *msg, int flags);
+
+ssize_t safe_recvmsg(const char *file, const int lineno, size_t msg_len,
+		  int sockfd, struct msghdr *msg, int flags);
 
 int safe_bind(const char *file, const int lineno, void (cleanup_fn)(void),
 	      int socket, const struct sockaddr *address,

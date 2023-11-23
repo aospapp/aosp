@@ -111,6 +111,7 @@ template <TagType tag_type, Tag tag> struct TypedTag {
         // error (no match for template specialization StaticAssert<false>), with no run-time cost.
         static_assert(typeFromTag(tag) == tag_type, "mismatch between tag and tag_type");
     }
+    // NOLINTNEXTLINE(google-explicit-constructor)
     operator Tag() const { return tag; }
 };
 
@@ -308,6 +309,7 @@ template <typename ValueT> class NullOr {
 
   public:
     NullOr() : value_(initializer_t<ValueT>::init()), null_(true) {}
+    // NOLINTNEXTLINE(google-explicit-constructor)
     NullOr(ValueT&& value) : value_(std::forward<ValueT>(value)), null_(false) {}
 
     bool isOk() const { return !null_; }

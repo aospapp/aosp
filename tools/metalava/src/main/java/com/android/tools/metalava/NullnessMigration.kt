@@ -21,6 +21,7 @@ import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ParameterItem
+import com.android.tools.metalava.model.SUPPORT_TYPE_USE_ANNOTATIONS
 import com.android.tools.metalava.model.TypeItem
 
 /**
@@ -42,59 +43,54 @@ class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
         }
     }
 
-    override fun added(new: Item) {
-        // Translate newly added items into RecentlyNull/RecentlyNonNull
-        if (hasNullnessInformation(new)) {
-            markRecent(new)
-        }
-    }
+    // Note: We don't override added(new: Item) to mark newly added methods as newly
+    // having nullness annotations: those APIs are themselves new, so there's no reason
+    // to mark the nullness contract as migration (warning- rather than error-severity)
+
     override fun compare(old: MethodItem, new: MethodItem) {
-        val newType = new.returnType() ?: return
-        val oldType = old.returnType() ?: return
-        checkType(oldType, newType)
+        @Suppress("ConstantConditionIf")
+        if (SUPPORT_TYPE_USE_ANNOTATIONS) {
+            val newType = new.returnType() ?: return
+            val oldType = old.returnType() ?: return
+            checkType(oldType, newType)
+        }
     }
 
     override fun compare(old: FieldItem, new: FieldItem) {
-        val newType = new.type()
-        val oldType = old.type()
-        checkType(oldType, newType)
+        @Suppress("ConstantConditionIf")
+        if (SUPPORT_TYPE_USE_ANNOTATIONS) {
+            val newType = new.type()
+            val oldType = old.type()
+            checkType(oldType, newType)
+        }
     }
 
     override fun compare(old: ParameterItem, new: ParameterItem) {
-        val newType = new.type()
-        val oldType = old.type()
-        checkType(oldType, newType)
-    }
-
-    override fun added(new: MethodItem) {
-        checkType(new.returnType() ?: return)
-    }
-
-    override fun added(new: FieldItem) {
-        checkType(new.type())
-    }
-
-    override fun added(new: ParameterItem) {
-        checkType(new.type())
+        @Suppress("ConstantConditionIf")
+        if (SUPPORT_TYPE_USE_ANNOTATIONS) {
+            val newType = new.type()
+            val oldType = old.type()
+            checkType(oldType, newType)
+        }
     }
 
     private fun hasNullnessInformation(type: TypeItem): Boolean {
-        val typeString = type.toTypeString(false, true, false)
-        return typeString.contains(".Nullable") || typeString.contains(".NonNull")
+        return if (SUPPORT_TYPE_USE_ANNOTATIONS) {
+            val typeString = type.toTypeString(outerAnnotations = false, innerAnnotations = true)
+            typeString.contains(".Nullable") || typeString.contains(".NonNull")
+        } else {
+            false
+        }
     }
 
     private fun checkType(old: TypeItem, new: TypeItem) {
         if (hasNullnessInformation(new)) {
-            if (old.toTypeString(false, true, false) !=
-                new.toTypeString(false, true, false)) {
+            assert(SUPPORT_TYPE_USE_ANNOTATIONS)
+            if (old.toTypeString(outerAnnotations = false, innerAnnotations = true) !=
+                new.toTypeString(outerAnnotations = false, innerAnnotations = true)
+            ) {
                 new.markRecent()
             }
-        }
-    }
-
-    private fun checkType(new: TypeItem) {
-        if (hasNullnessInformation(new)) {
-            new.markRecent()
         }
     }
 
@@ -125,15 +121,6 @@ class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
 
         private fun isNonNull(item: Item): Boolean {
             return item.modifiers.annotations().any { it.isNonNull() }
-        }
-
-        private fun isRecentlyMigrated(item: Item): Boolean {
-            return item.modifiers.annotations().any { isRecentlyMigrated(it.qualifiedName() ?: "") }
-        }
-
-        private fun isRecentlyMigrated(qualifiedName: String): Boolean {
-            return qualifiedName.endsWith(".RecentlyNullable") ||
-                qualifiedName.endsWith(".RecentlyNonNull")
         }
     }
 }

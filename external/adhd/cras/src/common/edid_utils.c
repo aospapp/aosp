@@ -684,11 +684,11 @@ void show_edid(FILE *outfile, unsigned char *edid_data, int ext)
 		"Input: %s, vid level %d, %s, %s %s %s %s sync, %dx%dcm, Gamma %f\n",
 		(edid_data[EDID_VIDEO_IN] & 0x80) ? "digital" : "analog",
 		(edid_data[EDID_VIDEO_IN]>>5) & 3,
-		(edid_data[EDID_VIDEO_IN] * 0x10) ? "Blank to black" : "",
-		(edid_data[EDID_VIDEO_IN] * 0x08) ? "Separate" : "",
-		(edid_data[EDID_VIDEO_IN] * 0x04) ? "Composite" : "",
-		(edid_data[EDID_VIDEO_IN] * 0x02) ? "On-green" : "",
-		(edid_data[EDID_VIDEO_IN] * 0x01) ? "Serration V" : "",
+		(edid_data[EDID_VIDEO_IN] & 0x10) ? "Blank to black" : "",
+		(edid_data[EDID_VIDEO_IN] & 0x08) ? "Separate" : "",
+		(edid_data[EDID_VIDEO_IN] & 0x04) ? "Composite" : "",
+		(edid_data[EDID_VIDEO_IN] & 0x02) ? "On-green" : "",
+		(edid_data[EDID_VIDEO_IN] & 0x01) ? "Serration V" : "",
 		edid_data[EDID_MAX_HSIZE], edid_data[EDID_MAX_VSIZE],
 		1.0+((float)edid_data[EDID_GAMMA]/100.0));
 

@@ -70,8 +70,6 @@ public class CellBroadcastBootupConfigTest extends
     @Captor
     private ArgumentCaptor<Integer> mTypes;
 
-    private MockedServiceManager mMockedServiceManager;
-
     public CellBroadcastBootupConfigTest() {
         super(CellBroadcastConfigService.class);
     }
@@ -81,7 +79,6 @@ public class CellBroadcastBootupConfigTest extends
         super.setUp();
 
         doReturn(mSmsService).when(mSmsService).queryLocalInterface(anyString());
-        mMockedServiceManager = new MockedServiceManager();
         mMockedServiceManager.replaceService("isms", mSmsService);
         putResources(R.array.cmas_presidential_alerts_channels_range_strings, new String[]{
                 "0x1112-0x1112:rat=gsm",
@@ -111,7 +108,6 @@ public class CellBroadcastBootupConfigTest extends
 
     @After
     public void tearDown() throws Exception {
-        mMockedServiceManager.restoreAllServices();
         super.tearDown();
     }
 

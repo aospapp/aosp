@@ -21,8 +21,8 @@ import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.systemui.SysuiTestCase;
 
@@ -40,7 +40,7 @@ public class SettableWakeLockTest extends SysuiTestCase {
     @Before
     public void setup() {
         mFake = new WakeLockFake();
-        mSettable = new SettableWakeLock(mFake);
+        mSettable = new SettableWakeLock(mFake, "Fake");
     }
 
     @Test

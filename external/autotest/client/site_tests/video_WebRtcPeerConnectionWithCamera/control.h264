@@ -11,7 +11,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "webcam"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Video"],
@@ -25,5 +24,6 @@ checking both the video tag's attributes and peer connection stats
 reported to the performance dashboard.
 """
 
+capability='usb_camera'
 job.run_test("video_WebRtcPeerConnectionWithCamera",
-             video_codec="H264", tag='h264')
+             video_codec="H264", tag='h264', capability=capability)

@@ -18,10 +18,6 @@
 
     <!-- Keep this section in sync with the other app manifest(s) -->
     <application>
-        <activity android:name="android.os.cts.batterysaving.app.TestActivity"
-            android:enabled="true" android:exported="true">
-        </activity>
-
         <receiver android:name="android.os.cts.batterysaving.app.CommReceiver"
             android:enabled="true" android:exported="true">
         </receiver>

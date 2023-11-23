@@ -16,10 +16,14 @@
 #
 
 import datetime
+import logging
 import webapp2
+
+from google.appengine.ext import ndb
 
 from webapp.src import vtslab_status as Status
 from webapp.src.proto import model
+from webapp.src.utils import email_util
 from webapp.src.utils import logger
 
 DEVICE_RESPONSE_TIMEOUT_SECONDS = 300
@@ -48,11 +52,42 @@ class PeriodicDeviceHeartBeat(webapp2.RequestHandler):
             if (datetime.datetime.now() - x.timestamp
                 ).seconds >= DEVICE_RESPONSE_TIMEOUT_SECONDS
         ]
+        devices_to_put = []
+        labs_to_alert = {}
         for device in lost_devices:
             self.logger.Println("Device[{}] is not responding.".format(
                 device.serial))
             device.status = Status.DEVICE_STATUS_DICT["no-response"]
-            device.put()
+            devices_to_put.append(device)
+
+            # sending notification
+            lab_query = model.LabModel.query(
+                model.LabModel.hostname == device.hostname)
+            labs = lab_query.fetch()
+            if labs:
+                lab = labs[0]
+                if lab.name not in labs_to_alert:
+                    labs_to_alert[lab.name] = {}
+                    labs_to_alert[lab.name]["_recipients"] = []
+                if device.hostname not in labs_to_alert[lab.name]:
+                    labs_to_alert[lab.name][device.hostname] = []
+                if lab.owner not in labs_to_alert[lab.name]["_recipients"]:
+                    labs_to_alert[lab.name]["_recipients"].append(lab.owner)
+                labs_to_alert[lab.name]["_recipients"].extend([
+                    x for x in lab.admin
+                    if x not in labs_to_alert[lab.name]["_recipients"]
+                ])
+                labs_to_alert[lab.name][device.hostname].append(device.serial)
+            else:
+                logging.warning(
+                    "Could not find a lab model for hostname {}".format(
+                        device.hostname))
+                continue
+
+        if devices_to_put:
+            ndb.put_multi(devices_to_put)
+        if labs_to_alert:
+            email_util.send_device_notification(labs_to_alert)
 
         self.response.write(
             "<pre>\n" + "\n".join(self.logger.Get()) + "\n</pre>")

@@ -15,18 +15,15 @@
  */
 package android.media.cts;
 
-
-import android.media.cts.R;
-
-import android.media.MediaRecorder;
-import android.media.MediaPlayer;
-import android.platform.test.annotations.AppModeFull;
-import android.view.SurfaceHolder;
-import android.test.ActivityInstrumentationTestCase2;
-import android.os.Environment;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.media.MediaRecorder;
+import android.media.MediaPlayer;
+import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
+import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
+import android.view.SurfaceHolder;
 
 import java.util.Random;
 
@@ -41,6 +38,7 @@ import java.util.Random;
  * Blender Foundation / www.bigbuckbunny.org, and are licensed under the Creative Commons
  * Attribution 3.0 License at http://creativecommons.org/licenses/by/3.0/us/.
  */
+@MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
     private static final String TAG = "MediaRandomTest";
@@ -172,11 +170,17 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
             afd.close();
         }
     }
+    public void testPlayerRandomActionAV1() throws Exception {
+        testPlayerRandomAction(R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz);
+    }
     public void testPlayerRandomActionH264() throws Exception {
         testPlayerRandomAction(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
     }
     public void testPlayerRandomActionHEVC() throws Exception {
         testPlayerRandomAction(R.raw.video_480x360_mp4_hevc_650kbps_30fps_aac_stereo_128kbps_48000hz);
+    }
+    public void testPlayerRandomActionMpeg2() throws Exception {
+        testPlayerRandomAction(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz);
     }
     private void testPlayerRandomAction(int resid) throws Exception {
         Watchdog watchdog = new Watchdog(5000);

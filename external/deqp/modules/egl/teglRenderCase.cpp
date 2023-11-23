@@ -105,6 +105,11 @@ static void checkBuildClientAPISupport (EGLint requiredAPIs)
 {
 	const EGLint	builtClientAPIs		= getBuildClientAPIMask();
 
+#if !defined(DEQP_SUPPORT_GLES1)
+    if (requiredAPIs & EGL_OPENGL_ES_BIT)
+        TCU_THROW(NotSupportedError, "Test case requires ES1.1 API not supported in current build");
+    else
+#endif
 	if ((requiredAPIs & builtClientAPIs) != requiredAPIs)
 		TCU_THROW(InternalError, "Test case requires client API not supported in current build");
 }
@@ -402,6 +407,11 @@ static bool notFloat (const eglu::CandidateConfig& c)
 	return c.colorComponentType() != EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT;
 }
 
+static bool notYUV (const eglu::CandidateConfig& c)
+{
+	return c.colorBufferType() != EGL_YUV_BUFFER_EXT;
+}
+
 void getDefaultRenderFilterLists (vector<RenderFilterList>& filterLists, const eglu::FilterList& baseFilters)
 {
 	static const struct
@@ -456,7 +466,8 @@ void getDefaultRenderFilterLists (vector<RenderFilterList>& filterLists, const e
 				<< notColorBits<5, 5, 5, 1>
 				<< notColorBits<8, 8, 8, 8>
 				<< isConformant
-				<< notFloat;
+				<< notFloat
+				<< notYUV;
 
 		filterLists.push_back(filters);
 	}

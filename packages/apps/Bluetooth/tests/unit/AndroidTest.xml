@@ -26,7 +26,9 @@
         <option name="teardown-command" value="svc bluetooth enable" />
         <option name="teardown-command" value="settings put global ble_scan_always_enabled 1" />
     </target_preparer>
-
+    <target_preparer class="com.android.tradefed.targetprep.FolderSaver">
+        <option name="device-path" value="/data/vendor/ssrdump" />
+    </target_preparer>
     <option name="test-tag" value="BluetoothInstrumentationTests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.bluetooth.tests" />

@@ -28,8 +28,8 @@ LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     androidx.annotation_annotation \
-    android-support-test \
-    ctstestrunner
+    androidx.test.rules \
+    ctstestrunner-axt
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -28,7 +28,7 @@ from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
-from acts.test_utils.bt.bt_test_utils import batch_scan_result
+from acts.test_utils.bt.bt_constants import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
@@ -524,9 +524,9 @@ class BleOpportunisticScanTest(BluetoothBaseTest):
             self):
         """Test opportunistic scan result from secondary scan filter.
 
-        Tests opportunistic scan where the secondary scan instance does not find
-        an advertisement but the scan instance with scan mode set to
-        opportunistic scan will find an advertisement.
+        Tests opportunistic scan where the filtered scan instance does not find
+        an advertisement and the scan instance with scan mode set to
+        opportunistic scan will also not find an advertisement.
 
         Steps:
         1. Initialize advertiser and start advertisement on dut1 (make sure the
@@ -539,6 +539,7 @@ class BleOpportunisticScanTest(BluetoothBaseTest):
         6. Pop onScanResults from the second scanner
         7. Expect no events
         8. Pop onScanResults from the first scanner
+        9. Expect no events
 
         Expected Result:
         Opportunistic scan instance finds an advertisement.
@@ -573,11 +574,7 @@ class BleOpportunisticScanTest(BluetoothBaseTest):
         if not self._verify_no_events_found(
                 scan_result.format(scan_callback2)):
             return False
-        try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), self.default_timeout)
-        except Empty:
-            self.log.error("Opportunistic scan found no scan results.")
+        if not self._verify_no_events_found(scan_result.format(scan_callback)):
             return False
         return True
 

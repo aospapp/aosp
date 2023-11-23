@@ -218,19 +218,8 @@ Compile in support for Low Level TRACE-ing of the main interpreter loop.
 
 When this preprocessor symbol is defined, before PyEval_EvalFrame executes a
 frame's code it checks the frame's global namespace for a variable
-"__lltrace__".  If such a variable is found, mounds of information about what
+"__ltrace__".  If such a variable is found, mounds of information about what
 the interpreter is doing are sprayed to stdout, such as every opcode and opcode
 argument and values pushed onto and popped off the value stack.
 
 Not useful very often, but very useful when needed.
-
-
-CALL_PROFILE
-------------
-
-Count the number of function calls executed.
-
-When this symbol is defined, the ceval mainloop and helper functions count the
-number of function calls made.  It keeps detailed statistics about what kind of
-object was called and whether the call hit any of the special fast paths in the
-code.

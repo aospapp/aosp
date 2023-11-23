@@ -14,13 +14,12 @@
      limitations under the License.
 -->
 <resources>
-    <color name="phone_theme">@color/phone_theme_dark</color>
-    <color name="phone_theme_secondary">@color/phone_theme_secondary_dark</color>
-
-    <color name="telecom_display_scrim">#52000000</color>  <!-- 32% black -->
-    <color name="search_container_controls_tint">@color/car_grey_100</color>
-    <color name="search_container_text_hint">@color/car_body2_light</color>
-    <color name="car_caption">@color/car_caption_light</color>
-    <color name="car_key1">@color/car_key1_light</color>
     <color name="car_key2">@color/car_key2_light</color>
+
+    <!-- InCall page -->
+    <color name="onhold_call_background">@*android:color/car_grey_900</color>
+
+    <!-- Components -->
+    <color name="divider_color">@color/divider_color_dark</color>
+    <color name="secondary_icon_color">@color/secondary_icon_color_dark</color>
 </resources>

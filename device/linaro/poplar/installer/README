@@ -1,0 +1,44 @@
+The following instructions will help you to flash partition table and
+prebuilt bootloader onto Poplar board.
+
+* Find a USB disk formated with FAT file system, copy fastboot.bin and
+  recovery_files/ folder onto the disk.
+
+* Attach the USB disk to USB port J2 (next to IR receiver), and power on
+  Poplar board with button S3 (USB_BOOT) pressed until following
+  messages are seen on serial output.
+
+    Entry usb bootstrap
+
+    Usb disk(1):
+    Decrypt auxiliary code ...OK
+
+* Hit any key to stop U-Boot autoboot and get into the prompt.
+
+* Run U-Boot commands below to install partition table and bootloader.
+
+    poplar# usb reset
+    poplar# fatload usb 0:1 ${scriptaddr} recovery_files/install.scr
+    poplar# source ${scriptaddr}
+
+These instructions are only necessary for initial bootloader
+installation or board unbricking.  Once the initial installation is
+completed, you can update bootloader with fastboot support as below.
+
+* Connect Poplar (USB port J2) to PC with a Male-to-Male USB cable.
+
+* Power on Poplar, get into U-Boot prompt and run command below.
+
+    poplar# fastboot 0
+
+* On PC side, run command below to update the bootloader.
+
+    $ fastboot flash mmcsda1 loader.bin
+
+To install the AOSP images, use fastboot commands as below.
+
+    $ fastboot flash mmcsda2 boot.img
+    $ fastboot flash mmcsda3 system.img
+    $ fastboot flash mmcsda5 vendor.img
+    $ fastboot flash mmcsda6 cache.img
+    $ fastboot flash mmcsda7 userdata.img

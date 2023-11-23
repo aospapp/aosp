@@ -19,7 +19,6 @@ package com.android.phone;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncResult;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -33,13 +32,14 @@ import android.telephony.CellInfoGsm;
 import android.telephony.NetworkScan;
 import android.telephony.NetworkScanRequest;
 import android.telephony.RadioAccessSpecifier;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyScanManager;
 import android.util.Log;
 
+import com.android.internal.telephony.CellNetworkScanResult;
 import com.android.internal.telephony.OperatorInfo;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneFactory;
+import com.android.settingslib.utils.ThreadUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -185,7 +185,7 @@ public class NetworkQueryService extends Service {
          * completion.
          */
         public void startNetworkQuery(
-                INetworkQueryServiceCallback cb, int phoneId, boolean isIncrementalResult) {
+                INetworkQueryServiceCallback cb, int subId, boolean isIncrementalResult) {
             if (cb != null) {
                 // register the callback to the list of callbacks.
                 synchronized (mCallbacks) {
@@ -233,16 +233,23 @@ public class NetworkQueryService extends Service {
                                         networkScanCallback);
                                 mState = QUERY_IS_RUNNING;
                             } else {
-                                Phone phone = PhoneFactory.getPhone(phoneId);
-                                if (phone != null) {
-                                    phone.getAvailableNetworks(
-                                            mHandler.obtainMessage(
-                                                    EVENT_NETWORK_SCAN_VIA_PHONE_COMPLETED));
+                                if (SubscriptionManager.isValidSubscriptionId(subId)) {
                                     mState = QUERY_IS_RUNNING;
-                                    if (DBG) log("start network scan via Phone");
+                                    ThreadUtils.postOnBackgroundThread(() -> {
+                                        if (DBG) log("start network scan via Phone xxx");
+                                        TelephonyManager telephonyManager =
+                                                TelephonyManager.from(getApplicationContext())
+                                                        .createForSubscriptionId(subId);
+                                        CellNetworkScanResult result =
+                                                telephonyManager.getAvailableNetworks();
+                                        Message msg = mHandler.obtainMessage(
+                                                EVENT_NETWORK_SCAN_VIA_PHONE_COMPLETED);
+                                        msg.obj = result;
+                                        msg.sendToTarget();
+                                    });
                                 } else {
                                     if (DBG) {
-                                        log("phone is null");
+                                        log("SubscriptionId is invalid");
                                     }
                                 }
                             }
@@ -316,8 +323,7 @@ public class NetworkQueryService extends Service {
     }
 
     /**
-     * Broadcast the results from the query to all registered callback
-     * objects. 
+     * Broadcast the results from the query to all registered callback objects.
      */
     private void broadcastQueryResults(Message msg) {
         // reset the state.
@@ -331,11 +337,11 @@ public class NetworkQueryService extends Service {
                 try {
                     switch (msg.what) {
                         case EVENT_NETWORK_SCAN_VIA_PHONE_COMPLETED:
-                            AsyncResult ar = (AsyncResult) msg.obj;
-                            if (ar != null) {
-                                cb.onResults(getCellInfoList((List<OperatorInfo>) ar.result));
+                            CellNetworkScanResult result = (CellNetworkScanResult) msg.obj;
+                            if (result.getOperators() != null) {
+                                cb.onResults(getCellInfoList(result.getOperators()));
                             } else {
-                                if (DBG) log("AsyncResult is null.");
+                                if (DBG) log("Operators list is null.");
                             }
                             // Send the onComplete() callback to indicate the one-time network
                             // scan has completed.

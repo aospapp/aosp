@@ -23,8 +23,6 @@ import android.preference.PreferenceManager;
 import android.telephony.VisualVoicemailSmsFilterSettings;
 import android.util.ArraySet;
 
-import com.android.phone.vvm.RemoteVvmTaskManager;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

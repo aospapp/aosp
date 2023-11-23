@@ -24,8 +24,10 @@ import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.util.StreamUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -36,6 +38,8 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
 
     /** Special error message from the instrumentation when something goes wrong on device side. */
     public static final String ERROR_MESSAGE = "Process crashed.";
+
+    public static final int MAX_NUMBER_CRASH = 3;
 
     private Long mStartTime = null;
     private Long mLastStartTime = null;
@@ -106,6 +110,9 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
      */
     private LogcatItem extractLogcat(ITestDevice device, long startTime) {
         try (InputStreamSource logSource = device.getLogcatSince(startTime)) {
+            if (logSource.size() == 0L) {
+                return null;
+            }
             String message = StreamUtil.getStringFromStream(logSource.createInputStream());
             LogcatParser parser = new LogcatParser();
             List<String> lines = Arrays.asList(message.split("\n"));
@@ -121,14 +128,20 @@ public class LogcatCrashResultForwarder extends ResultForwarder {
         if (item == null) {
             return errorMsg;
         }
-        List<JavaCrashItem> crashes = item.getJavaCrashes();
-        if (!crashes.isEmpty()) {
-            for (JavaCrashItem c : crashes) {
-                errorMsg =
-                        String.format(
-                                "%s\nCrash Message:%s\n%s", errorMsg, c.getMessage(), c.getStack());
-            }
+        List<String> crashes = dedupCrash(item.getJavaCrashes());
+        int displayed = Math.min(crashes.size(), MAX_NUMBER_CRASH);
+        for (int i = 0; i < displayed; i++) {
+            errorMsg = String.format("%s\nCrash Message:%s\n", errorMsg, crashes.get(i));
         }
         return errorMsg;
+    }
+
+    /** Remove identical crash from the list of errors. */
+    private List<String> dedupCrash(List<JavaCrashItem> origList) {
+        LinkedHashSet<String> dedupList = new LinkedHashSet<>();
+        for (JavaCrashItem item : origList) {
+            dedupList.add(String.format("%s\n%s", item.getMessage(), item.getStack()));
+        }
+        return new ArrayList<>(dedupList);
     }
 }

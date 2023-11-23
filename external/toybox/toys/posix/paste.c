@@ -6,7 +6,7 @@
  *
  * Deviations from posix: the FILE argument isn't mandatory, none == '-'
 
-USE_PASTE(NEWTOY(paste, "d:s", TOYFLAG_BIN|TOYFLAG_LOCALE))
+USE_PASTE(NEWTOY(paste, "d:s", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_LOCALE))
 
 config PASTE
   bool "paste"
@@ -16,8 +16,8 @@ config PASTE
 
     Merge corresponding lines from each input file.
 
-    -d	list of delimiter characters to separate fields with (default is \t)
-    -s	sequential mode: turn each input file into one line of output
+    -d	List of delimiter characters to separate fields with (default is \t)
+    -s	Sequential mode: turn each input file into one line of output
 */
 
 #define FOR_paste

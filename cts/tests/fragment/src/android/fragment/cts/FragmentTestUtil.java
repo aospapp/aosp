@@ -25,11 +25,12 @@ import android.app.FragmentManager;
 import android.app.FragmentManagerNonConfig;
 import android.os.Looper;
 import android.os.Parcelable;
-import android.support.test.rule.ActivityTestRule;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
+
+import androidx.test.rule.ActivityTestRule;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;

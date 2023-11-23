@@ -22,17 +22,12 @@
 
 #include <ui/DisplayInfo.h>
 #include <ui/GraphicBuffer.h>
-#include <ui/GraphicBufferAllocator.h>
-#include <ui/GraphicBufferMapper.h>
 
 
 using namespace android;
 
 
-// TODO:  Consider dropping direct use of GraphicsBufferAllocator and Mapper?
 using android::GraphicBuffer;
-using android::GraphicBufferAllocator;
-using android::GraphicBufferMapper;
 using android::sp;
 
 
@@ -207,8 +202,12 @@ bool GlWrapper::initialize() {
     }
 
     // Get main display parameters.
-    sp <IBinder> mainDpy = SurfaceComposerClient::getBuiltInDisplay(
-            ISurfaceComposer::eDisplayIdMain);
+    sp<IBinder> mainDpy = SurfaceComposerClient::getInternalDisplayToken();
+    if (mainDpy == nullptr) {
+        ALOGE("ERROR: no internal display");
+        return false;
+    }
+
     DisplayInfo mainDpyInfo;
     err = SurfaceComposerClient::getDisplayInfo(mainDpy, &mainDpyInfo);
     if (err != NO_ERROR) {
@@ -308,6 +307,11 @@ bool GlWrapper::initialize() {
         return false;
     }
 
+    // Turn off mip-mapping for the created texture surface
+    // (the inbound camera imagery doesn't have MIPs)
+    glBindTexture(GL_TEXTURE_2D, mTextureMap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     return true;
 }
@@ -429,20 +433,12 @@ void GlWrapper::renderImageToScreen() {
 
 
     // Draw a rectangle on the screen
-    // TODO:  We pulled in from the edges for now for diagnostic purposes...
-#if 0
-    GLfloat vertsCarPos[] = { -1.0,  1.0, 0.0f,   // left top in window space
-                               1.0,  1.0, 0.0f,   // right top
-                              -1.0, -1.0, 0.0f,   // left bottom
-                               1.0, -1.0, 0.0f    // right bottom
-    };
-#else
     GLfloat vertsCarPos[] = { -0.8,  0.8, 0.0f,   // left top in window space
                                0.8,  0.8, 0.0f,   // right top
                               -0.8, -0.8, 0.0f,   // left bottom
                                0.8, -0.8, 0.0f    // right bottom
     };
-#endif
+
     // NOTE:  We didn't flip the image in the texture, so V=0 is actually the top of the image
     GLfloat vertsCarTex[] = { 0.0f, 0.0f,   // left top
                               1.0f, 0.0f,   // right top

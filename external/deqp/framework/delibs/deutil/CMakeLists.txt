@@ -33,8 +33,6 @@ endif ()
 if (DE_OS_IS_ANDROID)
 	# inline keyword in headers...
 	set_source_files_properties(deSocket.c COMPILE_FLAGS -std=c99)
-
-	set(DEUTIL_LIBS ${DEUTIL_LIBS} dl)
 endif ()
 
 if (DE_OS_IS_WIN32)

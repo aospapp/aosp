@@ -267,8 +267,6 @@ if [[ $mode == "golem" ]]; then
   execute 'source' build/envsetup.sh
   # Build generic targets (as opposed to something specific like aosp_angler-eng).
   execute lunch "$lunch_target"
-  setenv JACK_SERVER false
-  setenv_escape JACK_REPOSITORY "$PWD/prebuilts/sdk/tools/jacks" '$PWD/prebuilts/sdk/tools/jacks'
   # Golem uses master-art repository which is missing a lot of other libraries.
   setenv SOONG_ALLOW_MISSING_DEPENDENCIES true
   # Golem may be missing tools such as javac from its path.
@@ -369,7 +367,7 @@ if [[ "$make_tarball" == "make_tarball" ]]; then
     dirs_rooted+=("$root_dir/$tar_dir")
   done
 
-  execute tar -czf "${tarball}" "${dirs_rooted[@]}" --exclude .git --exclude .gitignore
+  execute tar -czf "${tarball}" --exclude ".git" --exclude ".gitignore" "${dirs_rooted[@]}"
   tar_result=$?
   if [[ $tar_result -ne 0 ]]; then
     [[ -f $tarball ]] && rm $tarball

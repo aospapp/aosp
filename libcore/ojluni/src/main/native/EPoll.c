@@ -60,7 +60,9 @@ Java_sun_nio_ch_EPoll_epollCreate(JNIEnv *env, jclass c) {
      * epoll_create expects a size as a hint to the kernel about how to
      * dimension internal structures. We can't predict the size in advance.
      */
-    int epfd = epoll_create(256);
+    // Android-changed: Avoid FD leaks through epoll_create. http://b/120983106
+    // int epfd = epoll_create(256);
+    int epfd = epoll_create1(EPOLL_CLOEXEC);
     if (epfd < 0) {
        JNU_ThrowIOExceptionWithLastError(env, "epoll_create failed");
     }

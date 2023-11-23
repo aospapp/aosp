@@ -2082,6 +2082,9 @@ type_init(PyObject *cls, PyObject *args, PyObject *kwds)
     /* Call object.__init__(self) now. */
     /* XXX Could call super(type, cls).__init__() but what's the point? */
     args = PyTuple_GetSlice(args, 0, 0);
+    if (args == NULL) {
+        return -1;
+    }
     res = object_init(cls, args, NULL);
     Py_DECREF(args);
     return res;
@@ -2608,6 +2611,7 @@ type_getattro(PyTypeObject *type, PyObject *name)
     PyTypeObject *metatype = Py_TYPE(type);
     PyObject *meta_attribute, *attribute;
     descrgetfunc meta_get;
+    PyObject* res;
 
     if (!PyString_Check(name)) {
         PyErr_Format(PyExc_TypeError,
@@ -2629,6 +2633,7 @@ type_getattro(PyTypeObject *type, PyObject *name)
     meta_attribute = _PyType_Lookup(metatype, name);
 
     if (meta_attribute != NULL) {
+        Py_INCREF(meta_attribute);
         meta_get = Py_TYPE(meta_attribute)->tp_descr_get;
 
         if (meta_get != NULL && PyDescr_IsData(meta_attribute)) {
@@ -2636,10 +2641,11 @@ type_getattro(PyTypeObject *type, PyObject *name)
              * writes. Assume the attribute is not overridden in
              * type's tp_dict (and bases): call the descriptor now.
              */
-            return meta_get(meta_attribute, (PyObject *)type,
-                            (PyObject *)metatype);
+            res = meta_get(meta_attribute, (PyObject *)type,
+                           (PyObject *)metatype);
+            Py_DECREF(meta_attribute);
+            return res;
         }
-        Py_INCREF(meta_attribute);
     }
 
     /* No data descriptor found on metatype. Look in tp_dict of this
@@ -2647,18 +2653,21 @@ type_getattro(PyTypeObject *type, PyObject *name)
     attribute = _PyType_Lookup(type, name);
     if (attribute != NULL) {
         /* Implement descriptor functionality, if any */
-        descrgetfunc local_get = Py_TYPE(attribute)->tp_descr_get;
+        descrgetfunc local_get;
+        Py_INCREF(attribute);
+        local_get = Py_TYPE(attribute)->tp_descr_get;
 
         Py_XDECREF(meta_attribute);
 
         if (local_get != NULL) {
             /* NULL 2nd argument indicates the descriptor was
              * found on the target object itself (or a base)  */
-            return local_get(attribute, (PyObject *)NULL,
-                             (PyObject *)type);
+            res = local_get(attribute, (PyObject *)NULL,
+                            (PyObject *)type);
+            Py_DECREF(attribute);
+            return res;
         }
 
-        Py_INCREF(attribute);
         return attribute;
     }
 
@@ -2687,6 +2696,7 @@ type_getattro(PyTypeObject *type, PyObject *name)
 static int
 type_setattro(PyTypeObject *type, PyObject *name, PyObject *value)
 {
+    int res;
     if (!(type->tp_flags & Py_TPFLAGS_HEAPTYPE)) {
         PyErr_Format(
             PyExc_TypeError,
@@ -2694,9 +2704,39 @@ type_setattro(PyTypeObject *type, PyObject *name, PyObject *value)
             type->tp_name);
         return -1;
     }
-    if (PyObject_GenericSetAttr((PyObject *)type, name, value) < 0)
-        return -1;
-    return update_slot(type, name);
+#ifdef Py_USING_UNICODE
+    if (PyUnicode_Check(name)) {
+        name = PyUnicode_AsEncodedString(name, NULL, NULL);
+        if (name == NULL)
+            return -1;
+    }
+    else
+#endif
+        Py_INCREF(name);
+
+    if (PyString_Check(name)) {
+        if (!PyString_CheckExact(name)) {
+            Py_SETREF(name,
+                      PyString_FromStringAndSize(PyString_AS_STRING(name),
+                                                 PyString_GET_SIZE(name))
+            );
+            if (name == NULL)
+                return -1;
+        }
+        PyString_InternInPlace(&name);
+        if (!PyString_CHECK_INTERNED(name)) {
+            PyErr_SetString(PyExc_MemoryError,
+                            "Out of memory interning an attribute name");
+            Py_DECREF(name);
+            return -1;
+        }
+    }
+    res = PyObject_GenericSetAttr((PyObject *)type, name, value);
+    if (res == 0) {
+        res = update_slot(type, name);
+    }
+    Py_DECREF(name);
+    return res;
 }
 
 static void
@@ -3334,6 +3374,29 @@ reduce_2(PyObject *obj)
         if (names == NULL)
             goto end;
         assert(names == Py_None || PyList_Check(names));
+
+        if (required_state && Py_Py3kWarningFlag) {
+            Py_ssize_t basicsize = PyBaseObject_Type.tp_basicsize;
+            if (obj->ob_type->tp_dictoffset)
+                basicsize += sizeof(PyObject *);
+            if (obj->ob_type->tp_weaklistoffset)
+                basicsize += sizeof(PyObject *);
+            if (names != Py_None)
+                basicsize += sizeof(PyObject *) * PyList_GET_SIZE(names);
+            if (obj->ob_type->tp_basicsize > basicsize) {
+                PyObject *msg = PyString_FromFormat(
+                            "can't pickle %.200s objects",
+                             Py_TYPE(obj)->tp_name);
+                if (msg == NULL) {
+                    goto end;
+                }
+                if (PyErr_WarnPy3k(PyString_AS_STRING(msg), 1) < 0) {
+                    Py_DECREF(msg);
+                    goto end;
+                }
+                Py_DECREF(msg);
+            }
+        }
 
         if (names != Py_None) {
             slots = PyDict_New();
@@ -6355,7 +6418,7 @@ init_slotdefs(void)
         /* Slots must be ordered by their offset in the PyHeapTypeObject. */
         assert(!p[1].name || p->offset <= p[1].offset);
         p->name_strobj = PyString_InternFromString(p->name);
-        if (!p->name_strobj)
+        if (!p->name_strobj || !PyString_CHECK_INTERNED(p->name_strobj))
             Py_FatalError("Out of memory interning slotdef names");
     }
     initialized = 1;
@@ -6370,6 +6433,9 @@ update_slot(PyTypeObject *type, PyObject *name)
     slotdef **pp;
     int offset;
 
+    assert(PyString_CheckExact(name));
+    assert(PyString_CHECK_INTERNED(name));
+
     /* Clear the VALID_VERSION flag of 'type' and all its
        subclasses.  This could possibly be unified with the
        update_subclasses() recursion below, but carefully:
@@ -6380,7 +6446,6 @@ update_slot(PyTypeObject *type, PyObject *name)
     init_slotdefs();
     pp = ptrs;
     for (p = slotdefs; p->name; p++) {
-        /* XXX assume name is interned! */
         if (p->name_strobj == name)
             *pp++ = p;
     }

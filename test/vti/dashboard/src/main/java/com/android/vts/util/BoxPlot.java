@@ -119,7 +119,7 @@ public class BoxPlot extends Graph {
         StatSummary stat =
                 new StatSummary(
                         label, VtsReportMessage.VtsProfilingRegressionMode.UNKNOWN_REGRESSION_MODE);
-        for (long value : profilingPoint.values) {
+        for (long value : profilingPoint.getValues()) {
             stat.updateStats(value);
         }
         addSeriesData(label, "", stat);

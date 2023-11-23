@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef AIDL_AIDL_H_
-#define AIDL_AIDL_H_
+#pragma once
 
 #include <limits>
 #include <memory>
@@ -23,6 +22,7 @@
 #include <vector>
 
 #include "aidl_language.h"
+#include "import_resolver.h"
 #include "io_delegate.h"
 #include "options.h"
 #include "type_namespace.h"
@@ -40,36 +40,30 @@ enum class AidlError {
   BAD_TYPE,
   BAD_METHOD_ID,
   GENERATION_ERROR,
-  BAD_CONSTANTS,
+  BAD_INPUT,
+  NOT_STRUCTURED,
 
   OK = 0,
 };
 
-int compile_aidl_to_cpp(const CppOptions& options,
-                        const IoDelegate& io_delegate);
-int compile_aidl_to_java(const JavaOptions& options,
-                         const IoDelegate& io_delegate);
-bool preprocess_aidl(const JavaOptions& options,
-                     const IoDelegate& io_delegate);
+int compile_aidl(const Options& options, const IoDelegate& io_delegate);
+bool preprocess_aidl(const Options& options, const IoDelegate& io_delegate);
+bool dump_api(const Options& options, const IoDelegate& io_delegate);
+bool dump_mappings(const Options& options, const IoDelegate& io_delegate);
+
+const string kGetInterfaceVersion("getInterfaceVersion");
 
 namespace internals {
 
-AidlError load_and_validate_aidl(
-    const std::vector<std::string>& preprocessed_files,
-    const std::vector<std::string>& import_paths,
-    const std::string& input_file_name,
-    const bool generate_traces,
-    const IoDelegate& io_delegate,
-    TypeNamespace* types,
-    std::unique_ptr<AidlInterface>* returned_interface,
-    std::vector<std::unique_ptr<AidlImport>>* returned_imports);
+AidlError load_and_validate_aidl(const std::string& input_file_name, const Options& options,
+                                 const IoDelegate& io_delegate, TypeNamespace* types,
+                                 vector<AidlDefinedType*>* defined_types,
+                                 vector<string>* imported_files);
 
-bool parse_preprocessed_file(const IoDelegate& io_delegate,
-                             const std::string& filename, TypeNamespace* types);
+bool parse_preprocessed_file(const IoDelegate& io_delegate, const std::string& filename,
+                             TypeNamespace* types, AidlTypenames& typenames);
 
 } // namespace internals
 
 }  // namespace android
 }  // namespace aidl
-
-#endif  // AIDL_AIDL_H_

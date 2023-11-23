@@ -94,12 +94,14 @@ static void eap_notify_status(struct eap_sm *sm, const char *status,
 		sm->eapol_cb->notify_status(sm->eapol_ctx, status, parameter);
 }
 
+
 static void eap_report_error(struct eap_sm *sm, int error_code)
 {
 	wpa_printf(MSG_DEBUG, "EAP: Error notification: %d", error_code);
 	if (sm->eapol_cb->notify_eap_error)
 		sm->eapol_cb->notify_eap_error(sm->eapol_ctx, error_code);
 }
+
 
 static void eap_sm_free_key(struct eap_sm *sm)
 {
@@ -668,6 +670,9 @@ void eap_peer_erp_free_keys(struct eap_sm *sm)
 }
 
 
+/* Note: If ext_session and/or ext_emsk are passed to this function, they are
+ * expected to point to allocated memory and those allocations will be freed
+ * unconditionally. */
 void eap_peer_erp_init(struct eap_sm *sm, u8 *ext_session_id,
 		       size_t ext_session_id_len, u8 *ext_emsk,
 		       size_t ext_emsk_len)
@@ -686,7 +691,7 @@ void eap_peer_erp_init(struct eap_sm *sm, u8 *ext_session_id,
 
 	realm = eap_home_realm(sm);
 	if (!realm)
-		return;
+		goto fail;
 	realm_len = os_strlen(realm);
 	wpa_printf(MSG_DEBUG, "EAP: Realm for ERP keyName-NAI: %s", realm);
 	eap_erp_remove_keys_realm(sm, realm);
@@ -773,7 +778,10 @@ void eap_peer_erp_init(struct eap_sm *sm, u8 *ext_session_id,
 	dl_list_add(&sm->erp_keys, &erp->list);
 	erp = NULL;
 fail:
-	bin_clear_free(emsk, emsk_len);
+	if (ext_emsk)
+		bin_clear_free(ext_emsk, ext_emsk_len);
+	else
+		bin_clear_free(emsk, emsk_len);
 	bin_clear_free(ext_session_id, ext_session_id_len);
 	bin_clear_free(erp, sizeof(*erp));
 	os_free(realm);
@@ -1940,7 +1948,6 @@ static void eap_sm_parseEapReq(struct eap_sm *sm, const struct wpabuf *req)
 	const struct eap_hdr *hdr;
 	size_t plen;
 	const u8 *pos;
-        int error_code;
 
 	sm->rxReq = sm->rxResp = sm->rxSuccess = sm->rxFailure = FALSE;
 	sm->reqId = 0;
@@ -2028,6 +2035,8 @@ static void eap_sm_parseEapReq(struct eap_sm *sm, const struct wpabuf *req)
 
 		/* Get the error code from method */
 		if (sm->m && sm->m->get_error_code) {
+			int error_code;
+
 			error_code = sm->m->get_error_code(sm->eap_method_priv);
 			if (error_code != NO_EAP_METHOD_ERROR)
 				eap_report_error(sm, error_code);

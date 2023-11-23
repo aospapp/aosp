@@ -6,6 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_SimpleConnect.wifi_checkSGI'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
+ATTRIBUTES = 'suite:wifi_flaky'
 DEPENDENCIES = 'wificell'
 
 DOC = """

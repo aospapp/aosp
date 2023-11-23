@@ -19,6 +19,7 @@ public class DummyClass implements ParentInterface {
   public int methodPublicLightGreylist() { return 2; }
   public int methodPublicDarkGreylist() { return 3; }
   public int methodPublicBlacklist() { return 4; }
+  public int methodPublicBlacklistAndCorePlatformApi() { return 5; }
 
   public static ParentInterface getInterfaceInstance() {
     return new DummyClass();

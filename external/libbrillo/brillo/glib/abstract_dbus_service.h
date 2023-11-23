@@ -5,13 +5,13 @@
 #ifndef LIBBRILLO_BRILLO_GLIB_ABSTRACT_DBUS_SERVICE_H_
 #define LIBBRILLO_BRILLO_GLIB_ABSTRACT_DBUS_SERVICE_H_
 
+// IMPORTANT: Do not use this in new code. Instead, use
+// <brillo/daemons/dbus_daemon.h>. See https://goo.gl/EH3MmR for more details.
+
 #include <brillo/brillo_export.h>
 #include <brillo/glib/dbus.h>
 
 namespace brillo {
-
-// \precondition No functions in the dbus namespace can be called before
-// ::g_type_init();
 
 namespace dbus {
 class BRILLO_EXPORT AbstractDbusService {

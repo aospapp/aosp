@@ -16,20 +16,18 @@
 
 package com.android.documentsui.archives;
 
-import com.android.documentsui.archives.WriteableArchive;
-import com.android.documentsui.tests.R;
-
 import android.database.Cursor;
-import android.content.Context;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract.Document;
-import android.support.test.InstrumentationRegistry;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 
+import androidx.test.InstrumentationRegistry;
+
+import com.android.documentsui.archives.WriteableArchive;
+
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Enumeration;

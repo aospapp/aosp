@@ -30,9 +30,6 @@ import org.apache.harmony.jpda.tests.framework.jdwp.TaggedObject;
  * LocationOnly modifier.
  */
 public class FieldWithLocationTest extends EventLocationEventTestCase {
-
-    private static final String DEBUGGEE_SIGNATURE =
-            "Lorg/apache/harmony/jpda/tests/jdwp/Events/FieldWithLocationDebuggee;";
     private static final String FIELD_NAME = "testIntField";
 
     // Cache debuggee class ID.
@@ -75,11 +72,6 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
     }
 
     @Override
-    protected final String getDebuggeeSignature() {
-        return DEBUGGEE_SIGNATURE;
-    }
-
-    @Override
     protected final String getExpectedLocationMethodName() {
         return "expectedMethodForFieldEvent";
     }
@@ -87,7 +79,7 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
     @Override
     protected final void createEventBuilder(EventBuilder builder) {
         if (debuggeeClassId == -1) {
-            debuggeeClassId = getClassIDBySignature(DEBUGGEE_SIGNATURE);
+            debuggeeClassId = getClassIDBySignature(getDebuggeeClassSignature());
         }
         if (fieldId == -1) {
             fieldId = debuggeeWrapper.vmMirror.getFieldID(debuggeeClassId, FIELD_NAME);
@@ -112,7 +104,7 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
         long typeID = getObjectReferenceType(accessedField.objectID);
         String returnedExceptionSignature = getClassSignature(typeID);
         assertString("Invalid class signature,",
-                DEBUGGEE_SIGNATURE, returnedExceptionSignature);
+                getDebuggeeClassSignature(), returnedExceptionSignature);
     }
 
     private static String getFieldCapabilityName(boolean modification) {

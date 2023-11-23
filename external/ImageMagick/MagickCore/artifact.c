@@ -17,13 +17,13 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -281,15 +281,11 @@ MagickExport const char *GetImageArtifact(const Image *image,
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   p=(const char *) NULL;
-  if (artifact == (const char *) NULL)
-    {
-      ResetSplayTreeIterator((SplayTreeInfo *) image->artifacts);
-      p=(const char *) GetNextValueInSplayTree((SplayTreeInfo *)
-        image->artifacts);
-      return(p);
-    }
   if (image->artifacts != (void *) NULL)
     {
+      if (artifact == (const char *) NULL)
+        return((const char *) GetRootValueFromSplayTree((SplayTreeInfo *)
+          image->artifacts));
       p=(const char *) GetValueFromSplayTree((SplayTreeInfo *) image->artifacts,
         artifact);
       if (p != (const char *) NULL)

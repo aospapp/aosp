@@ -1,0 +1,49 @@
+
+
+BEGIN iram0
+0xe8080000: instRam : iram0 : 0xc000 : executable, writable ;
+ iram0_0 : F : 0xe8080000 - 0xe80802ff : .ResetVector.text;
+ iram0_1 : C : 0xe8080300 - 0xe80803ff : .Reset.literal;
+ iram0_2 : F : 0xe8080400 - 0xe8080577 : .WindowVectors.text;
+ iram0_3 : C : 0xe8080578 - 0xe808057f : .Level2InterruptVector.literal;
+ iram0_4 : F : 0xe8080580 - 0xe80805b7 : .Level2InterruptVector.text;
+ iram0_5 : C : 0xe80805b8 - 0xe80805bf : .Level3InterruptVector.literal;
+ iram0_6 : F : 0xe80805c0 - 0xe80805f7 : .Level3InterruptVector.text;
+ iram0_7 : C : 0xe80805f8 - 0xe80805ff : .Level4InterruptVector.literal;
+ iram0_8 : F : 0xe8080600 - 0xe8080637 : .Level4InterruptVector.text;
+ iram0_9 : C : 0xe8080638 - 0xe808063f : .DebugExceptionVector.literal;
+ iram0_10 : F : 0xe8080640 - 0xe8080677 : .DebugExceptionVector.text;
+ iram0_11 : C : 0xe8080678 - 0xe80806bf : .NMIExceptionVector.literal;
+ iram0_12 : F : 0xe80806c0 - 0xe80806f7 : .NMIExceptionVector.text;
+ iram0_13 : C : 0xe80806f8 - 0xe80806ff : .KernelExceptionVector.literal;
+ iram0_14 : F : 0xe8080700 - 0xe8080737 : .KernelExceptionVector.text;
+ iram0_15 : C : 0xe8080738 - 0xe808073f : .UserExceptionVector.literal;
+ iram0_16 : F : 0xe8080740 - 0xe8080777 : .UserExceptionVector.text;
+ iram0_17 : C : 0xe8080778 - 0xe80807bf : .DoubleExceptionVector.literal;
+ iram0_18 : F : 0xe80807c0 - 0xe80807ff : .DoubleExceptionVector.text;
+ iram0_19 : C : 0xe8080800 - 0xe808bfff : .iram0.literal .Reset.text .iram0.text;
+END iram0
+
+BEGIN dram0
+0xe8058000: dataRam : dram0 : 0x28000 : writable ;
+ dram0_0 : C : 0xe8058000 - 0xe807ffff :  STACK :  HEAP : .dram0.rodata .dram0.literal .dram0.data .dram0.bss .om.debug.bss .os.stack.bss;
+END dram0
+
+BEGIN sram
+0xc0000000: sysram : sram : 0x600000 : executable, writable ;
+ sram0 : C : 0xc0000000 - 0xC0407FFF : .sram.shareaddr .sram.rodata .rodata .sram.literal .literal .sram.text .text .sram.data .data .sram.uninit .sram.pool.bss .sram.bss .bss;
+ old_vlpd : C : 0xC0408000 - 0xC0417FFF : .vlpd.rodata .vlpd.data .vlpd.bss;
+ efr_fr_hr_vlpd : C : 0xC0418000 - 0xC0427FFF : .efr_fr_hr_vlpd.rodata .efr_fr_hr_vlpd.data .efr_fr_hr_vlpd.bss;
+ amr_vlpd : C : 0xC0428000 - 0xC0437FFF : .amr_vlpd.rodata .amr_vlpd.data .amr_vlpd.bss;
+ amrwb_vlpd : C : 0xC0438000 - 0xC0447FFF : .amrwb_vlpd.rodata .amrwb_vlpd.data .amrwb_vlpd.bss;
+ evrc_evrcb_vlpt : C : 0xC0448000 - 0xC048FFFF : .evrc_evrcb_vlpt.literal .evrc_evrcb_vlpt.text;
+ efr_fr_hr_vlpt : C : 0xC0490000 - 0xC04BFFFF : .efr_fr_hr_vlpt.literal .efr_fr_hr_vlpt.text;
+ amr_vlpt : C : 0xC04C0000 - 0xC04DFFFF : .amr_vlpt.literal .amr_vlpt.text;
+ amrwb_vlpt : C : 0xC04E0000 -0xC050FFFF : .amrwb_vlpt.literal .amrwb_vlpt.text;
+ vlpt : C : 0xC0510000 - 0xC0557FFF : .vlpt.literal .vlpt.text;
+ vlpd : C : 0xC0558000 - 0xC0577FFF : .low_power_dyn_alloc;
+ ulpp : C : 0xc0578000 - 0xc05b7fff : .ulpp.rodata .ulpp.data .ulpp.literal .ulpp.text .ulpp.bss;
+ dtsv3 : C : 0xc05b8000 - 0xc05d7fff : .dtsv3.rodata .dtsv3.data .dtsv3.literal .dtsv3.text .dtsv3.bss;
+ dtsv4 : C : 0xc05d8000 - 0xc05fffff : .dtsv4.rodata .dtsv4.data .dtsv4.literal .dtsv4.text .dtsv4.bss;
+END sram
+

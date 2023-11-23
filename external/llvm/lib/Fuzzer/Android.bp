@@ -25,6 +25,7 @@ cc_library_static {
         "-Wno-unused-lambda-capture",
         "-Wno-unused-parameter",
     ],
+    cpp_std: "gnu++11",
     srcs: ["*.cpp"],
     exclude_srcs: ["FuzzerMain.cpp"],
     sanitize: {
@@ -43,6 +44,7 @@ cc_library_static {
         "-Wno-unused-lambda-capture",
         "-Wno-unused-parameter",
     ],
+    cpp_std: "gnu++11",
     srcs: ["FuzzerMain.cpp"],
     whole_static_libs: ["libLLVMFuzzerNoMain"],
     sanitize: {

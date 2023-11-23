@@ -83,22 +83,22 @@ class FieldAccessCallingConventionX86_64 : public FieldAccessCallingConvention {
  public:
   FieldAccessCallingConventionX86_64() {}
 
-  Location GetObjectLocation() const OVERRIDE {
+  Location GetObjectLocation() const override {
     return Location::RegisterLocation(RSI);
   }
-  Location GetFieldIndexLocation() const OVERRIDE {
+  Location GetFieldIndexLocation() const override {
     return Location::RegisterLocation(RDI);
   }
-  Location GetReturnLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetReturnLocation(DataType::Type type ATTRIBUTE_UNUSED) const override {
     return Location::RegisterLocation(RAX);
   }
   Location GetSetValueLocation(DataType::Type type ATTRIBUTE_UNUSED, bool is_instance)
-      const OVERRIDE {
+      const override {
     return is_instance
         ? Location::RegisterLocation(RDX)
         : Location::RegisterLocation(RSI);
   }
-  Location GetFpuLocation(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  Location GetFpuLocation(DataType::Type type ATTRIBUTE_UNUSED) const override {
     return Location::FpuRegisterLocation(XMM0);
   }
 
@@ -112,9 +112,9 @@ class InvokeDexCallingConventionVisitorX86_64 : public InvokeDexCallingConventio
   InvokeDexCallingConventionVisitorX86_64() {}
   virtual ~InvokeDexCallingConventionVisitorX86_64() {}
 
-  Location GetNextLocation(DataType::Type type) OVERRIDE;
-  Location GetReturnLocation(DataType::Type type) const OVERRIDE;
-  Location GetMethodLocation() const OVERRIDE;
+  Location GetNextLocation(DataType::Type type) override;
+  Location GetReturnLocation(DataType::Type type) const override;
+  Location GetMethodLocation() const override;
 
  private:
   InvokeDexCallingConvention calling_convention;
@@ -129,10 +129,10 @@ class ParallelMoveResolverX86_64 : public ParallelMoveResolverWithSwap {
   ParallelMoveResolverX86_64(ArenaAllocator* allocator, CodeGeneratorX86_64* codegen)
       : ParallelMoveResolverWithSwap(allocator), codegen_(codegen) {}
 
-  void EmitMove(size_t index) OVERRIDE;
-  void EmitSwap(size_t index) OVERRIDE;
-  void SpillScratch(int reg) OVERRIDE;
-  void RestoreScratch(int reg) OVERRIDE;
+  void EmitMove(size_t index) override;
+  void EmitSwap(size_t index) override;
+  void SpillScratch(int reg) override;
+  void RestoreScratch(int reg) override;
 
   X86_64Assembler* GetAssembler() const;
 
@@ -157,14 +157,15 @@ class LocationsBuilderX86_64 : public HGraphVisitor {
       : HGraphVisitor(graph), codegen_(codegen) {}
 
 #define DECLARE_VISIT_INSTRUCTION(name, super)     \
-  void Visit##name(H##name* instr) OVERRIDE;
+  void Visit##name(H##name* instr) override;
 
   FOR_EACH_CONCRETE_INSTRUCTION_COMMON(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_X86_64(DECLARE_VISIT_INSTRUCTION)
+  FOR_EACH_CONCRETE_INSTRUCTION_X86_COMMON(DECLARE_VISIT_INSTRUCTION)
 
 #undef DECLARE_VISIT_INSTRUCTION
 
-  void VisitInstruction(HInstruction* instruction) OVERRIDE {
+  void VisitInstruction(HInstruction* instruction) override {
     LOG(FATAL) << "Unreachable instruction " << instruction->DebugName()
                << " (id " << instruction->GetId() << ")";
   }
@@ -188,14 +189,15 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
   InstructionCodeGeneratorX86_64(HGraph* graph, CodeGeneratorX86_64* codegen);
 
 #define DECLARE_VISIT_INSTRUCTION(name, super)     \
-  void Visit##name(H##name* instr) OVERRIDE;
+  void Visit##name(H##name* instr) override;
 
   FOR_EACH_CONCRETE_INSTRUCTION_COMMON(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_X86_64(DECLARE_VISIT_INSTRUCTION)
+  FOR_EACH_CONCRETE_INSTRUCTION_X86_COMMON(DECLARE_VISIT_INSTRUCTION)
 
 #undef DECLARE_VISIT_INSTRUCTION
 
-  void VisitInstruction(HInstruction* instruction) OVERRIDE {
+  void VisitInstruction(HInstruction* instruction) override {
     LOG(FATAL) << "Unreachable instruction " << instruction->DebugName()
                << " (id " << instruction->GetId() << ")";
   }
@@ -208,10 +210,12 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
   // the suspend call.
   void GenerateSuspendCheck(HSuspendCheck* instruction, HBasicBlock* successor);
   void GenerateClassInitializationCheck(SlowPathCode* slow_path, CpuRegister class_reg);
+  void GenerateBitstringTypeCheckCompare(HTypeCheckInstruction* check, CpuRegister temp);
   void HandleBitwiseOperation(HBinaryOperation* operation);
   void GenerateRemFP(HRem* rem);
   void DivRemOneOrMinusOne(HBinaryOperation* instruction);
   void DivByPowerOfTwo(HDiv* instruction);
+  void RemByPowerOfTwo(HRem* instruction);
   void GenerateDivRemWithAnyConstant(HBinaryOperation* instruction);
   void GenerateDivRemIntegral(HBinaryOperation* instruction);
   void HandleCondition(HCondition* condition);
@@ -221,6 +225,10 @@ class InstructionCodeGeneratorX86_64 : public InstructionCodeGenerator {
                       const FieldInfo& field_info,
                       bool value_can_be_null);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
+
+  void GenerateMinMaxInt(LocationSummary* locations, bool is_min, DataType::Type type);
+  void GenerateMinMaxFP(LocationSummary* locations, bool is_min, DataType::Type type);
+  void GenerateMinMax(HBinaryOperation* minmax, bool is_min);
 
   // Generate a heap reference load using one register `out`:
   //
@@ -291,28 +299,27 @@ class JumpTableRIPFixup;
 class CodeGeneratorX86_64 : public CodeGenerator {
  public:
   CodeGeneratorX86_64(HGraph* graph,
-                  const X86_64InstructionSetFeatures& isa_features,
                   const CompilerOptions& compiler_options,
                   OptimizingCompilerStats* stats = nullptr);
   virtual ~CodeGeneratorX86_64() {}
 
-  void GenerateFrameEntry() OVERRIDE;
-  void GenerateFrameExit() OVERRIDE;
-  void Bind(HBasicBlock* block) OVERRIDE;
-  void MoveConstant(Location destination, int32_t value) OVERRIDE;
-  void MoveLocation(Location dst, Location src, DataType::Type dst_type) OVERRIDE;
-  void AddLocationAsTemp(Location location, LocationSummary* locations) OVERRIDE;
+  void GenerateFrameEntry() override;
+  void GenerateFrameExit() override;
+  void Bind(HBasicBlock* block) override;
+  void MoveConstant(Location destination, int32_t value) override;
+  void MoveLocation(Location dst, Location src, DataType::Type dst_type) override;
+  void AddLocationAsTemp(Location location, LocationSummary* locations) override;
 
-  size_t SaveCoreRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
-  size_t RestoreCoreRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
-  size_t SaveFloatingPointRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
-  size_t RestoreFloatingPointRegister(size_t stack_index, uint32_t reg_id) OVERRIDE;
+  size_t SaveCoreRegister(size_t stack_index, uint32_t reg_id) override;
+  size_t RestoreCoreRegister(size_t stack_index, uint32_t reg_id) override;
+  size_t SaveFloatingPointRegister(size_t stack_index, uint32_t reg_id) override;
+  size_t RestoreFloatingPointRegister(size_t stack_index, uint32_t reg_id) override;
 
   // Generate code to invoke a runtime entry point.
   void InvokeRuntime(QuickEntrypointEnum entrypoint,
                      HInstruction* instruction,
                      uint32_t dex_pc,
-                     SlowPathCode* slow_path = nullptr) OVERRIDE;
+                     SlowPathCode* slow_path = nullptr) override;
 
   // Generate code to invoke a runtime entry point, but do not record
   // PC-related information in a stack map.
@@ -322,48 +329,50 @@ class CodeGeneratorX86_64 : public CodeGenerator {
 
   void GenerateInvokeRuntime(int32_t entry_point_offset);
 
-  size_t GetWordSize() const OVERRIDE {
+  size_t GetWordSize() const override {
     return kX86_64WordSize;
   }
 
-  size_t GetFloatingPointSpillSlotSize() const OVERRIDE {
+  size_t GetFloatingPointSpillSlotSize() const override {
     return GetGraph()->HasSIMD()
         ? 2 * kX86_64WordSize   // 16 bytes == 2 x86_64 words for each spill
         : 1 * kX86_64WordSize;  //  8 bytes == 1 x86_64 words for each spill
   }
 
-  HGraphVisitor* GetLocationBuilder() OVERRIDE {
+  HGraphVisitor* GetLocationBuilder() override {
     return &location_builder_;
   }
 
-  HGraphVisitor* GetInstructionVisitor() OVERRIDE {
+  HGraphVisitor* GetInstructionVisitor() override {
     return &instruction_visitor_;
   }
 
-  X86_64Assembler* GetAssembler() OVERRIDE {
+  X86_64Assembler* GetAssembler() override {
     return &assembler_;
   }
 
-  const X86_64Assembler& GetAssembler() const OVERRIDE {
+  const X86_64Assembler& GetAssembler() const override {
     return assembler_;
   }
 
-  ParallelMoveResolverX86_64* GetMoveResolver() OVERRIDE {
+  ParallelMoveResolverX86_64* GetMoveResolver() override {
     return &move_resolver_;
   }
 
-  uintptr_t GetAddressOf(HBasicBlock* block) OVERRIDE {
+  uintptr_t GetAddressOf(HBasicBlock* block) override {
     return GetLabelOf(block)->Position();
   }
 
-  void SetupBlockedRegisters() const OVERRIDE;
-  void DumpCoreRegister(std::ostream& stream, int reg) const OVERRIDE;
-  void DumpFloatingPointRegister(std::ostream& stream, int reg) const OVERRIDE;
-  void Finalize(CodeAllocator* allocator) OVERRIDE;
+  void SetupBlockedRegisters() const override;
+  void DumpCoreRegister(std::ostream& stream, int reg) const override;
+  void DumpFloatingPointRegister(std::ostream& stream, int reg) const override;
+  void Finalize(CodeAllocator* allocator) override;
 
-  InstructionSet GetInstructionSet() const OVERRIDE {
+  InstructionSet GetInstructionSet() const override {
     return InstructionSet::kX86_64;
   }
+
+  const X86_64InstructionSetFeatures& GetInstructionSetFeatures() const;
 
   // Emit a write barrier.
   void MarkGCCard(CpuRegister temp,
@@ -381,35 +390,37 @@ class CodeGeneratorX86_64 : public CodeGenerator {
     return CommonGetLabelOf<Label>(block_labels_, block);
   }
 
-  void Initialize() OVERRIDE {
+  void Initialize() override {
     block_labels_ = CommonInitializeLabels<Label>();
   }
 
-  bool NeedsTwoRegisters(DataType::Type type ATTRIBUTE_UNUSED) const OVERRIDE {
+  bool NeedsTwoRegisters(DataType::Type type ATTRIBUTE_UNUSED) const override {
     return false;
   }
 
   // Check if the desired_string_load_kind is supported. If it is, return it,
   // otherwise return a fall-back kind that should be used instead.
   HLoadString::LoadKind GetSupportedLoadStringKind(
-      HLoadString::LoadKind desired_string_load_kind) OVERRIDE;
+      HLoadString::LoadKind desired_string_load_kind) override;
 
   // Check if the desired_class_load_kind is supported. If it is, return it,
   // otherwise return a fall-back kind that should be used instead.
   HLoadClass::LoadKind GetSupportedLoadClassKind(
-      HLoadClass::LoadKind desired_class_load_kind) OVERRIDE;
+      HLoadClass::LoadKind desired_class_load_kind) override;
 
   // Check if the desired_dispatch_info is supported. If it is, return it,
   // otherwise return a fall-back info that should be used instead.
   HInvokeStaticOrDirect::DispatchInfo GetSupportedInvokeStaticOrDirectDispatch(
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
-      HInvokeStaticOrDirect* invoke) OVERRIDE;
+      ArtMethod* method) override;
 
   void GenerateStaticOrDirectCall(
-      HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
+      HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path = nullptr) override;
   void GenerateVirtualCall(
-      HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) OVERRIDE;
+      HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) override;
 
+  void RecordBootImageIntrinsicPatch(uint32_t intrinsic_data);
+  void RecordBootImageRelRoPatch(uint32_t boot_image_offset);
   void RecordBootImageMethodPatch(HInvokeStaticOrDirect* invoke);
   void RecordMethodBssEntryPatch(HInvokeStaticOrDirect* invoke);
   void RecordBootImageTypePatch(HLoadClass* load_class);
@@ -423,20 +434,17 @@ class CodeGeneratorX86_64 : public CodeGenerator {
                               dex::TypeIndex type_index,
                               Handle<mirror::Class> handle);
 
-  void MoveFromReturnRegister(Location trg, DataType::Type type) OVERRIDE;
+  void LoadBootImageAddress(CpuRegister reg, uint32_t boot_image_reference);
+  void AllocateInstanceForIntrinsic(HInvokeStaticOrDirect* invoke, uint32_t boot_image_offset);
 
-  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) OVERRIDE;
+  void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) override;
 
   void PatchJitRootUse(uint8_t* code,
                        const uint8_t* roots_data,
                        const PatchInfo<Label>& info,
                        uint64_t index_in_table) const;
 
-  void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
-
-  const X86_64InstructionSetFeatures& GetInstructionSetFeatures() const {
-    return isa_features_;
-  }
+  void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) override;
 
   // Fast path implementation of ReadBarrier::Barrier for a heap
   // reference field load when Baker's read barriers are used.
@@ -560,6 +568,8 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   // Store a 64 bit value into a DoubleStackSlot in the most efficient manner.
   void Store64BitValueToStack(Location dest, int64_t value);
 
+  void MoveFromReturnRegister(Location trg, DataType::Type type) override;
+
   // Assign a 64 bit constant to an address.
   void MoveInt64ToAddress(const Address& addr_low,
                           const Address& addr_high,
@@ -578,9 +588,9 @@ class CodeGeneratorX86_64 : public CodeGenerator {
     }
   }
 
-  void GenerateNop() OVERRIDE;
-  void GenerateImplicitNullCheck(HNullCheck* instruction) OVERRIDE;
-  void GenerateExplicitNullCheck(HNullCheck* instruction) OVERRIDE;
+  void GenerateNop() override;
+  void GenerateImplicitNullCheck(HNullCheck* instruction) override;
+  void GenerateExplicitNullCheck(HNullCheck* instruction) override;
 
   // When we don't know the proper offset for the value, we use kDummy32BitOffset.
   // We will fix this up in the linker later to have the right value.
@@ -598,24 +608,26 @@ class CodeGeneratorX86_64 : public CodeGenerator {
   InstructionCodeGeneratorX86_64 instruction_visitor_;
   ParallelMoveResolverX86_64 move_resolver_;
   X86_64Assembler assembler_;
-  const X86_64InstructionSetFeatures& isa_features_;
 
   // Offset to the start of the constant area in the assembled code.
   // Used for fixups to the constant area.
   int constant_area_start_;
 
-  // PC-relative method patch info for kBootImageLinkTimePcRelative.
+  // PC-relative method patch info for kBootImageLinkTimePcRelative/kBootImageRelRo.
+  // Also used for type/string patches for kBootImageRelRo (same linker patch as for methods).
   ArenaDeque<PatchInfo<Label>> boot_image_method_patches_;
   // PC-relative method patch info for kBssEntry.
   ArenaDeque<PatchInfo<Label>> method_bss_entry_patches_;
   // PC-relative type patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PatchInfo<Label>> boot_image_type_patches_;
-  // Type patch locations for kBssEntry.
+  // PC-relative type patch info for kBssEntry.
   ArenaDeque<PatchInfo<Label>> type_bss_entry_patches_;
-  // String patch locations; type depends on configuration (intern table or boot image PIC).
+  // PC-relative String patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PatchInfo<Label>> boot_image_string_patches_;
-  // String patch locations for kBssEntry.
+  // PC-relative String patch info for kBssEntry.
   ArenaDeque<PatchInfo<Label>> string_bss_entry_patches_;
+  // PC-relative patch info for IntrinsicObjects.
+  ArenaDeque<PatchInfo<Label>> boot_image_intrinsic_patches_;
 
   // Patches for string literals in JIT compiled code.
   ArenaDeque<PatchInfo<Label>> jit_string_patches_;

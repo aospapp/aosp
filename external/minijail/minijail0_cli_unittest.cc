@@ -27,25 +27,26 @@ constexpr char kValidGid[] = "100";
 class CliTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    j_ = minijail_new();
-
     // Most tests do not care about this logic.  For the few that do, make
     // them opt into it so they can validate specifically.
     elftype_ = ELFDYNAMIC;
   }
-  virtual void TearDown() {
-    minijail_destroy(j_);
-  }
+  virtual void TearDown() {}
 
   // We use a vector of strings rather than const char * pointers because we
   // need the backing memory to be writable.  The CLI might mutate the strings
   // as it parses things (which is normally permissible with argv).
-  int parse_args_(const std::vector<std::string>& argv, int *exit_immediately,
-                  ElfType *elftype) {
+  int parse_args_(const std::vector<std::string>& argv,
+                  int* exit_immediately,
+                  ElfType* elftype) {
     // Make sure we reset the getopts state when scanning a new argv.  Setting
     // this to 0 is a GNU extension, but AOSP/BSD also checks this (as an alias
     // to their "optreset").
     optind = 0;
+
+    // We create & destroy this for every parse_args call because some API
+    // calls can dupe memory which confuses LSAN.  https://crbug.com/844615
+    struct minijail *j = minijail_new();
 
     std::vector<const char *> pargv;
     pargv.push_back("minijail0");
@@ -55,10 +56,14 @@ class CliTest : public ::testing::Test {
     // We grab stdout from parse_args itself as it might dump things we don't
     // usually care about like help output.
     testing::internal::CaptureStdout();
-    int ret = parse_args(j_, pargv.size(),
-                         const_cast<char* const*>(pargv.data()),
-                         exit_immediately, elftype);
+
+    const char* preload_path = PRELOADPATH;
+    int ret =
+        parse_args(j, pargv.size(), const_cast<char* const*>(pargv.data()),
+                   exit_immediately, elftype, &preload_path);
     testing::internal::GetCapturedStdout();
+
+    minijail_destroy(j);
 
     return ret;
   }
@@ -67,7 +72,6 @@ class CliTest : public ::testing::Test {
     return parse_args_(argv, &exit_immediately_, &elftype_);
   }
 
-  struct minijail *j_;
   ElfType elftype_;
   int exit_immediately_;
 };
@@ -119,6 +123,11 @@ TEST_F(CliTest, invalid_set_user) {
 
   argv[1] = "1000x";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  // Supplying -u more than once is bad.
+  argv = {"-u", kValidUser, "-u", kValidUid, "/bin/sh"};
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1),
+              "-u provided multiple times");
 }
 
 // Valid calls to the change group option.
@@ -142,6 +151,11 @@ TEST_F(CliTest, invalid_set_group) {
 
   argv[1] = "1000x";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  // Supplying -g more than once is bad.
+  argv = {"-g", kValidGroup, "-g", kValidGid, "/bin/sh"};
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1),
+              "-g provided multiple times");
 }
 
 // Valid calls to the skip securebits option.
@@ -218,10 +232,16 @@ TEST_F(CliTest, valid_rlimit) {
   argv[1] = "0,1,2";
   ASSERT_TRUE(parse_args_(argv));
 
+  argv[1] = "0,0x100,4";
+  ASSERT_TRUE(parse_args_(argv));
+
   argv[1] = "1,1,unlimited";
   ASSERT_TRUE(parse_args_(argv));
 
   argv[1] = "2,unlimited,2";
+  ASSERT_TRUE(parse_args_(argv));
+
+  argv[1] = "RLIMIT_AS,unlimited,unlimited";
   ASSERT_TRUE(parse_args_(argv));
 }
 
@@ -246,7 +266,16 @@ TEST_F(CliTest, invalid_rlimit) {
   argv[1] = "0,0,invalid-limit";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
 
+  // Invalid number.
   argv[1] = "0,0,0j";
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  // Invalid hex number.
+  argv[1] = "0,0x1jf,0";
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  // Invalid rlimit constant.
+  argv[1] = "RLIMIT_GOGOOGOG,0,0";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
 }
 
@@ -397,6 +426,18 @@ TEST_F(CliTest, valid_mount) {
   // Multiple data options to the kernel.
   argv[2] = "none,/,none,0xe,mode=755,uid=0,gid=10";
   ASSERT_TRUE(parse_args_(argv));
+
+  // Single MS constant.
+  argv[2] = "none,/,none,MS_NODEV,mode=755";
+  ASSERT_TRUE(parse_args_(argv));
+
+  // Multiple MS constants.
+  argv[2] = "none,/,none,MS_NODEV|MS_NOEXEC,mode=755";
+  ASSERT_TRUE(parse_args_(argv));
+
+  // Mixed constant & number.
+  argv[2] = "none,/,none,MS_NODEV|0xf,mode=755";
+  ASSERT_TRUE(parse_args_(argv));
 }
 
 // Invalid calls to the mount option.
@@ -413,6 +454,10 @@ TEST_F(CliTest, invalid_mount) {
 
   // Missing type.
   argv[2] = "none,/";
+  ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
+
+  // Unknown MS constant.
+  argv[2] = "none,/,none,MS_WHOOPS";
   ASSERT_EXIT(parse_args_(argv), testing::ExitedWithCode(1), "");
 }
 

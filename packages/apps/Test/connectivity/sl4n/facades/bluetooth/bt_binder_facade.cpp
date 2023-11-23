@@ -70,7 +70,7 @@ std::tuple<bool, int> BtBinderFacade::BtBinderEnable() {
     return std::make_tuple(false, sl4n_error_codes::kFailInt);
   }
   bool ret;
-  bt_iface->Enable(false, &ret);
+  bt_iface->Enable(&ret);
   if (!ret) {
     LOG(ERROR) << sl4n::kTagStr << ": Failed to enable the Bluetooth service";
     return std::make_tuple(false, sl4n_error_codes::kPassInt);

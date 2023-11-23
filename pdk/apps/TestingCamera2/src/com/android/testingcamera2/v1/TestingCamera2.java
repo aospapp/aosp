@@ -29,6 +29,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.TotalCaptureResult;
 import android.media.Image;
 import android.media.MediaMuxer;
@@ -73,6 +74,7 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private CameraOps mCameraOps;
     private String[] mAvailableCameraIds;
     private String mCameraId;
+    private int mCaptureFormat = ImageFormat.JPEG;
     private static final int mSeekBarMax = 100;
     private static final long MAX_EXPOSURE = 200000000L; // 200ms
     private static final long MIN_EXPOSURE = 100000L; // 100us
@@ -94,7 +96,9 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private SurfaceHolder mCurrentPreviewHolder2 = null;
 
     private Spinner mCameraIdSpinner;
+    private Spinner mCaptureFormatSpinner;
     private OnItemSelectedListener mCameraIdSelectionListener;
+    private OnItemSelectedListener mCaptureFormatSelectionListener;
     private Button mInfoButton;
     private Button mFlushButton;
     private ToggleButton mFocusLockToggle;
@@ -139,6 +143,7 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
         mStillView = (ImageView) findViewById(R.id.still_view);
 
         mCameraIdSpinner = (Spinner) findViewById(R.id.camera_id_spinner);
+        mCaptureFormatSpinner = (Spinner) findViewById(R.id.still_format_spinner);
         mInfoButton  = (Button) findViewById(R.id.info_button);
         mInfoButton.setOnClickListener(mInfoButtonListener);
         mFlushButton  = (Button) findViewById(R.id.flush_button);
@@ -232,14 +237,11 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
         if ((checkSelfPermission(Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED )
             || (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED)
-            || (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED)) {
             Log.i(TAG, "Requested camera/video permissions");
             requestPermissions(new String[] {
                         Manifest.permission.CAMERA,
-                        Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        Manifest.permission.RECORD_AUDIO },
                     PERMISSIONS_REQUEST_CAMERA);
             return;
         }
@@ -402,14 +404,14 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
                 @Override
                 public void run() {
                     try {
-                        mCameraOps.minimalJpegCapture(mCaptureCallback, mCaptureResultListener,
-                                uiHandler, mCameraControl);
+                        mCameraOps.minimalStillCapture(mCaptureCallback, mCaptureResultListener,
+                                uiHandler, mCameraControl, mCaptureFormat);
                         if (mCurrentPreviewHolder != null && mCurrentPreviewHolder2 != null) {
                             mCameraOps.minimalPreview(mCurrentPreviewHolder,
                                     mCurrentPreviewHolder2, mCameraControl);
                         }
                     } catch (ApiFailureException e) {
-                        logException("Can't take a JPEG! ", e);
+                        logException("Can't take a still capture! ", e);
                     }
                 }
             });
@@ -448,15 +450,16 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private final CameraOps.CaptureCallback mCaptureCallback = new CameraOps.CaptureCallback() {
         @Override
         public void onCaptureAvailable(Image capture) {
-            if (capture.getFormat() != ImageFormat.JPEG) {
+            if (capture.getFormat() != ImageFormat.JPEG &&
+                    capture.getFormat() != ImageFormat.HEIC) {
                 Log.e(TAG, "Unexpected format: " + capture.getFormat());
                 return;
             }
-            ByteBuffer jpegBuffer = capture.getPlanes()[0].getBuffer();
-            byte[] jpegData = new byte[jpegBuffer.capacity()];
-            jpegBuffer.get(jpegData);
+            ByteBuffer encodedBuffer = capture.getPlanes()[0].getBuffer();
+            byte[] encodedData = new byte[encodedBuffer.capacity()];
+            encodedBuffer.get(encodedData);
 
-            Bitmap b = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.length);
+            Bitmap b = BitmapFactory.decodeByteArray(encodedData, 0, encodedData.length);
             mStillView.setImageBitmap(b);
         }
     };
@@ -815,6 +818,45 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
                     mCameraControl.getAfControls().setAfMode(afMode);
 
                     mCameraOps.updatePreview(mCameraControl);
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                    // Do nothing
+                }
+            });
+
+            // Map available still capture formats -> capture format spinner dropdown list of
+            // strings
+            StreamConfigurationMap streamConfigMap =
+                    characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            final List<String> captureFormatList = new ArrayList<>();
+
+            captureFormatList.add("JPEG");
+            if (streamConfigMap.isOutputSupportedFor(ImageFormat.HEIC)) {
+                captureFormatList.add("HEIC");
+            }
+
+            dataAdapter = new ArrayAdapter<>(TestingCamera2.this,
+                    android.R.layout.simple_spinner_item, captureFormatList);
+            dataAdapter.setDropDownViewResource(
+                    android.R.layout.simple_spinner_dropdown_item);
+            mCaptureFormatSpinner.setAdapter(dataAdapter);
+
+            /*
+             * Change the capture format and update preview when format spinner's selected item changes
+             */
+            mCaptureFormatSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
+
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position,
+                        long id) {
+                    int format = (position == 0 ? ImageFormat.JPEG : ImageFormat.HEIC);
+
+                    Log.i(TAG, "Change image capture format to " + captureFormatList.get(position)
+                            + " " + format);
+
+                    mCaptureFormat = format;
                 }
 
                 @Override

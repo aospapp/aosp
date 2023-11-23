@@ -16,26 +16,24 @@
 
 package com.android.car.systeminterface;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import com.android.car.procfsinspector.ProcessInfo;
-import com.android.car.procfsinspector.ProcfsInspector;
-import com.android.internal.car.ICarServiceHelper;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.PowerManager;
-import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
+
+import com.android.car.procfsinspector.ProcessInfo;
+import com.android.car.procfsinspector.ProcfsInspector;
+import com.android.internal.car.ICarServiceHelper;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Interface that abstracts system status (booted, sleeping, ...) operations
@@ -43,7 +41,11 @@ import android.util.Pair;
 public interface SystemStateInterface {
     static final String TAG = SystemStateInterface.class.getSimpleName();
     void shutdown();
-    boolean enterDeepSleep(int sleepDurationSec);
+    /**
+     * Put the device into Suspend to RAM mode
+     * @return boolean true if suspend succeeded
+     */
+    boolean enterDeepSleep();
     void scheduleActionForBootCompleted(Runnable action, Duration delay);
 
     default boolean isWakeupCausedByTimer() {
@@ -56,7 +58,7 @@ public interface SystemStateInterface {
 
     default boolean isSystemSupportingDeepSleep() {
         //TODO should return by checking some kernel suspend control sysfs, bug: 32061842
-        return false;
+        return true;
     }
 
     default List<ProcessInfo> getRunningProcesses() {
@@ -99,7 +101,7 @@ public interface SystemStateInterface {
         }
 
         @Override
-        public boolean enterDeepSleep(int sleepDurationSec) {
+        public boolean enterDeepSleep() {
             boolean deviceEnteredSleep;
             //TODO set wake up time via VHAL, bug: 32061842
             try {

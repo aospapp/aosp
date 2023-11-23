@@ -16,16 +16,16 @@
 
 package com.android.services.telephony;
 
+import static android.telecom.ConferenceParticipant.getParticipantAddress;
+
+import static org.junit.Assert.assertEquals;
+
 import android.net.Uri;
-import android.support.test.runner.AndroidJUnit4;
-import android.telecom.Conference;
-import android.telecom.ConferenceParticipant;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static com.android.services.telephony.ConferenceParticipantConnection.getParticipantAddress;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Tests proper parsing of conference event package participant addresses.

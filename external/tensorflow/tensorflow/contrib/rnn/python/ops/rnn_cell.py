@@ -23,13 +23,18 @@ import math
 from tensorflow.contrib.compiler import jit
 from tensorflow.contrib.layers.python.layers import layers
 from tensorflow.contrib.rnn.python.ops import core_rnn_cell
+from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import op_def_registry
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
-from tensorflow.python.layers import base as base_layer
+from tensorflow.python.keras import activations
+from tensorflow.python.keras import initializers
+from tensorflow.python.keras.engine import input_spec
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import clip_ops
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import gen_array_ops
 from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_impl  # pylint: disable=unused-import
@@ -95,10 +100,10 @@ class CoupledInputForgetGateLSTMCell(rnn_cell_impl.RNNCell):
 
   The default non-peephole implementation is based on:
 
-    http://www.bioinf.jku.at/publications/older/2604.pdf
+    https://pdfs.semanticscholar.org/1154/0131eae85b2e11d53df7f1360eeb6476e7f4.pdf
 
-  S. Hochreiter and J. Schmidhuber.
-  "Long Short-Term Memory". Neural Computation, 9(8):1735-1780, 1997.
+  Felix Gers, Jurgen Schmidhuber, and Fred Cummins.
+  "Learning to forget: Continual prediction with LSTM." IET, 850-855, 1999.
 
   The peephole implementation is based on:
 
@@ -247,11 +252,13 @@ class CoupledInputForgetGateLSTMCell(rnn_cell_impl.RNNCell):
       m_prev = array_ops.slice(state, [0, self._num_units], [-1, num_proj])
 
     dtype = inputs.dtype
-    input_size = inputs.get_shape().with_rank(2)[1]
+    input_size = inputs.get_shape().with_rank(2).dims[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
     concat_w = _get_concat_variable(
-        "W", [input_size.value + num_proj, 3 * self._num_units], dtype,
+        "W",
+        [input_size.value + num_proj, 3 * self._num_units],
+        dtype,
         self._num_unit_shards)
 
     b = vs.get_variable(
@@ -425,7 +432,7 @@ class TimeFreqLSTMCell(rnn_cell_impl.RNNCell):
 
     # initialize the first freq state to be zero
     m_prev_freq = array_ops.zeros(
-        [inputs.shape[0].value or inputs.get_shape()[0], self._num_units],
+        [inputs.shape.dims[0].value or inputs.get_shape()[0], self._num_units],
         dtype)
     for fq in range(len(freq_inputs)):
       c_prev = array_ops.slice(state, [0, 2 * fq * self._num_units],
@@ -476,7 +483,7 @@ class TimeFreqLSTMCell(rnn_cell_impl.RNNCell):
     Raises:
       ValueError: if input_size cannot be inferred from static shape inference.
     """
-    input_size = input_feat.get_shape().with_rank(2)[-1].value
+    input_size = input_feat.get_shape().with_rank(2).dims[-1].value
     if input_size is None:
       raise ValueError("Cannot infer input_size from static shape inference.")
     num_feats = int(
@@ -534,7 +541,7 @@ class GridLSTMCell(rnn_cell_impl.RNNCell):
       initializer: (optional) The initializer to use for the weight and
         projection matrices, default None.
       num_unit_shards: (optional) int, default 1, How to split the weight
-        matrix. If > 1,the weight matrix is stored across num_unit_shards.
+        matrix. If > 1, the weight matrix is stored across num_unit_shards.
       forget_bias: (optional) float, default 1.0, The initial bias of the
         forget gates, used to reduce the scale of forgetting at the beginning
         of the training.
@@ -632,7 +639,8 @@ class GridLSTMCell(rnn_cell_impl.RNNCell):
       ValueError: if an input_size was specified and the provided inputs have
         a different dimension.
     """
-    batch_size = inputs.shape[0].value or array_ops.shape(inputs)[0]
+    batch_size = tensor_shape.dimension_value(
+        inputs.shape[0]) or array_ops.shape(inputs)[0]
     freq_inputs = self._make_tf_features(inputs)
     m_out_lst = []
     state_out_lst = []
@@ -882,7 +890,7 @@ class GridLSTMCell(rnn_cell_impl.RNNCell):
     Raises:
       ValueError: if input_size cannot be inferred from static shape inference.
     """
-    input_size = input_feat.get_shape().with_rank(2)[-1].value
+    input_size = input_feat.get_shape().with_rank(2).dims[-1].value
     if input_size is None:
       raise ValueError("Cannot infer input_size from static shape inference.")
     if slice_offset > 0:
@@ -906,7 +914,7 @@ class GridLSTMCell(rnn_cell_impl.RNNCell):
     if not self._start_freqindex_list:
       if len(self._num_frequency_blocks) != 1:
         raise ValueError("Length of num_frequency_blocks"
-                         " is not 1, but instead is %d",
+                         " is not 1, but instead is %d" %
                          len(self._num_frequency_blocks))
       num_feats = int(
           (input_size - self._feature_size) / (self._frequency_skip)) + 1
@@ -993,7 +1001,7 @@ class BidirectionalGridLSTMCell(GridLSTMCell):
       initializer: (optional) The initializer to use for the weight and
         projection matrices, default None.
       num_unit_shards: (optional) int, default 1, How to split the weight
-        matrix. If > 1,the weight matrix is stored across num_unit_shards.
+        matrix. If > 1, the weight matrix is stored across num_unit_shards.
       forget_bias: (optional) float, default 1.0, The initial bias of the
         forget gates, used to reduce the scale of forgetting at the beginning
         of the training.
@@ -1054,7 +1062,8 @@ class BidirectionalGridLSTMCell(GridLSTMCell):
       ValueError: if an input_size was specified and the provided inputs have
         a different dimension.
     """
-    batch_size = inputs.shape[0].value or array_ops.shape(inputs)[0]
+    batch_size = tensor_shape.dimension_value(
+        inputs.shape[0]) or array_ops.shape(inputs)[0]
     fwd_inputs = self._make_tf_features(inputs)
     if self._backward_slice_offset:
       bwd_inputs = self._make_tf_features(inputs, self._backward_slice_offset)
@@ -1106,7 +1115,7 @@ _Linear = core_rnn_cell._Linear  # pylint: disable=invalid-name
 class AttentionCellWrapper(rnn_cell_impl.RNNCell):
   """Basic attention cell wrapper.
 
-  Implementation based on https://arxiv.org/abs/1409.0473.
+  Implementation based on https://arxiv.org/abs/1601.06733.
   """
 
   def __init__(self,
@@ -1143,8 +1152,7 @@ class AttentionCellWrapper(rnn_cell_impl.RNNCell):
           `state_is_tuple` is `False` or if attn_length is zero or less.
     """
     super(AttentionCellWrapper, self).__init__(_reuse=reuse)
-    if not rnn_cell_impl._like_rnncell(cell):  # pylint: disable=protected-access
-      raise TypeError("The parameter cell is not RNNCell.")
+    rnn_cell_impl.assert_like_rnncell("cell", cell)
     if nest.is_sequence(cell.state_size) and not state_is_tuple:
       raise ValueError(
           "Cell returns tuple of states, but the flag "
@@ -1286,7 +1294,7 @@ class HighwayWrapper(rnn_cell_impl.RNNCell):
       return self._cell.zero_state(batch_size, dtype)
 
   def _highway(self, inp, out):
-    input_size = inp.get_shape().with_rank(2)[1].value
+    input_size = inp.get_shape().with_rank(2).dims[1].value
     carry_weight = vs.get_variable("carry_w", [input_size, input_size])
     carry_bias = vs.get_variable(
         "carry_b", [input_size],
@@ -1455,7 +1463,7 @@ class LayerNormBasicLSTMCell(rnn_cell_impl.RNNCell):
     return new_h, new_state
 
 
-class NASCell(rnn_cell_impl.RNNCell):
+class NASCell(rnn_cell_impl.LayerRNNCell):
   """Neural Architecture Search (NAS) recurrent network cell.
 
   This implements the recurrent cell from the paper:
@@ -1468,23 +1476,28 @@ class NASCell(rnn_cell_impl.RNNCell):
   The class uses an optional projection layer.
   """
 
-  def __init__(self, num_units, num_proj=None, use_biases=False, reuse=None):
+  # NAS cell's architecture base.
+  _NAS_BASE = 8
+
+  def __init__(self, num_units, num_proj=None, use_bias=False, reuse=None,
+               **kwargs):
     """Initialize the parameters for a NAS cell.
 
     Args:
-      num_units: int, The number of units in the NAS cell
+      num_units: int, The number of units in the NAS cell.
       num_proj: (optional) int, The output dimensionality for the projection
         matrices.  If None, no projection is performed.
-      use_biases: (optional) bool, If True then use biases within the cell. This
+      use_bias: (optional) bool, If True then use biases within the cell. This
         is False by default.
       reuse: (optional) Python boolean describing whether to reuse variables
         in an existing scope.  If not `True`, and the existing scope already has
         the given variables, an error is raised.
+      **kwargs: Additional keyword arguments.
     """
-    super(NASCell, self).__init__(_reuse=reuse)
+    super(NASCell, self).__init__(_reuse=reuse, **kwargs)
     self._num_units = num_units
     self._num_proj = num_proj
-    self._use_biases = use_biases
+    self._use_bias = use_bias
     self._reuse = reuse
 
     if num_proj is not None:
@@ -1501,6 +1514,33 @@ class NASCell(rnn_cell_impl.RNNCell):
   @property
   def output_size(self):
     return self._output_size
+
+  def build(self, inputs_shape):
+    input_size = tensor_shape.dimension_value(
+        tensor_shape.TensorShape(inputs_shape).with_rank(2)[1])
+    if input_size is None:
+      raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
+
+    num_proj = self._num_units if self._num_proj is None else self._num_proj
+
+    # Variables for the NAS cell. `recurrent_kernel` is all matrices multiplying
+    # the hiddenstate and `kernel` is all matrices multiplying the inputs.
+    self.recurrent_kernel = self.add_variable(
+        "recurrent_kernel", [num_proj, self._NAS_BASE * self._num_units])
+    self.kernel = self.add_variable(
+        "kernel", [input_size, self._NAS_BASE * self._num_units])
+
+    if self._use_bias:
+      self.bias = self.add_variable("bias",
+                                    shape=[self._NAS_BASE * self._num_units],
+                                    initializer=init_ops.zeros_initializer)
+
+    # Projection layer if specified
+    if self._num_proj is not None:
+      self.projection_weights = self.add_variable(
+          "projection_weights", [self._num_units, self._num_proj])
+
+    self.built = True
 
   def call(self, inputs, state):
     """Run one step of NAS Cell.
@@ -1528,38 +1568,20 @@ class NASCell(rnn_cell_impl.RNNCell):
     tanh = math_ops.tanh
     relu = nn_ops.relu
 
-    num_proj = self._num_units if self._num_proj is None else self._num_proj
-
     (c_prev, m_prev) = state
 
-    dtype = inputs.dtype
-    input_size = inputs.get_shape().with_rank(2)[1]
-    if input_size.value is None:
-      raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
-    # Variables for the NAS cell. W_m is all matrices multiplying the
-    # hiddenstate and W_inputs is all matrices multiplying the inputs.
-    concat_w_m = vs.get_variable("recurrent_kernel",
-                                 [num_proj, 8 * self._num_units], dtype)
-    concat_w_inputs = vs.get_variable(
-        "kernel", [input_size.value, 8 * self._num_units], dtype)
+    m_matrix = math_ops.matmul(m_prev, self.recurrent_kernel)
+    inputs_matrix = math_ops.matmul(inputs, self.kernel)
 
-    m_matrix = math_ops.matmul(m_prev, concat_w_m)
-    inputs_matrix = math_ops.matmul(inputs, concat_w_inputs)
-
-    if self._use_biases:
-      b = vs.get_variable(
-          "bias",
-          shape=[8 * self._num_units],
-          initializer=init_ops.zeros_initializer(),
-          dtype=dtype)
-      m_matrix = nn_ops.bias_add(m_matrix, b)
+    if self._use_bias:
+      m_matrix = nn_ops.bias_add(m_matrix, self.bias)
 
     # The NAS cell branches into 8 different splits for both the hiddenstate
     # and the input
     m_matrix_splits = array_ops.split(
-        axis=1, num_or_size_splits=8, value=m_matrix)
+        axis=1, num_or_size_splits=self._NAS_BASE, value=m_matrix)
     inputs_matrix_splits = array_ops.split(
-        axis=1, num_or_size_splits=8, value=inputs_matrix)
+        axis=1, num_or_size_splits=self._NAS_BASE, value=inputs_matrix)
 
     # First layer
     layer1_0 = sigmoid(inputs_matrix_splits[0] + m_matrix_splits[0])
@@ -1591,9 +1613,7 @@ class NASCell(rnn_cell_impl.RNNCell):
 
     # Projection layer if specified
     if self._num_proj is not None:
-      concat_w_proj = vs.get_variable("projection_weights",
-                                      [self._num_units, self._num_proj], dtype)
-      new_m = math_ops.matmul(new_m, concat_w_proj)
+      new_m = math_ops.matmul(new_m, self.projection_weights)
 
     new_state = rnn_cell_impl.LSTMStateTuple(new_c, new_m)
     return new_m, new_state
@@ -1671,7 +1691,7 @@ class UGRNNCell(rnn_cell_impl.RNNCell):
     """
     sigmoid = math_ops.sigmoid
 
-    input_size = inputs.get_shape().with_rank(2)[1]
+    input_size = inputs.get_shape().with_rank(2).dims[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
 
@@ -1782,7 +1802,7 @@ class IntersectionRNNCell(rnn_cell_impl.RNNCell):
     sigmoid = math_ops.sigmoid
     tanh = math_ops.tanh
 
-    input_size = inputs.get_shape().with_rank(2)[1]
+    input_size = inputs.get_shape().with_rank(2).dims[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
 
@@ -2059,16 +2079,19 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
                initializers=None,
                name="conv_lstm_cell"):
     """Construct ConvLSTMCell.
+
     Args:
       conv_ndims: Convolution dimensionality (1, 2 or 3).
       input_shape: Shape of the input as int tuple, excluding the batch size.
       output_channels: int, number of output channels of the conv LSTM.
-      kernel_shape: Shape of kernel as in tuple (of size 1,2 or 3).
-      use_bias: Use bias in convolutions.
+      kernel_shape: Shape of kernel as an int tuple (of size 1, 2 or 3).
+      use_bias: (bool) Use bias in convolutions.
       skip_connection: If set to `True`, concatenate the input to the
-      output of the conv LSTM. Default: `False`.
+        output of the conv LSTM. Default: `False`.
       forget_bias: Forget bias.
+      initializers: Unused.
       name: Name of the module.
+
     Raises:
       ValueError: If `skip_connection` is `True` and stride is different from 1
         or if `input_shape` is incompatible with `conv_ndims`.
@@ -2082,7 +2105,7 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
     self._conv_ndims = conv_ndims
     self._input_shape = input_shape
     self._output_channels = output_channels
-    self._kernel_shape = kernel_shape
+    self._kernel_shape = list(kernel_shape)
     self._use_bias = use_bias
     self._forget_bias = forget_bias
     self._skip_connection = skip_connection
@@ -2131,7 +2154,7 @@ class Conv1DLSTMCell(ConvLSTMCell):
 
   def __init__(self, name="conv_1d_lstm_cell", **kwargs):
     """Construct Conv1DLSTM. See `ConvLSTMCell` for more details."""
-    super(Conv1DLSTMCell, self).__init__(conv_ndims=1, **kwargs)
+    super(Conv1DLSTMCell, self).__init__(conv_ndims=1, name=name, **kwargs)
 
 
 class Conv2DLSTMCell(ConvLSTMCell):
@@ -2142,7 +2165,7 @@ class Conv2DLSTMCell(ConvLSTMCell):
 
   def __init__(self, name="conv_2d_lstm_cell", **kwargs):
     """Construct Conv2DLSTM. See `ConvLSTMCell` for more details."""
-    super(Conv2DLSTMCell, self).__init__(conv_ndims=2, **kwargs)
+    super(Conv2DLSTMCell, self).__init__(conv_ndims=2, name=name, **kwargs)
 
 
 class Conv3DLSTMCell(ConvLSTMCell):
@@ -2153,19 +2176,23 @@ class Conv3DLSTMCell(ConvLSTMCell):
 
   def __init__(self, name="conv_3d_lstm_cell", **kwargs):
     """Construct Conv3DLSTM. See `ConvLSTMCell` for more details."""
-    super(Conv3DLSTMCell, self).__init__(conv_ndims=3, **kwargs)
+    super(Conv3DLSTMCell, self).__init__(conv_ndims=3, name=name, **kwargs)
 
 
 def _conv(args, filter_size, num_features, bias, bias_start=0.0):
-  """convolution:
+  """Convolution.
+
   Args:
     args: a Tensor or a list of Tensors of dimension 3D, 4D or 5D,
     batch x n, Tensors.
-    filter_size: int tuple of filter height and width.
+    filter_size: int tuple of filter shape (of size 1, 2 or 3).
     num_features: int, number of features.
+    bias: Whether to use biases in the convolution layer.
     bias_start: starting value to initialize the bias; 0 by default.
+
   Returns:
     A 3D, 4D, or 5D Tensor with shape [batch ... num_features]
+
   Raises:
     ValueError: if some of the arguments has unspecified or wrong shape.
   """
@@ -2225,6 +2252,13 @@ class GLSTMCell(rnn_cell_impl.RNNCell):
 
   O. Kuchaiev and B. Ginsburg
   "Factorization Tricks for LSTM Networks", ICLR 2017 workshop.
+
+  In brief, a G-LSTM cell consists of one LSTM sub-cell per group, where each
+  sub-cell operates on an evenly-sized sub-vector of the input and produces an
+  evenly-sized sub-vector of the output.  For example, a G-LSTM cell with 128
+  units and 4 groups consists of 4 LSTMs sub-cells with 32 units each.  If that
+  G-LSTM cell is fed a 200-dim input, then each sub-cell receives a 50-dim part
+  of the input and produces a 32-dim part of the output.
   """
 
   def __init__(self,
@@ -2298,7 +2332,7 @@ class GLSTMCell(rnn_cell_impl.RNNCell):
     return self._output_size
 
   def _get_input_for_group(self, inputs, group_id, group_size):
-    """Slices inputs into groups to prepare for processing by cell's groups
+    """Slices inputs into groups to prepare for processing by cell's groups.
 
     Args:
       inputs: cell input or it's previous state,
@@ -2320,9 +2354,12 @@ class GLSTMCell(rnn_cell_impl.RNNCell):
     """Run one step of G-LSTM.
 
     Args:
-      inputs: input Tensor, 2D, [batch x num_units].
-      state: this must be a tuple of state Tensors, both `2-D`,
-      with column sizes `c_state` and `m_state`.
+      inputs: input Tensor, 2D, [batch x num_inputs].  num_inputs must be
+        statically-known and evenly divisible into groups.  The innermost
+        vectors of the inputs are split into evenly-sized sub-vectors and fed
+        into the per-group LSTM sub-cells.
+      state: this must be a tuple of state Tensors, both `2-D`, with column
+        sizes `c_state` and `m_state`.
 
     Returns:
       A tuple containing:
@@ -2337,11 +2374,25 @@ class GLSTMCell(rnn_cell_impl.RNNCell):
 
     Raises:
       ValueError: If input size cannot be inferred from inputs via
-        static shape inference.
+        static shape inference, or if the input shape is incompatible
+        with the number of groups.
     """
     (c_prev, m_prev) = state
 
-    self._batch_size = inputs.shape[0].value or array_ops.shape(inputs)[0]
+    self._batch_size = tensor_shape.dimension_value(
+        inputs.shape[0]) or array_ops.shape(inputs)[0]
+
+    # If the input size is statically-known, calculate and validate its group
+    # size.  Otherwise, use the output group size.
+    input_size = tensor_shape.dimension_value(inputs.shape[1])
+    if input_size is None:
+      raise ValueError("input size must be statically known")
+    if input_size % self._number_of_groups != 0:
+      raise ValueError(
+          "input size (%d) must be divisible by number_of_groups (%d)" %
+          (input_size, self._number_of_groups))
+    input_group_size = int(input_size / self._number_of_groups)
+
     dtype = inputs.dtype
     scope = vs.get_variable_scope()
     with vs.variable_scope(scope, initializer=self._initializer):
@@ -2354,8 +2405,7 @@ class GLSTMCell(rnn_cell_impl.RNNCell):
         with vs.variable_scope("group%d" % group_id):
           x_g_id = array_ops.concat(
               [
-                  self._get_input_for_group(inputs, group_id,
-                                            self._group_shape[0]),
+                  self._get_input_for_group(inputs, group_id, input_group_size),
                   self._get_input_for_group(m_prev, group_id,
                                             self._group_shape[0])
               ],
@@ -2418,10 +2468,10 @@ class LayerNormLSTMCell(rnn_cell_impl.RNNCell):
 
   The default non-peephole implementation is based on:
 
-    http://www.bioinf.jku.at/publications/older/2604.pdf
+    https://pdfs.semanticscholar.org/1154/0131eae85b2e11d53df7f1360eeb6476e7f4.pdf
 
-  S. Hochreiter and J. Schmidhuber.
-  "Long Short-Term Memory". Neural Computation, 9(8):1735-1780, 1997.
+  Felix Gers, Jurgen Schmidhuber, and Fred Cummins.
+  "Learning to forget: Continual prediction with LSTM." IET, 850-855, 1999.
 
   The peephole implementation is based on:
 
@@ -2555,11 +2605,11 @@ class LayerNormLSTMCell(rnn_cell_impl.RNNCell):
     for shape in shapes:
       if shape.ndims != 2:
         raise ValueError("linear is expecting 2D arguments: %s" % shapes)
-      if shape[1].value is None:
+      if tensor_shape.dimension_value(shape[1]) is None:
         raise ValueError("linear expects shape[1] to be provided for shape %s, "
                          "but saw %s" % (shape, shape[1]))
       else:
-        total_arg_size += shape[1].value
+        total_arg_size += tensor_shape.dimension_value(shape[1])
 
     dtype = [a.dtype for a in args][0]
 
@@ -2617,7 +2667,7 @@ class LayerNormLSTMCell(rnn_cell_impl.RNNCell):
     (c_prev, m_prev) = state
 
     dtype = inputs.dtype
-    input_size = inputs.get_shape().with_rank(2)[1]
+    input_size = inputs.get_shape().with_rank(2).dims[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
     scope = vs.get_variable_scope()
@@ -2684,7 +2734,7 @@ class LayerNormLSTMCell(rnn_cell_impl.RNNCell):
 
 
 class SRUCell(rnn_cell_impl.LayerRNNCell):
-  """SRU, Simple Recurrent Unit
+  """SRU, Simple Recurrent Unit.
 
      Implementation based on
      Training RNNs as Fast as CNNs (cf. https://arxiv.org/abs/1709.02755).
@@ -2707,15 +2757,17 @@ class SRUCell(rnn_cell_impl.LayerRNNCell):
     name: (optional) String, the name of the layer. Layers with the same name
       will share weights, but to avoid mistakes we require reuse=True in such
       cases.
+    **kwargs: Additional keyword arguments.
   """
 
-  def __init__(self, num_units, activation=None, reuse=None, name=None):
-    super(SRUCell, self).__init__(_reuse=reuse, name=name)
+  def __init__(self, num_units, activation=None, reuse=None, name=None,
+               **kwargs):
+    super(SRUCell, self).__init__(_reuse=reuse, name=name, **kwargs)
     self._num_units = num_units
     self._activation = activation or math_ops.tanh
 
     # Restrict inputs to be 2-dimensional matrices
-    self.input_spec = base_layer.InputSpec(ndim=2)
+    self.input_spec = input_spec.InputSpec(ndim=2)
 
   @property
   def state_size(self):
@@ -2726,27 +2778,28 @@ class SRUCell(rnn_cell_impl.LayerRNNCell):
     return self._num_units
 
   def build(self, inputs_shape):
-    if inputs_shape[1].value is None:
+    if tensor_shape.dimension_value(inputs_shape[1]) is None:
       raise ValueError(
           "Expected inputs.shape[-1] to be known, saw shape: %s" % inputs_shape)
 
-    input_depth = inputs_shape[1].value
+    input_depth = tensor_shape.dimension_value(inputs_shape[1])
 
+    # pylint: disable=protected-access
     self._kernel = self.add_variable(
         rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
         shape=[input_depth, 4 * self._num_units])
-
+    # pylint: enable=protected-access
     self._bias = self.add_variable(
-        rnn_cell_impl._BIAS_VARIABLE_NAME,
+        rnn_cell_impl._BIAS_VARIABLE_NAME,  # pylint: disable=protected-access
         shape=[2 * self._num_units],
-        initializer=init_ops.constant_initializer(0.0, dtype=self.dtype))
+        initializer=init_ops.zeros_initializer)
 
     self._built = True
 
   def call(self, inputs, state):
     """Simple recurrent unit (SRU) with num_units cells."""
 
-    U = math_ops.matmul(inputs, self._kernel)
+    U = math_ops.matmul(inputs, self._kernel)  # pylint: disable=invalid-name
     x_bar, f_intermediate, r_intermediate, x_tx = array_ops.split(
         value=U, num_or_size_splits=4, axis=1)
 
@@ -2771,9 +2824,11 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
     Training of Deep Neural Networks
 
     The default LSTM implementation based on:
-    http://www.bioinf.jku.at/publications/older/2604.pdf
-    S. Hochreiter and J. Schmidhuber.
-    "Long Short-Term Memory". Neural Computation, 9(8):1735-1780, 1997.
+
+      https://pdfs.semanticscholar.org/1154/0131eae85b2e11d53df7f1360eeb6476e7f4.pdf
+
+    Felix Gers, Jurgen Schmidhuber, and Fred Cummins.
+    "Learning to forget: Continual prediction with LSTM." IET, 850-855, 1999.
 
     The class uses optional peephole connections, optional cell clipping
     and an optional projection layer.
@@ -2862,7 +2917,7 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
 
     output_size = weight.get_shape().as_list()[1]
     g = vs.get_variable(name, [output_size], dtype=weight.dtype)
-    return nn_impl.l2_normalize(weight, dim=0) * g
+    return nn_impl.l2_normalize(weight, axis=0) * g
 
   def _linear(self,
               args,
@@ -2876,6 +2931,7 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
     Args:
       args: a 2D Tensor or a list of 2D, batch x n, Tensors.
       output_size: int, second dimension of W[i].
+      norm: bool, whether to normalize the weights.
       bias: boolean, whether to add a bias term or not.
       bias_initializer: starting value to initialize the bias
         (default is all zeros).
@@ -2899,11 +2955,11 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
     for shape in shapes:
       if shape.ndims != 2:
         raise ValueError("linear is expecting 2D arguments: %s" % shapes)
-      if shape[1].value is None:
+      if tensor_shape.dimension_value(shape[1]) is None:
         raise ValueError("linear expects shape[1] to be provided for shape %s, "
                          "but saw %s" % (shape, shape[1]))
       else:
-        total_arg_size += shape[1].value
+        total_arg_size += tensor_shape.dimension_value(shape[1])
 
     dtype = [a.dtype for a in args][0]
 
@@ -2919,7 +2975,7 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
         st = 0
         with ops.control_dependencies(None):
           for i in range(len(args)):
-            en = st + shapes[i][1].value
+            en = st + tensor_shape.dimension_value(shapes[i][1])
             wn.append(
                 self._normalize(weights[st:en, :], name="norm_{}".format(i)))
             st = en
@@ -2973,7 +3029,7 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
     sigmoid = math_ops.sigmoid
     c, h = state
 
-    input_size = inputs.get_shape().with_rank(2)[1]
+    input_size = inputs.get_shape().with_rank(2).dims[1]
     if input_size.value is None:
       raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
 
@@ -3020,3 +3076,927 @@ class WeightNormLSTMCell(rnn_cell_impl.RNNCell):
 
       new_state = rnn_cell_impl.LSTMStateTuple(new_c, new_h)
       return new_h, new_state
+
+
+class IndRNNCell(rnn_cell_impl.LayerRNNCell):
+  """Independently Recurrent Neural Network (IndRNN) cell
+    (cf. https://arxiv.org/abs/1803.04831).
+
+  Args:
+    num_units: int, The number of units in the RNN cell.
+    activation: Nonlinearity to use.  Default: `tanh`.
+    reuse: (optional) Python boolean describing whether to reuse variables
+     in an existing scope.  If not `True`, and the existing scope already has
+     the given variables, an error is raised.
+    name: String, the name of the layer. Layers with the same name will
+      share weights, but to avoid mistakes we require reuse=True in such
+      cases.
+    dtype: Default dtype of the layer (default of `None` means use the type
+      of the first input). Required when `build` is called before `call`.
+  """
+
+  def __init__(self,
+               num_units,
+               activation=None,
+               reuse=None,
+               name=None,
+               dtype=None):
+    super(IndRNNCell, self).__init__(_reuse=reuse, name=name, dtype=dtype)
+
+    # Inputs must be 2-dimensional.
+    self.input_spec = input_spec.InputSpec(ndim=2)
+
+    self._num_units = num_units
+    self._activation = activation or math_ops.tanh
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  def build(self, inputs_shape):
+    if tensor_shape.dimension_value(inputs_shape[1]) is None:
+      raise ValueError(
+          "Expected inputs.shape[-1] to be known, saw shape: %s" % inputs_shape)
+
+    input_depth = tensor_shape.dimension_value(inputs_shape[1])
+    # pylint: disable=protected-access
+    self._kernel_w = self.add_variable(
+        "%s_w" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[input_depth, self._num_units])
+    self._kernel_u = self.add_variable(
+        "%s_u" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[1, self._num_units],
+        initializer=init_ops.random_uniform_initializer(
+            minval=-1, maxval=1, dtype=self.dtype))
+    self._bias = self.add_variable(
+        rnn_cell_impl._BIAS_VARIABLE_NAME,
+        shape=[self._num_units],
+        initializer=init_ops.zeros_initializer(dtype=self.dtype))
+    # pylint: enable=protected-access
+
+    self.built = True
+
+  def call(self, inputs, state):
+    """IndRNN: output = new_state = act(W * input + u * state + B)."""
+
+    gate_inputs = math_ops.matmul(inputs, self._kernel_w) + (
+        state * self._kernel_u)
+    gate_inputs = nn_ops.bias_add(gate_inputs, self._bias)
+    output = self._activation(gate_inputs)
+    return output, output
+
+
+class IndyGRUCell(rnn_cell_impl.LayerRNNCell):
+  r"""Independently Gated Recurrent Unit cell.
+
+  Based on IndRNNs (https://arxiv.org/abs/1803.04831) and similar to GRUCell,
+  yet with the \\(U_r\\), \\(U_z\\), and \\(U\\) matrices in equations 5, 6, and
+  8 of http://arxiv.org/abs/1406.1078 respectively replaced by diagonal
+  matrices, i.e. a Hadamard product with a single vector:
+
+    $$r_j = \sigma\left([\mathbf W_r\mathbf x]_j +
+      [\mathbf u_r\circ \mathbf h_{(t-1)}]_j\right)$$
+    $$z_j = \sigma\left([\mathbf W_z\mathbf x]_j +
+      [\mathbf u_z\circ \mathbf h_{(t-1)}]_j\right)$$
+    $$\tilde{h}^{(t)}_j = \phi\left([\mathbf W \mathbf x]_j +
+      [\mathbf u \circ \mathbf r \circ \mathbf h_{(t-1)}]_j\right)$$
+
+  where \\(\circ\\) denotes the Hadamard operator. This means that each IndyGRU
+  node sees only its own state, as opposed to seeing all states in the same
+  layer.
+
+  Args:
+    num_units: int, The number of units in the GRU cell.
+    activation: Nonlinearity to use.  Default: `tanh`.
+    reuse: (optional) Python boolean describing whether to reuse variables
+     in an existing scope.  If not `True`, and the existing scope already has
+     the given variables, an error is raised.
+    kernel_initializer: (optional) The initializer to use for the weight
+      matrices applied to the input.
+    bias_initializer: (optional) The initializer to use for the bias.
+    name: String, the name of the layer. Layers with the same name will
+      share weights, but to avoid mistakes we require reuse=True in such
+      cases.
+    dtype: Default dtype of the layer (default of `None` means use the type
+      of the first input). Required when `build` is called before `call`.
+  """
+
+  def __init__(self,
+               num_units,
+               activation=None,
+               reuse=None,
+               kernel_initializer=None,
+               bias_initializer=None,
+               name=None,
+               dtype=None):
+    super(IndyGRUCell, self).__init__(_reuse=reuse, name=name, dtype=dtype)
+
+    # Inputs must be 2-dimensional.
+    self.input_spec = input_spec.InputSpec(ndim=2)
+
+    self._num_units = num_units
+    self._activation = activation or math_ops.tanh
+    self._kernel_initializer = kernel_initializer
+    self._bias_initializer = bias_initializer
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  def build(self, inputs_shape):
+    if tensor_shape.dimension_value(inputs_shape[1]) is None:
+      raise ValueError(
+          "Expected inputs.shape[-1] to be known, saw shape: %s" % inputs_shape)
+
+    input_depth = tensor_shape.dimension_value(inputs_shape[1])
+    # pylint: disable=protected-access
+    self._gate_kernel_w = self.add_variable(
+        "gates/%s_w" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[input_depth, 2 * self._num_units],
+        initializer=self._kernel_initializer)
+    self._gate_kernel_u = self.add_variable(
+        "gates/%s_u" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[1, 2 * self._num_units],
+        initializer=init_ops.random_uniform_initializer(
+            minval=-1, maxval=1, dtype=self.dtype))
+    self._gate_bias = self.add_variable(
+        "gates/%s" % rnn_cell_impl._BIAS_VARIABLE_NAME,
+        shape=[2 * self._num_units],
+        initializer=(self._bias_initializer
+                     if self._bias_initializer is not None else
+                     init_ops.constant_initializer(1.0, dtype=self.dtype)))
+    self._candidate_kernel_w = self.add_variable(
+        "candidate/%s" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[input_depth, self._num_units],
+        initializer=self._kernel_initializer)
+    self._candidate_kernel_u = self.add_variable(
+        "candidate/%s_u" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[1, self._num_units],
+        initializer=init_ops.random_uniform_initializer(
+            minval=-1, maxval=1, dtype=self.dtype))
+    self._candidate_bias = self.add_variable(
+        "candidate/%s" % rnn_cell_impl._BIAS_VARIABLE_NAME,
+        shape=[self._num_units],
+        initializer=(self._bias_initializer
+                     if self._bias_initializer is not None else
+                     init_ops.zeros_initializer(dtype=self.dtype)))
+    # pylint: enable=protected-access
+
+    self.built = True
+
+  def call(self, inputs, state):
+    """Recurrently independent Gated Recurrent Unit (GRU) with nunits cells."""
+
+    gate_inputs = math_ops.matmul(inputs, self._gate_kernel_w) + (
+        gen_array_ops.tile(state, [1, 2]) * self._gate_kernel_u)
+    gate_inputs = nn_ops.bias_add(gate_inputs, self._gate_bias)
+
+    value = math_ops.sigmoid(gate_inputs)
+    r, u = array_ops.split(value=value, num_or_size_splits=2, axis=1)
+
+    r_state = r * state
+
+    candidate = math_ops.matmul(inputs, self._candidate_kernel_w) + (
+        r_state * self._candidate_kernel_u)
+    candidate = nn_ops.bias_add(candidate, self._candidate_bias)
+
+    c = self._activation(candidate)
+    new_h = u * state + (1 - u) * c
+    return new_h, new_h
+
+
+class IndyLSTMCell(rnn_cell_impl.LayerRNNCell):
+  r"""Basic IndyLSTM recurrent network cell.
+
+  Based on IndRNNs (https://arxiv.org/abs/1803.04831) and similar to
+  BasicLSTMCell, yet with the \\(U_f\\), \\(U_i\\), \\(U_o\\) and \\(U_c\\)
+  matrices in the regular LSTM equations replaced by diagonal matrices, i.e. a
+  Hadamard product with a single vector:
+
+    $$f_t = \sigma_g\left(W_f x_t + u_f \circ h_{t-1} + b_f\right)$$
+    $$i_t = \sigma_g\left(W_i x_t + u_i \circ h_{t-1} + b_i\right)$$
+    $$o_t = \sigma_g\left(W_o x_t + u_o \circ h_{t-1} + b_o\right)$$
+    $$c_t = f_t \circ c_{t-1} +
+            i_t \circ \sigma_c\left(W_c x_t + u_c \circ h_{t-1} + b_c\right)$$
+
+  where \\(\circ\\) denotes the Hadamard operator. This means that each IndyLSTM
+  node sees only its own state \\(h\\) and \\(c\\), as opposed to seeing all
+  states in the same layer.
+
+  We add forget_bias (default: 1) to the biases of the forget gate in order to
+  reduce the scale of forgetting in the beginning of the training.
+
+  It does not allow cell clipping, a projection layer, and does not
+  use peep-hole connections: it is the basic baseline.
+  """
+
+  def __init__(self,
+               num_units,
+               forget_bias=1.0,
+               activation=None,
+               reuse=None,
+               kernel_initializer=None,
+               bias_initializer=None,
+               name=None,
+               dtype=None):
+    """Initialize the IndyLSTM cell.
+
+    Args:
+      num_units: int, The number of units in the LSTM cell.
+      forget_bias: float, The bias added to forget gates (see above).
+        Must set to `0.0` manually when restoring from CudnnLSTM-trained
+        checkpoints.
+      activation: Activation function of the inner states.  Default: `tanh`.
+      reuse: (optional) Python boolean describing whether to reuse variables
+        in an existing scope.  If not `True`, and the existing scope already has
+        the given variables, an error is raised.
+      kernel_initializer: (optional) The initializer to use for the weight
+        matrix applied to the inputs.
+      bias_initializer: (optional) The initializer to use for the bias.
+      name: String, the name of the layer. Layers with the same name will
+        share weights, but to avoid mistakes we require reuse=True in such
+        cases.
+      dtype: Default dtype of the layer (default of `None` means use the type
+        of the first input). Required when `build` is called before `call`.
+    """
+    super(IndyLSTMCell, self).__init__(_reuse=reuse, name=name, dtype=dtype)
+
+    # Inputs must be 2-dimensional.
+    self.input_spec = input_spec.InputSpec(ndim=2)
+
+    self._num_units = num_units
+    self._forget_bias = forget_bias
+    self._activation = activation or math_ops.tanh
+    self._kernel_initializer = kernel_initializer
+    self._bias_initializer = bias_initializer
+
+  @property
+  def state_size(self):
+    return rnn_cell_impl.LSTMStateTuple(self._num_units, self._num_units)
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  def build(self, inputs_shape):
+    if tensor_shape.dimension_value(inputs_shape[1]) is None:
+      raise ValueError(
+          "Expected inputs.shape[-1] to be known, saw shape: %s" % inputs_shape)
+
+    input_depth = tensor_shape.dimension_value(inputs_shape[1])
+    # pylint: disable=protected-access
+    self._kernel_w = self.add_variable(
+        "%s_w" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[input_depth, 4 * self._num_units],
+        initializer=self._kernel_initializer)
+    self._kernel_u = self.add_variable(
+        "%s_u" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[1, 4 * self._num_units],
+        initializer=init_ops.random_uniform_initializer(
+            minval=-1, maxval=1, dtype=self.dtype))
+    self._bias = self.add_variable(
+        rnn_cell_impl._BIAS_VARIABLE_NAME,
+        shape=[4 * self._num_units],
+        initializer=(self._bias_initializer
+                     if self._bias_initializer is not None else
+                     init_ops.zeros_initializer(dtype=self.dtype)))
+    # pylint: enable=protected-access
+
+    self.built = True
+
+  def call(self, inputs, state):
+    """Independent Long short-term memory cell (IndyLSTM).
+
+    Args:
+      inputs: `2-D` tensor with shape `[batch_size, input_size]`.
+      state: An `LSTMStateTuple` of state tensors, each shaped
+        `[batch_size, num_units]`.
+
+    Returns:
+      A pair containing the new hidden state, and the new state (a
+        `LSTMStateTuple`).
+    """
+    sigmoid = math_ops.sigmoid
+    one = constant_op.constant(1, dtype=dtypes.int32)
+    c, h = state
+
+    gate_inputs = math_ops.matmul(inputs, self._kernel_w)
+    gate_inputs += gen_array_ops.tile(h, [1, 4]) * self._kernel_u
+    gate_inputs = nn_ops.bias_add(gate_inputs, self._bias)
+
+    # i = input_gate, j = new_input, f = forget_gate, o = output_gate
+    i, j, f, o = array_ops.split(
+        value=gate_inputs, num_or_size_splits=4, axis=one)
+
+    forget_bias_tensor = constant_op.constant(self._forget_bias, dtype=f.dtype)
+    # Note that using `add` and `multiply` instead of `+` and `*` gives a
+    # performance improvement. So using those at the cost of readability.
+    add = math_ops.add
+    multiply = math_ops.multiply
+    new_c = add(
+        multiply(c, sigmoid(add(f, forget_bias_tensor))),
+        multiply(sigmoid(i), self._activation(j)))
+    new_h = multiply(self._activation(new_c), sigmoid(o))
+
+    new_state = rnn_cell_impl.LSTMStateTuple(new_c, new_h)
+    return new_h, new_state
+
+
+NTMControllerState = collections.namedtuple(
+    "NTMControllerState",
+    ("controller_state", "read_vector_list", "w_list", "M", "time"))
+
+
+class NTMCell(rnn_cell_impl.LayerRNNCell):
+  """Neural Turing Machine Cell with RNN controller.
+
+    Implementation based on:
+    https://arxiv.org/abs/1807.08518
+    Mark Collier, Joeran Beel
+
+    which is in turn based on the source code of:
+    https://github.com/snowkylin/ntm
+
+    and of course the original NTM paper:
+    Neural Turing Machines
+    https://arxiv.org/abs/1410.5401
+    A Graves, G Wayne, I Danihelka
+  """
+
+  def __init__(self,
+               controller,
+               memory_size,
+               memory_vector_dim,
+               read_head_num,
+               write_head_num,
+               shift_range=1,
+               output_dim=None,
+               clip_value=20,
+               dtype=dtypes.float32,
+               name=None):
+    """Initialize the NTM Cell.
+
+      Args:
+        controller: an RNNCell, the RNN controller.
+        memory_size: int, The number of memory locations in the NTM memory
+          matrix
+        memory_vector_dim: int, The dimensionality of each location in the NTM
+          memory matrix
+        read_head_num: int, The number of read heads from the controller into
+          memory
+        write_head_num: int, The number of write heads from the controller into
+          memory
+        shift_range: int, The number of places to the left/right it is possible
+          to iterate the previous address to in a single step
+        output_dim: int, The number of dimensions to make a linear projection of
+          the NTM controller outputs to. If None, no linear projection is
+          applied
+        clip_value: float, The maximum absolute value the controller parameters
+          are clipped to
+        dtype: Default dtype of the layer (default of `None` means use the type
+          of the first input). Required when `build` is called before `call`.
+        name: String, the name of the layer. Layers with the same name will
+          share weights, but to avoid mistakes we require reuse=True in such
+          cases.
+    """
+    super(NTMCell, self).__init__(dtype=dtype, name=name)
+
+    rnn_cell_impl.assert_like_rnncell("NTM RNN controller cell", controller)
+
+    self.controller = controller
+    self.memory_size = memory_size
+    self.memory_vector_dim = memory_vector_dim
+    self.read_head_num = read_head_num
+    self.write_head_num = write_head_num
+    self.clip_value = clip_value
+
+    self.output_dim = output_dim
+    self.shift_range = shift_range
+
+    self.num_parameters_per_head = (
+        self.memory_vector_dim + 2 * self.shift_range + 4)
+    self.num_heads = self.read_head_num + self.write_head_num
+    self.total_parameter_num = (
+        self.num_parameters_per_head * self.num_heads +
+        self.memory_vector_dim * 2 * self.write_head_num)
+
+  @property
+  def state_size(self):
+    return NTMControllerState(
+        controller_state=self.controller.state_size,
+        read_vector_list=[
+            self.memory_vector_dim for _ in range(self.read_head_num)
+        ],
+        w_list=[
+            self.memory_size
+            for _ in range(self.read_head_num + self.write_head_num)
+        ],
+        M=tensor_shape.TensorShape([self.memory_size * self.memory_vector_dim]),
+        time=tensor_shape.TensorShape([]))
+
+  @property
+  def output_size(self):
+    return self.output_dim
+
+  def build(self, inputs_shape):
+    if self.output_dim is None:
+      if inputs_shape[1].value is None:
+        raise ValueError(
+            "Expected inputs.shape[-1] to be known, saw shape: %s" %
+            inputs_shape)
+      else:
+        self.output_dim = inputs_shape[1].value
+
+    def _create_linear_initializer(input_size, dtype=dtypes.float32):
+      stddev = 1.0 / math.sqrt(input_size)
+      return init_ops.truncated_normal_initializer(stddev=stddev, dtype=dtype)
+
+    self._params_kernel = self.add_variable(
+        "parameters_kernel",
+        shape=[self.controller.output_size, self.total_parameter_num],
+        initializer=_create_linear_initializer(self.controller.output_size))
+
+    self._params_bias = self.add_variable(
+        "parameters_bias",
+        shape=[self.total_parameter_num],
+        initializer=init_ops.constant_initializer(0.0, dtype=self.dtype))
+
+    self._output_kernel = self.add_variable(
+        "output_kernel",
+        shape=[
+            self.controller.output_size +
+            self.memory_vector_dim * self.read_head_num, self.output_dim
+        ],
+        initializer=_create_linear_initializer(self.controller.output_size +
+                                               self.memory_vector_dim *
+                                               self.read_head_num))
+
+    self._output_bias = self.add_variable(
+        "output_bias",
+        shape=[self.output_dim],
+        initializer=init_ops.constant_initializer(0.0, dtype=self.dtype))
+
+    self._init_read_vectors = [
+        self.add_variable(
+            "initial_read_vector_%d" % i,
+            shape=[1, self.memory_vector_dim],
+            initializer=initializers.glorot_uniform())
+        for i in range(self.read_head_num)
+    ]
+
+    self._init_address_weights = [
+        self.add_variable(
+            "initial_address_weights_%d" % i,
+            shape=[1, self.memory_size],
+            initializer=initializers.glorot_uniform())
+        for i in range(self.read_head_num + self.write_head_num)
+    ]
+
+    self._M = self.add_variable(
+        "memory",
+        shape=[self.memory_size, self.memory_vector_dim],
+        initializer=init_ops.constant_initializer(1e-6, dtype=self.dtype))
+
+    self.built = True
+
+  def call(self, x, prev_state):
+    # Addressing Mechanisms (Sec 3.3)
+
+    def _prev_read_vector_list_initial_value():
+      return [
+          self._expand(
+              math_ops.tanh(
+                  array_ops.squeeze(
+                      math_ops.matmul(
+                          array_ops.ones([1, 1]), self._init_read_vectors[i]))),
+              dim=0,
+              N=x.shape[0].value or array_ops.shape(x)[0])
+          for i in range(self.read_head_num)
+      ]
+
+    prev_read_vector_list = control_flow_ops.cond(
+        math_ops.equal(prev_state.time,
+                       0), _prev_read_vector_list_initial_value, lambda:
+        prev_state.read_vector_list)
+    if self.read_head_num == 1:
+      prev_read_vector_list = [prev_read_vector_list]
+
+    controller_input = array_ops.concat([x] + prev_read_vector_list, axis=1)
+    controller_output, controller_state = self.controller(
+        controller_input, prev_state.controller_state)
+
+    parameters = math_ops.matmul(controller_output, self._params_kernel)
+    parameters = nn_ops.bias_add(parameters, self._params_bias)
+    parameters = clip_ops.clip_by_value(parameters, -self.clip_value,
+                                        self.clip_value)
+    head_parameter_list = array_ops.split(
+        parameters[:, :self.num_parameters_per_head * self.num_heads],
+        self.num_heads,
+        axis=1)
+    erase_add_list = array_ops.split(
+        parameters[:, self.num_parameters_per_head * self.num_heads:],
+        2 * self.write_head_num,
+        axis=1)
+
+    def _prev_w_list_initial_value():
+      return [
+          self._expand(
+              nn_ops.softmax(
+                  array_ops.squeeze(
+                      math_ops.matmul(
+                          array_ops.ones([1, 1]),
+                          self._init_address_weights[i]))),
+              dim=0,
+              N=x.shape[0].value or array_ops.shape(x)[0])
+          for i in range(self.read_head_num + self.write_head_num)
+      ]
+
+    prev_w_list = control_flow_ops.cond(
+        math_ops.equal(prev_state.time, 0),
+        _prev_w_list_initial_value, lambda: prev_state.w_list)
+    if (self.read_head_num + self.write_head_num) == 1:
+      prev_w_list = [prev_w_list]
+
+    prev_M = control_flow_ops.cond(
+        math_ops.equal(prev_state.time, 0), lambda: self._expand(
+            self._M, dim=0, N=x.shape[0].value or array_ops.shape(x)[0]),
+        lambda: prev_state.M)
+
+    w_list = []
+    for i, head_parameter in enumerate(head_parameter_list):
+      k = math_ops.tanh(head_parameter[:, 0:self.memory_vector_dim])
+      beta = nn_ops.softplus(head_parameter[:, self.memory_vector_dim])
+      g = math_ops.sigmoid(head_parameter[:, self.memory_vector_dim + 1])
+      s = nn_ops.softmax(head_parameter[:, self.memory_vector_dim +
+                                        2:(self.memory_vector_dim + 2 +
+                                           (self.shift_range * 2 + 1))])
+      gamma = nn_ops.softplus(head_parameter[:, -1]) + 1
+      w = self._addressing(k, beta, g, s, gamma, prev_M, prev_w_list[i])
+      w_list.append(w)
+
+    # Reading (Sec 3.1)
+
+    read_w_list = w_list[:self.read_head_num]
+    read_vector_list = []
+    for i in range(self.read_head_num):
+      read_vector = math_ops.reduce_sum(
+          array_ops.expand_dims(read_w_list[i], dim=2) * prev_M, axis=1)
+      read_vector_list.append(read_vector)
+
+    # Writing (Sec 3.2)
+
+    write_w_list = w_list[self.read_head_num:]
+    M = prev_M
+    for i in range(self.write_head_num):
+      w = array_ops.expand_dims(write_w_list[i], axis=2)
+      erase_vector = array_ops.expand_dims(
+          math_ops.sigmoid(erase_add_list[i * 2]), axis=1)
+      add_vector = array_ops.expand_dims(
+          math_ops.tanh(erase_add_list[i * 2 + 1]), axis=1)
+      erase_M = array_ops.ones_like(M) - math_ops.matmul(w, erase_vector)
+      M = M * erase_M + math_ops.matmul(w, add_vector)
+
+    output = math_ops.matmul(
+        array_ops.concat([controller_output] + read_vector_list, axis=1),
+        self._output_kernel)
+    output = nn_ops.bias_add(output, self._output_bias)
+    output = clip_ops.clip_by_value(output, -self.clip_value, self.clip_value)
+
+    return output, NTMControllerState(
+        controller_state=controller_state,
+        read_vector_list=read_vector_list,
+        w_list=w_list,
+        M=M,
+        time=prev_state.time + 1)
+
+  def _expand(self, x, dim, N):
+    return array_ops.concat([array_ops.expand_dims(x, dim) for _ in range(N)],
+                            axis=dim)
+
+  def _addressing(self, k, beta, g, s, gamma, prev_M, prev_w):
+    # Sec 3.3.1 Focusing by Content
+
+    k = array_ops.expand_dims(k, axis=2)
+    inner_product = math_ops.matmul(prev_M, k)
+    k_norm = math_ops.sqrt(
+        math_ops.reduce_sum(math_ops.square(k), axis=1, keepdims=True))
+    M_norm = math_ops.sqrt(
+        math_ops.reduce_sum(math_ops.square(prev_M), axis=2, keepdims=True))
+    norm_product = M_norm * k_norm
+
+    # eq (6)
+    K = array_ops.squeeze(inner_product / (norm_product + 1e-8))
+
+    K_amplified = math_ops.exp(array_ops.expand_dims(beta, axis=1) * K)
+
+    # eq (5)
+    w_c = K_amplified / math_ops.reduce_sum(K_amplified, axis=1, keepdims=True)
+
+    # Sec 3.3.2 Focusing by Location
+
+    g = array_ops.expand_dims(g, axis=1)
+
+    # eq (7)
+    w_g = g * w_c + (1 - g) * prev_w
+
+    s = array_ops.concat([
+        s[:, :self.shift_range + 1],
+        array_ops.zeros([
+            s.shape[0].value or array_ops.shape(s)[0], self.memory_size -
+            (self.shift_range * 2 + 1)
+        ]), s[:, -self.shift_range:]
+    ],
+                         axis=1)
+    t = array_ops.concat(
+        [array_ops.reverse(s, axis=[1]),
+         array_ops.reverse(s, axis=[1])],
+        axis=1)
+    s_matrix = array_ops.stack([
+        t[:, self.memory_size - i - 1:self.memory_size * 2 - i - 1]
+        for i in range(self.memory_size)
+    ],
+                               axis=1)
+
+    # eq (8)
+    w_ = math_ops.reduce_sum(
+        array_ops.expand_dims(w_g, axis=1) * s_matrix, axis=2)
+    w_sharpen = math_ops.pow(w_, array_ops.expand_dims(gamma, axis=1))
+
+    # eq (9)
+    w = w_sharpen / math_ops.reduce_sum(w_sharpen, axis=1, keepdims=True)
+
+    return w
+
+  def zero_state(self, batch_size, dtype):
+    read_vector_list = [
+        array_ops.zeros([batch_size, self.memory_vector_dim])
+        for _ in range(self.read_head_num)
+    ]
+
+    w_list = [
+        array_ops.zeros([batch_size, self.memory_size])
+        for _ in range(self.read_head_num + self.write_head_num)
+    ]
+
+    controller_init_state = self.controller.zero_state(batch_size, dtype)
+
+    M = array_ops.zeros([batch_size, self.memory_size, self.memory_vector_dim])
+
+    return NTMControllerState(
+        controller_state=controller_init_state,
+        read_vector_list=read_vector_list,
+        w_list=w_list,
+        M=M,
+        time=0)
+
+
+class MinimalRNNCell(rnn_cell_impl.LayerRNNCell):
+  """MinimalRNN cell.
+
+  The implementation is based on:
+
+    https://arxiv.org/pdf/1806.05394v2.pdf
+
+  Minmin Chen, Jeffrey Pennington, Samuel S. Schoenholz.
+  "Dynamical Isometry and a Mean Field Theory of RNNs: Gating Enables Signal
+   Propagation in Recurrent Neural Networks." ICML, 2018.
+
+  A MinimalRNN cell first projects the input to the hidden space. The new
+  hidden state is then calculated as a weighted sum of the projected input and
+  the previous hidden state, using a single update gate.
+  """
+
+  def __init__(self,
+               units,
+               activation="tanh",
+               kernel_initializer="glorot_uniform",
+               bias_initializer="ones",
+               name=None,
+               dtype=None,
+               **kwargs):
+    """Initialize the parameters for a MinimalRNN cell.
+
+    Args:
+      units: int, The number of units in the MinimalRNN cell.
+      activation: Nonlinearity to use in the feedforward network. Default:
+        `tanh`.
+      kernel_initializer: The initializer to use for the weight in the update
+        gate and feedforward network. Default: `glorot_uniform`.
+      bias_initializer: The initializer to use for the bias in the update
+        gate. Default: `ones`.
+      name: String, the name of the cell.
+      dtype: Default dtype of the cell.
+      **kwargs: Dict, keyword named properties for common cell attributes.
+    """
+    super(MinimalRNNCell, self).__init__(name=name, dtype=dtype, **kwargs)
+
+    # Inputs must be 2-dimensional.
+    self.input_spec = input_spec.InputSpec(ndim=2)
+
+    self.units = units
+    self.activation = activations.get(activation)
+    self.kernel_initializer = initializers.get(kernel_initializer)
+    self.bias_initializer = initializers.get(bias_initializer)
+
+  @property
+  def state_size(self):
+    return self.units
+
+  @property
+  def output_size(self):
+    return self.units
+
+  def build(self, inputs_shape):
+    if inputs_shape[-1] is None:
+      raise ValueError("Expected inputs.shape[-1] to be known, saw shape: %s"
+                       % str(inputs_shape))
+
+    input_size = inputs_shape[-1]
+    # pylint: disable=protected-access
+    # self._kernel contains W_x, W, V
+    self.kernel = self.add_weight(
+        name=rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        shape=[input_size + 2 * self.units, self.units],
+        initializer=self.kernel_initializer)
+    self.bias = self.add_weight(
+        name=rnn_cell_impl._BIAS_VARIABLE_NAME,
+        shape=[self.units],
+        initializer=self.bias_initializer)
+    # pylint: enable=protected-access
+
+    self.built = True
+
+  def call(self, inputs, state):
+    """Run one step of MinimalRNN.
+
+    Args:
+      inputs: input Tensor, must be 2-D, `[batch, input_size]`.
+      state: state Tensor, must be 2-D, `[batch, state_size]`.
+
+    Returns:
+      A tuple containing:
+
+      - Output: A `2-D` tensor with shape `[batch_size, state_size]`.
+      - New state: A `2-D` tensor with shape `[batch_size, state_size]`.
+
+    Raises:
+      ValueError: If input size cannot be inferred from inputs via
+        static shape inference.
+    """
+    input_size = inputs.get_shape()[1]
+    if tensor_shape.dimension_value(input_size) is None:
+      raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
+
+    feedforward_weight, gate_weight = array_ops.split(
+        value=self.kernel,
+        num_or_size_splits=[tensor_shape.dimension_value(input_size),
+                            2 * self.units],
+        axis=0)
+
+    feedforward = math_ops.matmul(inputs, feedforward_weight)
+    feedforward = self.activation(feedforward)
+
+    gate_inputs = math_ops.matmul(
+        array_ops.concat([feedforward, state], 1), gate_weight)
+    gate_inputs = nn_ops.bias_add(gate_inputs, self.bias)
+    u = math_ops.sigmoid(gate_inputs)
+
+    new_h = u * state + (1 - u) * feedforward
+    return new_h, new_h
+
+
+class CFNCell(rnn_cell_impl.LayerRNNCell):
+  """Chaos Free Network cell.
+
+  The implementation is based on:
+
+    https://openreview.net/pdf?id=S1dIzvclg
+
+  Thomas Laurent, James von Brecht.
+  "A recurrent neural network without chaos." ICLR, 2017.
+
+  A CFN cell first projects the input to the hidden space. The hidden state
+  goes through a contractive mapping. The new hidden state is then calculated
+  as a linear combination of the projected input and the contracted previous
+  hidden state, using decoupled input and forget gates.
+  """
+
+  def __init__(self,
+               units,
+               activation="tanh",
+               kernel_initializer="glorot_uniform",
+               bias_initializer="ones",
+               name=None,
+               dtype=None,
+               **kwargs):
+    """Initialize the parameters for a CFN cell.
+
+    Args:
+      units: int, The number of units in the CFN cell.
+      activation: Nonlinearity to use. Default: `tanh`.
+      kernel_initializer: Initializer for the `kernel` weights
+        matrix. Default: `glorot_uniform`.
+      bias_initializer: The initializer to use for the bias in the
+        gates. Default: `ones`.
+      name: String, the name of the cell.
+      dtype: Default dtype of the cell.
+      **kwargs: Dict, keyword named properties for common cell attributes.
+    """
+    super(CFNCell, self).__init__(name=name, dtype=dtype, **kwargs)
+
+    # Inputs must be 2-dimensional.
+    self.input_spec = input_spec.InputSpec(ndim=2)
+
+    self.units = units
+    self.activation = activations.get(activation)
+    self.kernel_initializer = initializers.get(kernel_initializer)
+    self.bias_initializer = initializers.get(bias_initializer)
+
+  @property
+  def state_size(self):
+    return self.units
+
+  @property
+  def output_size(self):
+    return self.units
+
+  def build(self, inputs_shape):
+    if inputs_shape[-1] is None:
+      raise ValueError("Expected inputs.shape[-1] to be known, saw shape: %s"
+                       % str(inputs_shape))
+
+    input_size = inputs_shape[-1]
+    # pylint: disable=protected-access
+    # `self.kernel` contains V_{\theta}, V_{\eta}, W.
+    # `self.recurrent_kernel` contains U_{\theta}, U_{\eta}.
+    # `self.bias` contains b_{\theta}, b_{\eta}.
+    self.kernel = self.add_weight(
+        shape=[input_size, 3 * self.units],
+        name=rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        initializer=self.kernel_initializer)
+    self.recurrent_kernel = self.add_weight(
+        shape=[self.units, 2 * self.units],
+        name="recurrent_%s" % rnn_cell_impl._WEIGHTS_VARIABLE_NAME,
+        initializer=self.kernel_initializer)
+    self.bias = self.add_weight(
+        shape=[2 * self.units],
+        name=rnn_cell_impl._BIAS_VARIABLE_NAME,
+        initializer=self.bias_initializer)
+    # pylint: enable=protected-access
+
+    self.built = True
+
+  def call(self, inputs, state):
+    """Run one step of CFN.
+
+    Args:
+      inputs: input Tensor, must be 2-D, `[batch, input_size]`.
+      state: state Tensor, must be 2-D, `[batch, state_size]`.
+
+    Returns:
+      A tuple containing:
+
+      - Output: A `2-D` tensor with shape `[batch_size, state_size]`.
+      - New state: A `2-D` tensor with shape `[batch_size, state_size]`.
+
+    Raises:
+      ValueError: If input size cannot be inferred from inputs via
+        static shape inference.
+    """
+    input_size = inputs.get_shape()[-1]
+    if tensor_shape.dimension_value(input_size) is None:
+      raise ValueError("Could not infer input size from inputs.get_shape()[-1]")
+
+    # The variable names u, v, w, b are consistent with the notations in the
+    # original paper.
+    v, w = array_ops.split(
+        value=self.kernel,
+        num_or_size_splits=[2 * self.units, self.units],
+        axis=1)
+    u = self.recurrent_kernel
+    b = self.bias
+
+    gates = math_ops.matmul(state, u) + math_ops.matmul(inputs, v)
+    gates = nn_ops.bias_add(gates, b)
+    gates = math_ops.sigmoid(gates)
+    theta, eta = array_ops.split(value=gates,
+                                 num_or_size_splits=2,
+                                 axis=1)
+
+    proj_input = math_ops.matmul(inputs, w)
+
+    # The input gate is (1 - eta), which is different from the original paper.
+    # This is for the propose of initialization. With the default
+    # bias_initializer `ones`, the input gate is initialized to a small number.
+    new_h = theta * self.activation(state) + (1 - eta) * self.activation(
+        proj_input)
+
+    return new_h, new_h

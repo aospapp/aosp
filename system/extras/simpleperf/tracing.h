@@ -41,6 +41,18 @@ struct TracingFieldPlace {
   }
 };
 
+struct StringTracingFieldPlace {
+  uint32_t offset;
+  uint32_t size;
+
+  std::string ReadFromData(const char* raw_data) {
+    char s[size + 1];
+    s[size] = '\0';
+    memcpy(s, raw_data + offset, size);
+    return s;
+  }
+};
+
 struct TracingFormat {
   std::string system_name;
   std::string name;
@@ -51,6 +63,12 @@ struct TracingFormat {
     const TracingField& field = GetField(name);
     place.offset = field.offset;
     place.size = field.elem_size;
+  }
+
+  void GetField(const std::string& name, StringTracingFieldPlace& place) {
+    const TracingField& field = GetField(name);
+    place.offset = field.offset;
+    place.size = field.elem_count;
   }
 
  private:

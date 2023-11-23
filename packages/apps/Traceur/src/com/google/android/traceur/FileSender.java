@@ -21,9 +21,11 @@ import android.accounts.AccountManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ClipData;
 import android.content.Context;
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.SystemProperties;
 import android.util.Patterns;
@@ -36,28 +38,40 @@ import java.io.File;
 public class FileSender {
 
     private static final String AUTHORITY = "com.android.traceur.files";
+    private static final String MIME_TYPE = "application/vnd.android.systrace";
 
     public static void postNotification(Context context, File file) {
         // Files are kept on private storage, so turn into Uris that we can
         // grant temporary permissions for.
         final Uri traceUri = getUriForFile(context, file);
 
+        // Intent to send the file
         Intent sendIntent = buildSendIntent(context, traceUri);
         sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
+        // This dialog will show to warn the user about sharing traces, then will execute
+        // the above file-sharing intent.
+        final Intent intent = new Intent(context, UserConsentActivityDialog.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_RECEIVER_FOREGROUND);
+        intent.putExtra(Intent.EXTRA_INTENT, sendIntent);
+
         final Notification.Builder builder =
-            new Notification.Builder(context, Receiver.NOTIFICATION_CHANNEL)
+            new Notification.Builder(context, Receiver.NOTIFICATION_CHANNEL_OTHER)
                 .setSmallIcon(R.drawable.stat_sys_adb)
                 .setContentTitle(context.getString(R.string.trace_saved))
                 .setTicker(context.getString(R.string.trace_saved))
                 .setContentText(context.getString(R.string.tap_to_share))
                 .setContentIntent(PendingIntent.getActivity(
-                        context, traceUri.hashCode(), sendIntent, PendingIntent.FLAG_ONE_SHOT
+                        context, traceUri.hashCode(), intent, PendingIntent.FLAG_ONE_SHOT
                                 | PendingIntent.FLAG_CANCEL_CURRENT))
                 .setAutoCancel(true)
                 .setLocalOnly(true)
                 .setColor(context.getColor(
                         com.android.internal.R.color.system_notification_accent_color));
+
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            builder.extend(new Notification.TvExtender());
+        }
 
         NotificationManager.from(context).notify(file.getName(), 0, builder.build());
     }
@@ -81,14 +95,20 @@ public class FileSender {
      * Build {@link Intent} that can be used to share the given bugreport.
      */
     private static Intent buildSendIntent(Context context, Uri traceUri) {
+        final CharSequence description = SystemProperties.get("ro.build.description");
+
         final Intent intent = new Intent(Intent.ACTION_SEND);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addCategory(Intent.CATEGORY_DEFAULT);
-        intent.setType("application/vnd.android.systrace");
+        intent.setType(MIME_TYPE);
 
         intent.putExtra(Intent.EXTRA_SUBJECT, traceUri.getLastPathSegment());
-        intent.putExtra(Intent.EXTRA_TEXT, SystemProperties.get("ro.build.description"));
+        intent.putExtra(Intent.EXTRA_TEXT, description);
         intent.putExtra(Intent.EXTRA_STREAM, traceUri);
+
+        // Explicitly set the clip data; see b/119399115
+        intent.setClipData(new ClipData(null, new String[] { MIME_TYPE },
+            new ClipData.Item(description, null, traceUri)));
 
         final Account sendToAccount = findSendToAccount(context);
         if (sendToAccount != null) {

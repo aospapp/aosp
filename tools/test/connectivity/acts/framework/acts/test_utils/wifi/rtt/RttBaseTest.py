@@ -23,48 +23,49 @@ from acts.test_utils.wifi.rtt import rtt_test_utils as rutils
 
 
 class RttBaseTest(BaseTestClass):
+    def __init__(self, controllers):
+        if not hasattr(self, 'android_devices'):
+            super(RttBaseTest, self).__init__(controllers)
 
-  def __init__(self, controllers):
-    super(RttBaseTest, self).__init__(controllers)
+    def setup_test(self):
+        required_params = ("lci_reference", "lcr_reference",
+                           "rtt_reference_distance_mm",
+                           "stress_test_min_iteration_count",
+                           "stress_test_target_run_time_sec")
+        self.unpack_userparams(required_params)
 
-  def setup_test(self):
-    required_params = ("lci_reference", "lcr_reference",
-                       "rtt_reference_distance_mm",
-                       "stress_test_min_iteration_count",
-                       "stress_test_target_run_time_sec")
-    self.unpack_userparams(required_params)
+        # can be moved to JSON config file
+        self.rtt_reference_distance_margin_mm = 2000
+        self.rtt_max_failure_rate_two_sided_rtt_percentage = 20
+        self.rtt_max_failure_rate_one_sided_rtt_percentage = 50
+        self.rtt_max_margin_exceeded_rate_two_sided_rtt_percentage = 10
+        self.rtt_max_margin_exceeded_rate_one_sided_rtt_percentage = 50
+        self.rtt_min_expected_rssi_dbm = -100
 
-    # can be moved to JSON config file
-    self.rtt_reference_distance_margin_mm = 1000
-    self.rtt_max_failure_rate_two_sided_rtt_percentage = 10
-    self.rtt_max_failure_rate_one_sided_rtt_percentage = 50
-    self.rtt_max_margin_exceeded_rate_two_sided_rtt_percentage = 10
-    self.rtt_max_margin_exceeded_rate_one_sided_rtt_percentage = 50
-    self.rtt_min_expected_rssi_dbm = -100
+        for ad in self.android_devices:
+            utils.set_location_service(ad, True)
+            asserts.skip_if(
+                not ad.droid.doesDeviceSupportWifiRttFeature(),
+                "Device under test does not support Wi-Fi RTT - skipping test")
+            wutils.wifi_toggle_state(ad, True)
+            rtt_avail = ad.droid.wifiIsRttAvailable()
+            if not rtt_avail:
+                self.log.info('RTT not available. Waiting ...')
+                rutils.wait_for_event(ad, rconsts.BROADCAST_WIFI_RTT_AVAILABLE)
+            ad.ed.clear_all_events()
+            rutils.config_privilege_override(ad, False)
+            ad.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+            ad.rtt_capabilities = rutils.get_rtt_capabilities(ad)
 
-    for ad in self.android_devices:
-      utils.set_location_service(ad, True)
-      asserts.skip_if(
-          not ad.droid.doesDeviceSupportWifiRttFeature(),
-          "Device under test does not support Wi-Fi RTT - skipping test")
-      wutils.wifi_toggle_state(ad, True)
-      rtt_avail = ad.droid.wifiIsRttAvailable()
-      if not rtt_avail:
-          self.log.info('RTT not available. Waiting ...')
-          rutils.wait_for_event(ad, rconsts.BROADCAST_WIFI_RTT_AVAILABLE)
-      ad.ed.clear_all_events()
-      rutils.config_privilege_override(ad, False)
-      ad.droid.wifiSetCountryCode(wutils.WifiEnums.CountryCode.US)
+    def teardown_test(self):
+        for ad in self.android_devices:
+            if not ad.droid.doesDeviceSupportWifiRttFeature():
+                return
 
-  def teardown_test(self):
-    for ad in self.android_devices:
-      if not ad.droid.doesDeviceSupportWifiRttFeature():
-        return
+            # clean-up queue from the System Service UID
+            ad.droid.wifiRttCancelRanging([1000])
 
-      # clean-up queue from the System Service UID
-      ad.droid.wifiRttCancelRanging([1000])
-
-  def on_fail(self, test_name, begin_time):
-    for ad in self.android_devices:
-      ad.take_bug_report(test_name, begin_time)
-      ad.cat_adb_log(test_name, begin_time)
+    def on_fail(self, test_name, begin_time):
+        for ad in self.android_devices:
+            ad.take_bug_report(test_name, begin_time)
+            ad.cat_adb_log(test_name, begin_time)

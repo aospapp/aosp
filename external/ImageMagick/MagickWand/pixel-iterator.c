@@ -23,13 +23,13 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -166,7 +166,7 @@ WandExport PixelIterator *ClonePixelIterator(const PixelIterator *iterator)
   if (clone_iterator == (PixelIterator *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       iterator->name);
-  (void) ResetMagickMemory(clone_iterator,0,sizeof(*clone_iterator));
+  (void) memset(clone_iterator,0,sizeof(*clone_iterator));
   clone_iterator->id=AcquireWandId();
   (void) FormatLocaleString(clone_iterator->name,MagickPathExtent,"%s-%.20g",
     PixelIteratorId,(double) clone_iterator->id);
@@ -320,7 +320,7 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
   if (iterator == (PixelIterator *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       GetExceptionMessage(errno));
-  (void) ResetMagickMemory(iterator,0,sizeof(*iterator));
+  (void) memset(iterator,0,sizeof(*iterator));
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MagickPathExtent,"%s-%.20g",
     PixelIteratorId,(double) iterator->id);
@@ -439,7 +439,7 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
   if (iterator == (PixelIterator *) NULL)
     ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
       wand->name);
-  (void) ResetMagickMemory(iterator,0,sizeof(*iterator));
+  (void) memset(iterator,0,sizeof(*iterator));
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MagickPathExtent,"%s-%.20g",
     PixelIteratorId,(double) iterator->id);

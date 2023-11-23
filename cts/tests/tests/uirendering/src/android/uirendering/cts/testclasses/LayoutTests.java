@@ -16,13 +16,16 @@
 package android.uirendering.cts.testclasses;
 
 import android.graphics.Color;
+import android.graphics.Point;
 import android.graphics.Rect;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
+import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +43,22 @@ public class LayoutTests extends ActivityTestBase {
     public void testSimpleRectLayout() {
         createTest().addLayout(R.layout.simple_rect_layout, null, false).runWithVerifier(
                 new RectVerifier(Color.WHITE, Color.BLUE, new Rect(5, 5, 85, 85)));
+    }
+
+    @Test
+    public void testTransformChildViewLayout() {
+        createTest()
+                // Verify skew tranform matrix is applied for child view.
+                .addLayout(R.layout.skew_layout, null)
+                .runWithVerifier(new SamplePointVerifier(
+                        new Point[] {
+                                new Point(20, 10),
+                                new Point(0, TEST_HEIGHT - 1)
+                        },
+                        new int[] {
+                                Color.RED,
+                                Color.WHITE
+                        }));
     }
 }
 

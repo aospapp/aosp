@@ -16,8 +16,9 @@
 package com.android.server.cts.netstats;
 
 import android.net.TrafficStats;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

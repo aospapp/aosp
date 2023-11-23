@@ -128,6 +128,12 @@ bytes(cdata)
 #endif
 #include "ctypes.h"
 
+/* Definition matching cfield.c:724 */
+#ifndef HAVE_C99_BOOL
+#undef SIZEOF__BOOL
+#define SIZEOF__BOOL 1
+#endif
+
 PyObject *PyExc_ArgError;
 
 /* This dict maps ctypes types to POINTER types */
@@ -292,6 +298,71 @@ PyDict_GetItemProxy(PyObject *dict, PyObject *key)
 }
 
 /******************************************************************/
+
+/*
+  Allocate a memory block for a pep3118 format string, filled with
+  a suitable PEP 3118 type code corresponding to the given ctypes
+  type. Returns NULL on failure, with the error indicator set.
+
+  This produces type codes in the standard size mode (cf. struct module),
+  since the endianness may need to be swapped to a non-native one
+  later on.
+ */
+static char *
+_ctypes_alloc_format_string_for_type(char code, int big_endian)
+{
+    char *result;
+    char pep_code = '\0';
+
+    switch (code) {
+#if SIZEOF_INT == 2
+    case 'i': pep_code = 'h'; break;
+    case 'I': pep_code = 'H'; break;
+#elif SIZEOF_INT == 4
+    case 'i': pep_code = 'i'; break;
+    case 'I': pep_code = 'I'; break;
+#elif SIZEOF_INT == 8
+    case 'i': pep_code = 'q'; break;
+    case 'I': pep_code = 'Q'; break;
+#else
+# error SIZEOF_INT has an unexpected value
+#endif /* SIZEOF_INT */
+#if SIZEOF_LONG == 4
+    case 'l': pep_code = 'l'; break;
+    case 'L': pep_code = 'L'; break;
+#elif SIZEOF_LONG == 8
+    case 'l': pep_code = 'q'; break;
+    case 'L': pep_code = 'Q'; break;
+#else
+# error SIZEOF_LONG has an unexpected value
+#endif /* SIZEOF_LONG */
+#if SIZEOF__BOOL == 1
+    case '?': pep_code = '?'; break;
+#elif SIZEOF__BOOL == 2
+    case '?': pep_code = 'H'; break;
+#elif SIZEOF__BOOL == 4
+    case '?': pep_code = 'L'; break;
+#elif SIZEOF__BOOL == 8
+    case '?': pep_code = 'Q'; break;
+#else
+# error SIZEOF__BOOL has an unexpected value
+#endif /* SIZEOF__BOOL */
+    default:
+        /* The standard-size code is the same as the ctypes one */
+        pep_code = code;
+        break;
+    }
+
+    result = PyMem_Malloc(3);
+    if (result == NULL)
+        return NULL;
+
+    result[0] = big_endian ? '>' : '<';
+    result[1] = pep_code;
+    result[2] = '\0';
+    return result;
+}
+
 /*
   Allocate a memory block for a pep3118 format string, copy prefix (if
   non-null) and suffix into it.  Returns NULL on failure, with the error
@@ -476,7 +547,7 @@ static PyObject *
 CDataType_from_address(PyObject *type, PyObject *value)
 {
     void *buf;
-    if (!PyInt_Check(value) && !PyLong_Check(value)) {
+    if (!_PyAnyInt_Check(value)) {
         PyErr_SetString(PyExc_TypeError,
                         "integer expected");
         return NULL;
@@ -620,7 +691,7 @@ CDataType_in_dll(PyObject *type, PyObject *args)
     obj = PyObject_GetAttrString(dll, "_handle");
     if (!obj)
         return NULL;
-    if (!PyInt_Check(obj) && !PyLong_Check(obj)) {
+    if (!_PyAnyInt_Check(obj)) {
         PyErr_SetString(PyExc_TypeError,
                         "the _handle attribute of the second argument must be an integer");
         Py_DECREF(obj);
@@ -965,6 +1036,7 @@ PyCPointerType_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     if (proto) {
         StgDictObject *itemdict = PyType_stgdict(proto);
         const char *current_format;
+        /* PyCPointerType_SetProto has verified proto has a stgdict. */
         assert(itemdict);
         /* If itemdict->format is NULL, then this is a pointer to an
            incomplete type.  We create a generic format string
@@ -1011,7 +1083,11 @@ PyCPointerType_set_type(PyTypeObject *self, PyObject *type)
     StgDictObject *dict;
 
     dict = PyType_stgdict((PyObject *)self);
-    assert(dict);
+    if (!dict) {
+        PyErr_SetString(PyExc_TypeError,
+                        "abstract class");
+        return NULL;
+    }
 
     if (-1 == PyCPointerType_SetProto(dict, type))
         return NULL;
@@ -1037,7 +1113,11 @@ PyCPointerType_from_param(PyObject *type, PyObject *value)
     }
 
     typedict = PyType_stgdict(type);
-    assert(typedict); /* Cannot be NULL for pointer types */
+    if (!typedict) {
+        PyErr_SetString(PyExc_TypeError,
+                        "abstract class");
+        return NULL;
+    }
 
     /* If we expect POINTER(<type>), but receive a <type> instance, accept
        it by calling byref(<type>).
@@ -1699,7 +1779,7 @@ c_void_p_from_param(PyObject *type, PyObject *value)
     }
     /* Should probably allow buffer interface as well */
 /* int, long */
-    if (PyInt_Check(value) || PyLong_Check(value)) {
+    if (_PyAnyInt_Check(value)) {
         PyCArgObject *parg;
         struct fielddesc *fd = _ctypes_get_fielddesc("P");
 
@@ -1999,9 +2079,9 @@ PyCSimpleType_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     stgdict->setfunc = fmt->setfunc;
     stgdict->getfunc = fmt->getfunc;
 #ifdef WORDS_BIGENDIAN
-    stgdict->format = _ctypes_alloc_format_string(">", proto_str);
+    stgdict->format = _ctypes_alloc_format_string_for_type(proto_str[0], 1);
 #else
-    stgdict->format = _ctypes_alloc_format_string("<", proto_str);
+    stgdict->format = _ctypes_alloc_format_string_for_type(proto_str[0], 0);
 #endif
     if (stgdict->format == NULL) {
         Py_DECREF(result);
@@ -2155,7 +2235,11 @@ PyCSimpleType_from_param(PyObject *type, PyObject *value)
     }
 
     dict = PyType_stgdict(type);
-    assert(dict);
+    if (!dict) {
+        PyErr_SetString(PyExc_TypeError,
+                        "abstract class");
+        return NULL;
+    }
 
     /* I think we can rely on this being a one-character string */
     fmt = PyString_AsString(dict->proto);
@@ -2715,6 +2799,16 @@ PyCData_setstate(PyObject *_self, PyObject *args)
         len = self->b_size;
     memmove(self->b_ptr, data, len);
     mydict = PyObject_GetAttrString(_self, "__dict__");
+    if (mydict == NULL) {
+        return NULL;
+    }
+    if (!PyDict_Check(mydict)) {
+        PyErr_Format(PyExc_TypeError,
+                     "%.200s.__dict__ must be a dictionary, not %.200s",
+                     Py_TYPE(_self)->tp_name, Py_TYPE(mydict)->tp_name);
+        Py_DECREF(mydict);
+        return NULL;
+    }
     res = PyDict_Update(mydict, dict);
     Py_DECREF(mydict);
     if (res == -1)
@@ -3266,7 +3360,11 @@ _validate_paramflags(PyTypeObject *type, PyObject *paramflags)
     PyObject *argtypes;
 
     dict = PyType_stgdict((PyObject *)type);
-    assert(dict); /* Cannot be NULL. 'type' is a PyCFuncPtr type. */
+    if (!dict) {
+        PyErr_SetString(PyExc_TypeError,
+                        "abstract class");
+        return 0;
+    }
     argtypes = dict->argtypes;
 
     if (paramflags == NULL || dict->argtypes == NULL)
@@ -3321,7 +3419,7 @@ static int
 _get_name(PyObject *obj, char **pname)
 {
 #ifdef MS_WIN32
-    if (PyInt_Check(obj) || PyLong_Check(obj)) {
+    if (_PyAnyInt_Check(obj)) {
         /* We have to use MAKEINTRESOURCEA for Windows CE.
            Works on Windows as well, of course.
         */
@@ -3371,7 +3469,7 @@ PyCFuncPtr_FromDll(PyTypeObject *type, PyObject *args, PyObject *kwds)
         Py_DECREF(ftuple);
         return NULL;
     }
-    if (!PyInt_Check(obj) && !PyLong_Check(obj)) {
+    if (!_PyAnyInt_Check(obj)) {
         PyErr_SetString(PyExc_TypeError,
                         "the _handle attribute of the second argument must be an integer");
         Py_DECREF(ftuple);
@@ -3502,8 +3600,7 @@ PyCFuncPtr_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 #endif
 
     if (1 == PyTuple_GET_SIZE(args)
-        && (PyInt_Check(PyTuple_GET_ITEM(args, 0))
-        || PyLong_Check(PyTuple_GET_ITEM(args, 0)))) {
+        && _PyAnyInt_Check(PyTuple_GET_ITEM(args, 0))) {
         CDataObject *ob;
         void *ptr = PyLong_AsVoidPtr(PyTuple_GET_ITEM(args, 0));
         if (ptr == NULL && PyErr_Occurred())
@@ -4434,9 +4531,7 @@ Array_subscript(PyObject *_self, PyObject *item)
         PyObject *np;
         Py_ssize_t start, stop, step, slicelen, cur, i;
 
-        if (PySlice_GetIndicesEx((PySliceObject *)item,
-                                 self->b_length, &start, &stop,
-                                 &step, &slicelen) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return NULL;
         }
 
@@ -4447,6 +4542,7 @@ Array_subscript(PyObject *_self, PyObject *item)
         assert(itemdict); /* proto is the item type of the array, a
                              ctypes type, so this cannot be NULL */
 
+        slicelen = _PySlice_AdjustIndices(self->b_length, &start, &stop, step);
         if (itemdict->getfunc == _ctypes_get_fielddesc("c")->getfunc) {
             char *ptr = (char *)self->b_ptr;
             char *dest;
@@ -4613,11 +4709,10 @@ Array_ass_subscript(PyObject *_self, PyObject *item, PyObject *value)
     else if (PySlice_Check(item)) {
         Py_ssize_t start, stop, step, slicelen, otherlen, i, cur;
 
-        if (PySlice_GetIndicesEx((PySliceObject *)item,
-                                 self->b_length, &start, &stop,
-                                 &step, &slicelen) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return -1;
         }
+        slicelen = _PySlice_AdjustIndices(self->b_length, &start, &stop, step);
         if ((step < 0 && start < stop) ||
             (step > 0 && start > stop))
             stop = start;
@@ -5011,7 +5106,7 @@ Pointer_ass_item(PyObject *_self, Py_ssize_t index, PyObject *value)
     }
 
     stgdict = PyObject_stgdict((PyObject *)self);
-    assert(stgdict); /* Cannot be NULL fr pointer instances */
+    assert(stgdict); /* Cannot be NULL for pointer instances */
 
     proto = stgdict->proto;
     assert(proto);
@@ -5039,7 +5134,7 @@ Pointer_get_contents(CDataObject *self, void *closure)
     }
 
     stgdict = PyObject_stgdict((PyObject *)self);
-    assert(stgdict); /* Cannot be NULL fr pointer instances */
+    assert(stgdict); /* Cannot be NULL for pointer instances */
     return PyCData_FromBaseObj(stgdict->proto,
                              (PyObject *)self, 0,
                              *(void **)self->b_ptr);
@@ -5058,7 +5153,7 @@ Pointer_set_contents(CDataObject *self, PyObject *value, void *closure)
         return -1;
     }
     stgdict = PyObject_stgdict((PyObject *)self);
-    assert(stgdict); /* Cannot be NULL fr pointer instances */
+    assert(stgdict); /* Cannot be NULL for pointer instances */
     assert(stgdict->proto);
     if (!CDataObject_Check(value)) {
         int res = PyObject_IsInstance(value, stgdict->proto);

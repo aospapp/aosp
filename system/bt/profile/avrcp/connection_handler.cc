@@ -22,13 +22,15 @@
 
 #include "avrc_defs.h"
 #include "avrcp_message_converter.h"
-#include "avrcp_packet.h"
 #include "bt_types.h"
 #include "btu.h"
+#include "packet/avrcp/avrcp_packet.h"
 // TODO (apanicke): Remove dependency on this header once we cleanup feature
 // handling.
 #include "bta/include/bta_av_api.h"
+#include "device/include/interop.h"
 #include "osi/include/allocator.h"
+#include "osi/include/properties.h"
 
 namespace bluetooth {
 namespace avrcp {
@@ -39,6 +41,20 @@ ConnectionHandler* ConnectionHandler::Get() {
   CHECK(instance_);
 
   return instance_;
+}
+
+bool IsAbsoluteVolumeEnabled(const RawAddress* bdaddr) {
+  char volume_disabled[PROPERTY_VALUE_MAX] = {0};
+  osi_property_get("persist.bluetooth.disableabsvol", volume_disabled, "false");
+  if (strncmp(volume_disabled, "true", 4) == 0) {
+    LOG(INFO) << "Absolute volume disabled by property";
+    return false;
+  }
+  if (interop_match_addr(INTEROP_DISABLE_ABSOLUTE_VOLUME, bdaddr)) {
+    LOG(INFO) << "Absolute volume disabled by IOP table";
+    return false;
+  }
+  return true;
 }
 
 bool ConnectionHandler::Initialize(const ConnectionCallback& callback,
@@ -135,7 +151,7 @@ bool ConnectionHandler::DisconnectDevice(const RawAddress& bdaddr) {
 std::vector<std::shared_ptr<Device>> ConnectionHandler::GetListOfDevices()
     const {
   std::vector<std::shared_ptr<Device>> list;
-  for (auto device : device_map_) {
+  for (const auto& device : device_map_) {
     list.push_back(device.second);
   }
   return list;
@@ -160,8 +176,9 @@ bool ConnectionHandler::SdpLookup(const RawAddress& bdaddr, SdpCallback cb) {
 
   return avrc_->FindService(
              UUID_SERVCLASS_AV_REMOTE_CONTROL, bdaddr, &db_params,
-             base::Bind(&ConnectionHandler::SdpCb, base::Unretained(this),
-                        bdaddr, cb, disc_db)) == AVRC_SUCCESS;
+             base::Bind(&ConnectionHandler::SdpCb,
+                        weak_ptr_factory_.GetWeakPtr(), bdaddr, cb, disc_db)) ==
+         AVRC_SUCCESS;
 }
 
 bool ConnectionHandler::AvrcpConnect(bool initiator, const RawAddress& bdaddr) {
@@ -176,7 +193,7 @@ bool ConnectionHandler::AvrcpConnect(bool initiator, const RawAddress& bdaddr) {
                                     weak_ptr_factory_.GetWeakPtr());
   }
   open_cb.msg_cback =
-      base::Bind(&ConnectionHandler::MessageCb, base::Unretained(this));
+      base::Bind(&ConnectionHandler::MessageCb, weak_ptr_factory_.GetWeakPtr());
   open_cb.company_id = AVRC_CO_GOOGLE;
   open_cb.conn = initiator ? AVRC_CONN_INT
                            : AVRC_CONN_ACP;  // 0 if initiator, 1 if acceptor
@@ -256,13 +273,20 @@ void ConnectionHandler::InitiatorControlCb(uint8_t handle, uint8_t event,
       device_map_.erase(handle);
     } break;
 
-    case AVRC_BROWSE_OPEN_IND_EVT:
+    case AVRC_BROWSE_OPEN_IND_EVT: {
       LOG(INFO) << __PRETTY_FUNCTION__ << ": Browse Open Event";
       // NOTE (apanicke): We don't need to explicitly handle this message
       // since the AVCTP Layer will still send us browsing messages
       // regardless. It would be useful to note this though for future
       // compatibility issues.
-      break;
+      if (device_map_.find(handle) == device_map_.end()) {
+        LOG(WARNING) << "Browse Opened received from device that doesn't exist";
+        return;
+      }
+
+      auto browse_mtu = avrc_->GetBrowseMtu(handle) - AVCT_HDR_LEN;
+      device_map_[handle]->SetBrowseMtu(browse_mtu);
+    } break;
     case AVRC_BROWSE_CLOSE_IND_EVT:
       LOG(INFO) << __PRETTY_FUNCTION__ << ": Browse Close Event";
       break;
@@ -286,7 +310,7 @@ void ConnectionHandler::AcceptorControlCb(uint8_t handle, uint8_t event,
       LOG(INFO) << __PRETTY_FUNCTION__ << ": Connection Opened Event";
 
       auto&& callback = base::Bind(&ConnectionHandler::SendMessage,
-                                   base::Unretained(this), handle);
+                                   weak_ptr_factory_.GetWeakPtr(), handle);
       auto&& ctrl_mtu = avrc_->GetPeerMtu(handle) - AVCT_HDR_LEN;
       auto&& browse_mtu = avrc_->GetBrowseMtu(handle) - AVCT_HDR_LEN;
       std::shared_ptr<Device> newDevice = std::make_shared<Device>(
@@ -340,13 +364,20 @@ void ConnectionHandler::AcceptorControlCb(uint8_t handle, uint8_t event,
       device_map_.erase(handle);
     } break;
 
-    case AVRC_BROWSE_OPEN_IND_EVT:
+    case AVRC_BROWSE_OPEN_IND_EVT: {
       LOG(INFO) << __PRETTY_FUNCTION__ << ": Browse Open Event";
       // NOTE (apanicke): We don't need to explicitly handle this message
       // since the AVCTP Layer will still send us browsing messages
       // regardless. It would be useful to note this though for future
       // compatibility issues.
-      break;
+      if (device_map_.find(handle) == device_map_.end()) {
+        LOG(WARNING) << "Browse Opened received from device that doesn't exist";
+        return;
+      }
+
+      auto browse_mtu = avrc_->GetBrowseMtu(handle) - AVCT_HDR_LEN;
+      device_map_[handle]->SetBrowseMtu(browse_mtu);
+    } break;
     case AVRC_BROWSE_CLOSE_IND_EVT:
       LOG(INFO) << __PRETTY_FUNCTION__ << ": Browse Close Event";
       break;
@@ -358,7 +389,7 @@ void ConnectionHandler::AcceptorControlCb(uint8_t handle, uint8_t event,
 
 void ConnectionHandler::MessageCb(uint8_t handle, uint8_t label, uint8_t opcode,
                                   tAVRC_MSG* p_msg) {
-  if (device_map_[handle] == nullptr) {
+  if (device_map_.find(handle) == device_map_.end()) {
     LOG(ERROR) << "Message received for unconnected device: handle="
                << loghex(handle);
     return;
@@ -428,7 +459,9 @@ void ConnectionHandler::SdpCb(const RawAddress& bdaddr, SdpCallback cb,
           if (categories & AVRC_SUPF_CT_CAT2) {
             LOG(INFO) << __PRETTY_FUNCTION__ << ": Device " << bdaddr.ToString()
                       << " supports advanced control";
-            peer_features |= (BTA_AV_FEAT_ADV_CTRL);
+            if (IsAbsoluteVolumeEnabled(&bdaddr)) {
+              peer_features |= (BTA_AV_FEAT_ADV_CTRL);
+            }
           }
           if (categories & AVRC_SUPF_CT_BROWSE) {
             LOG(INFO) << __PRETTY_FUNCTION__ << ": Device " << bdaddr.ToString()
@@ -467,7 +500,9 @@ void ConnectionHandler::SdpCb(const RawAddress& bdaddr, SdpCallback cb,
           if (categories & AVRC_SUPF_CT_CAT2) {
             LOG(INFO) << __PRETTY_FUNCTION__ << ": Device " << bdaddr.ToString()
                       << " supports advanced control";
-            peer_features |= (BTA_AV_FEAT_ADV_CTRL);
+            if (IsAbsoluteVolumeEnabled(&bdaddr)) {
+              peer_features |= (BTA_AV_FEAT_ADV_CTRL);
+            }
           }
         }
       }

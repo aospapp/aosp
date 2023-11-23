@@ -18,10 +18,10 @@
 
 /* Hearing Aid Profile Interface */
 
-#include "bta_closure_api.h"
 #include "bta_hearing_aid_api.h"
 #include "btif_common.h"
 #include "btif_storage.h"
+#include "stack/include/btu.h"
 
 #include <base/bind.h>
 #include <base/location.h>
@@ -37,11 +37,12 @@ using bluetooth::hearing_aid::HearingAidInterface;
 
 // template specialization
 template <>
-base::Callback<void()> jni_thread_wrapper(
-    const tracked_objects::Location& from_here, base::Callback<void()> cb) {
+base::Callback<void()> jni_thread_wrapper(const base::Location& from_here,
+                                          base::Callback<void()> cb) {
   return base::Bind(
-      [](const tracked_objects::Location& from_here,
-         base::Callback<void()> cb) { do_in_jni_thread(from_here, cb); },
+      [](const base::Location& from_here, base::Callback<void()> cb) {
+        do_in_jni_thread(from_here, cb);
+      },
       from_here, std::move(cb));
 }
 
@@ -54,10 +55,10 @@ class HearingAidInterfaceImpl
       public HearingAidCallbacks {
   ~HearingAidInterfaceImpl() = default;
 
-  void Init(HearingAidCallbacks* callbacks) {
+  void Init(HearingAidCallbacks* callbacks) override {
     DVLOG(2) << __func__;
     this->callbacks = callbacks;
-    do_in_bta_thread(
+    do_in_main_thread(
         FROM_HERE,
         Bind(&HearingAid::Initialize, this,
              jni_thread_wrapper(FROM_HERE,
@@ -83,40 +84,49 @@ class HearingAidInterfaceImpl
 
   void Connect(const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
-    do_in_bta_thread(FROM_HERE, Bind(&HearingAid::Connect,
-                                     Unretained(HearingAid::Get()), address));
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Connect,
+                                      Unretained(HearingAid::Get()), address));
   }
 
   void Disconnect(const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
-    do_in_bta_thread(FROM_HERE, Bind(&HearingAid::Disconnect,
-                                     Unretained(HearingAid::Get()), address));
-    do_in_jni_thread(
-        FROM_HERE, Bind(&btif_storage_remove_hearing_aid_white_list, address));
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::Disconnect,
+                                      Unretained(HearingAid::Get()), address));
+    do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_white_list,
+                                     address, false));
+  }
+
+  void AddToWhiteList(const RawAddress& address) override {
+    VLOG(2) << __func__ << " address: " << address;
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::AddToWhiteList,
+                                      Unretained(HearingAid::Get()), address));
+    do_in_jni_thread(FROM_HERE, Bind(&btif_storage_set_hearing_aid_white_list,
+                                     address, true));
   }
 
   void SetVolume(int8_t volume) override {
     DVLOG(2) << __func__ << " volume: " << +volume;
-    do_in_bta_thread(FROM_HERE, Bind(&HearingAid::SetVolume,
-                                     Unretained(HearingAid::Get()), volume));
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::SetVolume,
+                                      Unretained(HearingAid::Get()), volume));
   }
 
   void RemoveDevice(const RawAddress& address) override {
     DVLOG(2) << __func__ << " address: " << address;
 
     // RemoveDevice can be called on devices that don't have HA enabled
-    if (HearingAid::IsInitialized()) {
-      do_in_bta_thread(FROM_HERE, Bind(&HearingAid::Disconnect,
-                                       Unretained(HearingAid::Get()), address));
+    if (HearingAid::IsHearingAidRunning()) {
+      do_in_main_thread(FROM_HERE,
+                        Bind(&HearingAid::Disconnect,
+                             Unretained(HearingAid::Get()), address));
     }
 
     do_in_jni_thread(FROM_HERE,
                      Bind(&btif_storage_remove_hearing_aid, address));
   }
 
-  void Cleanup(void) {
+  void Cleanup(void) override {
     DVLOG(2) << __func__;
-    do_in_bta_thread(FROM_HERE, Bind(&HearingAid::CleanUp));
+    do_in_main_thread(FROM_HERE, Bind(&HearingAid::CleanUp));
   }
 
  private:

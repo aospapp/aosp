@@ -11,18 +11,12 @@ config SLEEP
   bool "sleep"
   default y
   help
-    usage: sleep LENGTH
+    usage: sleep DURATION
 
-    Wait before exiting. An optional suffix can be "m" (minutes), "h" (hours),
-    "d" (days), or "s" (seconds, the default).
+    Wait before exiting.
 
-
-config SLEEP_FLOAT
-  bool
-  default y
-  depends on SLEEP && TOYBOX_FLOAT
-  help
-    Length can be a decimal fraction.
+    DURATION can be a decimal fraction. An optional suffix can be "m"
+    (minutes), "h" (hours), "d" (days), or "s" (seconds, the default).
 */
 
 #include "toys.h"
@@ -31,6 +25,6 @@ void sleep_main(void)
 {
   struct timespec tv;
 
-  tv.tv_sec = xparsetime(*toys.optargs, 1000000000, &tv.tv_nsec);
+  tv.tv_sec = xparsetime(*toys.optargs, 9, &tv.tv_nsec);
   toys.exitval = !!nanosleep(&tv, NULL);
 }

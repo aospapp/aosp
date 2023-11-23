@@ -22,7 +22,8 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
 	native-camera-jni.cpp \
-	dng-validate-jni.cpp
+	dng-validate-jni.cpp \
+	dynamic-depth-validate-jni.cpp
 
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
@@ -34,8 +35,12 @@ LOCAL_CFLAGS := -DUNIX_ENV=1 -DqDNGBigEndian=0 -DqDNGThreadSafe=1 -DqDNGUseLibJP
 # Flags to avoid warnings from DNG SDK
 LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-unused-value -Wno-unused-variable
+# Flags related to dynamic depth
+LOCAL_CFLAGS += -Wno-ignored-qualifiers -DSTATIC_LIBXML=1
 
 LOCAL_STATIC_LIBRARIES := libdng_sdk_validate libjpeg_static_ndk
+# Dynamic depth libraries
+LOCAL_STATIC_LIBRARIES += libdynamic_depth_ndk libimage_io_ndk libbase_ndk libxml2_ndk
 LOCAL_SHARED_LIBRARIES := libandroid \
     libnativehelper_compat_libc++ \
     liblog \

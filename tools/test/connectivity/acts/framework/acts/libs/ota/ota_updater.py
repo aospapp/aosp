@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -17,7 +17,7 @@
 from acts import utils
 from acts.libs.ota.ota_runners import ota_runner_factory
 
-# Maps AndroidDevices to OtaRunners
+"""Maps AndroidDevices to OtaRunners."""
 ota_runners = {}
 
 
@@ -53,6 +53,7 @@ def update(android_device, ignore_update_errors=False):
         of packages to update the phone with.
     """
     _check_initialization(android_device)
+    ota_runners[android_device].validate_update()
     try:
         ota_runners[android_device].update()
     except Exception as e:

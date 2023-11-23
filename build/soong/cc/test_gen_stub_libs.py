@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 """Tests for gen_stub_libs.py."""
-import cStringIO
+import io
 import textwrap
 import unittest
 
@@ -163,51 +163,129 @@ class SymbolPresenceTest(unittest.TestCase):
 
 class OmitVersionTest(unittest.TestCase):
     def test_omit_private(self):
-        self.assertFalse(gsl.should_omit_version('foo', [], 'arm', 9, False))
-
-        self.assertTrue(gsl.should_omit_version(
-            'foo_PRIVATE', [], 'arm', 9, False))
-        self.assertTrue(gsl.should_omit_version(
-            'foo_PLATFORM', [], 'arm', 9, False))
-
-        self.assertTrue(gsl.should_omit_version(
-            'foo', ['platform-only'], 'arm', 9, False))
-
-    def test_omit_vndk(self):
-        self.assertTrue(gsl.should_omit_version(
-            'foo', ['vndk'], 'arm', 9, False))
-
-        self.assertFalse(gsl.should_omit_version('foo', [], 'arm', 9, True))
-        self.assertFalse(gsl.should_omit_version(
-            'foo', ['vndk'], 'arm', 9, True))
-
-    def test_omit_arch(self):
-        self.assertFalse(gsl.should_omit_version('foo', [], 'arm', 9, False))
-        self.assertFalse(gsl.should_omit_version(
-            'foo', ['arm'], 'arm', 9, False))
-
-        self.assertTrue(gsl.should_omit_version(
-            'foo', ['x86'], 'arm', 9, False))
-
-    def test_omit_api(self):
-        self.assertFalse(gsl.should_omit_version('foo', [], 'arm', 9, False))
         self.assertFalse(
-            gsl.should_omit_version('foo', ['introduced=9'], 'arm', 9, False))
+            gsl.should_omit_version(
+                gsl.Version('foo', None, [], []), 'arm', 9, False, False))
 
         self.assertTrue(
-            gsl.should_omit_version('foo', ['introduced=14'], 'arm', 9, False))
+            gsl.should_omit_version(
+                gsl.Version('foo_PRIVATE', None, [], []), 'arm', 9, False, False))
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo_PLATFORM', None, [], []), 'arm', 9, False, False))
+
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['platform-only'], []), 'arm', 9,
+                False, False))
+
+    def test_omit_vndk(self):
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['vndk'], []), 'arm', 9, False, False))
+
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, [], []), 'arm', 9, True, False))
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['vndk'], []), 'arm', 9, True, False))
+
+    def test_omit_apex(self):
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['apex'], []), 'arm', 9, False, False))
+
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, [], []), 'arm', 9, False, True))
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['apex'], []), 'arm', 9, False, True))
+
+    def test_omit_arch(self):
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, [], []), 'arm', 9, False, False))
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['arm'], []), 'arm', 9, False, False))
+
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['x86'], []), 'arm', 9, False, False))
+
+    def test_omit_api(self):
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, [], []), 'arm', 9, False, False))
+        self.assertFalse(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['introduced=9'], []), 'arm', 9,
+                False, False))
+
+        self.assertTrue(
+            gsl.should_omit_version(
+                gsl.Version('foo', None, ['introduced=14'], []), 'arm', 9,
+                False, False))
+
+
+class OmitSymbolTest(unittest.TestCase):
+    def test_omit_vndk(self):
+        self.assertTrue(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['vndk']), 'arm', 9, False, False))
+
+        self.assertFalse(
+            gsl.should_omit_symbol(gsl.Symbol('foo', []), 'arm', 9, True, False))
+        self.assertFalse(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['vndk']), 'arm', 9, True, False))
+
+    def test_omit_apex(self):
+        self.assertTrue(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['apex']), 'arm', 9, False, False))
+
+        self.assertFalse(
+            gsl.should_omit_symbol(gsl.Symbol('foo', []), 'arm', 9, False, True))
+        self.assertFalse(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['apex']), 'arm', 9, False, True))
+
+    def test_omit_arch(self):
+        self.assertFalse(
+            gsl.should_omit_symbol(gsl.Symbol('foo', []), 'arm', 9, False, False))
+        self.assertFalse(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['arm']), 'arm', 9, False, False))
+
+        self.assertTrue(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['x86']), 'arm', 9, False, False))
+
+    def test_omit_api(self):
+        self.assertFalse(
+            gsl.should_omit_symbol(gsl.Symbol('foo', []), 'arm', 9, False, False))
+        self.assertFalse(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['introduced=9']), 'arm', 9, False, False))
+
+        self.assertTrue(
+            gsl.should_omit_symbol(
+                gsl.Symbol('foo', ['introduced=14']), 'arm', 9, False, False))
 
 
 class SymbolFileParseTest(unittest.TestCase):
     def test_next_line(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             foo
 
             bar
             # baz
             qux
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         self.assertIsNone(parser.current_line)
 
         self.assertEqual('foo', parser.next_line().strip())
@@ -223,7 +301,7 @@ class SymbolFileParseTest(unittest.TestCase):
         self.assertEqual('', parser.current_line)
 
     def test_parse_version(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 { # foo bar
                 baz;
                 qux; # woodly doodly
@@ -232,7 +310,7 @@ class SymbolFileParseTest(unittest.TestCase):
             VERSION_2 {
             } VERSION_1; # asdf
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
 
         parser.next_line()
         version = parser.parse_version()
@@ -253,31 +331,31 @@ class SymbolFileParseTest(unittest.TestCase):
         self.assertEqual([], version.tags)
 
     def test_parse_version_eof(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         parser.next_line()
         with self.assertRaises(gsl.ParseError):
             parser.parse_version()
 
     def test_unknown_scope_label(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 foo:
             }
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         parser.next_line()
         with self.assertRaises(gsl.ParseError):
             parser.parse_version()
 
     def test_parse_symbol(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             foo;
             bar; # baz qux
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
 
         parser.next_line()
         symbol = parser.parse_symbol()
@@ -290,47 +368,47 @@ class SymbolFileParseTest(unittest.TestCase):
         self.assertEqual(['baz', 'qux'], symbol.tags)
 
     def test_wildcard_symbol_global(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 *;
             };
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         parser.next_line()
         with self.assertRaises(gsl.ParseError):
             parser.parse_version()
 
     def test_wildcard_symbol_local(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 local:
                     *;
             };
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         parser.next_line()
         version = parser.parse_version()
         self.assertEqual([], version.symbols)
 
     def test_missing_semicolon(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 foo
             };
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         parser.next_line()
         with self.assertRaises(gsl.ParseError):
             parser.parse_version()
 
     def test_parse_fails_invalid_input(self):
         with self.assertRaises(gsl.ParseError):
-            input_file = cStringIO.StringIO('foo')
-            parser = gsl.SymbolFileParser(input_file, {})
+            input_file = io.StringIO('foo')
+            parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
             parser.parse()
 
     def test_parse(self):
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 local:
                     hidden1;
@@ -347,7 +425,7 @@ class SymbolFileParseTest(unittest.TestCase):
                     qwerty;
             } VERSION_1;
         """))
-        parser = gsl.SymbolFileParser(input_file, {})
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
         versions = parser.parse()
 
         expected = [
@@ -363,14 +441,38 @@ class SymbolFileParseTest(unittest.TestCase):
 
         self.assertEqual(expected, versions)
 
+    def test_parse_vndk_apex_symbol(self):
+        input_file = io.StringIO(textwrap.dedent("""\
+            VERSION_1 {
+                foo;
+                bar; # vndk
+                baz; # vndk apex
+                qux; # apex
+            };
+        """))
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, True)
+
+        parser.next_line()
+        version = parser.parse_version()
+        self.assertEqual('VERSION_1', version.name)
+        self.assertIsNone(version.base)
+
+        expected_symbols = [
+            gsl.Symbol('foo', []),
+            gsl.Symbol('bar', ['vndk']),
+            gsl.Symbol('baz', ['vndk', 'apex']),
+            gsl.Symbol('qux', ['apex']),
+        ]
+        self.assertEqual(expected_symbols, version.symbols)
+
 
 class GeneratorTest(unittest.TestCase):
     def test_omit_version(self):
         # Thorough testing of the cases involved here is handled by
         # OmitVersionTest, PrivateVersionTest, and SymbolPresenceTest.
-        src_file = cStringIO.StringIO()
-        version_file = cStringIO.StringIO()
-        generator = gsl.Generator(src_file, version_file, 'arm', 9, False)
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9, False, False)
 
         version = gsl.Version('VERSION_PRIVATE', None, [], [
             gsl.Symbol('foo', []),
@@ -396,9 +498,9 @@ class GeneratorTest(unittest.TestCase):
     def test_omit_symbol(self):
         # Thorough testing of the cases involved here is handled by
         # SymbolPresenceTest.
-        src_file = cStringIO.StringIO()
-        version_file = cStringIO.StringIO()
-        generator = gsl.Generator(src_file, version_file, 'arm', 9, False)
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9, False, False)
 
         version = gsl.Version('VERSION_1', None, [], [
             gsl.Symbol('foo', ['x86']),
@@ -421,10 +523,17 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual('', src_file.getvalue())
         self.assertEqual('', version_file.getvalue())
 
+        version = gsl.Version('VERSION_1', None, [], [
+            gsl.Symbol('foo', ['apex']),
+        ])
+        generator.write_version(version)
+        self.assertEqual('', src_file.getvalue())
+        self.assertEqual('', version_file.getvalue())
+
     def test_write(self):
-        src_file = cStringIO.StringIO()
-        version_file = cStringIO.StringIO()
-        generator = gsl.Generator(src_file, version_file, 'arm', 9, False)
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9, False, False)
 
         versions = [
             gsl.Version('VERSION_1', None, [], [
@@ -475,7 +584,7 @@ class IntegrationTest(unittest.TestCase):
             'P': 9001,
         }
 
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 global:
                     foo; # var
@@ -499,18 +608,19 @@ class IntegrationTest(unittest.TestCase):
             VERSION_4 { # versioned=9
                 wibble;
                 wizzes; # vndk
+                waggle; # apex
             } VERSION_2;
 
             VERSION_5 { # versioned=14
                 wobble;
             } VERSION_4;
         """))
-        parser = gsl.SymbolFileParser(input_file, api_map)
+        parser = gsl.SymbolFileParser(input_file, api_map, 'arm', 9, False, False)
         versions = parser.parse()
 
-        src_file = cStringIO.StringIO()
-        version_file = cStringIO.StringIO()
-        generator = gsl.Generator(src_file, version_file, 'arm', 9, False)
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9, False, False)
         generator.write(versions)
 
         expected_src = textwrap.dedent("""\
@@ -545,7 +655,7 @@ class IntegrationTest(unittest.TestCase):
             'Q': 9002,
         }
 
-        input_file = cStringIO.StringIO(textwrap.dedent("""\
+        input_file = io.StringIO(textwrap.dedent("""\
             VERSION_1 {
                 global:
                     foo; # introduced=O
@@ -555,12 +665,12 @@ class IntegrationTest(unittest.TestCase):
                     *;
             };
         """))
-        parser = gsl.SymbolFileParser(input_file, api_map)
+        parser = gsl.SymbolFileParser(input_file, api_map, 'arm', 9001, False, False)
         versions = parser.parse()
 
-        src_file = cStringIO.StringIO()
-        version_file = cStringIO.StringIO()
-        generator = gsl.Generator(src_file, version_file, 'arm', 9001, False)
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9001, False, False)
         generator.write(versions)
 
         expected_src = textwrap.dedent("""\
@@ -578,6 +688,115 @@ class IntegrationTest(unittest.TestCase):
         """)
         self.assertEqual(expected_version, version_file.getvalue())
 
+    def test_multiple_definition(self):
+        input_file = io.StringIO(textwrap.dedent("""\
+            VERSION_1 {
+                global:
+                    foo;
+                    foo;
+                    bar;
+                    baz;
+                    qux; # arm
+                local:
+                    *;
+            };
+
+            VERSION_2 {
+                global:
+                    bar;
+                    qux; # arm64
+            } VERSION_1;
+
+            VERSION_PRIVATE {
+                global:
+                    baz;
+            } VERSION_2;
+
+        """))
+        parser = gsl.SymbolFileParser(input_file, {}, 'arm', 16, False, False)
+
+        with self.assertRaises(gsl.MultiplyDefinedSymbolError) as cm:
+            parser.parse()
+        self.assertEquals(['bar', 'foo'],
+                          cm.exception.multiply_defined_symbols)
+
+    def test_integration_with_apex(self):
+        api_map = {
+            'O': 9000,
+            'P': 9001,
+        }
+
+        input_file = io.StringIO(textwrap.dedent("""\
+            VERSION_1 {
+                global:
+                    foo; # var
+                    bar; # x86
+                    fizz; # introduced=O
+                    buzz; # introduced=P
+                local:
+                    *;
+            };
+
+            VERSION_2 { # arm
+                baz; # introduced=9
+                qux; # versioned=14
+            } VERSION_1;
+
+            VERSION_3 { # introduced=14
+                woodly;
+                doodly; # var
+            } VERSION_2;
+
+            VERSION_4 { # versioned=9
+                wibble;
+                wizzes; # vndk
+                waggle; # apex
+                bubble; # apex vndk
+                duddle; # vndk apex
+            } VERSION_2;
+
+            VERSION_5 { # versioned=14
+                wobble;
+            } VERSION_4;
+        """))
+        parser = gsl.SymbolFileParser(input_file, api_map, 'arm', 9, False, True)
+        versions = parser.parse()
+
+        src_file = io.StringIO()
+        version_file = io.StringIO()
+        generator = gsl.Generator(src_file, version_file, 'arm', 9, False, True)
+        generator.write(versions)
+
+        expected_src = textwrap.dedent("""\
+            int foo = 0;
+            void baz() {}
+            void qux() {}
+            void wibble() {}
+            void waggle() {}
+            void bubble() {}
+            void duddle() {}
+            void wobble() {}
+        """)
+        self.assertEqual(expected_src, src_file.getvalue())
+
+        expected_version = textwrap.dedent("""\
+            VERSION_1 {
+                global:
+                    foo;
+            };
+            VERSION_2 {
+                global:
+                    baz;
+            } VERSION_1;
+            VERSION_4 {
+                global:
+                    wibble;
+                    waggle;
+                    bubble;
+                    duddle;
+            } VERSION_2;
+        """)
+        self.assertEqual(expected_version, version_file.getvalue())
 
 def main():
     suite = unittest.TestLoader().loadTestsFromName(__name__)

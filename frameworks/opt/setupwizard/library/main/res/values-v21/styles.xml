@@ -38,10 +38,6 @@
 
     <!-- Button styles -->
 
-    <style name="SuwGlifButton.Tertiary" parent="SuwGlifButton.BaseTertiary">
-        <item name="android:fontFamily">sans-serif-medium</item>
-    </style>
-
     <style name="SuwBase.ProgressBarLarge" parent="@android:style/Widget.Material.ProgressBar.Large" />
 
     <style name="SuwFourColorIndeterminateProgressBar" parent="SuwBase.ProgressBarLarge">
@@ -50,6 +46,8 @@
         <item name="android:indeterminateDrawable">@drawable/suw_fourcolor_progress_bar</item>
         <item name="android:indeterminateTint">@null</item>
         <item name="android:indeterminateTintMode">@null</item>
+        <item name="android:paddingStart">@dimen/suw_glif_progress_bar_padding</item>
+        <item name="android:paddingEnd">@dimen/suw_glif_progress_bar_padding</item>
     </style>
 
     <!-- Items styles -->

@@ -38,7 +38,7 @@
       <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> kontoer</item>
       <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> konto</item>
     </plurals>
-    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Nettverk og Internett"</string>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Nettverk og internett"</string>
     <string name="applications_category_title" msgid="3552921143969612110">"Apper"</string>
     <string name="device_pref_category_title" msgid="5264163316572335776">"Enhetsinnstillinger"</string>
     <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"Fjernkontroller og tilbehør"</string>
@@ -78,7 +78,7 @@
     <string name="all_apps_show_system_apps" msgid="4648447904721171884">"Vis systemapper"</string>
     <string name="all_apps_installed" msgid="54800379871111518">"Installerte apper"</string>
     <string name="all_apps_other" msgid="8297097642727891911">"Systemapper"</string>
-    <string name="all_apps_disabled" msgid="2016067533586741345">"Avslåtte apper"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"Deaktiverte apper"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Skjermsparer"</string>
     <string name="device_display" msgid="101455384386372747">"Skjerm"</string>
     <string name="device_sound" msgid="9214182566287657481">"Lyd"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Velg formater"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Surround-lyd"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Noen apper kommer til å være utilgjengelige eller ikke fungere som de skal inntil stasjonen er koblet til igjen."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Ikke nok lagringsplass."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Appen eksisterer ikke."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Appen er kopibeskyttet."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Den installerte posisjonen er ikke gyldig."</string>
     <string name="system_package" msgid="9200255718634512790">"Systemoppdateringer kan ikke installeres på eksterne medier."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Enhetsadministratoren kan ikke installeres på eksterne medier."</string>
@@ -484,17 +483,17 @@
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Bekreft apper via USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Sjekk om det er skadelig atferd i apper som er installert via ADB/ADT"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Detaljert loggføring for Wi-Fi"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Aktivér detaljert Wi-Fi-loggføring"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Slå på detaljert Wi-Fi-loggføring"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Vis berøringer"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"Pekerplassering"</string>
-    <string name="system_show_layout_bounds" msgid="645732439882291943">"Vis kantene i utformingen"</string>
+    <string name="system_show_layout_bounds" msgid="645732439882291943">"Vis layoutgrenser"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Vis GPU-visningsoppdateringer"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Vis maskinvarelag"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Se GPU-overforbruk"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Vis overflateoppdateringer"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Animasjonsskala for vindu"</string>
-    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Overgangsanimasjonsskala"</string>
-    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Varighetsskala for animasjon"</string>
+    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Animasjonsskala for overgang"</string>
+    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Varighetsskala for animasjoner"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Slå på streng modus"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU-gjengivelse av profil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Aktiver spor"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Tilgang til varsler"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Ingen installerte apper har bedt om tilgang til varsler."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Disse appene kan lese alle varsler, inkludert personopplysninger som kontaktnavn og tekstinnholdet i meldinger du mottar. De kan også avvise varsler eller utløse handlingsknapper i varslene."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Katalogtilgang"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Disse appene har tilgang til visse kataloger."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Vis over andre apper"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Tillat visning over andre apper"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Tillat at en app vises over andre apper du bruker. Den kan virke forstyrrende for andre apper eller endre måten de vises eller fungerer på."</string>

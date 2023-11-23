@@ -20,6 +20,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -29,17 +30,25 @@ import com.android.tradefed.targetprep.TargetSetupError;
 @OptionClass(alias="property-check")
 public class PropertyCheck extends PreconditionPreparer {
 
-    @Option(name = "property-name", description = "The name of the property to check",
-            mandatory = true)
-    protected String mPropertyName = null;
+    @Option(
+        name = "property-name",
+        description = "The name of the property to check",
+        mandatory = true
+    )
+    private String mPropertyName = null;
 
-    @Option(name = "expected-value", description = "The expected value of the property",
-            mandatory = true)
-    protected String mExpectedPropertyValue = null;
+    @Option(
+        name = "expected-value",
+        description = "The expected value of the property",
+        mandatory = true
+    )
+    private String mExpectedPropertyValue = null;
 
-    @Option(name = "throw-error",
-            description = "Whether to throw an error for an unexpected property value")
-    protected boolean mThrowError = false;
+    @Option(
+        name = "throw-error",
+        description = "Whether to throw an error for an unexpected property value"
+    )
+    private boolean mThrowError = false;
 
     @Override
     public void run(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
@@ -47,7 +56,8 @@ public class PropertyCheck extends PreconditionPreparer {
 
         String propertyValue = device.getProperty(mPropertyName);
         if (propertyValue == null) {
-            logWarning("Property \"%s\" not found on device, cannot verify value \"%s\" ",
+            CLog.w(
+                    "Property \"%s\" not found on device, cannot verify value \"%s\" ",
                     mPropertyName, mExpectedPropertyValue);
             return;
         }
@@ -59,7 +69,7 @@ public class PropertyCheck extends PreconditionPreparer {
             if(mThrowError) {
                 throw new TargetSetupError(msg, device.getDeviceDescriptor());
             } else {
-                logWarning(msg);
+                CLog.w(msg);
             }
         }
     }

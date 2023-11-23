@@ -71,7 +71,7 @@ blk64_t ext2fs_inode_data_blocks2(ext2_filsys fs,
 	return (inode->i_blocks |
 		(ext2fs_has_feature_huge_file(fs->super) ?
 		 (__u64) inode->osd2.linux2.l_i_blocks_hi << 32 : 0)) -
-		(inode->i_file_acl ? fs->blocksize >> 9 : 0);
+		(inode->i_file_acl ? EXT2_CLUSTER_SIZE(fs->super) >> 9 : 0);
 }
 
 /*
@@ -208,7 +208,7 @@ __u32 ext2fs_block_bitmap_checksum(ext2_filsys fs, dgrp_t group)
 
 	gdp = ext4fs_group_desc(fs, fs->group_desc, group);
 	csum = gdp->bg_block_bitmap_csum_lo;
-	if (fs->super->s_desc_size >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION)
 		csum |= ((__u32)gdp->bg_block_bitmap_csum_hi << 16);
 	return csum;
 }
@@ -249,7 +249,7 @@ __u32 ext2fs_inode_bitmap_checksum(ext2_filsys fs, dgrp_t group)
 
 	gdp = ext4fs_group_desc(fs, fs->group_desc, group);
 	csum = gdp->bg_inode_bitmap_csum_lo;
-	if (fs->super->s_desc_size >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
+	if (EXT2_DESC_SIZE(fs->super) >= EXT4_BG_INODE_BITMAP_CSUM_HI_END)
 		csum |= ((__u32)gdp->bg_inode_bitmap_csum_hi << 16);
 	return csum;
 }

@@ -19,13 +19,8 @@ public:
     SkSurface_Base(const SkImageInfo&, const SkSurfaceProps*);
     virtual ~SkSurface_Base();
 
-    virtual GrBackendObject onGetTextureHandle(BackendHandleAccess) {
-        return 0;
-    }
-
-    virtual bool onGetRenderTargetHandle(GrBackendObject*, BackendHandleAccess) {
-        return false;
-    }
+    virtual GrBackendTexture onGetBackendTexture(BackendHandleAccess);
+    virtual GrBackendRenderTarget onGetBackendRenderTarget(BackendHandleAccess);
 
     /**
      *  Allocate a canvas that will draw into this surface. We will cache this
@@ -42,8 +37,13 @@ public:
      *  This needs to be able to outlive the surface itself (if need be), and
      *  must faithfully represent the current contents, even if the surface
      *  is changed after this called (e.g. it is drawn to via its canvas).
+     *
+     *  If a subset is specified, the the impl must make a copy, rather than try to wait
+     *  on copy-on-write.
      */
-    virtual sk_sp<SkImage> onNewImageSnapshot() = 0;
+    virtual sk_sp<SkImage> onNewImageSnapshot(const SkIRect* subset = nullptr) { return nullptr; }
+
+    virtual void onWritePixels(const SkPixmap&, int x, int y) = 0;
 
     /**
      *  Default implementation:

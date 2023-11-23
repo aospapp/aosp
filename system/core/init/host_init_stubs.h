@@ -23,26 +23,14 @@
 
 #include <string>
 
+// android/api-level.h
+#define __ANDROID_API_P__ 28
+
 // sys/system_properties.h
 #define PROP_VALUE_MAX 92
 
 // unistd.h
 int setgroups(size_t __size, const gid_t* __list);
-
-// android-base/properties.h
-namespace android {
-namespace base {
-
-std::string GetProperty(const std::string& key, const std::string& default_value);
-bool GetBoolProperty(const std::string& key, bool default_value);
-template <typename T>
-T GetIntProperty(const std::string&, T default_value, T = std::numeric_limits<T>::min(),
-                 T = std::numeric_limits<T>::max()) {
-    return default_value;
-}
-
-}  // namespace base
-}  // namespace android
 
 namespace android {
 namespace init {
@@ -51,12 +39,19 @@ namespace init {
 extern std::string default_console;
 
 // property_service.h
+bool CanReadProperty(const std::string& source_context, const std::string& name);
 extern uint32_t (*property_set)(const std::string& name, const std::string& value);
 uint32_t HandlePropertySet(const std::string& name, const std::string& value,
                            const std::string& source_context, const ucred& cr, std::string* error);
 
+// reboot_utils.h
+inline void SetFatalRebootTarget() {}
+inline void __attribute__((noreturn)) InitFatalReboot() {
+    abort();
+}
+
 // selinux.h
-bool SelinuxHasVendorInit();
+int SelinuxGetVendorAndroidVersion();
 void SelabelInitialize();
 bool SelabelLookupFileContext(const std::string& key, int type, std::string* result);
 

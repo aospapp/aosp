@@ -41,7 +41,7 @@
 #include "dex/art_dex_file_loader.h"
 #include "dex/dex_file.h"
 #include "dex/dex_file_loader.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/object.h"
 #include "mirror/string.h"
@@ -52,6 +52,7 @@
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
 #include "thread_list.h"
+#include "ti_logging.h"
 #include "ti_phase.h"
 #include "well_known_classes.h"
 
@@ -186,7 +187,7 @@ static void Update() REQUIRES_SHARED(art::Locks::mutator_lock_) {
 }
 
 struct SearchCallback : public art::RuntimePhaseCallback {
-  void NextRuntimePhase(RuntimePhase phase) OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  void NextRuntimePhase(RuntimePhase phase) override REQUIRES_SHARED(art::Locks::mutator_lock_) {
     if (phase == RuntimePhase::kStart) {
       // It's time to update the system properties.
       Update();
@@ -213,7 +214,7 @@ void SearchUtil::Unregister() {
   runtime->GetRuntimeCallbacks()->RemoveRuntimePhaseCallback(&gSearchCallback);
 }
 
-jvmtiError SearchUtil::AddToBootstrapClassLoaderSearch(jvmtiEnv* env ATTRIBUTE_UNUSED,
+jvmtiError SearchUtil::AddToBootstrapClassLoaderSearch(jvmtiEnv* env,
                                                        const char* segment) {
   art::Runtime* current = art::Runtime::Current();
   if (current == nullptr) {
@@ -229,9 +230,14 @@ jvmtiError SearchUtil::AddToBootstrapClassLoaderSearch(jvmtiEnv* env ATTRIBUTE_U
   std::string error_msg;
   std::vector<std::unique_ptr<const art::DexFile>> dex_files;
   const art::ArtDexFileLoader dex_file_loader;
-  if (!dex_file_loader.Open(
-        segment, segment, /* verify */ true, /* verify_checksum */ true, &error_msg, &dex_files)) {
-    LOG(WARNING) << "Could not open " << segment << " for boot classpath extension: " << error_msg;
+  if (!dex_file_loader.Open(segment,
+                            segment,
+                            /* verify= */ true,
+                            /* verify_checksum= */ true,
+                            &error_msg,
+                            &dex_files)) {
+    JVMTI_LOG(WARNING, env) << "Could not open " << segment << " for boot classpath extension: "
+                            << error_msg;
     return ERR(ILLEGAL_ARGUMENT);
   }
 

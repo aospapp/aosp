@@ -19,16 +19,21 @@ package com.android.server.telecom;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.TelephonyManager;
 
 public class PhoneNumberUtilsAdapterImpl implements PhoneNumberUtilsAdapter {
     @Override
     public boolean isLocalEmergencyNumber(Context context, String number) {
-            return PhoneNumberUtils.isLocalEmergencyNumber(context, number);
+        TelephonyManager tm = (TelephonyManager) context.getSystemService(
+                Context.TELEPHONY_SERVICE);
+        return tm.isEmergencyNumber(number);
     }
 
     @Override
     public boolean isPotentialLocalEmergencyNumber(Context context, String number) {
-        return PhoneNumberUtils.isPotentialLocalEmergencyNumber(context, number);
+        TelephonyManager tm = (TelephonyManager) context.getSystemService(
+                Context.TELEPHONY_SERVICE);
+        return tm.isPotentialEmergencyNumber(number);
     }
 
     @Override

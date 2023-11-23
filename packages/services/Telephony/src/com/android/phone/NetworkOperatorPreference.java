@@ -24,7 +24,6 @@ import android.graphics.drawable.LayerDrawable;
 import android.preference.Preference;
 import android.telephony.CellInfo;
 import android.telephony.SignalStrength;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Gravity;
 
@@ -44,16 +43,18 @@ public class NetworkOperatorPreference extends Preference {
     private CellInfo mCellInfo;
     private List<String> mForbiddenPlmns;
     private int mLevel = -1;
+    private boolean mShow4GForLTE;
 
     // The following constants are used to draw signal icon.
     private static final Drawable EMPTY_DRAWABLE = new ColorDrawable(Color.TRANSPARENT);
     private static final int NO_CELL_DATA_CONNECTED_ICON = 0;
 
     public NetworkOperatorPreference(
-            CellInfo cellinfo, Context context, List<String> forbiddenPlmns) {
+            CellInfo cellinfo, Context context, List<String> forbiddenPlmns, boolean show4GForLTE) {
         super(context);
         mCellInfo = cellinfo;
         mForbiddenPlmns = forbiddenPlmns;
+        mShow4GForLTE = show4GForLTE;
         refresh();
     }
 
@@ -71,7 +72,7 @@ public class NetworkOperatorPreference extends Preference {
             networkTitle += " " + getContext().getResources().getString(R.string.forbidden_network);
         }
         setTitle(networkTitle);
-        int level = CellInfoUtil.getLevel(mCellInfo);
+        int level = mCellInfo.getCellSignalStrength().getLevel();
         if (DBG) Log.d(TAG, "refresh level: " + String.valueOf(level));
         if (mLevel != level) {
             mLevel = level;
@@ -86,17 +87,17 @@ public class NetworkOperatorPreference extends Preference {
         updateIcon(level);
     }
 
-    private int getIconId(int networkType) {
-        if (networkType == TelephonyManager.NETWORK_TYPE_CDMA) {
-            return R.drawable.signal_strength_1x;
-        } else if (networkType == TelephonyManager.NETWORK_TYPE_LTE) {
-            return R.drawable.signal_strength_lte;
-        } else if (networkType == TelephonyManager.NETWORK_TYPE_UMTS) {
-            return R.drawable.signal_strength_3g;
-        } else if (networkType == TelephonyManager.NETWORK_TYPE_GSM) {
-            return R.drawable.signal_strength_g;
-        } else {
-            return 0;
+    private int getIconIdForCell(CellInfo ci) {
+        final int type = ci.getCellIdentity().getType();
+        switch (type) {
+            case CellInfo.TYPE_GSM: return R.drawable.signal_strength_g;
+            case CellInfo.TYPE_WCDMA: // fall through
+            case CellInfo.TYPE_TDSCDMA: return R.drawable.signal_strength_3g;
+            case CellInfo.TYPE_LTE:
+                return mShow4GForLTE
+                        ? R.drawable.signal_strength_4g : R.drawable.signal_strength_lte;
+            case CellInfo.TYPE_CDMA: return R.drawable.signal_strength_1x;
+            default: return 0;
         }
     }
 
@@ -113,7 +114,7 @@ public class NetworkOperatorPreference extends Preference {
         signalDrawable.setDarkIntensity(0);
 
         // Make the network type drawable
-        int iconType = getIconId(CellInfoUtil.getNetworkType(mCellInfo));
+        int iconType = getIconIdForCell(mCellInfo);
         Drawable networkDrawable =
                 iconType == NO_CELL_DATA_CONNECTED_ICON
                         ? EMPTY_DRAWABLE

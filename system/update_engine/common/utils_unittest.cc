@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -32,21 +33,22 @@
 
 #include "update_engine/common/test_utils.h"
 
+using std::numeric_limits;
 using std::string;
 using std::vector;
 
 namespace chromeos_update_engine {
 
-class UtilsTest : public ::testing::Test { };
+class UtilsTest : public ::testing::Test {};
 
 TEST(UtilsTest, CanParseECVersion) {
   // Should be able to parse and valid key value line.
   EXPECT_EQ("12345", utils::ParseECVersion("fw_version=12345"));
-  EXPECT_EQ("123456", utils::ParseECVersion(
-      "b=1231a fw_version=123456 a=fasd2"));
+  EXPECT_EQ("123456",
+            utils::ParseECVersion("b=1231a fw_version=123456 a=fasd2"));
   EXPECT_EQ("12345", utils::ParseECVersion("fw_version=12345"));
-  EXPECT_EQ("00VFA616", utils::ParseECVersion(
-      "vendor=\"sam\" fw_version=\"00VFA616\""));
+  EXPECT_EQ("00VFA616",
+            utils::ParseECVersion("vendor=\"sam\" fw_version=\"00VFA616\""));
 
   // For invalid entries, should return the empty string.
   EXPECT_EQ("", utils::ParseECVersion("b=1231a fw_version a=fasd2"));
@@ -57,13 +59,11 @@ TEST(UtilsTest, WriteFileOpenFailure) {
 }
 
 TEST(UtilsTest, WriteFileReadFile) {
-  base::FilePath file;
-  EXPECT_TRUE(base::CreateTemporaryFile(&file));
-  ScopedPathUnlinker unlinker(file.value());
-  EXPECT_TRUE(utils::WriteFile(file.value().c_str(), "hello", 5));
+  test_utils::ScopedTempFile file;
+  EXPECT_TRUE(utils::WriteFile(file.path().c_str(), "hello", 5));
 
   brillo::Blob readback;
-  EXPECT_TRUE(utils::ReadFile(file.value().c_str(), &readback));
+  EXPECT_TRUE(utils::ReadFile(file.path().c_str(), &readback));
   EXPECT_EQ("hello", string(readback.begin(), readback.end()));
 }
 
@@ -73,24 +73,21 @@ TEST(UtilsTest, ReadFileFailure) {
 }
 
 TEST(UtilsTest, ReadFileChunk) {
-  base::FilePath file;
-  EXPECT_TRUE(base::CreateTemporaryFile(&file));
-  ScopedPathUnlinker unlinker(file.value());
+  test_utils::ScopedTempFile file;
   brillo::Blob data;
   const size_t kSize = 1024 * 1024;
   for (size_t i = 0; i < kSize; i++) {
     data.push_back(i % 255);
   }
-  EXPECT_TRUE(utils::WriteFile(file.value().c_str(), data.data(), data.size()));
+  EXPECT_TRUE(test_utils::WriteFileVector(file.path(), data));
   brillo::Blob in_data;
-  EXPECT_TRUE(utils::ReadFileChunk(file.value().c_str(), kSize, 10, &in_data));
+  EXPECT_TRUE(utils::ReadFileChunk(file.path().c_str(), kSize, 10, &in_data));
   EXPECT_TRUE(in_data.empty());
-  EXPECT_TRUE(utils::ReadFileChunk(file.value().c_str(), 0, -1, &in_data));
-  EXPECT_TRUE(data == in_data);
+  EXPECT_TRUE(utils::ReadFileChunk(file.path().c_str(), 0, -1, &in_data));
+  EXPECT_EQ(data, in_data);
   in_data.clear();
-  EXPECT_TRUE(utils::ReadFileChunk(file.value().c_str(), 10, 20, &in_data));
-  EXPECT_TRUE(brillo::Blob(data.begin() + 10, data.begin() + 10 + 20) ==
-              in_data);
+  EXPECT_TRUE(utils::ReadFileChunk(file.path().c_str(), 10, 20, &in_data));
+  EXPECT_EQ(brillo::Blob(data.begin() + 10, data.begin() + 10 + 20), in_data);
 }
 
 TEST(UtilsTest, ErrnoNumberAsStringTest) {
@@ -175,21 +172,18 @@ TEST(UtilsTest, MakePartitionNameForMountTest) {
             utils::MakePartitionNameForMount("/dev/mmcblk0p2"));
   EXPECT_EQ("/dev/loop0", utils::MakePartitionNameForMount("/dev/loop0"));
   EXPECT_EQ("/dev/loop8", utils::MakePartitionNameForMount("/dev/loop8"));
-  EXPECT_EQ("/dev/loop12p2",
-            utils::MakePartitionNameForMount("/dev/loop12p2"));
+  EXPECT_EQ("/dev/loop12p2", utils::MakePartitionNameForMount("/dev/loop12p2"));
   EXPECT_EQ("/dev/ubiblock5_0",
             utils::MakePartitionNameForMount("/dev/ubiblock5_0"));
-  EXPECT_EQ("/dev/mtd4",
-            utils::MakePartitionNameForMount("/dev/ubi4_0"));
+  EXPECT_EQ("/dev/mtd4", utils::MakePartitionNameForMount("/dev/ubi4_0"));
   EXPECT_EQ("/dev/ubiblock3_0",
             utils::MakePartitionNameForMount("/dev/ubiblock3"));
   EXPECT_EQ("/dev/mtd2", utils::MakePartitionNameForMount("/dev/ubi2"));
-  EXPECT_EQ("/dev/ubi1_0",
-            utils::MakePartitionNameForMount("/dev/ubiblock1"));
+  EXPECT_EQ("/dev/ubi1_0", utils::MakePartitionNameForMount("/dev/ubiblock1"));
 }
 
 TEST(UtilsTest, FuzzIntTest) {
-  static const uint32_t kRanges[] = { 0, 1, 2, 20 };
+  static const uint32_t kRanges[] = {0, 1, 2, 20};
   for (uint32_t range : kRanges) {
     const int kValue = 50;
     for (int tries = 0; tries < 100; ++tries) {
@@ -255,18 +249,12 @@ TEST(UtilsTest, FormatTimeDeltaTest) {
   // which is not localized) so we only need to test the C locale
   EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromMilliseconds(100)),
             "0.1s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(0)),
-            "0s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(1)),
-            "1s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(59)),
-            "59s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(60)),
-            "1m0s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(61)),
-            "1m1s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(90)),
-            "1m30s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(0)), "0s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(1)), "1s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(59)), "59s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(60)), "1m0s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(61)), "1m1s");
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(90)), "1m30s");
   EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(1205)),
             "20m5s");
   EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(3600)),
@@ -286,49 +274,7 @@ TEST(UtilsTest, FormatTimeDeltaTest) {
   EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(200000) +
                                    base::TimeDelta::FromMilliseconds(1)),
             "2d7h33m20.001s");
-  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(-1)),
-            "-1s");
-}
-
-TEST(UtilsTest, TimeFromStructTimespecTest) {
-  struct timespec ts;
-
-  // Unix epoch (Thursday 00:00:00 UTC on Jan 1, 1970)
-  ts = (struct timespec) {.tv_sec = 0, .tv_nsec = 0};
-  EXPECT_EQ(base::Time::UnixEpoch(), utils::TimeFromStructTimespec(&ts));
-
-  // 42 ms after the Unix billennium (Sunday 01:46:40 UTC on September 9, 2001)
-  ts = (struct timespec) {.tv_sec = 1000 * 1000 * 1000,
-                          .tv_nsec = 42 * 1000 * 1000};
-  base::Time::Exploded exploded = (base::Time::Exploded) {
-    .year = 2001, .month = 9, .day_of_week = 0, .day_of_month = 9,
-    .hour = 1, .minute = 46, .second = 40, .millisecond = 42};
-  base::Time time;
-  EXPECT_TRUE(base::Time::FromUTCExploded(exploded, &time));
-  EXPECT_EQ(time, utils::TimeFromStructTimespec(&ts));
-}
-
-TEST(UtilsTest, DecodeAndStoreBase64String) {
-  base::FilePath path;
-
-  // Ensure we return false on empty strings or invalid base64.
-  EXPECT_FALSE(utils::DecodeAndStoreBase64String("", &path));
-  EXPECT_FALSE(utils::DecodeAndStoreBase64String("not valid base64", &path));
-
-  // Pass known base64 and check that it matches. This string was generated
-  // the following way:
-  //
-  //   $ echo "Update Engine" | base64
-  //   VXBkYXRlIEVuZ2luZQo=
-  EXPECT_TRUE(utils::DecodeAndStoreBase64String("VXBkYXRlIEVuZ2luZQo=",
-                                                &path));
-  ScopedPathUnlinker unlinker(path.value());
-  string expected_contents = "Update Engine\n";
-  string contents;
-  EXPECT_TRUE(utils::ReadFile(path.value(), &contents));
-  EXPECT_EQ(contents, expected_contents);
-  EXPECT_EQ(static_cast<off_t>(expected_contents.size()),
-            utils::FileSize(path.value()));
+  EXPECT_EQ(utils::FormatTimeDelta(base::TimeDelta::FromSeconds(-1)), "-1s");
 }
 
 TEST(UtilsTest, ConvertToOmahaInstallDate) {
@@ -349,29 +295,29 @@ TEST(UtilsTest, ConvertToOmahaInstallDate) {
   EXPECT_FALSE(utils::ConvertToOmahaInstallDate(
       base::Time::FromTimeT(omaha_epoch - 1), &value));
   EXPECT_FALSE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch - 100*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch - 100 * 24 * 3600), &value));
 
   // Check that we jump from 0 to 7 exactly on the one-week mark, e.g.
   // on Jan 8, 2007 0:00 PST.
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 7*24*3600 - 1), &value));
+      base::Time::FromTimeT(omaha_epoch + 7 * 24 * 3600 - 1), &value));
   EXPECT_EQ(value, 0);
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 7*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch + 7 * 24 * 3600), &value));
   EXPECT_EQ(value, 7);
 
   // Check a couple of more values.
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 10*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch + 10 * 24 * 3600), &value));
   EXPECT_EQ(value, 7);
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 20*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch + 20 * 24 * 3600), &value));
   EXPECT_EQ(value, 14);
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 26*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch + 26 * 24 * 3600), &value));
   EXPECT_EQ(value, 21);
   EXPECT_TRUE(utils::ConvertToOmahaInstallDate(
-      base::Time::FromTimeT(omaha_epoch + 29*24*3600), &value));
+      base::Time::FromTimeT(omaha_epoch + 29 * 24 * 3600), &value));
   EXPECT_EQ(value, 28);
 
   // The date Jun 4, 2007 0:00 PDT is a Monday and is hence a point
@@ -451,6 +397,22 @@ static void VoidMacroTestHelper(bool* ret) {
   *ret = true;
 }
 
+static void ExpectParseRollbackKeyVersion(const string& version,
+                                          uint16_t expected_high,
+                                          uint16_t expected_low) {
+  uint16_t actual_high;
+  uint16_t actual_low;
+  utils::ParseRollbackKeyVersion(version, &actual_high, &actual_low);
+  EXPECT_EQ(expected_high, actual_high);
+  EXPECT_EQ(expected_low, actual_low);
+}
+
+static void ExpectInvalidParseRollbackKeyVersion(const string& version) {
+  ExpectParseRollbackKeyVersion(version,
+                                numeric_limits<uint16_t>::max(),
+                                numeric_limits<uint16_t>::max());
+}
+
 TEST(UtilsTest, TestMacros) {
   bool void_test = false;
   VoidMacroTestHelper(&void_test);
@@ -464,20 +426,18 @@ TEST(UtilsTest, RunAsRootUnmountFilesystemFailureTest) {
 }
 
 TEST(UtilsTest, RunAsRootUnmountFilesystemBusyFailureTest) {
-  string tmp_image;
-  EXPECT_TRUE(utils::MakeTempFile("img.XXXXXX", &tmp_image, nullptr));
-  ScopedPathUnlinker tmp_image_unlinker(tmp_image);
+  test_utils::ScopedTempFile tmp_image("img.XXXXXX");
 
   EXPECT_TRUE(base::CopyFile(
       test_utils::GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
-      base::FilePath(tmp_image)));
+      base::FilePath(tmp_image.path())));
 
   base::ScopedTempDir mnt_dir;
   EXPECT_TRUE(mnt_dir.CreateUniqueTempDir());
 
   string loop_dev;
   test_utils::ScopedLoopbackDeviceBinder loop_binder(
-      tmp_image, true, &loop_dev);
+      tmp_image.path(), true, &loop_dev);
 
   EXPECT_FALSE(utils::IsMountpoint(mnt_dir.GetPath().value()));
   // This is the actual test part. While we hold a file descriptor open for the
@@ -506,10 +466,45 @@ TEST(UtilsTest, IsMountpointTest) {
   EXPECT_TRUE(mnt_dir.CreateUniqueTempDir());
   EXPECT_FALSE(utils::IsMountpoint(mnt_dir.GetPath().value()));
 
-  base::FilePath file;
-  EXPECT_TRUE(base::CreateTemporaryFile(&file));
-  ScopedPathUnlinker unlinker(file.value());
-  EXPECT_FALSE(utils::IsMountpoint(file.value()));
+  test_utils::ScopedTempFile file;
+  EXPECT_FALSE(utils::IsMountpoint(file.path()));
+}
+
+TEST(UtilsTest, VersionPrefix) {
+  EXPECT_EQ(10575, utils::VersionPrefix("10575.39."));
+  EXPECT_EQ(10575, utils::VersionPrefix("10575.39"));
+  EXPECT_EQ(10575, utils::VersionPrefix("10575.x"));
+  EXPECT_EQ(10575, utils::VersionPrefix("10575."));
+  EXPECT_EQ(10575, utils::VersionPrefix("10575"));
+  EXPECT_EQ(0, utils::VersionPrefix(""));
+  EXPECT_EQ(-1, utils::VersionPrefix("x"));
+  EXPECT_EQ(-1, utils::VersionPrefix("1x"));
+  EXPECT_EQ(-1, utils::VersionPrefix("x.1"));
+}
+
+TEST(UtilsTest, ParseDottedVersion) {
+  // Valid case.
+  ExpectParseRollbackKeyVersion("2.3", 2, 3);
+  ExpectParseRollbackKeyVersion("65535.65535", 65535, 65535);
+
+  // Zero is technically allowed but never actually used.
+  ExpectParseRollbackKeyVersion("0.0", 0, 0);
+
+  // Invalid cases.
+  ExpectInvalidParseRollbackKeyVersion("");
+  ExpectInvalidParseRollbackKeyVersion("2");
+  ExpectInvalidParseRollbackKeyVersion("2.");
+  ExpectInvalidParseRollbackKeyVersion(".2");
+  ExpectInvalidParseRollbackKeyVersion("2.2.");
+  ExpectInvalidParseRollbackKeyVersion("2.2.3");
+  ExpectInvalidParseRollbackKeyVersion(".2.2");
+  ExpectInvalidParseRollbackKeyVersion("a.b");
+  ExpectInvalidParseRollbackKeyVersion("1.b");
+  ExpectInvalidParseRollbackKeyVersion("a.2");
+  ExpectInvalidParseRollbackKeyVersion("65536.65536");
+  ExpectInvalidParseRollbackKeyVersion("99999.99999");
+  ExpectInvalidParseRollbackKeyVersion("99999.1");
+  ExpectInvalidParseRollbackKeyVersion("1.99999");
 }
 
 }  // namespace chromeos_update_engine

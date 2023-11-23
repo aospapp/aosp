@@ -280,4 +280,8 @@ public abstract class DelegatingSSLSocket extends SSLSocket {
   @Override public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) {
     delegate.setPerformancePreferences(connectionTime, latency, bandwidth);
   }
+
+  @Override public String getApplicationProtocol() {
+    return delegate.getApplicationProtocol();
+  }
 }

@@ -56,6 +56,10 @@ Return<bool> canCastInterface(IBase* interface, const char* castTo, bool emitErr
 }
 
 std::string getDescriptor(IBase* interface) {
+    if (interface == nullptr) {
+        return "";
+    }
+
     std::string myDescriptor{};
     auto ret = interface->interfaceDescriptor([&](const hidl_string &types) {
         myDescriptor = types.c_str();

@@ -118,6 +118,45 @@ class AfeStore(host_info.CachingHostInfoStore):
                                          hostname=self._hostname)
 
 
+class AfeStoreKeepPool(AfeStore):
+    """Interact with AFE for host information without deleting pool label."""
+
+    def _adjust_pool(self, old_info, new_info):
+        """Adjust pool labels when calculating the labels to remove/add.
+
+        @param old_info: The HostInfo the host has previously, fetched from AFE.
+        @param new_info: The HostInfo the host has after repair/provision.
+
+        @returns: A tuple of list (labels_to_remove, labels_to_add).
+        """
+        labels_to_remove = list(set(old_info.labels) - set(new_info.labels))
+        labels_to_add = list(set(new_info.labels) - set(old_info.labels))
+        pool_to_remove = [l for l in labels_to_remove if 'pool:' in l]
+        pool_to_add = [l for l in labels_to_add if 'pool:' in l]
+        if pool_to_remove and not pool_to_add:
+            labels_to_remove = list(set(labels_to_remove) - set(pool_to_remove))
+
+        return labels_to_remove, labels_to_add
+
+    def _commit_impl(self, new_info):
+        """Commits HostInfo back to the AFE.
+
+        @param new_info: The new HostInfo to commit.
+
+        It won't delete pool label if no pool label will be added later.
+        """
+        # TODO(pprabhu) crbug.com/680322
+        # This method has a potentially malignent race condition. We obtain a
+        # copy of HostInfo from the AFE and then add/remove labels / attribtes
+        # based on that. If another user tries to commit it's changes in
+        # parallel, we'll end up with corrupted labels / attributes.
+        old_info = self._refresh_impl()
+        labels_to_remove, labels_to_add = self._adjust_pool(old_info, new_info)
+        self._remove_labels_on_afe(labels_to_remove)
+        self._add_labels_on_afe(labels_to_add)
+        self._update_attributes_on_afe(old_info.attributes, new_info.attributes)
+
+
 def _dict_diff(left_dict, right_dict):
     """Return the keys where the given dictionaries differ.
 

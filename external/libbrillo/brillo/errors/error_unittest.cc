@@ -11,10 +11,10 @@ using brillo::Error;
 namespace {
 
 brillo::ErrorPtr GenerateNetworkError() {
-  tracked_objects::Location loc("GenerateNetworkError",
+  base::Location loc("GenerateNetworkError",
                                 "error_unittest.cc",
                                 15,
-                                ::tracked_objects::GetProgramCounter());
+                                ::base::GetProgramCounter());
   return Error::Create(loc, "network", "not_found", "Resource not found");
 }
 
@@ -30,9 +30,9 @@ TEST(Error, Single) {
   EXPECT_EQ("network", err->GetDomain());
   EXPECT_EQ("not_found", err->GetCode());
   EXPECT_EQ("Resource not found", err->GetMessage());
-  EXPECT_EQ("GenerateNetworkError", err->GetLocation().function_name);
-  EXPECT_EQ("error_unittest.cc", err->GetLocation().file_name);
-  EXPECT_EQ(15, err->GetLocation().line_number);
+  EXPECT_EQ("GenerateNetworkError", err->GetLocation().function_name());
+  EXPECT_EQ("error_unittest.cc", err->GetLocation().file_name());
+  EXPECT_EQ(15, err->GetLocation().line_number());
   EXPECT_EQ(nullptr, err->GetInnerError());
   EXPECT_TRUE(err->HasDomain("network"));
   EXPECT_FALSE(err->HasDomain("HTTP"));
@@ -71,11 +71,11 @@ TEST(Error, Clone) {
     EXPECT_EQ(error1->GetDomain(), error2->GetDomain());
     EXPECT_EQ(error1->GetCode(), error2->GetCode());
     EXPECT_EQ(error1->GetMessage(), error2->GetMessage());
-    EXPECT_EQ(error1->GetLocation().function_name,
-              error2->GetLocation().function_name);
-    EXPECT_EQ(error1->GetLocation().file_name, error2->GetLocation().file_name);
-    EXPECT_EQ(error1->GetLocation().line_number,
-              error2->GetLocation().line_number);
+    EXPECT_EQ(error1->GetLocation().function_name(),
+              error2->GetLocation().function_name());
+    EXPECT_EQ(error1->GetLocation().file_name(), error2->GetLocation().file_name());
+    EXPECT_EQ(error1->GetLocation().line_number(),
+              error2->GetLocation().line_number());
     error1 = error1->GetInnerError();
     error2 = error2->GetInnerError();
   }

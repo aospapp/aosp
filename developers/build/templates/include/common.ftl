@@ -39,7 +39,7 @@
 <#elseif (sample.compileSdkVersion)?has_content>
     <#assign compile_sdk = sample.compileSdkVersion/>
 <#else>
-    <#assign compile_sdk = "27"/>
+    <#assign compile_sdk = "28"/>
 </#if>
 <#-- Set the MinSDK version. This is more complicated than it should be, because
       the version can be either a number or a string (e.g. KeyLimePie) so we need to test
@@ -71,20 +71,22 @@
 <#macro update_play_services_dependency dep>
     <#if "${dep}"?starts_with("com.google.android.gms:play-services")
             && "${dep}"?index_of(":") == "${dep}"?last_index_of(":")>
-    compile '${dep}:${play_services_version}'
+    implementation '${dep}:${play_services_version}'
     <#else>
-    compile '${dep}'
+    implementation '${dep}'
     </#if>
 </#macro>
 
 <#-- Set the global build tools version -->
-<#assign build_tools_version='"27.0.3"'/>
+<#assign build_tools_version='"28.0.3"'/>
 
-<#assign play_services_version="11.8.0"/>
-<#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:${play_services_version}'"/>
+<#assign play_services_version="15.0.1"/>
+<#assign play_services_version_wear="16.0.1"/>
 
-<#assign android_support_v13_dependency="'com.android.support:support-v13:27.1.0'"/>
+<#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:${play_services_version_wear}'"/>
 
-<#assign wearable_support_dependency="'com.google.android.support:wearable:2.3.0'"/>
+<#assign android_support_v13_dependency="'com.android.support:support-v13:28.0.0'"/>
 
-<#assign wearable_support_provided_dependency="'com.google.android.wearable:wearable:2.3.0'"/>
+<#assign wearable_support_dependency="'com.google.android.support:wearable:2.4.0'"/>
+
+<#assign wearable_support_provided_dependency="'com.google.android.wearable:wearable:2.4.0'"/>

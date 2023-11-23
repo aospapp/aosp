@@ -16,3 +16,5 @@ class Values(object):
 
     chrome_ec = True
     ec_capability = ['arm', 'battery', 'charging']
+
+    smm_store = False

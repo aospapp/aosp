@@ -137,6 +137,9 @@ struct __sfileext {
   // Equivalent to `_seek` but for _FILE_OFFSET_BITS=64.
   // Callers should use this but fall back to `__sFILE::_seek`.
   off64_t (*_seek64)(void*, off64_t, int);
+
+  // The pid of the child if this FILE* is from popen(3).
+  pid_t _popen_pid;
 };
 
 // Values for `__sFILE::_flags`.
@@ -230,8 +233,6 @@ int __vfwscanf(FILE*, const wchar_t*, va_list);
   if (!_EXT(fp)->_caller_handles_locking) flockfile(fp)
 #define FUNLOCKFILE(fp) \
   if (!_EXT(fp)->_caller_handles_locking) funlockfile(fp)
-
-#define NO_PRINTF_PERCENT_N
 
 /* OpenBSD exposes these in <stdio.h>, but we only want them exposed to the implementation. */
 #define __sferror(p) (((p)->_flags & __SERR) != 0)

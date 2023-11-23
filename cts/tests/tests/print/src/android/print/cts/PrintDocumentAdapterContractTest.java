@@ -16,6 +16,8 @@
 
 package android.print.cts;
 
+import static android.print.test.Utils.eventually;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -44,8 +46,9 @@ import android.print.test.services.SecondPrintService;
 import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 import android.printservice.PrintService;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -78,7 +81,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     @Test
-    public void noPrintOptionsOrPrinterChange() throws Exception {
+    public void noPrintOptionsOrPrinterChange() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -126,11 +129,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -309,7 +314,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     @Test
-    public void nonChangePrinterWhileNotWritten() throws Exception {
+    public void nonChangePrinterWhileNotWritten() throws Throwable {
         final PrintAttributes[] lastLayoutPrintAttributes = new PrintAttributes[1];
         final boolean[] isWriteBroken = new boolean[1];
 
@@ -374,14 +379,16 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+            waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        }, OPERATION_TIMEOUT_MILLIS * 2);
     }
 
     @Test
-    public void printOptionsChangeAndNoPrinterChange() throws Exception {
+    public void printOptionsChangeAndNoPrinterChange() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -457,11 +464,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -570,7 +579,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     /* Disabled @Test, as this will intentionally kill the activity that started the test */
-    public void printCorruptedFile() throws Exception {
+    public void printCorruptedFile() throws Throwable {
         final boolean[] writeCorruptedFile = new boolean[1];
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
@@ -640,13 +649,15 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Printing will abort automatically
+            // Printing will abort automatically
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -654,7 +665,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
 
     @Test
-    public void printOptionsChangeAndPrinterChange() throws Exception {
+    public void printOptionsChangeAndPrinterChange() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -719,11 +730,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -804,7 +817,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
     @Test
     public void printOptionsChangeAndNoPrinterChangeAndContentChange()
-            throws Exception {
+            throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -856,11 +869,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -922,7 +937,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     @Test
-    public void newPrinterSupportsSelectedPrintOptions() throws Exception {
+    public void newPrinterSupportsSelectedPrintOptions() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -969,11 +984,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -1016,7 +1033,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     @Test
-    public void nothingChangesAllPagesWrittenFirstTime() throws Exception {
+    public void nothingChangesAllPagesWrittenFirstTime() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         // Create a mock print adapter.
@@ -1067,11 +1084,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for a finish.
-        waitForAdapterFinishCallbackCalled();
+            // Wait for a finish.
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
@@ -1405,7 +1424,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     @Test
-    public void unexpectedLayoutCancel() throws Exception {
+    public void unexpectedLayoutCancel() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
         final int[] numLayoutCalls = new int[1];
 
@@ -1462,15 +1481,17 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+            // Wait for the session to be destroyed to isolate tests.
+            waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        }, OPERATION_TIMEOUT_MILLIS * 2);
     }
 
     @Test
-    public void unexpectedWriteCancel() throws Exception {
+    public void unexpectedWriteCancel() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
         final int[] numWriteCalls = new int[1];
 
@@ -1529,11 +1550,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         // Click the print button.
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        // Wait for the session to be destroyed to isolate tests.
-        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+            // Wait for the session to be destroyed to isolate tests.
+            waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        }, OPERATION_TIMEOUT_MILLIS * 2);
     }
 
     @Test
@@ -1757,7 +1780,13 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
                     // Mark layout called.
                     onLayoutCalled();
                     return null;
-                }, null, invocation -> {
+                }, invocation -> {
+                    WriteResultCallback callback = (WriteResultCallback) invocation
+                            .getArguments()[3];
+                    callback.onWriteFailed(null);
+                    onWriteCalled();
+                    return null;
+                }, invocation -> {
                     // Mark finish was called.
                     onFinishCalled();
                     return null;
@@ -1768,6 +1797,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
         // Wait for layout.
         waitForLayoutAdapterCallbackCount(1);
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1855,6 +1885,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
         // Wait for layout.
         waitForLayoutAdapterCallbackCount(1);
+        waitForWriteAdapterCallback(1);
 
         // Cancel printing.
         getUiDevice().pressBack(); // wakes up the device.
@@ -1900,7 +1931,7 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
      * @throws Exception If anything is unexpected
      */
     @Test
-    public void notEnoughPages() throws Exception {
+    public void notEnoughPages() throws Throwable {
         final PrintAttributes[] printAttributes = new PrintAttributes[1];
 
         final PrintDocumentAdapter adapter = createMockPrintDocumentAdapter(
@@ -1940,10 +1971,12 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
         selectPrinter("First printer");
         clickPrintButton();
 
-        // Answer the dialog for the print service cloud warning
-        answerPrintServicesWarning(true);
+        eventually(() -> {
+            // Answer the dialog for the print service cloud warning
+            answerPrintServicesWarning(true);
 
-        waitForAdapterFinishCallbackCalled();
+            waitForAdapterFinishCallbackCalled();
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Wait for the session to be destroyed to isolate tests.
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);

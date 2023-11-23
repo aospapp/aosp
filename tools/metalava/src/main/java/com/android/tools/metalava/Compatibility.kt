@@ -31,9 +31,6 @@ class Compatibility(
     val compat: Boolean = COMPAT_MODE_BY_DEFAULT
 ) {
 
-    /** Whether to inline fields from implemented interfaces into concrete classes */
-    var inlineInterfaceFields: Boolean = compat
-
     /** In signature files, use "implements" instead of "extends" for the super class of
      * an interface */
     var extendsForInterfaceSuperClass: Boolean = compat
@@ -42,8 +39,12 @@ class Compatibility(
      * and implementing this interface: java.lang.annotation.Annotation */
     var classForAnnotations: Boolean = compat
 
-    /** Add in explicit `valueOf` and `values` methods into annotation classes  */
-    var defaultAnnotationMethods: Boolean = compat
+    /** Add in explicit `valueOf` and `values` methods into enum classes */
+    var defaultEnumMethods: Boolean = compat
+
+    /** Whether signature files should contain annotation default values (as is already
+     * done for field default values) */
+    var includeAnnotationDefaults: Boolean = !compat
 
     /** In signature files, refer to enums as "class" instead of "enum" */
     var classForEnums: Boolean = compat
@@ -53,20 +54,8 @@ class Compatibility(
      * `@Deprecated` annotation before the modifier list */
     var nonstandardModifierOrder: Boolean = compat
 
-    /** In signature files, skip the native modifier from the modifier lists */
-    var skipNativeModifier: Boolean = nonstandardModifierOrder
-
-    /** In signature files, skip the strictfp modifier from the modifier lists */
-    var skipStrictFpModifier: Boolean = nonstandardModifierOrder
-
     /** Whether to include instance methods in annotation classes for the annotation properties */
     var skipAnnotationInstanceMethods: Boolean = compat
-
-    /** Include spaces after commas in type strings */
-    var spacesAfterCommas: Boolean = compat
-
-    /** Use two spaces after type for package private elements in signature files */
-    var doubleSpaceForPackagePrivate: Boolean = compat
 
     /**
      * In signature files, whether interfaces should also be described as "abstract"
@@ -98,46 +87,13 @@ class Compatibility(
      */
     var filterThrowsClasses: Boolean = !compat
 
-    /**
-     * Include a single space in front of package private classes with no other modifiers
-     * (this doesn't align well, but is supported to make the output 100% identical to the
-     * doclava1 format
-     */
-    var extraSpaceForEmptyModifiers: Boolean = compat
-
     /** Format `Map<K,V>` as `Map<K, V>` */
     var spaceAfterCommaInTypes: Boolean = compat
-
-    /**
-     * Doclava1 sorts classes/interfaces by class name instead of qualified name
-     */
-    var sortClassesBySimpleName: Boolean = compat
 
     /**
      * Doclava1 omits type parameters in interfaces (in signature files, not in stubs)
      */
     var omitTypeParametersInInterfaces: Boolean = compat
-
-    /**
-     * Doclava1 sorted the methods like this:
-     *
-     *      public final class RoundingMode extends java.lang.Enum {
-     *          method public static java.math.RoundingMode valueOf(java.lang.String);
-     *          method public static java.math.RoundingMode valueOf(int);
-     *          ...
-     *
-     * Note how the two valueOf methods are out of order. With this compatibility mode,
-     * we try to perform the same sorting.
-     */
-    var sortEnumValueOfMethodFirst: Boolean = compat
-
-    /**
-     * Whether packages should be treated as recursive for documentation. In other words,
-     * if a directory has a `packages.html` file containing a `@hide` comment, then
-     * all "sub" packages (directories below this one) will also inherit the same comment.
-     * Java packages aren't supposed to work that way, but doclava does.
-     */
-    var inheritPackageDocs: Boolean = compat
 
     /** Force methods named "values" in enums to be marked final. This was done by
      * doclava1 with this comment:
@@ -154,6 +110,9 @@ class Compatibility(
     /** Emit errors in the old API diff format */
     var oldErrorOutputFormat: Boolean = false
 
+    /** Whether to include the exit <b>code</b> in the error output next to the id */
+    var includeExitCode = oldErrorOutputFormat
+
     /**
      * When a public class implementing a public interface inherits the implementation
      * of a method in that interface from a hidden super class, the method must be
@@ -167,9 +126,14 @@ class Compatibility(
     var skipInheritedMethods: Boolean = compat
 
     /**
+     * Similar to [skipInheritedMethods], but for field constants.
+     */
+    var skipInheritedConstants: Boolean = compat
+
+    /**
      * Whether to include parameter names in the signature file
      */
-    var parameterNames: Boolean = true
+    var parameterNames: Boolean = !compat
 
     /**
      * *Some* signatures for doclava1 wrote "<?>" as "<? extends java.lang.Object>",
@@ -177,6 +141,81 @@ class Compatibility(
      * signature files look like the old ones for the specific methods which did this.
      */
     var includeExtendsObjectInWildcard = compat
+
+    /**
+     * Whether deprecation should be shown in signature files as an annotation
+     * instead of a pseudo-modifier
+     */
+    var deprecatedAsAnnotation = !compat
+
+    /** Whether synchronized should be part of the output */
+    var includeSynchronized = compat
+
+    /** Whether we should omit common packages such as java.lang.* and kotlin.* from signature output */
+    var omitCommonPackages = !compat
+
+    /** Whether we should explicitly include retention when class even if not explicitly defined */
+    var explicitlyListClassRetention = !compat
+
+    /**
+     * If true, a @Deprecated class will automatically deprecate all its inner classes
+     * as well.
+     */
+    var propagateDeprecatedInnerClasses = !compat
+
+    /**
+     * If true, a @Deprecated class will automatically deprecate all members (not
+     * including inner classes; for that see [propagateDeprecatedInnerClasses]) as well.
+     */
+    var propagateDeprecatedMembers = !compat
+
+    /**
+     * If an overriding method differs from its super method only by final or deprecated
+     * and the containing class is final or deprecated, skip it in the signature file
+     */
+    var hideDifferenceImplicit = !compat
+
+    /** Whether inner enums should be listed as static in the signature file. */
+    var staticEnums = compat
+
+    /**
+     * The -new_api flag in API check (which generates an XML diff of the differences
+     * between two APIs) in doclava was ignoring fields. This flag controls whether
+     * we do the same.
+     */
+    var includeFieldsInApiDiff = !compat
+
+    /**
+     * Whether to escape the > character in JDiff XML files. The XML spec does not require
+     * this but doclava does it.
+     */
+    var xmlEscapeGreaterThan = compat
+
+    /**
+     * When producing JDiff output for field arrays but where we
+     * do not have the value, emit "null" into the JDiff report. This isn't right but matches
+     * what doclava did.
+     */
+    var xmlShowArrayFieldsAsNull = compat
+
+    /**
+     * Doclava was missing enum fields in JDiff reports
+     */
+    var xmlSkipEnumFields = compat
+
+    /**
+     * Doclava was missing annotation instance methods in JDiff reports
+     */
+    var xmlSkipAnnotationMethods = compat
+
+    /** Doclava lists character field values as integers instead of chars */
+    var xmlCharAsInt = compat
+
+    /**
+     * Doclava listed the superclass of annotations as
+     * java.lang.Object.
+     */
+    var xmlAnnotationAsObject = compat
 
     // Other examples: sometimes we sort by qualified name, sometimes by full name
 }

@@ -636,6 +636,12 @@ extern int           drmCtlUninstHandler(int fd);
 extern int           drmSetClientCap(int fd, uint64_t capability,
 				     uint64_t value);
 
+extern int           drmCrtcGetSequence(int fd, uint32_t crtcId,
+					uint64_t *sequence, uint64_t *ns);
+extern int           drmCrtcQueueSequence(int fd, uint32_t crtcId,
+					  uint32_t flags, uint64_t sequence,
+					  uint64_t *sequence_queued,
+					  uint64_t user_data);
 /* General user-level programmer's API: authenticated client and/or X */
 extern int           drmMap(int fd,
 			    drm_handle_t handle,
@@ -728,7 +734,7 @@ extern void drmMsg(const char *format, ...) DRM_PRINTFLIKE(1, 2);
 extern int drmSetMaster(int fd);
 extern int drmDropMaster(int fd);
 
-#define DRM_EVENT_CONTEXT_VERSION 2
+#define DRM_EVENT_CONTEXT_VERSION 4
 
 typedef struct _drmEventContext {
 
@@ -748,6 +754,17 @@ typedef struct _drmEventContext {
 				  unsigned int tv_usec,
 				  void *user_data);
 
+	void (*page_flip_handler2)(int fd,
+				   unsigned int sequence,
+				   unsigned int tv_sec,
+				   unsigned int tv_usec,
+				   unsigned int crtc_id,
+				   void *user_data);
+
+	void (*sequence_handler)(int fd,
+				 uint64_t sequence,
+				 uint64_t ns,
+				 uint64_t user_data);
 } drmEventContext, *drmEventContextPtr;
 
 extern int drmHandleEvent(int fd, drmEventContextPtr evctx);
@@ -843,6 +860,21 @@ extern void drmFreeDevices(drmDevicePtr devices[], int count);
 #define DRM_DEVICE_GET_PCI_REVISION (1 << 0)
 extern int drmGetDevice2(int fd, uint32_t flags, drmDevicePtr *device);
 extern int drmGetDevices2(uint32_t flags, drmDevicePtr devices[], int max_devices);
+
+extern int drmDevicesEqual(drmDevicePtr a, drmDevicePtr b);
+
+extern int drmSyncobjCreate(int fd, uint32_t flags, uint32_t *handle);
+extern int drmSyncobjDestroy(int fd, uint32_t handle);
+extern int drmSyncobjHandleToFD(int fd, uint32_t handle, int *obj_fd);
+extern int drmSyncobjFDToHandle(int fd, int obj_fd, uint32_t *handle);
+
+extern int drmSyncobjImportSyncFile(int fd, uint32_t handle, int sync_file_fd);
+extern int drmSyncobjExportSyncFile(int fd, uint32_t handle, int *sync_file_fd);
+extern int drmSyncobjWait(int fd, uint32_t *handles, unsigned num_handles,
+			  int64_t timeout_nsec, unsigned flags,
+			  uint32_t *first_signaled);
+extern int drmSyncobjReset(int fd, const uint32_t *handles, uint32_t handle_count);
+extern int drmSyncobjSignal(int fd, const uint32_t *handles, uint32_t handle_count);
 
 #if defined(__cplusplus)
 }

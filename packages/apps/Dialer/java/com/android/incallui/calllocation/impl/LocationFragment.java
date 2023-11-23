@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,26 @@ package com.android.incallui.calllocation.impl;
 
 import android.animation.LayoutTransition;
 import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
+import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.incallui.baseui.BaseFragment;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -47,18 +52,23 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
 
   private static final String ADDRESS_DELIMITER = ",";
 
-  // Indexes used to animate fading between views
-  private static final int LOADING_VIEW_INDEX = 0;
+  // Indexes used to animate fading between views, 0 for LOADING_VIEW_INDEX
   private static final int LOCATION_VIEW_INDEX = 1;
-  private static final long TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
+  private static final int LOCATION_ERROR_INDEX = 2;
+
+  private static final long FIND_LOCATION_SPINNING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
+  private static final long LOAD_DATA_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
+
+  private static final float MAP_ZOOM_LEVEL = 15f;
 
   private ViewAnimator viewAnimator;
-  private ImageView locationMap;
+  private MapView locationMapView;
   private TextView addressLine1;
   private TextView addressLine2;
   private TextView latLongLine;
   private Location location;
   private ViewGroup locationLayout;
+  private GoogleMap savedGoogleMap;
 
   private boolean isMapSet;
   private boolean isAddressSet;
@@ -73,6 +83,14 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
             "timed out so animate any future layout changes");
         locationLayout.setLayoutTransition(new LayoutTransition());
         showLocationNow();
+      };
+
+  private final Runnable spinningTimeoutRunnable =
+      () -> {
+        if (!(isAddressSet || isLocationSet || isMapSet)) {
+          // No data received, show error
+          viewAnimator.setDisplayedChild(LOCATION_ERROR_INDEX);
+        }
       };
 
   @Override
@@ -91,28 +109,66 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
     LogUtil.enterBlock("LocationFragment.onCreateView");
     final View view = inflater.inflate(R.layout.location_fragment, container, false);
     viewAnimator = (ViewAnimator) view.findViewById(R.id.location_view_animator);
-    locationMap = (ImageView) view.findViewById(R.id.location_map);
     addressLine1 = (TextView) view.findViewById(R.id.address_line_one);
     addressLine2 = (TextView) view.findViewById(R.id.address_line_two);
     latLongLine = (TextView) view.findViewById(R.id.lat_long_line);
     locationLayout = (ViewGroup) view.findViewById(R.id.location_layout);
+    locationMapView = (MapView) view.findViewById(R.id.location_map_view);
+    locationMapView.onCreate(savedInstanceState);
     return view;
+  }
+
+  @Override
+  public void onStart() {
+    super.onStart();
+    handler.postDelayed(spinningTimeoutRunnable, FIND_LOCATION_SPINNING_TIMEOUT_MILLIS);
   }
 
   @Override
   public void onDestroy() {
     super.onDestroy();
     handler.removeCallbacks(dataTimeoutRunnable);
+    handler.removeCallbacks(spinningTimeoutRunnable);
   }
 
-  @Override
-  public void setMap(Drawable mapImage) {
+  private void setMap(@NonNull Location location) {
     LogUtil.enterBlock("LocationFragment.setMap");
-    isMapSet = true;
-    locationMap.setVisibility(View.VISIBLE);
-    locationMap.setImageDrawable(mapImage);
+    Assert.isNotNull(location);
+
+    if (savedGoogleMap == null) {
+      locationMapView.getMapAsync(
+          (googleMap) -> {
+            LogUtil.enterBlock("LocationFragment.onMapReady");
+            savedGoogleMap = googleMap;
+            savedGoogleMap.getUiSettings().setMapToolbarEnabled(false);
+            updateMap(location);
+            isMapSet = true;
+            locationMapView.setVisibility(View.VISIBLE);
+
+            // Hide Google logo
+            View child = locationMapView.getChildAt(0);
+            if (child instanceof ViewGroup) {
+              // Only the first child (View) is useful.
+              // Google logo can be in any other child (ViewGroup).
+              for (int i = 1; i < ((ViewGroup) child).getChildCount(); ++i) {
+                ((ViewGroup) child).getChildAt(i).setVisibility(View.GONE);
+              }
+            }
+          });
+    } else {
+      updateMap(location);
+    }
     displayWhenReady();
     Logger.get(getContext()).logImpression(DialerImpression.Type.EMERGENCY_GOT_MAP);
+  }
+
+  private void updateMap(@NonNull Location location) {
+    Assert.isNotNull(location);
+    Assert.isNotNull(savedGoogleMap);
+    LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+    savedGoogleMap.clear();
+    savedGoogleMap.addMarker(new MarkerOptions().position(latLng).flat(true).draggable(false));
+    savedGoogleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, MAP_ZOOM_LEVEL));
   }
 
   @Override
@@ -158,6 +214,7 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
                   R.string.lat_long_format, location.getLatitude(), location.getLongitude()));
 
       Logger.get(getContext()).logImpression(DialerImpression.Type.EMERGENCY_GOT_LOCATION);
+      setMap(location);
     }
     displayWhenReady();
   }
@@ -167,13 +224,14 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
     if (isMapSet && isAddressSet && isLocationSet) {
       showLocationNow();
     } else if (!hasTimeoutStarted) {
-      handler.postDelayed(dataTimeoutRunnable, TIMEOUT_MILLIS);
+      handler.postDelayed(dataTimeoutRunnable, LOAD_DATA_TIMEOUT_MILLIS);
       hasTimeoutStarted = true;
     }
   }
 
   private void showLocationNow() {
     handler.removeCallbacks(dataTimeoutRunnable);
+    handler.removeCallbacks(spinningTimeoutRunnable);
     if (viewAnimator.getDisplayedChild() != LOCATION_VIEW_INDEX) {
       viewAnimator.setDisplayedChild(LOCATION_VIEW_INDEX);
       viewAnimator.setOnClickListener(v -> launchMap());
@@ -199,5 +257,17 @@ public class LocationFragment extends BaseFragment<LocationPresenter, LocationPr
     if (!Objects.equals(text, view.getText())) {
       view.setText(text);
     }
+  }
+
+  @Override
+  public void onResume() {
+    super.onResume();
+    locationMapView.onResume();
+  }
+
+  @Override
+  public void onPause() {
+    locationMapView.onPause();
+    super.onPause();
   }
 }

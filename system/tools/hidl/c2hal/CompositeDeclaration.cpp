@@ -37,7 +37,7 @@ CompositeDeclaration::CompositeDeclaration(
     }
 
 CompositeDeclaration::~CompositeDeclaration() {
-    if(mFieldDeclarations != NULL) {
+    if(mFieldDeclarations != nullptr) {
         for(auto* decl : *mFieldDeclarations) {
             delete decl;
         }

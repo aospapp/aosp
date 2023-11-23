@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "NeuralNetworksWrapper.h"
+#include "TestNeuralNetworksWrapper.h"
 
 //#include <android-base/logging.h>
 #include <gtest/gtest.h>
 
-using namespace android::nn::wrapper;
+using namespace android::nn::test_wrapper;
 
 namespace {
 

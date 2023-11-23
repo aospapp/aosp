@@ -11,10 +11,8 @@ import /vendor/etc/init/hw/init.${ro.hardware}.rc
 import /init.usb.configfs.rc
 import /init.${ro.zygote}.rc
 
+# Cgroups are mounted right before early-init using list from /etc/cgroups.json
 on early-init
-    # Set init and its forked children's oom_adj.
-    write /proc/1/oom_score_adj -1000
-
     # Disable sysrq from keyboard
     write /proc/sys/kernel/sysrq 0
 
@@ -24,13 +22,11 @@ on early-init
     # Set the security context of /postinstall if present.
     restorecon /postinstall
 
-    # Mount cgroup mount point for cpu accounting
-    mount cgroup none /acct nodev noexec nosuid cpuacct
     mkdir /acct/uid
 
-    # root memory control cgroup, used by lmkd
-    mkdir /dev/memcg 0700 root system
-    mount cgroup none /dev/memcg nodev noexec nosuid memory
+    # memory.pressure_level used by lmkd
+    chown root system /dev/memcg/memory.pressure_level
+    chmod 0040 /dev/memcg/memory.pressure_level
     # app mem cgroups, used by activity manager, lmkd and zygote
     mkdir /dev/memcg/apps/ 0755 system system
     # cgroup for system_server and surfaceflinger
@@ -38,12 +34,21 @@ on early-init
 
     start ueventd
 
+    # Run apexd-bootstrap so that APEXes that provide critical libraries
+    # become available. Note that this is executed as exec_start to ensure that
+    # the libraries are available to the processes started after this statement.
+    exec_start apexd-bootstrap
+
 on init
     sysclktz 0
 
     # Mix device-specific information into the entropy pool
     copy /proc/cmdline /dev/urandom
-    copy /default.prop /dev/urandom
+    copy /system/etc/prop.default /dev/urandom
+
+    symlink /proc/self/fd/0 /dev/stdin
+    symlink /proc/self/fd/1 /dev/stdout
+    symlink /proc/self/fd/2 /dev/stderr
 
     symlink /system/bin /bin
     symlink /system/etc /etc
@@ -55,8 +60,6 @@ on init
     symlink /system/vendor /vendor
 
     # Create energy-aware scheduler tuning nodes
-    mkdir /dev/stune
-    mount cgroup none /dev/stune nodev noexec nosuid schedtune
     mkdir /dev/stune/foreground
     mkdir /dev/stune/background
     mkdir /dev/stune/top-app
@@ -76,6 +79,21 @@ on init
     chmod 0664 /dev/stune/background/tasks
     chmod 0664 /dev/stune/top-app/tasks
     chmod 0664 /dev/stune/rt/tasks
+
+    # Create blkio group and apply initial settings.
+    # This feature needs kernel to support it, and the
+    # device's init.rc must actually set the correct values.
+    mkdir /dev/blkio/background
+    chown system system /dev/blkio
+    chown system system /dev/blkio/background
+    chown system system /dev/blkio/tasks
+    chown system system /dev/blkio/background/tasks
+    chmod 0664 /dev/blkio/tasks
+    chmod 0664 /dev/blkio/background/tasks
+    write /dev/blkio/blkio.weight 1000
+    write /dev/blkio/background/blkio.weight 500
+    write /dev/blkio/blkio.group_idle 0
+    write /dev/blkio/background/blkio.group_idle 0
 
     restorecon_recursive /mnt
 
@@ -101,6 +119,8 @@ on init
     mkdir /mnt/runtime/read/self 0755 root root
     mkdir /mnt/runtime/write 0755 root root
     mkdir /mnt/runtime/write/self 0755 root root
+    mkdir /mnt/runtime/full 0755 root root
+    mkdir /mnt/runtime/full/self 0755 root root
 
     # Symlink to keep legacy apps working in multi-user world
     symlink /storage/self/primary /sdcard
@@ -148,8 +168,6 @@ on init
     chmod 0400 /proc/net/fib_trie
 
     # Create cgroup mount points for process groups
-    mkdir /dev/cpuctl
-    mount cgroup none /dev/cpuctl nodev noexec nosuid cpu
     chown system system /dev/cpuctl
     chown system system /dev/cpuctl/tasks
     chmod 0666 /dev/cpuctl/tasks
@@ -157,9 +175,6 @@ on init
     write /dev/cpuctl/cpu.rt_runtime_us 950000
 
     # sets up initial cpusets for ActivityManager
-    mkdir /dev/cpuset
-    mount cpuset none /dev/cpuset nodev noexec nosuid
-
     # this ensures that the cpusets are present and usable, but the device's
     # init.rc must actually set the correct cpus
     mkdir /dev/cpuset/foreground
@@ -210,6 +225,9 @@ on init
     chmod 0664 /dev/cpuset/restricted/tasks
     chmod 0664 /dev/cpuset/tasks
 
+    # make the PSI monitor accessible to others
+    chown system system /proc/pressure/memory
+    chmod 0664 /proc/pressure/memory
 
     # qtaguid will limit access to specific data based on group memberships.
     #   net_bw_acct grants impersonation of socket owners.
@@ -221,8 +239,6 @@ on init
     # This is needed by any process that uses socket tagging.
     chmod 0644 /dev/xt_qtaguid
 
-    mkdir /dev/cg2_bpf
-    mount cgroup2 cg2_bpf /dev/cg2_bpf nodev noexec nosuid
     chown root root /dev/cg2_bpf
     chmod 0600 /dev/cg2_bpf
     mount bpf bpf /sys/fs/bpf nodev noexec nosuid
@@ -233,6 +249,8 @@ on init
 
     # pstore/ramoops previous console log
     mount pstore pstore /sys/fs/pstore nodev noexec nosuid
+    chown system log /sys/fs/pstore
+    chmod 0550 /sys/fs/pstore
     chown system log /sys/fs/pstore/console-ramoops
     chmod 0440 /sys/fs/pstore/console-ramoops
     chown system log /sys/fs/pstore/console-ramoops-0
@@ -258,6 +276,25 @@ on init
     # This allows the ledtrig-transient properties to be created here so
     # that they can be chown'd to system:system later on boot
     write /sys/class/leds/vibrator/trigger "transient"
+
+    # This is used by Bionic to select optimized routines.
+    write /dev/cpu_variant:${ro.bionic.arch} ${ro.bionic.cpu_variant}
+    chmod 0444 /dev/cpu_variant:${ro.bionic.arch}
+    write /dev/cpu_variant:${ro.bionic.2nd_arch} ${ro.bionic.2nd_cpu_variant}
+    chmod 0444 /dev/cpu_variant:${ro.bionic.2nd_arch}
+
+    # Allow system processes to read / write power state.
+    chown system system /sys/power/state
+    chown system system /sys/power/wakeup_count
+    chmod 0660 /sys/power/state
+
+    # Start logd before any other services run to ensure we capture all of their logs.
+    start logd
+
+    # Start essential services.
+    start servicemanager
+    start hwservicemanager
+    start vndservicemanager
 
 # Healthd can trigger a full boot from charger mode by signaling this
 # property when the power button is held.
@@ -296,11 +333,11 @@ on late-init
     # /data, which in turn can only be loaded when system properties are present.
     trigger post-fs-data
 
-    # Now we can start zygote for devices with file based encryption
-    trigger zygote-start
-
     # Load persist properties and override properties (if enabled) from /data.
     trigger load_persist_props_action
+
+    # Now we can start zygote for devices with file based encryption
+    trigger zygote-start
 
     # Remove a file to wake up anything waiting for firmware.
     trigger firmware_mounts_complete
@@ -308,24 +345,16 @@ on late-init
     trigger early-boot
     trigger boot
 
+on early-fs
+    # Once metadata has been mounted, we'll need vold to deal with userdata checkpointing
+    start vold
+
 on post-fs
-    # Load properties from
-    #     /system/build.prop,
-    #     /odm/build.prop,
-    #     /vendor/build.prop and
-    #     /factory/factory.prop
-    load_system_props
-    # start essential services
-    start logd
-    start servicemanager
-    start hwservicemanager
-    start vndservicemanager
+    exec - system system -- /system/bin/vdc checkpoint markBootAttempt
 
     # Once everything is setup, no need to modify /.
-    # The bind+ro combination avoids modifying any other mount flags.
-    mount rootfs rootfs / remount bind ro
-    # Mount shared so changes propagate into child namespaces
-    mount rootfs rootfs / shared rec
+    # The bind+remount combination allows this to work in containers.
+    mount rootfs rootfs / remount bind ro nodev
     # Mount default storage into root namespace
     mount none /mnt/runtime/default /storage bind rec
     mount none none /storage slave rec
@@ -372,7 +401,10 @@ on post-fs
     restorecon_recursive /metadata
     mkdir /metadata/vold
     chmod 0700 /metadata/vold
+    mkdir /metadata/password_slots 0771 root system
 
+    mkdir /metadata/apex 0700 root system
+    mkdir /metadata/apex/sessions 0700 root system
 on late-fs
     # Ensure that tracefs has the correct permissions.
     # This does not work correctly if it is called in post-fs.
@@ -382,6 +414,12 @@ on late-fs
     class_start early_hal
 
 on post-fs-data
+    mark_post_data
+
+    # Start checkpoint before we touch data
+    start vold
+    exec - system system -- /system/bin/vdc checkpoint prepareCheckpoint
+
     # We chown/chmod /data again so because mount is run as root + defaults
     chown system system /data
     chmod 0771 /data
@@ -389,13 +427,27 @@ on post-fs-data
     restorecon /data
 
     # Make sure we have the device encryption key.
-    start vold
     installkey /data
 
     # Start bootcharting as soon as possible after the data partition is
     # mounted to collect more data.
     mkdir /data/bootchart 0755 shell shell
     bootchart start
+
+    # Load fsverity keys. This needs to happen before apexd, as post-install of
+    # APEXes may rely on keys.
+    exec -- /system/bin/fsverity_init
+
+    # Make sure that apexd is started in the default namespace
+    enter_default_mount_ns
+
+    # /data/apex is now available. Start apexd to scan and activate APEXes.
+    mkdir /data/apex 0750 root system
+    mkdir /data/apex/active 0750 root system
+    mkdir /data/apex/backup 0700 root system
+    mkdir /data/apex/sessions 0700 root system
+    mkdir /data/app-staging 0750 system system
+    start apexd
 
     # Avoid predictable entropy pool. Carry over entropy from previous boot.
     copy /data/system/entropy.dat /dev/urandom
@@ -463,6 +515,8 @@ on post-fs-data
     mkdir /data/misc/profman 0770 system shell
     mkdir /data/misc/gcov 0770 root root
 
+    mkdir /data/preloads 0775 system system
+
     mkdir /data/vendor 0771 root root
     mkdir /data/vendor_ce 0771 root root
     mkdir /data/vendor_de 0771 root root
@@ -520,6 +574,7 @@ on post-fs-data
     mkdir /data/ss 0700 system system
 
     mkdir /data/system 0775 system system
+    mkdir /data/system/dropbox 0700 system system
     mkdir /data/system/heapdump 0700 system system
     mkdir /data/system/users 0775 system system
 
@@ -541,19 +596,32 @@ on post-fs-data
     mkdir /data/cache/backup_stage 0700 system system
     mkdir /data/cache/backup 0700 system system
 
+    # Wait for apexd to finish activating APEXes before starting more processes.
+    wait_for_prop apexd.status ready
+    parse_apex_configs
+
     init_user0
 
     # Set SELinux security contexts on upgrade or policy update.
     restorecon --recursive --skip-ce /data
 
-    # Check any timezone data in /data is newer than the copy in /system, delete if not.
-    exec - system system -- /system/bin/tzdatacheck /system/usr/share/zoneinfo /data/misc/zoneinfo
+    # Check any timezone data in /data is newer than the copy in the runtime module, delete if not.
+    exec - system system -- /system/bin/tzdatacheck /apex/com.android.runtime/etc/tz /data/misc/zoneinfo
 
     # If there is no post-fs-data action in the init.<device>.rc file, you
     # must uncomment this line, otherwise encrypted filesystems
     # won't work.
     # Set indication (checked by vold) that we have finished this action
     #setprop vold.post_fs_data_done 1
+
+    # sys.memfd_use set to false by default, which keeps it disabled
+    # until it is confirmed that apps and vendor processes don't make
+    # IOCTLs on ashmem fds any more.
+    setprop sys.use_memfd false
+
+    # Set fscklog permission
+    chown root system /dev/fscklogs/log
+    chmod 0770 /dev/fscklogs/log
 
 # It is recommended to put unnecessary data/ initialization from post-fs-data
 # to start-zygote in device's init.rc to unblock zygote start.
@@ -597,9 +665,21 @@ on boot
     chown root system /sys/module/lowmemorykiller/parameters/minfree
     chmod 0664 /sys/module/lowmemorykiller/parameters/minfree
 
+    # System server manages zram writeback
+    chown root system /sys/block/zram0/idle
+    chmod 0664 /sys/block/zram0/idle
+    chown root system /sys/block/zram0/writeback
+    chmod 0664 /sys/block/zram0/writeback
+
     # Tweak background writeout
     write /proc/sys/vm/dirty_expire_centisecs 200
     write /proc/sys/vm/dirty_background_ratio  5
+
+    # F2FS tuning. Set cp_interval larger than dirty_expire_centisecs
+    # to avoid power consumption when system becomes mostly idle. Be careful
+    # to make it too large, since it may bring userdata loss, if they
+    # are not aware of using fsync()/sync() to prepare sudden power-cut.
+    write /sys/fs/f2fs/${dev.mnt.blk.data}/cp_interval 200
 
     # Permissions for System Server and daemons.
     chown radio system /sys/android_power/state
@@ -608,11 +688,8 @@ on boot
     chown radio system /sys/android_power/acquire_partial_wake_lock
     chown radio system /sys/android_power/release_wake_lock
     chown system system /sys/power/autosleep
-    chown system system /sys/power/state
-    chown system system /sys/power/wakeup_count
     chown radio wakelock /sys/power/wake_lock
     chown radio wakelock /sys/power/wake_unlock
-    chmod 0660 /sys/power/state
     chmod 0660 /sys/power/wake_lock
     chmod 0660 /sys/power/wake_unlock
 
@@ -687,9 +764,6 @@ on property:sys.init_log_level=*
 on charger
     class_start charger
 
-on property:vold.decrypt=trigger_reset_main
-    class_reset main
-
 on property:vold.decrypt=trigger_load_persist_props
     load_persist_props
     start logd
@@ -705,16 +779,20 @@ on property:vold.decrypt=trigger_restart_min_framework
     class_start main
 
 on property:vold.decrypt=trigger_restart_framework
-    stop surfaceflinger
-    start surfaceflinger
     # A/B update verifier that marks a successful boot.
     exec_start update_verifier
+    class_start_post_data hal
+    class_start_post_data core
     class_start main
     class_start late_start
+    setprop service.bootanim.exit 0
+    start bootanim
 
 on property:vold.decrypt=trigger_shutdown_framework
     class_reset late_start
     class_reset main
+    class_reset_post_data core
+    class_reset_post_data hal
 
 on property:sys.boot_completed=1
     bootchart stop
@@ -731,6 +809,9 @@ on property:sys.sysctl.tcp_def_init_rwnd=*
 
 on property:security.perf_harden=0
     write /proc/sys/kernel/perf_event_paranoid 1
+    write /proc/sys/kernel/perf_event_max_sample_rate ${debug.perf_event_max_sample_rate:-100000}
+    write /proc/sys/kernel/perf_cpu_time_max_percent ${debug.perf_cpu_time_max_percent:-25}
+    write /proc/sys/kernel/perf_event_mlock_kb ${debug.perf_event_mlock_kb:-516}
 
 on property:security.perf_harden=1
     write /proc/sys/kernel/perf_event_paranoid 3
@@ -741,7 +822,7 @@ on property:security.perf_harden=1
 
 ## Daemon processes to be run by init.
 ##
-service ueventd /sbin/ueventd
+service ueventd /system/bin/ueventd
     class core
     critical
     seclabel u:r:ueventd:s0

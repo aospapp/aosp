@@ -1,5 +1,5 @@
 # 
-# Copyright (C) 2016 ARM Limited. All rights reserved.
+# Copyright (C) 2016-2017 ARM Limited. All rights reserved.
 # 
 # Copyright (C) 2008 The Android Open Source Project
 #
@@ -46,6 +46,8 @@ MALI_DISPLAY_VERSION?=0
 # Software behaviour defines
 #
 
+# Gralloc1 support
+GRALLOC_USE_GRALLOC1_API?=0
 # Use ION DMA heap for all allocations. Default is system heap.
 GRALLOC_USE_ION_DMA_HEAP?=0
 # Use ION Compound heap for all allocations. Default is system heap.
@@ -108,6 +110,14 @@ $(error GRALLOC_USE_ION_DMA_HEAP and GRALLOC_USE_ION_COMPOUND_PAGE_HEAP can't be
 endif
 endif
 
+PLATFORM_SDK_GREATER_THAN_24 := $(shell expr $(PLATFORM_SDK_VERSION) \> 24)
+
+ifeq ($(PLATFORM_SDK_GREATER_THAN_24), 1)
+ifeq ($(GRALLOC_EXPERIMENTAL), 1)
+	GRALLOC_USE_GRALLOC1_API := 1
+endif
+endif
+
 LOCAL_C_INCLUDES := $(MALI_LOCAL_PATH) $(MALI_DDK_INCLUDES)
 
 # General compilation flags
@@ -124,6 +134,7 @@ LOCAL_CFLAGS += -DMALI_DISPLAY_VERSION=$(MALI_DISPLAY_VERSION)
 LOCAL_CFLAGS += -DMALI_VIDEO_VERSION=$(MALI_VIDEO_VERSION)
 
 # Software behaviour flags
+LOCAL_CFLAGS += -DGRALLOC_USE_GRALLOC1_API=$(GRALLOC_USE_GRALLOC1_API)
 LOCAL_CFLAGS += -DGRALLOC_DISP_W=$(GRALLOC_DISP_W)
 LOCAL_CFLAGS += -DGRALLOC_DISP_H=$(GRALLOC_DISP_H)
 LOCAL_CFLAGS += -DDISABLE_FRAMEBUFFER_HAL=$(GRALLOC_DISABLE_FRAMEBUFFER_HAL)
@@ -133,28 +144,39 @@ LOCAL_CFLAGS += -DGRALLOC_INIT_AFBC=$(GRALLOC_INIT_AFBC)
 LOCAL_CFLAGS += -D$(GRALLOC_DEPTH)
 LOCAL_CFLAGS += -DGRALLOC_FB_SWAP_RED_BLUE=$(GRALLOC_FB_SWAP_RED_BLUE)
 LOCAL_CFLAGS += -DGRALLOC_ARM_NO_EXTERNAL_AFBC=$(GRALLOC_ARM_NO_EXTERNAL_AFBC)
+LOCAL_CFLAGS += -DGRALLOC_LIBRARY_BUILD=1
 
-LOCAL_SHARED_LIBRARIES := libhardware liblog libcutils libGLESv1_CM libion
+LOCAL_SHARED_LIBRARIES := libhardware liblog libcutils libGLESv1_CM libion libsync libutils
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib
 LOCAL_MODULE_PATH_64 := $(TARGET_OUT_VENDOR)/lib64
-
 LOCAL_MODULE := gralloc.hikey960
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := both
 
 LOCAL_SRC_FILES := \
-	gralloc_module.cpp \
-	alloc_device.cpp \
-	alloc_ion.cpp \
-	gralloc_module_ion.cpp \
+	mali_gralloc_module.cpp \
 	framebuffer_device.cpp \
 	gralloc_buffer_priv.cpp \
 	gralloc_vsync_${GRALLOC_VSYNC_BACKEND}.cpp \
-	mali_gralloc_formats.cpp
+	mali_gralloc_bufferaccess.cpp \
+	mali_gralloc_bufferallocation.cpp \
+	mali_gralloc_bufferdescriptor.cpp \
+	mali_gralloc_ion.cpp \
+	mali_gralloc_formats.cpp \
+	mali_gralloc_reference.cpp \
+	mali_gralloc_debug.cpp
+
+ifeq ($(GRALLOC_USE_GRALLOC1_API), 1)
+LOCAL_SRC_FILES += \
+	mali_gralloc_public_interface.cpp \
+	mali_gralloc_private_interface.cpp
+else
+LOCAL_SRC_FILES += legacy/alloc_device.cpp
+endif
 
 LOCAL_MODULE_OWNER := arm
 

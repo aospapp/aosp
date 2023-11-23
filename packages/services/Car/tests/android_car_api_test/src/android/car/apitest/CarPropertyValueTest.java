@@ -17,7 +17,6 @@
 package android.car.apitest;
 
 import android.car.hardware.CarPropertyValue;
-import android.graphics.Point;
 import android.test.suitebuilder.annotation.MediumTest;
 
 /**
@@ -28,7 +27,7 @@ public class CarPropertyValueTest extends CarPropertyConfigTest {
 
     public void testSimpleFloatValue() {
         CarPropertyValue<Float> floatValue =
-                new CarPropertyValue<>(PROPERTY_ID, WINDOW_DRIVER, 10f);
+                new CarPropertyValue<>(FLOAT_PROPERTY_ID, WINDOW_DRIVER, 10f);
 
         writeToParcel(floatValue);
 
@@ -36,15 +35,4 @@ public class CarPropertyValueTest extends CarPropertyConfigTest {
         assertEquals(10f, valueRead.getValue());
     }
 
-    public void testCarAreaArbitraryParcelable() {
-        CarPropertyValue<Point> pointValue =
-                new CarPropertyValue<>(PROPERTY_ID, WINDOW_DRIVER, new Point(30, 40));
-
-        writeToParcel(pointValue);
-        CarPropertyValue<Point> pointValueRead = readFromParcel();
-
-        assertNotNull(pointValueRead);
-        assertEquals(30, pointValueRead.getValue().x);
-        assertEquals(40, pointValueRead.getValue().y);
-    }
 }

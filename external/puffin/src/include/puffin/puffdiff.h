@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "bsdiff/constants.h"
+
 #include "puffin/common.h"
 #include "puffin/stream.h"
 
@@ -19,6 +21,8 @@ namespace puffin {
 // |dst|          IN   Destination deflate stream.
 // |src_deflates| IN   Deflate locations in |src|.
 // |dst_deflates| IN   Deflate locations in |dst|.
+// |compressors|  IN   Compressors to use in the underlying bsdiff, e.g. bz2,
+//                     brotli.
 // |tmp_filepath| IN   A path to a temporary file. The caller has the
 //                     responsibility of unlinking the file after the call to
 //                     |PuffDiff| finishes.
@@ -27,12 +31,22 @@ bool PuffDiff(UniqueStreamPtr src,
               UniqueStreamPtr dst,
               const std::vector<BitExtent>& src_deflates,
               const std::vector<BitExtent>& dst_deflates,
+              const std::vector<bsdiff::CompressorType>& compressors,
               const std::string& tmp_filepath,
               Buffer* patch);
 
 // Similar to the function above, except that it accepts raw buffer rather than
 // stream.
-PUFFIN_EXPORT
+bool PuffDiff(const Buffer& src,
+              const Buffer& dst,
+              const std::vector<BitExtent>& src_deflates,
+              const std::vector<BitExtent>& dst_deflates,
+              const std::vector<bsdiff::CompressorType>& compressors,
+              const std::string& tmp_filepath,
+              Buffer* patch);
+
+// The default puffdiff function that uses both bz2 and brotli to compress the
+// patch data.
 bool PuffDiff(const Buffer& src,
               const Buffer& dst,
               const std::vector<BitExtent>& src_deflates,

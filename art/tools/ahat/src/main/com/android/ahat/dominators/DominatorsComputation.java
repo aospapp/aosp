@@ -16,19 +16,18 @@
 
 package com.android.ahat.dominators;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Queue;
+import com.android.ahat.progress.NullProgress;
+import com.android.ahat.progress.Progress;
 
 /**
  * Provides a static method for computing the immediate dominators of a
  * directed graph. It can be used with any directed graph data structure
  * that implements the {@link DominatorsComputation.Node} interface and has
  * some root node with no incoming edges.
+ *
+ * @deprecated Use {@link Dominators} class instead, which has a nicer interface.
  */
-public class DominatorsComputation {
+@Deprecated public class DominatorsComputation {
   private DominatorsComputation() {
   }
 
@@ -93,58 +92,6 @@ public class DominatorsComputation {
     void setDominator(Node dominator);
   }
 
-  // NodeS is information associated with a particular node for the
-  // purposes of computing dominators.
-  // By convention we use the suffix 'S' to name instances of NodeS.
-  private static class NodeS {
-    // The node that this NodeS is associated with.
-    public Node node;
-
-    // Unique identifier for this node, in increasing order based on the order
-    // this node was visited in a depth first search from the root. In
-    // particular, given nodes A and B, if A.id > B.id, then A cannot be a
-    // dominator of B.
-    public long id;
-
-    // Upper bound on the id of this node's dominator.
-    // The true immediate dominator of this node must have id <= domid.
-    // This upper bound is slowly tightened as part of the dominators
-    // computation.
-    public long domid;
-
-    // The current candidate dominator for this node.
-    // Invariant: (domid < domS.id) implies this node is on the queue of
-    // nodes to be revisited.
-    public NodeS domS;
-
-    // A node with a reference to this node that is one step closer to the
-    // root than this node.
-    // Invariant: srcS.id < this.id
-    public NodeS srcS;
-
-    // The largest id of the nodes we have seen so far on a path from the root
-    // to this node. Used to keep track of which nodes we have already seen
-    // and avoid processing them again.
-    public long seenid;
-
-    // The set of nodes X reachable by 'this' on a path of nodes from the
-    // root with increasing ids (possibly excluding X) that this node does not
-    // dominate (this.id > X.domid).
-    // We can use a List instead of a Set for this because we guarentee based
-    // on seenid that we don't add the same node more than once to the list.
-    public List<NodeS> undom = new ArrayList<NodeS>();
-  }
-
-  private static class Link {
-    public NodeS srcS;
-    public Node dst;
-
-    public Link(NodeS srcS, Node dst) {
-      this.srcS = srcS;
-      this.dst = dst;
-    }
-  }
-
   /**
    * Computes the immediate dominators of all nodes reachable from the <code>root</code> node.
    * There must not be any incoming references to the <code>root</code> node.
@@ -156,127 +103,45 @@ public class DominatorsComputation {
    * @see Node
    */
   public static void computeDominators(Node root) {
-    long id = 0;
+    computeDominators(root, new NullProgress(), 0);
+  }
 
-    // List of all nodes seen. We keep track of this here to update all the
-    // dominators once we are done.
-    List<NodeS> nodes = new ArrayList<NodeS>();
-
-    // The set of nodes N such that N.domid < N.domS.id. These nodes need
-    // to be revisisted because their dominator is clearly wrong.
-    // Use a Queue instead of a Set because performance will be better. We
-    // avoid adding nodes already on the queue by checking whether it was
-    // already true that N.domid < N.domS.id, in which case the node is
-    // already on the queue.
-    Queue<NodeS> revisit = new ArrayDeque<NodeS>();
-
-    // Set up the root node specially.
-    NodeS rootS = new NodeS();
-    rootS.node = root;
-    rootS.id = id++;
-    root.setDominatorsComputationState(rootS);
-
-    // 1. Do a depth first search of the nodes, label them with ids and come
-    // up with intial candidate dominators for them.
-    Deque<Link> dfs = new ArrayDeque<Link>();
-    for (Node child : root.getReferencesForDominators()) {
-      dfs.push(new Link(rootS, child));
-    }
-
-    while (!dfs.isEmpty()) {
-      Link link = dfs.pop();
-      NodeS dstS = (NodeS)link.dst.getDominatorsComputationState();
-      if (dstS == null) {
-        // This is the first time we have seen the node. The candidate
-        // dominator is link src.
-        dstS = new NodeS();
-        dstS.node = link.dst;
-        dstS.id = id++;
-        dstS.domid = link.srcS.id;
-        dstS.domS = link.srcS;
-        dstS.srcS = link.srcS;
-        dstS.seenid = dstS.domid;
-        nodes.add(dstS);
-        link.dst.setDominatorsComputationState(dstS);
-
-        for (Node child : link.dst.getReferencesForDominators()) {
-          dfs.push(new Link(dstS, child));
-        }
-      } else {
-        // We have seen the node already. Update the state based on the new
-        // potential dominator.
-        NodeS srcS = link.srcS;
-        boolean revisiting = dstS.domid < dstS.domS.id;
-
-        while (srcS.id > dstS.seenid) {
-          srcS.undom.add(dstS);
-          srcS = srcS.srcS;
-        }
-        dstS.seenid = link.srcS.id;
-
-        if (srcS.id < dstS.domid) {
-          // In this case, dstS.domid must be wrong, because we just found a
-          // path to dstS that does not go through dstS.domid:
-          // All nodes from root to srcS have id < domid, and all nodes from
-          // srcS to dstS had id > domid, so dstS.domid cannot be on this path
-          // from root to dstS.
-          dstS.domid = srcS.id;
-          if (!revisiting) {
-            revisit.add(dstS);
-          }
-        }
+  /**
+   * Computes the immediate dominators of all nodes reachable from the <code>root</code> node.
+   * There must not be any incoming references to the <code>root</code> node.
+   * <p>
+   * The result of this function is to call the {@link Node#setDominator}
+   * function on every node reachable from the root node.
+   *
+   * @param root the root node of the dominators computation
+   * @param progress progress tracker.
+   * @param numNodes upper bound on the number of reachable nodes in the
+   *                 graph, for progress tracking purposes only.
+   * @see Node
+   */
+  public static void computeDominators(Node root, Progress progress, long numNodes) {
+    Dominators.Graph<Node> graph = new Dominators.Graph<Node>() {
+      @Override
+      public void setDominatorsComputationState(Node node, Object state) {
+        node.setDominatorsComputationState(state);
       }
-    }
 
-    // 2. Continue revisiting nodes until they all satisfy the requirement
-    // that domS.id <= domid.
-    while (!revisit.isEmpty()) {
-      NodeS nodeS = revisit.poll();
-      NodeS domS = nodeS.domS;
-      assert nodeS.domid < domS.id;
-      while (domS.id > nodeS.domid) {
-        if (domS.domS.id < nodeS.domid) {
-          // In this case, nodeS.domid must be wrong, because there is a path
-          // from root to nodeS that does not go through nodeS.domid:
-          //  * We can go from root to domS without going through nodeS.domid,
-          //    because otherwise nodeS.domid would dominate domS, not
-          //    domS.domS.
-          //  * We can go from domS to nodeS without going through nodeS.domid
-          //    because we know nodeS is reachable from domS on a path of nodes
-          //    with increases ids, which cannot include nodeS.domid, which
-          //    has a smaller id than domS.
-          nodeS.domid = domS.domS.id;
-        }
-        domS.undom.add(nodeS);
-        domS = domS.srcS;
+      @Override
+      public Object getDominatorsComputationState(Node node) {
+        return node.getDominatorsComputationState();
       }
-      nodeS.domS = domS;
-      nodeS.domid = domS.id;
 
-      for (NodeS xS : nodeS.undom) {
-        if (domS.id < xS.domid) {
-          // In this case, xS.domid must be wrong, because there is a path
-          // from the root to xX that does not go through xS.domid:
-          //  * We can go from root to nodeS without going through xS.domid,
-          //    because otherwise xS.domid would dominate nodeS, not domS.
-          //  * We can go from nodeS to xS without going through xS.domid
-          //    because we know xS is reachable from nodeS on a path of nodes
-          //    with increasing ids, which cannot include xS.domid, which has
-          //    a smaller id than nodeS.
-          boolean revisiting = xS.domid < xS.domS.id;
-          xS.domid = domS.id;
-          if (!revisiting) {
-            revisit.add(xS);
-          }
-        }
+      @Override
+      public Iterable<? extends Node> getReferencesForDominators(Node node) {
+        return node.getReferencesForDominators();
       }
-    }
 
-    // 3. Update the dominators of the nodes.
-    root.setDominatorsComputationState(null);
-    for (NodeS nodeS : nodes) {
-      nodeS.node.setDominator(nodeS.domS.node);
-      nodeS.node.setDominatorsComputationState(null);
-    }
+      @Override
+      public void setDominator(Node node, Node dominator) {
+        node.setDominator(dominator);
+      }
+    };
+
+    new Dominators(graph).progress(progress, numNodes).computeDominators(root);
   }
 }

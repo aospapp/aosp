@@ -1,5 +1,5 @@
 type init_eth0, domain;
-type init_eth0_exec, exec_type, file_type;
+type init_eth0_exec, system_file_type, exec_type, file_type;
 
 init_daemon_domain(init_eth0)
 

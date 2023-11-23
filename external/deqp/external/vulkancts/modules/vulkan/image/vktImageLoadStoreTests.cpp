@@ -34,9 +34,11 @@
 #include "vkPlatform.hpp"
 #include "vkPrograms.hpp"
 #include "vkMemUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deSharedPtr.hpp"
@@ -460,7 +462,7 @@ tcu::TestStatus BaseTestInstance::iterate (void)
 	const Unique<VkPipelineLayout> pipelineLayout(makePipelineLayout(vk, device, descriptorSetLayout));
 	const Unique<VkPipeline> pipeline(makeComputePipeline(vk, device, *pipelineLayout, *shaderModule));
 
-	const Unique<VkCommandPool> cmdPool(createCommandPool(vk, device, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT, queueFamilyIndex));
+	const Unique<VkCommandPool> cmdPool(createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queueFamilyIndex));
 	const Unique<VkCommandBuffer> cmdBuffer(allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
 	beginCommandBuffer(vk, *cmdBuffer);
@@ -537,7 +539,7 @@ tcu::TestStatus StoreTestInstance::verifyResult	(void)
 	const tcu::TextureLevel reference = generateReferenceImage(imageSize, m_format);
 
 	const Allocation& alloc = m_imageBuffer->getAllocation();
-	invalidateMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), m_imageSizeBytes);
+	invalidateAlloc(vk, device, alloc);
 	const tcu::ConstPixelBufferAccess result(mapVkFormat(m_format), imageSize, alloc.getHostPtr());
 
 	if (comparePixelBuffers(m_context.getTestContext().getLog(), m_texture, m_format, reference.getAccess(), result))
@@ -552,6 +554,9 @@ void StoreTestInstance::checkRequirements (void)
 
 	if (!m_declareImageFormatInShader && !features.shaderStorageImageWriteWithoutFormat)
 		throw tcu::NotSupportedError("shaderStorageImageWriteWithoutFormat feature not supported");
+
+    if (m_texture.type() == IMAGE_TYPE_CUBE_ARRAY && !features.imageCubeArray)
+        TCU_THROW(NotSupportedError, "imageCubeArray feature not supported");
 }
 
 //! Store test for images
@@ -623,7 +628,7 @@ ImageStoreTestInstance::ImageStoreTestInstance (Context&		context,
 			*valuePtr = static_cast<deUint32>(layerNdx);
 		}
 
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), constantsBufferSizeBytes);
+		flushAlloc(vk, device, alloc);
 	}
 }
 
@@ -700,7 +705,7 @@ void ImageStoreTestInstance::commandBeforeCompute (const VkCommandBuffer cmdBuff
 		VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
 		m_constantsBuffer->get(), 0ull, constantsBufferSize);
 
-	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &writeConstantsBarrier, 1, &setImageLayoutBarrier);
+	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &writeConstantsBarrier, 1, &setImageLayoutBarrier);
 }
 
 void ImageStoreTestInstance::commandBetweenShaderInvocations (const VkCommandBuffer cmdBuffer)
@@ -930,7 +935,7 @@ LoadStoreTestInstance::LoadStoreTestInstance (Context&			context,
 
 	const Allocation& alloc = m_imageBuffer->getAllocation();
 	deMemcpy(alloc.getHostPtr(), m_referenceImage.getAccess().getDataPtr(), static_cast<size_t>(m_imageSizeBytes));
-	flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), m_imageSizeBytes);
+	flushAlloc(vk, device, alloc);
 }
 
 tcu::TestStatus LoadStoreTestInstance::verifyResult	(void)
@@ -943,7 +948,7 @@ tcu::TestStatus LoadStoreTestInstance::verifyResult	(void)
 	flipHorizontally(reference);
 
 	const Allocation& alloc = getResultBuffer()->getAllocation();
-	invalidateMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), m_imageSizeBytes);
+	invalidateAlloc(vk, device, alloc);
 	const tcu::ConstPixelBufferAccess result(mapVkFormat(m_imageFormat), m_texture.size(), alloc.getHostPtr());
 
 	if (comparePixelBuffers(m_context.getTestContext().getLog(), m_texture, m_imageFormat, reference, result))
@@ -958,6 +963,9 @@ void LoadStoreTestInstance::checkRequirements (void)
 
 	if (!m_declareImageFormatInShader && !features.shaderStorageImageReadWithoutFormat)
 		throw tcu::NotSupportedError("shaderStorageImageReadWithoutFormat feature not supported");
+
+    if (m_texture.type() == IMAGE_TYPE_CUBE_ARRAY && !features.imageCubeArray)
+        TCU_THROW(NotSupportedError, "imageCubeArray feature not supported");
 }
 
 
@@ -1102,7 +1110,7 @@ void ImageLoadStoreTestInstance::commandBeforeCompute (const VkCommandBuffer cmd
 			VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
 			m_imageBuffer->get(), 0ull, m_imageSizeBytes);
 
-		vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+		vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
 			(VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 1, &barrierFlushHostWriteBeforeCopy, DE_LENGTH_OF_ARRAY(preCopyImageBarriers), preCopyImageBarriers);
 	}
 	{

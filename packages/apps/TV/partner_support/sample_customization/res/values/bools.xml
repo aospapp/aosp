@@ -17,4 +17,6 @@
 
 <resources>
     <bool name="tvprovider_allows_system_inserts_to_program_table">true</bool>
+    <bool name="tvprovider_allows_column_creation">true</bool>
+    <bool name="turn_off_embedded_tuner">true</bool>
 </resources>

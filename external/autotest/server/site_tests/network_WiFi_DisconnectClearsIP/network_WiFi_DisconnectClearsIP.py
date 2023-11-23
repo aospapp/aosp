@@ -37,7 +37,7 @@ class network_WiFi_DisconnectClearsIP(wifi_cell_test_base.WiFiCellTestBase):
             raise error.TestFail('Failed to disconnect from the network')
         logging.info('Successfully disconnected.')
 
-        for x in range(0, self.IP_CHECK_ATTEMPTS):
+        for _ in range(0, self.IP_CHECK_ATTEMPTS):
             wifi_ip = self.context.client.wifi_ip
             if wifi_ip is None:
                 return

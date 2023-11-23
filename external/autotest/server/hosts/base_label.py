@@ -8,8 +8,9 @@
 import logging
 
 import common
-
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
+from autotest_lib.server.hosts import afe_store
+from autotest_lib.server.hosts import host_info
+from autotest_lib.server.hosts import shadowing_store
 
 
 def forever_exists_decorate(exists):
@@ -42,24 +43,9 @@ class BaseLabel(object):
 
     @property _NAME String that is either the label returned or a prefix of a
                     generated label.
-    @property _LABEL_LIST List of label classes that this label generates its
-                          own labels from.  This class attribute is primarily
-                          for the LabelRetriever class to figure out what
-                          labels are generated from this label.  In most cases,
-                          the _NAME attribute gives us what we want, but in the
-                          special case where a label class is actually a
-                          collection of label classes, then this attribute
-                          comes into play.  For the example of
-                          testbed_label.ADBDeviceLabels, that class is really a
-                          collection of the adb devices' labels in that testbed
-                          so _NAME won't cut it.  Instead, we use _LABEL_LIST
-                          to tell LabelRetriever what list of label classes we
-                          are generating and thus are able to have a
-                          comprehensive list of the generated labels.
     """
 
     _NAME = None
-    _LABEL_LIST = []
 
     def generate_labels(self, host):
         """
@@ -191,11 +177,6 @@ class LabelRetriever(object):
     def _populate_known_labels(self, label_list):
         """Create a list of known labels that is created through this class."""
         for label_instance in label_list:
-            # If this instance has a list of label, recurse on that list.
-            if label_instance._LABEL_LIST:
-                self._populate_known_labels(label_instance._LABEL_LIST)
-                continue
-
             prefixed_labels, full_labels = label_instance.get_all_labels()
             self.label_prefix_names.update(prefixed_labels)
             self.label_full_names.update(full_labels)
@@ -230,13 +211,6 @@ class LabelRetriever(object):
         """
         Checks if the label is a label known to the label detection framework.
 
-        We only delete labels that we might have created earlier.  There are
-        some labels we should not be removing (e.g. pool:bvt) that we
-        want to keep but won't be part of the new labels detected on the host.
-        To do that we compare the passed in label to our list of known labels
-        and if we get a match, we feel safe knowing we can remove the label.
-        Otherwise we leave that label alone since it was generated elsewhere.
-
         @param label: The label to check if we want to skip or not.
 
         @returns True to skip (which means to keep this label, False to remove.
@@ -245,7 +219,41 @@ class LabelRetriever(object):
                 any([label.startswith(p) for p in self.label_prefix_names]))
 
 
-    def update_labels(self, host):
+    def _carry_over_unknown_labels(self, old_labels, new_labels):
+        """Update new_labels by adding back old unknown labels.
+
+        We only delete labels that we might have created earlier.  There are
+        some labels we should not be removing (e.g. pool:bvt) that we
+        want to keep but won't be part of the new labels detected on the host.
+        To do that we compare the passed in label to our list of known labels
+        and if we get a match, we feel safe knowing we can remove the label.
+        Otherwise we leave that label alone since it was generated elsewhere.
+
+        @param old_labels: List of labels already on the host.
+        @param new_labels: List of newly detected labels. This list will be
+                updated to add back labels that are not tracked by the detection
+                framework.
+        """
+        missing_labels = set(old_labels) - set(new_labels)
+        for label in missing_labels:
+            if not self._is_known_label(label):
+                new_labels.append(label)
+
+
+    def _commit_info(self, host, new_info, keep_pool):
+        if keep_pool and isinstance(host.host_info_store,
+                                    shadowing_store.ShadowingStore):
+            primary_store = afe_store.AfeStoreKeepPool(host.hostname)
+            host.host_info_store.commit_with_substitute(
+                    new_info,
+                    primary_store=primary_store,
+                    shadow_store=None)
+            return
+
+        host.host_info_store.commit(new_info)
+
+
+    def update_labels(self, host, keep_pool=False):
         """
         Retrieve the labels from the host and update if needed.
 
@@ -255,23 +263,15 @@ class LabelRetriever(object):
         if not self.label_full_names and not self.label_prefix_names:
             self._populate_known_labels(self._labels)
 
-        afe = frontend_wrappers.RetryingAFE(timeout_min=5, delay_sec=10)
-        old_labels = set(host._afe_host.labels)
-        logging.info('existing labels: %s', old_labels)
-        known_labels = set([l for l in old_labels
-                            if self._is_known_label(l)])
-        new_labels = set(self.get_labels(host))
-
-        # TODO(pprabhu) Replace this update logic using AfeHostInfoBackend.
-        # Remove old labels.
-        labels_to_remove = list(old_labels & (known_labels - new_labels))
-        if labels_to_remove:
-            logging.info('removing labels: %s', labels_to_remove)
-            afe.run('host_remove_labels', id=host.hostname,
-                    labels=labels_to_remove)
-
-        # Add in new labels that aren't already there.
-        labels_to_add = list(new_labels - old_labels)
-        if labels_to_add:
-            logging.info('adding labels: %s', labels_to_add)
-            afe.run('host_add_labels', id=host.hostname, labels=labels_to_add)
+        # Label detection hits the DUT so it can be slow. Do it before reading
+        # old labels from HostInfoStore to minimize the time between read and
+        # commit of the HostInfo.
+        new_labels = self.get_labels(host)
+        old_info = host.host_info_store.get()
+        self._carry_over_unknown_labels(old_info.labels, new_labels)
+        new_info = host_info.HostInfo(
+                labels=new_labels,
+                attributes=old_info.attributes,
+        )
+        if old_info != new_info:
+            self._commit_info(host, new_info, keep_pool)

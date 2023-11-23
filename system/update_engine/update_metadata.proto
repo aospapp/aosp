@@ -14,24 +14,26 @@
 // limitations under the License.
 //
 
-// Update file format: A delta update file contains all the deltas needed
-// to update a system from one specific version to another specific
-// version. The update format is represented by this struct pseudocode:
+// Update file format: An update file contains all the operations needed
+// to update a system to a specific version. It can be a full payload which
+// can update from any version, or a delta payload which can only update
+// from a specific version.
+// The update format is represented by this struct pseudocode:
 // struct delta_update_file {
 //   char magic[4] = "CrAU";
-//   uint64 file_format_version;
+//   uint64 file_format_version;  // payload major version
 //   uint64 manifest_size;  // Size of protobuf DeltaArchiveManifest
 //
-//   // Only present if format_version > 1:
+//   // Only present if format_version >= 2:
 //   uint32 metadata_signature_size;
 //
-//   // The Bzip2 compressed DeltaArchiveManifest
-//   char manifest[];
+//   // The DeltaArchiveManifest protobuf serialized, not compressed.
+//   char manifest[manifest_size];
 //
 //   // The signature of the metadata (from the beginning of the payload up to
 //   // this location, not including the signature itself). This is a serialized
 //   // Signatures message.
-//   char medatada_signature_message[metadata_signature_size];
+//   char metadata_signature_message[metadata_signature_size];
 //
 //   // Data blobs for files, no specific format. The specific offset
 //   // and length of each data blob is recorded in the DeltaArchiveManifest.
@@ -39,9 +41,12 @@
 //     char data[];
 //   } blobs[];
 //
-//   // These two are not signed:
+//   // The signature of the entire payload, everything up to this location,
+//   // except that metadata_signature_message is skipped to simplify signing
+//   // process. These two are not signed:
 //   uint64 payload_signatures_message_size;
-//   char payload_signatures_message[];
+//   // This is a serialized Signatures message.
+//   char payload_signatures_message[payload_signatures_message_size];
 //
 // };
 
@@ -61,13 +66,13 @@
 //   dst_extents on the drive, zero padding to block size.
 // - MOVE: Copy the data in src_extents to dst_extents. Extents may overlap,
 //   so it may be desirable to read all src_extents data into memory before
-//   writing it out.
+//   writing it out. (deprecated)
 // - SOURCE_COPY: Copy the data in src_extents in the old partition to
 //   dst_extents in the new partition. There's no overlapping of data because
 //   the extents are in different partitions.
 // - BSDIFF: Read src_length bytes from src_extents into memory, perform
 //   bspatch with attached data, write new data to dst_extents, zero padding
-//   to block size.
+//   to block size. (deprecated)
 // - SOURCE_BSDIFF: Read the data in src_extents in the old partition, perform
 //   bspatch with the attached data and write the new data to dst_extents in the
 //   new partition.
@@ -82,7 +87,7 @@
 //   the new partition.
 //
 // The operations allowed in the payload (supported by the client) depend on the
-// major and minor version. See InstallOperation.Type bellow for details.
+// major and minor version. See InstallOperation.Type below for details.
 
 syntax = "proto2";
 
@@ -102,6 +107,11 @@ option optimize_for = LITE_RUNTIME;
 // A sentinel value (kuint64max) as the start block denotes a sparse-hole
 // in a file whose block-length is specified by num_blocks.
 
+message Extent {
+  optional uint64 start_block = 1;
+  optional uint64 num_blocks = 2;
+}
+
 // Signatures: Updates may be signed by the OS vendor. The client verifies
 // an update's signature by hashing the entire download. The section of the
 // download that contains the signature is at the end of the file, so when
@@ -113,11 +123,6 @@ option optimize_for = LITE_RUNTIME;
 // selects a Signature message and uses that, along with a known public key,
 // to verify the download. The public key is expected to be part of the
 // client.
-
-message Extent {
-  optional uint64 start_block = 1;
-  optional uint64 num_blocks = 2;
-}
 
 message Signatures {
   message Signature {
@@ -155,8 +160,8 @@ message InstallOperation {
   enum Type {
     REPLACE = 0;  // Replace destination extents w/ attached data
     REPLACE_BZ = 1;  // Replace destination extents w/ attached bzipped data
-    MOVE = 2;  // Move source extents to destination extents
-    BSDIFF = 3;  // The data is a bsdiff binary diff
+    MOVE = 2 [deprecated = true];  // Move source extents to destination extents
+    BSDIFF = 3 [deprecated = true];  // The data is a bsdiff binary diff
 
     // On minor version 2 or newer, these operations are supported:
     SOURCE_COPY = 4; // Copy from source to target partition
@@ -175,11 +180,14 @@ message InstallOperation {
     PUFFDIFF = 9;  // The data is in puffdiff format.
   }
   required Type type = 1;
+
+  // Only minor version 6 or newer support 64 bits |data_offset| and
+  // |data_length|, older client will read them as uint32.
   // The offset into the delta file (after the protobuf)
   // where the data (if any) is stored
-  optional uint32 data_offset = 2;
+  optional uint64 data_offset = 2;
   // The length of the data in the delta file
-  optional uint32 data_length = 3;
+  optional uint64 data_length = 3;
 
   // Ordered list of extents that are read from (if any) and written to.
   repeated Extent src_extents = 4;
@@ -248,6 +256,52 @@ message PartitionUpdate {
   // Whether a failure in the postinstall step for this partition should be
   // ignored.
   optional bool postinstall_optional = 9;
+
+  // On minor version 6 or newer, these fields are supported:
+
+  // The extent for data covered by verity hash tree.
+  optional Extent hash_tree_data_extent = 10;
+
+  // The extent to store verity hash tree.
+  optional Extent hash_tree_extent = 11;
+
+  // The hash algorithm used in verity hash tree.
+  optional string hash_tree_algorithm = 12;
+
+  // The salt used for verity hash tree.
+  optional bytes hash_tree_salt = 13;
+
+  // The extent for data covered by FEC.
+  optional Extent fec_data_extent = 14;
+
+  // The extent to store FEC.
+  optional Extent fec_extent = 15;
+
+  // The number of FEC roots.
+  optional uint32 fec_roots = 16 [default = 2];
+}
+
+message DynamicPartitionGroup {
+  // Name of the group.
+  required string name = 1;
+
+  // Maximum size of the group. The sum of sizes of all partitions in the group
+  // must not exceed the maximum size of the group.
+  optional uint64 size = 2;
+
+  // A list of partitions that belong to the group.
+  repeated string partition_names = 3;
+}
+
+// Metadata related to all dynamic partitions.
+message DynamicPartitionMetadata {
+  // All updatable groups present in |partitions| of this DeltaArchiveManifest.
+  // - If an updatable group is on the device but not in the manifest, it is
+  //   not updated. Hence, the group will not be resized, and partitions cannot
+  //   be added to or removed from the group.
+  // - If an updatable group is in the manifest but not on the device, the group
+  //   is added to the device.
+  repeated DynamicPartitionGroup groups = 1;
 }
 
 message DeltaArchiveManifest {
@@ -281,6 +335,7 @@ message DeltaArchiveManifest {
   optional ImageInfo new_image_info = 11;
 
   // The minor version, also referred as "delta version", of the payload.
+  // Minor version 0 is full payload, everything else is delta payload.
   optional uint32 minor_version = 12 [default = 0];
 
   // Only present in major version >= 2. List of partitions that will be
@@ -294,4 +349,7 @@ message DeltaArchiveManifest {
   // The maximum timestamp of the OS allowed to apply this payload.
   // Can be used to prevent downgrading the OS.
   optional int64 max_timestamp = 14;
+
+  // Metadata related to all dynamic partitions.
+  optional DynamicPartitionMetadata dynamic_partition_metadata = 15;
 }

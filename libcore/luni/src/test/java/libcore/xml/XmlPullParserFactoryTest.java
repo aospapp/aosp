@@ -16,14 +16,14 @@
 
 package libcore.xml;
 
+import com.android.org.kxml2.io.KXmlParser;
+import com.android.org.kxml2.io.KXmlSerializer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import junit.framework.TestCase;
-import org.kxml2.io.KXmlParser;
-import org.kxml2.io.KXmlSerializer;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;

@@ -16,30 +16,30 @@
 
 package com.android.managedprovisioning.model;
 
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_DOMAIN;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_EAP_METHOD;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_HIDDEN;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_IDENTITY;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PAC_URL;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PASSWORD;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PHASE2_AUTH;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_BYPASS;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_HOST;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_PROXY_PORT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SECURITY_TYPE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_SSID;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE;
 
 
-import android.app.admin.DevicePolicyManager;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import com.android.internal.annotations.Immutable;
 import com.android.managedprovisioning.common.PersistableBundlable;
-import com.android.managedprovisioning.common.StoreUtils;
-import java.io.IOException;
-import java.util.Objects;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlSerializer;
 
 /**
  * Stores the WiFi configuration which is used in managed provisioning.
@@ -72,6 +72,58 @@ public final class WifiInfo extends PersistableBundlable {
     /** Password of the wifi network in {@link #ssid}. */
     @Nullable
     public final String password;
+
+    /**
+     * EAP method of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}.
+     */
+    @Nullable
+    public final String eapMethod;
+
+    /**
+     * Phase 2 authentification of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}.
+     */
+    @Nullable
+    public final String phase2Auth;
+
+    /**
+     * CA certificate of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}. Format of certificate should be as {@link
+     * android.app.admin.DevicePolicyManager#EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE}
+     */
+    @Nullable
+    public final String caCertificate;
+
+    /**
+     * User certificate of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}. Format of certificate should be as {@link
+     * android.app.admin.DevicePolicyManager#EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE}
+     */
+    @Nullable
+    public final String userCertificate;
+
+    /**
+     * Identity of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}.
+     */
+    @Nullable
+    public final String identity;
+
+    /**
+     * Anonymous identity of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}.
+     */
+    @Nullable
+    public final String anonymousIdentity;
+
+    /**
+     * Domain of the wifi network in {@link #ssid}. This is only used if the
+     * {@link #securityType} is {@code EAP}.
+     */
+    @Nullable
+    public final String domain;
+
     /** Proxy host for the wifi network in {@link #ssid}. */
     @Nullable
     public final String proxyHost;
@@ -91,6 +143,13 @@ public final class WifiInfo extends PersistableBundlable {
         bundle.putBoolean(EXTRA_PROVISIONING_WIFI_HIDDEN, hidden);
         bundle.putString(EXTRA_PROVISIONING_WIFI_SECURITY_TYPE, securityType);
         bundle.putString(EXTRA_PROVISIONING_WIFI_PASSWORD, password);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_EAP_METHOD, eapMethod);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH, phase2Auth);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE, caCertificate);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE, userCertificate);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_IDENTITY, identity);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY, anonymousIdentity);
+        bundle.putString(EXTRA_PROVISIONING_WIFI_DOMAIN, domain);
         bundle.putString(EXTRA_PROVISIONING_WIFI_PROXY_HOST, proxyHost);
         bundle.putInt(EXTRA_PROVISIONING_WIFI_PROXY_PORT, proxyPort);
         bundle.putString(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS, proxyBypassHosts);
@@ -108,6 +167,13 @@ public final class WifiInfo extends PersistableBundlable {
         builder.setHidden(bundle.getBoolean(EXTRA_PROVISIONING_WIFI_HIDDEN));
         builder.setSecurityType(bundle.getString(EXTRA_PROVISIONING_WIFI_SECURITY_TYPE));
         builder.setPassword(bundle.getString(EXTRA_PROVISIONING_WIFI_PASSWORD));
+        builder.setEapMethod(bundle.getString(EXTRA_PROVISIONING_WIFI_EAP_METHOD));
+        builder.setPhase2Auth(bundle.getString(EXTRA_PROVISIONING_WIFI_PHASE2_AUTH));
+        builder.setCaCertificate(bundle.getString(EXTRA_PROVISIONING_WIFI_CA_CERTIFICATE));
+        builder.setUserCertificate(bundle.getString(EXTRA_PROVISIONING_WIFI_USER_CERTIFICATE));
+        builder.setIdentity(bundle.getString(EXTRA_PROVISIONING_WIFI_IDENTITY));
+        builder.setAnonymousIdentity(bundle.getString(EXTRA_PROVISIONING_WIFI_ANONYMOUS_IDENTITY));
+        builder.setDomain(bundle.getString(EXTRA_PROVISIONING_WIFI_DOMAIN));
         builder.setProxyHost(bundle.getString(EXTRA_PROVISIONING_WIFI_PROXY_HOST));
         builder.setProxyPort(bundle.getInt(EXTRA_PROVISIONING_WIFI_PROXY_PORT));
         builder.setProxyBypassHosts(bundle.getString(EXTRA_PROVISIONING_WIFI_PROXY_BYPASS));
@@ -120,6 +186,13 @@ public final class WifiInfo extends PersistableBundlable {
         hidden = builder.mHidden;
         securityType = builder.mSecurityType;
         password = builder.mPassword;
+        eapMethod = builder.eapMethod;
+        phase2Auth = builder.phase2Auth;
+        caCertificate = builder.caCertificate;
+        userCertificate = builder.userCertificate;
+        identity = builder.identity;
+        anonymousIdentity = builder.anonymousIdentity;
+        domain = builder.domain;
         proxyHost = builder.mProxyHost;
         proxyPort = builder.mProxyPort;
         proxyBypassHosts = builder.mProxyBypassHosts;
@@ -144,6 +217,13 @@ public final class WifiInfo extends PersistableBundlable {
         private boolean mHidden = DEFAULT_WIFI_HIDDEN;
         private String mSecurityType;
         private String mPassword;
+        private String eapMethod;
+        private String phase2Auth;
+        private String caCertificate;
+        private String userCertificate;
+        private String identity;
+        private String anonymousIdentity;
+        private String domain;
         private String mProxyHost;
         private int mProxyPort = DEFAULT_WIFI_PROXY_PORT;
         private String mProxyBypassHosts;
@@ -166,6 +246,41 @@ public final class WifiInfo extends PersistableBundlable {
 
         public Builder setPassword(String password) {
             mPassword = password;
+            return this;
+        }
+
+        public Builder setEapMethod(String eapMethod) {
+            this.eapMethod = eapMethod;
+            return this;
+        }
+
+        public Builder setPhase2Auth(String phase2Auth) {
+            this.phase2Auth = phase2Auth;
+            return this;
+        }
+
+        public Builder setCaCertificate(String caCertificate) {
+            this.caCertificate = caCertificate;
+            return this;
+        }
+
+        public Builder setUserCertificate(String userCertificate) {
+            this.userCertificate = userCertificate;
+            return this;
+        }
+
+        public Builder setIdentity(String identity) {
+            this.identity = identity;
+            return this;
+        }
+
+        public Builder setAnonymousIdentity(String anonymousIdentity) {
+            this.anonymousIdentity = anonymousIdentity;
+            return this;
+        }
+
+        public Builder setDomain(String domain) {
+            this.domain = domain;
             return this;
         }
 

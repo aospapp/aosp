@@ -40,13 +40,13 @@ void SocketServerForDriver::RpcCallToRunner(
   int sockfd;
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    LOG(ERROR) << "ERROR opening socket";
+    PLOG(ERROR) << "ERROR opening socket";
     exit(-1);
     return;
   }
   server = gethostbyname("127.0.0.1");
   if (server == NULL) {
-    LOG(ERROR) << "Can't resolve the host name, localhost";
+    PLOG(ERROR) << "Can't resolve the host name, localhost";
     exit(-1);
     return;
   }
@@ -57,7 +57,7 @@ void SocketServerForDriver::RpcCallToRunner(
   serv_addr.sin_port = htons(runner_port_);
 
   if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-    LOG(ERROR) << "ERROR connecting";
+    PLOG(ERROR) << "ERROR connecting";
     exit(-1);
     return;
   }
@@ -79,7 +79,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
   struct sockaddr_un serv_addr;
   int pid = fork();
   if (pid < 0) {
-    LOG(ERROR) << "ERROR on fork";
+    PLOG(ERROR) << "ERROR on fork";
     return -1;
   } else if (pid > 0) {
     return 0;
@@ -92,7 +92,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
   int sockfd;
   sockfd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    LOG(ERROR) << "ERROR opening socket";
+    PLOG(ERROR) << "ERROR opening socket";
     return -1;
   }
 
@@ -102,14 +102,12 @@ int StartSocketServerForDriver(const string& callback_socket_name,
   LOG(INFO) << "Callback server at " << callback_socket_name;
 
   if (::bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
-    int error_save = errno;
-    LOG(ERROR) << "ERROR on binding " << callback_socket_name
-               << " errno = " << error_save << " " << strerror(error_save);
+    PLOG(ERROR) << "ERROR on binding " << callback_socket_name;
     return -1;
   }
 
   if (listen(sockfd, 5) < 0) {
-    LOG(ERROR) << "ERROR on listening";
+    PLOG(ERROR) << "ERROR on listening";
     return -1;
   }
 
@@ -121,7 +119,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
     clilen = sizeof(cli_addr);
     newsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
     if (newsockfd < 0) {
-      LOG(ERROR) << "ERROR on accept " << strerror(errno);
+      PLOG(ERROR) << "ERROR on accept";
       break;
     }
     LOG(DEBUG) << "New callback connection.";
@@ -134,7 +132,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
     } else if (pid > 0) {
       close(newsockfd);
     } else {
-      LOG(ERROR) << "ERROR on fork";
+      PLOG(ERROR) << "ERROR on fork";
       break;
     }
   }

@@ -15,24 +15,25 @@
  */
 buildscript {
     repositories {
+        google()
+        mavenCentral()
         jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.0'
+        classpath 'com.android.tools.build:gradle:3.3.0'
     }
 }
 
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 24
-    buildToolsVersion "23.0.2"
+    compileSdkVersion 28
 
     defaultConfig {
         applicationId "com.example.android.dragsource"
         minSdkVersion 24
-        targetSdkVersion 24
+        targetSdkVersion 28
         versionCode 1
         versionName "1.0"
     }
@@ -45,8 +46,7 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:appcompat-v7:24.1.1'
-    compile 'com.android.support:support-v13:24.1.1'
+    compile 'com.android.support:appcompat-v7:28.0.0'
+    compile 'com.android.support:support-v13:28.0.0'
 
 }

@@ -20,15 +20,4 @@ package com.android.tradefed.result;
  */
 public enum InvocationStatus {
     SUCCESS, FAILED, BUILD_ERROR;
-
-    Throwable mThrowable = null;
-
-
-    public void setThrowable(Throwable t) {
-        mThrowable = t;
-    }
-
-    public Throwable getThrowable() {
-        return mThrowable;
-    }
 }

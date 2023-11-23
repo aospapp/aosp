@@ -22,23 +22,9 @@ cc_defaults {
         "-Werror",
     ],
 
-    // The latest clang (r230699) does not allow SP/PC to be declared in inline asm lists.
-    clang_cflags: ["-Wno-inline-asm"],
-
-    include_dirs: ["external/libunwind/include/tdep"],
-
     target: {
         darwin: {
             enabled: false,
-        },
-    },
-
-    multilib: {
-        lib32: {
-            suffix: "32",
-        },
-        lib64: {
-            suffix: "64",
         },
     },
 }
@@ -47,7 +33,6 @@ libbacktrace_sources = [
     "Backtrace.cpp",
     "BacktraceCurrent.cpp",
     "BacktracePtrace.cpp",
-    "thread_utils.c",
     "ThreadEntry.cpp",
     "UnwindStack.cpp",
     "UnwindStackMap.cpp",
@@ -56,12 +41,14 @@ libbacktrace_sources = [
 cc_library_headers {
     name: "libbacktrace_headers",
     vendor_available: true,
+    recovery_available: true,
     export_include_dirs: ["include"],
 }
 
 cc_library {
     name: "libbacktrace",
     vendor_available: false,
+    recovery_available: true,
     vndk: {
         enabled: true,
         support_system_process: true,
@@ -92,33 +79,27 @@ cc_library {
             shared_libs: [
                 "libbase",
                 "liblog",
-                "libunwind",
                 "libunwindstack",
-                "libdexfile",
             ],
 
-            static_libs: ["libcutils"],
-
-            // libdexfile will eventually properly export headers, for now
-            // include these directly.
-            include_dirs: [
-                "art/runtime",
+            static_libs: [
+                "libprocinfo",
             ],
-
-            header_libs: ["jni_headers"],
         },
         android: {
             static_libs: ["libasync_safe"],
         },
         vendor: {
             cflags: ["-DNO_LIBDEXFILE_SUPPORT"],
-            exclude_shared_libs: ["libdexfile"],
+        },
+        recovery: {
+            cflags: ["-DNO_LIBDEXFILE_SUPPORT"],
         },
     },
     whole_static_libs: ["libdemangle"],
 }
 
-cc_library_shared {
+cc_test_library {
     name: "libbacktrace_test",
     defaults: ["libbacktrace_common"],
     host_supported: true,
@@ -131,6 +112,17 @@ cc_library_shared {
     shared_libs: [
         "libunwindstack",
     ],
+    relative_install_path: "backtrace_test_libs",
+
+    target: {
+        linux_glibc: {
+            // This forces the creation of eh_frame with unwind information
+            // for host.
+            cflags: [
+                "-fcxx-exceptions"
+            ],
+        },
+    },
 }
 
 //-------------------------------------------------------------------------
@@ -138,13 +130,12 @@ cc_library_shared {
 //-------------------------------------------------------------------------
 cc_test {
     name: "backtrace_test",
+    isolated: true,
     defaults: ["libbacktrace_common"],
     host_supported: true,
     srcs: [
         "backtrace_offline_test.cpp",
         "backtrace_test.cpp",
-        "GetPss.cpp",
-        "thread_utils.c",
     ],
 
     cflags: [
@@ -154,40 +145,28 @@ cc_test {
     ],
 
     shared_libs: [
-        "libbacktrace_test",
         "libbacktrace",
-        "libdexfile",
         "libbase",
-        "libcutils",
         "liblog",
         "libunwindstack",
     ],
 
     group_static_libs: true,
 
-    target: {
-        android: {
-            cflags: ["-DENABLE_PSS_TESTS"],
-            shared_libs: [
-                "libutils",
-            ],
-        },
-        linux_glibc: {
-            static_libs: ["libutils"],
-        },
-    },
-
-    // libdexfile will eventually properly export headers, for now
-    // include these directly.
-    include_dirs: [
-        "art/runtime",
+    // So that the dlopen can find the libbacktrace_test.so.
+    ldflags: [
+        "-Wl,--rpath,${ORIGIN}/../backtrace_test_libs",
     ],
 
+    test_suites: ["device-tests"],
     data: [
         "testdata/arm/*",
         "testdata/arm64/*",
         "testdata/x86/*",
         "testdata/x86_64/*",
+    ],
+    required: [
+        "libbacktrace_test",
     ],
 }
 

@@ -25,7 +25,7 @@ public class DirectByteBufferTest extends ByteBufferTest {
 
     protected void setUp() throws Exception {
         super.setUp();
-        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH);
+        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*Byte.BYTES);
         baseBuf = buf;
     }
 

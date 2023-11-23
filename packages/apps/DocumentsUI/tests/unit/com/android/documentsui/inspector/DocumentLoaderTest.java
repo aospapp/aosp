@@ -15,24 +15,33 @@
  */
 package com.android.documentsui.inspector;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.ContentResolver;
 import android.content.Context;
+import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Looper;
 import android.provider.DocumentsContract;
-import android.support.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import com.android.documentsui.InspectorProvider;
 import android.test.suitebuilder.annotation.MediumTest;
+
+import androidx.test.rule.provider.ProviderTestRule;
+
+import com.android.documentsui.InspectorProvider;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.inspector.InspectorController.DataSupplier;
-import com.android.documentsui.testing.TestLoaderManager;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import com.android.documentsui.testing.LatchedConsumer;
+import com.android.documentsui.testing.TestSupportLoaderManager;
+
 import junit.framework.TestCase;
+
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * This test relies the inspector providers test.txt file in inspector root.
@@ -45,21 +54,38 @@ public class DocumentLoaderTest extends TestCase {
     private static final String NOT_DIRECTORY = "OpenInProviderTest";
 
     private Context mContext;
-    private TestLoaderManager mLoaderManager;
+    private TestSupportLoaderManager mLoaderManager;
     private DataSupplier mLoader;
     private ContentResolver mResolver;
+
+    @Rule
+    private ProviderTestRule mProviderTestRule = new ProviderTestRule.Builder(
+            InspectorProvider.class, InspectorProvider.AUTHORITY).build();
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        mContext = InstrumentationRegistry.getTargetContext();
+
+        mContext = prepareContentResolverSource();
         mResolver = mContext.getContentResolver();
-        mLoaderManager = new TestLoaderManager();
+        mLoaderManager = new TestSupportLoaderManager();
         mLoader = new RuntimeDataSupplier(mContext, mLoaderManager);
 
         if (Looper.myLooper() == null) {
             Looper.prepare();
         }
+    }
+
+    protected Context prepareContentResolverSource() {
+        ContentResolver contentResolver = mProviderTestRule.getResolver();
+        Context context = mock(Context.class);
+        // inject ContentResolver
+        when(context.getContentResolver()).thenReturn(contentResolver);
+        // inject ContentResolver and prevent CursorLoader.loadInBackground from
+        // NullPointerException
+        when(context.getApplicationContext()).thenReturn(context);
+        return context;
+
     }
 
     /**
@@ -72,17 +98,17 @@ public class DocumentLoaderTest extends TestCase {
     public void testLoadsDocument() throws Exception {
         Uri validUri = DocumentsContract.buildDocumentUri(
                 InspectorProvider.AUTHORITY, TEST_DOC_NAME);
-        TestDocConsumer consumer = new TestDocConsumer(1);
+        LatchedConsumer<DocumentInfo> consumer = new LatchedConsumer<>(1);
         mLoader.loadDocInfo(validUri, consumer);
 
         // this is a test double that requires explicitly loading. @see TestLoaderManager
         mLoaderManager.getLoader(0).startLoading();
 
-        consumer.latch.await(1000, TimeUnit.MILLISECONDS);
+        consumer.assertCalled(1000, TimeUnit.MILLISECONDS);
 
-        assertNotNull(consumer.info);
-        assertEquals(consumer.info.displayName, TEST_DOC_NAME);
-        assertEquals(consumer.info.size, 0);
+        assertNotNull(consumer.getValue());
+        assertEquals(consumer.getValue().displayName, TEST_DOC_NAME);
+        assertEquals(consumer.getValue().size, 0);
     }
 
     /**
@@ -93,21 +119,21 @@ public class DocumentLoaderTest extends TestCase {
     @Test
     public void testInvalidInput() throws Exception {
         Uri invalidUri = Uri.parse("content://poodles/chuckleberry/ham");
-        TestDocConsumer consumer = new TestDocConsumer(1);
+        LatchedConsumer<DocumentInfo> consumer = new LatchedConsumer<>(1);
         mLoader.loadDocInfo(invalidUri, consumer);
 
         // this is a test double that requires explicitly loading. @see TestLoaderManager
         mLoaderManager.getLoader(0).startLoading();
 
-        consumer.latch.await(1000, TimeUnit.MILLISECONDS);
-        assertNull(consumer.info);
+        consumer.assertCalled(1000, TimeUnit.MILLISECONDS);
+        assertNull(consumer.getValue());
     }
 
     @Test
     public void testNonContentUri() {
 
         Uri invalidUri = Uri.parse("http://poodles/chuckleberry/ham");
-        TestDocConsumer consumer = new TestDocConsumer(1);
+        LatchedConsumer<DocumentInfo> consumer = new LatchedConsumer<>(1);
 
         try {
             mLoader.loadDocInfo(invalidUri, consumer);
@@ -125,12 +151,12 @@ public class DocumentLoaderTest extends TestCase {
 
         DocumentInfo info = DocumentInfo.fromUri(mResolver, dirUri);
 
-        TestDirConsumer consumer = new TestDirConsumer(1);
+        LatchedConsumer<Integer> consumer = new LatchedConsumer<>(1);
         mLoader.loadDirCount(info, consumer);
         mLoaderManager.getLoader(0).startLoading();
 
-        consumer.latch.await(1000, TimeUnit.MILLISECONDS);
-        assertEquals(consumer.childCount, 4);
+        consumer.assertCalled(1000, TimeUnit.MILLISECONDS);
+        assertEquals(consumer.getValue().intValue(), 4);
     }
 
     @Test
@@ -139,7 +165,7 @@ public class DocumentLoaderTest extends TestCase {
             InspectorProvider.AUTHORITY, NOT_DIRECTORY);
 
         DocumentInfo info = DocumentInfo.fromUri(mResolver, uri);
-        TestDirConsumer consumer = new TestDirConsumer(1);
+        LatchedConsumer<Integer> consumer = new LatchedConsumer<>(1);
 
         try {
             mLoader.loadDirCount(info, consumer);
@@ -148,39 +174,33 @@ public class DocumentLoaderTest extends TestCase {
         } catch (Exception expected) {}
     }
 
-    /**
-     * Helper function for testing async processes.
-     */
-    private static class TestDocConsumer implements Consumer<DocumentInfo> {
+    @Test
+    public void testLoadMetadata() throws Exception  {
+        Uri uri = DocumentsContract.buildDocumentUri(
+                InspectorProvider.AUTHORITY, InspectorProvider.TEST_JPEG);
+        LatchedConsumer<Bundle> consumer = new LatchedConsumer<>(1);
 
-        private DocumentInfo info;
-        private CountDownLatch latch;
+        mLoader.getDocumentMetadata(uri, consumer);
+        mLoaderManager.getLoader(0).startLoading();
 
-        public TestDocConsumer(int expectedCount) {
-            latch = new CountDownLatch(expectedCount);
-        }
-
-        @Nullable
-        @Override
-        public void accept(DocumentInfo documentInfo) {
-            info = documentInfo;
-            latch.countDown();
-        }
+        consumer.assertCalled(100, TimeUnit.MILLISECONDS);
+        assertNotNull(consumer.getValue());
+        assertEquals(consumer.getValue().getInt(ExifInterface.TAG_IMAGE_WIDTH),
+                InspectorProvider.TEST_JPEG_WIDTH);
+        assertEquals(consumer.getValue().getInt(ExifInterface.TAG_IMAGE_LENGTH),
+                InspectorProvider.TEST_JPEG_HEIGHT);
     }
 
-    private static class TestDirConsumer implements Consumer<Integer> {
+    @Test
+    public void testLoadMetadata_Unsupported() throws Exception  {
+        Uri uri = DocumentsContract.buildDocumentUri(
+                InspectorProvider.AUTHORITY, InspectorProvider.INVALID_JPEG);
+        LatchedConsumer<Bundle> consumer = new LatchedConsumer<>(1);
 
-        private int childCount;
-        private CountDownLatch latch;
+        mLoader.getDocumentMetadata(uri, consumer);
+        mLoaderManager.getLoader(0).startLoading();
 
-        public TestDirConsumer(int expectedCount) {
-            latch = new CountDownLatch(expectedCount);
-        }
-
-        @Override
-        public void accept(Integer integer) {
-            childCount = integer;
-            latch.countDown();
-        }
+        consumer.assertCalled(100, TimeUnit.MILLISECONDS);
+        assertNull(consumer.getValue());
     }
 }

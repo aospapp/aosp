@@ -138,6 +138,15 @@ int tst_dir_is_empty_(void (*cleanup)(void), const char *name, int verbose);
 int tst_get_path(const char *prog_name, char *buf, size_t buf_len);
 
 /*
+ * Fill a file with specified pattern
+ * @fd: file descriptor
+ * @pattern: pattern
+ * @bs: block size
+ * @bcount: blocks count
+ */
+int tst_fill_fd(int fd, char pattern, size_t bs, size_t bcount);
+
+/*
  * Creates/ovewrites a file with specified pattern
  * @path: path to file
  * @pattern: pattern
@@ -145,6 +154,12 @@ int tst_get_path(const char *prog_name, char *buf, size_t buf_len);
  * @bcount: blocks amount
  */
 int tst_fill_file(const char *path, char pattern, size_t bs, size_t bcount);
+
+/*
+ * Return 1 if a specified fiilsystem is supported
+ * Return 0 if a specified fiilsystem isn't supported
+ */
+int tst_fs_is_supported(const char *fs_type);
 
 /*
  * Returns NULL-terminated array of kernel-supported filesystems.

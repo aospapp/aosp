@@ -42,19 +42,17 @@ import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import com.android.contacts.common.ContactsUtils;
-import com.android.dialer.app.DialtactsActivity;
 import com.android.dialer.app.MainComponent;
 import com.android.dialer.app.R;
 import com.android.dialer.app.calllog.CallLogNotificationsQueryHelper.NewCall;
 import com.android.dialer.app.contactinfo.ContactPhotoLoader;
-import com.android.dialer.app.list.DialtactsPagerAdapter;
 import com.android.dialer.callintent.CallInitiationType;
 import com.android.dialer.callintent.CallIntentBuilder;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.DialerExecutor.Worker;
 import com.android.dialer.compat.android.provider.VoicemailCompat;
-import com.android.dialer.duo.DuoConstants;
+import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.enrichedcall.FuzzyPhoneNumberMatcher;
 import com.android.dialer.notification.DialerNotificationManager;
 import com.android.dialer.notification.NotificationChannelId;
@@ -64,6 +62,7 @@ import com.android.dialer.notification.missedcalls.MissedCallNotificationTags;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.phonenumberutil.PhoneNumberHelper;
 import com.android.dialer.precall.PreCall;
+import com.android.dialer.theme.base.ThemeComponent;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.IntentUtil;
 import java.util.Iterator;
@@ -106,6 +105,8 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
   @VisibleForTesting
   @WorkerThread
   void updateMissedCallNotification(int count, @Nullable String number) {
+    LogUtil.enterBlock("MissedCallNotifier.updateMissedCallNotification");
+
     final int titleResId;
     CharSequence expandedText; // The text in the notification's line 1 and 2.
 
@@ -137,6 +138,7 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
     if (count == CallLogNotificationsService.UNKNOWN_MISSED_CALL_COUNT) {
       // If the intent did not contain a count, and we are unable to get a count from the
       // call log, then no notification can be shown.
+      LogUtil.i("MissedCallNotifier.updateMissedCallNotification", "unknown missed call count");
       return;
     }
 
@@ -144,6 +146,9 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
     boolean useCallList = newCalls != null;
 
     if (count == 1) {
+      LogUtil.i(
+          "MissedCallNotifier.updateMissedCallNotification",
+          "1 missed call, looking up contact info");
       NewCall call =
           useCallList
               ? newCalls.get(0)
@@ -188,6 +193,8 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
       expandedText = context.getString(R.string.notification_missedCallsMsg, count);
     }
 
+    LogUtil.i("MissedCallNotifier.updateMissedCallNotification", "preparing notification");
+
     // Create a public viewable version of the notification, suitable for display when sensitive
     // notification content is hidden.
     Notification.Builder publicSummaryBuilder = createNotificationBuilder();
@@ -223,15 +230,20 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
 
     if (useCallList) {
       // Do not repost active notifications to prevent erasing post call notes.
-      Set<String> activeTags = new ArraySet<>();
+      Set<String> activeAndThrottledTags = new ArraySet<>();
       for (StatusBarNotification activeNotification :
           DialerNotificationManager.getActiveNotifications(context)) {
-        activeTags.add(activeNotification.getTag());
+        activeAndThrottledTags.add(activeNotification.getTag());
+      }
+      // Do not repost throttled notifications
+      for (StatusBarNotification throttledNotification :
+          DialerNotificationManager.getThrottledNotificationSet()) {
+        activeAndThrottledTags.add(throttledNotification.getTag());
       }
 
       for (NewCall call : newCalls) {
         String callTag = getNotificationTagForCall(call);
-        if (!activeTags.contains(callTag)) {
+        if (!activeAndThrottledTags.contains(callTag)) {
           DialerNotificationManager.notify(
               context,
               callTag,
@@ -269,7 +281,7 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
       if (phoneAccount == null) {
         continue;
       }
-      if (DuoConstants.PHONE_ACCOUNT_HANDLE.equals(phoneAccountHandle)) {
+      if (DuoComponent.get(context).getDuo().isDuoAccount(phoneAccountHandle)) {
         iterator.remove();
         continue;
       }
@@ -385,7 +397,7 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
     return new Notification.Builder(context)
         .setGroup(MissedCallConstants.GROUP_KEY)
         .setSmallIcon(android.R.drawable.stat_notify_missed_call)
-        .setColor(context.getResources().getColor(R.color.dialer_theme_color, null))
+        .setColor(ThemeComponent.get(context).theme().getColorPrimary())
         .setAutoCancel(true)
         .setOnlyAlertOnce(true)
         .setShowWhen(true)
@@ -446,13 +458,8 @@ public class MissedCallNotifier implements Worker<Pair<Integer, String>, Void> {
    * @param callUri Uri of the call to jump to. May be null
    */
   private PendingIntent createCallLogPendingIntent(@Nullable Uri callUri) {
-    Intent contentIntent;
-    if (MainComponent.isNuiComponentEnabled(context)) {
-      contentIntent = MainComponent.getShowCallLogIntent(context);
-    } else {
-      contentIntent =
-          DialtactsActivity.getShowTabIntent(context, DialtactsPagerAdapter.TAB_INDEX_HISTORY);
-    }
+    Intent contentIntent = MainComponent.getShowCallLogIntent(context);
+
     // TODO (a bug): scroll to call
     contentIntent.setData(callUri);
     return PendingIntent.getActivity(context, 0, contentIntent, PendingIntent.FLAG_UPDATE_CURRENT);

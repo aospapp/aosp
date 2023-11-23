@@ -15,20 +15,22 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.content.res.Resources.NotFoundException;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
 import android.widget.ImageView;
 
-public class ZoomImageActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
+public class ZoomImageActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_zoom_image);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         // Check if integer was actually given.
         if (!(getIntent().hasExtra(getString(R.string.intent_extra_image)))) {
@@ -42,9 +44,9 @@ public class ZoomImageActivity extends Activity implements AmbientMode.AmbientCa
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

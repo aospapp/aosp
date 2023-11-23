@@ -23,8 +23,16 @@
 # following NDK libraries: libc, libm, libstdc++, libdl, liblog
 
 # Host modules
-PRODUCT_PACKAGES += \
+PRODUCT_HOST_PACKAGES += \
     adb \
+    e2fsck \
+    mke2fs \
+    toybox \
+    tzdata_host \
+    tzdata_host_runtime_apex \
+    tzlookup.xml_host_runtime_apex \
+    tz_version_host \
+    tz_version_host_runtime_apex \
 
 # Device modules
 PRODUCT_PACKAGES += \

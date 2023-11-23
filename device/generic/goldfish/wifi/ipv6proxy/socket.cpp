@@ -32,7 +32,7 @@
 Socket::Socket() : mState(State::New), mSocket(-1) {
 }
 
-Socket::Socket(Socket&& other) : mState(other.mState), mSocket(other.mSocket) {
+Socket::Socket(Socket&& other) noexcept : mState(other.mState), mSocket(other.mSocket) {
     other.mSocket = -1;
     other.mState = State::Moved;
 }
@@ -45,7 +45,7 @@ Socket::~Socket() {
     mState = State::Destructed;
 }
 
-Socket& Socket::operator=(Socket&& other) {
+Socket& Socket::operator=(Socket&& other) noexcept {
     if (mSocket != -1) {
         close(mSocket);
     }

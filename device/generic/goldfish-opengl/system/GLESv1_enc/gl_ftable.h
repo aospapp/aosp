@@ -281,6 +281,8 @@ static const struct _gl_funcs_by_name {
 	{"glExtGetProgramBinarySourceQCOM", (void*)glExtGetProgramBinarySourceQCOM},
 	{"glStartTilingQCOM", (void*)glStartTilingQCOM},
 	{"glEndTilingQCOM", (void*)glEndTilingQCOM},
+	{"glGetGraphicsResetStatusEXT", (void*)glGetGraphicsResetStatusEXT},
+	{"glReadnPixelsEXT", (void*)glReadnPixelsEXT},
 };
 static const int gl_num_funcs = sizeof(gl_funcs_by_name) / sizeof(struct _gl_funcs_by_name);
 

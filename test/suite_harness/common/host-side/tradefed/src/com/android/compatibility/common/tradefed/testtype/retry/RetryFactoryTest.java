@@ -39,6 +39,8 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IShardableTest;
+import com.android.tradefed.testtype.suite.BaseTestSuite;
+import com.android.tradefed.util.MultiMap;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -131,6 +133,38 @@ public class RetryFactoryTest implements IRemoteTest, IDeviceTest, IBuildReceive
             importance = Importance.IF_UNSET)
     protected RetryType mRetryType = null;
 
+    @Option(
+        name = BaseTestSuite.CONFIG_PATTERNS_OPTION,
+        description =
+                "The pattern(s) of the configurations that should be loaded from a directory."
+                        + " If none is explicitly specified, .*.xml and .*.config will be used."
+                        + " Can be repeated."
+    )
+    private List<String> mConfigPatterns = new ArrayList<>();
+
+    @Option(
+        name = "module-metadata-include-filter",
+        description =
+                "Include modules for execution based on matching of metadata fields: for any of "
+                        + "the specified filter name and value, if a module has a metadata field "
+                        + "with the same name and value, it will be included. When both module "
+                        + "inclusion and exclusion rules are applied, inclusion rules will be "
+                        + "evaluated first. Using this together with test filter inclusion rules "
+                        + "may result in no tests to execute if the rules don't overlap."
+    )
+    private MultiMap<String, String> mModuleMetadataIncludeFilter = new MultiMap<>();
+
+    @Option(
+        name = "module-metadata-exclude-filter",
+        description =
+                "Exclude modules for execution based on matching of metadata fields: for any of "
+                        + "the specified filter name and value, if a module has a metadata field "
+                        + "with the same name and value, it will be excluded. When both module "
+                        + "inclusion and exclusion rules are applied, inclusion rules will be "
+                        + "evaluated first."
+    )
+    private MultiMap<String, String> mModuleMetadataExcludeFilter = new MultiMap<>();
+
     private List<ISystemStatusChecker> mStatusCheckers;
     private IBuildInfo mBuildInfo;
     private ITestDevice mDevice;
@@ -202,6 +236,8 @@ public class RetryFactoryTest implements IRemoteTest, IDeviceTest, IBuildReceive
         // TODO: we have access to the original command line, we should accommodate more re-run
         // scenario like when the original cts.xml config was not used.
         helper.validateBuildFingerprint(mDevice);
+        // ResultReporter when creating the xml will use the retry command line
+        helper.setBuildInfoRetryCommand(mBuildInfo);
         helper.setCommandLineOptionsFor(test);
         helper.setCommandLineOptionsFor(this);
         helper.populateRetryFilters();
@@ -227,9 +263,11 @@ public class RetryFactoryTest implements IRemoteTest, IDeviceTest, IBuildReceive
         test.setSystemStatusChecker(mStatusCheckers);
         test.setInvocationContext(mContext);
         test.setConfiguration(mMainConfiguration);
+        test.addConfigPatterns(mConfigPatterns);
+        test.addModuleMetadataIncludeFilters(mModuleMetadataIncludeFilter);
+        test.addModuleMetadataExcludeFilters(mModuleMetadataExcludeFilter);
         // reset the retry id - Ensure that retry of retry does not throw
         test.resetRetryId();
-        test.isRetry();
         // clean the helper
         helper.tearDown();
         return test;

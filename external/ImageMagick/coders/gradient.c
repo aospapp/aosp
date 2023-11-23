@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -92,6 +92,77 @@
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static Image *ReadXCImage(const ImageInfo *image_info,ExceptionInfo *exception)
+{
+  Image
+    *image;
+
+  MagickBooleanType
+    status;
+
+  PixelInfo
+    pixel;
+
+  register ssize_t
+    x;
+
+  register Quantum
+    *q;
+
+  ssize_t
+    y;
+
+  /*
+    Initialize Image structure.
+  */
+  assert(image_info != (const ImageInfo *) NULL);
+  assert(image_info->signature == MagickCoreSignature);
+  if (image_info->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",
+      image_info->filename);
+  assert(exception != (ExceptionInfo *) NULL);
+  assert(exception->signature == MagickCoreSignature);
+  image=AcquireImage(image_info,exception);
+  if (image->columns == 0)
+    image->columns=1;
+  if (image->rows == 0)
+    image->rows=1;
+  status=SetImageExtent(image,image->columns,image->rows,exception);
+  if (status == MagickFalse)
+    return(DestroyImageList(image));
+  (void) CopyMagickString(image->filename,image_info->filename,
+    MagickPathExtent);
+  if (*image_info->filename == '\0')
+    pixel=image->background_color;
+  else
+    {
+      status=QueryColorCompliance((char *) image_info->filename,AllCompliance,
+        &pixel,exception);
+      if (status == MagickFalse)
+        {
+          image=DestroyImage(image);
+          return((Image *) NULL);
+        }
+    }
+  (void) SetImageColorspace(image,pixel.colorspace,exception);
+  image->alpha_trait=pixel.alpha_trait;
+  for (y=0; y < (ssize_t) image->rows; y++)
+  {
+    q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
+    if (q == (Quantum *) NULL)
+      break;
+    for (x=0; x < (ssize_t) image->columns; x++)
+    {
+      SetPixelViaPixelInfo(image,&pixel,q);
+      q+=GetPixelChannels(image);
+    }
+    if (SyncAuthenticPixels(image,exception) == MagickFalse)
+      break;
+  }
+  return(GetFirstImageInList(image));
+}
+
 static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   ExceptionInfo *exception)
 {
@@ -125,14 +196,14 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
   SetImageInfoBlob(read_info,(void *) NULL,0);
   (void) CopyMagickString(colorname,image_info->filename,MagickPathExtent);
   (void) sscanf(image_info->filename,"%[^-]",colorname);
-  (void) FormatLocaleString(read_info->filename,MagickPathExtent,"xc:%s",
-    colorname);
-  image=ReadImage(read_info,exception);
+  (void) CopyMagickString(read_info->filename,colorname,MagickPathExtent);
+  image=ReadXCImage(read_info,exception);
   read_info=DestroyImageInfo(read_info);
   if (image == (Image *) NULL)
     return((Image *) NULL);
   (void) SetImageAlpha(image,(Quantum) TransparentAlpha,exception);
-  (void) CopyMagickString(image->filename,image_info->filename,MagickPathExtent);
+  (void) CopyMagickString(image->filename,image_info->filename,
+    MagickPathExtent);
   icc_color=MagickFalse;
   if (LocaleCompare(colorname,"icc") == 0)
     {
@@ -145,7 +216,8 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
     ThrowReaderException(ResourceLimitError,"MemoryAllocationFailed");
   stops[0].offset=0.0;
   stops[1].offset=1.0;
-  status=QueryColorCompliance(colorname,AllCompliance,&stops[0].color,exception);
+  status=QueryColorCompliance(colorname,AllCompliance,&stops[0].color,
+    exception);
   if (status == MagickFalse)
     {
       stops=(StopInfo *) RelinquishMagickMemory(stops);
@@ -160,7 +232,8 @@ static Image *ReadGRADIENTImage(const ImageInfo *image_info,
     (void) sscanf(image_info->filename,"%*[^-]-%[^-]",colorname);
   else
     (void) sscanf(image_info->filename,"%*[^-]-%*[^-]-%[^-]",colorname);
-  status=QueryColorCompliance(colorname,AllCompliance,&stops[1].color,exception);
+  status=QueryColorCompliance(colorname,AllCompliance,&stops[1].color,
+    exception);
   if (status == MagickFalse)
     {
       stops=(StopInfo *) RelinquishMagickMemory(stops);

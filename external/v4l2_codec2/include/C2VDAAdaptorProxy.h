@@ -58,8 +58,7 @@ public:
     void NotifyFlushDone(::arc::mojom::VideoDecodeAccelerator::Result result);
 
     static media::VideoDecodeAccelerator::SupportedProfiles GetSupportedProfiles(
-            uint32_t inputFormatFourcc);
-    static HalPixelFormat ResolveBufferFormat(bool crcb, bool semiplanar);
+            InputCodec inputCodec);
 
 private:
     void onConnectionError(const std::string& pipeName);
@@ -86,7 +85,7 @@ private:
     VideoDecodeAcceleratorAdaptor::Client* mClient;
 
     // Task runner for mojom functions.
-    const scoped_refptr<base::SingleThreadTaskRunner> mMojoTaskRunner;
+    const scoped_refptr<::base::SingleThreadTaskRunner> mMojoTaskRunner;
 
     // |mVDAPtr| and |mBinding| should only be called on |mMojoTaskRunner| after bound.
     ::arc::mojom::VideoDecodeAcceleratorPtr mVDAPtr;

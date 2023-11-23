@@ -16,15 +16,19 @@
 
 package com.android.documentsui.dirlist;
 
-import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
+import android.database.Cursor;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Space;
+
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.testing.TestRecyclerView;
 import com.android.documentsui.testing.Views;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @SmallTest
@@ -34,13 +38,17 @@ public class AccessibilityTest extends AndroidTestCase {
 
     private TestRecyclerView mView;
     private AccessibilityEventRouter mAccessibilityDelegate;
-    private boolean mCallbackCalled = false;
+    private boolean mClickCallbackCalled = false;
+    private boolean mLongClickCallbackCalled = false;
 
     @Override
     public void setUp() throws Exception {
         mView = TestRecyclerView.create(ITEMS);
         mAccessibilityDelegate = new AccessibilityEventRouter(mView, (View v) -> {
-            mCallbackCalled = true;
+            mClickCallbackCalled = true;
+            return true;
+        }, (View v) -> {
+            mLongClickCallbackCalled = true;
             return true;
         });
         mView.setAccessibilityDelegateCompat(mAccessibilityDelegate);
@@ -53,11 +61,39 @@ public class AccessibilityTest extends AndroidTestCase {
         assertTrue(info.isSelected());
     }
 
+    public void testNullItemDetails_NoActionClick() throws Exception {
+        View item = Views.createTestView(true);
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+
+        List<RecyclerView.ViewHolder> holders = new ArrayList<>();
+        holders.add(new MessageHolder(mView.getContext(), new Space(mView.getContext())) {
+            @Override
+            public void bind(Cursor cursor, String modelId) {
+
+            }
+        });
+
+        mView.setHolders(holders);
+
+        mAccessibilityDelegate.getItemDelegate().onInitializeAccessibilityNodeInfo(item, info);
+        assertFalse(info.isClickable());
+    }
+
     public void test_routesAccessibilityClicks() throws Exception {
         View item = Views.createTestView(true);
         AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
         mAccessibilityDelegate.getItemDelegate().onInitializeAccessibilityNodeInfo(item, info);
-        mAccessibilityDelegate.getItemDelegate().performAccessibilityAction(item, AccessibilityNodeInfoCompat.ACTION_CLICK, null);
-        assertTrue(mCallbackCalled);
+        mAccessibilityDelegate.getItemDelegate()
+            .performAccessibilityAction(item, AccessibilityNodeInfoCompat.ACTION_CLICK, null);
+        assertTrue(mClickCallbackCalled);
+    }
+
+    public void test_routesAccessibilityLongClicks() throws Exception {
+        View item = Views.createTestView(true);
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        mAccessibilityDelegate.getItemDelegate().onInitializeAccessibilityNodeInfo(item, info);
+        mAccessibilityDelegate.getItemDelegate()
+            .performAccessibilityAction(item, AccessibilityNodeInfoCompat.ACTION_LONG_CLICK, null);
+        assertTrue(mLongClickCallbackCalled);
     }
 }

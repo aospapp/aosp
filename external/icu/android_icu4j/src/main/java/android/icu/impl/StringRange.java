@@ -28,6 +28,9 @@ import android.icu.util.ICUException;
 public class StringRange {
     private static final boolean DEBUG = false;
 
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
     public interface Adder {
         /**
          * @param start

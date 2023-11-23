@@ -172,6 +172,7 @@ class IwRunnerTest(unittest.TestCase):
         '        tx packets:     6615\n'
         '        tx retries:     4\n'
         '        tx failed:      0\n'
+        '        rx drop misc:   5\n'
         '        signal:         -4 dBm\n'
         '        signal avg:     -11 dBm\n'
         '        Toffset:        81715566854 us\n'
@@ -199,7 +200,7 @@ class IwRunnerTest(unittest.TestCase):
         '        tx bytes:       1309945\n'
         '        tx packets:     6672\n'
         '        tx retries:     0\n'
-        '        tx failed:      0\n'
+        '        tx failed:      1\n'
         '        signal:         -21 dBm\n'
         '        signal avg:     -21 dBm\n'
         '        tx bitrate:     866.7 MBit/s VHT-MCS 9 80MHz '
@@ -242,15 +243,45 @@ class IwRunnerTest(unittest.TestCase):
         '        connected time: 824 seconds\n')
 
     STATION_DUMP_INFORMATION_PARSED = [
-        {'mac': 'aa:bb:cc:00:11:22', 'rssi_str': '-21 dBm', 'rssi_int': -21,
+        {'mac': 'aa:bb:cc:00:11:22',
+        'rssi_str': '-21 dBm',
+        'rssi_int': -21,
+        'rx_bitrate': '650.0 MBit/s VHT-MCS 7 80MHz short GI VHT-NSS 2',
+        'rx_drops': 0,
+        'rx_drop_rate': 0.0,
+        'rx_packets': 31938,
         'tx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2',
-        'rx_bitrate': '650.0 MBit/s VHT-MCS 7 80MHz short GI VHT-NSS 2'},
-        {'mac': 'dd:ee:ff:33:44:55', 'rssi_str': '-4 dBm', 'rssi_int': -4,
+        'tx_failures': 1,
+        'tx_failure_rate': 0.00014988009592326138,
+        'tx_packets': 6672,
+        'tx_retries': 0,
+        'tx_retry_rate': 0.0},
+        {'mac': 'dd:ee:ff:33:44:55',
+        'rssi_str': '-4 dBm',
+        'rssi_int': -4,
+        'rx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2',
+        'rx_drops': 5,
+        'rx_drop_rate': 0.0001563428285544542,
+        'rx_packets': 31981,
         'tx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2',
-        'rx_bitrate': '866.7 MBit/s VHT-MCS 9 80MHz short GI VHT-NSS 2'},
-        {'mac': 'ff:aa:bb:aa:44:55', 'rssi_str': '-29 dBm', 'rssi_int': -29,
+        'tx_failures': 0,
+        'tx_failure_rate': 0.0,
+        'tx_packets': 6615,
+        'tx_retries': 4,
+        'tx_retry_rate': 0.0006046863189720333},
+        {'mac': 'ff:aa:bb:aa:44:55',
+        'rssi_str': '-29 dBm',
+        'rssi_int': -29,
+        'rx_bitrate': '0',
+        'rx_drops': 0,
+        'rx_drop_rate': 0.0,
+        'rx_packets': 75,
         'tx_bitrate': '65.0 MBit/s VHT-MCS 0 80MHz short GI VHT-NSS 2',
-        'rx_bitrate': None},
+        'tx_failures': 0,
+        'tx_failure_rate': 0.0,
+        'tx_retries': 0,
+        'tx_retry_rate': 0.0,
+        'tx_packets': 21},
         ]
 
     STATION_DUMP_IFACE = 'mesh-5000mhz'

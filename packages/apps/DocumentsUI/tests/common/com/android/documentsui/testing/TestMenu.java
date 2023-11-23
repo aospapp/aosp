@@ -18,7 +18,8 @@ package com.android.documentsui.testing;
 
 import android.util.SparseArray;
 import android.view.Menu;
-import android.widget.SearchView;
+
+import androidx.appcompat.widget.SearchView;
 
 import com.android.documentsui.R;
 
@@ -56,10 +57,10 @@ public abstract class TestMenu implements Menu {
                 R.id.root_menu_open_in_new_window,
                 R.id.root_menu_paste_into_folder,
                 R.id.root_menu_settings,
-                R.id.action_menu_open,
                 R.id.action_menu_open_with,
                 R.id.action_menu_share,
                 R.id.action_menu_delete,
+                R.id.action_menu_select,
                 R.id.action_menu_select_all,
                 R.id.action_menu_copy_to,
                 R.id.action_menu_extract_to,
@@ -68,16 +69,18 @@ public abstract class TestMenu implements Menu {
                 R.id.action_menu_rename,
                 R.id.action_menu_inspect,
                 R.id.action_menu_view_in_owner,
+                R.id.action_menu_sort,
                 R.id.option_menu_search,
                 R.id.option_menu_debug,
-                R.id.option_menu_grid,
-                R.id.option_menu_list,
                 R.id.option_menu_new_window,
                 R.id.option_menu_create_dir,
                 R.id.option_menu_select_all,
                 R.id.option_menu_advanced,
                 R.id.option_menu_settings,
-                R.id.option_menu_inspect);
+                R.id.option_menu_inspect,
+                R.id.option_menu_sort,
+                R.id.sub_menu_grid,
+                R.id.sub_menu_list);
     }
 
 

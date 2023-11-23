@@ -31,16 +31,12 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.database.ContentObserver;
-import android.net.Uri;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
-import android.test.mock.MockContentResolver;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.After;
@@ -60,21 +56,9 @@ public class CarrierServiceStateTrackerTest extends TelephonyTest {
     private CarrierServiceStateTracker mSpyCarrierSST;
     private CarrierServiceStateTracker mCarrierSST;
     private CarrierServiceStateTrackerTestHandler mCarrierServiceStateTrackerTestHandler;
-    private FakeContentResolver mFakeContentResolver;
 
     NotificationManager mNotificationManager;
     PersistableBundle mBundle;
-
-    private class FakeContentResolver extends MockContentResolver {
-        @Override
-        public void notifyChange(Uri uri, ContentObserver observer, boolean syncToNetwork) {
-            super.notifyChange(uri, observer, syncToNetwork);
-            logd("onChanged(uri=" + uri + ")" + observer);
-            if (observer != null) {
-                observer.dispatchChange(false, uri);
-            }
-        }
-    }
 
     private class CarrierServiceStateTrackerTestHandler extends HandlerThread {
         private CarrierServiceStateTrackerTestHandler(String name) {
@@ -99,11 +83,6 @@ public class CarrierServiceStateTrackerTest extends TelephonyTest {
         mCarrierServiceStateTrackerTestHandler =
                 new CarrierServiceStateTrackerTestHandler(getClass().getSimpleName());
         mCarrierServiceStateTrackerTestHandler.start();
-        mFakeContentResolver = new CarrierServiceStateTrackerTest.FakeContentResolver();
-
-        when(mPhone.getContext().getContentResolver()).thenReturn(mFakeContentResolver);
-
-        doReturn(new ApplicationInfo()).when(mContext).getApplicationInfo();
 
         mNotificationManager = (NotificationManager) mContext.getSystemService(
                 Context.NOTIFICATION_SERVICE);
@@ -184,20 +163,57 @@ public class CarrierServiceStateTrackerTest extends TelephonyTest {
         doReturn(mNotificationBuilder).when(spyPrefNetworkNotification).getNotificationBuilder();
 
         String prefNetworkMode = Settings.Global.PREFERRED_NETWORK_MODE + mPhone.getSubId();
-        Settings.Global.putInt(mFakeContentResolver, prefNetworkMode,
+        Settings.Global.putInt(mContext.getContentResolver(), prefNetworkMode,
                 RILConstants.NETWORK_MODE_LTE_CDMA_EVDO);
-        mFakeContentResolver.notifyChange(
-                Settings.Global.getUriFor(prefNetworkMode), mSpyCarrierSST.getContentObserver());
+        mSpyCarrierSST.getContentObserver().dispatchChange(false,
+                Settings.Global.getUriFor(prefNetworkMode));
         waitForMs(500);
-        verify(mNotificationManager).notify(
+        verify(mNotificationManager, atLeast(1)).notify(
                 eq(CarrierServiceStateTracker.NOTIFICATION_PREF_NETWORK), isA(Notification.class));
 
-        Settings.Global.putInt(mFakeContentResolver, prefNetworkMode,
+        Settings.Global.putInt(mContext.getContentResolver(), prefNetworkMode,
                 RILConstants.NETWORK_MODE_LTE_CDMA_EVDO_GSM_WCDMA);
-        mFakeContentResolver.notifyChange(
-                Settings.Global.getUriFor(prefNetworkMode), mSpyCarrierSST.getContentObserver());
+        mSpyCarrierSST.getContentObserver().dispatchChange(false,
+                Settings.Global.getUriFor(prefNetworkMode));
         waitForMs(500);
         verify(mNotificationManager, atLeast(1)).cancel(
                 CarrierServiceStateTracker.NOTIFICATION_PREF_NETWORK);
+    }
+
+    @Test
+    @SmallTest
+    public void testSendEmergencyNetworkNotification() {
+        logd(LOG_TAG + ":testSendEmergencyNetworkNotification()");
+        Intent intent = new Intent().setAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
+        mContext.sendBroadcast(intent);
+        waitForMs(300);
+
+        Map<Integer, CarrierServiceStateTracker.NotificationType> notificationTypeMap =
+                mCarrierSST.getNotificationTypeMap();
+        CarrierServiceStateTracker.NotificationType emergencyNetworkNotification =
+                notificationTypeMap.get(CarrierServiceStateTracker.NOTIFICATION_EMERGENCY_NETWORK);
+        CarrierServiceStateTracker.NotificationType spyEmergencyNetworkNotification = spy(
+                emergencyNetworkNotification);
+        notificationTypeMap.put(CarrierServiceStateTracker.NOTIFICATION_EMERGENCY_NETWORK,
+                spyEmergencyNetworkNotification);
+        Notification.Builder mNotificationBuilder = new Notification.Builder(mContext);
+        doReturn(ServiceState.STATE_OUT_OF_SERVICE).when(mSST.mSS).getVoiceRegState();
+        doReturn(mNotificationBuilder).when(spyEmergencyNetworkNotification)
+                .getNotificationBuilder();
+
+        doReturn(true).when(mPhone).isWifiCallingEnabled();
+        Message notificationMsg = mSpyCarrierSST.obtainMessage(
+                CarrierServiceStateTracker.CARRIER_EVENT_IMS_CAPABILITIES_CHANGED, null);
+        mSpyCarrierSST.handleMessage(notificationMsg);
+        waitForHandlerAction(mSpyCarrierSST, TEST_TIMEOUT);
+        verify(mNotificationManager).notify(
+                eq(CarrierServiceStateTracker.NOTIFICATION_EMERGENCY_NETWORK),
+                isA(Notification.class));
+
+        doReturn(false).when(mPhone).isWifiCallingEnabled();
+        mSpyCarrierSST.handleMessage(notificationMsg);
+        waitForHandlerAction(mSpyCarrierSST, TEST_TIMEOUT);
+        verify(mNotificationManager, atLeast(2)).cancel(
+                CarrierServiceStateTracker.NOTIFICATION_EMERGENCY_NETWORK);
     }
 }

@@ -101,7 +101,7 @@ public abstract class CarInputHandlingService extends Service {
         try {
             callbackBinder.transact(INPUT_CALLBACK_BINDER_CODE, dataIn, null, IBinder.FLAG_ONEWAY);
         } catch (RemoteException e) {
-            Log.e(TAG, "doCallbackIfPossible: callback failed", e);
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -160,7 +160,7 @@ public abstract class CarInputHandlingService extends Service {
     /**
      * Filter for input events that are handled by custom service.
      */
-    public static class InputFilter implements Parcelable {
+    public static final class InputFilter implements Parcelable {
         public final int mKeyCode;
         public final int mTargetDisplay;
 

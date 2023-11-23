@@ -18,35 +18,46 @@
 #define ART_RUNTIME_JIT_DEBUGGER_INTERFACE_H_
 
 #include <inttypes.h>
-#include <memory>
 #include <vector>
 
+#include "arch/instruction_set_features.h"
 #include "base/array_ref.h"
-#include "base/mutex.h"
+#include "base/locks.h"
 
 namespace art {
 
+class DexFile;
+class Thread;
+
+// This method is declared in the compiler library.
+// We need to pass it by pointer to be able to call it from runtime.
+typedef std::vector<uint8_t> PackElfFileForJITFunction(
+    InstructionSet isa,
+    const InstructionSetFeatures* features,
+    std::vector<ArrayRef<const uint8_t>>& added_elf_files,
+    std::vector<const void*>& removed_symbols,
+    /*out*/ size_t* num_symbols);
+
 // Notify native tools (e.g. libunwind) that DEX file has been opened.
-// It takes the lock itself. The parameter must point to dex data (not the DexFile* object).
-void AddNativeDebugInfoForDex(Thread* current_thread, ArrayRef<const uint8_t> dexfile);
+void AddNativeDebugInfoForDex(Thread* self, const DexFile* dexfile);
 
 // Notify native tools (e.g. libunwind) that DEX file has been closed.
-// It takes the lock itself. The parameter must point to dex data (not the DexFile* object).
-void RemoveNativeDebugInfoForDex(Thread* current_thread, ArrayRef<const uint8_t> dexfile);
+void RemoveNativeDebugInfoForDex(Thread* self, const DexFile* dexfile);
 
-// Notify native tools about new JITed code by passing in-memory ELF.
-// The handle is the object that is being described (needed to be able to remove the entry).
+// Notify native tools (e.g. libunwind) that JIT has compiled a new method.
 // The method will make copy of the passed ELF file (to shrink it to the minimum size).
-void AddNativeDebugInfoForJit(const void* handle, const std::vector<uint8_t>& symfile)
-    REQUIRES(Locks::native_debug_interface_lock_);
+void AddNativeDebugInfoForJit(Thread* self,
+                              const void* code_ptr,
+                              const std::vector<uint8_t>& symfile,
+                              PackElfFileForJITFunction pack,
+                              InstructionSet isa,
+                              const InstructionSetFeatures* features);
 
-// Notify native debugger that JITed code has been removed and free the debug info.
-void RemoveNativeDebugInfoForJit(const void* handle)
-    REQUIRES(Locks::native_debug_interface_lock_);
+// Notify native tools (e.g. libunwind) that JIT code has been garbage collected.
+void RemoveNativeDebugInfoForJit(Thread* self, const void* code_ptr);
 
-// Returns approximate memory used by all JITCodeEntries.
-size_t GetJitNativeDebugInfoMemUsage()
-    REQUIRES(Locks::native_debug_interface_lock_);
+// Returns approximate memory used by debug info for JIT code.
+size_t GetJitMiniDebugInfoMemUsage();
 
 }  // namespace art
 

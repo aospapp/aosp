@@ -29,7 +29,6 @@ import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.google.common.io.ByteStreams
 import org.objectweb.asm.ClassReader
-import org.objectweb.asm.Type
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -50,18 +49,29 @@ const val USAGE_REPORT_MAX_ROWS = 3000
 const val INCLUDE_HORIZONTAL_EDGES = false
 
 class AnnotationStatistics(val api: Codebase) {
-    private val apiFilter = ApiPredicate(api)
+    private val apiFilter = ApiPredicate()
 
     /** Measure the coverage statistics for the API */
     fun count() {
+        // Count of all methods, fields and parameters
         var allMethods = 0
-        var annotatedMethods = 0
         var allFields = 0
-        var annotatedFields = 0
         var allParameters = 0
+
+        // Count of all methods, fields and parameters that requires annotations
+        // (e.g. not primitives, not constructors, etc)
+        var eligibleMethods = 0
+        var eligibleMethodReturns = 0
+        var eligibleFields = 0
+        var eligibleParameters = 0
+
+        // Count of methods, fields and parameters that were actually annotated
+        var annotatedMethods = 0
+        var annotatedMethodReturns = 0
+        var annotatedFields = 0
         var annotatedParameters = 0
 
-        api.accept(object : ApiVisitor(api) {
+        api.accept(object : ApiVisitor() {
             override fun skip(item: Item): Boolean {
                 if (options.omitRuntimePackageStats && item is PackageItem) {
                     val name = item.qualifiedName()
@@ -77,32 +87,43 @@ class AnnotationStatistics(val api: Codebase) {
             }
 
             override fun visitParameter(parameter: ParameterItem) {
+                allParameters++
                 if (!parameter.requiresNullnessInfo()) {
                     return
                 }
-                allParameters++
-                if (parameter.modifiers.annotations().any { it.isNonNull() || it.isNullable() }) {
+                eligibleParameters++
+                if (parameter.hasNullnessInfo()) {
                     annotatedParameters++
                 }
             }
 
             override fun visitField(field: FieldItem) {
+                allFields++
                 if (!field.requiresNullnessInfo()) {
                     return
                 }
-                allFields++
-                if (field.modifiers.annotations().any { it.isNonNull() || it.isNullable() }) {
+                eligibleFields++
+                if (field.hasNullnessInfo()) {
                     annotatedFields++
                 }
             }
 
             override fun visitMethod(method: MethodItem) {
-                if (!method.requiresNullnessInfo()) {
-                    return
-                }
                 allMethods++
-                if (method.modifiers.annotations().any { it.isNonNull() || it.isNullable() }) {
-                    annotatedMethods++
+                if (method.requiresNullnessInfo()) { // No, this includes parameter requirements
+                    eligibleMethods++
+                    if (method.hasNullnessInfo()) {
+                        annotatedMethods++
+                    }
+                }
+
+                // method.requiresNullnessInfo also checks parameters; here we want to consider
+                // only the method modifier list
+                if (!method.isConstructor() && method.returnType()?.primitive != true) {
+                    eligibleMethodReturns++
+                    if (method.modifiers.hasNullnessInfo()) {
+                        annotatedMethodReturns++
+                    }
                 }
             }
         })
@@ -111,11 +132,21 @@ class AnnotationStatistics(val api: Codebase) {
         options.stdout.println(
             """
             Nullness Annotation Coverage Statistics:
-            $annotatedMethods out of $allMethods methods were annotated (${percent(annotatedMethods, allMethods)}%)
-            $annotatedFields out of $allFields fields were annotated (${percent(annotatedFields, allFields)}%)
-            $annotatedParameters out of $allParameters parameters were annotated (${percent(
+            $annotatedFields out of $eligibleFields eligible fields (out of $allFields total fields) were annotated (${percent(
+                annotatedFields,
+                eligibleFields
+            )}%)
+            $annotatedMethods out of $eligibleMethods eligible methods (out of $allMethods total methods) were fully annotated (${percent(
+                annotatedMethods,
+                eligibleMethods
+            )}%)
+                $annotatedMethodReturns out of $eligibleMethodReturns eligible method returns were annotated (${percent(
+                annotatedMethodReturns,
+                eligibleMethodReturns
+            )}%)
+                $annotatedParameters out of $eligibleParameters eligible parameters were annotated (${percent(
                 annotatedParameters,
-                allParameters
+                eligibleParameters
             )}%)
             """.trimIndent()
         )
@@ -251,12 +282,14 @@ class AnnotationStatistics(val api: Codebase) {
         // Top APIs
         printer.println("\nTop referenced un-annotated classes:\n")
 
-        printTable("Qualified Class Name",
+        printTable(
+            "Qualified Class Name",
             "Usage Count",
             classes,
             { (it as ClassItem).qualifiedName() },
             { classCount[it]!! },
-            printer)
+            printer
+        )
 
         if (reportFile != null) {
             printer.close()
@@ -286,8 +319,8 @@ class AnnotationStatistics(val api: Codebase) {
             sorted,
             {
                 val member = it as MemberItem
-                "${member.containingClass().simpleName()}.${member.name()}${if (member is MethodItem) "(${member.parameters().joinToString {
-                    it.type().toSimpleType()
+                "${member.containingClass().simpleName()}.${member.name()}${if (member is MethodItem) "(${member.parameters().joinToString { parameter ->
+                    parameter.type().toSimpleType()
                 }})" else ""}"
             },
             { used[it]!! },
@@ -406,7 +439,7 @@ class AnnotationStatistics(val api: Codebase) {
                     if (skipJava && isSkippableOwner(call.owner)) {
                         continue
                     }
-                    val item = findMethod(call)
+                    val item = api.findMethod(call, apiFilter)
                     item?.let {
                         val count = used[it]
                         if (count == null) {
@@ -420,7 +453,7 @@ class AnnotationStatistics(val api: Codebase) {
                     if (skipJava && isSkippableOwner(field.owner)) {
                         continue
                     }
-                    val item = findField(field)
+                    val item = api.findField(field, apiFilter)
                     item?.let {
                         val count = used[it]
                         if (count == null) {
@@ -439,48 +472,4 @@ class AnnotationStatistics(val api: Codebase) {
             owner.startsWith("javax/") ||
             owner.startsWith("kotlin") ||
             owner.startsWith("kotlinx/")
-
-    private fun findField(node: FieldInsnNode): FieldItem? {
-        val cls = findClass(node.owner) ?: return null
-        val field = cls.findField(node.name)
-        return if (field != null && apiFilter.test(field)) {
-            field
-        } else {
-            null
-        }
-    }
-
-    private fun findClass(owner: String): ClassItem? {
-        val className = owner.replace('/', '.').replace('$', '.')
-        val cls = api.findClass(className)
-        return if (cls != null && apiFilter.test(cls)) {
-            cls
-        } else {
-            null
-        }
-    }
-
-    private fun findMethod(node: MethodInsnNode): MethodItem? {
-        val cls = findClass(node.owner) ?: return null
-        val types = Type.getArgumentTypes(node.desc)
-        val parameters = if (types.isNotEmpty()) {
-            val sb = StringBuilder()
-            for (type in types) {
-                if (!sb.isEmpty()) {
-                    sb.append(", ")
-                }
-                sb.append(type.className.replace('/', '.').replace('$', '.'))
-            }
-            sb.toString()
-        } else {
-            ""
-        }
-        val methodName = if (node.name == "<init>") cls.simpleName() else node.name
-        val method = cls.findMethod(methodName, parameters)
-        return if (method != null && apiFilter.test(method)) {
-            method
-        } else {
-            null
-        }
-    }
 }

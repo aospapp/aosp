@@ -15,9 +15,10 @@
  */
 package com.android.documentsui.inspector;
 
-import android.annotation.StringRes;
 import android.content.Context;
 import android.content.res.Resources;
+import android.text.Selection;
+import android.text.Spannable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +26,8 @@ import android.view.ViewGroup;
 import android.view.textclassifier.TextClassifier;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.annotation.StringRes;
 
 import com.android.documentsui.R;
 import com.android.documentsui.inspector.InspectorController.TableDisplay;
@@ -60,7 +63,7 @@ public class TableView extends LinearLayout implements TableDisplay {
     }
 
     void setTitle(@StringRes int title, boolean showDivider) {
-        putTitle(mContext.getResources().getString(title), showDivider);
+        putTitle(mRes.getString(title), showDivider);
     }
 
     // A naughty title method (that takes strings, not message ids), mostly for DebugView.
@@ -77,6 +80,13 @@ public class TableView extends LinearLayout implements TableDisplay {
             mTitles.put(title, view);
         }
         view.setText(title);
+        view.setCustomSelectionActionModeCallback(
+                new HeaderTextSelector(view, this::selectText));
+        view.setVisibility(title.toString().isEmpty() ? GONE : VISIBLE);
+    }
+
+    private void selectText(Spannable text, int start, int stop) {
+        Selection.setSelection(text, start, stop);
     }
 
     protected KeyValueRow createKeyValueRow(ViewGroup parent) {
@@ -94,7 +104,6 @@ public class TableView extends LinearLayout implements TableDisplay {
         put(mRes.getString(keyId), value);
     }
 
-
     /**
      * Puts or updates a value in the table view.
      */
@@ -105,7 +114,7 @@ public class TableView extends LinearLayout implements TableDisplay {
             row = createKeyValueRow(this);
             row.setKey(key);
             mRows.put(key, row);
-        } else {
+        } else if (row.hasOnClickListeners()) {
             row.removeOnClickListener();
         }
 

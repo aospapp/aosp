@@ -104,7 +104,7 @@ void dng_bilinear_kernel::Add (const dng_point &delta,
 		
 	// Add element to list.
 		
-	DNG_ASSERT (fCount < kMaxCount, "Too many kernel entries")
+	DNG_ASSERT (fCount < kMaxCount, "Too many kernel entries");
 	
 	fDelta    [fCount] = delta;
 	fWeight32 [fCount] = weight;

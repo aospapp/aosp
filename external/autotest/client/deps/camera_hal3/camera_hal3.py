@@ -10,7 +10,7 @@ from autotest_lib.client.bin import utils
 version = 1
 
 def setup(setup_dir):
-    binary = 'arc_camera3_test'
+    binary = 'cros_camera_test'
     src_path = os.path.join(os.environ['SYSROOT'], 'usr', 'bin')
     dst_path = os.path.join(os.getcwd(), 'bin')
     os.mkdir(dst_path)

@@ -20,6 +20,7 @@ import os, sys, re, traceback
 
 import common
 from autotest_lib.cli import topic_common
+from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.server import utils
 
 
@@ -30,7 +31,7 @@ def main():
     atest-<topic> <action> <options>
     atest --help
     """
-    utils.verify_not_root_user()
+    _disallow_root_user_on_moblab()
     cli = os.path.basename(sys.argv[0])
     syntax_obj = topic_common.atest()
 
@@ -99,3 +100,9 @@ def main():
                 traceback.print_exc()
     finally:
         return action_obj.show_all_failures()
+
+
+def _disallow_root_user_on_moblab():
+    """Running these tools as root interferes with moblab services"""
+    if lsbrelease_utils.is_moblab():
+        utils.verify_not_root_user()

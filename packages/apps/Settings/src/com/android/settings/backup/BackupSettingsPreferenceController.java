@@ -19,8 +19,9 @@ package com.android.settings.backup;
 
 import android.content.Context;
 import android.content.Intent;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.core.AbstractPreferenceController;
@@ -30,7 +31,7 @@ public class BackupSettingsPreferenceController extends AbstractPreferenceContro
     private static final String BACKUP_SETTINGS = "backup_settings";
     private static final  String MANUFACTURER_SETTINGS = "manufacturer_backup";
     private Intent mBackupSettingsIntent;
-    private String mBackupSettingsTitle;
+    private CharSequence mBackupSettingsTitle;
     private String mBackupSettingsSummary;
     private Intent mManufacturerIntent;
     private String mManufacturerLabel;

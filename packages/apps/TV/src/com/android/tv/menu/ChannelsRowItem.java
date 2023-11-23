@@ -30,6 +30,10 @@ public class ChannelsRowItem {
     public static final int DVR_ITEM_ID = -3;
     /** The item ID for app link item */
     public static final int APP_LINK_ITEM_ID = -4;
+    /** The item ID for channel up item */
+    public static final int UP_ID = -5;
+    /** The item ID for app link item */
+    public static final int DOWN_ID = -6;
 
     /** The item which represents the guide. */
     public static final ChannelsRowItem GUIDE_ITEM =
@@ -43,6 +47,12 @@ public class ChannelsRowItem {
     /** The item which represents the app link. */
     public static final ChannelsRowItem APP_LINK_ITEM =
             new ChannelsRowItem(APP_LINK_ITEM_ID, R.layout.menu_card_app_link);
+
+    /** The item which represents the channel up. */
+    public static final ChannelsRowItem UP_ITEM = new ChannelsRowItem(UP_ID, R.layout.menu_card_up);
+    /** The item which represents the channel down. */
+    public static final ChannelsRowItem DOWN_ITEM =
+            new ChannelsRowItem(DOWN_ID, R.layout.menu_card_down);
 
     private final long mItemId;
     @NonNull private Channel mChannel;

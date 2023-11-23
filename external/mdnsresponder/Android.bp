@@ -160,6 +160,7 @@ cc_library {
     name: "libmdnssd",
     defaults: ["mdnsresponder_default_cflags"],
     host_supported: true,
+    recovery_available: true,
     srcs: [
         "mDNSShared/dnssd_clientlib.c",
         "mDNSShared/dnssd_clientstub.c",

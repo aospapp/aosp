@@ -22,6 +22,9 @@ class firmware_ECPowerG3(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECPowerG3, self).initialize(host, cmdline_args)
+        # Don't bother if there is no Chrome EC.
+        if not self.check_ec_capability():
+            raise error.TestNAError("Nothing needs to be tested on this device")
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.ec.send_command("chan 0")
@@ -46,6 +49,8 @@ class firmware_ECPowerG3(FirmwareTest):
         return not self._failed
 
     def run_once(self):
+        """Execute the main body of the test.
+        """
         if not self.check_ec_capability(['x86']):
             raise error.TestNAError("Nothing needs to be tested on this device")
 

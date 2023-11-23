@@ -37,7 +37,8 @@ class AesEvpCipherDescription : public EvpCipherDescription {
 
 class AesOperationFactory : public BlockCipherOperationFactory {
   public:
-    AesOperationFactory(keymaster_purpose_t purpose) : BlockCipherOperationFactory(purpose) {}
+    explicit AesOperationFactory(keymaster_purpose_t purpose)
+        : BlockCipherOperationFactory(purpose) {}
     const EvpCipherDescription& GetCipherDescription() const override;
 };
 

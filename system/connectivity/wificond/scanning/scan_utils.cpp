@@ -17,9 +17,11 @@
 #include "android/net/wifi/IWifiScannerImpl.h"
 #include "wificond/scanning/scan_utils.h"
 
+#include <array>
 #include <vector>
 
 #include <linux/netlink.h>
+#include <linux/if_ether.h>
 
 #include <android-base/logging.h>
 
@@ -31,6 +33,7 @@
 using android::net::wifi::IWifiScannerImpl;
 using com::android::server::wifi::wificond::NativeScanResult;
 using com::android::server::wifi::wificond::RadioChainInfo;
+using std::array;
 using std::unique_ptr;
 using std::vector;
 
@@ -134,7 +137,7 @@ bool ScanUtils::ParseScanResult(unique_ptr<const NL80211Packet> packet,
   }
   NL80211NestedAttr bss(0);
   if (packet->GetAttribute(NL80211_ATTR_BSS, &bss)) {
-    vector<uint8_t> bssid;
+    array<uint8_t, ETH_ALEN> bssid;
     if (!bss.GetAttributeValue(NL80211_BSS_BSSID, &bssid)) {
       LOG(ERROR) << "Failed to get BSSID from scan result packet";
       return false;
@@ -402,8 +405,7 @@ bool ScanUtils::StartScheduledScan(
     const SchedScanIntervalSetting& interval_setting,
     int32_t rssi_threshold_2g,
     int32_t rssi_threshold_5g,
-    bool request_random_mac,
-    bool request_low_power,
+    const SchedScanReqFlags& req_flags,
     const std::vector<std::vector<uint8_t>>& scan_ssids,
     const std::vector<std::vector<uint8_t>>& match_ssids,
     const std::vector<uint32_t>& freqs,
@@ -441,15 +443,18 @@ bool ScanUtils::StartScheduledScan(
   start_sched_scan.AddAttribute(scan_match_attr);
 
   // We set 5g threshold for default and ajust threshold for 2g band.
-  struct nl80211_bss_select_rssi_adjust rssi_adjust;
-  rssi_adjust.band = NL80211_BAND_2GHZ;
-  rssi_adjust.delta = static_cast<int8_t>(rssi_threshold_2g - rssi_threshold_5g);
-  NL80211Attr<vector<uint8_t>> rssi_adjust_attr(
-      NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST,
-      vector<uint8_t>(
-          reinterpret_cast<uint8_t*>(&rssi_adjust),
-          reinterpret_cast<uint8_t*>(&rssi_adjust) + sizeof(rssi_adjust)));
-  start_sched_scan.AddAttribute(rssi_adjust_attr);
+  // check sched_scan supported before set NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST attribute.
+  if (req_flags.request_sched_scan_relative_rssi) {
+      struct nl80211_bss_select_rssi_adjust rssi_adjust;
+      rssi_adjust.band = NL80211_BAND_2GHZ;
+      rssi_adjust.delta = static_cast<int8_t>(rssi_threshold_2g - rssi_threshold_5g);
+      NL80211Attr<vector<uint8_t>> rssi_adjust_attr(
+          NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST,
+          vector<uint8_t>(
+              reinterpret_cast<uint8_t*>(&rssi_adjust),
+              reinterpret_cast<uint8_t*>(&rssi_adjust) + sizeof(rssi_adjust)));
+      start_sched_scan.AddAttribute(rssi_adjust_attr);
+  }
 
   // Append all attributes to the NL80211_CMD_START_SCHED_SCAN packet.
   start_sched_scan.AddAttribute(
@@ -485,10 +490,10 @@ bool ScanUtils::StartScheduledScan(
                               interval_setting.final_interval_ms));
   }
   uint32_t scan_flags = 0;
-  if (request_random_mac) {
+  if (req_flags.request_random_mac) {
     scan_flags |= NL80211_SCAN_FLAG_RANDOM_ADDR;
   }
-  if (request_low_power) {
+  if (req_flags.request_low_power) {
     scan_flags |= NL80211_SCAN_FLAG_LOW_POWER;
   }
   if (scan_flags) {

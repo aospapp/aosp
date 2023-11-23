@@ -24,7 +24,6 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -83,8 +82,6 @@ public class AtraceRunMetricCollectorTest {
 
         OptionSetter setter = new OptionSetter(mAtraceRunMetricCollector);
         setter.setOptionValue("directory-keys", "sdcard/srcdirectory");
-        HashMap<String, Metric> currentMetrics = new HashMap<>();
-        currentMetrics.put("srcdirectory", TfMetricProtoUtil.stringToMetric("sdcard/srcdirectory"));
 
         Mockito.when(mMockDevice.pullDir(Mockito.eq("sdcard/srcdirectory"),
                 Mockito.any(File.class))).thenReturn(true);

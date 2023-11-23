@@ -16,11 +16,11 @@
 
 package com.android.tv.recommendation;
 
-import static android.support.test.InstrumentationRegistry.getContext;
+import static androidx.test.InstrumentationRegistry.getContext;
 import static com.google.common.truth.Truth.assertThat;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.testing.utils.Utils;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;

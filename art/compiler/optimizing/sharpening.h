@@ -23,49 +23,33 @@
 namespace art {
 
 class CodeGenerator;
-class CompilerDriver;
 class DexCompilationUnit;
 
-// Optimization that tries to improve the way we dispatch methods and access types,
-// fields, etc. Besides actual method sharpening based on receiver type (for example
-// virtual->direct), this includes selecting the best available dispatch for
-// invoke-static/-direct based on code generator support.
-class HSharpening : public HOptimization {
+// Utility methods that try to improve the way we dispatch methods, and access
+// types and strings.
+class HSharpening {
  public:
-  HSharpening(HGraph* graph,
-              CodeGenerator* codegen,
-              CompilerDriver* compiler_driver,
-              const char* name = kSharpeningPassName)
-      : HOptimization(graph, name),
-        codegen_(codegen),
-        compiler_driver_(compiler_driver) { }
-
-  void Run() OVERRIDE;
-
-  static constexpr const char* kSharpeningPassName = "sharpening";
-
-  // Used by the builder.
-  static void ProcessLoadString(HLoadString* load_string,
-                                CodeGenerator* codegen,
-                                CompilerDriver* compiler_driver,
-                                const DexCompilationUnit& dex_compilation_unit,
-                                VariableSizedHandleScope* handles);
+  // Used by the builder and InstructionSimplifier.
+  static HInvokeStaticOrDirect::DispatchInfo SharpenInvokeStaticOrDirect(
+      ArtMethod* callee, CodeGenerator* codegen);
 
   // Used by the builder and the inliner.
   static HLoadClass::LoadKind ComputeLoadClassKind(HLoadClass* load_class,
                                                    CodeGenerator* codegen,
-                                                   CompilerDriver* compiler_driver,
                                                    const DexCompilationUnit& dex_compilation_unit)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Used by Sharpening and InstructionSimplifier.
-  static void SharpenInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke,
-                                          CodeGenerator* codegen,
-                                          CompilerDriver* compiler_driver);
+  // Used by the builder.
+  static TypeCheckKind ComputeTypeCheckKind(ObjPtr<mirror::Class> klass,
+                                            CodeGenerator* codegen,
+                                            bool needs_access_check)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
- private:
-  CodeGenerator* codegen_;
-  CompilerDriver* compiler_driver_;
+  // Used by the builder.
+  static void ProcessLoadString(HLoadString* load_string,
+                                CodeGenerator* codegen,
+                                const DexCompilationUnit& dex_compilation_unit,
+                                VariableSizedHandleScope* handles);
 };
 
 }  // namespace art

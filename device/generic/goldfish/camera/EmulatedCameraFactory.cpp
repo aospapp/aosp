@@ -30,7 +30,7 @@
 #include "EmulatedQemuCamera.h"
 #include "EmulatedQemuCamera3.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 
 extern camera_module_t HAL_MODULE_INFO_SYM;
@@ -312,8 +312,7 @@ void EmulatedCameraFactory::findQemuCameras(
     size_t lineBegin = 0;
     size_t lineEnd = cameraListStr.find('\n');
     while (lineEnd != std::string::npos) {
-        std::string cameraStr = cameraListStr.substr(lineBegin, lineEnd);
-
+        std::string cameraStr = cameraListStr.substr(lineBegin, lineEnd - lineBegin);
         // Parse the 'name', 'framedims', and 'dir' tokens.
         char *name, *frameDims, *dir;
         if (getTokenValue(kListNameToken, cameraStr, &name) &&
@@ -581,7 +580,7 @@ void EmulatedCameraFactory::onStatusChanged(int cameraId, int newStatus) {
 
 // Entry point for camera HAL API.
 struct hw_module_methods_t EmulatedCameraFactory::mCameraModuleMethods = {
-    open: EmulatedCameraFactory::device_open
+    .open = EmulatedCameraFactory::device_open
 };
 
 }; // end of namespace android

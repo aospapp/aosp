@@ -24,6 +24,7 @@ cc_library_static {
     host_supported: true,
     static_ndk_lib: true,
     vendor_available: true,
+    recovery_available: true,
     sdk_version: "minimum",
     // The following list contains functions that are not available in libgcc.a, so
     // we potentially need them when using a Clang-built component (e.g., -ftrapv
@@ -378,32 +379,32 @@ cc_library {
             ldflags: ["-Wl,--exclude-libs,libunwind_llvm.a"],
         },
         android_arm64: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_mips: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_mips64: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_x86: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         android_x86_64: {
             srcs: ["lib/builtins/ppc/floatditf.c"],
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
         },
         linux_glibc: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            static_libs: ["libunwindbacktrace", "libunwind_static"],
             shared_libs: ["liblzma"],
         },
         windows: {
-            static_libs: ["libunwindbacktrace", "libunwind"],
+            enabled: true,
             // Only build enable_execute_stack.c on non-Windows hosts.
             exclude_srcs: ["lib/builtins/enable_execute_stack.c"],
         },

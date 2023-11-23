@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -397,8 +397,8 @@ def compare_call_logs(pse_call_log, pce_call_log):
         for i in range(len(pse_call_log)):
             # Compare the phone number
             if normalize_phonenumber(pse_call_log[i][
-                                         "number"]) != normalize_phonenumber(pce_call_log[i][
-                                                                                 "number"]):
+                    "number"]) != normalize_phonenumber(pce_call_log[i][
+                         "number"]):
                 log.warning("Call Log numbers differ")
                 call_logs_match = False
 
@@ -409,7 +409,7 @@ def compare_call_logs(pse_call_log, pce_call_log):
 
             # Compare time to truncated second.
             if int(pse_call_log[i]["date"]) // 1000 != int(pce_call_log[i][
-                                                               "date"]) // 1000:
+                    "date"]) // 1000:
                 log.warning("Call log times don't match, check timezone.")
                 call_logs_match = False
 
@@ -425,3 +425,4 @@ def compare_call_logs(pse_call_log, pce_call_log):
         log.info(pce_call_log)
 
     return call_logs_match
+

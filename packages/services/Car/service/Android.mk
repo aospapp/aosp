@@ -27,6 +27,8 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(car_service_sources)
 
+LOCAL_USE_AAPT2 := true
+
 LOCAL_PACKAGE_NAME := CarService
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
@@ -37,15 +39,28 @@ LOCAL_PRIVILEGED_MODULE := true
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_JAVA_LIBRARIES += android.car
+LOCAL_JAVA_LIBRARIES += \
+    android.car \
+
 LOCAL_STATIC_JAVA_LIBRARIES += \
-        android.hidl.base-V1.0-java \
-        android.hardware.automotive.audiocontrol-V1.0-java \
-        android.hardware.automotive.vehicle-V2.0-java \
-        vehicle-hal-support-lib \
-        car-frameworks-service \
-        car-systemtest \
-        com.android.car.procfsinspector-client \
+    android.car.userlib \
+    android.hidl.base-V1.0-java \
+    android.hardware.automotive.audiocontrol-V1.0-java \
+    android.hardware.automotive.vehicle-V2.0-java \
+    android.hardware.health-V1.0-java \
+    android.hardware.health-V2.0-java \
+    vehicle-hal-support-lib \
+    car-frameworks-service \
+    car-systemtest \
+    com.android.car.procfsinspector-client \
+    blestream-protos \
+
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    SettingsLib \
+    androidx.preference_preference \
+    EncryptionRunner
+
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car
 
 include $(BUILD_PACKAGE)
 
@@ -62,15 +77,28 @@ LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_MODULE := car-service-lib-for-test
 
-LOCAL_JAVA_LIBRARIES += android.car \
-        car-frameworks-service
+LOCAL_JAVA_LIBRARIES += \
+    android.car \
+    car-frameworks-service \
+
 LOCAL_STATIC_JAVA_LIBRARIES += \
-        android.hidl.base-V1.0-java \
-        android.hardware.automotive.audiocontrol-V1.0-java \
-        android.hardware.automotive.vehicle-V2.0-java \
-        vehicle-hal-support-lib \
-        car-systemtest \
-        com.android.car.procfsinspector-client \
+    android.car.userlib \
+    android.hidl.base-V1.0-java \
+    android.hardware.automotive.audiocontrol-V1.0-java \
+    android.hardware.automotive.vehicle-V2.0-java \
+    android.hardware.health-V1.0-java \
+    android.hardware.health-V2.0-java \
+    vehicle-hal-support-lib \
+    car-systemtest \
+    com.android.car.procfsinspector-client \
+    blestream-protos \
+
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    SettingsLib \
+    androidx.preference_preference \
+    EncryptionRunner
+
+LOCAL_MIN_SDK_VERSION := 25
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

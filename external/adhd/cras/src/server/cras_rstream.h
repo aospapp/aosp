@@ -9,6 +9,7 @@
 #ifndef CRAS_RSTREAM_H_
 #define CRAS_RSTREAM_H_
 
+#include "cras_apm_list.h"
 #include "cras_shm.h"
 #include "cras_types.h"
 
@@ -59,10 +60,12 @@ struct master_dev_info {
  *    last_fetch_ts - The time of the last stream fetch.
  *    longest_fetch_interval_ts - Longest interval between two fetches.
  *    buf_state - State of the buffer from all devices for this stream.
+ *    apm_list - List of audio processing module instances.
  *    num_attached_devs - Number of iodevs this stream has attached to.
  *    queued_frames - Cached value of the number of queued frames in shm.
  *    is_pinned - True if the stream is a pinned stream, false otherwise.
  *    pinned_dev_idx - device the stream is pinned, 0 if none.
+ *    triggered - True if already notified TRIGGER_ONLY stream, false otherwise.
  */
 struct cras_rstream {
 	cras_stream_id_t stream_id;
@@ -84,10 +87,12 @@ struct cras_rstream {
 	struct timespec last_fetch_ts;
 	struct timespec longest_fetch_interval;
 	struct buffer_share *buf_state;
+	struct cras_apm_list *apm_list;
 	int num_attached_devs;
 	int queued_frames;
 	int is_pinned;
 	uint32_t pinned_dev_idx;
+	int triggered;
 	struct cras_rstream *prev, *next;
 };
 
@@ -96,6 +101,7 @@ struct cras_rstream {
  *    direction - CRAS_STREAM_OUTPUT or CRAS_STREAM_INPUT.
  *    dev_idx - Pin to this device if != NO_DEVICE.
  *    flags - Any special handling for this stream.
+ *    effects - Bit map of effects to be enabled on this stream.
  *    format - The audio format the stream wishes to use.
  *    buffer_frames - Total number of audio frames to buffer.
  *    cb_threshold - # of frames when to request more from the client.
@@ -108,6 +114,7 @@ struct cras_rstream_config {
 	enum CRAS_STREAM_DIRECTION direction;
 	uint32_t dev_idx;
 	uint32_t flags;
+	uint32_t effects;
 	const struct cras_audio_format *format;
 	size_t buffer_frames;
 	size_t cb_threshold;
@@ -128,6 +135,13 @@ int cras_rstream_create(struct cras_rstream_config *config,
 
 /* Destroys an rstream. */
 void cras_rstream_destroy(struct cras_rstream *stream);
+
+/* Gets the id of the stream */
+static inline cras_stream_id_t cras_rstream_id(
+		const struct cras_rstream *stream)
+{
+	return stream->stream_id;
+}
 
 /* Gets the total buffer size in frames for the given client stream. */
 static inline size_t cras_rstream_get_buffer_frames(
@@ -250,6 +264,18 @@ static inline int stream_uses_input(const struct cras_rstream *s)
 	return cras_stream_uses_input_hw(s->direction);
 }
 
+static inline int stream_is_server_only(const struct cras_rstream *s)
+{
+	return s->flags & SERVER_ONLY;
+}
+
+/* Gets the enabled effects of this stream. */
+unsigned int cras_rstream_get_effects(const struct cras_rstream *stream);
+
+/* Gets the format of data after stream specific processing. */
+struct cras_audio_format *cras_rstream_post_processing_format(
+		const struct cras_rstream *stream, void *dev_ptr);
+
 /* Checks how much time has passed since last stream fetch and records
  * the longest fetch interval. */
 void cras_rstream_record_fetch_interval(struct cras_rstream *rstream,
@@ -261,8 +287,6 @@ int cras_rstream_request_audio(struct cras_rstream *stream,
 
 /* Tells a capture client that count frames are ready. */
 int cras_rstream_audio_ready(struct cras_rstream *stream, size_t count);
-/* Waits for the response to a request for audio. */
-int cras_rstream_get_audio_request_reply(const struct cras_rstream *stream);
 
 /* Let the rstream know when a device is added or removed. */
 void cras_rstream_dev_attach(struct cras_rstream *rstream,
@@ -313,5 +337,19 @@ uint8_t *cras_rstream_get_readable_frames(struct cras_rstream *rstream,
 
 /* Returns non-zero if the stream is muted. */
 int cras_rstream_get_mute(const struct cras_rstream *rstream);
+
+/*
+ * Returns non-zero if the stream is pending a reply from client.
+ * - For playback, stream is waiting for AUDIO_MESSAGE_DATA_READY message from
+ *   client.
+ * - For capture, stream is waiting for AUDIO_MESSAGE_DATA_CAPTURED message
+ *   from client.
+ */
+int cras_rstream_is_pending_reply(const struct cras_rstream *stream);
+
+/*
+ * Reads any pending audio message from the socket.
+ */
+int cras_rstream_flush_old_audio_messages(struct cras_rstream *stream);
 
 #endif /* CRAS_RSTREAM_H_ */

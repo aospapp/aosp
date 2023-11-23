@@ -16,11 +16,17 @@
 
 #include "SingleManifestTest.h"
 
+#include <android-base/strings.h>
+#include <gmock/gmock.h>
 #include <hidl-util/FqInstance.h>
 #include <hidl/HidlTransportUtils.h>
 #include <vintf/parse_string.h>
 
+#include <algorithm>
+
 #include "utils.h"
+
+using ::testing::AnyOf;
 
 namespace android {
 namespace vintf {
@@ -32,7 +38,7 @@ using android::vintf::toFQNameString;
 // For devices that launched <= Android O-MR1, systems/hals/implementations
 // were delivered to companies which either don't start up on device boot.
 bool LegacyAndExempt(const FQName &fq_name) {
-  return GetShippingApiLevel() <= 27 && !IsGoogleDefinedIface(fq_name);
+  return GetShippingApiLevel() <= 27 && !IsAndroidPlatformInterface(fq_name);
 }
 
 void FailureHalMissing(const FQName &fq_name) {
@@ -61,29 +67,179 @@ void FailureHashMissing(const FQName &fq_name) {
   }
 }
 
+template <typename It>
+static string RangeInstancesToString(const std::pair<It, It> &range) {
+  std::stringstream ss;
+  for (auto it = range.first; it != range.second; ++it) {
+    if (it != range.first) ss << ", ";
+    ss << it->second.string();
+  }
+  return ss.str();
+}
+
+template <typename Container>
+static string InstancesToString(const Container &container) {
+  std::stringstream ss;
+  for (auto it = container.begin(); it != container.end(); ++it) {
+    if (it != container.begin()) ss << ", ";
+    ss << *it;
+  }
+  return ss.str();
+}
+
+static FqInstance ToFqInstance(const string &interface,
+                               const string &instance) {
+  FqInstance fq_interface;
+  FqInstance ret;
+
+  if (!fq_interface.setTo(interface)) {
+    ADD_FAILURE() << interface << " is not a valid FQName";
+    return ret;
+  }
+  if (!ret.setTo(fq_interface.getPackage(), fq_interface.getMajorVersion(),
+                 fq_interface.getMinorVersion(), fq_interface.getInterface(),
+                 instance)) {
+    ADD_FAILURE() << "Cannot convert to FqInstance: " << interface << "/"
+                  << instance;
+  }
+  return ret;
+}
+
+// Given android.foo.bar@x.y::IFoo/default, attempt to get
+// android.foo.bar@x.y::IFoo/default, android.foo.bar@x.(y-1)::IFoo/default,
+// ... android.foo.bar@x.0::IFoo/default until the passthrough HAL is retrieved.
+static sp<IBase> GetPassthroughService(const FqInstance &fq_instance) {
+  for (size_t minor_version = fq_instance.getMinorVersion();; --minor_version) {
+    // String out instance name from fq_instance.
+    FqInstance interface;
+    if (!interface.setTo(fq_instance.getPackage(),
+                         fq_instance.getMajorVersion(), minor_version,
+                         fq_instance.getInterface())) {
+      ADD_FAILURE() << fq_instance.string()
+                    << " doesn't contain a valid FQName";
+      return nullptr;
+    }
+
+    auto hal_service = VtsTrebleVintfTestBase::GetHalService(
+        interface.string(), fq_instance.getInstance(), Transport::PASSTHROUGH);
+
+    if (hal_service != nullptr) {
+      bool interface_chain_valid = false;
+      hal_service->interfaceChain([&](const auto &chain) {
+        for (const auto &intf : chain) {
+          if (intf == interface.string()) {
+            interface_chain_valid = true;
+            return;
+          }
+        }
+      });
+      if (!interface_chain_valid) {
+        ADD_FAILURE() << "Retrieved " << interface.string() << "/"
+                      << fq_instance.getInstance() << " as "
+                      << fq_instance.string()
+                      << " but interfaceChain() doesn't contain "
+                      << fq_instance.string();
+        return nullptr;
+      }
+      cout << "Retrieved " << interface.string() << "/"
+           << fq_instance.getInstance() << " as " << fq_instance.string()
+           << endl;
+      return hal_service;
+    }
+
+    if (minor_version == 0) {
+      return nullptr;
+    }
+  }
+  ADD_FAILURE() << "Should not reach here";
+  return nullptr;
+}
+
 // Tests that no HAL outside of the allowed set is specified as passthrough in
 // VINTF.
 TEST_P(SingleManifestTest, HalsAreBinderized) {
-  // Verifies that HAL is binderized unless it's allowed to be passthrough.
-  HalVerifyFn is_binderized = [](const FQName &fq_name,
-                                 const string & /* instance_name */,
-                                 Transport transport) {
-    cout << "Verifying transport method of: " << fq_name.string() << endl;
-    string hal_name = fq_name.package();
-    Version version{fq_name.getPackageMajorVersion(),
-                    fq_name.getPackageMinorVersion()};
-    string iface_name = fq_name.name();
+  multimap<Transport, FqInstance> instances;
+  ForEachHalInstance(GetParam(), [&instances](const FQName &fq_name,
+                                              const string &instance_name,
+                                              Transport transport) {
+    FqInstance fqInstance;
+    ASSERT_TRUE(fqInstance.setTo(
+        fq_name.package(), fq_name.getPackageMajorVersion(),
+        fq_name.getPackageMinorVersion(), fq_name.name(), instance_name));
+    instances.emplace(transport, std::move(fqInstance));
+  });
 
-    EXPECT_NE(transport, Transport::EMPTY)
-        << hal_name << " has no transport specified in VINTF.";
+  for (auto it = instances.begin(); it != instances.end();
+       it = instances.upper_bound(it->first)) {
+    EXPECT_THAT(it->first, AnyOf(Transport::HWBINDER, Transport::PASSTHROUGH))
+        << "The following HALs has unknown transport specified in VINTF ("
+        << it->first << ", ordinal "
+        << static_cast<std::underlying_type_t<Transport>>(it->first) << ")"
+        << RangeInstancesToString(instances.equal_range(it->first));
+  }
 
-    if (transport == Transport::PASSTHROUGH) {
-      EXPECT_NE(kPassthroughHals.find(hal_name), kPassthroughHals.end())
-          << hal_name << " can't be passthrough under Treble rules.";
+  auto passthrough_declared_range =
+      instances.equal_range(Transport::PASSTHROUGH);
+  set<FqInstance> passthrough_declared;
+  std::transform(
+      passthrough_declared_range.first, passthrough_declared_range.second,
+      std::inserter(passthrough_declared, passthrough_declared.begin()),
+      [](const auto &pair) { return pair.second; });
+
+  set<FqInstance> passthrough_allowed;
+  for (const auto &declared_instance : passthrough_declared) {
+    auto hal_service = GetPassthroughService(declared_instance);
+
+    // For vendor extensions, hal_service may be null because we don't know
+    // its interfaceChain()[1] to call getService(). However, the base interface
+    // should be declared in the manifest, so other iterations of this for-loop
+    // verify that vendor extension.
+    if (hal_service == nullptr) {
+      cout << "Skip calling interfaceChain on " << declared_instance.string()
+           << " because it can't be retrieved directly." << endl;
+      continue;
     }
-  };
 
-  ForEachHalInstance(GetParam(), is_binderized);
+    // For example, given the following interfaceChain when
+    // hal_service is "android.hardware.mapper@2.0::IMapper/default":
+    // ["vendor.foo.mapper@1.0::IMapper",
+    //  "android.hardware.mapper@2.1::IMapper",
+    //  "android.hardware.mapper@2.0::IMapper",
+    //  "android.hidl.base@1.0::IBase"],
+    // Allow the following:
+    // ["vendor.foo.mapper@1.0::IMapper/default",
+    //  "android.hardware.mapper@2.1::IMapper/default",
+    //  "android.hardware.mapper@2.0::IMapper/default"]
+    hal_service->interfaceChain([&](const auto &chain) {
+      vector<FqInstance> fq_instances;
+      std::transform(
+          chain.begin(), chain.end(), std::back_inserter(fq_instances),
+          [&](const auto &interface) {
+            return ToFqInstance(interface, declared_instance.getInstance());
+          });
+
+      bool allowing = false;
+      for (auto it = fq_instances.rbegin(); it != fq_instances.rend(); ++it) {
+        if (kPassthroughHals.find(it->getPackage()) != kPassthroughHals.end()) {
+          allowing = true;
+        }
+        if (allowing) {
+          cout << it->string() << " is allowed to be passthrough" << endl;
+          passthrough_allowed.insert(*it);
+        }
+      }
+    });
+  }
+
+  set<FqInstance> passthrough_not_allowed;
+  std::set_difference(
+      passthrough_declared.begin(), passthrough_declared.end(),
+      passthrough_allowed.begin(), passthrough_allowed.end(),
+      std::inserter(passthrough_not_allowed, passthrough_not_allowed.begin()));
+
+  EXPECT_TRUE(passthrough_not_allowed.empty())
+      << "The following HALs can't be passthrough under Treble rules: ["
+      << InstancesToString(passthrough_not_allowed) << "].";
 }
 
 // Tests that all HALs specified in the VINTF are available through service
@@ -115,7 +271,7 @@ TEST_P(SingleManifestTest, HalsAreServed) {
         // for both versions (mFoo1_1 != nullptr => you have 1.1)
         // and a 1.0 client still works with the 1.1 interface.
 
-        if (!IsGoogleDefinedIface(fq_name)) {
+        if (!IsAndroidPlatformInterface(fq_name)) {
           // This isn't the case for extensions of core Google interfaces.
           return;
         }
@@ -147,8 +303,8 @@ TEST_P(SingleManifestTest, HalsAreServed) {
       Partition partition = GetPartition(hal_service);
       if (partition == Partition::UNKNOWN) return;
       EXPECT_EQ(expected_partition, partition)
-          << fq_name.string() << " is in partition " << partition
-          << " but is expected to be in " << expected_partition;
+          << fq_name.string() << "/" << instance_name << " is in partition "
+          << partition << " but is expected to be in " << expected_partition;
     };
   };
 
@@ -208,7 +364,7 @@ TEST_P(SingleManifestTest, ServedPassthroughHalsAreInManifest) {
     // See HalsAreServed. These are always retrieved through the base interface
     // and if it is not a google defined interface, it must be an extension of
     // one.
-    if (!IsGoogleDefinedIface(fq_name)) return;
+    if (!IsAndroidPlatformInterface(fq_name)) return;
 
     const FQName lowest_name =
         fq_name.withVersion(fq_name.getPackageMajorVersion(), 0);
@@ -248,7 +404,7 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
     // and if it is not a google defined interface, it must be an extension of
     // one.
     if (transport == Transport::PASSTHROUGH &&
-        (!IsGoogleDefinedIface(fq_name) ||
+        (!IsAndroidPlatformInterface(fq_name) ||
          fq_name.getPackageMinorVersion() != 0)) {
       return;
     }
@@ -286,7 +442,7 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
         FailureHashMissing(fq_iface_name);
       }
 
-      if (IsGoogleDefinedIface(fq_iface_name)) {
+      if (IsAndroidPlatformInterface(fq_iface_name)) {
         set<string> released_hashes = ReleasedHashes(fq_iface_name);
         EXPECT_NE(released_hashes.find(hash), released_hashes.end())
             << "Hash not found. This interface was not released." << endl

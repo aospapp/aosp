@@ -158,10 +158,10 @@ void ihevc_sao_band_offset_luma_ssse3(UWORD8 *pu1_src,
 
     band_pos_16x8b = _mm_set1_epi16((WORD16)(sao_band_pos << 3));
     //value set for sao_offset extraction
-    tmp_set_128i_1  = _mm_set_epi8(128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1);
-    tmp_set_128i_2  = _mm_set_epi8(128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2);
-    tmp_set_128i_3  = _mm_set_epi8(128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3);
-    tmp_set_128i_4  = _mm_set_epi8(128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4);
+    tmp_set_128i_1  = _mm_set_epi8(-128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1);
+    tmp_set_128i_2  = _mm_set_epi8(-128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2);
+    tmp_set_128i_3  = _mm_set_epi8(-128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3);
+    tmp_set_128i_4  = _mm_set_epi8(-128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4);
 
     //loaded sao offset values
     sao_offset      = _mm_loadl_epi64((__m128i *)pi1_sao_offset);
@@ -481,10 +481,10 @@ void ihevc_sao_band_offset_chroma_ssse3(UWORD8 *pu1_src,
         //replicating sao_band_pos as 8 bit value 16 times
         band_pos_u_16x8b = _mm_set1_epi16((WORD16)(sao_band_pos_u << 3));
         //value set for sao_offset extraction
-        tmp_set_128i_1  = _mm_set_epi8(128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1, 128, 1);
-        tmp_set_128i_2  = _mm_set_epi8(128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2, 128, 2);
-        tmp_set_128i_3  = _mm_set_epi8(128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3, 128, 3);
-        tmp_set_128i_4  = _mm_set_epi8(128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4, 128, 4);
+        tmp_set_128i_1  = _mm_set_epi8(-128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1, -128, 1);
+        tmp_set_128i_2  = _mm_set_epi8(-128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2, -128, 2);
+        tmp_set_128i_3  = _mm_set_epi8(-128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3, -128, 3);
+        tmp_set_128i_4  = _mm_set_epi8(-128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4, -128, 4);
 
         //loaded sao offset values
         sao_offset      = _mm_loadl_epi64((__m128i *)pi1_sao_offset_u);

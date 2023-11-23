@@ -208,10 +208,10 @@ struct eap_method {
 	const u8 * (*get_identity)(struct eap_sm *sm, void *priv, size_t *len);
 
 	/**
-	 * get_error_code - Get latest EAP method error code
+	 * get_error_code - Get the latest EAP method error code
 	 * @priv: Pointer to private EAP method data from eap_method::init()
-	 * Returns: An int for the EAP Method Error code if exists or
-	 * NO_EAP_METHOD_ERROR otherwise
+	 * Returns: An int for the EAP method specific error code if exists or
+	 * NO_EAP_METHOD_ERROR otherwise.
 	 *
 	 * This method is an optional handler that only EAP methods that need to
 	 * report their error code need to implement.

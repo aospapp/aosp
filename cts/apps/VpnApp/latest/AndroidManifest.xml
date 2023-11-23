@@ -17,9 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.vpnfirewall">
 
-    <uses-sdk android:minSdkVersion="22"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application android:label="@string/app">

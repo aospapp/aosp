@@ -51,9 +51,10 @@ static FILE *seek_open(char *str, char rw)
 
 	oname = malloc(strlen(seek_name) + strlen(str) + 32);
 	sprintf(oname, "%s_%s_%c.dat", seek_name, str, rw);
-	if ((fp = my_fopen(oname, "w")) == NULL)
+	if ((fp = my_fopen(oname, "w")) == NULL) {
 		perror(oname);
-	else
+		free(oname);
+	} else
 		add_file(fp, oname);
 
 	return fp;
@@ -99,18 +100,14 @@ static void __destroy(struct rb_node *n)
 
 static void sps_emit(struct seeki *sip)
 {
-	double tstamp, s_p_s;
+	double s_p_s;
 	struct sps_bkt *sps = &sip->sps;
 	double delta = sps->t_last - sps->t_start;
 
-	if ((sps->nseeks == 1) || (delta < DBL_EPSILON)) {
+	if ((sps->nseeks == 1) || (delta < DBL_EPSILON))
 		s_p_s = (double)(sps->nseeks);
-		tstamp = sps->t_start;
-	} else {
-
+	else
 		s_p_s = (double)(sps->nseeks) / delta;
-		tstamp = sps->t_start + (delta / 2);
-	}
 
 	fprintf(sip->sps_fp, "%15.9lf %.2lf\n", sps->t_start, s_p_s);
 
@@ -205,10 +202,12 @@ long long seek_dist(struct seeki *sip, struct io *iop)
 	return dist;
 }
 
-void *seeki_alloc(char *str)
+void *seeki_alloc(struct d_info *dip, char *post)
 {
+	char str[256];
 	struct seeki *sip = malloc(sizeof(struct seeki));
 
+	sprintf(str, "%s%s", dip->dip_name, post);
 	sip->rfp = seek_open(str, 'r');
 	sip->wfp = seek_open(str, 'w');
 	sip->cfp = seek_open(str, 'c');
@@ -222,11 +221,12 @@ void *seeki_alloc(char *str)
 
 		memset(&sip->sps, 0, sizeof(sip->sps));
 
-		oname = malloc(strlen(sps_name) + strlen(str) + 32);
-		sprintf(oname, "%s_%s.dat", sps_name, str);
-		if ((sip->sps_fp = my_fopen(oname, "w")) == NULL)
+		oname = malloc(strlen(sps_name) + strlen(dip->dip_name) + 32);
+		sprintf(oname, "%s_%s.dat", sps_name, dip->dip_name);
+		if ((sip->sps_fp = my_fopen(oname, "w")) == NULL) {
 			perror(oname);
-		else
+			free(oname);
+		} else
 			add_file(sip->sps_fp, oname);
 	} else
 		sip->sps_fp = NULL;

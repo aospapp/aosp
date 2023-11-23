@@ -41,7 +41,7 @@ import android.util.Log;
 public class SmsBackupRestoreTest extends TestCaseThatRunsIfTelephonyIsEnabled {
     private static final String TAG = "SmsBackupRestoreTest";
     private static final String LOCAL_BACKUP_COMPONENT =
-            "android/com.android.internal.backup.LocalTransport";
+            "com.android.localtransport/.LocalTransport";
     private static final String TELEPHONY_PROVIDER_PACKAGE = "com.android.providers.telephony";
 
     private static final String[] smsAddressBody1 = new String[] {"+123" , "sms CTS text"};

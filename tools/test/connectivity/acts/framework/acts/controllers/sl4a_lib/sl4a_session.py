@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2018 - The Android Open Source Project
 #
@@ -19,10 +19,12 @@ import threading
 import errno
 
 from acts import logger
+from acts.controllers.adb import AdbError
 from acts.controllers.sl4a_lib import event_dispatcher
 from acts.controllers.sl4a_lib import rpc_connection
 from acts.controllers.sl4a_lib import rpc_client
 from acts.controllers.sl4a_lib import sl4a_ports
+from acts.controllers.sl4a_lib.rpc_client import Sl4aStartError
 
 SOCKET_TIMEOUT = 60
 
@@ -102,6 +104,37 @@ class Sl4aSession(object):
     def is_alive(self):
         return not self._terminated
 
+    def _create_forwarded_port(self, server_port, hinted_port=0):
+        """Creates a forwarded port to the specified server port.
+
+        Args:
+            server_port: (int) The port to forward to.
+            hinted_port: (int) The port to use for forwarding, if available.
+                         Otherwise, the chosen port will be random.
+        Returns:
+            The chosen forwarded port.
+
+        Raises AdbError if the version of ADB is too old, or the command fails.
+        """
+        if self.adb.get_version_number() < 37 and hinted_port == 0:
+            self.log.error(
+                'The current version of ADB does not automatically provide a '
+                'port to forward. Please upgrade ADB to version 1.0.37 or '
+                'higher.')
+            raise Sl4aStartError('Unable to forward a port to the device.')
+        else:
+            try:
+                return self.adb.tcp_forward(hinted_port, server_port)
+            except AdbError as e:
+                if 'cannot bind listener' in e.stderr:
+                    self.log.warning(
+                        'Unable to use %s to forward to device port %s due to: '
+                        '"%s". Attempting to choose a random port instead.' %
+                        (hinted_port, server_port, e.stderr))
+                    # Call this method again, but this time with no hinted port.
+                    return self._create_forwarded_port(server_port)
+                raise e
+
     def _create_rpc_connection(self, ports=None, uid=UNKNOWN_UID):
         """Creates an RPC Connection with the specified ports.
 
@@ -123,7 +156,7 @@ class Sl4aSession(object):
         ports.server_port = self.obtain_server_port(ports.server_port)
         self.server_port = ports.server_port
         # Forward the device port to the host.
-        ports.forwarded_port = int(self.adb.tcp_forward(0, ports.server_port))
+        ports.forwarded_port = self._create_forwarded_port(ports.server_port)
         client_socket, fd = self._create_client_side_connection(ports)
         client = rpc_connection.RpcConnection(
             self.adb, ports, client_socket, fd, uid=uid)
@@ -199,10 +232,21 @@ class Sl4aSession(object):
         with self._terminate_lock:
             if not self._terminated:
                 self.log.debug('Terminating Session.')
-                self.rpc_client.closeSl4aSession()
+                try:
+                    self.rpc_client.closeSl4aSession()
+                except Exception as e:
+                    if "SL4A session has already been terminated" not in str(
+                            e):
+                        self.log.warning(e)
                 # Must be set after closeSl4aSession so the rpc_client does not
                 # think the session has closed.
                 self._terminated = True
                 if self._event_dispatcher:
-                    self._event_dispatcher.close()
-                self.rpc_client.terminate()
+                    try:
+                        self._event_dispatcher.close()
+                    except Exception as e:
+                        self.log.warning(e)
+                try:
+                    self.rpc_client.terminate()
+                except Exception as e:
+                    self.log.warning(e)

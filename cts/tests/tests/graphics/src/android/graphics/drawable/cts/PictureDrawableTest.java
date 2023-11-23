@@ -26,8 +26,9 @@ import android.graphics.ColorFilter;
 import android.graphics.Picture;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.PictureDrawable;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

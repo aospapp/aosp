@@ -18,10 +18,15 @@ package android.os.lib.provider;
 
 import android.content.Context;
 import android.os.lib.provider.recursive.StaticSharedLibRecursive;
+import android.os.lib.provider.recursive.R;
 
 public class StaticSharedLib {
     public static int getVersion(Context context) {
         return Math.min(StaticSharedLibRecursive.getVersionRecursive(context),
                 context.getResources().getInteger(android.os.lib.provider.R.integer.version));
+    }
+    public static int getRecursiveVersion(Context context) {
+        return context.getResources()
+                .getInteger(android.os.lib.provider.recursive.R.integer.version);
     }
 }

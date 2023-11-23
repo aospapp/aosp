@@ -23,6 +23,6 @@ import android.content.Context;
  */
 public interface InCallControllerFactory {
     InCallController create(Context context, TelecomSystem.SyncRoot lock, CallsManager callsManager,
-            SystemStateProvider systemStateProvider, DefaultDialerCache defaultDialerCache,
+            SystemStateHelper systemStateHelper, DefaultDialerCache defaultDialerCache,
             Timeouts.Adapter timeoutsAdapter, EmergencyCallHelper emergencyCallHelper);
 }

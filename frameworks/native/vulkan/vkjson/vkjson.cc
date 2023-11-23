@@ -325,6 +325,13 @@ struct EnumTraits<VkExternalSemaphoreHandleTypeFlagBits> {
   }
 };
 
+template <>
+struct EnumTraits<VkDriverIdKHR> {
+  static uint32_t min() { return VK_DRIVER_ID_BEGIN_RANGE_KHR; }
+  static uint32_t max() { return VK_DRIVER_ID_END_RANGE_KHR; }
+  static bool exist(uint32_t e) { return e >= min() && e <= max(); }
+};
+
 // VkSparseImageFormatProperties
 
 template <typename Visitor>
@@ -540,6 +547,31 @@ inline bool Iterate(Visitor* visitor, VkPhysicalDeviceFeatures* features) {
     visitor->Visit("sparseResidencyAliased", &features->sparseResidencyAliased) &&
     visitor->Visit("variableMultisampleRate", &features->variableMultisampleRate) &&
     visitor->Visit("inheritedQueries", &features->inheritedQueries);
+}
+
+template <typename Visitor>
+inline bool Iterate(Visitor* visitor,
+                    VkJsonExtDriverProperties* properties) {
+  return visitor->Visit("driverPropertiesKHR",
+                        &properties->driver_properties_khr);
+}
+
+template <typename Visitor>
+inline bool Iterate(Visitor* visitor,
+                    VkPhysicalDeviceDriverPropertiesKHR* properties) {
+  return visitor->Visit("driverID", &properties->driverID) &&
+         visitor->Visit("driverName", &properties->driverName) &&
+         visitor->Visit("driverInfo", &properties->driverInfo) &&
+         visitor->Visit("conformanceVersion", &properties->conformanceVersion);
+}
+
+template <typename Visitor>
+inline bool Iterate(Visitor* visitor,
+                    VkConformanceVersionKHR* version) {
+  return visitor->Visit("major", &version->major) &&
+         visitor->Visit("minor", &version->minor) &&
+         visitor->Visit("subminor", &version->subminor) &&
+         visitor->Visit("patch", &version->patch);
 }
 
 template <typename Visitor>
@@ -766,16 +798,23 @@ inline bool Iterate(Visitor* visitor, VkJsonDevice* device) {
                          &device->external_fence_properties) &&
           visitor->Visit("externalSemaphoreProperties",
                          &device->external_semaphore_properties);
+      FALLTHROUGH_INTENDED;
     case VK_API_VERSION_1_0:
       ret &= visitor->Visit("properties", &device->properties) &&
              visitor->Visit("features", &device->features) &&
-             visitor->Visit("VK_KHR_variable_pointers",
-                            &device->ext_variable_pointer_features) &&
              visitor->Visit("memory", &device->memory) &&
              visitor->Visit("queues", &device->queues) &&
              visitor->Visit("extensions", &device->extensions) &&
              visitor->Visit("layers", &device->layers) &&
              visitor->Visit("formats", &device->formats);
+      if (device->ext_driver_properties.reported) {
+        ret &= visitor->Visit("VK_KHR_driver_properties",
+                            &device->ext_driver_properties);
+      }
+      if (device->ext_variable_pointer_features.reported) {
+        ret &= visitor->Visit("VK_KHR_variable_pointers",
+                            &device->ext_variable_pointer_features);
+      }
   }
   return ret;
 }
@@ -786,6 +825,7 @@ inline bool Iterate(Visitor* visitor, VkJsonInstance* instance) {
   switch (instance->api_version ^ VK_VERSION_PATCH(instance->api_version)) {
     case VK_API_VERSION_1_1:
       ret &= visitor->Visit("deviceGroups", &instance->device_groups);
+      FALLTHROUGH_INTENDED;
     case VK_API_VERSION_1_0:
       ret &= visitor->Visit("layers", &instance->layers) &&
              visitor->Visit("extensions", &instance->extensions) &&

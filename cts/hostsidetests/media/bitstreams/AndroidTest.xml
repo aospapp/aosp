@@ -16,6 +16,14 @@
 <configuration description="Config for CTS Sample host test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="media" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
+        <option name="target" value="host" />
+        <option name="config-filename" value="cts" />
+        <option name="dynamic-config-name" value="cts-dynamic-config" />
+        <option name="version" value="9.0_r1"/>
+    </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.MediaPreparer">
         <option name="media-download-only" value="true" />
     </target_preparer>
@@ -26,6 +34,7 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
         <option name="target" value="device" />
         <option name="config-filename" value="CtsMediaBitstreamsTestCases" />
+        <option name="version" value="9.0_r1"/>
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ReportLogCollector">
         <option name="src-dir" value="/sdcard/report-log-files/"/>

@@ -35,6 +35,7 @@
 #include "vkBuilderUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkImageUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuTestLog.hpp"
@@ -136,15 +137,8 @@ std::vector<PipelineSp> makeGraphicsPipelines (const DeviceInterface&		vk,
 		VK_FALSE,														// VkBool32                                    primitiveRestartEnable;
 	};
 
-	const VkViewport viewport = makeViewport(
-		0.0f, 0.0f,
-		static_cast<float>(renderSize.x()), static_cast<float>(renderSize.y()),
-		0.0f, 1.0f);
-
-	const VkRect2D scissor = {
-		makeOffset2D(0, 0),
-		makeExtent2D(renderSize.x(), renderSize.y()),
-	};
+	const VkViewport	viewport	= makeViewport(renderSize);
+	const VkRect2D		scissor		= makeRect2D(renderSize);
 
 	const VkPipelineViewportStateCreateInfo pipelineViewportStateInfo =
 	{
@@ -527,7 +521,7 @@ void checkImageFormatRequirements (const InstanceInterface&		vki,
 void zeroBuffer (const DeviceInterface& vk, const VkDevice device, const Allocation& alloc, const VkDeviceSize bufferSize)
 {
 	deMemset(alloc.getHostPtr(), 0, static_cast<std::size_t>(bufferSize));
-	flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), bufferSize);
+	flushAlloc(vk, device, alloc);
 }
 
 //! The default foreground color.
@@ -775,11 +769,6 @@ void renderMultisampledImage (Context& context, const CaseDef& caseDef, const Vk
 	const Unique<VkCommandPool>		cmdPool				(createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndex));
 	const Unique<VkCommandBuffer>	cmdBuffer			(makeCommandBuffer(vk, device, *cmdPool));
 
-	const VkRect2D renderArea = {
-		makeOffset2D(0, 0),
-		makeExtent2D(caseDef.renderSize.x(), caseDef.renderSize.y()),
-	};
-
 	{
 		// Create an image view (attachment) for each layer of the image
 		std::vector<ImageViewSp>	colorAttachments;
@@ -799,7 +788,7 @@ void renderMultisampledImage (Context& context, const CaseDef& caseDef, const Vk
 
 		{
 			deMemcpy(vertexBufferAlloc->getHostPtr(), &vertices[0], static_cast<std::size_t>(vertexBufferSize));
-			flushMappedMemoryRange(vk, device, vertexBufferAlloc->getMemory(), vertexBufferAlloc->getOffset(), vertexBufferSize);
+			flushAlloc(vk, device, *vertexBufferAlloc);
 		}
 
 		const Unique<VkShaderModule>	vertexModule	(createShaderModule			(vk, device, context.getBinaryCollection().get("vert"), 0u));
@@ -815,17 +804,7 @@ void renderMultisampledImage (Context& context, const CaseDef& caseDef, const Vk
 
 		const std::vector<VkClearValue> clearValues(caseDef.numLayers, getClearValue(caseDef.colorFormat));
 
-		const VkRenderPassBeginInfo renderPassBeginInfo = {
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,		// VkStructureType         sType;
-			DE_NULL,										// const void*             pNext;
-			*renderPass,									// VkRenderPass            renderPass;
-			*framebuffer,									// VkFramebuffer           framebuffer;
-			renderArea,										// VkRect2D                renderArea;
-			static_cast<deUint32>(clearValues.size()),		// uint32_t                clearValueCount;
-			&clearValues[0],								// const VkClearValue*     pClearValues;
-		};
-		vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
+		beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, caseDef.renderSize.x(), caseDef.renderSize.y()), (deUint32)clearValues.size(), &clearValues[0]);
 		{
 			const VkDeviceSize vertexBufferOffset = 0ull;
 			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, &vertexBuffer.get(), &vertexBufferOffset);
@@ -841,9 +820,9 @@ void renderMultisampledImage (Context& context, const CaseDef& caseDef, const Vk
 			vk.cmdDraw(*cmdBuffer, static_cast<deUint32>(vertices.size()), 1u, 0u, 0u);
 		}
 
-		vk.cmdEndRenderPass(*cmdBuffer);
+		endRenderPass(vk, *cmdBuffer);
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 }
@@ -951,11 +930,6 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 	const Unique<VkCommandPool>		cmdPool			(createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndex));
 	const Unique<VkCommandBuffer>	cmdBuffer		(makeCommandBuffer(vk, device, *cmdPool));
 
-	const VkRect2D renderArea = {
-		makeOffset2D(0, 0),
-		makeExtent2D(caseDef.renderSize.x(), caseDef.renderSize.y()),
-	};
-
 	// Step 1: Render to texture
 	{
 		renderMultisampledImage(context, caseDef, *colorImage);
@@ -990,7 +964,7 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 
 		{
 			deMemcpy(vertexBufferAlloc->getHostPtr(), &vertices[0], static_cast<std::size_t>(vertexBufferSize));
-			flushMappedMemoryRange(vk, device, vertexBufferAlloc->getMemory(), vertexBufferAlloc->getOffset(), vertexBufferSize);
+			flushAlloc(vk, device, *vertexBufferAlloc);
 		}
 
 		// Descriptors
@@ -1044,18 +1018,7 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 				0u, DE_NULL, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers);
 		}
 
-		const VkClearValue clearValue = makeClearValueColorU32(0u, 0u, 0u, 0u);
-
-		const VkRenderPassBeginInfo renderPassBeginInfo = {
-			VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,							// VkStructureType         sType;
-			DE_NULL,															// const void*             pNext;
-			*renderPass,														// VkRenderPass            renderPass;
-			*framebuffer,														// VkFramebuffer           framebuffer;
-			renderArea,															// VkRect2D                renderArea;
-			1u,																	// uint32_t                clearValueCount;
-			&clearValue,														// const VkClearValue*     pClearValues;
-		};
-		vk.cmdBeginRenderPass(*cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, caseDef.renderSize.x(), caseDef.renderSize.y()), tcu::UVec4(0u));
 
 		vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, **pipelines.back());
 		vk.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u, &descriptorSet.get(), 0u, DE_NULL);
@@ -1065,71 +1028,17 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 		}
 
 		vk.cmdDraw(*cmdBuffer, static_cast<deUint32>(vertices.size()), 1u, 0u, 0u);
-		vk.cmdEndRenderPass(*cmdBuffer);
+		endRenderPass(vk, *cmdBuffer);
 
-		// Prepare checksum image for copy
-		{
-			const VkImageMemoryBarrier barriers[] =
-			{
-				{
-					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,						// VkStructureType			sType;
-					DE_NULL,													// const void*				pNext;
-					VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,						// VkAccessFlags			outputMask;
-					VK_ACCESS_TRANSFER_READ_BIT,								// VkAccessFlags			inputMask;
-					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,					// VkImageLayout			oldLayout;
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,						// VkImageLayout			newLayout;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					srcQueueFamilyIndex;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					destQueueFamilyIndex;
-					*checksumImage,												// VkImage					image;
-					makeColorSubresourceRange(0, 1),							// VkImageSubresourceRange	subresourceRange;
-				},
-			};
+		copyImageToBuffer(vk, *cmdBuffer, *checksumImage, *checksumBuffer, caseDef.renderSize);
 
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
-				0u, DE_NULL, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers);
-		}
-		// Checksum image -> host buffer
-		{
-			const VkBufferImageCopy region =
-			{
-				0ull,																		// VkDeviceSize                bufferOffset;
-				0u,																			// uint32_t                    bufferRowLength;
-				0u,																			// uint32_t                    bufferImageHeight;
-				makeColorSubresourceLayers(0, 1),											// VkImageSubresourceLayers    imageSubresource;
-				makeOffset3D(0, 0, 0),														// VkOffset3D                  imageOffset;
-				makeExtent3D(caseDef.renderSize.x(), caseDef.renderSize.y(), 1u),			// VkExtent3D                  imageExtent;
-			};
-
-			vk.cmdCopyImageToBuffer(*cmdBuffer, *checksumImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *checksumBuffer, 1u, &region);
-		}
-		// Buffer write barrier
-		{
-			const VkBufferMemoryBarrier barriers[] =
-			{
-				{
-					VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,		// VkStructureType    sType;
-					DE_NULL,										// const void*        pNext;
-					VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags      srcAccessMask;
-					VK_ACCESS_HOST_READ_BIT,						// VkAccessFlags      dstAccessMask;
-					VK_QUEUE_FAMILY_IGNORED,						// uint32_t           srcQueueFamilyIndex;
-					VK_QUEUE_FAMILY_IGNORED,						// uint32_t           dstQueueFamilyIndex;
-					*checksumBuffer,								// VkBuffer           buffer;
-					0ull,											// VkDeviceSize       offset;
-					checksumBufferSize,								// VkDeviceSize       size;
-				},
-			};
-
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u,
-				0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers, DE_NULL, 0u);
-		}
-
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 		// Verify result
 
 		{
-			invalidateMappedMemoryRange(vk, device, checksumBufferAlloc->getMemory(), 0ull, checksumBufferSize);
+			invalidateAlloc(vk, device, *checksumBufferAlloc);
 
 			const tcu::ConstPixelBufferAccess access(mapVkFormat(checksumFormat), caseDef.renderSize.x(), caseDef.renderSize.y(), 1, checksumBufferAlloc->getHostPtr());
 			const int numExpectedChecksum = getNumSamples(caseDef.numSamples) * caseDef.numLayers;
@@ -1280,7 +1189,7 @@ void renderAndResolve (Context& context, const CaseDef& caseDef, const VkBuffer 
 			vk.cmdDispatch(*cmdBuffer, caseDef.renderSize.x(), caseDef.renderSize.y(), caseDef.numLayers);
 		}
 
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 
@@ -1293,7 +1202,7 @@ void renderAndResolve (Context& context, const CaseDef& caseDef, const VkBuffer 
 			colorImageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 			colorImageBarrier.newLayout		= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-			const VkImageMemoryBarrier barriers[] =
+			const VkImageMemoryBarrier	barriers[]		=
 			{
 				colorImageBarrier,
 				{
@@ -1310,7 +1219,11 @@ void renderAndResolve (Context& context, const CaseDef& caseDef, const VkBuffer 
 				},
 			};
 
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
+			const VkPipelineStageFlags	srcStageMask	= (colorImageBarrier.srcAccessMask == VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+														? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+														: VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+			vk.cmdPipelineBarrier(*cmdBuffer, srcStageMask, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
 				0u, DE_NULL, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers);
 
 			colorImageBarrier.srcAccessMask = colorImageBarrier.dstAccessMask;
@@ -1329,43 +1242,10 @@ void renderAndResolve (Context& context, const CaseDef& caseDef, const VkBuffer 
 
 			vk.cmdResolveImage(*cmdBuffer, *colorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *resolveImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &resolveRegion);
 		}
-		// Prepare resolve image for copy
-		{
-			const VkImageMemoryBarrier barriers[] =
-			{
-				{
-					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,						// VkStructureType			sType;
-					DE_NULL,													// const void*				pNext;
-					VK_ACCESS_TRANSFER_WRITE_BIT,								// VkAccessFlags			outputMask;
-					VK_ACCESS_TRANSFER_READ_BIT,								// VkAccessFlags			inputMask;
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,						// VkImageLayout			oldLayout;
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,						// VkImageLayout			newLayout;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					srcQueueFamilyIndex;
-					VK_QUEUE_FAMILY_IGNORED,									// deUint32					destQueueFamilyIndex;
-					*resolveImage,												// VkImage					image;
-					makeColorSubresourceRange(0, caseDef.numLayers),			// VkImageSubresourceRange	subresourceRange;
-				},
-			};
 
-			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u,
-				0u, DE_NULL, 0u, DE_NULL, DE_LENGTH_OF_ARRAY(barriers), barriers);
-		}
-		// Copy resolved image to host-readable buffer
-		{
-			const VkBufferImageCopy copyRegion =
-			{
-				0ull,																// VkDeviceSize                bufferOffset;
-				0u,																	// uint32_t                    bufferRowLength;
-				0u,																	// uint32_t                    bufferImageHeight;
-				makeColorSubresourceLayers(0, caseDef.numLayers),					// VkImageSubresourceLayers    imageSubresource;
-				makeOffset3D(0, 0, 0),												// VkOffset3D                  imageOffset;
-				makeExtent3D(caseDef.renderSize.x(), caseDef.renderSize.y(), 1u),	// VkExtent3D                  imageExtent;
-			};
+		copyImageToBuffer(vk, *cmdBuffer, *resolveImage, resolveBuffer, caseDef.renderSize, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, caseDef.numLayers);
 
-			vk.cmdCopyImageToBuffer(*cmdBuffer, *resolveImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, resolveBuffer, 1u, &copyRegion);
-		}
-
-		VK_CHECK(vk.endCommandBuffer(*cmdBuffer));
+		endCommandBuffer(vk, *cmdBuffer);
 		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 	}
 }
@@ -1473,8 +1353,8 @@ tcu::TestStatus test (Context& context, const CaseDef caseDef)
 
 	// Verify
 	{
-		invalidateMappedMemoryRange(vk, device, resolveImageOneBufferAlloc->getMemory(), resolveImageOneBufferAlloc->getOffset(), resolveBufferSize);
-		invalidateMappedMemoryRange(vk, device, resolveImageTwoBufferAlloc->getMemory(), resolveImageTwoBufferAlloc->getOffset(), resolveBufferSize);
+		invalidateAlloc(vk, device, *resolveImageOneBufferAlloc);
+		invalidateAlloc(vk, device, *resolveImageTwoBufferAlloc);
 
 		const tcu::PixelBufferAccess		layeredImageOne	(mapVkFormat(caseDef.colorFormat), caseDef.renderSize.x(), caseDef.renderSize.y(), caseDef.numLayers, resolveImageOneBufferAlloc->getHostPtr());
 		const tcu::ConstPixelBufferAccess	layeredImageTwo	(mapVkFormat(caseDef.colorFormat), caseDef.renderSize.x(), caseDef.renderSize.y(), caseDef.numLayers, resolveImageTwoBufferAlloc->getHostPtr());

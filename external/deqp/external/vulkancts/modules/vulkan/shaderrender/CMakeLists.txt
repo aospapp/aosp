@@ -1,5 +1,6 @@
 include_directories(
 	..
+	../util
 	)
 
 set(DEQP_VK_SHADERRENDER_SRCS
@@ -13,6 +14,8 @@ set(DEQP_VK_SHADERRENDER_SRCS
 	vktShaderRenderDiscardTests.hpp
 	vktShaderRenderIndexingTests.cpp
 	vktShaderRenderIndexingTests.hpp
+	vktShaderRenderLimitTests.cpp
+	vktShaderRenderLimitTests.hpp
 	vktShaderRenderLoopTests.cpp
 	vktShaderRenderLoopTests.hpp
 	vktShaderRenderMatrixTests.cpp
@@ -35,6 +38,8 @@ set(DEQP_VK_SHADERRENDER_LIBS
 	tcutil
 	vkutil
 	)
+
+PCH(DEQP_VK_SHADERRENDER_SRCS ../pch.cpp)
 
 add_library(deqp-vk-shaderrender STATIC ${DEQP_VK_SHADERRENDER_SRCS})
 target_link_libraries(deqp-vk-shaderrender ${DEQP_VK_SHADERRENDER_LIBS})

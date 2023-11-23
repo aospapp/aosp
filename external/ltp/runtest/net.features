@@ -1,6 +1,14 @@
 #
 # Stress tests for various network features
 #
+bbr01 bbr01.sh
+bbr01_ipv6 bbr01.sh -6
+
+bbr02 bbr02.sh
+bbr02_ipv6 bbr02.sh -6
+
+bind_noport01 bind_noport01.sh
+bind_noport01_ipv6 bind_noport01.sh -6
 
 busy_poll01 busy_poll01.sh
 busy_poll01_ipv6 busy_poll01.sh -6
@@ -50,3 +58,14 @@ dctcp_ipv6_01 dctcp01.sh -6
 
 geneve01 geneve01.sh
 geneve01_ipv6 geneve01.sh -6
+
+sit01 sit01.sh
+
+mpls01 mpls01.sh
+mpls02 mpls02.sh
+mpls02_ipv6 mpls02.sh -6
+mpls03 mpls03.sh
+mpls03_ipv6 mpls03.sh -6
+mpls04 mpls04.sh
+
+fanout01 fanout01

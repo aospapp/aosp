@@ -30,11 +30,11 @@ ManifestInstance::ManifestInstance() = default;
 
 ManifestInstance::ManifestInstance(const ManifestInstance&) = default;
 
-ManifestInstance::ManifestInstance(ManifestInstance&&) = default;
+ManifestInstance::ManifestInstance(ManifestInstance&&) noexcept = default;
 
 ManifestInstance& ManifestInstance::operator=(const ManifestInstance&) = default;
 
-ManifestInstance& ManifestInstance::operator=(ManifestInstance&&) = default;
+ManifestInstance& ManifestInstance::operator=(ManifestInstance&&) noexcept = default;
 
 ManifestInstance::ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt)
     : mFqInstance(std::move(fqInstance)), mTransportArch(std::move(ta)), mHalFormat(fmt) {}

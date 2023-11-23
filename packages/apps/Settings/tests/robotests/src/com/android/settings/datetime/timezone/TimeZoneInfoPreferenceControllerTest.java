@@ -19,19 +19,19 @@ package com.android.settings.datetime.timezone;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.spy;
 
-import android.support.v7.preference.Preference;
+import androidx.preference.Preference;
 
 import com.android.settings.datetime.timezone.TimeZoneInfo.Formatter;
-import com.android.settings.testutils.SettingsRobolectricTestRunner;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 import java.util.Date;
 import java.util.Locale;
 
-@RunWith(SettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class TimeZoneInfoPreferenceControllerTest {
 
     @Test

@@ -38,18 +38,27 @@ service account*               | oauth2 + private key
 
 import logging
 import os
-import sys
 
 import httplib2
 
+# pylint: disable=import-error
 from oauth2client import client as oauth2_client
+from oauth2client import service_account as oauth2_service_account
 from oauth2client.contrib import multistore_file
 from oauth2client import tools as oauth2_tools
 
-from acloud.public import errors
+from acloud import errors
 
 logger = logging.getLogger(__name__)
 HOME_FOLDER = os.path.expanduser("~")
+# If there is no specific scope use case, we will always use this default full
+# scopes to run CreateCredentials func and user will only go oauth2 flow once
+# after login with this full scopes credentials.
+_ALL_SCOPES = " ".join(["https://www.googleapis.com/auth/compute",
+                        "https://www.googleapis.com/auth/logging.write",
+                        "https://www.googleapis.com/auth/androidbuild.internal",
+                        "https://www.googleapis.com/auth/devstorage.read_write",
+                        "https://www.googleapis.com/auth/userinfo.email"])
 
 
 def _CreateOauthServiceAccountCreds(email, private_key_path, scopes):
@@ -65,18 +74,41 @@ def _CreateOauthServiceAccountCreds(email, private_key_path, scopes):
         An oauth2client.OAuth2Credentials instance.
 
     Raises:
-        errors.AuthentcationError: if failed to authenticate.
+        errors.AuthenticationError: if failed to authenticate.
     """
     try:
-        with open(private_key_path) as f:
-            private_key = f.read()
-            credentials = oauth2_client.SignedJwtAssertionCredentials(
-                email, private_key, scopes)
+        credentials = oauth2_service_account.ServiceAccountCredentials.from_p12_keyfile(
+            email, private_key_path, scopes=scopes)
     except EnvironmentError as e:
-        raise errors.AuthentcationError(
-            "Could not authenticate using private key file %s, error message: %s",
-            private_key_path, str(e))
+        raise errors.AuthenticationError(
+            "Could not authenticate using private key file (%s) "
+            " error message: %s" % (private_key_path, str(e)))
     return credentials
+
+# pylint: disable=invalid-name
+def _CreateOauthServiceAccountCredsWithJsonKey(json_private_key_path, scopes):
+    """Create credentials with a normal service account from json key file.
+
+    Args:
+        json_private_key_path: Path to the service account json key file.
+        scopes: string, multiple scopes should be saperated by space.
+                        Api scopes to request for the oauth token.
+
+    Returns:
+        An oauth2client.OAuth2Credentials instance.
+
+    Raises:
+        errors.AuthenticationError: if failed to authenticate.
+    """
+    try:
+        return (
+            oauth2_service_account.ServiceAccountCredentials
+            .from_json_keyfile_name(
+                json_private_key_path, scopes=scopes))
+    except EnvironmentError as e:
+        raise errors.AuthenticationError(
+            "Could not authenticate using json private key file (%s) "
+            " error message: %s" % (json_private_key_path, str(e)))
 
 
 class RunFlowFlags(object):
@@ -129,7 +161,7 @@ def _CreateOauthUserCreds(creds_cache_file, client_id, client_secret,
         An oauth2client.OAuth2Credentials instance.
     """
     if not client_id or not client_secret:
-        raise errors.AuthentcationError(
+        raise errors.AuthenticationError(
             "Could not authenticate using Oauth2 flow, please set client_id "
             "and client_secret in your config file. Contact the cloud project's "
             "admin if you don't have the client_id and client_secret.")
@@ -149,8 +181,12 @@ def _CreateOauthUserCreds(creds_cache_file, client_id, client_secret,
     return _RunAuthFlow(storage, client_id, client_secret, user_agent, scopes)
 
 
-def CreateCredentials(acloud_config, scopes):
+def CreateCredentials(acloud_config, scopes=_ALL_SCOPES):
     """Create credentials.
+
+    If no specific scope provided, we create a full scopes credentials for
+    authenticating and user will only go oauth2 flow once after login with
+    full scopes credentials.
 
     Args:
         acloud_config: An AcloudConfig object.
@@ -160,7 +196,11 @@ def CreateCredentials(acloud_config, scopes):
     Returns:
         An oauth2client.OAuth2Credentials instance.
     """
-    if acloud_config.service_account_private_key_path:
+    if acloud_config.service_account_json_private_key_path:
+        return _CreateOauthServiceAccountCredsWithJsonKey(
+            acloud_config.service_account_json_private_key_path,
+            scopes=scopes)
+    elif acloud_config.service_account_private_key_path:
         return _CreateOauthServiceAccountCreds(
             acloud_config.service_account_name,
             acloud_config.service_account_private_key_path,

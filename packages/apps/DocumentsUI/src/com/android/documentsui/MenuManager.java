@@ -16,12 +16,14 @@
 
 package com.android.documentsui;
 
-import android.app.Fragment;
 import android.view.KeyboardShortcutGroup;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Menus;
@@ -30,16 +32,18 @@ import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.sidebar.RootsFragment;
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.function.IntFunction;
 
 public abstract class MenuManager {
+    private final static String TAG = "MenuManager";
 
     final protected SearchViewManager mSearchManager;
     final protected State mState;
     final protected DirectoryDetails mDirDetails;
+
+    protected Menu mOptionMenu;
 
     public MenuManager(
             SearchViewManager searchManager,
@@ -52,11 +56,11 @@ public abstract class MenuManager {
 
     /** @see ActionModeController */
     public void updateActionMenu(Menu menu, SelectionDetails selection) {
-        updateOpenInActionMode(menu.findItem(R.id.action_menu_open), selection);
         updateOpenWith(menu.findItem(R.id.action_menu_open_with), selection);
         updateDelete(menu.findItem(R.id.action_menu_delete), selection);
         updateShare(menu.findItem(R.id.action_menu_share), selection);
         updateRename(menu.findItem(R.id.action_menu_rename), selection);
+        updateSelect(menu.findItem(R.id.action_menu_select), selection);
         updateSelectAll(menu.findItem(R.id.action_menu_select_all));
         updateMoveTo(menu.findItem(R.id.action_menu_move_to), selection);
         updateCopyTo(menu.findItem(R.id.action_menu_copy_to), selection);
@@ -64,23 +68,39 @@ public abstract class MenuManager {
         updateExtractTo(menu.findItem(R.id.action_menu_extract_to), selection);
         updateInspect(menu.findItem(R.id.action_menu_inspect), selection);
         updateViewInOwner(menu.findItem(R.id.action_menu_view_in_owner), selection);
+        updateSort(menu.findItem(R.id.action_menu_sort));
 
         Menus.disableHiddenItems(menu);
     }
 
     /** @see BaseActivity#onPrepareOptionsMenu */
     public void updateOptionMenu(Menu menu) {
-        updateCreateDir(menu.findItem(R.id.option_menu_create_dir));
-        updateSettings(menu.findItem(R.id.option_menu_settings));
-        updateSelectAll(menu.findItem(R.id.option_menu_select_all));
-        updateNewWindow(menu.findItem(R.id.option_menu_new_window));
-        updateModePicker(menu.findItem(R.id.option_menu_grid),
-                menu.findItem(R.id.option_menu_list));
-        updateAdvanced(menu.findItem(R.id.option_menu_advanced));
-        updateDebug(menu.findItem(R.id.option_menu_debug));
-        updateInspect(menu.findItem(R.id.option_menu_inspect));
-        Menus.disableHiddenItems(menu);
+        mOptionMenu = menu;
+        updateOptionMenu();
     }
+
+    public void updateOptionMenu() {
+        if (mOptionMenu == null) {
+            return;
+        }
+        updateCreateDir(mOptionMenu.findItem(R.id.option_menu_create_dir));
+        updateSettings(mOptionMenu.findItem(R.id.option_menu_settings));
+        updateSelectAll(mOptionMenu.findItem(R.id.option_menu_select_all));
+        updateNewWindow(mOptionMenu.findItem(R.id.option_menu_new_window));
+        updateAdvanced(mOptionMenu.findItem(R.id.option_menu_advanced));
+        updateDebug(mOptionMenu.findItem(R.id.option_menu_debug));
+        updateInspect(mOptionMenu.findItem(R.id.option_menu_inspect));
+        updateSort(mOptionMenu.findItem(R.id.option_menu_sort));
+
+        Menus.disableHiddenItems(mOptionMenu);
+        mSearchManager.updateMenu();
+    }
+
+    public void updateSubMenu(Menu menu) {
+        updateModePicker(menu.findItem(R.id.sub_menu_grid), menu.findItem(R.id.sub_menu_list));
+    }
+
+    public void updateModel(Model model) {}
 
     /**
      * Called when we needs {@link MenuManager} to ask Android to show context menu for us.
@@ -228,6 +248,10 @@ public abstract class MenuManager {
                 ? R.string.menu_advanced_hide : R.string.menu_advanced_show);
     }
 
+    protected void updateSort(MenuItem sort) {
+        sort.setVisible(true);
+    }
+
     protected void updateDebug(MenuItem debug) {
         debug.setVisible(mState.debugMode);
     }
@@ -248,8 +272,8 @@ public abstract class MenuManager {
         newWindow.setVisible(false);
     }
 
-    protected void updateOpenInActionMode(MenuItem open, SelectionDetails selectionDetails) {
-        open.setVisible(false);
+    protected void updateSelect(MenuItem select, SelectionDetails selectionDetails) {
+        select.setVisible(false);
     }
 
     protected void updateOpenWith(MenuItem openWith, SelectionDetails selectionDetails) {
@@ -321,8 +345,10 @@ public abstract class MenuManager {
         pasteInto.setVisible(false);
     }
 
-    protected abstract void updateOpenInContextMenu(
-            MenuItem open, SelectionDetails selectionDetails);
+    protected void updateOpenInContextMenu(MenuItem open, SelectionDetails selectionDetails) {
+        open.setVisible(false);
+    }
+
     protected abstract void updateSelectAll(MenuItem selectAll);
     protected abstract void updateCreateDir(MenuItem createDir);
 
@@ -375,11 +401,15 @@ public abstract class MenuManager {
         }
 
         public boolean isInRecents() {
-            return mActivity.getCurrentDirectory() == null;
+            return mActivity.isInRecents();
         }
 
         public boolean canCreateDirectory() {
             return mActivity.canCreateDirectory();
+        }
+
+        public boolean canInspectDirectory() {
+            return mActivity.canInspectDirectory() && !isInRecents();
         }
     }
 }

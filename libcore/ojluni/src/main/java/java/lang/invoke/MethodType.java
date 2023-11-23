@@ -97,8 +97,8 @@ class MethodType implements java.io.Serializable {
     // The remaining fields are caches of various sorts:
     private @Stable MethodTypeForm form; // erased form, plus cached data about primitives
     private @Stable MethodType wrapAlt;  // alternative wrapped/unwrapped version
-    // Android-changed: Remove adapter cache. We're not dynamically generating any
-    // adapters at this point.
+    // Android-removed: Cache of higher order adapters.
+    // We're not dynamically generating any adapters at this point.
     // private @Stable Invokers invokers;   // cache of handy higher-order adapters
     private @Stable String methodDescriptor;  // cache for toMethodDescriptorString
 
@@ -124,12 +124,13 @@ class MethodType implements java.io.Serializable {
     }
 
     /*trusted*/ MethodTypeForm form() { return form; }
+    // Android-changed: Make rtype()/ptypes() public @hide for implementation use.
+    // /*trusted*/ Class<?> rtype() { return rtype; }
+    // /*trusted*/ Class<?>[] ptypes() { return ptypes; }
     /*trusted*/ /** @hide */ public Class<?> rtype() { return rtype; }
     /*trusted*/ /** @hide */ public Class<?>[] ptypes() { return ptypes; }
 
-    // Android-changed: Removed method setForm. It's unused in the JDK and there's no
-    // good reason to allow the form to be set externally.
-    //
+    // Android-removed: Implementation methods unused on Android.
     // void setForm(MethodTypeForm f) { form = f; }
 
     /** This number, mandated by the JVM spec as 255,
@@ -618,22 +619,26 @@ class MethodType implements java.io.Serializable {
         return form.erasedType();
     }
 
+    // BEGIN Android-removed: Implementation methods unused on Android.
+    /*
     /**
      * Erases all reference types to {@code Object}, and all subword types to {@code int}.
      * This is the reduced type polymorphism used by private methods
      * such as {@link MethodHandle#invokeBasic invokeBasic}.
      * @return a version of the original type with all reference and subword types replaced
-     */
-    /*non-public*/ MethodType basicType() {
+     *
+    /*non-public* MethodType basicType() {
         return form.basicType();
     }
 
     /**
      * @return a version of the original type with MethodHandle prepended as the first argument
-     */
-    /*non-public*/ MethodType invokerType() {
+     *
+    /*non-public* MethodType invokerType() {
         return insertParameterTypes(0, MethodHandle.class);
     }
+    */
+    // END Android-removed: Implementation methods unused on Android.
 
     /**
      * Converts all types, both reference and primitive, to {@code Object}.
@@ -805,12 +810,36 @@ class MethodType implements java.io.Serializable {
         return sb.toString();
     }
 
+    // BEGIN Android-removed: Implementation methods unused on Android.
+    /*
     /** True if the old return type can always be viewed (w/o casting) under new return type,
      *  and the new parameters can be viewed (w/o casting) under the old parameter types.
-     */
-    // Android-changed: Removed implementation details.
-    // boolean isViewableAs(MethodType newType, boolean keepInterfaces);
-    // boolean parametersAreViewableAs(MethodType newType, boolean keepInterfaces);
+     *
+    /*non-public*
+    boolean isViewableAs(MethodType newType, boolean keepInterfaces) {
+        if (!VerifyType.isNullConversion(returnType(), newType.returnType(), keepInterfaces))
+            return false;
+        return parametersAreViewableAs(newType, keepInterfaces);
+    }
+    /** True if the new parameters can be viewed (w/o casting) under the old parameter types. *
+    /*non-public*
+    boolean parametersAreViewableAs(MethodType newType, boolean keepInterfaces) {
+        if (form == newType.form && form.erasedType == this)
+            return true;  // my reference parameters are all Object
+        if (ptypes == newType.ptypes)
+            return true;
+        int argc = parameterCount();
+        if (argc != newType.parameterCount())
+            return false;
+        for (int i = 0; i < argc; i++) {
+            if (!VerifyType.isNullConversion(newType.parameterType(i), parameterType(i), keepInterfaces))
+                return false;
+        }
+        return true;
+    }
+    */
+    // END Android-removed: Implementation methods unused on Android.
+
     /*non-public*/
     boolean isConvertibleTo(MethodType newType) {
         MethodTypeForm oldForm = this.form();
@@ -865,6 +894,9 @@ class MethodType implements java.io.Serializable {
         return true;
     }
 
+    // Android-changed: Temporary workaround for bug in MethodHandle.asType(MethodType).
+    // See http://b/113855305 for more details
+    // Update documentation to describe new behavior.
     /** Reports true if the src can be converted to the dst, by both asType and MHs.eCE,
      *  and with the same effect.
      *  MHs.eCA has the following "upgrades" to MH.asType:
@@ -881,9 +913,10 @@ class MethodType implements java.io.Serializable {
      * Boxing primitives to references is the same for both operators.
      */
     private static boolean explicitCastEquivalentToAsType(Class<?> src, Class<?> dst) {
-        if (src == dst || dst == Object.class || dst == void.class) {
-            return true;
-        } else if (src.isPrimitive() && src != void.class) {
+        if (src == dst || dst == Object.class || dst == void.class)  return true;
+        // Android-changed: Temporary workaround for bug in MethodHandle.asType(MethodType).
+        // if (src.isPrimitive()) {
+        if (src.isPrimitive() && src != void.class) {
             // Could be a prim/prim conversion, where casting is a strict superset.
             // Or a boxing conversion, which is always to an exact wrapper class.
             return canConvert(src, dst);
@@ -958,6 +991,8 @@ class MethodType implements java.io.Serializable {
         }
     }
 
+    /// Queries which have to do with the bytecode architecture
+
     /** Reports the number of JVM stack slots required to invoke a method
      * of this type.  Note that (for historical reasons) the JVM requires
      * a second stack slot to pass long and double arguments.
@@ -972,16 +1007,63 @@ class MethodType implements java.io.Serializable {
         return form.parameterSlotCount();
     }
 
-    /// Queries which have to do with the bytecode architecture
+    // BEGIN Android-removed: Cache of higher order adapters.
+    /*
+    /*non-public* Invokers invokers() {
+        Invokers inv = invokers;
+        if (inv != null)  return inv;
+        invokers = inv = new Invokers(this);
+        return inv;
+    }
+    */
+    // END Android-removed: Cache of higher order adapters.
 
-    // Android-changed: These methods aren't needed on Android and are unused within the JDK.
-    //
-    // int parameterSlotDepth(int num);
-    // int returnSlotCount();
-    //
-    // Android-changed: Removed cache of higher order adapters.
-    //
-    // Invokers invokers();
+    // BEGIN Android-removed: Implementation methods unused on Android.
+    /*
+    /** Reports the number of JVM stack slots which carry all parameters including and after
+     * the given position, which must be in the range of 0 to
+     * {@code parameterCount} inclusive.  Successive parameters are
+     * more shallowly stacked, and parameters are indexed in the bytecodes
+     * according to their trailing edge.  Thus, to obtain the depth
+     * in the outgoing call stack of parameter {@code N}, obtain
+     * the {@code parameterSlotDepth} of its trailing edge
+     * at position {@code N+1}.
+     * <p>
+     * Parameters of type {@code long} and {@code double} occupy
+     * two stack slots (for historical reasons) and all others occupy one.
+     * Therefore, the number returned is the number of arguments
+     * <em>including</em> and <em>after</em> the given parameter,
+     * <em>plus</em> the number of long or double arguments
+     * at or after after the argument for the given parameter.
+     * <p>
+     * This method is included for the benefit of applications that must
+     * generate bytecodes that process method handles and invokedynamic.
+     * @param num an index (zero-based, inclusive) within the parameter types
+     * @return the index of the (shallowest) JVM stack slot transmitting the
+     *         given parameter
+     * @throws IllegalArgumentException if {@code num} is negative or greater than {@code parameterCount()}
+     *
+    /*non-public* int parameterSlotDepth(int num) {
+        if (num < 0 || num > ptypes.length)
+            parameterType(num);  // force a range check
+        return form.parameterToArgSlot(num-1);
+    }
+
+    /** Reports the number of JVM stack slots required to receive a return value
+     * from a method of this type.
+     * If the {@link #returnType() return type} is void, it will be zero,
+     * else if the return type is long or double, it will be two, else one.
+     * <p>
+     * This method is included for the benefit of applications that must
+     * generate bytecodes that process method handles and invokedynamic.
+     * @return the number of JVM stack slots (0, 1, or 2) for this type's return value
+     * Will be removed for PFD.
+     *
+    /*non-public* int returnSlotCount() {
+        return form.returnSlotCount();
+    }
+    */
+    // END Android-removed: Implementation methods unused on Android.
 
     /**
      * Finds or creates an instance of a method type, given the spelling of its bytecode descriptor.

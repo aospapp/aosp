@@ -20,11 +20,13 @@
 #include <stddef.h>
 #include <time.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
 #include <android-base/logging.h>
 #include <android-base/macros.h>
+#include <android-base/unique_fd.h>
 #include <ziparchive/zip_archive.h>
 
 static inline uint64_t Align(uint64_t value, uint64_t alignment) {
@@ -33,8 +35,10 @@ static inline uint64_t Align(uint64_t value, uint64_t alignment) {
 
 #ifdef _WIN32
 #define CLOSE_ON_EXEC_MODE ""
+#define OS_PATH_SEPARATOR '\\'
 #else
 #define CLOSE_ON_EXEC_MODE "e"
+#define OS_PATH_SEPARATOR '/'
 #endif
 
 // OneTimeAllocator is used to allocate memory many times and free only once at the end.
@@ -50,7 +54,7 @@ class OneTimeFreeAllocator {
   }
 
   void Clear();
-  const char* AllocateString(const std::string& s);
+  const char* AllocateString(std::string_view s);
 
  private:
   const size_t unit_size_;
@@ -61,46 +65,26 @@ class OneTimeFreeAllocator {
 
 class FileHelper {
  public:
-  static FileHelper OpenReadOnly(const std::string& filename);
-  static FileHelper OpenWriteOnly(const std::string& filename);
-
-  FileHelper(FileHelper&& other) {
-    fd_ = other.fd_;
-    other.fd_ = -1;
-  }
-
-  ~FileHelper();
-
-  explicit operator bool() const {
-    return fd_ != -1;
-  }
-
-  int fd() const {
-    return fd_;
-  }
-
- private:
-  explicit FileHelper(int fd) : fd_(fd) {}
-  int fd_;
-
-  DISALLOW_COPY_AND_ASSIGN(FileHelper);
+  static android::base::unique_fd OpenReadOnly(const std::string& filename);
+  static android::base::unique_fd OpenWriteOnly(const std::string& filename);
 };
 
 class ArchiveHelper {
  public:
-  ArchiveHelper(int fd, const std::string& debug_filename);
+  static std::unique_ptr<ArchiveHelper> CreateInstance(const std::string& filename);
   ~ArchiveHelper();
-
-  explicit operator bool() const {
-    return valid_;
-  }
-  ZipArchiveHandle &archive_handle() {
-    return handle_;
-  }
+  // Iterate each entry in the zip file. Break the iteration when callback returns false.
+  bool IterateEntries(const std::function<bool(ZipEntry&, const std::string&)>& callback);
+  bool FindEntry(const std::string& name, ZipEntry* entry);
+  bool GetEntryData(ZipEntry& entry, std::vector<uint8_t>* data);
+  int GetFd();
 
  private:
+  ArchiveHelper(ZipArchiveHandle handle, const std::string& filename)
+      : handle_(handle), filename_(filename) {}
+
   ZipArchiveHandle handle_;
-  bool valid_;
+  std::string filename_;
 
   DISALLOW_COPY_AND_ASSIGN(ArchiveHelper);
 };

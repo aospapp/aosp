@@ -193,7 +193,7 @@ static int __policy_init(const char *init_path)
 {
 	FILE *fp;
 	char path[PATH_MAX];
-	char errormsg[PATH_MAX];
+	char errormsg[PATH_MAX+1024+20];
 	struct sepol_policy_file *pf = NULL;
 	int rc;
 	unsigned int cnt;
@@ -354,7 +354,7 @@ static PyObject *analyze(PyObject *self __attribute__((unused)) , PyObject *args
 	/* iterate over items of the list, grabbing strings, and parsing
 	   for numbers */
 	for (i=0; i<numlines; i++){
-		char *permstr;
+		const char *permstr;
 
 		/* grab the string object from the next element of the list */
 		strObj = PyList_GetItem(listObj, i); /* Can't fail */

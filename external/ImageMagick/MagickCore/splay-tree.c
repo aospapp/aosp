@@ -23,13 +23,13 @@
 %                               December 2002                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -54,6 +54,7 @@
 #include "MagickCore/locale_.h"
 #include "MagickCore/log.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/memory-private.h"
 #include "MagickCore/splay-tree.h"
 #include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
@@ -854,6 +855,47 @@ MagickExport const void *GetNextValueInSplayTree(SplayTreeInfo *splay_tree)
 %                                                                             %
 %                                                                             %
 %                                                                             %
+%   G e t R o o t V a l u e F r o m S p l a y T r e e                         %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  GetRootValueFromSplayTree() gets the root value from the splay-tree.
+%
+%  The format of the GetRootValueFromSplayTree method is:
+%
+%      const void *GetRootValueFromSplayTree(SplayTreeInfo *splay_tree)
+%
+%  A description of each parameter follows:
+%
+%    o splay_tree: the splay tree.
+%
+%    o key: the key.
+%
+*/
+MagickExport const void *GetRootValueFromSplayTree(SplayTreeInfo *splay_tree)
+{
+  const void
+    *value;
+
+  assert(splay_tree != (SplayTreeInfo *) NULL);
+  assert(splay_tree->signature == MagickCoreSignature);
+  if (splay_tree->debug != MagickFalse)
+    (void) LogMagickEvent(TraceEvent,GetMagickModule(),"...");
+  value=(const void *) NULL;
+  LockSemaphoreInfo(splay_tree->semaphore);
+  if (splay_tree->root != (NodeInfo *) NULL)
+    value=splay_tree->root->value;
+  UnlockSemaphoreInfo(splay_tree->semaphore);
+  return(value);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
 %   G e t V a l u e F r o m S p l a y T r e e                                 %
 %                                                                             %
 %                                                                             %
@@ -1103,10 +1145,8 @@ MagickExport SplayTreeInfo *NewSplayTree(
   SplayTreeInfo
     *splay_tree;
 
-  splay_tree=(SplayTreeInfo *) AcquireMagickMemory(sizeof(*splay_tree));
-  if (splay_tree == (SplayTreeInfo *) NULL)
-    ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
-  (void) ResetMagickMemory(splay_tree,0,sizeof(*splay_tree));
+  splay_tree=(SplayTreeInfo *) AcquireCriticalMemory(sizeof(*splay_tree));
+  (void) memset(splay_tree,0,sizeof(*splay_tree));
   splay_tree->root=(NodeInfo *) NULL;
   splay_tree->compare=compare;
   splay_tree->relinquish_key=relinquish_key;

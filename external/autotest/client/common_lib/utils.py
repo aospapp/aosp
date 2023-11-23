@@ -12,12 +12,15 @@ inheritance with, just a collection of static methods.
 # pylint: disable=missing-docstring
 
 import StringIO
+import collections
+import datetime
 import errno
 import inspect
 import itertools
 import logging
 import os
 import pickle
+import Queue
 import random
 import re
 import resource
@@ -29,6 +32,7 @@ import string
 import struct
 import subprocess
 import textwrap
+import threading
 import time
 import urllib2
 import urlparse
@@ -50,6 +54,7 @@ from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.client.common_lib import metrics_mock_class
 from autotest_lib.client.cros import constants
 
+# pylint: disable=wildcard-import
 from autotest_lib.client.common_lib.lsbrelease_utils import *
 
 
@@ -350,7 +355,11 @@ def set_ip_local_port_range(lower, upper):
 
 
 def read_one_line(filename):
-    return open(filename, 'r').readline().rstrip('\n')
+    f = open(filename, 'r')
+    try:
+        return f.readline().rstrip('\n')
+    finally:
+        f.close()
 
 
 def read_file(filename):
@@ -400,8 +409,10 @@ def open_write_close(filename, data):
 def locate_file(path, base_dir=None):
     """Locates a file.
 
-    @param path: The path of the file being located. Could be absolute or relative
-        path. For relative path, it tries to locate the file from base_dir.
+    @param path: The path of the file being located. Could be absolute or
+        relative path. For relative path, it tries to locate the file from
+        base_dir.
+
     @param base_dir (optional): Base directory of the relative path.
 
     @returns Absolute path of the file if found. None if path is None.
@@ -571,7 +582,7 @@ def urlretrieve(url, filename, data=None, timeout=300):
         src_file.close()
 
 
-def hash(type, input=None):
+def hash(hashtype, input=None):
     """
     Returns an hash object of type md5 or sha1. This function is implemented in
     order to encapsulate hash objects in a way that is compatible with python
@@ -584,21 +595,22 @@ def hash(type, input=None):
 
     @param input: Optional input string that will be used to update the hash.
     """
-    if type not in ['md5', 'sha1']:
-        raise ValueError("Unsupported hash type: %s" % type)
+    # pylint: disable=redefined-builtin
+    if hashtype not in ['md5', 'sha1']:
+        raise ValueError("Unsupported hash type: %s" % hashtype)
 
     try:
-        hash = hashlib.new(type)
+        computed_hash = hashlib.new(hashtype)
     except NameError:
-        if type == 'md5':
-            hash = md5.new()
-        elif type == 'sha1':
-            hash = sha.new()
+        if hashtype == 'md5':
+            computed_hash = md5.new()
+        elif hashtype == 'sha1':
+            computed_hash = sha.new()
 
     if input:
-        hash.update(input)
+        computed_hash.update(input)
 
-    return hash
+    return computed_hash
 
 
 def get_file(src, dest, permissions=None):
@@ -683,7 +695,7 @@ def run(command, timeout=None, ignore_status=False, stdout_tee=None,
             code of the command is.
     @param stdout_tee: optional file-like object to which stdout data
             will be written as it is generated (data will still be stored
-            in result.stdout).
+            in result.stdout unless this is DEVNULL).
     @param stderr_tee: likewise for stderr.
     @param verbose: if True, log the command being run.
     @param stdin: stdin to pass to the executed process (can be a file
@@ -752,7 +764,7 @@ def run(command, timeout=None, ignore_status=False, stdout_tee=None,
 
 def run_parallel(commands, timeout=None, ignore_status=False,
                  stdout_tee=None, stderr_tee=None,
-                 nicknames=[]):
+                 nicknames=None):
     """
     Behaves the same as run() with the following exceptions:
 
@@ -763,6 +775,8 @@ def run_parallel(commands, timeout=None, ignore_status=False,
     @return: a list of CmdResult objects
     """
     bg_jobs = []
+    if nicknames is None:
+        nicknames = []
     for (command, nickname) in itertools.izip_longest(commands, nicknames):
         bg_jobs.append(BgJob(command, stdout_tee, stderr_tee,
                              stderr_level=get_stderr_level(ignore_status),
@@ -962,7 +976,7 @@ def signal_pid(pid, sig):
         # The process may have died before we could kill it.
         pass
 
-    for i in range(5):
+    for _ in range(5):
         if not pid_is_alive(pid):
             return True
         time.sleep(1)
@@ -1069,23 +1083,24 @@ def system_output_parallel(commands, timeout=None, ignore_status=False,
     else:
         out = [bg_job.stdout for bg_job in run_parallel(commands,
                                   timeout=timeout, ignore_status=ignore_status)]
-    for x in out:
-        if out[-1:] == '\n': out = out[:-1]
+    for _ in out:
+        if out[-1:] == '\n':
+            out = out[:-1]
     return out
 
 
-def strip_unicode(input):
-    if type(input) == list:
-        return [strip_unicode(i) for i in input]
-    elif type(input) == dict:
+def strip_unicode(input_obj):
+    if type(input_obj) == list:
+        return [strip_unicode(i) for i in input_obj]
+    elif type(input_obj) == dict:
         output = {}
-        for key in input.keys():
-            output[str(key)] = strip_unicode(input[key])
+        for key in input_obj.keys():
+            output[str(key)] = strip_unicode(input_obj[key])
         return output
-    elif type(input) == unicode:
-        return str(input)
+    elif type(input_obj) == unicode:
+        return str(input_obj)
     else:
-        return input
+        return input_obj
 
 
 def get_cpu_percentage(function, *args, **dargs):
@@ -1136,6 +1151,7 @@ def get_arch_userspace(run_function=run):
     """
     archs = {
         'arm': 'ELF 32-bit.*, ARM,',
+        'arm64': 'ELF 64-bit.*, ARM aarch64,',
         'i386': 'ELF 32-bit.*, Intel 80386,',
         'x86_64': 'ELF 64-bit.*, x86-64,',
     }
@@ -1167,6 +1183,78 @@ def get_num_logical_cpus_per_socket(run_function=run):
         raise error.TestError('Number of siblings differ %r' %
                               num_siblings)
     return num_siblings[0]
+
+
+def set_high_performance_mode(host=None):
+    """
+    Sets the kernel governor mode to the highest setting.
+    Returns previous governor state.
+    """
+    original_governors = get_scaling_governor_states(host)
+    set_scaling_governors('performance', host)
+    return original_governors
+
+
+def set_scaling_governors(value, host=None):
+    """
+    Sets all scaling governor to string value.
+    Sample values: 'performance', 'interactive', 'ondemand', 'powersave'.
+    """
+    paths = _get_cpufreq_paths('scaling_governor', host)
+    if not paths:
+        logging.info("Could not set governor states, as no files of the form "
+                     "'/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor' "
+                     "were found.")
+    run_func = host.run if host else system
+    for path in paths:
+        cmd = 'echo %s > %s' % (value, path)
+        logging.info('Writing scaling governor mode \'%s\' -> %s', value, path)
+        # On Tegra CPUs can be dynamically enabled/disabled. Ignore failures.
+        run_func(cmd, ignore_status=True)
+
+
+def _get_cpufreq_paths(filename, host=None):
+    """
+    Returns a list of paths to the governors.
+    """
+    run_func = host.run if host else run
+    glob = '/sys/devices/system/cpu/cpu*/cpufreq/' + filename
+    # Simple glob expansion; note that CPUs may come and go, causing these
+    # paths to change at any time.
+    cmd = 'echo ' + glob
+    try:
+        paths = run_func(cmd, verbose=False).stdout.split()
+    except error.CmdError:
+        return []
+    # If the glob result equals itself, then we likely didn't match any real
+    # paths (assuming 'cpu*' is not a real path).
+    if paths == [glob]:
+        return []
+    return paths
+
+
+def get_scaling_governor_states(host=None):
+    """
+    Returns a list of (performance governor path, current state) tuples.
+    """
+    paths = _get_cpufreq_paths('scaling_governor', host)
+    path_value_list = []
+    run_func = host.run if host else run
+    for path in paths:
+        value = run_func('head -n 1 %s' % path, verbose=False).stdout
+        path_value_list.append((path, value))
+    return path_value_list
+
+
+def restore_scaling_governor_states(path_value_list, host=None):
+    """
+    Restores governor states. Inverse operation to get_scaling_governor_states.
+    """
+    run_func = host.run if host else system
+    for (path, value) in path_value_list:
+        cmd = 'echo %s > %s' % (value.rstrip('\n'), path)
+        # On Tegra CPUs can be dynamically enabled/disabled. Ignore failures.
+        run_func(cmd, ignore_status=True)
 
 
 def merge_trees(src, dest):
@@ -1644,15 +1732,15 @@ def args_to_dict(args):
         dictionary
     """
     arg_re = re.compile(r'(\w+)[:=](.*)$')
-    dict = {}
+    args_dict = {}
     for arg in args:
         match = arg_re.match(arg)
         if match:
-            dict[match.group(1).lower()] = match.group(2)
+            args_dict[match.group(1).lower()] = match.group(2)
         else:
             logging.warning("args_to_dict: argument '%s' doesn't match "
                             "'%s' pattern. Ignored.", arg, arg_re.pattern)
-    return dict
+    return args_dict
 
 
 def get_unused_port():
@@ -1833,19 +1921,19 @@ WIRELESS_SSID_PATTERN = 'wireless_ssid_(.*)/(\d+)'
 
 
 def get_moblab_serial_number():
-    """Gets the moblab public network interface.
+    """Gets a unique identifier for the moblab.
 
-    If the eth0 is an USB interface, try to use eth1 instead. Otherwise
-    use eth0 by default.
+    Serial number is the prefered identifier, use it if
+    present, however fallback is the ethernet mac address.
     """
-    try:
-        cmd_result = run('sudo vpd -g serial_number')
-        if cmd_result.stdout:
-          return cmd_result.stdout
-    except error.CmdError as e:
-        logging.error(str(e))
-        logging.info('Serial number ')
-        pass
+    for vpd_key in ['serial_number', 'ethernet_mac']:
+      try:
+          cmd_result = run('sudo vpd -g %s' % vpd_key)
+          if cmd_result and cmd_result.stdout:
+            return cmd_result.stdout
+      except error.CmdError as e:
+          logging.error(str(e))
+          logging.info(vpd_key)
     return 'NoSerialNumber'
 
 
@@ -1898,6 +1986,7 @@ def host_is_in_lab_zone(hostname):
     host_parts = hostname.split('.')
     dns_zone = CONFIG.get_config_value('CLIENT', 'dns_zone', default=None)
     fqdn = '%s.%s' % (host_parts[0], dns_zone)
+    logging.debug('Checking if host %s is in lab zone.', fqdn)
     try:
         socket.gethostbyname(fqdn)
         return True
@@ -1905,20 +1994,11 @@ def host_is_in_lab_zone(hostname):
         return False
 
 
-def host_could_be_in_afe(hostname):
-    """Check if the host could be in Autotest Front End.
-
-    Report whether or not a host could be in AFE, without actually
-    consulting AFE. This method exists because some systems are in the
-    lab zone, but not actually managed by AFE.
-
-    @param hostname: The hostname to check.
-    @returns True if hostname is in lab zone, and does not match *-dev-*
-    """
-    # Do the 'dev' check first, so that we skip DNS lookup if the
-    # hostname matches. This should give us greater resilience to lab
-    # failures.
-    return (hostname.find('-dev-') == -1) and host_is_in_lab_zone(hostname)
+def in_moblab_ssp():
+    """Detects if this execution is inside an SSP container on moblab."""
+    config_is_moblab = CONFIG.get_config_value('SSP', 'is_moblab', type=bool,
+                                               default=False)
+    return is_in_container() and config_is_moblab
 
 
 def get_chrome_version(job_views):
@@ -1994,14 +2074,15 @@ def get_offload_gsuri():
     @returns gsuri to offload test results to.
     """
     # For non-moblab, use results_storage_server or default.
-    if not is_moblab():
+    if not is_moblab():  # pylint: disable=undefined-variable
         return DEFAULT_OFFLOAD_GSURI
 
     # For moblab, use results_storage_server or image_storage_server as bucket
     # name and mac-address/moblab_id as path.
     gsuri = DEFAULT_OFFLOAD_GSURI
     if not gsuri:
-        gsuri = "%sresults/" % CONFIG.get_config_value('CROS', 'image_storage_server')
+        gsuri = "%sresults/" % CONFIG.get_config_value('CROS',
+                                                       'image_storage_server')
 
     return '%s%s/%s/' % (gsuri, get_moblab_serial_number(), get_moblab_id())
 
@@ -2076,7 +2157,7 @@ def gs_ls(uri_pattern):
     return [path.rstrip() for path in result if path]
 
 
-def nuke_pids(pid_list, signal_queue=[signal.SIGTERM, signal.SIGKILL]):
+def nuke_pids(pid_list, signal_queue=None):
     """
     Given a list of pid's, kill them via an esclating series of signals.
 
@@ -2086,6 +2167,8 @@ def nuke_pids(pid_list, signal_queue=[signal.SIGTERM, signal.SIGKILL]):
     @return: A mapping of the signal name to the number of processes it
         was sent to.
     """
+    if signal_queue is None:
+        signal_queue = [signal.SIGTERM, signal.SIGKILL]
     sig_count = {}
     # Though this is slightly hacky it beats hardcoding names anyday.
     sig_names = dict((k, v) for v, k in signal.__dict__.iteritems()
@@ -2239,117 +2322,6 @@ def has_systemd():
     return os.path.basename(os.readlink('/proc/1/exe')) == 'systemd'
 
 
-def version_match(build_version, release_version, update_url=''):
-    """Compare release version from lsb-release with cros-version label.
-
-    build_version is a string based on build name. It is prefixed with builder
-    info and branch ID, e.g., lumpy-release/R43-6809.0.0. It may not include
-    builder info, e.g., lumpy-release, in which case, update_url shall be passed
-    in to determine if the build is a trybot or pgo-generate build.
-    release_version is retrieved from lsb-release.
-    These two values might not match exactly.
-
-    The method is designed to compare version for following 6 scenarios with
-    samples of build version and expected release version:
-    1. trybot non-release build (paladin, pre-cq or test-ap build).
-    build version:   trybot-lumpy-paladin/R27-3837.0.0-b123
-    release version: 3837.0.2013_03_21_1340
-
-    2. trybot release build.
-    build version:   trybot-lumpy-release/R27-3837.0.0-b456
-    release version: 3837.0.0
-
-    3. buildbot official release build.
-    build version:   lumpy-release/R27-3837.0.0
-    release version: 3837.0.0
-
-    4. non-official paladin rc build.
-    build version:   lumpy-paladin/R27-3878.0.0-rc7
-    release version: 3837.0.0-rc7
-
-    5. chrome-perf build.
-    build version:   lumpy-chrome-perf/R28-3837.0.0-b2996
-    release version: 3837.0.0
-
-    6. pgo-generate build.
-    build version:   lumpy-release-pgo-generate/R28-3837.0.0-b2996
-    release version: 3837.0.0-pgo-generate
-
-    7. build version with --cheetsth suffix.
-    build version:   lumpy-release/R28-3837.0.0-cheetsth
-    release version: 3837.0.0
-
-    TODO: This logic has a bug if a trybot paladin build failed to be
-    installed in a DUT running an older trybot paladin build with same
-    platform number, but different build number (-b###). So to conclusively
-    determine if a tryjob paladin build is imaged successfully, we may need
-    to find out the date string from update url.
-
-    @param build_version: Build name for cros version, e.g.
-                          peppy-release/R43-6809.0.0 or R43-6809.0.0
-    @param release_version: Release version retrieved from lsb-release,
-                            e.g., 6809.0.0
-    @param update_url: Update url which include the full builder information.
-                       Default is set to empty string.
-
-    @return: True if the values match, otherwise returns False.
-    """
-    # If the build is from release, CQ or PFQ builder, cros-version label must
-    # be ended with release version in lsb-release.
-    if (build_version.endswith(release_version) or
-            build_version.endswith(release_version + '-cheetsth')):
-        return True
-
-    if build_version.endswith('-cheetsth'):
-        build_version = re.sub('-cheetsth' + '$', '', build_version)
-
-    # Remove R#- and -b# at the end of build version
-    stripped_version = re.sub(r'(R\d+-|-b\d+)', '', build_version)
-    # Trim the builder info, e.g., trybot-lumpy-paladin/
-    stripped_version = stripped_version.split('/')[-1]
-
-    is_trybot_non_release_build = (
-            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap|toolchain)',
-                     build_version) or
-            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap|toolchain)',
-                     update_url))
-
-    # Replace date string with 0 in release_version
-    release_version_no_date = re.sub(r'\d{4}_\d{2}_\d{2}_\d+', '0',
-                                    release_version)
-    has_date_string = release_version != release_version_no_date
-
-    is_pgo_generate_build = (
-            re.match(r'.+-pgo-generate', build_version) or
-            re.match(r'.+-pgo-generate', update_url))
-
-    # Remove |-pgo-generate| in release_version
-    release_version_no_pgo = release_version.replace('-pgo-generate', '')
-    has_pgo_generate = release_version != release_version_no_pgo
-
-    if is_trybot_non_release_build:
-        if not has_date_string:
-            logging.error('A trybot paladin or pre-cq build is expected. '
-                          'Version "%s" is not a paladin or pre-cq  build.',
-                          release_version)
-            return False
-        return stripped_version == release_version_no_date
-    elif is_pgo_generate_build:
-        if not has_pgo_generate:
-            logging.error('A pgo-generate build is expected. Version '
-                          '"%s" is not a pgo-generate build.',
-                          release_version)
-            return False
-        return stripped_version == release_version_no_pgo
-    else:
-        if has_date_string:
-            logging.error('Unexpected date found in a non trybot paladin or '
-                          'pre-cq build.')
-            return False
-        # Versioned build, i.e., rc or release build.
-        return stripped_version == release_version
-
-
 def get_real_user():
     """Get the real user that runs the script.
 
@@ -2416,7 +2388,8 @@ def restart_service(service_name, ignore_status=True):
 
     @return: status code of the executed command.
     """
-    return control_service(service_name, action='restart', ignore_status=ignore_status)
+    return control_service(service_name, action='restart',
+                           ignore_status=ignore_status)
 
 
 def start_service(service_name, ignore_status=True):
@@ -2428,7 +2401,8 @@ def start_service(service_name, ignore_status=True):
 
     @return: status code of the executed command.
     """
-    return control_service(service_name, action='start', ignore_status=ignore_status)
+    return control_service(service_name, action='start',
+                           ignore_status=ignore_status)
 
 
 def stop_service(service_name, ignore_status=True):
@@ -2440,7 +2414,8 @@ def stop_service(service_name, ignore_status=True):
 
     @return: status code of the executed command.
     """
-    return control_service(service_name, action='stop', ignore_status=ignore_status)
+    return control_service(service_name, action='stop',
+                           ignore_status=ignore_status)
 
 
 def sudo_require_password():
@@ -2554,7 +2529,7 @@ def get_servers_in_same_subnet(host_ip, mask_bits, servers=None,
     return matched_servers
 
 
-def get_restricted_subnet(hostname, restricted_subnets=RESTRICTED_SUBNETS):
+def get_restricted_subnet(hostname, restricted_subnets=None):
     """Get the restricted subnet of given hostname.
 
     @param hostname: Name of the host to look for matched restricted subnet.
@@ -2564,6 +2539,8 @@ def get_restricted_subnet(hostname, restricted_subnets=RESTRICTED_SUBNETS):
     @return: A tuple of (subnet_ip, mask_bits), which defines a restricted
              subnet.
     """
+    if restricted_subnets is None:
+        restricted_subnets=RESTRICTED_SUBNETS
     host_ip = get_ip_address(hostname)
     if not host_ip:
         return
@@ -2697,8 +2674,71 @@ def which(exec_file):
 
 
 class TimeoutError(error.TestError):
-    """Error raised when we time out when waiting on a condition."""
-    pass
+    """Error raised when poll_for_condition() failed to poll within time.
+
+    It may embed a reason (either a string or an exception object) so that
+    the caller of poll_for_condition() can handle failure better.
+    """
+
+    def __init__(self, message=None, reason=None):
+        """Constructor.
+
+        It supports three invocations:
+        1) TimeoutError()
+        2) TimeoutError(message): with customized message.
+        3) TimeoutError(message, reason): with message and reason for timeout.
+        """
+        self.reason = reason
+        if self.reason:
+            reason_str = 'Reason: ' + repr(self.reason)
+            if message:
+                message += '. ' + reason_str
+            else:
+                message = reason_str
+
+        if message:
+            super(TimeoutError, self).__init__(message)
+        else:
+            super(TimeoutError, self).__init__()
+
+
+class Timer(object):
+    """A synchronous timer to evaluate if timout is reached.
+
+    Usage:
+      timer = Timer(timeout_sec)
+      while timer.sleep(sleep_interval):
+        # do something...
+    """
+    def __init__(self, timeout):
+        """Constructor.
+
+        Note that timer won't start until next() is called.
+
+        @param timeout: timer timeout in seconds.
+        """
+        self.timeout = timeout
+        self.deadline = 0
+
+    def sleep(self, interval):
+        """Checks if it has sufficient time to sleep; sleeps if so.
+
+        It blocks for |interval| seconds if it has time to sleep.
+        If timer is not ticked yet, kicks it off and returns True without
+        sleep.
+
+        @param interval: sleep interval in seconds.
+        @return True if it has sleeped or just kicked off the timer. False
+                otherwise.
+        """
+        now = time.time()
+        if not self.deadline:
+            self.deadline = now + self.timeout
+            return True
+        if now + interval < self.deadline:
+            time.sleep(interval)
+            return True
+        return False
 
 
 def poll_for_condition(condition,
@@ -2706,16 +2746,17 @@ def poll_for_condition(condition,
                        timeout=10,
                        sleep_interval=0.1,
                        desc=None):
-    """Polls until a condition becomes true.
+    """Polls until a condition is evaluated to true.
 
-    @param condition: function taking no args and returning bool
-    @param exception: exception to throw if condition doesn't become true
+    @param condition: function taking no args and returning anything that will
+                      evaluate to True in a conditional check
+    @param exception: exception to throw if condition doesn't evaluate to true
     @param timeout: maximum number of seconds to wait
     @param sleep_interval: time to sleep between polls
     @param desc: description of default TimeoutError used if 'exception' is
                  None
 
-    @return The true value that caused the poll loop to terminate.
+    @return The evaluated value that caused the poll loop to terminate.
 
     @raise 'exception' arg if supplied; TimeoutError otherwise
     """
@@ -2728,18 +2769,198 @@ def poll_for_condition(condition,
             if exception:
                 logging.error('Will raise error %r due to unexpected return: '
                               '%r', exception, value)
-                raise exception
+                raise exception # pylint: disable=raising-bad-type
 
             if desc:
                 desc = 'Timed out waiting for condition: ' + desc
             else:
                 desc = 'Timed out waiting for unnamed condition'
             logging.error(desc)
-            raise TimeoutError(desc)
+            raise TimeoutError(message=desc)
 
         time.sleep(sleep_interval)
+
+
+def poll_for_condition_ex(condition, timeout=10, sleep_interval=0.1, desc=None):
+    """Polls until a condition is evaluated to true or until timeout.
+
+    Similiar to poll_for_condition, except that it handles exceptions
+    condition() raises. If timeout is not reached, the exception is dropped and
+    poll for condition after a sleep; otherwise, the exception is embedded into
+    TimeoutError to raise.
+
+    @param condition: function taking no args and returning anything that will
+                      evaluate to True in a conditional check
+    @param timeout: maximum number of seconds to wait
+    @param sleep_interval: time to sleep between polls
+    @param desc: description of the condition
+
+    @return The evaluated value that caused the poll loop to terminate.
+
+    @raise TimeoutError. If condition() raised exception, it is embedded in
+           raised TimeoutError.
+    """
+    timer = Timer(timeout)
+    while timer.sleep(sleep_interval):
+        reason = None
+        try:
+            value = condition()
+            if value:
+                return value
+        except BaseException as e:
+            reason = e
+
+    if desc is None:
+        desc = 'unamed condition'
+    if reason is None:
+        reason = 'condition evaluted as false'
+    to_raise = TimeoutError(message='Timed out waiting for ' + desc,
+                            reason=reason)
+    logging.error(str(to_raise))
+    raise to_raise
+
+
+def threaded_return(function):
+    """
+    Decorator to add to a function to get that function to return a thread
+    object, but with the added benefit of storing its return value.
+
+    @param function: function object to be run in the thread
+
+    @return a threading.Thread object, that has already been started, is
+            recording its result, and can be completed and its result
+            fetched by calling .finish()
+    """
+    def wrapped_t(queue, *args, **kwargs):
+        """
+        Calls the decorated function as normal, but appends the output into
+        the passed-in threadsafe queue.
+        """
+        ret = function(*args, **kwargs)
+        queue.put(ret)
+
+    def wrapped_finish(threaded_object):
+        """
+        Provides a utility to this thread object, getting its result while
+        simultaneously joining the thread.
+        """
+        ret = threaded_object.get()
+        threaded_object.join()
+        return ret
+
+    def wrapper(*args, **kwargs):
+        """
+        Creates the queue and starts the thread, then assigns extra attributes
+        to the thread to give it result-storing capability.
+        """
+        q = Queue.Queue()
+        t = threading.Thread(target=wrapped_t, args=(q,) + args, kwargs=kwargs)
+        t.start()
+        t.result_queue = q
+        t.get = t.result_queue.get
+        t.finish = lambda: wrapped_finish(t)
+        return t
+
+    # for the decorator
+    return wrapper
+
+
+@threaded_return
+def background_sample_until_condition(
+        function,
+        condition=lambda: True,
+        timeout=10,
+        sleep_interval=1):
+    """
+    Records the value of the function until the condition is False or the
+    timeout is reached. Runs as a background thread, so it's nonblocking.
+    Usage might look something like:
+
+    def function():
+        return get_value()
+    def condition():
+        return self._keep_sampling
+
+    # main thread
+    sample_thread = utils.background_sample_until_condition(
+        function=function,condition=condition)
+    # do other work
+    # ...
+    self._keep_sampling = False
+    # blocking call to get result and join the thread
+    result = sample_thread.finish()
+
+    @param function: function object, 0 args, to be continually polled
+    @param condition: function object, 0 args, to say when to stop polling
+    @param timeout: maximum number of seconds to wait
+    @param number of seconds to wait in between polls
+
+    @return a thread object that has already been started and is running in
+            the background, whose run must be stopped with .finish(), which
+            also returns a list of the results from the sample function
+    """
+    log = []
+
+    end_time = datetime.datetime.now() + datetime.timedelta(
+            seconds = timeout + sleep_interval)
+
+    while condition() and datetime.datetime.now() < end_time:
+        log.append(function())
+        time.sleep(sleep_interval)
+    return log
 
 
 class metrics_mock(metrics_mock_class.mock_class_base):
     """mock class for metrics in case chromite is not installed."""
     pass
+
+
+MountInfo = collections.namedtuple('MountInfo', ['root', 'mount_point', 'tags'])
+
+
+def get_mount_info(process='self', mount_point=None):
+    """Retrieves information about currently mounted file systems.
+
+    @param mount_point: (optional) The mount point (a path).  If this is
+                        provided, only information about the given mount point
+                        is returned.  If this is omitted, info about all mount
+                        points is returned.
+    @param process: (optional) The process id (or the string 'self') of the
+                    process whose mountinfo will be obtained.  If this is
+                    omitted, info about the current process is returned.
+
+    @return A generator yielding one MountInfo object for each relevant mount
+            found in /proc/PID/mountinfo.
+    """
+    with open('/proc/{}/mountinfo'.format(process)) as f:
+        for line in f.readlines():
+            # These lines are formatted according to the proc(5) manpage.
+            # Sample line:
+            # 36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root \
+            #     rw,errors=continue
+            # Fields (descriptions omitted for fields we don't care about)
+            # 3: the root of the mount.
+            # 4: the mount point.
+            # 5: mount options.
+            # 6: tags.  There can be more than one of these.  This is where
+            #    shared mounts are indicated.
+            # 7: a dash separator marking the end of the tags.
+            mountinfo = line.split()
+            if mount_point is None or mountinfo[4] == mount_point:
+                tags = []
+                for field in mountinfo[6:]:
+                    if field == '-':
+                        break
+                    tags.append(field.split(':')[0])
+                yield MountInfo(root = mountinfo[3],
+                                mount_point = mountinfo[4],
+                                tags = tags)
+
+
+# Appended suffix for chart tablet naming convention in test lab
+CHART_ADDRESS_SUFFIX = '-tablet'
+
+
+def get_lab_chart_address(hostname):
+    """Convert lab DUT hostname to address of camera box chart tablet"""
+    return hostname + CHART_ADDRESS_SUFFIX if is_in_container() else None

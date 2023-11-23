@@ -26,7 +26,8 @@
 #include <audio_utils/fifo.h>
 #include <audio_utils/futex.h>
 #include <audio_utils/roundup.h>
-#include <cutils/log.h>
+#include <log/log.h>
+#include <system/audio.h> // FALLTHROUGH_INTENDED
 #include <utils/Errors.h>
 
 audio_utils_fifo_base::audio_utils_fifo_base(uint32_t frameCount,
@@ -238,7 +239,7 @@ ssize_t audio_utils_fifo_writer::obtain(audio_utils_iovec iovec[2], size_t count
                 break;
             case AUDIO_UTILS_FIFO_SYNC_PRIVATE:
                 op = FUTEX_WAIT_PRIVATE;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case AUDIO_UTILS_FIFO_SYNC_SHARED:
                 if (timeout->tv_sec == LONG_MAX) {
                     timeout = NULL;
@@ -254,7 +255,7 @@ ssize_t audio_utils_fifo_writer::obtain(audio_utils_iovec iovec[2], size_t count
                             // bypass the "timeout = NULL;" below
                             continue;
                         }
-                        // fall through
+                        FALLTHROUGH_INTENDED;
                     case EINTR:
                     case ETIMEDOUT:
                         err = -errno;
@@ -322,7 +323,7 @@ void audio_utils_fifo_writer::release(size_t count)
                 break;
             case AUDIO_UTILS_FIFO_SYNC_PRIVATE:
                 op = FUTEX_WAKE_PRIVATE;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case AUDIO_UTILS_FIFO_SYNC_SHARED:
                 if (filled >= 0) {
                     if ((uint32_t) filled < mArmLevel) {
@@ -480,7 +481,7 @@ void audio_utils_fifo_reader::release(size_t count)
                 break;
             case AUDIO_UTILS_FIFO_SYNC_PRIVATE:
                 op = FUTEX_WAKE_PRIVATE;
-                // fall through
+                FALLTHROUGH_INTENDED;
             case AUDIO_UTILS_FIFO_SYNC_SHARED:
                 if (filled >= 0) {
                     if (filled > mArmLevel) {
@@ -539,7 +540,7 @@ ssize_t audio_utils_fifo_reader::obtain(audio_utils_iovec iovec[2], size_t count
             break;
         case AUDIO_UTILS_FIFO_SYNC_PRIVATE:
             op = FUTEX_WAIT_PRIVATE;
-            // fall through
+            FALLTHROUGH_INTENDED;
         case AUDIO_UTILS_FIFO_SYNC_SHARED:
             if (timeout->tv_sec == LONG_MAX) {
                 timeout = NULL;
@@ -555,7 +556,7 @@ ssize_t audio_utils_fifo_reader::obtain(audio_utils_iovec iovec[2], size_t count
                         // bypass the "timeout = NULL;" below
                         continue;
                     }
-                    // fall through
+                    FALLTHROUGH_INTENDED;
                 case EINTR:
                 case ETIMEDOUT:
                     err = -errno;

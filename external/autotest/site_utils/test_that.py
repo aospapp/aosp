@@ -245,7 +245,7 @@ def _main_for_local_run(argv, arguments):
         return 1
 
     results_directory = test_runner_utils.create_results_directory(
-            arguments.results_dir)
+            arguments.results_dir, arguments.board)
     test_runner_utils.add_ssh_identity(results_directory,
                                        arguments.ssh_private_key)
     arguments.results_dir = results_directory

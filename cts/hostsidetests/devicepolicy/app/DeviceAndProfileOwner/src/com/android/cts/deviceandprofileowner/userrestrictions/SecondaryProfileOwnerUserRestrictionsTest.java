@@ -28,6 +28,7 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
             UserManager.DISALLOW_UNINSTALL_APPS,
             // UserManager.DISALLOW_SHARE_LOCATION, // Has unrecoverable side effects.
             // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, // Has unrecoverable side effects.
+            // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY, // Same as above.
             UserManager.DISALLOW_CONFIG_BLUETOOTH,
             UserManager.DISALLOW_CONFIG_CREDENTIALS,
             UserManager.DISALLOW_REMOVE_USER,
@@ -44,6 +45,8 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
             UserManager.ALLOW_PARENT_PROFILE_APP_LINKING,
             UserManager.DISALLOW_SET_USER_ICON,
             UserManager.DISALLOW_AUTOFILL,
+            UserManager.DISALLOW_CONTENT_CAPTURE,
+            UserManager.DISALLOW_CONTENT_SUGGESTIONS,
             UserManager.DISALLOW_UNIFIED_PASSWORD,
     };
 
@@ -64,6 +67,10 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
             UserManager.DISALLOW_BLUETOOTH
     };
 
+    public static final String[] ALLOWED_BUT_LEAKY = new String[] {
+        UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY,
+    };
+
     @Override
     protected String[] getAllowedRestrictions() {
         return ALLOWED;
@@ -78,7 +85,7 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
     protected String[] getDefaultEnabledRestrictions() { return new String[0]; }
 
     /**
-     * This is called after DO setting all DO restrictions.  Global restrictions should be
+     * This is called after DO setting all DO restrictions. Global restrictions should be
      * visible on other users.
      */
     public void testHasGlobalRestrictions() {
@@ -111,13 +118,14 @@ public class SecondaryProfileOwnerUserRestrictionsTest extends BaseUserRestricti
     }
 
     /**
-     * Only the default restrictions should be set.
+     * Only the default restrictions should be set. Excludes restrictions that leak from other
+     * profiles.
      */
-    public void testDefaultRestrictionsOnly() {
-        final HashSet<String> expected = new HashSet<>(
-                // No restrictions.
-        );
-
+    public void testDefaultAndLeakyRestrictions() {
+        // The secondary profile test expects no allowed restrictions to be leaked, with the
+        // exception being the restrictions that are leaky. "Leaky" restrictions are global,
+        // device-wide restrictions that "leak" from the secondary profile to other profiles.
+        final HashSet<String> expected = new HashSet<>(Arrays.asList(ALLOWED_BUT_LEAKY));
         assertRestrictions(expected);
     }
 }

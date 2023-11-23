@@ -32,6 +32,10 @@
 
 package org.conscrypt;
 
+import static java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE;
+import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -44,11 +48,16 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketImpl;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.AccessController;
 import java.security.AlgorithmParameters;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PrivilegedAction;
+import java.security.Provider;
 import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -57,14 +66,21 @@ import java.security.spec.ECParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
+import org.conscrypt.ct.CTLogStore;
+import org.conscrypt.ct.CTPolicy;
 import sun.security.x509.AlgorithmId;
 
 /**
@@ -134,17 +150,34 @@ final class Platform {
         return "Conscrypt";
     }
 
-    static boolean canExecuteExecutable(File file) throws IOException {
-        if (JAVA_VERSION >= 7) {
-            return Java7PlatformUtil.canExecuteExecutable(file);
-        }
+    static boolean provideTrustManagerByDefault() {
         return true;
     }
 
-    static void addSuppressed(Throwable t, Throwable suppressed) {
-        if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.addSuppressed(t, suppressed);
+    static boolean canExecuteExecutable(File file) throws IOException {
+        // If we can already execute, there is nothing to do.
+        if (file.canExecute()) {
+            return true;
         }
+
+        // On volumes, with noexec set, even files with the executable POSIX permissions will
+        // fail to execute. The File#canExecute() method honors this behavior, probably via
+        // parsing the noexec flag when initializing the UnixFileStore, though the flag is not
+        // exposed via a public API.  To find out if library is being loaded off a volume with
+        // noexec, confirm or add executable permissions, then check File#canExecute().
+
+        Set<PosixFilePermission> existingFilePermissions =
+                Files.getPosixFilePermissions(file.toPath());
+        Set<PosixFilePermission> executePermissions =
+                EnumSet.of(OWNER_EXECUTE, GROUP_EXECUTE, OTHERS_EXECUTE);
+        if (existingFilePermissions.containsAll(executePermissions)) {
+            return false;
+        }
+
+        Set<PosixFilePermission> newPermissions = EnumSet.copyOf(existingFilePermissions);
+        newPermissions.addAll(executePermissions);
+        Files.setPosixFilePermissions(file.toPath(), newPermissions);
+        return file.canExecute();
     }
 
     static FileDescriptor getFileDescriptor(Socket s) {
@@ -194,9 +227,6 @@ final class Platform {
         // This doesn't appear to be needed.
     }
 
-    /*
-     * Call Os.setsockoptTimeval via reflection.
-     */
     @SuppressWarnings("unused")
     static void setSocketWriteTimeout(@SuppressWarnings("unused") Socket s,
             @SuppressWarnings("unused") long timeoutMillis) throws SocketException {
@@ -209,8 +239,8 @@ final class Platform {
             Java9PlatformUtil.setSSLParameters(params, impl, socket);
         } else if (JAVA_VERSION >= 8) {
             Java8PlatformUtil.setSSLParameters(params, impl, socket);
-        } else if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.setSSLParameters(params, impl);
+        } else {
+            impl.setEndpointIdentificationAlgorithm(params.getEndpointIdentificationAlgorithm());
         }
     }
 
@@ -220,8 +250,8 @@ final class Platform {
             Java9PlatformUtil.getSSLParameters(params, impl, socket);
         } else if (JAVA_VERSION >= 8) {
             Java8PlatformUtil.getSSLParameters(params, impl, socket);
-        } else if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.getSSLParameters(params, impl);
+        } else {
+            params.setEndpointIdentificationAlgorithm(impl.getEndpointIdentificationAlgorithm());
         }
     }
 
@@ -231,8 +261,8 @@ final class Platform {
             Java9PlatformUtil.setSSLParameters(params, impl, engine);
         } else if (JAVA_VERSION >= 8) {
             Java8PlatformUtil.setSSLParameters(params, impl, engine);
-        } else if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.setSSLParameters(params, impl);
+        } else {
+            impl.setEndpointIdentificationAlgorithm(params.getEndpointIdentificationAlgorithm());
         }
     }
 
@@ -242,8 +272,8 @@ final class Platform {
             Java9PlatformUtil.getSSLParameters(params, impl, engine);
         } else if (JAVA_VERSION >= 8) {
             Java8PlatformUtil.getSSLParameters(params, impl, engine);
-        } else if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.getSSLParameters(params, impl);
+        } else {
+            params.setEndpointIdentificationAlgorithm(impl.getEndpointIdentificationAlgorithm());
         }
     }
 
@@ -261,8 +291,9 @@ final class Platform {
     @SuppressWarnings("unused")
     static void checkClientTrusted(X509TrustManager tm, X509Certificate[] chain, String authType,
             AbstractConscryptSocket socket) throws CertificateException {
-        if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.checkClientTrusted(tm, chain, authType, socket);
+        if (tm instanceof X509ExtendedTrustManager) {
+            X509ExtendedTrustManager x509etm = (X509ExtendedTrustManager) tm;
+            x509etm.checkClientTrusted(chain, authType, socket);
         } else {
             tm.checkClientTrusted(chain, authType);
         }
@@ -271,8 +302,9 @@ final class Platform {
     @SuppressWarnings("unused")
     static void checkServerTrusted(X509TrustManager tm, X509Certificate[] chain, String authType,
             AbstractConscryptSocket socket) throws CertificateException {
-        if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.checkServerTrusted(tm, chain, authType, socket);
+        if (tm instanceof X509ExtendedTrustManager) {
+            X509ExtendedTrustManager x509etm = (X509ExtendedTrustManager) tm;
+            x509etm.checkServerTrusted(chain, authType, socket);
         } else {
             tm.checkServerTrusted(chain, authType);
         }
@@ -281,8 +313,9 @@ final class Platform {
     @SuppressWarnings("unused")
     static void checkClientTrusted(X509TrustManager tm, X509Certificate[] chain, String authType,
             ConscryptEngine engine) throws CertificateException {
-        if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.checkClientTrusted(tm, chain, authType, engine);
+        if (tm instanceof X509ExtendedTrustManager) {
+            X509ExtendedTrustManager x509etm = (X509ExtendedTrustManager) tm;
+            x509etm.checkClientTrusted(chain, authType, engine);
         } else {
             tm.checkClientTrusted(chain, authType);
         }
@@ -291,8 +324,9 @@ final class Platform {
     @SuppressWarnings("unused")
     static void checkServerTrusted(X509TrustManager tm, X509Certificate[] chain, String authType,
             ConscryptEngine engine) throws CertificateException {
-        if (JAVA_VERSION >= 7) {
-            Java7PlatformUtil.checkServerTrusted(tm, chain, authType, engine);
+        if (tm instanceof X509ExtendedTrustManager) {
+            X509ExtendedTrustManager x509etm = (X509ExtendedTrustManager) tm;
+            x509etm.checkServerTrusted(chain, authType, engine);
         } else {
             tm.checkServerTrusted(chain, authType);
         }
@@ -311,15 +345,6 @@ final class Platform {
      */
     @SuppressWarnings("unused")
     static void logEvent(@SuppressWarnings("unused") String message) {}
-
-    /**
-     * Returns true if the supplied hostname is an literal IP address.
-     */
-    @SuppressWarnings("unused")
-    static boolean isLiteralIpAddress(String hostname) {
-        // TODO: any RI API to make this better?
-        return AddressUtils.isLiteralIpAddress(hostname);
-    }
 
     /**
      * For unbundled versions, SNI is always enabled by default.
@@ -529,14 +554,11 @@ final class Platform {
      */
 
     @SuppressWarnings("unused")
-    static SSLSession wrapSSLSession(ConscryptSession sslSession) {
+    static SSLSession wrapSSLSession(ExternalSession sslSession) {
         if (JAVA_VERSION >= 8) {
             return Java8PlatformUtil.wrapSSLSession(sslSession);
         }
-        if (JAVA_VERSION >= 7) {
-            return Java7PlatformUtil.wrapSSLSession(sslSession);
-        }
-        return sslSession;
+        return new Java7ExtendedSSLSession(sslSession);
     }
 
     public static String getOriginalHostNameFromInetAddress(InetAddress addr) {
@@ -564,16 +586,14 @@ final class Platform {
         return addr.getHostAddress();
     }
 
-    /*
-     * Pre-Java-7 backward compatibility.
-     */
-
     @SuppressWarnings("unused")
     static String getHostStringFromInetSocketAddress(InetSocketAddress addr) {
-        if (JAVA_VERSION >= 7) {
-            return Java7PlatformUtil.getHostStringFromInetSocketAddress(addr);
-        }
-        return null;
+        return addr.getHostString();
+    }
+
+    // OpenJDK always has X509ExtendedTrustManager
+    static boolean supportsX509ExtendedTrustManager() {
+        return true;
     }
 
     /**
@@ -625,6 +645,77 @@ final class Platform {
         return enable;
     }
 
+    static boolean supportsConscryptCertStore() {
+        return false;
+    }
+
+    static KeyStore getDefaultCertKeyStore() throws KeyStoreException {
+        // Start with an empty KeyStore.  In the worst case, we'll end up returning it.
+        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        try {
+            ks.load(null, null);
+        } catch (CertificateException ignored) {
+        } catch (NoSuchAlgorithmException ignored) {
+        } catch (IOException ignored) {
+            // We're not loading anything, so ignore it
+        }
+        // Find the highest-priority non-Conscrypt provider that provides a PKIX
+        // TrustManagerFactory implementation and ask it for its trusted CAs.  This is most
+        // likely the OpenJDK-provided provider, in which case the platform default properties
+        // for configuring CA certs will be used, but we'll accept any provider that can give
+        // us at least one cert.
+        Provider[] providers = Security.getProviders("TrustManagerFactory.PKIX");
+        for (Provider p : providers) {
+            if (Conscrypt.isConscrypt(p)) {
+                // We need to skip any Conscrypt provider we find because this method is called
+                // when we're trying to determine the default set of CA certs for one of our
+                // TrustManagers, so trying to construct a TrustManager from this provider
+                // would result in calling this method again and recursing infinitely.
+                continue;
+            }
+            try {
+                TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX", p);
+                tmf.init((KeyStore) null);
+                TrustManager[] tms = tmf.getTrustManagers();
+                if (tms.length > 0) {
+                    // Aliases are irrelevant for our purposes, so just number the certs
+                    int certNum = 1;
+                    for (TrustManager tm : tms) {
+                        if (tm instanceof X509TrustManager) {
+                            X509TrustManager xtm = (X509TrustManager) tm;
+                            for (X509Certificate cert : xtm.getAcceptedIssuers()) {
+                                ks.setCertificateEntry(Integer.toString(certNum++), cert);
+                            }
+                        }
+                    }
+                    if (certNum > 1) {
+                        // We've loaded at least one certificate, so we're done.
+                        break;
+                    }
+                }
+            } catch (NoSuchAlgorithmException ignored) {
+                // This TrustManagerFactory didn't work, try another one
+            }
+        }
+        return ks;
+    }
+
+    static ConscryptCertStore newDefaultCertStore() {
+        return null;
+    }
+
+    static CertBlacklist newDefaultBlacklist() {
+        return null;
+    }
+
+    static CTLogStore newDefaultLogStore() {
+        return null;
+    }
+
+    static CTPolicy newDefaultPolicy(CTLogStore logStore) {
+        return null;
+    }
+
     private static boolean isAndroid() {
         boolean android;
         try {
@@ -658,7 +749,7 @@ final class Platform {
     }
 
     private static int majorVersion(final String javaSpecVersion) {
-        final String[] components = javaSpecVersion.split("\\.");
+        final String[] components = javaSpecVersion.split("\\.", -1);
         final int[] version = new int[components.length];
         for (int i = 0; i < components.length; i++) {
             version[i] = Integer.parseInt(components[i]);

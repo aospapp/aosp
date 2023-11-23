@@ -74,6 +74,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
     /**
      * CharsTrie state object, for saving a trie's current state
      * and resetting the trie back to this state later.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class State {
         /**
@@ -398,6 +399,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
 
     /**
      * Return value type for the Iterator.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class Entry {
         /**
@@ -415,6 +417,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
 
     /**
      * Iterator for all of the (string, value) pairs in a CharsTrie.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static final class Iterator implements java.util.Iterator<Entry> {
         private Iterator(CharSequence trieChars, int offset, int remainingMatchLength, int maxStringLength) {

@@ -16,25 +16,36 @@
 
 #define LOG_TAG "lowmemorykiller"
 
+#include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <pwd.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/sysinfo.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <cutils/properties.h>
+#include <cutils/sched_policy.h>
 #include <cutils/sockets.h>
 #include <lmkd.h>
 #include <log/log.h>
+#include <log/log_event_list.h>
+#include <log/log_time.h>
+#include <psi/psi.h>
+#include <system/thread_defs.h>
 
 #ifdef LMKD_LOG_STATS
 #include "statslog.h"
@@ -70,17 +81,45 @@
 #define MEMINFO_PATH "/proc/meminfo"
 #define LINE_MAX 128
 
+/* Android Logger event logtags (see event.logtags) */
+#define MEMINFO_LOG_TAG 10195355
+
+/* gid containing AID_SYSTEM required */
 #define INKERNEL_MINFREE_PATH "/sys/module/lowmemorykiller/parameters/minfree"
 #define INKERNEL_ADJ_PATH "/sys/module/lowmemorykiller/parameters/adj"
 
 #define ARRAY_SIZE(x)   (sizeof(x) / sizeof(*(x)))
 #define EIGHT_MEGA (1 << 23)
 
+#define TARGET_UPDATE_MIN_INTERVAL_MS 1000
+
+#define NS_PER_MS (NS_PER_SEC / MS_PER_SEC)
+#define US_PER_MS (US_PER_SEC / MS_PER_SEC)
+
+/* Defined as ProcessList.SYSTEM_ADJ in ProcessList.java */
+#define SYSTEM_ADJ (-900)
+
 #define STRINGIFY(x) STRINGIFY_INTERNAL(x)
 #define STRINGIFY_INTERNAL(x) #x
 
+/*
+ * PSI monitor tracking window size.
+ * PSI monitor generates events at most once per window,
+ * therefore we poll memory state for the duration of
+ * PSI_WINDOW_SIZE_MS after the event happens.
+ */
+#define PSI_WINDOW_SIZE_MS 1000
+/* Polling period after initial PSI signal */
+#define PSI_POLL_PERIOD_MS 10
+/* Poll for the duration of one window after initial PSI signal */
+#define PSI_POLL_COUNT (PSI_WINDOW_SIZE_MS / PSI_POLL_PERIOD_MS)
+
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+
+#define FAIL_REPORT_RLIMIT_MS 1000
+
 /* default to old in-kernel interface if no memory pressure events */
-static int use_inkernel_interface = 1;
+static bool use_inkernel_interface = true;
 static bool has_inkernel_module;
 
 /* memory pressure levels */
@@ -102,6 +141,11 @@ struct {
     int64_t max_nr_free_pages;
 } low_pressure_mem = { -1, -1 };
 
+struct psi_threshold {
+    enum psi_stall_type stall_type;
+    int threshold_ms;
+};
+
 static int level_oomadj[VMPRESS_LEVEL_COUNT];
 static int mpevfd[VMPRESS_LEVEL_COUNT] = { -1, -1, -1 };
 static bool debug_process_killing;
@@ -112,6 +156,16 @@ static bool low_ram_device;
 static bool kill_heaviest_task;
 static unsigned long kill_timeout_ms;
 static bool use_minfree_levels;
+static bool per_app_memcg;
+static int swap_free_low_percentage;
+static bool use_psi_monitors = false;
+static struct psi_threshold psi_thresholds[VMPRESS_LEVEL_COUNT] = {
+    { PSI_SOME, 70 },    /* 70ms out of 1sec for partial stall */
+    { PSI_SOME, 100 },   /* 100ms out of 1sec for partial stall */
+    { PSI_FULL, 70 },    /* 70ms out of 1sec for complete stall */
+};
+
+static android_log_context ctx;
 
 /* data required to handle events */
 struct event_handler_info {
@@ -190,8 +244,19 @@ enum meminfo_field {
     MI_BUFFERS,
     MI_SHMEM,
     MI_UNEVICTABLE,
+    MI_TOTAL_SWAP,
     MI_FREE_SWAP,
-    MI_DIRTY,
+    MI_ACTIVE_ANON,
+    MI_INACTIVE_ANON,
+    MI_ACTIVE_FILE,
+    MI_INACTIVE_FILE,
+    MI_SRECLAIMABLE,
+    MI_SUNRECLAIM,
+    MI_KERNEL_STACK,
+    MI_PAGE_TABLES,
+    MI_ION_HELP,
+    MI_ION_HELP_POOL,
+    MI_CMA_FREE,
     MI_FIELD_COUNT
 };
 
@@ -202,8 +267,19 @@ static const char* const meminfo_field_names[MI_FIELD_COUNT] = {
     "Buffers:",
     "Shmem:",
     "Unevictable:",
+    "SwapTotal:",
     "SwapFree:",
-    "Dirty:",
+    "Active(anon):",
+    "Inactive(anon):",
+    "Active(file):",
+    "Inactive(file):",
+    "SReclaimable:",
+    "SUnreclaim:",
+    "KernelStack:",
+    "PageTables:",
+    "ION_heap:",
+    "ION_heap_pool:",
+    "CmaFree:",
 };
 
 union meminfo {
@@ -214,8 +290,19 @@ union meminfo {
         int64_t buffers;
         int64_t shmem;
         int64_t unevictable;
+        int64_t total_swap;
         int64_t free_swap;
-        int64_t dirty;
+        int64_t active_anon;
+        int64_t inactive_anon;
+        int64_t active_file;
+        int64_t inactive_file;
+        int64_t sreclaimable;
+        int64_t sunreclaimable;
+        int64_t kernel_stack;
+        int64_t page_tables;
+        int64_t ion_heap;
+        int64_t ion_heap_pool;
+        int64_t cma_free;
         /* fields below are calculated rather than read from the file */
         int64_t nr_file_pages;
     } field;
@@ -256,7 +343,20 @@ static struct proc *pidhash[PIDHASH_SZ];
 #define pid_hashfn(x) ((((x) >> 8) ^ (x)) & (PIDHASH_SZ - 1))
 
 #define ADJTOSLOT(adj) ((adj) + -OOM_SCORE_ADJ_MIN)
-static struct adjslot_list procadjslot_list[ADJTOSLOT(OOM_SCORE_ADJ_MAX) + 1];
+#define ADJTOSLOT_COUNT (ADJTOSLOT(OOM_SCORE_ADJ_MAX) + 1)
+static struct adjslot_list procadjslot_list[ADJTOSLOT_COUNT];
+
+#define MAX_DISTINCT_OOM_ADJ 32
+#define KILLCNT_INVALID_IDX 0xFF
+/*
+ * Because killcnt array is sparse a two-level indirection is used
+ * to keep the size small. killcnt_idx stores index of the element in
+ * killcnt array. Index KILLCNT_INVALID_IDX indicates an unused slot.
+ */
+static uint8_t killcnt_idx[ADJTOSLOT_COUNT];
+static uint16_t killcnt[MAX_DISTINCT_OOM_ADJ];
+static int killcnt_free_idx = 0;
+static uint32_t killcnt_total = 0;
 
 /* PAGE_SIZE / 1024 */
 static long page_k;
@@ -338,7 +438,7 @@ static int reread_file(struct reread_data *data, char *buf, size_t buf_size) {
         data->fd = -1;
         return -1;
     }
-    ALOG_ASSERT((size_t)size < buf_size - 1, data->filename " too large");
+    ALOG_ASSERT((size_t)size < buf_size - 1, "%s too large", data->filename);
     buf[size] = 0;
 
     return 0;
@@ -417,24 +517,38 @@ static int pid_remove(int pid) {
     return 0;
 }
 
-static void writefilestring(const char *path, char *s) {
+/*
+ * Write a string to a file.
+ * Returns false if the file does not exist.
+ */
+static bool writefilestring(const char *path, const char *s,
+                            bool err_if_missing) {
     int fd = open(path, O_WRONLY | O_CLOEXEC);
-    int len = strlen(s);
-    int ret;
+    ssize_t len = strlen(s);
+    ssize_t ret;
 
     if (fd < 0) {
-        ALOGE("Error opening %s; errno=%d", path, errno);
-        return;
+        if (err_if_missing) {
+            ALOGE("Error opening %s; errno=%d", path, errno);
+        }
+        return false;
     }
 
-    ret = write(fd, s, len);
+    ret = TEMP_FAILURE_RETRY(write(fd, s, len));
     if (ret < 0) {
         ALOGE("Error writing %s; errno=%d", path, errno);
     } else if (ret < len) {
-        ALOGE("Short write on %s; length=%d", path, ret);
+        ALOGE("Short write on %s; length=%zd", path, ret);
     }
 
     close(fd);
+    return true;
+}
+
+static inline long get_time_diff_ms(struct timespec *from,
+                                    struct timespec *to) {
+    return (to->tv_sec - from->tv_sec) * (long)MS_PER_SEC +
+           (to->tv_nsec - from->tv_nsec) / (long)NS_PER_MS;
 }
 
 static void cmd_procprio(LMKD_CTRL_PACKET packet) {
@@ -443,6 +557,8 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet) {
     char val[20];
     int soft_limit_mult;
     struct lmk_procprio params;
+    bool is_system_server;
+    struct passwd *pwdrec;
 
     lmkd_pack_get_procprio(packet, &params);
 
@@ -452,14 +568,23 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet) {
         return;
     }
 
+    /* gid containing AID_READPROC required */
+    /* CAP_SYS_RESOURCE required */
+    /* CAP_DAC_OVERRIDE required */
     snprintf(path, sizeof(path), "/proc/%d/oom_score_adj", params.pid);
     snprintf(val, sizeof(val), "%d", params.oomadj);
-    writefilestring(path, val);
-
-    if (use_inkernel_interface)
+    if (!writefilestring(path, val, false)) {
+        ALOGW("Failed to open %s; errno=%d: process %d might have been killed",
+              path, errno, params.pid);
+        /* If this file does not exist the process is dead. */
         return;
+    }
 
-    if (low_ram_device) {
+    if (use_inkernel_interface) {
+        return;
+    }
+
+    if (per_app_memcg) {
         if (params.oomadj >= 900) {
             soft_limit_mult = 0;
         } else if (params.oomadj >= 800) {
@@ -477,7 +602,7 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet) {
         } else if (params.oomadj >= 300) {
             soft_limit_mult = 1;
         } else if (params.oomadj >= 200) {
-            soft_limit_mult = 2;
+            soft_limit_mult = 8;
         } else if (params.oomadj >= 100) {
             soft_limit_mult = 10;
         } else if (params.oomadj >=   0) {
@@ -488,11 +613,19 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet) {
             soft_limit_mult = 64;
         }
 
-        snprintf(path, sizeof(path),
-             "/dev/memcg/apps/uid_%d/pid_%d/memory.soft_limit_in_bytes",
-             params.uid, params.pid);
+        snprintf(path, sizeof(path), MEMCG_SYSFS_PATH
+                 "apps/uid_%d/pid_%d/memory.soft_limit_in_bytes",
+                 params.uid, params.pid);
         snprintf(val, sizeof(val), "%d", soft_limit_mult * EIGHT_MEGA);
-        writefilestring(path, val);
+
+        /*
+         * system_server process has no memcg under /dev/memcg/apps but should be
+         * registered with lmkd. This is the best way so far to identify it.
+         */
+        is_system_server = (params.oomadj == SYSTEM_ADJ &&
+                            (pwdrec = getpwnam("system")) != NULL &&
+                            params.uid == pwdrec->pw_uid);
+        writefilestring(path, val, !is_system_server);
     }
 
     procp = pid_lookup(params.pid);
@@ -517,27 +650,152 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet) {
 static void cmd_procremove(LMKD_CTRL_PACKET packet) {
     struct lmk_procremove params;
 
-    if (use_inkernel_interface)
+    if (use_inkernel_interface) {
         return;
+    }
 
     lmkd_pack_get_procremove(packet, &params);
+    /*
+     * WARNING: After pid_remove() procp is freed and can't be used!
+     * Therefore placed at the end of the function.
+     */
     pid_remove(params.pid);
+}
+
+static void cmd_procpurge() {
+    int i;
+    struct proc *procp;
+    struct proc *next;
+
+    if (use_inkernel_interface) {
+        return;
+    }
+
+    for (i = 0; i <= ADJTOSLOT(OOM_SCORE_ADJ_MAX); i++) {
+        procadjslot_list[i].next = &procadjslot_list[i];
+        procadjslot_list[i].prev = &procadjslot_list[i];
+    }
+
+    for (i = 0; i < PIDHASH_SZ; i++) {
+        procp = pidhash[i];
+        while (procp) {
+            next = procp->pidhash_next;
+            free(procp);
+            procp = next;
+        }
+    }
+    memset(&pidhash[0], 0, sizeof(pidhash));
+}
+
+static void inc_killcnt(int oomadj) {
+    int slot = ADJTOSLOT(oomadj);
+    uint8_t idx = killcnt_idx[slot];
+
+    if (idx == KILLCNT_INVALID_IDX) {
+        /* index is not assigned for this oomadj */
+        if (killcnt_free_idx < MAX_DISTINCT_OOM_ADJ) {
+            killcnt_idx[slot] = killcnt_free_idx;
+            killcnt[killcnt_free_idx] = 1;
+            killcnt_free_idx++;
+        } else {
+            ALOGW("Number of distinct oomadj levels exceeds %d",
+                MAX_DISTINCT_OOM_ADJ);
+        }
+    } else {
+        /*
+         * wraparound is highly unlikely and is detectable using total
+         * counter because it has to be equal to the sum of all counters
+         */
+        killcnt[idx]++;
+    }
+    /* increment total kill counter */
+    killcnt_total++;
+}
+
+static int get_killcnt(int min_oomadj, int max_oomadj) {
+    int slot;
+    int count = 0;
+
+    if (min_oomadj > max_oomadj)
+        return 0;
+
+    /* special case to get total kill count */
+    if (min_oomadj > OOM_SCORE_ADJ_MAX)
+        return killcnt_total;
+
+    while (min_oomadj <= max_oomadj &&
+           (slot = ADJTOSLOT(min_oomadj)) < ADJTOSLOT_COUNT) {
+        uint8_t idx = killcnt_idx[slot];
+        if (idx != KILLCNT_INVALID_IDX) {
+            count += killcnt[idx];
+        }
+        min_oomadj++;
+    }
+
+    return count;
+}
+
+static int cmd_getkillcnt(LMKD_CTRL_PACKET packet) {
+    struct lmk_getkillcnt params;
+
+    if (use_inkernel_interface) {
+        /* kernel driver does not expose this information */
+        return 0;
+    }
+
+    lmkd_pack_get_getkillcnt(packet, &params);
+
+    return get_killcnt(params.min_oomadj, params.max_oomadj);
 }
 
 static void cmd_target(int ntargets, LMKD_CTRL_PACKET packet) {
     int i;
     struct lmk_target target;
+    char minfree_str[PROPERTY_VALUE_MAX];
+    char *pstr = minfree_str;
+    char *pend = minfree_str + sizeof(minfree_str);
+    static struct timespec last_req_tm;
+    struct timespec curr_tm;
 
-    if (ntargets > (int)ARRAY_SIZE(lowmem_adj))
+    if (ntargets < 1 || ntargets > (int)ARRAY_SIZE(lowmem_adj))
         return;
+
+    /*
+     * Ratelimit minfree updates to once per TARGET_UPDATE_MIN_INTERVAL_MS
+     * to prevent DoS attacks
+     */
+    if (clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm) != 0) {
+        ALOGE("Failed to get current time");
+        return;
+    }
+
+    if (get_time_diff_ms(&last_req_tm, &curr_tm) <
+        TARGET_UPDATE_MIN_INTERVAL_MS) {
+        ALOGE("Ignoring frequent updated to lmkd limits");
+        return;
+    }
+
+    last_req_tm = curr_tm;
 
     for (i = 0; i < ntargets; i++) {
         lmkd_pack_get_target(packet, i, &target);
         lowmem_minfree[i] = target.minfree;
         lowmem_adj[i] = target.oom_adj_score;
+
+        pstr += snprintf(pstr, pend - pstr, "%d:%d,", target.minfree,
+            target.oom_adj_score);
+        if (pstr >= pend) {
+            /* if no more space in the buffer then terminate the loop */
+            pstr = pend;
+            break;
+        }
     }
 
     lowmem_targets_size = ntargets;
+
+    /* Override the last extra comma */
+    pstr[-1] = '\0';
+    property_set("sys.lmk.minfree_levels", minfree_str);
 
     if (has_inkernel_module) {
         char minfreestr[128];
@@ -560,8 +818,8 @@ static void cmd_target(int ntargets, LMKD_CTRL_PACKET packet) {
             strlcat(killpriostr, val, sizeof(killpriostr));
         }
 
-        writefilestring(INKERNEL_MINFREE_PATH, minfreestr);
-        writefilestring(INKERNEL_ADJ_PATH, killpriostr);
+        writefilestring(INKERNEL_MINFREE_PATH, minfreestr, true);
+        writefilestring(INKERNEL_ADJ_PATH, killpriostr, true);
     }
 }
 
@@ -594,12 +852,28 @@ static int ctrl_data_read(int dsock_idx, char *buf, size_t bufsz) {
     return ret;
 }
 
+static int ctrl_data_write(int dsock_idx, char *buf, size_t bufsz) {
+    int ret = 0;
+
+    ret = TEMP_FAILURE_RETRY(write(data_sock[dsock_idx].sock, buf, bufsz));
+
+    if (ret == -1) {
+        ALOGE("control data socket write failed; errno=%d", errno);
+    } else if (ret == 0) {
+        ALOGE("Got EOF on control data socket");
+        ret = -1;
+    }
+
+    return ret;
+}
+
 static void ctrl_command_handler(int dsock_idx) {
     LMKD_CTRL_PACKET packet;
     int len;
     enum lmk_cmd cmd;
     int nargs;
     int targets;
+    int kill_cnt;
 
     len = ctrl_data_read(dsock_idx, (char *)packet, CTRL_PACKET_MAX_SIZE);
     if (len <= 0)
@@ -631,6 +905,19 @@ static void ctrl_command_handler(int dsock_idx) {
         if (nargs != 1)
             goto wronglen;
         cmd_procremove(packet);
+        break;
+    case LMK_PROCPURGE:
+        if (nargs != 0)
+            goto wronglen;
+        cmd_procpurge();
+        break;
+    case LMK_GETKILLCNT:
+        if (nargs != 2)
+            goto wronglen;
+        kill_cnt = cmd_getkillcnt(packet);
+        len = lmkd_pack_set_getkillcnt_repl(packet, kill_cnt);
+        if (ctrl_data_write(dsock_idx, (char *)packet, len) != len)
+            return;
         break;
     default:
         ALOGE("Received unknown command code %d", cmd);
@@ -697,7 +984,7 @@ static void ctrl_connect_handler(int data __unused, uint32_t events __unused) {
 }
 
 #ifdef LMKD_LOG_STATS
-static void memory_stat_parse_line(char *line, struct memory_stat *mem_st) {
+static void memory_stat_parse_line(char* line, struct memory_stat* mem_st) {
     char key[LINE_MAX + 1];
     int64_t value;
 
@@ -719,25 +1006,63 @@ static void memory_stat_parse_line(char *line, struct memory_stat *mem_st) {
         mem_st->swap_in_bytes = value;
 }
 
-static int memory_stat_parse(struct memory_stat *mem_st,  int pid, uid_t uid) {
-   FILE *fp;
-   char buf[PATH_MAX];
+static int memory_stat_from_cgroup(struct memory_stat* mem_st, int pid, uid_t uid) {
+    FILE *fp;
+    char buf[PATH_MAX];
 
-   snprintf(buf, sizeof(buf), MEMCG_PROCESS_MEMORY_STAT_PATH, uid, pid);
+    snprintf(buf, sizeof(buf), MEMCG_PROCESS_MEMORY_STAT_PATH, uid, pid);
 
-   fp = fopen(buf, "r");
+    fp = fopen(buf, "r");
 
-   if (fp == NULL) {
-       ALOGE("%s open failed: %s", buf, strerror(errno));
-       return -1;
-   }
+    if (fp == NULL) {
+        ALOGE("%s open failed: %s", buf, strerror(errno));
+        return -1;
+    }
 
-   while (fgets(buf, PAGE_SIZE, fp) != NULL ) {
-       memory_stat_parse_line(buf, mem_st);
-   }
-   fclose(fp);
+    while (fgets(buf, PAGE_SIZE, fp) != NULL) {
+        memory_stat_parse_line(buf, mem_st);
+    }
+    fclose(fp);
 
-   return 0;
+    return 0;
+}
+
+static int memory_stat_from_procfs(struct memory_stat* mem_st, int pid) {
+    char path[PATH_MAX];
+    char buffer[PROC_STAT_BUFFER_SIZE];
+    int fd, ret;
+
+    snprintf(path, sizeof(path), PROC_STAT_FILE_PATH, pid);
+    if ((fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) {
+        ALOGE("%s open failed: %s", path, strerror(errno));
+        return -1;
+    }
+
+    ret = read(fd, buffer, sizeof(buffer));
+    if (ret < 0) {
+        ALOGE("%s read failed: %s", path, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    // field 10 is pgfault
+    // field 12 is pgmajfault
+    // field 22 is starttime
+    // field 24 is rss_in_pages
+    int64_t pgfault = 0, pgmajfault = 0, starttime = 0, rss_in_pages = 0;
+    if (sscanf(buffer,
+               "%*u %*s %*s %*d %*d %*d %*d %*d %*d %" SCNd64 " %*d "
+               "%" SCNd64 " %*d %*u %*u %*d %*d %*d %*d %*d %*d "
+               "%" SCNd64 " %*d %" SCNd64 "",
+               &pgfault, &pgmajfault, &starttime, &rss_in_pages) != 4) {
+        return -1;
+    }
+    mem_st->pgfault = pgfault;
+    mem_st->pgmajfault = pgmajfault;
+    mem_st->rss_in_bytes = (rss_in_pages * PAGE_SIZE);
+    mem_st->process_start_time_ns = starttime * (NS_PER_SEC / sysconf(_SC_CLK_TCK));
+    return 0;
 }
 #endif
 
@@ -880,6 +1205,15 @@ static int meminfo_parse(union meminfo *mi) {
     return 0;
 }
 
+static void meminfo_log(union meminfo *mi) {
+    for (int field_idx = 0; field_idx < MI_FIELD_COUNT; field_idx++) {
+        android_log_write_int32(ctx, (int32_t)min(mi->arr[field_idx] * page_k, INT32_MAX));
+    }
+
+    android_log_write_list(ctx, LOG_ID_EVENTS);
+    android_log_reset(ctx);
+}
+
 static int proc_get_size(int pid) {
     char path[PATH_MAX];
     char line[LINE_MAX];
@@ -888,6 +1222,7 @@ static int proc_get_size(int pid) {
     int total;
     ssize_t ret;
 
+    /* gid containing AID_READPROC required */
     snprintf(path, PATH_MAX, "/proc/%d/statm", pid);
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd == -1)
@@ -911,6 +1246,7 @@ static char *proc_get_name(int pid) {
     char *cp;
     ssize_t ret;
 
+    /* gid containing AID_READPROC required */
     snprintf(path, PATH_MAX, "/proc/%d/cmdline", pid);
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd == -1)
@@ -955,77 +1291,130 @@ static struct proc *proc_get_heaviest(int oomadj) {
     return maxprocp;
 }
 
+static void set_process_group_and_prio(int pid, SchedPolicy sp, int prio) {
+    DIR* d;
+    char proc_path[PATH_MAX];
+    struct dirent* de;
+
+    snprintf(proc_path, sizeof(proc_path), "/proc/%d/task", pid);
+    if (!(d = opendir(proc_path))) {
+        ALOGW("Failed to open %s; errno=%d: process pid(%d) might have died", proc_path, errno,
+              pid);
+        return;
+    }
+
+    while ((de = readdir(d))) {
+        int t_pid;
+
+        if (de->d_name[0] == '.') continue;
+        t_pid = atoi(de->d_name);
+
+        if (!t_pid) {
+            ALOGW("Failed to get t_pid for '%s' of pid(%d)", de->d_name, pid);
+            continue;
+        }
+
+        if (setpriority(PRIO_PROCESS, t_pid, prio) && errno != ESRCH) {
+            ALOGW("Unable to raise priority of killing t_pid (%d): errno=%d", t_pid, errno);
+        }
+
+        if (set_cpuset_policy(t_pid, sp)) {
+            ALOGW("Failed to set_cpuset_policy on pid(%d) t_pid(%d) to %d", pid, t_pid, (int)sp);
+            continue;
+        }
+    }
+    closedir(d);
+}
+
+static int last_killed_pid = -1;
+
 /* Kill one process specified by procp.  Returns the size of the process killed */
-static int kill_one_process(struct proc* procp, int min_score_adj,
-                            enum vmpressure_level level) {
+static int kill_one_process(struct proc* procp, int min_oom_score) {
     int pid = procp->pid;
     uid_t uid = procp->uid;
     char *taskname;
     int tasksize;
     int r;
+    int result = -1;
 
 #ifdef LMKD_LOG_STATS
     struct memory_stat mem_st = {};
     int memory_stat_parse_result = -1;
+#else
+    /* To prevent unused parameter warning */
+    (void)(min_oom_score);
 #endif
 
     taskname = proc_get_name(pid);
     if (!taskname) {
-        pid_remove(pid);
-        return -1;
+        goto out;
     }
 
     tasksize = proc_get_size(pid);
     if (tasksize <= 0) {
-        pid_remove(pid);
-        return -1;
+        goto out;
     }
 
 #ifdef LMKD_LOG_STATS
     if (enable_stats_log) {
-        memory_stat_parse_result = memory_stat_parse(&mem_st, pid, uid);
+        if (per_app_memcg) {
+            memory_stat_parse_result = memory_stat_from_cgroup(&mem_st, pid, uid);
+        } else {
+            memory_stat_parse_result = memory_stat_from_procfs(&mem_st, pid);
+        }
     }
 #endif
 
     TRACE_KILL_START(pid);
 
+    /* CAP_KILL required */
     r = kill(pid, SIGKILL);
-    ALOGI(
-        "Killing '%s' (%d), uid %d, adj %d\n"
-        "   to free %ldkB because system is under %s memory pressure oom_adj %d\n",
-        taskname, pid, uid, procp->oomadj, tasksize * page_k,
-        level_name[level], min_score_adj);
-    pid_remove(pid);
+
+    set_process_group_and_prio(pid, SP_FOREGROUND, ANDROID_PRIORITY_HIGHEST);
+
+    inc_killcnt(procp->oomadj);
+    ALOGE("Kill '%s' (%d), uid %d, oom_adj %d to free %ldkB", taskname, pid, uid, procp->oomadj,
+          tasksize * page_k);
 
     TRACE_KILL_END();
 
+    last_killed_pid = pid;
+
     if (r) {
         ALOGE("kill(%d): errno=%d", pid, errno);
-        return -1;
+        goto out;
     } else {
 #ifdef LMKD_LOG_STATS
         if (memory_stat_parse_result == 0) {
             stats_write_lmk_kill_occurred(log_ctx, LMK_KILL_OCCURRED, uid, taskname,
                     procp->oomadj, mem_st.pgfault, mem_st.pgmajfault, mem_st.rss_in_bytes,
-                    mem_st.cache_in_bytes, mem_st.swap_in_bytes);
+                    mem_st.cache_in_bytes, mem_st.swap_in_bytes, mem_st.process_start_time_ns,
+                    min_oom_score);
+        } else if (enable_stats_log) {
+            stats_write_lmk_kill_occurred(log_ctx, LMK_KILL_OCCURRED, uid, taskname, procp->oomadj,
+                                          -1, -1, tasksize * BYTES_IN_KILOBYTE, -1, -1, -1,
+                                          min_oom_score);
         }
 #endif
-        return tasksize;
+        result = tasksize;
     }
 
-    return tasksize;
+out:
+    /*
+     * WARNING: After pid_remove() procp is freed and can't be used!
+     * Therefore placed at the end of the function.
+     */
+    pid_remove(pid);
+    return result;
 }
 
 /*
- * Find processes to kill to free required number of pages.
- * If pages_to_free is set to 0 only one process will be killed.
- * Returns the size of the killed processes.
+ * Find one process to kill at or above the given oom_adj level.
+ * Returns size of the killed process.
  */
-static int find_and_kill_processes(enum vmpressure_level level,
-                                   int min_score_adj, int pages_to_free) {
+static int find_and_kill_process(int min_score_adj) {
     int i;
-    int killed_size;
-    int pages_freed = 0;
+    int killed_size = 0;
 
 #ifdef LMKD_LOG_STATS
     bool lmk_state_change_start = false;
@@ -1041,7 +1430,7 @@ static int find_and_kill_processes(enum vmpressure_level level,
             if (!procp)
                 break;
 
-            killed_size = kill_one_process(procp, min_score_adj, level);
+            killed_size = kill_one_process(procp, min_score_adj);
             if (killed_size >= 0) {
 #ifdef LMKD_LOG_STATS
                 if (enable_stats_log && !lmk_state_change_start) {
@@ -1050,19 +1439,11 @@ static int find_and_kill_processes(enum vmpressure_level level,
                                                   LMK_STATE_CHANGE_START);
                 }
 #endif
-
-                pages_freed += killed_size;
-                if (pages_freed >= pages_to_free) {
-
-#ifdef LMKD_LOG_STATS
-                    if (enable_stats_log && lmk_state_change_start) {
-                        stats_write_lmk_state_changed(log_ctx, LMK_STATE_CHANGED,
-                                LMK_STATE_CHANGE_STOP);
-                    }
-#endif
-                    return pages_freed;
-                }
+                break;
             }
+        }
+        if (killed_size) {
+            break;
         }
     }
 
@@ -1072,7 +1453,7 @@ static int find_and_kill_processes(enum vmpressure_level level,
     }
 #endif
 
-    return pages_freed;
+    return killed_size;
 }
 
 static int64_t get_memory_usage(struct reread_data *file_data) {
@@ -1132,10 +1513,21 @@ enum vmpressure_level downgrade_level(enum vmpressure_level level) {
         level - 1 : level);
 }
 
-static inline unsigned long get_time_diff_ms(struct timeval *from,
-                                             struct timeval *to) {
-    return (to->tv_sec - from->tv_sec) * 1000 +
-           (to->tv_usec - from->tv_usec) / 1000;
+static bool is_kill_pending(void) {
+    char buf[24];
+
+    if (last_killed_pid < 0) {
+        return false;
+    }
+
+    snprintf(buf, sizeof(buf), "/proc/%d/", last_killed_pid);
+    if (access(buf, F_OK) == 0) {
+        return true;
+    }
+
+    // reset last killed PID because there's nothing pending
+    last_killed_pid = -1;
+    return false;
 }
 
 static void mp_event_common(int data, uint32_t events __unused) {
@@ -1146,12 +1538,12 @@ static void mp_event_common(int data, uint32_t events __unused) {
     enum vmpressure_level lvl;
     union meminfo mi;
     union zoneinfo zi;
-    static struct timeval last_report_tm;
-    static unsigned long skip_count = 0;
+    struct timespec curr_tm;
+    static struct timespec last_kill_tm;
+    static unsigned long kill_skip_count = 0;
     enum vmpressure_level level = (enum vmpressure_level)data;
     long other_free = 0, other_file = 0;
     int min_score_adj;
-    int pages_to_free = 0;
     int minfree = 0;
     static struct reread_data mem_usage_file_data = {
         .filename = MEMCG_MEMORY_USAGE,
@@ -1162,33 +1554,46 @@ static void mp_event_common(int data, uint32_t events __unused) {
         .fd = -1,
     };
 
-    /*
-     * Check all event counters from low to critical
-     * and upgrade to the highest priority one. By reading
-     * eventfd we also reset the event counters.
-     */
-    for (lvl = VMPRESS_LEVEL_LOW; lvl < VMPRESS_LEVEL_COUNT; lvl++) {
-        if (mpevfd[lvl] != -1 &&
-            TEMP_FAILURE_RETRY(read(mpevfd[lvl],
-                               &evcount, sizeof(evcount))) > 0 &&
-            evcount > 0 && lvl > level) {
-            level = lvl;
+    if (debug_process_killing) {
+        ALOGI("%s memory pressure event is triggered", level_name[level]);
+    }
+
+    if (!use_psi_monitors) {
+        /*
+         * Check all event counters from low to critical
+         * and upgrade to the highest priority one. By reading
+         * eventfd we also reset the event counters.
+         */
+        for (lvl = VMPRESS_LEVEL_LOW; lvl < VMPRESS_LEVEL_COUNT; lvl++) {
+            if (mpevfd[lvl] != -1 &&
+                TEMP_FAILURE_RETRY(read(mpevfd[lvl],
+                                   &evcount, sizeof(evcount))) > 0 &&
+                evcount > 0 && lvl > level) {
+                level = lvl;
+            }
         }
     }
 
+    if (clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm) != 0) {
+        ALOGE("Failed to get current time");
+        return;
+    }
+
     if (kill_timeout_ms) {
-        struct timeval curr_tm;
-        gettimeofday(&curr_tm, NULL);
-        if (get_time_diff_ms(&last_report_tm, &curr_tm) < kill_timeout_ms) {
-            skip_count++;
+        // If we're within the timeout, see if there's pending reclaim work
+        // from the last killed process. If there is (as evidenced by
+        // /proc/<pid> continuing to exist), skip killing for now.
+        if ((get_time_diff_ms(&last_kill_tm, &curr_tm) < kill_timeout_ms) &&
+            (low_ram_device || is_kill_pending())) {
+            kill_skip_count++;
             return;
         }
     }
 
-    if (skip_count > 0) {
+    if (kill_skip_count > 0) {
         ALOGI("%lu memory pressure events were skipped after a kill!",
-              skip_count);
-        skip_count = 0;
+              kill_skip_count);
+        kill_skip_count = 0;
     }
 
     if (meminfo_parse(&mi) < 0 || zoneinfo_parse(&zi) < 0) {
@@ -1226,9 +1631,6 @@ static void mp_event_common(int data, uint32_t events __unused) {
             return;
         }
 
-        /* Free up enough pages to push over the highest minfree level */
-        pages_to_free = lowmem_minfree[lowmem_targets_size - 1] -
-            ((other_free < other_file) ? other_free : other_file);
         goto do_kill;
     }
 
@@ -1261,49 +1663,44 @@ static void mp_event_common(int data, uint32_t events __unused) {
         }
     }
 
-    // If the pressure is larger than downgrade_pressure lmk will not
-    // kill any process, since enough memory is available.
-    if (mem_pressure > downgrade_pressure) {
-        if (debug_process_killing) {
-            ALOGI("Ignore %s memory pressure", level_name[level]);
+    // If we still have enough swap space available, check if we want to
+    // ignore/downgrade pressure events.
+    if (mi.field.free_swap >=
+        mi.field.total_swap * swap_free_low_percentage / 100) {
+        // If the pressure is larger than downgrade_pressure lmk will not
+        // kill any process, since enough memory is available.
+        if (mem_pressure > downgrade_pressure) {
+            if (debug_process_killing) {
+                ALOGI("Ignore %s memory pressure", level_name[level]);
+            }
+            return;
+        } else if (level == VMPRESS_LEVEL_CRITICAL && mem_pressure > upgrade_pressure) {
+            if (debug_process_killing) {
+                ALOGI("Downgrade critical memory pressure");
+            }
+            // Downgrade event, since enough memory available.
+            level = downgrade_level(level);
         }
-        return;
-    } else if (level == VMPRESS_LEVEL_CRITICAL &&
-               mem_pressure > upgrade_pressure) {
-        if (debug_process_killing) {
-            ALOGI("Downgrade critical memory pressure");
-        }
-        // Downgrade event, since enough memory available.
-        level = downgrade_level(level);
     }
 
 do_kill:
     if (low_ram_device) {
         /* For Go devices kill only one task */
-        if (find_and_kill_processes(level, level_oomadj[level], 0) == 0) {
+        if (find_and_kill_process(level_oomadj[level]) == 0) {
             if (debug_process_killing) {
                 ALOGI("Nothing to kill");
             }
+        } else {
+            meminfo_log(&mi);
         }
     } else {
         int pages_freed;
+        static struct timespec last_report_tm;
+        static unsigned long report_skip_count = 0;
 
         if (!use_minfree_levels) {
-            /* If pressure level is less than critical and enough free swap then ignore */
-            if (level < VMPRESS_LEVEL_CRITICAL &&
-                mi.field.free_swap > low_pressure_mem.max_nr_free_pages) {
-                if (debug_process_killing) {
-                    ALOGI("Ignoring pressure since %" PRId64
-                          " swap pages are available ",
-                          mi.field.free_swap);
-                }
-                return;
-            }
             /* Free up enough memory to downgrate the memory pressure to low level */
-            if (mi.field.nr_free_pages < low_pressure_mem.max_nr_free_pages) {
-                pages_to_free = low_pressure_mem.max_nr_free_pages -
-                    mi.field.nr_free_pages;
-            } else {
+            if (mi.field.nr_free_pages >= low_pressure_mem.max_nr_free_pages) {
                 if (debug_process_killing) {
                     ALOGI("Ignoring pressure since more memory is "
                         "available (%" PRId64 ") than watermark (%" PRId64 ")",
@@ -1314,25 +1711,89 @@ do_kill:
             min_score_adj = level_oomadj[level];
         }
 
-        pages_freed = find_and_kill_processes(level, min_score_adj, pages_to_free);
+        pages_freed = find_and_kill_process(min_score_adj);
+
+        if (pages_freed == 0) {
+            /* Rate limit kill reports when nothing was reclaimed */
+            if (get_time_diff_ms(&last_report_tm, &curr_tm) < FAIL_REPORT_RLIMIT_MS) {
+                report_skip_count++;
+                return;
+            }
+        } else {
+            /* If we killed anything, update the last killed timestamp. */
+            last_kill_tm = curr_tm;
+        }
+
+        /* Log meminfo whenever we kill or when report rate limit allows */
+        meminfo_log(&mi);
 
         if (use_minfree_levels) {
-            ALOGI("Killing because cache %ldkB is below "
-                  "limit %ldkB for oom_adj %d\n"
-                  "   Free memory is %ldkB %s reserved",
-                  other_file * page_k, minfree * page_k, min_score_adj,
-                  other_free * page_k, other_free >= 0 ? "above" : "below");
+            ALOGI("Reclaimed %ldkB, cache(%ldkB) and "
+                "free(%" PRId64 "kB)-reserved(%" PRId64 "kB) below min(%ldkB) for oom_adj %d",
+                pages_freed * page_k,
+                other_file * page_k, mi.field.nr_free_pages * page_k,
+                zi.field.totalreserve_pages * page_k,
+                minfree * page_k, min_score_adj);
+        } else {
+            ALOGI("Reclaimed %ldkB at oom_adj %d",
+                pages_freed * page_k, min_score_adj);
         }
 
-        if (pages_freed < pages_to_free) {
-            ALOGI("Unable to free enough memory (pages to free=%d, pages freed=%d)",
-                  pages_to_free, pages_freed);
-        } else {
-            ALOGI("Reclaimed enough memory (pages to free=%d, pages freed=%d)",
-                  pages_to_free, pages_freed);
-            gettimeofday(&last_report_tm, NULL);
+        if (report_skip_count > 0) {
+            ALOGI("Suppressed %lu failed kill reports", report_skip_count);
+            report_skip_count = 0;
         }
+
+        last_report_tm = curr_tm;
     }
+}
+
+static bool init_mp_psi(enum vmpressure_level level) {
+    int fd = init_psi_monitor(psi_thresholds[level].stall_type,
+        psi_thresholds[level].threshold_ms * US_PER_MS,
+        PSI_WINDOW_SIZE_MS * US_PER_MS);
+
+    if (fd < 0) {
+        return false;
+    }
+
+    vmpressure_hinfo[level].handler = mp_event_common;
+    vmpressure_hinfo[level].data = level;
+    if (register_psi_monitor(epollfd, fd, &vmpressure_hinfo[level]) < 0) {
+        destroy_psi_monitor(fd);
+        return false;
+    }
+    maxevents++;
+    mpevfd[level] = fd;
+
+    return true;
+}
+
+static void destroy_mp_psi(enum vmpressure_level level) {
+    int fd = mpevfd[level];
+
+    if (unregister_psi_monitor(epollfd, fd) < 0) {
+        ALOGE("Failed to unregister psi monitor for %s memory pressure; errno=%d",
+            level_name[level], errno);
+    }
+    destroy_psi_monitor(fd);
+    mpevfd[level] = -1;
+}
+
+static bool init_psi_monitors() {
+    if (!init_mp_psi(VMPRESS_LEVEL_LOW)) {
+        return false;
+    }
+    if (!init_mp_psi(VMPRESS_LEVEL_MEDIUM)) {
+        destroy_mp_psi(VMPRESS_LEVEL_LOW);
+        return false;
+    }
+    if (!init_mp_psi(VMPRESS_LEVEL_CRITICAL)) {
+        destroy_mp_psi(VMPRESS_LEVEL_MEDIUM);
+        destroy_mp_psi(VMPRESS_LEVEL_LOW);
+        return false;
+    }
+    return true;
 }
 
 static bool init_mp_common(enum vmpressure_level level) {
@@ -1345,6 +1806,7 @@ static bool init_mp_common(enum vmpressure_level level) {
     int level_idx = (int)level;
     const char *levelstr = level_name[level_idx];
 
+    /* gid containing AID_SYSTEM required */
     mpfd = open(MEMCG_SYSFS_PATH "memory.pressure_level", O_RDONLY | O_CLOEXEC);
     if (mpfd < 0) {
         ALOGI("No kernel memory.pressure_level support (errno=%d)", errno);
@@ -1449,11 +1911,21 @@ static int init(void) {
     if (use_inkernel_interface) {
         ALOGI("Using in-kernel low memory killer interface");
     } else {
-        if (!init_mp_common(VMPRESS_LEVEL_LOW) ||
+        /* Try to use psi monitor first if kernel has it */
+        use_psi_monitors = property_get_bool("ro.lmk.use_psi", true) &&
+            init_psi_monitors();
+        /* Fall back to vmpressure */
+        if (!use_psi_monitors &&
+            (!init_mp_common(VMPRESS_LEVEL_LOW) ||
             !init_mp_common(VMPRESS_LEVEL_MEDIUM) ||
-            !init_mp_common(VMPRESS_LEVEL_CRITICAL)) {
+            !init_mp_common(VMPRESS_LEVEL_CRITICAL))) {
             ALOGE("Kernel does not support memory pressure events or in-kernel low memory killer");
             return -1;
+        }
+        if (use_psi_monitors) {
+            ALOGI("Using psi monitors for memory pressure detection");
+        } else {
+            ALOGI("Using vmpressure for memory pressure detection");
         }
     }
 
@@ -1462,19 +1934,44 @@ static int init(void) {
         procadjslot_list[i].prev = &procadjslot_list[i];
     }
 
+    memset(killcnt_idx, KILLCNT_INVALID_IDX, sizeof(killcnt_idx));
+
     return 0;
 }
 
 static void mainloop(void) {
     struct event_handler_info* handler_info;
+    struct event_handler_info* poll_handler = NULL;
+    struct timespec last_report_tm, curr_tm;
     struct epoll_event *evt;
+    long delay = -1;
+    int polling = 0;
 
     while (1) {
         struct epoll_event events[maxevents];
         int nevents;
         int i;
 
-        nevents = epoll_wait(epollfd, events, maxevents, -1);
+        if (polling) {
+            /* Calculate next timeout */
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm);
+            delay = get_time_diff_ms(&last_report_tm, &curr_tm);
+            delay = (delay < PSI_POLL_PERIOD_MS) ?
+                PSI_POLL_PERIOD_MS - delay : PSI_POLL_PERIOD_MS;
+
+            /* Wait for events until the next polling timeout */
+            nevents = epoll_wait(epollfd, events, maxevents, delay);
+
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm);
+            if (get_time_diff_ms(&last_report_tm, &curr_tm) >= PSI_POLL_PERIOD_MS) {
+                polling--;
+                poll_handler->handler(poll_handler->data, 0);
+                last_report_tm = curr_tm;
+            }
+        } else {
+            /* Wait for events with no timeout */
+            nevents = epoll_wait(epollfd, events, maxevents, -1);
+        }
 
         if (nevents == -1) {
             if (errno == EINTR)
@@ -1509,6 +2006,17 @@ static void mainloop(void) {
             if (evt->data.ptr) {
                 handler_info = (struct event_handler_info*)evt->data.ptr;
                 handler_info->handler(handler_info->data, evt->events);
+
+                if (use_psi_monitors && handler_info->handler == mp_event_common) {
+                    /*
+                     * Poll for the duration of PSI_WINDOW_SIZE_MS after the
+                     * initial PSI event because psi events are rate-limited
+                     * at one per sec.
+                     */
+                    polling = PSI_POLL_COUNT;
+                    poll_handler = handler_info;
+                    clock_gettime(CLOCK_MONOTONIC_COARSE, &last_report_tm);
+                }
             }
         }
     }
@@ -1542,30 +2050,49 @@ int main(int argc __unused, char **argv __unused) {
         (unsigned long)property_get_int32("ro.lmk.kill_timeout_ms", 0);
     use_minfree_levels =
         property_get_bool("ro.lmk.use_minfree_levels", false);
+    per_app_memcg =
+        property_get_bool("ro.config.per_app_memcg", low_ram_device);
+    swap_free_low_percentage =
+        property_get_int32("ro.lmk.swap_free_low_percentage", 10);
+
+    ctx = create_android_logger(MEMINFO_LOG_TAG);
 
 #ifdef LMKD_LOG_STATS
     statslog_init(&log_ctx, &enable_stats_log);
 #endif
 
-    // MCL_ONFAULT pins pages as they fault instead of loading
-    // everything immediately all at once. (Which would be bad,
-    // because as of this writing, we have a lot of mapped pages we
-    // never use.) Old kernels will see MCL_ONFAULT and fail with
-    // EINVAL; we ignore this failure.
-    //
-    // N.B. read the man page for mlockall. MCL_CURRENT | MCL_ONFAULT
-    // pins ⊆ MCL_CURRENT, converging to just MCL_CURRENT as we fault
-    // in pages.
-    if (mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) && errno != EINVAL)
-        ALOGW("mlockall failed: errno=%d", errno);
+    if (!init()) {
+        if (!use_inkernel_interface) {
+            /*
+             * MCL_ONFAULT pins pages as they fault instead of loading
+             * everything immediately all at once. (Which would be bad,
+             * because as of this writing, we have a lot of mapped pages we
+             * never use.) Old kernels will see MCL_ONFAULT and fail with
+             * EINVAL; we ignore this failure.
+             *
+             * N.B. read the man page for mlockall. MCL_CURRENT | MCL_ONFAULT
+             * pins ⊆ MCL_CURRENT, converging to just MCL_CURRENT as we fault
+             * in pages.
+             */
+            /* CAP_IPC_LOCK required */
+            if (mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT) && (errno != EINVAL)) {
+                ALOGW("mlockall failed %s", strerror(errno));
+            }
 
-    sched_setscheduler(0, SCHED_FIFO, &param);
-    if (!init())
+            /* CAP_NICE required */
+            if (sched_setscheduler(0, SCHED_FIFO, &param)) {
+                ALOGW("set SCHED_FIFO failed %s", strerror(errno));
+            }
+        }
+
         mainloop();
+    }
 
 #ifdef LMKD_LOG_STATS
     statslog_destroy(&log_ctx);
 #endif
+
+    android_log_destroy(&ctx);
 
     ALOGI("exiting");
     return 0;

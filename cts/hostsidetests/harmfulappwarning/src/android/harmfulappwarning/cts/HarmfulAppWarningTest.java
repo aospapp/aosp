@@ -71,6 +71,9 @@ public class HarmfulAppWarningTest extends BaseHostJUnit4Test {
     private static final String GET_HARMFUL_APP_WARNING_COMMAND = String.format(
             "cmd package get-harmful-app-warning %s", TEST_APP_PACKAGE_NAME);
 
+    private static final String LIST_PACKAGES_COMMAND =
+            "cmd package list packages --user %d " + TEST_APP_PACKAGE_NAME;
+
     private ITestDevice mDevice;
 
     @Before
@@ -104,13 +107,15 @@ public class HarmfulAppWarningTest extends BaseHostJUnit4Test {
     }
 
     private void verifySampleAppUninstalled() throws DeviceNotAvailableException {
-        PackageInfo info = getDevice().getAppPackageInfo(TEST_APP_PACKAGE_NAME);
-        Assert.assertNull("Harmful application was not uninstalled", info);
+        String installedPackage = getDevice().executeShellCommand(
+                String.format(LIST_PACKAGES_COMMAND, getDevice().getCurrentUser()));
+        Assert.assertTrue("Harmful application was not uninstalled", installedPackage.isEmpty());
     }
 
     private void verifySampleAppInstalled() throws DeviceNotAvailableException {
-        PackageInfo info = getDevice().getAppPackageInfo(TEST_APP_PACKAGE_NAME);
-        Assert.assertNotNull("Harmful application was uninstalled", info);
+        String installedPackage = getDevice().executeShellCommand(
+                String.format(LIST_PACKAGES_COMMAND, getDevice().getCurrentUser()));
+        Assert.assertFalse("Harmful application was uninstalled", installedPackage.isEmpty());
     }
 
     /**

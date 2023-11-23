@@ -25,7 +25,7 @@ limitations under the License.
 
 #define EIGEN_USE_THREADS
 
-#if defined(INTEL_MKL)
+#if defined(INTEL_MKL) && !defined(INTEL_MKL_DNN_ONLY)
 #include <vector>
 #include "mkl_cblas.h"
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
@@ -198,12 +198,10 @@ class BatchMatMulMkl : public OpKernel {
   void MklCblasGemmBatch(const CBLAS_LAYOUT Layout, const bool TransA,
                          const bool TransB, const MKL_INT *M_Array,
                          const MKL_INT *N_Array, const MKL_INT *K_Array,
-                         const complex128 **A_Array,
-                         const MKL_INT *lda_Array,
-                         const complex128 **B_Array,
-                         const MKL_INT *ldb_Array, complex128 **C_Array,
-                         const MKL_INT *ldc_Array, const MKL_INT group_count,
-                         const MKL_INT *group_size) {
+                         const complex128 **A_Array, const MKL_INT *lda_Array,
+                         const complex128 **B_Array, const MKL_INT *ldb_Array,
+                         complex128 **C_Array, const MKL_INT *ldc_Array,
+                         const MKL_INT group_count, const MKL_INT *group_size) {
     std::vector<CBLAS_TRANSPOSE> TransA_array(
         group_size[0], TransA ? CblasConjTrans : CblasNoTrans);
     std::vector<CBLAS_TRANSPOSE> TransB_array(
@@ -225,10 +223,12 @@ class BatchMatMulMkl : public OpKernel {
       Name("BatchMatMul").Device(DEVICE_CPU).TypeConstraint<TYPE>("T"), \
       BatchMatMulMkl<CPUDevice, TYPE>)
 
+#ifdef ENABLE_MKL
 TF_CALL_float(REGISTER_BATCH_MATMUL_MKL);
 TF_CALL_double(REGISTER_BATCH_MATMUL_MKL);
 TF_CALL_complex64(REGISTER_BATCH_MATMUL_MKL);
 TF_CALL_complex128(REGISTER_BATCH_MATMUL_MKL);
+#endif  // ENABLE_MKL
 
 }  // end namespace tensorflow
 #endif

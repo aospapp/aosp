@@ -32,7 +32,7 @@ class ModelBuilder;
 
 namespace bridge_tests {
 
-void graphDump(const char* name, const ModelBuilder* model, std::ostream& outStream = std::cout);
+void graphDump(const char* name, const ModelBuilder* model, std::ostream* outStream = &std::cout);
 
 }  // namespace bridge_tests
 

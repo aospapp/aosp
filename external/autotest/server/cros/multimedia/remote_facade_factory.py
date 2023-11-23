@@ -22,6 +22,7 @@ from autotest_lib.server.cros.multimedia import bluetooth_hid_facade_adapter
 from autotest_lib.server.cros.multimedia import browser_facade_adapter
 from autotest_lib.server.cros.multimedia import cfm_facade_adapter
 from autotest_lib.server.cros.multimedia import display_facade_adapter
+from autotest_lib.server.cros.multimedia import graphics_facade_adapter
 from autotest_lib.server.cros.multimedia import input_facade_adapter
 from autotest_lib.server.cros.multimedia import kiosk_facade_adapter
 from autotest_lib.server.cros.multimedia import system_facade_adapter
@@ -388,3 +389,8 @@ class RemoteFacadeFactory(object):
          """"Creates a kiosk facade object."""
          return kiosk_facade_adapter.KioskFacadeRemoteAdapter(
                 self._client, self._proxy)
+
+
+    def create_graphics_facade(self):
+        """"Creates a graphics facade object."""
+        return graphics_facade_adapter.GraphicsFacadeRemoteAdapter(self._proxy)

@@ -13,7 +13,13 @@ See all <a href="classes.html">API classes</a>.</p>
 <?cs set:count = #1 ?>
 <table>
 <?cs each:pkg = docs.packages ?>
-    <tr class="api apilevel-<?cs var:pkg.since ?>" >
+    <tr <?cs
+        if:pkg.since
+          ?>data-version-added="<?cs var:pkg.since ?>"<?cs
+        /if ?><?cs
+        if:pkg.deprecatedsince
+          ?> data-version-deprecated="<?cs var:pkg.deprecatedsince ?>"<?cs
+        /if ?> >
         <td class="jd-linkcol"><?cs call:package_link(pkg) ?></td>
         <td class="jd-descrcol" width="100%"><?cs call:tag_list(pkg.shortDescr) ?></td>
     </tr>

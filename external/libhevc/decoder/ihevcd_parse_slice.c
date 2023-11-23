@@ -3168,13 +3168,17 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
                     WORD32 ctb_row, ctb_col, index_pic_map, index_nbr_map;
                     WORD32 first_pu_of_ctb;
                     first_pu_of_ctb = pu4_nbr_pu_idx[1 + nbr_pu_idx_strd];
+                    UWORD32 cur_ctb_ht_in_min_pu = MIN(((ps_sps->i2_pic_height_in_luma_samples
+                            - (ps_codec->s_parse.i4_ctb_y << ps_sps->i1_log2_ctb_size)) / MIN_PU_SIZE), ctb_size_in_min_pu);
+                    UWORD32 cur_ctb_wd_in_min_pu = MIN(((ps_sps->i2_pic_width_in_luma_samples
+                                - (ps_codec->s_parse.i4_ctb_x << ps_sps->i1_log2_ctb_size)) / MIN_PU_SIZE), ctb_size_in_min_pu);
 
                     index_pic_map = 0 * ctb_size_in_min_pu + 0;
                     index_nbr_map = (0 + 1) * nbr_pu_idx_strd + (0 + 1);
 
-                    for(ctb_row = 0; ctb_row < ctb_size_in_min_pu; ctb_row++)
+                    for(ctb_row = 0; ctb_row < cur_ctb_ht_in_min_pu; ctb_row++)
                     {
-                        for(ctb_col = 0; ctb_col < ctb_size_in_min_pu; ctb_col++)
+                        for(ctb_col = 0; ctb_col < cur_ctb_wd_in_min_pu; ctb_col++)
                         {
                             pu1_pic_pu_map_ctb[index_pic_map + ctb_col] = pu4_nbr_pu_idx[index_nbr_map + ctb_col]
                                             - first_pu_of_ctb;

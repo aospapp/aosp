@@ -16,9 +16,13 @@
 
 package android.opengl.cts;
 
+import static junit.framework.Assert.fail;
+
 import android.opengl.EGL14;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -26,8 +30,6 @@ import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
-
-import static junit.framework.Assert.fail;
 
 /**
  * Tests using EGL surfaces.

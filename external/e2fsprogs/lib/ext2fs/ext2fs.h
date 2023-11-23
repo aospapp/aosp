@@ -111,9 +111,14 @@ typedef struct struct_ext2_filsys *ext2_filsys;
 #define EXT2FS_UNMARK_ERROR 	1
 #define EXT2FS_TEST_ERROR	2
 
-typedef struct ext2fs_struct_generic_bitmap *ext2fs_generic_bitmap;
-typedef struct ext2fs_struct_generic_bitmap *ext2fs_inode_bitmap;
-typedef struct ext2fs_struct_generic_bitmap *ext2fs_block_bitmap;
+struct ext2fs_struct_generic_bitmap_base {
+	errcode_t		magic;
+	ext2_filsys 		fs;
+};
+
+typedef struct ext2fs_struct_generic_bitmap_base *ext2fs_generic_bitmap;
+typedef struct ext2fs_struct_generic_bitmap_base *ext2fs_inode_bitmap;
+typedef struct ext2fs_struct_generic_bitmap_base *ext2fs_block_bitmap;
 
 #define EXT2_FIRST_INODE(s)	EXT2_FIRST_INO(s)
 
@@ -198,6 +203,7 @@ typedef struct ext2_file *ext2_file_t;
 #define EXT2_FLAG_SKIP_MMP		0x100000
 #define EXT2_FLAG_IGNORE_CSUM_ERRORS	0x200000
 #define EXT2_FLAG_SHARE_DUP		0x400000
+#define EXT2_FLAG_IGNORE_SB_ERRORS	0x800000
 
 /*
  * Special flag in the ext2 inode i_flag field that means that this is
@@ -335,7 +341,7 @@ struct struct_ext2_filsys {
  *
  * BLOCK_FLAG_DEPTH_TRAVERSE indicates that the iterator function for
  * the indirect, doubly indirect, etc. blocks should be called after
- * all of the blocks containined in the indirect blocks are processed.
+ * all of the blocks contained in the indirect blocks are processed.
  * This is useful if you are going to be deallocating blocks from an
  * inode.
  *
@@ -429,7 +435,7 @@ typedef struct ext2_extent_path *ext2_extent_path_t;
 /*
  * Flags used by ext2fs_extent_delete()
  */
-#define EXT2_EXTENT_DELETE_KEEP_EMPTY	0x001 /* keep node if last extnt gone */
+#define EXT2_EXTENT_DELETE_KEEP_EMPTY	0x001 /* keep node if last extent gone */
 
 /*
  * Flags used by ext2fs_extent_set_bmap()
@@ -552,6 +558,7 @@ typedef struct ext2_struct_inode_scan *ext2_inode_scan;
  * ext2_icount_t abstraction
  */
 #define EXT2_ICOUNT_OPT_INCREMENT	0x01
+#define EXT2_ICOUNT_OPT_FULLMAP		0x02
 
 typedef struct ext2_icount *ext2_icount_t;
 
@@ -604,11 +611,13 @@ typedef struct ext2_icount *ext2_icount_t;
 					 EXT3_FEATURE_INCOMPAT_RECOVER|\
 					 EXT3_FEATURE_INCOMPAT_EXTENTS|\
 					 EXT4_FEATURE_INCOMPAT_FLEX_BG|\
+					 EXT4_FEATURE_INCOMPAT_EA_INODE|\
 					 EXT4_LIB_INCOMPAT_MMP|\
 					 EXT4_FEATURE_INCOMPAT_64BIT|\
 					 EXT4_FEATURE_INCOMPAT_INLINE_DATA|\
 					 EXT4_FEATURE_INCOMPAT_ENCRYPT|\
-					 EXT4_FEATURE_INCOMPAT_CSUM_SEED)
+					 EXT4_FEATURE_INCOMPAT_CSUM_SEED|\
+					 EXT4_FEATURE_INCOMPAT_LARGEDIR)
 
 #define EXT2_LIB_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER|\
 					 EXT4_FEATURE_RO_COMPAT_HUGE_FILE|\
@@ -621,7 +630,8 @@ typedef struct ext2_icount *ext2_icount_t;
 					 EXT4_FEATURE_RO_COMPAT_METADATA_CSUM|\
 					 EXT4_FEATURE_RO_COMPAT_READONLY |\
 					 EXT4_FEATURE_RO_COMPAT_PROJECT |\
-					 EXT4_FEATURE_RO_COMPAT_SHARED_BLOCKS)
+					 EXT4_FEATURE_RO_COMPAT_SHARED_BLOCKS |\
+					 EXT4_FEATURE_RO_COMPAT_VERITY)
 
 /*
  * These features are only allowed if EXT2_FLAG_SOFTSUPP_FEATURES is passed
@@ -1203,6 +1213,9 @@ extern errcode_t ext2fs_expand_dir(ext2_filsys fs, ext2_ino_t dir);
 /* ext_attr.c */
 extern __u32 ext2fs_ext_attr_hash_entry(struct ext2_ext_attr_entry *entry,
 					void *data);
+extern errcode_t ext2fs_ext_attr_hash_entry2(ext2_filsys fs,
+					     struct ext2_ext_attr_entry *entry,
+					     void *data, __u32 *hash);
 extern errcode_t ext2fs_read_ext_attr(ext2_filsys fs, blk_t block, void *buf);
 extern errcode_t ext2fs_read_ext_attr2(ext2_filsys fs, blk64_t block,
 				       void *buf);
@@ -1246,6 +1259,15 @@ errcode_t ext2fs_free_ext_attr(ext2_filsys fs, ext2_ino_t ino,
 errcode_t ext2fs_xattrs_count(struct ext2_xattr_handle *handle, size_t *count);
 errcode_t ext2fs_xattr_inode_max_size(ext2_filsys fs, ext2_ino_t ino,
 				      size_t *size);
+#define XATTR_HANDLE_FLAG_RAW	0x0001
+errcode_t ext2fs_xattrs_flags(struct ext2_xattr_handle *handle,
+			      unsigned int *new_flags, unsigned int *old_flags);
+extern void ext2fs_ext_attr_block_rehash(struct ext2_ext_attr_header *header,
+					 struct ext2_ext_attr_entry *end);
+extern __u32 ext2fs_get_ea_inode_hash(struct ext2_inode *inode);
+extern void ext2fs_set_ea_inode_hash(struct ext2_inode *inode, __u32 hash);
+extern __u64 ext2fs_get_ea_inode_ref(struct ext2_inode *inode);
+extern void ext2fs_set_ea_inode_ref(struct ext2_inode *inode, __u64 ref_count);
 
 /* extent.c */
 extern errcode_t ext2fs_extent_header_verify(void *ptr, int size);
@@ -1606,6 +1628,7 @@ errcode_t ext2fs_unlink(ext2_filsys fs, ext2_ino_t dir, const char *name,
 /* symlink.c */
 errcode_t ext2fs_symlink(ext2_filsys fs, ext2_ino_t parent, ext2_ino_t ino,
 			 const char *name, const char *target);
+int ext2fs_is_fast_symlink(struct ext2_inode *inode);
 
 /* mmp.c */
 errcode_t ext2fs_mmp_read(ext2_filsys fs, blk64_t mmp_blk, void *buf);
@@ -1721,6 +1744,7 @@ extern blk_t ext2fs_group_first_block(ext2_filsys fs, dgrp_t group);
 extern blk_t ext2fs_group_last_block(ext2_filsys fs, dgrp_t group);
 extern blk_t ext2fs_inode_data_blocks(ext2_filsys fs,
 				      struct ext2_inode *inode);
+extern int ext2fs_htree_intnode_maxrecs(ext2_filsys fs, int blocks);
 extern unsigned int ext2fs_div_ceil(unsigned int a, unsigned int b);
 extern __u64 ext2fs_div64_ceil(__u64 a, __u64 b);
 extern int ext2fs_dirent_name_len(const struct ext2_dir_entry *entry);
@@ -1952,6 +1976,11 @@ _INLINE_ blk_t ext2fs_inode_data_blocks(ext2_filsys fs,
 	return (blk_t) ext2fs_inode_data_blocks2(fs, inode);
 }
 
+_INLINE_ int ext2fs_htree_intnode_maxrecs(ext2_filsys fs, int blocks)
+{
+	return blocks * ((fs->blocksize - 8) / sizeof(struct ext2_dx_entry));
+}
+
 /*
  * This is an efficient, overflow safe way of calculating ceil((1.0 * a) / b)
  */
@@ -2004,6 +2033,18 @@ ext2fs_const_inode(const struct ext2_inode_large * large_inode)
 
 #undef _INLINE_
 #endif
+
+/* htree levels for ext4 */
+#define EXT4_HTREE_LEVEL_COMPAT 2
+#define EXT4_HTREE_LEVEL	3
+
+static inline unsigned int ext2_dir_htree_level(ext2_filsys fs)
+{
+	if (ext2fs_has_feature_largedir(fs->super))
+		return EXT4_HTREE_LEVEL;
+
+	return EXT4_HTREE_LEVEL_COMPAT;
+}
 
 #ifdef __cplusplus
 }

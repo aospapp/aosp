@@ -42,7 +42,6 @@
 #include "private/bionic_constants.h"
 #include "private/bionic_fortify.h"
 #include "private/bionic_futex.h"
-#include "private/bionic_sdk_version.h"
 #include "private/bionic_systrace.h"
 #include "private/bionic_time_conversions.h"
 #include "private/bionic_tls.h"
@@ -200,6 +199,8 @@ static int PIMutexUnlock(PIMutex& mutex) {
                                                                    memory_order_relaxed))) {
             return 0;
         }
+    } else {
+        old_owner = atomic_load_explicit(&mutex.owner_tid, memory_order_relaxed);
     }
 
     if (tid != (old_owner & FUTEX_TID_MASK)) {
@@ -502,7 +503,7 @@ int pthread_mutex_init(pthread_mutex_t* mutex_interface, const pthread_mutexattr
 
     memset(mutex, 0, sizeof(pthread_mutex_internal_t));
 
-    if (__predict_true(attr == NULL)) {
+    if (__predict_true(attr == nullptr)) {
         atomic_init(&mutex->state, MUTEX_TYPE_BITS_NORMAL);
         return 0;
     }
@@ -789,7 +790,7 @@ static inline __always_inline bool IsMutexDestroyed(uint16_t mutex_state) {
 // ARM64. So make it noinline.
 static int __attribute__((noinline)) HandleUsingDestroyedMutex(pthread_mutex_t* mutex,
                                                                const char* function_name) {
-    if (bionic_get_application_target_sdk_version() >= __ANDROID_API_P__) {
+    if (android_get_application_target_sdk_version() >= __ANDROID_API_P__) {
         __fortify_fatal("%s called on a destroyed mutex (%p)", function_name, mutex);
     }
     return EBUSY;
@@ -800,7 +801,7 @@ int pthread_mutex_lock(pthread_mutex_t* mutex_interface) {
     // Some apps depend on being able to pass NULL as a mutex and get EINVAL
     // back. Don't need to worry about it for LP64 since the ABI is brand new,
     // but keep compatibility for LP32. http://b/19995172.
-    if (mutex_interface == NULL) {
+    if (mutex_interface == nullptr) {
         return EINVAL;
     }
 #endif
@@ -834,7 +835,7 @@ int pthread_mutex_unlock(pthread_mutex_t* mutex_interface) {
     // Some apps depend on being able to pass NULL as a mutex and get EINVAL
     // back. Don't need to worry about it for LP64 since the ABI is brand new,
     // but keep compatibility for LP32. http://b/19995172.
-    if (mutex_interface == NULL) {
+    if (mutex_interface == nullptr) {
         return EINVAL;
     }
 #endif

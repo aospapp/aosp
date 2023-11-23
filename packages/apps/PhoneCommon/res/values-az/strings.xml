@@ -21,7 +21,7 @@
     <string name="description_dialpad_overflow" msgid="4853244877599437286">"Daha çox seçim"</string>
     <string name="description_delete_button" msgid="88733669653753441">"backspace"</string>
     <string name="description_image_button_plus" msgid="7821061347207448362">"plus"</string>
-    <string name="description_voicemail_button" msgid="6281470684653439120">"səsli məktub"</string>
+    <string name="description_voicemail_button" msgid="6281470684653439120">"Səsli məktub"</string>
     <string name="default_notification_description" msgid="6011631627871110785">"Defolt səs (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="callFailed_userBusy" msgid="5163219086553610486">"Xətt məşğuldur"</string>
     <string name="callFailed_congestion" msgid="3645995103907418337">"Şəbəkə məşğuldur"</string>

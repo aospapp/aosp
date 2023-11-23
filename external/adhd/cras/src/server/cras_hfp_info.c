@@ -136,9 +136,9 @@ int hfp_buf_queued(struct hfp_info *info, const struct cras_iodev *dev)
 	format_bytes = cras_get_format_bytes(dev->format);
 
 	if (dev->direction == CRAS_STREAM_OUTPUT)
-		return buf_queued_bytes(info->playback_buf) / format_bytes;
+		return buf_queued(info->playback_buf) / format_bytes;
 	else
-		return buf_queued_bytes(info->capture_buf) / format_bytes;
+		return buf_queued(info->capture_buf) / format_bytes;
 }
 
 int hfp_write(struct hfp_info *info)
@@ -318,9 +318,9 @@ struct hfp_info *hfp_info_create()
 error:
 	if (info) {
 		if (info->capture_buf)
-			byte_buffer_destroy(info->capture_buf);
+			byte_buffer_destroy(&info->capture_buf);
 		if (info->playback_buf)
-			byte_buffer_destroy(info->playback_buf);
+			byte_buffer_destroy(&info->playback_buf);
 		free(info);
 	}
 	return NULL;
@@ -368,10 +368,10 @@ int hfp_info_stop(struct hfp_info *info)
 void hfp_info_destroy(struct hfp_info *info)
 {
 	if (info->capture_buf)
-		byte_buffer_destroy(info->capture_buf);
+		byte_buffer_destroy(&info->capture_buf);
 
 	if (info->playback_buf)
-		byte_buffer_destroy(info->playback_buf);
+		byte_buffer_destroy(&info->playback_buf);
 
 	free(info);
 }

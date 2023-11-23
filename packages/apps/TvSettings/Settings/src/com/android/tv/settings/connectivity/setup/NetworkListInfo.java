@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import android.arch.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModel;
 
 import com.android.settingslib.wifi.WifiTracker;
 

@@ -162,12 +162,11 @@ public class MultiUserStorageTest extends AndroidTestCase {
             ContentResolver contentResolver = mContext.getContentResolver();
             ContentValues cv = new ContentValues();
             cv.put("_data", otherPath.getAbsolutePath());
-            contentResolver.insert(Uri.parse(URI_MEDIA_STRING), cv);
-
             try {
-                mContext.getContentResolver().openInputStream(Uri.parse(URI_MEDIA_STRING));
-                fail("Accessing through media provider should not be allowed. Path " + myPath);
-            } catch (FileNotFoundException expected) {
+                contentResolver.insert(Uri.parse(URI_MEDIA_STRING), cv);
+                fail("Inserting file belonging to another user succeeded; path="
+                        + otherPath.getAbsolutePath());
+            } catch (IllegalArgumentException expected) {
                 // OK
             }
         }

@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -116,12 +116,14 @@ ModuleExport size_t RegisterPS2Image(void)
   entry=AcquireMagickInfo("PS2","EPS2","Level II Encapsulated PostScript");
   entry->encoder=(EncodeImageHandler *) WritePS2Image;
   entry->flags^=CoderAdjoinFlag;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderEncoderSeekableStreamFlag;
+  entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/postscript");
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("PS2","PS2","Level II PostScript");
   entry->encoder=(EncodeImageHandler *) WritePS2Image;
-  entry->flags|=CoderSeekableStreamFlag;
+  entry->flags|=CoderEncoderSeekableStreamFlag;
+  entry->flags^=CoderBlobSupportFlag;
   entry->mime_type=ConstantString("application/postscript");
   (void) RegisterMagickInfo(entry);
   return(MagickImageCoderSignature);
@@ -298,7 +300,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
       "      {",
       "        /DataSource pixel_stream %s",
       "        <<",
-      "           /K "CCITTParam,
+      "           /K " CCITTParam,
       "           /Columns columns",
       "           /Rows rows",
       "        >> /CCITTFaxDecode filter",
@@ -357,7 +359,6 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
       "  token pop /y exch def pop",
       "  currentfile buffer readline pop",
       "  token pop /pointsize exch def pop",
-      "  /Helvetica findfont pointsize scalefont setfont",
       (const char *) NULL
     },
     *const PostscriptEpilog[]=
@@ -437,6 +438,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
     bounds;
 
   size_t
+    imageListLength,
     length,
     page,
     text_size;
@@ -483,9 +485,10 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
     default:
       break;
   }
-  (void) ResetMagickMemory(&bounds,0,sizeof(bounds));
+  (void) memset(&bounds,0,sizeof(bounds));
   page=1;
   scene=0;
+  imageListLength=GetImageListLength(image);
   do
   {
     /*
@@ -605,7 +608,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
               (void) CopyMagickString(buffer,"%%Pages: 1\n",MagickPathExtent);
             else
               (void) FormatLocaleString(buffer,MagickPathExtent,
-                "%%%%Pages: %.20g\n",(double) GetImageListLength(image));
+                "%%%%Pages: %.20g\n",(double) imageListLength);
             (void) WriteBlobString(image,buffer);
           }
         if (image->colorspace == CMYKColorspace)
@@ -657,13 +660,18 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
         }
         value=GetImageProperty(image,"label",exception);
         if (value != (const char *) NULL)
-          for (j=(ssize_t) MultilineCensus(value)-1; j >= 0; j--)
           {
-            (void) WriteBlobString(image,"  /label 512 string def\n");
-            (void) WriteBlobString(image,"  currentfile label readline pop\n");
-            (void) FormatLocaleString(buffer,MagickPathExtent,
-              "  0 y %g add moveto label show pop\n",j*pointsize+12);
-            (void) WriteBlobString(image,buffer);
+            (void) WriteBlobString(image,
+              "  /Helvetica findfont pointsize scalefont setfont\n");
+            for (j=(ssize_t) MultilineCensus(value)-1; j >= 0; j--)
+            {
+              (void) WriteBlobString(image,"  /label 512 string def\n");
+              (void) WriteBlobString(image,
+                "  currentfile label readline pop\n");
+              (void) FormatLocaleString(buffer,MagickPathExtent,
+                "  0 y %g add moveto label show pop\n",j*pointsize+12);
+              (void) WriteBlobString(image,buffer);
+            }
           }
         for (q=PostscriptEpilog; *q; q++)
         {
@@ -693,7 +701,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
       bounds.y2=(double) geometry.y+(geometry.height+text_size)-1;
     value=GetImageProperty(image,"label",exception);
     if (value != (const char *) NULL)
-      (void) WriteBlobString(image,"%%PageResources: font Times-Roman\n");
+      (void) WriteBlobString(image,"%%PageResources: font Helvetica\n");
     if (LocaleCompare(image_info->magick,"PS2") != 0)
       (void) WriteBlobString(image,"userdict begin\n");
     start=TellBlob(image);
@@ -706,8 +714,9 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
     /*
       Output image data.
     */
-    (void) FormatLocaleString(buffer,MagickPathExtent,"%.20g %.20g\n%g %g\n%g\n",
-      (double) geometry.x,(double) geometry.y,scale.x,scale.y,pointsize);
+    (void) FormatLocaleString(buffer,MagickPathExtent,
+      "%.20g %.20g\n%g %g\n%g\n",(double) geometry.x,(double) geometry.y,
+      scale.x,scale.y,pointsize);
     (void) WriteBlobString(image,buffer);
     labels=(char **) NULL;
     value=GetImageProperty(image,"label",exception);
@@ -731,12 +740,12 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
         ((image_info->type != TrueColorType) &&
          (SetImageGray(image,exception) != MagickFalse)))
       {
-        (void) FormatLocaleString(buffer,MagickPathExtent,"%.20g %.20g\n1\n%d\n",
-          (double) image->columns,(double) image->rows,(int)
-          (image->colorspace == CMYKColorspace));
+        (void) FormatLocaleString(buffer,MagickPathExtent,
+          "%.20g %.20g\n1\n%d\n",(double) image->columns,(double) image->rows,
+          (int) (image->colorspace == CMYKColorspace));
         (void) WriteBlobString(image,buffer);
-        (void) FormatLocaleString(buffer,MagickPathExtent,"%d\n",
-          (int) ((compression != FaxCompression) &&
+        (void) FormatLocaleString(buffer,MagickPathExtent,"%d\n",(int)
+          ((compression != FaxCompression) &&
            (compression != Group4Compression)));
         (void) WriteBlobString(image,buffer);
         (void) WriteBlobString(image,"0\n");
@@ -847,9 +856,9 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
       if ((image->storage_class == DirectClass) || (image->colors > 256) ||
           (compression == JPEGCompression) || (image->alpha_trait != UndefinedPixelTrait))
         {
-          (void) FormatLocaleString(buffer,MagickPathExtent,"%.20g %.20g\n0\n%d\n",
-            (double) image->columns,(double) image->rows,(int)
-            (image->colorspace == CMYKColorspace));
+          (void) FormatLocaleString(buffer,MagickPathExtent,
+            "%.20g %.20g\n0\n%d\n",(double) image->columns,(double) image->rows,
+            (int) (image->colorspace == CMYKColorspace));
           (void) WriteBlobString(image,buffer);
           (void) FormatLocaleString(buffer,MagickPathExtent,"%d\n",
             (int) (compression == NoCompression));
@@ -997,9 +1006,9 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
           /*
             Dump number of colors and colormap.
           */
-          (void) FormatLocaleString(buffer,MagickPathExtent,"%.20g %.20g\n1\n%d\n",
-            (double) image->columns,(double) image->rows,(int)
-            (image->colorspace == CMYKColorspace));
+          (void) FormatLocaleString(buffer,MagickPathExtent,
+            "%.20g %.20g\n1\n%d\n",(double) image->columns,(double) image->rows,
+            (int) (image->colorspace == CMYKColorspace));
           (void) WriteBlobString(image,buffer);
           (void) FormatLocaleString(buffer,MagickPathExtent,"%d\n",
             (int) (compression == NoCompression));
@@ -1111,8 +1120,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
     if (GetNextImageInList(image) == (Image *) NULL)
       break;
     image=SyncNextImageInList(image);
-    status=SetImageProgress(image,SaveImagesTag,scene++,
-      GetImageListLength(image));
+    status=SetImageProgress(image,SaveImagesTag,scene++,imageListLength);
     if (status == MagickFalse)
       break;
   } while (image_info->adjoin != MagickFalse);

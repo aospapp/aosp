@@ -488,11 +488,7 @@ class base_client_job(base_job.base_job):
             l = lambda : test.runtest(self, url, tag, args, dargs)
             pid = parallel.fork_start(self.resultdir, l)
 
-            if timeout:
-                logging.debug('Waiting for pid %d for %d seconds', pid, timeout)
-                parallel.fork_waitfor_timed(self.resultdir, pid, timeout)
-            else:
-                parallel.fork_waitfor(self.resultdir, pid)
+            self._forkwait(pid, timeout)
 
         except error.TestBaseException:
             # These are already classified with an error type (exit_status)
@@ -504,6 +500,19 @@ class base_client_job(base_job.base_job):
             # of phase into a TestError(TestBaseException) subclass that
             # reports them with their full stack trace.
             raise error.UnhandledTestError(e)
+
+    def _forkwait(self, pid, timeout=None):
+        """Wait for the given pid to complete
+
+        @param pid (int) process id to wait for
+        @param timeout (int) seconds to wait before timing out the process"""
+        if timeout:
+            logging.debug('Waiting for pid %d for %d seconds', pid, timeout)
+            parallel.fork_waitfor_timed(self.resultdir, pid, timeout)
+        else:
+            logging.debug('Waiting for pid %d', pid)
+            parallel.fork_waitfor(self.resultdir, pid)
+        logging.info('pid %d completed', pid)
 
 
     def _run_test_base(self, url, *args, **dargs):
@@ -572,6 +581,26 @@ class base_client_job(base_job.base_job):
         # NOTE: The only exception possible from the control file here
         # is error.JobError as _runtest() turns all others into an
         # UnhandledTestError that is caught above.
+
+
+    def stage_control_file(self, url):
+        """
+        Install the test package and return the control file path.
+
+        @param url The name of the test, e.g. dummy_Pass.  This is the
+            string passed to run_test in the client test control file:
+            job.run_test('dummy_Pass')
+            This name can also be something like 'camera_HAL3.jea',
+            which corresponds to a test package containing multiple
+            control files, each with calls to:
+            job.run_test('camera_HAL3', **opts)
+
+        @returns Absolute path to the control file for the test.
+        """
+        testname, _, _tag = url.partition('.')
+        bindir = os.path.join(self.testdir, testname)
+        self.install_pkg(testname, 'test', bindir)
+        return _locate_test_control_file(bindir, url)
 
 
     @_run_test_complete_on_exit
@@ -791,7 +820,7 @@ class base_client_job(base_job.base_job):
 
 
     @_run_test_complete_on_exit
-    def parallel(self, *tasklist):
+    def parallel(self, *tasklist, **kwargs):
         """Run tasks in parallel"""
 
         pids = []
@@ -807,7 +836,9 @@ class base_client_job(base_job.base_job):
                     base_record_indent, namespace='client')
                 self.__class__._record_indent = proc_local
                 task[0](*task[1:])
-            pids.append(parallel.fork_start(self.resultdir, task_func))
+            forked_pid = parallel.fork_start(self.resultdir, task_func)
+            logging.info('Just forked pid %d', forked_pid)
+            pids.append(forked_pid)
 
         old_log_path = os.path.join(self.resultdir, old_log_filename)
         old_log = open(old_log_path, "a")
@@ -815,8 +846,9 @@ class base_client_job(base_job.base_job):
         for i, pid in enumerate(pids):
             # wait for the task to finish
             try:
-                parallel.fork_waitfor(self.resultdir, pid)
+                self._forkwait(pid, kwargs.get('timeout'))
             except Exception, e:
+                logging.info('pid %d completed with error', pid)
                 exceptions.append(e)
             # copy the logs from the subtask into the main log
             new_log_path = old_log_path + (".%d" % i)
@@ -1261,3 +1293,39 @@ class job(base_client_job):
 
     def require_gcc(self):
         return False
+
+
+# TODO(ayatane): This logic should be deduplicated with
+# server/cros/dynamic_suite/control_file_getter.py, but the server
+# libraries are not available on clients.
+def _locate_test_control_file(dirpath, testname):
+    """
+    Locate the control file for the given test.
+
+    @param dirpath Root directory to search.
+    @param testname Name of test.
+
+    @returns Absolute path to the control file.
+    @raise JobError: Raised if control file not found.
+    """
+    for dirpath, _dirnames, filenames in os.walk(dirpath):
+        for filename in filenames:
+            if 'control' not in filename:
+                continue
+            path = os.path.join(dirpath, filename)
+            if _is_control_file_for_test(path, testname):
+                return os.path.abspath(path)
+    raise error.JobError(
+            'could not find client test control file',
+            dirpath, testname)
+
+
+_NAME_PATTERN = "NAME *= *['\"]([^'\"]+)['\"]"
+
+
+def _is_control_file_for_test(path, testname):
+    with open(path) as f:
+        for line in f:
+            match = re.match(_NAME_PATTERN, line)
+            if match is not None:
+                return match.group(1) == testname

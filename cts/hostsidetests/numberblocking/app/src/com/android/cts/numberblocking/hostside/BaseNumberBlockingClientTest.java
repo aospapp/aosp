@@ -18,9 +18,10 @@ package com.android.cts.numberblocking.hostside;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
 import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
+
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Base class for number blocking tests.

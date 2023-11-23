@@ -18,11 +18,20 @@
 
 #include "Memory.h"
 
+#include "ExecutionBurstController.h"
 #include "HalInterfaces.h"
 #include "Utils.h"
 
 namespace android {
 namespace nn {
+
+Memory::~Memory() {
+    for (const auto [ptr, weakBurst] : mUsedBy) {
+        if (const std::shared_ptr<ExecutionBurstController> burst = weakBurst.lock()) {
+            burst->freeMemory(getKey());
+        }
+    }
+}
 
 int Memory::create(uint32_t size) {
     mHidlMemory = allocateSharedMemory(size);
@@ -43,6 +52,15 @@ bool Memory::validateSize(uint32_t offset, uint32_t length) const {
     }
 }
 
+intptr_t Memory::getKey() const {
+    return reinterpret_cast<intptr_t>(this);
+}
+
+void Memory::usedBy(const std::shared_ptr<ExecutionBurstController>& burst) const {
+    std::lock_guard<std::mutex> guard(mMutex);
+    mUsedBy.emplace(burst.get(), burst);
+}
+
 MemoryFd::~MemoryFd() {
     // Unmap the memory.
     if (mMapping) {
@@ -59,10 +77,6 @@ MemoryFd::~MemoryFd() {
 }
 
 int MemoryFd::set(size_t size, int prot, int fd, size_t offset) {
-    if (fd < 0) {
-        LOG(ERROR) << "ANeuralNetworksMemory_createFromFd invalid fd " << fd;
-        return ANEURALNETWORKS_UNEXPECTED_NULL;
-    }
     if (size == 0 || fd < 0) {
         LOG(ERROR) << "Invalid size or fd";
         return ANEURALNETWORKS_BAD_DATA;

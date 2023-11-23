@@ -15,9 +15,9 @@ LOCAL_JAVA_LIBRARIES := \
 
 LOCAL_STATIC_JAVA_LIBRARIES :=  \
     com.android.emailcommon \
-    android-support-test \
+    androidx.test.rules \
     mockito-target \
-    espresso-intents
+    androidx.test.espresso.intents
 
 # Include all test java files.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

@@ -27,6 +27,7 @@ import java.util.Set;
  */
 public class FeatureUtil {
 
+    public static final String AUTOMOTIVE_FEATURE = "android.hardware.type.automotive";
     public static final String LEANBACK_FEATURE = "android.software.leanback";
     public static final String LOW_RAM_FEATURE = "android.hardware.ram.low";
     public static final String TELEPHONY_FEATURE = "android.hardware.telephony";
@@ -81,6 +82,11 @@ public class FeatureUtil {
     /** Returns true if the device has feature WATCH_FEATURE */
     public static boolean isWatch(ITestDevice device) throws DeviceNotAvailableException {
         return hasSystemFeature(device, WATCH_FEATURE);
+    }
+
+    /** Returns true if the device has feature AUTOMOTIVE_FEATURE */
+    public static boolean isAutomotive(ITestDevice device) throws DeviceNotAvailableException {
+        return hasSystemFeature(device, AUTOMOTIVE_FEATURE);
     }
 
     /** Returns true if the device is a low ram device:

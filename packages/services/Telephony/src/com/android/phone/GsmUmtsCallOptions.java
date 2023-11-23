@@ -18,22 +18,20 @@ package com.android.phone;
 
 import android.os.Bundle;
 import android.os.PersistableBundle;
-import android.preference.CheckBoxPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
 import android.telephony.CarrierConfigManager;
 import android.view.MenuItem;
 
-import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 
 public class GsmUmtsCallOptions extends PreferenceActivity {
     private static final String LOG_TAG = "GsmUmtsCallOptions";
     private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
-    private static final String CALL_FORWARDING_KEY = "call_forwarding_key";
-    private static final String CALL_BARRING_KEY = "call_barring_key";
+    public static final String CALL_FORWARDING_KEY = "call_forwarding_key";
+    public static final String CALL_BARRING_KEY = "call_barring_key";
     private static final String ADDITIONAL_GSM_SETTINGS_KEY = "additional_gsm_call_settings_key";
 
     @Override
@@ -64,25 +62,45 @@ public class GsmUmtsCallOptions extends PreferenceActivity {
     }
 
     public static void init(PreferenceScreen prefScreen, SubscriptionInfoHelper subInfoHelper) {
-        Preference callForwardingPref = prefScreen.findPreference(CALL_FORWARDING_KEY);
-        callForwardingPref.setIntent(subInfoHelper.getIntent(GsmUmtsCallForwardOptions.class));
-
-        Preference additionalGsmSettingsPref =
-                prefScreen.findPreference(ADDITIONAL_GSM_SETTINGS_KEY);
-        additionalGsmSettingsPref.setIntent(
-                subInfoHelper.getIntent(GsmUmtsAdditionalCallOptions.class));
-
-        Preference callBarringPref = prefScreen.findPreference(CALL_BARRING_KEY);
         PersistableBundle b = null;
         if (subInfoHelper.hasSubId()) {
             b = PhoneGlobals.getInstance().getCarrierConfigForSubId(subInfoHelper.getSubId());
         } else {
             b = PhoneGlobals.getInstance().getCarrierConfig();
         }
-        if (b != null && b.getBoolean(CarrierConfigManager.KEY_CALL_BARRING_VISIBILITY_BOOL)) {
-            callBarringPref.setIntent(subInfoHelper.getIntent(GsmUmtsCallBarringOptions.class));
-        } else {
-            prefScreen.removePreference(callBarringPref);
+
+        Preference callForwardingPref = prefScreen.findPreference(CALL_FORWARDING_KEY);
+        if (callForwardingPref != null) {
+            if (b != null && b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_VISIBILITY_BOOL)) {
+                callForwardingPref.setIntent(
+                        subInfoHelper.getIntent(GsmUmtsCallForwardOptions.class));
+            } else {
+                prefScreen.removePreference(callForwardingPref);
+            }
+        }
+
+        Preference additionalGsmSettingsPref =
+                prefScreen.findPreference(ADDITIONAL_GSM_SETTINGS_KEY);
+        if (additionalGsmSettingsPref != null) {
+            if (b != null && (b.getBoolean(
+                    CarrierConfigManager.KEY_ADDITIONAL_SETTINGS_CALL_WAITING_VISIBILITY_BOOL)
+                    || b.getBoolean(
+                    CarrierConfigManager.KEY_ADDITIONAL_SETTINGS_CALLER_ID_VISIBILITY_BOOL))) {
+                additionalGsmSettingsPref.setIntent(
+                        subInfoHelper.getIntent(GsmUmtsAdditionalCallOptions.class));
+            } else {
+                prefScreen.removePreference(additionalGsmSettingsPref);
+            }
+        }
+
+        Preference callBarringPref = prefScreen.findPreference(CALL_BARRING_KEY);
+        if (callBarringPref != null) {
+            if (b != null && b.getBoolean(CarrierConfigManager.KEY_CALL_BARRING_VISIBILITY_BOOL)) {
+                callBarringPref.setIntent(subInfoHelper.getIntent(GsmUmtsCallBarringOptions.class));
+            } else {
+                prefScreen.removePreference(callBarringPref);
+            }
         }
     }
 }

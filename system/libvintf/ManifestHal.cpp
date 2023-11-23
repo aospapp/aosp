@@ -96,55 +96,67 @@ void ManifestHal::appendAllVersions(std::set<Version>* ret) const {
     });
 }
 
-static bool verifyInstances(const std::set<FqInstance>& fqInstances, std::string* error) {
-    for (const FqInstance& fqInstance : fqInstances) {
-        if (fqInstance.hasPackage()) {
-            if (error) *error = "Should not specify package: \"" + fqInstance.string() + "\"";
-            return false;
+bool ManifestHal::verifyInstance(const FqInstance& fqInstance, std::string* error) const {
+    if (fqInstance.hasPackage() && fqInstance.getPackage() != this->getName()) {
+        if (error) {
+            *error = "Should not add \"" + fqInstance.string() + "\" to a HAL with name " +
+                     this->getName();
         }
-        if (!fqInstance.hasVersion()) {
-            if (error) *error = "Should specify version: \"" + fqInstance.string() + "\"";
-            return false;
-        }
-        if (!fqInstance.hasInterface()) {
-            if (error) *error = "Should specify interface: \"" + fqInstance.string() + "\"";
-            return false;
-        }
-        if (!fqInstance.hasInstance()) {
-            if (error) *error = "Should specify instance: \"" + fqInstance.string() + "\"";
-            return false;
-        }
+        return false;
+    }
+    if (!fqInstance.hasVersion()) {
+        if (error) *error = "Should specify version: \"" + fqInstance.string() + "\"";
+        return false;
+    }
+    if (!fqInstance.hasInterface()) {
+        if (error) *error = "Should specify interface: \"" + fqInstance.string() + "\"";
+        return false;
+    }
+    if (!fqInstance.hasInstance()) {
+        if (error) *error = "Should specify instance: \"" + fqInstance.string() + "\"";
+        return false;
     }
     return true;
 }
 
 bool ManifestHal::insertInstances(const std::set<FqInstance>& fqInstances, std::string* error) {
-    if (!verifyInstances(fqInstances, error)) {
-        return false;
-    }
-
     for (const FqInstance& e : fqInstances) {
-        FqInstance withPackage;
-        if (!withPackage.setTo(this->getName(), e.getMajorVersion(), e.getMinorVersion(),
-                               e.getInterface(), e.getInstance())) {
-            if (error) {
-                *error = "Cannot create FqInstance with package='" + this->getName() +
-                         "', version='" + to_string(Version(e.getVersion())) + "', interface='" +
-                         e.getInterface() + "', instance='" + e.getInstance() + "'";
-            }
+        if (!insertInstance(e, error)) {
             return false;
         }
-        mAdditionalInstances.emplace(std::move(withPackage), this->transportArch, this->format);
     }
-
     return true;
 }
 
-void ManifestHal::insertLegacyInstance(const std::string& interface, const std::string& instance) {
-    auto it = interfaces.find(interface);
-    if (it == interfaces.end())
-        it = interfaces.emplace(interface, HalInterface{interface, {}}).first;
-    it->second.insertInstance(instance, false /* isRegex */);
+bool ManifestHal::insertInstance(const FqInstance& e, std::string* error) {
+    if (!verifyInstance(e, error)) {
+        return false;
+    }
+
+    size_t minorVer = e.getMinorVersion();
+    for (auto it = mAdditionalInstances.begin(); it != mAdditionalInstances.end();) {
+        if (it->version().majorVer == e.getMajorVersion() && it->interface() == e.getInterface() &&
+            it->instance() == e.getInstance()) {
+            minorVer = std::max(minorVer, it->version().minorVer);
+            it = mAdditionalInstances.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    FqInstance toAdd;
+    if (!toAdd.setTo(this->getName(), e.getMajorVersion(), minorVer, e.getInterface(),
+                     e.getInstance())) {
+        if (error) {
+            *error = "Cannot create FqInstance with package='" + this->getName() + "', version='" +
+                     to_string(Version(e.getMajorVersion(), minorVer)) + "', interface='" +
+                     e.getInterface() + "', instance='" + e.getInstance() + "'";
+        }
+        return false;
+    }
+
+    mAdditionalInstances.emplace(std::move(toAdd), this->transportArch, this->format);
+    return true;
 }
 
 } // namespace vintf

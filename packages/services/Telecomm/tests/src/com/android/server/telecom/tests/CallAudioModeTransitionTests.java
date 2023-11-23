@@ -16,11 +16,13 @@
 
 package com.android.server.telecom.tests;
 
+import android.content.Context;
 import android.media.AudioManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.CallAudioModeStateMachine;
+import com.android.server.telecom.SystemStateHelper;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -35,6 +37,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -95,6 +98,7 @@ public class CallAudioModeTransitionTests extends TelecomTestCase {
 
     private static final int TEST_TIMEOUT = 1000;
 
+    @Mock private SystemStateHelper mSystemStateHelper;
     @Mock private AudioManager mAudioManager;
     @Mock private CallAudioManager mCallAudioManager;
     private final ModeTestParameters mParams;
@@ -112,7 +116,8 @@ public class CallAudioModeTransitionTests extends TelecomTestCase {
     @Test
     @SmallTest
     public void modeTransitionTest() {
-        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mAudioManager);
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mSystemStateHelper,
+                mAudioManager);
         sm.setCallAudioManager(mCallAudioManager);
         sm.sendMessage(mParams.initialAudioState);
         waitForHandlerAction(sm.getHandler(), TEST_TIMEOUT);
@@ -163,11 +168,11 @@ public class CallAudioModeTransitionTests extends TelecomTestCase {
 
         switch (mParams.expectedCallWaitingInteraction) {
             case NO_CHANGE:
-                verify(mCallAudioManager, never()).startCallWaiting();
+                verify(mCallAudioManager, never()).startCallWaiting(nullable(String.class));
                 verify(mCallAudioManager, never()).stopCallWaiting();
                 break;
             case ON:
-                verify(mCallAudioManager).startCallWaiting();
+                verify(mCallAudioManager).startCallWaiting(nullable(String.class));
                 break;
             case OFF:
                 verify(mCallAudioManager).stopCallWaiting();

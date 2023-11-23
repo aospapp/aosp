@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace utility {
 class Environment : public ::testing::VtsHalHidlTargetTestEnvBase {
    public:
     using TearDownFunc = std::function<void()>;
-    void registerTearDown(TearDownFunc&& tearDown) { tearDowns.push_back(std::move(tearDown)); }
+    void registerTearDown(TearDownFunc&& tearDown) { tearDowns.push_front(std::move(tearDown)); }
 
    private:
     void HidlTearDown() override {

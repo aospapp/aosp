@@ -11,9 +11,27 @@
 
 #include <base/files/file_util.h>
 #include <base/files/scoped_temp_dir.h>
+#include <base/rand_util.h>
+#include <base/strings/string_number_conversions.h>
 #include <gtest/gtest.h>
 
 namespace brillo {
+
+namespace {
+
+constexpr int kPermissions600 =
+    base::FILE_PERMISSION_READ_BY_USER | base::FILE_PERMISSION_WRITE_BY_USER;
+constexpr int kPermissions700 = base::FILE_PERMISSION_USER_MASK;
+constexpr int kPermissions777 = base::FILE_PERMISSION_MASK;
+
+std::string GetRandomSuffix() {
+  const int kBufferSize = 6;
+  unsigned char buffer[kBufferSize];
+  base::RandBytes(buffer, arraysize(buffer));
+  return base::HexEncode(buffer, arraysize(buffer));
+}
+
+}  // namespace
 
 class FileUtilsTest : public testing::Test {
  public:
@@ -47,18 +65,12 @@ class FileUtilsTest : public testing::Test {
     EXPECT_TRUE(base::GetPosixFilePermissions(file_path_, &actual_permissions));
     EXPECT_EQ(permissions, actual_permissions);
   }
+
+  // Creates a file with a random name in the temporary directory.
+  base::FilePath GetTempName() {
+    return temp_dir_.GetPath().Append(GetRandomSuffix());
+  }
 };
-
-namespace {
-
-enum {
-  kPermissions600 =
-      base::FILE_PERMISSION_READ_BY_USER | base::FILE_PERMISSION_WRITE_BY_USER,
-  kPermissions700 = base::FILE_PERMISSION_USER_MASK,
-  kPermissions777 = base::FILE_PERMISSION_MASK
-};
-
-}  // namespace
 
 TEST_F(FileUtilsTest, TouchFileCreate) {
   EXPECT_TRUE(TouchFile(file_path_));
@@ -130,6 +142,104 @@ TEST_F(FileUtilsTest, TouchFileExistingPermissionsUnchanged) {
   EXPECT_TRUE(TouchFile(file_path_, kPermissions700, geteuid(), getegid()));
   ExpectFileContains("");
   ExpectFilePermissions(kPermissions777);
+}
+
+TEST_F(FileUtilsTest, WriteFileCanBeReadBack) {
+  const base::FilePath filename(GetTempName());
+  const std::string content("blablabla");
+  EXPECT_TRUE(WriteStringToFile(filename, content));
+  std::string output;
+  EXPECT_TRUE(ReadFileToString(filename, &output));
+  EXPECT_EQ(content, output);
+}
+
+TEST_F(FileUtilsTest, WriteFileSets0666) {
+  const mode_t mask = 0000;
+  const mode_t mode = 0666;
+  const base::FilePath filename(GetTempName());
+  const std::string content("blablabla");
+  const mode_t old_mask = umask(mask);
+  EXPECT_TRUE(WriteStringToFile(filename, content));
+  int file_mode = 0;
+  EXPECT_TRUE(base::GetPosixFilePermissions(filename, &file_mode));
+  EXPECT_EQ(mode & ~mask, file_mode & 0777);
+  umask(old_mask);
+}
+
+TEST_F(FileUtilsTest, WriteFileCreatesMissingParentDirectoriesWith0700) {
+  const mode_t mask = 0000;
+  const mode_t mode = 0700;
+  const base::FilePath dirname(GetTempName());
+  const base::FilePath subdirname(dirname.Append(GetRandomSuffix()));
+  const base::FilePath filename(subdirname.Append(GetRandomSuffix()));
+  const std::string content("blablabla");
+  EXPECT_TRUE(WriteStringToFile(filename, content));
+  int dir_mode = 0;
+  int subdir_mode = 0;
+  EXPECT_TRUE(base::GetPosixFilePermissions(dirname, &dir_mode));
+  EXPECT_TRUE(base::GetPosixFilePermissions(subdirname, &subdir_mode));
+  EXPECT_EQ(mode & ~mask, dir_mode & 0777);
+  EXPECT_EQ(mode & ~mask, subdir_mode & 0777);
+  const mode_t old_mask = umask(mask);
+  umask(old_mask);
+}
+
+TEST_F(FileUtilsTest, WriteToFileAtomicCanBeReadBack) {
+  const base::FilePath filename(GetTempName());
+  const std::string content("blablabla");
+  EXPECT_TRUE(
+      WriteToFileAtomic(filename, content.data(), content.size(), 0644));
+  std::string output;
+  EXPECT_TRUE(ReadFileToString(filename, &output));
+  EXPECT_EQ(content, output);
+}
+
+TEST_F(FileUtilsTest, WriteToFileAtomicHonorsMode) {
+  const mode_t mask = 0000;
+  const mode_t mode = 0616;
+  const base::FilePath filename(GetTempName());
+  const std::string content("blablabla");
+  const mode_t old_mask = umask(mask);
+  EXPECT_TRUE(
+      WriteToFileAtomic(filename, content.data(), content.size(), mode));
+  int file_mode = 0;
+  EXPECT_TRUE(base::GetPosixFilePermissions(filename, &file_mode));
+  EXPECT_EQ(mode & ~mask, file_mode & 0777);
+  umask(old_mask);
+}
+
+TEST_F(FileUtilsTest, WriteToFileAtomicHonorsUmask) {
+  const mode_t mask = 0073;
+  const mode_t mode = 0777;
+  const base::FilePath filename(GetTempName());
+  const std::string content("blablabla");
+  const mode_t old_mask = umask(mask);
+  EXPECT_TRUE(
+      WriteToFileAtomic(filename, content.data(), content.size(), mode));
+  int file_mode = 0;
+  EXPECT_TRUE(base::GetPosixFilePermissions(filename, &file_mode));
+  EXPECT_EQ(mode & ~mask, file_mode & 0777);
+  umask(old_mask);
+}
+
+TEST_F(FileUtilsTest,
+       WriteToFileAtomicCreatesMissingParentDirectoriesWith0700) {
+  const mode_t mask = 0000;
+  const mode_t mode = 0700;
+  const base::FilePath dirname(GetTempName());
+  const base::FilePath subdirname(dirname.Append(GetRandomSuffix()));
+  const base::FilePath filename(subdirname.Append(GetRandomSuffix()));
+  const std::string content("blablabla");
+  EXPECT_TRUE(
+      WriteToFileAtomic(filename, content.data(), content.size(), 0777));
+  int dir_mode = 0;
+  int subdir_mode = 0;
+  EXPECT_TRUE(base::GetPosixFilePermissions(dirname, &dir_mode));
+  EXPECT_TRUE(base::GetPosixFilePermissions(subdirname, &subdir_mode));
+  EXPECT_EQ(mode & ~mask, dir_mode & 0777);
+  EXPECT_EQ(mode & ~mask, subdir_mode & 0777);
+  const mode_t old_mask = umask(mask);
+  umask(old_mask);
 }
 
 }  // namespace brillo

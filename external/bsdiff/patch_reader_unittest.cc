@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -51,14 +52,23 @@ class PatchReaderTest : public testing::Test {
     EXPECT_TRUE(extra_stream_->Finish());
   }
 
-  void ConstructPatchData(std::vector<uint8_t>* patch_data) {
+  void ConstructPatchHeader(int64_t ctrl_size,
+                            int64_t diff_size,
+                            int64_t new_size,
+                            std::vector<uint8_t>* patch_data) {
     EXPECT_EQ(static_cast<size_t>(8), patch_data->size());
-    // Encode the header
+    // Encode the header.
     uint8_t buf[24];
-    EncodeInt64(ctrl_stream_->GetCompressedData().size(), buf);
-    EncodeInt64(diff_stream_->GetCompressedData().size(), buf + 8);
-    EncodeInt64(new_file_size_, buf + 16);
+    EncodeInt64(ctrl_size, buf);
+    EncodeInt64(diff_size, buf + 8);
+    EncodeInt64(new_size, buf + 16);
     std::copy(buf, buf + sizeof(buf), std::back_inserter(*patch_data));
+  }
+
+  void ConstructPatchData(std::vector<uint8_t>* patch_data) {
+    ConstructPatchHeader(ctrl_stream_->GetCompressedData().size(),
+                         diff_stream_->GetCompressedData().size(),
+                         new_file_size_, patch_data);
 
     // Concatenate the three streams into one patch.
     std::copy(ctrl_stream_->GetCompressedData().begin(),
@@ -92,6 +102,29 @@ class PatchReaderTest : public testing::Test {
                 memcmp(buffer, extra_data_[i].data(), extra_data_[i].size()));
     }
     EXPECT_TRUE(patch_reader.Finish());
+  }
+
+  // Helper function to check that invalid headers are detected. This method
+  // creates a new header with the passed |ctrl_size|, |diff_size| and
+  // |new_size| and appends after the header |compressed_size| bytes of extra
+  // zeros. It then expects that initializing a PatchReader with this will fail.
+  void InvalidHeaderTestHelper(int64_t ctrl_size,
+                               int64_t diff_size,
+                               int64_t new_size,
+                               size_t compressed_size) {
+    std::vector<uint8_t> patch_data;
+    std::copy(kBSDF2MagicHeader, kBSDF2MagicHeader + 5,
+              std::back_inserter(patch_data));
+    patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+    patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+    patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+    ConstructPatchHeader(ctrl_size, diff_size, new_size, &patch_data);
+    patch_data.resize(patch_data.size() + compressed_size);
+
+    BsdiffPatchReader patch_reader;
+    EXPECT_FALSE(patch_reader.Init(patch_data.data(), patch_data.size()))
+        << "Where ctrl_size=" << ctrl_size << " diff_size=" << diff_size
+        << " new_size=" << new_size << " compressed_size=" << compressed_size;
   }
 
   size_t new_file_size_{500};
@@ -139,6 +172,73 @@ TEST_F(PatchReaderTest, PatchReaderNewFormatSmoke) {
   ConstructPatchData(&patch_data);
 
   VerifyPatch(patch_data);
+}
+
+TEST_F(PatchReaderTest, InvalidHeaderTest) {
+  // Negative values are not allowed.
+  InvalidHeaderTestHelper(-1, 0, 20, 50);
+  InvalidHeaderTestHelper(30, -3, 20, 50);
+  InvalidHeaderTestHelper(30, 8, -20, 50);
+
+  // Values larger than the patch size are also not allowed for ctrl and diff,
+  // or for the sum of both.
+  InvalidHeaderTestHelper(30, 5, 20, 10);  // 30 > 10
+  InvalidHeaderTestHelper(5, 30, 20, 10);  // 30 > 10
+  InvalidHeaderTestHelper(30, 5, 20, 32);  // 30 + 5 > 32
+
+  // Values that overflow int64 are also not allowed when used combined
+  const int64_t kMax64 = std::numeric_limits<int64_t>::max();
+  InvalidHeaderTestHelper(kMax64 - 5, 5, 20, 20);
+  InvalidHeaderTestHelper(5, kMax64 - 5, 20, 20);
+
+  // 2 * (kMax64 - 5) + sizeof(header) is still positive due to overflow, but
+  // the patch size is too small.
+  InvalidHeaderTestHelper(kMax64 - 5, kMax64 - 5, 20, 20);
+}
+
+TEST_F(PatchReaderTest, InvalidCompressionHeaderTest) {
+  std::vector<uint8_t> patch_data;
+  std::copy(kBSDF2MagicHeader, kBSDF2MagicHeader + 5,
+            std::back_inserter(patch_data));
+  // Set an invalid compression value.
+  patch_data.push_back(99);
+  patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+  patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+  ConstructPatchHeader(10, 10, 10, &patch_data);
+  patch_data.resize(patch_data.size() + 30);
+
+  BsdiffPatchReader patch_reader;
+  EXPECT_FALSE(patch_reader.Init(patch_data.data(), patch_data.size()));
+}
+
+TEST_F(PatchReaderTest, InvalidControlEntryTest) {
+  // Check that negative diff and extra values in a control entry are not
+  // allowed.
+  ctrl_stream_.reset(new BZ2Compressor());
+  diff_stream_.reset(new BrotliCompressor(11));
+  extra_stream_.reset(new BrotliCompressor(11));
+
+  // Encode the header.
+  uint8_t buf[24];
+  EncodeInt64(-10, buf);
+  EncodeInt64(0, buf + 8);
+  EncodeInt64(0, buf + 16);
+  ctrl_stream_->Write(buf, sizeof(buf));
+
+  CompressData();
+
+  std::vector<uint8_t> patch_data;
+  std::copy(kBSDF2MagicHeader, kBSDF2MagicHeader + 5,
+            std::back_inserter(patch_data));
+  patch_data.push_back(static_cast<uint8_t>(CompressorType::kBZ2));
+  patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+  patch_data.push_back(static_cast<uint8_t>(CompressorType::kBrotli));
+  ConstructPatchData(&patch_data);
+
+  BsdiffPatchReader patch_reader;
+  EXPECT_TRUE(patch_reader.Init(patch_data.data(), patch_data.size()));
+  ControlEntry control_entry(0, 0, 0);
+  EXPECT_FALSE(patch_reader.ParseControlEntry(&control_entry));
 }
 
 }  // namespace bsdiff

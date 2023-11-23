@@ -66,7 +66,7 @@ class ConditionVariable : public ConditionVariableBase,
    * @param mutex The currently locked mutex.
    * @param timeout The timeout duration in nanoseconds.
    *
-   * @return False if timed out, true if notified.
+   * @return false if timed out, true if notified.
    */
   bool wait_for(Mutex& mutex, Nanoseconds timeout);
 };

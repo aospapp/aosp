@@ -18,23 +18,33 @@ package android.platform.helpers;
 
 public interface IContactsHelper extends IAppHelper {
     /**
-     * Setup expectation: Contacts app is open
-     *
-     * Scroll to contact name and click
+     * Setup expectation: Contacts is open
+     * <p>
+     * Goes to main screen of Contacts
      */
-    public void selectContact(String contactName);
+    public default void goToMainScreen() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 
     /**
-     * Setup expectation: Contact is open
+     * Setup expectation: Contacts is open
+     * <p>
+     * Clicks search field and inputs contact to search.
      *
-     * Click the call button
+     * @param contact The contact to search.
      */
-    public void call();
+    public default void searchForContact(String contact) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 
     /**
-     * Setup expectation: Contact is open
+     * Setup expectations: The search results of contact showed.
+     * <p>
+     * Selects the contact by the specific index.
      *
-     * Click text button, send text message from quick reply list
+     * @param index The index of contact to select.
      */
-    public void sendText(String quickReplyText);
+    public default void chooseContactByIndex(int index) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

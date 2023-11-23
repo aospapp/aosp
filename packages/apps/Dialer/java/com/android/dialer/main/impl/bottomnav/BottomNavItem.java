@@ -29,7 +29,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.android.dialer.common.Assert;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
+import com.android.dialer.theme.base.ThemeComponent;
 
 /** Navigation item in a bottom nav. */
 final class BottomNavItem extends LinearLayout {
@@ -53,10 +54,12 @@ final class BottomNavItem extends LinearLayout {
   @Override
   public void setSelected(boolean selected) {
     super.setSelected(selected);
-    int colorId = selected ? R.color.bottom_nav_icon_selected : R.color.bottom_nav_icon_deselected;
-    int color = getContext().getColor(colorId);
-    image.setImageTintList(ColorStateList.valueOf(color));
-    text.setTextColor(color);
+    int colorId =
+        selected
+            ? ThemeComponent.get(getContext()).theme().getColorPrimary()
+            : ThemeComponent.get(getContext()).theme().getTextColorSecondary();
+    image.setImageTintList(ColorStateList.valueOf(colorId));
+    text.setTextColor(colorId);
   }
 
   void setup(@StringRes int stringRes, @DrawableRes int drawableRes) {
@@ -72,7 +75,9 @@ final class BottomNavItem extends LinearLayout {
       String countString = String.format(Integer.toString(count));
 
       boolean use99PlusCount =
-          ConfigProviderBindings.get(getContext()).getBoolean("use_99_plus", false);
+          ConfigProviderComponent.get(getContext())
+              .getConfigProvider()
+              .getBoolean("use_99_plus", false);
       boolean use9Plus = !use99PlusCount;
 
       if (use99PlusCount && count > 99) {

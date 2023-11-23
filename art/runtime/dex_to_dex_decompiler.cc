@@ -32,7 +32,7 @@ namespace optimizer {
 class DexDecompiler {
  public:
   DexDecompiler(const DexFile& dex_file,
-                const DexFile::CodeItem& code_item,
+                const dex::CodeItem& code_item,
                 const ArrayRef<const uint8_t>& quickened_info,
                 bool decompile_return_instruction)
     : code_item_accessor_(dex_file, &code_item),
@@ -187,7 +187,6 @@ bool DexDecompiler::Decompile() {
       LOG(FATAL) << "Failed to use all values in quickening info."
                  << " Actual: " << std::hex << quicken_index_
                  << " Expected: " << quicken_info_.NumIndices();
-      return false;
     }
   }
 
@@ -195,7 +194,7 @@ bool DexDecompiler::Decompile() {
 }
 
 bool ArtDecompileDEX(const DexFile& dex_file,
-                     const DexFile::CodeItem& code_item,
+                     const dex::CodeItem& code_item,
                      const ArrayRef<const uint8_t>& quickened_info,
                      bool decompile_return_instruction) {
   if (quickened_info.size() == 0 && !decompile_return_instruction) {

@@ -33,7 +33,7 @@ public class HeadsetStackEvent extends HeadsetMessageObject {
     public static final int EVENT_TYPE_VOLUME_CHANGED = 6;
     public static final int EVENT_TYPE_DIAL_CALL = 7;
     public static final int EVENT_TYPE_SEND_DTMF = 8;
-    public static final int EVENT_TYPE_NOICE_REDUCTION = 9;
+    public static final int EVENT_TYPE_NOISE_REDUCTION = 9;
     public static final int EVENT_TYPE_AT_CHLD = 10;
     public static final int EVENT_TYPE_SUBSCRIBER_NUMBER_REQUEST = 11;
     public static final int EVENT_TYPE_AT_CIND = 12;
@@ -153,8 +153,8 @@ public class HeadsetStackEvent extends HeadsetMessageObject {
                 return "EVENT_TYPE_DIAL_CALL";
             case EVENT_TYPE_SEND_DTMF:
                 return "EVENT_TYPE_SEND_DTMF";
-            case EVENT_TYPE_NOICE_REDUCTION:
-                return "EVENT_TYPE_NOICE_REDUCTION";
+            case EVENT_TYPE_NOISE_REDUCTION:
+                return "EVENT_TYPE_NOISE_REDUCTION";
             case EVENT_TYPE_AT_CHLD:
                 return "EVENT_TYPE_AT_CHLD";
             case EVENT_TYPE_SUBSCRIBER_NUMBER_REQUEST:

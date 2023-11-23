@@ -149,10 +149,10 @@ public final class Session implements AutoCloseable {
 
     /**
      * Use {@code t} instead of the Tensor referred to by executing the operation referred to by
-     * {@code output}.
+     * {@code operand}.
      */
-    public Runner feed(Output<?> o, Tensor<?> t) {
-      inputs.add(o);
+    public Runner feed(Operand<?> operand, Tensor<?> t) {
+      inputs.add(operand.asOutput());
       inputTensors.add(t);
       return this;
     }
@@ -185,10 +185,19 @@ public final class Session implements AutoCloseable {
       return this;
     }
 
-    /** Makes {@link #run()} return the Tensor referred to by {@code output}. */
+    /** 
+     * Makes {@link #run()} return the Tensor referred to by {@code output}. 
+     */
     public Runner fetch(Output<?> output) {
       outputs.add(output);
       return this;
+    }
+    
+    /**
+     * Makes {@link #run()} return the Tensor referred to by the output of {@code operand}. 
+     */
+    public Runner fetch(Operand<?> operand) {
+      return fetch(operand.asOutput());
     }
 
     /**
@@ -208,6 +217,13 @@ public final class Session implements AutoCloseable {
     public Runner addTarget(Operation operation) {
       targets.add(operation);
       return this;
+    }
+    
+    /**
+     * Make {@link #run()} execute {@code operand}, but not return any evaluated {@link Tensor}s.
+     */
+    public Runner addTarget(Operand<?> operand) {
+      return addTarget(operand.asOutput().op());
     }
 
     /**

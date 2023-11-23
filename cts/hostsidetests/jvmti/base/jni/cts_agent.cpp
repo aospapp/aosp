@@ -25,12 +25,26 @@
 
 namespace art {
 
+extern void register_art_Main(jvmtiEnv*, JNIEnv*);
+extern void register_android_jvmti_cts_JvmtiRedefineClassesTest(jvmtiEnv*, JNIEnv*);
+extern void register_android_jvmti_cts_JvmtiTaggingTest(jvmtiEnv*, JNIEnv*);
+extern void register_android_jvmti_cts_JvmtiTrackingTest(jvmtiEnv*, JNIEnv*);
+
 static void InformMainAttach(jvmtiEnv* jenv,
                              JNIEnv* env,
                              const char* class_name,
                              const char* method_name) {
+  // Register native methods from available classes
+  // The agent is used with each test class, but we don't know which class is currently available.
+  // For that reason, we try to register the native methods in each one. Each function returns
+  // without throwing an error if the specified class can't be found.
+  register_art_Main(jenv, env);
+  register_android_jvmti_cts_JvmtiRedefineClassesTest(jenv, env);
+  register_android_jvmti_cts_JvmtiTaggingTest(jenv, env);
+  register_android_jvmti_cts_JvmtiTrackingTest(jenv, env);
+
   // Use JNI to load the class.
-  ScopedLocalRef<jclass> klass(env, FindClass(jenv, env, class_name, nullptr));
+  ScopedLocalRef<jclass> klass(env, GetClass(jenv, env, class_name, nullptr));
   CHECK(klass.get() != nullptr) << class_name;
 
   jmethodID method = env->GetStaticMethodID(klass.get(), method_name, "()V");

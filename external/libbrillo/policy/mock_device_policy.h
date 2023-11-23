@@ -7,6 +7,7 @@
 
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -82,6 +83,8 @@ class MockDevicePolicy : public DevicePolicy {
   MOCK_CONST_METHOD1(GetUpdateDisabled,
                      bool(bool*));  // NOLINT(readability/function)
   MOCK_CONST_METHOD1(GetTargetVersionPrefix, bool(std::string*));
+  MOCK_CONST_METHOD1(GetRollbackToTargetVersion, bool(int*));
+  MOCK_CONST_METHOD1(GetRollbackAllowedMilestones, bool(int*));
   MOCK_CONST_METHOD1(GetScatterFactorInSeconds,
                      bool(int64_t*));  // NOLINT(readability/function)
   MOCK_CONST_METHOD1(GetAllowedConnectionTypesForUpdate,
@@ -97,7 +100,12 @@ class MockDevicePolicy : public DevicePolicy {
   MOCK_CONST_METHOD1(GetUsbDetachableWhitelist,
                      bool(std::vector<DevicePolicy::UsbDeviceId>*));
   MOCK_CONST_METHOD1(GetAutoLaunchedKioskAppId, bool(std::string*));
-
+  MOCK_CONST_METHOD0(IsEnterpriseManaged, bool());
+  MOCK_CONST_METHOD1(GetSecondFactorAuthenticationMode, bool(int*));
+  MOCK_CONST_METHOD1(GetDisallowedTimeIntervals,
+                     bool(std::vector<WeeklyTimeInterval>*));
+  MOCK_CONST_METHOD1(GetDeviceUpdateStagingSchedule,
+                     bool(std::vector<DayPercentagePair>*));
   MOCK_METHOD0(VerifyPolicyFiles, bool(void));
   MOCK_METHOD0(VerifyPolicySignature, bool(void));
 };

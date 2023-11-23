@@ -45,7 +45,7 @@ class cellular_StressEnable(test.test):
 
     def run_once(self, test_env, cycles=3, min=15, max=25):
         with test_env, shill_context.ServiceAutoConnectContext(
-                test_env.shill.find_cellular_service_object, False):
+                test_env.shill.wait_for_cellular_service_object, False):
             self.device = test_env.shill.find_cellular_device_object()
             for t in xrange(max, min, -1):
                 for n in xrange(cycles):

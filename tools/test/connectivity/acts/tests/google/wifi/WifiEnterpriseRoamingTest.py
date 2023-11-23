@@ -18,10 +18,10 @@ import random
 import time
 
 from acts import asserts
-from acts import base_test
 from acts import signals
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WifiEnums = wutils.WifiEnums
 
@@ -33,14 +33,14 @@ EapPhase2 = WifiEnums.EapPhase2
 Ent = WifiEnums.Enterprise
 
 
-class WifiEnterpriseRoamingTest(base_test.BaseTestClass):
+class WifiEnterpriseRoamingTest(WifiBaseTest):
+    def __init__(self, controllers):
+        WifiBaseTest.__init__(self, controllers)
+
     def setup_class(self):
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
         req_params = (
-            "ent_roaming_ssid",
-            "bssid_a",
-            "bssid_b",
             "attn_vals",
             # Expected time within which roaming should finish, in seconds.
             "roam_interval",
@@ -49,8 +49,25 @@ class WifiEnterpriseRoamingTest(base_test.BaseTestClass):
             "client_key",
             "eap_identity",
             "eap_password",
-            "device_password")
+            "device_password",
+            "radius_conf_2g",
+            "radius_conf_5g")
         self.unpack_userparams(req_params)
+        if "AccessPoint" in self.user_params:
+            self.legacy_configure_ap_and_start(
+                mirror_ap=True,
+                ent_network=True,
+                ap_count=2,
+                radius_conf_2g=self.radius_conf_2g,
+                radius_conf_5g=self.radius_conf_5g,)
+        self.ent_network_2g_a = self.ent_networks[0]["2g"]
+        self.ent_network_2g_b = self.ent_networks[1]["2g"]
+        self.bssid_2g_a = self.ent_network_2g_a[WifiEnums.BSSID_KEY.lower()]
+        self.bssid_2g_b = self.ent_network_2g_b[WifiEnums.BSSID_KEY.lower()]
+        self.ent_roaming_ssid = self.ent_network_2g_a[WifiEnums.SSID_KEY]
+        self.bssid_a = self.bssid_2g_a
+        self.bssid_b = self.bssid_2g_b
+
         self.config_peap = {
             Ent.EAP: int(EAP.PEAP),
             Ent.CA_CERT: self.ca_cert,
@@ -80,14 +97,14 @@ class WifiEnterpriseRoamingTest(base_test.BaseTestClass):
             WifiEnums.SSID_KEY: self.ent_roaming_ssid,
         }
         self.attn_a = self.attenuators[0]
-        self.attn_b = self.attenuators[1]
+        self.attn_b = self.attenuators[2]
         # Set screen lock password so ConfigStore is unlocked.
         self.dut.droid.setDevicePassword(self.device_password)
         self.set_attns("default")
 
     def teardown_class(self):
         wutils.reset_wifi(self.dut)
-        self.dut.droid.disableDevicePassword()
+        self.dut.droid.disableDevicePassword(self.device_password)
         self.dut.ed.clear_all_events()
         self.set_attns("default")
 

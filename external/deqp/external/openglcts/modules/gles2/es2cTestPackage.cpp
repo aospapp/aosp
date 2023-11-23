@@ -23,7 +23,10 @@
  */ /*-------------------------------------------------------------------*/
 
 #include "es2cTestPackage.hpp"
+#include "es2cTexture3DTests.hpp"
+#include "glcAggressiveShaderOptimizationsTests.hpp"
 #include "glcInfoTests.hpp"
+#include "glcInternalformatTests.hpp"
 #include "glcShaderNegativeTests.hpp"
 #include "gluRenderContext.hpp"
 #include "gluStateReset.hpp"
@@ -116,6 +119,7 @@ public:
 	void init(void)
 	{
 		addChild(new deqp::ShaderNegativeTests(m_context, glu::GLSL_VERSION_100_ES));
+		addChild(new glcts::AggressiveShaderOptimizationsTests(m_context));
 	}
 };
 
@@ -137,6 +141,10 @@ void TestPackage::init(void)
 	try
 	{
 		addChild(new ShaderTests(getContext()));
+		addChild(new Texture3DTests(getContext()));
+		tcu::TestCaseGroup* coreGroup = new tcu::TestCaseGroup(getTestContext(), "core", "core tests");
+		coreGroup->addChild(new glcts::InternalformatTests(getContext()));
+		addChild(coreGroup);
 	}
 	catch (...)
 	{

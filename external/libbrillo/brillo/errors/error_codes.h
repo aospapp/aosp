@@ -33,7 +33,7 @@ BRILLO_EXPORT extern const char kDomain[];
 // Adds an Error object to the error chain identified by |error|, using
 // the system error code (see "errno").
 BRILLO_EXPORT void AddSystemError(ErrorPtr* error,
-                                  const tracked_objects::Location& location,
+                                  const base::Location& location,
                                   int errnum);
 }  // namespace system
 

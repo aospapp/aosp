@@ -32,6 +32,9 @@ import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 public class MockView extends View {
     private boolean mCalledOnCreateContextMenu = false;
     private boolean mCalledOnAnimationStart = false;
@@ -52,7 +55,6 @@ public class MockView extends View {
     private boolean mCalledOnMeasure = false;
     private boolean mCalledOnSizeChanged = false;
     private boolean mCalledOnSetAlpha = false;
-    private boolean mCalledOnTouchEvent = false;
     private boolean mCalledOnTrackballEvent = false;
     private boolean mCalledOnHoverEvent = false;
     private boolean mCalledOnWindowFocusChanged = false;
@@ -77,6 +79,8 @@ public class MockView extends View {
     private int mOldHeight = -1;
 
     private boolean mLastAggregatedVisibility;
+
+    private BlockingQueue<MotionEvent> mTouchEvents = new LinkedBlockingQueue<>();
 
     public MockView(Context context) {
         super(context);
@@ -204,7 +208,7 @@ public class MockView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        mCalledOnTouchEvent = true;
+        mTouchEvents.add(MotionEvent.obtain(event));
         return super.onTouchEvent(event);
     }
 
@@ -220,8 +224,17 @@ public class MockView extends View {
         return super.onHoverEvent(event);
     }
 
+    /**
+     * Poll the queue for the oldest MotionEvent that was received by onTouchEvent.
+     * Caller is responsible for recycling the returned event.
+     * @return The oldest MotionEvent that was received by onTouchEvent
+     */
+    public MotionEvent pollTouchEvent() {
+        return mTouchEvents.poll();
+    }
+
     public boolean hasCalledOnTouchEvent() {
-        return mCalledOnTouchEvent;
+        return !mTouchEvents.isEmpty();
     }
 
     public boolean hasCalledOnTrackballEvent() {
@@ -666,7 +679,6 @@ public class MockView extends View {
         mCalledOnMeasure = false;
         mCalledOnSizeChanged = false;
         mCalledOnSetAlpha = false;
-        mCalledOnTouchEvent = false;
         mCalledOnTrackballEvent = false;
         mCalledOnHoverEvent = false;
         mCalledOnWindowFocusChanged = false;
@@ -690,5 +702,9 @@ public class MockView extends View {
         mOldWidth = -1;
         mOldHeight = -1;
         mLastAggregatedVisibility = false;
+
+        while (!mTouchEvents.isEmpty()) {
+            mTouchEvents.poll().recycle();
+        }
     }
 }

@@ -18,16 +18,16 @@ package android.keystore.cts;
 
 import com.google.common.collect.ImmutableSet;
 
-import com.android.org.bouncycastle.asn1.ASN1Boolean;
-import com.android.org.bouncycastle.asn1.ASN1Encodable;
-import com.android.org.bouncycastle.asn1.ASN1Enumerated;
-import com.android.org.bouncycastle.asn1.ASN1InputStream;
-import com.android.org.bouncycastle.asn1.ASN1Integer;
-import com.android.org.bouncycastle.asn1.ASN1OctetString;
-import com.android.org.bouncycastle.asn1.ASN1Primitive;
-import com.android.org.bouncycastle.asn1.ASN1Sequence;
-import com.android.org.bouncycastle.asn1.ASN1Set;
-import com.android.org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.ASN1Boolean;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Enumerated;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1Integer;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1Set;
+import org.bouncycastle.asn1.DEROctetString;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;

@@ -29,6 +29,7 @@
 #include "SocketServerForDriver.h"
 #include "test/vts/proto/AndroidSystemControlMessage.pb.h"
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
+#include "test/vts/proto/VtsResourceControllerMessage.pb.h"
 
 using namespace std;
 using namespace google::protobuf;
@@ -105,12 +106,15 @@ bool AgentRequestHandler::LaunchDriverService(
   const string& file_path = command_msg.file_path();
   int target_class = command_msg.target_class();
   int target_type = command_msg.target_type();
-  float target_version = command_msg.target_version() / 100.0;
+  int target_version_major = command_msg.target_version_major();
+  int target_version_minor = command_msg.target_version_minor();
   const string& target_package = command_msg.target_package();
   const string& target_component_name = command_msg.target_component_name();
   const string& module_name = command_msg.module_name();
   const string& hw_binder_service_name = command_msg.hw_binder_service_name();
   int bits = command_msg.bits();
+  const string& test_hal_flag =
+      command_msg.is_test_hal() ? "TREBLE_TESTING_OVERRIDE=true " : "";
 
   LOG(DEBUG) << "file_path=" << file_path;
   ResponseCode result = FAIL;
@@ -154,11 +158,12 @@ bool AgentRequestHandler::LaunchDriverService(
         if (driver_hal_spec_dir_path_.length() < 1) {
 #ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
           asprintf(&cmd,
-                   "LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH %s "
+                   "%sLD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH %s "
                    "--server_socket_path=%s "
                    "--callback_socket_name=%s",
-                   ld_dir_path.c_str(), driver_binary_path.c_str(),
-                   socket_port_flie_path.c_str(), callback_socket_name.c_str());
+                   test_hal_flag.c_str(), ld_dir_path.c_str(),
+                   driver_binary_path.c_str(), socket_port_flie_path.c_str(),
+                   callback_socket_name.c_str());
 #else  // binder
           asprintf(&cmd,
                    "LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH %s "
@@ -170,11 +175,11 @@ bool AgentRequestHandler::LaunchDriverService(
         } else {
 #ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
           asprintf(&cmd,
-                   "LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH %s "
+                   "%sLD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH %s "
                    "--server_socket_path=%s "
                    "--spec_dir_path=%s --callback_socket_name=%s",
-                   ld_dir_path.c_str(), driver_binary_path.c_str(),
-                   socket_port_flie_path.c_str(),
+                   test_hal_flag.c_str(), ld_dir_path.c_str(),
+                   driver_binary_path.c_str(), socket_port_flie_path.c_str(),
                    driver_hal_spec_dir_path_.c_str(),
                    callback_socket_name.c_str());
 #else  // binder
@@ -247,9 +252,9 @@ bool AgentRequestHandler::LaunchDriverService(
             driver_type == VTS_DRIVER_TYPE_HAL_HIDL) {
           LOG(DEBUG) << "LoadHal " << module_name;
           int32_t driver_id = client->LoadHal(
-              file_path, target_class, target_type, target_version,
-              target_package, target_component_name, hw_binder_service_name,
-              module_name);
+              file_path, target_class, target_type, target_version_major,
+              target_version_minor, target_package, target_component_name,
+              hw_binder_service_name, module_name);
           if (driver_id == -1) {
             response_msg.set_response_code(FAIL);
             response_msg.set_reason("Failed to load the selected HAL.");
@@ -296,8 +301,8 @@ bool AgentRequestHandler::ReadSpecification(
 
   const string& result = client->ReadSpecification(
       command_message.service_name(), command_message.target_class(),
-      command_message.target_type(), command_message.target_version() / 100.0f,
-      command_message.target_package());
+      command_message.target_type(), command_message.target_version_major(),
+      command_message.target_version_minor(), command_message.target_package());
 
   return SendApiResult("ReadSpecification", result);
 }
@@ -438,6 +443,107 @@ void AgentRequestHandler::CreateSystemControlResponseFromDriverControlResponse(
   }
 }
 
+bool AgentRequestHandler::ProcessFmqCommand(
+    const AndroidSystemControlCommandMessage& command_msg) {
+#ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
+  VtsDriverSocketClient* client = driver_client_;
+  if (!client) {
+#else  // binder
+  android::sp<android::vts::IVtsFuzzer> client =
+      android::vts::GetBinderClient(service_name_);
+  if (!client.get()) {
+#endif
+    LOG(ERROR) << "Driver socket client is uninitialized.";
+    return false;
+  }
+
+  AndroidSystemControlResponseMessage response_msg;
+  FmqResponseMessage* fmq_response = response_msg.mutable_fmq_response();
+  FmqRequestMessage fmq_request = command_msg.fmq_request();
+  // send the request message
+  bool success = client->ProcessFmqCommand(fmq_request, fmq_response);
+
+  // prepare for response back to host
+  if (success) {
+    response_msg.set_response_code(SUCCESS);
+  } else {
+    response_msg.set_response_code(FAIL);
+    response_msg.set_reason("Failed to call api to process FMQ command.");
+  }
+
+  return VtsSocketSendMessage(response_msg);
+}
+
+bool AgentRequestHandler::ProcessHidlMemoryCommand(
+    const AndroidSystemControlCommandMessage& command_msg) {
+#ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
+  VtsDriverSocketClient* client = driver_client_;
+  if (!client) {
+#else  // binder
+  android::sp<android::vts::IVtsFuzzer> client =
+      android::vts::GetBinderClient(service_name_);
+  if (!client.get()) {
+#endif
+    LOG(ERROR) << "Driver socket client is uninitialized.";
+    return false;
+  }
+
+  AndroidSystemControlResponseMessage response_msg;
+  HidlMemoryResponseMessage* hidl_memory_response =
+      response_msg.mutable_hidl_memory_response();
+  HidlMemoryRequestMessage hidl_memory_request =
+      command_msg.hidl_memory_request();
+  // send the request message
+  bool success = client->ProcessHidlMemoryCommand(hidl_memory_request,
+                                                  hidl_memory_response);
+
+  // prepare for response back to host
+  if (success) {
+    response_msg.set_response_code(SUCCESS);
+  } else {
+    response_msg.set_response_code(FAIL);
+    response_msg.set_reason(
+        "Failed to call api to process hidl_memory command.");
+  }
+
+  return VtsSocketSendMessage(response_msg);
+}
+
+bool AgentRequestHandler::ProcessHidlHandleCommand(
+    const AndroidSystemControlCommandMessage& command_msg) {
+#ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
+  VtsDriverSocketClient* client = driver_client_;
+  if (!client) {
+#else  // binder
+  android::sp<android::vts::IVtsFuzzer> client =
+      android::vts::GetBinderClient(service_name_);
+  if (!client.get()) {
+#endif
+    LOG(ERROR) << "Driver socket client is uninitialized.";
+    return false;
+  }
+
+  AndroidSystemControlResponseMessage response_msg;
+  HidlHandleResponseMessage* hidl_handle_response =
+      response_msg.mutable_hidl_handle_response();
+  HidlHandleRequestMessage hidl_handle_request =
+      command_msg.hidl_handle_request();
+  // send the request message
+  bool success = client->ProcessHidlHandleCommand(hidl_handle_request,
+                                                  hidl_handle_response);
+
+  // prepare for response back to host
+  if (success) {
+    response_msg.set_response_code(SUCCESS);
+  } else {
+    response_msg.set_response_code(FAIL);
+    response_msg.set_reason(
+        "Failed to call api to process hidl_handle command.");
+  }
+
+  return VtsSocketSendMessage(response_msg);
+}
+
 bool AgentRequestHandler::ProcessOneCommand() {
   AndroidSystemControlCommandMessage command_msg;
   if (!VtsSocketRecvMessage(&command_msg)) return false;
@@ -464,6 +570,12 @@ bool AgentRequestHandler::ProcessOneCommand() {
     case VTS_AGENT_COMMAND_EXECUTE_SHELL_COMMAND:
       ExecuteShellCommand(command_msg);
       return true;
+    case VTS_FMQ_COMMAND:
+      return ProcessFmqCommand(command_msg);
+    case VTS_HIDL_MEMORY_COMMAND:
+      return ProcessHidlMemoryCommand(command_msg);
+    case VTS_HIDL_HANDLE_COMMAND:
+      return ProcessHidlHandleCommand(command_msg);
     default:
       LOG(ERROR) << " ERROR unknown command " << command_msg.command_type();
       return DefaultResponse();

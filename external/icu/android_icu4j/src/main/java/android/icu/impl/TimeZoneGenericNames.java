@@ -55,6 +55,7 @@ public class TimeZoneGenericNames implements Serializable, Freezable<TimeZoneGen
 
     /**
      * Generic name type enum
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum GenericNameType {
         LOCATION ("LONG", "SHORT"),
@@ -79,6 +80,7 @@ public class TimeZoneGenericNames implements Serializable, Freezable<TimeZoneGen
 
     /**
      * Format pattern enum used for composing location and partial location names
+     * @hide Only a subset of ICU is exposed in Android
      */
     public enum Pattern {
         // The format pattern such as "{0} Time", where {0} is the country or city.
@@ -598,6 +600,7 @@ public class TimeZoneGenericNames implements Serializable, Freezable<TimeZoneGen
     /**
      * A class used for returning the name search result used by
      * {@link TimeZoneGenericNames#find(String, int, EnumSet)}.
+     * @hide Only a subset of ICU is exposed in Android
      */
     public static class GenericMatchInfo {
         final GenericNameType nameType;

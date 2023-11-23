@@ -37,16 +37,18 @@
 #include "art_field-inl.h"
 #include "art_jvmti.h"
 #include "base/mutex.h"
+#include "deopt_manager.h"
 #include "events-inl.h"
 #include "gc/system_weak.h"
 #include "gc/collector_type.h"
 #include "gc/gc_cause.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "gc_root-inl.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "mirror/class.h"
 #include "mirror/object-inl.h"
 #include "mirror/string.h"
+#include "mirror/throwable.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "nativehelper/scoped_utf_chars.h"
 #include "obj_ptr.h"
@@ -60,7 +62,33 @@
 
 namespace openjdkjvmti {
 
+static const char* kJvmtiTlsKey = "JvmtiTlsKey";
+
 art::ArtField* ThreadUtil::context_class_loader_ = nullptr;
+
+ScopedNoUserCodeSuspension::ScopedNoUserCodeSuspension(art::Thread* self) : self_(self) {
+  DCHECK_EQ(self, art::Thread::Current());
+  // Loop until we both have the user_code_suspension_locK_ and don't have any pending user_code
+  // suspensions.
+  do {
+    art::Locks::user_code_suspension_lock_->AssertNotHeld(self_);
+    ThreadUtil::SuspendCheck(self_);
+
+    art::Locks::user_code_suspension_lock_->ExclusiveLock(self_);
+    if (ThreadUtil::WouldSuspendForUserCodeLocked(self_)) {
+      art::Locks::user_code_suspension_lock_->ExclusiveUnlock(self_);
+      continue;
+    }
+
+    art::Locks::user_code_suspension_lock_->AssertHeld(self_);
+
+    return;
+  } while (true);
+}
+
+ScopedNoUserCodeSuspension::~ScopedNoUserCodeSuspension() {
+  art::Locks::user_code_suspension_lock_->ExclusiveUnlock(self_);
+}
 
 struct ThreadCallback : public art::ThreadLifecycleCallback {
   jthread GetThreadObject(art::Thread* self) REQUIRES_SHARED(art::Locks::mutator_lock_) {
@@ -80,7 +108,18 @@ struct ThreadCallback : public art::ThreadLifecycleCallback {
                                          thread.get());
   }
 
-  void ThreadStart(art::Thread* self) OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  void ThreadStart(art::Thread* self) override REQUIRES_SHARED(art::Locks::mutator_lock_) {
+    // Needs to be checked first because we might start these threads before we actually send the
+    // VMInit event.
+    if (self->IsSystemDaemon()) {
+      // System daemon threads are things like the finalizer or gc thread. It would be dangerous to
+      // allow agents to get in the way of these threads starting up. These threads include things
+      // like the HeapTaskDaemon and the finalizer daemon.
+      //
+      // This event can happen during the time before VMInit or just after zygote fork. Since the
+      // second is hard to distinguish we unfortunately cannot really check the state here.
+      return;
+    }
     if (!started) {
       // Runtime isn't started. We only expect at most the signal handler or JIT threads to be
       // started here.
@@ -89,7 +128,8 @@ struct ThreadCallback : public art::ThreadLifecycleCallback {
         self->GetThreadName(name);
         if (name != "JDWP" &&
             name != "Signal Catcher" &&
-            !android::base::StartsWith(name, "Jit thread pool")) {
+            !android::base::StartsWith(name, "Jit thread pool") &&
+            !android::base::StartsWith(name, "Runtime worker thread")) {
           LOG(FATAL) << "Unexpected thread before start: " << name << " id: "
                      << self->GetThreadId();
         }
@@ -99,7 +139,7 @@ struct ThreadCallback : public art::ThreadLifecycleCallback {
     Post<ArtJvmtiEvent::kThreadStart>(self);
   }
 
-  void ThreadDeath(art::Thread* self) OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  void ThreadDeath(art::Thread* self) override REQUIRES_SHARED(art::Locks::mutator_lock_) {
     Post<ArtJvmtiEvent::kThreadEnd>(self);
   }
 
@@ -129,16 +169,35 @@ void ThreadUtil::VMInitEventSent() {
   gThreadCallback.Post<ArtJvmtiEvent::kThreadStart>(art::Thread::Current());
 }
 
+
+static void WaitForSystemDaemonStart(art::Thread* self) REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  {
+    art::ScopedThreadStateChange strc(self, art::kNative);
+    JNIEnv* jni = self->GetJniEnv();
+    jni->CallStaticVoidMethod(art::WellKnownClasses::java_lang_Daemons,
+                              art::WellKnownClasses::java_lang_Daemons_waitForDaemonStart);
+  }
+  if (self->IsExceptionPending()) {
+    LOG(WARNING) << "Exception occurred when waiting for system daemons to start: "
+                 << self->GetException()->Dump();
+    self->ClearException();
+  }
+}
+
 void ThreadUtil::CacheData() {
   // We must have started since it is now safe to cache our data;
   gThreadCallback.started = true;
-  art::ScopedObjectAccess soa(art::Thread::Current());
+  art::Thread* self = art::Thread::Current();
+  art::ScopedObjectAccess soa(self);
   art::ObjPtr<art::mirror::Class> thread_class =
       soa.Decode<art::mirror::Class>(art::WellKnownClasses::java_lang_Thread);
   CHECK(thread_class != nullptr);
   context_class_loader_ = thread_class->FindDeclaredInstanceField("contextClassLoader",
                                                                   "Ljava/lang/ClassLoader;");
   CHECK(context_class_loader_ != nullptr);
+  // Now wait for all required system threads to come up before allowing the rest of loading to
+  // continue.
+  WaitForSystemDaemonStart(self);
 }
 
 void ThreadUtil::Unregister() {
@@ -419,6 +478,7 @@ static jint GetJvmtiThreadStateFromInternal(const InternalThreadState& state) {
     case art::ThreadState::kWaitingForVisitObjects:
     case art::ThreadState::kWaitingForGetObjectsAllocated:
     case art::ThreadState::kWaitingForGcThreadFlip:
+    case art::ThreadState::kNativeForAbort:
       // All of these are causing the thread to wait for an indeterminate amount of time but isn't
       // caused by sleep, park, or object#wait.
       jvmti_state |= (JVMTI_THREAD_STATE_WAITING |
@@ -474,6 +534,7 @@ static jint GetJavaStateFromInternal(const InternalThreadState& state) {
     case art::ThreadState::kWaitingForMethodTracingStart:
     case art::ThreadState::kWaitingForVisitObjects:
     case art::ThreadState::kWaitingForGcThreadFlip:
+    case art::ThreadState::kNativeForAbort:
       return JVMTI_JAVA_LANG_THREAD_STATE_WAITING;
   }
   LOG(FATAL) << "Unreachable";
@@ -508,17 +569,8 @@ jvmtiError ThreadUtil::GetThreadState(jvmtiEnv* env ATTRIBUTE_UNUSED,
 
   art::Thread* self = art::Thread::Current();
   InternalThreadState state = {};
-  // Loop since we need to bail out and try again if we would end up getting suspended while holding
-  // the user_code_suspension_lock_ due to a SuspendReason::kForUserCode. In this situation we
-  // release the lock, wait to get resumed and try again.
-  do {
-    SuspendCheck(self);
-    art::MutexLock ucsl_mu(self, *art::Locks::user_code_suspension_lock_);
-    if (WouldSuspendForUserCodeLocked(self)) {
-      // Make sure we won't be suspended in the middle of holding the thread_suspend_count_lock_ by
-      // a user-code suspension. We retry and do another SuspendCheck to clear this.
-      continue;
-    }
+  {
+    ScopedNoUserCodeSuspension snucs(self);
     art::ScopedObjectAccess soa(self);
     art::MutexLock tll_mu(self, *art::Locks::thread_list_lock_);
     jvmtiError err = ERR(INTERNAL);
@@ -527,24 +579,23 @@ jvmtiError ThreadUtil::GetThreadState(jvmtiEnv* env ATTRIBUTE_UNUSED,
       return err;
     }
     state = GetNativeThreadState(target);
-    if (state.art_state == art::ThreadState::kStarting) {
-      break;
+    if (state.art_state != art::ThreadState::kStarting) {
+      DCHECK(state.native_thread != nullptr);
+
+      // Translate internal thread state to JVMTI and Java state.
+      jint jvmti_state = GetJvmtiThreadStateFromInternal(state);
+
+      // Java state is derived from nativeGetState.
+      // TODO: Our implementation assigns "runnable" to suspended. As such, we will have slightly
+      //       different mask if a thread got suspended due to user-code. However, this is for
+      //       consistency with the Java view.
+      jint java_state = GetJavaStateFromInternal(state);
+
+      *thread_state_ptr = jvmti_state | java_state;
+
+      return ERR(NONE);
     }
-    DCHECK(state.native_thread != nullptr);
-
-    // Translate internal thread state to JVMTI and Java state.
-    jint jvmti_state = GetJvmtiThreadStateFromInternal(state);
-
-    // Java state is derived from nativeGetState.
-    // TODO: Our implementation assigns "runnable" to suspended. As such, we will have slightly
-    //       different mask if a thread got suspended due to user-code. However, this is for
-    //       consistency with the Java view.
-    jint java_state = GetJavaStateFromInternal(state);
-
-    *thread_state_ptr = jvmti_state | java_state;
-
-    return ERR(NONE);
-  } while (true);
+  }
 
   DCHECK_EQ(state.art_state, art::ThreadState::kStarting);
 
@@ -621,17 +672,10 @@ jvmtiError ThreadUtil::GetAllThreads(jvmtiEnv* env,
   return ERR(NONE);
 }
 
-// The struct that we store in the art::Thread::custom_tls_ that maps the jvmtiEnvs to the data
-// stored with that thread. This is needed since different jvmtiEnvs are not supposed to share TLS
-// data but we only have a single slot in Thread objects to store data.
-struct JvmtiGlobalTLSData {
-  std::unordered_map<jvmtiEnv*, const void*> data GUARDED_BY(art::Locks::thread_list_lock_);
-};
-
 static void RemoveTLSData(art::Thread* target, void* ctx) REQUIRES(art::Locks::thread_list_lock_) {
   jvmtiEnv* env = reinterpret_cast<jvmtiEnv*>(ctx);
   art::Locks::thread_list_lock_->AssertHeld(art::Thread::Current());
-  JvmtiGlobalTLSData* global_tls = reinterpret_cast<JvmtiGlobalTLSData*>(target->GetCustomTLS());
+  JvmtiGlobalTLSData* global_tls = ThreadUtil::GetGlobalTLSData(target);
   if (global_tls != nullptr) {
     global_tls->data.erase(env);
   }
@@ -654,15 +698,25 @@ jvmtiError ThreadUtil::SetThreadLocalStorage(jvmtiEnv* env, jthread thread, cons
     return err;
   }
 
-  JvmtiGlobalTLSData* global_tls = reinterpret_cast<JvmtiGlobalTLSData*>(target->GetCustomTLS());
-  if (global_tls == nullptr) {
-    target->SetCustomTLS(new JvmtiGlobalTLSData);
-    global_tls = reinterpret_cast<JvmtiGlobalTLSData*>(target->GetCustomTLS());
-  }
+  JvmtiGlobalTLSData* global_tls = GetOrCreateGlobalTLSData(target);
 
   global_tls->data[env] = data;
 
   return ERR(NONE);
+}
+
+JvmtiGlobalTLSData* ThreadUtil::GetOrCreateGlobalTLSData(art::Thread* thread) {
+  JvmtiGlobalTLSData* data = GetGlobalTLSData(thread);
+  if (data != nullptr) {
+    return data;
+  } else {
+    thread->SetCustomTLS(kJvmtiTlsKey, new JvmtiGlobalTLSData);
+    return GetGlobalTLSData(thread);
+  }
+}
+
+JvmtiGlobalTLSData* ThreadUtil::GetGlobalTLSData(art::Thread* thread) {
+  return reinterpret_cast<JvmtiGlobalTLSData*>(thread->GetCustomTLS(kJvmtiTlsKey));
 }
 
 jvmtiError ThreadUtil::GetThreadLocalStorage(jvmtiEnv* env,
@@ -681,7 +735,7 @@ jvmtiError ThreadUtil::GetThreadLocalStorage(jvmtiEnv* env,
     return err;
   }
 
-  JvmtiGlobalTLSData* global_tls = reinterpret_cast<JvmtiGlobalTLSData*>(target->GetCustomTLS());
+  JvmtiGlobalTLSData* global_tls = GetGlobalTLSData(target);
   if (global_tls == nullptr) {
     *data_ptr = nullptr;
     return OK;
@@ -807,7 +861,7 @@ jvmtiError ThreadUtil::RunAgentThread(jvmtiEnv* jvmti_env,
     runtime->EndThreadBirth();
     return ERR(INTERNAL);
   }
-  data.release();
+  data.release();  // NOLINT pthreads API.
 
   return ERR(NONE);
 }
@@ -818,18 +872,7 @@ jvmtiError ThreadUtil::SuspendOther(art::Thread* self,
   // the user_code_suspension_lock_ due to a SuspendReason::kForUserCode. In this situation we
   // release the lock, wait to get resumed and try again.
   do {
-    // Suspend ourself if we have any outstanding suspends. This is so we won't suspend due to
-    // another SuspendThread in the middle of suspending something else potentially causing a
-    // deadlock. We need to do this in the loop because if we ended up back here then we had
-    // outstanding SuspendReason::kForUserCode suspensions and we should wait for them to be cleared
-    // before continuing.
-    SuspendCheck(self);
-    art::MutexLock mu(self, *art::Locks::user_code_suspension_lock_);
-    if (WouldSuspendForUserCodeLocked(self)) {
-      // Make sure we won't be suspended in the middle of holding the thread_suspend_count_lock_ by
-      // a user-code suspension. We retry and do another SuspendCheck to clear this.
-      continue;
-    }
+    ScopedNoUserCodeSuspension snucs(self);
     // We are not going to be suspended by user code from now on.
     {
       art::ScopedObjectAccess soa(self);
@@ -852,7 +895,7 @@ jvmtiError ThreadUtil::SuspendOther(art::Thread* self,
     bool timeout = true;
     art::Thread* ret_target = art::Runtime::Current()->GetThreadList()->SuspendThreadByPeer(
         target_jthread,
-        /* request_suspension */ true,
+        /* request_suspension= */ true,
         art::SuspendReason::kForUserCode,
         &timeout);
     if (ret_target == nullptr && !timeout) {
@@ -918,51 +961,44 @@ jvmtiError ThreadUtil::ResumeThread(jvmtiEnv* env ATTRIBUTE_UNUSED,
   }
   art::Thread* self = art::Thread::Current();
   art::Thread* target;
-  // Retry until we know we won't get suspended by user code while resuming something.
-  do {
-    SuspendCheck(self);
-    art::MutexLock ucsl_mu(self, *art::Locks::user_code_suspension_lock_);
-    if (WouldSuspendForUserCodeLocked(self)) {
-      // Make sure we won't be suspended in the middle of holding the thread_suspend_count_lock_ by
-      // a user-code suspension. We retry and do another SuspendCheck to clear this.
-      continue;
+
+  // Make sure we won't get suspended ourselves while in the middle of resuming another thread.
+  ScopedNoUserCodeSuspension snucs(self);
+  // From now on we know we cannot get suspended by user-code.
+  {
+    // NB This does a SuspendCheck (during thread state change) so we need to make sure we don't
+    // have the 'suspend_lock' locked here.
+    art::ScopedObjectAccess soa(self);
+    art::MutexLock tll_mu(self, *art::Locks::thread_list_lock_);
+    jvmtiError err = ERR(INTERNAL);
+    if (!GetAliveNativeThread(thread, soa, &target, &err)) {
+      return err;
+    } else if (target == self) {
+      // We would have paused until we aren't suspended anymore due to the ScopedObjectAccess so
+      // we can just return THREAD_NOT_SUSPENDED. Unfortunately we cannot do any real DCHECKs
+      // about current state since it's all concurrent.
+      return ERR(THREAD_NOT_SUSPENDED);
     }
-    // From now on we know we cannot get suspended by user-code.
+    // The JVMTI spec requires us to return THREAD_NOT_SUSPENDED if it is alive but we really
+    // cannot tell why resume failed.
     {
-      // NB This does a SuspendCheck (during thread state change) so we need to make sure we don't
-      // have the 'suspend_lock' locked here.
-      art::ScopedObjectAccess soa(self);
-      art::MutexLock tll_mu(self, *art::Locks::thread_list_lock_);
-      jvmtiError err = ERR(INTERNAL);
-      if (!GetAliveNativeThread(thread, soa, &target, &err)) {
-        return err;
-      } else if (target == self) {
-        // We would have paused until we aren't suspended anymore due to the ScopedObjectAccess so
-        // we can just return THREAD_NOT_SUSPENDED. Unfortunately we cannot do any real DCHECKs
-        // about current state since it's all concurrent.
+      art::MutexLock thread_suspend_count_mu(self, *art::Locks::thread_suspend_count_lock_);
+      if (target->GetUserCodeSuspendCount() == 0) {
         return ERR(THREAD_NOT_SUSPENDED);
       }
-      // The JVMTI spec requires us to return THREAD_NOT_SUSPENDED if it is alive but we really
-      // cannot tell why resume failed.
-      {
-        art::MutexLock thread_suspend_count_mu(self, *art::Locks::thread_suspend_count_lock_);
-        if (target->GetUserCodeSuspendCount() == 0) {
-          return ERR(THREAD_NOT_SUSPENDED);
-        }
-      }
     }
-    // It is okay that we don't have a thread_list_lock here since we know that the thread cannot
-    // die since it is currently held suspended by a SuspendReason::kForUserCode suspend.
-    DCHECK(target != self);
-    if (!art::Runtime::Current()->GetThreadList()->Resume(target,
-                                                          art::SuspendReason::kForUserCode)) {
-      // TODO Give a better error.
-      // This is most likely THREAD_NOT_SUSPENDED but we cannot really be sure.
-      return ERR(INTERNAL);
-    } else {
-      return OK;
-    }
-  } while (true);
+  }
+  // It is okay that we don't have a thread_list_lock here since we know that the thread cannot
+  // die since it is currently held suspended by a SuspendReason::kForUserCode suspend.
+  DCHECK(target != self);
+  if (!art::Runtime::Current()->GetThreadList()->Resume(target,
+                                                        art::SuspendReason::kForUserCode)) {
+    // TODO Give a better error.
+    // This is most likely THREAD_NOT_SUSPENDED but we cannot really be sure.
+    return ERR(INTERNAL);
+  } else {
+    return OK;
+  }
 }
 
 static bool IsCurrentThread(jthread thr) {
@@ -1064,9 +1100,9 @@ jvmtiError ThreadUtil::StopThread(jvmtiEnv* env ATTRIBUTE_UNUSED,
    public:
     explicit StopThreadClosure(art::Handle<art::mirror::Throwable> except) : exception_(except) { }
 
-    void Run(art::Thread* me) REQUIRES_SHARED(art::Locks::mutator_lock_) {
+    void Run(art::Thread* me) override REQUIRES_SHARED(art::Locks::mutator_lock_) {
       // Make sure the thread is prepared to notice the exception.
-      art::Runtime::Current()->GetInstrumentation()->InstrumentThreadStack(me);
+      DeoptManager::Get()->DeoptimizeThread(me);
       me->SetAsyncException(exception_.Get());
       // Wake up the thread if it is sleeping.
       me->Notify();

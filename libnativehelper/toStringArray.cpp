@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/toStringArray.h>
 
-jobjectArray newStringArray(JNIEnv* env, size_t count) {
-    return env->NewObjectArray(count, JniConstants::stringClass, NULL);
-}
+#include "JniConstants.h"
+
+namespace {
 
 struct ArrayCounter {
     const char* const* strings;
     explicit ArrayCounter(const char* const* strings) : strings(strings) {}
     size_t operator()() {
         size_t count = 0;
-        while (strings[count] != NULL) {
+        while (strings[count] != nullptr) {
             ++count;
         }
         return count;
@@ -41,7 +40,13 @@ struct ArrayGetter {
     }
 };
 
-jobjectArray toStringArray(JNIEnv* env, const char* const* strings) {
+}  // namespace
+
+MODULE_API jobjectArray newStringArray(JNIEnv* env, size_t count) {
+    return env->NewObjectArray(count, JniConstants::GetStringClass(env), nullptr);
+}
+
+MODULE_API jobjectArray toStringArray(JNIEnv* env, const char* const* strings) {
     ArrayCounter counter(strings);
     ArrayGetter getter(strings);
     return toStringArray(env, &counter, &getter);

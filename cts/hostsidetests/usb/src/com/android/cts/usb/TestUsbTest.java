@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
  */
 public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
 
-    private static final String CTS_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String CTS_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
     private static final String PACKAGE_NAME = "com.android.cts.usb.serialtest";
     private static final String TEST_CLASS_NAME = PACKAGE_NAME + ".UsbSerialTest";
     private static final String APK_NAME="CtsUsbSerialTestApp.apk";

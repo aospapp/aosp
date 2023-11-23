@@ -21,7 +21,7 @@ import android.animation.TimeInterpolator;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Handler;
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.MotionEvent;

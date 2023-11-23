@@ -155,6 +155,11 @@ PyInt_AsLong(register PyObject *op)
         return -1;
     }
 
+    if (PyLong_CheckExact(op)) {
+        /* avoid creating temporary int object */
+        return PyLong_AsLong(op);
+    }
+
     io = (PyIntObject*) (*nb->nb_int) (op);
     if (io == NULL)
         return -1;
@@ -163,8 +168,6 @@ PyInt_AsLong(register PyObject *op)
             /* got a long? => retry int conversion */
             val = PyLong_AsLong((PyObject *)io);
             Py_DECREF(io);
-            if ((val == -1) && PyErr_Occurred())
-                return -1;
             return val;
         }
         else
@@ -355,7 +358,7 @@ PyInt_FromString(char *s, char **pend, int base)
 
     if ((base != 0 && base < 2) || base > 36) {
         PyErr_SetString(PyExc_ValueError,
-                        "int() base must be >= 2 and <= 36");
+                        "int() base must be >= 2 and <= 36, or 0");
         return NULL;
     }
 
@@ -1483,7 +1486,7 @@ PyInt_ClearFreeList(void)
         for (i = 0, p = &list->objects[0];
              i < N_INTOBJECTS;
              i++, p++) {
-            if (PyInt_CheckExact(p) && p->ob_refcnt != 0)
+            if (PyInt_CheckExact(p) && Py_REFCNT(p) != 0)
                 u++;
         }
         next = list->next;
@@ -1494,7 +1497,7 @@ PyInt_ClearFreeList(void)
                  i < N_INTOBJECTS;
                  i++, p++) {
                 if (!PyInt_CheckExact(p) ||
-                    p->ob_refcnt == 0) {
+                    Py_REFCNT(p) == 0) {
                     Py_TYPE(p) = (struct _typeobject *)
                         free_list;
                     free_list = p;
@@ -1557,14 +1560,14 @@ PyInt_Fini(void)
             for (i = 0, p = &list->objects[0];
                  i < N_INTOBJECTS;
                  i++, p++) {
-                if (PyInt_CheckExact(p) && p->ob_refcnt != 0)
+                if (PyInt_CheckExact(p) && Py_REFCNT(p) != 0)
                     /* XXX(twouters) cast refcount to
                        long until %zd is universally
                        available
                      */
                     fprintf(stderr,
                 "#   <int at %p, refcnt=%ld, val=%ld>\n",
-                                p, (long)p->ob_refcnt,
+                                p, (long)Py_REFCNT(p),
                                 p->ob_ival);
             }
             list = list->next;

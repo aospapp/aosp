@@ -18,13 +18,13 @@
 %                                August 2009                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -77,6 +77,9 @@ typedef struct _NodeInfo
 
   PixelInfo
     *list;
+
+  size_t
+    extent;
 
   MagickSizeType
     number_unique;
@@ -187,8 +190,7 @@ static CubeInfo *ClassifyImageColors(const Image *image,
     proceed;
 
   PixelInfo
-    pixel,
-    target;
+    pixel;
 
   NodeInfo
     *node_info;
@@ -223,7 +225,6 @@ static CubeInfo *ClassifyImageColors(const Image *image,
       return(cube_info);
     }
   GetPixelInfo(image,&pixel);
-  GetPixelInfo(image,&target);
   image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -256,21 +257,25 @@ static CubeInfo *ClassifyImageColors(const Image *image,
         index--;
       }
       for (i=0; i < (ssize_t) node_info->number_unique; i++)
-      {
-        target=node_info->list[i];
-        if (IsPixelInfoEquivalent(&pixel,&target) != MagickFalse)
+        if (IsPixelInfoEquivalent(&pixel,node_info->list+i) != MagickFalse)
           break;
-      }
       if (i < (ssize_t) node_info->number_unique)
         node_info->list[i].count++;
       else
         {
           if (node_info->number_unique == 0)
-            node_info->list=(PixelInfo *) AcquireMagickMemory(
-              sizeof(*node_info->list));
+            {
+              node_info->extent=1;
+              node_info->list=(PixelInfo *) AcquireQuantumMemory(
+                node_info->extent,sizeof(*node_info->list));
+            }
           else
-            node_info->list=(PixelInfo *) ResizeQuantumMemory(node_info->list,
-              (size_t) (i+1),sizeof(*node_info->list));
+            if (i >= (ssize_t) node_info->extent)
+              {
+                node_info->extent<<=1;
+                node_info->list=(PixelInfo *) ResizeQuantumMemory(
+                  node_info->list,node_info->extent,sizeof(*node_info->list));
+              }
           if (node_info->list == (PixelInfo *) NULL)
             {
               (void) ThrowMagickException(exception,GetMagickModule(),
@@ -482,7 +487,7 @@ static CubeInfo *GetCubeInfo(void)
   cube_info=(CubeInfo *) AcquireMagickMemory(sizeof(*cube_info));
   if (cube_info == (CubeInfo *) NULL)
     return((CubeInfo *) NULL);
-  (void) ResetMagickMemory(cube_info,0,sizeof(*cube_info));
+  (void) memset(cube_info,0,sizeof(*cube_info));
   /*
     Initialize root node.
   */
@@ -533,7 +538,7 @@ MagickExport PixelInfo *GetImageHistogram(const Image *image,
   cube_info=ClassifyImageColors(image,exception);
   if (cube_info != (CubeInfo *) NULL)
     {
-      histogram=(PixelInfo *) AcquireQuantumMemory((size_t) cube_info->colors,
+      histogram=(PixelInfo *) AcquireQuantumMemory((size_t) cube_info->colors+1,
         sizeof(*histogram));
       if (histogram == (PixelInfo *) NULL)
         (void) ThrowMagickException(exception,GetMagickModule(),
@@ -600,7 +605,7 @@ static NodeInfo *GetNodeInfo(CubeInfo *cube_info,const size_t level)
     }
   cube_info->free_nodes--;
   node_info=cube_info->node_info++;
-  (void) ResetMagickMemory(node_info,0,sizeof(*node_info));
+  (void) memset(node_info,0,sizeof(*node_info));
   node_info->level=level;
   return(node_info);
 }
@@ -926,11 +931,11 @@ MagickExport MagickBooleanType MinMaxStretchImage(Image *image,
     ChannelType
       channel_mask;
 
-    PixelChannel channel=GetPixelChannelChannel(image,i);
-    PixelTrait traits=GetPixelChannelTraits(image,channel);
+    PixelChannel channel = GetPixelChannelChannel(image,i);
+    PixelTrait traits = GetPixelChannelTraits(image,channel);
     if ((traits & UpdatePixelTrait) == 0)
       continue;
-    channel_mask=SetImageChannelMask(image,(ChannelType) (1 << i));
+    channel_mask=SetImageChannelMask(image,(ChannelType) (1UL << i));
     status&=GetImageRange(image,&min,&max,exception);
     min+=black;
     max-=white;

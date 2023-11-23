@@ -203,6 +203,39 @@ static bool VerifyResTableEntry(const ResTable_type* type, uint32_t entry_offset
   return true;
 }
 
+LoadedPackage::iterator::iterator(const LoadedPackage* lp, size_t ti, size_t ei)
+    : loadedPackage_(lp),
+      typeIndex_(ti),
+      entryIndex_(ei),
+      typeIndexEnd_(lp->resource_ids_.size() + 1) {
+  while (typeIndex_ < typeIndexEnd_ && loadedPackage_->resource_ids_[typeIndex_] == 0) {
+    typeIndex_++;
+  }
+}
+
+LoadedPackage::iterator& LoadedPackage::iterator::operator++() {
+  while (typeIndex_ < typeIndexEnd_) {
+    if (entryIndex_ + 1 < loadedPackage_->resource_ids_[typeIndex_]) {
+      entryIndex_++;
+      break;
+    }
+    entryIndex_ = 0;
+    typeIndex_++;
+    if (typeIndex_ < typeIndexEnd_ && loadedPackage_->resource_ids_[typeIndex_] != 0) {
+      break;
+    }
+  }
+  return *this;
+}
+
+uint32_t LoadedPackage::iterator::operator*() const {
+  if (typeIndex_ >= typeIndexEnd_) {
+    return 0;
+  }
+  return make_resid(loadedPackage_->package_id_, typeIndex_ + loadedPackage_->type_id_offset_,
+          entryIndex_);
+}
+
 const ResTable_entry* LoadedPackage::GetEntry(const ResTable_type* type_chunk,
                                               uint16_t entry_index) {
   uint32_t entry_offset = GetEntryOffset(type_chunk, entry_index);
@@ -488,6 +521,7 @@ std::unique_ptr<const LoadedPackage> LoadedPackage::Load(const Chunk& chunk,
         std::unique_ptr<TypeSpecPtrBuilder>& builder_ptr = type_builder_map[type_spec->id - 1];
         if (builder_ptr == nullptr) {
           builder_ptr = util::make_unique<TypeSpecPtrBuilder>(type_spec, idmap_entry_header);
+          loaded_package->resource_ids_.set(type_spec->id, entry_count);
         } else {
           LOG(WARNING) << StringPrintf("RES_TABLE_TYPE_SPEC_TYPE already defined for ID %02x",
                                        type_spec->id);
@@ -549,7 +583,80 @@ std::unique_ptr<const LoadedPackage> LoadedPackage::Load(const Chunk& chunk,
           loaded_package->dynamic_package_map_.emplace_back(std::move(package_name),
                                                             dtohl(entry_iter->packageId));
         }
+      } break;
 
+      case RES_TABLE_OVERLAYABLE_TYPE: {
+        const ResTable_overlayable_header* header =
+            child_chunk.header<ResTable_overlayable_header>();
+        if (header == nullptr) {
+          LOG(ERROR) << "RES_TABLE_OVERLAYABLE_TYPE too small.";
+          return {};
+        }
+
+        std::string name;
+        util::ReadUtf16StringFromDevice(header->name, arraysize(header->name), &name);
+        std::string actor;
+        util::ReadUtf16StringFromDevice(header->actor, arraysize(header->actor), &actor);
+
+        if (loaded_package->overlayable_map_.find(name) !=
+            loaded_package->overlayable_map_.end()) {
+          LOG(ERROR) << "Multiple <overlayable> blocks with the same name '" << name << "'.";
+          return {};
+        }
+        loaded_package->overlayable_map_.emplace(name, actor);
+
+        // Iterate over the overlayable policy chunks contained within the overlayable chunk data
+        ChunkIterator overlayable_iter(child_chunk.data_ptr(), child_chunk.data_size());
+        while (overlayable_iter.HasNext()) {
+          const Chunk overlayable_child_chunk = overlayable_iter.Next();
+
+          switch (overlayable_child_chunk.type()) {
+            case RES_TABLE_OVERLAYABLE_POLICY_TYPE: {
+              const ResTable_overlayable_policy_header* policy_header =
+                  overlayable_child_chunk.header<ResTable_overlayable_policy_header>();
+              if (policy_header == nullptr) {
+                LOG(ERROR) << "RES_TABLE_OVERLAYABLE_POLICY_TYPE too small.";
+                return {};
+              }
+
+              if ((overlayable_child_chunk.data_size() / sizeof(ResTable_ref))
+                  < dtohl(policy_header->entry_count)) {
+                LOG(ERROR) <<  "RES_TABLE_OVERLAYABLE_POLICY_TYPE too small to hold entries.";
+                return {};
+              }
+
+              // Retrieve all the resource ids belonging to this policy chunk
+              std::unordered_set<uint32_t> ids;
+              const auto ids_begin =
+                  reinterpret_cast<const ResTable_ref*>(overlayable_child_chunk.data_ptr());
+              const auto ids_end = ids_begin + dtohl(policy_header->entry_count);
+              for (auto id_iter = ids_begin; id_iter != ids_end; ++id_iter) {
+                ids.insert(dtohl(id_iter->ident));
+              }
+
+              // Add the pairing of overlayable properties and resource ids to the package
+              OverlayableInfo overlayable_info{};
+              overlayable_info.name = name;
+              overlayable_info.actor = actor;
+              overlayable_info.policy_flags = policy_header->policy_flags;
+              loaded_package->overlayable_infos_.push_back(std::make_pair(overlayable_info, ids));
+              loaded_package->defines_overlayable_ = true;
+              break;
+            }
+
+            default:
+              LOG(WARNING) << StringPrintf("Unknown chunk type '%02x'.", chunk.type());
+              break;
+          }
+        }
+
+        if (overlayable_iter.HadError()) {
+          LOG(ERROR) << StringPrintf("Error parsing RES_TABLE_OVERLAYABLE_TYPE: %s",
+                                     overlayable_iter.GetLastError().c_str());
+          if (overlayable_iter.HadFatalError()) {
+            return {};
+          }
+        }
       } break;
 
       default:

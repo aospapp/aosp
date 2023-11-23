@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef __CORE_FS_MGR_H
-#define __CORE_FS_MGR_H
+#pragma once
 
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <linux/dm-ioctl.h>
+
+#include <functional>
+#include <string>
 
 #include <fstab/fstab.h>
 
@@ -47,10 +49,6 @@ enum mount_mode {
     MOUNT_MODE_LATE = 2
 };
 
-// Callback function for verity status
-typedef void (*fs_mgr_verity_state_callback)(struct fstab_rec *fstab,
-        const char *mount_point, int mode, int status);
-
 #define FS_MGR_MNTALL_DEV_IS_METADATA_ENCRYPTED 7
 #define FS_MGR_MNTALL_DEV_NEEDS_METADATA_ENCRYPTION 6
 #define FS_MGR_MNTALL_DEV_FILE_ENCRYPTED 5
@@ -60,29 +58,53 @@ typedef void (*fs_mgr_verity_state_callback)(struct fstab_rec *fstab,
 #define FS_MGR_MNTALL_DEV_NOT_ENCRYPTED 1
 #define FS_MGR_MNTALL_DEV_NOT_ENCRYPTABLE 0
 #define FS_MGR_MNTALL_FAIL (-1)
-int fs_mgr_mount_all(struct fstab *fstab, int mount_mode);
+// fs_mgr_mount_all() updates fstab entries that reference device-mapper.
+int fs_mgr_mount_all(android::fs_mgr::Fstab* fstab, int mount_mode);
 
 #define FS_MGR_DOMNT_FAILED (-1)
 #define FS_MGR_DOMNT_BUSY (-2)
 #define FS_MGR_DOMNT_SUCCESS 0
-
-int fs_mgr_do_mount(struct fstab *fstab, const char *n_name, char *n_blk_device,
-                    char *tmp_mount_point);
-int fs_mgr_do_mount_one(struct fstab_rec *rec);
+int fs_mgr_do_mount(android::fs_mgr::Fstab* fstab, const char* n_name, char* n_blk_device,
+                    char* tmp_mount_point);
+int fs_mgr_do_mount(android::fs_mgr::Fstab* fstab, const char* n_name, char* n_blk_device,
+                    char* tmp_mount_point, bool need_cp);
+int fs_mgr_do_mount_one(const android::fs_mgr::FstabEntry& entry,
+                        const std::string& mount_point = "");
 int fs_mgr_do_tmpfs_mount(const char *n_name);
-int fs_mgr_unmount_all(struct fstab *fstab);
-struct fstab_rec const* fs_mgr_get_crypt_entry(struct fstab const* fstab);
-void fs_mgr_get_crypt_info(struct fstab* fstab, char* key_loc, char* real_blk_device, size_t size);
 bool fs_mgr_load_verity_state(int* mode);
-bool fs_mgr_update_verity_state(fs_mgr_verity_state_callback callback);
-int fs_mgr_swapon_all(struct fstab *fstab);
+// Returns true if verity is enabled on this particular FstabEntry.
+bool fs_mgr_is_verity_enabled(const android::fs_mgr::FstabEntry& entry);
+bool fs_mgr_swapon_all(const android::fs_mgr::Fstab& fstab);
+bool fs_mgr_update_logical_partition(android::fs_mgr::FstabEntry* entry);
 
-int fs_mgr_do_format(struct fstab_rec *fstab, bool reserve_footer);
+// Returns true if the given fstab entry has verity enabled, *and* the verity
+// device is in "check_at_most_once" mode.
+bool fs_mgr_verity_is_check_at_most_once(const android::fs_mgr::FstabEntry& entry);
+
+int fs_mgr_do_format(const android::fs_mgr::FstabEntry& entry, bool reserve_footer);
 
 #define FS_MGR_SETUP_VERITY_SKIPPED  (-3)
 #define FS_MGR_SETUP_VERITY_DISABLED (-2)
 #define FS_MGR_SETUP_VERITY_FAIL (-1)
 #define FS_MGR_SETUP_VERITY_SUCCESS 0
-int fs_mgr_setup_verity(struct fstab_rec *fstab, bool wait_for_verity_dev);
+int fs_mgr_setup_verity(android::fs_mgr::FstabEntry* fstab, bool wait_for_verity_dev);
 
-#endif /* __CORE_FS_MGR_H */
+// Return the name of the super partition if it exists. If a slot number is
+// specified, the super partition for the corresponding metadata slot will be
+// returned. Otherwise, it will use the current slot.
+std::string fs_mgr_get_super_partition_name(int slot = -1);
+
+enum FsMgrUmountStatus : int {
+    SUCCESS = 0,
+    ERROR_UNKNOWN = 1 << 0,
+    ERROR_UMOUNT = 1 << 1,
+    ERROR_VERITY = 1 << 2,
+    ERROR_DEVICE_MAPPER = 1 << 3,
+};
+// fs_mgr_umount_all() is the reverse of fs_mgr_mount_all. In particular,
+// it destroys verity devices from device mapper after the device is unmounted.
+int fs_mgr_umount_all(android::fs_mgr::Fstab* fstab);
+
+// Finds the dm_bow device on which this block device is stacked, or returns
+// empty string
+std::string fs_mgr_find_bow_device(const std::string& block_device);

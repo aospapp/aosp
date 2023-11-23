@@ -47,7 +47,8 @@ import java.util.regex.Pattern;
 public class Camera2FrameworkStressTest extends CameraTestBase {
 
     // Keys in instrumentation test metrics
-    private static final String RESULT_DIR = "/sdcard/camera-out/";
+    private static final String RESULT_DIR =
+            "/storage/emulated/0/Android/sandbox/com.android.mediaframeworktest/camera-out";
     private static final String RESULT_FILE_FORMAT = RESULT_DIR + "fwk-stress_camera_%s.txt";
     private static final Pattern RESULT_FILE_REGEX = Pattern.compile(
             "^fwk-stress_camera_(?<id>.+).txt");

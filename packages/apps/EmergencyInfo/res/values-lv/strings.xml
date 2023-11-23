@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Ārkārtas informācija"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Medicīniskā informācija"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Rediģēt informāciju"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Pievienot informāciju"</string>
     <string name="edit_info" msgid="5973929805855224805">"Rediģēt ārkārtas informāciju"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informācija"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontaktpersonas"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Medicīniskās informācijas un ārkārtas situāciju kontaktpersonu pievienošana ārkārtas gadījumā var sniegt noderīgu informāciju glābējiem.\n\nIkviens var izlasīt šo informāciju jūsu bloķēšanas ekrānā un piezvanīt attiecīgajām kontaktpersonām, pieskaroties to vārdiem, taču neatbloķējot jūsu tālruni."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ārkārtas informācijas pievienošana"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Ļaujiet glābējiem skatīt jūsu informāciju"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Uzņemt fotoattēlu"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Izvēlēties attēlu"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Atlasīt fotoattēlu"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Segvārds"</string>
 </resources>

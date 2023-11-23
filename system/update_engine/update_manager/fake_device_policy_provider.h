@@ -50,18 +50,25 @@ class FakeDevicePolicyProvider : public DevicePolicyProvider {
     return &var_target_version_prefix_;
   }
 
+  FakeVariable<RollbackToTargetVersion>* var_rollback_to_target_version()
+      override {
+    return &var_rollback_to_target_version_;
+  }
+
+  FakeVariable<int>* var_rollback_allowed_milestones() override {
+    return &var_rollback_allowed_milestones_;
+  }
+
   FakeVariable<base::TimeDelta>* var_scatter_factor() override {
     return &var_scatter_factor_;
   }
 
   FakeVariable<std::set<chromeos_update_engine::ConnectionType>>*
-      var_allowed_connection_types_for_update() override {
+  var_allowed_connection_types_for_update() override {
     return &var_allowed_connection_types_for_update_;
   }
 
-  FakeVariable<std::string>* var_owner() override {
-    return &var_owner_;
-  }
+  FakeVariable<std::string>* var_owner() override { return &var_owner_; }
 
   FakeVariable<bool>* var_http_downloads_enabled() override {
     return &var_http_downloads_enabled_;
@@ -75,28 +82,44 @@ class FakeDevicePolicyProvider : public DevicePolicyProvider {
     return &var_allow_kiosk_app_control_chrome_version_;
   }
 
+  FakeVariable<std::string>* var_auto_launched_kiosk_app_id() override {
+    return &var_auto_launched_kiosk_app_id_;
+  }
+
+  FakeVariable<WeeklyTimeIntervalVector>* var_disallowed_time_intervals()
+      override {
+    return &var_disallowed_time_intervals_;
+  }
+
  private:
-  FakeVariable<bool> var_device_policy_is_loaded_{
-      "policy_is_loaded", kVariableModePoll};
-  FakeVariable<std::string> var_release_channel_{
-      "release_channel", kVariableModePoll};
-  FakeVariable<bool> var_release_channel_delegated_{
-      "release_channel_delegated", kVariableModePoll};
-  FakeVariable<bool> var_update_disabled_{
-      "update_disabled", kVariableModePoll};
-  FakeVariable<std::string> var_target_version_prefix_{
-      "target_version_prefix", kVariableModePoll};
-  FakeVariable<base::TimeDelta> var_scatter_factor_{
-      "scatter_factor", kVariableModePoll};
+  FakeVariable<bool> var_device_policy_is_loaded_{"policy_is_loaded",
+                                                  kVariableModePoll};
+  FakeVariable<std::string> var_release_channel_{"release_channel",
+                                                 kVariableModePoll};
+  FakeVariable<bool> var_release_channel_delegated_{"release_channel_delegated",
+                                                    kVariableModePoll};
+  FakeVariable<bool> var_update_disabled_{"update_disabled", kVariableModePoll};
+  FakeVariable<std::string> var_target_version_prefix_{"target_version_prefix",
+                                                       kVariableModePoll};
+  FakeVariable<RollbackToTargetVersion> var_rollback_to_target_version_{
+      "rollback_to_target_version", kVariableModePoll};
+  FakeVariable<int> var_rollback_allowed_milestones_{
+      "rollback_allowed_milestones", kVariableModePoll};
+  FakeVariable<base::TimeDelta> var_scatter_factor_{"scatter_factor",
+                                                    kVariableModePoll};
   FakeVariable<std::set<chromeos_update_engine::ConnectionType>>
       var_allowed_connection_types_for_update_{
           "allowed_connection_types_for_update", kVariableModePoll};
   FakeVariable<std::string> var_owner_{"owner", kVariableModePoll};
-  FakeVariable<bool> var_http_downloads_enabled_{
-      "http_downloads_enabled", kVariableModePoll};
+  FakeVariable<bool> var_http_downloads_enabled_{"http_downloads_enabled",
+                                                 kVariableModePoll};
   FakeVariable<bool> var_au_p2p_enabled_{"au_p2p_enabled", kVariableModePoll};
   FakeVariable<bool> var_allow_kiosk_app_control_chrome_version_{
       "allow_kiosk_app_control_chrome_version", kVariableModePoll};
+  FakeVariable<std::string> var_auto_launched_kiosk_app_id_{
+      "auto_launched_kiosk_app_id", kVariableModePoll};
+  FakeVariable<WeeklyTimeIntervalVector> var_disallowed_time_intervals_{
+      "disallowed_time_intervals", kVariableModePoll};
 
   DISALLOW_COPY_AND_ASSIGN(FakeDevicePolicyProvider);
 };

@@ -47,6 +47,12 @@ message TelephonyLog {
 
   // Modem power stats
   optional ModemPowerStats modem_power_stats = 8;
+
+  // Hardware revision (EVT, DVT, PVT etc.)
+  optional string hardware_revision = 9;
+
+  // The last active subscription info for each slot.
+  repeated ActiveSubscriptionInfo last_active_subscription_info = 10;
 }
 
 // The time information
@@ -273,6 +279,9 @@ message TelephonyServiceState {
 
   // Current data radio technology
   optional RadioAccessTechnology data_rat = 6 [default = UNKNOWN];
+
+  // Current Channel Number
+  optional int32 channel_number = 7;
 }
 
 // Radio access families
@@ -568,6 +577,21 @@ enum RilErrno {
   RIL_E_INVALID_RESPONSE = 67;
 }
 
+// Errors returned by ImsService
+enum ImsServiceErrno {
+
+  // The operation error is unknown
+  IMS_E_UNKNOWN = 0;
+  // The operation has succeeded
+  IMS_E_SUCCESS = 1;
+  // Sending SMS over IMS failed. Do not retry over IMS again or fallback to CS.
+  IMS_E_SMS_SEND_STATUS_ERROR = 2;
+  // Sending SMS over IMS failed. Retry over IMS again.
+  IMS_E_SMS_SEND_STATUS_ERROR_RETRY = 3;
+  // Sending SMS over IMS failed. Fallback to sending the SMS over CS.
+  IMS_E_SMS_SEND_STATUS_ERROR_FALLBACK = 4;
+}
+
 // PDP_type values in TS 27.007 section 10.1.1.
 enum PdpType {
 
@@ -581,6 +605,10 @@ enum PdpType {
   PDP_TYPE_IPV4V6 = 3;
 
   PDP_TYPE_PPP = 4;
+
+  PDP_TYPE_NON_IP = 5;
+
+  PDP_TYPE_UNSTRUCTURED = 6;
 }
 
 // The information about packet data connection
@@ -594,6 +622,56 @@ message RilDataCall {
 
   // The network interface name e.g. wlan0, rmnet_data0.
   optional string iframe = 3;
+
+  // State of the Data Call connection
+  optional State state = 4;
+
+  // Bitmask of APN types
+  optional int32 apn_type_bitmask = 5;
+
+  enum State {
+
+    // Unknown event
+    UNKNOWN = 0;
+
+    // Connected event
+    CONNECTED = 1;
+
+    // Disconnected event
+    DISCONNECTED = 2;
+  }
+}
+
+message EmergencyNumberInfo {
+  // Dialing address
+  optional string address = 1 /* [
+    (datapol.semantic_type) = ST_PHONE_NUMBER,
+    (datapol.qualifier) = {is_public: true}
+  ] */;
+
+  // Country code string (lowercase character) in ISO 3166 format
+  optional string country_iso = 2 /* [(datapol.semantic_type) = ST_LOCATION] */;
+
+  // Mobile Network Code
+  optional string mnc = 3 /* [(datapol.semantic_type) = ST_LOCATION] */;
+
+  // Bitmask of emergency service categories
+  optional int32 service_categories_bitmask = 4;
+
+  // Emergency Uniform Resources Names (URN)
+  // Reference: https://tools.ietf.org/html/rfc5031
+  repeated string urns = 5;
+
+  // Bitmask of the sources
+  optional int32 number_sources_bitmask = 6;
+
+  // Emergency call routing information.
+  // Emergency call routing is a flag to tell how modem handles the calling with
+  // emergency numbers. For example, 110 in India, modem needs to handle/route
+  // it like a normal call. There are only two possible options for emergency
+  // call routing: emergency call routing vs normal call routing. It is usually
+  // a country or carrier requirement.
+  optional int32 routing = 7;
 }
 
 message TelephonyEvent {
@@ -646,6 +724,103 @@ message TelephonyEvent {
 
     // Carrier Key Change event.
     CARRIER_KEY_CHANGED = 14;
+
+    // Data switch event.
+    DATA_SWITCH = 15;
+
+    // Network validate event.
+    NETWORK_VALIDATE = 16;
+
+    // On deman data switch event.
+    ON_DEMAND_DATA_SWITCH = 17;
+
+    // SIM state change event.
+    SIM_STATE_CHANGED = 18;
+
+    // Active subscription info change event.
+    ACTIVE_SUBSCRIPTION_INFO_CHANGED = 19;
+
+    // Enabled modem change event.
+    ENABLED_MODEM_CHANGED = 20;
+
+    // Emergency Number update event (Device HAL >= 1.4).
+    EMERGENCY_NUMBER_REPORT = 21;
+  }
+
+  enum ApnType {
+    APN_TYPE_UNKNOWN = 0;
+
+    APN_TYPE_DEFAULT = 1;
+
+    APN_TYPE_MMS = 2;
+
+    APN_TYPE_SUPL = 3;
+
+    APN_TYPE_DUN = 4;
+
+    APN_TYPE_HIPRI = 5;
+
+    APN_TYPE_FOTA = 6;
+
+    APN_TYPE_IMS = 7;
+
+    APN_TYPE_CBS = 8;
+
+    APN_TYPE_IA = 9;
+
+    APN_TYPE_EMERGENCY = 10;
+  }
+
+  enum EventState {
+    EVENT_STATE_UNKNOWN = 0;
+
+    EVENT_STATE_START = 1;
+
+    EVENT_STATE_END = 2;
+  }
+
+  enum NetworkValidationState {
+    /** The network validation state is unknown. */
+    NETWORK_VALIDATION_STATE_UNKNOWN = 0;
+
+    /** The network under validation is initial established. */
+    NETWORK_VALIDATION_STATE_AVAILABLE = 1;
+
+    /** The validation is failed. */
+    NETWORK_VALIDATION_STATE_FAILED = 2;
+
+    /** The validation is passed. */
+    NETWORK_VALIDATION_STATE_PASSED = 3;
+  }
+
+  message DataSwitch {
+    enum Reason {
+      /** Data switch caused by unknown reason. */
+      DATA_SWITCH_REASON_UNKNOWN = 0;
+
+      /** Data switch caused by user's manual switch. */
+      DATA_SWITCH_REASON_MANUAL = 1;
+
+      /** Data switch caused by incoming/outgoing call. */
+      DATA_SWITCH_REASON_IN_CALL = 2;
+
+      /** Data switch caused by CBRS switch. */
+      DATA_SWITCH_REASON_CBRS = 3;
+    }
+
+    /** The reason for data switch. */
+    optional Reason reason = 1;
+
+    /** Current state of the data switch event. */
+    optional EventState state = 2;
+  }
+
+  message OnDemandDataSwitch {
+    /** The apn associated with this event. */
+    optional ApnType apn = 1;
+
+    /** Current state of the on demand data switch event. */
+    optional EventState state = 2;
   }
 
   // Setup a packet data connection
@@ -746,6 +921,8 @@ message TelephonyEvent {
 
       PDP_FAIL_PDP_WITHOUT_ACTIVE_TFT = 46;
 
+      PDP_FAIL_ACTIVATION_REJECTED_BCM_VIOLATION = 48;
+
       PDP_FAIL_ONLY_IPV4_ALLOWED = 50;
 
       PDP_FAIL_ONLY_IPV6_ALLOWED = 51;
@@ -757,6 +934,16 @@ message TelephonyEvent {
       PDP_FAIL_PDN_CONN_DOES_NOT_EXIST = 54;
 
       PDP_FAIL_MULTI_CONN_TO_SAME_PDN_NOT_ALLOWED = 55;
+
+      PDP_FAIL_COLLISION_WITH_NETWORK_INITIATED_REQUEST = 56;
+
+      PDP_FAIL_ONLY_IPV4V6_ALLOWED = 57;
+
+      PDP_FAIL_ONLY_NON_IP_ALLOWED = 58;
+
+      PDP_FAIL_UNSUPPORTED_QCI_VALUE = 59;
+
+      PDP_FAIL_BEARER_HANDLING_NOT_SUPPORTED = 60;
 
       PDP_FAIL_MAX_ACTIVE_PDP_CONTEXT_REACHED = 65;
 
@@ -801,6 +988,518 @@ message TelephonyEvent {
       PDP_FAIL_EMM_ACCESS_BARRED_INFINITE_RETRY = 121;
 
       PDP_FAIL_AUTH_FAILURE_ON_EMERGENCY_CALL = 122;
+
+      PDP_FAIL_INVALID_DNS_ADDR = 123;
+
+      PDP_FAIL_INVALID_PCSCF_OR_DNS_ADDRESS = 124;
+
+      PDP_FAIL_CALL_PREEMPT_BY_EMERGENCY_APN = 127;
+
+      PDP_FAIL_UE_INITIATED_DETACH_OR_DISCONNECT = 128;
+
+      PDP_FAIL_MIP_FA_REASON_UNSPECIFIED = 2000;
+
+      PDP_FAIL_MIP_FA_ADMIN_PROHIBITED = 2001;
+
+      PDP_FAIL_MIP_FA_INSUFFICIENT_RESOURCES = 2002;
+
+      PDP_FAIL_MIP_FA_MOBILE_NODE_AUTHENTICATION_FAILURE = 2003;
+
+      PDP_FAIL_MIP_FA_HOME_AGENT_AUTHENTICATION_FAILURE = 2004;
+
+      PDP_FAIL_MIP_FA_REQUESTED_LIFETIME_TOO_LONG = 2005;
+
+      PDP_FAIL_MIP_FA_MALFORMED_REQUEST = 2006;
+
+      PDP_FAIL_MIP_FA_MALFORMED_REPLY = 2007;
+
+      PDP_FAIL_MIP_FA_ENCAPSULATION_UNAVAILABLE = 2008;
+
+      PDP_FAIL_MIP_FA_VJ_HEADER_COMPRESSION_UNAVAILABLE = 2009;
+
+      PDP_FAIL_MIP_FA_REVERSE_TUNNEL_UNAVAILABLE = 2010;
+
+      PDP_FAIL_MIP_FA_REVERSE_TUNNEL_IS_MANDATORY = 2011;
+
+      PDP_FAIL_MIP_FA_DELIVERY_STYLE_NOT_SUPPORTED = 2012;
+
+      PDP_FAIL_MIP_FA_MISSING_NAI = 2013;
+
+      PDP_FAIL_MIP_FA_MISSING_HOME_AGENT = 2014;
+
+      PDP_FAIL_MIP_FA_MISSING_HOME_ADDRESS = 2015;
+
+      PDP_FAIL_MIP_FA_UNKNOWN_CHALLENGE = 2016;
+
+      PDP_FAIL_MIP_FA_MISSING_CHALLENGE = 2017;
+
+      PDP_FAIL_MIP_FA_STALE_CHALLENGE = 2018;
+
+      PDP_FAIL_MIP_HA_REASON_UNSPECIFIED = 2019;
+
+      PDP_FAIL_MIP_HA_ADMIN_PROHIBITED = 2020;
+
+      PDP_FAIL_MIP_HA_INSUFFICIENT_RESOURCES = 2021;
+
+      PDP_FAIL_MIP_HA_MOBILE_NODE_AUTHENTICATION_FAILURE = 2022;
+
+      PDP_FAIL_MIP_HA_FOREIGN_AGENT_AUTHENTICATION_FAILURE = 2023;
+
+      PDP_FAIL_MIP_HA_REGISTRATION_ID_MISMATCH = 2024;
+
+      PDP_FAIL_MIP_HA_MALFORMED_REQUEST = 2025;
+
+      PDP_FAIL_MIP_HA_UNKNOWN_HOME_AGENT_ADDRESS = 2026;
+
+      PDP_FAIL_MIP_HA_REVERSE_TUNNEL_UNAVAILABLE = 2027;
+
+      PDP_FAIL_MIP_HA_REVERSE_TUNNEL_IS_MANDATORY = 2028;
+
+      PDP_FAIL_MIP_HA_ENCAPSULATION_UNAVAILABLE = 2029;
+
+      PDP_FAIL_CLOSE_IN_PROGRESS = 2030;
+
+      PDP_FAIL_NETWORK_INITIATED_TERMINATION = 2031;
+
+      PDP_FAIL_MODEM_APP_PREEMPTED = 2032;
+
+      PDP_FAIL_PDN_IPV4_CALL_DISALLOWED = 2033;
+
+      PDP_FAIL_PDN_IPV4_CALL_THROTTLED = 2034;
+
+      PDP_FAIL_PDN_IPV6_CALL_DISALLOWED = 2035;
+
+      PDP_FAIL_PDN_IPV6_CALL_THROTTLED = 2036;
+
+      PDP_FAIL_MODEM_RESTART = 2037;
+
+      PDP_FAIL_PDP_PPP_NOT_SUPPORTED = 2038;
+
+      PDP_FAIL_UNPREFERRED_RAT = 2039;
+
+      PDP_FAIL_PHYSICAL_LINK_CLOSE_IN_PROGRESS = 2040;
+
+      PDP_FAIL_APN_PENDING_HANDOVER = 2041;
+
+      PDP_FAIL_PROFILE_BEARER_INCOMPATIBLE = 2042;
+
+      PDP_FAIL_SIM_CARD_CHANGED = 2043;
+
+      PDP_FAIL_LOW_POWER_MODE_OR_POWERING_DOWN = 2044;
+
+      PDP_FAIL_APN_DISABLED = 2045;
+
+      PDP_FAIL_MAX_PPP_INACTIVITY_TIMER_EXPIRED = 2046;
+
+      PDP_FAIL_IPV6_ADDRESS_TRANSFER_FAILED = 2047;
+
+      PDP_FAIL_TRAT_SWAP_FAILED = 2048;
+
+      PDP_FAIL_EHRPD_TO_HRPD_FALLBACK = 2049;
+
+      PDP_FAIL_MIP_CONFIG_FAILURE = 2050;
+
+      PDP_FAIL_PDN_INACTIVITY_TIMER_EXPIRED = 2051;
+
+      PDP_FAIL_MAX_IPV4_CONNECTIONS = 2052;
+
+      PDP_FAIL_MAX_IPV6_CONNECTIONS = 2053;
+
+      PDP_FAIL_APN_MISMATCH = 2054;
+
+      PDP_FAIL_IP_VERSION_MISMATCH = 2055;
+
+      PDP_FAIL_DUN_CALL_DISALLOWED = 2056;
+
+      PDP_FAIL_INTERNAL_EPC_NONEPC_TRANSITION = 2057;
+
+      PDP_FAIL_INTERFACE_IN_USE = 2058;
+
+      PDP_FAIL_APN_DISALLOWED_ON_ROAMING = 2059;
+
+      PDP_FAIL_APN_PARAMETERS_CHANGED = 2060;
+
+      PDP_FAIL_NULL_APN_DISALLOWED = 2061;
+
+      PDP_FAIL_THERMAL_MITIGATION = 2062;
+
+      PDP_FAIL_DATA_SETTINGS_DISABLED = 2063;
+
+      PDP_FAIL_DATA_ROAMING_SETTINGS_DISABLED = 2064;
+
+      PDP_FAIL_DDS_SWITCHED = 2065;
+
+      PDP_FAIL_FORBIDDEN_APN_NAME = 2066;
+
+      PDP_FAIL_DDS_SWITCH_IN_PROGRESS = 2067;
+
+      PDP_FAIL_CALL_DISALLOWED_IN_ROAMING = 2068;
+
+      PDP_FAIL_NON_IP_NOT_SUPPORTED = 2069;
+
+      PDP_FAIL_PDN_NON_IP_CALL_THROTTLED = 2070;
+
+      PDP_FAIL_PDN_NON_IP_CALL_DISALLOWED = 2071;
+
+      PDP_FAIL_CDMA_LOCK = 2072;
+
+      PDP_FAIL_CDMA_INTERCEPT = 2073;
+
+      PDP_FAIL_CDMA_REORDER = 2074;
+
+      PDP_FAIL_CDMA_RELEASE_DUE_TO_SO_REJECTION = 2075;
+
+      PDP_FAIL_CDMA_INCOMING_CALL = 2076;
+
+      PDP_FAIL_CDMA_ALERT_STOP = 2077;
+
+      PDP_FAIL_CHANNEL_ACQUISITION_FAILURE = 2078;
+
+      PDP_FAIL_MAX_ACCESS_PROBE = 2079;
+
+      PDP_FAIL_CONCURRENT_SERVICE_NOT_SUPPORTED_BY_BASE_STATION = 2080;
+
+      PDP_FAIL_NO_RESPONSE_FROM_BASE_STATION = 2081;
+
+      PDP_FAIL_REJECTED_BY_BASE_STATION = 2082;
+
+      PDP_FAIL_CONCURRENT_SERVICES_INCOMPATIBLE = 2083;
+
+      PDP_FAIL_NO_CDMA_SERVICE = 2084;
+
+      PDP_FAIL_RUIM_NOT_PRESENT = 2085;
+
+      PDP_FAIL_CDMA_RETRY_ORDER = 2086;
+
+      PDP_FAIL_ACCESS_BLOCK = 2087;
+
+      PDP_FAIL_ACCESS_BLOCK_ALL = 2088;
+
+      PDP_FAIL_IS707B_MAX_ACCESS_PROBES = 2089;
+
+      PDP_FAIL_THERMAL_EMERGENCY = 2090;
+
+      PDP_FAIL_CONCURRENT_SERVICES_NOT_ALLOWED = 2091;
+
+      PDP_FAIL_INCOMING_CALL_REJECTED = 2092;
+
+      PDP_FAIL_NO_SERVICE_ON_GATEWAY = 2093;
+
+      PDP_FAIL_NO_GPRS_CONTEXT = 2094;
+
+      PDP_FAIL_ILLEGAL_MS = 2095;
+
+      PDP_FAIL_ILLEGAL_ME = 2096;
+
+      PDP_FAIL_GPRS_SERVICES_AND_NON_GPRS_SERVICES_NOT_ALLOWED = 2097;
+
+      PDP_FAIL_GPRS_SERVICES_NOT_ALLOWED = 2098;
+
+      PDP_FAIL_MS_IDENTITY_CANNOT_BE_DERIVED_BY_THE_NETWORK = 2099;
+
+      PDP_FAIL_IMPLICITLY_DETACHED = 2100;
+
+      PDP_FAIL_PLMN_NOT_ALLOWED = 2101;
+
+      PDP_FAIL_LOCATION_AREA_NOT_ALLOWED = 2102;
+
+      PDP_FAIL_GPRS_SERVICES_NOT_ALLOWED_IN_THIS_PLMN = 2103;
+
+      PDP_FAIL_PDP_DUPLICATE = 2104;
+
+      PDP_FAIL_UE_RAT_CHANGE = 2105;
+
+      PDP_FAIL_CONGESTION = 2106;
+
+      PDP_FAIL_NO_PDP_CONTEXT_ACTIVATED = 2107;
+
+      PDP_FAIL_ACCESS_CLASS_DSAC_REJECTION = 2108;
+
+      PDP_FAIL_PDP_ACTIVATE_MAX_RETRY_FAILED = 2109;
+
+      PDP_FAIL_RADIO_ACCESS_BEARER_FAILURE = 2110;
+
+      PDP_FAIL_ESM_UNKNOWN_EPS_BEARER_CONTEXT = 2111;
+
+      PDP_FAIL_DRB_RELEASED_BY_RRC = 2112;
+
+      PDP_FAIL_CONNECTION_RELEASED = 2113;
+
+      PDP_FAIL_EMM_DETACHED = 2114;
+
+      PDP_FAIL_EMM_ATTACH_FAILED = 2115;
+
+      PDP_FAIL_EMM_ATTACH_STARTED = 2116;
+
+      PDP_FAIL_LTE_NAS_SERVICE_REQUEST_FAILED = 2117;
+
+      PDP_FAIL_DUPLICATE_BEARER_ID = 2118;
+
+      PDP_FAIL_ESM_COLLISION_SCENARIOS = 2119;
+
+      PDP_FAIL_ESM_BEARER_DEACTIVATED_TO_SYNC_WITH_NETWORK = 2120;
+
+      PDP_FAIL_ESM_NW_ACTIVATED_DED_BEARER_WITH_ID_OF_DEF_BEARER = 2121;
+
+      PDP_FAIL_ESM_BAD_OTA_MESSAGE = 2122;
+
+      PDP_FAIL_ESM_DOWNLOAD_SERVER_REJECTED_THE_CALL = 2123;
+
+      PDP_FAIL_ESM_CONTEXT_TRANSFERRED_DUE_TO_IRAT = 2124;
+
+      PDP_FAIL_DS_EXPLICIT_DEACTIVATION = 2125;
+
+      PDP_FAIL_ESM_LOCAL_CAUSE_NONE = 2126;
+
+      PDP_FAIL_LTE_THROTTLING_NOT_REQUIRED = 2127;
+
+      PDP_FAIL_ACCESS_CONTROL_LIST_CHECK_FAILURE = 2128;
+
+      PDP_FAIL_SERVICE_NOT_ALLOWED_ON_PLMN = 2129;
+
+      PDP_FAIL_EMM_T3417_EXPIRED = 2130;
+
+      PDP_FAIL_EMM_T3417_EXT_EXPIRED = 2131;
+
+      PDP_FAIL_RRC_UPLINK_DATA_TRANSMISSION_FAILURE = 2132;
+
+      PDP_FAIL_RRC_UPLINK_DELIVERY_FAILED_DUE_TO_HANDOVER = 2133;
+
+      PDP_FAIL_RRC_UPLINK_CONNECTION_RELEASE = 2134;
+
+      PDP_FAIL_RRC_UPLINK_RADIO_LINK_FAILURE = 2135;
+
+      PDP_FAIL_RRC_UPLINK_ERROR_REQUEST_FROM_NAS = 2136;
+
+      PDP_FAIL_RRC_CONNECTION_ACCESS_STRATUM_FAILURE = 2137;
+
+      PDP_FAIL_RRC_CONNECTION_ANOTHER_PROCEDURE_IN_PROGRESS = 2138;
+
+      PDP_FAIL_RRC_CONNECTION_ACCESS_BARRED = 2139;
+
+      PDP_FAIL_RRC_CONNECTION_CELL_RESELECTION = 2140;
+
+      PDP_FAIL_RRC_CONNECTION_CONFIG_FAILURE = 2141;
+
+      PDP_FAIL_RRC_CONNECTION_TIMER_EXPIRED = 2142;
+
+      PDP_FAIL_RRC_CONNECTION_LINK_FAILURE = 2143;
+
+      PDP_FAIL_RRC_CONNECTION_CELL_NOT_CAMPED = 2144;
+
+      PDP_FAIL_RRC_CONNECTION_SYSTEM_INTERVAL_FAILURE = 2145;
+
+      PDP_FAIL_RRC_CONNECTION_REJECT_BY_NETWORK = 2146;
+
+      PDP_FAIL_RRC_CONNECTION_NORMAL_RELEASE = 2147;
+
+      PDP_FAIL_RRC_CONNECTION_RADIO_LINK_FAILURE = 2148;
+
+      PDP_FAIL_RRC_CONNECTION_REESTABLISHMENT_FAILURE = 2149;
+
+      PDP_FAIL_RRC_CONNECTION_OUT_OF_SERVICE_DURING_CELL_REGISTER = 2150;
+
+      PDP_FAIL_RRC_CONNECTION_ABORT_REQUEST = 2151;
+
+      PDP_FAIL_RRC_CONNECTION_SYSTEM_INFORMATION_BLOCK_READ_ERROR = 2152;
+
+      PDP_FAIL_NETWORK_INITIATED_DETACH_WITH_AUTO_REATTACH = 2153;
+
+      PDP_FAIL_NETWORK_INITIATED_DETACH_NO_AUTO_REATTACH = 2154;
+
+      PDP_FAIL_ESM_PROCEDURE_TIME_OUT = 2155;
+
+      PDP_FAIL_INVALID_CONNECTION_ID = 2156;
+
+      PDP_FAIL_MAXIMIUM_NSAPIS_EXCEEDED = 2157;
+
+      PDP_FAIL_INVALID_PRIMARY_NSAPI = 2158;
+
+      PDP_FAIL_CANNOT_ENCODE_OTA_MESSAGE = 2159;
+
+      PDP_FAIL_RADIO_ACCESS_BEARER_SETUP_FAILURE = 2160;
+
+      PDP_FAIL_PDP_ESTABLISH_TIMEOUT_EXPIRED = 2161;
+
+      PDP_FAIL_PDP_MODIFY_TIMEOUT_EXPIRED = 2162;
+
+      PDP_FAIL_PDP_INACTIVE_TIMEOUT_EXPIRED = 2163;
+
+      PDP_FAIL_PDP_LOWERLAYER_ERROR = 2164;
+
+      PDP_FAIL_PDP_MODIFY_COLLISION = 2165;
+
+      PDP_FAIL_MAXINUM_SIZE_OF_L2_MESSAGE_EXCEEDED = 2166;
+
+      PDP_FAIL_NAS_REQUEST_REJECTED_BY_NETWORK = 2167;
+
+      PDP_FAIL_RRC_CONNECTION_INVALID_REQUEST = 2168;
+
+      PDP_FAIL_RRC_CONNECTION_TRACKING_AREA_ID_CHANGED = 2169;
+
+      PDP_FAIL_RRC_CONNECTION_RF_UNAVAILABLE = 2170;
+
+      PDP_FAIL_RRC_CONNECTION_ABORTED_DUE_TO_IRAT_CHANGE = 2171;
+
+      PDP_FAIL_RRC_CONNECTION_RELEASED_SECURITY_NOT_ACTIVE = 2172;
+
+      PDP_FAIL_RRC_CONNECTION_ABORTED_AFTER_HANDOVER = 2173;
+
+      PDP_FAIL_RRC_CONNECTION_ABORTED_AFTER_IRAT_CELL_CHANGE = 2174;
+
+      PDP_FAIL_RRC_CONNECTION_ABORTED_DURING_IRAT_CELL_CHANGE = 2175;
+
+      PDP_FAIL_IMSI_UNKNOWN_IN_HOME_SUBSCRIBER_SERVER = 2176;
+
+      PDP_FAIL_IMEI_NOT_ACCEPTED = 2177;
+
+      PDP_FAIL_EPS_SERVICES_AND_NON_EPS_SERVICES_NOT_ALLOWED = 2178;
+
+      PDP_FAIL_EPS_SERVICES_NOT_ALLOWED_IN_PLMN = 2179;
+
+      PDP_FAIL_MSC_TEMPORARILY_NOT_REACHABLE = 2180;
+
+      PDP_FAIL_CS_DOMAIN_NOT_AVAILABLE = 2181;
+
+      PDP_FAIL_ESM_FAILURE = 2182;
+
+      PDP_FAIL_MAC_FAILURE = 2183;
+
+      PDP_FAIL_SYNCHRONIZATION_FAILURE = 2184;
+
+      PDP_FAIL_UE_SECURITY_CAPABILITIES_MISMATCH = 2185;
+
+      PDP_FAIL_SECURITY_MODE_REJECTED = 2186;
+
+      PDP_FAIL_UNACCEPTABLE_NON_EPS_AUTHENTICATION = 2187;
+
+      PDP_FAIL_CS_FALLBACK_CALL_ESTABLISHMENT_NOT_ALLOWED = 2188;
+
+      PDP_FAIL_NO_EPS_BEARER_CONTEXT_ACTIVATED = 2189;
+
+      PDP_FAIL_INVALID_EMM_STATE = 2190;
+
+      PDP_FAIL_NAS_LAYER_FAILURE = 2191;
+
+      PDP_FAIL_MULTIPLE_PDP_CALL_NOT_ALLOWED = 2192;
+
+      PDP_FAIL_EMBMS_NOT_ENABLED = 2193;
+
+      PDP_FAIL_IRAT_HANDOVER_FAILED = 2194;
+
+      PDP_FAIL_EMBMS_REGULAR_DEACTIVATION = 2195;
+
+      PDP_FAIL_TEST_LOOPBACK_REGULAR_DEACTIVATION = 2196;
+
+      PDP_FAIL_LOWER_LAYER_REGISTRATION_FAILURE = 2197;
+
+      PDP_FAIL_DATA_PLAN_EXPIRED = 2198;
+
+      PDP_FAIL_UMTS_HANDOVER_TO_IWLAN = 2199;
+
+      PDP_FAIL_EVDO_CONNECTION_DENY_BY_GENERAL_OR_NETWORK_BUSY = 2200;
+
+      PDP_FAIL_EVDO_CONNECTION_DENY_BY_BILLING_OR_AUTHENTICATION_FAILURE = 2201;
+
+      PDP_FAIL_EVDO_HDR_CHANGED = 2202;
+
+      PDP_FAIL_EVDO_HDR_EXITED = 2203;
+
+      PDP_FAIL_EVDO_HDR_NO_SESSION = 2204;
+
+      PDP_FAIL_EVDO_USING_GPS_FIX_INSTEAD_OF_HDR_CALL = 2205;
+
+      PDP_FAIL_EVDO_HDR_CONNECTION_SETUP_TIMEOUT = 2206;
+
+      PDP_FAIL_FAILED_TO_ACQUIRE_COLOCATED_HDR = 2207;
+
+      PDP_FAIL_OTASP_COMMIT_IN_PROGRESS = 2208;
+
+      PDP_FAIL_NO_HYBRID_HDR_SERVICE = 2209;
+
+      PDP_FAIL_HDR_NO_LOCK_GRANTED = 2210;
+
+      PDP_FAIL_DBM_OR_SMS_IN_PROGRESS = 2211;
+
+      PDP_FAIL_HDR_FADE = 2212;
+
+      PDP_FAIL_HDR_ACCESS_FAILURE = 2213;
+
+      PDP_FAIL_UNSUPPORTED_1X_PREV = 2214;
+
+      PDP_FAIL_LOCAL_END = 2215;
+
+      PDP_FAIL_NO_SERVICE = 2216;
+
+      PDP_FAIL_FADE = 2217;
+
+      PDP_FAIL_NORMAL_RELEASE = 2218;
+
+      PDP_FAIL_ACCESS_ATTEMPT_ALREADY_IN_PROGRESS = 2219;
+
+      PDP_FAIL_REDIRECTION_OR_HANDOFF_IN_PROGRESS = 2220;
+
+      PDP_FAIL_EMERGENCY_MODE = 2221;
+
+      PDP_FAIL_PHONE_IN_USE = 2222;
+
+      PDP_FAIL_INVALID_MODE = 2223;
+
+      PDP_FAIL_INVALID_SIM_STATE = 2224;
+
+      PDP_FAIL_NO_COLLOCATED_HDR = 2225;
+
+      PDP_FAIL_UE_IS_ENTERING_POWERSAVE_MODE = 2226;
+
+      PDP_FAIL_DUAL_SWITCH = 2227;
+
+      PDP_FAIL_PPP_TIMEOUT = 2228;
+
+      PDP_FAIL_PPP_AUTH_FAILURE = 2229;
+
+      PDP_FAIL_PPP_OPTION_MISMATCH = 2230;
+
+      PDP_FAIL_PPP_PAP_FAILURE = 2231;
+
+      PDP_FAIL_PPP_CHAP_FAILURE = 2232;
+
+      PDP_FAIL_PPP_CLOSE_IN_PROGRESS = 2233;
+
+      PDP_FAIL_LIMITED_TO_IPV4 = 2234;
+
+      PDP_FAIL_LIMITED_TO_IPV6 = 2235;
+
+      PDP_FAIL_VSNCP_TIMEOUT = 2236;
+
+      PDP_FAIL_VSNCP_GEN_ERROR = 2237;
+
+      PDP_FAIL_VSNCP_APN_UNATHORIZED = 2238;
+
+      PDP_FAIL_VSNCP_PDN_LIMIT_EXCEEDED = 2239;
+
+      PDP_FAIL_VSNCP_NO_PDN_GATEWAY_ADDRESS = 2240;
+
+      PDP_FAIL_VSNCP_PDN_GATEWAY_UNREACHABLE = 2241;
+
+      PDP_FAIL_VSNCP_PDN_GATEWAY_REJECT = 2242;
+
+      PDP_FAIL_VSNCP_INSUFFICIENT_PARAMETERS = 2243;
+
+      PDP_FAIL_VSNCP_RESOURCE_UNAVAILABLE = 2244;
+
+      PDP_FAIL_VSNCP_ADMINISTRATIVELY_PROHIBITED = 2245;
+
+      PDP_FAIL_VSNCP_PDN_ID_IN_USE = 2246;
+
+      PDP_FAIL_VSNCP_SUBSCRIBER_LIMITATION = 2247;
+
+      PDP_FAIL_VSNCP_PDN_EXISTS_FOR_THIS_APN = 2248;
+
+      PDP_FAIL_VSNCP_RECONNECT_NOT_ALLOWED = 2249;
+
+      PDP_FAIL_IPV6_PREFIX_UNAVAILABLE = 2250;
+
+      PDP_FAIL_HANDOFF_PREFERENCE_CHANGED = 2251;
 
       // Not mentioned in the specification
       PDP_FAIL_VOICE_REGISTRATION_FAIL = -1;
@@ -909,11 +1608,43 @@ message TelephonyEvent {
 
     // Group id level 1. Logged only if gid1 is configured from subscription
     // but its matching rule is unknown
-    optional string gid1 = 2;
+    optional string unknown_gid1 = 2;
 
     // MCC and MNC that map to this carrier. Logged only if mccmnc is configured
     // from subscription but its matching rule is unknown
-    optional string mccmnc = 3;
+    optional string unknown_mccmnc = 3;
+
+    // MCC and MNC from the subscription that map to this carrier.
+    optional string mccmnc = 4;
+
+    // Group id level 1 from the subscription that map to this carrier.
+    optional string gid1 = 5;
+
+    // Group id level 2 from the subscription that map to this carrier.
+    optional string gid2 = 6;
+
+    // spn from the subscription that map to this carrier.
+    optional string spn = 7;
+
+    // pnn from the subscription that map to this carrier.
+    optional string pnn = 8;
+
+    // iccid prefix from the subscription that map to this carrier.
+    // only log first 7 outof 20 bit of full iccid
+    optional string iccid_prefix = 9;
+
+    // imsi prefix from the subscription that map to this carrier.
+    // only log additional 2 bits other than MCC MNC.
+    optional string imsi_prefix = 10;
+
+    // Carrier Privilege Access Rule in hex string from the subscription.
+    // Sample values: 61ed377e85d386a8dfee6b864bd85b0bfaa5af88
+    repeated string privilege_access_rule = 11;
+
+    // The Access Point Name, corresponding to "apn" field returned by
+    // "content://telephony/carriers/preferapn" on device.
+    // Sample values: fast.t-mobile.com, internet. Note only log if this apn is not user edited.
+    optional string preferApn = 12;
   }
 
   // Time when event happened on device, in milliseconds since epoch
@@ -966,7 +1697,54 @@ message TelephonyEvent {
 
   // Carrier key change
   optional CarrierKeyChange carrier_key_change = 17;
+
+  // Data switch event
+  optional DataSwitch data_switch = 19;
+
+  // For network validate event
+  optional NetworkValidationState network_validation_state = 20;
+
+  // On demand data switch event
+  optional OnDemandDataSwitch on_demand_data_switch = 21;
+
+  // Sim state for each slot.
+  repeated SimState sim_state = 22;
+
+  // The active subscription info for a specific slot.
+  optional ActiveSubscriptionInfo active_subscription_info = 23;
+
+  // The modem state represent by a bitmap, the i-th bit(LSB) indicates the i-th modem
+  // state (0 - disabled, 1 - enabled).
+  optional int32 enabled_modem_bitmap = 24;
+
+  // Updated Emergency Call info.
+  optional EmergencyNumberInfo updated_emergency_number = 25;
 }
+
+message ActiveSubscriptionInfo {
+  /** The slot index which this subscription is associated with. */
+  optional int32 slot_index = 1;
+
+  /** The Carrier id of this subscription. -1 indicates unknown value. */
+  optional int32 carrier_id = 2;
+
+  /** whether subscription is opportunistic (0 - false, 1 - true, -1 - unknown). */
+  optional int32 is_opportunistic = 3;
+};
+
+enum SimState {
+  /**
+   * SIM card is inserted, but the state is unknown. Typically happened when the SIM is inserted
+   * but not loaded.
+   */
+  SIM_STATE_UNKNOWN = 0;
+
+  /** No SIM card is inserted in the slot. */
+  SIM_STATE_ABSENT = 1;
+
+  /** SIM card applications have been loaded. */
+  SIM_STATE_LOADED = 2;
+};
 
 enum TimeInterval {
   TI_UNKNOWN = 0;
@@ -1067,6 +1845,12 @@ message TelephonyCallSession {
 
       // System time overwritten by NITZ (Network time)
       NITZ_TIME = 21;
+
+      // Change of audio codec
+      AUDIO_CODEC = 22;
+
+      // Notification that the call quality has changed
+      CALL_QUALITY_CHANGED = 23;
     }
 
     enum RilRequest {
@@ -1159,6 +1943,53 @@ message TelephonyCallSession {
       CALL_DISCONNECTING = 9;
     }
 
+    // Audio codecs
+    enum AudioCodec {
+
+      // Unknown codec
+      AUDIO_CODEC_UNKNOWN = 0;
+
+      AUDIO_CODEC_AMR = 1;
+
+      AUDIO_CODEC_AMR_WB = 2;
+
+      AUDIO_CODEC_QCELP13K = 3;
+
+      AUDIO_CODEC_EVRC = 4;
+
+      AUDIO_CODEC_EVRC_B = 5;
+
+      AUDIO_CODEC_EVRC_WB = 6;
+
+      AUDIO_CODEC_EVRC_NW = 7;
+
+      AUDIO_CODEC_GSM_EFR = 8;
+
+      AUDIO_CODEC_GSM_FR = 9;
+
+      AUDIO_CODEC_GSM_HR = 10;
+
+      AUDIO_CODEC_G711U = 11;
+
+      AUDIO_CODEC_G723 = 12;
+
+      AUDIO_CODEC_G711A = 13;
+
+      AUDIO_CODEC_G722 = 14;
+
+      AUDIO_CODEC_G711AB = 15;
+
+      AUDIO_CODEC_G729 = 16;
+
+      AUDIO_CODEC_EVS_NB = 17;
+
+      AUDIO_CODEC_EVS_WB = 18;
+
+      AUDIO_CODEC_EVS_SWB = 19;
+
+      AUDIO_CODEC_EVS_FB = 20;
+    }
+
     // The information about a voice call
     message RilCall {
 
@@ -1187,6 +2018,16 @@ message TelephonyCallSession {
 
       // This field is true for Conference Calls
       optional bool is_multiparty = 5;
+
+      // Detailed cause code for CS Call failures
+      // frameworks/base/telephony/java/android/telephony/PreciseDisconnectCause.java
+      optional int32 precise_disconnect_cause = 6;
+
+      // Indicate if the call is an emergency call
+      optional bool is_emergency_call = 7;
+
+      // Indicate the emergency call information dialed from the CS call
+      optional EmergencyNumberInfo emergency_number_info = 8;
     }
 
     // Single Radio Voice Call Continuity(SRVCC) progress state
@@ -1202,6 +2043,135 @@ message TelephonyCallSession {
       HANDOVER_FAILED = 3;
 
       HANDOVER_CANCELED = 4;
+    }
+
+    message SignalStrength {
+
+      // signal to noise ratio for LTE signal strength
+      optional int32 lte_snr = 1;
+
+      // in the future we may include more measures of signal strength, or
+      // measurements for other RATs
+    }
+
+    // CallQuality information. (This proto class corresponds to
+    // android.telephony.CallQuality)
+    message CallQuality {
+
+      enum CallQualityLevel {
+
+        // leaving the first value explicitly as unspecified avoids breaking
+        // clients if the desired default behavior changes
+        UNDEFINED = 0;
+
+        EXCELLENT = 1;
+
+        GOOD = 2;
+
+        FAIR = 3;
+
+        POOR = 4;
+
+        BAD = 5;
+
+        // this typically indicates a failure in the modem
+        NOT_AVAILABLE = 6;
+      }
+
+      // the downlink CallQualityLevel for a given ongoing call
+      optional CallQualityLevel downlink_level = 1;
+
+      // the uplink CallQualityLevel for a given ongoing call
+      optional CallQualityLevel uplink_level = 2;
+
+      // the duration of the call, in seconds
+      optional int32 duration_in_seconds = 3;
+
+      // the total number of RTP packets transmitted by this device for an
+      // ongoing call
+      optional int32 rtp_packets_transmitted = 4;
+
+      // the total number of RTP packets received by this device for an ongoing
+      // call
+      optional int32 rtp_packets_received = 5;
+
+      // the number of RTP packets which were sent by this device but were lost
+      // in the network before reaching the other party
+      optional int32 rtp_packets_transmitted_lost = 6;
+
+      // the number of RTP packets which were sent by the other party but were
+      // lost in the network before reaching this device
+      optional int32 rtp_packets_not_received = 7;
+
+      // the average relative jitter in milliseconds. Jitter represents the
+      // amount of variance in interarrival time of packets, for example, if two
+      // packets are sent 2 milliseconds apart but received 3 milliseconds
+      // apart, the relative jitter between those packets is 1 millisecond.
+      //
+      // See RFC 3550 for more information on jitter calculations
+      optional int32 average_relative_jitter_millis = 8;
+
+      // the maximum relative jitter for a given ongoing call. Jitter represents
+      // the amount of variance in interarrival time of packets, for example, if
+      // two packets are sent 2 milliseconds apart but received 3 milliseconds
+      // apart, the relative jitter between those packets is 1 millisecond.
+      //
+      // See RFC 3550 for more information on jitter calculations.
+      optional int32 max_relative_jitter_millis = 9;
+
+      // the average round trip time of RTP packets in an ongoing call, in milliseconds
+      optional int32 average_round_trip_time = 10;
+
+      // the codec type of an ongoing call
+      optional AudioCodec codec_type = 11;
+    }
+
+    message CallQualitySummary {
+
+      // Total duration of good call quality reported at the end of a call
+      optional int32 total_good_quality_duration_in_seconds = 1;
+
+      // Total duration of bad call quality reported at the end of a call
+      optional int32 total_bad_quality_duration_in_seconds = 2;
+
+      // Total duration of the call for which we have call quality
+      // information, reported at the end of a call. For example, if an IMS call
+      // is converted to a CS call, which doesn't report call quality information,
+      // this value is the duration of the IMS component.
+      optional int32 total_duration_with_quality_information_in_seconds = 3;
+
+      // Snapshot of the CallQuality when signal strength is worst within good
+      // quality section
+      optional CallQuality snapshot_of_worst_ss_with_good_quality = 4;
+
+      // Snapshot of the CallQuality when signal strength is best within good
+      // quality section
+      optional CallQuality snapshot_of_best_ss_with_good_quality = 5;
+
+      // Snapshot of the CallQuality when signal strength is worst within bad
+      // quality section
+      optional CallQuality snapshot_of_worst_ss_with_bad_quality = 6;
+
+      // Snapshot of the CallQuality when signal strength is best within bad
+      // quality section
+      optional CallQuality snapshot_of_best_ss_with_bad_quality = 7;
+
+      // The worst SignalStrength in any good quality section
+      optional SignalStrength worst_ss_with_good_quality = 8;
+
+      // The best SignalStrength in any good quality section
+      optional SignalStrength best_ss_with_good_quality = 9;
+
+      // The worst SignalStrength in any bad quality section
+      optional SignalStrength worst_ss_with_bad_quality = 10;
+
+      // The best SignalStrength in any bad quality section
+      optional SignalStrength best_ss_with_bad_quality = 11;
+
+      // Snapshot of the CallQuality at the end of a call. This includes
+      // cumulative statistics like total duration and total RTP packets.
+      optional CallQuality snapshot_of_end = 12;
+
     }
 
     // Event type
@@ -1266,6 +2236,24 @@ message TelephonyCallSession {
 
     // NITZ time in milliseconds
     optional int64 nitz_timestamp_millis = 21;
+
+    // Audio codec at the beginning of the session or when changed
+    optional AudioCodec audio_codec = 22;
+
+    // Call quality when changed
+    optional CallQuality call_quality = 23;
+
+    // Downlink call quality summary at the end of a call
+    optional CallQualitySummary call_quality_summary_dl = 24;
+
+    // Uplink call quality summary at the end of a call
+    optional CallQualitySummary call_quality_summary_ul = 25;
+
+    // Indicate if it is IMS emergency call
+    optional bool is_ims_emergency_call = 26;
+
+    // Emergency call info
+    optional EmergencyNumberInfo ims_emergency_number_info = 27;
   }
 
   // Time when call has started, in minutes since epoch,
@@ -1307,17 +2295,20 @@ message SmsSession {
       // or old data call has removed.
       DATA_CALL_LIST_CHANGED = 5;
 
-      // Send a SMS message
+      // Send a SMS message over RIL
       SMS_SEND = 6;
 
-      // Message has been sent to network
+      // Message has been sent to network using RIL
       SMS_SEND_RESULT = 7;
 
-      // Notification about received SMS
+      // Notification about received SMS using RIL
       SMS_RECEIVED = 8;
 
       // CB message received
       CB_SMS_RECEIVED = 9;
+
+      // Incomplete multipart message received
+      INCOMPLETE_SMS_RECEIVED = 10;
     }
 
     // Formats used to encode SMS messages
@@ -1355,6 +2346,12 @@ message SmsSession {
 
       // Service category of CB message
       optional int32 service_category = 4;
+
+      // Message's serial number
+      optional int32 serial_number = 5;
+
+      // The delivered time (UTC) of the message
+      optional int64 delivered_timestamp_millis = 6;
     }
 
     enum CBMessageType {
@@ -1388,6 +2385,33 @@ message SmsSession {
       EMERGENCY = 4;
     }
 
+    // Types of SMS messages
+    enum SmsType {
+
+      // Normal type
+      SMS_TYPE_NORMAL = 0;
+
+      // SMS-PP.
+      SMS_TYPE_SMS_PP = 1;
+
+      // Voicemail indication
+      SMS_TYPE_VOICEMAIL_INDICATION = 2;
+
+      // Type 0 message (3GPP TS 23.040 9.2.3.9)
+      SMS_TYPE_ZERO = 3;
+
+      // WAP-PUSH message
+      SMS_TYPE_WAP_PUSH = 4;
+    }
+
+    message IncompleteSms {
+      // Number of received parts
+      optional int32 received_parts = 1;
+
+      // Number of expected parts
+      optional int32 total_parts = 2;
+    }
+
     // Event type
     optional Type type = 1;
 
@@ -1415,19 +2439,35 @@ message SmsSession {
     // Technology used to send/receive SMS
     optional Tech tech = 9;
 
-    // See 3GPP 27.005, 3.2.5 for GSM/UMTS,
-    // 3GPP2 N.S0005 (IS-41C) Table 171 for CDMA,
-    // -1 if unknown or not applicable
+    // For outgoing SMS:
+    //  - See 3GPP 27.005, 3.2.5 for GSM/UMTS,
+    //  - 3GPP2 N.S0005 (IS-41C) Table 171 for CDMA,
+    // For incoming SMS of any type:
+    //  - it is mapped to a SmsManager.RESULT_* code
+    // SmsManager can be accessed from
+    // frameworks/base/telephony/java/android/telephony/SmsManager.java
     optional int32 error_code = 10;
 
-    // RIL error code
+    // RIL error code - Not used.
     optional RilErrno error = 11;
 
-    // Numeric ID
+    // Numeric ID - Used only for outgoing SMS
     optional int32 ril_request_id = 12;
 
     // Cellbroadcast message content
     optional CBMessage cell_broadcast_message = 13;
+
+    // ImsService error code. Used only for outgoing SMS
+    optional ImsServiceErrno ims_error = 14;
+
+    // Details of incoming incomplete multipart SMS
+    optional IncompleteSms incomplete_sms = 15;
+
+    // Indicate the type of incoming SMS
+    optional SmsType sms_type = 16;
+
+    // Indicates if the incoming SMS was blocked
+    optional bool blocked = 17;
   }
 
   // Time when session has started, in minutes since epoch,
@@ -1474,4 +2514,23 @@ message ModemPowerStats {
 
   // Amount of time modem is in tx (ms)
   repeated int64 tx_time_ms = 9;
+
+  // Number of bytes sent (tx)
+  optional int64 num_bytes_tx = 10;
+
+  // Number of packets received (rx)
+  optional int64 num_packets_rx = 11;
+
+  // Number of bytes received (rx)
+  optional int64 num_bytes_rx = 12;
+
+  // Amount of time phone spends in various Radio Access Technologies (ms)
+  repeated int64 time_in_rat_ms = 13;
+
+  // Amount of time phone spends in various cellular
+  // rx signal strength levels (ms)
+  repeated int64 time_in_rx_signal_strength_level_ms = 14;
+
+  // Actual monitored rail energy consumed by modem (mAh)
+  optional double monitored_rail_energy_consumed_mah = 15;
 }

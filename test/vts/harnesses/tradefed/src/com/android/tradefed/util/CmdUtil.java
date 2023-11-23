@@ -74,9 +74,9 @@ public class CmdUtil {
         }
         for (int count = 0; count < MAX_RETRY_COUNT; count++) {
             for (String cmd : cmds) {
-                CLog.i("Running a command: %s", cmd);
+                CLog.d("Running a command: %s", cmd);
                 String out = device.executeShellCommand(cmd);
-                CLog.i("Command output: %s", out);
+                CLog.d("Command output: %s", out);
             }
             if (validateCmdSuccess(device, validation_cmd, predicate)) {
                 return true;
@@ -114,7 +114,7 @@ public class CmdUtil {
     public boolean retry(ITestDevice device, String cmd, String validation_cmd,
             Predicate<String> predicate, int retry_count) throws DeviceNotAvailableException {
         for (int count = 0; count < retry_count; count++) {
-            CLog.i("Running a command: %s", cmd);
+            CLog.d("Running a command: %s", cmd);
             device.executeShellCommand(cmd);
             if (validateCmdSuccess(device, validation_cmd, predicate)) {
                 return true;
@@ -139,12 +139,12 @@ public class CmdUtil {
             return false;
         }
         String out = device.executeShellCommand(cmd);
-        CLog.i("validation cmd output: %s", out);
+        CLog.d("validating cmd output: %s", out);
         if (out != null && predicate.test(out)) {
-            CLog.i("Exit condition satisfied.");
+            CLog.d("Exit condition satisfied.");
             return true;
         } else {
-            CLog.i("Exit condition not satisfied. Waiting for %s more seconds.",
+            CLog.d("Exit condition not satisfied. Waiting for %s more seconds.",
                     DELAY_BETWEEN_RETRY_IN_SECS);
             try {
                 if (mSleeper != null) {

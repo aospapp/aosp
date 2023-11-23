@@ -19,11 +19,16 @@ package com.android.cts.writeexternalstorageapp;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_NONE;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_READ;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.PACKAGE_WRITE;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoAccess;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileReadWriteAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificGiftPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificObbGiftPaths;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPaths;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
+import android.os.Environment;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -63,5 +68,65 @@ public class WriteGiftTest extends AndroidTestCase {
             writeInt(write, 102);
             assertEquals(102, readInt(write));
         }
+    }
+
+    /**
+     * Leave gifts for other packages in their obb directories.
+     */
+    public void testObbGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificObbGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+
+            none.getParentFile().mkdirs();
+            none.createNewFile();
+            assertFileReadWriteAccess(none);
+
+            writeInt(none, 100);
+            assertEquals(100, readInt(none));
+        }
+    }
+
+    /**
+     * Verify we can't access gifts in obb dirs.
+     */
+    public void testAccessObbGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificObbGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            assertFileReadWriteAccess(none);
+            assertEquals(100, readInt(none));
+        }
+    }
+
+    /**
+     * Verify we can't access gifts in obb dirs.
+     */
+    public void testCantAccessObbGifts() throws Exception {
+        final List<File> noneList = getAllPackageSpecificObbGiftPaths(getContext(), PACKAGE_NONE);
+        for (File none : noneList) {
+            assertFileNoAccess(none);
+            assertDirNoAccess(none.getParentFile());
+        }
+    }
+
+    public void testClearingWrite() throws Exception {
+        for (File dir : getAllPackageSpecificPaths(getContext())) {
+            dir.mkdirs();
+            new File(dir, "probe").createNewFile();
+            assertTrue(new File(dir, "probe").exists());
+        }
+    }
+
+    public void testClearingRead() throws Exception {
+        for (File dir : getAllPackageSpecificPaths(getContext())) {
+            assertFalse(new File(dir, "probe").exists());
+        }
+    }
+
+    public void testIsExternalStorageLegacy() {
+        assertTrue(Environment.isExternalStorageLegacy());
+    }
+
+    public void testNotIsExternalStorageLegacy() {
+        assertFalse(Environment.isExternalStorageLegacy());
     }
 }

@@ -17,6 +17,36 @@
 
 package com.android.providers.telephony;
 
+import static android.provider.Telephony.ServiceStateTable;
+import static android.provider.Telephony.ServiceStateTable.CDMA_DEFAULT_ROAMING_INDICATOR;
+import static android.provider.Telephony.ServiceStateTable.CDMA_ERI_ICON_INDEX;
+import static android.provider.Telephony.ServiceStateTable.CDMA_ERI_ICON_MODE;
+import static android.provider.Telephony.ServiceStateTable.CDMA_ROAMING_INDICATOR;
+import static android.provider.Telephony.ServiceStateTable.CONTENT_URI;
+import static android.provider.Telephony.ServiceStateTable.CSS_INDICATOR;
+import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_ALPHA_LONG;
+import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_ALPHA_SHORT;
+import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_NUMERIC;
+import static android.provider.Telephony.ServiceStateTable.DATA_REG_STATE;
+import static android.provider.Telephony.ServiceStateTable.DATA_ROAMING_TYPE;
+import static android.provider.Telephony.ServiceStateTable.IS_EMERGENCY_ONLY;
+import static android.provider.Telephony.ServiceStateTable.IS_MANUAL_NETWORK_SELECTION;
+import static android.provider.Telephony.ServiceStateTable.IS_USING_CARRIER_AGGREGATION;
+import static android.provider.Telephony.ServiceStateTable.NETWORK_ID;
+import static android.provider.Telephony.ServiceStateTable.OPERATOR_ALPHA_LONG_RAW;
+import static android.provider.Telephony.ServiceStateTable.OPERATOR_ALPHA_SHORT_RAW;
+import static android.provider.Telephony.ServiceStateTable.RIL_DATA_RADIO_TECHNOLOGY;
+import static android.provider.Telephony.ServiceStateTable.RIL_VOICE_RADIO_TECHNOLOGY;
+import static android.provider.Telephony.ServiceStateTable.SERVICE_STATE;
+import static android.provider.Telephony.ServiceStateTable.SYSTEM_ID;
+import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_ALPHA_LONG;
+import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_ALPHA_SHORT;
+import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_NUMERIC;
+import static android.provider.Telephony.ServiceStateTable.VOICE_REG_STATE;
+import static android.provider.Telephony.ServiceStateTable.VOICE_ROAMING_TYPE;
+import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionId;
+import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionIdAndField;
+
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
@@ -24,6 +54,7 @@ import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.MatrixCursor.RowBuilder;
 import android.net.Uri;
+import android.os.Parcel;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
@@ -31,38 +62,7 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.SubscriptionController;
 
-import java.lang.NumberFormatException;
 import java.util.HashMap;
-
-import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionId;
-import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionIdAndField;
-
-import static android.provider.Telephony.ServiceStateTable;
-import static android.provider.Telephony.ServiceStateTable.CONTENT_URI;
-
-import static android.provider.Telephony.ServiceStateTable.VOICE_REG_STATE;
-import static android.provider.Telephony.ServiceStateTable.DATA_REG_STATE;
-import static android.provider.Telephony.ServiceStateTable.VOICE_ROAMING_TYPE;
-import static android.provider.Telephony.ServiceStateTable.DATA_ROAMING_TYPE;
-import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_ALPHA_LONG;
-import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_ALPHA_SHORT;
-import static android.provider.Telephony.ServiceStateTable.VOICE_OPERATOR_NUMERIC;
-import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_ALPHA_LONG;
-import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_ALPHA_SHORT;
-import static android.provider.Telephony.ServiceStateTable.DATA_OPERATOR_NUMERIC;
-import static android.provider.Telephony.ServiceStateTable.IS_MANUAL_NETWORK_SELECTION;
-import static android.provider.Telephony.ServiceStateTable.RIL_VOICE_RADIO_TECHNOLOGY;
-import static android.provider.Telephony.ServiceStateTable.RIL_DATA_RADIO_TECHNOLOGY;
-import static android.provider.Telephony.ServiceStateTable.CSS_INDICATOR;
-import static android.provider.Telephony.ServiceStateTable.NETWORK_ID;
-import static android.provider.Telephony.ServiceStateTable.SYSTEM_ID;
-import static android.provider.Telephony.ServiceStateTable.CDMA_ROAMING_INDICATOR;
-import static android.provider.Telephony.ServiceStateTable.CDMA_DEFAULT_ROAMING_INDICATOR;
-import static android.provider.Telephony.ServiceStateTable.CDMA_ERI_ICON_INDEX;
-import static android.provider.Telephony.ServiceStateTable.CDMA_ERI_ICON_MODE;
-import static android.provider.Telephony.ServiceStateTable.IS_EMERGENCY_ONLY;
-import static android.provider.Telephony.ServiceStateTable.IS_DATA_ROAMING_FROM_REGISTRATION;
-import static android.provider.Telephony.ServiceStateTable.IS_USING_CARRIER_AGGREGATION;
 
 
 public class ServiceStateProvider extends ContentProvider {
@@ -94,8 +94,9 @@ public class ServiceStateProvider extends ContentProvider {
         CDMA_ERI_ICON_INDEX,
         CDMA_ERI_ICON_MODE,
         IS_EMERGENCY_ONLY,
-        IS_DATA_ROAMING_FROM_REGISTRATION,
         IS_USING_CARRIER_AGGREGATION,
+        OPERATOR_ALPHA_LONG_RAW,
+        OPERATOR_ALPHA_SHORT_RAW,
     };
 
     @Override
@@ -131,31 +132,13 @@ public class ServiceStateProvider extends ContentProvider {
                 subId = getDefaultSubId();
             }
 
+            final Parcel p = Parcel.obtain();
+            final byte[] rawBytes = values.getAsByteArray(SERVICE_STATE);
+            p.unmarshall(rawBytes, 0, rawBytes.length);
+            p.setDataPosition(0);
+
             // create the new service state
-            ServiceState newSS = new ServiceState();
-            newSS.setVoiceRegState(values.getAsInteger(VOICE_REG_STATE));
-            newSS.setDataRegState(values.getAsInteger(DATA_REG_STATE));
-            newSS.setVoiceOperatorName(values.getAsString(VOICE_OPERATOR_ALPHA_LONG),
-                        values.getAsString(VOICE_OPERATOR_ALPHA_SHORT),
-                        values.getAsString(VOICE_OPERATOR_NUMERIC));
-            newSS.setDataOperatorName(values.getAsString(DATA_OPERATOR_ALPHA_LONG),
-                    values.getAsString(DATA_OPERATOR_ALPHA_SHORT),
-                    values.getAsString(DATA_OPERATOR_NUMERIC));
-            newSS.setIsManualSelection(values.getAsBoolean(IS_MANUAL_NETWORK_SELECTION));
-            newSS.setRilVoiceRadioTechnology(values.getAsInteger(RIL_VOICE_RADIO_TECHNOLOGY));
-            newSS.setRilDataRadioTechnology(values.getAsInteger(RIL_DATA_RADIO_TECHNOLOGY));
-            newSS.setCssIndicator(values.getAsInteger(CSS_INDICATOR));
-            newSS.setCdmaSystemAndNetworkId(values.getAsInteger(SYSTEM_ID),
-                    values.getAsInteger(NETWORK_ID));
-            newSS.setCdmaRoamingIndicator(values.getAsInteger(CDMA_ROAMING_INDICATOR));
-            newSS.setCdmaDefaultRoamingIndicator(
-                    values.getAsInteger(CDMA_DEFAULT_ROAMING_INDICATOR));
-            newSS.setCdmaEriIconIndex(values.getAsInteger(CDMA_ERI_ICON_INDEX));
-            newSS.setCdmaEriIconMode(values.getAsInteger(CDMA_ERI_ICON_MODE));
-            newSS.setEmergencyOnly(values.getAsBoolean(IS_EMERGENCY_ONLY));
-            newSS.setDataRoamingFromRegistration(
-                    values.getAsBoolean(IS_DATA_ROAMING_FROM_REGISTRATION));
-            newSS.setIsUsingCarrierAggregation(values.getAsBoolean(IS_USING_CARRIER_AGGREGATION));
+            final ServiceState newSS = ServiceState.CREATOR.createFromParcel(p);
 
             // notify listeners
             // if ss is null (e.g. first service state update) we will notify for all fields
@@ -235,9 +218,9 @@ public class ServiceStateProvider extends ContentProvider {
             final int cdma_eri_icon_index = ss.getCdmaEriIconIndex();
             final int cdma_eri_icon_mode = ss.getCdmaEriIconMode();
             final int is_emergency_only = (ss.isEmergencyOnly()) ? 1 : 0;
-            final int is_data_roaming_from_registration =
-                    (ss.getDataRoamingFromRegistration()) ? 1 : 0;
             final int is_using_carrier_aggregation = (ss.isUsingCarrierAggregation()) ? 1 : 0;
+            final String operator_alpha_long_raw = ss.getOperatorAlphaLongRaw();
+            final String operator_alpha_short_raw = ss.getOperatorAlphaShortRaw();
 
             return buildSingleRowResult(projection, sColumns, new Object[] {
                         voice_reg_state,
@@ -261,8 +244,9 @@ public class ServiceStateProvider extends ContentProvider {
                         cdma_eri_icon_index,
                         cdma_eri_icon_mode,
                         is_emergency_only,
-                        is_data_roaming_from_registration,
                         is_using_carrier_aggregation,
+                        operator_alpha_long_raw,
+                        operator_alpha_short_raw,
             });
         }
     }
@@ -348,10 +332,10 @@ public class ServiceStateProvider extends ContentProvider {
      *
      * Apps which want to wake when any field in the ServiceState has changed can use
      * JobScheduler's TriggerContentUri.  This replaces the waking functionality of the implicit
-     * broadcast of ACTION_SERVICE_STATE_CHANGED for apps targetting version O.
+     * broadcast of ACTION_SERVICE_STATE_CHANGED for apps targeting version O.
      *
      * We will only notify for certain fields. This is an intentional change from the behavior of
-     * the broadcast. Listeners will be notified when the voice or data registration state or
+     * the broadcast. Listeners will only be notified when the voice/data registration state or
      * roaming type changes.
      */
     @VisibleForTesting

@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.IBinder;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.intelligence.suggestions.model.SuggestionCategory;
 import com.android.settings.intelligence.suggestions.model.SuggestionCategoryRegistry;

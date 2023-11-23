@@ -50,6 +50,11 @@ bool PlatformSensor::applyRequest(const SensorRequest& request) {
   return false;
 }
 
+bool PlatformSensor::flushAsync() {
+  // TODO: Implement this
+  return false;
+}
+
 SensorType PlatformSensor::getSensorType() const {
   // TODO: Implement this.
   return SensorType::Unknown;
@@ -77,6 +82,12 @@ ChreSensorData *PlatformSensor::getLastEvent() const {
 
 bool PlatformSensor::getSamplingStatus(
     struct chreSensorSamplingStatus *status) const {
+  // TODO: Implement this.
+  return false;
+}
+
+bool PlatformSensor::getThreeAxisBias(
+    struct chreSensorThreeAxisData *bias) const {
   // TODO: Implement this.
   return false;
 }

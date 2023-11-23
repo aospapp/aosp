@@ -14,6 +14,22 @@
 #  limitations under the License.
 #
 
+static_library("crypto_toolbox") {
+  sources = [
+    "crypto_toolbox/crypto_toolbox.cc",
+    "crypto_toolbox/aes.cc",
+    "crypto_toolbox/aes_cmac.cc",
+  ]
+
+  include_dirs = [
+    "//",
+  ]
+
+  deps = [
+    "//third_party/libchrome:base",
+  ]
+}
+
 static_library("stack") {
   sources = [
     "a2dp/a2dp_aac.cc",
@@ -32,6 +48,7 @@ static_library("stack") {
     "a2dp/a2dp_vendor_aptx_hd_encoder.cc",
     "a2dp/a2dp_vendor_ldac.cc",
     "a2dp/a2dp_vendor_ldac_abr.cc",
+    "a2dp/a2dp_vendor_ldac_decoder.cc",
     "a2dp/a2dp_vendor_ldac_encoder.cc",
     "avct/avct_api.cc",
     "avct/avct_bcb_act.cc",
@@ -83,6 +100,7 @@ static_library("stack") {
     "gap/gap_ble.cc",
     "gap/gap_conn.cc",
     "gatt/att_protocol.cc",
+    "gatt/connection_manager.cc",
     "gatt/gatt_api.cc",
     "gatt/gatt_attr.cc",
     "gatt/gatt_auth.cc",
@@ -105,13 +123,6 @@ static_library("stack") {
     "l2cap/l2c_main.cc",
     "l2cap/l2c_utils.cc",
     "l2cap/l2cap_client.cc",
-    "mcap/mca_api.cc",
-    "mcap/mca_cact.cc",
-    "mcap/mca_csm.cc",
-    "mcap/mca_dact.cc",
-    "mcap/mca_dsm.cc",
-    "mcap/mca_l2c.cc",
-    "mcap/mca_main.cc",
     "pan/pan_api.cc",
     "pan/pan_main.cc",
     "pan/pan_utils.cc",
@@ -130,19 +141,16 @@ static_library("stack") {
     "sdp/sdp_main.cc",
     "sdp/sdp_server.cc",
     "sdp/sdp_utils.cc",
-    "smp/aes.cc",
     "smp/p_256_curvepara.cc",
     "smp/p_256_ecc_pp.cc",
     "smp/p_256_multprecision.cc",
     "smp/smp_act.cc",
     "smp/smp_api.cc",
     "smp/smp_br_main.cc",
-    "smp/smp_cmac.cc",
     "smp/smp_keys.cc",
     "smp/smp_l2c.cc",
     "smp/smp_main.cc",
     "smp/smp_utils.cc",
-    "srvc/srvc_battery.cc",
     "srvc/srvc_dis.cc",
     "srvc/srvc_eng.cc",
   ]
@@ -162,6 +170,8 @@ static_library("stack") {
     "sdp",
     "smp",
     "srvc",
+    "//linux_include",
+    "//internal_include",
     "//btcore/include",
     "//vnd/include",
     "//vnd/ble",
@@ -179,6 +189,7 @@ static_library("stack") {
   ]
 
   deps = [
+    ":crypto_toolbox",
     "//types",
     "//third_party/libchrome:base",
     "//third_party/libldac:libldacBT_enc",
@@ -226,9 +237,81 @@ executable("stack_unittests") {
     "//btcore",
     "//device",
     "//embdrv/sbc",
+    "//embdrv/g722",
     "//hci",
     "//types",
     "//main:bluetooth",
+    "//third_party/googletest:gmock_main",
+    "//third_party/libchrome:base",
+  ]
+}
+
+executable("net_test_stack_crypto_toolbox") {
+  testonly = true
+  sources = [
+    "test/crypto_toolbox_test.cc",
+  ]
+
+  include_dirs = [
+    "//",
+  ]
+
+  deps = [
+    ":crypto_toolbox",
+    "//third_party/googletest:gmock_main",
+    "//third_party/libchrome:base",
+  ]
+}
+
+executable("net_test_stack_smp") {
+  testonly = true
+  sources = [
+        "smp/p_256_curvepara.cc",
+        "smp/p_256_ecc_pp.cc",
+        "smp/p_256_multprecision.cc",
+        "smp/smp_keys.cc",
+        "smp/smp_api.cc",
+        "smp/smp_main.cc",
+        "smp/smp_utils.cc",
+        "test/stack_smp_test.cc",
+  ]
+
+  include_dirs = [
+    "//",
+    "//linux_include",
+    "//internal_include",
+    "//btcore/include",
+    "//hci/include",
+    "//utils/include",
+    "//bta/include",
+    "//bta/sys",
+    "//btcore/include",
+    "//embdrv/sbc/encoder/include",
+    "//hci/include",
+    "//internal_include",
+    "//stack/a2dp",
+    "//stack/l2cap",
+    "//stack/btm",
+    "//stack/include",
+    "//third_party/tinyxml2",
+    "//udrv/include",
+    "//utils/include",
+    "//vnd/include"
+  ]
+
+  libs = [
+    "-ldl",
+    "-lpthread",
+    "-lresolv",
+    "-lrt",
+    "-lz",
+    "-latomic",
+  ]
+
+  deps = [
+    ":crypto_toolbox",
+    "//osi",
+    "//types",
     "//third_party/googletest:gmock_main",
     "//third_party/libchrome:base",
   ]

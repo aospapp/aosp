@@ -31,15 +31,17 @@ import com.android.tradefed.testtype.IBuildReceiver;
  * Set of tests that verify behavior of runtime permissions, including both
  * dynamic granting and behavior of legacy apps.
  */
-@AppModeFull // TODO: Needs porting to instant
 public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     private static final String USES_PERMISSION_PKG = "com.android.cts.usepermission";
     private static final String ESCALATE_PERMISSION_PKG = "com.android.cts.escalate.permission";
 
     private static final String APK_22 = "CtsUsePermissionApp22.apk";
+    private static final String APK_22_ONLY_CALENDAR = "RequestsOnlyCalendarApp22.apk";
     private static final String APK_23 = "CtsUsePermissionApp23.apk";
     private static final String APK_25 = "CtsUsePermissionApp25.apk";
     private static final String APK_26 = "CtsUsePermissionApp26.apk";
+    private static final String APK_28 = "CtsUsePermissionApp28.apk";
+    private static final String APK_29 = "CtsUsePermissionApp29.apk";
     private static final String APK_Latest = "CtsUsePermissionAppLatest.apk";
 
     private static final String APK_PERMISSION_POLICY_25 = "CtsPermissionPolicyTest25.apk";
@@ -50,9 +52,10 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
     private static final String APK_ESCLATE_TO_RUNTIME_PERMISSIONS =
             "CtsEscalateToRuntimePermissions.apk";
 
-    private static final String APK_ACCESS_SERIAL_LEGACY = "CtsAccessSerialLegacy.apk";
-    private static final String APK_ACCESS_SERIAL_MODERN = "CtsAccessSerialModern.apk";
-    private static final String ACCESS_SERIAL_PKG = "android.os.cts";
+    private static final String REVIEW_HELPER_APK = "ReviewPermissionHelper.apk";
+    private static final String REVIEW_HELPER_PKG = "com.android.cts.reviewpermissionhelper";
+    private static final String REVIEW_HELPER_TEST_CLASS = REVIEW_HELPER_PKG
+            + ".ReviewPermissionsTest";
 
     private static final String SCREEN_OFF_TIMEOUT_NS = "system";
     private static final String SCREEN_OFF_TIMEOUT_KEY = "screen_off_timeout";
@@ -71,6 +74,16 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
         mBuildHelper = new CompatibilityBuildHelper(buildInfo);
     }
 
+    /**
+     * Approve the review permission prompt
+     */
+    private void approveReviewPermissionDialog() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS, "approveReviewPermissions");
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -82,7 +95,6 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
         getDevice().uninstallPackage(USES_PERMISSION_PKG);
         getDevice().uninstallPackage(ESCALATE_PERMISSION_PKG);
         getDevice().uninstallPackage(PERMISSION_POLICY_25_PKG);
-        getDevice().uninstallPackage(ACCESS_SERIAL_PKG);
 
         // Set screen timeout to 30 min to not timeout while waiting for UI to change
         mScreenTimeoutBeforeTest = getDevice().getSetting(SCREEN_OFF_TIMEOUT_NS,
@@ -104,7 +116,6 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
         getDevice().uninstallPackage(USES_PERMISSION_PKG);
         getDevice().uninstallPackage(ESCALATE_PERMISSION_PKG);
         getDevice().uninstallPackage(PERMISSION_POLICY_25_PKG);
-        getDevice().uninstallPackage(ACCESS_SERIAL_PKG);
     }
 
     public void testFail() throws Exception {
@@ -137,14 +148,22 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
         }
     }
 
+    @AppModeFull(reason = "Instant applications must be at least SDK 26")
     public void testCompatDefault22() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
+
+        approveReviewPermissionDialog();
+
         runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
                 "testCompatDefault");
     }
 
+    @AppModeFull(reason = "Instant applications must be at least SDK 26")
     public void testCompatRevoked22() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
+
+        approveReviewPermissionDialog();
+
         boolean didThrow = false;
         try {
             runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
@@ -159,8 +178,12 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
                 "testCompatRevoked_part2");
     }
 
+    @AppModeFull(reason = "Instant applications must be at least SDK 26")
     public void testNoRuntimePrompt22() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
+
+        approveReviewPermissionDialog();
+
         runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
                 "testNoRuntimePrompt");
     }
@@ -284,6 +307,9 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
 
     public void testUpgradeKeepsPermissions() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
+
+        approveReviewPermissionDialog();
+
         runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
                 "testAllPermissionsGrantedByDefault");
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_23), true, false));
@@ -316,6 +342,9 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
 
     public void testRevokePropagatedOnUpgradeOldToNewModel() throws Exception {
         assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false, false));
+
+        approveReviewPermissionDialog();
+
         boolean didThrow = false;
         try {
             runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
@@ -384,25 +413,121 @@ public class PermissionsHostTest extends DeviceTestCase implements IAbiReceiver,
                 "testInvalidPermission");
     }
 
+    public void testPermissionSplit28() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_28), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest28",
+                "testLocationPermissionWasSplit");
+    }
 
-    public void testSerialAccessPolicy() throws Exception {
-        // Verify legacy app behavior
-        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                APK_ACCESS_SERIAL_LEGACY), false, false));
-        runDeviceTests(ACCESS_SERIAL_PKG,
-                "android.os.cts.AccessSerialLegacyTest",
-                "testAccessSerialNoPermissionNeeded");
+    public void testPermissionNotSplit29() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "locationPermissionIsNotSplit");
+    }
 
-        // Verify modern app behavior
-        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(
-                APK_ACCESS_SERIAL_MODERN), true, false));
-        runDeviceTests(ACCESS_SERIAL_PKG,
-                "android.os.cts.AccessSerialModernTest",
-                "testAccessSerialPermissionNeeded");
+    public void testRequestOnlyBackgroundNotPossible() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "requestOnlyBackgroundNotPossible");
+    }
+
+    public void testRequestBoth() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "requestBoth");
+    }
+
+    public void testRequestBothInSequence() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "requestBothInSequence");
+    }
+
+    public void testRequestBothButGrantInSequence() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "requestBothButGrantInSequence");
+    }
+
+    public void testDenyBackgroundWithPrejudice() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_29), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "denyBackgroundWithPrejudice");
+    }
+
+    public void testPermissionNotSplitLatest() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_Latest), false, false));
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest29",
+                "locationPermissionIsNotSplit");
+    }
+
+    public void testDenyCalendarDuringReview() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22_ONLY_CALENDAR), false,
+                false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS, "denyCalendarPermissions");
+
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
+                "testAssertNoCalendarAccess");
+    }
+
+    public void testDenyGrantCalendarDuringReview() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22_ONLY_CALENDAR), false,
+                false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS, "denyGrantCalendarPermissions");
+
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
+                "testAssertCalendarAccess");
+    }
+
+    public void testDenyGrantDenyCalendarDuringReview() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22_ONLY_CALENDAR), false,
+                false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS,
+                "denyGrantDenyCalendarPermissions");
+
+        runDeviceTests(USES_PERMISSION_PKG, "com.android.cts.usepermission.UsePermissionTest22",
+                "testAssertNoCalendarAccess");
+    }
+
+    public void testCancelReview() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22_ONLY_CALENDAR), false,
+                false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        // Start APK_22_ONLY_CALENDAR, but cancel review
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS,
+                "cancelReviewPermissions");
+
+        // Start APK_22_ONLY_CALENDAR again, now approve review
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS, "approveReviewPermissions");
+
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS,
+                "assertNoReviewPermissionsNeeded");
+    }
+
+    public void testReviewPermissionWhenServiceIsBound() throws Exception {
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK_22), false,
+                false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(REVIEW_HELPER_APK), true,
+                true));
+
+        // Check if service of APK_22 has permissions
+        runDeviceTests(REVIEW_HELPER_PKG, REVIEW_HELPER_TEST_CLASS,
+                "reviewPermissionWhenServiceIsBound");
     }
 
     private void runDeviceTests(String packageName, String testClassName, String testMethodName)
             throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), packageName, testClassName, testMethodName);
     }
 }

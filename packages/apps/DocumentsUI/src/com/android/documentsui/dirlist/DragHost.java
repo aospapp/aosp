@@ -20,9 +20,11 @@ import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.app.Activity;
 import android.content.ClipData;
+import android.util.Log;
 import android.view.DragEvent;
 import android.view.View;
-import android.util.Log;
+
+import androidx.recyclerview.selection.SelectionTracker;
 
 import com.android.documentsui.AbstractActionHandler;
 import com.android.documentsui.AbstractDragHost;
@@ -32,7 +34,6 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.State;
-import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.ui.DialogController;
 
 import java.util.function.Predicate;
@@ -45,7 +46,7 @@ class DragHost<T extends Activity & AbstractActionHandler.CommonAddons> extends 
     private static final String TAG = "dirlist.DragHost";
 
     private final T mActivity;
-    private final SelectionHelper mSelectionMgr;
+    private final SelectionTracker<String> mSelectionMgr;
     private final ActionHandler mActions;
     private final State mState;
     private final DialogController mDialogs;
@@ -56,7 +57,7 @@ class DragHost<T extends Activity & AbstractActionHandler.CommonAddons> extends 
     DragHost(
             T activity,
             DragAndDropManager dragAndDropManager,
-            SelectionHelper selectionMgr,
+            SelectionTracker<String> selectionMgr,
             ActionHandler actions,
             State state,
             DialogController dialogs,
@@ -117,7 +118,9 @@ class DragHost<T extends Activity & AbstractActionHandler.CommonAddons> extends 
 
         DocumentInfo dst = mDestinationLookup.lookup(v);
         if (dst == null) {
-            if (DEBUG) Log.d(TAG, "Invalid destination. Ignoring.");
+            if (DEBUG) {
+                Log.d(TAG, "Invalid destination. Ignoring.");
+            }
             return false;
         }
 

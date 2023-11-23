@@ -31,17 +31,23 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Iterator;
 import java.util.UUID;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.lang.Thread;
 import java.lang.Object;
 import android.os.Looper;
 
 // This test works with the MediaDrm mock plugin
-public class MediaDrmMockTest extends AndroidTestCase {
+public class MediaDrmMockTest extends AndroidTestCase
+        implements MediaDrm.OnEventListener, MediaDrm.OnKeyStatusChangeListener,
+        MediaDrm.OnExpirationUpdateListener, MediaDrm.OnSessionLostStateListener {
     private static final String TAG = "MediaDrmMockTest";
 
     // The scheme supported by the mock drm plugin
     static final UUID mockScheme = new UUID(0x0102030405060708L, 0x090a0b0c0d0e0f10L);
     static final UUID badScheme = new UUID(0xffffffffffffffffL, 0xffffffffffffffffL);
+    static final UUID clearkeyScheme = new UUID(0xe2719d58a985b3c9L, 0x781ab030af78d30eL);
 
     private boolean isMockPluginInstalled() {
         return MediaDrm.isCryptoSchemeSupported(mockScheme);
@@ -641,11 +647,37 @@ public class MediaDrmMockTest extends AndroidTestCase {
     private Object mLock = new Object();
     private boolean mGotEvent = false;
 
+    private int mExpectedEvent;
+    private byte[] mExpectedSessionId;
+    private byte[] mExpectedData;
+
+    private ThreadPoolExecutor mExecutor;
+
+    @Override
+    public void onEvent(MediaDrm md, byte[] sessionId, int event,
+                        int extra, byte[] data) {
+        synchronized(mLock) {
+            Log.d(TAG,"testEventNoSessionNoData.onEvent");
+            assertTrue(md == mMediaDrm);
+            assertTrue(event == mExpectedEvent);
+            assertTrue(Arrays.equals(sessionId, mExpectedSessionId));
+            assertTrue(Arrays.equals(data, mExpectedData));
+            mGotEvent = true;
+            mLock.notify();
+        }
+    }
+
+    public void testEventNoSessionNoDataWithExecutor() throws Exception {
+        mExecutor = new ScheduledThreadPoolExecutor(1);
+        testEventNoSessionNoData();
+    }
+
     public void testEventNoSessionNoData() throws Exception {
         if (!isMockPluginInstalled()) {
             return;
         }
 
+        mExpectedEvent = 2;
 
         new Thread() {
             @Override
@@ -666,21 +698,11 @@ public class MediaDrmMockTest extends AndroidTestCase {
 
                 synchronized(mLock) {
                     mLock.notify();
-                    mMediaDrm.setOnEventListener(new MediaDrm.OnEventListener() {
-                            @Override
-                            public void onEvent(MediaDrm md, byte[] sessionId, int event,
-                                                int extra, byte[] data) {
-                                synchronized(mLock) {
-                                    Log.d(TAG,"testEventNoSessionNoData.onEvent");
-                                    assertTrue(md == mMediaDrm);
-                                    assertTrue(event == 2);
-                                    assertTrue(sessionId == null);
-                                    assertTrue(data == null);
-                                    mGotEvent = true;
-                                    mLock.notify();
-                                }
-                            }
-                        });
+                    if (mExecutor != null) {
+                        mMediaDrm.setOnEventListener(mExecutor, MediaDrmMockTest.this);
+                    } else {
+                        mMediaDrm.setOnEventListener(MediaDrmMockTest.this);
+                    }
                 }
 
                 Looper.loop();  // Blocks forever until Looper.quit() is called.
@@ -708,6 +730,12 @@ public class MediaDrmMockTest extends AndroidTestCase {
 
         mLooper.quit();
         assertTrue(mGotEvent);
+        shutdownExecutor();
+    }
+
+    public void testEventWithSessionAndDataWithExecutor() throws Exception {
+        mExecutor = new ScheduledThreadPoolExecutor(1);
+        testEventWithSessionAndData();
     }
 
     public void testEventWithSessionAndData() throws Exception {
@@ -734,31 +762,21 @@ public class MediaDrmMockTest extends AndroidTestCase {
                 }
 
 
-                final byte[] expected_sessionId = openSession(mMediaDrm);
-                final byte[] expected_data = {0x10, 0x11, 0x12, 0x13, 0x14,
+                mExpectedEvent = 1;
+                mExpectedSessionId = openSession(mMediaDrm);
+                mExpectedData = new byte[] {0x10, 0x11, 0x12, 0x13, 0x14,
                                               0x15, 0x16, 0x17, 0x18, 0x19};
 
-                mMediaDrm.setPropertyByteArray("mock-event-session-id", expected_sessionId);
-                mMediaDrm.setPropertyByteArray("mock-event-data", expected_data);
+                mMediaDrm.setPropertyByteArray("mock-event-session-id", mExpectedSessionId);
+                mMediaDrm.setPropertyByteArray("mock-event-data", mExpectedData);
 
                 synchronized(mLock) {
                     mLock.notify();
-
-                    mMediaDrm.setOnEventListener(new MediaDrm.OnEventListener() {
-                            @Override
-                            public void onEvent(MediaDrm md, byte[] sessionId, int event,
-                                                int extra, byte[] data) {
-                                synchronized(mLock) {
-                                    Log.d(TAG,"testEventWithSessoinAndData.onEvent");
-                                    assertTrue(md == mMediaDrm);
-                                    assertTrue(event == 1);
-                                    assertTrue(Arrays.equals(sessionId, expected_sessionId));
-                                    assertTrue(Arrays.equals(data, expected_data));
-                                    mGotEvent = true;
-                                    mLock.notify();
-                                }
-                            }
-                        });
+                    if (mExecutor != null) {
+                        mMediaDrm.setOnEventListener(mExecutor, MediaDrmMockTest.this);
+                    } else {
+                        mMediaDrm.setOnEventListener(MediaDrmMockTest.this);
+                    }
                 }
                 Looper.loop();  // Blocks forever until Looper.quit() is called.
             }
@@ -785,6 +803,25 @@ public class MediaDrmMockTest extends AndroidTestCase {
 
         mLooper.quit();
         assertTrue(mGotEvent);
+        shutdownExecutor();
+    }
+
+    @Override
+    public void onExpirationUpdate(MediaDrm md, byte[] sessionId,
+            long expiryTimeMS) {
+        synchronized(mLock) {
+            Log.d(TAG,"testExpirationUpdate.onExpirationUpdate");
+            assertTrue(md == mMediaDrm);
+            assertTrue(Arrays.equals(sessionId, mExpectedSessionId));
+            assertTrue(expiryTimeMS == 123456789012345L);
+            mGotEvent = true;
+            mLock.notify();
+        }
+    }
+
+    public void testExpirationUpdateWithExecutor() throws Exception {
+        mExecutor = new ScheduledThreadPoolExecutor(1);
+        testExpirationUpdate();
     }
 
     public void testExpirationUpdate() throws Exception {
@@ -811,27 +848,17 @@ public class MediaDrmMockTest extends AndroidTestCase {
                 }
 
 
-                final byte[] expected_sessionId = openSession(mMediaDrm);
+                mExpectedSessionId = openSession(mMediaDrm);
 
-                mMediaDrm.setPropertyByteArray("mock-event-session-id", expected_sessionId);
+                mMediaDrm.setPropertyByteArray("mock-event-session-id", mExpectedSessionId);
 
                 synchronized(mLock) {
                     mLock.notify();
-
-                    mMediaDrm.setOnExpirationUpdateListener(new MediaDrm.OnExpirationUpdateListener() {
-                            @Override
-                            public void onExpirationUpdate(MediaDrm md, byte[] sessionId,
-                                    long expiryTimeMS) {
-                                synchronized(mLock) {
-                                    Log.d(TAG,"testExpirationUpdate.onExpirationUpdate");
-                                    assertTrue(md == mMediaDrm);
-                                    assertTrue(Arrays.equals(sessionId, expected_sessionId));
-                                    assertTrue(expiryTimeMS == 123456789012345L);
-                                    mGotEvent = true;
-                                    mLock.notify();
-                                }
-                            }
-                        }, null);
+                    if (mExecutor != null) {
+                        mMediaDrm.setOnExpirationUpdateListener(mExecutor, MediaDrmMockTest.this);
+                    } else {
+                        mMediaDrm.setOnExpirationUpdateListener(MediaDrmMockTest.this, null);
+                    }
                 }
                 Looper.loop();  // Blocks forever until Looper.quit() is called.
             }
@@ -858,6 +885,43 @@ public class MediaDrmMockTest extends AndroidTestCase {
 
         mLooper.quit();
         assertTrue(mGotEvent);
+        shutdownExecutor();
+    }
+
+    @Override
+    public void onKeyStatusChange(MediaDrm md, byte[] sessionId,
+            List<KeyStatus> keyInformation, boolean hasNewUsableKey) {
+        synchronized(mLock) {
+            Log.d(TAG,"testKeyStatusChange.onKeyStatusChange");
+            assertTrue(md == mMediaDrm);
+            assertTrue(Arrays.equals(sessionId, mExpectedSessionId));
+            try {
+                KeyStatus keyStatus = keyInformation.get(0);
+                assertTrue(Arrays.equals(keyStatus.getKeyId(), "key1".getBytes()));
+                assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_USABLE);
+                keyStatus = keyInformation.get(1);
+                assertTrue(Arrays.equals(keyStatus.getKeyId(), "key2".getBytes()));
+                assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_EXPIRED);
+                keyStatus = keyInformation.get(2);
+                assertTrue(Arrays.equals(keyStatus.getKeyId(), "key3".getBytes()));
+                assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_OUTPUT_NOT_ALLOWED);
+                keyStatus = keyInformation.get(3);
+                assertTrue(Arrays.equals(keyStatus.getKeyId(), "key4".getBytes()));
+                assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_PENDING);
+                keyStatus = keyInformation.get(4);
+                assertTrue(Arrays.equals(keyStatus.getKeyId(), "key5".getBytes()));
+                assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_INTERNAL_ERROR);
+                assertTrue(hasNewUsableKey);
+                mGotEvent = true;
+            } catch (IndexOutOfBoundsException e) {
+            }
+            mLock.notify();
+        }
+    }
+
+    public void testKeyStatusChangeWithExecutor() throws Exception {
+        mExecutor = new ScheduledThreadPoolExecutor(1);
+        testKeyStatusChange();
     }
 
     public void testKeyStatusChange() throws Exception {
@@ -884,45 +948,17 @@ public class MediaDrmMockTest extends AndroidTestCase {
                 }
 
 
-                final byte[] expected_sessionId = openSession(mMediaDrm);
+                mExpectedSessionId = openSession(mMediaDrm);
 
-                mMediaDrm.setPropertyByteArray("mock-event-session-id", expected_sessionId);
+                mMediaDrm.setPropertyByteArray("mock-event-session-id", mExpectedSessionId);
 
                 synchronized(mLock) {
                     mLock.notify();
-
-                    mMediaDrm.setOnKeyStatusChangeListener(new MediaDrm.OnKeyStatusChangeListener() {
-                            @Override
-                            public void onKeyStatusChange(MediaDrm md, byte[] sessionId,
-                                    List<KeyStatus> keyInformation, boolean hasNewUsableKey) {
-                                synchronized(mLock) {
-                                    Log.d(TAG,"testKeyStatusChange.onKeyStatusChange");
-                                    assertTrue(md == mMediaDrm);
-                                    assertTrue(Arrays.equals(sessionId, expected_sessionId));
-                                    try {
-                                        KeyStatus keyStatus = keyInformation.get(0);
-                                        assertTrue(Arrays.equals(keyStatus.getKeyId(), "key1".getBytes()));
-                                        assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_USABLE);
-                                        keyStatus = keyInformation.get(1);
-                                        assertTrue(Arrays.equals(keyStatus.getKeyId(), "key2".getBytes()));
-                                        assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_EXPIRED);
-                                        keyStatus = keyInformation.get(2);
-                                        assertTrue(Arrays.equals(keyStatus.getKeyId(), "key3".getBytes()));
-                                        assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_OUTPUT_NOT_ALLOWED);
-                                        keyStatus = keyInformation.get(3);
-                                        assertTrue(Arrays.equals(keyStatus.getKeyId(), "key4".getBytes()));
-                                        assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_PENDING);
-                                        keyStatus = keyInformation.get(4);
-                                        assertTrue(Arrays.equals(keyStatus.getKeyId(), "key5".getBytes()));
-                                        assertTrue(keyStatus.getStatusCode() == MediaDrm.KeyStatus.STATUS_INTERNAL_ERROR);
-                                        assertTrue(hasNewUsableKey);
-                                        mGotEvent = true;
-                                    } catch (IndexOutOfBoundsException e) {
-                                    }
-                                    mLock.notify();
-                                }
-                            }
-                        }, null);
+                    if (mExecutor != null) {
+                        mMediaDrm.setOnKeyStatusChangeListener(mExecutor, MediaDrmMockTest.this);
+                    } else {
+                        mMediaDrm.setOnKeyStatusChangeListener(MediaDrmMockTest.this, null);
+                    }
                 }
                 Looper.loop();  // Blocks forever until Looper.quit() is called.
             }
@@ -949,6 +985,60 @@ public class MediaDrmMockTest extends AndroidTestCase {
 
         mLooper.quit();
         assertTrue(mGotEvent);
+        shutdownExecutor();
+    }
+
+    @Override
+    public void onSessionLostState(MediaDrm md, byte[] sessionId) {
+        assertTrue(md == mMediaDrm);
+        assertTrue(Arrays.equals(sessionId, mExpectedSessionId));
+        mGotEvent = true;
+        synchronized (mLock) {
+            mLock.notify();
+        }
+    }
+
+    public void testSessionLostStateWithExecutor() throws Exception {
+        mExecutor = new ScheduledThreadPoolExecutor(1);
+        testSessionLostState();
+    }
+
+    public void testSessionLostState() throws Exception {
+        if (!MediaDrm.isCryptoSchemeSupported(clearkeyScheme)) {
+            return;
+        }
+
+        try {
+            mMediaDrm = new MediaDrm(clearkeyScheme);
+        } catch (MediaDrmException e) {
+            e.printStackTrace();
+            fail();
+        }
+
+        mMediaDrm.setPropertyString("drmErrorTest", "lostState");
+        if (mExecutor != null) {
+            mMediaDrm.setOnSessionLostStateListener(mExecutor, this);
+        } else {
+            mMediaDrm.setOnSessionLostStateListener(this, null);
+        }
+
+        mGotEvent = false;
+        mExpectedSessionId = openSession(mMediaDrm);
+        try {
+            mMediaDrm.closeSession(mExpectedSessionId);
+        } catch (Exception err) {
+            // expected
+        }
+
+        synchronized(mLock) {
+            try {
+                mLock.wait(1000);
+            } catch (Exception e) {
+            }
+        }
+
+        assertTrue(mGotEvent);
+        shutdownExecutor();
     }
 
     private byte[] openSession(MediaDrm md) {
@@ -961,5 +1051,21 @@ public class MediaDrmMockTest extends AndroidTestCase {
             // ignore, not thrown by mock
         }
         return sessionId;
+    }
+
+    private void shutdownExecutor() {
+        if (mExecutor != null) {
+            mExecutor.shutdown();
+            try {
+                if (!mExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+                    fail("timed out waiting for executor");
+                }
+            } catch (InterruptedException e) {
+                fail("interrupted waiting for executor");
+            }
+            if (mExecutor.getTaskCount() == 0) {
+                fail("no tasks submitted");
+            }
+        }
     }
 }

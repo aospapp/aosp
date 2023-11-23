@@ -27,6 +27,8 @@ LOCAL_PACKAGE_NAME := CarLauncher
 
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.carlauncher
+
 LOCAL_CERTIFICATE := platform
 
 LOCAL_MODULE_TAGS := optional
@@ -41,14 +43,20 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_DEX_PREOPT := false
 
-LOCAL_STATIC_ANDROID_LIBRARIES += \
-    android-support-car \
-    android-support-constraint-layout
-
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-constraint-layout-solver
+    androidx-constraintlayout_constraintlayout-solver
 
 LOCAL_JAVA_LIBRARIES += android.car
+
+LOCAL_STATIC_ANDROID_LIBRARIES += \
+    androidx-constraintlayout_constraintlayout \
+    androidx.lifecycle_lifecycle-extensions \
+    car-media-common
+
+# Including the resources for the static android libraries allows to pick up their static overlays.
+LOCAL_RESOURCE_DIR += \
+    $(LOCAL_PATH)/../libs/car-apps-common/res \
+    $(LOCAL_PATH)/../libs/car-media-common/res
 
 include $(BUILD_PACKAGE)
 

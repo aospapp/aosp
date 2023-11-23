@@ -87,7 +87,8 @@
 
     <string name="v1_app_name">TestingCam2</string>
     <string name="camera_id_spinner_prompt">Camera Id</string>
-    <string name="info_button_label">JPEG!</string>
+    <string name="still_format_spinner_prompt">Still Capture Format</string>
+    <string name="info_button_label">Capture!</string>
     <string name="flush_button_label">Flush device</string>
     <string name="focus_lock_button_label">Focus Lock</string>
     <string name="focus_unlock_button_label">Focus Unlock</string>

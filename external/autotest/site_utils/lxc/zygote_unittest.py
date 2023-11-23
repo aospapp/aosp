@@ -20,11 +20,12 @@ from autotest_lib.site_utils.lxc import utils as lxc_utils
 
 
 @unittest.skipIf(lxc.IS_MOBLAB, 'Zygotes are not supported on moblab.')
-class ZygoteTests(unittest.TestCase):
+class ZygoteTests(lxc_utils.LXCTests):
     """Unit tests for the Zygote class."""
 
     @classmethod
     def setUpClass(cls):
+        super(ZygoteTests, cls).setUpClass()
         cls.test_dir = tempfile.mkdtemp(dir=lxc.DEFAULT_CONTAINER_PATH,
                                         prefix='zygote_unittest_')
 
@@ -341,5 +342,4 @@ class ZygoteTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest_setup.setup()
     unittest.main()

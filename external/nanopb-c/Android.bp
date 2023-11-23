@@ -23,24 +23,51 @@ cc_defaults {
         "-Wno-unused-parameter",
     ],
     srcs: [
+        "pb_common.c",
         "pb_decode.c",
         "pb_encode.c",
     ],
     sdk_version: "19",
     export_include_dirs: ["."],
+    vendor_available: true,
 }
 
 cc_library_static {
     name: "libprotobuf-c-nano",
-    vendor_available: true,
     defaults: ["libprotobuf-c-nano-defaults"],
 }
 
 cc_library_static {
     name: "libprotobuf-c-nano-enable_malloc",
-    vendor_available: true,
     defaults: ["libprotobuf-c-nano-defaults"],
 
     cflags: ["-DPB_ENABLE_MALLOC"],
 }
 
+cc_library_static {
+    name: "libprotobuf-c-nano-16bit",
+    defaults: ["libprotobuf-c-nano-defaults"],
+
+    cflags: ["-DPB_FIELD_16BIT"],
+}
+
+cc_library_static {
+    name: "libprotobuf-c-nano-enable_malloc-16bit",
+    defaults: ["libprotobuf-c-nano-defaults"],
+
+    cflags: ["-DPB_ENABLE_MALLOC", "-DPB_FIELD_16BIT"],
+}
+
+cc_library_static {
+    name: "libprotobuf-c-nano-32bit",
+    defaults: ["libprotobuf-c-nano-defaults"],
+
+    cflags: ["-DPB_FIELD_32BIT"],
+}
+
+cc_library_static {
+    name: "libprotobuf-c-nano-enable_malloc-32bit",
+    defaults: ["libprotobuf-c-nano-defaults"],
+
+    cflags: ["-DPB_ENABLE_MALLOC", "-DPB_FIELD_32BIT"],
+}

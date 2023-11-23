@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -58,14 +58,14 @@ struct getout *new_getout(struct OperationConfig *config)
 
 ParameterError file2string(char **bufp, FILE *file)
 {
-  char buffer[256];
   char *ptr;
   char *string = NULL;
-  size_t stringlen = 0;
-  size_t buflen;
 
   if(file) {
+    char buffer[256];
+    size_t stringlen = 0;
     while(fgets(buffer, sizeof(buffer), file)) {
+      size_t buflen;
       ptr = strchr(buffer, '\r');
       if(ptr)
         *ptr = '\0';
@@ -91,11 +91,11 @@ ParameterError file2memory(char **bufp, size_t *size, FILE *file)
 {
   char *newbuf;
   char *buffer = NULL;
-  size_t alloc = 512;
   size_t nused = 0;
-  size_t nread;
 
   if(file) {
+    size_t nread;
+    size_t alloc = 512;
     do {
       if(!buffer || (alloc == nused)) {
         /* size_t overflow detection for huge files */
@@ -456,9 +456,8 @@ static CURLcode checkpasswd(const char *kind, /* for what purpose */
                       kind, *userpwd);
     else
       curlx_msnprintf(prompt, sizeof(prompt),
-                      "Enter %s password for user '%s' on URL #%"
-                      CURL_FORMAT_CURL_OFF_TU ":",
-                      kind, *userpwd, (curl_off_t) (i + 1));
+                      "Enter %s password for user '%s' on URL #%zu:",
+                      kind, *userpwd, i + 1);
 
     /* get password */
     getpass_r(prompt, passwd, sizeof(passwd));

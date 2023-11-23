@@ -26,12 +26,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.provider.CallLog;
-import android.provider.Settings;
 import android.util.Log;
 
 import com.android.bluetooth.R;
-import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.sdp.SdpManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,14 +44,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * @hide
  */
 public class PbapClientService extends ProfileService {
-    private static final boolean DBG = false;
+    private static final boolean DBG = Utils.DBG;
+    private static final boolean VDBG = Utils.VDBG;
+
     private static final String TAG = "PbapClientService";
+    private static final String SERVICE_NAME = "Phonebook Access PCE";
     // MAXIMUM_DEVICES set to 10 to prevent an excessive number of simultaneous devices.
     private static final int MAXIMUM_DEVICES = 10;
     private Map<BluetoothDevice, PbapClientStateMachine> mPbapClientStateMachineMap =
             new ConcurrentHashMap<>();
     private static PbapClientService sPbapClientService;
     private PbapBroadcastReceiver mPbapBroadcastReceiver = new PbapBroadcastReceiver();
+    private int mSdpHandle = -1;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -60,8 +64,8 @@ public class PbapClientService extends ProfileService {
 
     @Override
     protected boolean start() {
-        if (DBG) {
-            Log.d(TAG, "onStart");
+        if (VDBG) {
+            Log.v(TAG, "onStart");
         }
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
@@ -72,13 +76,17 @@ public class PbapClientService extends ProfileService {
         } catch (Exception e) {
             Log.w(TAG, "Unable to register pbapclient receiver", e);
         }
+
         removeUncleanAccounts();
+        registerSdpRecord();
         setPbapClientService(this);
         return true;
     }
 
     @Override
     protected boolean stop() {
+        setPbapClientService(null);
+        cleanUpSdpRecord();
         try {
             unregisterReceiver(mPbapBroadcastReceiver);
         } catch (Exception e) {
@@ -87,18 +95,12 @@ public class PbapClientService extends ProfileService {
         for (PbapClientStateMachine pbapClientStateMachine : mPbapClientStateMachineMap.values()) {
             pbapClientStateMachine.doQuit();
         }
+        removeUncleanAccounts();
         return true;
     }
 
-    @Override
-    protected void cleanup() {
-        removeUncleanAccounts();
-        // TODO: Should move to stop()
-        setPbapClientService(null);
-    }
-
     void cleanupDevice(BluetoothDevice device) {
-        Log.w(TAG, "Cleanup device: " + device);
+        if (DBG) Log.d(TAG, "Cleanup device: " + device);
         synchronized (mPbapClientStateMachineMap) {
             PbapClientStateMachine pbapClientStateMachine = mPbapClientStateMachineMap.get(device);
             if (pbapClientStateMachine != null) {
@@ -112,24 +114,54 @@ public class PbapClientService extends ProfileService {
         AccountManager accountManager = AccountManager.get(this);
         Account[] accounts =
                 accountManager.getAccountsByType(getString(R.string.pbap_account_type));
-        Log.w(TAG, "Found " + accounts.length + " unclean accounts");
+        if (VDBG) Log.v(TAG, "Found " + accounts.length + " unclean accounts");
         for (Account acc : accounts) {
             Log.w(TAG, "Deleting " + acc);
+            try {
+                getContentResolver().delete(CallLog.Calls.CONTENT_URI,
+                        CallLog.Calls.PHONE_ACCOUNT_ID + "=?", new String[]{acc.name});
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+            }
             // The device ID is the name of the account.
             accountManager.removeAccountExplicitly(acc);
         }
-        try {
-            getContentResolver().delete(CallLog.Calls.CONTENT_URI, null, null);
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+    }
+
+    private void registerSdpRecord() {
+        SdpManager sdpManager = SdpManager.getDefaultManager();
+        if (sdpManager == null) {
+            Log.e(TAG, "SdpManager is null");
+            return;
+        }
+        mSdpHandle = sdpManager.createPbapPceRecord(SERVICE_NAME,
+                PbapClientConnectionHandler.PBAP_V1_2);
+    }
+
+    private void cleanUpSdpRecord() {
+        if (mSdpHandle < 0) {
+            Log.e(TAG, "cleanUpSdpRecord, SDP record never created");
+            return;
+        }
+        int sdpHandle = mSdpHandle;
+        mSdpHandle = -1;
+        SdpManager sdpManager = SdpManager.getDefaultManager();
+        if (sdpManager == null) {
+            Log.e(TAG, "cleanUpSdpRecord failed, sdpManager is null, sdpHandle=" + sdpHandle);
+            return;
+        }
+        Log.i(TAG, "cleanUpSdpRecord, mSdpHandle=" + sdpHandle);
+        if (!sdpManager.removeSdpRecord(sdpHandle)) {
+            Log.e(TAG, "cleanUpSdpRecord, removeSdpRecord failed, sdpHandle=" + sdpHandle);
         }
     }
+
 
     private class PbapBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            Log.v(TAG, "onReceive" + action);
+            if (DBG) Log.v(TAG, "onReceive" + action);
             if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (getConnectionState(device) == BluetoothProfile.STATE_CONNECTED) {
@@ -160,7 +192,7 @@ public class PbapClientService extends ProfileService {
         }
 
         private PbapClientService getService() {
-            if (!Utils.checkCaller()) {
+            if (!com.android.bluetooth.Utils.checkCaller()) {
                 Log.w(TAG, "PbapClient call not allowed for non-active user");
                 return null;
             }
@@ -255,8 +287,8 @@ public class PbapClientService extends ProfileService {
     }
 
     private static synchronized void setPbapClientService(PbapClientService instance) {
-        if (DBG) {
-            Log.d(TAG, "setPbapClientService(): set to: " + instance);
+        if (VDBG) {
+            Log.v(TAG, "setPbapClientService(): set to: " + instance);
         }
         sPbapClientService = instance;
     }
@@ -266,7 +298,7 @@ public class PbapClientService extends ProfileService {
             throw new IllegalArgumentException("Null device");
         }
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-        Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
+        if (DBG) Log.d(TAG, "Received request to ConnectPBAPPhonebook " + device.getAddress());
         if (getPriority(device) <= BluetoothProfile.PRIORITY_OFF) {
             return false;
         }
@@ -342,11 +374,11 @@ public class PbapClientService extends ProfileService {
             throw new IllegalArgumentException("Null device");
         }
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothPbapClientPriorityKey(device.getAddress()), priority);
         if (DBG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        AdapterService.getAdapterService().getDatabase()
+            .setProfilePriority(device, BluetoothProfile.PBAP_CLIENT, priority);
         return true;
     }
 
@@ -355,10 +387,8 @@ public class PbapClientService extends ProfileService {
             throw new IllegalArgumentException("Null device");
         }
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothPbapClientPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfilePriority(device, BluetoothProfile.PBAP_CLIENT);
     }
 
     @Override

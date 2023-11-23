@@ -16,58 +16,46 @@
 
 package com.google.android.car.kitchensink.power;
 
-import android.car.CarNotConnectedException;
 import android.car.hardware.power.CarPowerManager;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
-
-import java.util.concurrent.Executor;
 
 public class PowerTestFragment extends Fragment {
     private final boolean DBG = false;
     private final String TAG = "PowerTestFragment";
     private CarPowerManager mCarPowerManager;
-    private TextView mTvBootReason;
-    private Executor mExecutor;
-
-    private class ThreadPerTaskExecutor implements Executor {
-        public void execute(Runnable r) {
-            new Thread(r).start();
-        }
-    }
 
     private final CarPowerManager.CarPowerStateListener mPowerListener =
-            new CarPowerManager.CarPowerStateListener () {
-                @Override
-                public void onStateChanged(int state) {
-                    Log.i(TAG, "onStateChanged() state = " + state);
-                }
+            (state) -> {
+                Log.i(TAG, "onStateChanged() state = " + state);
             };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mCarPowerManager = ((KitchenSinkActivity)getActivity()).getPowerManager();
-        mExecutor = new ThreadPerTaskExecutor();
+        final Runnable r = () -> {
+            mCarPowerManager = ((KitchenSinkActivity) getActivity()).getPowerManager();
+            try {
+                mCarPowerManager.setListener(mPowerListener);
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "CarPowerManager listener was not cleared");
+            }
+        };
+        ((KitchenSinkActivity) getActivity()).requestRefreshManager(r,
+                new Handler(getContext().getMainLooper()));
         super.onCreate(savedInstanceState);
-        try {
-            mCarPowerManager.setListener(mPowerListener, mExecutor);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Car is not connected!");
-        } catch (IllegalStateException e) {
-            Log.e(TAG, "CarPowerManager listener was not cleared");
-        }
     }
 
     @Override
@@ -80,10 +68,7 @@ public class PowerTestFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstance) {
         View v = inflater.inflate(R.layout.power_test, container, false);
 
-        Button b = v.findViewById(R.id.btnPwrGetBootReason);
-        b.setOnClickListener(this::getBootReasonBtn);
-
-        b = v.findViewById(R.id.btnPwrRequestShutdown);
+        Button b = v.findViewById(R.id.btnPwrRequestShutdown);
         b.setOnClickListener(this::requestShutdownBtn);
 
         b = v.findViewById(R.id.btnPwrShutdown);
@@ -92,8 +77,6 @@ public class PowerTestFragment extends Fragment {
         b = v.findViewById(R.id.btnPwrSleep);
         b.setOnClickListener(this::sleepBtn);
 
-        mTvBootReason = v.findViewById(R.id.tvPowerBootReason);
-
         if(DBG) {
             Log.d(TAG, "Starting PowerTestFragment");
         }
@@ -101,21 +84,8 @@ public class PowerTestFragment extends Fragment {
         return v;
     }
 
-    private void getBootReasonBtn(View v) {
-        try {
-            int bootReason = mCarPowerManager.getBootReason();
-            mTvBootReason.setText(String.valueOf(bootReason));
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Failed to getBootReason()", e);
-        }
-    }
-
     private void requestShutdownBtn(View v) {
-        try {
-            mCarPowerManager.requestShutdownOnNextSuspend();
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Failed to set requestShutdownOnNextSuspend()", e);
-        }
+        mCarPowerManager.requestShutdownOnNextSuspend();
     }
 
     private void shutdownBtn(View v) {

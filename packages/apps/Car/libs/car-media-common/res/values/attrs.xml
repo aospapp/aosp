@@ -30,4 +30,24 @@
     <declare-styleable name="FixedRatioImageView">
         <attr name="aspect_ratio" format="float"/>
     </declare-styleable>
+
+    <declare-styleable name="CrossfadeImageView">
+        <attr name="align_horizontal" format="enum">
+            <enum name="center" value="0"/>
+            <enum name="left" value="1"/>
+            <enum name="right" value="2"/>
+        </attr>
+    </declare-styleable>
+
+    <!-- Attributes for the MediaAppSelectorWidget. -->
+    <declare-styleable name="MediaAppSelectorWidget">
+        <!-- When false, the widget only displays the application's icon and doesn't react to taps.
+            Default is true. -->
+        <attr name="switchingEnabled" format="boolean"/>
+
+        <!-- Whether the AppSelectionFragment opened by pressing the widget should be full screen.
+            -->
+        <attr name="fullScreenDialog" format="boolean"/>
+
+    </declare-styleable>
 </resources>

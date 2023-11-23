@@ -44,31 +44,50 @@ public class MultiDiscovery extends Discovery {
         mChildListener = new Listener() {
             @Override
             public void onPrinterFound(DiscoveredPrinter printer) {
-                printerFound(first(printer.getUri()));
+                printerFound(merged(printer.getUri()));
             }
 
             @Override
             public void onPrinterLost(DiscoveredPrinter printer) {
                 // Merge remaining printer records, if any
-                DiscoveredPrinter first = first(printer.getUri());
-                if (first == null) {
+                DiscoveredPrinter remaining = merged(printer.getUri());
+                if (remaining == null) {
                     printerLost(printer.getUri());
                 } else {
-                    printerFound(first);
+                    printerFound(remaining);
                 }
             }
         };
     }
 
-    /** For a given URI return the first matching record, based on discovery mechanism order */
-    private DiscoveredPrinter first(Uri printerUri) {
+    /**
+     * For a given URI combine and return records with the same printerUri, based on discovery
+     * mechanism order.
+     */
+    private DiscoveredPrinter merged(Uri printerUri) {
+        DiscoveredPrinter combined = null;
+
         for (Discovery discovery : getChildren()) {
-            DiscoveredPrinter found = discovery.getPrinter(printerUri);
-            if (found != null) {
-                return found;
+            DiscoveredPrinter discovered = discovery.getPrinter(printerUri);
+            if (discovered != null) {
+                if (combined == null) {
+                    combined = discovered;
+                } else {
+                    // Merge all paths found, in order, without duplicates
+                    List<Uri> allPaths = new ArrayList<>(combined.paths);
+                    for (Uri path : discovered.paths) {
+                        if (!allPaths.contains(path)) {
+                            allPaths.add(path);
+                        }
+                    }
+                    // Assemble a new printer containing paths.
+                    combined = new DiscoveredPrinter(discovered.uuid, discovered.name, allPaths,
+                            discovered.location);
+                }
             }
         }
-        return null;
+
+        return combined;
     }
 
     @Override

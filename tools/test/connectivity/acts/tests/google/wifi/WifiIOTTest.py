@@ -52,7 +52,7 @@ class WifiIOTTest(WifiBaseTest):
             len(self.iot_networks) > 0,
             "Need at least one iot network with psk.")
 
-        if self.open_network:
+        if getattr(self, 'open_network', False):
             self.iot_networks.append(self.open_network)
 
         wutils.wifi_toggle_state(self.dut, True)
@@ -132,12 +132,12 @@ class WifiIOTTest(WifiBaseTest):
     """Tests"""
 
     @test_tracker_info(uuid="a57cc861-b6c2-47e4-9db6-7a3ab32c6e20")
-    def iot_connection_to_ubiquity_ap1_2g(self):
+    def test_iot_connection_to_ubiquity_ap1_2g(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="2065c2f7-2b89-4da7-a15d-e5dc17b88d52")
-    def iot_connection_to_ubiquity_ap1_5g(self):
+    def test_iot_connection_to_ubiquity_ap1_5g(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
@@ -152,12 +152,12 @@ class WifiIOTTest(WifiBaseTest):
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="02a8cc75-6781-4153-8d90-bed7568a1e78")
-    def iot_connection_to_AirportExtreme_2G(self):
+    def test_iot_connection_to_AirportExtreme_2G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="83a42c97-1358-4ba7-bdb2-238fdb1c945e")
-    def iot_connection_to_AirportExtreme_5G(self):
+    def test_iot_connection_to_AirportExtreme_5G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
@@ -172,12 +172,12 @@ class WifiIOTTest(WifiBaseTest):
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="2503d9ed-35df-4be0-b838-590324cecaee")
-    def test_iot_connection_to_Dlink_AC1200_2G(self):
+    def iot_connection_to_Dlink_AC1200_2G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="0a44e148-a4bf-43f4-88eb-e4c1ffa850ce")
-    def test_iot_connection_to_Dlink_AC1200_5G(self):
+    def iot_connection_to_Dlink_AC1200_5G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
@@ -242,17 +242,17 @@ class WifiIOTTest(WifiBaseTest):
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="054d2ffc-97fd-4613-bf47-acedd0fa4701")
-    def iot_connection_to_NETGEAR_AC3200_2G(self):
+    def test_iot_connection_to_NETGEAR_AC3200_2G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="d15a789a-def5-4c6a-b59e-1a75f73cc6a9")
-    def iot_connection_to_NETGEAR_AC3200_5G_1(self):
+    def test_iot_connection_to_NETGEAR_AC3200_5G_1(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="1de6369e-97da-479f-b17c-9144bb814f51")
-    def iot_connection_to_NETGEAR_AC3200_5G_2(self):
+    def test_iot_connection_to_NETGEAR_AC3200_5G_2(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
@@ -282,12 +282,12 @@ class WifiIOTTest(WifiBaseTest):
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="e5517b82-c225-449d-83ac-055a561a764f")
-    def iot_connection_to_TP_LINK_AC1700_2G(self):
+    def test_iot_connection_to_TP_LINK_AC1700_2G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 
     @test_tracker_info(uuid="9531d3cc-129d-4501-a5e3-d7502120cd8b")
-    def iot_connection_to_TP_LINK_AC1700_5G(self):
+    def test_iot_connection_to_TP_LINK_AC1700_5G(self):
         ssid_key = self.current_test_name.replace(self.iot_test_prefix, "")
         self.connect_to_wifi_network_and_run_iperf(self.ssid_map[ssid_key])
 

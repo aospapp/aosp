@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"‏در حال اجرای کد USSD..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"‏کد MMI لغو شد"</string>
     <string name="cancel" msgid="5044513931633602634">"لغو"</string>
-    <string name="enter_input" msgid="1810529547726803893">"‏طول پیام USSD باید بین <xliff:g id="MIN_LEN">%d</xliff:g> تا <xliff:g id="MAX_LEN">%d</xliff:g> نویسه باشد. لطفاً دوباره امتحان کنید."</string>
+    <string name="enter_input" msgid="1810529547726803893">"‏طول پیام USSD باید بین <xliff:g id="MIN_LEN">%1$d</xliff:g> تا <xliff:g id="MAX_LEN">%2$d</xliff:g> نویسه باشد. لطفاً دوباره امتحان کنید."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"مدیریت تماس کنفرانس"</string>
     <string name="ok" msgid="3811371167865772377">"تأیید"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"بلندگو"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"پست صوتی"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"پست صوتی (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"برقراری و دریافت تماس"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"بازارسال هوشمند"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"وقتی شماره‌ای قابل دسترسی نیست، همیشه تماس‌ها را به شماره دیگری بازارسال کنید."</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"اعلان‌ها"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"پخش هشدارهای اضطراری"</string>
     <string name="call_settings" msgid="6112441768261754562">"تنظیمات تماس"</string>
@@ -97,7 +100,7 @@
     <string name="call_forwarding_settings" msgid="3378927671091537173">"تنظیمات هدایت تماس"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"تنظیمات هدایت تماس (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="2574386948026924737">"هدایت تماس"</string>
-    <string name="labelCFU" msgid="8147177368148660600">"همیشه هدایت"</string>
+    <string name="labelCFU" msgid="8147177368148660600">"همیشه بازارسال"</string>
     <string name="messageCFU" msgid="3560082430662923687">"همیشه از این شماره استفاده شود"</string>
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"هدایت همه تماس‌ها"</string>
     <string name="sum_cfu_enabled" msgid="2450052502198827927">"هدایت همه تماس‌ها به <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"در شبکه ثبت شد."</string>
     <string name="already_auto" msgid="6067116884321285507">"درحال‌حاضر در حالت انتخاب خودکار است."</string>
     <string name="select_automatically" msgid="1046727200631770962">"انتخاب خودکار شبکه"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"‏هنگام اتصال به %1$s دردسترس نیست"</string>
     <string name="network_select_title" msgid="7733107364757544558">"شبکه"</string>
     <string name="register_automatically" msgid="6017849844573519637">"ثبت خودکار..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"نوع شبکه برگزیده"</string>
@@ -235,19 +239,23 @@
     <string name="call_category" msgid="5863978196309462052">"درحال تماس"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"شبکه"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"‏حالت پیشرفته 4G LTE"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"تماس پیشرفته"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"‏استفاده از سرویس‌های LTE جهت بهبود ارتباطات صوتی و سایر ارتباطات (توصیه می‌شود)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"‏استفاده از سرویس‌های 4G برای بهبود صدا و سایر ارتباطات (توصیه می‌شود)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"داده‌ها فعال شدند"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"استفاده از داده مجاز است"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"توجه"</string>
-    <string name="roaming" msgid="7894878421600247140">"رومینگ"</string>
-    <string name="roaming_enable" msgid="7331106985174381987">"اتصال به سرویس‌های داده هنگام رومینگ"</string>
-    <string name="roaming_disable" msgid="1843417228755568110">"اتصال به سرویس‌های داده هنگام رومینگ"</string>
-    <string name="roaming_reenable_message" msgid="6843814381576397939">"رومینگ داده خاموش شده است. برای روشن کردن آن، ضربه بزنید."</string>
+    <string name="roaming" msgid="7894878421600247140">"فراگردی"</string>
+    <string name="roaming_enable" msgid="7331106985174381987">"اتصال به سرویس‌های داده هنگام فراگردی"</string>
+    <string name="roaming_disable" msgid="1843417228755568110">"اتصال به سرویس‌های داده هنگام فراگردی"</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"فراگردی داده خاموش شده است. برای روشن کردن آن، ضربه بزنید."</string>
     <string name="roaming_notification_title" msgid="4749053220884743110">"اتصال داده تلفن همراه قطع شد"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"شاید هزینه زیادی برای شما داشته باشد."</string>
     <string name="roaming_check_price_warning" msgid="7497570906830902550">"برای قیمت با ارائه‌دهنده شبکه‌تان بررسی کنید."</string>
-    <string name="roaming_alert_title" msgid="3654815360303826008">"رومینگ داده مجاز است؟"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"فراگردی داده مجاز است؟"</string>
     <string name="data_usage_title" msgid="4042209259808900283">"مصرف داده برنامه"</string>
     <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_1">%1$s</xliff:g> داده تلفن همراه مصرف‌شده در <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"پیشرفته"</string>
@@ -366,7 +374,7 @@
     <string name="network_4G" msgid="2723512640529983138">"‏4G (توصیه شده)"</string>
     <string name="network_global" msgid="1323190488685355309">"سراسری"</string>
     <string name="cdma_system_select_title" msgid="5757657769327732833">"انتخاب سیستم"</string>
-    <string name="cdma_system_select_summary" msgid="60460043745797517">"‏تغییر حالت رومینگ CDMA"</string>
+    <string name="cdma_system_select_summary" msgid="60460043745797517">"‏تغییر حالت فراگردی CDMA"</string>
     <string name="cdma_system_select_dialogtitle" msgid="6083355415165359075">"انتخاب سیستم"</string>
   <string-array name="cdma_system_select_choices">
     <item msgid="176474317493999285">"فقط خانه"</item>
@@ -482,7 +490,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"شماره گیری <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"شماره پست صوتی ناشناس"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"بدون سرویس"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"شبکه انتخابی (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) قابل دسترس نیست"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"شبکه انتخابی (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) دردسترس نیست"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"برای برقراری تماس، شبکه تلفن همراه را روشن کنید، حالت هواپیما یا بهینه‌سازی باتری را غیرفعال کنید."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"برای برقراری تماس، حالت پرواز را خاموش کنید."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"برای برقرای تماس، حالت پرواز را خاموش کنید یا به شبکه بی‌سیم وصل شوید."</string>
@@ -495,21 +503,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"درحال حاضر برقراری تماس امکان‌پذیر نیست. می‌توانید با ارسال پیام ارتباط برقرار کنید."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"سرویس پشتیبانی نمی‌شود"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"نمی‌توانید بین تماس‌ها جابجا شوید."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"ازسرگیری تماس ممکن نیست."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"نمی‌توانید تماس را جدا کنید."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"نمی‌توانید انتقال دهید."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"تماس‌های کنفرانسی امکان‌پذیر نیست."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"تماس‌ها ادغام نشدند."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"نمی‌توانید تماس را رد کنید."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"نمی‌توانید تماس(ها) را آزاد کنید."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"نگه‌داشتن تماس‌ها ممکن نیست."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"برای برقراری تماس، به یک شبکه بی‌سیم وصل شوید"</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"‏برای برقراری تماس، تماس Wi-Fi را فعال کنید."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"اطلاعات اضطراری"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"مالک"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"برای دیدن اطلاعات، دوباره ضربه بزنید"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"تماس اضطراری"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"شماره تلفن اضطراری"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"شماره تلفن‌های اضطراری"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"برای تماس با <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> دوباره ضربه بزنید"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"در حال روشن کردن رادیو..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"سرویسی در دسترس نیست. دوباره امتحان کنید..."</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"در طول تماس اضطراری نمی‌توانید به حالت هواپیما بروید."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"نمی‌توانید تماس بگیرید. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> یک شماره اضطراری نیست."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"نمی‌ توانید تماس بگیرید. یک شماره اضطراری را شماره‌گیری کنید."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"تماس اضطراری دردسترس نیست"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"پلیس"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"آمبولانس"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"آتش"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"‏%1$s،‏ %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"استفاده از صفحه‌کلید برای شماره گیری"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"نگهداشت"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"پایان"</string>
@@ -595,6 +614,8 @@
     <string name="selectContact" msgid="781975788478987237">"انتخاب حساب"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"تماس صوتی پشتیبانی نمی‌شود"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"شماره گیری"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"نمایش صفحه شماره گیری"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"صفحه شماره‌گیری اضطراری"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"پست صوتی تصویری"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"تنظیم پین"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"تغییر پین"</string>
@@ -612,7 +633,7 @@
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"‏تماس Wi-Fi"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"دوباره ضربه بزنید تا باز شود"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"هنگام رمزگشایی پیام، خطایی روی داد."</string>
-    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"یک سیم‌کارت سرویس شما را فعال کرده است و قابلیت‌های رومینگ تلفنتان را به‌روز کرده است."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"یک سیم‌کارت سرویس شما را فعال کرده است و قابلیت‌های فراگردی تلفنتان را به‌روز کرده است."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"تعداد زیادی تماس فعال وجود دارد. قبل از برقراری تماس جدید، لطفاً به تماس‌های موجود پایان دهید یا آنها را ادغام کنید."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"مرتبط نشد، لطفاً سیم کارت معتبری را وارد کنید."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"اتصال وای‌فای قطع شد. تماس پایان یافت."</string>
@@ -630,73 +651,73 @@
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"پین‌ها با یکدیگر مطابقت ندارند"</string>
     <string name="change_pin_succeeded" msgid="2022852286442211151">"پین پست صوتی به‌روزرسانی شد"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"پین تنظیم نشد"</string>
-    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"رومینگ داده خاموش است"</string>
-    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"رومینگ داده روشن است"</string>
-    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"درحال رومینگ، به طرح داده نیاز است"</string>
-    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"درحال رومینگ، طرح داده فعال است"</string>
+    <string name="mobile_data_status_roaming_turned_off_subtext" msgid="935636805765823307">"فراگردی داده خاموش است"</string>
+    <string name="mobile_data_status_roaming_turned_on_subtext" msgid="1335176927083781041">"فراگردی داده روشن است"</string>
+    <string name="mobile_data_status_roaming_without_plan_subtext" msgid="3568412513831673037">"درحال فراگردی، به طرح داده نیاز است"</string>
+    <string name="mobile_data_status_roaming_with_plan_subtext" msgid="8721998948811064377">"درحال فراگردی، طرح داده فعال است"</string>
     <string name="mobile_data_status_no_plan_subtext" msgid="4887747337017565725">"داده دستگاه همراهی باقی نمانده است"</string>
     <string name="mobile_data_activate_prepaid" msgid="7447025165850512683">"داده دستگاه همراهی باقی نمانده است"</string>
     <string name="mobile_data_activate_prepaid_summary" msgid="5705389791791637666">"افزودن داده دستگاه همراه ازطریق <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
-    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"بدون طرح رومینگ"</string>
-    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"افزودن طرح رومینگ ازطریق <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
-    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"می‌توانید ازطریق شرکت مخابراتی‌تان (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)، طرح داده یا رومینگ اضافه کنید."</string>
+    <string name="mobile_data_activate_roaming_plan" msgid="5998161536947086264">"بدون طرح فراگردی"</string>
+    <string name="mobile_data_activate_roaming_plan_summary" msgid="511202908883425459">"افزودن طرح فراگردی ازطریق <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
+    <string name="mobile_data_activate_footer" msgid="5979019929980140594">"می‌توانید ازطریق شرکت مخابراتی‌تان (<xliff:g id="PROVIDER_NAME">%s</xliff:g>)، طرح داده یا فراگردی اضافه کنید."</string>
     <string name="mobile_data_activate_diag_title" msgid="9044252207707864493">"داده اضافه شود؟"</string>
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"ممکن است لازم باشد ازطریق <xliff:g id="PROVIDER_NAME">%s</xliff:g> داده اضافه کنید"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"افزودن داده"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"لغو"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"تماس پایان یافت"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"رادیو خاموش"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"سیم‌کارتی وجود ندارد یا خطای سیم‌کارت"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"حالت هواپیما روشن است"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"دسترسی به سیم‌کارت ممکن نیست"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"شبکه تلفن همراه در دسترس نیست"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"شماره اختصاص‌داده‌نشده"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"مسیری به مقصد وجود ندارد"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"کانال قابل قبول نیست"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"اپراتور محدودیت تعیین کرده است"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"پاک‌سازی تماس عادی"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"شماره تلفنی که سعی دارید با آن تماس بگیرید مشکل دارد. کد خطا: ۱."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"تماس انجام نشد. کد خطا: ۳."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"تماس انجام نشد. کد خطا: ۶."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"تماس انجام نشد. کد خطا: ۸."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"تماس انجام نشد. کد خطا: ۱۶."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"کاربر مشغول است"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"کاربری پاسخ نمی‌دهد"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"هشدار کاربر، بدون پاسخ"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"کاربر پاسخ نمی‌دهد"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"تماس انجام نشد. کد خطا: ۱۹."</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"تماس رد شد"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"شماره تغییر کرده است"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"حق تقدم"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"پاک‌سازی کاربر انتخاب‌نشده"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"مقصد درست کار نمی‌کند"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"تماس انجام نشد. کد خطا: ۲۵."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"تماس انجام نشد. کد خطا: ۲۶."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"تماس انجام نشد. کد خطا: ۲۷."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"قالب شماره نامعتبر (شماره سازگار نیست)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"امکانات رد شد"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"پاسخ به درخواست وضعیت"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"عادی، نامشخص"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"مدار/کانالی در دسترس نیست"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"شبکه در دسترس نیست"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"خطای موقت"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"انسداد در تجهیزات سوئیچینگ"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"از دسترسی به اطلاعات صرف‌نظر شد"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"مدار/کانال درخواستی در دسترس نیست"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"منابع در دسترس نیستند، نامشخص"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"کیفیت سرویس در دسترس نیست"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"برای امکانات درخواستی مشترک نشده است"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"‏تماس‌های ورودی در CUG ممنوع شد"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"ظرفیت حامل مجاز نیست"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"اکنون ظرفیت حامل در دسترس نیست"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"سرویس یا گزینه در دسترس نیست، نامشخص"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"سرویس حامل اعمال نشده است"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"‏ACM مساوی با یا بزرگ‌تر از ACMmax"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"امکانات درخواستی اجرا نشده است"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"فقط ظرفیت حامل اطلاعات دیجیتالی محدود امکان‌پذیر است"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"سرویس یا گزینه اجرا نشده است، نامشخص"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"ارزش شناسه تراکنش نامعتبر"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"‏کاربر عضو CUG نیست"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"مقصد ناسازگار"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"انتخاب شبکه حمل‌ونقل نامعتبر"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"پیام از نظر معنایی نادرست است"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"اطلاعات اجباری نامعتبر"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"نوع پیام موجود نیست یا اجرا نشده است"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"نوع پیام با حالت پروتکل سازگار نیست"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"عنصر اطلاعات وجود ندارد یا اجرا نشده است"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"‏خطای IE شرطی"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"پیام با حالت پروتکل سازگار نیست"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"بازیابی در زمان انقضای تایمر"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"خطای پروتکل، نامشخص"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"تعامل، نامشخص"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"تماس انجام نشد. کد خطا: ۲۹."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"تماس انجام نشد. کد خطا: ۳۰."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"تماس انجام نشد. کد خطا: ۳۱."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"تماس انجام نشد. کد خطا: ۳۴."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"تماس انجام نشد. کد خطا: ۳۸."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"تماس انجام نشد. کد خطا: ۴۱."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"تماس انجام نشد. کد خطا: ۴۲."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"تماس انجام نشد. کد خطا: ۴۳."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"تماس انجام نشد. کد خطا: ۴۴."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"تماس انجام نشد. کد خطا: ۴۷."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"تماس انجام نشد. کد خطا: ۴۹."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"تماس انجام نشد. کد خطا: ۵۰."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"تماس انجام نشد. کد خطا: ۵۵."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"تماس انجام نشد. کد خطا: ۵۷."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"تماس انجام نشد. کد خطا: ۵۸."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"تماس انجام نشد. کد خطا: ۶۳."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"تماس انجام نشد. کد خطا: ۶۵."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"تماس انجام نشد. کد خطا: ۶۸."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"تماس انجام نشد. کد خطا: ۶۹."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"تماس انجام نشد. کد خطا: ۷۰."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"تماس انجام نشد. کد خطا: ۷۹."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"تماس انجام نشد. کد خطا: ۸۱."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"تماس انجام نشد. کد خطا: ۸۷."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"تماس انجام نشد. کد خطا: ۸۸."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"تماس انجام نشد. کد خطا: ۹۱."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"تماس انجام نشد. کد خطا: ۹۵."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"تماس انجام نشد. کد خطا: ۹۶."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"تماس انجام نشد. کد خطا: ۹۷."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"تماس انجام نشد. کد خطا: ۹۸."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"تماس انجام نشد. کد خطا: ۹۹."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"تماس برقرار نشد. کد خطا: ۱۰۰."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"تماس برقرار نشد. کد خطا: ۱۰۱."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"تماس برقرار نشد. کد خطا: ۱۰۲."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"تماس برقرار نشد. کد خطا: ۱۱۱."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"تماس برقرار نشد. کد خطا: ۱۲۷."</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"محدودیت تماس"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"روشن"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"خاموش"</string>
@@ -706,15 +727,15 @@
     <string name="call_barring_baoic" msgid="3162154267825211826">"خروجی بین‌المللی"</string>
     <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"مسدود کردن تماس‌های بین‌المللی خروجی غیرفعال شود؟"</string>
     <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"تماس‌های بین‌المللی خروجی مسدود شود؟"</string>
-    <string name="call_barring_baoicr" msgid="8951699885885742076">"رومینگ بین‌المللی خروجی"</string>
-    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"مسدود کردن رومینگ بین‌المللی خروجی غیرفعال شود؟"</string>
-    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"رومینگ بین‌المللی خروجی مسدود شود؟"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"فراگردی بین‌المللی خروجی"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"مسدود کردن فراگردی بین‌المللی خروجی غیرفعال شود؟"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"فراگردی بین‌المللی خروجی مسدود شود؟"</string>
     <string name="call_barring_baic" msgid="5272726081458339912">"همه ورودی‌ها"</string>
     <string name="call_barring_baic_enabled" msgid="2457134916223203380">"مسدود کردن همه تماس‌های ورودی غیرفعال شود؟"</string>
     <string name="call_barring_baic_disabled" msgid="6945604947500275636">"همه تماس‌های ورودی مسدود شود؟"</string>
-    <string name="call_barring_baicr" msgid="5728784220691481693">"رومینگ بین‌المللی ورودی"</string>
-    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"مسدود کردن رومینگ بین‌المللی ورودی غیرفعال شود؟"</string>
-    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"رومینگ بین‌المللی ورودی مسدود شود؟"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"فراگردی بین‌المللی ورودی"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"مسدود کردن فراگردی بین‌المللی ورودی غیرفعال شود؟"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"فراگردی بین‌المللی ورودی مسدود شود؟"</string>
     <string name="call_barring_deactivate_all" msgid="5269788384941003415">"غیرفعال کردن همه"</string>
     <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"غیرفعال کردن همه تنظیمات محدودیت تماس"</string>
     <string name="call_barring_deactivate_success" msgid="8014685598632000936">"محدودیت تماس غیرفعال شد"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"گذرواژه را وارد کنید"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"تنظیمات محدودیت تماس"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"همه تنظیمات محدودیت تماس غیرفعال شود؟"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"شبکه مشغول است. لطفاً بعداً دوباره تماس بگیرید."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"شبکه شلوغ است. برای کمک، با اپراتور دستگاه همراه تماس بگیرید."</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"تماس برگردانده شد."</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"تماس هدایت شد."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"تماس درحال انتظار است."</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"تماس بازارسال شده است."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"درحال پیوستن به تماس کنفرانسی."</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"تماس نگه‌داشته‌شده آزاد شده است."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"نمی‌توانید تماسی برقرار کنید، چون دستگاه درحال‌حاضر درحال تأیید خدمات دردسترس برای کاربران است."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"نمی‌توانید تماسی برقرار کنید، چون تماس خروجی دیگری درحال شماره‌گیری است."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"نمی‌توانید تماسی برقرار کنید، چون تماس ورودی بی‌پاسخی درحال شماره‌گیری است. قبل از برقراری تماس جدید، به آن پاسخ دهید یا آن را رد کنید."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"‏نمی‌توانید تماسی برقرار کنید چون برقراری تماس تلفنی با استفاده از مشخصه سیستم ro.telephony.disable-call غیرفعال شده است."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"نمی‌توانید تماسی برقرار کنید، چون هم‌اکنون دو تماس دیگر درحال انجام است. قبل از برقراری تماس جدید، یکی از تماس‌ها را قطع کنید یا آن‌ها را به‌صورت کنفرانسی ادغام کنید."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"برای استفاده از <xliff:g id="SUPP_SERVICE">%s</xliff:g>، مطمئن شوید داده‌ تلفن همراه روشن شده باشد. می‌توانید در تنظیمات شبکه تلفن همراه این تنظیم را تغییر دهید."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"برای استفاده از <xliff:g id="SUPP_SERVICE">%s</xliff:g>، مطمئن شوید داده‌ تلفن همراه و فراگردی داده روشن شده باشد. می‌توانید در تنظیمات شبکه تلفن همراه، این تنظیمات را تغییر دهید."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"برای استفاده از <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>، مطمئن شوید داده تلفن همراه برای سیم‌کارت <xliff:g id="SIM_NUMBER">%2$d</xliff:g> روشن باشد. می‌توانید در تنظیمات شبکه تلفن همراه این تنظیم را تغییر دهید."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"برای استفاده از <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>، مطمئن شوید داده تلفن همراه و فراگردی داده برای سیم‌کارت <xliff:g id="SIM_NUMBER">%2$d</xliff:g> روشن باشد. می‌توانید در تنظیمات شبکه تلفن همراه این تنظیمات را تغییر دهید."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"رد کردن"</string>
 </resources>

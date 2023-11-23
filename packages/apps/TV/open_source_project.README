@@ -7,7 +7,7 @@ How to build:
    https://source.android.com/source/building.html
    (Developers using PDK can skip the step 1.)
 2. Enable the feature PackageManager.FEATURE_LIVE_TV.
-3. Put this project under Android platform repository.
+3. Put this project under Android platform repository if required.
 4. Include this package inside platform build.
 5. Build the platform.
    https://source.android.com/source/building.html

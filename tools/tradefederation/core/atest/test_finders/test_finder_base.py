@@ -18,7 +18,8 @@ Test finder base class.
 from collections import namedtuple
 
 
-Finder = namedtuple('Finder', ['test_finder_instance', 'find_method'])
+Finder = namedtuple('Finder', ['test_finder_instance', 'find_method',
+                               'finder_info'])
 
 
 def find_method_register(cls):
@@ -28,7 +29,7 @@ def find_method_register(cls):
     for methodname in dir(cls):
         method = getattr(cls, methodname)
         if hasattr(method, '_registered'):
-            cls.find_methods.append(Finder(None, method))
+            cls.find_methods.append(Finder(None, method, None))
     return cls
 
 

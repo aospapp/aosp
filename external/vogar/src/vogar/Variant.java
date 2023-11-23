@@ -20,6 +20,8 @@ package vogar;
  * Supported runtime variants. e.g. for selecting different architectures.
  */
 public enum Variant {
+    /** Default variant for the mode chosen (or if not applicable) */
+    DEFAULT,
     /** 32-bit */
     X32,
     /** 64-bit */

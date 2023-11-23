@@ -18,13 +18,13 @@
 #define NETD_SERVER_FWMARK_SERVER_H
 
 #include "EventReporter.h"
-#include "TrafficController.h"
 #include "sysutils/SocketListener.h"
 
 namespace android {
 namespace net {
 
 class NetworkController;
+class TrafficController;
 
 class FwmarkServer : public SocketListener {
 public:

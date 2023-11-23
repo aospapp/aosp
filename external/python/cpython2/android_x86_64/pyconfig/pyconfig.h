@@ -35,7 +35,7 @@
 /* #undef DOUBLE_IS_LITTLE_ENDIAN_IEEE754 */
 
 /* Define if --enable-ipv6 is specified */
-/* #undef ENABLE_IPV6 */
+#define ENABLE_IPV6
 
 /* Define if flock needs to be linked with bsd library. */
 /* #undef FLOCK_NEEDS_LIBBSD */
@@ -91,6 +91,12 @@
 
 /* Define if poll() sets errno on invalid file descriptors. */
 /* #undef HAVE_BROKEN_POLL */
+
+/* Define to 1 if you have the <sys/random.h> header file. */
+#define HAVE_SYS_RANDOM_H 1
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#define HAVE_SYS_SYSMACROS_H 1
 
 /* Define if the Posix semaphores do not work on your system */
 /* #undef HAVE_BROKEN_POSIX_SEMAPHORES */
@@ -273,7 +279,7 @@
 /* #define HAVE_GCC_ASM_FOR_X87 1 */
 
 /* Define if you have the getaddrinfo function. */
-/* #undef HAVE_GETADDRINFO */
+#define HAVE_GETADDRINFO 1
 
 /* Define to 1 if you have the `getcwd' function. */
 #define HAVE_GETCWD 1
@@ -468,7 +474,7 @@
 #define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the `mkfifo' function. */
-/* #undef HAVE_MKFIFO */
+#define HAVE_MKFIFO 1
 
 /* Define to 1 if you have the `mknod' function. */
 #define HAVE_MKNOD 1

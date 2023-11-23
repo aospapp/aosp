@@ -37,9 +37,11 @@ cc_defaults {
     defaults: ["VtsHalLibDefaults"],
     shared_libs: [
         "libfmq",
+        "libhidlmemory",
         "libvts_profiling",
         "libvts_multidevice_proto",
         "libprotobuf-cpp-full",
+        "android.hidl.memory@1.0",
     ],
     // Userdebug only, should not be used to build modules contained in a user build device image.
     multilib: {

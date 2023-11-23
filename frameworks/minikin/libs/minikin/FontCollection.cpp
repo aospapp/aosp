@@ -21,7 +21,6 @@
 #include <algorithm>
 
 #include <log/log.h>
-#include <unicode/unistr.h>
 #include <unicode/unorm2.h>
 
 #include "minikin/Emoji.h"
@@ -124,7 +123,7 @@ const uint32_t kFirstFontScore = UINT32_MAX;
 //    base character.
 //  - kFirstFontScore: When the font is the first font family in the collection and it supports the
 //    given character or variation sequence.
-uint32_t FontCollection::calcFamilyScore(uint32_t ch, uint32_t vs, FontFamily::Variant variant,
+uint32_t FontCollection::calcFamilyScore(uint32_t ch, uint32_t vs, FamilyVariant variant,
                                          uint32_t localeListId,
                                          const std::shared_ptr<FontFamily>& fontFamily) const {
     const uint32_t coverageScore = calcCoverageScore(ch, vs, localeListId, fontFamily);
@@ -160,7 +159,7 @@ uint32_t FontCollection::calcCoverageScore(uint32_t ch, uint32_t vs, uint32_t lo
         return kUnsupportedFontScore;
     }
 
-    if ((vs == 0 || hasVSGlyph) && mFamilies[0] == fontFamily) {
+    if ((vs == 0 || hasVSGlyph) && (mFamilies[0] == fontFamily || fontFamily->isCustomFallback())) {
         // If the first font family supports the given character or variation sequence, always use
         // it.
         return kFirstFontScore;
@@ -229,16 +228,16 @@ uint32_t FontCollection::calcLocaleMatchingScore(uint32_t userLocaleListId,
 // Calculates a font score based on variant ("compact" or "elegant") matching.
 //  - Returns 1 if the font doesn't have variant or the variant matches with the text style.
 //  - No score if the font has a variant but it doesn't match with the text style.
-uint32_t FontCollection::calcVariantMatchingScore(FontFamily::Variant variant,
+uint32_t FontCollection::calcVariantMatchingScore(FamilyVariant variant,
                                                   const FontFamily& fontFamily) {
-    const FontFamily::Variant familyVariant = fontFamily.variant();
-    if (familyVariant == FontFamily::Variant::DEFAULT) {
+    const FamilyVariant familyVariant = fontFamily.variant();
+    if (familyVariant == FamilyVariant::DEFAULT) {
         return 1;
     }
     if (familyVariant == variant) {
         return 1;
     }
-    if (variant == FontFamily::Variant::DEFAULT && familyVariant == FontFamily::Variant::COMPACT) {
+    if (variant == FamilyVariant::DEFAULT && familyVariant == FamilyVariant::COMPACT) {
         // If default is requested, prefer compat variation.
         return 1;
     }
@@ -250,8 +249,9 @@ uint32_t FontCollection::calcVariantMatchingScore(FontFamily::Variant variant,
 // 2. Calculate a score for the font family. See comments in calcFamilyScore for the detail.
 // 3. Highest score wins, with ties resolved to the first font.
 // This method never returns nullptr.
-const std::shared_ptr<FontFamily>& FontCollection::getFamilyForChar(
-        uint32_t ch, uint32_t vs, uint32_t localeListId, FontFamily::Variant variant) const {
+const std::shared_ptr<FontFamily>& FontCollection::getFamilyForChar(uint32_t ch, uint32_t vs,
+                                                                    uint32_t localeListId,
+                                                                    FamilyVariant variant) const {
     if (ch >= mMaxChar) {
         return mFamilies[0];
     }
@@ -368,17 +368,19 @@ bool FontCollection::hasVariationSelector(uint32_t baseCodepoint,
 
 constexpr uint32_t REPLACEMENT_CHARACTER = 0xFFFD;
 
-void FontCollection::itemize(const uint16_t* string, size_t string_size, const MinikinPaint& paint,
-                             vector<Run>* result) const {
-    const FontFamily::Variant familyVariant = paint.familyVariant;
-    const FontStyle style = paint.fontStyle;
-    const uint32_t localeListId = paint.localeListId;
+std::vector<FontCollection::Run> FontCollection::itemize(U16StringPiece text, FontStyle style,
+                                                         uint32_t localeListId,
+                                                         FamilyVariant familyVariant,
+                                                         uint32_t runMax) const {
+    const uint16_t* string = text.data();
+    const uint32_t string_size = text.size();
+    std::vector<Run> result;
 
     const FontFamily* lastFamily = nullptr;
     Run* run = nullptr;
 
     if (string_size == 0) {
-        return;
+        return result;
     }
 
     const uint32_t kEndOfString = 0xFFFFFFFF;
@@ -431,7 +433,7 @@ void FontCollection::itemize(const uint16_t* string, size_t string_size, const M
                     if (run != nullptr) {
                         run->end -= prevChLength;
                         if (run->start == run->end) {
-                            result->pop_back();
+                            result.pop_back();
                         }
                     }
                     start -= prevChLength;
@@ -443,8 +445,8 @@ void FontCollection::itemize(const uint16_t* string, size_t string_size, const M
                     // start to be 0 to include those characters).
                     start = 0;
                 }
-                result->push_back({family->getClosestMatch(style), static_cast<int>(start), 0});
-                run = &result->back();
+                result.push_back({family->getClosestMatch(style), static_cast<int>(start), 0});
+                run = &result.back();
                 lastFamily = family.get();
             }
         }
@@ -452,13 +454,28 @@ void FontCollection::itemize(const uint16_t* string, size_t string_size, const M
         if (run != nullptr) {
             run->end = nextUtf16Pos;  // exclusive
         }
+
+        // Stop searching the remaining characters if the result length gets runMax + 2.
+        // When result.size gets runMax + 2 here, the run between [0, runMax) was finalized.
+        // If the result.size() equals to runMax, the run may be still expanding.
+        // if the result.size() equals to runMax + 2, the last run may be removed and the last run
+        // may be exntended the previous run with above workaround.
+        if (result.size() >= 2 && runMax == result.size() - 2) {
+            break;
+        }
     } while (nextCh != kEndOfString);
 
     if (lastFamily == nullptr) {
         // No character needed any font support, so it doesn't really matter which font they end up
         // getting displayed in. We put the whole string in one run, using the first font.
-        result->push_back({mFamilies[0]->getClosestMatch(style), 0, static_cast<int>(string_size)});
+        result.push_back({mFamilies[0]->getClosestMatch(style), 0, static_cast<int>(string_size)});
     }
+
+    if (result.size() > runMax) {
+        // The itemization has terminated since it reaches the runMax. Remove last unfinalized runs.
+        result.resize(runMax);
+    }
+    return result;
 }
 
 FakedFont FontCollection::baseFontFaked(FontStyle style) {

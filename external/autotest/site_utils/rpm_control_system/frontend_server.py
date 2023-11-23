@@ -44,6 +44,10 @@ MAPPING_FILE = os.path.join(
 LRU_SIZE = rpm_config.getint('RPM_INFRASTRUCTURE', 'lru_size')
 
 
+class DispatcherDownException(Exception):
+    """Raised when a particular RPMDispatcher is down."""
+
+
 class RPMFrontendServer(object):
     """
     This class is the frontend server of the RPM Infrastructure. All clients
@@ -95,6 +99,72 @@ class RPMFrontendServer(object):
         self._email_handler = email_handler
 
 
+    def set_power_via_poe(self, device_hostname, new_state):
+        """Sets power state of the device to the requested state via POE.
+
+        @param device_hostname: Hostname of the servo to control.
+        @param new_state: [ON, OFF, CYCLE] State to which we want to set the
+                          device's outlet to.
+
+        @return: True if the attempt to change power state was successful,
+                 False otherwise.
+
+        @raise RPMInfrastructureException: No dispatchers are available or can
+                                           be reached.
+        """
+        # Remove any DNS Zone information and simplify down to just the hostname.
+        device_hostname = device_hostname.split('.')[0]
+        new_state = new_state.upper()
+        if new_state not in VALID_STATE_VALUES:
+            logging.error('Received request to set servo %s to invalid '
+                          'state %s', device_hostname, new_state)
+            return False
+        logging.info('Received request to set servo: %s to state: %s',
+                     device_hostname, new_state)
+        powerunit_info = self._get_poe_powerunit_info(device_hostname)
+        try:
+            return self._queue_once(powerunit_info, new_state)
+        except DispatcherDownException:
+            # Retry forwarding the request.
+            return self.set_power_via_poe(device_hostname, new_state)
+
+
+    def set_power_via_rpm(self, device_hostname, rpm_hostname,
+                          rpm_outlet, hydra_hostname, new_state):
+        """Sets power state of a device to the requested state via RPM.
+
+        Unlike the special case of POE, powerunit information is not available
+        on the RPM server, so must be provided as arguments.
+
+        @param device_hostname: Hostname of the servo to control.
+        @param rpm_hostname: Hostname of the RPM to use.
+        @param rpm_outlet: The RPM outlet to control.
+        @param hydra_hostname: If required, the hydra device to SSH through to
+                               get to the RPM.
+        @param new_state: [ON, OFF, CYCLE] State to which we want to set the
+                          device's outlet to.
+
+        @return: True if the attempt to change power state was successful,
+                 False otherwise.
+
+        @raise RPMInfrastructureException: No dispatchers are available or can
+                                           be reached.
+        """
+        powerunit_info = utils.PowerUnitInfo(
+                device_hostname=device_hostname,
+                powerunit_type=utils.PowerUnitInfo.POWERUNIT_TYPES.RPM,
+                powerunit_hostname=rpm_hostname,
+                outlet=rpm_outlet,
+                hydra_hostname=hydra_hostname,
+        )
+        try:
+            return self._queue_once(powerunit_info, new_state)
+        except DispatcherDownException:
+            # Retry forwarding the request.
+            return self.set_power_via_rpm(device_hostname, rpm_hostname,
+                                          rpm_outlet, hydra_hostname, new_state)
+
+
     def queue_request(self, device_hostname, new_state):
         """
         Forwards a request to change a device's (a dut or a servo) power state
@@ -102,8 +172,8 @@ class RPMFrontendServer(object):
 
         This call will block until the forwarded request returns.
 
-        @param device_hostname: Hostname of the device whose power state we want to
-                             change.
+        @param device_hostname: Hostname of the device whose power state we want
+                                to change.
         @param new_state: [ON, OFF, CYCLE] State to which we want to set the
                           device's outlet to.
 
@@ -124,6 +194,15 @@ class RPMFrontendServer(object):
         logging.info('Received request to set device: %s to state: %s',
                      device_hostname, new_state)
         powerunit_info = self._get_powerunit_info(device_hostname)
+        try:
+            return self._queue_once(powerunit_info, new_state)
+        except DispatcherDownException:
+            # Retry forwarding the request.
+            return self.queue_request(device_hostname, new_state)
+
+
+    def _queue_once(self, powerunit_info, new_state):
+        """Queue one request to the dispatcher."""
         dispatcher_uri = self._get_dispatcher(powerunit_info)
         if not dispatcher_uri:
             # No dispatchers available.
@@ -146,8 +225,7 @@ class RPMFrontendServer(object):
             logging.error('Unregistering %s due to error. Recommend resetting '
                           'that dispatch server.', dispatcher_uri)
             self.unregister_dispatcher(dispatcher_uri)
-            # Retry forwarding the request.
-            return self.queue_request(device_hostname, new_state)
+            raise DispatcherDownException(dispatcher_uri)
 
 
     def is_network_infrastructure_down(self):
@@ -197,40 +275,77 @@ class RPMFrontendServer(object):
                 unit info.
 
         """
+        if device_hostname.endswith('servo'):
+            return self._get_poe_powerunit_info(device_hostname)
+        else:
+            return self._get_rpm_powerunit_info(device_hostname)
+
+
+    def _get_poe_powerunit_info(self, device_hostname):
+        """Get the power management unit information for a POE controller.
+
+        Servo is managed by POE. The related information we need to know
+        include poe hostname, poe interface. Such information is
+        stored in a local file and read into memory.
+
+        @param device_hostname: A string representing the device's hostname.
+
+        @returns: A PowerUnitInfo object.
+        @raises RPMInfrastructureException if failed to get the power
+                unit info.
+
+        """
         with self._lock:
-            if device_hostname.endswith('servo'):
-                # Servos are managed by Cisco POE switches.
-                reload_info = utils.reload_servo_interface_mapping_if_necessary(
-                        self._mapping_last_modified)
-                if reload_info:
-                    self._mapping_last_modified, self._servo_interface = reload_info
-                switch_if_tuple = self._servo_interface.get(device_hostname)
-                if not switch_if_tuple:
-                    raise RPMInfrastructureException(
-                            'Could not determine POE hostname for %s. '
-                            'Please check the servo-interface mapping file.',
-                            device_hostname)
-                else:
-                    return utils.PowerUnitInfo(
-                            device_hostname=device_hostname,
-                            powerunit_type=utils.PowerUnitInfo.POWERUNIT_TYPES.POE,
-                            powerunit_hostname=switch_if_tuple[0],
-                            outlet=switch_if_tuple[1],
-                            hydra_hostname=None)
+            reload_info = utils.reload_servo_interface_mapping_if_necessary(
+                    self._mapping_last_modified)
+            if reload_info:
+                self._mapping_last_modified, self._servo_interface = reload_info
+            switch_if_tuple = self._servo_interface.get(device_hostname)
+            if not switch_if_tuple:
+                raise RPMInfrastructureException(
+                        'Could not determine POE hostname for %s. '
+                        'Please check the servo-interface mapping file.',
+                        device_hostname)
             else:
-                # Regular DUTs are managed by RPMs.
-                if device_hostname in self._rpm_info:
-                    return self._rpm_info[device_hostname]
+                return utils.PowerUnitInfo(
+                        device_hostname=device_hostname,
+                        powerunit_type=utils.PowerUnitInfo.POWERUNIT_TYPES.POE,
+                        powerunit_hostname=switch_if_tuple[0],
+                        outlet=switch_if_tuple[1],
+                        hydra_hostname=None)
+
+
+
+    def _get_rpm_powerunit_info(self, device_hostname):
+        """Get the power management unit information for an RPM controller.
+
+        Chromeos dut is managed by RPM. The related information
+        we need to know include rpm hostname, rpm outlet, hydra hostname.
+        Such information can be retrieved from afe_host_attributes table
+        from afe. A local LRU cache is used avoid hitting afe too often.
+
+        @param device_hostname: A string representing the device's hostname.
+
+        @returns: A PowerUnitInfo object.
+        @raises RPMInfrastructureException if failed to get the power
+                unit info.
+
+        """
+        with self._lock:
+            # Regular DUTs are managed by RPMs.
+            if device_hostname in self._rpm_info:
+                return self._rpm_info[device_hostname]
+            else:
+                hosts = self._afe.get_hosts(hostname=device_hostname)
+                if not hosts:
+                    raise RPMInfrastructureException(
+                            'Can not retrieve rpm information '
+                            'from AFE for %s, no host found.' % device_hostname)
                 else:
-                    hosts = self._afe.get_hosts(hostname=device_hostname)
-                    if not hosts:
-                        raise RPMInfrastructureException(
-                                'Can not retrieve rpm information '
-                                'from AFE for %s, no host found.' % device_hostname)
-                    else:
-                        info = utils.PowerUnitInfo.get_powerunit_info(hosts[0])
-                        self._rpm_info[device_hostname] = info
-                        return info
+                    info = utils.PowerUnitInfo.get_powerunit_info(hosts[0])
+                    self._rpm_info[device_hostname] = info
+                    return info
+
 
 
     def _get_dispatcher(self, powerunit_info):

@@ -70,6 +70,9 @@ enum log_level {
 void log_print(int level, char *format, ...);
 void create_socket(int family, int type, char *server, char *port);
 void start_pppd(int pppox);
+void start_pppd_ol2tp(int tunnel_fd, int session_fd, int tunnel_id,
+                      int session_id);
+void start_pppd_pptp(int pptp_fd);
 
 /* Each protocol must implement everything defined in this structure. Note that
  * timeout intervals are in milliseconds, where zero means forever. To indicate

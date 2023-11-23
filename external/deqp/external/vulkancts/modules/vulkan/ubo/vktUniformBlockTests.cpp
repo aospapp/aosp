@@ -45,8 +45,31 @@ public:
 	BlockBasicTypeCase (tcu::TestContext& testCtx, const std::string& name, const std::string& description, const VarType& type, deUint32 layoutFlags, int numInstances, MatrixLoadFlags matrixLoadFlag)
 		: UniformBlockCase(testCtx, name, description, BUFFERMODE_PER_BLOCK, matrixLoadFlag)
 	{
+		VarType tempType = type;
+		while (tempType.isArrayType())
+		{
+			tempType = tempType.getElementType();
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_FLOAT16)
+		{
+			layoutFlags |= LAYOUT_16BIT_STORAGE;
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT8 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT8)
+		{
+			layoutFlags |= LAYOUT_8BIT_STORAGE;
+		}
+
 		UniformBlock& block = m_interface.allocBlock("Block");
+		// For scalar layout tests with non-scalar types, add a scalar padding variable
+		// before "var", to make var only be scalar aligned.
+		if ((layoutFlags & LAYOUT_SCALAR) && !isDataTypeScalar(type.getBasicType())) {
+			block.addUniform(Uniform("padding", VarType(getDataTypeScalarType(tempType.getBasicType()), 0), 0));
+		}
 		block.addUniform(Uniform("var", type, 0));
+
 		block.setFlags(layoutFlags);
 
 		if (numInstances > 0)
@@ -388,7 +411,27 @@ void UniformBlockTests::init (void)
 		glu::TYPE_FLOAT_MAT3X2,
 		glu::TYPE_FLOAT_MAT3X4,
 		glu::TYPE_FLOAT_MAT4X2,
-		glu::TYPE_FLOAT_MAT4X3
+		glu::TYPE_FLOAT_MAT4X3,
+		glu::TYPE_UINT8,
+		glu::TYPE_UINT8_VEC2,
+		glu::TYPE_UINT8_VEC3,
+		glu::TYPE_UINT8_VEC4,
+		glu::TYPE_INT8,
+		glu::TYPE_INT8_VEC2,
+		glu::TYPE_INT8_VEC3,
+		glu::TYPE_INT8_VEC4,
+		glu::TYPE_UINT16,
+		glu::TYPE_UINT16_VEC2,
+		glu::TYPE_UINT16_VEC3,
+		glu::TYPE_UINT16_VEC4,
+		glu::TYPE_INT16,
+		glu::TYPE_INT16_VEC2,
+		glu::TYPE_INT16_VEC3,
+		glu::TYPE_INT16_VEC4,
+		glu::TYPE_FLOAT16,
+		glu::TYPE_FLOAT16_VEC2,
+		glu::TYPE_FLOAT16_VEC3,
+		glu::TYPE_FLOAT16_VEC4,
 	};
 
 	static const struct
@@ -409,7 +452,9 @@ void UniformBlockTests::init (void)
 		deUint32			flags;
 	} layoutFlags[] =
 	{
-		{ "std140",		LAYOUT_STD140	}
+		{ "std140",		LAYOUT_STD140	},
+		{ "std430",		LAYOUT_STD430	},
+		{ "scalar",		LAYOUT_SCALAR	}
 	};
 
 	static const struct
@@ -447,7 +492,7 @@ void UniformBlockTests::init (void)
 				const char* const	typeName	= glu::getDataTypeName(type);
 				const int			childSize	= 4;
 				const int			parentSize	= 3;
-				const VarType		childType	(VarType(type, glu::isDataTypeBoolOrBVec(type) ? 0 : PRECISION_HIGH), childSize);
+				const VarType		childType	(VarType(type, !dataTypeSupportsPrecisionModifier(type) ? 0 : PRECISION_HIGH), childSize);
 				const VarType		parentType	(childType, parentSize);
 
 				createBlockBasicTypeCases(*layoutGroup, m_testCtx, typeName, parentType, layoutFlags[layoutFlagNdx].flags);
@@ -479,7 +524,7 @@ void UniformBlockTests::init (void)
 				const int			childSize0	= 2;
 				const int			childSize1	= 4;
 				const int			parentSize	= 3;
-				const VarType		childType0	(VarType(type, glu::isDataTypeBoolOrBVec(type) ? 0 : PRECISION_HIGH), childSize0);
+				const VarType		childType0	(VarType(type, !dataTypeSupportsPrecisionModifier(type) ? 0 : PRECISION_HIGH), childSize0);
 				const VarType		childType1	(childType0, childSize1);
 				const VarType		parentType	(childType1, parentSize);
 
@@ -544,7 +589,7 @@ void UniformBlockTests::init (void)
 				glu::DataType		type = basicTypes[basicTypeNdx];
 				const char* const	typeName = glu::getDataTypeName(type);
 
-				if (glu::isDataTypeBoolOrBVec(type))
+				if (!dataTypeSupportsPrecisionModifier(type))
 					createBlockBasicTypeCases(*layoutGroup, m_testCtx, typeName, VarType(type, 0), layoutFlags[layoutFlagNdx].flags);
 			}
 
@@ -557,7 +602,7 @@ void UniformBlockTests::init (void)
 					glu::DataType		type		= basicTypes[basicTypeNdx];
 					const char* const	typeName	= glu::getDataTypeName(type);
 
-					if (!glu::isDataTypeBoolOrBVec(type))
+					if (dataTypeSupportsPrecisionModifier(type))
 						createBlockBasicTypeCases(*precGroup, m_testCtx, typeName,
 												  VarType(type, precisionFlags[precNdx].flags), layoutFlags[layoutFlagNdx].flags);
 
@@ -593,7 +638,7 @@ void UniformBlockTests::init (void)
 				const int			arraySize	= 3;
 
 				createBlockBasicTypeCases(*layoutGroup, m_testCtx, typeName,
-										  VarType(VarType(type, glu::isDataTypeBoolOrBVec(type) ? 0 : PRECISION_HIGH), arraySize),
+										  VarType(VarType(type, !dataTypeSupportsPrecisionModifier(type) ? 0 : PRECISION_HIGH), arraySize),
 										  layoutFlags[layoutFlagNdx].flags);
 
 				if (glu::isDataTypeMatrix(type))
@@ -760,7 +805,7 @@ void UniformBlockTests::init (void)
 				const int			numInstances	= 3;
 
 				createBlockBasicTypeCases(*layoutGroup, m_testCtx, typeName,
-										  VarType(type, glu::isDataTypeBoolOrBVec(type) ? 0 : PRECISION_HIGH),
+										  VarType(type, !dataTypeSupportsPrecisionModifier(type) ? 0 : PRECISION_HIGH),
 										  layoutFlags[layoutFlagNdx].flags, numInstances);
 
 				if (glu::isDataTypeMatrix(type))
@@ -859,27 +904,48 @@ void UniformBlockTests::init (void)
 		const deUint32	allBasicTypes	= FEATURE_VECTORS|FEATURE_MATRICES;
 		const deUint32	unused			= FEATURE_UNUSED_MEMBERS|FEATURE_UNUSED_UNIFORMS;
 		const deUint32	matFlags		= FEATURE_MATRIX_LAYOUT;
-		const deUint32	allFeatures		= ~FEATURE_OUT_OF_ORDER_OFFSETS;  // OOO offsets handled in a dedicated case group
+		const deUint32	allFeatures		= ~FEATURE_OUT_OF_ORDER_OFFSETS & ~FEATURE_16BIT_STORAGE & ~FEATURE_8BIT_STORAGE
+										  & ~FEATURE_STD430_LAYOUT & ~FEATURE_SCALAR_LAYOUT;  // OOO offsets handled in a dedicated case group
+		const deUint32	allScalar		= ~allLayouts & ~FEATURE_16BIT_STORAGE & ~FEATURE_8BIT_STORAGE;
 
 		tcu::TestCaseGroup* randomGroup = new tcu::TestCaseGroup(m_testCtx, "random", "Random Uniform Block cases");
 		addChild(randomGroup);
 
-		// Basic types.
-		createRandomCaseGroup(randomGroup, m_testCtx, "scalar_types",	"Scalar types only, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused,										25, 0);
-		createRandomCaseGroup(randomGroup, m_testCtx, "vector_types",	"Scalar and vector types only, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|FEATURE_VECTORS,						25, 25);
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_types",	"All basic types, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK, allShaders|allLayouts|unused|allBasicTypes|matFlags,				25, 50);
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_arrays",	"Arrays, per-block buffers",						UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_ARRAYS,	25, 50);
+		for (int i = 0; i < 3; ++i)
+		{
 
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_instance_arrays",					"Basic instance arrays, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_INSTANCE_ARRAYS,								25, 75);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs",							"Nested structs, per-block buffers",					UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS,										25, 100);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_arrays",					"Nested structs, arrays, per-block buffers",			UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_ARRAYS,							25, 150);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_instance_arrays",			"Nested structs, instance arrays, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_INSTANCE_ARRAYS,				25, 125);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_arrays_instance_arrays",	"Nested structs, instance arrays, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_INSTANCE_ARRAYS,	25, 175);
+			tcu::TestCaseGroup* group = randomGroup;
+			if (i == 1)
+			{
+				group = new tcu::TestCaseGroup(m_testCtx, "16bit", "16bit storage");
+				randomGroup->addChild(group);
+			}
+			if (i == 2)
+			{
+				group = new tcu::TestCaseGroup(m_testCtx, "8bit", "8bit storage");
+				randomGroup->addChild(group);
+			}
+			const deUint32 use16BitStorage = i == 1 ? FEATURE_16BIT_STORAGE : 0;
+			const deUint32 use8BitStorage = i == 2 ? FEATURE_8BIT_STORAGE : 0;
 
-		createRandomCaseGroup(randomGroup, m_testCtx, "all_per_block_buffers",	"All random features, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	allFeatures,	50, 200);
-		createRandomCaseGroup(randomGroup, m_testCtx, "all_shared_buffer",		"All random features, shared buffer",		UniformBlockCase::BUFFERMODE_SINGLE,	allFeatures,	50, 250);
+			// Basic types.
+			createRandomCaseGroup(group, m_testCtx, "scalar_types",	"Scalar types only, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused,										25, 0);
+			createRandomCaseGroup(group, m_testCtx, "vector_types",	"Scalar and vector types only, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|FEATURE_VECTORS,						25, 25);
+			createRandomCaseGroup(group, m_testCtx, "basic_types",	"All basic types, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK, use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags,				25, 50);
+			createRandomCaseGroup(group, m_testCtx, "basic_arrays",	"Arrays, per-block buffers",						UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_ARRAYS,	25, 50);
 
-		createRandomCaseGroup(randomGroup, m_testCtx, "all_out_of_order_offsets",	"All random features, out of order member offsets",		UniformBlockCase::BUFFERMODE_PER_BLOCK,	allFeatures | FEATURE_OUT_OF_ORDER_OFFSETS,	50, 300);
+			createRandomCaseGroup(group, m_testCtx, "basic_instance_arrays",					"Basic instance arrays, per-block buffers",				UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_INSTANCE_ARRAYS,								25, 75);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs",							"Nested structs, per-block buffers",					UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS,										25, 100);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_arrays",					"Nested structs, arrays, per-block buffers",			UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_ARRAYS,							25, 150);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_instance_arrays",			"Nested structs, instance arrays, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_INSTANCE_ARRAYS,				25, 125);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_arrays_instance_arrays",	"Nested structs, instance arrays, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allShaders|allLayouts|unused|allBasicTypes|matFlags|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_INSTANCE_ARRAYS,	25, 175);
+
+			createRandomCaseGroup(group, m_testCtx, "all_per_block_buffers",	"All random features, per-block buffers",	UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allFeatures,	50, 200);
+			createRandomCaseGroup(group, m_testCtx, "all_shared_buffer",		"All random features, shared buffer",		UniformBlockCase::BUFFERMODE_SINGLE,	use8BitStorage|use16BitStorage|allFeatures,	50, 250);
+
+			createRandomCaseGroup(group, m_testCtx, "all_out_of_order_offsets",	"All random features, out of order member offsets",		UniformBlockCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allFeatures | FEATURE_OUT_OF_ORDER_OFFSETS,	50, 300);
+			createRandomCaseGroup(group, m_testCtx, "scalar",					"VK_EXT_scalar_block_layout",				UniformBlockCase::BUFFERMODE_SINGLE,	use8BitStorage|use16BitStorage|allScalar, 100, deInt32Hash(313));
+		}
 	}
 }
 

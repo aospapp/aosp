@@ -23,6 +23,7 @@
 
 #include "minikin/FontFamily.h"
 #include "minikin/MinikinFont.h"
+#include "minikin/U16StringPiece.h"
 
 namespace minikin {
 
@@ -40,8 +41,15 @@ public:
         int end;
     };
 
-    void itemize(const uint16_t* string, size_t string_length, const MinikinPaint& paint,
-                 std::vector<Run>* result) const;
+    // Perform the itemization until given max runs.
+    std::vector<Run> itemize(U16StringPiece text, FontStyle style, uint32_t localeListId,
+                             FamilyVariant familyVariant, uint32_t runMax) const;
+
+    // Perform the itemization until end of the text.
+    std::vector<Run> itemize(U16StringPiece text, FontStyle style, uint32_t localeListId,
+                             FamilyVariant familyVariant) const {
+        return itemize(text, style, localeListId, familyVariant, text.size());
+    }
 
     // Returns true if there is a glyph for the code point and variation selector pair.
     // Returns false if no fonts have a glyph for the code point and variation
@@ -79,10 +87,9 @@ private:
 
     const std::shared_ptr<FontFamily>& getFamilyForChar(uint32_t ch, uint32_t vs,
                                                         uint32_t localeListId,
-                                                        FontFamily::Variant variant) const;
+                                                        FamilyVariant variant) const;
 
-    uint32_t calcFamilyScore(uint32_t ch, uint32_t vs, FontFamily::Variant variant,
-                             uint32_t localeListId,
+    uint32_t calcFamilyScore(uint32_t ch, uint32_t vs, FamilyVariant variant, uint32_t localeListId,
                              const std::shared_ptr<FontFamily>& fontFamily) const;
 
     uint32_t calcCoverageScore(uint32_t ch, uint32_t vs, uint32_t localeListId,
@@ -91,8 +98,7 @@ private:
     static uint32_t calcLocaleMatchingScore(uint32_t userLocaleListId,
                                             const FontFamily& fontFamily);
 
-    static uint32_t calcVariantMatchingScore(FontFamily::Variant variant,
-                                             const FontFamily& fontFamily);
+    static uint32_t calcVariantMatchingScore(FamilyVariant variant, const FontFamily& fontFamily);
 
     // unique id for this font collection (suitable for cache key)
     uint32_t mId;

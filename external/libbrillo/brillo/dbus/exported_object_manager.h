@@ -108,6 +108,13 @@ class BRILLO_EXPORT ExportedObjectManager
 
   const scoped_refptr<dbus::Bus>& GetBus() const { return bus_; }
 
+  // Due to D-Bus forwarding, clients may need to access the underlying
+  // DBusObject to handle signals/methods.
+  // TODO(sonnysasaka): Refactor this accessor into a stricter API once we know
+  // what D-Bus forwarding needs when it's completed, without exposing
+  // DBusObject directly.
+  brillo::dbus_utils::DBusObject* dbus_object() { return &dbus_object_; };
+
  private:
   BRILLO_PRIVATE ObjectMap HandleGetManagedObjects();
 

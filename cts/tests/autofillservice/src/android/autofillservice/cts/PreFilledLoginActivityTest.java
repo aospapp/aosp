@@ -30,25 +30,25 @@ import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.platform.test.annotations.AppModeFull;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /**
  * Covers scenarios where the behavior is different because some fields were pre-filled.
  */
-@AppModeFull // LoginActivityTest is enough to test ephemeral apps support
-public class PreFilledLoginActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<PreFilledLoginActivity> mActivityRule =
-            new AutofillActivityTestRule<PreFilledLoginActivity>(PreFilledLoginActivity.class);
+@AppModeFull(reason = "LoginActivityTest is enough")
+public class PreFilledLoginActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<PreFilledLoginActivity> {
 
     private PreFilledLoginActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<PreFilledLoginActivity> getActivityRule() {
+        return new AutofillActivityTestRule<PreFilledLoginActivity>(PreFilledLoginActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test

@@ -18,8 +18,9 @@ package com.android.documentsui;
 
 import static junit.framework.Assert.assertEquals;
 
-import android.annotation.Nullable;
-import android.app.Activity;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
+
 import android.app.ActivityManager;
 import android.app.LoaderManager;
 import android.content.ComponentName;
@@ -42,6 +43,7 @@ import com.android.documentsui.testing.TestEventListener;
 import com.android.documentsui.testing.TestLoaderManager;
 import com.android.documentsui.testing.TestPackageManager;
 import com.android.documentsui.testing.TestResources;
+import com.android.documentsui.testing.TestSupportLoaderManager;
 
 import org.mockito.Mockito;
 
@@ -57,6 +59,7 @@ public abstract class TestActivity extends AbstractBase {
     public RootInfo currentRoot;
     public MockContentResolver contentResolver;
     public TestLoaderManager loaderManager;
+    public TestSupportLoaderManager supportLoaderManager;
     public ActivityManager activityManager;
 
     public TestEventListener<Intent> startActivity;
@@ -90,6 +93,7 @@ public abstract class TestActivity extends AbstractBase {
         notifyDirectoryNavigated = new TestEventListener<>();
         contentResolver = env.contentResolver;
         loaderManager = new TestLoaderManager();
+        supportLoaderManager = new TestSupportLoaderManager();
         finishedHandler = new TestEventHandler<>();
     }
 
@@ -198,6 +202,11 @@ public abstract class TestActivity extends AbstractBase {
     }
 
     @Override
+    public final androidx.loader.app.LoaderManager getSupportLoaderManager() {
+        return supportLoaderManager;
+    }
+
+    @Override
     public final Object getSystemService(String service) {
         switch (service) {
             case Context.ACTIVITY_SERVICE:
@@ -215,4 +224,4 @@ public abstract class TestActivity extends AbstractBase {
 
 // Trick Mockito into finding our Addons methods correctly. W/o this
 // hack, Mockito thinks Addons methods are not implemented.
-abstract class AbstractBase extends Activity implements CommonAddons {}
+abstract class AbstractBase extends FragmentActivity implements CommonAddons {}

@@ -53,14 +53,14 @@
     <!--
         To run all tests:
             adb shell am instrument -w
-                com.android.phone.tests/android.support.test.runner.AndroidJUnitRunner
+                com.android.phone.tests/androidx.test.runner.AndroidJUnitRunner
 
         To run a single class test:
             adb shell am instrument -e class com.android.phone.unit.FooUnitTest
-                -w com.android.phone.tests/android.support.test.runner.AndroidJUnitRunner
+                -w com.android.phone.tests/androidx.test.runner.AndroidJUnitRunner
 
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.phone"
         android:label="Phone application tests." />
 </manifest>

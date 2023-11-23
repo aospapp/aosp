@@ -50,8 +50,14 @@ class IVtsFuzzer : public IInterface {
   virtual void Exit() = 0;
 
   // Requests to load a HAL.
+  // Notes on args:
+  //   target_version_major:
+  //     int, the target component major HAL version
+  //   target_version_minor:
+  //     int, the target component minor HAL version
   virtual int32_t LoadHal(const string& path, int target_class, int target_type,
-                          float target_version, const string& module_name) = 0;
+                          int target_version_major, int target_version_minor,
+                          const string& module_name) = 0;
 
   // Requests to return the specified status.
   virtual int32_t Status(int32_t type) = 0;
@@ -67,11 +73,19 @@ class IVtsFuzzer : public IInterface {
 // For client
 class BpVtsFuzzer : public BpInterface<IVtsFuzzer> {
  public:
-  BpVtsFuzzer(const sp<IBinder>& impl) : BpInterface<IVtsFuzzer>(impl) {}
+  explicit BpVtsFuzzer(const sp<IBinder>& impl)
+      : BpInterface<IVtsFuzzer>(impl) {}
 
   void Exit();
+
+  // Notes on args:
+  //   target_version_major:
+  //     int, the target component major HAL version
+  //   target_version_minor:
+  //     int, the target component minor HAL version
   int32_t LoadHal(const string& path, int target_class, int target_type,
-                  float target_version, const string& module_name);
+                  int target_version_major, int target_version_minor,
+                  const string& module_name);
   int32_t Status(int32_t type);
   string Call(const string& call_payload);
   const char* GetFunctions();

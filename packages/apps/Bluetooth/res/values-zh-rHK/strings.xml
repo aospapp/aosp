@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"正在將檔案傳送給「<xliff:g id="RECIPIENT">%1$s</xliff:g>」"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"正在將 <xliff:g id="NUMBER">%1$s</xliff:g> 個檔案傳送給「<xliff:g id="RECIPIENT">%2$s</xliff:g>」"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"已停止將檔案傳送給「<xliff:g id="RECIPIENT">%1$s</xliff:g>」"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"USB 儲存裝置上空間不足，無法儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"SD 記憶卡上空間不足，無法儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB 儲存空間上的儲存空間不足，無法儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD 卡上的儲存空間不足，無法儲存「<xliff:g id="SENDER">%1$s</xliff:g>」傳來的檔案"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"所需儲存空間：<xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"同時處理過多要求，請稍後再試。"</string>
     <string name="status_pending" msgid="2503691772030877944">"尚未開始傳輸檔案。"</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"目標裝置禁止傳輸。"</string>
     <string name="status_canceled" msgid="6664490318773098285">"使用者已取消傳輸。"</string>
     <string name="status_file_error" msgid="3671917770630165299">"儲存空間問題。"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"沒有 USB 儲存裝置。"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"沒有 SD 卡，請插入 SD 卡來儲存傳輸的檔案。"</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"沒有 USB 儲存空間。"</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"沒有 SD 卡，請插入 SD 卡來儲存傳輸的檔案。"</string>
     <string name="status_connection_error" msgid="947681831523219891">"連線失敗。"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"無法正確處理要求。"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"未知錯誤。"</string>
@@ -106,7 +106,7 @@
     <string name="upload_success" msgid="4014469387779648949">"已完成 <xliff:g id="FILE_SIZE">%1$s</xliff:g> 的傳送作業。"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"外來傳輸"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"向外傳輸"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"傳輸記錄是空的。"</string>
+    <string name="no_transfers" msgid="3482965619151865672">"傳輸記錄為空白。"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"將會從清單清除所有項目。"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"藍牙分享：傳送的檔案"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"藍牙分享：接收的檔案"</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"開啟"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"從清單清除"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"清除"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"歌曲識別"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"儲存"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"取消"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"選取您要透過藍牙分享的帳戶。連線時，您仍然必須接受所有帳戶存取要求。"</string>

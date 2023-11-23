@@ -17,16 +17,20 @@
 #ifndef NETD_SERVER_NETWORK_CONTROLLER_H
 #define NETD_SERVER_NETWORK_CONTROLLER_H
 
+#include <android-base/thread_annotations.h>
 #include <android/multinetwork.h>
+
+
 #include "NetdConstants.h"
 #include "Permission.h"
+#include "android/net/INetd.h"
+#include "netdutils/DumpWriter.h"
 
-#include "utils/RWLock.h"
-
+#include <sys/types.h>
 #include <list>
 #include <map>
 #include <set>
-#include <sys/types.h>
+#include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -35,6 +39,9 @@ struct android_net_context;
 
 namespace android {
 namespace net {
+
+typedef std::shared_lock<std::shared_mutex> ScopedRLock;
+typedef std::lock_guard<std::shared_mutex> ScopedWLock;
 
 constexpr uint32_t kHandleMagic = 0xcafed00d;
 
@@ -65,7 +72,6 @@ static inline net_handle_t netIdToNetHandle(unsigned fromNetId) {
     return (((net_handle_t)fromNetId << 32) | kHandleMagic);
 }
 
-class DumpWriter;
 class Network;
 class UidRanges;
 class VirtualNetwork;
@@ -78,10 +84,11 @@ class VirtualNetwork;
  */
 class NetworkController {
 public:
-    static const unsigned MIN_OEM_ID;
-    static const unsigned MAX_OEM_ID;
-    static const unsigned LOCAL_NET_ID;
-    static const unsigned DUMMY_NET_ID;
+    // NetIds 52..98 are reserved for future use.
+    static constexpr int MIN_OEM_ID = 1;
+    static constexpr int MAX_OEM_ID = 50;
+    static constexpr int LOCAL_NET_ID = INetd::LOCAL_NET_ID;
+    static constexpr int DUMMY_NET_ID = 51;
 
     NetworkController();
 
@@ -100,7 +107,7 @@ public:
 
     int createPhysicalNetwork(unsigned netId, Permission permission) WARN_UNUSED_RESULT;
     int createPhysicalOemNetwork(Permission permission, unsigned *netId) WARN_UNUSED_RESULT;
-    int createVirtualNetwork(unsigned netId, bool hasDns, bool secure) WARN_UNUSED_RESULT;
+    int createVirtualNetwork(unsigned netId, bool secure) WARN_UNUSED_RESULT;
     int destroyNetwork(unsigned netId) WARN_UNUSED_RESULT;
 
     int addInterfaceToNetwork(unsigned netId, const char* interface) WARN_UNUSED_RESULT;
@@ -135,9 +142,9 @@ public:
     void allowProtect(const std::vector<uid_t>& uids);
     void denyProtect(const std::vector<uid_t>& uids);
 
-    void dump(DumpWriter& dw);
+    void dump(netdutils::DumpWriter& dw);
 
-private:
+  private:
     bool isValidNetworkLocked(unsigned netId) const;
     Network* getNetworkLocked(unsigned netId) const;
     uint32_t getNetworkForDnsLocked(unsigned* netId, uid_t uid) const;
@@ -146,7 +153,6 @@ private:
     unsigned getNetworkForInterfaceLocked(const char* interface) const;
     bool canProtectLocked(uid_t uid) const;
     bool isVirtualNetworkLocked(unsigned netId) const;
-
     VirtualNetwork* getVirtualNetworkForUserLocked(uid_t uid) const;
     Permission getPermissionForUserLocked(uid_t uid) const;
     int checkUserNetworkAccessLocked(uid_t uid, unsigned netId) const;
@@ -162,7 +168,7 @@ private:
 
     // mRWLock guards all accesses to mDefaultNetId, mNetworks, mUsers, mProtectableUsers,
     // mIfindexToLastNetId and mAddressToIfindices.
-    mutable android::RWLock mRWLock;
+    mutable std::shared_mutex mRWLock;
     unsigned mDefaultNetId;
     std::map<unsigned, Network*> mNetworks;  // Map keys are NetIds.
     std::map<uid_t, Permission> mUsers;

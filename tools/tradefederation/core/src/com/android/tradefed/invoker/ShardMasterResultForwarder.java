@@ -17,7 +17,6 @@ package com.android.tradefed.invoker;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ILogSaverListener;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
@@ -164,12 +163,6 @@ public class ShardMasterResultForwarder extends ResultForwarder implements ILogS
                 CLog.e(e);
             }
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setLogSaver(ILogSaver logSaver) {
-        // Shard master does not need log saver.
     }
 
     /**

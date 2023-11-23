@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 
+import its.cv2image
 import numpy as np
 
 
@@ -46,25 +47,28 @@ def main():
         print 'Error: need to specify screen serial'
         assert False
 
-    remote_scene_file = '/sdcard/Download/%s.pdf' % scene
-    local_scene_file = os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests',
-                                    scene)
-    if np.isclose(chart_distance, 20, rtol=0.1) and camera_fov < 90:
-        local_scene_file = os.path.join(local_scene_file,
-                                        scene+'_0.67_scaled.pdf')
+    src_scene_path = os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests', scene)
+    dst_scene_file = '/sdcard/Download/%s.pdf' % scene
+    chart_scaling = its.cv2image.calc_chart_scaling(chart_distance, camera_fov)
+    if np.isclose(chart_scaling, its.cv2image.SCALE_TELE_IN_WFOV_BOX, atol=0.01):
+        file_name = '%s_%s_scaled.pdf' % (
+                scene, str(its.cv2image.SCALE_TELE_IN_WFOV_BOX))
+    elif np.isclose(chart_scaling, its.cv2image.SCALE_RFOV_IN_WFOV_BOX, atol=0.01):
+        file_name = '%s_%s_scaled.pdf' % (
+                scene, str(its.cv2image.SCALE_RFOV_IN_WFOV_BOX))
     else:
-        local_scene_file = os.path.join(local_scene_file, scene+'.pdf')
-    print 'Loading %s on %s' % (local_scene_file, screen_id)
-    cmd = 'adb -s %s push %s /mnt%s' % (screen_id, local_scene_file,
-                                        remote_scene_file)
+        file_name = '%s.pdf' % scene
+    src_scene_file = os.path.join(src_scene_path, file_name)
+    print 'Loading %s on %s' % (src_scene_file, screen_id)
+    cmd = 'adb -s %s push %s /mnt%s' % (screen_id, src_scene_file,
+                                        dst_scene_file)
     subprocess.Popen(cmd.split())
     time.sleep(1)  # wait-for-device doesn't always seem to work...
     # The intent require PDF viewing app be installed on device.
     # Also the first time such app is opened it might request some permission,
     # so it's  better to grant those permissions before using this script
     cmd = ("adb -s %s wait-for-device shell am start -d 'file://%s'"
-           " -a android.intent.action.VIEW" % (screen_id,
-                                               remote_scene_file))
+           " -a android.intent.action.VIEW" % (screen_id, dst_scene_file))
     subprocess.Popen(cmd.split())
 
 if __name__ == '__main__':

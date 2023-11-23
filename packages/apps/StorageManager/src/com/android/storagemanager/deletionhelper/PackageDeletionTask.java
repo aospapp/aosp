@@ -19,6 +19,7 @@ package com.android.storagemanager.deletionhelper;
 import android.content.pm.IPackageDeleteObserver;
 import android.content.pm.PackageManager;
 import android.os.UserHandle;
+import android.util.Log;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Deletes a specified set of apps as a specified user and calls back once done.
  */
 public class PackageDeletionTask {
+    private static final String TAG = "PackageDeletionTask";
     private Set<String> mPackages;
     private Callback mCallback;
     private PackageManager mPm;
@@ -46,7 +48,12 @@ public class PackageDeletionTask {
     public void run() {
         PackageDeletionObserver observer = new PackageDeletionObserver(mPackages.size());
         for (String packageName : mPackages) {
-            mPm.deletePackageAsUser(packageName, observer, 0, mUser.getIdentifier());
+            try {
+                mPm.deletePackageAsUser(packageName, observer, 0, mUser.getIdentifier());
+            } catch (IllegalArgumentException e) {
+                // Couldn't find the package, no need to delete.
+                Log.w(TAG, "Could not find package, not deleting " + packageName, e);
+            }
         }
     }
 

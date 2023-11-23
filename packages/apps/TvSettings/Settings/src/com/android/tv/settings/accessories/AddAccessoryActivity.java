@@ -25,13 +25,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
-import android.support.annotation.NonNull;
 import android.transition.TransitionManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+
+import androidx.annotation.NonNull;
 
 import com.android.tv.settings.R;
 
@@ -76,7 +77,7 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
     private static final int CANCEL_MESSAGE_TIMEOUT = 3000;
     private static final int DONE_MESSAGE_TIMEOUT = 3000;
     private static final int PAIR_OPERATION_TIMEOUT = 120000;
-    private static final int CONNECT_OPERATION_TIMEOUT = 15000;
+    private static final int CONNECT_OPERATION_TIMEOUT = 60000;
     private static final int RESTART_DELAY = 3000;
     private static final int LONG_PRESS_DURATION = 3000;
     private static final int KEY_DOWN_TIME = 150;

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "MDnsSdListener.h"
+
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
@@ -21,29 +23,31 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <resolv.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <string.h>
-#include <resolv.h>
 
 #define LOG_TAG "MDnsDS"
 #define DBG 1
 #define VDBG 1
 
-#include <cutils/log.h>
 #include <cutils/properties.h>
+#include <log/log.h>
+#include <netdutils/ResponseCode.h>
+#include <netdutils/ThreadUtil.h>
 #include <sysutils/SocketClient.h>
-
-#include "MDnsSdListener.h"
-#include "ResponseCode.h"
-#include "thread_util.h"
 
 #define MDNS_SERVICE_NAME "mdnsd"
 #define MDNS_SERVICE_STATUS "init.svc.mdnsd"
 
 #define CEIL(x, y) (((x) + (y) - 1) / (y))
+
+constexpr char RESCAN[] = "1";
+
+using android::netdutils::ResponseCode;
 
 MDnsSdListener::MDnsSdListener() : FrameworkListener(SOCKET_NAME, true) {
     Monitor *m = new Monitor();
@@ -71,7 +75,7 @@ void MDnsSdListener::Handler::discover(SocketClient *cli,
     }
     Context *context = new Context(requestId, mListener);
     DNSServiceRef *ref = mMonitor->allocateServiceRef(requestId, context);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         ALOGE("requestId %d already in use during discover call", requestId);
         cli->sendMsg(ResponseCode::CommandParameterError,
                 "RequestId already in use during discover call", false);
@@ -138,15 +142,15 @@ void MDnsSdListener::Handler::stop(SocketClient *cli, int argc, char **argv, con
         free(msg);
         return;
     }
-    int requestId = atoi(argv[2]);
+    int requestId = strtol(argv[2], nullptr, 10);
     DNSServiceRef *ref = mMonitor->lookupServiceRef(requestId);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         if (DBG) ALOGE("%s stop used unknown requestId %d", str, requestId);
         cli->sendMsg(ResponseCode::CommandParameterError, "Unknown requestId", false);
         return;
     }
     if (VDBG) ALOGD("Stopping %s with ref %p", str, ref);
-    DNSServiceRefDeallocate(*ref);
+    mMonitor->deallocateServiceRef(ref);
     mMonitor->freeServiceRef(requestId);
     char *msg;
     asprintf(&msg, "%s stopped", str);
@@ -164,7 +168,7 @@ void MDnsSdListener::Handler::serviceRegister(SocketClient *cli, int requestId,
     Context *context = new Context(requestId, mListener);
     DNSServiceRef *ref = mMonitor->allocateServiceRef(requestId, context);
     port = htons(port);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         ALOGE("requestId %d already in use during register call", requestId);
         cli->sendMsg(ResponseCode::CommandParameterError,
                 "RequestId already in use during register call", false);
@@ -219,7 +223,7 @@ void MDnsSdListener::Handler::resolveService(SocketClient *cli, int requestId,
     }
     Context *context = new Context(requestId, mListener);
     DNSServiceRef *ref = mMonitor->allocateServiceRef(requestId, context);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         ALOGE("request Id %d already in use during resolve call", requestId);
         cli->sendMsg(ResponseCode::CommandParameterError,
                 "RequestId already in use during resolve call", false);
@@ -285,7 +289,7 @@ void MDnsSdListener::Handler::getAddrInfo(SocketClient *cli, int requestId,
     if (VDBG) ALOGD("getAddrInfo(%d, %s %d, %s)", requestId, interfaceName, protocol, hostname);
     Context *context = new Context(requestId, mListener);
     DNSServiceRef *ref = mMonitor->allocateServiceRef(requestId, context);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         ALOGE("request ID %d already in use during getAddrInfo call", requestId);
         cli->sendMsg(ResponseCode::CommandParameterError,
                 "RequestId already in use during getAddrInfo call", false);
@@ -345,7 +349,7 @@ void MDnsSdListener::Handler::setHostname(SocketClient *cli, int requestId,
     if (VDBG) ALOGD("setHostname(%d, %s)", requestId, hostname);
     Context *context = new Context(requestId, mListener);
     DNSServiceRef *ref = mMonitor->allocateServiceRef(requestId, context);
-    if (ref == NULL) {
+    if (ref == nullptr) {
         ALOGE("request Id %d already in use during setHostname call", requestId);
         cli->sendMsg(ResponseCode::CommandParameterError,
                 "RequestId already in use during setHostname call", false);
@@ -392,7 +396,7 @@ int MDnsSdListener::Handler::ifaceNameToI(const char * /* iface */) {
 }
 
 const char *MDnsSdListener::Handler::iToIfaceName(int /* i */) {
-    return NULL;
+    return nullptr;
 }
 
 DNSServiceFlags MDnsSdListener::Handler::iToFlags(int /* i */) {
@@ -406,7 +410,7 @@ int MDnsSdListener::Handler::flagsToI(DNSServiceFlags /* flags */) {
 int MDnsSdListener::Handler::runCommand(SocketClient *cli,
                                         int argc, char **argv) {
     if (argc < 2) {
-        char* msg = NULL;
+        char* msg = nullptr;
         asprintf( &msg, "Invalid number of arguments to mdnssd: %i", argc);
         ALOGW("%s", msg);
         cli->sendMsg(ResponseCode::CommandParameterError, msg, false);
@@ -422,10 +426,10 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
                     "Invalid number of arguments to mdnssd discover", false);
             return 0;
         }
-        int requestId = atoi(argv[2]);
+        int requestId = strtol(argv[2], nullptr, 10);
         char *serviceType = argv[3];
 
-        discover(cli, NULL, serviceType, NULL, requestId, 0);
+        discover(cli, nullptr, serviceType, nullptr, requestId, 0);
     } else if (strcmp(cmd, "stop-discover") == 0) {
         stop(cli, argc, argv, "discover");
     } else if (strcmp(cmd, "register") == 0) {
@@ -437,10 +441,10 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
         int requestId = atoi(argv[2]);
         char *serviceName = argv[3];
         char *serviceType = argv[4];
-        int port = atoi(argv[5]);
-        char *interfaceName = NULL; // will use all
-        char *domain = NULL;        // will use default
-        char *host = NULL;          // will use default hostname
+        int port = strtol(argv[5], nullptr, 10);
+        char *interfaceName = nullptr; // will use all
+        char *domain = nullptr;        // will use default
+        char *host = nullptr;          // will use default hostname
 
         // TXT record length is <= 1300, see NsdServiceInfo.setAttribute
         char dst[1300];
@@ -464,7 +468,7 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
             return 0;
         }
         int requestId = atoi(argv[2]);
-        char *interfaceName = NULL;  // will use all
+        char *interfaceName = nullptr;  // will use all
         char *serviceName = argv[3];
         char *regType = argv[4];
         char *domain = argv[5];
@@ -489,7 +493,7 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
                     "Invalid number of arguments to mdnssd sethostname", false);
             return 0;
         }
-        int requestId = atoi(argv[2]);
+        int requestId = strtol(argv[2], nullptr, 10);
         char *hostname = argv[3];
         setHostname(cli, requestId, hostname);
     } else if (strcmp(cmd, "stop-sethostname") == 0) {
@@ -502,7 +506,7 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
         }
         int requestId = atoi(argv[2]);
         char *hostname = argv[3];
-        char *interfaceName = NULL;  // default
+        char *interfaceName = nullptr;  // default
         int protocol = 0;            // intelligient heuristic (both v4 + v6)
         getAddrInfo(cli, requestId, interfaceName, protocol, hostname);
     } else if (strcmp(cmd, "stop-getaddrinfo") == 0) {
@@ -516,15 +520,14 @@ int MDnsSdListener::Handler::runCommand(SocketClient *cli,
 }
 
 MDnsSdListener::Monitor::Monitor() {
-    mHead = NULL;
+    mHead = nullptr;
     mLiveCount = 0;
-    mPollFds = NULL;
-    mPollRefs = NULL;
+    mPollFds = nullptr;
+    mPollRefs = nullptr;
     mPollSize = 10;
-    socketpair(AF_LOCAL, SOCK_STREAM, 0, mCtrlSocketPair);
-    pthread_mutex_init(&mHeadMutex, NULL);
+    socketpair(AF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, mCtrlSocketPair);
 
-    const int rval = ::android::net::threadLaunch(this);
+    const int rval = ::android::netdutils::threadLaunch(this);
     if (rval != 0) {
         ALOGW("Error spawning monitor thread: %s (%d)", strerror(-rval), -rval);
     }
@@ -542,8 +545,8 @@ static int wait_for_property(const char *name, const char *desired_value, int ma
 
     while (maxnaps-- > 0) {
         usleep(NAP_TIME * 1000);
-        if (property_get(name, value, NULL)) {
-            if (desired_value == NULL || strcmp(value, desired_value) == 0) {
+        if (property_get(name, value, nullptr)) {
+            if (desired_value == nullptr || strcmp(value, desired_value) == 0) {
                 return 0;
             }
         }
@@ -552,35 +555,27 @@ static int wait_for_property(const char *name, const char *desired_value, int ma
 }
 
 int MDnsSdListener::Monitor::startService() {
-    int result = 0;
     char property_value[PROPERTY_VALUE_MAX];
-    pthread_mutex_lock(&mHeadMutex);
+    std::lock_guard guard(mMutex);
     property_get(MDNS_SERVICE_STATUS, property_value, "");
     if (strcmp("running", property_value) != 0) {
         ALOGD("Starting MDNSD");
         property_set("ctl.start", MDNS_SERVICE_NAME);
         wait_for_property(MDNS_SERVICE_STATUS, "running", 5);
-        result = -1;
-    } else {
-        result = 0;
+        return -1;
     }
-    pthread_mutex_unlock(&mHeadMutex);
-    return result;
+    return 0;
 }
 
 int MDnsSdListener::Monitor::stopService() {
-    int result = 0;
-    pthread_mutex_lock(&mHeadMutex);
-    if (mHead == NULL) {
+    std::lock_guard guard(mMutex);
+    if (mHead == nullptr) {
         ALOGD("Stopping MDNSD");
         property_set("ctl.stop", MDNS_SERVICE_NAME);
         wait_for_property(MDNS_SERVICE_STATUS, "stopped", 5);
-        result = -1;
-    } else {
-        result = 0;
+        return -1;
     }
-    pthread_mutex_unlock(&mHeadMutex);
-    return result;
+    return 0;
 }
 
 void MDnsSdListener::Monitor::run() {
@@ -588,9 +583,9 @@ void MDnsSdListener::Monitor::run() {
 
     mPollFds = (struct pollfd *)calloc(sizeof(struct pollfd), mPollSize);
     mPollRefs = (DNSServiceRef **)calloc(sizeof(DNSServiceRef *), mPollSize);
-    LOG_ALWAYS_FATAL_IF((mPollFds == NULL), "initial calloc failed on mPollFds with a size of %d",
+    LOG_ALWAYS_FATAL_IF((mPollFds == nullptr), "initial calloc failed on mPollFds with a size of %d",
             ((int)sizeof(struct pollfd)) * mPollSize);
-    LOG_ALWAYS_FATAL_IF((mPollRefs == NULL), "initial calloc failed on mPollRefs with a size of %d",
+    LOG_ALWAYS_FATAL_IF((mPollRefs == nullptr), "initial calloc failed on mPollRefs with a size of %d",
             ((int)sizeof(DNSServiceRef *)) * mPollSize);
 
     mPollFds[0].fd = mCtrlSocketPair[0];
@@ -610,6 +605,7 @@ void MDnsSdListener::Monitor::run() {
                         ALOGD("Monitor found [%d].revents = %d - calling ProcessResults",
                                 i, mPollFds[i].revents);
                     }
+                    std::lock_guard guard(mMutex);
                     DNSServiceProcessResult(*(mPollRefs[i]));
                     mPollFds[i].revents = 0;
                 }
@@ -641,7 +637,7 @@ int MDnsSdListener::Monitor::rescan() {
     if (VDBG) {
         ALOGD("MDnsSdListener::Monitor poll rescanning - size=%d, live=%d", mPollSize, mLiveCount);
     }
-    pthread_mutex_lock(&mHeadMutex);
+    std::lock_guard guard(mMutex);
     Element **prevPtr = &mHead;
     int i = 1;
     if (mPollSize <= mLiveCount) {
@@ -650,9 +646,9 @@ int MDnsSdListener::Monitor::rescan() {
         free(mPollRefs);
         mPollFds = (struct pollfd *)calloc(sizeof(struct pollfd), mPollSize);
         mPollRefs = (DNSServiceRef **)calloc(sizeof(DNSServiceRef *), mPollSize);
-        LOG_ALWAYS_FATAL_IF((mPollFds == NULL), "calloc failed on mPollFds with a size of %d",
+        LOG_ALWAYS_FATAL_IF((mPollFds == nullptr), "calloc failed on mPollFds with a size of %d",
                 ((int)sizeof(struct pollfd)) * mPollSize);
-        LOG_ALWAYS_FATAL_IF((mPollRefs == NULL), "calloc failed on mPollRefs with a size of %d",
+        LOG_ALWAYS_FATAL_IF((mPollRefs == nullptr), "calloc failed on mPollRefs with a size of %d",
                 ((int)sizeof(DNSServiceRef *)) * mPollSize);
     } else {
         memset(mPollFds, 0, sizeof(struct pollfd) * mPollSize);
@@ -661,7 +657,7 @@ int MDnsSdListener::Monitor::rescan() {
     mPollFds[0].fd = mCtrlSocketPair[0];
     mPollFds[0].events = POLLIN;
     if (DBG_RESCAN) ALOGD("mHead = %p", mHead);
-    while (*prevPtr != NULL) {
+    while (*prevPtr != nullptr) {
         if (DBG_RESCAN) ALOGD("checking %p, mReady = %d", *prevPtr, (*prevPtr)->mReady);
         if ((*prevPtr)->mReady == 1) {
             int fd = DNSServiceRefSockFD((*prevPtr)->mRef);
@@ -686,80 +682,75 @@ int MDnsSdListener::Monitor::rescan() {
             prevPtr = &((*prevPtr)->mNext);
         }
     }
-    pthread_mutex_unlock(&mHeadMutex);
+
     return i;
 }
 
 DNSServiceRef *MDnsSdListener::Monitor::allocateServiceRef(int id, Context *context) {
-    if (lookupServiceRef(id) != NULL) {
+    if (lookupServiceRef(id) != nullptr) {
         delete(context);
-        return NULL;
+        return nullptr;
     }
     Element *e = new Element(id, context);
-    pthread_mutex_lock(&mHeadMutex);
+    std::lock_guard guard(mMutex);
     e->mNext = mHead;
     mHead = e;
-    pthread_mutex_unlock(&mHeadMutex);
     return &(e->mRef);
 }
 
 DNSServiceRef *MDnsSdListener::Monitor::lookupServiceRef(int id) {
-    pthread_mutex_lock(&mHeadMutex);
+    std::lock_guard guard(mMutex);
     Element *cur = mHead;
-    while (cur != NULL) {
+    while (cur != nullptr) {
         if (cur->mId == id) {
             DNSServiceRef *result = &(cur->mRef);
-            pthread_mutex_unlock(&mHeadMutex);
             return result;
         }
         cur = cur->mNext;
     }
-    pthread_mutex_unlock(&mHeadMutex);
-    return NULL;
+    return nullptr;
 }
 
 void MDnsSdListener::Monitor::startMonitoring(int id) {
     if (VDBG) ALOGD("startMonitoring %d", id);
-    pthread_mutex_lock(&mHeadMutex);
-    Element *cur = mHead;
-    while (cur != NULL) {
+    std::lock_guard guard(mMutex);
+    for (Element* cur = mHead; cur != nullptr; cur = cur->mNext) {
         if (cur->mId == id) {
             if (DBG_RESCAN) ALOGD("marking %p as ready to be added", cur);
             mLiveCount++;
             cur->mReady = 1;
-            pthread_mutex_unlock(&mHeadMutex);
             write(mCtrlSocketPair[1], RESCAN, 1);  // trigger a rescan for a fresh poll
             if (VDBG) ALOGD("triggering rescan");
             return;
         }
-        cur = cur->mNext;
     }
-    pthread_mutex_unlock(&mHeadMutex);
 }
 
 void MDnsSdListener::Monitor::freeServiceRef(int id) {
     if (VDBG) ALOGD("freeServiceRef %d", id);
-    pthread_mutex_lock(&mHeadMutex);
-    Element **prevPtr = &mHead;
-    Element *cur;
-    while (*prevPtr != NULL) {
+    std::lock_guard guard(mMutex);
+    Element* cur;
+    for (Element** prevPtr = &mHead; *prevPtr != nullptr; prevPtr = &(cur->mNext)) {
         cur = *prevPtr;
         if (cur->mId == id) {
             if (DBG_RESCAN) ALOGD("marking %p as ready to be removed", cur);
             mLiveCount--;
             if (cur->mReady == 1) {
                 cur->mReady = -1; // tell poll thread to delete
-                cur->mRef = NULL; // do not process further results
+                cur->mRef = nullptr; // do not process further results
                 write(mCtrlSocketPair[1], RESCAN, 1); // trigger a rescan for a fresh poll
                 if (VDBG) ALOGD("triggering rescan");
             } else {
                 *prevPtr = cur->mNext;
                 delete cur;
             }
-            pthread_mutex_unlock(&mHeadMutex);
             return;
         }
-        prevPtr = &(cur->mNext);
     }
-    pthread_mutex_unlock(&mHeadMutex);
+}
+
+void MDnsSdListener::Monitor::deallocateServiceRef(DNSServiceRef* ref) {
+    std::lock_guard guard(mMutex);
+    DNSServiceRefDeallocate(*ref);
+    *ref = nullptr;
 }

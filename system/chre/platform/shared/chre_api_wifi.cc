@@ -23,29 +23,45 @@ using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
 
 DLL_EXPORT uint32_t chreWifiGetCapabilities() {
+#ifdef CHRE_WIFI_SUPPORT_ENABLED
   return chre::EventLoopManagerSingleton::get()->getWifiRequestManager()
       .getCapabilities();
+#else
+  return CHRE_WIFI_CAPABILITIES_NONE;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
 }
 
 DLL_EXPORT bool chreWifiConfigureScanMonitorAsync(bool enable,
                                                   const void *cookie) {
+#ifdef CHRE_WIFI_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return EventLoopManagerSingleton::get()->getWifiRequestManager()
       .configureScanMonitor(nanoapp, enable, cookie);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
 }
 
 DLL_EXPORT bool chreWifiRequestScanAsync(
     const struct chreWifiScanParams *params, const void *cookie) {
+#ifdef CHRE_WIFI_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return (params == nullptr) ? false :
       EventLoopManagerSingleton::get()->getWifiRequestManager()
           .requestScan(nanoapp, params, cookie);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
 }
 
 DLL_EXPORT bool chreWifiRequestRangingAsync(
     const struct chreWifiRangingParams *params, const void *cookie) {
+#ifdef CHRE_WIFI_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return (params == nullptr) ? false :
       EventLoopManagerSingleton::get()->getWifiRequestManager()
           .requestRanging(nanoapp, params, cookie);
+#else
+  return false;
+#endif  // CHRE_WIFI_SUPPORT_ENABLED
 }

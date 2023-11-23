@@ -41,7 +41,6 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -66,7 +65,6 @@ import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 /**
  * Tests for the DngCreator API.
  */
-@AppModeFull
 public class DngCreatorTest extends Camera2AndroidTestCase {
     private static final String TAG = "DngCreatorTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -140,15 +138,14 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
             FileOutputStream fileStream = null;
             ByteArrayOutputStream outputStream = null;
             try {
-                openDevice(deviceId);
-
-                if (!mStaticInfo.isCapabilitySupported(
+                if (!mAllStaticInfo.get(deviceId).isCapabilitySupported(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                     Log.i(TAG, "RAW capability is not supported in camera " + mCameraIds[i] +
                             ". Skip the test.");
                     continue;
                 }
 
+                openDevice(deviceId);
                 Size activeArraySize = mStaticInfo.getRawDimensChecked();
 
                 // Create capture image reader
@@ -167,7 +164,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
                 if (VERBOSE) {
                     // Write DNG to file
-                    String dngFilePath = DEBUG_FILE_NAME_BASE + "/camera_basic_" + deviceId + "_" +
+                    String dngFilePath = mDebugFileNameBase + "/camera_basic_" + deviceId + "_" +
                             DEBUG_DNG_FILE;
                     // Write out captured DNG file for the first camera device if setprop is enabled
                     fileStream = new FileOutputStream(dngFilePath);
@@ -217,15 +214,14 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
             FileOutputStream fileStream = null;
             ByteArrayOutputStream outputStream = null;
             try {
-                openDevice(deviceId);
-
-                if (!mStaticInfo.isCapabilitySupported(
+                if (!mAllStaticInfo.get(deviceId).isCapabilitySupported(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                     Log.i(TAG, "RAW capability is not supported in camera " + mCameraIds[i] +
                             ". Skip the test.");
                     continue;
                 }
 
+                openDevice(deviceId);
                 Size activeArraySize = mStaticInfo.getRawDimensChecked();
 
                 Size[] targetPreviewSizes =
@@ -276,7 +272,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                 outputStream = new ByteArrayOutputStream();
                 dngCreator.writeImage(outputStream, resultPair.first.get(0));
 
-                String filePath = DEBUG_FILE_NAME_BASE + "/camera_thumb_" + deviceId + "_" +
+                String filePath = mDebugFileNameBase + "/camera_thumb_" + deviceId + "_" +
                         DEBUG_DNG_FILE;
                 // Write out captured DNG file for the first camera device
                 fileStream = new FileOutputStream(filePath);
@@ -410,7 +406,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                             new DngCreator(data.characteristics, data.imagePair.second);
 
                     // Write DNG to file
-                    String dngFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId + "_" +
+                    String dngFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_" +
                             DEBUG_DNG_FILE;
                     // Write out captured DNG file for the first camera device if setprop is enabled
                     fileStream = new FileOutputStream(dngFilePath);
@@ -420,7 +416,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                     Log.v(TAG, "Test DNG file for camera " + deviceId + " saved to " + dngFilePath);
 
                     // Write JPEG to file
-                    String jpegFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId + "_jpeg.jpg";
+                    String jpegFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_jpeg.jpg";
                     // Write out captured DNG file for the first camera device if setprop is enabled
                     fileChannel = new FileOutputStream(jpegFilePath).getChannel();
                     ByteBuffer jPlane = jpeg.getPlanes()[0].getBuffer();
@@ -431,7 +427,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                             jpegFilePath);
 
                     // Write jpeg generated from demosaiced RAW frame to file
-                    String rawFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId + "_raw.jpg";
+                    String rawFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_raw.jpg";
                     // Write out captured DNG file for the first camera device if setprop is enabled
                     fileStream = new FileOutputStream(rawFilePath);
                     rawBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fileStream);
@@ -480,8 +476,9 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
             DngCreator dngCreator = new DngCreator(data.characteristics, data.imagePair.second);
 
             // Write DNG to file
-            String dngFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId + "_"
-                    + TEST_DNG_FILE;
+            String dngFilePath = mDebugFileNameBase + "/camera_" +
+                deviceId + "_" + TEST_DNG_FILE;
+
             // Write out captured DNG file for the first camera device if setprop is enabled
             try (FileOutputStream fileStream = new FileOutputStream(dngFilePath)) {
                 dngCreator.writeImage(fileStream, raw);
@@ -509,15 +506,14 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
         CapturedData data = new CapturedData();
         List<CameraTestUtils.SimpleImageReaderListener> captureListeners = new ArrayList<>();
         try {
-            openDevice(deviceId);
-
-            if (!mStaticInfo.isCapabilitySupported(
+            if (!mAllStaticInfo.get(deviceId).isCapabilitySupported(
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                 Log.i(TAG, "RAW capability is not supported in camera " + deviceId
                         + ". Skip the test.");
                 return null;
             }
 
+            openDevice(deviceId);
             Size activeArraySize = mStaticInfo.getRawDimensChecked();
 
             // Get largest jpeg size
@@ -610,7 +606,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
             FileOutputStream fileStream = null;
             try {
                 // Write JPEG patch to file
-                String jpegFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId +
+                String jpegFilePath = mDebugFileNameBase + "/camera_" + deviceId +
                         "_jpeg_patch.jpg";
                 fileStream = new FileOutputStream(jpegFilePath);
                 jpegPatch.compress(Bitmap.CompressFormat.JPEG, 90, fileStream);
@@ -620,7 +616,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                         jpegFilePath);
 
                 // Write RAW patch to file
-                String rawFilePath = DEBUG_FILE_NAME_BASE + "/camera_" + deviceId +
+                String rawFilePath = mDebugFileNameBase + "/camera_" + deviceId +
                         "_raw_patch.jpg";
                 fileStream = new FileOutputStream(rawFilePath);
                 rawPatch.compress(Bitmap.CompressFormat.JPEG, 90, fileStream);

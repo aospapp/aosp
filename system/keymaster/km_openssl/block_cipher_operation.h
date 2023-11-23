@@ -45,14 +45,14 @@ class EvpCipherDescription {
  */
 class BlockCipherOperationFactory : public OperationFactory {
   public:
-    BlockCipherOperationFactory(keymaster_purpose_t purpose) : purpose_(purpose) {}
+    explicit BlockCipherOperationFactory(keymaster_purpose_t purpose) : purpose_(purpose) {}
 
     KeyType registry_key() const override {
         return KeyType(GetCipherDescription().algorithm(), purpose_);
     }
 
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                 keymaster_error_t* error) override;
+                                 keymaster_error_t* error) const override;
 
     const keymaster_block_mode_t* SupportedBlockModes(size_t* block_mode_count) const override {
         return GetCipherDescription().SupportedBlockModes(block_mode_count);

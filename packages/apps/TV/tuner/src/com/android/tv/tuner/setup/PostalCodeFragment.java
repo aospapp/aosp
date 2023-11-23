@@ -32,10 +32,11 @@ import com.android.tv.common.util.PostalCodeUtils;
 import com.android.tv.tuner.R;
 import java.util.List;
 
-/** A fragment for initial screen. */
+/** A fragment for users to enter postal code. */
 public class PostalCodeFragment extends SetupMultiPaneFragment {
     public static final String ACTION_CATEGORY = "com.android.tv.tuner.setup.PostalCodeFragment";
     public static final String KEY_POSTAL_CODE = "postal_code";
+    public static final String KEY_GET_LOCATION_FAILED = "get_location_failed";
     private static final int VIEW_TYPE_EDITABLE = 1;
 
     @Override
@@ -43,6 +44,11 @@ public class PostalCodeFragment extends SetupMultiPaneFragment {
         ContentFragment fragment = new ContentFragment();
         Bundle arguments = new Bundle();
         arguments.putBoolean(SetupGuidedStepFragment.KEY_THREE_PANE, true);
+        if (getArguments() != null) {
+            arguments.putBoolean(
+                    KEY_GET_LOCATION_FAILED,
+                    getArguments().getBoolean(KEY_GET_LOCATION_FAILED, false));
+        }
         fragment.setArguments(arguments);
         return fragment;
     }
@@ -139,9 +145,16 @@ public class PostalCodeFragment extends SetupMultiPaneFragment {
         @Override
         public Guidance onCreateGuidance(Bundle savedInstanceState) {
             String title = getString(R.string.postal_code_guidance_title);
-            String description = getString(R.string.postal_code_guidance_description);
+            StringBuilder description = new StringBuilder();
+            if (getArguments().getBoolean(KEY_GET_LOCATION_FAILED, false)) {
+                description
+                        .append(getString(R.string
+                                .postal_code_guidance_description_get_location_failed))
+                        .append(" ");
+            }
+            description.append(getString(R.string.postal_code_guidance_description));
             String breadcrumb = getString(R.string.ut_setup_breadcrumb);
-            return new Guidance(title, description, breadcrumb, null);
+            return new Guidance(title, description.toString(), breadcrumb, null);
         }
 
         @Override

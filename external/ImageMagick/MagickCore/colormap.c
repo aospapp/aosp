@@ -17,13 +17,13 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -116,11 +116,11 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   image->colors=MagickMax(colors,1);
   if (image->colormap == (PixelInfo *) NULL)
-    image->colormap=(PixelInfo *) AcquireQuantumMemory(image->colors,
+    image->colormap=(PixelInfo *) AcquireQuantumMemory(image->colors+1,
       sizeof(*image->colormap));
   else
     image->colormap=(PixelInfo *) ResizeQuantumMemory(image->colormap,
-      image->colors,sizeof(*image->colormap));
+      image->colors+1,sizeof(*image->colormap));
   if (image->colormap == (PixelInfo *) NULL)
     {
       image->colors=0;
@@ -133,13 +133,13 @@ MagickExport MagickBooleanType AcquireImageColormap(Image *image,
     double
       pixel;
 
-    pixel=(double) (i*(QuantumRange/MagickMax(colors-1,1)));
     GetPixelInfo(image,image->colormap+i);
-    image->colormap[i].alpha_trait=BlendPixelTrait;
+    pixel=(double) (i*(QuantumRange/MagickMax(colors-1,1)));
     image->colormap[i].red=pixel;
     image->colormap[i].green=pixel;
     image->colormap[i].blue=pixel;
-    image->colormap[i].alpha=OpaqueAlpha;
+    image->colormap[i].alpha=(MagickRealType) OpaqueAlpha;
+    image->colormap[i].alpha_trait=BlendPixelTrait;
   }
   return(SetImageStorageClass(image,PseudoClass,exception));
 }
@@ -197,8 +197,8 @@ MagickExport MagickBooleanType CycleColormapImage(Image *image,
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) \
-    magick_threads(image,image,1,1)
+  #pragma omp parallel for schedule(static) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -321,10 +321,6 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
   /*
     Assign index values to colormap entries.
   */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,1,1)
-#endif
   for (i=0; i < (ssize_t) image->colors; i++)
     image->colormap[i].alpha=(double) i;
   /*
@@ -335,9 +331,6 @@ MagickExport MagickBooleanType SortColormapByIntensity(Image *image,
   /*
     Update image colormap indexes to sorted colormap order.
   */
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status)
-#endif
   for (i=0; i < (ssize_t) image->colors; i++)
     pixels[(ssize_t) image->colormap[i].alpha]=(unsigned short) i;
   status=MagickTrue;

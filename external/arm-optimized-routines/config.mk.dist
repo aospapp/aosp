@@ -1,0 +1,34 @@
+# Example config.mk
+#
+# Copyright (c) 2018, Arm Limited.
+# SPDX-License-Identifier: MIT
+
+HOST_CC = gcc
+HOST_CFLAGS = -std=c99 -O2
+HOST_CFLAGS += -Wall -Wno-unused-function
+
+CC = $(CROSS_COMPILE)gcc
+CFLAGS = -std=c99 -pipe -O3
+CFLAGS += -Wall -Wno-missing-braces
+
+# Enable debug info.
+HOST_CFLAGS += -g
+CFLAGS += -g
+
+# Use if the target FPU only supports single precision.
+#CFLAGS += WANT_SINGLEPREC
+
+# Use with gcc.
+CFLAGS += -frounding-math -fexcess-precision=standard -fno-stack-protector
+CFLAGS += -ffp-contract=fast -fno-math-errno
+
+# Use with clang.
+#CFLAGS += -DCLANG_EXCEPTIONS
+#CFLAGS += -ffp-contract=fast
+
+# Use for cross compilation with gcc.
+#CROSS_COMPILE = aarch64-none-linux-gnu-
+
+# Use with cross testing.
+#EMULATOR = qemu-aarch64-static
+#EMULATOR = sh -c 'scp $$1 user@host:/dir && ssh user@host /dir/"$$@"' --

@@ -6,6 +6,9 @@ cc_test {
     host_supported: true,
     srcs: ["JniInvocation_test.cpp"],
     cflags: ["-Wall", "-Werror"],
+    // Link to the non-stub version of the library to access some internal
+    // functions.
+    bootstrap: true,
     shared_libs: ["libnativehelper"],
 }
 
@@ -56,5 +59,16 @@ cc_test {
       "-D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS",
   ],
 
+  tidy: true,
+
+  shared_libs: ["libnativehelper"],
+}
+
+cc_test {
+  name: "libnativehelper_api_test",
+  host_supported: true,
+  cflags: ["-Wall", "-Werror"],
+  srcs: ["libnativehelper_api_test.c"],  // C Compilation test.
+  tidy: true,
   shared_libs: ["libnativehelper"],
 }

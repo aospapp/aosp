@@ -18,11 +18,158 @@ from __future__ import division
 from __future__ import print_function
 
 from tensorflow.core.framework import tensor_shape_pb2
+from tensorflow.python import tf2
+from tensorflow.python.framework import dtypes
 from tensorflow.python.util import compat
 from tensorflow.python.util.tf_export import tf_export
 
 
-@tf_export("Dimension")
+_TENSORSHAPE_V2_OVERRIDE = None
+
+
+@tf_export(v1=["enable_v2_tensorshape"])
+def enable_v2_tensorshape():
+  """In TensorFlow 2.0, iterating over a TensorShape instance returns values.
+
+  This enables the new behavior.
+
+  Concretely, `tensor_shape[i]` returned a Dimension instance in V1, but
+  it V2 it returns either an integer, or None.
+
+  Examples:
+
+  ```
+  #######################
+  # If you had this in V1:
+  value = tensor_shape[i].value
+
+  # Do this in V2 instead:
+  value = tensor_shape[i]
+
+  #######################
+  # If you had this in V1:
+  for dim in tensor_shape:
+    value = dim.value
+    print(value)
+
+  # Do this in V2 instead:
+  for value in tensor_shape:
+    print(value)
+
+  #######################
+  # If you had this in V1:
+  dim = tensor_shape[i]
+  dim.assert_is_compatible_with(other_shape)  # or using any other shape method
+
+  # Do this in V2 instead:
+  if tensor_shape.rank is None:
+    dim = Dimension(None)
+  else:
+    dim = tensor_shape.dims[i]
+  dim.assert_is_compatible_with(other_shape)  # or using any other shape method
+
+  # The V2 suggestion above is more explicit, which will save you from
+  # the following trap (present in V1):
+  # you might do in-place modifications to `dim` and expect them to be reflected
+  # in `tensor_shape[i]`, but they would not be.
+  ```
+  """
+  global _TENSORSHAPE_V2_OVERRIDE  # pylint: disable=invalid-name
+  _TENSORSHAPE_V2_OVERRIDE = True
+
+
+@tf_export(v1=["disable_v2_tensorshape"])
+def disable_v2_tensorshape():
+  """Disables the V2 TensorShape behavior and reverts to V1 behavior.
+
+  See docstring for `enable_v2_tensorshape` for details about the new behavior.
+  """
+  global _TENSORSHAPE_V2_OVERRIDE  # pylint: disable=invalid-name
+  _TENSORSHAPE_V2_OVERRIDE = False
+
+
+@tf_export("compat.dimension_value",
+           v1=["dimension_value", "compat.dimension_value"])
+def dimension_value(dimension):
+  """Compatibility utility required to allow for both V1 and V2 behavior in TF.
+
+  Until the release of TF 2.0, we need the legacy behavior of `TensorShape` to
+  coexist with the new behavior. This utility is a bridge between the two.
+
+  When accessing the value of a TensorShape dimension,
+  use this utility, like this:
+
+  ```
+  # If you had this in your V1 code:
+  value = tensor_shape[i].value
+
+  # Use `dimension_value` as direct replacement compatible with both V1 & V2:
+  value = dimension_value(tensor_shape[i])
+
+  # This would be the V2 equivalent:
+  value = tensor_shape[i]  # Warning: this will return the dim value in V2!
+  ```
+
+  Arguments:
+    dimension: Either a `Dimension` instance, an integer, or None.
+
+  Returns:
+    A plain value, i.e. an integer or None.
+  """
+  if isinstance(dimension, Dimension):
+    return dimension.value
+  return dimension
+
+
+@tf_export("compat.dimension_at_index",
+           v1=["dimension_at_index", "compat.dimension_at_index"])
+def dimension_at_index(shape, index):
+  """Compatibility utility required to allow for both V1 and V2 behavior in TF.
+
+  Until the release of TF 2.0, we need the legacy behavior of `TensorShape` to
+  coexist with the new behavior. This utility is a bridge between the two.
+
+  If you want to retrieve the Dimension instance corresponding to a certain
+  index in a TensorShape instance, use this utility, like this:
+
+  ```
+  # If you had this in your V1 code:
+  dim = tensor_shape[i]
+
+  # Use `dimension_at_index` as direct replacement compatible with both V1 & V2:
+  dim = dimension_at_index(tensor_shape, i)
+
+  # Another possibility would be this, but WARNING: it only works if the
+  # tensor_shape instance has a defined rank.
+  dim = tensor_shape.dims[i]  # `dims` may be None if the rank is undefined!
+
+  # In native V2 code, we recommend instead being more explicit:
+  if tensor_shape.rank is None:
+    dim = Dimension(None)
+  else:
+    dim = tensor_shape.dims[i]
+
+  # Being more explicit will save you from the following trap (present in V1):
+  # you might do in-place modifications to `dim` and expect them to be reflected
+  # in `tensor_shape[i]`, but they would not be (as the Dimension object was
+  # instantiated on the fly.
+  ```
+
+  Arguments:
+    shape: A TensorShape instance.
+    index: An integer index.
+
+  Returns:
+    A dimension object.
+  """
+  assert isinstance(shape, TensorShape)
+  if shape.rank is None:
+    return Dimension(None)
+  else:
+    return shape.dims[index]
+
+
+@tf_export(v1=["Dimension"])
 class Dimension(object):
   """Represents the value of one dimension in a TensorShape."""
 
@@ -30,6 +177,10 @@ class Dimension(object):
     """Creates a new Dimension with the given value."""
     if value is None:
       self._value = None
+    elif isinstance(value, Dimension):
+      self._value = value.value
+    elif isinstance(value, dtypes.DType):
+      raise TypeError("Cannot convert %s to Dimension" % value)
     else:
       self._value = int(value)
       if (not isinstance(value, compat.bytes_or_text_types) and
@@ -118,11 +269,14 @@ class Dimension(object):
     Dimensions are combined as follows:
 
     ```python
-    tf.Dimension(n)   .merge_with(tf.Dimension(n))    == tf.Dimension(n)
-    tf.Dimension(n)   .merge_with(tf.Dimension(None)) == tf.Dimension(n)
-    tf.Dimension(None).merge_with(tf.Dimension(n))    == tf.Dimension(n)
-    tf.Dimension(None).merge_with(tf.Dimension(None)) == tf.Dimension(None)
-    tf.Dimension(n)   .merge_with(tf.Dimension(m))  # raises ValueError for n != m
+    tf.Dimension(n)   .merge_with(tf.Dimension(n))     == tf.Dimension(n)
+    tf.Dimension(n)   .merge_with(tf.Dimension(None))  == tf.Dimension(n)
+    tf.Dimension(None).merge_with(tf.Dimension(n))     == tf.Dimension(n)
+    # equivalent to tf.Dimension(None)
+    tf.Dimension(None).merge_with(tf.Dimension(None))
+
+    # raises ValueError for n != m
+    tf.Dimension(n)   .merge_with(tf.Dimension(m))
     ```
 
     Args:
@@ -149,14 +303,14 @@ class Dimension(object):
     Dimensions are summed as follows:
 
     ```python
-    tf.Dimension(m)    + tf.Dimension(n)    == tf.Dimension(m + n)
-    tf.Dimension(m)    + tf.Dimension(None) == tf.Dimension(None)
-    tf.Dimension(None) + tf.Dimension(n)    == tf.Dimension(None)
-    tf.Dimension(None) + tf.Dimension(None) == tf.Dimension(None)
+    tf.Dimension(m)    + tf.Dimension(n)     == tf.Dimension(m + n)
+    tf.Dimension(m)    + tf.Dimension(None)  # equiv. to tf.Dimension(None)
+    tf.Dimension(None) + tf.Dimension(n)     # equiv. to tf.Dimension(None)
+    tf.Dimension(None) + tf.Dimension(None)  # equiv. to tf.Dimension(None)
     ```
 
     Args:
-      other: Another Dimension.
+      other: Another Dimension, or a value accepted by `as_dimension`.
 
     Returns:
       A Dimension whose value is the sum of `self` and `other`.
@@ -167,23 +321,34 @@ class Dimension(object):
     else:
       return Dimension(self._value + other.value)
 
+  def __radd__(self, other):
+    """Returns the sum of `other` and `self`.
+
+    Args:
+      other: Another Dimension, or a value accepted by `as_dimension`.
+
+    Returns:
+      A Dimension whose value is the sum of `self` and `other`.
+    """
+    return self + other
+
   def __sub__(self, other):
     """Returns the subtraction of `other` from `self`.
 
     Dimensions are subtracted as follows:
 
     ```python
-    tf.Dimension(m)    - tf.Dimension(n)    == tf.Dimension(m - n)
-    tf.Dimension(m)    - tf.Dimension(None) == tf.Dimension(None)
-    tf.Dimension(None) - tf.Dimension(n)    == tf.Dimension(None)
-    tf.Dimension(None) - tf.Dimension(None) == tf.Dimension(None)
+    tf.Dimension(m)    - tf.Dimension(n)     == tf.Dimension(m - n)
+    tf.Dimension(m)    - tf.Dimension(None)  # equiv. to tf.Dimension(None)
+    tf.Dimension(None) - tf.Dimension(n)     # equiv. to tf.Dimension(None)
+    tf.Dimension(None) - tf.Dimension(None)  # equiv. to tf.Dimension(None)
     ```
 
     Args:
-      other: Another Dimension.
+      other: Another Dimension, or a value accepted by `as_dimension`.
 
     Returns:
-      A Dimension whose value is the subtraction of sum of `other` from `self`.
+      A Dimension whose value is the subtraction of `other` from `self`.
     """
     other = as_dimension(other)
     if self._value is None or other.value is None:
@@ -191,29 +356,59 @@ class Dimension(object):
     else:
       return Dimension(self._value - other.value)
 
+  def __rsub__(self, other):
+    """Returns the subtraction of `self` from `other`.
+
+    Args:
+      other: Another Dimension, or a value accepted by `as_dimension`.
+
+    Returns:
+      A Dimension whose value is the subtraction of `self` from `other`.
+    """
+    other = as_dimension(other)
+    if self._value is None or other.value is None:
+      return Dimension(None)
+    else:
+      return Dimension(other.value - self._value)
+
   def __mul__(self, other):
     """Returns the product of `self` and `other`.
 
     Dimensions are summed as follows:
 
     ```python
-    tf.Dimension(m)    * tf.Dimension(n)    == tf.Dimension(m * n)
-    tf.Dimension(m)    * tf.Dimension(None) == tf.Dimension(None)
-    tf.Dimension(None) * tf.Dimension(n)    == tf.Dimension(None)
-    tf.Dimension(None) * tf.Dimension(None) == tf.Dimension(None)
+    tf.Dimension(m)    * tf.Dimension(n)     == tf.Dimension(m * n)
+    tf.Dimension(m)    * tf.Dimension(None)  # equiv. to tf.Dimension(None)
+    tf.Dimension(None) * tf.Dimension(n)     # equiv. to tf.Dimension(None)
+    tf.Dimension(None) * tf.Dimension(None)  # equiv. to tf.Dimension(None)
     ```
 
     Args:
-      other: Another Dimension.
+      other: Another Dimension, or a value accepted by `as_dimension`.
 
     Returns:
       A Dimension whose value is the product of `self` and `other`.
     """
-    other = as_dimension(other)
+    try:
+      other = as_dimension(other)
+    except (TypeError, ValueError):
+      return NotImplemented
+
     if self._value is None or other.value is None:
       return Dimension(None)
     else:
       return Dimension(self._value * other.value)
+
+  def __rmul__(self, other):
+    """Returns the product of `self` and `other`.
+
+    Args:
+      other: Another Dimension, or a value accepted by `as_dimension`.
+
+    Returns:
+      A Dimension whose value is the product of `self` and `other`.
+    """
+    return self * other
 
   def __floordiv__(self, other):
     """Returns the quotient of `self` and `other` rounded down.
@@ -221,14 +416,32 @@ class Dimension(object):
     Dimensions are divided as follows:
 
     ```python
-    tf.Dimension(m)    // tf.Dimension(n)    == tf.Dimension(m // n)
-    tf.Dimension(m)    // tf.Dimension(None) == tf.Dimension(None)
-    tf.Dimension(None) // tf.Dimension(n)    == tf.Dimension(None)
-    tf.Dimension(None) // tf.Dimension(None) == tf.Dimension(None)
+    tf.Dimension(m)    // tf.Dimension(n)     == tf.Dimension(m // n)
+    tf.Dimension(m)    // tf.Dimension(None)  # equiv. to tf.Dimension(None)
+    tf.Dimension(None) // tf.Dimension(n)     # equiv. to tf.Dimension(None)
+    tf.Dimension(None) // tf.Dimension(None)  # equiv. to tf.Dimension(None)
     ```
 
     Args:
-      other: Another `Dimension`.
+      other: Another Dimension, or a value accepted by `as_dimension`.
+
+    Returns:
+      A `Dimension` whose value is the integer quotient of `self` and `other`.
+    """
+    try:
+      other = as_dimension(other)
+    except (TypeError, ValueError):
+      return NotImplemented
+    if self._value is None or other.value is None:
+      return Dimension(None)
+    else:
+      return Dimension(self._value // other.value)
+
+  def __rfloordiv__(self, other):
+    """Returns the quotient of `other` and `self` rounded down.
+
+    Args:
+      other: Another Dimension, or a value accepted by `as_dimension`.
 
     Returns:
       A `Dimension` whose value is the integer quotient of `self` and `other`.
@@ -237,7 +450,7 @@ class Dimension(object):
     if self._value is None or other.value is None:
       return Dimension(None)
     else:
-      return Dimension(self._value // other.value)
+      return Dimension(other.value // self._value)
 
   def __div__(self, other):
     """DEPRECATED: Use `__floordiv__` via `x // y` instead.
@@ -255,29 +468,95 @@ class Dimension(object):
     """
     return self // other
 
+  def __rdiv__(self, other):
+    """Use `__floordiv__` via `x // y` instead.
+
+    This function exists only to have a better error message. Instead of:
+    `TypeError: unsupported operand type(s) for /: 'int' and 'Dimension'`,
+    this function will explicitly call for usage of `//` instead.
+
+    Args:
+      other: Another `Dimension`.
+
+    Raises:
+      TypeError.
+    """
+    raise TypeError("unsupported operand type(s) for /: '{}' and 'Dimension', "
+                    "please use // instead".format(type(other).__name__))
+
+  def __truediv__(self, other):
+    """Use `__floordiv__` via `x // y` instead.
+
+    This function exists only to have a better error message. Instead of:
+    `TypeError: unsupported operand type(s) for /: 'Dimension' and 'int'`,
+    this function will explicitly call for usage of `//` instead.
+
+    Args:
+      other: Another `Dimension`.
+
+    Raises:
+      TypeError.
+    """
+    raise TypeError("unsupported operand type(s) for /: 'Dimension' and '{}', "
+                    "please use // instead".format(type(other).__name__))
+
+  def __rtruediv__(self, other):
+    """Use `__floordiv__` via `x // y` instead.
+
+    This function exists only to have a better error message. Instead of:
+    `TypeError: unsupported operand type(s) for /: 'int' and 'Dimension'`,
+    this function will explicitly call for usage of `//` instead.
+
+    Args:
+      other: Another `Dimension`.
+
+    Raises:
+      TypeError.
+    """
+    raise TypeError("unsupported operand type(s) for /: '{}' and 'Dimension', "
+                    "please use // instead".format(type(other).__name__))
+
   def __mod__(self, other):
-    """Returns `self` modulo `other.
+    """Returns `self` modulo `other`.
 
     Dimension moduli are computed as follows:
 
     ```python
-    tf.Dimension(m)    % tf.Dimension(n)    == tf.Dimension(m % n)
-    tf.Dimension(m)    % tf.Dimension(None) == tf.Dimension(None)
-    tf.Dimension(None) % tf.Dimension(n)    == tf.Dimension(None)
-    tf.Dimension(None) % tf.Dimension(None) == tf.Dimension(None)
+    tf.Dimension(m)    % tf.Dimension(n)     == tf.Dimension(m % n)
+    tf.Dimension(m)    % tf.Dimension(None)  # equiv. to tf.Dimension(None)
+    tf.Dimension(None) % tf.Dimension(n)     # equiv. to tf.Dimension(None)
+    tf.Dimension(None) % tf.Dimension(None)  # equiv. to tf.Dimension(None)
     ```
 
     Args:
-      other: Another Dimension.
+      other: Another Dimension, or a value accepted by `as_dimension`.
 
     Returns:
       A Dimension whose value is `self` modulo `other`.
     """
-    other = as_dimension(other)
+    try:
+      other = as_dimension(other)
+    except (TypeError, ValueError):
+      return NotImplemented
     if self._value is None or other.value is None:
       return Dimension(None)
     else:
       return Dimension(self._value % other.value)
+
+  def __rmod__(self, other):
+    """Returns `other` modulo `self`.
+
+    Args:
+      other: Another Dimension, or a value accepted by `as_dimension`.
+
+    Returns:
+      A Dimension whose value is `other` modulo `self`.
+    """
+    try:
+      other = as_dimension(other)
+    except (TypeError, ValueError):
+      return NotImplemented
+    return other % self
 
   def __lt__(self, other):
     """Returns True if `self` is known to be less than `other`.
@@ -379,6 +658,9 @@ class Dimension(object):
     else:
       return self._value >= other.value
 
+  def __reduce__(self):
+    return Dimension, (self._value,)
+
 
 def as_dimension(value):
   """Converts the given value to a Dimension.
@@ -415,9 +697,10 @@ class TensorShape(object):
 
   If a tensor is produced by an operation of type `"Foo"`, its shape
   may be inferred if there is a registered shape function for
-  `"Foo"`. See @{$adding_an_op#shape-functions-in-c$`Shape functions in C++`}
+  `"Foo"`. See [Shape
+  functions](https://tensorflow.org/extend/adding_an_op#shape_functions_in_c)
   for details of shape functions and how to register them. Alternatively,
-  the shape may be set explicitly using @{tf.Tensor.set_shape}.
+  the shape may be set explicitly using `tf.Tensor.set_shape`.
   """
 
   def __init__(self, dims):
@@ -425,12 +708,10 @@ class TensorShape(object):
 
     Args:
       dims: A list of Dimensions, or None if the shape is unspecified.
-        DEPRECATED: A single integer is treated as a singleton list.
 
     Raises:
       TypeError: If dims cannot be converted to a list of dimensions.
     """
-    # TODO(irving): Eliminate the single integer special case.
     if dims is None:
       self._dims = None
     elif isinstance(dims, compat.bytes_or_text_types):
@@ -457,34 +738,60 @@ class TensorShape(object):
         # Got a list of dimensions
         self._dims = [as_dimension(d) for d in dims_iter]
 
+  @property
+  def _v2_behavior(self):
+    if _TENSORSHAPE_V2_OVERRIDE is None:
+      return tf2.enabled()
+    return _TENSORSHAPE_V2_OVERRIDE
+
   def __repr__(self):
-    return "TensorShape(%r)" % self._dims
+    if self._v2_behavior:
+      if self._dims is not None:
+        return "TensorShape(%r)" % [dim.value for dim in self._dims]
+      else:
+        return "TensorShape(None)"
+    else:
+      return "TensorShape(%r)" % self._dims
 
   def __str__(self):
-    if self.ndims is None:
+    if self.rank is None:
       return "<unknown>"
-    elif self.ndims == 1:
-      return "(%s,)" % self._dims[0]
+    elif self.rank == 1:
+      if self._v2_behavior:
+        return "(%s,)" % self._dims[0].value
+      else:
+        return "(%s,)" % self._dims[0]
     else:
-      return "(%s)" % ", ".join(str(d) for d in self._dims)
+      if self._v2_behavior:
+        return "(%s)" % ", ".join(str(d.value) for d in self._dims)
+      else:
+        return "(%s)" % ", ".join(str(d) for d in self._dims)
+
+  @property
+  def rank(self):
+    """Returns the rank of this shape, or None if it is unspecified."""
+    if self._dims is not None:
+      return len(self._dims)
+    return None
 
   @property
   def dims(self):
     """Returns a list of Dimensions, or None if the shape is unspecified."""
     return self._dims
 
+  @dims.setter
+  def dims(self, dims):
+    self._dims = dims
+
   @property
   def ndims(self):
-    """Returns the rank of this shape, or None if it is unspecified."""
-    if self._dims is None:
-      return None
-    else:
-      return len(self._dims)
+    """Deprecated accessor for `rank`."""
+    return self.rank
 
   def __len__(self):
     """Returns the rank of this shape, or raises ValueError if unspecified."""
     if self._dims is None:
-      raise ValueError("Cannot take the length of Shape with unknown rank.")
+      raise ValueError("Cannot take the length of shape with unknown rank.")
     return len(self._dims)
 
   def __bool__(self):
@@ -499,7 +806,10 @@ class TensorShape(object):
     if self._dims is None:
       raise ValueError("Cannot iterate over a shape with unknown rank.")
     else:
-      return iter(self._dims)
+      if self._v2_behavior:
+        return iter(d.value for d in self._dims)
+      else:
+        return iter(d for d in self._dims)
 
   def __getitem__(self, key):
     """Returns the value of a dimension or a shape, depending on the key.
@@ -510,18 +820,21 @@ class TensorShape(object):
         dimensions are those selected by the slice from `self`.
 
     Returns:
-      A dimension if `key` is an integer, or a `TensorShape` if `key` is a
+      An integer if `key` is an integer, or a `TensorShape` if `key` is a
       slice.
 
     Raises:
-      ValueError: If `key` is a slice, and any of its elements are negative, or
-        if `self` is completely unknown and the step is set.
+      ValueError: If `key` is a slice and `self` is completely unknown and
+        the step is set.
     """
     if self._dims is not None:
       if isinstance(key, slice):
         return TensorShape(self._dims[key])
       else:
-        return self._dims[key]
+        if self._v2_behavior:
+          return self._dims[key].value
+        else:
+          return self._dims[key]
     else:
       if isinstance(key, slice):
         start = key.start if key.start is not None else 0
@@ -541,9 +854,12 @@ class TensorShape(object):
           # suffixes of otherwise unknown shapes.
           return unknown_shape()
         else:
-          return unknown_shape(ndims=stop - start)
+          return unknown_shape(rank=stop - start)
       else:
-        return Dimension(None)
+        if self._v2_behavior:
+          return None
+        else:
+          return Dimension(None)
 
   def num_elements(self):
     """Returns the total number of elements, or none for incomplete shapes."""
@@ -618,8 +934,8 @@ class TensorShape(object):
         same rank.
     """
     other = as_shape(other)
-    if self.ndims is not None and other.ndims is not None:
-      if self.ndims != other.ndims:
+    if self.rank is not None and other.rank is not None:
+      if self.rank != other.rank:
         raise ValueError("Shapes %s and %s must have the same rank" % (self,
                                                                        other))
 
@@ -632,7 +948,7 @@ class TensorShape(object):
     Raises:
       ValueError: If `self` does not represent a shape with the given `rank`.
     """
-    if self.ndims not in (None, rank):
+    if self.rank not in (None, rank):
       raise ValueError("Shape %s must have rank %d" % (self, rank))
 
   def with_rank(self, rank):
@@ -651,7 +967,7 @@ class TensorShape(object):
       ValueError: If `self` does not represent a shape with the given `rank`.
     """
     try:
-      return self.merge_with(unknown_shape(ndims=rank))
+      return self.merge_with(unknown_shape(rank=rank))
     except ValueError:
       raise ValueError("Shape %s must have rank %d" % (self, rank))
 
@@ -669,7 +985,7 @@ class TensorShape(object):
       ValueError: If `self` does not represent a shape with at least the given
         `rank`.
     """
-    if self.ndims is not None and self.ndims < rank:
+    if self.rank is not None and self.rank < rank:
       raise ValueError("Shape %s must have rank at least %d" % (self, rank))
     else:
       return self
@@ -688,7 +1004,7 @@ class TensorShape(object):
       ValueError: If `self` does not represent a shape with at most the given
         `rank`.
     """
-    if self.ndims is not None and self.ndims > rank:
+    if self.rank is not None and self.rank > rank:
       raise ValueError("Shape %s must have rank at most %d" % (self, rank))
     else:
       return self
@@ -733,7 +1049,7 @@ class TensorShape(object):
     """
     other = as_shape(other)
     if self._dims is not None and other.dims is not None:
-      if self.ndims != other.ndims:
+      if self.rank != other.rank:
         return False
       for x_dim, y_dim in zip(self._dims, other.dims):
         if not x_dim.is_compatible_with(y_dim):
@@ -776,10 +1092,10 @@ class TensorShape(object):
     """
 
     other = as_shape(other)
-    if self._dims is None or other.dims is None or self.ndims != other.ndims:
+    if self._dims is None or other.dims is None or self.rank != other.rank:
       return unknown_shape()
 
-    dims = [(Dimension(None))] * self.ndims
+    dims = [(Dimension(None))] * self.rank
     for i, (d1, d2) in enumerate(zip(self._dims, other.dims)):
       if d1 is not None and d2 is not None and d1 == d2:
         dims[i] = d1
@@ -837,11 +1153,17 @@ class TensorShape(object):
       other = as_shape(other)
     except TypeError:
       return NotImplemented
-    if self.ndims is None or other.ndims is None:
+    if self.rank is None or other.rank is None:
       raise ValueError("The inequality of unknown TensorShapes is undefined.")
-    if self.ndims != other.ndims:
+    if self.rank != other.rank:
       return True
     return self._dims != other.dims
+
+  def __reduce__(self):
+    return TensorShape, (self._dims,)
+
+  def __concat__(self, other):
+    return self.concatenate(other)
 
 
 def as_shape(shape):
@@ -852,19 +1174,27 @@ def as_shape(shape):
     return TensorShape(shape)
 
 
-def unknown_shape(ndims=None):
+def unknown_shape(rank=None, **kwargs):
   """Returns an unknown TensorShape, optionally with a known rank.
 
   Args:
-    ndims: (Optional) If specified, the number of dimensions in the shape.
+    rank: (Optional) If specified, the number of dimensions in the shape.
+    **kwargs: For backwards compatibility.
 
   Returns:
     An unknown TensorShape.
+
+  Raises:
+    TypeError: In case of invalid arguments.
   """
-  if ndims is None:
+  if rank is None and "ndims" in kwargs:
+    rank = kwargs.pop("ndims")
+  if kwargs:
+    raise TypeError("Unknown argument: %s" % kwargs)
+  if rank is None:
     return TensorShape(None)
   else:
-    return TensorShape([Dimension(None)] * ndims)
+    return TensorShape([Dimension(None)] * rank)
 
 
 def scalar():

@@ -780,6 +780,14 @@ float *cras_dsp_pipeline_get_sink_buffer(struct pipeline *pipeline, int index)
 			   index);
 }
 
+void cras_dsp_pipeline_set_sink_ext_module(struct pipeline *pipeline,
+					   struct ext_dsp_module *ext_module)
+{
+	cras_dsp_module_set_sink_ext_module(
+			pipeline->sink_instance->module,
+			ext_module);
+}
+
 void cras_dsp_pipeline_run(struct pipeline *pipeline, int sample_count)
 {
 	int i;
@@ -814,25 +822,23 @@ void cras_dsp_pipeline_add_statistic(struct pipeline *pipeline,
 	pipeline->total_time += t;
 }
 
-void cras_dsp_pipeline_apply(struct pipeline *pipeline,
-			     uint8_t *buf, unsigned int frames)
+int cras_dsp_pipeline_apply(struct pipeline *pipeline, uint8_t *buf,
+			    snd_pcm_format_t format, unsigned int frames)
 {
 	size_t remaining;
 	size_t chunk;
 	size_t i;
-	int16_t *target;
 	unsigned int input_channels = pipeline->input_channels;
 	unsigned int output_channels = pipeline->output_channels;
 	float *source[input_channels];
 	float *sink[output_channels];
 	struct timespec begin, end, delta;
+	int rc;
 
 	if (!pipeline || frames == 0)
-		return;
+		return 0;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &begin);
-
-	target = (int16_t *)buf;
 
 	/* get pointers to source and sink buffers */
 	for (i = 0; i < input_channels; i++)
@@ -847,21 +853,28 @@ void cras_dsp_pipeline_apply(struct pipeline *pipeline,
 		chunk = MIN(remaining, (size_t)DSP_BUFFER_SIZE);
 
 		/* deinterleave and convert to float */
-		dsp_util_deinterleave(target, source, input_channels, chunk);
+		rc = dsp_util_deinterleave(buf, source, input_channels,
+					   format, chunk);
+		if (rc)
+			return rc;
 
 		/* Run the pipeline */
 		cras_dsp_pipeline_run(pipeline, chunk);
 
 		/* interleave and convert back to int16_t */
-		dsp_util_interleave(sink, target, output_channels, chunk);
+		rc = dsp_util_interleave(sink, buf, output_channels,
+					 format, chunk);
+		if (rc)
+			return rc;
 
-		target += chunk * output_channels;
+		buf += chunk * output_channels * PCM_FORMAT_WIDTH(format) / 8;
 		remaining -= chunk;
 	}
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
 	subtract_timespecs(&end, &begin, &delta);
 	cras_dsp_pipeline_add_statistic(pipeline, &delta, frames);
+	return 0;
 }
 
 void cras_dsp_pipeline_free(struct pipeline *pipeline)

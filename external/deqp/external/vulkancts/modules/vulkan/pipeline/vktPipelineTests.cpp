@@ -26,12 +26,16 @@
 #include "vktPipelineStencilTests.hpp"
 #include "vktPipelineBlendTests.hpp"
 #include "vktPipelineDepthTests.hpp"
+#include "vktPipelineDynamicOffsetTests.hpp"
+#include "vktPipelineEarlyDestroyTests.hpp"
 #include "vktPipelineImageTests.hpp"
 #include "vktPipelineInputAssemblyTests.hpp"
 #include "vktPipelineSamplerTests.hpp"
 #include "vktPipelineImageViewTests.hpp"
 #include "vktPipelinePushConstantTests.hpp"
+#include "vktPipelinePushDescriptorTests.hpp"
 #include "vktPipelineSpecConstantTests.hpp"
+#include "vktPipelineMatchedAttachmentsTests.hpp"
 #include "vktPipelineMultisampleTests.hpp"
 #include "vktPipelineMultisampleInterpolationTests.hpp"
 #include "vktPipelineMultisampleShaderBuiltInTests.hpp"
@@ -40,6 +44,8 @@
 #include "vktPipelineCacheTests.hpp"
 #include "vktPipelineRenderToImageTests.hpp"
 #include "vktPipelineFramebufferAttachmentTests.hpp"
+#include "vktPipelineStencilExportTests.hpp"
+#include "vktPipelineDerivativeTests.hpp"
 #include "vktTestGroupUtil.hpp"
 
 namespace vkt
@@ -57,11 +63,15 @@ void createChildren (tcu::TestCaseGroup* pipelineTests)
 	pipelineTests->addChild(createStencilTests					(testCtx));
 	pipelineTests->addChild(createBlendTests					(testCtx));
 	pipelineTests->addChild(createDepthTests					(testCtx));
+	pipelineTests->addChild(createDynamicOffsetTests			(testCtx));
+	pipelineTests->addChild(createEarlyDestroyTests				(testCtx));
 	pipelineTests->addChild(createImageTests					(testCtx));
 	pipelineTests->addChild(createSamplerTests					(testCtx));
 	pipelineTests->addChild(createImageViewTests				(testCtx));
 	pipelineTests->addChild(createPushConstantTests				(testCtx));
+	pipelineTests->addChild(createPushDescriptorTests			(testCtx));
 	pipelineTests->addChild(createSpecConstantTests				(testCtx));
+	pipelineTests->addChild(createMatchedAttachmentsTests		(testCtx));
 	pipelineTests->addChild(createMultisampleTests				(testCtx));
 	pipelineTests->addChild(createMultisampleInterpolationTests	(testCtx));
 	pipelineTests->addChild(createMultisampleShaderBuiltInTests	(testCtx));
@@ -71,6 +81,8 @@ void createChildren (tcu::TestCaseGroup* pipelineTests)
 	pipelineTests->addChild(createCacheTests					(testCtx));
 	pipelineTests->addChild(createRenderToImageTests			(testCtx));
 	pipelineTests->addChild(createFramebufferAttachmentTests	(testCtx));
+	pipelineTests->addChild(createStencilExportTests			(testCtx));
+	pipelineTests->addChild(createDerivativeTests				(testCtx));
 }
 
 } // anonymous

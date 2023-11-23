@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Өзгөчө кырдаал жндө маалымат"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Медициналык маалымат"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Маалыматты түзөтүү"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Маалымат кошуу"</string>
     <string name="edit_info" msgid="5973929805855224805">"Өзгөчө кырдаалга байланыштуу маалыматты өзгөртүү"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Маалымат"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Байланыштар"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Медициналык маалыматты жана өзгөчө кырдаалда байланышка чыга турган адамдарды кошуу шашылыш учурда абдан жардам берет.\n\nБул маалымат телефон кулпуланып турса да, баарына көрүнөт жана байланыштардын атын таптап, аларга чалууга болот."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Өзгөчө кырдаал маалыматын кошуу"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Маанилүү маалыматты тез табууга жардам бериңиз"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Сүрөткө тартуу"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Сүрөт тандоо"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Сүрөт тандоо"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Ылакап аты"</string>
 </resources>

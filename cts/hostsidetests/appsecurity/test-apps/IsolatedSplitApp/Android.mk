@@ -30,7 +30,7 @@ LOCAL_EXPORT_PACKAGE_RESOURCES := true
 # Make sure our test locale polish is not stripped.
 LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt androidx.test.rules
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Generate a locale split.

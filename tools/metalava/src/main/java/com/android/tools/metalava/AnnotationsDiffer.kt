@@ -26,6 +26,7 @@ import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.function.Predicate
+import kotlin.text.Charsets.UTF_8
 
 /**
  * The [AnnotationsDiffer] can take a codebase with annotations, and subtract
@@ -57,8 +58,8 @@ import java.util.function.Predicate
  * file.
  */
 class AnnotationsDiffer(
-    superset: Codebase,
-    private val codebase: Codebase
+    private val superset: Codebase,
+    codebase: Codebase
 ) {
     private val relevant = HashSet<Item>(1000)
 
@@ -100,12 +101,19 @@ class AnnotationsDiffer(
                 }
             }
         }
-        CodebaseComparator().compare(visitor, superset, codebase, ApiPredicate(codebase))
+        val filter =
+            if (codebase.supportsDocumentation()) {
+                ApiPredicate()
+            } else {
+                Predicate<Item> { true }
+            }
+        CodebaseComparator().compare(visitor, superset, codebase, filter)
     }
 
     fun writeDiffSignature(apiFile: File) {
-        val apiFilter = FilterPredicate(ApiPredicate(codebase))
-        val apiReference = ApiPredicate(codebase, ignoreShown = true)
+        val codebase = superset
+        val apiFilter = FilterPredicate(ApiPredicate())
+        val apiReference = ApiPredicate(ignoreShown = true)
         val apiEmit = apiFilter.and(predicate)
 
         progress("\nWriting annotation diff file: ")
@@ -113,13 +121,12 @@ class AnnotationsDiffer(
             val stringWriter = StringWriter()
             val writer = PrintWriter(stringWriter)
             writer.use { printWriter ->
-                val preFiltered = codebase.original != null
-                val apiWriter = SignatureWriter(printWriter, apiEmit, apiReference, preFiltered)
+                val apiWriter = SignatureWriter(printWriter, apiEmit, apiReference, codebase.preFiltered)
                 codebase.accept(apiWriter)
             }
 
             // Clean up blank lines
-            var prev: Char = ' '
+            var prev = ' '
             val cleanedUp = stringWriter.toString().filter {
                 if (it == '\n' && prev == '\n')
                     false
@@ -129,7 +136,7 @@ class AnnotationsDiffer(
                 }
             }
 
-            apiFile.writeText(cleanedUp, Charsets.UTF_8)
+            apiFile.writeText(cleanedUp, UTF_8)
         } catch (e: IOException) {
             reporter.report(Errors.IO_ERROR, apiFile, "Cannot open file for write.")
         }

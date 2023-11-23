@@ -72,8 +72,11 @@ static TextParserBase* selectParser(int section) {
             return new PsParser();
         case 2006:
             return new BatteryTypeParser();
+        case 3026: // system_trace is already a serialized protobuf
+            return new NoopParser();
         default:
-            return NULL;
+            // Return no op parser when no specific ones are implemented.
+            return new NoopParser();
     }
 }
 
@@ -97,7 +100,7 @@ int main(int argc, char** argv) {
 
     fprintf(stderr, "Pasring section %d...\n", sectionID);
     TextParserBase* parser = selectParser(sectionID);
-    if (parser != NULL) {
+    if (parser != nullptr) {
         fprintf(stderr, "Running parser: %s\n", parser->name.string());
         status_t err = parser->Parse(STDIN_FILENO, STDOUT_FILENO);
         if (err != NO_ERROR) {

@@ -7,9 +7,9 @@ NAME = "video_PowerConsumption.webrtc"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:crosbolt_perf_perbuild"
 TEST_TYPE = "server"
-DEPENDENCIES = "rpm, power:battery, hw_video_acc_vp8"
+DEPENDENCIES = "power:battery"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome", "VideoTestFailure"],
     "cc": ["chromeos-video-test-failures@google.com"],

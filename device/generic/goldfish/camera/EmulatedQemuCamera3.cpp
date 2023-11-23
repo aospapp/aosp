@@ -42,7 +42,7 @@
 #include <inttypes.h>
 #include <sstream>
 #include <ui/Fence.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <vector>
 
 namespace android {
@@ -53,7 +53,6 @@ namespace android {
 
 const int64_t USEC = 1000LL;
 const int64_t MSEC = USEC * 1000LL;
-const int64_t SEC = MSEC * 1000LL;
 
 const int32_t EmulatedQemuCamera3::kAvailableFormats[] = {
     HAL_PIXEL_FORMAT_BLOB,
@@ -136,7 +135,10 @@ void EmulatedQemuCamera3::parseResolutions(const char *frameDims) {
          */
         if (sscanf(input.c_str(), "%dx%d%c", &width, &height, &none) == 2) {
             mResolutions.push_back(std::pair<int32_t,int32_t>(width, height));
-            ALOGE("%s: %dx%d", __FUNCTION__, width, height);
+            ALOGI("%s: %dx%d", __FUNCTION__, width, height);
+        }
+        else {
+            ALOGE("wrong resolution input %s", input.c_str());
         }
     }
 
@@ -162,7 +164,8 @@ void EmulatedQemuCamera3::parseResolutions(const char *frameDims) {
 
     // Remove any resolution with a dimension exceeding the sensor size.
     for (auto res = mResolutions.begin(); res != mResolutions.end(); ) {
-        if (res->first > mSensorWidth || res->second > mSensorHeight) {
+        if (res->first > (int32_t)mSensorWidth ||
+            res->second > (int32_t)mSensorHeight) {
             // Width and/or height larger than sensor. Remove it.
             res = mResolutions.erase(res);
         } else {
@@ -238,6 +241,20 @@ status_t EmulatedQemuCamera3::connectCamera(hw_device_t** device) {
 
     res = mReadoutThread->run("EmuCam3::readoutThread");
     if (res != NO_ERROR) return res;
+
+    // Initialize fake 3A
+
+    mFacePriority = false;
+    mAeMode       = ANDROID_CONTROL_AE_MODE_ON;
+    mAfMode       = ANDROID_CONTROL_AF_MODE_AUTO;
+    mAwbMode      = ANDROID_CONTROL_AWB_MODE_AUTO;
+    mAeState      = ANDROID_CONTROL_AE_STATE_INACTIVE;
+    mAfState      = ANDROID_CONTROL_AF_STATE_INACTIVE;
+    mAwbState     = ANDROID_CONTROL_AWB_STATE_INACTIVE;
+    mAeCounter    = 0;
+    mAeTargetExposureTime = kNormalExposureTime;
+    mAeCurrentExposureTime = kNormalExposureTime;
+    mAeCurrentSensitivity  = kNormalSensitivity;
 
     return EmulatedCamera3::connectCamera(device);
 }
@@ -516,7 +533,7 @@ const camera_metadata_t* EmulatedQemuCamera3::constructDefaultRequestSettings(
 
     /* android.scaler */
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const int32_t cropRegion[4] = {
+        const int32_t cropRegion[4] = {
             0, 0, mSensorWidth, mSensorHeight
         };
         settings.update(ANDROID_SCALER_CROP_REGION, cropRegion, 4);
@@ -607,7 +624,7 @@ const camera_metadata_t* EmulatedQemuCamera3::constructDefaultRequestSettings(
         static const uint8_t effectMode = ANDROID_CONTROL_EFFECT_MODE_OFF;
         settings.update(ANDROID_CONTROL_EFFECT_MODE, &effectMode, 1);
 
-        static const uint8_t sceneMode =
+        const uint8_t sceneMode =
                 ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY;
         settings.update(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
 
@@ -1132,27 +1149,27 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
 
     /* android.lens */
 
-    static const float focalLength = 3.30f; // mm
+    static const float focalLengths = 5.0f; // mm
     ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-            &focalLength, 1);
+            &focalLengths, 1);
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
         // infinity (fixed focus)
-        const float minFocusDistance = 0.0;
+        static const float minFocusDistance = 0.0;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
                 &minFocusDistance, 1);
 
         // (fixed focus)
-        const float hyperFocalDistance = 0.0;
+        static const float hyperFocalDistance = 0.0;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
-                &minFocusDistance, 1);
+                &hyperFocalDistance, 1);
 
-        static const float aperture = 2.8f;
+        static const float apertures = 2.8f;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_APERTURES,
-                &aperture, 1);
-        static const float filterDensity = 0;
+                &apertures, 1);
+        static const float filterDensities = 0;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES,
-                &filterDensity, 1);
+                &filterDensities, 1);
         static const uint8_t availableOpticalStabilization =
                 ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
         ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION,
@@ -1168,7 +1185,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
                 &lensFocusCalibration, 1);
     }
 
-    static const uint8_t lensFacing = mFacingBack ?
+    const uint8_t lensFacing = mFacingBack ?
             ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
     ADD_STATIC_ENTRY(ANDROID_LENS_FACING, &lensFacing, 1);
 
@@ -1309,7 +1326,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
 
     /* android.sync */
 
-    static const int32_t maxLatency =
+    const int32_t maxLatency =
             hasCapability(FULL_LEVEL) ?
             ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL : 3;
     ADD_STATIC_ENTRY(ANDROID_SYNC_MAX_LATENCY, &maxLatency, 1);
@@ -1317,7 +1334,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
     /* android.control */
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const uint8_t availableControlModes[] = {
+        const uint8_t availableControlModes[] = {
             ANDROID_CONTROL_MODE_OFF,
             ANDROID_CONTROL_MODE_AUTO,
             ANDROID_CONTROL_MODE_USE_SCENE_MODE
@@ -1325,14 +1342,14 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_MODES,
                 availableControlModes, sizeof(availableControlModes));
     } else {
-        static const uint8_t availableControlModes[] = {
+        const uint8_t availableControlModes[] = {
             ANDROID_CONTROL_MODE_AUTO
         };
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_MODES,
                 availableControlModes, sizeof(availableControlModes));
     }
 
-    static const uint8_t availableSceneModes[] = {
+    const uint8_t availableSceneModes[] = {
         hasCapability(BACKWARD_COMPATIBLE) ?
             ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY :
             ANDROID_CONTROL_SCENE_MODE_DISABLED
@@ -1369,7 +1386,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_STEP,
                 &exposureCompensationStep, 1);
 
-        int32_t exposureCompensationRange[] = {-9, 9};
+        static int32_t exposureCompensationRange[] = {-9, 9};
         ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
                 exposureCompensationRange,
                 sizeof(exposureCompensationRange) / sizeof(int32_t));
@@ -1439,7 +1456,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
     /* android.colorCorrection */
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const uint8_t availableAberrationModes[] = {
+        const uint8_t availableAberrationModes[] = {
             ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF,
             ANDROID_COLOR_CORRECTION_ABERRATION_MODE_FAST,
             ANDROID_COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY
@@ -1447,7 +1464,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
         ADD_STATIC_ENTRY(ANDROID_COLOR_CORRECTION_AVAILABLE_ABERRATION_MODES,
                 availableAberrationModes, sizeof(availableAberrationModes));
     } else {
-        static const uint8_t availableAberrationModes[] = {
+        const uint8_t availableAberrationModes[] = {
             ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF,
         };
         ADD_STATIC_ENTRY(ANDROID_COLOR_CORRECTION_AVAILABLE_ABERRATION_MODES,
@@ -1457,7 +1474,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
     /* android.edge */
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const uint8_t availableEdgeModes[] = {
+        const uint8_t availableEdgeModes[] = {
             ANDROID_EDGE_MODE_OFF,
             ANDROID_EDGE_MODE_FAST,
             ANDROID_EDGE_MODE_HIGH_QUALITY,
@@ -1465,7 +1482,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
         ADD_STATIC_ENTRY(ANDROID_EDGE_AVAILABLE_EDGE_MODES,
                 availableEdgeModes, sizeof(availableEdgeModes));
     } else {
-        static const uint8_t availableEdgeModes[] = {
+        const uint8_t availableEdgeModes[] = {
             ANDROID_EDGE_MODE_OFF
         };
         ADD_STATIC_ENTRY(ANDROID_EDGE_AVAILABLE_EDGE_MODES,
@@ -1482,7 +1499,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
     /* android.noiseReduction */
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const uint8_t availableNoiseReductionModes[] = {
+        const uint8_t availableNoiseReductionModes[] = {
             ANDROID_NOISE_REDUCTION_MODE_OFF,
             ANDROID_NOISE_REDUCTION_MODE_FAST,
             ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY
@@ -1491,7 +1508,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
                 availableNoiseReductionModes,
                 sizeof(availableNoiseReductionModes));
     } else {
-        static const uint8_t availableNoiseReductionModes[] = {
+        const uint8_t availableNoiseReductionModes[] = {
             ANDROID_NOISE_REDUCTION_MODE_OFF
         };
         ADD_STATIC_ENTRY(ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES,
@@ -1502,7 +1519,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
     /* android.shading */
 
     if (hasCapability(BACKWARD_COMPATIBLE)) {
-        static const uint8_t availableShadingModes[] = {
+        const uint8_t availableShadingModes[] = {
             ANDROID_SHADING_MODE_OFF,
             ANDROID_SHADING_MODE_FAST,
             ANDROID_SHADING_MODE_HIGH_QUALITY
@@ -1510,7 +1527,7 @@ status_t EmulatedQemuCamera3::constructStaticInfo() {
         ADD_STATIC_ENTRY(ANDROID_SHADING_AVAILABLE_MODES, availableShadingModes,
                 sizeof(availableShadingModes));
     } else {
-        static const uint8_t availableShadingModes[] = {
+        const uint8_t availableShadingModes[] = {
             ANDROID_SHADING_MODE_OFF
         };
         ADD_STATIC_ENTRY(ANDROID_SHADING_AVAILABLE_MODES, availableShadingModes,
@@ -1612,8 +1629,6 @@ status_t EmulatedQemuCamera3::process3A(CameraMetadata &settings) {
      * Extract top-level 3A controls
      */
     status_t res;
-
-    bool facePriority = false;
 
     camera_metadata_entry e;
 

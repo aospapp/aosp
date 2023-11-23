@@ -39,7 +39,8 @@ using std::map;
 using std::pair;
 using std::vector;
 
-static const size_t kMaxChunkSize = 256;
+/* Stack space constrains the input/output size to RSA_MAX_BYTES (3k) */
+static const size_t kMaxChunkSize = 384;
 
 class Operation {
 public:
@@ -55,6 +56,7 @@ public:
         case Algorithm::EC:
         case Algorithm::HMAC:
             _blockSize = 0;
+            break;
         default:
             break;
         }
@@ -65,8 +67,10 @@ public:
     }
 
     void append(const hidl_vec<uint8_t>& input, uint32_t *consumed) {
-        _buffer.insert(_buffer.end(), input.begin(), input.end());
-        *consumed = input.size();
+        const size_t count = std::min(
+            kMaxChunkSize - _buffer.size(), input.size());
+        _buffer.insert(_buffer.end(), input.begin(), input.begin() + count);
+        *consumed = count;
     }
 
     void peek(hidl_vec<uint8_t> *data) {
@@ -84,7 +88,7 @@ public:
         } else {
             retain = (_buffer.size() % _blockSize) + _blockSize;
         }
-        const size_t count = std::min(_buffer.size() - retain, kMaxChunkSize);
+        const size_t count = _buffer.size() - retain;
         *data = vector<uint8_t>(_buffer.begin(), _buffer.begin() + count);
     }
 
@@ -103,6 +107,10 @@ public:
             *data = _buffer;
         }
         _buffer.clear();
+    }
+
+    Algorithm algorithm(void) {
+        return _algorithm;
     }
 
 private:
@@ -187,6 +195,17 @@ ErrorCode buffer_final(uint64_t handle,
     Operation *op = &buffer_map.find(handle)->second;
     op->final(data);
     buffer_map.erase(handle);
+    return ErrorCode::OK;
+}
+
+ErrorCode buffer_algorithm(uint64_t handle, Algorithm *algorithm)
+{
+    if (buffer_map.find(handle) == buffer_map.end()) {
+        LOG(ERROR) << "Algorithm requested on absent operation: " << handle;
+        return ErrorCode::UNKNOWN_ERROR;
+    }
+    Operation *op = &buffer_map.find(handle)->second;
+    *algorithm = op->algorithm();
     return ErrorCode::OK;
 }
 

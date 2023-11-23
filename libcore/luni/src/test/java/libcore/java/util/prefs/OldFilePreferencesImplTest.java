@@ -22,7 +22,7 @@ import java.util.prefs.PreferencesFactory;
 
 import junit.framework.TestCase;
 
-import libcore.io.IoUtils;
+import libcore.testing.io.TestIoUtils;
 
 public final class OldFilePreferencesImplTest extends TestCase {
 
@@ -31,7 +31,7 @@ public final class OldFilePreferencesImplTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        File tmpDir = IoUtils.createTemporaryDirectory("OldFilePreferencesImplTest");
+        File tmpDir = TestIoUtils.createTemporaryDirectory("OldFilePreferencesImplTest");
         defaultFactory = Preferences.setPreferencesFactory(
                 new PreferencesTest.TestPreferencesFactory(tmpDir.getAbsolutePath()));
     }

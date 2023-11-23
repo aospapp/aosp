@@ -23,7 +23,6 @@ import sys
 import time
 import traceback
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.bin import test
 from autotest_lib.client.cros import httpd
@@ -57,13 +56,8 @@ class telemetry_AFDOGenerateClient(test.test):
         dep = 'page_cycler_dep'
         dep_dir = os.path.join(self.autodir, 'deps', dep)
         self.job.install_pkg(dep, 'dep', dep_dir)
-
-        try:
-            self.listener = httpd.HTTPListener(HTTP_PORT, docroot=dep_dir)
-            self.listener.run()
-        except Exception as err:
-            logging.info('Timeout starting HTTP listener')
-            raise error.TestFailRetry(err)
+        self.listener = httpd.HTTPListener(HTTP_PORT, docroot=dep_dir)
+        self.listener.run()
 
 
     def cleanup(self):

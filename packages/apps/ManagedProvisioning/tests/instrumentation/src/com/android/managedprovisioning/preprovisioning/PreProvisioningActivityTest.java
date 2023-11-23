@@ -22,24 +22,21 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR;
 
 import static com.android.managedprovisioning.e2eui.ManagedProfileAdminReceiver.COMPONENT_NAME;
-import static com.android.managedprovisioning.model.CustomizationParams.DEFAULT_STATUS_BAR_COLOR_ID;
 
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.view.View;
 
-import com.android.managedprovisioning.R;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+
 import com.android.managedprovisioning.TestInstrumentationRunner;
 import com.android.managedprovisioning.analytics.TimeLogger;
 import com.android.managedprovisioning.common.CustomizationVerifier;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.common.Utils;
@@ -73,6 +70,7 @@ public class PreProvisioningActivityTest {
     @Before
     public void setup() {
         when(mUtils.getAccentColor(any())).thenReturn(DEFAULT_MAIN_COLOR);
+        when(mUtils.alreadyHasManagedProfile(any())).thenReturn(-1);
 
         TestInstrumentationRunner.registerReplacedActivity(PreProvisioningActivity.class,
                 (classLoader, className, intent) -> new PreProvisioningActivity(
@@ -83,7 +81,8 @@ public class PreProvisioningActivityTest {
                                 new MessageParser(activity),
                                 mUtils,
                                 new SettingsFacade(),
-                                EncryptionController.getInstance(activity)) {
+                                EncryptionController.getInstance(activity),
+                                new ManagedProvisioningSharedPreferences(activity)) {
                             @Override
                             protected boolean checkDevicePolicyPreconditions() {
                                 return true;
@@ -106,19 +105,18 @@ public class PreProvisioningActivityTest {
         Activity activity = mActivityRule.launchActivity(
                 createIntent(ACTION_PROVISION_MANAGED_PROFILE, null));
         CustomizationVerifier v = new CustomizationVerifier(activity);
-        v.assertStatusBarColorCorrect(activity.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
+        v.assertStatusBarColorCorrect(Color.TRANSPARENT);
         v.assertSwiperColorCorrect(DEFAULT_MAIN_COLOR);
-        v.assertNextButtonColorCorrect(DEFAULT_MAIN_COLOR);
     }
 
     @Test
     public void profileOwnerCustomColors() {
         Activity activity = mActivityRule.launchActivity(
                 createIntent(ACTION_PROVISION_MANAGED_PROFILE, SAMPLE_COLOR));
+
         CustomizationVerifier v = new CustomizationVerifier(activity);
         v.assertStatusBarColorCorrect(SAMPLE_COLOR);
         v.assertSwiperColorCorrect(SAMPLE_COLOR);
-        v.assertNextButtonColorCorrect(SAMPLE_COLOR);
     }
 
     @Test
@@ -126,9 +124,8 @@ public class PreProvisioningActivityTest {
         Activity activity = mActivityRule.launchActivity(
                 createIntent(ACTION_PROVISION_MANAGED_DEVICE, null));
         CustomizationVerifier v = new CustomizationVerifier(activity);
-        v.assertStatusBarColorCorrect(activity.getColor(DEFAULT_STATUS_BAR_COLOR_ID));
+        v.assertStatusBarColorCorrect(Color.TRANSPARENT);
         v.assertDefaultLogoCorrect(DEFAULT_MAIN_COLOR);
-        v.assertNextButtonColorCorrect(DEFAULT_MAIN_COLOR);
     }
 
     @Test
@@ -138,7 +135,6 @@ public class PreProvisioningActivityTest {
         CustomizationVerifier v = new CustomizationVerifier(activity);
         v.assertStatusBarColorCorrect(SAMPLE_COLOR);
         v.assertDefaultLogoCorrect(SAMPLE_COLOR);
-        v.assertNextButtonColorCorrect(SAMPLE_COLOR);
     }
 
     @Test
@@ -150,23 +146,6 @@ public class PreProvisioningActivityTest {
                         EXTRA_PROVISIONING_LOGO_URI, expectedLogo.getUri()));
         CustomizationVerifier v = new CustomizationVerifier(activity);
         v.assertCustomLogoCorrect(expectedLogo.getBitmap());
-    }
-
-    @Test
-    public void profileOwnerWholeLayoutIsAdjusted() {
-        Activity activity = mActivityRule.launchActivity(
-                createIntent(ACTION_PROVISION_MANAGED_PROFILE, null));
-        View content = activity.findViewById(R.id.intro_po_content);
-        View viewport = activity.findViewById(R.id.suw_layout_content);
-        assertThat("Width", content.getWidth(), lessThanOrEqualTo(viewport.getWidth()));
-
-        int animationHeight = activity.findViewById(R.id.animated_info).getHeight();
-        int minHeight = activity.getResources().getDimensionPixelSize(
-                R.dimen.intro_animation_min_height);
-
-        if (animationHeight >= minHeight) {
-            assertThat("Height", content.getHeight(), lessThanOrEqualTo(viewport.getHeight()));
-        }
     }
 
     private Intent createIntent(String provisioningAction, Integer mainColor) {

@@ -19,6 +19,12 @@ import android.os.Bundle;
 import android.view.WindowManager;
 
 public abstract class AccessibilityTestActivity extends Activity {
+    boolean mEnterAnimationComplete = false;
+
+    public void onStop() {
+        super.onStop();
+        mEnterAnimationComplete = false;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,5 +33,23 @@ public abstract class AccessibilityTestActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+    }
+
+    @Override
+    public void onEnterAnimationComplete() {
+        synchronized (this) {
+            mEnterAnimationComplete = true;
+            notifyAll();
+        }
+    }
+
+    public void waitForEnterAnimationComplete() {
+        synchronized(this) {
+            if (mEnterAnimationComplete == false) {
+                try {
+                    wait(5000);
+                } catch (InterruptedException e) {}
+            }
+        }
     }
 }

@@ -29,8 +29,10 @@ class HostTestFormat(libcxx.test.format.LibcxxTestFormat):
             os.path.join(outdir, 'lib'),
             os.path.join(outdir, 'lib64'),
         ])
-        default_env = {'LD_LIBRARY_PATH': libpath}
-        self.exec_env = default_env if exec_env is None else exec_env
+        env = {'LD_LIBRARY_PATH': libpath}
+        if exec_env is not None:
+            env.update(exec_env)
+        self.exec_env = env
 
 
 class TestFormat(HostTestFormat):
@@ -51,32 +53,6 @@ class TestFormat(HostTestFormat):
 
     def _wd_path(self, test_name, file_name):
         return os.path.join(self._working_directory(test_name), file_name)
-
-    def _build(self, exec_path, source_path, compile_only=False,
-               use_verify=False):
-        # pylint: disable=protected-access
-        cmd, report, rc = libcxx.test.format.LibcxxTestFormat._build(
-            self, exec_path, source_path, compile_only, use_verify)
-        if rc != 0:
-            return cmd, report, rc
-
-        try:
-            exec_file = os.path.basename(exec_path)
-
-            adb.mkdir(self._working_directory(exec_file))
-            adb.push(exec_path, self._wd_path(exec_file, exec_file))
-
-            # Push any .dat files in the same directory as the source to the
-            # working directory.
-            src_dir = os.path.dirname(source_path)
-            data_files = [f for f in os.listdir(src_dir) if f.endswith('.dat')]
-            for data_file in data_files:
-                df_path = os.path.join(src_dir, data_file)
-                df_dev_path = self._wd_path(exec_file, data_file)
-                adb.push(df_path, df_dev_path)
-            return cmd, report, rc
-        except adb.AdbError as ex:
-            return self._make_report(ex.cmd, ex.out, ex.err, ex.exit_code)
 
     def _clean(self, exec_path):
         exec_file = os.path.basename(exec_path)

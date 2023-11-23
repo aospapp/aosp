@@ -24,7 +24,7 @@
 #include "dex/dex_file.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "handle_scope-inl.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "jvalue.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
@@ -36,7 +36,7 @@
 namespace art {
 namespace instrumentation {
 
-class TestInstrumentationListener FINAL : public instrumentation::InstrumentationListener {
+class TestInstrumentationListener final : public instrumentation::InstrumentationListener {
  public:
   TestInstrumentationListener()
     : received_method_enter_event(false),
@@ -50,7 +50,6 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
       received_exception_thrown_event(false),
       received_exception_handled_event(false),
       received_branch_event(false),
-      received_invoke_virtual_or_interface_event(false),
       received_watched_frame_pop(false) {}
 
   virtual ~TestInstrumentationListener() {}
@@ -59,7 +58,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                      Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                      ArtMethod* method ATTRIBUTE_UNUSED,
                      uint32_t dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_method_enter_event = true;
   }
 
@@ -68,7 +67,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     Handle<mirror::Object> return_value ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_method_exit_object_event = true;
   }
 
@@ -77,7 +76,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     const JValue& return_value ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_method_exit_event = true;
   }
 
@@ -85,7 +84,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                     ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_method_unwind_event = true;
   }
 
@@ -93,7 +92,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                   Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
                   ArtMethod* method ATTRIBUTE_UNUSED,
                   uint32_t new_dex_pc ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_dex_pc_moved_event = true;
   }
 
@@ -102,7 +101,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                  ArtMethod* method ATTRIBUTE_UNUSED,
                  uint32_t dex_pc ATTRIBUTE_UNUSED,
                  ArtField* field ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_field_read_event = true;
   }
 
@@ -112,7 +111,7 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     ArtField* field ATTRIBUTE_UNUSED,
                     Handle<mirror::Object> field_value ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_field_written_object_event = true;
   }
 
@@ -122,19 +121,19 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
                     uint32_t dex_pc ATTRIBUTE_UNUSED,
                     ArtField* field ATTRIBUTE_UNUSED,
                     const JValue& field_value ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_field_written_event = true;
   }
 
   void ExceptionThrown(Thread* thread ATTRIBUTE_UNUSED,
                        Handle<mirror::Throwable> exception_object ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_exception_thrown_event = true;
   }
 
   void ExceptionHandled(Thread* self ATTRIBUTE_UNUSED,
                         Handle<mirror::Throwable> throwable ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_exception_handled_event = true;
   }
 
@@ -142,21 +141,12 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
               ArtMethod* method ATTRIBUTE_UNUSED,
               uint32_t dex_pc ATTRIBUTE_UNUSED,
               int32_t dex_pc_offset ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_branch_event = true;
   }
 
-  void InvokeVirtualOrInterface(Thread* thread ATTRIBUTE_UNUSED,
-                                Handle<mirror::Object> this_object ATTRIBUTE_UNUSED,
-                                ArtMethod* caller ATTRIBUTE_UNUSED,
-                                uint32_t dex_pc ATTRIBUTE_UNUSED,
-                                ArtMethod* callee ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
-    received_invoke_virtual_or_interface_event = true;
-  }
-
   void WatchedFramePop(Thread* thread ATTRIBUTE_UNUSED, const ShadowFrame& frame ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     received_watched_frame_pop  = true;
   }
 
@@ -172,7 +162,6 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
     received_exception_thrown_event = false;
     received_exception_handled_event = false;
     received_branch_event = false;
-    received_invoke_virtual_or_interface_event = false;
     received_watched_frame_pop = false;
   }
 
@@ -187,7 +176,6 @@ class TestInstrumentationListener FINAL : public instrumentation::Instrumentatio
   bool received_exception_thrown_event;
   bool received_exception_handled_event;
   bool received_branch_event;
-  bool received_invoke_virtual_or_interface_event;
   bool received_watched_frame_pop;
 
  private:
@@ -382,8 +370,6 @@ class InstrumentationTest : public CommonRuntimeTest {
         return instr->HasExceptionHandledListeners();
       case instrumentation::Instrumentation::kBranch:
         return instr->HasBranchListeners();
-      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
-        return instr->HasInvokeVirtualOrInterfaceListeners();
       case instrumentation::Instrumentation::kWatchedFramePop:
         return instr->HasWatchedFramePopListeners();
       default:
@@ -434,9 +420,6 @@ class InstrumentationTest : public CommonRuntimeTest {
       case instrumentation::Instrumentation::kBranch:
         instr->Branch(self, method, dex_pc, -1);
         break;
-      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
-        instr->InvokeVirtualOrInterface(self, obj, method, dex_pc, method);
-        break;
       case instrumentation::Instrumentation::kWatchedFramePop:
         instr->WatchedFramePopped(self, frame);
         break;
@@ -477,8 +460,6 @@ class InstrumentationTest : public CommonRuntimeTest {
         return listener.received_exception_handled_event;
       case instrumentation::Instrumentation::kBranch:
         return listener.received_branch_event;
-      case instrumentation::Instrumentation::kInvokeVirtualOrInterface:
-        return listener.received_invoke_virtual_or_interface_event;
       case instrumentation::Instrumentation::kWatchedFramePop:
         return listener.received_watched_frame_pop;
       default:
@@ -520,7 +501,7 @@ TEST_F(InstrumentationTest, MethodEntryEvent) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtMethod* method =
       klass->FindClassMethod("returnReference", "()Ljava/lang/Object;", kRuntimePointerSize);
@@ -528,9 +509,9 @@ TEST_F(InstrumentationTest, MethodEntryEvent) {
   ASSERT_TRUE(method->IsDirect());
   ASSERT_TRUE(method->GetDeclaringClass() == klass);
   TestEvent(instrumentation::Instrumentation::kMethodEntered,
-            /*event_method*/ method,
-            /*event_field*/ nullptr,
-            /*with_object*/ true);
+            /*event_method=*/ method,
+            /*event_field=*/ nullptr,
+            /*with_object=*/ true);
 }
 
 TEST_F(InstrumentationTest, MethodExitObjectEvent) {
@@ -540,7 +521,7 @@ TEST_F(InstrumentationTest, MethodExitObjectEvent) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtMethod* method =
       klass->FindClassMethod("returnReference", "()Ljava/lang/Object;", kRuntimePointerSize);
@@ -548,9 +529,9 @@ TEST_F(InstrumentationTest, MethodExitObjectEvent) {
   ASSERT_TRUE(method->IsDirect());
   ASSERT_TRUE(method->GetDeclaringClass() == klass);
   TestEvent(instrumentation::Instrumentation::kMethodExited,
-            /*event_method*/ method,
-            /*event_field*/ nullptr,
-            /*with_object*/ true);
+            /*event_method=*/ method,
+            /*event_field=*/ nullptr,
+            /*with_object=*/ true);
 }
 
 TEST_F(InstrumentationTest, MethodExitPrimEvent) {
@@ -560,16 +541,16 @@ TEST_F(InstrumentationTest, MethodExitPrimEvent) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtMethod* method = klass->FindClassMethod("returnPrimitive", "()I", kRuntimePointerSize);
   ASSERT_TRUE(method != nullptr);
   ASSERT_TRUE(method->IsDirect());
   ASSERT_TRUE(method->GetDeclaringClass() == klass);
   TestEvent(instrumentation::Instrumentation::kMethodExited,
-            /*event_method*/ method,
-            /*event_field*/ nullptr,
-            /*with_object*/ false);
+            /*event_method=*/ method,
+            /*event_field=*/ nullptr,
+            /*with_object=*/ false);
 }
 
 TEST_F(InstrumentationTest, MethodUnwindEvent) {
@@ -595,15 +576,15 @@ TEST_F(InstrumentationTest, FieldWriteObjectEvent) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtField* field = klass->FindDeclaredStaticField("referenceField", "Ljava/lang/Object;");
   ASSERT_TRUE(field != nullptr);
 
   TestEvent(instrumentation::Instrumentation::kFieldWritten,
-            /*event_method*/ nullptr,
-            /*event_field*/ field,
-            /*with_object*/ true);
+            /*event_method=*/ nullptr,
+            /*event_field=*/ field,
+            /*with_object=*/ true);
 }
 
 TEST_F(InstrumentationTest, FieldWritePrimEvent) {
@@ -613,15 +594,15 @@ TEST_F(InstrumentationTest, FieldWritePrimEvent) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtField* field = klass->FindDeclaredStaticField("primitiveField", "I");
   ASSERT_TRUE(field != nullptr);
 
   TestEvent(instrumentation::Instrumentation::kFieldWritten,
-            /*event_method*/ nullptr,
-            /*event_field*/ field,
-            /*with_object*/ false);
+            /*event_method=*/ nullptr,
+            /*event_field=*/ field,
+            /*with_object=*/ false);
 }
 
 TEST_F(InstrumentationTest, ExceptionHandledEvent) {
@@ -636,10 +617,6 @@ TEST_F(InstrumentationTest, BranchEvent) {
   TestEvent(instrumentation::Instrumentation::kBranch);
 }
 
-TEST_F(InstrumentationTest, InvokeVirtualOrInterfaceEvent) {
-  TestEvent(instrumentation::Instrumentation::kInvokeVirtualOrInterface);
-}
-
 TEST_F(InstrumentationTest, DeoptimizeDirectMethod) {
   ScopedObjectAccess soa(Thread::Current());
   jobject class_loader = LoadDex("Instrumentation");
@@ -648,7 +625,7 @@ TEST_F(InstrumentationTest, DeoptimizeDirectMethod) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtMethod* method_to_deoptimize =
       klass->FindClassMethod("instanceMethod", "()V", kRuntimePointerSize);
@@ -697,7 +674,7 @@ TEST_F(InstrumentationTest, MixedDeoptimization) {
   ClassLinker* class_linker = runtime->GetClassLinker();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> loader(hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
-  mirror::Class* klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
+  ObjPtr<mirror::Class> klass = class_linker->FindClass(soa.Self(), "LInstrumentation;", loader);
   ASSERT_TRUE(klass != nullptr);
   ArtMethod* method_to_deoptimize =
       klass->FindClassMethod("instanceMethod", "()V", kRuntimePointerSize);
@@ -863,7 +840,8 @@ TEST_F(InstrumentationTest, ConfigureStubs_InterpreterToInstrumentationStubs) {
   // Configure stubs with instrumentation stubs.
   CheckConfigureStubs(kClientOneKey,
                       Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
+  // Make sure we are still interpreter since going from interpreter->instrumentation is dangerous.
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter,
                         1U);
 
   // Check we can disable instrumentation.
@@ -889,7 +867,7 @@ TEST_F(InstrumentationTest,
   // Configure stubs with instrumentation stubs again.
   CheckConfigureStubs(kClientOneKey,
                       Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter,
                         1U);
 
   // Check we can disable instrumentation.
@@ -993,9 +971,9 @@ TEST_F(InstrumentationTest, MultiConfigureStubs_InterpreterThenInstrumentationSt
   CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter, 2U);
 
   // 1st client requests instrumentation deactivation but 2nd client still needs
-  // instrumentation stubs.
+  // instrumentation stubs. Since we already got interpreter stubs we need to stay there.
   CheckConfigureStubs(kClientOneKey, Instrumentation::InstrumentationLevel::kInstrumentNothing);
-  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInstrumentationStubs,
+  CHECK_INSTRUMENTATION(Instrumentation::InstrumentationLevel::kInstrumentWithInterpreter,
                         1U);
 
   // 2nd client requests instrumentation deactivation

@@ -150,6 +150,18 @@ void sendFatalFailureToHost(const char *message,
                             AbortBlame reason = AbortBlame::kChre);
 
 /**
+ * Helper function to invoke sendFatalFailureToHost() with uint8_t type.
+ * It is needed since sendFatalFailureToHost() only accepts uint32_t type.
+ *
+ * TODO: Deprecate this function and redesign sendFatalFailureToHost()
+ * so that a generic string message is accepted.
+ *
+ * @param message a text message to be sent to host.
+ * @param value a value output into the message.
+ */
+void sendFatalFailureToHostUint8(const char *message, const uint8_t value);
+
+/**
  * Same as sendStringToHost(), but uses MessageType::kInternalFailure for the
  * 'status', and aborts the test with the given 'reason' and never returns.
  */

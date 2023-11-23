@@ -21,11 +21,15 @@ import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
 import android.content.Context;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraCharacteristics.Key;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import java.util.List;
 
 import com.android.ex.camera2.blocking.BlockingCameraManager;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
@@ -90,6 +94,29 @@ public class Camera2PermissionTest extends AndroidTestCase {
                 // expected
             } finally {
                 closeCamera();
+            }
+        }
+    }
+
+    /**
+     * Check the absence of camera characteristics keys that require Permission:
+     * {@link android.Manifest.permission#CAMERA}.
+     */
+    public void testCameraCharacteristicsNeedingPermission() throws Exception {
+        for (String id : mCameraIds) {
+            CameraCharacteristics capabilities = mCameraManager.getCameraCharacteristics(id);
+            assertNotNull("Camera characteristics shouldn't be null", capabilities);
+            List<Key<?>> keysNeedingPermission = capabilities.getKeysNeedingPermission();
+            if (keysNeedingPermission == null) {
+                continue;
+            }
+            List<Key<?>> keys = capabilities.getKeys();
+            assertNotNull("Camera characteristics key list shouldn't be null", keys);
+            for (Key<?> key : keysNeedingPermission) {
+                assertEquals("Key " + key.getName() + " needing permission is part of the" +
+                        " available characteristics keys", -1, keys.indexOf(key));
+                assertNull("Key " + key.getName() + " needing permission must not present" +
+                        " in camera characteristics", capabilities.get(key));
             }
         }
     }

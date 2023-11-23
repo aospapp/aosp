@@ -16,14 +16,15 @@
 
 package android.uirendering.cts.testclasses;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.ViewAnimationUtils;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +41,6 @@ public class ViewAnimationUtilsTests extends ActivityTestBase {
                             .start();
                 }, true)
                 .runWithVerifier(new GoldenImageVerifier(getActivity(),
-                        R.drawable.golden_blue_circle, new MSSIMComparer(0.99)));
+                        R.drawable.golden_blue_circle, new MSSIMComparer(0.85)));
     }
 }

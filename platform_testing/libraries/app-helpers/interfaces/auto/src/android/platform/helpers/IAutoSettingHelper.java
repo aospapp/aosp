@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,27 @@ package android.platform.helpers;
 public interface IAutoSettingHelper extends IAppHelper {
 
     /**
+     * enum for Day/Night mode.
+     *
+     * <p>The values of DAY_MODE(0) and NIGHT_MODE(2) are determined by the returned value of
+     * UiModeManager.getNightMode()
+     */
+    public enum DayNightMode {
+        DAY_MODE(0),
+        NIGHT_MODE(2);
+
+        private final int value;
+
+        DayNightMode(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
+    /**
      * enum for changing(increasing, decreasing) value.
      */
     enum ChangeType{
@@ -29,12 +50,19 @@ public interface IAutoSettingHelper extends IAppHelper {
         DECREASE
     }
 
-     /**
+    /**
      * Setup expectations: The app is open and the settings facet is open
      *
-     * @param setting  option to open.
+     * @param setting option to open.
      */
     void openSetting(String setting);
+
+    /**
+     * Setup expectations: The app is open
+     *
+     * <p>Open quick settings page
+     */
+    void openQuickSettings();
 
     /**
      * Setup expectations: The app is open and wifi setting options is selected
@@ -129,6 +157,19 @@ public interface IAutoSettingHelper extends IAppHelper {
      */
     void changeSeekbarLevel(int index, ChangeType changeType);
 
+    /**
+     * Setup expectations: quick settings facet is open.
+     *
+     * <p>set day/night mode.
+     *
+     * @param mode determines to set day mode or night mode.
+     */
+    void setDayNightMode(DayNightMode mode);
 
-
+    /**
+     * Setup expectations: quick settings facet is open.
+     *
+     * <p>get day/night mode status.
+     */
+    DayNightMode getDayNightModeStatus();
 }

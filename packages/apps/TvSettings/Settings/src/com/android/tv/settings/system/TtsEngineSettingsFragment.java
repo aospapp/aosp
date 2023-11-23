@@ -24,13 +24,15 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
-import android.support.annotation.NonNull;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
+
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
@@ -42,6 +44,7 @@ import java.util.Locale;
 /**
  * The text-to-speech engine settings screen in TV Settings.
  */
+@Keep
 public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceClickListener, Preference.OnPreferenceChangeListener {
     private static final String TAG = "TtsEngineSettings";
@@ -121,6 +124,8 @@ public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implem
         args.putString(ARG_ENGINE_LABEL, engineLabel);
         args.putParcelable(ARG_VOICES, voiceCheckData);
     }
+
+    public TtsEngineSettingsFragment() {}
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {

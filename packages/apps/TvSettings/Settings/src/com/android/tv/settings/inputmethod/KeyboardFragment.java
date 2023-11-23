@@ -21,19 +21,19 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.support.annotation.Keep;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.view.inputmethod.InputMethodInfo;
 
+import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceScreen;
+
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.DefaultAppInfo;
-import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.autofill.AutofillHelper;
@@ -69,7 +69,7 @@ public class KeyboardFragment extends SettingsPreferenceFragment {
 
     private static final String KEY_AUTOFILL_SETTINGS_PREFIX = "autofillSettings:";
 
-    private PackageManagerWrapper mPm;
+    private PackageManager mPm;
 
     /**
      * @return New fragment instance
@@ -81,7 +81,7 @@ public class KeyboardFragment extends SettingsPreferenceFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mPm = new PackageManagerWrapper(context.getPackageManager());
+        mPm = context.getPackageManager();
     }
 
     @Override

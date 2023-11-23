@@ -5,7 +5,7 @@
 import dbus, grp, os, pwd, stat
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test, utils
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import policy, session_manager
 from autotest_lib.client.cros import cros_ui, cryptohome, ownership
@@ -61,15 +61,12 @@ class login_UserPolicyKeys(test.test):
                                      (current, oct(info.st_mode)))
 
 
-    def setup(self):
-        os.chdir(self.srcdir)
-        utils.make('OUT_DIR=.')
-
-
     def initialize(self):
         super(login_UserPolicyKeys, self).initialize()
+        policy.install_protobufs(self.autodir, self.job)
         self._bus_loop = DBusGMainLoop(set_as_default=True)
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(self._bus_loop)
+        self._cryptohome_proxy = cryptohome.CryptohomeProxy(
+            self._bus_loop, self.autodir, self.job)
 
         # Clear the user's vault, to make sure the test starts without any
         # policy or key lingering around. At this stage the session isn't
@@ -87,8 +84,9 @@ class login_UserPolicyKeys(test.test):
         sm.StartSession(ownership.TESTUSER, '')
 
         # No policy stored yet.
-        retrieved_policy = sm.RetrievePolicyForUser(ownership.TESTUSER,
-                                                    byte_arrays=True)
+        retrieved_policy = sm.RetrievePolicyEx(
+                session_manager.make_user_policy_descriptor(ownership.TESTUSER),
+                byte_arrays=True)
         if retrieved_policy:
             raise error.TestError('session_manager already has user policy!')
 
@@ -103,14 +101,14 @@ class login_UserPolicyKeys(test.test):
         # outer PolicyFetchResponse that contains the public_key.
         public_key = ownership.known_pubkey()
         private_key = ownership.known_privkey()
-        policy_data = policy.build_policy_data(self.srcdir)
-        policy_response = policy.generate_policy(self.srcdir,
-                                                 private_key,
+        policy_data = policy.build_policy_data()
+        policy_response = policy.generate_policy(private_key,
                                                  public_key,
                                                  policy_data)
         try:
-            sm.StorePolicyForUser(ownership.TESTUSER,
-                                  dbus.ByteArray(policy_response))
+            sm.StorePolicyEx(
+                session_manager.make_user_policy_descriptor(ownership.TESTUSER),
+                dbus.ByteArray(policy_response))
         except dbus.exceptions.DBusException as e:
             raise error.TestFail('Failed to store user policy', e)
 

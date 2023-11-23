@@ -30,15 +30,19 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.test.TestLooper;
 
+import androidx.test.filters.SmallTest;
+
 import com.android.internal.app.IBatteryStats;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 /**
  * Unit tests for {@link android.net.wifi.SupplicantStateTracker}.
  */
+@SmallTest
 public class SupplicantStateTrackerTest {
 
     private static final String TAG = "SupplicantStateTrackerTest";

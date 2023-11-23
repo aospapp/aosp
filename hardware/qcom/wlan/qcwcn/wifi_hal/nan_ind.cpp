@@ -968,7 +968,7 @@ int NanCommand::handleNdpIndication(u32 ndpCmdType, struct nlattr **tb_vendor)
 
     ALOGI("handleNdpIndication msg_id:%u", ndpCmdType);
     switch (ndpCmdType) {
-    case QCA_WLAN_VENDOR_ATTR_NDP_DATA_REQUEST_IND:
+    case QCA_WLAN_VENDOR_ATTR_NDP_REQUEST_IND:
         NanDataPathRequestInd ndpRequestInd;
         memset(&ndpRequestInd, 0, sizeof(ndpRequestInd));
 
@@ -1177,11 +1177,11 @@ int NanCommand::getNdpConfirm(struct nlattr **tb_vendor,
             rem = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]);
             (i < NAN_MAX_CHANNEL_INFO_SUPPORTED && nla_ok(chInfo, rem));
             chInfo = nla_next(chInfo, &(rem))) {
-             struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_MAX + 1];
+             struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
 
              pChInfo =
                  (NanChannelInfo *) ((u8 *)event->channel_info + (i++ * (sizeof(NanChannelInfo))));
-             nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_MAX,
+             nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX,
                  (struct nlattr *) nla_data(chInfo), nla_len(chInfo), NULL);
 
             if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]) {
@@ -1231,11 +1231,11 @@ int NanCommand::getNdpScheduleUpdate(struct nlattr **tb_vendor,
             rem = nla_len(tb_vendor[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL_INFO]);
             (i < NAN_MAX_CHANNEL_INFO_SUPPORTED && nla_ok(chInfo, rem));
             chInfo = nla_next(chInfo, &(rem))) {
-            struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_MAX + 1];
+            struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
 
             pChInfo =
                 (NanChannelInfo *) ((u8 *)event->channel_info + (i++ * (sizeof(NanChannelInfo))));
-            nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_MAX,
+            nla_parse(tb2, QCA_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX,
                 (struct nlattr *) nla_data(chInfo), nla_len(chInfo), NULL);
 
             if (!tb2[QCA_WLAN_VENDOR_ATTR_NDP_CHANNEL]) {

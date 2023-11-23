@@ -21,7 +21,7 @@ samples/flickr/out
 samples/flickr/bin
 samples/flickr/target
 integration/volley/target/**
-**local.properties
+**/local.properties
 *.keystore
 **/.idea/*
 .settings

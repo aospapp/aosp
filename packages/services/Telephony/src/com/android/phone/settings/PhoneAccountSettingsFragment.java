@@ -1,5 +1,6 @@
 package com.android.phone.settings;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -7,6 +8,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Icon;
 import android.net.sip.SipManager;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.os.UserManager;
 import android.preference.ListPreference;
 import android.preference.Preference;
@@ -16,6 +18,7 @@ import android.preference.SwitchPreference;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -35,6 +38,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PhoneAccountSettingsFragment extends PreferenceFragment
         implements Preference.OnPreferenceChangeListener,
@@ -43,13 +47,18 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
     private static final String ACCOUNTS_LIST_CATEGORY_KEY =
             "phone_accounts_accounts_list_category_key";
 
-    private static final String DEFAULT_OUTGOING_ACCOUNT_KEY = "default_outgoing_account";
-    private static final String ALL_CALLING_ACCOUNTS_KEY = "phone_account_all_calling_accounts";
+    private static final String ALL_CALLING_ACCOUNTS_KEY = "phone_accounts_all_calling_accounts";
 
     private static final String SIP_SETTINGS_CATEGORY_PREF_KEY =
             "phone_accounts_sip_settings_category_key";
     private static final String USE_SIP_PREF_KEY = "use_sip_calling_options_key";
     private static final String SIP_RECEIVE_CALLS_PREF_KEY = "sip_receive_calls_key";
+
+    private static final String MAKE_AND_RECEIVE_CALLS_CATEGORY_KEY =
+            "make_and_receive_calls_settings_category_key";
+    private static final String DEFAULT_OUTGOING_ACCOUNT_KEY = "default_outgoing_account";
+    private static final String SMART_FORWARDING_CONFIGURATION_PREF_KEY =
+            "smart_forwarding_configuration_key";
 
     private static final String LEGACY_ACTION_CONFIGURE_PHONE_ACCOUNT =
             "android.telecom.action.CONNECTION_SERVICE_CONFIGURE";
@@ -71,10 +80,23 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
     private PreferenceCategory mAccountList;
 
     private AccountSelectionPreference mDefaultOutgoingAccount;
+    private Preference mAllCallingAccounts;
+
+    private PreferenceCategory mMakeAndReceiveCallsCategory;
+    private boolean mMakeAndReceiveCallsCategoryPresent;
 
     private ListPreference mUseSipCalling;
     private SwitchPreference mSipReceiveCallsPreference;
     private SipPreferences mSipPreferences;
+
+    private final SubscriptionManager.OnSubscriptionsChangedListener
+            mOnSubscriptionsChangeListener =
+            new SubscriptionManager.OnSubscriptionsChangedListener() {
+        @Override
+        public void onSubscriptionsChanged() {
+            updateAccounts();
+        }
+    };
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -122,34 +144,16 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
          */
         mAccountList = (PreferenceCategory) getPreferenceScreen().findPreference(
                 ACCOUNTS_LIST_CATEGORY_KEY);
-        List<PhoneAccountHandle> allNonSimAccounts =
-                getCallingAccounts(false /* includeSims */, true /* includeDisabled */);
-        // Check to see if we should show the entire section at all.
-        if (shouldShowConnectionServiceList(allNonSimAccounts)) {
-            List<PhoneAccountHandle> enabledAccounts =
-                    getCallingAccounts(true /* includeSims */, false /* includeDisabled */);
-            // Initialize the account list with the set of enabled & SIM accounts.
-            initAccountList(enabledAccounts);
+        mDefaultOutgoingAccount = (AccountSelectionPreference)
+                getPreferenceScreen().findPreference(DEFAULT_OUTGOING_ACCOUNT_KEY);
+        mAllCallingAccounts = getPreferenceScreen().findPreference(ALL_CALLING_ACCOUNTS_KEY);
 
-            mDefaultOutgoingAccount = (AccountSelectionPreference)
-                    getPreferenceScreen().findPreference(DEFAULT_OUTGOING_ACCOUNT_KEY);
-            mDefaultOutgoingAccount.setListener(this);
+        mMakeAndReceiveCallsCategory = (PreferenceCategory) getPreferenceScreen().findPreference(
+                MAKE_AND_RECEIVE_CALLS_CATEGORY_KEY);
+        mMakeAndReceiveCallsCategoryPresent = false;
 
-            // Only show the 'Make Calls With..." option if there are multiple accounts.
-            if (enabledAccounts.size() > 1) {
-                updateDefaultOutgoingAccountsModel();
-            } else {
-                mAccountList.removePreference(mDefaultOutgoingAccount);
-            }
-
-            Preference allAccounts = getPreferenceScreen().findPreference(ALL_CALLING_ACCOUNTS_KEY);
-            // If there are no third party (nonSim) accounts, then don't show enable/disable dialog.
-            if (allNonSimAccounts.isEmpty() && allAccounts != null) {
-                mAccountList.removePreference(allAccounts);
-            }
-        } else {
-            getPreferenceScreen().removePreference(mAccountList);
-        }
+        updateAccounts();
+        updateMakeCallsOptions();
 
         if (isPrimaryUser() && SipUtil.isVoipSupported(getActivity())) {
             mSipPreferences = new SipPreferences(getActivity());
@@ -183,6 +187,16 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
             getPreferenceScreen().removePreference(
                     getPreferenceScreen().findPreference(SIP_SETTINGS_CATEGORY_PREF_KEY));
         }
+
+        SubscriptionManager.from(getActivity()).addOnSubscriptionsChangedListener(
+                mOnSubscriptionsChangeListener);
+    }
+
+    @Override
+    public void onPause() {
+        SubscriptionManager.from(getActivity()).removeOnSubscriptionsChangedListener(
+                mOnSubscriptionsChangeListener);
+        super.onPause();
     }
 
     /**
@@ -391,6 +405,41 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
         return mTelephonyManager.isMultiSimEnabled() || allNonSimAccounts.size() > 0;
     }
 
+    private void updateAccounts() {
+        if (mAccountList != null) {
+            mAccountList.removeAll();
+            List<PhoneAccountHandle> allNonSimAccounts =
+                    getCallingAccounts(false /* includeSims */, true /* includeDisabled */);
+            // Check to see if we should show the entire section at all.
+            if (shouldShowConnectionServiceList(allNonSimAccounts)) {
+                List<PhoneAccountHandle> enabledAccounts =
+                        getCallingAccounts(true /* includeSims */, false /* includeDisabled */);
+                // Initialize the account list with the set of enabled & SIM accounts.
+                initAccountList(enabledAccounts);
+
+                // Only show the 'Make Calls With..." option if there are multiple accounts.
+                if (enabledAccounts.size() > 1) {
+                    mMakeAndReceiveCallsCategory.addPreference(mDefaultOutgoingAccount);
+                    mMakeAndReceiveCallsCategoryPresent = true;
+                    mDefaultOutgoingAccount.setListener(this);
+                    updateDefaultOutgoingAccountsModel();
+                } else {
+                    mMakeAndReceiveCallsCategory.removePreference(mDefaultOutgoingAccount);
+                }
+
+                // If there are no third party (nonSim) accounts,
+                // then don't show enable/disable dialog.
+                if (!allNonSimAccounts.isEmpty()) {
+                    mAccountList.addPreference(mAllCallingAccounts);
+                } else {
+                    mAccountList.removePreference(mAllCallingAccounts);
+                }
+            } else {
+                getPreferenceScreen().removePreference(mAccountList);
+            }
+        }
+    }
+
     private List<PhoneAccountHandle> getCallingAccounts(
             boolean includeSims, boolean includeDisabledAccounts) {
         PhoneAccountHandle emergencyAccountHandle = getEmergencyPhoneAccount();
@@ -471,5 +520,80 @@ public class PhoneAccountSettingsFragment extends PreferenceFragment
         final UserManager userManager = (UserManager) getActivity()
                 .getSystemService(Context.USER_SERVICE);
         return userManager.isPrimaryUser();
+    }
+
+    private void updateMakeCallsOptions() {
+        if (mMakeAndReceiveCallsCategory == null) {
+            return;
+        }
+
+        Intent smartForwardingUiIntent = getLaunchSmartForwardingMenuIntent();
+        if (smartForwardingUiIntent != null) {
+            mMakeAndReceiveCallsCategory.findPreference(SMART_FORWARDING_CONFIGURATION_PREF_KEY)
+                    .setIntent(smartForwardingUiIntent);
+            mMakeAndReceiveCallsCategoryPresent = true;
+        } else {
+            mMakeAndReceiveCallsCategory.removePreference(
+                    getPreferenceScreen().findPreference(SMART_FORWARDING_CONFIGURATION_PREF_KEY));
+        }
+
+        if (!mMakeAndReceiveCallsCategoryPresent) {
+            getPreferenceScreen().removePreference(mMakeAndReceiveCallsCategory);
+        }
+    }
+
+    /**
+     * @return Smart forwarding configuration UI Intent when supported
+     */
+    private Intent getLaunchSmartForwardingMenuIntent() {
+        if (mTelephonyManager.getPhoneCount() <= 1) {
+            return null;
+        }
+
+        final CarrierConfigManager configManager = (CarrierConfigManager)
+                getActivity().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        if (configManager == null) {
+            return null;
+        }
+
+        List<SubscriptionInfo> subscriptions =
+                mSubscriptionManager.getActiveSubscriptionInfoList();
+        if ((subscriptions == null) || (subscriptions.size() <= 1)) {
+            return null;
+        }
+
+        List<String> componentNames = subscriptions
+                .stream()
+                .map(subInfo -> configManager.getConfigForSubId(subInfo.getSubscriptionId()))
+                .filter(bundle -> (bundle != null))
+                .map(bundle -> bundle.getString(
+                        CarrierConfigManager.KEY_SMART_FORWARDING_CONFIG_COMPONENT_NAME_STRING))
+                .filter(componentName -> !TextUtils.isEmpty(componentName))
+                .collect(Collectors.toList());
+
+        String componentNameOfMenu = null;
+        for (String componentName : componentNames) {
+            if (componentNameOfMenu == null) {
+                componentNameOfMenu = componentName;
+            }
+            else if (!componentNameOfMenu.equals(componentName)) {
+                Log.w(LOG_TAG, "ignore smart forward component: " + componentName);
+            }
+        }
+
+        if (TextUtils.isEmpty(componentNameOfMenu)) {
+            return null;
+        }
+
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setComponent(ComponentName.unflattenFromString(componentNameOfMenu));
+
+        PackageManager pm = getActivity().getPackageManager();
+        List<ResolveInfo> resolutions = pm.queryIntentActivities(intent, 0);
+        if (resolutions.size() == 0) {
+            intent = null;  // set no intent if no package can handle it.
+        }
+
+        return intent;
     }
 }

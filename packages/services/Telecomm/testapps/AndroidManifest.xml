@@ -19,9 +19,10 @@
           package="com.android.server.telecom.testapps">
 
     <uses-sdk
-        android:minSdkVersion="23"
-        android:targetSdkVersion="23" />
+        android:minSdkVersion="28"
+        android:targetSdkVersion="28" />
 
+    <uses-permission android:name="android.permission.ACCEPT_HANDOVER" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -237,5 +238,40 @@
         <receiver android:exported="false"
             android:process="com.android.server.telecom.testapps.SelfMangingCallingApp"
             android:name="com.android.server.telecom.testapps.SelfManagedCallNotificationReceiver" />
+
+        <receiver android:exported="true"
+                  android:name="com.android.server.telecom.testapps.NuisanceReportReceiver">
+            <intent-filter>
+                <action android:name="android.telecom.action.NUISANCE_CALL_STATUS_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".TestCallScreeningService"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService"/>
+            </intent-filter>
+        </service>
+
+        <activity android:name=".CallScreeningActivity"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
+                  android:excludeFromRecents="true"
+                  android:launchMode="singleInstance">
+        </activity>
+
+        <service
+                android:name=".TestCallRedirectionService"
+                android:permission="android.permission.BIND_CALL_REDIRECTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallRedirectionService"/>
+            </intent-filter>
+        </service>
+
+        <activity android:name=".CallRedirectionActivity"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
+                  android:excludeFromRecents="true"
+                  android:launchMode="singleInstance">
+        </activity>
     </application>
 </manifest>

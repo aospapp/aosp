@@ -11,10 +11,6 @@
         <option name="log-file-url" value="https://x20web.corp.google.com/teams/widevine-tradefed-logging" />
         <option name="log-retention-days" value="60" />
     </log_saver>
-    <result_reporter class="com.google.android.tradefed.result.SpongeResultReporter">
-        <option name="report-error-email-sender" value="widevine-tf-test@google.com" />
-        <option name="report-error-email-destination" value="widevine-android-test@google.com" />
-    </result_reporter>
     <result_reporter class="com.android.tradefed.result.InvocationFailureEmailResultReporter" >
         <option name="sender" value="widevine-tf-test@google.com" />
     </result_reporter>

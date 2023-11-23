@@ -74,10 +74,9 @@ class HwBinderPerformanceTest(base_test.BaseTestClass):
     def setUpClass(self):
         required_params = ["hidl_hal_mode"]
         self.getUserParams(required_params)
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("stop")
-        self.dut.shell.one.Execute("setprop sys.boot_completed 0")
+        self.dut = self.android_devices[0]
+        self.dut.shell.Execute("stop")
+        self.dut.shell.Execute("setprop sys.boot_completed 0")
         self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(self.dut)
         self._cpu_freq.DisableCpuScaling()
 
@@ -89,7 +88,7 @@ class HwBinderPerformanceTest(base_test.BaseTestClass):
 
     def tearDownClass(self):
         self._cpu_freq.EnableCpuScaling()
-        self.dut.shell.one.Execute("start")
+        self.dut.shell.Execute("start")
         self.dut.waitForBootCompletion()
 
     def testRunBenchmark32Bit(self):
@@ -113,7 +112,7 @@ class HwBinderPerformanceTest(base_test.BaseTestClass):
             self.hidl_hal_mode, bits)
         binary = "/data/local/tmp/%s/libhwbinder_benchmark%s" % (bits, bits)
 
-        results = self.dut.shell.one.Execute([
+        results = self.dut.shell.Execute([
             "chmod 755 %s" % binary,
             "VTS_ROOT_PATH=/data/local/tmp " \
             "LD_LIBRARY_PATH=/system/lib%s:/data/local/tmp/%s/hw:"

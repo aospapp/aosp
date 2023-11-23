@@ -15,28 +15,30 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
 import android.widget.TextView;
 
-public class RadioListActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
+public class RadioListActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_radio_list);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         TextView titleView = findViewById(R.id.radio_list_title);
         titleView.setText(R.string.radio_list);
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

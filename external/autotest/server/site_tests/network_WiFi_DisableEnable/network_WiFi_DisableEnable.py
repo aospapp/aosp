@@ -34,7 +34,7 @@ class network_WiFi_DisableEnable(wifi_cell_test_base.WiFiCellTestBase):
         # disconnected.
         interface = self.context.client.wifi_if
         client = self.context.client
-        with InterfaceDisableContext(client, interface) as idc:
+        with InterfaceDisableContext(client, interface):
             success, state, elapsed_seconds = client.wait_for_service_states(
                     router_ssid, ( 'idle', ), 3)
             # We should either be in the 'idle' state or not even know about

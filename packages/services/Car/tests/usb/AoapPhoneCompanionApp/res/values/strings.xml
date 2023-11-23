@@ -14,6 +14,6 @@
      limitations under the License.
 -->
 <resources>
-  <string name="app_title">AOAP Test Companion App</string>
-  <string name="exit">Exit</string>
+  <string name="app_title" translatable="false">AOAP Test Companion App</string>
+  <string name="exit" translatable="false">Exit</string>
 </resources>

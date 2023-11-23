@@ -16,7 +16,10 @@
 
 """Utility methods to work with Zip archives."""
 
-import itertools
+try:
+    import itertools.izip as zip
+except ImportError:
+    pass
 
 from operator import attrgetter
 from zipfile import ZipFile
@@ -41,4 +44,4 @@ def ZipCompare(path_a, path_b):
       a.filename == b.filename and
       a.file_size == b.file_size and
       a.CRC == b.CRC
-      for a, b in itertools.izip(info_a, info_b))
+      for a, b in zip(info_a, info_b))

@@ -25,8 +25,8 @@ class cellular_ScanningProperty(test.test):
     """
     Test that the |Scanning| Property of the shill cellular device object is
     updated correctly in the following two scenarios:
-      (1) When a user requests a network scan using the |ProposeScan| method of
-          the cellular device.
+      (1) When a user requests a cellular network scan using the |RequestScan|
+          method of the shill Manager interface.
       (2) During the initial modem enable-register-connect sequence.
 
     """
@@ -152,8 +152,8 @@ class cellular_ScanningProperty(test.test):
 
     def test_user_initiated_cellular_scan(self):
         """
-        Test that the |ProposeScan| DBus method exported by shill cellular
-        object correctly updates the cellular object |Scanning| property while
+        Test that the |RequestScan| DBus method exported by shill Manager
+        interfac correctly updates the cellular object |Scanning| property while
         the scan is in progress.
         """
         with pseudomodem_context.PseudoModemManagerContext(
@@ -186,7 +186,8 @@ class cellular_ScanningProperty(test.test):
                     False)
 
             logging.info('Test actions and checks')
-            device.ProposeScan()
+            self._cellular_proxy.manager.RequestScan(
+                    self._cellular_proxy.TECHNOLOGY_CELLULAR)
             try:
                 itesting_scan_machine = self._itesting_machine(
                         STATE_MACHINE_SCAN)

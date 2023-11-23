@@ -34,6 +34,7 @@ cc_defaults {
 cc_library_static {
     name: "libbt-bta",
     defaults: ["fluoride_bta_defaults"],
+    cflags: ["-Wno-implicit-fallthrough"],
     srcs: [
         "ag/bta_ag_act.cc",
         "ag/bta_ag_api.cc",
@@ -68,6 +69,8 @@ cc_library_static {
         "gatt/bta_gatts_api.cc",
         "gatt/bta_gatts_main.cc",
         "gatt/bta_gatts_utils.cc",
+        "gatt/database.cc",
+        "gatt/database_builder.cc",
         "hearing_aid/hearing_aid.cc",
         "hearing_aid/hearing_aid_audio_source.cc",
         "hf_client/bta_hf_client_act.cc",
@@ -83,12 +86,6 @@ cc_library_static {
         "hh/bta_hh_le.cc",
         "hh/bta_hh_main.cc",
         "hh/bta_hh_utils.cc",
-        "hl/bta_hl_act.cc",
-        "hl/bta_hl_api.cc",
-        "hl/bta_hl_ci.cc",
-        "hl/bta_hl_main.cc",
-        "hl/bta_hl_sdp.cc",
-        "hl/bta_hl_utils.cc",
         "hd/bta_hd_act.cc",
         "hd/bta_hd_api.cc",
         "hd/bta_hd_main.cc",
@@ -127,17 +124,22 @@ cc_test {
     defaults: ["fluoride_bta_defaults"],
     srcs: [
         "test/bta_hf_client_test.cc",
-        "test/gatt_cache_file_test.cc",
+        "test/gatt/database_builder_test.cc",
+        "test/gatt/database_builder_sample_device_test.cc",
+        "test/gatt/database_test.cc",
     ],
     shared_libs: [
+        "libcrypto",
         "liblog",
         "libprotobuf-cpp-lite",
     ],
     static_libs: [
         "libbtcore",
         "libbt-bta",
+        "libbt-audio-hal-interface",
         "libbluetooth-types",
         "libbt-protos-lite",
         "libosi",
+        "libbt-common",
     ],
 }

@@ -5,7 +5,9 @@
 AUTHOR = 'The Chromium OS Authors,chromeos-audio@google.com'
 NAME = 'audio_Aplay'
 ATTRIBUTES = "suite:kernel_per-build_regression"
-PURPOSE = 'Test that simple Aplay succeeds. Used in other tests.'
+PURPOSE = """
+Test that simple Aplay with internal speaker succeeds. Used in other tests.
+"""
 CRITERIA = """
 Check that the system plays...used in stress or after resume tests.
 """
@@ -15,7 +17,7 @@ TEST_CLASS = "audio,qav"
 TEST_TYPE = 'client'
 
 DOC = """
-Check that the system plays audio.
+Check that the system plays audio via internal speaker.
 """
 
 job.run_test('audio_Aplay')

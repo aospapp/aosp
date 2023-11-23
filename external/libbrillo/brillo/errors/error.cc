@@ -11,7 +11,7 @@ using brillo::Error;
 using brillo::ErrorPtr;
 
 namespace {
-inline void LogError(const tracked_objects::Location& location,
+inline void LogError(const base::Location& location,
                      const std::string& domain,
                      const std::string& code,
                      const std::string& message) {
@@ -19,6 +19,13 @@ inline void LogError(const tracked_objects::Location& location,
   // the current error location with the location passed in to the Error object.
   // This way the log will contain the actual location of the error, and not
   // as if it always comes from brillo/errors/error.cc(22).
+  if (location.function_name() == nullptr) {
+    logging::LogMessage(location.file_name(), location.line_number(),
+                        logging::LOG_ERROR)
+            .stream()
+        << "Domain=" << domain << ", Code=" << code << ", Message=" << message;
+    return;
+  }
   logging::LogMessage(
       location.file_name(), location.line_number(), logging::LOG_ERROR).stream()
       << location.function_name() << "(...): "
@@ -26,14 +33,14 @@ inline void LogError(const tracked_objects::Location& location,
 }
 }  // anonymous namespace
 
-ErrorPtr Error::Create(const tracked_objects::Location& location,
+ErrorPtr Error::Create(const base::Location& location,
                        const std::string& domain,
                        const std::string& code,
                        const std::string& message) {
   return Create(location, domain, code, message, ErrorPtr());
 }
 
-ErrorPtr Error::Create(const tracked_objects::Location& location,
+ErrorPtr Error::Create(const base::Location& location,
                        const std::string& domain,
                        const std::string& code,
                        const std::string& message,
@@ -44,7 +51,7 @@ ErrorPtr Error::Create(const tracked_objects::Location& location,
 }
 
 void Error::AddTo(ErrorPtr* error,
-                  const tracked_objects::Location& location,
+                  const base::Location& location,
                   const std::string& domain,
                   const std::string& code,
                   const std::string& message) {
@@ -58,7 +65,7 @@ void Error::AddTo(ErrorPtr* error,
 }
 
 void Error::AddToPrintf(ErrorPtr* error,
-                        const tracked_objects::Location& location,
+                        const base::Location& location,
                         const std::string& domain,
                         const std::string& code,
                         const char* format,
@@ -91,19 +98,7 @@ const Error* Error::GetFirstError() const {
   return err;
 }
 
-Error::Error(const tracked_objects::Location& location,
-             const std::string& domain,
-             const std::string& code,
-             const std::string& message,
-             ErrorPtr inner_error)
-    : Error{tracked_objects::LocationSnapshot{location},
-            domain,
-            code,
-            message,
-            std::move(inner_error)} {
-}
-
-Error::Error(const tracked_objects::LocationSnapshot& location,
+Error::Error(const base::Location& location,
              const std::string& domain,
              const std::string& code,
              const std::string& message,

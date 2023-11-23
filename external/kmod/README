@@ -3,11 +3,12 @@ kmod - Linux kernel module handling
 Information
 ===========
 
-Build status:
-	[![Build Status](https://semaphoreci.com/api/v1/projects/29d989ba-0f70-4006-be21-550f6692b73b/449920/shields_badge.svg)](https://semaphoreci.com/lucasdemarchi/kmod)
+Build Status:
+	https://lucasdemarchi.semaphoreci.com/projects/kmod
 
 Mailing list:
 	linux-modules@vger.kernel.org (no subscription needed)
+	https://lore.kernel.org/linux-modules/
 
 Patchwork:
 	https://patchwork.kernel.org/project/linux-modules/
@@ -65,8 +66,8 @@ To compile and install run:
 Hacking
 =======
 
-Run 'bootstrap' script before configure. If you want to accept the recommended
-flags, you just need to run 'bootstrap-configure'. Note that the recommended
+Run 'autogen.sh' script before configure. If you want to accept the recommended
+flags, you just need to run 'autogen.sh c'. Note that the recommended
 flags require cython be installed to compile successfully.
 
 Make sure to read the CODING-STYLE file and the other READMEs: libkmod/README

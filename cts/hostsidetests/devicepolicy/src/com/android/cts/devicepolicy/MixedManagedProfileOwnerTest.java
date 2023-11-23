@@ -16,13 +16,15 @@
 
 package com.android.cts.devicepolicy;
 
+import com.android.tradefed.device.DeviceNotAvailableException;
+
 /**
  * Set of tests for managed profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
  */
 public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
 
-    protected static final String CLEAR_PROFILE_OWNER_NEGATIVE_TEST_CLASS =
+    private static final String CLEAR_PROFILE_OWNER_NEGATIVE_TEST_CLASS =
             DEVICE_ADMIN_PKG + ".ClearProfileOwnerNegativeTest";
 
     private int mParentUserId = -1;
@@ -157,7 +159,7 @@ public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Override
     public void testResetPasswordWithToken() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !mHasSecureLockScreen) {
             return;
         }
         // Execute the test method that's guaranteed to succeed. See also test in base class
@@ -170,4 +172,52 @@ public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
     public void testSetSystemSetting() {
         // Managed profile owner cannot set currently whitelisted system settings.
     }
+
+    public void testCannotClearProfileOwner() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, CLEAR_PROFILE_OWNER_NEGATIVE_TEST_CLASS, mUserId);
+    }
+
+    private void grantProfileOwnerDeviceIdsAccess() throws DeviceNotAvailableException {
+        getDevice().executeShellCommand(
+                String.format("dpm grant-profile-owner-device-ids-access --user %d '%s'",
+                    mUserId, DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS));
+
+    }
+
+    public void testDelegatedCertInstallerDeviceIdAttestation() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        setUpDelegatedCertInstallerAndRunTests(() -> {
+            runDeviceTestsAsUser("com.android.cts.certinstaller",
+                    ".DelegatedDeviceIdAttestationTest",
+                    "testGenerateKeyPairWithDeviceIdAttestationExpectingFailure", mUserId);
+
+            grantProfileOwnerDeviceIdsAccess();
+
+            runDeviceTestsAsUser("com.android.cts.certinstaller",
+                    ".DelegatedDeviceIdAttestationTest",
+                    "testGenerateKeyPairWithDeviceIdAttestationExpectingSuccess", mUserId);
+        });
+    }
+    public void testDeviceIdAttestationForProfileOwner() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        // Test that Device ID attestation for the profile owner does not work without grant.
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".DeviceIdAttestationTest",
+                "testFailsWithoutProfileOwnerIdsGrant", mUserId);
+
+        // Test that Device ID attestation for the profile owner works with a grant.
+        grantProfileOwnerDeviceIdsAccess();
+
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".DeviceIdAttestationTest",
+                "testSucceedsWithProfileOwnerIdsGrant", mUserId);
+    }
+
 }

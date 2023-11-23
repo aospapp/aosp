@@ -20,10 +20,13 @@
 
 #include <brillo/data_encoding.h>
 
+#include "update_engine/common/constants.h"
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
+
+using std::string;
 
 namespace chromeos_update_engine {
 
@@ -60,9 +63,7 @@ bool PayloadMetadata::GetManifestOffset(uint64_t* out_offset) const {
 }
 
 MetadataParseResult PayloadMetadata::ParsePayloadHeader(
-    const brillo::Blob& payload,
-    uint64_t supported_major_version,
-    ErrorCode* error) {
+    const brillo::Blob& payload, ErrorCode* error) {
   uint64_t manifest_offset;
   // Ensure we have data to cover the major payload version.
   if (payload.size() < kDeltaManifestSizeOffset)
@@ -84,8 +85,8 @@ MetadataParseResult PayloadMetadata::ParsePayloadHeader(
   // Switch big endian to host.
   major_payload_version_ = be64toh(major_payload_version_);
 
-  if (major_payload_version_ != supported_major_version &&
-      major_payload_version_ != kChromeOSMajorPayloadVersion) {
+  if (major_payload_version_ < kMinSupportedMajorPayloadVersion ||
+      major_payload_version_ > kMaxSupportedMajorPayloadVersion) {
     LOG(ERROR) << "Bad payload format -- unsupported payload version: "
                << major_payload_version_;
     *error = ErrorCode::kUnsupportedMajorPayloadVersion;
@@ -109,6 +110,13 @@ MetadataParseResult PayloadMetadata::ParsePayloadHeader(
          kDeltaManifestSizeSize);
   manifest_size_ = be64toh(manifest_size_);  // switch big endian to host
 
+  metadata_size_ = manifest_offset + manifest_size_;
+  if (metadata_size_ < manifest_size_) {
+    // Overflow detected.
+    *error = ErrorCode::kDownloadInvalidMetadataSize;
+    return MetadataParseResult::kError;
+  }
+
   if (GetMajorVersion() == kBrilloMajorPayloadVersion) {
     // Parse the metadata signature size.
     static_assert(
@@ -123,9 +131,19 @@ MetadataParseResult PayloadMetadata::ParsePayloadHeader(
            &payload[metadata_signature_size_offset],
            kDeltaMetadataSignatureSizeSize);
     metadata_signature_size_ = be32toh(metadata_signature_size_);
+
+    if (metadata_size_ + metadata_signature_size_ < metadata_size_) {
+      // Overflow detected.
+      *error = ErrorCode::kDownloadInvalidMetadataSize;
+      return MetadataParseResult::kError;
+    }
   }
-  metadata_size_ = manifest_offset + manifest_size_;
   return MetadataParseResult::kSuccess;
+}
+
+bool PayloadMetadata::ParsePayloadHeader(const brillo::Blob& payload) {
+  ErrorCode error;
+  return ParsePayloadHeader(payload, &error) == MetadataParseResult::kSuccess;
 }
 
 bool PayloadMetadata::GetManifest(const brillo::Blob& payload,
@@ -140,12 +158,16 @@ bool PayloadMetadata::GetManifest(const brillo::Blob& payload,
 
 ErrorCode PayloadMetadata::ValidateMetadataSignature(
     const brillo::Blob& payload,
-    std::string metadata_signature,
-    base::FilePath path_to_public_key) const {
+    const string& metadata_signature,
+    const string& pem_public_key) const {
   if (payload.size() < metadata_size_ + metadata_signature_size_)
     return ErrorCode::kDownloadMetadataSignatureError;
 
-  brillo::Blob metadata_signature_blob, metadata_signature_protobuf_blob;
+  // A single signature in raw bytes.
+  brillo::Blob metadata_signature_blob;
+  // The serialized Signatures protobuf message stored in major version >=2
+  // payload, it may contain multiple signatures.
+  string metadata_signature_protobuf;
   if (!metadata_signature.empty()) {
     // Convert base64-encoded signature to raw bytes.
     if (!brillo::data_encoding::Base64Decode(metadata_signature,
@@ -155,53 +177,56 @@ ErrorCode PayloadMetadata::ValidateMetadataSignature(
       return ErrorCode::kDownloadMetadataSignatureError;
     }
   } else if (major_payload_version_ == kBrilloMajorPayloadVersion) {
-    metadata_signature_protobuf_blob.assign(
+    metadata_signature_protobuf.assign(
         payload.begin() + metadata_size_,
         payload.begin() + metadata_size_ + metadata_signature_size_);
   }
 
-  if (metadata_signature_blob.empty() &&
-      metadata_signature_protobuf_blob.empty()) {
+  if (metadata_signature_blob.empty() && metadata_signature_protobuf.empty()) {
     LOG(ERROR) << "Missing mandatory metadata signature in both Omaha "
                << "response and payload.";
     return ErrorCode::kDownloadMetadataSignatureMissingError;
   }
 
-  LOG(INFO) << "Verifying metadata hash signature using public key: "
-            << path_to_public_key.value();
-
-  brillo::Blob calculated_metadata_hash;
+  brillo::Blob metadata_hash;
   if (!HashCalculator::RawHashOfBytes(
-          payload.data(), metadata_size_, &calculated_metadata_hash)) {
+          payload.data(), metadata_size_, &metadata_hash)) {
     LOG(ERROR) << "Unable to compute actual hash of manifest";
     return ErrorCode::kDownloadMetadataSignatureVerificationError;
   }
 
-  PayloadVerifier::PadRSA2048SHA256Hash(&calculated_metadata_hash);
-  if (calculated_metadata_hash.empty()) {
-    LOG(ERROR) << "Computed actual hash of metadata is empty.";
+  if (metadata_hash.size() != kSHA256Size) {
+    LOG(ERROR) << "Computed actual hash of metadata has incorrect size: "
+               << metadata_hash.size();
     return ErrorCode::kDownloadMetadataSignatureVerificationError;
   }
 
   if (!metadata_signature_blob.empty()) {
     brillo::Blob expected_metadata_hash;
-    if (!PayloadVerifier::GetRawHashFromSignature(metadata_signature_blob,
-                                                  path_to_public_key.value(),
-                                                  &expected_metadata_hash)) {
+    if (!PayloadVerifier::GetRawHashFromSignature(
+            metadata_signature_blob, pem_public_key, &expected_metadata_hash)) {
       LOG(ERROR) << "Unable to compute expected hash from metadata signature";
       return ErrorCode::kDownloadMetadataSignatureError;
     }
-    if (calculated_metadata_hash != expected_metadata_hash) {
+
+    brillo::Blob padded_metadata_hash = metadata_hash;
+    if (!PayloadVerifier::PadRSASHA256Hash(&padded_metadata_hash,
+                                           expected_metadata_hash.size())) {
+      LOG(ERROR) << "Failed to pad the SHA256 hash to "
+                 << expected_metadata_hash.size() << " bytes.";
+      return ErrorCode::kDownloadMetadataSignatureVerificationError;
+    }
+
+    if (padded_metadata_hash != expected_metadata_hash) {
       LOG(ERROR) << "Manifest hash verification failed. Expected hash = ";
       utils::HexDumpVector(expected_metadata_hash);
       LOG(ERROR) << "Calculated hash = ";
-      utils::HexDumpVector(calculated_metadata_hash);
+      utils::HexDumpVector(padded_metadata_hash);
       return ErrorCode::kDownloadMetadataSignatureMismatch;
     }
   } else {
-    if (!PayloadVerifier::VerifySignature(metadata_signature_protobuf_blob,
-                                          path_to_public_key.value(),
-                                          calculated_metadata_hash)) {
+    if (!PayloadVerifier::VerifySignature(
+            metadata_signature_protobuf, pem_public_key, metadata_hash)) {
       LOG(ERROR) << "Manifest hash verification failed.";
       return ErrorCode::kDownloadMetadataSignatureMismatch;
     }

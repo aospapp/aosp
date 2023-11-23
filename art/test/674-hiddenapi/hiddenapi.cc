@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "base/sdk_version.h"
 #include "class_linker.h"
 #include "dex/art_dex_file_loader.h"
 #include "hidden_api.h"
@@ -26,45 +27,73 @@
 namespace art {
 namespace Test674HiddenApi {
 
+std::vector<std::vector<std::unique_ptr<const DexFile>>> opened_dex_files;
+
 extern "C" JNIEXPORT void JNICALL Java_Main_init(JNIEnv*, jclass) {
   Runtime* runtime = Runtime::Current();
-  runtime->SetHiddenApiEnforcementPolicy(hiddenapi::EnforcementPolicy::kBlacklistOnly);
+  runtime->SetHiddenApiEnforcementPolicy(hiddenapi::EnforcementPolicy::kEnabled);
+  runtime->SetCorePlatformApiEnforcementPolicy(hiddenapi::EnforcementPolicy::kEnabled);
+  runtime->SetTargetSdkVersion(
+      static_cast<uint32_t>(hiddenapi::ApiList::GreylistMaxO().GetMaxAllowedSdkVersion()));
   runtime->SetDedupeHiddenApiWarnings(false);
-  runtime->AlwaysSetHiddenApiWarningFlag();
 }
 
-extern "C" JNIEXPORT void JNICALL Java_Main_appendToBootClassLoader(
-    JNIEnv* env, jclass, jstring jpath) {
+extern "C" JNIEXPORT void JNICALL Java_Main_setDexDomain(
+    JNIEnv*, jclass, jint int_index, jboolean is_core_platform) {
+  size_t index = static_cast<size_t>(int_index);
+  CHECK_LT(index, opened_dex_files.size());
+  for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files[index]) {
+    const_cast<DexFile*>(dex_file.get())->SetHiddenapiDomain(
+        (is_core_platform == JNI_FALSE) ? hiddenapi::Domain::kPlatform
+                                        : hiddenapi::Domain::kCorePlatform);
+  }
+}
+
+extern "C" JNIEXPORT jint JNICALL Java_Main_appendToBootClassLoader(
+    JNIEnv* env, jclass klass, jstring jpath, jboolean is_core_platform) {
   ScopedUtfChars utf(env, jpath);
   const char* path = utf.c_str();
-  if (path == nullptr) {
-    return;
-  }
+  CHECK(path != nullptr);
+
+  const size_t index = opened_dex_files.size();
+  const jint int_index = static_cast<jint>(index);
+  opened_dex_files.push_back(std::vector<std::unique_ptr<const DexFile>>());
 
   ArtDexFileLoader dex_loader;
   std::string error_msg;
-  std::vector<std::unique_ptr<const DexFile>> dex_files;
+
   if (!dex_loader.Open(path,
                        path,
                        /* verify */ false,
                        /* verify_checksum */ true,
                        &error_msg,
-                       &dex_files)) {
+                       &opened_dex_files[index])) {
     LOG(FATAL) << "Could not open " << path << " for boot classpath extension: " << error_msg;
     UNREACHABLE();
   }
 
+  Java_Main_setDexDomain(env, klass, int_index, is_core_platform);
+
   ScopedObjectAccess soa(Thread::Current());
-  for (std::unique_ptr<const DexFile>& dex_file : dex_files) {
-    Runtime::Current()->GetClassLinker()->AppendToBootClassPath(
-        Thread::Current(), *dex_file.release());
+  for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files[index]) {
+    Runtime::Current()->GetClassLinker()->AppendToBootClassPath(Thread::Current(), *dex_file.get());
   }
+
+  return int_index;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_Main_setWhitelistAll(JNIEnv*, jclass, jboolean value) {
+  std::vector<std::string> exemptions;
+  if (value != JNI_FALSE) {
+    exemptions.push_back("L");
+  }
+  Runtime::Current()->SetHiddenApiExemptions(exemptions);
 }
 
 static jobject NewInstance(JNIEnv* env, jclass klass) {
   jmethodID constructor = env->GetMethodID(klass, "<init>", "()V");
-  if (constructor == NULL) {
-    return NULL;
+  if (constructor == nullptr) {
+    return nullptr;
   }
   return env->NewObject(klass, constructor);
 }
@@ -74,7 +103,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canDiscoverField(
   ScopedUtfChars utf_name(env, name);
   jfieldID field = is_static ? env->GetStaticFieldID(klass, utf_name.c_str(), "I")
                              : env->GetFieldID(klass, utf_name.c_str(), "I");
-  if (field == NULL) {
+  if (field == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -87,7 +116,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canGetField(
   ScopedUtfChars utf_name(env, name);
   jfieldID field = is_static ? env->GetStaticFieldID(klass, utf_name.c_str(), "I")
                              : env->GetFieldID(klass, utf_name.c_str(), "I");
-  if (field == NULL) {
+  if (field == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -95,7 +124,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canGetField(
     env->GetStaticIntField(klass, field);
   } else {
     jobject obj = NewInstance(env, klass);
-    if (obj == NULL) {
+    if (obj == nullptr) {
       env->ExceptionDescribe();
       env->ExceptionClear();
       return JNI_FALSE;
@@ -117,7 +146,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canSetField(
   ScopedUtfChars utf_name(env, name);
   jfieldID field = is_static ? env->GetStaticFieldID(klass, utf_name.c_str(), "I")
                              : env->GetFieldID(klass, utf_name.c_str(), "I");
-  if (field == NULL) {
+  if (field == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -125,7 +154,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canSetField(
     env->SetStaticIntField(klass, field, 42);
   } else {
     jobject obj = NewInstance(env, klass);
-    if (obj == NULL) {
+    if (obj == nullptr) {
       env->ExceptionDescribe();
       env->ExceptionClear();
       return JNI_FALSE;
@@ -147,7 +176,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canDiscoverMethod(
   ScopedUtfChars utf_name(env, name);
   jmethodID method = is_static ? env->GetStaticMethodID(klass, utf_name.c_str(), "()I")
                                : env->GetMethodID(klass, utf_name.c_str(), "()I");
-  if (method == NULL) {
+  if (method == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -160,7 +189,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeMethodA(
   ScopedUtfChars utf_name(env, name);
   jmethodID method = is_static ? env->GetStaticMethodID(klass, utf_name.c_str(), "()I")
                                : env->GetMethodID(klass, utf_name.c_str(), "()I");
-  if (method == NULL) {
+  if (method == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -169,7 +198,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeMethodA(
     env->CallStaticIntMethodA(klass, method, nullptr);
   } else {
     jobject obj = NewInstance(env, klass);
-    if (obj == NULL) {
+    if (obj == nullptr) {
       env->ExceptionDescribe();
       env->ExceptionClear();
       return JNI_FALSE;
@@ -191,7 +220,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeMethodV(
   ScopedUtfChars utf_name(env, name);
   jmethodID method = is_static ? env->GetStaticMethodID(klass, utf_name.c_str(), "()I")
                                : env->GetMethodID(klass, utf_name.c_str(), "()I");
-  if (method == NULL) {
+  if (method == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -200,7 +229,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeMethodV(
     env->CallStaticIntMethod(klass, method);
   } else {
     jobject obj = NewInstance(env, klass);
-    if (obj == NULL) {
+    if (obj == nullptr) {
       env->ExceptionDescribe();
       env->ExceptionClear();
       return JNI_FALSE;
@@ -224,7 +253,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canDiscoverConstructor(
     JNIEnv* env, jclass, jclass klass, jstring args) {
   ScopedUtfChars utf_args(env, args);
   jmethodID constructor = env->GetMethodID(klass, "<init>", utf_args.c_str());
-  if (constructor == NULL) {
+  if (constructor == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -236,7 +265,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeConstructorA(
     JNIEnv* env, jclass, jclass klass, jstring args) {
   ScopedUtfChars utf_args(env, args);
   jmethodID constructor = env->GetMethodID(klass, "<init>", utf_args.c_str());
-  if (constructor == NULL) {
+  if (constructor == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -261,7 +290,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeConstructorV(
     JNIEnv* env, jclass, jclass klass, jstring args) {
   ScopedUtfChars utf_args(env, args);
   jmethodID constructor = env->GetMethodID(klass, "<init>", utf_args.c_str());
-  if (constructor == NULL) {
+  if (constructor == nullptr) {
     env->ExceptionClear();
     return JNI_FALSE;
   }
@@ -284,15 +313,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_JNI_canInvokeConstructorV(
 }
 
 extern "C" JNIEXPORT jint JNICALL Java_Reflection_getHiddenApiAccessFlags(JNIEnv*, jclass) {
-  return static_cast<jint>(kAccHiddenApiBits);
-}
-
-extern "C" JNIEXPORT jboolean JNICALL Java_ChildClass_hasPendingWarning(JNIEnv*, jclass) {
-  return Runtime::Current()->HasPendingHiddenApiWarning();
-}
-
-extern "C" JNIEXPORT void JNICALL Java_ChildClass_clearWarning(JNIEnv*, jclass) {
-  Runtime::Current()->SetPendingHiddenApiWarning(false);
+  return static_cast<jint>(kAccHiddenapiBits);
 }
 
 }  // namespace Test674HiddenApi

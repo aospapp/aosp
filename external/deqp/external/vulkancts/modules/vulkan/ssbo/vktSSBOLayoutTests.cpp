@@ -41,6 +41,7 @@
 #include "vkQueryUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 namespace vkt
 {
@@ -70,7 +71,10 @@ enum FeatureBits
 	FEATURE_MATRIX_LAYOUT		= (1<<10),	//!< Matrix layout flags.
 	FEATURE_UNSIZED_ARRAYS		= (1<<11),
 	FEATURE_ARRAYS_OF_ARRAYS	= (1<<12),
-	FEATURE_RELAXED_LAYOUT		= (1<<13)
+	FEATURE_RELAXED_LAYOUT		= (1<<13),
+	FEATURE_16BIT_STORAGE		= (1<<14),
+	FEATURE_8BIT_STORAGE		= (1<<15),
+	FEATURE_SCALAR_LAYOUT		= (1<<16),
 };
 
 class RandomSSBOLayoutCase : public SSBOLayoutCase
@@ -148,6 +152,15 @@ void RandomSSBOLayoutCase::generateBlock (de::Random& rnd, deUint32 layoutFlags)
 
 	if (m_features & FEATURE_RELAXED_LAYOUT)
 		layoutFlagCandidates.push_back(LAYOUT_RELAXED);
+
+	if (m_features & FEATURE_16BIT_STORAGE)
+		layoutFlags |= LAYOUT_16BIT_STORAGE;
+
+	if (m_features & FEATURE_8BIT_STORAGE)
+		layoutFlags |= LAYOUT_8BIT_STORAGE;
+
+	if (m_features & FEATURE_SCALAR_LAYOUT)
+		layoutFlagCandidates.push_back(LAYOUT_SCALAR);
 
 	DE_ASSERT(!layoutFlagCandidates.empty());
 
@@ -268,6 +281,19 @@ glu::VarType RandomSSBOLayoutCase::generateType (de::Random& rnd, int typeDepth,
 		typeCandidates.push_back(glu::TYPE_UINT);
 		typeCandidates.push_back(glu::TYPE_BOOL);
 
+		if (m_features & FEATURE_16BIT_STORAGE)
+		{
+			typeCandidates.push_back(glu::TYPE_UINT16);
+			typeCandidates.push_back(glu::TYPE_INT16);
+			typeCandidates.push_back(glu::TYPE_FLOAT16);
+		}
+
+		if (m_features & FEATURE_8BIT_STORAGE)
+		{
+			typeCandidates.push_back(glu::TYPE_UINT8);
+			typeCandidates.push_back(glu::TYPE_INT8);
+		}
+
 		if (m_features & FEATURE_VECTORS)
 		{
 			typeCandidates.push_back(glu::TYPE_FLOAT_VEC2);
@@ -282,6 +308,27 @@ glu::VarType RandomSSBOLayoutCase::generateType (de::Random& rnd, int typeDepth,
 			typeCandidates.push_back(glu::TYPE_BOOL_VEC2);
 			typeCandidates.push_back(glu::TYPE_BOOL_VEC3);
 			typeCandidates.push_back(glu::TYPE_BOOL_VEC4);
+			if (m_features & FEATURE_16BIT_STORAGE)
+			{
+				typeCandidates.push_back(glu::TYPE_FLOAT16_VEC2);
+				typeCandidates.push_back(glu::TYPE_FLOAT16_VEC3);
+				typeCandidates.push_back(glu::TYPE_FLOAT16_VEC4);
+				typeCandidates.push_back(glu::TYPE_INT16_VEC2);
+				typeCandidates.push_back(glu::TYPE_INT16_VEC3);
+				typeCandidates.push_back(glu::TYPE_INT16_VEC4);
+				typeCandidates.push_back(glu::TYPE_UINT16_VEC2);
+				typeCandidates.push_back(glu::TYPE_UINT16_VEC3);
+				typeCandidates.push_back(glu::TYPE_UINT16_VEC4);
+			}
+			if (m_features & FEATURE_8BIT_STORAGE)
+			{
+				typeCandidates.push_back(glu::TYPE_INT8_VEC2);
+				typeCandidates.push_back(glu::TYPE_INT8_VEC3);
+				typeCandidates.push_back(glu::TYPE_INT8_VEC4);
+				typeCandidates.push_back(glu::TYPE_UINT8_VEC2);
+				typeCandidates.push_back(glu::TYPE_UINT8_VEC3);
+				typeCandidates.push_back(glu::TYPE_UINT8_VEC4);
+			}
 		}
 
 		if (m_features & FEATURE_MATRICES)
@@ -299,7 +346,7 @@ glu::VarType RandomSSBOLayoutCase::generateType (de::Random& rnd, int typeDepth,
 		glu::DataType	type		= rnd.choose<glu::DataType>(typeCandidates.begin(), typeCandidates.end());
 		glu::Precision	precision;
 
-		if (!glu::isDataTypeBoolOrBVec(type))
+		if (glu::dataTypeSupportsPrecisionModifier(type))
 		{
 			// Precision.
 			static const glu::Precision precisionCandidates[] = { glu::PRECISION_LOWP, glu::PRECISION_MEDIUMP, glu::PRECISION_HIGHP };
@@ -318,8 +365,31 @@ public:
 	BlockBasicTypeCase (tcu::TestContext& testCtx, const char* name, const char* description, const VarType& type, deUint32 layoutFlags, int numInstances, MatrixLoadFlags matrixLoadFlag)
 		: SSBOLayoutCase(testCtx, name, description, BUFFERMODE_PER_BLOCK, matrixLoadFlag)
 	{
+		VarType tempType = type;
+		while (tempType.isArrayType())
+		{
+			tempType = tempType.getElementType();
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_FLOAT16)
+		{
+			layoutFlags |= LAYOUT_16BIT_STORAGE;
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT8 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT8)
+		{
+			layoutFlags |= LAYOUT_8BIT_STORAGE;
+		}
+
 		BufferBlock& block = m_interface.allocBlock("Block");
+		// For scalar layout tests with non-scalar types, add a scalar padding variable
+		// before "var", to make var only be scalar aligned.
+		if ((layoutFlags & LAYOUT_SCALAR) && !(type.isBasicType() && isDataTypeScalar(type.getBasicType()))) {
+			block.addMember(BufferVar("padding", VarType(getDataTypeScalarType(tempType.getBasicType()), glu::PRECISION_LAST), ACCESS_READ|ACCESS_WRITE));
+		}
 		block.addMember(BufferVar("var", type, ACCESS_READ|ACCESS_WRITE));
+
 		block.setFlags(layoutFlags);
 
 		if (numInstances > 0)
@@ -340,6 +410,24 @@ public:
 	{
 		BufferBlock& block = m_interface.allocBlock("Block");
 		block.addMember(BufferVar("var", VarType(elementType, VarType::UNSIZED_ARRAY), ACCESS_READ|ACCESS_WRITE));
+
+		VarType tempType = elementType;
+		while (tempType.isArrayType())
+		{
+			tempType = tempType.getElementType();
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT16 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_FLOAT16)
+		{
+			layoutFlags |= LAYOUT_16BIT_STORAGE;
+		}
+		if (getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_UINT8 ||
+			getDataTypeScalarType(tempType.getBasicType()) == glu::TYPE_INT8)
+		{
+			layoutFlags |= LAYOUT_8BIT_STORAGE;
+		}
+
 		block.setFlags(layoutFlags);
 
 		block.setLastUnsizedArraySize(0, arraySize);
@@ -724,7 +812,7 @@ struct UnsizedArrayCaseParams
 {
 	int					elementSize;
 	vk::VkDeviceSize	bufferSize;
-	vk::VkDeviceSize	bufferBindOffset;
+	bool				useMinBufferOffset;
 	vk::VkDeviceSize	bufferBindLength;
 	const char*			name;
 };
@@ -850,7 +938,14 @@ tcu::TestStatus ssboUnsizedArrayLengthTest (Context& context, UnsizedArrayCasePa
 	VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
 
 	// Build descriptor set
-	const VkDescriptorBufferInfo			inputBufferDesc			= makeDescriptorBufferInfo(*inputBuffer, params.bufferBindOffset, params.bufferBindLength);
+	vk::VkDeviceSize bufferBindOffset = 0;
+	if (params.useMinBufferOffset)
+	{
+		const VkPhysicalDeviceLimits	deviceLimits				= getPhysicalDeviceProperties(context.getInstanceInterface(), context.getPhysicalDevice()).limits;
+		bufferBindOffset											= deviceLimits.minStorageBufferOffsetAlignment;
+	}
+
+	const VkDescriptorBufferInfo			inputBufferDesc			= makeDescriptorBufferInfo(*inputBuffer, bufferBindOffset, params.bufferBindLength);
 	const VkDescriptorBufferInfo			outputBufferDesc		= makeDescriptorBufferInfo(*outputBuffer, 0u, VK_WHOLE_SIZE);
 
 	const VkDescriptorSetAllocateInfo		descAllocInfo			=
@@ -888,16 +983,8 @@ tcu::TestStatus ssboUnsizedArrayLengthTest (Context& context, UnsizedArrayCasePa
 	};
 	const Unique<VkCommandBuffer>			cmdBuf					(allocateCommandBuffer(vk, device, &cmdBufParams));
 
-	const VkCommandBufferBeginInfo			cmdBufBeginParams		=
-	{
-		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,			// sType
-		DE_NULL,												// pNext
-		0u,														// flags
-		(const VkCommandBufferInheritanceInfo*)DE_NULL,
-	};
-
 	// Record commands
-	VK_CHECK(vk.beginCommandBuffer(*cmdBuf, &cmdBufBeginParams));
+	beginCommandBuffer(vk, *cmdBuf);
 
 	vk.cmdBindPipeline(*cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
 	vk.cmdBindDescriptorSets(*cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &descSet.get(), 0u, DE_NULL);
@@ -912,31 +999,16 @@ tcu::TestStatus ssboUnsizedArrayLengthTest (Context& context, UnsizedArrayCasePa
 	};
 	vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT, (VkDependencyFlags)0, 1, &barrier, 0, DE_NULL, 0, DE_NULL);
 
-	VK_CHECK(vk.endCommandBuffer(*cmdBuf));
+	endCommandBuffer(vk, *cmdBuf);
 
-	const VkSubmitInfo						submitInfo				=
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		DE_NULL,
-		0,														// waitSemaphoreCount
-		DE_NULL,												// pWaitSemaphores
-		DE_NULL,												// pWaitDstStageMask
-		1,														// commandBufferCount
-		&cmdBuf.get(),											// pCommandBuffers
-		0,														// signalSemaphoreCount
-		DE_NULL,												// pSignalSemaphores
-	};
-	VK_CHECK(vk.queueSubmit(queue, 1, &submitInfo, (vk::VkFence)0));
-
-	// Force all work to have completed
-	VK_CHECK(vk.deviceWaitIdle(device));
+	submitCommandsAndWait(vk, device, queue, cmdBuf.get());
 
 	// Read back output buffer contents
 	VK_CHECK(vk.invalidateMappedMemoryRanges(device, 1, &range));
 
 	// Expected number of elements in array at end of storage buffer
 	const VkDeviceSize						boundLength				= params.bufferBindLength == VK_WHOLE_SIZE
-																	? params.bufferSize - params.bufferBindOffset
+																	? params.bufferSize - bufferBindOffset
 																	: params.bufferBindLength;
 	const int								expectedResult			= (int)(boundLength / params.elementSize);
 	const int								actualResult			= *outputBufferPtr;
@@ -944,7 +1016,7 @@ tcu::TestStatus ssboUnsizedArrayLengthTest (Context& context, UnsizedArrayCasePa
 	context.getTestContext().getLog()
 	<< tcu::TestLog::Message
 	<< "Buffer size " << params.bufferSize
-	<< " offset " << params.bufferBindOffset
+	<< " offset " << bufferBindOffset
 	<< " length " << params.bufferBindLength
 	<< " element size " << params.elementSize
 	<< " expected array size: " << expectedResult
@@ -1008,7 +1080,27 @@ void SSBOLayoutTests::init (void)
 		glu::TYPE_FLOAT_MAT3X2,
 		glu::TYPE_FLOAT_MAT3X4,
 		glu::TYPE_FLOAT_MAT4X2,
-		glu::TYPE_FLOAT_MAT4X3
+		glu::TYPE_FLOAT_MAT4X3,
+		glu::TYPE_UINT8,
+		glu::TYPE_UINT8_VEC2,
+		glu::TYPE_UINT8_VEC3,
+		glu::TYPE_UINT8_VEC4,
+		glu::TYPE_INT8,
+		glu::TYPE_INT8_VEC2,
+		glu::TYPE_INT8_VEC3,
+		glu::TYPE_INT8_VEC4,
+		glu::TYPE_UINT16,
+		glu::TYPE_UINT16_VEC2,
+		glu::TYPE_UINT16_VEC3,
+		glu::TYPE_UINT16_VEC4,
+		glu::TYPE_INT16,
+		glu::TYPE_INT16_VEC2,
+		glu::TYPE_INT16_VEC3,
+		glu::TYPE_INT16_VEC4,
+		glu::TYPE_FLOAT16,
+		glu::TYPE_FLOAT16_VEC2,
+		glu::TYPE_FLOAT16_VEC3,
+		glu::TYPE_FLOAT16_VEC4,
 	};
 
 	static const struct
@@ -1019,6 +1111,7 @@ void SSBOLayoutTests::init (void)
 	{
 		{ "std140",	LAYOUT_STD140 },
 		{ "std430",	LAYOUT_STD430 },
+		{ "scalar",	LAYOUT_SCALAR },
 	};
 
 	static const struct
@@ -1056,7 +1149,7 @@ void SSBOLayoutTests::init (void)
 				glu::DataType	type		= basicTypes[basicTypeNdx];
 				const char*		typeName	= glu::getDataTypeName(type);
 
-				if (glu::isDataTypeBoolOrBVec(type))
+				if (!glu::dataTypeSupportsPrecisionModifier(type))
 					layoutGroup->addChild(new BlockBasicTypeCase(m_testCtx, typeName, "", VarType(type, glu::PRECISION_LAST), layoutFlags[layoutFlagNdx].flags, 0, LOAD_FULL_MATRIX));
 				else
 				{
@@ -1104,7 +1197,7 @@ void SSBOLayoutTests::init (void)
 				const int		arraySize	= 3;
 
 				layoutGroup->addChild(new BlockBasicTypeCase(m_testCtx, typeName, "",
-															 VarType(VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), arraySize),
+															 VarType(VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), arraySize),
 															 layoutFlags[layoutFlagNdx].flags, 0, LOAD_FULL_MATRIX));
 
 				if (glu::isDataTypeMatrix(type))
@@ -1140,7 +1233,7 @@ void SSBOLayoutTests::init (void)
 				const int		arraySize	= 19;
 
 				layoutGroup->addChild(new BlockBasicUnsizedArrayCase(m_testCtx, typeName, "",
-																	 VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP),
+																	 VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP),
 																	 arraySize, layoutFlags[layoutFlagNdx].flags, LOAD_FULL_MATRIX));
 
 				if (glu::isDataTypeMatrix(type))
@@ -1175,7 +1268,7 @@ void SSBOLayoutTests::init (void)
 				const char*		typeName	= glu::getDataTypeName(type);
 				const int		childSize	= 3;
 				const int		parentSize	= 4;
-				const VarType	childType	(VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize);
+				const VarType	childType	(VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize);
 				const VarType	fullType	(childType, parentSize);
 
 				layoutGroup->addChild(new BlockBasicTypeCase(m_testCtx, typeName, "", fullType, layoutFlags[layoutFlagNdx].flags, 0, LOAD_FULL_MATRIX));
@@ -1213,7 +1306,7 @@ void SSBOLayoutTests::init (void)
 				const int		childSize0	= 3;
 				const int		childSize1	= 2;
 				const int		parentSize	= 4;
-				const VarType	childType0	(VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize0);
+				const VarType	childType0	(VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize0);
 				const VarType	childType1	(childType0, childSize1);
 				const VarType	fullType	(childType1, parentSize);
 
@@ -1252,7 +1345,7 @@ void SSBOLayoutTests::init (void)
 				const int		childSize0	= 2;
 				const int		childSize1	= 4;
 				const int		parentSize	= 3;
-				const VarType	childType0	(VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize0);
+				const VarType	childType0	(VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP), childSize0);
 				const VarType	childType1	(childType0, childSize1);
 
 				layoutGroup->addChild(new BlockBasicUnsizedArrayCase(m_testCtx, typeName, "", childType1, parentSize, layoutFlags[layoutFlagNdx].flags, LOAD_FULL_MATRIX));
@@ -1500,7 +1593,7 @@ void SSBOLayoutTests::init (void)
 				const int		numInstances	= 3;
 
 				layoutGroup->addChild(new BlockBasicTypeCase(m_testCtx, typeName, "",
-															 VarType(type, glu::isDataTypeBoolOrBVec(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP),
+															 VarType(type, !glu::dataTypeSupportsPrecisionModifier(type) ? glu::PRECISION_LAST : glu::PRECISION_HIGHP),
 															 layoutFlags[layoutFlagNdx].flags, numInstances, LOAD_FULL_MATRIX));
 
 				if (glu::isDataTypeMatrix(type))
@@ -1592,29 +1685,49 @@ void SSBOLayoutTests::init (void)
 		const deUint32	unused			= FEATURE_UNUSED_MEMBERS|FEATURE_UNUSED_VARS;
 		const deUint32	unsized			= FEATURE_UNSIZED_ARRAYS;
 		const deUint32	matFlags		= FEATURE_MATRIX_LAYOUT;
-		const deUint32	allButRelaxed	= ~FEATURE_RELAXED_LAYOUT;
+		const deUint32	allButRelaxed	= ~FEATURE_RELAXED_LAYOUT & ~FEATURE_16BIT_STORAGE & ~FEATURE_8BIT_STORAGE & ~FEATURE_SCALAR_LAYOUT;
 		const deUint32	allRelaxed		= FEATURE_VECTORS|FEATURE_RELAXED_LAYOUT|FEATURE_INSTANCE_ARRAYS;
+		const deUint32	allScalar		= ~FEATURE_RELAXED_LAYOUT & ~allStdLayouts & ~FEATURE_16BIT_STORAGE & ~FEATURE_8BIT_STORAGE;
 
 		tcu::TestCaseGroup* randomGroup = new tcu::TestCaseGroup(m_testCtx, "random", "Random Uniform Block cases");
 		addChild(randomGroup);
 
-		// Basic types.
-		createRandomCaseGroup(randomGroup, m_testCtx, "scalar_types",		"Scalar types only, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused,																			25, 0);
-		createRandomCaseGroup(randomGroup, m_testCtx, "vector_types",		"Scalar and vector types only, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|FEATURE_VECTORS,															25, 25);
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_types",		"All basic types, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags,													25, 50);
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_arrays",		"Arrays, per-block buffers",						SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|FEATURE_ARRAYS,									25, 50);
-		createRandomCaseGroup(randomGroup, m_testCtx, "unsized_arrays",		"Unsized arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_ARRAYS,							25, 50);
-		createRandomCaseGroup(randomGroup, m_testCtx, "arrays_of_arrays",	"Arrays of arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS,	25, 950);
+		for (int i = 0; i < 3; ++i)
+		{
 
-		createRandomCaseGroup(randomGroup, m_testCtx, "basic_instance_arrays",					"Basic instance arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_INSTANCE_ARRAYS,															25, 75);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs",							"Nested structs, per-block buffers",					SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS,																	25, 100);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_arrays",					"Nested structs, arrays, per-block buffers",			SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS,							25, 150);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_instance_arrays",			"Nested structs, instance arrays, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_INSTANCE_ARRAYS,											25, 125);
-		createRandomCaseGroup(randomGroup, m_testCtx, "nested_structs_arrays_instance_arrays",	"Nested structs, instance arrays, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS|FEATURE_INSTANCE_ARRAYS,	25, 175);
-		createRandomCaseGroup(randomGroup, m_testCtx, "all_per_block_buffers",	"All random features, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	allButRelaxed,	50, 200);
-		createRandomCaseGroup(randomGroup, m_testCtx, "all_shared_buffer",		"All random features, shared buffer",		SSBOLayoutCase::BUFFERMODE_SINGLE,		allButRelaxed,	50, 250);
+			tcu::TestCaseGroup* group = randomGroup;
+			if (i == 1)
+			{
+				group = new tcu::TestCaseGroup(m_testCtx, "16bit", "16bit storage");
+				randomGroup->addChild(group);
+			}
+			else if (i == 2)
+			{
+				group = new tcu::TestCaseGroup(m_testCtx, "8bit", "18bit storage");
+				randomGroup->addChild(group);
+			}
+			const deUint32 use16BitStorage = i == 1 ? FEATURE_16BIT_STORAGE : 0;
+			const deUint32 use8BitStorage  = i == 2 ? FEATURE_8BIT_STORAGE : 0;
 
-		createRandomCaseGroup(randomGroup, m_testCtx, "relaxed",			"VK_KHR_relaxed_block_layout",				SSBOLayoutCase::BUFFERMODE_SINGLE,		allRelaxed, 100, deInt32Hash(313));
+			// Basic types.
+			createRandomCaseGroup(group, m_testCtx, "scalar_types",		"Scalar types only, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused,																			25, 0);
+			createRandomCaseGroup(group, m_testCtx, "vector_types",		"Scalar and vector types only, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|FEATURE_VECTORS,															25, 25);
+			createRandomCaseGroup(group, m_testCtx, "basic_types",		"All basic types, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags,													25, 50);
+			createRandomCaseGroup(group, m_testCtx, "basic_arrays",		"Arrays, per-block buffers",						SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|FEATURE_ARRAYS,									25, 50);
+			createRandomCaseGroup(group, m_testCtx, "unsized_arrays",		"Unsized arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_ARRAYS,							25, 50);
+			createRandomCaseGroup(group, m_testCtx, "arrays_of_arrays",	"Arrays of arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS,	25, 950);
+
+			createRandomCaseGroup(group, m_testCtx, "basic_instance_arrays",					"Basic instance arrays, per-block buffers",				SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_INSTANCE_ARRAYS,															25, 75);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs",							"Nested structs, per-block buffers",					SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS,																	25, 100);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_arrays",					"Nested structs, arrays, per-block buffers",			SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS,							25, 150);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_instance_arrays",			"Nested structs, instance arrays, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_INSTANCE_ARRAYS,											25, 125);
+			createRandomCaseGroup(group, m_testCtx, "nested_structs_arrays_instance_arrays",	"Nested structs, instance arrays, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allStdLayouts|unused|allBasicTypes|matFlags|unsized|FEATURE_STRUCTS|FEATURE_ARRAYS|FEATURE_ARRAYS_OF_ARRAYS|FEATURE_INSTANCE_ARRAYS,	25, 175);
+			createRandomCaseGroup(group, m_testCtx, "all_per_block_buffers",	"All random features, per-block buffers",	SSBOLayoutCase::BUFFERMODE_PER_BLOCK,	use8BitStorage|use16BitStorage|allButRelaxed,	50, 200);
+			createRandomCaseGroup(group, m_testCtx, "all_shared_buffer",		"All random features, shared buffer",		SSBOLayoutCase::BUFFERMODE_SINGLE,		use8BitStorage|use16BitStorage|allButRelaxed,	50, 250);
+
+			createRandomCaseGroup(group, m_testCtx, "relaxed",			"VK_KHR_relaxed_block_layout",				SSBOLayoutCase::BUFFERMODE_SINGLE,		use8BitStorage|use16BitStorage|allRelaxed, 100, deInt32Hash(313));
+			createRandomCaseGroup(group, m_testCtx, "scalar",			"VK_EXT_scalar_block_layout",				SSBOLayoutCase::BUFFERMODE_SINGLE,		use8BitStorage|use16BitStorage|allScalar, 100, deInt32Hash(313));
+		}
 	}
 }
 
@@ -1622,10 +1735,10 @@ void createUnsizedArrayTests (tcu::TestCaseGroup* testGroup)
 {
 	const UnsizedArrayCaseParams subcases[] =
 	{
-		{ 4, 256, 0, 256,			  "float_no_offset_explicit_size" },
-		{ 4, 256, 0, VK_WHOLE_SIZE,	  "float_no_offset_whole_size" },
-		{ 4, 256, 128, 32,			  "float_offset_explicit_size" },
-		{ 4, 256, 128, VK_WHOLE_SIZE, "float_offset_whole_size" },
+		{ 4, 256, false, 256,			"float_no_offset_explicit_size" },
+		{ 4, 256, false, VK_WHOLE_SIZE,	"float_no_offset_whole_size" },
+		{ 4, 512, true, 32,				"float_offset_explicit_size" },
+		{ 4, 512, true, VK_WHOLE_SIZE,	"float_offset_whole_size" },
 	};
 
 	for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(subcases); ndx++)

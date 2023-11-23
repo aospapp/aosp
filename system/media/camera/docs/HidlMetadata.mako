@@ -35,7 +35,6 @@
 package android.hardware.camera.metadata@${hal_major_version()}.${hal_minor_version()};
 
 % if first_hal_minor_version(hal_major_version()) != hal_minor_version():
-/* Include definitions from all prior minor HAL metadata revisions */
   % for i in range(first_hal_minor_version(hal_major_version()),hal_minor_version()):
 import android.hardware.camera.metadata@${hal_major_version()}.${i};
   % endfor
@@ -111,7 +110,7 @@ ${entry.description | hidldoc(metadata)}\
     ${entry.name + " =" | csym} CameraMetadataSectionStart:${path_name(find_parent_section(entry)) | csym}_START,
           % else:
 <%      prevVersion = find_first_older_used_hal_version(sec, hal_major_version(), hal_minor_version()) %>\
-    ${entry.name + " =" | csym} ${'android.hardware.camera.metadata@%d.%d' % prevVersion}::CameraMetadataTag:${path_name(find_parent_section(entry)) | csym}${'_END' if find_first_older_used_hal_version(sec, prevVersion[0], prevVersion[1]) == (0,0) else '_END_%d_%d' % prevVersion},
+    ${entry.name + " =" | csym} ${'android.hardware.camera.metadata@%d.%d' % prevVersion}::CameraMetadataTag:${path_name(find_parent_section(entry)) | csym}${'_END' if prevVersion[1] == first_hal_minor_version(hal_major_version()) else '_END_%d_%d' % prevVersion},
           % endif
         % else:
     ${entry.name + "," | csym}

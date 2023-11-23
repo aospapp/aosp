@@ -17,6 +17,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libctspermission_jni
+LOCAL_SDK_VERSION := current
 
 # Don't include this package in any configuration by default.
 LOCAL_MODULE_TAGS := optional
@@ -28,8 +29,7 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE) 
 
 LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
-LOCAL_CPPFLAGS := -std=gnu++11
-LOCAL_CXX_STL := libc++_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_CFLAGS := -Wno-unused-parameter -Wall -Werror
 

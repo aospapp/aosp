@@ -18,16 +18,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.hardware.sensor.cts">
 
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.BODY_SENSORS" />
 
-    <application>
+    <application
+            android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
 
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.hardware.sensor.cts"
                      android:label="CTS sensor tests">
         <meta-data android:name="listener"

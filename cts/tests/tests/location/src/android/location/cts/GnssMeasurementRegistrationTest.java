@@ -16,9 +16,9 @@
 
 package android.location.cts;
 
+import android.location.GnssStatus;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
-import android.location.GpsStatus;
 import android.util.Log;
 
 import java.util.List;
@@ -37,11 +37,11 @@ import java.util.List;
  * 3. If at least one {@link GnssMeasurementsEvent} is received, the test will pass.
  * 2. If no {@link GnssMeasurementsEvent} are received, then check whether the device is deep indoor.
  *    This is done by performing the following steps:
- *          2.1 Register for location updates, and {@link GpsStatus} events.
- *          2.2 Wait for {@link TestGpsStatusListener#TIMEOUT_IN_SEC}.
- *          2.3 If no {@link GpsStatus} is received this will mean that the device is located
+ *          2.1 Register for location updates, and {@link GnssStatus} events.
+ *          2.2 Wait for {@link TestGnssStatusCallback#TIMEOUT_IN_SEC}.
+ *          2.3 If no {@link GnssStatus} is received this will mean that the device is located
  *              indoor. Test will be skipped.
- *          2.4 If we receive a {@link GpsStatus}, it mean that {@link GnssMeasurementsEvent}s are
+ *          2.4 If we receive a {@link GnssStatus}, it mean that {@link GnssMeasurementsEvent}s are
  *              provided only if the application registers for location updates as well:
  *                  2.4.1 The test will pass with a warning for the M release.
  *                  2.4.2 The test might fail in a future Android release, when this requirement
@@ -81,7 +81,7 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
         // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
         if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-                TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, isCtsVerifierTest())) {
+                isCtsVerifierTest())) {
             return;
         }
 
@@ -90,7 +90,7 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener);
 
         mMeasurementListener.await();
-        if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
+        if (!mMeasurementListener.verifyStatus()) {
             // If test is strict verifyStatus will assert conditions are good for further testing.
             // Else this returns false and, we arrive here, and then return from here (pass.)
             return;
@@ -121,9 +121,10 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GnssMeasurement events received = " + events.size());
 
-        // If no measurements found, fail if strict (Verifier + 2016+)
-        SoftAssert.failOrWarning(isMeasurementTestStrict(),
+        SoftAssert softAssert = new SoftAssert(TAG);
+        softAssert.assertTrue(
                 "Did not receive any GnssMeasurement events.  Retry outdoors?",
                 !events.isEmpty());
+        softAssert.assertAll();
     }
 }

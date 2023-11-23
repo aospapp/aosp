@@ -26,8 +26,7 @@ class network_WiFi_WakeOnWiFiThrottling(
 
     def run_once(self):
         """Body of the test"""
-        ap_ssid = self.configure_and_connect_to_ap(
-                hostap_config.HostapConfig(channel=1))
+        self.configure_and_connect_to_ap(hostap_config.HostapConfig(channel=1))
         client = self.context.client
         client_mac = client.wifi_mac
         router = self.context.router
@@ -44,8 +43,8 @@ class network_WiFi_WakeOnWiFiThrottling(
                 time.sleep(wifi_client.SUSPEND_WAIT_TIME_SECONDS)
 
                 for iter_num in xrange(1, _SHORT_DARK_RESUME_THRESHOLD+1):
-                    logging.info('Sending deauthentication message %d of %d' %
-                            (iter_num, _SHORT_DARK_RESUME_THRESHOLD))
+                    logging.info('Sending deauthentication message %d of %d',
+                                 iter_num, _SHORT_DARK_RESUME_THRESHOLD)
                     router.deauth_client(client_mac)
 
                     # Wait for the DUT to receive the disconnect, wake in
@@ -73,8 +72,8 @@ class network_WiFi_WakeOnWiFiThrottling(
                 time.sleep(wifi_client.SUSPEND_WAIT_TIME_SECONDS)
 
                 for iter_num in xrange(1, _LONG_DARK_RESUME_THRESHOLD+1):
-                    logging.info('Sending deauthentication message %d of %d' %
-                            (iter_num, _LONG_DARK_RESUME_THRESHOLD))
+                    logging.info('Sending deauthentication message %d of %d',
+                                 iter_num, _LONG_DARK_RESUME_THRESHOLD)
                     router.deauth_client(client_mac)
                     # Wait for the DUT to receive the disconnect, wake in
                     # dark resume, reconnect, then suspend again. Wait longer

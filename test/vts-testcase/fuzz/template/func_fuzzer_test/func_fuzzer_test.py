@@ -17,12 +17,14 @@
 
 import logging
 import os
+import tempfile
 
 from vts.runners.host import keys
 from vts.runners.host import test_runner
 from vts.utils.python.controllers import adb
 from vts.utils.python.controllers import android_device
 from vts.utils.python.common import vts_spec_utils
+from vts.utils.python.fuzzer import corpus_manager
 
 from vts.testcases.fuzz.template.libfuzzer_test import libfuzzer_test_config as config
 from vts.testcases.fuzz.template.libfuzzer_test import libfuzzer_test
@@ -36,6 +38,7 @@ class FuncFuzzerTest(libfuzzer_test.LibFuzzerTest):
         _dut: AndroidDevice, the device under test as config.
         _test_cases: LibFuzzerTestCase list, list of test cases to run.
         _vts_spec_parser: VtsSpecParser, used to parse .vts files.
+        _temp_dir: temporary directory, used as buffer between target and GCS.
     """
 
     def setUpClass(self):
@@ -50,11 +53,12 @@ class FuncFuzzerTest(libfuzzer_test.LibFuzzerTest):
         logging.info('%s: %s', keys.ConfigKeys.IKEY_HAL_HIDL_PACKAGE_NAME,
                      self.hal_hidl_package_name)
 
-        self._dut = self.registerController(android_device, False)[0]
-        self._dut.startAdbLogcat()
+        self._dut = self.android_devices[0]
         self._dut.adb.shell('mkdir %s -p' % config.FUZZER_TEST_DIR)
         self._vts_spec_parser = vts_spec_utils.VtsSpecParser(
             self.data_file_path)
+        self._temp_dir = tempfile.mkdtemp()
+        self._corpus_manager = corpus_manager.CorpusManager(self.user_params, self._dut)
 
     def _RegisteredInterfaces(self, hal_package):
         """Returns a list of registered interfaces for a given hal package.
@@ -78,7 +82,7 @@ class FuncFuzzerTest(libfuzzer_test.LibFuzzerTest):
         vts_spec_name = vts_spec_name.replace('.vts', '')
         bin_name = hal_package + '-vts.func_fuzzer.' + vts_spec_name
         bin_host_path = os.path.join(self.data_file_path, 'DATA', 'bin',
-                                       bin_name)
+                                     bin_name)
         return str(bin_host_path)
 
     def _CreateTestCasesFromSpec(self, hal_package, vts_spec_name,
@@ -111,8 +115,8 @@ class FuncFuzzerTest(libfuzzer_test.LibFuzzerTest):
         hal_package = self.hal_hidl_package_name
         hal_name, hal_version = vts_spec_utils.HalPackageToNameAndVersion(
             hal_package)
-        vts_spec_names = self._vts_spec_parser.VtsSpecNames(hal_name,
-                                                            hal_version)
+        vts_spec_names = self._vts_spec_parser.VtsSpecNames(
+            hal_name, hal_version)
 
         registered_interfaces = self._RegisteredInterfaces(
             self.hal_hidl_package_name)

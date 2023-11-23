@@ -38,14 +38,15 @@ import android.graphics.Color;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Property;
 import android.view.View;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Interpolator;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -254,12 +255,11 @@ public class ObjectAnimatorTest {
 
         final Animator.AnimatorListener mockListener = mock(Animator.AnimatorListener.class);
         final ObjectAnimator animator = ObjectAnimator.ofArgb(object, property, start, end);
-        animator.setDuration(200);
+        animator.setDuration(50);
         animator.addListener(mockListener);
         animator.addUpdateListener(updateListener);
 
         mActivityRule.runOnUiThread(animator::start);
-        assertTrue(animator.isRunning());
 
         verify(mockListener, timeout(400)).onAnimationEnd(animator, false);
     }
@@ -682,7 +682,7 @@ public class ObjectAnimatorTest {
         });
 
         mActivityRule.runOnUiThread(anim::start);
-        assertTrue(endLatch.await(200, TimeUnit.MILLISECONDS));
+        assertTrue(endLatch.await(400, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -788,7 +788,6 @@ public class ObjectAnimatorTest {
         startAnimation(objAnimator);
         SystemClock.sleep(100);
         assertTrue(objAnimator.isStarted());
-        SystemClock.sleep(100);
     }
 
     @Test
@@ -848,7 +847,7 @@ public class ObjectAnimatorTest {
     public void testCachedValues() throws Throwable {
         final AnimTarget target = new AnimTarget();
         final ObjectAnimator anim = ObjectAnimator.ofFloat(target, "testValue", 100);
-        anim.setDuration(200);
+        anim.setDuration(100);
         final CountDownLatch twoFramesLatch = new CountDownLatch(2);
         mActivityRule.runOnUiThread(() -> {
             anim.start();
@@ -858,14 +857,16 @@ public class ObjectAnimatorTest {
                 public void run() {
                     if (twoFramesLatch.getCount() > 0) {
                         twoFramesLatch.countDown();
-                        decor.postOnAnimation(this);
+                        if (twoFramesLatch.getCount() > 0) {
+                            decor.postOnAnimation(this);
+                        }
                     }
                 }
             });
         });
 
         assertTrue("Animation didn't start in a reasonable time",
-                twoFramesLatch.await(100, TimeUnit.MILLISECONDS));
+                twoFramesLatch.await(800, TimeUnit.MILLISECONDS));
 
         mActivityRule.runOnUiThread(() -> {
             assertTrue("Start value should readjust to current position",

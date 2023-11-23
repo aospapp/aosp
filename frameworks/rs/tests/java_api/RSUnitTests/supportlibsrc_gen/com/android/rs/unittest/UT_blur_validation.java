@@ -17,12 +17,12 @@
 package com.android.rs.unittest;
 
 import android.content.Context;
-import android.support.v8.renderscript.Allocation;
-import android.support.v8.renderscript.Element;
-import android.support.v8.renderscript.RenderScript;
-import android.support.v8.renderscript.RSIllegalArgumentException;
-import android.support.v8.renderscript.ScriptIntrinsicBlur;
-import android.support.v8.renderscript.Type;
+import androidx.renderscript.Allocation;
+import androidx.renderscript.Element;
+import androidx.renderscript.RenderScript;
+import androidx.renderscript.RSIllegalArgumentException;
+import androidx.renderscript.ScriptIntrinsicBlur;
+import androidx.renderscript.Type;
 import android.util.Log;
 
 // Tests that ScriptIntrinsicBlur properly throws exception if input or output

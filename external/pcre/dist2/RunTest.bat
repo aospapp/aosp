@@ -245,8 +245,6 @@ if [%3] == [] (
 
 if %1 == 8 (
   set outnum=8-%bits%-%link_size%
-) else if %1 == 22 (
-  set outnum=22-%bits%
 ) else (
   set outnum=%1
 )
@@ -264,6 +262,8 @@ if errorlevel 1 (
   echo.            %pcre2test% %mode% %4 %5 %6 %7 %8 %9 %srcdir%\testdata\%testinput% ^>%2%bits%\%testoutput%
   set failed="yes"
   goto :eof
+) else if [%1]==[2] (
+  %pcre2test% %mode% %4 %5 %6 %7 %8 %9 -error -70,-62,-2,-1,0,100,101,191,200 >>%2%bits%\%testoutput%
 )
 
 set type=
@@ -284,15 +284,6 @@ fc /n %srcdir%\testdata\%testoutput%%type% %2%bits%\%testoutput% >NUL
 
 if errorlevel 1 (
   echo.          failed comparison: fc /n %srcdir%\testdata\%testoutput% %2%bits%\%testoutput%
-  if [%1]==[2] (
-    echo.
-    echo ** Test 2 requires a lot of stack. PCRE2 can be configured to
-    echo ** use heap for recursion. Otherwise, to pass Test 2
-    echo ** you generally need to allocate 8 mb stack to PCRE2.
-    echo ** See the 'pcre2stack' page for a discussion of PCRE2's
-    echo ** stack usage.
-    echo.
-)
   if [%1]==[3] (
     echo.
     echo ** Test 3 failure usually means french locale is not

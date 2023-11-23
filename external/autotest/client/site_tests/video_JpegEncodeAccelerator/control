@@ -16,8 +16,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
 JOB_RETRIES = 2
-DEPENDENCIES = "hw_jpeg_acc_enc"
-RETRIES = 1
 BUG_TEMPLATE = {
     'labels': ['OS-Chrome', 'VideoTestFailure'],
     'cc': ['chromeos-video-test-failures@google.com'],
@@ -27,5 +25,4 @@ DOC = """
 This is a wrapper test for Chrome jpeg_encode_accelerator_unittest.
 """
 
-args_dict = utils.args_to_dict(args)
-job.run_test('video_JpegEncodeAccelerator', **args_dict)
+job.run_test('video_JpegEncodeAccelerator', capability='hw_enc_jpeg')

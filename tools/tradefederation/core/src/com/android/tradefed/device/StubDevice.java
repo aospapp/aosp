@@ -58,7 +58,6 @@ public class StubDevice implements IDevice {
         mIsEmulator = isEmulator;
     }
 
-
     public void setSerial(String serial) {
         mSerial = serial;
     }

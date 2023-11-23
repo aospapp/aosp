@@ -20,7 +20,7 @@
     <string name="sip_accounts" msgid="85559497282185405">"SIP računi"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"Računi"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"Primi dolazne pozive"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Troši više baterije"</string>
+    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Troši se više baterije"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"Koristi SIP pozivanje"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Koristi SIP pozivanje (samo WiFi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Za sve pozive kada je podatkovna mreža dostupna"</string>
@@ -59,8 +59,8 @@
     <string name="transport_title" msgid="889155457465372527">"Vrsta prijenosa"</string>
     <string name="send_keepalive_title" msgid="599627072150501159">"Pošalji keep-alive poruku"</string>
     <string name="advanced_settings" msgid="6622996380747040711">"Opcionalne postavke"</string>
-    <string name="auth_username_title" msgid="8262491689004708265">"Korisničko ime za provjeru vjerodostojnosti"</string>
-    <string name="auth_username_summary" msgid="941160241371436473">"Korisničko ime upotrijebljeno za provjeru vjerodostojnosti"</string>
+    <string name="auth_username_title" msgid="8262491689004708265">"Korisničko ime za autentifikaciju"</string>
+    <string name="auth_username_summary" msgid="941160241371436473">"Korisničko ime upotrijebljeno za autentifikaciju"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;Nije postavljeno&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Nije postavljeno&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Nije postavljeno&gt;"</string>

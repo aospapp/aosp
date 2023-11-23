@@ -25,12 +25,13 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.selection.Selection;
 
 import com.android.documentsui.DocumentsApplication;
 import com.android.documentsui.base.Shared;
-import com.android.documentsui.selection.Selection;
 import com.android.documentsui.services.FileOperation;
 
 import java.io.File;
@@ -82,7 +83,7 @@ public abstract class UrisSupplier implements Parcelable {
     }
 
     public static UrisSupplier create(
-            Selection selection, Function<String, Uri> uriBuilder, ClipStore storage)
+            Selection<String> selection, Function<String, Uri> uriBuilder, ClipStore storage)
             throws IOException {
 
         List<Uri> uris = new ArrayList<>(selection.size());

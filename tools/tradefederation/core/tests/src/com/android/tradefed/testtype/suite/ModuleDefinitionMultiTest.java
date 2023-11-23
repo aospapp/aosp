@@ -17,6 +17,7 @@ package com.android.tradefed.testtype.suite;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IDeviceConfiguration;
@@ -108,9 +109,6 @@ public class ModuleDefinitionMultiTest {
     public void testCreateAndRun() throws Exception {
         // Add a preparer to the second device
         mMapDeviceTargetPreparer.get(DEVICE_NAME_2).add(mMockTargetPrep);
-        mMultiDeviceConfiguration
-                .getDeviceConfigByName(DEVICE_NAME_2)
-                .addSpecificConfig(mMockTargetPrep);
 
         mModule =
                 new ModuleDefinition(
@@ -125,12 +123,49 @@ public class ModuleDefinitionMultiTest {
         mModule.getModuleInvocationContext().addAllocatedDevice(DEVICE_NAME_2, mDevice2);
         mModule.getModuleInvocationContext().addDeviceBuildInfo(DEVICE_NAME_2, mBuildInfo2);
 
-        mListener.testRunStarted(MODULE_NAME, 0);
-        mListener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        mListener.testRunStarted(
+                EasyMock.eq(MODULE_NAME), EasyMock.eq(0), EasyMock.eq(0), EasyMock.anyLong());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
         // Target preparation is triggered against the preparer in the second device.
         EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
         mMockTargetPrep.setUp(mDevice2, mBuildInfo2);
+
+        replayMocks();
+        mModule.run(mListener);
+        verifyMocks();
+    }
+
+    /** Create a single device module running against a multi device main configuration. */
+    @Test
+    public void testPreparer_mismatch() throws Exception {
+        // The module configuration only contains the default device.
+        mMapDeviceTargetPreparer.clear();
+        List<ITargetPreparer> preparers = new ArrayList<>();
+        preparers.add(mMockTargetPrep);
+        mMapDeviceTargetPreparer.put(ConfigurationDef.DEFAULT_DEVICE_NAME, preparers);
+
+        mModule =
+                new ModuleDefinition(
+                        MODULE_NAME,
+                        mTestList,
+                        mMapDeviceTargetPreparer,
+                        new ArrayList<>(),
+                        mMultiDeviceConfiguration);
+        // Simulate injection of devices from ITestSuite
+        mModule.getModuleInvocationContext().addAllocatedDevice(DEVICE_NAME_1, mDevice1);
+        mModule.getModuleInvocationContext().addDeviceBuildInfo(DEVICE_NAME_1, mBuildInfo1);
+        mModule.getModuleInvocationContext().addAllocatedDevice(DEVICE_NAME_2, mDevice2);
+        mModule.getModuleInvocationContext().addDeviceBuildInfo(DEVICE_NAME_2, mBuildInfo2);
+
+        mListener.testRunStarted(
+                EasyMock.eq(MODULE_NAME), EasyMock.eq(0), EasyMock.eq(0), EasyMock.anyLong());
+        mListener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
+
+        // Target preparation is of first device in module configuration is triggered against the
+        // first device from main configuration
+        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
+        mMockTargetPrep.setUp(mDevice1, mBuildInfo1);
 
         replayMocks();
         mModule.run(mListener);

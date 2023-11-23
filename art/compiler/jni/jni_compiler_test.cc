@@ -21,20 +21,20 @@
 
 #include "art_method-inl.h"
 #include "base/bit_utils.h"
+#include "base/mem_map.h"
 #include "class_linker.h"
 #include "common_compiler_test.h"
 #include "compiler.h"
 #include "dex/dex_file.h"
 #include "gtest/gtest.h"
 #include "indirect_reference_table.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
-#include "mem_map.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
-#include "mirror/stack_trace_element.h"
+#include "mirror/stack_trace_element-inl.h"
 #include "nativehelper/ScopedLocalRef.h"
 #include "nativeloader/native_loader.h"
 #include "runtime.h"
@@ -221,12 +221,12 @@ struct jni_remove_extra_parameters : public remove_extra_parameters_helper<T, fn
 
 class JniCompilerTest : public CommonCompilerTest {
  protected:
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     CommonCompilerTest::SetUp();
     check_generic_jni_ = false;
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     android::ResetNativeLoader();
     CommonCompilerTest::TearDown();
   }
@@ -245,7 +245,7 @@ class JniCompilerTest : public CommonCompilerTest {
     Handle<mirror::ClassLoader> loader(
         hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
     // Compile the native method before starting the runtime
-    mirror::Class* c = class_linker_->FindClass(soa.Self(), "LMyClassNatives;", loader);
+    ObjPtr<mirror::Class> c = class_linker_->FindClass(soa.Self(), "LMyClassNatives;", loader);
     const auto pointer_size = class_linker_->GetImagePointerSize();
     ArtMethod* method = c->FindClassMethod(method_name, method_sig, pointer_size);
     ASSERT_TRUE(method != nullptr) << method_name << " " << method_sig;
@@ -659,7 +659,7 @@ void JniCompilerTest::CompileAndRunIntMethodThroughStubImpl() {
 
   std::string reason;
   ASSERT_TRUE(Runtime::Current()->GetJavaVM()->
-                  LoadNativeLibrary(env_, "", class_loader_, &reason))
+                  LoadNativeLibrary(env_, "", class_loader_, nullptr, &reason))
       << reason;
 
   jint result = env_->CallNonvirtualIntMethod(jobj_, jklass_, jmethod_, 24);
@@ -675,7 +675,7 @@ void JniCompilerTest::CompileAndRunStaticIntMethodThroughStubImpl() {
 
   std::string reason;
   ASSERT_TRUE(Runtime::Current()->GetJavaVM()->
-                  LoadNativeLibrary(env_, "", class_loader_, &reason))
+                  LoadNativeLibrary(env_, "", class_loader_, nullptr, &reason))
       << reason;
 
   jint result = env_->CallStaticIntMethod(jklass_, jmethod_, 42);
@@ -1188,7 +1188,7 @@ jint Java_MyClassNatives_nativeUpCall(JNIEnv* env, jobject thisObj, jint i) {
     // Check stack trace entries have expected values
     for (int32_t j = 0; j < trace_array->GetLength(); ++j) {
       EXPECT_EQ(-2, trace_array->Get(j)->GetLineNumber());
-      mirror::StackTraceElement* ste = trace_array->Get(j);
+      ObjPtr<mirror::StackTraceElement> ste = trace_array->Get(j);
       EXPECT_STREQ("MyClassNatives.java", ste->GetFileName()->ToModifiedUtf8().c_str());
       EXPECT_STREQ("MyClassNatives", ste->GetDeclaringClass()->ToModifiedUtf8().c_str());
       EXPECT_EQ(("fooI" + CurrentJniStringSuffix()), ste->GetMethodName()->ToModifiedUtf8());
@@ -1300,15 +1300,15 @@ jint my_gettext(JNIEnv* env, jclass klass, jlong val1, jobject obj1, jlong val2,
   EXPECT_TRUE(env->IsInstanceOf(JniCompilerTest::jobj_, klass));
   EXPECT_TRUE(env->IsSameObject(JniCompilerTest::jobj_, obj1));
   EXPECT_TRUE(env->IsSameObject(JniCompilerTest::jobj_, obj2));
-  EXPECT_EQ(0x12345678ABCDEF88ll, val1);
-  EXPECT_EQ(0x7FEDCBA987654321ll, val2);
+  EXPECT_EQ(0x12345678ABCDEF88LL, val1);
+  EXPECT_EQ(0x7FEDCBA987654321LL, val2);
   return 42;
 }
 
 void JniCompilerTest::GetTextImpl() {
   SetUpForTest(true, "getText", "(JLjava/lang/Object;JLjava/lang/Object;)I",
                CURRENT_JNI_WRAPPER(my_gettext));
-  jint result = env_->CallStaticIntMethod(jklass_, jmethod_, 0x12345678ABCDEF88ll, jobj_,
+  jint result = env_->CallStaticIntMethod(jklass_, jmethod_, 0x12345678ABCDEF88LL, jobj_,
                                           INT64_C(0x7FEDCBA987654321), jobj_);
   EXPECT_EQ(result, 42);
 }
@@ -1322,7 +1322,7 @@ jarray Java_MyClassNatives_GetSinkProperties(JNIEnv*, jobject thisObj, jstring s
 
   Thread* self = Thread::Current();
   ScopedObjectAccess soa(self);
-  EXPECT_TRUE(self->HoldsLock(soa.Decode<mirror::Object>(thisObj).Ptr()));
+  EXPECT_TRUE(self->HoldsLock(soa.Decode<mirror::Object>(thisObj)));
   return nullptr;
 }
 
@@ -2196,7 +2196,7 @@ void Java_MyClassNatives_normalNative(JNIEnv*, jclass) {
 // Methods not annotated with anything are not considered "fast native"
 // -- Check that the annotation lookup does not find it.
 void JniCompilerTest::NormalNativeImpl() {
-  SetUpForTest(/* direct */ true,
+  SetUpForTest(/* direct= */ true,
                "normalNative",
                "()V",
                CURRENT_JNI_WRAPPER(Java_MyClassNatives_normalNative));
@@ -2218,7 +2218,7 @@ void Java_MyClassNatives_fastNative(JNIEnv*, jclass) {
 }
 
 void JniCompilerTest::FastNativeImpl() {
-  SetUpForTest(/* direct */ true,
+  SetUpForTest(/* direct= */ true,
                "fastNative",
                "()V",
                CURRENT_JNI_WRAPPER(Java_MyClassNatives_fastNative));
@@ -2241,7 +2241,7 @@ void Java_MyClassNatives_criticalNative() {
 }
 
 void JniCompilerTest::CriticalNativeImpl() {
-  SetUpForTest(/* direct */ true,
+  SetUpForTest(/* direct= */ true,
                // Important: Don't change the "current jni" yet to avoid a method name suffix.
                "criticalNative",
                "()V",

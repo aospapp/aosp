@@ -247,6 +247,8 @@ extern tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr);
 
 /* Functions provided by sdp_utils.cc
  */
+extern void sdpu_log_attribute_metrics(const RawAddress& bda,
+                                       tSDP_DISCOVERY_DB* p_db);
 extern tCONN_CB* sdpu_find_ccb_by_cid(uint16_t cid);
 extern tCONN_CB* sdpu_find_ccb_by_db(tSDP_DISCOVERY_DB* p_db);
 extern tCONN_CB* sdpu_allocate_ccb(void);
@@ -263,7 +265,7 @@ extern uint8_t* sdpu_extract_attr_seq(uint8_t* p, uint16_t param_len,
 extern uint8_t* sdpu_extract_uid_seq(uint8_t* p, uint16_t param_len,
                                      tSDP_UUID_SEQ* p_seq);
 
-extern uint8_t* sdpu_get_len_from_type(uint8_t* p, uint8_t type,
+extern uint8_t* sdpu_get_len_from_type(uint8_t* p, uint8_t* p_end, uint8_t type,
                                        uint32_t* p_len);
 extern bool sdpu_is_base_uuid(uint8_t* p_uuid);
 extern bool sdpu_compare_uuid_arrays(uint8_t* p_uuid1, uint32_t len1,

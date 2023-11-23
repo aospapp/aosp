@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_cmas_extreme_threat_alerts_title" msgid="7485388692049524195">"Эскертүүлөр (2-деңгээл)"</string>
-    <string name="enable_cmas_severe_threat_alerts_title" msgid="1140833576401868336">"Эскертүүлөр (3-деңгээл)"</string>
+    <string name="enable_cmas_extreme_threat_alerts_title" msgid="7485388692049524195">"Шашылыш билдирүүлөр (2-деңгээл)"</string>
+    <string name="enable_cmas_severe_threat_alerts_title" msgid="1140833576401868336">"Шашылыш билдирүүлөр (3-деңгээл)"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="4890124669673498133">"LT-Amber"</string>
 </resources>

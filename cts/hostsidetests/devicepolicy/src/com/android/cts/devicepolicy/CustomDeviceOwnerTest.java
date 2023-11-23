@@ -43,9 +43,6 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
     protected static final String ACCOUNT_MANAGEMENT_APK
             = "CtsAccountManagementDevicePolicyApp.apk";
 
-    // Dequeue time of PACKAGE_ADDED intent for two test packages.
-    private static final int BROADCAST_WAIT_TIME_MILLIS = 10000; // 10 seconds
-
     @Override
     public void tearDown() throws Exception {
         if (mHasFeature) {
@@ -75,8 +72,9 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
             assertTrue(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId,
                     /*expectFailure*/ false));
 
-            // Waiting for the broadcast idle state.
-            Thread.sleep(BROADCAST_WAIT_TIME_MILLIS);
+            // Wait broadcast idle to ensure the owner changed broadcast has been sent.
+            waitForBroadcastIdle();
+
             runDeviceTestsAsUser(INTENT_RECEIVER_PKG, testClass,
                     "testOwnerChangedBroadcastReceived", mPrimaryUserId);
         } finally {

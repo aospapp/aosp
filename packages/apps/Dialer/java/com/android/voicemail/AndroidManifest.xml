@@ -17,8 +17,8 @@
   package="com.android.voicemail">
 
   <uses-sdk
-    android:minSdkVersion="23"
-    android:targetSdkVersion="27"/>
+    android:minSdkVersion="24"
+    android:targetSdkVersion="28"/>
 
   <!-- Applications using this module should merge these permissions using android_manifest_merge -->
 

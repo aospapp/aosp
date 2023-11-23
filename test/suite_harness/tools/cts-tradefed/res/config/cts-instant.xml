@@ -25,6 +25,7 @@
     <option name="compatibility:primary-abi-only" value="true" />
 
     <!-- Include cts-instant setup -->
-    <include name="cts-instant-setup" />
+    <include name="cts-instant-option-setup" />
+    <include name="cts-instant-filter-setup" />
 
 </configuration>

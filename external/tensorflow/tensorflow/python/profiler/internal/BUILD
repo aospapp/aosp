@@ -69,19 +69,5 @@ cuda_py_test(
     tags = [
         "no_pip",
     ],
-)
-
-# -----------------------------------------------------------------------------
-# Google-internal targets.  These must be at the end for syncrepo.
-
-filegroup(
-    name = "all_files",
-    srcs = glob(
-        ["**/*"],
-        exclude = [
-            "**/METADATA",
-            "**/OWNERS",
-        ],
-    ),
-    visibility = ["//tensorflow:__subpackages__"],
+    xla_enable_strict_auto_jit = False,  # Node names are different with autojit
 )

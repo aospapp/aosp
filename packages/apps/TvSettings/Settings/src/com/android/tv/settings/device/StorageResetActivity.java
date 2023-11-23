@@ -18,8 +18,8 @@ package com.android.tv.settings.device;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Activity to view storage consumption and factory reset device.
@@ -28,19 +28,7 @@ public class StorageResetActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final StorageSummaryFragment fragment = StorageSummaryFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(StorageSummaryFragment.class.getName(), null);
     }
 }

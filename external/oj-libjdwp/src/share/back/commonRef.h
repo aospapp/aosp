@@ -38,6 +38,9 @@ void commonRef_releaseMultiple(JNIEnv *env, jlong id, jint refCount);
 void commonRef_release(JNIEnv *env, jlong id);
 void commonRef_compact(void);
 
+/* ANDROID-CHANGED: Called when an object is freed. This is called without any synchronization. */
+void commonRef_handleFreedObject(jlong tag);
+
 void commonRef_lock(void);
 void commonRef_unlock(void);
 

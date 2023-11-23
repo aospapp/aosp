@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/JNIHelp.h>
+#include <nativehelper/jni_macros.h>
 
-static void MethodHandle_invokeExact(JNIEnv* env, jobject, jobjectArray) {
+static jobject MethodHandle_invokeExact(JNIEnv* env, jobject, jobjectArray) {
     jniThrowException(env, "java/lang/UnsupportedOperationException",
             "MethodHandle.invokeExact cannot be invoked reflectively.");
+    return nullptr;
 }
 
-static void MethodHandle_invoke(JNIEnv* env, jobject, jobjectArray) {
+static jobject MethodHandle_invoke(JNIEnv* env, jobject, jobjectArray) {
     jniThrowException(env, "java/lang/UnsupportedOperationException",
             "MethodHandle.invoke cannot be invoked reflectively.");
+    return nullptr;
 }
 
 static JNINativeMethod gMethods[] = {

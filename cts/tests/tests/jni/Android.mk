@@ -30,7 +30,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt androidx.test.rules
 
 LOCAL_JNI_SHARED_LIBRARIES := \
   libjni_test_dlclose \
@@ -45,6 +45,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_SDK_VERSION := current
 LOCAL_NDK_STL_VARIANT := c++_shared
+
+LOCAL_USE_EMBEDDED_NATIVE_LIBS := false
 
 include $(BUILD_CTS_PACKAGE)
 

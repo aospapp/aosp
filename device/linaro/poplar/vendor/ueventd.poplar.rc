@@ -1,0 +1,32 @@
+
+
+# device nodes for HAl bt
+/dev/stpbt                       0666  bluetooth  bluetooth
+# device nodes for HAl drm
+/dev/tee0                        0666  shell      shell
+/dev/teepriv0                    0666  shell      shell
+# device nodes for HAl graphics
+/dev/mali*                       0666  system     graphics
+/dev/graphics/fb*                0666  system     graphics
+/dev/ion                         0666  system     graphics
+/dev/hi_gfx2d                    0666  system     graphics
+# device nodes for HAl media.codec
+/dev/hi_adec                     0666  system     audio
+/dev/hi_adsp                     0666  system     audio
+/dev/hi_ai                       0666  system     audio
+/dev/hi_ao                       0666  system     audio
+/dev/hi_disp                     0666  system     audio
+/dev/hi_hdmi                     0666  system     audio
+/dev/hi_log                      0666  system     audio
+/dev/hi_module                   0666  system     audio
+/dev/hi_stat                     0666  system     audio
+/dev/hi_sync                     0666  system     audio
+/dev/hi_sys                      0666  system     audio
+/dev/hi_userproc                 0666  system     audio
+/dev/hi_vdec                     0666  system     audio
+/dev/hi_vo                       0666  system     audio
+/dev/hi_vpss                     0666  system     audio
+/dev/mmz_userdev                 0666  system     audio
+/dev/hi_mem                      0666  system     mediadrm
+/dev/hi_omxvdec                  0666  system     mediadrm
+/dev/hi_vfmw                     0666  system     mediadrm

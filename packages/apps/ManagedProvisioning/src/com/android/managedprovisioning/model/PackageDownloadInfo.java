@@ -26,7 +26,7 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import com.android.internal.annotations.Immutable;
 import com.android.managedprovisioning.common.PersistableBundlable;
@@ -45,12 +45,8 @@ import org.xmlpull.v1.XmlSerializer;
 public final class PackageDownloadInfo extends PersistableBundlable {
     public static final byte[] DEFAULT_PACKAGE_CHECKSUM = new byte[0];
     public static final byte[] DEFAULT_SIGNATURE_CHECKSUM = new byte[0];
-    public static final boolean DEFAULT_PACKAGE_CHECKSUM_SUPPORTS_SHA1 = false;
     // Always download packages if no minimum version given.
     public static final int DEFAULT_MINIMUM_VERSION = Integer.MAX_VALUE;
-
-    private static final String TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM
-            = "supports-sha1-checksum";
 
     public static final Parcelable.Creator<PackageDownloadInfo> CREATOR
             = new Parcelable.Creator<PackageDownloadInfo>() {
@@ -74,7 +70,7 @@ public final class PackageDownloadInfo extends PersistableBundlable {
     @Nullable
     public final String cookieHeader;
     /**
-     * One of the following two checksums should be non empty. SHA-256 or SHA-1 hash of the
+     * One of the following two checksums should be non empty. SHA-256 hash of the
      * .apk file, or empty array if not used.
      */
     public final byte[] packageChecksum;
@@ -82,11 +78,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
     public final byte[] signatureChecksum;
     /** Minimum supported version code of the downloaded package. */
     public final int minVersion;
-    /**
-     * If this is false, packageChecksum can only be SHA-256 hash, otherwise SHA-1 is also
-     * supported.
-     */
-    public final boolean packageChecksumSupportsSha1;
 
     private PackageDownloadInfo(Builder builder) {
         location = builder.mLocation;
@@ -95,7 +86,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
         signatureChecksum = checkNotNull(builder.mSignatureChecksum,
                 "signature checksum can't be null");
         minVersion = builder.mMinVersion;
-        packageChecksumSupportsSha1 = builder.mPackageChecksumSupportsSha1;
 
         validateFields();
     }
@@ -130,8 +120,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
                 EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM)));
         builder.setSignatureChecksum(StoreUtils.stringToByteArray(bundle.getString(
                 EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM)));
-        builder.setPackageChecksumSupportsSha1(bundle.getBoolean(
-                TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM));
         return builder;
     }
 
@@ -147,8 +135,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
                 StoreUtils.byteArrayToString(packageChecksum));
         bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM,
                 StoreUtils.byteArrayToString(signatureChecksum));
-        bundle.putBoolean(TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM,
-                packageChecksumSupportsSha1);
         return bundle;
     }
 
@@ -158,7 +144,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
         private byte[] mPackageChecksum = DEFAULT_PACKAGE_CHECKSUM;
         private byte[] mSignatureChecksum = DEFAULT_SIGNATURE_CHECKSUM;
         private int mMinVersion = DEFAULT_MINIMUM_VERSION;
-        private boolean mPackageChecksumSupportsSha1 = DEFAULT_PACKAGE_CHECKSUM_SUPPORTS_SHA1;
 
         public Builder setLocation(String location) {
             mLocation = location;
@@ -182,12 +167,6 @@ public final class PackageDownloadInfo extends PersistableBundlable {
 
         public Builder setMinVersion(int minVersion) {
             mMinVersion = minVersion;
-            return this;
-        }
-
-        // TODO: remove once SHA-1 is fully deprecated.
-        public Builder setPackageChecksumSupportsSha1(boolean packageChecksumSupportsSha1) {
-            mPackageChecksumSupportsSha1 = packageChecksumSupportsSha1;
             return this;
         }
 

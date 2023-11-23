@@ -35,7 +35,7 @@
 
 namespace android {
 
-const int64_t kNearEOSMarkUs = 2000000ll; // 2 secs
+const int64_t kNearEOSMarkUs = 2000000LL; // 2 secs
 
 AnotherPacketSource::AnotherPacketSource(const sp<MetaData> &meta)
     : mIsAudio(false),
@@ -223,9 +223,16 @@ status_t AnotherPacketSource::read(
                     kKeyMpegUserData, 0, mpegUserData->data(), mpegUserData->size());
         }
 
+        sp<ABuffer> ap;
+        if (buffer->meta()->findBuffer("audio-presentation-info", &ap) && ap != NULL) {
+            bufmeta.setData(
+                    kKeyAudioPresentationInfo, 0, ap->data(), ap->size());
+        }
+
         int32_t cryptoMode;
         if (buffer->meta()->findInt32("cryptoMode", &cryptoMode)) {
             int32_t cryptoKey;
+            int32_t pesOffset;
             sp<ABuffer> clearBytesBuffer, encBytesBuffer;
 
             CHECK(buffer->meta()->findInt32("cryptoKey", &cryptoKey));
@@ -233,6 +240,8 @@ status_t AnotherPacketSource::read(
                     && clearBytesBuffer != NULL);
             CHECK(buffer->meta()->findBuffer("encBytes", &encBytesBuffer)
                     && encBytesBuffer != NULL);
+            CHECK(buffer->meta()->findInt32("pesOffset", &pesOffset)
+                    && (pesOffset >= 0) && (pesOffset < 65536));
 
             bufmeta.setInt32(kKeyCryptoMode, cryptoMode);
 
@@ -240,6 +249,11 @@ status_t AnotherPacketSource::read(
             bufmeta.setData(kKeyCryptoIV, 0, array, 16);
 
             array[0] = (uint8_t) (cryptoKey & 0xff);
+            // array[1] contains PES header flag, which we don't use.
+            // array[2~3] contain the PES offset.
+            array[2] = (uint8_t) (pesOffset & 0xff);
+            array[3] = (uint8_t) ((pesOffset >> 8) & 0xff);
+
             bufmeta.setData(kKeyCryptoKey, 0, array, 16);
 
             bufmeta.setData(kKeyPlainSizes, 0,
@@ -285,7 +299,7 @@ void AnotherPacketSource::queueAccessUnit(const sp<ABuffer> &buffer) {
     if (buffer->meta()->findInt32("discontinuity", &discontinuity)){
         ALOGV("queueing a discontinuity with queueAccessUnit");
 
-        mLastQueuedTimeUs = 0ll;
+        mLastQueuedTimeUs = 0LL;
         mEOSResult = OK;
         mLatestEnqueuedMeta = NULL;
 

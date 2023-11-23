@@ -106,18 +106,19 @@ class FirmwareUpdater(object):
         self.os_if.run_shell_command(cmd)
 
     def retrieve_fwid(self):
-        """Retrieve shellball's fwid.
+        """Retrieve shellball's fwid tuple.
 
         This method should be called after _setup_temp_dir.
 
         Returns:
-            Shellball's fwid.
+            Shellball's fwid tuple (ro_fwid, rw_fwid).
         """
         self._bios_handler.new_image(
                 os.path.join(self._work_path, self._bios_path))
-        fwid = self._bios_handler.get_section_fwid('a')
         # Remove the tailing null characters
-        return fwid.rstrip('\0')
+        ro_fwid = self._bios_handler.get_section_fwid('ro').rstrip('\0')
+        rw_fwid = self._bios_handler.get_section_fwid('a').rstrip('\0')
+        return (ro_fwid, rw_fwid)
 
     def retrieve_ecid(self):
         """Retrieve shellball's ecid.
@@ -210,6 +211,20 @@ class FirmwareUpdater(object):
 
     def _detect_image_paths(self):
         """Scans shellball to find correct bios and ec image paths."""
+        def _extract_path_from_match(match_result, model):
+          """Extract a path from a matched line of setvars.sh.
+
+          Args:
+            match_result: Match object: group 1 contains the quoted filename.
+            model: Name of model to use to resolve ${MODEL_DIR} in the filename.
+
+          Returns:
+            pathname to firmware file (e.g. 'models/grunt/bios.bin').
+          """
+          pathname = match_result.group(1).replace('"', '')
+          pathname = pathname.replace('${MODEL_DIR}', 'models/' + model)
+          return pathname
+
         model_result = self.os_if.run_shell_command_get_output(
             'mosys platform model')
         if model_result:
@@ -221,13 +236,13 @@ class FirmwareUpdater(object):
             if grep_result:
                 match = re.match('IMAGE_MAIN=(.*)', grep_result[0])
                 if match:
-                    self._bios_path = match.group(1).replace('"', '')
+                  self._bios_path = _extract_path_from_match(match, model)
             grep_result = self.os_if.run_shell_command_get_output(
                 'grep IMAGE_EC= %s' % search_path)
             if grep_result:
                 match = re.match('IMAGE_EC=(.*)', grep_result[0])
                 if match:
-                  self._ec_path = match.group(1).replace('"', '')
+                  self._ec_path = _extract_path_from_match(match, model)
 
     def _update_target_fwid(self):
         """Update target fwid/ecid in the setvars.sh."""
@@ -238,12 +253,11 @@ class FirmwareUpdater(object):
             setvars_path = os.path.join(
                 self._work_path, 'models', model, 'setvars.sh')
             if self.os_if.path_exists(setvars_path):
-                fwid = self.retrieve_fwid()
-                ecid = self.retrieve_ecid()
+                ro_fwid, rw_fwid = self.retrieve_fwid()
                 args = ['-i']
                 args.append(
                     '"s/TARGET_FWID=\\".*\\"/TARGET_FWID=\\"%s\\"/g"'
-                    % fwid)
+                    % rw_fwid)
                 args.append(setvars_path)
                 cmd = 'sed %s' % ' '.join(args)
                 self.os_if.run_shell_command(cmd)
@@ -251,18 +265,21 @@ class FirmwareUpdater(object):
                 args = ['-i']
                 args.append(
                     '"s/TARGET_RO_FWID=\\".*\\"/TARGET_RO_FWID=\\"%s\\"/g"'
-                    % fwid)
+                    % ro_fwid)
                 args.append(setvars_path)
                 cmd = 'sed %s' % ' '.join(args)
                 self.os_if.run_shell_command(cmd)
 
-                args = ['-i']
-                args.append(
-                    '"s/TARGET_ECID=\\".*\\"/TARGET_ECID=\\"%s\\"/g"'
-                    % ecid)
-                args.append(setvars_path)
-                cmd = 'sed %s' % ' '.join(args)
-                self.os_if.run_shell_command(cmd)
+                # Only update ECID if an EC image is found
+                if self.get_ec_relative_path():
+                    ecid = self.retrieve_ecid()
+                    args = ['-i']
+                    args.append(
+                        '"s/TARGET_ECID=\\".*\\"/TARGET_ECID=\\"%s\\"/g"'
+                        % ecid)
+                    args.append(setvars_path)
+                    cmd = 'sed %s' % ' '.join(args)
+                    self.os_if.run_shell_command(cmd)
 
     def extract_shellball(self, append=None):
         """Extract the working shellball.
@@ -327,7 +344,7 @@ class FirmwareUpdater(object):
                 chromeos-firmwareupdate-[append]. Use'chromeos-firmwareupdate'
                 if updater_append is None.
             mode: ex.'autoupdate', 'recovery', 'bootok', 'factory_install'...
-            options: ex. ['--noupdate_ec', '--nocheck_rw_compatible'] or [] for
+            options: ex. ['--noupdate_ec', '--force'] or [] for
                 no option.
         """
         if updater_append:

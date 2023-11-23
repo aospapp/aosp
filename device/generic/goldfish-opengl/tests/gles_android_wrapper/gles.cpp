@@ -19,7 +19,7 @@
 #include "gles_dispatch.h"
 #include "gles_ftable.h"
 #include <EGL/egl.h>
-#include <cutils/log.h>
+#include <log/log.h>
 
 static struct gles_dispatch *s_dispatch = NULL;
 

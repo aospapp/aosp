@@ -267,8 +267,8 @@
   </string-array>
     <string name="automatic_home_clock" msgid="6274174710735449252">"Reloxo da túa cidade automático"</string>
     <string name="automatic_home_clock_summary" msgid="6020476321040807273">"Mentres viaxas nunha zona cunha hora diferente, engade un reloxo coa hora da túa cidade"</string>
-    <string name="home_time_zone" msgid="9199730676287974501">"Zona horaria local"</string>
-    <string name="home_time_zone_title" msgid="807894493443834624">"Zona horaria local"</string>
+    <string name="home_time_zone" msgid="9199730676287974501">"Fuso horario local"</string>
+    <string name="home_time_zone_title" msgid="807894493443834624">"Fuso horario local"</string>
     <string name="city_checked" msgid="616847871968019">"Marcouse <xliff:g id="CITY_NAME">%s</xliff:g>"</string>
     <string name="city_unchecked" msgid="710212932781145918">"Desmarcouse <xliff:g id="CITY_NAME">%s</xliff:g>"</string>
   <string-array name="timezone_labels">
@@ -294,7 +294,7 @@
     <item msgid="7776299003105932407">"Santiago"</item>
     <item msgid="8636989494746218677">"Terra Nova"</item>
     <item msgid="4402541016410147505">"Brasilia"</item>
-    <item msgid="2251184440733164084">"Bos Aires"</item>
+    <item msgid="2251184440733164084">"Buenos Aires"</item>
     <item msgid="6202926618569004969">"Grenlandia"</item>
     <item msgid="2355275037115290628">"Montevideo"</item>
     <item msgid="1377549694711708945">"Atlántico Medio"</item>
@@ -372,9 +372,9 @@
     <string name="timer_service_desc" msgid="2256002649882602433">"Procesa accións das notificacións do temporizador."</string>
     <string name="stopwatch_service_desc" msgid="9220132827343760767">"Procesa accións das notificacións do cronómetro."</string>
     <string name="swn_paused" msgid="6364358842808263589">"En pausa"</string>
-    <string name="description_direction_right" msgid="5709209043267548985">"Pasa o dedo cara a dereita para apagar"</string>
-    <string name="description_direction_left" msgid="7448141043674998679">"Pasa o dedo cara a esquerda para adiar"</string>
-    <string name="description_direction_both" msgid="1841309486023845685">"Pasa o dedo cara a esquerda para adiar e cara a dereita para apagar"</string>
+    <string name="description_direction_right" msgid="5709209043267548985">"Pasa o dedo cara á dereita para apagar"</string>
+    <string name="description_direction_left" msgid="7448141043674998679">"Pasa o dedo cara á esquerda para adiar"</string>
+    <string name="description_direction_both" msgid="1841309486023845685">"Pasa o dedo cara á esquerda para adiar e cara á dereita para apagar"</string>
     <string name="timer_settings" msgid="7955522143086154795">"Temporizadores"</string>
     <string name="timer_vibrate_title" msgid="7788920024785587518">"Vibración do temporizador"</string>
     <string name="timer_paused" msgid="5941160896040771462">"Pausouse o temporizador"</string>

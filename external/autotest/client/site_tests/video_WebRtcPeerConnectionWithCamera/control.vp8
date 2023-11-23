@@ -11,7 +11,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "webcam"
 BUG_TEMPLATE = {
     "labels": ["OS-Chrome"],
     "components": ["OS>Kernel>Video"],
@@ -30,5 +29,6 @@ Black frames/freezes/fps are reported to the perf dashboard and
 must be monitored there.
 """
 
+capability='usb_camera'
 job.run_test("video_WebRtcPeerConnectionWithCamera",
-             video_codec="VP8", tag='vp8')
+             video_codec="VP8", tag='vp8', capability=capability)

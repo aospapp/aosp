@@ -15,6 +15,8 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "garbage_collector.h"
 
@@ -65,6 +67,8 @@ GarbageCollector::GarbageCollector(Heap* heap, const std::string& name)
     : heap_(heap),
       name_(name),
       pause_histogram_((name_ + " paused").c_str(), kPauseBucketSize, kPauseBucketCount),
+      rss_histogram_((name_ + " peak-rss").c_str(), kMemBucketSize, kMemBucketCount),
+      freed_bytes_histogram_((name_ + " freed-bytes").c_str(), kMemBucketSize, kMemBucketCount),
       cumulative_timings_(name),
       pause_histogram_lock_("pause histogram lock", kDefaultMutexLevel, true),
       is_transaction_active_(false) {
@@ -77,31 +81,94 @@ void GarbageCollector::RegisterPause(uint64_t nano_length) {
 
 void GarbageCollector::ResetCumulativeStatistics() {
   cumulative_timings_.Reset();
-  total_time_ns_ = 0;
-  total_freed_objects_ = 0;
+  total_thread_cpu_time_ns_ = 0u;
+  total_time_ns_ = 0u;
+  total_freed_objects_ = 0u;
   total_freed_bytes_ = 0;
+  rss_histogram_.Reset();
+  freed_bytes_histogram_.Reset();
   MutexLock mu(Thread::Current(), pause_histogram_lock_);
   pause_histogram_.Reset();
+}
+
+uint64_t GarbageCollector::ExtractRssFromMincore(
+    std::list<std::pair<void*, void*>>* gc_ranges) {
+  uint64_t rss = 0;
+  if (gc_ranges->empty()) {
+    return 0;
+  }
+  // mincore() is linux-specific syscall.
+#if defined(__linux__)
+  using range_t = std::pair<void*, void*>;
+  // Sort gc_ranges
+  gc_ranges->sort([](const range_t& a, const range_t& b) {
+    return std::less()(a.first, b.first);
+  });
+  // Merge gc_ranges. It's necessary because the kernel may merge contiguous
+  // regions if their properties match. This is sufficient as kernel doesn't
+  // merge those adjoining ranges which differ only in name.
+  size_t vec_len = 0;
+  for (auto it = gc_ranges->begin(); it != gc_ranges->end(); it++) {
+    auto next_it = it;
+    next_it++;
+    while (next_it != gc_ranges->end()) {
+      if (it->second == next_it->first) {
+        it->second = next_it->second;
+        next_it = gc_ranges->erase(next_it);
+      } else {
+        break;
+      }
+    }
+    size_t length = static_cast<uint8_t*>(it->second) - static_cast<uint8_t*>(it->first);
+    // Compute max length for vector allocation later.
+    vec_len = std::max(vec_len, length / kPageSize);
+  }
+  std::unique_ptr<unsigned char[]> vec(new unsigned char[vec_len]);
+  for (const auto it : *gc_ranges) {
+    size_t length = static_cast<uint8_t*>(it.second) - static_cast<uint8_t*>(it.first);
+    if (mincore(it.first, length, vec.get()) == 0) {
+      for (size_t i = 0; i < length / kPageSize; i++) {
+        // Least significant bit represents residency of a page. Other bits are
+        // reserved.
+        rss += vec[i] & 0x1;
+      }
+    } else {
+      LOG(WARNING) << "Call to mincore() on memory range [0x" << std::hex << it.first
+                   << ", 0x" << it.second << std::dec << ") failed: " << strerror(errno);
+    }
+  }
+  rss *= kPageSize;
+  rss_histogram_.AddValue(rss / KB);
+#endif
+  return rss;
 }
 
 void GarbageCollector::Run(GcCause gc_cause, bool clear_soft_references) {
   ScopedTrace trace(android::base::StringPrintf("%s %s GC", PrettyCause(gc_cause), GetName()));
   Thread* self = Thread::Current();
   uint64_t start_time = NanoTime();
+  uint64_t thread_cpu_start_time = ThreadCpuNanoTime();
+  GetHeap()->CalculatePreGcWeightedAllocatedBytes();
   Iteration* current_iteration = GetCurrentIteration();
   current_iteration->Reset(gc_cause, clear_soft_references);
   // Note transaction mode is single-threaded and there's no asynchronous GC and this flag doesn't
   // change in the middle of a GC.
   is_transaction_active_ = Runtime::Current()->IsActiveTransaction();
   RunPhases();  // Run all the GC phases.
+  GetHeap()->CalculatePostGcWeightedAllocatedBytes();
   // Add the current timings to the cumulative timings.
   cumulative_timings_.AddLogger(*GetTimings());
   // Update cumulative statistics with how many bytes the GC iteration freed.
   total_freed_objects_ += current_iteration->GetFreedObjects() +
       current_iteration->GetFreedLargeObjects();
-  total_freed_bytes_ += current_iteration->GetFreedBytes() +
+  int64_t freed_bytes = current_iteration->GetFreedBytes() +
       current_iteration->GetFreedLargeObjectBytes();
+  total_freed_bytes_ += freed_bytes;
+  // Rounding negative freed bytes to 0 as we are not interested in such corner cases.
+  freed_bytes_histogram_.AddValue(std::max<int64_t>(freed_bytes / KB, 0));
   uint64_t end_time = NanoTime();
+  uint64_t thread_cpu_end_time = ThreadCpuNanoTime();
+  total_thread_cpu_time_ns_ += thread_cpu_end_time - thread_cpu_start_time;
   current_iteration->SetDurationNs(end_time - start_time);
   if (Locks::mutator_lock_->IsExclusiveHeld(self)) {
     // The entire GC was paused, clear the fake pauses which might be in the pause times and add
@@ -159,8 +226,11 @@ void GarbageCollector::ResetMeasurements() {
     pause_histogram_.Reset();
   }
   cumulative_timings_.Reset();
-  total_time_ns_ = 0;
-  total_freed_objects_ = 0;
+  rss_histogram_.Reset();
+  freed_bytes_histogram_.Reset();
+  total_thread_cpu_time_ns_ = 0u;
+  total_time_ns_ = 0u;
+  total_freed_objects_ = 0u;
   total_freed_bytes_ = 0;
 }
 
@@ -229,12 +299,36 @@ void GarbageCollector::DumpPerformanceInfo(std::ostream& os) {
       pause_histogram_.PrintConfidenceIntervals(os, 0.99, cumulative_data);
     }
   }
+#if defined(__linux__)
+  if (rss_histogram_.SampleSize() > 0) {
+    os << rss_histogram_.Name()
+       << ": Avg: " << PrettySize(rss_histogram_.Mean() * KB)
+       << " Max: " << PrettySize(rss_histogram_.Max() * KB)
+       << " Min: " << PrettySize(rss_histogram_.Min() * KB) << "\n";
+    os << "Peak-rss Histogram: ";
+    rss_histogram_.DumpBins(os);
+    os << "\n";
+  }
+#endif
+  if (freed_bytes_histogram_.SampleSize() > 0) {
+    os << freed_bytes_histogram_.Name()
+       << ": Avg: " << PrettySize(freed_bytes_histogram_.Mean() * KB)
+       << " Max: " << PrettySize(freed_bytes_histogram_.Max() * KB)
+       << " Min: " << PrettySize(freed_bytes_histogram_.Min() * KB) << "\n";
+    os << "Freed-bytes histogram: ";
+    freed_bytes_histogram_.DumpBins(os);
+    os << "\n";
+  }
+  double cpu_seconds = NsToMs(GetTotalCpuTime()) / 1000.0;
   os << GetName() << " total time: " << PrettyDuration(total_ns)
      << " mean time: " << PrettyDuration(total_ns / iterations) << "\n"
      << GetName() << " freed: " << freed_objects
      << " objects with total size " << PrettySize(freed_bytes) << "\n"
      << GetName() << " throughput: " << freed_objects / seconds << "/s / "
-     << PrettySize(freed_bytes / seconds) << "/s\n";
+     << PrettySize(freed_bytes / seconds) << "/s"
+     << "  per cpu-time: "
+     << static_cast<uint64_t>(freed_bytes / cpu_seconds) << "/s / "
+     << PrettySize(freed_bytes / cpu_seconds) << "/s\n";
 }
 
 }  // namespace collector

@@ -16,6 +16,8 @@
 
 #include "wificond/scanning/scan_result.h"
 
+#include <algorithm>
+
 #include <android-base/logging.h>
 
 #include "wificond/logging_utils.h"
@@ -32,7 +34,7 @@ namespace wifi {
 namespace wificond {
 
 NativeScanResult::NativeScanResult(std::vector<uint8_t>& ssid_,
-                                   std::vector<uint8_t>& bssid_,
+                                   std::array<uint8_t, ETH_ALEN>& bssid_,
                                    std::vector<uint8_t>& info_element_,
                                    uint32_t frequency_,
                                    int32_t signal_mbm_,
@@ -53,7 +55,8 @@ NativeScanResult::NativeScanResult(std::vector<uint8_t>& ssid_,
 
 status_t NativeScanResult::writeToParcel(::android::Parcel* parcel) const {
   RETURN_IF_FAILED(parcel->writeByteVector(ssid));
-  RETURN_IF_FAILED(parcel->writeByteVector(bssid));
+  RETURN_IF_FAILED(parcel->writeByteVector(
+      std::vector<uint8_t>(bssid.begin(), bssid.end())));
   RETURN_IF_FAILED(parcel->writeByteVector(info_element));
   RETURN_IF_FAILED(parcel->writeUint32(frequency));
   RETURN_IF_FAILED(parcel->writeInt32(signal_mbm));
@@ -74,7 +77,16 @@ status_t NativeScanResult::writeToParcel(::android::Parcel* parcel) const {
 
 status_t NativeScanResult::readFromParcel(const ::android::Parcel* parcel) {
   RETURN_IF_FAILED(parcel->readByteVector(&ssid));
-  RETURN_IF_FAILED(parcel->readByteVector(&bssid));
+  {
+    std::vector<uint8_t> bssid_vec;
+    RETURN_IF_FAILED(parcel->readByteVector(&bssid_vec));
+    if (bssid_vec.size() != ETH_ALEN) {
+      LOG(ERROR) << "bssid length expected " << ETH_ALEN << " bytes, but got "
+                 << bssid_vec.size() << " bytes";
+      return ::android::BAD_VALUE;
+    }
+    std::copy_n(bssid_vec.begin(), ETH_ALEN, bssid.begin());
+  }
   RETURN_IF_FAILED(parcel->readByteVector(&info_element));
   RETURN_IF_FAILED(parcel->readUint32(&frequency));
   RETURN_IF_FAILED(parcel->readInt32(&signal_mbm));

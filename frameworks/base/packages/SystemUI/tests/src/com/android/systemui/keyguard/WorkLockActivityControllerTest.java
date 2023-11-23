@@ -16,18 +16,18 @@
 
 package com.android.systemui.keyguard;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.argThat;
 
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.IActivityManager;
+import android.app.IActivityTaskManager;
 import android.app.IApplicationThread;
 import android.app.ProfilerInfo;
 import android.content.ComponentName;
@@ -36,12 +36,13 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.UserHandle;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.systemui.SysuiTestCase;
-import com.android.systemui.recents.misc.SysUiTaskStackChangeListener;
 import com.android.systemui.shared.system.ActivityManagerWrapper;
+import com.android.systemui.shared.system.TaskStackChangeListener;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -62,10 +63,10 @@ public class WorkLockActivityControllerTest extends SysuiTestCase {
 
     private @Mock Context mContext;
     private @Mock ActivityManagerWrapper mActivityManager;
-    private @Mock IActivityManager mIActivityManager;
+    private @Mock IActivityTaskManager mIActivityTaskManager;
 
     private WorkLockActivityController mController;
-    private SysUiTaskStackChangeListener mTaskStackListener;
+    private TaskStackChangeListener mTaskStackListener;
 
     @Before
     public void setUp() throws Exception {
@@ -75,9 +76,10 @@ public class WorkLockActivityControllerTest extends SysuiTestCase {
         doReturn("com.example.test").when(mContext).getPackageName();
 
         // Construct controller. Save the TaskStackListener for injecting events.
-        final ArgumentCaptor<SysUiTaskStackChangeListener> listenerCaptor =
-                ArgumentCaptor.forClass(SysUiTaskStackChangeListener.class);
-        mController = new WorkLockActivityController(mContext, mActivityManager, mIActivityManager);
+        final ArgumentCaptor<TaskStackChangeListener> listenerCaptor =
+                ArgumentCaptor.forClass(TaskStackChangeListener.class);
+        mController = new WorkLockActivityController(mContext, mActivityManager,
+                mIActivityTaskManager);
 
         verify(mActivityManager).registerTaskStackListener(listenerCaptor.capture());
         mTaskStackListener = listenerCaptor.getValue();
@@ -93,7 +95,7 @@ public class WorkLockActivityControllerTest extends SysuiTestCase {
 
         // The overlay should start and the task the activity started in should not be removed.
         verifyStartActivity(TASK_ID, true /*taskOverlay*/);
-        verify(mIActivityManager, never()).removeTask(anyInt() /*taskId*/);
+        verify(mIActivityTaskManager, never()).removeTask(anyInt() /*taskId*/);
     }
 
     @Test
@@ -107,14 +109,14 @@ public class WorkLockActivityControllerTest extends SysuiTestCase {
         // The task the activity started in should be removed to prevent the locked task from
         // being shown.
         verifyStartActivity(TASK_ID, true /*taskOverlay*/);
-        verify(mIActivityManager).removeTask(TASK_ID);
+        verify(mIActivityTaskManager).removeTask(TASK_ID);
     }
 
     // End of tests, start of helpers
     // ------------------------------
 
     private void setActivityStartCode(int taskId, boolean taskOverlay, int code) throws Exception {
-        doReturn(code).when(mIActivityManager).startActivityAsUser(
+        doReturn(code).when(mIActivityTaskManager).startActivityAsUser(
                 eq((IApplicationThread) null),
                 eq((String) null),
                 any(Intent.class),
@@ -129,7 +131,7 @@ public class WorkLockActivityControllerTest extends SysuiTestCase {
     }
 
     private void verifyStartActivity(int taskId, boolean taskOverlay) throws Exception {
-        verify(mIActivityManager).startActivityAsUser(
+        verify(mIActivityTaskManager).startActivityAsUser(
                 eq((IApplicationThread) null),
                 eq((String) null),
                 any(Intent.class),

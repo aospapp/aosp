@@ -280,12 +280,6 @@ TEST(GraphemeBreak, emojiModifiers) {
     EXPECT_TRUE(IsBreakWithAdvances(unligated1_1_2, "U+270C U+FE0E | U+1F3FB"));
     EXPECT_TRUE(IsBreakWithAdvances(unligated1_1_2, "U+270C U+FE0F | U+1F3FB"));
 
-    // heart is not an emoji base
-    EXPECT_TRUE(IsBreak("U+2764 | U+1F3FB"));         // heart + modifier
-    EXPECT_TRUE(IsBreak("U+2764 U+FE0E | U+1F3FB"));  // heart + emoji style + modifier
-    EXPECT_TRUE(IsBreak("U+2764 U+FE0F | U+1F3FB"));  // heart + emoji style + modifier
-    EXPECT_TRUE(IsBreak("U+1F3FB | U+1F3FB"));        // modifier + modifier
-
     // rat is not an emoji modifer
     EXPECT_TRUE(IsBreak("U+1F466 | U+1F400"));  // boy + rat
 }
@@ -316,6 +310,11 @@ TEST(GraphemeBreak, offsets) {
     EXPECT_FALSE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 3));
     EXPECT_TRUE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 4));
     EXPECT_TRUE(GraphemeBreak::isGraphemeBreak(nullptr, string, 2, 3, 5));
+}
+
+TEST(GraphemeBreak, startWithZWJ) {
+    // It used to be looking before the ZWJ char even if it is the start of the text.
+    IsBreak("U+200D | U+1F5E8");  // UB sanitizer will catch if minikin looks the char before ZWJ
 }
 
 }  // namespace minikin

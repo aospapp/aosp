@@ -17,6 +17,8 @@
 package android.os.cts;
 
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -130,7 +132,11 @@ public class FileAccessPermissionTest extends AndroidTestCase {
         } catch (IOException e) {
             // expected
         }
+    }
 
+
+    @AppModeFull
+    public void testExternalStorageAccess() {
         // test /sdcard dir.
         File sdcardDir = Environment.getExternalStorageDirectory();
         assertTrue(sdcardDir.exists());
@@ -152,6 +158,23 @@ public class FileAccessPermissionTest extends AndroidTestCase {
             fail(e.getMessage());
         } finally {
             assertTrue(sdcardSubDir.delete());
+        }
+    }
+
+    @AppModeInstant
+    public void testNoExternalStorageAccess() {
+        // test /sdcard dir.
+        File sdcardDir = Environment.getExternalStorageDirectory();
+
+        // SELinux disallows access for ephemeral apps
+        assertFalse(sdcardDir.exists());
+
+        File sdcardFile = new File(sdcardDir, System.currentTimeMillis() + "test.txt");
+        try {
+            assertTrue(sdcardFile.createNewFile());
+            fail("Instant app was able to access SD card.");
+        } catch (IOException e) {
+            // Expected
         }
     }
 

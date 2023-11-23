@@ -38,19 +38,19 @@ keymaster_error_t AsymmetricKey::formatted_key_material(keymaster_key_format_t f
     if (format != KM_KEY_FORMAT_X509)
         return KM_ERROR_UNSUPPORTED_KEY_FORMAT;
 
-    if (material == NULL || size == NULL)
+    if (material == nullptr || size == nullptr)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     EVP_PKEY_Ptr pkey(EVP_PKEY_new());
     if (!InternalToEvp(pkey.get()))
         return TranslateLastOpenSslError();
 
-    int key_data_length = i2d_PUBKEY(pkey.get(), NULL);
+    int key_data_length = i2d_PUBKEY(pkey.get(), nullptr);
     if (key_data_length <= 0)
         return TranslateLastOpenSslError();
 
     material->reset(new(std::nothrow) uint8_t[key_data_length]);
-    if (material->get() == NULL)
+    if (material->get() == nullptr)
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     uint8_t* tmp = material->get();

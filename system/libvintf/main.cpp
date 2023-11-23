@@ -266,10 +266,9 @@ int main(int argc, char** argv) {
         std::cout << std::endl;
     }
 
-    SerializeFlags flags = SerializeFlag::EVERYTHING;
+    SerializeFlags::Type flags = SerializeFlags::EVERYTHING;
     if (!options.verbose) {
-        flags |= SerializeFlag::NO_HALS;
-        flags |= SerializeFlag::NO_KERNEL;
+        flags = flags.disableHals().disableKernel();
     }
     std::cout << "======== Device HAL Manifest =========" << std::endl;
     if (vm != nullptr) std::cout << gHalManifestConverter(*vm, flags);

@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import os.path
+
 import its.caps
 import its.device
+import its.image
 import its.objects
 import its.target
-from matplotlib import pylab
-import os.path
+
 import matplotlib
-import matplotlib.pyplot
+from matplotlib import pylab
+
+NAME = os.path.basename(__file__).split('.')[0]
+
 
 def main():
     """Test that settings latch on the right frame.
@@ -29,14 +33,13 @@ def main():
     request parameters between shots. Checks that the images that come back
     have the expected properties.
     """
-    NAME = os.path.basename(__file__).split(".")[0]
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.full_or_better(props))
 
-        _,fmt = its.objects.get_fastest_manual_capture_settings(props)
-        e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
+        _, fmt = its.objects.get_fastest_manual_capture_settings(props)
+        e, s = its.target.get_target_exposure_combos(cam)['midExposureTime']
         e /= 2.0
 
         r_means = []
@@ -44,26 +47,26 @@ def main():
         b_means = []
 
         reqs = [
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s*2,e,   0.0, True, props),
-            its.objects.manual_capture_request(s*2,e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e*2, 0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s*2,e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e*2, 0.0, True, props),
-            its.objects.manual_capture_request(s,  e,   0.0, True, props),
-            its.objects.manual_capture_request(s,  e*2, 0.0, True, props),
-            its.objects.manual_capture_request(s,  e*2, 0.0, True, props),
-            ]
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s*2, e, 0.0, True, props),
+                its.objects.manual_capture_request(s*2, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e*2, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s*2, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e*2, 0.0, True, props),
+                its.objects.manual_capture_request(s, e, 0.0, True, props),
+                its.objects.manual_capture_request(s, e*2, 0.0, True, props),
+                its.objects.manual_capture_request(s, e*2, 0.0, True, props),
+                ]
 
         caps = cam.do_capture(reqs, fmt)
-        for i,cap in enumerate(caps):
+        for i, cap in enumerate(caps):
             img = its.image.convert_capture_to_rgb_image(cap)
-            its.image.write_image(img, "%s_i=%02d.jpg" % (NAME, i))
+            its.image.write_image(img, '%s_i=%02d.jpg' % (NAME, i))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
             rgb_means = its.image.compute_image_means(tile)
             r_means.append(rgb_means[0])
@@ -72,15 +75,18 @@ def main():
 
         # Draw a plot.
         idxs = range(len(r_means))
-        pylab.plot(idxs, r_means, 'r')
-        pylab.plot(idxs, g_means, 'g')
-        pylab.plot(idxs, b_means, 'b')
-        pylab.ylim([0,1])
-        matplotlib.pyplot.savefig("%s_plot_means.png" % (NAME))
+        pylab.plot(idxs, r_means, '-ro')
+        pylab.plot(idxs, g_means, '-go')
+        pylab.plot(idxs, b_means, '-bo')
+        pylab.ylim([0, 1])
+        pylab.title(NAME)
+        pylab.xlabel('capture')
+        pylab.ylabel('RGB means')
+        matplotlib.pyplot.savefig('%s_plot_means.png' % (NAME))
 
         g_avg = sum(g_means) / len(g_means)
         g_ratios = [g / g_avg for g in g_means]
-        g_hilo = [g>1.0 for g in g_ratios]
+        g_hilo = [g > 1.0 for g in g_ratios]
         assert(g_hilo == [False, False, True, True, False, False, True,
                           False, True, False, True, False, True, True])
 

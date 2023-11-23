@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include <linux/android/binder.h>
+
 #include <android-base/unique_fd.h>
 #include <cutils/native_handle.h>
 #include <utils/Errors.h>
@@ -27,7 +29,6 @@
 #include <utils/String16.h>
 #include <utils/Vector.h>
 #include <utils/Flattenable.h>
-#include <linux/android/binder.h>
 
 #include <binder/IInterface.h>
 #include <binder/Parcelable.h>
@@ -91,7 +92,7 @@ public:
     // IPCThreadState, which as an optimization may optionally be
     // passed in.
     bool                enforceInterface(const String16& interface,
-                                         IPCThreadState* threadState = NULL) const;
+                                         IPCThreadState* threadState = nullptr) const;
     bool                checkInterface(IBinder*) const;
 
     void                freeData();
@@ -139,6 +140,8 @@ public:
     status_t            writeInt32Vector(const std::vector<int32_t>& val);
     status_t            writeInt64Vector(const std::unique_ptr<std::vector<int64_t>>& val);
     status_t            writeInt64Vector(const std::vector<int64_t>& val);
+    status_t            writeUint64Vector(const std::unique_ptr<std::vector<uint64_t>>& val);
+    status_t            writeUint64Vector(const std::vector<uint64_t>& val);
     status_t            writeFloatVector(const std::unique_ptr<std::vector<float>>& val);
     status_t            writeFloatVector(const std::vector<float>& val);
     status_t            writeDoubleVector(const std::unique_ptr<std::vector<double>>& val);
@@ -204,6 +207,10 @@ public:
     // valid for the lifetime of the parcel.
     // The Parcel does not take ownership of the given fd unless you ask it to.
     status_t            writeParcelFileDescriptor(int fd, bool takeOwnership = false);
+
+    // Place a Java "parcel file descriptor" into the parcel.  A dup of the fd is made, which will
+    // be closed once the parcel is destroyed.
+    status_t            writeDupParcelFileDescriptor(int fd);
 
     // Place a file descriptor into the parcel.  This will not affect the
     // semantics of the smart file descriptor. A new descriptor will be
@@ -309,6 +316,8 @@ public:
     status_t            readInt32Vector(std::vector<int32_t>* val) const;
     status_t            readInt64Vector(std::unique_ptr<std::vector<int64_t>>* val) const;
     status_t            readInt64Vector(std::vector<int64_t>* val) const;
+    status_t            readUint64Vector(std::unique_ptr<std::vector<uint64_t>>* val) const;
+    status_t            readUint64Vector(std::vector<uint64_t>* val) const;
     status_t            readFloatVector(std::unique_ptr<std::vector<float>>* val) const;
     status_t            readFloatVector(std::vector<float>* val) const;
     status_t            readDoubleVector(std::unique_ptr<std::vector<double>>* val) const;
@@ -364,6 +373,9 @@ public:
     status_t            readUniqueFileDescriptor(
                             base::unique_fd* val) const;
 
+    // Retrieve a Java "parcel file descriptor" from the parcel.
+    status_t            readUniqueParcelFileDescriptor(base::unique_fd* val) const;
+
 
     // Retrieve a vector of smart file descriptors from the parcel.
     status_t            readUniqueFileDescriptorVector(
@@ -383,6 +395,12 @@ public:
     // Debugging: get metrics on current allocations.
     static size_t       getGlobalAllocSize();
     static size_t       getGlobalAllocCount();
+
+    bool                replaceCallingWorkSourceUid(uid_t uid);
+    // Returns the work source provided by the caller. This can only be trusted for trusted calling
+    // uid.
+    uid_t               readCallingWorkSourceUid();
+    void                readRequestHeaders() const;
 
 private:
     typedef void        (*release_func)(Parcel* parcel,
@@ -418,6 +436,7 @@ private:
     void                initState();
     void                scanForFds() const;
     status_t            validateReadData(size_t len) const;
+    void                updateWorkSourceRequestHeaderPosition() const;
                         
     template<class T>
     status_t            readAligned(T *pArg) const;
@@ -465,6 +484,9 @@ private:
     size_t              mObjectsCapacity;
     mutable size_t      mNextObjectHint;
     mutable bool        mObjectsSorted;
+
+    mutable bool        mRequestHeaderPresent;
+    mutable size_t      mWorkSourceRequestHeaderPosition;
 
     mutable bool        mFdsKnown;
     mutable bool        mHasFds;
@@ -547,7 +569,7 @@ public:
         friend class Parcel;
     public:
         inline const void* data() const { return mData; }
-        inline void* mutableData() { return isMutable() ? mData : NULL; }
+        inline void* mutableData() { return isMutable() ? mData : nullptr; }
     };
 
     class WritableBlob : public Blob {
@@ -587,7 +609,7 @@ status_t Parcel::write(const LightFlattenable<T>& val) {
     }
     if (size) {
         void* buffer = writeInplace(size);
-        if (buffer == NULL)
+        if (buffer == nullptr)
             return NO_MEMORY;
         return val.flatten(buffer, size);
     }
@@ -615,7 +637,7 @@ status_t Parcel::read(LightFlattenable<T>& val) const {
     }
     if (size) {
         void const* buffer = readInplace(size);
-        return buffer == NULL ? NO_MEMORY :
+        return buffer == nullptr ? NO_MEMORY :
                 val.unflatten(buffer, size);
     }
     return NO_ERROR;

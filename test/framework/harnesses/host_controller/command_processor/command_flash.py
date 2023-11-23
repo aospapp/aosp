@@ -50,8 +50,8 @@ class CommandFlash(base_command_processor.BaseCommandProcessor):
             type=lambda x: x.split("="),
             help="The partitions and images to be flashed. The format is "
             "<partition>=<image>. If PARTITION_IMAGE list is empty, "
-            "currently fetched " + ", ".join(
-                common._DEFAULT_FLASH_IMAGES) + " will be flashed.")
+            "currently fetched " + ", ".join(common._DEFAULT_FLASH_IMAGES) +
+            " will be flashed.")
         self.arg_parser.add_argument(
             "--serial", default="", help="Serial number for device.")
         self.arg_parser.add_argument(
@@ -90,9 +90,15 @@ class CommandFlash(base_command_processor.BaseCommandProcessor):
         self.arg_parser.add_argument(
             "--wait-for-boot",
             default="true",
-            help="false to not wait for devie booting.")
+            help="false to not wait for device booting.")
         self.arg_parser.add_argument(
             "--reboot", default="false", help="true to reboot the device(s).")
+        self.arg_parser.add_argument(
+            "--skip-vbmeta",
+            default=False,
+            type=bool,
+            help="true to skip flashing vbmeta.img if the device does not have "
+            "the vbmeta slot .")
 
     # @Override
     def Run(self, arg_line):
@@ -159,7 +165,8 @@ class CommandFlash(base_command_processor.BaseCommandProcessor):
                                                    if args.reboot == "true"
                                                    else False)
                 elif args.current is not None:
-                    ret_flash = flasher.Flash(partition_image)
+                    ret_flash = flasher.Flash(partition_image,
+                                              args.skip_vbmeta)
                 else:
                     if args.gsi is None and args.build_dir is None:
                         self.arg_parser.error("Nothing requested: "
@@ -168,7 +175,10 @@ class CommandFlash(base_command_processor.BaseCommandProcessor):
                     if args.build_dir is not None:
                         ret_flash = flasher.Flashall(args.build_dir)
                     if args.gsi is not None:
-                        ret_flash = flasher.FlashGSI(args.gsi, args.vbmeta)
+                        ret_flash = flasher.FlashGSI(
+                            args.gsi,
+                            args.vbmeta,
+                            skip_vbmeta=args.skip_vbmeta)
             elif args.flasher_type == "custom":
                 if flasher_path is not None:
                     if args.repackage is not None:
@@ -192,4 +202,9 @@ class CommandFlash(base_command_processor.BaseCommandProcessor):
             for flasher in flashers:
                 ret_wait = flasher.WaitForDevice()
                 if ret_wait == False:
+                    self.console.device_status[
+                        flasher.device.serial] = common._DEVICE_STATUS_DICT[
+                            "error"]
+                    self.console.vti_endpoint_client.SetJobStatusFromLeasedTo(
+                        "bootup-err")
                     return False

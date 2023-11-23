@@ -24,6 +24,8 @@ package android.net.metrics;
 oneway interface INetdEventListener {
     const int EVENT_GETADDRINFO = 1;
     const int EVENT_GETHOSTBYNAME = 2;
+    const int EVENT_GETHOSTBYADDR = 3;
+    const int EVENT_RES_NSEND = 4;
 
     const int REPORTING_LEVEL_NONE = 0;
     const int REPORTING_LEVEL_METRICS = 1;
@@ -46,8 +48,9 @@ oneway interface INetdEventListener {
      *        of ipAddresses if there were too many addresses to log.
      * @param uid the UID of the application that performed the query.
      */
-    void onDnsEvent(int netId, int eventType, int returnCode, int latencyMs, String hostname,
-            in String[] ipAddresses, int ipAddressesCount, int uid);
+    void onDnsEvent(int netId, int eventType, int returnCode, int latencyMs,
+            @utf8InCpp String hostname, in @utf8InCpp String[] ipAddresses,
+            int ipAddressesCount, int uid);
 
     /**
      * Represents a private DNS validation success or failure.
@@ -109,4 +112,17 @@ oneway interface INetdEventListener {
      */
     void onTcpSocketStatsEvent(in int[] networkIds, in int[] sentPackets,
             in int[] lostPackets, in int[] rttUs, in int[] sentAckDiffMs);
+
+    /**
+     * Represents adding or removing a NAT64 prefix.
+     *
+     * @param netId the ID of the network the prefix was discovered on.
+     * @param added true if the NAT64 prefix was added, or false if the NAT64 prefix was removed.
+     *        There is only one prefix at a time for each netId. If a prefix is added, it replaces
+     *        the previous-added prefix.
+     * @param prefixString the detected NAT64 prefix as a string literal.
+     * @param prefixLength the prefix length associated with this NAT64 prefix.
+     */
+    void onNat64PrefixEvent(int netId, boolean added, @utf8InCpp String prefixString,
+            int prefixLength);
 }

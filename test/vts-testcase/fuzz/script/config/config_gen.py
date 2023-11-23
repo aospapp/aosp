@@ -33,7 +33,7 @@ class ConfigGen(object):
     Attributes:
         _android_build_top: string, equal to environment variable ANDROID_BUILD_TOP.
         _project_path: string, path to test/vts-testcase/fuzz.
-        _template_dir: string, path to directory containig templates.
+        _template_dir: string, path to directory containing templates.
         _utils: test/vts-testcase/hal/script/build/config_gen_utils module.
         _vts_spec_parser: tools that generates and parses vts spec with hidl-gen.
     """
@@ -84,7 +84,7 @@ class ConfigGen(object):
                 file_path = os.path.join(base_dir, file_name)
                 if file_name == 'AndroidTest.xml':
                     old_config[file_path] = self._GetPlansFromConfig(file_path)
-                if file_name in ('AndroidTest.xml', 'Android.mk'):
+                if file_name in ('AndroidTest.xml', 'Android.bp'):
                     os.remove(file_path)
 
         self.UpdateFuzzerConfigsForType(FuzzerType.IFACE_FUZZER, old_config)
@@ -99,10 +99,10 @@ class ConfigGen(object):
             old_config: dict. The key is the path to the old XML. The value is
                 the list of the plans the module belongs to.
         """
-        mk_template_path = os.path.join(self._template_dir, 'template.mk')
+        bp_template_path = os.path.join(self._template_dir, 'template.bp')
         xml_template_path = os.path.join(self._template_dir, 'template.xml')
-        with open(mk_template_path) as template_file:
-            mk_template = str(template_file.read())
+        with open(bp_template_path) as template_file:
+            bp_template = str(template_file.read())
         with open(xml_template_path) as template_file:
             xml_template = str(template_file.read())
 
@@ -114,7 +114,7 @@ class ConfigGen(object):
             config_dir = os.path.join(
                 self._project_path, 'config', self._utils.HalNameDir(hal_name),
                 self._utils.HalVerDir(hal_version), fuzzer_type_subdir)
-            mk_file_path = os.path.join(config_dir, 'Android.mk')
+            bp_file_path = os.path.join(config_dir, 'Android.bp')
             xml_file_path = os.path.join(config_dir, 'AndroidTest.xml')
 
             plan = 'vts-staging-fuzz'
@@ -128,13 +128,13 @@ class ConfigGen(object):
                     print('WARNING: More than one plan name in %s' %
                           xml_file_path)
 
-            mk_string = self._FillOutTemplate(
-                hal_name, hal_version, fuzzer_type, plan, mk_template)
+            bp_string = self._FillOutTemplate(
+                hal_name, hal_version, fuzzer_type, plan, bp_template)
 
             xml_string = self._FillOutTemplate(
                 hal_name, hal_version, fuzzer_type, plan, xml_template)
 
-            self._utils.WriteBuildRule(mk_file_path, mk_string)
+            self._utils.WriteBuildRule(bp_file_path, bp_string)
             self._utils.WriteBuildRule(xml_file_path, xml_string)
 
     def _FuzzerTestName(self, hal_name, hal_version, fuzzer_type):

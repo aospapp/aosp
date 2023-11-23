@@ -21,7 +21,7 @@
     <package>com.example.android.bluetoothchat</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>11</minSdk>
+    <minSdk>14</minSdk>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->

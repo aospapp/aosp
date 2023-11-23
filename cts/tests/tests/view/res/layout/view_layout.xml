@@ -26,13 +26,13 @@
 
     <android.view.cts.MockView
         android:id="@+id/mock_view"
-        android:layout_width="100px"
-        android:layout_height="200px"/>
+        android:layout_width="100dp"
+        android:layout_height="75dp"/>
 
     <android.view.cts.MockView
         android:id="@+id/scroll_view"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:fadingEdge="horizontal|vertical"
         android:scrollIndicators="top|bottom"
@@ -45,7 +45,7 @@
     <android.view.cts.MockView
         android:id="@+id/scroll_view_2"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:requiresFadingEdge="horizontal|vertical"
         android:fadingEdgeLength="20px"
@@ -57,7 +57,7 @@
     <android.view.cts.MockView
         android:id="@+id/scroll_view_3"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_no_size"
         android:scrollbarTrackVertical="@null"
@@ -67,7 +67,7 @@
     <android.view.cts.MockView
         android:id="@+id/scroll_view_4"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
         android:scrollbarTrackVertical="@null"
@@ -77,7 +77,7 @@
     <android.view.cts.MockView
         android:id="@+id/scroll_view_5"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
         android:scrollbarTrackVertical="@drawable/scrollbar_track"
@@ -87,7 +87,7 @@
     <android.view.cts.MockView
         android:id="@+id/scroll_view_6"
         android:layout_width="100px"
-        android:layout_height="200px"
+        android:layout_height="20px"
         android:scrollbars="horizontal|vertical"
         android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
         android:scrollbarTrackVertical="@drawable/scrollbar_no_size"
@@ -202,18 +202,26 @@
     </FrameLayout>
 
     <View
-            android:id="@+id/overlapping_rendering_unset"
-            android:layout_width="10px"
-            android:layout_height="10px" />
+        android:id="@+id/overlapping_rendering_unset"
+        android:layout_width="10px"
+        android:layout_height="10px" />
     <View
-            android:id="@+id/overlapping_rendering_false"
-            android:forceHasOverlappingRendering="false"
-            android:layout_width="10px"
-            android:layout_height="10px" />
+        android:id="@+id/overlapping_rendering_false"
+        android:forceHasOverlappingRendering="false"
+        android:layout_width="10px"
+        android:layout_height="10px" />
     <View
-            android:id="@+id/overlapping_rendering_true"
-            android:forceHasOverlappingRendering="true"
-            android:layout_width="10px"
-            android:layout_height="10px" />
+        android:id="@+id/overlapping_rendering_true"
+        android:forceHasOverlappingRendering="true"
+        android:layout_width="10px"
+        android:layout_height="10px" />
+    <View
+        android:id="@+id/transform_matrix_view"
+        android:layout_width="10px"
+        android:layout_height="10px" />
+    <View
+        android:id="@+id/transform_matrix_view_2"
+        android:layout_width="10px"
+        android:layout_height="10px" />
 
 </LinearLayout>

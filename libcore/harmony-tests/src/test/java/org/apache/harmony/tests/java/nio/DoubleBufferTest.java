@@ -208,6 +208,17 @@ public class DoubleBufferTest extends AbstractBufferTest {
                 .compareTo(dbuffer3));
     }
 
+    public void testCompareTo_positiveAndNegativeZero() {
+        double negativeZero = Double.parseDouble("-0");
+        double positiveZero = Double.parseDouble("+0");
+        DoubleBuffer negativeZeroBuffer = DoubleBuffer.wrap(new double[] { negativeZero });
+        DoubleBuffer positiveZeroBuffer = DoubleBuffer.wrap(new double[] { positiveZero });
+        assertTrue(Double.compare(negativeZero, positiveZero) < 0); // sanity check
+
+        // Unlike Double.compare(), DoubleBuffer.compareTo() considers -0 == +0
+        assertEquals(0, negativeZeroBuffer.compareTo(positiveZeroBuffer));
+    }
+
     public void testDuplicate() {
         buf.clear();
         buf.mark();

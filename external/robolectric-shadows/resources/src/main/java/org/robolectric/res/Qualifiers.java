@@ -29,7 +29,8 @@ public class Qualifiers {
     final ResTable_config config = new ResTable_config();
     if (!qualifiers.isEmpty()
         && !ConfigDescription.parse(qualifiers, config, applyVersionForCompat)) {
-      throw new IllegalArgumentException("failed to parse qualifiers '" + qualifiers + "'");
+      throw new IllegalArgumentException("failed to parse qualifiers '" + qualifiers + "'."
+          + " See https://developer.android.com/guide/topics/resources/providing-resources.html#QualifierRules for expected format.");
     }
 
     return new Qualifiers(qualifiers, config);
@@ -78,7 +79,7 @@ public class Qualifiers {
    */
   @Deprecated
   public static int getSmallestScreenWidth(String qualifiers) {
-    for (String qualifier : qualifiers.split("-")) {
+    for (String qualifier : qualifiers.split("-", 0)) {
       Matcher matcher = SMALLEST_SCREEN_WIDTH_PATTERN.matcher(qualifier);
       if (matcher.find()) {
         return Integer.parseInt(matcher.group(1));
@@ -129,7 +130,7 @@ public class Qualifiers {
    */
   @Deprecated
   public static int getScreenWidth(String qualifiers) {
-    for (String qualifier : qualifiers.split("-")) {
+    for (String qualifier : qualifiers.split("-", 0)) {
       Matcher matcher = SCREEN_WIDTH_PATTERN.matcher(qualifier);
       if (matcher.find()) {
         return Integer.parseInt(matcher.group(1));
@@ -159,7 +160,7 @@ public class Qualifiers {
    */
   @Deprecated
   public static String getOrientation(String qualifiers) {
-    for (String qualifier : qualifiers.split("-")) {
+    for (String qualifier : qualifiers.split("-", 0)) {
       Matcher matcher = ORIENTATION_QUALIFIER_PATTERN.matcher(qualifier);
       if (matcher.find()) {
         return matcher.group(1);

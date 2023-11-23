@@ -25,7 +25,6 @@
 #include <cutils/properties.h>
 #include <media/DataSource.h>
 #include <media/MediaBufferHolder.h>
-#include <media/MediaExtractor.h>
 #include <media/MediaSource.h>
 #include <media/IMediaExtractorService.h>
 #include <media/IMediaHTTPService.h>
@@ -38,6 +37,7 @@
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MediaClock.h>
 #include <media/stagefright/MediaDefs.h>
+#include <media/stagefright/MediaExtractor.h>
 #include <media/stagefright/MediaExtractorFactory.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
@@ -68,7 +68,7 @@ NuPlayer::GenericSource::GenericSource(
       mVideoDataGeneration(0),
       mFetchSubtitleDataGeneration(0),
       mFetchTimedTextDataGeneration(0),
-      mDurationUs(-1ll),
+      mDurationUs(-1LL),
       mAudioIsVorbis(false),
       mIsSecure(false),
       mIsStreaming(false),
@@ -76,7 +76,7 @@ NuPlayer::GenericSource::GenericSource(
       mUID(uid),
       mMediaClock(mediaClock),
       mFd(-1),
-      mBitrate(-1ll),
+      mBitrate(-1LL),
       mPendingReadBufferTypes(0) {
     ALOGV("GenericSource");
     CHECK(mediaClock != NULL);
@@ -90,10 +90,14 @@ void NuPlayer::GenericSource::resetDataSource() {
     ALOGV("resetDataSource");
 
     mHTTPService.clear();
-    mHttpSource.clear();
-    mDisconnected = false;
+    {
+        Mutex::Autolock _l_d(mDisconnectLock);
+        mHttpSource.clear();
+        mDisconnected = false;
+    }
     mUri.clear();
     mUriHeaders.clear();
+    mSources.clear();
     if (mFd >= 0) {
         close(mFd);
         mFd = -1;
@@ -151,7 +155,10 @@ status_t NuPlayer::GenericSource::setDataSource(const sp<DataSource>& source) {
     ALOGV("setDataSource (source: %p)", source.get());
 
     resetDataSource();
-    mDataSource = source;
+    {
+        Mutex::Autolock _l_d(mDisconnectLock);
+        mDataSource = source;
+    }
     return OK;
 }
 
@@ -162,8 +169,12 @@ sp<MetaData> NuPlayer::GenericSource::getFileFormatMeta() const {
 
 status_t NuPlayer::GenericSource::initFromDataSource() {
     sp<IMediaExtractor> extractor;
-    CHECK(mDataSource != NULL);
-    sp<DataSource> dataSource = mDataSource;
+    sp<DataSource> dataSource;
+    {
+        Mutex::Autolock _l_d(mDisconnectLock);
+        dataSource = mDataSource;
+    }
+    CHECK(dataSource != NULL);
 
     mLock.unlock();
     // This might take long time if data source is not reliable.
@@ -171,6 +182,7 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
 
     if (extractor == NULL) {
         ALOGE("initFromDataSource, cannot create extractor!");
+        mLock.lock();
         return UNKNOWN_ERROR;
     }
 
@@ -179,6 +191,7 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
     size_t numtracks = extractor->countTracks();
     if (numtracks == 0) {
         ALOGE("initFromDataSource, source has no track!");
+        mLock.lock();
         return UNKNOWN_ERROR;
     }
 
@@ -356,6 +369,7 @@ void NuPlayer::GenericSource::prepareAsync() {
 }
 
 void NuPlayer::GenericSource::onPrepareAsync() {
+    mDisconnectLock.lock();
     ALOGV("onPrepareAsync: mDataSource: %d", (mDataSource != NULL));
 
     // delayed data source creation
@@ -369,19 +383,28 @@ void NuPlayer::GenericSource::onPrepareAsync() {
             String8 contentType;
 
             if (!strncasecmp("http://", uri, 7) || !strncasecmp("https://", uri, 8)) {
-                mHttpSource = DataSourceFactory::CreateMediaHTTP(mHTTPService);
-                if (mHttpSource == NULL) {
+                sp<DataSource> httpSource;
+                mDisconnectLock.unlock();
+                httpSource = DataSourceFactory::CreateMediaHTTP(mHTTPService);
+                if (httpSource == NULL) {
                     ALOGE("Failed to create http source!");
                     notifyPreparedAndCleanup(UNKNOWN_ERROR);
                     return;
                 }
+                mDisconnectLock.lock();
+
+                if (!mDisconnected) {
+                    mHttpSource = httpSource;
+                }
             }
 
             mLock.unlock();
+            mDisconnectLock.unlock();
             // This might take long time if connection has some issue.
             sp<DataSource> dataSource = DataSourceFactory::CreateFromURI(
                    mHTTPService, uri, &mUriHeaders, &contentType,
                    static_cast<HTTPBase *>(mHttpSource.get()));
+            mDisconnectLock.lock();
             mLock.lock();
             if (!mDisconnected) {
                 mDataSource = dataSource;
@@ -425,6 +448,7 @@ void NuPlayer::GenericSource::onPrepareAsync() {
 
         if (mDataSource == NULL) {
             ALOGE("Failed to create data source!");
+            mDisconnectLock.unlock();
             notifyPreparedAndCleanup(UNKNOWN_ERROR);
             return;
         }
@@ -433,6 +457,8 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     if (mDataSource->flags() & DataSource::kIsCachingDataSource) {
         mCachedSource = static_cast<NuCachedSource2 *>(mDataSource.get());
     }
+
+    mDisconnectLock.unlock();
 
     // For cached streaming cases, we need to wait for enough
     // buffering before reporting prepared.
@@ -500,9 +526,13 @@ void NuPlayer::GenericSource::finishPrepareAsync() {
 
 void NuPlayer::GenericSource::notifyPreparedAndCleanup(status_t err) {
     if (err != OK) {
-        mDataSource.clear();
+        {
+            Mutex::Autolock _l_d(mDisconnectLock);
+            mDataSource.clear();
+            mHttpSource.clear();
+        }
+
         mCachedSource.clear();
-        mHttpSource.clear();
 
         mBitrate = -1;
         mPrevBufferPercentage = -1;
@@ -544,7 +574,7 @@ void NuPlayer::GenericSource::resume() {
 void NuPlayer::GenericSource::disconnect() {
     sp<DataSource> dataSource, httpSource;
     {
-        Mutex::Autolock _l(mLock);
+        Mutex::Autolock _l_d(mDisconnectLock);
         dataSource = mDataSource;
         httpSource = mHttpSource;
         mDisconnected = true;
@@ -727,7 +757,7 @@ void NuPlayer::GenericSource::fetchTextData(
     }
 
     if (msg->what() == kWhatFetchSubtitleData) {
-        subTimeUs -= 1000000ll;  // send subtile data one second earlier
+        subTimeUs -= 1000000LL;  // send subtile data one second earlier
     }
     sp<AMessage> msg2 = new AMessage(sendWhat, this);
     msg2->setInt32("generation", msgGeneration);
@@ -764,7 +794,7 @@ void NuPlayer::GenericSource::sendTextData(
         notify->post();
 
         if (msg->what() == kWhatSendSubtitleData) {
-            nextSubTimeUs -= 1000000ll;  // send subtile data one second earlier
+            nextSubTimeUs -= 1000000LL;  // send subtile data one second earlier
         }
         mMediaClock->addTimer(msg, nextSubTimeUs);
     }
@@ -855,7 +885,7 @@ status_t NuPlayer::GenericSource::dequeueAccessUnit(
         // TODO: maxRebufferingMarkMs could be larger than
         // mBufferingSettings.mResumePlaybackMarkMs
         int64_t restartBufferingMarkUs =
-             mBufferingSettings.mResumePlaybackMarkMs * 1000ll / 2;
+             mBufferingSettings.mResumePlaybackMarkMs * 1000LL / 2;
         if (finalResult == OK) {
             if (durationUs < restartBufferingMarkUs) {
                 postReadBuffer(audio? MEDIA_TRACK_TYPE_AUDIO : MEDIA_TRACK_TYPE_VIDEO);
@@ -1446,7 +1476,7 @@ void NuPlayer::GenericSource::readBuffer(
         // TODO: maxRebufferingMarkMs could be larger than
         // mBufferingSettings.mResumePlaybackMarkMs
         int64_t markUs = (mPreparing ? mBufferingSettings.mInitialMarkMs
-            : mBufferingSettings.mResumePlaybackMarkMs) * 1000ll;
+            : mBufferingSettings.mResumePlaybackMarkMs) * 1000LL;
         if (finalResult == ERROR_END_OF_STREAM || durationUs >= markUs) {
             if (mPreparing || mSentPauseOnBuffering) {
                 Track *counterTrack =
@@ -1514,12 +1544,12 @@ void NuPlayer::GenericSource::schedulePollBuffering() {
     sp<AMessage> msg = new AMessage(kWhatPollBuffering, this);
     msg->setInt32("generation", mPollBufferingGeneration);
     // Enquires buffering status every second.
-    msg->post(1000000ll);
+    msg->post(1000000LL);
 }
 
 void NuPlayer::GenericSource::onPollBuffering() {
     status_t finalStatus = UNKNOWN_ERROR;
-    int64_t cachedDurationUs = -1ll;
+    int64_t cachedDurationUs = -1LL;
     ssize_t cachedDataRemaining = -1;
 
     if (mCachedSource != NULL) {
@@ -1527,15 +1557,15 @@ void NuPlayer::GenericSource::onPollBuffering() {
 
         if (finalStatus == OK) {
             off64_t size;
-            int64_t bitrate = 0ll;
+            int64_t bitrate = 0LL;
             if (mDurationUs > 0 && mCachedSource->getSize(&size) == OK) {
                 // |bitrate| uses bits/second unit, while size is number of bytes.
-                bitrate = size * 8000000ll / mDurationUs;
+                bitrate = size * 8000000LL / mDurationUs;
             } else if (mBitrate > 0) {
                 bitrate = mBitrate;
             }
             if (bitrate > 0) {
-                cachedDurationUs = cachedDataRemaining * 8000000ll / bitrate;
+                cachedDurationUs = cachedDataRemaining * 8000000LL / bitrate;
             }
         }
     }
@@ -1547,11 +1577,21 @@ void NuPlayer::GenericSource::onPollBuffering() {
             notifyBufferingUpdate(100);
         }
 
+        if (mPreparing) {
+            notifyPreparedAndCleanup(finalStatus == ERROR_END_OF_STREAM ? OK : finalStatus);
+            mPreparing = false;
+        } else if (mSentPauseOnBuffering) {
+            sendCacheStats();
+            mSentPauseOnBuffering = false;
+            sp<AMessage> notify = dupNotify();
+            notify->setInt32("what", kWhatResumeOnBufferingEnd);
+            notify->post();
+        }
         return;
     }
 
-    if (cachedDurationUs >= 0ll) {
-        if (mDurationUs > 0ll) {
+    if (cachedDurationUs >= 0LL) {
+        if (mDurationUs > 0LL) {
             int64_t cachedPosUs = getLastReadPosition() + cachedDurationUs;
             int percentage = 100.0 * cachedPosUs / mDurationUs;
             if (percentage > 100) {

@@ -25,9 +25,10 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
-    ctstestrunner \
+    android.hidl.manager-V1.0-java \
+    androidx.test.rules \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     truth-prebuilt \
     guava \
     junit
@@ -40,21 +41,25 @@ LOCAL_SRC_FILES := \
     src/android/os/cts/IEmptyService.aidl \
     src/android/os/cts/ISeccompIsolatedService.aidl \
     src/android/os/cts/ISecondary.aidl \
-    src/android/os/cts/ISharedMemoryService.aidl
+    src/android/os/cts/ISharedMemoryService.aidl \
+    src/android/os/cts/IParcelExceptionService.aidl
 
 LOCAL_PACKAGE_NAME := CtsOsTestCases
+
+# Set its own test config to prevent sharing with cts-platform-version-check
+LOCAL_TEST_CONFIG := CtsOsTestCases.xml
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-# uncomment when b/13282254 is fixed
-#LOCAL_SDK_VERSION := current
-LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_SDK_VERSION := test_current
 LOCAL_JAVA_LIBRARIES += android.test.runner.stubs
 LOCAL_JAVA_LIBRARIES += android.test.base.stubs
 
 # Do not compress minijail policy files.
 LOCAL_AAPT_FLAGS := -0 .policy
+
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_CTS_PACKAGE)
 

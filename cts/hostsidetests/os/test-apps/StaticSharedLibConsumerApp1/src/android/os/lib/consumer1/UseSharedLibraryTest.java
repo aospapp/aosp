@@ -22,19 +22,23 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.SharedLibraryInfo;
 import android.content.pm.VersionedPackage;
+import android.os.lib.provider.R;
 import android.os.lib.provider.StaticSharedLib;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
-
-import com.android.compatibility.common.util.SystemUtil;
 
 @RunWith(AndroidJUnit4.class)
 public class UseSharedLibraryTest {
@@ -49,7 +53,10 @@ public class UseSharedLibraryTest {
 
     @Test
     public void testLoadCodeAndResources() {
-        assertSame(1, StaticSharedLib.getVersion(InstrumentationRegistry.getContext()));
+        final Context context = InstrumentationRegistry.getContext();
+        assertSame(1, StaticSharedLib.getVersion(context));
+        assertSame(1, context.getResources().getInteger(android.os.lib.provider.R.integer.version));
+        assertSame(2, StaticSharedLib.getRecursiveVersion(context));
     }
 
     @Test

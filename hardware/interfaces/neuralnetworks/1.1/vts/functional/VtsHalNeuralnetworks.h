@@ -34,9 +34,12 @@ namespace hardware {
 namespace neuralnetworks {
 namespace V1_1 {
 
-using V1_0::Request;
 using V1_0::DeviceStatus;
 using V1_0::ErrorStatus;
+using V1_0::IPreparedModel;
+using V1_0::Operand;
+using V1_0::OperandType;
+using V1_0::Request;
 
 namespace vts {
 namespace functional {
@@ -69,8 +72,12 @@ class NeuralnetworksHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 // Tag for the validation tests
 class ValidationTest : public NeuralnetworksHidlTest {
    protected:
-    void validateModel(const Model& model);
-    void validateRequests(const Model& model, const std::vector<Request>& request);
+     void validateEverything(const Model& model, const std::vector<Request>& request);
+
+   private:
+     void validateModel(const Model& model);
+     void validateRequests(const sp<IPreparedModel>& preparedModel,
+                           const std::vector<Request>& requests);
 };
 
 // Tag for the generated tests
@@ -78,14 +85,17 @@ class GeneratedTest : public NeuralnetworksHidlTest {};
 
 }  // namespace functional
 }  // namespace vts
+}  // namespace V1_1
+}  // namespace neuralnetworks
+}  // namespace hardware
+}  // namespace android
+
+namespace android::hardware::neuralnetworks::V1_0 {
 
 // pretty-print values for error messages
 ::std::ostream& operator<<(::std::ostream& os, ErrorStatus errorStatus);
 ::std::ostream& operator<<(::std::ostream& os, DeviceStatus deviceStatus);
 
-}  // namespace V1_1
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+}  // namespace android::hardware::neuralnetworks::V1_0
 
 #endif  // VTS_HAL_NEURALNETWORKS_V1_1_H

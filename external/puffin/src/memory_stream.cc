@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "puffin/src/include/puffin/common.h"
-#include "puffin/src/set_errors.h"
+#include "puffin/src/logging.h"
 
 namespace puffin {
 

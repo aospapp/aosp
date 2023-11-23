@@ -16,11 +16,6 @@
   bug: "27374606"
 },
 {
-  description: "Fails on host and on device in same way before and after packaging",
-  name: "android.icu.dev.test.bidi.TestCompatibility#testCompatibility",
-  bug: "23995372"
-},
-{
   description: "Checks differences in DecimalFormat classes from ICU4J and JDK but on Android java.text.DecimalFormat is implemented in terms of ICU4J",
   name: "android.icu.dev.test.format.NumberFormatTest#TestDataDrivenJDK",
   bug: "27711713"

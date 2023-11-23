@@ -19,8 +19,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.os.UserHandle;
-import android.support.test.filters.SmallTest;
 import android.util.Xml.Encoding;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.server.UiServiceTestCase;
 
@@ -46,7 +47,7 @@ public class SliceFullAccessListTest extends UiServiceTestCase {
     private SliceFullAccessList mAccessList;
 
     @Before
-    public void setup() {
+    public void setUp() {
         mAccessList = new SliceFullAccessList(mContext);
     }
 

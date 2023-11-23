@@ -5,8 +5,9 @@
  * found in the LICENSE file.
  */
 
-#include "bookmaker.h"
+#include "bmhParser.h"
 
+#include "SkCommandLineFlags.h"
 #include "SkOSFile.h"
 #include "SkOSPath.h"
 
@@ -20,11 +21,17 @@ if word is camel cased, look for :: matches on suffix
 when function crosses lines, whole thing isn't seen as a 'word' e.g., search for largeArc in path
 
 words in external not seen
+
+look for x-bit but allow x bits
+
+don't treat 'pos' or 'glyphs' as spell-checkable as in 'RunBuffer.pos' or 'RunBuffer.glyphs'
  */
+
 struct CheckEntry {
     string fFile;
     int fLine;
     int fCount;
+    bool fOverride;
 };
 
 class SpellCheck : public ParserCommon {
@@ -42,26 +49,31 @@ private:
         kColumn,
     };
 
+    enum class PrintCheck {
+        kWordsOnly,
+        kAllowNumbers,
+    };
+
     bool check(Definition* );
     bool checkable(MarkType markType);
-    void childCheck(const Definition* def, const char* start);
+    void childCheck(Definition* def, const char* start);
     void leafCheck(const char* start, const char* end);
     bool parseFromFile(const char* path) override { return true; }
-    void printCheck(const string& str);
+    void printCheck(string str, PrintCheck);
 
     void reset() override {
         INHERITED::resetCommon();
         fMethod = nullptr;
         fRoot = nullptr;
-        fTableState = TableState::kNone;
         fInCode = false;
         fInConst = false;
         fInFormula = false;
         fInDescription = false;
         fInStdOut = false;
+        fOverride = false;
     }
 
-    void wordCheck(const string& str);
+    void wordCheck(string str);
     void wordCheck(ptrdiff_t len, const char* ch);
 
     unordered_map<string, CheckEntry> fCode;
@@ -74,12 +86,13 @@ private:
     const BmhParser& fBmhParser;
     Definition* fMethod;
     RootDefinition* fRoot;
-    TableState fTableState;
+    int fLocalLine;
     bool fInCode;
     bool fInConst;
     bool fInDescription;
     bool fInFormula;
     bool fInStdOut;
+    bool fOverride;
     typedef ParserCommon INHERITED;
 };
 
@@ -99,6 +112,8 @@ void BmhParser::spellCheck(const char* match, SkCommandLineFlags::StringArray re
 void BmhParser::spellStatus(const char* statusFile, SkCommandLineFlags::StringArray report) const {
     SpellCheck checker(*this);
     StatusIter iter(statusFile, ".bmh", StatusFilter::kInProgress);
+    string file;
+    iter.next(&file, nullptr);
     string match = iter.baseDir();
     checker.check(match.c_str());
     checker.report(report);
@@ -117,12 +132,15 @@ bool SpellCheck::check(const char* match) {
         if (string::npos == fRoot->fFileName.rfind(match)) {
             continue;
         }
-       this->check(topicDef);
+        fOverride = string::npos != fRoot->fFileName.rfind("undocumented.bmh")
+                || string::npos != fRoot->fFileName.rfind("markup.bmh")
+                || string::npos != fRoot->fFileName.rfind("usingBookmaker.bmh");
+        this->check(topicDef);
     }
     return true;
 }
 
-static bool all_lower(const string& str) {
+static bool all_lower(string str) {
     for (auto c : str) {
         if (!islower(c)) {
             return false;
@@ -136,10 +154,6 @@ bool SpellCheck::check(Definition* def) {
     fLineCount = def->fLineCount;
     string printable = def->printableName();
     const char* textStart = def->fContentStart;
-    if (MarkType::kParam != def->fMarkType && MarkType::kConst != def->fMarkType &&
-            MarkType::kPrivate != def->fMarkType && TableState::kNone != fTableState) {
-        fTableState = TableState::kNone;
-    }
     switch (def->fMarkType) {
         case MarkType::kAlias:
             break;
@@ -159,12 +173,6 @@ bool SpellCheck::check(Definition* def) {
             break;
         case MarkType::kConst: {
             fInConst = true;
-            if (TableState::kNone == fTableState) {
-                fTableState = TableState::kRow;
-            }
-            if (TableState::kRow == fTableState) {
-                fTableState = TableState::kColumn;
-            }
             this->wordCheck(def->fName);
             const char* lineEnd = strchr(textStart, '\n');
             this->wordCheck(lineEnd - textStart, textStart);
@@ -172,14 +180,10 @@ bool SpellCheck::check(Definition* def) {
         } break;
         case MarkType::kDefine:
             break;
-        case MarkType::kDefinedBy:
-            break;
-        case MarkType::kDeprecated:
-            break;
         case MarkType::kDescription:
             fInDescription = true;
             break;
-        case MarkType::kDoxygen:
+        case MarkType::kDetails:
             break;
         case MarkType::kDuration:
             break;
@@ -189,11 +193,11 @@ bool SpellCheck::check(Definition* def) {
             break;
         case MarkType::kExample:
             break;
-        case MarkType::kExperimental:
-            break;
         case MarkType::kExternal:
             break;
         case MarkType::kFile:
+            break;
+        case MarkType::kFilter:
             break;
         case MarkType::kFormula:
             fInFormula = true;
@@ -202,9 +206,15 @@ bool SpellCheck::check(Definition* def) {
             break;
         case MarkType::kHeight:
             break;
+        case MarkType::kIllustration:
+            break;
         case MarkType::kImage:
             break;
+        case MarkType::kIn:
+            break;
         case MarkType::kLegend:
+            break;
+        case MarkType::kLine:
             break;
         case MarkType::kLink:
             break;
@@ -221,46 +231,48 @@ bool SpellCheck::check(Definition* def) {
             if (all_lower(method_name)) {
                 method_name += "()";
             }
-            string formattedStr = def->formatFunction();
             if (!def->isClone() && Definition::MethodType::kOperator != def->fMethodType) {
                 this->wordCheck(method_name);
             }
-            fTableState = TableState::kNone;
             fMethod = def;
             } break;
         case MarkType::kNoExample:
             break;
+        case MarkType::kNoJustify:
+            break;
         case MarkType::kOutdent:
             break;
         case MarkType::kParam: {
-            if (TableState::kNone == fTableState) {
-                fTableState = TableState::kRow;
-            }
-            if (TableState::kRow == fTableState) {
-                fTableState = TableState::kColumn;
-            }
             TextParser paramParser(def->fFileName, def->fStart, def->fContentStart,
                     def->fLineCount);
             paramParser.skipWhiteSpace();
             SkASSERT(paramParser.startsWith("#Param"));
             paramParser.next(); // skip hash
-            paramParser.skipToNonAlphaNum(); // skip Param
+            paramParser.skipToNonName(); // skip Param
             paramParser.skipSpace();
             const char* paramName = paramParser.fChar;
             paramParser.skipToSpace();
             fInCode = true;
             this->wordCheck(paramParser.fChar - paramName, paramName);
             fInCode = false;
-       } break;
+        } break;
+        case MarkType::kPhraseDef:
+            break;
+        case MarkType::kPhraseParam:
+            break;
+        case MarkType::kPhraseRef:
+            break;
         case MarkType::kPlatform:
             break;
-        case MarkType::kPrivate:
+        case MarkType::kPopulate:
             break;
         case MarkType::kReturn:
             break;
         case MarkType::kRow:
             break;
         case MarkType::kSeeAlso:
+            break;
+        case MarkType::kSet:
             break;
         case MarkType::kStdOut: {
             fInStdOut = true;
@@ -280,7 +292,10 @@ bool SpellCheck::check(Definition* def) {
         case MarkType::kSubstitute:
             break;
         case MarkType::kSubtopic:
-            this->printCheck(printable);
+            // TODO: add a tag that allows subtopic labels in illustrations to skip spellcheck?
+            if (string::npos == fFileName.find("illustrations.bmh")) {
+                this->printCheck(printable, PrintCheck::kAllowNumbers);
+            }
             break;
         case MarkType::kTable:
             break;
@@ -288,16 +303,11 @@ bool SpellCheck::check(Definition* def) {
             break;
         case MarkType::kText:
             break;
-        case MarkType::kTime:
-            break;
         case MarkType::kToDo:
             break;
         case MarkType::kTopic:
-            this->printCheck(printable);
+            this->printCheck(printable, PrintCheck::kWordsOnly);
             break;
-        case MarkType::kTrack:
-            // don't output children
-            return true;
         case MarkType::kTypedef:
             break;
         case MarkType::kUnion:
@@ -336,8 +346,6 @@ bool SpellCheck::check(Definition* def) {
         case MarkType::kConst:
             fInConst = false;
         case MarkType::kParam:
-            SkASSERT(TableState::kColumn == fTableState);
-            fTableState = TableState::kRow;
             break;
         case MarkType::kReturn:
         case MarkType::kSeeAlso:
@@ -356,14 +364,14 @@ bool SpellCheck::check(Definition* def) {
 }
 
 bool SpellCheck::checkable(MarkType markType) {
-    return BmhParser::Resolvable::kYes == fBmhParser.fMaps[(int) markType].fResolve;
+    return Resolvable::kYes == fBmhParser.kMarkProps[(int) markType].fResolve;
 }
 
-void SpellCheck::childCheck(const Definition* def, const char* start) {
+void SpellCheck::childCheck(Definition* def, const char* start) {
     const char* end;
     fLineCount = def->fLineCount;
     if (def->isRoot()) {
-        fRoot = const_cast<RootDefinition*>(def->asRoot());
+        fRoot = def->asRoot();
     }
     for (auto& child : def->fChildren) {
         end = child->fStart;
@@ -385,17 +393,22 @@ void SpellCheck::leafCheck(const char* start, const char* end) {
     int inParens = 0;
     bool inQuotes = false;
     bool allLower = true;
+    char prePriorCh = 0;
     char priorCh = 0;
     char lastCh = 0;
     const char* wordStart = nullptr;
     const char* wordEnd = nullptr;
     const char* possibleEnd = nullptr;
+    fLocalLine = 0;
     do {
         if (wordStart && wordEnd) {
             if (!allLower || (!inQuotes && '\"' != lastCh && !inParens
                     && ')' != lastCh && !inAngles && '>' != lastCh)) {
                 string word(wordStart, (possibleEnd ? possibleEnd : wordEnd) - wordStart);
-                wordCheck(word);
+                if ("e" != word || !isdigit(prePriorCh) || ('+' != lastCh &&
+                        '-' != lastCh && !isdigit(lastCh))) {
+                    this->wordCheck(word);
+                }
             }
             wordStart = nullptr;
         }
@@ -457,18 +470,34 @@ void SpellCheck::leafCheck(const char* start, const char* end) {
                 allLower = false;
             case '-':  // note that dash doesn't clear allLower
                 break;
+            case '!':
+                if (!inQuotes) {
+                    wordEnd = chPtr;
+                }
+                break;
+            case '\n':
+                ++fLocalLine;
+                // fall through
             default:
                 wordEnd = chPtr;
                 break;
         }
+        prePriorCh = priorCh;
         priorCh = lastCh;
         lastCh = *chPtr;
     } while (++chPtr <= end);
 }
 
-void SpellCheck::printCheck(const string& str) {
+void SpellCheck::printCheck(string str, PrintCheck allowed) {
     string word;
     for (std::stringstream stream(str); stream >> word; ) {
+        if (PrintCheck::kAllowNumbers == allowed && (std::isdigit(word.back()) || 'x' == word.back())) {
+            // allow ###x for RGB_888x
+            if ((size_t) std::count_if(word.begin(), word.end() - 1,
+                    [](unsigned char c){ return std::isdigit(c); } ) == word.length() - 1) {
+                continue;
+            }
+        }
         wordCheck(word);
     }
 }
@@ -482,17 +511,12 @@ void SpellCheck::report(SkCommandLineFlags::StringArray report) {
     std::sort(elems.begin(), elems.end(), stringCompare);
     if (report.contains("once")) {
         for (auto iter : elems) {
-            if (string::npos != iter.second.fFile.find("undocumented.bmh")) {
-                continue;
-            }
-            if (string::npos != iter.second.fFile.find("markup.bmh")) {
-                continue;
-            }
-            if (string::npos != iter.second.fFile.find("usingBookmaker.bmh")) {
+            if (iter.second.fOverride) {
                 continue;
             }
             if (iter.second.fCount == 1) {
-                SkDebugf("%s(%d): %s\n", iter.second.fFile.c_str(), iter.second.fLine,
+                string fullName = this->ReportFilename(iter.second.fFile);
+                SkDebugf("%s(%d): %s\n", fullName.c_str(), iter.second.fLine,
                         iter.first.c_str());
             }
         }
@@ -504,13 +528,7 @@ void SpellCheck::report(SkCommandLineFlags::StringArray report) {
         char lastInitial = 'a';
         int count = 0;
         for (auto iter : elems) {
-            if (string::npos != iter.second.fFile.find("undocumented.bmh")) {
-                continue;
-            }
-            if (string::npos != iter.second.fFile.find("markup.bmh")) {
-                continue;
-            }
-            if (string::npos != iter.second.fFile.find("usingBookmaker.bmh")) {
+            if (iter.second.fOverride) {
                 continue;
             }
             string check = iter.first.c_str();
@@ -542,13 +560,7 @@ void SpellCheck::report(SkCommandLineFlags::StringArray report) {
     int index = 0;
     const char* mispelled = report[0];
     for (auto iter : elems) {
-        if (string::npos != iter.second.fFile.find("undocumented.bmh")) {
-            continue;
-        }
-        if (string::npos != iter.second.fFile.find("markup.bmh")) {
-            continue;
-        }
-        if (string::npos != iter.second.fFile.find("usingBookmaker.bmh")) {
+        if (iter.second.fOverride) {
             continue;
         }
         string check = iter.first.c_str();
@@ -562,7 +574,8 @@ void SpellCheck::report(SkCommandLineFlags::StringArray report) {
             break;
         }
         if (check.compare(mispelled) == 0) {
-            SkDebugf("%s(%d): %s\n", iter.second.fFile.c_str(), iter.second.fLine,
+            string fullName = this->ReportFilename(iter.second.fFile);
+            SkDebugf("%s(%d): %s\n", fullName.c_str(), iter.second.fLine,
                     iter.first.c_str());
             if (report.count() == ++index) {
                 break;
@@ -571,7 +584,7 @@ void SpellCheck::report(SkCommandLineFlags::StringArray report) {
     }
 }
 
-void SpellCheck::wordCheck(const string& str) {
+void SpellCheck::wordCheck(string str) {
     if ("nullptr" == str) {
         return;  // doesn't seem worth it, treating nullptr as a word in need of correction
     }
@@ -649,12 +662,18 @@ void SpellCheck::wordCheck(const string& str) {
                   sawDigit ? fDigits : fWords;
     auto iter = mappy.find(str);
     if (mappy.end() != iter) {
+        if (iter->second.fOverride && !fOverride) {
+            iter->second.fFile = fFileName;
+            iter->second.fLine = fLineCount + fLocalLine;
+            iter->second.fOverride = false;
+        }
         iter->second.fCount += 1;
     } else {
         CheckEntry* entry = &mappy[str];
         entry->fFile = fFileName;
-        entry->fLine = fLineCount;
+        entry->fLine = fLineCount + fLocalLine;
         entry->fCount = 1;
+        entry->fOverride = fOverride;
     }
 }
 

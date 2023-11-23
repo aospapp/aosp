@@ -23,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"android/soong/ui/metrics"
 )
 
 // This file provides an interface to the Finder for use in Soong UI
@@ -31,7 +33,7 @@ import (
 // NewSourceFinder returns a new Finder configured to search for source files.
 // Callers of NewSourceFinder should call <f.Shutdown()> when done
 func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
-	ctx.BeginTrace("find modules")
+	ctx.BeginTrace(metrics.RunSetupTool, "find modules")
 	defer ctx.EndTrace()
 
 	dir, err := os.Getwd()
@@ -56,7 +58,15 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 		RootDirs:         []string{"."},
 		ExcludeDirs:      []string{".git", ".repo"},
 		PruneFiles:       pruneFiles,
-		IncludeFiles:     []string{"Android.mk", "Android.bp", "Blueprints", "CleanSpec.mk", "TEST_MAPPING"},
+		IncludeFiles: []string{
+			"Android.mk",
+			"AndroidProducts.mk",
+			"Android.bp",
+			"Blueprints",
+			"CleanSpec.mk",
+			"OWNERS",
+			"TEST_MAPPING",
+		},
 	}
 	dumpDir := config.FileListDir()
 	f, err = finder.New(cacheParams, filesystem, logger.New(ioutil.Discard),
@@ -81,16 +91,30 @@ func FindSources(ctx Context, config Config, f *finder.Finder) {
 		ctx.Fatalf("Could not export module list: %v", err)
 	}
 
+	androidProductsMks := f.FindNamedAt("device", "AndroidProducts.mk")
+	androidProductsMks = append(androidProductsMks, f.FindNamedAt("vendor", "AndroidProducts.mk")...)
+	androidProductsMks = append(androidProductsMks, f.FindNamedAt("product", "AndroidProducts.mk")...)
+	err = dumpListToFile(androidProductsMks, filepath.Join(dumpDir, "AndroidProducts.mk.list"))
+	if err != nil {
+		ctx.Fatalf("Could not export product list: %v", err)
+	}
+
 	cleanSpecs := f.FindFirstNamedAt(".", "CleanSpec.mk")
-	dumpListToFile(cleanSpecs, filepath.Join(dumpDir, "CleanSpec.mk.list"))
+	err = dumpListToFile(cleanSpecs, filepath.Join(dumpDir, "CleanSpec.mk.list"))
 	if err != nil {
 		ctx.Fatalf("Could not export module list: %v", err)
+	}
+
+	owners := f.FindNamedAt(".", "OWNERS")
+	err = dumpListToFile(owners, filepath.Join(dumpDir, "OWNERS.list"))
+	if err != nil {
+		ctx.Fatalf("Could not find OWNERS: %v", err)
 	}
 
 	testMappings := f.FindNamedAt(".", "TEST_MAPPING")
 	err = dumpListToFile(testMappings, filepath.Join(dumpDir, "TEST_MAPPING.list"))
 	if err != nil {
-		ctx.Fatalf("Could not find modules: %v", err)
+		ctx.Fatalf("Could not find TEST_MAPPING: %v", err)
 	}
 
 	androidBps := f.FindNamedAt(".", "Android.bp")

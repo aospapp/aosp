@@ -29,11 +29,13 @@
 #include "vktTestCaseUtil.hpp"
 #include "vkPrograms.hpp"
 #include "vkImageUtil.hpp"
+#include "vkBarrierUtil.hpp"
 #include "vktImageTestsUtil.hpp"
 #include "vkBuilderUtil.hpp"
 #include "vkRef.hpp"
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkCmdUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuTexture.hpp"
@@ -417,6 +419,7 @@ public:
 	virtual void				commandsAfterCompute	 (const VkCommandBuffer			cmdBuffer) const = 0;
 
 	virtual bool				verifyResult			 (Allocation&					outputBufferAllocation) const = 0;
+	void						checkRequirements		 (void) const;
 
 protected:
 	const string				m_name;
@@ -448,6 +451,14 @@ BinaryAtomicInstanceBase::BinaryAtomicInstanceBase (Context&				context,
 {
 }
 
+void BinaryAtomicInstanceBase::checkRequirements (void) const
+{
+	if (m_imageType == IMAGE_TYPE_CUBE_ARRAY && !m_context.getDeviceFeatures().imageCubeArray)
+	{
+		TCU_THROW(NotSupportedError, "imageCubeArray feature not supported");
+	}
+}
+
 tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 {
 	const VkDevice			device				= m_context.getDevice();
@@ -457,6 +468,8 @@ tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 	Allocator&				allocator			= m_context.getDefaultAllocator();
 	const VkDeviceSize		imageSizeInBytes	= tcu::getPixelSize(m_format) * getNumPixels(m_imageType, m_imageSize);
 	const VkDeviceSize		outBuffSizeInBytes	= getOutputBufferSize();
+
+	checkRequirements();
 
 	const VkImageCreateInfo imageParams	=
 	{
@@ -507,7 +520,7 @@ tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 		inputPixelBuffer.setPixel(initialValue, x, y, z);
 	}
 
-	flushMappedMemoryRange(deviceInterface, device, inputBufferAllocation.getMemory(), inputBufferAllocation.getOffset(), imageSizeInBytes);
+	flushAlloc(deviceInterface, device, inputBufferAllocation);
 
 	// Create a buffer to store shader output copied from result image
 	m_outputBuffer = de::MovePtr<Buffer>(new Buffer(deviceInterface, device, allocator, makeBufferCreateInfo(outBuffSizeInBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT), MemoryRequirement::HostVisible));
@@ -530,36 +543,8 @@ tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 	deviceInterface.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
 	deviceInterface.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u, &m_descriptorSet.get(), 0u, DE_NULL);
 
-	const VkBufferMemoryBarrier inputBufferPostHostWriteBarrier	=
-		makeBufferMemoryBarrier(VK_ACCESS_HOST_WRITE_BIT,
-								VK_ACCESS_TRANSFER_READ_BIT,
-								*inputBuffer,
-								0ull,
-								imageSizeInBytes);
-
-	const VkImageMemoryBarrier	resultImagePreCopyBarrier =
-		makeImageMemoryBarrier(	0u,
-								VK_ACCESS_TRANSFER_WRITE_BIT,
-								VK_IMAGE_LAYOUT_UNDEFINED,
-								VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-								m_resultImage->get(),
-								subresourceRange);
-
-	deviceInterface.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, DE_FALSE, 0u, DE_NULL, 1u, &inputBufferPostHostWriteBarrier, 1u, &resultImagePreCopyBarrier);
-
-	const VkBufferImageCopy		bufferImageCopyParams = makeBufferImageCopy(makeExtent3D(getLayerSize(m_imageType, m_imageSize)), getNumLayers(m_imageType, m_imageSize));
-
-	deviceInterface.cmdCopyBufferToImage(*cmdBuffer, *inputBuffer, m_resultImage->get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &bufferImageCopyParams);
-
-	const VkImageMemoryBarrier	resultImagePostCopyBarrier	=
-		makeImageMemoryBarrier(	VK_ACCESS_TRANSFER_WRITE_BIT,
-								VK_ACCESS_SHADER_READ_BIT,
-								VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-								VK_IMAGE_LAYOUT_GENERAL,
-								m_resultImage->get(),
-								subresourceRange);
-
-	deviceInterface.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, DE_FALSE, 0u, DE_NULL, 0u, DE_NULL, 1u, &resultImagePostCopyBarrier);
+	const vector<VkBufferImageCopy>	bufferImageCopy(1, makeBufferImageCopy(makeExtent3D(getLayerSize(m_imageType, m_imageSize)), getNumLayers(m_imageType, m_imageSize)));
+	copyBufferToImage(deviceInterface, *cmdBuffer, *inputBuffer, imageSizeInBytes, bufferImageCopy, VK_IMAGE_ASPECT_COLOR_BIT, 1, getNumLayers(m_imageType, m_imageSize), m_resultImage->get(), VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	commandsBeforeCompute(*cmdBuffer);
 
@@ -582,7 +567,7 @@ tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 
 	Allocation& outputBufferAllocation = m_outputBuffer->getAllocation();
 
-	invalidateMappedMemoryRange(deviceInterface, device, outputBufferAllocation.getMemory(), outputBufferAllocation.getOffset(), outBuffSizeInBytes);
+	invalidateAlloc(deviceInterface, device, outputBufferAllocation);
 
 	if (verifyResult(outputBufferAllocation))
 		return tcu::TestStatus::pass("Comparison succeeded");

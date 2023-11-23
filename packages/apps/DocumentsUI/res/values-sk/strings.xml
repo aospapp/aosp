@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Zdieľať"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Odstrániť"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Vybrať všetko"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Vybrať"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Zoradiť podľa…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Kopírovať do…"</string>
     <string name="menu_move" msgid="2310760789561129882">"Presunúť do…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Komprimovať"</string>
@@ -55,7 +57,7 @@
     <string name="button_compress" msgid="8951561310857223966">"Komprimovať"</string>
     <string name="button_extract" msgid="1038674453689912247">"Extrahovať"</string>
     <string name="button_move" msgid="8596460499325291272">"Presunúť"</string>
-    <string name="button_dismiss" msgid="7235249361023803349">"Odmietnuť"</string>
+    <string name="button_dismiss" msgid="7235249361023803349">"Zavrieť"</string>
     <string name="button_retry" msgid="4011461781916631389">"Skúsiť znova"</string>
     <string name="button_clear" msgid="5412304437764369441">"Vymazať"</string>
     <string name="button_show_provider" msgid="6905880493806292753">"Zobraziť u poskytovateľa"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Typ"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Veľkosť"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Upravené"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Názov súboru (A – Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Typ (A – Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Veľkosť (od najmenších)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Upravené (od najstarších)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Názov súboru (Z – A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Typ (Z – A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Veľkosť (od najväčších)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Upravené (od najnovších)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Zoradenie podľa"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Zoradiť podľa <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Počet položiek"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Vzostupne"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Zostupne"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Otvoriť aplikáciu <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Zobraziť korene"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Skryť korene"</string>
     <string name="save_error" msgid="8631128801982095782">"Dokument sa nepodarilo uložiť"</string>
@@ -204,7 +217,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Udeliť aplikácii <xliff:g id="APPNAME"><b>^1</b></xliff:g> prístup k adresáru <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> v úložisku <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Udeliť aplikácii <xliff:g id="APPNAME"><b>^1</b></xliff:g> prístup k adresáru <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Chcete aplikácii <xliff:g id="APPNAME"><b>^1</b></xliff:g> udeliť prístup k dátam (vrátane fotiek a videí) v úložisku <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Nabudúce sa nepýtať"</string>
     <string name="allow" msgid="1275746941353040309">"Povoliť"</string>
     <string name="deny" msgid="5127201668078153379">"Zamietnuť"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -248,4 +260,35 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archív<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Prepísať názov <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Pokračovať na pozadí"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="few">Vybrané: <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="many">Vybrané: <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="other">Vybrané: <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="one">Vybrané: <xliff:g id="COUNT_0">%1$d</xliff:g></item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Nedávne súbory v telefóne"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Súbory v telefóne"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> v telefóne"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Súbory v zariadení <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Súbory zo služby <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Súbory z: <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Nedávne obrázky v telefóne"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Obrázky v telefóne"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"Obrázky v zariadení <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"Obrázky zo služby <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Obrázky zo služby <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Obrázky"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Zvuk"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Videá"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Dokumenty"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Názov priečinka"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Nové názov"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Zobraziť ukážku súboru <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Prehliadanie súborov v iných aplikáciách"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Anonymná"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Povoliť prístup k adresáru <xliff:g id="DIRECTORY">%1$s</xliff:g>"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Chcete povoliť prístup k adresáru <xliff:g id="DIRECTORY">%1$s</xliff:g> v koreňovom adresári <xliff:g id="ROOT">%2$s</xliff:g>?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Umožní aplikácii <xliff:g id="APPNAME">%1$s</xliff:g> úplný prístup k všetkým súborom aktuálne uloženým v tomto umiestnení a všetkému obsahu, ktorý tu bude uložený v budúcnosti."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Hľadať v telefóne"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Odstrániť históriu vyhľadávania <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

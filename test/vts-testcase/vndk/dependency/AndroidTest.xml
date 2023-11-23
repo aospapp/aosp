@@ -21,6 +21,7 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsVndkDependency" />
         <option name="test-case-path" value="vts/testcases/vndk/dependency/VtsVndkDependencyTest" />
+        <option name="test-timeout" value="6m" />
     </test>
 </configuration>
 

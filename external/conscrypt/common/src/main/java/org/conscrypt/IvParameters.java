@@ -25,8 +25,6 @@ import javax.crypto.spec.IvParameterSpec;
 /**
  * An implementation of {@link java.security.AlgorithmParameters} that contains only an IV.  The
  * supported encoding formats are ASN.1 (primary) and RAW.
- *
- * @hide
  */
 @Internal
 public class IvParameters extends AlgorithmParametersSpi {
@@ -109,7 +107,13 @@ public class IvParameters extends AlgorithmParametersSpi {
         return "Conscrypt IV AlgorithmParameters";
     }
 
-    public static class AES extends IvParameters {}
-    public static class DESEDE extends IvParameters {}
-    public static class ChaCha20 extends IvParameters {}
+    public static class AES extends IvParameters {
+        public AES() {}
+    }
+    public static class DESEDE extends IvParameters {
+        public DESEDE() {}
+    }
+    public static class ChaCha20 extends IvParameters {
+        public ChaCha20() {}
+    }
 }

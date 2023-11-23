@@ -15,6 +15,10 @@
 package cc
 
 import (
+	"path/filepath"
+
+	"github.com/google/blueprint"
+
 	"android/soong/android"
 )
 
@@ -31,18 +35,12 @@ type BinaryLinkerProperties struct {
 	// if set, add an extra objcopy --prefix-symbols= step
 	Prefix_symbols *string
 
-	// local file name to pass to the linker as --version_script
-	Version_script *string `android:"arch_variant"`
-
 	// if set, install a symlink to the preferred architecture
-	Symlink_preferred_arch *bool
+	Symlink_preferred_arch *bool `android:"arch_variant"`
 
 	// install symlinks to the binary.  Symlink names will have the suffix and the binary
 	// extension (if any) appended
 	Symlinks []string `android:"arch_variant"`
-
-	// do not pass -pie
-	No_pie *bool `android:"arch_variant"`
 
 	DynamicLinker string `blueprint:"mutated"`
 
@@ -55,17 +53,17 @@ type BinaryLinkerProperties struct {
 }
 
 func init() {
-	android.RegisterModuleType("cc_binary", binaryFactory)
+	android.RegisterModuleType("cc_binary", BinaryFactory)
 	android.RegisterModuleType("cc_binary_host", binaryHostFactory)
 }
 
-// Module factory for binaries
-func binaryFactory() android.Module {
+// cc_binary produces a binary that is runnable on a device.
+func BinaryFactory() android.Module {
 	module, _ := NewBinary(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
-// Module factory for host binaries
+// cc_binary_host produces a binary that is runnable on a host.
 func binaryHostFactory() android.Module {
 	module, _ := NewBinary(android.HostSupported)
 	return module.Init()
@@ -84,11 +82,19 @@ type binaryDecorator struct {
 
 	toolPath android.OptionalPath
 
+	// Location of the linked, unstripped binary
+	unstrippedOutputFile android.Path
+
 	// Names of symlinks to be installed for use in LOCAL_MODULE_SYMLINKS
 	symlinks []string
 
 	// Output archive of gcno coverage information
 	coverageOutputFile android.OptionalPath
+
+	// Location of the file that should be copied to dist dir when requested
+	distFile android.OptionalPath
+
+	post_install_cmds []string
 }
 
 var _ linker = (*binaryDecorator)(nil)
@@ -157,7 +163,8 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 		}
 
 		if ctx.Os() == android.LinuxBionic && !binary.static() {
-			deps.LinkerScript = "host_bionic_linker_script"
+			deps.DynamicLinker = "linker"
+			deps.LinkerFlagsFile = "host_bionic_linker_flags"
 		}
 	}
 
@@ -165,8 +172,6 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 		ctx.ModuleErrorf("statically linking libc to dynamic executable, please remove libc\n" +
 			"from static libs or set static_executable: true")
 	}
-
-	android.ExtractSourceDeps(ctx, binary.Properties.Version_script)
 
 	return deps
 }
@@ -178,7 +183,7 @@ func (binary *binaryDecorator) isDependencyRoot() bool {
 func NewBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator) {
 	module := newModule(hod, android.MultilibFirst)
 	binary := &binaryDecorator{
-		baseLinker:    NewBaseLinker(),
+		baseLinker:    NewBaseLinker(module.sanitize),
 		baseInstaller: NewBaseInstaller("bin", "", InstallInSystem),
 	}
 	module.compiler = NewBaseCompiler()
@@ -195,7 +200,7 @@ func (binary *binaryDecorator) linkerInit(ctx BaseModuleContext) {
 			if binary.Properties.Static_executable == nil && ctx.Config().HostStaticBinaries() {
 				binary.Properties.Static_executable = BoolPtr(true)
 			}
-		} else {
+		} else if !ctx.Fuchsia() {
 			// Static executables are not supported on Darwin or Windows
 			binary.Properties.Static_executable = nil
 		}
@@ -213,12 +218,9 @@ func (binary *binaryDecorator) staticBinary() bool {
 func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 	flags = binary.baseLinker.linkerFlags(ctx, flags)
 
-	if ctx.Host() && !binary.static() {
+	if ctx.Host() && !ctx.Windows() && !binary.static() {
 		if !ctx.Config().IsEnvTrue("DISABLE_HOST_PIE") {
 			flags.LdFlags = append(flags.LdFlags, "-pie")
-			if ctx.Windows() {
-				flags.LdFlags = append(flags.LdFlags, "-Wl,-e_mainCRTStartup")
-			}
 		}
 	}
 
@@ -251,15 +253,28 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 				} else {
 					switch ctx.Os() {
 					case android.Android:
-						flags.DynamicLinker = "/system/bin/linker"
+						if ctx.bootstrap() && !ctx.inRecovery() {
+							flags.DynamicLinker = "/system/bin/bootstrap/linker"
+						} else {
+							flags.DynamicLinker = "/system/bin/linker"
+						}
+						if flags.Toolchain.Is64Bit() {
+							flags.DynamicLinker += "64"
+						}
 					case android.LinuxBionic:
 						flags.DynamicLinker = ""
 					default:
 						ctx.ModuleErrorf("unknown dynamic linker")
 					}
-					if flags.Toolchain.Is64Bit() {
-						flags.DynamicLinker += "64"
-					}
+				}
+
+				if ctx.Os() == android.LinuxBionic {
+					// Use the dlwrap entry point, but keep _start around so
+					// that it can be used by host_bionic_inject
+					flags.LdFlags = append(flags.LdFlags,
+						"-Wl,--entry=__dlwrap__start",
+						"-Wl,--undefined=_start",
+					)
 				}
 			}
 
@@ -270,7 +285,6 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 				"-Wl,--gc-sections",
 				"-Wl,-z,nocopyreloc",
 			)
-
 		}
 	} else {
 		if binary.static() {
@@ -287,41 +301,35 @@ func (binary *binaryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags
 func (binary *binaryDecorator) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 
-	versionScript := ctx.ExpandOptionalSource(binary.Properties.Version_script, "version_script")
 	fileName := binary.getStem(ctx) + flags.Toolchain.ExecutableSuffix()
 	outputFile := android.PathForModuleOut(ctx, fileName)
 	ret := outputFile
 
 	var linkerDeps android.Paths
 
-	sharedLibs := deps.SharedLibs
-	sharedLibs = append(sharedLibs, deps.LateSharedLibs...)
-
-	if versionScript.Valid() {
-		if ctx.Darwin() {
-			ctx.PropertyErrorf("version_script", "Not supported on Darwin")
-		} else {
-			flags.LdFlags = append(flags.LdFlags, "-Wl,--version-script,"+versionScript.String())
-			linkerDeps = append(linkerDeps, versionScript.Path())
-		}
-	}
-
-	if deps.LinkerScript.Valid() {
-		flags.LdFlags = append(flags.LdFlags, "-Wl,-T,"+deps.LinkerScript.String())
-		linkerDeps = append(linkerDeps, deps.LinkerScript.Path())
+	if deps.LinkerFlagsFile.Valid() {
+		flags.LdFlags = append(flags.LdFlags, "$$(cat "+deps.LinkerFlagsFile.String()+")")
+		linkerDeps = append(linkerDeps, deps.LinkerFlagsFile.Path())
 	}
 
 	if flags.DynamicLinker != "" {
-		flags.LdFlags = append(flags.LdFlags, " -Wl,-dynamic-linker,"+flags.DynamicLinker)
+		flags.LdFlags = append(flags.LdFlags, "-Wl,-dynamic-linker,"+flags.DynamicLinker)
+	} else if ctx.toolchain().Bionic() && !binary.static() {
+		flags.LdFlags = append(flags.LdFlags, "-Wl,--no-dynamic-linker")
 	}
 
 	builderFlags := flagsToBuilderFlags(flags)
 
 	if binary.stripper.needsStrip(ctx) {
+		if ctx.Darwin() {
+			builderFlags.stripUseGnuStrip = true
+		}
 		strippedOutputFile := outputFile
 		outputFile = android.PathForModuleOut(ctx, "unstripped", fileName)
 		binary.stripper.strip(ctx, outputFile, strippedOutputFile, builderFlags)
 	}
+
+	binary.unstrippedOutputFile = outputFile
 
 	if String(binary.Properties.Prefix_symbols) != "" {
 		afterPrefixSymbols := outputFile
@@ -330,14 +338,47 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 			flagsToBuilderFlags(flags), afterPrefixSymbols)
 	}
 
-	if Bool(binary.baseLinker.Properties.Use_version_lib) && ctx.Host() {
-		versionedOutputFile := outputFile
-		outputFile = android.PathForModuleOut(ctx, "unversioned", fileName)
-		binary.injectVersionSymbol(ctx, outputFile, versionedOutputFile)
+	if Bool(binary.baseLinker.Properties.Use_version_lib) {
+		if ctx.Host() {
+			versionedOutputFile := outputFile
+			outputFile = android.PathForModuleOut(ctx, "unversioned", fileName)
+			binary.injectVersionSymbol(ctx, outputFile, versionedOutputFile)
+		} else {
+			versionedOutputFile := android.PathForModuleOut(ctx, "versioned", fileName)
+			binary.distFile = android.OptionalPathForPath(versionedOutputFile)
+
+			if binary.stripper.needsStrip(ctx) {
+				out := android.PathForModuleOut(ctx, "versioned-stripped", fileName)
+				binary.distFile = android.OptionalPathForPath(out)
+				binary.stripper.strip(ctx, versionedOutputFile, out, builderFlags)
+			}
+
+			binary.injectVersionSymbol(ctx, outputFile, versionedOutputFile)
+		}
 	}
 
-	linkerDeps = append(linkerDeps, deps.SharedLibsDeps...)
-	linkerDeps = append(linkerDeps, deps.LateSharedLibsDeps...)
+	if ctx.Os() == android.LinuxBionic && !binary.static() {
+		injectedOutputFile := outputFile
+		outputFile = android.PathForModuleOut(ctx, "prelinker", fileName)
+
+		if !deps.DynamicLinker.Valid() {
+			panic("Non-static host bionic modules must have a dynamic linker")
+		}
+
+		binary.injectHostBionicLinkerSymbols(ctx, outputFile, deps.DynamicLinker.Path(), injectedOutputFile)
+	}
+
+	var sharedLibs android.Paths
+	// Ignore shared libs for static executables.
+	if !binary.static() {
+		sharedLibs = deps.EarlySharedLibs
+		sharedLibs = append(sharedLibs, deps.SharedLibs...)
+		sharedLibs = append(sharedLibs, deps.LateSharedLibs...)
+		linkerDeps = append(linkerDeps, deps.EarlySharedLibsDeps...)
+		linkerDeps = append(linkerDeps, deps.SharedLibsDeps...)
+		linkerDeps = append(linkerDeps, deps.LateSharedLibsDeps...)
+	}
+
 	linkerDeps = append(linkerDeps, objs.tidyFiles...)
 	linkerDeps = append(linkerDeps, flags.LdFlagsDeps...)
 
@@ -349,11 +390,8 @@ func (binary *binaryDecorator) link(ctx ModuleContext,
 	objs.coverageFiles = append(objs.coverageFiles, deps.WholeStaticLibObjs.coverageFiles...)
 	binary.coverageOutputFile = TransformCoverageFilesToLib(ctx, objs, builderFlags, binary.getStem(ctx))
 
-	return ret
-}
-
-func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
-	binary.baseInstaller.install(ctx, file)
+	// Need to determine symlinks early since some targets (ie APEX) need this
+	// information but will not call 'install'
 	for _, symlink := range binary.Properties.Symlinks {
 		binary.symlinks = append(binary.symlinks,
 			symlink+String(binary.Properties.Suffix)+ctx.toolchain().ExecutableSuffix())
@@ -368,6 +406,47 @@ func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
 		}
 	}
 
+	return ret
+}
+
+func (binary *binaryDecorator) unstrippedOutputFilePath() android.Path {
+	return binary.unstrippedOutputFile
+}
+
+func (binary *binaryDecorator) symlinkList() []string {
+	return binary.symlinks
+}
+
+func (binary *binaryDecorator) nativeCoverage() bool {
+	return true
+}
+
+// /system/bin/linker -> /apex/com.android.runtime/bin/linker
+func (binary *binaryDecorator) installSymlinkToRuntimeApex(ctx ModuleContext, file android.Path) {
+	dir := binary.baseInstaller.installDir(ctx)
+	dirOnDevice := android.InstallPathToOnDevicePath(ctx, dir)
+	target := "/" + filepath.Join("apex", "com.android.runtime", dir.Base(), file.Base())
+
+	ctx.InstallAbsoluteSymlink(dir, file.Base(), target)
+	binary.post_install_cmds = append(binary.post_install_cmds, makeSymlinkCmd(dirOnDevice, file.Base(), target))
+
+	for _, symlink := range binary.symlinks {
+		ctx.InstallAbsoluteSymlink(dir, symlink, target)
+		binary.post_install_cmds = append(binary.post_install_cmds, makeSymlinkCmd(dirOnDevice, symlink, target))
+	}
+}
+
+func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
+	// Bionic binaries (e.g. linker) is installed to the bootstrap subdirectory.
+	// The original path becomes a symlink to the corresponding file in the
+	// runtime APEX.
+	if isBionic(ctx.baseModuleName()) && ctx.Arch().Native && ctx.apexName() == "" && !ctx.inRecovery() {
+		if ctx.Device() {
+			binary.installSymlinkToRuntimeApex(ctx, file)
+		}
+		binary.baseInstaller.subDir = "bootstrap"
+	}
+	binary.baseInstaller.install(ctx, file)
 	for _, symlink := range binary.symlinks {
 		ctx.InstallSymlink(binary.baseInstaller.installDir(ctx), symlink, binary.baseInstaller.path)
 	}
@@ -379,4 +458,27 @@ func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
 
 func (binary *binaryDecorator) hostToolPath() android.OptionalPath {
 	return binary.toolPath
+}
+
+func init() {
+	pctx.HostBinToolVariable("hostBionicSymbolsInjectCmd", "host_bionic_inject")
+}
+
+var injectHostBionicSymbols = pctx.AndroidStaticRule("injectHostBionicSymbols",
+	blueprint.RuleParams{
+		Command:     "$hostBionicSymbolsInjectCmd -i $in -l $linker -o $out",
+		CommandDeps: []string{"$hostBionicSymbolsInjectCmd"},
+	}, "linker")
+
+func (binary *binaryDecorator) injectHostBionicLinkerSymbols(ctx ModuleContext, in, linker android.Path, out android.WritablePath) {
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        injectHostBionicSymbols,
+		Description: "inject host bionic symbols",
+		Input:       in,
+		Implicit:    linker,
+		Output:      out,
+		Args: map[string]string{
+			"linker": linker.String(),
+		},
+	})
 }

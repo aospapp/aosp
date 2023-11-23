@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright 2017, The Android Open Source Project
 #
@@ -28,6 +28,7 @@ See target_config.py for the configuration syntax.
 
 import argparse
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -45,9 +46,9 @@ options = parser.parse_args()
 ##########
 
 if options.list:
-  print "List of all known build_target: "
-  for k in sorted(target_config.iterkeys()):
-    print " * " + k
+  print("List of all known build_target: ")
+  for k in sorted(target_config.keys()):
+    print(" * " + k)
   # TODO: would be nice if this was the same order as the target config file.
   sys.exit(1)
 
@@ -59,23 +60,34 @@ target = target_config[options.build_target]
 n_threads = options.n_threads
 custom_env = target.get('env', {})
 custom_env['SOONG_ALLOW_MISSING_DEPENDENCIES'] = 'true'
-print custom_env
+print(custom_env)
 os.environ.update(custom_env)
 
-if target.has_key('make'):
-  build_command = 'make'
-  build_command += ' DX='
-  build_command += ' -j' + str(n_threads)
-  build_command += ' -C ' + env.ANDROID_BUILD_TOP
-  build_command += ' ' + target.get('make')
-  # Add 'dist' to avoid Jack issues b/36169180.
-  build_command += ' dist'
+# build is just a binary/script that is directly executed to build any artifacts needed for the
+# test.
+if 'build' in target:
+  build_command = target.get('build').format(
+      ANDROID_BUILD_TOP = env.ANDROID_BUILD_TOP,
+      MAKE_OPTIONS='DX=  -j{threads}'.format(threads = n_threads))
   sys.stdout.write(str(build_command) + '\n')
   sys.stdout.flush()
   if subprocess.call(build_command.split()):
     sys.exit(1)
 
-if target.has_key('golem'):
+# make runs soong/kati to build the target listed in the entry.
+if 'make' in target:
+  build_command = 'build/soong/soong_ui.bash --make-mode'
+  build_command += ' DX='
+  build_command += ' -j' + str(n_threads)
+  build_command += ' ' + target.get('make')
+  if env.DIST_DIR:
+    build_command += ' dist'
+  sys.stdout.write(str(build_command) + '\n')
+  sys.stdout.flush()
+  if subprocess.call(build_command.split()):
+    sys.exit(1)
+
+if 'golem' in target:
   machine_type = target.get('golem')
   # use art-opt-cc by default since it mimics the default preopt config.
   default_golem_config = 'art-opt-cc'
@@ -93,11 +105,14 @@ if target.has_key('golem'):
   if subprocess.call(cmd):
     sys.exit(1)
 
-if target.has_key('run-test'):
+if 'run-test' in target:
   run_test_command = [os.path.join(env.ANDROID_BUILD_TOP,
                                    'art/test/testrunner/testrunner.py')]
   test_flags = target.get('run-test', [])
-  run_test_command += test_flags
+  out_dir = pathlib.PurePath(env.SOONG_OUT_DIR)
+  if not out_dir.is_absolute():
+    out_dir = pathlib.PurePath(env.ANDROID_BUILD_TOP).joinpath(out_dir)
+  run_test_command += list(map(lambda a: a.format(SOONG_OUT_DIR=str(out_dir)), test_flags))
   # Let testrunner compute concurrency based on #cpus.
   # b/65822340
   # run_test_command += ['-j', str(n_threads)]
@@ -108,7 +123,8 @@ if target.has_key('run-test'):
     run_test_command += ['--host']
     run_test_command += ['--dex2oat-jobs']
     run_test_command += ['4']
-  run_test_command += ['-b']
+  if '--no-build-dependencies' not in test_flags:
+    run_test_command += ['-b']
   run_test_command += ['--verbose']
 
   sys.stdout.write(str(run_test_command) + '\n')

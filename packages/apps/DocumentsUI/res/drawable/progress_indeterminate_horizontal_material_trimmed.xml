@@ -21,8 +21,8 @@
     android:drawable="@drawable/vector_drawable_progress_indeterminate_horizontal_trimmed" >
     <target
         android:name="rect2_grp"
-        android:animation="@*android:anim/progress_indeterminate_horizontal_rect2" />
+        android:animation="@anim/progress_indeterminate_horizontal_rect2" />
     <target
         android:name="rect1_grp"
-        android:animation="@*android:anim/progress_indeterminate_horizontal_rect1" />
+        android:animation="@anim/progress_indeterminate_horizontal_rect1" />
 </animated-vector>

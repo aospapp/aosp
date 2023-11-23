@@ -25,5 +25,5 @@
     <string name="dropdown_delete_button_desc" msgid="8506791557733906887">"Kendu <xliff:g id="CONTACT">%s</xliff:g> hartzaileetatik"</string>
     <string name="chips_action_copy" msgid="1929144660075507103">"Kopiatu"</string>
     <string name="chips_action_cancel" msgid="6077877438943543501">"Utzi"</string>
-    <string name="chips_permission_text" msgid="1978301259208877495">"Baimendu kontaktuak iradokitzea"</string>
+    <string name="chips_permission_text" msgid="1978301259208877495">"Eman kontaktuak iradokitzeko baimena"</string>
 </resources>

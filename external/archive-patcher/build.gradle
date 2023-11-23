@@ -1,11 +1,14 @@
-apply plugin: 'java'
-
-sourceSets {
-    main {
-        java.srcDirs = ['shared/src/main/java', 'applier/src/main/java']
+buildscript {
+    repositories {
+        jcenter()
     }
-    test {
-        java.srcDirs = ['shared/src/test/java', 'applier/src/test/java']
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.0-rc2'
     }
 }
 
+allprojects {
+    repositories {
+        jcenter()
+    }
+}

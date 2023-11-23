@@ -48,10 +48,10 @@ using namespace android;
 
 // Constructor.  Create an empty object.
 FileMap::FileMap(void)
-    : mFileName(NULL),
-      mBasePtr(NULL),
+    : mFileName(nullptr),
+      mBasePtr(nullptr),
       mBaseLength(0),
-      mDataPtr(NULL),
+      mDataPtr(nullptr),
       mDataLength(0)
 #if defined(__MINGW32__)
       ,
@@ -62,16 +62,22 @@ FileMap::FileMap(void)
 }
 
 // Move Constructor.
-FileMap::FileMap(FileMap&& other)
-    : mFileName(other.mFileName), mBasePtr(other.mBasePtr), mBaseLength(other.mBaseLength),
-      mDataOffset(other.mDataOffset), mDataPtr(other.mDataPtr), mDataLength(other.mDataLength)
+FileMap::FileMap(FileMap&& other) noexcept
+    : mFileName(other.mFileName),
+      mBasePtr(other.mBasePtr),
+      mBaseLength(other.mBaseLength),
+      mDataOffset(other.mDataOffset),
+      mDataPtr(other.mDataPtr),
+      mDataLength(other.mDataLength)
 #if defined(__MINGW32__)
-      , mFileHandle(other.mFileHandle), mFileMapping(other.mFileMapping)
+      ,
+      mFileHandle(other.mFileHandle),
+      mFileMapping(other.mFileMapping)
 #endif
 {
-    other.mFileName = NULL;
-    other.mBasePtr = NULL;
-    other.mDataPtr = NULL;
+    other.mFileName = nullptr;
+    other.mBasePtr = nullptr;
+    other.mDataPtr = nullptr;
 #if defined(__MINGW32__)
     other.mFileHandle = INVALID_HANDLE_VALUE;
     other.mFileMapping = NULL;
@@ -79,16 +85,16 @@ FileMap::FileMap(FileMap&& other)
 }
 
 // Move assign operator.
-FileMap& FileMap::operator=(FileMap&& other) {
+FileMap& FileMap::operator=(FileMap&& other) noexcept {
     mFileName = other.mFileName;
     mBasePtr = other.mBasePtr;
     mBaseLength = other.mBaseLength;
     mDataOffset = other.mDataOffset;
     mDataPtr = other.mDataPtr;
     mDataLength = other.mDataLength;
-    other.mFileName = NULL;
-    other.mBasePtr = NULL;
-    other.mDataPtr = NULL;
+    other.mFileName = nullptr;
+    other.mBasePtr = nullptr;
+    other.mDataPtr = nullptr;
 #if defined(__MINGW32__)
     mFileHandle = other.mFileHandle;
     mFileMapping = other.mFileMapping;
@@ -101,7 +107,7 @@ FileMap& FileMap::operator=(FileMap&& other) {
 // Destructor.
 FileMap::~FileMap(void)
 {
-    if (mFileName != NULL) {
+    if (mFileName != nullptr) {
         free(mFileName);
     }
 #if defined(__MINGW32__)
@@ -168,12 +174,6 @@ bool FileMap::create(const char* origFileName, int fd, off64_t offset, size_t le
         return false;
     }
 #else // !defined(__MINGW32__)
-    int     prot, flags, adjust;
-    off64_t adjOffset;
-    size_t  adjLength;
-
-    void* ptr;
-
     assert(fd >= 0);
     assert(offset >= 0);
     assert(length > 0);
@@ -187,31 +187,32 @@ bool FileMap::create(const char* origFileName, int fd, off64_t offset, size_t le
         }
     }
 
-    adjust = offset % mPageSize;
-    adjOffset = offset - adjust;
-    adjLength = length + adjust;
+    int adjust = offset % mPageSize;
+    off64_t adjOffset = offset - adjust;
+    size_t adjLength = length + adjust;
 
-    flags = MAP_SHARED;
-    prot = PROT_READ;
-    if (!readOnly)
-        prot |= PROT_WRITE;
+    int flags = MAP_SHARED;
+    int prot = PROT_READ;
+    if (!readOnly) prot |= PROT_WRITE;
 
-    ptr = mmap(NULL, adjLength, prot, flags, fd, adjOffset);
+    void* ptr = mmap(nullptr, adjLength, prot, flags, fd, adjOffset);
     if (ptr == MAP_FAILED) {
-        ALOGE("mmap(%lld,%zu) failed: %s\n",
-            (long long)adjOffset, adjLength, strerror(errno));
-        return false;
+        if (errno == EINVAL && length == 0) {
+            ptr = nullptr;
+            adjust = 0;
+        } else {
+            ALOGE("mmap(%lld,%zu) failed: %s\n", (long long)adjOffset, adjLength, strerror(errno));
+            return false;
+        }
     }
     mBasePtr = ptr;
 #endif // !defined(__MINGW32__)
 
-    mFileName = origFileName != NULL ? strdup(origFileName) : NULL;
+    mFileName = origFileName != nullptr ? strdup(origFileName) : nullptr;
     mBaseLength = adjLength;
     mDataOffset = offset;
     mDataPtr = (char*) mBasePtr + adjust;
     mDataLength = length;
-
-    assert(mBasePtr != NULL);
 
     ALOGV("MAP: base %p/%zu data %p/%zu\n",
         mBasePtr, mBaseLength, mDataPtr, mDataLength);

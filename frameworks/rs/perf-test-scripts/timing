@@ -38,7 +38,7 @@ FUNCTION_NAMES=(
   testMandelbrotfp64             testBlurRadius25Half                                                                                           # 45-46
 )
 
-RUNNER="com.android.rs.imagejb/android.support.test.runner.AndroidJUnitRunner"
+RUNNER="com.android.rs.imagejb/androidx.test.runner.AndroidJUnitRunner"
 TEST_ROOT="com.android.rs.imagejb.ImageProcessingTest"
 
 

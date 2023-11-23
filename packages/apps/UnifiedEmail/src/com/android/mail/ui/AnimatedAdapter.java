@@ -28,7 +28,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v4.text.BidiFormatter;
+import androidx.core.text.BidiFormatter;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;

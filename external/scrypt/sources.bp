@@ -27,8 +27,8 @@ cc_defaults {
         "-DUSE_OPENSSL_PBKDF2",
         "-Wall",
         "-Werror",
-        "-Wno-error=implicit-function-declaration",
-        "-Wno-error=unused-variable",
+        "-Wno-implicit-function-declaration",
+        "-Wno-unused-variable",
     ],
 
     export_include_dirs: [

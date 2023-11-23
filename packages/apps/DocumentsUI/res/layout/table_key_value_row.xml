@@ -19,20 +19,19 @@
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:paddingStart="30dp"
+    android:paddingEnd="30dp">
 
     <TextView
         android:id="@+id/table_row_key"
         android:layout_height="wrap_content"
         android:layout_width="0dp"
         android:layout_weight="1"
+        android:paddingTop="13dp"
+        android:paddingBottom="13dp"
         android:paddingEnd="5dp"
-        android:textColor="@android:color/black"
-        android:textSize="14sp"
-        android:textAlignment="viewStart">
+        android:textAlignment="viewStart"
+        android:textAppearance="?attr/textAppearanceSubtitle1">
     </TextView>
 
     <TextView
@@ -40,10 +39,12 @@
         android:layout_height="wrap_content"
         android:layout_width="0dp"
         android:layout_weight="1"
-        android:textColor="@color/inspector_value"
-        android:textSize="14sp"
+        android:paddingTop="13dp"
+        android:paddingBottom="13dp"
+        android:clickable="false"
         android:textIsSelectable="true"
-        android:textAlignment="viewStart">
+        android:textAlignment="viewStart"
+        android:textAppearance="@style/InspectorKeySubTitle">
     </TextView>
 
 </com.android.documentsui.inspector.KeyValueRow>

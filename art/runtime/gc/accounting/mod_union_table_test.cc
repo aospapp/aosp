@@ -17,8 +17,10 @@
 #include "mod_union_table-inl.h"
 
 #include "class_linker-inl.h"
+#include "class_root.h"
 #include "common_runtime_test.h"
 #include "gc/space/space-inl.h"
+#include "mirror/array-alloc-inl.h"
 #include "mirror/array-inl.h"
 #include "space_bitmap-inl.h"
 #include "thread-current-inl.h"
@@ -70,8 +72,7 @@ class ModUnionTableTest : public CommonRuntimeTest {
   mirror::Class* GetObjectArrayClass(Thread* self, space::ContinuousMemMapAllocSpace* space)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     if (java_lang_object_array_ == nullptr) {
-      java_lang_object_array_ =
-          Runtime::Current()->GetClassLinker()->GetClassRoot(ClassLinker::kObjectArrayClass);
+      java_lang_object_array_ = GetClassRoot<mirror::ObjectArray<mirror::Object>>().Ptr();
       // Since the test doesn't have an image, the class of the object array keeps cards live
       // inside the card cache mod-union table and causes the check
       // ASSERT_FALSE(table->ContainsCardFor(reinterpret_cast<uintptr_t>(obj3)));
@@ -97,13 +98,13 @@ class ModUnionTableTest : public CommonRuntimeTest {
 class CollectVisitedVisitor : public MarkObjectVisitor {
  public:
   explicit CollectVisitedVisitor(std::set<mirror::Object*>* out) : out_(out) {}
-  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref,
-                                 bool do_atomic_update ATTRIBUTE_UNUSED) OVERRIDE
+  void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref,
+                         bool do_atomic_update ATTRIBUTE_UNUSED) override
       REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(ref != nullptr);
     MarkObject(ref->AsMirrorPtr());
   }
-  virtual mirror::Object* MarkObject(mirror::Object* obj) OVERRIDE
+  mirror::Object* MarkObject(mirror::Object* obj) override
       REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(obj != nullptr);
     out_->insert(obj);
@@ -122,7 +123,7 @@ class ModUnionTableRefCacheToSpace : public ModUnionTableReferenceCache {
       space::ContinuousSpace* target_space)
       : ModUnionTableReferenceCache(name, heap, space), target_space_(target_space) {}
 
-  bool ShouldAddReference(const mirror::Object* ref) const OVERRIDE {
+  bool ShouldAddReference(const mirror::Object* ref) const override {
     return target_space_->HasAddress(ref);
   }
 
@@ -161,9 +162,9 @@ ModUnionTable* ModUnionTableFactory::Create(
     }
     default: {
       UNIMPLEMENTED(FATAL) << "Invalid type " << type;
+      UNREACHABLE();
     }
   }
-  return nullptr;
 }
 
 TEST_F(ModUnionTableTest, TestCardCache) {
@@ -184,7 +185,7 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
   ResetClass();
   // Create another space that we can put references in.
   std::unique_ptr<space::DlMallocSpace> other_space(space::DlMallocSpace::Create(
-      "other space", 128 * KB, 4 * MB, 4 * MB, nullptr, false));
+      "other space", 128 * KB, 4 * MB, 4 * MB, /*can_move_objects=*/ false));
   ASSERT_TRUE(other_space.get() != nullptr);
   {
     ScopedThreadSuspension sts(self, kSuspended);

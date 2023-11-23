@@ -16,26 +16,18 @@
 
 package android.provider.cts.contacts;
 
-import static android.provider.cts.contacts.DatabaseAsserts.ContactIdPair;
-
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.content.ContentResolver;
 import android.os.SystemClock;
-import android.provider.cts.contacts.CommonDatabaseUtils;
-import android.provider.cts.contacts.ContactUtil;
-import android.provider.cts.contacts.DataUtil;
-import android.provider.cts.contacts.DatabaseAsserts;
-import android.provider.cts.contacts.DeletedContactUtil;
-import android.provider.cts.contacts.RawContactUtil;
+import android.provider.cts.contacts.DatabaseAsserts.ContactIdPair;
 import android.provider.cts.contacts.account.StaticAccountAuthenticator;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 
-import com.google.android.collect.Lists;
-
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 @MediumTest
 public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
@@ -102,7 +94,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
      */
     public void testAccountRemovalWithMergedContact_deletesContacts() {
         mAccountManager.addAccountExplicitly(ACCT_1, null, null);
-        ArrayList<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_1);
+        List<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_1);
         mAccountManager.removeAccount(ACCT_1, null, null);
         assertContactsDeletedEventually(System.currentTimeMillis(), idList);
     }
@@ -114,7 +106,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
     public void testAccountRemovalWithMergedContact_doesNotDeleteContactAndTimestampUpdated() {
         mAccountManager.addAccountExplicitly(ACCT_1, null, null);
         mAccountManager.addAccountExplicitly(ACCT_2, null, null);
-        ArrayList<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_2);
+        List<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_2);
         long contactId = idList.get(0).mContactId;
 
         long baseTime = ContactUtil.queryContactLastUpdatedTimestamp(mResolver, contactId);
@@ -131,13 +123,13 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
 
     public void testAccountRemovalWithMergedContact_hasDeleteLogsForContacts() {
         mAccountManager.addAccountExplicitly(ACCT_1, null, null);
-        ArrayList<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_1);
+        List<ContactIdPair> idList = createAndAssertMergedContact(ACCT_1, ACCT_1);
         long start = System.currentTimeMillis();
         mAccountManager.removeAccount(ACCT_1, null, null);
         assertContactsInDeleteLogEventually(start, idList);
     }
 
-    private ArrayList<ContactIdPair> createAndAssertMergedContact(Account acct, Account acct2) {
+    private List<ContactIdPair> createAndAssertMergedContact(Account acct, Account acct2) {
         ContactIdPair ids1 = DatabaseAsserts.assertAndCreateContactWithName(mResolver, acct,
                 "merge me");
         DataUtil.insertPhoneNumber(mResolver, ids1.mRawContactId, "555-5555");
@@ -154,7 +146,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
         ids1.mContactId = mergedContactId;
         ids2.mContactId = mergedContactId;
 
-        return Lists.newArrayList(ids1, ids2);
+        return Arrays.asList(ids1, ids2);
     }
 
     private long assertMerged(long start, long rawContactId, long rawContactId2) {
@@ -178,7 +170,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
         return NOT_MERGED;
     }
 
-    private void assertContactsInDeleteLogEventually(long start, ArrayList<ContactIdPair> idList) {
+    private void assertContactsInDeleteLogEventually(long start, List<ContactIdPair> idList) {
         // Can not use newArrayList() because the version that accepts size is missing.
         ArrayList<ContactIdPair> remaining = new ArrayList<ContactIdPair>(idList.size());
         remaining.addAll(idList);
@@ -189,7 +181,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
                     " are not in delete log after account removal.");
 
             // Need a second list to remove since we can't remove from the list while iterating.
-            ArrayList<ContactIdPair> toBeRemoved = Lists.newArrayList();
+            ArrayList<ContactIdPair> toBeRemoved = new ArrayList<>();
             for (ContactIdPair ids : remaining) {
                 long deletedTime = DeletedContactUtil.queryDeletedTimestampForContactId(mResolver,
                         ids.mContactId);
@@ -209,7 +201,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
      * Polls every so often to see if all contacts have been deleted.  If not deleted in the
      * pre-defined threshold, fails.
      */
-    private void assertContactsDeletedEventually(long start, ArrayList<ContactIdPair> idList) {
+    private void assertContactsDeletedEventually(long start, List<ContactIdPair> idList) {
         // Can not use newArrayList() because the version that accepts size is missing.
         ArrayList<ContactIdPair> remaining = new ArrayList<ContactIdPair>(idList.size());
         remaining.addAll(idList);
@@ -219,7 +211,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
             assertWithinTimeoutLimit(start, "Contacts have not been deleted after account"
                     + " removal.");
 
-            ArrayList<ContactIdPair> toBeRemoved = Lists.newArrayList();
+            ArrayList<ContactIdPair> toBeRemoved = new ArrayList<>();
             for (ContactIdPair ids : remaining) {
                 if (!RawContactUtil.rawContactExistsById(mResolver, ids.mRawContactId)) {
                     toBeRemoved.add(ids);
@@ -244,7 +236,7 @@ public class ContactsProvider2_AccountRemovalTest extends AndroidTestCase {
      * Creates a given number of contacts for an account.
      */
     private ArrayList<ContactIdPair> createContacts(Account account, int numContacts) {
-        ArrayList<ContactIdPair> accountIds = Lists.newArrayList();
+        ArrayList<ContactIdPair> accountIds = new ArrayList<>();
         for (int i = 0; i < numContacts; i++) {
             accountIds.add(DatabaseAsserts.assertAndCreateContact(mResolver, account));
         }

@@ -19,10 +19,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TestName;
-
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.BusinessLogic;
 import com.android.compatibility.common.util.BusinessLogicExecutor;
@@ -30,7 +26,10 @@ import com.android.compatibility.common.util.BusinessLogicFactory;
 import com.android.compatibility.common.util.BusinessLogicHostExecutor;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.testtype.suite.TestSuiteInfo;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestName;
 
 import java.io.File;
 
@@ -72,8 +71,19 @@ public class BusinessLogicHostTestBase extends BaseHostJUnit4Test {
     }
 
     protected void loadBusinessLogic() {
+        File businessLogicFile = null;
         CompatibilityBuildHelper helper = new CompatibilityBuildHelper(getBuild());
-        File businessLogicFile = helper.getBusinessLogicHostFile();
+        // Check if business logic file has been already collected by suite level business logic
+        // preparer.
+        if (helper.hasBusinessLogicHostFile()) {
+            businessLogicFile = helper.getBusinessLogicHostFile();
+        }
+        else {
+            String bitness = (getAbi() != null) ? getAbi().getBitness() : "";
+            String moduleName = getInvocationContext().getConfigurationDescriptor().
+                getModuleName();
+            businessLogicFile = helper.getBusinessLogicHostFile(bitness + moduleName);
+        }
         if (businessLogicFile != null && businessLogicFile.canRead()) {
             mBusinessLogic = BusinessLogicFactory.createFromFile(businessLogicFile);
         } else {

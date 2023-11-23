@@ -1,0 +1,7 @@
+allow surfaceflinger mali_device:chr_file rw_file_perms;
+allow surfaceflinger hi_vdec_device:chr_file { read write open ioctl };
+allow surfaceflinger hi_overlay_file:file { read open getattr };
+allow surfaceflinger hi_vfmw_device:chr_file { read write open getattr ioctl };
+
+# neverallow
+#allow surfaceflinger vendor_file:file { read open getattr execute };

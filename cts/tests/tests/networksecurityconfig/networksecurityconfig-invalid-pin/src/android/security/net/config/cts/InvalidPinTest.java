@@ -16,9 +16,7 @@
 
 package android.security.net.config.cts;
 
-import junit.framework.TestCase;
-
-public class InvalidPinTest extends TestCase {
+public class InvalidPinTest extends BaseTestCase {
 
     public void testPinFailure() throws Exception {
         TestUtils.assertTlsConnectionFails("android.com", 443);

@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -76,6 +76,7 @@ class TelLabMobilityTest(TelephonyBaseTest):
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
+        self.md8475_version = self.user_params.get("md8475", "A")
         self.voice_call_number = self.user_params.get('voice_call_number',
                                                       DEFAULT_CALL_NUMBER)
         self.ip_server = self.iperf_servers[0]
@@ -87,7 +88,7 @@ class TelLabMobilityTest(TelephonyBaseTest):
     def setup_class(self):
         try:
             self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option)
+                                   self.wlan_option, self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False

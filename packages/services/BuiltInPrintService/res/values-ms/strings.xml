@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Pintu terbuka"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Tersekat"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Luar talian"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Sijil tidak sah"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Tidak disulitkan"</string>
     <string name="printer_check" msgid="6428369671197132828">"Semak pencetak"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Menunggu untuk dihantar"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Tidak dapat membaca dokumen"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Pencetak tidak disokong"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Langsung"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Cari pencetak Wi-Fi Langsung"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Pencetakan Wi-Fi Langsung"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Pencetak Wi-Fi Langsung"</string>
     <string name="searching" msgid="2114018057619514587">"Mencari…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Anda mungkin perlu meluluskan sambungan ini pada panel hadapan pencetak anda"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Lupakan"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Bersambung melalui Wi-Fi Langsung"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Bersambung melalui rangkaian semasa di <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Keselamatan"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Pencetak ini memberikan sijil keselamatan baharu atau peranti lain sedang menyamar menjadi pencetak tersebut. Terima sijil baharu?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Pencetak ini tidak lagi menerima kerja yang disulitkan. Teruskan mencetak?"</string>
+    <string name="accept" msgid="4426153292469698134">"Terima"</string>
+    <string name="reject" msgid="24751635160440693">"Tolak"</string>
+    <string name="connections" msgid="8895413761760117180">"Sambungan"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Perkhidmatan Pencetakan Lalai memerlukan kebenaran lokasi untuk mencari peranti berdekatan."</string>
+    <string name="fix" msgid="7784394272611365393">"Semak kebenaran"</string>
 </resources>

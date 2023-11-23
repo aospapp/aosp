@@ -215,6 +215,12 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   INF MdeModulePkg/Application/UiApp/UiApp.inf
 
+  # add Device Tree to the Firmware Volume
+  INF EmbeddedPkg/Drivers/DtPlatformDxe/DtPlatformDxe.inf
+  FILE FREEFORM = 25462CDA-221F-47DF-AC1D-259CFAA4E326 {
+    SECTION RAW = OpenPlatformPkg/Platforms/Hisilicon/DeviceTree/hi3660-hikey960.dtb
+  }
+
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 8

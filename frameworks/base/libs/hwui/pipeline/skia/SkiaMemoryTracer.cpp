@@ -21,16 +21,16 @@ namespace uirenderer {
 namespace skiapipeline {
 
 SkiaMemoryTracer::SkiaMemoryTracer(std::vector<ResourcePair> resourceMap, bool itemizeType)
-            : mResourceMap(resourceMap)
-            , mItemizeType(itemizeType)
-            , mTotalSize("bytes", 0)
-            , mPurgeableSize("bytes", 0) {}
+        : mResourceMap(resourceMap)
+        , mItemizeType(itemizeType)
+        , mTotalSize("bytes", 0)
+        , mPurgeableSize("bytes", 0) {}
 
 SkiaMemoryTracer::SkiaMemoryTracer(const char* categoryKey, bool itemizeType)
-            : mCategoryKey(categoryKey)
-            , mItemizeType(itemizeType)
-            , mTotalSize("bytes", 0)
-            , mPurgeableSize("bytes", 0) {}
+        : mCategoryKey(categoryKey)
+        , mItemizeType(itemizeType)
+        , mTotalSize("bytes", 0)
+        , mPurgeableSize("bytes", 0) {}
 
 const char* SkiaMemoryTracer::mapName(const char* resourceName) {
     for (auto& resource : mResourceMap) {
@@ -42,7 +42,7 @@ const char* SkiaMemoryTracer::mapName(const char* resourceName) {
 }
 
 void SkiaMemoryTracer::processElement() {
-    if(!mCurrentElement.empty()) {
+    if (!mCurrentElement.empty()) {
         // Only count elements that contain "size", other values just provide metadata.
         auto sizeResult = mCurrentValues.find("size");
         if (sizeResult != mCurrentValues.end()) {
@@ -106,8 +106,9 @@ void SkiaMemoryTracer::processElement() {
                 resourceValues.insert({key, sizeResult->second});
             }
         } else {
+            TraceValue sizeValue = sizeResult->second;
             mCurrentValues.clear();
-            mCurrentValues.insert({key, sizeResult->second});
+            mCurrentValues.insert({key, sizeValue});
             mResults.insert({resourceName, mCurrentValues});
         }
     }
@@ -135,8 +136,8 @@ void SkiaMemoryTracer::logOutput(String8& log) {
             for (const auto& typedValue : namedItem.second) {
                 TraceValue traceValue = convertUnits(typedValue.second);
                 const char* entry = (traceValue.count > 1) ? "entries" : "entry";
-                log.appendFormat("    %s: %.2f %s (%d %s)\n", typedValue.first,
-                                 traceValue.value, traceValue.units, traceValue.count, entry);
+                log.appendFormat("    %s: %.2f %s (%d %s)\n", typedValue.first, traceValue.value,
+                                 traceValue.units, traceValue.count, entry);
             }
         } else {
             auto result = namedItem.second.find("size");

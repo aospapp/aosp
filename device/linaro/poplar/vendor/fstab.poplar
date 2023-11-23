@@ -1,0 +1,6 @@
+
+/dev/block/platform/soc@f0000000/f9830000.mmc/by-name/cache       /cache     ext4    nosuid,nodev,noatime,barrier=1,data=ordered    wait
+/dev/block/platform/soc@f0000000/f9830000.mmc/by-name/userdata    /data      ext4    nosuid,nodev,noatime,barrier=1,data=ordered,noauto_da_alloc    wait
+*/block/mmcblk*    auto    auto    defaults    voldmanaged=sdcard:auto,noemulatedsd
+*/block/sd*    auto    auto    defaults    voldmanaged=usb:auto,noemulatedsd
+

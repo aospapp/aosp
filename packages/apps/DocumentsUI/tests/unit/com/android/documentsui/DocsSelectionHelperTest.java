@@ -21,16 +21,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.v7.widget.RecyclerView.Adapter;
+import androidx.recyclerview.selection.Selection;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.DocsSelectionHelper.DelegateFactory;
-import com.android.documentsui.selection.DefaultSelectionHelper;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.selection.SelectionHelper.SelectionPredicate;
-import com.android.documentsui.selection.SelectionHelper.StableIdProvider;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -40,7 +36,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Tests for the specialized behaviors provided by DocsSelectionManager.
@@ -57,20 +52,16 @@ public class DocsSelectionHelperTest {
     public void setup() {
         mCreated = new ArrayList<>();
         mFactory = new DelegateFactory() {
-            @Override
-            TestSelectionManager create(
-                    int mode,
-                    Adapter<?> adapter,
-                    StableIdProvider stableIds,
-                    SelectionPredicate canSetState) {
 
+            @Override
+            TestSelectionManager create(SelectionTracker<String> selectionTracker) {
                 TestSelectionManager mgr = new TestSelectionManager();
                 mCreated.add(mgr);
                 return mgr;
             }
         };
 
-        mSelectionMgr = new DocsSelectionHelper(mFactory, DefaultSelectionHelper.MODE_MULTIPLE);
+        mSelectionMgr = new DocsSelectionHelper(mFactory);
     }
 
     @Test
@@ -82,16 +73,16 @@ public class DocsSelectionHelperTest {
 
     @Test
     public void testReset_CreatesNewInstances() {
-        mSelectionMgr.reset(null, null, null);  // nulls are passed to factory. We ignore.
-        mSelectionMgr.reset(null, null, null);  // nulls are passed to factory. We ignore.
+        resetSelectionHelper();
+        resetSelectionHelper();
 
         assertCreated(2);
     }
 
     @Test
     public void testReset_ClearsPreviousSelection() {
-        mSelectionMgr.reset(null, null, null);  // nulls are passed to factory. We ignore.
-        mSelectionMgr.reset(null, null, null);  // nulls are passed to factory. We ignore.
+        resetSelectionHelper();
+        resetSelectionHelper();
 
         mCreated.get(0).assertCleared(true);
         mCreated.get(1).assertCleared(false);
@@ -99,7 +90,7 @@ public class DocsSelectionHelperTest {
 
     @Test
     public void testReplaceSelection() {
-        mSelectionMgr.reset(null, null, null);  // nulls are passed to factory. We ignore.
+        resetSelectionHelper();
 
         List<String> ids = new ArrayList<>();
         ids.add("poodles");
@@ -113,7 +104,11 @@ public class DocsSelectionHelperTest {
         assertEquals(count, mCreated.size());
     }
 
-    private static final class TestSelectionManager extends SelectionHelper {
+    private void resetSelectionHelper() {
+        mSelectionMgr.reset(null); // nulls are passed to factory. We ignore.
+    }
+
+    private static final class TestSelectionManager extends DummySelectionTracker<String> {
 
         private boolean mCleared;
         private Map<String, Boolean> mSelected = new HashMap<>();
@@ -141,12 +136,7 @@ public class DocsSelectionHelperTest {
         }
 
         @Override
-        public Selection getSelection() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void copySelection(Selection dest) {
+        public Selection<String> getSelection() {
             throw new UnsupportedOperationException();
         }
 
@@ -156,7 +146,7 @@ public class DocsSelectionHelperTest {
         }
 
         @Override
-        public void restoreSelection(Selection other) {
+        public void restoreSelection(Selection<String> other) {
             throw new UnsupportedOperationException();
         }
 
@@ -169,8 +159,9 @@ public class DocsSelectionHelperTest {
         }
 
         @Override
-        public void clearSelection() {
+        public boolean clearSelection() {
             mCleared = true;
+            return true;
         }
 
         @Override
@@ -180,51 +171,6 @@ public class DocsSelectionHelperTest {
 
         @Override
         public boolean deselect(String itemId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void startRange(int pos) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void extendRange(int pos) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void endRange() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean isRangeActive() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void anchorRange(int position) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void extendProvisionalRange(int pos) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void clearProvisionalSelection() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void mergeProvisionalSelection() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void setProvisionalSelection(Set<String> newSelection) {
             throw new UnsupportedOperationException();
         }
     }

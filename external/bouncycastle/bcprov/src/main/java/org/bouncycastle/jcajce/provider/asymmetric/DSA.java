@@ -84,10 +84,6 @@ public class DSA
             provider.addAlgorithm("Alg.Alias.Signature.DSAWithSHA1", "SHA1withDSA");
             // END Android-changed: Change primary ID from DSA to SHA1withDSA
 
-            // BEGIN Android-removed: Unsupported algorithms
-            // provider.addAlgorithm("Alg.Alias.Signature.1.2.840.10040.4.3", "DSA");
-            // END Android-removed: Unsupported algorithms
-
             AsymmetricKeyInfoConverter keyFact = new KeyFactorySpi();
 
             for (int i = 0; i != DSAUtil.dsaOids.length; i++)

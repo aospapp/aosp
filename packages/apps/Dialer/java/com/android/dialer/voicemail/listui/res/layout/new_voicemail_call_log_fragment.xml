@@ -19,6 +19,7 @@
     android:id="@+id/new_voicemail_frame_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground"
     android:orientation="vertical">
 
   <android.support.v7.widget.RecyclerView
@@ -26,11 +27,8 @@
       android:id="@+id/new_voicemail_call_log_recycler_view"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:paddingBottom="@dimen/floating_action_button_list_bottom_padding"
-      android:background="@color/background_dialer_light"
-      android:clipToPadding="false"
-      android:visibility="gone"
-      />
+      android:paddingBottom="88dp"
+      android:clipToPadding="false"/>
 
 
   <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -43,7 +41,6 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone"/>
-
   </FrameLayout>
 
 </FrameLayout>

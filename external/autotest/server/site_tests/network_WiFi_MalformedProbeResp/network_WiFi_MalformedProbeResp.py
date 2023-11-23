@@ -28,8 +28,7 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
                 channel=self.PROBE_RESPONSE_TEST_CHANNEL,
                 mode=hostap_config.HostapConfig.MODE_11B)
         self.context.router.require_capabilities(
-            [site_linux_system.LinuxSystem.CAPABILITY_SEND_MANAGEMENT_FRAME,
-             site_linux_system.LinuxSystem.CAPABILITY_MULTI_AP_SAME_BAND])
+            [site_linux_system.LinuxSystem.CAPABILITY_SEND_MANAGEMENT_FRAME])
 
         self.context.configure(configuration)
         # Configure 2nd AP to inject the malformed probe responses.
@@ -43,10 +42,8 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
                 ht_type=configuration.ht_packet_capture_mode)
         assoc_params = xmlrpc_datatypes.AssociationParameters()
         assoc_params.ssid = self.context.router.get_ssid(instance=0)
-        assoc_result = self.context.assert_connect_wifi(assoc_params)
+        self.context.assert_connect_wifi(assoc_params)
         start_time = time.time()
-        count = 1
-        scan = 0
         rx_probe_resp_count = 0
         with self.context.client.assert_no_disconnects():
             with frame_sender.FrameSender(
@@ -62,7 +59,7 @@ class network_WiFi_MalformedProbeResp(wifi_cell_test_base.WiFiCellTestBase):
                     instance=1):
                 while time.time() - start_time < self.SCAN_LOOP_SEC:
                     bss_list = self.context.client.iw_runner.scan(
-                            self.context.client.wifi_if, [2412])
+                            self.context.client.wifi_if, [2412]) or []
                     for bss in bss_list:
                         logging.debug('found bss: %s', bss.ssid)
                         if bss.ssid == 'TestingProbes00000000':

@@ -16,10 +16,14 @@
 
 /* Rev when message format changes. If new messages are added, or message ID
  * values change. */
-#define CRAS_PROTO_VER 1
+#define CRAS_PROTO_VER 2
 #define CRAS_SERV_MAX_MSG_SIZE 256
 #define CRAS_CLIENT_MAX_MSG_SIZE 256
 #define CRAS_HOTWORD_NAME_MAX_SIZE 8
+#define CRAS_MAX_HOTWORD_MODELS 244
+#define CRAS_MAX_REMIX_CHANNELS 32
+#define CRAS_MAX_TEST_DATA_LEN 224
+#define CRAS_AEC_DUMP_FILE_NAME_LEN 128
 
 /* Message IDs. */
 enum CRAS_SERVER_MESSAGE_ID {
@@ -39,6 +43,7 @@ enum CRAS_SERVER_MESSAGE_ID {
 	CRAS_SERVER_RELOAD_DSP,
 	CRAS_SERVER_DUMP_DSP_INFO,
 	CRAS_SERVER_DUMP_AUDIO_THREAD,
+	CRAS_SERVER_DUMP_SNAPSHOTS,
 	CRAS_SERVER_ADD_ACTIVE_NODE,
 	CRAS_SERVER_RM_ACTIVE_NODE,
 	CRAS_SERVER_ADD_TEST_DEV,
@@ -49,6 +54,8 @@ enum CRAS_SERVER_MESSAGE_ID {
 	CRAS_SERVER_GET_HOTWORD_MODELS,
 	CRAS_SERVER_SET_HOTWORD_MODEL,
 	CRAS_SERVER_REGISTER_NOTIFICATION,
+	CRAS_SERVER_SET_AEC_DUMP,
+	CRAS_SERVER_RELOAD_AEC_CONFIG,
 };
 
 enum CRAS_CLIENT_MESSAGE_ID {
@@ -100,7 +107,28 @@ struct __attribute__ ((__packed__)) cras_connect_message {
 	uint32_t flags;
 	struct cras_audio_format_packed format; /* rate, channel, sample size */
 	uint32_t dev_idx; /* device to attach stream, 0 if none */
+	uint64_t effects; /* Bit map of requested effects. */
 };
+
+/*
+ * Old version of connect message without 'effects' member defined.
+ * Used to check against when receiving invalid size of connect message.
+ * Expected to have proto_version set to 1.
+ * TODO(hychao): remove when all clients migrate to latest libcras.
+ */
+struct __attribute__ ((__packed__)) cras_connect_message_old {
+	struct cras_server_message header;
+	uint32_t proto_version;
+	enum CRAS_STREAM_DIRECTION direction; /* input/output/loopback */
+	cras_stream_id_t stream_id; /* unique id for this stream */
+	enum CRAS_STREAM_TYPE stream_type; /* media, or call, etc. */
+	uint32_t buffer_frames; /* Buffer size in frames. */
+	uint32_t cb_threshold; /* callback client when this much is left */
+	uint32_t flags;
+	struct cras_audio_format_packed format; /* rate, channel, sample size */
+	uint32_t dev_idx; /* device to attach stream, 0 if none */
+};
+
 static inline void cras_fill_connect_message(struct cras_connect_message *m,
 					   enum CRAS_STREAM_DIRECTION direction,
 					   cras_stream_id_t stream_id,
@@ -108,6 +136,7 @@ static inline void cras_fill_connect_message(struct cras_connect_message *m,
 					   size_t buffer_frames,
 					   size_t cb_threshold,
 					   uint32_t flags,
+					   uint64_t effects,
 					   struct cras_audio_format format,
 					   uint32_t dev_idx)
 {
@@ -118,6 +147,7 @@ static inline void cras_fill_connect_message(struct cras_connect_message *m,
 	m->buffer_frames = buffer_frames;
 	m->cb_threshold = cb_threshold;
 	m->flags = flags;
+	m->effects = effects;
 	pack_cras_audio_format(&m->format, &format);
 	m->dev_idx = dev_idx;
 	m->header.id = CRAS_SERVER_CONNECT_STREAM;
@@ -325,6 +355,18 @@ static inline void cras_fill_dump_audio_thread(
 	m->header.length = sizeof(*m);
 }
 
+/* Dump current audio thread snapshots to shard memory with the client. */
+struct __attribute__ ((__packed__)) cras_dump_snapshots {
+	struct cras_server_message header;
+};
+
+static inline void cras_fill_dump_snapshots(
+		struct cras_dump_snapshots *m)
+{
+	m->header.id = CRAS_SERVER_DUMP_SNAPSHOTS;
+	m->header.length = sizeof(*m);
+}
+
 /* Add a test device. */
 struct __attribute__ ((__packed__)) cras_add_test_dev {
 	struct cras_server_message header;
@@ -345,7 +387,7 @@ struct __attribute__ ((__packed__)) cras_test_dev_command {
 	unsigned int command;
 	unsigned int iodev_idx;
 	unsigned int data_len;
-	uint8_t data[];
+	uint8_t data[CRAS_MAX_TEST_DATA_LEN];
 };
 
 static inline void cras_fill_test_dev_command(struct cras_test_dev_command *m,
@@ -369,11 +411,14 @@ static inline void cras_fill_suspend_message(struct cras_server_message *m,
 	m->length = sizeof(*m);
 }
 
-/* Configures the global remix converter. */
+/*
+ * Configures the global remix converter.
+ * `num_channels` must be less than `CRAS_MAX_REMIX_CHANNELS`.
+ */
 struct __attribute__ ((__packed__)) cras_config_global_remix {
 	struct cras_server_message header;
 	unsigned int num_channels;
-	float coefficient[];
+	float coefficient[CRAS_MAX_REMIX_CHANNELS];
 };
 
 static inline void cras_fill_config_global_remix_command(
@@ -421,6 +466,35 @@ static inline void cras_fill_set_hotword_model_message(
 	memcpy(m->model_name, model_name, CRAS_HOTWORD_NAME_MAX_SIZE);
 }
 
+/* Set aec dump to start or stop. */
+struct __attribute__ ((__packed__)) cras_set_aec_dump {
+	struct cras_server_message header;
+	cras_stream_id_t stream_id;
+	unsigned int start;
+};
+
+static inline void cras_fill_set_aec_dump_message(
+		struct cras_set_aec_dump *m,
+		cras_stream_id_t stream_id,
+		unsigned int start)
+{
+	m->header.id = CRAS_SERVER_SET_AEC_DUMP;
+	m->header.length = sizeof(*m);
+	m->stream_id = stream_id;
+	m->start = start;
+}
+
+/* Reload the aec configuration. */
+struct __attribute__ ((__packed__)) cras_reload_aec_config {
+	struct cras_server_message header;
+};
+static inline void cras_fill_reload_aec_config(
+		struct cras_reload_aec_config *m)
+{
+	m->header.id = CRAS_SERVER_RELOAD_AEC_CONFIG;
+	m->header.length = sizeof(*m);
+}
+
 struct __attribute__ ((__packed__)) cras_register_notification {
 		struct cras_server_message header;
 		uint32_t msg_id;
@@ -465,9 +539,37 @@ struct __attribute__ ((__packed__)) cras_client_stream_connected {
 	cras_stream_id_t stream_id;
 	struct cras_audio_format_packed format;
 	uint32_t shm_max_size;
+	uint64_t effects;
+};
+/*
+ * Old version of stream connected message without effects defined.
+ * TODO(hychao): remove when all clients migrate to latest libcras.
+ */
+struct __attribute__ ((__packed__)) cras_client_stream_connected_old {
+	struct cras_client_message header;
+	int32_t err;
+	cras_stream_id_t stream_id;
+	struct cras_audio_format_packed format;
+	uint32_t shm_max_size;
 };
 static inline void cras_fill_client_stream_connected(
 		struct cras_client_stream_connected *m,
+		int err,
+		cras_stream_id_t stream_id,
+		struct cras_audio_format *format,
+		size_t shm_max_size,
+		uint64_t effects)
+{
+	m->err = err;
+	m->stream_id = stream_id;
+	pack_cras_audio_format(&m->format, format);
+	m->shm_max_size = shm_max_size;
+	m->effects = effects;
+	m->header.id = CRAS_CLIENT_STREAM_CONNECTED;
+	m->header.length = sizeof(struct cras_client_stream_connected);
+}
+static inline void cras_fill_client_stream_connected_old(
+		struct cras_client_stream_connected_old *m,
 		int err,
 		cras_stream_id_t stream_id,
 		struct cras_audio_format *format,
@@ -478,7 +580,7 @@ static inline void cras_fill_client_stream_connected(
 	pack_cras_audio_format(&m->format, format);
 	m->shm_max_size = shm_max_size;
 	m->header.id = CRAS_CLIENT_STREAM_CONNECTED;
-	m->header.length = sizeof(struct cras_client_stream_connected);
+	m->header.length = sizeof(struct cras_client_stream_connected_old);
 }
 
 /* Sent from server to client when audio debug information is requested. */
@@ -496,7 +598,7 @@ static inline void cras_fill_client_audio_debug_info_ready(
 struct cras_client_get_hotword_models_ready {
 	struct cras_client_message header;
 	int32_t hotword_models_size;
-	uint8_t hotword_models[0];
+	uint8_t hotword_models[CRAS_MAX_HOTWORD_MODELS];
 };
 static inline void cras_fill_client_get_hotword_models_ready(
 		struct cras_client_get_hotword_models_ready *m,
@@ -640,6 +742,7 @@ static inline void cras_fill_client_num_active_streams_changed (
 enum CRAS_AUDIO_MESSAGE_ID {
 	AUDIO_MESSAGE_REQUEST_DATA,
 	AUDIO_MESSAGE_DATA_READY,
+	AUDIO_MESSAGE_DATA_CAPTURED,
 	NUM_AUDIO_MESSAGES
 };
 

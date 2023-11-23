@@ -29,8 +29,8 @@ public class H264Yuv420_8bitHpBitstreamsTest extends MediaBitstreamsTest {
     }
 
     public H264Yuv420_8bitHpBitstreamsTest(String prefix, String path,
-            BitstreamPackage pkg, BitstreamPackage packageToRun) {
-        super(prefix, path, pkg, packageToRun);
+            BitstreamPackage pkg, BitstreamPackage packageToRun, boolean enforce) {
+        super(prefix, path, pkg, packageToRun, enforce);
     }
 
 }

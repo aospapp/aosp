@@ -22,7 +22,6 @@
 #define A2DP_VENDOR_LDAC_ENCODER_H
 
 #include "a2dp_codec_api.h"
-#include "osi/include/time.h"
 
 // Loads the A2DP LDAC encoder.
 // Return true on success, otherwise false.
@@ -52,7 +51,7 @@ void a2dp_vendor_ldac_feeding_reset(void);
 void a2dp_vendor_ldac_feeding_flush(void);
 
 // Get the A2DP LDAC encoder interval (in milliseconds).
-period_ms_t a2dp_vendor_ldac_get_encoder_interval_ms(void);
+uint64_t a2dp_vendor_ldac_get_encoder_interval_ms(void);
 
 // Prepare and send A2DP LDAC encoded frames.
 // |timestamp_us| is the current timestamp (in microseconds).

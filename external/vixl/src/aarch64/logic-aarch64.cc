@@ -33,6 +33,39 @@
 namespace vixl {
 namespace aarch64 {
 
+using vixl::internal::SimFloat16;
+
+template <typename T>
+bool IsFloat64() {
+  return false;
+}
+template <>
+bool IsFloat64<double>() {
+  return true;
+}
+
+template <typename T>
+bool IsFloat32() {
+  return false;
+}
+template <>
+bool IsFloat32<float>() {
+  return true;
+}
+
+template <typename T>
+bool IsFloat16() {
+  return false;
+}
+template <>
+bool IsFloat16<Float16>() {
+  return true;
+}
+template <>
+bool IsFloat16<SimFloat16>() {
+  return true;
+}
+
 template <>
 double Simulator::FPDefaultNaN<double>() {
   return kFP64DefaultNaN;
@@ -44,42 +77,10 @@ float Simulator::FPDefaultNaN<float>() {
   return kFP32DefaultNaN;
 }
 
-// See FPRound for a description of this function.
-static inline double FPRoundToDouble(int64_t sign,
-                                     int64_t exponent,
-                                     uint64_t mantissa,
-                                     FPRounding round_mode) {
-  int64_t bits =
-      FPRound<int64_t, kDoubleExponentBits, kDoubleMantissaBits>(sign,
-                                                                 exponent,
-                                                                 mantissa,
-                                                                 round_mode);
-  return RawbitsToDouble(bits);
-}
 
-
-// See FPRound for a description of this function.
-static inline float FPRoundToFloat(int64_t sign,
-                                   int64_t exponent,
-                                   uint64_t mantissa,
-                                   FPRounding round_mode) {
-  int32_t bits =
-      FPRound<int32_t, kFloatExponentBits, kFloatMantissaBits>(sign,
-                                                               exponent,
-                                                               mantissa,
-                                                               round_mode);
-  return RawbitsToFloat(bits);
-}
-
-
-// See FPRound for a description of this function.
-static inline float16 FPRoundToFloat16(int64_t sign,
-                                       int64_t exponent,
-                                       uint64_t mantissa,
-                                       FPRounding round_mode) {
-  return FPRound<float16,
-                 kFloat16ExponentBits,
-                 kFloat16MantissaBits>(sign, exponent, mantissa, round_mode);
+template <>
+SimFloat16 Simulator::FPDefaultNaN<SimFloat16>() {
+  return SimFloat16(kFP16DefaultNaN);
 }
 
 
@@ -137,265 +138,32 @@ float Simulator::UFixedToFloat(uint64_t src, int fbits, FPRounding round) {
 }
 
 
-double Simulator::FPToDouble(float value) {
-  switch (std::fpclassify(value)) {
-    case FP_NAN: {
-      if (IsSignallingNaN(value)) {
-        FPProcessException();
-      }
-      if (ReadDN()) return kFP64DefaultNaN;
-
-      // Convert NaNs as the processor would:
-      //  - The sign is propagated.
-      //  - The payload (mantissa) is transferred entirely, except that the top
-      //    bit is forced to '1', making the result a quiet NaN. The unused
-      //    (low-order) payload bits are set to 0.
-      uint32_t raw = FloatToRawbits(value);
-
-      uint64_t sign = raw >> 31;
-      uint64_t exponent = (1 << 11) - 1;
-      uint64_t payload = ExtractUnsignedBitfield64(21, 0, raw);
-      payload <<= (52 - 23);           // The unused low-order bits should be 0.
-      payload |= (UINT64_C(1) << 51);  // Force a quiet NaN.
-
-      return RawbitsToDouble((sign << 63) | (exponent << 52) | payload);
-    }
-
-    case FP_ZERO:
-    case FP_NORMAL:
-    case FP_SUBNORMAL:
-    case FP_INFINITE: {
-      // All other inputs are preserved in a standard cast, because every value
-      // representable using an IEEE-754 float is also representable using an
-      // IEEE-754 double.
-      return static_cast<double>(value);
-    }
+SimFloat16 Simulator::FixedToFloat16(int64_t src, int fbits, FPRounding round) {
+  if (src >= 0) {
+    return UFixedToFloat16(src, fbits, round);
+  } else if (src == INT64_MIN) {
+    return -UFixedToFloat16(src, fbits, round);
+  } else {
+    return -UFixedToFloat16(-src, fbits, round);
   }
-
-  VIXL_UNREACHABLE();
-  return static_cast<double>(value);
 }
 
 
-float Simulator::FPToFloat(float16 value) {
-  uint32_t sign = value >> 15;
-  uint32_t exponent =
-      ExtractUnsignedBitfield32(kFloat16MantissaBits + kFloat16ExponentBits - 1,
-                                kFloat16MantissaBits,
-                                value);
-  uint32_t mantissa =
-      ExtractUnsignedBitfield32(kFloat16MantissaBits - 1, 0, value);
-
-  switch (Float16Classify(value)) {
-    case FP_ZERO:
-      return (sign == 0) ? 0.0f : -0.0f;
-
-    case FP_INFINITE:
-      return (sign == 0) ? kFP32PositiveInfinity : kFP32NegativeInfinity;
-
-    case FP_SUBNORMAL: {
-      // Calculate shift required to put mantissa into the most-significant bits
-      // of the destination mantissa.
-      int shift = CountLeadingZeros(mantissa << (32 - 10));
-
-      // Shift mantissa and discard implicit '1'.
-      mantissa <<= (kFloatMantissaBits - kFloat16MantissaBits) + shift + 1;
-      mantissa &= (1 << kFloatMantissaBits) - 1;
-
-      // Adjust the exponent for the shift applied, and rebias.
-      exponent = exponent - shift + (-15 + 127);
-      break;
-    }
-
-    case FP_NAN:
-      if (IsSignallingNaN(value)) {
-        FPProcessException();
-      }
-      if (ReadDN()) return kFP32DefaultNaN;
-
-      // Convert NaNs as the processor would:
-      //  - The sign is propagated.
-      //  - The payload (mantissa) is transferred entirely, except that the top
-      //    bit is forced to '1', making the result a quiet NaN. The unused
-      //    (low-order) payload bits are set to 0.
-      exponent = (1 << kFloatExponentBits) - 1;
-
-      // Increase bits in mantissa, making low-order bits 0.
-      mantissa <<= (kFloatMantissaBits - kFloat16MantissaBits);
-      mantissa |= 1 << 22;  // Force a quiet NaN.
-      break;
-
-    case FP_NORMAL:
-      // Increase bits in mantissa, making low-order bits 0.
-      mantissa <<= (kFloatMantissaBits - kFloat16MantissaBits);
-
-      // Change exponent bias.
-      exponent += (-15 + 127);
-      break;
-
-    default:
-      VIXL_UNREACHABLE();
-  }
-  return RawbitsToFloat((sign << 31) | (exponent << kFloatMantissaBits) |
-                        mantissa);
-}
-
-
-float16 Simulator::FPToFloat16(float value, FPRounding round_mode) {
-  // Only the FPTieEven rounding mode is implemented.
-  VIXL_ASSERT(round_mode == FPTieEven);
-  USE(round_mode);
-
-  uint32_t raw = FloatToRawbits(value);
-  int32_t sign = raw >> 31;
-  int32_t exponent = ExtractUnsignedBitfield32(30, 23, raw) - 127;
-  uint32_t mantissa = ExtractUnsignedBitfield32(22, 0, raw);
-
-  switch (std::fpclassify(value)) {
-    case FP_NAN: {
-      if (IsSignallingNaN(value)) {
-        FPProcessException();
-      }
-      if (ReadDN()) return kFP16DefaultNaN;
-
-      // Convert NaNs as the processor would:
-      //  - The sign is propagated.
-      //  - The payload (mantissa) is transferred as much as possible, except
-      //    that the top bit is forced to '1', making the result a quiet NaN.
-      float16 result =
-          (sign == 0) ? kFP16PositiveInfinity : kFP16NegativeInfinity;
-      result |= mantissa >> (kFloatMantissaBits - kFloat16MantissaBits);
-      result |= (1 << 9);  // Force a quiet NaN;
-      return result;
-    }
-
-    case FP_ZERO:
-      return (sign == 0) ? 0 : 0x8000;
-
-    case FP_INFINITE:
-      return (sign == 0) ? kFP16PositiveInfinity : kFP16NegativeInfinity;
-
-    case FP_NORMAL:
-    case FP_SUBNORMAL: {
-      // Convert float-to-half as the processor would, assuming that FPCR.FZ
-      // (flush-to-zero) is not set.
-
-      // Add the implicit '1' bit to the mantissa.
-      mantissa += (1 << 23);
-      return FPRoundToFloat16(sign, exponent, mantissa, round_mode);
-    }
+SimFloat16 Simulator::UFixedToFloat16(uint64_t src,
+                                      int fbits,
+                                      FPRounding round) {
+  // An input of 0 is a special case because the result is effectively
+  // subnormal: The exponent is encoded as 0 and there is no implicit 1 bit.
+  if (src == 0) {
+    return 0.0f;
   }
 
-  VIXL_UNREACHABLE();
-  return 0;
-}
+  // Calculate the exponent. The highest significant bit will have the value
+  // 2^exponent.
+  const int highest_significant_bit = 63 - CountLeadingZeros(src);
+  const int16_t exponent = highest_significant_bit - fbits;
 
-
-float16 Simulator::FPToFloat16(double value, FPRounding round_mode) {
-  // Only the FPTieEven rounding mode is implemented.
-  VIXL_ASSERT(round_mode == FPTieEven);
-  USE(round_mode);
-
-  uint64_t raw = DoubleToRawbits(value);
-  int32_t sign = raw >> 63;
-  int64_t exponent = ExtractUnsignedBitfield64(62, 52, raw) - 1023;
-  uint64_t mantissa = ExtractUnsignedBitfield64(51, 0, raw);
-
-  switch (std::fpclassify(value)) {
-    case FP_NAN: {
-      if (IsSignallingNaN(value)) {
-        FPProcessException();
-      }
-      if (ReadDN()) return kFP16DefaultNaN;
-
-      // Convert NaNs as the processor would:
-      //  - The sign is propagated.
-      //  - The payload (mantissa) is transferred as much as possible, except
-      //    that the top bit is forced to '1', making the result a quiet NaN.
-      float16 result =
-          (sign == 0) ? kFP16PositiveInfinity : kFP16NegativeInfinity;
-      result |= mantissa >> (kDoubleMantissaBits - kFloat16MantissaBits);
-      result |= (1 << 9);  // Force a quiet NaN;
-      return result;
-    }
-
-    case FP_ZERO:
-      return (sign == 0) ? 0 : 0x8000;
-
-    case FP_INFINITE:
-      return (sign == 0) ? kFP16PositiveInfinity : kFP16NegativeInfinity;
-
-    case FP_NORMAL:
-    case FP_SUBNORMAL: {
-      // Convert double-to-half as the processor would, assuming that FPCR.FZ
-      // (flush-to-zero) is not set.
-
-      // Add the implicit '1' bit to the mantissa.
-      mantissa += (UINT64_C(1) << 52);
-      return FPRoundToFloat16(sign, exponent, mantissa, round_mode);
-    }
-  }
-
-  VIXL_UNREACHABLE();
-  return 0;
-}
-
-
-float Simulator::FPToFloat(double value, FPRounding round_mode) {
-  // Only the FPTieEven rounding mode is implemented.
-  VIXL_ASSERT((round_mode == FPTieEven) || (round_mode == FPRoundOdd));
-  USE(round_mode);
-
-  switch (std::fpclassify(value)) {
-    case FP_NAN: {
-      if (IsSignallingNaN(value)) {
-        FPProcessException();
-      }
-      if (ReadDN()) return kFP32DefaultNaN;
-
-      // Convert NaNs as the processor would:
-      //  - The sign is propagated.
-      //  - The payload (mantissa) is transferred as much as possible, except
-      //    that the top bit is forced to '1', making the result a quiet NaN.
-      uint64_t raw = DoubleToRawbits(value);
-
-      uint32_t sign = raw >> 63;
-      uint32_t exponent = (1 << 8) - 1;
-      uint32_t payload =
-          static_cast<uint32_t>(ExtractUnsignedBitfield64(50, 52 - 23, raw));
-      payload |= (1 << 22);  // Force a quiet NaN.
-
-      return RawbitsToFloat((sign << 31) | (exponent << 23) | payload);
-    }
-
-    case FP_ZERO:
-    case FP_INFINITE: {
-      // In a C++ cast, any value representable in the target type will be
-      // unchanged. This is always the case for +/-0.0 and infinities.
-      return static_cast<float>(value);
-    }
-
-    case FP_NORMAL:
-    case FP_SUBNORMAL: {
-      // Convert double-to-float as the processor would, assuming that FPCR.FZ
-      // (flush-to-zero) is not set.
-      uint64_t raw = DoubleToRawbits(value);
-      // Extract the IEEE-754 double components.
-      uint32_t sign = raw >> 63;
-      // Extract the exponent and remove the IEEE-754 encoding bias.
-      int32_t exponent =
-          static_cast<int32_t>(ExtractUnsignedBitfield64(62, 52, raw)) - 1023;
-      // Extract the mantissa and add the implicit '1' bit.
-      uint64_t mantissa = ExtractUnsignedBitfield64(51, 0, raw);
-      if (std::fpclassify(value) == FP_NORMAL) {
-        mantissa |= (UINT64_C(1) << 52);
-      }
-      return FPRoundToFloat(sign, exponent, mantissa, round_mode);
-    }
-  }
-
-  VIXL_UNREACHABLE();
-  return value;
+  return FPRoundToFloat16(0, exponent, src, round);
 }
 
 
@@ -1121,6 +889,50 @@ LogicVRegister Simulator::sqrdmulh(VectorFormat vform,
   SimVRegister temp;
   VectorFormat indexform = VectorFormatFillQ(vform);
   return sqrdmulh(vform, dst, src1, dup_element(indexform, temp, src2, index));
+}
+
+
+LogicVRegister Simulator::sdot(VectorFormat vform,
+                               LogicVRegister dst,
+                               const LogicVRegister& src1,
+                               const LogicVRegister& src2,
+                               int index) {
+  SimVRegister temp;
+  VectorFormat indexform = VectorFormatFillQ(vform);
+  return sdot(vform, dst, src1, dup_element(indexform, temp, src2, index));
+}
+
+
+LogicVRegister Simulator::sqrdmlah(VectorFormat vform,
+                                   LogicVRegister dst,
+                                   const LogicVRegister& src1,
+                                   const LogicVRegister& src2,
+                                   int index) {
+  SimVRegister temp;
+  VectorFormat indexform = VectorFormatFillQ(vform);
+  return sqrdmlah(vform, dst, src1, dup_element(indexform, temp, src2, index));
+}
+
+
+LogicVRegister Simulator::udot(VectorFormat vform,
+                               LogicVRegister dst,
+                               const LogicVRegister& src1,
+                               const LogicVRegister& src2,
+                               int index) {
+  SimVRegister temp;
+  VectorFormat indexform = VectorFormatFillQ(vform);
+  return udot(vform, dst, src1, dup_element(indexform, temp, src2, index));
+}
+
+
+LogicVRegister Simulator::sqrdmlsh(VectorFormat vform,
+                                   LogicVRegister dst,
+                                   const LogicVRegister& src1,
+                                   const LogicVRegister& src2,
+                                   int index) {
+  SimVRegister temp;
+  VectorFormat indexform = VectorFormatFillQ(vform);
+  return sqrdmlsh(vform, dst, src1, dup_element(indexform, temp, src2, index));
 }
 
 
@@ -2418,6 +2230,201 @@ LogicVRegister Simulator::ext(VectorFormat vform,
   return dst;
 }
 
+template <typename T>
+LogicVRegister Simulator::fcadd(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int rot) {
+  int elements = LaneCountFromFormat(vform);
+
+  T element1, element3;
+  rot = (rot == 1) ? 270 : 90;
+
+  // Loop example:
+  // 2S --> (2/2 = 1 - 1 = 0) --> 1 x Complex Number (2x components: r+i)
+  // 4S --> (4/2 = 2) - 1 = 1) --> 2 x Complex Number (2x2 components: r+i)
+
+  for (int e = 0; e <= (elements / 2) - 1; e++) {
+    switch (rot) {
+      case 90:
+        element1 = FPNeg(src2.Float<T>(e * 2 + 1));
+        element3 = src2.Float<T>(e * 2);
+        break;
+      case 270:
+        element1 = src2.Float<T>(e * 2 + 1);
+        element3 = FPNeg(src2.Float<T>(e * 2));
+        break;
+      default:
+        VIXL_UNREACHABLE();
+        return dst;  // prevents "element(n) may be unintialized" errors
+    }
+    dst.ClearForWrite(vform);
+    dst.SetFloat<T>(e * 2, FPAdd(src1.Float<T>(e * 2), element1));
+    dst.SetFloat<T>(e * 2 + 1, FPAdd(src1.Float<T>(e * 2 + 1), element3));
+  }
+  return dst;
+}
+
+
+LogicVRegister Simulator::fcadd(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int rot) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    VIXL_UNIMPLEMENTED();
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+    fcadd<float>(vform, dst, src1, src2, rot);
+  } else {
+    VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
+    fcadd<double>(vform, dst, src1, src2, rot);
+  }
+  return dst;
+}
+
+
+template <typename T>
+LogicVRegister Simulator::fcmla(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int index,
+                                int rot) {
+  int elements = LaneCountFromFormat(vform);
+
+  T element1, element2, element3, element4;
+  rot *= 90;
+
+  // Loop example:
+  // 2S --> (2/2 = 1 - 1 = 0) --> 1 x Complex Number (2x components: r+i)
+  // 4S --> (4/2 = 2) - 1 = 1) --> 2 x Complex Number (2x2 components: r+i)
+
+  for (int e = 0; e <= (elements / 2) - 1; e++) {
+    switch (rot) {
+      case 0:
+        element1 = src2.Float<T>(index * 2);
+        element2 = src1.Float<T>(e * 2);
+        element3 = src2.Float<T>(index * 2 + 1);
+        element4 = src1.Float<T>(e * 2);
+        break;
+      case 90:
+        element1 = FPNeg(src2.Float<T>(index * 2 + 1));
+        element2 = src1.Float<T>(e * 2 + 1);
+        element3 = src2.Float<T>(index * 2);
+        element4 = src1.Float<T>(e * 2 + 1);
+        break;
+      case 180:
+        element1 = FPNeg(src2.Float<T>(index * 2));
+        element2 = src1.Float<T>(e * 2);
+        element3 = FPNeg(src2.Float<T>(index * 2 + 1));
+        element4 = src1.Float<T>(e * 2);
+        break;
+      case 270:
+        element1 = src2.Float<T>(index * 2 + 1);
+        element2 = src1.Float<T>(e * 2 + 1);
+        element3 = FPNeg(src2.Float<T>(index * 2));
+        element4 = src1.Float<T>(e * 2 + 1);
+        break;
+      default:
+        VIXL_UNREACHABLE();
+        return dst;  // prevents "element(n) may be unintialized" errors
+    }
+    dst.ClearForWrite(vform);
+    dst.SetFloat<T>(e * 2, FPMulAdd(dst.Float<T>(e * 2), element2, element1));
+    dst.SetFloat<T>(e * 2 + 1,
+                    FPMulAdd(dst.Float<T>(e * 2 + 1), element4, element3));
+  }
+  return dst;
+}
+
+
+template <typename T>
+LogicVRegister Simulator::fcmla(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int rot) {
+  int elements = LaneCountFromFormat(vform);
+
+  T element1, element2, element3, element4;
+  rot *= 90;
+
+  // Loop example:
+  // 2S --> (2/2 = 1 - 1 = 0) --> 1 x Complex Number (2x components: r+i)
+  // 4S --> (4/2 = 2) - 1 = 1) --> 2 x Complex Number (2x2 components: r+i)
+
+  for (int e = 0; e <= (elements / 2) - 1; e++) {
+    switch (rot) {
+      case 0:
+        element1 = src2.Float<T>(e * 2);
+        element2 = src1.Float<T>(e * 2);
+        element3 = src2.Float<T>(e * 2 + 1);
+        element4 = src1.Float<T>(e * 2);
+        break;
+      case 90:
+        element1 = FPNeg(src2.Float<T>(e * 2 + 1));
+        element2 = src1.Float<T>(e * 2 + 1);
+        element3 = src2.Float<T>(e * 2);
+        element4 = src1.Float<T>(e * 2 + 1);
+        break;
+      case 180:
+        element1 = FPNeg(src2.Float<T>(e * 2));
+        element2 = src1.Float<T>(e * 2);
+        element3 = FPNeg(src2.Float<T>(e * 2 + 1));
+        element4 = src1.Float<T>(e * 2);
+        break;
+      case 270:
+        element1 = src2.Float<T>(e * 2 + 1);
+        element2 = src1.Float<T>(e * 2 + 1);
+        element3 = FPNeg(src2.Float<T>(e * 2));
+        element4 = src1.Float<T>(e * 2 + 1);
+        break;
+      default:
+        VIXL_UNREACHABLE();
+        return dst;  // prevents "element(n) may be unintialized" errors
+    }
+    dst.ClearForWrite(vform);
+    dst.SetFloat<T>(e * 2, FPMulAdd(dst.Float<T>(e * 2), element2, element1));
+    dst.SetFloat<T>(e * 2 + 1,
+                    FPMulAdd(dst.Float<T>(e * 2 + 1), element4, element3));
+  }
+  return dst;
+}
+
+
+LogicVRegister Simulator::fcmla(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int rot) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    VIXL_UNIMPLEMENTED();
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+    fcmla<float>(vform, dst, src1, src2, rot);
+  } else {
+    fcmla<double>(vform, dst, src1, src2, rot);
+  }
+  return dst;
+}
+
+
+LogicVRegister Simulator::fcmla(VectorFormat vform,
+                                LogicVRegister dst,          // d
+                                const LogicVRegister& src1,  // n
+                                const LogicVRegister& src2,  // m
+                                int index,
+                                int rot) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    VIXL_UNIMPLEMENTED();
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+    fcmla<float>(vform, dst, src1, src2, index, rot);
+  } else {
+    fcmla<double>(vform, dst, src1, src2, index, rot);
+  }
+  return dst;
+}
+
 
 LogicVRegister Simulator::dup_element(VectorFormat vform,
                                       LogicVRegister dst,
@@ -3354,6 +3361,109 @@ LogicVRegister Simulator::sqrdmulh(VectorFormat vform,
 }
 
 
+LogicVRegister Simulator::dot(VectorFormat vform,
+                              LogicVRegister dst,
+                              const LogicVRegister& src1,
+                              const LogicVRegister& src2,
+                              bool is_signed) {
+  VectorFormat quarter_vform =
+      VectorFormatHalfWidthDoubleLanes(VectorFormatHalfWidthDoubleLanes(vform));
+
+  dst.ClearForWrite(vform);
+  for (int e = 0; e < LaneCountFromFormat(vform); e++) {
+    int64_t result = 0;
+    int64_t element1, element2;
+    for (int i = 0; i < 4; i++) {
+      int index = 4 * e + i;
+      if (is_signed) {
+        element1 = src1.Int(quarter_vform, index);
+        element2 = src2.Int(quarter_vform, index);
+      } else {
+        element1 = src1.Uint(quarter_vform, index);
+        element2 = src2.Uint(quarter_vform, index);
+      }
+      result += element1 * element2;
+    }
+
+    result += dst.Int(vform, e);
+    dst.SetInt(vform, e, result);
+  }
+  return dst;
+}
+
+
+LogicVRegister Simulator::sdot(VectorFormat vform,
+                               LogicVRegister dst,
+                               const LogicVRegister& src1,
+                               const LogicVRegister& src2) {
+  return dot(vform, dst, src1, src2, true);
+}
+
+
+LogicVRegister Simulator::udot(VectorFormat vform,
+                               LogicVRegister dst,
+                               const LogicVRegister& src1,
+                               const LogicVRegister& src2) {
+  return dot(vform, dst, src1, src2, false);
+}
+
+
+LogicVRegister Simulator::sqrdmlash(VectorFormat vform,
+                                    LogicVRegister dst,
+                                    const LogicVRegister& src1,
+                                    const LogicVRegister& src2,
+                                    bool round,
+                                    bool sub_op) {
+  // 2 * INT_32_MIN * INT_32_MIN causes int64_t to overflow.
+  // To avoid this, we use:
+  //     (dst << (esize - 1) + src1 * src2 + 1 << (esize - 2)) >> (esize - 1)
+  // which is same as:
+  //     (dst << esize + 2 * src1 * src2 + 1 << (esize - 1)) >> esize.
+
+  int esize = LaneSizeInBitsFromFormat(vform);
+  int round_const = round ? (1 << (esize - 2)) : 0;
+  int64_t accum;
+
+  dst.ClearForWrite(vform);
+  for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+    accum = dst.Int(vform, i) << (esize - 1);
+    if (sub_op) {
+      accum -= src1.Int(vform, i) * src2.Int(vform, i);
+    } else {
+      accum += src1.Int(vform, i) * src2.Int(vform, i);
+    }
+    accum += round_const;
+    accum = accum >> (esize - 1);
+
+    if (accum > MaxIntFromFormat(vform)) {
+      accum = MaxIntFromFormat(vform);
+    } else if (accum < MinIntFromFormat(vform)) {
+      accum = MinIntFromFormat(vform);
+    }
+    dst.SetInt(vform, i, accum);
+  }
+  return dst;
+}
+
+
+LogicVRegister Simulator::sqrdmlah(VectorFormat vform,
+                                   LogicVRegister dst,
+                                   const LogicVRegister& src1,
+                                   const LogicVRegister& src2,
+                                   bool round) {
+  return sqrdmlash(vform, dst, src1, src2, round, false);
+}
+
+
+LogicVRegister Simulator::sqrdmlsh(VectorFormat vform,
+                                   LogicVRegister dst,
+                                   const LogicVRegister& src1,
+                                   const LogicVRegister& src2,
+                                   bool round) {
+  return sqrdmlash(vform, dst, src1, src2, round, true);
+}
+
+
 LogicVRegister Simulator::sqdmulh(VectorFormat vform,
                                   LogicVRegister dst,
                                   const LogicVRegister& src1,
@@ -3569,11 +3679,18 @@ LogicVRegister Simulator::uzp2(VectorFormat vform,
 
 
 template <typename T>
+T Simulator::FPNeg(T op) {
+  return -op;
+}
+
+template <typename T>
 T Simulator::FPAdd(T op1, T op2) {
   T result = FPProcessNaNs(op1, op2);
-  if (std::isnan(result)) return result;
+  if (IsNaN(result)) {
+    return result;
+  }
 
-  if (std::isinf(op1) && std::isinf(op2) && (op1 != op2)) {
+  if (IsInf(op1) && IsInf(op2) && (op1 != op2)) {
     // inf + -inf returns the default NaN.
     FPProcessException();
     return FPDefaultNaN<T>();
@@ -3587,9 +3704,9 @@ T Simulator::FPAdd(T op1, T op2) {
 template <typename T>
 T Simulator::FPSub(T op1, T op2) {
   // NaNs should be handled elsewhere.
-  VIXL_ASSERT(!std::isnan(op1) && !std::isnan(op2));
+  VIXL_ASSERT(!IsNaN(op1) && !IsNaN(op2));
 
-  if (std::isinf(op1) && std::isinf(op2) && (op1 == op2)) {
+  if (IsInf(op1) && IsInf(op2) && (op1 == op2)) {
     // inf - inf returns the default NaN.
     FPProcessException();
     return FPDefaultNaN<T>();
@@ -3603,9 +3720,9 @@ T Simulator::FPSub(T op1, T op2) {
 template <typename T>
 T Simulator::FPMul(T op1, T op2) {
   // NaNs should be handled elsewhere.
-  VIXL_ASSERT(!std::isnan(op1) && !std::isnan(op2));
+  VIXL_ASSERT(!IsNaN(op1) && !IsNaN(op2));
 
-  if ((std::isinf(op1) && (op2 == 0.0)) || (std::isinf(op2) && (op1 == 0.0))) {
+  if ((IsInf(op1) && (op2 == 0.0)) || (IsInf(op2) && (op1 == 0.0))) {
     // inf * 0.0 returns the default NaN.
     FPProcessException();
     return FPDefaultNaN<T>();
@@ -3618,7 +3735,7 @@ T Simulator::FPMul(T op1, T op2) {
 
 template <typename T>
 T Simulator::FPMulx(T op1, T op2) {
-  if ((std::isinf(op1) && (op2 == 0.0)) || (std::isinf(op2) && (op1 == 0.0))) {
+  if ((IsInf(op1) && (op2 == 0.0)) || (IsInf(op2) && (op1 == 0.0))) {
     // inf * 0.0 returns +/-2.0.
     T two = 2.0;
     return copysign(1.0, op1) * copysign(1.0, op2) * two;
@@ -3633,13 +3750,13 @@ T Simulator::FPMulAdd(T a, T op1, T op2) {
 
   T sign_a = copysign(1.0, a);
   T sign_prod = copysign(1.0, op1) * copysign(1.0, op2);
-  bool isinf_prod = std::isinf(op1) || std::isinf(op2);
+  bool isinf_prod = IsInf(op1) || IsInf(op2);
   bool operation_generates_nan =
-      (std::isinf(op1) && (op2 == 0.0)) ||                     // inf * 0.0
-      (std::isinf(op2) && (op1 == 0.0)) ||                     // 0.0 * inf
-      (std::isinf(a) && isinf_prod && (sign_a != sign_prod));  // inf - inf
+      (IsInf(op1) && (op2 == 0.0)) ||                     // inf * 0.0
+      (IsInf(op2) && (op1 == 0.0)) ||                     // 0.0 * inf
+      (IsInf(a) && isinf_prod && (sign_a != sign_prod));  // inf - inf
 
-  if (std::isnan(result)) {
+  if (IsNaN(result)) {
     // Generated NaNs override quiet NaNs propagated from a.
     if (operation_generates_nan && IsQuietNaN(a)) {
       FPProcessException();
@@ -3658,11 +3775,11 @@ T Simulator::FPMulAdd(T a, T op1, T op2) {
   // Work around broken fma implementations for exact zero results: The sign of
   // exact 0.0 results is positive unless both a and op1 * op2 are negative.
   if (((op1 == 0.0) || (op2 == 0.0)) && (a == 0.0)) {
-    return ((sign_a < 0) && (sign_prod < 0)) ? -0.0 : 0.0;
+    return ((sign_a < T(0.0)) && (sign_prod < T(0.0))) ? -0.0 : 0.0;
   }
 
   result = FusedMultiplyAdd(op1, op2, a);
-  VIXL_ASSERT(!std::isnan(result));
+  VIXL_ASSERT(!IsNaN(result));
 
   // Work around broken fma implementations for rounded zero results: If a is
   // 0.0, the sign of the result is the sign of op1 * op2 before rounding.
@@ -3677,16 +3794,16 @@ T Simulator::FPMulAdd(T a, T op1, T op2) {
 template <typename T>
 T Simulator::FPDiv(T op1, T op2) {
   // NaNs should be handled elsewhere.
-  VIXL_ASSERT(!std::isnan(op1) && !std::isnan(op2));
+  VIXL_ASSERT(!IsNaN(op1) && !IsNaN(op2));
 
-  if ((std::isinf(op1) && std::isinf(op2)) || ((op1 == 0.0) && (op2 == 0.0))) {
+  if ((IsInf(op1) && IsInf(op2)) || ((op1 == 0.0) && (op2 == 0.0))) {
     // inf / inf and 0.0 / 0.0 return the default NaN.
     FPProcessException();
     return FPDefaultNaN<T>();
   } else {
     if (op2 == 0.0) {
       FPProcessException();
-      if (!std::isnan(op1)) {
+      if (!IsNaN(op1)) {
         double op1_sign = copysign(1.0, op1);
         double op2_sign = copysign(1.0, op2);
         return static_cast<T>(op1_sign * op2_sign * kFP64PositiveInfinity);
@@ -3701,9 +3818,9 @@ T Simulator::FPDiv(T op1, T op2) {
 
 template <typename T>
 T Simulator::FPSqrt(T op) {
-  if (std::isnan(op)) {
+  if (IsNaN(op)) {
     return FPProcessNaN(op);
-  } else if (op < 0.0) {
+  } else if (op < T(0.0)) {
     FPProcessException();
     return FPDefaultNaN<T>();
   } else {
@@ -3715,7 +3832,7 @@ T Simulator::FPSqrt(T op) {
 template <typename T>
 T Simulator::FPMax(T a, T b) {
   T result = FPProcessNaNs(a, b);
-  if (std::isnan(result)) return result;
+  if (IsNaN(result)) return result;
 
   if ((a == 0.0) && (b == 0.0) && (copysign(1.0, a) != copysign(1.0, b))) {
     // a and b are zero, and the sign differs: return +0.0.
@@ -3735,14 +3852,14 @@ T Simulator::FPMaxNM(T a, T b) {
   }
 
   T result = FPProcessNaNs(a, b);
-  return std::isnan(result) ? result : FPMax(a, b);
+  return IsNaN(result) ? result : FPMax(a, b);
 }
 
 
 template <typename T>
 T Simulator::FPMin(T a, T b) {
   T result = FPProcessNaNs(a, b);
-  if (std::isnan(result)) return result;
+  if (IsNaN(result)) return result;
 
   if ((a == 0.0) && (b == 0.0) && (copysign(1.0, a) != copysign(1.0, b))) {
     // a and b are zero, and the sign differs: return -0.0.
@@ -3762,17 +3879,16 @@ T Simulator::FPMinNM(T a, T b) {
   }
 
   T result = FPProcessNaNs(a, b);
-  return std::isnan(result) ? result : FPMin(a, b);
+  return IsNaN(result) ? result : FPMin(a, b);
 }
 
 
 template <typename T>
 T Simulator::FPRecipStepFused(T op1, T op2) {
   const T two = 2.0;
-  if ((std::isinf(op1) && (op2 == 0.0)) ||
-      ((op1 == 0.0) && (std::isinf(op2)))) {
+  if ((IsInf(op1) && (op2 == 0.0)) || ((op1 == 0.0) && (IsInf(op2)))) {
     return two;
-  } else if (std::isinf(op1) || std::isinf(op2)) {
+  } else if (IsInf(op1) || IsInf(op2)) {
     // Return +inf if signs match, otherwise -inf.
     return ((op1 >= 0.0) == (op2 >= 0.0)) ? kFP64PositiveInfinity
                                           : kFP64NegativeInfinity;
@@ -3781,16 +3897,28 @@ T Simulator::FPRecipStepFused(T op1, T op2) {
   }
 }
 
+template <typename T>
+bool IsNormal(T value) {
+  return std::isnormal(value);
+}
+
+template <>
+bool IsNormal(SimFloat16 value) {
+  uint16_t rawbits = Float16ToRawbits(value);
+  uint16_t exp_mask = 0x7c00;
+  // Check that the exponent is neither all zeroes or all ones.
+  return ((rawbits & exp_mask) != 0) && ((~rawbits & exp_mask) != 0);
+}
+
 
 template <typename T>
 T Simulator::FPRSqrtStepFused(T op1, T op2) {
   const T one_point_five = 1.5;
   const T two = 2.0;
 
-  if ((std::isinf(op1) && (op2 == 0.0)) ||
-      ((op1 == 0.0) && (std::isinf(op2)))) {
+  if ((IsInf(op1) && (op2 == 0.0)) || ((op1 == 0.0) && (IsInf(op2)))) {
     return one_point_five;
-  } else if (std::isinf(op1) || std::isinf(op2)) {
+  } else if (IsInf(op1) || IsInf(op2)) {
     // Return +inf if signs match, otherwise -inf.
     return ((op1 >= 0.0) == (op2 >= 0.0)) ? kFP64PositiveInfinity
                                           : kFP64NegativeInfinity;
@@ -3798,9 +3926,9 @@ T Simulator::FPRSqrtStepFused(T op1, T op2) {
     // The multiply-add-halve operation must be fully fused, so avoid interim
     // rounding by checking which operand can be losslessly divided by two
     // before doing the multiply-add.
-    if (std::isnormal(op1 / two)) {
+    if (IsNormal(op1 / two)) {
       return FusedMultiplyAdd(op1 / two, op2, one_point_five);
-    } else if (std::isnormal(op2 / two)) {
+    } else if (IsNormal(op2 / two)) {
       return FusedMultiplyAdd(op1, op2 / two, one_point_five);
     } else {
       // Neither operand is normal after halving: the result is dominated by
@@ -3810,12 +3938,80 @@ T Simulator::FPRSqrtStepFused(T op1, T op2) {
   }
 }
 
+int32_t Simulator::FPToFixedJS(double value) {
+  // The Z-flag is set when the conversion from double precision floating-point
+  // to 32-bit integer is exact. If the source value is +/-Infinity, -0.0, NaN,
+  // outside the bounds of a 32-bit integer, or isn't an exact integer then the
+  // Z-flag is unset.
+  int Z = 1;
+  int32_t result;
+
+  if ((value == 0.0) || (value == kFP64PositiveInfinity) ||
+      (value == kFP64NegativeInfinity)) {
+    // +/- zero and infinity all return zero, however -0 and +/- Infinity also
+    // unset the Z-flag.
+    result = 0.0;
+    if ((value != 0.0) || std::signbit(value)) {
+      Z = 0;
+    }
+  } else if (std::isnan(value)) {
+    // NaN values unset the Z-flag and set the result to 0.
+    FPProcessNaN(value);
+    result = 0;
+    Z = 0;
+  } else {
+    // All other values are converted to an integer representation, rounded
+    // toward zero.
+    double int_result = std::floor(value);
+    double error = value - int_result;
+
+    if ((error != 0.0) && (int_result < 0.0)) {
+      int_result++;
+    }
+
+    // Constrain the value into the range [INT32_MIN, INT32_MAX]. We can almost
+    // write a one-liner with std::round, but the behaviour on ties is incorrect
+    // for our purposes.
+    double mod_const = static_cast<double>(UINT64_C(1) << 32);
+    double mod_error =
+        (int_result / mod_const) - std::floor(int_result / mod_const);
+    double constrained;
+    if (mod_error == 0.5) {
+      constrained = INT32_MIN;
+    } else {
+      constrained = int_result - mod_const * round(int_result / mod_const);
+    }
+
+    VIXL_ASSERT(std::floor(constrained) == constrained);
+    VIXL_ASSERT(constrained >= INT32_MIN);
+    VIXL_ASSERT(constrained <= INT32_MAX);
+
+    // Take the bottom 32 bits of the result as a 32-bit integer.
+    result = static_cast<int32_t>(constrained);
+
+    if ((int_result < INT32_MIN) || (int_result > INT32_MAX) ||
+        (error != 0.0)) {
+      // If the integer result is out of range or the conversion isn't exact,
+      // take exception and unset the Z-flag.
+      FPProcessException();
+      Z = 0;
+    }
+  }
+
+  ReadNzcv().SetN(0);
+  ReadNzcv().SetZ(Z);
+  ReadNzcv().SetC(0);
+  ReadNzcv().SetV(0);
+
+  return result;
+}
+
 
 double Simulator::FPRoundInt(double value, FPRounding round_mode) {
   if ((value == 0.0) || (value == kFP64PositiveInfinity) ||
       (value == kFP64NegativeInfinity)) {
     return value;
-  } else if (std::isnan(value)) {
+  } else if (IsNaN(value)) {
     return FPProcessNaN(value);
   }
 
@@ -3880,6 +4076,17 @@ double Simulator::FPRoundInt(double value, FPRounding round_mode) {
 }
 
 
+int16_t Simulator::FPToInt16(double value, FPRounding rmode) {
+  value = FPRoundInt(value, rmode);
+  if (value >= kHMaxInt) {
+    return kHMaxInt;
+  } else if (value < kHMinInt) {
+    return kHMinInt;
+  }
+  return IsNaN(value) ? 0 : static_cast<int16_t>(value);
+}
+
+
 int32_t Simulator::FPToInt32(double value, FPRounding rmode) {
   value = FPRoundInt(value, rmode);
   if (value >= kWMaxInt) {
@@ -3887,7 +4094,7 @@ int32_t Simulator::FPToInt32(double value, FPRounding rmode) {
   } else if (value < kWMinInt) {
     return kWMinInt;
   }
-  return std::isnan(value) ? 0 : static_cast<int32_t>(value);
+  return IsNaN(value) ? 0 : static_cast<int32_t>(value);
 }
 
 
@@ -3898,7 +4105,18 @@ int64_t Simulator::FPToInt64(double value, FPRounding rmode) {
   } else if (value < kXMinInt) {
     return kXMinInt;
   }
-  return std::isnan(value) ? 0 : static_cast<int64_t>(value);
+  return IsNaN(value) ? 0 : static_cast<int64_t>(value);
+}
+
+
+uint16_t Simulator::FPToUInt16(double value, FPRounding rmode) {
+  value = FPRoundInt(value, rmode);
+  if (value >= kHMaxUInt) {
+    return kHMaxUInt;
+  } else if (value < 0.0) {
+    return 0;
+  }
+  return IsNaN(value) ? 0 : static_cast<uint16_t>(value);
 }
 
 
@@ -3909,7 +4127,7 @@ uint32_t Simulator::FPToUInt32(double value, FPRounding rmode) {
   } else if (value < 0.0) {
     return 0;
   }
-  return std::isnan(value) ? 0 : static_cast<uint32_t>(value);
+  return IsNaN(value) ? 0 : static_cast<uint32_t>(value);
 }
 
 
@@ -3920,7 +4138,7 @@ uint64_t Simulator::FPToUInt64(double value, FPRounding rmode) {
   } else if (value < 0.0) {
     return 0;
   }
-  return std::isnan(value) ? 0 : static_cast<uint64_t>(value);
+  return IsNaN(value) ? 0 : static_cast<uint64_t>(value);
 }
 
 
@@ -3937,7 +4155,7 @@ uint64_t Simulator::FPToUInt64(double value, FPRounding rmode) {
       T result;                                                  \
       if (PROCNAN) {                                             \
         result = FPProcessNaNs(op1, op2);                        \
-        if (!std::isnan(result)) {                               \
+        if (!IsNaN(result)) {                                    \
           result = OP(op1, op2);                                 \
         }                                                        \
       } else {                                                   \
@@ -3952,7 +4170,9 @@ uint64_t Simulator::FPToUInt64(double value, FPRounding rmode) {
                                LogicVRegister dst,               \
                                const LogicVRegister& src1,       \
                                const LogicVRegister& src2) {     \
-    if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {          \
+    if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {          \
+      FN<SimFloat16>(vform, dst, src1, src2);                    \
+    } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {   \
       FN<float>(vform, dst, src1, src2);                         \
     } else {                                                     \
       VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize); \
@@ -3984,7 +4204,7 @@ LogicVRegister Simulator::frecps(VectorFormat vform,
     T op1 = -src1.Float<T>(i);
     T op2 = src2.Float<T>(i);
     T result = FPProcessNaNs(op1, op2);
-    dst.SetFloat(i, std::isnan(result) ? result : FPRecipStepFused(op1, op2));
+    dst.SetFloat(i, IsNaN(result) ? result : FPRecipStepFused(op1, op2));
   }
   return dst;
 }
@@ -3994,7 +4214,9 @@ LogicVRegister Simulator::frecps(VectorFormat vform,
                                  LogicVRegister dst,
                                  const LogicVRegister& src1,
                                  const LogicVRegister& src2) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    frecps<SimFloat16>(vform, dst, src1, src2);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     frecps<float>(vform, dst, src1, src2);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4014,7 +4236,7 @@ LogicVRegister Simulator::frsqrts(VectorFormat vform,
     T op1 = -src1.Float<T>(i);
     T op2 = src2.Float<T>(i);
     T result = FPProcessNaNs(op1, op2);
-    dst.SetFloat(i, std::isnan(result) ? result : FPRSqrtStepFused(op1, op2));
+    dst.SetFloat(i, IsNaN(result) ? result : FPRSqrtStepFused(op1, op2));
   }
   return dst;
 }
@@ -4024,7 +4246,9 @@ LogicVRegister Simulator::frsqrts(VectorFormat vform,
                                   LogicVRegister dst,
                                   const LogicVRegister& src1,
                                   const LogicVRegister& src2) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    frsqrts<SimFloat16>(vform, dst, src1, src2);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     frsqrts<float>(vform, dst, src1, src2);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4046,7 +4270,7 @@ LogicVRegister Simulator::fcmp(VectorFormat vform,
     T op1 = src1.Float<T>(i);
     T op2 = src2.Float<T>(i);
     T nan_result = FPProcessNaNs(op1, op2);
-    if (!std::isnan(nan_result)) {
+    if (!IsNaN(nan_result)) {
       switch (cond) {
         case eq:
           result = (op1 == op2);
@@ -4079,7 +4303,9 @@ LogicVRegister Simulator::fcmp(VectorFormat vform,
                                const LogicVRegister& src1,
                                const LogicVRegister& src2,
                                Condition cond) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    fcmp<SimFloat16>(vform, dst, src1, src2, cond);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     fcmp<float>(vform, dst, src1, src2, cond);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4094,7 +4320,11 @@ LogicVRegister Simulator::fcmp_zero(VectorFormat vform,
                                     const LogicVRegister& src,
                                     Condition cond) {
   SimVRegister temp;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister zero_reg =
+        dup_immediate(vform, temp, Float16ToRawbits(SimFloat16(0.0)));
+    fcmp<SimFloat16>(vform, dst, src, zero_reg, cond);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister zero_reg = dup_immediate(vform, temp, FloatToRawbits(0.0));
     fcmp<float>(vform, dst, src, zero_reg, cond);
   } else {
@@ -4112,7 +4342,11 @@ LogicVRegister Simulator::fabscmp(VectorFormat vform,
                                   const LogicVRegister& src2,
                                   Condition cond) {
   SimVRegister temp1, temp2;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister abs_src1 = fabs_<SimFloat16>(vform, temp1, src1);
+    LogicVRegister abs_src2 = fabs_<SimFloat16>(vform, temp2, src2);
+    fcmp<SimFloat16>(vform, dst, abs_src1, abs_src2, cond);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister abs_src1 = fabs_<float>(vform, temp1, src1);
     LogicVRegister abs_src2 = fabs_<float>(vform, temp2, src2);
     fcmp<float>(vform, dst, abs_src1, abs_src2, cond);
@@ -4147,7 +4381,9 @@ LogicVRegister Simulator::fmla(VectorFormat vform,
                                LogicVRegister dst,
                                const LogicVRegister& src1,
                                const LogicVRegister& src2) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    fmla<SimFloat16>(vform, dst, src1, src2);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     fmla<float>(vform, dst, src1, src2);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4178,7 +4414,9 @@ LogicVRegister Simulator::fmls(VectorFormat vform,
                                LogicVRegister dst,
                                const LogicVRegister& src1,
                                const LogicVRegister& src2) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    fmls<SimFloat16>(vform, dst, src1, src2);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     fmls<float>(vform, dst, src1, src2);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4205,7 +4443,9 @@ LogicVRegister Simulator::fneg(VectorFormat vform,
 LogicVRegister Simulator::fneg(VectorFormat vform,
                                LogicVRegister dst,
                                const LogicVRegister& src) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    fneg<SimFloat16>(vform, dst, src);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     fneg<float>(vform, dst, src);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4234,7 +4474,9 @@ LogicVRegister Simulator::fabs_(VectorFormat vform,
 LogicVRegister Simulator::fabs_(VectorFormat vform,
                                 LogicVRegister dst,
                                 const LogicVRegister& src) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    fabs_<SimFloat16>(vform, dst, src);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     fabs_<float>(vform, dst, src);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4259,7 +4501,12 @@ LogicVRegister Simulator::fsqrt(VectorFormat vform,
                                 LogicVRegister dst,
                                 const LogicVRegister& src) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 result = FPSqrt(src.Float<SimFloat16>(i));
+      dst.SetFloat(i, result);
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float result = FPSqrt(src.Float<float>(i));
       dst.SetFloat(i, result);
@@ -4275,47 +4522,58 @@ LogicVRegister Simulator::fsqrt(VectorFormat vform,
 }
 
 
-#define DEFINE_NEON_FP_PAIR_OP(FNP, FN, OP)                           \
-  LogicVRegister Simulator::FNP(VectorFormat vform,                   \
-                                LogicVRegister dst,                   \
-                                const LogicVRegister& src1,           \
-                                const LogicVRegister& src2) {         \
-    SimVRegister temp1, temp2;                                        \
-    uzp1(vform, temp1, src1, src2);                                   \
-    uzp2(vform, temp2, src1, src2);                                   \
-    FN(vform, dst, temp1, temp2);                                     \
-    return dst;                                                       \
-  }                                                                   \
-                                                                      \
-  LogicVRegister Simulator::FNP(VectorFormat vform,                   \
-                                LogicVRegister dst,                   \
-                                const LogicVRegister& src) {          \
-    if (vform == kFormatS) {                                          \
-      float result = OP(src.Float<float>(0), src.Float<float>(1));    \
-      dst.SetFloat(0, result);                                        \
-    } else {                                                          \
-      VIXL_ASSERT(vform == kFormatD);                                 \
-      double result = OP(src.Float<double>(0), src.Float<double>(1)); \
-      dst.SetFloat(0, result);                                        \
-    }                                                                 \
-    dst.ClearForWrite(vform);                                         \
-    return dst;                                                       \
+#define DEFINE_NEON_FP_PAIR_OP(FNP, FN, OP)                                    \
+  LogicVRegister Simulator::FNP(VectorFormat vform,                            \
+                                LogicVRegister dst,                            \
+                                const LogicVRegister& src1,                    \
+                                const LogicVRegister& src2) {                  \
+    SimVRegister temp1, temp2;                                                 \
+    uzp1(vform, temp1, src1, src2);                                            \
+    uzp2(vform, temp2, src1, src2);                                            \
+    FN(vform, dst, temp1, temp2);                                              \
+    return dst;                                                                \
+  }                                                                            \
+                                                                               \
+  LogicVRegister Simulator::FNP(VectorFormat vform,                            \
+                                LogicVRegister dst,                            \
+                                const LogicVRegister& src) {                   \
+    if (vform == kFormatH) {                                                   \
+      SimFloat16 result(OP(SimFloat16(RawbitsToFloat16(src.Uint(vform, 0))),   \
+                           SimFloat16(RawbitsToFloat16(src.Uint(vform, 1))))); \
+      dst.SetUint(vform, 0, Float16ToRawbits(result));                         \
+    } else if (vform == kFormatS) {                                            \
+      float result = OP(src.Float<float>(0), src.Float<float>(1));             \
+      dst.SetFloat(0, result);                                                 \
+    } else {                                                                   \
+      VIXL_ASSERT(vform == kFormatD);                                          \
+      double result = OP(src.Float<double>(0), src.Float<double>(1));          \
+      dst.SetFloat(0, result);                                                 \
+    }                                                                          \
+    dst.ClearForWrite(vform);                                                  \
+    return dst;                                                                \
   }
 NEON_FPPAIRWISE_LIST(DEFINE_NEON_FP_PAIR_OP)
 #undef DEFINE_NEON_FP_PAIR_OP
 
-
+template <typename T>
 LogicVRegister Simulator::fminmaxv(VectorFormat vform,
                                    LogicVRegister dst,
                                    const LogicVRegister& src,
-                                   FPMinMaxOp Op) {
-  VIXL_ASSERT(vform == kFormat4S);
+                                   typename TFPMinMaxOp<T>::type Op) {
+  VIXL_ASSERT((vform == kFormat4H) || (vform == kFormat8H) ||
+              (vform == kFormat4S));
   USE(vform);
-  float result1 = (this->*Op)(src.Float<float>(0), src.Float<float>(1));
-  float result2 = (this->*Op)(src.Float<float>(2), src.Float<float>(3));
-  float result = (this->*Op)(result1, result2);
-  dst.ClearForWrite(kFormatS);
-  dst.SetFloat<float>(0, result);
+  T result1 = (this->*Op)(src.Float<T>(0), src.Float<T>(1));
+  T result2 = (this->*Op)(src.Float<T>(2), src.Float<T>(3));
+  if (vform == kFormat8H) {
+    T result3 = (this->*Op)(src.Float<T>(4), src.Float<T>(5));
+    T result4 = (this->*Op)(src.Float<T>(6), src.Float<T>(7));
+    result1 = (this->*Op)(result1, result3);
+    result2 = (this->*Op)(result2, result4);
+  }
+  T result = (this->*Op)(result1, result2);
+  dst.ClearForWrite(ScalarFormatFromFormat(vform));
+  dst.SetFloat<T>(0, result);
   return dst;
 }
 
@@ -4323,28 +4581,50 @@ LogicVRegister Simulator::fminmaxv(VectorFormat vform,
 LogicVRegister Simulator::fmaxv(VectorFormat vform,
                                 LogicVRegister dst,
                                 const LogicVRegister& src) {
-  return fminmaxv(vform, dst, src, &Simulator::FPMax);
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    return fminmaxv<SimFloat16>(vform, dst, src, &Simulator::FPMax<SimFloat16>);
+  } else {
+    return fminmaxv<float>(vform, dst, src, &Simulator::FPMax<float>);
+  }
 }
 
 
 LogicVRegister Simulator::fminv(VectorFormat vform,
                                 LogicVRegister dst,
                                 const LogicVRegister& src) {
-  return fminmaxv(vform, dst, src, &Simulator::FPMin);
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    return fminmaxv<SimFloat16>(vform, dst, src, &Simulator::FPMin<SimFloat16>);
+  } else {
+    return fminmaxv<float>(vform, dst, src, &Simulator::FPMin<float>);
+  }
 }
 
 
 LogicVRegister Simulator::fmaxnmv(VectorFormat vform,
                                   LogicVRegister dst,
                                   const LogicVRegister& src) {
-  return fminmaxv(vform, dst, src, &Simulator::FPMaxNM);
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    return fminmaxv<SimFloat16>(vform,
+                                dst,
+                                src,
+                                &Simulator::FPMaxNM<SimFloat16>);
+  } else {
+    return fminmaxv<float>(vform, dst, src, &Simulator::FPMaxNM<float>);
+  }
 }
 
 
 LogicVRegister Simulator::fminnmv(VectorFormat vform,
                                   LogicVRegister dst,
                                   const LogicVRegister& src) {
-  return fminmaxv(vform, dst, src, &Simulator::FPMinNM);
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    return fminmaxv<SimFloat16>(vform,
+                                dst,
+                                src,
+                                &Simulator::FPMinNM<SimFloat16>);
+  } else {
+    return fminmaxv<float>(vform, dst, src, &Simulator::FPMinNM<float>);
+  }
 }
 
 
@@ -4355,10 +4635,12 @@ LogicVRegister Simulator::fmul(VectorFormat vform,
                                int index) {
   dst.ClearForWrite(vform);
   SimVRegister temp;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister index_reg = dup_element(kFormat8H, temp, src2, index);
+    fmul<SimFloat16>(vform, dst, src1, index_reg);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister index_reg = dup_element(kFormat4S, temp, src2, index);
     fmul<float>(vform, dst, src1, index_reg);
-
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     LogicVRegister index_reg = dup_element(kFormat2D, temp, src2, index);
@@ -4375,10 +4657,12 @@ LogicVRegister Simulator::fmla(VectorFormat vform,
                                int index) {
   dst.ClearForWrite(vform);
   SimVRegister temp;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister index_reg = dup_element(kFormat8H, temp, src2, index);
+    fmla<SimFloat16>(vform, dst, src1, index_reg);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister index_reg = dup_element(kFormat4S, temp, src2, index);
     fmla<float>(vform, dst, src1, index_reg);
-
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     LogicVRegister index_reg = dup_element(kFormat2D, temp, src2, index);
@@ -4395,10 +4679,12 @@ LogicVRegister Simulator::fmls(VectorFormat vform,
                                int index) {
   dst.ClearForWrite(vform);
   SimVRegister temp;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister index_reg = dup_element(kFormat8H, temp, src2, index);
+    fmls<SimFloat16>(vform, dst, src1, index_reg);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister index_reg = dup_element(kFormat4S, temp, src2, index);
     fmls<float>(vform, dst, src1, index_reg);
-
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     LogicVRegister index_reg = dup_element(kFormat2D, temp, src2, index);
@@ -4415,10 +4701,12 @@ LogicVRegister Simulator::fmulx(VectorFormat vform,
                                 int index) {
   dst.ClearForWrite(vform);
   SimVRegister temp;
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    LogicVRegister index_reg = dup_element(kFormat8H, temp, src2, index);
+    fmulx<SimFloat16>(vform, dst, src1, index_reg);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     LogicVRegister index_reg = dup_element(kFormat4S, temp, src2, index);
     fmulx<float>(vform, dst, src1, index_reg);
-
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     LogicVRegister index_reg = dup_element(kFormat2D, temp, src2, index);
@@ -4434,11 +4722,20 @@ LogicVRegister Simulator::frint(VectorFormat vform,
                                 FPRounding rounding_mode,
                                 bool inexact_exception) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 input = src.Float<SimFloat16>(i);
+      SimFloat16 rounded = FPRoundInt(input, rounding_mode);
+      if (inexact_exception && !IsNaN(input) && (input != rounded)) {
+        FPProcessException();
+      }
+      dst.SetFloat<SimFloat16>(i, rounded);
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float input = src.Float<float>(i);
       float rounded = FPRoundInt(input, rounding_mode);
-      if (inexact_exception && !std::isnan(input) && (input != rounded)) {
+      if (inexact_exception && !IsNaN(input) && (input != rounded)) {
         FPProcessException();
       }
       dst.SetFloat<float>(i, rounded);
@@ -4448,7 +4745,7 @@ LogicVRegister Simulator::frint(VectorFormat vform,
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       double input = src.Float<double>(i);
       double rounded = FPRoundInt(input, rounding_mode);
-      if (inexact_exception && !std::isnan(input) && (input != rounded)) {
+      if (inexact_exception && !IsNaN(input) && (input != rounded)) {
         FPProcessException();
       }
       dst.SetFloat<double>(i, rounded);
@@ -4464,7 +4761,13 @@ LogicVRegister Simulator::fcvts(VectorFormat vform,
                                 FPRounding rounding_mode,
                                 int fbits) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 op =
+          static_cast<double>(src.Float<SimFloat16>(i)) * std::pow(2.0, fbits);
+      dst.SetInt(vform, i, FPToInt16(op, rounding_mode));
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float op = src.Float<float>(i) * std::pow(2.0f, fbits);
       dst.SetInt(vform, i, FPToInt32(op, rounding_mode));
@@ -4486,7 +4789,13 @@ LogicVRegister Simulator::fcvtu(VectorFormat vform,
                                 FPRounding rounding_mode,
                                 int fbits) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 op =
+          static_cast<double>(src.Float<SimFloat16>(i)) * std::pow(2.0, fbits);
+      dst.SetUint(vform, i, FPToUInt16(op, rounding_mode));
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float op = src.Float<float>(i) * std::pow(2.0f, fbits);
       dst.SetUint(vform, i, FPToUInt32(op, rounding_mode));
@@ -4507,12 +4816,15 @@ LogicVRegister Simulator::fcvtl(VectorFormat vform,
                                 const LogicVRegister& src) {
   if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = LaneCountFromFormat(vform) - 1; i >= 0; i--) {
-      dst.SetFloat(i, FPToFloat(src.Float<float16>(i)));
+      // TODO: Full support for SimFloat16 in SimRegister(s).
+      dst.SetFloat(i,
+                   FPToFloat(RawbitsToFloat16(src.Float<uint16_t>(i)),
+                             ReadDN()));
     }
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     for (int i = LaneCountFromFormat(vform) - 1; i >= 0; i--) {
-      dst.SetFloat(i, FPToDouble(src.Float<float>(i)));
+      dst.SetFloat(i, FPToDouble(src.Float<float>(i), ReadDN()));
     }
   }
   return dst;
@@ -4525,12 +4837,16 @@ LogicVRegister Simulator::fcvtl2(VectorFormat vform,
   int lane_count = LaneCountFromFormat(vform);
   if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < lane_count; i++) {
-      dst.SetFloat(i, FPToFloat(src.Float<float16>(i + lane_count)));
+      // TODO: Full support for SimFloat16 in SimRegister(s).
+      dst.SetFloat(i,
+                   FPToFloat(RawbitsToFloat16(
+                                 src.Float<uint16_t>(i + lane_count)),
+                             ReadDN()));
     }
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
     for (int i = 0; i < lane_count; i++) {
-      dst.SetFloat(i, FPToDouble(src.Float<float>(i + lane_count)));
+      dst.SetFloat(i, FPToDouble(src.Float<float>(i + lane_count), ReadDN()));
     }
   }
   return dst;
@@ -4542,12 +4858,14 @@ LogicVRegister Simulator::fcvtn(VectorFormat vform,
                                 const LogicVRegister& src) {
   if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
-      dst.SetFloat(i, FPToFloat16(src.Float<float>(i), FPTieEven));
+      dst.SetFloat(i,
+                   Float16ToRawbits(
+                       FPToFloat16(src.Float<float>(i), FPTieEven, ReadDN())));
     }
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kSRegSize);
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
-      dst.SetFloat(i, FPToFloat(src.Float<double>(i), FPTieEven));
+      dst.SetFloat(i, FPToFloat(src.Float<double>(i), FPTieEven, ReadDN()));
     }
   }
   return dst;
@@ -4560,12 +4878,15 @@ LogicVRegister Simulator::fcvtn2(VectorFormat vform,
   int lane_count = LaneCountFromFormat(vform) / 2;
   if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
     for (int i = lane_count - 1; i >= 0; i--) {
-      dst.SetFloat(i + lane_count, FPToFloat16(src.Float<float>(i), FPTieEven));
+      dst.SetFloat(i + lane_count,
+                   Float16ToRawbits(
+                       FPToFloat16(src.Float<float>(i), FPTieEven, ReadDN())));
     }
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kSRegSize);
     for (int i = lane_count - 1; i >= 0; i--) {
-      dst.SetFloat(i + lane_count, FPToFloat(src.Float<double>(i), FPTieEven));
+      dst.SetFloat(i + lane_count,
+                   FPToFloat(src.Float<double>(i), FPTieEven, ReadDN()));
     }
   }
   return dst;
@@ -4578,7 +4899,7 @@ LogicVRegister Simulator::fcvtxn(VectorFormat vform,
   dst.ClearForWrite(vform);
   VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kSRegSize);
   for (int i = 0; i < LaneCountFromFormat(vform); i++) {
-    dst.SetFloat(i, FPToFloat(src.Float<double>(i), FPRoundOdd));
+    dst.SetFloat(i, FPToFloat(src.Float<double>(i), FPRoundOdd, ReadDN()));
   }
   return dst;
 }
@@ -4590,7 +4911,8 @@ LogicVRegister Simulator::fcvtxn2(VectorFormat vform,
   VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kSRegSize);
   int lane_count = LaneCountFromFormat(vform) / 2;
   for (int i = lane_count - 1; i >= 0; i--) {
-    dst.SetFloat(i + lane_count, FPToFloat(src.Float<double>(i), FPRoundOdd));
+    dst.SetFloat(i + lane_count,
+                 FPToFloat(src.Float<double>(i), FPRoundOdd, ReadDN()));
   }
   return dst;
 }
@@ -4619,7 +4941,7 @@ static inline uint64_t Bits(uint64_t val, int start_bit, int end_bit) {
 
 template <typename T>
 T Simulator::FPRecipSqrtEstimate(T op) {
-  if (std::isnan(op)) {
+  if (IsNaN(op)) {
     return FPProcessNaN(op);
   } else if (op == 0.0) {
     if (copysign(1.0, op) < 0.0) {
@@ -4630,17 +4952,22 @@ T Simulator::FPRecipSqrtEstimate(T op) {
   } else if (copysign(1.0, op) < 0.0) {
     FPProcessException();
     return FPDefaultNaN<T>();
-  } else if (std::isinf(op)) {
+  } else if (IsInf(op)) {
     return 0.0;
   } else {
     uint64_t fraction;
     int exp, result_exp;
 
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+    if (IsFloat16<T>()) {
+      exp = Float16Exp(op);
+      fraction = Float16Mantissa(op);
+      fraction <<= 42;
+    } else if (IsFloat32<T>()) {
       exp = FloatExp(op);
       fraction = FloatMantissa(op);
       fraction <<= 29;
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       exp = DoubleExp(op);
       fraction = DoubleMantissa(op);
     }
@@ -4660,19 +4987,27 @@ T Simulator::FPRecipSqrtEstimate(T op) {
       scaled = DoublePack(0, 1021, Bits(fraction, 51, 44) << 44);
     }
 
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+    if (IsFloat16<T>()) {
+      result_exp = (44 - exp) / 2;
+    } else if (IsFloat32<T>()) {
       result_exp = (380 - exp) / 2;
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       result_exp = (3068 - exp) / 2;
     }
 
     uint64_t estimate = DoubleToRawbits(recip_sqrt_estimate(scaled));
 
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+    if (IsFloat16<T>()) {
+      uint16_t exp_bits = static_cast<uint16_t>(Bits(result_exp, 4, 0));
+      uint16_t est_bits = static_cast<uint16_t>(Bits(estimate, 51, 42));
+      return Float16Pack(0, exp_bits, est_bits);
+    } else if (IsFloat32<T>()) {
       uint32_t exp_bits = static_cast<uint32_t>(Bits(result_exp, 7, 0));
       uint32_t est_bits = static_cast<uint32_t>(Bits(estimate, 51, 29));
       return FloatPack(0, exp_bits, est_bits);
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       return DoublePack(0, Bits(result_exp, 10, 0), Bits(estimate, 51, 0));
     }
   }
@@ -4683,7 +5018,12 @@ LogicVRegister Simulator::frsqrte(VectorFormat vform,
                                   LogicVRegister dst,
                                   const LogicVRegister& src) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 input = src.Float<SimFloat16>(i);
+      dst.SetFloat(i, FPRecipSqrtEstimate<SimFloat16>(input));
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float input = src.Float<float>(i);
       dst.SetFloat(i, FPRecipSqrtEstimate<float>(input));
@@ -4702,23 +5042,25 @@ template <typename T>
 T Simulator::FPRecipEstimate(T op, FPRounding rounding) {
   uint32_t sign;
 
-  if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+  if (IsFloat16<T>()) {
+    sign = Float16Sign(op);
+  } else if (IsFloat32<T>()) {
     sign = FloatSign(op);
   } else {
+    VIXL_ASSERT(IsFloat64<T>());
     sign = DoubleSign(op);
   }
 
-  if (std::isnan(op)) {
+  if (IsNaN(op)) {
     return FPProcessNaN(op);
-  } else if (std::isinf(op)) {
+  } else if (IsInf(op)) {
     return (sign == 1) ? -0.0 : 0.0;
   } else if (op == 0.0) {
     FPProcessException();  // FPExc_DivideByZero exception.
     return (sign == 1) ? kFP64NegativeInfinity : kFP64PositiveInfinity;
-  } else if (((sizeof(T) == sizeof(float)) &&  // NOLINT(runtime/sizeof)
-              (std::fabs(op) < std::pow(2.0, -128.0))) ||
-             ((sizeof(T) == sizeof(double)) &&  // NOLINT(runtime/sizeof)
-              (std::fabs(op) < std::pow(2.0, -1024.0)))) {
+  } else if ((IsFloat16<T>() && (std::fabs(op) < std::pow(2.0, -16.0))) ||
+             (IsFloat32<T>() && (std::fabs(op) < std::pow(2.0, -128.0))) ||
+             (IsFloat64<T>() && (std::fabs(op) < std::pow(2.0, -1024.0)))) {
     bool overflow_to_inf = false;
     switch (rounding) {
       case FPTieEven:
@@ -4741,9 +5083,12 @@ T Simulator::FPRecipEstimate(T op, FPRounding rounding) {
       return (sign == 1) ? kFP64NegativeInfinity : kFP64PositiveInfinity;
     } else {
       // Return FPMaxNormal(sign).
-      if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+      if (IsFloat16<T>()) {
+        return Float16Pack(sign, 0x1f, 0x3ff);
+      } else if (IsFloat32<T>()) {
         return FloatPack(sign, 0xfe, 0x07fffff);
       } else {
+        VIXL_ASSERT(IsFloat64<T>());
         return DoublePack(sign, 0x7fe, 0x0fffffffffffffl);
       }
     }
@@ -4752,12 +5097,18 @@ T Simulator::FPRecipEstimate(T op, FPRounding rounding) {
     int exp, result_exp;
     uint32_t sign;
 
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+    if (IsFloat16<T>()) {
+      sign = Float16Sign(op);
+      exp = Float16Exp(op);
+      fraction = Float16Mantissa(op);
+      fraction <<= 42;
+    } else if (IsFloat32<T>()) {
       sign = FloatSign(op);
       exp = FloatExp(op);
       fraction = FloatMantissa(op);
       fraction <<= 29;
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       sign = DoubleSign(op);
       exp = DoubleExp(op);
       fraction = DoubleMantissa(op);
@@ -4774,9 +5125,12 @@ T Simulator::FPRecipEstimate(T op, FPRounding rounding) {
 
     double scaled = DoublePack(0, 1022, Bits(fraction, 51, 44) << 44);
 
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
-      result_exp = (253 - exp);        // In range 253-254 = -1 to 253+1 = 254.
+    if (IsFloat16<T>()) {
+      result_exp = (29 - exp);  // In range 29-30 = -1 to 29+1 = 30.
+    } else if (IsFloat32<T>()) {
+      result_exp = (253 - exp);  // In range 253-254 = -1 to 253+1 = 254.
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       result_exp = (2045 - exp);  // In range 2045-2046 = -1 to 2045+1 = 2046.
     }
 
@@ -4789,11 +5143,16 @@ T Simulator::FPRecipEstimate(T op, FPRounding rounding) {
       fraction = (UINT64_C(1) << 50) | Bits(fraction, 51, 2);
       result_exp = 0;
     }
-    if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+    if (IsFloat16<T>()) {
+      uint16_t exp_bits = static_cast<uint16_t>(Bits(result_exp, 4, 0));
+      uint16_t frac_bits = static_cast<uint16_t>(Bits(fraction, 51, 42));
+      return Float16Pack(sign, exp_bits, frac_bits);
+    } else if (IsFloat32<T>()) {
       uint32_t exp_bits = static_cast<uint32_t>(Bits(result_exp, 7, 0));
       uint32_t frac_bits = static_cast<uint32_t>(Bits(fraction, 51, 29));
       return FloatPack(sign, exp_bits, frac_bits);
     } else {
+      VIXL_ASSERT(IsFloat64<T>());
       return DoublePack(sign, Bits(result_exp, 10, 0), Bits(fraction, 51, 0));
     }
   }
@@ -4805,7 +5164,12 @@ LogicVRegister Simulator::frecpe(VectorFormat vform,
                                  const LogicVRegister& src,
                                  FPRounding round) {
   dst.ClearForWrite(vform);
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    for (int i = 0; i < LaneCountFromFormat(vform); i++) {
+      SimFloat16 input = src.Float<SimFloat16>(i);
+      dst.SetFloat(i, FPRecipEstimate<SimFloat16>(input, round));
+    }
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     for (int i = 0; i < LaneCountFromFormat(vform); i++) {
       float input = src.Float<float>(i);
       dst.SetFloat(i, FPRecipEstimate<float>(input, round));
@@ -4883,17 +5247,23 @@ LogicVRegister Simulator::frecpx(VectorFormat vform,
   for (int i = 0; i < LaneCountFromFormat(vform); i++) {
     T op = src.Float<T>(i);
     T result;
-    if (std::isnan(op)) {
+    if (IsNaN(op)) {
       result = FPProcessNaN(op);
     } else {
       int exp;
       uint32_t sign;
-      if (sizeof(T) == sizeof(float)) {  // NOLINT(runtime/sizeof)
+      if (IsFloat16<T>()) {
+        sign = Float16Sign(op);
+        exp = Float16Exp(op);
+        exp = (exp == 0) ? (0x1F - 1) : static_cast<int>(Bits(~exp, 4, 0));
+        result = Float16Pack(sign, exp, 0);
+      } else if (IsFloat32<T>()) {
         sign = FloatSign(op);
         exp = FloatExp(op);
         exp = (exp == 0) ? (0xFF - 1) : static_cast<int>(Bits(~exp, 7, 0));
         result = FloatPack(sign, exp, 0);
       } else {
+        VIXL_ASSERT(IsFloat64<T>());
         sign = DoubleSign(op);
         exp = DoubleExp(op);
         exp = (exp == 0) ? (0x7FF - 1) : static_cast<int>(Bits(~exp, 10, 0));
@@ -4909,7 +5279,9 @@ LogicVRegister Simulator::frecpx(VectorFormat vform,
 LogicVRegister Simulator::frecpx(VectorFormat vform,
                                  LogicVRegister dst,
                                  const LogicVRegister& src) {
-  if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+  if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+    frecpx<SimFloat16>(vform, dst, src);
+  } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
     frecpx<float>(vform, dst, src);
   } else {
     VIXL_ASSERT(LaneSizeInBitsFromFormat(vform) == kDRegSize);
@@ -4924,7 +5296,10 @@ LogicVRegister Simulator::scvtf(VectorFormat vform,
                                 int fbits,
                                 FPRounding round) {
   for (int i = 0; i < LaneCountFromFormat(vform); i++) {
-    if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+    if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+      SimFloat16 result = FixedToFloat16(src.Int(kFormatH, i), fbits, round);
+      dst.SetFloat<SimFloat16>(i, result);
+    } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
       float result = FixedToFloat(src.Int(kFormatS, i), fbits, round);
       dst.SetFloat<float>(i, result);
     } else {
@@ -4943,7 +5318,10 @@ LogicVRegister Simulator::ucvtf(VectorFormat vform,
                                 int fbits,
                                 FPRounding round) {
   for (int i = 0; i < LaneCountFromFormat(vform); i++) {
-    if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
+    if (LaneSizeInBitsFromFormat(vform) == kHRegSize) {
+      SimFloat16 result = UFixedToFloat16(src.Uint(kFormatH, i), fbits, round);
+      dst.SetFloat<SimFloat16>(i, result);
+    } else if (LaneSizeInBitsFromFormat(vform) == kSRegSize) {
       float result = UFixedToFloat(src.Uint(kFormatS, i), fbits, round);
       dst.SetFloat<float>(i, result);
     } else {

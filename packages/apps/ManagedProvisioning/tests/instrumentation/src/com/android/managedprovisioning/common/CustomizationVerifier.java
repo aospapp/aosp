@@ -16,12 +16,12 @@
 package com.android.managedprovisioning.common;
 
 import static android.graphics.PorterDuff.Mode.SRC_ATOP;
-import static android.support.test.espresso.matcher.ViewMatchers.assertThat;
+
+import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 
 import static junit.framework.Assert.assertTrue;
 
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
 
 import android.annotation.LayoutRes;
 import android.app.Activity;
@@ -29,9 +29,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.PorterDuffColorFilter;
-import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.ContextThemeWrapper;
 import android.widget.ImageView;
@@ -77,12 +75,6 @@ public class CustomizationVerifier {
         assertThat(targetLogo, bitmapEqualTo(actualLogo));
     }
 
-    public void assertNextButtonColorCorrect(int targetColor) {
-        ColorStateList actual = mActivity.findViewById(R.id.next_button).getBackgroundTintList();
-        ColorStateList expected = ColorStateList.valueOf(targetColor);
-        assertThat(actual, equalTo(expected));
-    }
-
     public void assertProgressBarColorCorrect(@LayoutRes int progressBarLayoutId, int targetColor) {
         ProgressBar progressBar = mActivity.findViewById(progressBarLayoutId);
 
@@ -119,8 +111,7 @@ public class CustomizationVerifier {
     }
 
     private Drawable extractLogo() {
-        return ((ImageView) mActivity.findViewById(
-                com.android.setupwizardlib.R.id.suw_layout_icon)).getDrawable();
+        return ((ImageView) mActivity.findViewById(R.id.sud_layout_icon)).getDrawable();
     }
 
     private Bitmap drawableToBitmap(Drawable drawable) {

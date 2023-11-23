@@ -21,13 +21,14 @@ import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import androidx.annotation.AnyThread;
-import androidx.annotation.NonNull;
-import androidx.annotation.UiThread;
-import android.support.test.InstrumentationRegistry;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+
+import androidx.annotation.AnyThread;
+import androidx.annotation.NonNull;
+import androidx.annotation.UiThread;
+import androidx.test.InstrumentationRegistry;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -96,7 +97,7 @@ public final class TestActivity extends Activity {
     /**
      * Launches {@link TestActivity} with the given initialization logic for content view.
      *
-     * <p>As long as you are using {@link android.support.test.runner.AndroidJUnitRunner}, the test
+     * <p>As long as you are using {@link androidx.test.runner.AndroidJUnitRunner}, the test
      * runner automatically calls {@link Activity#finish()} for the {@link Activity} launched when
      * the test finished.  You do not need to explicitly call {@link Activity#finish()}.</p>
      *
@@ -112,7 +113,7 @@ public final class TestActivity extends Activity {
     /**
      * Launches {@link TestActivity} with the given initialization logic for content view.
      *
-     * <p>As long as you are using {@link android.support.test.runner.AndroidJUnitRunner}, the test
+     * <p>As long as you are using {@link androidx.test.runner.AndroidJUnitRunner}, the test
      * runner automatically calls {@link Activity#finish()} for the {@link Activity} launched when
      * the test finished.  You do not need to explicitly call {@link Activity#finish()}.</p>
      *

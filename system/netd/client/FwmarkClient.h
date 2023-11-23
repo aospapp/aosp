@@ -40,15 +40,6 @@ public:
     // Returns 0 on success or a negative errno value on failure.
     int send(FwmarkCommand* data, int fd, FwmarkConnectInfo* connectInfo);
 
-    // Env flag to control whether FwmarkClient sends any information at all about network events
-    // back to the system server through FwmarkServer.
-    static constexpr const char* ANDROID_NO_USE_FWMARK_CLIENT = "ANDROID_NO_USE_FWMARK_CLIENT";
-
-    // Env flag to control whether FwmarkClient should exclude detailed information like IP
-    // addresses and only send basic information necessary for marking sockets.
-    // Has no effect if ANDROID_NO_USE_FWMARK_CLIENT is set.
-    static constexpr const char* ANDROID_FWMARK_METRICS_ONLY = "ANDROID_FWMARK_METRICS_ONLY";
-
 private:
     int mChannel;
 };

@@ -41,7 +41,8 @@ enum BufferVarFlags
 	LAYOUT_STD430		= (1<<1),
 	LAYOUT_ROW_MAJOR	= (1<<2),
 	LAYOUT_COLUMN_MAJOR	= (1<<3),	//!< \note Lack of both flags means column-major matrix.
-	LAYOUT_MASK			= LAYOUT_STD430|LAYOUT_STD140|LAYOUT_ROW_MAJOR|LAYOUT_COLUMN_MAJOR,
+	LAYOUT_SCALAR		= (1<<4),
+	LAYOUT_MASK			= LAYOUT_STD430|LAYOUT_STD140|LAYOUT_ROW_MAJOR|LAYOUT_COLUMN_MAJOR|LAYOUT_SCALAR,
 
 	// \todo [2013-10-14 pyry] Investigate adding these.
 /*	QUALIFIER_COHERENT	= (1<<4),
@@ -52,6 +53,8 @@ enum BufferVarFlags
 	ACCESS_READ			= (1<<9),	//!< Buffer variable is read in the shader.
 	ACCESS_WRITE		= (1<<10),	//!< Buffer variable is written in the shader.
 	LAYOUT_RELAXED		= (1<<11),	//!< Support VK_KHR_relaxed_block_layout extension
+	LAYOUT_16BIT_STORAGE= (1<<12),  //!< Support VK_KHR_16bit_storage extension
+	LAYOUT_8BIT_STORAGE	= (1<<13),  //!< Support VK_KHR_8bit_storage extension
 };
 
 enum MatrixLoadFlags

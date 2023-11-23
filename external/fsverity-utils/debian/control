@@ -1,0 +1,14 @@
+Source: fsverity-utils
+Priority: optional
+Maintainer: Eric Biggers <ebiggers@google.com>
+Build-Depends: debhelper (>= 10), libssl-dev (>= 1.0.0)
+Standards-Version: 4.0.0
+Vcs-Git: git://git.kernel.org/pub/scm/linux/kernel/git/mhalcrow/fsverity
+
+Package: fsverity-utils
+Section: utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: fs-verity userspace utility.  This program allows you to set up
+ read-only, integrity and/or authenticity-protected files when supported by the
+ underlying filesystem.

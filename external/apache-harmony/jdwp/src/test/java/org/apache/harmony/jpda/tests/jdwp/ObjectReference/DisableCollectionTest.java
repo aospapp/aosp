@@ -42,11 +42,9 @@ public class DisableCollectionTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ObjectReference::DisableCollection command";
 
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/DisableCollectionDebuggee;";
-
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.DisableCollectionDebuggee";
+        return DisableCollectionDebuggee.class.getName();
     }
 
     /**
@@ -65,7 +63,7 @@ public class DisableCollectionTest extends JDWPSyncTestCase {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         finalSyncMessage = "TO_FINISH";
 
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
 
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = "

@@ -46,11 +46,7 @@ class BzipExtentWriterTest : public ::testing::Test {
     fd_.reset(new EintrSafeFileDescriptor);
     ASSERT_TRUE(fd_->Open(temp_file_.path().c_str(), O_RDWR, 0600));
   }
-  void TearDown() override {
-    fd_->Close();
-  }
-  void WriteAlignedExtents(size_t chunk_size, size_t first_chunk_size);
-  void TestZeroPad(bool aligned_size);
+  void TearDown() override { fd_->Close(); }
 
   FileDescriptorPtr fd_;
   test_utils::ScopedTempFile temp_file_{"BzipExtentWriterTest-file.XXXXXX"};
@@ -62,17 +58,16 @@ TEST_F(BzipExtentWriterTest, SimpleTest) {
   // 'echo test | bzip2 | hexdump' yields:
   static const char test_uncompressed[] = "test\n";
   static const uint8_t test[] = {
-    0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0xcc, 0xc3,
-    0x71, 0xd4, 0x00, 0x00, 0x02, 0x41, 0x80, 0x00, 0x10, 0x02, 0x00, 0x0c,
-    0x00, 0x20, 0x00, 0x21, 0x9a, 0x68, 0x33, 0x4d, 0x19, 0x97, 0x8b, 0xb9,
-    0x22, 0x9c, 0x28, 0x48, 0x66, 0x61, 0xb8, 0xea, 0x00,
+      0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0xcc, 0xc3,
+      0x71, 0xd4, 0x00, 0x00, 0x02, 0x41, 0x80, 0x00, 0x10, 0x02, 0x00, 0x0c,
+      0x00, 0x20, 0x00, 0x21, 0x9a, 0x68, 0x33, 0x4d, 0x19, 0x97, 0x8b, 0xb9,
+      0x22, 0x9c, 0x28, 0x48, 0x66, 0x61, 0xb8, 0xea, 0x00,
   };
 
   BzipExtentWriter bzip_writer(std::make_unique<DirectExtentWriter>());
   EXPECT_TRUE(
       bzip_writer.Init(fd_, {extents.begin(), extents.end()}, kBlockSize));
   EXPECT_TRUE(bzip_writer.Write(test, sizeof(test)));
-  EXPECT_TRUE(bzip_writer.End());
 
   brillo::Blob buf;
   EXPECT_TRUE(utils::ReadFile(temp_file_.path(), &buf));
@@ -100,8 +95,7 @@ TEST_F(BzipExtentWriterTest, ChunkedTest) {
   for (size_t i = 0; i < decompressed_data.size(); ++i)
     decompressed_data[i] = static_cast<uint8_t>("ABC\n"[i % 4]);
 
-  vector<Extent> extents = {
-      ExtentForRange(0, (kDecompressedLength + kBlockSize - 1) / kBlockSize)};
+  vector<Extent> extents = {ExtentForBytes(kBlockSize, 0, kDecompressedLength)};
 
   BzipExtentWriter bzip_writer(std::make_unique<DirectExtentWriter>());
   EXPECT_TRUE(
@@ -113,7 +107,6 @@ TEST_F(BzipExtentWriterTest, ChunkedTest) {
     size_t this_chunk_size = min(kChunkSize, compressed_data.size() - i);
     EXPECT_TRUE(bzip_writer.Write(&compressed_data[i], this_chunk_size));
   }
-  EXPECT_TRUE(bzip_writer.End());
 
   // Check that the const input has not been clobbered.
   test_utils::ExpectVectorsEq(original_compressed_data, compressed_data);

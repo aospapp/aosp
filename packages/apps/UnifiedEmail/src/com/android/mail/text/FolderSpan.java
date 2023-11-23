@@ -19,7 +19,7 @@ package com.android.mail.text;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.support.v4.text.BidiFormatter;
+import androidx.core.text.BidiFormatter;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.ReplacementSpan;

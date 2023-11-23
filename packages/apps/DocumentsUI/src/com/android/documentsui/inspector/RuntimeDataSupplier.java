@@ -15,12 +15,9 @@
  */
 package com.android.documentsui.inspector;
 
-import static com.android.internal.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
 
-import android.app.LoaderManager;
-import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
@@ -28,7 +25,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.app.LoaderManager.LoaderCallbacks;
+import androidx.loader.content.CursorLoader;
+import androidx.loader.content.Loader;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.inspector.InspectorController.DataSupplier;
@@ -109,17 +110,17 @@ public class RuntimeDataSupplier implements DataSupplier {
     public void getDocumentMetadata(Uri uri, Consumer<Bundle> callback) {
         mMetadataCallbacks = new LoaderCallbacks<Bundle>() {
             @Override
-            public android.content.Loader<Bundle> onCreateLoader(int id, Bundle unused) {
+            public Loader<Bundle> onCreateLoader(int id, Bundle unused) {
                 return new MetadataLoader(mContext, uri);
             }
 
             @Override
-            public void onLoadFinished(android.content.Loader<Bundle> loader, Bundle data) {
+            public void onLoadFinished(Loader<Bundle> loader, Bundle data) {
                 callback.accept(data);
             }
 
             @Override
-            public void onLoaderReset(android.content.Loader<Bundle> loader) {
+            public void onLoaderReset(Loader<Bundle> loader) {
             }
         };
 
@@ -173,12 +174,12 @@ public class RuntimeDataSupplier implements DataSupplier {
         }
 
         @Override
-        public android.content.Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        public Loader<Cursor> onCreateLoader(int id, Bundle args) {
             return new CursorLoader(mContext, mUri, null, null, null, null);
         }
 
         @Override
-        public void onLoadFinished(android.content.Loader<Cursor> loader, Cursor cursor) {
+        public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
 
             if (cursor != null) {
                 mObserver = new InspectorContentObserver(loader::onContentChanged);
@@ -189,7 +190,7 @@ public class RuntimeDataSupplier implements DataSupplier {
         }
 
         @Override
-        public void onLoaderReset(android.content.Loader<Cursor> loader) {
+        public void onLoaderReset(Loader<Cursor> loader) {
             if (mObserver != null) {
                 mContext.getContentResolver().unregisterContentObserver(mObserver);
             }

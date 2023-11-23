@@ -29,6 +29,12 @@ interface MutableModifierList : ModifierList {
     fun setTransient(transient: Boolean)
     fun setVolatile(volatile: Boolean)
     fun setDefault(default: Boolean)
+    fun setInternal(internal: Boolean)
+    fun setSealed(sealed: Boolean)
+    fun setInfix(infix: Boolean)
+    fun setOperator(operator: Boolean)
+    fun setInline(inline: Boolean)
+    fun setVarArg(vararg: Boolean)
 
     fun addAnnotation(annotation: AnnotationItem)
     fun removeAnnotation(annotation: AnnotationItem)

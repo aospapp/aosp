@@ -7,6 +7,7 @@
   var videoEvents = {
     timeupdate: []
   };
+  var currentlyFullscreen = false
 
   if (videoElement instanceof HTMLMediaElement) {
     function logEventHappened(e) {
@@ -31,6 +32,20 @@
   }
   else {
     console.error('Can not play non HTML5 video element.');
+  }
+
+  /**
+   * Event handler to monitor document fullscreenchange events. We are
+   * currently fullscreened if a fullscreenElement exists.
+   * @see https://fullscreen.spec.whatwg.org/
+   */
+  function onFullscreen(e) {
+    if (document.webkitFullscreenElement === null ||
+        document.fullscreenElement === null) {
+      currentlyFullscreen = false;
+    } else {
+      currentlyFullscreen = true;
+    }
   }
 
   function playVideo() {
@@ -102,6 +117,19 @@
     return videoElement.getPlaybackQuality();
   }
 
+  function getFramesStatistics() {
+    droppedFramesPercentage = 100 * (videoElement.webkitDroppedFrameCount /
+                                     videoElement.webkitDecodedFrameCount);
+
+    return {'droppedFrameCount': videoElement.webkitDroppedFrameCount,
+            'decodedFrameCount': videoElement.webkitDecodedFrameCount,
+            'droppedFramesPercentage': droppedFramesPercentage};
+  }
+
+  function isCurrentlyFullscreen() {
+    return currentlyFullscreen;
+  }
+
   window.__videoElement = videoElement;
   window.__playVideo = playVideo;
   window.__pauseVideo = pauseVideo;
@@ -113,6 +141,11 @@
   window.__getEventHappened = getEventHappened;
   window.__clearEventHappened = clearEventHappened;
   window.__getLastSecondTimeupdates = getLastSecondTimeupdates;
+  window.__getFramesStatistics = getFramesStatistics;
+  window.__isCurrentlyFullscreen = isCurrentlyFullscreen;
+
+  document.addEventListener('webkitfullscreenchange', onFullscreen);
+  document.addEventListener('fullscreenchange', onFullscreen);
 
   return window.__videoElement !== null;
 })();

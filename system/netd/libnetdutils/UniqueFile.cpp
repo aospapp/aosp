@@ -22,9 +22,9 @@
 namespace android {
 namespace netdutils {
 
-void UniqueFileDtor::operator()(FILE* file) {
+void UniqueFileDtor::operator()(FILE* file) const {
     const auto& sys = sSyscalls.get();
-    sys.fclose(file);
+    sys.fclose(file).ignoreError();
 }
 
 }  // namespace netdutils

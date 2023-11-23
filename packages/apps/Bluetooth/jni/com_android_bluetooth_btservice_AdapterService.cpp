@@ -40,8 +40,6 @@
 #include <hardware/bluetooth.h>
 #include <mutex>
 
-using base::StringPrintf;
-using bluetooth::Uuid;
 using android::bluetooth::BluetoothSocketManagerBinderServer;
 
 namespace android {
@@ -685,7 +683,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   }
 }
 
-static bool initNative(JNIEnv* env, jobject obj) {
+static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
+                       jboolean isSingleUserMode) {
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -699,7 +698,9 @@ static bool initNative(JNIEnv* env, jobject obj) {
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->init(&sBluetoothCallbacks);
+  int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
+                                      isGuest == JNI_TRUE ? 1 : 0,
+                                      isSingleUserMode == JNI_TRUE ? 1 : 0);
   if (ret != BT_STATUS_SUCCESS) {
     ALOGE("Error while setting the callbacks: %d\n", ret);
     sBluetoothInterface = NULL;
@@ -752,11 +753,11 @@ static bool cleanupNative(JNIEnv* env, jobject obj) {
   return JNI_TRUE;
 }
 
-static jboolean enableNative(JNIEnv* env, jobject obj, jboolean isGuest) {
+static jboolean enableNative(JNIEnv* env, jobject obj) {
   ALOGV("%s", __func__);
 
   if (!sBluetoothInterface) return JNI_FALSE;
-  int ret = sBluetoothInterface->enable(isGuest == JNI_TRUE ? 1 : 0);
+  int ret = sBluetoothInterface->enable();
   return (ret == BT_STATUS_SUCCESS || ret == BT_STATUS_DONE) ? JNI_TRUE
                                                              : JNI_FALSE;
 }
@@ -1217,12 +1218,31 @@ static void interopDatabaseAddNative(JNIEnv* env, jobject obj, int feature,
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
+                                         jbyteArray address) {
+  ALOGV("%s", __func__);
+  if (!sBluetoothInterface) return env->NewByteArray(0);
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+  if (addr == nullptr) {
+    jniThrowIOException(env, EINVAL);
+    return env->NewByteArray(0);
+  }
+  RawAddress addr_obj = {};
+  addr_obj.FromOctets((uint8_t*)addr);
+  std::string output = sBluetoothInterface->obfuscate_address(addr_obj);
+  jsize output_size = output.size() * sizeof(char);
+  jbyteArray output_bytes = env->NewByteArray(output_size);
+  env->SetByteArrayRegion(output_bytes, 0, output_size,
+                          (const jbyte*)output.data());
+  return output_bytes;
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "()Z", (void*)initNative},
+    {"initNative", "(ZZ)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
-    {"enableNative", "(Z)Z", (void*)enableNative},
+    {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},
     {"setAdapterPropertyNative", "(I[B)Z", (void*)setAdapterPropertyNative},
     {"getAdapterPropertiesNative", "()Z", (void*)getAdapterPropertiesNative},
@@ -1251,7 +1271,8 @@ static JNINativeMethod sMethods[] = {
     {"dumpMetricsNative", "()[B", (void*)dumpMetricsNative},
     {"factoryResetNative", "()Z", (void*)factoryResetNative},
     {"interopDatabaseClearNative", "()V", (void*)interopDatabaseClearNative},
-    {"interopDatabaseAddNative", "(I[BI)V", (void*)interopDatabaseAddNative}};
+    {"interopDatabaseAddNative", "(I[BI)V", (void*)interopDatabaseAddNative},
+    {"obfuscateAddressNative", "([B)[B", (void*)obfuscateAddressNative}};
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env) {
   return jniRegisterNativeMethods(
@@ -1306,12 +1327,6 @@ jint JNI_OnLoad(JavaVM* jvm, void* reserved) {
     return JNI_ERR;
   }
 
-  status = android::register_com_android_bluetooth_avrcp(e);
-  if (status < 0) {
-    ALOGE("jni avrcp target registration failure: %d", status);
-    return JNI_ERR;
-  }
-
   status = android::register_com_android_bluetooth_avrcp_target(e);
   if (status < 0) {
     ALOGE("jni new avrcp target registration failure: %d", status);
@@ -1332,12 +1347,6 @@ jint JNI_OnLoad(JavaVM* jvm, void* reserved) {
   status = android::register_com_android_bluetooth_hid_device(e);
   if (status < 0) {
     ALOGE("jni hidd registration failure: %d", status);
-    return JNI_ERR;
-  }
-
-  status = android::register_com_android_bluetooth_hdp(e);
-  if (status < 0) {
-    ALOGE("jni hdp registration failure: %d", status);
     return JNI_ERR;
   }
 

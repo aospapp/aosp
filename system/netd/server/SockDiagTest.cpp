@@ -73,11 +73,11 @@ const char *tcpStateName(uint8_t state) {
 }
 
 TEST_F(SockDiagTest, TestDump) {
-    int v4socket = socket(AF_INET, SOCK_STREAM, 0);
+    int v4socket = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_NE(-1, v4socket) << "Failed to open IPv4 socket: " << strerror(errno);
-    int v6socket = socket(AF_INET6, SOCK_STREAM, 0);
+    int v6socket = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_NE(-1, v6socket) << "Failed to open IPv6 socket: " << strerror(errno);
-    int listensocket = socket(AF_INET6, SOCK_STREAM, 0);
+    int listensocket = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_NE(-1, listensocket) << "Failed to open listen socket: " << strerror(errno);
 
     uint16_t port = bindAndListen(listensocket);
@@ -93,8 +93,10 @@ TEST_F(SockDiagTest, TestDump) {
 
     sockaddr_in6 client46, client6;
     socklen_t clientlen = std::max(sizeof(client46), sizeof(client6));
-    int accepted4 = accept(listensocket, (sockaddr *) &client46, &clientlen);
-    int accepted6 = accept(listensocket, (sockaddr *) &client6, &clientlen);
+    int accepted4 = accept4(
+            listensocket, (sockaddr *) &client46, &clientlen, SOCK_CLOEXEC);
+    int accepted6 = accept4(
+            listensocket, (sockaddr *) &client6, &clientlen, SOCK_CLOEXEC);
     ASSERT_NE(-1, accepted4);
     ASSERT_NE(-1, accepted6);
 
@@ -213,8 +215,8 @@ inet_diag_msg makeDiagMessage(__u8 family,  const sockaddr *src, const sockaddr 
 
 inet_diag_msg makeDiagMessage(const char* srcstr, const char* dststr) {
     addrinfo hints = { .ai_flags = AI_NUMERICHOST }, *src, *dst;
-    EXPECT_EQ(0, getaddrinfo(srcstr, NULL, &hints, &src));
-    EXPECT_EQ(0, getaddrinfo(dststr, NULL, &hints, &dst));
+    EXPECT_EQ(0, getaddrinfo(srcstr, nullptr, &hints, &src));
+    EXPECT_EQ(0, getaddrinfo(dststr, nullptr, &hints, &dst));
     EXPECT_EQ(src->ai_addr->sa_family, dst->ai_addr->sa_family);
     inet_diag_msg msg = makeDiagMessage(src->ai_addr->sa_family, src->ai_addr, dst->ai_addr);
     freeaddrinfo(src);
@@ -457,7 +459,7 @@ TEST_P(SockDiagMicroBenchmarkTest, TestMicroBenchmark) {
     fprintf(stderr, "Benchmarking closing %d sockets based on %s\n",
             numSockets, testTypeName(mode));
 
-    int listensocket = socket(AF_INET6, SOCK_STREAM, 0);
+    int listensocket = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_NE(-1, listensocket) << "Failed to open listen socket";
 
     uint16_t port = bindAndListen(listensocket);
@@ -473,12 +475,13 @@ TEST_P(SockDiagMicroBenchmarkTest, TestMicroBenchmark) {
 
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < numSockets; i++) {
-        int s = socket(AF_INET6, SOCK_STREAM, 0);
+        int s = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
         clientlen = sizeof(client);
         ASSERT_EQ(0, connect(s, (sockaddr *) &server, sizeof(server)))
             << "Connecting socket " << i << " failed " << strerror(errno);
         ASSERT_EQ(0, modifySocketForTest(s, i));
-        serversockets[i] = accept(listensocket, (sockaddr *) &client, &clientlen);
+        serversockets[i] = accept4(
+                listensocket, (sockaddr *) &client, &clientlen, SOCK_CLOEXEC);
         ASSERT_NE(-1, serversockets[i])
             << "Accepting socket " << i << " failed " << strerror(errno);
         clientports[i] = client.sin6_port;

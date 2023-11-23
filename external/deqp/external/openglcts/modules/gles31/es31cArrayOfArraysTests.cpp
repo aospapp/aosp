@@ -4466,11 +4466,7 @@ void InteractionFunctionCalls1<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -4481,15 +4477,7 @@ void InteractionFunctionCalls1<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -4516,23 +4504,23 @@ void InteractionFunctionCalls1<API>::test_shader_compilation(
 
 			function_definition = "void my_function(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " output_array[2][2][2][2][2][2][2][2]) {\n";
+			function_definition += " output_array[2][2][2][2]) {\n";
 			function_definition += iterator_declaration;
 			function_definition += iteration_loop_start;
-			function_definition += "                                   output_array[a][b][c][d][e][f][g][h] = " +
+			function_definition += "                                   output_array[a][b][c][d] = " +
 								   var_iterator->second.variable_type_initializer1 + ";\n";
 			function_definition +=
 				"                                   iterator += " + var_iterator->second.iterator_type + "(1);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "}";
 
-			function_use = "    " + var_iterator->second.type + " my_array[2][2][2][2][2][2][2][2];\n";
+			function_use = "    " + var_iterator->second.type + " my_array[2][2][2][2];\n";
 			function_use += "    my_function(my_array);";
 
 			verification = iterator_declaration;
 			verification += "    float result = 1.0;\n";
 			verification += iteration_loop_start;
-			verification += "                                   if (my_array[a][b][c][d][e][f][g][h] " +
+			verification += "                                   if (my_array[a][b][c][d] " +
 							var_iterator->second.specific_element +
 							" != iterator)\n"
 							"                                   {\n"
@@ -5213,11 +5201,7 @@ void InteractionFunctionCalls2<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5228,15 +5212,7 @@ void InteractionFunctionCalls2<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const std::string multiplier_array = "const int[] multiplier_array = int[]( 1,  2,  3,  4,  5,  6,  7,  8,\n"
 										 "                                     11, 12, 13, 14, 15, 16, 17, 18,\n"
 										 "                                     21, 22, 23, 24, 25, 26, 27, 28,\n"
@@ -5270,10 +5246,10 @@ void InteractionFunctionCalls2<API>::test_shader_compilation(
 			function_definition += multiplier_array;
 			function_definition += "void my_function(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " inout_array[2][2][2][2][2][2][2][2]) {\n"
+			function_definition += " inout_array[2][2][2][2]) {\n"
 								   "    uint i = 0u;\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   inout_array[a][b][c][d][e][f][g][h] *= " +
+			function_definition += "                                   inout_array[a][b][c][d] *= " +
 								   var_iterator->second.iterator_type + "(multiplier_array[i % 64u]);\n";
 			function_definition += "                                   i+= 1u;\n";
 			function_definition += iteration_loop_end;
@@ -5281,15 +5257,15 @@ void InteractionFunctionCalls2<API>::test_shader_compilation(
 
 			function_use += "    float result = 1.0;\n";
 			function_use += "    uint iterator = 0u;\n";
-			function_use += "    " + var_iterator->second.type + " my_array[2][2][2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " my_array[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   my_array[a][b][c][d][e][f][g][h] = " +
+			function_use += "                                   my_array[a][b][c][d] = " +
 							var_iterator->second.variable_type_initializer2 + ";\n";
 			function_use += iteration_loop_end;
 			function_use += "    my_function(my_array);";
 
 			verification += iteration_loop_start;
-			verification += "                                   if (my_array[a][b][c][d][e][f][g][h] " +
+			verification += "                                   if (my_array[a][b][c][d] " +
 							var_iterator->second.specific_element + "!= " + var_iterator->second.iterator_type +
 							"(multiplier_array[iterator % 64u]))\n"
 							"                                   {\n"
@@ -5337,11 +5313,7 @@ void InteractionArgumentAliasing1<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5352,15 +5324,7 @@ void InteractionArgumentAliasing1<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -5378,22 +5342,22 @@ void InteractionArgumentAliasing1<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2][2][2][2][2];\n\n";
+			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2];\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                               x[a][b][c][d][e][f][g][h] = " + var_iterator->second.type + "(123);\n";
+				"                               x[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -5409,16 +5373,16 @@ void InteractionArgumentAliasing1<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -5470,11 +5434,7 @@ void InteractionArgumentAliasing2<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5485,15 +5445,7 @@ void InteractionArgumentAliasing2<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -5511,23 +5463,23 @@ void InteractionArgumentAliasing2<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2][2][2][2][2];\n\n";
+			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2];\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f][g][h] = " + var_iterator->second.type +
+				"                                   y[a][b][c][d] = " + var_iterator->second.type +
 				"(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -5543,16 +5495,16 @@ void InteractionArgumentAliasing2<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -5604,11 +5556,7 @@ void InteractionArgumentAliasing3<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5619,15 +5567,7 @@ void InteractionArgumentAliasing3<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -5645,23 +5585,23 @@ void InteractionArgumentAliasing3<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2][2][2][2][2];\n\n";
+			std::string array_declaration = var_iterator->second.type + " z[2][2][2][2];\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(out " + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(out " + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f][g][h] = " + var_iterator->second.type +
+				"                                   x[a][b][c][d] = " + var_iterator->second.type +
 				"(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -5677,16 +5617,16 @@ void InteractionArgumentAliasing3<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}\n\n";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -5738,11 +5678,7 @@ void InteractionArgumentAliasing4<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5753,15 +5689,7 @@ void InteractionArgumentAliasing4<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -5779,23 +5707,23 @@ void InteractionArgumentAliasing4<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + "[2][2][2][2][2][2][2][2] z;\n\n";
+			std::string array_declaration = var_iterator->second.type + "[2][2][2][2] z;\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += "out " + var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += "out " + var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f][g][h] = " + var_iterator->second.type +
+				"                                   y[a][b][c][d] = " + var_iterator->second.type +
 				"(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -5811,16 +5739,16 @@ void InteractionArgumentAliasing4<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}\n\n";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -5872,11 +5800,7 @@ void InteractionArgumentAliasing5<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -5887,15 +5811,7 @@ void InteractionArgumentAliasing5<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -5913,23 +5829,23 @@ void InteractionArgumentAliasing5<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + "[2][2][2][2][2][2][2][2] z;\n\n";
+			std::string array_declaration = var_iterator->second.type + "[2][2][2][2] z;\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(inout " + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(inout " + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f][g][h] = " + var_iterator->second.type +
+				"                                   x[a][b][c][d] = " + var_iterator->second.type +
 				"(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -5945,16 +5861,16 @@ void InteractionArgumentAliasing5<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}\n\n";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -6006,11 +5922,7 @@ void InteractionArgumentAliasing6<API>::test_shader_compilation(
 															 VAR_TYPE_DOUBLE, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -6021,15 +5933,7 @@ void InteractionArgumentAliasing6<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -6047,23 +5951,23 @@ void InteractionArgumentAliasing6<API>::test_shader_compilation(
 
 		if (var_iterator != supported_variable_types_map.end())
 		{
-			std::string array_declaration = var_iterator->second.type + "[2][2][2][2][2][2][2][2] z;\n\n";
+			std::string array_declaration = var_iterator->second.type + "[2][2][2][2] z;\n\n";
 
 			std::string function_definition;
 			std::string function_use;
 			std::string verification;
 
-			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2][2][2][2][2], ";
-			function_definition += "inout " + var_iterator->second.type + " y[2][2][2][2][2][2][2][2])\n";
+			function_definition += "bool gfunc(" + var_iterator->second.type + " x[2][2][2][2], ";
+			function_definition += "inout " + var_iterator->second.type + " y[2][2][2][2])\n";
 			function_definition += "{\n";
 			function_definition += "    " + iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f][g][h] = " + var_iterator->second.type +
+				"                                   y[a][b][c][d] = " + var_iterator->second.type +
 				"(123);\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "\n";
 			function_definition += "    " + iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f][g][h]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -6079,16 +5983,16 @@ void InteractionArgumentAliasing6<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += "    " + iteration_loop_end;
 			function_definition += "  return true;\n";
 			function_definition += "}\n\n";
 
 			function_use += "    " + array_declaration;
 			function_use += "    " + iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f][g][h] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*128u)+(b*64u)+(c*32u)+(d*16u)+(e*8u)+(f*4u)+(g*2u)+h));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += "    " + iteration_loop_end;
 
 			verification += "    float result = 0.0;\n";
@@ -9062,11 +8966,7 @@ void SubroutineFunctionCalls1<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -9077,15 +8977,7 @@ void SubroutineFunctionCalls1<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -9113,14 +9005,14 @@ void SubroutineFunctionCalls1<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine void out_routine_type(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " output_array[2][2][2][2][2][2][2][2]);\n\n"
+			function_definition += " output_array[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(out_routine_type) void original_routine(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " output_array[2][2][2][2][2][2][2][2]) {\n";
+			function_definition += " output_array[2][2][2][2]) {\n";
 			function_definition += iterator_declaration;
 			function_definition += iteration_loop_start;
-			function_definition += "                                   output_array[a][b][c][d][e][f][g][h] = " +
+			function_definition += "                                   output_array[a][b][c][d] = " +
 								   var_iterator->second.variable_type_initializer1 + ";\n";
 			function_definition +=
 				"                                   iterator += " + var_iterator->second.iterator_type + "(1);\n";
@@ -9128,10 +9020,10 @@ void SubroutineFunctionCalls1<API>::test_shader_compilation(
 			function_definition += "}\n\n";
 			function_definition += "subroutine(out_routine_type) void new_routine(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " output_array[2][2][2][2][2][2][2][2]) {\n";
+			function_definition += " output_array[2][2][2][2]) {\n";
 			function_definition += iterator_declaration;
 			function_definition += iteration_loop_start;
-			function_definition += "                                   output_array[a][b][c][d][e][f][g][h] = " +
+			function_definition += "                                   output_array[a][b][c][d] = " +
 								   var_iterator->second.variable_type_initializer1 + ";\n";
 			function_definition +=
 				"                                   iterator -= " + var_iterator->second.iterator_type + "(1);\n";
@@ -9140,13 +9032,13 @@ void SubroutineFunctionCalls1<API>::test_shader_compilation(
 								   "// Subroutine uniform\n"
 								   "subroutine uniform out_routine_type routine;\n";
 
-			function_use = "    " + var_iterator->second.type + " my_array[2][2][2][2][2][2][2][2];\n";
+			function_use = "    " + var_iterator->second.type + " my_array[2][2][2][2];\n";
 			function_use += "    routine(my_array);";
 
 			verification = iterator_declaration;
 			verification += "    float result = 1.0;\n";
 			verification += iteration_loop_start;
-			verification += "                                   if (my_array[a][b][c][d][e][f][g][h] " +
+			verification += "                                   if (my_array[a][b][c][d] " +
 							var_iterator->second.specific_element +
 							" != iterator)\n"
 							"                                   {\n"
@@ -9289,6 +9181,13 @@ void SubroutineFunctionCalls1<API>::execute_dispatch_test(typename TestCaseBase<
 	}
 
 	/* Delete generated objects. */
+	gl.useProgram(0);
+	gl.bindTexture(GL_TEXTURE_2D, 0);
+	gl.bindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	gl.deleteProgram(this->program_object_id);
+	this->program_object_id = 0;
+
 	gl.deleteTextures(1, &texture_object_id);
 	gl.deleteFramebuffers(1, &framebuffer_object_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "An error ocurred while deleting generated objects.");
@@ -9922,11 +9821,7 @@ void SubroutineFunctionCalls2<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                               }\n"
-										   "                           }\n"
-										   "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -9937,15 +9832,7 @@ void SubroutineFunctionCalls2<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n"
-											 "                           for (uint g = 0u; g < 2u; g++)\n"
-											 "                           {\n"
-											 "                               for (uint h = 0u; h < 2u; h++)\n"
-											 "                               {\n";
+											 "                {\n";
 	const std::string multiplier_array = "const int[] multiplier_array = int[]( 1,  2,  3,  4,  5,  6,  7,  8,\n"
 										 "                                     11, 12, 13, 14, 15, 16, 17, 18,\n"
 										 "                                     21, 22, 23, 24, 25, 26, 27, 28,\n"
@@ -9981,24 +9868,24 @@ void SubroutineFunctionCalls2<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine void inout_routine_type(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " inout_array[2][2][2][2][2][2][2][2]);\n\n"
+			function_definition += " inout_array[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(inout_routine_type) void original_routine(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " inout_array[2][2][2][2][2][2][2][2]) {\n"
+			function_definition += " inout_array[2][2][2][2]) {\n"
 								   "    uint i = 0u;\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   inout_array[a][b][c][d][e][f][g][h] *= " +
+			function_definition += "                                   inout_array[a][b][c][d] *= " +
 								   var_iterator->second.iterator_type + "(multiplier_array[i % 64u]);\n";
 			function_definition += "                                   i+= 1u;\n";
 			function_definition += iteration_loop_end;
 			function_definition += "}\n\n"
 								   "subroutine(inout_routine_type) void new_routine(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " inout_array[2][2][2][2][2][2][2][2]) {\n"
+			function_definition += " inout_array[2][2][2][2]) {\n"
 								   "    uint i = 0u;\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   inout_array[a][b][c][d][e][f][g][h] /= " +
+			function_definition += "                                   inout_array[a][b][c][d] /= " +
 								   var_iterator->second.iterator_type + "(multiplier_array[i % 64u]);\n";
 			function_definition += "                                   i+= 1u;\n";
 			function_definition += iteration_loop_end;
@@ -10008,15 +9895,15 @@ void SubroutineFunctionCalls2<API>::test_shader_compilation(
 
 			function_use += "    float result = 1.0;\n";
 			function_use += "    uint iterator = 0u;\n";
-			function_use += "    " + var_iterator->second.type + " my_array[2][2][2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " my_array[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   my_array[a][b][c][d][e][f][g][h] = " +
+			function_use += "                                   my_array[a][b][c][d] = " +
 							var_iterator->second.variable_type_initializer2 + ";\n";
 			function_use += iteration_loop_end;
 			function_use += "    routine(my_array);";
 
 			verification += iteration_loop_start;
-			verification += "                                   if (my_array[a][b][c][d][e][f][g][h] " +
+			verification += "                                   if (my_array[a][b][c][d] " +
 							var_iterator->second.specific_element + "!= " + var_iterator->second.iterator_type +
 							"(multiplier_array[iterator % 64u]))\n"
 							"                                   {\n"
@@ -10074,9 +9961,7 @@ void SubroutineArgumentAliasing1<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -10087,11 +9972,7 @@ void SubroutineArgumentAliasing1<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -10116,22 +9997,22 @@ void SubroutineArgumentAliasing1<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine bool in_routine_type(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2]);\n\n"
+			function_definition += " y[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(in_routine_type) bool original_routine(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   x[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10147,22 +10028,22 @@ void SubroutineArgumentAliasing1<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "subroutine(in_routine_type) bool new_routine(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   y[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10178,18 +10059,18 @@ void SubroutineArgumentAliasing1<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "// Subroutine uniform\n"
 								   "subroutine uniform in_routine_type routine;\n";
 
-			function_use += "    " + var_iterator->second.type + " z[2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " z[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += iteration_loop_end;
 
 			verification = "    float result = 0.0;\n"
@@ -10251,9 +10132,7 @@ void SubroutineArgumentAliasing2<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -10264,11 +10143,7 @@ void SubroutineArgumentAliasing2<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -10293,22 +10168,22 @@ void SubroutineArgumentAliasing2<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine bool inout_routine_type(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], inout ";
+			function_definition += " x[2][2][2][2], inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2]);\n\n"
+			function_definition += " y[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(inout_routine_type) bool original_routine(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], inout ";
+			function_definition += " x[2][2][2][2], inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   x[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10324,22 +10199,22 @@ void SubroutineArgumentAliasing2<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "subroutine(inout_routine_type) bool new_routine(inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], inout ";
+			function_definition += " x[2][2][2][2], inout ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   y[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10355,18 +10230,18 @@ void SubroutineArgumentAliasing2<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "// Subroutine uniform\n"
 								   "subroutine uniform inout_routine_type routine;\n";
 
-			function_use += "    " + var_iterator->second.type + " z[2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " z[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += iteration_loop_end;
 
 			verification = "    float result = 0.0;\n"
@@ -10428,9 +10303,7 @@ void SubroutineArgumentAliasing3<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -10441,11 +10314,7 @@ void SubroutineArgumentAliasing3<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -10470,22 +10339,22 @@ void SubroutineArgumentAliasing3<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine bool out_routine_type(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2]);\n\n"
+			function_definition += " y[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(out_routine_type) bool original_routine(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   x[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10501,22 +10370,22 @@ void SubroutineArgumentAliasing3<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "subroutine(out_routine_type) bool new_routine(out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], ";
+			function_definition += " x[2][2][2][2], ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   x[a][b][c][d][e][f] = " + var_iterator->second.type + "(321);\n";
+				"                                   x[a][b][c][d] = " + var_iterator->second.type + "(321);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(y[a][b][c][d][e][f]";
+			function_definition += "                                   if(y[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10532,18 +10401,18 @@ void SubroutineArgumentAliasing3<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "// Subroutine uniform\n"
 								   "subroutine uniform out_routine_type routine;\n";
 
-			function_use += "    " + var_iterator->second.type + " z[2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " z[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += iteration_loop_end;
 
 			verification = "    float result = 0.0;\n"
@@ -10605,9 +10474,7 @@ void SubroutineArgumentAliasing4<API>::test_shader_compilation(
 															 VAR_TYPE_DMAT2, VAR_TYPE_DMAT3, VAR_TYPE_DMAT4 };
 	static const size_t num_var_types_gl = sizeof(var_types_set_gl) / sizeof(var_types_set_gl[0]);
 
-	const std::string iteration_loop_end = "                        }\n"
-										   "                    }\n"
-										   "                }\n"
+	const std::string iteration_loop_end = "                }\n"
 										   "            }\n"
 										   "        }\n"
 										   "    }\n";
@@ -10618,11 +10485,7 @@ void SubroutineArgumentAliasing4<API>::test_shader_compilation(
 											 "            for (uint c = 0u; c < 2u; c++)\n"
 											 "            {\n"
 											 "                for (uint d = 0u; d < 2u; d++)\n"
-											 "                {\n"
-											 "                    for (uint e = 0u; e < 2u; e++)\n"
-											 "                    {\n"
-											 "                        for (uint f = 0u; f < 2u; f++)\n"
-											 "                        {\n";
+											 "                {\n";
 	const glcts::test_var_type* var_types_set = var_types_set_es;
 	size_t						num_var_types = num_var_types_es;
 	const bool					test_compute  = (TestCaseBase<API>::COMPUTE_SHADER_TYPE == tested_shader_type);
@@ -10647,22 +10510,22 @@ void SubroutineArgumentAliasing4<API>::test_shader_compilation(
 			function_definition += "// Subroutine types\n"
 								   "subroutine bool out_routine_type(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], out ";
+			function_definition += " x[2][2][2][2], out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2]);\n\n"
+			function_definition += " y[2][2][2][2]);\n\n"
 								   "// Subroutine definitions\n"
 								   "subroutine(out_routine_type) bool original_routine(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], out ";
+			function_definition += " x[2][2][2][2], out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f] = " + var_iterator->second.type + "(123);\n";
+				"                                   y[a][b][c][d] = " + var_iterator->second.type + "(123);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10678,22 +10541,22 @@ void SubroutineArgumentAliasing4<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "subroutine(out_routine_type) bool new_routine(";
 			function_definition += var_iterator->second.type;
-			function_definition += " x[2][2][2][2][2][2], out ";
+			function_definition += " x[2][2][2][2], out ";
 			function_definition += var_iterator->second.type;
-			function_definition += " y[2][2][2][2][2][2])\n{\n";
+			function_definition += " y[2][2][2][2])\n{\n";
 			function_definition += iteration_loop_start;
 			function_definition +=
-				"                                   y[a][b][c][d][e][f] = " + var_iterator->second.type + "(321);\n";
+				"                                   y[a][b][c][d] = " + var_iterator->second.type + "(321);\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n";
 			function_definition += iteration_loop_start;
-			function_definition += "                                   if(x[a][b][c][d][e][f]";
+			function_definition += "                                   if(x[a][b][c][d]";
 			if (var_iterator->second.type == "mat4") // mat4 comparison
 			{
 				function_definition += "[0][0]";
@@ -10709,18 +10572,18 @@ void SubroutineArgumentAliasing4<API>::test_shader_compilation(
 				function_definition += " != ";
 				function_definition += var_iterator->second.type;
 			}
-			function_definition += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f))) {return false;}\n";
+			function_definition += "(((a*8u)+(b*4u)+(c*2u)+d))) {return false;}\n";
 			function_definition += iteration_loop_end;
 			function_definition += "\n    return true;\n";
 			function_definition += "}\n\n"
 								   "// Subroutine uniform\n"
 								   "subroutine uniform out_routine_type routine;\n";
 
-			function_use += "    " + var_iterator->second.type + " z[2][2][2][2][2][2];\n";
+			function_use += "    " + var_iterator->second.type + " z[2][2][2][2];\n";
 			function_use += iteration_loop_start;
-			function_use += "                                   z[a][b][c][d][e][f] = ";
+			function_use += "                                   z[a][b][c][d] = ";
 			function_use += var_iterator->second.type;
-			function_use += "(((a*32u)+(b*16u)+(c*8u)+(d*4u)+(e*2u)+f));\n";
+			function_use += "(((a*8u)+(b*4u)+(c*2u)+d));\n";
 			function_use += iteration_loop_end;
 
 			verification = "    float result = 0.0;\n"

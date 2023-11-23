@@ -16,5 +16,6 @@
     "lcr_reference": [],
     "rtt_reference_distance_mm": 100,
     "stress_test_min_iteration_count": 100,
-    "stress_test_target_run_time_sec" : 30
+    "stress_test_target_run_time_sec" : 30,
+    "dbs_supported_models" : []
 }

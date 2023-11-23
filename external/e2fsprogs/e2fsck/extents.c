@@ -171,7 +171,8 @@ static int find_blocks(ext2_filsys fs, blk64_t *blocknr, e2_blkcnt_t blockcnt,
 					     list->count - 1;
 		blk64_t end = last->e_len + 1;
 
-		if (last->e_pblk + last->e_len == *blocknr &&
+		if (last->e_lblk + last->e_len == (__u64) blockcnt &&
+		    last->e_pblk + last->e_len == *blocknr &&
 		    end < (1ULL << 32)) {
 			last->e_len++;
 #ifdef DEBUG
@@ -520,6 +521,9 @@ errcode_t e2fsck_should_rebuild_extents(e2fsck_t ctx,
 
 	if (eti->force_rebuild)
 		goto rebuild;
+
+	if (ctx->options & E2F_OPT_NOOPT_EXTENTS)
+		return 0;
 
 	extents_per_block = (ctx->fs->blocksize -
 			     sizeof(struct ext3_extent_header)) /

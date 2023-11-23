@@ -40,7 +40,7 @@ import com.android.incallui.speakeasy.SpeakEasyComponent;
  */
 public class InCallServiceImpl extends InCallService {
 
-  private NewReturnToCallController newReturnToCallController;
+  private ReturnToCallController returnToCallController;
   private CallList.Listener feedbackListener;
   // We only expect there to be one speakEasyCallManager to be instantiated at a time.
   // We did not use a singleton SpeakEasyCallManager to avoid holding on to state beyond the
@@ -107,14 +107,13 @@ public class InCallServiceImpl extends InCallService {
             contactInfoCache,
             new ProximitySensor(
                 context, AudioModeProvider.getInstance(), new AccelerometerListener(context)),
-            new FilteredNumberAsyncQueryHandler(context));
+            new FilteredNumberAsyncQueryHandler(context),
+            speakEasyCallManager);
     InCallPresenter.getInstance().onServiceBind();
     InCallPresenter.getInstance().maybeStartRevealAnimation(intent);
     TelecomAdapter.getInstance().setInCallService(this);
-    if (NewReturnToCallController.isEnabled(this)) {
-      newReturnToCallController =
-          new NewReturnToCallController(this, ContactInfoCache.getInstance(context));
-    }
+    returnToCallController =
+        new ReturnToCallController(this, ContactInfoCache.getInstance(context));
     feedbackListener = FeedbackComponent.get(context).getCallFeedbackListener();
     CallList.getInstance().addListener(feedbackListener);
 
@@ -141,9 +140,9 @@ public class InCallServiceImpl extends InCallService {
     // Tear down the InCall system
     InCallPresenter.getInstance().tearDown();
     TelecomAdapter.getInstance().clearInCallService();
-    if (newReturnToCallController != null) {
-      newReturnToCallController.tearDown();
-      newReturnToCallController = null;
+    if (returnToCallController != null) {
+      returnToCallController.tearDown();
+      returnToCallController = null;
     }
     if (feedbackListener != null) {
       CallList.getInstance().removeListener(feedbackListener);

@@ -15,7 +15,10 @@
 -->
 <configuration description="Config for CTS EDI host test cases">
     <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="misc" />
+    <option name="config-descriptor:metadata" key="component" value="deviceinfo" />
+    <!-- Do no need to run instant mode for collecting information -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsEdiHostTestCases.jar" />
     </test>

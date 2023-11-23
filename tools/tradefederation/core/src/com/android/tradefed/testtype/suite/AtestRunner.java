@@ -42,6 +42,9 @@ public class AtestRunner extends BaseTestSuite {
     private static final Pattern CONFIG_RE =
             Pattern.compile(".*/(?<config>[^/]+).config", Pattern.CASE_INSENSITIVE);
 
+    @Option(name = "all-abi", description = "Determine run all abi or not.")
+    private boolean mAllAbi = false;
+
     @Option(
         name = "wait-for-debugger",
         description = "For InstrumentationTests, we pass debug to the instrumentation run."
@@ -77,7 +80,7 @@ public class AtestRunner extends BaseTestSuite {
     @Override
     public LinkedHashMap<String, IConfiguration> loadTests() {
         // atest only needs to run on primary or specified abi.
-        if (getRequestedAbi() == null) {
+        if (getRequestedAbi() == null && !mAllAbi) {
             setPrimaryAbiRun(true);
         }
         LinkedHashMap<String, IConfiguration> configMap = super.loadTests();

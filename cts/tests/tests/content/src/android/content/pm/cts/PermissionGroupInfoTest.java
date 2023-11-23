@@ -21,8 +21,10 @@ import android.content.pm.PackageManager;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PermissionGroupInfoTest extends AndroidTestCase {
     private static final String GROUP = "android.permission-group.COST_MONEY";
     private static final String GROUP_NAME = "Cost money";

@@ -16,13 +16,15 @@
 <configuration description="Config for CTS Bionic test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="bionic" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+
+    <!-- TODO(b/126376458): Remove this when sharding is supported by libgtest_isolated -->
+    <option name="not-shardable" value="true" />
+
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsBionicTestCases->/data/local/tmp/CtsBionicTestCases" />
-        <option name="append-bitness" value="true" />
-    </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="cleanup" value="true" />
         <option name="push" value="lib->/data/local/tmp/lib" />
         <option name="append-bitness" value="true" />
     </target_preparer>

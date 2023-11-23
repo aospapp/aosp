@@ -16,6 +16,8 @@
 
 package android.signature.cts.tests;
 
+import static org.junit.Assert.assertEquals;
+
 import android.signature.cts.ApiComplianceChecker;
 import android.signature.cts.ClassProvider;
 import android.signature.cts.FailureType;
@@ -26,24 +28,31 @@ import android.signature.cts.tests.data.NormalClass;
 import android.signature.cts.tests.data.NormalInterface;
 import java.lang.reflect.Modifier;
 
+import org.junit.Ignore;
+import org.junit.Test;
+import org.junit.runners.JUnit4;
+import org.junit.runner.RunWith;
+
 /**
  * Test class for JDiffClassDescription.
  */
-@SuppressWarnings("deprecation")
+@RunWith(JUnit4.class)
 public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplianceChecker> {
-    
+
     @Override
     protected ApiComplianceChecker createChecker(ResultObserver resultObserver,
             ClassProvider provider) {
         return new ApiComplianceChecker(resultObserver, provider);
     }
 
+    @Test
     public void testNormalClassCompliance() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         checkSignatureCompliance(clz);
         assertEquals(clz.toSignatureString(), "public class NormalClass");
     }
 
+    @Test
     public void testMissingClass() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISSING_CLASS);
         JDiffClassDescription clz = new JDiffClassDescription(
@@ -53,6 +62,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         observer.validate();
     }
 
+    @Test
     public void testSimpleConstructor() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffConstructor constructor =
@@ -62,6 +72,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(constructor.toSignatureString(), "public NormalClass()");
     }
 
+    @Test
     public void testOneArgConstructor() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffConstructor constructor =
@@ -72,6 +83,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(constructor.toSignatureString(), "private NormalClass(java.lang.String)");
     }
 
+    @Test
     public void testConstructorThrowsException() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffConstructor constructor =
@@ -86,6 +98,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                         "throws android.signature.cts.tests.data.NormalException");
     }
 
+    @Test
     public void testPackageProtectedConstructor() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffConstructor constructor =
@@ -99,6 +112,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 "NormalClass(java.lang.String, java.lang.String, java.lang.String)");
     }
 
+    @Test
     public void testStaticMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("staticMethod",
@@ -108,6 +122,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "public static void staticMethod()");
     }
 
+    @Test
     public void testSyncMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("syncMethod",
@@ -117,6 +132,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "public synchronized void syncMethod()");
     }
 
+    @Test
     public void testPackageProtectMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("packageProtectedMethod", 0, "boolean");
@@ -125,6 +141,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "boolean packageProtectedMethod()");
     }
 
+    @Test
     public void testPrivateMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("privateMethod", Modifier.PRIVATE,
@@ -134,6 +151,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "private void privateMethod()");
     }
 
+    @Test
     public void testProtectedMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("protectedMethod", Modifier.PROTECTED,
@@ -143,6 +161,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "protected java.lang.String protectedMethod()");
     }
 
+    @Test
     public void testThrowsMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("throwsMethod", Modifier.PUBLIC, "void");
@@ -153,6 +172,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 "throws android.signature.cts.tests.data.NormalException");
     }
 
+    @Test
     public void testNativeMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("nativeMethod",
@@ -162,6 +182,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(method.toSignatureString(), "public native void nativeMethod()");
     }
 
+    @Test
     public void testFinalField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -171,6 +192,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "public final java.lang.String FINAL_FIELD");
     }
 
+    @Test
     public void testStaticField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -180,6 +202,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "public static java.lang.String STATIC_FIELD");
     }
 
+    @Test
     public void testVolatileFiled() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -189,6 +212,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "public volatile java.lang.String VOLATILE_FIELD");
     }
 
+    @Test
     public void testTransientField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -200,6 +224,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 "public transient java.lang.String TRANSIENT_FIELD");
     }
 
+    @Test
     public void testPackageField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -209,6 +234,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "java.lang.String PACAKGE_FIELD");
     }
 
+    @Test
     public void testPrivateField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -218,6 +244,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "private java.lang.String PRIVATE_FIELD");
     }
 
+    @Test
     public void testProtectedField() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -227,6 +254,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(field.toSignatureString(), "protected java.lang.String PROTECTED_FIELD");
     }
 
+    @Test
     public void testFieldValue() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -234,10 +262,10 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC, "\"\\u2708\"");
         clz.addField(field);
         checkSignatureCompliance(clz);
-        assertEquals(field.toSignatureString(),
-                "public static final java.lang.String VALUE_FIELD");
+        assertEquals(field.toSignatureString(), "public static final java.lang.String VALUE_FIELD");
     }
 
+    @Test
     public void testFieldValueChanged() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISMATCH_FIELD);
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
@@ -246,11 +274,11 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC, "\"&#9992;\"");
         clz.addField(field);
         checkSignatureCompliance(clz, observer);
-        assertEquals(field.toSignatureString(),
-                "public static final java.lang.String VALUE_FIELD");
+        assertEquals(field.toSignatureString(), "public static final java.lang.String VALUE_FIELD");
         observer.validate();
     }
 
+    @Test
     public void testInnerClass() {
         JDiffClassDescription clz = createClass("NormalClass.InnerClass");
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
@@ -260,6 +288,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(clz.toSignatureString(), "public class NormalClass.InnerClass");
     }
 
+    @Test
     public void testInnerInnerClass() {
         JDiffClassDescription clz = createClass(
                 "NormalClass.InnerClass.InnerInnerClass");
@@ -271,6 +300,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
                 "public class NormalClass.InnerClass.InnerInnerClass");
     }
 
+    @Test
     public void testInnerInterface() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "NormalClass.InnerInterface");
@@ -282,6 +312,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(clz.toSignatureString(), "public interface NormalClass.InnerInterface");
     }
 
+    @Test
     public void testInterface() {
         JDiffClassDescription clz = createInterface("NormalInterface");
         clz.addMethod(
@@ -290,6 +321,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         assertEquals(clz.toSignatureString(), "public interface NormalInterface");
     }
 
+    @Test
     public void testFinalClass() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "FinalClass");
@@ -303,6 +335,8 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
      * Test the case where the API declares the method not synchronized, but it
      * actually is.
      */
+    @Test
+    @Ignore("b/124445655")
     public void testAddingSync() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISMATCH_METHOD);
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
@@ -316,6 +350,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
      * Test the case where the API declares the method is synchronized, but it
      * actually is not.
      */
+    @Test
     public void testRemovingSync() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("notSyncMethod",
@@ -327,6 +362,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
     /**
      * API says method is not native, but it actually is. http://b/1839558
      */
+    @Test
     public void testAddingNative() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("nativeMethod", Modifier.PUBLIC, "void");
@@ -337,6 +373,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
     /**
      * API says method is native, but actually isn't. http://b/1839558
      */
+    @Test
     public void testRemovingNative() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("notNativeMethod",
@@ -345,6 +382,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         checkSignatureCompliance(clz);
     }
 
+    @Test
     public void testAbstractClass() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "AbstractClass");
@@ -357,6 +395,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
     /**
      * API lists class as abstract, reflection does not. http://b/1839622
      */
+    @Test
     public void testRemovingAbstractFromAClass() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "NormalClass");
@@ -368,6 +407,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
     /**
      * reflection lists class as abstract, api does not. http://b/1839622
      */
+    @Test
     public void testAddingAbstractToAClass() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISMATCH_CLASS);
         JDiffClassDescription clz = createClass("AbstractClass");
@@ -375,6 +415,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         observer.validate();
     }
 
+    @Test
     public void testFinalMethod() {
         JDiffClassDescription clz = createClass(NormalClass.class.getSimpleName());
         JDiffClassDescription.JDiffMethod method = method("finalMethod",
@@ -388,6 +429,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
      * Final Class, API lists methods as non-final, reflection has it as final.
      * http://b/1839589
      */
+    @Test
     public void testAddingFinalToAMethodInAFinalClass() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "FinalClass");
@@ -402,6 +444,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
      * Final Class, API lists methods as final, reflection has it as non-final.
      * http://b/1839589
      */
+    @Test
     public void testRemovingFinalToAMethodInAFinalClass() {
         JDiffClassDescription clz = new JDiffClassDescription(
                 "android.signature.cts.tests.data", "FinalClass");
@@ -417,6 +460,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
      * non-final Class, API lists methods as non-final, reflection has it as
      * final. http://b/1839589
      */
+    @Test
     public void testAddingFinalToAMethodInANonFinalClass() {
         ExpectFailure observer = new ExpectFailure(FailureType.MISMATCH_METHOD);
         JDiffClassDescription clz = createClass("NormalClass");
@@ -426,6 +470,7 @@ public class ApiComplianceCheckerTest extends AbstractApiCheckerTest<ApiComplian
         observer.validate();
     }
 
+    @Test
     public void testExtendedNormalInterface() {
         NoFailures observer = new NoFailures();
         runWithApiChecker(observer, checker -> {

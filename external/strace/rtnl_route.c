@@ -61,6 +61,21 @@ decode_nla_rt_class(struct tcb *const tcp,
 	return true;
 }
 
+bool
+decode_nla_rt_proto(struct tcb *const tcp,
+		    const kernel_ulong_t addr,
+		    const unsigned int len,
+		    const void *const opaque_data)
+{
+	uint8_t num;
+
+	if (len < sizeof(num))
+		return false;
+	if (!umove_or_printaddr(tcp, addr, &num))
+		printxval_search(routing_protocols, num, "RTPROT_???");
+	return true;
+}
+
 static bool
 decode_route_addr(struct tcb *const tcp,
 		  const kernel_ulong_t addr,
@@ -233,7 +248,10 @@ static const nla_decoder_t rtmsg_nla_decoders[] = {
 	[RTA_EXPIRES]		= decode_nla_u64,
 	[RTA_PAD]		= NULL,
 	[RTA_UID]		= decode_nla_u32,
-	[RTA_TTL_PROPAGATE]	= decode_nla_u8
+	[RTA_TTL_PROPAGATE]	= decode_nla_u8,
+	[RTA_IP_PROTO]		= decode_nla_u8,
+	[RTA_SPORT]		= decode_nla_u16,
+	[RTA_DPORT]		= decode_nla_u16
 };
 
 static bool
@@ -255,8 +273,7 @@ decode_rta_multipath(struct tcb *const tcp,
 		PRINT_FIELD_IFINDEX(", ", nh, rtnh_ifindex);
 		tprints("}");
 
-		const unsigned short rtnh_len =
-			len < nh.rtnh_len ? len : nh.rtnh_len;
+		const unsigned short rtnh_len = MIN(len, nh.rtnh_len);
 		const size_t offset = RTNH_ALIGN(sizeof(nh));
 		if (rtnh_len > offset) {
 			tprints(", ");

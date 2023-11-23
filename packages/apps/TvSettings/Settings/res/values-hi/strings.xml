@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"अंशांकन"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"फ़ॉर्मैट चुनें"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"आस-पास की आवाज़"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"एसी3 (डॉल्बी डिजिटल)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"ई-एसी3 (डॉल्बी डिजिटल प्लस/डीडी+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"डीटीएस"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"डीटीएस-एचडी"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"आईईसी61937"</string>
@@ -121,7 +121,7 @@
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"एक डिवाइस मिला और वह <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकंड में अपने आप युग्मित हो जाएगा"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"यह कार्रवाई समर्थित नहीं है"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"ब्लूटूथ युग्‍मन अनुरोध"</string>
-    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"इसके साथ युग्मित करने के लिए: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, सुनिश्चित करें कि यह इस पासकी को दिखा रहा है: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
+    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"इसके साथ युग्मित करने के लिए: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, पक्का करें कि यह इस पासकी को दिखा रहा है: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"इससे: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;इस डिवाइस से युग्मित करें?"</string>
     <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"इससे युग्मित करने के लिए: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;उस पर यह लिखें: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;, फिर Return या Enter दबाएं."</string>
     <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"इससे युग्मित करने के लिए: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;डिवाइस का आवश्यक PIN लिखें:"</string>
@@ -154,7 +154,7 @@
     <string name="restart_button_label" msgid="8153112858638352970">"फिर से चालू करें"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"कानूनी जानकारी"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ओपन सोर्स लाइसेंस"</string>
-    <string name="about_terms_of_service" msgid="7743088207977334874">"Google विधिक"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google कानूनी जानकारी"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"लाइसेंस डेटा अनुपलब्ध है"</string>
     <string name="about_model" msgid="6625269442206323995">"मॉडल"</string>
     <string name="about_version" msgid="1177287676732287266">"वर्शन"</string>
@@ -271,7 +271,7 @@
     <string name="proxy_error_invalid_host" msgid="3660415920668138953">"होस्टनाम मान्य नहीं है"</string>
     <string name="proxy_error_invalid_exclusion_list" msgid="4921547051724987804">"यह अपवर्जन सूची मान्य नहीं है. निकाले गए डोमेन की अल्पविराम से अलग की गई सूची डालें."</string>
     <string name="proxy_error_empty_port" msgid="6835658067776408062">"पोर्ट फ़ील्ड रिक्त नहीं हो सकती"</string>
-    <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"यदि होस्ट फ़ील्ड रिक्त है, तो पोर्ट फ़ील्ड को रिक्त छोड़ दें"</string>
+    <string name="proxy_error_empty_host_set_port" msgid="4428793978424303244">"अगर होस्ट फ़ील्ड रिक्त है, तो पोर्ट फ़ील्ड को रिक्त छोड़ दें"</string>
     <string name="proxy_error_invalid_port" msgid="1434922103959603993">"पोर्ट मान्य नहीं है"</string>
     <string name="proxy_warning_limited_support" msgid="6160239282535986523">"HTTP प्रॉक्सी का उपयोग ब्राउज़र द्वारा किया जाता है लेकिन अन्य ऐप्स द्वारा उपयोग नहीं किया जा सकता"</string>
     <string name="proxy_port_description" msgid="6791098212244367568">"मान्य पोर्ट नाम डालें.\nउदाहरण: <xliff:g id="ID_1">8080</xliff:g>"</string>
@@ -308,20 +308,20 @@
     <string name="storage_migrate_away" msgid="3410590501311323877">"डेटा को भिन्न मेमोरी में माइग्रेट करें"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"बैक अप लेने के लिए कोई भी ऐप्लिकेशन नहीं है"</string>
     <string name="storage_forget" msgid="8731986045697320463">"इस डिवाइस मेमोरी को भूल जाएं"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"इस डिस्क में शामिल ऐप्स या डेटा का उपयोग करने के लिए, उसे पुनः प्लग करें. वैकल्‍पिक रूप से, डिवाइस के उपलब्‍ध नहीं होने पर आप इस मेमोरी को भूल जाना चुन सकते हैं.\n\nयदि आप भूल जाएं चुनते हैं, तो डिस्क में शामिल सभी डेटा हमेशा के लिए खो जाएगा.\n\nआप बाद में ऐप्स पुनः इंस्टॉल कर सकते हैं, लेकिन इस डिस्क पर संग्रहित डेटा खो जाएगा."</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"इस डिस्क में शामिल ऐप्स या डेटा का उपयोग करने के लिए, उसे पुनः प्लग करें. वैकल्‍पिक रूप से, डिवाइस के उपलब्‍ध नहीं होने पर आप इस मेमोरी को भूल जाना चुन सकते हैं.\n\nअगर आप भूल जाएं चुनते हैं, तो डिस्क में शामिल सभी डेटा हमेशा के लिए खो जाएगा.\n\nआप बाद में ऐप्स पुनः इंस्टॉल कर सकते हैं, लेकिन इस डिस्क पर संग्रहित डेटा खो जाएगा."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"डिवाइस मेमोरी"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"निकाले जाने योग्‍य मेमोरी"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"रीसेट करें"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> को माउंट किया गया है"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"<xliff:g id="NAME">%1$s</xliff:g> को माउंट नहीं किया जा सका"</string>
-    <string name="storage_mount_adopted" msgid="3360994581083675640">"USB मेमोरी पुन: कनेक्‍ट की गई"</string>
+    <string name="storage_mount_adopted" msgid="3360994581083675640">"USB मेमोरी फिर से कनेक्‍ट की गई"</string>
     <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> को सुरक्षित रूप से निकाला गया"</string>
     <string name="storage_unmount_failure" msgid="6322048355281833871">"<xliff:g id="NAME">%1$s</xliff:g> को सुरक्षित रूप से नहीं निकाला जा सका"</string>
     <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"निकालने के लिए डिस्क नहीं ढूंढ सका"</string>
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> को फ़ॉर्मेट किया गया है"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> को फ़ॉर्मेट नहीं किया जा सका"</string>
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"डिवाइस मेमोरी के रूप में फ़ॉर्मेट करें"</string>
-    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"इसके लिए USB डिस्क को सुरक्षित करने हेतु उसे फ़ॉर्मेट करना आवश्यक है. सफलतापूर्वक फ़ॉर्मेट करने के बाद, यह डिस्क केवल इसी डिवाइस के साथ काम करेगी. फ़ॉर्मेट करने से इस डिस्क में वर्तमान में संग्रहित संपू्र्ण डेटा मिट जाता है. डेटा को खोने से बचाने के लिए, उसका बैकअप लेने पर विचार करें."</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"इसके लिए USB डिस्क को सुरक्षित करने के लिए उसे फ़ॉर्मेट करना आवश्यक है. सफलतापूर्वक फ़ॉर्मेट करने के बाद, यह डिस्क केवल इसी डिवाइस के साथ काम करेगी. फ़ॉर्मेट करने से इस डिस्क में वर्तमान में संग्रहित संपू्र्ण डेटा मिट जाता है. डेटा को खोने से बचाने के लिए, उसका बैकअप लेने पर विचार करें."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"मिटाएं और फ़ॉर्मेट करें"</string>
     <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"फ़ॉर्मेट करने के बाद, आप इस USB डिस्क का उपयोग अन्य डिवाइस में कर सकते हैं. सभी डेटा मिटा दिया जाएगा. सबसे पहले ऐप्स को अन्य डिवाइस मेमोरी पर ले जाकर बैक अप लेने पर विचार करें."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USB डिस्‍क फ़ॉर्मेट हो रही है…"</string>
@@ -336,7 +336,7 @@
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"डेटा को <xliff:g id="NAME">%1$s</xliff:g> में ले जाया रहा है…"</string>
     <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"इसमें कुछ समय लग सकता है. कृपया डिस्क ना निकालें.\nले जाने के दौरान कुछ ऐप्स ठीक से काम नहीं करेंगे."</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"ऐसा लगता है कि यह डिस्‍क धीमी है."</string>
-    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"आप जारी रख सकते हैं, लेकिन इस स्थान पर लाए गए ऐप्स अटक सकते हैं और डेटा ट्रांसफर में अधिक समय लग सकता है. बेहतर प्रदर्शन के लिए अधिक तेज़ डिस्‍क का उपयोग करने पर विचार करें."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"आप जारी रख सकते हैं, लेकिन इस स्थान पर लाए गए ऐप्स अटक सकते हैं और डेटा ट्रांसफर में ज़्यादा समय लग सकता है. बेहतर प्रदर्शन के लिए ज़्यादा तेज़ डिस्‍क का उपयोग करने पर विचार करें."</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"फ़ॉर्मेट करें"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"ऐप्‍स का बैक अप लें"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> में संग्रहित ऐप्स"</string>
@@ -347,7 +347,7 @@
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> को निकाला जा रहा है…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"उपयोग की गई मेमोरी"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> को ले जाया जा रहा है…"</string>
-    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"ले जाने के दौरान डिस्क को ना निकालें.\nइस डिवाइस में मौजूद <xliff:g id="APPNAME">%1$s</xliff:g> ऐप ले जाने का काम पूर्ण होने तक उपलब्ध नहीं रहेगा."</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"ले जाने के दौरान डिस्क को न निकालें.\nइस डिवाइस में मौजूद <xliff:g id="APPNAME">%1$s</xliff:g> ऐप्लिकेशन ले जाने का काम पूरा होने तक उपलब्ध नहीं रहेगा."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"डिवाइस मेमोरी को भूल जाएं?"</string>
     <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"\'भूल जाएं\' के साथ इस डिस्क में संग्रहित आपका सभी डेटा हमेशा के लिए खो जाएगा. क्या आप आगे बढ़ना चाहते हैं?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"भूल जाएं"</string>
@@ -358,9 +358,8 @@
     <string name="storage_new_action_eject" msgid="4069294152676217949">"निकालें"</string>
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> निकाला गया"</string>
     <string name="storage_missing_description" msgid="8400374014342069781">"जब तक डिस्क को पुनः कनेक्ट नहीं किया जाता, तब तक कुछ ऐप्स अनुपलब्ध रहेंगे या ठीक से काम नहीं करेंगे."</string>
-    <string name="insufficient_storage" msgid="5670157010939153746">"पर्याप्त मेमोरी स्‍थान नहीं है."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"काफ़ी मेमोरी स्‍थान नहीं है."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ऐप्स मौजूद नहीं है."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"ऐप्स की प्रति नहीं बनाई जा सकती."</string>
     <string name="invalid_location" msgid="5269044848535157307">"इंस्‍टॉल स्‍थान मान्‍य नहीं है."</string>
     <string name="system_package" msgid="9200255718634512790">"सिस्‍टम के बारे में नई जानकारी को बाहरी मीडिया पर इंस्टॉल नहीं किया जा सकता."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"डिवाइस व्यवस्थापक को बाहरी मीडिया पर इंस्टॉल नहीं किया जा सकता."</string>
@@ -389,7 +388,7 @@
     <string name="location_mode_title" msgid="6573195849329396150">"मोड"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"हाल ही के स्थान अनुरोध"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"किसी भी ऐप्लिकेशन ने हाल ही में स्थान का अनुरोध नहीं किया है"</string>
-    <string name="location_high_battery_use" msgid="576143332793626088">"अधिक बैटरी उपयोग"</string>
+    <string name="location_high_battery_use" msgid="576143332793626088">"ज़्यादा बैटरी उपयोग"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"कम बैटरी उपयोग"</string>
     <string name="location_mode_wifi_description" msgid="2778774510654527264">"स्थान का अनुमान लगाने के लिए वाई-फ़ाई  का उपयोग करें"</string>
     <string name="location_status" msgid="3456414279428237558">"स्थान की स्थिति"</string>
@@ -451,7 +450,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"सक्षम करना"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"कॉन्फ़िगरेशन"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g> का उपयोग करें?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"पासवर्ड को छोड़कर, <xliff:g id="SERVICE">%1$s</xliff:g> आपके द्वारा लिखा गया सभी लेख एकत्रित कर सकती है. इसमें व्‍यक्तिगत डेटा, जैसे क्रेडिट कार्ड नंबर शामिल हैं."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"पासवर्ड को छोड़कर, <xliff:g id="SERVICE">%1$s</xliff:g>   लिखा गया सभी लेख एकत्रित कर सकती है. इसमें व्‍यक्तिगत डेटा, जैसे क्रेडिट कार्ड नंबर शामिल हैं."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g> को रोकें?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"ठीक चुनने से <xliff:g id="SERVICE">%1$s</xliff:g> बंद हो जाएगी."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"लेख से बोली"</string>
@@ -479,7 +478,7 @@
     <string name="system_email_address" msgid="8669468986250302378">"ईमेल पता"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"USB डीबग करना"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"कृत्रिम स्‍थानों को अनुमति दें"</string>
-    <string name="system_select_debug_app" msgid="8592021815119618485">"डीबग ऐप्स  का चयन करें"</string>
+    <string name="system_select_debug_app" msgid="8592021815119618485">"डीबग ऐप्स  चुनें"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"डीबगर की प्रतीक्षा करें"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB पर ऐप्स  सत्यापित करें"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"ADB/ADT के ज़रिए इंस्टॉल किए गए ऐप्लिकेशन नुकसानदेह व्यवहार के लिए जाँचें"</string>
@@ -507,7 +506,7 @@
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"ब्लूटूथ HCI स्नूप लॉग इन करना सक्षम करें"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"USB कनेक्‍ट होने पर डीबग मोड"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"डीबग किया गया ऐप्स निष्पादन के पहले अनुलग्न करने के लिए डीबगर की प्रतीक्षा करता है"</string>
-    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"क्लिप सीमाएं, मार्जिन, आदि दिखाएं."</string>
+    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"क्लिप सीमाएं, मार्जिन, वगैरह दिखाएं."</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"GPU के साथ आरेखित करने पर विंडो में दृश्‍यों को फ़्लैश करें"</string>
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"हार्डवेयर लेयर अपडेट होने पर हरे फ़्लैश होते हैं"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"सबसे अच्छे से सबसे खराब: नीला, हरा, हल्का लाल, लाल"</string>
@@ -523,7 +522,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"अज्ञात स्रोत"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play स्टोर के अलावा अन्‍य स्रोतों से ऐप्स  इंस्टॉल करने दें"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"अज्ञात स्रोतों को अनुमति दें"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"आपका डिवाइस और व्यक्तिगत डेटा अज्ञात स्रोतों से होने वाले ऐप्स के आक्रमण के प्रति अधिक संवेदनशील हैं. आप इस बात से सहमत हैं कि इन ऐप्स के उपयोग के परिणामस्वरूप संभावित रूप से आपके डिवाइस को होने वाले नुकसान या डेटा की हानि के लिए पूरी तरह से आप उत्तरदायी हैं."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"आपका डिवाइस और व्यक्तिगत डेटा अज्ञात स्रोतों से होने वाले ऐप्स के आक्रमण के प्रति ज़्यादा संवेदनशील हैं. आप इस बात से सहमत हैं कि इन ऐप्स के उपयोग के परिणामस्वरूप संभावित रूप से आपके डिवाइस को होने वाले नुकसान या डेटा की हानि के लिए पूरी तरह से आप उत्तरदायी हैं."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"ऐप्स की पुष्टि करें"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"हानि पहुंचा सकने वाले ऐप्स  का इंस्टॉलेशन अस्वीकार करें या पहले चेतावनी दें"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"कभी नहीं"</string>
@@ -571,7 +570,7 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"नाम बदलें"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"वाई-फ़ाई  प्रदर्शन"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PIN आवश्यक है"</string>
-    <string name="whichApplication" msgid="8382179653567099571">"इसका उपयोग करके कार्यवाही पूर्ण करें"</string>
+    <string name="whichApplication" msgid="8382179653567099571">"इसका उपयोग करके कार्रवाई पूरी करें"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"इस कार्यवाही के लिए हमेशा इसी विकल्प का उपयोग करें?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"हमेशा उपयोग करें"</string>
     <string name="justOnceOption" msgid="6051458702672920102">"केवल एक बार"</string>
@@ -592,9 +591,9 @@
     <string name="input_header_names" msgid="6958427658951236078">"नाम"</string>
     <string name="inputs_hdmi_control" msgid="2462240356665628563">"HDMI नियंत्रण"</string>
     <string name="inputs_hdmi_control_desc" msgid="2300590479729796132">"TV को HDMI डिवाइस नियंत्रित करने दें"</string>
-    <string name="inputs_device_auto_off" msgid="7510049770946999285">"डिवाइस स्वत: बंद करें"</string>
+    <string name="inputs_device_auto_off" msgid="7510049770946999285">"डिवाइसअपने-आपबंद करें"</string>
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"TV के साथ HDMI डिवाइस बंद करें"</string>
-    <string name="inputs_tv_auto_on" msgid="2627932269256793797">"TV स्वत: चालू करें"</string>
+    <string name="inputs_tv_auto_on" msgid="2627932269256793797">"TVअपने-आपचालू करें"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"HDMI डिवाइस के साथ TV चालू करें"</string>
     <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
       <item quantity="one">कनेक्ट किए गए इनपुट</item>
@@ -638,7 +637,7 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"कोई नया पिन सेट करें"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"नया पिन फिर से डालें"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"पुराना पिन डालें"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"आपने 5 बार गलत पिन डाला है.\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> सेकंड में पुन: प्रयास करें."</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"आपने 5 बार गलत पिन डाला है.\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> सेकंड में फिर से प्रयास करें."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"गलत पिन, फिर से प्रयास करें"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"फिर से प्रयास करें, पिन का मिलान नहीं हुआ"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> के लिए पासवर्ड डालें"</string>
@@ -647,7 +646,7 @@
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"वर्शन <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"खोलें"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"बलपूर्वक रोकें"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"यदि आप किसी ऐप को बलपूर्वक रोकते हैं, तो वह गलत व्यवहार कर सकता है."</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"अगर आप किसी ऐप को बलपूर्वक रोकते हैं, तो वह गलत व्यवहार कर सकता है."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"अनइंस्टॉल करें"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"नई जानकारी अनइंस्‍टॉल करें"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"इस Android सिस्‍टम ऐप की सभी नई जानकारी अनइंस्‍टॉल कर दी जाएगी."</string>
@@ -658,9 +657,9 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"उपयोग की गई मेमोरी"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g> में <xliff:g id="SIZE">%1$s</xliff:g> का उपयोग किया गया"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"डेटा साफ़ करें"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"इस ऐप का सभी डेटा स्‍थायी रूप से हटा दिया जाएगा.\nइसमें सभी फ़ाइलें, सेटिंग, खाते, डेटाबेस आदि शामिल हैं."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"इस ऐप का सभी डेटा स्‍थायी रूप से हटा दिया जाएगा.\nइसमें सभी फ़ाइलें, सेटिंग, खाते, डेटाबेस वगैरह शामिल हैं."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"डिफ़ॉल्ट साफ़ करें"</string>
-    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"कुछ कार्य हेतु यह ऐप लॉन्च के लिए सेट है"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"कुछ काम के लिए यह ऐप लॉन्च के लिए सेट है"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"कोई डिफ़ॉल्ट सेट नहीं किया गया है"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"संचय साफ़ करें"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"नोटिफ़िकेशन"</string>
@@ -674,7 +673,7 @@
     <string name="device_daydreams_select" msgid="2112338101206187695">"स्क्रीन सेवर"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"अभी चालू करें"</string>
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"कब चालू हो"</string>
-    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"स्क्रीन सेवर निष्क्रियता की इस समयावधि के बाद शुरू होता है. यदि कोई भी स्क्रीर सेवर चयनित ना हो, तो डिस्प्ले बंद हो जाता है."</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"स्क्रीन सेवर निष्क्रियता की इस समयावधि के बाद शुरू होता है. अगर कोई भी स्क्रीर सेवर चयनित ना हो, तो डिस्प्ले बंद हो जाता है."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"निष्क्रियता के <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> बाद"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"डिवाइस को निष्क्रिय करें"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"निष्क्रियता की इस अवधि के बाद स्क्रीन बंद हो जाती है."</string>
@@ -685,7 +684,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"बैकअप खाता"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"अपने आप पुनर्स्थापित करें"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"डिवाइस रीसेट करें"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"इससे आपके Google खाते, सिस्टम और ऐप डेटा तथा सेटिंग और डाउनलोड किए गए ऐप्स सहित आपके डिवाइस के मोबाइल मेमोरी का सभी डेटा मिट जाएगा"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"इससे आपके Google खाते, सिस्टम और ऐप डेटा और सेटिंग और डाउनलोड किए गए ऐप्स सहित आपके डिवाइस के मोबाइल मेमोरी का सभी डेटा मिट जाएगा"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"आपकी सभी निजी जानकारी और डाउनलोड किए गए ऐप्स मिटाएं? आप इस क्रिया को वापस नहीं ला सकते!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"सब कुछ मिटाएं"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"अपने <xliff:g id="DEVICEMODEL">%1$s</xliff:g> के लिए कोई नाम चुनें"</string>
@@ -710,9 +709,9 @@
     <string name="security_patch" msgid="2131617390189164481">"Android सुरक्षा पैच का स्‍तर"</string>
     <string name="choose_application" msgid="5662960665577780353">"ऐप्लिकेशन चुनें"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(प्रयोगात्‍मक)"</string>
-    <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोड में पुन: बूट करें"</string>
-    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"क्या आप सुरक्षित मोड में पुन: बूट करना चाहते हैं?"</string>
-    <string name="reboot_safemode_desc" msgid="5031024337104679492">"इससे आपके द्वारा इंस्टॉल किए गए सभी तृतीय पक्ष ऐप्लिकेशन अक्षम हो जाएंगे. जब आप पुन: बूट करेंगे तो उन्हें पुनर्स्थापित कर दिया जाएगा."</string>
+    <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोड में फिर से बूट करें"</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"क्या आप सुरक्षित मोड में फिर से बूट करना चाहते हैं?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"इससे   इंस्टॉल किए गए सभी तृतीय पक्ष ऐप्लिकेशन अक्षम हो जाएंगे. जब आप फिर से बूट करेंगे तो उन्हें पुनर्स्थापित कर दिया जाएगा."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"बग रिपोर्ट कैप्‍चर की जा रही है"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध वर्चुअल कीबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"कीबोर्ड प्रबंधित करें"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"सूचना देखने की मंज़ूरी"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"इंस्टॉल किए गए किसी भी ऐप्लिकेशन ने सूचना देखने की इजाज़त नहीं मांगी है."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ये ऐप्लिकेशन संपर्क नामों और आपको मिलने वाले मैसेज जैसी निजी जानकारी के साथ-साथ सभी सूचनाओं को पढ़ सकेंगे. ये सूचनाओं को खारिज कर सकेंगे और उनमें शामिल कार्रवाई बटनों को ट्रिगर भी कर सकेंगे."</string>
+    <string name="directory_access" msgid="7439168599298598101">"निर्देशिका का एक्सेस"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"इन ऐप्लिकेशन के पास कुछ निर्देशिकाओं को एक्सेस करने की मंज़ूरी है."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"दूसरे ऐप्लिकेशन के ऊपर दिखाना"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"दूसरे ऐप्लिकेशन के ऊपर दिखने की मंज़ूरी"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"किसी ऐप्लिकेशन को इस्तेमाल किए जा रहे दूसरे सभी ऐप्लिकेशन के ऊपर दिखाई देने की मंज़ूरी देना. इससे यह ऐप्लिकेशन उन ऐप्लिकेशन को इस्तेमाल करने में परेशानी कर सकता है या उनके दिखाई देने या काम करने के तरीके में बदलाव कर सकता है."</string>

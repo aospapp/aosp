@@ -43,7 +43,7 @@ interface IServiceManager {
      * WARNING: This function is for libhidl/HwBinder use only. You are likely
      * looking for 'IMyInterface::getService("name")' instead.
      *
-     * @param iface    Fully-qualified interface name.
+     * @param fqName   Fully-qualified interface name.
      * @param name     Instance name. Same as in IServiceManager::add.
      *
      * @return service Handle to requested service, same as provided in

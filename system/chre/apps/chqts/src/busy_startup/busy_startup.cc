@@ -47,42 +47,36 @@
 #include <chre.h>
 
 #include <shared/send_message.h>
+#include <shared/time_util.h>
+#include <shared/test_success_marker.h>
 
 using nanoapp_testing::MessageType;
+using nanoapp_testing::TestSuccessMarker;
 using nanoapp_testing::sendMessageToHost;
 using nanoapp_testing::sendFatalFailureToHost;
+using nanoapp_testing::sendFatalFailureToHostUint8;
 using nanoapp_testing::sendSuccessToHost;
-
 
 static bool gInMethod = false;
 static uint32_t gInstanceId;
 static uint32_t gTimerId;
 static uint32_t gSensorHandle;
 
-constexpr size_t kSelfEventStage = 0;
-constexpr size_t kTimerStage = 1;
-constexpr size_t kSensorStage = 2;
-constexpr size_t kStageCount = 3;
+/**
+ * Busy startup stages and total number of stages.
+ */
+enum BusyStartupStage {
+  BUSY_STARTUP_STAGE_SELF_EVENT = 0,
+  BUSY_STARTUP_STAGE_TIMER,
+  BUSY_STARTUP_STAGE_SENSOR,
+  BUSY_STARTUP_STAGE_COUNT,
+};
 
-constexpr uint32_t kAllFinished = (1 << kStageCount) - 1;
-static uint32_t gFinishedBitmask = 0;
+//! TestSuccessMarker object to mark success of a stage.
+TestSuccessMarker gTestSuccessMarker =
+    TestSuccessMarker(BUSY_STARTUP_STAGE_COUNT);
 
 constexpr uint16_t kEventType = CHRE_EVENT_FIRST_USER_VALUE;
-
-static void markSuccess(uint32_t stage) {
-  uint32_t finishedBit = (1 << stage);
-  if ((kAllFinished & finishedBit) == 0) {
-    sendFatalFailureToHost("markSuccess bad stage", &stage);
-  }
-
-  if ((gFinishedBitmask & finishedBit) == 0) {
-    chreLog(CHRE_LOG_DEBUG, "Stage %" PRIu32 " succeeded", stage);
-    gFinishedBitmask |= finishedBit;
-    if (gFinishedBitmask == kAllFinished) {
-      sendSuccessToHost();
-    }
-  }
-}
 
 static void checkSelfEvent(uint16_t eventType, const uint32_t *eventData) {
   if (eventType != kEventType) {
@@ -95,7 +89,7 @@ static void checkSelfEvent(uint16_t eventType, const uint32_t *eventData) {
   if (*eventData != gInstanceId) {
     sendFatalFailureToHost("Event from self, bad data:", eventData);
   }
-  markSuccess(kSelfEventStage);
+  gTestSuccessMarker.markStageAndSuccessOnFinish(BUSY_STARTUP_STAGE_SELF_EVENT);
 }
 
 static void checkTimerEvent(const uint32_t *eventData) {
@@ -105,7 +99,7 @@ static void checkTimerEvent(const uint32_t *eventData) {
   if (*eventData != gInstanceId) {
     sendFatalFailureToHost("TimerEvent, bad data:", eventData);
   }
-  markSuccess(kTimerStage);
+  gTestSuccessMarker.markStageAndSuccessOnFinish(BUSY_STARTUP_STAGE_TIMER);
 }
 
 static void checkSensorEvent(const void *eventData) {
@@ -121,10 +115,20 @@ static void checkSensorEvent(const void *eventData) {
   if (header->readingCount == 0) {
     sendFatalFailureToHost("sensorEvent has readingCount of 0");
   }
-  if ((header->reserved[0] != 0) || (header->reserved[1] != 0)) {
-    sendFatalFailureToHost("sensorEvent has non-zero reserved bytes");
+  if (header->reserved != 0) {
+    sendFatalFailureToHost("sensorEvent has non-zero reserved field");
   }
-  markSuccess(kSensorStage);
+
+  if (chreGetApiVersion() < CHRE_API_VERSION_1_3) {
+    if (header->accuracy != 0) {
+      sendFatalFailureToHost("sensorEvent has non-zero reserved field");
+    }
+  } else if (header->accuracy > CHRE_SENSOR_ACCURACY_HIGH) {
+    sendFatalFailureToHostUint8("Sensor accuracy is not within valid range: ",
+                                header->accuracy);
+  }
+
+  gTestSuccessMarker.markStageAndSuccessOnFinish(BUSY_STARTUP_STAGE_SENSOR);
 }
 
 extern "C" void nanoappHandleEvent(uint32_t senderInstanceId,
@@ -198,9 +202,12 @@ extern "C" bool nanoappStart(void) {
     chreLog(CHRE_LOG_ERROR, "Failed sensorFindDefault in start");
     return false;
   }
+
+  // Configure accel request at 50 Hz (reasonable rate, e.g. for AR)
+  // TODO: Add a way to find the range of possible sample rates
   if (!chreSensorConfigure(gSensorHandle,
                            CHRE_SENSOR_CONFIGURE_MODE_CONTINUOUS,
-                           CHRE_SENSOR_INTERVAL_DEFAULT,
+                           20 * nanoapp_testing::kOneMillisecondInNanoseconds,
                            CHRE_SENSOR_LATENCY_ASAP)) {
     chreLog(CHRE_LOG_ERROR, "Failed sensorConfigure in start");
     return false;

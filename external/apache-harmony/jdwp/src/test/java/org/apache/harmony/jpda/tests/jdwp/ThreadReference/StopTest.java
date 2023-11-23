@@ -38,7 +38,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class StopTest extends JDWPSyncTestCase {
 
-    static String SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/StopDebuggee;";
+    static String SIGNATURE = getClassSignature(StopDebuggee.class);
 
     @Override
     protected String getDebuggeeClassName() {

@@ -16,12 +16,14 @@
 
 package android.webkit.cts;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+
 import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
 import android.webkit.TracingConfig;
 import android.webkit.TracingController;
 import android.webkit.WebView;
-import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -81,8 +83,8 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
         }
 
         private void validateThread() {
-            // Ensure the callbacks are called on the correct (executor) thread.
-            assertTrue(Thread.currentThread().getName().startsWith(EXECUTOR_THREAD_PREFIX));
+            assertTrue("Callbacks should be called on the correct (executor) thread",
+                    Thread.currentThread().getName().startsWith(EXECUTOR_THREAD_PREFIX));
         }
 
         int getNbChunks() { return mChunkCount; }
@@ -115,7 +117,7 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
         super.setUp();
         WebView webview = getActivity().getWebView();
         if (webview == null) return;
-        mOnUiThread = new WebViewOnUiThread(this, webview);
+        mOnUiThread = new WebViewOnUiThread(webview);
         singleThreadExecutor = Executors.newSingleThreadExecutor(getCustomThreadFactory());
     }
 
@@ -170,15 +172,12 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
         }
         final TracingReceiver tracingReceiver = new TracingReceiver();
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                runTracingTestWithCallbacks(tracingReceiver, singleThreadExecutor);
-            }
+        WebkitUtils.onMainThreadSync(() -> {
+            runTracingTestWithCallbacks(tracingReceiver, singleThreadExecutor);
         });
         PollingCheck.check("Tracing did not complete", POLLING_TIMEOUT, tracingReceiver.getCompleteCallable());
-        assertTrue(tracingReceiver.getNbChunks() > 0);
-        assertTrue(tracingReceiver.getOutputStream().size() > 0);
+        assertThat(tracingReceiver.getNbChunks(), greaterThan(0));
+        assertThat(tracingReceiver.getOutputStream().size(), greaterThan(0));
         // currently the output is json (as of April 2018), but this could change in the future
         // so we don't explicitly test the contents of output stream.
     }
@@ -194,8 +193,8 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
         final TracingReceiver tracingReceiver = new TracingReceiver();
         runTracingTestWithCallbacks(tracingReceiver, singleThreadExecutor);
         PollingCheck.check("Tracing did not complete", POLLING_TIMEOUT, tracingReceiver.getCompleteCallable());
-        assertTrue(tracingReceiver.getNbChunks() > 0);
-        assertTrue(tracingReceiver.getOutputStream().size() > 0);
+        assertThat(tracingReceiver.getNbChunks(), greaterThan(0));
+        assertThat(tracingReceiver.getOutputStream().size(), greaterThan(0));
     }
 
     // Test that tracing stop has no effect if tracing has not been started.
@@ -244,7 +243,7 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
             tracingController.start(config);
         } catch (IllegalArgumentException e) {
             // as expected;
-            assertFalse(tracingController.isTracing());
+            assertFalse("TracingController should not be tracing", tracingController.isTracing());
             return;
         }
 
@@ -265,7 +264,7 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
             tracingController.start(config);
         } catch (IllegalArgumentException e) {
             // as expected;
-            assertFalse(tracingController.isTracing());
+            assertFalse("TracingController should not be tracing", tracingController.isTracing());
             return;
         }
 
@@ -283,7 +282,7 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
             tracingController.start(null);
         } catch (IllegalArgumentException e) {
             // as expected
-            assertFalse(tracingController.isTracing());
+            assertFalse("TracingController should not be tracing", tracingController.isTracing());
             return;
         }
         fail("Tracing start should throw exception if TracingConfig is null");

@@ -39,14 +39,14 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.android.phone.R;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.android.phone.R;
 
 /**
  * The PreferenceActivity class for managing sip profile preferences.
@@ -410,7 +410,7 @@ public class SipSettings extends PreferenceActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         MenuItem addAccountMenuItem = menu.add(0, MENU_ADD_ACCOUNT, 0, R.string.add_sip_account);
-        addAccountMenuItem.setIcon(R.drawable.ic_add_24dp);
+        addAccountMenuItem.setIcon(R.drawable.ic_add_gnu_grey);
         addAccountMenuItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         return true;
     }

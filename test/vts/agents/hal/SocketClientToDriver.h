@@ -22,6 +22,7 @@
 
 #include <VtsDriverCommUtil.h>
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
+#include "test/vts/proto/VtsResourceControllerMessage.pb.h"
 
 using namespace std;
 
@@ -40,8 +41,12 @@ class VtsDriverSocketClient : public VtsDriverCommUtil {
   bool Exit();
 
   // Sends a LOAD_HAL request.
+  // Args:
+  //   target_version_major: int, hal major version
+  //   target_version_minor: int, hal minor version
   int32_t LoadHal(const string& file_path, int target_class, int target_type,
-                  float target_version, const string& target_package,
+                  int target_version_major, int target_version_minor,
+                  const string& target_package,
                   const string& target_component_name,
                   const string& hw_binder_service_name,
                   const string& module_name);
@@ -50,8 +55,12 @@ class VtsDriverSocketClient : public VtsDriverCommUtil {
   string GetFunctions();
 
   // Sends a VTS_DRIVER_COMMAND_READ_SPECIFICATION request.
+  // Args:
+  //   target_version_major: int, hal major version
+  //   target_version_minor: int, hal minor version
   string ReadSpecification(const string& component_name, int target_class,
-                           int target_type, float target_version,
+                           int target_type, int target_version_major,
+                           int target_version_minor,
                            const string& target_package);
 
   // Sends a CALL_FUNCTION request.
@@ -66,6 +75,45 @@ class VtsDriverSocketClient : public VtsDriverCommUtil {
   // Sends a EXECUTE request.
   unique_ptr<VtsDriverControlResponseMessage> ExecuteShellCommand(
       const ::google::protobuf::RepeatedPtrField<::std::string> shell_command);
+
+  // Processes the command for a FMQ request, stores the result in fmq_response.
+  //
+  // @param fmq_request  contains arguments in a request message for FMQ driver.
+  // @param fmq_response pointer to the message that will be sent back to host.
+  //
+  // @return true if api is called successfully and data have been transferred
+  //              without error,
+  //         false otherwise.
+  bool ProcessFmqCommand(const FmqRequestMessage& fmq_request,
+                         FmqResponseMessage* fmq_response);
+
+  // Processes the command for a hidl_memory request, stores the result in
+  // hidl_memory_response.
+  //
+  // @param hidl_memory_request  contains arguments in a request message for
+  //                             hidl_memory driver.
+  // @param hidl_memory_response pointer to message sent back to host.
+  //
+  // @return true if api is called successfully and data have been transferred
+  //              without error,
+  //         false otherwise.
+  bool ProcessHidlMemoryCommand(
+      const HidlMemoryRequestMessage& hidl_memory_request,
+      HidlMemoryResponseMessage* hidl_memory_response);
+
+  // Processes the command for a hidl_handle request, stores the result in
+  // hidl_handle_response.
+  //
+  // @param hidl_handle_request  contains arguments in a request message for
+  //                             hidl_handle driver.
+  // @param hidl_handle_response pointer to message sent back to host.
+  //
+  // @return true if api is called successfully and data have been transferred
+  //              without error,
+  //         false otherwise.
+  bool ProcessHidlHandleCommand(
+      const HidlHandleRequestMessage& hidl_handle_request,
+      HidlHandleResponseMessage* hidl_handle_response);
 };
 
 // returns the socket port file's path for the given service_name.

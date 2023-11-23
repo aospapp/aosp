@@ -56,7 +56,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Represents the notifications service which is automatically called on a fixed schedule. */
-public class VtsProfilingStatsJobServlet extends HttpServlet {
+public class VtsProfilingStatsJobServlet extends BaseJobServlet {
     protected static final Logger logger =
             Logger.getLogger(VtsProfilingStatsJobServlet.class.getName());
     private static final String HIDL_HAL_OPTION = "hidl_hal_mode";
@@ -121,11 +121,11 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
             ProfilingPointEntity profilingPoint =
                     new ProfilingPointEntity(
                             testKey.getName(),
-                            profilingPointRun.name,
-                            profilingPointRun.type.getNumber(),
-                            profilingPointRun.regressionMode.getNumber(),
-                            profilingPointRun.xLabel,
-                            profilingPointRun.yLabel);
+                            profilingPointRun.getName(),
+                            profilingPointRun.getType(),
+                            profilingPointRun.getRegressionMode(),
+                            profilingPointRun.getXLabel(),
+                            profilingPointRun.getYLabel());
             puts.add(profilingPoint.toEntity());
 
             String option = PerformanceUtil.getOptionAlias(profilingPointRun, splitKeySet);
@@ -137,8 +137,8 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
             deviceNames.add(ProfilingPointSummaryEntity.ALL);
 
             for (DeviceInfoEntity d : devices) {
-                branches.add(d.branch);
-                deviceNames.add(d.buildFlavor);
+                branches.add(d.getBranch());
+                deviceNames.add(d.getBuildFlavor());
             }
 
             List<Key> summaryGets = new ArrayList<>();
@@ -146,7 +146,7 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
                 for (String device : deviceNames) {
                     summaryGets.add(
                             ProfilingPointSummaryEntity.createKey(
-                                    profilingPoint.key, branch, device, option, time));
+                                    profilingPoint.getKey(), branch, device, option, time));
                 }
             }
 
@@ -160,12 +160,12 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
                     logger.log(Level.WARNING, "Invalid profiling point summary: " + e.getKey());
                     continue;
                 }
-                if (!summaryMap.containsKey(profilingPointSummary.branch)) {
-                    summaryMap.put(profilingPointSummary.branch, new HashMap<>());
+                if (!summaryMap.containsKey(profilingPointSummary.getBranch())) {
+                    summaryMap.put(profilingPointSummary.getBranch(), new HashMap<>());
                 }
                 Map<String, ProfilingPointSummaryEntity> deviceMap =
-                        summaryMap.get(profilingPointSummary.branch);
-                deviceMap.put(profilingPointSummary.buildFlavor, profilingPointSummary);
+                        summaryMap.get(profilingPointSummary.getBranch());
+                deviceMap.put(profilingPointSummary.getBuildFlavor(), profilingPointSummary);
             }
 
             Set<ProfilingPointSummaryEntity> modifiedEntities = new HashSet<>();
@@ -183,7 +183,7 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
                     } else {
                         summary =
                                 new ProfilingPointSummaryEntity(
-                                        profilingPoint.key, branch, device, option, time);
+                                        profilingPoint.getKey(), branch, device, option, time);
                         deviceMap.put(device, summary);
                     }
                     summary.update(profilingPointRun);
@@ -205,7 +205,8 @@ public class VtsProfilingStatsJobServlet extends HttpServlet {
                 tx.rollback();
                 logger.log(
                         Level.WARNING,
-                        "Profiling stats job transaction still active: " + profilingPointRun.key);
+                        "Profiling stats job transaction still active: "
+                                + profilingPointRun.getKey());
                 return false;
             }
         }

@@ -3,8 +3,8 @@ package org.ksoap2.serialization;
 
 import java.util.Vector;
 
-public class AttributeContainer {
-    private Vector attributes = new Vector();
+public class AttributeContainer implements HasAttributes{
+    protected Vector attributes = new Vector();
 
     /**
      * Places AttributeInfo of desired attribute into a designated AttributeInfo object
@@ -29,9 +29,9 @@ public class AttributeContainer {
         return ((AttributeInfo) attributes.elementAt(index)).getValue();
     }
 
-    /**
-    * Get the attribute's toString value.
-    */
+     /**
+     * Get the attribute's toString value.
+     */
     public String getAttributeAsString(int index) {
         AttributeInfo attributeInfo = (AttributeInfo) attributes.elementAt(index);
         return attributeInfo.getValue().toString();
@@ -44,6 +44,20 @@ public class AttributeContainer {
      */
     public Object getAttribute(String name) {
         Integer i = attributeIndex(name);
+        if (i != null) {
+            return getAttribute(i.intValue());
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+
+    /**
+     * Get the attribute with the given name
+     *
+     * @throws RuntimeException if the attribute does not exist
+     */
+    public Object getAttribute(String namespace,String name) {
+        Integer i = attributeIndex(namespace,name);
         if (i != null) {
             return getAttribute(i.intValue());
         } else {
@@ -66,6 +80,19 @@ public class AttributeContainer {
     }
 
     /**
+     * Get the toString value of the attribute with the given name.
+     *
+     * @throws RuntimeException if the attribute does not exist
+     */
+    public String getAttributeAsString(String namespace,String name) {
+        Integer i = attributeIndex(namespace,name);
+        if (i != null) {
+            return getAttribute(i.intValue()).toString();
+        } else {
+            throw new RuntimeException("illegal property: " + name);
+        }
+    }
+    /**
      * Knows whether the given attribute exists
      */
     public boolean hasAttribute(final String name) {
@@ -77,6 +104,16 @@ public class AttributeContainer {
     }
 
     /**
+     * Knows whether the given attribute exists
+     */
+    public boolean hasAttribute(final String namespace,final String name) {
+        if (attributeIndex(namespace,name) != null) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    /**
      * Get an attribute without chance of throwing an exception
      *
      * @param name the name of the attribute to retrieve
@@ -84,6 +121,21 @@ public class AttributeContainer {
      */
     public Object getAttributeSafely(String name) {
         Integer i = attributeIndex(name);
+        if (i != null) {
+            return getAttribute(i.intValue());
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Get an attribute without chance of throwing an exception
+     *
+     * @param name the name of the attribute to retrieve
+     * @return the value of the attribute if it exists; {@code null} if it does not exist
+     */
+    public Object getAttributeSafely(String namespace,String name) {
+        Integer i = attributeIndex(namespace,name);
         if (i != null) {
             return getAttribute(i.intValue());
         } else {
@@ -108,9 +160,36 @@ public class AttributeContainer {
         }
     }
 
+    /**
+     * Get an attributes' toString value without chance of throwing an
+     * exception.
+
+     * @param name
+     * @return the value of the attribute,s toString method if it exists; ""
+     * if it does not exist
+     */
+    public Object getAttributeSafelyAsString(String namespace,String name) {
+        Integer i = attributeIndex(namespace,name);
+        if (i != null) {
+            return getAttribute(i.intValue()).toString();
+        } else {
+            return "";
+        }
+    }
+
     private Integer attributeIndex(String name) {
         for (int i = 0; i < attributes.size(); i++) {
             if (name.equals(((AttributeInfo) attributes.elementAt(i)).getName())) {
+                return new Integer(i);
+            }
+        }
+        return null;
+    }
+
+    private Integer attributeIndex(String namespace,String name) {
+        for (int i = 0; i < attributes.size(); i++) {
+            AttributeInfo attrInfo=(AttributeInfo) attributes.elementAt(i);
+            if (name.equals(attrInfo.getName()) && namespace.equals(attrInfo.getNamespace())) {
                 return new Integer(i);
             }
         }
@@ -160,13 +239,25 @@ public class AttributeContainer {
      * @return {@code this} object.
      */
     public void addAttribute(String name, Object value) {
+        addAttribute(null,name,value);
+    }
+
+    /**
+     * Adds a attribute (parameter) to the object.
+     *
+     * @param namespace  The namespace of the attribute
+     * @param name  The name of the attribute
+     * @param value the value of the attribute
+     * @return {@code this} object.
+     */
+    public void addAttribute(String namespace,String name, Object value) {
         AttributeInfo attributeInfo = new AttributeInfo();
         attributeInfo.name = name;
+        attributeInfo.namespace = namespace;
         attributeInfo.type = value == null ? PropertyInfo.OBJECT_CLASS : value.getClass();
         attributeInfo.value = value;
         addAttribute(attributeInfo);
     }
-
     /**
      * Add an attribute if the value is not null.
      * @param name
@@ -175,6 +266,18 @@ public class AttributeContainer {
     public void addAttributeIfValue(String name, Object value) {
         if (value != null) {
             addAttribute(name, value);
+        }
+    }
+
+    /**
+     * Add an attribute if the value is not null.
+     * @param namespace  The namespace of the attribute
+     * @param name
+     * @param value
+     */
+    public void addAttributeIfValue(String namespace,String name, Object value) {
+        if (value != null) {
+            addAttribute(namespace,name, value);
         }
     }
 
@@ -198,4 +301,17 @@ public class AttributeContainer {
             attributes.addElement(attributeInfo);
         }
     }
+
+
+    public void setAttribute(AttributeInfo info) {
+
+
+    }
+
+
+    public void getAttribute(int index, AttributeInfo info) {
+
+
+    }
+
 }

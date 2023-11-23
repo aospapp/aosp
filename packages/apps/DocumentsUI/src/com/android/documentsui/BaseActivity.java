@@ -16,34 +16,43 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.Shared.EXTRA_BENCHMARK;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.State.MODE_GRID;
 
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
+import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.MessageQueue.IdleHandler;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
-import android.support.annotation.CallSuper;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.VisibleForTesting;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toolbar;
+import android.view.ViewGroup;
+import android.widget.Checkable;
+import android.widget.TextView;
+
+import androidx.annotation.CallSuper;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.ActionMenuView;
+import androidx.appcompat.widget.Toolbar;
+import androidx.fragment.app.Fragment;
 
 import com.android.documentsui.AbstractActionHandler.CommonAddons;
 import com.android.documentsui.Injector.Injected;
 import com.android.documentsui.NavigationViewManager.Breadcrumb;
+import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
@@ -51,19 +60,23 @@ import com.android.documentsui.base.Shared;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.State.ViewMode;
 import com.android.documentsui.dirlist.AnimationView;
+import com.android.documentsui.dirlist.AppsRowManager;
 import com.android.documentsui.dirlist.DirectoryFragment;
 import com.android.documentsui.prefs.LocalPreferences;
 import com.android.documentsui.prefs.Preferences;
 import com.android.documentsui.prefs.PreferencesMonitor;
 import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.queries.CommandInterceptor;
+import com.android.documentsui.queries.SearchChipData;
+import com.android.documentsui.queries.SearchFragment;
 import com.android.documentsui.queries.SearchViewManager;
 import com.android.documentsui.queries.SearchViewManager.SearchManagerListener;
 import com.android.documentsui.roots.ProvidersCache;
-import com.android.documentsui.selection.Selection;
 import com.android.documentsui.sidebar.RootsFragment;
 import com.android.documentsui.sorting.SortController;
 import com.android.documentsui.sorting.SortModel;
+
+import com.google.android.material.appbar.AppBarLayout;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -72,17 +85,17 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 public abstract class BaseActivity
-        extends Activity implements CommonAddons, NavigationViewManager.Environment {
+        extends AppCompatActivity implements CommonAddons, NavigationViewManager.Environment {
 
     private static final String BENCHMARK_TESTING_PACKAGE = "com.android.documentsui.appperftests";
 
     protected SearchViewManager mSearchManager;
+    protected AppsRowManager mAppsRowManager;
     protected State mState;
 
     @Injected
     protected Injector<?> mInjector;
 
-    protected @Nullable RetainedState mRetainedState;
     protected ProvidersCache mProviders;
     protected DocumentsAccess mDocs;
     protected DrawerController mDrawer;
@@ -99,6 +112,7 @@ public abstract class BaseActivity
     private RootsMonitor<BaseActivity> mRootsMonitor;
 
     private long mStartTime;
+    private boolean mHasQueryContentFromIntent;
 
     private PreferencesMonitor mPreferencesMonitor;
 
@@ -120,6 +134,11 @@ public abstract class BaseActivity
         // Record the time when onCreate is invoked for metric.
         mStartTime = new Date().getTime();
 
+        // ToDo Create tool to check resource version before applyStyle for the theme
+        // If version code is not match, we should reset overlay package to default,
+        // in case Activity continueusly encounter resource not found exception
+        getTheme().applyStyle(R.style.DocumentsDefaultTheme, false);
+
         super.onCreate(icicle);
 
         final Intent intent = getIntent();
@@ -128,26 +147,24 @@ public abstract class BaseActivity
 
         setContentView(mLayoutId);
 
+        setContainer();
+
         mInjector = getInjector();
         mState = getState(icicle);
         mDrawer = DrawerController.create(this, mInjector.config);
-        Metrics.logActivityLaunch(this, mState, intent);
+        Metrics.logActivityLaunch(mState, intent);
 
-        // we're really interested in retainining state in our very complex
-        // DirectoryFragment. So we do a little code yoga to extend
-        // support to that fragment.
-        mRetainedState = (RetainedState) getLastNonConfigurationInstance();
         mProviders = DocumentsApplication.getProvidersCache(this);
         mDocs = DocumentsAccess.create(this);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setActionBar(toolbar);
+        setSupportActionBar(toolbar);
 
         Breadcrumb breadcrumb =
                 Shared.findView(this, R.id.dropdown_breadcrumb, R.id.horizontal_breadcrumb);
         assert(breadcrumb != null);
 
-        mNavigator = new NavigationViewManager(mDrawer, toolbar, mState, this, breadcrumb);
+        mNavigator = new NavigationViewManager(this, mDrawer, mState, this, breadcrumb);
         SearchManagerListener searchListener = new SearchManagerListener() {
             /**
              * Called when search results changed. Refreshes the content of the directory. It
@@ -156,11 +173,20 @@ public abstract class BaseActivity
              */
             @Override
             public void onSearchChanged(@Nullable String query) {
-                if (query != null) {
-                    Metrics.logUserAction(BaseActivity.this, Metrics.USER_ACTION_SEARCH);
+                if (mSearchManager.isSearching()) {
+                    Metrics.logSearchMode(query != null, mSearchManager.hasCheckedChip());
+                    if (mInjector.pickResult != null) {
+                        mInjector.pickResult.increaseActionCount();
+                    }
                 }
 
                 mInjector.actions.loadDocumentsForCurrentStack();
+
+                expandAppBar();
+                DirectoryFragment dir = getDirectoryFragment();
+                if (dir != null) {
+                    dir.scrollToTop();
+                }
             }
 
             @Override
@@ -172,6 +198,36 @@ public abstract class BaseActivity
             @Override
             public void onSearchViewChanged(boolean opened) {
                 mNavigator.update();
+            }
+
+            @Override
+            public void onSearchChipStateChanged(View v) {
+                final Checkable chip = (Checkable) v;
+                if (chip.isChecked()) {
+                    final SearchChipData item = (SearchChipData) v.getTag();
+                    Metrics.logUserAction(MetricConsts.USER_ACTION_SEARCH_CHIP);
+                    Metrics.logSearchType(item.getChipType());
+                }
+            }
+
+            @Override
+            public void onSearchViewFocusChanged(boolean hasFocus) {
+                final boolean isInitailSearch
+                        = !TextUtils.isEmpty(mSearchManager.getCurrentSearch())
+                        && TextUtils.isEmpty(mSearchManager.getSearchViewText());
+                if (hasFocus && (SearchFragment.get(getSupportFragmentManager()) == null)
+                        && !isInitailSearch) {
+                    SearchFragment.showFragment(getSupportFragmentManager(),
+                            mSearchManager.getSearchViewText());
+                }
+            }
+
+            @Override
+            public void onSearchViewClearClicked() {
+                if (SearchFragment.get(getSupportFragmentManager()) == null) {
+                    SearchFragment.showFragment(getSupportFragmentManager(),
+                            mSearchManager.getSearchViewText());
+                }
             }
         };
 
@@ -189,7 +245,26 @@ public abstract class BaseActivity
                         mInjector.features,
                         mInjector.debugHelper::toggleDebugMode,
                         cmdInterceptor);
-        mSearchManager = new SearchViewManager(searchListener, queryInterceptor, icicle);
+
+        ViewGroup chipGroup = findViewById(R.id.search_chip_group);
+        mSearchManager = new SearchViewManager(searchListener, queryInterceptor,
+                chipGroup, icicle);
+        // initialize the chip sets by accept mime types
+        mSearchManager.initChipSets(mState.acceptMimes);
+        // update the chip items by the mime types of the root
+        mSearchManager.updateChips(getCurrentRoot().derivedMimeTypes);
+        // parse the query content from intent when launch the
+        // activity at the first time
+        if (icicle == null) {
+            mHasQueryContentFromIntent = mSearchManager.parseQueryContentFromIntent(getIntent(),
+                    mState.action);
+        }
+
+        mNavigator.setSearchBarClickListener(v -> {
+            mSearchManager.onSearchBarClicked();
+            mNavigator.update();
+        });
+
         mSortController = SortController.create(this, mState.derivedMode, mState.sortModel);
 
         mPreferencesMonitor = new PreferencesMonitor(
@@ -199,7 +274,7 @@ public abstract class BaseActivity
         mPreferencesMonitor.start();
 
         // Base classes must update result in their onCreate.
-        setResult(Activity.RESULT_CANCELED);
+        setResult(AppCompatActivity.RESULT_CANCELED);
     }
 
     public void onPreferenceChanged(String pref) {
@@ -236,7 +311,15 @@ public abstract class BaseActivity
         getMenuInflater().inflate(R.menu.activity, menu);
         mNavigator.update();
         boolean fullBarSearch = getResources().getBoolean(R.bool.full_bar_search_view);
-        mSearchManager.install(menu, fullBarSearch);
+        boolean showSearchBar = getResources().getBoolean(R.bool.show_search_bar);
+        mSearchManager.install(menu, fullBarSearch, showSearchBar);
+
+        final ActionMenuView subMenuView = findViewById(R.id.sub_menu);
+        // If size is 0, it means the menu has not inflated and it should only do once.
+        if (subMenuView.getMenu().size() == 0) {
+            subMenuView.setOnMenuItemClickListener(this::onOptionsItemSelected);
+            getMenuInflater().inflate(R.menu.sub_menu, subMenuView.getMenu());
+        }
 
         return showMenu;
     }
@@ -246,6 +329,8 @@ public abstract class BaseActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
         mSearchManager.showMenu(mState.stack);
+        final ActionMenuView subMenuView = findViewById(R.id.sub_menu);
+        mInjector.menuManager.updateSubMenu(subMenuView.getMenu());
         return true;
     }
 
@@ -260,7 +345,9 @@ public abstract class BaseActivity
     private State getState(@Nullable Bundle icicle) {
         if (icicle != null) {
             State state = icicle.<State>getParcelable(Shared.EXTRA_STATE);
-            if (DEBUG) Log.d(mTag, "Recovered existing state object: " + state);
+            if (DEBUG) {
+                Log.d(mTag, "Recovered existing state object: " + state);
+            }
             return state;
         }
 
@@ -280,9 +367,37 @@ public abstract class BaseActivity
         // Only show the toggle if advanced isn't forced enabled.
         state.showDeviceStorageOption = !Shared.mustShowDeviceRoot(intent);
 
-        if (DEBUG) Log.d(mTag, "Created new state object: " + state);
+        if (DEBUG) {
+            Log.d(mTag, "Created new state object: " + state);
+        }
 
         return state;
+    }
+
+    private void setContainer() {
+        View root = findViewById(R.id.coordinator_layout);
+        root.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            root.setPadding(insets.getSystemWindowInsetLeft(),
+                    insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), 0);
+
+            View saveContainer = findViewById(R.id.container_save);
+            saveContainer.setPadding(0, 0, 0, insets.getSystemWindowInsetBottom());
+
+            View rootsContainer = findViewById(R.id.container_roots);
+            rootsContainer.setPadding(0, 0, 0, insets.getSystemWindowInsetBottom());
+
+            return insets.consumeSystemWindowInsets();
+        });
+
+        getWindow().setNavigationBarDividerColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= 29) {
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarContrastEnforced(true);
+        } else {
+            getWindow().setNavigationBarColor(getColor(R.color.nav_bar_translucent));
+        }
     }
 
     @Override
@@ -323,6 +438,9 @@ public abstract class BaseActivity
                     TimeoutTask.DEFAULT_TIMEOUT,
                     doc -> mInjector.actions.openRootDocument(doc));
         }
+
+        expandAppBar();
+        updateHeaderTitle();
     }
 
     @Override
@@ -341,14 +459,6 @@ public abstract class BaseActivity
                 // SearchViewManager listens for this directly.
                 return false;
 
-            case R.id.option_menu_grid:
-                setViewMode(State.MODE_GRID);
-                return true;
-
-            case R.id.option_menu_list:
-                setViewMode(State.MODE_LIST);
-                return true;
-
             case R.id.option_menu_advanced:
                 onDisplayAdvancedDevices();
                 return true;
@@ -361,13 +471,25 @@ public abstract class BaseActivity
                 getInjector().actions.showDebugMessage();
                 return true;
 
+            case R.id.option_menu_sort:
+                getInjector().actions.showSortDialog();
+                return true;
+
+            case R.id.sub_menu_grid:
+                setViewMode(State.MODE_GRID);
+                return true;
+
+            case R.id.sub_menu_list:
+                setViewMode(State.MODE_LIST);
+                return true;
+
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
     protected final @Nullable DirectoryFragment getDirectoryFragment() {
-        return DirectoryFragment.get(getFragmentManager());
+        return DirectoryFragment.get(getSupportFragmentManager());
     }
 
     /**
@@ -383,6 +505,13 @@ public abstract class BaseActivity
                 && !root.isRecents();
     }
 
+    /**
+     * Returns true if a directory can be inspected.
+     */
+    protected boolean canInspectDirectory() {
+        return false;
+    }
+
     // TODO: make navigator listen to state
     @Override
     public final void updateNavigator() {
@@ -395,7 +524,7 @@ public abstract class BaseActivity
         // chance to spawn a fragment before we need to do it now. However if we spawned a fragment
         // already, system will automatically restore the fragment for us so we don't need to do
         // that manually this time.
-        if (DirectoryFragment.get(getFragmentManager()) == null) {
+        if (DirectoryFragment.get(getSupportFragmentManager()) == null) {
             refreshCurrentRootAndDirectory(AnimationView.ANIM_NONE);
         }
     }
@@ -415,21 +544,30 @@ public abstract class BaseActivity
         // from the saved state passed in onCreate().
         mSearchManager.cancelSearch();
 
+        // only set the query content in the first launch
+        if (mHasQueryContentFromIntent) {
+            mHasQueryContentFromIntent = false;
+            mSearchManager.setCurrentSearch(mSearchManager.getQueryContentFromIntent());
+        }
+
         mState.derivedMode = LocalPreferences.getViewMode(this, mState.stack.getRoot(), MODE_GRID);
+
+        mNavigator.update();
 
         refreshDirectory(anim);
 
-        final RootsFragment roots = RootsFragment.get(getFragmentManager());
+        final RootsFragment roots = RootsFragment.get(getSupportFragmentManager());
         if (roots != null) {
             roots.onCurrentRootChanged();
         }
-
-        mNavigator.update();
 
         // Causes talkback to announce the activity's new title
         setTitle(mState.stack.getTitle());
 
         invalidateOptionsMenu();
+        mSortController.onViewModeChanged(mState.derivedMode);
+        mSearchManager.updateChips(getCurrentRoot().derivedMimeTypes);
+        mAppsRowManager.updateView(this);
     }
 
     private final List<String> getExcludedAuthorities() {
@@ -463,8 +601,8 @@ public abstract class BaseActivity
      */
     private void onDisplayAdvancedDevices() {
         boolean display = !mState.showAdvanced;
-        Metrics.logUserAction(this,
-                display ? Metrics.USER_ACTION_SHOW_ADVANCED : Metrics.USER_ACTION_HIDE_ADVANCED);
+        Metrics.logUserAction(display
+                ? MetricConsts.USER_ACTION_SHOW_ADVANCED : MetricConsts.USER_ACTION_HIDE_ADVANCED);
 
         mInjector.prefs.setShowDeviceRoot(display);
         updateDisplayAdvancedDevices(display);
@@ -472,7 +610,7 @@ public abstract class BaseActivity
 
     private void updateDisplayAdvancedDevices(boolean display) {
         mState.showAdvanced = display;
-        @Nullable RootsFragment fragment = RootsFragment.get(getFragmentManager());
+        @Nullable RootsFragment fragment = RootsFragment.get(getSupportFragmentManager());
         if (fragment != null) {
             // This also takes care of updating launcher shortcuts (which are roots :)
             fragment.onDisplayStateChanged();
@@ -485,18 +623,17 @@ public abstract class BaseActivity
      */
     void setViewMode(@ViewMode int mode) {
         if (mode == State.MODE_GRID) {
-            Metrics.logUserAction(this, Metrics.USER_ACTION_GRID);
+            Metrics.logUserAction(MetricConsts.USER_ACTION_GRID);
         } else if (mode == State.MODE_LIST) {
-            Metrics.logUserAction(this, Metrics.USER_ACTION_LIST);
+            Metrics.logUserAction(MetricConsts.USER_ACTION_LIST);
         }
 
         LocalPreferences.setViewMode(this, getCurrentRoot(), mode);
         mState.derivedMode = mode;
 
-        // view icon needs to be updated, but we *could* do it
-        // in onOptionsItemSelected, and not do the full invalidation
-        // But! That's a larger refactoring we'll save for another day.
-        invalidateOptionsMenu();
+        final ActionMenuView subMenuView = findViewById(R.id.sub_menu);
+        mInjector.menuManager.updateSubMenu(subMenuView.getMenu());
+
         DirectoryFragment dir = getDirectoryFragment();
         if (dir != null) {
             dir.onViewModeChanged();
@@ -509,34 +646,106 @@ public abstract class BaseActivity
         // TODO: Isolate this behavior to PickActivity.
     }
 
+    public void expandAppBar() {
+        final AppBarLayout appBarLayout = findViewById(R.id.app_bar);
+        if (appBarLayout != null) {
+            appBarLayout.setExpanded(true);
+        }
+    }
+
+    public void updateHeaderTitle() {
+        if (!mState.stack.isInitialized()) {
+            //stack has not initialized, the header will update after the stack finishes loading
+            return;
+        }
+
+        final RootInfo root = mState.stack.getRoot();
+        final String rootTitle = root.title;
+        String result;
+
+        switch (root.derivedType) {
+            case RootInfo.TYPE_RECENTS:
+                result = getHeaderRecentTitle();
+                break;
+            case RootInfo.TYPE_IMAGES:
+            case RootInfo.TYPE_VIDEO:
+            case RootInfo.TYPE_AUDIO:
+                result = getString(R.string.root_info_header_media, rootTitle);
+                break;
+            case RootInfo.TYPE_DOWNLOADS:
+            case RootInfo.TYPE_LOCAL:
+            case RootInfo.TYPE_MTP:
+            case RootInfo.TYPE_SD:
+            case RootInfo.TYPE_USB:
+                result = getHeaderStorageTitle(rootTitle);
+                break;
+            default:
+                final String summary = root.summary;
+                result = getHeaderDefaultTitle(rootTitle, summary);
+                break;
+        }
+
+        TextView headerTitle = findViewById(R.id.header_title);
+        headerTitle.setText(result);
+    }
+
+    private String getHeaderRecentTitle() {
+        // If stack size larger than 1, it means user global search than enter a folder, but search
+        // is not expanded on that time.
+        boolean isGlobalSearch = mSearchManager.isSearching() || mState.stack.size() > 1;
+        if (mState.isPhotoPicking()) {
+            final int resId = isGlobalSearch
+                    ? R.string.root_info_header_image_global_search
+                    : R.string.root_info_header_image_recent;
+            return getString(resId);
+        } else {
+            final int resId = isGlobalSearch
+                    ? R.string.root_info_header_global_search
+                    : R.string.root_info_header_recent;
+            return getString(resId);
+        }
+    }
+
+    private String getHeaderStorageTitle(String rootTitle) {
+        final int resId = mState.isPhotoPicking()
+                ? R.string.root_info_header_image_storage : R.string.root_info_header_storage;
+        return getString(resId, rootTitle);
+    }
+
+    private String getHeaderDefaultTitle(String rootTitle, String summary) {
+        if (TextUtils.isEmpty(summary)) {
+            final int resId = mState.isPhotoPicking()
+                    ? R.string.root_info_header_image_app : R.string.root_info_header_app;
+            return getString(resId, rootTitle);
+        } else {
+            final int resId = mState.isPhotoPicking()
+                    ? R.string.root_info_header_image_app_with_summary
+                    : R.string.root_info_header_app_with_summary;
+            return getString(resId, rootTitle, summary);
+        }
+    }
+
+    /**
+     * Get title string equal to the string action bar displayed.
+     * @return current directory title name
+     */
+    public String getCurrentTitle() {
+        if (!mState.stack.isInitialized()) {
+            return null;
+        }
+
+        if (mState.stack.size() > 1) {
+            return getCurrentDirectory().displayName;
+        } else {
+            return getCurrentRoot().title;
+        }
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putParcelable(Shared.EXTRA_STATE, mState);
         mSearchManager.onSaveInstanceState(state);
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Bundle state) {
-        super.onRestoreInstanceState(state);
-    }
-
-    /**
-     * Delegate ths call to the current fragment so it can save selection.
-     * Feel free to expand on this with other useful state.
-     */
-    @Override
-    public RetainedState onRetainNonConfigurationInstance() {
-        RetainedState retained = new RetainedState();
-        DirectoryFragment fragment = DirectoryFragment.get(getFragmentManager());
-        if (fragment != null) {
-            fragment.retainState(retained);
-        }
-        return retained;
-    }
-
-    public @Nullable RetainedState getRetainedState() {
-        return mRetainedState;
     }
 
     @Override
@@ -557,6 +766,11 @@ public abstract class BaseActivity
     @Override
     public DocumentInfo getCurrentDirectory() {
         return mState.stack.peek();
+    }
+
+    @Override
+    public boolean isInRecents() {
+        return mState.stack.isRecents();
     }
 
     @VisibleForTesting
@@ -597,6 +811,7 @@ public abstract class BaseActivity
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
         mInjector.actions.onActivityResult(requestCode, resultCode, data);
     }
 
@@ -608,6 +823,11 @@ public abstract class BaseActivity
      */
     protected boolean popDir() {
         if (mState.stack.size() > 1) {
+            final DirectoryFragment fragment = getDirectoryFragment();
+            if (fragment != null) {
+                fragment.stopScroll();
+            }
+
             mState.stack.pop();
             refreshCurrentRootAndDirectory(AnimationView.ANIM_LEAVE);
             return true;
@@ -616,7 +836,7 @@ public abstract class BaseActivity
     }
 
     protected boolean focusSidebar() {
-        RootsFragment rf = RootsFragment.get(getFragmentManager());
+        RootsFragment rf = RootsFragment.get(getSupportFragmentManager());
         assert (rf != null);
         return rf.requestFocus();
     }
@@ -644,8 +864,7 @@ public abstract class BaseActivity
                             finish();
                         }
 
-                        Metrics.logStartupMs(
-                                BaseActivity.this, (int) (new Date().getTime() - mStartTime));
+                        Metrics.logStartupMs((int) (new Date().getTime() - mStartTime));
 
                         // Remove the idle handler.
                         return false;
@@ -653,14 +872,6 @@ public abstract class BaseActivity
                 });
             }
         });
-    }
-
-    public static final class RetainedState {
-        public @Nullable Selection selection;
-
-        public boolean hasSelection() {
-            return selection != null;
-        }
     }
 
     @VisibleForTesting

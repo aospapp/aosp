@@ -18,9 +18,8 @@
 
 #include <vector>
 
-#include <linux/if_ether.h>
-
 #include <android-base/logging.h>
+#include <utils/Timers.h>
 
 #include "wificond/client_interface_binder.h"
 #include "wificond/logging_utils.h"
@@ -32,6 +31,7 @@
 #include "wificond/scanning/scanner_impl.h"
 
 using android::net::wifi::IClientInterface;
+using android::net::wifi::ISendMgmtFrameEvent;
 using com::android::server::wifi::wificond::NativeScanResult;
 using android::sp;
 using android::wifi_system::InterfaceTool;
@@ -61,7 +61,7 @@ void MlmeEventHandlerImpl::OnConnect(unique_ptr<MlmeConnectEvent> event) {
       LOG(INFO) << "Connect timeout";
     }
     client_interface_->is_associated_ = false;
-    client_interface_->bssid_.clear();
+    client_interface_->bssid_.fill(0);
   }
 }
 
@@ -81,18 +81,18 @@ void MlmeEventHandlerImpl::OnAssociate(unique_ptr<MlmeAssociateEvent> event) {
       LOG(INFO) << "Associate timeout";
     }
     client_interface_->is_associated_ = false;
-    client_interface_->bssid_.clear();
+    client_interface_->bssid_.fill(0);
   }
 }
 
 void MlmeEventHandlerImpl::OnDisconnect(unique_ptr<MlmeDisconnectEvent> event) {
   client_interface_->is_associated_ = false;
-  client_interface_->bssid_.clear();
+  client_interface_->bssid_.fill(0);
 }
 
 void MlmeEventHandlerImpl::OnDisassociate(unique_ptr<MlmeDisassociateEvent> event) {
   client_interface_->is_associated_ = false;
-  client_interface_->bssid_.clear();
+  client_interface_->bssid_.fill(0);
 }
 
 
@@ -100,7 +100,7 @@ ClientInterfaceImpl::ClientInterfaceImpl(
     uint32_t wiphy_index,
     const std::string& interface_name,
     uint32_t interface_index,
-    const std::vector<uint8_t>& interface_mac_addr,
+    const std::array<uint8_t, ETH_ALEN>& interface_mac_addr,
     InterfaceTool* if_tool,
     NetlinkUtils* netlink_utils,
     ScanUtils* scan_utils)
@@ -114,10 +114,25 @@ ClientInterfaceImpl::ClientInterfaceImpl(
       offload_service_utils_(new OffloadServiceUtils()),
       mlme_event_handler_(new MlmeEventHandlerImpl(this)),
       binder_(new ClientInterfaceBinder(this)),
-      is_associated_(false) {
+      is_associated_(false),
+      frame_tx_in_progress_(false),
+      frame_tx_status_cookie_(0),
+      on_frame_tx_status_event_handler_([](bool was_acked) {}) {
   netlink_utils_->SubscribeMlmeEvent(
       interface_index_,
       mlme_event_handler_.get());
+
+  netlink_utils_->SubscribeFrameTxStatusEvent(
+      interface_index,
+      [this](uint64_t cookie, bool was_acked) {
+        if (frame_tx_in_progress_ && frame_tx_status_cookie_ == cookie) {
+          on_frame_tx_status_event_handler_(was_acked);
+          frame_tx_in_progress_ = false;
+          frame_tx_status_cookie_ = 0;
+          on_frame_tx_status_event_handler_ = [](bool was_acked) {};
+        }
+      });
+
   if (!netlink_utils_->GetWiphyInfo(wiphy_index_,
                                &band_info_,
                                &scan_capabilities_,
@@ -132,11 +147,15 @@ ClientInterfaceImpl::ClientInterfaceImpl(
                              this,
                              scan_utils_,
                              offload_service_utils_);
+  // Need to set the interface up (especially in scan mode since wpa_supplicant
+  // is not started)
+  if_tool_->SetUpState(interface_name_.c_str(), true);
 }
 
 ClientInterfaceImpl::~ClientInterfaceImpl() {
   binder_->NotifyImplDead();
   scanner_->Invalidate();
+  netlink_utils_->UnsubscribeFrameTxStatusEvent(interface_index_);
   netlink_utils_->UnsubscribeMlmeEvent(interface_index_);
   if_tool_->SetUpState(interface_name_.c_str(), false);
 }
@@ -171,6 +190,8 @@ void ClientInterfaceImpl::Dump(std::stringstream* ss) const {
       << wiphy_features_.supports_high_accuracy_oneshot_scan << endl;
   *ss << "Device supports random MAC for scheduled scan: "
       << wiphy_features_.supports_random_mac_sched_scan << endl;
+  *ss << "Device supports sending management frames at specified MCS rate: "
+      << wiphy_features_.supports_tx_mgmt_frame_mcs << endl;
   *ss << "------- Dump End -------" << endl;
 }
 
@@ -207,25 +228,23 @@ bool ClientInterfaceImpl::SignalPoll(vector<int32_t>* out_signal_poll_results) {
   // Association frequency.
   out_signal_poll_results->push_back(
       static_cast<int32_t>(associate_freq_));
+  // Convert from 100kbit/s to Mbps.
+  out_signal_poll_results->push_back(
+      static_cast<int32_t>(station_info.station_rx_bitrate/10));
 
   return true;
 }
 
-const vector<uint8_t>& ClientInterfaceImpl::GetMacAddress() {
+const std::array<uint8_t, ETH_ALEN>& ClientInterfaceImpl::GetMacAddress() {
   return interface_mac_addr_;
 }
 
-bool ClientInterfaceImpl::SetMacAddress(const ::std::vector<uint8_t>& mac) {
-  if (mac.size() != ETH_ALEN) {
-    LOG(ERROR) << "Invalid MAC length " << mac.size();
-    return false;
-  }
+bool ClientInterfaceImpl::SetMacAddress(const std::array<uint8_t, ETH_ALEN>& mac) {
   if (!if_tool_->SetWifiUpState(false)) {
     LOG(ERROR) << "SetWifiUpState(false) failed.";
     return false;
   }
-  if (!if_tool_->SetMacAddress(interface_name_.c_str(),
-      {{mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]}})) {
+  if (!if_tool_->SetMacAddress(interface_name_.c_str(), mac)) {
     LOG(ERROR) << "SetMacAddress(" << interface_name_ << ", "
                << LoggingUtils::GetMacString(mac) << ") failed.";
     return false;
@@ -255,6 +274,37 @@ bool ClientInterfaceImpl::RefreshAssociateFreq() {
 
 bool ClientInterfaceImpl::IsAssociated() const {
   return is_associated_;
+}
+
+void ClientInterfaceImpl::SendMgmtFrame(const vector<uint8_t>& frame,
+    const sp<ISendMgmtFrameEvent>& callback, int32_t mcs) {
+  if (mcs >= 0 && !wiphy_features_.supports_tx_mgmt_frame_mcs) {
+    callback->OnFailure(
+        ISendMgmtFrameEvent::SEND_MGMT_FRAME_ERROR_MCS_UNSUPPORTED);
+    return;
+  }
+
+  uint64_t cookie;
+  if (!netlink_utils_->SendMgmtFrame(interface_index_, frame, mcs, &cookie)) {
+    callback->OnFailure(ISendMgmtFrameEvent::SEND_MGMT_FRAME_ERROR_UNKNOWN);
+    return;
+  }
+
+  frame_tx_in_progress_ = true;
+  frame_tx_status_cookie_ = cookie;
+  nsecs_t start_time_ns = systemTime(SYSTEM_TIME_MONOTONIC);
+  on_frame_tx_status_event_handler_ =
+      [callback, start_time_ns](bool was_acked) {
+        if (was_acked) {
+          nsecs_t end_time_ns = systemTime(SYSTEM_TIME_MONOTONIC);
+          int32_t elapsed_time_ms = static_cast<int32_t>(
+              nanoseconds_to_milliseconds(end_time_ns - start_time_ns));
+          callback->OnAck(elapsed_time_ms);
+        } else {
+          callback->OnFailure(
+              ISendMgmtFrameEvent::SEND_MGMT_FRAME_ERROR_NO_ACK);
+        }
+      };
 }
 
 }  // namespace wificond

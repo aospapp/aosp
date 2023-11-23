@@ -41,8 +41,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import static java.lang.annotation.RetentionPolicy.SOURCE;
-
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
@@ -53,6 +51,8 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
+import android.graphics.BlendMode;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
@@ -73,14 +73,6 @@ import android.os.LocaleList;
 import android.os.Looper;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -91,6 +83,7 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextUtils.TruncateAt;
@@ -150,6 +143,15 @@ import android.widget.TextView;
 import android.widget.TextView.BufferType;
 import android.widget.cts.util.TestUtils;
 
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -161,6 +163,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.invocation.InvocationOnMock;
 import org.xmlpull.v1.XmlPullParserException;
+
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import java.io.IOException;
 import java.lang.annotation.Retention;
@@ -666,7 +670,7 @@ public class TextViewTest {
         // Long click on the text selects all text and shows selection handlers. The view has an
         // attribute layout_width="wrap_content", so clicked location (the center of the view)
         // should be on the text.
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, textView);
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, textView);
 
         // At this point the entire content of our TextView should be selected and highlighted
         // with blue. Now change the highlight to red while the selection is still on.
@@ -895,7 +899,7 @@ public class TextViewTest {
     public void testAccessPaintFlags() {
         mTextView = new TextView(mActivity);
         assertEquals(Paint.DEV_KERN_TEXT_FLAG | Paint.EMBEDDED_BITMAP_TEXT_FLAG
-                | Paint.ANTI_ALIAS_FLAG, mTextView.getPaintFlags());
+                | Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG, mTextView.getPaintFlags());
 
         mTextView.setPaintFlags(Paint.UNDERLINE_TEXT_FLAG | Paint.FAKE_BOLD_TEXT_FLAG);
         assertEquals(Paint.UNDERLINE_TEXT_FLAG | Paint.FAKE_BOLD_TEXT_FLAG,
@@ -1709,7 +1713,7 @@ public class TextViewTest {
         // Long click on the text selects all text and shows selection handlers. The view has an
         // attribute layout_width="wrap_content", so clicked location (the center of the view)
         // should be on the text.
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, mTextView);
 
         mActivityRule.runOnUiThread(() -> Selection.removeSelection((Spannable) mTextView.getText()));
         mInstrumentation.waitForIdleSync();
@@ -2271,6 +2275,34 @@ public class TextViewTest {
         mInstrumentation.waitForIdleSync();
     }
 
+    @Test
+    public void testCopyAndPaste_byCtrlInsert() throws Throwable {
+        // Test copy-and-paste by Ctrl-Insert and Shift-Insert.
+        initTextViewForTypingOnUiThread();
+
+        // Type "abc"
+        CtsKeyEventUtil.sendString(mInstrumentation, mTextView, "abc");
+        mActivityRule.runOnUiThread(() -> {
+            // Select "bc"
+            Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Copy "bc"
+        CtsKeyEventUtil.sendKeyWhileHoldingModifier(mInstrumentation, mTextView,
+                KeyEvent.KEYCODE_INSERT, KeyEvent.KEYCODE_CTRL_LEFT);
+        mActivityRule.runOnUiThread(() -> {
+            // Set cursor between 'b' and 'c'
+            Selection.setSelection((Spannable) mTextView.getText(), 2, 2);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Paste "bc"
+        CtsKeyEventUtil.sendKeyWhileHoldingModifier(mInstrumentation, mTextView,
+                KeyEvent.KEYCODE_INSERT, KeyEvent.KEYCODE_SHIFT_LEFT);
+        assertEquals("abbcc", mTextView.getText().toString());
+    }
+
     @UiThreadTest
     @Test
     public void testCutAndPaste() {
@@ -2339,6 +2371,35 @@ public class TextViewTest {
             assertEquals("bca", mTextView.getText().toString());
         });
         mInstrumentation.waitForIdleSync();
+    }
+
+    @Test
+    public void testCutAndPaste_byShiftDelete() throws Throwable {
+        // Test cut and paste by Shift-Delete and Shift-Insert
+        initTextViewForTypingOnUiThread();
+
+        // Type "abc".
+        CtsKeyEventUtil.sendString(mInstrumentation, mTextView, "abc");
+        mActivityRule.runOnUiThread(() -> {
+            // Select "bc"
+            Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Cut "bc"
+        CtsKeyEventUtil.sendKeyWhileHoldingModifier(mInstrumentation, mTextView,
+                KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_SHIFT_LEFT);
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals("a", mTextView.getText().toString());
+            // Move cursor to the head
+            Selection.setSelection((Spannable) mTextView.getText(), 0, 0);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Paste "bc"
+        CtsKeyEventUtil.sendKeyWhileHoldingModifier(mInstrumentation, mTextView,
+                KeyEvent.KEYCODE_INSERT, KeyEvent.KEYCODE_SHIFT_LEFT);
+        assertEquals("bca", mTextView.getText().toString());
     }
 
     private static boolean hasSpansAtMiddleOfText(final TextView textView, final Class<?> type) {
@@ -3288,6 +3349,19 @@ public class TextViewTest {
 
     @UiThreadTest
     @Test
+    public void testTextAttr_zeroTextSize() {
+        mTextView = findTextView(R.id.textview_textAttr_zeroTextSize);
+        // text size should be 0 as set in xml, rather than the text view default (15.0)
+        assertEquals(0f, mTextView.getTextSize(), 0.01f);
+        // text size can be set programmatically to non-negative values
+        mTextView.setTextSize(20f);
+        assertTrue(mTextView.getTextSize() > 0.0f);
+        mTextView.setTextSize(0f);
+        assertEquals(0f, mTextView.getTextSize(), 0.01f);
+    }
+
+    @UiThreadTest
+    @Test
     public void testAppend() {
         mTextView = new TextView(mActivity);
 
@@ -4008,6 +4082,216 @@ public class TextViewTest {
         assertNull(drawables[3]);
     }
 
+    @UiThreadTest
+    @Test
+    public void testCursorDrawable_isNotNullByDefault() {
+        assertNotNull(new TextView(mActivity).getTextCursorDrawable());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testCursorDrawable_canBeSet_toDrawable() {
+        mTextView = new TextView(mActivity);
+        final Drawable cursor = TestUtils.getDrawable(mActivity, R.drawable.blue);
+        mTextView.setTextCursorDrawable(cursor);
+        assertSame(cursor, mTextView.getTextCursorDrawable());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testCursorDrawable_canBeSet_toDrawableResource() {
+        mTextView = new TextView(mActivity);
+        mTextView.setTextCursorDrawable(R.drawable.start);
+        WidgetTestUtils.assertEquals(TestUtils.getBitmap(mActivity, R.drawable.start),
+                ((BitmapDrawable) mTextView.getTextCursorDrawable()).getBitmap());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testCursorDrawable_canBeSetToNull() {
+        new TextView(mActivity).setTextCursorDrawable(null);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testCursorDrawable_canBeSetToZeroResId() {
+        new TextView(mActivity).setTextCursorDrawable(0);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testHandleDrawables_areNotNullByDefault() {
+        mTextView = new TextView(mActivity);
+        assertNotNull(mTextView.getTextSelectHandle());
+        assertNotNull(mTextView.getTextSelectHandleLeft());
+        assertNotNull(mTextView.getTextSelectHandleRight());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testHandleDrawables_canBeSet_toDrawables() {
+        mTextView = new TextView(mActivity);
+
+        final Drawable blue = TestUtils.getDrawable(mActivity, R.drawable.blue);
+        final Drawable yellow = TestUtils.getDrawable(mActivity, R.drawable.yellow);
+        final Drawable red = TestUtils.getDrawable(mActivity, R.drawable.red);
+
+        mTextView.setTextSelectHandle(blue);
+        mTextView.setTextSelectHandleLeft(yellow);
+        mTextView.setTextSelectHandleRight(red);
+
+        assertSame(blue, mTextView.getTextSelectHandle());
+        assertSame(yellow, mTextView.getTextSelectHandleLeft());
+        assertSame(red, mTextView.getTextSelectHandleRight());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testHandleDrawables_canBeSet_toDrawableResources() {
+        mTextView = new TextView(mActivity);
+
+        mTextView.setTextSelectHandle(R.drawable.start);
+        mTextView.setTextSelectHandleLeft(R.drawable.pass);
+        mTextView.setTextSelectHandleRight(R.drawable.failed);
+
+        WidgetTestUtils.assertEquals(TestUtils.getBitmap(mActivity, R.drawable.start),
+                ((BitmapDrawable) mTextView.getTextSelectHandle()).getBitmap());
+        WidgetTestUtils.assertEquals(TestUtils.getBitmap(mActivity, R.drawable.pass),
+                ((BitmapDrawable) mTextView.getTextSelectHandleLeft()).getBitmap());
+        WidgetTestUtils.assertEquals(TestUtils.getBitmap(mActivity, R.drawable.failed),
+                ((BitmapDrawable) mTextView.getTextSelectHandleRight()).getBitmap());
+    }
+
+    @UiThreadTest
+    @Test(expected = NullPointerException.class)
+    public void testSelectHandleDrawable_cannotBeSetToNull() {
+        new TextView(mActivity).setTextSelectHandle(null);
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSelectHandleDrawable_cannotBeSetToZeroResId() {
+        new TextView(mActivity).setTextSelectHandle(0);
+    }
+
+    @UiThreadTest
+    @Test(expected = NullPointerException.class)
+    public void testSelectHandleDrawableLeft_cannotBeSetToNull() {
+        new TextView(mActivity).setTextSelectHandleLeft(null);
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSelectHandleDrawableLeft_cannotBeSetToZeroResId() {
+        new TextView(mActivity).setTextSelectHandleLeft(0);
+    }
+
+    @UiThreadTest
+    @Test(expected = NullPointerException.class)
+    public void testSelectHandleDrawableRight_cannotBeSetToNull() {
+        new TextView(mActivity).setTextSelectHandleRight(null);
+    }
+
+    @UiThreadTest
+    @Test(expected = IllegalArgumentException.class)
+    public void testSelectHandleDrawableRight_cannotBeSetToZeroResId() {
+        new TextView(mActivity).setTextSelectHandleRight(0);
+    }
+
+    @Test
+    public void testHandleDrawable_canBeSet_whenInsertionHandleIsShown() throws Throwable {
+        initTextViewForTypingOnUiThread();
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setTextIsSelectable(true);
+            mTextView.setText("abcd", BufferType.EDITABLE);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Trigger insertion.
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
+
+        final boolean[] mDrawn = new boolean[3];
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setTextSelectHandle(new TestHandleDrawable(mDrawn, 0));
+            mTextView.setTextSelectHandleLeft(new TestHandleDrawable(mDrawn, 1));
+            mTextView.setTextSelectHandleRight(new TestHandleDrawable(mDrawn, 2));
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertTrue(mDrawn[0]);
+        assertFalse(mDrawn[1]);
+        assertFalse(mDrawn[2]);
+    }
+
+    @Test
+    public void testHandleDrawables_canBeSet_whenSelectionHandlesAreShown()
+            throws Throwable {
+        initTextViewForTypingOnUiThread();
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setTextIsSelectable(true);
+            mTextView.setText("abcd", BufferType.EDITABLE);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Trigger selection.
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, mTextView);
+
+        final boolean[] mDrawn = new boolean[3];
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setTextSelectHandle(new TestHandleDrawable(mDrawn, 0));
+            mTextView.setTextSelectHandleLeft(new TestHandleDrawable(mDrawn, 1));
+            mTextView.setTextSelectHandleRight(new TestHandleDrawable(mDrawn, 2));
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertFalse(mDrawn[0]);
+        assertTrue(mDrawn[1]);
+        assertTrue(mDrawn[2]);
+    }
+
+    @Test
+    public void testTextActionModeCallback_loadsHandleDrawables() throws Throwable {
+        final String text = "abcde";
+        mActivityRule.runOnUiThread(() -> {
+            mTextView = new EditText(mActivity);
+            mActivity.setContentView(mTextView);
+            mTextView.setText(text, BufferType.SPANNABLE);
+            mTextView.setTextIsSelectable(true);
+            mTextView.requestFocus();
+            mTextView.setSelected(true);
+            mTextView.setTextClassifier(TextClassifier.NO_OP);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Set selection and try to start action mode.
+            final Bundle args = new Bundle();
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+            args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, text.length());
+            mTextView.performAccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_SET_SELECTION, args);
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // There should be no null pointer exception caused by handle drawables not being loaded.
+    }
+
+    private class TestHandleDrawable extends ColorDrawable {
+        private final boolean[] mArray;
+        private final int mIndex;
+
+        TestHandleDrawable(final boolean[] array, final int index) {
+            mArray = array;
+            mIndex = index;
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            super.draw(canvas);
+            mArray[mIndex] = true;
+        }
+    }
+
     @Test
     public void testSingleLine() throws Throwable {
         mActivityRule.runOnUiThread(() -> mTextView = new TextView(mActivity));
@@ -4060,6 +4344,48 @@ public class TextViewTest {
             assertEquals(singleLineHeight, mTextView.getLayout().getHeight());
             assertEquals(singleLineWidth, mTextView.getLayout().getWidth());
         }
+    }
+
+    @UiThreadTest
+    @Test
+    public void testIsSingleLineTrue() {
+        mTextView = new TextView(mActivity);
+
+        mTextView.setSingleLine(true);
+
+        assertTrue(mTextView.isSingleLine());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testIsSingleLineFalse() {
+        mTextView = new TextView(mActivity);
+
+        mTextView.setSingleLine(false);
+
+        assertFalse(mTextView.isSingleLine());
+    }
+
+    @Test
+    public void testXmlIsSingleLineTrue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final LayoutInflater layoutInflater = LayoutInflater.from(context);
+        final View root = layoutInflater.inflate(R.layout.textview_singleline, null);
+
+        mTextView = root.findViewById(R.id.textview_singleline_true);
+
+        assertTrue(mTextView.isSingleLine());
+    }
+
+    @Test
+    public void testXmlIsSingleLineFalse() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final LayoutInflater layoutInflater = LayoutInflater.from(context);
+        final View root = layoutInflater.inflate(R.layout.textview_singleline, null);
+
+        mTextView = root.findViewById(R.id.textview_singleline_false);
+
+        assertFalse(mTextView.isSingleLine());
     }
 
     @UiThreadTest
@@ -4687,6 +5013,34 @@ public class TextViewTest {
         mTextView.setCompoundDrawables(dr1, dr2, dr3, dr4);
         assertSame(colors, mTextView.getCompoundDrawableTintList());
         assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
+    }
+
+    @Test
+    public void testAccessCompoundDrawableTintBlendMode() {
+        mTextView = new TextView(InstrumentationRegistry.getTargetContext());
+
+        ColorStateList colors = ColorStateList.valueOf(Color.RED);
+        mTextView.setCompoundDrawableTintList(colors);
+        mTextView.setCompoundDrawableTintBlendMode(BlendMode.XOR);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(BlendMode.XOR, mTextView.getCompoundDrawableTintBlendMode());
+
+        // Ensure the tint is preserved across drawable changes.
+        mTextView.setCompoundDrawablesRelative(null, null, null, null);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(BlendMode.XOR, mTextView.getCompoundDrawableTintBlendMode());
+
+        mTextView.setCompoundDrawables(null, null, null, null);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(BlendMode.XOR, mTextView.getCompoundDrawableTintBlendMode());
+
+        ColorDrawable dr1 = new ColorDrawable(Color.RED);
+        ColorDrawable dr2 = new ColorDrawable(Color.GREEN);
+        ColorDrawable dr3 = new ColorDrawable(Color.BLUE);
+        ColorDrawable dr4 = new ColorDrawable(Color.YELLOW);
+        mTextView.setCompoundDrawables(dr1, dr2, dr3, dr4);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(BlendMode.XOR, mTextView.getCompoundDrawableTintBlendMode());
     }
 
     @Test
@@ -5385,7 +5739,7 @@ public class TextViewTest {
     @Test
     public void testCancelLongPress() {
         mTextView = findTextView(R.id.textview_text);
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         mTextView.cancelLongPress();
     }
 
@@ -5454,7 +5808,7 @@ public class TextViewTest {
         mInstrumentation.waitForIdleSync();
 
         // Tap the view to show InsertPointController.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         // bad workaround for waiting onStartInputView of LeanbackIme.apk done
         try {
             Thread.sleep(1000);
@@ -6260,16 +6614,21 @@ public class TextViewTest {
     public void testSetGetHyphenationFrequency() {
         TextView tv = new TextView(mActivity);
 
-        assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, tv.getHyphenationFrequency());
-
-        tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
-        assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, tv.getHyphenationFrequency());
+        // Hypenation is enabled by default on watches to fit more text on their tiny screens.
+        if (isWatch()) {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, tv.getHyphenationFrequency());
+        } else {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, tv.getHyphenationFrequency());
+        }
 
         tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL);
         assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, tv.getHyphenationFrequency());
 
         tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
         assertEquals(Layout.HYPHENATION_FREQUENCY_FULL, tv.getHyphenationFrequency());
+
+        tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
+        assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, tv.getHyphenationFrequency());
     }
 
     @UiThreadTest
@@ -6612,14 +6971,14 @@ public class TextViewTest {
         assertFalse(mTextView.isInTouchMode());
 
         // First tap on the view triggers onClick() but does not focus the TextView.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         SystemClock.sleep(safeDoubleTapTimeout);
         assertTrue(mTextView.isInTouchMode());
         assertFalse(mTextView.isFocused());
         verify(mockOnClickListener, times(1)).onClick(mTextView);
         reset(mockOnClickListener);
         // So does the second tap.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         SystemClock.sleep(safeDoubleTapTimeout);
         assertTrue(mTextView.isInTouchMode());
         assertFalse(mTextView.isFocused());
@@ -6634,14 +6993,14 @@ public class TextViewTest {
 
         // First tap on the view focuses the TextView but does not trigger onClick().
         reset(mockOnClickListener);
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         SystemClock.sleep(safeDoubleTapTimeout);
         assertTrue(mTextView.isInTouchMode());
         assertTrue(mTextView.isFocused());
         verify(mockOnClickListener, never()).onClick(mTextView);
         reset(mockOnClickListener);
         // The second tap triggers onClick() and keeps the focus.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mTextView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mTextView);
         SystemClock.sleep(safeDoubleTapTimeout);
         assertTrue(mTextView.isInTouchMode());
         assertTrue(mTextView.isFocused());
@@ -6729,24 +7088,24 @@ public class TextViewTest {
     @Test
     public void testClickableSpanOnClickSingleTapInside() throws Throwable {
         ClickableSpanTestDetails spanDetails = prepareAndRetrieveClickableSpanDetails();
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mTextView, spanDetails.mXPosInside,
-                spanDetails.mYPosInside);
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mTextView,
+                spanDetails.mXPosInside, spanDetails.mYPosInside);
         verify(spanDetails.mClickableSpan, times(1)).onClick(mTextView);
     }
 
     @Test
     public void testClickableSpanOnClickDoubleTapInside() throws Throwable {
         ClickableSpanTestDetails spanDetails = prepareAndRetrieveClickableSpanDetails();
-        CtsTouchUtils.emulateDoubleTapOnView(mInstrumentation, mTextView, spanDetails.mXPosInside,
-                spanDetails.mYPosInside);
+        CtsTouchUtils.emulateDoubleTapOnView(mInstrumentation, mActivityRule, mTextView,
+                spanDetails.mXPosInside, spanDetails.mYPosInside);
         verify(spanDetails.mClickableSpan, times(2)).onClick(mTextView);
     }
 
     @Test
     public void testClickableSpanOnClickSingleTapOutside() throws Throwable {
         ClickableSpanTestDetails spanDetails = prepareAndRetrieveClickableSpanDetails();
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mTextView, spanDetails.mXPosOutside,
-                spanDetails.mYPosOutside);
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mTextView,
+                spanDetails.mXPosOutside, spanDetails.mYPosOutside);
         verify(spanDetails.mClickableSpan, never()).onClick(mTextView);
     }
 
@@ -6761,7 +7120,7 @@ public class TextViewTest {
                 viewOnScreenXY[1] + spanDetails.mYPosOutside));
         swipeCoordinates.put(1, new Point(viewOnScreenXY[0] + spanDetails.mXPosOutside + 50,
                 viewOnScreenXY[1] + spanDetails.mYPosOutside + 50));
-        CtsTouchUtils.emulateDragGesture(mInstrumentation, swipeCoordinates);
+        CtsTouchUtils.emulateDragGesture(mInstrumentation, mActivityRule, swipeCoordinates);
         verify(spanDetails.mClickableSpan, never()).onClick(mTextView);
     }
 
@@ -7743,7 +8102,7 @@ public class TextViewTest {
 
         // Perform drag selection.
         CtsTouchUtils.emulateLongPressAndDragGesture(
-                mInstrumentation, startX, startY, offsetX, 0 /* offsetY */);
+                mInstrumentation, mActivityRule, startX, startY, offsetX, 0 /* offsetY */);
 
         // No smart selection on drag selection.
         assertEquals(startIndex, mTextView.getSelectionStart());
@@ -7987,6 +8346,142 @@ public class TextViewTest {
         });
     }
 
+    @Test
+    public void testBreakStrategyDefaultValue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final TextView textView = new TextView(context);
+        assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, textView.getBreakStrategy());
+    }
+
+    @Test
+    public void testHyphenationFrequencyDefaultValue() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final TextView textView = new TextView(context);
+
+        // Hypenation is enabled by default on watches to fit more text on their tiny screens.
+        if (isWatch()) {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, textView.getHyphenationFrequency());
+        } else {
+            assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, textView.getHyphenationFrequency());
+        }
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_password_returnsLTR() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text_password);
+
+        assertEquals(TextDirectionHeuristics.LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_LtrLayout_TextDirectionFirstStrong() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionFirstStrong() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_RTL, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionAnyRtl() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_ANY_RTL);
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        assertEquals(TextDirectionHeuristics.ANYRTL_LTR, textView.getTextDirectionHeuristic());
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        assertEquals(TextDirectionHeuristics.ANYRTL_LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionLtr() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_LTR);
+
+        assertEquals(TextDirectionHeuristics.LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionRtl() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_RTL);
+
+        assertEquals(TextDirectionHeuristics.RTL, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionFirstStrongLtr() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_LTR, textView.getTextDirectionHeuristic());
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionFirstStrongRtl() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_RTL, textView.getTextDirectionHeuristic());
+
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        assertEquals(TextDirectionHeuristics.FIRSTSTRONG_RTL, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_phoneInputType_returnsLTR() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text_phone);
+
+        textView.setTextLocale(Locale.forLanguageTag("ar"));
+        textView.setTextDirection(View.TEXT_DIRECTION_RTL);
+        textView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        assertEquals(TextDirectionHeuristics.LTR, textView.getTextDirectionHeuristic());
+    }
+
+    @Test
+    @UiThreadTest
+    public void testGetTextDirectionHeuristic_RtlLayout_TextDirectionLocale() {
+        mActivity.setContentView(R.layout.textview_textdirectionheuristic);
+        final TextView textView = mActivity.findViewById(R.id.text);
+        textView.setTextDirection(View.TEXT_DIRECTION_LOCALE);
+
+        assertEquals(TextDirectionHeuristics.LOCALE, textView.getTextDirectionHeuristic());
+    }
+
     private void initializeTextForSmartSelection(CharSequence text) throws Throwable {
         assertTrue(text.length() >= SMARTSELECT_END);
         mActivityRule.runOnUiThread(() -> {
@@ -7999,12 +8494,13 @@ public class TextViewTest {
     }
 
     private void emulateClickOnView(View view, int offsetX, int offsetY) {
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, view, offsetX, offsetY);
+        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, view, offsetX, offsetY);
         SystemClock.sleep(CLICK_TIMEOUT);
     }
 
     private void emulateLongPressOnView(View view, int offsetX, int offsetY) {
-        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, view, offsetX, offsetY);
+        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mActivityRule, view,
+                offsetX, offsetY);
         // TODO: Ideally, we shouldn't have to wait for a click timeout after a long-press but it
         // seems like we have a minor bug (call it inconvenience) in TextView that requires this.
         SystemClock.sleep(CLICK_TIMEOUT);

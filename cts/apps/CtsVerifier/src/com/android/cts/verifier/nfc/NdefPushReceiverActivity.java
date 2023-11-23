@@ -123,7 +123,7 @@ public class NdefPushReceiverActivity extends PassFailButtons.Activity {
                 // be set in onPrepareDialog.
                 return new AlertDialog.Builder(this)
                         .setIcon(android.R.drawable.ic_dialog_info)
-                        .setTitle(R.string.nfc_result_failure)
+                        .setTitle(R.string.result_failure)
                         .setMessage("")
                         .setPositiveButton(android.R.string.ok, null)
                         .show();
@@ -140,8 +140,8 @@ public class NdefPushReceiverActivity extends PassFailButtons.Activity {
                 boolean isMatch = args.getBoolean(IS_MATCH_ARG);
                 AlertDialog alert = (AlertDialog) dialog;
                 alert.setTitle(isMatch
-                        ? R.string.nfc_result_success
-                        : R.string.nfc_result_failure);
+                        ? R.string.result_success
+                        : R.string.result_failure);
                 alert.setMessage(isMatch
                         ? getString(R.string.nfc_ndef_push_receive_success)
                         : getString(R.string.nfc_ndef_push_receive_failure));

@@ -19,8 +19,8 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <!-- General provisioning strings used for both device owner and work profile provisioning -->
 
-  <!-- App label displayed on the notification shown to indicate that the provisioning process was previously started but not completed. [CHAR LIMIT=45] -->
-  <string name="app_label">Work profile setup</string>
+  <!-- App label displayed in the corner of a notification. This label lets the user know which app or system setting the notifications are coming from. It's not tappable, and it's meant as additional information for the user. [CHAR LIMIT=45] -->
+  <string name="app_label">Work Setup</string>
 
   <!-- Title of the provisioning error dialog. [CHAR LIMIT=45] -->
   <string name="provisioning_error_title">Oops!</string>
@@ -43,13 +43,13 @@
   <!-- Progress text shown when setting up work profile [CHAR LIMIT=NONE] -->
   <string name="setting_up_workspace">Setting up work profile\u2026</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the profile they are creating. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_profile">Your admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_profile">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this profile, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that they allow the mobile device management app to take control of the device. [CHAR LIMIT=NONE]-->
-  <string name="admin_has_ability_to_monitor_device">Your admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your admin for more information, including your organization\'s privacy policies.</string>
+  <string name="admin_has_ability_to_monitor_device">Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="line_break">&lt;br&gt;&lt;br&gt;</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text in a pop-up that asks the user to confirm that theft protection will only be enabled after a password-protected screen lock was chosen. [CHAR LIMIT=NONE]-->
   <string name="theft_protection_disabled_warning">To use theft-protection features, you must have a password-protected screen lock for your device.</string>
   <!-- String telling the user how to get more information about their work profile-->
-  <string name="contact_your_admin_for_more_info">Contact your admin for more information, including your organization\'s privacy policies.</string>
+  <string name="contact_your_admin_for_more_info">Contact your IT admin for more information, including your organization\'s privacy policies.</string>
   <!-- Text on the link that will forward the user to a website with more information about work profiles [CHAR LIMIT=30]-->
   <string name="learn_more_link">Learn more </string>
   <!-- Text on negative button in a popup shown to the user to confirm that they want to start setting up a work profile [CHAR LIMIT=15]-->
@@ -113,7 +113,7 @@
   <!-- Title of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
   <string name="cant_replace_or_remove_work_profile">Can\'t replace or remove work profile</string>
   <!-- Message of an error dialog that appears when a user tries to set up a work profile. In this case, the work profile can't be added because one already exists and can't be replaced, or it isn't supported by the device or the IT admin. -->
-  <string name="work_profile_cant_be_added_contact_admin">A work profile can’t be added to this device. If you have questions, contact your admin.</string>
+  <string name="work_profile_cant_be_added_contact_admin">A work profile can’t be added to this device. If you have questions, contact your IT admin.</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
   <string name="change_device_launcher">Change device launcher</string>
   <!-- Error string displayed if the selected launcher doesn't support work profiles. -->
@@ -153,7 +153,7 @@
   <string name="progress_initialize">Initializing device\u2026</string>
 
   <!-- Message of the error dialog in case a device does not support encryption, but encryption is necessary. [CHAR LIMIT=NONE] -->
-  <string name="device_doesnt_allow_encryption_contact_admin">This device doesn\'t allow encryption, which is needed for setup. For help, contact your admin.</string>
+  <string name="device_doesnt_allow_encryption_contact_admin">This device doesn\'t allow encryption, which is needed for setup. For help, contact your IT admin.</string>
   <!-- Title of the cancel device owner provisioning dialog. [CHAR LIMIT=NONE] -->
   <string name="stop_setup_reset_device_question">Stop setup &amp; reset device?</string>
   <!-- Title of the cancel device owner provisioning dialog. [CHAR LIMIT=NONE] -->
@@ -171,27 +171,27 @@
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
   <string name="cant_set_up_device">Can\'t set up device</string>
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
-  <string name="couldnt_set_up_device">Couldn\'t set up device. For help, contact your admin.</string>
+  <string name="couldnt_set_up_device">Couldn\'t set up device. For help, contact your IT admin.</string>
   <!-- Message of the error dialog in case of an unspecified error. [CHAR LIMIT=NONE] -->
-  <string name="contact_your_admin_for_help">Contact your admin for help</string>
+  <string name="contact_your_admin_for_help">Contact your IT admin for help</string>
   <!-- Message of the error dialog when already provisioned. [CHAR LIMIT=NONE] -->
   <string name="device_already_set_up">Device is already set up</string>
   <!-- Message of the error dialog when setting up wifi failed. [CHAR LIMIT=NONE] -->
-  <string name="device_owner_error_wifi">Couldn\'t connect to Wi-Fi</string>
+  <string name="error_wifi">Couldn\'t connect to Wi-Fi</string>
   <!-- Message of the error dialog when passing factory reset protection fails. [CHAR LIMIT=NONE] -->
-  <string name="device_has_reset_protection_contact_admin">Your device has reset protection turned on. For help, contact your admin.</string>
+  <string name="device_has_reset_protection_contact_admin">Your device has reset protection turned on. For help, contact your IT admin.</string>
   <!-- Message informing the user that the factory reset protection partition is being erased [CHAR LIMIT=30] -->
   <string name="frp_clear_progress_title" >Erasing</string>
   <!-- Progress screen text shown while erasing the factory reset protection partition [CHAR LIMIT=75] -->
   <string name="frp_clear_progress_text">Please wait...</string>
   <!-- Message of the error dialog when data integrity check fails. [CHAR LIMIT=NONE] -->
-  <string name="device_owner_error_hash_mismatch">Couldn\'t use the admin app due to a checksum error. For help, contact your admin.</string>
+  <string name="error_hash_mismatch">Couldn\'t use the admin app due to a checksum error. For help, contact your IT admin.</string>
   <!-- Message of the error dialog when device owner apk could not be downloaded. [CHAR LIMIT=NONE] -->
-  <string name="device_owner_error_download_failed">Couldn\'t download the admin app</string>
+  <string name="error_download_failed">Couldn\'t download the admin app</string>
   <!-- Message of the error dialog when package to install is invalid. [CHAR LIMIT=NONE] -->
-  <string name="device_owner_error_package_invalid">Can\'t use the admin app. It\'s missing components or corrupted. For help, contact your admin.</string>
+  <string name="error_package_invalid">Can\'t use the admin app. It\'s missing components or corrupted. For help, contact your IT admin.</string>
   <!-- Message of the error dialog when package could not be installed. [CHAR LIMIT=NONE] -->
-  <string name="device_owner_error_installation_failed">Couldn\'t install the admin app</string>
+  <string name="error_installation_failed">Couldn\'t install the admin app</string>
   <!-- Message of the cancel dialog. [CHAR LIMIT=NONE] -->
   <string name="profile_owner_cancel_message">Stop setting up?</string>
   <!-- Cancel button text of the cancel dialog. [CHAR LIMIT=45] -->
@@ -227,15 +227,15 @@
   <!-- Short explanation of consequences of setting a device owner [CHAR LIMIT=NONE] -->
   <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished">This link isn\'t secure and can\'t be opened until device setup is finished: <xliff:g id="link_raw_test" example="http://insecure-http-link.com/?p1=v1&amp;p2=v2">%1$s</xliff:g></string>
   <!-- Text with link to device's provider in case of more questions [CHAR LIMIT=NONE] -->
-  <string name="contact_device_provider">If you have questions, contact your <xliff:g id="organizations_admin" example="organizations_admin">%1$s</xliff:g>.</string>
+  <string name="contact_device_provider">To learn more, contact your <xliff:g id="it_admin" example="it_admin">%1$s</xliff:g>.</string>
   <!-- Error message encouraging to contact admin [CHAR LIMIT=NONE] -->
-  <string name="if_questions_contact_admin">If you have questions, contact your organization\'s admin</string>
+  <string name="if_questions_contact_admin">If you have questions, contact your IT admin</string>
   <!-- Error message with unfinished setup[CHAR LIMIT=NONE] -->
-  <string name="setup_isnt_finished_contact_admin">Setup isn\'t finished. For help, contact your admin.</string>
+  <string name="setup_isnt_finished_contact_admin">Setup isn\'t finished. For help, contact your IT admin.</string>
   <!-- Error message encouraging to contact admin [CHAR LIMIT=NONE] -->
-  <string name="for_help_contact_admin">For help, contact your admin</string>
+  <string name="for_help_contact_admin">For help, contact your IT admin</string>
   <!-- Provider of the device (e.g. employer) [CHAR LIMIT=NONE] -->
-  <string name="organization_admin">organization\'s admin</string>
+  <string name="organization_admin">IT admin</string>
   <!-- Information of the app used by your organization to manage the device -->
   <string name="your_org_app_used"><xliff:g id="Your organization" example="Your organization">%1$s</xliff:g> will manage and monitor this device using the following app:</string>
   <!-- Your organization - beginning of a sentence [CHAR LIMIT=NONE] -->
@@ -246,8 +246,8 @@
   <string name="view_terms">View terms</string>
   <!--Button initiating a profile/device owner setup process [CHAR LIMIT=20] -->
   <string name="accept_and_continue">Accept &amp; continue</string>
-  <!--Close button cancelling a profile/device owner setup process [CHAR LIMIT=20] -->
-  <string name="close">Close</string>
+  <!--Button to go back and exit a profile/device owner setup process [CHAR LIMIT=20] -->
+  <string name="back">Back</string>
   <!--Header for device owner provisioning setup screen [CHAR LIMIT=NONE] -->
   <string name="set_up_your_device">Set up your device</string>
 
@@ -333,4 +333,65 @@
   <string name="work_profile_description">Your work apps will be kept in this profile and managed by your organization</string>
   <!-- [CHAR_LIMIT=NONE] Subtext below a full-screen title. This string explains that the user's work device will be kept secure and managed by their employer (referred to generally as "organization"). -->
   <string name="device_owner_description">This device will be kept secure and managed by your organization</string>
+
+  <string name="setup_provisioning_header">Preparing to set up work device\u2026</string>
+  <string name="setup_provisioning_header_description">Setting up admin app</string>
+
+  <!-- Transition screen strings -->
+  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can finish setting up the rest of their phone. [CHAR LIMIT=NONE]-->
+  <string name="set_up_everything_else">Set up everything else</string>
+  <!-- Screen title. This is letting the user know that they're finished setting up their work profile, and they can finish setting up the rest of their phone. [CHAR LIMIT=NONE]-->
+  <string name="now_lets_set_up_everything_else">Now, let\'s set up everything else</string>
+
+  <!-- Organization brand screen -->
+  <!-- Screen title. This is letting the user know that their organization (e.g. company) owns the device. [CHAR LIMIT=NONE]-->
+  <string name="brand_screen_header">This device belongs to your organization</string>
+  <!-- Subtext on a screen. This is letting the user know that their organization (e.g. company) will manage their device, and it's introducing the management app that their IT admin will use. [CHAR LIMIT=NONE]-->
+  <string name="brand_screen_subheader">The following app will be used to manage and monitor this phone</string>
+
+  <!-- Downloading screen -->
+  <!-- Screen title. This is letting the user know that they're about to set up their device for work. [CHAR LIMIT=NONE]-->
+  <string name="downloading_administrator_header">Getting ready for work setup\u2026</string>
+
+  <!-- Work profile setup screens -->
+  <!-- Screen title. This is letting the user know that they'll first set up their work profile before setting up the rest of their device. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_accept_header">First, let\'s set up your work profile</string>
+  <!-- Screen title in the new phone setup flow. This text is letting the user know that they're about to set up a work profile on their new phone. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_accept_header_post_suw">Let\'s set up your work profile</string>
+  <!-- Screen title. This is letting the user know what the work profile is for, and that they can find all of their work apps in this profile. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_step_1_header">Work apps are kept in your work profile</string>
+  <!-- Screen title. This is letting the user know that they have to option to pause their work apps when they're done with work for the day or want to take a break. "Pausing" the apps means that they won't get any notifications or interruptions from those apps. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_step_2_header">Pause work apps when you\'re done for the day</string>
+  <!-- Screen title. This is letting the user know that the only data on their device that's visible to their IT admin is the data in their work profile. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_step_3_header">Only the data in your work profile is visible to your IT admin</string>
+  <!-- In-progress text that's part of a full-screen message. This is letting the user know that their work profile is being set up. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_progress_label">Setting up your work profile\u2026</string>
+  <!-- Spoken text for screen readers. This is summarizing the key features of the work profile while it's being set up. [CHAR LIMIT=NONE]-->
+  <string name="work_profile_provisioning_summary">Work apps are kept in your work profile. You can pause your work apps when you’re done for the day. Only the data in your work profile is visible to your IT admin.</string>
+
+  <!-- Fully managed device setup screens -->
+  <!-- Screen title. This is letting the user know that they're about to set up their new work device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_accept_header">Let\'s set up your work device</string>
+  <!-- Screen title. This is letting the user know that they can use their work device to easily access their work apps. "At your fingertips" is another way of saying "easily accessible." [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_step_1_header">Keep your work apps at your fingertips</string>
+  <!-- Screen title. This is letting the user know that their entire device isn't private and can be accessed by their IT admin. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_step_2_header">This device isn\'t private</string>
+  <!-- Screen subtext. This is letting the user know that their IT admin may be able to see their data and activity since the device isn't private. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_step_2_subheader">Your IT admin may be able to see your data and activity on this device.</string>
+  <!-- In-progress text that's part of a full-screen message. This is letting the user know that their device is being set up. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_progress_label">Setting up your device\u2026</string>
+  <!-- Spoken text for screen readers. This is summarizing the key features of their work device while it's being set up. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_summary">Use this device to easily access your work apps. This device isn\'t private, so your IT admin may be able to see your data and activity. To learn more, contact your IT admin.</string>
+
+  <!-- Fully managed device privacy notification -->
+  <!-- Notification title. This text is letting the user know about a privacy reminder before they start using their new work device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_privacy_title">Privacy reminder</string>
+  <!-- Notification message. This text is letting the user know about a privacy reminder before they start using their new work device, and that their IT admin may be able to see their data and activity on this device. [CHAR LIMIT=NONE]-->
+  <string name="fully_managed_device_provisioning_privacy_body">Your IT admin may be able to see your data and activity on this device</string>
+
+  <!-- Common to both work profile and fully managed device setup screens -->
+  <!-- Screen title. This text is letting the user know that their device is ready. "Ready to go" is equivalent to "ready to use." [CHAR LIMIT=NONE]-->
+  <string name="device_provisioning_finished">Your device is ready to go!</string>
+  <string name="done">Done</string>
+
 </resources>

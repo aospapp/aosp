@@ -20,6 +20,7 @@ import javax.crypto.spec.PBEParameterSpec;
 // import javax.crypto.spec.RC5ParameterSpec;
 
 import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.crypto.DataLengthException;
 import org.bouncycastle.crypto.StreamCipher;
 import org.bouncycastle.crypto.params.KeyParameter;
@@ -112,6 +113,38 @@ public class BaseStreamCipher
                     return null;
                 }
             }
+            else if (ivParam != null)
+            {
+                String  name = cipher.getAlgorithmName();
+
+                if (name.indexOf('/') >= 0)
+                {
+                    name = name.substring(0, name.indexOf('/'));
+                }
+                if (name.startsWith("ChaCha7539"))
+                {
+                    name = "ChaCha7539";
+                }
+                else if (name.startsWith("Grain"))
+                {
+                    name = "Grainv1";
+                }
+                else if (name.startsWith("HC"))
+                {
+                    int endIndex = name.indexOf('-');
+                    name = name.substring(0, endIndex) + name.substring(endIndex + 1);
+                }
+
+                try
+                {
+                    engineParams = createParametersInstance(name);
+                    engineParams.init(new IvParameterSpec(ivParam.getIV()));
+                }
+                catch (Exception e)
+                {
+                    throw new RuntimeException(e.toString());
+                }
+            }
         }
 
         return engineParams;
@@ -124,7 +157,7 @@ public class BaseStreamCipher
         String  mode)
         throws NoSuchAlgorithmException
     {
-        if (!mode.equalsIgnoreCase("ECB"))
+        if (!(mode.equalsIgnoreCase("ECB") || mode.equals("NONE")))
         {
             throw new NoSuchAlgorithmException("can't support mode " + mode);
         }
@@ -233,7 +266,7 @@ public class BaseStreamCipher
 
             if (ivRandom == null)
             {
-                ivRandom = new SecureRandom();
+                ivRandom = CryptoServicesRegistrar.getSecureRandom();
             }
 
             if ((opmode == Cipher.ENCRYPT_MODE) || (opmode == Cipher.WRAP_MODE))

@@ -43,11 +43,14 @@ cc_library {
         "AssetManager2.cpp",
         "AttributeResolution.cpp",
         "ChunkIterator.cpp",
+        "ConfigDescription.cpp",
         "Idmap.cpp",
         "LoadedArsc.cpp",
+        "Locale.cpp",
         "LocaleData.cpp",
         "misc.cpp",
         "ObbFile.cpp",
+        "PosixUtils.cpp",
         "ResourceTypes.cpp",
         "ResourceUtils.cpp",
         "StreamingZipInflater.cpp",
@@ -57,6 +60,7 @@ cc_library {
         "ZipUtils.cpp",
     ],
     export_include_dirs: ["include"],
+    export_shared_lib_headers: ["libz"],
     target: {
         android: {
             srcs: [
@@ -134,9 +138,12 @@ cc_test {
         "tests/AttributeResolution_test.cpp",
         "tests/ByteBucketArray_test.cpp",
         "tests/Config_test.cpp",
+        "tests/ConfigDescription_test.cpp",
         "tests/ConfigLocale_test.cpp",
+        "tests/DynamicRefTable_test.cpp",
         "tests/Idmap_test.cpp",
         "tests/LoadedArsc_test.cpp",
+        "tests/Locale_test.cpp",
         "tests/ResourceUtils_test.cpp",
         "tests/ResTable_test.cpp",
         "tests/Split_test.cpp",
@@ -151,6 +158,7 @@ cc_test {
             srcs: [
                 "tests/BackupData_test.cpp",
                 "tests/ObbFile_test.cpp",
+                "tests/PosixUtils_test.cpp",
             ],
             shared_libs: common_test_libs + ["libui"],
         },
@@ -159,6 +167,7 @@ cc_test {
         },
     },
     data: ["tests/data/**/*.apk"],
+    test_suites: ["device-tests"],
 }
 
 cc_benchmark {

@@ -80,22 +80,12 @@ uint32_t V4L2Device::VideoPixelFormatToV4L2PixFmt(VideoPixelFormat format) {
 }
 
 // static
-uint32_t V4L2Device::VideoCodecProfileToV4L2PixFmt(VideoCodecProfile profile,
-                                                   bool slice_based) {
+uint32_t V4L2Device::VideoCodecProfileToV4L2PixFmt(VideoCodecProfile profile) {
   if (profile >= H264PROFILE_MIN && profile <= H264PROFILE_MAX) {
-    if (slice_based)
-      return V4L2_PIX_FMT_H264_SLICE;
-    else
       return V4L2_PIX_FMT_H264;
   } else if (profile >= VP8PROFILE_MIN && profile <= VP8PROFILE_MAX) {
-    if (slice_based)
-      return V4L2_PIX_FMT_VP8_FRAME;
-    else
       return V4L2_PIX_FMT_VP8;
   } else if (profile >= VP9PROFILE_MIN && profile <= VP9PROFILE_MAX) {
-    if (slice_based)
-      return V4L2_PIX_FMT_VP9_FRAME;
-    else
       return V4L2_PIX_FMT_VP9;
   } else {
     LOG(FATAL) << "Add more cases as needed";
@@ -112,7 +102,6 @@ std::vector<VideoCodecProfile> V4L2Device::V4L2PixFmtToVideoCodecProfiles(
 
   switch (pix_fmt) {
     case V4L2_PIX_FMT_H264:
-    case V4L2_PIX_FMT_H264_SLICE:
       if (is_encoder) {
         // TODO(posciak): need to query the device for supported H.264 profiles,
         // for now choose Main as a sensible default.
@@ -125,13 +114,11 @@ std::vector<VideoCodecProfile> V4L2Device::V4L2PixFmtToVideoCodecProfiles(
       break;
 
     case V4L2_PIX_FMT_VP8:
-    case V4L2_PIX_FMT_VP8_FRAME:
       min_profile = VP8PROFILE_MIN;
       max_profile = VP8PROFILE_MAX;
       break;
 
     case V4L2_PIX_FMT_VP9:
-    case V4L2_PIX_FMT_VP9_FRAME:
       min_profile = VP9PROFILE_MIN;
       max_profile = VP9PROFILE_MAX;
       break;

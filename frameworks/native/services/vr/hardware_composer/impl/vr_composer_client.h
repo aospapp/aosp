@@ -35,13 +35,13 @@ using ComposerClient = ComposerClientImpl<IVrComposerClient, ComposerHal>;
 
 class VrComposerClient : public ComposerClient {
  public:
-  VrComposerClient(android::dvr::VrHwc& hal);
+  explicit VrComposerClient(android::dvr::VrHwc& hal);
   virtual ~VrComposerClient();
 
  private:
   class VrCommandEngine : public ComposerCommandEngine {
    public:
-    VrCommandEngine(VrComposerClient& client);
+    explicit VrCommandEngine(VrComposerClient& client);
     ~VrCommandEngine() override;
 
     bool executeCommand(IComposerClient::Command command,
@@ -54,7 +54,6 @@ class VrComposerClient : public ComposerClient {
 
     IVrComposerClient::BufferMetadata readBufferMetadata();
 
-    VrComposerClient& mVrClient;
     android::dvr::VrHwc& mVrHal;
 
     VrCommandEngine(const VrCommandEngine&) = delete;

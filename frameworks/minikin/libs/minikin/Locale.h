@@ -63,12 +63,20 @@ enum class EmojiStyle : uint8_t {
     TEXT = 3,     // Text (black/white) emoji style is specified.
 };
 
+// Enum for line break style.
+enum class LineBreakStyle : uint8_t {
+    EMPTY = 0,   // No line break style is specified.
+    LOOSE = 1,   // line break style is loose.
+    NORMAL = 2,  // line break style is normal.
+    STRICT = 3,  // line break style is strict.
+};
+
 // Locale is a compact representation of a BCP 47 language tag.
 // It does not capture all possible information, only what directly affects text layout:
 // font rendering, hyphenation, word breaking, etc.
 struct Locale {
 public:
-    enum class Variant : uint16_t {  // Up to 12 bits
+    enum class Variant : uint16_t {
         NO_VARIANT = 0x0000,
         GERMAN_1901_ORTHOGRAPHY = 0x0001,
         GERMAN_1996_ORTHOGRAPHY = 0x0002,
@@ -81,7 +89,8 @@ public:
               mRegion(NO_REGION),
               mSubScriptBits(0ul),
               mVariant(Variant::NO_VARIANT),
-              mEmojiStyle(EmojiStyle::EMPTY) {}
+              mEmojiStyle(EmojiStyle::EMPTY),
+              mLBStyle(LineBreakStyle::EMPTY) {}
 
     // Parse from string
     Locale(const StringPiece& buf);
@@ -89,7 +98,7 @@ public:
     bool operator==(const Locale other) const {
         return !isUnsupported() && isEqualScript(other) && mLanguage == other.mLanguage &&
                mRegion == other.mRegion && mVariant == other.mVariant &&
-               mEmojiStyle == other.mEmojiStyle;
+               mLBStyle == other.mLBStyle && mEmojiStyle == other.mEmojiStyle;
     }
 
     bool operator!=(const Locale other) const { return !(*this == other); }
@@ -98,10 +107,12 @@ public:
     inline bool hasScript() const { return mScript != NO_SCRIPT; }
     inline bool hasRegion() const { return mRegion != NO_REGION; }
     inline bool hasVariant() const { return mVariant != Variant::NO_VARIANT; }
+    inline bool hasLBStyle() const { return mLBStyle != LineBreakStyle::EMPTY; }
     inline bool hasEmojiStyle() const { return mEmojiStyle != EmojiStyle::EMPTY; }
 
     inline bool isSupported() const {
-        return hasLanguage() || hasScript() || hasRegion() || hasVariant() || hasEmojiStyle();
+        return hasLanguage() || hasScript() || hasRegion() || hasVariant() || hasLBStyle() ||
+               hasEmojiStyle();
     }
 
     inline bool isUnsupported() const { return !isSupported(); }
@@ -121,9 +132,18 @@ public:
     // 0 = no match, 1 = script match, 2 = script and primary language match.
     int calcScoreFor(const LocaleList& supported) const;
 
+    // Identifier pattern:
+    // |-------|-------|-------|-------|-------|-------|-------|-------|
+    // lllllllllllllll                                                   Language Code
+    //                ssssssssssssssssssss                               Script Code
+    //                                    rrrrrrrrrrrrrrr                Region Code
+    //                                                   ee              Emoji Style
+    //                                                     bb            Line Break Style
+    //                                                       XXXXXXXX    Free
+    //                                                               vv  German Variant
     uint64_t getIdentifier() const {
         return ((uint64_t)mLanguage << 49) | ((uint64_t)mScript << 29) | ((uint64_t)mRegion << 14) |
-               ((uint64_t)mEmojiStyle << 12) | (uint64_t)mVariant;
+               ((uint64_t)mEmojiStyle << 12) | ((uint64_t)mLBStyle << 10) | (uint64_t)mVariant;
     }
 
     Locale getPartialLocale(SubtagBits bits) const;
@@ -157,9 +177,13 @@ private:
     Variant mVariant;
 
     EmojiStyle mEmojiStyle;
+    LineBreakStyle mLBStyle;
+
+    void resolveUnicodeExtension(const char* buf, size_t length);
 
     static uint8_t scriptToSubScriptBits(uint32_t rawScript);
 
+    static LineBreakStyle resolveLineBreakStyle(const char* buf, size_t length);
     static EmojiStyle resolveEmojiStyle(const char* buf, size_t length);
     static EmojiStyle scriptToEmojiStyle(uint32_t script);
 

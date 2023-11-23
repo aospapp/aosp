@@ -39,7 +39,6 @@
     <feature name="android.hardware.microphone" />
 
     <!-- basic system services -->
-    <feature name="android.software.app_widgets" />
     <feature name="android.software.connectionservice" />
     <feature name="android.software.voice_recognizers" notLowRam="true" />
     <feature name="android.software.backup" />
@@ -47,12 +46,7 @@
     <!-- No support of third-party IMEs by default <feature name="android.software.input_methods" /> -->
     <feature name="android.software.midi" />
     <feature name="android.software.print" />
-
-    <!-- Feature to specify if the device supports adding device admins. -->
-    <feature name="android.software.device_admin" />
-
-    <!-- Feature to specify if the device support managed users. -->
-    <feature name="android.software.managed_users" />
+    <feature name="android.software.secure_lock_screen" />
 
     <feature name="android.software.picture_in_picture" />
 

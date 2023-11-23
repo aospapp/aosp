@@ -197,3 +197,10 @@ def find_repo_root(path=None):
             raise ValueError('Could not locate .repo in %s' % orig_path)
 
     return path
+
+
+def is_git_repository(path):
+    """Returns True if the path is a valid git repository."""
+    cmd = ['git', 'rev-parse', '--resolve-git-dir', os.path.join(path, '.git')]
+    result = rh.utils.run_command(cmd, quiet=True, error_code_ok=True)
+    return result.returncode == 0

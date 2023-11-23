@@ -29,17 +29,15 @@
 #include <gtest/gtest.h>
 
 #include <cutils/qtaguid.h>
+#include <processgroup/processgroup.h>
 
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
 #include "bpf/BpfMap.h"
 #include "bpf/BpfUtils.h"
+#include "netdbpf/bpf_shared.h"
 
-using namespace android::bpf;
-
-using android::base::unique_fd;
-using android::netdutils::status::ok;
 using android::netdutils::StatusOr;
 
 namespace android {
@@ -52,6 +50,15 @@ constexpr uint32_t TEST_TAG = 42;
 constexpr int TEST_COUNTERSET = 1;
 constexpr int DEFAULT_COUNTERSET = 0;
 
+#define SKIP_IF_EXTENDED_BPF_NOT_SUPPORTED                                            \
+    do {                                                                              \
+        if (android::bpf::getBpfSupportLevel() != android::bpf::BpfLevel::EXTENDED) { \
+            GTEST_LOG_(INFO) << "This test is skipped since extended bpf feature"     \
+                             << "not supported\n";                                    \
+            return;                                                                   \
+        }                                                                             \
+    } while (0)
+
 class BpfBasicTest : public testing::Test {
   protected:
     BpfBasicTest() {}
@@ -60,8 +67,10 @@ class BpfBasicTest : public testing::Test {
 TEST_F(BpfBasicTest, TestCgroupMounted) {
     SKIP_IF_BPF_NOT_SUPPORTED;
 
-    ASSERT_EQ(0, access(CGROUP_ROOT_PATH, R_OK));
-    ASSERT_EQ(0, access("/dev/cg2_bpf/cgroup.controllers", R_OK));
+    std::string cg2_path;
+    ASSERT_EQ(true, CgroupGetControllerPath(CGROUPV2_CONTROLLER_NAME, &cg2_path));
+    ASSERT_EQ(0, access(cg2_path.c_str(), R_OK));
+    ASSERT_EQ(0, access((cg2_path + "/cgroup.controllers").c_str(), R_OK));
 }
 
 TEST_F(BpfBasicTest, TestTrafficControllerSetUp) {
@@ -73,13 +82,19 @@ TEST_F(BpfBasicTest, TestTrafficControllerSetUp) {
     ASSERT_EQ(0, access(XT_BPF_EGRESS_PROG_PATH, R_OK));
     ASSERT_EQ(0, access(COOKIE_TAG_MAP_PATH, R_OK));
     ASSERT_EQ(0, access(UID_COUNTERSET_MAP_PATH, R_OK));
-    ASSERT_EQ(0, access(UID_STATS_MAP_PATH, R_OK));
-    ASSERT_EQ(0, access(TAG_STATS_MAP_PATH, R_OK));
+    ASSERT_EQ(0, access(STATS_MAP_A_PATH, R_OK));
+    ASSERT_EQ(0, access(STATS_MAP_B_PATH, R_OK));
     ASSERT_EQ(0, access(IFACE_INDEX_NAME_MAP_PATH, R_OK));
     ASSERT_EQ(0, access(IFACE_STATS_MAP_PATH, R_OK));
-    ASSERT_EQ(0, access(DOZABLE_UID_MAP_PATH, R_OK));
-    ASSERT_EQ(0, access(STANDBY_UID_MAP_PATH, R_OK));
-    ASSERT_EQ(0, access(POWERSAVE_UID_MAP_PATH, R_OK));
+    ASSERT_EQ(0, access(CONFIGURATION_MAP_PATH, R_OK));
+    ASSERT_EQ(0, access(UID_OWNER_MAP_PATH, R_OK));
+}
+
+TEST_F(BpfBasicTest, TestSocketFilterSetUp) {
+    SKIP_IF_EXTENDED_BPF_NOT_SUPPORTED;
+
+    ASSERT_EQ(0, access(CGROUP_SOCKET_PROG_PATH, R_OK));
+    ASSERT_EQ(0, access(UID_PERMISSION_MAP_PATH, R_OK));
 }
 
 TEST_F(BpfBasicTest, TestTagSocket) {
@@ -87,7 +102,7 @@ TEST_F(BpfBasicTest, TestTagSocket) {
 
     BpfMap<uint64_t, UidTag> cookieTagMap(mapRetrieve(COOKIE_TAG_MAP_PATH, 0));
     ASSERT_LE(0, cookieTagMap.getMap());
-    int sock = socket(AF_INET6, SOCK_STREAM, 0);
+    int sock = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_LE(0, sock);
     uint64_t cookie = getSocketCookie(sock);
     ASSERT_NE(NONEXISTENT_COOKIE, cookie);
@@ -107,7 +122,7 @@ TEST_F(BpfBasicTest, TestCloseSocketWithoutUntag) {
 
     BpfMap<uint64_t, UidTag> cookieTagMap(mapRetrieve(COOKIE_TAG_MAP_PATH, 0));
     ASSERT_LE(0, cookieTagMap.getMap());
-    int sock = socket(AF_INET6, SOCK_STREAM, 0);
+    int sock = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
     ASSERT_LE(0, sock);
     uint64_t cookie = getSocketCookie(sock);
     ASSERT_NE(NONEXISTENT_COOKIE, cookie);
@@ -119,14 +134,14 @@ TEST_F(BpfBasicTest, TestCloseSocketWithoutUntag) {
     ASSERT_EQ(0, close(sock));
     // Check map periodically until sk destroy handler have done its job.
     for (int i = 0; i < 10; i++) {
+        usleep(5000);  // 5ms
         tagResult = cookieTagMap.readValue(cookie);
         if (!isOk(tagResult)) {
             ASSERT_EQ(ENOENT, tagResult.status().code());
             return;
         }
-        usleep(50);
     }
-    FAIL() << "socket tag still exist after 500ms";
+    FAIL() << "socket tag still exist after 50ms";
 }
 
 TEST_F(BpfBasicTest, TestChangeCounterSet) {
@@ -148,29 +163,29 @@ TEST_F(BpfBasicTest, TestChangeCounterSet) {
 TEST_F(BpfBasicTest, TestDeleteTagData) {
     SKIP_IF_BPF_NOT_SUPPORTED;
 
-    BpfMap<StatsKey, StatsValue> uidStatsMap(mapRetrieve(UID_STATS_MAP_PATH, 0));
-    ASSERT_LE(0, uidStatsMap.getMap());
-    BpfMap<StatsKey, StatsValue> tagStatsMap(mapRetrieve(TAG_STATS_MAP_PATH, 0));
-    ASSERT_LE(0, tagStatsMap.getMap());
+    BpfMap<StatsKey, StatsValue> statsMapA(mapRetrieve(STATS_MAP_A_PATH, 0));
+    ASSERT_LE(0, statsMapA.getMap());
+    BpfMap<StatsKey, StatsValue> statsMapB(mapRetrieve(STATS_MAP_B_PATH, 0));
+    ASSERT_LE(0, statsMapB.getMap());
     BpfMap<uint32_t, StatsValue> appUidStatsMap(mapRetrieve(APP_UID_STATS_MAP_PATH, 0));
     ASSERT_LE(0, appUidStatsMap.getMap());
 
     StatsKey key = {.uid = TEST_UID, .tag = TEST_TAG, .counterSet = TEST_COUNTERSET,
                     .ifaceIndex = 1};
     StatsValue statsMapValue = {.rxPackets = 1, .rxBytes = 100};
-    EXPECT_TRUE(isOk(tagStatsMap.writeValue(key, statsMapValue, BPF_ANY)));
+    EXPECT_TRUE(isOk(statsMapB.writeValue(key, statsMapValue, BPF_ANY)));
     key.tag = 0;
-    EXPECT_TRUE(isOk(uidStatsMap.writeValue(key, statsMapValue, BPF_ANY)));
+    EXPECT_TRUE(isOk(statsMapA.writeValue(key, statsMapValue, BPF_ANY)));
     EXPECT_TRUE(isOk(appUidStatsMap.writeValue(TEST_UID, statsMapValue, BPF_ANY)));
     ASSERT_EQ(0, qtaguid_deleteTagData(0, TEST_UID));
-    StatusOr<StatsValue> statsResult = uidStatsMap.readValue(key);
+    StatusOr<StatsValue> statsResult = statsMapA.readValue(key);
     ASSERT_FALSE(isOk(statsResult));
     ASSERT_EQ(ENOENT, statsResult.status().code());
     statsResult = appUidStatsMap.readValue(TEST_UID);
     ASSERT_FALSE(isOk(statsResult));
     ASSERT_EQ(ENOENT, statsResult.status().code());
     key.tag = TEST_TAG;
-    statsResult = tagStatsMap.readValue(key);
+    statsResult = statsMapB.readValue(key);
     ASSERT_FALSE(isOk(statsResult));
     ASSERT_EQ(ENOENT, statsResult.status().code());
 }

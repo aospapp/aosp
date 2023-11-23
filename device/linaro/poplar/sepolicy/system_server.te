@@ -1,0 +1,7 @@
+allow system_server mali_device:chr_file rw_file_perms;
+allow system_server uhid_device:chr_file {write open ioctl}; #rw_file_perms;
+allow system_server hi_vdec_device:chr_file { read write open };
+allow system_server sysfs_hisi:file { write read open getattr };
+allow system_server sysfs:dir { read open };
+allow system_server hi_vfmw_device:chr_file { open read  write getattr ioctl };
+allow system_server hi_overlay_file:file { read open  getattr };

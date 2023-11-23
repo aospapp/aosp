@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 #define EIGEN_USE_GPU
 
@@ -31,12 +31,17 @@ typedef Eigen::GpuDevice GPUDevice;
 namespace functor {
 template <typename T>
 struct XentFunctor<GPUDevice, T> {
-  void operator()(const GPUDevice& d, typename TTypes<T>::ConstMatrix logits,
+  void operator()(const GPUDevice &d,
+                  const Eigen::DSizes<Eigen::DenseIndex, 2> &shape,
+                  const Eigen::array<Eigen::DenseIndex, 2> &logits_bcast,
+                  const Eigen::array<Eigen::DenseIndex, 2> &labels_bcast,
+                  typename TTypes<T>::ConstMatrix logits,
                   typename TTypes<T>::ConstMatrix labels,
                   typename TTypes<T>::Matrix scratch,
                   typename TTypes<T>::Vec loss,
                   typename TTypes<T>::Matrix backprop) {
-    XentEigenImpl<GPUDevice, T>::Compute(d, logits, labels, scratch, loss,
+    XentEigenImpl<GPUDevice, T>::Compute(d, shape, logits_bcast, labels_bcast,
+                                         logits, labels, scratch, loss,
                                          backprop);
   }
 };
@@ -49,4 +54,4 @@ template struct functor::XentFunctor<GPUDevice, double>;
 
 }  // end namespace tensorflow
 
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM

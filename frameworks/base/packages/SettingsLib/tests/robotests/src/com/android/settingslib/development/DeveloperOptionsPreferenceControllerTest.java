@@ -19,19 +19,18 @@ package com.android.settingslib.development;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
-
-import com.android.settingslib.SettingsLibRobolectricTestRunner;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-@RunWith(SettingsLibRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class DeveloperOptionsPreferenceControllerTest {
 
     private static final String TEST_KEY = "Test_pref_key";

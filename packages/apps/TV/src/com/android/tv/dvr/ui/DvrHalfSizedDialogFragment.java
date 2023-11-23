@@ -18,17 +18,20 @@ package com.android.tv.dvr.ui;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.v17.leanback.app.GuidedStepFragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
 import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.dialog.HalfSizedDialogFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrChannelWatchConflictFragment;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
 import com.android.tv.guide.ProgramGuide;
+import com.android.tv.ui.DetailsActivity;
 
 public class DvrHalfSizedDialogFragment extends HalfSizedDialogFragment {
     /** Key for input ID. Type: String. */
@@ -187,11 +190,27 @@ public class DvrHalfSizedDialogFragment extends HalfSizedDialogFragment {
         }
     }
 
-    /** A dialog fragment for {@link DvrFutureProgramInfoFragment}. */
-    public static class DvrFutureProgramInfoDialogFragment extends DvrGuidedStepDialogFragment {
+    /** A dialog fragment for {@link DvrWriteStoragePermissionRationaleFragment}. */
+    public static class DvrWriteStoragePermissionRationaleDialogFragment
+            extends DvrGuidedStepDialogFragment {
         @Override
-        protected DvrGuidedStepFragment onCreateGuidedStepFragment() {
-            return new DvrFutureProgramInfoFragment();
+        protected DvrWriteStoragePermissionRationaleFragment onCreateGuidedStepFragment() {
+            return new DvrWriteStoragePermissionRationaleFragment();
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
+            Activity activity = getActivity();
+            if (activity instanceof DetailsActivity) {
+                activity.requestPermissions(
+                        new String[] {"android.permission.WRITE_EXTERNAL_STORAGE"},
+                        DetailsActivity.REQUEST_DELETE);
+            } else if (activity instanceof DvrSeriesDeletionActivity) {
+                activity.requestPermissions(
+                        new String[] {"android.permission.WRITE_EXTERNAL_STORAGE"},
+                        DvrSeriesDeletionActivity.REQUEST_DELETE);
+            }
+            super.onDismiss(dialog);
         }
     }
 }

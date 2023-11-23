@@ -10,7 +10,6 @@ from autotest_lib.client.common_lib.cros import webrtc_utils
 from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros.multimedia import system_facade_native
 from autotest_lib.client.cros.video import helper_logger
-from telemetry.core import exceptions
 from telemetry.util import image_util
 
 
@@ -241,12 +240,12 @@ class WebRtcPeerConnectionTest(object):
                 full_filename = os.path.join(
                         self.debugdir, screenshot_name + '_browser_tab.png')
                 image_util.WritePngFile(screenshot, full_filename)
-            except exceptions.Error as e:
+            except Exception:
                 # This can for example occur if Chrome crashes. It will
                 # cause the Screenshot call to timeout.
                 logging.warn(
                         'Screenshot using telemetry tab.Screenshot failed',
-                        exc_info = e)
+                        exc_info=True)
         else:
             logging.warn(
                     'Screenshot using telemetry tab.Screenshot() not supported')
@@ -306,7 +305,11 @@ class WebRtcPeerConnectionPerformanceTest(WebRtcPeerConnectionTest):
                       ';sleep %d;done'
                       % (delay, self.debugdir, iterations))
 
+    def start_test(self, cr, html_file):
+        super(WebRtcPeerConnectionPerformanceTest, self).start_test(
+                cr, html_file)
+        self.collector.pre_collect()
+
     def do_in_wait_loop(self):
         self.collector.collect_snapshot()
         time.sleep(1)
-

@@ -11,9 +11,10 @@
 
 static int get_new_sb(struct f2fs_super_block *sb)
 {
-	u_int32_t zone_size_bytes, zone_align_start_offset;
+	u_int32_t zone_size_bytes;
+	u_int64_t zone_align_start_offset;
 	u_int32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
-	u_int32_t sit_segments, diff, total_meta_segments;
+	u_int32_t sit_segments, nat_segments, diff, total_meta_segments;
 	u_int32_t total_valid_blks_available;
 	u_int32_t sit_bitmap_size, max_sit_bitmap_size;
 	u_int32_t max_nat_bitmap_size, max_nat_segments;
@@ -27,14 +28,17 @@ static int get_new_sb(struct f2fs_super_block *sb)
 
 	zone_size_bytes = segment_size_bytes * segs_per_zone;
 	zone_align_start_offset =
-		(c.start_sector * c.sector_size +
+		((u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE +
 		2 * F2FS_BLKSIZE + zone_size_bytes - 1) /
 		zone_size_bytes * zone_size_bytes -
-		c.start_sector * c.sector_size;
+		(u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE;
 
 	set_sb(segment_count, (c.target_sectors * c.sector_size -
 				zone_align_start_offset) / segment_size_bytes /
 				c.segs_per_sec * c.segs_per_sec);
+
+	if (c.safe_resize)
+		goto safe_resize;
 
 	blocks_for_sit = SIZE_ALIGN(get_sb(segment_count), SIT_ENTRY_PER_BLOCK);
 	sit_segments = SEG_ALIGN(blocks_for_sit);
@@ -47,7 +51,19 @@ static int get_new_sb(struct f2fs_super_block *sb)
 			get_sb(segment_count_sit))) * blks_per_seg;
 	blocks_for_nat = SIZE_ALIGN(total_valid_blks_available,
 					NAT_ENTRY_PER_BLOCK);
-	set_sb(segment_count_nat, SEG_ALIGN(blocks_for_nat));
+
+	if (c.large_nat_bitmap) {
+		nat_segments = SEG_ALIGN(blocks_for_nat) *
+						DEFAULT_NAT_ENTRY_RATIO / 100;
+		set_sb(segment_count_nat, nat_segments ? nat_segments : 1);
+
+		max_nat_bitmap_size = (get_sb(segment_count_nat) <<
+						get_sb(log_blocks_per_seg)) / 8;
+		set_sb(segment_count_nat, get_sb(segment_count_nat) * 2);
+	} else {
+		set_sb(segment_count_nat, SEG_ALIGN(blocks_for_nat));
+		max_nat_bitmap_size = 0;
+	}
 
 	sit_bitmap_size = ((get_sb(segment_count_sit) / 2) <<
 				get_sb(log_blocks_per_seg)) / 8;
@@ -56,26 +72,40 @@ static int get_new_sb(struct f2fs_super_block *sb)
 	else
 		max_sit_bitmap_size = sit_bitmap_size;
 
-	/*
-	 * It should be reserved minimum 1 segment for nat.
-	 * When sit is too large, we should expand cp area. It requires more pages for cp.
-	 */
-	if (max_sit_bitmap_size > MAX_SIT_BITMAP_SIZE_IN_CKPT) {
-		max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1;
-		set_sb(cp_payload, F2FS_BLK_ALIGN(max_sit_bitmap_size));
+	if (c.large_nat_bitmap) {
+		/* use cp_payload if free space of f2fs_checkpoint is not enough */
+		if (max_sit_bitmap_size + max_nat_bitmap_size >
+						MAX_BITMAP_SIZE_IN_CKPT) {
+			u_int32_t diff =  max_sit_bitmap_size +
+						max_nat_bitmap_size -
+						MAX_BITMAP_SIZE_IN_CKPT;
+			set_sb(cp_payload, F2FS_BLK_ALIGN(diff));
+		} else {
+			set_sb(cp_payload, 0);
+		}
 	} else {
-		max_nat_bitmap_size = CHECKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1
-			- max_sit_bitmap_size;
-		set_sb(cp_payload, 0);
-	}
+		/*
+		 * It should be reserved minimum 1 segment for nat.
+		 * When sit is too large, we should expand cp area.
+		 * It requires more pages for cp.
+		 */
+		if (max_sit_bitmap_size > MAX_SIT_BITMAP_SIZE_IN_CKPT) {
+			max_nat_bitmap_size = CP_CHKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1;
+			set_sb(cp_payload, F2FS_BLK_ALIGN(max_sit_bitmap_size));
+		} else {
+			max_nat_bitmap_size = CP_CHKSUM_OFFSET - sizeof(struct f2fs_checkpoint) + 1
+				- max_sit_bitmap_size;
+			set_sb(cp_payload, 0);
+		}
 
-	max_nat_segments = (max_nat_bitmap_size * 8) >>
+		max_nat_segments = (max_nat_bitmap_size * 8) >>
 					get_sb(log_blocks_per_seg);
 
-	if (get_sb(segment_count_nat) > max_nat_segments)
-		set_sb(segment_count_nat, max_nat_segments);
+		if (get_sb(segment_count_nat) > max_nat_segments)
+			set_sb(segment_count_nat, max_nat_segments);
 
-	set_sb(segment_count_nat, get_sb(segment_count_nat) * 2);
+		set_sb(segment_count_nat, get_sb(segment_count_nat) * 2);
+	}
 
 	set_sb(ssa_blkaddr, get_sb(nat_blkaddr) +
 				get_sb(segment_count_nat) * blks_per_seg);
@@ -102,6 +132,7 @@ static int get_new_sb(struct f2fs_super_block *sb)
 	set_sb(main_blkaddr, get_sb(ssa_blkaddr) + get_sb(segment_count_ssa) *
 			 blks_per_seg);
 
+safe_resize:
 	set_sb(segment_count_main, get_sb(segment_count) -
 			(get_sb(segment_count_ckpt) +
 			 get_sb(segment_count_sit) +
@@ -313,8 +344,11 @@ static void migrate_nat(struct f2fs_sb_info *sbi,
 				(seg_off << sbi->log_blocks_per_seg << 1) +
 				(block_off & ((1 << sbi->log_blocks_per_seg) - 1)));
 
-		if (f2fs_test_bit(block_off, nm_i->nat_bitmap))
+		/* move to set #0 */
+		if (f2fs_test_bit(block_off, nm_i->nat_bitmap)) {
 			block_addr += sbi->blocks_per_seg;
+			f2fs_clear_bit(block_off, nm_i->nat_bitmap);
+		}
 
 		ret = dev_read_block(nat_block, block_addr);
 		ASSERT(ret >= 0);
@@ -478,14 +512,16 @@ static void rebuild_checkpoint(struct f2fs_sb_info *sbi,
 
 	/* update nat_bits flag */
 	flags = update_nat_bits_flags(new_sb, cp, get_cp(ckpt_flags));
+	if (flags & CP_COMPACT_SUM_FLAG)
+		flags &= ~CP_COMPACT_SUM_FLAG;
 	set_cp(ckpt_flags, flags);
 
 	memcpy(new_cp, cp, (unsigned char *)cp->sit_nat_version_bitmap -
 						(unsigned char *)cp);
 	new_cp->checkpoint_ver = cpu_to_le64(cp_ver + 1);
 
-	crc = f2fs_cal_crc32(F2FS_SUPER_MAGIC, new_cp, CHECKSUM_OFFSET);
-	*((__le32 *)((unsigned char *)new_cp + CHECKSUM_OFFSET)) =
+	crc = f2fs_cal_crc32(F2FS_SUPER_MAGIC, new_cp, CP_CHKSUM_OFFSET);
+	*((__le32 *)((unsigned char *)new_cp + CP_CHKSUM_OFFSET)) =
 							cpu_to_le32(crc);
 
 	/* Write a new checkpoint in the other set */
@@ -541,23 +577,7 @@ static void rebuild_checkpoint(struct f2fs_sb_info *sbi,
 	DBG(0, "Info: Done to rebuild checkpoint blocks\n");
 }
 
-static void rebuild_superblock(struct f2fs_super_block *new_sb)
-{
-	int index, ret;
-	u_int8_t *buf;
-
-	buf = calloc(BLOCK_SZ, 1);
-
-	memcpy(buf + F2FS_SUPER_OFFSET, new_sb, sizeof(*new_sb));
-	for (index = 0; index < 2; index++) {
-		ret = dev_write_block(buf, index);
-		ASSERT(ret >= 0);
-	}
-	free(buf);
-	DBG(0, "Info: Done to rebuild superblock\n");
-}
-
-int f2fs_resize(struct f2fs_sb_info *sbi)
+static int f2fs_resize_grow(struct f2fs_sb_info *sbi)
 {
 	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct f2fs_super_block new_sb_raw;
@@ -583,9 +603,6 @@ int f2fs_resize(struct f2fs_sb_info *sbi)
 		}
 	}
 
-	print_raw_sb_info(sb);
-	print_raw_sb_info(new_sb);
-
 	old_main_blkaddr = get_sb(main_blkaddr);
 	new_main_blkaddr = get_newsb(main_blkaddr);
 	offset = new_main_blkaddr - old_main_blkaddr;
@@ -608,6 +625,92 @@ int f2fs_resize(struct f2fs_sb_info *sbi)
 	migrate_nat(sbi, new_sb);
 	migrate_sit(sbi, new_sb, offset_seg);
 	rebuild_checkpoint(sbi, new_sb, offset_seg);
-	rebuild_superblock(new_sb);
+	update_superblock(new_sb, SB_MASK_ALL);
+	print_raw_sb_info(sb);
+	print_raw_sb_info(new_sb);
+
 	return 0;
+}
+
+static int f2fs_resize_shrink(struct f2fs_sb_info *sbi)
+{
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
+	struct f2fs_super_block new_sb_raw;
+	struct f2fs_super_block *new_sb = &new_sb_raw;
+	block_t old_end_blkaddr, old_main_blkaddr;
+	block_t new_end_blkaddr, new_main_blkaddr, tmp_end_blkaddr;
+	unsigned int offset;
+	int err = -1;
+
+	/* flush NAT/SIT journal entries */
+	flush_journal_entries(sbi);
+
+	memcpy(new_sb, F2FS_RAW_SUPER(sbi), sizeof(*new_sb));
+	if (get_new_sb(new_sb))
+		return -1;
+
+	/* check nat availability */
+	if (get_sb(segment_count_nat) > get_newsb(segment_count_nat)) {
+		err = shrink_nats(sbi, new_sb);
+		if (err) {
+			MSG(0, "\tError: Failed to shrink NATs\n");
+			return err;
+		}
+	}
+
+	old_main_blkaddr = get_sb(main_blkaddr);
+	new_main_blkaddr = get_newsb(main_blkaddr);
+	offset = old_main_blkaddr - new_main_blkaddr;
+	old_end_blkaddr = (get_sb(segment_count_main) <<
+			get_sb(log_blocks_per_seg)) + get_sb(main_blkaddr);
+	new_end_blkaddr = (get_newsb(segment_count_main) <<
+			get_newsb(log_blocks_per_seg)) + get_newsb(main_blkaddr);
+
+	tmp_end_blkaddr = new_end_blkaddr + offset;
+	err = f2fs_defragment(sbi, tmp_end_blkaddr,
+				old_end_blkaddr - tmp_end_blkaddr,
+				tmp_end_blkaddr, 1);
+	MSG(0, "Try to do defragement: %s\n", err ? "Insufficient Space": "Done");
+
+	if (err) {
+		return -ENOSPC;
+	}
+
+	update_superblock(new_sb, SB_MASK_ALL);
+	rebuild_checkpoint(sbi, new_sb, 0);
+	/*if (!c.safe_resize) {
+		migrate_sit(sbi, new_sb, offset_seg);
+		migrate_nat(sbi, new_sb);
+		migrate_ssa(sbi, new_sb, offset_seg);
+	}*/
+
+	/* move whole data region */
+	//if (err)
+	//	migrate_main(sbi, offset);
+	print_raw_sb_info(sb);
+	print_raw_sb_info(new_sb);
+
+	return 0;
+}
+
+int f2fs_resize(struct f2fs_sb_info *sbi)
+{
+	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
+
+	/* may different sector size */
+	if ((c.target_sectors * c.sector_size >>
+			get_sb(log_blocksize)) < get_sb(block_count))
+		if (!c.safe_resize) {
+			ASSERT_MSG("Nothing to resize, now only supports resizing with safe resize flag\n");
+			return -1;
+		} else {
+			return f2fs_resize_shrink(sbi);
+		}
+	else if ((c.target_sectors * c.sector_size >>
+			get_sb(log_blocksize)) > get_sb(block_count))
+		return f2fs_resize_grow(sbi);
+	else {
+		MSG(0, "Nothing to resize.\n");
+		return 0;
+	}
 }

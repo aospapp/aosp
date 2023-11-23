@@ -18,19 +18,42 @@
 package com.android.bips;
 
 import android.print.PrintJobId;
+import android.print.PrinterId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Manages a job queue, ensuring only one job is printed at a time */
 class JobQueue {
-    private final List<LocalPrintJob> mJobs = new ArrayList<>();
+    private final List<LocalPrintJob> mJobs = new CopyOnWriteArrayList<>();
     private LocalPrintJob mCurrent;
 
     /** Queue a print job for printing at the next available opportunity */
     void print(LocalPrintJob job) {
         mJobs.add(job);
         startNextJob();
+    }
+
+    /** Cancel any previously queued job for a printer with the supplied ID. */
+    void cancel(PrinterId printerId) {
+        for (LocalPrintJob job : mJobs) {
+            if (printerId.equals(job.getPrintJob().getInfo().getPrinterId())) {
+                cancel(job.getPrintJobId());
+            }
+        }
+
+        if (mCurrent != null && printerId.equals(mCurrent.getPrintJob().getInfo().getPrinterId())) {
+            cancel(mCurrent.getPrintJobId());
+        }
+    }
+
+    /** Restart any blocked job for a printer with this ID. */
+    void restart(PrinterId printerId) {
+        if (mCurrent != null && printerId.equals(mCurrent.getPrintJob().getInfo().getPrinterId())) {
+            mCurrent.restart();
+        }
     }
 
     /** Cancel a previously queued job */
@@ -44,7 +67,7 @@ class JobQueue {
             }
         }
 
-        if (mCurrent.getPrintJobId().equals(id)) {
+        if (mCurrent != null && mCurrent.getPrintJobId().equals(id)) {
             mCurrent.cancel();
         }
     }

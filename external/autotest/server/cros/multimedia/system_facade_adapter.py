@@ -122,3 +122,8 @@ class SystemFacadeRemoteAdapter(object):
         """
         return self._system_proxy.get_num_allocated_file_handles()
 
+    def get_storage_statistics(self, device=None):
+        """
+        Fetches statistics for a storage device.
+        """
+        return self._system_proxy.get_storage_statistics(device)

@@ -12,8 +12,6 @@ import gobject
 import json
 import logging
 import logging.handlers
-import os
-import shutil
 
 import common
 from autotest_lib.client.bin import utils
@@ -636,11 +634,10 @@ class BluetoothDeviceXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
 
     @xmlrpc_server.dbus_safe(False)
-    def get_devices(self):
+    def _get_devices(self):
         """Read information about remote devices known to the adapter.
 
-        @return the properties of each device as a JSON-encoded array of
-            dictionaries on success, the value False otherwise.
+        @return the properties of each device in a list
 
         """
         objects = self._bluez.GetManagedObjects(
@@ -649,7 +646,35 @@ class BluetoothDeviceXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         for path, ifaces in objects.iteritems():
             if self.BLUEZ_DEVICE_IFACE in ifaces:
                 devices.append(objects[path][self.BLUEZ_DEVICE_IFACE])
-        return json.dumps(devices)
+        return devices
+
+
+    def _encode_base64_json(self, data):
+        """Base64 encode and json encode the data.
+        Required to handle non-ascii data
+
+        @param data: data to be base64 and JSON encoded
+
+        @return: base64 and JSON encoded data
+
+        """
+        logging.debug('_encode_base64_json raw data is %s', data)
+        b64_encoded = utils.base64_recursive_encode(data)
+        logging.debug('base64 encoded data is %s', b64_encoded)
+        json_encoded = json.dumps(b64_encoded)
+        logging.debug('JSON encoded data is %s', json_encoded)
+        return json_encoded
+
+
+    def get_devices(self):
+        """Read information about remote devices known to the adapter.
+
+        @return the properties of each device as a JSON-encoded array of
+            dictionaries on success, the value False otherwise.
+
+        """
+        devices = self._get_devices()
+        return self._encode_base64_json(devices)
 
 
     @xmlrpc_server.dbus_safe(False)
@@ -665,16 +690,10 @@ class BluetoothDeviceXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         objects = self._bluez.GetManagedObjects(
                 dbus_interface=self.BLUEZ_MANAGER_IFACE, byte_arrays=True)
         devices = []
-        for path, ifaces in objects.iteritems():
-            if self.BLUEZ_DEVICE_IFACE in ifaces:
-                device = objects[path][self.BLUEZ_DEVICE_IFACE]
-                if device.get('Address') == address:
-                    return json.dumps(device)
-
-        devices = json.loads(self.get_devices())
+        devices = self._get_devices()
         for device in devices:
-            if device.get['Address'] == address:
-                return json.dumps(device)
+            if device.get('Address') == address:
+                return self._encode_base64_json(device)
         return json.dumps(dict())
 
 

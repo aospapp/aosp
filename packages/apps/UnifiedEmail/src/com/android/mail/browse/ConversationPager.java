@@ -18,7 +18,7 @@
 package com.android.mail.browse;
 
 import android.content.Context;
-import android.support.v4.view.ViewPager;
+import androidx.viewpager.widget.ViewPager;
 import android.util.AttributeSet;
 
 public class ConversationPager extends ViewPager {

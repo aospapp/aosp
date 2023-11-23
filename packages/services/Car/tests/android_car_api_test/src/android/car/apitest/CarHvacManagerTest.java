@@ -43,7 +43,7 @@ public class CarHvacManagerTest extends CarApiTestBase {
     public void testAllHvacProperties() throws Exception {
         List<CarPropertyConfig> properties = mHvacManager.getPropertyList();
         Set<Class> supportedTypes = new HashSet<>(Arrays.asList(
-                new Class[] { Integer.class, Float.class, Boolean.class }));
+                new Class[] { Integer.class, Float.class, Boolean.class, Integer[].class }));
 
         for (CarPropertyConfig property : properties) {
             if (supportedTypes.contains(property.getPropertyType())) {
@@ -80,13 +80,15 @@ public class CarHvacManagerTest extends CarApiTestBase {
                 break;
             case CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT: // zoned int
             case CarHvacManager.ID_ZONED_FAN_SPEED_RPM:
-            case CarHvacManager.ID_ZONED_FAN_DIRECTION_AVAILABLE:
             case CarHvacManager.ID_ZONED_SEAT_TEMP:
                 checkTypeAndGlobal(Integer.class, false, property);
                 checkIntMinMax(property);
                 break;
             case CarHvacManager.ID_ZONED_FAN_DIRECTION:
                 checkTypeAndGlobal(Integer.class, false, property);
+                break;
+            case CarHvacManager.ID_ZONED_FAN_DIRECTION_AVAILABLE:
+                checkTypeAndGlobal(Integer[].class, false, property);
                 break;
             case CarHvacManager.ID_ZONED_AC_ON: // zoned boolean
             case CarHvacManager.ID_ZONED_AUTOMATIC_MODE_ON:
@@ -103,10 +105,10 @@ public class CarHvacManagerTest extends CarApiTestBase {
 
     private void checkTypeAndGlobal(Class clazz, boolean global, CarPropertyConfig<Integer> property) {
         assertEquals("Wrong type, expecting " + clazz + " type for id:" + property.getPropertyId(),
-            clazz, property.getPropertyType());
+                clazz, property.getPropertyType());
         assertEquals("Wrong zone, should " + (global ? "" : "not ") + "be global for id: " +
-            property.getPropertyId() + ", area type:" + property.getAreaType(),
-            global, property.isGlobalProperty());
+                        property.getPropertyId() + ", area type:" + property.getAreaType(),
+                global, property.isGlobalProperty());
     }
 
     private void checkIntMinMax(CarPropertyConfig<Integer> property) {
@@ -118,13 +120,13 @@ public class CarHvacManagerTest extends CarApiTestBase {
 
             for (int areaId : areaIds) {
                 assertTrue(property.hasArea(areaId));
-                int min = property.getMinValue(areaId);
-                int max = property.getMaxValue(areaId);
+                int min = property.getMinValue(areaId) == null ? 0 : property.getMinValue(areaId);
+                int max = property.getMaxValue(areaId) == null ? 0 : property.getMaxValue(areaId);
                 assertTrue(min <= max);
             }
         } else {
-            int min = property.getMinValue();
-            int max = property.getMaxValue();
+            int min = property.getMinValue() == null ? 0 : property.getMinValue();
+            int max = property.getMaxValue() == null ? 0 : property.getMinValue();
             assertTrue(min <= max);
             for (int i = 0; i < 32; i++) {
                 assertFalse(property.hasArea(0x1 << i));
@@ -141,15 +143,17 @@ public class CarHvacManagerTest extends CarApiTestBase {
             assertTrue(areaIds.length > 0);
             assertEquals(areaIds.length, property.getAreaCount());
 
-            for (int areId : areaIds) {
-                assertTrue(property.hasArea(areId));
-                float min = property.getMinValue(areId);
-                float max = property.getMaxValue(areId);
+            for (int areaId : areaIds) {
+                assertTrue(property.hasArea(areaId));
+                float min =
+                        property.getMinValue(areaId) == null ? 0f : property.getMinValue(areaId);
+                float max =
+                        property.getMaxValue(areaId) == null ? 0f : property.getMinValue(areaId);
                 assertTrue(min <= max);
             }
         } else {
-            float min = property.getMinValue();
-            float max = property.getMaxValue();
+            float min = property.getMinValue() == null ? 0f : property.getMinValue();
+            float max = property.getMaxValue() == null ? 0f : property.getMinValue();
             assertTrue(min <= max);
             for (int i = 0; i < 32; i++) {
                 assertFalse(property.hasArea(0x1 << i));

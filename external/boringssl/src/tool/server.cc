@@ -68,9 +68,6 @@ static const struct argument kArguments[] = {
         "-early-data", kBooleanArgument, "Allow early data",
     },
     {
-        "-tls13-variant", kBooleanArgument, "Enables all TLS 1.3 variants",
-    },
-    {
         "-www", kBooleanArgument,
         "The server will print connection information in response to a "
         "HTTP GET request.",
@@ -82,6 +79,10 @@ static const struct argument kArguments[] = {
     {
         "-require-any-client-cert", kBooleanArgument,
         "The server will require a client certificate.",
+    },
+    {
+        "-jdk11-workaround", kBooleanArgument,
+        "Enable the JDK 11 workaround",
     },
     {
         "", kOptionalArgument, "",
@@ -185,8 +186,7 @@ static bool HandleWWW(SSL *ssl) {
         SSL_read(ssl, request + request_len, sizeof(request) - request_len);
     if (ssl_ret <= 0) {
       int ssl_err = SSL_get_error(ssl, ssl_ret);
-      fprintf(stderr, "Error while reading: %d\n", ssl_err);
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      PrintSSLError(stderr, "Error while reading", ssl_err, ssl_ret);
       return false;
     }
     request_len += static_cast<size_t>(ssl_ret);
@@ -307,10 +307,6 @@ bool Server(const std::vector<std::string> &args) {
     SSL_CTX_set_early_data_enabled(ctx.get(), 1);
   }
 
-  if (args_map.count("-tls13-variant") != 0) {
-    SSL_CTX_set_tls13_variant(ctx.get(), tls13_default);
-  }
-
   if (args_map.count("-debug") != 0) {
     SSL_CTX_set_info_callback(ctx.get(), InfoCallback);
   }
@@ -339,11 +335,14 @@ bool Server(const std::vector<std::string> &args) {
     bssl::UniquePtr<SSL> ssl(SSL_new(ctx.get()));
     SSL_set_bio(ssl.get(), bio, bio);
 
+    if (args_map.count("-jdk11-workaround") != 0) {
+      SSL_set_jdk11_workaround(ssl.get(), 1);
+    }
+
     int ret = SSL_accept(ssl.get());
     if (ret != 1) {
       int ssl_err = SSL_get_error(ssl.get(), ret);
-      fprintf(stderr, "Error while connecting: %d\n", ssl_err);
-      ERR_print_errors_cb(PrintErrorCallback, stderr);
+      PrintSSLError(stderr, "Error while connecting", ssl_err, ret);
       result = false;
       continue;
     }

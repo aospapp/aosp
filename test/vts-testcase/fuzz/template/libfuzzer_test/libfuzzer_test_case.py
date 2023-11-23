@@ -39,11 +39,23 @@ class LibFuzzerTestCase(object):
         self._binary_name = os.path.basename(bin_host_path)
         self._test_name = self._binary_name
 
-    def GetCorpusName(self):
+    def _GetCorpusDir(self):
         """Returns corpus directory name on target."""
-        corpus_dir = path_utils.JoinTargetPath(
-            config.FUZZER_TEST_DIR, '%s_corpus' % self._test_name)
+        corpus_dir = path_utils.JoinTargetPath(config.FUZZER_TEST_DIR,
+                                               '%s_corpus' % self._test_name)
         return corpus_dir
+
+    def GetCorpusOutDir(self):
+        """Returns corpus output directory name on target."""
+        return self._GetCorpusDir() + '_out'
+
+    def GetCorpusSeedDir(self):
+        """Returns corpus seed directory name on target."""
+        return self._GetCorpusDir() + '_seed'
+
+    def GetCorpusTriggerDir(self):
+        """Returns basename of corpus trigger directory."""
+        return '%s_corpus_trigger' % self._test_name
 
     def CreateFuzzerFlags(self):
         """Creates flags for the fuzzer executable.
@@ -66,15 +78,16 @@ class LibFuzzerTestCase(object):
     def GetRunCommand(self, debug_mode=False):
         """Returns target shell command to run the fuzzer binary."""
         test_flags = self.CreateFuzzerFlags()
-        corpus_dir = '' if debug_mode else self.GetCorpusName()
+        corpus_out = '' if debug_mode else self.GetCorpusOutDir()
+        corpus_seed = '' if debug_mode else self.GetCorpusSeedDir()
 
         cd_cmd = 'cd %s' % config.FUZZER_TEST_DIR
         chmod_cmd = 'chmod 777 %s' % self._binary_name
         ld_path = 'LD_LIBRARY_PATH=/data/local/tmp/64:/data/local/tmp/32:$LD_LIBRARY_PATH'
-        test_cmd = '%s ./%s %s %s' % (ld_path, self._binary_name, corpus_dir,
-                                      test_flags)
+        test_cmd = '%s ./%s %s %s %s' % (ld_path, self._binary_name,
+                                         corpus_out, corpus_seed, test_flags)
         if not debug_mode:
-          test_cmd += ' > /dev/null'
+            test_cmd += ' > /dev/null'
         return ' && '.join([cd_cmd, chmod_cmd, test_cmd])
 
     @property

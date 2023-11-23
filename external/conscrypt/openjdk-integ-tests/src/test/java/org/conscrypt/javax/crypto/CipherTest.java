@@ -69,10 +69,10 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.PBEParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
-import libcore.java.security.StandardNames;
 import org.bouncycastle.asn1.x509.KeyUsage;
 import org.conscrypt.Conscrypt;
 import org.conscrypt.TestUtils;
+import org.conscrypt.java.security.StandardNames;
 import org.conscrypt.java.security.TestKeyStore;
 import org.junit.AfterClass;
 import org.junit.Assume;
@@ -110,13 +110,13 @@ public final class CipherTest {
     /** GCM tag size used for tests. */
     private static final int GCM_TAG_SIZE_BITS = 96;
 
-    private static final String[] RSA_PROVIDERS = ((StandardNames.IS_RI)
-                                                   ? new String[] { "SunJCE", "Conscrypt" }
-                                                   : new String[] { "BC" , "AndroidOpenSSL" });
+    private static final String[] RSA_PROVIDERS = StandardNames.IS_RI
+        ? new String[] { "SunJCE", StandardNames.JSSE_PROVIDER_NAME }
+        : new String[] { "BC" , StandardNames.JSSE_PROVIDER_NAME };
 
-    private static final String[] AES_PROVIDERS = ((StandardNames.IS_RI)
-                                                   ? new String[] { "SunJCE", "Conscrypt" }
-                                                   : new String[] { "BC", "AndroidOpenSSL" });
+    private static final String[] AES_PROVIDERS = StandardNames.IS_RI
+        ? new String[] { "SunJCE", StandardNames.JSSE_PROVIDER_NAME }
+        : new String[] { "BC", StandardNames.JSSE_PROVIDER_NAME };
 
     private static boolean isSupported(String algorithm, String provider) {
         if (algorithm.equals("RC2")) {
@@ -1318,6 +1318,16 @@ public final class CipherTest {
             assertEquals(cipherID,
                          Arrays.toString(decryptedPlainText),
                          Arrays.toString(decryptedPlainText2));
+
+            // Use a new encrypt spec so that AEAD algorithms that prohibit IV reuse don't complain
+            encryptSpec = getEncryptAlgorithmParameterSpec(algorithm);
+            test_Cipher_ShortBufferException(c, algorithm, Cipher.ENCRYPT_MODE, encryptSpec,
+                    encryptKey, getActualPlainText(algorithm));
+            decryptSpec = getDecryptAlgorithmParameterSpec(encryptSpec, c);
+            test_Cipher_ShortBufferException(c, algorithm, Cipher.DECRYPT_MODE, decryptSpec,
+                    decryptKey, cipherText);
+
+            test_Cipher_aborted_doFinal(c, algorithm, providerName, encryptKey, decryptKey);
         }
     }
 
@@ -1381,7 +1391,7 @@ public final class CipherTest {
                     Arrays.toString(
                             ((PSource.PSpecified) expectedOaepSpec.getPSource()).getValue()),
                     Arrays.toString(
-                            (((PSource.PSpecified) actualOaepSpec.getPSource()).getValue())));
+                            ((PSource.PSpecified) actualOaepSpec.getPSource()).getValue()));
         } else {
             fail("Unknown PSource type");
         }
@@ -1471,6 +1481,62 @@ public final class CipherTest {
                 throw e;
             }
         }
+    }
+
+    // Checks that the Cipher throws ShortBufferException when given a too-short buffer
+    private void test_Cipher_ShortBufferException(Cipher c, String algorithm, int encryptMode,
+            AlgorithmParameterSpec spec, Key key, byte[] text) throws Exception {
+        c.init(encryptMode, key, spec);
+        if (isAEAD(algorithm)) {
+            c.updateAAD(new byte[24]);
+        }
+        if (c.getOutputSize(text.length) > 0) {
+            byte[] output;
+            if (algorithm.startsWith("RSA/")) {
+                // RSA encryption pads the input data to a full block before encrypting,
+                // so unlike most algorithms, getOutputSize can't determine how much space
+                // is necessary until the data is actually decrypted.
+                output = new byte[1];
+            } else {
+                // Other algorithms can much more easily forsee how much output data there
+                // will be, so don't let them get away with being overly conservative.
+                output = new byte[c.getOutputSize(text.length) - 1];
+            }
+            try {
+                c.doFinal(text, 0, text.length, output);
+                fail("Short buffer should have thrown ShortBufferException");
+            } catch (ShortBufferException expected) {
+                // Ignored
+            }
+        }
+    }
+
+    // Checks that if the cipher operation is aborted by a ShortBufferException the output
+    // is still correct.
+    private void test_Cipher_aborted_doFinal(Cipher c, String algorithm, String provider,
+            Key encryptKey, Key decryptKey) throws Exception {
+        byte[] text = getActualPlainText(algorithm);
+        AlgorithmParameterSpec encryptSpec = getEncryptAlgorithmParameterSpec(algorithm);
+        c.init(Cipher.ENCRYPT_MODE, encryptKey, encryptSpec);
+        if (isAEAD(algorithm)) {
+            c.updateAAD(new byte[24]);
+        }
+        try {
+            c.doFinal(text, 0, text.length, new byte[0]);
+            fail("Short buffer should have thrown ShortBufferException");
+        } catch (ShortBufferException expected) {
+            // Ignored
+        }
+        byte[] cipherText = c.doFinal(text);
+        c.init(Cipher.DECRYPT_MODE, decryptKey, getDecryptAlgorithmParameterSpec(encryptSpec, c));
+        if (isAEAD(algorithm)) {
+            c.updateAAD(new byte[24]);
+        }
+        byte[] plainText = c.doFinal(cipherText);
+        byte[] expectedPlainText = getExpectedPlainText(algorithm, provider);
+        assertTrue("Expected " + Arrays.toString(expectedPlainText)
+                + " but was " + Arrays.toString(plainText),
+                Arrays.equals(expectedPlainText, plainText));
     }
 
     @Test
@@ -3448,6 +3514,7 @@ public final class CipherTest {
                 DES_Plaintext1_PKCS5_Padded,
                 DES_Plaintext1_Encrypted_With_DES_112_KEY_And_DESEDE_CBC_PKCS5PADDING_With_DES_IV1
                 ) {
+                    @Override
                     public boolean compatibleWith(String provider) {
                         // SunJCE doesn't support extending 112-bit keys to 168-bit keys
                         return !provider.equals("SunJCE");
@@ -4024,7 +4091,7 @@ public final class CipherTest {
         Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
         c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(new byte[128 / 8], "AES"));
         c.updateAAD(new byte[8]);
-        c.updateAAD(new byte[8]);
+        c.updateAAD(ByteBuffer.wrap(new byte[8]));
     }
 
     @Test
@@ -4033,7 +4100,7 @@ public final class CipherTest {
         c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(new byte[128 / 8], "AES"));
         c.updateAAD(new byte[8]);
         c.update(new byte[8]);
-        c.updateAAD(new byte[8]);
+        c.updateAAD(ByteBuffer.wrap(new byte[8]));
     }
 
     @Test
@@ -4121,10 +4188,25 @@ public final class CipherTest {
         String msg = "update() should throw IllegalStateException [mode=" + opmode + "]";
         final int bs = createAesCipher(opmode).getBlockSize();
         assertEquals(16, bs); // check test is set up correctly
-        assertIllegalStateException(msg, new Runnable() { public void run() { createAesCipher(opmode).update(new byte[0]); } });
-        assertIllegalStateException(msg, new Runnable() { public void run() { createAesCipher(opmode).update(new byte[2 * bs]); } });
-        assertIllegalStateException(msg, new Runnable() { public void run() { createAesCipher(opmode).update(
-                new byte[2 * bs] /* input */, bs  /* inputOffset */, 0 /* inputLen */); } });
+        assertIllegalStateException(msg, new Runnable() {
+            @Override
+            public void run() {
+                createAesCipher(opmode).update(new byte[0]);
+            }
+        });
+        assertIllegalStateException(msg, new Runnable() {
+            @Override
+            public void run() {
+                createAesCipher(opmode).update(new byte[2 * bs]);
+            }
+        });
+        assertIllegalStateException(msg, new Runnable() {
+            @Override
+            public void run() {
+                createAesCipher(opmode).update(
+                        new byte[2 * bs] /* input */, bs /* inputOffset */, 0 /* inputLen */);
+            }
+        });
         try {
             createAesCipher(opmode).update(new byte[2*bs] /* input */, 0 /* inputOffset */,
                     2 * bs /* inputLen */, new byte[2 * bs] /* output */, 0 /* outputOffset */);
@@ -4507,14 +4589,14 @@ public final class CipherTest {
             if (c.contains("/CBC/")) {
                 cipher.init(Cipher.DECRYPT_MODE,
                         new SecretKeySpec("0123456789012345".getBytes(StandardCharsets.US_ASCII),
-                                (c.startsWith("AES/")) ? "AES" : "DESEDE"),
+                                c.startsWith("AES/") ? "AES" : "DESEDE"),
                         new IvParameterSpec(
-                                ("01234567" + ((c.startsWith("AES/")) ? "89012345" : ""))
+                                ("01234567" + (c.startsWith("AES/") ? "89012345" : ""))
                                         .getBytes(StandardCharsets.US_ASCII)));
             } else {
                 cipher.init(Cipher.DECRYPT_MODE,
                         new SecretKeySpec("0123456789012345".getBytes(StandardCharsets.US_ASCII),
-                                (c.startsWith("AES/")) ? "AES" : "DESEDE"));
+                                c.startsWith("AES/") ? "AES" : "DESEDE"));
             }
 
             byte[] buffer = new byte[0];
@@ -4562,6 +4644,161 @@ public final class CipherTest {
         });
 
         assertEquals(Arrays.toString(c1.doFinal()), Arrays.toString(c2.doFinal()));
+    }
+
+    @Test
+    public void test_AESGCMNoPadding_UpdateAADByteBuffer_Simple() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c3 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.updateAAD(ByteBuffer.wrap(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        }));
+
+        c3.init(Cipher.ENCRYPT_MODE, key, spec);
+        ByteBuffer buf = ByteBuffer.allocateDirect(10);
+        buf.put(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+        buf.flip();
+        c3.updateAAD(buf);
+
+        byte[] c1Final = c1.doFinal();
+        byte[] c2Final = c2.doFinal();
+        byte[] c3Final = c3.doFinal();
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c2Final));
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c3Final));
+    }
+
+    @Test
+    public void test_AESGCMNoPadding_UpdateAADByteBuffer_MultipleUpdates() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c3 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+        });
+        c1.updateAAD(new byte[] {
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.updateAAD(ByteBuffer.wrap(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+        }));
+        c2.updateAAD(ByteBuffer.wrap(new byte[] {
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        }));
+
+        c3.init(Cipher.ENCRYPT_MODE, key, spec);
+        ByteBuffer buf = ByteBuffer.allocateDirect(10);
+        buf.put(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+        buf.flip();
+        buf.limit(5);
+        c3.updateAAD(buf);
+        buf.limit(10);
+        c3.updateAAD(buf);
+
+        byte[] c1Final = c1.doFinal();
+        byte[] c2Final = c2.doFinal();
+        byte[] c3Final = c3.doFinal();
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c2Final));
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c3Final));
+    }
+
+    @Test
+    public void test_AESGCMNoPadding_UpdateAADByteBuffer_MixedCalls() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c3 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.updateAAD(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+        });
+        c2.updateAAD(ByteBuffer.wrap(new byte[] {
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        }));
+
+        c3.init(Cipher.ENCRYPT_MODE, key, spec);
+        ByteBuffer buf = ByteBuffer.allocateDirect(10);
+        buf.put(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+        buf.flip();
+        buf.limit(5);
+        c3.updateAAD(buf);
+        c3.updateAAD(new byte[] {
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        byte[] c1Final = c1.doFinal();
+        byte[] c2Final = c2.doFinal();
+        byte[] c3Final = c3.doFinal();
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c2Final));
+        assertEquals(Arrays.toString(c1Final), Arrays.toString(c3Final));
+    }
+
+    @Test
+    public void test_AESGCMNoPadding_UpdateAADByteBuffer_Unequal() throws Exception {
+        SecretKeySpec key = new SecretKeySpec(new byte[16], "AES");
+        GCMParameterSpec spec = new GCMParameterSpec(128, new byte[12]);
+        Cipher c1 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c2 = Cipher.getInstance("AES/GCM/NoPadding");
+        Cipher c3 = Cipher.getInstance("AES/GCM/NoPadding");
+
+        c1.init(Cipher.ENCRYPT_MODE, key, spec);
+        c1.updateAAD(ByteBuffer.wrap(new byte[] {
+            0x01, 0x02, 0x03, 0x04, 0x05,
+        }));
+
+        c2.init(Cipher.ENCRYPT_MODE, key, spec);
+        c2.updateAAD(new byte[] {
+            0x06, 0x07, 0x08, 0x09, 0x10,
+        });
+
+        c3.init(Cipher.ENCRYPT_MODE, key, spec);
+        ByteBuffer buf = ByteBuffer.allocateDirect(10);
+        buf.put(new byte[] {
+            0x11, 0x12, 0x13, 0x14, 0x15,
+        });
+        buf.flip();
+        c3.updateAAD(buf);
+
+        byte[] c1Final = c1.doFinal();
+        byte[] c2Final = c2.doFinal();
+        byte[] c3Final = c3.doFinal();
+        assertFalse(Arrays.equals(c1Final, c2Final));
+        assertFalse(Arrays.equals(c2Final, c3Final));
+        assertFalse(Arrays.equals(c1Final, c3Final));
     }
 
     /**
@@ -4725,13 +4962,13 @@ public final class CipherTest {
         SecretKeyFactory skf =
                 SecretKeyFactory.getInstance("PBKDF2WITHHMACSHA1");
         PBEKeySpec pbeks = new PBEKeySpec("password".toCharArray(),
-                "salt".getBytes(),
+                "salt".getBytes(TestUtils.UTF_8),
                 100, 128);
         SecretKey secretKey = skf.generateSecret(pbeks);
 
         Cipher cipher =
                 Cipher.getInstance("PBEWITHSHAAND128BITAES-CBC-BC");
-        PBEParameterSpec paramSpec = new PBEParameterSpec("salt".getBytes(), 100);
+        PBEParameterSpec paramSpec = new PBEParameterSpec("salt".getBytes(TestUtils.UTF_8), 100);
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, paramSpec);
         assertEquals(Arrays.toString(ciphertext), Arrays.toString(cipher.doFinal(plaintext)));
 
@@ -4762,7 +4999,7 @@ public final class CipherTest {
         SecretKeyFactory skf =
                 SecretKeyFactory.getInstance("PBKDF2WITHHMACSHA1");
         PBEKeySpec pbeks = new PBEKeySpec("password".toCharArray(),
-                "salt".getBytes(),
+                "salt".getBytes(TestUtils.UTF_8),
                 100, 128);
         SecretKey secretKey = skf.generateSecret(pbeks);
         Cipher cipher =

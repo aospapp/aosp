@@ -20,10 +20,12 @@ import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.ContentProvider.CallingIdentity;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.ParcelFileDescriptor;
 import android.test.AndroidTestCase;
 
@@ -235,6 +237,19 @@ public class ContentProviderTest extends AndroidTestCase {
         MockContentProvider mockContentProvider = new MockContentProvider();
 
         assertNotNull(mockContentProvider.getIContentProvider());
+    }
+
+    public void testClearCallingIdentity() {
+        final MockContentProvider provider = new MockContentProvider();
+        provider.attachInfo(getContext(), new ProviderInfo());
+
+        final CallingIdentity ident = provider.clearCallingIdentity();
+        try {
+            assertEquals(android.os.Process.myUid(), Binder.getCallingUid());
+            assertEquals(null, provider.getCallingPackage());
+        } finally {
+            provider.restoreCallingIdentity(ident);
+        }
     }
 
     private class MockContentProvider extends ContentProvider {

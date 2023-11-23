@@ -34,45 +34,34 @@ namespace power {
 
 class CarPowerManager : public RefBase {
 public:
-    // Enumeration of possible boot reasons
-    //  NOTE:  The entries in this enum must match the ones in located CarPowerManager java class:
-    //      packages/services/Car/car-lib/src/android/car/hardware/power/CarPowerManager.java
-    enum class BootReason {
-        kUserPowerOn = 1,
-        kDoorUnlock = 2,
-        kTimer = 3,
-        kDoorOpen = 4,
-        kRemoteStart = 5,
-
-        kFirst = kUserPowerOn,
-        kLast = kRemoteStart,
-    };
-
     // Enumeration of state change events
     //  NOTE:  The entries in this enum must match the ones in CarPowerStateListener located in
     //      packages/services/Car/car-lib/src/android/car/hardware/power/CarPowerManager.java
     enum class State {
-        kShutdownCancelled = 0,
-        kShutdownEnter = 1,
+        kWaitForVhal = 1,
         kSuspendEnter = 2,
         kSuspendExit = 3,
+        kShutdownEnter = 5,
+        kOn = 6,
+        kShutdownPrepare = 7,
+        kShutdownCancelled = 8,
 
-        kFirst = kShutdownCancelled,
-        kLast = kSuspendExit,
+
+        kFirst = kWaitForVhal,
+        kLast = kShutdownCancelled,
     };
 
     using Listener = std::function<void(State)>;
 
     CarPowerManager() = default;
-    virtual ~CarPowerManager() = default;
+    virtual ~CarPowerManager() {
+        // Clear the listener if one is set
+        clearListener();
+    }
 
     // Removes the listener and turns off callbacks
     //  Returns 0 on success
     int clearListener();
-
-    // Returns the boot reason, defined in kBootReason*
-    //  Returns 0 on success
-    int getBootReason(BootReason *bootReason);
 
     // Request device to shutdown in lieu of suspend at the next opportunity
     //  Returns 0 on success
@@ -87,26 +76,22 @@ private:
     public:
         explicit CarPowerStateListener(CarPowerManager* parent) : mParent(parent) {};
 
-        Status onStateChanged(int state, int token) override {
-            sp<CarPowerManager> parent = mParent.promote();
-            if ((parent != nullptr) && (parent->mListener != nullptr)) {
-                if ((state >= static_cast<int>(State::kFirst)) &&
-                    (state <= static_cast<int>(State::kLast))) {
-                    parent->mListener(static_cast<State>(state));
-                } else {
-                    ALOGE("onStateChanged unknown state received = %d", state);
-                }
-            }
-
-            if (token != 0) {
-                // Call finished() method to let CPMS know that we're ready to suspend/shutdown.
-                parent->mICarPower->finished(parent->mListenerToService, token);
+        Status onStateChanged(int state) override {
+            sp<CarPowerManager> parent = mParent;
+            if ((parent == nullptr) || (parent->mListener == nullptr)) {
+                ALOGE("CarPowerManagerNative: onStateChanged null pointer detected!");
+            } else if ((state < static_cast<int>(State::kFirst)) ||
+                       (state > static_cast<int>(State::kLast)) )  {
+                ALOGE("CarPowerManagerNative: onStateChanged unknown state: %d", state);
+            } else {
+                // Notify the listener of the state transition
+                parent->mListener(static_cast<State>(state));
             }
             return binder::Status::ok();
         };
 
     private:
-        wp<CarPowerManager> mParent;
+        sp<CarPowerManager> mParent;
     };
 
     bool connectToCarService();
@@ -123,4 +108,3 @@ private:
 } // namespace android
 
 #endif // CAR_POWER_MANAGER
-

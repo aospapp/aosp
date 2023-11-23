@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# libexif/canon/exif-mnote-data-canon.c:255:56: 8 * 3435921664 cannot be represented in type 'unsigned long'
+# libexif/canon/exif-mnote-data-canon.c:267:17: 1594425354 + 4028186704 cannot be represented in type 'unsigned int'
+# libexif/canon/exif-mnote-data-canon.c:271:14: 1594425354 + 4028186704 cannot be represented in type 'unsigned int'
+fun:exif_mnote_data_canon_load
 fun:match_tag

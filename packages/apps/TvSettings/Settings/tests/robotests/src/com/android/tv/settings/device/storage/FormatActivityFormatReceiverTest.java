@@ -30,13 +30,12 @@ import static org.robolectric.Robolectric.buildActivity;
 import android.content.Intent;
 import android.os.storage.DiskInfo;
 
-import com.android.tv.settings.TvSettingsRobolectricTestRunner;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 public class FormatActivityFormatReceiverTest {
 
     private FormatActivity mActivity;

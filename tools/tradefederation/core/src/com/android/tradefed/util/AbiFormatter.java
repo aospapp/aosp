@@ -103,6 +103,10 @@ public class AbiFormatter {
             }
         }
         // fallback plan for before lmp, the bitness is ignored
-        return new String[]{device.getProperty(PRODUCT_CPU_ABI_KEY)};
+        String legacyProperty = device.getProperty(PRODUCT_CPU_ABI_KEY);
+        if (legacyProperty != null) {
+            return new String[] {legacyProperty};
+        }
+        return new String[] {};
     }
 }

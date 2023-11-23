@@ -19,8 +19,8 @@ config DF
     -a	Show all (including /proc and friends)
     -P	The SUSv3 "Pedantic" option
     -k	Sets units back to 1024 bytes (the default without -P)
-    -h	Human readable output (K=1024)
-    -H	Human readable output (k=1000)
+    -h	Human readable (K=1024)
+    -H	Human readable (k=1000)
     -i	Show inodes instead of blocks
     -t type	Display only filesystems of this type
 
@@ -32,7 +32,7 @@ config DF
 #include "toys.h"
 
 GLOBALS(
-  struct arg_list *fstype;
+  struct arg_list *t;
 
   long units;
   int column_widths[5];
@@ -104,10 +104,10 @@ static void show_mt(struct mtab_list *mt, int measuring)
   if (!mt) return;
 
   // If we have -t, skip other filesystem types
-  if (TT.fstype) {
+  if (TT.t) {
     struct arg_list *al;
 
-    for (al = TT.fstype; al; al = al->next) 
+    for (al = TT.t; al; al = al->next) 
       if (!strcmp(mt->type, al->arg)) break;
 
     if (!al) return;

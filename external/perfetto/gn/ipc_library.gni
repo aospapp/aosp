@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("//build_overrides/build.gni")
+import("perfetto.gni")
 
-if (!build_with_chromium) {
+if (perfetto_build_standalone || perfetto_build_with_android) {
   import("//gn/standalone/proto_library.gni")
 } else {
   import("//third_party/protobuf/proto_library.gni")
@@ -27,15 +27,14 @@ template("ipc_library") {
 
     generate_python = false
     generator_plugin_label =
-        perfetto_root_path + "src/ipc/protoc_plugin:ipc_plugin"
+        "$perfetto_root_path/src/ipc/protoc_plugin:ipc_plugin"
     generator_plugin_suffix = ".ipc"
     deps = [
-      "${perfetto_root_path}src/ipc",
+      "$perfetto_root_path/src/ipc",
     ]
     if (defined(invoker.deps)) {
       deps += invoker.deps
     }
-
     forward_variables_from(invoker,
                            [
                              "defines",

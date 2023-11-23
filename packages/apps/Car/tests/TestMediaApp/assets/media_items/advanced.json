@@ -1,0 +1,29 @@
+{
+  "FLAGS": "browsable",
+
+  "METADATA": {
+    "MEDIA_ID": "advanced",
+    "DISPLAY_TITLE": "Advanced"
+  },
+
+  "CHILDREN": [
+    {
+      "FLAGS": "playable",
+      "METADATA": {
+        "MEDIA_ID": "advanced custom_action",
+        "DISPLAY_TITLE": "Custom Action",
+        "DURATION": 10000
+      },
+      "CUSTOM_ACTIONS": ["HEART_LESS_LESS", "HEART_PLUS_PLUS"]
+    },
+    {
+      "FLAGS": "browsable",
+      "PLAYABLE_HINT": "GRID",
+      "METADATA": {
+        "MEDIA_ID": "advanced art nodes",
+        "DISPLAY_TITLE": "Album Art"
+      },
+      "INCLUDE":"media_items/album_art/art_nodes.json"
+    }
+  ]
+}

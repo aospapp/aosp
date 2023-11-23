@@ -4,7 +4,9 @@
 
 import base64
 import json
+import logging
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.cros import constants
 from autotest_lib.server import autotest
 
@@ -326,6 +328,22 @@ class BluetoothDevice(object):
         """
         return json.loads(self._proxy.remove_device(address, address_type))
 
+    def _decode_json_base64(self, data):
+        """Load serialized JSON and then base64 decode it
+
+        Required to handle non-ascii data
+        @param data: data to be JSON and base64 decode
+
+        @return : JSON and base64 decoded date
+
+
+        """
+        logging.debug("_decode_json_base64 raw data is %s", data)
+        json_encoded = json.loads(data)
+        logging.debug("JSON encoded data is %s", json_encoded)
+        base64_decoded = utils.base64_recursive_decode(json_encoded)
+        logging.debug("base64 decoded data is %s", base64_decoded)
+        return base64_decoded
 
     def get_devices(self):
         """Read information about remote devices known to the adapter.
@@ -348,7 +366,8 @@ class BluetoothDevice(object):
             dictionaries on success, the value False otherwise.
 
         """
-        return json.loads(self._proxy.get_devices())
+        encoded_devices = self._proxy.get_devices()
+        return self._decode_json_base64(encoded_devices)
 
 
     def get_device_properties(self, address):
@@ -357,19 +376,13 @@ class BluetoothDevice(object):
         An example of the device information of RN-42 looks like
 
         @param address: Address of the device to pair.
-        @param pin: The pin code of the device to pair.
-        @param timeout: The timeout in seconds for pairing.
 
         @returns: a dictionary of device properties of the device on success;
                   an empty dictionary otherwise.
 
         """
-        return json.loads(self._proxy.get_device_by_address(address))
-
-        for device in self.get_devices():
-            if device.get['Address'] == address:
-                return device
-        return dict()
+        encoded_devices = self._proxy.get_device_by_address(address)
+        return self._decode_json_base64(encoded_devices)
 
 
     def start_discovery(self):

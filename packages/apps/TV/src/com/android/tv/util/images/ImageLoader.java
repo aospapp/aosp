@@ -24,7 +24,6 @@ import android.media.tv.TvInputInfo;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.annotation.WorkerThread;
@@ -145,22 +144,14 @@ public final class ImageLoader {
             final Context appContext = context.getApplicationContext();
             getMainHandler()
                     .post(
-                            new Runnable() {
-                                @Override
-                                @MainThread
-                                public void run() {
-                                    // Calling from the main thread prevents a
-                                    // ConcurrentModificationException
-                                    // in LoadBitmapTask.onPostExecute
+                            () ->
                                     doLoadBitmap(
                                             appContext,
                                             uriString,
                                             maxWidth,
                                             maxHeight,
                                             null,
-                                            AsyncTask.SERIAL_EXECUTOR);
-                                }
-                            });
+                                            AsyncTask.SERIAL_EXECUTOR));
         }
     }
 
@@ -423,14 +414,12 @@ public final class ImageLoader {
         @Override
         public ScaledBitmapInfo doGetBitmapInBackground() {
             Drawable drawable = mInfo.loadIcon(mAppContext);
-            if (!(drawable instanceof BitmapDrawable)) {
-                return null;
-            }
-            Bitmap original = ((BitmapDrawable) drawable).getBitmap();
-            if (original == null) {
-                return null;
-            }
-            return BitmapUtils.createScaledBitmapInfo(getKey(), original, mMaxWidth, mMaxHeight);
+            Bitmap bm = drawable instanceof BitmapDrawable
+                    ? ((BitmapDrawable) drawable).getBitmap()
+                    : BitmapUtils.drawableToBitmap(drawable);
+            return bm == null
+                    ? null
+                    : BitmapUtils.createScaledBitmapInfo(getKey(), bm, mMaxWidth, mMaxHeight);
         }
 
         /** Returns key of TV input logo. */

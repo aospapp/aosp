@@ -23,10 +23,10 @@
 #include <memory>
 #include <string>
 
+#include "adb_unique_fd.h"
 #include "fdevent.h"
-#include "range.h"
+#include "types.h"
 
-struct apacket;
 class atransport;
 
 /* An asocket represents one half of a connection between a local and
@@ -59,11 +59,11 @@ struct asocket {
      * us to our fd event system.  For remote asockets
      * these fields are not used.
      */
-    fdevent fde = {};
-    int fd = 0;
+    fdevent* fde = nullptr;
+    int fd = -1;
 
     // queue of data waiting to be written
-    std::deque<Range> packet_queue;
+    IOVector packet_queue;
 
     std::string smart_socket_data;
 
@@ -73,7 +73,7 @@ struct asocket {
      * peer->ready() when we once again are ready to
      * receive data.
      */
-    int (*enqueue)(asocket* s, std::string data) = nullptr;
+    int (*enqueue)(asocket* s, apacket::payload_type data) = nullptr;
 
     /* ready is called by the peer when it is ready for
      * us to send data via enqueue again
@@ -103,18 +103,19 @@ void install_local_socket(asocket *s);
 void remove_socket(asocket *s);
 void close_all_sockets(atransport *t);
 
-asocket *create_local_socket(int fd);
-asocket* create_local_service_socket(const char* destination, atransport* transport);
+asocket* create_local_socket(unique_fd fd);
+asocket* create_local_service_socket(std::string_view destination, atransport* transport);
 
 asocket *create_remote_socket(unsigned id, atransport *t);
-void connect_to_remote(asocket *s, const char *destination);
+void connect_to_remote(asocket* s, std::string_view destination);
 void connect_to_smartsocket(asocket *s);
 
 // Internal functions that are only made available here for testing purposes.
 namespace internal {
 
 #if ADB_HOST
-char* skip_host_serial(char* service);
+bool parse_host_service(std::string_view* out_serial, std::string_view* out_command,
+                        std::string_view service);
 #endif
 
 }  // namespace internal

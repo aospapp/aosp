@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#include <sstream>
 #include "netdutils/Status.h"
+
+#include <sstream>
+
 #include "android-base/stringprintf.h"
 
 namespace android {
 namespace netdutils {
-
-void expectOk(const Status&) {
-    // TODO: put something here, for now this function serves solely as documentation.
-}
 
 Status statusFromErrno(int err, const std::string& msg) {
     return Status(err, base::StringPrintf("[%s] : %s", strerror(err), msg.c_str()));
@@ -31,13 +29,6 @@ Status statusFromErrno(int err, const std::string& msg) {
 
 bool equalToErrno(const Status& status, int err) {
     return status.code() == err;
-}
-
-binder::Status asBinderStatus(const netdutils::Status& status) {
-    if (isOk(status)) {
-        return binder::Status::ok();
-    }
-    return binder::Status::fromServiceSpecificError(status.code(), status.msg().c_str());
 }
 
 std::string toString(const Status& status) {

@@ -42,7 +42,9 @@ AM_CPPFLAGS = $(ARCH_MFLAGS) \
 	      -I$(top_builddir)/$(OS) \
 	      -I$(top_srcdir)/$(OS) \
 	      -I$(top_builddir) \
-	      -I$(top_srcdir)
+	      -I$(top_srcdir) \
+	      -DTESTS_SIZEOF_KERNEL_LONG_T=$(SIZEOF_KERNEL_LONG_T) \
+	      -DTESTS_SIZEOF_LONG=$(SIZEOF_LONG)
 AM_LDFLAGS = $(ARCH_MFLAGS)
 
 libtests_a_SOURCES = \
@@ -91,33 +93,47 @@ check_PROGRAMS = $(PURE_EXECUTABLES) \
 	attach-p-cmd-cmd \
 	attach-p-cmd-p \
 	block_reset_raise_run \
+	bpf-obj_get_info_by_fd \
+	bpf-obj_get_info_by_fd-prog \
+	bpf-obj_get_info_by_fd-prog-v \
+	bpf-obj_get_info_by_fd-v \
+	bpf-success \
+	bpf-success-v \
 	caps-abbrev \
 	check_sigblock \
 	check_sigign \
 	clone_parent \
 	clone_ptrace \
 	count-f \
+	delay \
 	execve-v \
 	execveat-v \
 	filter-unavailable \
 	fork-f \
+	fsync-y \
 	getpid	\
 	getppid	\
 	gettid \
+	inject-nf \
 	int_0x80 \
 	ioctl_dm-v \
 	ioctl_evdev-v \
+	ioctl_evdev-success \
+	ioctl_evdev-success-v \
 	ioctl_loop-nv \
 	ioctl_loop-v \
 	ioctl_nsfs \
+	ioctl_perf-success \
 	ioctl_rtc-v \
 	is_linux_mips_n64 \
 	ksysent \
 	list_sigaction_signum \
+	localtime \
 	mmsg-silent \
 	mmsg_name-v \
 	msg_control-v \
 	net-accept-connect \
+	net-tpacket_stats-success \
 	netlink_inet_diag \
 	netlink_netlink_diag \
 	netlink_unix_diag \
@@ -131,13 +147,18 @@ check_PROGRAMS = $(PURE_EXECUTABLES) \
 	ppoll-v \
 	prctl-seccomp-filter-v \
 	prctl-seccomp-strict \
+	prctl-spec-inject \
 	print_maxfd \
 	qual_fault \
 	qual_inject-error-signal \
 	qual_inject-retval \
 	qual_inject-signal \
 	qual_signal \
+	quotactl-success \
+	quotactl-success-v \
 	quotactl-v \
+	quotactl-xfs-success \
+	quotactl-xfs-success-v \
 	quotactl-xfs-v \
 	redirect-fds \
 	restart_syscall \
@@ -163,19 +184,20 @@ check_PROGRAMS = $(PURE_EXECUTABLES) \
 	zeroargc \
 	# end of check_PROGRAMS
 
-attach_f_p_LDADD = -lrt -lpthread $(LDADD)
-clock_xettime_LDADD = -lrt $(LDADD)
+attach_f_p_LDADD = -lpthread $(LDADD)
 count_f_LDADD = -lpthread $(LDADD)
+delay_LDADD = $(clock_LIBS) $(LDADD)
 filter_unavailable_LDADD = -lpthread $(LDADD)
 fstat64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 fstatat64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 ftruncate64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
+localtime_LDADD = $(clock_LIBS) $(LDADD)
 lstat64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 mmap64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
-mq_LDADD = -lrt $(LDADD)
-mq_sendrecv_LDADD = -lrt $(LDADD)
-mq_sendrecv_read_LDADD = -lrt $(LDADD)
-mq_sendrecv_write_LDADD = -lrt $(LDADD)
+mmap64_Xabbrev_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
+mmap64_Xraw_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
+mmap64_Xverbose_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
+mq_LDADD = $(mq_LIBS) $(LDADD)
 newfstatat_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 pc_LDADD = $(dl_LIBS) $(LDADD)
 pread64_pwrite64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
@@ -184,8 +206,8 @@ preadv_pwritev_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 pwritev_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 stat64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 statfs_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
-threads_execve_LDADD = -lrt -lpthread $(LDADD)
-times_LDADD = -lrt $(LDADD)
+threads_execve_LDADD = -lpthread $(clock_LIBS) $(LDADD)
+times_LDADD = $(clock_LIBS) $(LDADD)
 truncate64_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 uio_CPPFLAGS = $(AM_CPPFLAGS) -D_FILE_OFFSET_BITS=64
 
@@ -198,20 +220,26 @@ stack_fcall_mangled_SOURCES = stack-fcall-mangled.c \
 
 include gen_tests.am
 
-if USE_LIBUNWIND
-LIBUNWIND_TESTS = strace-k.test
+if ENABLE_STACKTRACE
+STACKTRACE_TESTS = strace-k.test
 if USE_DEMANGLE
-LIBUNWIND_TESTS += strace-k-demangle.test
+STACKTRACE_TESTS += strace-k-demangle.test
 endif
 else
-LIBUNWIND_TESTS =
+STACKTRACE_TESTS =
 endif
 
 DECODER_TESTS = \
+	bpf-success-v.test \
+	bpf-success.test \
 	brk.test \
+	btrfs-X.test \
 	btrfs-v.test \
+	btrfs-vX.test \
 	btrfs-vw.test \
+	btrfs-vwX.test \
 	btrfs-w.test \
+	btrfs-wX.test \
 	caps-abbrev.test \
 	caps.test \
 	eventfd.test \
@@ -221,19 +249,24 @@ DECODER_TESTS = \
 	futex.test \
 	getuid.test \
 	ioctl.test \
+	ioctl_evdev-success.test \
+	ioctl_evdev-success-v.test \
+	ioctl_perf-success.test \
 	ipc_msgbuf.test \
+	kern_features-fault.test \
 	llseek.test \
 	lseek.test \
 	mmap.test \
+	net-tpacket_stats-success.test \
 	net-y-unix.test \
 	net-yy-inet.test \
 	net-yy-netlink.test \
 	net-yy-unix.test \
 	net.test \
 	netlink_sock_diag.test \
-	nsyscalls.test \
 	nsyscalls-d.test \
 	nsyscalls-nd.test \
+	nsyscalls.test \
 	personality.test \
 	pipe.test \
 	poll-P.test \
@@ -246,16 +279,20 @@ DECODER_TESTS = \
 	prctl-seccomp-filter-v.test \
 	prctl-seccomp-strict.test \
 	prctl-securebits.test \
+	prctl-spec-inject.test \
 	prctl-tid_address.test \
 	prctl-tsc.test \
 	qual_fault-exit_group.test \
+	quotactl-success-v.test \
+	quotactl-success.test \
+	quotactl-xfs-success-v.test \
+	quotactl-xfs-success.test \
 	readv.test \
 	rt_sigaction.test \
 	scm_rights-fd.test \
 	seccomp-strict.test \
 	sigaltstack.test \
 	sun_path.test \
-	xet_thread_area_x86.test \
 	uio.test \
 	umount.test \
 	umount2.test \
@@ -264,6 +301,7 @@ DECODER_TESTS = \
 	uname.test \
 	unix-pair-send-recv.test \
 	unix-pair-sendto-recvfrom.test \
+	xet_thread_area_x86.test \
 	# end of DECODER_TESTS
 
 MISC_TESTS = \
@@ -274,25 +312,32 @@ MISC_TESTS = \
 	clone_ptrace.test \
 	count-f.test \
 	count.test \
+	delay.test \
 	detach-running.test \
 	detach-sleeping.test \
 	detach-stopped.test \
+	fflush.test \
 	filter-unavailable.test \
 	filtering_fd-syntax.test \
 	filtering_syscall-syntax.test \
-	fflush.test \
 	get_regs.test \
+	inject-nf.test \
 	interactive_block.test \
 	ksysent.test \
+	localtime.test \
 	opipe.test \
 	options-syntax.test \
 	pc.test \
 	printpath-umovestr-legacy.test \
 	printstrn-umoven-legacy.test \
 	qual_fault-syntax.test \
+	qual_fault-syscall.test \
 	qual_fault.test \
+	qual_inject-error-signal-syscall.test \
 	qual_inject-error-signal.test \
+	qual_inject-retval-syscall.test \
 	qual_inject-retval.test \
+	qual_inject-signal-syscall.test \
 	qual_inject-signal.test \
 	qual_inject-syntax.test \
 	qual_signal.test \
@@ -316,11 +361,11 @@ MISC_TESTS = \
 	threads-execve.test \
 	# end of MISC_TESTS
 
-TESTS = $(GEN_TESTS) $(DECODER_TESTS) $(MISC_TESTS) $(LIBUNWIND_TESTS)
+TESTS = $(GEN_TESTS) $(DECODER_TESTS) $(MISC_TESTS) $(STACKTRACE_TESTS)
 
 XFAIL_TESTS_ =
-XFAIL_TESTS_m32 = $(LIBUNWIND_TESTS)
-XFAIL_TESTS_mx32 = $(LIBUNWIND_TESTS)
+XFAIL_TESTS_m32 = $(STACKTRACE_TESTS)
+XFAIL_TESTS_mx32 = $(STACKTRACE_TESTS)
 XFAIL_TESTS_x86_64 = int_0x80.gen.test
 XFAIL_TESTS_x32 = int_0x80.gen.test
 XFAIL_TESTS = $(XFAIL_TESTS_$(MPERS_NAME)) $(XFAIL_TESTS_$(ARCH))
@@ -344,6 +389,7 @@ EXTRA_DIST = \
 	count-f.expected \
 	eventfd.expected \
 	fadvise.h \
+	fcntl-common.c \
 	filter-unavailable.expected \
 	fstatat.c \
 	fstatx.c \
@@ -354,12 +400,13 @@ EXTRA_DIST = \
 	init.sh \
 	init_delete_module.h \
 	ipc.sh \
-	ipc_msgbuf.expected \
+	ioctl_kvm_run_common.c \
 	ksysent.sed \
 	lstatx.c \
 	match.awk \
 	net.expected \
 	netlink_sock_diag-v.sh \
+	nlattr_ifla.h \
 	pipe.expected \
 	print_user_desc.c \
 	process_vm_readv_writev.c \
@@ -367,6 +414,8 @@ EXTRA_DIST = \
 	qual_fault-exit_group.expected \
 	qual_inject-error-signal.expected \
 	qual_inject-signal.expected \
+	qualify_personality.sh \
+	qualify_personality_empty.in \
 	quotactl.h \
 	regex.in \
 	rt_sigaction.awk \
@@ -384,16 +433,23 @@ EXTRA_DIST = \
 	strace-E.expected \
 	strace-T.expected \
 	strace-ff.expected \
+	strace-k-demangle.expected \
 	strace-k-demangle.test \
+	strace-k.expected \
 	strace-k.test \
 	strace-r.expected \
 	strace.supp \
-	struct_flock.c \
 	sun_path.expected \
 	syntax.sh \
 	trace_fstat.in \
 	trace_fstatfs.in \
 	trace_lstat.in \
+	trace_personality_32.in \
+	trace_personality_64.in \
+	trace_personality_x32.in \
+	trace_personality_regex_32.in \
+	trace_personality_regex_64.in \
+	trace_personality_regex_x32.in \
 	trace_question.in \
 	trace_stat.in \
 	trace_stat_like.in \

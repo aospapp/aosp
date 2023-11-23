@@ -17,13 +17,13 @@
 %                              August 2007                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2016 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://www.imagemagick.org/script/license.php                            %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -47,6 +47,7 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/matrix.h"
+#include "MagickCore/matrix-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/pixel-accessor.h"
 #include "MagickCore/pixel-private.h"
@@ -170,8 +171,7 @@ static inline MagickOffsetType WriteMatrixElements(
 }
 
 static MagickBooleanType SetMatrixExtent(
-  MatrixInfo *magick_restrict matrix_info,
-  MagickSizeType length)
+  MatrixInfo *magick_restrict matrix_info,MagickSizeType length)
 {
   MagickOffsetType
     count,
@@ -212,7 +212,7 @@ MagickExport MatrixInfo *AcquireMatrixInfo(const size_t columns,
   matrix_info=(MatrixInfo *) AcquireMagickMemory(sizeof(*matrix_info));
   if (matrix_info == (MatrixInfo *) NULL)
     return((MatrixInfo *) NULL);
-  (void) ResetMagickMemory(matrix_info,0,sizeof(*matrix_info));
+  (void) memset(matrix_info,0,sizeof(*matrix_info));
   matrix_info->signature=MagickCoreSignature;
   matrix_info->columns=columns;
   matrix_info->rows=rows;
@@ -263,7 +263,6 @@ MagickExport MatrixInfo *AcquireMatrixInfo(const size_t columns,
           return(DestroyMatrixInfo(matrix_info));
         }
       matrix_info->type=DiskCache;
-      (void) AcquireMagickResource(MemoryResource,matrix_info->length);
       matrix_info->file=AcquireUniqueFileResource(matrix_info->path);
       if (matrix_info->file == -1)
         return(DestroyMatrixInfo(matrix_info));
@@ -272,14 +271,12 @@ MagickExport MatrixInfo *AcquireMatrixInfo(const size_t columns,
         {
           status=SetMatrixExtent(matrix_info,matrix_info->length);
           if (status != MagickFalse)
-            {
-              matrix_info->elements=(void *) MapBlob(matrix_info->file,IOMode,0,
-                (size_t) matrix_info->length);
-              if (matrix_info->elements != NULL)
-                matrix_info->type=MapCache;
-              else
-                RelinquishMagickResource(MapResource,matrix_info->length);
-            }
+            matrix_info->elements=(void *) MapBlob(matrix_info->file,IOMode,0,
+              (size_t) matrix_info->length);
+          if (matrix_info->elements != NULL)
+            matrix_info->type=MapCache;
+          else
+            RelinquishMagickResource(MapResource,matrix_info->length);
         }
     }
   return(matrix_info);
@@ -334,12 +331,12 @@ MagickExport double **AcquireMagickMatrix(const size_t number_rows,
   {
     matrix[i]=(double *) AcquireQuantumMemory(size,sizeof(*matrix[i]));
     if (matrix[i] == (double *) NULL)
-    {
-      for (j=0; j < i; j++)
-        matrix[j]=(double *) RelinquishMagickMemory(matrix[j]);
-      matrix=(double **) RelinquishMagickMemory(matrix);
-      return((double **) NULL);
-    }
+      {
+        for (j=0; j < i; j++)
+          matrix[j]=(double *) RelinquishMagickMemory(matrix[j]);
+        matrix=(double **) RelinquishMagickMemory(matrix);
+        return((double **) NULL);
+      }
     for (j=0; j < (ssize_t) size; j++)
       matrix[i][j]=0.0;
   }
@@ -523,9 +520,9 @@ MagickPrivate MagickBooleanType GaussJordanElimination(double **matrix,
         rows=(ssize_t *) RelinquishMagickMemory(rows);
       return(MagickFalse);
     }
-  (void) ResetMagickMemory(columns,0,rank*sizeof(*columns));
-  (void) ResetMagickMemory(rows,0,rank*sizeof(*rows));
-  (void) ResetMagickMemory(pivots,0,rank*sizeof(*pivots));
+  (void) memset(columns,0,rank*sizeof(*columns));
+  (void) memset(rows,0,rank*sizeof(*rows));
+  (void) memset(pivots,0,rank*sizeof(*pivots));
   column=0;
   row=0;
   for (i=0; i < (ssize_t) rank; i++)
@@ -941,8 +938,8 @@ MagickExport Image *MatrixToImage(const MatrixInfo *matrix_info,
   status=MagickTrue;
   image_view=AcquireAuthenticCacheView(image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
-  #pragma omp parallel for schedule(static,4) shared(status) \
-    magick_threads(image,image,image->rows,1)
+  #pragma omp parallel for schedule(static) shared(status) \
+    magick_number_threads(image,image,image->rows,1)
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -993,7 +990,7 @@ MagickExport Image *MatrixToImage(const MatrixInfo *matrix_info,
 %
 %  NullMatrix() sets all elements of the matrix to zero.
 %
-%  The format of the ResetMagickMemory method is:
+%  The format of the memset method is:
 %
 %      MagickBooleanType *NullMatrix(MatrixInfo *matrix_info)
 %
@@ -1018,7 +1015,7 @@ MagickExport MagickBooleanType NullMatrix(MatrixInfo *matrix_info)
   assert(matrix_info->signature == MagickCoreSignature);
   if (matrix_info->type != DiskCache)
     {
-      (void) ResetMagickMemory(matrix_info->elements,0,(size_t)
+      (void) memset(matrix_info->elements,0,(size_t)
         matrix_info->length);
       return(MagickTrue);
     }
@@ -1074,7 +1071,7 @@ MagickExport double **RelinquishMagickMatrix(double **matrix,
   if (matrix == (double **) NULL )
     return(matrix);
   for (i=0; i < (ssize_t) number_rows; i++)
-     matrix[i]=(double *) RelinquishMagickMemory(matrix[i]);
+    matrix[i]=(double *) RelinquishMagickMemory(matrix[i]);
   matrix=(double **) RelinquishMagickMemory(matrix);
   return(matrix);
 }

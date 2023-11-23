@@ -21,6 +21,6 @@
         <activity android:name=".MyActivity" />
     </application>
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.documentclient" />
 </manifest>

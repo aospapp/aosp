@@ -19,14 +19,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/blueprint/proptools"
+
 	"android/soong/android"
 	"android/soong/cc/config"
 )
 
 var (
 	// Add flags to ignore warnings that profiles are old or missing for
-	// some functions
-	profileUseOtherFlags = []string{"-Wno-backend-plugin"}
+	// some functions, and turn on the experimental new pass manager.
+	profileUseOtherFlags = []string{
+		"-Wno-backend-plugin",
+		"-fexperimental-new-pass-manager",
+	}
 
 	globalPgoProfileProjects = []string{
 		"toolchain/pgo-profiles",
@@ -34,7 +39,8 @@ var (
 	}
 )
 
-const pgoProfileProjectsConfigKey = "PgoProfileProjects"
+var pgoProfileProjectsConfigKey = android.NewOnceKey("PgoProfileProjects")
+
 const profileInstrumentFlag = "-fprofile-generate=/data/local/tmp"
 const profileSamplingFlag = "-gline-tables-only"
 const profileUseInstrumentFormat = "-fprofile-use=%s"
@@ -47,7 +53,7 @@ func getPgoProfileProjects(config android.DeviceConfig) []string {
 }
 
 func recordMissingProfileFile(ctx BaseModuleContext, missing string) {
-	getNamedMapForConfig(ctx.Config(), modulesMissingProfileFile).Store(missing, true)
+	getNamedMapForConfig(ctx.Config(), modulesMissingProfileFileKey).Store(missing, true)
 }
 
 type PgoProperties struct {
@@ -160,13 +166,8 @@ func (props *PgoProperties) addProfileUseFlags(ctx ModuleContext, flags Flags) F
 		return flags
 	}
 
-	// Skip -fprofile-use if 'enable_profile_use' property is set
-	if props.Pgo.Enable_profile_use != nil && *props.Pgo.Enable_profile_use == false {
-		return flags
-	}
-
-	// If the profile file is found, add flags to use the profile
-	if profileFile := props.getPgoProfileFile(ctx); profileFile.Valid() {
+	if props.PgoCompile {
+		profileFile := props.getPgoProfileFile(ctx)
 		profileFilePath := profileFile.Path()
 		profileUseFlags := props.profileUseFlags(ctx, profileFilePath.String())
 
@@ -257,7 +258,8 @@ func (pgo *pgo) begin(ctx BaseModuleContext) {
 		}
 	}
 
-	if !ctx.Config().IsEnvTrue("ANDROID_PGO_NO_PROFILE_USE") {
+	if !ctx.Config().IsEnvTrue("ANDROID_PGO_NO_PROFILE_USE") &&
+		proptools.BoolDefault(pgo.Properties.Pgo.Enable_profile_use, true) {
 		if profileFile := pgo.Properties.getPgoProfileFile(ctx); profileFile.Valid() {
 			pgo.Properties.PgoCompile = true
 		}

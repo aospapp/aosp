@@ -17,23 +17,23 @@
 package com.android.documentsui.files;
 
 import static junit.framework.Assert.assertEquals;
+
 import static org.junit.Assert.assertTrue;
 
 import android.net.Uri;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-import android.test.AndroidTestCase;
+
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.R;
+import com.android.documentsui.SelectionHelpers;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
-import com.android.documentsui.dirlist.TestContext;
 import com.android.documentsui.dirlist.TestData;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestDirectoryDetails;
 import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestFeatures;
@@ -89,18 +89,22 @@ public final class MenuManagerTest {
     private TestMenuItem actionModeRename;
     private TestMenuItem actionModeViewInOwner;
     private TestMenuItem actionModeInspector;
+    private TestMenuItem actionModeSort;
 
     /* Option Menu items */
     private TestMenuItem optionSearch;
     private TestMenuItem optionDebug;
-    private TestMenuItem optionGrid;
-    private TestMenuItem optionList;
     private TestMenuItem optionNewWindow;
     private TestMenuItem optionCreateDir;
     private TestMenuItem optionSelectAll;
     private TestMenuItem optionAdvanced;
     private TestMenuItem optionSettings;
     private TestMenuItem optionInspector;
+    private TestMenuItem optionSort;
+
+    /* Sub Option Menu items */
+    private TestMenuItem subOptionGrid;
+    private TestMenuItem subOptionList;
 
     private TestFeatures features;
     private TestSelectionDetails selectionDetails;
@@ -112,7 +116,7 @@ public final class MenuManagerTest {
     private State state = new State();
     private MenuManager mgr;
     private TestActivity activity = TestActivity.create(TestEnv.create());
-    private SelectionHelper selectionManager;
+    private SelectionTracker<String> selectionManager;
 
     @Before
     public void setUp() {
@@ -140,7 +144,6 @@ public final class MenuManagerTest {
         rootSettings = testMenu.findItem(R.id.root_menu_settings);
 
         // Menu actions (including overflow) when action mode *is* active.
-        actionModeOpen = testMenu.findItem(R.id.action_menu_open);
         actionModeOpenWith = testMenu.findItem(R.id.action_menu_open_with);
         actionModeShare = testMenu.findItem(R.id.action_menu_share);
         actionModeDelete = testMenu.findItem(R.id.action_menu_delete);
@@ -152,25 +155,29 @@ public final class MenuManagerTest {
         actionModeRename = testMenu.findItem(R.id.action_menu_rename);
         actionModeInspector = testMenu.findItem(R.id.action_menu_inspect);
         actionModeViewInOwner = testMenu.findItem(R.id.action_menu_view_in_owner);
+        actionModeSort = testMenu.findItem(R.id.action_menu_sort);
 
         // Menu actions (including overflow) when action mode is not active.
         optionSearch = testMenu.findItem(R.id.option_menu_search);
         optionDebug = testMenu.findItem(R.id.option_menu_debug);
-        optionGrid = testMenu.findItem(R.id.option_menu_grid);
-        optionList = testMenu.findItem(R.id.option_menu_list);
         optionNewWindow = testMenu.findItem(R.id.option_menu_new_window);
         optionCreateDir = testMenu.findItem(R.id.option_menu_create_dir);
         optionSelectAll = testMenu.findItem(R.id.option_menu_select_all);
         optionAdvanced = testMenu.findItem(R.id.option_menu_advanced);
         optionSettings = testMenu.findItem(R.id.option_menu_settings);
         optionInspector = testMenu.findItem(R.id.option_menu_inspect);
+        optionSort = testMenu.findItem(R.id.option_menu_sort);
+
+        // Menu actions on root title row.
+        subOptionGrid = testMenu.findItem(R.id.sub_menu_grid);
+        subOptionList = testMenu.findItem(R.id.sub_menu_list);
 
         features = new TestFeatures();
 
         // These items by default are visible
         testMenu.findItem(R.id.dir_menu_select_all).setVisible(true);
         testMenu.findItem(R.id.option_menu_select_all).setVisible(true);
-        testMenu.findItem(R.id.option_menu_list).setVisible(true);
+        testMenu.findItem(R.id.sub_menu_list).setVisible(true);
 
         selectionDetails = new TestSelectionDetails();
         dirDetails = new TestDirectoryDetails();
@@ -217,6 +224,8 @@ public final class MenuManagerTest {
         actionModeExtractTo.assertInvisible();
         actionModeMoveTo.assertEnabled();
         actionModeViewInOwner.assertInvisible();
+        actionModeSort.assertVisible();
+        actionModeSort.assertEnabled();
     }
 
     @Test
@@ -285,6 +294,26 @@ public final class MenuManagerTest {
         mgr.updateActionMenu(testMenu, selectionDetails);
 
         actionModeViewInOwner.assertVisible();
+    }
+
+    @Test
+    public void testActionsMenu_cantViewInOwner_noSelection() {
+        // Simulate empty selection
+        selectionManager = SelectionHelpers.createTestInstance();
+        mgr = new MenuManager(
+                features,
+                testSearchManager,
+                state,
+                dirDetails,
+                activity,
+                selectionManager,
+                this::getApplicationNameFromAuthority,
+                this::getUriFromModelId);
+
+        selectionDetails.canViewInOwner = true;
+        mgr.updateActionMenu(testMenu, selectionDetails);
+
+        actionModeViewInOwner.assertInvisible();
     }
 
     @Test
@@ -388,6 +417,8 @@ public final class MenuManagerTest {
         optionAdvanced.assertTitle(R.string.menu_advanced_show);
         optionCreateDir.assertDisabled();
         optionDebug.assertInvisible();
+        optionSort.assertEnabled();
+        optionSort.assertVisible();
         assertTrue(testSearchManager.updateMenuCalled());
     }
 
@@ -420,41 +451,17 @@ public final class MenuManagerTest {
     @Test
     public void testOptionMenu_Inspector_VisibleAndEnabled() {
         features.inspector = true;
+        dirDetails.canInspectDirectory = true;
         mgr.updateOptionMenu(testMenu);
         optionInspector.assertVisible();
         optionInspector.assertEnabled();
     }
 
     @Test
-    public void testOptionMenu_Inspector_DisabledInRecentsFolder() {
+    public void testOptionMenu_Inspector_VisibleButDisabled() {
         features.inspector = true;
-
-        // synthesize a fake recents root. Not setting an authority or id == recents.
-        RootInfo recents = new RootInfo();
-        assert recents.isRecents();
-        state.stack.changeRoot(recents);
+        dirDetails.canInspectDirectory = false;
         mgr.updateOptionMenu(testMenu);
-        optionInspector.assertVisible();
-        optionInspector.assertDisabled();
-    }
-
-    @Test
-    public void testOptionMenu_Inspector_DisabledForEmptyStack() {
-        features.inspector = true;
-        state.stack.reset();  // unset cwd
-        mgr.updateOptionMenu(testMenu);
-
-        optionInspector.assertVisible();
-        optionInspector.assertDisabled();
-    }
-
-    @Test
-    public void testOptionMenu_Inspector_DisabledForNullDirectory() {
-        features.inspector = true;
-        state.stack.reset();
-        state.stack.push(null);
-        mgr.updateOptionMenu(testMenu);
-
         optionInspector.assertVisible();
         optionInspector.assertDisabled();
     }
@@ -567,8 +574,7 @@ public final class MenuManagerTest {
     public void testContextMenu_OnFile() {
         selectionDetails.size = 1;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        dirOpen.assertVisible();
-        dirOpen.assertEnabled();
+        dirOpen.assertInvisible();
         dirCutToClipboard.assertVisible();
         dirCopyToClipboard.assertVisible();
         dirRename.assertVisible();
@@ -596,8 +602,7 @@ public final class MenuManagerTest {
     public void testContextMenu_OnMultipleFiles() {
         selectionDetails.size = 3;
         mgr.updateContextMenuForFiles(testMenu, selectionDetails);
-        dirOpen.assertVisible();
-        dirOpen.assertDisabled();
+        dirOpen.assertInvisible();
     }
 
     @Test
@@ -633,6 +638,8 @@ public final class MenuManagerTest {
 
     @Test
     public void testContextMenu_CanInspectContainer() {
+        features.inspector = true;
+        dirDetails.canInspectDirectory = true;
         mgr.updateContextMenuForContainer(testMenu);
         dirInspect.assertVisible();
         dirInspect.assertEnabled();

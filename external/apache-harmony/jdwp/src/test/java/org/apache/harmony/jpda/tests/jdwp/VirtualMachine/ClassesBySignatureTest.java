@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -38,7 +39,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ClassesBySignatureTest extends JDWPSyncTestCase {
 
-    static final String SIGNATURE001 = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
+    static final String SIGNATURE001 = getClassSignature(HelloWorld.class);
 
     @Override
     protected String getDebuggeeClassName() {

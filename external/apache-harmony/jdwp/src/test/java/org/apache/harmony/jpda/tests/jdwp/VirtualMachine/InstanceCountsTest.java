@@ -34,15 +34,13 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "VirtualMachine.InstanceCounts command ";
 
-    static final String mockClass1Signature = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/MockClass1;";
+    static final String mockClass1Signature = getClassSignature(MockClass1.class);
 
-    static final String mockClass2Signature = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/MockClass2;";
-
-    static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/InstanceCountsDebuggee;";
+    static final String mockClass2Signature = getClassSignature(MockClass2.class);
 
     @Override
     protected String getDebuggeeClassName() {
-        return "org.apache.harmony.jpda.tests.jdwp.VirtualMachine.InstanceCountsDebuggee";
+        return InstanceCountsDebuggee.class.getName();
     }
 
     /**
@@ -58,7 +56,7 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        long debuggeeRefTypeID = getClassIDBySignature(debuggeeSignature);
+        long debuggeeRefTypeID = getClassIDBySignature(getDebuggeeClassSignature());
         long mockClassRefTypeIDOfClass1 = getClassIDBySignature(mockClass1Signature);
         long mockClassRefTypeIDOfClass2 = getClassIDBySignature(mockClass2Signature);
 

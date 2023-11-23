@@ -1,0 +1,16 @@
+type pvr, domain;
+type pvr_exec, exec_type, vendor_file_type, file_type;
+
+# Started by init
+init_daemon_domain(pvr)
+
+# allow access to /dev/dri/
+allow pvr gpu_device:chr_file rw_file_perms;
+
+# allow graphics driver initialization
+allow pvr self:capability sys_module;
+allow pvr vendor_file:system module_load;
+
+# allow reading /sys/devices/soc0/machine
+allow pvr sysfs_socinfo:dir { r_dir_perms };
+allow pvr sysfs_socinfo:file { r_file_perms };

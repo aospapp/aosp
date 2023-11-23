@@ -32,7 +32,7 @@ import com.android.compatibility.common.util.IBinderParcelable;
 public class LocalForegroundService extends LocalService {
 
     private static final String TAG = "LocalForegroundService";
-    private static final String EXTRA_COMMAND = "LocalForegroundService.command";
+    protected static final String EXTRA_COMMAND = "LocalForegroundService.command";
     private static final String NOTIFICATION_CHANNEL_ID = "cts/" + TAG;
 
     public static final int COMMAND_START_FOREGROUND = 1;
@@ -50,11 +50,17 @@ public class LocalForegroundService extends LocalService {
         Log.d(TAG, "service created: " + this + " in " + android.os.Process.myPid());
     }
 
+    /** Returns the channel id for this service */
+    protected String getNotificationChannelId() {
+        return NOTIFICATION_CHANNEL_ID;
+    }
+
     @Override
     public void onStart(Intent intent, int startId) {
+        String notificationChannelId = getNotificationChannelId();
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(new NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
+                notificationChannelId, notificationChannelId,
                 NotificationManager.IMPORTANCE_DEFAULT));
 
         Context context = getApplicationContext();

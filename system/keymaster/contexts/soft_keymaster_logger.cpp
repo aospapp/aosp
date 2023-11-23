@@ -20,7 +20,7 @@
 #include <syslog.h>
 
 #define LOG_TAG "SoftKeymaster"
-#include <cutils/log.h>
+#include <log/log.h>
 
 namespace keymaster {
 

@@ -47,6 +47,14 @@ int renderControl_client_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcUpdateColorBufferDMA = (rcUpdateColorBufferDMA_client_proc_t) getProc("rcUpdateColorBufferDMA", userData);
 	rcCreateColorBufferDMA = (rcCreateColorBufferDMA_client_proc_t) getProc("rcCreateColorBufferDMA", userData);
 	rcWaitSyncKHR = (rcWaitSyncKHR_client_proc_t) getProc("rcWaitSyncKHR", userData);
+	rcCompose = (rcCompose_client_proc_t) getProc("rcCompose", userData);
+	rcCreateDisplay = (rcCreateDisplay_client_proc_t) getProc("rcCreateDisplay", userData);
+	rcDestroyDisplay = (rcDestroyDisplay_client_proc_t) getProc("rcDestroyDisplay", userData);
+	rcSetDisplayColorBuffer = (rcSetDisplayColorBuffer_client_proc_t) getProc("rcSetDisplayColorBuffer", userData);
+	rcGetDisplayColorBuffer = (rcGetDisplayColorBuffer_client_proc_t) getProc("rcGetDisplayColorBuffer", userData);
+	rcGetColorBufferDisplay = (rcGetColorBufferDisplay_client_proc_t) getProc("rcGetColorBufferDisplay", userData);
+	rcGetDisplayPose = (rcGetDisplayPose_client_proc_t) getProc("rcGetDisplayPose", userData);
+	rcSetDisplayPose = (rcSetDisplayPose_client_proc_t) getProc("rcSetDisplayPose", userData);
 	return 0;
 }
 

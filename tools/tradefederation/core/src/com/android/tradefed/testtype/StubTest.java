@@ -35,6 +35,8 @@ import java.util.List;
  */
 public class StubTest implements IShardableTest {
 
+    public static final String DNAE_MESSAGE = "StubTest DeviceNotAvailableException";
+
     @Option(
             name = "num-shards",
             description = "Shard this test into given number of separately runnable chunks")
@@ -80,7 +82,7 @@ public class StubTest implements IShardableTest {
             throw new RuntimeException("StubTest RuntimeException");
         }
         if (mThrowNotAvailable) {
-            throw new DeviceNotAvailableException("StubTest DeviceNotAvailableException", "serial");
+            throw new DeviceNotAvailableException(DNAE_MESSAGE, "serial");
         }
         if (mThrowUnresponsive) {
             throw new DeviceUnresponsiveException("StubTest DeviceUnresponsiveException", "serial");
